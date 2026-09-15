@@ -509,6 +509,8 @@ Array.prototype.map.call(document.querySelectorAll('.activity--active .buttons--
 
 ### Task 4: Анимации в духе Apple TV
 
+> **ВЫПОЛНЕНО** (1886b2d, c6a875d): появление `.lumen-in`, пружина фокуса, режимы `lumen_motion` full / lite / off (`LC.motionModeFor`), компактная шапка `.lumen-compact`; lite и off гасят анимацию фокуса Lampa через `!important`.
+
 > **Поправки контроллера (приоритетнее текста ниже):**
 > - Подъём при появлении `translateY(1.05em)` (экран 12: 24 px ÷ 22.811, см. правило единиц в 0.4), шаг 60 мс, порядок мета → заголовок → описание → рейтинги → кнопки.
 > - Классы `.lumen-in` появятся в разметке только в Task 5a: здесь живьём проверять класс `lumen-motion-*` на корне и пружину фокуса кнопок; появление контента проверяется в Task 5a.
@@ -617,6 +619,8 @@ Array.prototype.map.call(document.querySelectorAll('.activity--active .buttons--
 ---
 
 ### Task 5a: Шапка карточки по дизайну (экраны 01, 03, 10)
+
+> **ВЫПОЛНЕНО** (0fe1c6a, 7b5ecc7, 9c52ba1, fb150ad, 9e9b33a, 5209751): `LC.cardinfo`, `LC.template.assert`, шапка по экранам 01/03/10, статус в правой колонке, картинки через прокси TMDB (`LC.cardinfo.imageUrl`), отрисовка шапки вынесена в `src/85_header.js`, тест сгенерированного CSS `test/css.test.mjs`; 180 тестов, стенд 31/31, хэши 7/7. Осознанно не сделано: «активное» состояние закладки (Lampa меняет `fill` у `<path>`, без `:has()` не выразить); формат строки «Продолжить» — Task 8.
 
 **Files:**
 - Create: `src/35_cardinfo.js` (чистая логика данных шапки, `LC.cardinfo`), `test/cardinfo.test.mjs`
