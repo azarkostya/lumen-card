@@ -408,3 +408,69 @@ test('revive() (fix, Minor 1): backdrop-режим, но первый кадр �
 
   assert.equal(LC.backdrops.revive(layer), null);
 });
+
+/* ====================================================================== */
+/* Task 6 (fix, 3-й раунд ревью, мутационная проверка — R1/R2/R3/R5):      */
+/* смерть на кадре-слайде -> revive() ставит отложенный таймер уборки      */
+/* старого слайда (Minor 2) — этот таймер обязан: (1) чиститься вместе со  */
+/* слайдшоу (stopSlideshow — cancel()/apply()), (2) не переживать двойной  */
+/* revive() без clearTimeout прежнего, (3) убирать ИМЕННО старый слайд, а  */
+/* не всё содержимое .lumen-bg__slides (иначе сносит кадры уже НОВОГО      */
+/* контроллера, если тот успел провернуть ротацию раньше). */
+/* ====================================================================== */
+
+function deathOnSlide(LC) {
+  const body = fakeBody();
+  const movie = { id: 1, backdrop_path: '/main.jpg', images: { backdrops: [mk('/main.jpg', null, 9), mk('/c.jpg', null, 7), mk('/d.jpg', null, 6)] } };
+  LC.backdrops.apply(null, body, movie);
+  const layer = mount(body._children[0]);
+  loaders[0].onload();
+  fireInterval(1); loaders[1].onload(); // 0 -> 1 (кадр-слайд) — смерть застаёт слайдшоу здесь
+  layer.data('lumenSlideshow').destroy(); // симулирует страховку isLayerMounted()
+  const c = LC.backdrops.revive(layer);
+  return { body, layer, c, rid: layer.data('lumenReviveCleanup') };
+}
+
+test('revive() (fix, R1): смерть на кадре-слайде -> revive -> cancel(body) в окне CROSSFADE_MS чистит таймер уборки старого слайда', () => {
+  const LC = freshLC({ prefs: { lumen_slideshow: true } });
+  const { body, layer, rid } = deathOnSlide(LC);
+  assert.ok(rid, 'проверка: revive() должен был поставить отложенный таймер (смерть на слайде)');
+
+  LC.backdrops.cancel(body);
+
+  assert.equal(timers[rid - 1].cleared, true, 'таймер уборки старого слайда должен быть очищен вместе со слайдшоу');
+  assert.equal(layer.data('lumenReviveCleanup'), undefined, 'layer.data должна быть снята');
+});
+
+test('revive() (fix, R2): смерть на кадре-слайде -> revive -> новый apply() (переоткрытие того же layer) в окне CROSSFADE_MS чистит таймер уборки старого слайда', () => {
+  const LC = freshLC({ prefs: { lumen_slideshow: true } });
+  const { body, rid } = deathOnSlide(LC);
+
+  LC.backdrops.apply(null, body, { id: 2, backdrop_path: '/z.jpg' });
+
+  assert.equal(timers[rid - 1].cleared, true, 'apply() (через stopSlideshow) должен был очистить таймер прежнего revive()');
+});
+
+test('revive() (fix, R5): ротация нового контроллера случается РАНЬШЕ, чем сработал отложенный таймер уборки старого слайда -> кадр нового контроллера не сносится', () => {
+  const LC = freshLC({ prefs: { lumen_slideshow: true } });
+  const { layer, rid } = deathOnSlide(LC);
+
+  // Тик УЖЕ НОВОГО контроллера (его свой интервал ротации, независимый от
+  // CROSSFADE_MS) — успевает провернуться раньше, чем сработает reviveTimer.
+  fireInterval(intervals.length);
+  loaders[loaders.length - 1].onload();
+
+  const img0 = layer.children('.lumen-backdrop__img');
+  const slidesBefore = layer.children('.lumen-bg__slides')._children;
+  const activeBefore = slidesBefore.filter((x) => x.hasClass('is-active'));
+  assert.equal(img0.hasClass('is-active'), false, 'проверка: новый контроллер увёл активность с img0 на свежий кадр');
+  assert.equal(activeBefore.length, 1, 'проверка: у нового контроллера ровно один активный кадр-слайд');
+  const activeBg = activeBefore[0]._css['background-image'];
+
+  fireTimer(rid); // срабатывает ОТЛОЖЕННЫЙ таймер уборки старого (уже неактивного) слайда
+
+  const slidesAfter = layer.children('.lumen-bg__slides')._children;
+  const activeAfter = slidesAfter.filter((x) => x.hasClass('is-active'));
+  assert.equal(activeAfter.length, 1, 'активный кадр НОВОГО контроллера не должен был пострадать от отложенной уборки старого');
+  assert.equal(activeAfter[0]._css['background-image'], activeBg);
+});

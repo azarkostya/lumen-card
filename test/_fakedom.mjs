@@ -62,6 +62,21 @@ FakeEl.prototype.removeData = function (key) { delete this._data[key]; return th
 FakeEl.prototype.append = function (child) { const el = toEl(child); el._parentEl = this; this._children.push(el); return this; };
 FakeEl.prototype.prepend = function (child) { const el = toEl(child); el._parentEl = this; this._children.unshift(el); return this; };
 FakeEl.prototype.empty = function () { this._children = []; return this; };
+/* Ревью (3-й раунд, п.2): .remove() — как настоящий jQuery, убирает СЕБЯ
+   из массива детей родителя (по _parentEl, который append()/prepend()/
+   конструктор уже проставляют) точечно — соседей не трогает. Нужен
+   LC.backdrops.revive() (50_backdrops.js): таймер уборки старого кадра
+   после revive() должен снести ИМЕННО его, а не всё содержимое
+   .lumen-bg__slides (иначе снёс бы кадры уже НОВОГО контроллера, если тот
+   успеет провернуть ротацию раньше, чем таймер сработает — репро R5). */
+FakeEl.prototype.remove = function () {
+  if (this._parentEl) {
+    const idx = this._parentEl._children.indexOf(this);
+    if (idx !== -1) this._parentEl._children.splice(idx, 1);
+    this._parentEl = null;
+  }
+  return this;
+};
 FakeEl.prototype.parent = function () { return this._parentEl || EMPTY; };
 FakeEl.prototype.closest = function (sel) {
   if (sel === '.activity' && this._closestActivity) return this._closestActivity;
@@ -106,7 +121,7 @@ export const EMPTY = {
   addClass() { return this; }, removeClass() { return this; }, toggleClass() { return this; }, css() { return this; },
   data() { }, removeData() { return this; }, empty() { return this; }, hasClass() { return false; },
   find() { return EMPTY; }, children() { return EMPTY; }, append() { return this; }, closest() { return EMPTY; },
-  parent() { return EMPTY; }
+  parent() { return EMPTY; }, remove() { return this; }
 };
 
 export function toEl(x) {

@@ -1522,14 +1522,35 @@
      активным был кадр-СЛАЙД (не .lumen-backdrop__img — ротация успела
      провернуться) — не рвём этот слайд сразу. img0 получает ту же
      картинку и is-active СИНХРОННО (без промежуточного пустого кадра —
-     как и раньше), но старый слайд, показывающий ТУ ЖЕ картинку, остаётся
+     как и раньше), а старый слайд, показывающий ТУ ЖЕ картинку, остаётся
      в DOM ещё CROSSFADE_MS (та же длительность, что и обычный кроссфейд,
-     LC.slideshow.CROSSFADE_MS — общее число, не дублируется) и только
-     потом убирается — на случай (не удалось стопроцентно проверить
-     живьём из-за скрытой панели браузера, где CSS-transition не играют),
-     если между выставлением фона на img0 и покраской всё же случится
-     разрыв, под старым слайдом всё это время будет та же картинка, а не
-     пустота. Таймер — на layer.data('lumenReviveCleanup'), чистится в
+     LC.slideshow.CROSSFADE_MS — общее число, не дублируется) — на случай
+     (не удалось стопроцентно проверить живьём из-за скрытой панели
+     браузера, где CSS-transition не играют), если между выставлением
+     фона на img0 и покраской всё же случится разрыв, под старым слайдом
+     всё это время будет та же картинка, а не пустота.
+
+     Ревью (3-й раунд, п.2, мутационная проверка нашла R1/R2/R3/R5):
+       - R1/R2: layer.data('lumenReviveCleanup', …) в предыдущей версии
+         ПЕРЕЗАПИСЫВАЛСЯ без clearTimeout прежнего значения, если revive()
+         вызывался повторно, пока старый таймер ещё не сработал (двойная
+         смерть подряд) — старый таймер продолжал висеть и мог сработать
+         позже по устаревшим данным. Теперь снимаем висящий
+         lumenReviveCleanup В САМОМ НАЧАЛЕ revive().
+       - R5 (главная находка): таймер убирал slides.empty() — ЛЮБОЕ
+         содержимое .lumen-bg__slides на момент срабатывания, а не именно
+         старый слайд. Если новый контроллер успевал провернуть СВОЮ
+         ротацию раньше, чем этот таймер срабатывал (тик его собственного
+         интервала — независимый от CROSSFADE_MS), slides.empty() сносил
+         кадр уже НОВОГО контроллера, оставляя карточку без единого
+         is-active элемента. Исправлено точечно: старый слайд сразу
+         остаётся ЕДИНСТВЕННЫМ содержимым .lumen-bg__slides (остальные,
+         холодные — убираем немедленно, они не видны и новому контроллеру
+         не нужны), теряет is-active (запускает свой ОБЫЧНЫЙ CSS-кроссфейд
+         — под ним уже та же картинка на img0, переход незаметен), и
+         таймер убирает ИМЕННО его (activeFrame.remove()) — что бы новый
+         контроллер ни успел добавить рядом за это время, не трогается.
+     Таймер — на layer.data('lumenReviveCleanup'), чистится в
      stopSlideshow() (apply()/cancel()), чтобы не пережил layer. */
   function revive(layer) {
     try {
@@ -1539,6 +1560,12 @@
 
       var img0 = layer.find('.lumen-backdrop__img');
       if (!img0.hasClass('lumen-bg__img')) return null;
+
+      var pendingCleanup = layer.data('lumenReviveCleanup');
+      if (pendingCleanup) {
+        clearTimeout(pendingCleanup);
+        layer.removeData('lumenReviveCleanup');
+      }
 
       var activeFrame = layer.find('.lumen-bg__img.is-active');
       var isSlide = !!(activeFrame.length && activeFrame[0] !== img0[0]);
@@ -1554,9 +1581,14 @@
 
       var slides = layer.find('.lumen-bg__slides');
       if (isSlide) {
+        /* Оставляем ТОЛЬКО что был активен — остальные (холодные) старые
+           кадры не видны и новому контроллеру не нужны, убираем сразу. */
+        slides.empty();
+        activeFrame.removeClass('is-active');
+        slides.append(activeFrame);
         var reviveTimer = setTimeout(function () {
           layer.removeData('lumenReviveCleanup');
-          try { slides.empty(); } catch (e) { }
+          try { activeFrame.remove(); } catch (e) { }
         }, LC.slideshow.CROSSFADE_MS);
         layer.data('lumenReviveCleanup', reviveTimer);
       } else {
