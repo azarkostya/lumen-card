@@ -16,6 +16,36 @@
     return root;
   }
 
+  /* Task 5d: узел ряда описания. На 'build' с name === 'description' Lampa
+     даёт e.item — экземпляр под-компонента, его render() возвращает корень
+     ряда (items_line, внутри .items-line__body -> .full-descr). На 'complite'
+     (запасной путь, если build прошёл мимо — например, ряд достроился лениво)
+     e.item нет вовсе: тогда ищем .full-descr в корне компонента и берём её
+     родителя — разметка ряда внутри одна и та же, а e.body ограничивает поиск
+     текущей карточкой, не задевая карточки из истории Lampa. */
+  function findDescrRow(e) {
+    try {
+      if (e.item && typeof e.item.render === 'function') {
+        var html = e.item.render();
+        if (html && html.length) return html;
+      }
+    } catch (err) { }
+    if (e.body && e.body.find) {
+      try {
+        var found = e.body.find('.full-descr');
+        if (found && found.length) {
+          /* Живьём (Task 5d): parent() у .full-descr — это .items-line__body, а
+             render() на 'build' отдаёт .items-line уровнем выше. Оба пути обязаны
+             указывать на ОДИН узел, иначе класс .lumen-descr-row оказывается на
+             двух вложенных сразу (проверено: rowsWithClass 2). */
+          var line = found.closest('.items-line');
+          return line && line.length ? line : found.parent();
+        }
+      } catch (err2) { }
+    }
+    return null;
+  }
+
   /* -------------------------------------------------------------------- */
   /* Раскладка.                                                            */
   /* -------------------------------------------------------------------- */
@@ -423,9 +453,16 @@
           if (!e) return;
           if (e.type === 'build' && e.name === 'start') {
             LC.header.decorate(findRoot(e), e.data);
+          } else if (e.type === 'build' && e.name === 'description') {
+            /* Task 5d: таблица «ПОДРОБНО» в теле ряда описания (design-spec §10). */
+            LC.header.descr(findDescrRow(e), e.data);
           } else if (e.type === 'complite') {
             var root = findRoot(e);
             LC.header.decorate(root, e.data);
+            /* Вторая, страховочная точка: вставка идемпотентна (старый блок
+               снимается), а ряд описания к complite уже построен — так таблица
+               появится, даже если 'build' для него до нас не дошёл. */
+            LC.header.descr(findDescrRow(e), e.data);
             var slideshow = LC.backdrops.apply(root, e.body, (e.data && e.data.movie) || {});
             applyMotionMode(root);
             LC.active = { object: e.object, body: e.body, slideshow: slideshow };

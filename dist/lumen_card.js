@@ -584,6 +584,37 @@ css.push('.lumen-card .lumen-episode.focus .lumen-episode__name{font-weight:600}
 css.push(LC.icons.NO_MASK + '{.lumen-card .lumen-next-chip:before,.lumen-card .lumen-episode__check,.lumen-card .lumen-episode__play:before{display:none}}');
 
 
+
+
+
+
+
+
+
+
+
+
+
+css.push('.lumen-descr-row .full-descr{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:start;-webkit-align-items:flex-start;align-items:flex-start;-webkit-flex-wrap:wrap;flex-wrap:wrap}');
+css.push('.lumen-descr-row .full-descr__left{-webkit-box-flex:1;-webkit-flex:1 1 auto;flex:1 1 auto;min-width:0;margin-right:3.51em}');
+css.push('.lumen-descr-row .full-descr__text{font-family:' + FB + ';font-weight:400;font-size:1.05em;line-height:1.45;color:' + C.text + ';max-width:42.96em;width:auto}');
+css.push('.lumen-descr-row .full-descr__details{display:none}');
+css.push('.lumen-descr-row .lumen-facts{-webkit-flex-shrink:0;flex-shrink:0;min-width:19.73em;max-width:100%}');
+css.push('.lumen-descr-row .lumen-facts__title{font-family:' + FM + ';font-weight:600;font-size:.70em;line-height:1;letter-spacing:.14em;color:' + C.smoke + ';margin-bottom:.88em}');
+
+
+
+
+css.push('.lumen-descr-row .lumen-facts__grid{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;display:-ms-grid;display:grid;grid-template-columns:auto 1fr;-webkit-column-gap:1.05em;column-gap:1.05em;row-gap:.44em}');
+css.push('.lumen-descr-row .lumen-facts__label{font-family:' + FB + ';font-weight:400;font-size:.79em;line-height:1.3;color:' + C.smoke + '}');
+css.push('.lumen-descr-row .lumen-facts__value{font-family:' + FB + ';font-weight:500;font-size:.79em;line-height:1.3;color:' + C.text + '}');
+
+
+
+
+css.push('@supports not (display:grid){.lumen-descr-row .lumen-facts__label{width:7em;margin:0 1.33em .56em 0}.lumen-descr-row .lumen-facts__value{-webkit-box-flex:1;-webkit-flex:1 1 auto;flex:1 1 auto;min-width:0;margin-bottom:.56em}}');
+
+
 css.push('@media screen and (max-width:1000px){.lumen-card .lumen-content{display:block}.lumen-card .lumen-content > .lumen-side{text-align:left;-webkit-box-align:start;-webkit-align-items:flex-start;align-items:flex-start;margin-top:1.5em}.lumen-card .full-start-new__title{font-size:2.43em}.lumen-card .full-start-new__body{min-height:0}}');
 
 
@@ -971,6 +1002,64 @@ return { date: date, days: days, text: words.next + ' — ' + when };
 
 
 
+
+
+
+function premiere(ymd, months) {
+var m = /^(\d{4})/.exec('' + (ymd || ''));
+if (!m) return '';
+var day = dayMonth(ymd, months);
+return day ? day + ' ' + m[1] : m[1];
+}
+
+
+
+
+
+
+
+
+
+
+
+function facts(movie, persons, words) {
+var out = [];
+if (!movie || !words) return out;
+
+function add(label, value) {
+if (label && value) out.push({ label: label, value: value });
+}
+
+var serial = isSerial(movie);
+var title = movie.title || movie.name || '';
+var original = movie.original_title || movie.original_name || '';
+
+add(words.original, original && original !== title ? original : '');
+add(words.premiere, premiere(movie.release_date || movie.first_air_date, words.months));
+
+
+
+add(words.country, country('', movie.production_countries));
+
+if (serial) add(words.creator, creator(movie));
+else add(words.director, director(persons && persons.crew));
+
+add(words.genre, genres(movie.genres, words.capitalize).join(', '));
+
+if (serial) {
+var counts = [];
+if (movie.number_of_seasons > 0 && words.seasonsWord) counts.push(movie.number_of_seasons + ' ' + words.seasonsWord(movie.number_of_seasons));
+if (movie.number_of_episodes > 0 && words.episodesWord) counts.push(movie.number_of_episodes + ' ' + words.episodesWord(movie.number_of_episodes));
+add(words.time, counts.join(' · '));
+} else {
+add(words.time, LC.util.fmtRuntime(movie.runtime, words.min));
+}
+
+return out;
+}
+
+
+
 function network(movie) {
 if (!movie) return '';
 var list = movie.networks && movie.networks.length ? movie.networks : movie.production_companies;
@@ -982,6 +1071,7 @@ country: country,
 director: director,
 creator: creator,
 network: network,
+facts: facts,
 nextEpisode: nextEpisode,
 shortDate: shortDate,
 titleClass: titleClass,
@@ -2988,6 +3078,18 @@ lumen_card_ep_soon: { ru: 'не вышла', en: 'not aired', uk: 'не вийш
 
 
 
+lumen_card_facts: { ru: 'ПОДРОБНО', en: 'DETAILS', uk: 'ДОКЛАДНО' },
+lumen_card_fact_original: { ru: 'Оригинал', en: 'Original', uk: 'Оригінал' },
+lumen_card_fact_premiere: { ru: 'Премьера', en: 'Premiere', uk: 'Прем\'єра' },
+lumen_card_fact_country: { ru: 'Страна', en: 'Country', uk: 'Країна' },
+lumen_card_fact_director: { ru: 'Режиссёр', en: 'Director', uk: 'Режисер' },
+lumen_card_fact_creator: { ru: 'Создатель', en: 'Creator', uk: 'Творець' },
+lumen_card_fact_genre: { ru: 'Жанр', en: 'Genre', uk: 'Жанр' },
+lumen_card_fact_time: { ru: 'Время', en: 'Runtime', uk: 'Час' },
+
+
+
+
 lumen_card_next_episode: { ru: 'Следующая серия', en: 'Next episode', uk: 'Наступна серія' },
 lumen_card_today: { ru: 'сегодня', en: 'today', uk: 'сьогодні' },
 lumen_card_tomorrow: { ru: 'завтра', en: 'tomorrow', uk: 'завтра' },
@@ -3852,6 +3954,65 @@ if (ep) paintEpisode(node, ep, hash, now, months);
 });
 }
 
+
+
+
+
+
+
+
+function factWords() {
+return {
+original: LC.lang('lumen_card_fact_original'),
+premiere: LC.lang('lumen_card_fact_premiere'),
+country: LC.lang('lumen_card_fact_country'),
+director: LC.lang('lumen_card_fact_director'),
+creator: LC.lang('lumen_card_fact_creator'),
+genre: LC.lang('lumen_card_fact_genre'),
+time: LC.lang('lumen_card_fact_time'),
+min: LC.lang('lumen_card_min'),
+months: ('' + LC.lang('lumen_card_months_gen')).split(','),
+capitalize: capitalize,
+seasonsWord: LC.seasonsWord,
+episodesWord: LC.episodesWord
+};
+}
+
+
+
+
+
+
+
+
+
+
+
+
+function renderDescrRow(row, data) {
+if (!row || !row.length) return;
+var holder = row.find('.full-descr');
+if (!holder.length) return;
+
+row.addClass('lumen-descr-row');
+holder.find('.lumen-facts').remove();
+
+var list = LC.cardinfo.facts((data && data.movie) || null, data && data.persons, factWords());
+if (!list.length) return;
+
+var esc = LC.util.esc;
+var cells = [];
+for (var i = 0; i < list.length; i++) {
+cells.push('<div class="lumen-facts__label">' + esc(list[i].label) + '</div>');
+cells.push('<div class="lumen-facts__value">' + esc(list[i].value) + '</div>');
+}
+
+var block = $('<div class="lumen-facts"></div>');
+block.html('<div class="lumen-facts__title">' + esc(LC.lang('lumen_card_facts')) + '</div>' +
+'<div class="lumen-facts__grid">' + cells.join('') + '</div>');
+holder.append(block);
+}
+
 function decorate(root, data) {
 if (!root || !root.length) return;
 if (!root.hasClass('lumen-card')) return;
@@ -3872,7 +4033,7 @@ try { renderEpisodes(root, data); } catch (e) { warn('episodes failed', e); }
 try { bindEpisodes(root); } catch (e) { warn('episodes bind failed', e); }
 }
 
-LC.header = { decorate: decorate, refreshEpisode: refreshEpisode };
+LC.header = { decorate: decorate, descr: renderDescrRow, refreshEpisode: refreshEpisode };
 
 
 /* ---- 90_runtime.js ---- */
@@ -3892,6 +4053,36 @@ if ((!root || !root.length) && e.body && e.body.find) {
 try { root = e.body.find('.full-start-new.lumen-card').eq(0); } catch (err2) { }
 }
 return root;
+}
+
+
+
+
+
+
+
+
+function findDescrRow(e) {
+try {
+if (e.item && typeof e.item.render === 'function') {
+var html = e.item.render();
+if (html && html.length) return html;
+}
+} catch (err) { }
+if (e.body && e.body.find) {
+try {
+var found = e.body.find('.full-descr');
+if (found && found.length) {
+
+
+
+
+var line = found.closest('.items-line');
+return line && line.length ? line : found.parent();
+}
+} catch (err2) { }
+}
+return null;
 }
 
 
@@ -4301,9 +4492,16 @@ try {
 if (!e) return;
 if (e.type === 'build' && e.name === 'start') {
 LC.header.decorate(findRoot(e), e.data);
+} else if (e.type === 'build' && e.name === 'description') {
+
+LC.header.descr(findDescrRow(e), e.data);
 } else if (e.type === 'complite') {
 var root = findRoot(e);
 LC.header.decorate(root, e.data);
+
+
+
+LC.header.descr(findDescrRow(e), e.data);
 var slideshow = LC.backdrops.apply(root, e.body, (e.data && e.data.movie) || {});
 applyMotionMode(root);
 LC.active = { object: e.object, body: e.body, slideshow: slideshow };

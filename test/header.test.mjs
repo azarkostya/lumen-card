@@ -354,6 +354,85 @@ test('LC.daysWord: склонения на славянских языках', (
   assert.equal(LC.daysWord(25), 'дней');
 });
 
+/* ------------------------------ Task 5d: таблица «ПОДРОБНО» ------------------------------ */
+
+/* Ряд описания Lampa (компонент 'description'): items_line, внутри
+   .items-line__body -> .full-descr -> .full-descr__left (текст, details, теги).
+   e.item.render() отдаёт именно узел items_line — его и получает LC.header.descr. */
+function makeDescrRow() {
+  const text = new FakeEl(['full-descr__text', 'selector']);
+  const details = new FakeEl(['full-descr__details']);
+  const tags = new FakeEl(['full-descr__tags']);
+  const left = new FakeEl(['full-descr__left'], [text, details, tags]);
+  const descr = new FakeEl(['full-descr'], [left]);
+  const body = new FakeEl(['items-line__body'], [descr]);
+  const row = new FakeEl(['items-line'], [body]);
+  docRoots.push(row);
+  return { row, descr, left, text };
+}
+
+function factsOf(d) { return d.descr._children.filter((n) => n.hasClass('lumen-facts')); }
+
+const DUNE = {
+  movie: {
+    title: 'Дюна: Часть вторая', original_title: 'Dune: Part Two', release_date: '2024-02-29',
+    runtime: 166, genres: [{ name: 'фантастика' }, { name: 'приключения' }],
+    production_countries: [{ iso_3166_1: 'US', name: 'United States of America' }]
+  },
+  persons: { crew: [{ job: 'Director', name: 'Дени Вильнёв' }] }
+};
+
+test('descr: таблица «ПОДРОБНО» дописывается в тело ряда, ряд помечен .lumen-descr-row', () => {
+  const d = makeDescrRow();
+  LC.header.descr(d.row, DUNE);
+
+  assert.ok(d.row.hasClass('lumen-descr-row'), 'ряд помечен нашим классом — иначе CSS не применится');
+  const facts = factsOf(d);
+  assert.equal(facts.length, 1);
+  const html = facts[0].html();
+  for (const part of ['ПОДРОБНО', 'Оригинал', 'Dune: Part Two', 'Премьера', '29 февраля 2024', 'Страна', 'США',
+    'Режиссёр', 'Дени Вильнёв', 'Жанр', 'Фантастика, Приключения', 'Время', '2:46']) {
+    assert.ok(html.indexOf(part) !== -1, 'нет строки таблицы: ' + part);
+  }
+  assert.equal(html.indexOf('selector'), -1, 'таблица не участвует в навигации пультом');
+  assert.deepEqual(warnLog, []);
+});
+
+test('descr: повторный build/открытие карточки не дублирует таблицу', () => {
+  const d = makeDescrRow();
+  LC.header.descr(d.row, DUNE);
+  LC.header.descr(d.row, DUNE);
+  LC.header.descr(d.row, DUNE);
+  assert.equal(factsOf(d).length, 1);
+});
+
+test('descr: сериал — создатель и «сезонов · серий»', () => {
+  const d = makeDescrRow();
+  LC.header.descr(d.row, {
+    movie: {
+      name: 'Фоллаут', original_name: 'Fallout', first_air_date: '2024-04-10',
+      number_of_seasons: 2, number_of_episodes: 16, created_by: [{ name: 'Джонатан Нолан' }],
+      genres: [{ name: 'фантастика' }], production_countries: [{ iso_3166_1: 'US' }]
+    }
+  });
+  const html = factsOf(d)[0].html();
+  assert.ok(html.indexOf('Создатель') !== -1 && html.indexOf('Джонатан Нолан') !== -1);
+  assert.ok(html.indexOf('2 сезона · 16 серий') !== -1);
+  assert.equal(html.indexOf('Режиссёр'), -1, 'у сериала режиссёра в таблице нет');
+});
+
+test('descr: нечего показать или чужая разметка ряда — тихо без таблицы и без warn', () => {
+  const empty = makeDescrRow();
+  LC.header.descr(empty.row, { movie: {} });
+  assert.equal(factsOf(empty).length, 0);
+
+  const alien = new FakeEl(['items-line'], [new FakeEl(['items-line__body'])]);
+  LC.header.descr(alien, DUNE);
+
+  LC.header.descr(null, DUNE);
+  assert.deepEqual(warnLog, []);
+});
+
 /* ------------------------------ refreshEpisode (п.2, п.8) ------------------------------ */
 
 test('refreshEpisode: перерисовывает только серию с этим хэшем и только при изменении состояния; кадр сохраняется', () => {

@@ -109,7 +109,12 @@ test('buildCss: .lumen-title--long содержит display:-webkit-box и -webk
    (только составной .full-start__background.lumen-off — выключение штатного
    фона Lampa), body. — фактически в текущем CSS не встречается, но остаётся
    в списке разрешённых на будущее (по требованию ревью). */
-const ALLOWED_ROOTS = ['.lumen-card', '.lumen-backdrop', '.full-start__background', '.full-start-new', 'body'];
+/* Task 5d: ряд описания (компонент 'description') лежит ВНЕ .lumen-card —
+   это отдельный items-line ниже шапки, поэтому его правила не могут начинаться
+   с корня карточки. Свой корень .lumen-descr-row (класс вешает LC.header на
+   узел ряда) держит их так же строго в скоупе плагина: без нашего класса ни
+   одно правило на чужой ряд не подействует. */
+const ALLOWED_ROOTS = ['.lumen-card', '.lumen-backdrop', '.lumen-descr-row', '.full-start__background', '.full-start-new', 'body'];
 
 /* Ревью Task 5a (замечание, зафиксировано в Task 5b): проверка была по
    sel.indexOf(root) === 0 без учёта границы селектора — так
@@ -123,7 +128,7 @@ const ALLOWED_ROOTS = ['.lumen-card', '.lumen-backdrop', '.full-start__backgroun
    между корнем и модификатором, но это className плагин создаёт сам (его
    не бывает без нашего DOM) — поэтому '_'/'-' сразу после корня для них
    тоже безопасная граница, в отличие от чужих классов Lampa. */
-var OWN_NAMESPACE_ROOTS = ['.lumen-card', '.lumen-backdrop'];
+var OWN_NAMESPACE_ROOTS = ['.lumen-card', '.lumen-backdrop', '.lumen-descr-row'];
 
 function startsWithRoot(sel, root) {
   if (sel.indexOf(root) !== 0) return false;
@@ -340,6 +345,50 @@ test('buildCss: без CSS-масок иконки чипа и карточки 
   const line = css.split('\n').find((l) => l.indexOf('@supports not ((-webkit-mask-image:none)') === 0 && l.indexOf('lumen-episode__check') !== -1);
   assert.ok(line, 'фолбэк без масок для ряда серий не найден');
   assert.ok(line.indexOf('.lumen-next-chip:before') !== -1);
+});
+
+/* -------------------------------------------------------------------- */
+/* Task 5d: таблица «ПОДРОБНО» и оформление описания в ряду (design-spec  */
+/* §10, экран 07). Корень — .lumen-descr-row: ряд описания лежит вне      */
+/* .lumen-card, класс на его узел вешает LC.header.descr.                 */
+/* -------------------------------------------------------------------- */
+
+test('buildCss: .lumen-facts — сетка «лейбл/значение» auto 1fr с flex-фолбэком (grid не поддержан на webOS 3)', () => {
+  const grid = findDecl(css, (sel) => sel === '.lumen-descr-row .lumen-facts__grid');
+  assert.ok(grid, 'правило сетки .lumen-facts__grid не найдено');
+  assert.ok(grid.indexOf('display:flex') !== -1, 'нет flex-фолбэка перед display:grid');
+  assert.ok(grid.indexOf('display:grid') !== -1, 'нет display:grid');
+  assert.ok(grid.indexOf('grid-template-columns:auto 1fr') !== -1, '§10: grid-template-columns:auto 1fr');
+});
+
+test('buildCss: лейбл и значение таблицы — 18px (.79em), лейбл smoke, значение 500 и text', () => {
+  const label = findDecl(css, (sel) => sel === '.lumen-descr-row .lumen-facts__label');
+  const value = findDecl(css, (sel) => sel === '.lumen-descr-row .lumen-facts__value');
+  assert.ok(label && value, 'правила лейбла/значения не найдены');
+  assert.ok(label.indexOf('font-size:.79em') !== -1, 'лейбл 18px = .79em');
+  assert.ok(label.indexOf('#7A6A5A') !== -1, 'лейбл — smoke');
+  assert.ok(value.indexOf('font-size:.79em') !== -1, 'значение 18px = .79em');
+  assert.ok(value.indexOf('font-weight:500') !== -1, 'значение — 500');
+  assert.ok(value.indexOf('#F3EDE4') !== -1, 'значение — text');
+});
+
+test('buildCss: заголовок «ПОДРОБНО» — 16px (.70em) mono, letter-spacing .14em, smoke', () => {
+  const title = findDecl(css, (sel) => sel === '.lumen-descr-row .lumen-facts__title');
+  assert.ok(title, 'правило заголовка таблицы не найдено');
+  assert.ok(title.indexOf('font-size:.70em') !== -1, 'заголовок 16px = .70em');
+  assert.ok(title.indexOf('letter-spacing:.14em') !== -1);
+  assert.ok(title.indexOf('#7A6A5A') !== -1);
+});
+
+test('buildCss: полное описание в ряду — 24px/1.45 (1.05em), колонка 980px (42.96em), таблица справа', () => {
+  const text = findDecl(css, (sel) => sel === '.lumen-descr-row .full-descr__text');
+  assert.ok(text, 'правило .full-descr__text не найдено');
+  assert.ok(text.indexOf('font-size:1.05em') !== -1, 'описание 24px = 1.05em');
+  assert.ok(text.indexOf('line-height:1.45') !== -1);
+  assert.ok(text.indexOf('max-width:42.96em') !== -1, 'колонка описания 980px = 42.96em');
+
+  const wrap = findDecl(css, (sel) => sel === '.lumen-descr-row .full-descr');
+  assert.ok(wrap && wrap.indexOf('display:flex') !== -1, 'ряд описания — flex (описание слева, таблица справа)');
 });
 
 test('buildCss: наезд Ken Burns — на корне .lumen-backdrop (не .lumen-card: слой фона лежит вне карточки)', () => {

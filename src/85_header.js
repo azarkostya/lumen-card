@@ -592,6 +592,65 @@
     });
   }
 
+  /* -------------------------------------------------------------------- */
+  /* Task 5d: таблица «ПОДРОБНО» в ряду описания (design-spec §10, экран 07). */
+  /* -------------------------------------------------------------------- */
+
+  /* Подписи, месяцы и склонения — из LC.STRINGS (ru/en/uk), как у чипа
+     следующей серии: LC.cardinfo.facts остаётся чистым и получает их
+     параметром, про Lampa и язык интерфейса не знает. */
+  function factWords() {
+    return {
+      original: LC.lang('lumen_card_fact_original'),
+      premiere: LC.lang('lumen_card_fact_premiere'),
+      country: LC.lang('lumen_card_fact_country'),
+      director: LC.lang('lumen_card_fact_director'),
+      creator: LC.lang('lumen_card_fact_creator'),
+      genre: LC.lang('lumen_card_fact_genre'),
+      time: LC.lang('lumen_card_fact_time'),
+      min: LC.lang('lumen_card_min'),
+      months: ('' + LC.lang('lumen_card_months_gen')).split(','),
+      capitalize: capitalize,
+      seasonsWord: LC.seasonsWord,
+      episodesWord: LC.episodesWord
+    };
+  }
+
+  /* Ряд описания строит сама Lampa (компонент 'description', в её исходнике
+     класс назван Descriptiopn): items_line -> .items-line__body -> .full-descr
+     -> .full-descr__left (текст, детали, теги). Мы дописываем в .full-descr
+     вторую колонку .lumen-facts — БЕЗ .selector: контроллер full_descr
+     собирает .selector внутри ряда, и лишний фокусируемый узел изменил бы
+     навигацию пультом (инвариант плана 0.3 п.2).
+
+     Идемпотентно: повторный build, возврат на карточку backward'ом и запасной
+     вызов на complite не должны дублировать блок — старый узел снимается
+     перед вставкой. Сам .full-descr — та же точка вставки для отзывов
+     Кинопоиска (Task 9): блок отзывов встанет соседом, эту разметку не трогая. */
+  function renderDescrRow(row, data) {
+    if (!row || !row.length) return;
+    var holder = row.find('.full-descr');
+    if (!holder.length) return;
+
+    row.addClass('lumen-descr-row');
+    holder.find('.lumen-facts').remove();
+
+    var list = LC.cardinfo.facts((data && data.movie) || null, data && data.persons, factWords());
+    if (!list.length) return;
+
+    var esc = LC.util.esc;
+    var cells = [];
+    for (var i = 0; i < list.length; i++) {
+      cells.push('<div class="lumen-facts__label">' + esc(list[i].label) + '</div>');
+      cells.push('<div class="lumen-facts__value">' + esc(list[i].value) + '</div>');
+    }
+
+    var block = $('<div class="lumen-facts"></div>');
+    block.html('<div class="lumen-facts__title">' + esc(LC.lang('lumen_card_facts')) + '</div>' +
+      '<div class="lumen-facts__grid">' + cells.join('') + '</div>');
+    holder.append(block);
+  }
+
   function decorate(root, data) {
     if (!root || !root.length) return;
     if (!root.hasClass('lumen-card')) return;
@@ -612,4 +671,4 @@
     try { bindEpisodes(root); } catch (e) { warn('episodes bind failed', e); }
   }
 
-  LC.header = { decorate: decorate, refreshEpisode: refreshEpisode };
+  LC.header = { decorate: decorate, descr: renderDescrRow, refreshEpisode: refreshEpisode };

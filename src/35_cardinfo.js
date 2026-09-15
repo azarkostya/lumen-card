@@ -244,6 +244,64 @@
       return { date: date, days: days, text: words.next + ' — ' + when };
     }
 
+    /* Task 5d Step 1 (design-spec §10, экран 07): «Премьера» — «29 февраля
+       2024». Дату разбираем той же регуляркой, что dayMonth, а не через
+       new Date(str): тот считает 'YYYY-MM-DD' полночью UTC, и западнее
+       Гринвича вечером дата съезжала бы на день назад. Неполная дата (в TMDB
+       попадаются '2024' и несуществующие месяцы) -> хотя бы год. */
+    function premiere(ymd, months) {
+      var m = /^(\d{4})/.exec('' + (ymd || ''));
+      if (!m) return '';
+      var day = dayMonth(ymd, months);
+      return day ? day + ' ' + m[1] : m[1];
+    }
+
+    /* Task 5d Step 1: строки таблицы «ПОДРОБНО» — [{label, value}] в порядке
+       экрана 07: Оригинал (только если отличается от названия), Премьера,
+       Страна, Режиссёр (фильм) / Создатель (сериал), Жанр, Время (хронометраж
+       фильма или «N сезонов · M серий» сериала). Пустые значения в таблицу не
+       попадают — строки с пустым value просто нет.
+
+       Как и nextEpisode, модуль остаётся чистым: подписи, названия месяцев,
+       склонения (seasonsWord/episodesWord) и capitalize приходят словарём
+       words — его собирает LC.header из LC.STRINGS, здесь ни Lampa, ни языка
+       интерфейса нет. Без words таблицу строить нечем -> []. */
+    function facts(movie, persons, words) {
+      var out = [];
+      if (!movie || !words) return out;
+
+      function add(label, value) {
+        if (label && value) out.push({ label: label, value: value });
+      }
+
+      var serial = isSerial(movie);
+      var title = movie.title || movie.name || '';
+      var original = movie.original_title || movie.original_name || '';
+
+      add(words.original, original && original !== title ? original : '');
+      add(words.premiere, premiere(movie.release_date || movie.first_air_date, words.months));
+      /* Штатного .full-start-new__head у ряда описания нет (он в шапке), поэтому
+         страна берётся из production_countries — country() сам падает на словарь
+         ISO («США») и лишь затем на английское имя TMDB. */
+      add(words.country, country('', movie.production_countries));
+
+      if (serial) add(words.creator, creator(movie));
+      else add(words.director, director(persons && persons.crew));
+
+      add(words.genre, genres(movie.genres, words.capitalize).join(', '));
+
+      if (serial) {
+        var counts = [];
+        if (movie.number_of_seasons > 0 && words.seasonsWord) counts.push(movie.number_of_seasons + ' ' + words.seasonsWord(movie.number_of_seasons));
+        if (movie.number_of_episodes > 0 && words.episodesWord) counts.push(movie.number_of_episodes + ' ' + words.episodesWord(movie.number_of_episodes));
+        add(words.time, counts.join(' · '));
+      } else {
+        add(words.time, LC.util.fmtRuntime(movie.runtime, words.min));
+      }
+
+      return out;
+    }
+
     /* Task 5c Step 2: студия/сеть сериала в мета-строке («Amazon Prime» на
        экране 05) — networks[0].name; у сериалов без сети — первая студия. */
     function network(movie) {
@@ -257,6 +315,7 @@
       director: director,
       creator: creator,
       network: network,
+      facts: facts,
       nextEpisode: nextEpisode,
       shortDate: shortDate,
       titleClass: titleClass,

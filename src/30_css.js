@@ -338,6 +338,37 @@
     /* Движок без масок: пустые закрашенные квадраты вместо иконок не рисуем. */
     css.push(LC.icons.NO_MASK + '{.lumen-card .lumen-next-chip:before,.lumen-card .lumen-episode__check,.lumen-card .lumen-episode__play:before{display:none}}');
 
+    /* --- Ряд описания: полное описание + таблица «ПОДРОБНО» (design-spec §10,
+       экран 07; px ÷ 22.811) ---
+       Корень — .lumen-descr-row: ряд описания строит сама Lampa (компонент
+       'description'), он лежит ОТДЕЛЬНЫМ items-line ниже шапки, вне
+       .lumen-card, поэтому корнем карточки эти правила не ограничить. Класс
+       вешает LC.header.descr на узел ряда — без него ни одно правило ниже на
+       чужую разметку не действует.
+       Описание 24px/1.45 в колонке 980px = 42.96em, зазор до панели 80px =
+       3.51em, панель не уже 450px = 19.73em. Штатный .full-descr__details
+       (Дата выхода / Бюджет / Страны) скрыт — это ровно то, что теперь
+       показывает наша таблица; .full-descr__tags (жанры, студии) остаётся:
+       там живут .selector, их убирать нельзя — сломается навигация пультом. */
+    css.push('.lumen-descr-row .full-descr{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:start;-webkit-align-items:flex-start;align-items:flex-start;-webkit-flex-wrap:wrap;flex-wrap:wrap}');
+    css.push('.lumen-descr-row .full-descr__left{-webkit-box-flex:1;-webkit-flex:1 1 auto;flex:1 1 auto;min-width:0;margin-right:3.51em}');
+    css.push('.lumen-descr-row .full-descr__text{font-family:' + FB + ';font-weight:400;font-size:1.05em;line-height:1.45;color:' + C.text + ';max-width:42.96em;width:auto}');
+    css.push('.lumen-descr-row .full-descr__details{display:none}');
+    css.push('.lumen-descr-row .lumen-facts{-webkit-flex-shrink:0;flex-shrink:0;min-width:19.73em;max-width:100%}');
+    css.push('.lumen-descr-row .lumen-facts__title{font-family:' + FM + ';font-weight:600;font-size:.70em;line-height:1;letter-spacing:.14em;color:' + C.smoke + ';margin-bottom:.88em}');
+    /* Сетка: display:flex — база и фолбэк (webOS 3 / старые Tizen не знают
+       grid и оставят последнее валидное значение), display:grid следующей
+       декларацией переопределяет её там, где grid есть — тот же приём, что у
+       .lumen-content. Зазоры §10: 10px/24px = .44em/1.05em. */
+    css.push('.lumen-descr-row .lumen-facts__grid{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;display:-ms-grid;display:grid;grid-template-columns:auto 1fr;-webkit-column-gap:1.05em;column-gap:1.05em;row-gap:.44em}');
+    css.push('.lumen-descr-row .lumen-facts__label{font-family:' + FB + ';font-weight:400;font-size:.79em;line-height:1.3;color:' + C.smoke + '}');
+    css.push('.lumen-descr-row .lumen-facts__value{font-family:' + FB + ';font-weight:500;font-size:.79em;line-height:1.3;color:' + C.text + '}');
+    /* Без grid row-gap/column-gap не работают, а пары «лейбл/значение» не знают,
+       где кончается строка: лейбл получает фиксированную колонку, значение
+       занимает остаток строки и переносит следующую пару. em здесь считаются
+       от собственных 18px ячеек: 24px = 1.33em, 10px = .56em. */
+    css.push('@supports not (display:grid){.lumen-descr-row .lumen-facts__label{width:7em;margin:0 1.33em .56em 0}.lumen-descr-row .lumen-facts__value{-webkit-box-flex:1;-webkit-flex:1 1 auto;flex:1 1 auto;min-width:0;margin-bottom:.56em}}');
+
     /* --- Компактная раскладка на узких экранах (страховка) --- */
     css.push('@media screen and (max-width:1000px){.lumen-card .lumen-content{display:block}.lumen-card .lumen-content > .lumen-side{text-align:left;-webkit-box-align:start;-webkit-align-items:flex-start;align-items:flex-start;margin-top:1.5em}.lumen-card .full-start-new__title{font-size:2.43em}.lumen-card .full-start-new__body{min-height:0}}');
 

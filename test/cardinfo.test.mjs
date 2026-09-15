@@ -417,6 +417,91 @@ test('shortDate: «17 дек» для серии, которая не вышла
   assert.equal(shortRu('2026-13-01'), '');
 });
 
+/* -------------------------------------------------------------------- */
+/* Task 5d: таблица «ПОДРОБНО» (design-spec §10, экран 07)                */
+/* -------------------------------------------------------------------- */
+
+/* Как и nextEpisode, facts не знает ни про Lampa, ни про язык интерфейса:
+   подписи, названия месяцев, склонения и capitalize приходят параметром
+   (в рантайме их собирает LC.header из LC.STRINGS). */
+const FACTS_RU = {
+  original: 'Оригинал', premiere: 'Премьера', country: 'Страна', director: 'Режиссёр',
+  creator: 'Создатель', genre: 'Жанр', time: 'Время', min: 'мин',
+  months: RU.months,
+  capitalize: (s) => s.charAt(0).toUpperCase() + s.slice(1),
+  seasonsWord: (n) => util.plural(n, ['сезон', 'сезона', 'сезонов']),
+  episodesWord: (n) => util.plural(n, ['серия', 'серии', 'серий'])
+};
+
+const DUNE = {
+  title: 'Дюна: Часть вторая',
+  original_title: 'Dune: Part Two',
+  release_date: '2024-02-29',
+  runtime: 166,
+  genres: [{ name: 'фантастика' }, { name: 'приключения' }],
+  production_countries: [{ iso_3166_1: 'US', name: 'United States of America' }]
+};
+const CREW = { crew: [{ job: 'Producer', name: 'Мэри Пэрент' }, { job: 'Director', name: 'Дени Вильнёв' }] };
+
+test('facts: фильм — шесть строк экрана 07 в порядке дизайна', () => {
+  assert.deepEqual(cardinfo.facts(DUNE, CREW, FACTS_RU), [
+    { label: 'Оригинал', value: 'Dune: Part Two' },
+    { label: 'Премьера', value: '29 февраля 2024' },
+    { label: 'Страна', value: 'США' },
+    { label: 'Режиссёр', value: 'Дени Вильнёв' },
+    { label: 'Жанр', value: 'Фантастика, Приключения' },
+    { label: 'Время', value: '2:46' }
+  ]);
+});
+
+test('facts: оригинал совпадает с названием -> строки нет', () => {
+  const same = cardinfo.facts({ title: 'Аватар', original_title: 'Аватар', release_date: '2009-12-17' }, null, FACTS_RU);
+  assert.deepEqual(same.map((f) => f.label), ['Премьера']);
+});
+
+test('facts: сериал — создатель вместо режиссёра, премьера из first_air_date, «сезонов · серий»', () => {
+  const fallout = {
+    name: 'Фоллаут', original_name: 'Fallout', first_air_date: '2024-04-10',
+    number_of_seasons: 2, number_of_episodes: 16,
+    created_by: [{ name: 'Джонатан Нолан' }],
+    genres: [{ name: 'фантастика' }],
+    production_countries: [{ iso_3166_1: 'US' }]
+  };
+  assert.deepEqual(cardinfo.facts(fallout, CREW, FACTS_RU), [
+    { label: 'Оригинал', value: 'Fallout' },
+    { label: 'Премьера', value: '10 апреля 2024' },
+    { label: 'Страна', value: 'США' },
+    { label: 'Создатель', value: 'Джонатан Нолан' },
+    { label: 'Жанр', value: 'Фантастика' },
+    { label: 'Время', value: '2 сезона · 16 серий' }
+  ]);
+});
+
+test('facts: у сериала только сезоны или только серии — выводится то, что есть', () => {
+  const onlyEpisodes = cardinfo.facts({ name: 'Шоу', first_air_date: '2024-01-01', number_of_episodes: 1 }, null, FACTS_RU);
+  assert.equal(onlyEpisodes[onlyEpisodes.length - 1].value, '1 серия');
+  const onlySeasons = cardinfo.facts({ name: 'Шоу', first_air_date: '2024-01-01', number_of_seasons: 5 }, null, FACTS_RU);
+  assert.equal(onlySeasons[onlySeasons.length - 1].value, '5 сезонов');
+});
+
+test('facts: пустые значения не выводятся; пустой movie и отсутствие words -> []', () => {
+  assert.deepEqual(cardinfo.facts({}, null, FACTS_RU), []);
+  assert.deepEqual(cardinfo.facts(null, null, FACTS_RU), []);
+  assert.deepEqual(cardinfo.facts(DUNE, CREW), []);
+});
+
+test('facts: дата без дня/месяца -> только год; мусор в дате -> строки нет', () => {
+  const yearOnly = cardinfo.facts({ title: 'Фильм', release_date: '2024' }, null, FACTS_RU);
+  assert.deepEqual(yearOnly, [{ label: 'Премьера', value: '2024' }]);
+  assert.deepEqual(cardinfo.facts({ title: 'Фильм', release_date: 'скоро' }, null, FACTS_RU), []);
+  assert.deepEqual(cardinfo.facts({ title: 'Фильм', release_date: '2024-13-01' }, null, FACTS_RU), [{ label: 'Премьера', value: '2024' }]);
+});
+
+test('facts: дата у границы суток не съезжает на соседний день (без часового пояса)', () => {
+  const late = cardinfo.facts({ title: 'Фильм', release_date: '2024-01-01' }, null, FACTS_RU);
+  assert.equal(late[0].value, '1 января 2024');
+});
+
 test('network: networks[0].name, иначе первая студия production_companies, иначе ""', () => {
   assert.equal(cardinfo.network({ networks: [{ name: 'Prime Video' }, { name: 'HBO' }] }), 'Prime Video');
   assert.equal(cardinfo.network({ networks: [], production_companies: [{ name: 'Kilter Films' }] }), 'Kilter Films');
