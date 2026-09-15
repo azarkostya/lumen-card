@@ -1,0 +1,5 @@
+# dist/lumen_card.js собирается и разбирается построчно (маркеры файлов в
+# scripts/es5check.mjs), поэтому переводы строк в JS всегда LF — иначе на
+# клоне с core.autocrlf=true CRLF ломает разбор координат.
+*.js text eol=lf
+*.mjs text eol=lf

@@ -1,6 +1,7 @@
 import test from 'node:test'; import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import * as acorn from '../scripts/lib/acorn.mjs';
+import { toSourceLocation } from '../scripts/es5check.mjs';
 
 /* Сборка вычищает из dist/lumen_card.js комментарии и ведущие отступы
    (scripts/build.mjs). Здесь проверяется сам артефакт, который коммитится и
@@ -16,6 +17,9 @@ globalThis.PLUGIN = 'lumen_card';
 globalThis.warn = function () { };
 
 const dist = readFileSync(new URL('../dist/lumen_card.js', import.meta.url), 'utf8');
+const srcDir = new URL('../src/', import.meta.url);
+const srcFiles = readdirSync(srcDir).filter(f => /^\d\d_.*\.js$/.test(f)).sort();
+const readSrc = f => readFileSync(new URL(f, srcDir), 'utf8');
 
 /* Порядок — как в бандле: 10 -> 20 -> 64 -> 80 -> 30 -> 65 (80_settings даёт
    LC.pref, он нужен 30/65 только при вызове, не при загрузке). */
@@ -65,8 +69,40 @@ test('шапка плагина и маркеры файлов на месте',
   const markers = kept.filter(c => c.block && /^ ---- \S+ ---- $/.test(c.text));
   assert.equal(bang.length, 1, 'ожидалась одна шапка /*!');
   assert.match(bang[0].text, /Lumen Card/);
-  assert.equal(markers.length, 15, 'ожидались маркеры всех 15 модулей');
+  assert.equal(markers.length, srcFiles.length, 'маркеры должны быть у всех модулей src/');
   assert.ok(dist.startsWith('// Lumen Card for Lampa v'), 'баннер первой строкой');
+});
+
+/* Нумерация строк — единственная «карта» между dist и src: комментарий
+   заменяется на столько же пустых строк, сколько занимал, поэтому строка K
+   модуля лежит в dist на K-й строке после своего маркера. На этом держится
+   es5check.toSourceLocation, и об этом написано в README. */
+test('строки dist совпадают со строками src (нумерация не разъехалась)', () => {
+  const distLines = dist.split('\n');
+  for (const f of srcFiles) {
+    const at = distLines.indexOf('/* ---- ' + f + ' ---- */');
+    assert.ok(at >= 0, 'маркер ' + f + ' должен занимать строку целиком');
+    const srcLines = readSrc(f).split('\n');
+    for (let i = 0; i < srcLines.length; i++) {
+      const got = distLines[at + 1 + i];
+      const want = srcLines[i];
+      assert.ok(got !== undefined, f + ':' + (i + 1) + ' — в dist строк меньше, чем в src');
+      // Строки, из которых что-то вырезано, сравнивать посимвольно нельзя;
+      // пустой got — это строка, целиком занятая комментарием.
+      if (/\/\/|\/\*|\*\//.test(want)) continue;
+      assert.ok(got === '' || got === want.trim() || got === want,
+        f + ':' + (i + 1) + ' — строка dist «' + got + '» не соответствует src «' + want + '»');
+    }
+  }
+});
+
+test('es5check.toSourceLocation по dist даёт координату в src', () => {
+  const needle = 'LC.VERSION =';
+  const distLine = dist.split('\n').findIndex(l => l.indexOf(needle) === 0) + 1;
+  assert.ok(distLine > 0, 'якорь ' + needle + ' не найден в dist');
+  const loc = toSourceLocation(dist, distLine);
+  const srcLine = readSrc('00_head.js').split('\n').findIndex(l => l.indexOf(needle) >= 0) + 1;
+  assert.deepEqual(loc, { file: '00_head.js', line: srcLine });
 });
 
 test('dist компилируется', () => {
@@ -92,11 +128,8 @@ test('строковые литералы с «/*» и «//» внутри не 
   assert.ok(dist.indexOf('http://www.w3.org/2000/svg') >= 0, 'xmlns SVG пропал');
 });
 
-test('dist заметно меньше суммы исходников', () => {
-  const srcBytes = MODULES.concat(['00_head.js', '35_cardinfo.js', '40_template.js', '50_backdrops.js',
-    '51_slideshow.js', '70_progress.js', '85_header.js', '90_runtime.js', '99_tail.js'])
-    .reduce((sum, f) => sum + Buffer.byteLength(readFileSync(new URL('../src/' + f, import.meta.url), 'utf8'), 'utf8'), 0);
+test('dist меньше суммы исходников', () => {
+  const srcBytes = srcFiles.reduce((sum, f) => sum + Buffer.byteLength(readSrc(f), 'utf8'), 0);
   const distBytes = Buffer.byteLength(dist, 'utf8');
-  assert.ok(distBytes < srcBytes * 0.65,
-    'ожидалось падение размера минимум на 35%: dist ' + distBytes + ' B, src ' + srcBytes + ' B');
+  assert.ok(distBytes < srcBytes, 'dist ' + distBytes + ' B, src ' + srcBytes + ' B');
 });

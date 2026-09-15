@@ -16,14 +16,17 @@
 // Сборка вычищает из dist комментарии и ведущие отступы: на слабом ТВ-браузере
 // это ~150 КБ лишнего разбора (комментарии на кириллице — по два байта на
 // символ). Исходники в src/ остаются как есть, меняется только выходной файл.
-// Границы комментариев берутся у acorn (onComment), а не у регулярок: в коде
-// есть строковые литералы с «/*» (заголовки CSS в 65_torrents.js), data-URI
-// с «//» и регэкспы — регулярка порезала бы их.
+// Вырезанием занимается scripts/lib/strip.mjs — по разбору acorn, а не
+// регулярками: в коде есть строковые литералы с «/*» (заголовки CSS в
+// 65_torrents.js), data-URI с «//» и регэкспы. Нумерация строк при этом
+// сохраняется (комментарий заменяется на столько же пустых строк), поэтому
+// es5check по маркерам файлов показывает настоящие координаты в src/.
 import { readdirSync, readFileSync, writeFileSync, mkdirSync, renameSync, rmSync, existsSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import * as acorn from './lib/acorn.mjs';
+import { stripComments, squeeze, keepComment } from './lib/strip.mjs';
+import { toSourceLocation } from './es5check.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const srcDir = join(root, 'src');
@@ -65,63 +68,6 @@ for (const f of files) {
   }
 }
 
-// В dist остаются только три вида комментариев: баннер первой строкой, шапка
-// плагина из 00_head.js (открывается «/*!» — общая конвенция «не вырезать»)
-// и маркеры файлов, по которым es5check восстанавливает координаты в src/.
-const MARKER_TEXT_RE = /^ ---- \S+ ---- $/;
-
-function keepComment(c) {
-  if (!c.block) return c.start === 0;
-  if (c.text.charAt(0) === '!') return true;
-  return MARKER_TEXT_RE.test(c.text);
-}
-
-function parse(src, options) {
-  return acorn.parse(src, Object.assign({ ecmaVersion: 5, sourceType: 'script', locations: true }, options));
-}
-
-// Вырезаем комментарии с конца, чтобы не пересчитывать смещения. Пустая строка
-// вместо комментария годится не всегда: «a/*c*/b» склеилось бы в «ab», поэтому
-// однострочный блочный заменяется пробелом, а многострочный — переводом строки
-// (перевод строки внутри комментария влияет на расстановку «;» через ASI).
-function stripComments(src) {
-  const comments = [];
-  parse(src, { onComment: (block, text, start, end) => comments.push({ block, text, start, end }) });
-  let out = src;
-  for (let i = comments.length - 1; i >= 0; i--) {
-    const c = comments[i];
-    if (keepComment(c)) continue;
-    const text = src.slice(c.start, c.end);
-    const repl = text.indexOf('\n') >= 0 ? '\n' : (c.block ? ' ' : '');
-    out = out.slice(0, c.start) + repl + out.slice(c.end);
-  }
-  return out;
-}
-
-// Срез ведущих/хвостовых пробелов и пустых строк. Строки, которые пересекает
-// многострочный токен (строковый литерал с продолжением) или уцелевший
-// комментарий, не трогаем — там пробелы значимы. Хотя бы один перевод строки
-// между соседними токенами всегда остаётся, так что ASI не меняется.
-function squeeze(src) {
-  const tokens = [];
-  const spans = [];
-  parse(src, { onToken: tokens, onComment: (block, text, start, end, startLoc, endLoc) => spans.push({ startLoc, endLoc }) });
-  for (const t of tokens) spans.push({ startLoc: t.loc.start, endLoc: t.loc.end });
-  const verbatim = new Set();
-  for (const s of spans) {
-    if (s.startLoc.line === s.endLoc.line) continue;
-    for (let l = s.startLoc.line; l <= s.endLoc.line; l++) verbatim.add(l);
-  }
-  const lines = src.split('\n');
-  const out = [];
-  for (let i = 0; i < lines.length; i++) {
-    if (verbatim.has(i + 1)) { out.push(lines[i]); continue; }
-    const line = lines[i].replace(/^[ \t]+/, '').replace(/[ \t]+$/, '');
-    if (line !== '') out.push(line);
-  }
-  return out.join('\n') + '\n';
-}
-
 // Версия для баннера — из LC.VERSION в 00_head.js (без даты: воспроизводимая сборка).
 const headText = readFileSync(join(srcDir, '00_head.js'), 'utf8');
 const versionMatch = headText.match(/LC\.VERSION\s*=\s*'([^']+)'/);
@@ -129,12 +75,25 @@ const version = versionMatch ? versionMatch[1] : '0.0.0';
 const banner = `// Lumen Card for Lampa v${version}\n`;
 const raw = banner + files.map(f => `\n/* ---- ${f} ---- */\n` + readFileSync(join(srcDir, f), 'utf8')).join('\n');
 
+// Белый список комментариев: маркеры своих же модулей и шапка плагина — только
+// до начала второго модуля, чтобы «/*!» где-нибудь в середине кода сборку не
+// пережил.
+const names = new Set(files);
+const secondMarker = files.length > 1 ? raw.indexOf(`/* ---- ${files[1]} ---- */`) : -1;
+const headEnd = secondMarker < 0 ? raw.length : secondMarker;
+
 let out;
 try {
-  out = squeeze(stripComments(raw));
+  out = squeeze(stripComments(raw, (c, s) => keepComment(c, s, { names, headEnd })));
 } catch (e) {
-  // SyntaxError из acorn: собранный текст не разбирается, писать нечего.
-  console.error('build failed: не удалось разобрать сборку — ' + (e && e.message ? e.message : e));
+  // SyntaxError из acorn (разбор идёт с ecmaVersion: 5, так что сюда попадает и
+  // ES2015+ синтаксис — сборка бракует его, не дожидаясь es5check). Координату
+  // acorn даёт в раскладке сборки, переводим её в файл src/.
+  const line = e && e.loc && e.loc.line;
+  const loc = line ? toSourceLocation(raw, line) : null;
+  const where = loc ? ` ${loc.file}:${loc.line}:${(e.loc.column || 0) + 1}` : '';
+  const msg = ('' + (e && e.message ? e.message : e)).replace(/\s*\(\d+:\d+\)\s*$/, '');
+  console.error(`build failed:${where} — ${msg}`);
   process.exit(1);
 }
 
