@@ -95,6 +95,15 @@ test/torrents.test.mjs css(): скоупинг всех правил, запре
 
 **Files:** Create `src/64_menus.js`, `test/menus.test.mjs`; Modify `src/80_settings.js`, `src/90_runtime.js`.
 
+> **Поправка контроллера — Step 1 выполнен координатором (2026-09-15, живая Lampa 3.3.4 + `vendor/lampa/app.min.js`); приоритетнее кода Step 3.**
+> - `Lampa.Modal.listener` **есть**. Порядок событий: `preshow {active}` → `fullshow {active, html}` → `toggle {active, html}` → (Controller `toggle` name `modal`) → … → `close {active}`. `active` — объект, переданный в `Modal.open`.
+> - `Lampa.Select.listener`: `preshow {active}` → `fullshow {active, html}` → `toggle` → (Controller `toggle` name `select`) → `hide {active}` → `close {active}`; `e.active.title` доступен уже в `preshow`.
+> - `Lampa.Select.render(true)` возвращает **DOM-элемент** `.selectbox` (не jQuery), это тот же синглтон, что `document.querySelector('.selectbox')` — оборачивать `$()`.
+> - **`.modal` НЕ синглтон:** узел создаётся в `Modal.open` и удаляется из DOM в `Modal.close` (после закрытия `.modal` в DOM 0). Маркер ставить на каждом открытии, «снимать» не требуется, но `close` снимать всё равно (на случай переиспользования).
+> - **Модалки пути узнаются по содержимому, `modalArmed` и ветка через `Controller.listener` не нужны.** В исходнике все состояния шагов 4–12 живут внутри двух `Modal.open`: `loading()` — `html: Template.get('modal_loading')` (затем `Modal.update` тем же окном: `torrent_nohash` стр. 40435, `error` таймаута 40460, чек-лист `torrent_error` 8217, список файлов `list$1` 40896) и `install$1()` — `html: Template.get('torrent_install')`. Поэтому: `Modal.listener.follow('fullshow', e)` → если в `$(e.html)` (или в `.modal` из DOM) есть `.modal-loading` или `.torrent-install` → `addClass('lumen-modal')` на корень `.modal`; `close` → `removeClass`. Проверить живьём, что `Modal.update` меняет только тело и не пересоздаёт корень `.modal` (класс сохраняется при переходе спиннер → чек-лист → файлы). `Lampa.Listener 'torrent'/'torrent_file'` для маркера модалки не подписывать.
+> - Переводы: `Lampa.Lang.translate('settings_rest_source')` = «Источник», `'title_action'` = «Действие». Брать в `install()` (после загрузки языка), не на уровне модуля.
+> - Тест `kind` дополнить чистой функцией `isPathModal(html)` (или `modalKind`) на фейковом DOM: `.modal-loading` → true, `.torrent-install` → true, прочее/пусто → false.
+
 - [ ] **Step 1: Разведка (5 минут, в консоли живой Lampa)** — `typeof Lampa.Modal.listener`, и если есть — какие типы событий шлёт (`Lampa.Modal.listener.follow('open', console.log)` + открыть любую модалку); `Lampa.Select.listener` — подтвердить `preshow/fullshow/hide/close` и что `e.active.title` / `e.active.items` доступны в `preshow`. Записать результат в шапку `64_menus.js` комментарием.
 
 - [ ] **Step 2: Тест `kind`**
