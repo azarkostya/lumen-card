@@ -8,8 +8,11 @@
 
 ```
 lumen-card/
-├── lumen_card.js        ← сам плагин (один файл, строгий ES5, без зависимостей)
-├── harness/index.html   ← локальный тест-стенд с эмуляцией Lampa API
+├── src/                  ← исходники плагина по модулям (00_head … 99_tail), строгий ES5
+├── dist/lumen_card.js    ← собранный плагин (результат scripts/build.mjs, коммитится)
+├── scripts/              ← build.mjs (сборка), es5check.mjs (ES5-линт), chunks.mjs (инжект-чанки)
+├── test/                 ← node --test: юнит-тесты чистых модулей (util, progress)
+├── harness/index.html    ← локальный тест-стенд с эмуляцией Lampa API
 └── README.md
 ```
 
@@ -17,10 +20,10 @@ lumen-card/
 
 ## Установка
 
-1. Выложите `lumen_card.js` на любой **https**-хостинг (Lampa не грузит плагины по http, если сама
-   открыта по https). Проще всего:
+1. Выложите `dist/lumen_card.js` на любой **https**-хостинг (Lampa не грузит плагины по http, если
+   сама открыта по https). Проще всего:
    - **GitHub Pages** — положите файл в репозиторий, включите Pages, ссылка будет вида
-     `https://<user>.github.io/<repo>/lumen_card.js`;
+     `https://<user>.github.io/<repo>/dist/lumen_card.js`;
    - Cloudflare Pages / Netlify / любой статический хостинг;
    - собственный сервер с валидным сертификатом.
 2. В Lampa: **Настройки → Расширения → Добавить плагин** → вставьте URL → **Добавить**.
@@ -211,12 +214,26 @@ cd "C:\Users\azark\Новая папка\lumen-card"
 
 ---
 
-## Проверка перед публикацией
+## Разработка
+
+Плагин собирается из модулей `src/NN_*.js` (по числовому префиксу) в один файл
+`dist/lumen_card.js`, который и коммитится в репозиторий и выкладывается на хостинг.
 
 ```powershell
-# синтаксис
-& "C:\Users\azark\AppData\Local\Programs\nodejs\node.exe" --check lumen_card.js
+cd "C:\Users\azark\Новая папка\lumen-card"
 
-# ES5: ни одного совпадения быть не должно
-Select-String -Path lumen_card.js -Pattern '=>|\blet\b|\bconst\b|`|\bclass\s|\.\.\.|Object\.assign'
+# сборка src/*.js -> dist/lumen_card.js (+ проверка синтаксиса node --check)
+& "C:\Users\azark\AppData\Local\Programs\nodejs\node.exe" scripts/build.mjs
+
+# ES5-линт собранного файла (грубые регулярки, ни одного совпадения быть не должно)
+& "C:\Users\azark\AppData\Local\Programs\nodejs\node.exe" scripts/es5check.mjs dist/lumen_card.js
+
+# юнит-тесты чистых модулей (LC.util, LC.progress) без браузера
+& "C:\Users\azark\AppData\Local\Programs\nodejs\node.exe" --test test/
 ```
+
+Модули с чистой логикой (`10_util.js`, `70_progress.js`) не обращаются к `window`/`Lampa`/jQuery
+и проверяются тестами напрямую через `test/_load.mjs`. Остальные модули (`30_css.js`,
+`40_template.js`, `80_settings.js`, `90_runtime.js`) — фрагменты одной IIFE, которую открывает
+`00_head.js` и закрывает `99_tail.js`; они проверяются сборкой, es5check и ручной проверкой в
+тест-стенде / реальной Lampa.
