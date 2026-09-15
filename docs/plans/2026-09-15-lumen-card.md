@@ -686,6 +686,8 @@ Array.prototype.map.call(document.querySelectorAll('.activity--active .buttons--
 
 ### Task 6: Слайдшоу кадров
 
+> **ВЫПОЛНЕНО** (3e7fe87, 8f17d3e, 2679d76, 7bd4ed2, 8119df6, 93e4487, 22730e6, 49a7afe; 4 раунда ревью качества): контроллер `LC.slideshow` в `src/51_slideshow.js` (`create` → `activate/pause/resume/destroy/isAlive`), кроссфейд 1.2 с, Ken Burns только в `lumen-motion-full` с заморозкой уходящего кадра, в памяти ≤ 2 тёплых кадра, пауза в тике по `.activity--active`, `LC.onActivityEvent` (destroy → cancel, в том числе у карточек из истории; start/archive → восстановление `LC.active`), `LC.backdrops.revive` — пересоздание ротации после молчаливого `ActivitySlide.stop()` Lampa без вспышки; `LC.applyMotionMode` синхронизирует слой фона; общий фейковый DOM `test/_fakedom.mjs`; 255 тестов, стенд 31/31, хэши 7/7.
+
 > **Поправки контроллера:**
 > - Тест Step 1 противоречит коду Step 2: для данных теста правильный результат `['/main', '/c', '/a']` (узкий `/d` уходит в конец очереди и в `max = 3` не попадает). Исправить ожидание, логику не менять.
 > - Интервал `lumen_slide_interval`: 8 / 14 / 20 с, по умолчанию 14 (экран 09, Task 10); кроссфейд 1.2 с `ease-in-out`, наезд 14 с (экран 12).
