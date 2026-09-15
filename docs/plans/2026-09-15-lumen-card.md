@@ -172,13 +172,24 @@ C:\Users\azark\Новая папка\lumen-card\
 if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.backdrops;
 ```
 
-В браузере `module` не определён, ветка не выполняется. В тестах `require('../src/50_backdrops.js')` работает, потому что `LC` объявляется в модуле как `var LC = (typeof window !== 'undefined' && window.LC) || (typeof LC !== 'undefined' ? LC : {});` — см. Task 2.
+В браузере `module` не определён, ветка не выполняется; метку `lumen` ставит только тестовый загрузчик `test/_load.mjs`, поэтому чужой глобальный `module` (Electron/NW.js) не затирается.
+
+### 1.1 Контракт модулей (источник правды — код после Task 2 и README «Разработка»)
+
+- Все `src/NN_*.js` — фрагменты тела одной IIFE. `00_head.js`: guard и сразу флаг `window.lumen_card_plugin = true`, затем `var LC = {}; window.lumen_card = LC;`. Глобала `window.LC` нет.
+- Из `00_head.js` неявно доступны только `LC`, `PLUGIN`, `warn`. Любая другая связь между модулями — только через `LC.*`.
+- Модуль с чистой логикой пишется как `LC.name = (function () { …; return { … }; })();` — голых `function`/`var` на уровне тела IIFE он не создаёт. `scripts/build.mjs` падает, если одно имя верхнего уровня (`/^ {2}(?:function|var)\s+name/`) объявлено в двух файлах.
+- Экспорт для тестов: после присваивания `if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.name;`. Тесты грузят модуль через `load('NN_x.js')` из `test/_load.mjs`.
+- Сборка: `node scripts/build.mjs` (запись через временный файл, баннер без даты), `node scripts/build.mjs --check` (dist актуален), `node scripts/es5check.mjs dist/lumen_card.js` (acorn `ecmaVersion: 5` + запрещённые API по токенам, строки выводятся как `NN_x.js:строка`), `node --test "test/*.test.mjs"`.
+- `LC.util` (после Task 2): `esc` (включая `'`), `pad2`, `plural(n, forms)`, `initials`, `fmtTime(sec)` → `HH:MM` при ≥ 1 ч, иначе `MM:SS`, `fmtRuntime(min, unit)`, `each/map/filter/find`. Функций `clamp/once/debounce` и `LC.PREFIX` нет — если понадобятся, добавить в `10_util.js` с тестом.
 
 ---
 
 ## 2. Задачи
 
 ### Task 1: Приёмка v1 от executor'а
+
+> **ВЫПОЛНЕНО.** Результат — `docs/plans/acceptance-v1.md`; дефекты перенесены в Task 5 (Step 3b).
 
 **Files:**
 - Read: `C:\Users\azark\Новая папка\lumen-card\lumen_card.js`, `harness\index.html`, `README.md`, отчёт executor'а
@@ -208,6 +219,8 @@ Expected: `SYNTAX_OK`, grep пустой. Если grep нашёл — запи�
 ---
 
 ### Task 2: Инфраструктура сборки и тестов, перенос v1 в src/
+
+> **ВЫПОЛНЕНО** (коммиты `4883cb3`, `08f59a0` и исправления по ревью качества). Шаги ниже — исходная постановка, реализация от неё отличается: `fmtTime` в формате v1 (`HH:MM`/`MM:SS`, не `HH:MM:SS`), нет `clamp/once/debounce/LC.PREFIX`, нет пометки `/* jq */` (линт на парсере acorn), флаг ставится в `00_head.js`, глобал `window.lumen_card` вместо `window.LC`, чистые модули обёрнуты в IIFE. Источник правды — раздел 1.1 и код. Не «возвращай» тесты и код из шагов ниже.
 
 **Files:**
 - Create: `scripts/build.mjs`, `scripts/es5check.mjs`, `scripts/chunks.mjs`, `.gitignore`
