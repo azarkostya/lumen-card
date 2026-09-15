@@ -48,6 +48,7 @@
 - **Модалки**: `Lampa.Modal.open({title, html, size, onBack})` включает контроллер `modal` и фокус не восстанавливает. Перед открытием запомнить `Lampa.Controller.enabled().name`, в `onBack` — `Lampa.Modal.close(); Lampa.Controller.toggle(сохранённое)`.
 - **Ряды карточки**: свой тип ряда создать нельзя (`components` — замыкание `full.js`). `e.link.rows.push(['cards'|'discuss', data])` на `type:'start'` работает только для штатных типов, позиция не гарантирована (`discuss` вставляется на индекс 2), строятся лениво по 3. Поэтому наши блоки (отзывы, факты) встраиваем в DOM ряда описания — его контроллер `full_descr` собирает все `.selector` внутри себя.
 - **Установка плагина пользователем**: Настройки → Расширения → «+» → URL `.js` → согласие с предупреждением. Lampa грузит через `Lampa.Utils.putScriptAsync(urls, complite, error, success, show_logs)`.
+- **Кнопки и хэш приоритета**: в `full.js` порядок синхронный — `Listener.send('full', {type:'complite'})` → `items[0].emit('groupButtons')` → `activity.toggle()`. `groupButtons` сравнивает `Lampa.Utils.hash($(btn).clone().removeClass('focus').prop('outerHTML'))` с сохранённым `Storage 'full_btn_priority'`. Online Mod (`nb557.github.io/plugins/online_mod.js`) на том же `complite` делает `e.object.activity.render().find('.view--torrent').after(btn)` с кнопкой `.full-start__button.selector.view--online_mod` и своим svg. Поэтому **outerHTML кнопок менять нельзя никогда** (ни в шаблоне, ни после вставки): любое изменение в зависимости от порядка обработчиков сбивает приоритетную кнопку пользователя. Иконки, цвета и подписи кнопок — только через CSS.
 
 ### 0.3 Инварианты (нарушение = провал задачи)
 
@@ -364,7 +365,7 @@ cd "C:/Users/azark/Новая папка/lumen-card" && git init -b main && prin
 
 **Files:**
 - Create: `src/20_icons.js`
-- Modify: `src/40_template.js` (svg в кнопках заменить на `LC.icons.get('play')` и т.д.)
+- Modify: `src/30_css.js` (`LC.buildCss` дописывает `LC.icons.css()` в конец массива правил). `src/40_template.js` НЕ трогать: svg кнопок остаются 1:1 с Lampa — от outerHTML зависит хэш приоритетной кнопки (см. 0.2 «Кнопки и хэш приоритета»)
 - Test: `test/icons.test.mjs`
 
 - [ ] **Step 1: Тест**
@@ -387,6 +388,28 @@ test('все иконки в одном формате', () => {
 test('map кнопок Lampa покрыт', () => {
   for (const cls of ['button--play','button--book','button--reaction','button--subscribe','button--options','view--torrent','view--trailer'])
     assert.ok(icons.forButton(cls), cls);
+});
+test('маска: валидный data-URI без сырых кавычек и решёток, без currentColor', () => {
+  for (const name of icons.names()) {
+    const url = icons.maskUrl(name);
+    assert.match(url, /^url\("data:image\/svg\+xml;charset=utf-8,%3Csvg/);
+    const payload = url.slice(url.indexOf(',') + 1, -2);
+    assert.ok(!/["#<>]/.test(payload), name + ': неэкранированный символ');
+    assert.ok(decodeURIComponent(payload).indexOf('currentColor') === -1, name);
+  }
+});
+test('css: прячет исходный svg и рисует маску, DOM кнопок не трогает', () => {
+  const css = icons.css();
+  assert.match(css, /\.lumen-card \.full-start__button\.button--play > svg\{display:none !important\}/);
+  assert.match(css, /\.lumen-card \.full-start__button\.view--torrent:before\{[^}]*-webkit-mask-image:url\(/);
+  assert.match(css, /\[class\*="view--online"\]:before/);
+  // все правила ограничены корнем плагина
+  for (const rule of css.split('\n')) assert.ok(rule.indexOf('.lumen-card ') === 0, rule);
+});
+test('модуль не содержит DOM-мутаций кнопок', async () => {
+  const { readFileSync } = await import('node:fs');
+  const src = readFileSync(new URL('../src/20_icons.js', import.meta.url), 'utf8');
+  assert.ok(!/\.(prepend|append|remove|html|replaceWith)\(/.test(src));
 });
 ```
 
@@ -419,21 +442,46 @@ test('map кнопок Lampa покрыт', () => {
     }
     function names() { var r = []; for (var k in P) if (P.hasOwnProperty(k)) r.push(k); return r; }
     function forButton(cls) { return byButton[cls] || null; }
-    // заменяет svg в кнопках карточки (в т.ч. добавленных другими плагинами в .buttons--container)
-    function replaceIn($root) {
-      $root.find('.full-start__button').each(function () { /* jq */
-        var $b = $(this), cls = (this.className || '').split(/\s+/), ico = null;
-        for (var i = 0; i < cls.length; i++) if (byButton[cls[i]]) { ico = byButton[cls[i]]; break; }
-        if (!ico && $b.hasClass('button--priority')) ico = 'play';
-        if (ico) { $b.find('svg').remove(); $b.prepend(get(ico)); } /* jq */
-      });
+    // Отдельный svg для CSS-маски: цвет не важен (маска берёт альфу), currentColor в data-URI не работает — ставим #000
+    function maskSvg(name) {
+      var paint = (name === 'play' || name === 'more') ? 'fill="#000"' : 'fill="none" stroke="#000" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"';
+      return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" ' + paint + '>' + P[name].replace(/currentColor/g, '#000') + '</svg>';
     }
-    return { get: get, names: names, forButton: forButton, replaceIn: replaceIn };
+    function maskUrl(name) {
+      return 'url("data:image/svg+xml;charset=utf-8,' + encodeURIComponent(maskSvg(name)) + '")';
+    }
+    // Иконки кнопок заменяются ТОЛЬКО через CSS: outerHTML кнопок не меняется (хэш приоритета, см. план 0.2).
+    // Селекторы по классу покрывают и клон .button--priority, и кнопки, вставленные другими плагинами позже.
+    function css() {
+      var rules = [], sel, k, name;
+      var map = {};
+      for (k in byButton) if (byButton.hasOwnProperty(k)) map['.' + k] = byButton[k];
+      map['[class*="view--online"]'] = 'play'; // Online Mod и аналоги: .view--online_mod, .view--online
+      for (sel in map) {
+        if (!map.hasOwnProperty(sel)) continue;
+        name = map[sel];
+        var btn = '.lumen-card .full-start__button' + sel;
+        rules.push(btn + ' > svg{display:none !important}');
+        rules.push(btn + ':before{content:"";display:block;-webkit-flex-shrink:0;flex-shrink:0;width:1.625em;height:1.625em;background-color:currentColor;-webkit-mask-image:' + maskUrl(name) + ';mask-image:' + maskUrl(name) + ';-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;-webkit-mask-size:contain;mask-size:contain}');
+      }
+      return rules.join('\n');
+    }
+    return { get: get, names: names, forButton: forButton, maskSvg: maskSvg, maskUrl: maskUrl, css: css };
   })();
   if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.icons;
 ```
 
-- [ ] **Step 3: Тесты зелёные, сборка, стенд**: `node --test test/`, `node scripts/build.mjs`, скриншот стенда — у всех кнопок одинаковая толщина линий. Commit `feat: единый набор иконок`.
+- [ ] **Step 3: Подключить CSS**: в конце `LC.buildCss` (`src/30_css.js`) добавить `css.push(LC.icons.css());`. Порядок сборки (`20_icons.js` раньше `30_css.js`) гарантирует, что `LC.icons` уже определён. Существующее правило v1 `.full-start__button > svg{width:1.625em;height:1.625em}` оставить — оно работает для кнопок без маски (неизвестные плагины). Правило «текст виден только в фокусе у иконочных кнопок» из v1 не менять.
+
+- [ ] **Step 4: Тесты, сборка, линт**: `node --test "test/*.test.mjs"`, `node scripts/build.mjs`, `node scripts/es5check.mjs dist/lumen_card.js` — всё зелёное.
+
+- [ ] **Step 5: Живая проверка хэша приоритета (обязательно)** в локальной Lampa (0.8). В консоли вкладки ДО загрузки плагина снять эталон: открыть «Дюну», выполнить
+```js
+Array.prototype.map.call(document.querySelectorAll('.activity--active .buttons--container .full-start__button, .activity--active .full-start-new__buttons .full-start__button'), function (b) { var c = b.cloneNode(true); c.classList.remove('focus'); return b.className.replace(/\s*focus\s*/, ' ').trim() + ' ' + Lampa.Utils.hash(c.outerHTML); })
+```
+Затем перезагрузить вкладку, загрузить `dist/lumen_card.js`, открыть «Дюну» снова, выполнить тот же код. Хэши кнопок `button--book`, `button--reaction`, `button--options`, `view--trailer`, `view--torrent` (и `button--play`, если его разметка совпадает с оригиналом) обязаны совпасть с эталоном. Дополнительно эмулировать Online Mod: до открытия карточки `Lampa.Listener.follow('full', function(e){ if(e.type=='complite') e.object.activity.render().find('.view--torrent').after('<div class="full-start__button selector view--online_mod"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/></svg><span>Онлайн</span></div>'); })` — у этой кнопки исходный svg скрыт (`getComputedStyle(svg).display === 'none'`), у псевдоэлемента `:before` задан `-webkit-mask-image` (`getComputedStyle(btn, ':before').webkitMaskImage` начинается с `url(`). Скриншот ряда кнопок: все иконки одной толщины, в фокусе иконка тёмная на акцентной заливке.
+
+- [ ] **Step 6: Commit** `feat: единый набор иконок через CSS-маски`.
 
 ---
 
