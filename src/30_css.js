@@ -84,12 +84,38 @@
     css.push('.lumen-backdrop--proc0 .lumen-backdrop__img{background:radial-gradient(ellipse 56% 57% at 72% 58%,rgba(255,214,150,0.85) 0%,rgba(232,150,80,0.40) 28%,rgba(232,150,80,0) 70%),linear-gradient(180deg,#1A0D08 0%,#7A2E12 42%,#D9622B 60%,#E8B87A 78%,#3A2418 100%)}');
     css.push('.lumen-backdrop--proc1 .lumen-backdrop__img{background:radial-gradient(ellipse 52% 52% at 74% 52%,rgba(238,214,120,0.78) 0%,rgba(200,170,70,0.35) 30%,rgba(200,170,70,0) 70%),linear-gradient(180deg,#0F1210 0%,#3A3E22 45%,#B99A3A 66%,#6E5A24 82%,#17140E 100%)}');
     css.push('.lumen-backdrop--proc2 .lumen-backdrop__img{background:radial-gradient(ellipse 58% 55% at 68% 54%,rgba(190,214,236,0.70) 0%,rgba(120,150,190,0.32) 30%,rgba(120,150,190,0) 70%),linear-gradient(180deg,#07090E 0%,#1B2536 44%,#46617F 64%,#8FA6BC 80%,#181C22 100%)}');
+    /* Task 5b Step 3/4 (design-spec §12, дополнение к задаче): нет кадра
+       (режимы 'poster'/'procedural' LC.cardinfo.bgMode, либо кадр из
+       режима 'backdrop' не загрузился/завис) -> размытый постер поверх
+       диагонального градиента. blur(40px)=1.75em, opacity:.8 — числа из
+       дополнения к Task 5b (экран 13 сам даёт только уменьшенный макет,
+       числового fullscreen-примера не содержит). Блюр — только в полном
+       режиме анимаций (lumen-motion-full): в lite/off дорого для ТВ,
+       остаётся только затемнение (opacity). .lumen-backdrop — сосед
+       карточки в DOM, не потомок (см. 50_backdrops.js) — режим анимаций
+       поэтому зеркалится прямо на этот слой, а не читается через .lumen-card. */
+    css.push('.lumen-backdrop.lumen-bg--blur{background:linear-gradient(160deg,#2A1B10 0%,#1A110B 38%,#0B0908 72%)}');
+    css.push('.lumen-backdrop.lumen-bg--blur .lumen-backdrop__img{background-position:50% 50%;opacity:.8}');
+    css.push('.lumen-backdrop.lumen-motion-full.lumen-bg--blur .lumen-backdrop__img{-webkit-filter:blur(1.75em);filter:blur(1.75em);-webkit-transform:scale(1.1);transform:scale(1.1)}');
+    css.push('.lumen-backdrop.lumen-motion-lite.lumen-bg--blur .lumen-backdrop__img,.lumen-backdrop.lumen-motion-off.lumen-bg--blur .lumen-backdrop__img{-webkit-transform:none;transform:none}');
     css.push('.full-start__background.lumen-off{display:none !important}');
 
     /* --- Корень карточки --- */
     /* Task 5a Step 4 (design-spec §1): safe area 64px по всем краям (÷22.811 = 2.81em). */
     css.push('.full-start-new.lumen-card{position:relative;padding:0 2.81em 2.81em;color:' + C.text + ';font-family:' + FB + '}');
     css.push('.lumen-card .full-start-new__left{display:none !important}');
+    /* Task 5b Step 2 (design-spec §11, экран 04): режим 'poster' (нет
+       кадров, есть постер) показывает постер 2:3 — v1-правило выше скрывает
+       .full-start-new__left безусловно, переопределяем его здесь большей
+       специфичностью (3 класса против 2) + !important, как требуют поправки
+       контроллера. order/align-self переносят постер в конец строки
+       .full-start-new__body (визуально справа, design screen 04 держит его
+       у правого края) и к верхнему краю (top:140px дизайна), не трогая
+       .full-start-new__right — он остаётся первым и растягивается (flex-grow:1). */
+    css.push('.lumen-card.lumen-card--poster .full-start-new__left{display:block !important;-webkit-box-ordinal-group:2;-webkit-order:1;order:1;-webkit-align-self:flex-start;-ms-flex-item-align:start;align-self:flex-start;-webkit-flex-shrink:0;flex-shrink:0;width:16.66em;margin:6.14em 0 0 2.63em}');
+    css.push('.lumen-card.lumen-card--poster .full-start-new__poster{border-radius:.61em;overflow:hidden;background:linear-gradient(180deg,' + C.panel + ',#0E0B09);border:.04em solid ' + C.line + ';box-shadow:0 .88em 2.63em rgba(0,0,0,.6)}');
+    css.push('.lumen-card.lumen-card--poster .full-start-new__img{border-radius:.61em}');
+    css.push('.lumen-card.lumen-card--poster .lumen-poster-tmdb{position:absolute;left:0;right:0;bottom:0;padding:0 1.05em 1.05em;font-family:' + FD + ';font-weight:600;font-size:.88em;line-height:1.3;color:' + C.smoke + '}');
     css.push('.lumen-card .full-start-new__body{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:end;-webkit-align-items:flex-end;align-items:flex-end;min-height:74vh}');
     css.push('.lumen-card .full-start-new__right{-webkit-box-flex:1;-webkit-flex-grow:1;flex-grow:1;min-width:0}');
     /* .lumen-content — сетка из двух колонок: шесть .lumen-in (главная колонка,

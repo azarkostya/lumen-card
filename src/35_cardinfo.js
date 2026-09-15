@@ -173,6 +173,27 @@
       return pg;
     }
 
+    /* Task 5b Step 1: режим фона ДО попытки реальной загрузки картинки
+       (onload/onerror/таймаут — уже забота LC.backdrops, не этой чистой
+       функции). 'backdrop' — есть movie.backdrop_path, либо в
+       movie.images.backdrops[] нашёлся элемент с file_path и БЕЗ iso_639_1
+       (кадр без текста/логотипа — план 0.2 «Картинки»/Task 5b Step 1).
+       'poster' — кадров нет, но есть poster_path. 'procedural' — нет
+       вообще ничего, тогда фон — старые процедурные градиенты v1. */
+    function bgMode(movie) {
+      movie = movie || {};
+      if (movie.backdrop_path) return 'backdrop';
+
+      var backdrops = (movie.images && movie.images.backdrops) || [];
+      for (var i = 0; i < backdrops.length; i++) {
+        var b = backdrops[i];
+        if (b && b.file_path && !b.iso_639_1) return 'backdrop';
+      }
+
+      if (movie.poster_path) return 'poster';
+      return 'procedural';
+    }
+
     return {
       country: country,
       director: director,
@@ -184,7 +205,8 @@
       imageUrl: imageUrl,
       isSerial: isSerial,
       genres: genres,
-      pgText: pgText
+      pgText: pgText,
+      bgMode: bgMode
     };
   })();
 

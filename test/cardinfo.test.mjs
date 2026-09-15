@@ -251,3 +251,58 @@ test('imageUrl: tmdbImage бросает исключение -> фолбэк н
   const url = cardinfo.imageUrl('/eZ239.jpg', 'w1280', throwing, apiImgStub);
   assert.equal(url, 'https://image.tmdb.org/t/p/w1280/eZ239.jpg');
 });
+
+/* -------------------------------------------------------------------- */
+/* bgMode (Task 5b Step 1, TDD): режим фона по данным movie, ДО попытки  */
+/* реальной загрузки картинки — 'backdrop' (есть кадр или пригодный      */
+/* элемент images.backdrops), 'poster' (кадров нет, но есть постер),     */
+/* 'procedural' (нет вообще ничего, v1-градиенты). Порядок движка загрузки */
+/* самой картинки (onload/onerror/таймаут) — забота LC.backdrops, не эта  */
+/* чистая функция. */
+/* -------------------------------------------------------------------- */
+
+test('bgMode: есть backdrop_path -> backdrop', () => {
+  assert.equal(cardinfo.bgMode({ backdrop_path: '/x.jpg' }), 'backdrop');
+});
+
+test('bgMode: backdrop_path пуст, но в images.backdrops есть элемент без iso_639_1 -> backdrop', () => {
+  const movie = {
+    images: { backdrops: [
+      { file_path: '/logo.jpg', iso_639_1: 'en' },
+      { file_path: '/frame.jpg', iso_639_1: null }
+    ] }
+  };
+  assert.equal(cardinfo.bgMode(movie), 'backdrop');
+});
+
+test('bgMode: в images.backdrops только элементы с iso_639_1 (текст/логотипы) -> не backdrop', () => {
+  const movie = {
+    poster_path: '/poster.jpg',
+    images: { backdrops: [{ file_path: '/logo.jpg', iso_639_1: 'en' }] }
+  };
+  assert.equal(cardinfo.bgMode(movie), 'poster');
+});
+
+test('bgMode: элемент images.backdrops без file_path не считается -> не backdrop', () => {
+  const movie = { poster_path: '/poster.jpg', images: { backdrops: [{ iso_639_1: null }] } };
+  assert.equal(cardinfo.bgMode(movie), 'poster');
+});
+
+test('bgMode: нет кадров, есть poster_path -> poster', () => {
+  assert.equal(cardinfo.bgMode({ poster_path: '/p.jpg' }), 'poster');
+});
+
+test('bgMode: нет ничего -> procedural', () => {
+  assert.equal(cardinfo.bgMode({}), 'procedural');
+  assert.equal(cardinfo.bgMode({ images: { backdrops: [] } }), 'procedural');
+});
+
+test('bgMode: movie не передан (null/undefined) -> procedural, без исключения', () => {
+  assert.equal(cardinfo.bgMode(null), 'procedural');
+  assert.equal(cardinfo.bgMode(undefined), 'procedural');
+});
+
+test('bgMode: images без backdrops -> как отсутствие кадров', () => {
+  assert.equal(cardinfo.bgMode({ poster_path: '/p.jpg', images: {} }), 'poster');
+  assert.equal(cardinfo.bgMode({ images: {} }), 'procedural');
+});

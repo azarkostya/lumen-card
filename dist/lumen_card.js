@@ -305,12 +305,38 @@
     css.push('.lumen-backdrop--proc0 .lumen-backdrop__img{background:radial-gradient(ellipse 56% 57% at 72% 58%,rgba(255,214,150,0.85) 0%,rgba(232,150,80,0.40) 28%,rgba(232,150,80,0) 70%),linear-gradient(180deg,#1A0D08 0%,#7A2E12 42%,#D9622B 60%,#E8B87A 78%,#3A2418 100%)}');
     css.push('.lumen-backdrop--proc1 .lumen-backdrop__img{background:radial-gradient(ellipse 52% 52% at 74% 52%,rgba(238,214,120,0.78) 0%,rgba(200,170,70,0.35) 30%,rgba(200,170,70,0) 70%),linear-gradient(180deg,#0F1210 0%,#3A3E22 45%,#B99A3A 66%,#6E5A24 82%,#17140E 100%)}');
     css.push('.lumen-backdrop--proc2 .lumen-backdrop__img{background:radial-gradient(ellipse 58% 55% at 68% 54%,rgba(190,214,236,0.70) 0%,rgba(120,150,190,0.32) 30%,rgba(120,150,190,0) 70%),linear-gradient(180deg,#07090E 0%,#1B2536 44%,#46617F 64%,#8FA6BC 80%,#181C22 100%)}');
+    /* Task 5b Step 3/4 (design-spec §12, дополнение к задаче): нет кадра
+       (режимы 'poster'/'procedural' LC.cardinfo.bgMode, либо кадр из
+       режима 'backdrop' не загрузился/завис) -> размытый постер поверх
+       диагонального градиента. blur(40px)=1.75em, opacity:.8 — числа из
+       дополнения к Task 5b (экран 13 сам даёт только уменьшенный макет,
+       числового fullscreen-примера не содержит). Блюр — только в полном
+       режиме анимаций (lumen-motion-full): в lite/off дорого для ТВ,
+       остаётся только затемнение (opacity). .lumen-backdrop — сосед
+       карточки в DOM, не потомок (см. 50_backdrops.js) — режим анимаций
+       поэтому зеркалится прямо на этот слой, а не читается через .lumen-card. */
+    css.push('.lumen-backdrop.lumen-bg--blur{background:linear-gradient(160deg,#2A1B10 0%,#1A110B 38%,#0B0908 72%)}');
+    css.push('.lumen-backdrop.lumen-bg--blur .lumen-backdrop__img{background-position:50% 50%;opacity:.8}');
+    css.push('.lumen-backdrop.lumen-motion-full.lumen-bg--blur .lumen-backdrop__img{-webkit-filter:blur(1.75em);filter:blur(1.75em);-webkit-transform:scale(1.1);transform:scale(1.1)}');
+    css.push('.lumen-backdrop.lumen-motion-lite.lumen-bg--blur .lumen-backdrop__img,.lumen-backdrop.lumen-motion-off.lumen-bg--blur .lumen-backdrop__img{-webkit-transform:none;transform:none}');
     css.push('.full-start__background.lumen-off{display:none !important}');
 
     /* --- Корень карточки --- */
     /* Task 5a Step 4 (design-spec §1): safe area 64px по всем краям (÷22.811 = 2.81em). */
     css.push('.full-start-new.lumen-card{position:relative;padding:0 2.81em 2.81em;color:' + C.text + ';font-family:' + FB + '}');
     css.push('.lumen-card .full-start-new__left{display:none !important}');
+    /* Task 5b Step 2 (design-spec §11, экран 04): режим 'poster' (нет
+       кадров, есть постер) показывает постер 2:3 — v1-правило выше скрывает
+       .full-start-new__left безусловно, переопределяем его здесь большей
+       специфичностью (3 класса против 2) + !important, как требуют поправки
+       контроллера. order/align-self переносят постер в конец строки
+       .full-start-new__body (визуально справа, design screen 04 держит его
+       у правого края) и к верхнему краю (top:140px дизайна), не трогая
+       .full-start-new__right — он остаётся первым и растягивается (flex-grow:1). */
+    css.push('.lumen-card.lumen-card--poster .full-start-new__left{display:block !important;-webkit-box-ordinal-group:2;-webkit-order:1;order:1;-webkit-align-self:flex-start;-ms-flex-item-align:start;align-self:flex-start;-webkit-flex-shrink:0;flex-shrink:0;width:16.66em;margin:6.14em 0 0 2.63em}');
+    css.push('.lumen-card.lumen-card--poster .full-start-new__poster{border-radius:.61em;overflow:hidden;background:linear-gradient(180deg,' + C.panel + ',#0E0B09);border:.04em solid ' + C.line + ';box-shadow:0 .88em 2.63em rgba(0,0,0,.6)}');
+    css.push('.lumen-card.lumen-card--poster .full-start-new__img{border-radius:.61em}');
+    css.push('.lumen-card.lumen-card--poster .lumen-poster-tmdb{position:absolute;left:0;right:0;bottom:0;padding:0 1.05em 1.05em;font-family:' + FD + ';font-weight:600;font-size:.88em;line-height:1.3;color:' + C.smoke + '}');
     css.push('.lumen-card .full-start-new__body{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:end;-webkit-align-items:flex-end;align-items:flex-end;min-height:74vh}');
     css.push('.lumen-card .full-start-new__right{-webkit-box-flex:1;-webkit-flex-grow:1;flex-grow:1;min-width:0}');
     /* .lumen-content — сетка из двух колонок: шесть .lumen-in (главная колонка,
@@ -731,6 +757,27 @@
       return pg;
     }
 
+    /* Task 5b Step 1: режим фона ДО попытки реальной загрузки картинки
+       (onload/onerror/таймаут — уже забота LC.backdrops, не этой чистой
+       функции). 'backdrop' — есть movie.backdrop_path, либо в
+       movie.images.backdrops[] нашёлся элемент с file_path и БЕЗ iso_639_1
+       (кадр без текста/логотипа — план 0.2 «Картинки»/Task 5b Step 1).
+       'poster' — кадров нет, но есть poster_path. 'procedural' — нет
+       вообще ничего, тогда фон — старые процедурные градиенты v1. */
+    function bgMode(movie) {
+      movie = movie || {};
+      if (movie.backdrop_path) return 'backdrop';
+
+      var backdrops = (movie.images && movie.images.backdrops) || [];
+      for (var i = 0; i < backdrops.length; i++) {
+        var b = backdrops[i];
+        if (b && b.file_path && !b.iso_639_1) return 'backdrop';
+      }
+
+      if (movie.poster_path) return 'poster';
+      return 'procedural';
+    }
+
     return {
       country: country,
       director: director,
@@ -742,7 +789,8 @@
       imageUrl: imageUrl,
       isSerial: isSerial,
       genres: genres,
-      pgText: pgText
+      pgText: pgText,
+      bgMode: bgMode
     };
   })();
 
@@ -988,6 +1036,204 @@
   })();
 
   if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.template;
+
+
+/* ---- 50_backdrops.js ---- */
+  /* -------------------------------------------------------------------- */
+  /* Фон карточки (Task 5b: перенесено из 90_runtime.js без изменения      */
+  /* поведения для режима 'backdrop'; добавлены режимы 'poster' и          */
+  /* 'procedural' по LC.cardinfo.bgMode). Публично — LC.backdrops.apply     */
+  /* (root, body, movie), её вызывает Listener 'full' в 90_runtime.js на    */
+  /* complite (там же, где раньше был applyBackdrop). Task 6 добавит сюда   */
+  /* же pickBackdrops и слайдшоу кадров. URL любых картинок — только через  */
+  /* LC.cardinfo.imageUrl (план 0.2 «Картинки», прокси TMDB, без двойного   */
+  /* слэша). */
+  /* -------------------------------------------------------------------- */
+
+  function tmdbImageFn() {
+    if (window.Lampa && Lampa.TMDB && typeof Lampa.TMDB.image === 'function') {
+      return function (url) { return Lampa.TMDB.image(url); };
+    }
+    return null;
+  }
+
+  function apiImgFn() {
+    if (window.Lampa && Lampa.Api && typeof Lampa.Api.img === 'function') {
+      return function (path, size) { return Lampa.Api.img(path, size); };
+    }
+    return null;
+  }
+
+  function backdropUrl(movie) {
+    var url = '';
+    try {
+      if (movie.backdrop_path) url = LC.cardinfo.imageUrl(movie.backdrop_path, 'w1280', tmdbImageFn(), apiImgFn());
+    } catch (e) {
+      warn('image url failed', e);
+    }
+    if (!url && movie.background_image) url = movie.background_image;
+    return url;
+  }
+
+  /* Task 5b Step 3: постер для размытого фона — 'w500', то же качество,
+     которое родная Poster.onCreate (app.min.js) грузит в .full--poster
+     (card.img = Api.img(poster_path, ...).replace(/\/w\d+/, '/w500')) —
+     сам постер-<img> плагин не трогает, эта функция только про фон. */
+  function posterUrl(movie) {
+    try {
+      if (movie.poster_path) return LC.cardinfo.imageUrl(movie.poster_path, 'w500', tmdbImageFn(), apiImgFn());
+    } catch (e) {
+      warn('poster url failed', e);
+    }
+    return '';
+  }
+
+  function procClass(movie) {
+    var id = parseInt(movie && movie.id, 10);
+    if (isNaN(id)) id = 0;
+    return 'lumen-backdrop--proc' + (Math.abs(id) % 3);
+  }
+
+  /* .lumen-backdrop лежит в e.body — сосед карточки (.lumen-card вложена
+     глубже, внутри .scroll__body), обычный потомковый селектор вида
+     .lumen-card.lumen-motion-lite … .lumen-backdrop тут не сработает
+     (план 1.1: ALLOWED_ROOTS в css.test.mjs держит .lumen-backdrop как
+     самостоятельный корень отдельно от .lumen-card). Поэтому режим
+     анимаций зеркалится прямо на сам слой фона — CSS для .lumen-bg--blur
+     читает класс lumen-motion-* на .lumen-backdrop (design-spec §12/доп.
+     к Task 5b: в lite/off — без filter:blur, только затемнение). */
+  function syncMotionClass(layer) {
+    try {
+      layer.removeClass('lumen-motion-full lumen-motion-lite lumen-motion-off').addClass('lumen-motion-' + LC.motionMode());
+    } catch (e) { }
+  }
+
+  /* Task 5b Step 5 (утечки): перед любой мутацией DOM после асинхронного
+     ответа (Image().onload/onerror/таймер) — проверяем, что узел ещё в
+     документе. Карточку могли закрыть до ответа: Lampa убирает весь
+     .activity__body (а с ним и .lumen-backdrop) при destroy активности. */
+  function isMounted(node) {
+    try { return !!(node && document.documentElement && document.documentElement.contains(node)); } catch (e) { return false; }
+  }
+
+  function ensureLayer(body) {
+    var layer = body.children('.lumen-backdrop');
+    if (!layer.length) {
+      layer = $('<div class="lumen-backdrop">' +
+        '<div class="lumen-backdrop__img"></div>' +
+        '<div class="lumen-backdrop__veil lumen-backdrop__veil--l"></div>' +
+        '<div class="lumen-backdrop__veil lumen-backdrop__veil--b"></div>' +
+        '<div class="lumen-backdrop__veil lumen-backdrop__veil--t"></div>' +
+        '</div>');
+      body.prepend(layer);
+    }
+    return layer;
+  }
+
+  function clearLayer(layer) {
+    layer.removeClass('lumen-backdrop--proc0 lumen-backdrop--proc1 lumen-backdrop--proc2 lumen-bg--blur');
+  }
+
+  /* Task 5b Step 3/4: нет кадра — ни в режиме 'poster'/'procedural', ни
+     когда кадр из режима 'backdrop' не загрузился/завис (design-spec §12,
+     дополнение к Task 5b: размытый постер, blur(40px)=1.75em, opacity:.8
+     поверх диагонального градиента — сам градиент в CSS у .lumen-bg--blur).
+     Постера тоже нет — старые процедурные градиенты v1, без изменений. */
+  function showNoFrame(layer, movie) {
+    var img = layer.find('.lumen-backdrop__img');
+    var url = posterUrl(movie);
+    if (url) {
+      img.css('background-image', 'url("' + encodeURI(url) + '")');
+      syncMotionClass(layer);
+      layer.addClass('lumen-bg--blur').addClass('loaded');
+    } else {
+      img.css('background-image', '');
+      layer.addClass(procClass(movie)).addClass('loaded');
+    }
+  }
+
+  /* Task 5b Step 3: предзагрузка кадра как в v1 (Image().onload/onerror),
+     плюс таймаут 8с (экран 13 design-spec §12 не даёт точного числа
+     зависания — восьмисекундный таймаут свой). Любая ветка завершения
+     (onload/onerror/таймер) проходит через finish(), которая гасит все
+     остальные пути и таймер — второй мутации после первой не будет. */
+  function loadBackdrop(layer, movie) {
+    var url = backdropUrl(movie);
+    var img = layer.find('.lumen-backdrop__img');
+
+    if (!url) { showNoFrame(layer, movie); return; }
+
+    img.css('background-image', '');
+    var node = layer[0];
+    var done = false;
+    var timer = null;
+    var loader = new Image();
+
+    function finish(ok) {
+      if (done) return;
+      done = true;
+      if (timer) { clearTimeout(timer); timer = null; }
+      loader.onload = null;
+      loader.onerror = null;
+      if (!isMounted(node)) return;
+      if (ok) {
+        try {
+          /* encodeURI страхует от "/\/) в URL, которые сломали бы строку url("...") */
+          img.css('background-image', 'url("' + encodeURI(url) + '")');
+          layer.addClass('loaded');
+        } catch (e) { }
+      } else {
+        showNoFrame(layer, movie);
+      }
+    }
+
+    loader.onload = function () { finish(true); };
+    loader.onerror = function () { finish(false); };
+    timer = setTimeout(function () { finish(false); }, 8000);
+    loader.src = url;
+  }
+
+  /* Task 5b Step 2: сам <img class="full--poster"> заполняет родная
+     Lampa (Poster.onCreate в app.min.js: card.img из poster_path, w500,
+     добавляет .loaded на .full-start-new__poster сама) — плагин его не
+     трогает вовсе, только раскрывает узел через CSS (.lumen-card--poster,
+     v1-правило .full-start-new__left{display:none} переопределяется там
+     большей специфичностью + !important) и добавляет подпись-атрибуцию
+     источника (design-spec §11: текст «TMDB» снизу-слева плейсхолдера). */
+  function ensurePosterLabel(root) {
+    var poster = root.find('.full-start-new__poster');
+    if (!poster.length) return;
+    if (!poster.children('.lumen-poster-tmdb').length) {
+      poster.append('<div class="lumen-poster-tmdb">TMDB</div>');
+    }
+  }
+
+  function apply(root, body, movie) {
+    try {
+      if (!body || !body.length) return;
+      movie = movie || {};
+
+      var mode = LC.cardinfo.bgMode(movie);
+
+      if (root && root.length) {
+        root.toggleClass('lumen-card--poster', mode === 'poster');
+        if (mode === 'poster') ensurePosterLabel(root);
+      }
+
+      /* Родной фон Lampa убираем — у нас свой, на всю ширину. */
+      body.find('.full-start__background').addClass('lumen-off');
+
+      var layer = ensureLayer(body);
+      clearLayer(layer);
+
+      if (mode === 'backdrop') loadBackdrop(layer, movie);
+      else showNoFrame(layer, movie);
+    } catch (e) {
+      warn('backdrop failed', e);
+    }
+  }
+
+  LC.backdrops = { apply: apply };
 
 
 /* ---- 70_progress.js ---- */
@@ -1539,96 +1785,6 @@
 
 /* ---- 90_runtime.js ---- */
   /* -------------------------------------------------------------------- */
-  /* Бэкдроп (v1, вне .lumen-card — в корне компонента).                    */
-  /* -------------------------------------------------------------------- */
-
-  /* Ревью Task 5a (Task 5 Step 3b.3, дефект приёмки v1 №3): URL только через
-     прокси TMDB Lampa — Lampa.TMDB.image (учитывает Storage 'proxy_tmdb',
-     тот же метод использует сама Lampa для фонов/постеров), фолбэк
-     Lampa.Api.img. Оба обёрнуты в собственные функции (без .bind/apply —
-     строгий ES5), чтобы не тащить this наружу. Сборка URL — LC.cardinfo.imageUrl
-     (чистая функция, без двойного слэша независимо от ведущего '/' в path). */
-  function tmdbImageFn() {
-    if (window.Lampa && Lampa.TMDB && typeof Lampa.TMDB.image === 'function') {
-      return function (url) { return Lampa.TMDB.image(url); };
-    }
-    return null;
-  }
-
-  function apiImgFn() {
-    if (window.Lampa && Lampa.Api && typeof Lampa.Api.img === 'function') {
-      return function (path, size) { return Lampa.Api.img(path, size); };
-    }
-    return null;
-  }
-
-  function backdropUrl(movie) {
-    var url = '';
-    try {
-      if (movie.backdrop_path) url = LC.cardinfo.imageUrl(movie.backdrop_path, 'w1280', tmdbImageFn(), apiImgFn());
-    } catch (e) {
-      warn('image url failed', e);
-    }
-    if (!url && movie.background_image) url = movie.background_image;
-    return url;
-  }
-
-  function procClass(movie) {
-    var id = parseInt(movie && movie.id, 10);
-    if (isNaN(id)) id = 0;
-    return 'lumen-backdrop--proc' + (Math.abs(id) % 3);
-  }
-
-  function applyBackdrop(body, movie) {
-    try {
-      if (!body || !body.length) return;
-
-      /* Родной фон Lampa убираем — у нас свой, на всю ширину. */
-      body.find('.full-start__background').addClass('lumen-off');
-
-      var layer = body.children('.lumen-backdrop');
-      if (!layer.length) {
-        layer = $('<div class="lumen-backdrop">' +
-          '<div class="lumen-backdrop__img"></div>' +
-          '<div class="lumen-backdrop__veil lumen-backdrop__veil--l"></div>' +
-          '<div class="lumen-backdrop__veil lumen-backdrop__veil--b"></div>' +
-          '<div class="lumen-backdrop__veil lumen-backdrop__veil--t"></div>' +
-          '</div>');
-        body.prepend(layer);
-      }
-
-      layer.removeClass('lumen-backdrop--proc0 lumen-backdrop--proc1 lumen-backdrop--proc2');
-
-      var url = backdropUrl(movie);
-      var img = layer.find('.lumen-backdrop__img');
-
-      if (url) {
-        img.css('background-image', '');
-        var loader = new Image();
-        loader.onload = function () {
-          try {
-            /* encodeURI страхует от "/\/) в URL, которые сломали бы строку url("...") */
-            img.css('background-image', 'url("' + encodeURI(url) + '")');
-            layer.addClass('loaded');
-          } catch (e) { }
-        };
-        loader.onerror = function () {
-          try {
-            img.css('background-image', '');
-            layer.addClass(procClass(movie)).addClass('loaded');
-          } catch (e) { }
-        };
-        loader.src = url;
-      } else {
-        img.css('background-image', '');
-        layer.addClass(procClass(movie)).addClass('loaded');
-      }
-    } catch (e) {
-      warn('backdrop failed', e);
-    }
-  }
-
-  /* -------------------------------------------------------------------- */
   /* Поиск корня карточки в событии 'full' (build/complite).                */
   /* -------------------------------------------------------------------- */
 
@@ -1781,7 +1937,7 @@
           } else if (e.type === 'complite') {
             var root = findRoot(e);
             LC.header.decorate(root, e.data);
-            applyBackdrop(e.body, (e.data && e.data.movie) || {});
+            LC.backdrops.apply(root, e.body, (e.data && e.data.movie) || {});
             applyMotionMode(root);
           }
         } catch (err) {
