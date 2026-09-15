@@ -81,14 +81,6 @@
     } catch (e) { }
   }
 
-  /* Task 5b Step 5 (утечки): перед любой мутацией DOM после асинхронного
-     ответа (Image().onload/onerror/таймер) — проверяем, что узел ещё в
-     документе. Карточку могли закрыть до ответа: Lampa убирает весь
-     .activity__body (а с ним и .lumen-backdrop) при destroy активности. */
-  function isMounted(node) {
-    try { return !!(node && document.documentElement && document.documentElement.contains(node)); } catch (e) { return false; }
-  }
-
   /* Task 6: .lumen-bg__slides — контейнер для дополнительных кадров
      слайдшоу (первый кадр остаётся .lumen-backdrop__img — грузится он
      один раз в loadBackdrop(), см. ниже). Вставлен ДО вуалей в разметке,
@@ -110,15 +102,35 @@
     return layer;
   }
 
+  /* Task 6 (fix, обзор координатора п.4): .css('transform', '') через
+     jQuery оставляет пустой атрибут style="", если это было единственное
+     инлайн-свойство (та же ловушка, что и с хэшем кнопок — план 0.2/
+     Task 5a, только здесь не про кнопку и хэш не при делах, а про
+     гигиену DOM). Снимаем атрибут целиком, если после этого он пуст. */
+  function clearInlineStyleIfEmpty(el) {
+    try {
+      var node = el && el[0];
+      if (node && node.getAttribute && node.getAttribute('style') === '') node.removeAttribute('style');
+    } catch (e) { }
+  }
+
   /* Task 6: тот же layer (то же e.body) может получить apply() ещё раз
      (смена карточки без полного размонтирования слоя — тот же сценарий,
      ради которого уже существуют lumenGen/lumenPending) — сбрасываем и
      кадры предыдущего слайдшоу: .lumen-backdrop__img теряет
      lumen-bg__img/is-active (иначе на нём ещё секунду доиграл бы Ken
-     Burns предыдущей карточки), .lumen-bg__slides опустошается. */
+     Burns предыдущей карточки), .lumen-bg__slides опустошается.
+     Task 6 (fix, обзор координатора п.4): если карточку закрыли
+     (destroy()/cancel()) посреди кроссфейда, .lumen-backdrop__img мог
+     остаться с инлайн-transform от заморозки Ken Burns (src/
+     51_slideshow.js) — на новом apply() (poster/blur/procedural) это
+     ломает их собственный transform:scale(...). Снимаем тем же путём. */
   function clearLayer(layer) {
     layer.removeClass('lumen-backdrop--proc0 lumen-backdrop--proc1 lumen-backdrop--proc2 lumen-bg--blur');
-    layer.find('.lumen-backdrop__img').removeClass('lumen-bg__img is-active');
+    var img0 = layer.find('.lumen-backdrop__img');
+    img0.removeClass('lumen-bg__img is-active');
+    img0.css('transform', '');
+    clearInlineStyleIfEmpty(img0);
     layer.find('.lumen-bg__slides').empty();
   }
 
@@ -203,7 +215,9 @@
          сеть — cancelPending() выше по стеку уже обнулил onload/onerror,
          это на случай, если finish() всё же был вызван до отмены). */
       if (layer.data('lumenGen') !== gen) return;
-      if (!isMounted(node)) return;
+      /* Task 6 (fix, обзор координатора п.5): общая проверка вместо
+         собственной копии isMounted — см. src/51_slideshow.js. */
+      if (!LC.slideshow.isMounted(node)) return;
       try {
         if (ok) {
           /* encodeURI страхует от "/\/) в URL, которые сломали бы строку url("...") */
@@ -425,6 +439,12 @@
       var activeFrame = layer.find('.lumen-bg__img.is-active');
       var activeBg = activeFrame.length ? activeFrame.css('background-image') : img0.css('background-image');
       if (activeBg) img0.css('background-image', activeBg);
+      /* На случай, если img0 сам умер посреди кроссфейда (был уходящим,
+         заморозка Ken Burns успела поставить инлайн-transform, а coolDown
+         не успел его снять) — свежий контроллер начинает без унаследованного
+         scale(...) от предыдущего. */
+      img0.css('transform', '');
+      clearInlineStyleIfEmpty(img0);
       img0.addClass('lumen-bg__img is-active');
       layer.find('.lumen-bg__slides').empty();
 

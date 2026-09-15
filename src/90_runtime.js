@@ -40,6 +40,20 @@
     try { return $('.activity--active .lumen-card'); } catch (e) { return null; }
   }
 
+  /* Task 6 (fix, обзор координатора п.2, корень проблемы): .lumen-backdrop
+     лежит вне .lumen-card (сосед в e.body, не потомок — см. 50_backdrops.js/
+     ensureLayer) — раньше LC.applyMotionMode трогал только .lumen-card,
+     а класс режима на самом слое фона синхронизировал исключительно
+     syncMotionClass() внутри apply()/loadBackdrop(), один раз за карточку.
+     Из-за этого переключение lumen_motion full->lite/off на уже открытой
+     карточке не снимало lumen-motion-full со слоя — Ken Burns (src/
+     51_slideshow.js, setActive: layer.hasClass('lumen-motion-full')) играл
+     бы до следующего apply() (то есть до закрытия и повторного открытия
+     карточки). */
+  function activeBackdropLayer() {
+    try { return $('.activity--active .lumen-backdrop'); } catch (e) { return null; }
+  }
+
   function applyMotionMode(root) {
     if (!root || !root.length) return;
     try {
@@ -50,9 +64,10 @@
   }
 
   /* Вызывается извне (LC.followStorage / onChange параметра lumen_motion), когда режим
-     меняется на уже открытой карточке — находит активный корень сама. */
+     меняется на уже открытой карточке — находит активный корень (и слой фона) сама. */
   LC.applyMotionMode = function () {
     applyMotionMode(activeCardRoot());
+    applyMotionMode(activeBackdropLayer());
   };
 
   var toggle_followed = false;

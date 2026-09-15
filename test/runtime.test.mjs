@@ -1,5 +1,6 @@
 import test from 'node:test'; import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { FakeEl, EMPTY } from './_fakedom.mjs';
 
 /* Task 6 (fix, решение координатора, Important): обработчик подписки
    'activity' вынесен в именованную LC.onActivityEvent(e) — LC.init()
@@ -8,7 +9,12 @@ import { readFileSync } from 'node:fs';
    Lampa. 90_runtime.js не «чистый» модуль (трогает window/Lampa/$ внутри
    других функций), но ни одна из них не вызывается при загрузке — только
    определения, поэтому грузим его целиком минимальным Function()-
-   загрузчиком (как test/backdrops.test.mjs). */
+   загрузчиком (как test/backdrops.test.mjs). Фейковый DOM (FakeEl) —
+   общий с backdrops.test.mjs/slideshow.test.mjs, из test/_fakedom.mjs
+   (Task 6, fix, обзор координатора п.6): используем find(selector)
+   (поиск ЛЮБОЙ глубины — .lumen-backdrop лежит внутри .activity__body,
+   сам .activity__body внутри .activity, проверено живьём), parent()
+   (LC.active.body = layer.parent()) и data() (layer.data('lumenSlideshow')). */
 
 globalThis.PLUGIN = 'lumen_card';
 var warnLog = [];
@@ -18,47 +24,6 @@ function loadInto(LC, module, name) {
   const src = readFileSync(new URL(`../src/${name}`, import.meta.url), 'utf8');
   new Function('LC', 'module', src)(LC, module);
 }
-
-/* -------------------------------------------------------------------- */
-/* Мини-фейк DOM: только то, что нужно layerOf() в 90_runtime.js —        */
-/* find(selector) (поиск ЛЮБОЙ глубины — .lumen-backdrop лежит внутри     */
-/* .activity__body, сам .activity__body внутри .activity, проверено       */
-/* живьём) и parent() (LC.active.body = layer.parent()), плюс data() для  */
-/* layer.data('lumenSlideshow'). */
-/* -------------------------------------------------------------------- */
-
-function FakeEl(classes, children) {
-  this._class = classes || [];
-  this._children = children || [];
-  this._data = {};
-  this.length = 1;
-  this[0] = this;
-  this._parentEl = null;
-  const self = this;
-  this._children.forEach((c) => { c._parentEl = self; });
-}
-FakeEl.prototype.hasClass = function (c) { return this._class.indexOf(c) !== -1; };
-FakeEl.prototype.data = function (key, val) {
-  if (arguments.length < 2) return this._data[key];
-  this._data[key] = val;
-  return this;
-};
-FakeEl.prototype.parent = function () { return this._parentEl || EMPTY; };
-FakeEl.prototype.find = function (sel) {
-  const cls = sel.replace(/^\./, '');
-  function search(node) {
-    for (let i = 0; i < node._children.length; i++) {
-      const c = node._children[i];
-      if (c.hasClass(cls)) return c;
-      const found = search(c);
-      if (found) return found;
-    }
-    return null;
-  }
-  return search(this) || EMPTY;
-};
-
-const EMPTY = { length: 0, find() { return EMPTY; }, data() { }, parent() { return EMPTY; }, hasClass() { return false; } };
 
 /* Объект активности, как его видит e.object в событии 'activity':
    {title, activity:{render(){...}}}. hasLayer — есть ли у этой карточки
@@ -282,4 +247,57 @@ test('(fix) start полной карточки без сохранённого 
 
   assert.equal(reviveCalls.length, 1);
   assert.equal(LC.active.slideshow, freshCtrl);
+});
+
+/* ====================================================================== */
+/* Task 6 (fix, обзор координатора п.6): e.component==='full' — start      */
+/* НЕ-full компонента (например 'torrents') с уже готовым .lumen-backdrop  */
+/* не должен ни восстанавливать LC.active, ни звать resume()/revive(). */
+/* ====================================================================== */
+
+test('(fix, обзор координатора п.6) start НЕ-full компонента у объекта со слоем -> LC.active и resume/revive не трогаются', () => {
+  const LC = freshLC();
+  const reviveCalls = [];
+  const ctrl = makeCtrl();
+  LC.backdrops = {
+    cancel: () => { },
+    revive: (layer) => { reviveCalls.push(layer); return ctrl; }
+  };
+
+  const objA = makeActivityObj('A', true, ctrl); // есть слой, есть живой контроллер
+  LC.active = null;
+
+  LC.onActivityEvent({ type: 'start', component: 'torrents', object: objA });
+
+  assert.equal(LC.active, null, 'LC.active не должен был установиться на не-full компонент');
+  assert.equal(ctrl.resumeCalls, 0);
+  assert.equal(reviveCalls.length, 0);
+});
+
+/* ====================================================================== */
+/* Task 6 (fix, обзор координатора п.2, корень проблемы): LC.applyMotionMode */
+/* должен синхронизировать класс режима и на .lumen-card, и на              */
+/* .lumen-backdrop активной карточки — иначе после переключения             */
+/* lumen_motion на full->lite/off Ken Burns на слое фона продолжал бы        */
+/* играть до следующего apply() (закрытия и повторного открытия карточки).  */
+/* ====================================================================== */
+
+test('(fix, обзор координатора п.2) LC.applyMotionMode снимает lumen-motion-full и с .lumen-card, и с .lumen-backdrop', () => {
+  const LC = freshLC();
+  LC.motionMode = () => 'lite';
+
+  const cardRoot = new FakeEl(['lumen-card']).addClass('lumen-motion-full');
+  const backdropLayer = new FakeEl(['lumen-backdrop']).addClass('lumen-motion-full');
+  globalThis.$ = function (sel) {
+    if (sel === '.activity--active .lumen-card') return cardRoot;
+    if (sel === '.activity--active .lumen-backdrop') return backdropLayer;
+    return EMPTY;
+  };
+
+  LC.applyMotionMode();
+
+  assert.equal(cardRoot.hasClass('lumen-motion-lite'), true);
+  assert.equal(cardRoot.hasClass('lumen-motion-full'), false);
+  assert.equal(backdropLayer.hasClass('lumen-motion-lite'), true);
+  assert.equal(backdropLayer.hasClass('lumen-motion-full'), false, 'слой фона тоже должен потерять lumen-motion-full — иначе Ken Burns продолжил бы играть');
 });

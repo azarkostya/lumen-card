@@ -1,6 +1,7 @@
 import test from 'node:test'; import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { load } from './_load.mjs';
+import { fakeQuery, fakeBody, mount } from './_fakedom.mjs';
 
 /* Task 5b (правки координатора): 50_backdrops.js — не «чистый» модуль
    (трогает $/Image/document/setTimeout/window.Lampa), поэтому у него нет
@@ -11,7 +12,9 @@ import { load } from './_load.mjs';
    8с (Step 3), LC.backdrops.cancel (п.4) и того, что исключение в finish()
    не выходит наружу (п.3). LC.cardinfo (bgMode/backdropPath/imageUrl)
    грузится настоящий — эта логика уже покрыта test/cardinfo.test.mjs,
-   здесь не переизобретается. */
+   здесь не переизобретается. Фейковый $/DOM (FakeEl/fakeQuery/EMPTY) —
+   общий с test/slideshow.test.mjs, вынесен в test/_fakedom.mjs (Task 6,
+   fix, обзор координатора п.6). */
 
 globalThis.PLUGIN = 'lumen_card';
 var warnLog = [];
@@ -21,90 +24,6 @@ function loadInto(LC, module, name) {
   const src = readFileSync(new URL(`../src/${name}`, import.meta.url), 'utf8');
   new Function('LC', 'module', src)(LC, module);
 }
-
-/* -------------------------------------------------------------------- */
-/* Мини-фейк $/DOM: только то, что вызывает 50_backdrops.js — addClass/  */
-/* removeClass/toggleClass/data/removeData/css/find/children/append/     */
-/* prepend/[0]/length. Вложенность не моделируется — дети плоским        */
-/* списком, find===children (ищут по классу среди прямых детей: этого    */
-/* достаточно для .lumen-backdrop -> .lumen-backdrop__img/veil*). */
-/* -------------------------------------------------------------------- */
-
-function classList(tagHtml) {
-  const m = /class="([^"]*)"/.exec(tagHtml || '');
-  return m ? m[1].split(/\s+/).filter(Boolean) : [];
-}
-
-function FakeEl(classes) {
-  this._class = classes || [];
-  this._children = [];
-  this._data = {};
-  this._css = {};
-  this.length = 1;
-  this[0] = this;
-}
-FakeEl.prototype.hasClass = function (c) { return this._class.indexOf(c) !== -1; };
-FakeEl.prototype.addClass = function (list) {
-  const self = this;
-  ('' + list).split(/\s+/).forEach((c) => { if (c && self._class.indexOf(c) === -1) self._class.push(c); });
-  return this;
-};
-FakeEl.prototype.removeClass = function (list) {
-  const self = this;
-  ('' + list).split(/\s+/).forEach((c) => { const i = self._class.indexOf(c); if (i !== -1) self._class.splice(i, 1); });
-  return this;
-};
-FakeEl.prototype.toggleClass = function (c, on) { if (on) this.addClass(c); else this.removeClass(c); return this; };
-FakeEl.prototype.css = function (name, val) { this._css[name] = val; return this; };
-FakeEl.prototype.data = function (key, val) {
-  if (arguments.length < 2) return this._data[key];
-  this._data[key] = val;
-  return this;
-};
-FakeEl.prototype.removeData = function (key) { delete this._data[key]; return this; };
-FakeEl.prototype.append = function (child) { this._children.push(toEl(child)); return this; };
-FakeEl.prototype.prepend = function (child) { this._children.unshift(toEl(child)); return this; };
-FakeEl.prototype.empty = function () { this._children = []; return this; };
-/* Task 6 (fix, п.1): closest('.activity') — заглушка, не настоящий обход
-   родителей (мок их не моделирует, см. комментарий вверху файла). Тест
-   выставляет el._closestActivity = {length, hasClass} перед тиком, чтобы
-   смоделировать «слой внутри активной/архивной .activity»; по умолчанию
-   (свойство не выставлено) — EMPTY, как «не на странице предка не нашли» —
-   isActivityForeground(EMPTY) в src/50_backdrops.js трактует это как true
-   (безопасный дефолт), так что все ранее написанные тесты не ломаются. */
-FakeEl.prototype.closest = function (sel) {
-  if (sel === '.activity' && this._closestActivity) return this._closestActivity;
-  return EMPTY;
-};
-
-const EMPTY = {
-  length: 0,
-  addClass() { return this; }, removeClass() { return this; }, toggleClass() { return this; }, css() { return this; },
-  data() { }, removeData() { return this; }, empty() { return this; }, hasClass() { return false; },
-  find() { return EMPTY; }, children() { return EMPTY; }, append() { return this; }, closest() { return EMPTY; }
-};
-
-FakeEl.prototype.children = function (sel) {
-  const cls = sel.replace(/^\./, '');
-  for (let i = 0; i < this._children.length; i++) if (this._children[i].hasClass(cls)) return this._children[i];
-  return EMPTY;
-};
-FakeEl.prototype.find = FakeEl.prototype.children;
-
-function toEl(x) {
-  if (x instanceof FakeEl) return x;
-  return new FakeEl(classList(String(x)));
-}
-
-function fakeQuery(html) {
-  const tags = String(html).match(/<div[^>]*>/g) || [];
-  const root = new FakeEl(classList(tags[0]));
-  for (let i = 1; i < tags.length; i++) root._children.push(new FakeEl(classList(tags[i])));
-  return root;
-}
-
-function fakeBody() { return new FakeEl(['body-mock']); }
-function mount(el) { el._mounted = true; return el; }
 
 /* document.documentElement.contains — по флагу _mounted, который          */
 /* выставляет сам тест (имитация «карточка ещё в DOM» / «закрыта»).        */
