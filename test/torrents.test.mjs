@@ -104,9 +104,50 @@ test('покрыты все экраны пути', () => {
   const css = t.css();
   const classes = [
     // 33/35 Select
-    '.selectbox__title', '.selectbox-item.focus', '.selectbox-item__subtitle', '.selectbox-item__checkbox', '.selectbox-item.selected'
+    '.selectbox__title', '.selectbox-item.focus', '.selectbox-item__subtitle', '.selectbox-item__checkbox', '.selectbox-item.selected',
+    // 34 Торренты
+    '.explorer__left', '.explorer-card__title', '.explorer-card__descr', '.torrent-filter', '.filter--search', '.filter--filter > div:not(.hide)',
+    '.torrent-item', '.torrent-item.focus', '.torrent-item__title', '.torrent-item__details', '.torrent-item__size', '.torrent-item__ffprobe',
+    '.torrent-item__viewed', '.watched-history', '.empty__title', '.empty-filter'
   ];
   for (const c of classes) assert.ok(css.indexOf(c) !== -1, c);
+});
+
+/* Классы-ловушки (план 0.2): общие компоненты Lampa оформляются только внутри скоупа пути. */
+test('классы-ловушки: .explorer/.torrent-filter/.empty/.watched-history — только в активности «Торренты», .simple-button/.time-line/.error — только под уникальным родителем', () => {
+  const ACT = /^body\.lumen-torrents-on(\.lumen-motion-(full|lite|off))? \.lumen-torrents /;
+  for (const r of rules()) {
+    const parsed = parse(r);
+    if (!parsed) continue;
+    for (const p of parsed) for (const s of p.selectors) {
+      if (/\.(explorer|torrent-filter|empty|watched-history)(?![\w])/.test(s)) assert.match(s, ACT, s);
+      if (/\.simple-button(?![\w-])/.test(s)) assert.ok(ACT.test(s) || s.indexOf('.torrent-checklist__footer ') !== -1, s);
+      if (/\.time-line(?![\w-])/.test(s)) assert.ok(/\.torrent-(file|serial) /.test(s), s);
+      if (/\.error(?![\w-])/.test(s)) assert.ok(/\.modal(?![\w-])/.test(s), s);
+      if (/\.torrent-install(?![\w-])/.test(s)) assert.ok(/div\.torrent-install|\.torrent-install__left img/.test(s), 'корень .torrent-install совпадает с <img> внутри: ' + s);
+    }
+  }
+});
+
+/* Анимации Lampa (body.advanced--animation): keyframes на .simple-button.focus и
+   .torrent-item.focus/.animate-trigger-enter перебивают обычный transform —
+   наш transform только с !important, в lite/off анимации Lampa гасятся. */
+test('движение: transform на анимируемых Lampa элементах — с !important; lite/off гасят анимации', () => {
+  const all = rules();
+  for (const r of all) {
+    const parsed = parse(r);
+    if (!parsed) continue;
+    for (const p of parsed) {
+      const animated = p.selectors.some((s) => /\.simple-button[.\w-]*\.focus|\.torrent-item\.(focus|animate-trigger-enter)/.test(s));
+      if (animated && /(^|;)transform:(?!none)/.test(p.decl)) assert.match(p.decl, /(^|;)transform:[^;]*!important/, r);
+    }
+  }
+  for (const mode of ['lite', 'off']) {
+    for (const cls of ['.simple-button', '.torrent-item']) {
+      const ok = all.some((r) => r.indexOf('lumen-motion-' + mode) !== -1 && r.indexOf(cls) !== -1 && r.indexOf('animation:none !important') !== -1);
+      assert.ok(ok, mode + ': нет animation:none !important для ' + cls);
+    }
+  }
 });
 
 test('внутри панели ничего не скрыто', () => {

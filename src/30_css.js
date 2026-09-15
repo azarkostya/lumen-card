@@ -19,7 +19,12 @@
        общие для чипов/кнопок/статуса на всех экранах дизайна. */
     line: '#2C231D',
     chipBg: 'rgba(28,22,19,.78)',
-    buttonBg: 'rgba(28,22,19,.82)'
+    buttonBg: 'rgba(28,22,19,.82)',
+    /* Task 32 (экспорт «Lumen Torrents», экраны 34–39): панель в фокусе,
+       тёмная панель строк/файлов, приподнятый чип (ссылки, code). */
+    panelHi: '#221A13',
+    panelLo: '#17120F',
+    raised: '#241C17'
   };
 
   /* onac — текст на заливке акцентом (Task 32, экспорт «Lumen Torrents»,
@@ -70,6 +75,7 @@
     return {
       bg: C.bg, panel: C.panel, line: C.line, text: C.text, muted: C.muted, smoke: C.smoke,
       spice: C.spice, spiceRgb: SPICE_RGB, good: C.good, dark: C.dark, chipBg: C.chipBg, buttonBg: C.buttonBg,
+      panelHi: C.panelHi, panelLo: C.panelLo, raised: C.raised, textRgb: hexToRgb(C.text), bgRgb: hexToRgb(C.bg),
       accent: t.color, accentRgb: hexToRgb(t.color), onac: t.onac, ring: t.light, acglow: t.glow,
       fontDisplay: fonts ? FONT_DISPLAY_ON : FONT_DISPLAY_OFF,
       fontBody: fonts ? FONT_BODY_ON : FONT_BODY_OFF,

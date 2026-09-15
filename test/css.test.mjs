@@ -63,6 +63,12 @@ test('LC.tokens: палитра карточки, акцент по настро
   assert.equal(t.onac, '#1A120A');
   assert.equal(t.ring, '#FFF2DC');
   assert.equal(t.acglow, 'rgba(232,184,122,0.35)');
+  // экраны пути (экспорт «Lumen Torrents»): панель в фокусе/тёмная/приподнятая, rgb текста и фона для rgba()
+  assert.equal(t.panelHi, '#221A13');
+  assert.equal(t.panelLo, '#17120F');
+  assert.equal(t.raised, '#241C17');
+  assert.equal(t.textRgb, '243,237,228');
+  assert.equal(t.bgRgb, '11,9,8');
   assert.match(t.fontDisplay, /^"Unbounded"/);
   assert.match(t.fontBody, /^"Golos Text"/);
   assert.match(t.fontMono, /^"JetBrains Mono"/);
