@@ -163,7 +163,10 @@
       clock:    '<circle cx="12" cy="12" r="8.4"/><path d="M12 7.6V12l3 2"/>',
       film:     '<path d="M3 4.5h18v15H3z"/><path d="M7.5 4.5v15M16.5 4.5v15M3 12h18"/>',
       chevronR: '<path d="M9 6l6 6-6 6"/>',
-      close:    '<path d="M6 6l12 12M18 6L6 18"/>'
+      close:    '<path d="M6 6l12 12M18 6L6 18"/>',
+      // Task 32: экраны 34/35 файла design/Lumen Torrents for Lampa - FHD.dc.html
+      search:   '<circle cx="11" cy="11" r="7"/><path d="M16.5 16.5L21 21"/>',
+      check:    '<path d="M4.5 12.5l5 5L20 6.5"/>'
     };
     var byButton = { 'button--play': 'play', 'button--book': 'bookmark', 'button--reaction': 'reaction', 'button--subscribe': 'bell', 'button--options': 'more', 'view--torrent': 'torrent', 'view--trailer': 'trailer' };
     function get(name) {
@@ -243,11 +246,13 @@
     buttonBg: 'rgba(28,22,19,.82)'
   };
 
+  /* onac — текст на заливке акцентом (Task 32, экспорт «Lumen Torrents»,
+     карта акцентов DCLogic: --onac). Карточка по-прежнему пишет C.dark. */
   var ACCENTS = {
-    sand: { color: '#E8B87A', light: '#FFF2DC', glow: 'rgba(232,184,122,0.35)' },
-    ice: { color: '#7FB7C9', light: '#DCF1F8', glow: 'rgba(127,183,201,0.35)' },
-    wine: { color: '#C46A8F', light: '#F8DCE7', glow: 'rgba(196,106,143,0.35)' },
-    mint: { color: '#9FCF8A', light: '#E7F8DC', glow: 'rgba(159,207,138,0.35)' }
+    sand: { color: '#E8B87A', light: '#FFF2DC', glow: 'rgba(232,184,122,0.35)', onac: '#1A120A' },
+    ice: { color: '#7FB7C9', light: '#DCF1F8', glow: 'rgba(127,183,201,0.35)', onac: '#08171C' },
+    wine: { color: '#C46A8F', light: '#F8DCE7', glow: 'rgba(196,106,143,0.35)', onac: '#1C0A12' },
+    mint: { color: '#9FCF8A', light: '#E7F8DC', glow: 'rgba(159,207,138,0.35)', onac: '#0C1608' }
   };
 
   /* '#RRGGBB' -> 'R,G,B' для rgba(...) — так цвет не дублируется как отдельная
@@ -279,6 +284,22 @@
   function useFonts() {
     return LC.pref(PLUGIN + '_fonts', true);
   }
+
+  /* Task 32: токены наружу для CSS экранов пути (src/65_torrents.js) —
+     та же палитра, текущий акцент и стеки шрифтов, что у LC.buildCss,
+     читаются заново на каждый вызов (смена акцента/шрифтов без перезагрузки). */
+  LC.tokens = function () {
+    var t = theme();
+    var fonts = useFonts();
+    return {
+      bg: C.bg, panel: C.panel, line: C.line, text: C.text, muted: C.muted, smoke: C.smoke,
+      spice: C.spice, spiceRgb: SPICE_RGB, good: C.good, dark: C.dark, chipBg: C.chipBg, buttonBg: C.buttonBg,
+      accent: t.color, accentRgb: hexToRgb(t.color), onac: t.onac, ring: t.light, acglow: t.glow,
+      fontDisplay: fonts ? FONT_DISPLAY_ON : FONT_DISPLAY_OFF,
+      fontBody: fonts ? FONT_BODY_ON : FONT_BODY_OFF,
+      fontMono: fonts ? FONT_MONO_ON : FONT_MONO_OFF
+    };
+  };
 
   LC.buildCss = function () {
     var t = theme();
@@ -2877,11 +2898,19 @@
     }
   }
 
+  /* Task 32: экраны пути TorrServer (src/65_torrents.js) лежат вне карточки —
+     Select, Modal, media-loading; режим движения для них читается с body. */
+  function bodyRoot() {
+    try { return $('body'); } catch (e) { return null; }
+  }
+
   /* Вызывается извне (LC.followStorage / onChange параметра lumen_motion), когда режим
-     меняется на уже открытой карточке — находит активный корень (и слой фона) сама. */
+     меняется на уже открытой карточке — находит активный корень (и слой фона) сама.
+     На body — только пока плагин активен (ui_active, см. ниже). */
   LC.applyMotionMode = function () {
     applyMotionMode(activeCardRoot());
     applyMotionMode(activeBackdropLayer());
+    if (ui_active) applyMotionMode(bodyRoot());
   };
 
   var toggle_followed = false;
@@ -3186,6 +3215,7 @@
       LC.injectCss();
 
       ui_active = true;
+      applyMotionMode(bodyRoot());
       try {
         LC.menus.mode(Lampa.Storage.field('lumen_menus'));
         LC.menus.install();

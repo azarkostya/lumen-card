@@ -22,7 +22,10 @@
       clock:    '<circle cx="12" cy="12" r="8.4"/><path d="M12 7.6V12l3 2"/>',
       film:     '<path d="M3 4.5h18v15H3z"/><path d="M7.5 4.5v15M16.5 4.5v15M3 12h18"/>',
       chevronR: '<path d="M9 6l6 6-6 6"/>',
-      close:    '<path d="M6 6l12 12M18 6L6 18"/>'
+      close:    '<path d="M6 6l12 12M18 6L6 18"/>',
+      // Task 32: экраны 34/35 файла design/Lumen Torrents for Lampa - FHD.dc.html
+      search:   '<circle cx="11" cy="11" r="7"/><path d="M16.5 16.5L21 21"/>',
+      check:    '<path d="M4.5 12.5l5 5L20 6.5"/>'
     };
     var byButton = { 'button--play': 'play', 'button--book': 'bookmark', 'button--reaction': 'reaction', 'button--subscribe': 'bell', 'button--options': 'more', 'view--torrent': 'torrent', 'view--trailer': 'trailer' };
     function get(name) {

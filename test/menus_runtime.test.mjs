@@ -1,5 +1,6 @@
 import test from 'node:test'; import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { FakeEl, EMPTY } from './_fakedom.mjs';
 
 /* Task 31 (ревью, Minor 7): связка маркеров меню с рантаймом —
    флаг «плагин активен» (LC.applyMenusPref/LC.applyTorrentsPref ничего не
@@ -47,8 +48,30 @@ function setup(opts) {
     install: () => log.push('install')
   };
   LC.torrents = { toggle: (on) => log.push('torrents:' + on) };
-  return { LC, log, storage, storageCbs };
+  /* Task 32: класс режима движения на body — фейковый $('body'). */
+  const body = new FakeEl(['body-mock']);
+  globalThis.$ = (sel) => (sel === 'body' ? body : EMPTY);
+  opts.body = body;
+  return { LC, log, storage, storageCbs, body };
 }
+
+test('Task 32: класс режима движения на body ставит LC.init, меняет LC.applyMotionMode', () => {
+  const { LC, storage, body } = setup({ storage: { lumen_motion: 'full' } });
+  assert.equal(body.hasClass('lumen-motion-full'), false, 'до init класса нет');
+  LC.init();
+  assert.equal(body.hasClass('lumen-motion-full'), true);
+  storage.lumen_motion = 'off';
+  LC.applyMotionMode();
+  assert.equal(body.hasClass('lumen-motion-off'), true);
+  assert.equal(body.hasClass('lumen-motion-full'), false);
+});
+
+test('Task 32: плагин не активен (узкая раскладка) — класс движения на body не ставится', () => {
+  const { LC, body } = setup({ width: 400, storage: { lumen_motion: 'lite' } });
+  LC.init();
+  LC.applyMotionMode();
+  assert.deepEqual(body._class, ['body-mock']);
+});
 
 test('до LC.init: applyMenusPref/applyTorrentsPref ничего не делают (плагин не активен)', () => {
   const { LC, log } = setup();

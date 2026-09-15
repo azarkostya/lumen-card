@@ -11,6 +11,17 @@ test('все иконки в одном формате', () => {
     assert.ok(svg.endsWith('</svg>'));
   }
 });
+test('Task 32: иконки search и check из экспорта экранов 34/35 (сетка 24, контурные)', () => {
+  const names = icons.names();
+  assert.ok(names.indexOf('search') !== -1, 'нет search');
+  assert.ok(names.indexOf('check') !== -1, 'нет check');
+  assert.ok(icons.get('search').indexOf('<circle cx="11" cy="11" r="7"/><path d="M16.5 16.5L21 21"/></svg>') !== -1);
+  assert.ok(icons.get('check').indexOf('<path d="M4.5 12.5l5 5L20 6.5"/></svg>') !== -1);
+  assert.match(icons.maskSvg('check'), / fill="none" stroke="#000" stroke-width="1.8"/);
+  // новых кнопок карточки не появилось — иконки нужны только экранам пути
+  assert.equal(icons.forButton('search'), null);
+  assert.equal(icons.forButton('check'), null);
+});
 test('map кнопок Lampa покрыт', () => {
   for (const cls of ['button--play','button--book','button--reaction','button--subscribe','button--options','view--torrent','view--trailer'])
     assert.ok(icons.forButton(cls), cls);

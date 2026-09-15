@@ -29,6 +29,54 @@ function buildCss() {
 
 const css = buildCss();
 
+/* Task 32: LC.tokens() — палитра, текущий акцент и стеки шрифтов наружу для
+   src/65_torrents.js (палитра не дублируется). Storage подменяется через
+   window.Lampa только на время вызова. */
+function tokensWith(storage) {
+  const LC = {};
+  const module = { exports: null, lumen: true };
+  const Lampa = { Storage: { get: (name, def) => (name in storage ? storage[name] : def) } };
+  globalThis.window = { Lampa: Lampa };
+  globalThis.Lampa = Lampa;
+  try {
+    loadInto(LC, module, '10_util.js');
+    loadInto(LC, module, '20_icons.js');
+    loadInto(LC, module, '80_settings.js');
+    loadInto(LC, module, '30_css.js');
+    return LC.tokens();
+  } finally {
+    delete globalThis.window;
+    delete globalThis.Lampa;
+  }
+}
+
+test('LC.tokens: палитра карточки, акцент по настройке, onac/ring/acglow, шрифты', () => {
+  const t = tokensWith({});
+  assert.equal(t.panel, '#1C1613');
+  assert.equal(t.line, '#2C231D');
+  assert.equal(t.text, '#F3EDE4');
+  assert.equal(t.muted, '#A89A8A');
+  assert.equal(t.smoke, '#7A6A5A');
+  assert.equal(t.spice, '#D9622B');
+  assert.equal(t.accent, '#E8B87A');
+  assert.equal(t.accentRgb, '232,184,122');
+  assert.equal(t.onac, '#1A120A');
+  assert.equal(t.ring, '#FFF2DC');
+  assert.equal(t.acglow, 'rgba(232,184,122,0.35)');
+  assert.match(t.fontDisplay, /^"Unbounded"/);
+  assert.match(t.fontBody, /^"Golos Text"/);
+  assert.match(t.fontMono, /^"JetBrains Mono"/);
+
+  const ice = tokensWith({ lumen_card_accent: 'ice', lumen_card_fonts: 'false' });
+  assert.equal(ice.accent, '#7FB7C9');
+  assert.equal(ice.onac, '#08171C');
+  assert.equal(ice.ring, '#DCF1F8');
+  assert.equal(ice.fontBody, 'inherit');
+  assert.ok(ice.fontDisplay.indexOf('Unbounded') === -1);
+
+  assert.equal(tokensWith({ lumen_card_accent: 'nope' }).accent, '#E8B87A');
+});
+
 test('buildCss: нет литерала .0625em (остаток базы 16, должен быть .04em)', () => {
   assert.equal(css.indexOf('.0625em'), -1);
 });

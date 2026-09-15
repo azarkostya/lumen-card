@@ -22,11 +22,13 @@
     buttonBg: 'rgba(28,22,19,.82)'
   };
 
+  /* onac — текст на заливке акцентом (Task 32, экспорт «Lumen Torrents»,
+     карта акцентов DCLogic: --onac). Карточка по-прежнему пишет C.dark. */
   var ACCENTS = {
-    sand: { color: '#E8B87A', light: '#FFF2DC', glow: 'rgba(232,184,122,0.35)' },
-    ice: { color: '#7FB7C9', light: '#DCF1F8', glow: 'rgba(127,183,201,0.35)' },
-    wine: { color: '#C46A8F', light: '#F8DCE7', glow: 'rgba(196,106,143,0.35)' },
-    mint: { color: '#9FCF8A', light: '#E7F8DC', glow: 'rgba(159,207,138,0.35)' }
+    sand: { color: '#E8B87A', light: '#FFF2DC', glow: 'rgba(232,184,122,0.35)', onac: '#1A120A' },
+    ice: { color: '#7FB7C9', light: '#DCF1F8', glow: 'rgba(127,183,201,0.35)', onac: '#08171C' },
+    wine: { color: '#C46A8F', light: '#F8DCE7', glow: 'rgba(196,106,143,0.35)', onac: '#1C0A12' },
+    mint: { color: '#9FCF8A', light: '#E7F8DC', glow: 'rgba(159,207,138,0.35)', onac: '#0C1608' }
   };
 
   /* '#RRGGBB' -> 'R,G,B' для rgba(...) — так цвет не дублируется как отдельная
@@ -58,6 +60,22 @@
   function useFonts() {
     return LC.pref(PLUGIN + '_fonts', true);
   }
+
+  /* Task 32: токены наружу для CSS экранов пути (src/65_torrents.js) —
+     та же палитра, текущий акцент и стеки шрифтов, что у LC.buildCss,
+     читаются заново на каждый вызов (смена акцента/шрифтов без перезагрузки). */
+  LC.tokens = function () {
+    var t = theme();
+    var fonts = useFonts();
+    return {
+      bg: C.bg, panel: C.panel, line: C.line, text: C.text, muted: C.muted, smoke: C.smoke,
+      spice: C.spice, spiceRgb: SPICE_RGB, good: C.good, dark: C.dark, chipBg: C.chipBg, buttonBg: C.buttonBg,
+      accent: t.color, accentRgb: hexToRgb(t.color), onac: t.onac, ring: t.light, acglow: t.glow,
+      fontDisplay: fonts ? FONT_DISPLAY_ON : FONT_DISPLAY_OFF,
+      fontBody: fonts ? FONT_BODY_ON : FONT_BODY_OFF,
+      fontMono: fonts ? FONT_MONO_ON : FONT_MONO_OFF
+    };
+  };
 
   LC.buildCss = function () {
     var t = theme();

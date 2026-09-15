@@ -63,11 +63,19 @@
     }
   }
 
+  /* Task 32: экраны пути TorrServer (src/65_torrents.js) лежат вне карточки —
+     Select, Modal, media-loading; режим движения для них читается с body. */
+  function bodyRoot() {
+    try { return $('body'); } catch (e) { return null; }
+  }
+
   /* Вызывается извне (LC.followStorage / onChange параметра lumen_motion), когда режим
-     меняется на уже открытой карточке — находит активный корень (и слой фона) сама. */
+     меняется на уже открытой карточке — находит активный корень (и слой фона) сама.
+     На body — только пока плагин активен (ui_active, см. ниже). */
   LC.applyMotionMode = function () {
     applyMotionMode(activeCardRoot());
     applyMotionMode(activeBackdropLayer());
+    if (ui_active) applyMotionMode(bodyRoot());
   };
 
   var toggle_followed = false;
@@ -372,6 +380,7 @@
       LC.injectCss();
 
       ui_active = true;
+      applyMotionMode(bodyRoot());
       try {
         LC.menus.mode(Lampa.Storage.field('lumen_menus'));
         LC.menus.install();
