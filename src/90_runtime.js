@@ -82,6 +82,45 @@
   }
 
   /* -------------------------------------------------------------------- */
+  /* Task 5b (правки координатора, п.4): хук закрытия карточки.             */
+  /* -------------------------------------------------------------------- */
+
+  /* Активность открытой карточки — {object, body} с события 'full' complite.
+     Одно значение, не стек: если вторая карточка открылась раньше, чем
+     destroy первой дошёл до слушателя, LC.active уже указывает на вторую —
+     destroy первой тогда просто пропускается (её слой всё равно самоочистится
+     через isMounted() в 50_backdrops.js, это лишь более раннее/явное
+     закрытие для типичного случая). Структура держится расширяемой — Task 6
+     положит сюда же состояние слайдшоу. */
+  LC.active = null;
+
+  var activity_followed = false;
+
+  /* Одна подписка на 'activity' за всё время жизни плагина: на destroy СВОЕЙ
+     активности отменяем незавершённую загрузку фона (LC.backdrops.cancel) —
+     до слайдшоу Task 6 (интервал) это не самоочистится через isMounted()
+     так же надёжно, как один одноразовый таймаут. */
+  function followActivityDestroy() {
+    if (activity_followed) return;
+    activity_followed = true;
+    try {
+      if (!window.Lampa || !Lampa.Listener) return;
+      Lampa.Listener.follow('activity', function (e) {
+        try {
+          if (!e || e.type !== 'destroy') return;
+          if (!LC.active || e.object !== LC.active.object) return;
+          LC.backdrops.cancel(LC.active.body);
+          LC.active = null;
+        } catch (err) {
+          warn('activity destroy failed', err);
+        }
+      });
+    } catch (e2) {
+      warn('activity listener failed', e2);
+    }
+  }
+
+  /* -------------------------------------------------------------------- */
   /* Инициализация.                                                        */
   /* -------------------------------------------------------------------- */
 
@@ -153,6 +192,7 @@
             LC.header.decorate(root, e.data);
             LC.backdrops.apply(root, e.body, (e.data && e.data.movie) || {});
             applyMotionMode(root);
+            LC.active = { object: e.object, body: e.body };
           }
         } catch (err) {
           warn('listener failed', err);
@@ -160,6 +200,7 @@
       });
 
       followToggle();
+      followActivityDestroy();
     } catch (e) {
       warn('init failed', e);
       restoreOriginalTemplate();

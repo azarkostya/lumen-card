@@ -757,23 +757,36 @@
       return pg;
     }
 
-    /* Task 5b Step 1: режим фона ДО попытки реальной загрузки картинки
-       (onload/onerror/таймаут — уже забота LC.backdrops, не этой чистой
-       функции). 'backdrop' — есть movie.backdrop_path, либо в
-       movie.images.backdrops[] нашёлся элемент с file_path и БЕЗ iso_639_1
-       (кадр без текста/логотипа — план 0.2 «Картинки»/Task 5b Step 1).
-       'poster' — кадров нет, но есть poster_path. 'procedural' — нет
-       вообще ничего, тогда фон — старые процедурные градиенты v1. */
-    function bgMode(movie) {
+    /* Ревью Task 5b (правки координатора, п.1): единая точка правды для
+       «какой путь кадра использовать» — раньше bgMode и backdropUrl
+       (50_backdrops.js) были рассинхронизированы: bgMode учитывал кадр из
+       movie.images.backdrops[], а backdropUrl читал только backdrop_path,
+       из-за чего режим 'backdrop' с кадром только в альбоме давал пустой
+       URL (гибрид вне design-spec §11/§12: ни постера, ни настоящего
+       кадра). Приоритет — backdrop_path, иначе первый элемент
+       images.backdrops[] с непустым file_path и БЕЗ iso_639_1 (кадр без
+       текста/логотипа), иначе ''. И bgMode, и LC.backdrops.backdropUrl
+       вызывают именно эту функцию. */
+    function backdropPath(movie) {
       movie = movie || {};
-      if (movie.backdrop_path) return 'backdrop';
+      if (movie.backdrop_path) return movie.backdrop_path;
 
       var backdrops = (movie.images && movie.images.backdrops) || [];
       for (var i = 0; i < backdrops.length; i++) {
         var b = backdrops[i];
-        if (b && b.file_path && !b.iso_639_1) return 'backdrop';
+        if (b && b.file_path && !b.iso_639_1) return b.file_path;
       }
+      return '';
+    }
 
+    /* Task 5b Step 1: режим фона ДО попытки реальной загрузки картинки
+       (onload/onerror/таймаут — уже забота LC.backdrops, не этой чистой
+       функции). 'backdrop' — backdropPath(movie) непуст. 'poster' — кадров
+       нет, но есть poster_path. 'procedural' — нет вообще ничего, тогда
+       фон — старые процедурные градиенты v1. */
+    function bgMode(movie) {
+      movie = movie || {};
+      if (backdropPath(movie)) return 'backdrop';
       if (movie.poster_path) return 'poster';
       return 'procedural';
     }
@@ -790,7 +803,8 @@
       isSerial: isSerial,
       genres: genres,
       pgText: pgText,
-      bgMode: bgMode
+      bgMode: bgMode,
+      backdropPath: backdropPath
     };
   })();
 
@@ -1043,11 +1057,12 @@
   /* Фон карточки (Task 5b: перенесено из 90_runtime.js без изменения      */
   /* поведения для режима 'backdrop'; добавлены режимы 'poster' и          */
   /* 'procedural' по LC.cardinfo.bgMode). Публично — LC.backdrops.apply     */
-  /* (root, body, movie), её вызывает Listener 'full' в 90_runtime.js на    */
-  /* complite (там же, где раньше был applyBackdrop). Task 6 добавит сюда   */
-  /* же pickBackdrops и слайдшоу кадров. URL любых картинок — только через  */
-  /* LC.cardinfo.imageUrl (план 0.2 «Картинки», прокси TMDB, без двойного   */
-  /* слэша). */
+  /* (root, body, movie) и LC.backdrops.cancel(body); apply вызывает        */
+  /* Listener 'full' в 90_runtime.js на complite (там же, где раньше был    */
+  /* applyBackdrop), cancel — 'activity' destroy (правки координатора,      */
+  /* п.4). Task 6 добавит сюда же pickBackdrops и слайдшоу кадров. URL      */
+  /* любых картинок — только через LC.cardinfo.imageUrl (план 0.2           */
+  /* «Картинки», прокси TMDB, без двойного слэша). */
   /* -------------------------------------------------------------------- */
 
   function tmdbImageFn() {
@@ -1064,10 +1079,16 @@
     return null;
   }
 
+  /* Ревью Task 5b (правки координатора, п.1): путь кадра — из
+     LC.cardinfo.backdropPath (backdrop_path либо первый чистый элемент
+     images.backdrops[]), той же функции, что определяет bgMode — раньше
+     это были два независимых источника правды, и режим 'backdrop' с кадром
+     только в альбоме отдавал пустой URL. */
   function backdropUrl(movie) {
     var url = '';
     try {
-      if (movie.backdrop_path) url = LC.cardinfo.imageUrl(movie.backdrop_path, 'w1280', tmdbImageFn(), apiImgFn());
+      var path = LC.cardinfo.backdropPath(movie);
+      if (path) url = LC.cardinfo.imageUrl(path, 'w1280', tmdbImageFn(), apiImgFn());
     } catch (e) {
       warn('image url failed', e);
     }
@@ -1134,6 +1155,30 @@
     layer.removeClass('lumen-backdrop--proc0 lumen-backdrop--proc1 lumen-backdrop--proc2 lumen-bg--blur');
   }
 
+  /* Ревью Task 5b (правки координатора, п.2/4): у каждого слоя — счётчик
+     поколения (layer.data('lumenGen')) и ссылка на незавершённую загрузку
+     (layer.data('lumenPending') = {timer, loader}). Без этого повторный
+     apply() на том же e.body (смена карточки без полного размонтирования
+     слоя, либо будущий слайдшоу Task 6) мог получить кадр от уже
+     неактуального вызова, если тот ответит позже нового — новый фон
+     перезаписывался бы устаревшим. cancelPending() гасит и обработчики
+     (onload/onerror = null — сама сеть их больше не вызовет), и таймер;
+     gen — запасная сеть НА СЛУЧАЙ, если что-то всё же успело выполниться
+     до отмены (см. finish() ниже). */
+  function cancelPending(layer) {
+    var pending = layer.data('lumenPending');
+    if (!pending) return;
+    if (pending.timer) clearTimeout(pending.timer);
+    if (pending.loader) { pending.loader.onload = null; pending.loader.onerror = null; }
+    layer.removeData('lumenPending');
+  }
+
+  function nextGen(layer) {
+    var gen = (layer.data('lumenGen') || 0) + 1;
+    layer.data('lumenGen', gen);
+    return gen;
+  }
+
   /* Task 5b Step 3/4: нет кадра — ни в режиме 'poster'/'procedural', ни
      когда кадр из режима 'backdrop' не загрузился/завис (design-spec §12,
      дополнение к Task 5b: размытый постер, blur(40px)=1.75em, opacity:.8
@@ -1156,8 +1201,12 @@
      плюс таймаут 8с (экран 13 design-spec §12 не даёт точного числа
      зависания — восьмисекундный таймаут свой). Любая ветка завершения
      (onload/onerror/таймер) проходит через finish(), которая гасит все
-     остальные пути и таймер — второй мутации после первой не будет. */
-  function loadBackdrop(layer, movie) {
+     остальные пути и таймер — второй мутации после первой не будет.
+     Ревью Task 5b (правки координатора, п.3): весь блок ПОСЛЕ проверки
+     isMounted — в одном try/catch (как было в v1): encodeURI может бросить
+     URIError на «сломанном» URL, showNoFrame тоже может исключить —
+     раньше try/catch стоял только вокруг успешной ветки. */
+  function loadBackdrop(layer, movie, gen) {
     var url = backdropUrl(movie);
     var img = layer.find('.lumen-backdrop__img');
 
@@ -1175,15 +1224,22 @@
       if (timer) { clearTimeout(timer); timer = null; }
       loader.onload = null;
       loader.onerror = null;
+      layer.removeData('lumenPending');
+      /* Устарела: более новый apply() уже поменял поколение слоя (запасная
+         сеть — cancelPending() выше по стеку уже обнулил onload/onerror,
+         это на случай, если finish() всё же был вызван до отмены). */
+      if (layer.data('lumenGen') !== gen) return;
       if (!isMounted(node)) return;
-      if (ok) {
-        try {
+      try {
+        if (ok) {
           /* encodeURI страхует от "/\/) в URL, которые сломали бы строку url("...") */
           img.css('background-image', 'url("' + encodeURI(url) + '")');
           layer.addClass('loaded');
-        } catch (e) { }
-      } else {
-        showNoFrame(layer, movie);
+        } else {
+          showNoFrame(layer, movie);
+        }
+      } catch (e) {
+        warn('backdrop apply failed', e);
       }
     }
 
@@ -1191,6 +1247,8 @@
     loader.onerror = function () { finish(false); };
     timer = setTimeout(function () { finish(false); }, 8000);
     loader.src = url;
+
+    layer.data('lumenPending', { timer: timer, loader: loader });
   }
 
   /* Task 5b Step 2: сам <img class="full--poster"> заполняет родная
@@ -1224,16 +1282,35 @@
       body.find('.full-start__background').addClass('lumen-off');
 
       var layer = ensureLayer(body);
+      /* Отменяем незавершённую загрузку ПРЕДЫДУЩЕГО apply() на этом же
+         слое ДО того, как начнём новую (правки координатора, п.2). */
+      cancelPending(layer);
       clearLayer(layer);
+      var gen = nextGen(layer);
 
-      if (mode === 'backdrop') loadBackdrop(layer, movie);
+      if (mode === 'backdrop') loadBackdrop(layer, movie, gen);
       else showNoFrame(layer, movie);
     } catch (e) {
       warn('backdrop failed', e);
     }
   }
 
-  LC.backdrops = { apply: apply };
+  /* Ревью Task 5b (правки координатора, п.4): хук закрытия карточки —
+     90_runtime.js вызывает это на 'activity' destroy СВОЕЙ активности
+     (LC.active), до того как Lampa уберёт DOM сама. Идемпотентен: повторный
+     вызов на уже отменённом/отсутствующем слое ничего не делает. */
+  function cancel(body) {
+    try {
+      if (!body || !body.length) return;
+      var layer = body.children('.lumen-backdrop');
+      if (!layer.length) return;
+      cancelPending(layer);
+    } catch (e) {
+      warn('backdrop cancel failed', e);
+    }
+  }
+
+  LC.backdrops = { apply: apply, cancel: cancel };
 
 
 /* ---- 70_progress.js ---- */
@@ -1868,6 +1945,45 @@
   }
 
   /* -------------------------------------------------------------------- */
+  /* Task 5b (правки координатора, п.4): хук закрытия карточки.             */
+  /* -------------------------------------------------------------------- */
+
+  /* Активность открытой карточки — {object, body} с события 'full' complite.
+     Одно значение, не стек: если вторая карточка открылась раньше, чем
+     destroy первой дошёл до слушателя, LC.active уже указывает на вторую —
+     destroy первой тогда просто пропускается (её слой всё равно самоочистится
+     через isMounted() в 50_backdrops.js, это лишь более раннее/явное
+     закрытие для типичного случая). Структура держится расширяемой — Task 6
+     положит сюда же состояние слайдшоу. */
+  LC.active = null;
+
+  var activity_followed = false;
+
+  /* Одна подписка на 'activity' за всё время жизни плагина: на destroy СВОЕЙ
+     активности отменяем незавершённую загрузку фона (LC.backdrops.cancel) —
+     до слайдшоу Task 6 (интервал) это не самоочистится через isMounted()
+     так же надёжно, как один одноразовый таймаут. */
+  function followActivityDestroy() {
+    if (activity_followed) return;
+    activity_followed = true;
+    try {
+      if (!window.Lampa || !Lampa.Listener) return;
+      Lampa.Listener.follow('activity', function (e) {
+        try {
+          if (!e || e.type !== 'destroy') return;
+          if (!LC.active || e.object !== LC.active.object) return;
+          LC.backdrops.cancel(LC.active.body);
+          LC.active = null;
+        } catch (err) {
+          warn('activity destroy failed', err);
+        }
+      });
+    } catch (e2) {
+      warn('activity listener failed', e2);
+    }
+  }
+
+  /* -------------------------------------------------------------------- */
   /* Инициализация.                                                        */
   /* -------------------------------------------------------------------- */
 
@@ -1939,6 +2055,7 @@
             LC.header.decorate(root, e.data);
             LC.backdrops.apply(root, e.body, (e.data && e.data.movie) || {});
             applyMotionMode(root);
+            LC.active = { object: e.object, body: e.body };
           }
         } catch (err) {
           warn('listener failed', err);
@@ -1946,6 +2063,7 @@
       });
 
       followToggle();
+      followActivityDestroy();
     } catch (e) {
       warn('init failed', e);
       restoreOriginalTemplate();

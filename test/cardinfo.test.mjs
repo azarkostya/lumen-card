@@ -306,3 +306,37 @@ test('bgMode: images без backdrops -> как отсутствие кадро�
   assert.equal(cardinfo.bgMode({ poster_path: '/p.jpg', images: {} }), 'poster');
   assert.equal(cardinfo.bgMode({ images: {} }), 'procedural');
 });
+
+/* -------------------------------------------------------------------- */
+/* backdropPath (Task 5b, правки координатора п.1): единая точка правды  */
+/* для bgMode И LC.backdrops.backdropUrl (50_backdrops.js) — раньше они  */
+/* были рассинхронизированы (bgMode учитывал images.backdrops[], а       */
+/* backdropUrl — только backdrop_path). */
+/* -------------------------------------------------------------------- */
+
+test('backdropPath: есть backdrop_path -> он и возвращается', () => {
+  assert.equal(cardinfo.backdropPath({ backdrop_path: '/x.jpg' }), '/x.jpg');
+});
+
+test('backdropPath: backdrop_path пуст, но в images.backdrops есть элемент без iso_639_1 -> его file_path', () => {
+  const movie = {
+    images: { backdrops: [
+      { file_path: '/logo.jpg', iso_639_1: 'en' },
+      { file_path: '/frame.jpg', iso_639_1: null }
+    ] }
+  };
+  assert.equal(cardinfo.backdropPath(movie), '/frame.jpg');
+  assert.equal(cardinfo.bgMode(movie), 'backdrop');
+});
+
+test('backdropPath: только элементы с iso_639_1/без file_path -> "" (и bgMode не backdrop)', () => {
+  const movie = { poster_path: '/p.jpg', images: { backdrops: [{ file_path: '/logo.jpg', iso_639_1: 'en' }, { iso_639_1: null }] } };
+  assert.equal(cardinfo.backdropPath(movie), '');
+  assert.equal(cardinfo.bgMode(movie), 'poster');
+});
+
+test('backdropPath: нет ничего -> "" ; movie не передан -> "", без исключения', () => {
+  assert.equal(cardinfo.backdropPath({}), '');
+  assert.equal(cardinfo.backdropPath(null), '');
+  assert.equal(cardinfo.backdropPath(undefined), '');
+});

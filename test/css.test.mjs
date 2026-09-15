@@ -99,6 +99,38 @@ function ruleSelectors(cssText) {
   return out.filter(Boolean);
 }
 
+/* Ревью Task 5b (правки координатора, п.5): как ruleSelectors, но с телом
+   правила — нужно тестам, которые ищут правило ПО МНОЖЕСТВУ его селекторов
+   (после разбивки запятой через .some()), а не регуляркой по точному тексту
+   всей строки (порядок lumen-motion-lite/off, пробелы между селекторами —
+   деталь реализации, не часть контракта). */
+function ruleBodies(cssText) {
+  const out = [];
+  const lines = cssText.split('\n');
+  for (const line of lines) {
+    if (!line) continue;
+    if (/^@-?(webkit-)?keyframes/.test(line)) continue;
+    let body = line;
+    if (/^@(media|supports)/.test(line)) {
+      const firstBrace = line.indexOf('{');
+      body = line.slice(firstBrace + 1);
+    }
+    const open = body.indexOf('{');
+    const close = body.lastIndexOf('}');
+    if (open === -1 || close <= open) continue;
+    const selectors = body.slice(0, open).split(',').map((s) => s.trim()).filter(Boolean);
+    out.push({ selectors, decl: body.slice(open + 1, close) });
+  }
+  return out;
+}
+
+/* Тело первого правила, у которого ХОТЯ БЫ ОДИН селектор (после разбивки
+   запятой) проходит matchSelector — или null, если такого правила нет. */
+function findDecl(cssText, matchSelector) {
+  const rule = ruleBodies(cssText).find((r) => r.selectors.some(matchSelector));
+  return rule ? rule.decl : null;
+}
+
 test('buildCss: все правила шапки ограничены допустимыми корнями', () => {
   const selectors = ruleSelectors(css);
   assert.ok(selectors.length > 20, 'подозрительно мало селекторов извлечено: ' + selectors.length);
@@ -139,30 +171,33 @@ test('30_css.js: цвет «спайс» не захардкожен как rgb-
 /* -------------------------------------------------------------------- */
 
 test('buildCss: .lumen-card--poster переопределяет v1-правило .full-start-new__left большей специфичностью + !important', () => {
-  const v1 = /\.lumen-card \.full-start-new__left\{([^}]*)\}/.exec(css);
+  const v1 = findDecl(css, (sel) => sel === '.lumen-card .full-start-new__left');
   assert.ok(v1, 'v1-правило (скрытие по умолчанию) не найдено');
-  assert.ok(/display\s*:\s*none\s*!important/.test(v1[1]), 'v1-правило должно прятать .full-start-new__left');
+  assert.ok(/display\s*:\s*none\s*!important/.test(v1), 'v1-правило должно прятать .full-start-new__left');
 
-  const poster = /\.lumen-card\.lumen-card--poster \.full-start-new__left\{([^}]*)\}/.exec(css);
+  const poster = findDecl(css, (sel) => sel.indexOf('.lumen-card--poster') !== -1 && sel.indexOf('.full-start-new__left') !== -1);
   assert.ok(poster, 'правило .lumen-card--poster .full-start-new__left не найдено');
-  assert.ok(/display\s*:\s*block\s*!important/.test(poster[1]), 'в режиме постера узел должен быть виден (!important — иначе не перебьёт v1)');
+  assert.ok(/display\s*:\s*block\s*!important/.test(poster), 'в режиме постера узел должен быть виден (!important — иначе не перебьёт v1)');
 });
 
 test('buildCss: .lumen-card--poster .full-start-new__poster оформлен как плейсхолдер §11 (radius/border/shadow)', () => {
-  const m = /\.lumen-card\.lumen-card--poster \.full-start-new__poster\{([^}]*)\}/.exec(css);
-  assert.ok(m, 'правило постера-плейсхолдера не найдено');
-  assert.ok(m[1].indexOf('border-radius') !== -1);
-  assert.ok(m[1].indexOf('box-shadow') !== -1);
+  const decl = findDecl(css, (sel) => sel.indexOf('.lumen-card--poster') !== -1 && sel.indexOf('.full-start-new__poster') !== -1);
+  assert.ok(decl, 'правило постера-плейсхолдера не найдено');
+  assert.ok(decl.indexOf('border-radius') !== -1);
+  assert.ok(decl.indexOf('box-shadow') !== -1);
 });
 
 test('buildCss: .lumen-bg--blur — размытый постер (blur 1.75em = design 40px÷22.811) только в lumen-motion-full', () => {
-  const full = /\.lumen-backdrop\.lumen-motion-full\.lumen-bg--blur \.lumen-backdrop__img\{([^}]*)\}/.exec(css);
-  assert.ok(full, 'правило блюра для lumen-motion-full не найдено');
-  assert.ok(full[1].indexOf('blur(1.75em)') !== -1, 'ожидался filter:blur(1.75em) (дополнение к Task 5b: 40px÷22.811)');
+  const decl = findDecl(css, (sel) => sel.indexOf('.lumen-backdrop') === 0 && sel.indexOf('lumen-motion-full') !== -1 && sel.indexOf('lumen-bg--blur') !== -1);
+  assert.ok(decl, 'правило блюра для lumen-motion-full не найдено');
+  assert.ok(decl.indexOf('blur(1.75em)') !== -1, 'ожидался filter:blur(1.75em) (дополнение к Task 5b: 40px÷22.811)');
 });
 
 test('buildCss: .lumen-bg--blur в lumen-motion-lite/off — без filter (дорого на ТВ, только затемнение)', () => {
-  const m = /\.lumen-backdrop\.lumen-motion-lite\.lumen-bg--blur \.lumen-backdrop__img,\.lumen-backdrop\.lumen-motion-off\.lumen-bg--blur \.lumen-backdrop__img\{([^}]*)\}/.exec(css);
-  assert.ok(m, 'правило lumen-motion-lite/off для .lumen-bg--blur не найдено');
-  assert.equal(m[1].indexOf('filter'), -1, 'lite/off не должны переопределять/задавать filter (блюр остаётся только в lumen-motion-full)');
+  const declLite = findDecl(css, (sel) => sel.indexOf('lumen-motion-lite') !== -1 && sel.indexOf('lumen-bg--blur') !== -1);
+  const declOff = findDecl(css, (sel) => sel.indexOf('lumen-motion-off') !== -1 && sel.indexOf('lumen-bg--blur') !== -1);
+  assert.ok(declLite, 'правило lumen-motion-lite для .lumen-bg--blur не найдено');
+  assert.ok(declOff, 'правило lumen-motion-off для .lumen-bg--blur не найдено');
+  assert.equal(declLite.indexOf('filter'), -1, 'lite не должен переопределять/задавать filter (блюр остаётся только в lumen-motion-full)');
+  assert.equal(declOff.indexOf('filter'), -1, 'off не должен переопределять/задавать filter (блюр остаётся только в lumen-motion-full)');
 });

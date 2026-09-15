@@ -173,23 +173,36 @@
       return pg;
     }
 
-    /* Task 5b Step 1: режим фона ДО попытки реальной загрузки картинки
-       (onload/onerror/таймаут — уже забота LC.backdrops, не этой чистой
-       функции). 'backdrop' — есть movie.backdrop_path, либо в
-       movie.images.backdrops[] нашёлся элемент с file_path и БЕЗ iso_639_1
-       (кадр без текста/логотипа — план 0.2 «Картинки»/Task 5b Step 1).
-       'poster' — кадров нет, но есть poster_path. 'procedural' — нет
-       вообще ничего, тогда фон — старые процедурные градиенты v1. */
-    function bgMode(movie) {
+    /* Ревью Task 5b (правки координатора, п.1): единая точка правды для
+       «какой путь кадра использовать» — раньше bgMode и backdropUrl
+       (50_backdrops.js) были рассинхронизированы: bgMode учитывал кадр из
+       movie.images.backdrops[], а backdropUrl читал только backdrop_path,
+       из-за чего режим 'backdrop' с кадром только в альбоме давал пустой
+       URL (гибрид вне design-spec §11/§12: ни постера, ни настоящего
+       кадра). Приоритет — backdrop_path, иначе первый элемент
+       images.backdrops[] с непустым file_path и БЕЗ iso_639_1 (кадр без
+       текста/логотипа), иначе ''. И bgMode, и LC.backdrops.backdropUrl
+       вызывают именно эту функцию. */
+    function backdropPath(movie) {
       movie = movie || {};
-      if (movie.backdrop_path) return 'backdrop';
+      if (movie.backdrop_path) return movie.backdrop_path;
 
       var backdrops = (movie.images && movie.images.backdrops) || [];
       for (var i = 0; i < backdrops.length; i++) {
         var b = backdrops[i];
-        if (b && b.file_path && !b.iso_639_1) return 'backdrop';
+        if (b && b.file_path && !b.iso_639_1) return b.file_path;
       }
+      return '';
+    }
 
+    /* Task 5b Step 1: режим фона ДО попытки реальной загрузки картинки
+       (onload/onerror/таймаут — уже забота LC.backdrops, не этой чистой
+       функции). 'backdrop' — backdropPath(movie) непуст. 'poster' — кадров
+       нет, но есть poster_path. 'procedural' — нет вообще ничего, тогда
+       фон — старые процедурные градиенты v1. */
+    function bgMode(movie) {
+      movie = movie || {};
+      if (backdropPath(movie)) return 'backdrop';
       if (movie.poster_path) return 'poster';
       return 'procedural';
     }
@@ -206,7 +219,8 @@
       isSerial: isSerial,
       genres: genres,
       pgText: pgText,
-      bgMode: bgMode
+      bgMode: bgMode,
+      backdropPath: backdropPath
     };
   })();
 
