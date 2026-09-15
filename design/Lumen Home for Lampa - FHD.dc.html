@@ -1,0 +1,1546 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Golos+Text:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  body { margin: 0; background: #060506; font-variant-numeric: lining-nums proportional-nums; }
+  a { color: #E8B87A; text-decoration: none; }
+  a:hover { color: #FFF2DC; }
+</style>
+</helmet>
+<div ref="{{ rootRef }}" style="padding:80px;background:#060506;display:flex;flex-direction:column;gap:100px;width:max-content;font-family:'Golos Text',system-ui,sans-serif;color:#F3EDE4">
+
+  <div style="display:flex;flex-direction:column;gap:16px;max-width:1300px">
+    <div style="font:600 17px/1 'JetBrains Mono',monospace;color:var(--ac,#E8B87A);letter-spacing:.24em">LUMEN · ГЛАВНАЯ · FHD 1920 × 1080 · ЭКРАНЫ 15—32</div>
+    <div style="font:800 64px/1.02 'Unbounded',system-ui,sans-serif;letter-spacing:-.01em">Главная,<br />подборки, атмосферы</div>
+    <div style="font:400 26px/1.45 'Golos Text',sans-serif;color:#A89A8A;max-width:1100px;text-wrap:pretty">Герой сверху, ряды снизу: фокус по ряду меняет кадр и текст героя. Подборки — обычные ряды с текстовой меткой источника. Логотипы сервисов не рисуются, только моно-метки.</div>
+  </div>
+
+  <!-- ROW A — 15…18 ============================================ -->
+  <div style="display:flex;gap:80px;align-items:flex-start">
+
+    <!-- 15 ------------------------------------------------------ -->
+    <div data-screen-label="15" style="display:flex;flex-direction:column;gap:20px">
+      <div style="font:600 20px/1 'JetBrains Mono',monospace;color:#7A6A5A;letter-spacing:.14em">15 · MAIN — HERO FOCUS</div>
+      <div style="position:relative;width:1920px;height:1080px;overflow:hidden;background:#0B0908;flex:none">
+
+        <div style="position:absolute;left:0;right:0;top:0;height:626.5px;overflow:hidden">
+          <div style="position:absolute;inset:0;background:radial-gradient(60% 70% at 74% 34%, rgba(255,214,158,.75) 0%, rgba(198,118,58,.4) 24%, rgba(120,60,26,0) 62%),radial-gradient(130% 120% at 66% 44%, #A9613A 0%, #6E3A22 30%, #2C1710 60%, #0B0908 100%)"></div>
+          <div style="position:absolute;left:18%;top:-30%;width:750px;height:750px;border-radius:50%;background:radial-gradient(circle,rgba(127,183,201,.14),rgba(127,183,201,0) 62%)"></div>
+          <div style="position:absolute;inset:0;background-image:radial-gradient(rgba(255,255,255,.05) 0.5px,transparent 0.6px);background-size:2.5px 2.5px;opacity:.5;mix-blend-mode:overlay"></div>
+          <div style="position:absolute;inset:0;background:linear-gradient(90deg, rgba(11,9,8,.96) 0%, rgba(11,9,8,0) 82%)"></div>
+          <div style="position:absolute;inset:0;background:linear-gradient(0deg, rgba(11,9,8,1) 0%, rgba(11,9,8,.72) 22%, rgba(11,9,8,0) 62%)"></div>
+          <div style="position:absolute;inset:0;background:linear-gradient(180deg, rgba(11,9,8,.7) 0%, rgba(11,9,8,0) 22%)"></div>
+        </div>
+
+        <div style="position:absolute;top:0;left:0;right:0;height:80px;padding:0 64px;display:flex;align-items:center;justify-content:space-between;z-index:6">
+          <div style="display:flex;align-items:center;gap:24px;color:#A89A8A">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6" /></svg>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10" /></svg>
+            <div style="font:800 23px/1 'Unbounded',sans-serif;letter-spacing:.06em;color:#F3EDE4">LAMPA</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:20px;color:#A89A8A">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7" /><path d="M16.5 16.5L21 21" /></svg>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 16v-5a6 6 0 10-12 0v5l-2 3h16l-2-3z" /><path d="M10 22h4" /></svg>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2" /><path d="M12 3v2.4M12 18.6V21M3 12h2.4M18.6 12H21M5.6 5.6l1.7 1.7M16.7 16.7l1.7 1.7M18.4 5.6l-1.7 1.7M7.3 16.7l-1.7 1.7" /></svg>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" /></svg>
+            <div style="width:28px;height:28px;border-radius:50%;background:#1C1613;border:1px solid #2C231D;display:flex;align-items:center;justify-content:center;font:600 14px/1 'JetBrains Mono',monospace;color:#A89A8A">AZ</div>
+            <div style="font:600 22px/1 'JetBrains Mono',monospace;color:#F3EDE4">21:14</div>
+          </div>
+        </div>
+
+        <div style="position:absolute;left:64px;top:190px;width:1050px;display:flex;flex-direction:column;align-items:flex-start;z-index:5">
+          <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A;letter-spacing:.03em;display:flex;gap:12px;flex-wrap:wrap">
+            <span>2026</span><span style="color:#3E3226">·</span><span>США</span><span style="color:#3E3226">·</span><span>2:18</span><span style="color:#3E3226">·</span><span>Фантастика, Боевик</span><span style="color:#3E3226">·</span><span>12+</span>
+          </div>
+          <div style="margin-top:18px;padding:14px 22px;border-radius:10px;border:1px solid rgba(243,237,228,.14);background:rgba(11,9,8,.28);max-width:700px">
+            <div style="font:800 58px/.96 'Unbounded',system-ui,sans-serif;letter-spacing:.02em;text-transform:uppercase;text-shadow:0 0 30px rgba(255,242,220,.18)">Человек-<br />паук</div>
+            <div style="font:500 24px/1 'Unbounded',sans-serif;color:var(--ac,#E8B87A);letter-spacing:.18em;margin-top:10px;text-transform:uppercase">Новый день</div>
+          </div>
+          <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#7A6A5A;letter-spacing:.1em;margin-top:10px">IMAGES.LOGOS · ФОЛБЭК: ТЕКСТ UNBOUNDED 800</div>
+          <div style="font:400 24px/1.45 'Golos Text',sans-serif;color:#A89A8A;margin-top:18px;max-width:900px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;text-wrap:pretty">Питер Паркер начинает всё заново в городе, который его забыл: без союзников, без имени и с чужой маской в рюкзаке. Первая же ночь показывает, что забыли не все.</div>
+          <div style="display:flex;gap:12px;margin-top:22px;align-items:center">
+            <div style="display:flex;flex-direction:column;gap:4px;padding:10px 16px;border-radius:12px;background:rgba(28,22,19,.78);border:1px solid #2C231D">
+              <div style="font:600 28px/1 'JetBrains Mono',monospace">7.9</div>
+              <div style="font:400 14px/1 'JetBrains Mono',monospace;color:#7A6A5A;letter-spacing:.1em">TMDB</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;padding:0 16px;height:58px;border-radius:12px;background:rgba(28,22,19,.78);border:1px solid #2C231D">
+              <div style="width:10px;height:10px;border-radius:50%;background:#8FBF7A"></div>
+              <div style="font:500 20px/1 'Golos Text',sans-serif">Выпущенный</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;padding:0 16px;height:58px;border-radius:12px;background:rgba(28,22,19,.78);border:1px solid #2C231D">
+              <div style="font:400 15px/1 'JetBrains Mono',monospace;letter-spacing:.08em">4K</div>
+              <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#3E3226">·</div>
+              <div style="font:400 15px/1 'JetBrains Mono',monospace;letter-spacing:.08em">HDR</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="position:absolute;left:64px;right:0;top:650px;z-index:5">
+          <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px">
+            <div style="font:700 28px/1 'Unbounded',sans-serif">Сейчас смотрят</div>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--ac,#E8B87A)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg>
+          </div>
+          <div style="display:flex;gap:20px;align-items:flex-start">
+            <div style="width:230px;height:345px;border-radius:7px;background:linear-gradient(165deg,#4A2C1E,#160E09);border:3px solid var(--ring,#FFF2DC);padding:15px;display:flex;flex-direction:column;justify-content:flex-end;gap:7px;flex:none;transform:scale(1.08);box-shadow:0 16px 45px var(--acglow,rgba(232,184,122,.35))">
+              <div style="align-self:flex-start;padding:5px 9px;border-radius:4px;background:var(--ac,#E8B87A);color:var(--onac,#1A120A);font:600 20px/1 'JetBrains Mono',monospace;letter-spacing:.04em;margin-bottom:auto">НОВИНКА</div>
+              <div style="font:700 22px/1.15 'Unbounded',sans-serif">Человек-паук: Новый день</div>
+              <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A">2026 · 7.9</div>
+            </div>
+            <div style="width:230px;height:345px;border-radius:7px;background:linear-gradient(165deg,#2B3540,#0C1114);border:1px solid #2C231D;padding:16px;display:flex;flex-direction:column;justify-content:flex-end;gap:7px;flex:none">
+              <div style="font:700 22px/1.15 'Unbounded',sans-serif">Хитрый койот</div>
+              <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A">2026 · 7.6</div>
+            </div>
+            <div style="width:230px;height:345px;border-radius:7px;background:linear-gradient(165deg,#1E2C26,#0A120E);border:1px solid #2C231D;padding:16px;display:flex;flex-direction:column;justify-content:flex-end;gap:7px;flex:none">
+              <div style="font:700 22px/1.15 'Unbounded',sans-serif">Колония</div>
+              <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A">2026 · 8.1</div>
+            </div>
+            <div style="width:230px;height:345px;border-radius:7px;background:linear-gradient(165deg,#2E2417,#120E08);border:1px solid #2C231D;padding:16px;display:flex;flex-direction:column;justify-content:flex-end;gap:7px;flex:none">
+              <div style="font:700 22px/1.15 'Unbounded',sans-serif">Одиссея</div>
+              <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A">2026 · 8.0</div>
+            </div>
+            <div style="width:230px;height:345px;border-radius:7px;background:linear-gradient(165deg,#2A1E2C,#100A12);border:1px solid #2C231D;padding:16px;display:flex;flex-direction:column;justify-content:flex-end;gap:7px;flex:none">
+              <div style="font:700 22px/1.15 'Unbounded',sans-serif">Мятеж</div>
+              <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A">2025 · 6.4</div>
+            </div>
+            <div style="width:230px;height:345px;border-radius:7px;background:linear-gradient(165deg,#233240,#0B1014);border:1px solid #2C231D;padding:16px;display:flex;flex-direction:column;justify-content:flex-end;gap:7px;flex:none">
+              <div style="font:700 22px/1.15 'Unbounded',sans-serif">Моана</div>
+              <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A">2026 · 6.9</div>
+            </div>
+            <div style="width:230px;height:345px;border-radius:7px;background:linear-gradient(165deg,#332619,#130E09);border:1px solid #2C231D;padding:16px;display:flex;flex-direction:column;justify-content:flex-end;gap:7px;flex:none">
+              <div style="font:700 22px/1.15 'Unbounded',sans-serif">Тихий дом</div>
+              <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A">2025 · 7.1</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:14px;margin-top:24px;opacity:.6">
+            <div style="font:700 28px/1 'Unbounded',sans-serif">Рождественские комедии</div>
+            <div style="padding:5px 11px;border-radius:4px;border:1px solid #2C231D;font:600 20px/1 'JetBrains Mono',monospace;color:#7A6A5A;letter-spacing:.06em">124</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 16 ------------------------------------------------------ -->
+    <div data-screen-label="16" style="display:flex;flex-direction:column;gap:20px">
+      <div style="font:600 20px/1 'JetBrains Mono',monospace;color:#7A6A5A;letter-spacing:.14em">16 · MAIN — FOCUS MOVED</div>
+      <div style="position:relative;width:1920px;height:1080px;overflow:hidden;background:#0B0908;flex:none">
+
+        <div style="position:absolute;left:0;right:0;top:0;height:626.5px;overflow:hidden">
+          <div style="position:absolute;inset:0;background:radial-gradient(60% 70% at 70% 30%, rgba(190,236,210,.5) 0%, rgba(80,150,120,.28) 24%, rgba(30,70,55,0) 62%),radial-gradient(130% 120% at 62% 46%, #33564A 0%, #1E3A32 30%, #101E1A 60%, #0B0908 100%)"></div>
+          <div style="position:absolute;inset:0;background-image:radial-gradient(rgba(255,255,255,.05) 0.5px,transparent 0.6px);background-size:2.5px 2.5px;opacity:.5;mix-blend-mode:overlay"></div>
+          <div style="position:absolute;inset:0;background:linear-gradient(90deg, rgba(11,9,8,.96) 0%, rgba(11,9,8,0) 82%)"></div>
+          <div style="position:absolute;inset:0;background:linear-gradient(0deg, rgba(11,9,8,1) 0%, rgba(11,9,8,.72) 22%, rgba(11,9,8,0) 62%)"></div>
+          <div style="position:absolute;inset:0;background:linear-gradient(180deg, rgba(11,9,8,.7) 0%, rgba(11,9,8,0) 22%)"></div>
+        </div>
+
+        <div style="position:absolute;top:0;left:0;right:0;height:80px;padding:0 64px;display:flex;align-items:center;justify-content:space-between;z-index:6">
+          <div style="display:flex;align-items:center;gap:24px;color:#A89A8A">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6" /></svg>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10" /></svg>
+            <div style="font:800 23px/1 'Unbounded',sans-serif;letter-spacing:.06em;color:#F3EDE4">LAMPA</div>
+          </div>
+          <div style="font:600 22px/1 'JetBrains Mono',monospace;color:#F3EDE4">21:15</div>
+        </div>
+
+        <div style="position:absolute;left:64px;top:210px;width:1000px;display:flex;flex-direction:column;align-items:flex-start;z-index:5">
+          <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A;letter-spacing:.03em">2026 · США · 1:58 · Фантастика, Драма · 16+</div>
+          <div style="font:800 76px/1.0 'Unbounded',system-ui,sans-serif;letter-spacing:-.01em;margin-top:16px">Колония</div>
+          <div style="display:flex;flex-direction:column;gap:10px;margin-top:22px">
+            <div style="width:900px;height:17px;border-radius:8.5px;background:linear-gradient(90deg,rgba(243,237,228,.14),rgba(243,237,228,.06))"></div>
+            <div style="width:600px;height:17px;border-radius:8.5px;background:linear-gradient(90deg,rgba(243,237,228,.12),rgba(243,237,228,.04))"></div>
+            <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#7A6A5A;letter-spacing:.1em;margin-top:4px">СКЕЛЕТОН ОПИСАНИЯ · ЗАГРУЖАЕТСЯ ОТДЕЛЬНЫМ ЗАПРОСОМ</div>
+          </div>
+          <div style="display:flex;gap:12px;margin-top:22px;align-items:center">
+            <div style="display:flex;flex-direction:column;gap:4px;padding:10px 16px;border-radius:12px;background:rgba(28,22,19,.78);border:1px solid #2C231D">
+              <div style="font:600 28px/1 'JetBrains Mono',monospace">8.1</div>
+              <div style="font:400 14px/1 'JetBrains Mono',monospace;color:#7A6A5A;letter-spacing:.1em">TMDB</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;padding:0 16px;height:58px;border-radius:12px;background:rgba(28,22,19,.78);border:1px solid #2C231D">
+              <div style="width:10px;height:10px;border-radius:50%;background:#8FBF7A"></div>
+              <div style="font:500 20px/1 'Golos Text',sans-serif">Выпущенный</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="position:absolute;right:64px;top:140px;width:600px;padding:20px;border-radius:10px;background:rgba(11,9,8,.72);border:1px solid #2C231D;display:flex;flex-direction:column;gap:12px;z-index:6">
+          <div style="font:600 20px/1 'JetBrains Mono',monospace;color:#7A6A5A;letter-spacing:.14em">СМЕНА ГЕРОЯ · 600 МС · ТЕКСТ +24 PX</div>
+          <div style="display:flex;gap:10px">
+            <div style="flex:1;height:100px;border-radius:7px;overflow:hidden;position:relative;background:radial-gradient(120% 120% at 66% 44%,#A9613A,#2C1710 60%,#0B0908)">
+              <div style="position:absolute;left:10px;bottom:10px;width:60%;height:11px;border-radius:4px;background:#F3EDE4"></div>
+              <div style="position:absolute;top:8px;right:10px;font:400 12px/1 'JetBrains Mono',monospace;color:#F3EDE4">0 мс</div>
+            </div>
+            <div style="flex:1;height:100px;border-radius:7px;overflow:hidden;position:relative;background:radial-gradient(120% 120% at 62% 46%,#33564A,#101E1A 60%,#0B0908)">
+              <div style="position:absolute;inset:0;background:radial-gradient(120% 120% at 66% 44%,#A9613A,#2C1710 60%,#0B0908);opacity:.5"></div>
+              <div style="position:absolute;left:10px;bottom:7px;width:44%;height:11px;border-radius:4px;background:rgba(243,237,228,.45)"></div>
+              <div style="position:absolute;top:8px;right:10px;font:400 12px/1 'JetBrains Mono',monospace;color:#F3EDE4">+300 мс</div>
+            </div>
+            <div style="flex:1;height:100px;border-radius:7px;overflow:hidden;position:relative;background:radial-gradient(120% 120% at 62% 46%,#33564A,#101E1A 60%,#0B0908);border:1px solid var(--ac,#E8B87A)">
+              <div style="position:absolute;left:10px;bottom:12px;width:52%;height:11px;border-radius:4px;background:#F3EDE4"></div>
+              <div style="position:absolute;top:8px;right:10px;font:400 12px/1 'JetBrains Mono',monospace;color:var(--ac,#E8B87A)">+600 мс</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="position:absolute;left:64px;right:0;top:650px;z-index:5">
+          <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px">
+            <div style="font:700 28px/1 'Unbounded',sans-serif">Сейчас смотрят</div>
+          </div>
+          <div style="display:flex;gap:20px;align-items:flex-start">
+            <div style="width:230px;height:345px;border-radius:7px;background:linear-gradient(165deg,#4A2C1E,#160E09);border:1px solid #2C231D;padding:16px;display:flex;flex-direction:column;justify-content:flex-end;gap:7px;flex:none">
+              <div style="font:700 22px/1.15 'Unbounded',sans-serif">Человек-паук: Новый день</div>
+              <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A">2026 · 7.9</div>
+            </div>
+            <div style="width:230px;height:345px;border-radius:7px;background:linear-gradient(165deg,#2B3540,#0C1114);border:1px solid #2C231D;padding:16px;display:flex;flex-direction:column;justify-content:flex-end;gap:7px;flex:none">
+              <div style="font:700 22px/1.15 'Unbounded',sans-serif">Хитрый койот</div>
+              <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A">2026 · 7.6</div>
+            </div>
+            <div style="width:230px;height:345px;border-radius:7px;background:linear-gradient(165deg,#22403A,#0A120E);border:3px solid var(--ring,#FFF2DC);padding:15px;display:flex;flex-direction:column;justify-content:flex-end;gap:7px;flex:none;transform:scale(1.08);box-shadow:0 16px 45px var(--acglow,rgba(232,184,122,.35))">
+              <div style="font:700 22px/1.15 'Unbounded',sans-serif">Колония</div>
+              <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A">2026 · 8.1</div>
+            </div>
+            <div style="width:230px;height:345px;border-radius:7px;background:linear-gradient(165deg,#2E2417,#120E08);border:1px solid #2C231D;padding:16px;display:flex;flex-direction:column;justify-content:flex-end;gap:7px;flex:none">
+              <div style="font:700 22px/1.15 'Unbounded',sans-serif">Одиссея</div>
+              <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A">2026 · 8.0</div>
+            </div>
+            <div style="width:230px;height:345px;border-radius:7px;background:linear-gradient(165deg,#2A1E2C,#100A12);border:1px solid #2C231D;padding:16px;display:flex;flex-direction:column;justify-content:flex-end;gap:7px;flex:none">
+              <div style="font:700 22px/1.15 'Unbounded',sans-serif">Мятеж</div>
+              <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A">2025 · 6.4</div>
+            </div>
+            <div style="width:230px;height:345px;border-radius:7px;background:linear-gradient(165deg,#233240,#0B1014);border:1px solid #2C231D;padding:16px;display:flex;flex-direction:column;justify-content:flex-end;gap:7px;flex:none">
+              <div style="font:700 22px/1.15 'Unbounded',sans-serif">Моана</div>
+              <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A">2026 · 6.9</div>
+            </div>
+            <div style="width:230px;height:345px;border-radius:7px;background:linear-gradient(165deg,#332619,#130E09);border:1px solid #2C231D;padding:16px;display:flex;flex-direction:column;justify-content:flex-end;gap:7px;flex:none">
+              <div style="font:700 22px/1.15 'Unbounded',sans-serif">Тихий дом</div>
+              <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A">2025 · 7.1</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 17 ------------------------------------------------------ -->
+    <div data-screen-label="17" style="display:flex;flex-direction:column;gap:20px">
+      <div style="font:600 20px/1 'JetBrains Mono',monospace;color:#7A6A5A;letter-spacing:.14em">17 · MAIN — COLLECTIONS ROW</div>
+      <div style="position:relative;width:1920px;height:1080px;overflow:hidden;background:#0B0908;flex:none">
+
+        <div style="position:absolute;left:0;right:0;top:0;height:453.5px;overflow:hidden">
+          <div style="position:absolute;inset:0;background:radial-gradient(60% 80% at 72% 26%, rgba(255,226,186,.6) 0%, rgba(190,120,70,.32) 24%, rgba(110,60,30,0) 62%),radial-gradient(130% 140% at 64% 40%, #8E5A35 0%, #5A3620 30%, #22150D 62%, #0B0908 100%)"></div>
+          <div style="position:absolute;inset:0;background:linear-gradient(90deg, rgba(11,9,8,.96) 0%, rgba(11,9,8,0) 82%)"></div>
+          <div style="position:absolute;inset:0;background:linear-gradient(0deg, rgba(11,9,8,1) 0%, rgba(11,9,8,.8) 26%, rgba(11,9,8,0) 68%)"></div>
+          <div style="position:absolute;inset:0;background:linear-gradient(180deg, rgba(11,9,8,.7) 0%, rgba(11,9,8,0) 26%)"></div>
+        </div>
+
+        <div style="position:absolute;top:0;left:0;right:0;height:80px;padding:0 64px;display:flex;align-items:center;justify-content:space-between;z-index:6">
+          <div style="display:flex;align-items:center;gap:24px;color:#A89A8A">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10" /></svg>
+            <div style="font:800 23px/1 'Unbounded',sans-serif;letter-spacing:.06em;color:#F3EDE4">LAMPA</div>
+          </div>
+          <div style="font:600 22px/1 'JetBrains Mono',monospace;color:#F3EDE4">21:18</div>
+        </div>
+
+        <div style="position:absolute;left:64px;top:150px;width:950px;display:flex;flex-direction:column;align-items:flex-start;z-index:5">
+          <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A;letter-spacing:.03em">1990 · США · 1:43 · Комедия, Семейный · 6+</div>
+          <div style="font:800 64px/1.0 'Unbounded',system-ui,sans-serif;margin-top:14px">Один дома</div>
+          <div style="font:400 24px/1.45 'Golos Text',sans-serif;color:#A89A8A;margin-top:16px;max-width:900px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">Восьмилетнего Кевина забыли дома, улетая на Рождество в Париж. Свободу он тратит на оборону дома от двух не самых умных грабителей.</div>
+        </div>
+
+        <div style="position:absolute;left:64px;right:64px;top:480px;z-index:5">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
+            <div style="display:flex;align-items:center;gap:14px">
+              <div style="width:36px;height:36px;border-radius:7px;background:#1A1A1A;border:1px solid rgba(217,217,217,.5);display:flex;align-items:center;justify-content:center">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F3EDE4" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M4.5 7.5l15 9M19.5 7.5l-15 9" /><path d="M12 6.4l2-2M12 6.4l-2-2M12 17.6l2 2M12 17.6l-2 2" /></svg>
+              </div>
+              <div style="font:700 32px/1 'Unbounded',sans-serif">Рождественские комедии</div>
+            </div>
+            <div style="height:56px;padding:0 24px;border-radius:12px;background:rgba(28,22,19,.82);border:1px solid #2C231D;display:flex;align-items:center;gap:12px;font:600 22px/1 'Golos Text',sans-serif;color:#A89A8A">
+              <span>Все 124</span>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg>
+            </div>
+          </div>
+          <div style="display:flex;gap:20px;align-items:flex-start">
+            <div style="width:230px;height:345px;border-radius:7px;background:linear-gradient(165deg,#4A2C1E,#160E09);border:3px solid var(--ring,#FFF2DC);padding:15px;display:flex;flex-direction:column;justify-content:flex-end;gap:7px;flex:none;transform:scale(1.08);box-shadow:0 16px 45px var(--acglow,rgba(232,184,122,.35))">
+              <div style="font:700 22px/1.15 'Unbounded',sans-serif">Один дома</div>
+              <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A">1990 · 7.7</div>
+            </div>
+            <div style="width:230px;height:345px;border-radius:7px;background:linear-gradient(165deg,#1E2C26,#0A120E);border:1px solid #2C231D;padding:16px;display:flex;flex-direction:column;justify-content:flex-end;gap:7px;flex:none">
+              <div style="font:700 22px/1.15 'Unbounded',sans-serif">Эльф</div>
+              <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A">2003 · 7.0</div>
+            </div>
+            <div style="width:230px;height:345px;border-radius:7px;background:linear-gradient(165deg,#3A2026,#140A0E);border:1px solid #2C231D;padding:16px;display:flex;flex-direction:column;justify-content:flex-end;gap:7px;flex:none">
+              <div style="font:700 22px/1.15 'Unbounded',sans-serif">Реальная любовь</div>
+              <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A">2003 · 7.6</div>
+            </div>
+            <div style="width:230px;height:345px;border-radius:7px;background:linear-gradient(165deg,#2E2417,#120E08);border:1px solid #2C231D;padding:16px;display:flex;flex-direction:column;justify-content:flex-end;gap:7px;flex:none">
+              <div style="font:700 22px/1.15 'Unbounded',sans-serif">Рождественские каникулы</div>
+              <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A">1989 · 7.5</div>
+            </div>
+            <div style="width:230px;height:345px;border-radius:7px;background:linear-gradient(165deg,#1F3324,#0A120C);border:1px solid #2C231D;padding:16px;display:flex;flex-direction:column;justify-content:flex-end;gap:7px;flex:none">
+              <div style="font:700 22px/1.15 'Unbounded',sans-serif">Гринч</div>
+              <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A">2000 · 6.5</div>
+            </div>
+            <div style="width:230px;height:345px;border-radius:7px;background:linear-gradient(165deg,#332619,#130E09);border:1px solid #2C231D;padding:16px;display:flex;flex-direction:column;justify-content:flex-end;gap:7px;flex:none">
+              <div style="font:700 22px/1.15 'Unbounded',sans-serif">Плохой Санта</div>
+              <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A">2003 · 6.4</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:14px;margin-top:24px;opacity:.55">
+            <div style="font:700 28px/1 'Unbounded',sans-serif">Комедии от Netflix</div>
+            <div style="padding:5px 11px;border-radius:4px;border:1px solid #2C231D;font:600 20px/1 'JetBrains Mono',monospace;color:#7A6A5A;letter-spacing:.06em">NETFLIX</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 18 ------------------------------------------------------ -->
+    <div data-screen-label="18" style="display:flex;flex-direction:column;gap:20px">
+      <div style="font:600 20px/1 'JetBrains Mono',monospace;color:#7A6A5A;letter-spacing:.14em">18 · MAIN — SERVICE ROW</div>
+      <div style="position:relative;width:1920px;height:1080px;overflow:hidden;background:#0B0908;flex:none">
+
+        <div style="position:absolute;left:0;right:0;top:0;height:453.5px;overflow:hidden">
+          <div style="position:absolute;inset:0;background:radial-gradient(60% 80% at 70% 24%, rgba(200,220,255,.4) 0%, rgba(90,110,150,.24) 24%, rgba(40,50,80,0) 62%),radial-gradient(130% 140% at 62% 40%, #3A4460 0%, #242A3C 32%, #12141E 64%, #0B0908 100%)"></div>
+          <div style="position:absolute;inset:0;background:linear-gradient(90deg, rgba(11,9,8,.96) 0%, rgba(11,9,8,0) 82%)"></div>
+          <div style="position:absolute;inset:0;background:linear-gradient(0deg, rgba(11,9,8,1) 0%, rgba(11,9,8,.8) 26%, rgba(11,9,8,0) 68%)"></div>
+          <div style="position:absolute;inset:0;background:linear-gradient(180deg, rgba(11,9,8,.7) 0%, rgba(11,9,8,0) 26%)"></div>
+        </div>
+
+        <div style="position:absolute;top:0;left:0;right:0;height:80px;padding:0 64px;display:flex;align-items:center;justify-content:space-between;z-index:6">
+          <div style="display:flex;align-items:center;gap:24px;color:#A89A8A">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10" /></svg>
+            <div style="font:800 23px/1 'Unbounded',sans-serif;letter-spacing:.06em;color:#F3EDE4">LAMPA</div>
+          </div>
+          <div style="font:600 22px/1 'JetBrains Mono',monospace;color:#F3EDE4">21:22</div>
+        </div>
+
+        <div style="position:absolute;left:64px;top:150px;width:950px;display:flex;flex-direction:column;align-items:flex-start;z-index:5">
+          <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A;letter-spacing:.03em">2022 · США · 2 сезона · Триллер, Драма · 16+</div>
+          <div style="font:800 64px/1.0 'Unbounded',system-ui,sans-serif;margin-top:14px">Разделение</div>
+          <div style="font:400 24px/1.45 'Golos Text',sans-serif;color:#A89A8A;margin-top:16px;max-width:900px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">Сотрудники Lumon соглашаются на операцию, разделяющую память на рабочую и домашнюю. Одна половина жизни не знает, что делает другая.</div>
+        </div>
+
+        <div style="position:absolute;left:64px;right:0;top:480px;z-index:5">
+          <div style="display:flex;align-items:center;gap:14px;margin-bottom:18px">
+            <div style="font:700 32px/1 'Unbounded',sans-serif">Сериалы</div>
+            <div style="padding:7px 14px;border-radius:4px;border:1px solid rgba(243,237,228,.32);font:600 20px/1 'JetBrains Mono',monospace;color:#F3EDE4;letter-spacing:.16em">APPLE TV+</div>
+          </div>
+          <div style="display:flex;gap:20px;align-items:flex-start">
+            <div style="width:400px;height:225px;border-radius:7px;background:linear-gradient(165deg,#39445E,#0D1016);border:3px solid var(--ring,#FFF2DC);padding:19px;display:flex;flex-direction:column;justify-content:flex-end;gap:8px;flex:none;transform:scale(1.08);box-shadow:0 16px 45px var(--acglow,rgba(232,184,122,.35))">
+              <div style="font:800 30px/1 'Unbounded',sans-serif;letter-spacing:.14em;text-transform:uppercase">Разделение</div>
+              <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A">S2 · 10 серий · 8.7</div>
+            </div>
+            <div style="width:400px;height:225px;border-radius:7px;background:linear-gradient(165deg,#2C3A2A,#0B120C);border:1px solid #2C231D;padding:20px;display:flex;flex-direction:column;justify-content:flex-end;gap:8px;flex:none">
+              <div style="font:800 30px/1 'Unbounded',sans-serif;letter-spacing:.14em;text-transform:uppercase">Тед Лассо</div>
+              <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A">3 сезона · 8.8</div>
+            </div>
+            <div style="width:400px;height:225px;border-radius:7px;background:linear-gradient(165deg,#3A3226,#120E09);border:1px solid #2C231D;padding:20px;display:flex;flex-direction:column;justify-content:flex-end;gap:8px;flex:none">
+              <div style="font:800 30px/1 'Unbounded',sans-serif;letter-spacing:.14em;text-transform:uppercase">Медленные лошади</div>
+              <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A">4 сезона · 8.1</div>
+            </div>
+            <div style="width:400px;height:225px;border-radius:7px;background:linear-gradient(165deg,#332430,#110A10);border:1px solid #2C231D;padding:20px;display:flex;flex-direction:column;justify-content:flex-end;gap:8px;flex:none">
+              <div style="font:800 30px/1 'Unbounded',sans-serif;letter-spacing:.14em;text-transform:uppercase">Утреннее шоу</div>
+              <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A">4 сезона · 8.0</div>
+            </div>
+          </div>
+
+          <div style="display:flex;align-items:center;gap:14px;margin-top:32px">
+            <div style="font:700 28px/1 'Unbounded',sans-serif;opacity:.75">Комедии от</div>
+            <div style="padding:6px 13px;border-radius:4px;border:1px solid rgba(243,237,228,.24);font:600 20px/1 'JetBrains Mono',monospace;color:#A89A8A;letter-spacing:.16em">NETFLIX</div>
+          </div>
+          <div style="display:flex;gap:20px;align-items:flex-start;margin-top:16px;opacity:.75">
+            <div style="width:400px;height:225px;border-radius:7px;background:linear-gradient(165deg,#3A2A1E,#140D08);border:1px solid #2C231D;padding:20px;display:flex;flex-direction:column;justify-content:flex-end;gap:8px;flex:none">
+              <div style="font:800 30px/1 'Unbounded',sans-serif;letter-spacing:.14em;text-transform:uppercase">Стеклянная луковица</div>
+              <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A">2022 · 7.1</div>
+            </div>
+            <div style="width:400px;height:225px;border-radius:7px;background:linear-gradient(165deg,#24303A,#0A0F13);border:1px solid #2C231D;padding:20px;display:flex;flex-direction:column;justify-content:flex-end;gap:8px;flex:none">
+              <div style="font:800 30px/1 'Unbounded',sans-serif;letter-spacing:.14em;text-transform:uppercase">Не смотрите наверх</div>
+              <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A">2021 · 7.2</div>
+            </div>
+            <div style="width:400px;height:225px;border-radius:7px;background:linear-gradient(165deg,#3A2226,#130A0C);border:1px solid #2C231D;padding:20px;display:flex;flex-direction:column;justify-content:flex-end;gap:8px;flex:none">
+              <div style="font:800 30px/1 'Unbounded',sans-serif;letter-spacing:.14em;text-transform:uppercase">Красное уведомление</div>
+              <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A">2021 · 6.4</div>
+            </div>
+            <div style="width:400px;height:225px;border-radius:7px;background:linear-gradient(165deg,#2A3226,#0B0F09);border:1px solid #2C231D;padding:20px;display:flex;flex-direction:column;justify-content:flex-end;gap:8px;flex:none">
+              <div style="font:800 30px/1 'Unbounded',sans-serif;letter-spacing:.14em;text-transform:uppercase">Семейный план</div>
+              <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A">2023 · 6.6</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ROW B — 19…22 ============================================ -->
+  <div style="display:flex;gap:80px;align-items:flex-start">
+
+    <!-- 19 ------------------------------------------------------ -->
+    <div data-screen-label="19" style="display:flex;flex-direction:column;gap:20px">
+      <div style="font:600 20px/1 'JetBrains Mono',monospace;color:#7A6A5A;letter-spacing:.14em">19 · MAIN — CONTINUE WATCHING</div>
+      <div style="position:relative;width:1920px;height:1080px;overflow:hidden;background:#0B0908;flex:none">
+
+        <div style="position:absolute;left:0;right:0;top:0;height:626.5px;overflow:hidden">
+          <div style="position:absolute;inset:0;background:radial-gradient(56% 66% at 72% 26%, rgba(255,238,186,.6) 0%, rgba(196,140,60,.3) 28%, rgba(90,70,30,0) 64%),radial-gradient(130% 120% at 62% 44%, #8E6C32 0%, #57431E 30%, #221C11 62%, #0B0908 100%)"></div>
+          <div style="position:absolute;inset:0;background-image:radial-gradient(rgba(255,255,255,.05) 0.5px,transparent 0.6px);background-size:2.5px 2.5px;opacity:.5;mix-blend-mode:overlay"></div>
+          <div style="position:absolute;inset:0;background:linear-gradient(90deg, rgba(11,9,8,.96) 0%, rgba(11,9,8,0) 82%)"></div>
+          <div style="position:absolute;inset:0;background:linear-gradient(0deg, rgba(11,9,8,1) 0%, rgba(11,9,8,.72) 22%, rgba(11,9,8,0) 62%)"></div>
+          <div style="position:absolute;inset:0;background:linear-gradient(180deg, rgba(11,9,8,.7) 0%, rgba(11,9,8,0) 22%)"></div>
+        </div>
+
+        <div style="position:absolute;top:0;left:0;right:0;height:80px;padding:0 64px;display:flex;align-items:center;justify-content:space-between;z-index:6">
+          <div style="display:flex;align-items:center;gap:24px;color:#A89A8A">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10" /></svg>
+            <div style="font:800 23px/1 'Unbounded',sans-serif;letter-spacing:.06em;color:#F3EDE4">LAMPA</div>
+          </div>
+          <div style="font:600 22px/1 'JetBrains Mono',monospace;color:#F3EDE4">21:06</div>
+        </div>
+
+        <div style="position:absolute;left:64px;top:200px;width:1000px;display:flex;flex-direction:column;align-items:flex-start;z-index:5">
+          <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A;letter-spacing:.03em">2024 · США · 2 сезона, 16 серий · Фантастика, Драма · 18+</div>
+          <div style="font:800 76px/1.0 'Unbounded',system-ui,sans-serif;margin-top:16px">Фоллаут</div>
+          <div style="font:400 24px/1.45 'Golos Text',sans-serif;color:#A89A8A;margin-top:18px;max-width:900px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">Через двести лет после ядерной войны обитатели убежища выходят на поверхность Лос-Анджелеса, где выживших ждут не только руины, но и старые счёты.</div>
+          <div style="display:flex;align-items:center;gap:14px;margin-top:20px;padding:12px 20px;border-radius:12px;background:rgba(232,184,122,.1);border:1px solid rgba(232,184,122,.4)">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="var(--ac,#E8B87A)"><path d="M8 5l11 7-11 7V5z" /></svg>
+            <div style="font:500 22px/1 'Golos Text',sans-serif;color:var(--ac,#E8B87A)">Продолжить S2 E3 «Голова» · осталось 39 мин</div>
+          </div>
+          <div style="display:flex;gap:12px;margin-top:20px;align-items:center">
+            <div style="display:flex;flex-direction:column;gap:4px;padding:10px 16px;border-radius:12px;background:rgba(28,22,19,.78);border:1px solid #2C231D">
+              <div style="font:600 28px/1 'JetBrains Mono',monospace">8.3</div>
+              <div style="font:400 14px/1 'JetBrains Mono',monospace;color:#7A6A5A;letter-spacing:.1em">TMDB</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;padding:0 16px;height:58px;border-radius:12px;background:rgba(28,22,19,.78);border:1px solid #2C231D">
+              <div style="width:10px;height:10px;border-radius:50%;background:var(--ac,#E8B87A)"></div>
+              <div style="font:500 20px/1 'Golos Text',sans-serif">Выходит · 17 дек</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="position:absolute;left:64px;right:0;top:650px;z-index:5">
+          <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px">
+            <div style="font:700 28px/1 'Unbounded',sans-serif">Продолжить просмотр</div>
+          </div>
+          <div style="display:flex;gap:20px;align-items:flex-start">
+            <div style="width:400px;height:225px;border-radius:7px;background:linear-gradient(165deg,#3A2E1A,#130F08);border:3px solid var(--ring,#FFF2DC);padding:18px;display:flex;flex-direction:column;justify-content:flex-end;gap:9px;flex:none;transform:scale(1.08);box-shadow:0 16px 45px var(--acglow,rgba(232,184,122,.35))">
+              <div style="font:800 28px/1 'Unbounded',sans-serif;letter-spacing:.12em;text-transform:uppercase">Фоллаут</div>
+              <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A">S2 E3 · осталось 39 мин</div>
+              <div style="width:100%;height:4px;border-radius:2px;background:rgba(243,237,228,.2);overflow:hidden"><div style="width:32%;height:100%;border-radius:2px;background:var(--ac,#E8B87A)"></div></div>
+            </div>
+            <div style="width:400px;height:225px;border-radius:7px;background:linear-gradient(165deg,#3A2A1C,#140D08);border:1px solid #2C231D;padding:19px;display:flex;flex-direction:column;justify-content:flex-end;gap:9px;flex:none">
+              <div style="font:800 28px/1 'Unbounded',sans-serif;letter-spacing:.12em;text-transform:uppercase">Дюна: Часть вторая</div>
+              <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A">01:12 из 02:46</div>
+              <div style="width:100%;height:4px;border-radius:2px;background:rgba(243,237,228,.16);overflow:hidden"><div style="width:43%;height:100%;border-radius:2px;background:#A89A8A"></div></div>
+            </div>
+            <div style="width:400px;height:225px;border-radius:7px;background:linear-gradient(165deg,#25303A,#0A0E12);border:1px solid #2C231D;padding:19px;display:flex;flex-direction:column;justify-content:flex-end;gap:9px;flex:none">
+              <div style="font:800 28px/1 'Unbounded',sans-serif;letter-spacing:.12em;text-transform:uppercase">Разделение</div>
+              <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A">S1 E7 · осталось 12 мин</div>
+              <div style="width:100%;height:4px;border-radius:2px;background:rgba(243,237,228,.16);overflow:hidden"><div style="width:78%;height:100%;border-radius:2px;background:#A89A8A"></div></div>
+            </div>
+            <div style="width:400px;height:225px;border-radius:7px;background:linear-gradient(165deg,#2A3226,#0B0F09);border:1px solid #2C231D;padding:19px;display:flex;flex-direction:column;justify-content:flex-end;gap:9px;flex:none">
+              <div style="font:800 28px/1 'Unbounded',sans-serif;letter-spacing:.12em;text-transform:uppercase">Одиссея</div>
+              <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A">00:24 из 02:31</div>
+              <div style="width:100%;height:4px;border-radius:2px;background:rgba(243,237,228,.16);overflow:hidden"><div style="width:16%;height:100%;border-radius:2px;background:#A89A8A"></div></div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:14px;margin-top:28px;opacity:.55">
+            <div style="font:700 28px/1 'Unbounded',sans-serif">Сейчас смотрят</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 20 ------------------------------------------------------ -->
+    <div data-screen-label="20" style="display:flex;flex-direction:column;gap:20px">
+      <div style="font:600 20px/1 'JetBrains Mono',monospace;color:#7A6A5A;letter-spacing:.14em">20 · COLLECTION — GRID</div>
+      <div style="position:relative;width:1920px;height:1080px;overflow:hidden;background:#0B0908;flex:none">
+
+        <div style="position:absolute;left:0;right:0;top:0;height:378px;overflow:hidden">
+          <div style="position:absolute;inset:0;background:radial-gradient(60% 90% at 74% 24%, rgba(255,226,186,.5) 0%, rgba(190,120,70,.26) 24%, rgba(110,60,30,0) 62%),radial-gradient(130% 160% at 64% 36%, #7E4E2E 0%, #4E2F1C 32%, #1E120B 64%, #0B0908 100%)"></div>
+          <div style="position:absolute;inset:0;background:linear-gradient(0deg, rgba(11,9,8,1) 0%, rgba(11,9,8,.82) 30%, rgba(11,9,8,0) 76%)"></div>
+          <div style="position:absolute;inset:0;background:linear-gradient(180deg, rgba(11,9,8,.72) 0%, rgba(11,9,8,0) 30%)"></div>
+        </div>
+
+        <div style="position:absolute;top:0;left:0;right:0;height:80px;padding:0 64px;display:flex;align-items:center;justify-content:space-between;z-index:6">
+          <div style="display:flex;align-items:center;gap:24px;color:#A89A8A">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6" /></svg>
+            <div style="font:800 23px/1 'Unbounded',sans-serif;letter-spacing:.06em;color:#F3EDE4">LAMPA</div>
+          </div>
+          <div style="font:600 22px/1 'JetBrains Mono',monospace;color:#F3EDE4">21:31</div>
+        </div>
+
+        <div style="position:absolute;left:64px;right:64px;top:140px;z-index:5;display:flex;flex-direction:column;gap:20px">
+          <div style="display:flex;align-items:center;gap:16px">
+            <div style="width:48px;height:48px;border-radius:7px;background:#1A1A1A;border:1px solid rgba(217,217,217,.5);display:flex;align-items:center;justify-content:center">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#F3EDE4" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M4.5 7.5l15 9M19.5 7.5l-15 9" /><path d="M12 6.4l2-2M12 6.4l-2-2M12 17.6l2 2M12 17.6l-2 2" /></svg>
+            </div>
+            <div style="font:800 58px/1 'Unbounded',system-ui,sans-serif">Рождественские комедии</div>
+          </div>
+          <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A;letter-spacing:.04em">124 фильма · по популярности · ключевое слово «christmas» + жанр «комедия»</div>
+          <div style="display:flex;gap:14px;align-items:center">
+            <div style="height:56px;padding:0 24px;border-radius:12px;background:var(--ac,#E8B87A);color:var(--onac,#1A120A);border:2.5px solid var(--ring,#FFF2DC);box-shadow:0 12px 35px var(--acglow,rgba(232,184,122,.35));display:flex;align-items:center;font:600 20px/1 'Golos Text',sans-serif;transform:scale(1.06)">По популярности</div>
+            <div style="height:56px;padding:0 24px;border-radius:12px;background:rgba(28,22,19,.82);border:1px solid #2C231D;display:flex;align-items:center;font:600 20px/1 'Golos Text',sans-serif;color:#A89A8A">По рейтингу</div>
+            <div style="height:56px;padding:0 24px;border-radius:12px;background:rgba(28,22,19,.82);border:1px solid #2C231D;display:flex;align-items:center;font:600 20px/1 'Golos Text',sans-serif;color:#A89A8A">Новые</div>
+          </div>
+        </div>
+
+        <div style="position:absolute;left:64px;right:0;top:590px;display:flex;flex-wrap:wrap;gap:20px;z-index:5">
+          <div style="width:230px;height:345px;border-radius:7px;background:linear-gradient(165deg,#4A2C1E,#160E09);border:3px solid var(--ring,#FFF2DC);padding:15px;display:flex;flex-direction:column;justify-content:flex-end;gap:7px;flex:none;transform:scale(1.08);box-shadow:0 16px 45px var(--acglow,rgba(232,184,122,.35))">
+            <div style="font:700 22px/1.15 'Unbounded',sans-serif">Один дома</div>
+            <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A">1990 · 7.7</div>
+          </div>
+          <div style="width:230px;height:345px;border-radius:7px;background:linear-gradient(165deg,#1E2C26,#0A120E);border:1px solid #2C231D;padding:16px;display:flex;flex-direction:column;justify-content:flex-end;gap:7px;flex:none">
+            <div style="font:700 22px/1.15 'Unbounded',sans-serif">Эльф</div>
+            <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A">2003 · 7.0</div>
+          </div>
+          <div style="width:230px;height:345px;border-radius:7px;background:linear-gradient(165deg,#3A2026,#140A0E);border:1px solid #2C231D;padding:16px;display:flex;flex-direction:column;justify-content:flex-end;gap:7px;flex:none">
+            <div style="font:700 22px/1.15 'Unbounded',sans-serif">Реальная любовь</div>
+            <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A">2003 · 7.6</div>
+          </div>
+          <div style="width:230px;height:345px;border-radius:7px;background:linear-gradient(165deg,#2E2417,#120E08);border:1px solid #2C231D;padding:16px;display:flex;flex-direction:column;justify-content:flex-end;gap:7px;flex:none">
+            <div style="font:700 22px/1.15 'Unbounded',sans-serif">Рождественские каникулы</div>
+            <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A">1989 · 7.5</div>
+          </div>
+          <div style="width:230px;height:345px;border-radius:7px;background:linear-gradient(165deg,#1F3324,#0A120C);border:1px solid #2C231D;padding:16px;display:flex;flex-direction:column;justify-content:flex-end;gap:7px;flex:none">
+            <div style="font:700 22px/1.15 'Unbounded',sans-serif">Гринч</div>
+            <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A">2000 · 6.5</div>
+          </div>
+          <div style="width:230px;height:345px;border-radius:7px;background:linear-gradient(165deg,#332619,#130E09);border:1px solid #2C231D;padding:16px;display:flex;flex-direction:column;justify-content:flex-end;gap:7px;flex:none">
+            <div style="font:700 22px/1.15 'Unbounded',sans-serif">Плохой Санта</div>
+            <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A">2003 · 6.4</div>
+          </div>
+          <div style="width:230px;height:345px;border-radius:7px;background:linear-gradient(165deg,#2B3540,#0C1114);border:1px solid #2C231D;padding:16px;display:flex;flex-direction:column;justify-content:flex-end;gap:7px;flex:none">
+            <div style="font:700 22px/1.15 'Unbounded',sans-serif">Крепкий орешек</div>
+            <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A">1988 · 8.2</div>
+          </div>
+          <div style="width:230px;height:345px;border-radius:7px;background:linear-gradient(165deg,#2A1E2C,#100A12);border:1px solid #2C231D;padding:16px;display:flex;flex-direction:column;justify-content:flex-end;gap:7px;flex:none">
+            <div style="font:700 22px/1.15 'Unbounded',sans-serif">Отпуск по обмену</div>
+            <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A">2006 · 7.0</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 21 ------------------------------------------------------ -->
+    <div data-screen-label="21" style="display:flex;flex-direction:column;gap:20px">
+      <div style="font:600 20px/1 'JetBrains Mono',monospace;color:#7A6A5A;letter-spacing:.14em">21 · COLLECTIONS — SETTINGS</div>
+      <div style="position:relative;width:1920px;height:1080px;overflow:hidden;background:#0B0908;flex:none">
+        <div style="position:absolute;right:-6%;top:-10%;width:950px;height:950px;border-radius:50%;background:radial-gradient(circle,rgba(232,184,122,.1),rgba(232,184,122,0) 64%)"></div>
+
+        <div style="position:absolute;top:0;left:0;right:0;height:80px;padding:0 64px;display:flex;align-items:center;justify-content:space-between;z-index:6">
+          <div style="display:flex;align-items:center;gap:24px;color:#A89A8A">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6" /></svg>
+            <div style="font:800 23px/1 'Unbounded',sans-serif;letter-spacing:.06em;color:#F3EDE4">LAMPA</div>
+          </div>
+          <div style="font:600 22px/1 'JetBrains Mono',monospace;color:#F3EDE4">21:40</div>
+        </div>
+
+        <div style="position:absolute;left:64px;right:64px;top:120px;bottom:64px;display:flex;gap:48px;z-index:5">
+
+          <div style="flex:1;display:flex;flex-direction:column;gap:8px">
+            <div style="font:700 36px/1 'Unbounded',sans-serif;margin-bottom:12px">Подборки</div>
+            <div style="font:400 16px/1 'JetBrains Mono',monospace;color:#7A6A5A;letter-spacing:.12em;margin-bottom:12px">НА ГЛАВНОЙ · 6 ИЗ 412</div>
+
+            <div style="height:66px;padding:0 22px;border-radius:12px;background:rgba(28,22,19,.9);border:2.5px solid var(--ring,#FFF2DC);box-shadow:0 12px 35px var(--acglow,rgba(232,184,122,.35));display:flex;align-items:center;justify-content:space-between;gap:16px">
+              <div style="display:flex;align-items:center;gap:14px">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--ac,#E8B87A)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6h11M9 12h11M9 18h7" /><circle cx="4.5" cy="6" r="1.3" fill="currentColor" stroke="none" /><circle cx="4.5" cy="12" r="1.3" fill="currentColor" stroke="none" /><circle cx="4.5" cy="18" r="1.3" fill="currentColor" stroke="none" /></svg>
+                <div style="font:600 22px/1 'Golos Text',sans-serif">Продолжить просмотр</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:16px">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#7A6A5A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6" /></svg>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#A89A8A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6" /></svg>
+                <div style="width:60px;height:30px;border-radius:30px;background:var(--ac,#E8B87A);display:flex;align-items:center;padding:0 4px;justify-content:flex-end"><div style="width:22px;height:22px;border-radius:50%;background:#0B0908"></div></div>
+              </div>
+            </div>
+
+            <div style="height:66px;padding:0 22px;border-bottom:1px solid #2C231D;display:flex;align-items:center;justify-content:space-between">
+              <div style="font:500 22px/1 'Golos Text',sans-serif">Сейчас смотрят</div>
+              <div style="width:60px;height:30px;border-radius:30px;background:var(--ac,#E8B87A);display:flex;align-items:center;padding:0 4px;justify-content:flex-end"><div style="width:22px;height:22px;border-radius:50%;background:#0B0908"></div></div>
+            </div>
+            <div style="height:66px;padding:0 22px;border-bottom:1px solid #2C231D;display:flex;align-items:center;justify-content:space-between">
+              <div style="display:flex;align-items:center;gap:12px">
+                <div style="font:500 22px/1 'Golos Text',sans-serif">Рождественские комедии</div>
+                <div style="padding:4px 9px;border-radius:4px;border:1px solid #2C231D;font:600 20px/1 'JetBrains Mono',monospace;color:#7A6A5A;letter-spacing:.06em">СЕЗОННАЯ</div>
+              </div>
+              <div style="width:60px;height:30px;border-radius:30px;background:var(--ac,#E8B87A);display:flex;align-items:center;padding:0 4px;justify-content:flex-end"><div style="width:22px;height:22px;border-radius:50%;background:#0B0908"></div></div>
+            </div>
+            <div style="height:66px;padding:0 22px;border-bottom:1px solid #2C231D;display:flex;align-items:center;justify-content:space-between">
+              <div style="display:flex;align-items:center;gap:12px">
+                <div style="font:500 22px/1 'Golos Text',sans-serif">Комедии от Netflix</div>
+                <div style="padding:4px 9px;border-radius:4px;border:1px solid #2C231D;font:600 20px/1 'JetBrains Mono',monospace;color:#7A6A5A;letter-spacing:.06em">NETFLIX</div>
+              </div>
+              <div style="width:60px;height:30px;border-radius:30px;background:var(--ac,#E8B87A);display:flex;align-items:center;padding:0 4px;justify-content:flex-end"><div style="width:22px;height:22px;border-radius:50%;background:#0B0908"></div></div>
+            </div>
+            <div style="height:66px;padding:0 22px;border-bottom:1px solid #2C231D;display:flex;align-items:center;justify-content:space-between">
+              <div style="font:500 22px/1 'Golos Text',sans-serif">Сериалы Apple TV+</div>
+              <div style="width:60px;height:30px;border-radius:30px;background:var(--ac,#E8B87A);display:flex;align-items:center;padding:0 4px;justify-content:flex-end"><div style="width:22px;height:22px;border-radius:50%;background:#0B0908"></div></div>
+            </div>
+            <div style="height:66px;padding:0 22px;border-bottom:1px solid #2C231D;display:flex;align-items:center;justify-content:space-between">
+              <div style="font:500 22px/1 'Golos Text',sans-serif;color:#7A6A5A">Топ-250 Кинопоиска</div>
+              <div style="width:60px;height:30px;border-radius:30px;background:#2C231D;display:flex;align-items:center;padding:0 4px"><div style="width:22px;height:22px;border-radius:50%;background:#7A6A5A"></div></div>
+            </div>
+            <div style="height:72px;margin-top:16px;padding:0 30px;border-radius:18px;background:rgba(28,22,19,.82);border:1px solid #2C231D;display:inline-flex;align-self:flex-start;align-items:center;gap:12px;font:600 24px/1 'Golos Text',sans-serif">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14" /></svg>
+              <span>Добавить подборку</span>
+            </div>
+          </div>
+
+          <div style="width:700px;flex:none;border-radius:14px;background:linear-gradient(180deg,#1C1613,#120E0B);border:1px solid #2C231D;padding:32px;display:flex;flex-direction:column;gap:18px">
+            <div style="font:700 28px/1 'Unbounded',sans-serif">Новая подборка</div>
+            <div style="display:flex;flex-direction:column;gap:7px">
+              <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#7A6A5A;letter-spacing:.1em">НАЗВАНИЕ</div>
+              <div style="height:58px;border-radius:12px;border:1px solid #7880ab;background:rgba(11,9,8,.6);display:flex;align-items:center;padding:0 18px;font:500 22px/1 'Golos Text',sans-serif">Скандинавский нуар</div>
+            </div>
+            <div style="display:flex;gap:16px">
+              <div style="flex:1;display:flex;flex-direction:column;gap:7px">
+                <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#7A6A5A;letter-spacing:.1em">ТИП</div>
+                <div style="display:flex;gap:10px">
+                  <div style="flex:1;height:50px;border-radius:12px;background:rgba(28,22,19,.9);border:1px solid #2C231D;display:flex;align-items:center;justify-content:center;font:600 20px/1 'Golos Text',sans-serif;color:#A89A8A">Фильмы</div>
+                  <div style="flex:1;height:50px;border-radius:12px;background:var(--ac,#E8B87A);color:var(--onac,#1A120A);display:flex;align-items:center;justify-content:center;font:600 20px/1 'Golos Text',sans-serif">Сериалы</div>
+                </div>
+              </div>
+              <div style="flex:1;display:flex;flex-direction:column;gap:7px">
+                <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#7A6A5A;letter-spacing:.1em">ЖАНР</div>
+                <div style="height:50px;border-radius:12px;border:1px solid #2C231D;background:rgba(11,9,8,.6);display:flex;align-items:center;justify-content:space-between;padding:0 16px;font:500 20px/1.15 'Golos Text',sans-serif">
+                  <span>Криминал</span>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7A6A5A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6" /></svg>
+                </div>
+              </div>
+            </div>
+            <div style="display:flex;gap:16px">
+              <div style="flex:1;display:flex;flex-direction:column;gap:7px">
+                <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#7A6A5A;letter-spacing:.1em">КЛЮЧЕВОЕ СЛОВО</div>
+                <div style="height:50px;border-radius:12px;border:1px solid #7880ab;background:rgba(11,9,8,.6);display:flex;align-items:center;padding:0 16px;font:400 20px/1 'JetBrains Mono',monospace;color:#7A6A5A">nordic noir</div>
+              </div>
+              <div style="flex:1;display:flex;flex-direction:column;gap:7px">
+                <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#7A6A5A;letter-spacing:.1em">СЕРВИС</div>
+                <div style="height:50px;border-radius:12px;border:1px solid #2C231D;background:rgba(11,9,8,.6);display:flex;align-items:center;justify-content:space-between;padding:0 16px;font:500 20px/1.15 'Golos Text',sans-serif">
+                  <span style="color:#7A6A5A">нет</span>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7A6A5A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6" /></svg>
+                </div>
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:7px">
+              <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#7A6A5A;letter-spacing:.1em">СОРТИРОВКА</div>
+              <div style="display:flex;gap:10px">
+                <div style="height:48px;padding:0 18px;border-radius:12px;background:var(--ac,#E8B87A);color:var(--onac,#1A120A);display:flex;align-items:center;font:600 20px/1 'Golos Text',sans-serif">По рейтингу</div>
+                <div style="height:48px;padding:0 18px;border-radius:12px;background:rgba(28,22,19,.9);border:1px solid #2C231D;display:flex;align-items:center;font:600 20px/1 'Golos Text',sans-serif;color:#A89A8A">Популярные</div>
+                <div style="height:48px;padding:0 18px;border-radius:12px;background:rgba(28,22,19,.9);border:1px solid #2C231D;display:flex;align-items:center;font:600 20px/1 'Golos Text',sans-serif;color:#A89A8A">Новые</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 22 ------------------------------------------------------ -->
+    <div data-screen-label="22" style="display:flex;flex-direction:column;gap:20px">
+      <div style="font:600 20px/1 'JetBrains Mono',monospace;color:#7A6A5A;letter-spacing:.14em">22 · MAIN — NO BACKDROP</div>
+      <div style="position:relative;width:1920px;height:1080px;overflow:hidden;background:#0B0908;flex:none">
+
+        <div style="position:absolute;left:0;right:0;top:0;height:626.5px;overflow:hidden">
+          <div style="position:absolute;inset:0;background:linear-gradient(160deg,#2A1B10 0%,#1A110B 38%,#0B0908 76%)"></div>
+          <div style="position:absolute;right:8%;top:-16%;width:850px;height:850px;border-radius:50%;background:radial-gradient(circle,rgba(232,184,122,.2),rgba(232,184,122,0) 64%);filter:blur(60px)"></div>
+          <div style="position:absolute;right:30%;top:40px;width:380px;height:570px;border-radius:12px;background:linear-gradient(165deg,#4A2C1E,#160E09);filter:blur(40px);opacity:.8"></div>
+          <div style="position:absolute;inset:0;background-image:radial-gradient(rgba(255,255,255,.07) 0.5px,transparent 0.6px);background-size:2px 2px;opacity:.55;mix-blend-mode:overlay"></div>
+          <div style="position:absolute;inset:0;background:linear-gradient(0deg, rgba(11,9,8,1) 0%, rgba(11,9,8,.72) 24%, rgba(11,9,8,0) 66%)"></div>
+          <div style="position:absolute;inset:0;background:linear-gradient(180deg, rgba(11,9,8,.7) 0%, rgba(11,9,8,0) 22%)"></div>
+        </div>
+
+        <div style="position:absolute;top:0;left:0;right:0;height:80px;padding:0 64px;display:flex;align-items:center;justify-content:space-between;z-index:6">
+          <div style="display:flex;align-items:center;gap:24px;color:#A89A8A">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10" /></svg>
+            <div style="font:800 23px/1 'Unbounded',sans-serif;letter-spacing:.06em;color:#F3EDE4">LAMPA</div>
+          </div>
+          <div style="font:600 22px/1 'JetBrains Mono',monospace;color:#F3EDE4">21:48</div>
+        </div>
+
+        <div style="position:absolute;left:64px;top:200px;width:1000px;display:flex;flex-direction:column;align-items:flex-start;z-index:5">
+          <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#7A6A5A;letter-spacing:.1em">ЛОГОТИПА НЕТ · ФОЛБЭК: ТЕКСТ UNBOUNDED 800</div>
+          <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A;letter-spacing:.03em;margin-top:14px">2025 · Дания · 1:52 · Криминал, Драма · 18+</div>
+          <div style="font:800 76px/1.0 'Unbounded',system-ui,sans-serif;margin-top:14px;max-width:950px;text-wrap:balance">Тихий дом<br />у пролива</div>
+          <div style="font:400 24px/1.45 'Golos Text',sans-serif;color:#A89A8A;margin-top:18px;max-width:900px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">Следователь из Копенгагена возвращается в родной рыбацкий городок и обнаруживает, что дело двадцатилетней давности закрыли слишком быстро.</div>
+          <div style="display:flex;gap:12px;margin-top:22px;align-items:center">
+            <div style="display:flex;flex-direction:column;gap:4px;padding:10px 16px;border-radius:12px;background:rgba(28,22,19,.78);border:1px solid #2C231D">
+              <div style="font:600 28px/1 'JetBrains Mono',monospace">7.1</div>
+              <div style="font:400 14px/1 'JetBrains Mono',monospace;color:#7A6A5A;letter-spacing:.1em">TMDB</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;padding:0 16px;height:58px;border-radius:12px;background:rgba(28,22,19,.78);border:1px solid #2C231D">
+              <div style="width:10px;height:10px;border-radius:50%;background:#8FBF7A"></div>
+              <div style="font:500 20px/1 'Golos Text',sans-serif">Выпущенный</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="position:absolute;left:64px;right:0;top:650px;z-index:5">
+          <div style="font:700 28px/1 'Unbounded',sans-serif;margin-bottom:16px">Сейчас смотрят</div>
+          <div style="display:flex;gap:20px;align-items:flex-start">
+            <div style="width:230px;height:345px;border-radius:7px;background:linear-gradient(165deg,#332619,#130E09);border:3px solid var(--ring,#FFF2DC);padding:15px;display:flex;flex-direction:column;justify-content:flex-end;gap:7px;flex:none;transform:scale(1.08);box-shadow:0 16px 45px var(--acglow,rgba(232,184,122,.35))">
+              <div style="font:700 22px/1.15 'Unbounded',sans-serif">Тихий дом у пролива</div>
+              <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A">2025 · 7.1</div>
+            </div>
+            <div style="width:230px;height:345px;border-radius:7px;background:linear-gradient(165deg,#4A2C1E,#160E09);border:1px solid #2C231D;padding:16px;display:flex;flex-direction:column;justify-content:flex-end;gap:7px;flex:none">
+              <div style="font:700 22px/1.15 'Unbounded',sans-serif">Человек-паук: Новый день</div>
+              <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A">2026 · 7.9</div>
+            </div>
+            <div style="width:230px;height:345px;border-radius:7px;background:linear-gradient(165deg,#2B3540,#0C1114);border:1px solid #2C231D;padding:16px;display:flex;flex-direction:column;justify-content:flex-end;gap:7px;flex:none">
+              <div style="font:700 22px/1.15 'Unbounded',sans-serif">Хитрый койот</div>
+              <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A">2026 · 7.6</div>
+            </div>
+            <div style="width:230px;height:345px;border-radius:7px;background:linear-gradient(165deg,#1E2C26,#0A120E);border:1px solid #2C231D;padding:16px;display:flex;flex-direction:column;justify-content:flex-end;gap:7px;flex:none">
+              <div style="font:700 22px/1.15 'Unbounded',sans-serif">Колония</div>
+              <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A">2026 · 8.1</div>
+            </div>
+            <div style="width:230px;height:345px;border-radius:7px;background:linear-gradient(165deg,#2E2417,#120E08);border:1px solid #2C231D;padding:16px;display:flex;flex-direction:column;justify-content:flex-end;gap:7px;flex:none">
+              <div style="font:700 22px/1.15 'Unbounded',sans-serif">Одиссея</div>
+              <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A">2026 · 8.0</div>
+            </div>
+            <div style="width:230px;height:345px;border-radius:7px;background:linear-gradient(165deg,#2A1E2C,#100A12);border:1px solid #2C231D;padding:16px;display:flex;flex-direction:column;justify-content:flex-end;gap:7px;flex:none">
+              <div style="font:700 22px/1.15 'Unbounded',sans-serif">Мятеж</div>
+              <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A">2025 · 6.4</div>
+            </div>
+            <div style="width:230px;height:345px;border-radius:7px;background:linear-gradient(165deg,#233240,#0B1014);border:1px solid #2C231D;padding:16px;display:flex;flex-direction:column;justify-content:flex-end;gap:7px;flex:none">
+              <div style="font:700 22px/1.15 'Unbounded',sans-serif">Моана</div>
+              <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A">2026 · 6.9</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ROW C — 24, 25, 23 ======================================= -->
+  <div style="display:flex;gap:80px;align-items:flex-start">
+
+    <!-- 24 ------------------------------------------------------ -->
+    <div data-screen-label="24" style="display:flex;flex-direction:column;gap:20px">
+      <div style="font:600 20px/1 'JetBrains Mono',monospace;color:#7A6A5A;letter-spacing:.14em">24 · COLLECTIONS — HUB</div>
+      <div style="position:relative;width:1920px;height:1080px;overflow:hidden;background:#0B0908;flex:none">
+        <div style="position:absolute;left:-6%;top:-14%;width:1000px;height:1000px;border-radius:50%;background:radial-gradient(circle,rgba(232,184,122,.09),rgba(232,184,122,0) 62%)"></div>
+
+        <div style="position:absolute;top:0;left:0;right:0;height:80px;padding:0 64px;display:flex;align-items:center;justify-content:space-between;z-index:6">
+          <div style="display:flex;align-items:center;gap:24px;color:#A89A8A">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10" /></svg>
+            <div style="font:800 23px/1 'Unbounded',sans-serif;letter-spacing:.06em;color:#F3EDE4">LAMPA</div>
+          </div>
+          <div style="font:600 22px/1 'JetBrains Mono',monospace;color:#F3EDE4">21:52</div>
+        </div>
+
+        <div style="position:absolute;left:64px;right:64px;top:120px;z-index:5;display:flex;align-items:flex-end;justify-content:space-between">
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <div style="font:800 52px/1 'Unbounded',system-ui,sans-serif">Подборки</div>
+            <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#7A6A5A;letter-spacing:.04em">412 подборок · обновляется без переустановки</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;color:#7A6A5A">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7" /><path d="M16.5 16.5L21 21" /></svg>
+            <div style="font:400 20px/1 'JetBrains Mono',monospace;letter-spacing:.06em">ПОИСК ПО ПОДБОРКАМ</div>
+          </div>
+        </div>
+
+        <div style="position:absolute;left:64px;right:0;top:235px;display:flex;gap:12px;align-items:center;z-index:5">
+          <div style="height:52px;padding:0 22px;border-radius:12px;background:var(--ac,#E8B87A);color:var(--onac,#1A120A);border:2.5px solid var(--ring,#FFF2DC);box-shadow:0 12px 35px var(--acglow,rgba(232,184,122,.35));display:flex;align-items:center;font:600 20px/1 'Golos Text',sans-serif;transform:scale(1.06)">Франшизы</div>
+          <div style="height:52px;padding:0 22px;border-radius:12px;background:rgba(28,22,19,.82);border:1px solid #2C231D;display:flex;align-items:center;font:600 20px/1 'Golos Text',sans-serif;color:#A89A8A">Студии и сервисы</div>
+          <div style="height:52px;padding:0 22px;border-radius:12px;background:rgba(28,22,19,.82);border:1px solid #2C231D;display:flex;align-items:center;font:600 20px/1 'Golos Text',sans-serif;color:#A89A8A">Темы</div>
+          <div style="height:52px;padding:0 22px;border-radius:12px;background:rgba(28,22,19,.82);border:1px solid #2C231D;display:flex;align-items:center;font:600 20px/1 'Golos Text',sans-serif;color:#A89A8A">Страны</div>
+          <div style="height:52px;padding:0 22px;border-radius:12px;background:rgba(28,22,19,.82);border:1px solid #2C231D;display:flex;align-items:center;font:600 20px/1 'Golos Text',sans-serif;color:#A89A8A">Эпохи</div>
+          <div style="height:52px;padding:0 22px;border-radius:12px;background:rgba(28,22,19,.82);border:1px solid #2C231D;display:flex;align-items:center;font:600 20px/1 'Golos Text',sans-serif;color:#A89A8A">Люди</div>
+          <div style="height:52px;padding:0 22px;border-radius:12px;background:rgba(28,22,19,.82);border:1px solid #2C231D;display:flex;align-items:center;font:600 20px/1 'Golos Text',sans-serif;color:#A89A8A">Топы Кинопоиска</div>
+        </div>
+
+        <div style="position:absolute;left:64px;right:64px;top:330px;display:flex;flex-wrap:wrap;gap:20px;z-index:5">
+
+          <div style="width:430px;height:242px;border-radius:10px;overflow:hidden;position:relative;background:linear-gradient(165deg,#241C14,#0C0907);border:3px solid var(--ring,#FFF2DC);transform:scale(1.06);box-shadow:0 16px 45px var(--acglow,rgba(232,184,122,.35));flex:none">
+            <div style="position:absolute;left:20px;top:-20px;width:130px;height:195px;border-radius:6px;background:linear-gradient(165deg,#3A2A1C,#140D08);transform:rotate(-6deg)"></div>
+            <div style="position:absolute;left:125px;top:-10px;width:130px;height:195px;border-radius:6px;background:linear-gradient(165deg,#2B3540,#0C1114);transform:rotate(2deg)"></div>
+            <div style="position:absolute;left:230px;top:-25px;width:130px;height:195px;border-radius:6px;background:linear-gradient(165deg,#1E2C26,#0A120E);transform:rotate(8deg)"></div>
+            <div style="position:absolute;inset:0;background:linear-gradient(0deg,rgba(11,9,8,.98) 0%,rgba(11,9,8,.7) 40%,rgba(11,9,8,.2) 100%)"></div>
+            <div style="position:absolute;left:22px;bottom:20px;right:22px;display:flex;flex-direction:column;gap:6px">
+              <div style="font:700 29px/1.06 'Unbounded',sans-serif">Звёздные войны</div>
+              <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A">12 фильмов · 6 сериалов</div>
+            </div>
+          </div>
+
+          <div style="width:430px;height:242px;border-radius:10px;overflow:hidden;position:relative;background:linear-gradient(165deg,#1E2430,#08090C);border:1px solid #2C231D;flex:none">
+            <div style="position:absolute;left:20px;top:-20px;width:130px;height:195px;border-radius:6px;background:linear-gradient(165deg,#2A1E2C,#100A12);transform:rotate(-6deg)"></div>
+            <div style="position:absolute;left:125px;top:-10px;width:130px;height:195px;border-radius:6px;background:linear-gradient(165deg,#332619,#130E09);transform:rotate(2deg)"></div>
+            <div style="position:absolute;left:230px;top:-25px;width:130px;height:195px;border-radius:6px;background:linear-gradient(165deg,#233240,#0B1014);transform:rotate(8deg)"></div>
+            <div style="position:absolute;inset:0;background:linear-gradient(0deg,rgba(11,9,8,.98) 0%,rgba(11,9,8,.7) 40%,rgba(11,9,8,.2) 100%)"></div>
+            <div style="position:absolute;left:22px;bottom:20px;right:22px;display:flex;flex-direction:column;gap:6px">
+              <div style="font:700 29px/1.06 'Unbounded',sans-serif">Гарри Поттер</div>
+              <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A">8 фильмов · 3 спин-оффа</div>
+            </div>
+          </div>
+
+          <div style="width:430px;height:242px;border-radius:10px;overflow:hidden;position:relative;background:linear-gradient(165deg,#22303A,#080C0E);border:1px solid #2C231D;flex:none">
+            <div style="position:absolute;left:20px;top:-20px;width:130px;height:195px;border-radius:6px;background:linear-gradient(165deg,#3A2026,#140A0E);transform:rotate(-6deg)"></div>
+            <div style="position:absolute;left:125px;top:-10px;width:130px;height:195px;border-radius:6px;background:linear-gradient(165deg,#1F3324,#0A120C);transform:rotate(2deg)"></div>
+            <div style="position:absolute;left:230px;top:-25px;width:130px;height:195px;border-radius:6px;background:linear-gradient(165deg,#2E2417,#120E08);transform:rotate(8deg)"></div>
+            <div style="position:absolute;inset:0;background:linear-gradient(0deg,rgba(11,9,8,.98) 0%,rgba(11,9,8,.7) 40%,rgba(11,9,8,.2) 100%)"></div>
+            <div style="position:absolute;left:22px;bottom:20px;right:22px;display:flex;flex-direction:column;gap:6px">
+              <div style="font:700 29px/1.06 'Unbounded',sans-serif">Pixar</div>
+              <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A">28 фильмов · студия</div>
+            </div>
+          </div>
+
+          <div style="width:430px;height:242px;border-radius:10px;overflow:hidden;position:relative;background:linear-gradient(165deg,#2C2230,#0A080C);border:1px solid #2C231D;flex:none">
+            <div style="position:absolute;left:20px;top:-20px;width:130px;height:195px;border-radius:6px;background:linear-gradient(165deg,#3A2A1C,#140D08);transform:rotate(-6deg)"></div>
+            <div style="position:absolute;left:125px;top:-10px;width:130px;height:195px;border-radius:6px;background:linear-gradient(165deg,#2B3540,#0C1114);transform:rotate(2deg)"></div>
+            <div style="position:absolute;left:230px;top:-25px;width:130px;height:195px;border-radius:6px;background:linear-gradient(165deg,#332430,#110A10);transform:rotate(8deg)"></div>
+            <div style="position:absolute;inset:0;background:linear-gradient(0deg,rgba(11,9,8,.98) 0%,rgba(11,9,8,.7) 40%,rgba(11,9,8,.2) 100%)"></div>
+            <div style="position:absolute;left:22px;bottom:20px;right:22px;display:flex;flex-direction:column;gap:6px">
+              <div style="font:700 29px/1.06 'Unbounded',sans-serif">Дорамы</div>
+              <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A">64 сериала · Корея</div>
+            </div>
+          </div>
+
+          <div style="width:430px;height:242px;border-radius:10px;overflow:hidden;position:relative;background:linear-gradient(165deg,#302418,#0C0907);border:1px solid #2C231D;flex:none">
+            <div style="position:absolute;left:20px;top:-20px;width:130px;height:195px;border-radius:6px;background:linear-gradient(165deg,#2E2417,#120E08);transform:rotate(-6deg)"></div>
+            <div style="position:absolute;left:125px;top:-10px;width:130px;height:195px;border-radius:6px;background:linear-gradient(165deg,#3A2418,#140C07);transform:rotate(2deg)"></div>
+            <div style="position:absolute;left:230px;top:-25px;width:130px;height:195px;border-radius:6px;background:linear-gradient(165deg,#2A1E2C,#100A12);transform:rotate(8deg)"></div>
+            <div style="position:absolute;inset:0;background:linear-gradient(0deg,rgba(11,9,8,.98) 0%,rgba(11,9,8,.7) 40%,rgba(11,9,8,.2) 100%)"></div>
+            <div style="position:absolute;left:22px;bottom:20px;right:22px;display:flex;flex-direction:column;gap:6px">
+              <div style="font:700 29px/1.06 'Unbounded',sans-serif">Кино 80-х</div>
+              <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A">180 фильмов · эпоха</div>
+            </div>
+          </div>
+
+          <div style="width:430px;height:242px;border-radius:10px;overflow:hidden;position:relative;background:linear-gradient(165deg,#1C2630,#07090C);border:1px solid #2C231D;flex:none">
+            <div style="position:absolute;left:20px;top:-20px;width:130px;height:195px;border-radius:6px;background:linear-gradient(165deg,#25303A,#0A0E12);transform:rotate(-6deg)"></div>
+            <div style="position:absolute;left:125px;top:-10px;width:130px;height:195px;border-radius:6px;background:linear-gradient(165deg,#2C2C36,#0E0E14);transform:rotate(2deg)"></div>
+            <div style="position:absolute;left:230px;top:-25px;width:130px;height:195px;border-radius:6px;background:linear-gradient(165deg,#1E2C26,#0A120E);transform:rotate(8deg)"></div>
+            <div style="position:absolute;inset:0;background:linear-gradient(0deg,rgba(11,9,8,.98) 0%,rgba(11,9,8,.7) 40%,rgba(11,9,8,.2) 100%)"></div>
+            <div style="position:absolute;left:22px;bottom:20px;right:22px;display:flex;flex-direction:column;gap:6px">
+              <div style="font:700 29px/1.06 'Unbounded',sans-serif">Фильмы Нолана</div>
+              <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A">12 фильмов · режиссёр</div>
+            </div>
+          </div>
+
+          <div style="width:430px;height:242px;border-radius:10px;overflow:hidden;position:relative;background:linear-gradient(165deg,#2E2A1A,#0B0A07);border:1px solid #2C231D;flex:none">
+            <div style="position:absolute;left:20px;top:-20px;width:130px;height:195px;border-radius:6px;background:linear-gradient(165deg,#3A2E1A,#130F08);transform:rotate(-6deg)"></div>
+            <div style="position:absolute;left:125px;top:-10px;width:130px;height:195px;border-radius:6px;background:linear-gradient(165deg,#332619,#130E09);transform:rotate(2deg)"></div>
+            <div style="position:absolute;left:230px;top:-25px;width:130px;height:195px;border-radius:6px;background:linear-gradient(165deg,#3A2A1C,#140D08);transform:rotate(8deg)"></div>
+            <div style="position:absolute;inset:0;background:linear-gradient(0deg,rgba(11,9,8,.98) 0%,rgba(11,9,8,.7) 40%,rgba(11,9,8,.2) 100%)"></div>
+            <div style="position:absolute;left:22px;bottom:20px;right:22px;display:flex;flex-direction:column;gap:6px">
+              <div style="font:700 29px/1.06 'Unbounded',sans-serif">Топ-250 Кинопоиска</div>
+              <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A">250 позиций · нужен ключ</div>
+            </div>
+          </div>
+
+          <div style="width:430px;height:242px;border-radius:10px;overflow:hidden;position:relative;background:linear-gradient(165deg,#1E2C24,#080C0A);border:1px solid #2C231D;flex:none">
+            <div style="position:absolute;left:20px;top:-20px;width:130px;height:195px;border-radius:6px;background:linear-gradient(165deg,#1F3324,#0A120C);transform:rotate(-6deg)"></div>
+            <div style="position:absolute;left:125px;top:-10px;width:130px;height:195px;border-radius:6px;background:linear-gradient(165deg,#2A3226,#0B0F09);transform:rotate(2deg)"></div>
+            <div style="position:absolute;left:230px;top:-25px;width:130px;height:195px;border-radius:6px;background:linear-gradient(165deg,#2C3A2A,#0B120C);transform:rotate(8deg)"></div>
+            <div style="position:absolute;inset:0;background:linear-gradient(0deg,rgba(11,9,8,.98) 0%,rgba(11,9,8,.7) 40%,rgba(11,9,8,.2) 100%)"></div>
+            <div style="position:absolute;left:22px;bottom:20px;right:22px;display:flex;flex-direction:column;gap:6px">
+              <div style="font:700 29px/1.06 'Unbounded',sans-serif">Ghibli</div>
+              <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A">22 фильма · студия</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 25 ------------------------------------------------------ -->
+    <div data-screen-label="25" style="display:flex;flex-direction:column;gap:20px">
+      <div style="font:600 20px/1 'JetBrains Mono',monospace;color:#7A6A5A;letter-spacing:.14em">25 · COLLECTIONS — FRANCHISE</div>
+      <div style="position:relative;width:1920px;height:1080px;overflow:hidden;background:#0B0908;flex:none">
+
+        <div style="position:absolute;left:0;right:0;top:0;height:400px;overflow:hidden">
+          <div style="position:absolute;inset:0;background:radial-gradient(60% 90% at 72% 26%, rgba(206,226,255,.4) 0%, rgba(90,120,170,.22) 24%, rgba(30,50,90,0) 62%),radial-gradient(130% 160% at 62% 38%, #35496E 0%, #1E2B44 32%, #0F1420 64%, #0B0908 100%)"></div>
+          <div style="position:absolute;inset:0;background-image:radial-gradient(rgba(255,255,255,.06) 0.5px,transparent 0.6px);background-size:3px 3px;opacity:.5;mix-blend-mode:overlay"></div>
+          <div style="position:absolute;inset:0;background:linear-gradient(0deg, rgba(11,9,8,1) 0%, rgba(11,9,8,.82) 30%, rgba(11,9,8,0) 76%)"></div>
+          <div style="position:absolute;inset:0;background:linear-gradient(180deg, rgba(11,9,8,.72) 0%, rgba(11,9,8,0) 28%)"></div>
+        </div>
+
+        <div style="position:absolute;top:0;left:0;right:0;height:80px;padding:0 64px;display:flex;align-items:center;justify-content:space-between;z-index:6">
+          <div style="display:flex;align-items:center;gap:24px;color:#A89A8A">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6" /></svg>
+            <div style="font:800 23px/1 'Unbounded',sans-serif;letter-spacing:.06em;color:#F3EDE4">LAMPA</div>
+          </div>
+          <div style="font:600 22px/1 'JetBrains Mono',monospace;color:#F3EDE4">21:58</div>
+        </div>
+
+        <div style="position:absolute;left:64px;right:64px;top:130px;z-index:5;display:flex;align-items:flex-end;justify-content:space-between;gap:40px">
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#7A6A5A;letter-spacing:.12em">ФРАНШИЗА · КОЛЛЕКЦИЯ TMDB + КЛЮЧЕВОЕ СЛОВО</div>
+            <div style="font:800 58px/1 'Unbounded',system-ui,sans-serif">Звёздные войны</div>
+            <div style="font:400 22px/1.4 'Golos Text',sans-serif;color:#A89A8A;max-width:950px">12 фильмов и 6 сериалов · кадр из «Империя наносит ответный удар»</div>
+          </div>
+          <div style="display:flex;gap:10px;align-items:center">
+            <div style="height:52px;padding:0 20px;border-radius:12px;background:var(--ac,#E8B87A);color:var(--onac,#1A120A);border:2.5px solid var(--ring,#FFF2DC);box-shadow:0 12px 35px var(--acglow,rgba(232,184,122,.35));display:flex;align-items:center;font:600 20px/1 'Golos Text',sans-serif;transform:scale(1.06)">По хронологии</div>
+            <div style="height:52px;padding:0 20px;border-radius:12px;background:rgba(28,22,19,.82);border:1px solid #2C231D;display:flex;align-items:center;font:600 20px/1 'Golos Text',sans-serif;color:#A89A8A">По дате выхода</div>
+            <div style="height:52px;padding:0 20px;border-radius:12px;background:rgba(28,22,19,.82);border:1px solid #2C231D;display:flex;align-items:center;font:600 20px/1 'Golos Text',sans-serif;color:#A89A8A">По рейтингу</div>
+          </div>
+        </div>
+
+        <div style="position:absolute;left:64px;right:0;top:440px;z-index:5">
+          <div style="display:flex;align-items:center;gap:14px;margin-bottom:14px">
+            <div style="font:700 26px/1 'Unbounded',sans-serif">Фильмы</div>
+            <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#7A6A5A;letter-spacing:.1em">ПО ХРОНОЛОГИИ</div>
+          </div>
+          <div style="display:flex;gap:16px;align-items:flex-start">
+            <div style="width:180px;height:270px;border-radius:7px;background:linear-gradient(165deg,#2A3140,#0A0D12);border:1px solid #2C231D;padding:13px;display:flex;flex-direction:column;justify-content:flex-end;gap:5px;flex:none"><div style="font:700 20px/1.15 'Unbounded',sans-serif">Скрытая угроза</div><div style="font:400 20px/1 'JetBrains Mono',monospace;color:#7A6A5A">1999</div></div>
+            <div style="width:180px;height:270px;border-radius:7px;background:linear-gradient(165deg,#332A1E,#120E09);border:1px solid #2C231D;padding:13px;display:flex;flex-direction:column;justify-content:flex-end;gap:5px;flex:none"><div style="font:700 20px/1.15 'Unbounded',sans-serif">Атака клонов</div><div style="font:400 20px/1 'JetBrains Mono',monospace;color:#7A6A5A">2002</div></div>
+            <div style="width:180px;height:270px;border-radius:7px;background:linear-gradient(165deg,#3A2222,#140A0A);border:1px solid #2C231D;padding:13px;display:flex;flex-direction:column;justify-content:flex-end;gap:5px;flex:none"><div style="font:700 20px/1.15 'Unbounded',sans-serif">Месть ситхов</div><div style="font:400 20px/1 'JetBrains Mono',monospace;color:#7A6A5A">2005</div></div>
+            <div style="width:180px;height:270px;border-radius:7px;background:linear-gradient(165deg,#24303A,#0A0E12);border:1px solid #2C231D;padding:13px;display:flex;flex-direction:column;justify-content:flex-end;gap:5px;flex:none"><div style="font:700 20px/1.15 'Unbounded',sans-serif">Изгой-один</div><div style="font:400 20px/1 'JetBrains Mono',monospace;color:#7A6A5A">2016</div></div>
+            <div style="width:180px;height:270px;border-radius:7px;background:linear-gradient(165deg,#2E2417,#120E08);border:1px solid #2C231D;padding:13px;display:flex;flex-direction:column;justify-content:flex-end;gap:5px;flex:none"><div style="font:700 20px/1.15 'Unbounded',sans-serif">Новая надежда</div><div style="font:400 20px/1 'JetBrains Mono',monospace;color:#7A6A5A">1977</div></div>
+            <div style="width:180px;height:270px;border-radius:7px;background:linear-gradient(165deg,#2C3A48,#0B1014);border:3px solid var(--ring,#FFF2DC);padding:12px;display:flex;flex-direction:column;justify-content:flex-end;gap:5px;flex:none;transform:scale(1.08);box-shadow:0 14px 40px var(--acglow,rgba(232,184,122,.35))"><div style="font:700 20px/1.15 'Unbounded',sans-serif">Империя наносит ответный удар</div><div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A">1980 · 8.4</div></div>
+            <div style="width:180px;height:270px;border-radius:7px;background:linear-gradient(165deg,#1F3324,#0A120C);border:1px solid #2C231D;padding:13px;display:flex;flex-direction:column;justify-content:flex-end;gap:5px;flex:none"><div style="font:700 20px/1.15 'Unbounded',sans-serif">Возвращение джедая</div><div style="font:400 20px/1 'JetBrains Mono',monospace;color:#7A6A5A">1983</div></div>
+            <div style="width:180px;height:270px;border-radius:7px;background:linear-gradient(165deg,#2A1E2C,#100A12);border:1px solid #2C231D;padding:13px;display:flex;flex-direction:column;justify-content:flex-end;gap:5px;flex:none"><div style="font:700 20px/1.15 'Unbounded',sans-serif">Пробуждение силы</div><div style="font:400 20px/1 'JetBrains Mono',monospace;color:#7A6A5A">2015</div></div>
+            <div style="width:180px;height:270px;border-radius:7px;background:linear-gradient(165deg,#332619,#130E09);border:1px solid #2C231D;padding:13px;display:flex;flex-direction:column;justify-content:flex-end;gap:5px;flex:none"><div style="font:700 20px/1.15 'Unbounded',sans-serif">Последние джедаи</div><div style="font:400 20px/1 'JetBrains Mono',monospace;color:#7A6A5A">2017</div></div>
+          </div>
+        </div>
+
+        <div style="position:absolute;left:64px;right:0;top:760px;z-index:5">
+          <div style="display:flex;align-items:center;gap:14px;margin-bottom:14px">
+            <div style="font:700 26px/1 'Unbounded',sans-serif">Сериалы</div>
+            <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#7A6A5A;letter-spacing:.1em">ОТДЕЛЬНЫЙ РЯД</div>
+          </div>
+          <div style="display:flex;gap:16px;align-items:flex-start">
+            <div style="width:180px;height:270px;border-radius:7px;background:linear-gradient(165deg,#3A2E1E,#130F09);border:1px solid #2C231D;padding:13px;display:flex;flex-direction:column;justify-content:flex-end;gap:5px;flex:none"><div style="font:700 20px/1.15 'Unbounded',sans-serif">Мандалорец</div><div style="font:400 20px/1 'JetBrains Mono',monospace;color:#7A6A5A">3 сезона · 8.4</div></div>
+            <div style="width:180px;height:270px;border-radius:7px;background:linear-gradient(165deg,#22303A,#080C0E);border:1px solid #2C231D;padding:13px;display:flex;flex-direction:column;justify-content:flex-end;gap:5px;flex:none"><div style="font:700 20px/1.15 'Unbounded',sans-serif">Андор</div><div style="font:400 20px/1 'JetBrains Mono',monospace;color:#7A6A5A">2 сезона · 8.6</div></div>
+            <div style="width:180px;height:270px;border-radius:7px;background:linear-gradient(165deg,#2C2230,#0A080C);border:1px solid #2C231D;padding:13px;display:flex;flex-direction:column;justify-content:flex-end;gap:5px;flex:none"><div style="font:700 20px/1.15 'Unbounded',sans-serif">Асока</div><div style="font:400 20px/1 'JetBrains Mono',monospace;color:#7A6A5A">1 сезон · 7.4</div></div>
+            <div style="width:180px;height:270px;border-radius:7px;background:linear-gradient(165deg,#2E2417,#120E08);border:1px solid #2C231D;padding:13px;display:flex;flex-direction:column;justify-content:flex-end;gap:5px;flex:none"><div style="font:700 20px/1.15 'Unbounded',sans-serif">Оби-Ван Кеноби</div><div style="font:400 20px/1 'JetBrains Mono',monospace;color:#7A6A5A">1 сезон · 7.1</div></div>
+            <div style="width:180px;height:270px;border-radius:7px;background:linear-gradient(165deg,#3A2A1C,#140D08);border:1px solid #2C231D;padding:13px;display:flex;flex-direction:column;justify-content:flex-end;gap:5px;flex:none"><div style="font:700 20px/1.15 'Unbounded',sans-serif">Книга Бобы Фетта</div><div style="font:400 20px/1 'JetBrains Mono',monospace;color:#7A6A5A">1 сезон · 7.0</div></div>
+            <div style="width:180px;height:270px;border-radius:7px;background:linear-gradient(165deg,#1E2C26,#0A120E);border:1px solid #2C231D;padding:13px;display:flex;flex-direction:column;justify-content:flex-end;gap:5px;flex:none"><div style="font:700 20px/1.15 'Unbounded',sans-serif">Аколит</div><div style="font:400 20px/1 'JetBrains Mono',monospace;color:#7A6A5A">1 сезон · 6.2</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 23 ------------------------------------------------------ -->
+    <div data-screen-label="23" style="display:flex;flex-direction:column;gap:20px">
+      <div style="font:600 20px/1 'JetBrains Mono',monospace;color:#7A6A5A;letter-spacing:.14em">23 · MAIN — MOTION STORYBOARD</div>
+      <div style="position:relative;box-sizing:border-box;width:1920px;height:1080px;overflow:hidden;background:#0B0908;flex:none;padding:56px 64px;display:flex;flex-direction:column;gap:22px">
+        <div style="display:flex;align-items:baseline;gap:16px">
+          <div style="font:700 32px/1 'Unbounded',sans-serif">Движение главной</div>
+          <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#7A6A5A;letter-spacing:.1em">7 СЦЕН · ДЛИТЕЛЬНОСТИ И КРИВЫЕ</div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:22px 48px;flex:1">
+
+          <div style="display:flex;flex-direction:column;gap:9px">
+            <div style="font:600 20px/1.2 'Golos Text',sans-serif">а · Смена героя при движении фокуса</div>
+            <div style="font:400 14px/1.35 'JetBrains Mono',monospace;color:#A89A8A">кадр — кроссфейд 600 мс ease-in-out · текст: старый вниз и гаснет 180 мс, новый вверх 420 мс с задержкой 120 мс</div>
+            <div style="display:flex;gap:10px;flex:1">
+              <div style="flex:1;border-radius:7px;position:relative;overflow:hidden;background:radial-gradient(120% 120% at 66% 44%,#A9613A,#2C1710 62%,#0B0908)"><div style="position:absolute;left:9px;bottom:9px;width:62%;height:10px;border-radius:4px;background:#F3EDE4"></div><div style="position:absolute;top:7px;right:9px;font:400 12px/1 'JetBrains Mono',monospace;color:#F3EDE4">0</div></div>
+              <div style="flex:1;border-radius:7px;position:relative;overflow:hidden;background:radial-gradient(120% 120% at 66% 44%,#A9613A,#2C1710 62%,#0B0908)"><div style="position:absolute;inset:0;background:radial-gradient(120% 120% at 62% 46%,#33564A,#101E1A 62%,#0B0908);opacity:.4"></div><div style="position:absolute;left:9px;bottom:4px;width:44%;height:10px;border-radius:4px;background:rgba(243,237,228,.35)"></div><div style="position:absolute;top:7px;right:9px;font:400 12px/1 'JetBrains Mono',monospace;color:#F3EDE4">180</div></div>
+              <div style="flex:1;border-radius:7px;position:relative;overflow:hidden;background:radial-gradient(120% 120% at 62% 46%,#33564A,#101E1A 62%,#0B0908)"><div style="position:absolute;inset:0;background:radial-gradient(120% 120% at 66% 44%,#A9613A,#2C1710 62%,#0B0908);opacity:.3"></div><div style="position:absolute;left:9px;bottom:14px;width:36%;height:10px;border-radius:4px;background:rgba(243,237,228,.6)"></div><div style="position:absolute;top:7px;right:9px;font:400 12px/1 'JetBrains Mono',monospace;color:#F3EDE4">420</div></div>
+              <div style="flex:1;border-radius:7px;position:relative;overflow:hidden;background:radial-gradient(120% 120% at 62% 46%,#33564A,#101E1A 62%,#0B0908);border:1px solid var(--ac,#E8B87A)"><div style="position:absolute;left:9px;bottom:9px;width:54%;height:10px;border-radius:4px;background:#F3EDE4"></div><div style="position:absolute;top:7px;right:9px;font:400 12px/1 'JetBrains Mono',monospace;color:var(--ac,#E8B87A)">600</div></div>
+            </div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:9px">
+            <div style="font:600 20px/1.2 'Golos Text',sans-serif">б · Переход фокуса между рядами</div>
+            <div style="font:400 14px/1.35 'JetBrains Mono',monospace;color:#A89A8A">ряды вверх 420 мс cubic-bezier(.2,.8,.2,1) · герой сжимается 58 % → 42 % высоты</div>
+            <div style="display:flex;gap:10px;flex:1">
+              <div style="flex:1;border-radius:7px;overflow:hidden;position:relative;background:#120E0B;border:1px solid #2C231D"><div style="position:absolute;left:0;right:0;top:0;height:58%;background:radial-gradient(120% 120% at 66% 44%,#8E5A35,#22150D 70%,#0B0908)"></div><div style="position:absolute;left:7px;right:7px;top:62%;height:26%;border-radius:4px;background:rgba(243,237,228,.14)"></div><div style="position:absolute;top:7px;right:9px;font:400 12px/1 'JetBrains Mono',monospace;color:#F3EDE4">0</div></div>
+              <div style="flex:1;border-radius:7px;overflow:hidden;position:relative;background:#120E0B;border:1px solid #2C231D"><div style="position:absolute;left:0;right:0;top:0;height:50%;background:radial-gradient(120% 120% at 66% 44%,#8E5A35,#22150D 70%,#0B0908)"></div><div style="position:absolute;left:7px;right:7px;top:54%;height:28%;border-radius:4px;background:rgba(243,237,228,.2)"></div><div style="position:absolute;top:7px;right:9px;font:400 12px/1 'JetBrains Mono',monospace;color:#F3EDE4">210</div></div>
+              <div style="flex:1;border-radius:7px;overflow:hidden;position:relative;background:#120E0B;border:1px solid var(--ac,#E8B87A)"><div style="position:absolute;left:0;right:0;top:0;height:42%;background:radial-gradient(120% 120% at 66% 44%,#8E5A35,#22150D 70%,#0B0908)"></div><div style="position:absolute;left:7px;right:7px;top:46%;height:30%;border-radius:4px;background:rgba(243,237,228,.3)"></div><div style="position:absolute;left:7px;right:7px;top:80%;height:14%;border-radius:4px;background:rgba(243,237,228,.12)"></div><div style="position:absolute;top:7px;right:9px;font:400 12px/1 'JetBrains Mono',monospace;color:var(--ac,#E8B87A)">420</div></div>
+            </div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:9px">
+            <div style="font:600 20px/1.2 'Golos Text',sans-serif">в · Фокус постера</div>
+            <div style="font:400 14px/1.35 'JetBrains Mono',monospace;color:#A89A8A">масштаб 1.08 · 240 мс cubic-bezier(.2,.9,.3,1.25) · кольцо 3 px и свечение нарастают вместе</div>
+            <div style="display:flex;gap:10px;flex:1">
+              <div style="flex:1;border-radius:7px;background:#120E0B;border:1px solid #2C231D;display:flex;align-items:center;justify-content:center;position:relative"><div style="width:60px;height:90px;border-radius:5px;background:linear-gradient(165deg,#3A2A1C,#140D08);border:1px solid #2C231D"></div><div style="position:absolute;top:7px;right:9px;font:400 12px/1 'JetBrains Mono',monospace;color:#F3EDE4">0</div></div>
+              <div style="flex:1;border-radius:7px;background:#120E0B;border:1px solid #2C231D;display:flex;align-items:center;justify-content:center;position:relative"><div style="width:60px;height:90px;border-radius:5px;background:linear-gradient(165deg,#4A2C1E,#160E09);border:2px solid rgba(255,242,220,.5);transform:scale(1.1)"></div><div style="position:absolute;top:7px;right:9px;font:400 12px/1 'JetBrains Mono',monospace;color:#F3EDE4">140</div></div>
+              <div style="flex:1;border-radius:7px;background:#120E0B;border:1px solid var(--ac,#E8B87A);display:flex;align-items:center;justify-content:center;position:relative"><div style="width:60px;height:90px;border-radius:5px;background:linear-gradient(165deg,#4A2C1E,#160E09);border:3px solid var(--ring,#FFF2DC);transform:scale(1.08);box-shadow:0 8px 25px var(--acglow,rgba(232,184,122,.35))"></div><div style="position:absolute;top:7px;right:9px;font:400 12px/1 'JetBrains Mono',monospace;color:var(--ac,#E8B87A)">240</div></div>
+            </div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:9px">
+            <div style="font:600 20px/1.2 'Golos Text',sans-serif">г · Быстрое листание — герой не мигает</div>
+            <div style="font:400 14px/1.35 'JetBrains Mono',monospace;color:#A89A8A">смена героя только после паузы фокуса 350 мс · при листании кадр держится</div>
+            <div style="display:flex;gap:10px;flex:1">
+              <div style="flex:1;border-radius:7px;overflow:hidden;position:relative;background:radial-gradient(120% 120% at 66% 44%,#A9613A,#2C1710 62%,#0B0908)"><div style="position:absolute;left:9px;bottom:9px;font:400 12px/1 'JetBrains Mono',monospace;color:#F3EDE4">кадр 1</div><div style="position:absolute;top:7px;right:9px;font:400 12px/1 'JetBrains Mono',monospace;color:#F3EDE4">0</div></div>
+              <div style="flex:1;border-radius:7px;overflow:hidden;position:relative;background:radial-gradient(120% 120% at 66% 44%,#A9613A,#2C1710 62%,#0B0908)"><div style="position:absolute;left:9px;bottom:9px;font:400 12px/1 'JetBrains Mono',monospace;color:#7A6A5A">кадр 1 держится</div><div style="position:absolute;top:7px;right:9px;font:400 12px/1 'JetBrains Mono',monospace;color:#F3EDE4">120</div></div>
+              <div style="flex:1;border-radius:7px;overflow:hidden;position:relative;background:radial-gradient(120% 120% at 66% 44%,#A9613A,#2C1710 62%,#0B0908)"><div style="position:absolute;left:9px;bottom:9px;font:400 12px/1 'JetBrains Mono',monospace;color:#7A6A5A">кадр 1 держится</div><div style="position:absolute;top:7px;right:9px;font:400 12px/1 'JetBrains Mono',monospace;color:#F3EDE4">260</div></div>
+              <div style="flex:1;border-radius:7px;overflow:hidden;position:relative;background:radial-gradient(120% 120% at 62% 46%,#33564A,#101E1A 62%,#0B0908);border:1px solid var(--ac,#E8B87A)"><div style="position:absolute;left:9px;bottom:9px;font:400 12px/1 'JetBrains Mono',monospace;color:var(--ac,#E8B87A)">кадр 4</div><div style="position:absolute;top:7px;right:9px;font:400 12px/1 'JetBrains Mono',monospace;color:var(--ac,#E8B87A)">350 пауза</div></div>
+            </div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:9px">
+            <div style="font:600 20px/1.2 'Golos Text',sans-serif">д · Частицы атмосферы</div>
+            <div style="font:400 14px/1.35 'JetBrains Mono',monospace;color:#A89A8A">появление через 1,5 с после загрузки кадра · плотность ≤ 60 частиц · не заходят на текст</div>
+            <div style="display:flex;gap:10px;flex:1">
+              <div style="flex:1;border-radius:7px;overflow:hidden;position:relative;background:radial-gradient(120% 120% at 60% 40%,#5A3A1E,#1A0F08 66%,#0B0908)"><div style="position:absolute;top:7px;right:9px;font:400 12px/1 'JetBrains Mono',monospace;color:#F3EDE4">0 с</div></div>
+              <div style="flex:1;border-radius:7px;overflow:hidden;position:relative;background:radial-gradient(120% 120% at 60% 40%,#5A3A1E,#1A0F08 66%,#0B0908)"><div style="position:absolute;inset:0;background-image:radial-gradient(rgba(255,255,255,.5) 1px,transparent 1.2px);background-size:35px 35px;opacity:.25"></div><div style="position:absolute;top:7px;right:9px;font:400 12px/1 'JetBrains Mono',monospace;color:#F3EDE4">1,5 с</div></div>
+              <div style="flex:1;border-radius:7px;overflow:hidden;position:relative;background:radial-gradient(120% 120% at 60% 40%,#5A3A1E,#1A0F08 66%,#0B0908);border:1px solid var(--ac,#E8B87A)"><div style="position:absolute;inset:0;background-image:radial-gradient(rgba(255,255,255,.6) 1px,transparent 1.2px);background-size:26px 26px;opacity:.55"></div><div style="position:absolute;left:0;right:0;bottom:0;height:34%;background:linear-gradient(0deg,rgba(11,9,8,.95),rgba(11,9,8,0))"></div><div style="position:absolute;left:9px;bottom:8px;font:400 12px/1 'JetBrains Mono',monospace;color:#F3EDE4">текст чист</div><div style="position:absolute;top:7px;right:9px;font:400 12px/1 'JetBrains Mono',monospace;color:var(--ac,#E8B87A)">2,5 с</div></div>
+            </div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:9px">
+            <div style="font:600 20px/1.2 'Golos Text',sans-serif">е · Вход в ambient</div>
+            <div style="font:400 14px/1.35 'JetBrains Mono',monospace;color:#A89A8A">интерфейс гаснет 1,2 с · первый кадр 2 с · кроссфейд кадров 2 с каждые 20 с</div>
+            <div style="display:flex;gap:10px;flex:1">
+              <div style="flex:1;border-radius:7px;overflow:hidden;position:relative;background:radial-gradient(120% 120% at 66% 44%,#8E5A35,#22150D 70%,#0B0908)"><div style="position:absolute;left:0;right:0;bottom:0;height:40%;background:linear-gradient(0deg,rgba(11,9,8,.96),rgba(11,9,8,0))"></div><div style="position:absolute;left:9px;bottom:9px;width:60%;height:9px;border-radius:4px;background:#F3EDE4"></div><div style="position:absolute;top:7px;right:9px;font:400 12px/1 'JetBrains Mono',monospace;color:#F3EDE4">0 с</div></div>
+              <div style="flex:1;border-radius:7px;overflow:hidden;position:relative;background:radial-gradient(120% 120% at 66% 44%,#8E5A35,#22150D 70%,#0B0908)"><div style="position:absolute;left:0;right:0;bottom:0;height:40%;background:linear-gradient(0deg,rgba(11,9,8,.4),rgba(11,9,8,0))"></div><div style="position:absolute;left:9px;bottom:9px;width:60%;height:9px;border-radius:4px;background:rgba(243,237,228,.3)"></div><div style="position:absolute;top:7px;right:9px;font:400 12px/1 'JetBrains Mono',monospace;color:#F3EDE4">1,2 с</div></div>
+              <div style="flex:1;border-radius:7px;overflow:hidden;position:relative;background:radial-gradient(120% 120% at 60% 44%,#A06A3C,#2A1810 70%,#0B0908);border:1px solid var(--ac,#E8B87A)"><div style="position:absolute;top:7px;right:9px;font:400 12px/1 'JetBrains Mono',monospace;color:var(--ac,#E8B87A)">3,2 с</div></div>
+            </div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:9px;grid-column:1 / -1">
+            <div style="font:600 20px/1.2 'Golos Text',sans-serif">ж · Барабан рулетки</div>
+            <div style="font:400 14px/1.35 'JetBrains Mono',monospace;color:#A89A8A">разгон 400 мс · вращение 1,8 с · торможение 900 мс с дотягиванием до центра</div>
+            <div style="display:flex;gap:10px;flex:1">
+              <div style="flex:1;border-radius:7px;background:#120E0B;border:1px solid #2C231D;display:flex;align-items:center;justify-content:center;gap:8px;position:relative"><div style="width:45px;height:67.5px;border-radius:4px;background:linear-gradient(165deg,#2B3540,#0C1114)"></div><div style="width:55px;height:82.5px;border-radius:4px;background:linear-gradient(165deg,#3A2A1C,#140D08)"></div><div style="width:45px;height:67.5px;border-radius:4px;background:linear-gradient(165deg,#1E2C26,#0A120E)"></div><div style="position:absolute;top:7px;right:9px;font:400 12px/1 'JetBrains Mono',monospace;color:#F3EDE4">0 · разгон</div></div>
+              <div style="flex:1;border-radius:7px;background:#120E0B;border:1px solid #2C231D;display:flex;align-items:center;justify-content:center;gap:8px;position:relative;filter:blur(3px)"><div style="width:45px;height:67.5px;border-radius:4px;background:linear-gradient(165deg,#332619,#130E09)"></div><div style="width:55px;height:82.5px;border-radius:4px;background:linear-gradient(165deg,#2A1E2C,#100A12)"></div><div style="width:45px;height:67.5px;border-radius:4px;background:linear-gradient(165deg,#233240,#0B1014)"></div></div>
+              <div style="flex:1;border-radius:7px;background:#120E0B;border:1px solid #2C231D;display:flex;align-items:center;justify-content:center;gap:8px;position:relative;filter:blur(1px)"><div style="width:45px;height:67.5px;border-radius:4px;background:linear-gradient(165deg,#2E2417,#120E08)"></div><div style="width:55px;height:82.5px;border-radius:4px;background:linear-gradient(165deg,#4A2C1E,#160E09)"></div><div style="width:45px;height:67.5px;border-radius:4px;background:linear-gradient(165deg,#1F3324,#0A120C)"></div></div>
+              <div style="flex:1;border-radius:7px;background:#120E0B;border:1px solid var(--ac,#E8B87A);display:flex;align-items:center;justify-content:center;gap:8px;position:relative"><div style="width:45px;height:67.5px;border-radius:4px;background:linear-gradient(165deg,#2B3540,#0C1114);opacity:.5"></div><div style="width:60px;height:90px;border-radius:4px;background:linear-gradient(165deg,#4A2C1E,#160E09);border:3px solid var(--ring,#FFF2DC);box-shadow:0 8px 25px var(--acglow,rgba(232,184,122,.35))"></div><div style="width:45px;height:67.5px;border-radius:4px;background:linear-gradient(165deg,#1E2C26,#0A120E);opacity:.5"></div><div style="position:absolute;top:7px;right:9px;font:400 12px/1 'JetBrains Mono',monospace;color:var(--ac,#E8B87A)">3,1 с · стоп</div></div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ROW D — 26…29 ============================================ -->
+  <div style="display:flex;gap:80px;align-items:flex-start">
+
+    <!-- 26 ------------------------------------------------------ -->
+    <div data-screen-label="26" style="display:flex;flex-direction:column;gap:20px">
+      <div style="font:600 20px/1 'JetBrains Mono',monospace;color:#7A6A5A;letter-spacing:.14em">26 · ATMOSPHERE — HALLOWEEN</div>
+      <div style="position:relative;box-sizing:border-box;width:1920px;height:1080px;overflow:hidden;background:#0B0908;flex:none;padding:48px 64px;display:flex;flex-direction:column;gap:20px">
+
+        <div style="position:relative;width:100%;height:440px;border-radius:10px;overflow:hidden;flex:none;background:#0B0908">
+          <div style="position:absolute;inset:0;background:radial-gradient(60% 70% at 72% 34%, rgba(255,168,72,.6) 0%, rgba(190,90,26,.34) 24%, rgba(90,40,10,0) 62%),radial-gradient(130% 130% at 60% 46%, #7A3E14 0%, #4A2510 30%, #1C0F07 62%, #0B0908 100%)"></div>
+          <div style="position:absolute;left:0;right:0;bottom:0;height:46%;background:radial-gradient(80% 100% at 50% 100%, rgba(224,123,44,.42), rgba(224,123,44,0) 70%)"></div>
+          <div style="position:absolute;left:0;right:0;bottom:0;height:22%;background:linear-gradient(0deg, rgba(200,180,160,.14), rgba(200,180,160,0))"></div>
+
+          <div style="position:absolute;left:8%;top:12%;color:rgba(243,237,228,.5);transform:rotate(-12deg)"><svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9c1.6-1.8 3.2-.6 4 .9.9-1.5 2.4-2.4 5-2.4s4.1.9 5 2.4c.8-1.5 2.4-2.7 4-.9-1.4.3-2 1.7-2 3.2-1.6-.6-3 .2-3.8 1.6-1-1.6-2-2.4-3.2-2.4s-2.2.8-3.2 2.4C8.8 12.4 7.4 11.6 5.8 12.2 5.8 10.7 4.4 9.3 3 9z" /></svg></div>
+          <div style="position:absolute;left:20%;top:6%;color:rgba(243,237,228,.34);transform:rotate(8deg)"><svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9c1.6-1.8 3.2-.6 4 .9.9-1.5 2.4-2.4 5-2.4s4.1.9 5 2.4c.8-1.5 2.4-2.7 4-.9-1.4.3-2 1.7-2 3.2-1.6-.6-3 .2-3.8 1.6-1-1.6-2-2.4-3.2-2.4s-2.2.8-3.2 2.4C8.8 12.4 7.4 11.6 5.8 12.2 5.8 10.7 4.4 9.3 3 9z" /></svg></div>
+          <div style="position:absolute;left:32%;top:16%;color:rgba(243,237,228,.28);transform:rotate(-4deg)"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9c1.6-1.8 3.2-.6 4 .9.9-1.5 2.4-2.4 5-2.4s4.1.9 5 2.4c.8-1.5 2.4-2.7 4-.9-1.4.3-2 1.7-2 3.2-1.6-.6-3 .2-3.8 1.6-1-1.6-2-2.4-3.2-2.4s-2.2.8-3.2 2.4C8.8 12.4 7.4 11.6 5.8 12.2 5.8 10.7 4.4 9.3 3 9z" /></svg></div>
+          <div style="position:absolute;left:46%;top:8%;color:rgba(243,237,228,.42);transform:rotate(14deg)"><svg width="50" height="50" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9c1.6-1.8 3.2-.6 4 .9.9-1.5 2.4-2.4 5-2.4s4.1.9 5 2.4c.8-1.5 2.4-2.7 4-.9-1.4.3-2 1.7-2 3.2-1.6-.6-3 .2-3.8 1.6-1-1.6-2-2.4-3.2-2.4s-2.2.8-3.2 2.4C8.8 12.4 7.4 11.6 5.8 12.2 5.8 10.7 4.4 9.3 3 9z" /></svg></div>
+          <div style="position:absolute;left:58%;top:20%;color:rgba(243,237,228,.26);transform:rotate(-16deg)"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9c1.6-1.8 3.2-.6 4 .9.9-1.5 2.4-2.4 5-2.4s4.1.9 5 2.4c.8-1.5 2.4-2.7 4-.9-1.4.3-2 1.7-2 3.2-1.6-.6-3 .2-3.8 1.6-1-1.6-2-2.4-3.2-2.4s-2.2.8-3.2 2.4C8.8 12.4 7.4 11.6 5.8 12.2 5.8 10.7 4.4 9.3 3 9z" /></svg></div>
+          <div style="position:absolute;left:70%;top:10%;color:rgba(243,237,228,.36);transform:rotate(6deg)"><svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9c1.6-1.8 3.2-.6 4 .9.9-1.5 2.4-2.4 5-2.4s4.1.9 5 2.4c.8-1.5 2.4-2.7 4-.9-1.4.3-2 1.7-2 3.2-1.6-.6-3 .2-3.8 1.6-1-1.6-2-2.4-3.2-2.4s-2.2.8-3.2 2.4C8.8 12.4 7.4 11.6 5.8 12.2 5.8 10.7 4.4 9.3 3 9z" /></svg></div>
+          <div style="position:absolute;left:80%;top:22%;color:rgba(243,237,228,.24);transform:rotate(-8deg)"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9c1.6-1.8 3.2-.6 4 .9.9-1.5 2.4-2.4 5-2.4s4.1.9 5 2.4c.8-1.5 2.4-2.7 4-.9-1.4.3-2 1.7-2 3.2-1.6-.6-3 .2-3.8 1.6-1-1.6-2-2.4-3.2-2.4s-2.2.8-3.2 2.4C8.8 12.4 7.4 11.6 5.8 12.2 5.8 10.7 4.4 9.3 3 9z" /></svg></div>
+          <div style="position:absolute;left:88%;top:6%;color:rgba(243,237,228,.3);transform:rotate(18deg)"><svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9c1.6-1.8 3.2-.6 4 .9.9-1.5 2.4-2.4 5-2.4s4.1.9 5 2.4c.8-1.5 2.4-2.7 4-.9-1.4.3-2 1.7-2 3.2-1.6-.6-3 .2-3.8 1.6-1-1.6-2-2.4-3.2-2.4s-2.2.8-3.2 2.4C8.8 12.4 7.4 11.6 5.8 12.2 5.8 10.7 4.4 9.3 3 9z" /></svg></div>
+          <div style="position:absolute;left:14%;top:28%;color:rgba(243,237,228,.2);transform:rotate(10deg)"><svg width="27" height="27" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9c1.6-1.8 3.2-.6 4 .9.9-1.5 2.4-2.4 5-2.4s4.1.9 5 2.4c.8-1.5 2.4-2.7 4-.9-1.4.3-2 1.7-2 3.2-1.6-.6-3 .2-3.8 1.6-1-1.6-2-2.4-3.2-2.4s-2.2.8-3.2 2.4C8.8 12.4 7.4 11.6 5.8 12.2 5.8 10.7 4.4 9.3 3 9z" /></svg></div>
+          <div style="position:absolute;left:64%;top:32%;color:rgba(243,237,228,.18);transform:rotate(-6deg)"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9c1.6-1.8 3.2-.6 4 .9.9-1.5 2.4-2.4 5-2.4s4.1.9 5 2.4c.8-1.5 2.4-2.7 4-.9-1.4.3-2 1.7-2 3.2-1.6-.6-3 .2-3.8 1.6-1-1.6-2-2.4-3.2-2.4s-2.2.8-3.2 2.4C8.8 12.4 7.4 11.6 5.8 12.2 5.8 10.7 4.4 9.3 3 9z" /></svg></div>
+          <div style="position:absolute;left:38%;top:34%;color:rgba(243,237,228,.16);transform:rotate(16deg)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9c1.6-1.8 3.2-.6 4 .9.9-1.5 2.4-2.4 5-2.4s4.1.9 5 2.4c.8-1.5 2.4-2.7 4-.9-1.4.3-2 1.7-2 3.2-1.6-.6-3 .2-3.8 1.6-1-1.6-2-2.4-3.2-2.4s-2.2.8-3.2 2.4C8.8 12.4 7.4 11.6 5.8 12.2 5.8 10.7 4.4 9.3 3 9z" /></svg></div>
+          <div style="position:absolute;left:52%;top:4%;color:rgba(243,237,228,.22);transform:rotate(-20deg)"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9c1.6-1.8 3.2-.6 4 .9.9-1.5 2.4-2.4 5-2.4s4.1.9 5 2.4c.8-1.5 2.4-2.7 4-.9-1.4.3-2 1.7-2 3.2-1.6-.6-3 .2-3.8 1.6-1-1.6-2-2.4-3.2-2.4s-2.2.8-3.2 2.4C8.8 12.4 7.4 11.6 5.8 12.2 5.8 10.7 4.4 9.3 3 9z" /></svg></div>
+
+          <div style="position:absolute;inset:0;background:linear-gradient(90deg, rgba(11,9,8,.94) 0%, rgba(11,9,8,0) 78%)"></div>
+          <div style="position:absolute;inset:0;background:linear-gradient(0deg, rgba(11,9,8,.96) 0%, rgba(11,9,8,0) 56%)"></div>
+
+          <div style="position:absolute;top:0;left:0;right:0;height:60px;padding:0 60px;display:flex;align-items:center;justify-content:space-between">
+            <div style="font:800 20px/1 'Unbounded',sans-serif;letter-spacing:.06em">LAMPA</div>
+            <div style="display:flex;align-items:center;gap:14px">
+              <div style="padding:5px 12px;border-radius:30px;border:1px solid rgba(224,123,44,.5);font:600 20px/1 'JetBrains Mono',monospace;color:#E07B2C;letter-spacing:.06em">АТМОСФЕРА · ХЭЛЛОУИН</div>
+              <div style="font:600 20px/1 'JetBrains Mono',monospace">23:40</div>
+            </div>
+          </div>
+
+          <div style="position:absolute;left:60px;bottom:60px;right:60px;display:flex;align-items:flex-end;justify-content:space-between;gap:40px">
+            <div style="display:flex;flex-direction:column;align-items:flex-start">
+              <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A;letter-spacing:.03em">1978 · США · 1:31 · Хоррор · 18+ · реж. Джон Карпентер</div>
+              <div style="font:800 58px/1.0 'Unbounded',system-ui,sans-serif;margin-top:12px;color:#F3EDE4">Хэллоуин</div>
+              <div style="font:400 20px/1.4 'Golos Text',sans-serif;color:#A89A8A;margin-top:12px;max-width:750px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">Через пятнадцать лет после убийства сестры Майкл Майерс возвращается в Хэддонфилд — в тот же вечер, когда город вывешивает тыквы на крыльцо.</div>
+              <div style="display:flex;align-items:center;gap:12px;margin-top:18px">
+                <div style="height:56px;padding:0 22px;border-radius:14px;background:#E07B2C;color:#1A0E05;border:2.5px solid #FFE6CC;box-shadow:0 12px 35px rgba(224,123,44,.4);display:flex;align-items:center;gap:10px;font:600 20px/1 'Golos Text',sans-serif;transform:scale(1.06)">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5l11 7-11 7V5z" /></svg><span>Смотреть</span>
+                </div>
+                <div style="height:56px;padding:0 22px;border-radius:14px;background:rgba(28,22,19,.82);border:1px solid #2C231D;display:flex;align-items:center;gap:10px;font:600 20px/1 'Golos Text',sans-serif;color:#F3EDE4">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7.5h18v11.5H3z" /><path d="M3 7.5L6.5 3h11L14 7.5" /></svg><span>Трейлер</span>
+                </div>
+                <div style="width:56px;height:56px;border-radius:14px;background:rgba(28,22,19,.82);border:1px solid #2C231D;display:flex;align-items:center;justify-content:center">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F3EDE4" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h10v18l-5-4-5 4V3z" /></svg>
+                </div>
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:4px;padding:9px 14px;border-radius:10px;background:rgba(28,22,19,.78);border:1px solid #2C231D">
+              <div style="font:600 24px/1 'JetBrains Mono',monospace">7.6</div>
+              <div style="font:400 12px/1 'JetBrains Mono',monospace;color:#7A6A5A;letter-spacing:.1em">TMDB</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="position:relative;width:100%;flex:1;border-radius:10px;overflow:hidden;background:#0B0908">
+          <div style="position:absolute;inset:0;background:radial-gradient(60% 90% at 74% 30%, rgba(255,168,72,.44) 0%, rgba(170,80,24,.26) 26%, rgba(80,36,10,0) 64%),radial-gradient(130% 150% at 60% 40%, #6A3712 0%, #40200E 32%, #190E07 64%, #0B0908 100%)"></div>
+          <div style="position:absolute;left:0;right:0;bottom:0;height:50%;background:radial-gradient(80% 100% at 46% 100%, rgba(224,123,44,.34), rgba(224,123,44,0) 70%)"></div>
+          <div style="position:absolute;left:12%;top:10%;color:rgba(243,237,228,.34);transform:rotate(-10deg)"><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9c1.6-1.8 3.2-.6 4 .9.9-1.5 2.4-2.4 5-2.4s4.1.9 5 2.4c.8-1.5 2.4-2.7 4-.9-1.4.3-2 1.7-2 3.2-1.6-.6-3 .2-3.8 1.6-1-1.6-2-2.4-3.2-2.4s-2.2.8-3.2 2.4C8.8 12.4 7.4 11.6 5.8 12.2 5.8 10.7 4.4 9.3 3 9z" /></svg></div>
+          <div style="position:absolute;left:34%;top:14%;color:rgba(243,237,228,.24);transform:rotate(12deg)"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9c1.6-1.8 3.2-.6 4 .9.9-1.5 2.4-2.4 5-2.4s4.1.9 5 2.4c.8-1.5 2.4-2.7 4-.9-1.4.3-2 1.7-2 3.2-1.6-.6-3 .2-3.8 1.6-1-1.6-2-2.4-3.2-2.4s-2.2.8-3.2 2.4C8.8 12.4 7.4 11.6 5.8 12.2 5.8 10.7 4.4 9.3 3 9z" /></svg></div>
+          <div style="position:absolute;left:56%;top:8%;color:rgba(243,237,228,.28);transform:rotate(-6deg)"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9c1.6-1.8 3.2-.6 4 .9.9-1.5 2.4-2.4 5-2.4s4.1.9 5 2.4c.8-1.5 2.4-2.7 4-.9-1.4.3-2 1.7-2 3.2-1.6-.6-3 .2-3.8 1.6-1-1.6-2-2.4-3.2-2.4s-2.2.8-3.2 2.4C8.8 12.4 7.4 11.6 5.8 12.2 5.8 10.7 4.4 9.3 3 9z" /></svg></div>
+          <div style="position:absolute;inset:0;background:linear-gradient(90deg, rgba(11,9,8,.94) 0%, rgba(11,9,8,0) 76%)"></div>
+          <div style="position:absolute;inset:0;background:linear-gradient(0deg, rgba(11,9,8,1) 0%, rgba(11,9,8,.7) 26%, rgba(11,9,8,0) 62%)"></div>
+
+          <div style="position:absolute;left:60px;top:60px;display:flex;flex-direction:column;align-items:flex-start">
+            <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#E07B2C;letter-spacing:.14em">ГЛАВНАЯ · ТА ЖЕ АТМОСФЕРА</div>
+            <div style="font:800 44px/1.0 'Unbounded',system-ui,sans-serif;margin-top:10px">Битлджус</div>
+            <div style="font:400 20px/1.4 'Golos Text',sans-serif;color:#A89A8A;margin-top:9px;max-width:650px">1988 · Комедия, Фэнтези · 7.4 · акцент карточки — тыквенный</div>
+          </div>
+
+          <div style="position:absolute;left:60px;right:0;bottom:60px">
+            <div style="font:700 22px/1 'Unbounded',sans-serif;margin-bottom:12px">Страшное на ночь</div>
+            <div style="display:flex;gap:14px">
+              <div style="width:170px;height:255px;border-radius:7px;background:linear-gradient(165deg,#4A2A12,#160C06);border:3px solid #FFE6CC;padding:10px;display:flex;flex-direction:column;justify-content:flex-end;gap:5px;flex:none;transform:scale(1.06);box-shadow:0 12px 35px rgba(224,123,44,.4)"><div style="font:700 20px/1.15 'Unbounded',sans-serif">Битлджус</div><div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A">1988 · 7.4</div></div>
+              <div style="width:170px;height:255px;border-radius:7px;background:linear-gradient(165deg,#2A1E2C,#100A12);border:1px solid #2C231D;padding:11px;display:flex;flex-direction:column;justify-content:flex-end;gap:5px;flex:none"><div style="font:700 20px/1.15 'Unbounded',sans-serif">Хэллоуин</div><div style="font:400 20px/1 'JetBrains Mono',monospace;color:#7A6A5A">1978 · 7.6</div></div>
+              <div style="width:170px;height:255px;border-radius:7px;background:linear-gradient(165deg,#22303A,#080C0E);border:1px solid #2C231D;padding:11px;display:flex;flex-direction:column;justify-content:flex-end;gap:5px;flex:none"><div style="font:700 20px/1.15 'Unbounded',sans-serif">Сияние</div><div style="font:400 20px/1 'JetBrains Mono',monospace;color:#7A6A5A">1980 · 8.2</div></div>
+              <div style="width:170px;height:255px;border-radius:7px;background:linear-gradient(165deg,#3A2222,#140A0A);border:1px solid #2C231D;padding:11px;display:flex;flex-direction:column;justify-content:flex-end;gap:5px;flex:none"><div style="font:700 20px/1.15 'Unbounded',sans-serif">Кошмар на улице Вязов</div><div style="font:400 20px/1 'JetBrains Mono',monospace;color:#7A6A5A">1984 · 7.4</div></div>
+              <div style="width:170px;height:255px;border-radius:7px;background:linear-gradient(165deg,#1F3324,#0A120C);border:1px solid #2C231D;padding:11px;display:flex;flex-direction:column;justify-content:flex-end;gap:5px;flex:none"><div style="font:700 20px/1.15 'Unbounded',sans-serif">Тыквоголовый</div><div style="font:400 20px/1 'JetBrains Mono',monospace;color:#7A6A5A">1988 · 5.8</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 27 ------------------------------------------------------ -->
+    <div data-screen-label="27" style="display:flex;flex-direction:column;gap:20px">
+      <div style="font:600 20px/1 'JetBrains Mono',monospace;color:#7A6A5A;letter-spacing:.14em">27 · ATMOSPHERE — CHRISTMAS + ADVENT</div>
+      <div style="position:relative;box-sizing:border-box;width:1920px;height:1080px;overflow:hidden;background:#0B0908;flex:none;padding:48px 64px;display:flex;flex-direction:column;gap:20px">
+
+        <div style="position:relative;width:100%;height:590px;border-radius:10px;overflow:hidden;flex:none;background:#0B0908">
+          <div style="position:absolute;inset:0;background:radial-gradient(60% 70% at 74% 32%, rgba(255,226,170,.5) 0%, rgba(190,140,70,.28) 24%, rgba(60,70,90,0) 62%),radial-gradient(130% 130% at 58% 46%, #4A4A5E 0%, #2A2C3C 32%, #14151E 64%, #0B0908 100%)"></div>
+          <div style="position:absolute;inset:0;background-image:radial-gradient(rgba(255,255,255,.85) 2px,transparent 2.3px);background-size:110px 110px;opacity:.28"></div>
+          <div style="position:absolute;inset:0;background-image:radial-gradient(rgba(255,255,255,.6) 1px,transparent 1.3px);background-size:45px 45px;opacity:.3"></div>
+
+          <div style="position:absolute;left:0;right:0;top:0;height:60px;overflow:hidden">
+            <div style="position:absolute;left:-20px;right:-20px;top:-30px;height:60px;border-bottom:1.5px solid rgba(243,237,228,.22);border-radius:0 0 50% 50%/0 0 100% 100%"></div>
+            <div style="position:absolute;left:6%;top:24px;width:13px;height:13px;border-radius:50%;background:#E8B87A;box-shadow:0 0 20px 6px rgba(232,184,122,.5)"></div>
+            <div style="position:absolute;left:16%;top:29px;width:13px;height:13px;border-radius:50%;background:#D9622B;box-shadow:0 0 20px 6px rgba(217,98,43,.45)"></div>
+            <div style="position:absolute;left:26%;top:32px;width:13px;height:13px;border-radius:50%;background:#8FBF7A;box-shadow:0 0 20px 6px rgba(143,191,122,.4)"></div>
+            <div style="position:absolute;left:36%;top:33px;width:13px;height:13px;border-radius:50%;background:#E8B87A;box-shadow:0 0 20px 6px rgba(232,184,122,.5)"></div>
+            <div style="position:absolute;left:46%;top:32px;width:13px;height:13px;border-radius:50%;background:#7FB7C9;box-shadow:0 0 20px 6px rgba(127,183,201,.4)"></div>
+            <div style="position:absolute;left:56%;top:30px;width:13px;height:13px;border-radius:50%;background:#D9622B;box-shadow:0 0 20px 6px rgba(217,98,43,.45)"></div>
+            <div style="position:absolute;left:66%;top:27px;width:13px;height:13px;border-radius:50%;background:#E8B87A;box-shadow:0 0 20px 6px rgba(232,184,122,.5)"></div>
+            <div style="position:absolute;left:76%;top:23px;width:13px;height:13px;border-radius:50%;background:#8FBF7A;box-shadow:0 0 20px 6px rgba(143,191,122,.4)"></div>
+            <div style="position:absolute;left:86%;top:19px;width:13px;height:13px;border-radius:50%;background:#7FB7C9;box-shadow:0 0 20px 6px rgba(127,183,201,.4)"></div>
+          </div>
+
+          <div style="position:absolute;right:-30px;bottom:-20px;color:rgba(143,191,122,.5);transform:rotate(-18deg)">
+            <svg width="310" height="310" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"><path d="M2 21L21 3" /><path d="M7.5 15.5l-3.5-1M9.5 13.5l-3.5-1M11.5 11.5l-3.5-1M13.5 9.5l-3.5-1M15.5 7.5l-3.5-1M17.5 5.5l-3.5-1" /><path d="M8.5 16.5l-1-3.5M10.5 14.5l-1-3.5M12.5 12.5l-1-3.5M14.5 10.5l-1-3.5M16.5 8.5l-1-3.5M18.5 6.5l-1-3.5" /></svg>
+          </div>
+
+          <div style="position:absolute;inset:0;background:linear-gradient(90deg, rgba(11,9,8,.94) 0%, rgba(11,9,8,0) 78%)"></div>
+          <div style="position:absolute;inset:0;background:linear-gradient(0deg, rgba(11,9,8,.98) 0%, rgba(11,9,8,0) 56%)"></div>
+
+          <div style="position:absolute;top:0;left:0;right:0;height:60px;padding:0 60px;display:flex;align-items:center;justify-content:space-between;z-index:3">
+            <div style="font:800 20px/1 'Unbounded',sans-serif;letter-spacing:.06em">LAMPA</div>
+            <div style="display:flex;align-items:center;gap:14px">
+              <div style="padding:5px 12px;border-radius:30px;border:1px solid rgba(232,184,122,.5);font:600 20px/1 'JetBrains Mono',monospace;color:#E8B87A;letter-spacing:.06em">АТМОСФЕРА · РОЖДЕСТВО</div>
+              <div style="font:600 20px/1 'JetBrains Mono',monospace">20:12</div>
+            </div>
+          </div>
+
+          <div style="position:absolute;left:60px;bottom:60px;right:60px;display:flex;align-items:flex-end;justify-content:space-between;gap:40px;z-index:3">
+            <div style="display:flex;flex-direction:column;align-items:flex-start">
+              <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A;letter-spacing:.03em">1990 · США · 1:43 · Комедия, Семейный · 6+</div>
+              <div style="font:800 64px/1.0 'Unbounded',system-ui,sans-serif;margin-top:12px">Один дома</div>
+              <div style="font:400 20px/1.4 'Golos Text',sans-serif;color:#A89A8A;margin-top:12px;max-width:800px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">Восьмилетнего Кевина забыли дома, улетая на Рождество в Париж. Свободу он тратит на оборону дома от двух не самых умных грабителей.</div>
+              <div style="display:flex;align-items:center;gap:12px;margin-top:18px">
+                <div style="height:56px;padding:0 22px;border-radius:14px;background:#E8B87A;color:#1A120A;border:2.5px solid #FFF2DC;box-shadow:0 12px 35px rgba(232,184,122,.4);display:flex;align-items:center;gap:10px;font:600 20px/1 'Golos Text',sans-serif;transform:scale(1.06)">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5l11 7-11 7V5z" /></svg><span>Смотреть</span>
+                </div>
+                <div style="height:56px;padding:0 22px;border-radius:14px;background:rgba(28,22,19,.82);border:1px solid #2C231D;display:flex;align-items:center;gap:10px;font:600 20px/1 'Golos Text',sans-serif;color:#F3EDE4">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7.5h18v11.5H3z" /><path d="M3 7.5L6.5 3h11L14 7.5" /></svg><span>Трейлер</span>
+                </div>
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:4px;padding:9px 14px;border-radius:10px;background:rgba(28,22,19,.78);border:1px solid #2C231D">
+              <div style="font:600 24px/1 'JetBrains Mono',monospace">7.7</div>
+              <div style="font:400 12px/1 'JetBrains Mono',monospace;color:#7A6A5A;letter-spacing:.1em">TMDB</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="position:relative;box-sizing:border-box;min-width:0;width:100%;flex:1;border-radius:10px;background:linear-gradient(180deg,#120E0B,#0B0908);border:1px solid #2C231D;padding:60px;display:flex;flex-direction:column;gap:16px">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <div style="display:flex;align-items:center;gap:14px">
+              <div style="font:700 28px/1 'Unbounded',sans-serif">Адвент-календарь</div>
+              <div style="padding:5px 12px;border-radius:4px;border:1px solid #2C231D;font:600 20px/1 'JetBrains Mono',monospace;color:#7A6A5A;letter-spacing:.06em">ДО 24 ДЕКАБРЯ</div>
+            </div>
+            <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A;letter-spacing:.06em">СЕГОДНЯ 4 ДЕКАБРЯ · ОТКРЫТО 3</div>
+          </div>
+          <div style="display:flex;gap:6px;align-items:flex-end;min-width:0">
+            <div style="box-sizing:border-box;width:62px;height:93px;border-radius:7px;overflow:hidden;background:linear-gradient(165deg,#3A2A1C,#140D08);border:1px solid #2C231D;padding:8px;display:flex;flex-direction:column;justify-content:space-between;flex:none"><div style="font:600 20px/1 'JetBrains Mono',monospace;color:#A89A8A">01</div></div>
+            <div style="box-sizing:border-box;width:62px;height:93px;border-radius:7px;overflow:hidden;background:linear-gradient(165deg,#1E2C26,#0A120E);border:1px solid #2C231D;padding:8px;display:flex;flex-direction:column;justify-content:space-between;flex:none"><div style="font:600 20px/1 'JetBrains Mono',monospace;color:#A89A8A">02</div></div>
+            <div style="box-sizing:border-box;width:62px;height:93px;border-radius:7px;overflow:hidden;background:linear-gradient(165deg,#3A2026,#140A0E);border:1px solid #2C231D;padding:8px;display:flex;flex-direction:column;justify-content:space-between;flex:none"><div style="font:600 20px/1 'JetBrains Mono',monospace;color:#A89A8A">03</div></div>
+            <div style="box-sizing:border-box;width:72px;height:108px;border-radius:7px;background:linear-gradient(165deg,#4A3520,#160E09);border:3px solid var(--ring,#FFF2DC);padding:8px;display:flex;flex-direction:column;justify-content:space-between;flex:none;transform:scale(1.06);box-shadow:0 12px 35px var(--acglow,rgba(232,184,122,.35))"><div style="font:600 20px/1 'JetBrains Mono',monospace;color:var(--ac,#E8B87A)">04</div></div>
+            <div style="box-sizing:border-box;width:62px;height:93px;border-radius:7px;background:rgba(28,22,19,.4);border:1.5px dashed #2C231D;display:flex;align-items:center;justify-content:center;font:600 20px/1 'JetBrains Mono',monospace;color:#3E3226;flex:none">05</div>
+            <div style="box-sizing:border-box;width:62px;height:93px;border-radius:7px;background:rgba(28,22,19,.4);border:1.5px dashed #2C231D;display:flex;align-items:center;justify-content:center;font:600 20px/1 'JetBrains Mono',monospace;color:#3E3226;flex:none">06</div>
+            <div style="box-sizing:border-box;width:62px;height:93px;border-radius:7px;background:rgba(28,22,19,.4);border:1.5px dashed #2C231D;display:flex;align-items:center;justify-content:center;font:600 20px/1 'JetBrains Mono',monospace;color:#3E3226;flex:none">07</div>
+            <div style="box-sizing:border-box;width:62px;height:93px;border-radius:7px;background:rgba(28,22,19,.4);border:1.5px dashed #2C231D;display:flex;align-items:center;justify-content:center;font:600 20px/1 'JetBrains Mono',monospace;color:#3E3226;flex:none">08</div>
+            <div style="box-sizing:border-box;width:62px;height:93px;border-radius:7px;background:rgba(28,22,19,.4);border:1.5px dashed #2C231D;display:flex;align-items:center;justify-content:center;font:600 20px/1 'JetBrains Mono',monospace;color:#3E3226;flex:none">09</div>
+            <div style="box-sizing:border-box;width:62px;height:93px;border-radius:7px;background:rgba(28,22,19,.4);border:1.5px dashed #2C231D;display:flex;align-items:center;justify-content:center;font:600 20px/1 'JetBrains Mono',monospace;color:#3E3226;flex:none">10</div>
+            <div style="box-sizing:border-box;width:62px;height:93px;border-radius:7px;background:rgba(28,22,19,.4);border:1.5px dashed #2C231D;display:flex;align-items:center;justify-content:center;font:600 20px/1 'JetBrains Mono',monospace;color:#3E3226;flex:none">11</div>
+            <div style="box-sizing:border-box;width:62px;height:93px;border-radius:7px;background:rgba(28,22,19,.4);border:1.5px dashed #2C231D;display:flex;align-items:center;justify-content:center;font:600 20px/1 'JetBrains Mono',monospace;color:#3E3226;flex:none">12</div>
+            <div style="box-sizing:border-box;width:62px;height:93px;border-radius:7px;background:rgba(28,22,19,.4);border:1.5px dashed #2C231D;display:flex;align-items:center;justify-content:center;font:600 20px/1 'JetBrains Mono',monospace;color:#3E3226;flex:none">13</div>
+            <div style="box-sizing:border-box;width:62px;height:93px;border-radius:7px;background:rgba(28,22,19,.4);border:1.5px dashed #2C231D;display:flex;align-items:center;justify-content:center;font:600 20px/1 'JetBrains Mono',monospace;color:#3E3226;flex:none">14</div>
+            <div style="box-sizing:border-box;width:62px;height:93px;border-radius:7px;background:rgba(28,22,19,.4);border:1.5px dashed #2C231D;display:flex;align-items:center;justify-content:center;font:600 20px/1 'JetBrains Mono',monospace;color:#3E3226;flex:none">15</div>
+            <div style="box-sizing:border-box;width:62px;height:93px;border-radius:7px;background:rgba(28,22,19,.4);border:1.5px dashed #2C231D;display:flex;align-items:center;justify-content:center;font:600 20px/1 'JetBrains Mono',monospace;color:#3E3226;flex:none">16</div>
+            <div style="box-sizing:border-box;width:62px;height:93px;border-radius:7px;background:rgba(28,22,19,.4);border:1.5px dashed #2C231D;display:flex;align-items:center;justify-content:center;font:600 20px/1 'JetBrains Mono',monospace;color:#3E3226;flex:none">17</div>
+            <div style="box-sizing:border-box;width:62px;height:93px;border-radius:7px;background:rgba(28,22,19,.4);border:1.5px dashed #2C231D;display:flex;align-items:center;justify-content:center;font:600 20px/1 'JetBrains Mono',monospace;color:#3E3226;flex:none">18</div>
+            <div style="box-sizing:border-box;width:62px;height:93px;border-radius:7px;background:rgba(28,22,19,.4);border:1.5px dashed #2C231D;display:flex;align-items:center;justify-content:center;font:600 20px/1 'JetBrains Mono',monospace;color:#3E3226;flex:none">19</div>
+            <div style="box-sizing:border-box;width:62px;height:93px;border-radius:7px;background:rgba(28,22,19,.4);border:1.5px dashed #2C231D;display:flex;align-items:center;justify-content:center;font:600 20px/1 'JetBrains Mono',monospace;color:#3E3226;flex:none">20</div>
+            <div style="box-sizing:border-box;width:62px;height:93px;border-radius:7px;background:rgba(28,22,19,.4);border:1.5px dashed #2C231D;display:flex;align-items:center;justify-content:center;font:600 20px/1 'JetBrains Mono',monospace;color:#3E3226;flex:none">21</div>
+            <div style="box-sizing:border-box;width:62px;height:93px;border-radius:7px;background:rgba(28,22,19,.4);border:1.5px dashed #2C231D;display:flex;align-items:center;justify-content:center;font:600 20px/1 'JetBrains Mono',monospace;color:#3E3226;flex:none">22</div>
+            <div style="box-sizing:border-box;width:62px;height:93px;border-radius:7px;background:rgba(28,22,19,.4);border:1.5px dashed #2C231D;display:flex;align-items:center;justify-content:center;font:600 20px/1 'JetBrains Mono',monospace;color:#3E3226;flex:none">23</div>
+            <div style="box-sizing:border-box;width:62px;height:93px;border-radius:7px;background:rgba(232,184,122,.1);border:1.5px dashed rgba(232,184,122,.5);display:flex;align-items:center;justify-content:center;font:600 20px/1 'JetBrains Mono',monospace;color:var(--ac,#E8B87A);flex:none">24</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 28 ------------------------------------------------------ -->
+    <div data-screen-label="28" style="display:flex;flex-direction:column;gap:20px">
+      <div style="font:600 20px/1 'JetBrains Mono',monospace;color:#7A6A5A;letter-spacing:.14em">28 · ROULETTE</div>
+      <div style="position:relative;box-sizing:border-box;width:1920px;height:1080px;overflow:hidden;background:#0B0908;flex:none;padding:48px 64px;display:flex;flex-direction:column;gap:20px">
+
+        <div style="position:relative;width:100%;height:500px;border-radius:10px;overflow:hidden;flex:none;background:#0B0908;border:1px solid #2C231D">
+          <div style="position:absolute;left:-10%;top:-40%;width:900px;height:900px;border-radius:50%;background:radial-gradient(circle,rgba(232,184,122,.1),rgba(232,184,122,0) 62%)"></div>
+
+          <div style="position:absolute;left:60px;top:60px;display:flex;flex-direction:column;gap:16px;right:60px">
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <div style="font:800 38px/1 'Unbounded',system-ui,sans-serif">Что посмотреть</div>
+              <div style="display:flex;gap:10px">
+                <div style="height:52px;padding:0 22px;border-radius:12px;background:var(--ac,#E8B87A);color:var(--onac,#1A120A);display:flex;align-items:center;font:600 20px/1 'Golos Text',sans-serif">Фильмы</div>
+                <div style="height:52px;padding:0 22px;border-radius:12px;background:rgba(28,22,19,.9);border:1px solid #2C231D;display:flex;align-items:center;font:600 20px/1 'Golos Text',sans-serif;color:#A89A8A">Сериалы</div>
+              </div>
+            </div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+              <div style="height:44px;padding:0 16px;border-radius:10px;background:rgba(232,184,122,.14);border:1px solid var(--ac,#E8B87A);display:flex;align-items:center;gap:8px;font:600 20px/1 'Golos Text',sans-serif;color:var(--ac,#E8B87A)">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5" /></svg><span>Все</span>
+              </div>
+              <div style="height:44px;padding:0 16px;border-radius:10px;background:rgba(28,22,19,.9);border:1px solid #2C231D;display:flex;align-items:center;font:600 20px/1 'Golos Text',sans-serif;color:#A89A8A">Рождественские комедии</div>
+              <div style="height:44px;padding:0 16px;border-radius:10px;background:rgba(28,22,19,.9);border:1px solid #2C231D;display:flex;align-items:center;font:600 20px/1 'Golos Text',sans-serif;color:#A89A8A">Топ-250 КП</div>
+              <div style="height:44px;padding:0 16px;border-radius:10px;background:rgba(28,22,19,.9);border:1px solid #2C231D;display:flex;align-items:center;font:600 20px/1 'Golos Text',sans-serif;color:#A89A8A">Кино 80-х</div>
+              <div style="width:1px;height:30px;background:#2C231D"></div>
+              <div style="height:44px;padding:0 16px;border-radius:10px;background:rgba(232,184,122,.14);border:1px solid var(--ac,#E8B87A);display:flex;align-items:center;gap:8px;font:600 20px/1 'Golos Text',sans-serif;color:var(--ac,#E8B87A)">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5" /></svg><span>Не смотрел</span>
+              </div>
+              <div style="height:44px;padding:0 16px;border-radius:10px;background:rgba(28,22,19,.9);border:1px solid #2C231D;display:flex;align-items:center;font:600 20px/1 'Golos Text',sans-serif;color:#A89A8A">Есть 90 минут</div>
+            </div>
+          </div>
+
+          <div style="position:absolute;left:0;right:0;bottom:60px;display:flex;align-items:center;justify-content:center;gap:28px">
+            <div style="display:flex;align-items:center;gap:16px">
+              <div style="width:100px;height:150px;border-radius:7px;background:linear-gradient(165deg,#2B3540,#0C1114);opacity:.45;filter:blur(4px);flex:none"></div>
+              <div style="width:150px;height:225px;border-radius:7px;background:linear-gradient(165deg,#4A2C1E,#160E09);border:1px solid #2C231D;filter:blur(1px);flex:none"></div>
+              <div style="width:100px;height:150px;border-radius:7px;background:linear-gradient(165deg,#1E2C26,#0A120E);opacity:.45;filter:blur(4px);flex:none"></div>
+            </div>
+            <div style="height:72px;padding:0 60px;border-radius:18px;background:var(--ac,#E8B87A);color:var(--onac,#1A120A);border:2.5px solid var(--ring,#FFF2DC);box-shadow:0 14px 40px var(--acglow,rgba(232,184,122,.35));display:flex;align-items:center;gap:12px;font:600 24px/1 'Golos Text',sans-serif;transform:scale(1.06)">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 11-3.2-6.4" /><path d="M20 4v5h-5" /></svg>
+              <span>Крутить</span>
+            </div>
+          </div>
+        </div>
+
+        <div style="position:relative;width:100%;flex:1;border-radius:10px;overflow:hidden;background:#0B0908">
+          <div style="position:absolute;inset:0;background:radial-gradient(60% 90% at 70% 30%, rgba(255,216,152,.5) 0%, rgba(210,140,70,.26) 24%, rgba(120,60,26,0) 62%),radial-gradient(130% 150% at 60% 42%, #8A5628 0%, #52301A 32%, #1E120B 64%, #0B0908 100%)"></div>
+          <div style="position:absolute;inset:0;background:linear-gradient(90deg, rgba(11,9,8,.94) 0%, rgba(11,9,8,0) 78%)"></div>
+          <div style="position:absolute;inset:0;background:linear-gradient(0deg, rgba(11,9,8,.98) 0%, rgba(11,9,8,0) 60%)"></div>
+
+          <div style="position:absolute;left:60px;top:60px;font:400 20px/1 'JetBrains Mono',monospace;color:var(--ac,#E8B87A);letter-spacing:.14em">ФРЕЙМ 2 · БАРАБАН ОСТАНОВИЛСЯ</div>
+
+          <div style="position:absolute;left:60px;bottom:60px;right:60px;display:flex;align-items:flex-end;justify-content:space-between;gap:32px">
+            <div style="display:flex;align-items:flex-end;gap:28px">
+              <div style="width:170px;height:255px;border-radius:7px;background:linear-gradient(165deg,#4A2C1E,#160E09);border:3px solid var(--ring,#FFF2DC);padding:13px;display:flex;flex-direction:column;justify-content:flex-end;gap:6px;flex:none;box-shadow:0 14px 40px var(--acglow,rgba(232,184,122,.35))">
+                <div style="font:700 20px/1.12 'Unbounded',sans-serif">Большой Лебовски</div>
+                <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A">1998 · 8.1</div>
+              </div>
+              <div style="display:flex;flex-direction:column;align-items:flex-start">
+                <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A;letter-spacing:.03em">1998 · США · 1:57 · Комедия, Криминал · 18+</div>
+                <div style="font:800 52px/1.0 'Unbounded',system-ui,sans-serif;margin-top:10px">Большой Лебовски</div>
+                <div style="font:400 20px/1.4 'Golos Text',sans-serif;color:#A89A8A;margin-top:10px;max-width:750px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">Чувака путают с миллионером-однофамильцем, и его единственная цель — вернуть испорченный ковёр, который очень подходил к комнате.</div>
+                <div style="display:flex;align-items:center;gap:12px;margin-top:16px">
+                  <div style="height:56px;padding:0 22px;border-radius:14px;background:var(--ac,#E8B87A);color:var(--onac,#1A120A);border:2.5px solid var(--ring,#FFF2DC);box-shadow:0 12px 35px var(--acglow,rgba(232,184,122,.35));display:flex;align-items:center;gap:10px;font:600 20px/1 'Golos Text',sans-serif;transform:scale(1.06)">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5l11 7-11 7V5z" /></svg><span>Смотреть</span>
+                  </div>
+                  <div style="height:56px;padding:0 22px;border-radius:14px;background:rgba(28,22,19,.82);border:1px solid #2C231D;display:flex;align-items:center;gap:10px;font:600 20px/1 'Golos Text',sans-serif;color:#F3EDE4">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 11-3.2-6.4" /><path d="M20 4v5h-5" /></svg><span>Ещё раз</span>
+                  </div>
+                  <div style="height:56px;padding:0 22px;border-radius:14px;background:rgba(28,22,19,.82);border:1px solid #2C231D;display:flex;align-items:center;gap:10px;font:600 20px/1 'Golos Text',sans-serif;color:#F3EDE4">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h10v18l-5-4-5 4V3z" /></svg><span>В закладки</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 29 ------------------------------------------------------ -->
+    <div data-screen-label="29" style="display:flex;flex-direction:column;gap:20px">
+      <div style="font:600 20px/1 'JetBrains Mono',monospace;color:#7A6A5A;letter-spacing:.14em">29 · CONTEXT MENU (LONG OK)</div>
+      <div style="position:relative;width:1920px;height:1080px;overflow:hidden;background:#0B0908;flex:none">
+
+        <div style="position:absolute;left:0;right:0;top:0;height:626.5px;overflow:hidden">
+          <div style="position:absolute;inset:0;background:radial-gradient(60% 70% at 74% 30%, rgba(255,214,158,.6) 0%, rgba(198,118,58,.32) 24%, rgba(120,60,26,0) 62%),radial-gradient(130% 120% at 66% 44%, #96552F 0%, #5E3220 30%, #26150E 62%, #0B0908 100%)"></div>
+          <div style="position:absolute;inset:0;background:linear-gradient(90deg, rgba(11,9,8,.96) 0%, rgba(11,9,8,0) 82%)"></div>
+          <div style="position:absolute;inset:0;background:linear-gradient(0deg, rgba(11,9,8,1) 0%, rgba(11,9,8,.72) 22%, rgba(11,9,8,0) 62%)"></div>
+        </div>
+
+        <div style="position:absolute;top:0;left:0;right:0;height:80px;padding:0 64px;display:flex;align-items:center;justify-content:space-between;z-index:4">
+          <div style="font:800 23px/1 'Unbounded',sans-serif;letter-spacing:.06em">LAMPA</div>
+          <div style="font:600 22px/1 'JetBrains Mono',monospace">22:04</div>
+        </div>
+
+        <div style="position:absolute;left:64px;top:200px;width:1000px;z-index:3">
+          <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A;letter-spacing:.03em">2026 · США · 2:18 · Фантастика, Боевик · 12+</div>
+          <div style="font:800 76px/1.0 'Unbounded',system-ui,sans-serif;margin-top:16px">Человек-паук</div>
+        </div>
+
+        <div style="position:absolute;left:64px;right:0;top:650px;z-index:3">
+          <div style="font:700 28px/1 'Unbounded',sans-serif;margin-bottom:16px">Сейчас смотрят</div>
+          <div style="display:flex;gap:20px;align-items:flex-start">
+            <div style="width:230px;height:345px;border-radius:7px;background:linear-gradient(165deg,#4A2C1E,#160E09);border:1px solid #2C231D;padding:16px;display:flex;flex-direction:column;justify-content:flex-end;gap:7px;flex:none"><div style="font:700 22px/1.15 'Unbounded',sans-serif">Человек-паук: Новый день</div><div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A">2026 · 7.9</div></div>
+            <div style="width:230px;height:345px;border-radius:7px;background:linear-gradient(165deg,#2B3540,#0C1114);border:1px solid #2C231D;padding:16px;display:flex;flex-direction:column;justify-content:flex-end;gap:7px;flex:none"><div style="font:700 22px/1.15 'Unbounded',sans-serif">Хитрый койот</div><div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A">2026 · 7.6</div></div>
+            <div style="width:230px;height:345px;border-radius:7px;background:linear-gradient(165deg,#1E2C26,#0A120E);border:1px solid #2C231D;padding:16px;display:flex;flex-direction:column;justify-content:flex-end;gap:7px;flex:none"><div style="font:700 22px/1.15 'Unbounded',sans-serif">Колония</div><div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A">2026 · 8.1</div></div>
+            <div style="width:230px;height:345px;border-radius:7px;background:linear-gradient(165deg,#2E2417,#120E08);border:1px solid #2C231D;padding:16px;display:flex;flex-direction:column;justify-content:flex-end;gap:7px;flex:none"><div style="font:700 22px/1.15 'Unbounded',sans-serif">Одиссея</div><div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A">2026 · 8.0</div></div>
+            <div style="width:230px;height:345px;border-radius:7px;background:linear-gradient(165deg,#2A1E2C,#100A12);border:1px solid #2C231D;padding:16px;display:flex;flex-direction:column;justify-content:flex-end;gap:7px;flex:none"><div style="font:700 22px/1.15 'Unbounded',sans-serif">Мятеж</div><div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A">2025 · 6.4</div></div>
+            <div style="width:230px;height:345px;border-radius:7px;background:linear-gradient(165deg,#233240,#0B1014);border:1px solid #2C231D;padding:16px;display:flex;flex-direction:column;justify-content:flex-end;gap:7px;flex:none"><div style="font:700 22px/1.15 'Unbounded',sans-serif">Моана</div><div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A">2026 · 6.9</div></div>
+            <div style="width:230px;height:345px;border-radius:7px;background:linear-gradient(165deg,#332619,#130E09);border:1px solid #2C231D;padding:16px;display:flex;flex-direction:column;justify-content:flex-end;gap:7px;flex:none"><div style="font:700 22px/1.15 'Unbounded',sans-serif">Тихий дом</div><div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A">2025 · 7.1</div></div>
+          </div>
+        </div>
+
+        <div style="position:absolute;inset:0;background:rgba(11,9,8,.4);z-index:5"></div>
+
+        <div style="position:absolute;left:564px;top:694px;width:230px;height:345px;border-radius:7px;background:linear-gradient(165deg,#22403A,#0A120E);border:3px solid var(--ring,#FFF2DC);padding:15px;display:flex;flex-direction:column;justify-content:flex-end;gap:7px;transform:scale(1.08);box-shadow:0 16px 45px var(--acglow,rgba(232,184,122,.35));z-index:6">
+          <div style="font:700 22px/1.15 'Unbounded',sans-serif">Колония</div>
+          <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A">2026 · 8.1</div>
+        </div>
+
+        <div style="position:absolute;left:800px;top:620px;width:440px;border-radius:10px;background:linear-gradient(180deg,#1C1613,#120E0B);border:1px solid #2C231D;box-shadow:0 24px 70px rgba(0,0,0,.72);overflow:hidden;z-index:7">
+          <div style="padding:14px 20px;border-bottom:1px solid #2C231D;font:400 20px/1 'JetBrains Mono',monospace;color:#7A6A5A;letter-spacing:.12em">УДЕРЖАНИЕ OK · КОЛОНИЯ</div>
+          <div style="height:66px;padding:0 20px;background:var(--ac,#E8B87A);color:var(--onac,#1A120A);display:flex;align-items:center;gap:14px;font:600 22px/1 'Golos Text',sans-serif;border-left:4px solid var(--ring,#FFF2DC)">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7.5h18v11.5H3z" /><path d="M3 7.5L6.5 3h11L14 7.5" /><path d="M10 11.5l4.5 2.5-4.5 2.5v-5z" /></svg><span>Трейлер</span>
+          </div>
+          <div style="height:66px;padding:0 20px;display:flex;align-items:center;gap:14px;font:500 22px/1 'Golos Text',sans-serif;color:#F3EDE4;border-bottom:1px solid #2C231D">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#A89A8A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h7v6H4zM13 5h7v6h-7zM4 13h7v6H4zM13 13h7v6h-7z" /></svg><span>Вся франшиза</span>
+          </div>
+          <div style="height:66px;padding:0 20px;display:flex;align-items:center;gap:14px;font:500 22px/1 'Golos Text',sans-serif;color:#F3EDE4;border-bottom:1px solid #2C231D">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#A89A8A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.4" /><path d="M8.6 12h6.8M12 8.6v6.8" /></svg><span>Похожие</span>
+          </div>
+          <div style="height:66px;padding:0 20px;display:flex;align-items:center;gap:14px;font:500 22px/1 'Golos Text',sans-serif;color:#F3EDE4;border-bottom:1px solid #2C231D">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#A89A8A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h10v18l-5-4-5 4V3z" /></svg><span>В закладки</span>
+          </div>
+          <div style="height:66px;padding:0 20px;display:flex;align-items:center;gap:14px;font:500 22px/1 'Golos Text',sans-serif;color:#7A6A5A">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12s3.6-6 9-6 9 6 9 6-3.6 6-9 6-9-6-9-6z" /><path d="M4 4l16 16" /></svg><span>Скрыть</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ROW E — 30…32 ============================================ -->
+  <div style="display:flex;gap:80px;align-items:flex-start">
+
+    <!-- 30 ------------------------------------------------------ -->
+    <div data-screen-label="30" style="display:flex;flex-direction:column;gap:20px">
+      <div style="font:600 20px/1 'JetBrains Mono',monospace;color:#7A6A5A;letter-spacing:.14em">30 · AMBIENT</div>
+      <div style="position:relative;box-sizing:border-box;width:1920px;height:1080px;overflow:hidden;background:#0B0908;flex:none;padding:48px 64px;display:flex;flex-direction:column;gap:20px">
+
+        <div style="position:relative;width:100%;height:480px;border-radius:10px;overflow:hidden;flex:none;background:#0B0908">
+          <div style="position:absolute;inset:-6%;background:radial-gradient(52% 62% at 62% 40%, rgba(255,226,180,.8) 0%, rgba(214,146,74,.44) 22%, rgba(120,66,26,0) 60%),radial-gradient(130% 120% at 56% 50%, #B0703C 0%, #6E4320 30%, #2A1810 62%, #0B0908 100%);transform:scale(1.04)"></div>
+          <div style="position:absolute;left:-8%;bottom:-24%;width:80%;height:56%;border-radius:50% 50% 0 0/100% 100% 0 0;background:linear-gradient(180deg,#3A2313,#120B07)"></div>
+          <div style="position:absolute;right:-12%;bottom:-30%;width:70%;height:48%;border-radius:50% 50% 0 0/100% 100% 0 0;background:linear-gradient(180deg,#1E1209,#0B0908)"></div>
+          <div style="position:absolute;inset:0;background-image:radial-gradient(rgba(255,255,255,.05) 0.5px,transparent 0.6px);background-size:2.5px 2.5px;opacity:.5;mix-blend-mode:overlay"></div>
+
+          <div style="position:absolute;left:60px;bottom:60px;font:800 23px/1 'Unbounded',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:rgba(243,237,228,.82)">Лоуренс Арабский</div>
+          <div style="position:absolute;right:60px;bottom:60px;font:400 20px/1 'JetBrains Mono',monospace;color:rgba(243,237,228,.66)">03:12</div>
+          <div style="position:absolute;left:0;right:0;bottom:60px;display:flex;justify-content:center;gap:9px">
+            <div style="width:9px;height:9px;border-radius:50%;background:rgba(243,237,228,.9)"></div>
+            <div style="width:9px;height:9px;border-radius:50%;background:rgba(243,237,228,.28)"></div>
+            <div style="width:9px;height:9px;border-radius:50%;background:rgba(243,237,228,.28)"></div>
+            <div style="width:9px;height:9px;border-radius:50%;background:rgba(243,237,228,.28)"></div>
+            <div style="width:9px;height:9px;border-radius:50%;background:rgba(243,237,228,.28)"></div>
+          </div>
+          <div style="position:absolute;left:60px;top:60px;font:400 14px/1 'JetBrains Mono',monospace;color:rgba(243,237,228,.4);letter-spacing:.14em">ФРЕЙМ 1 · КАДР 4K · НАЕЗД 1.00 → 1.08 ЗА 20 С · БЕЗ ВУАЛЕЙ И ПАНЕЛЕЙ</div>
+        </div>
+
+        <div style="position:relative;width:100%;flex:1;border-radius:10px;overflow:hidden;background:#0B0908">
+          <div style="position:absolute;inset:0;background:radial-gradient(52% 62% at 62% 40%, rgba(255,226,180,.8) 0%, rgba(214,146,74,.44) 22%, rgba(120,66,26,0) 60%),radial-gradient(130% 120% at 56% 50%, #B0703C 0%, #6E4320 30%, #2A1810 62%, #0B0908 100%);opacity:.5"></div>
+          <div style="position:absolute;inset:0;background:radial-gradient(56% 66% at 42% 44%, rgba(190,226,255,.5) 0%, rgba(90,130,180,.28) 24%, rgba(30,60,100,0) 62%),radial-gradient(130% 120% at 46% 50%, #2E4C72 0%, #1C3048 32%, #101822 64%, #0B0908 100%);opacity:.5"></div>
+          <div style="position:absolute;inset:0;background-image:radial-gradient(rgba(255,255,255,.05) 0.5px,transparent 0.6px);background-size:2.5px 2.5px;opacity:.5;mix-blend-mode:overlay"></div>
+
+          <div style="position:absolute;left:60px;bottom:60px;font:800 23px/1 'Unbounded',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:rgba(243,237,228,.5)">Лоуренс Арабский</div>
+          <div style="position:absolute;right:60px;bottom:60px;font:400 20px/1 'JetBrains Mono',monospace;color:rgba(243,237,228,.66)">03:32</div>
+          <div style="position:absolute;left:0;right:0;bottom:60px;display:flex;justify-content:center;gap:9px">
+            <div style="width:9px;height:9px;border-radius:50%;background:rgba(243,237,228,.5)"></div>
+            <div style="width:9px;height:9px;border-radius:50%;background:rgba(243,237,228,.9)"></div>
+            <div style="width:9px;height:9px;border-radius:50%;background:rgba(243,237,228,.28)"></div>
+            <div style="width:9px;height:9px;border-radius:50%;background:rgba(243,237,228,.28)"></div>
+            <div style="width:9px;height:9px;border-radius:50%;background:rgba(243,237,228,.28)"></div>
+          </div>
+          <div style="position:absolute;left:60px;top:60px;font:400 14px/1 'JetBrains Mono',monospace;color:rgba(243,237,228,.4);letter-spacing:.14em">ФРЕЙМ 2 · КРОССФЕЙД КАДРОВ 2 С · СЕРЕДИНА ПЕРЕХОДА</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 31 ------------------------------------------------------ -->
+    <div data-screen-label="31" style="display:flex;flex-direction:column;gap:20px">
+      <div style="font:600 20px/1 'JetBrains Mono',monospace;color:#7A6A5A;letter-spacing:.14em">31 · POSTER BADGES + MOOD PRESETS</div>
+      <div style="position:relative;box-sizing:border-box;width:1920px;height:1080px;overflow:hidden;background:#0B0908;flex:none;padding:56px 64px;display:flex;flex-direction:column;gap:32px">
+
+        <div style="display:flex;flex-direction:column;gap:18px">
+          <div style="display:flex;align-items:baseline;gap:14px">
+            <div style="font:700 32px/1 'Unbounded',sans-serif">Метки на постерах</div>
+            <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#7A6A5A;letter-spacing:.1em">МОНО · ПЛАШКА В УГЛУ · НЕ БОЛЬШЕ ОДНОЙ</div>
+          </div>
+          <div style="display:flex;gap:20px;align-items:flex-start">
+            <div style="width:230px;height:345px;border-radius:7px;background:linear-gradient(165deg,#4A2C1E,#160E09);border:1px solid #2C231D;padding:14px;display:flex;flex-direction:column;justify-content:space-between;flex:none">
+              <div style="align-self:flex-start;padding:5px 9px;border-radius:4px;background:var(--ac,#E8B87A);color:var(--onac,#1A120A);font:600 20px/1 'JetBrains Mono',monospace;letter-spacing:.04em">НОВИНКА</div>
+              <div><div style="font:700 22px/1.15 'Unbounded',sans-serif">Человек-паук: Новый день</div><div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A;margin-top:6px">2026 · 7.9</div></div>
+            </div>
+            <div style="width:230px;height:345px;border-radius:7px;background:linear-gradient(165deg,#2B3540,#0C1114);border:1px solid #2C231D;padding:14px;display:flex;flex-direction:column;justify-content:space-between;flex:none">
+              <div style="align-self:flex-start;padding:5px 9px;border-radius:4px;background:rgba(11,9,8,.8);border:1px solid rgba(243,237,228,.3);color:#F3EDE4;font:600 20px/1 'JetBrains Mono',monospace;letter-spacing:.04em">СКОРО · 17 ДЕК</div>
+              <div><div style="font:700 22px/1.15 'Unbounded',sans-serif">Фоллаут S2 E5</div><div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A;margin-top:6px">не вышла</div></div>
+            </div>
+            <div style="width:230px;height:345px;border-radius:7px;background:linear-gradient(165deg,#3A2A1C,#140D08);border:1px solid #2C231D;padding:14px;display:flex;flex-direction:column;justify-content:space-between;flex:none">
+              <div style="align-self:flex-start;padding:5px 9px;border-radius:4px;background:rgba(11,9,8,.8);border:1px solid var(--ac,#E8B87A);color:var(--ac,#E8B87A);font:600 20px/1 'JetBrains Mono',monospace;letter-spacing:.04em">ПРОДОЛЖИТЬ 43 %</div>
+              <div>
+                <div style="font:700 22px/1.15 'Unbounded',sans-serif">Дюна: Часть вторая</div>
+                <div style="width:100%;height:4px;border-radius:2px;background:rgba(243,237,228,.2);margin-top:10px;overflow:hidden"><div style="width:43%;height:100%;border-radius:2px;background:var(--ac,#E8B87A)"></div></div>
+              </div>
+            </div>
+            <div style="width:230px;height:345px;border-radius:7px;background:linear-gradient(165deg,#1E2C26,#0A120E);border:1px solid #2C231D;padding:14px;display:flex;flex-direction:column;justify-content:space-between;flex:none">
+              <div style="align-self:flex-start;padding:5px 9px;border-radius:4px;background:rgba(11,9,8,.8);border:1px solid rgba(243,237,228,.24);color:#F3EDE4;font:600 20px/1 'JetBrains Mono',monospace;letter-spacing:.04em">4K</div>
+              <div><div style="font:700 22px/1.15 'Unbounded',sans-serif">Колония</div><div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A;margin-top:6px">2026 · 8.1</div></div>
+            </div>
+            <div style="width:230px;height:345px;border-radius:7px;background:linear-gradient(165deg,#2A1E2C,#100A12);border:1px solid #2C231D;padding:14px;display:flex;flex-direction:column;justify-content:flex-end;flex:none">
+              <div><div style="font:700 22px/1.15 'Unbounded',sans-serif">Мятеж</div><div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A;margin-top:6px">2025 · 6.4</div></div>
+            </div>
+            <div style="width:230px;height:345px;border-radius:7px;background:rgba(28,22,19,.4);border:1.5px dashed #2C231D;padding:14px;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:10px;flex:none">
+              <div style="font:600 16px/1.3 'JetBrains Mono',monospace;color:#7A6A5A;text-align:center;letter-spacing:.08em">БЕЗ МЕТКИ<br />ПО УМОЛЧАНИЮ</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:18px;flex:1">
+          <div style="display:flex;align-items:baseline;gap:14px">
+            <div style="font:700 32px/1 'Unbounded',sans-serif">Профили настроения</div>
+            <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#7A6A5A;letter-spacing:.1em">СТРОКА НА ГЛАВНОЙ · РЯД СОБИРАЕТСЯ ПОД ВЫБОР</div>
+          </div>
+          <div style="display:flex;gap:12px;align-items:center">
+            <div style="height:56px;padding:0 24px;border-radius:12px;background:var(--ac,#E8B87A);color:var(--onac,#1A120A);border:2.5px solid var(--ring,#FFF2DC);box-shadow:0 12px 35px var(--acglow,rgba(232,184,122,.35));display:flex;align-items:center;font:600 21px/1 'Golos Text',sans-serif;transform:scale(1.06)">Вечер пятницы</div>
+            <div style="height:56px;padding:0 24px;border-radius:12px;background:rgba(28,22,19,.9);border:1px solid #2C231D;display:flex;align-items:center;font:600 21px/1 'Golos Text',sans-serif;color:#A89A8A">Семейный просмотр</div>
+            <div style="height:56px;padding:0 24px;border-radius:12px;background:rgba(28,22,19,.9);border:1px solid #2C231D;display:flex;align-items:center;font:600 21px/1 'Golos Text',sans-serif;color:#A89A8A">Страшное на ночь</div>
+            <div style="height:56px;padding:0 24px;border-radius:12px;background:rgba(28,22,19,.9);border:1px solid #2C231D;display:flex;align-items:center;font:600 21px/1 'Golos Text',sans-serif;color:#A89A8A">Есть 90 минут</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px">
+            <div style="font:700 24px/1 'Unbounded',sans-serif">Под вечер пятницы</div>
+            <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#7A6A5A;letter-spacing:.1em">18 ФИЛЬМОВ · КОМЕДИИ И БОЕВИКИ ДО 2 Ч</div>
+          </div>
+          <div style="display:flex;gap:16px;align-items:flex-start">
+            <div style="width:300px;height:169px;border-radius:7px;background:linear-gradient(165deg,#3A2A1C,#140D08);border:1px solid #2C231D;padding:16px;display:flex;flex-direction:column;justify-content:flex-end;gap:6px;flex:none"><div style="font:800 22px/1 'Unbounded',sans-serif;letter-spacing:.1em;text-transform:uppercase">Большой Лебовски</div><div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A">1998 · 1:57 · 8.1</div></div>
+            <div style="width:300px;height:169px;border-radius:7px;background:linear-gradient(165deg,#24303A,#0A0E12);border:1px solid #2C231D;padding:16px;display:flex;flex-direction:column;justify-content:flex-end;gap:6px;flex:none"><div style="font:800 22px/1 'Unbounded',sans-serif;letter-spacing:.1em;text-transform:uppercase">Достать ножи</div><div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A">2019 · 2:10 · 7.9</div></div>
+            <div style="width:300px;height:169px;border-radius:7px;background:linear-gradient(165deg,#2C3A2A,#0B120C);border:1px solid #2C231D;padding:16px;display:flex;flex-direction:column;justify-content:flex-end;gap:6px;flex:none"><div style="font:800 22px/1 'Unbounded',sans-serif;letter-spacing:.1em;text-transform:uppercase">Сорвиголова</div><div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A">2024 · 1:48 · 7.2</div></div>
+            <div style="width:300px;height:169px;border-radius:7px;background:linear-gradient(165deg,#332430,#110A10);border:1px solid #2C231D;padding:16px;display:flex;flex-direction:column;justify-content:flex-end;gap:6px;flex:none"><div style="font:800 22px/1 'Unbounded',sans-serif;letter-spacing:.1em;text-transform:uppercase">Стеклянная луковица</div><div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A">2022 · 2:19 · 7.1</div></div>
+            <div style="width:300px;height:169px;border-radius:7px;background:linear-gradient(165deg,#2E2417,#120E08);border:1px solid #2C231D;padding:16px;display:flex;flex-direction:column;justify-content:flex-end;gap:6px;flex:none"><div style="font:800 22px/1 'Unbounded',sans-serif;letter-spacing:.1em;text-transform:uppercase">Джентльмены</div><div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A">2019 · 1:53 · 7.8</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 32 ------------------------------------------------------ -->
+    <div data-screen-label="32" style="display:flex;flex-direction:column;gap:20px">
+      <div style="font:600 20px/1 'JetBrains Mono',monospace;color:#7A6A5A;letter-spacing:.14em">32 · ROWS MINIMAP</div>
+      <div style="position:relative;width:1920px;height:1080px;overflow:hidden;background:#0B0908;flex:none">
+
+        <div style="position:absolute;left:0;right:0;top:0;height:453.5px;overflow:hidden">
+          <div style="position:absolute;inset:0;background:radial-gradient(60% 80% at 72% 26%, rgba(255,226,186,.5) 0%, rgba(190,120,70,.28) 24%, rgba(110,60,30,0) 62%),radial-gradient(130% 140% at 64% 40%, #7E4E2E 0%, #4E2F1C 32%, #1E120B 64%, #0B0908 100%)"></div>
+          <div style="position:absolute;inset:0;background:linear-gradient(90deg, rgba(11,9,8,.96) 0%, rgba(11,9,8,0) 82%)"></div>
+          <div style="position:absolute;inset:0;background:linear-gradient(0deg, rgba(11,9,8,1) 0%, rgba(11,9,8,.8) 26%, rgba(11,9,8,0) 68%)"></div>
+          <div style="position:absolute;inset:0;background:linear-gradient(180deg, rgba(11,9,8,.7) 0%, rgba(11,9,8,0) 26%)"></div>
+        </div>
+
+        <div style="position:absolute;top:0;left:0;right:0;height:80px;padding:0 64px;display:flex;align-items:center;justify-content:space-between;z-index:6">
+          <div style="font:800 23px/1 'Unbounded',sans-serif;letter-spacing:.06em">LAMPA</div>
+          <div style="font:600 22px/1 'JetBrains Mono',monospace">22:20</div>
+        </div>
+
+        <div style="position:absolute;left:64px;top:150px;width:900px;z-index:5">
+          <div style="font:400 20px/1 'JetBrains Mono',monospace;color:#A89A8A;letter-spacing:.03em">1990 · Комедия, Семейный · 7.7</div>
+          <div style="font:800 52px/1.0 'Unbounded',system-ui,sans-serif;margin-top:12px">Один дома</div>
+          <div style="font:400 20px/1.4 'Golos Text',sans-serif;color:#7A6A5A;margin-top:12px;max-width:750px">Герой сжат до 42 % высоты, пока ряды в движении</div>
+        </div>
+
+        <div style="position:absolute;left:64px;right:410px;top:490px;bottom:0;z-index:5;display:flex;flex-direction:column;gap:22px">
+          <div style="filter:blur(5px);opacity:.7">
+            <div style="font:700 24px/1 'Unbounded',sans-serif;margin-bottom:12px">Сейчас смотрят</div>
+            <div style="display:flex;gap:16px">
+              <div style="width:170px;height:255px;border-radius:7px;background:linear-gradient(165deg,#4A2C1E,#160E09);flex:none"></div>
+              <div style="width:170px;height:255px;border-radius:7px;background:linear-gradient(165deg,#2B3540,#0C1114);flex:none"></div>
+              <div style="width:170px;height:255px;border-radius:7px;background:linear-gradient(165deg,#1E2C26,#0A120E);flex:none"></div>
+              <div style="width:170px;height:255px;border-radius:7px;background:linear-gradient(165deg,#2E2417,#120E08);flex:none"></div>
+              <div style="width:170px;height:255px;border-radius:7px;background:linear-gradient(165deg,#2A1E2C,#100A12);flex:none"></div>
+            </div>
+          </div>
+          <div style="filter:blur(10px);opacity:.5">
+            <div style="font:700 24px/1 'Unbounded',sans-serif;margin-bottom:12px">Рождественские комедии</div>
+            <div style="display:flex;gap:16px">
+              <div style="width:170px;height:255px;border-radius:7px;background:linear-gradient(165deg,#3A2026,#140A0E);flex:none"></div>
+              <div style="width:170px;height:255px;border-radius:7px;background:linear-gradient(165deg,#1F3324,#0A120C);flex:none"></div>
+              <div style="width:170px;height:255px;border-radius:7px;background:linear-gradient(165deg,#332619,#130E09);flex:none"></div>
+              <div style="width:170px;height:255px;border-radius:7px;background:linear-gradient(165deg,#233240,#0B1014);flex:none"></div>
+              <div style="width:170px;height:255px;border-radius:7px;background:linear-gradient(165deg,#3A2A1C,#140D08);flex:none"></div>
+            </div>
+          </div>
+        </div>
+
+        <div style="position:absolute;right:64px;top:260px;width:300px;padding:24px 22px;border-radius:12px;background:rgba(11,9,8,.72);border:1px solid #2C231D;display:flex;flex-direction:column;gap:6px;z-index:7">
+          <div style="font:600 20px/1 'JetBrains Mono',monospace;color:#7A6A5A;letter-spacing:.14em;margin-bottom:10px">РЯДЫ · 3 ИЗ 9</div>
+          <div style="min-height:46px;padding:7px 14px;border-radius:8px;display:flex;align-items:center;font:500 20px/1.15 'Golos Text',sans-serif;color:#7A6A5A">Продолжить просмотр</div>
+          <div style="min-height:46px;padding:7px 14px;border-radius:8px;display:flex;align-items:center;font:500 20px/1.15 'Golos Text',sans-serif;color:#7A6A5A">Сейчас смотрят</div>
+          <div style="height:50px;padding:0 14px;border-radius:8px;background:rgba(232,184,122,.14);border-left:4px solid var(--ac,#E8B87A);display:flex;align-items:center;font:600 20px/1 'Golos Text',sans-serif;color:var(--ac,#E8B87A)">Рождественские комедии</div>
+          <div style="min-height:46px;padding:7px 14px;border-radius:8px;display:flex;align-items:center;font:500 20px/1.15 'Golos Text',sans-serif;color:#7A6A5A">Комедии от Netflix</div>
+          <div style="min-height:46px;padding:7px 14px;border-radius:8px;display:flex;align-items:center;font:500 20px/1.15 'Golos Text',sans-serif;color:#7A6A5A">Сериалы Apple TV+</div>
+          <div style="min-height:46px;padding:7px 14px;border-radius:8px;display:flex;align-items:center;font:500 20px/1.15 'Golos Text',sans-serif;color:#7A6A5A">Сегодня в тренде</div>
+          <div style="min-height:46px;padding:7px 14px;border-radius:8px;display:flex;align-items:center;font:500 20px/1.15 'Golos Text',sans-serif;color:#7A6A5A">Звёздные войны</div>
+          <div style="min-height:46px;padding:7px 14px;border-radius:8px;display:flex;align-items:center;font:500 20px/1.15 'Golos Text',sans-serif;color:#7A6A5A">Кино 80-х</div>
+          <div style="min-height:46px;padding:7px 14px;border-radius:8px;display:flex;align-items:center;font:500 20px/1.15 'Golos Text',sans-serif;color:#7A6A5A">Топ-250 Кинопоиска</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;accent&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Песок&quot;,&quot;Лёд&quot;,&quot;Вино&quot;,&quot;Мята&quot;,&quot;Тыква&quot;],&quot;default&quot;:&quot;Песок&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Тема&quot;}}">
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.rootRef = React.createRef();
+  }
+  accents() {
+    return {
+      'Песок': ['#E8B87A', '#1A120A', '#FFF2DC', 'rgba(232,184,122,.35)'],
+      'Лёд': ['#7FB7C9', '#08171C', '#E9F7FB', 'rgba(127,183,201,.35)'],
+      'Вино': ['#C46A8F', '#1C0A12', '#FBEAF1', 'rgba(196,106,143,.35)'],
+      'Мята': ['#9FCF8A', '#0C1608', '#EEFBE7', 'rgba(159,207,138,.35)'],
+      'Тыква': ['#E07B2C', '#1A0E05', '#FFE6CC', 'rgba(224,123,44,.35)']
+    };
+  }
+  apply() {
+    const el = this.rootRef.current;
+    if (!el) return;
+    const map = this.accents();
+    const a = map[this.props.accent] || map['Песок'];
+    el.style.setProperty('--ac', a[0]);
+    el.style.setProperty('--onac', a[1]);
+    el.style.setProperty('--ring', a[2]);
+    el.style.setProperty('--acglow', a[3]);
+  }
+  componentDidMount() { this.apply(); }
+  componentDidUpdate() { this.apply(); }
+  renderVals() {
+    return { rootRef: this.rootRef };
+  }
+}
+</script>
+</body>
+</html>
