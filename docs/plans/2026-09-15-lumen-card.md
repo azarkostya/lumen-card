@@ -779,6 +779,7 @@ CSS: `.lumen-bg__img{position:absolute;inset:0;background-size:cover;background-
 > **Поправки контроллера:**
 > - Кнопка «Стоп» (экран 02) — собственный `.selector` вне `.full-start-new__buttons` и `.buttons--container` (иначе попадёт в группировку кнопок Lampa и в хэши); режим корня `.lumen-trailer-on`.
 > - Слушатель `Controller.listener 'toggle'` и `.lumen-compact` уже созданы в Task 4 — только добавить в него остановку трейлера, второй подписки не делать.
+> - После Task 6: пока играет трейлер — `LC.active.slideshow.pause()`, после остановки — `resume()`; жизненный цикл трейлера — `LC.active.trailer` через существующий `LC.onActivityEvent` (destroy → остановить и удалить iframe; уход вглубь — проверка `.activity--active`, как у слайдшоу в `src/51_slideshow.js`); `LC.backdrops.cancel(body)` останавливает и трейлер. Модуль — `src/55_trailer.js` по плану, не `90_runtime.js`; тесты жизненного цикла дополнить в `test/runtime.test.mjs`.
 > - Хэши 7/7 после задачи.
 
 **Files:**
@@ -1076,7 +1077,7 @@ test('cache key и TTL', () => {
 
 ### Task 11: Очистка ресурсов и устойчивость
 
-> **Поправка контроллера:** хук закрытия карточки (`LC.active`, подписка на `activity` destroy, `LC.backdrops.cancel`) появился в Task 5b и расширяется в Task 6 — здесь свести все ресурсы (слайдшоу, трейлер, предзагрузки, наблюдатели) в `LC.destroyActive()` поверх него и добавить страж `document.body.contains`; новых подписок на `activity` не создавать.
+> **Поправка контроллера:** хук закрытия карточки (`LC.active`, подписка на `activity` destroy, `LC.backdrops.cancel`) появился в Task 5b и расширяется в Task 6 — здесь свести все ресурсы (слайдшоу, трейлер, предзагрузки, наблюдатели) в `LC.destroyActive()` поверх него страж `document.body.contains` отдельным интервалом НЕ добавлять — его роль выполняют проверки `isMounted` / `isLayerMounted` в колбэках и тиках (ревью Task 6); новых подписок на `activity` не создавать, обработчик — `LC.onActivityEvent(e)`.
 
 **Files:**
 - Modify: `src/90_runtime.js`
