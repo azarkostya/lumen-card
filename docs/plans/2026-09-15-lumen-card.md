@@ -49,6 +49,7 @@
 - **Ряды карточки**: свой тип ряда создать нельзя (`components` — замыкание `full.js`). `e.link.rows.push(['cards'|'discuss', data])` на `type:'start'` работает только для штатных типов, позиция не гарантирована (`discuss` вставляется на индекс 2), строятся лениво по 3. Поэтому наши блоки (отзывы, факты) встраиваем в DOM ряда описания — его контроллер `full_descr` собирает все `.selector` внутри себя.
 - **Установка плагина пользователем**: Настройки → Расширения → «+» → URL `.js` → согласие с предупреждением. Lampa грузит через `Lampa.Utils.putScriptAsync(urls, complite, error, success, show_logs)`.
 - **Кнопки и хэш приоритета**: в `full.js` порядок синхронный — `Listener.send('full', {type:'complite'})` → `items[0].emit('groupButtons')` → `activity.toggle()`. `groupButtons` сравнивает `Lampa.Utils.hash($(btn).clone().removeClass('focus').prop('outerHTML'))` с сохранённым `Storage 'full_btn_priority'`. Online Mod (`nb557.github.io/plugins/online_mod.js`) на том же `complite` делает `e.object.activity.render().find('.view--torrent').after(btn)` с кнопкой `.full-start__button.selector.view--online_mod` и своим svg. Поэтому **outerHTML кнопок менять нельзя никогда** (ни в шаблоне, ни после вставки): любое изменение в зависимости от порядка обработчиков сбивает приоритетную кнопку пользователя. Иконки, цвета и подписи кнопок — только через CSS.
+  **Решение (Task 3, коммиты 3bcc736, efb6cde):** кнопки в шаблон вручную не копируются — `LC.template.build(original)` вырезает содержимое `.full-start-new__buttons` и `.buttons--container` из `Lampa.Template.all().full_start_new` дословно (ручная копия v1 теряла пробельные узлы — хэши 0/7). Lampa сравнивает `Storage 'full_btn_priority'` с хэшем каждой не скрытой кнопки в `.buttons--container` (`onGroupButtons`); `fill="transparent"` у закладки Lampa ставит сама в рантайме. Живая проверка хэшей 7/7 (методика Task 3 Step 5) повторяется в каждой задаче, которая меняет шаблон, CSS кнопок или рантайм карточки.
 
 ### 0.3 Инварианты (нарушение = провал задачи)
 
@@ -182,6 +183,9 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 - Экспорт для тестов: после присваивания `if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.name;`. Тесты грузят модуль через `load('NN_x.js')` из `test/_load.mjs`.
 - Сборка: `node scripts/build.mjs` (запись через временный файл, баннер без даты), `node scripts/build.mjs --check` (dist актуален), `node scripts/es5check.mjs dist/lumen_card.js` (acorn `ecmaVersion: 5` + запрещённые API по токенам, строки выводятся как `NN_x.js:строка`), `node --test "test/*.test.mjs"`.
 - `LC.util` (после Task 2): `esc` (включая `'`), `pad2`, `plural(n, forms)`, `initials`, `fmtTime(sec)` → `HH:MM` при ≥ 1 ч, иначе `MM:SS`, `fmtRuntime(min, unit)`, `each/map/filter/find`. Функций `clamp/once/debounce` и `LC.PREFIX` нет — если понадобятся, добавить в `10_util.js` с тестом.
+- `LC.icons` (Task 3): `get/names/forButton/maskSvg/maskUrl/css`; иконки кнопок — только CSS-маски из `css()`.
+- `LC.template` (Task 3): `innerOf(html, cls)`, `build(original)` → строка шаблона или `null` (тогда шаблон не подменяется, карточка штатная). `LC.buildTemplate` удалён. Сырой оригинал для тестов — `test/fixtures/full_start_new.original.html` (LF, байт-в-байт из Lampa 3.3.4).
+- Живые проверки: перед каждой — `resize_window` 1920×1080. После preset `desktop` вкладка остаётся узкой (~301 px), `isWideLayout()` = false, и плагин молча не активируется.
 
 ---
 
@@ -376,6 +380,8 @@ cd "C:/Users/azark/Новая папка/lumen-card" && git init -b main && prin
 
 ### Task 3: Единый набор иконок
 
+> **ВЫПОЛНЕНО** (3bcc736 иконки, efb6cde кнопки из оригинала): хэши 7/7 совпадают, маска у `view--online_mod` работает, 118 тестов, стенд 28/28.
+
 **Files:**
 - Create: `src/20_icons.js`
 - Modify: `src/30_css.js` (`LC.buildCss` дописывает `LC.icons.css()` в конец массива правил). `src/40_template.js` НЕ трогать: svg кнопок остаются 1:1 с Lampa — от outerHTML зависит хэш приоритетной кнопки (см. 0.2 «Кнопки и хэш приоритета»)
@@ -500,6 +506,12 @@ Array.prototype.map.call(document.querySelectorAll('.activity--active .buttons--
 
 ### Task 4: Анимации в духе Apple TV
 
+> **Поправки контроллера (приоритетнее текста ниже):**
+> - Подъём при появлении `translateY(1.5em)` (экран 12: 24 px), шаг 60 мс, порядок мета → заголовок → описание → рейтинги → кнопки.
+> - Классы `.lumen-in` появятся в разметке только в Task 5a: здесь живьём проверять класс `lumen-motion-*` на корне и пружину фокуса кнопок; появление контента проверяется в Task 5a.
+> - Компактная шапка `.lumen-compact` (экран 06) делается здесь: `Lampa.Controller.listener.follow('toggle', …)` — одна подписка в `init`; `full_descr` / `items_line` → класс на активный `.lumen-card`, `full_start` → снять. Размеры компактного режима снять с экрана 06 в `design/Lumen Card for Lampa - FHD.dc.html`; переход 280 мс той же кривой, что фокус. Task 7 только добавит в этот слушатель остановку трейлера.
+> - Фокус и `transition` — только CSS, разметку кнопок не трогать (хэш, см. 0.2).
+
 **Files:**
 - Modify: `src/30_css.js` (блок анимаций), `src/80_settings.js` (параметр `lumen_motion`: full / lite / off), `src/90_runtime.js` (класс на корне)
 
@@ -542,6 +554,8 @@ Array.prototype.map.call(document.querySelectorAll('.activity--active .buttons--
 
 ### Task 5: Шаблон и CSS карточки по дизайну (доводка v1)
 
+> **Разбита на Task 5a–5d (сразу после этой задачи) — исполнять их, а не шаги ниже.** Шаги 1–4 оставлены как исходное ТЗ, на которое ссылаются 5a–5d. Размеры всех элементов — `docs/design/design-spec-card.md` (сверка с экспортом дизайна, 42 расхождения ✗).
+
 **Files:**
 - Modify: `src/40_template.js`, `src/30_css.js`, `src/90_runtime.js`
 
@@ -562,7 +576,7 @@ Array.prototype.map.call(document.querySelectorAll('.activity--active .buttons--
     return { ok: missingInOurs.length === 0, missingInOurs: missingInOurs, missingInOriginal: missingInOriginal };
   };
 ```
-Тест `test/template.test.mjs`: загрузить `40_template.js`, взять оригинал из API_NOTES.md (скопировать его в `test/fixtures/full_start_new.original.html`), `assert.ok(assertTemplate(orig, LC.template).ok)`.
+Тест в `test/template.test.mjs` (дополнить существующий): оригинал — фикстура `test/fixtures/full_start_new.original.html` (есть после Task 3); по контракту 1.1 функции живут в модуле: `assert.ok(LC.template.assert(orig, LC.template.build(orig)).ok)` (не `LC.assertTemplate`).
 
 - [ ] **Step 2: Разметка карточки** — структура (все оригинальные узлы внутри, поверх — наши обёртки):
 
@@ -584,7 +598,7 @@ Array.prototype.map.call(document.querySelectorAll('.activity--active .buttons--
   <div class="buttons--container hide"> …оригинальный пул кнопок… </div>
 </div>
 ```
-Точное содержимое оригинальных узлов копировать из API_NOTES.md §1 без изменений. `.full-start-new__details` тоже оставить (скрыть CSS), потому что start.js пишет в него.
+Кнопки и пул (`.full-start-new__buttons`, `.buttons--container`) не копировать — их вставляет `LC.template.build(original)` (0.2); остальные оригинальные узлы брать из фикстуры `test/fixtures/full_start_new.original.html` без изменений. `.full-start-new__details` тоже оставить (скрыть CSS), потому что start.js пишет в него.
 
 - [ ] **Step 3: Рантайм заполнения при `complite`** (`src/90_runtime.js`, функция `LC.decorate(e)`): описание из `movie.overview` в `.lumen-desc` (обрезка 2 строки через CSS `-webkit-line-clamp:2`), оригинальное название + режиссёр (`persons.crew` с `job=='Director'`), теги качества (`movie.release_quality||movie.quality`; языки дорожек не показывать — данных нет), «В ролях» из `persons.cast.slice(0,5)` + `+N`, `.full-start__status` — точка по классу статуса (`Released`→good, `Returning Series`→accent, `Ended`→muted).
 
@@ -599,7 +613,64 @@ Array.prototype.map.call(document.querySelectorAll('.activity--active .buttons--
 
 ---
 
+### Task 5a: Шапка карточки по дизайну (экраны 01, 03, 10)
+
+**Files:**
+- Create: `src/35_cardinfo.js` (чистая логика данных шапки, `LC.cardinfo`), `test/cardinfo.test.mjs`
+- Modify: `src/40_template.js` (`LC.template.REQUIRED`, `LC.template.assert`), `src/30_css.js`, `src/90_runtime.js`, `test/template.test.mjs`
+- Design: `docs/design/design-spec-card.md` §0–8; экраны 01, 03, 10 в `design/Lumen Card for Lampa - FHD.dc.html`
+
+- [ ] **Step 1: Проверка шаблона** — по Task 5 Step 1, но внутри модуля: `LC.template.REQUIRED`, `LC.template.assert(original, ours)`. В `init`: `build` вернул `null` или `assert(...).ok === false` → `warn` + `Lampa.Noty.show('Lumen Card: версия Lampa не поддерживается')`, шаблон не подменяется.
+- [ ] **Step 2: Разметка шапки** — структура `.lumen-content` из Task 5 Step 2: шесть обёрток `.lumen-in` (мета; заголовок + оригинал/режиссёр; описание; рейтинги + статус + чип реакций; прогресс; кнопки) и `.lumen-side` (чипы качества, «В ролях»). Кнопки — только через `LC.template.build`. Все классы из `REQUIRED` на месте; стенд `harness/` зелёный.
+- [ ] **Step 3: Данные (TDD, `LC.cardinfo`)** — чистые функции с тестами, рантайм только вставляет результат в DOM:
+  - `country(headText, productionCountries)` — страна по-русски: текст штатного `.full-start-new__head` без года (`'2024, США'` → `'США'`), фолбэк — словарь ISO из Task 5 Step 3b.2, иначе английское имя;
+  - `director(crew)` → имя первого `job === 'Director'` или `''`; `creator(movie)` → `created_by[0].name` или `''`;
+  - `titleClass(title)` → `'lumen-title--long'` при длине > 18, иначе `''`;
+  - `statusKind(status)` → `'good'` (Released), `'accent'` (Returning Series), `'muted'` (Ended, Canceled), `'soon'` (Planned, In Production, Post Production — подпись «Анонс»);
+  - `qualityChips(q)` → раздельные чипы из строки качества (`'4K HDR'` → `['4K','HDR']`, BDRip/BluRay → `'BD'`, WEB-DL → `'WEB'`), пусто → `[]`;
+  - `reactionsCount(reactions)` → `counter` реакции `fire` или `0`.
+  Картинки — только `Lampa.TMDB.image` (Task 5 Step 3b.3).
+- [ ] **Step 4: CSS по сверке** — все строки ✗ разделов §0–8 `design-spec-card.md` приводятся к дизайну (em = px ÷ 16). В том числе: подпись иконочной кнопки раскрывается в фокусе (§7c) — только CSS, `span` уже есть в разметке; чип «РЕАКЦИЙ» (данные `fire`; скрыт без данных и при выключенной `card_interfice_reactions`); статус с точкой по `statusKind`. Не делать: 6-ю кнопку «в очередь» (в Lampa её нет) и перенос «Трейлера» в основной ряд (кнопки переставляет только Lampa).
+- [ ] **Step 5: Живая проверка (0.8)** — «Дюна» и «Фоллаут»: скриншоты сравнить с экранами 01/03/10; анимация появления из Task 4 видна; хэши 7/7 по методике Task 3 Step 5; `Enter` на «Смотреть» открывает `Lampa.Select`. Commit `feat: шапка карточки по дизайну`.
+
+### Task 5b: Постер слева и размытый постер (экраны 04, 13)
+
+**Files:** Modify `src/35_cardinfo.js` (+ тест), `src/30_css.js`, `src/90_runtime.js`, `src/40_template.js` (только если нужен узел фона). Design: `design-spec-card.md` §11–12.
+
+- [ ] **Step 1 (TDD):** `LC.cardinfo.bgMode(movie)` → `'backdrop'` (есть `backdrop_path` или `images.backdrops` без текста), `'poster'` (кадров нет, есть `poster_path`), `'procedural'` (нет ничего).
+- [ ] **Step 2:** режим `poster` → класс `.lumen-card--poster`: `.full-start-new__left` видим, постер 2:3 слева с чипом TMDB, контент справа (размеры §11). Правило v1 `.lumen-card .full-start-new__left{display:none !important}` действует только вне этого режима.
+- [ ] **Step 3:** первый кадр не загрузился (`onerror`) → `.lumen-bg--blur`: фон из `poster_path` (`Lampa.TMDB.image('t/p/w500' + path)`), размытие и затемнение по §12; в `lite`/`off` без `filter: blur`, только затемнение (производительность ТВ). `procedural` — существующие градиенты v1.
+- [ ] **Step 4:** живьём подменить данные на `Listener 'full'` `type:'start'` (`movie.backdrop_path = null; movie.images.backdrops = []`) → раскладка 04; битый путь кадра → 13. Хэши 7/7. Commit `feat: постер и размытый фон без кадров`.
+
+### Task 5c: Сериал — студия, создатель, ряд серий (экраны 05, 06)
+
+**Files:** Modify `src/35_cardinfo.js` (+ тест), `src/70_progress.js` (+ тест), `src/40_template.js`, `src/30_css.js`, `src/90_runtime.js`. Design: `design-spec-card.md` §8–9.
+
+- [ ] **Step 1 (TDD):**
+  - `LC.cardinfo.nextEpisode(nextToAir, now)` → `{date:'17 декабря', days:31, text:'Следующая серия — 17 декабря, через 31 день'}` (склонение через `LC.util.plural`); дата в прошлом или нет данных → `null`;
+  - `LC.progress.episodeState(view, airDate, now)` → `{state:'watched'}` (percent ≥ 95), `{state:'watching', leftMin}` (0 < percent < 95), `{state:'aired'}`, `{state:'soon'}` (air_date в будущем).
+- [ ] **Step 2:** мета сериала — `networks[0].name`; подзаголовок `original_name · created_by[0].name`; чип следующей серии (скрыт при `null`); правая колонка сериала — только качество (§8).
+- [ ] **Step 3:** ряд серий последнего сезона из `e.data.episodes.episodes[]` внутри шапки после ряда кнопок: заголовок «Сезон N · M серий», карточки `.lumen-episode.selector` (кадр `still_path` через `Lampa.TMDB.image('t/p/w300' + path)`, номер, название, длительность, состояние). Хэш серии — формула 0.2. Карточки лежат внутри `.full-start-new`, поэтому их собирает контроллер `full_start`; разметку кнопок не трогать.
+- [ ] **Step 4:** фокус на `.lumen-episode` (`hover:focus`, делегирование на корне) → `.lumen-compact` (экран 06), фокус на кнопке → снять; `hover:enter` на серии → `$root.find('.button--play').trigger('hover:enter')` (выбор источника; серию выбирают в TorrServer).
+- [ ] **Step 5:** живьём «Фоллаут» (id 106379): через `Lampa.Timeline.update` в последнем сезоне отметить E1–E2 просмотренными и E3 на 32 % → видны все состояния; ↓ с кнопок попадает в ряд, ← → листает, `Enter` открывает `Lampa.Select`, ↑ возвращает на кнопки. Хэши 7/7. Commit `feat: ряд серий сериала`.
+
+### Task 5d: Таблица «ПОДРОБНО» в ряду описания (экран 07)
+
+**Files:** Modify `src/35_cardinfo.js` (+ тест), `src/30_css.js`, `src/90_runtime.js`. Design: `design-spec-card.md` §10.
+
+- [ ] **Step 1 (TDD):** `LC.cardinfo.facts(movie, persons)` → `[{label, value}]`: Оригинал, Премьера (`release_date` / `first_air_date` → «12 марта 2024»), Страна, Режиссёр (фильм) / Создатель (сериал), Жанр (`genres[].name` через запятую), Время (`LC.util.fmtRuntime`) или «Сезонов · Серий» у сериала; пустые значения не выводятся.
+- [ ] **Step 2:** на `Lampa.Listener 'full'` `type:'build'` ряда описания (имя под-компонента проверить живьём через `console.log(e.name)`; ожидается `'description'`) дописать в тело ряда `.lumen-facts` (grid «лейбл / значение», без `.selector`) по §10; штатное полное описание оформить CSS. Этот же узел потом использует Task 9 для отзывов.
+- [ ] **Step 3:** живьём ↓ с кнопок → ряд описания показывает таблицу, значения по-русски, фокус и ↑ работают как раньше. Хэши 7/7. Commit `feat: таблица подробностей`.
+
+---
+
 ### Task 6: Слайдшоу кадров
+
+> **Поправки контроллера:**
+> - Тест Step 1 противоречит коду Step 2: для данных теста правильный результат `['/main', '/c', '/a']` (узкий `/d` уходит в конец очереди и в `max = 3` не попадает). Исправить ожидание, логику не менять.
+> - Интервал `lumen_slide_interval`: 8 / 14 / 20 с, по умолчанию 14 (экран 09, Task 10); кроссфейд 1.2 с `ease-in-out`, наезд 14 с (экран 12).
+> - В CSS не использовать `inset` (нет в старых webview) — `top:0;right:0;bottom:0;left:0`.
+> - Слайдшоу работает только в режиме `LC.cardinfo.bgMode(movie) === 'backdrop'` (Task 5b); ошибка первой картинки → размытый постер из 5b. Хэши 7/7 после задачи.
 
 **Files:**
 - Create: `src/50_backdrops.js`
@@ -681,6 +752,11 @@ CSS: `.lumen-bg__img{position:absolute;inset:0;background-size:cover;background-
 ---
 
 ### Task 7: Фоновый трейлер YouTube
+
+> **Поправки контроллера:**
+> - Кнопка «Стоп» (экран 02) — собственный `.selector` вне `.full-start-new__buttons` и `.buttons--container` (иначе попадёт в группировку кнопок Lampa и в хэши); режим корня `.lumen-trailer-on`.
+> - Слушатель `Controller.listener 'toggle'` и `.lumen-compact` уже созданы в Task 4 — только добавить в него остановку трейлера, второй подписки не делать.
+> - Хэши 7/7 после задачи.
 
 **Files:**
 - Create: `src/55_trailer.js`
@@ -771,6 +847,12 @@ CSS: `.lumen-bg__trailer{position:absolute;inset:-10% 0;opacity:0;transition:opa
 
 ### Task 8: «Продолжить» для фильмов и сериалов
 
+> **Поправки контроллера (текст ниже местами противоречит сам себе):**
+> - `src/70_progress.js` уже существует: сохранить `movieProgress(movie, view, hash)` / `serialProgress(movie, view, hash)` → `{view, season, episode}` или `null` и существующие тесты; Step 2–3 ниже — старая форма, по ней не писать.
+> - Добавить: порог «досмотрено» `percent >= 95` → не показывать и перейти к следующей серии; `label(found, episodes)` → `S2 E3 «Голова»` (название и длительность из `e.data.episodes.episodes`); `episodeState` из Task 5c переиспользовать.
+> - Подпись «Продолжить S2 E3» на кнопке «Смотреть» (экран 05) — НЕ через текст `span` (outerHTML → хэш): `span` скрыть CSS, текст выводить `.lumen-card.lumen-continue .button--play:after{content:var(--lumen-play-label)}`, переменную ставить на корне `.lumen-card` (`style.setProperty('--lumen-play-label', '"Продолжить S2 E3"')`). `:before` у кнопки занят маской иконки (Task 3).
+> - Хэши 7/7 после задачи.
+
 **Files:**
 - Create: `src/70_progress.js`
 - Modify: `src/90_runtime.js`
@@ -835,6 +917,13 @@ test('сериал: последняя начатая серия', () => {
 ---
 
 ### Task 9: Русские отзывы (Кинопоиск)
+
+> **Поправки контроллера:**
+> - Без ключа — блок-подсказка «Настройки → Lumen Card → Ключ Kinopoisk API» (экран 13), а не пусто; с ключом и без отзывов — блок скрыт.
+> - Заголовок «КИНОПОИСК · N ОТЗЫВОВ» (`total` из ответа), метка тона («ПОЗИТИВНЫЙ» / «НЕГАТИВНЫЙ» / «НЕЙТРАЛЬНЫЙ»), «N полезно» (экран 07); модал — экран 08.
+> - `onBack` модала: `Lampa.Modal.close(); Lampa.Controller.toggle(имя)`, где имя снято `Lampa.Controller.enabled().name` перед открытием (не `'content'`).
+> - Кэш в `Lampa.Storage`: не больше 20 фильмов (вытеснение по `at`, индекс `lumen_rv_index`), `full` у отзыва не длиннее 4000 символов — иначе переполнение localStorage на ТВ.
+> - Отзывы вставлять в тот же узел ряда описания, что таблица `.lumen-facts` из Task 5d.
 
 **Files:**
 - Create: `src/60_reviews.js`
@@ -940,6 +1029,8 @@ test('cache key и TTL', () => {
 
 ### Task 10: Настройки — полный список и применение без перезапуска
 
+> **Поправки контроллера:** `LC.originalTemplate` не существует — выключение плагина возвращает оригинал, сохранённый в рантайме (`original_template` из `saveOriginalTemplate`), включение — `LC.template.build(original_template)`. Смена акцента меняет всю тройку переменных акцента (цвет, текст на акценте, кольцо, свечение — экран 14, 0.7) под теми именами, что заданы в `src/30_css.js`. С ключом Кинопоиска заполнять `rate--kp` из `ratingKinopoisk`, если Lampa не дала (экран 09). Хэши 7/7 при включённом плагине и после выключения и включения.
+
 **Files:**
 - Modify: `src/80_settings.js`, `src/90_runtime.js`
 
@@ -973,6 +1064,8 @@ test('cache key и TTL', () => {
 
 ### Task 12: Ревью и финальная проверка
 
+> **Поправка контроллера:** все живые проверки — в локальной Lampa (0.8, порт 8766), не на cf.lampa.mx; в чек-лист добавить хэши 7/7 и путь «Смотреть → Торренты» до экрана файлов TorrServer.
+
 - [ ] `node --test "test/*.test.mjs"` — все зелёные (форма `node --test test/` на этой машине падает с «Cannot find module 'test'»); `node scripts/build.mjs && node scripts/es5check.mjs dist/lumen_card.js` — ok.
 - [ ] Стенд `harness/` — фильм и сериал, скриншоты.
 - [ ] cf.lampa.mx — чек-лист: (1) карточка «Дюна» по дизайну, (2) слайдшоу меняет кадр, (3) трейлер стартует и снимается при `Enter`, (4) `Enter` на источниках открывает `Lampa.Select` (путь к торрентам жив), (5) `ArrowDown` → описание → отзывы, `Enter` → модал, `Escape` → назад, (6) сериал «Фоллаут» — статус «Выходит», следующая серия, (7) настройки: смена акцента применяется, выключение плагина возвращает штатную карточку, (8) консоль без ошибок, (9) закрытие карточки убирает таймеры.
@@ -981,6 +1074,8 @@ test('cache key и TTL', () => {
 ---
 
 ### Task 13: Публикация и установка
+
+> **Поправка контроллера:** `gh` на этой машине не установлен — сразу ветка ручной публикации. Создание публичного репозитория, push и включение Pages — публикация: перед этим шагом спросить пользователя.
 
 - [ ] README: что это, скриншоты (описание), установка (Настройки → Расширения → Добавить плагин → URL), настройки, ключ Кинопоиска, ограничения (IMDb/КП рейтинги только с CUB/парсером; трейлер требует YouTube в webview; шрифты требуют интернет), совместимость (Lampa ≥ 3.x, TV-раскладка), лицензия MIT.
 - [ ] Хостинг: `gh auth status`; если авторизован — `gh repo create lumen-card --public --source . --push`, включить Pages из `main`/root (`gh api -X POST repos/{owner}/lumen-card/pages -f build_type=legacy -f source[branch]=main -f source[path]=/`), URL плагина `https://<owner>.github.io/lumen-card/dist/lumen_card.js`. Если `gh` не авторизован — написать в README инструкцию для ручной публикации и отдать файл пользователю через `SendUserFile`.
@@ -1011,7 +1106,7 @@ test('cache key и TTL', () => {
 
 ## 5. Порядок исполнения всех фаз (для исполняющей модели)
 
-1. **Фаза 1 — карточка**: Task 3 → 13 из этого файла. Task 1–2 выполнены. Перед Task 5 сверить размеры с экспортом дизайна `design/Lumen Card for Lampa - FHD.dc.html` (раздел 0.7).
+1. **Фаза 1 — карточка**: Task 3 → 13 из этого файла; Task 5 исполняется как 5a → 5b → 5c → 5d. Task 1–3 выполнены. Сверка размеров с дизайном сделана: `docs/design/design-spec-card.md`. Блоки «Поправки контроллера» в начале задач приоритетнее текста задачи.
 2. **Фаза 2 — главная и подборки**: `docs/plans/2026-09-15-lumen-phase2-main.md`, Task 14 → 20.
 3. **Фаза 3 — фишки**: `docs/plans/2026-09-15-lumen-phase3-features.md`, Task 21 → 30.
 
