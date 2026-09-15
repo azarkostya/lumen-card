@@ -622,7 +622,7 @@ Array.prototype.map.call(document.querySelectorAll('.activity--active .buttons--
 - Design: `docs/design/design-spec-card.md` §0–8; экраны 01, 03, 10 в `design/Lumen Card for Lampa - FHD.dc.html`
 
 - [ ] **Step 1: Проверка шаблона** — по Task 5 Step 1, но внутри модуля: `LC.template.REQUIRED`, `LC.template.assert(original, ours)`. В `init`: `build` вернул `null` или `assert(...).ok === false` → `warn` + `Lampa.Noty.show('Lumen Card: версия Lampa не поддерживается')`, шаблон не подменяется.
-- [ ] **Step 2: Разметка шапки** — структура `.lumen-content` из Task 5 Step 2: шесть обёрток `.lumen-in` (мета; заголовок + оригинал/режиссёр; описание; рейтинги + статус + чип реакций; прогресс; кнопки) и `.lumen-side` (чипы качества, «В ролях»). Кнопки — только через `LC.template.build`. Все классы из `REQUIRED` на месте; стенд `harness/` зелёный.
+- [ ] **Step 2: Разметка шапки** — структура `.lumen-content` из Task 5 Step 2: шесть обёрток `.lumen-in` (мета; заголовок + оригинал/режиссёр; описание; рейтинги + статус + чип реакций; прогресс; кнопки) и `.lumen-side` (чипы качества, «В ролях»). Кнопки — только через `LC.template.build`. Все классы из `REQUIRED` на месте; стенд `harness/` зелёный. Шесть `.lumen-in` — **соседние дети одного `.lumen-content`**: stagger из Task 4 считает `nth-child(1..6)`, поэтому между ними не должно быть других узлов — `.lumen-original`, tagline, `.full-start-new__details`, `.full-start-new__reactions` вложить внутрь соответствующих `.lumen-in`.
 - [ ] **Step 3: Данные (TDD, `LC.cardinfo`)** — чистые функции с тестами, рантайм только вставляет результат в DOM:
   - `country(headText, productionCountries)` — страна по-русски: текст штатного `.full-start-new__head` без года (`'2024, США'` → `'США'`), фолбэк — словарь ISO из Task 5 Step 3b.2, иначе английское имя;
   - `director(crew)` → имя первого `job === 'Director'` или `''`; `creator(movie)` → `created_by[0].name` или `''`;
@@ -631,7 +631,7 @@ Array.prototype.map.call(document.querySelectorAll('.activity--active .buttons--
   - `qualityChips(q)` → раздельные чипы из строки качества (`'4K HDR'` → `['4K','HDR']`, BDRip/BluRay → `'BD'`, WEB-DL → `'WEB'`), пусто → `[]`;
   - `reactionsCount(reactions)` → `counter` реакции `fire` или `0`.
   Картинки — только `Lampa.TMDB.image` (Task 5 Step 3b.3).
-- [ ] **Step 4: CSS по сверке** — все строки ✗ разделов §0–8 `design-spec-card.md` приводятся к дизайну (em = px ÷ 16). В том числе: подпись иконочной кнопки раскрывается в фокусе (§7c) — только CSS, `span` уже есть в разметке; чип «РЕАКЦИЙ» (данные `fire`; скрыт без данных и при выключенной `card_interfice_reactions`); статус с точкой по `statusKind`. Не делать: 6-ю кнопку «в очередь» (в Lampa её нет) и перенос «Трейлера» в основной ряд (кнопки переставляет только Lampa).
+- [ ] **Step 4: CSS по сверке** — все строки ✗ разделов §0–8 `design-spec-card.md` приводятся к дизайну (em = px ÷ 16). В том числе: подпись иконочной кнопки раскрывается в фокусе (§7c) — только CSS, `span` уже есть в разметке; чип «РЕАКЦИЙ» (данные `fire`; скрыт без данных и при выключенной `card_interfice_reactions`); статус с точкой по `statusKind`. Заголовок `.full-start-new__title` — `3.86em` (88 px ÷ 22.811), длинный (`lumen-title--long`) — по экрану 01; v1-значение `5.4em` — дефект единиц, после исправления компактная шапка Task 4 (`2.104em`) станет пропорциональной дизайну.Не делать: 6-ю кнопку «в очередь» (в Lampa её нет) и перенос «Трейлера» в основной ряд (кнопки переставляет только Lampa).
 - [ ] **Step 5: Живая проверка (0.8)** — «Дюна» и «Фоллаут»: скриншоты сравнить с экранами 01/03/10; анимация появления из Task 4 видна; хэши 7/7 по методике Task 3 Step 5; `Enter` на «Смотреть» открывает `Lampa.Select`. Commit `feat: шапка карточки по дизайну`.
 
 ### Task 5b: Постер слева и размытый постер (экраны 04, 13)
@@ -672,6 +672,7 @@ Array.prototype.map.call(document.querySelectorAll('.activity--active .buttons--
 > - Интервал `lumen_slide_interval`: 8 / 14 / 20 с, по умолчанию 14 (экран 09, Task 10); кроссфейд 1.2 с `ease-in-out`, наезд 14 с (экран 12).
 > - В CSS не использовать `inset` (нет в старых webview) — `top:0;right:0;bottom:0;left:0`.
 > - Слайдшоу работает только в режиме `LC.cardinfo.bgMode(movie) === 'backdrop'` (Task 5b); ошибка первой картинки → размытый постер из 5b. Хэши 7/7 после задачи.
+> - Ken Burns уже задан в Task 4 на `.lumen-bg__img.is-active` (14 с, 1.00 → 1.08) — слайды называть ровно так, иначе анимация не применится; в режиме `lite` наезда нет.
 
 **Files:**
 - Create: `src/50_backdrops.js`
@@ -1030,7 +1031,7 @@ test('cache key и TTL', () => {
 
 ### Task 10: Настройки — полный список и применение без перезапуска
 
-> **Поправки контроллера:** `LC.originalTemplate` не существует — выключение плагина возвращает оригинал, сохранённый в рантайме (`original_template` из `saveOriginalTemplate`), включение — `LC.template.build(original_template)`. Смена акцента меняет всю тройку переменных акцента (цвет, текст на акценте, кольцо, свечение — экран 14, 0.7) под теми именами, что заданы в `src/30_css.js`. С ключом Кинопоиска заполнять `rate--kp` из `ratingKinopoisk`, если Lampa не дала (экран 09). Хэши 7/7 при включённом плагине и после выключения и включения.
+> **Поправки контроллера:** `LC.originalTemplate` не существует — выключение плагина возвращает оригинал, сохранённый в рантайме (`original_template` из `saveOriginalTemplate`), включение — `LC.template.build(original_template)`. Смена акцента меняет всю тройку переменных акцента (цвет, текст на акценте, кольцо, свечение — экран 14, 0.7) под теми именами, что заданы в `src/30_css.js`. С ключом Кинопоиска заполнять `rate--kp` из `ratingKinopoisk`, если Lampa не дала (экран 09). Хэши 7/7 при включённом плагине и после выключения и включения. `src/80_settings.js` после Task 4 ~200 строк: если после этой задачи он превысит 300 строк — вынести чистую логику настроек (`motionModeFor` и новые функции) в `src/81_prefs.js` с тестами.
 
 **Files:**
 - Modify: `src/80_settings.js`, `src/90_runtime.js`
@@ -1110,6 +1111,8 @@ test('cache key и TTL', () => {
 1. **Фаза 1 — карточка**: Task 3 → 11 из этого файла; Task 5 исполняется как 5a → 5b → 5c → 5d. Task 1–3 выполнены. Сверка размеров с дизайном сделана: `docs/design/design-spec-card.md`. Блоки «Поправки контроллера» в начале задач приоритетнее текста задачи. Единицы — правило 0.4 (em = px ÷ 22.811).
 1b. **Фаза 1b — путь до плеера через TorrServer**: `docs/plans/2026-09-15-lumen-phase1b-torrents.md`, Task 31 → 33 — после Task 11 и до Task 12–13, чтобы первый релиз включал весь путь. Решение пользователя 2026-09-15: смотрит только через TorrServer; экраны онлайн-балансеров (MODS's, Filmix) не оформляем.
 1c. Task 12 → 13 (ревью и публикация) — после фазы 1b.
+
+**Публикация по ходу работы (по просьбе пользователя 2026-09-15 — получить готовый плагин на тест без ожидания Task 13):** после каждой закрытой задачи (проверка соответствия и ревью качества пройдены) — `git push origin feat/lumen-v2`; `main` не трогать до Task 13. Тестовая ссылка для Lampa без Pages: `https://cdn.jsdelivr.net/gh/azarkostya/lumen-card@feat/lumen-v2/dist/lumen_card.js`, сброс кэша jsDelivr после пуша — `https://purge.jsdelivr.net/gh/azarkostya/lumen-card@feat/lumen-v2/dist/lumen_card.js`. Вход в GitHub сохранён в Windows (аккаунт `azarkostya`), push идёт без запроса пароля.
 2. **Фаза 2 — главная и подборки**: `docs/plans/2026-09-15-lumen-phase2-main.md`, Task 14 → 20.
 3. **Фаза 3 — фишки**: `docs/plans/2026-09-15-lumen-phase3-features.md`, Task 21 → 30.
 
