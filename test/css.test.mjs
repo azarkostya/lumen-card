@@ -201,3 +201,32 @@ test('buildCss: .lumen-bg--blur в lumen-motion-lite/off — без filter (до
   assert.equal(declLite.indexOf('filter'), -1, 'lite не должен переопределять/задавать filter (блюр остаётся только в lumen-motion-full)');
   assert.equal(declOff.indexOf('filter'), -1, 'off не должен переопределять/задавать filter (блюр остаётся только в lumen-motion-full)');
 });
+
+/* -------------------------------------------------------------------- */
+/* Task 6: слайдшоу кадров — .lumen-bg__img/.is-active (кроссфейд) и      */
+/* наезд Ken Burns (Task 4) поверх них, теперь на верном корне            */
+/* .lumen-backdrop (слой фона — сосед .lumen-card, не потомок).           */
+/* -------------------------------------------------------------------- */
+
+test('buildCss: .lumen-bg__img — базовое правило внутри .lumen-backdrop, кроссфейд opacity 1.2s ease-in-out, без inset', () => {
+  const decl = findDecl(css, (sel) => sel === '.lumen-backdrop .lumen-bg__img');
+  assert.ok(decl, 'правило .lumen-backdrop .lumen-bg__img не найдено');
+  assert.ok(/opacity\s*:\s*0\b/.test(decl), 'кадр должен быть по умолчанию прозрачным');
+  assert.ok(decl.indexOf('transition:opacity 1.2s ease-in-out') !== -1, 'ожидался transition:opacity 1.2s ease-in-out (design screen 12)');
+  assert.equal(/inset\s*:/.test(decl), false);
+});
+
+test('buildCss: .lumen-bg__img.is-active — opacity:1', () => {
+  const decl = findDecl(css, (sel) => sel === '.lumen-backdrop .lumen-bg__img.is-active');
+  assert.ok(decl, 'правило .lumen-backdrop .lumen-bg__img.is-active не найдено');
+  assert.ok(/opacity\s*:\s*1\b/.test(decl));
+});
+
+test('buildCss: наезд Ken Burns — на корне .lumen-backdrop (не .lumen-card: слой фона лежит вне карточки)', () => {
+  const offender = findDecl(css, (sel) => sel.indexOf('.lumen-card') === 0 && sel.indexOf('lumen-bg__img') !== -1);
+  assert.equal(offender, null, '.lumen-bg__img не должен встречаться в правилах с корнем .lumen-card — такой потомковый селектор никогда не совпадёт с реальным DOM (.lumen-backdrop — сосед .lumen-card, не предок .lumen-bg__img)');
+
+  const decl = findDecl(css, (sel) => sel.indexOf('.lumen-backdrop') === 0 && sel.indexOf('lumen-motion-full') !== -1 && sel.indexOf('lumen-bg__img') !== -1 && sel.indexOf('is-active') !== -1);
+  assert.ok(decl, 'правило наезда (.lumen-backdrop.lumen-motion-full .lumen-bg__img.is-active) не найдено');
+  assert.ok(decl.indexOf('lumen-kb') !== -1, 'ожидалась ссылка на @keyframes lumen-kb (14s, 1.00 -> 1.08)');
+});

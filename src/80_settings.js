@@ -28,7 +28,10 @@
     lumen_card_min: { ru: 'мин', en: 'min', uk: 'хв' },
     lumen_card_director: { ru: 'реж.', en: 'dir.', uk: 'реж.' },
     lumen_card_status_soon: { ru: 'Анонс', en: 'Announced', uk: 'Анонс' },
-    lumen_card_reactions: { ru: 'РЕАКЦИЙ', en: 'REACTIONS', uk: 'РЕАКЦІЙ' }
+    lumen_card_reactions: { ru: 'РЕАКЦИЙ', en: 'REACTIONS', uk: 'РЕАКЦІЙ' },
+    lumen_card_slideshow_name: { ru: 'Слайдшоу кадров', en: 'Backdrop slideshow', uk: 'Слайдшоу кадрів' },
+    lumen_card_slide_interval: { ru: 'Интервал смены кадров', en: 'Frame interval', uk: 'Інтервал зміни кадрів' },
+    lumen_card_seconds: { ru: 'с', en: 's', uk: 'с' }
   };
 
   function langCode() {
@@ -148,6 +151,29 @@
         field: { name: LC.lang('lumen_card_motion') },
         onChange: function () { LC.applyMotionMode(); }
       });
+
+      /* Task 6: имена без префикса PLUGIN, как у lumen_motion выше —
+         LC.followStorage подписан на них отдельной веткой, вне общего
+         префиксного фильтра PLUGIN + '_'. onChange у обоих — одна и та же
+         LC.applySlideshowPref (90_runtime.js): и выключение, и смена
+         интервала на уже открытой карточке идут через pause()+resume()
+         контроллера слайдшоу. */
+      Lampa.SettingsApi.addParam({
+        component: PLUGIN,
+        param: { name: 'lumen_slideshow', type: 'trigger', 'default': true },
+        field: { name: LC.lang('lumen_card_slideshow_name') },
+        onChange: function () { LC.applySlideshowPref(); }
+      });
+
+      var seconds = LC.lang('lumen_card_seconds');
+      var intervalValues = { '8': '8 ' + seconds, '14': '14 ' + seconds, '20': '20 ' + seconds };
+
+      Lampa.SettingsApi.addParam({
+        component: PLUGIN,
+        param: { name: 'lumen_slide_interval', type: 'select', values: intervalValues, 'default': '14' },
+        field: { name: LC.lang('lumen_card_slide_interval') },
+        onChange: function () { LC.applySlideshowPref(); }
+      });
     } catch (e) {
       warn('settings failed', e);
     }
@@ -159,6 +185,7 @@
       Lampa.Storage.listener.follow('change', function (e) {
         if (!e || !e.name) return;
         if (e.name === 'lumen_motion') { LC.applyMotionMode(); return; }
+        if (e.name === 'lumen_slideshow' || e.name === 'lumen_slide_interval') { LC.applySlideshowPref(); return; }
         if (e.name.indexOf(PLUGIN + '_') !== 0) return;
         if (e.name === PLUGIN + '_fonts') LC.injectFonts();
         LC.injectCss();

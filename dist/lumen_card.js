@@ -297,6 +297,18 @@
     css.push('.lumen-backdrop{position:absolute;top:0;left:0;width:100%;height:100vh;z-index:-1;overflow:hidden;opacity:0;-webkit-transition:opacity .5s ease;transition:opacity .5s ease;pointer-events:none}');
     css.push('.lumen-backdrop.loaded{opacity:1}');
     css.push('.lumen-backdrop__img{position:absolute;top:0;left:0;right:0;bottom:0;background-position:72% 32%;background-repeat:no-repeat;-webkit-background-size:cover;background-size:cover}');
+    /* Task 6: кадры слайдшоу — .lumen-bg__img (первый кадр — тот же узел
+       .lumen-backdrop__img, получает этот класс дополнительно к своему;
+       следующие кадры — отдельные div внутри .lumen-bg__slides, см.
+       src/50_backdrops.js). Позиционирование/масштаб повторяют
+       .lumen-backdrop__img (72% 32%, cover) — оба правила должны выглядеть
+       одинаково независимо от того, какое применится по каскаду. Без
+       inset (план 0.3/0.4: запрет inset — нет в старых webview), только
+       top/right/bottom/left. Кроссфейд — opacity 1.2s ease-in-out (design
+       screen 12); Ken Burns (14s, 1.00→1.08) — уже в правиле
+       .lumen-backdrop.lumen-motion-full .lumen-bg__img.is-active ниже. */
+    css.push('.lumen-backdrop .lumen-bg__img{position:absolute;top:0;right:0;bottom:0;left:0;background-position:72% 32%;background-repeat:no-repeat;-webkit-background-size:cover;background-size:cover;opacity:0;-webkit-transition:opacity 1.2s ease-in-out;transition:opacity 1.2s ease-in-out}');
+    css.push('.lumen-backdrop .lumen-bg__img.is-active{opacity:1}');
     css.push('.lumen-backdrop__veil{position:absolute;top:0;left:0;right:0;bottom:0}');
     css.push('.lumen-backdrop__veil--l{background:linear-gradient(90deg,rgba(11,9,8,0.96) 0%,rgba(11,9,8,0.88) 30%,rgba(11,9,8,0.35) 58%,rgba(11,9,8,0) 82%)}');
     css.push('.lumen-backdrop__veil--b{background:linear-gradient(0deg,rgba(11,9,8,0.98) 0%,rgba(11,9,8,0.60) 28%,rgba(11,9,8,0) 60%)}');
@@ -511,8 +523,12 @@
        анимацию гасим так же, как в off. */
     css.push('.lumen-card.lumen-motion-lite .full-start__button{-webkit-animation:none !important;animation:none !important}');
 
-    /* Бэкдроп: медленный наезд (Ken Burns). Класс .lumen-bg__img подготовлен для слайдшоу кадров Task 6. */
-    css.push('.lumen-card.lumen-motion-full .lumen-bg__img.is-active{-webkit-animation:lumen-kb 14s linear forwards;animation:lumen-kb 14s linear forwards}');
+    /* Бэкдроп: медленный наезд (Ken Burns). Класс .lumen-bg__img подготовлен для слайдшоу кадров Task 6.
+       Task 6 (исправление): корень — .lumen-backdrop, а не .lumen-card. Слой фона лежит в e.body, вне
+       .lumen-card (сосед, не потомок — см. 50_backdrops.js/syncMotionClass) — с корнем .lumen-card этот
+       потомковый селектор не находил бы .lumen-bg__img вовсе, и наезд никогда бы не включался. Режим
+       анимаций на .lumen-backdrop зеркалит syncMotionClass() при каждом успешном apply(). */
+    css.push('.lumen-backdrop.lumen-motion-full .lumen-bg__img.is-active{-webkit-animation:lumen-kb 14s linear forwards;animation:lumen-kb 14s linear forwards}');
     css.push('@-webkit-keyframes lumen-kb{from{-webkit-transform:scale(1)}to{-webkit-transform:scale(1.08)}}');
     css.push('@keyframes lumen-kb{from{transform:scale(1)}to{transform:scale(1.08)}}');
 
@@ -1060,7 +1076,12 @@
   /* (root, body, movie) и LC.backdrops.cancel(body); apply вызывает        */
   /* Listener 'full' в 90_runtime.js на complite (там же, где раньше был    */
   /* applyBackdrop), cancel — 'activity' destroy (правки координатора,      */
-  /* п.4). Task 6 добавит сюда же pickBackdrops и слайдшоу кадров. URL      */
+  /* п.4). Task 6: LC.backdrops.pickBackdrops (чистая функция отбора        */
+  /* кадров) и слайдшоу кадров внутри .lumen-backdrop (.lumen-bg__img /     */
+  /* .is-active, Ken Burns из Task 4). apply() возвращает контроллер        */
+  /* слайдшоу {pause,resume,destroy} — 90_runtime.js хранит его в           */
+  /* LC.active.slideshow и дёргает pause/resume из той же подписки          */
+  /* 'activity' (archive/start), cancel(body) вызывает destroy(). URL       */
   /* любых картинок — только через LC.cardinfo.imageUrl (план 0.2           */
   /* «Картинки», прокси TMDB, без двойного слэша). */
   /* -------------------------------------------------------------------- */
@@ -1137,11 +1158,18 @@
     try { return !!(node && document.documentElement && document.documentElement.contains(node)); } catch (e) { return false; }
   }
 
+  /* Task 6: .lumen-bg__slides — контейнер для дополнительных кадров
+     слайдшоу (первый кадр остаётся .lumen-backdrop__img — грузится он
+     один раз в loadBackdrop(), см. ниже). Вставлен ДО вуалей в разметке,
+     поэтому и он сам, и все кадры, которые в него добавит слайдшоу,
+     всегда рисуются под вуалями (план: «вуали слоя остаются поверх
+     кадров») — без явного z-index, просто по порядку в DOM. */
   function ensureLayer(body) {
     var layer = body.children('.lumen-backdrop');
     if (!layer.length) {
       layer = $('<div class="lumen-backdrop">' +
         '<div class="lumen-backdrop__img"></div>' +
+        '<div class="lumen-bg__slides"></div>' +
         '<div class="lumen-backdrop__veil lumen-backdrop__veil--l"></div>' +
         '<div class="lumen-backdrop__veil lumen-backdrop__veil--b"></div>' +
         '<div class="lumen-backdrop__veil lumen-backdrop__veil--t"></div>' +
@@ -1151,8 +1179,16 @@
     return layer;
   }
 
+  /* Task 6: тот же layer (то же e.body) может получить apply() ещё раз
+     (смена карточки без полного размонтирования слоя — тот же сценарий,
+     ради которого уже существуют lumenGen/lumenPending) — сбрасываем и
+     кадры предыдущего слайдшоу: .lumen-backdrop__img теряет
+     lumen-bg__img/is-active (иначе на нём ещё секунду доиграл бы Ken
+     Burns предыдущей карточки), .lumen-bg__slides опустошается. */
   function clearLayer(layer) {
     layer.removeClass('lumen-backdrop--proc0 lumen-backdrop--proc1 lumen-backdrop--proc2 lumen-bg--blur');
+    layer.find('.lumen-backdrop__img').removeClass('lumen-bg__img is-active');
+    layer.find('.lumen-bg__slides').empty();
   }
 
   /* Ревью Task 5b (правки координатора, п.2/4): у каждого слоя — счётчик
@@ -1205,8 +1241,15 @@
      Ревью Task 5b (правки координатора, п.3): весь блок ПОСЛЕ проверки
      isMounted — в одном try/catch (как было в v1): encodeURI может бросить
      URIError на «сломанном» URL, showNoFrame тоже может исключить —
-     раньше try/catch стоял только вокруг успешной ветки. */
-  function loadBackdrop(layer, movie, gen) {
+     раньше try/catch стоял только вокруг успешной ветки.
+     Task 6: пятый параметр controller — контроллер слайдшоу этого apply()
+     (см. createSlideshow ниже), уже создан и ждёт на layer.data
+     ('lumenSlideshow') к моменту, когда сеть ответит. Первый кадр
+     слайдшоу — именно этот, уже загружаемый здесь, .lumen-backdrop__img
+     (план: «не грузить его дважды») — controller.activate() только
+     помечает узел классами и решает, отбирать ли ещё кадры/заводить ли
+     таймер, новой загрузки не делает. */
+  function loadBackdrop(layer, movie, gen, controller) {
     var url = backdropUrl(movie);
     var img = layer.find('.lumen-backdrop__img');
 
@@ -1235,6 +1278,14 @@
           /* encodeURI страхует от "/\/) в URL, которые сломали бы строку url("...") */
           img.css('background-image', 'url("' + encodeURI(url) + '")');
           layer.addClass('loaded');
+          /* Task 6: syncMotionClass раньше вызывался только из showNoFrame
+             (poster/procedural/таймаут) — успешный кадр 'backdrop' класс
+             lumen-motion-* на layer не получал вовсе, а Ken Burns (Task 4,
+             30_css.js) заведён именно на .lumen-backdrop.lumen-motion-full
+             .lumen-bg__img.is-active. Без этой строки наезд не включался
+             бы никогда. */
+          syncMotionClass(layer);
+          controller.activate(movie);
         } else {
           showNoFrame(layer, movie);
         }
@@ -1266,6 +1317,14 @@
     }
   }
 
+  /* Task 6: apply() теперь возвращает контроллер слайдшоу {pause,resume,
+     destroy} — 90_runtime.js кладёт его в LC.active.slideshow сразу
+     (синхронно, до ответа сети: сам контроллер создаётся здесь же, ниже,
+     ДО loadBackdrop()/showNoFrame(); pause/resume/destroy на нём безопасны
+     в любой момент — до активации слайдшоу (ещё грузится первый кадр или
+     режим не 'backdrop') это просто no-op, см. createSlideshow). На ранних
+     return (нет body) и в catch — undefined, вызывающая сторона это уже
+     проверяет через `if (LC.active.slideshow)`. */
   function apply(root, body, movie) {
     try {
       if (!body || !body.length) return;
@@ -1283,13 +1342,20 @@
 
       var layer = ensureLayer(body);
       /* Отменяем незавершённую загрузку ПРЕДЫДУЩЕГО apply() на этом же
-         слое ДО того, как начнём новую (правки координатора, п.2). */
+         слое ДО того, как начнём новую (правки координатора, п.2), и
+         останавливаем слайдшоу предыдущего вызова той же логикой (Task 6). */
       cancelPending(layer);
+      stopSlideshow(layer);
       clearLayer(layer);
       var gen = nextGen(layer);
 
-      if (mode === 'backdrop') loadBackdrop(layer, movie, gen);
+      var controller = createSlideshow(layer);
+      layer.data('lumenSlideshow', controller);
+
+      if (mode === 'backdrop') loadBackdrop(layer, movie, gen, controller);
       else showNoFrame(layer, movie);
+
+      return controller;
     } catch (e) {
       warn('backdrop failed', e);
     }
@@ -1298,19 +1364,224 @@
   /* Ревью Task 5b (правки координатора, п.4): хук закрытия карточки —
      90_runtime.js вызывает это на 'activity' destroy СВОЕЙ активности
      (LC.active), до того как Lampa уберёт DOM сама. Идемпотентен: повторный
-     вызов на уже отменённом/отсутствующем слое ничего не делает. */
+     вызов на уже отменённом/отсутствующем слое ничего не делает.
+     Task 6: тем же вызовом останавливаем и слайдшоу (иначе его
+     setInterval пережил бы закрытие карточки — план 0.3, инвариант 5). */
   function cancel(body) {
     try {
       if (!body || !body.length) return;
       var layer = body.children('.lumen-backdrop');
       if (!layer.length) return;
       cancelPending(layer);
+      stopSlideshow(layer);
     } catch (e) {
       warn('backdrop cancel failed', e);
     }
   }
 
-  LC.backdrops = { apply: apply, cancel: cancel };
+  /* -------------------------------------------------------------------- */
+  /* Task 6: слайдшоу кадров.                                              */
+  /* -------------------------------------------------------------------- */
+
+  /* Шаг 1/2 (TDD): images — movie.images (может быть undefined), main —
+     LC.cardinfo.backdropPath(movie) (главный кадр, всегда первым и без
+     дублей), max — сколько кадров всего вернуть. Кадры с текстом/логотипом
+     (iso_639_1 непустой) отбрасываются; из оставшихся сперва идут широкие
+     (>= 1280 по width), затем по убыванию vote_average — так у "узких"
+     дублей меньше шансов попасть в max. Правки координатора: тест ниже
+     ожидает ['/main', '/c', '/a'] для эталонных данных (у /d ширина 800 —
+     он в конце очереди и в max=3 не попадает) — логика функции не менялась
+     относительно черновика Step 2, поправлено только ожидание теста. */
+  function pickBackdrops(images, main, max) {
+    var list = (images && images.backdrops) ? images.backdrops : [];
+    var clean = LC.util.filter(list, function (b) { return b && b.file_path && !b.iso_639_1 && b.file_path !== main; });
+    clean.sort(function (x, y) {
+      var wx = (x.width || 0) >= 1280 ? 1 : 0, wy = (y.width || 0) >= 1280 ? 1 : 0;
+      if (wx !== wy) return wy - wx;
+      return (y.vote_average || 0) - (x.vote_average || 0);
+    });
+    var r = main ? [main] : [];
+    LC.util.each(clean, function (b) { if (r.length < max) r.push(b.file_path); });
+    return r;
+  }
+
+  /* Настройки Task 6 (src/80_settings.js): имена без префикса PLUGIN,
+     как lumen_motion. lumen_slideshow — вкл/выкл по умолчанию вкл;
+     lumen_slide_interval — '8'|'14'|'20' (секунды), по умолчанию '14'. */
+  function slideshowEnabled() {
+    return !!LC.pref('lumen_slideshow', true);
+  }
+
+  function slideIntervalMs() {
+    var n = parseInt(LC.pref('lumen_slide_interval', '14'), 10);
+    if (n !== 8 && n !== 14 && n !== 20) n = 14;
+    return n * 1000;
+  }
+
+  /* Максимум кадров по режиму анимаций (план: full 8, lite 4, off 1 без
+     смены) — off даёт pickBackdrops max=1, т.е. только главный кадр, и
+     сама возможность завести таймер ротации отпадает ниже без отдельной
+     проверки режима (urls.length <= 1). */
+  function maxFramesFor(mode) {
+    if (mode === 'off') return 1;
+    if (mode === 'lite') return 4;
+    return 8;
+  }
+
+  /* Task 6, Ревью (симметрично stopSlideshow ниже): достаёт и уничтожает
+     контроллер слайдшоу, привязанный к слою через layer.data
+     ('lumenSlideshow') — общая точка входа и для apply() (гасит слайдшоу
+     ПРЕДЫДУЩЕГО вызова на том же layer) и для cancel() (закрытие карточки). */
+  function stopSlideshow(layer) {
+    var s = layer.data('lumenSlideshow');
+    if (s) { try { s.destroy(); } catch (e) { } }
+    layer.removeData('lumenSlideshow');
+  }
+
+  /* Контроллер слайдшоу для ОДНОГО layer/apply(). Создаётся синхронно в
+     apply() (до ответа сети) в неактивном состоянии — pause/resume/destroy
+     безопасны сразу, но ничего не делают, пока activate(movie) не вызван
+     (это делает loadBackdrop() из finish(true), т.е. когда первый кадр,
+     .lumen-backdrop__img, уже реально показан — план: «не грузить его
+     дважды»). activate() помечает этот узел lumen-bg__img/is-active
+     (Ken Burns, Task 4/30_css.js) и, если включена настройка и есть больше
+     одного кадра, заводит ротацию. Дальнейшие кадры — элементы
+     .lumen-bg__img внутри .lumen-bg__slides, предзагружаются Image() и
+     показываются только по onload; битый кадр (onerror) помечается false
+     и пропускается — advance() пробует следующий по очереди, но не больше
+     urls.length попыток за один тик (чтобы не зациклиться, если битые все). */
+  function createSlideshow(layer) {
+    var alive = true;
+    var paused = false;
+    var timer = null;
+    var pendingLoader = null;
+    var frames = null;   // null, пока activate() не вызван
+    var urls = null;
+    var idx = 0;
+    var lastFrameEl = null;
+
+    function isLayerMounted() {
+      return isMounted(layer[0]);
+    }
+
+    function stopTimer() {
+      if (timer) { clearInterval(timer); timer = null; }
+    }
+
+    function setActive(i) {
+      for (var k = 0; k < frames.length; k++) {
+        if (frames[k]) frames[k].toggleClass('is-active', k === i);
+      }
+    }
+
+    function ensureFrame(i, cb) {
+      if (frames[i] === false) { cb(null); return; }
+      if (frames[i]) { cb(frames[i]); return; }
+      var url = urls[i];
+      if (!url) { frames[i] = false; cb(null); return; }
+      var loader = new Image();
+      pendingLoader = loader;
+      loader.onload = function () {
+        if (pendingLoader !== loader) return;
+        pendingLoader = null;
+        if (!alive || !isLayerMounted()) return;
+        try {
+          var el = $('<div class="lumen-bg__img"></div>');
+          el.css('background-image', 'url("' + encodeURI(url) + '")');
+          layer.find('.lumen-bg__slides').append(el);
+          lastFrameEl = el;
+          frames[i] = el;
+          cb(el);
+        } catch (e) {
+          warn('slideshow frame failed', e);
+          frames[i] = false;
+          cb(null);
+        }
+      };
+      loader.onerror = function () {
+        if (pendingLoader !== loader) return;
+        pendingLoader = null;
+        frames[i] = false;
+        cb(null);
+      };
+      loader.src = url;
+    }
+
+    /* offset растёт при каждом битом кадре в рамках одного тика (план:
+       «битый — пропускается»); offset > urls.length — все кандидаты уже
+       перепробованы в этот тик, остаёмся на текущем кадре до следующего. */
+    function tryFrom(offset) {
+      if (!alive || paused || !frames) return;
+      if (!isLayerMounted()) { destroy(); return; }
+      if (offset > urls.length) return;
+      var next = (idx + offset) % urls.length;
+      ensureFrame(next, function (el) {
+        if (!alive || paused || !frames) return;
+        if (!isLayerMounted()) { destroy(); return; }
+        if (!el) { tryFrom(offset + 1); return; }
+        idx = next;
+        setActive(idx);
+      });
+    }
+
+    function advance() { tryFrom(1); }
+
+    function startTimer() {
+      if (timer || !frames || urls.length <= 1) return;
+      timer = setInterval(advance, slideIntervalMs());
+    }
+
+    function activate(movie) {
+      if (!alive || frames) return; // уже активирован
+      try {
+        var main = LC.cardinfo.backdropPath(movie);
+        var max = maxFramesFor(LC.motionMode());
+        var paths = LC.backdrops.pickBackdrops(movie.images, main, max);
+        urls = LC.util.map(paths, function (p) { return LC.cardinfo.imageUrl(p, 'w1280', tmdbImageFn(), apiImgFn()); });
+        frames = [];
+        var firstNode = layer.find('.lumen-backdrop__img');
+        firstNode.addClass('lumen-bg__img is-active');
+        frames[0] = firstNode;
+        lastFrameEl = firstNode;
+        idx = 0;
+        if (slideshowEnabled() && !paused) startTimer();
+      } catch (e) {
+        warn('slideshow activate failed', e);
+      }
+    }
+
+    function destroy() {
+      alive = false;
+      stopTimer();
+      if (pendingLoader) { pendingLoader.onload = null; pendingLoader.onerror = null; pendingLoader = null; }
+    }
+
+    return {
+      activate: activate,
+      /* archive своей активности (Task 6, "поправки контроллера") — ставит
+         на паузу текущий кадр, не сбрасывая его. */
+      pause: function () { paused = true; stopTimer(); },
+      /* start своей активности, а также включение lumen_slideshow /
+         смена lumen_slide_interval на открытой карточке (90_runtime.js
+         LC.applySlideshowPref вызывает pause()+resume() на каждое
+         изменение — resume() всегда читает slideIntervalMs()/motionMode
+         заново, поэтому подхватывает и новый интервал). */
+      resume: function () {
+        paused = false;
+        if (alive && frames && slideshowEnabled()) startTimer();
+      },
+      destroy: destroy
+    };
+  }
+
+  LC.backdrops = { apply: apply, cancel: cancel, pickBackdrops: pickBackdrops };
+
+  /* В браузере "module" не определён — ветка не выполняется. Экспорт нужен
+     только test/backdrops.test.mjs (Step 1, TDD pickBackdrops) через общий
+     test/_load.mjs — остальные тесты этого файла грузят модуль своим
+     загрузчиком (DOM-заглушки) и обращаются к LC.backdrops напрямую, им
+     module.exports не требуется. */
+  if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.backdrops;
 
 
 /* ---- 70_progress.js ---- */
@@ -1397,7 +1668,10 @@
     lumen_card_min: { ru: 'мин', en: 'min', uk: 'хв' },
     lumen_card_director: { ru: 'реж.', en: 'dir.', uk: 'реж.' },
     lumen_card_status_soon: { ru: 'Анонс', en: 'Announced', uk: 'Анонс' },
-    lumen_card_reactions: { ru: 'РЕАКЦИЙ', en: 'REACTIONS', uk: 'РЕАКЦІЙ' }
+    lumen_card_reactions: { ru: 'РЕАКЦИЙ', en: 'REACTIONS', uk: 'РЕАКЦІЙ' },
+    lumen_card_slideshow_name: { ru: 'Слайдшоу кадров', en: 'Backdrop slideshow', uk: 'Слайдшоу кадрів' },
+    lumen_card_slide_interval: { ru: 'Интервал смены кадров', en: 'Frame interval', uk: 'Інтервал зміни кадрів' },
+    lumen_card_seconds: { ru: 'с', en: 's', uk: 'с' }
   };
 
   function langCode() {
@@ -1517,6 +1791,29 @@
         field: { name: LC.lang('lumen_card_motion') },
         onChange: function () { LC.applyMotionMode(); }
       });
+
+      /* Task 6: имена без префикса PLUGIN, как у lumen_motion выше —
+         LC.followStorage подписан на них отдельной веткой, вне общего
+         префиксного фильтра PLUGIN + '_'. onChange у обоих — одна и та же
+         LC.applySlideshowPref (90_runtime.js): и выключение, и смена
+         интервала на уже открытой карточке идут через pause()+resume()
+         контроллера слайдшоу. */
+      Lampa.SettingsApi.addParam({
+        component: PLUGIN,
+        param: { name: 'lumen_slideshow', type: 'trigger', 'default': true },
+        field: { name: LC.lang('lumen_card_slideshow_name') },
+        onChange: function () { LC.applySlideshowPref(); }
+      });
+
+      var seconds = LC.lang('lumen_card_seconds');
+      var intervalValues = { '8': '8 ' + seconds, '14': '14 ' + seconds, '20': '20 ' + seconds };
+
+      Lampa.SettingsApi.addParam({
+        component: PLUGIN,
+        param: { name: 'lumen_slide_interval', type: 'select', values: intervalValues, 'default': '14' },
+        field: { name: LC.lang('lumen_card_slide_interval') },
+        onChange: function () { LC.applySlideshowPref(); }
+      });
     } catch (e) {
       warn('settings failed', e);
     }
@@ -1528,6 +1825,7 @@
       Lampa.Storage.listener.follow('change', function (e) {
         if (!e || !e.name) return;
         if (e.name === 'lumen_motion') { LC.applyMotionMode(); return; }
+        if (e.name === 'lumen_slideshow' || e.name === 'lumen_slide_interval') { LC.applySlideshowPref(); return; }
         if (e.name.indexOf(PLUGIN + '_') !== 0) return;
         if (e.name === PLUGIN + '_fonts') LC.injectFonts();
         LC.injectCss();
@@ -1948,40 +2246,83 @@
   /* Task 5b (правки координатора, п.4): хук закрытия карточки.             */
   /* -------------------------------------------------------------------- */
 
-  /* Активность открытой карточки — {object, body} с события 'full' complite.
-     Одно значение, не стек: если вторая карточка открылась раньше, чем
-     destroy первой дошёл до слушателя, LC.active уже указывает на вторую —
-     destroy первой тогда просто пропускается (её слой всё равно самоочистится
-     через isMounted() в 50_backdrops.js, это лишь более раннее/явное
-     закрытие для типичного случая). Структура держится расширяемой — Task 6
-     положит сюда же состояние слайдшоу. */
+  /* Активность открытой карточки — {object, body, slideshow} с события
+     'full' complite. Одно значение, не стек: если вторая карточка
+     открылась раньше, чем destroy первой дошёл до слушателя, LC.active уже
+     указывает на вторую — destroy первой тогда просто пропускается (её
+     слой всё равно самоочистится через isMounted() в 50_backdrops.js, это
+     лишь более раннее/явное закрытие для типичного случая). slideshow —
+     контроллер {pause,resume,destroy} из LC.backdrops.apply() (Task 6). */
   LC.active = null;
 
   var activity_followed = false;
 
-  /* Одна подписка на 'activity' за всё время жизни плагина: на destroy СВОЕЙ
-     активности отменяем незавершённую загрузку фона (LC.backdrops.cancel) —
-     до слайдшоу Task 6 (интервал) это не самоочистится через isMounted()
-     так же надёжно, как один одноразовый таймаут. */
-  function followActivityDestroy() {
+  /* Одна подписка на 'activity' за всё время жизни плагина (правки
+     координатора к Task 6: вторую подписку не заводить, расширяем эту же).
+     destroy СВОЕЙ активности — как раньше, отменяем незавершённую загрузку
+     фона и слайдшоу (LC.backdrops.cancel).
+
+     ВАЖНО (расхождение с планом, проверено живьём и по исходнику
+     vendor/lampa/app.min.js на локальной Lampa 3.3.4): план предполагал
+     "archive своей активности (ушли вглубь) -> pause, start -> resume".
+     В реальном коде это не так — Activity.push() (уход вглубь, на новую
+     карточку) НЕ шлёт для оставленной активности вообще никакого события
+     'activity' (ни archive, ни pause/stop — проверено логом Listener.follow
+     до/после push). Событие 'archive' в этой сборке шлёт только backward()
+     (app.min.js, функция backward()), и не для активности, которую
+     ПОКИДАЮТ, а для той, К КОТОРОЙ ВОЗВРАЩАЮТСЯ — сразу ПОСЛЕ 'start' для
+     того же object (start$4() внутри backward() уже шлёт 'start', following
+     строка шлёт ещё и 'archive'). Поэтому archive->pause (как в плане) на
+     самом деле ставил бы слайдшоу на паузу ровно в момент ВОЗВРАТА к
+     карточке — обратный эффект. Ниже — поведение, соответствующее
+     фактическим событиям: 'start' и 'archive' своей активности оба
+     означают «эта активность снова видна» -> resume() (идемпотентно,
+     resume() дважды безопасен). Пауза при уходе вглубь (Activity.push
+     поверх открытой карточки) в этой версии Lampa через Listener.follow
+     ('activity') не детектируется — второй подписки (например, опрос
+     document.visibilityState) план заводить не даёт, поэтому эта часть
+     Task 6 (live-check п.4, «уйти вглубь -> пауза») не реализована и
+     отмечена как открытый вопрос в отчёте задачи. */
+  function followActivityLifecycle() {
     if (activity_followed) return;
     activity_followed = true;
     try {
       if (!window.Lampa || !Lampa.Listener) return;
       Lampa.Listener.follow('activity', function (e) {
         try {
-          if (!e || e.type !== 'destroy') return;
-          if (!LC.active || e.object !== LC.active.object) return;
-          LC.backdrops.cancel(LC.active.body);
-          LC.active = null;
+          if (!e || !LC.active || e.object !== LC.active.object) return;
+          if (e.type === 'destroy') {
+            LC.backdrops.cancel(LC.active.body);
+            LC.active = null;
+          } else if (e.type === 'archive' || e.type === 'start') {
+            if (LC.active.slideshow) LC.active.slideshow.resume();
+          }
         } catch (err) {
-          warn('activity destroy failed', err);
+          warn('activity listener failed', err);
         }
       });
     } catch (e2) {
       warn('activity listener failed', e2);
     }
   }
+
+  /* Task 6: lumen_slideshow/lumen_slide_interval меняются на уже открытой
+     карточке через LC.followStorage (80_settings.js). pause()+resume() —
+     единственные операции на контроллере (план: LC.active.slideshow =
+     {pause,resume,destroy}), поэтому оба случая идут через них: выключили
+     — pause() без resume() (остановка на текущем кадре); включили или
+     сменили интервал — resume() читает slideIntervalMs()/lumen_slideshow
+     заново и either запускает ротацию, либо (если всё ещё выключено)
+     остаётся no-op. */
+  LC.applySlideshowPref = function () {
+    try {
+      if (!LC.active || !LC.active.slideshow) return;
+      LC.active.slideshow.pause();
+      if (LC.pref('lumen_slideshow', true)) LC.active.slideshow.resume();
+    } catch (e) {
+      warn('slideshow pref failed', e);
+    }
+  };
 
   /* -------------------------------------------------------------------- */
   /* Инициализация.                                                        */
@@ -2053,9 +2394,9 @@
           } else if (e.type === 'complite') {
             var root = findRoot(e);
             LC.header.decorate(root, e.data);
-            LC.backdrops.apply(root, e.body, (e.data && e.data.movie) || {});
+            var slideshow = LC.backdrops.apply(root, e.body, (e.data && e.data.movie) || {});
             applyMotionMode(root);
-            LC.active = { object: e.object, body: e.body };
+            LC.active = { object: e.object, body: e.body, slideshow: slideshow };
           }
         } catch (err) {
           warn('listener failed', err);
@@ -2063,7 +2404,7 @@
       });
 
       followToggle();
-      followActivityDestroy();
+      followActivityLifecycle();
     } catch (e) {
       warn('init failed', e);
       restoreOriginalTemplate();

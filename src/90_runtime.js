@@ -85,40 +85,83 @@
   /* Task 5b (правки координатора, п.4): хук закрытия карточки.             */
   /* -------------------------------------------------------------------- */
 
-  /* Активность открытой карточки — {object, body} с события 'full' complite.
-     Одно значение, не стек: если вторая карточка открылась раньше, чем
-     destroy первой дошёл до слушателя, LC.active уже указывает на вторую —
-     destroy первой тогда просто пропускается (её слой всё равно самоочистится
-     через isMounted() в 50_backdrops.js, это лишь более раннее/явное
-     закрытие для типичного случая). Структура держится расширяемой — Task 6
-     положит сюда же состояние слайдшоу. */
+  /* Активность открытой карточки — {object, body, slideshow} с события
+     'full' complite. Одно значение, не стек: если вторая карточка
+     открылась раньше, чем destroy первой дошёл до слушателя, LC.active уже
+     указывает на вторую — destroy первой тогда просто пропускается (её
+     слой всё равно самоочистится через isMounted() в 50_backdrops.js, это
+     лишь более раннее/явное закрытие для типичного случая). slideshow —
+     контроллер {pause,resume,destroy} из LC.backdrops.apply() (Task 6). */
   LC.active = null;
 
   var activity_followed = false;
 
-  /* Одна подписка на 'activity' за всё время жизни плагина: на destroy СВОЕЙ
-     активности отменяем незавершённую загрузку фона (LC.backdrops.cancel) —
-     до слайдшоу Task 6 (интервал) это не самоочистится через isMounted()
-     так же надёжно, как один одноразовый таймаут. */
-  function followActivityDestroy() {
+  /* Одна подписка на 'activity' за всё время жизни плагина (правки
+     координатора к Task 6: вторую подписку не заводить, расширяем эту же).
+     destroy СВОЕЙ активности — как раньше, отменяем незавершённую загрузку
+     фона и слайдшоу (LC.backdrops.cancel).
+
+     ВАЖНО (расхождение с планом, проверено живьём и по исходнику
+     vendor/lampa/app.min.js на локальной Lampa 3.3.4): план предполагал
+     "archive своей активности (ушли вглубь) -> pause, start -> resume".
+     В реальном коде это не так — Activity.push() (уход вглубь, на новую
+     карточку) НЕ шлёт для оставленной активности вообще никакого события
+     'activity' (ни archive, ни pause/stop — проверено логом Listener.follow
+     до/после push). Событие 'archive' в этой сборке шлёт только backward()
+     (app.min.js, функция backward()), и не для активности, которую
+     ПОКИДАЮТ, а для той, К КОТОРОЙ ВОЗВРАЩАЮТСЯ — сразу ПОСЛЕ 'start' для
+     того же object (start$4() внутри backward() уже шлёт 'start', following
+     строка шлёт ещё и 'archive'). Поэтому archive->pause (как в плане) на
+     самом деле ставил бы слайдшоу на паузу ровно в момент ВОЗВРАТА к
+     карточке — обратный эффект. Ниже — поведение, соответствующее
+     фактическим событиям: 'start' и 'archive' своей активности оба
+     означают «эта активность снова видна» -> resume() (идемпотентно,
+     resume() дважды безопасен). Пауза при уходе вглубь (Activity.push
+     поверх открытой карточки) в этой версии Lampa через Listener.follow
+     ('activity') не детектируется — второй подписки (например, опрос
+     document.visibilityState) план заводить не даёт, поэтому эта часть
+     Task 6 (live-check п.4, «уйти вглубь -> пауза») не реализована и
+     отмечена как открытый вопрос в отчёте задачи. */
+  function followActivityLifecycle() {
     if (activity_followed) return;
     activity_followed = true;
     try {
       if (!window.Lampa || !Lampa.Listener) return;
       Lampa.Listener.follow('activity', function (e) {
         try {
-          if (!e || e.type !== 'destroy') return;
-          if (!LC.active || e.object !== LC.active.object) return;
-          LC.backdrops.cancel(LC.active.body);
-          LC.active = null;
+          if (!e || !LC.active || e.object !== LC.active.object) return;
+          if (e.type === 'destroy') {
+            LC.backdrops.cancel(LC.active.body);
+            LC.active = null;
+          } else if (e.type === 'archive' || e.type === 'start') {
+            if (LC.active.slideshow) LC.active.slideshow.resume();
+          }
         } catch (err) {
-          warn('activity destroy failed', err);
+          warn('activity listener failed', err);
         }
       });
     } catch (e2) {
       warn('activity listener failed', e2);
     }
   }
+
+  /* Task 6: lumen_slideshow/lumen_slide_interval меняются на уже открытой
+     карточке через LC.followStorage (80_settings.js). pause()+resume() —
+     единственные операции на контроллере (план: LC.active.slideshow =
+     {pause,resume,destroy}), поэтому оба случая идут через них: выключили
+     — pause() без resume() (остановка на текущем кадре); включили или
+     сменили интервал — resume() читает slideIntervalMs()/lumen_slideshow
+     заново и either запускает ротацию, либо (если всё ещё выключено)
+     остаётся no-op. */
+  LC.applySlideshowPref = function () {
+    try {
+      if (!LC.active || !LC.active.slideshow) return;
+      LC.active.slideshow.pause();
+      if (LC.pref('lumen_slideshow', true)) LC.active.slideshow.resume();
+    } catch (e) {
+      warn('slideshow pref failed', e);
+    }
+  };
 
   /* -------------------------------------------------------------------- */
   /* Инициализация.                                                        */
@@ -190,9 +233,9 @@
           } else if (e.type === 'complite') {
             var root = findRoot(e);
             LC.header.decorate(root, e.data);
-            LC.backdrops.apply(root, e.body, (e.data && e.data.movie) || {});
+            var slideshow = LC.backdrops.apply(root, e.body, (e.data && e.data.movie) || {});
             applyMotionMode(root);
-            LC.active = { object: e.object, body: e.body };
+            LC.active = { object: e.object, body: e.body, slideshow: slideshow };
           }
         } catch (err) {
           warn('listener failed', err);
@@ -200,7 +243,7 @@
       });
 
       followToggle();
-      followActivityDestroy();
+      followActivityLifecycle();
     } catch (e) {
       warn('init failed', e);
       restoreOriginalTemplate();

@@ -76,6 +76,18 @@
     css.push('.lumen-backdrop{position:absolute;top:0;left:0;width:100%;height:100vh;z-index:-1;overflow:hidden;opacity:0;-webkit-transition:opacity .5s ease;transition:opacity .5s ease;pointer-events:none}');
     css.push('.lumen-backdrop.loaded{opacity:1}');
     css.push('.lumen-backdrop__img{position:absolute;top:0;left:0;right:0;bottom:0;background-position:72% 32%;background-repeat:no-repeat;-webkit-background-size:cover;background-size:cover}');
+    /* Task 6: кадры слайдшоу — .lumen-bg__img (первый кадр — тот же узел
+       .lumen-backdrop__img, получает этот класс дополнительно к своему;
+       следующие кадры — отдельные div внутри .lumen-bg__slides, см.
+       src/50_backdrops.js). Позиционирование/масштаб повторяют
+       .lumen-backdrop__img (72% 32%, cover) — оба правила должны выглядеть
+       одинаково независимо от того, какое применится по каскаду. Без
+       inset (план 0.3/0.4: запрет inset — нет в старых webview), только
+       top/right/bottom/left. Кроссфейд — opacity 1.2s ease-in-out (design
+       screen 12); Ken Burns (14s, 1.00→1.08) — уже в правиле
+       .lumen-backdrop.lumen-motion-full .lumen-bg__img.is-active ниже. */
+    css.push('.lumen-backdrop .lumen-bg__img{position:absolute;top:0;right:0;bottom:0;left:0;background-position:72% 32%;background-repeat:no-repeat;-webkit-background-size:cover;background-size:cover;opacity:0;-webkit-transition:opacity 1.2s ease-in-out;transition:opacity 1.2s ease-in-out}');
+    css.push('.lumen-backdrop .lumen-bg__img.is-active{opacity:1}');
     css.push('.lumen-backdrop__veil{position:absolute;top:0;left:0;right:0;bottom:0}');
     css.push('.lumen-backdrop__veil--l{background:linear-gradient(90deg,rgba(11,9,8,0.96) 0%,rgba(11,9,8,0.88) 30%,rgba(11,9,8,0.35) 58%,rgba(11,9,8,0) 82%)}');
     css.push('.lumen-backdrop__veil--b{background:linear-gradient(0deg,rgba(11,9,8,0.98) 0%,rgba(11,9,8,0.60) 28%,rgba(11,9,8,0) 60%)}');
@@ -290,8 +302,12 @@
        анимацию гасим так же, как в off. */
     css.push('.lumen-card.lumen-motion-lite .full-start__button{-webkit-animation:none !important;animation:none !important}');
 
-    /* Бэкдроп: медленный наезд (Ken Burns). Класс .lumen-bg__img подготовлен для слайдшоу кадров Task 6. */
-    css.push('.lumen-card.lumen-motion-full .lumen-bg__img.is-active{-webkit-animation:lumen-kb 14s linear forwards;animation:lumen-kb 14s linear forwards}');
+    /* Бэкдроп: медленный наезд (Ken Burns). Класс .lumen-bg__img подготовлен для слайдшоу кадров Task 6.
+       Task 6 (исправление): корень — .lumen-backdrop, а не .lumen-card. Слой фона лежит в e.body, вне
+       .lumen-card (сосед, не потомок — см. 50_backdrops.js/syncMotionClass) — с корнем .lumen-card этот
+       потомковый селектор не находил бы .lumen-bg__img вовсе, и наезд никогда бы не включался. Режим
+       анимаций на .lumen-backdrop зеркалит syncMotionClass() при каждом успешном apply(). */
+    css.push('.lumen-backdrop.lumen-motion-full .lumen-bg__img.is-active{-webkit-animation:lumen-kb 14s linear forwards;animation:lumen-kb 14s linear forwards}');
     css.push('@-webkit-keyframes lumen-kb{from{-webkit-transform:scale(1)}to{-webkit-transform:scale(1.08)}}');
     css.push('@keyframes lumen-kb{from{transform:scale(1)}to{transform:scale(1.08)}}');
 

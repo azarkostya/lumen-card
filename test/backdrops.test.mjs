@@ -1,5 +1,6 @@
 import test from 'node:test'; import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { load } from './_load.mjs';
 
 /* Task 5b (правки координатора): 50_backdrops.js — не «чистый» модуль
    (трогает $/Image/document/setTimeout/window.Lampa), поэтому у него нет
@@ -63,12 +64,13 @@ FakeEl.prototype.data = function (key, val) {
 FakeEl.prototype.removeData = function (key) { delete this._data[key]; return this; };
 FakeEl.prototype.append = function (child) { this._children.push(toEl(child)); return this; };
 FakeEl.prototype.prepend = function (child) { this._children.unshift(toEl(child)); return this; };
+FakeEl.prototype.empty = function () { this._children = []; return this; };
 
 const EMPTY = {
   length: 0,
-  addClass() { return this; }, removeClass() { return this; }, css() { return this; },
-  data() { }, removeData() { return this; },
-  find() { return EMPTY; }, children() { return EMPTY; }
+  addClass() { return this; }, removeClass() { return this; }, toggleClass() { return this; }, css() { return this; },
+  data() { }, removeData() { return this; }, empty() { return this; },
+  find() { return EMPTY; }, children() { return EMPTY; }, append() { return this; }
 };
 
 FakeEl.prototype.children = function (sel) {
@@ -113,25 +115,56 @@ function fakeSetTimeout(fn) { timers.push({ fn, cleared: false }); return timers
 function fakeClearTimeout(id) { const t = timers[id - 1]; if (t) t.cleared = true; }
 function fireTimer(id) { const t = timers[id - 1]; if (t && !t.cleared) t.fn(); }
 
+/* setInterval/clearInterval (Task 6: таймер ротации слайдшоу) — тот же     */
+/* ручной планировщик, что и для setTimeout выше, но отдельный список: в    */
+/* одном и том же тесте может тикать и 8с-таймаут загрузки, и интервал      */
+/* слайдшоу, и id у них независимые (оба с 1). fireInterval вызывает fn     */
+/* один раз за вызов — реальный setInterval тикает сам по себе, здесь тест  */
+/* решает, когда «наступает» каждый тик. */
+let intervals;
+function fakeSetInterval(fn) { intervals.push({ fn, cleared: false }); return intervals.length; }
+function fakeClearInterval(id) { const t = intervals[id - 1]; if (t) t.cleared = true; }
+function fireInterval(id) { const t = intervals[id - 1]; if (t && !t.cleared) t.fn(); }
+
 globalThis.window = globalThis;
 globalThis.Lampa = {
   TMDB: { image: (url) => 'https://img/' + url },
   Api: { img: (path, size) => 'https://api/' + size + '/' + path }
 };
 
-function freshLC() {
+/* mk — та же фабрика тестовых backdrop-элементов, что в плане Task 6 Step 1
+   (file_path/iso_639_1/vote_average/width, height по 16:9) — используется и
+   в тестах pickBackdrops, и в тестах слайдшоу (movie.images.backdrops). */
+function mk(p, lang, v, w = 1920) {
+  return { file_path: p, iso_639_1: lang, vote_average: v, width: w, height: Math.round(w * 9 / 16) };
+}
+
+/* opts.motion — 'full'|'lite'|'off' (по умолчанию 'full', как раньше).
+   opts.prefs — значения LC.pref (lumen_slideshow/lumen_slide_interval);
+   отсутствующий ключ возвращает переданный в LC.pref() def — так же, как
+   настоящий LC.pref читает Storage с фолбэком на default параметра. */
+function freshLC(opts) {
+  opts = opts || {};
   loaders = [];
   timers = [];
+  intervals = [];
   warnLog.length = 0;
   globalThis.$ = fakeQuery;
   globalThis.Image = FakeImage;
   globalThis.setTimeout = fakeSetTimeout;
   globalThis.clearTimeout = fakeClearTimeout;
+  globalThis.setInterval = fakeSetInterval;
+  globalThis.clearInterval = fakeClearInterval;
 
   const LC = {};
   const module = { exports: null, lumen: true };
+  loadInto(LC, module, '10_util.js');
   loadInto(LC, module, '35_cardinfo.js');
-  LC.motionMode = () => 'full';
+  LC.motionMode = () => (opts.motion || 'full');
+  const prefs = opts.prefs || {};
+  LC.pref = function (name, def) {
+    return Object.prototype.hasOwnProperty.call(prefs, name) ? prefs[name] : def;
+  };
   loadInto(LC, module, '50_backdrops.js');
   return LC;
 }
@@ -275,4 +308,178 @@ test('finish(ok=false): исключение внутри showNoFrame (img.css �
     img.css = originalCss;
   }
   assert.ok(warnLog.length > 0, 'warn должен был быть вызван');
+});
+
+/* ====================================================================== */
+/* Task 6 Step 1/2 (TDD): LC.backdrops.pickBackdrops — чистая функция,     */
+/* грузится через общий test/_load.mjs (не через freshLC() выше — та      */
+/* заглушка нужна только коду, трогающему $/Image/document/таймеры).      */
+/* Правки координатора: ожидание теста исправлено на ['/main','/c','/a']  */
+/* (у /d ширина 800 — в конце очереди, в max=3 не попадает); логика       */
+/* pickBackdrops — как в черновике Step 2, без изменений. */
+/* ====================================================================== */
+
+test('pickBackdrops: без текста, по рейтингу, не больше max, без дублей главного', () => {
+  const b = load('50_backdrops.js');
+  const images = { backdrops: [mk('/a', null, 5), mk('/b', 'en', 9), mk('/c', null, 7), mk('/d', null, 6, 800), mk('/main', null, 8)] };
+  const r = b.pickBackdrops(images, '/main', 3);
+  assert.deepEqual(r, ['/main', '/c', '/a']);
+});
+
+test('pickBackdrops: пусто -> только главный', () => {
+  const b = load('50_backdrops.js');
+  assert.deepEqual(b.pickBackdrops(null, '/m', 5), ['/m']);
+});
+
+test('pickBackdrops: нет ничего -> []', () => {
+  const b = load('50_backdrops.js');
+  assert.deepEqual(b.pickBackdrops({ backdrops: [] }, null, 5), []);
+});
+
+/* ====================================================================== */
+/* Task 6 Step 3/4/5: слайдшоу кадров внутри .lumen-backdrop.               */
+/* ====================================================================== */
+
+test('slideshow: смена кадра по таймеру (fake setInterval), следующий кадр показывается только после onload', () => {
+  const LC = freshLC({ motion: 'full', prefs: { lumen_slideshow: true, lumen_slide_interval: '14' } });
+  const body = fakeBody();
+  const movie = {
+    id: 1, backdrop_path: '/main.jpg',
+    images: { backdrops: [mk('/main.jpg', null, 9), mk('/c.jpg', null, 7), mk('/a.jpg', null, 5)] }
+  };
+
+  LC.backdrops.apply(null, body, movie);
+  const layer = mount(body._children[0]);
+  loaders[0].onload(); // первый кадр — уже загружался apply(), второй раз не грузим
+
+  assert.equal(intervals.length, 1, 'должен завестись один таймер ротации');
+  const img0 = layer.children('.lumen-backdrop__img');
+  assert.equal(img0.hasClass('lumen-bg__img'), true);
+  assert.equal(img0.hasClass('is-active'), true);
+
+  fireInterval(1);
+  assert.equal(loaders.length, 2, 'следующий кадр должен предзагружаться (второй Image())');
+  loaders[1].onload();
+
+  assert.equal(img0.hasClass('is-active'), false, 'первый кадр больше не активен (кроссфейд)');
+  const slides = layer.children('.lumen-bg__slides');
+  assert.equal(slides._children.length, 1);
+  assert.equal(slides._children[0].hasClass('is-active'), true);
+  assert.ok(String(slides._children[0]._css['background-image']).includes('c.jpg'), 'должен показаться /c.jpg (выше рейтингом, чем /a.jpg)');
+});
+
+test('slideshow: битый кадр (onerror) пропускается — показывается следующий рабочий кадр очереди', () => {
+  const LC = freshLC({ motion: 'full', prefs: { lumen_slideshow: true } });
+  const body = fakeBody();
+  const movie = {
+    id: 1, backdrop_path: '/main.jpg',
+    images: { backdrops: [mk('/main.jpg', null, 9), mk('/broken.jpg', null, 7), mk('/ok.jpg', null, 5)] }
+  };
+
+  LC.backdrops.apply(null, body, movie);
+  const layer = mount(body._children[0]);
+  loaders[0].onload();
+
+  fireInterval(1);
+  assert.equal(loaders.length, 2);
+  loaders[1].onerror(); // /broken.jpg не загрузился
+
+  assert.equal(loaders.length, 3, 'после битого кадра слайдшоу само пробует следующий по очереди в этот же тик');
+  loaders[2].onload();
+
+  const slides = layer.children('.lumen-bg__slides');
+  assert.equal(slides._children.length, 1, 'битый кадр не должен был создать DOM-узел');
+  assert.equal(slides._children[0].hasClass('is-active'), true);
+  assert.ok(String(slides._children[0]._css['background-image']).includes('ok.jpg'));
+});
+
+test('slideshow: LC.backdrops.cancel(body) останавливает таймер ротации и предзагрузку следующего кадра', () => {
+  const LC = freshLC({ motion: 'full', prefs: { lumen_slideshow: true } });
+  const body = fakeBody();
+  const movie = { id: 1, backdrop_path: '/main.jpg', images: { backdrops: [mk('/main.jpg', null, 9), mk('/c.jpg', null, 7)] } };
+
+  LC.backdrops.apply(null, body, movie);
+  mount(body._children[0]);
+  loaders[0].onload();
+  assert.equal(intervals.length, 1);
+
+  fireInterval(1); // запрос второго кадра в процессе (ещё не onload)
+  assert.equal(loaders.length, 2);
+
+  LC.backdrops.cancel(body);
+  assert.equal(intervals[0].cleared, true, 'таймер ротации должен быть очищен');
+  assert.equal(loaders[1].onload, null, 'предзагрузка следующего кадра должна быть отменена');
+  assert.equal(loaders[1].onerror, null);
+
+  assert.doesNotThrow(() => LC.backdrops.cancel(body)); // идемпотентно, как и cancel загрузки первого кадра
+});
+
+test('slideshow: pause() останавливает таймер, resume() заводит новый (с актуальным интервалом)', () => {
+  const LC = freshLC({ motion: 'full', prefs: { lumen_slideshow: true } });
+  const body = fakeBody();
+  const movie = { id: 1, backdrop_path: '/main.jpg', images: { backdrops: [mk('/main.jpg', null, 9), mk('/c.jpg', null, 7)] } };
+
+  const slideshow = LC.backdrops.apply(null, body, movie);
+  mount(body._children[0]);
+  loaders[0].onload();
+  assert.equal(intervals.length, 1);
+
+  slideshow.pause();
+  assert.equal(intervals[0].cleared, true);
+
+  fireInterval(1); // тик после pause — ничего не должно произойти
+  assert.equal(loaders.length, 1);
+
+  slideshow.resume();
+  assert.equal(intervals.length, 2, 'resume должен завести новый таймер');
+  assert.equal(intervals[1].cleared, false);
+});
+
+test('slideshow: LC.motionMode() = off -> один кадр без смены, таймер не заводится', () => {
+  const LC = freshLC({ motion: 'off', prefs: { lumen_slideshow: true } });
+  const body = fakeBody();
+  const movie = {
+    id: 1, backdrop_path: '/main.jpg',
+    images: { backdrops: [mk('/main.jpg', null, 9), mk('/c.jpg', null, 7), mk('/a.jpg', null, 5)] }
+  };
+
+  LC.backdrops.apply(null, body, movie);
+  mount(body._children[0]);
+  loaders[0].onload();
+
+  assert.equal(intervals.length, 0);
+  assert.equal(loaders.length, 1, 'дополнительные кадры не должны предзагружаться в режиме off');
+});
+
+test('slideshow: lumen_slideshow = false -> первый кадр показывается (наезд Ken Burns), но ротация не заводится', () => {
+  const LC = freshLC({ motion: 'full', prefs: { lumen_slideshow: false } });
+  const body = fakeBody();
+  const movie = { id: 1, backdrop_path: '/main.jpg', images: { backdrops: [mk('/main.jpg', null, 9), mk('/c.jpg', null, 7)] } };
+
+  LC.backdrops.apply(null, body, movie);
+  const layer = mount(body._children[0]);
+  loaders[0].onload();
+
+  const img0 = layer.children('.lumen-backdrop__img');
+  assert.equal(img0.hasClass('lumen-bg__img'), true);
+  assert.equal(img0.hasClass('is-active'), true);
+  assert.equal(intervals.length, 0, 'при выключенной настройке ротация не запускается');
+});
+
+test('slideshow: максимум кадров по режиму движения (pickBackdrops max: full=8, lite=4)', () => {
+  const many = [mk('/main.jpg', null, 9)];
+  for (let i = 0; i < 10; i++) many.push(mk('/f' + i + '.jpg', null, 5 + i));
+  const movie = { id: 1, backdrop_path: '/main.jpg', images: { backdrops: many } };
+
+  const captured = [];
+  ['full', 'lite'].forEach((motion) => {
+    const LC = freshLC({ motion, prefs: { lumen_slideshow: true } });
+    const original = LC.backdrops.pickBackdrops;
+    LC.backdrops.pickBackdrops = function (images, main, max) { captured.push(max); return original(images, main, max); };
+    const body = fakeBody();
+    LC.backdrops.apply(null, body, movie);
+    mount(body._children[0]);
+    loaders[0].onload();
+  });
+  assert.deepEqual(captured, [8, 4]);
 });
