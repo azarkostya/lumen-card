@@ -343,6 +343,26 @@
     }
   }
 
+  /* Долг ревью Task 5c (п.1): кадры только ставились и никогда не снимались —
+     после прохода фокусом по сезону в памяти оказывались ВСЕ его картинки, то
+     есть ровно то, ради чего окно и заводилось (у ежедневных шоу и аниме это
+     100+ кадров w300). Держим их в пределах ±2×STILL_WINDOW от точки интереса:
+     ближнее окно (±STILL_WINDOW) нарисовано, следующее — запас на возврат
+     фокуса назад без повторной загрузки. Снимаем и background-image, и флаг:
+     иначе loadStills сочтёт карточку уже загруженной и кадр не вернётся.
+     Пустой атрибут style="" убираем тем же приёмом, что у дорожки (setShift). */
+  function dropStills(nodes, center) {
+    var from = center - STILL_WINDOW * 2;
+    var to = center + STILL_WINDOW * 2;
+    for (var i = 0; i < nodes.length; i++) {
+      if ((i >= from && i <= to) || !nodes[i][0].lumenStill) continue;
+      nodes[i][0].lumenStill = false;
+      var still = nodes[i].find('.lumen-episode__still');
+      still.css('background-image', '');
+      clearInlineStyleIfEmpty(still);
+    }
+  }
+
   /* Внутренность карточки серии по состоянию (design-spec §9): номер, бейдж
      (галочка у просмотренной, «32 %» у начатой; в фокусе вместо него кружок
      play — экран 06), название, подпись, полоса у начатой. Узел кадра пустой —
@@ -412,14 +432,28 @@
      пишется в data-hash, по нему refreshEpisode находит карточку.
      Ревью п.7: decorate зовётся дважды (build и complite) с одним и тем же
      e.data — повторную сборку того же списка пропускаем. */
+  /* Долг ревью Task 5c (п.2): «тот же список» — это та же ссылка И та же
+     сигнатура. Lampa дописывает вышедшую серию и правит её поля прямо в том же
+     массиве e.data.episodes.episodes[], поэтому сверки по ссылке не хватало:
+     ряд оставался старым. Длина, номера краёв и дата последней серии ловят
+     реальные правки (добавили серию, сменился сезон, уточнили дату выхода), не
+     обходя весь массив на каждый decorate. */
+  function episodesSign(list) {
+    if (!list || !list.length) return '';
+    var first = list[0] || {};
+    var last = list[list.length - 1] || {};
+    return [list.length, first.episode_number, last.episode_number, last.air_date].join('|');
+  }
+
   function renderEpisodes(root, data) {
     var row = root.find('.lumen-episodes');
     if (!row.length) return;
 
     var movie = (data && data.movie) || {};
     var list = data && data.episodes && data.episodes.episodes;
+    var sign = episodesSign(list);
     var previous = row[0].lumenEpisodes;
-    if (previous && list && previous.list === list) return;
+    if (previous && list && previous.list === list && previous.sign === sign) return;
 
     var track = row.find('.lumen-episodes__track');
     row.addClass('hide');
@@ -454,7 +488,7 @@
     }
     if (!nodes.length) return;
 
-    row[0].lumenEpisodes = { list: list, nodes: nodes };
+    row[0].lumenEpisodes = { list: list, nodes: nodes, sign: sign };
     /* Видно с самого начала ряда; если сериал уже смотрят — ещё и вокруг той серии. */
     loadStills(nodes, 0);
     if (current > 0) loadStills(nodes, current);
@@ -476,7 +510,10 @@
     if (!viewport || !track.length || !node) return;
 
     var info = row.length ? row[0].lumenEpisodes : null;
-    if (info && typeof node.lumenPos === 'number') loadStills(info.nodes, node.lumenPos);
+    if (info && typeof node.lumenPos === 'number') {
+      loadStills(info.nodes, node.lumenPos);
+      dropStills(info.nodes, node.lumenPos);
+    }
 
     var screen = window.innerWidth || (document.documentElement && document.documentElement.clientWidth) || 0;
     var view = screen - viewport.getBoundingClientRect().left;

@@ -3607,6 +3607,26 @@ if (!nodes[i][0].lumenStill) applyStill(nodes[i]);
 
 
 
+
+
+
+
+function dropStills(nodes, center) {
+var from = center - STILL_WINDOW * 2;
+var to = center + STILL_WINDOW * 2;
+for (var i = 0; i < nodes.length; i++) {
+if ((i >= from && i <= to) || !nodes[i][0].lumenStill) continue;
+nodes[i][0].lumenStill = false;
+var still = nodes[i].find('.lumen-episode__still');
+still.css('background-image', '');
+clearInlineStyleIfEmpty(still);
+}
+}
+
+
+
+
+
 function episodeInner(ep, st, months, hasStill) {
 var esc = LC.util.esc;
 var min = LC.lang('lumen_card_min');
@@ -3672,14 +3692,28 @@ clearInlineStyleIfEmpty(track);
 
 
 
+
+
+
+
+
+
+function episodesSign(list) {
+if (!list || !list.length) return '';
+var first = list[0] || {};
+var last = list[list.length - 1] || {};
+return [list.length, first.episode_number, last.episode_number, last.air_date].join('|');
+}
+
 function renderEpisodes(root, data) {
 var row = root.find('.lumen-episodes');
 if (!row.length) return;
 
 var movie = (data && data.movie) || {};
 var list = data && data.episodes && data.episodes.episodes;
+var sign = episodesSign(list);
 var previous = row[0].lumenEpisodes;
-if (previous && list && previous.list === list) return;
+if (previous && list && previous.list === list && previous.sign === sign) return;
 
 var track = row.find('.lumen-episodes__track');
 row.addClass('hide');
@@ -3714,7 +3748,7 @@ nodes.push(node);
 }
 if (!nodes.length) return;
 
-row[0].lumenEpisodes = { list: list, nodes: nodes };
+row[0].lumenEpisodes = { list: list, nodes: nodes, sign: sign };
 
 loadStills(nodes, 0);
 if (current > 0) loadStills(nodes, current);
@@ -3736,7 +3770,10 @@ var track = row.find('.lumen-episodes__track');
 if (!viewport || !track.length || !node) return;
 
 var info = row.length ? row[0].lumenEpisodes : null;
-if (info && typeof node.lumenPos === 'number') loadStills(info.nodes, node.lumenPos);
+if (info && typeof node.lumenPos === 'number') {
+loadStills(info.nodes, node.lumenPos);
+dropStills(info.nodes, node.lumenPos);
+}
 
 var screen = window.innerWidth || (document.documentElement && document.documentElement.clientWidth) || 0;
 var view = screen - viewport.getBoundingClientRect().left;

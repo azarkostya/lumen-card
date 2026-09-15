@@ -144,7 +144,11 @@ FakeEl.prototype.remove = function () {
 };
 FakeEl.prototype.parent = function () { return this._parentEl || EMPTY; };
 FakeEl.prototype.closest = function (sel) {
-  if (sel === '.activity') return this._closestActivity || EMPTY;
+  /* Долг ревью Task 5c (п.3): заглушка '.activity' действует только там, где
+     тест её явно задал (_closestActivity) — иначе спец-ветка перекрывала бы
+     честный обход предков и прятала бы реальную разметку .activity в тестах,
+     которые её строят. */
+  if (sel === '.activity' && this._closestActivity) return this._closestActivity;
   /* Task 5c: остальные селекторы — настоящий обход себя и предков. */
   const classes = selectorClasses(sel);
   for (let el = this; el; el = el._parentEl) if (matchesSelector(el, classes)) return el;
@@ -190,7 +194,10 @@ export const EMPTY = {
   data() { }, removeData() { return this; }, empty() { return this; }, hasClass() { return false; },
   find() { return EMPTY; }, children() { return EMPTY; }, append() { return this; }, closest() { return EMPTY; },
   parent() { return EMPTY; }, remove() { return this; },
-  text() { return ''; }, html() { return this; }, next() { return EMPTY; }, before() { return this; },
+  /* Долг ревью Task 5c (п.3): html() у пустого набора возвращает '' — как
+     text(), а не сам набор: иначе чтение html() пустого узла давало объект,
+     и проверка вида html().indexOf(...) молча шла не по той ветке. */
+  text() { return ''; }, html() { return ''; }, next() { return EMPTY; }, before() { return this; },
   eq() { return EMPTY; }, not() { return EMPTY; }, trigger() { return this; }, attr() { }
 };
 

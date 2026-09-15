@@ -60,6 +60,11 @@ function loadLC() {
 
 const LC = loadLC();
 
+/* Долг ревью Task 5c (п.4): размер окна кадров тест берёт из самой константы
+   модуля, а не повторяет числом — иначе подбор окна (величина, за которую
+   отвечает 85_header.js) ломал бы тест, ничего не сломав в поведении. */
+const STILL_WINDOW = parseInt(/STILL_WINDOW\s*=\s*(\d+)/.exec(readFileSync(new URL('../src/85_header.js', import.meta.url), 'utf8'))[1], 10);
+
 const RU_GEN = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
 const RU_SHORT = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
 
@@ -155,6 +160,27 @@ test('renderEpisodes: повторный decorate с тем же списком 
   assert.equal(first._htmlSets, sets);
 });
 
+/* Долг ревью Task 5c (п.2): сверка «тот же список» только по ссылке на массив
+   пропускала мутацию на месте — Lampa дописывает вышедшую серию/переименовывает
+   её в том же e.data.episodes.episodes[], и ряд оставался старым. */
+test('renderEpisodes: мутация того же массива серий (дописали серию, сдвинули дату) перерисовывает ряд', () => {
+  const c = makeCard();
+  const data = serial(5);
+  LC.header.decorate(c.root, data);
+  assert.equal(c.track._children.length, 5);
+
+  const list = data.episodes.episodes;
+  list.push({ season_number: 2, episode_number: 6, name: 'Серия 6', air_date: '2025-12-23', runtime: 56, still_path: '/s6.jpg' });
+  LC.header.decorate(c.root, data);
+  assert.equal(c.track._children.length, 6, 'тот же массив, но список изменился — ряд пересобран');
+  assert.equal(c.count.text(), '6 серий');
+
+  list[5].air_date = '2025-12-30';
+  LC.header.decorate(c.root, data);
+  assert.equal(c.track._children.length, 6);
+  assert.deepEqual(warnLog, []);
+});
+
 test('renderEpisodes: состояния и подписи — просмотрена / смотрите · осталось / вышла / не вышла', () => {
   const c = makeCard();
   const data = serial(4);
@@ -183,7 +209,9 @@ test('renderEpisodes: состояния и подписи — просмотр�
 
 /* ------------------------------ кадры окном (п.3, п.6) ------------------------------ */
 
-test('кадры: при отрисовке — только окно ±6 от первой и от текущей серии, по фокусу — окно ±6 от неё', () => {
+const range = (a, b) => Array.from({ length: b - a + 1 }, (_, i) => a + i);
+
+test('кадры: при отрисовке — только окно ±STILL_WINDOW от первой и от текущей серии, по фокусу — окно вокруг неё', () => {
   const c = makeCard();
   const data = serial(30);
   views[hashOf(2, 20)] = { percent: 40, time: 1000, duration: 3000 };
@@ -192,14 +220,33 @@ test('кадры: при отрисовке — только окно ±6 от �
   } finally {
     delete views[hashOf(2, 20)];
   }
+  const W = STILL_WINDOW;
   const loaded = () => c.track._children.map((n, i) => (stillOf(n) ? i : -1)).filter((i) => i >= 0);
-  const range = (a, b) => Array.from({ length: b - a + 1 }, (_, i) => a + i);
-  assert.deepEqual(loaded(), range(0, 6).concat(range(13, 25)));
+  assert.deepEqual(loaded(), range(0, W).concat(range(19 - W, 19 + W)));
   assert.ok(c.track._children.every((n) => n.attr('data-still')), 'URL есть у всех карточек в data-still');
 
+  /* Долг ревью Task 5c (п.1): по фокусу кадры не только добавляются — всё, что
+     дальше ±2×STILL_WINDOW от фокуса, снимается (окно 0..W от отрисовки уходит). */
   layout(c.track);
   fire(c.root, 'hover:focus', c.track._children[28]);
-  assert.deepEqual(loaded(), range(0, 6).concat(range(13, 29)));
+  assert.deepEqual(loaded(), range(28 - 2 * W, 29));
+});
+
+test('кадры: проход фокусом по всему сезону не копит кадры — держится окно ±2×STILL_WINDOW', () => {
+  const c = makeCard();
+  LC.header.decorate(c.root, serial(30));
+  layout(c.track);
+
+  const count = () => c.track._children.filter((n) => stillOf(n)).length;
+  const ceiling = 4 * STILL_WINDOW + 1;
+  let peak = 0;
+  for (let i = 0; i < 30; i++) {
+    fire(c.root, 'hover:focus', c.track._children[i]);
+    peak = Math.max(peak, count());
+  }
+  assert.ok(peak <= ceiling, 'одновременно загруженных кадров ' + peak + ', потолок ' + ceiling);
+  assert.ok(count() < 30, 'после прохода по сезону кадры остались у всех серий');
+  assert.deepEqual(warnLog, []);
 });
 
 test('кадры: background-image через css с url("…") и экранированием " и \\, не инлайном в html', () => {
