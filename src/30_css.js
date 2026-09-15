@@ -160,9 +160,24 @@
     /* Режимы движения на корне карточки: lite — только цветовые переходы (без transform/box-shadow,
        дешевле для Tizen/webOS), off — всё отключено (!important — эти правила обязаны выигрывать). */
     css.push('.lumen-card.lumen-motion-lite .full-start__button{-webkit-transition:background-color .15s,color .15s;transition:background-color .15s,color .15s}');
-    /* !important и на opacity/transform тоже: у .full-start__button.focus уже есть правило v1 с
-       4 классами специфичности (.full-start-new__buttons .full-start__button.focus) — без !important
-       transform:none от него не выигрывал бы. */
+    /* lite = «только цвета», значит и сам scale не должен применяться (не только не анимироваться) —
+       иначе фокус в lite скакал бы на 1.06 мгновенным скачком вместо честного «без transform». Гасим
+       transform:scale(1.06) из v1-правила .lumen-card .full-start-new__buttons .full-start__button.focus
+       (4 класса специфичности: lumen-card, full-start-new__buttons, full-start__button, focus).
+       Правило ниже — lumen-card + lumen-motion-lite + full-start-new__buttons + full-start__button +
+       focus = 5 классов специфичности, выше v1-правила независимо от порядка объявления в файле —
+       но специфичности тут НЕДОСТАТОЧНО: у Lampa в app.css на .full-start__button.focus/.hover висит
+       собственная CSS-анимация (`animation: .2s ease 0s 1 normal none running animation-button-focus`,
+       @keyframes 40%{scale(.9)} 100%{scale(1)}, найдено и проверено живьём в локальной Lampa). По каскаду
+       (CSS Cascade §4.1) активная анимация перебивает ЛЮБОЕ обычное правило автора независимо от
+       специфичности — сильнее её только `!important`. Поэтому transform:none здесь тоже с !important
+       (как и в lumen-motion-off ниже, который вдобавок глушит саму анимацию через animation:none). */
+    css.push('.lumen-card.lumen-motion-lite .full-start-new__buttons .full-start__button.focus{-webkit-transform:none !important;transform:none !important}');
+    /* !important и на opacity/transform тоже — по двум причинам сразу: (1) у .full-start__button.focus
+       есть v1-правило с 4 классами специфичности (.full-start-new__buttons .full-start__button.focus);
+       (2) у Lampa в app.css на этом же .focus висит своя CSS-анимация animation-button-focus (см.
+       комментарий у lumen-motion-lite выше) — она перебивает обычные правила вне зависимости от
+       специфичности, поэтому её саму дополнительно глушим через animation:none !important. */
     css.push('.lumen-card.lumen-motion-off .full-start__button,.lumen-card.lumen-motion-off .lumen-in{-webkit-transition:none !important;transition:none !important;-webkit-animation:none !important;animation:none !important;opacity:1 !important;-webkit-transform:none !important;transform:none !important}');
 
     /* Бэкдроп: медленный наезд (Ken Burns). Класс .lumen-bg__img подготовлен для слайдшоу кадров Task 6. */
@@ -176,7 +191,16 @@
        Отступы рейтингов/кнопок сжаты тем же соотношением, что и заголовок (48/88 ≈ .545 от обычных
        1.6em/1.75em), т.к. экран 06 сводит мета+заголовок+рейтинг в одну строку, а наш DOM (без правки
        шаблона — Task 5) сохраняет их отдельными блоками. Переход — та же кривая и длительность, что у
-       пружины фокуса кнопок (280мс cubic-bezier(.2,.9,.3,1.25)). */
+       пружины фокуса кнопок (280мс cubic-bezier(.2,.9,.3,1.25)).
+
+       Решение: почему это layout-анимация (font-size/margin-top триггерят reflow), а не transform.
+       transform:scale() тут не подходит — он не освобождает место в потоке документа, а сжатие шапки
+       должно реально уменьшить её высоту, чтобы ряд описания/серий под кнопками поднялся на освободившееся
+       место (а не просто визуально наехал). Reflow-анимация принята осознанно: событие редкое (переключение
+       контроллера вниз/вверх по карточке), происходит по одной штуке за раз, длительность ограничена 280мс.
+       На слабых ТВ transition для этих трёх свойств отключён ниже в .lumen-motion-lite/-off — auto уходит
+       в lite уже на Tizen/webOS (LC.motionModeFor); автодетект слабых Android — фаза 3 Task 29 (ещё не
+       реализован), пока для них тоже нужно выбирать «Лёгкие»/«Выкл» вручную в настройках. */
     css.push('.lumen-card .full-start-new__title,.lumen-card .full-start-new__rate-line,.lumen-card .full-start-new__buttons{-webkit-transition:font-size .28s cubic-bezier(.2,.9,.3,1.25),margin-top .28s cubic-bezier(.2,.9,.3,1.25);transition:font-size .28s cubic-bezier(.2,.9,.3,1.25),margin-top .28s cubic-bezier(.2,.9,.3,1.25)}');
     css.push('.lumen-card.lumen-compact .full-start-new__title{font-size:2.104em}');
     css.push('.lumen-card.lumen-compact .lumen-descr{display:none}');

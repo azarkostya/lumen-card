@@ -19,3 +19,13 @@ test('motionModeFor: auto на прочих платформах -> full', () =>
   assert.equal(motionModeFor('auto', { tizen: false, webos: false }), 'full');
   assert.equal(motionModeFor('auto'), 'full');
 });
+
+test('motionModeFor: незнакомое stored (undefined/null/пусто/мусор) -> как auto', () => {
+  assert.equal(motionModeFor(undefined, {}), 'full');
+  assert.equal(motionModeFor(null, {}), 'full');
+  assert.equal(motionModeFor('', {}), 'full');
+  assert.equal(motionModeFor('garbage', {}), 'full');
+  assert.equal(motionModeFor(undefined, { tizen: true }), 'lite');
+  assert.equal(motionModeFor(null, { webos: true }), 'lite');
+  assert.equal(motionModeFor('nonsense', { tizen: true }), 'lite');
+});

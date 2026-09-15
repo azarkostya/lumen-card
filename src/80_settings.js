@@ -173,8 +173,10 @@
 
   /* stored — сырое значение параметра lumen_motion ('auto'|'full'|'lite'|'off'),
      platform — {tizen:bool, webos:bool}. Не 'auto' -> как есть; 'auto' на tizen/webos -> 'lite',
-     иначе 'full'. */
+     иначе 'full'. Любое незнакомое значение (undefined/null/''/мусор — например, старый профиль
+     без этого ключа или битое значение в Storage) считается как 'auto', а не возвращается как есть. */
   LC.motionModeFor = function (stored, platform) {
+    if (stored !== 'full' && stored !== 'lite' && stored !== 'off') stored = 'auto';
     if (stored !== 'auto') return stored;
     platform = platform || {};
     if (platform.tizen || platform.webos) return 'lite';
