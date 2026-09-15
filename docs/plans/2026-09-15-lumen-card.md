@@ -688,6 +688,7 @@ Array.prototype.map.call(document.querySelectorAll('.activity--active .buttons--
 > - Слайдшоу работает только в режиме `LC.cardinfo.bgMode(movie) === 'backdrop'` (Task 5b); ошибка первой картинки → размытый постер из 5b. Хэши 7/7 после задачи.
 > - Ken Burns уже задан в Task 4 на `.lumen-bg__img.is-active` (14 с, 1.00 → 1.08) — слайды называть ровно так, иначе анимация не применится; в режиме `lite` наезда нет.
 > - URL кадров — только `LC.cardinfo.imageUrl` (Task 5a); логику слайдшоу — в отдельный модуль `src/50_backdrops.js` по плану, не в `90_runtime.js`.
+> - После Task 5b в `90_runtime.js` уже есть `LC.active = { object, body }` и ОДНА подписка на `Lampa.Listener "activity"` (destroy), а `LC.backdrops.cancel(body)` отменяет загрузку фона. Слайдшоу добавить в `LC.active.slideshow` и в `cancel` — вторую подписку не создавать; Step 4 ниже реализовать поверх этого хука. Первый кадр — `LC.cardinfo.backdropPath(movie)`: `pickBackdrops` ставит его первым. Тесты слайдшоу — в `test/backdrops.test.mjs` рядом с тестами гонки загрузки.
 
 **Files:**
 - Create: `src/50_backdrops.js`
@@ -1069,6 +1070,8 @@ test('cache key и TTL', () => {
 ---
 
 ### Task 11: Очистка ресурсов и устойчивость
+
+> **Поправка контроллера:** хук закрытия карточки (`LC.active`, подписка на `activity` destroy, `LC.backdrops.cancel`) появился в Task 5b и расширяется в Task 6 — здесь свести все ресурсы (слайдшоу, трейлер, предзагрузки, наблюдатели) в `LC.destroyActive()` поверх него и добавить страж `document.body.contains`; новых подписок на `activity` не создавать.
 
 **Files:**
 - Modify: `src/90_runtime.js`
