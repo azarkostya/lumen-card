@@ -1077,9 +1077,11 @@
   /* Listener 'full' в 90_runtime.js на complite (там же, где раньше был    */
   /* applyBackdrop), cancel — 'activity' destroy (правки координатора,      */
   /* п.4). Task 6: LC.backdrops.pickBackdrops (чистая функция отбора        */
-  /* кадров) и слайдшоу кадров внутри .lumen-backdrop (.lumen-bg__img /     */
-  /* .is-active, Ken Burns из Task 4). apply() возвращает контроллер        */
-  /* слайдшоу {pause,resume,destroy} — 90_runtime.js хранит его в           */
+  /* кадров); сам контроллер слайдшоу — в src/51_slideshow.js (LC.slideshow,*/
+  /* рефакторинг, решение координатора: Task 7 будет ставить его на паузу   */
+  /* извне). apply() считает urls (pickBackdrops + LC.cardinfo.imageUrl) и  */
+  /* вызывает LC.slideshow.create(layer, urls, opts) — возвращённый         */
+  /* контроллер {pause,resume,destroy} 90_runtime.js хранит в                */
   /* LC.active.slideshow и дёргает pause/resume из той же подписки          */
   /* 'activity' (archive/start), cancel(body) вызывает destroy(). URL       */
   /* любых картинок — только через LC.cardinfo.imageUrl (план 0.2           */
@@ -1156,32 +1158,6 @@
      .activity__body (а с ним и .lumen-backdrop) при destroy активности. */
   function isMounted(node) {
     try { return !!(node && document.documentElement && document.documentElement.contains(node)); } catch (e) { return false; }
-  }
-
-  /* Task 6 (fix, решение координатора по live-check п.4): "пауза" слайдшоу
-     при уходе вглубь карточки (Lampa.Activity.push поверх открытой) не
-     детектируется через Lampa.Listener.follow('activity') — проверено
-     исходником и живым логом (см. большой комментарий в 90_runtime.js над
-     followActivityLifecycle): push ничего не шлёт для оставленной
-     активности. Вместо подписки — проверка в каждом тике таймера, ДО
-     предзагрузки следующего кадра (createSlideshow.tryFrom ниже): если
-     слой сейчас не на экране (лежит внутри архивной .activity без класса
-     .activity--active), тик просто пропускается — ни Image(), ни смены
-     is-active, — а сам таймер не трогаем: следующий тик проверит снова, и
-     как только карточка опять на экране, смена кадров возобновится сама.
-     isActivityForeground — чистая часть (только .length/.hasClass, без
-     .closest()) — тестируется заглушками отдельно от DOM-обхода. */
-  function isActivityForeground(activityEl) {
-    if (!activityEl || !activityEl.length) return true; // не нашли контейнер — не блокируем (безопасный дефолт)
-    return !!activityEl.hasClass('activity--active');
-  }
-
-  function isLayerForeground(layer) {
-    try {
-      return isActivityForeground(layer.closest('.activity'));
-    } catch (e) {
-      return true;
-    }
   }
 
   /* Task 6: .lumen-bg__slides — контейнер для дополнительных кадров
@@ -1268,13 +1244,13 @@
      isMounted — в одном try/catch (как было в v1): encodeURI может бросить
      URIError на «сломанном» URL, showNoFrame тоже может исключить —
      раньше try/catch стоял только вокруг успешной ветки.
-     Task 6: пятый параметр controller — контроллер слайдшоу этого apply()
-     (см. createSlideshow ниже), уже создан и ждёт на layer.data
-     ('lumenSlideshow') к моменту, когда сеть ответит. Первый кадр
-     слайдшоу — именно этот, уже загружаемый здесь, .lumen-backdrop__img
-     (план: «не грузить его дважды») — controller.activate() только
-     помечает узел классами и решает, отбирать ли ещё кадры/заводить ли
-     таймер, новой загрузки не делает. */
+     Task 6 (refactor): пятый параметр controller — контроллер слайдшоу
+     этого apply() (LC.slideshow.create(), src/51_slideshow.js), уже создан
+     и ждёт на layer.data('lumenSlideshow') к моменту, когда сеть ответит.
+     Первый кадр слайдшоу — именно этот, уже загружаемый здесь,
+     .lumen-backdrop__img (план: «не грузить его дважды») —
+     controller.activate() только помечает узел классами и решает,
+     отбирать ли ещё кадры/заводить ли таймер, новой загрузки не делает. */
   function loadBackdrop(layer, movie, gen, controller) {
     var url = backdropUrl(movie);
     var img = layer.find('.lumen-backdrop__img');
@@ -1311,7 +1287,7 @@
              .lumen-bg__img.is-active. Без этой строки наезд не включался
              бы никогда. */
           syncMotionClass(layer);
-          controller.activate(movie);
+          controller.activate();
         } else {
           showNoFrame(layer, movie);
         }
@@ -1343,12 +1319,16 @@
     }
   }
 
-  /* Task 6: apply() теперь возвращает контроллер слайдшоу {pause,resume,
-     destroy} — 90_runtime.js кладёт его в LC.active.slideshow сразу
-     (синхронно, до ответа сети: сам контроллер создаётся здесь же, ниже,
-     ДО loadBackdrop()/showNoFrame(); pause/resume/destroy на нём безопасны
-     в любой момент — до активации слайдшоу (ещё грузится первый кадр или
-     режим не 'backdrop') это просто no-op, см. createSlideshow). На ранних
+  /* Task 6 (refactor): apply() считает urls (pickBackdrops + LC.cardinfo.
+     imageUrl) и передаёт их в LC.slideshow.create(layer, urls, opts) —
+     возвращённый контроллер {pause,resume,destroy} 90_runtime.js кладёт в
+     LC.active.slideshow сразу (синхронно, до ответа сети: сам контроллер
+     создаётся здесь же, ниже, ДО loadBackdrop()/showNoFrame();
+     pause/resume/destroy на нём безопасны в любой момент — до activate()
+     (ещё грузится первый кадр или режим не 'backdrop') это просто no-op,
+     см. src/51_slideshow.js). urls считается ДЛЯ ЛЮБОГО режима (даже
+     poster/procedural, где слайдшоу не активируется вовсе) — так
+     LC.active.slideshow всегда валидный объект, а не undefined. На ранних
      return (нет body) и в catch — undefined, вызывающая сторона это уже
      проверяет через `if (LC.active.slideshow)`. */
   function apply(root, body, movie) {
@@ -1375,7 +1355,12 @@
       clearLayer(layer);
       var gen = nextGen(layer);
 
-      var controller = createSlideshow(layer);
+      var main = LC.cardinfo.backdropPath(movie);
+      var max = LC.slideshow.maxFramesFor(LC.motionMode());
+      var paths = pickBackdrops(movie.images, main, max);
+      var urls = LC.util.map(paths, function (p) { return LC.cardinfo.imageUrl(p, 'w1280', tmdbImageFn(), apiImgFn()); });
+
+      var controller = LC.slideshow.create(layer, urls, { enabled: slideshowEnabled, intervalMs: slideIntervalMs });
       layer.data('lumenSlideshow', controller);
 
       if (mode === 'backdrop') loadBackdrop(layer, movie, gen, controller);
@@ -1444,16 +1429,6 @@
     return n * 1000;
   }
 
-  /* Максимум кадров по режиму анимаций (план: full 8, lite 4, off 1 без
-     смены) — off даёт pickBackdrops max=1, т.е. только главный кадр, и
-     сама возможность завести таймер ротации отпадает ниже без отдельной
-     проверки режима (urls.length <= 1). */
-  function maxFramesFor(mode) {
-    if (mode === 'off') return 1;
-    if (mode === 'lite') return 4;
-    return 8;
-  }
-
   /* Task 6, Ревью (симметрично stopSlideshow ниже): достаёт и уничтожает
      контроллер слайдшоу, привязанный к слою через layer.data
      ('lumenSlideshow') — общая точка входа и для apply() (гасит слайдшоу
@@ -1464,30 +1439,107 @@
     layer.removeData('lumenSlideshow');
   }
 
-  /* Контроллер слайдшоу для ОДНОГО layer/apply(). Создаётся синхронно в
-     apply() (до ответа сети) в неактивном состоянии — pause/resume/destroy
-     безопасны сразу, но ничего не делают, пока activate(movie) не вызван
-     (это делает loadBackdrop() из finish(true), т.е. когда первый кадр,
-     .lumen-backdrop__img, уже реально показан — план: «не грузить его
-     дважды»). activate() помечает этот узел lumen-bg__img/is-active
-     (Ken Burns, Task 4/30_css.js) и, если включена настройка и есть больше
-     одного кадра, заводит ротацию. Дальнейшие кадры — элементы
+  LC.backdrops = { apply: apply, cancel: cancel, pickBackdrops: pickBackdrops };
+
+  /* В браузере "module" не определён — ветка не выполняется. Экспорт нужен
+     только test/backdrops.test.mjs (Step 1, TDD pickBackdrops) через общий
+     test/_load.mjs — остальные тесты этого файла грузят модуль своим
+     загрузчиком (DOM-заглушки) и обращаются к LC.backdrops напрямую, им
+     module.exports не требуется. */
+  if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.backdrops;
+
+
+/* ---- 51_slideshow.js ---- */
+  /* -------------------------------------------------------------------- */
+  /* Слайдшоу кадров (Task 6, refactor — решение координатора): контроллер */
+  /* вынесен из 50_backdrops.js в отдельный модуль, потому что Task 7      */
+  /* (фоновый трейлер) будет ставить его на паузу/возобновлять извне так   */
+  /* же, как 90_runtime.js уже делает это для archive/start (LC.active.    */
+  /* slideshow.pause()/.resume()). Публично — LC.slideshow.create(layer,   */
+  /* urls, opts) -> {activate, pause, resume, destroy}. urls — уже готовый */
+  /* список URL кадров (LC.backdrops.pickBackdrops + LC.cardinfo.imageUrl, */
+  /* посчитан заранее в 50_backdrops.js — этот модуль про TMDB/cardinfo не */
+  /* знает вовсе). activate() — отдельный от create() шаг: 50_backdrops.js */
+  /* вызывает его из finish(true) loadBackdrop(), т.е. когда первый кадр,  */
+  /* .lumen-backdrop__img, уже реально загружен и показан (план: «не       */
+  /* грузить его дважды») — сам create() ничего не грузит и не трогает DOM.*/
+  /* pause/resume/destroy — контракт LC.active.slideshow из 90_runtime.js. */
+  /* opts = {enabled: fn, intervalMs: fn} — 50_backdrops.js передаёт сюда   */
+  /* чтения настроек lumen_slideshow/lumen_slide_interval, сам модуль про  */
+  /* имена настроек не знает (вызывает их заново на каждый pause/resume/   */
+  /* activate — так подхватываются изменения на уже открытой карточке).    */
+  /* -------------------------------------------------------------------- */
+
+  /* Task 6 (fix, решение координатора по live-check п.4): "пауза" слайдшоу
+     при уходе вглубь карточки (Lampa.Activity.push поверх открытой) не
+     детектируется через Lampa.Listener.follow('activity') — проверено
+     исходником и живым логом (см. большой комментарий в 90_runtime.js над
+     followActivityLifecycle): push ничего не шлёт для оставленной активности.
+     Вместо подписки — проверка в каждом тике таймера, ДО предзагрузки
+     следующего кадра (tryFrom ниже): если слой сейчас не на экране (лежит
+     внутри архивной .activity без класса .activity--active), тик просто
+     пропускается — ни Image(), ни смены is-active, — а сам таймер не
+     трогаем: следующий тик проверит снова, и как только карточка опять на
+     экране, смена кадров возобновится сама. isActivityForeground — чистая
+     часть (только .length/.hasClass, без .closest()) — тестируется
+     заглушками отдельно от DOM-обхода. */
+  function isActivityForeground(activityEl) {
+    if (!activityEl || !activityEl.length) return true; // не нашли контейнер — не блокируем (безопасный дефолт)
+    return !!activityEl.hasClass('activity--active');
+  }
+
+  function isLayerForeground(layer) {
+    try {
+      return isActivityForeground(layer.closest('.activity'));
+    } catch (e) {
+      return true;
+    }
+  }
+
+  /* Максимум кадров по режиму анимаций (план: full 8, lite 4, off 1 без
+     смены) — off даёт вызывающей стороне max=1, т.е. только главный кадр,
+     и сама возможность завести таймер ротации отпадает в create() ниже
+     без отдельной проверки режима (urls.length <= 1). */
+  function maxFramesFor(mode) {
+    if (mode === 'off') return 1;
+    if (mode === 'lite') return 4;
+    return 8;
+  }
+
+  /* Тот же приём, что и в 50_backdrops.js (Task 5b Step 5): перед любой
+     мутацией DOM после асинхронного ответа (Image().onload/onerror/таймер)
+     — проверяем, что узел ещё в документе. Отдельная копия здесь (не
+     импорт из 50_backdrops.js) — модуль не должен зависеть от порядка
+     сборки файлов, а сама функция — одна строка. */
+  function isNodeMounted(node) {
+    try { return !!(node && document.documentElement && document.documentElement.contains(node)); } catch (e) { return false; }
+  }
+
+  /* Контроллер слайдшоу для ОДНОГО layer/apply(). Создаётся синхронно (до
+     ответа сети) в неактивном состоянии — pause/resume/destroy безопасны
+     сразу, но ничего не делают, пока activate() не вызван. activate()
+     помечает первый кадр (.lumen-backdrop__img) классами lumen-bg__img/
+     is-active (Ken Burns, Task 4/30_css.js) и, если opts.enabled() и есть
+     больше одного кадра, заводит ротацию. Дальнейшие кадры — элементы
      .lumen-bg__img внутри .lumen-bg__slides, предзагружаются Image() и
      показываются только по onload; битый кадр (onerror) помечается false
      и пропускается — advance() пробует следующий по очереди, но не больше
      urls.length попыток за один тик (чтобы не зациклиться, если битые все). */
-  function createSlideshow(layer) {
+  function create(layer, urls, opts) {
+    opts = opts || {};
+    var enabledFn = typeof opts.enabled === 'function' ? opts.enabled : function () { return true; };
+    var intervalFn = typeof opts.intervalMs === 'function' ? opts.intervalMs : function () { return 14000; };
+
     var alive = true;
     var paused = false;
     var timer = null;
     var pendingLoader = null;
     var frames = null;   // null, пока activate() не вызван
-    var urls = null;
     var idx = 0;
     var lastFrameEl = null;
 
     function isLayerMounted() {
-      return isMounted(layer[0]);
+      return isNodeMounted(layer[0]);
     }
 
     function stopTimer() {
@@ -1558,23 +1610,19 @@
 
     function startTimer() {
       if (timer || !frames || urls.length <= 1) return;
-      timer = setInterval(advance, slideIntervalMs());
+      timer = setInterval(advance, intervalFn());
     }
 
-    function activate(movie) {
+    function activate() {
       if (!alive || frames) return; // уже активирован
       try {
-        var main = LC.cardinfo.backdropPath(movie);
-        var max = maxFramesFor(LC.motionMode());
-        var paths = LC.backdrops.pickBackdrops(movie.images, main, max);
-        urls = LC.util.map(paths, function (p) { return LC.cardinfo.imageUrl(p, 'w1280', tmdbImageFn(), apiImgFn()); });
         frames = [];
         var firstNode = layer.find('.lumen-backdrop__img');
         firstNode.addClass('lumen-bg__img is-active');
         frames[0] = firstNode;
         lastFrameEl = firstNode;
         idx = 0;
-        if (slideshowEnabled() && !paused) startTimer();
+        if (enabledFn() && !paused) startTimer();
       } catch (e) {
         warn('slideshow activate failed', e);
       }
@@ -1588,30 +1636,32 @@
 
     return {
       activate: activate,
-      /* archive своей активности (Task 6, "поправки контроллера") — ставит
-         на паузу текущий кадр, не сбрасывая его. */
+      /* archive своей активности (или resume-по-факту, см. 90_runtime.js)
+         — ставит на паузу текущий кадр, не сбрасывая его. */
       pause: function () { paused = true; stopTimer(); },
-      /* start своей активности, а также включение lumen_slideshow /
-         смена lumen_slide_interval на открытой карточке (90_runtime.js
+      /* start своей активности, а также включение lumen_slideshow / смена
+         lumen_slide_interval на открытой карточке (90_runtime.js
          LC.applySlideshowPref вызывает pause()+resume() на каждое
-         изменение — resume() всегда читает slideIntervalMs()/motionMode
-         заново, поэтому подхватывает и новый интервал). */
+         изменение — resume() всегда читает opts.intervalMs()/opts.
+         enabled() заново, поэтому подхватывает и новый интервал). */
       resume: function () {
         paused = false;
-        if (alive && frames && slideshowEnabled()) startTimer();
+        if (alive && frames && enabledFn()) startTimer();
       },
       destroy: destroy
     };
   }
 
-  LC.backdrops = { apply: apply, cancel: cancel, pickBackdrops: pickBackdrops };
+  LC.slideshow = {
+    create: create,
+    isActivityForeground: isActivityForeground,
+    isLayerForeground: isLayerForeground,
+    maxFramesFor: maxFramesFor
+  };
 
-  /* В браузере "module" не определён — ветка не выполняется. Экспорт нужен
-     только test/backdrops.test.mjs (Step 1, TDD pickBackdrops) через общий
-     test/_load.mjs — остальные тесты этого файла грузят модуль своим
-     загрузчиком (DOM-заглушки) и обращаются к LC.backdrops напрямую, им
-     module.exports не требуется. */
-  if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.backdrops;
+  /* В браузере "module" не определён — ветка не выполняется. Метка
+     module.lumen ставится только тестовым загрузчиком. */
+  if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.slideshow;
 
 
 /* ---- 70_progress.js ---- */

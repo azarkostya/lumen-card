@@ -176,6 +176,10 @@ function freshLC(opts) {
   LC.pref = function (name, def) {
     return Object.prototype.hasOwnProperty.call(prefs, name) ? prefs[name] : def;
   };
+  /* Task 6 (refactor): apply() зовёт LC.slideshow.create(...) — сам
+     контроллер и его тесты теперь в test/slideshow.test.mjs, но
+     50_backdrops.js без него не соберётся. */
+  loadInto(LC, module, '51_slideshow.js');
   loadInto(LC, module, '50_backdrops.js');
   return LC;
 }
@@ -348,71 +352,32 @@ test('pickBackdrops: нет ничего -> []', () => {
 });
 
 /* ====================================================================== */
-/* Task 6 Step 3/4/5: слайдшоу кадров внутри .lumen-backdrop.               */
+/* Task 6 (refactor, решение координатора): контроллер слайдшоу и его      */
+/* тесты (ротация/pause/resume/destroy/foreground) переехали в             */
+/* test/slideshow.test.mjs (src/51_slideshow.js, LC.slideshow.create).     */
+/* Здесь остаётся только интеграционная проверка: apply() правильно        */
+/* передаёт controller дальше и cancel() правильно его останавливает —     */
+/* это про ПРОВОДКУ 50_backdrops.js, а не про поведение самого             */
+/* контроллера. */
 /* ====================================================================== */
 
-test('slideshow: смена кадра по таймеру (fake setInterval), следующий кадр показывается только после onload', () => {
-  const LC = freshLC({ motion: 'full', prefs: { lumen_slideshow: true, lumen_slide_interval: '14' } });
-  const body = fakeBody();
-  const movie = {
-    id: 1, backdrop_path: '/main.jpg',
-    images: { backdrops: [mk('/main.jpg', null, 9), mk('/c.jpg', null, 7), mk('/a.jpg', null, 5)] }
-  };
-
-  LC.backdrops.apply(null, body, movie);
-  const layer = mount(body._children[0]);
-  loaders[0].onload(); // первый кадр — уже загружался apply(), второй раз не грузим
-
-  assert.equal(intervals.length, 1, 'должен завестись один таймер ротации');
-  const img0 = layer.children('.lumen-backdrop__img');
-  assert.equal(img0.hasClass('lumen-bg__img'), true);
-  assert.equal(img0.hasClass('is-active'), true);
-
-  fireInterval(1);
-  assert.equal(loaders.length, 2, 'следующий кадр должен предзагружаться (второй Image())');
-  loaders[1].onload();
-
-  assert.equal(img0.hasClass('is-active'), false, 'первый кадр больше не активен (кроссфейд)');
-  const slides = layer.children('.lumen-bg__slides');
-  assert.equal(slides._children.length, 1);
-  assert.equal(slides._children[0].hasClass('is-active'), true);
-  assert.ok(String(slides._children[0]._css['background-image']).includes('c.jpg'), 'должен показаться /c.jpg (выше рейтингом, чем /a.jpg)');
-});
-
-test('slideshow: битый кадр (onerror) пропускается — показывается следующий рабочий кадр очереди', () => {
-  const LC = freshLC({ motion: 'full', prefs: { lumen_slideshow: true } });
-  const body = fakeBody();
-  const movie = {
-    id: 1, backdrop_path: '/main.jpg',
-    images: { backdrops: [mk('/main.jpg', null, 9), mk('/broken.jpg', null, 7), mk('/ok.jpg', null, 5)] }
-  };
-
-  LC.backdrops.apply(null, body, movie);
-  const layer = mount(body._children[0]);
-  loaders[0].onload();
-
-  fireInterval(1);
-  assert.equal(loaders.length, 2);
-  loaders[1].onerror(); // /broken.jpg не загрузился
-
-  assert.equal(loaders.length, 3, 'после битого кадра слайдшоу само пробует следующий по очереди в этот же тик');
-  loaders[2].onload();
-
-  const slides = layer.children('.lumen-bg__slides');
-  assert.equal(slides._children.length, 1, 'битый кадр не должен был создать DOM-узел');
-  assert.equal(slides._children[0].hasClass('is-active'), true);
-  assert.ok(String(slides._children[0]._css['background-image']).includes('ok.jpg'));
-});
-
-test('slideshow: LC.backdrops.cancel(body) останавливает таймер ротации и предзагрузку следующего кадра', () => {
+test('apply()/cancel(): контроллер слайдшоу создаётся, активируется при загрузке первого кадра, cancel() его останавливает', () => {
   const LC = freshLC({ motion: 'full', prefs: { lumen_slideshow: true } });
   const body = fakeBody();
   const movie = { id: 1, backdrop_path: '/main.jpg', images: { backdrops: [mk('/main.jpg', null, 9), mk('/c.jpg', null, 7)] } };
 
-  LC.backdrops.apply(null, body, movie);
-  mount(body._children[0]);
-  loaders[0].onload();
-  assert.equal(intervals.length, 1);
+  const controller = LC.backdrops.apply(null, body, movie);
+  assert.equal(typeof controller.pause, 'function');
+  assert.equal(typeof controller.resume, 'function');
+  assert.equal(typeof controller.destroy, 'function');
+
+  const layer = mount(body._children[0]);
+  loaders[0].onload(); // первый кадр — уже загружался apply(), controller.activate() вызывается изнутри finish(true)
+
+  const img0 = layer.children('.lumen-backdrop__img');
+  assert.equal(img0.hasClass('lumen-bg__img'), true);
+  assert.equal(img0.hasClass('is-active'), true);
+  assert.equal(intervals.length, 1, 'должен завестись таймер ротации');
 
   fireInterval(1); // запрос второго кадра в процессе (ещё не onload)
   assert.equal(loaders.length, 2);
@@ -425,125 +390,18 @@ test('slideshow: LC.backdrops.cancel(body) останавливает тайме
   assert.doesNotThrow(() => LC.backdrops.cancel(body)); // идемпотентно, как и cancel загрузки первого кадра
 });
 
-test('slideshow: pause() останавливает таймер, resume() заводит новый (с актуальным интервалом)', () => {
-  const LC = freshLC({ motion: 'full', prefs: { lumen_slideshow: true } });
-  const body = fakeBody();
-  const movie = { id: 1, backdrop_path: '/main.jpg', images: { backdrops: [mk('/main.jpg', null, 9), mk('/c.jpg', null, 7)] } };
-
-  const slideshow = LC.backdrops.apply(null, body, movie);
-  mount(body._children[0]);
-  loaders[0].onload();
-  assert.equal(intervals.length, 1);
-
-  slideshow.pause();
-  assert.equal(intervals[0].cleared, true);
-
-  fireInterval(1); // тик после pause — ничего не должно произойти
-  assert.equal(loaders.length, 1);
-
-  slideshow.resume();
-  assert.equal(intervals.length, 2, 'resume должен завести новый таймер');
-  assert.equal(intervals[1].cleared, false);
-});
-
-test('slideshow: LC.motionMode() = off -> один кадр без смены, таймер не заводится', () => {
-  const LC = freshLC({ motion: 'off', prefs: { lumen_slideshow: true } });
-  const body = fakeBody();
-  const movie = {
-    id: 1, backdrop_path: '/main.jpg',
-    images: { backdrops: [mk('/main.jpg', null, 9), mk('/c.jpg', null, 7), mk('/a.jpg', null, 5)] }
-  };
-
-  LC.backdrops.apply(null, body, movie);
-  mount(body._children[0]);
-  loaders[0].onload();
-
-  assert.equal(intervals.length, 0);
-  assert.equal(loaders.length, 1, 'дополнительные кадры не должны предзагружаться в режиме off');
-});
-
-test('slideshow: lumen_slideshow = false -> первый кадр показывается (наезд Ken Burns), но ротация не заводится', () => {
-  const LC = freshLC({ motion: 'full', prefs: { lumen_slideshow: false } });
-  const body = fakeBody();
-  const movie = { id: 1, backdrop_path: '/main.jpg', images: { backdrops: [mk('/main.jpg', null, 9), mk('/c.jpg', null, 7)] } };
-
-  LC.backdrops.apply(null, body, movie);
-  const layer = mount(body._children[0]);
-  loaders[0].onload();
-
-  const img0 = layer.children('.lumen-backdrop__img');
-  assert.equal(img0.hasClass('lumen-bg__img'), true);
-  assert.equal(img0.hasClass('is-active'), true);
-  assert.equal(intervals.length, 0, 'при выключенной настройке ротация не запускается');
-});
-
-test('slideshow: максимум кадров по режиму движения (pickBackdrops max: full=8, lite=4)', () => {
+test('apply(): urls (pickBackdrops + max по режиму) считаются до вызова LC.slideshow.create, даже для режима off', () => {
   const many = [mk('/main.jpg', null, 9)];
   for (let i = 0; i < 10; i++) many.push(mk('/f' + i + '.jpg', null, 5 + i));
   const movie = { id: 1, backdrop_path: '/main.jpg', images: { backdrops: many } };
 
   const captured = [];
-  ['full', 'lite'].forEach((motion) => {
+  ['full', 'lite', 'off'].forEach((motion) => {
     const LC = freshLC({ motion, prefs: { lumen_slideshow: true } });
-    const original = LC.backdrops.pickBackdrops;
-    LC.backdrops.pickBackdrops = function (images, main, max) { captured.push(max); return original(images, main, max); };
+    const originalCreate = LC.slideshow.create;
+    LC.slideshow.create = function (layer, urls, opts) { captured.push(urls.length); return originalCreate(layer, urls, opts); };
     const body = fakeBody();
     LC.backdrops.apply(null, body, movie);
-    mount(body._children[0]);
-    loaders[0].onload();
   });
-  assert.deepEqual(captured, [8, 4]);
-});
-
-/* ====================================================================== */
-/* Task 6 (fix, решение координатора по live-check п.4): пауза при уходе   */
-/* вглубь — без подписки, проверкой isLayerForeground() в каждом тике.     */
-/* ====================================================================== */
-
-test('slideshow: activity--active отсутствует у closest(\'.activity\') -> тик пропущен целиком (нет Image, is-active не меняется), таймер не тронут', () => {
-  const LC = freshLC({ motion: 'full', prefs: { lumen_slideshow: true } });
-  const body = fakeBody();
-  const movie = { id: 1, backdrop_path: '/main.jpg', images: { backdrops: [mk('/main.jpg', null, 9), mk('/c.jpg', null, 7)] } };
-
-  LC.backdrops.apply(null, body, movie);
-  const layer = mount(body._children[0]);
-  loaders[0].onload();
-
-  const img0 = layer.children('.lumen-backdrop__img');
-  assert.equal(img0.hasClass('is-active'), true);
-  assert.equal(intervals.length, 1, 'таймер должен быть заведён (карточка на экране в момент запуска)');
-
-  // Карточка "ушла вглубь": её .activity больше не активна.
-  layer._closestActivity = { length: 1, hasClass: () => false };
-
-  fireInterval(1);
-  assert.equal(loaders.length, 1, 'предзагрузка следующего кадра не должна была начаться');
-  assert.equal(img0.hasClass('is-active'), true, 'is-active первого кадра не должен был снятся');
-  assert.equal(intervals[0].cleared, false, 'таймер не трогаем — следующий тик проверит заново');
-
-  fireInterval(1); // ещё тик — карточка всё ещё не на экране, повторный пропуск
-  assert.equal(loaders.length, 1);
-});
-
-test('slideshow: activity--active появляется у closest(\'.activity\') -> следующий тик снова меняет кадр', () => {
-  const LC = freshLC({ motion: 'full', prefs: { lumen_slideshow: true } });
-  const body = fakeBody();
-  const movie = { id: 1, backdrop_path: '/main.jpg', images: { backdrops: [mk('/main.jpg', null, 9), mk('/c.jpg', null, 7)] } };
-
-  LC.backdrops.apply(null, body, movie);
-  const layer = mount(body._children[0]);
-  loaders[0].onload();
-
-  layer._closestActivity = { length: 1, hasClass: () => false }; // не на экране
-  fireInterval(1);
-  assert.equal(loaders.length, 1, 'пока не на экране — без предзагрузки');
-
-  layer._closestActivity = { length: 1, hasClass: (c) => c === 'activity--active' }; // снова на экране
-  fireInterval(1);
-  assert.equal(loaders.length, 2, 'вернулись на экран — тик снова предзагружает следующий кадр');
-  loaders[1].onload();
-
-  const slides = layer.children('.lumen-bg__slides');
-  assert.equal(slides._children.length, 1);
-  assert.equal(slides._children[0].hasClass('is-active'), true);
+  assert.deepEqual(captured, [8, 4, 1]);
 });
