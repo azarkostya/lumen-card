@@ -5,11 +5,13 @@ import { FakeEl } from './_fakedom.mjs';
 /* Task 31: маркеры меню и окон пути TorrServer (src/64_menus.js).
    kind()/isPathModal() — чистые; mode()/install() трогают $('body'),
    Lampa.Select/Modal — здесь всё фейковое: $ отдаёт заранее собранные
-   FakeEl по селектору, listener.follow складывает колбэки, send их зовёт
-   (как Subscribe в Lampa). */
+   FakeEl по селектору, listener повторяет Subscribe Lampa, а фейковый
+   Select.show/close — порядок событий app.min.js:7078/7150
+   (show: preshow; close: hide -> onBack -> close). */
 
 /* warn() в бандле объявлен в 00_head.js; тестовый загрузчик его не даёт. */
-globalThis.warn = function () { };
+var warnLog = [];
+globalThis.warn = function (msg) { warnLog.push(msg); };
 
 const m = load('64_menus.js');
 const titles = { source: 'Источник', action: 'Действие' };
@@ -38,6 +40,14 @@ test('kind: заголовок «Источник» без btn (чужой) → 
 test('kind: пустая «Сортировать» на экране торрентов без раздач (items=0, живьём) → filter', () => {
   assert.equal(m.kind({ title: 'Сортировать', items: [] }, 'torrents', titles), 'filter');
   assert.equal(m.kind({ title: 'Сортировать' }, 'torrents', titles), 'filter');
+});
+test('kind: флаги файла/раздачи без заголовка «Действие» → null (трейлеры с player, плейлист с link)', () => {
+  assert.equal(m.kind({ title: 'YouTube - Трейлеры', items: [{ title: 'Трейлер', player: 'youtube', url: 'x' }] }, 'full', titles), null);
+  assert.equal(m.kind({ title: 'Плейлист', items: [{ title: '1', link: true, player: 'lampa' }] }, 'full', titles), null);
+  assert.equal(m.kind({ title: 'Настройки', items: [{ mark: true }] }, 'full', titles), null);
+});
+test('kind: «Действие» только с player/link (без timeclear/timefull) → не file', () => {
+  assert.equal(m.kind({ title: 'Действие', items: [{ player: 'lampa' }, { link: true }] }, 'full', titles), null);
 });
 
 /* ---------------------------------------------------------------- */
@@ -71,13 +81,13 @@ function makeListener() {
 
 function setup(opts) {
   opts = opts || {};
+  warnLog.length = 0;
   const env = {
     body: new FakeEl(['body-mock']),
     selectbox: new FakeEl(['selectbox']),
     modal: modalWith(opts.modalContent === undefined ? 'modal-loading' : opts.modalContent),
     component: opts.component || 'full',
-    controller: opts.controller || 'content',
-    selectOpened: false
+    controller: opts.controller || 'content'
   };
   globalThis.$ = function (x) {
     if (x === 'body') return env.body;
@@ -85,11 +95,33 @@ function setup(opts) {
     if (x === '.modal') return env.modal;
     return x;
   };
+  let active = null;
+  let opened = false;
+  const select = {
+    listener: makeListener(),
+    render: () => env.selectbox,
+    opened: () => opened,
+    /* app.min.js:7078 show$e: active = object; preshow; ...; fullshow; Controller.toggle('select') */
+    show(object) {
+      active = object;
+      select.listener.send('preshow', { active: active });
+      opened = true;
+      select.listener.send('fullshow', { active: active, html: env.selectbox });
+      env.controller = 'select';
+    },
+    /* app.min.js:7150 close$a: hide$4 (opened=false, hide) -> onBack -> close */
+    close() {
+      opened = false;
+      select.listener.send('hide', { active: active });
+      if (active.onBack) active.onBack();
+      select.listener.send('close', { active: active });
+    }
+  };
   globalThis.Lampa = {
     Lang: { translate: (k) => ({ settings_rest_source: 'Источник', title_action: 'Действие' })[k] || k },
     Activity: { active: () => ({ component: env.component }) },
-    Controller: { enabled: () => ({ name: env.controller }) },
-    Select: { listener: makeListener(), render: () => env.selectbox, opened: () => env.selectOpened },
+    Controller: { enabled: () => ({ name: env.controller }), toggle: (name) => { env.controller = name; } },
+    Select: select,
     Modal: { listener: makeListener(), render: () => env.modal }
   };
   env.m = load('64_menus.js');
@@ -97,6 +129,7 @@ function setup(opts) {
 }
 
 function menuClasses(el) { return el._class.filter((c) => c.indexOf('lumen-menus-') === 0); }
+function kindOf(env) { return env.selectbox.attr('data-lumen-kind'); }
 
 test('mode: all/path/off — ровно один класс или ни одного', () => {
   const env = setup();
@@ -124,57 +157,92 @@ test('mode: неизвестное значение (undefined/мусор) → �
   assert.equal(env.m.mode('off'), 'off');
 });
 
-test('install: preshow источника → lumen-select + data-lumen-kind=source; close → снят', () => {
+test('install: Select «Источник» → lumen-select + data-lumen-kind=source', () => {
   const env = setup();
   env.m.mode('all');
   env.m.install();
-  Lampa.Select.listener.send('preshow', { active: { title: 'Источник', items: [{ title: 'Торренты', btn: {} }] } });
+  Lampa.Select.show({ title: 'Источник', items: [{ title: 'Торренты', btn: {} }], onBack: () => Lampa.Controller.toggle('content') });
   assert.equal(env.selectbox.hasClass('lumen-select'), true);
-  assert.equal(env.selectbox.attr('data-lumen-kind'), 'source');
-  Lampa.Select.listener.send('close', { active: {} });
-  assert.equal(env.selectbox.hasClass('lumen-select'), false);
-  assert.equal(env.selectbox.attr('data-lumen-kind'), undefined);
+  assert.equal(kindOf(env), 'source');
 });
 
-test('install: preshow чужого Select после меню пути → маркер снят, data-lumen-kind пуст', () => {
+test('install: после close («Назад») маркер держится; следующий чужой preshow его снимает', () => {
   const env = setup();
   env.m.mode('all');
   env.m.install();
-  Lampa.Select.listener.send('preshow', { active: { title: 'Действие', items: [{ tomy: true }] } });
-  assert.equal(env.selectbox.attr('data-lumen-kind'), 'torrent');
-  Lampa.Select.listener.send('preshow', { active: { title: 'Размер интерфейса', items: [{ title: 'Маленький' }] } });
+  Lampa.Select.show({ title: 'Действие', items: [{ tomy: true }], onBack: () => Lampa.Controller.toggle('content') });
+  Lampa.Select.close();
+  assert.equal(env.selectbox.hasClass('lumen-select'), true, 'маркер не снимается во время анимации закрытия');
+  assert.equal(kindOf(env), 'torrent');
+  Lampa.Select.show({ title: 'Размер интерфейса', items: [{ title: 'Маленький' }] });
   assert.equal(env.selectbox.hasClass('lumen-select'), false);
-  assert.equal(env.selectbox.attr('data-lumen-kind'), undefined);
+  assert.equal(kindOf(env), undefined);
 });
 
-test('install: close, пока Select снова открыт из onBack (вложенный фильтр) → маркер остаётся', () => {
-  const env = setup({ component: 'torrents' });
+test('install: close не подписан (единственный источник истины — preshow)', () => {
+  const env = setup();
+  env.m.install();
+  assert.equal(Lampa.Select.listener.count('close'), 0);
+  assert.equal(Lampa.Select.listener.count('hide'), 0);
+  assert.equal(Lampa.Modal.listener.count('close'), 0);
+});
+
+test('install: фильтр экрана торрентов из контроллера content → filter; вложенный и переоткрытие родителя из onBack → filter', () => {
+  const env = setup({ component: 'torrents', controller: 'content' });
   env.m.mode('all');
   env.m.install();
-  Lampa.Select.listener.send('preshow', { active: { title: 'Сортировать', items: [{ title: 'По сидам' }] } });
-  env.selectOpened = true;
-  Lampa.Select.listener.send('close', { active: {} });
+  function showParent() {
+    Lampa.Select.show({
+      title: 'Фильтр', items: [{ title: 'Качество', items: [{ title: '4K' }] }],
+      onBack: () => Lampa.Controller.toggle('content')
+    });
+  }
+  showParent();
+  assert.equal(kindOf(env), 'filter');
+  assert.equal(env.controller, 'select');
+  Lampa.Select.show({ title: 'Качество', items: [{ title: '4K' }], onBack: showParent });
+  assert.equal(kindOf(env), 'filter', 'вложенный Select фильтра (контроллер select, корень уже filter)');
+  Lampa.Select.close();
+  assert.equal(kindOf(env), 'filter', 'родитель, переоткрытый из onBack вложенного');
   assert.equal(env.selectbox.hasClass('lumen-select'), true);
-  assert.equal(env.selectbox.attr('data-lumen-kind'), 'filter');
+});
+
+for (const ctrl of ['player_panel', 'player', 'menu', 'head', 'settings_component', 'explorer']) {
+  test('install: Select из контроллера ' + ctrl + ' поверх активности torrents → без маркера', () => {
+    const env = setup({ component: 'torrents', controller: ctrl });
+    env.m.mode('all');
+    env.m.install();
+    Lampa.Select.listener.send('preshow', { active: { title: 'Настройки', items: [{ title: 'Скорость' }] } });
+    assert.equal(env.selectbox.hasClass('lumen-select'), false);
+    assert.equal(kindOf(env), undefined);
+  });
+}
+
+test('install: контроллер select без маркера filter на корне (например, после Select источника) → не filter', () => {
+  const env = setup({ component: 'torrents', controller: 'select' });
+  env.m.mode('all');
+  env.m.install();
+  env.selectbox.attr('data-lumen-kind', 'source');
+  Lampa.Select.listener.send('preshow', { active: { title: 'Плейлист', items: [{ title: '1' }] } });
+  assert.equal(kindOf(env), undefined);
+  assert.equal(env.selectbox.hasClass('lumen-select'), false);
 });
 
 test('install: Select из настроек Lampa на экране торрентов → без маркера', () => {
   const env = setup({ component: 'torrents', controller: 'settings_component' });
   env.m.mode('all');
   env.m.install();
-  Lampa.Select.listener.send('preshow', { active: { title: 'Выбор', items: [{ title: 'Да', value: 'true' }] } });
+  Lampa.Select.show({ title: 'Выбрать', items: [{ title: 'Да', value: 'true' }] });
   assert.equal(env.selectbox.hasClass('lumen-select'), false);
-  assert.equal(env.selectbox.attr('data-lumen-kind'), undefined);
+  assert.equal(kindOf(env), undefined);
 });
 
-test('install: Modal fullshow с .modal-loading → lumen-modal; close → снят', () => {
+test('install: Modal fullshow с .modal-loading → lumen-modal', () => {
   const env = setup();
   env.m.mode('path');
   env.m.install();
   Lampa.Modal.listener.send('fullshow', { active: {}, html: env.modal });
   assert.equal(env.modal.hasClass('lumen-modal'), true);
-  Lampa.Modal.listener.send('close', { active: {} });
-  assert.equal(env.modal.hasClass('lumen-modal'), false);
 });
 
 test('install: Modal fullshow с .torrent-install → lumen-modal', () => {
@@ -204,7 +272,7 @@ test('install: режим off (и до первого mode, т.е. плагин 
   Lampa.Select.listener.send('preshow', { active: { title: 'Действие', items: [{ timeclear: true }] } });
   Lampa.Modal.listener.send('fullshow', { active: {}, html: env.modal });
   assert.equal(env.selectbox.hasClass('lumen-select'), false);
-  assert.equal(env.selectbox.attr('data-lumen-kind'), undefined);
+  assert.equal(kindOf(env), undefined);
   assert.equal(env.modal.hasClass('lumen-modal'), false);
   assert.deepEqual(menuClasses(env.body), []);
 });
@@ -217,7 +285,7 @@ test('mode(off) снимает уже поставленные маркеры с
   Lampa.Modal.listener.send('fullshow', { active: {}, html: env.modal });
   env.m.mode('off');
   assert.equal(env.selectbox.hasClass('lumen-select'), false);
-  assert.equal(env.selectbox.attr('data-lumen-kind'), undefined);
+  assert.equal(kindOf(env), undefined);
   assert.equal(env.modal.hasClass('lumen-modal'), false);
 });
 
@@ -226,9 +294,16 @@ test('install: повторный вызов не удваивает подпи�
   env.m.install();
   env.m.install();
   assert.equal(Lampa.Select.listener.count('preshow'), 1);
-  assert.equal(Lampa.Select.listener.count('close'), 1);
   assert.equal(Lampa.Modal.listener.count('fullshow'), 1);
-  assert.equal(Lampa.Modal.listener.count('close'), 1);
+});
+
+test('install: без Select.listener/Modal.listener и без Lang — предупреждения в лог, без исключений', () => {
+  const env = setup();
+  delete Lampa.Select.listener;
+  delete Lampa.Modal.listener;
+  delete Lampa.Lang;
+  assert.doesNotThrow(() => env.m.install());
+  assert.equal(warnLog.length, 3, 'titles + Select.listener + Modal.listener: ' + warnLog.join(' | '));
 });
 
 test('install: ошибка внутри колбэка не пробрасывается наружу', () => {
