@@ -215,8 +215,19 @@
     css.push('.lumen-card .lumen-reactions-chip{font-family:' + FM + ';background:rgba(' + SPICE_RGB + ',.12);border:.04em solid rgba(' + SPICE_RGB + ',.5);border-radius:.53em;padding:.44em .70em;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-orient:vertical;-webkit-flex-direction:column;flex-direction:column;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center}');
     css.push('.lumen-card .lumen-reactions-chip__value{font-size:1.23em;font-weight:600;line-height:1;color:' + C.spice + '}');
     css.push('.lumen-card .lumen-reactions-chip__label{font-size:.61em;letter-spacing:.1em;opacity:.8;color:' + C.spice + ';padding:.18em 0 0}');
-    css.push('.lumen-card .full-start-new__rate-line .tag--episode{font-family:' + FM + ';font-size:1em;background:rgba(' + SPICE_RGB + ',0.14);border:.04em solid rgba(' + SPICE_RGB + ',0.40);border-radius:.75em;padding:.6em 1em;color:' + C.text + ';text-transform:none;max-width:34em}');
-    css.push('.lumen-card .full-start-new__rate-line .tag--episode > div{font-size:1em;color:' + A + '}');
+    /* Task 5c (design-spec §5e, экран 05): вместо штатного tag--episode (свой
+       формат строки Lampa «Следующая серия: … / Осталось дней: …») — чип
+       .lumen-next-chip: тёмная карта как у рейтингов, часы 22px маской, текст
+       18px Golos 500. em внутри чипа — от его 18px: радиус 12px=.67em, паддинг
+       16px=.89em, иконка 22px=1.22em, зазор 10px=.56em. */
+    css.push('.lumen-card .full-start-new__rate-line .tag--episode{display:none !important}');
+    css.push('.lumen-card .lumen-next-chip{font-family:' + FB + ';font-weight:500;font-size:.79em;line-height:1;color:' + C.text + ';background:' + C.chipBg + ';border:.05em solid ' + C.line + ';border-radius:.67em;padding:0 .89em;white-space:nowrap;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center}');
+    css.push('.lumen-card .lumen-next-chip:before{content:"";display:block;-webkit-flex-shrink:0;flex-shrink:0;width:1.22em;height:1.22em;margin-right:.56em;background-color:' + C.muted + ';-webkit-mask-image:' + LC.icons.maskUrl('clock') + ';mask-image:' + LC.icons.maskUrl('clock') + ';-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-size:contain;mask-size:contain}');
+    /* Task 5c Step 2 (design-spec §8, экран 05): у сериала статус перенесён в
+       ленту рейтингов (LC.header renderSerialMode) — там он карта с точкой той
+       же геометрии, что чип следующей серии, а не пилюля боковой колонки. */
+    css.push('.lumen-card.lumen-card--serial .full-start-new__rate-line .full-start__status{font-family:' + FB + ';font-weight:500;font-size:.79em;line-height:1;letter-spacing:normal;text-transform:none;color:' + C.text + ';background:' + C.chipBg + ';border:.05em solid ' + C.line + ';border-radius:.67em;padding:0 .89em;white-space:nowrap;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center}');
+    css.push('.lumen-card.lumen-card--serial .full-start-new__rate-line .full-start__status:before{content:"";display:block;-webkit-flex-shrink:0;flex-shrink:0;width:.56em;height:.56em;border-radius:50%;background:currentColor;margin-right:.56em}');
 
     /* --- Продолжить (design-spec §6: ширина 760px, margin-top 24px) --- */
     css.push('.lumen-card .lumen-progress{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;width:33.32em;max-width:100%;margin-top:1.05em;font-family:' + FM + ';font-size:1em;color:' + C.muted + ';letter-spacing:.04em}');
@@ -279,6 +290,51 @@
     css.push('.lumen-card .lumen-cast__item{font-family:' + FB + ';font-size:.88em;font-weight:500;width:2.72em;height:2.72em;border-radius:50%;background:' + C.panel + ';border:.13em solid ' + C.bg + ';margin-left:-.61em;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;color:' + C.muted + ';overflow:hidden}');
     css.push('.lumen-card .lumen-cast__row .lumen-cast__item:first-child{margin-left:0}');
     css.push('.lumen-card .lumen-cast__more{font-family:' + FM + ';font-weight:600;font-size:.75em;color:' + C.smoke + '}');
+    /* Task 5c (design-spec §8): правая колонка сериала — только качество. */
+    css.push('.lumen-card.lumen-card--serial .lumen-cast{display:none}');
+
+    /* --- Ряд серий сезона (design-spec §9, экраны 05/06; px ÷ 22.811) ---
+       Заголовок «Сезон 2» 28px Unbounded 700 + «8 СЕРИЙ» 16px mono smoke;
+       карточка 340×150, radius 14, padding 18, зазор 16. Дорожка — absolute
+       внутри viewport фиксированной высоты: длинный ряд не раздувает
+       колонку (и flex-фолбэк без grid), выходит за правый край экрана и
+       сдвигается transform'ом к фокусу (LC.header scrollToEpisode). */
+    css.push('.lumen-card .lumen-episodes{margin-top:1.75em}');
+    css.push('.lumen-card .lumen-episodes__head{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:baseline;-webkit-align-items:baseline;align-items:baseline;margin-bottom:.79em}');
+    css.push('.lumen-card .lumen-episodes__title{font-family:' + FD + ';font-weight:700;font-size:1.23em;line-height:1;color:' + C.text + ';margin-right:.5em}');
+    css.push('.lumen-card .lumen-episodes__count{font-family:' + FM + ';font-size:.70em;line-height:1;letter-spacing:.12em;text-transform:uppercase;color:' + C.smoke + '}');
+    css.push('.lumen-card .lumen-episodes__viewport{position:relative;height:6.58em}');
+    css.push('.lumen-card .lumen-episodes__track{position:absolute;top:0;left:0;height:100%;display:-webkit-box;display:-webkit-flex;display:flex}');
+    css.push('.lumen-card .lumen-episode{position:relative;-webkit-box-sizing:border-box;box-sizing:border-box;width:14.9em;height:6.58em;margin-right:.70em;-webkit-box-flex:0;-webkit-flex:none;flex:none;border-radius:.61em;padding:.79em;overflow:hidden;background:linear-gradient(180deg,#0C0D0F,#161825);border:.04em solid ' + C.line + ';color:' + C.text + ';display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-orient:vertical;-webkit-flex-direction:column;flex-direction:column;-webkit-box-pack:justify;-webkit-justify-content:space-between;justify-content:space-between}');
+    css.push('.lumen-card .lumen-episode__still{position:absolute;top:0;right:0;bottom:0;left:0;background-position:50% 50%;background-repeat:no-repeat;-webkit-background-size:cover;background-size:cover;opacity:.28}');
+    css.push('.lumen-card .lumen-episode__top{position:relative;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-pack:justify;-webkit-justify-content:space-between;justify-content:space-between;-webkit-box-align:center;-webkit-align-items:center;align-items:center;min-height:1.40em}');
+    css.push('.lumen-card .lumen-episode__num{font-family:' + FM + ';font-weight:600;font-size:.75em;line-height:1;letter-spacing:.1em;color:' + C.smoke + '}');
+    css.push('.lumen-card .lumen-episode__check{width:.88em;height:.88em;background-color:' + C.good + ';-webkit-mask-image:' + LC.icons.maskUrl('check') + ';mask-image:' + LC.icons.maskUrl('check') + ';-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-size:contain;mask-size:contain}');
+    css.push('.lumen-card .lumen-episode__percent{font-family:' + FM + ';font-size:.66em;line-height:1;color:' + A + '}');
+    css.push('.lumen-card .lumen-episode__play{display:none;position:relative;width:1.40em;height:1.40em;border-radius:50%;background:' + A + '}');
+    css.push('.lumen-card .lumen-episode__play:before{content:"";position:absolute;top:50%;left:50%;width:.75em;height:.75em;margin:-.375em 0 0 -.33em;background-color:' + C.dark + ';-webkit-mask-image:' + LC.icons.maskUrl('play') + ';mask-image:' + LC.icons.maskUrl('play') + ';-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-size:contain;mask-size:contain}');
+    css.push('.lumen-card .lumen-episode__bottom{position:relative;min-width:0}');
+    css.push('.lumen-card .lumen-episode__name{font-family:' + FB + ';font-weight:500;font-size:.96em;line-height:1.2;white-space:nowrap;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis}');
+    css.push('.lumen-card .lumen-episode__caption{font-family:' + FM + ';font-size:.70em;line-height:1;color:' + C.smoke + ';margin-top:.44em;white-space:nowrap;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis}');
+    css.push('.lumen-card .lumen-episode__bar{height:.18em;border-radius:.09em;background:rgba(243,237,228,.16);margin-top:.44em;overflow:hidden}');
+    css.push('.lumen-card .lumen-episode__bar > div{height:100%;border-radius:.09em;background:' + A + '}');
+    /* Состояния §9: просмотрена — приглушена; смотрите — тёплый фон, номер и %
+       акцентом; не вышла — полупрозрачная карта с пунктиром, текст smoke. */
+    css.push('.lumen-card .lumen-episode--watched{opacity:.6}');
+    css.push('.lumen-card .lumen-episode--watching{background:linear-gradient(180deg,#171310,#221A13);border-color:#303552}');
+    css.push('.lumen-card .lumen-episode--watching .lumen-episode__num{color:' + A + '}');
+    css.push('.lumen-card .lumen-episode--watching .lumen-episode__caption{color:' + C.muted + '}');
+    css.push('.lumen-card .lumen-episode--soon{background:rgba(28,22,19,.35);border:.07em dashed ' + C.line + '}');
+    css.push('.lumen-card .lumen-episode--soon .lumen-episode__name{color:' + C.smoke + '}');
+    /* Фокус (экран 06): обводка 3px акцентом, тёплый фон, свечение, scale 1.03;
+       бейдж уступает место кружку play. Lampa не анимирует .lumen-episode
+       своими keyframes, поэтому transform без !important. */
+    css.push('.lumen-card .lumen-episode.focus{opacity:1;background:linear-gradient(180deg,#221A13,#2C2318);border:.13em solid ' + A + ';padding:.75em;-webkit-transform:scale(1.03);transform:scale(1.03);-webkit-box-shadow:0 .614em 1.754em ' + AG + ';box-shadow:0 .614em 1.754em ' + AG + '}');
+    css.push('.lumen-card .lumen-episode.focus .lumen-episode__play{display:block}');
+    css.push('.lumen-card .lumen-episode.focus .lumen-episode__check,.lumen-card .lumen-episode.focus .lumen-episode__percent{display:none}');
+    css.push('.lumen-card .lumen-episode.focus .lumen-episode__name{font-weight:600}');
+    /* Движок без масок: пустые закрашенные квадраты вместо иконок не рисуем. */
+    css.push(LC.icons.NO_MASK + '{.lumen-card .lumen-next-chip:before,.lumen-card .lumen-episode__check,.lumen-card .lumen-episode__play:before{display:none}}');
 
     /* --- Компактная раскладка на узких экранах (страховка) --- */
     css.push('@media screen and (max-width:1000px){.lumen-card .lumen-content{display:block}.lumen-card .lumen-content > .lumen-side{text-align:left;-webkit-box-align:start;-webkit-align-items:flex-start;align-items:flex-start;margin-top:1.5em}.lumen-card .full-start-new__title{font-size:2.43em}.lumen-card .full-start-new__body{min-height:0}}');
@@ -325,6 +381,11 @@
        оставался 'animation-button-focus' вместо 'none'. lite задуман как «только цвета», поэтому
        анимацию гасим так же, как в off. */
     css.push('.lumen-card.lumen-motion-lite .full-start__button{-webkit-animation:none !important;animation:none !important}');
+    /* Task 5c: пружина фокуса карточки серии и сдвиг дорожки ряда — только в
+       full; lite/off — без scale (как у кнопок), off ещё и без переходов. */
+    css.push('.lumen-card.lumen-motion-full .lumen-episode{-webkit-transition:background-color .2s,border-color .2s,opacity .2s,-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25),-webkit-box-shadow .28s;transition:background-color .2s,border-color .2s,opacity .2s,transform .28s cubic-bezier(.2,.9,.3,1.25),box-shadow .28s}');
+    css.push('.lumen-card.lumen-motion-full .lumen-episodes__track{-webkit-transition:-webkit-transform .4s cubic-bezier(.2,.8,.2,1);transition:transform .4s cubic-bezier(.2,.8,.2,1)}');
+    css.push('.lumen-card.lumen-motion-lite .lumen-episode.focus,.lumen-card.lumen-motion-off .lumen-episode.focus{-webkit-transform:none;transform:none}');
 
     /* Бэкдроп: медленный наезд (Ken Burns). Класс .lumen-bg__img подготовлен для слайдшоу кадров Task 6.
        Task 6 (исправление): корень — .lumen-backdrop, а не .lumen-card. Слой фона лежит в e.body, вне

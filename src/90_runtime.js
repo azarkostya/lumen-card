@@ -104,6 +104,29 @@
     }
   }
 
+  var timeline_followed = false;
+
+  /* Task 5c: одна подписка на Lampa.Timeline за всё время жизни плагина —
+     запись просмотра серии обновилась (плеер, синхронизация CUB) ->
+     перерисовать карточку этой серии (LC.header.refreshEpisode ищет узлы по
+     data-hash в DOM: без таймеров и без ссылок на карточки). */
+  function followTimeline() {
+    if (timeline_followed) return;
+    timeline_followed = true;
+    try {
+      if (!window.Lampa || !Lampa.Timeline || !Lampa.Timeline.listener) return;
+      Lampa.Timeline.listener.follow('update', function (e) {
+        try {
+          if (e && e.data) LC.header.refreshEpisode(e.data.hash);
+        } catch (err) {
+          warn('timeline listener failed', err);
+        }
+      });
+    } catch (e2) {
+      warn('timeline listener failed', e2);
+    }
+  }
+
   /* -------------------------------------------------------------------- */
   /* Task 5b (правки координатора, п.4): хук закрытия карточки.             */
   /* -------------------------------------------------------------------- */
@@ -414,6 +437,7 @@
 
       followToggle();
       followActivityLifecycle();
+      followTimeline();
     } catch (e) {
       warn('init failed', e);
       restoreOriginalTemplate();

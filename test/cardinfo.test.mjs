@@ -340,3 +340,58 @@ test('backdropPath: нет ничего -> "" ; movie не передан -> "",
   assert.equal(cardinfo.backdropPath(null), '');
   assert.equal(cardinfo.backdropPath(undefined), '');
 });
+
+/* -------------------------------------------------------------------- */
+/* Task 5c: сериал — чип «Следующая серия», короткая дата, студия/сеть    */
+/* -------------------------------------------------------------------- */
+
+const NOW = new Date(2026, 10, 16, 23, 50); // 16 ноября 2026, 23:50 местного
+
+test('nextEpisode: дата через 31 день -> дата в родительном падеже, склонение «день»', () => {
+  assert.deepEqual(cardinfo.nextEpisode({ air_date: '2026-12-17', episode_number: 1 }, NOW), {
+    date: '17 декабря',
+    days: 31,
+    text: 'Следующая серия — 17 декабря, через 31 день'
+  });
+});
+
+test('nextEpisode: склонения «дня»/«дней» через LC.util.plural', () => {
+  assert.equal(cardinfo.nextEpisode({ air_date: '2026-12-08' }, NOW).text, 'Следующая серия — 8 декабря, через 22 дня');
+  assert.equal(cardinfo.nextEpisode({ air_date: '2026-12-11' }, NOW).text, 'Следующая серия — 11 декабря, через 25 дней');
+  assert.equal(cardinfo.nextEpisode({ air_date: '2026-11-27' }, NOW).text, 'Следующая серия — 27 ноября, через 11 дней');
+});
+
+test('nextEpisode: сегодня и завтра — словом, без «через N»', () => {
+  assert.deepEqual(cardinfo.nextEpisode({ air_date: '2026-11-16' }, NOW), {
+    date: '16 ноября', days: 0, text: 'Следующая серия — сегодня'
+  });
+  assert.deepEqual(cardinfo.nextEpisode({ air_date: '2026-11-17' }, new Date(2026, 10, 16, 0, 5)), {
+    date: '17 ноября', days: 1, text: 'Следующая серия — завтра'
+  });
+});
+
+test('nextEpisode: дата в прошлом или нет данных -> null', () => {
+  assert.equal(cardinfo.nextEpisode({ air_date: '2026-11-15' }, NOW), null);
+  assert.equal(cardinfo.nextEpisode(null, NOW), null);
+  assert.equal(cardinfo.nextEpisode(undefined, NOW), null);
+  assert.equal(cardinfo.nextEpisode({}, NOW), null);
+  assert.equal(cardinfo.nextEpisode({ air_date: '' }, NOW), null);
+  assert.equal(cardinfo.nextEpisode({ air_date: 'скоро' }, NOW), null);
+});
+
+test('shortDate: «17 дек» для серии, которая не вышла; май — «мая»; пусто/мусор -> ""', () => {
+  assert.equal(cardinfo.shortDate('2026-12-17'), '17 дек');
+  assert.equal(cardinfo.shortDate('2026-05-03'), '3 мая');
+  assert.equal(cardinfo.shortDate('2026-01-09'), '9 янв');
+  assert.equal(cardinfo.shortDate(''), '');
+  assert.equal(cardinfo.shortDate(null), '');
+  assert.equal(cardinfo.shortDate('2026-13-01'), '');
+});
+
+test('network: networks[0].name, иначе первая студия production_companies, иначе ""', () => {
+  assert.equal(cardinfo.network({ networks: [{ name: 'Prime Video' }, { name: 'HBO' }] }), 'Prime Video');
+  assert.equal(cardinfo.network({ networks: [], production_companies: [{ name: 'Kilter Films' }] }), 'Kilter Films');
+  assert.equal(cardinfo.network({ networks: [{}] }), '');
+  assert.equal(cardinfo.network({}), '');
+  assert.equal(cardinfo.network(null), '');
+});

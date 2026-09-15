@@ -165,6 +165,9 @@
         '<div class="full-start__rate rate--imdb hide"><div></div><div>IMDB</div></div>' +
         '<div class="full-start__rate rate--kp hide"><div></div><div>KP</div></div>' +
         '<div class="full-start__tag tag--episode hide"><div></div></div>' +
+        /* Task 5c: чип «Следующая серия» (design-spec §5e, экран 05) — у сериала
+           перед ним встаёт статус (renderSerialMode в 85_header.js). */
+        '<div class="lumen-next-chip hide"><div class="lumen-next-chip__text"></div></div>' +
         '<div class="lumen-reactions-chip hide"><div class="lumen-reactions-chip__value"></div><div class="lumen-reactions-chip__label"></div></div>' +
         '</div>' +
         '</div>' +
@@ -182,6 +185,15 @@
         /* Обёртка константна (только этот один div), хэшируется НЕ она —
            хэшируются кнопки внутри (innerOf вырезает только их, план 0.2). */
         '<div class="full-start-new__buttons">' + buttons + '</div>' +
+        /* Task 5c: ряд серий последнего сезона (design-spec §9, экран 05) —
+           внутри шестого .lumen-in, чтобы не сбить nth-child stagger; карточки
+           .lumen-episode.selector рисует LC.header, их собирает контроллер
+           full_start вместе с кнопками. Дорожка абсолютная — длинный ряд не
+           раздувает ширину колонки (flex-фолбэк без grid). */
+        '<div class="lumen-episodes hide">' +
+        '<div class="lumen-episodes__head"><div class="lumen-episodes__title"></div><div class="lumen-episodes__count"></div></div>' +
+        '<div class="lumen-episodes__viewport"><div class="lumen-episodes__track"></div></div>' +
+        '</div>' +
         '</div>' +
 
         /* Боковая колонка: статус (первым, над чипами качества) + раздельные

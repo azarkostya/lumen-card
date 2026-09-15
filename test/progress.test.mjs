@@ -129,3 +129,45 @@ test('serialProgress: сериал без ключей -> null, view/hash не �
   var found = progress.serialProgress(movie, neverCalled('view'), neverCalled('hash'));
   assert.equal(found, null);
 });
+
+/* ------------------------------ episodeState (Task 5c) ------------------------------ */
+
+/* now — локальная дата поздним вечером: сравнение по календарным дням не
+   должно зависеть от часа и часового пояса (air_date — строка 'YYYY-MM-DD'). */
+const NOW = new Date(2026, 10, 16, 23, 50); // 16 ноября 2026, 23:50 местного
+
+test('episodeState: percent >= 95 -> watched (даже если дата в будущем)', () => {
+  assert.deepEqual(progress.episodeState({ percent: 95 }, '2026-01-01', NOW), { state: 'watched' });
+  assert.deepEqual(progress.episodeState({ percent: 100 }, '2027-01-01', NOW), { state: 'watched' });
+});
+
+test('episodeState: 0 < percent < 95 -> watching, percent и leftMin по time/duration (вниз, как на экране 05)', () => {
+  // 18:40 из 58:12 -> осталось 39.5 мин -> 39
+  assert.deepEqual(progress.episodeState({ percent: 32, time: 1120, duration: 3492 }, '2026-01-01', NOW),
+    { state: 'watching', percent: 32, leftMin: 39 });
+});
+
+test('episodeState: watching — осталось меньше минуты -> leftMin 1, дробный percent округляется', () => {
+  assert.deepEqual(progress.episodeState({ percent: 94.6, time: 590, duration: 600 }, '2026-01-01', NOW),
+    { state: 'watching', percent: 95, leftMin: 1 });
+});
+
+test('episodeState: watching без duration -> leftMin из runtimeMin, без обоих -> null', () => {
+  assert.deepEqual(progress.episodeState({ percent: 50 }, '2026-01-01', NOW, 60), { state: 'watching', percent: 50, leftMin: 30 });
+  assert.deepEqual(progress.episodeState({ percent: 50 }, '2026-01-01', NOW), { state: 'watching', percent: 50, leftMin: null });
+});
+
+test('episodeState: не начата, дата сегодня или в прошлом -> aired', () => {
+  assert.deepEqual(progress.episodeState(null, '2026-11-16', NOW), { state: 'aired' });
+  assert.deepEqual(progress.episodeState({ percent: 0 }, '2025-12-16', NOW), { state: 'aired' });
+});
+
+test('episodeState: дата в будущем (завтра по календарю) -> soon', () => {
+  assert.deepEqual(progress.episodeState(null, '2026-11-17', new Date(2026, 10, 16, 0, 5)), { state: 'soon' });
+  assert.deepEqual(progress.episodeState({ percent: 0 }, '2026-12-17', NOW), { state: 'soon' });
+});
+
+test('episodeState: нет air_date -> soon (TMDB не даёт дату только не вышедшим сериям)', () => {
+  assert.deepEqual(progress.episodeState(null, '', NOW), { state: 'soon' });
+  assert.deepEqual(progress.episodeState(null, null, NOW), { state: 'soon' });
+});

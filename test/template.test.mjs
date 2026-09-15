@@ -138,6 +138,22 @@ test('build(фикстура): ключевые классы v1 на месте'
   }
 });
 
+test('build(фикстура), Task 5c: чип следующей серии в ленте рейтингов, ряд серий в шестом .lumen-in после кнопок', () => {
+  const result = template.build(fixture);
+  const rate = template.innerOf(result, 'full-start-new__rate-line');
+  assert.ok(rate.indexOf('lumen-next-chip') !== -1, 'чип следующей серии — внутри ленты рейтингов');
+
+  // шесть .lumen-in по-прежнему (stagger nth-child 1..6), ряд серий — не отдельный ребёнок .lumen-content
+  assert.equal((result.match(/class="lumen-in[ "]/g) || []).length, 6);
+  const buttonsAt = result.indexOf('full-start-new__buttons');
+  const episodesAt = result.indexOf('lumen-episodes');
+  const sideAt = result.indexOf('lumen-side');
+  assert.ok(buttonsAt < episodesAt && episodesAt < sideAt, 'ряд серий — после кнопок, до боковой колонки');
+  const lastIn = result.lastIndexOf('class="lumen-in', episodesAt);
+  assert.ok(result.slice(lastIn, episodesAt).indexOf('full-start-new__buttons') !== -1, 'ряд серий — в том же .lumen-in, что и кнопки');
+  assert.ok(result.indexOf('<div class="lumen-episodes hide">') !== -1, 'ряд скрыт до отрисовки');
+});
+
 /* -------------------------------------------------------------------- */
 /* Task 5/5a Step 1: REQUIRED/assert                                     */
 /* -------------------------------------------------------------------- */

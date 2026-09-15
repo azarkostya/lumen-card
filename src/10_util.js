@@ -64,6 +64,24 @@
       return m + ' ' + unit;
     }
 
+    /* Task 5c: календарная разница в днях от локальной даты now до 'YYYY-MM-DD'
+       (air_date TMDB). Строку не разбираем через new Date(str) — тот считает её
+       полночью UTC, и вечером западнее Гринвича дата съезжает на день. Обе даты
+       сводятся к Date.UTC по календарным полям, поэтому ни час, ни переход на
+       летнее время на результат не влияют. now — Date или мс (по умолчанию
+       текущий момент). Пусто/мусор/несуществующий месяц -> null. */
+    function daysUntil(ymd, now) {
+      var m = /^(\d{4})-(\d{2})-(\d{2})/.exec('' + (ymd || ''));
+      if (!m) return null;
+      var month = parseInt(m[2], 10);
+      var day = parseInt(m[3], 10);
+      if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+      var d = now instanceof Date ? now : new Date(typeof now === 'number' ? now : Date.now());
+      var today = Date.UTC(d.getFullYear(), d.getMonth(), d.getDate());
+      var target = Date.UTC(parseInt(m[1], 10), month - 1, day);
+      return Math.round((target - today) / 86400000);
+    }
+
     function each(arr, fn) {
       if (!arr) return;
       for (var i = 0; i < arr.length; i++) fn(arr[i], i);
@@ -100,6 +118,7 @@
       initials: initials,
       fmtTime: fmtTime,
       fmtRuntime: fmtRuntime,
+      daysUntil: daysUntil,
       each: each,
       map: map,
       filter: filter,

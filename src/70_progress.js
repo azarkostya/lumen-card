@@ -37,9 +37,30 @@
       return best;
     }
 
+    /* Task 5c Step 1: состояние карточки серии в ряду сезона (design-spec §9,
+       экран 05). view — Lampa.Timeline.view(хэш серии) или null; airDate —
+       'YYYY-MM-DD'; runtimeMin — хронометраж серии, запасной источник «осталось
+       N мин», если в записи Timeline нет duration. Просмотр важнее даты:
+       ≥ 95 % — просмотрена, > 0 — смотрите. Не начатая — вышла (дата сегодня
+       или в прошлом, по календарным дням) или нет (дата в будущем либо её нет
+       вовсе: TMDB не даёт air_date только не объявленным сериям). */
+    function episodeState(view, airDate, now, runtimeMin) {
+      var percent = view ? Number(view.percent) || 0 : 0;
+      if (percent >= 95) return { state: 'watched' };
+      if (percent > 0) {
+        var leftMin = null;
+        if (view.duration > 0) leftMin = Math.max(1, Math.floor((view.duration - (view.time || 0)) / 60));
+        else if (runtimeMin > 0) leftMin = Math.max(1, Math.round(runtimeMin * (100 - percent) / 100));
+        return { state: 'watching', percent: Math.round(percent), leftMin: leftMin };
+      }
+      var days = LC.util.daysUntil(airDate, now);
+      return { state: days === null || days > 0 ? 'soon' : 'aired' };
+    }
+
     return {
       movieProgress: movieProgress,
-      serialProgress: serialProgress
+      serialProgress: serialProgress,
+      episodeState: episodeState
     };
   })();
 

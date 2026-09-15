@@ -88,6 +88,24 @@
       return m + ' ' + unit;
     }
 
+    /* Task 5c: календарная разница в днях от локальной даты now до 'YYYY-MM-DD'
+       (air_date TMDB). Строку не разбираем через new Date(str) — тот считает её
+       полночью UTC, и вечером западнее Гринвича дата съезжает на день. Обе даты
+       сводятся к Date.UTC по календарным полям, поэтому ни час, ни переход на
+       летнее время на результат не влияют. now — Date или мс (по умолчанию
+       текущий момент). Пусто/мусор/несуществующий месяц -> null. */
+    function daysUntil(ymd, now) {
+      var m = /^(\d{4})-(\d{2})-(\d{2})/.exec('' + (ymd || ''));
+      if (!m) return null;
+      var month = parseInt(m[2], 10);
+      var day = parseInt(m[3], 10);
+      if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+      var d = now instanceof Date ? now : new Date(typeof now === 'number' ? now : Date.now());
+      var today = Date.UTC(d.getFullYear(), d.getMonth(), d.getDate());
+      var target = Date.UTC(parseInt(m[1], 10), month - 1, day);
+      return Math.round((target - today) / 86400000);
+    }
+
     function each(arr, fn) {
       if (!arr) return;
       for (var i = 0; i < arr.length; i++) fn(arr[i], i);
@@ -124,6 +142,7 @@
       initials: initials,
       fmtTime: fmtTime,
       fmtRuntime: fmtRuntime,
+      daysUntil: daysUntil,
       each: each,
       map: map,
       filter: filter,
@@ -441,8 +460,19 @@
     css.push('.lumen-card .lumen-reactions-chip{font-family:' + FM + ';background:rgba(' + SPICE_RGB + ',.12);border:.04em solid rgba(' + SPICE_RGB + ',.5);border-radius:.53em;padding:.44em .70em;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-orient:vertical;-webkit-flex-direction:column;flex-direction:column;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center}');
     css.push('.lumen-card .lumen-reactions-chip__value{font-size:1.23em;font-weight:600;line-height:1;color:' + C.spice + '}');
     css.push('.lumen-card .lumen-reactions-chip__label{font-size:.61em;letter-spacing:.1em;opacity:.8;color:' + C.spice + ';padding:.18em 0 0}');
-    css.push('.lumen-card .full-start-new__rate-line .tag--episode{font-family:' + FM + ';font-size:1em;background:rgba(' + SPICE_RGB + ',0.14);border:.04em solid rgba(' + SPICE_RGB + ',0.40);border-radius:.75em;padding:.6em 1em;color:' + C.text + ';text-transform:none;max-width:34em}');
-    css.push('.lumen-card .full-start-new__rate-line .tag--episode > div{font-size:1em;color:' + A + '}');
+    /* Task 5c (design-spec §5e, экран 05): вместо штатного tag--episode (свой
+       формат строки Lampa «Следующая серия: … / Осталось дней: …») — чип
+       .lumen-next-chip: тёмная карта как у рейтингов, часы 22px маской, текст
+       18px Golos 500. em внутри чипа — от его 18px: радиус 12px=.67em, паддинг
+       16px=.89em, иконка 22px=1.22em, зазор 10px=.56em. */
+    css.push('.lumen-card .full-start-new__rate-line .tag--episode{display:none !important}');
+    css.push('.lumen-card .lumen-next-chip{font-family:' + FB + ';font-weight:500;font-size:.79em;line-height:1;color:' + C.text + ';background:' + C.chipBg + ';border:.05em solid ' + C.line + ';border-radius:.67em;padding:0 .89em;white-space:nowrap;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center}');
+    css.push('.lumen-card .lumen-next-chip:before{content:"";display:block;-webkit-flex-shrink:0;flex-shrink:0;width:1.22em;height:1.22em;margin-right:.56em;background-color:' + C.muted + ';-webkit-mask-image:' + LC.icons.maskUrl('clock') + ';mask-image:' + LC.icons.maskUrl('clock') + ';-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-size:contain;mask-size:contain}');
+    /* Task 5c Step 2 (design-spec §8, экран 05): у сериала статус перенесён в
+       ленту рейтингов (LC.header renderSerialMode) — там он карта с точкой той
+       же геометрии, что чип следующей серии, а не пилюля боковой колонки. */
+    css.push('.lumen-card.lumen-card--serial .full-start-new__rate-line .full-start__status{font-family:' + FB + ';font-weight:500;font-size:.79em;line-height:1;letter-spacing:normal;text-transform:none;color:' + C.text + ';background:' + C.chipBg + ';border:.05em solid ' + C.line + ';border-radius:.67em;padding:0 .89em;white-space:nowrap;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center}');
+    css.push('.lumen-card.lumen-card--serial .full-start-new__rate-line .full-start__status:before{content:"";display:block;-webkit-flex-shrink:0;flex-shrink:0;width:.56em;height:.56em;border-radius:50%;background:currentColor;margin-right:.56em}');
 
     /* --- Продолжить (design-spec §6: ширина 760px, margin-top 24px) --- */
     css.push('.lumen-card .lumen-progress{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;width:33.32em;max-width:100%;margin-top:1.05em;font-family:' + FM + ';font-size:1em;color:' + C.muted + ';letter-spacing:.04em}');
@@ -505,6 +535,51 @@
     css.push('.lumen-card .lumen-cast__item{font-family:' + FB + ';font-size:.88em;font-weight:500;width:2.72em;height:2.72em;border-radius:50%;background:' + C.panel + ';border:.13em solid ' + C.bg + ';margin-left:-.61em;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;color:' + C.muted + ';overflow:hidden}');
     css.push('.lumen-card .lumen-cast__row .lumen-cast__item:first-child{margin-left:0}');
     css.push('.lumen-card .lumen-cast__more{font-family:' + FM + ';font-weight:600;font-size:.75em;color:' + C.smoke + '}');
+    /* Task 5c (design-spec §8): правая колонка сериала — только качество. */
+    css.push('.lumen-card.lumen-card--serial .lumen-cast{display:none}');
+
+    /* --- Ряд серий сезона (design-spec §9, экраны 05/06; px ÷ 22.811) ---
+       Заголовок «Сезон 2» 28px Unbounded 700 + «8 СЕРИЙ» 16px mono smoke;
+       карточка 340×150, radius 14, padding 18, зазор 16. Дорожка — absolute
+       внутри viewport фиксированной высоты: длинный ряд не раздувает
+       колонку (и flex-фолбэк без grid), выходит за правый край экрана и
+       сдвигается transform'ом к фокусу (LC.header scrollToEpisode). */
+    css.push('.lumen-card .lumen-episodes{margin-top:1.75em}');
+    css.push('.lumen-card .lumen-episodes__head{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:baseline;-webkit-align-items:baseline;align-items:baseline;margin-bottom:.79em}');
+    css.push('.lumen-card .lumen-episodes__title{font-family:' + FD + ';font-weight:700;font-size:1.23em;line-height:1;color:' + C.text + ';margin-right:.5em}');
+    css.push('.lumen-card .lumen-episodes__count{font-family:' + FM + ';font-size:.70em;line-height:1;letter-spacing:.12em;text-transform:uppercase;color:' + C.smoke + '}');
+    css.push('.lumen-card .lumen-episodes__viewport{position:relative;height:6.58em}');
+    css.push('.lumen-card .lumen-episodes__track{position:absolute;top:0;left:0;height:100%;display:-webkit-box;display:-webkit-flex;display:flex}');
+    css.push('.lumen-card .lumen-episode{position:relative;-webkit-box-sizing:border-box;box-sizing:border-box;width:14.9em;height:6.58em;margin-right:.70em;-webkit-box-flex:0;-webkit-flex:none;flex:none;border-radius:.61em;padding:.79em;overflow:hidden;background:linear-gradient(180deg,#0C0D0F,#161825);border:.04em solid ' + C.line + ';color:' + C.text + ';display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-orient:vertical;-webkit-flex-direction:column;flex-direction:column;-webkit-box-pack:justify;-webkit-justify-content:space-between;justify-content:space-between}');
+    css.push('.lumen-card .lumen-episode__still{position:absolute;top:0;right:0;bottom:0;left:0;background-position:50% 50%;background-repeat:no-repeat;-webkit-background-size:cover;background-size:cover;opacity:.28}');
+    css.push('.lumen-card .lumen-episode__top{position:relative;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-pack:justify;-webkit-justify-content:space-between;justify-content:space-between;-webkit-box-align:center;-webkit-align-items:center;align-items:center;min-height:1.40em}');
+    css.push('.lumen-card .lumen-episode__num{font-family:' + FM + ';font-weight:600;font-size:.75em;line-height:1;letter-spacing:.1em;color:' + C.smoke + '}');
+    css.push('.lumen-card .lumen-episode__check{width:.88em;height:.88em;background-color:' + C.good + ';-webkit-mask-image:' + LC.icons.maskUrl('check') + ';mask-image:' + LC.icons.maskUrl('check') + ';-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-size:contain;mask-size:contain}');
+    css.push('.lumen-card .lumen-episode__percent{font-family:' + FM + ';font-size:.66em;line-height:1;color:' + A + '}');
+    css.push('.lumen-card .lumen-episode__play{display:none;position:relative;width:1.40em;height:1.40em;border-radius:50%;background:' + A + '}');
+    css.push('.lumen-card .lumen-episode__play:before{content:"";position:absolute;top:50%;left:50%;width:.75em;height:.75em;margin:-.375em 0 0 -.33em;background-color:' + C.dark + ';-webkit-mask-image:' + LC.icons.maskUrl('play') + ';mask-image:' + LC.icons.maskUrl('play') + ';-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-size:contain;mask-size:contain}');
+    css.push('.lumen-card .lumen-episode__bottom{position:relative;min-width:0}');
+    css.push('.lumen-card .lumen-episode__name{font-family:' + FB + ';font-weight:500;font-size:.96em;line-height:1.2;white-space:nowrap;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis}');
+    css.push('.lumen-card .lumen-episode__caption{font-family:' + FM + ';font-size:.70em;line-height:1;color:' + C.smoke + ';margin-top:.44em;white-space:nowrap;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis}');
+    css.push('.lumen-card .lumen-episode__bar{height:.18em;border-radius:.09em;background:rgba(243,237,228,.16);margin-top:.44em;overflow:hidden}');
+    css.push('.lumen-card .lumen-episode__bar > div{height:100%;border-radius:.09em;background:' + A + '}');
+    /* Состояния §9: просмотрена — приглушена; смотрите — тёплый фон, номер и %
+       акцентом; не вышла — полупрозрачная карта с пунктиром, текст smoke. */
+    css.push('.lumen-card .lumen-episode--watched{opacity:.6}');
+    css.push('.lumen-card .lumen-episode--watching{background:linear-gradient(180deg,#171310,#221A13);border-color:#303552}');
+    css.push('.lumen-card .lumen-episode--watching .lumen-episode__num{color:' + A + '}');
+    css.push('.lumen-card .lumen-episode--watching .lumen-episode__caption{color:' + C.muted + '}');
+    css.push('.lumen-card .lumen-episode--soon{background:rgba(28,22,19,.35);border:.07em dashed ' + C.line + '}');
+    css.push('.lumen-card .lumen-episode--soon .lumen-episode__name{color:' + C.smoke + '}');
+    /* Фокус (экран 06): обводка 3px акцентом, тёплый фон, свечение, scale 1.03;
+       бейдж уступает место кружку play. Lampa не анимирует .lumen-episode
+       своими keyframes, поэтому transform без !important. */
+    css.push('.lumen-card .lumen-episode.focus{opacity:1;background:linear-gradient(180deg,#221A13,#2C2318);border:.13em solid ' + A + ';padding:.75em;-webkit-transform:scale(1.03);transform:scale(1.03);-webkit-box-shadow:0 .614em 1.754em ' + AG + ';box-shadow:0 .614em 1.754em ' + AG + '}');
+    css.push('.lumen-card .lumen-episode.focus .lumen-episode__play{display:block}');
+    css.push('.lumen-card .lumen-episode.focus .lumen-episode__check,.lumen-card .lumen-episode.focus .lumen-episode__percent{display:none}');
+    css.push('.lumen-card .lumen-episode.focus .lumen-episode__name{font-weight:600}');
+    /* Движок без масок: пустые закрашенные квадраты вместо иконок не рисуем. */
+    css.push(LC.icons.NO_MASK + '{.lumen-card .lumen-next-chip:before,.lumen-card .lumen-episode__check,.lumen-card .lumen-episode__play:before{display:none}}');
 
     /* --- Компактная раскладка на узких экранах (страховка) --- */
     css.push('@media screen and (max-width:1000px){.lumen-card .lumen-content{display:block}.lumen-card .lumen-content > .lumen-side{text-align:left;-webkit-box-align:start;-webkit-align-items:flex-start;align-items:flex-start;margin-top:1.5em}.lumen-card .full-start-new__title{font-size:2.43em}.lumen-card .full-start-new__body{min-height:0}}');
@@ -551,6 +626,11 @@
        оставался 'animation-button-focus' вместо 'none'. lite задуман как «только цвета», поэтому
        анимацию гасим так же, как в off. */
     css.push('.lumen-card.lumen-motion-lite .full-start__button{-webkit-animation:none !important;animation:none !important}');
+    /* Task 5c: пружина фокуса карточки серии и сдвиг дорожки ряда — только в
+       full; lite/off — без scale (как у кнопок), off ещё и без переходов. */
+    css.push('.lumen-card.lumen-motion-full .lumen-episode{-webkit-transition:background-color .2s,border-color .2s,opacity .2s,-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25),-webkit-box-shadow .28s;transition:background-color .2s,border-color .2s,opacity .2s,transform .28s cubic-bezier(.2,.9,.3,1.25),box-shadow .28s}');
+    css.push('.lumen-card.lumen-motion-full .lumen-episodes__track{-webkit-transition:-webkit-transform .4s cubic-bezier(.2,.8,.2,1);transition:transform .4s cubic-bezier(.2,.8,.2,1)}');
+    css.push('.lumen-card.lumen-motion-lite .lumen-episode.focus,.lumen-card.lumen-motion-off .lumen-episode.focus{-webkit-transform:none;transform:none}');
 
     /* Бэкдроп: медленный наезд (Ken Burns). Класс .lumen-bg__img подготовлен для слайдшоу кадров Task 6.
        Task 6 (исправление): корень — .lumen-backdrop, а не .lumen-card. Слой фона лежит в e.body, вне
@@ -848,10 +928,57 @@
       return 'procedural';
     }
 
+    /* Task 5c: месяцы для дат сериала — родительный падеж («17 декабря», чип
+       следующей серии, экран 05) и короткая форма («17 дек · не вышла»). */
+    var MONTHS_GEN = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
+    var MONTHS_SHORT = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+
+    /* 'YYYY-MM-DD' -> '17 декабря' по переданному списку месяцев, мусор -> ''. */
+    function dayMonth(ymd, months) {
+      var m = /^\d{4}-(\d{2})-(\d{2})/.exec('' + (ymd || ''));
+      if (!m) return '';
+      var month = parseInt(m[1], 10);
+      var day = parseInt(m[2], 10);
+      if (month < 1 || month > 12 || day < 1 || day > 31) return '';
+      return day + ' ' + months[month - 1];
+    }
+
+    function shortDate(ymd) {
+      return dayMonth(ymd, MONTHS_SHORT);
+    }
+
+    /* Task 5c Step 1: чип «Следующая серия» (design-spec §5e, экран 05) по
+       movie.next_episode_to_air. Дни — календарные (LC.util.daysUntil), так что
+       серия «завтра» остаётся завтрашней и в 23:50. Сегодня/завтра — словом:
+       «через 0 дней»/«через 1 день» по-русски звучат неестественно. Дата в
+       прошлом или нет данных -> null (чип скрыт). */
+    function nextEpisode(nextToAir, now) {
+      if (!nextToAir) return null;
+      var days = LC.util.daysUntil(nextToAir.air_date, now);
+      var date = dayMonth(nextToAir.air_date, MONTHS_GEN);
+      if (days === null || days < 0 || !date) return null;
+      var text = 'Следующая серия — ';
+      if (days === 0) text += 'сегодня';
+      else if (days === 1) text += 'завтра';
+      else text += date + ', через ' + days + ' ' + LC.util.plural(days, ['день', 'дня', 'дней']);
+      return { date: date, days: days, text: text };
+    }
+
+    /* Task 5c Step 2: студия/сеть сериала в мета-строке («Amazon Prime» на
+       экране 05) — networks[0].name; у сериалов без сети — первая студия. */
+    function network(movie) {
+      if (!movie) return '';
+      var list = movie.networks && movie.networks.length ? movie.networks : movie.production_companies;
+      return (list && list.length && list[0] && list[0].name) || '';
+    }
+
     return {
       country: country,
       director: director,
       creator: creator,
+      network: network,
+      nextEpisode: nextEpisode,
+      shortDate: shortDate,
       titleClass: titleClass,
       statusKind: statusKind,
       qualityChips: qualityChips,
@@ -1036,6 +1163,9 @@
         '<div class="full-start__rate rate--imdb hide"><div></div><div>IMDB</div></div>' +
         '<div class="full-start__rate rate--kp hide"><div></div><div>KP</div></div>' +
         '<div class="full-start__tag tag--episode hide"><div></div></div>' +
+        /* Task 5c: чип «Следующая серия» (design-spec §5e, экран 05) — у сериала
+           перед ним встаёт статус (renderSerialMode в 85_header.js). */
+        '<div class="lumen-next-chip hide"><div class="lumen-next-chip__text"></div></div>' +
         '<div class="lumen-reactions-chip hide"><div class="lumen-reactions-chip__value"></div><div class="lumen-reactions-chip__label"></div></div>' +
         '</div>' +
         '</div>' +
@@ -1053,6 +1183,15 @@
         /* Обёртка константна (только этот один div), хэшируется НЕ она —
            хэшируются кнопки внутри (innerOf вырезает только их, план 0.2). */
         '<div class="full-start-new__buttons">' + buttons + '</div>' +
+        /* Task 5c: ряд серий последнего сезона (design-spec §9, экран 05) —
+           внутри шестого .lumen-in, чтобы не сбить nth-child stagger; карточки
+           .lumen-episode.selector рисует LC.header, их собирает контроллер
+           full_start вместе с кнопками. Дорожка абсолютная — длинный ряд не
+           раздувает ширину колонки (flex-фолбэк без grid). */
+        '<div class="lumen-episodes hide">' +
+        '<div class="lumen-episodes__head"><div class="lumen-episodes__title"></div><div class="lumen-episodes__count"></div></div>' +
+        '<div class="lumen-episodes__viewport"><div class="lumen-episodes__track"></div></div>' +
+        '</div>' +
         '</div>' +
 
         /* Боковая колонка: статус (первым, над чипами качества) + раздельные
@@ -2767,9 +2906,30 @@
       return best;
     }
 
+    /* Task 5c Step 1: состояние карточки серии в ряду сезона (design-spec §9,
+       экран 05). view — Lampa.Timeline.view(хэш серии) или null; airDate —
+       'YYYY-MM-DD'; runtimeMin — хронометраж серии, запасной источник «осталось
+       N мин», если в записи Timeline нет duration. Просмотр важнее даты:
+       ≥ 95 % — просмотрена, > 0 — смотрите. Не начатая — вышла (дата сегодня
+       или в прошлом, по календарным дням) или нет (дата в будущем либо её нет
+       вовсе: TMDB не даёт air_date только не объявленным сериям). */
+    function episodeState(view, airDate, now, runtimeMin) {
+      var percent = view ? Number(view.percent) || 0 : 0;
+      if (percent >= 95) return { state: 'watched' };
+      if (percent > 0) {
+        var leftMin = null;
+        if (view.duration > 0) leftMin = Math.max(1, Math.floor((view.duration - (view.time || 0)) / 60));
+        else if (runtimeMin > 0) leftMin = Math.max(1, Math.round(runtimeMin * (100 - percent) / 100));
+        return { state: 'watching', percent: Math.round(percent), leftMin: leftMin };
+      }
+      var days = LC.util.daysUntil(airDate, now);
+      return { state: days === null || days > 0 ? 'soon' : 'aired' };
+    }
+
     return {
       movieProgress: movieProgress,
-      serialProgress: serialProgress
+      serialProgress: serialProgress,
+      episodeState: episodeState
     };
   })();
 
@@ -2812,6 +2972,11 @@
     lumen_card_director: { ru: 'реж.', en: 'dir.', uk: 'реж.' },
     lumen_card_status_soon: { ru: 'Анонс', en: 'Announced', uk: 'Анонс' },
     lumen_card_reactions: { ru: 'РЕАКЦИЙ', en: 'REACTIONS', uk: 'РЕАКЦІЙ' },
+    lumen_card_season: { ru: 'Сезон', en: 'Season', uk: 'Сезон' },
+    lumen_card_ep_watched: { ru: 'просмотрена', en: 'watched', uk: 'переглянута' },
+    lumen_card_ep_watching: { ru: 'смотрите', en: 'watching', uk: 'дивитесь' },
+    lumen_card_ep_left: { ru: 'осталось', en: 'left', uk: 'залишилось' },
+    lumen_card_ep_soon: { ru: 'не вышла', en: 'not aired', uk: 'не вийшла' },
     lumen_card_slideshow_name: { ru: 'Слайдшоу кадров', en: 'Backdrop slideshow', uk: 'Слайдшоу кадрів' },
     lumen_card_slide_interval: { ru: 'Интервал смены кадров', en: 'Frame interval', uk: 'Інтервал зміни кадрів' },
     lumen_card_seconds: { ru: 'с', en: 's', uk: 'с' },
@@ -3169,7 +3334,7 @@
       var counts = [];
       if (movie.number_of_seasons) counts.push(movie.number_of_seasons + ' ' + LC.seasonsWord(movie.number_of_seasons));
       if (movie.number_of_episodes) counts.push(movie.number_of_episodes + ' ' + LC.episodesWord(movie.number_of_episodes));
-      if (counts.length) parts.push('<span>' + LC.util.esc(counts.join(' · ')) + '</span>');
+      if (counts.length) parts.push('<span>' + LC.util.esc(counts.join(', ')) + '</span>');
     } else if (movie.runtime > 0) {
       parts.push('<span>' + LC.util.esc(LC.util.fmtRuntime(movie.runtime, LC.lang('lumen_card_min'))) + '</span>');
     }
@@ -3180,7 +3345,12 @@
     var pg = getPG(movie, root);
     if (pg) parts.push('<span>' + LC.util.esc(pg) + '</span>');
 
-    if (!serial) {
+    /* Task 5c Step 2: у сериала в конце строки — студия/сеть («· Amazon Prime»,
+       экран 05), у фильма — режиссёр. */
+    if (serial) {
+      var studio = LC.cardinfo.network(movie);
+      if (studio) parts.push('<span>' + LC.util.esc(studio) + '</span>');
+    } else {
       var director = LC.cardinfo.director(data && data.persons && data.persons.crew);
       if (director) parts.push('<span>' + LC.util.esc(LC.lang('lumen_card_director')) + ' ' + LC.util.esc(director) + '</span>');
     }
@@ -3324,6 +3494,217 @@
     block.removeClass('hide');
   }
 
+  /* -------------------------------------------------------------------- */
+  /* Task 5c: сериал — статус в ленте рейтингов, чип следующей серии, ряд   */
+  /* серий последнего сезона (design-spec §5e/§8/§9, экраны 05/06).         */
+  /* -------------------------------------------------------------------- */
+
+  /* Step 2 (design-spec §8, экран 05): у сериала статус стоит в ленте
+     рейтингов перед чипом следующей серии, правая колонка — только качество.
+     Узел статуса один, копию разметки не заводим: для сериала переносим этот
+     же узел в ленту, остальное (вид карты вместо пилюли, скрытый каст) задаёт
+     класс режима .lumen-card--serial. Корень каждой карточки строится из
+     шаблона заново, поэтому у фильма статус всегда на месте в .lumen-side. */
+  function renderSerialMode(root, movie) {
+    var serial = isSerial(movie);
+    root.toggleClass('lumen-card--serial', serial);
+    if (!serial) return;
+    var status = root.find('.full-start__status');
+    var chip = root.find('.lumen-next-chip');
+    if (status.length && chip.length && status.next()[0] !== chip[0]) chip.before(status);
+  }
+
+  /* Step 2 (design-spec §5e): «Следующая серия — 17 декабря, через 31 день»;
+     без next_episode_to_air или с датой в прошлом чип скрыт. */
+  function renderNextChip(root, movie) {
+    var chip = root.find('.lumen-next-chip');
+    if (!chip.length) return;
+    chip.addClass('hide');
+    if (!isSerial(movie)) return;
+    var next = LC.cardinfo.nextEpisode(movie.next_episode_to_air, new Date());
+    if (!next) return;
+    chip.find('.lumen-next-chip__text').text(next.text);
+    chip.removeClass('hide');
+  }
+
+  var EPISODE_STATES = 'lumen-episode--watched lumen-episode--watching lumen-episode--aired lumen-episode--soon';
+
+  /* Внутренность карточки серии по состоянию (design-spec §9): номер, бейдж
+     (галочка у просмотренной, «32 %» у начатой; в фокусе вместо него кружок
+     play — экран 06), название, подпись, полоса у начатой. Кадр still_path —
+     подложкой под текстом (только через прокси TMDB, LC.cardinfo.imageUrl). */
+  function episodeInner(ep, st) {
+    var esc = LC.util.esc;
+    var min = LC.lang('lumen_card_min');
+    var runtime = ep.runtime > 0 ? ep.runtime + ' ' + min : '';
+    var caption = runtime;
+    var badge = '';
+
+    if (st.state === 'watched') {
+      caption = (runtime ? runtime + ' · ' : '') + LC.lang('lumen_card_ep_watched');
+      badge = '<div class="lumen-episode__check"></div>';
+    } else if (st.state === 'watching') {
+      caption = LC.lang('lumen_card_ep_watching') + (st.leftMin ? ' · ' + LC.lang('lumen_card_ep_left') + ' ' + st.leftMin + ' ' + min : '');
+      badge = '<div class="lumen-episode__percent">' + st.percent + ' %</div>';
+    } else if (st.state === 'soon') {
+      var date = LC.cardinfo.shortDate(ep.air_date);
+      caption = (date ? date + ' · ' : '') + LC.lang('lumen_card_ep_soon');
+    }
+
+    var still = LC.cardinfo.imageUrl(ep.still_path, 'w300', tmdbImageFn(), apiImgFn());
+
+    return '' +
+      (still ? '<div class="lumen-episode__still" style="background-image:url(\'' + esc(still) + '\')"></div>' : '') +
+      '<div class="lumen-episode__top">' +
+      '<div class="lumen-episode__num">E' + esc(ep.episode_number) + '</div>' + badge +
+      '<div class="lumen-episode__play"></div>' +
+      '</div>' +
+      '<div class="lumen-episode__bottom">' +
+      '<div class="lumen-episode__name">' + esc(ep.name || '') + '</div>' +
+      (caption ? '<div class="lumen-episode__caption">' + esc(caption) + '</div>' : '') +
+      (st.state === 'watching' ? '<div class="lumen-episode__bar"><div style="width:' + st.percent + '%"></div></div>' : '') +
+      '</div>';
+  }
+
+  /* Класс состояния + внутренность. Сам узел не пересоздаётся — фокус
+     Navigator и класс .focus на нём переживают перерисовку. */
+  function paintEpisode(node, ep, hash, now) {
+    var view = hash ? timelineView(hash) : null;
+    var st = LC.progress.episodeState(view, ep.air_date, now, ep.runtime);
+    node.removeClass(EPISODE_STATES).addClass('lumen-episode--' + st.state).html(episodeInner(ep, st));
+  }
+
+  function setShift(track, px) {
+    if (!track.length) return;
+    track[0].lumenShift = px;
+    var value = px ? 'translate3d(' + (-px) + 'px,0,0)' : '';
+    track.css({ '-webkit-transform': value, transform: value });
+  }
+
+  /* Step 3: ряд серий последнего сезона из e.data.episodes.episodes[] (Lampa
+     кладёт туда весь последний сезон, включая не вышедшие серии). Нет
+     episodes или это фильм — ряд скрыт. Хэш серии для Lampa.Timeline —
+     формула плана 0.2 (как у Timeline.watchedEpisode и online_mod); он же
+     пишется в data-hash, по нему refreshEpisode находит карточку. */
+  function renderEpisodes(root, data) {
+    var row = root.find('.lumen-episodes');
+    if (!row.length) return;
+    var track = row.find('.lumen-episodes__track');
+
+    row.addClass('hide');
+    track.empty();
+    setShift(track, 0);
+    row[0].lumenEpisodes = null;
+
+    var movie = (data && data.movie) || {};
+    var list = data && data.episodes && data.episodes.episodes;
+    if (!isSerial(movie) || !list || !list.length) return;
+
+    var season = parseInt(data.episodes.season_number, 10) || parseInt(list[0] && list[0].season_number, 10) || 0;
+    var key = movie.original_name || movie.original_title || '';
+    var now = new Date();
+    var count = 0;
+
+    for (var i = 0; i < list.length; i++) {
+      var ep = list[i];
+      if (!ep || !(ep.episode_number > 0)) continue;
+      var hash = key && season ? '' + utilsHash([season, season > 10 ? ':' : '', ep.episode_number, key].join('')) : '';
+      if (hash === '0') hash = '';
+      var node = $('<div class="lumen-episode selector"></div>');
+      node.attr('data-index', i);
+      if (hash) node.attr('data-hash', hash);
+      paintEpisode(node, ep, hash, now);
+      track.append(node);
+      count++;
+    }
+    if (!count) return;
+
+    row[0].lumenEpisodes = { list: list };
+    row.find('.lumen-episodes__title').text(season ? LC.lang('lumen_card_season') + ' ' + season : (data.episodes.name || ''));
+    row.find('.lumen-episodes__count').text(count + ' ' + LC.episodesWord(count));
+    row.removeClass('hide');
+  }
+
+  /* Step 3: длинный ряд — сдвиг дорожки к фокусной карточке. Контроллер Lampa
+     не трогаем: Navigator сам выбирает соседа по геометрии, мы только держим
+     его на экране с запасом в полкарточки с обеих сторон. Видимая часть ряда —
+     от левого края ряда до правого края экрана (дизайн: ряд уходит за край). */
+  function scrollToEpisode(root, node) {
+    var viewport = root.find('.lumen-episodes__viewport')[0];
+    var track = root.find('.lumen-episodes__track');
+    if (!viewport || !track.length || !node) return;
+
+    var screen = window.innerWidth || (document.documentElement && document.documentElement.clientWidth) || 0;
+    var view = screen - viewport.getBoundingClientRect().left;
+    if (view <= 0) return;
+
+    var current = track[0].lumenShift || 0;
+    var shift = current;
+    var left = node.offsetLeft;
+    var width = node.offsetWidth;
+    var reserve = Math.round(width / 2);
+
+    if (left - reserve < shift) shift = left - reserve;
+    else if (left + width + reserve > shift + view) shift = left + width + reserve - view;
+    shift = Math.max(0, Math.min(shift, track[0].scrollWidth - view));
+
+    if (shift !== current) setShift(track, shift);
+  }
+
+  /* Step 4: фокус и OK на карточках серий. Lampa шлёт hover:focus/hover:enter
+     через Utils.trigger — Event с bubbles:false, поэтому jQuery-делегирование
+     .on(event, selector) их не видит (API_NOTES_4 A2). Не всплывающее событие
+     всё равно проходит фазу перехвата от document до цели: слушатель в capture
+     на корне карточки ловит фокус и серий, и кнопок, не трогая сами кнопки
+     (их outerHTML — хэш приоритета). Вешается один раз на корень (флаг —
+     свойство узла, в разметку не попадает) и уходит вместе с узлом карточки:
+     внешних ссылок на обработчики нет. */
+  function bindEpisodes(root) {
+    var el = root[0];
+    if (!el || typeof el.addEventListener !== 'function' || el.lumenEpisodesBound) return;
+    el.lumenEpisodesBound = true;
+
+    el.addEventListener('hover:focus', function (e) {
+      try {
+        var node = $(e.target).closest('.lumen-episode', el);
+        if (node.length) {
+          root.addClass('lumen-compact');
+          scrollToEpisode(root, node[0]);
+        } else if ($(e.target).closest('.full-start-new__buttons', el).length) {
+          root.removeClass('lumen-compact');
+        }
+      } catch (err) {
+        warn('episode focus failed', err);
+      }
+    }, true);
+
+    /* OK на серии -> выбор источника той же кнопкой «Смотреть» (серию
+       пользователь выбирает уже в TorrServer). */
+    el.addEventListener('hover:enter', function (e) {
+      try {
+        if (!$(e.target).closest('.lumen-episode', el).length) return;
+        root.find('.full-start-new__buttons .button--play').eq(0).trigger('hover:enter');
+      } catch (err) {
+        warn('episode enter failed', err);
+      }
+    }, true);
+  }
+
+  /* Запись Lampa.Timeline обновилась (плеер, синхронизация) — перерисовать
+     карточку серии с этим хэшем во всех карточках в DOM (история Lampa держит
+     и прошлые). Подписка — в 90_runtime.js, одна на всё время жизни плагина. */
+  function refreshEpisode(hash) {
+    hash = '' + (hash || '');
+    if (!/^\d+$/.test(hash)) return;
+    $('.lumen-card .lumen-episode[data-hash="' + hash + '"]').each(function () {
+      var node = $(this);
+      var row = node.closest('.lumen-episodes')[0];
+      var list = row && row.lumenEpisodes && row.lumenEpisodes.list;
+      var ep = list && list[parseInt(node.attr('data-index'), 10)];
+      if (ep) paintEpisode(node, ep, hash, new Date());
+    });
+  }
+
   function decorate(root, data) {
     if (!root || !root.length) return;
     if (!root.hasClass('lumen-card')) return;
@@ -3334,13 +3715,17 @@
     try { renderMeta(root, movie, data); } catch (e) { warn('meta failed', e); }
     try { renderOriginal(root, movie); } catch (e) { warn('original failed', e); }
     try { renderStatus(root, movie); } catch (e) { warn('status failed', e); }
+    try { renderSerialMode(root, movie); } catch (e) { warn('serial mode failed', e); }
+    try { renderNextChip(root, movie); } catch (e) { warn('next episode chip failed', e); }
     try { renderReactionsChip(root, data); } catch (e) { warn('reactions chip failed', e); }
     try { renderQualityChips(root, movie); } catch (e) { warn('quality chips failed', e); }
     try { renderProgress(root, movie); } catch (e) { warn('progress failed', e); }
     try { renderCast(root, data); } catch (e) { warn('cast failed', e); }
+    try { renderEpisodes(root, data); } catch (e) { warn('episodes failed', e); }
+    try { bindEpisodes(root); } catch (e) { warn('episodes bind failed', e); }
   }
 
-  LC.header = { decorate: decorate };
+  LC.header = { decorate: decorate, refreshEpisode: refreshEpisode };
 
 
 /* ---- 90_runtime.js ---- */
@@ -3447,6 +3832,29 @@
       });
     } catch (e2) {
       warn('controller listener failed', e2);
+    }
+  }
+
+  var timeline_followed = false;
+
+  /* Task 5c: одна подписка на Lampa.Timeline за всё время жизни плагина —
+     запись просмотра серии обновилась (плеер, синхронизация CUB) ->
+     перерисовать карточку этой серии (LC.header.refreshEpisode ищет узлы по
+     data-hash в DOM: без таймеров и без ссылок на карточки). */
+  function followTimeline() {
+    if (timeline_followed) return;
+    timeline_followed = true;
+    try {
+      if (!window.Lampa || !Lampa.Timeline || !Lampa.Timeline.listener) return;
+      Lampa.Timeline.listener.follow('update', function (e) {
+        try {
+          if (e && e.data) LC.header.refreshEpisode(e.data.hash);
+        } catch (err) {
+          warn('timeline listener failed', err);
+        }
+      });
+    } catch (e2) {
+      warn('timeline listener failed', e2);
     }
   }
 
@@ -3760,6 +4168,7 @@
 
       followToggle();
       followActivityLifecycle();
+      followTimeline();
     } catch (e) {
       warn('init failed', e);
       restoreOriginalTemplate();

@@ -106,7 +106,7 @@
       var counts = [];
       if (movie.number_of_seasons) counts.push(movie.number_of_seasons + ' ' + LC.seasonsWord(movie.number_of_seasons));
       if (movie.number_of_episodes) counts.push(movie.number_of_episodes + ' ' + LC.episodesWord(movie.number_of_episodes));
-      if (counts.length) parts.push('<span>' + LC.util.esc(counts.join(' · ')) + '</span>');
+      if (counts.length) parts.push('<span>' + LC.util.esc(counts.join(', ')) + '</span>');
     } else if (movie.runtime > 0) {
       parts.push('<span>' + LC.util.esc(LC.util.fmtRuntime(movie.runtime, LC.lang('lumen_card_min'))) + '</span>');
     }
@@ -117,7 +117,12 @@
     var pg = getPG(movie, root);
     if (pg) parts.push('<span>' + LC.util.esc(pg) + '</span>');
 
-    if (!serial) {
+    /* Task 5c Step 2: у сериала в конце строки — студия/сеть («· Amazon Prime»,
+       экран 05), у фильма — режиссёр. */
+    if (serial) {
+      var studio = LC.cardinfo.network(movie);
+      if (studio) parts.push('<span>' + LC.util.esc(studio) + '</span>');
+    } else {
       var director = LC.cardinfo.director(data && data.persons && data.persons.crew);
       if (director) parts.push('<span>' + LC.util.esc(LC.lang('lumen_card_director')) + ' ' + LC.util.esc(director) + '</span>');
     }
@@ -261,6 +266,217 @@
     block.removeClass('hide');
   }
 
+  /* -------------------------------------------------------------------- */
+  /* Task 5c: сериал — статус в ленте рейтингов, чип следующей серии, ряд   */
+  /* серий последнего сезона (design-spec §5e/§8/§9, экраны 05/06).         */
+  /* -------------------------------------------------------------------- */
+
+  /* Step 2 (design-spec §8, экран 05): у сериала статус стоит в ленте
+     рейтингов перед чипом следующей серии, правая колонка — только качество.
+     Узел статуса один, копию разметки не заводим: для сериала переносим этот
+     же узел в ленту, остальное (вид карты вместо пилюли, скрытый каст) задаёт
+     класс режима .lumen-card--serial. Корень каждой карточки строится из
+     шаблона заново, поэтому у фильма статус всегда на месте в .lumen-side. */
+  function renderSerialMode(root, movie) {
+    var serial = isSerial(movie);
+    root.toggleClass('lumen-card--serial', serial);
+    if (!serial) return;
+    var status = root.find('.full-start__status');
+    var chip = root.find('.lumen-next-chip');
+    if (status.length && chip.length && status.next()[0] !== chip[0]) chip.before(status);
+  }
+
+  /* Step 2 (design-spec §5e): «Следующая серия — 17 декабря, через 31 день»;
+     без next_episode_to_air или с датой в прошлом чип скрыт. */
+  function renderNextChip(root, movie) {
+    var chip = root.find('.lumen-next-chip');
+    if (!chip.length) return;
+    chip.addClass('hide');
+    if (!isSerial(movie)) return;
+    var next = LC.cardinfo.nextEpisode(movie.next_episode_to_air, new Date());
+    if (!next) return;
+    chip.find('.lumen-next-chip__text').text(next.text);
+    chip.removeClass('hide');
+  }
+
+  var EPISODE_STATES = 'lumen-episode--watched lumen-episode--watching lumen-episode--aired lumen-episode--soon';
+
+  /* Внутренность карточки серии по состоянию (design-spec §9): номер, бейдж
+     (галочка у просмотренной, «32 %» у начатой; в фокусе вместо него кружок
+     play — экран 06), название, подпись, полоса у начатой. Кадр still_path —
+     подложкой под текстом (только через прокси TMDB, LC.cardinfo.imageUrl). */
+  function episodeInner(ep, st) {
+    var esc = LC.util.esc;
+    var min = LC.lang('lumen_card_min');
+    var runtime = ep.runtime > 0 ? ep.runtime + ' ' + min : '';
+    var caption = runtime;
+    var badge = '';
+
+    if (st.state === 'watched') {
+      caption = (runtime ? runtime + ' · ' : '') + LC.lang('lumen_card_ep_watched');
+      badge = '<div class="lumen-episode__check"></div>';
+    } else if (st.state === 'watching') {
+      caption = LC.lang('lumen_card_ep_watching') + (st.leftMin ? ' · ' + LC.lang('lumen_card_ep_left') + ' ' + st.leftMin + ' ' + min : '');
+      badge = '<div class="lumen-episode__percent">' + st.percent + ' %</div>';
+    } else if (st.state === 'soon') {
+      var date = LC.cardinfo.shortDate(ep.air_date);
+      caption = (date ? date + ' · ' : '') + LC.lang('lumen_card_ep_soon');
+    }
+
+    var still = LC.cardinfo.imageUrl(ep.still_path, 'w300', tmdbImageFn(), apiImgFn());
+
+    return '' +
+      (still ? '<div class="lumen-episode__still" style="background-image:url(\'' + esc(still) + '\')"></div>' : '') +
+      '<div class="lumen-episode__top">' +
+      '<div class="lumen-episode__num">E' + esc(ep.episode_number) + '</div>' + badge +
+      '<div class="lumen-episode__play"></div>' +
+      '</div>' +
+      '<div class="lumen-episode__bottom">' +
+      '<div class="lumen-episode__name">' + esc(ep.name || '') + '</div>' +
+      (caption ? '<div class="lumen-episode__caption">' + esc(caption) + '</div>' : '') +
+      (st.state === 'watching' ? '<div class="lumen-episode__bar"><div style="width:' + st.percent + '%"></div></div>' : '') +
+      '</div>';
+  }
+
+  /* Класс состояния + внутренность. Сам узел не пересоздаётся — фокус
+     Navigator и класс .focus на нём переживают перерисовку. */
+  function paintEpisode(node, ep, hash, now) {
+    var view = hash ? timelineView(hash) : null;
+    var st = LC.progress.episodeState(view, ep.air_date, now, ep.runtime);
+    node.removeClass(EPISODE_STATES).addClass('lumen-episode--' + st.state).html(episodeInner(ep, st));
+  }
+
+  function setShift(track, px) {
+    if (!track.length) return;
+    track[0].lumenShift = px;
+    var value = px ? 'translate3d(' + (-px) + 'px,0,0)' : '';
+    track.css({ '-webkit-transform': value, transform: value });
+  }
+
+  /* Step 3: ряд серий последнего сезона из e.data.episodes.episodes[] (Lampa
+     кладёт туда весь последний сезон, включая не вышедшие серии). Нет
+     episodes или это фильм — ряд скрыт. Хэш серии для Lampa.Timeline —
+     формула плана 0.2 (как у Timeline.watchedEpisode и online_mod); он же
+     пишется в data-hash, по нему refreshEpisode находит карточку. */
+  function renderEpisodes(root, data) {
+    var row = root.find('.lumen-episodes');
+    if (!row.length) return;
+    var track = row.find('.lumen-episodes__track');
+
+    row.addClass('hide');
+    track.empty();
+    setShift(track, 0);
+    row[0].lumenEpisodes = null;
+
+    var movie = (data && data.movie) || {};
+    var list = data && data.episodes && data.episodes.episodes;
+    if (!isSerial(movie) || !list || !list.length) return;
+
+    var season = parseInt(data.episodes.season_number, 10) || parseInt(list[0] && list[0].season_number, 10) || 0;
+    var key = movie.original_name || movie.original_title || '';
+    var now = new Date();
+    var count = 0;
+
+    for (var i = 0; i < list.length; i++) {
+      var ep = list[i];
+      if (!ep || !(ep.episode_number > 0)) continue;
+      var hash = key && season ? '' + utilsHash([season, season > 10 ? ':' : '', ep.episode_number, key].join('')) : '';
+      if (hash === '0') hash = '';
+      var node = $('<div class="lumen-episode selector"></div>');
+      node.attr('data-index', i);
+      if (hash) node.attr('data-hash', hash);
+      paintEpisode(node, ep, hash, now);
+      track.append(node);
+      count++;
+    }
+    if (!count) return;
+
+    row[0].lumenEpisodes = { list: list };
+    row.find('.lumen-episodes__title').text(season ? LC.lang('lumen_card_season') + ' ' + season : (data.episodes.name || ''));
+    row.find('.lumen-episodes__count').text(count + ' ' + LC.episodesWord(count));
+    row.removeClass('hide');
+  }
+
+  /* Step 3: длинный ряд — сдвиг дорожки к фокусной карточке. Контроллер Lampa
+     не трогаем: Navigator сам выбирает соседа по геометрии, мы только держим
+     его на экране с запасом в полкарточки с обеих сторон. Видимая часть ряда —
+     от левого края ряда до правого края экрана (дизайн: ряд уходит за край). */
+  function scrollToEpisode(root, node) {
+    var viewport = root.find('.lumen-episodes__viewport')[0];
+    var track = root.find('.lumen-episodes__track');
+    if (!viewport || !track.length || !node) return;
+
+    var screen = window.innerWidth || (document.documentElement && document.documentElement.clientWidth) || 0;
+    var view = screen - viewport.getBoundingClientRect().left;
+    if (view <= 0) return;
+
+    var current = track[0].lumenShift || 0;
+    var shift = current;
+    var left = node.offsetLeft;
+    var width = node.offsetWidth;
+    var reserve = Math.round(width / 2);
+
+    if (left - reserve < shift) shift = left - reserve;
+    else if (left + width + reserve > shift + view) shift = left + width + reserve - view;
+    shift = Math.max(0, Math.min(shift, track[0].scrollWidth - view));
+
+    if (shift !== current) setShift(track, shift);
+  }
+
+  /* Step 4: фокус и OK на карточках серий. Lampa шлёт hover:focus/hover:enter
+     через Utils.trigger — Event с bubbles:false, поэтому jQuery-делегирование
+     .on(event, selector) их не видит (API_NOTES_4 A2). Не всплывающее событие
+     всё равно проходит фазу перехвата от document до цели: слушатель в capture
+     на корне карточки ловит фокус и серий, и кнопок, не трогая сами кнопки
+     (их outerHTML — хэш приоритета). Вешается один раз на корень (флаг —
+     свойство узла, в разметку не попадает) и уходит вместе с узлом карточки:
+     внешних ссылок на обработчики нет. */
+  function bindEpisodes(root) {
+    var el = root[0];
+    if (!el || typeof el.addEventListener !== 'function' || el.lumenEpisodesBound) return;
+    el.lumenEpisodesBound = true;
+
+    el.addEventListener('hover:focus', function (e) {
+      try {
+        var node = $(e.target).closest('.lumen-episode', el);
+        if (node.length) {
+          root.addClass('lumen-compact');
+          scrollToEpisode(root, node[0]);
+        } else if ($(e.target).closest('.full-start-new__buttons', el).length) {
+          root.removeClass('lumen-compact');
+        }
+      } catch (err) {
+        warn('episode focus failed', err);
+      }
+    }, true);
+
+    /* OK на серии -> выбор источника той же кнопкой «Смотреть» (серию
+       пользователь выбирает уже в TorrServer). */
+    el.addEventListener('hover:enter', function (e) {
+      try {
+        if (!$(e.target).closest('.lumen-episode', el).length) return;
+        root.find('.full-start-new__buttons .button--play').eq(0).trigger('hover:enter');
+      } catch (err) {
+        warn('episode enter failed', err);
+      }
+    }, true);
+  }
+
+  /* Запись Lampa.Timeline обновилась (плеер, синхронизация) — перерисовать
+     карточку серии с этим хэшем во всех карточках в DOM (история Lampa держит
+     и прошлые). Подписка — в 90_runtime.js, одна на всё время жизни плагина. */
+  function refreshEpisode(hash) {
+    hash = '' + (hash || '');
+    if (!/^\d+$/.test(hash)) return;
+    $('.lumen-card .lumen-episode[data-hash="' + hash + '"]').each(function () {
+      var node = $(this);
+      var row = node.closest('.lumen-episodes')[0];
+      var list = row && row.lumenEpisodes && row.lumenEpisodes.list;
+      var ep = list && list[parseInt(node.attr('data-index'), 10)];
+      if (ep) paintEpisode(node, ep, hash, new Date());
+    });
+  }
+
   function decorate(root, data) {
     if (!root || !root.length) return;
     if (!root.hasClass('lumen-card')) return;
@@ -271,10 +487,14 @@
     try { renderMeta(root, movie, data); } catch (e) { warn('meta failed', e); }
     try { renderOriginal(root, movie); } catch (e) { warn('original failed', e); }
     try { renderStatus(root, movie); } catch (e) { warn('status failed', e); }
+    try { renderSerialMode(root, movie); } catch (e) { warn('serial mode failed', e); }
+    try { renderNextChip(root, movie); } catch (e) { warn('next episode chip failed', e); }
     try { renderReactionsChip(root, data); } catch (e) { warn('reactions chip failed', e); }
     try { renderQualityChips(root, movie); } catch (e) { warn('quality chips failed', e); }
     try { renderProgress(root, movie); } catch (e) { warn('progress failed', e); }
     try { renderCast(root, data); } catch (e) { warn('cast failed', e); }
+    try { renderEpisodes(root, data); } catch (e) { warn('episodes failed', e); }
+    try { bindEpisodes(root); } catch (e) { warn('episodes bind failed', e); }
   }
 
-  LC.header = { decorate: decorate };
+  LC.header = { decorate: decorate, refreshEpisode: refreshEpisode };

@@ -19,3 +19,28 @@ test('each/map/filter/find', () => {
   assert.equal(u.find([1,2,3], x => x === 9), null);
   let n = 0; u.each(null, () => n++); assert.equal(n, 0);
 });
+
+/* Task 5c: календарная разница дней до даты 'YYYY-MM-DD' — без сдвига часового
+   пояса (строка не разбирается через new Date(str), который считает её UTC). */
+test('daysUntil: календарные дни от локальной даты now, час не важен', () => {
+  assert.equal(u.daysUntil('2026-12-17', new Date(2026, 10, 16, 23, 50)), 31);
+  assert.equal(u.daysUntil('2026-12-17', new Date(2026, 10, 16, 0, 5)), 31);
+  assert.equal(u.daysUntil('2026-11-16', new Date(2026, 10, 16, 0, 1)), 0);
+  assert.equal(u.daysUntil('2026-11-15', new Date(2026, 10, 16, 12, 0)), -1);
+});
+
+test('daysUntil: now числом (мс), переход года и переход на летнее время', () => {
+  assert.equal(u.daysUntil('2026-11-17', new Date(2026, 10, 16, 12).getTime()), 1);
+  assert.equal(u.daysUntil('2027-01-01', new Date(2026, 11, 31, 23, 59)), 1);
+  assert.equal(u.daysUntil('2026-03-30', new Date(2026, 2, 28, 12)), 2);
+});
+
+test('daysUntil: пусто/мусор/несуществующий месяц -> null', () => {
+  const now = new Date(2026, 10, 16);
+  assert.equal(u.daysUntil('', now), null);
+  assert.equal(u.daysUntil(null, now), null);
+  assert.equal(u.daysUntil(undefined, now), null);
+  assert.equal(u.daysUntil('abc', now), null);
+  assert.equal(u.daysUntil('2026-13-01', now), null);
+  assert.equal(u.daysUntil('2026-12-00', now), null);
+});

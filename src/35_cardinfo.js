@@ -207,10 +207,57 @@
       return 'procedural';
     }
 
+    /* Task 5c: месяцы для дат сериала — родительный падеж («17 декабря», чип
+       следующей серии, экран 05) и короткая форма («17 дек · не вышла»). */
+    var MONTHS_GEN = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
+    var MONTHS_SHORT = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+
+    /* 'YYYY-MM-DD' -> '17 декабря' по переданному списку месяцев, мусор -> ''. */
+    function dayMonth(ymd, months) {
+      var m = /^\d{4}-(\d{2})-(\d{2})/.exec('' + (ymd || ''));
+      if (!m) return '';
+      var month = parseInt(m[1], 10);
+      var day = parseInt(m[2], 10);
+      if (month < 1 || month > 12 || day < 1 || day > 31) return '';
+      return day + ' ' + months[month - 1];
+    }
+
+    function shortDate(ymd) {
+      return dayMonth(ymd, MONTHS_SHORT);
+    }
+
+    /* Task 5c Step 1: чип «Следующая серия» (design-spec §5e, экран 05) по
+       movie.next_episode_to_air. Дни — календарные (LC.util.daysUntil), так что
+       серия «завтра» остаётся завтрашней и в 23:50. Сегодня/завтра — словом:
+       «через 0 дней»/«через 1 день» по-русски звучат неестественно. Дата в
+       прошлом или нет данных -> null (чип скрыт). */
+    function nextEpisode(nextToAir, now) {
+      if (!nextToAir) return null;
+      var days = LC.util.daysUntil(nextToAir.air_date, now);
+      var date = dayMonth(nextToAir.air_date, MONTHS_GEN);
+      if (days === null || days < 0 || !date) return null;
+      var text = 'Следующая серия — ';
+      if (days === 0) text += 'сегодня';
+      else if (days === 1) text += 'завтра';
+      else text += date + ', через ' + days + ' ' + LC.util.plural(days, ['день', 'дня', 'дней']);
+      return { date: date, days: days, text: text };
+    }
+
+    /* Task 5c Step 2: студия/сеть сериала в мета-строке («Amazon Prime» на
+       экране 05) — networks[0].name; у сериалов без сети — первая студия. */
+    function network(movie) {
+      if (!movie) return '';
+      var list = movie.networks && movie.networks.length ? movie.networks : movie.production_companies;
+      return (list && list.length && list[0] && list[0].name) || '';
+    }
+
     return {
       country: country,
       director: director,
       creator: creator,
+      network: network,
+      nextEpisode: nextEpisode,
+      shortDate: shortDate,
       titleClass: titleClass,
       statusKind: statusKind,
       qualityChips: qualityChips,

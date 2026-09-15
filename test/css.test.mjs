@@ -276,6 +276,66 @@ test('buildCss: .lumen-bg__img.is-active — opacity:1', () => {
   assert.ok(/opacity\s*:\s*1\b/.test(decl));
 });
 
+/* -------------------------------------------------------------------- */
+/* Task 5c: сериал — статус в ленте, чип следующей серии, ряд серий.     */
+/* -------------------------------------------------------------------- */
+
+test('buildCss: штатный tag--episode скрыт, вместо него .lumen-next-chip с иконкой часов маской', () => {
+  const tag = findDecl(css, (sel) => sel === '.lumen-card .full-start-new__rate-line .tag--episode');
+  assert.ok(tag && /display\s*:\s*none\s*!important/.test(tag), 'tag--episode должен быть скрыт');
+  const chip = findDecl(css, (sel) => sel === '.lumen-card .lumen-next-chip');
+  assert.ok(chip, 'правило .lumen-next-chip не найдено');
+  assert.ok(chip.indexOf('font-size:.79em') !== -1, 'текст чипа 18px = .79em');
+  const icon = findDecl(css, (sel) => sel === '.lumen-card .lumen-next-chip:before');
+  assert.ok(icon && icon.indexOf('mask-image') !== -1, 'иконка часов — маской');
+});
+
+test('buildCss: у сериала статус — карта в ленте рейтингов, каст в правой колонке скрыт', () => {
+  const status = findDecl(css, (sel) => sel === '.lumen-card.lumen-card--serial .full-start-new__rate-line .full-start__status');
+  assert.ok(status, 'правило статуса в ленте для .lumen-card--serial не найдено');
+  assert.ok(status.indexOf('border-radius:.67em') !== -1, 'радиус карты 12px, не пилюля');
+  const cast = findDecl(css, (sel) => sel === '.lumen-card.lumen-card--serial .lumen-cast');
+  assert.ok(cast && /display\s*:\s*none/.test(cast), 'каст сериала должен быть скрыт');
+});
+
+test('buildCss: карточка серии 340×150 (14.9em×6.58em), flex без grid, дорожка absolute', () => {
+  const card = findDecl(css, (sel) => sel === '.lumen-card .lumen-episode');
+  assert.ok(card, 'правило .lumen-episode не найдено');
+  assert.ok(card.indexOf('width:14.9em') !== -1 && card.indexOf('height:6.58em') !== -1);
+  assert.ok(card.indexOf('display:flex') !== -1);
+  const track = findDecl(css, (sel) => sel === '.lumen-card .lumen-episodes__track');
+  assert.ok(track && track.indexOf('position:absolute') !== -1, 'дорожка должна быть absolute (не раздувает колонку)');
+  const rules = ruleBodies(css).filter((r) => r.selectors.some((s) => s.indexOf('lumen-episode') !== -1));
+  assert.ok(rules.length > 10);
+  assert.equal(rules.filter((r) => /display\s*:\s*(-ms-)?grid/.test(r.decl)).length, 0, 'у ряда серий нет grid');
+});
+
+test('buildCss: все четыре состояния серии и фокус со scale 1.03 оформлены', () => {
+  for (const state of ['watched', 'watching', 'soon']) {
+    assert.ok(findDecl(css, (sel) => sel === '.lumen-card .lumen-episode--' + state), 'нет правила состояния ' + state);
+  }
+  const focus = findDecl(css, (sel) => sel === '.lumen-card .lumen-episode.focus');
+  assert.ok(focus && focus.indexOf('scale(1.03)') !== -1);
+});
+
+test('buildCss: переходы ряда серий — только в lumen-motion-full, в lite/off фокус без transform', () => {
+  const withTransition = ruleBodies(css).filter((r) => r.selectors.some((s) => s.indexOf('lumen-episode') !== -1) && /transition\s*:/.test(r.decl));
+  assert.ok(withTransition.length >= 2, 'ожидались переходы карточки и дорожки');
+  for (const r of withTransition) {
+    assert.ok(r.selectors.every((s) => s.indexOf('lumen-motion-full') !== -1), 'transition вне lumen-motion-full: ' + r.selectors.join(','));
+  }
+  const lite = findDecl(css, (sel) => sel.indexOf('lumen-motion-lite') !== -1 && sel.indexOf('.lumen-episode.focus') !== -1);
+  const off = findDecl(css, (sel) => sel.indexOf('lumen-motion-off') !== -1 && sel.indexOf('.lumen-episode.focus') !== -1);
+  assert.ok(lite && /transform\s*:\s*none/.test(lite));
+  assert.ok(off && /transform\s*:\s*none/.test(off));
+});
+
+test('buildCss: без CSS-масок иконки чипа и карточки серии скрыты', () => {
+  const line = css.split('\n').find((l) => l.indexOf('@supports not ((-webkit-mask-image:none)') === 0 && l.indexOf('lumen-episode__check') !== -1);
+  assert.ok(line, 'фолбэк без масок для ряда серий не найден');
+  assert.ok(line.indexOf('.lumen-next-chip:before') !== -1);
+});
+
 test('buildCss: наезд Ken Burns — на корне .lumen-backdrop (не .lumen-card: слой фона лежит вне карточки)', () => {
   const offender = findDecl(css, (sel) => sel.indexOf('.lumen-card') === 0 && sel.indexOf('lumen-bg__img') !== -1);
   assert.equal(offender, null, '.lumen-bg__img не должен встречаться в правилах с корнем .lumen-card — такой потомковый селектор никогда не совпадёт с реальным DOM (.lumen-backdrop — сосед .lumen-card, не предок .lumen-bg__img)');
