@@ -168,7 +168,7 @@ C:\Users\azark\Новая папка\lumen-card\
 
 ```js
 // конец каждого src-модуля с чистой логикой
-if (typeof module !== 'undefined' && module.exports) module.exports = LC.backdrops;
+if (typeof module !== 'undefined' && module) module.exports = LC.backdrops;
 ```
 
 В браузере `module` не определён, ветка не выполняется. В тестах `require('../src/50_backdrops.js')` работает, потому что `LC` объявляется в модуле как `var LC = (typeof window !== 'undefined' && window.LC) || (typeof LC !== 'undefined' ? LC : {});` — см. Task 2.
@@ -308,7 +308,7 @@ console.log(`${n} chunks; first run: window.__lc=''; last run: (function(){var s
     },
     once: function (fn) { var done = false, r; return function () { if (!done) { done = true; r = fn.apply(this, arguments); } return r; }; }
   };
-  if (typeof module !== 'undefined' && module.exports) module.exports = LC.util;
+  if (typeof module !== 'undefined' && module) module.exports = LC.util;
 ```
 
 ```js
@@ -377,7 +377,10 @@ const icons = load('20_icons.js');
 test('все иконки в одном формате', () => {
   for (const name of icons.names()) {
     const svg = icons.get(name);
-    assert.match(svg, /^<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="lumen-ico lumen-ico--/);
+    assert.match(svg, new RegExp('^<svg viewBox="0 0 24 24" width="1em" height="1em" class="lumen-ico lumen-ico--' + name + '" '));
+    // единый стиль экрана 11: контурные — stroke 1.8 round; залитые только play и more
+    if (name === 'play' || name === 'more') assert.match(svg, / fill="currentColor"/);
+    else assert.match(svg, / fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/);
     assert.ok(svg.endsWith('</svg>'));
   }
 });
@@ -393,24 +396,26 @@ test('map кнопок Lampa покрыт', () => {
 // src/20_icons.js — единый стиль: 24×24, stroke 1.8, round caps
   LC.icons = (function () {
     var P = {
-      play:     '<path d="M8 5.5v13l10-6.5z"/>',
-      trailer:  '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M10 9l5 3-5 3z"/>',
-      bookmark: '<path d="M6 3h12v18l-6-4-6 4z"/>',
-      torrent:  '<path d="M12 3v12M7 10l5 5 5-5M4 21h16"/>',
-      reaction: '<path d="M7 11v9H4v-9zM7 11l4-8a2 2 0 0 1 2 2v4h5a2 2 0 0 1 2 2.3l-1.2 6A2 2 0 0 1 16.8 20H7"/>',
-      bell:     '<path d="M6 17V10a6 6 0 0 1 12 0v7l2 2H4z"/><path d="M10 21h4"/>',
-      more:     '<circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/>',
-      list:     '<path d="M4 6h16M4 12h16M4 18h10"/>',
-      comment:  '<path d="M4 5h16v11H9l-5 4z"/>',
-      star:     '<path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1.1 5.9L12 16.9l-5.3 2.8 1.1-5.9-4.3-4.1 5.9-.8z"/>',
-      clock:    '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
-      film:     '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 4v16M17 4v16M3 9h4M3 15h4M17 9h4M17 15h4"/>',
+      // пути 1:1 из экрана 11 «Icons» файла design/Lumen Card for Lampa - FHD.dc.html
+      play:     '<path d="M8 5l11 7-11 7V5z"/>',
+      trailer:  '<path d="M3 7.5h18v11.5H3z"/><path d="M3 7.5L6.5 3h11L14 7.5"/><path d="M10 11.5l4.5 2.5-4.5 2.5v-5z"/>',
+      bookmark: '<path d="M7 3h10v18l-5-4-5 4V3z"/>',
+      torrent:  '<path d="M12 3v11"/><path d="M7.5 9.5L12 14l4.5-4.5"/><path d="M4 19h16"/>',
+      reaction: '<path d="M7 10.5V20H4v-9.5h3z"/><path d="M7 10.5l4-6.5a2 2 0 013 2.4l-.8 4.1h5a2 2 0 011.95 2.45l-1.3 5.6A2 2 0 0116.9 20H7"/>',
+      bell:     '<path d="M18 16v-5a6 6 0 10-12 0v5l-2 3h16l-2-3z"/><path d="M10 22h4"/>',
+      more:     '<circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/>',
+      list:     '<path d="M9 6h11M9 12h11M9 18h7"/><circle cx="4.5" cy="6" r="1.3" fill="currentColor" stroke="none"/><circle cx="4.5" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="4.5" cy="18" r="1.3" fill="currentColor" stroke="none"/>',
+      comment:  '<path d="M21 15a3 3 0 01-3 3H8l-5 4V6a3 3 0 013-3h12a3 3 0 013 3v9z"/>',
+      star:     '<path d="M12 4l2.4 5 5.6.8-4 4 1 5.6-5-2.8-5 2.8 1-5.6-4-4 5.6-.8L12 4z"/>',
+      clock:    '<circle cx="12" cy="12" r="8.4"/><path d="M12 7.6V12l3 2"/>',
+      film:     '<path d="M3 4.5h18v15H3z"/><path d="M7.5 4.5v15M16.5 4.5v15M3 12h18"/>',
       chevronR: '<path d="M9 6l6 6-6 6"/>',
       close:    '<path d="M6 6l12 12M18 6L6 18"/>'
     };
     var byButton = { 'button--play': 'play', 'button--book': 'bookmark', 'button--reaction': 'reaction', 'button--subscribe': 'bell', 'button--options': 'more', 'view--torrent': 'torrent', 'view--trailer': 'trailer' };
     function get(name) {
-      return '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="lumen-ico lumen-ico--' + name + '">' + P[name] + '</svg>';
+      var paint = (name === 'play' || name === 'more') ? 'fill="currentColor"' : 'fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"';
+      return '<svg viewBox="0 0 24 24" width="1em" height="1em" class="lumen-ico lumen-ico--' + name + '" ' + paint + '>' + P[name] + '</svg>';
     }
     function names() { var r = []; for (var k in P) if (P.hasOwnProperty(k)) r.push(k); return r; }
     function forButton(cls) { return byButton[cls] || null; }
@@ -425,7 +430,7 @@ test('map кнопок Lampa покрыт', () => {
     }
     return { get: get, names: names, forButton: forButton, replaceIn: replaceIn };
   })();
-  if (typeof module !== 'undefined' && module.exports) module.exports = LC.icons;
+  if (typeof module !== 'undefined' && module) module.exports = LC.icons;
 ```
 
 - [ ] **Step 3: Тесты зелёные, сборка, стенд**: `node --test test/`, `node scripts/build.mjs`, скриншот стенда — у всех кнопок одинаковая толщина линий. Commit `feat: единый набор иконок`.
@@ -579,7 +584,7 @@ test('нет ничего → []', () => assert.deepEqual(b.pickBackdrops({backd
       return r;
     }
   };
-  if (typeof module !== 'undefined' && module.exports) module.exports = LC.backdrops;
+  if (typeof module !== 'undefined' && module) module.exports = LC.backdrops;
 ```
 
 - [ ] **Step 3: Рантайм слайдшоу** (в `90_runtime.js`):
@@ -659,7 +664,7 @@ test('пусто', () => assert.equal(t.pickTrailer([]), null));
       return best;
     }
   };
-  if (typeof module !== 'undefined' && module.exports) module.exports = LC.trailer;
+  if (typeof module !== 'undefined' && module) module.exports = LC.trailer;
 ```
 
 - [ ] **Step 3: Рантайм** — YouTube IFrame API, без звука, старт через 3 с после открытия карточки, слайдшоу ставится на паузу пока играет, при ошибке/таймауте 6 с — тихо убрать и вернуть слайдшоу:
@@ -760,7 +765,7 @@ test('сериал: последняя начатая серия', () => {
       return { percent: found.v.percent, time: found.v.time || 0, duration: found.v.duration || 0, label: 'ПРОДОЛЖИТЬ · S' + found.ep.season_number + ' E' + found.ep.episode_number };
     }
   };
-  if (typeof module !== 'undefined' && module.exports) module.exports = LC.progress;
+  if (typeof module !== 'undefined' && module) module.exports = LC.progress;
 ```
 Рендер в `.lumen-progress`: `label` + полоса `width: percent%` + `fmtTime(time) / fmtTime(duration)` (если duration 0 — только label). Показывать только когда результат не null.
 
@@ -847,7 +852,7 @@ test('cache key и TTL', () => {
       }, function () { cb(null); }, false, opts);
     }
   };
-  if (typeof module !== 'undefined' && module.exports) module.exports = LC.reviews;
+  if (typeof module !== 'undefined' && module) module.exports = LC.reviews;
 ```
 
 - [ ] **Step 3: UI ряда отзывов** — в `complite`: если ключ есть, `LC.reviews.load(movie.imdb_id || (movie.external_ids||{}).imdb_id, key, render)`. `render(list)`: если пусто — ничего. Иначе вставить после `.full-descr` в `e.object.activity.render()`:
