@@ -108,15 +108,31 @@
       return current;
     }
 
-    /* Компонент для kind(): экран торрентов считается, только если Select
-       открыт из его контроллера content (Filter) или из select, когда на
-       корне уже стоит filter (вложенный Select фильтра и переоткрытие
-       родителя из onBack). Всё прочее поверх torrents — плеер, левое меню,
-       шапка, настройки — белым списком отсекается. */
-    function pathComponent(root) {
+    /* Поля пунктов Filter экрана торрентов (app.min.js): sort — сортировка
+       (42870), stype/reset — фильтр (42971, 43034), global_search/query —
+       уточнение поиска (40180). У Select плеера, левого меню, шапки и
+       настроек таких полей нет. */
+    var FILTER_FLAGS = ['sort', 'stype', 'reset', 'global_search', 'query'];
+
+    /* Компонент для kind(). На torrents Select фильтра узнаётся по полям
+       пунктов Filter независимо от контроллера: клик мышью/тачем
+       (аэромышь) по кнопке фильтра идёт через hover:enter без проверки
+       контроллера (46352). Без таких полей (пустая сортировка без раздач,
+       вложенные пункты фильтра) — белый список контроллеров: content
+       (Filter открывается из него) или select, когда на корне уже стоит
+       filter (вложенный Select и переоткрытие родителя из onBack). Всё
+       прочее поверх torrents — плеер, левое меню, шапка, настройки —
+       отсекается.
+       Допущение: после закрытия фильтра Lampa всегда возвращает контроллер
+       content (onBack Filter -> start() компонента torrents), поэтому
+       оставшийся на скрытом корне filter при контроллере select не даёт
+       ложного срабатывания в штатной Lampa — Select из Select открывает
+       только сам Filter. */
+    function pathComponent(root, items) {
       var act = Lampa.Activity.active();
       var component = (act && act.component) || '';
       if (component !== 'torrents') return component;
+      if (hasFlag(items, FILTER_FLAGS)) return component;
       var enabled = Lampa.Controller.enabled();
       var name = enabled ? '' + enabled.name : '';
       if (name === 'content') return component;
@@ -124,10 +140,25 @@
       return '';
     }
 
+    /* Компонент нужен только для 'filter': source/file/torrent решаются по
+       заголовку и флагам без него, и исключение в Activity/Controller их
+       не гасит. */
+    function selectKind(root, active) {
+      var k = kind(active, '', labels);
+      if (k || !active) return k;
+      var component = '';
+      try {
+        component = pathComponent(root, active.items || []);
+      } catch (err) {
+        warn('menus component failed', err);
+      }
+      return kind(active, component, labels);
+    }
+
     function onSelectPreshow(e) {
       try {
         var root = $(Lampa.Select.render(true));
-        var k = current === 'off' ? null : kind(e && e.active, pathComponent(root), labels);
+        var k = current === 'off' ? null : selectKind(root, e && e.active);
         if (k) root.addClass(MARK_SELECT).attr(KIND_ATTR, k);
         else unmarkSelect(root);
       } catch (err) {

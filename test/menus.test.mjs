@@ -96,22 +96,18 @@ function setup(opts) {
     return x;
   };
   let active = null;
-  let opened = false;
   const select = {
     listener: makeListener(),
     render: () => env.selectbox,
-    opened: () => opened,
     /* app.min.js:7078 show$e: active = object; preshow; ...; fullshow; Controller.toggle('select') */
     show(object) {
       active = object;
       select.listener.send('preshow', { active: active });
-      opened = true;
       select.listener.send('fullshow', { active: active, html: env.selectbox });
       env.controller = 'select';
     },
-    /* app.min.js:7150 close$a: hide$4 (opened=false, hide) -> onBack -> close */
+    /* app.min.js:7150 close$a: hide$4 -> onBack -> close */
     close() {
-      opened = false;
       select.listener.send('hide', { active: active });
       if (active.onBack) active.onBack();
       select.listener.send('close', { active: active });
@@ -217,6 +213,49 @@ for (const ctrl of ['player_panel', 'player', 'menu', 'head', 'settings_componen
     assert.equal(kindOf(env), undefined);
   });
 }
+
+/* Ревью 39cb1c0, п.1: мышь/тач (аэромышь) — hover:enter по кнопке фильтра не
+   проверяет контроллер. Select фильтра узнаётся по полям пунктов Filter
+   (app.min.js 42870–43046: sort у сортировки, stype/reset у фильтра;
+   40180–40230: global_search/query у уточнения поиска). */
+for (const [ctrl, items] of [
+  ['explorer', [{ title: 'По сидам', sort: 'Seeders' }]],
+  ['head', [{ title: 'Качество', stype: 'quality', items: [] }, { title: 'Сбросить', reset: true }]],
+  ['menu', [{ title: 'Искать везде', global_search: true }, { title: 'Дюна', query: 'Дюна' }]]
+]) {
+  test('install: Select Filter кликом мышью при контроллере ' + ctrl + ' на torrents → filter', () => {
+    const env = setup({ component: 'torrents', controller: ctrl });
+    env.m.mode('all');
+    env.m.install();
+    Lampa.Select.listener.send('preshow', { active: { title: 'Сортировать', items: items } });
+    assert.equal(kindOf(env), 'filter');
+    assert.equal(env.selectbox.hasClass('lumen-select'), true);
+  });
+}
+
+test('install: поля Filter вне экрана торрентов → без маркера', () => {
+  const env = setup({ component: 'category', controller: 'content' });
+  env.m.mode('all');
+  env.m.install();
+  Lampa.Select.listener.send('preshow', { active: { title: 'Сортировать', items: [{ title: 'А', sort: 'a' }] } });
+  assert.equal(kindOf(env), undefined);
+});
+
+test('install: исключение в Activity.active/Controller.enabled не гасит source/file/torrent', () => {
+  const env = setup({ component: 'torrents' });
+  env.m.mode('all');
+  env.m.install();
+  Lampa.Activity.active = () => { throw new Error('boom'); };
+  Lampa.Controller.enabled = () => { throw new Error('boom'); };
+  Lampa.Select.listener.send('preshow', { active: { title: 'Источник', items: [{ btn: {} }] } });
+  assert.equal(kindOf(env), 'source');
+  Lampa.Select.listener.send('preshow', { active: { title: 'Действие', items: [{ timeclear: true }] } });
+  assert.equal(kindOf(env), 'file');
+  Lampa.Select.listener.send('preshow', { active: { title: 'Действие', items: [{ unmark: true }] } });
+  assert.equal(kindOf(env), 'torrent');
+  Lampa.Select.listener.send('preshow', { active: { title: 'Сортировать', items: [{ sort: 'x' }] } });
+  assert.equal(kindOf(env), undefined, 'компонент не узнать — не фильтр');
+});
 
 test('install: контроллер select без маркера filter на корне (например, после Select источника) → не filter', () => {
   const env = setup({ component: 'torrents', controller: 'select' });
