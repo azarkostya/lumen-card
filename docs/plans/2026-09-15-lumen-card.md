@@ -39,6 +39,16 @@
 - Уведомления: `Lampa.Noty.show('текст')`. Модал: `Lampa.Modal.open({title, html: $('<div>…</div>'), size:'medium', onBack:function(){ Lampa.Modal.close(); Lampa.Controller.toggle('full_start') }})`.
 - Старт плагина: `if(window.appready) init(); else Lampa.Listener.follow('app', function(e){ if(e.type=='ready') init() })`.
 
+Проверено живьём в Lampa 3.3.4 (подробности `C:\Users\azark\AppData\Local\Temp\lampa\API_NOTES_3.md`):
+- **Реакции CUB** читаются без аккаунта: `e.data.reactions.result[]` = `{type:'fire'|'nice'|'think'|'bore'|'shit', counter}`, доступны уже на `type:'start'`. У «Дюны» `fire` = 5606. Короткая запись числа: `Lampa.Utils.bigNumberToShort(n)` → `5.6K`. Если `!Lampa.Storage.field('card_interfice_reactions')`, Lampa удаляет блок реакций — тогда и наш чип не показываем.
+- **Сериал**: `e.data.episodes.episodes[]` — серии **только последнего сезона**, все подряд (включая не вышедшие), без `original_name`; поля `season_number, episode_number, name, air_date, runtime, still_path`. Студия `movie.networks[0].name` («Prime Video»), автор `movie.created_by[0].name`, плюс `next_episode_to_air`, `last_episode_to_air`, `seasons[]`, `status`.
+- **Хэш и прогресс**: фильм `Lampa.Utils.hash(movie.original_title)`, серия `Lampa.Utils.hash([s, s > 10 ? ':' : '', e, movie.original_name || movie.original_title].join(''))`. `Lampa.Timeline.view(hash)` → `{hash, percent, time, duration, profile, updated, handler}`; запись `Lampa.Timeline.update({hash, percent, time, duration})`; для одной серии есть `Lampa.Timeline.watchedEpisode(card, s, e, true)`.
+- **Закрытие карточки**: `Lampa.Listener.follow('activity', fn)`, типы `init/create/start/archive/destroy`, поля `{type, component, object}`. `destroy` покинутой карточки приходит через ~200 мс и также при вытеснении по лимиту истории — сверять `e.object` с сохранённым `e.object` из события `full`.
+- **Смена контроллера**: `Lampa.Controller.listener.follow('toggle', function(e){ e.name })`; цепочка при спуске по карточке: `full_start` → `full_descr` → `items_line` (все ряды одним именем).
+- **Модалки**: `Lampa.Modal.open({title, html, size, onBack})` включает контроллер `modal` и фокус не восстанавливает. Перед открытием запомнить `Lampa.Controller.enabled().name`, в `onBack` — `Lampa.Modal.close(); Lampa.Controller.toggle(сохранённое)`.
+- **Ряды карточки**: свой тип ряда создать нельзя (`components` — замыкание `full.js`). `e.link.rows.push(['cards'|'discuss', data])` на `type:'start'` работает только для штатных типов, позиция не гарантирована (`discuss` вставляется на индекс 2), строятся лениво по 3. Поэтому наши блоки (отзывы, факты) встраиваем в DOM ряда описания — его контроллер `full_descr` собирает все `.selector` внутри себя.
+- **Установка плагина пользователем**: Настройки → Расширения → «+» → URL `.js` → согласие с предупреждением. Lampa грузит через `Lampa.Utils.putScriptAsync(urls, complite, error, success, show_logs)`.
+
 ### 0.3 Инварианты (нарушение = провал задачи)
 
 1. Кнопки источников, «Торренты», `button--play` → `Lampa.Select`, реакции, закладки, подписка работают как в оригинале. TorrServer и онлайн-балансеры плагин не видит и не трогает.
@@ -598,7 +608,7 @@ test('нет ничего → []', () => assert.deepEqual(b.pickBackdrops({backd
 CSS: `.lumen-bg__img{position:absolute;inset:0;background-size:cover;background-position:center;opacity:0;transition:opacity 1.2s ease}` `.lumen-bg__img.is-active{opacity:1}`. Если `paths.length === 0` — класс `.lumen-bg--procedural` с CSS-градиентами из артборда Main (радиальные «дюны»).
 Кадров брать `max = 8` для full, `4` для lite, `1` для off.
 
-- [ ] **Step 4: Уничтожение** — хранить текущий инстанс в `LC.active.slideshow`; в `Lampa.Listener.follow('activity', function(e){ if(e.type=='destroy' && LC.active) LC.destroyActive() })` — проверить, что событие `activity`/`destroy` существует (`grep -rn "Listener.send('activity'" src/` в lampa-source; если нет, использовать таймер-страж: каждые 2 с проверять `document.body.contains($root[0])`).
+- [ ] **Step 4: Уничтожение** — хранить текущий инстанс в `LC.active.slideshow` и объект активности `LC.active.object = e.object` (из события `full`). Подписка один раз в `init`: `Lampa.Listener.follow('activity', function(e){ if (e.type == 'destroy' && LC.active && e.object === LC.active.object) LC.destroyActive(); })`. На `type:'archive'` той же активности (ушли вглубь, карточка осталась в истории) — `pause()`, на `type:'start'` — `resume()`. Страж `document.body.contains($root[0])` раз в 2 с оставить как страховку.
 
 - [ ] **Step 5: Проверить в cf.lampa.mx**: два скриншота с интервалом 8 с — фон другой; `Escape` из карточки → `LC.active === null`, интервалов не осталось (`javascript_tool`: обернуть `setInterval` счётчиком до инжекта). Commit `feat: слайдшоу кадров`.
 
@@ -687,7 +697,7 @@ test('пусто', () => assert.equal(t.pickTrailer([]), null));
     return { destroy: kill };
   };
 ```
-CSS: `.lumen-bg__trailer{position:absolute;inset:-10% 0;opacity:0;transition:opacity 1s} .lumen-bg__trailer.is-live{opacity:1} .lumen-bg__trailer iframe{width:100%;height:100%;pointer-events:none}` (высота с запасом 120%, чтобы спрятать чёрные полосы). Трейлер убивать при `hover:enter` на любой кнопке (`$root.on('hover:enter', '.selector', kill)`), при `destroyActive`, при уходе фокуса вниз (`Lampa.Listener 'full'` не даёт этого — использовать `Lampa.Controller.enabled().name !== 'full_start'` в страже раз в 500 мс).
+CSS: `.lumen-bg__trailer{position:absolute;inset:-10% 0;opacity:0;transition:opacity 1s} .lumen-bg__trailer.is-live{opacity:1} .lumen-bg__trailer iframe{width:100%;height:100%;pointer-events:none}` (высота с запасом 120%, чтобы спрятать чёрные полосы). Трейлер убивать при `hover:enter` на любой кнопке (`$root.on('hover:enter', '.selector', kill)`), при `destroyActive`, при уходе фокуса вниз: `Lampa.Controller.listener.follow('toggle', function(e){ if (LC.active && e.name !== 'full_start') LC.active.trailer && LC.active.trailer.destroy(); })`. Тот же слушатель ставит на корень `.lumen-compact` (экран 06) при `e.name === 'full_descr' || e.name === 'items_line'` и снимает при `full_start`. Подписываться один раз в `init`, не на каждую карточку.
 
 - [ ] **Step 4: Проверить в cf.lampa.mx** (там браузер, YouTube работает): через 5 с после открытия «Дюны» `document.querySelector('.lumen-bg__trailer.is-live iframe')` не null; `ArrowRight`, `Enter` → трейлер снят, `Lampa.Select` открыт. Commit `feat: фоновый трейлер`.
 
@@ -700,9 +710,9 @@ CSS: `.lumen-bg__trailer{position:absolute;inset:-10% 0;opacity:0;transition:opa
 - Modify: `src/90_runtime.js`
 - Test: `test/progress.test.mjs`
 
-- [ ] **Step 1: Узнать формулу хэша серии**
+- [ ] **Step 1: Исходное состояние**
 
-Run: `grep -n "Utils.hash(\[" "C:/Users/azark/AppData/Local/Temp/lampa/tmp.js" | head -5` (это online_mod.js). Ожидаемо `[season, season > 10 ? ':' : '', episode, movie.original_name].join('')`. Зафиксировать в комментарии модуля.
+Формула хэша серии подтверждена живьём (см. 0.2): `[s, s > 10 ? ':' : '', e, original_name || original_title].join('')`. После Task 2 модуль `src/70_progress.js` уже содержит `LC.progress.movieProgress(movie, view, hash)` и `serialProgress(movie, view, hash)` из v1, возвращающие `{view, season, episode}` или `null` (перебор ≤10 сезонов × ≤30 серий, выбор по `updated`). Эту сигнатуру сохранить — рантайм и `test/progress.test.mjs` на неё опираются. Задача ниже добавляет: границу «досмотрено» (`percent >= 95` → не показывать и перейти к следующей серии), приоритет последнего сезона из `e.data.episodes.episodes` (название серии и длительность для подписи `S2 E3 «Голова»`), и форматирование подписи. Тесты из Step 2 адаптировать к форме `{view, season, episode}`: вместо `r.label`/`r.percent` проверять `r.season`, `r.episode`, `r.view.percent`, а подпись — отдельной чистой функцией `LC.progress.label(found, episodes)`.
 
 - [ ] **Step 2: Тест**
 
@@ -856,7 +866,7 @@ test('cache key и TTL', () => {
 ```
 Тон — левая полоса 4px: good `--lumen-good`, mid `--lumen-muted`, bad `--lumen-spice`. Карточки 30em шириной, горизонтальный ряд с `overflow:hidden`; фокус (`.focus`) — рамка accent и `scale(1.03)`; при фокусе прокручивать ряд так, чтобы карточка была видна (`scrollLeft` анимировать через `$row.stop().animate({scrollLeft: …}, 250)`). `hover:enter` → `Lampa.Modal.open({title: author + ' · ' + date, html: $('<div class="lumen-review__full">' + full + '</div>'), size: 'medium', onBack: function(){ Lampa.Modal.close(); Lampa.Controller.toggle('content'); }})` — имя контроллера для возврата проверить в живой Lampa: `Lampa.Controller.enabled().name` перед открытием модала, сохранить и восстановить его.
 
-- [ ] **Step 4: Навигация вниз до ряда** — проверить в cf.lampa.mx: `ArrowDown` из кнопок → описание → отзывы (карточка получает `.focus`), `ArrowUp` обратно. Если ряд не попадает в пул, зарегистрировать его как элемент коллекции: вставлять ряд ВНУТРЬ `.full-descr` контейнера (он уже в коллекции контроллера описания) — второй вариант выбрать по факту.
+- [ ] **Step 4: Встраивание и навигация** — свой тип ряда в Lampa создать нельзя (см. 0.2), поэтому блок отзывов вставляется ВНУТРЬ ряда описания: в `Lampa.Listener.follow('full', …)` на `e.type === 'build' && e.name === 'description'` взять `e.item.render()` (jQuery ряда `items_line` с телом `.full-descr`) и дописать `.lumen-reviews` после `.full-descr__tags`. Если на `build` данных ещё нет (запрос асинхронный) — сохранить ссылку на тело ряда и дописать, когда придёт ответ. Контроллер `full_descr` сам соберёт новые `.selector`: после вставки вызвать `Lampa.Controller.collectionAppend(nodes)` (если `full_descr` уже активен). Проверить в локальной Lampa (0.8) диспатчем `keydown` с `keyCode` на `document` (40 вниз, 39 вправо, 13 Enter, 8 назад): кнопки → описание → карточка отзыва получает `.focus`, → переходит к следующей, Enter открывает модал, назад возвращает `full_descr` с тем же фокусом, ↑ ↑ возвращает на кнопки.
 
 - [ ] **Step 5: Настройки**: `lumen_kp_key` type `input` (в SettingsApi: `param:{name:'lumen_kp_key', type:'input', values:'', default:''}, field:{name:'Ключ Kinopoisk Unofficial API', description:'Бесплатно на kinopoiskapiunofficial.tech'}`). Commit `feat: отзывы Кинопоиска`.
 
@@ -897,7 +907,7 @@ test('cache key и TTL', () => {
 
 ### Task 12: Ревью и финальная проверка
 
-- [ ] `node --test test/` — все зелёные; `node scripts/build.mjs && node scripts/es5check.mjs dist/lumen_card.js` — ok.
+- [ ] `node --test "test/*.test.mjs"` — все зелёные (форма `node --test test/` на этой машине падает с «Cannot find module 'test'»); `node scripts/build.mjs && node scripts/es5check.mjs dist/lumen_card.js` — ok.
 - [ ] Стенд `harness/` — фильм и сериал, скриншоты.
 - [ ] cf.lampa.mx — чек-лист: (1) карточка «Дюна» по дизайну, (2) слайдшоу меняет кадр, (3) трейлер стартует и снимается при `Enter`, (4) `Enter` на источниках открывает `Lampa.Select` (путь к торрентам жив), (5) `ArrowDown` → описание → отзывы, `Enter` → модал, `Escape` → назад, (6) сериал «Фоллаут» — статус «Выходит», следующая серия, (7) настройки: смена акцента применяется, выключение плагина возвращает штатную карточку, (8) консоль без ошибок, (9) закрытие карточки убирает таймеры.
 - [ ] Отправить `dist/lumen_card.js` и `src/` агенту `code-reviewer` с этим планом и инвариантами 0.3; исправить найденное. Commit `chore: ревью`.
