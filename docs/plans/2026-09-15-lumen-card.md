@@ -94,7 +94,7 @@
 
 ### 0.7 Источник дизайна — экспорт Claude Design (заменяет канвас из 0.1)
 
-Файлы: `C:\Users\azark\Новая папка\lumen-card\design\Lumen Card for Lampa - FHD.dc.html` (главный для кода: 1920×1080, **px ÷ 16 = em**), `- 2K.dc.html`, `- 4K.dc.html` (те же 14 экранов ×1.33 / ×2). Экраны разделены комментариями `<!-- 01 --- -->` … `<!-- 14 --- -->`, стили инлайновые, акценты через CSS-переменные `--ac --onac --ring --acglow`. Посмотреть вживую: `python -m http.server 8765` из `lumen-card\`, открыть `http://localhost:8765/design/Lumen%20Card%20for%20Lampa%20-%20FHD.dc.html`. Папка `design\_ds\` — TVI Design System, прицепилась к проекту случайно, в экранах не используется: **игнорировать**.
+Файлы: `C:\Users\azark\Новая папка\lumen-card\design\Lumen Card for Lampa - FHD.dc.html` (главный для кода: 1920×1080, **px ÷ 16 = em**), `- 2K.dc.html`, `- 4K.dc.html` (те же 14 экранов ×1.33 / ×2). Экраны разделены комментариями `<!-- 01 --- -->` … `<!-- 14 --- -->`, стили инлайновые, акценты через CSS-переменные `--ac --onac --ring --acglow`. Посмотреть вживую: `python -m http.server 8766` из `lumen-card\`, открыть `http://localhost:8766/design/Lumen%20Card%20for%20Lampa%20-%20FHD.dc.html`. Папка `design\_ds\` — TVI Design System, прицепилась к проекту случайно, в экранах не используется: **игнорировать**.
 
 Решения дизайна, которые меняют задачи плана:
 
@@ -124,7 +124,7 @@
 
 ### 0.8 Локальная Lampa для проверки
 
-Официальная собранная Lampa 3.3.4 (`github.com/yumata/lampa`, коммит от 2026-09-12) клонируется в `lumen-card\vendor\lampa\` (в `.gitignore`). Раздаётся тем же `http.server` на 8765: `http://localhost:8765/vendor/lampa/index.html`. Плагин грузится с того же origin без блокировок: `Lampa.Utils.putScriptAsync(['http://localhost:8765/dist/lumen_card.js?' + Date.now()], function(){})` или обычным `<script>`. Процедура 0.5 с cf.lampa.mx остаётся запасной — оттуда localhost недоступен (Private Network Access), только инжект чанками.
+Официальная собранная Lampa 3.3.4 (`github.com/yumata/lampa`, коммит от 2026-09-12) клонируется в `lumen-card\vendor\lampa\` (в `.gitignore`). Раздаётся тем же `http.server` на 8766: `http://localhost:8766/vendor/lampa/index.html`. Плагин грузится с того же origin без блокировок: `Lampa.Utils.putScriptAsync(['http://localhost:8766/dist/lumen_card.js?' + Date.now()], function(){})` или обычным `<script>`. Процедура 0.5 с cf.lampa.mx остаётся запасной — оттуда localhost недоступен (Private Network Access), только инжект чанками.
 
 ---
 
@@ -168,7 +168,7 @@ C:\Users\azark\Новая папка\lumen-card\
 
 ```js
 // конец каждого src-модуля с чистой логикой
-if (typeof module !== 'undefined' && module) module.exports = LC.backdrops;
+if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.backdrops;
 ```
 
 В браузере `module` не определён, ветка не выполняется. В тестах `require('../src/50_backdrops.js')` работает, потому что `LC` объявляется в модуле как `var LC = (typeof window !== 'undefined' && window.LC) || (typeof LC !== 'undefined' ? LC : {});` — см. Task 2.
@@ -308,7 +308,7 @@ console.log(`${n} chunks; first run: window.__lc=''; last run: (function(){var s
     },
     once: function (fn) { var done = false, r; return function () { if (!done) { done = true; r = fn.apply(this, arguments); } return r; }; }
   };
-  if (typeof module !== 'undefined' && module) module.exports = LC.util;
+  if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.util;
 ```
 
 ```js
@@ -327,7 +327,7 @@ console.log(`${n} chunks; first run: window.__lc=''; last run: (function(){var s
 import { readFileSync } from 'node:fs';
 export function load(name) {
   const src = readFileSync(new URL(`../src/${name}`, import.meta.url), 'utf8');
-  const LC = { util: null }; const module = { exports: null };
+  const LC = { util: null }; const module = { exports: null, lumen: true };
   // util нужен почти всем модулям
   if (name !== '10_util.js') LC.util = load('10_util.js');
   new Function('LC', 'module', src)(LC, module);
@@ -350,7 +350,7 @@ Run: `cd "C:/Users/azark/Новая папка/lumen-card" && "C:/Users/azark/Ap
 
 - [ ] **Step 6: Перенести код v1 в src/ по модулям** (CSS → `30_css.js` как `LC.css = '...'`, шаблон → `40_template.js` как `LC.template = '...'`, настройки → `80_settings.js`, рантайм → `90_runtime.js`). Собрать: `node scripts/build.mjs && node scripts/es5check.mjs dist/lumen_card.js`. Expected: `built …`, `ES5 check: ok`.
 
-- [ ] **Step 7: Harness переключить на `../dist/lumen_card.js`**, открыть стенд через `preview_start` (launch.json: `python -m http.server 8765` в папке проекта), скриншот — карточка рендерится как в v1.
+- [ ] **Step 7: Harness переключить на `../dist/lumen_card.js`**, открыть стенд через `preview_start` (launch.json: `python -m http.server 8766` в папке проекта), скриншот — карточка рендерится как в v1.
 
 - [ ] **Step 8: git**
 
@@ -430,7 +430,7 @@ test('map кнопок Lampa покрыт', () => {
     }
     return { get: get, names: names, forButton: forButton, replaceIn: replaceIn };
   })();
-  if (typeof module !== 'undefined' && module) module.exports = LC.icons;
+  if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.icons;
 ```
 
 - [ ] **Step 3: Тесты зелёные, сборка, стенд**: `node --test test/`, `node scripts/build.mjs`, скриншот стенда — у всех кнопок одинаковая толщина линий. Commit `feat: единый набор иконок`.
@@ -584,7 +584,7 @@ test('нет ничего → []', () => assert.deepEqual(b.pickBackdrops({backd
       return r;
     }
   };
-  if (typeof module !== 'undefined' && module) module.exports = LC.backdrops;
+  if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.backdrops;
 ```
 
 - [ ] **Step 3: Рантайм слайдшоу** (в `90_runtime.js`):
@@ -664,7 +664,7 @@ test('пусто', () => assert.equal(t.pickTrailer([]), null));
       return best;
     }
   };
-  if (typeof module !== 'undefined' && module) module.exports = LC.trailer;
+  if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.trailer;
 ```
 
 - [ ] **Step 3: Рантайм** — YouTube IFrame API, без звука, старт через 3 с после открытия карточки, слайдшоу ставится на паузу пока играет, при ошибке/таймауте 6 с — тихо убрать и вернуть слайдшоу:
@@ -765,7 +765,7 @@ test('сериал: последняя начатая серия', () => {
       return { percent: found.v.percent, time: found.v.time || 0, duration: found.v.duration || 0, label: 'ПРОДОЛЖИТЬ · S' + found.ep.season_number + ' E' + found.ep.episode_number };
     }
   };
-  if (typeof module !== 'undefined' && module) module.exports = LC.progress;
+  if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.progress;
 ```
 Рендер в `.lumen-progress`: `label` + полоса `width: percent%` + `fmtTime(time) / fmtTime(duration)` (если duration 0 — только label). Показывать только когда результат не null.
 
@@ -852,7 +852,7 @@ test('cache key и TTL', () => {
       }, function () { cb(null); }, false, opts);
     }
   };
-  if (typeof module !== 'undefined' && module) module.exports = LC.reviews;
+  if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.reviews;
 ```
 
 - [ ] **Step 3: UI ряда отзывов** — в `complite`: если ключ есть, `LC.reviews.load(movie.imdb_id || (movie.external_ids||{}).imdb_id, key, render)`. `render(list)`: если пусто — ничего. Иначе вставить после `.full-descr` в `e.object.activity.render()`:
