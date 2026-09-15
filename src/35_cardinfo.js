@@ -112,6 +112,37 @@
       return 0;
     }
 
+    /* Ревью Task 5a (Task 5 Step 3b.3): URL картинок только через прокси
+       TMDB Lampa — сам плагин image.tmdb.org руками не собирает (план 0.2).
+       tmdbImage/apiImg — внешние функции (обычно Lampa.TMDB.image/Lampa.Api.img),
+       передаются параметрами, чтобы модуль остался чистым (без window/Lampa).
+       path нормализуется (без ведущего '/') перед вызовом ОБОИХ методов —
+       так двойной слэш ('t/p/w1280//x.jpg', дефект приёмки v1) невозможен
+       независимо от того, добавляет ли сам вызванный метод свой '/'.
+       Основной путь — tmdbImage('t/p/' + size + '/' + path) (то, чем
+       пользуется сама Lampa, живьём проверено — учитывает proxy_tmdb);
+       apiImg(path, size) — фолбэк, если TMDB.image недоступен/бросил. */
+    function imageUrl(path, size, tmdbImage, apiImg) {
+      path = '' + (path || '');
+      if (!path) return '';
+      var clean = path.charAt(0) === '/' ? path.slice(1) : path;
+      size = size || 'original';
+
+      if (typeof tmdbImage === 'function') {
+        try {
+          var url = tmdbImage('t/p/' + size + '/' + clean);
+          if (url) return url;
+        } catch (e) { }
+      }
+      if (typeof apiImg === 'function') {
+        try {
+          var url2 = apiImg(clean, size);
+          if (url2) return url2;
+        } catch (e2) { }
+      }
+      return '';
+    }
+
     return {
       country: country,
       director: director,
@@ -119,7 +150,8 @@
       titleClass: titleClass,
       statusKind: statusKind,
       qualityChips: qualityChips,
-      reactionsCount: reactionsCount
+      reactionsCount: reactionsCount,
+      imageUrl: imageUrl
     };
   })();
 

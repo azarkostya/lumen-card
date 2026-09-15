@@ -161,3 +161,49 @@ test('reactionsCount: пусто/нет данных -> 0', () => {
   assert.equal(cardinfo.reactionsCount(null), 0);
   assert.equal(cardinfo.reactionsCount(undefined), 0);
 });
+
+/* -------------------------------------------------------------------- */
+/* imageUrl (ревью Task 5a: URL картинок только через прокси TMDB Lampa,  */
+/* Task 5 Step 3b.3) — стабы ниже намеренно копируют реальное поведение   */
+/* Lampa.TMDB.image (без двойного слэша) и Lampa.Api.img (с двойным      */
+/* слэшем, если path передан с ведущим '/') — проверено живьём на         */
+/* vendor/lampa 3.3.4: Lampa.Api.img('/x.jpg','w1280') даёт '.../w1280//x.jpg'. */
+/* -------------------------------------------------------------------- */
+
+function tmdbImageStub(url) { return 'https://image.tmdb.org/' + url; }
+function apiImgStub(path, size) { return 'https://image.tmdb.org/t/p/' + size + '/' + path; } /* как реальный Lampa.Api.img — если path сохранил ведущий '/', получается двойной слэш */
+
+test('imageUrl: основной путь — Lampa.TMDB.image, без двойного слэша (path с ведущим /)', () => {
+  const url = cardinfo.imageUrl('/eZ239CyMFqXOwhcaTFrBrNZBpb9.jpg', 'w1280', tmdbImageStub, apiImgStub);
+  assert.equal(url, 'https://image.tmdb.org/t/p/w1280/eZ239CyMFqXOwhcaTFrBrNZBpb9.jpg');
+  assert.equal(url.indexOf('//eZ239'), -1);
+});
+
+test('imageUrl: path без ведущего / — тот же результат', () => {
+  const url = cardinfo.imageUrl('eZ239CyMFqXOwhcaTFrBrNZBpb9.jpg', 'w1280', tmdbImageStub, apiImgStub);
+  assert.equal(url, 'https://image.tmdb.org/t/p/w1280/eZ239CyMFqXOwhcaTFrBrNZBpb9.jpg');
+});
+
+test('imageUrl: tmdbImage недоступен -> фолбэк apiImg, тоже без двойного слэша', () => {
+  const url = cardinfo.imageUrl('/eZ239CyMFqXOwhcaTFrBrNZBpb9.jpg', 'w1280', null, apiImgStub);
+  assert.equal(url, 'https://image.tmdb.org/t/p/w1280/eZ239CyMFqXOwhcaTFrBrNZBpb9.jpg');
+  assert.equal(url.indexOf('//eZ239'), -1);
+});
+
+test('imageUrl: ни один метод недоступен -> пусто', () => {
+  assert.equal(cardinfo.imageUrl('/eZ239.jpg', 'w1280', null, null), '');
+});
+
+test('imageUrl: пустой path -> пусто, методы не вызываются', () => {
+  let called = false;
+  function spy() { called = true; return 'x'; }
+  assert.equal(cardinfo.imageUrl('', 'w1280', spy, spy), '');
+  assert.equal(cardinfo.imageUrl(null, 'w1280', spy, spy), '');
+  assert.equal(called, false);
+});
+
+test('imageUrl: tmdbImage бросает исключение -> фолбэк на apiImg', () => {
+  function throwing() { throw new Error('boom'); }
+  const url = cardinfo.imageUrl('/eZ239.jpg', 'w1280', throwing, apiImgStub);
+  assert.equal(url, 'https://image.tmdb.org/t/p/w1280/eZ239.jpg');
+});

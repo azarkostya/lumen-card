@@ -84,14 +84,32 @@
   /* Бэкдроп.                                                              */
   /* -------------------------------------------------------------------- */
 
+  /* Ревью Task 5a (Task 5 Step 3b.3, дефект приёмки v1 №3): URL только через
+     прокси TMDB Lampa — Lampa.TMDB.image (учитывает Storage 'proxy_tmdb',
+     тот же метод использует сама Lampa для фонов/постеров), фолбэк
+     Lampa.Api.img. Оба обёрнуты в собственные функции (без .bind/apply —
+     строгий ES5), чтобы не тащить this наружу. Сборка URL — LC.cardinfo.imageUrl
+     (чистая функция, без двойного слэша независимо от ведущего '/' в path). */
+  function tmdbImageFn() {
+    if (window.Lampa && Lampa.TMDB && typeof Lampa.TMDB.image === 'function') {
+      return function (url) { return Lampa.TMDB.image(url); };
+    }
+    return null;
+  }
+
+  function apiImgFn() {
+    if (window.Lampa && Lampa.Api && typeof Lampa.Api.img === 'function') {
+      return function (path, size) { return Lampa.Api.img(path, size); };
+    }
+    return null;
+  }
+
   function backdropUrl(movie) {
     var url = '';
     try {
-      if (movie.backdrop_path && window.Lampa && Lampa.Api && typeof Lampa.Api.img === 'function') {
-        url = Lampa.Api.img(movie.backdrop_path, 'w1280') || '';
-      }
+      if (movie.backdrop_path) url = LC.cardinfo.imageUrl(movie.backdrop_path, 'w1280', tmdbImageFn(), apiImgFn());
     } catch (e) {
-      warn('Api.img failed', e);
+      warn('image url failed', e);
     }
     if (!url && movie.background_image) url = movie.background_image;
     return url;

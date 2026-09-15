@@ -331,7 +331,7 @@
 
     /* --- Рейтинги (design-spec §5a: колонка значение/подпись, тёмная карта) --- */
     css.push('.lumen-card .full-start-new__rate-line{margin:1.05em 0 0;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:stretch;-webkit-align-items:stretch;align-items:stretch;-webkit-flex-wrap:wrap;flex-wrap:wrap}');
-    css.push('.lumen-card .full-start-new__rate-line > *{margin:0 .53em .5em 0 !important}');
+    css.push('.lumen-card .full-start-new__rate-line > *{margin:0 .53em .53em 0 !important}');
     css.push('.lumen-card .full-start__rate{font-family:' + FM + ';background:' + C.chipBg + ';border:.0625em solid ' + C.line + ';border-radius:.53em;padding:.44em .70em;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-orient:vertical;-webkit-flex-direction:column;flex-direction:column;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center}');
     css.push('.lumen-card .full-start__rate > div:first-child{display:block;width:auto;height:auto;background:transparent;border-radius:0;font-size:1.23em;font-weight:600;line-height:1;color:' + C.text + '}');
     css.push('.lumen-card .full-start__rate > div:last-child{font-size:.61em;letter-spacing:.1em;color:' + C.smoke + ';padding:.18em 0 0}');
@@ -341,13 +341,6 @@
     css.push('.lumen-card .lumen-reactions-chip__label{font-size:.61em;letter-spacing:.1em;opacity:.8;color:' + C.spice + ';padding:.18em 0 0}');
     css.push('.lumen-card .full-start-new__rate-line .tag--episode{font-family:' + FM + ';font-size:1em;background:rgba(217,98,43,0.14);border:.0625em solid rgba(217,98,43,0.40);border-radius:.75em;padding:.6em 1em;color:' + C.text + ';text-transform:none;max-width:34em}');
     css.push('.lumen-card .full-start-new__rate-line .tag--episode > div{font-size:1em;color:' + A + '}');
-    /* Статус — та же пилюля, что 5b, но живёт в общей ленте (Task 5a Step 2:
-       «рейтинги + статус + чип реакций» — один .lumen-in, а не боковая колонка). */
-    css.push('.lumen-card .full-start-new__rate-line .full-start__status{font-family:' + FB + ';font-weight:500;font-size:.79em;letter-spacing:normal;text-transform:none;background:' + C.chipBg + ';border:.0625em solid ' + C.line + ';border-radius:1.32em;padding:.35em .70em;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;color:' + C.text + '}');
-    css.push('.lumen-card .full-start-new__rate-line .full-start__status:before{content:"";display:block;width:.44em;height:.44em;border-radius:50%;background:currentColor;margin-right:.53em}');
-    css.push('.lumen-card .lumen-status--good:before{color:' + C.good + '}');
-    css.push('.lumen-card .lumen-status--accent:before{color:' + A + '}');
-    css.push('.lumen-card .lumen-status--muted:before,.lumen-card .lumen-status--soon:before{color:' + C.smoke + '}');
 
     /* --- Продолжить (design-spec §6: ширина 760px, margin-top 24px) --- */
     css.push('.lumen-card .lumen-progress{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;width:33.32em;max-width:100%;margin-top:1.05em;font-family:' + FM + ';font-size:1em;color:' + C.muted + ';letter-spacing:.04em}');
@@ -357,11 +350,13 @@
     css.push('.lumen-card .lumen-progress__time{-webkit-flex-shrink:0;flex-shrink:0;font-size:.79em}');
 
     /* --- Кнопки (design-spec §7a-c: 72px, тёмная карта, blur, раскрытие подписи в фокусе) --- */
-    css.push('.lumen-card .full-start-new__buttons{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-flex-wrap:wrap;flex-wrap:wrap;margin-top:1.75em;overflow:visible}');
+    /* Ревью Task 5a: margin-top был остатком базы 16 (1.75em = 28/16, v1).
+       Дизайн (экран 01, ряд кнопок после «Продолжить»): 32px ÷ 22.811 = 1.40em. */
+    css.push('.lumen-card .full-start-new__buttons{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-flex-wrap:wrap;flex-wrap:wrap;margin-top:1.40em;overflow:visible}');
     /* Task 4: пружина фокуса — transform на кривой с перелётом (overshoot), background/color/box-shadow отдельно. Разметка и outerHTML кнопок не менялись (хэш приоритета, см. 0.2).
        Task 5a: ширина/паддинг/фон/бордер/blur — под дизайн; у иконочных кнопок ширина/паддинг
        ещё и анимированы (раскрытие подписи в фокусе, §7c) — transition здесь общий для всех. */
-    css.push('.lumen-card .full-start-new__buttons .full-start__button{font-size:1em;font-weight:600;height:3.16em;min-width:3.16em;padding:0 1.32em;margin:0 .53em .6em 0;border-radius:.79em;border:.04em solid ' + C.line + ';background:' + C.buttonBg + ';-webkit-backdrop-filter:blur(.88em);backdrop-filter:blur(.88em);color:' + C.text + ';display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;-webkit-transition:width .2s,padding .2s,background-color .2s,border-color .2s,color .2s,-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25),-webkit-box-shadow .28s;transition:width .2s,padding .2s,background-color .2s,border-color .2s,color .2s,transform .28s cubic-bezier(.2,.9,.3,1.25),box-shadow .28s}');
+    css.push('.lumen-card .full-start-new__buttons .full-start__button{font-size:1em;font-weight:600;height:3.16em;min-width:3.16em;padding:0 1.32em;margin:0 .70em .6em 0;border-radius:.79em;border:.04em solid ' + C.line + ';background:' + C.buttonBg + ';-webkit-backdrop-filter:blur(.88em);backdrop-filter:blur(.88em);color:' + C.text + ';display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;-webkit-transition:width .2s,padding .2s,background-color .2s,border-color .2s,color .2s,-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25),-webkit-box-shadow .28s;transition:width .2s,padding .2s,background-color .2s,border-color .2s,color .2s,transform .28s cubic-bezier(.2,.9,.3,1.25),box-shadow .28s}');
     css.push('.lumen-card .full-start-new__buttons .full-start__button > svg{width:1.14em;height:1.14em;-webkit-flex-shrink:0;flex-shrink:0}');
     css.push('.lumen-card .full-start-new__buttons .full-start__button > svg + span{font-size:1.05em;margin:0 0 0 .53em;line-height:1}');
     css.push('.lumen-card .full-start-new__buttons .full-start__button span{display:none}');
@@ -371,13 +366,27 @@
     css.push('.lumen-card .full-start-new__buttons .button--book,.lumen-card .full-start-new__buttons .button--reaction,.lumen-card .full-start-new__buttons .button--subscribe,.lumen-card .full-start-new__buttons .button--options{padding:0;width:3.16em}');
     css.push('.lumen-card .full-start-new__buttons .button--book.focus,.lumen-card .full-start-new__buttons .button--reaction.focus,.lumen-card .full-start-new__buttons .button--subscribe.focus,.lumen-card .full-start-new__buttons .button--options.focus{width:auto;padding:0 1.05em}');
     css.push('.lumen-card .full-start-new__buttons .full-start__button.focus span{display:block}');
-    css.push('.lumen-card .full-start-new__buttons .full-start__button.focus{background:' + A + ';color:' + C.dark + ';border-color:' + AL + ';border-width:.11em;-webkit-transform:scale(1.06);transform:scale(1.06);-webkit-box-shadow:0 .875em 2.5em ' + AG + ';box-shadow:0 .875em 2.5em ' + AG + '}');
+    /* Ревью Task 5a: тень фокуса была остатком дефекта единиц — .875em/2.5em =
+       14/16 и 40/16 (v1 при базе 16). Дизайн 0.4: 0 14px 40px -> ÷22.811 =
+       0 .614em 1.754em. */
+    css.push('.lumen-card .full-start-new__buttons .full-start__button.focus{background:' + A + ';color:' + C.dark + ';border-color:' + AL + ';border-width:.11em;-webkit-transform:scale(1.06);transform:scale(1.06);-webkit-box-shadow:0 .614em 1.754em ' + AG + ';box-shadow:0 .614em 1.754em ' + AG + '}');
     /* Нажатие — отдельный тон, без scale (design-spec §7a «НАЖАТА»); !important —
        поверх правила .focus выше и нативной анимации Lampa (план 0.2). */
     css.push('.lumen-card .full-start-new__buttons .full-start__button.focus.lumen-press{background:#C4924F !important;border-color:rgba(255,242,220,.6) !important;-webkit-transform:scale(1) !important;transform:scale(1) !important}');
     css.push('.lumen-card .full-start-new__buttons .full-start__button.loading:before{filter:none}');
 
-    /* --- Правая колонка (design-spec §8: аватар 62px, Golos Text, чипы качества раздельно) --- */
+    /* --- Правая колонка (design-spec §8/экраны 01,10: статус первым над чипами
+       качества, аватар 62px Golos Text, чипы качества раздельно). Ревью Task 5a:
+       .full-start__status переехал сюда из общей ленты рейтингов — Step 2 плана
+       был неточен, экраны 01/03/10 однозначно держат пилюлю статуса в боковой
+       колонке. Пилюля та же, что и была (5b), просто без правого выравнивания
+       текста внутри самой пилюли — align-items:flex-end колонки прижимает её
+       целиком к правому краю. */
+    css.push('.lumen-card .lumen-side .full-start__status{font-family:' + FB + ';font-weight:500;font-size:.79em;letter-spacing:normal;text-transform:none;background:' + C.chipBg + ';border:.0625em solid ' + C.line + ';border-radius:1.32em;padding:.35em .70em;margin-bottom:1.05em;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;color:' + C.text + '}');
+    css.push('.lumen-card .lumen-side .full-start__status:before{content:"";display:block;width:.44em;height:.44em;border-radius:50%;background:currentColor;margin-right:.44em}');
+    css.push('.lumen-card .lumen-status--good:before{color:' + C.good + '}');
+    css.push('.lumen-card .lumen-status--accent:before{color:' + A + '}');
+    css.push('.lumen-card .lumen-status--muted:before,.lumen-card .lumen-status--soon:before{color:' + C.smoke + '}');
     css.push('.lumen-card .lumen-tags{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;-webkit-box-pack:end;-webkit-justify-content:flex-end;justify-content:flex-end}');
     css.push('.lumen-card .lumen-tags .full-start__tag{display:none !important}');
     css.push('.lumen-card .lumen-quality-chip{font-family:' + FM + ';font-size:.66em;letter-spacing:.08em;color:' + C.text + ';border:.0625em solid rgba(243,237,228,.24);border-radius:.31em;padding:.31em .48em;margin:0 0 .35em .35em;white-space:nowrap}');
@@ -619,6 +628,37 @@
       return 0;
     }
 
+    /* Ревью Task 5a (Task 5 Step 3b.3): URL картинок только через прокси
+       TMDB Lampa — сам плагин image.tmdb.org руками не собирает (план 0.2).
+       tmdbImage/apiImg — внешние функции (обычно Lampa.TMDB.image/Lampa.Api.img),
+       передаются параметрами, чтобы модуль остался чистым (без window/Lampa).
+       path нормализуется (без ведущего '/') перед вызовом ОБОИХ методов —
+       так двойной слэш ('t/p/w1280//x.jpg', дефект приёмки v1) невозможен
+       независимо от того, добавляет ли сам вызванный метод свой '/'.
+       Основной путь — tmdbImage('t/p/' + size + '/' + path) (то, чем
+       пользуется сама Lampa, живьём проверено — учитывает proxy_tmdb);
+       apiImg(path, size) — фолбэк, если TMDB.image недоступен/бросил. */
+    function imageUrl(path, size, tmdbImage, apiImg) {
+      path = '' + (path || '');
+      if (!path) return '';
+      var clean = path.charAt(0) === '/' ? path.slice(1) : path;
+      size = size || 'original';
+
+      if (typeof tmdbImage === 'function') {
+        try {
+          var url = tmdbImage('t/p/' + size + '/' + clean);
+          if (url) return url;
+        } catch (e) { }
+      }
+      if (typeof apiImg === 'function') {
+        try {
+          var url2 = apiImg(clean, size);
+          if (url2) return url2;
+        } catch (e2) { }
+      }
+      return '';
+    }
+
     return {
       country: country,
       director: director,
@@ -626,7 +666,8 @@
       titleClass: titleClass,
       statusKind: statusKind,
       qualityChips: qualityChips,
-      reactionsCount: reactionsCount
+      reactionsCount: reactionsCount,
+      imageUrl: imageUrl
     };
   })();
 
@@ -792,7 +833,9 @@
         /* 3: описание (2 строки, line-clamp в CSS) */
         '<div class="lumen-in lumen-descr">{descr}</div>' +
 
-        /* 4: рейтинги + статус + чип реакций */
+        /* 4: рейтинги + чип реакций (статус — в боковой колонке, design-spec §8 /
+           экраны 01,10: пилюля стоит первой над чипами качества, а не в общей
+           ленте — уточнение по ревью Task 5a, Step 2 плана был неточен) */
         '<div class="lumen-in">' +
         '<div class="full-start-new__rate-line">' +
         '<div class="full-start__rate rate--tmdb"><div>{rating}</div><div class="source--name">TMDB</div></div>' +
@@ -800,7 +843,6 @@
         '<div class="full-start__rate rate--kp hide"><div></div><div>KP</div></div>' +
         '<div class="full-start__tag tag--episode hide"><div></div></div>' +
         '<div class="lumen-reactions-chip hide"><div class="lumen-reactions-chip__value"></div><div class="lumen-reactions-chip__label"></div></div>' +
-        '<div class="full-start__status hide"></div>' +
         '</div>' +
         '</div>' +
 
@@ -819,8 +861,10 @@
         '<div class="full-start-new__buttons">' + buttons + '</div>' +
         '</div>' +
 
-        /* Боковая колонка: раздельные чипы качества + «В ролях». */
+        /* Боковая колонка: статус (первым, над чипами качества) + раздельные
+           чипы качества + «В ролях». */
         '<div class="lumen-side">' +
+        '<div class="full-start__status hide"></div>' +
         '<div class="lumen-tags">' +
         '<div class="full-start__tag tag--quality hide"><div></div></div>' +
         '</div>' +
@@ -1222,14 +1266,32 @@
   /* Бэкдроп.                                                              */
   /* -------------------------------------------------------------------- */
 
+  /* Ревью Task 5a (Task 5 Step 3b.3, дефект приёмки v1 №3): URL только через
+     прокси TMDB Lampa — Lampa.TMDB.image (учитывает Storage 'proxy_tmdb',
+     тот же метод использует сама Lampa для фонов/постеров), фолбэк
+     Lampa.Api.img. Оба обёрнуты в собственные функции (без .bind/apply —
+     строгий ES5), чтобы не тащить this наружу. Сборка URL — LC.cardinfo.imageUrl
+     (чистая функция, без двойного слэша независимо от ведущего '/' в path). */
+  function tmdbImageFn() {
+    if (window.Lampa && Lampa.TMDB && typeof Lampa.TMDB.image === 'function') {
+      return function (url) { return Lampa.TMDB.image(url); };
+    }
+    return null;
+  }
+
+  function apiImgFn() {
+    if (window.Lampa && Lampa.Api && typeof Lampa.Api.img === 'function') {
+      return function (path, size) { return Lampa.Api.img(path, size); };
+    }
+    return null;
+  }
+
   function backdropUrl(movie) {
     var url = '';
     try {
-      if (movie.backdrop_path && window.Lampa && Lampa.Api && typeof Lampa.Api.img === 'function') {
-        url = Lampa.Api.img(movie.backdrop_path, 'w1280') || '';
-      }
+      if (movie.backdrop_path) url = LC.cardinfo.imageUrl(movie.backdrop_path, 'w1280', tmdbImageFn(), apiImgFn());
     } catch (e) {
-      warn('Api.img failed', e);
+      warn('image url failed', e);
     }
     if (!url && movie.background_image) url = movie.background_image;
     return url;

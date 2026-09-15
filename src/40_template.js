@@ -156,7 +156,9 @@
         /* 3: описание (2 строки, line-clamp в CSS) */
         '<div class="lumen-in lumen-descr">{descr}</div>' +
 
-        /* 4: рейтинги + статус + чип реакций */
+        /* 4: рейтинги + чип реакций (статус — в боковой колонке, design-spec §8 /
+           экраны 01,10: пилюля стоит первой над чипами качества, а не в общей
+           ленте — уточнение по ревью Task 5a, Step 2 плана был неточен) */
         '<div class="lumen-in">' +
         '<div class="full-start-new__rate-line">' +
         '<div class="full-start__rate rate--tmdb"><div>{rating}</div><div class="source--name">TMDB</div></div>' +
@@ -164,7 +166,6 @@
         '<div class="full-start__rate rate--kp hide"><div></div><div>KP</div></div>' +
         '<div class="full-start__tag tag--episode hide"><div></div></div>' +
         '<div class="lumen-reactions-chip hide"><div class="lumen-reactions-chip__value"></div><div class="lumen-reactions-chip__label"></div></div>' +
-        '<div class="full-start__status hide"></div>' +
         '</div>' +
         '</div>' +
 
@@ -183,8 +184,10 @@
         '<div class="full-start-new__buttons">' + buttons + '</div>' +
         '</div>' +
 
-        /* Боковая колонка: раздельные чипы качества + «В ролях». */
+        /* Боковая колонка: статус (первым, над чипами качества) + раздельные
+           чипы качества + «В ролях». */
         '<div class="lumen-side">' +
+        '<div class="full-start__status hide"></div>' +
         '<div class="lumen-tags">' +
         '<div class="full-start__tag tag--quality hide"><div></div></div>' +
         '</div>' +
