@@ -115,7 +115,9 @@ test('покрыты все экраны пути', () => {
     '.torrent-error code', '.modal .error__ico', '.modal .error__title',
     // 38–39 файлы
     '.torrent-file', '.torrent-file.focus', '.torrent-file__size', '.torrent-file .time-line', '.torrent-serial', '.torrent-serial__episode', '.torrent-serial__line',
-    '.torrent-serial__progress', '.torrnet-folder-name'
+    '.torrent-serial__progress', '.torrnet-folder-name',
+    // 40 предзагрузка
+    '.media-loading__shade', '.media-loading__title', '.media-loading__mark-fill', '.media-loading__status', '.media-loading__percent', '.media-loading__peers'
   ];
   for (const c of classes) assert.ok(css.indexOf(c) !== -1, c);
 });
@@ -145,6 +147,11 @@ test('пульсы спиннера и предзагрузки — только
     for (const p of parsed) for (const s of p.selectors) assert.match(s, /lumen-motion-full/, s);
   }
   assert.ok(rules().some((r) => /\.modal-loading/.test(r) && /animation:lumen-/.test(r)), 'нет пульса спиннера');
+  assert.ok(rules().some((r) => /\.media-loading__mark/.test(r) && /animation:lumen-/.test(r)), 'нет пульса предзагрузки');
+  // штатный mediaLoadingPulse Lampa играет всегда — в lite/off его гасим
+  for (const mode of ['lite', 'off']) {
+    assert.ok(rules().some((r) => r.indexOf('lumen-motion-' + mode + ' .media-loading__mark') !== -1 && r.indexOf('animation:none !important') !== -1), mode + ': пульс предзагрузки не погашен');
+  }
 });
 
 /* Классы-ловушки (план 0.2): общие компоненты Lampa оформляются только внутри скоупа пути. */

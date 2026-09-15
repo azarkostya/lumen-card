@@ -2570,9 +2570,37 @@
       return r;
     }
 
+    /* ---------------- 40: предзагрузка (media-loading) ---------------- */
+    function mediaRules(k) {
+      var r = [];
+      var mark = ['.media-loading__mark'];
+      r.push('/* 40 Предзагрузка — media-loading: вуаль, название-фолбэк, пилюля статуса */');
+      r.push(T(['.media-loading']) + '{background-color:' + k.bg + ';font-family:' + k.fontBody + '}');
+      r.push(T(['.media-loading__shade']) + '{background:linear-gradient(0deg,rgba(' + k.bgRgb + ',.98) 0%,rgba(' + k.bgRgb + ',.72) 34%,rgba(' + k.bgRgb + ',.3) 100%)}');
+      /* Тусклая копия 12 %, яркая (ширину двигает JS Lampa по прогрессу) — акцент с glow. */
+      r.push(T(['.media-loading__mark-background']) + '{opacity:.12}');
+      r.push(T(['.media-loading__title']) + '{font-family:' + k.fontDisplay + ';font-weight:800;font-size:1.403em;line-height:1.1;letter-spacing:.06em;text-transform:uppercase;color:' + k.text + ';text-shadow:none}');
+      r.push(T(['.media-loading__mark-fill .media-loading__title']) + '{color:' + k.accent + ';text-shadow:0 0 .94em ' + k.acglow + '}');
+      r.push(T(['.media-loading__mark-fill .media-loading__logo']) + '{-webkit-filter:drop-shadow(0 0 .6em ' + k.acglow + ');filter:drop-shadow(0 0 .6em ' + k.acglow + ')}');
+      /* Пульс 1→1.02 / 2 с вместо штатного mediaLoadingPulse — только в full; lite/off — без пульса. */
+      r.push(TM('full', mark) + '{-webkit-animation:lumen-tp-soft 2s ease-in-out infinite;animation:lumen-tp-soft 2s ease-in-out infinite}');
+      r.push(TM('lite', mark) + ',' + TM('off', mark) + '{-webkit-animation:none !important;animation:none !important;-webkit-transform:none;transform:none}');
+      r.push('@-webkit-keyframes lumen-tp-soft{0%,100%{-webkit-transform:scale(1)}50%{-webkit-transform:scale(1.02)}}');
+      r.push('@keyframes lumen-tp-soft{0%,100%{transform:scale(1)}50%{transform:scale(1.02)}}');
+      /* Пилюля: моно 20px muted, процент 28px text, «пиры» — маска torrent в accent (лок. em от 20px). */
+      r.push(T(['.media-loading__status']) + '{bottom:6.5em;padding:.8em 1.4em;border-radius:1.5em;border:.05em solid rgba(' + k.textRgb + ',.16);background-color:rgba(' + k.bgRgb + ',.62);-webkit-box-shadow:none;box-shadow:none;color:' + k.muted + ';font-family:' + k.fontMono + ';font-size:.877em}');
+      r.push(T(['.media-loading__peers-value']) + '{color:' + k.muted + '}');
+      r.push(T(['.media-loading__peers-icon']) + '{display:none}');
+      r.push(T(['.media-loading__peers:before']) + '{content:"";display:block;-webkit-flex-shrink:0;flex-shrink:0;width:1.3em;height:1.3em;margin-right:.5em;background-color:' + k.accent + ';' + mask('torrent') + '}');
+      r.push(T(['.media-loading__separator']) + '{width:.05em;height:1.2em;margin:0 1em;border-radius:0;background-color:rgba(' + k.textRgb + ',.2)}');
+      r.push(T(['.media-loading__percent']) + '{font-size:1.4em;font-weight:600;color:' + k.text + '}');
+      r.push(SUPPORTS_NO_MASK + T(['.media-loading__peers-icon']) + '{display:block !important;width:1.3em;height:1.3em;margin-right:.5em;color:' + k.accent + ';opacity:1}' + T(['.media-loading__peers:before']) + '{display:none !important}}');
+      return r;
+    }
+
     function css() {
       var k = LC.tokens();
-      return [].concat(selectRules(k), explorerRules(k), modalRules(k), filesRules(k)).join('\n');
+      return [].concat(selectRules(k), explorerRules(k), modalRules(k), filesRules(k), mediaRules(k)).join('\n');
     }
 
     /* ---------------- DOM ---------------- */
