@@ -108,9 +108,43 @@ test('покрыты все экраны пути', () => {
     // 34 Торренты
     '.explorer__left', '.explorer-card__title', '.explorer-card__descr', '.torrent-filter', '.filter--search', '.filter--filter > div:not(.hide)',
     '.torrent-item', '.torrent-item.focus', '.torrent-item__title', '.torrent-item__details', '.torrent-item__size', '.torrent-item__ffprobe',
-    '.torrent-item__viewed', '.watched-history', '.empty__title', '.empty-filter'
+    '.torrent-item__viewed', '.watched-history', '.empty__title', '.empty-filter',
+    // 36–37 окна TorrServer
+    '.modal .modal__content', '.modal .modal__title', '.modal-loading', '.torrent-install__title', '.torrent-install__link',
+    '.torrent-checklist__progress-bar', '.torrent-checklist__list > li.wait', '.torrent-checklist__list > li.wait.check', '.torrent-checklist__footer .simple-button.focus',
+    '.torrent-error code', '.modal .error__ico', '.modal .error__title',
+    // 38–39 файлы
+    '.torrent-file', '.torrent-file.focus', '.torrent-file__size', '.torrent-file .time-line', '.torrent-serial', '.torrent-serial__episode', '.torrent-serial__line',
+    '.torrent-serial__progress', '.torrnet-folder-name'
   ];
   for (const c of classes) assert.ok(css.indexOf(c) !== -1, c);
+});
+
+test('чек-лист: три состояния шагов — будущий smoke, текущий text крупнее, пройденный muted + зачёркнут', () => {
+  const css = t.css();
+  const k = baseLC.tokens();
+  const decl = (sel) => {
+    for (const r of rules()) {
+      const parsed = parse(r);
+      if (!parsed) continue;
+      for (const p of parsed) if (p.selectors.some((s) => s === 'body.lumen-torrents-on ' + sel)) return p.decl;
+    }
+    return '';
+  };
+  assert.match(decl('.torrent-checklist__list > li'), new RegExp('color:' + k.smoke));
+  assert.match(decl('.torrent-checklist__list > li.wait'), new RegExp('color:' + k.text + '.*font-size:\\.964em|font-size:\\.964em.*color:' + k.text));
+  assert.match(decl('.torrent-checklist__list > li.wait.check'), /text-decoration:line-through/);
+  assert.match(decl('.torrent-checklist__list > li.wait.check'), new RegExp('color:' + k.muted));
+  assert.ok(css.length > 0);
+});
+
+test('пульсы спиннера и предзагрузки — только в lumen-motion-full', () => {
+  for (const r of rules()) {
+    if (!/animation:lumen-/.test(r)) continue;
+    const parsed = parse(r);
+    for (const p of parsed) for (const s of p.selectors) assert.match(s, /lumen-motion-full/, s);
+  }
+  assert.ok(rules().some((r) => /\.modal-loading/.test(r) && /animation:lumen-/.test(r)), 'нет пульса спиннера');
 });
 
 /* Классы-ловушки (план 0.2): общие компоненты Lampa оформляются только внутри скоупа пути. */
