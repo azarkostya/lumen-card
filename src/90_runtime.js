@@ -6,30 +6,6 @@
     return !!(movie.first_air_date || movie.number_of_seasons || movie.number_of_episodes || movie.name);
   }
 
-  function getCountries(movie) {
-    var out = [];
-    try {
-      if (window.Lampa && Lampa.TMDB && typeof Lampa.TMDB.parseCountries === 'function') {
-        out = Lampa.TMDB.parseCountries(movie) || [];
-      }
-    } catch (e) {
-      warn('parseCountries failed', e);
-    }
-    if (out && out.length) return out;
-    out = [];
-    try {
-      var i;
-      if (movie.production_countries && movie.production_countries.length) {
-        for (i = 0; i < movie.production_countries.length; i++) {
-          out.push(movie.production_countries[i].name || movie.production_countries[i].iso_3166_1);
-        }
-      } else if (movie.origin_country && movie.origin_country.length) {
-        for (i = 0; i < movie.origin_country.length; i++) out.push(movie.origin_country[i]);
-      }
-    } catch (e2) { }
-    return out;
-  }
-
   function getPG(movie, root) {
     var pg = '';
     try {
@@ -64,6 +40,25 @@
       }
     } catch (e) { }
     return out;
+  }
+
+  /* Task 5a Step 4: чип «РЕАКЦИЙ» показывается, только если пользователь не
+     выключил блок реакций Lampa (та же настройка, что скрывает штатный
+     .full-start-new__reactions/.button--reaction — 0.2 «Реакции CUB»). */
+  function reactionsEnabled() {
+    try {
+      if (window.Lampa && Lampa.Storage && typeof Lampa.Storage.field === 'function') {
+        return !!Lampa.Storage.field('card_interfice_reactions');
+      }
+    } catch (e) { }
+    return false;
+  }
+
+  function bigNumber(n) {
+    try {
+      if (window.Lampa && Lampa.Utils && typeof Lampa.Utils.bigNumberToShort === 'function') return Lampa.Utils.bigNumberToShort(n);
+    } catch (e) { }
+    return '' + n;
   }
 
   /* -------------------------------------------------------------------- */
@@ -161,7 +156,13 @@
   /* Отрисовка карточки.                                                   */
   /* -------------------------------------------------------------------- */
 
-  function renderMeta(root, movie) {
+  /* Task 5a Step 3b.2/3b.4: мета-строка — год · страна · хронометраж/сезоны ·
+     жанры · 18+ · «реж. Имя» (у сериала режиссёр не показывается — там вместо
+     него в строке оригинального названия стоит создатель, см. renderOriginal).
+     Инлайн-чип качества/«СЕРИАЛ» из v1 убран — лишний узел, дизайну не
+     соответствует (design-spec-card.md §2); раздельные чипы качества теперь
+     в боковой колонке (renderQualityChips). */
+  function renderMeta(root, movie, data) {
     var parts = [];
     var serial = isSerial(movie);
 
@@ -169,8 +170,12 @@
     var year = release ? release.slice(0, 4) : '';
     if (year) parts.push('<span>' + LC.util.esc(year) + '</span>');
 
-    var countries = getCountries(movie);
-    if (countries.length) parts.push('<span>' + LC.util.esc(countries.slice(0, 2).join(' · ')) + '</span>');
+    /* Штатный .full-start-new__head заполняется Lampa (start.js) ДО complite
+       форматом «2024, США» — cardinfo.country сам отрезает год и падает на
+       словарь ISO/английское имя, если head пуст (план 0.2, Task 5 3b.2). */
+    var headText = root.find('.full-start-new__head').text();
+    var countryText = LC.cardinfo.country(headText, movie.production_countries);
+    if (countryText) parts.push('<span>' + LC.util.esc(countryText) + '</span>');
 
     if (serial) {
       var counts = [];
@@ -181,15 +186,16 @@
       parts.push('<span>' + LC.util.esc(LC.util.fmtRuntime(movie.runtime, LC.lang('lumen_card_min'))) + '</span>');
     }
 
-    var quality = !movie.first_air_date ? (movie.release_quality || movie.quality) : '';
-    if (quality) parts.push('<span class="lumen-meta__chip">' + LC.util.esc(('' + quality).toUpperCase()) + '</span>');
-    else if (serial) parts.push('<span class="lumen-meta__chip">' + LC.util.esc(LC.lang('lumen_card_serial')) + '</span>');
-
     var genres = getGenres(movie);
     if (genres.length) parts.push('<span>' + LC.util.esc(genres.join(', ')) + '</span>');
 
     var pg = getPG(movie, root);
     if (pg) parts.push('<span>' + LC.util.esc(pg) + '</span>');
+
+    if (!serial) {
+      var director = LC.cardinfo.director(data && data.persons && data.persons.crew);
+      if (director) parts.push('<span>' + LC.util.esc(LC.lang('lumen_card_director')) + ' ' + LC.util.esc(director) + '</span>');
+    }
 
     var html = [];
     for (var i = 0; i < parts.length; i++) {
@@ -201,30 +207,80 @@
     root.addClass('lumen--meta');
   }
 
+  /* Task 5a Step 3b.4: у сериала вместо режиссёра — created_by[0].name рядом
+     с оригинальным названием («Fallout · Джонатан Нолан», экран 05). */
   function renderOriginal(root, movie) {
     var title = movie.title || movie.name || '';
     var original = movie.original_title || movie.original_name || '';
     var node = root.find('.lumen-original');
     if (!node.length) return;
-    if (!original || original === title) node.text('');
-    else node.text(original);
+
+    var text = (!original || original === title) ? '' : original;
+
+    if (isSerial(movie)) {
+      var creator = LC.cardinfo.creator(movie);
+      if (creator) text = text ? (text + ' · ' + creator) : creator;
+    }
+
+    node.text(text);
   }
 
+  /* Task 5a Step 3/3b: заголовок целиком — .lumen-title--long при длине > 18
+     символов (класс переключает line-clamp 1 -> 2 в CSS, см. design-spec §3). */
+  function renderTitleClass(root, movie) {
+    var node = root.find('.full-start-new__title');
+    if (!node.length) return;
+    var title = movie.title || movie.name || '';
+    node.removeClass('lumen-title--long');
+    var cls = LC.cardinfo.titleClass(title);
+    if (cls) node.addClass(cls);
+  }
+
+  /* Task 5a Step 3: статус -> точка/подпись (кегль дизайна, только точка
+     красится — текст всегда нейтральный, кроме 'soon', где подписи Lampa
+     нет вовсе и мы её подставляем сами: «Анонс»). */
   function renderStatus(root, movie) {
     var node = root.find('.full-start__status');
     if (!node.length) return;
 
-    /* Переносим статус из строки рейтингов в правую колонку. */
-    var holder = root.find('.lumen-side__status');
-    if (holder.length && !holder.find('.full-start__status').length) holder.append(node);
+    node.removeClass('lumen-status--good lumen-status--accent lumen-status--muted lumen-status--soon');
 
-    node.removeClass('lumen-status--good lumen-status--accent lumen-status--muted');
+    var kind = LC.cardinfo.statusKind(movie.status);
+    node.addClass('lumen-status--' + kind);
 
-    var status = ('' + (movie.status || '')).toLowerCase();
-    var cls = 'lumen-status--muted';
-    if (status.indexOf('return') >= 0 || status.indexOf('production') >= 0 || status.indexOf('progress') >= 0 || status.indexOf('planned') >= 0) cls = 'lumen-status--accent';
-    else if (status.indexOf('released') >= 0) cls = 'lumen-status--good';
-    node.addClass(cls);
+    if (kind === 'soon') node.text(LC.lang('lumen_card_status_soon'));
+  }
+
+  /* Task 5a Step 3/3b: чип «РЕАКЦИЙ» — счётчик fire (CUB), скрыт без данных
+     и при выключенном card_interfice_reactions (0.2 «Реакции CUB»). */
+  function renderReactionsChip(root, data) {
+    var chip = root.find('.lumen-reactions-chip');
+    if (!chip.length) return;
+
+    chip.addClass('hide');
+    var count = LC.cardinfo.reactionsCount(data && data.reactions && data.reactions.result);
+    if (!count || !reactionsEnabled()) return;
+
+    chip.find('.lumen-reactions-chip__value').text(bigNumber(count));
+    chip.find('.lumen-reactions-chip__label').text(LC.lang('lumen_card_reactions'));
+    chip.removeClass('hide');
+  }
+
+  /* Task 5a Step 3/4: раздельные чипы качества (4K/HDR/BD) в боковой колонке
+     вместо одного составного tag--quality (design-spec §5c). Штатный узел
+     tag--quality остаётся в разметке (Lampa пишет в него), но всегда скрыт —
+     видимые чипы рисуем сами по cardinfo.qualityChips. */
+  function renderQualityChips(root, movie) {
+    var holder = root.find('.lumen-tags');
+    if (!holder.length) return;
+
+    holder.find('.lumen-quality-chip').remove();
+    if (movie.first_air_date) return;
+
+    var chips = LC.cardinfo.qualityChips(movie.release_quality || movie.quality);
+    var html = [];
+    for (var i = 0; i < chips.length; i++) html.push('<div class="lumen-quality-chip">' + LC.util.esc(chips[i]) + '</div>');
+    if (html.length) holder.append(html.join(''));
   }
 
   function renderProgress(root, movie) {
@@ -286,9 +342,12 @@
 
     var movie = (data && data.movie) || {};
 
-    try { renderMeta(root, movie); } catch (e) { warn('meta failed', e); }
+    try { renderTitleClass(root, movie); } catch (e) { warn('title failed', e); }
+    try { renderMeta(root, movie, data); } catch (e) { warn('meta failed', e); }
     try { renderOriginal(root, movie); } catch (e) { warn('original failed', e); }
     try { renderStatus(root, movie); } catch (e) { warn('status failed', e); }
+    try { renderReactionsChip(root, data); } catch (e) { warn('reactions chip failed', e); }
+    try { renderQualityChips(root, movie); } catch (e) { warn('quality chips failed', e); }
     try { renderProgress(root, movie); } catch (e) { warn('progress failed', e); }
     try { renderCast(root, data); } catch (e) { warn('cast failed', e); }
   }
@@ -417,8 +476,18 @@
 
       saveOriginalTemplate();
 
+      /* Task 5/5a Step 1: build() вернул null ИЛИ ours не проходит assert
+         (не хватает обязательных классов/языковых ключей из REQUIRED) ->
+         версия Lampa не поддерживается, штатный шаблон не подменяем. */
       var tpl = LC.template.build(original_template);
-      if (!tpl) { warn('buttons block not found, template left intact'); return; }
+      var check = tpl ? LC.template.assert(original_template, tpl) : null;
+      if (!tpl || !check.ok) {
+        warn('template not supported' + (check ? ': missing ' + check.missingInOurs.join(', ') : ' (build failed)'));
+        try {
+          if (Lampa.Noty && typeof Lampa.Noty.show === 'function') Lampa.Noty.show('Lumen Card: версия Lampa не поддерживается');
+        } catch (e3) { }
+        return;
+      }
       Lampa.Template.add('full_start_new', tpl);
 
       LC.injectFonts();

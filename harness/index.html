@@ -130,7 +130,7 @@ body {
 
 /* Стенд всегда эмулирует ширину 1920px, а media-запросы плагина смотрят на
    реальное окно браузера. Отменяем компактную раскладку внутри сцены. */
-#stage .lumen-card .lumen-cols { display: flex; }
+#stage .lumen-card .lumen-content { display: flex; }
 #stage .lumen-card .lumen-side { margin-left: 2.5em; margin-top: 0; text-align: right; align-items: flex-end; }
 #stage .lumen-card .full-start-new__title { font-size: 5.4em; }
 #stage .lumen-card .full-start-new__title.twolines { font-size: 3.9em; }
@@ -715,7 +715,28 @@ body {
             out.push('<div class="' + (has ? 'ok' : 'fail') + '">' + (has ? 'OK  ' : 'FAIL') + ' ' + rawNeed[r] + ' (в шаблоне)</div>');
         }
 
-        out.unshift('<div><b>Проверки: ' + (need.length + rawNeed.length - failed) + '/' + (need.length + rawNeed.length) + ' узлов Lampa на месте</b></div>');
+        /* Task 5a Step 2: .lumen-content — единственный родитель шести
+           .lumen-in (соседние дети, stagger Task 4 считает nth-child(1..6)),
+           .lumen-side идёт следом, не разрывая их нумерацию. */
+        var extra = 0;
+        var content = html.find('.lumen-content');
+        var contentOk = content.length > 0;
+        if (!contentOk) failed++;
+        extra++;
+        out.push('<div class="' + (contentOk ? 'ok' : 'fail') + '">' + (contentOk ? 'OK  ' : 'FAIL') + ' .lumen-content присутствует</div>');
+
+        var inCount = content.children('.lumen-in').length;
+        var inOk = inCount === 6;
+        if (!inOk) failed++;
+        extra++;
+        out.push('<div class="' + (inOk ? 'ok' : 'fail') + '">' + (inOk ? 'OK  ' : 'FAIL') + ' .lumen-in — ровно 6 прямых потомков .lumen-content: ' + inCount + '</div>');
+
+        var sideOk = content.children('.lumen-side').length === 1 && content.children().last().hasClass('lumen-side');
+        if (!sideOk) failed++;
+        extra++;
+        out.push('<div class="' + (sideOk ? 'ok' : 'fail') + '">' + (sideOk ? 'OK  ' : 'FAIL') + ' .lumen-side — последний ребёнок .lumen-content (после шести .lumen-in)</div>');
+
+        out.unshift('<div><b>Проверки: ' + (need.length + rawNeed.length + extra - failed) + '/' + (need.length + rawNeed.length + extra) + ' узлов Lampa на месте</b></div>');
         document.getElementById('checks').innerHTML = out.join('');
     }
 

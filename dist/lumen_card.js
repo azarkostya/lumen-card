@@ -471,6 +471,135 @@
   };
 
 
+/* ---- 35_cardinfo.js ---- */
+  /* -------------------------------------------------------------------- */
+  /* Данные шапки карточки (Task 5a). Чистая логика без обращений к         */
+  /* window/Lampa/jQuery — рантайм (90_runtime.js) только вставляет         */
+  /* результат в DOM. Проверяется тестами (node --test) без браузера.       */
+  /* -------------------------------------------------------------------- */
+
+  LC.cardinfo = (function () {
+    /* Task 5 Step 3b.2: словарь ISO -> русское название страны. */
+    var COUNTRY_RU = {
+      US: 'США',
+      GB: 'Великобритания',
+      RU: 'Россия',
+      FR: 'Франция',
+      DE: 'Германия',
+      JP: 'Япония',
+      KR: 'Южная Корея',
+      CN: 'Китай',
+      CA: 'Канада',
+      AU: 'Австралия',
+      IT: 'Италия',
+      ES: 'Испания',
+      IN: 'Индия'
+    };
+
+    function trim(str) {
+      return ('' + (str || '')).replace(/^\s+|\s+$/g, '');
+    }
+
+    /* headText — текст штатного .full-start-new__head, который start.js
+       заполняет до события complite (формат '2024, США' или просто '2024').
+       Отрезаем ведущий год с разделителем; если после этого ничего не
+       осталось — фолбэк на production_countries[].iso_3166_1 по словарю,
+       иначе английское имя страны из TMDB. */
+    function country(headText, productionCountries) {
+      var text = trim(headText).replace(/^\d{4}\s*,?\s*/, '');
+      text = trim(text);
+      if (text) return text;
+
+      if (productionCountries && productionCountries.length) {
+        var first = productionCountries[0] || {};
+        var iso = first.iso_3166_1;
+        if (iso && COUNTRY_RU[iso]) return COUNTRY_RU[iso];
+        return first.name || iso || '';
+      }
+      return '';
+    }
+
+    /* Первый член съёмочной группы с job === 'Director'. */
+    function director(crew) {
+      if (!crew || !crew.length) return '';
+      for (var i = 0; i < crew.length; i++) {
+        if (crew[i] && crew[i].job === 'Director') return crew[i].name || '';
+      }
+      return '';
+    }
+
+    /* Автор сериала: created_by[0].name. */
+    function creator(movie) {
+      if (movie && movie.created_by && movie.created_by.length && movie.created_by[0]) {
+        return movie.created_by[0].name || '';
+      }
+      return '';
+    }
+
+    /* Task 5 Step 3b.1: длинное название (> 18 символов) переносится
+       классом .lumen-title--long вместо однострочного обрезания. */
+    function titleClass(title) {
+      return trim(title).length > 18 ? 'lumen-title--long' : '';
+    }
+
+    /* Task 5a Step 3: статус -> визуальный вид точки/подписи.
+       'soon' покрывает Planned/In Production/Post Production (подпись
+       «Анонс» выставляет рантайм, здесь только цветовой вид). */
+    function statusKind(status) {
+      var s = trim(status).toLowerCase();
+      if (s === 'released') return 'good';
+      if (s === 'returning series') return 'accent';
+      if (s === 'planned' || s === 'in production' || s === 'post production') return 'soon';
+      return 'muted';
+    }
+
+    /* Строка качества -> раздельные чипы (экран 01/03/10: "4K", "HDR", "BD").
+       BDRip/BluRay схлопываются в 'BD', WEB-DL/WEBRip/WEBDL — в 'WEB'.
+       Остальные токены — как есть, в верхнем регистре, без дублей. */
+    function qualityChips(q) {
+      q = trim(q);
+      if (!q) return [];
+      var raw = q.split(/[\s,\/]+/);
+      var out = [];
+      for (var i = 0; i < raw.length; i++) {
+        var tok = raw[i];
+        if (!tok) continue;
+        var up = tok.toUpperCase();
+        var mapped = up;
+        if (up.indexOf('BDRIP') !== -1 || up.indexOf('BLURAY') !== -1 || up.indexOf('BLU-RAY') !== -1) mapped = 'BD';
+        else if (up.indexOf('WEB-DL') !== -1 || up.indexOf('WEBDL') !== -1 || up.indexOf('WEBRIP') !== -1 || up === 'WEB') mapped = 'WEB';
+        if (out.length === 0 || out[out.length - 1] !== mapped) {
+          var exists = false;
+          for (var j = 0; j < out.length; j++) { if (out[j] === mapped) { exists = true; break; } }
+          if (!exists) out.push(mapped);
+        }
+      }
+      return out;
+    }
+
+    /* Счётчик реакции 'fire' (список e.data.reactions.result) или 0. */
+    function reactionsCount(reactions) {
+      if (!reactions || !reactions.length) return 0;
+      for (var i = 0; i < reactions.length; i++) {
+        if (reactions[i] && reactions[i].type === 'fire') return reactions[i].counter || 0;
+      }
+      return 0;
+    }
+
+    return {
+      country: country,
+      director: director,
+      creator: creator,
+      titleClass: titleClass,
+      statusKind: statusKind,
+      qualityChips: qualityChips,
+      reactionsCount: reactionsCount
+    };
+  })();
+
+  if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.cardinfo;
+
+
 /* ---- 40_template.js ---- */
   /* -------------------------------------------------------------------- */
   /* Шаблон.                                                               */
@@ -596,6 +725,13 @@
       if (buttons === null || pool === null) return null;
       if (buttons.indexOf('button--play') === -1) return null;
 
+      /* Task 5a Step 2: шесть .lumen-in — соседние дети ОДНОГО .lumen-content
+         (совпадает с .full-start-new__right), между ними нет посторонних
+         узлов — на этом основан stagger-подбор Task 4 (nth-child(1..6)).
+         .lumen-side идёт следом седьмым ребёнком, на нумерацию первых
+         шести не влияет. Порядок блоков — по Task 5a: мета; заголовок +
+         оригинал/режиссёр; описание; рейтинги + статус + чип реакций;
+         прогресс; кнопки. */
       return '' +
         '<div class="full-start-new lumen-card">' +
         '<div class="full-start-new__body">' +
@@ -604,36 +740,54 @@
         '<img class="full-start-new__img full--poster" />' +
         '</div>' +
         '</div>' +
-        '<div class="full-start-new__right">' +
-        '<div class="lumen-cols">' +
-        '<div class="lumen-main">' +
+        '<div class="full-start-new__right lumen-content">' +
+
+        /* 1: мета (год · страна · хронометраж/сезоны · жанры · 18+ · реж.) */
+        '<div class="lumen-in">' +
         '<div class="full-start-new__head"></div>' +
         '<div class="lumen-meta"></div>' +
+        '<div class="full-start__pg hide"></div>' +
+        '</div>' +
+
+        /* 2: заголовок + оригинальное название/режиссёр(создатель) */
+        '<div class="lumen-in">' +
         '<div class="full-start-new__title">{title}</div>' +
         '<div class="lumen-original">{original_title}</div>' +
         '<div class="full-start-new__tagline full--tagline">{tagline}</div>' +
-        '<div class="lumen-descr">{descr}</div>' +
+        '</div>' +
+
+        /* 3: описание (2 строки, line-clamp в CSS) */
+        '<div class="lumen-in lumen-descr">{descr}</div>' +
+
+        /* 4: рейтинги + статус + чип реакций */
+        '<div class="lumen-in">' +
         '<div class="full-start-new__rate-line">' +
         '<div class="full-start__rate rate--tmdb"><div>{rating}</div><div class="source--name">TMDB</div></div>' +
         '<div class="full-start__rate rate--imdb hide"><div></div><div>IMDB</div></div>' +
         '<div class="full-start__rate rate--kp hide"><div></div><div>KP</div></div>' +
-        '<div class="full-start__pg hide"></div>' +
         '<div class="full-start__tag tag--episode hide"><div></div></div>' +
+        '<div class="lumen-reactions-chip hide"><div class="lumen-reactions-chip__value"></div><div class="lumen-reactions-chip__label"></div></div>' +
+        '<div class="full-start__status hide"></div>' +
         '</div>' +
-        '<div class="lumen-progress hide">' +
+        '</div>' +
+
+        /* 5: продолжить просмотр */
+        '<div class="lumen-in lumen-progress hide">' +
         '<span class="lumen-progress__label"></span>' +
         '<div class="lumen-progress__bar"><div></div></div>' +
         '<span class="lumen-progress__time"></span>' +
         '</div>' +
-        '<div class="full-start-new__details"></div>' +
+
+        /* 6: кнопки (только LC.template.build — содержимое не трогать) */
+        '<div class="lumen-in">' +
         '<div class="full-start-new__reactions"><div>#{reactions_none}</div></div>' +
         /* Обёртка константна (только этот один div), хэшируется НЕ она —
            хэшируются кнопки внутри (innerOf вырезает только их, план 0.2). */
         '<div class="full-start-new__buttons">' + buttons + '</div>' +
         '</div>' +
-        '</div>' +
+
+        /* Боковая колонка: раздельные чипы качества + «В ролях». */
         '<div class="lumen-side">' +
-        '<div class="lumen-side__status"><div class="full-start__status hide"></div></div>' +
         '<div class="lumen-tags">' +
         '<div class="full-start__tag tag--quality hide"><div></div></div>' +
         '</div>' +
@@ -642,10 +796,12 @@
         '<div class="lumen-cast__row"></div>' +
         '</div>' +
         '</div>' +
+
         '</div>' +
         '<div class="lumen-keep">' +
         '<div class="full-start__tag tag--year hide"><div></div></div>' +
         '<div class="full-start__tag tag--time hide"><div></div></div>' +
+        '<div class="full-start-new__details"></div>' +
         '<div class="is--serial hide"></div>' +
         '</div>' +
         '</div>' +
@@ -655,7 +811,28 @@
         '</div>';
     }
 
-    return { innerOf: innerOf, build: build };
+    /* Task 5/5a Step 1: список классов/ключей, обязательных в НАШЕМ шаблоне —
+       start.js обращается к ним независимо от того, есть ли они в текущем
+       original (missingInOriginal — только информативно, на assert.ok не
+       влияет). */
+    var REQUIRED = ['full-start-new__title', 'full-start-new__head', 'full--tagline', 'full-start-new__details',
+      'full-start-new__reactions', 'full-start-new__buttons', 'buttons--container', 'button--play', 'button--book',
+      'button--reaction', 'button--subscribe', 'button--options', 'rate--tmdb', 'rate--imdb', 'rate--kp',
+      'tag--year', 'tag--time', 'tag--quality', 'tag--episode', 'full-start__pg', 'full-start__status',
+      'is--serial', 'full--poster', 'full-start-new__poster'];
+
+    function assert(original, ours) {
+      var missingInOriginal = [], missingInOurs = [];
+      LC.util.each(REQUIRED, function (c) {
+        if (original.indexOf(c) === -1) missingInOriginal.push(c);
+        if (ours.indexOf(c) === -1) missingInOurs.push(c);
+      });
+      var keys = original.match(/#\{[a-z_]+\}/g) || [];
+      LC.util.each(keys, function (k) { if (ours.indexOf(k) === -1) missingInOurs.push(k); });
+      return { ok: missingInOurs.length === 0, missingInOurs: missingInOurs, missingInOriginal: missingInOriginal };
+    }
+
+    return { innerOf: innerOf, build: build, REQUIRED: REQUIRED, assert: assert };
   })();
 
   if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.template;
@@ -742,7 +919,10 @@
     lumen_card_continue: { ru: 'ПРОДОЛЖИТЬ', en: 'CONTINUE', uk: 'ПРОДОВЖИТИ' },
     lumen_card_cast: { ru: 'В ролях', en: 'Cast', uk: 'У ролях' },
     lumen_card_serial: { ru: 'СЕРИАЛ', en: 'SERIES', uk: 'СЕРІАЛ' },
-    lumen_card_min: { ru: 'мин', en: 'min', uk: 'хв' }
+    lumen_card_min: { ru: 'мин', en: 'min', uk: 'хв' },
+    lumen_card_director: { ru: 'реж.', en: 'dir.', uk: 'реж.' },
+    lumen_card_status_soon: { ru: 'Анонс', en: 'Announced', uk: 'Анонс' },
+    lumen_card_reactions: { ru: 'РЕАКЦИЙ', en: 'REACTIONS', uk: 'РЕАКЦІЙ' }
   };
 
   function langCode() {
@@ -931,30 +1111,6 @@
     return !!(movie.first_air_date || movie.number_of_seasons || movie.number_of_episodes || movie.name);
   }
 
-  function getCountries(movie) {
-    var out = [];
-    try {
-      if (window.Lampa && Lampa.TMDB && typeof Lampa.TMDB.parseCountries === 'function') {
-        out = Lampa.TMDB.parseCountries(movie) || [];
-      }
-    } catch (e) {
-      warn('parseCountries failed', e);
-    }
-    if (out && out.length) return out;
-    out = [];
-    try {
-      var i;
-      if (movie.production_countries && movie.production_countries.length) {
-        for (i = 0; i < movie.production_countries.length; i++) {
-          out.push(movie.production_countries[i].name || movie.production_countries[i].iso_3166_1);
-        }
-      } else if (movie.origin_country && movie.origin_country.length) {
-        for (i = 0; i < movie.origin_country.length; i++) out.push(movie.origin_country[i]);
-      }
-    } catch (e2) { }
-    return out;
-  }
-
   function getPG(movie, root) {
     var pg = '';
     try {
@@ -989,6 +1145,25 @@
       }
     } catch (e) { }
     return out;
+  }
+
+  /* Task 5a Step 4: чип «РЕАКЦИЙ» показывается, только если пользователь не
+     выключил блок реакций Lampa (та же настройка, что скрывает штатный
+     .full-start-new__reactions/.button--reaction — 0.2 «Реакции CUB»). */
+  function reactionsEnabled() {
+    try {
+      if (window.Lampa && Lampa.Storage && typeof Lampa.Storage.field === 'function') {
+        return !!Lampa.Storage.field('card_interfice_reactions');
+      }
+    } catch (e) { }
+    return false;
+  }
+
+  function bigNumber(n) {
+    try {
+      if (window.Lampa && Lampa.Utils && typeof Lampa.Utils.bigNumberToShort === 'function') return Lampa.Utils.bigNumberToShort(n);
+    } catch (e) { }
+    return '' + n;
   }
 
   /* -------------------------------------------------------------------- */
@@ -1086,7 +1261,13 @@
   /* Отрисовка карточки.                                                   */
   /* -------------------------------------------------------------------- */
 
-  function renderMeta(root, movie) {
+  /* Task 5a Step 3b.2/3b.4: мета-строка — год · страна · хронометраж/сезоны ·
+     жанры · 18+ · «реж. Имя» (у сериала режиссёр не показывается — там вместо
+     него в строке оригинального названия стоит создатель, см. renderOriginal).
+     Инлайн-чип качества/«СЕРИАЛ» из v1 убран — лишний узел, дизайну не
+     соответствует (design-spec-card.md §2); раздельные чипы качества теперь
+     в боковой колонке (renderQualityChips). */
+  function renderMeta(root, movie, data) {
     var parts = [];
     var serial = isSerial(movie);
 
@@ -1094,8 +1275,12 @@
     var year = release ? release.slice(0, 4) : '';
     if (year) parts.push('<span>' + LC.util.esc(year) + '</span>');
 
-    var countries = getCountries(movie);
-    if (countries.length) parts.push('<span>' + LC.util.esc(countries.slice(0, 2).join(' · ')) + '</span>');
+    /* Штатный .full-start-new__head заполняется Lampa (start.js) ДО complite
+       форматом «2024, США» — cardinfo.country сам отрезает год и падает на
+       словарь ISO/английское имя, если head пуст (план 0.2, Task 5 3b.2). */
+    var headText = root.find('.full-start-new__head').text();
+    var countryText = LC.cardinfo.country(headText, movie.production_countries);
+    if (countryText) parts.push('<span>' + LC.util.esc(countryText) + '</span>');
 
     if (serial) {
       var counts = [];
@@ -1106,15 +1291,16 @@
       parts.push('<span>' + LC.util.esc(LC.util.fmtRuntime(movie.runtime, LC.lang('lumen_card_min'))) + '</span>');
     }
 
-    var quality = !movie.first_air_date ? (movie.release_quality || movie.quality) : '';
-    if (quality) parts.push('<span class="lumen-meta__chip">' + LC.util.esc(('' + quality).toUpperCase()) + '</span>');
-    else if (serial) parts.push('<span class="lumen-meta__chip">' + LC.util.esc(LC.lang('lumen_card_serial')) + '</span>');
-
     var genres = getGenres(movie);
     if (genres.length) parts.push('<span>' + LC.util.esc(genres.join(', ')) + '</span>');
 
     var pg = getPG(movie, root);
     if (pg) parts.push('<span>' + LC.util.esc(pg) + '</span>');
+
+    if (!serial) {
+      var director = LC.cardinfo.director(data && data.persons && data.persons.crew);
+      if (director) parts.push('<span>' + LC.util.esc(LC.lang('lumen_card_director')) + ' ' + LC.util.esc(director) + '</span>');
+    }
 
     var html = [];
     for (var i = 0; i < parts.length; i++) {
@@ -1126,30 +1312,80 @@
     root.addClass('lumen--meta');
   }
 
+  /* Task 5a Step 3b.4: у сериала вместо режиссёра — created_by[0].name рядом
+     с оригинальным названием («Fallout · Джонатан Нолан», экран 05). */
   function renderOriginal(root, movie) {
     var title = movie.title || movie.name || '';
     var original = movie.original_title || movie.original_name || '';
     var node = root.find('.lumen-original');
     if (!node.length) return;
-    if (!original || original === title) node.text('');
-    else node.text(original);
+
+    var text = (!original || original === title) ? '' : original;
+
+    if (isSerial(movie)) {
+      var creator = LC.cardinfo.creator(movie);
+      if (creator) text = text ? (text + ' · ' + creator) : creator;
+    }
+
+    node.text(text);
   }
 
+  /* Task 5a Step 3/3b: заголовок целиком — .lumen-title--long при длине > 18
+     символов (класс переключает line-clamp 1 -> 2 в CSS, см. design-spec §3). */
+  function renderTitleClass(root, movie) {
+    var node = root.find('.full-start-new__title');
+    if (!node.length) return;
+    var title = movie.title || movie.name || '';
+    node.removeClass('lumen-title--long');
+    var cls = LC.cardinfo.titleClass(title);
+    if (cls) node.addClass(cls);
+  }
+
+  /* Task 5a Step 3: статус -> точка/подпись (кегль дизайна, только точка
+     красится — текст всегда нейтральный, кроме 'soon', где подписи Lampa
+     нет вовсе и мы её подставляем сами: «Анонс»). */
   function renderStatus(root, movie) {
     var node = root.find('.full-start__status');
     if (!node.length) return;
 
-    /* Переносим статус из строки рейтингов в правую колонку. */
-    var holder = root.find('.lumen-side__status');
-    if (holder.length && !holder.find('.full-start__status').length) holder.append(node);
+    node.removeClass('lumen-status--good lumen-status--accent lumen-status--muted lumen-status--soon');
 
-    node.removeClass('lumen-status--good lumen-status--accent lumen-status--muted');
+    var kind = LC.cardinfo.statusKind(movie.status);
+    node.addClass('lumen-status--' + kind);
 
-    var status = ('' + (movie.status || '')).toLowerCase();
-    var cls = 'lumen-status--muted';
-    if (status.indexOf('return') >= 0 || status.indexOf('production') >= 0 || status.indexOf('progress') >= 0 || status.indexOf('planned') >= 0) cls = 'lumen-status--accent';
-    else if (status.indexOf('released') >= 0) cls = 'lumen-status--good';
-    node.addClass(cls);
+    if (kind === 'soon') node.text(LC.lang('lumen_card_status_soon'));
+  }
+
+  /* Task 5a Step 3/3b: чип «РЕАКЦИЙ» — счётчик fire (CUB), скрыт без данных
+     и при выключенном card_interfice_reactions (0.2 «Реакции CUB»). */
+  function renderReactionsChip(root, data) {
+    var chip = root.find('.lumen-reactions-chip');
+    if (!chip.length) return;
+
+    chip.addClass('hide');
+    var count = LC.cardinfo.reactionsCount(data && data.reactions && data.reactions.result);
+    if (!count || !reactionsEnabled()) return;
+
+    chip.find('.lumen-reactions-chip__value').text(bigNumber(count));
+    chip.find('.lumen-reactions-chip__label').text(LC.lang('lumen_card_reactions'));
+    chip.removeClass('hide');
+  }
+
+  /* Task 5a Step 3/4: раздельные чипы качества (4K/HDR/BD) в боковой колонке
+     вместо одного составного tag--quality (design-spec §5c). Штатный узел
+     tag--quality остаётся в разметке (Lampa пишет в него), но всегда скрыт —
+     видимые чипы рисуем сами по cardinfo.qualityChips. */
+  function renderQualityChips(root, movie) {
+    var holder = root.find('.lumen-tags');
+    if (!holder.length) return;
+
+    holder.find('.lumen-quality-chip').remove();
+    if (movie.first_air_date) return;
+
+    var chips = LC.cardinfo.qualityChips(movie.release_quality || movie.quality);
+    var html = [];
+    for (var i = 0; i < chips.length; i++) html.push('<div class="lumen-quality-chip">' + LC.util.esc(chips[i]) + '</div>');
+    if (html.length) holder.append(html.join(''));
   }
 
   function renderProgress(root, movie) {
@@ -1211,9 +1447,12 @@
 
     var movie = (data && data.movie) || {};
 
-    try { renderMeta(root, movie); } catch (e) { warn('meta failed', e); }
+    try { renderTitleClass(root, movie); } catch (e) { warn('title failed', e); }
+    try { renderMeta(root, movie, data); } catch (e) { warn('meta failed', e); }
     try { renderOriginal(root, movie); } catch (e) { warn('original failed', e); }
     try { renderStatus(root, movie); } catch (e) { warn('status failed', e); }
+    try { renderReactionsChip(root, data); } catch (e) { warn('reactions chip failed', e); }
+    try { renderQualityChips(root, movie); } catch (e) { warn('quality chips failed', e); }
     try { renderProgress(root, movie); } catch (e) { warn('progress failed', e); }
     try { renderCast(root, data); } catch (e) { warn('cast failed', e); }
   }
@@ -1342,8 +1581,18 @@
 
       saveOriginalTemplate();
 
+      /* Task 5/5a Step 1: build() вернул null ИЛИ ours не проходит assert
+         (не хватает обязательных классов/языковых ключей из REQUIRED) ->
+         версия Lampa не поддерживается, штатный шаблон не подменяем. */
       var tpl = LC.template.build(original_template);
-      if (!tpl) { warn('buttons block not found, template left intact'); return; }
+      var check = tpl ? LC.template.assert(original_template, tpl) : null;
+      if (!tpl || !check.ok) {
+        warn('template not supported' + (check ? ': missing ' + check.missingInOurs.join(', ') : ' (build failed)'));
+        try {
+          if (Lampa.Noty && typeof Lampa.Noty.show === 'function') Lampa.Noty.show('Lumen Card: версия Lampa не поддерживается');
+        } catch (e3) { }
+        return;
+      }
       Lampa.Template.add('full_start_new', tpl);
 
       LC.injectFonts();

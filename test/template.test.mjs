@@ -137,3 +137,42 @@ test('build(фикстура): ключевые классы v1 на месте'
     assert.ok(result.indexOf(cls) !== -1, cls);
   }
 });
+
+/* -------------------------------------------------------------------- */
+/* Task 5/5a Step 1: REQUIRED/assert                                     */
+/* -------------------------------------------------------------------- */
+
+test('REQUIRED: непустой список, без дублей', () => {
+  assert.ok(Array.isArray(template.REQUIRED));
+  assert.ok(template.REQUIRED.length > 0);
+  assert.equal(new Set(template.REQUIRED).size, template.REQUIRED.length);
+});
+
+test('assert(orig, build(orig)).ok === true на фикстуре', () => {
+  const ours = template.build(fixture);
+  const result = template.assert(fixture, ours);
+  assert.equal(result.ok, true, 'missingInOurs: ' + JSON.stringify(result.missingInOurs));
+  assert.deepEqual(result.missingInOurs, []);
+});
+
+test('assert: фикстура не содержит tag--year/time/quality/episode/is--serial (missingInOriginal, не влияет на ok)', () => {
+  const ours = template.build(fixture);
+  const result = template.assert(fixture, ours);
+  for (const cls of ['tag--year', 'tag--time', 'tag--quality', 'tag--episode', 'is--serial']) {
+    assert.ok(result.missingInOriginal.indexOf(cls) !== -1, cls);
+  }
+});
+
+test('assert: чего-то не хватает в ours -> ok === false, класс в missingInOurs', () => {
+  const result = template.assert(fixture, '<div class="full-start-new__title">x</div>');
+  assert.equal(result.ok, false);
+  assert.ok(result.missingInOurs.indexOf('full-start-new__buttons') !== -1);
+});
+
+test('assert: языковой ключ оригинала отсутствует в ours -> ok === false', () => {
+  const orig = '<div class="button--play">#{title_watch}</div>';
+  const ours = '<div class="button--play">Смотреть</div>';
+  const result = template.assert(orig, ours);
+  assert.equal(result.ok, false);
+  assert.ok(result.missingInOurs.indexOf('#{title_watch}') !== -1);
+});

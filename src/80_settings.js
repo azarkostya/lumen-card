@@ -25,7 +25,10 @@
     lumen_card_continue: { ru: 'ПРОДОЛЖИТЬ', en: 'CONTINUE', uk: 'ПРОДОВЖИТИ' },
     lumen_card_cast: { ru: 'В ролях', en: 'Cast', uk: 'У ролях' },
     lumen_card_serial: { ru: 'СЕРИАЛ', en: 'SERIES', uk: 'СЕРІАЛ' },
-    lumen_card_min: { ru: 'мин', en: 'min', uk: 'хв' }
+    lumen_card_min: { ru: 'мин', en: 'min', uk: 'хв' },
+    lumen_card_director: { ru: 'реж.', en: 'dir.', uk: 'реж.' },
+    lumen_card_status_soon: { ru: 'Анонс', en: 'Announced', uk: 'Анонс' },
+    lumen_card_reactions: { ru: 'РЕАКЦИЙ', en: 'REACTIONS', uk: 'РЕАКЦІЙ' }
   };
 
   function langCode() {

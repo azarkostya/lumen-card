@@ -122,6 +122,13 @@
       if (buttons === null || pool === null) return null;
       if (buttons.indexOf('button--play') === -1) return null;
 
+      /* Task 5a Step 2: шесть .lumen-in — соседние дети ОДНОГО .lumen-content
+         (совпадает с .full-start-new__right), между ними нет посторонних
+         узлов — на этом основан stagger-подбор Task 4 (nth-child(1..6)).
+         .lumen-side идёт следом седьмым ребёнком, на нумерацию первых
+         шести не влияет. Порядок блоков — по Task 5a: мета; заголовок +
+         оригинал/режиссёр; описание; рейтинги + статус + чип реакций;
+         прогресс; кнопки. */
       return '' +
         '<div class="full-start-new lumen-card">' +
         '<div class="full-start-new__body">' +
@@ -130,36 +137,54 @@
         '<img class="full-start-new__img full--poster" />' +
         '</div>' +
         '</div>' +
-        '<div class="full-start-new__right">' +
-        '<div class="lumen-cols">' +
-        '<div class="lumen-main">' +
+        '<div class="full-start-new__right lumen-content">' +
+
+        /* 1: мета (год · страна · хронометраж/сезоны · жанры · 18+ · реж.) */
+        '<div class="lumen-in">' +
         '<div class="full-start-new__head"></div>' +
         '<div class="lumen-meta"></div>' +
+        '<div class="full-start__pg hide"></div>' +
+        '</div>' +
+
+        /* 2: заголовок + оригинальное название/режиссёр(создатель) */
+        '<div class="lumen-in">' +
         '<div class="full-start-new__title">{title}</div>' +
         '<div class="lumen-original">{original_title}</div>' +
         '<div class="full-start-new__tagline full--tagline">{tagline}</div>' +
-        '<div class="lumen-descr">{descr}</div>' +
+        '</div>' +
+
+        /* 3: описание (2 строки, line-clamp в CSS) */
+        '<div class="lumen-in lumen-descr">{descr}</div>' +
+
+        /* 4: рейтинги + статус + чип реакций */
+        '<div class="lumen-in">' +
         '<div class="full-start-new__rate-line">' +
         '<div class="full-start__rate rate--tmdb"><div>{rating}</div><div class="source--name">TMDB</div></div>' +
         '<div class="full-start__rate rate--imdb hide"><div></div><div>IMDB</div></div>' +
         '<div class="full-start__rate rate--kp hide"><div></div><div>KP</div></div>' +
-        '<div class="full-start__pg hide"></div>' +
         '<div class="full-start__tag tag--episode hide"><div></div></div>' +
+        '<div class="lumen-reactions-chip hide"><div class="lumen-reactions-chip__value"></div><div class="lumen-reactions-chip__label"></div></div>' +
+        '<div class="full-start__status hide"></div>' +
         '</div>' +
-        '<div class="lumen-progress hide">' +
+        '</div>' +
+
+        /* 5: продолжить просмотр */
+        '<div class="lumen-in lumen-progress hide">' +
         '<span class="lumen-progress__label"></span>' +
         '<div class="lumen-progress__bar"><div></div></div>' +
         '<span class="lumen-progress__time"></span>' +
         '</div>' +
-        '<div class="full-start-new__details"></div>' +
+
+        /* 6: кнопки (только LC.template.build — содержимое не трогать) */
+        '<div class="lumen-in">' +
         '<div class="full-start-new__reactions"><div>#{reactions_none}</div></div>' +
         /* Обёртка константна (только этот один div), хэшируется НЕ она —
            хэшируются кнопки внутри (innerOf вырезает только их, план 0.2). */
         '<div class="full-start-new__buttons">' + buttons + '</div>' +
         '</div>' +
-        '</div>' +
+
+        /* Боковая колонка: раздельные чипы качества + «В ролях». */
         '<div class="lumen-side">' +
-        '<div class="lumen-side__status"><div class="full-start__status hide"></div></div>' +
         '<div class="lumen-tags">' +
         '<div class="full-start__tag tag--quality hide"><div></div></div>' +
         '</div>' +
@@ -168,10 +193,12 @@
         '<div class="lumen-cast__row"></div>' +
         '</div>' +
         '</div>' +
+
         '</div>' +
         '<div class="lumen-keep">' +
         '<div class="full-start__tag tag--year hide"><div></div></div>' +
         '<div class="full-start__tag tag--time hide"><div></div></div>' +
+        '<div class="full-start-new__details"></div>' +
         '<div class="is--serial hide"></div>' +
         '</div>' +
         '</div>' +
@@ -181,7 +208,28 @@
         '</div>';
     }
 
-    return { innerOf: innerOf, build: build };
+    /* Task 5/5a Step 1: список классов/ключей, обязательных в НАШЕМ шаблоне —
+       start.js обращается к ним независимо от того, есть ли они в текущем
+       original (missingInOriginal — только информативно, на assert.ok не
+       влияет). */
+    var REQUIRED = ['full-start-new__title', 'full-start-new__head', 'full--tagline', 'full-start-new__details',
+      'full-start-new__reactions', 'full-start-new__buttons', 'buttons--container', 'button--play', 'button--book',
+      'button--reaction', 'button--subscribe', 'button--options', 'rate--tmdb', 'rate--imdb', 'rate--kp',
+      'tag--year', 'tag--time', 'tag--quality', 'tag--episode', 'full-start__pg', 'full-start__status',
+      'is--serial', 'full--poster', 'full-start-new__poster'];
+
+    function assert(original, ours) {
+      var missingInOriginal = [], missingInOurs = [];
+      LC.util.each(REQUIRED, function (c) {
+        if (original.indexOf(c) === -1) missingInOriginal.push(c);
+        if (ours.indexOf(c) === -1) missingInOurs.push(c);
+      });
+      var keys = original.match(/#\{[a-z_]+\}/g) || [];
+      LC.util.each(keys, function (k) { if (ours.indexOf(k) === -1) missingInOurs.push(k); });
+      return { ok: missingInOurs.length === 0, missingInOurs: missingInOurs, missingInOriginal: missingInOriginal };
+    }
+
+    return { innerOf: innerOf, build: build, REQUIRED: REQUIRED, assert: assert };
   })();
 
   if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.template;
