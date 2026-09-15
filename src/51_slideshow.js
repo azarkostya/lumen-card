@@ -63,6 +63,14 @@
     try { return !!(node && document.documentElement && document.documentElement.contains(node)); } catch (e) { return false; }
   }
 
+  /* Длительность кроссфейда — должна совпадать с opacity-transition
+     .lumen-bg__img в src/30_css.js (transition:opacity 1.2s ease-in-out).
+     Используется дважды (fix, Important/Minor): чтобы не гасить
+     background-image уходящего кадра раньше, чем он реально долетит до
+     opacity:0 (память, п.3), и чтобы держать инлайн-transform (Ken Burns,
+     п.4) ровно на время затухания. */
+  var CROSSFADE_MS = 1200;
+
   /* Контроллер слайдшоу для ОДНОГО layer/apply(). Создаётся синхронно (до
      ответа сети) в неактивном состоянии — pause/resume/destroy безопасны
      сразу, но ничего не делают, пока activate() не вызван. activate()
@@ -72,7 +80,29 @@
      .lumen-bg__img внутри .lumen-bg__slides, предзагружаются Image() и
      показываются только по onload; битый кадр (onerror) помечается false
      и пропускается — advance() пробует следующий по очереди, но не больше
-     urls.length попыток за один тик (чтобы не зациклиться, если битые все). */
+     urls.length попыток за один тик (чтобы не зациклиться, если битые все).
+
+     Task 6 (fix, п.3, Minor — память ТВ): в DOM с background-image держим
+     только текущий кадр и уходящий (на время кроссфейда) — warm[i]
+     отмечает, у какого frames[i] сейчас реально стоит background-image.
+     Когда кадр перестаёт быть текущим/уходящим (через CROSSFADE_MS после
+     смены), его background-image снимается и warm[i] сбрасывается; если
+     очередь дойдёт до него снова, ensureFrame() увидит "холодный" элемент
+     и переставит ту же строку url() заново — HTTP-кэш браузера делает это
+     бесплатным (сеть уже не ходит, Image() второй раз не создаётся).
+
+     Task 6 (fix, п.4, Minor — плавный Ken Burns): снятие is-active мгновенно
+     останавливает CSS-анимацию lumen-kb, и transform уходящего кадра тут же
+     прыгает обратно к scale(1) — заметный скачок посреди кроссфейда. Перед
+     тем как снять is-active, читаем getComputedStyle(...).transform ПОКА
+     анимация ещё идёт и фиксируем его инлайн-стилем на уходящем кадре —
+     инлайн-стиль слабее активной CSS-анимации (просто не виден, пока она
+     играет), поэтому это безопасно сделать заранее; как только is-active
+     снят и анимация останавливается, инлайн-transform "подхватывает" её
+     последнее значение вместо прыжка на scale(1). Через CROSSFADE_MS
+     инлайн-transform снимается вместе с background-image. Только в
+     lumen-motion-full — там же, где вообще играет Ken Burns (30_css.js:
+     .lumen-backdrop.lumen-motion-full .lumen-bg__img.is-active). */
   function create(layer, urls, opts) {
     opts = opts || {};
     var enabledFn = typeof opts.enabled === 'function' ? opts.enabled : function () { return true; };
@@ -83,8 +113,11 @@
     var timer = null;
     var pendingLoader = null;
     var frames = null;   // null, пока activate() не вызван
+    var warm = null;     // warm[i] === true, если у frames[i] сейчас стоит background-image
+    var activeIdx = -1;
     var idx = 0;
     var lastFrameEl = null;
+    var cleanupTimer = null;
 
     function isLayerMounted() {
       return isNodeMounted(layer[0]);
@@ -94,15 +127,64 @@
       if (timer) { clearInterval(timer); timer = null; }
     }
 
+    function stopCleanupTimer() {
+      if (cleanupTimer) { clearTimeout(cleanupTimer); cleanupTimer = null; }
+    }
+
+    /* Снимает background-image и (если был) инлайн-transform с кадра,
+       который уже CROSSFADE_MS как не активен и не уходящий. */
+    function coolDown(i, el) {
+      try {
+        el.css('transform', '');
+        el.css('background-image', '');
+      } catch (e) { }
+      warm[i] = false;
+    }
+
+    function scheduleCoolDown(i, el) {
+      stopCleanupTimer(); // переходы редки (минимум 8с) — одного отложенного таймера достаточно
+      cleanupTimer = setTimeout(function () {
+        cleanupTimer = null;
+        coolDown(i, el);
+      }, CROSSFADE_MS);
+    }
+
     function setActive(i) {
+      var prevIdx = activeIdx;
+      var prevEl = (prevIdx !== -1 && frames[prevIdx]) ? frames[prevIdx] : null;
+
+      /* Заморозка Ken Burns — ДО снятия is-active, пока анимация ещё
+         реально играет (иначе getComputedStyle уже вернёт то, что после
+         остановки анимации, то есть scale(1)). */
+      if (prevEl && prevIdx !== i) {
+        try {
+          if (LC.motionMode() === 'full' && window.getComputedStyle) {
+            var cs = window.getComputedStyle(prevEl[0]);
+            var t = cs && cs.transform;
+            if (t && t !== 'none') prevEl.css('transform', t);
+          }
+        } catch (e) { }
+      }
+
       for (var k = 0; k < frames.length; k++) {
         if (frames[k]) frames[k].toggleClass('is-active', k === i);
       }
+
+      if (prevEl && prevIdx !== i) scheduleCoolDown(prevIdx, prevEl);
+      activeIdx = i;
     }
 
     function ensureFrame(i, cb) {
       if (frames[i] === false) { cb(null); return; }
-      if (frames[i]) { cb(frames[i]); return; }
+      if (frames[i]) {
+        /* Кадр уже создавался раньше, но остыл (память, п.3) — url() тот
+           же, повторная установка ничего не грузит из сети (HTTP-кэш). */
+        if (!warm[i]) {
+          try { frames[i].css('background-image', 'url("' + encodeURI(urls[i]) + '")'); warm[i] = true; } catch (e) { }
+        }
+        cb(frames[i]);
+        return;
+      }
       var url = urls[i];
       if (!url) { frames[i] = false; cb(null); return; }
       var loader = new Image();
@@ -117,6 +199,7 @@
           layer.find('.lumen-bg__slides').append(el);
           lastFrameEl = el;
           frames[i] = el;
+          warm[i] = true;
           cb(el);
         } catch (e) {
           warn('slideshow frame failed', e);
@@ -165,11 +248,14 @@
       if (!alive || frames) return; // уже активирован
       try {
         frames = [];
+        warm = [];
         var firstNode = layer.find('.lumen-backdrop__img');
         firstNode.addClass('lumen-bg__img is-active');
         frames[0] = firstNode;
+        warm[0] = true; // background-image первого кадра уже стоит — его поставил 50_backdrops.js до activate()
         lastFrameEl = firstNode;
         idx = 0;
+        activeIdx = 0;
         if (enabledFn() && !paused) startTimer();
       } catch (e) {
         warn('slideshow activate failed', e);
@@ -179,6 +265,7 @@
     function destroy() {
       alive = false;
       stopTimer();
+      stopCleanupTimer();
       if (pendingLoader) { pendingLoader.onload = null; pendingLoader.onerror = null; pendingLoader = null; }
     }
 

@@ -328,3 +328,104 @@ test('slideshow: activity--active появляется у closest(\'.activity\')
   fireInterval(1);
   assert.equal(loaders.length, 1, 'вернулись на экран — тик снова предзагружает следующий кадр');
 });
+
+/* ====================================================================== */
+/* Task 6 (fix, Minor, п.3): память ТВ — не больше 2-3 "тёплых" кадров     */
+/* (текущий + уходящий на время кроссфейда) одновременно, независимо от   */
+/* max (8/4). */
+/* ====================================================================== */
+
+test('slideshow (fix, п.3, память): после 5 смен кадров непустых background-image у .lumen-bg__img не больше 3', () => {
+  const LC = freshLC({ motion: 'full' });
+  const layer = mount(makeLayer());
+  const ctrl = LC.slideshow.create(layer, urls(8), { enabled: () => true, intervalMs: () => 8000 });
+  ctrl.activate();
+
+  for (let n = 0; n < 5; n++) {
+    fireInterval(1);
+    const lastLoader = loaders[loaders.length - 1];
+    lastLoader.onload();
+    /* Реалистичное соотношение: 1.2с кроссфейда всегда успевают пройти до
+       следующего 8с-тика — не пропускаем последний специально, чтобы
+       заодно проверить состояние "текущий + ещё не остывший уходящий". */
+    if (n < 4) fireTimer(timers.length);
+  }
+
+  const img0 = layer.children('.lumen-backdrop__img');
+  const slideEls = layer.children('.lumen-bg__slides')._children;
+  const all = [img0].concat(slideEls);
+  const warmCount = all.filter((el) => !!el._css['background-image']).length;
+  assert.ok(warmCount >= 1 && warmCount <= 3, 'непустых background-image должно быть от 1 до 3, сейчас ' + warmCount);
+});
+
+test('slideshow (fix, п.3): "остывший" кадр при повторном заходе очереди получает background-image заново (без нового Image())', () => {
+  const LC = freshLC({ motion: 'full' });
+  const layer = mount(makeLayer());
+  const ctrl = LC.slideshow.create(layer, urls(2), { enabled: () => true, intervalMs: () => 8000 }); // всего 2 кадра — быстрый повторный заход
+  ctrl.activate();
+
+  fireInterval(1); // 0 -> 1
+  loaders[0].onload();
+  fireTimer(timers.length); // кадр 0 остывает
+
+  const img0 = layer.children('.lumen-backdrop__img');
+  assert.equal(img0.css('background-image'), '', 'кадр 0 должен был остыть');
+
+  fireInterval(1); // 1 -> 0 (тот же кадр 0, уже существует, но остыл)
+  assert.equal(loaders.length, 1, 'новый Image() создаваться не должен — кадр 0 уже существует, только остыл');
+  assert.ok(String(img0.css('background-image')).includes('f0.jpg'), 'background-image должен быть выставлен заново');
+});
+
+/* ====================================================================== */
+/* Task 6 (fix, Minor, п.4): плавный Ken Burns — инлайн-transform          */
+/* уходящего кадра фиксируется перед сменой (только lumen-motion-full) и  */
+/* снимается вместе с background-image после кроссфейда. */
+/* ====================================================================== */
+
+test('slideshow (fix, п.4, Ken Burns): transform уходящего кадра фиксируется перед сменой и снимается после кроссфейда', () => {
+  const LC = freshLC({ motion: 'full' });
+  const layer = mount(makeLayer());
+  const img0 = layer.children('.lumen-backdrop__img');
+  img0[0]._computedTransform = 'matrix(1.04,0,0,1.04,0,0)'; // Ken Burns "в процессе наезда"
+  const ctrl = LC.slideshow.create(layer, urls(3), { enabled: () => true, intervalMs: () => 8000 });
+  ctrl.activate();
+
+  fireInterval(1);
+  loaders[0].onload();
+
+  assert.equal(img0.hasClass('is-active'), false);
+  assert.equal(img0.css('transform'), 'matrix(1.04,0,0,1.04,0,0)', 'transform должен быть зафиксирован инлайн ДО снятия is-active');
+
+  fireTimer(timers.length); // CROSSFADE_MS истёк
+  assert.equal(img0.css('transform'), '', 'после кроссфейда инлайн-transform должен быть снят');
+  assert.equal(img0.css('background-image'), '', 'и background-image тоже (память, п.3)');
+});
+
+test('slideshow (fix, п.4): заморозка transform — только в lumen-motion-full, не в lite/off', () => {
+  const LC = freshLC({ motion: 'lite' });
+  const layer = mount(makeLayer());
+  const img0 = layer.children('.lumen-backdrop__img');
+  img0[0]._computedTransform = 'matrix(1.04,0,0,1.04,0,0)';
+  const ctrl = LC.slideshow.create(layer, urls(3), { enabled: () => true, intervalMs: () => 8000 });
+  ctrl.activate();
+
+  fireInterval(1);
+  loaders[0].onload();
+
+  assert.equal(img0.css('transform'), undefined, 'в lite/off transform не должен фиксироваться');
+});
+
+test('slideshow (fix, п.4): таймер снятия transform/background-image очищается в destroy()', () => {
+  const LC = freshLC({ motion: 'full' });
+  const layer = mount(makeLayer());
+  const ctrl = LC.slideshow.create(layer, urls(3), { enabled: () => true, intervalMs: () => 8000 });
+  ctrl.activate();
+
+  fireInterval(1);
+  loaders[0].onload(); // смена кадра запланировала таймер остывания уходящего
+
+  const scheduled = timers.length;
+  assert.equal(timers[scheduled - 1].cleared, false);
+  ctrl.destroy();
+  assert.equal(timers[scheduled - 1].cleared, true, 'destroy() должен очистить таймер остывания');
+});

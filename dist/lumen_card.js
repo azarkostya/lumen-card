@@ -1515,6 +1515,14 @@
     try { return !!(node && document.documentElement && document.documentElement.contains(node)); } catch (e) { return false; }
   }
 
+  /* Длительность кроссфейда — должна совпадать с opacity-transition
+     .lumen-bg__img в src/30_css.js (transition:opacity 1.2s ease-in-out).
+     Используется дважды (fix, Important/Minor): чтобы не гасить
+     background-image уходящего кадра раньше, чем он реально долетит до
+     opacity:0 (память, п.3), и чтобы держать инлайн-transform (Ken Burns,
+     п.4) ровно на время затухания. */
+  var CROSSFADE_MS = 1200;
+
   /* Контроллер слайдшоу для ОДНОГО layer/apply(). Создаётся синхронно (до
      ответа сети) в неактивном состоянии — pause/resume/destroy безопасны
      сразу, но ничего не делают, пока activate() не вызван. activate()
@@ -1524,7 +1532,29 @@
      .lumen-bg__img внутри .lumen-bg__slides, предзагружаются Image() и
      показываются только по onload; битый кадр (onerror) помечается false
      и пропускается — advance() пробует следующий по очереди, но не больше
-     urls.length попыток за один тик (чтобы не зациклиться, если битые все). */
+     urls.length попыток за один тик (чтобы не зациклиться, если битые все).
+
+     Task 6 (fix, п.3, Minor — память ТВ): в DOM с background-image держим
+     только текущий кадр и уходящий (на время кроссфейда) — warm[i]
+     отмечает, у какого frames[i] сейчас реально стоит background-image.
+     Когда кадр перестаёт быть текущим/уходящим (через CROSSFADE_MS после
+     смены), его background-image снимается и warm[i] сбрасывается; если
+     очередь дойдёт до него снова, ensureFrame() увидит "холодный" элемент
+     и переставит ту же строку url() заново — HTTP-кэш браузера делает это
+     бесплатным (сеть уже не ходит, Image() второй раз не создаётся).
+
+     Task 6 (fix, п.4, Minor — плавный Ken Burns): снятие is-active мгновенно
+     останавливает CSS-анимацию lumen-kb, и transform уходящего кадра тут же
+     прыгает обратно к scale(1) — заметный скачок посреди кроссфейда. Перед
+     тем как снять is-active, читаем getComputedStyle(...).transform ПОКА
+     анимация ещё идёт и фиксируем его инлайн-стилем на уходящем кадре —
+     инлайн-стиль слабее активной CSS-анимации (просто не виден, пока она
+     играет), поэтому это безопасно сделать заранее; как только is-active
+     снят и анимация останавливается, инлайн-transform "подхватывает" её
+     последнее значение вместо прыжка на scale(1). Через CROSSFADE_MS
+     инлайн-transform снимается вместе с background-image. Только в
+     lumen-motion-full — там же, где вообще играет Ken Burns (30_css.js:
+     .lumen-backdrop.lumen-motion-full .lumen-bg__img.is-active). */
   function create(layer, urls, opts) {
     opts = opts || {};
     var enabledFn = typeof opts.enabled === 'function' ? opts.enabled : function () { return true; };
@@ -1535,8 +1565,11 @@
     var timer = null;
     var pendingLoader = null;
     var frames = null;   // null, пока activate() не вызван
+    var warm = null;     // warm[i] === true, если у frames[i] сейчас стоит background-image
+    var activeIdx = -1;
     var idx = 0;
     var lastFrameEl = null;
+    var cleanupTimer = null;
 
     function isLayerMounted() {
       return isNodeMounted(layer[0]);
@@ -1546,15 +1579,64 @@
       if (timer) { clearInterval(timer); timer = null; }
     }
 
+    function stopCleanupTimer() {
+      if (cleanupTimer) { clearTimeout(cleanupTimer); cleanupTimer = null; }
+    }
+
+    /* Снимает background-image и (если был) инлайн-transform с кадра,
+       который уже CROSSFADE_MS как не активен и не уходящий. */
+    function coolDown(i, el) {
+      try {
+        el.css('transform', '');
+        el.css('background-image', '');
+      } catch (e) { }
+      warm[i] = false;
+    }
+
+    function scheduleCoolDown(i, el) {
+      stopCleanupTimer(); // переходы редки (минимум 8с) — одного отложенного таймера достаточно
+      cleanupTimer = setTimeout(function () {
+        cleanupTimer = null;
+        coolDown(i, el);
+      }, CROSSFADE_MS);
+    }
+
     function setActive(i) {
+      var prevIdx = activeIdx;
+      var prevEl = (prevIdx !== -1 && frames[prevIdx]) ? frames[prevIdx] : null;
+
+      /* Заморозка Ken Burns — ДО снятия is-active, пока анимация ещё
+         реально играет (иначе getComputedStyle уже вернёт то, что после
+         остановки анимации, то есть scale(1)). */
+      if (prevEl && prevIdx !== i) {
+        try {
+          if (LC.motionMode() === 'full' && window.getComputedStyle) {
+            var cs = window.getComputedStyle(prevEl[0]);
+            var t = cs && cs.transform;
+            if (t && t !== 'none') prevEl.css('transform', t);
+          }
+        } catch (e) { }
+      }
+
       for (var k = 0; k < frames.length; k++) {
         if (frames[k]) frames[k].toggleClass('is-active', k === i);
       }
+
+      if (prevEl && prevIdx !== i) scheduleCoolDown(prevIdx, prevEl);
+      activeIdx = i;
     }
 
     function ensureFrame(i, cb) {
       if (frames[i] === false) { cb(null); return; }
-      if (frames[i]) { cb(frames[i]); return; }
+      if (frames[i]) {
+        /* Кадр уже создавался раньше, но остыл (память, п.3) — url() тот
+           же, повторная установка ничего не грузит из сети (HTTP-кэш). */
+        if (!warm[i]) {
+          try { frames[i].css('background-image', 'url("' + encodeURI(urls[i]) + '")'); warm[i] = true; } catch (e) { }
+        }
+        cb(frames[i]);
+        return;
+      }
       var url = urls[i];
       if (!url) { frames[i] = false; cb(null); return; }
       var loader = new Image();
@@ -1569,6 +1651,7 @@
           layer.find('.lumen-bg__slides').append(el);
           lastFrameEl = el;
           frames[i] = el;
+          warm[i] = true;
           cb(el);
         } catch (e) {
           warn('slideshow frame failed', e);
@@ -1617,11 +1700,14 @@
       if (!alive || frames) return; // уже активирован
       try {
         frames = [];
+        warm = [];
         var firstNode = layer.find('.lumen-backdrop__img');
         firstNode.addClass('lumen-bg__img is-active');
         frames[0] = firstNode;
+        warm[0] = true; // background-image первого кадра уже стоит — его поставил 50_backdrops.js до activate()
         lastFrameEl = firstNode;
         idx = 0;
+        activeIdx = 0;
         if (enabledFn() && !paused) startTimer();
       } catch (e) {
         warn('slideshow activate failed', e);
@@ -1631,6 +1717,7 @@
     function destroy() {
       alive = false;
       stopTimer();
+      stopCleanupTimer();
       if (pendingLoader) { pendingLoader.onload = null; pendingLoader.onerror = null; pendingLoader = null; }
     }
 
@@ -2337,8 +2424,35 @@
 
   var activity_followed = false;
 
-  /* Одна подписка на 'activity' за всё время жизни плагина (правки
-     координатора к Task 6: вторую подписку не заводить, расширяем эту же).
+  /* Достаёт .lumen-backdrop из e.object.activity.render() той активности,
+     о которой пришло событие (любой 'full', не обязательно LC.active).
+
+     Проверено живьём: e.object.activity.render() возвращает ВНЕШНИЙ
+     .activity-контейнер (class="activity layer--width…"), а не e.body из
+     события 'full' — .lumen-backdrop лежит на уровень глубже, внутри
+     .activity__body (прямой потомок .activity), поэтому
+     .children('.lumen-backdrop') здесь мимо (нашёл это именно так:
+     .children дал 0, .find — 1). Ищем через find() (любая глубина); тело,
+     в которое LC.backdrops.apply()/ensureLayer() когда-то сделал
+     body.prepend(layer), — это layer.parent(), так что
+     LC.backdrops.cancel(layer.parent()) снова найдёт слой через свой
+     body.children(...). Возвращает layer (length может быть 0) или null,
+     если у e.object вообще нет activity.render(). */
+  function layerOf(object) {
+    try {
+      if (!object || !object.activity || typeof object.activity.render !== 'function') return null;
+      var rendered = object.activity.render();
+      return rendered && rendered.find ? rendered.find('.lumen-backdrop') : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /* Единственный обработчик подписки 'activity' за всё время жизни
+     плагина (правки координатора к Task 6: вторую подписку не заводить).
+     Вынесен в именованную LC.onActivityEvent — LC.init() только подписывает
+     её (followActivityLifecycle ниже), а test/runtime.test.mjs вызывает её
+     напрямую с фейковыми e/Lampa/$, без реальной Lampa.
 
      Реальные события Lampa 3.3.4 при push/backward (проверено исходником
      vendor/lampa/app.min.js — функции push$3/backward()/start$4 — и живым
@@ -2354,13 +2468,13 @@
          backward() шлёт ЕЩЁ и archive (тот же e.object). То есть archive
          в этой сборке означает «снова на экране», а не «ушли в фон» —
          обратное плановому предположению archive->pause.
-     Отсюда два следствия (решение координатора по live-check п.4):
+     Отсюда следствия (решение координатора по live-check п.4 и fix-раунду):
        1) «Пауза при уходе вглубь» через эту подписку недостижима (push
           ничего не шлёт для оставленной активности) — реализована не
           здесь, а проверкой isLayerForeground() в каждом тике таймера
-          слайдшоу (50_backdrops.js, createSlideshow.tryFrom): если слой
-          сейчас не в .activity.activity--active, тик молча пропускается,
-          таймер не трогаем — как заново на экране, тик снова меняет кадр.
+          слайдшоу (src/51_slideshow.js, tryFrom): если слой сейчас не в
+          .activity.activity--active, тик молча пропускается, таймер не
+          трогаем — как заново на экране, тик снова меняет кадр.
        2) 'start' и 'archive' СВОЕЙ активности (LC.active уже указывает на
           неё) — оба означают «видна снова» -> resume() (resume() дважды
           безопасен).
@@ -2373,57 +2487,61 @@
           (значит, карточка уже строилась раньше) и восстанавливаем
           LC.active по нему — контроллер слайдшоу достаём из
           layer.data('lumenSlideshow') (положен туда LC.backdrops.apply()),
-          а не храним отдельно, поэтому найти его можно в любой момент. */
+          а не храним отдельно, поэтому найти его можно в любой момент.
+       4) Осиротевшие карточки (fix, Important): в цепочке A -> B -> C
+          (LC.active уже C) 'destroy' карточки A или B (Lampa шлёт его при
+          вытеснении по лимиту истории maxsave, не только на backward())
+          не совпадает ни с одной веткой выше — но если у A/B уже есть
+          .lumen-backdrop, её таймер иначе тикал бы до СЛЕДУЮЩЕГО своего
+          интервала, когда isLayerMounted() сам заметит пропавший DOM
+          (secondhand self-heal, уже был в fix #1). Здесь — немедленно:
+          destroy ЛЮБОЙ (не только LC.active) активности с готовым слоем ->
+          LC.backdrops.cancel(layer.parent()) сразу же. */
+  LC.onActivityEvent = function (e) {
+    try {
+      if (!e) return;
+
+      if (LC.active && e.object === LC.active.object) {
+        if (e.type === 'destroy') {
+          LC.backdrops.cancel(LC.active.body);
+          LC.active = null;
+        } else if (e.type === 'archive' || e.type === 'start') {
+          if (LC.active.slideshow) LC.active.slideshow.resume();
+        }
+        return;
+      }
+
+      if (e.type === 'destroy') {
+        var orphanLayer = layerOf(e.object);
+        if (orphanLayer && orphanLayer.length) LC.backdrops.cancel(orphanLayer.parent());
+        return;
+      }
+
+      /* e.object !== LC.active.object (или LC.active вовсе null): для
+         свежей, ещё не построенной карточки слоя нет — layerOf() вернёт
+         пустой/null, ветка тихо no-op (нормальный путь на самый первый
+         'start' любого push, ДО того как 'full' complite впервые выставит
+         LC.active). Для карточки, к которой вернулись через backward(),
+         слой уже есть — восстанавливаем LC.active. */
+      if (e.type === 'start' && e.component === 'full') {
+        var layer = layerOf(e.object);
+        if (layer && layer.length) {
+          var slideshow = layer.data('lumenSlideshow');
+          LC.active = { object: e.object, body: layer.parent(), slideshow: slideshow };
+          if (slideshow) slideshow.resume();
+        }
+      }
+    } catch (err) {
+      warn('activity listener failed', err);
+    }
+  };
+
   function followActivityLifecycle() {
     if (activity_followed) return;
     activity_followed = true;
     try {
       if (!window.Lampa || !Lampa.Listener) return;
-      Lampa.Listener.follow('activity', function (e) {
-        try {
-          if (!e) return;
-
-          if (LC.active && e.object === LC.active.object) {
-            if (e.type === 'destroy') {
-              LC.backdrops.cancel(LC.active.body);
-              LC.active = null;
-            } else if (e.type === 'archive' || e.type === 'start') {
-              if (LC.active.slideshow) LC.active.slideshow.resume();
-            }
-            return;
-          }
-
-          /* e.object !== LC.active.object (или LC.active вовсе null): для
-             свежей, ещё не построенной карточки слоя нет — find() ничего
-             не найдёт, ветка тихо no-op (нормальный путь на самый первый
-             'start' любого push, ДО того как 'full' complite впервые
-             выставит LC.active). Для карточки, к которой вернулись через
-             backward(), слой уже есть — восстанавливаем LC.active.
-
-             Проверено живьём: e.object.activity.render() возвращает
-             ВНЕШНИЙ .activity-контейнер (class="activity layer--width…"),
-             а не e.body из события 'full' — .lumen-backdrop лежит на
-             уровень глубже, внутри .activity__body (прямой потомок
-             .activity), поэтому .children('.lumen-backdrop') здесь мимо
-             (нашёл это именно так: .children дал 0, .find — 1). Ищем
-             через find() (любая глубина), а LC.active.body берём как
-             layer.parent() — это и есть тот самый узел, в который
-             LC.backdrops.apply()/ensureLayer() when-то сделал
-             body.prepend(layer), так что LC.backdrops.cancel(body) на
-             destroy снова найдёт слой через свой body.children(...). */
-          if (e.type === 'start' && e.component === 'full' && e.object && e.object.activity && typeof e.object.activity.render === 'function') {
-            var rendered = e.object.activity.render();
-            var layer = rendered && rendered.find ? rendered.find('.lumen-backdrop') : null;
-            if (layer && layer.length) {
-              var slideshow = layer.data('lumenSlideshow');
-              LC.active = { object: e.object, body: layer.parent(), slideshow: slideshow };
-              if (slideshow) slideshow.resume();
-            }
-          }
-        } catch (err) {
-          warn('activity listener failed', err);
-        }
-      });
+      Lampa.Listener.follow('activity', LC.onActivityEvent);
     } catch (e2) {
       warn('activity listener failed', e2);
     }

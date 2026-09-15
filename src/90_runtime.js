@@ -96,8 +96,35 @@
 
   var activity_followed = false;
 
-  /* Одна подписка на 'activity' за всё время жизни плагина (правки
-     координатора к Task 6: вторую подписку не заводить, расширяем эту же).
+  /* Достаёт .lumen-backdrop из e.object.activity.render() той активности,
+     о которой пришло событие (любой 'full', не обязательно LC.active).
+
+     Проверено живьём: e.object.activity.render() возвращает ВНЕШНИЙ
+     .activity-контейнер (class="activity layer--width…"), а не e.body из
+     события 'full' — .lumen-backdrop лежит на уровень глубже, внутри
+     .activity__body (прямой потомок .activity), поэтому
+     .children('.lumen-backdrop') здесь мимо (нашёл это именно так:
+     .children дал 0, .find — 1). Ищем через find() (любая глубина); тело,
+     в которое LC.backdrops.apply()/ensureLayer() когда-то сделал
+     body.prepend(layer), — это layer.parent(), так что
+     LC.backdrops.cancel(layer.parent()) снова найдёт слой через свой
+     body.children(...). Возвращает layer (length может быть 0) или null,
+     если у e.object вообще нет activity.render(). */
+  function layerOf(object) {
+    try {
+      if (!object || !object.activity || typeof object.activity.render !== 'function') return null;
+      var rendered = object.activity.render();
+      return rendered && rendered.find ? rendered.find('.lumen-backdrop') : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /* Единственный обработчик подписки 'activity' за всё время жизни
+     плагина (правки координатора к Task 6: вторую подписку не заводить).
+     Вынесен в именованную LC.onActivityEvent — LC.init() только подписывает
+     её (followActivityLifecycle ниже), а test/runtime.test.mjs вызывает её
+     напрямую с фейковыми e/Lampa/$, без реальной Lampa.
 
      Реальные события Lampa 3.3.4 при push/backward (проверено исходником
      vendor/lampa/app.min.js — функции push$3/backward()/start$4 — и живым
@@ -113,13 +140,13 @@
          backward() шлёт ЕЩЁ и archive (тот же e.object). То есть archive
          в этой сборке означает «снова на экране», а не «ушли в фон» —
          обратное плановому предположению archive->pause.
-     Отсюда два следствия (решение координатора по live-check п.4):
+     Отсюда следствия (решение координатора по live-check п.4 и fix-раунду):
        1) «Пауза при уходе вглубь» через эту подписку недостижима (push
           ничего не шлёт для оставленной активности) — реализована не
           здесь, а проверкой isLayerForeground() в каждом тике таймера
-          слайдшоу (50_backdrops.js, createSlideshow.tryFrom): если слой
-          сейчас не в .activity.activity--active, тик молча пропускается,
-          таймер не трогаем — как заново на экране, тик снова меняет кадр.
+          слайдшоу (src/51_slideshow.js, tryFrom): если слой сейчас не в
+          .activity.activity--active, тик молча пропускается, таймер не
+          трогаем — как заново на экране, тик снова меняет кадр.
        2) 'start' и 'archive' СВОЕЙ активности (LC.active уже указывает на
           неё) — оба означают «видна снова» -> resume() (resume() дважды
           безопасен).
@@ -132,57 +159,61 @@
           (значит, карточка уже строилась раньше) и восстанавливаем
           LC.active по нему — контроллер слайдшоу достаём из
           layer.data('lumenSlideshow') (положен туда LC.backdrops.apply()),
-          а не храним отдельно, поэтому найти его можно в любой момент. */
+          а не храним отдельно, поэтому найти его можно в любой момент.
+       4) Осиротевшие карточки (fix, Important): в цепочке A -> B -> C
+          (LC.active уже C) 'destroy' карточки A или B (Lampa шлёт его при
+          вытеснении по лимиту истории maxsave, не только на backward())
+          не совпадает ни с одной веткой выше — но если у A/B уже есть
+          .lumen-backdrop, её таймер иначе тикал бы до СЛЕДУЮЩЕГО своего
+          интервала, когда isLayerMounted() сам заметит пропавший DOM
+          (secondhand self-heal, уже был в fix #1). Здесь — немедленно:
+          destroy ЛЮБОЙ (не только LC.active) активности с готовым слоем ->
+          LC.backdrops.cancel(layer.parent()) сразу же. */
+  LC.onActivityEvent = function (e) {
+    try {
+      if (!e) return;
+
+      if (LC.active && e.object === LC.active.object) {
+        if (e.type === 'destroy') {
+          LC.backdrops.cancel(LC.active.body);
+          LC.active = null;
+        } else if (e.type === 'archive' || e.type === 'start') {
+          if (LC.active.slideshow) LC.active.slideshow.resume();
+        }
+        return;
+      }
+
+      if (e.type === 'destroy') {
+        var orphanLayer = layerOf(e.object);
+        if (orphanLayer && orphanLayer.length) LC.backdrops.cancel(orphanLayer.parent());
+        return;
+      }
+
+      /* e.object !== LC.active.object (или LC.active вовсе null): для
+         свежей, ещё не построенной карточки слоя нет — layerOf() вернёт
+         пустой/null, ветка тихо no-op (нормальный путь на самый первый
+         'start' любого push, ДО того как 'full' complite впервые выставит
+         LC.active). Для карточки, к которой вернулись через backward(),
+         слой уже есть — восстанавливаем LC.active. */
+      if (e.type === 'start' && e.component === 'full') {
+        var layer = layerOf(e.object);
+        if (layer && layer.length) {
+          var slideshow = layer.data('lumenSlideshow');
+          LC.active = { object: e.object, body: layer.parent(), slideshow: slideshow };
+          if (slideshow) slideshow.resume();
+        }
+      }
+    } catch (err) {
+      warn('activity listener failed', err);
+    }
+  };
+
   function followActivityLifecycle() {
     if (activity_followed) return;
     activity_followed = true;
     try {
       if (!window.Lampa || !Lampa.Listener) return;
-      Lampa.Listener.follow('activity', function (e) {
-        try {
-          if (!e) return;
-
-          if (LC.active && e.object === LC.active.object) {
-            if (e.type === 'destroy') {
-              LC.backdrops.cancel(LC.active.body);
-              LC.active = null;
-            } else if (e.type === 'archive' || e.type === 'start') {
-              if (LC.active.slideshow) LC.active.slideshow.resume();
-            }
-            return;
-          }
-
-          /* e.object !== LC.active.object (или LC.active вовсе null): для
-             свежей, ещё не построенной карточки слоя нет — find() ничего
-             не найдёт, ветка тихо no-op (нормальный путь на самый первый
-             'start' любого push, ДО того как 'full' complite впервые
-             выставит LC.active). Для карточки, к которой вернулись через
-             backward(), слой уже есть — восстанавливаем LC.active.
-
-             Проверено живьём: e.object.activity.render() возвращает
-             ВНЕШНИЙ .activity-контейнер (class="activity layer--width…"),
-             а не e.body из события 'full' — .lumen-backdrop лежит на
-             уровень глубже, внутри .activity__body (прямой потомок
-             .activity), поэтому .children('.lumen-backdrop') здесь мимо
-             (нашёл это именно так: .children дал 0, .find — 1). Ищем
-             через find() (любая глубина), а LC.active.body берём как
-             layer.parent() — это и есть тот самый узел, в который
-             LC.backdrops.apply()/ensureLayer() when-то сделал
-             body.prepend(layer), так что LC.backdrops.cancel(body) на
-             destroy снова найдёт слой через свой body.children(...). */
-          if (e.type === 'start' && e.component === 'full' && e.object && e.object.activity && typeof e.object.activity.render === 'function') {
-            var rendered = e.object.activity.render();
-            var layer = rendered && rendered.find ? rendered.find('.lumen-backdrop') : null;
-            if (layer && layer.length) {
-              var slideshow = layer.data('lumenSlideshow');
-              LC.active = { object: e.object, body: layer.parent(), slideshow: slideshow };
-              if (slideshow) slideshow.resume();
-            }
-          }
-        } catch (err) {
-          warn('activity listener failed', err);
-        }
-      });
+      Lampa.Listener.follow('activity', LC.onActivityEvent);
     } catch (e2) {
       warn('activity listener failed', e2);
     }
