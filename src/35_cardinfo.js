@@ -94,11 +94,9 @@
         var mapped = up;
         if (up.indexOf('BDRIP') !== -1 || up.indexOf('BLURAY') !== -1 || up.indexOf('BLU-RAY') !== -1) mapped = 'BD';
         else if (up.indexOf('WEB-DL') !== -1 || up.indexOf('WEBDL') !== -1 || up.indexOf('WEBRIP') !== -1 || up === 'WEB') mapped = 'WEB';
-        if (out.length === 0 || out[out.length - 1] !== mapped) {
-          var exists = false;
-          for (var j = 0; j < out.length; j++) { if (out[j] === mapped) { exists = true; break; } }
-          if (!exists) out.push(mapped);
-        }
+        var exists = false;
+        for (var j = 0; j < out.length; j++) { if (out[j] === mapped) { exists = true; break; } }
+        if (!exists) out.push(mapped);
       }
       return out;
     }

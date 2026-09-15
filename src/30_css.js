@@ -29,6 +29,20 @@
     mint: { color: '#9FCF8A', light: '#E7F8DC', glow: 'rgba(159,207,138,0.35)' }
   };
 
+  /* '#RRGGBB' -> 'R,G,B' для rgba(...) — так цвет не дублируется как отдельная
+     hex- и rgb-запись (ревью Task 5a). */
+  function hexToRgb(hex) {
+    hex = ('' + hex).replace('#', '');
+    var r = parseInt(hex.substring(0, 2), 16);
+    var g = parseInt(hex.substring(2, 4), 16);
+    var b = parseInt(hex.substring(4, 6), 16);
+    return r + ',' + g + ',' + b;
+  }
+
+  /* Акцент «спайс» (чип реакций, тег «следующая серия») — фиксированный цвет,
+     не зависит от темы, поэтому переводится в rgb один раз при загрузке модуля. */
+  var SPICE_RGB = hexToRgb(C.spice);
+
   var FONT_DISPLAY_ON = '"Unbounded","Arial Black",Impact,sans-serif';
   var FONT_BODY_ON = '"Golos Text","Segoe UI",Roboto,Arial,sans-serif';
   var FONT_MONO_ON = '"JetBrains Mono",Consolas,"Courier New",monospace';
@@ -50,6 +64,7 @@
     var A = t.color;
     var AL = t.light;
     var AG = t.glow;
+    var A_RGB = hexToRgb(A);
     var fonts = useFonts();
     var FD = fonts ? FONT_DISPLAY_ON : FONT_DISPLAY_OFF;
     var FB = fonts ? FONT_BODY_ON : FONT_BODY_OFF;
@@ -83,9 +98,23 @@
        .lumen-cols, разметка Task 5a Step 2 держит их прямыми соседями ради
        stagger-подбора Task 4 (nth-child(1..6) считает по прямым детям). Gap
        между колонками — design-spec §1 (60px ÷ 22.811 = 2.63em). */
-    css.push('.lumen-card .lumen-content{display:-ms-grid;display:grid;grid-template-columns:minmax(0,1fr) auto;grid-auto-rows:auto;-webkit-column-gap:2.63em;column-gap:2.63em;-webkit-box-align:end;-webkit-align-items:end;align-items:end}');
+    /* display:flex — база (и фолбэк для браузеров без CSS Grid, см. ниже),
+       display:grid следующей декларацией того же свойства переопределяет её
+       там, где grid поддерживается (невалидное значение в старом браузере
+       просто не применяется, действует последнее валидное — flex). */
+    css.push('.lumen-card .lumen-content{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;-webkit-box-align:end;-webkit-align-items:end;align-items:end;display:-ms-grid;display:grid;grid-template-columns:minmax(0,1fr) auto;grid-auto-rows:auto;-webkit-column-gap:2.63em;column-gap:2.63em}');
     css.push('.lumen-card .lumen-content > .lumen-in{grid-column:1;max-width:52em}');
     css.push('.lumen-card .lumen-content > .lumen-side{grid-column:2;grid-row:1 / 7;-ms-grid-row-align:end;align-self:end;-webkit-flex-shrink:0;flex-shrink:0;text-align:right;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-orient:vertical;-webkit-flex-direction:column;flex-direction:column;-webkit-box-align:end;-webkit-align-items:flex-end;align-items:flex-end}');
+    /* Фолбэк для Chromium < 57 (webOS 3, старые Tizen — CSS Grid ещё не
+       поддержан, но @supports у них уже есть). На чистом flex-wrap каждый
+       .lumen-in занимает всю строку (width:100%) — переносится сам по себе,
+       кроме шестого (кнопки: узкий по содержимому, не тянется на всю ширину)
+       — в его строке остаётся свободное место, куда margin-left:auto
+       прижимает .lumen-side. Так боковая колонка держится справа у нижнего
+       края стопки контента (там же, где кнопки), а не проваливается под неё
+       седьмой строкой. @supports not исключает блок целиком там, где grid
+       поддержан — сбрасывать эти правила отдельно не нужно. */
+    css.push('@supports not (display:grid){.lumen-card .lumen-content > .lumen-in{width:100%}.lumen-card .lumen-content > .lumen-in:nth-child(6){width:auto;-webkit-box-flex:0;-webkit-flex:0 1 auto;flex:0 1 auto}.lumen-card .lumen-content > .lumen-side{margin-left:auto}}');
 
     /* Скрытые узлы оригинала (нужны Lampa, но не нужны дизайну) */
     css.push('.lumen-card .full-start-new__tagline,.lumen-card .full-start-new__reactions,.lumen-card .lumen-keep{display:none !important}');
@@ -101,7 +130,9 @@
        .lumen-title--long меняет только line-clamp — кегль не уменьшается, как на
        экране 01; заменяет разбор по нативному .twolines из v1) --- */
     css.push('.lumen-card .full-start-new__title{font-family:' + FD + ';font-size:3.86em;font-weight:800;line-height:1.02;letter-spacing:-.015em;margin:.70em 0 0 -.02em}');
-    css.push('.lumen-card .full-start-new__title.lumen-title--long{-webkit-line-clamp:2;line-clamp:2}');
+    /* Ревью Task 5a: line-clamp не работает без полной тройки display/box-orient/
+       overflow (иначе длинный заголовок не обрезается многоточием вовсе). */
+    css.push('.lumen-card .full-start-new__title.lumen-title--long{display:-webkit-box;-webkit-box-orient:vertical;overflow:hidden;-webkit-line-clamp:2;line-clamp:2}');
     css.push('.lumen-card .lumen-original{font-family:' + FM + ';font-size:.88em;color:' + C.smoke + ';margin-top:.53em;overflow:hidden;white-space:nowrap;-o-text-overflow:ellipsis;text-overflow:ellipsis}');
     css.push('.lumen-card .lumen-original:empty{display:none}');
 
@@ -110,15 +141,19 @@
 
     /* --- Рейтинги (design-spec §5a: колонка значение/подпись, тёмная карта) --- */
     css.push('.lumen-card .full-start-new__rate-line{margin:1.05em 0 0;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:stretch;-webkit-align-items:stretch;align-items:stretch;-webkit-flex-wrap:wrap;flex-wrap:wrap}');
+    /* !important обязателен: у Lampa в native-scss .full-start-new__rate-line > *
+       уже есть margin-left:0 !important;margin-right:1em !important (harness/
+       start_new.scss) — обычной специфичностью её не перебить, только другим
+       !important. */
     css.push('.lumen-card .full-start-new__rate-line > *{margin:0 .53em .53em 0 !important}');
-    css.push('.lumen-card .full-start__rate{font-family:' + FM + ';background:' + C.chipBg + ';border:.0625em solid ' + C.line + ';border-radius:.53em;padding:.44em .70em;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-orient:vertical;-webkit-flex-direction:column;flex-direction:column;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center}');
+    css.push('.lumen-card .full-start__rate{font-family:' + FM + ';background:' + C.chipBg + ';border:.04em solid ' + C.line + ';border-radius:.53em;padding:.44em .70em;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-orient:vertical;-webkit-flex-direction:column;flex-direction:column;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center}');
     css.push('.lumen-card .full-start__rate > div:first-child{display:block;width:auto;height:auto;background:transparent;border-radius:0;font-size:1.23em;font-weight:600;line-height:1;color:' + C.text + '}');
     css.push('.lumen-card .full-start__rate > div:last-child{font-size:.61em;letter-spacing:.1em;color:' + C.smoke + ';padding:.18em 0 0}');
     /* Чип «РЕАКЦИЙ» (fire) — та же геометрия что рейтинги, акцент «спайс», design-spec §5d/5f. */
-    css.push('.lumen-card .lumen-reactions-chip{font-family:' + FM + ';background:rgba(217,98,43,.12);border:.0625em solid rgba(217,98,43,.5);border-radius:.53em;padding:.44em .70em;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-orient:vertical;-webkit-flex-direction:column;flex-direction:column;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center}');
+    css.push('.lumen-card .lumen-reactions-chip{font-family:' + FM + ';background:rgba(' + SPICE_RGB + ',.12);border:.04em solid rgba(' + SPICE_RGB + ',.5);border-radius:.53em;padding:.44em .70em;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-orient:vertical;-webkit-flex-direction:column;flex-direction:column;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center}');
     css.push('.lumen-card .lumen-reactions-chip__value{font-size:1.23em;font-weight:600;line-height:1;color:' + C.spice + '}');
     css.push('.lumen-card .lumen-reactions-chip__label{font-size:.61em;letter-spacing:.1em;opacity:.8;color:' + C.spice + ';padding:.18em 0 0}');
-    css.push('.lumen-card .full-start-new__rate-line .tag--episode{font-family:' + FM + ';font-size:1em;background:rgba(217,98,43,0.14);border:.0625em solid rgba(217,98,43,0.40);border-radius:.75em;padding:.6em 1em;color:' + C.text + ';text-transform:none;max-width:34em}');
+    css.push('.lumen-card .full-start-new__rate-line .tag--episode{font-family:' + FM + ';font-size:1em;background:rgba(' + SPICE_RGB + ',0.14);border:.04em solid rgba(' + SPICE_RGB + ',0.40);border-radius:.75em;padding:.6em 1em;color:' + C.text + ';text-transform:none;max-width:34em}');
     css.push('.lumen-card .full-start-new__rate-line .tag--episode > div{font-size:1em;color:' + A + '}');
 
     /* --- Продолжить (design-spec §6: ширина 760px, margin-top 24px) --- */
@@ -140,6 +175,13 @@
     css.push('.lumen-card .full-start-new__buttons .full-start__button > svg + span{font-size:1.05em;margin:0 0 0 .53em;line-height:1}');
     css.push('.lumen-card .full-start-new__buttons .full-start__button span{display:none}');
     css.push('.lumen-card .full-start-new__buttons .button--play span,.lumen-card .full-start-new__buttons .button--priority span{display:block}');
+    /* Ревью Task 5a, design-spec §7b «АКТИВНА»: из наших кнопок класс active
+       на карточке ставит только сама Lampa на .button--subscribe (когда уже
+       подписан — app.min.js, onSubscribed(): this.html.find('.button--subscribe')
+       .addClass('active')). У .button--book того же нет — там только смена
+       fill у <path> (Favorite.check), без класса на самой кнопке; без :has()
+       поймать это чистым CSS нельзя, поэтому закладку не трогаем. */
+    css.push('.lumen-card .full-start-new__buttons .full-start__button.active{background:rgba(' + A_RGB + ',.16);border-color:' + A + ';color:' + A + '}');
     /* Иконочные кнопки — квадрат 72×72 без подписи; в фокусе ширина авто с паддингом
        под раскрытую подпись (design-spec §7b/§7c, экран 10 «ФОКУС · С ПОДПИСЬЮ»). */
     css.push('.lumen-card .full-start-new__buttons .button--book,.lumen-card .full-start-new__buttons .button--reaction,.lumen-card .full-start-new__buttons .button--subscribe,.lumen-card .full-start-new__buttons .button--options{padding:0;width:3.16em}');
@@ -161,14 +203,14 @@
        колонке. Пилюля та же, что и была (5b), просто без правого выравнивания
        текста внутри самой пилюли — align-items:flex-end колонки прижимает её
        целиком к правому краю. */
-    css.push('.lumen-card .lumen-side .full-start__status{font-family:' + FB + ';font-weight:500;font-size:.79em;letter-spacing:normal;text-transform:none;background:' + C.chipBg + ';border:.0625em solid ' + C.line + ';border-radius:1.32em;padding:.35em .70em;margin-bottom:1.05em;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;color:' + C.text + '}');
+    css.push('.lumen-card .lumen-side .full-start__status{font-family:' + FB + ';font-weight:500;font-size:.79em;letter-spacing:normal;text-transform:none;background:' + C.chipBg + ';border:.04em solid ' + C.line + ';border-radius:1.32em;padding:.35em .70em;margin-bottom:1.05em;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;color:' + C.text + '}');
     css.push('.lumen-card .lumen-side .full-start__status:before{content:"";display:block;width:.44em;height:.44em;border-radius:50%;background:currentColor;margin-right:.44em}');
     css.push('.lumen-card .lumen-status--good:before{color:' + C.good + '}');
     css.push('.lumen-card .lumen-status--accent:before{color:' + A + '}');
     css.push('.lumen-card .lumen-status--muted:before,.lumen-card .lumen-status--soon:before{color:' + C.smoke + '}');
     css.push('.lumen-card .lumen-tags{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;-webkit-box-pack:end;-webkit-justify-content:flex-end;justify-content:flex-end}');
     css.push('.lumen-card .lumen-tags .full-start__tag{display:none !important}');
-    css.push('.lumen-card .lumen-quality-chip{font-family:' + FM + ';font-size:.66em;letter-spacing:.08em;color:' + C.text + ';border:.0625em solid rgba(243,237,228,.24);border-radius:.31em;padding:.31em .48em;margin:0 0 .35em .35em;white-space:nowrap}');
+    css.push('.lumen-card .lumen-quality-chip{font-family:' + FM + ';font-size:.66em;letter-spacing:.08em;color:' + C.text + ';border:.04em solid rgba(243,237,228,.24);border-radius:.31em;padding:.31em .48em;margin:0 0 .35em .35em;white-space:nowrap}');
     css.push('.lumen-card .lumen-cast{margin-top:1.05em}');
     css.push('.lumen-card .lumen-cast__label{font-size:.79em;color:' + C.smoke + ';margin-bottom:.53em}');
     css.push('.lumen-card .lumen-cast__row{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-pack:end;-webkit-justify-content:flex-end;justify-content:flex-end}');

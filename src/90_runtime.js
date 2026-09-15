@@ -293,7 +293,7 @@
     if (!holder.length) return;
 
     holder.find('.lumen-quality-chip').remove();
-    if (movie.first_air_date) return;
+    if (isSerial(movie)) return;
 
     var chips = LC.cardinfo.qualityChips(movie.release_quality || movie.quality);
     var html = [];

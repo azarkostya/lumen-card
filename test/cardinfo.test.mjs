@@ -136,8 +136,12 @@ test('qualityChips: пусто -> []', () => {
   assert.deepEqual(cardinfo.qualityChips(null), []);
 });
 
-test('qualityChips: без дублей', () => {
+test('qualityChips: без дублей (соседних)', () => {
   assert.deepEqual(cardinfo.qualityChips('4K 4K'), ['4K']);
+});
+
+test('qualityChips: без дублей (несоседний повтор)', () => {
+  assert.deepEqual(cardinfo.qualityChips('4K WEB 4K'), ['4K', 'WEB']);
 });
 
 /* -------------------------------------------------------------------- */
