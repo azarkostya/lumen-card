@@ -1,0 +1,92 @@
+import test from 'node:test'; import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { load } from './_load.mjs';
+
+const template = load('40_template.js');
+const fixture = readFileSync(new URL('./fixtures/full_start_new.original.html', import.meta.url), 'utf8');
+
+/* Тестовый хелпер (не часть модуля): полный outerHTML первого div с токеном
+   cls в class — открывающий тег + содержимое (через innerOf) + </div>. Все
+   кнопки фикстуры — простые <div class="..."> без прочих атрибутов, этого
+   достаточно, чтобы дословно найти открывающий тег каждой из них. */
+function outerOf(html, cls) {
+  const m = new RegExp('<div class="[^"]*\\b' + cls + '\\b[^"]*">').exec(html);
+  const inner = template.innerOf(html, cls);
+  if (!m || inner === null) return null;
+  return m[0] + inner + '</div>';
+}
+
+test('innerOf на фикстуре: блок кнопок и пул', () => {
+  const buttons = template.innerOf(fixture, 'full-start-new__buttons');
+  const pool = template.innerOf(fixture, 'buttons--container');
+  assert.notEqual(buttons, null);
+  assert.notEqual(pool, null);
+
+  for (const cls of ['button--play', 'button--book', 'button--reaction', 'button--subscribe', 'button--options']) {
+    assert.ok(buttons.indexOf(cls) !== -1, cls);
+  }
+  for (const cls of ['view--torrent', 'view--trailer']) {
+    assert.ok(pool.indexOf(cls) !== -1, cls);
+  }
+
+  assert.ok(fixture.indexOf(buttons) !== -1, 'buttons — дословная подстрока оригинала');
+  assert.ok(fixture.indexOf(pool) !== -1, 'pool — дословная подстрока оригинала');
+  assert.match(buttons, /^\s/);
+  assert.match(pool, /^\s/);
+});
+
+test('innerOf на синтетике: вложенность, целое слово, класс отсутствует, баланс', () => {
+  const nested = '<div class="outer"><div class="inner"><div class="deep">x</div>y</div>z</div>';
+  assert.equal(template.innerOf(nested, 'outer'), '<div class="inner"><div class="deep">x</div>y</div>z');
+  assert.equal(template.innerOf(nested, 'inner'), '<div class="deep">x</div>y');
+  assert.equal(template.innerOf(nested, 'deep'), 'x');
+
+  // токен целым словом: "full-start-new__buttons-x" не даёт совпадения по "full-start-new__buttons"
+  assert.equal(template.innerOf('<div class="full-start-new__buttons-x">content</div>', 'full-start-new__buttons'), null);
+
+  // класс отсутствует
+  assert.equal(template.innerOf('<div class="a">x</div>', 'nope'), null);
+
+  // несбалансированный html (незакрытый div)
+  assert.equal(template.innerOf('<div class="a"><div>x</div>', 'a'), null);
+});
+
+test('build(фикстура): один корневой элемент — div-теги сбалансированы, buttons--container вложен в корень', () => {
+  // Регрессия: buttons--container — сосед .full-start-new__body ВНУТРИ корня
+  // (как в оригинале), а не отдельный элемент верхнего уровня. Раньше build()
+  // закрывал корень на один </div> раньше, и остаток HTML отваливался.
+  const result = template.build(fixture);
+  const opens = (result.match(/<div\b[^>]*>/g) || []).length;
+  const closes = (result.match(/<\/div\s*>/g) || []).length;
+  assert.equal(opens, closes, 'открывающих и закрывающих div должно быть поровну');
+
+  const rootInner = template.innerOf(result, 'lumen-card');
+  assert.notEqual(rootInner, null);
+  assert.ok(rootInner.indexOf('buttons--container') !== -1, 'buttons--container должен быть потомком корня, а не соседом');
+});
+
+test('build(фикстура): каждая кнопка оригинала целиком встречается в результате дословно', () => {
+  const result = template.build(fixture);
+  assert.notEqual(result, null);
+
+  for (const cls of ['button--play', 'button--book', 'button--reaction', 'button--subscribe', 'button--options', 'view--torrent', 'view--trailer']) {
+    const outer = outerOf(fixture, cls);
+    assert.ok(outer, cls + ': не найдена в фикстуре');
+    assert.ok(result.indexOf(outer) !== -1, cls + ': не найдена дословно в build()');
+  }
+});
+
+test('build: блок кнопок не найден -> null', () => {
+  assert.equal(template.build('<div class="full-start-new">nothing here</div>'), null);
+});
+
+test('build: пустая строка -> null', () => {
+  assert.equal(template.build(''), null);
+});
+
+test('build(фикстура): ключевые классы v1 на месте', () => {
+  const result = template.build(fixture);
+  for (const cls of ['lumen-card', 'full-start-new__title', 'rate--tmdb', 'lumen-side', 'tag--year']) {
+    assert.ok(result.indexOf(cls) !== -1, cls);
+  }
+});

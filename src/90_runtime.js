@@ -366,13 +366,9 @@
 
       saveOriginalTemplate();
 
-      try {
-        Lampa.Template.add('full_start_new', LC.buildTemplate());
-      } catch (e) {
-        warn('template add failed', e);
-        restoreOriginalTemplate();
-        return;
-      }
+      var tpl = LC.template.build(original_template);
+      if (!tpl) { warn('buttons block not found, template left intact'); return; }
+      Lampa.Template.add('full_start_new', tpl);
 
       LC.injectFonts();
       LC.injectCss();
