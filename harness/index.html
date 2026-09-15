@@ -130,10 +130,8 @@ body {
 
 /* Стенд всегда эмулирует ширину 1920px, а media-запросы плагина смотрят на
    реальное окно браузера. Отменяем компактную раскладку внутри сцены. */
-#stage .lumen-card .lumen-content { display: flex; }
-#stage .lumen-card .lumen-side { margin-left: 2.5em; margin-top: 0; text-align: right; align-items: flex-end; }
-#stage .lumen-card .full-start-new__title { font-size: 5.4em; }
-#stage .lumen-card .full-start-new__title.twolines { font-size: 3.9em; }
+#stage .lumen-card .lumen-content { display: grid !important; }
+#stage .lumen-card .lumen-side { margin-top: 0; text-align: right; align-items: flex-end; }
 </style>
 </head>
 <body>

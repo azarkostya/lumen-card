@@ -14,7 +14,12 @@
     muted: '#A89A8A',
     smoke: '#7A6A5A',
     good: '#8FBF7A',
-    dark: '#1A120A'
+    dark: '#1A120A',
+    /* Task 5a Step 4 (design-spec §0): «тёмная карточка» — фон и обводка,
+       общие для чипов/кнопок/статуса на всех экранах дизайна. */
+    line: '#2C231D',
+    chipBg: 'rgba(28,22,19,.78)',
+    buttonBg: 'rgba(28,22,19,.82)'
   };
 
   var ACCENTS = {
@@ -67,81 +72,103 @@
     css.push('.full-start__background.lumen-off{display:none !important}');
 
     /* --- Корень карточки --- */
-    css.push('.full-start-new.lumen-card{position:relative;padding-bottom:3.5em;color:' + C.text + ';font-family:' + FB + '}');
+    /* Task 5a Step 4 (design-spec §1): safe area 64px по всем краям (÷22.811 = 2.81em). */
+    css.push('.full-start-new.lumen-card{position:relative;padding:0 2.81em 2.81em;color:' + C.text + ';font-family:' + FB + '}');
     css.push('.lumen-card .full-start-new__left{display:none !important}');
     css.push('.lumen-card .full-start-new__body{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:end;-webkit-align-items:flex-end;align-items:flex-end;min-height:74vh}');
     css.push('.lumen-card .full-start-new__right{-webkit-box-flex:1;-webkit-flex-grow:1;flex-grow:1;min-width:0}');
-    css.push('.lumen-card .lumen-cols{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:end;-webkit-align-items:flex-end;align-items:flex-end;-webkit-box-pack:justify;-webkit-justify-content:space-between;justify-content:space-between}');
-    css.push('.lumen-card .lumen-main{-webkit-box-flex:1;-webkit-flex-grow:1;flex-grow:1;min-width:0;max-width:74em}');
-    css.push('.lumen-card .lumen-side{-webkit-flex-shrink:0;flex-shrink:0;margin-left:2.5em;text-align:right;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-orient:vertical;-webkit-flex-direction:column;flex-direction:column;-webkit-box-align:end;-webkit-align-items:flex-end;align-items:flex-end}');
+    /* .lumen-content — сетка из двух колонок: шесть .lumen-in (главная колонка,
+       col 1, друг под другом в порядке документа) и .lumen-side (col 2, во всю
+       высоту первой колонки, прижат к низу) — без промежуточного .lumen-main/
+       .lumen-cols, разметка Task 5a Step 2 держит их прямыми соседями ради
+       stagger-подбора Task 4 (nth-child(1..6) считает по прямым детям). Gap
+       между колонками — design-spec §1 (60px ÷ 22.811 = 2.63em). */
+    css.push('.lumen-card .lumen-content{display:-ms-grid;display:grid;grid-template-columns:minmax(0,1fr) auto;grid-auto-rows:auto;-webkit-column-gap:2.63em;column-gap:2.63em;-webkit-box-align:end;-webkit-align-items:end;align-items:end}');
+    css.push('.lumen-card .lumen-content > .lumen-in{grid-column:1;max-width:52em}');
+    css.push('.lumen-card .lumen-content > .lumen-side{grid-column:2;grid-row:1 / 7;-ms-grid-row-align:end;align-self:end;-webkit-flex-shrink:0;flex-shrink:0;text-align:right;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-orient:vertical;-webkit-flex-direction:column;flex-direction:column;-webkit-box-align:end;-webkit-align-items:flex-end;align-items:flex-end}');
 
     /* Скрытые узлы оригинала (нужны Lampa, но не нужны дизайну) */
     css.push('.lumen-card .full-start-new__tagline,.lumen-card .full-start-new__reactions,.lumen-card .lumen-keep{display:none !important}');
     css.push('.lumen-card.lumen--meta .full-start-new__head,.lumen-card.lumen--meta .full-start-new__details{display:none !important}');
-    css.push('.lumen-card .full-start-new__rate-line .full-start__pg{display:none !important}');
+    css.push('.lumen-card .full-start__pg{display:none !important}');
 
-    /* --- Мета-строка --- */
-    css.push('.lumen-card .lumen-meta{font-family:' + FM + ';font-size:1.25em;color:' + C.muted + ';letter-spacing:.03em;line-height:1.3;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-flex-wrap:wrap;flex-wrap:wrap}');
-    css.push('.lumen-card .lumen-meta > *{margin:0 .55em .2em 0}');
-    css.push('.lumen-card .lumen-meta__sep{opacity:.5}');
-    css.push('.lumen-card .lumen-meta__chip{color:' + A + ';border:.09em solid ' + A + ';padding:.1em .5em;border-radius:.35em;font-size:.85em;white-space:nowrap}');
+    /* --- Мета-строка (design-spec §2: 20px, gap 12px, разделитель #2C231D) --- */
+    css.push('.lumen-card .lumen-meta{font-family:' + FM + ';font-size:.88em;color:' + C.muted + ';letter-spacing:.03em;line-height:1.3;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-flex-wrap:wrap;flex-wrap:wrap}');
+    css.push('.lumen-card .lumen-meta > *{margin:0 .53em .2em 0}');
+    css.push('.lumen-card .lumen-meta__sep{color:' + C.line + '}');
 
-    /* --- Заголовок --- */
-    css.push('.lumen-card .full-start-new__title{font-family:' + FD + ';font-size:5.4em;font-weight:800;line-height:1.04;letter-spacing:-0.01em;margin:.16em 0 0 -0.02em}');
-    css.push('.lumen-card .full-start-new__title.twolines{font-size:3.9em;-webkit-line-clamp:2;line-clamp:2}');
-    css.push('.lumen-card .lumen-original{font-family:' + FM + ';font-size:1.25em;color:' + C.smoke + ';margin-top:.5em;overflow:hidden;white-space:nowrap;-o-text-overflow:ellipsis;text-overflow:ellipsis}');
+    /* --- Заголовок (design-spec §3: 88px, line-height 1.02, letter-spacing -.015em;
+       .lumen-title--long меняет только line-clamp — кегль не уменьшается, как на
+       экране 01; заменяет разбор по нативному .twolines из v1) --- */
+    css.push('.lumen-card .full-start-new__title{font-family:' + FD + ';font-size:3.86em;font-weight:800;line-height:1.02;letter-spacing:-.015em;margin:.70em 0 0 -.02em}');
+    css.push('.lumen-card .full-start-new__title.lumen-title--long{-webkit-line-clamp:2;line-clamp:2}');
+    css.push('.lumen-card .lumen-original{font-family:' + FM + ';font-size:.88em;color:' + C.smoke + ';margin-top:.53em;overflow:hidden;white-space:nowrap;-o-text-overflow:ellipsis;text-overflow:ellipsis}');
     css.push('.lumen-card .lumen-original:empty{display:none}');
 
-    /* --- Описание --- */
-    css.push('.lumen-card .lumen-descr{font-size:1.5em;line-height:1.45;color:' + C.muted + ';max-width:41em;margin-top:.9em;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;line-clamp:2;-webkit-box-orient:vertical}');
+    /* --- Описание (design-spec §4: 24px, max-width 980px, margin-top 20px) --- */
+    css.push('.lumen-card .lumen-descr{font-size:1.05em;line-height:1.45;color:' + C.muted + ';max-width:42.96em;margin-top:.88em;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;line-clamp:2;-webkit-box-orient:vertical}');
 
-    /* --- Рейтинги --- */
-    css.push('.lumen-card .full-start-new__rate-line{margin:1.6em 0 0;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-flex-wrap:wrap;flex-wrap:wrap}');
-    css.push('.lumen-card .full-start-new__rate-line > *{margin:0 .75em .5em 0 !important}');
-    css.push('.lumen-card .full-start__rate{font-family:' + FM + ';font-size:1em;background:rgba(243,237,228,0.06);border:.0625em solid rgba(243,237,228,0.10);border-radius:.75em;padding:.55em 1em;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:baseline;-webkit-align-items:baseline;align-items:baseline}');
-    css.push('.lumen-card .full-start__rate > div:first-child{display:block;width:auto;height:auto;background:transparent;border-radius:0;font-size:1.75em;font-weight:600;line-height:1;color:' + C.text + '}');
-    css.push('.lumen-card .full-start__rate > div:last-child{font-size:.875em;letter-spacing:.1em;color:' + C.muted + ';padding:0 0 0 .7em}');
+    /* --- Рейтинги (design-spec §5a: колонка значение/подпись, тёмная карта) --- */
+    css.push('.lumen-card .full-start-new__rate-line{margin:1.05em 0 0;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:stretch;-webkit-align-items:stretch;align-items:stretch;-webkit-flex-wrap:wrap;flex-wrap:wrap}');
+    css.push('.lumen-card .full-start-new__rate-line > *{margin:0 .53em .5em 0 !important}');
+    css.push('.lumen-card .full-start__rate{font-family:' + FM + ';background:' + C.chipBg + ';border:.0625em solid ' + C.line + ';border-radius:.53em;padding:.44em .70em;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-orient:vertical;-webkit-flex-direction:column;flex-direction:column;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center}');
+    css.push('.lumen-card .full-start__rate > div:first-child{display:block;width:auto;height:auto;background:transparent;border-radius:0;font-size:1.23em;font-weight:600;line-height:1;color:' + C.text + '}');
+    css.push('.lumen-card .full-start__rate > div:last-child{font-size:.61em;letter-spacing:.1em;color:' + C.smoke + ';padding:.18em 0 0}');
+    /* Чип «РЕАКЦИЙ» (fire) — та же геометрия что рейтинги, акцент «спайс», design-spec §5d/5f. */
+    css.push('.lumen-card .lumen-reactions-chip{font-family:' + FM + ';background:rgba(217,98,43,.12);border:.0625em solid rgba(217,98,43,.5);border-radius:.53em;padding:.44em .70em;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-orient:vertical;-webkit-flex-direction:column;flex-direction:column;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center}');
+    css.push('.lumen-card .lumen-reactions-chip__value{font-size:1.23em;font-weight:600;line-height:1;color:' + C.spice + '}');
+    css.push('.lumen-card .lumen-reactions-chip__label{font-size:.61em;letter-spacing:.1em;opacity:.8;color:' + C.spice + ';padding:.18em 0 0}');
     css.push('.lumen-card .full-start-new__rate-line .tag--episode{font-family:' + FM + ';font-size:1em;background:rgba(217,98,43,0.14);border:.0625em solid rgba(217,98,43,0.40);border-radius:.75em;padding:.6em 1em;color:' + C.text + ';text-transform:none;max-width:34em}');
     css.push('.lumen-card .full-start-new__rate-line .tag--episode > div{font-size:1em;color:' + A + '}');
+    /* Статус — та же пилюля, что 5b, но живёт в общей ленте (Task 5a Step 2:
+       «рейтинги + статус + чип реакций» — один .lumen-in, а не боковая колонка). */
+    css.push('.lumen-card .full-start-new__rate-line .full-start__status{font-family:' + FB + ';font-weight:500;font-size:.79em;letter-spacing:normal;text-transform:none;background:' + C.chipBg + ';border:.0625em solid ' + C.line + ';border-radius:1.32em;padding:.35em .70em;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;color:' + C.text + '}');
+    css.push('.lumen-card .full-start-new__rate-line .full-start__status:before{content:"";display:block;width:.44em;height:.44em;border-radius:50%;background:currentColor;margin-right:.53em}');
+    css.push('.lumen-card .lumen-status--good:before{color:' + C.good + '}');
+    css.push('.lumen-card .lumen-status--accent:before{color:' + A + '}');
+    css.push('.lumen-card .lumen-status--muted:before,.lumen-card .lumen-status--soon:before{color:' + C.smoke + '}');
 
-    /* --- Продолжить --- */
-    css.push('.lumen-card .lumen-progress{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;width:47.5em;max-width:100%;margin-top:1.6em;font-family:' + FM + ';font-size:1em;color:' + C.muted + ';letter-spacing:.08em}');
-    css.push('.lumen-card .lumen-progress__label{-webkit-flex-shrink:0;flex-shrink:0;color:' + C.text + '}');
-    css.push('.lumen-card .lumen-progress__bar{-webkit-box-flex:1;-webkit-flex-grow:1;flex-grow:1;height:.25em;background:rgba(243,237,228,0.14);border-radius:.125em;overflow:hidden;margin:0 1.1em}');
+    /* --- Продолжить (design-spec §6: ширина 760px, margin-top 24px) --- */
+    css.push('.lumen-card .lumen-progress{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;width:33.32em;max-width:100%;margin-top:1.05em;font-family:' + FM + ';font-size:1em;color:' + C.muted + ';letter-spacing:.04em}');
+    css.push('.lumen-card .lumen-progress__label{-webkit-flex-shrink:0;flex-shrink:0;font-size:.79em;color:' + C.text + '}');
+    css.push('.lumen-card .lumen-progress__bar{-webkit-box-flex:1;-webkit-flex-grow:1;flex-grow:1;height:.18em;background:rgba(243,237,228,0.16);border-radius:.09em;overflow:hidden;margin:0 1.1em}');
     css.push('.lumen-card .lumen-progress__bar > div{height:100%;width:0;background:' + A + '}');
-    css.push('.lumen-card .lumen-progress__time{-webkit-flex-shrink:0;flex-shrink:0}');
+    css.push('.lumen-card .lumen-progress__time{-webkit-flex-shrink:0;flex-shrink:0;font-size:.79em}');
 
-    /* --- Кнопки --- */
+    /* --- Кнопки (design-spec §7a-c: 72px, тёмная карта, blur, раскрытие подписи в фокусе) --- */
     css.push('.lumen-card .full-start-new__buttons{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-flex-wrap:wrap;flex-wrap:wrap;margin-top:1.75em;overflow:visible}');
-    /* Task 4: пружина фокуса — transform на кривой с перелётом (overshoot), background/color/box-shadow отдельно. Разметка и outerHTML кнопок не менялись (хэш приоритета, см. 0.2). */
-    css.push('.lumen-card .full-start-new__buttons .full-start__button{font-size:1em;font-weight:600;height:4.5em;min-width:4.5em;padding:0 1.75em;margin:0 1em .6em 0;border-radius:1.125em;border:.15em solid transparent;background:rgba(243,237,228,0.08);color:' + C.text + ';display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;-webkit-transition:background-color .2s,-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25),color .2s,-webkit-box-shadow .28s;transition:background-color .2s,transform .28s cubic-bezier(.2,.9,.3,1.25),color .2s,box-shadow .28s}');
-    css.push('.lumen-card .full-start-new__buttons .full-start__button > svg{width:1.625em;height:1.625em;-webkit-flex-shrink:0;flex-shrink:0}');
-    css.push('.lumen-card .full-start-new__buttons .full-start__button > svg + span{font-size:1.5em;margin:0 0 0 .58em;line-height:1}');
+    /* Task 4: пружина фокуса — transform на кривой с перелётом (overshoot), background/color/box-shadow отдельно. Разметка и outerHTML кнопок не менялись (хэш приоритета, см. 0.2).
+       Task 5a: ширина/паддинг/фон/бордер/blur — под дизайн; у иконочных кнопок ширина/паддинг
+       ещё и анимированы (раскрытие подписи в фокусе, §7c) — transition здесь общий для всех. */
+    css.push('.lumen-card .full-start-new__buttons .full-start__button{font-size:1em;font-weight:600;height:3.16em;min-width:3.16em;padding:0 1.32em;margin:0 .53em .6em 0;border-radius:.79em;border:.04em solid ' + C.line + ';background:' + C.buttonBg + ';-webkit-backdrop-filter:blur(.88em);backdrop-filter:blur(.88em);color:' + C.text + ';display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;-webkit-transition:width .2s,padding .2s,background-color .2s,border-color .2s,color .2s,-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25),-webkit-box-shadow .28s;transition:width .2s,padding .2s,background-color .2s,border-color .2s,color .2s,transform .28s cubic-bezier(.2,.9,.3,1.25),box-shadow .28s}');
+    css.push('.lumen-card .full-start-new__buttons .full-start__button > svg{width:1.14em;height:1.14em;-webkit-flex-shrink:0;flex-shrink:0}');
+    css.push('.lumen-card .full-start-new__buttons .full-start__button > svg + span{font-size:1.05em;margin:0 0 0 .53em;line-height:1}');
     css.push('.lumen-card .full-start-new__buttons .full-start__button span{display:none}');
     css.push('.lumen-card .full-start-new__buttons .button--play span,.lumen-card .full-start-new__buttons .button--priority span{display:block}');
-    css.push('.lumen-card .full-start-new__buttons .button--book,.lumen-card .full-start-new__buttons .button--reaction,.lumen-card .full-start-new__buttons .button--subscribe,.lumen-card .full-start-new__buttons .button--options{padding:0;width:4.5em}');
-    css.push('.lumen-card .full-start-new__buttons .full-start__button.focus{background:' + A + ';color:' + C.dark + ';border-color:' + AL + ';-webkit-transform:scale(1.06);transform:scale(1.06);-webkit-box-shadow:0 .875em 2.5em ' + AG + ';box-shadow:0 .875em 2.5em ' + AG + '}');
-    css.push('.lumen-card .full-start-new__buttons .full-start__button.focus.lumen-press{background:' + A + ';-webkit-transform:scale(1);transform:scale(1)}');
+    /* Иконочные кнопки — квадрат 72×72 без подписи; в фокусе ширина авто с паддингом
+       под раскрытую подпись (design-spec §7b/§7c, экран 10 «ФОКУС · С ПОДПИСЬЮ»). */
+    css.push('.lumen-card .full-start-new__buttons .button--book,.lumen-card .full-start-new__buttons .button--reaction,.lumen-card .full-start-new__buttons .button--subscribe,.lumen-card .full-start-new__buttons .button--options{padding:0;width:3.16em}');
+    css.push('.lumen-card .full-start-new__buttons .button--book.focus,.lumen-card .full-start-new__buttons .button--reaction.focus,.lumen-card .full-start-new__buttons .button--subscribe.focus,.lumen-card .full-start-new__buttons .button--options.focus{width:auto;padding:0 1.05em}');
+    css.push('.lumen-card .full-start-new__buttons .full-start__button.focus span{display:block}');
+    css.push('.lumen-card .full-start-new__buttons .full-start__button.focus{background:' + A + ';color:' + C.dark + ';border-color:' + AL + ';border-width:.11em;-webkit-transform:scale(1.06);transform:scale(1.06);-webkit-box-shadow:0 .875em 2.5em ' + AG + ';box-shadow:0 .875em 2.5em ' + AG + '}');
+    /* Нажатие — отдельный тон, без scale (design-spec §7a «НАЖАТА»); !important —
+       поверх правила .focus выше и нативной анимации Lampa (план 0.2). */
+    css.push('.lumen-card .full-start-new__buttons .full-start__button.focus.lumen-press{background:#C4924F !important;border-color:rgba(255,242,220,.6) !important;-webkit-transform:scale(1) !important;transform:scale(1) !important}');
     css.push('.lumen-card .full-start-new__buttons .full-start__button.loading:before{filter:none}');
 
-    /* --- Правая колонка --- */
-    css.push('.lumen-card .lumen-side .full-start__status{font-family:' + FM + ';font-size:1em;letter-spacing:.12em;text-transform:uppercase;border:0;padding:0;border-radius:0;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;color:' + C.muted + '}');
-    css.push('.lumen-card .lumen-side .full-start__status:before{content:"";display:block;width:.625em;height:.625em;border-radius:50%;background:currentColor;margin-right:.75em;-webkit-box-shadow:0 0 .9em currentColor;box-shadow:0 0 .9em currentColor}');
-    css.push('.lumen-card .lumen-side .lumen-status--good{color:' + C.good + '}');
-    css.push('.lumen-card .lumen-side .lumen-status--accent{color:' + A + '}');
-    css.push('.lumen-card .lumen-side .lumen-status--muted{color:' + C.muted + '}');
-    css.push('.lumen-card .lumen-tags{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;-webkit-box-pack:end;-webkit-justify-content:flex-end;justify-content:flex-end;margin-top:1em}');
-    css.push('.lumen-card .lumen-tags .full-start__tag{font-family:' + FM + ';font-size:.95em;letter-spacing:.1em;text-transform:uppercase;background:transparent !important;color:' + C.text + ' !important;border:.0625em solid rgba(243,237,228,0.24);border-radius:.45em;padding:.45em .7em;margin:0 0 .5em .6em;white-space:nowrap}');
-    css.push('.lumen-card .lumen-tags .full-start__tag > img{display:none}');
-    css.push('.lumen-card .lumen-cast{margin-top:1.4em}');
-    css.push('.lumen-card .lumen-cast__label{font-size:1em;color:' + C.smoke + ';margin-bottom:.7em}');
+    /* --- Правая колонка (design-spec §8: аватар 62px, Golos Text, чипы качества раздельно) --- */
+    css.push('.lumen-card .lumen-tags{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;-webkit-box-pack:end;-webkit-justify-content:flex-end;justify-content:flex-end}');
+    css.push('.lumen-card .lumen-tags .full-start__tag{display:none !important}');
+    css.push('.lumen-card .lumen-quality-chip{font-family:' + FM + ';font-size:.66em;letter-spacing:.08em;color:' + C.text + ';border:.0625em solid rgba(243,237,228,.24);border-radius:.31em;padding:.31em .48em;margin:0 0 .35em .35em;white-space:nowrap}');
+    css.push('.lumen-card .lumen-cast{margin-top:1.05em}');
+    css.push('.lumen-card .lumen-cast__label{font-size:.79em;color:' + C.smoke + ';margin-bottom:.53em}');
     css.push('.lumen-card .lumen-cast__row{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-pack:end;-webkit-justify-content:flex-end;justify-content:flex-end}');
-    css.push('.lumen-card .lumen-cast__item{font-family:' + FD + ';font-size:1.05em;font-weight:700;width:3.7em;height:3.7em;border-radius:50%;background:' + C.panel + ';border:.18em solid ' + C.bg + ';margin-left:-.85em;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;color:' + A + ';overflow:hidden}');
+    css.push('.lumen-card .lumen-cast__item{font-family:' + FB + ';font-size:.88em;font-weight:500;width:2.72em;height:2.72em;border-radius:50%;background:' + C.panel + ';border:.13em solid ' + C.bg + ';margin-left:-.61em;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;color:' + C.muted + ';overflow:hidden}');
     css.push('.lumen-card .lumen-cast__row .lumen-cast__item:first-child{margin-left:0}');
-    css.push('.lumen-card .lumen-cast__more{font-family:' + FM + ';font-weight:400;font-size:.95em;color:' + C.muted + '}');
+    css.push('.lumen-card .lumen-cast__more{font-family:' + FM + ';font-weight:600;font-size:.75em;color:' + C.smoke + '}');
 
     /* --- Компактная раскладка на узких экранах (страховка) --- */
-    css.push('@media screen and (max-width:1000px){.lumen-card .lumen-cols{display:block}.lumen-card .lumen-side{margin-left:0;text-align:left;-webkit-box-align:start;-webkit-align-items:flex-start;align-items:flex-start;margin-top:1.5em}.lumen-card .full-start-new__title{font-size:3.4em}.lumen-card .full-start-new__title.twolines{font-size:2.8em}.lumen-card .full-start-new__body{min-height:0}}');
+    css.push('@media screen and (max-width:1000px){.lumen-card .lumen-content{display:block}.lumen-card .lumen-content > .lumen-side{text-align:left;-webkit-box-align:start;-webkit-align-items:flex-start;align-items:flex-start;margin-top:1.5em}.lumen-card .full-start-new__title{font-size:2.43em}.lumen-card .full-start-new__body{min-height:0}}');
 
     /* Task 4: motion — анимации в духе Apple TV. */
 
