@@ -334,7 +334,8 @@
 
     /* --- Кнопки --- */
     css.push('.lumen-card .full-start-new__buttons{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-flex-wrap:wrap;flex-wrap:wrap;margin-top:1.75em;overflow:visible}');
-    css.push('.lumen-card .full-start-new__buttons .full-start__button{font-size:1em;font-weight:600;height:4.5em;min-width:4.5em;padding:0 1.75em;margin:0 1em .6em 0;border-radius:1.125em;border:.15em solid transparent;background:rgba(243,237,228,0.08);color:' + C.text + ';display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;-webkit-transition:background .18s ease,-webkit-transform .18s ease;transition:background .18s ease,transform .18s ease}');
+    /* Task 4: пружина фокуса — transform на кривой с перелётом (overshoot), background/color/box-shadow отдельно. Разметка и outerHTML кнопок не менялись (хэш приоритета, см. 0.2). */
+    css.push('.lumen-card .full-start-new__buttons .full-start__button{font-size:1em;font-weight:600;height:4.5em;min-width:4.5em;padding:0 1.75em;margin:0 1em .6em 0;border-radius:1.125em;border:.15em solid transparent;background:rgba(243,237,228,0.08);color:' + C.text + ';display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;-webkit-transition:background-color .2s,-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25),color .2s,-webkit-box-shadow .28s;transition:background-color .2s,transform .28s cubic-bezier(.2,.9,.3,1.25),color .2s,box-shadow .28s}');
     css.push('.lumen-card .full-start-new__buttons .full-start__button > svg{width:1.625em;height:1.625em;-webkit-flex-shrink:0;flex-shrink:0}');
     css.push('.lumen-card .full-start-new__buttons .full-start__button > svg + span{font-size:1.5em;margin:0 0 0 .58em;line-height:1}');
     css.push('.lumen-card .full-start-new__buttons .full-start__button span{display:none}');
@@ -362,6 +363,47 @@
 
     /* --- Компактная раскладка на узких экранах (страховка) --- */
     css.push('@media screen and (max-width:1000px){.lumen-card .lumen-cols{display:block}.lumen-card .lumen-side{margin-left:0;text-align:left;-webkit-box-align:start;-webkit-align-items:flex-start;align-items:flex-start;margin-top:1.5em}.lumen-card .full-start-new__title{font-size:3.4em}.lumen-card .full-start-new__title.twolines{font-size:2.8em}.lumen-card .full-start-new__body{min-height:0}}');
+
+    /* Task 4: motion — анимации в духе Apple TV. */
+
+    /* Появление контента: разметку .lumen-in (6 «детей» .lumen-content) добавит Task 5a —
+       здесь только правила подъёма и раскадровка задержек с шагом 60мс. */
+    css.push('.lumen-card.lumen-motion-full .lumen-in{opacity:0;-webkit-transform:translateY(1.05em);transform:translateY(1.05em);-webkit-animation:lumen-rise .7s cubic-bezier(.2,.8,.2,1) forwards;animation:lumen-rise .7s cubic-bezier(.2,.8,.2,1) forwards}');
+    css.push('.lumen-card.lumen-motion-full .lumen-in:nth-child(1){-webkit-animation-delay:.05s;animation-delay:.05s}');
+    css.push('.lumen-card.lumen-motion-full .lumen-in:nth-child(2){-webkit-animation-delay:.11s;animation-delay:.11s}');
+    css.push('.lumen-card.lumen-motion-full .lumen-in:nth-child(3){-webkit-animation-delay:.17s;animation-delay:.17s}');
+    css.push('.lumen-card.lumen-motion-full .lumen-in:nth-child(4){-webkit-animation-delay:.23s;animation-delay:.23s}');
+    css.push('.lumen-card.lumen-motion-full .lumen-in:nth-child(5){-webkit-animation-delay:.29s;animation-delay:.29s}');
+    css.push('.lumen-card.lumen-motion-full .lumen-in:nth-child(6){-webkit-animation-delay:.35s;animation-delay:.35s}');
+    css.push('@-webkit-keyframes lumen-rise{to{opacity:1;-webkit-transform:none}}');
+    css.push('@keyframes lumen-rise{to{opacity:1;transform:none}}');
+
+    /* Режимы движения на корне карточки: lite — только цветовые переходы (без transform/box-shadow,
+       дешевле для Tizen/webOS), off — всё отключено (!important — эти правила обязаны выигрывать). */
+    css.push('.lumen-card.lumen-motion-lite .full-start__button{-webkit-transition:background-color .15s,color .15s;transition:background-color .15s,color .15s}');
+    /* !important и на opacity/transform тоже: у .full-start__button.focus уже есть правило v1 с
+       4 классами специфичности (.full-start-new__buttons .full-start__button.focus) — без !important
+       transform:none от него не выигрывал бы. */
+    css.push('.lumen-card.lumen-motion-off .full-start__button,.lumen-card.lumen-motion-off .lumen-in{-webkit-transition:none !important;transition:none !important;-webkit-animation:none !important;animation:none !important;opacity:1 !important;-webkit-transform:none !important;transform:none !important}');
+
+    /* Бэкдроп: медленный наезд (Ken Burns). Класс .lumen-bg__img подготовлен для слайдшоу кадров Task 6. */
+    css.push('.lumen-card.lumen-motion-full .lumen-bg__img.is-active{-webkit-animation:lumen-kb 14s linear forwards;animation:lumen-kb 14s linear forwards}');
+    css.push('@-webkit-keyframes lumen-kb{from{-webkit-transform:scale(1)}to{-webkit-transform:scale(1.08)}}');
+    css.push('@keyframes lumen-kb{from{transform:scale(1)}to{transform:scale(1.08)}}');
+
+    /* Компактная шапка при фокусе ниже кнопок (ряд серий / описание, экран 06 design/*.dc.html).
+       Значения — px экрана 06 ÷ 22.811 (правило единиц 0.4: база Lampa при 1920px, не ÷16).
+       Заголовок: 48px ÷ 22.811 = 2.104em. Описание в этом режиме на экране не показано — скрыто целиком.
+       Отступы рейтингов/кнопок сжаты тем же соотношением, что и заголовок (48/88 ≈ .545 от обычных
+       1.6em/1.75em), т.к. экран 06 сводит мета+заголовок+рейтинг в одну строку, а наш DOM (без правки
+       шаблона — Task 5) сохраняет их отдельными блоками. Переход — та же кривая и длительность, что у
+       пружины фокуса кнопок (280мс cubic-bezier(.2,.9,.3,1.25)). */
+    css.push('.lumen-card .full-start-new__title,.lumen-card .full-start-new__rate-line,.lumen-card .full-start-new__buttons{-webkit-transition:font-size .28s cubic-bezier(.2,.9,.3,1.25),margin-top .28s cubic-bezier(.2,.9,.3,1.25);transition:font-size .28s cubic-bezier(.2,.9,.3,1.25),margin-top .28s cubic-bezier(.2,.9,.3,1.25)}');
+    css.push('.lumen-card.lumen-compact .full-start-new__title{font-size:2.104em}');
+    css.push('.lumen-card.lumen-compact .lumen-descr{display:none}');
+    css.push('.lumen-card.lumen-compact .full-start-new__rate-line{margin-top:.87em}');
+    css.push('.lumen-card.lumen-compact .full-start-new__buttons{margin-top:.95em}');
+    css.push('.lumen-card.lumen-motion-lite .full-start-new__title,.lumen-card.lumen-motion-lite .full-start-new__rate-line,.lumen-card.lumen-motion-lite .full-start-new__buttons,.lumen-card.lumen-motion-off .full-start-new__title,.lumen-card.lumen-motion-off .full-start-new__rate-line,.lumen-card.lumen-motion-off .full-start-new__buttons{-webkit-transition:none;transition:none}');
 
     /* --- Иконки кнопок (единый набор через CSS-маску, см. src/20_icons.js) --- */
     css.push(LC.icons.css());
@@ -668,6 +710,11 @@
     },
     lumen_card_progress_name: { ru: 'Показывать «Продолжить»', en: 'Show "Continue"', uk: 'Показувати «Продовжити»' },
     lumen_card_cast_name: { ru: 'Показывать актёров', en: 'Show cast', uk: 'Показувати акторів' },
+    lumen_card_motion: { ru: 'Анимации', en: 'Animations', uk: 'Анімації' },
+    lumen_card_motion_auto: { ru: 'Авто', en: 'Auto', uk: 'Авто' },
+    lumen_card_motion_full: { ru: 'Полные', en: 'Full', uk: 'Повні' },
+    lumen_card_motion_lite: { ru: 'Лёгкие', en: 'Light', uk: 'Легкі' },
+    lumen_card_motion_off: { ru: 'Выкл', en: 'Off', uk: 'Викл' },
     lumen_card_continue: { ru: 'ПРОДОЛЖИТЬ', en: 'CONTINUE', uk: 'ПРОДОВЖИТИ' },
     lumen_card_cast: { ru: 'В ролях', en: 'Cast', uk: 'У ролях' },
     lumen_card_serial: { ru: 'СЕРИАЛ', en: 'SERIES', uk: 'СЕРІАЛ' },
@@ -774,6 +821,23 @@
         param: { name: PLUGIN + '_cast', type: 'trigger', 'default': true },
         field: { name: LC.lang('lumen_card_cast_name') }
       });
+
+      var motionValues = {
+        auto: LC.lang('lumen_card_motion_auto'),
+        full: LC.lang('lumen_card_motion_full'),
+        lite: LC.lang('lumen_card_motion_lite'),
+        off: LC.lang('lumen_card_motion_off')
+      };
+
+      /* Имя параметра — 'lumen_motion' (без префикса lumen_card_): так задано планом Task 4
+         (Lampa.Storage.field('lumen_motion') в LC.motionMode). LC.followStorage ниже подписан
+         на него отдельной веткой, вне общего префиксного фильтра PLUGIN + '_'. */
+      Lampa.SettingsApi.addParam({
+        component: PLUGIN,
+        param: { name: 'lumen_motion', type: 'select', values: motionValues, 'default': 'auto' },
+        field: { name: LC.lang('lumen_card_motion') },
+        onChange: function () { LC.applyMotionMode(); }
+      });
     } catch (e) {
       warn('settings failed', e);
     }
@@ -784,6 +848,7 @@
       if (!window.Lampa || !Lampa.Storage || !Lampa.Storage.listener) return;
       Lampa.Storage.listener.follow('change', function (e) {
         if (!e || !e.name) return;
+        if (e.name === 'lumen_motion') { LC.applyMotionMode(); return; }
         if (e.name.indexOf(PLUGIN + '_') !== 0) return;
         if (e.name === PLUGIN + '_fonts') LC.injectFonts();
         LC.injectCss();
@@ -792,6 +857,43 @@
       warn('storage listener failed', err);
     }
   };
+
+  /* -------------------------------------------------------------------- */
+  /* Task 4: режим анимаций. Чистая логика выбора — тестируется отдельно   */
+  /* от Lampa (test/settings.test.mjs); применение класса на DOM карточки  */
+  /* живёт в 90_runtime.js (LC.applyMotionMode ссылается сюда извне).      */
+  /* -------------------------------------------------------------------- */
+
+  /* stored — сырое значение параметра lumen_motion ('auto'|'full'|'lite'|'off'),
+     platform — {tizen:bool, webos:bool}. Не 'auto' -> как есть; 'auto' на tizen/webos -> 'lite',
+     иначе 'full'. */
+  LC.motionModeFor = function (stored, platform) {
+    if (stored !== 'auto') return stored;
+    platform = platform || {};
+    if (platform.tizen || platform.webos) return 'lite';
+    return 'full';
+  };
+
+  LC.motionMode = function () {
+    var stored = 'auto';
+    try {
+      if (window.Lampa && Lampa.Storage && typeof Lampa.Storage.field === 'function') stored = Lampa.Storage.field('lumen_motion');
+    } catch (e) { }
+    var platform = { tizen: false, webos: false };
+    try {
+      if (window.Lampa && Lampa.Platform && typeof Lampa.Platform.is === 'function') {
+        platform.tizen = !!Lampa.Platform.is('tizen');
+        platform.webos = !!Lampa.Platform.is('webos');
+      }
+    } catch (e2) { }
+    return LC.motionModeFor(stored, platform);
+  };
+
+  /* В браузере "module" не определён — ветка не выполняется. Метка module.lumen
+     ставится только тестовым загрузчиком (test/_load.mjs) — так мы не затираем
+     чужой глобальный module.exports, если он есть у страницы (например, у
+     Electron/NW.js-обёрток Lampa с nodeIntegration). */
+  if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.motionModeFor;
 
 
 /* ---- 90_runtime.js ---- */
@@ -1119,6 +1221,57 @@
   }
 
   /* -------------------------------------------------------------------- */
+  /* Task 4: режим анимаций и компактная шапка.                            */
+  /* -------------------------------------------------------------------- */
+
+  var MOTION_CLASSES = 'lumen-motion-full lumen-motion-lite lumen-motion-off';
+
+  function activeCardRoot() {
+    try { return $('.activity--active .lumen-card'); } catch (e) { return null; }
+  }
+
+  function applyMotionMode(root) {
+    if (!root || !root.length) return;
+    try {
+      root.removeClass(MOTION_CLASSES).addClass('lumen-motion-' + LC.motionMode());
+    } catch (e) {
+      warn('motion mode failed', e);
+    }
+  }
+
+  /* Вызывается извне (LC.followStorage / onChange параметра lumen_motion), когда режим
+     меняется на уже открытой карточке — находит активный корень сама. */
+  LC.applyMotionMode = function () {
+    applyMotionMode(activeCardRoot());
+  };
+
+  var toggle_followed = false;
+
+  /* Одна подписка на переключение контроллера за всё время жизни плагина (не на карточку):
+     спуск с кнопок на ряд описания/серий сжимает шапку, подъём обратно на кнопки — возвращает.
+     Task 7 добавит сюда же остановку трейлера. */
+  function followToggle() {
+    if (toggle_followed) return;
+    toggle_followed = true;
+    try {
+      if (!window.Lampa || !Lampa.Controller || !Lampa.Controller.listener) return;
+      Lampa.Controller.listener.follow('toggle', function (e) {
+        try {
+          if (!e || !e.name) return;
+          var root = activeCardRoot();
+          if (!root || !root.length) return;
+          if (e.name === 'full_descr' || e.name === 'items_line') root.addClass('lumen-compact');
+          else if (e.name === 'full_start') root.removeClass('lumen-compact');
+        } catch (err) {
+          warn('controller toggle failed', err);
+        }
+      });
+    } catch (e2) {
+      warn('controller listener failed', e2);
+    }
+  }
+
+  /* -------------------------------------------------------------------- */
   /* Инициализация.                                                        */
   /* -------------------------------------------------------------------- */
 
@@ -1176,13 +1329,17 @@
           if (e.type === 'build' && e.name === 'start') {
             decorate(findRoot(e), e.data);
           } else if (e.type === 'complite') {
-            decorate(findRoot(e), e.data);
+            var root = findRoot(e);
+            decorate(root, e.data);
             applyBackdrop(e.body, (e.data && e.data.movie) || {});
+            applyMotionMode(root);
           }
         } catch (err) {
           warn('listener failed', err);
         }
       });
+
+      followToggle();
     } catch (e) {
       warn('init failed', e);
       restoreOriginalTemplate();

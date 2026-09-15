@@ -17,6 +17,11 @@
     },
     lumen_card_progress_name: { ru: 'Показывать «Продолжить»', en: 'Show "Continue"', uk: 'Показувати «Продовжити»' },
     lumen_card_cast_name: { ru: 'Показывать актёров', en: 'Show cast', uk: 'Показувати акторів' },
+    lumen_card_motion: { ru: 'Анимации', en: 'Animations', uk: 'Анімації' },
+    lumen_card_motion_auto: { ru: 'Авто', en: 'Auto', uk: 'Авто' },
+    lumen_card_motion_full: { ru: 'Полные', en: 'Full', uk: 'Повні' },
+    lumen_card_motion_lite: { ru: 'Лёгкие', en: 'Light', uk: 'Легкі' },
+    lumen_card_motion_off: { ru: 'Выкл', en: 'Off', uk: 'Викл' },
     lumen_card_continue: { ru: 'ПРОДОЛЖИТЬ', en: 'CONTINUE', uk: 'ПРОДОВЖИТИ' },
     lumen_card_cast: { ru: 'В ролях', en: 'Cast', uk: 'У ролях' },
     lumen_card_serial: { ru: 'СЕРИАЛ', en: 'SERIES', uk: 'СЕРІАЛ' },
@@ -123,6 +128,23 @@
         param: { name: PLUGIN + '_cast', type: 'trigger', 'default': true },
         field: { name: LC.lang('lumen_card_cast_name') }
       });
+
+      var motionValues = {
+        auto: LC.lang('lumen_card_motion_auto'),
+        full: LC.lang('lumen_card_motion_full'),
+        lite: LC.lang('lumen_card_motion_lite'),
+        off: LC.lang('lumen_card_motion_off')
+      };
+
+      /* Имя параметра — 'lumen_motion' (без префикса lumen_card_): так задано планом Task 4
+         (Lampa.Storage.field('lumen_motion') в LC.motionMode). LC.followStorage ниже подписан
+         на него отдельной веткой, вне общего префиксного фильтра PLUGIN + '_'. */
+      Lampa.SettingsApi.addParam({
+        component: PLUGIN,
+        param: { name: 'lumen_motion', type: 'select', values: motionValues, 'default': 'auto' },
+        field: { name: LC.lang('lumen_card_motion') },
+        onChange: function () { LC.applyMotionMode(); }
+      });
     } catch (e) {
       warn('settings failed', e);
     }
@@ -133,6 +155,7 @@
       if (!window.Lampa || !Lampa.Storage || !Lampa.Storage.listener) return;
       Lampa.Storage.listener.follow('change', function (e) {
         if (!e || !e.name) return;
+        if (e.name === 'lumen_motion') { LC.applyMotionMode(); return; }
         if (e.name.indexOf(PLUGIN + '_') !== 0) return;
         if (e.name === PLUGIN + '_fonts') LC.injectFonts();
         LC.injectCss();
@@ -141,3 +164,40 @@
       warn('storage listener failed', err);
     }
   };
+
+  /* -------------------------------------------------------------------- */
+  /* Task 4: режим анимаций. Чистая логика выбора — тестируется отдельно   */
+  /* от Lampa (test/settings.test.mjs); применение класса на DOM карточки  */
+  /* живёт в 90_runtime.js (LC.applyMotionMode ссылается сюда извне).      */
+  /* -------------------------------------------------------------------- */
+
+  /* stored — сырое значение параметра lumen_motion ('auto'|'full'|'lite'|'off'),
+     platform — {tizen:bool, webos:bool}. Не 'auto' -> как есть; 'auto' на tizen/webos -> 'lite',
+     иначе 'full'. */
+  LC.motionModeFor = function (stored, platform) {
+    if (stored !== 'auto') return stored;
+    platform = platform || {};
+    if (platform.tizen || platform.webos) return 'lite';
+    return 'full';
+  };
+
+  LC.motionMode = function () {
+    var stored = 'auto';
+    try {
+      if (window.Lampa && Lampa.Storage && typeof Lampa.Storage.field === 'function') stored = Lampa.Storage.field('lumen_motion');
+    } catch (e) { }
+    var platform = { tizen: false, webos: false };
+    try {
+      if (window.Lampa && Lampa.Platform && typeof Lampa.Platform.is === 'function') {
+        platform.tizen = !!Lampa.Platform.is('tizen');
+        platform.webos = !!Lampa.Platform.is('webos');
+      }
+    } catch (e2) { }
+    return LC.motionModeFor(stored, platform);
+  };
+
+  /* В браузере "module" не определён — ветка не выполняется. Метка module.lumen
+     ставится только тестовым загрузчиком (test/_load.mjs) — так мы не затираем
+     чужой глобальный module.exports, если он есть у страницы (например, у
+     Electron/NW.js-обёрток Lampa с nodeIntegration). */
+  if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.motionModeFor;

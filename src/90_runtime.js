@@ -322,6 +322,57 @@
   }
 
   /* -------------------------------------------------------------------- */
+  /* Task 4: режим анимаций и компактная шапка.                            */
+  /* -------------------------------------------------------------------- */
+
+  var MOTION_CLASSES = 'lumen-motion-full lumen-motion-lite lumen-motion-off';
+
+  function activeCardRoot() {
+    try { return $('.activity--active .lumen-card'); } catch (e) { return null; }
+  }
+
+  function applyMotionMode(root) {
+    if (!root || !root.length) return;
+    try {
+      root.removeClass(MOTION_CLASSES).addClass('lumen-motion-' + LC.motionMode());
+    } catch (e) {
+      warn('motion mode failed', e);
+    }
+  }
+
+  /* Вызывается извне (LC.followStorage / onChange параметра lumen_motion), когда режим
+     меняется на уже открытой карточке — находит активный корень сама. */
+  LC.applyMotionMode = function () {
+    applyMotionMode(activeCardRoot());
+  };
+
+  var toggle_followed = false;
+
+  /* Одна подписка на переключение контроллера за всё время жизни плагина (не на карточку):
+     спуск с кнопок на ряд описания/серий сжимает шапку, подъём обратно на кнопки — возвращает.
+     Task 7 добавит сюда же остановку трейлера. */
+  function followToggle() {
+    if (toggle_followed) return;
+    toggle_followed = true;
+    try {
+      if (!window.Lampa || !Lampa.Controller || !Lampa.Controller.listener) return;
+      Lampa.Controller.listener.follow('toggle', function (e) {
+        try {
+          if (!e || !e.name) return;
+          var root = activeCardRoot();
+          if (!root || !root.length) return;
+          if (e.name === 'full_descr' || e.name === 'items_line') root.addClass('lumen-compact');
+          else if (e.name === 'full_start') root.removeClass('lumen-compact');
+        } catch (err) {
+          warn('controller toggle failed', err);
+        }
+      });
+    } catch (e2) {
+      warn('controller listener failed', e2);
+    }
+  }
+
+  /* -------------------------------------------------------------------- */
   /* Инициализация.                                                        */
   /* -------------------------------------------------------------------- */
 
@@ -379,13 +430,17 @@
           if (e.type === 'build' && e.name === 'start') {
             decorate(findRoot(e), e.data);
           } else if (e.type === 'complite') {
-            decorate(findRoot(e), e.data);
+            var root = findRoot(e);
+            decorate(root, e.data);
             applyBackdrop(e.body, (e.data && e.data.movie) || {});
+            applyMotionMode(root);
           }
         } catch (err) {
           warn('listener failed', err);
         }
       });
+
+      followToggle();
     } catch (e) {
       warn('init failed', e);
       restoreOriginalTemplate();
