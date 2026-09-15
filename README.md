@@ -229,7 +229,7 @@ cd "C:\Users\azark\Новая папка\lumen-card"
 & "C:\Users\azark\AppData\Local\Programs\nodejs\node.exe" scripts/es5check.mjs dist/lumen_card.js
 
 # юнит-тесты чистых модулей (LC.util, LC.progress) без браузера
-& "C:\Users\azark\AppData\Local\Programs\nodejs\node.exe" --test test/
+& "C:\Users\azark\AppData\Local\Programs\nodejs\node.exe" --test "test/*.test.mjs"
 ```
 
 Модули с чистой логикой (`10_util.js`, `70_progress.js`) не обращаются к `window`/`Lampa`/jQuery

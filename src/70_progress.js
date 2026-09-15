@@ -41,6 +41,8 @@
     serialProgress: serialProgress
   };
 
-  /* В браузере "module" не определён — ветка не выполняется. В тестовом
-     загрузчике (test/_load.mjs) module = { exports: null } — экспортируем сюда. */
-  if (typeof module !== 'undefined' && module) module.exports = LC.progress;
+  /* В браузере "module" не определён — ветка не выполняется. Метка module.lumen
+     ставится только тестовым загрузчиком (test/_load.mjs) — так мы не затираем
+     чужой глобальный module.exports, если он есть у страницы (например, у
+     Electron/NW.js-обёрток Lampa с nodeIntegration). */
+  if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.progress;
