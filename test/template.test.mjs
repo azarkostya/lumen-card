@@ -72,6 +72,21 @@ test('innerOf: кавычки в атрибутах и HTML-комментари
   assert.equal(template.innerOf('<div class="a"><!-- oops</div>', 'a'), null);
 });
 
+test('innerOf: самозакрывающийся <div … /> не требует парного </div> и не «съедает» чужой', () => {
+  // Регрессия: <div class="x"/> раньше считался обычным открывающим тегом
+  // (увеличивал depth) и поглощал ПОСТОРОННИЙ </div> дальше по документу.
+  assert.equal(
+    template.innerOf('<div class="buttons--container">A<div class="x"/></div>B</div>', 'buttons--container'),
+    'A<div class="x"/>'
+  );
+});
+
+test('innerOf: регистр важен — <DIV class="…">…</DIV> тегом div не считается (даёт null)', () => {
+  // Фиксируем текущее (допустимое) поведение явным тестом, чтобы оно не
+  // изменилось незаметно при будущих правках парсера.
+  assert.equal(template.innerOf('<DIV class="buttons--container">X</DIV>', 'buttons--container'), null);
+});
+
 test('build(фикстура): один корневой элемент — div-теги сбалансированы, buttons--container вложен в корень', () => {
   // Регрессия: buttons--container — сосед .full-start-new__body ВНУТРИ корня
   // (как в оригинале), а не отдельный элемент верхнего уровня. Раньше build()

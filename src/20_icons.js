@@ -42,7 +42,7 @@
     // Иконки кнопок заменяются ТОЛЬКО через CSS: outerHTML кнопок не меняется (хэш приоритета, см. план 0.2).
     // Селекторы по классу покрывают и клон .button--priority, и кнопки, вставленные другими плагинами позже.
     function css() {
-      var rules = [], sel, k, name;
+      var rules = [], fallback = [], sel, k, name;
       var map = {};
       for (k in byButton) if (byButton.hasOwnProperty(k)) map['.' + k] = byButton[k];
       map['[class*="view--online"]'] = 'play'; // Online Mod и аналоги: .view--online_mod, .view--online
@@ -52,10 +52,19 @@
         var btn = '.lumen-card .full-start__button' + sel;
         rules.push(btn + ' > svg{display:none !important}');
         rules.push(btn + ':before{content:"";display:block;-webkit-flex-shrink:0;flex-shrink:0;width:1.625em;height:1.625em;background-color:currentColor;-webkit-mask-image:' + maskUrl(name) + ';mask-image:' + maskUrl(name) + ';-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;-webkit-mask-size:contain;mask-size:contain}');
+        // Фолбэк — ТЕМ ЖЕ селектором btn (та же специфичность, что у правил выше):
+        // иначе при равном !important побеждает более специфичное основное правило
+        // (.lumen-card .full-start__button.button--play > svg — 3 класса) и фолбэк
+        // с общим селектором (.lumen-card .full-start__button > svg — 2 класса)
+        // никогда не выигрывает каскад, оставаясь мёртвым кодом.
+        fallback.push(btn + ' > svg{display:block !important}');
+        fallback.push(btn + ':before{display:none !important}');
       }
       // Движок без поддержки CSS-масок (старые WebOS/Tizen): вместо пустого
       // закрашенного прямоугольника от :before показываем исходный svg кнопки.
-      rules.push('@supports not ((-webkit-mask-image:none) or (mask-image:none)){.lumen-card .full-start__button > svg{display:block !important}.lumen-card .full-start__button:before{display:none}}');
+      // !important на :before и совпадающий с основным правилом селектор на svg
+      // гарантируют победу фолбэка независимо от порядка вставки CSS в документ.
+      rules.push('@supports not ((-webkit-mask-image:none) or (mask-image:none)){' + fallback.join('') + '}');
       return rules.join('\n');
     }
     return { get: get, names: names, forButton: forButton, maskSvg: maskSvg, maskUrl: maskUrl, css: css };

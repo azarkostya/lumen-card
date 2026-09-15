@@ -183,7 +183,7 @@
     // Иконки кнопок заменяются ТОЛЬКО через CSS: outerHTML кнопок не меняется (хэш приоритета, см. план 0.2).
     // Селекторы по классу покрывают и клон .button--priority, и кнопки, вставленные другими плагинами позже.
     function css() {
-      var rules = [], sel, k, name;
+      var rules = [], fallback = [], sel, k, name;
       var map = {};
       for (k in byButton) if (byButton.hasOwnProperty(k)) map['.' + k] = byButton[k];
       map['[class*="view--online"]'] = 'play'; // Online Mod и аналоги: .view--online_mod, .view--online
@@ -193,10 +193,19 @@
         var btn = '.lumen-card .full-start__button' + sel;
         rules.push(btn + ' > svg{display:none !important}');
         rules.push(btn + ':before{content:"";display:block;-webkit-flex-shrink:0;flex-shrink:0;width:1.625em;height:1.625em;background-color:currentColor;-webkit-mask-image:' + maskUrl(name) + ';mask-image:' + maskUrl(name) + ';-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;-webkit-mask-size:contain;mask-size:contain}');
+        // Фолбэк — ТЕМ ЖЕ селектором btn (та же специфичность, что у правил выше):
+        // иначе при равном !important побеждает более специфичное основное правило
+        // (.lumen-card .full-start__button.button--play > svg — 3 класса) и фолбэк
+        // с общим селектором (.lumen-card .full-start__button > svg — 2 класса)
+        // никогда не выигрывает каскад, оставаясь мёртвым кодом.
+        fallback.push(btn + ' > svg{display:block !important}');
+        fallback.push(btn + ':before{display:none !important}');
       }
       // Движок без поддержки CSS-масок (старые WebOS/Tizen): вместо пустого
       // закрашенного прямоугольника от :before показываем исходный svg кнопки.
-      rules.push('@supports not ((-webkit-mask-image:none) or (mask-image:none)){.lumen-card .full-start__button > svg{display:block !important}.lumen-card .full-start__button:before{display:none}}');
+      // !important на :before и совпадающий с основным правилом селектор на svg
+      // гарантируют победу фолбэка независимо от порядка вставки CSS в документ.
+      rules.push('@supports not ((-webkit-mask-image:none) or (mask-image:none)){' + fallback.join('') + '}');
       return rules.join('\n');
     }
     return { get: get, names: names, forButton: forButton, maskSvg: maskSvg, maskUrl: maskUrl, css: css };
@@ -443,20 +452,28 @@
            <div class="…">…</div> мог бы подменить собой настоящий блок);
          - 'open'/'close' — <div…>/</div>, граница имени тега проверена явно
            (символ сразу после "div" — пробел, '>' или '/'), чтобы 'divider'
-           не приняло за div;
+           не приняло за div; у 'open' есть selfClosing (тег вида <div … />:
+           последний непробельный символ перед '>' — '/') — такой тег сам
+           закрывает себя и не требует парного </div>;
          - 'other' — любой другой тег (span, svg, use, br…), на глубину
            вложенности не влияет.
          null — незакрытый тег или незакрытый комментарий: выше по стеку это
-         тоже даёт null (см. innerOf/цикл ниже). */
+         тоже даёт null (см. innerOf/цикл ниже). Регистр важен: '<DIV' тегом
+         div не считается (это осознанно — Lampa/наш build() пишут div только
+         строчными; тег становится 'other', что для div-поиска даёт null). */
       function readTag(i) {
-        var e;
+        var e, tagText, body, selfClosing;
         if (html.slice(i, i + 4) === '<!--') {
           e = html.indexOf('-->', i + 4);
           return e === -1 ? null : { type: 'comment', next: e + 3 };
         }
         if (html.slice(i, i + 4) === '<div' && /[\s>\/]/.test(html.charAt(i + 4) || '>')) {
           e = findTagClose(i);
-          return e === -1 ? null : { type: 'open', next: e + 1, cls: classOf(html.slice(i, e + 1)) };
+          if (e === -1) return null;
+          tagText = html.slice(i, e + 1);
+          body = tagText.slice(0, -1).replace(/\s+$/, '');
+          selfClosing = body.charAt(body.length - 1) === '/';
+          return { type: 'open', next: e + 1, cls: classOf(tagText), selfClosing: selfClosing };
         }
         if (html.slice(i, i + 5) === '</div' && /[\s>]/.test(html.charAt(i + 5) || '>')) {
           e = findTagClose(i);
@@ -466,12 +483,18 @@
         return e === -1 ? null : { type: 'other', next: e + 1 };
       }
 
-      /* Фаза 1: ищем первый <div>, у которого в class есть токен cls целым словом. */
+      /* Фаза 1: ищем первый <div>, у которого в class есть токен cls целым словом.
+         Если сам он самозакрывающийся (<div class="cls"/>), содержимого у него
+         нет по определению — сразу пустая строка, парный </div> не ищем. */
       var pos = html.indexOf('<'), tok, contentStart = -1;
       while (pos !== -1) {
         tok = readTag(pos);
         if (!tok) return null;
-        if (tok.type === 'open' && wordRe.test(tok.cls)) { contentStart = tok.next; break; }
+        if (tok.type === 'open' && wordRe.test(tok.cls)) {
+          if (tok.selfClosing) return '';
+          contentStart = tok.next;
+          break;
+        }
         pos = html.indexOf('<', tok.next);
       }
       if (contentStart === -1) return null;
@@ -479,16 +502,20 @@
       /* Фаза 2: от конца открывающего тега считаем вложенность по всем
          <div…>/</div> (остальные теги и комментарии пропускаем как есть) —
          так парный </div> находится даже если внутри блока есть свои
-         вложенные div. Срез — по индексам исходной строки, дословно, без
-         trim/replace: комментарии и прочая разметка внутри блока остаются в
-         вырезке как есть, они могут быть частью outerHTML кнопки. */
+         вложенные div. Самозакрывающийся <div … /> глубину не увеличивает —
+         он не требует своего </div>, иначе он «съедал» бы чужой закрывающий
+         тег дальше по документу. Срез — по индексам исходной строки,
+         дословно, без trim/replace: комментарии и прочая разметка внутри
+         блока остаются в вырезке как есть, они могут быть частью outerHTML
+         кнопки. */
       var depth = 1;
       pos = html.indexOf('<', contentStart);
       while (pos !== -1) {
         tok = readTag(pos);
         if (!tok) return null;
-        if (tok.type === 'open') depth++;
-        else if (tok.type === 'close') {
+        if (tok.type === 'open') {
+          if (!tok.selfClosing) depth++;
+        } else if (tok.type === 'close') {
           depth--;
           if (depth === 0) return html.slice(contentStart, pos);
         }

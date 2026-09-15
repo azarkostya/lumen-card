@@ -29,12 +29,6 @@ test('css: прячет исходный svg и рисует маску, DOM к�
   assert.match(css, /\.lumen-card \.full-start__button\.button--play > svg\{display:none !important\}/);
   assert.match(css, /\.lumen-card \.full-start__button\.view--torrent:before\{[^}]*-webkit-mask-image:url\(/);
   assert.match(css, /\[class\*="view--online"\]:before/);
-  // фолбэк для движков без CSS-масок: свой svg снова виден, маска-псевдоэлемент спрятан
-  assert.ok(css.indexOf(
-    '@supports not ((-webkit-mask-image:none) or (mask-image:none)){' +
-    '.lumen-card .full-start__button > svg{display:block !important}' +
-    '.lumen-card .full-start__button:before{display:none}}'
-  ) !== -1, 'фолбэк-правило без поддержки масок не найдено дословно');
   // все правила ограничены корнем плагина: обычная строка начинается с ".lumen-card ",
   // либо это @supports-фолбэк — и тогда все селекторы ВНУТРИ него тоже ".lumen-card …"
   for (const rule of css.split('\n')) {
@@ -47,6 +41,25 @@ test('css: прячет исходный svg и рисует маску, DOM к�
       const selector = piece.slice(0, piece.indexOf('{'));
       assert.ok(selector.indexOf('.lumen-card ') === 0, selector);
     }
+  }
+});
+test('css: фолбэк без масок реально побеждает по каскаду — тот же селектор, что и основное правило, плюс !important', () => {
+  // Проверяем не "текст правила существует", а то, что фолбэк способен выиграть каскад:
+  // тот же селектор (та же специфичность), что у основного .../svg{display:none !important}
+  // и .../:before{...} — иначе при равном !important побеждает более специфичное основное
+  // правило, а фолбэк в @supports not(...) оказывается мёртвым кодом.
+  const css = icons.css();
+  const supportsIdx = css.indexOf('@supports not (');
+  assert.ok(supportsIdx !== -1, 'фолбэк-блок @supports not не найден');
+  const block = css.slice(supportsIdx);
+
+  const buttonClasses = ['button--play', 'button--book', 'button--reaction', 'button--subscribe', 'button--options', 'view--torrent', 'view--trailer'];
+  const selectors = buttonClasses.map(function (cls) { return '.' + cls; }).concat(['[class*="view--online"]']);
+
+  for (const sel of selectors) {
+    const btn = '.lumen-card .full-start__button' + sel;
+    assert.ok(block.indexOf(btn + ' > svg{display:block !important}') !== -1, sel + ': нет фолбэка для svg с тем же селектором, что у основного правила');
+    assert.ok(block.indexOf(btn + ':before{display:none !important}') !== -1, sel + ': нет фолбэка для :before с тем же селектором и !important');
   }
 });
 test('модуль не содержит DOM-мутаций кнопок', async () => {
