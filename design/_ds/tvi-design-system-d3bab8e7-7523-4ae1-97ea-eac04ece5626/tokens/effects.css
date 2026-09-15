@@ -1,0 +1,92 @@
+/* TVI — Effects: blur, shadow, stroke, gradient
+ *
+ * The visual identity leans on three things: heavy backdrop-blur (glassmorphism),
+ * large soft radial glow blobs behind hero/CTA, and cool top-down gradient fills on
+ * headings. Shadows are subtle; borders are thin (1–1.2px) and dark (#202436).
+ */
+
+:root {
+  /* ─────────────────────────── BLUR ─────────────────────────── */
+  /* backdrop-filter: blur(...) — Figma BACKGROUND_BLUR radius 1:1 */
+  --blur-card:        80.8px;  /* cards & dropdown panels */
+  --blur-glass:       42px;    /* glass nav bar */
+  --blur-glass-soft:  8.2px;   /* footer / small dropdowns */
+
+  /* filter: blur(...) — radial glow blobs */
+  --blur-glow-sm:     74.5px;
+  --blur-glow-md:     120px;
+  --blur-glow-lg:     150px;
+  --blur-glow-xl:     180px;
+
+  /* ─────────────────────────── SHADOW ─────────────────────────── */
+  --shadow-h1-glow:        0 -4px 10px rgba(255, 255, 255, 0.14);
+  --shadow-cta-window-dark: -2px -2px 4px rgba(0, 0, 0, 0.2);
+  --shadow-cta-window-blue:  2px 2px 4px rgba(20, 28, 69, 1);
+  --shadow-glow-white:     0 0 9px rgba(255, 255, 255, 0.15);     /* CTA hover */
+  --shadow-glow-white-lg:  0 0 8px rgba(255, 255, 255, 0.30);     /* submit hover */
+  --shadow-nav-landed:     0 8px 32px rgba(2, 5, 20, 0.45);
+  --shadow-action:         0 8px 32px rgba(36, 56, 154, 0.4);     /* floating blue button */
+
+  /* ─────────────────────────── STROKE ─────────────────────────── */
+  /* Figma stroke-align INSIDE → box-sizing: border-box */
+  --stroke-card:       1px solid var(--color-border-card);
+  --stroke-card-12:    1.2px solid var(--color-border-card);
+  --stroke-form:       1px solid var(--color-border-form);
+  --stroke-arrow:      1px solid var(--color-decoration-arrow);
+  --stroke-cta-light:  1.2px solid var(--color-text-primary);
+  --stroke-cta-thin:   0.5px solid var(--color-text-primary);
+  --stroke-glass:      1px solid var(--color-glass-border);
+
+  /* ─────────────────────────── GRADIENT ─────────────────────────── */
+  /* Heading fill — cool, top-down (white → lavender → slate) */
+  --gradient-heading: linear-gradient(
+    180deg, #ffffff 0%, #c9cbd6 21.8%, #d9dfff 71.4%, #7880ab 100%); /* @kind other */
+  /* Section heading variant (no pure-white stop) */
+  --gradient-section: linear-gradient(
+    180deg, #c9cbd6 0%, #d9dfff 59.5%, #7880ab 100%); /* @kind other */
+
+  /* Card surface fill — subtle vertical darkening */
+  --gradient-card: linear-gradient(180deg, #0c0d0f 68.75%, #161825 100%); /* @kind other */
+  --gradient-card-hover: linear-gradient(180deg, #15161a 68.75%, #282c42 100%); /* @kind other */
+
+  /* Glass nav radial fill */
+  --gradient-glass: radial-gradient(ellipse at center,
+    rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.06) 100%); /* @kind other */
+
+  /* "Book a meeting" pill fill */
+  --gradient-pill: linear-gradient(180deg,
+    rgba(240, 242, 255, 0.5) 0%, rgba(169, 175, 204, 0.5) 90%); /* @kind other */
+
+  /* Easing — Figma SMART_ANIMATE defaults */
+  --ease-inout:  cubic-bezier(0.42, 0, 0.58, 1);  /* @kind other */
+  --ease-out:    cubic-bezier(0, 0, 0.58, 1);      /* @kind other */
+  --ease-in:     cubic-bezier(0.42, 0, 1, 1);      /* @kind other */
+  --dur-fast:    150ms;                            /* @kind other */
+  --dur-base:    200ms;                            /* @kind other */
+}
+
+/* ─── Shared helper classes (used across components & UI kits) ─── */
+
+.tvi-heading-gradient {
+  background-image: var(--gradient-heading);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.tvi-section-gradient {
+  background-image: var(--gradient-section);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Slow pulse for glow blobs — very subtle, non-distracting */
+@keyframes tvi-pulse {
+  0%, 100% { opacity: 0.85; transform: scale(1); }
+  50%      { opacity: 1;    transform: scale(1.04); }
+}
+.tvi-pulse-slow { animation: tvi-pulse 8s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .tvi-pulse-slow { animation: none; }
+}

@@ -1,0 +1,763 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Lumen Card — тест-стенд</title>
+<style>
+/* ------------------------------------------------------------------ */
+/* Каркас стенда                                                       */
+/* ------------------------------------------------------------------ */
+html { font-size: 16px; }
+body {
+    margin: 0;
+    background: #070605;
+    color: #F3EDE4;
+    font-family: "Segoe UI", Roboto, Arial, sans-serif;
+    overflow: hidden;
+}
+#stage-wrap { position: absolute; top: 0; left: 0; right: 0; bottom: 0; overflow: hidden; }
+#stage {
+    width: 1920px;
+    height: 1080px;
+    position: relative;
+    overflow: hidden;
+    background: #0B0908;
+    -webkit-transform-origin: top left;
+    transform-origin: top left;
+}
+
+/* Корень компонента full (аналог this.html в Lampa) */
+#component {
+    position: relative;
+    width: 100%;
+    height: 1080px;
+    overflow: hidden;
+}
+#component .scroll { height: 100%; overflow: hidden; }
+#component .scroll__body { display: flex; flex-direction: column; justify-content: flex-end; min-height: 100%; }
+
+/* Панель управления стендом */
+#panel {
+    position: fixed; right: 12px; top: 12px; z-index: 50;
+    background: rgba(12,10,9,0.92); border: 1px solid rgba(243,237,228,0.18);
+    border-radius: 10px; padding: 12px 14px; font-size: 13px; line-height: 1.5;
+    max-width: 330px; max-height: 92vh; overflow: auto;
+}
+#panel h4 { margin: 0 0 8px; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: #A89A8A; }
+#panel button {
+    background: rgba(243,237,228,0.1); color: #F3EDE4; border: 1px solid rgba(243,237,228,0.2);
+    border-radius: 7px; padding: 6px 11px; margin: 0 6px 6px 0; cursor: pointer; font-size: 13px;
+}
+#panel button.on { background: #E8B87A; color: #1A120A; border-color: #FFF2DC; }
+#panel .hint { color: #7A6A5A; font-size: 12px; margin-top: 8px; }
+#checks { margin-top: 10px; border-top: 1px solid rgba(243,237,228,0.14); padding-top: 8px; font-family: Consolas, monospace; font-size: 12px; }
+#checks .ok { color: #8FBF7A; }
+#checks .fail { color: #E4604B; }
+#errors { margin-top: 8px; color: #E4604B; font-family: Consolas, monospace; font-size: 12px; white-space: pre-wrap; }
+
+/* ------------------------------------------------------------------ */
+/* Базовый CSS Lampa (перенос ключевых правил из start_new.scss /       */
+/* full_start.scss; $offset = 1.5em, $bg_transparent = rgba(255,255,255,.1)) */
+/* ------------------------------------------------------------------ */
+.hide { display: none !important; }
+
+.full-start-new { padding: 0 1.5em; padding-bottom: 4em; }
+.full-start-new__body { display: flex; align-items: flex-end; }
+.full-start-new__left { flex-shrink: 0; width: 17em; margin-right: 3em; }
+.full-start-new__right { flex-grow: 1; }
+.full-start-new__poster { position: relative; padding-bottom: 150%; background-color: #2a2422; border-radius: 1em; }
+.full-start-new__img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 1em; opacity: 0; }
+.full-start-new__poster.loaded img { opacity: 1; }
+.full-start-new__head { color: rgba(255,255,255,0.6); font-size: 1.2em; }
+.full-start-new__head span { color: #fff; }
+.full-start-new__title {
+    font-size: 4em; font-weight: 600; margin-bottom: .2em; overflow: hidden;
+    display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical;
+    margin-left: -.03em; line-height: 1.3;
+}
+.full-start-new__title.twolines { -webkit-line-clamp: 2; font-size: 3.5em; }
+.full-start-new__tagline { font-size: 1.8em; line-height: 1.2; margin-bottom: 1em; margin-top: -.3em; }
+.full-start-new__details {
+    color: #fff; margin: -.45em; margin-bottom: 1em; display: flex; align-items: center;
+    flex-wrap: wrap; min-height: 1.9em; font-size: 1.1em;
+}
+.full-start-new__details > * { margin: .45em; }
+.full-start-new__split { font-size: .7em; }
+.full-start-new__reactions { display: flex; flex-wrap: wrap; margin: -.5em; margin-bottom: 1em; min-height: 3.6em; align-items: center; }
+.full-start-new__reactions > div { padding: .5em; }
+.full-start-new__rate-line { display: flex; margin-bottom: 2.2em; align-items: center; }
+.full-start-new__rate-line .full-start__rate { margin: 0; }
+.full-start-new__rate-line > * { margin-left: 0 !important; margin-right: 1em !important; }
+.full-start-new__rate-line .full-start__pg { font-size: 1.12em; }
+.full-start-new__buttons { display: flex; align-items: center; }
+.full-start-new__buttons .full-start__button:not(.focus) span { display: none; }
+
+.full-start__pg, .full-start__status { font-size: 1.2em; border: 1px solid #fff; border-radius: .2em; padding: .3em; }
+.full-start__tag {
+    border-radius: .6em; display: flex; align-items: center; margin-right: 1em; font-size: 1.15em;
+    white-space: nowrap; margin-bottom: .4em; background-color: rgba(255,255,255,.1); padding: .3em .5em .3em .3em;
+}
+.full-start__tag > div { overflow: hidden; text-overflow: ellipsis; }
+.full-start__tag.tag--quality { border-radius: .6em; background: #ffe216; color: #000; padding: .3em .4em; text-transform: uppercase; }
+.full-start__button {
+    margin-right: .75em; font-size: 1.3em; background-color: rgba(255,255,255,.1); padding: .3em 1em;
+    display: flex; border-radius: 1em; align-items: center; height: 2.8em; flex-shrink: 0;
+}
+.full-start__button > svg { width: 1.5em; height: 1.5em; flex-shrink: 0; }
+.full-start__button > svg + span { margin-left: .75em; margin-top: -.2em; }
+.full-start__button.focus { background-color: #fff; color: #000; }
+.full-start__rate {
+    background: rgba(0,0,0,.15); border-radius: .3em; display: flex; align-items: center;
+    font-size: 1.45em; margin-right: 1em;
+}
+.full-start__rate > div:first-child {
+    width: 1.8em; height: 1.5em; flex-shrink: 0; background: rgba(0,0,0,.15); border-radius: .3em;
+    display: flex; align-items: center; justify-content: center;
+}
+.full-start__rate > div:last-child { font-size: .7em; padding: 0 .5em; }
+.full-start__background {
+    position: absolute; left: 8em; width: 100%; z-index: -1; opacity: 0;
+    height: 108%; top: -6em; transition: opacity .5s ease-in-out;
+}
+.full-start__background.loaded { opacity: .5; }
+
+/* ------------------------------------------------------------------ */
+/* Эмуляция vh внутри масштабированной сцены 1920x1080.                 */
+/* В реальной Lampa 100vh/74vh считаются от окна — здесь от сцены.       */
+/* ------------------------------------------------------------------ */
+#stage .lumen-backdrop { height: 1080px; }
+#stage .lumen-card .full-start-new__body { min-height: 800px; }
+
+/* Стенд всегда эмулирует ширину 1920px, а media-запросы плагина смотрят на
+   реальное окно браузера. Отменяем компактную раскладку внутри сцены. */
+#stage .lumen-card .lumen-cols { display: flex; }
+#stage .lumen-card .lumen-side { margin-left: 2.5em; margin-top: 0; text-align: right; align-items: flex-end; }
+#stage .lumen-card .full-start-new__title { font-size: 5.4em; }
+#stage .lumen-card .full-start-new__title.twolines { font-size: 3.9em; }
+</style>
+</head>
+<body>
+
+<!-- Спрайт иконок Lampa (минимальный набор, который использует шаблон) -->
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none">
+  <symbol id="sprite-play" viewBox="0 0 24 24"><path d="M7 4v16l13-8z" fill="currentColor"/></symbol>
+  <symbol id="sprite-reaction" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="9" cy="10" r="1.2" fill="currentColor"/><circle cx="15" cy="10" r="1.2" fill="currentColor"/><path d="M8 14.4c1.1 1.4 2.4 2.1 4 2.1s2.9-.7 4-2.1" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+  <symbol id="sprite-dots" viewBox="0 0 24 24"><circle cx="5" cy="12" r="2" fill="currentColor"/><circle cx="12" cy="12" r="2" fill="currentColor"/><circle cx="19" cy="12" r="2" fill="currentColor"/></symbol>
+  <symbol id="sprite-torrent" viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M4 21h16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="sprite-trailer" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M10 9l5 3-5 3z" fill="currentColor"/></symbol>
+</svg>
+
+<div id="stage-wrap">
+  <div id="stage">
+    <div id="component" class="activity__body layer--wheight">
+      <div class="scroll"><div class="scroll__body"></div></div>
+    </div>
+  </div>
+</div>
+
+<div id="panel">
+  <h4>Lumen Card — стенд</h4>
+  <div>
+    <button id="btn-movie" class="on">Фильм</button>
+    <button id="btn-serial">Сериал</button>
+  </div>
+  <div>
+    <button data-accent="sand" class="on">Песок</button>
+    <button data-accent="ice">Лёд</button>
+    <button data-accent="wine">Вино</button>
+    <button data-accent="mint">Мята</button>
+  </div>
+  <div>
+    <button id="btn-fonts" class="on">Шрифты вкл</button>
+    <button id="btn-progress" class="on">Продолжить</button>
+    <button id="btn-cast" class="on">Актёры</button>
+  </div>
+  <div class="hint">← / → — перемещение фокуса по кнопкам (эмуляция пульта).</div>
+  <div id="checks"></div>
+  <div id="errors"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+<script>
+/* =================================================================== */
+/* Минимальная эмуляция Lampa API                                      */
+/* =================================================================== */
+(function () {
+    'use strict';
+
+    var errors = [];
+    window.onerror = function (msg, src, line) {
+        errors.push(msg + ' @' + (src || '').split('/').pop() + ':' + line);
+        renderErrors();
+    };
+    function renderErrors() {
+        document.getElementById('errors').textContent = errors.length ? ('JS ERRORS:\n' + errors.join('\n')) : '';
+    }
+    window.__harnessErrors = errors;
+
+    /* ---------------- Subscribe ---------------- */
+    function Subscribe() {
+        var list = [];
+        return {
+            follow: function (name, cb) { list.push({ name: name, cb: cb }); },
+            remove: function (name, cb) {
+                for (var i = list.length - 1; i >= 0; i--) if (list[i].name === name && list[i].cb === cb) list.splice(i, 1);
+            },
+            send: function (name, data) {
+                for (var i = 0; i < list.length; i++) {
+                    if (list[i].name === name) {
+                        try { list[i].cb(data); } catch (e) { errors.push('listener ' + name + ': ' + e.message); renderErrors(); }
+                    }
+                }
+            }
+        };
+    }
+
+    /* ---------------- Lang ---------------- */
+    var DICT = {
+        ru: {
+            reactions_none: 'Оценить',
+            title_watch: 'Смотреть',
+            settings_input_links: 'Ссылки',
+            title_reactions: 'Реакции',
+            title_subscribe: 'Подписаться',
+            full_torrents: 'Торренты',
+            full_trailers: 'Трейлеры',
+            title_seasons: 'Сезоны',
+            title_episodes: 'Серии',
+            player_quality: 'Качество',
+            full_next_episode: 'Следующая серия',
+            full_episode_days_left: 'Осталось дней',
+            full_notext: 'Нет описания',
+            tv_status_released: 'Выпущенный',
+            tv_status_returning_series: 'Выходит',
+            tv_status_ended: 'Завершён',
+            tv_status_canceled: 'Отменён'
+        }
+    };
+
+    var Lang = {
+        add: function (pack) {
+            for (var key in pack) {
+                if (!pack.hasOwnProperty(key)) continue;
+                DICT.ru[key] = pack[key].ru || pack[key].en || key;
+            }
+        },
+        translate: function (str) {
+            if (typeof str !== 'string') return str;
+            if (str.indexOf('#{') >= 0) {
+                return str.replace(/#\{([^}]+)\}/g, function (all, key) {
+                    return typeof DICT.ru[key] !== 'undefined' ? DICT.ru[key] : key;
+                });
+            }
+            return typeof DICT.ru[str] !== 'undefined' ? DICT.ru[str] : str;
+        },
+        selected: function () { return true; }
+    };
+
+    /* ---------------- Template ---------------- */
+    var templates = {};
+    var Template = {
+        add: function (name, html) { templates[name] = html; },
+        all: function () { return templates; },
+        get: function (name, vars, like_static) {
+            var tpl = templates[name];
+            if (!tpl) throw 'Template [' + name + '] not found';
+            tpl = Lang.translate(tpl);
+            vars = vars || {};
+            for (var n in vars) {
+                if (!vars.hasOwnProperty(n)) continue;
+                tpl = tpl.replace(new RegExp('{' + n + '}', 'g'), vars[n]);
+            }
+            return like_static ? tpl : $(tpl);
+        },
+        elem: function (tag, opts) {
+            var el = document.createElement(tag);
+            if (opts && opts['class']) el.setAttribute('class', opts['class']);
+            return el;
+        }
+    };
+
+    /* Оригинальный шаблон full_start_new (src/templates/full/start_new.js) */
+    templates.full_start_new = [
+        '<div class="full-start-new">',
+        '<div class="full-start-new__body">',
+        '<div class="full-start-new__left"><div class="full-start-new__poster"><img class="full-start-new__img full--poster" /></div></div>',
+        '<div class="full-start-new__right">',
+        '<div class="full-start-new__head"></div>',
+        '<div class="full-start-new__title">{title}</div>',
+        '<div class="full-start-new__tagline full--tagline">{tagline}</div>',
+        '<div class="full-start-new__rate-line">',
+        '<div class="full-start__rate rate--tmdb"><div>{rating}</div><div class="source--name">TMDB</div></div>',
+        '<div class="full-start__rate rate--imdb hide"><div></div><div>IMDB</div></div>',
+        '<div class="full-start__rate rate--kp hide"><div></div><div>KP</div></div>',
+        '<div class="full-start__pg hide"></div>',
+        '<div class="full-start__status hide"></div>',
+        '</div>',
+        '<div class="full-start-new__details"></div>',
+        '<div class="full-start-new__reactions"><div>#{reactions_none}</div></div>',
+        '<div class="full-start-new__buttons">',
+        '<div class="full-start__button selector button--play"><svg><use xlink:href="#sprite-play"></use></svg><span>#{title_watch}</span></div>',
+        '<div class="full-start__button selector button--book"><svg viewBox="0 0 21 32"></svg><span>#{settings_input_links}</span></div>',
+        '<div class="full-start__button selector button--reaction"><svg><use xlink:href="#sprite-reaction"></use></svg><span>#{title_reactions}</span></div>',
+        '<div class="full-start__button selector button--subscribe hide"><svg viewBox="0 0 25 30"></svg><span>#{title_subscribe}</span></div>',
+        '<div class="full-start__button selector button--options"><svg><use xlink:href="#sprite-dots"></use></svg></div>',
+        '</div></div></div>',
+        '<div class="hide buttons--container">',
+        '<div class="full-start__button view--torrent hide"><svg><use xlink:href="#sprite-torrent"></use></svg><span>#{full_torrents}</span></div>',
+        '<div class="full-start__button selector view--trailer"><svg><use xlink:href="#sprite-trailer"></use></svg><span>#{full_trailers}</span></div>',
+        '</div>',
+        '</div>'
+    ].join('');
+
+    /* ---------------- Storage ---------------- */
+    var store = {};
+    var storageListener = Subscribe();
+    var Storage = {
+        get: function (name, def) { return typeof store[name] !== 'undefined' ? store[name] : def; },
+        set: function (name, value) {
+            store[name] = value;
+            storageListener.send('change', { name: name, value: value });
+        },
+        field: function (name) { return store[name]; },
+        listener: storageListener
+    };
+    store.language = 'ru';
+    store.poster_size = 'w500';
+
+    /* ---------------- Utils ---------------- */
+    var Utils = {
+        hash: function (str) {
+            var h = 0, i, chr;
+            str = '' + str;
+            if (str.length === 0) return h;
+            for (i = 0; i < str.length; i++) {
+                chr = str.charCodeAt(i);
+                h = ((h << 5) - h) + chr;
+                h |= 0;
+            }
+            return Math.abs(h);
+        },
+        secondsToTime: function (sec, force) {
+            sec = Math.round(sec || 0);
+            var h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+            function p(n) { return n < 10 ? '0' + n : '' + n; }
+            if (force) return h ? (h + ':' + p(m)) : (p(m) + ':' + p(s));
+            return p(h) + ':' + p(m) + ':' + p(s);
+        },
+        substr: function (str, len) {
+            str = '' + (str || '');
+            return str.length > len ? str.slice(0, len) + '...' : str;
+        },
+        capitalizeFirstLetter: function (str) {
+            str = '' + (str || '');
+            return str.charAt(0).toUpperCase() + str.slice(1);
+        },
+        countSeasons: function (card) { return card.number_of_seasons || 0; },
+        parseToDate: function (str) {
+            var p = ('' + str).split('-');
+            return new Date(parseInt(p[0], 10), parseInt(p[1], 10) - 1, parseInt(p[2], 10));
+        },
+        parseTime: function (str) {
+            var months = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+            var d = Utils.parseToDate(str);
+            return { short: d.getDate() + ' ' + months[d.getMonth()], full: str };
+        },
+        shortText: function (str, len) { return Utils.substr(str, len); }
+    };
+
+    /* ---------------- Timeline ---------------- */
+    var views = {};
+    var Timeline = {
+        setup: function (hash, road) { views[hash] = road; },
+        view: function (hash) {
+            var road = views[hash] || { percent: 0, time: 0, duration: 0, updated: 0 };
+            return {
+                hash: hash,
+                percent: road.percent,
+                time: road.time,
+                duration: road.duration,
+                profile: 0,
+                updated: road.updated || 0,
+                handler: function () { }
+            };
+        },
+        watched: function () { return 0; },
+        filename: function () { return 'file_view'; }
+    };
+
+    /* ---------------- Прочее ---------------- */
+    var Api = { img: function () { return ''; } };  /* TMDB недоступен — вернём пусто */
+
+    var TMDB = {
+        parseCountries: function (movie) {
+            var out = [], i;
+            if (movie.production_countries) for (i = 0; i < movie.production_countries.length; i++) out.push(movie.production_countries[i].name);
+            return out;
+        },
+        parsePG: function (movie) { return movie.__pg || ''; },
+        image: function (p) { return p; }
+    };
+
+    var Platform = {
+        screen: function (name) { return name === 'tv'; },
+        is: function () { return false; }
+    };
+
+    var Controller = {
+        add: function () { }, toggle: function () { }, collectionSet: function () { },
+        collectionFocus: function () { }, enabled: function () { return {}; }
+    };
+
+    var SettingsApi = {
+        components: [], params: [],
+        addComponent: function (p) { SettingsApi.components.push(p); },
+        addParam: function (p) {
+            SettingsApi.params.push(p);
+            if (p.param && typeof p.param['default'] !== 'undefined' && typeof store[p.param.name] === 'undefined') {
+                store[p.param.name] = p.param['default'];
+            }
+        }
+    };
+
+    window.Lampa = {
+        Template: Template,
+        Listener: Subscribe(),
+        Storage: Storage,
+        Timeline: Timeline,
+        Api: Api,
+        Utils: Utils,
+        TMDB: TMDB,
+        Lang: Lang,
+        Platform: Platform,
+        SettingsApi: SettingsApi,
+        Controller: Controller,
+        Noty: { show: function () { } },
+        Select: { show: function () { } },
+        Activity: { active: function () { return {}; } }
+    };
+
+    window.lampa_settings = { torrents_use: true, read_only: false, blur_poster: false, lgbt: false };
+    window.appready = true;
+    window.Navigator = { move: function () { }, canmove: function () { return false; } };
+})();
+</script>
+
+<!-- ------------------------------------------------------------------ -->
+<!-- Подключаем сам плагин                                                -->
+<!-- ------------------------------------------------------------------ -->
+<script src="../lumen_card.js"></script>
+
+<script>
+/* =================================================================== */
+/* Данные + рендер по логике src/components/full/start.js              */
+/* =================================================================== */
+(function () {
+    'use strict';
+
+    var L = window.Lampa;
+
+    /* --------------------------- Данные --------------------------- */
+    var MOVIE = {
+        id: 693135,                       /* id % 3 === 0 -> тёплый процедурный фон */
+        title: 'Дюна: Часть вторая',
+        original_title: 'Dune: Part Two',
+        overview: 'Пол Атрейдес объединяется с Чани и фрименами, чтобы отомстить заговорщикам, уничтожившим его семью. Ему предстоит выбор между любовью всей жизни и судьбой известной вселенной.',
+        release_date: '2024-02-27',
+        runtime: 166,
+        vote_average: 8.243,
+        imdb_rating: 8.5,
+        kp_rating: 7.9,
+        release_quality: 'BD 4K',
+        backdrop_path: '/xOMo8BRK7PfcJv9JCnx7s5hj0PX.jpg',
+        poster_path: '/czembW0Rk1Ke7lCJGahbOhdCuhV.jpg',
+        status: 'Released',
+        tagline: '',
+        genres: [{ name: 'фантастика' }, { name: 'приключения' }],
+        production_countries: [{ name: 'США' }],
+        __pg: '18+'
+    };
+
+    var SERIAL = {
+        id: 106378,                       /* id % 3 === 1 -> жёлто-зелёный фон */
+        name: 'Фоллаут',
+        original_name: 'Fallout',
+        overview: 'Через двести лет после ядерной войны обитатели роскошных убежищ вынуждены вернуться на радиоактивную пустошь, оставленную их предками, и с удивлением обнаруживают там невероятно сложный мир.',
+        first_air_date: '2024-04-10',
+        number_of_seasons: 2,
+        number_of_episodes: 16,
+        vote_average: 8.3,
+        imdb_rating: 8.4,
+        kp_rating: 7.8,
+        status: 'Returning Series',
+        tagline: '',
+        backdrop_path: '/kNGsMVBSjqmT3pvFPGJxnJHNVyz.jpg',
+        poster_path: '/AnsSIT9g46WNSbHKDSxUOFqQfxa.jpg',
+        genres: [{ name: 'фантастика' }, { name: 'драма' }],
+        production_countries: [{ name: 'США' }],
+        next_episode_to_air: { air_date: nextEpisodeDate() },
+        __pg: '18+'
+    };
+
+    function nextEpisodeDate() {
+        var d = new Date();
+        d.setDate(d.getDate() + 31);
+        return [d.getFullYear(), pad(d.getMonth() + 1), pad(d.getDate())].join('-');
+    }
+    function pad(n) { return n < 10 ? '0' + n : '' + n; }
+
+    var CAST_MOVIE = names(['Тимоти Шаламе', 'Зендея', 'Ребекка Фергюсон', 'Хавьер Бардем', 'Остин Батлер',
+        'Флоренс Пью', 'Дэйв Батиста', 'Кристофер Уокен', 'Леа Сейду', 'Стеллан Скарсгард',
+        'Шарлотта Рэмплинг', 'Джош Бролин', 'Сухейла Якуб', 'Аня Тейлор-Джой', 'Бабс Олусанмокун',
+        'Роджер Юань', 'Тим Блейк Нельсон']);
+
+    var CAST_SERIAL = names(['Элла Пернелл', 'Аарон Мотен', 'Уолтон Гоггинс', 'Кайл МакЛоклен', 'Мойзес Ариас',
+        'Ксельда Чинн', 'Джонни Пембертон', 'Лесли Угеймс', 'Майкл Эмерсон', 'Сарита Чоудри']);
+
+    function names(list) {
+        var out = [];
+        for (var i = 0; i < list.length; i++) out.push({ name: list[i], character: '', profile_path: null });
+        return out;
+    }
+
+    /* Прогресс просмотра: фильм 43%, сериал S2E3 32% */
+    L.Timeline.setup(L.Utils.hash(MOVIE.original_title), { percent: 43, time: 4320, duration: 9960, updated: 1700000000000 });
+    L.Timeline.setup(L.Utils.hash([2, '', 3, SERIAL.original_name].join('')), { percent: 32, time: 1120, duration: 3492, updated: 1700000000000 });
+    L.Timeline.setup(L.Utils.hash([1, '', 8, SERIAL.original_name].join('')), { percent: 100, time: 3400, duration: 3400, updated: 1600000000000 });
+
+    /* ------------------- Эмуляция Start.create() ------------------- */
+    function createStart(data) {
+        var card = data.movie;
+
+        if (!card.title) card.title = card.name;
+        if (!card.original_title) card.original_title = card.original_name;
+        if (!card.runtime) card.runtime = 0;
+
+        var genres = [];
+        var src = card.genres || [{ name: '---' }];
+        for (var g = 0; g < src.length && g < 3; g++) genres.push(L.Utils.capitalizeFirstLetter(src[g].name));
+        genres = genres.join(', ');
+
+        var countries = L.TMDB.parseCountries(card);
+        var seasons = L.Utils.countSeasons(card);
+        var tmdb_rating = parseFloat((card.vote_average || 0) + '').toFixed(1);
+        if (tmdb_rating >= 10) tmdb_rating = 10;
+
+        var relise = (card.release_date || card.first_air_date || '') + '';
+        var year = relise ? relise.slice(0, 4) : '';
+        var quality = !card.first_air_date ? (card.release_quality || card.quality) : false;
+        var pg = L.TMDB.parsePG(card);
+        var head = [];
+        var info = [];
+
+        var html = L.Template.get('full_start_new', {
+            title: card.title,
+            original_title: card.original_title,
+            descr: L.Utils.substr(card.overview || L.Lang.translate('full_notext'), 420),
+            time: L.Utils.secondsToTime(card.runtime * 60, true),
+            genres: L.Utils.substr(genres, 30),
+            rating: tmdb_rating,
+            seasons: seasons,
+            countries: countries.join(', '),
+            episodes: card.number_of_episodes,
+            tagline: card.tagline
+        });
+
+        if (!window.lampa_settings.torrents_use) html.find('.view--torrent').addClass('hide');
+
+        if (card.name) html.find('.full-start-new__poster').addClass('card--tv').append('<div class="card__type">TV</div>');
+
+        if (year) {
+            html.find('.tag--year').removeClass('hide').find('> div').text(year);
+            head.push('<span>' + year + '</span>');
+        }
+
+        if (countries.length) head.push(countries.slice(0, 5).join(' | '));
+
+        if (!card.tagline) html.find('.full--tagline').remove();
+        if (!card.tagline && card.title.length > 25) html.find('.full-start-new__title').addClass('twolines');
+
+        if (card.runtime > 0) info.push('<span>' + L.Utils.secondsToTime(card.runtime * 60, true) + '</span>');
+        if (seasons) info.push('<span>' + L.Lang.translate('title_seasons') + ': ' + seasons + '</span>');
+        if (pg) html.find('.full-start__pg').removeClass('hide').text(pg);
+        if (card.number_of_episodes) info.push('<span>' + L.Lang.translate('title_episodes') + ': ' + card.number_of_episodes + '</span>');
+        if (!card.runtime) $('.tag--time', html).remove();
+        if (card.number_of_seasons) html.find('.is--serial').removeClass('hide');
+        if (card.vote_average === 0) html.find('.rate--tmdb').addClass('hide');
+
+        if (card.status) {
+            html.find('.full-start__status').removeClass('hide')
+                .text(L.Lang.translate('tv_status_' + card.status.toLowerCase().replace(/ /g, '_')));
+        }
+
+        if (card.imdb_rating && parseFloat(card.imdb_rating) > 0) {
+            html.find('.rate--imdb').removeClass('hide').find('> div').eq(0)
+                .text(parseFloat(card.imdb_rating) >= 10 ? 10 : card.imdb_rating);
+        }
+        if (card.kp_rating && parseFloat(card.kp_rating) > 0) {
+            html.find('.rate--kp').removeClass('hide').find('> div').eq(0)
+                .text(parseFloat(card.kp_rating) >= 10 ? 10 : card.kp_rating);
+        }
+
+        if (card.genres) {
+            var g5 = [];
+            for (var i = 0; i < card.genres.length && i < 5; i++) g5.push(L.Utils.capitalizeFirstLetter(card.genres[i].name));
+            info.push('<span>' + g5.join(' | ') + '</span>');
+        }
+
+        if (quality) {
+            html.find('.tag--quality').removeClass('hide').find('> div').text(quality);
+            info.push('<span>' + L.Lang.translate('player_quality') + ': ' + ('' + quality).toUpperCase() + '</span>');
+        }
+
+        if (card.next_episode_to_air) {
+            var air = L.Utils.parseToDate(card.next_episode_to_air.air_date);
+            var day = Math.ceil((air.getTime() - Date.now()) / (24 * 60 * 60 * 1000));
+            var txt = L.Lang.translate('full_next_episode') + ': ' + L.Utils.parseTime(card.next_episode_to_air.air_date).short +
+                ' / ' + L.Lang.translate('full_episode_days_left') + ': ' + day;
+            if (day > 0) {
+                $('.tag--episode', html).removeClass('hide').find('div').text(txt);
+                info.push('<span>' + txt + '</span>');
+            }
+        }
+
+        html.find('.full-start-new__head').toggleClass('hide', !head.length).html(head.join(', '));
+        html.find('.full-start-new__details').html(info.join('<span class="full-start-new__split">●</span>'));
+
+        return html;
+    }
+
+    /* ------------------------- Рендер ------------------------------ */
+    var current = 'movie';
+
+    function render() {
+        var movie = current === 'movie' ? MOVIE : SERIAL;
+        var data = { movie: movie, persons: { cast: current === 'movie' ? CAST_MOVIE : CAST_SERIAL, crew: [] } };
+
+        var component = $('#component');
+        component.find('.lumen-backdrop').remove();
+        component.find('.full-start__background').remove();
+        component.find('.scroll__body').empty();
+
+        /* Lampa добавляет фоновое изображение в корень компонента */
+        component.prepend($(L.Template.elem('img', { 'class': 'full-start__background' })));
+
+        var html = createStart(data);
+        component.find('.scroll__body').append(html);
+
+        var item = { render: function () { return html; } };
+
+        L.Listener.send('full', { link: {}, type: 'build', props: {}, body: component, object: {}, name: 'start', item: item, data: data });
+        L.Listener.send('full', { link: {}, type: 'complite', props: {}, body: component, object: {}, data: data });
+
+        focusIndex = 0;
+        applyFocus();
+        runChecks(html);
+    }
+
+    /* --------------------- Эмуляция пульта -------------------------- */
+    var focusIndex = 0;
+    function selectors() { return $('#component .full-start-new__buttons .selector').not('.hide'); }
+    function applyFocus() {
+        var list = selectors();
+        list.removeClass('focus');
+        if (!list.length) return;
+        if (focusIndex < 0) focusIndex = 0;
+        if (focusIndex > list.length - 1) focusIndex = list.length - 1;
+        list.eq(focusIndex).addClass('focus');
+    }
+    $(document).on('keydown', function (e) {
+        if (e.keyCode === 39) { focusIndex++; applyFocus(); e.preventDefault(); }
+        if (e.keyCode === 37) { focusIndex--; applyFocus(); e.preventDefault(); }
+    });
+
+    /* ------------------------- Проверки ----------------------------- */
+    function runChecks(html) {
+        var need = [
+            '.full-start-new__title', '.full-start-new__head',
+            '.full-start-new__details', '.full-start-new__reactions', '.full-start-new__buttons',
+            '.buttons--container', '.button--play', '.button--book', '.button--reaction',
+            '.button--subscribe', '.button--options', '.view--torrent', '.view--trailer',
+            '.rate--tmdb', '.rate--imdb', '.rate--kp', '.tag--year', '.tag--time', '.tag--quality',
+            '.tag--episode', '.full-start__pg', '.full-start__status', '.is--serial',
+            '.full-start-new__poster img.full--poster'
+        ];
+        var out = [];
+        var failed = 0;
+        for (var i = 0; i < need.length; i++) {
+            var sel = need[i];
+            var found = html.find(sel).length || (html.is(sel) ? 1 : 0);
+            /* tag--time удаляется движком, когда нет runtime — это штатно */
+            if (!found && sel === '.tag--time' && !(current === 'movie')) found = -1;
+            if (!found) failed++;
+            out.push('<div class="' + (found ? 'ok' : 'fail') + '">' + (found ? 'OK  ' : 'FAIL') + ' ' + sel + '</div>');
+        }
+
+        var sels = html.find('.selector').length;
+        out.push('<div class="' + (sels >= 6 ? 'ok' : 'fail') + '">' + (sels >= 6 ? 'OK  ' : 'FAIL') + ' .selector в карточке: ' + sels + '</div>');
+
+        var lumen = html.hasClass('lumen-card');
+        out.push('<div class="' + (lumen ? 'ok' : 'fail') + '">' + (lumen ? 'OK  ' : 'FAIL') + ' шаблон подменён (.lumen-card)</div>');
+
+        var meta = html.find('.lumen-meta').text().length > 0;
+        out.push('<div class="' + (meta ? 'ok' : 'fail') + '">' + (meta ? 'OK  ' : 'FAIL') + ' мета-строка заполнена</div>');
+
+        var prog = !html.find('.lumen-progress').hasClass('hide');
+        out.push('<div class="' + (prog ? 'ok' : 'fail') + '">' + (prog ? 'OK  ' : 'FAIL') + ' «Продолжить» видна</div>');
+
+        var cast = html.find('.lumen-cast__item').length;
+        out.push('<div class="' + (cast ? 'ok' : 'fail') + '">' + (cast ? 'OK  ' : 'FAIL') + ' актёров отрисовано: ' + cast + '</div>');
+
+        var bd = $('#component .lumen-backdrop').length;
+        out.push('<div class="' + (bd ? 'ok' : 'fail') + '">' + (bd ? 'OK  ' : 'FAIL') + ' слой бэкдропа создан</div>');
+
+        /* Узлы, которые Lampa удаляет по данным, проверяем в сыром шаблоне */
+        var raw = $(L.Lang.translate(L.Template.all().full_start_new));
+        var rawNeed = ['.full--tagline', '.tag--time', '.tag--year', '.is--serial'];
+        for (var r = 0; r < rawNeed.length; r++) {
+            var has = raw.find(rawNeed[r]).length > 0;
+            if (!has) failed++;
+            out.push('<div class="' + (has ? 'ok' : 'fail') + '">' + (has ? 'OK  ' : 'FAIL') + ' ' + rawNeed[r] + ' (в шаблоне)</div>');
+        }
+
+        out.unshift('<div><b>Проверки: ' + (need.length + rawNeed.length - failed) + '/' + (need.length + rawNeed.length) + ' узлов Lampa на месте</b></div>');
+        document.getElementById('checks').innerHTML = out.join('');
+    }
+
+    /* --------------------------- UI --------------------------------- */
+    $('#btn-movie').on('click', function () { current = 'movie'; $('#btn-movie').addClass('on'); $('#btn-serial').removeClass('on'); render(); });
+    $('#btn-serial').on('click', function () { current = 'serial'; $('#btn-serial').addClass('on'); $('#btn-movie').removeClass('on'); render(); });
+
+    $('#panel [data-accent]').on('click', function () {
+        $('#panel [data-accent]').removeClass('on');
+        $(this).addClass('on');
+        L.Storage.set('lumen_card_accent', $(this).attr('data-accent'));
+    });
+
+    function toggleBtn(id, key) {
+        $(id).on('click', function () {
+            var on = !$(this).hasClass('on');
+            $(this).toggleClass('on', on);
+            L.Storage.set(key, on);
+            render();
+        });
+    }
+    toggleBtn('#btn-fonts', 'lumen_card_fonts');
+    toggleBtn('#btn-progress', 'lumen_card_progress');
+    toggleBtn('#btn-cast', 'lumen_card_cast');
+
+    /* ------------------------ Масштаб ------------------------------- */
+    function fit() {
+        var scale = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
+        var stage = document.getElementById('stage');
+        stage.style.webkitTransform = 'scale(' + scale + ')';
+        stage.style.transform = 'scale(' + scale + ')';
+    }
+    $(window).on('resize', fit);
+    fit();
+
+    render();
+})();
+</script>
+</body>
+</html>

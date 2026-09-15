@@ -1,0 +1,46 @@
+/* TVI — Spacing & radii
+ *
+ * The site keeps a 1:1 relationship with its Figma source, so spacing values are
+ * named by their pixel value rather than an abstract t-shirt scale. Section rhythm
+ * is 30px (desktop) / ~28px (mobile). Page gutter is a fluid 50px each side.
+ */
+
+:root {
+  /* Spacing scale (px-named, 1:1 with design source) */
+  --space-1:    1px;
+  --space-3:    3px;
+  --space-4:    4px;
+  --space-6:    6px;
+  --space-8:    8px;
+  --space-10:   10px;
+  --space-14:   14px;
+  --space-15:   15px;
+  --space-16:   16px;
+  --space-20:   20px;
+  --space-24:   24px;
+  --space-26:   26px;
+  --space-30:   30px;   /* default inter-section gap + card padding */
+  --space-36:   36px;
+  --space-40:   40px;   /* nav item gap */
+  --space-44:   44px;
+  --space-48:   48px;
+  --space-50:   50px;   /* page gutter / display line-height */
+  --space-60:   60px;
+  --space-100:  100px;
+  --space-120:  120px;
+  --space-160:  160px;
+
+  /* Layout */
+  --container-content: calc(100vw - 100px); /* @kind spacing */
+  --container-narrow:  760px;               /* @kind spacing */
+  --container-max:     1340px;              /* @kind spacing */
+
+  /* ─────────────────────────── RADII ─────────────────────────── */
+  --radius-8:    8px;    /* small chips / icon tiles */
+  --radius-14:   14px;   /* buttons, cards */
+  --radius-20:   20px;   /* banners, dropdown panels */
+  --radius-24:   24px;   /* glass nav bar */
+  --radius-30:   30px;   /* nav pills */
+  --radius-60:   60px;   /* full pill / "book a meeting" CTA */
+  --radius-card-top: 10px 10px 0 0;
+}

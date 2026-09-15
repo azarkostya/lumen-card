@@ -1,0 +1,116 @@
+/* TVI — Color system
+ *
+ * Sourced 1:1 from the production site (site/src/styles/tokens.css), extracted from Figma.
+ * The world is dark: a near-black navy page, white & periwinkle-lavender text,
+ * and a single electric-blue action color. Two recolor themes (blue / green) drive
+ * the Vostok-1 country pages (Korea = ice blue, South-East Asia = mint green).
+ */
+
+:root {
+  /* ─────────────────────────── PRIMITIVES ─────────────────────────── */
+  /* Raw values. Prefer the semantic aliases below in component code. */
+
+  --tvi-white:        #ffffff;
+  --tvi-black:        #000000;
+
+  /* Navy / ink ramp — page & surface darks */
+  --tvi-ink-900:      #020514;  /* page background */
+  --tvi-ink-850:      #020014;  /* dust-rect background */
+  --tvi-ink-800:      #0c0d0f;  /* card gradient top */
+  --tvi-ink-780:      #0e0f18;  /* flat surface card */
+  --tvi-ink-700:      #161825;  /* card gradient bottom */
+  --tvi-ink-650:      #20222b;  /* dropdown gradient mid */
+  --tvi-ink-600:      #0d0d0d;  /* dropdown gradient top */
+
+  /* Periwinkle / lavender ramp — the brand's signature cool light tones */
+  --tvi-lav-100:      #ffffff;
+  --tvi-lav-200:      #d9dfff;  /* primary lavender (tg / subtitle accents) */
+  --tvi-lav-250:      #d8defe;  /* subtitle */
+  --tvi-lav-300:      #d9ddff;  /* decoration arrow */
+  --tvi-lav-400:      #c9cbd6;  /* gradient heading stop */
+  --tvi-lav-500:      #b9c5fe;  /* dropdown gradient accent */
+
+  /* Slate / muted gray-blue ramp — body & captions */
+  --tvi-slate-400:    #888ca0;  /* caption */
+  --tvi-slate-500:    #7c83a6;  /* body text */
+  --tvi-slate-600:    #7880ab;  /* form border / gradient heading low stop */
+  --tvi-slate-700:    #515466;  /* decoration line */
+
+  /* Blue ramp — action & glow */
+  --tvi-blue-700:     #24389a;  /* action primary */
+  --tvi-blue-600:     #2c43b8;  /* action hover */
+  --tvi-blue-500:     #324dd6;  /* glow blob core */
+  --tvi-blue-400:     #3d4d99;  /* glow blob falloff */
+
+  /* Theme accents (country pages) */
+  --tvi-ice-bg:       #080f26;  /* Korea card surface */
+  --tvi-ice-action:   #1f45b4;  /* Korea action */
+  --tvi-ice-text:     #c5e8fe;  /* Korea text / pills */
+  --tvi-mint-bg:      #051710;  /* SEA card surface */
+  --tvi-mint-action:  #1f9970;  /* SEA action */
+  --tvi-mint-text:    #d9fff2;  /* SEA text / pills */
+  --tvi-mint-glow:    #15684c;  /* SEA glow core */
+  --tvi-mint-glow-2:  #1f9e73;  /* SEA glow falloff */
+
+  /* ─────────────────────────── SEMANTIC ─────────────────────────── */
+  /* Text */
+  --color-text-primary:      var(--tvi-white);
+  --color-text-body:         var(--tvi-slate-500);
+  --color-text-caption:      var(--tvi-slate-400);
+  --color-text-subtitle:     var(--tvi-lav-250);
+  --color-text-tg:           var(--tvi-lav-200);
+  --color-text-on-action:    #0b0c17;
+  --color-text-legal:        #b7b7b7;
+
+  /* Surfaces */
+  --color-bg-page:           var(--tvi-ink-900);
+  --color-surface-card:      var(--tvi-ink-780);
+  --color-surface-card-grad-top:    var(--tvi-ink-800);
+  --color-surface-card-grad-bottom: var(--tvi-ink-700);
+
+  /* Decoration */
+  --color-decoration-line:   var(--tvi-slate-700);
+  --color-decoration-arrow:  var(--tvi-lav-300);
+
+  /* Action */
+  --color-action-primary:    var(--tvi-blue-700);
+  --color-action-hover:      var(--tvi-blue-600);
+
+  /* Borders */
+  --color-border-card:       #202436;
+  --color-border-card-hover: #303552;
+  --color-border-form:       var(--tvi-slate-600);
+
+  /* Glass (translucent overlays) */
+  --color-glass-fill-top:    rgba(255, 255, 255, 0.084);
+  --color-glass-fill-bottom: rgba(255, 255, 255, 0.042);
+  --color-glass-border:      rgba(255, 255, 255, 0.05);
+
+  /* Glow blob (signature radial decoration) */
+  --color-glow-core:         var(--tvi-blue-500);
+  --color-glow-falloff:      var(--tvi-blue-400);
+}
+
+/* ───────────────── Theme scopes (country recolors) ─────────────────
+ * Apply [data-theme="blue"] (Korea) or [data-theme="green"] (SEA) on any
+ * container to recolor surfaces, action, text and glow within it. */
+
+[data-theme="blue"] {
+  --color-surface-card:  var(--tvi-ice-bg);
+  --color-border-card:   #202636;
+  --color-action-primary: var(--tvi-ice-action);
+  --color-text-primary:  var(--tvi-ice-text);
+  --color-text-tg:       var(--tvi-ice-text);
+  --color-glow-core:     #1f6fff;
+  --color-glow-falloff:  var(--tvi-ice-action);
+}
+
+[data-theme="green"] {
+  --color-surface-card:  var(--tvi-mint-bg);
+  --color-border-card:   #20362f;
+  --color-action-primary: var(--tvi-mint-action);
+  --color-text-primary:  var(--tvi-mint-text);
+  --color-text-tg:       var(--tvi-mint-text);
+  --color-glow-core:     var(--tvi-mint-glow);
+  --color-glow-falloff:  var(--tvi-mint-glow-2);
+}

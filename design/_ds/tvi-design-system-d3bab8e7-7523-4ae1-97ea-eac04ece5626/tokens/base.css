@@ -1,0 +1,44 @@
+/* TVI — base resets & page defaults
+ *
+ * Minimal global resets so specimen cards, components and UI kits render on the
+ * brand's dark canvas with the right typeface out of the box.
+ */
+
+:root {
+  color-scheme: dark;
+}
+
+html {
+  background: var(--color-bg-page);
+  color: var(--color-text-primary);
+  font-family: var(--font-family-primary);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  /* Lining + proportional numerals — Raleway defaults to oldstyle otherwise */
+  font-variant-numeric: lining-nums proportional-nums;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+}
+
+::placeholder { opacity: 0.6; }
+
+:where(a, button, input, select, textarea):focus-visible {
+  outline: 2px solid var(--color-action-primary);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
