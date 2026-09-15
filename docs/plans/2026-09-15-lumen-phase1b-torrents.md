@@ -93,6 +93,8 @@ test/torrents.test.mjs css(): скоупинг всех правил, запре
 
 ### Task 31: Маркеры и настройки
 
+> **ВЫПОЛНЕНО** (8d2c695, 39cb1c0, 694ca7d; 2 раунда ревью качества): `LC.menus` в `src/64_menus.js` — маркер `lumen-select` + `data-lumen-kind` (source / torrent / file / filter) на `Select.listener preshow`, НЕ снимается на close (иначе мелькание при закрытии); `file`/`torrent` только при заголовке `title_action` (меню файла — по `timeclear/timefull`, раздачи — `tomy/mark/unmark`); `filter` на активности torrents — по полям пунктов Filter (`sort`, `stype`, `reset`, `global_search`, `query`) или при контроллере `content` / вложенном Select под уже помеченным; Select плеера, левого меню, шапки и настроек — без маркера. `lumen-modal` на `Modal.listener fullshow` по `.modal-loading`/`.torrent-install`. Настройки `lumen_menus` (all/path/off) и `lumen_torrents`; флаг `ui_active`, `LC.applyMenusPref`/`LC.applyTorrentsPref` в `90_runtime.js`. 299 тестов, стенд 31/31, хэши 7/7.
+
 **Files:** Create `src/64_menus.js`, `test/menus.test.mjs`; Modify `src/80_settings.js`, `src/90_runtime.js`.
 
 > **Поправка контроллера — Step 1 выполнен координатором (2026-09-15, живая Lampa 3.3.4 + `vendor/lampa/app.min.js`); приоритетнее кода Step 3.**
