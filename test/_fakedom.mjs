@@ -67,17 +67,32 @@ FakeEl.prototype.closest = function (sel) {
   if (sel === '.activity' && this._closestActivity) return this._closestActivity;
   return EMPTY;
 };
+/* Ревью (fix, Important 3): составной селектор вида '.lumen-bg__img.is-active'
+   (класс на класс, без пробела — "элемент с ОБОИМИ классами") раньше
+   резался только по первой точке (sel.replace(/^\./, '')), а остаток
+   ("lumen-bg__img.is-active" целиком) никогда не совпадал ни с одним
+   hasClass() — составные селекторы в 50_backdrops.js (LC.backdrops.revive)
+   тихо никогда не находили ничего, тесты на этом молча шли по запасной
+   (пустой) ветке. selectorClasses разбивает ЛЮБОЕ число точек на список
+   классов, matchesSelector требует совпадения всех. */
+function selectorClasses(sel) {
+  return sel.split('.').filter(Boolean);
+}
+function matchesSelector(el, classes) {
+  for (let i = 0; i < classes.length; i++) if (!el.hasClass(classes[i])) return false;
+  return true;
+}
 FakeEl.prototype.children = function (sel) {
-  const cls = sel.replace(/^\./, '');
-  for (let i = 0; i < this._children.length; i++) if (this._children[i].hasClass(cls)) return this._children[i];
+  const classes = selectorClasses(sel);
+  for (let i = 0; i < this._children.length; i++) if (matchesSelector(this._children[i], classes)) return this._children[i];
   return EMPTY;
 };
 FakeEl.prototype.find = function (sel) {
-  const cls = sel.replace(/^\./, '');
+  const classes = selectorClasses(sel);
   function search(node) {
     for (let i = 0; i < node._children.length; i++) {
       const c = node._children[i];
-      if (c.hasClass(cls)) return c;
+      if (matchesSelector(c, classes)) return c;
       const found = search(c);
       if (found) return found;
     }

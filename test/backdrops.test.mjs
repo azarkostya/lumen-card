@@ -324,3 +324,87 @@ test('apply(): urls (pickBackdrops + max по режиму) считаются �
   });
   assert.deepEqual(captured, [8, 4, 1]);
 });
+
+/* ====================================================================== */
+/* Task 6 (fix, обзор координатора, Important 3): LC.backdrops.revive()   */
+/* — настоящий (не заглушка), в т.ч. составной селектор                   */
+/* '.lumen-bg__img.is-active', который до правки test/_fakedom.mjs         */
+/* (find/children — теперь по всем классам селектора) никогда не находился.*/
+/* ====================================================================== */
+
+test('revive() (fix, Important 3, а): смерть на кадре-слайде -> img0 получает его фон и is-active, новый контроллер стартует; старый слайд убирается через CROSSFADE_MS (Minor 2)', () => {
+  const LC = freshLC({ prefs: { lumen_slideshow: true } });
+  const body = fakeBody();
+  const movie = { id: 1, backdrop_path: '/main.jpg', images: { backdrops: [mk('/main.jpg', null, 9), mk('/c.jpg', null, 7)] } };
+
+  LC.backdrops.apply(null, body, movie);
+  const layer = mount(body._children[0]);
+  loaders[0].onload(); // первый кадр активирует слайдшоу
+
+  fireInterval(1); // 0 -> 1 (кадр-слайд)
+  loaders[1].onload();
+
+  const img0 = layer.children('.lumen-backdrop__img');
+  const slides = layer.children('.lumen-bg__slides');
+  assert.equal(img0.hasClass('is-active'), false);
+  const slideEl = slides._children[0];
+  assert.equal(slideEl.hasClass('is-active'), true);
+  const slideBg = slideEl._css['background-image'];
+
+  const oldCtrl = layer.data('lumenSlideshow');
+  oldCtrl.destroy(); // симулирует то, что в реальности делает страховка isLayerMounted()
+
+  const newCtrl = LC.backdrops.revive(layer);
+
+  assert.ok(newCtrl, 'revive должен вернуть новый контроллер');
+  assert.notEqual(newCtrl, oldCtrl);
+  assert.equal(newCtrl.isAlive(), true);
+  assert.equal(img0.hasClass('is-active'), true, 'img0 должен стать активным');
+  assert.equal(img0.css('background-image'), slideBg, 'img0 должен получить фон бывшего активного слайда');
+  assert.equal(img0.css('transform'), '', 'img0 не должен унаследовать инлайн-transform');
+  assert.equal(intervals[intervals.length - 1].cleared, false, 'новый интервал ротации должен быть запущен');
+
+  assert.equal(layer.children('.lumen-bg__slides')._children.length, 1, 'старый слайд ещё не должен быть убран сразу (защита от вспышки, Minor 2)');
+  fireTimer(timers.length);
+  assert.equal(layer.children('.lumen-bg__slides')._children.length, 0, 'после CROSSFADE_MS старый слайд должен быть убран');
+});
+
+test('revive() (fix, Important 3, б): пустые urls (apply на этом layer никогда не вызывался) -> null', () => {
+  const LC = freshLC();
+  const layer = mount(fakeQuery('<div class="lumen-backdrop"><div class="lumen-backdrop__img"></div><div class="lumen-bg__slides"></div></div>'));
+  assert.equal(LC.backdrops.revive(layer), null);
+});
+
+test('revive() (fix, Important 3, в): один кадр в urls -> новый контроллер живой, но без таймера ротации', () => {
+  const LC = freshLC({ prefs: { lumen_slideshow: true } });
+  const body = fakeBody();
+  const movie = { id: 1, backdrop_path: '/main.jpg', images: { backdrops: [] } }; // только главный кадр
+  LC.backdrops.apply(null, body, movie);
+  const layer = mount(body._children[0]);
+  loaders[0].onload();
+  assert.equal(intervals.length, 0, 'проверка: с одним кадром таймер и так не заводится');
+
+  const oldCtrl = layer.data('lumenSlideshow');
+  oldCtrl.destroy();
+  const ivBefore = intervals.length;
+  const newCtrl = LC.backdrops.revive(layer);
+
+  assert.ok(newCtrl);
+  assert.equal(newCtrl.isAlive(), true);
+  assert.equal(intervals.length, ivBefore, 'с одним кадром revive тоже не должен заводить таймер');
+});
+
+test('revive() (fix, Minor 1): backdrop-режим, но первый кадр не загрузился (запасной blur/procedural, activate() не вызывался) -> lumen-bg__img на img0 нет, revive -> null', () => {
+  const LC = freshLC();
+  const body = fakeBody();
+  const movie = { id: 1, backdrop_path: '/main.jpg', poster_path: '/p.jpg', images: { backdrops: [mk('/main.jpg', null, 9), mk('/c.jpg', null, 7)] } };
+  LC.backdrops.apply(null, body, movie);
+  const layer = mount(body._children[0]);
+  loaders[0].onerror(); // первый кадр не загрузился -> showNoFrame (запасной постер), controller.activate() не вызывается
+
+  const img0 = layer.children('.lumen-backdrop__img');
+  assert.equal(img0.hasClass('lumen-bg__img'), false, 'проверка: activate() не отработал');
+  assert.ok(layer.data('lumenUrls').length > 0, 'проверка: urls непустые (иначе это тест не про Minor 1, а про Important 3б)');
+
+  assert.equal(LC.backdrops.revive(layer), null);
+});

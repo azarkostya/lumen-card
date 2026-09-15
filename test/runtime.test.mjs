@@ -301,3 +301,62 @@ test('(fix, обзор координатора п.2) LC.applyMotionMode сни�
   assert.equal(backdropLayer.hasClass('lumen-motion-lite'), true);
   assert.equal(backdropLayer.hasClass('lumen-motion-full'), false, 'слой фона тоже должен потерять lumen-motion-full — иначе Ken Burns продолжил бы играть');
 });
+
+/* ====================================================================== */
+/* Task 6 (fix, повторное ревью, Important 1): мёртвый контроллер должен   */
+/* оживать и в ветке "e.object === LC.active.object" (своя активность),    */
+/* не только во второй (восстановление чужой). Частый сценарий: карточка   */
+/* A -> актёр -> список (не-full активности, 'full':complite не шлют,      */
+/* LC.active всё это время остаётся A) -> A сама уходит на 2+ уровня,      */
+/* ActivitySlide.stop() -> тик isLayerMounted() уничтожает контроллер ->   */
+/* backward() до A -> 'start' для A, но e.object === LC.active.object      */
+/* (LC.active никогда не менялся) -> раньше это была ветка "resume() без   */
+/* проверки" -> молчаливый застой. */
+/* ====================================================================== */
+
+test('(fix, Important 1) start СВОЕЙ активности (LC.active уже она) с destroyed контроллером -> ровно один revive, LC.active.slideshow живой, старый resume() не получает', () => {
+  const LC = freshLC();
+  const reviveCalls = [];
+  const freshCtrl = makeCtrl();
+  LC.backdrops = {
+    cancel: () => { },
+    revive: (layer) => { reviveCalls.push(layer); return freshCtrl; }
+  };
+
+  const deadCtrl = makeCtrl();
+  deadCtrl.destroy(); // уже уничтожен (Lampa ActivitySlide.stop() -> isLayerMounted() self-heal)
+  const objA = makeActivityObj('A', true, deadCtrl);
+  LC.active = { object: objA, body: {}, slideshow: deadCtrl };
+
+  LC.onActivityEvent({ type: 'start', component: 'full', object: objA });
+
+  assert.equal(reviveCalls.length, 1, 'должен быть ровно один revive');
+  assert.equal(deadCtrl.resumeCalls, 0, 'старый мёртвый контроллер не должен получать resume()');
+  assert.equal(LC.active.slideshow, freshCtrl);
+  assert.equal(freshCtrl.resumeCalls, 1);
+
+  // Повторный start той же (уже живой) активности не должен снова звать revive.
+  LC.onActivityEvent({ type: 'start', component: 'full', object: objA });
+  assert.equal(reviveCalls.length, 1, 'второй revive не должен появляться, когда контроллер уже жив');
+  assert.equal(freshCtrl.resumeCalls, 2);
+});
+
+test('(fix, Important 1) archive СВОЕЙ активности с destroyed контроллером -> тоже вызывает revive (та же liveSlideshow)', () => {
+  const LC = freshLC();
+  const reviveCalls = [];
+  const freshCtrl = makeCtrl();
+  LC.backdrops = {
+    cancel: () => { },
+    revive: (layer) => { reviveCalls.push(layer); return freshCtrl; }
+  };
+
+  const deadCtrl = makeCtrl();
+  deadCtrl.destroy();
+  const objA = makeActivityObj('A', true, deadCtrl);
+  LC.active = { object: objA, body: {}, slideshow: deadCtrl };
+
+  LC.onActivityEvent({ type: 'archive', component: 'full', object: objA });
+
+  assert.equal(reviveCalls.length, 1);
+  assert.equal(LC.active.slideshow, freshCtrl);
+});

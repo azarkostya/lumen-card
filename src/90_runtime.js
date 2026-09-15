@@ -135,6 +135,31 @@
     }
   }
 
+  /* Ревью (fix, Important 1): контроллер s жив — вернуть как есть. Мёртв
+     (уничтожен isLayerMounted()-страховкой в src/51_slideshow.js — Lampa
+     ActivitySlide.stop() тихо убрал DOM 2+ уровня назад в истории, БЕЗ
+     единого события Listener — план 0.2/находка Task 6) или отсутствует —
+     пересобрать через LC.backdrops.revive(layer) (см. обоснование выбора
+     в комментарии над revive() — src/50_backdrops.js).
+
+     Раньше это было только во второй ветке ниже ('start' карточки, которая
+     уже НЕ LC.active). Реальный частый сценарий этого не покрывал: A ->
+     actor -> список (actor/список — не 'full', 'full':complite для них не
+     шлётся, LC.active всё это время остаётся {object:A, ...}) -> A сама
+     уходит на 2+ уровня в историю -> ActivitySlide.stop() -> тик
+     isLayerMounted() уничтожает контроллер A -> backward() до A -> 'start'
+     для A, но e.object === LC.active.object (LC.active так и не менялся!)
+     -> ПЕРВАЯ ветка ('archive'|'start' своей активности) звала resume() на
+     уже мёртвом контроллере без проверки — молчаливый застой. Теперь обе
+     ветки (своя активность и "восстановленная" чужая) проходят через один
+     и тот же помощник. */
+  function liveSlideshow(layer, s) {
+    if (!layer || !layer.length) return s;
+    var dead = !s || (typeof s.isAlive === 'function' && !s.isAlive());
+    if (!dead) return s;
+    return LC.backdrops.revive(layer) || s;
+  }
+
   /* Единственный обработчик подписки 'activity' за всё время жизни
      плагина (правки координатора к Task 6: вторую подписку не заводить).
      Вынесен в именованную LC.onActivityEvent — LC.init() только подписывает
@@ -193,6 +218,12 @@
           LC.backdrops.cancel(LC.active.body);
           LC.active = null;
         } else if (e.type === 'archive' || e.type === 'start') {
+          /* Ревью (fix, Important 1): та же самая liveSlideshow() — своя
+             активность тоже может дойти сюда с уже мёртвым контроллером
+             (A -> не-full активности -> A сама ActivitySlide.stop()'нута,
+             LC.active всё это время не менялся, см. комментарий над
+             liveSlideshow()). */
+          LC.active.slideshow = liveSlideshow(layerOf(e.object), LC.active.slideshow);
           if (LC.active.slideshow) LC.active.slideshow.resume();
         }
         return;
@@ -209,27 +240,12 @@
          пустой/null, ветка тихо no-op (нормальный путь на самый первый
          'start' любого push, ДО того как 'full' complite впервые выставит
          LC.active). Для карточки, к которой вернулись через backward(),
-         слой уже есть — восстанавливаем LC.active.
-
-         Находка (fix, решение координатора): у Lampa есть свой механизм
-         ActivitySlide.stop() (карточка на 2+ уровня в глубине истории) —
-         тихо убирает DOM (slide.remove()) БЕЗ единого события Listener.
-         Наша страховка isLayerMounted() в src/51_slideshow.js корректно
-         ловит это на следующем тике таймера и завершает контроллер
-         (destroy()). Но когда backward() возвращает пользователя на такую
-         карточку, Lampa переиспользует ТОТ ЖЕ DOM/ActivitySlide (start$4:
-         is_stopped -> slides.append(render())) БЕЗ нового 'full':complite —
-         resume() на уже уничтоженном контроллере молча ничего не делает
-         (alive=false). Поэтому: контроллера нет ИЛИ он !isAlive() ->
-         LC.backdrops.revive(layer) пересобирает ротацию на месте (см.
-         обоснование выбора в комментарии над revive() — 50_backdrops.js). */
+         слой уже есть — восстанавливаем LC.active (liveSlideshow() —
+         оживит контроллер при необходимости, см. комментарий над ней). */
       if (e.type === 'start' && e.component === 'full') {
         var layer = layerOf(e.object);
         if (layer && layer.length) {
-          var slideshow = layer.data('lumenSlideshow');
-          if (!slideshow || (typeof slideshow.isAlive === 'function' && !slideshow.isAlive())) {
-            slideshow = LC.backdrops.revive(layer);
-          }
+          var slideshow = liveSlideshow(layer, layer.data('lumenSlideshow'));
           LC.active = { object: e.object, body: layer.parent(), slideshow: slideshow };
           if (slideshow) slideshow.resume();
         }

@@ -188,6 +188,22 @@
       }
 
       function setActive(i) {
+        /* Ревью (fix, Important 2 — регрессия предыдущего фикса п.3): кадр
+           i как раз ждёт своего остывания (очередь всего из 2 кадров идёт
+           по кругу быстрее CROSSFADE_MS, либо часть кандидатов битая и
+           круг короткий) — мы возвращаемся к нему РАНЬШЕ, чем истекло его
+           отложенное охлаждение. Отменяем это охлаждение БЕЗ выполнения
+           (не coolDown!) — кадр снова активен, снимать с него
+           background-image нельзя. Проверка обязана идти ДО toggle
+           классов ниже: иначе scheduleCoolDown() для НОВОГО уходящего
+           кадра увидел бы это же ожидающее охлаждение как "чужое" и
+           немедленно выполнил coolDown(i) уже ПОСЛЕ того, как i получил
+           is-active — снимая фон с только что показанного кадра. */
+        if (cleanupPending && cleanupPending.i === i) {
+          stopCleanupTimer();
+          cleanupPending = null;
+        }
+
         var prevIdx = activeIdx;
         var prevEl = (prevIdx !== -1 && frames[prevIdx]) ? frames[prevIdx] : null;
 
@@ -338,7 +354,11 @@
       isActivityForeground: isActivityForeground,
       isLayerForeground: isLayerForeground,
       maxFramesFor: maxFramesFor,
-      isMounted: isMounted
+      isMounted: isMounted,
+      /* Ревью (fix, Minor 2): LC.backdrops.revive() (50_backdrops.js) тоже
+         откладывает уборку старого кадра на длительность кроссфейда —
+         числа не должны разъезжаться по двум файлам. */
+      CROSSFADE_MS: CROSSFADE_MS
     };
   })();
 

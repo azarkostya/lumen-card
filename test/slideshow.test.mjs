@@ -317,6 +317,32 @@ test('slideshow (fix, п.3, обзор координатора): две сме�
   assert.equal(warmFrames(layer).length, 2, 'потерянное (отменённое) охлаждение кадра 0 не должно копить тёплые кадры');
 });
 
+test('slideshow (fix, повторное ревью, Important 2 — регрессия предыдущего фикса): urls(2), 0->1->0 без fireTimer -> img0 снова активен с непустым фоном, тёплых ровно 2', () => {
+  /* С 2 кадрами очередь идёт по кругу (0,1,0,1,...) — если между сменами
+     не прошло CROSSFADE_MS, вторая смена (1->0) возвращается ровно на тот
+     кадр (0), чьё охлаждение ещё ждёт своего таймера. Регрессия
+     предыдущего фикса (п.3): scheduleCoolDown() для НОВОГО уходящего (1)
+     видел это ожидающее охлаждение кадра 0 как "чужое" и выполнял его
+     НЕМЕДЛЕННО — уже ПОСЛЕ того, как кадр 0 (img0) получил is-active,
+     снимая фон с только что показанного кадра. */
+  const LC = freshLC();
+  const layer = mount(makeLayer());
+  const ctrl = LC.slideshow.create(layer, urls(2), { enabled: () => true, intervalMs: () => 8000 });
+  ctrl.activate();
+
+  const img0 = layer.children('.lumen-backdrop__img');
+  const originalBg = img0.css('background-image');
+
+  fireInterval(1); // 0 -> 1
+  loaders[0].onload();
+  // fireTimer НЕ вызываем — сразу следующий тик, кадр 0 ещё не остыл.
+  fireInterval(1); // 1 -> 0 (кадр 0 уже существует и тёплый — ensureFrame синхронный)
+
+  assert.equal(img0.hasClass('is-active'), true, 'img0 должен снова стать активным');
+  assert.equal(img0.css('background-image'), originalBg, 'фон img0 не должен был обнулиться');
+  assert.equal(warmFrames(layer).length, 2, 'тёплых должно остаться 2 (img0 + кадр 1, ожидающий своего охлаждения)');
+});
+
 test('slideshow (fix, п.3): "остывший" кадр при повторном заходе очереди получает background-image заново (без нового Image())', () => {
   const LC = freshLC();
   const layer = mount(makeLayer());

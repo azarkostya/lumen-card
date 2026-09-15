@@ -1454,11 +1454,16 @@
   /* Task 6, Ревью (симметрично stopSlideshow ниже): достаёт и уничтожает
      контроллер слайдшоу, привязанный к слою через layer.data
      ('lumenSlideshow') — общая точка входа и для apply() (гасит слайдшоу
-     ПРЕДЫДУЩЕГО вызова на том же layer) и для cancel() (закрытие карточки). */
+     ПРЕДЫДУЩЕГО вызова на том же layer) и для cancel() (закрытие карточки).
+     Заодно чистит отложенный таймер уборки старого кадра из revive() ниже
+     (Minor 2) — если карточку закрыли или переоткрыли новым apply() раньше,
+     чем этот таймер успел сработать сам, он не должен пережить layer. */
   function stopSlideshow(layer) {
     var s = layer.data('lumenSlideshow');
     if (s) { try { s.destroy(); } catch (e) { } }
     layer.removeData('lumenSlideshow');
+    var reviveCleanup = layer.data('lumenReviveCleanup');
+    if (reviveCleanup) { clearTimeout(reviveCleanup); layer.removeData('lumenReviveCleanup'); }
   }
 
   /* Task 6 (fix, находка "мёртвое слайдшоу", решение координатора): Lampa
@@ -1499,7 +1504,33 @@
      Отдельный generation guard (lumenGen) здесь не нужен: проверка
      isAlive() и создание нового контроллера происходят синхронно в одном
      вызове LC.onActivityEvent, без асинхронного окна для гонки (в отличие
-     от варианта A, где новый apply() снова ждёт сеть). */
+     от варианта A, где новый apply() снова ждёт сеть).
+
+     Ревью (fix, Minor 1): если слайдшоу тут вообще НЕ запускалось —
+     bgMode !== 'backdrop' (постер/процедурный фон) или первый кадр
+     'backdrop' не загрузился и loadBackdrop() откатился на запасной
+     blur/procedural (Task 5b) — на .lumen-backdrop__img нет класса
+     lumen-bg__img (его ставит только controller.activate(), а clearLayer()
+     снимает на каждом apply()). Оживлять тут нечего: иначе ротация чётких
+     кадров полезла бы поверх размытого постера, а Ken Burns сломал бы его
+     collapse(1.1) из 30_css.js. Проверено (test/css.test.mjs,
+     .lumen-bg--blur): blur/procedural и lumen-bg__img/is-active никогда
+     не пересекаются в норме — если пересеклись, это и есть мёртвый layer
+     без реального слайдшоу, бежим.
+
+     Ревью (fix, Minor 2, защита от вспышки): если контроллер умер, когда
+     активным был кадр-СЛАЙД (не .lumen-backdrop__img — ротация успела
+     провернуться) — не рвём этот слайд сразу. img0 получает ту же
+     картинку и is-active СИНХРОННО (без промежуточного пустого кадра —
+     как и раньше), но старый слайд, показывающий ТУ ЖЕ картинку, остаётся
+     в DOM ещё CROSSFADE_MS (та же длительность, что и обычный кроссфейд,
+     LC.slideshow.CROSSFADE_MS — общее число, не дублируется) и только
+     потом убирается — на случай (не удалось стопроцентно проверить
+     живьём из-за скрытой панели браузера, где CSS-transition не играют),
+     если между выставлением фона на img0 и покраской всё же случится
+     разрыв, под старым слайдом всё это время будет та же картинка, а не
+     пустота. Таймер — на layer.data('lumenReviveCleanup'), чистится в
+     stopSlideshow() (apply()/cancel()), чтобы не пережил layer. */
   function revive(layer) {
     try {
       var urls = layer.data('lumenUrls');
@@ -1507,7 +1538,10 @@
       var opts = layer.data('lumenOpts');
 
       var img0 = layer.find('.lumen-backdrop__img');
+      if (!img0.hasClass('lumen-bg__img')) return null;
+
       var activeFrame = layer.find('.lumen-bg__img.is-active');
+      var isSlide = !!(activeFrame.length && activeFrame[0] !== img0[0]);
       var activeBg = activeFrame.length ? activeFrame.css('background-image') : img0.css('background-image');
       if (activeBg) img0.css('background-image', activeBg);
       /* На случай, если img0 сам умер посреди кроссфейда (был уходящим,
@@ -1517,7 +1551,17 @@
       img0.css('transform', '');
       clearInlineStyleIfEmpty(img0);
       img0.addClass('lumen-bg__img is-active');
-      layer.find('.lumen-bg__slides').empty();
+
+      var slides = layer.find('.lumen-bg__slides');
+      if (isSlide) {
+        var reviveTimer = setTimeout(function () {
+          layer.removeData('lumenReviveCleanup');
+          try { slides.empty(); } catch (e) { }
+        }, LC.slideshow.CROSSFADE_MS);
+        layer.data('lumenReviveCleanup', reviveTimer);
+      } else {
+        slides.empty();
+      }
 
       var controller = LC.slideshow.create(layer, urls, opts);
       layer.data('lumenSlideshow', controller);
@@ -1730,6 +1774,22 @@
       }
 
       function setActive(i) {
+        /* Ревью (fix, Important 2 — регрессия предыдущего фикса п.3): кадр
+           i как раз ждёт своего остывания (очередь всего из 2 кадров идёт
+           по кругу быстрее CROSSFADE_MS, либо часть кандидатов битая и
+           круг короткий) — мы возвращаемся к нему РАНЬШЕ, чем истекло его
+           отложенное охлаждение. Отменяем это охлаждение БЕЗ выполнения
+           (не coolDown!) — кадр снова активен, снимать с него
+           background-image нельзя. Проверка обязана идти ДО toggle
+           классов ниже: иначе scheduleCoolDown() для НОВОГО уходящего
+           кадра увидел бы это же ожидающее охлаждение как "чужое" и
+           немедленно выполнил coolDown(i) уже ПОСЛЕ того, как i получил
+           is-active — снимая фон с только что показанного кадра. */
+        if (cleanupPending && cleanupPending.i === i) {
+          stopCleanupTimer();
+          cleanupPending = null;
+        }
+
         var prevIdx = activeIdx;
         var prevEl = (prevIdx !== -1 && frames[prevIdx]) ? frames[prevIdx] : null;
 
@@ -1880,7 +1940,11 @@
       isActivityForeground: isActivityForeground,
       isLayerForeground: isLayerForeground,
       maxFramesFor: maxFramesFor,
-      isMounted: isMounted
+      isMounted: isMounted,
+      /* Ревью (fix, Minor 2): LC.backdrops.revive() (50_backdrops.js) тоже
+         откладывает уборку старого кадра на длительность кроссфейда —
+         числа не должны разъезжаться по двум файлам. */
+      CROSSFADE_MS: CROSSFADE_MS
     };
   })();
 
@@ -2601,6 +2665,31 @@
     }
   }
 
+  /* Ревью (fix, Important 1): контроллер s жив — вернуть как есть. Мёртв
+     (уничтожен isLayerMounted()-страховкой в src/51_slideshow.js — Lampa
+     ActivitySlide.stop() тихо убрал DOM 2+ уровня назад в истории, БЕЗ
+     единого события Listener — план 0.2/находка Task 6) или отсутствует —
+     пересобрать через LC.backdrops.revive(layer) (см. обоснование выбора
+     в комментарии над revive() — src/50_backdrops.js).
+
+     Раньше это было только во второй ветке ниже ('start' карточки, которая
+     уже НЕ LC.active). Реальный частый сценарий этого не покрывал: A ->
+     actor -> список (actor/список — не 'full', 'full':complite для них не
+     шлётся, LC.active всё это время остаётся {object:A, ...}) -> A сама
+     уходит на 2+ уровня в историю -> ActivitySlide.stop() -> тик
+     isLayerMounted() уничтожает контроллер A -> backward() до A -> 'start'
+     для A, но e.object === LC.active.object (LC.active так и не менялся!)
+     -> ПЕРВАЯ ветка ('archive'|'start' своей активности) звала resume() на
+     уже мёртвом контроллере без проверки — молчаливый застой. Теперь обе
+     ветки (своя активность и "восстановленная" чужая) проходят через один
+     и тот же помощник. */
+  function liveSlideshow(layer, s) {
+    if (!layer || !layer.length) return s;
+    var dead = !s || (typeof s.isAlive === 'function' && !s.isAlive());
+    if (!dead) return s;
+    return LC.backdrops.revive(layer) || s;
+  }
+
   /* Единственный обработчик подписки 'activity' за всё время жизни
      плагина (правки координатора к Task 6: вторую подписку не заводить).
      Вынесен в именованную LC.onActivityEvent — LC.init() только подписывает
@@ -2659,6 +2748,12 @@
           LC.backdrops.cancel(LC.active.body);
           LC.active = null;
         } else if (e.type === 'archive' || e.type === 'start') {
+          /* Ревью (fix, Important 1): та же самая liveSlideshow() — своя
+             активность тоже может дойти сюда с уже мёртвым контроллером
+             (A -> не-full активности -> A сама ActivitySlide.stop()'нута,
+             LC.active всё это время не менялся, см. комментарий над
+             liveSlideshow()). */
+          LC.active.slideshow = liveSlideshow(layerOf(e.object), LC.active.slideshow);
           if (LC.active.slideshow) LC.active.slideshow.resume();
         }
         return;
@@ -2675,27 +2770,12 @@
          пустой/null, ветка тихо no-op (нормальный путь на самый первый
          'start' любого push, ДО того как 'full' complite впервые выставит
          LC.active). Для карточки, к которой вернулись через backward(),
-         слой уже есть — восстанавливаем LC.active.
-
-         Находка (fix, решение координатора): у Lampa есть свой механизм
-         ActivitySlide.stop() (карточка на 2+ уровня в глубине истории) —
-         тихо убирает DOM (slide.remove()) БЕЗ единого события Listener.
-         Наша страховка isLayerMounted() в src/51_slideshow.js корректно
-         ловит это на следующем тике таймера и завершает контроллер
-         (destroy()). Но когда backward() возвращает пользователя на такую
-         карточку, Lampa переиспользует ТОТ ЖЕ DOM/ActivitySlide (start$4:
-         is_stopped -> slides.append(render())) БЕЗ нового 'full':complite —
-         resume() на уже уничтоженном контроллере молча ничего не делает
-         (alive=false). Поэтому: контроллера нет ИЛИ он !isAlive() ->
-         LC.backdrops.revive(layer) пересобирает ротацию на месте (см.
-         обоснование выбора в комментарии над revive() — 50_backdrops.js). */
+         слой уже есть — восстанавливаем LC.active (liveSlideshow() —
+         оживит контроллер при необходимости, см. комментарий над ней). */
       if (e.type === 'start' && e.component === 'full') {
         var layer = layerOf(e.object);
         if (layer && layer.length) {
-          var slideshow = layer.data('lumenSlideshow');
-          if (!slideshow || (typeof slideshow.isAlive === 'function' && !slideshow.isAlive())) {
-            slideshow = LC.backdrops.revive(layer);
-          }
+          var slideshow = liveSlideshow(layer, layer.data('lumenSlideshow'));
           LC.active = { object: e.object, body: layer.parent(), slideshow: slideshow };
           if (slideshow) slideshow.resume();
         }

@@ -383,11 +383,16 @@
   /* Task 6, Ревью (симметрично stopSlideshow ниже): достаёт и уничтожает
      контроллер слайдшоу, привязанный к слою через layer.data
      ('lumenSlideshow') — общая точка входа и для apply() (гасит слайдшоу
-     ПРЕДЫДУЩЕГО вызова на том же layer) и для cancel() (закрытие карточки). */
+     ПРЕДЫДУЩЕГО вызова на том же layer) и для cancel() (закрытие карточки).
+     Заодно чистит отложенный таймер уборки старого кадра из revive() ниже
+     (Minor 2) — если карточку закрыли или переоткрыли новым apply() раньше,
+     чем этот таймер успел сработать сам, он не должен пережить layer. */
   function stopSlideshow(layer) {
     var s = layer.data('lumenSlideshow');
     if (s) { try { s.destroy(); } catch (e) { } }
     layer.removeData('lumenSlideshow');
+    var reviveCleanup = layer.data('lumenReviveCleanup');
+    if (reviveCleanup) { clearTimeout(reviveCleanup); layer.removeData('lumenReviveCleanup'); }
   }
 
   /* Task 6 (fix, находка "мёртвое слайдшоу", решение координатора): Lampa
@@ -428,7 +433,33 @@
      Отдельный generation guard (lumenGen) здесь не нужен: проверка
      isAlive() и создание нового контроллера происходят синхронно в одном
      вызове LC.onActivityEvent, без асинхронного окна для гонки (в отличие
-     от варианта A, где новый apply() снова ждёт сеть). */
+     от варианта A, где новый apply() снова ждёт сеть).
+
+     Ревью (fix, Minor 1): если слайдшоу тут вообще НЕ запускалось —
+     bgMode !== 'backdrop' (постер/процедурный фон) или первый кадр
+     'backdrop' не загрузился и loadBackdrop() откатился на запасной
+     blur/procedural (Task 5b) — на .lumen-backdrop__img нет класса
+     lumen-bg__img (его ставит только controller.activate(), а clearLayer()
+     снимает на каждом apply()). Оживлять тут нечего: иначе ротация чётких
+     кадров полезла бы поверх размытого постера, а Ken Burns сломал бы его
+     collapse(1.1) из 30_css.js. Проверено (test/css.test.mjs,
+     .lumen-bg--blur): blur/procedural и lumen-bg__img/is-active никогда
+     не пересекаются в норме — если пересеклись, это и есть мёртвый layer
+     без реального слайдшоу, бежим.
+
+     Ревью (fix, Minor 2, защита от вспышки): если контроллер умер, когда
+     активным был кадр-СЛАЙД (не .lumen-backdrop__img — ротация успела
+     провернуться) — не рвём этот слайд сразу. img0 получает ту же
+     картинку и is-active СИНХРОННО (без промежуточного пустого кадра —
+     как и раньше), но старый слайд, показывающий ТУ ЖЕ картинку, остаётся
+     в DOM ещё CROSSFADE_MS (та же длительность, что и обычный кроссфейд,
+     LC.slideshow.CROSSFADE_MS — общее число, не дублируется) и только
+     потом убирается — на случай (не удалось стопроцентно проверить
+     живьём из-за скрытой панели браузера, где CSS-transition не играют),
+     если между выставлением фона на img0 и покраской всё же случится
+     разрыв, под старым слайдом всё это время будет та же картинка, а не
+     пустота. Таймер — на layer.data('lumenReviveCleanup'), чистится в
+     stopSlideshow() (apply()/cancel()), чтобы не пережил layer. */
   function revive(layer) {
     try {
       var urls = layer.data('lumenUrls');
@@ -436,7 +467,10 @@
       var opts = layer.data('lumenOpts');
 
       var img0 = layer.find('.lumen-backdrop__img');
+      if (!img0.hasClass('lumen-bg__img')) return null;
+
       var activeFrame = layer.find('.lumen-bg__img.is-active');
+      var isSlide = !!(activeFrame.length && activeFrame[0] !== img0[0]);
       var activeBg = activeFrame.length ? activeFrame.css('background-image') : img0.css('background-image');
       if (activeBg) img0.css('background-image', activeBg);
       /* На случай, если img0 сам умер посреди кроссфейда (был уходящим,
@@ -446,7 +480,17 @@
       img0.css('transform', '');
       clearInlineStyleIfEmpty(img0);
       img0.addClass('lumen-bg__img is-active');
-      layer.find('.lumen-bg__slides').empty();
+
+      var slides = layer.find('.lumen-bg__slides');
+      if (isSlide) {
+        var reviveTimer = setTimeout(function () {
+          layer.removeData('lumenReviveCleanup');
+          try { slides.empty(); } catch (e) { }
+        }, LC.slideshow.CROSSFADE_MS);
+        layer.data('lumenReviveCleanup', reviveTimer);
+      } else {
+        slides.empty();
+      }
 
       var controller = LC.slideshow.create(layer, urls, opts);
       layer.data('lumenSlideshow', controller);
