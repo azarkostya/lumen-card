@@ -207,13 +207,13 @@
       return 'procedural';
     }
 
-    /* Task 5c: месяцы для дат сериала — родительный падеж («17 декабря», чип
-       следующей серии, экран 05) и короткая форма («17 дек · не вышла»). */
-    var MONTHS_GEN = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
-    var MONTHS_SHORT = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
-
-    /* 'YYYY-MM-DD' -> '17 декабря' по переданному списку месяцев, мусор -> ''. */
+    /* Task 5c: 'YYYY-MM-DD' + список из 12 месяцев -> '17 декабря' / '17 дек'.
+       Ревью п.4: сами названия месяцев (как и «сегодня»/«завтра»/«через» и
+       склонение дней) живут в LC.STRINGS и приходят параметром — модуль
+       остаётся чистым и не знает ни про Lampa, ни про язык интерфейса.
+       Нет списка, пусто или мусор в дате -> ''. */
     function dayMonth(ymd, months) {
+      if (!months || months.length !== 12) return '';
       var m = /^\d{4}-(\d{2})-(\d{2})/.exec('' + (ymd || ''));
       if (!m) return '';
       var month = parseInt(m[1], 10);
@@ -222,25 +222,26 @@
       return day + ' ' + months[month - 1];
     }
 
-    function shortDate(ymd) {
-      return dayMonth(ymd, MONTHS_SHORT);
+    function shortDate(ymd, months) {
+      return dayMonth(ymd, months);
     }
 
     /* Task 5c Step 1: чип «Следующая серия» (design-spec §5e, экран 05) по
        movie.next_episode_to_air. Дни — календарные (LC.util.daysUntil), так что
        серия «завтра» остаётся завтрашней и в 23:50. Сегодня/завтра — словом:
-       «через 0 дней»/«через 1 день» по-русски звучат неестественно. Дата в
-       прошлом или нет данных -> null (чип скрыт). */
-    function nextEpisode(nextToAir, now) {
-      if (!nextToAir) return null;
+       «через 0 дней»/«через 1 день» звучат неестественно. words — строки и
+       склонение из LC.STRINGS (собирает LC.header). Дата в прошлом, нет данных
+       или нет строк -> null (чип скрыт). */
+    function nextEpisode(nextToAir, now, words) {
+      if (!nextToAir || !words) return null;
       var days = LC.util.daysUntil(nextToAir.air_date, now);
-      var date = dayMonth(nextToAir.air_date, MONTHS_GEN);
+      var date = dayMonth(nextToAir.air_date, words.months);
       if (days === null || days < 0 || !date) return null;
-      var text = 'Следующая серия — ';
-      if (days === 0) text += 'сегодня';
-      else if (days === 1) text += 'завтра';
-      else text += date + ', через ' + days + ' ' + LC.util.plural(days, ['день', 'дня', 'дней']);
-      return { date: date, days: days, text: text };
+      var when;
+      if (days === 0) when = words.today;
+      else if (days === 1) when = words.tomorrow;
+      else when = date + ', ' + words.inDays + ' ' + days + ' ' + (words.daysWord ? words.daysWord(days) : '');
+      return { date: date, days: days, text: words.next + ' — ' + when };
     }
 
     /* Task 5c Step 2: студия/сеть сериала в мета-строке («Amazon Prime» на

@@ -329,7 +329,9 @@
     /* Фокус (экран 06): обводка 3px акцентом, тёплый фон, свечение, scale 1.03;
        бейдж уступает место кружку play. Lampa не анимирует .lumen-episode
        своими keyframes, поэтому transform без !important. */
-    css.push('.lumen-card .lumen-episode.focus{opacity:1;background:linear-gradient(180deg,#221A13,#2C2318);border:.13em solid ' + A + ';padding:.75em;-webkit-transform:scale(1.03);transform:scale(1.03);-webkit-box-shadow:0 .614em 1.754em ' + AG + ';box-shadow:0 .614em 1.754em ' + AG + '}');
+    /* Ревью (п.10): рамка растёт .04 -> .13em, поэтому паддинг .79 -> .70em —
+       сумма .83em та же, содержимое карточки в фокусе не съезжает. */
+    css.push('.lumen-card .lumen-episode.focus{opacity:1;background:linear-gradient(180deg,#221A13,#2C2318);border:.13em solid ' + A + ';padding:.70em;-webkit-transform:scale(1.03);transform:scale(1.03);-webkit-box-shadow:0 .614em 1.754em ' + AG + ';box-shadow:0 .614em 1.754em ' + AG + '}');
     css.push('.lumen-card .lumen-episode.focus .lumen-episode__play{display:block}');
     css.push('.lumen-card .lumen-episode.focus .lumen-episode__check,.lumen-card .lumen-episode.focus .lumen-episode__percent{display:none}');
     css.push('.lumen-card .lumen-episode.focus .lumen-episode__name{font-weight:600}');
@@ -383,7 +385,9 @@
     css.push('.lumen-card.lumen-motion-lite .full-start__button{-webkit-animation:none !important;animation:none !important}');
     /* Task 5c: пружина фокуса карточки серии и сдвиг дорожки ряда — только в
        full; lite/off — без scale (как у кнопок), off ещё и без переходов. */
-    css.push('.lumen-card.lumen-motion-full .lumen-episode{-webkit-transition:background-color .2s,border-color .2s,opacity .2s,-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25),-webkit-box-shadow .28s;transition:background-color .2s,border-color .2s,opacity .2s,transform .28s cubic-bezier(.2,.9,.3,1.25),box-shadow .28s}');
+    /* Ревью (п.10): background-color в списке был бесполезен — фон карточки
+       задан градиентом (background-image), он не интерполируется. */
+    css.push('.lumen-card.lumen-motion-full .lumen-episode{-webkit-transition:border-color .2s,opacity .2s,-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25),-webkit-box-shadow .28s;transition:border-color .2s,opacity .2s,transform .28s cubic-bezier(.2,.9,.3,1.25),box-shadow .28s}');
     css.push('.lumen-card.lumen-motion-full .lumen-episodes__track{-webkit-transition:-webkit-transform .4s cubic-bezier(.2,.8,.2,1);transition:transform .4s cubic-bezier(.2,.8,.2,1)}');
     css.push('.lumen-card.lumen-motion-lite .lumen-episode.focus,.lumen-card.lumen-motion-off .lumen-episode.focus{-webkit-transform:none;transform:none}');
 

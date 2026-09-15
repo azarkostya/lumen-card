@@ -51,7 +51,9 @@
         var leftMin = null;
         if (view.duration > 0) leftMin = Math.max(1, Math.floor((view.duration - (view.time || 0)) / 60));
         else if (runtimeMin > 0) leftMin = Math.max(1, Math.round(runtimeMin * (100 - percent) / 100));
-        return { state: 'watching', percent: Math.round(percent), leftMin: leftMin };
+        /* Ревью (п.9): percent < 0.5 округлился бы в «0 %» — у начатой серии
+           показываем минимум 1 %. */
+        return { state: 'watching', percent: Math.max(1, Math.round(percent)), leftMin: leftMin };
       }
       var days = LC.util.daysUntil(airDate, now);
       return { state: days === null || days > 0 ? 'soon' : 'aired' };

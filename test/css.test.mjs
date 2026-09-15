@@ -316,11 +316,17 @@ test('buildCss: все четыре состояния серии и фокус 
   }
   const focus = findDecl(css, (sel) => sel === '.lumen-card .lumen-episode.focus');
   assert.ok(focus && focus.indexOf('scale(1.03)') !== -1);
+  // ревью п.10: рамка .04 -> .13em, паддинг .79 -> .70em — сумма .83em сохранена, содержимое не сдвигается
+  const base = findDecl(css, (sel) => sel === '.lumen-card .lumen-episode');
+  assert.ok(base.indexOf('padding:.79em') !== -1 && base.indexOf('border:.04em') !== -1);
+  assert.ok(focus.indexOf('padding:.70em') !== -1 && focus.indexOf('border:.13em') !== -1);
 });
 
 test('buildCss: переходы ряда серий — только в lumen-motion-full, в lite/off фокус без transform', () => {
   const withTransition = ruleBodies(css).filter((r) => r.selectors.some((s) => s.indexOf('lumen-episode') !== -1) && /transition\s*:/.test(r.decl));
   assert.ok(withTransition.length >= 2, 'ожидались переходы карточки и дорожки');
+  // ревью п.10: фон карточки — градиент, background-color на нём не анимируется
+  for (const r of withTransition) assert.equal(r.decl.indexOf('background-color'), -1, 'лишний transition background-color: ' + r.selectors.join(','));
   for (const r of withTransition) {
     assert.ok(r.selectors.every((s) => s.indexOf('lumen-motion-full') !== -1), 'transition вне lumen-motion-full: ' + r.selectors.join(','));
   }

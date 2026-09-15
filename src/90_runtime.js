@@ -110,7 +110,7 @@
      запись просмотра серии обновилась (плеер, синхронизация CUB) ->
      перерисовать карточку этой серии (LC.header.refreshEpisode ищет узлы по
      data-hash в DOM: без таймеров и без ссылок на карточки). */
-  function followTimeline() {
+  LC.followTimeline = function () {
     if (timeline_followed) return;
     timeline_followed = true;
     try {
@@ -125,7 +125,7 @@
     } catch (e2) {
       warn('timeline listener failed', e2);
     }
-  }
+  };
 
   /* -------------------------------------------------------------------- */
   /* Task 5b (правки координатора, п.4): хук закрытия карточки.             */
@@ -437,7 +437,7 @@
 
       followToggle();
       followActivityLifecycle();
-      followTimeline();
+      LC.followTimeline();
     } catch (e) {
       warn('init failed', e);
       restoreOriginalTemplate();

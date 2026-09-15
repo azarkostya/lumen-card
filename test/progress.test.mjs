@@ -171,3 +171,8 @@ test('episodeState: нет air_date -> soon (TMDB не даёт дату тол�
   assert.deepEqual(progress.episodeState(null, '', NOW), { state: 'soon' });
   assert.deepEqual(progress.episodeState(null, null, NOW), { state: 'soon' });
 });
+
+test('episodeState: начатая серия с percent < 0.5 показывает 1 %, а не «0 %»', () => {
+  assert.deepEqual(progress.episodeState({ percent: 0.3, time: 10, duration: 3300 }, '2026-01-01', NOW),
+    { state: 'watching', percent: 1, leftMin: 54 });
+});

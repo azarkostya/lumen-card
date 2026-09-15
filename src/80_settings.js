@@ -34,6 +34,24 @@
     lumen_card_ep_watching: { ru: 'смотрите', en: 'watching', uk: 'дивитесь' },
     lumen_card_ep_left: { ru: 'осталось', en: 'left', uk: 'залишилось' },
     lumen_card_ep_soon: { ru: 'не вышла', en: 'not aired', uk: 'не вийшла' },
+    /* Ревью Task 5c (п.4): строки чипа следующей серии и названия месяцев —
+       здесь, а не хардкодом в LC.cardinfo (он остаётся чистым и получает их
+       параметром от LC.header). Месяцы — список через запятую: родительный
+       падеж для чипа («17 декабря») и короткая форма для серии («17 дек»). */
+    lumen_card_next_episode: { ru: 'Следующая серия', en: 'Next episode', uk: 'Наступна серія' },
+    lumen_card_today: { ru: 'сегодня', en: 'today', uk: 'сьогодні' },
+    lumen_card_tomorrow: { ru: 'завтра', en: 'tomorrow', uk: 'завтра' },
+    lumen_card_in_days: { ru: 'через', en: 'in', uk: 'через' },
+    lumen_card_months_gen: {
+      ru: 'января,февраля,марта,апреля,мая,июня,июля,августа,сентября,октября,ноября,декабря',
+      en: 'January,February,March,April,May,June,July,August,September,October,November,December',
+      uk: 'січня,лютого,березня,квітня,травня,червня,липня,серпня,вересня,жовтня,листопада,грудня'
+    },
+    lumen_card_months_short: {
+      ru: 'янв,фев,мар,апр,мая,июн,июл,авг,сен,окт,ноя,дек',
+      en: 'Jan,Feb,Mar,Apr,May,Jun,Jul,Aug,Sep,Oct,Nov,Dec',
+      uk: 'січ,лют,бер,кві,тра,чер,лип,сер,вер,жов,лис,гру'
+    },
     lumen_card_slideshow_name: { ru: 'Слайдшоу кадров', en: 'Backdrop slideshow', uk: 'Слайдшоу кадрів' },
     lumen_card_slide_interval: { ru: 'Интервал смены кадров', en: 'Frame interval', uk: 'Інтервал зміни кадрів' },
     lumen_card_seconds: { ru: 'с', en: 's', uk: 'с' },
@@ -67,6 +85,13 @@
   LC.episodesWord = function (n) {
     if (isSlavic()) return LC.util.plural(n, ['серия', 'серии', 'серий']);
     return n === 1 ? 'episode' : 'episodes';
+  };
+
+  /* Ревью Task 5c (п.4): склонение дней для чипа «через N дней» — той же
+     веткой isSlavic, что и сезоны/серии. */
+  LC.daysWord = function (n) {
+    if (isSlavic()) return LC.util.plural(n, ['день', 'дня', 'дней']);
+    return n === 1 ? 'day' : 'days';
   };
 
   /* Читает настройку плагина из Lampa.Storage с нормализацией булевых. */

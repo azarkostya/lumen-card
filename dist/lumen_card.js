@@ -574,7 +574,9 @@
     /* Фокус (экран 06): обводка 3px акцентом, тёплый фон, свечение, scale 1.03;
        бейдж уступает место кружку play. Lampa не анимирует .lumen-episode
        своими keyframes, поэтому transform без !important. */
-    css.push('.lumen-card .lumen-episode.focus{opacity:1;background:linear-gradient(180deg,#221A13,#2C2318);border:.13em solid ' + A + ';padding:.75em;-webkit-transform:scale(1.03);transform:scale(1.03);-webkit-box-shadow:0 .614em 1.754em ' + AG + ';box-shadow:0 .614em 1.754em ' + AG + '}');
+    /* Ревью (п.10): рамка растёт .04 -> .13em, поэтому паддинг .79 -> .70em —
+       сумма .83em та же, содержимое карточки в фокусе не съезжает. */
+    css.push('.lumen-card .lumen-episode.focus{opacity:1;background:linear-gradient(180deg,#221A13,#2C2318);border:.13em solid ' + A + ';padding:.70em;-webkit-transform:scale(1.03);transform:scale(1.03);-webkit-box-shadow:0 .614em 1.754em ' + AG + ';box-shadow:0 .614em 1.754em ' + AG + '}');
     css.push('.lumen-card .lumen-episode.focus .lumen-episode__play{display:block}');
     css.push('.lumen-card .lumen-episode.focus .lumen-episode__check,.lumen-card .lumen-episode.focus .lumen-episode__percent{display:none}');
     css.push('.lumen-card .lumen-episode.focus .lumen-episode__name{font-weight:600}');
@@ -628,7 +630,9 @@
     css.push('.lumen-card.lumen-motion-lite .full-start__button{-webkit-animation:none !important;animation:none !important}');
     /* Task 5c: пружина фокуса карточки серии и сдвиг дорожки ряда — только в
        full; lite/off — без scale (как у кнопок), off ещё и без переходов. */
-    css.push('.lumen-card.lumen-motion-full .lumen-episode{-webkit-transition:background-color .2s,border-color .2s,opacity .2s,-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25),-webkit-box-shadow .28s;transition:background-color .2s,border-color .2s,opacity .2s,transform .28s cubic-bezier(.2,.9,.3,1.25),box-shadow .28s}');
+    /* Ревью (п.10): background-color в списке был бесполезен — фон карточки
+       задан градиентом (background-image), он не интерполируется. */
+    css.push('.lumen-card.lumen-motion-full .lumen-episode{-webkit-transition:border-color .2s,opacity .2s,-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25),-webkit-box-shadow .28s;transition:border-color .2s,opacity .2s,transform .28s cubic-bezier(.2,.9,.3,1.25),box-shadow .28s}');
     css.push('.lumen-card.lumen-motion-full .lumen-episodes__track{-webkit-transition:-webkit-transform .4s cubic-bezier(.2,.8,.2,1);transition:transform .4s cubic-bezier(.2,.8,.2,1)}');
     css.push('.lumen-card.lumen-motion-lite .lumen-episode.focus,.lumen-card.lumen-motion-off .lumen-episode.focus{-webkit-transform:none;transform:none}');
 
@@ -928,13 +932,13 @@
       return 'procedural';
     }
 
-    /* Task 5c: месяцы для дат сериала — родительный падеж («17 декабря», чип
-       следующей серии, экран 05) и короткая форма («17 дек · не вышла»). */
-    var MONTHS_GEN = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
-    var MONTHS_SHORT = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
-
-    /* 'YYYY-MM-DD' -> '17 декабря' по переданному списку месяцев, мусор -> ''. */
+    /* Task 5c: 'YYYY-MM-DD' + список из 12 месяцев -> '17 декабря' / '17 дек'.
+       Ревью п.4: сами названия месяцев (как и «сегодня»/«завтра»/«через» и
+       склонение дней) живут в LC.STRINGS и приходят параметром — модуль
+       остаётся чистым и не знает ни про Lampa, ни про язык интерфейса.
+       Нет списка, пусто или мусор в дате -> ''. */
     function dayMonth(ymd, months) {
+      if (!months || months.length !== 12) return '';
       var m = /^\d{4}-(\d{2})-(\d{2})/.exec('' + (ymd || ''));
       if (!m) return '';
       var month = parseInt(m[1], 10);
@@ -943,25 +947,26 @@
       return day + ' ' + months[month - 1];
     }
 
-    function shortDate(ymd) {
-      return dayMonth(ymd, MONTHS_SHORT);
+    function shortDate(ymd, months) {
+      return dayMonth(ymd, months);
     }
 
     /* Task 5c Step 1: чип «Следующая серия» (design-spec §5e, экран 05) по
        movie.next_episode_to_air. Дни — календарные (LC.util.daysUntil), так что
        серия «завтра» остаётся завтрашней и в 23:50. Сегодня/завтра — словом:
-       «через 0 дней»/«через 1 день» по-русски звучат неестественно. Дата в
-       прошлом или нет данных -> null (чип скрыт). */
-    function nextEpisode(nextToAir, now) {
-      if (!nextToAir) return null;
+       «через 0 дней»/«через 1 день» звучат неестественно. words — строки и
+       склонение из LC.STRINGS (собирает LC.header). Дата в прошлом, нет данных
+       или нет строк -> null (чип скрыт). */
+    function nextEpisode(nextToAir, now, words) {
+      if (!nextToAir || !words) return null;
       var days = LC.util.daysUntil(nextToAir.air_date, now);
-      var date = dayMonth(nextToAir.air_date, MONTHS_GEN);
+      var date = dayMonth(nextToAir.air_date, words.months);
       if (days === null || days < 0 || !date) return null;
-      var text = 'Следующая серия — ';
-      if (days === 0) text += 'сегодня';
-      else if (days === 1) text += 'завтра';
-      else text += date + ', через ' + days + ' ' + LC.util.plural(days, ['день', 'дня', 'дней']);
-      return { date: date, days: days, text: text };
+      var when;
+      if (days === 0) when = words.today;
+      else if (days === 1) when = words.tomorrow;
+      else when = date + ', ' + words.inDays + ' ' + days + ' ' + (words.daysWord ? words.daysWord(days) : '');
+      return { date: date, days: days, text: words.next + ' — ' + when };
     }
 
     /* Task 5c Step 2: студия/сеть сериала в мета-строке («Amazon Prime» на
@@ -2920,7 +2925,9 @@
         var leftMin = null;
         if (view.duration > 0) leftMin = Math.max(1, Math.floor((view.duration - (view.time || 0)) / 60));
         else if (runtimeMin > 0) leftMin = Math.max(1, Math.round(runtimeMin * (100 - percent) / 100));
-        return { state: 'watching', percent: Math.round(percent), leftMin: leftMin };
+        /* Ревью (п.9): percent < 0.5 округлился бы в «0 %» — у начатой серии
+           показываем минимум 1 %. */
+        return { state: 'watching', percent: Math.max(1, Math.round(percent)), leftMin: leftMin };
       }
       var days = LC.util.daysUntil(airDate, now);
       return { state: days === null || days > 0 ? 'soon' : 'aired' };
@@ -2977,6 +2984,24 @@
     lumen_card_ep_watching: { ru: 'смотрите', en: 'watching', uk: 'дивитесь' },
     lumen_card_ep_left: { ru: 'осталось', en: 'left', uk: 'залишилось' },
     lumen_card_ep_soon: { ru: 'не вышла', en: 'not aired', uk: 'не вийшла' },
+    /* Ревью Task 5c (п.4): строки чипа следующей серии и названия месяцев —
+       здесь, а не хардкодом в LC.cardinfo (он остаётся чистым и получает их
+       параметром от LC.header). Месяцы — список через запятую: родительный
+       падеж для чипа («17 декабря») и короткая форма для серии («17 дек»). */
+    lumen_card_next_episode: { ru: 'Следующая серия', en: 'Next episode', uk: 'Наступна серія' },
+    lumen_card_today: { ru: 'сегодня', en: 'today', uk: 'сьогодні' },
+    lumen_card_tomorrow: { ru: 'завтра', en: 'tomorrow', uk: 'завтра' },
+    lumen_card_in_days: { ru: 'через', en: 'in', uk: 'через' },
+    lumen_card_months_gen: {
+      ru: 'января,февраля,марта,апреля,мая,июня,июля,августа,сентября,октября,ноября,декабря',
+      en: 'January,February,March,April,May,June,July,August,September,October,November,December',
+      uk: 'січня,лютого,березня,квітня,травня,червня,липня,серпня,вересня,жовтня,листопада,грудня'
+    },
+    lumen_card_months_short: {
+      ru: 'янв,фев,мар,апр,мая,июн,июл,авг,сен,окт,ноя,дек',
+      en: 'Jan,Feb,Mar,Apr,May,Jun,Jul,Aug,Sep,Oct,Nov,Dec',
+      uk: 'січ,лют,бер,кві,тра,чер,лип,сер,вер,жов,лис,гру'
+    },
     lumen_card_slideshow_name: { ru: 'Слайдшоу кадров', en: 'Backdrop slideshow', uk: 'Слайдшоу кадрів' },
     lumen_card_slide_interval: { ru: 'Интервал смены кадров', en: 'Frame interval', uk: 'Інтервал зміни кадрів' },
     lumen_card_seconds: { ru: 'с', en: 's', uk: 'с' },
@@ -3010,6 +3035,13 @@
   LC.episodesWord = function (n) {
     if (isSlavic()) return LC.util.plural(n, ['серия', 'серии', 'серий']);
     return n === 1 ? 'episode' : 'episodes';
+  };
+
+  /* Ревью Task 5c (п.4): склонение дней для чипа «через N дней» — той же
+     веткой isSlavic, что и сезоны/серии. */
+  LC.daysWord = function (n) {
+    if (isSlavic()) return LC.util.plural(n, ['день', 'дня', 'дней']);
+    return n === 1 ? 'day' : 'days';
   };
 
   /* Читает настройку плагина из Lampa.Storage с нормализацией булевых. */
@@ -3514,6 +3546,24 @@
     if (status.length && chip.length && status.next()[0] !== chip[0]) chip.before(status);
   }
 
+  /* Строки дат — из LC.STRINGS (ru/en/uk), склонение дней — LC.daysWord:
+     LC.cardinfo про Lampa и язык интерфейса не знает и получает их параметром
+     (ревью п.4). */
+  function dateWords() {
+    return {
+      next: LC.lang('lumen_card_next_episode'),
+      today: LC.lang('lumen_card_today'),
+      tomorrow: LC.lang('lumen_card_tomorrow'),
+      inDays: LC.lang('lumen_card_in_days'),
+      months: ('' + LC.lang('lumen_card_months_gen')).split(','),
+      daysWord: LC.daysWord
+    };
+  }
+
+  function monthsShort() {
+    return ('' + LC.lang('lumen_card_months_short')).split(',');
+  }
+
   /* Step 2 (design-spec §5e): «Следующая серия — 17 декабря, через 31 день»;
      без next_episode_to_air или с датой в прошлом чип скрыт. */
   function renderNextChip(root, movie) {
@@ -3521,7 +3571,7 @@
     if (!chip.length) return;
     chip.addClass('hide');
     if (!isSerial(movie)) return;
-    var next = LC.cardinfo.nextEpisode(movie.next_episode_to_air, new Date());
+    var next = LC.cardinfo.nextEpisode(movie.next_episode_to_air, new Date(), dateWords());
     if (!next) return;
     chip.find('.lumen-next-chip__text').text(next.text);
     chip.removeClass('hide');
@@ -3529,11 +3579,35 @@
 
   var EPISODE_STATES = 'lumen-episode--watched lumen-episode--watching lumen-episode--aired lumen-episode--soon';
 
+  /* Ревью п.3: у ежедневных шоу и аниме в сезоне бывает 100+ серий — грузить
+     столько кадров сразу нельзя. URL лежит в data-still, background-image
+     получают только карточки в окне ±6 от точки интереса (первая и текущая
+     серия при отрисовке, фокусная — при листании). */
+  var STILL_WINDOW = 6;
+
+  /* Ревью п.6: кадр ставится через .css, а не в атрибут style: esc() кодирует
+     апостроф как &#39;, который в атрибуте декодируется обратно и рвёт url('…').
+     Внутри url("…") экранируются только " и \. */
+  function applyStill(node) {
+    var url = node.attr('data-still');
+    if (!url) return;
+    node[0].lumenStill = true;
+    node.find('.lumen-episode__still').css('background-image', 'url("' + ('' + url).replace(/["\\]/g, '\\$&') + '")');
+  }
+
+  function loadStills(nodes, center) {
+    var from = Math.max(0, center - STILL_WINDOW);
+    var to = Math.min(nodes.length - 1, center + STILL_WINDOW);
+    for (var i = from; i <= to; i++) {
+      if (!nodes[i][0].lumenStill) applyStill(nodes[i]);
+    }
+  }
+
   /* Внутренность карточки серии по состоянию (design-spec §9): номер, бейдж
      (галочка у просмотренной, «32 %» у начатой; в фокусе вместо него кружок
-     play — экран 06), название, подпись, полоса у начатой. Кадр still_path —
-     подложкой под текстом (только через прокси TMDB, LC.cardinfo.imageUrl). */
-  function episodeInner(ep, st) {
+     play — экран 06), название, подпись, полоса у начатой. Узел кадра пустой —
+     картинку вешает applyStill, когда серия попадает в окно загрузки. */
+  function episodeInner(ep, st, months, hasStill) {
     var esc = LC.util.esc;
     var min = LC.lang('lumen_card_min');
     var runtime = ep.runtime > 0 ? ep.runtime + ' ' + min : '';
@@ -3547,14 +3621,12 @@
       caption = LC.lang('lumen_card_ep_watching') + (st.leftMin ? ' · ' + LC.lang('lumen_card_ep_left') + ' ' + st.leftMin + ' ' + min : '');
       badge = '<div class="lumen-episode__percent">' + st.percent + ' %</div>';
     } else if (st.state === 'soon') {
-      var date = LC.cardinfo.shortDate(ep.air_date);
+      var date = LC.cardinfo.shortDate(ep.air_date, months);
       caption = (date ? date + ' · ' : '') + LC.lang('lumen_card_ep_soon');
     }
 
-    var still = LC.cardinfo.imageUrl(ep.still_path, 'w300', tmdbImageFn(), apiImgFn());
-
     return '' +
-      (still ? '<div class="lumen-episode__still" style="background-image:url(\'' + esc(still) + '\')"></div>' : '') +
+      (hasStill ? '<div class="lumen-episode__still"></div>' : '') +
       '<div class="lumen-episode__top">' +
       '<div class="lumen-episode__num">E' + esc(ep.episode_number) + '</div>' + badge +
       '<div class="lumen-episode__play"></div>' +
@@ -3566,73 +3638,105 @@
       '</div>';
   }
 
-  /* Класс состояния + внутренность. Сам узел не пересоздаётся — фокус
-     Navigator и класс .focus на нём переживают перерисовку. */
-  function paintEpisode(node, ep, hash, now) {
+  /* Класс состояния + внутренность; возвращает состояние. Сам узел не
+     пересоздаётся — фокус Navigator и класс .focus переживают перерисовку.
+     Ревью п.8: если состояние, процент и остаток те же, innerHTML не трогаем
+     вовсе (Lampa шлёт update таймлайна каждые несколько секунд проигрывания). */
+  function paintEpisode(node, ep, hash, now, months) {
     var view = hash ? timelineView(hash) : null;
     var st = LC.progress.episodeState(view, ep.air_date, now, ep.runtime);
-    node.removeClass(EPISODE_STATES).addClass('lumen-episode--' + st.state).html(episodeInner(ep, st));
+    var sign = st.state + '|' + (st.percent || '') + '|' + (st.leftMin || '');
+    if (node[0].lumenSign === sign) return st;
+
+    node[0].lumenSign = sign;
+    node.removeClass(EPISODE_STATES).addClass('lumen-episode--' + st.state).html(episodeInner(ep, st, months, !!node.attr('data-still')));
+    if (node[0].lumenStill) applyStill(node);
+    return st;
   }
 
+  /* Ревью п.1: .css(transform, '') убирает свойство, но оставляет пустой
+     атрибут style="" — снимаем его целиком (clearInlineStyleIfEmpty, тот же
+     приём, что в 50_backdrops.js). */
   function setShift(track, px) {
     if (!track.length) return;
     track[0].lumenShift = px;
     var value = px ? 'translate3d(' + (-px) + 'px,0,0)' : '';
     track.css({ '-webkit-transform': value, transform: value });
+    clearInlineStyleIfEmpty(track);
   }
 
   /* Step 3: ряд серий последнего сезона из e.data.episodes.episodes[] (Lampa
      кладёт туда весь последний сезон, включая не вышедшие серии). Нет
      episodes или это фильм — ряд скрыт. Хэш серии для Lampa.Timeline —
      формула плана 0.2 (как у Timeline.watchedEpisode и online_mod); он же
-     пишется в data-hash, по нему refreshEpisode находит карточку. */
+     пишется в data-hash, по нему refreshEpisode находит карточку.
+     Ревью п.7: decorate зовётся дважды (build и complite) с одним и тем же
+     e.data — повторную сборку того же списка пропускаем. */
   function renderEpisodes(root, data) {
     var row = root.find('.lumen-episodes');
     if (!row.length) return;
-    var track = row.find('.lumen-episodes__track');
 
+    var movie = (data && data.movie) || {};
+    var list = data && data.episodes && data.episodes.episodes;
+    var previous = row[0].lumenEpisodes;
+    if (previous && list && previous.list === list) return;
+
+    var track = row.find('.lumen-episodes__track');
     row.addClass('hide');
     track.empty();
     setShift(track, 0);
     row[0].lumenEpisodes = null;
 
-    var movie = (data && data.movie) || {};
-    var list = data && data.episodes && data.episodes.episodes;
     if (!isSerial(movie) || !list || !list.length) return;
 
     var season = parseInt(data.episodes.season_number, 10) || parseInt(list[0] && list[0].season_number, 10) || 0;
     var key = movie.original_name || movie.original_title || '';
+    var months = monthsShort();
     var now = new Date();
-    var count = 0;
+    var nodes = [];
+    var current = -1;
 
     for (var i = 0; i < list.length; i++) {
       var ep = list[i];
       if (!ep || !(ep.episode_number > 0)) continue;
       var hash = key && season ? '' + utilsHash([season, season > 10 ? ':' : '', ep.episode_number, key].join('')) : '';
       if (hash === '0') hash = '';
+      var still = LC.cardinfo.imageUrl(ep.still_path, 'w300', tmdbImageFn(), apiImgFn());
       var node = $('<div class="lumen-episode selector"></div>');
       node.attr('data-index', i);
       if (hash) node.attr('data-hash', hash);
-      paintEpisode(node, ep, hash, now);
+      if (still) node.attr('data-still', still);
+      node[0].lumenPos = nodes.length;
+      var st = paintEpisode(node, ep, hash, now, months);
+      if (current < 0 && st.state === 'watching') current = nodes.length;
       track.append(node);
-      count++;
+      nodes.push(node);
     }
-    if (!count) return;
+    if (!nodes.length) return;
 
-    row[0].lumenEpisodes = { list: list };
+    row[0].lumenEpisodes = { list: list, nodes: nodes };
+    /* Видно с самого начала ряда; если сериал уже смотрят — ещё и вокруг той серии. */
+    loadStills(nodes, 0);
+    if (current > 0) loadStills(nodes, current);
+
     row.find('.lumen-episodes__title').text(season ? LC.lang('lumen_card_season') + ' ' + season : (data.episodes.name || ''));
-    row.find('.lumen-episodes__count').text(count + ' ' + LC.episodesWord(count));
+    row.find('.lumen-episodes__count').text(nodes.length + ' ' + LC.episodesWord(nodes.length));
     row.removeClass('hide');
   }
 
   /* Step 3: длинный ряд — сдвиг дорожки к фокусной карточке. Контроллер Lampa
      не трогаем: Navigator сам выбирает соседа по геометрии, мы только держим
-     его на экране с запасом в полкарточки с обеих сторон. Видимая часть ряда —
-     от левого края ряда до правого края экрана (дизайн: ряд уходит за край). */
+     его на экране с запасом в полкарточки с обеих сторон и подгружаем кадры
+     вокруг него. Видимая часть ряда — от левого края ряда до правого края
+     экрана (дизайн: ряд уходит за край). */
   function scrollToEpisode(root, node) {
+    var row = root.find('.lumen-episodes');
     var viewport = root.find('.lumen-episodes__viewport')[0];
-    var track = root.find('.lumen-episodes__track');
+    var track = row.find('.lumen-episodes__track');
     if (!viewport || !track.length || !node) return;
+
+    var info = row.length ? row[0].lumenEpisodes : null;
+    if (info && typeof node.lumenPos === 'number') loadStills(info.nodes, node.lumenPos);
 
     var screen = window.innerWidth || (document.documentElement && document.documentElement.clientWidth) || 0;
     var view = screen - viewport.getBoundingClientRect().left;
@@ -3683,7 +3787,8 @@
     el.addEventListener('hover:enter', function (e) {
       try {
         if (!$(e.target).closest('.lumen-episode', el).length) return;
-        root.find('.full-start-new__buttons .button--play').eq(0).trigger('hover:enter');
+        /* Ревью п.5: «Смотреть» скрыта (read_only, нет источников) — делать нечего. */
+        root.find('.full-start-new__buttons').find('.button--play').not('.hide').eq(0).trigger('hover:enter');
       } catch (err) {
         warn('episode enter failed', err);
       }
@@ -3696,12 +3801,17 @@
   function refreshEpisode(hash) {
     hash = '' + (hash || '');
     if (!/^\d+$/.test(hash)) return;
-    $('.lumen-card .lumen-episode[data-hash="' + hash + '"]').each(function () {
-      var node = $(this);
-      var row = node.closest('.lumen-episodes')[0];
-      var list = row && row.lumenEpisodes && row.lumenEpisodes.list;
-      var ep = list && list[parseInt(node.attr('data-index'), 10)];
-      if (ep) paintEpisode(node, ep, hash, new Date());
+    var now = new Date();
+    var months = monthsShort();
+    $('.lumen-card .lumen-episodes').each(function () {
+      var info = this.lumenEpisodes;
+      if (!info) return;
+      for (var i = 0; i < info.nodes.length; i++) {
+        var node = info.nodes[i];
+        if (node.attr('data-hash') !== hash) continue;
+        var ep = info.list[parseInt(node.attr('data-index'), 10)];
+        if (ep) paintEpisode(node, ep, hash, now, months);
+      }
     });
   }
 
@@ -3841,7 +3951,7 @@
      запись просмотра серии обновилась (плеер, синхронизация CUB) ->
      перерисовать карточку этой серии (LC.header.refreshEpisode ищет узлы по
      data-hash в DOM: без таймеров и без ссылок на карточки). */
-  function followTimeline() {
+  LC.followTimeline = function () {
     if (timeline_followed) return;
     timeline_followed = true;
     try {
@@ -3856,7 +3966,7 @@
     } catch (e2) {
       warn('timeline listener failed', e2);
     }
-  }
+  };
 
   /* -------------------------------------------------------------------- */
   /* Task 5b (правки координатора, п.4): хук закрытия карточки.             */
@@ -4168,7 +4278,7 @@
 
       followToggle();
       followActivityLifecycle();
-      followTimeline();
+      LC.followTimeline();
     } catch (e) {
       warn('init failed', e);
       restoreOriginalTemplate();

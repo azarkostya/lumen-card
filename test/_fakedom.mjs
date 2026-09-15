@@ -48,9 +48,19 @@ FakeEl.prototype.removeClass = function (list) {
   return this;
 };
 FakeEl.prototype.toggleClass = function (c, on) { if (on) this.addClass(c); else this.removeClass(c); return this; };
+/* Task 5c: css({…}) объектом (как jQuery) и зеркало инлайн-стиля в атрибуте
+   style — пустое значение свойство убирает, но сам атрибут остаётся "" (как в
+   браузере: ловушка style="", см. clearInlineStyleIfEmpty в 50_backdrops.js). */
 FakeEl.prototype.css = function (name, val) {
+  if (name && typeof name === 'object') {
+    for (const k in name) this.css(k, name[k]);
+    return this;
+  }
   if (arguments.length < 2) return this._css[name];
   this._css[name] = val;
+  const css = this._css;
+  if (!this._attr) this._attr = {};
+  this._attr.style = Object.keys(css).filter((k) => css[k] !== '' && css[k] != null).map((k) => k + ':' + css[k]).join(';');
   return this;
 };
 FakeEl.prototype.data = function (key, val) {
@@ -68,6 +78,52 @@ FakeEl.prototype.attr = function (name, val) {
   return this;
 };
 FakeEl.prototype.removeAttr = function (name) { if (this._attr) delete this._attr[name]; return this; };
+/* Task 5c (src/85_header.js, ряд серий): DOM-подобные getAttribute/removeAttribute
+   (узел — сам себе [0]); text/html — html разбирает div-теги плоско, как
+   fakeQuery, и считает перезаписи (_htmlSets); next/before — перенос статуса в
+   ленту; eq/not/trigger — OK на «Смотреть»; addEventListener — слушатели в
+   capture на корне карточки (вызываются тестом вручную). */
+FakeEl.prototype.getAttribute = function (name) {
+  return this._attr && Object.prototype.hasOwnProperty.call(this._attr, name) ? this._attr[name] : null;
+};
+FakeEl.prototype.removeAttribute = function (name) { if (this._attr) delete this._attr[name]; };
+FakeEl.prototype.text = function (t) {
+  if (arguments.length < 1) return this._text || '';
+  this._text = '' + t;
+  return this;
+};
+FakeEl.prototype.html = function (s) {
+  if (arguments.length < 1) return this._html || '';
+  const self = this;
+  this._html = '' + s;
+  this._htmlSets = (this._htmlSets || 0) + 1;
+  this._children = (this._html.match(/<div[^>]*>/g) || []).map((tag) => {
+    const c = new FakeEl(classList(tag));
+    c._parentEl = self;
+    return c;
+  });
+  return this;
+};
+FakeEl.prototype.next = function () {
+  const p = this._parentEl;
+  if (!p) return EMPTY;
+  return p._children[p._children.indexOf(this) + 1] || EMPTY;
+};
+FakeEl.prototype.before = function (child) {
+  const el = toEl(child);
+  const p = this._parentEl;
+  if (!p) return this;
+  el.remove();
+  p._children.splice(p._children.indexOf(this), 0, el);
+  el._parentEl = p;
+  return this;
+};
+FakeEl.prototype.eq = function (i) { return i === 0 ? this : EMPTY; };
+FakeEl.prototype.not = function (sel) { return matchesSelector(this, selectorClasses(sel)) ? EMPTY : this; };
+FakeEl.prototype.trigger = function (name) { (this._triggered = this._triggered || []).push(name); return this; };
+FakeEl.prototype.addEventListener = function (type, fn, capture) {
+  (this._listeners = this._listeners || []).push({ type: type, fn: fn, capture: !!capture });
+};
 FakeEl.prototype.append = function (child) { const el = toEl(child); el._parentEl = this; this._children.push(el); return this; };
 FakeEl.prototype.prepend = function (child) { const el = toEl(child); el._parentEl = this; this._children.unshift(el); return this; };
 FakeEl.prototype.empty = function () { this._children = []; return this; };
@@ -88,7 +144,10 @@ FakeEl.prototype.remove = function () {
 };
 FakeEl.prototype.parent = function () { return this._parentEl || EMPTY; };
 FakeEl.prototype.closest = function (sel) {
-  if (sel === '.activity' && this._closestActivity) return this._closestActivity;
+  if (sel === '.activity') return this._closestActivity || EMPTY;
+  /* Task 5c: остальные селекторы — настоящий обход себя и предков. */
+  const classes = selectorClasses(sel);
+  for (let el = this; el; el = el._parentEl) if (matchesSelector(el, classes)) return el;
   return EMPTY;
 };
 /* Ревью (fix, Important 3): составной селектор вида '.lumen-bg__img.is-active'
@@ -130,7 +189,9 @@ export const EMPTY = {
   addClass() { return this; }, removeClass() { return this; }, toggleClass() { return this; }, css() { return this; },
   data() { }, removeData() { return this; }, empty() { return this; }, hasClass() { return false; },
   find() { return EMPTY; }, children() { return EMPTY; }, append() { return this; }, closest() { return EMPTY; },
-  parent() { return EMPTY; }, remove() { return this; }
+  parent() { return EMPTY; }, remove() { return this; },
+  text() { return ''; }, html() { return this; }, next() { return EMPTY; }, before() { return this; },
+  eq() { return EMPTY; }, not() { return EMPTY; }, trigger() { return this; }, attr() { }
 };
 
 export function toEl(x) {

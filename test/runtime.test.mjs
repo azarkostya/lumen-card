@@ -60,6 +60,34 @@ function freshLC() {
   return LC;
 }
 
+/* Task 5c (ревью качества, п.2): одна подписка на Lampa.Timeline за жизнь
+   плагина; событие update -> LC.header.refreshEpisode(hash). */
+test('Task 5c: LC.followTimeline — одна подписка на update, событие передаёт хэш в LC.header.refreshEpisode', () => {
+  const LC = freshLC();
+  const follows = [];
+  const Lampa = { Timeline: { listener: { follow(name, fn) { follows.push({ name: name, fn: fn }); } } } };
+  const prevWindow = globalThis.window;
+  const prevLampa = globalThis.Lampa;
+  globalThis.window = { Lampa: Lampa };
+  globalThis.Lampa = Lampa;
+  try {
+    const hashes = [];
+    LC.header = { refreshEpisode(h) { hashes.push(h); } };
+    LC.followTimeline();
+    LC.followTimeline();
+    assert.equal(follows.length, 1);
+    assert.equal(follows[0].name, 'update');
+    follows[0].fn({ data: { hash: '908552078', road: { percent: 32 } } });
+    follows[0].fn(null);
+    follows[0].fn({});
+    assert.deepEqual(hashes, ['908552078']);
+    assert.deepEqual(warnLog, []);
+  } finally {
+    globalThis.window = prevWindow;
+    globalThis.Lampa = prevLampa;
+  }
+});
+
 /* ====================================================================== */
 /* (а) push вглубь: Activity.push НЕ шлёт события для оставленной         */
 /* активности (проверено живьём — см. комментарий в 90_runtime.js); новые */
