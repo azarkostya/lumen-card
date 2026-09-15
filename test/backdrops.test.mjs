@@ -65,12 +65,23 @@ FakeEl.prototype.removeData = function (key) { delete this._data[key]; return th
 FakeEl.prototype.append = function (child) { this._children.push(toEl(child)); return this; };
 FakeEl.prototype.prepend = function (child) { this._children.unshift(toEl(child)); return this; };
 FakeEl.prototype.empty = function () { this._children = []; return this; };
+/* Task 6 (fix, п.1): closest('.activity') — заглушка, не настоящий обход
+   родителей (мок их не моделирует, см. комментарий вверху файла). Тест
+   выставляет el._closestActivity = {length, hasClass} перед тиком, чтобы
+   смоделировать «слой внутри активной/архивной .activity»; по умолчанию
+   (свойство не выставлено) — EMPTY, как «не на странице предка не нашли» —
+   isActivityForeground(EMPTY) в src/50_backdrops.js трактует это как true
+   (безопасный дефолт), так что все ранее написанные тесты не ломаются. */
+FakeEl.prototype.closest = function (sel) {
+  if (sel === '.activity' && this._closestActivity) return this._closestActivity;
+  return EMPTY;
+};
 
 const EMPTY = {
   length: 0,
   addClass() { return this; }, removeClass() { return this; }, toggleClass() { return this; }, css() { return this; },
-  data() { }, removeData() { return this; }, empty() { return this; },
-  find() { return EMPTY; }, children() { return EMPTY; }, append() { return this; }
+  data() { }, removeData() { return this; }, empty() { return this; }, hasClass() { return false; },
+  find() { return EMPTY; }, children() { return EMPTY; }, append() { return this; }, closest() { return EMPTY; }
 };
 
 FakeEl.prototype.children = function (sel) {
@@ -482,4 +493,57 @@ test('slideshow: максимум кадров по режиму движени�
     loaders[0].onload();
   });
   assert.deepEqual(captured, [8, 4]);
+});
+
+/* ====================================================================== */
+/* Task 6 (fix, решение координатора по live-check п.4): пауза при уходе   */
+/* вглубь — без подписки, проверкой isLayerForeground() в каждом тике.     */
+/* ====================================================================== */
+
+test('slideshow: activity--active отсутствует у closest(\'.activity\') -> тик пропущен целиком (нет Image, is-active не меняется), таймер не тронут', () => {
+  const LC = freshLC({ motion: 'full', prefs: { lumen_slideshow: true } });
+  const body = fakeBody();
+  const movie = { id: 1, backdrop_path: '/main.jpg', images: { backdrops: [mk('/main.jpg', null, 9), mk('/c.jpg', null, 7)] } };
+
+  LC.backdrops.apply(null, body, movie);
+  const layer = mount(body._children[0]);
+  loaders[0].onload();
+
+  const img0 = layer.children('.lumen-backdrop__img');
+  assert.equal(img0.hasClass('is-active'), true);
+  assert.equal(intervals.length, 1, 'таймер должен быть заведён (карточка на экране в момент запуска)');
+
+  // Карточка "ушла вглубь": её .activity больше не активна.
+  layer._closestActivity = { length: 1, hasClass: () => false };
+
+  fireInterval(1);
+  assert.equal(loaders.length, 1, 'предзагрузка следующего кадра не должна была начаться');
+  assert.equal(img0.hasClass('is-active'), true, 'is-active первого кадра не должен был снятся');
+  assert.equal(intervals[0].cleared, false, 'таймер не трогаем — следующий тик проверит заново');
+
+  fireInterval(1); // ещё тик — карточка всё ещё не на экране, повторный пропуск
+  assert.equal(loaders.length, 1);
+});
+
+test('slideshow: activity--active появляется у closest(\'.activity\') -> следующий тик снова меняет кадр', () => {
+  const LC = freshLC({ motion: 'full', prefs: { lumen_slideshow: true } });
+  const body = fakeBody();
+  const movie = { id: 1, backdrop_path: '/main.jpg', images: { backdrops: [mk('/main.jpg', null, 9), mk('/c.jpg', null, 7)] } };
+
+  LC.backdrops.apply(null, body, movie);
+  const layer = mount(body._children[0]);
+  loaders[0].onload();
+
+  layer._closestActivity = { length: 1, hasClass: () => false }; // не на экране
+  fireInterval(1);
+  assert.equal(loaders.length, 1, 'пока не на экране — без предзагрузки');
+
+  layer._closestActivity = { length: 1, hasClass: (c) => c === 'activity--active' }; // снова на экране
+  fireInterval(1);
+  assert.equal(loaders.length, 2, 'вернулись на экран — тик снова предзагружает следующий кадр');
+  loaders[1].onload();
+
+  const slides = layer.children('.lumen-bg__slides');
+  assert.equal(slides._children.length, 1);
+  assert.equal(slides._children[0].hasClass('is-active'), true);
 });

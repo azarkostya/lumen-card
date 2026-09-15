@@ -98,30 +98,41 @@
 
   /* Одна подписка на 'activity' за всё время жизни плагина (правки
      координатора к Task 6: вторую подписку не заводить, расширяем эту же).
-     destroy СВОЕЙ активности — как раньше, отменяем незавершённую загрузку
-     фона и слайдшоу (LC.backdrops.cancel).
 
-     ВАЖНО (расхождение с планом, проверено живьём и по исходнику
-     vendor/lampa/app.min.js на локальной Lampa 3.3.4): план предполагал
-     "archive своей активности (ушли вглубь) -> pause, start -> resume".
-     В реальном коде это не так — Activity.push() (уход вглубь, на новую
-     карточку) НЕ шлёт для оставленной активности вообще никакого события
-     'activity' (ни archive, ни pause/stop — проверено логом Listener.follow
-     до/после push). Событие 'archive' в этой сборке шлёт только backward()
-     (app.min.js, функция backward()), и не для активности, которую
-     ПОКИДАЮТ, а для той, К КОТОРОЙ ВОЗВРАЩАЮТСЯ — сразу ПОСЛЕ 'start' для
-     того же object (start$4() внутри backward() уже шлёт 'start', following
-     строка шлёт ещё и 'archive'). Поэтому archive->pause (как в плане) на
-     самом деле ставил бы слайдшоу на паузу ровно в момент ВОЗВРАТА к
-     карточке — обратный эффект. Ниже — поведение, соответствующее
-     фактическим событиям: 'start' и 'archive' своей активности оба
-     означают «эта активность снова видна» -> resume() (идемпотентно,
-     resume() дважды безопасен). Пауза при уходе вглубь (Activity.push
-     поверх открытой карточки) в этой версии Lampa через Listener.follow
-     ('activity') не детектируется — второй подписки (например, опрос
-     document.visibilityState) план заводить не даёт, поэтому эта часть
-     Task 6 (live-check п.4, «уйти вглубь -> пауза») не реализована и
-     отмечена как открытый вопрос в отчёте задачи. */
+     Реальные события Lampa 3.3.4 при push/backward (проверено исходником
+     vendor/lampa/app.min.js — функции push$3/backward()/start$4 — и живым
+     логом Lampa.Listener.follow('activity', …) до/после вызовов):
+       - Activity.push(новая карточка) — уход вглубь — НЕ шлёт вообще
+         никакого события для карточки, которую оставляют позади (ни
+         archive, ни pause/stop). Она просто продолжает жить в стеке.
+       - Activity.push тому, кто открывается, шлёт init -> create -> start
+         (e.component — реальное имя компонента, у карточки — 'full';
+         проверено логом).
+       - backward() шлёт destroy для покидаемой активности и, для той,
+         К КОТОРОЙ ВОЗВРАЩАЮТСЯ, — start$4() уже шлёт start, а следом сама
+         backward() шлёт ЕЩЁ и archive (тот же e.object). То есть archive
+         в этой сборке означает «снова на экране», а не «ушли в фон» —
+         обратное плановому предположению archive->pause.
+     Отсюда два следствия (решение координатора по live-check п.4):
+       1) «Пауза при уходе вглубь» через эту подписку недостижима (push
+          ничего не шлёт для оставленной активности) — реализована не
+          здесь, а проверкой isLayerForeground() в каждом тике таймера
+          слайдшоу (50_backdrops.js, createSlideshow.tryFrom): если слой
+          сейчас не в .activity.activity--active, тик молча пропускается,
+          таймер не трогаем — как заново на экране, тик снова меняет кадр.
+       2) 'start' и 'archive' СВОЕЙ активности (LC.active уже указывает на
+          неё) — оба означают «видна снова» -> resume() (resume() дважды
+          безопасен).
+       3) Возврат backward() на карточку, которая уже не LC.active (за это
+          время открылась и была complite-нута другая) — LC.active так и
+          не восстанавливается событием 'full' (Lampa не шлёт complite
+          повторно на backward, только 'activity':start/archive). Поэтому
+          на 'start' ЛЮБОЙ 'full'-активности, если это не текущая
+          LC.active, ищем в её DOM уже готовый слой .lumen-backdrop
+          (значит, карточка уже строилась раньше) и восстанавливаем
+          LC.active по нему — контроллер слайдшоу достаём из
+          layer.data('lumenSlideshow') (положен туда LC.backdrops.apply()),
+          а не храним отдельно, поэтому найти его можно в любой момент. */
   function followActivityLifecycle() {
     if (activity_followed) return;
     activity_followed = true;
@@ -129,12 +140,44 @@
       if (!window.Lampa || !Lampa.Listener) return;
       Lampa.Listener.follow('activity', function (e) {
         try {
-          if (!e || !LC.active || e.object !== LC.active.object) return;
-          if (e.type === 'destroy') {
-            LC.backdrops.cancel(LC.active.body);
-            LC.active = null;
-          } else if (e.type === 'archive' || e.type === 'start') {
-            if (LC.active.slideshow) LC.active.slideshow.resume();
+          if (!e) return;
+
+          if (LC.active && e.object === LC.active.object) {
+            if (e.type === 'destroy') {
+              LC.backdrops.cancel(LC.active.body);
+              LC.active = null;
+            } else if (e.type === 'archive' || e.type === 'start') {
+              if (LC.active.slideshow) LC.active.slideshow.resume();
+            }
+            return;
+          }
+
+          /* e.object !== LC.active.object (или LC.active вовсе null): для
+             свежей, ещё не построенной карточки слоя нет — find() ничего
+             не найдёт, ветка тихо no-op (нормальный путь на самый первый
+             'start' любого push, ДО того как 'full' complite впервые
+             выставит LC.active). Для карточки, к которой вернулись через
+             backward(), слой уже есть — восстанавливаем LC.active.
+
+             Проверено живьём: e.object.activity.render() возвращает
+             ВНЕШНИЙ .activity-контейнер (class="activity layer--width…"),
+             а не e.body из события 'full' — .lumen-backdrop лежит на
+             уровень глубже, внутри .activity__body (прямой потомок
+             .activity), поэтому .children('.lumen-backdrop') здесь мимо
+             (нашёл это именно так: .children дал 0, .find — 1). Ищем
+             через find() (любая глубина), а LC.active.body берём как
+             layer.parent() — это и есть тот самый узел, в который
+             LC.backdrops.apply()/ensureLayer() when-то сделал
+             body.prepend(layer), так что LC.backdrops.cancel(body) на
+             destroy снова найдёт слой через свой body.children(...). */
+          if (e.type === 'start' && e.component === 'full' && e.object && e.object.activity && typeof e.object.activity.render === 'function') {
+            var rendered = e.object.activity.render();
+            var layer = rendered && rendered.find ? rendered.find('.lumen-backdrop') : null;
+            if (layer && layer.length) {
+              var slideshow = layer.data('lumenSlideshow');
+              LC.active = { object: e.object, body: layer.parent(), slideshow: slideshow };
+              if (slideshow) slideshow.resume();
+            }
           }
         } catch (err) {
           warn('activity listener failed', err);

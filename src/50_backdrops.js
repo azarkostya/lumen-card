@@ -87,6 +87,32 @@
     try { return !!(node && document.documentElement && document.documentElement.contains(node)); } catch (e) { return false; }
   }
 
+  /* Task 6 (fix, решение координатора по live-check п.4): "пауза" слайдшоу
+     при уходе вглубь карточки (Lampa.Activity.push поверх открытой) не
+     детектируется через Lampa.Listener.follow('activity') — проверено
+     исходником и живым логом (см. большой комментарий в 90_runtime.js над
+     followActivityLifecycle): push ничего не шлёт для оставленной
+     активности. Вместо подписки — проверка в каждом тике таймера, ДО
+     предзагрузки следующего кадра (createSlideshow.tryFrom ниже): если
+     слой сейчас не на экране (лежит внутри архивной .activity без класса
+     .activity--active), тик просто пропускается — ни Image(), ни смены
+     is-active, — а сам таймер не трогаем: следующий тик проверит снова, и
+     как только карточка опять на экране, смена кадров возобновится сама.
+     isActivityForeground — чистая часть (только .length/.hasClass, без
+     .closest()) — тестируется заглушками отдельно от DOM-обхода. */
+  function isActivityForeground(activityEl) {
+    if (!activityEl || !activityEl.length) return true; // не нашли контейнер — не блокируем (безопасный дефолт)
+    return !!activityEl.hasClass('activity--active');
+  }
+
+  function isLayerForeground(layer) {
+    try {
+      return isActivityForeground(layer.closest('.activity'));
+    } catch (e) {
+      return true;
+    }
+  }
+
   /* Task 6: .lumen-bg__slides — контейнер для дополнительных кадров
      слайдшоу (первый кадр остаётся .lumen-backdrop__img — грузится он
      один раз в loadBackdrop(), см. ниже). Вставлен ДО вуалей в разметке,
@@ -442,6 +468,10 @@
     function tryFrom(offset) {
       if (!alive || paused || !frames) return;
       if (!isLayerMounted()) { destroy(); return; }
+      /* Карточка сейчас не на экране (открыта другая активность поверх) —
+         пропускаем тик целиком: ни Image() для следующего кадра, ни смены
+         is-active. Таймер не трогаем — следующий тик проверит заново. */
+      if (!isLayerForeground(layer)) return;
       if (offset > urls.length) return;
       var next = (idx + offset) % urls.length;
       ensureFrame(next, function (el) {
