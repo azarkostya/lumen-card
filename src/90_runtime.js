@@ -306,8 +306,9 @@
     }
   };
 
-  /* LC.torrents появится в Task 32; до этого настройка просто сохраняется.
-     LC.pref нормализует строки 'true'/'false' из Storage. */
+  /* LC.torrents — src/65_torrents.js (Task 32): <style id="lumen-torrents-css">
+     и класс lumen-torrents-on на body. LC.pref нормализует строки 'true'/'false'
+     из Storage. Зовётся и из LC.injectCss — пересборка при смене акцента. */
   LC.applyTorrentsPref = function () {
     if (!ui_active) return;
     try {
@@ -387,6 +388,12 @@
       } catch (e4) {
         warn('menus init failed', e4);
       }
+      try {
+        if (LC.torrents && typeof LC.torrents.install === 'function') LC.torrents.install();
+      } catch (e5) {
+        warn('torrents init failed', e5);
+      }
+      LC.applyTorrentsPref();
 
       Lampa.Listener.follow('full', function (e) {
         try {

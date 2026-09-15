@@ -370,6 +370,9 @@
       var text = LC.buildCss();
       if ('styleSheet' in el && el.styleSheet) el.styleSheet.cssText = text;
       else el.innerHTML = text;
+      /* Task 32: CSS экранов пути пересобирается вместе с CSS карточки
+         (смена акцента/шрифтов); сама функция уважает ui_active и lumen_torrents. */
+      if (typeof LC.applyTorrentsPref === 'function') LC.applyTorrentsPref();
     } catch (e) {
       warn('css inject failed', e);
     }

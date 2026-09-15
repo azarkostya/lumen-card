@@ -47,13 +47,20 @@ function setup(opts) {
     mode: (v) => { log.push('mode:' + v); return v; },
     install: () => log.push('install')
   };
-  LC.torrents = { toggle: (on) => log.push('torrents:' + on) };
+  LC.torrents = { toggle: (on) => log.push('torrents:' + on), install: () => log.push('torrents-install') };
   /* Task 32: класс режима движения на body — фейковый $('body'). */
   const body = new FakeEl(['body-mock']);
   globalThis.$ = (sel) => (sel === 'body' ? body : EMPTY);
   opts.body = body;
   return { LC, log, storage, storageCbs, body };
 }
+
+test('Task 32: LC.init после меню — LC.torrents.install и LC.applyTorrentsPref (сохранённое значение)', () => {
+  const { LC, log } = setup({ storage: { lumen_torrents: 'false' } });
+  LC.init();
+  const i = log.indexOf('install');
+  assert.deepEqual(log.slice(i, i + 3), ['install', 'torrents-install', 'torrents:false']);
+});
 
 test('Task 32: класс режима движения на body ставит LC.init, меняет LC.applyMotionMode', () => {
   const { LC, storage, body } = setup({ storage: { lumen_motion: 'full' } });
