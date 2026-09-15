@@ -141,6 +141,38 @@
       return '';
     }
 
+    /* Ревью Task 5a (рефакторинг LC.header): true, если карточка — сериал.
+       Раньше жила в 90_runtime.js как локальная isSerial(movie), логика та же —
+       чистая, без Lampa/DOM, просто переехала. */
+    function isSerial(movie) {
+      return !!(movie.first_air_date || movie.number_of_seasons || movie.number_of_episodes || movie.name);
+    }
+
+    /* До 3 жанров, каждый — через capitalizeFn (обычно Lampa.Utils.capitalize
+       FirstLetter, внедряется параметром из LC.header — сам cardinfo Lampa не
+       знает). Без capitalizeFn имена жанров возвращаются как есть. */
+    function genres(rawGenres, capitalizeFn) {
+      var out = [];
+      var cap = typeof capitalizeFn === 'function' ? capitalizeFn : function (s) { return s; };
+      try {
+        if (rawGenres && rawGenres.length) {
+          for (var i = 0; i < rawGenres.length && i < 3; i++) {
+            if (rawGenres[i] && rawGenres[i].name) out.push(cap(rawGenres[i].name));
+          }
+        }
+      } catch (e) { }
+      return out;
+    }
+
+    /* Возрастной рейтинг: приоритет у распознанного Lampa.TMDB.parsePG (parsed),
+       иначе текст штатного узла .full-start__pg (domText) — оба добывает
+       LC.header (Lampa API + DOM), здесь только чистое слияние. */
+    function pgText(parsed, domText) {
+      var pg = parsed ? ('' + parsed) : '';
+      if (!pg && domText) pg = '' + domText;
+      return pg;
+    }
+
     return {
       country: country,
       director: director,
@@ -149,7 +181,10 @@
       statusKind: statusKind,
       qualityChips: qualityChips,
       reactionsCount: reactionsCount,
-      imageUrl: imageUrl
+      imageUrl: imageUrl,
+      isSerial: isSerial,
+      genres: genres,
+      pgText: pgText
     };
   })();
 

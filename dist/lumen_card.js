@@ -699,6 +699,38 @@
       return '';
     }
 
+    /* Ревью Task 5a (рефакторинг LC.header): true, если карточка — сериал.
+       Раньше жила в 90_runtime.js как локальная isSerial(movie), логика та же —
+       чистая, без Lampa/DOM, просто переехала. */
+    function isSerial(movie) {
+      return !!(movie.first_air_date || movie.number_of_seasons || movie.number_of_episodes || movie.name);
+    }
+
+    /* До 3 жанров, каждый — через capitalizeFn (обычно Lampa.Utils.capitalize
+       FirstLetter, внедряется параметром из LC.header — сам cardinfo Lampa не
+       знает). Без capitalizeFn имена жанров возвращаются как есть. */
+    function genres(rawGenres, capitalizeFn) {
+      var out = [];
+      var cap = typeof capitalizeFn === 'function' ? capitalizeFn : function (s) { return s; };
+      try {
+        if (rawGenres && rawGenres.length) {
+          for (var i = 0; i < rawGenres.length && i < 3; i++) {
+            if (rawGenres[i] && rawGenres[i].name) out.push(cap(rawGenres[i].name));
+          }
+        }
+      } catch (e) { }
+      return out;
+    }
+
+    /* Возрастной рейтинг: приоритет у распознанного Lampa.TMDB.parsePG (parsed),
+       иначе текст штатного узла .full-start__pg (domText) — оба добывает
+       LC.header (Lampa API + DOM), здесь только чистое слияние. */
+    function pgText(parsed, domText) {
+      var pg = parsed ? ('' + parsed) : '';
+      if (!pg && domText) pg = '' + domText;
+      return pg;
+    }
+
     return {
       country: country,
       director: director,
@@ -707,7 +739,10 @@
       statusKind: statusKind,
       qualityChips: qualityChips,
       reactionsCount: reactionsCount,
-      imageUrl: imageUrl
+      imageUrl: imageUrl,
+      isSerial: isSerial,
+      genres: genres,
+      pgText: pgText
     };
   })();
 
@@ -1219,28 +1254,18 @@
   if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.motionModeFor;
 
 
-/* ---- 90_runtime.js ---- */
+/* ---- 85_header.js ---- */
   /* -------------------------------------------------------------------- */
-  /* Данные карточки.                                                      */
+  /* Отрисовка шапки карточки (Task 5a, рефакторинг). Выделено из            */
+  /* 90_runtime.js — тот вырос и смешивал данные карточки, обёртки Lampa,   */
+  /* фон, восемь render* шапки, decorate/findRoot, раскладку, motion,       */
+  /* toggle, init/boot. Чистая логика данных (isSerial/genres/pgText и      */
+  /* остальные хелперы cardinfo) — в 35_cardinfo.js с тестами; здесь только */
+  /* сборка DOM+Lampa вокруг неё. Публично наружу — только LC.header.decorate, */
+  /* её вызывает Listener 'full' в 90_runtime.js на build/complite.          */
   /* -------------------------------------------------------------------- */
 
-  function isSerial(movie) {
-    return !!(movie.first_air_date || movie.number_of_seasons || movie.number_of_episodes || movie.name);
-  }
-
-  function getPG(movie, root) {
-    var pg = '';
-    try {
-      if (window.Lampa && Lampa.TMDB && typeof Lampa.TMDB.parsePG === 'function') pg = Lampa.TMDB.parsePG(movie);
-    } catch (e) { }
-    if (!pg && root) {
-      try {
-        var node = root.find('.full-start__pg');
-        if (node.length) pg = node.text();
-      } catch (e2) { }
-    }
-    return pg ? ('' + pg) : '';
-  }
+  var isSerial = LC.cardinfo.isSerial;
 
   function capitalize(str) {
     str = '' + (str || '');
@@ -1253,15 +1278,22 @@
   }
 
   function getGenres(movie) {
-    var out = [];
+    return LC.cardinfo.genres(movie && movie.genres, capitalize);
+  }
+
+  function getPG(movie, root) {
+    var parsed = '';
     try {
-      if (movie.genres && movie.genres.length) {
-        for (var i = 0; i < movie.genres.length && i < 3; i++) {
-          if (movie.genres[i] && movie.genres[i].name) out.push(capitalize(movie.genres[i].name));
-        }
-      }
+      if (window.Lampa && Lampa.TMDB && typeof Lampa.TMDB.parsePG === 'function') parsed = Lampa.TMDB.parsePG(movie);
     } catch (e) { }
-    return out;
+    var domText = '';
+    if (root) {
+      try {
+        var node = root.find('.full-start__pg');
+        if (node.length) domText = node.text();
+      } catch (e2) { }
+    }
+    return LC.cardinfo.pgText(parsed, domText);
   }
 
   /* Task 5a Step 4: чип «РЕАКЦИЙ» показывается, только если пользователь не
@@ -1300,96 +1332,6 @@
       if (window.Lampa && Lampa.Utils && typeof Lampa.Utils.hash === 'function') return Lampa.Utils.hash(str);
     } catch (e) { }
     return 0;
-  }
-
-  /* -------------------------------------------------------------------- */
-  /* Бэкдроп.                                                              */
-  /* -------------------------------------------------------------------- */
-
-  /* Ревью Task 5a (Task 5 Step 3b.3, дефект приёмки v1 №3): URL только через
-     прокси TMDB Lampa — Lampa.TMDB.image (учитывает Storage 'proxy_tmdb',
-     тот же метод использует сама Lampa для фонов/постеров), фолбэк
-     Lampa.Api.img. Оба обёрнуты в собственные функции (без .bind/apply —
-     строгий ES5), чтобы не тащить this наружу. Сборка URL — LC.cardinfo.imageUrl
-     (чистая функция, без двойного слэша независимо от ведущего '/' в path). */
-  function tmdbImageFn() {
-    if (window.Lampa && Lampa.TMDB && typeof Lampa.TMDB.image === 'function') {
-      return function (url) { return Lampa.TMDB.image(url); };
-    }
-    return null;
-  }
-
-  function apiImgFn() {
-    if (window.Lampa && Lampa.Api && typeof Lampa.Api.img === 'function') {
-      return function (path, size) { return Lampa.Api.img(path, size); };
-    }
-    return null;
-  }
-
-  function backdropUrl(movie) {
-    var url = '';
-    try {
-      if (movie.backdrop_path) url = LC.cardinfo.imageUrl(movie.backdrop_path, 'w1280', tmdbImageFn(), apiImgFn());
-    } catch (e) {
-      warn('image url failed', e);
-    }
-    if (!url && movie.background_image) url = movie.background_image;
-    return url;
-  }
-
-  function procClass(movie) {
-    var id = parseInt(movie && movie.id, 10);
-    if (isNaN(id)) id = 0;
-    return 'lumen-backdrop--proc' + (Math.abs(id) % 3);
-  }
-
-  function applyBackdrop(body, movie) {
-    try {
-      if (!body || !body.length) return;
-
-      /* Родной фон Lampa убираем — у нас свой, на всю ширину. */
-      body.find('.full-start__background').addClass('lumen-off');
-
-      var layer = body.children('.lumen-backdrop');
-      if (!layer.length) {
-        layer = $('<div class="lumen-backdrop">' +
-          '<div class="lumen-backdrop__img"></div>' +
-          '<div class="lumen-backdrop__veil lumen-backdrop__veil--l"></div>' +
-          '<div class="lumen-backdrop__veil lumen-backdrop__veil--b"></div>' +
-          '<div class="lumen-backdrop__veil lumen-backdrop__veil--t"></div>' +
-          '</div>');
-        body.prepend(layer);
-      }
-
-      layer.removeClass('lumen-backdrop--proc0 lumen-backdrop--proc1 lumen-backdrop--proc2');
-
-      var url = backdropUrl(movie);
-      var img = layer.find('.lumen-backdrop__img');
-
-      if (url) {
-        img.css('background-image', '');
-        var loader = new Image();
-        loader.onload = function () {
-          try {
-            /* encodeURI страхует от "/\/) в URL, которые сломали бы строку url("...") */
-            img.css('background-image', 'url("' + encodeURI(url) + '")');
-            layer.addClass('loaded');
-          } catch (e) { }
-        };
-        loader.onerror = function () {
-          try {
-            img.css('background-image', '');
-            layer.addClass(procClass(movie)).addClass('loaded');
-          } catch (e) { }
-        };
-        loader.src = url;
-      } else {
-        img.css('background-image', '');
-        layer.addClass(procClass(movie)).addClass('loaded');
-      }
-    } catch (e) {
-      warn('backdrop failed', e);
-    }
   }
 
   /* -------------------------------------------------------------------- */
@@ -1592,6 +1534,104 @@
     try { renderCast(root, data); } catch (e) { warn('cast failed', e); }
   }
 
+  LC.header = { decorate: decorate };
+
+
+/* ---- 90_runtime.js ---- */
+  /* -------------------------------------------------------------------- */
+  /* Бэкдроп (v1, вне .lumen-card — в корне компонента).                    */
+  /* -------------------------------------------------------------------- */
+
+  /* Ревью Task 5a (Task 5 Step 3b.3, дефект приёмки v1 №3): URL только через
+     прокси TMDB Lampa — Lampa.TMDB.image (учитывает Storage 'proxy_tmdb',
+     тот же метод использует сама Lampa для фонов/постеров), фолбэк
+     Lampa.Api.img. Оба обёрнуты в собственные функции (без .bind/apply —
+     строгий ES5), чтобы не тащить this наружу. Сборка URL — LC.cardinfo.imageUrl
+     (чистая функция, без двойного слэша независимо от ведущего '/' в path). */
+  function tmdbImageFn() {
+    if (window.Lampa && Lampa.TMDB && typeof Lampa.TMDB.image === 'function') {
+      return function (url) { return Lampa.TMDB.image(url); };
+    }
+    return null;
+  }
+
+  function apiImgFn() {
+    if (window.Lampa && Lampa.Api && typeof Lampa.Api.img === 'function') {
+      return function (path, size) { return Lampa.Api.img(path, size); };
+    }
+    return null;
+  }
+
+  function backdropUrl(movie) {
+    var url = '';
+    try {
+      if (movie.backdrop_path) url = LC.cardinfo.imageUrl(movie.backdrop_path, 'w1280', tmdbImageFn(), apiImgFn());
+    } catch (e) {
+      warn('image url failed', e);
+    }
+    if (!url && movie.background_image) url = movie.background_image;
+    return url;
+  }
+
+  function procClass(movie) {
+    var id = parseInt(movie && movie.id, 10);
+    if (isNaN(id)) id = 0;
+    return 'lumen-backdrop--proc' + (Math.abs(id) % 3);
+  }
+
+  function applyBackdrop(body, movie) {
+    try {
+      if (!body || !body.length) return;
+
+      /* Родной фон Lampa убираем — у нас свой, на всю ширину. */
+      body.find('.full-start__background').addClass('lumen-off');
+
+      var layer = body.children('.lumen-backdrop');
+      if (!layer.length) {
+        layer = $('<div class="lumen-backdrop">' +
+          '<div class="lumen-backdrop__img"></div>' +
+          '<div class="lumen-backdrop__veil lumen-backdrop__veil--l"></div>' +
+          '<div class="lumen-backdrop__veil lumen-backdrop__veil--b"></div>' +
+          '<div class="lumen-backdrop__veil lumen-backdrop__veil--t"></div>' +
+          '</div>');
+        body.prepend(layer);
+      }
+
+      layer.removeClass('lumen-backdrop--proc0 lumen-backdrop--proc1 lumen-backdrop--proc2');
+
+      var url = backdropUrl(movie);
+      var img = layer.find('.lumen-backdrop__img');
+
+      if (url) {
+        img.css('background-image', '');
+        var loader = new Image();
+        loader.onload = function () {
+          try {
+            /* encodeURI страхует от "/\/) в URL, которые сломали бы строку url("...") */
+            img.css('background-image', 'url("' + encodeURI(url) + '")');
+            layer.addClass('loaded');
+          } catch (e) { }
+        };
+        loader.onerror = function () {
+          try {
+            img.css('background-image', '');
+            layer.addClass(procClass(movie)).addClass('loaded');
+          } catch (e) { }
+        };
+        loader.src = url;
+      } else {
+        img.css('background-image', '');
+        layer.addClass(procClass(movie)).addClass('loaded');
+      }
+    } catch (e) {
+      warn('backdrop failed', e);
+    }
+  }
+
+  /* -------------------------------------------------------------------- */
+  /* Поиск корня карточки в событии 'full' (build/complite).                */
+  /* -------------------------------------------------------------------- */
+
   function findRoot(e) {
     var root = null;
     try {
@@ -1737,10 +1777,10 @@
         try {
           if (!e) return;
           if (e.type === 'build' && e.name === 'start') {
-            decorate(findRoot(e), e.data);
+            LC.header.decorate(findRoot(e), e.data);
           } else if (e.type === 'complite') {
             var root = findRoot(e);
-            decorate(root, e.data);
+            LC.header.decorate(root, e.data);
             applyBackdrop(e.body, (e.data && e.data.movie) || {});
             applyMotionMode(root);
           }

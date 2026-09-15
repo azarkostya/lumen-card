@@ -4,6 +4,46 @@ import { load } from './_load.mjs';
 const cardinfo = load('35_cardinfo.js');
 
 /* -------------------------------------------------------------------- */
+/* isSerial / genres / pgText (рефакторинг: вынесены из 90_runtime.js в       */
+/* LC.header — эти три чистые остались/переехали в LC.cardinfo, без Lampa/DOM) */
+/* -------------------------------------------------------------------- */
+
+test('isSerial: сериал по first_air_date/number_of_seasons/number_of_episodes/name', () => {
+  assert.equal(cardinfo.isSerial({ first_air_date: '2024-01-01' }), true);
+  assert.equal(cardinfo.isSerial({ number_of_seasons: 2 }), true);
+  assert.equal(cardinfo.isSerial({ number_of_episodes: 10 }), true);
+  assert.equal(cardinfo.isSerial({ name: 'Фоллаут' }), true);
+});
+
+test('isSerial: фильм -> false', () => {
+  assert.equal(cardinfo.isSerial({ title: 'Дюна', release_date: '2024-01-01' }), false);
+  assert.equal(cardinfo.isSerial({}), false);
+});
+
+test('genres: до 3 жанров, каждый через переданный capitalizeFn', () => {
+  const raw = [{ name: 'фантастика' }, { name: 'приключения' }, { name: 'драма' }, { name: 'триллер' }];
+  const cap = (s) => s.toUpperCase();
+  assert.deepEqual(cardinfo.genres(raw, cap), ['ФАНТАСТИКА', 'ПРИКЛЮЧЕНИЯ', 'ДРАМА']);
+});
+
+test('genres: без capitalizeFn -> как есть; пусто/нет данных -> []', () => {
+  assert.deepEqual(cardinfo.genres([{ name: 'драма' }]), ['драма']);
+  assert.deepEqual(cardinfo.genres([]), []);
+  assert.deepEqual(cardinfo.genres(null), []);
+});
+
+test('genres: элемент без name пропускается', () => {
+  assert.deepEqual(cardinfo.genres([{ name: 'драма' }, {}, { name: 'комедия' }]), ['драма', 'комедия']);
+});
+
+test('pgText: приоритет у распознанного Lampa.TMDB.parsePG, иначе текст узла .full-start__pg', () => {
+  assert.equal(cardinfo.pgText('18+', '16+'), '18+');
+  assert.equal(cardinfo.pgText('', '16+'), '16+');
+  assert.equal(cardinfo.pgText(null, null), '');
+  assert.equal(cardinfo.pgText(undefined, undefined), '');
+});
+
+/* -------------------------------------------------------------------- */
 /* country                                                               */
 /* -------------------------------------------------------------------- */
 
