@@ -142,6 +142,9 @@
     /* --- Компактная раскладка на узких экранах (страховка) --- */
     css.push('@media screen and (max-width:1000px){.lumen-card .lumen-cols{display:block}.lumen-card .lumen-side{margin-left:0;text-align:left;-webkit-box-align:start;-webkit-align-items:flex-start;align-items:flex-start;margin-top:1.5em}.lumen-card .full-start-new__title{font-size:3.4em}.lumen-card .full-start-new__title.twolines{font-size:2.8em}.lumen-card .full-start-new__body{min-height:0}}');
 
+    /* --- Иконки кнопок (единый набор через CSS-маску, см. src/20_icons.js) --- */
+    css.push(LC.icons.css());
+
     return css.join('\n');
   };
 
