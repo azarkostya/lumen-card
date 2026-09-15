@@ -1,4 +1,4 @@
-// Lumen Card for Lampa — build 2026-09-15
+// Lumen Card for Lampa v0.2.0
 
 /* ---- 00_head.js ---- */
 /*!
@@ -7,7 +7,10 @@
 (function () {
   'use strict';
   if (typeof window !== 'undefined' && window.lumen_card_plugin) return;
-  var LC = (typeof window !== 'undefined') ? (window.LC = window.LC || {}) : {};
+  if (typeof window !== 'undefined') window.lumen_card_plugin = true;
+
+  var LC = {};
+  if (typeof window !== 'undefined') window.lumen_card = LC;
   LC.VERSION = '0.2.0';
 
   var PLUGIN = 'lumen_card';
@@ -19,117 +22,120 @@
 
 
 /* ---- 10_util.js ---- */
-/* ---------------------------------------------------------------------- */
-/* Чистые хелперы форматирования и ES5-коллекции.                          */
-/* Никаких обращений к window/Lampa/jQuery — модуль грузится и проверяется */
-/* тестами (node --test) без браузера.                                     */
-/* ---------------------------------------------------------------------- */
+  /* -------------------------------------------------------------------- */
+  /* Чистые хелперы форматирования и ES5-коллекции.                        */
+  /* Никаких обращений к window/Lampa/jQuery — модуль изолирован в своей    */
+  /* функции и проверяется тестами (node --test) без браузера.             */
+  /* -------------------------------------------------------------------- */
 
-function esc(str) {
-  if (str === null || typeof str === 'undefined') return '';
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
+  LC.util = (function () {
+    function esc(str) {
+      if (str === null || typeof str === 'undefined') return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
 
-function pad2(n) {
-  n = Math.floor(n);
-  return n < 10 ? '0' + n : '' + n;
-}
+    function pad2(n) {
+      n = Math.floor(n);
+      return n < 10 ? '0' + n : '' + n;
+    }
 
-/* Русская/славянская плюрализация: [1, 2-4, 5+] */
-function plural(n, forms) {
-  n = Math.abs(n) % 100;
-  var tail = n % 10;
-  if (n > 10 && n < 20) return forms[2];
-  if (tail > 1 && tail < 5) return forms[1];
-  if (tail === 1) return forms[0];
-  return forms[2];
-}
+    /* Русская/славянская плюрализация: [1, 2-4, 5+] */
+    function plural(n, forms) {
+      n = Math.abs(n) % 100;
+      var tail = n % 10;
+      if (n > 10 && n < 20) return forms[2];
+      if (tail > 1 && tail < 5) return forms[1];
+      if (tail === 1) return forms[0];
+      return forms[2];
+    }
 
-/* Имя -> инициалы (максимум 2 буквы) */
-function initials(name) {
-  var clean = ('' + (name || '')).replace(/[^\S]+/g, ' ');
-  clean = clean.replace(/^\s+|\s+$/g, '');
-  if (!clean) return '?';
-  var parts = clean.split(' ');
-  var out = '';
-  for (var i = 0; i < parts.length && out.length < 2; i++) {
-    if (parts[i]) out += parts[i].charAt(0).toUpperCase();
-  }
-  return out || '?';
-}
+    /* Имя -> инициалы (максимум 2 буквы) */
+    function initials(name) {
+      var clean = ('' + (name || '')).replace(/[^\S]+/g, ' ');
+      clean = clean.replace(/^\s+|\s+$/g, '');
+      if (!clean) return '?';
+      var parts = clean.split(' ');
+      var out = '';
+      for (var i = 0; i < parts.length && out.length < 2; i++) {
+        if (parts[i]) out += parts[i].charAt(0).toUpperCase();
+      }
+      return out || '?';
+    }
 
-/* Секунды -> "01:12" (часы:минуты), если часов нет — "18:40" (минуты:секунды) */
-function fmtTime(sec) {
-  sec = Math.max(0, Math.round(Number(sec) || 0));
-  var h = Math.floor(sec / 3600);
-  var m = Math.floor((sec % 3600) / 60);
-  var s = sec % 60;
-  if (h > 0) return pad2(h) + ':' + pad2(m);
-  return pad2(m) + ':' + pad2(s);
-}
+    /* Секунды -> "01:12" (часы:минуты), если часов нет — "18:40" (минуты:секунды) */
+    function fmtTime(sec) {
+      sec = Math.max(0, Math.round(Number(sec) || 0));
+      var h = Math.floor(sec / 3600);
+      var m = Math.floor((sec % 3600) / 60);
+      var s = sec % 60;
+      if (h > 0) return pad2(h) + ':' + pad2(m);
+      return pad2(m) + ':' + pad2(s);
+    }
 
-/* Минуты -> "2:46" (часы) или "48 <unit>". Единица измерения — параметром,
-   чтобы модуль не зависел от Lang/перевода. */
-function fmtRuntime(minutes, unit) {
-  minutes = Math.max(0, Math.round(Number(minutes) || 0));
-  if (!minutes) return '';
-  var h = Math.floor(minutes / 60);
-  var m = minutes % 60;
-  if (h > 0) return h + ':' + pad2(m);
-  return m + ' ' + unit;
-}
+    /* Минуты -> "2:46" (часы) или "48 <unit>". Единица измерения — параметром,
+       чтобы модуль не зависел от Lang/перевода. */
+    function fmtRuntime(minutes, unit) {
+      minutes = Math.max(0, Math.round(Number(minutes) || 0));
+      if (!minutes) return '';
+      var h = Math.floor(minutes / 60);
+      var m = minutes % 60;
+      if (h > 0) return h + ':' + pad2(m);
+      return m + ' ' + unit;
+    }
 
-function each(arr, fn) {
-  if (!arr) return;
-  for (var i = 0; i < arr.length; i++) fn(arr[i], i);
-}
+    function each(arr, fn) {
+      if (!arr) return;
+      for (var i = 0; i < arr.length; i++) fn(arr[i], i);
+    }
 
-function map(arr, fn) {
-  var out = [];
-  if (!arr) return out;
-  for (var i = 0; i < arr.length; i++) out.push(fn(arr[i], i));
-  return out;
-}
+    function map(arr, fn) {
+      var out = [];
+      if (!arr) return out;
+      for (var i = 0; i < arr.length; i++) out.push(fn(arr[i], i));
+      return out;
+    }
 
-function filter(arr, fn) {
-  var out = [];
-  if (!arr) return out;
-  for (var i = 0; i < arr.length; i++) {
-    if (fn(arr[i], i)) out.push(arr[i]);
-  }
-  return out;
-}
+    function filter(arr, fn) {
+      var out = [];
+      if (!arr) return out;
+      for (var i = 0; i < arr.length; i++) {
+        if (fn(arr[i], i)) out.push(arr[i]);
+      }
+      return out;
+    }
 
-function find(arr, fn) {
-  if (!arr) return null;
-  for (var i = 0; i < arr.length; i++) {
-    if (fn(arr[i], i)) return arr[i];
-  }
-  return null;
-}
+    function find(arr, fn) {
+      if (!arr) return null;
+      for (var i = 0; i < arr.length; i++) {
+        if (fn(arr[i], i)) return arr[i];
+      }
+      return null;
+    }
 
-LC.util = {
-  esc: esc,
-  pad2: pad2,
-  plural: plural,
-  initials: initials,
-  fmtTime: fmtTime,
-  fmtRuntime: fmtRuntime,
-  each: each,
-  map: map,
-  filter: filter,
-  find: find
-};
+    return {
+      esc: esc,
+      pad2: pad2,
+      plural: plural,
+      initials: initials,
+      fmtTime: fmtTime,
+      fmtRuntime: fmtRuntime,
+      each: each,
+      map: map,
+      filter: filter,
+      find: find
+    };
+  })();
 
-/* В браузере "module" не определён — ветка не выполняется. Метка module.lumen
-   ставится только тестовым загрузчиком (test/_load.mjs) — так мы не затираем
-   чужой глобальный module.exports, если он есть у страницы (например, у
-   Electron/NW.js-обёрток Lampa с nodeIntegration). */
-if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.util;
+  /* В браузере "module" не определён — ветка не выполняется. Метка module.lumen
+     ставится только тестовым загрузчиком (test/_load.mjs) — так мы не затираем
+     чужой глобальный module.exports, если он есть у страницы (например, у
+     Electron/NW.js-обёрток Lampa с nodeIntegration). */
+  if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.util;
 
 
 /* ---- 30_css.js ---- */
@@ -422,41 +428,43 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
   /* не зависит от window/Lampa и проверяется тестами без браузера.         */
   /* -------------------------------------------------------------------- */
 
-  function movieProgress(movie, view, hash) {
-    var key = movie.original_title || movie.original_name || movie.title || movie.name;
-    if (!key) return null;
-    var v = view(hash(key));
-    if (v && v.percent > 0) return { view: v, season: 0, episode: 0 };
-    return null;
-  }
+  LC.progress = (function () {
+    function movieProgress(movie, view, hash) {
+      var key = movie.original_title || movie.original_name || movie.title || movie.name;
+      if (!key) return null;
+      var v = view(hash(key));
+      if (v && v.percent > 0) return { view: v, season: 0, episode: 0 };
+      return null;
+    }
 
-  function serialProgress(movie, view, hash) {
-    var key = movie.original_name || movie.original_title || movie.name || movie.title;
-    if (!key) return null;
+    function serialProgress(movie, view, hash) {
+      var key = movie.original_name || movie.original_title || movie.name || movie.title;
+      if (!key) return null;
 
-    var maxSeason = parseInt(movie.number_of_seasons, 10) || 1;
-    if (maxSeason > 10) maxSeason = 10;
-    if (maxSeason < 1) maxSeason = 1;
+      var maxSeason = parseInt(movie.number_of_seasons, 10) || 1;
+      if (maxSeason > 10) maxSeason = 10;
+      if (maxSeason < 1) maxSeason = 1;
 
-    var best = null;
-    for (var s = 1; s <= maxSeason; s++) {
-      for (var ep = 1; ep <= 30; ep++) {
-        var h = hash([s, s > 10 ? ':' : '', ep, key].join(''));
-        var v = view(h);
-        if (v && v.percent > 0) {
-          if (!best || (v.updated || 0) >= (best.view.updated || 0)) {
-            best = { view: v, season: s, episode: ep };
+      var best = null;
+      for (var s = 1; s <= maxSeason; s++) {
+        for (var ep = 1; ep <= 30; ep++) {
+          var h = hash([s, s > 10 ? ':' : '', ep, key].join(''));
+          var v = view(h);
+          if (v && v.percent > 0) {
+            if (!best || (v.updated || 0) >= (best.view.updated || 0)) {
+              best = { view: v, season: s, episode: ep };
+            }
           }
         }
       }
+      return best;
     }
-    return best;
-  }
 
-  LC.progress = {
-    movieProgress: movieProgress,
-    serialProgress: serialProgress
-  };
+    return {
+      movieProgress: movieProgress,
+      serialProgress: serialProgress
+    };
+  })();
 
   /* В браузере "module" не определён — ветка не выполняется. Метка module.lumen
      ставится только тестовым загрузчиком (test/_load.mjs) — так мы не затираем
@@ -506,15 +514,15 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
     return c === 'ru' || c === 'uk' || c === 'be' || c === 'bg';
   }
 
-  function seasonsWord(n) {
+  LC.seasonsWord = function (n) {
     if (isSlavic()) return LC.util.plural(n, ['сезон', 'сезона', 'сезонов']);
     return n === 1 ? 'season' : 'seasons';
-  }
+  };
 
-  function episodesWord(n) {
+  LC.episodesWord = function (n) {
     if (isSlavic()) return LC.util.plural(n, ['серия', 'серии', 'серий']);
     return n === 1 ? 'episode' : 'episodes';
-  }
+  };
 
   /* Читает настройку плагина из Lampa.Storage с нормализацией булевых. */
   LC.pref = function (name, def) {
@@ -750,7 +758,8 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
         var loader = new Image();
         loader.onload = function () {
           try {
-            img.css('background-image', 'url("' + url + '")');
+            /* encodeURI страхует от "/\/) в URL, которые сломали бы строку url("...") */
+            img.css('background-image', 'url("' + encodeURI(url) + '")');
             layer.addClass('loaded');
           } catch (e) { }
         };
@@ -787,8 +796,8 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
     if (serial) {
       var counts = [];
-      if (movie.number_of_seasons) counts.push(movie.number_of_seasons + ' ' + seasonsWord(movie.number_of_seasons));
-      if (movie.number_of_episodes) counts.push(movie.number_of_episodes + ' ' + episodesWord(movie.number_of_episodes));
+      if (movie.number_of_seasons) counts.push(movie.number_of_seasons + ' ' + LC.seasonsWord(movie.number_of_seasons));
+      if (movie.number_of_episodes) counts.push(movie.number_of_episodes + ' ' + LC.episodesWord(movie.number_of_episodes));
       if (counts.length) parts.push('<span>' + LC.util.esc(counts.join(' · ')) + '</span>');
     } else if (movie.runtime > 0) {
       parts.push('<span>' + LC.util.esc(LC.util.fmtRuntime(movie.runtime, LC.lang('lumen_card_min'))) + '</span>');
@@ -1028,7 +1037,6 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 /* ---- 99_tail.js ---- */
   if (typeof window !== 'undefined') {
-    window.lumen_card_plugin = true;
     LC.boot(0);
   }
 })();

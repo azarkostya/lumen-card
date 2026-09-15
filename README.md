@@ -10,7 +10,8 @@
 lumen-card/
 ├── src/                  ← исходники плагина по модулям (00_head … 99_tail), строгий ES5
 ├── dist/lumen_card.js    ← собранный плагин (результат scripts/build.mjs, коммитится)
-├── scripts/              ← build.mjs (сборка), es5check.mjs (ES5-линт), chunks.mjs (инжект-чанки)
+├── scripts/              ← build.mjs (сборка), es5check.mjs (ES5-линт на acorn), chunks.mjs (инжект-чанки)
+│   └── lib/acorn.mjs     ← вендоренный парсер acorn 8.14.0 (MIT), используется только es5check.mjs
 ├── test/                 ← node --test: юнит-тесты чистых модулей (util, progress)
 ├── harness/index.html    ← локальный тест-стенд с эмуляцией Lampa API
 └── README.md
@@ -225,15 +226,37 @@ cd "C:\Users\azark\Новая папка\lumen-card"
 # сборка src/*.js -> dist/lumen_card.js (+ проверка синтаксиса node --check)
 & "C:\Users\azark\AppData\Local\Programs\nodejs\node.exe" scripts/build.mjs
 
-# ES5-линт собранного файла (грубые регулярки, ни одного совпадения быть не должно)
+# ES5-линт собранного файла (парсер acorn на ecmaVersion: 5 + скан токенов на
+# запрещённые ES2015+ API; ни одной находки быть не должно)
 & "C:\Users\azark\AppData\Local\Programs\nodejs\node.exe" scripts/es5check.mjs dist/lumen_card.js
 
 # юнит-тесты чистых модулей (LC.util, LC.progress) без браузера
 & "C:\Users\azark\AppData\Local\Programs\nodejs\node.exe" --test "test/*.test.mjs"
+
+# только проверить, что dist/lumen_card.js не устарел относительно src/ (ничего не пишет)
+& "C:\Users\azark\AppData\Local\Programs\nodejs\node.exe" scripts/build.mjs --check
 ```
 
-Модули с чистой логикой (`10_util.js`, `70_progress.js`) не обращаются к `window`/`Lampa`/jQuery
-и проверяются тестами напрямую через `test/_load.mjs`. Остальные модули (`30_css.js`,
-`40_template.js`, `80_settings.js`, `90_runtime.js`) — фрагменты одной IIFE, которую открывает
-`00_head.js` и закрывает `99_tail.js`; они проверяются сборкой, es5check и ручной проверкой в
-тест-стенде / реальной Lampa.
+`scripts/build.mjs` пишет во временный `dist/lumen_card.tmp.js`, гоняет на нём `node --check`
+и только при успехе переименовывает в `dist/lumen_card.js` — синтаксическая ошибка в одном из
+модулей никогда не перезатирает рабочую сборку. Баннер в начале файла не содержит даты
+(`// Lumen Card for Lampa v<версия>`, версия — из `LC.VERSION` в `00_head.js`), поэтому сборка
+воспроизводима: одинаковый `src/` всегда даёт побайтово одинаковый `dist/lumen_card.js`.
+
+### Контракт модулей
+
+Каждый `src/NN_*.js` — фрагмент тела одной общей IIFE, которую открывает `00_head.js` и закрывает
+`99_tail.js`; глобал у плагина один — `window.lumen_card` (объект `LC`), `window.LC` не существует.
+Из `00_head.js` в остальные модули неявно, через общую область видимости, пробрасываются только
+`LC`, `PLUGIN` и `warn` — любое другое взаимодействие между модулями идёт только через `LC.*`
+(`LC.util`, `LC.pref`, `LC.lang`, `LC.progress`, `LC.seasonsWord` и т.д.), а не через голые
+идентификаторы. Модуль с чистой логикой (без обращений к `window`/`Lampa`/jQuery — сейчас это
+`10_util.js` и `70_progress.js`) оформлен как `LC.xxx = (function () { ...; return {...}; })();` —
+изолирующая обёртка с явным `return`, чтобы его внутренние функции не утекали в общую область
+видимости и не конфликтовали с именами в других файлах. `scripts/build.mjs` перед сборкой сверяет
+верхнеуровневые имена (`var`/`function` на отступе ровно 2 пробела — уровень тела общей IIFE) всех
+модулей и падает при повторе имени между файлами.
+
+Модули с чистой логикой проверяются тестами напрямую через `test/_load.mjs`. Остальные модули
+(`30_css.js`, `40_template.js`, `80_settings.js`, `90_runtime.js`) — фрагменты общей IIFE; они
+проверяются сборкой, es5check и ручной проверкой в тест-стенде / реальной Lampa.

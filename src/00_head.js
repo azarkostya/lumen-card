@@ -4,7 +4,10 @@
 (function () {
   'use strict';
   if (typeof window !== 'undefined' && window.lumen_card_plugin) return;
-  var LC = (typeof window !== 'undefined') ? (window.LC = window.LC || {}) : {};
+  if (typeof window !== 'undefined') window.lumen_card_plugin = true;
+
+  var LC = {};
+  if (typeof window !== 'undefined') window.lumen_card = LC;
   LC.VERSION = '0.2.0';
 
   var PLUGIN = 'lumen_card';

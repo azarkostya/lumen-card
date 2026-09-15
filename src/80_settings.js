@@ -38,15 +38,15 @@
     return c === 'ru' || c === 'uk' || c === 'be' || c === 'bg';
   }
 
-  function seasonsWord(n) {
+  LC.seasonsWord = function (n) {
     if (isSlavic()) return LC.util.plural(n, ['сезон', 'сезона', 'сезонов']);
     return n === 1 ? 'season' : 'seasons';
-  }
+  };
 
-  function episodesWord(n) {
+  LC.episodesWord = function (n) {
     if (isSlavic()) return LC.util.plural(n, ['серия', 'серии', 'серий']);
     return n === 1 ? 'episode' : 'episodes';
-  }
+  };
 
   /* Читает настройку плагина из Lampa.Storage с нормализацией булевых. */
   LC.pref = function (name, def) {

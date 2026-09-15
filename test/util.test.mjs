@@ -11,6 +11,7 @@ test('fmtRuntime', () => { assert.equal(u.fmtRuntime(166, 'мин'), '2:46'); as
 test('plural ru', () => { assert.equal(u.plural(1, ['сезон','сезона','сезонов']), 'сезон'); assert.equal(u.plural(3, ['сезон','сезона','сезонов']), 'сезона'); assert.equal(u.plural(11, ['сезон','сезона','сезонов']), 'сезонов'); assert.equal(u.plural(22, ['серия','серии','серий']), 'серии'); });
 test('initials', () => { assert.equal(u.initials('Тимоти Шаламе'), 'ТШ'); assert.equal(u.initials('Zendaya'), 'Z'); assert.equal(u.initials(''), '?'); });
 test('esc', () => assert.equal(u.esc('<a href="x">&'), '&lt;a href=&quot;x&quot;&gt;&amp;'));
+test('esc: апостроф -> &#39;', () => assert.equal(u.esc("it's a 'test'"), 'it&#39;s a &#39;test&#39;'));
 test('each/map/filter/find', () => {
   assert.deepEqual(u.map([1,2,3], x => x * 2), [2,4,6]);
   assert.deepEqual(u.filter([1,2,3], x => x > 1), [2,3]);

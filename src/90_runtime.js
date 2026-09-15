@@ -136,7 +136,8 @@
         var loader = new Image();
         loader.onload = function () {
           try {
-            img.css('background-image', 'url("' + url + '")');
+            /* encodeURI страхует от "/\/) в URL, которые сломали бы строку url("...") */
+            img.css('background-image', 'url("' + encodeURI(url) + '")');
             layer.addClass('loaded');
           } catch (e) { }
         };
@@ -173,8 +174,8 @@
 
     if (serial) {
       var counts = [];
-      if (movie.number_of_seasons) counts.push(movie.number_of_seasons + ' ' + seasonsWord(movie.number_of_seasons));
-      if (movie.number_of_episodes) counts.push(movie.number_of_episodes + ' ' + episodesWord(movie.number_of_episodes));
+      if (movie.number_of_seasons) counts.push(movie.number_of_seasons + ' ' + LC.seasonsWord(movie.number_of_seasons));
+      if (movie.number_of_episodes) counts.push(movie.number_of_episodes + ' ' + LC.episodesWord(movie.number_of_episodes));
       if (counts.length) parts.push('<span>' + LC.util.esc(counts.join(' · ')) + '</span>');
     } else if (movie.runtime > 0) {
       parts.push('<span>' + LC.util.esc(LC.util.fmtRuntime(movie.runtime, LC.lang('lumen_card_min'))) + '</span>');
