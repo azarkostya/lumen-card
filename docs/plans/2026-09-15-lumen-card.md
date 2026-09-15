@@ -512,7 +512,14 @@ test('map кнопок Lampa покрыт', () => {
 
 - [ ] **Step 3: Рантайм заполнения при `complite`** (`src/90_runtime.js`, функция `LC.decorate(e)`): описание из `movie.overview` в `.lumen-desc` (обрезка 2 строки через CSS `-webkit-line-clamp:2`), оригинальное название + режиссёр (`persons.crew` с `job=='Director'`), теги качества (`movie.release_quality||movie.quality`; языки дорожек не показывать — данных нет), «В ролях» из `persons.cast.slice(0,5)` + `+N`, `.full-start__status` — точка по классу статуса (`Released`→good, `Returning Series`→accent, `Ended`→muted).
 
-- [ ] **Step 4: Проверить в cf.lampa.mx** (фильм и сериал), скриншоты в `docs/screens/` описать словами в acceptance. Commit `feat: карточка по дизайну`.
+- [ ] **Step 3b: Дефекты приёмки v1** (`docs/plans/acceptance-v1.md`), все обязательны:
+  1. Заголовок целиком: если `title.length > 18` — класс `.lumen-title--long` (4em, до 2 строк), иначе 5.5em в одну строку; многоточие только после второй строки.
+  2. Страна по-русски: брать текст из штатного `.full-start-new__head`, который `start.js` заполняет до `complite` (формат `2024, США`), отрезать год; фолбэк — `production_countries[].iso_3166_1` через словарь `{US:'США', GB:'Великобритания', RU:'Россия', FR:'Франция', DE:'Германия', JP:'Япония', KR:'Южная Корея', CN:'Китай', CA:'Канада', AU:'Австралия', IT:'Италия', ES:'Испания', IN:'Индия'}`, иначе английское имя.
+  3. URL картинок только через `Lampa.TMDB.image('t/p/w1280' + path)` (фолбэк `Lampa.Api.img`), без двойного слэша.
+  4. Режиссёр в мета-строке: `e.data.persons.crew` с `job === 'Director'` → `· реж. Имя`; у сериала вместо режиссёра `created_by[0].name` в подзаголовке рядом с оригинальным названием.
+  5. Постер: кадров нет → раскладка экрана 04 (постер 2:3 слева, 17em); кадр не загрузился → фон из `poster_path` с `filter: blur(2em) saturate(1.2)` и затемнением (экран 13).
+
+- [ ] **Step 4: Проверить в локальной Lampa (0.8)** (фильм и сериал), скриншоты в `docs/screens/` описать словами в acceptance. Commit `feat: карточка по дизайну`.
 
 ---
 
