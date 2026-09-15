@@ -22,15 +22,17 @@ function setup(opts) {
   const log = [];
   const storage = Object.assign({ lumen_menus: 'all', lumen_torrents: 'true' }, opts.storage || {});
   const storageCbs = [];
+  const params = [];
   const Lampa = {
     Template: { all: () => ({ full_start_new: '<div>orig</div>' }), add: () => { }, get: () => '' },
     Listener: { follow: () => { } },
     Lang: { add: () => { } },
+    SettingsApi: { addComponent: () => { }, addParam: (p) => params.push(p) },
     Controller: { listener: { follow: () => { } } },
     Storage: {
       field: (name) => storage[name],
       get: (name, def) => (name in storage ? storage[name] : def),
-      listener: { follow: (name, cb) => { if (name === 'change') storageCbs.push(cb); } }
+      listener: opts.noStorageListener ? undefined : { follow: (name, cb) => { if (name === 'change') storageCbs.push(cb); } }
     },
     Platform: { screen: () => false }
   };
@@ -52,8 +54,32 @@ function setup(opts) {
   const body = new FakeEl(['body-mock']);
   globalThis.$ = (sel) => (sel === 'body' ? body : EMPTY);
   opts.body = body;
-  return { LC, log, storage, storageCbs, body };
+  return { LC, log, storage, storageCbs, body, params };
 }
+
+function onChangeOf(params, name) {
+  return params.filter((p) => p.param.name === name)[0].onChange;
+}
+
+test('fix ревью: настройка из меню Lampa применяется один раз — Storage change уже применил, onChange не дублирует', () => {
+  const { LC, log, storageCbs, params } = setup();
+  LC.init();
+  log.length = 0;
+  for (const name of ['lumen_card_accent', 'lumen_card_fonts', 'lumen_menus', 'lumen_torrents']) {
+    storageCbs[0]({ name }); // Lampa Storage.set: сначала listener 'change'
+    onChangeOf(params, name)(); // затем onChange параметра
+  }
+  assert.deepEqual(log, ['css', 'fonts', 'css', 'mode:all', 'torrents:true']);
+});
+
+test('fix ревью: без подписки на Storage onChange остаётся рабочим путём', () => {
+  const { LC, log, params } = setup({ noStorageListener: true });
+  LC.init();
+  log.length = 0;
+  onChangeOf(params, 'lumen_card_accent')();
+  onChangeOf(params, 'lumen_torrents')();
+  assert.deepEqual(log, ['css', 'torrents:true']);
+});
 
 test('Task 32: LC.init после меню — LC.torrents.install и LC.applyTorrentsPref (сохранённое значение)', () => {
   const { LC, log } = setup({ storage: { lumen_torrents: 'false' } });

@@ -3,9 +3,11 @@ import { readFileSync } from 'node:fs';
 import { FakeEl, EMPTY } from './_fakedom.mjs';
 
 /* Task 32: CSS экранов пути TorrServer (src/65_torrents.js).
-   css() читает LC.tokens (30_css.js) и LC.icons (20_icons.js), поэтому
-   модуль грузится не test/_load.mjs (свежий LC на файл), а вместе с
-   зависимостями в один LC — как в бандле (10 -> 20 -> 64 -> 80 -> 30 -> 65). */
+   css() читает LC.tokens (30_css.js), LC.icons (20_icons.js) и маркеры
+   LC.menus (64_menus.js), поэтому модуль грузится не test/_load.mjs (свежий
+   LC на файл), а вместе с зависимостями в один LC. В бандле порядок — по
+   имени файла (10 -> 20 -> 30 -> … -> 64 -> 65 -> 80); здесь 80_settings
+   грузится раньше 30/65: LC.pref им нужен только при вызове, не при загрузке. */
 
 globalThis.PLUGIN = 'lumen_card';
 globalThis.warn = function () { };
@@ -123,7 +125,6 @@ test('покрыты все экраны пути', () => {
 });
 
 test('чек-лист: три состояния шагов — будущий smoke, текущий text крупнее, пройденный muted + зачёркнут', () => {
-  const css = t.css();
   const k = baseLC.tokens();
   const decl = (sel) => {
     for (const r of rules()) {
@@ -137,7 +138,6 @@ test('чек-лист: три состояния шагов — будущий s
   assert.match(decl('.torrent-checklist__list > li.wait'), new RegExp('color:' + k.text + '.*font-size:\\.964em|font-size:\\.964em.*color:' + k.text));
   assert.match(decl('.torrent-checklist__list > li.wait.check'), /text-decoration:line-through/);
   assert.match(decl('.torrent-checklist__list > li.wait.check'), new RegExp('color:' + k.muted));
-  assert.ok(css.length > 0);
 });
 
 test('пульсы спиннера и предзагрузки — только в lumen-motion-full', () => {
@@ -184,7 +184,7 @@ test('движение: transform на анимируемых Lampa элемен
     }
   }
   for (const mode of ['lite', 'off']) {
-    for (const cls of ['.simple-button', '.torrent-item']) {
+    for (const cls of ['.simple-button', '.torrent-item', '.explorer-card__head-img']) {
       const ok = all.some((r) => r.indexOf('lumen-motion-' + mode) !== -1 && r.indexOf(cls) !== -1 && r.indexOf('animation:none !important') !== -1);
       assert.ok(ok, mode + ': нет animation:none !important для ' + cls);
     }
@@ -238,7 +238,12 @@ function fakeDocument() {
     head,
     getElementById: (id) => byId[id] || null,
     getElementsByTagName: (n) => (n === 'head' ? [head] : []),
-    createElement: (tag) => ({ tagName: tag, id: '', innerHTML: '', parentNode: null })
+    /* writes — сколько раз в <style> записан текст (переразбор стилей). */
+    createElement: (tag) => {
+      const el = { tagName: tag, id: '', parentNode: null, writes: 0, _html: '' };
+      Object.defineProperty(el, 'innerHTML', { get() { return this._html; }, set(v) { this._html = v; this.writes++; } });
+      return el;
+    }
   };
 }
 
@@ -308,4 +313,63 @@ test('LC.injectCss пересобирает CSS пути через LC.applyTorr
     LC.injectCss();
   });
   assert.equal(calls, 1);
+});
+
+/* ---------------- правки ревью качества ---------------- */
+
+test('маски: data-URI один раз на иконку, repeat/position/size — одним правилом на все селекторы с масками', () => {
+  const css = t.css();
+  const uris = css.match(/url\("data:image\/svg\+xml[^)]*\)/g) || [];
+  const unique = new Set(uris);
+  // -webkit-mask-image и mask-image — по одному url на иконку
+  assert.equal(uris.length, unique.size * 2, 'data-URI повторяется');
+  assert.equal(unique.size, 6, 'check, star, chevronR, search, close, torrent');
+  assert.equal((css.match(/(^|[;{])mask-repeat:/g) || []).length, 1);
+  const maskSel = [];
+  const repeatSel = [];
+  for (const r of rules()) {
+    const parsed = parse(r);
+    if (!parsed) continue;
+    for (const p of parsed) {
+      if (/(^|;)mask-image:url/.test(p.decl)) maskSel.push(...p.selectors);
+      if (/(^|;)mask-repeat:/.test(p.decl)) repeatSel.push(...p.selectors);
+    }
+  }
+  assert.ok(maskSel.length > 0);
+  for (const s of maskSel) assert.ok(repeatSel.indexOf(s) !== -1, 'без repeat/position/size: ' + s);
+});
+
+test('toggle(true) с тем же текстом не переписывает <style>; смена акцента — переписывает один раз', () => {
+  const { t: m } = freshLC();
+  const storage = { lumen_card_accent: 'sand' };
+  const Lampa = { Storage: { get: (name, def) => (name in storage ? storage[name] : def) } };
+  globalThis.window = { Lampa };
+  globalThis.Lampa = Lampa;
+  try {
+    withDom((doc) => {
+      m.toggle(true);
+      m.toggle(true);
+      m.toggle(true);
+      assert.equal(doc.getElementById('lumen-torrents-css').writes, 1);
+      storage.lumen_card_accent = 'ice';
+      m.toggle(true);
+      assert.equal(doc.getElementById('lumen-torrents-css').writes, 2);
+      m.toggle(false);
+      m.toggle(true);
+      assert.equal(doc.getElementById('lumen-torrents-css').writes, 1, 'новый <style> после выключения пишется');
+    });
+  } finally {
+    delete globalThis.window;
+    delete globalThis.Lampa;
+  }
+});
+
+test('LC.injectCss с тем же текстом не переписывает CSS карточки', () => {
+  const { LC } = freshLC();
+  LC.applyTorrentsPref = () => { };
+  withDom((doc) => {
+    LC.injectCss();
+    LC.injectCss();
+    assert.equal(doc.getElementById('lumen-card-css').writes, 1);
+  });
 });

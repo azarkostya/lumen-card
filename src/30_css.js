@@ -74,7 +74,7 @@
     var fonts = useFonts();
     return {
       bg: C.bg, panel: C.panel, line: C.line, text: C.text, muted: C.muted, smoke: C.smoke,
-      spice: C.spice, spiceRgb: SPICE_RGB, good: C.good, dark: C.dark, chipBg: C.chipBg, buttonBg: C.buttonBg,
+      spice: C.spice, dark: C.dark,
       panelHi: C.panelHi, panelLo: C.panelLo, raised: C.raised, textRgb: hexToRgb(C.text), bgRgb: hexToRgb(C.bg),
       accent: t.color, accentRgb: hexToRgb(t.color), onac: t.onac, ring: t.light, acglow: t.glow,
       fontDisplay: fonts ? FONT_DISPLAY_ON : FONT_DISPLAY_OFF,
@@ -364,6 +364,11 @@
     return css.join('\n');
   };
 
+  /* Последний записанный текст CSS карточки: тот же текст повторно в <style>
+     не пишем — смена любой настройки lumen_card_* зовёт injectCss, а
+     переразбор ~28 КБ стилей на ТВ заметен. */
+  var card_css_text = null;
+
   LC.injectCss = function () {
     try {
       var el = document.getElementById(STYLE_ID);
@@ -372,10 +377,14 @@
         el.id = STYLE_ID;
         el.type = 'text/css';
         (document.head || document.getElementsByTagName('head')[0] || document.body).appendChild(el);
+        card_css_text = null;
       }
       var text = LC.buildCss();
-      if ('styleSheet' in el && el.styleSheet) el.styleSheet.cssText = text;
-      else el.innerHTML = text;
+      if (text !== card_css_text) {
+        if ('styleSheet' in el && el.styleSheet) el.styleSheet.cssText = text;
+        else el.innerHTML = text;
+        card_css_text = text;
+      }
       /* Task 32: CSS экранов пути пересобирается вместе с CSS карточки
          (смена акцента/шрифтов); сама функция уважает ui_active и lumen_torrents. */
       if (typeof LC.applyTorrentsPref === 'function') LC.applyTorrentsPref();

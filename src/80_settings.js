@@ -97,6 +97,17 @@
 
   var ICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="4" width="20" height="16" rx="3"/><path d="M2 15h20"/><circle cx="7" cy="9" r="2"/></svg>';
 
+  /* Lampa в Storage.set сначала шлёт listener 'change' (его ловит
+     LC.followStorage ниже), а потом вызывает onChange параметра — без этой
+     обёртки каждое изменение из меню применялось бы дважды (2× buildCss и
+     css() пути, два toggle). onChange остаётся запасным путём, если подписка
+     на Storage не удалась (LC.storageFollowed не выставлен). */
+  function onlyWithoutStorage(fn) {
+    return function () {
+      if (!LC.storageFollowed) fn();
+    };
+  }
+
   LC.addSettings = function () {
     try {
       if (!window.Lampa || !Lampa.SettingsApi || typeof Lampa.SettingsApi.addComponent !== 'function') return;
@@ -118,14 +129,14 @@
         component: PLUGIN,
         param: { name: PLUGIN + '_accent', type: 'select', values: accentValues, 'default': 'sand' },
         field: { name: LC.lang('lumen_card_accent') },
-        onChange: function () { LC.injectCss(); }
+        onChange: onlyWithoutStorage(function () { LC.injectCss(); })
       });
 
       Lampa.SettingsApi.addParam({
         component: PLUGIN,
         param: { name: PLUGIN + '_fonts', type: 'trigger', 'default': true },
         field: { name: LC.lang('lumen_card_fonts_name'), description: LC.lang('lumen_card_fonts_descr') },
-        onChange: function () { LC.injectFonts(); LC.injectCss(); }
+        onChange: onlyWithoutStorage(function () { LC.injectFonts(); LC.injectCss(); })
       });
 
       Lampa.SettingsApi.addParam({
@@ -154,7 +165,7 @@
         component: PLUGIN,
         param: { name: 'lumen_motion', type: 'select', values: motionValues, 'default': 'auto' },
         field: { name: LC.lang('lumen_card_motion') },
-        onChange: function () { LC.applyMotionMode(); }
+        onChange: onlyWithoutStorage(function () { LC.applyMotionMode(); })
       });
 
       /* Task 6: имена без префикса PLUGIN, как у lumen_motion выше —
@@ -167,7 +178,7 @@
         component: PLUGIN,
         param: { name: 'lumen_slideshow', type: 'trigger', 'default': true },
         field: { name: LC.lang('lumen_card_slideshow_name') },
-        onChange: function () { LC.applySlideshowPref(); }
+        onChange: onlyWithoutStorage(function () { LC.applySlideshowPref(); })
       });
 
       var seconds = LC.lang('lumen_card_seconds');
@@ -177,7 +188,7 @@
         component: PLUGIN,
         param: { name: 'lumen_slide_interval', type: 'select', values: intervalValues, 'default': '14' },
         field: { name: LC.lang('lumen_card_slide_interval') },
-        onChange: function () { LC.applySlideshowPref(); }
+        onChange: onlyWithoutStorage(function () { LC.applySlideshowPref(); })
       });
 
       /* Task 31: имена без префикса PLUGIN, как у lumen_motion — отдельные
@@ -193,14 +204,14 @@
         component: PLUGIN,
         param: { name: 'lumen_menus', type: 'select', values: menusValues, 'default': 'all' },
         field: { name: LC.lang('lumen_card_menus') },
-        onChange: function () { LC.applyMenusPref(); }
+        onChange: onlyWithoutStorage(function () { LC.applyMenusPref(); })
       });
 
       Lampa.SettingsApi.addParam({
         component: PLUGIN,
         param: { name: 'lumen_torrents', type: 'trigger', 'default': true },
         field: { name: LC.lang('lumen_card_torrents_name') },
-        onChange: function () { LC.applyTorrentsPref(); }
+        onChange: onlyWithoutStorage(function () { LC.applyTorrentsPref(); })
       });
     } catch (e) {
       warn('settings failed', e);
@@ -220,6 +231,7 @@
         if (e.name === PLUGIN + '_fonts') LC.injectFonts();
         LC.injectCss();
       });
+      LC.storageFollowed = true;
     } catch (err) {
       warn('storage listener failed', err);
     }

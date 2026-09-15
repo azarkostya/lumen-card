@@ -67,10 +67,12 @@
       // закрашенного прямоугольника от :before показываем исходный svg кнопки.
       // !important на :before и совпадающий с основным правилом селектор на svg
       // гарантируют победу фолбэка независимо от порядка вставки CSS в документ.
-      rules.push('@supports not ((-webkit-mask-image:none) or (mask-image:none)){' + fallback.join('') + '}');
+      rules.push(NO_MASK + '{' + fallback.join('') + '}');
       return rules.join('\n');
     }
-    return { get: get, names: names, forButton: forButton, maskSvg: maskSvg, maskUrl: maskUrl, css: css };
+    /* Условие фолбэка «движок без CSS-масок» — общее с src/65_torrents.js. */
+    var NO_MASK = '@supports not ((-webkit-mask-image:none) or (mask-image:none))';
+    return { get: get, names: names, forButton: forButton, maskSvg: maskSvg, maskUrl: maskUrl, css: css, NO_MASK: NO_MASK };
   })();
 
   /* В браузере "module" не определён — ветка не выполняется. Метка module.lumen
