@@ -271,6 +271,11 @@
 
     return {
       activate: activate,
+      /* Task 6 (fix, находка "мёртвое слайдшоу", решение координатора):
+         публичный признак жизни — без него снаружи (90_runtime.js) пришлось
+         бы читать внутреннее поле контроллера напрямую, чтобы понять, можно
+         ли ещё resume() или пора пересоздавать (LC.backdrops.revive). */
+      isAlive: function () { return alive; },
       /* archive своей активности (или resume-по-факту, см. 90_runtime.js)
          — ставит на паузу текущий кадр, не сбрасывая его. */
       pause: function () { paused = true; stopTimer(); },

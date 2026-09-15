@@ -194,11 +194,27 @@
          пустой/null, ветка тихо no-op (нормальный путь на самый первый
          'start' любого push, ДО того как 'full' complite впервые выставит
          LC.active). Для карточки, к которой вернулись через backward(),
-         слой уже есть — восстанавливаем LC.active. */
+         слой уже есть — восстанавливаем LC.active.
+
+         Находка (fix, решение координатора): у Lampa есть свой механизм
+         ActivitySlide.stop() (карточка на 2+ уровня в глубине истории) —
+         тихо убирает DOM (slide.remove()) БЕЗ единого события Listener.
+         Наша страховка isLayerMounted() в src/51_slideshow.js корректно
+         ловит это на следующем тике таймера и завершает контроллер
+         (destroy()). Но когда backward() возвращает пользователя на такую
+         карточку, Lampa переиспользует ТОТ ЖЕ DOM/ActivitySlide (start$4:
+         is_stopped -> slides.append(render())) БЕЗ нового 'full':complite —
+         resume() на уже уничтоженном контроллере молча ничего не делает
+         (alive=false). Поэтому: контроллера нет ИЛИ он !isAlive() ->
+         LC.backdrops.revive(layer) пересобирает ротацию на месте (см.
+         обоснование выбора в комментарии над revive() — 50_backdrops.js). */
       if (e.type === 'start' && e.component === 'full') {
         var layer = layerOf(e.object);
         if (layer && layer.length) {
           var slideshow = layer.data('lumenSlideshow');
+          if (!slideshow || (typeof slideshow.isAlive === 'function' && !slideshow.isAlive())) {
+            slideshow = LC.backdrops.revive(layer);
+          }
           LC.active = { object: e.object, body: layer.parent(), slideshow: slideshow };
           if (slideshow) slideshow.resume();
         }

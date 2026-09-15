@@ -75,12 +75,15 @@ function makeActivityObj(title, hasLayer, ctrl) {
   return { title: title, activity: { render: function () { return activityEl; } } };
 }
 
+/* isAlive() (fix, находка "мёртвое слайдшоу"): true, пока destroy() не
+   вызывался — так же, как настоящий контроллер из src/51_slideshow.js. */
 function makeCtrl() {
   return {
-    resumeCalls: 0, pauseCalls: 0, destroyCalls: 0,
+    resumeCalls: 0, pauseCalls: 0, destroyCalls: 0, _dead: false,
     resume() { this.resumeCalls++; },
     pause() { this.pauseCalls++; },
-    destroy() { this.destroyCalls++; }
+    destroy() { this.destroyCalls++; this._dead = true; },
+    isAlive() { return !this._dead; }
   };
 }
 
@@ -228,4 +231,55 @@ test('(п.2) destroy чужой активности без .lumen-backdrop -> c
   LC.onActivityEvent({ type: 'destroy', component: 'torrents', object: objOther });
   assert.equal(cancelCalls.length, 0);
   assert.deepEqual(warnLog, []);
+});
+
+/* ====================================================================== */
+/* Task 6 (fix, находка "мёртвое слайдшоу", решение координатора):        */
+/* start полной карточки, чей контроллер !isAlive() (или отсутствует) —   */
+/* LC.backdrops.revive() пересоздаёт ротацию вместо no-op resume() на      */
+/* уничтоженном контроллере. */
+/* ====================================================================== */
+
+test('(fix) start полной карточки с destroyed контроллером -> LC.backdrops.revive создаёт новый живой контроллер, старый не резюмируется, повторный start второй раз не зовёт revive', () => {
+  const LC = freshLC();
+  const reviveCalls = [];
+  const freshCtrl = makeCtrl();
+  LC.backdrops = {
+    cancel: () => { },
+    revive: (layer) => { reviveCalls.push(layer); layer.data('lumenSlideshow', freshCtrl); return freshCtrl; }
+  };
+
+  const deadCtrl = makeCtrl();
+  deadCtrl.destroy(); // уже уничтожен (Lampa ActivitySlide.stop() -> isLayerMounted() self-heal)
+  const objA = makeActivityObj('A', true, deadCtrl);
+
+  LC.onActivityEvent({ type: 'start', component: 'full', object: objA });
+
+  assert.equal(reviveCalls.length, 1, 'revive должен быть вызван для мёртвого контроллера');
+  assert.equal(deadCtrl.resumeCalls, 0, 'старый (мёртвый) контроллер не должен получать resume()');
+  assert.equal(LC.active.object, objA);
+  assert.equal(LC.active.slideshow, freshCtrl);
+  assert.equal(freshCtrl.resumeCalls, 1);
+
+  // Повторный start ТОЙ ЖЕ уже-LC.active активности — обычная ветка
+  // (e.object === LC.active.object), revive второй раз вызываться не должен.
+  LC.onActivityEvent({ type: 'start', component: 'full', object: objA });
+  assert.equal(reviveCalls.length, 1, 'второй контроллер не должен появляться при повторном start');
+  assert.equal(freshCtrl.resumeCalls, 2);
+});
+
+test('(fix) start полной карточки без сохранённого контроллера (layer есть, lumenSlideshow не задан) -> тоже вызывает revive', () => {
+  const LC = freshLC();
+  const reviveCalls = [];
+  const freshCtrl = makeCtrl();
+  LC.backdrops = {
+    cancel: () => { },
+    revive: (layer) => { reviveCalls.push(layer); return freshCtrl; }
+  };
+
+  const objA = makeActivityObj('A', true, null); // слой есть, lumenSlideshow не выставлен вовсе
+  LC.onActivityEvent({ type: 'start', component: 'full', object: objA });
+
+  assert.equal(reviveCalls.length, 1);
+  assert.equal(LC.active.slideshow, freshCtrl);
 });

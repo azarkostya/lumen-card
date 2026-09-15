@@ -429,3 +429,24 @@ test('slideshow (fix, п.4): таймер снятия transform/background-imag
   ctrl.destroy();
   assert.equal(timers[scheduled - 1].cleared, true, 'destroy() должен очистить таймер остывания');
 });
+
+/* ====================================================================== */
+/* Task 6 (fix, находка "мёртвое слайдшоу", решение координатора):        */
+/* публичный признак жизни — 90_runtime.js решает по нему, звать resume() */
+/* или LC.backdrops.revive(), не читая внутренние поля контроллера.        */
+/* ====================================================================== */
+
+test('isAlive(): true сразу после create() и после activate(), false после destroy()', () => {
+  const LC = freshLC({ motion: 'full' });
+  const layer = mount(makeLayer());
+  const ctrl = LC.slideshow.create(layer, urls(3), { enabled: () => true, intervalMs: () => 8000 });
+  assert.equal(ctrl.isAlive(), true, 'создан, но ещё не активирован — всё равно жив');
+
+  ctrl.activate();
+  assert.equal(ctrl.isAlive(), true);
+
+  ctrl.destroy();
+  assert.equal(ctrl.isAlive(), false);
+  assert.doesNotThrow(() => ctrl.destroy()); // повторный destroy идемпотентен, isAlive остаётся false
+  assert.equal(ctrl.isAlive(), false);
+});

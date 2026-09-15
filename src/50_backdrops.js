@@ -288,9 +288,17 @@
       var max = LC.slideshow.maxFramesFor(LC.motionMode());
       var paths = pickBackdrops(movie.images, main, max);
       var urls = LC.util.map(paths, function (p) { return LC.cardinfo.imageUrl(p, 'w1280', tmdbImageFn(), apiImgFn()); });
+      var slideshowOpts = { enabled: slideshowEnabled, intervalMs: slideIntervalMs };
 
-      var controller = LC.slideshow.create(layer, urls, { enabled: slideshowEnabled, intervalMs: slideIntervalMs });
+      var controller = LC.slideshow.create(layer, urls, slideshowOpts);
       layer.data('lumenSlideshow', controller);
+      /* Task 6 (fix, находка "мёртвое слайдшоу"): urls/opts сохраняются на
+         слое отдельно от контроллера — если Lampa позже "оживит" этот же
+         layer без нового apply() (см. revive() ниже и комментарий в
+         90_runtime.js), их можно достать и пересобрать ротацию, не имея
+         под рукой movie ещё раз. */
+      layer.data('lumenUrls', urls);
+      layer.data('lumenOpts', slideshowOpts);
 
       if (mode === 'backdrop') loadBackdrop(layer, movie, gen, controller);
       else showNoFrame(layer, movie);
@@ -368,7 +376,69 @@
     layer.removeData('lumenSlideshow');
   }
 
-  LC.backdrops = { apply: apply, cancel: cancel, pickBackdrops: pickBackdrops };
+  /* Task 6 (fix, находка "мёртвое слайдшоу", решение координатора): Lampa
+     умеет тихо "убить" карточку, которая ушла на 2+ уровня в историю
+     (ActivitySlide.stop() -> this.slide.remove(), БЕЗ единого события
+     Listener) — наша страховка isLayerMounted() корректно ловит это на
+     следующем тике и вызывает controller.destroy(). Но когда пользователь
+     потом возвращается backward()-ом, Lampa у такой карточки переиспользует
+     ТОТ ЖЕ DOM/ActivitySlide (start$4: is_stopped -> slides.append(render()))
+     БЕЗ нового 'full':complite — то есть без нового apply(). 90_runtime.js
+     (LC.onActivityEvent) находит слой, видит контроллер !isAlive() и зовёт
+     сюда revive() вместо resume().
+
+     Выбор между двумя вариантами из сообщения координатора:
+       (A) повторить apply() целиком (тот же путь, что 'full':complite) —
+           отклонено: на 'activity':'start' нет доступа к movie (это
+           отдельное событие, e.object — запись стека активностей, а не
+           объект/данные карточки; e.data.movie есть только в событии
+           'full'). Кроме того, apply() -> clearLayer() снимает is-active
+           с .lumen-backdrop__img (opacity:0 по CSS) ДО того, как новый
+           controller.activate() отработает — гарантированная вспышка фона
+           в пустоту на время нового цикла загрузки, даже с generation guard
+           (тот спасает только от ДВОЙНОГО контроллера/лишней сетевой
+           загрузки, не от самого сброса классов).
+       (B) (выбрано) лёгкий LC.slideshow.create(layer, urls, opts) с urls/
+           opts, сохранёнными в layer.data ещё исходным apply() — без
+           повторного обращения к movie, без промежуточного opacity:0.
+           Видимый сейчас кадр (может быть НЕ .lumen-backdrop__img, если
+           ротация к моменту "убийства" успела провернуться дальше) остаётся
+           на экране: его background-image переносится на
+           .lumen-backdrop__img (канонический "нулевой" кадр нового
+           контроллера — activate() его не перезагружает, просто помечает
+           классами), .lumen-bg__slides очищается (не плодим дубликаты
+           поверх кадров старого, уже мёртвого контроллера). Дальше
+           ротация просто продолжает идти по тому же пулу urls — какой
+           именно кадр окажется "следующим", пользователю не важно и не
+           заметно.
+     Отдельный generation guard (lumenGen) здесь не нужен: проверка
+     isAlive() и создание нового контроллера происходят синхронно в одном
+     вызове LC.onActivityEvent, без асинхронного окна для гонки (в отличие
+     от варианта A, где новый apply() снова ждёт сеть). */
+  function revive(layer) {
+    try {
+      var urls = layer.data('lumenUrls');
+      if (!urls || !urls.length) return null;
+      var opts = layer.data('lumenOpts');
+
+      var img0 = layer.find('.lumen-backdrop__img');
+      var activeFrame = layer.find('.lumen-bg__img.is-active');
+      var activeBg = activeFrame.length ? activeFrame.css('background-image') : img0.css('background-image');
+      if (activeBg) img0.css('background-image', activeBg);
+      img0.addClass('lumen-bg__img is-active');
+      layer.find('.lumen-bg__slides').empty();
+
+      var controller = LC.slideshow.create(layer, urls, opts);
+      layer.data('lumenSlideshow', controller);
+      controller.activate();
+      return controller;
+    } catch (e) {
+      warn('slideshow revive failed', e);
+      return null;
+    }
+  }
+
+  LC.backdrops = { apply: apply, cancel: cancel, pickBackdrops: pickBackdrops, revive: revive };
 
   /* В браузере "module" не определён — ветка не выполняется. Экспорт нужен
      только test/backdrops.test.mjs (Step 1, TDD pickBackdrops) через общий
