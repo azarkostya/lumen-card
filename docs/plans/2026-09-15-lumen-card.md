@@ -642,6 +642,8 @@ Array.prototype.map.call(document.querySelectorAll('.activity--active .buttons--
 
 ### Task 5b: Постер слева и размытый постер (экраны 04, 13)
 
+> **ВЫПОЛНЕНО** (5e296d5, d01f454): `LC.cardinfo.bgMode` / `backdropPath`, модуль `src/50_backdrops.js` (`LC.backdrops.apply` / `cancel`), раскладка с постером 2:3 справа (по экрану 04), размытый постер при ошибке кадра (blur только в full), отмена устаревших загрузок, хук закрытия карточки `LC.active` + подписка `activity` destroy в `90_runtime.js`; 205 тестов, стенд 31/31, хэши 7/7.
+
 > **Поправки контроллера (после Task 5a):** отрисовка шапки живёт в `src/85_header.js` (`LC.header`), чистые функции данных — в `src/35_cardinfo.js` с тестами; новые рендеры класть туда, в `src/90_runtime.js` — только подписки и жизненный цикл. URL любых картинок TMDB — только `LC.cardinfo.imageUrl(path, size, Lampa.TMDB.image, Lampa.Api.img)` (прокси TMDB, без двойного слэша). Сгенерированный CSS проверяет `test/css.test.mjs` (нет `.0625em`, `inset:`, `:has(`, правила ограничены корнем) — дополнять его проверками новых правил. У любого `display:grid` — flex-фолбэк, как у `.lumen-content`. Живые проверки: в скрытой панели transition не проигрываются; после чтения значений восстанавливать атрибут через `removeAttribute("style")`; хэши кнопок 7/7.
 > - Правило v1 `.lumen-card .full-start-new__left{display:none !important}` в режиме `.lumen-card--poster` переопределять селектором с большей специфичностью и `!important`.
 
