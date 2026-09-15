@@ -206,6 +206,12 @@
        комментарий у lumen-motion-lite выше) — она перебивает обычные правила вне зависимости от
        специфичности, поэтому её саму дополнительно глушим через animation:none !important. */
     css.push('.lumen-card.lumen-motion-off .full-start__button,.lumen-card.lumen-motion-off .lumen-in{-webkit-transition:none !important;transition:none !important;-webkit-animation:none !important;animation:none !important;opacity:1 !important;-webkit-transform:none !important;transform:none !important}');
+    /* Ревью Task 4 (эта задача, попутная мелочь): в lite transform уже глушится выше, но сама
+       нативная CSS-анимация Lampa (animation-button-focus, .full-start__button.focus/.hover,
+       app.css ~15820-15880) на кнопках карточки продолжала играть — getComputedStyle(btn).animationName
+       оставался 'animation-button-focus' вместо 'none'. lite задуман как «только цвета», поэтому
+       анимацию гасим так же, как в off. */
+    css.push('.lumen-card.lumen-motion-lite .full-start__button{-webkit-animation:none !important;animation:none !important}');
 
     /* Бэкдроп: медленный наезд (Ken Burns). Класс .lumen-bg__img подготовлен для слайдшоу кадров Task 6. */
     css.push('.lumen-card.lumen-motion-full .lumen-bg__img.is-active{-webkit-animation:lumen-kb 14s linear forwards;animation:lumen-kb 14s linear forwards}');
