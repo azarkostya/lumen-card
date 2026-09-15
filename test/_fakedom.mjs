@@ -59,6 +59,15 @@ FakeEl.prototype.data = function (key, val) {
   return this;
 };
 FakeEl.prototype.removeData = function (key) { delete this._data[key]; return this; };
+/* Task 31: attr (get при 1 аргументе, set при 2) / removeAttr — нужны
+   src/64_menus.js для data-lumen-kind на корне .selectbox. */
+FakeEl.prototype.attr = function (name, val) {
+  if (!this._attr) this._attr = {};
+  if (arguments.length < 2) return this._attr[name];
+  this._attr[name] = '' + val;
+  return this;
+};
+FakeEl.prototype.removeAttr = function (name) { if (this._attr) delete this._attr[name]; return this; };
 FakeEl.prototype.append = function (child) { const el = toEl(child); el._parentEl = this; this._children.push(el); return this; };
 FakeEl.prototype.prepend = function (child) { const el = toEl(child); el._parentEl = this; this._children.unshift(el); return this; };
 FakeEl.prototype.empty = function () { this._children = []; return this; };

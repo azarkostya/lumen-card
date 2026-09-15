@@ -31,7 +31,12 @@
     lumen_card_reactions: { ru: 'РЕАКЦИЙ', en: 'REACTIONS', uk: 'РЕАКЦІЙ' },
     lumen_card_slideshow_name: { ru: 'Слайдшоу кадров', en: 'Backdrop slideshow', uk: 'Слайдшоу кадрів' },
     lumen_card_slide_interval: { ru: 'Интервал смены кадров', en: 'Frame interval', uk: 'Інтервал зміни кадрів' },
-    lumen_card_seconds: { ru: 'с', en: 's', uk: 'с' }
+    lumen_card_seconds: { ru: 'с', en: 's', uk: 'с' },
+    lumen_card_menus: { ru: 'Оформление меню и окон', en: 'Menus and dialogs style', uk: 'Оформлення меню і вікон' },
+    lumen_card_menus_all: { ru: 'Все меню и окна', en: 'All menus and dialogs', uk: 'Усі меню і вікна' },
+    lumen_card_menus_path: { ru: 'Только путь до плеера', en: 'Player path only', uk: 'Лише шлях до плеєра' },
+    lumen_card_menus_off: { ru: 'Выкл', en: 'Off', uk: 'Викл' },
+    lumen_card_torrents_name: { ru: 'Оформление экрана торрентов', en: 'Torrents screen style', uk: 'Оформлення екрана торентів' }
   };
 
   function langCode() {
@@ -174,6 +179,29 @@
         field: { name: LC.lang('lumen_card_slide_interval') },
         onChange: function () { LC.applySlideshowPref(); }
       });
+
+      /* Task 31: имена без префикса PLUGIN, как у lumen_motion — отдельные
+         ветки в LC.followStorage. Применение — LC.applyMenusPref/
+         LC.applyTorrentsPref (90_runtime.js), без перезагрузки. */
+      var menusValues = {
+        all: LC.lang('lumen_card_menus_all'),
+        path: LC.lang('lumen_card_menus_path'),
+        off: LC.lang('lumen_card_menus_off')
+      };
+
+      Lampa.SettingsApi.addParam({
+        component: PLUGIN,
+        param: { name: 'lumen_menus', type: 'select', values: menusValues, 'default': 'all' },
+        field: { name: LC.lang('lumen_card_menus') },
+        onChange: function () { LC.applyMenusPref(); }
+      });
+
+      Lampa.SettingsApi.addParam({
+        component: PLUGIN,
+        param: { name: 'lumen_torrents', type: 'trigger', 'default': true },
+        field: { name: LC.lang('lumen_card_torrents_name') },
+        onChange: function () { LC.applyTorrentsPref(); }
+      });
     } catch (e) {
       warn('settings failed', e);
     }
@@ -186,6 +214,8 @@
         if (!e || !e.name) return;
         if (e.name === 'lumen_motion') { LC.applyMotionMode(); return; }
         if (e.name === 'lumen_slideshow' || e.name === 'lumen_slide_interval') { LC.applySlideshowPref(); return; }
+        if (e.name === 'lumen_menus') { LC.applyMenusPref(); return; }
+        if (e.name === 'lumen_torrents') { LC.applyTorrentsPref(); return; }
         if (e.name.indexOf(PLUGIN + '_') !== 0) return;
         if (e.name === PLUGIN + '_fonts') LC.injectFonts();
         LC.injectCss();

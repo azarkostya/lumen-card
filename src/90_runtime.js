@@ -284,6 +284,30 @@
     }
   };
 
+  /* Task 31: true только после того, как LC.init дошёл до оформления
+     (широкая раскладка, шаблон поддерживается). Иначе плагин не активен —
+     смена lumen_menus не должна ставить наши классы на body. */
+  var menus_ready = false;
+
+  LC.applyMenusPref = function () {
+    if (!menus_ready) return;
+    try {
+      LC.menus.mode(Lampa.Storage.field('lumen_menus'));
+    } catch (e) {
+      warn('menus pref failed', e);
+    }
+  };
+
+  /* LC.torrents появится в Task 32; до этого настройка просто сохраняется.
+     LC.pref нормализует строки 'true'/'false' из Storage. */
+  LC.applyTorrentsPref = function () {
+    try {
+      if (LC.torrents && typeof LC.torrents.toggle === 'function') LC.torrents.toggle(LC.pref('lumen_torrents', true));
+    } catch (e) {
+      warn('torrents pref failed', e);
+    }
+  };
+
   /* -------------------------------------------------------------------- */
   /* Инициализация.                                                        */
   /* -------------------------------------------------------------------- */
@@ -345,6 +369,14 @@
 
       LC.injectFonts();
       LC.injectCss();
+
+      try {
+        LC.menus.mode(Lampa.Storage.field('lumen_menus'));
+        LC.menus.install();
+        menus_ready = true;
+      } catch (e4) {
+        warn('menus init failed', e4);
+      }
 
       Lampa.Listener.follow('full', function (e) {
         try {
