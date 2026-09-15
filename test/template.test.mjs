@@ -51,6 +51,27 @@ test('innerOf на синтетике: вложенность, целое сло
   assert.equal(template.innerOf('<div class="a"><div>x</div>', 'a'), null);
 });
 
+test('innerOf: кавычки в атрибутах и HTML-комментарии не путают границы тега', () => {
+  // '>' внутри значения атрибута (data-x="1>2") не должен обрывать открывающий тег раньше времени
+  assert.equal(
+    template.innerOf('<div class="buttons--container" data-x="1>2">PAYLOAD</div>', 'buttons--container'),
+    'PAYLOAD'
+  );
+  // закомментированный старый блок не должен подменить собой настоящий
+  assert.equal(
+    template.innerOf('<!-- old: <div class="buttons--container">DEAD</div> --><div class="buttons--container">ALIVE</div>', 'buttons--container'),
+    'ALIVE'
+  );
+  // одинарные кавычки у class, '>' внутри двойных кавычек другого атрибута, комментарий внутри
+  // блока остаётся в вырезке дословно (без trim/replace) — он может быть частью outerHTML кнопки
+  assert.equal(
+    template.innerOf('<div class=\'buttons--container\' title="a > b">X<!-- <div> --></div>', 'buttons--container'),
+    'X<!-- <div> -->'
+  );
+  // незакрытый комментарий -> null
+  assert.equal(template.innerOf('<div class="a"><!-- oops</div>', 'a'), null);
+});
+
 test('build(фикстура): один корневой элемент — div-теги сбалансированы, buttons--container вложен в корень', () => {
   // Регрессия: buttons--container — сосед .full-start-new__body ВНУТРИ корня
   // (как в оригинале), а не отдельный элемент верхнего уровня. Раньше build()
@@ -82,6 +103,17 @@ test('build: блок кнопок не найден -> null', () => {
 
 test('build: пустая строка -> null', () => {
   assert.equal(template.build(''), null);
+});
+
+test('build: buttons найден, но button--play отсутствует -> null', () => {
+  const html = '<div class="full-start-new__buttons"><div class="button--book">x</div></div>' +
+               '<div class="buttons--container">y</div>';
+  assert.equal(template.build(html), null);
+});
+
+test('build: найден только один из двух блоков -> null', () => {
+  assert.equal(template.build('<div class="full-start-new__buttons"><div class="button--play">x</div></div>'), null);
+  assert.equal(template.build('<div class="buttons--container"><div class="button--play">x</div></div>'), null);
 });
 
 test('build(фикстура): ключевые классы v1 на месте', () => {

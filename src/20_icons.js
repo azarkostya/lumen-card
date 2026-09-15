@@ -53,6 +53,9 @@
         rules.push(btn + ' > svg{display:none !important}');
         rules.push(btn + ':before{content:"";display:block;-webkit-flex-shrink:0;flex-shrink:0;width:1.625em;height:1.625em;background-color:currentColor;-webkit-mask-image:' + maskUrl(name) + ';mask-image:' + maskUrl(name) + ';-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;-webkit-mask-size:contain;mask-size:contain}');
       }
+      // Движок без поддержки CSS-масок (старые WebOS/Tizen): вместо пустого
+      // закрашенного прямоугольника от :before показываем исходный svg кнопки.
+      rules.push('@supports not ((-webkit-mask-image:none) or (mask-image:none)){.lumen-card .full-start__button > svg{display:block !important}.lumen-card .full-start__button:before{display:none}}');
       return rules.join('\n');
     }
     return { get: get, names: names, forButton: forButton, maskSvg: maskSvg, maskUrl: maskUrl, css: css };

@@ -194,6 +194,9 @@
         rules.push(btn + ' > svg{display:none !important}');
         rules.push(btn + ':before{content:"";display:block;-webkit-flex-shrink:0;flex-shrink:0;width:1.625em;height:1.625em;background-color:currentColor;-webkit-mask-image:' + maskUrl(name) + ';mask-image:' + maskUrl(name) + ';-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;-webkit-mask-size:contain;mask-size:contain}');
       }
+      // Движок без поддержки CSS-масок (старые WebOS/Tizen): вместо пустого
+      // закрашенного прямоугольника от :before показываем исходный svg кнопки.
+      rules.push('@supports not ((-webkit-mask-image:none) or (mask-image:none)){.lumen-card .full-start__button > svg{display:block !important}.lumen-card .full-start__button:before{display:none}}');
       return rules.join('\n');
     }
     return { get: get, names: names, forButton: forButton, maskSvg: maskSvg, maskUrl: maskUrl, css: css };
@@ -412,33 +415,84 @@
   LC.template = (function () {
     function innerOf(html, cls) {
       if (typeof html !== 'string' || !cls) return null;
-
       var wordRe = new RegExp('(^|\\s)' + cls.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(\\s|$)');
-      var openTagRe = /<div\b[^>]*>/gi;
-      var m, start = -1, tagEnd = -1;
-      while ((m = openTagRe.exec(html)) !== null) {
-        var classMatch = /class\s*=\s*"([^"]*)"/i.exec(m[0]) || /class\s*=\s*'([^']*)'/i.exec(m[0]);
-        if (classMatch && wordRe.test(classMatch[1])) {
-          start = m.index;
-          tagEnd = openTagRe.lastIndex;
-          break;
-        }
-      }
-      if (start === -1) return null;
 
-      /* Вложенность считаем по всем <div…>/</div> от конца найденного
-         открывающего тега — так парный </div> находится даже если внутри
-         блока есть свои вложенные div. */
-      var scanRe = /<div\b[^>]*>|<\/div\s*>/gi;
-      scanRe.lastIndex = tagEnd;
-      var depth = 1, sm;
-      while ((sm = scanRe.exec(html)) !== null) {
-        if (sm[0].charAt(1) === '/') {
-          depth--;
-          if (depth === 0) return html.slice(tagEnd, sm.index);
-        } else {
-          depth++;
+      /* Индекс первой НЕэкранированной кавычками '>' начиная с pos, или -1
+         (незакрытый тег). '>' внутри "…"/'…' (например, в data-x="1>2") не
+         считается концом тега — без этого учёта строка вроде
+         '<div class="x" data-y="1>2">' обрывалась бы на первом '>'. */
+      function findTagClose(pos) {
+        var i = pos, quote = null, c;
+        for (; i < html.length; i++) {
+          c = html.charAt(i);
+          if (quote) { if (c === quote) quote = null; }
+          else if (c === '"' || c === '\'') quote = c;
+          else if (c === '>') return i;
         }
+        return -1;
+      }
+
+      function classOf(tagText) {
+        var m = /class\s*=\s*"([^"]*)"/i.exec(tagText) || /class\s*=\s*'([^']*)'/i.exec(tagText);
+        return m ? m[1] : '';
+      }
+
+      /* Токен, начинающийся с html[i] === '<':
+         - 'comment' — HTML-комментарий, пропускается целиком до '-->' (то,
+           что внутри, тегом не считается — иначе закомментированный старый
+           <div class="…">…</div> мог бы подменить собой настоящий блок);
+         - 'open'/'close' — <div…>/</div>, граница имени тега проверена явно
+           (символ сразу после "div" — пробел, '>' или '/'), чтобы 'divider'
+           не приняло за div;
+         - 'other' — любой другой тег (span, svg, use, br…), на глубину
+           вложенности не влияет.
+         null — незакрытый тег или незакрытый комментарий: выше по стеку это
+         тоже даёт null (см. innerOf/цикл ниже). */
+      function readTag(i) {
+        var e;
+        if (html.slice(i, i + 4) === '<!--') {
+          e = html.indexOf('-->', i + 4);
+          return e === -1 ? null : { type: 'comment', next: e + 3 };
+        }
+        if (html.slice(i, i + 4) === '<div' && /[\s>\/]/.test(html.charAt(i + 4) || '>')) {
+          e = findTagClose(i);
+          return e === -1 ? null : { type: 'open', next: e + 1, cls: classOf(html.slice(i, e + 1)) };
+        }
+        if (html.slice(i, i + 5) === '</div' && /[\s>]/.test(html.charAt(i + 5) || '>')) {
+          e = findTagClose(i);
+          return e === -1 ? null : { type: 'close', next: e + 1 };
+        }
+        e = findTagClose(i);
+        return e === -1 ? null : { type: 'other', next: e + 1 };
+      }
+
+      /* Фаза 1: ищем первый <div>, у которого в class есть токен cls целым словом. */
+      var pos = html.indexOf('<'), tok, contentStart = -1;
+      while (pos !== -1) {
+        tok = readTag(pos);
+        if (!tok) return null;
+        if (tok.type === 'open' && wordRe.test(tok.cls)) { contentStart = tok.next; break; }
+        pos = html.indexOf('<', tok.next);
+      }
+      if (contentStart === -1) return null;
+
+      /* Фаза 2: от конца открывающего тега считаем вложенность по всем
+         <div…>/</div> (остальные теги и комментарии пропускаем как есть) —
+         так парный </div> находится даже если внутри блока есть свои
+         вложенные div. Срез — по индексам исходной строки, дословно, без
+         trim/replace: комментарии и прочая разметка внутри блока остаются в
+         вырезке как есть, они могут быть частью outerHTML кнопки. */
+      var depth = 1;
+      pos = html.indexOf('<', contentStart);
+      while (pos !== -1) {
+        tok = readTag(pos);
+        if (!tok) return null;
+        if (tok.type === 'open') depth++;
+        else if (tok.type === 'close') {
+          depth--;
+          if (depth === 0) return html.slice(contentStart, pos);
+        }
+        pos = html.indexOf('<', tok.next);
       }
       return null; /* нет баланса — незакрытый div */
     }
@@ -480,6 +534,8 @@
         '</div>' +
         '<div class="full-start-new__details"></div>' +
         '<div class="full-start-new__reactions"><div>#{reactions_none}</div></div>' +
+        /* Обёртка константна (только этот один div), хэшируется НЕ она —
+           хэшируются кнопки внутри (innerOf вырезает только их, план 0.2). */
         '<div class="full-start-new__buttons">' + buttons + '</div>' +
         '</div>' +
         '</div>' +
@@ -500,6 +556,8 @@
         '<div class="is--serial hide"></div>' +
         '</div>' +
         '</div>' +
+        /* Та же логика: обёртка константна, вырезаны и вставлены дословно
+           только сами кнопки-альтернативы (торренты/трейлеры) внутри неё. */
         '<div class="hide buttons--container">' + pool + '</div>' +
         '</div>';
     }

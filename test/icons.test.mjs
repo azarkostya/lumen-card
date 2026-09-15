@@ -29,8 +29,25 @@ test('css: прячет исходный svg и рисует маску, DOM к�
   assert.match(css, /\.lumen-card \.full-start__button\.button--play > svg\{display:none !important\}/);
   assert.match(css, /\.lumen-card \.full-start__button\.view--torrent:before\{[^}]*-webkit-mask-image:url\(/);
   assert.match(css, /\[class\*="view--online"\]:before/);
-  // все правила ограничены корнем плагина
-  for (const rule of css.split('\n')) assert.ok(rule.indexOf('.lumen-card ') === 0, rule);
+  // фолбэк для движков без CSS-масок: свой svg снова виден, маска-псевдоэлемент спрятан
+  assert.ok(css.indexOf(
+    '@supports not ((-webkit-mask-image:none) or (mask-image:none)){' +
+    '.lumen-card .full-start__button > svg{display:block !important}' +
+    '.lumen-card .full-start__button:before{display:none}}'
+  ) !== -1, 'фолбэк-правило без поддержки масок не найдено дословно');
+  // все правила ограничены корнем плагина: обычная строка начинается с ".lumen-card ",
+  // либо это @supports-фолбэк — и тогда все селекторы ВНУТРИ него тоже ".lumen-card …"
+  for (const rule of css.split('\n')) {
+    if (rule.indexOf('.lumen-card ') === 0) continue;
+    assert.ok(rule.indexOf('@supports not (') === 0, rule);
+    const body = rule.slice(rule.indexOf('{') + 1, -1);
+    const pieces = body.split('}').filter(Boolean);
+    assert.ok(pieces.length > 0, rule);
+    for (const piece of pieces) {
+      const selector = piece.slice(0, piece.indexOf('{'));
+      assert.ok(selector.indexOf('.lumen-card ') === 0, selector);
+    }
+  }
 });
 test('модуль не содержит DOM-мутаций кнопок', async () => {
   const { readFileSync } = await import('node:fs');
