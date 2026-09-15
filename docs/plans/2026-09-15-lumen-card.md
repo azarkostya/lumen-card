@@ -638,6 +638,9 @@ Array.prototype.map.call(document.querySelectorAll('.activity--active .buttons--
 
 ### Task 5b: Постер слева и размытый постер (экраны 04, 13)
 
+> **Поправки контроллера (после Task 5a):** отрисовка шапки живёт в `src/85_header.js` (`LC.header`), чистые функции данных — в `src/35_cardinfo.js` с тестами; новые рендеры класть туда, в `src/90_runtime.js` — только подписки и жизненный цикл. URL любых картинок TMDB — только `LC.cardinfo.imageUrl(path, size, Lampa.TMDB.image, Lampa.Api.img)` (прокси TMDB, без двойного слэша). Сгенерированный CSS проверяет `test/css.test.mjs` (нет `.0625em`, `inset:`, `:has(`, правила ограничены корнем) — дополнять его проверками новых правил. У любого `display:grid` — flex-фолбэк, как у `.lumen-content`. Живые проверки: в скрытой панели transition не проигрываются; после чтения значений восстанавливать атрибут через `removeAttribute("style")`; хэши кнопок 7/7.
+> - Правило v1 `.lumen-card .full-start-new__left{display:none !important}` в режиме `.lumen-card--poster` переопределять селектором с большей специфичностью и `!important`.
+
 **Files:** Modify `src/35_cardinfo.js` (+ тест), `src/30_css.js`, `src/90_runtime.js`, `src/40_template.js` (только если нужен узел фона). Design: `design-spec-card.md` §11–12.
 
 - [ ] **Step 1 (TDD):** `LC.cardinfo.bgMode(movie)` → `'backdrop'` (есть `backdrop_path` или `images.backdrops` без текста), `'poster'` (кадров нет, есть `poster_path`), `'procedural'` (нет ничего).
@@ -646,6 +649,9 @@ Array.prototype.map.call(document.querySelectorAll('.activity--active .buttons--
 - [ ] **Step 4:** живьём подменить данные на `Listener 'full'` `type:'start'` (`movie.backdrop_path = null; movie.images.backdrops = []`) → раскладка 04; битый путь кадра → 13. Хэши 7/7. Commit `feat: постер и размытый фон без кадров`.
 
 ### Task 5c: Сериал — студия, создатель, ряд серий (экраны 05, 06)
+
+> **Поправки контроллера (после Task 5a):** отрисовка шапки живёт в `src/85_header.js` (`LC.header`), чистые функции данных — в `src/35_cardinfo.js` с тестами; новые рендеры класть туда, в `src/90_runtime.js` — только подписки и жизненный цикл. URL любых картинок TMDB — только `LC.cardinfo.imageUrl(path, size, Lampa.TMDB.image, Lampa.Api.img)` (прокси TMDB, без двойного слэша). Сгенерированный CSS проверяет `test/css.test.mjs` (нет `.0625em`, `inset:`, `:has(`, правила ограничены корнем) — дополнять его проверками новых правил. У любого `display:grid` — flex-фолбэк, как у `.lumen-content`. Живые проверки: в скрытой панели transition не проигрываются; после чтения значений восстанавливать атрибут через `removeAttribute("style")`; хэши кнопок 7/7.
+> - Статус фильма уже стоит в `.lumen-side` (Task 5a). Для сериала расположение статуса и состав правой колонки — по экрану 05 и §8 спецификации, через CSS-класс режима на корне, без дублирования разметки.
 
 **Files:** Modify `src/35_cardinfo.js` (+ тест), `src/70_progress.js` (+ тест), `src/40_template.js`, `src/30_css.js`, `src/90_runtime.js`. Design: `design-spec-card.md` §8–9.
 
@@ -658,6 +664,8 @@ Array.prototype.map.call(document.querySelectorAll('.activity--active .buttons--
 - [ ] **Step 5:** живьём «Фоллаут» (id 106379): через `Lampa.Timeline.update` в последнем сезоне отметить E1–E2 просмотренными и E3 на 32 % → видны все состояния; ↓ с кнопок попадает в ряд, ← → листает, `Enter` открывает `Lampa.Select`, ↑ возвращает на кнопки. Хэши 7/7. Commit `feat: ряд серий сериала`.
 
 ### Task 5d: Таблица «ПОДРОБНО» в ряду описания (экран 07)
+
+> **Поправки контроллера (после Task 5a):** отрисовка шапки живёт в `src/85_header.js` (`LC.header`), чистые функции данных — в `src/35_cardinfo.js` с тестами; новые рендеры класть туда, в `src/90_runtime.js` — только подписки и жизненный цикл. URL любых картинок TMDB — только `LC.cardinfo.imageUrl(path, size, Lampa.TMDB.image, Lampa.Api.img)` (прокси TMDB, без двойного слэша). Сгенерированный CSS проверяет `test/css.test.mjs` (нет `.0625em`, `inset:`, `:has(`, правила ограничены корнем) — дополнять его проверками новых правил. У любого `display:grid` — flex-фолбэк, как у `.lumen-content`. Живые проверки: в скрытой панели transition не проигрываются; после чтения значений восстанавливать атрибут через `removeAttribute("style")`; хэши кнопок 7/7.
 
 **Files:** Modify `src/35_cardinfo.js` (+ тест), `src/30_css.js`, `src/90_runtime.js`. Design: `design-spec-card.md` §10.
 
@@ -675,6 +683,7 @@ Array.prototype.map.call(document.querySelectorAll('.activity--active .buttons--
 > - В CSS не использовать `inset` (нет в старых webview) — `top:0;right:0;bottom:0;left:0`.
 > - Слайдшоу работает только в режиме `LC.cardinfo.bgMode(movie) === 'backdrop'` (Task 5b); ошибка первой картинки → размытый постер из 5b. Хэши 7/7 после задачи.
 > - Ken Burns уже задан в Task 4 на `.lumen-bg__img.is-active` (14 с, 1.00 → 1.08) — слайды называть ровно так, иначе анимация не применится; в режиме `lite` наезда нет.
+> - URL кадров — только `LC.cardinfo.imageUrl` (Task 5a); логику слайдшоу — в отдельный модуль `src/50_backdrops.js` по плану, не в `90_runtime.js`.
 
 **Files:**
 - Create: `src/50_backdrops.js`
