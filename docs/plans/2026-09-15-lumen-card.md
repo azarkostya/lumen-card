@@ -881,6 +881,8 @@ CSS: `.lumen-bg__trailer{position:absolute;inset:-10% 0;opacity:0;transition:opa
 
 ### Task 8: «Продолжить» для фильмов и сериалов
 
+> **ВЫПОЛНЕНО** (e0e59e1, 695261d, a8a8051; сверка PASS по §6 и экранам 01/05/06, ревью качества ×2 → Approved with minor): порог «досмотрено» 95 %, приоритет последнего сезона, чистая `LC.progress.label(found, episodes, words)`, `serialProgress(movie, view, hash, episodes?, now?)`; строка §6 одной линией (серия · таймкод · процент, полоса под ними), подпись «Продолжить S2 E3» на кнопке через CSS-переменную `--lumen-play-label` и `:after` (span скрыт только под `@supports`), надписи сжатой шапки экрана 06 (`__state`, `__timecode`), склейка статуса с чипом «Выходит · 17 дек» (класс `lumen-card--nextchip` только при видимом статусе), в режиме трейлера строка и подпись скрыты. Невышедшие серии не предлагаются: вышедшими считаются все серии до последней с датой ≤ сегодня (дыра без `air_date` внутри отрезка не ломает выбор), хвост без дат — нет. Обновление через существующую подписку `LC.followTimeline` с коалесценцией 300 мс (`scheduleProgressRefresh`), настройка `lumen_card_progress` применяется на лету (`LC.applyProgressPref`). 521 тест, стенд 31/31, хэши 7/7.
+
 > **Поправки контроллера (текст ниже местами противоречит сам себе):**
 > - `src/70_progress.js` уже существует: сохранить `movieProgress(movie, view, hash)` / `serialProgress(movie, view, hash)` → `{view, season, episode}` или `null` и существующие тесты; Step 2–3 ниже — старая форма, по ней не писать.
 > - Добавить: порог «досмотрено» `percent >= 95` → не показывать и перейти к следующей серии; `label(found, episodes)` → `S2 E3 «Голова»` (название и длительность из `e.data.episodes.episodes`); `episodeState` из Task 5c переиспользовать.
