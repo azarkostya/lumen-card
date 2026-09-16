@@ -241,6 +241,30 @@ test('player: destroy идемпотентен — onEnd ровно один р�
   assert.equal(env.events.end, 1);
 });
 
+/* Task 11: YouTube — единственный ресурс карточки, чьи колбэки приходят из
+   чужого кода: iframe_api зовёт onReady/onStateChange, когда ему удобно, и
+   вполне может сделать это уже после kill() (карточку закрыли, пока плеер
+   поднимался). Без гейта класс is-live возвращался бы на слой уже закрытой
+   карточки, а onStart в schedule() пытался бы ставить слайдшоу на паузу и
+   заводить сторож. */
+test('Task 11: колбэки YouTube, доехавшие после kill(), ничего не делают', () => {
+  const env = freshEnv();
+  const ctl = env.make();
+  const p = env.last();
+
+  ctl.destroy();
+  assert.equal(env.events.end, 1);
+
+  p.cfg.events.onReady({ target: p });
+  p.cfg.events.onStateChange({ data: 1, target: p });
+
+  assert.equal(p.played, false, 'мёртвый плеер не запускается');
+  assert.equal(env.host.hasClass('is-live'), false, 'слою не возвращается класс живого ролика');
+  assert.equal(env.events.start, 0, 'onStart после kill не звучит — иначе schedule завёл бы сторож');
+  assert.equal(env.events.end, 1, 'onEnd остаётся однократным');
+  assert.deepEqual(warnLog, []);
+});
+
 test('player: YT ещё не загружен — <script id="lumen-yt-api"> вставляется один раз на все плееры', () => {
   const env = freshEnv({ ytReady: false });
 

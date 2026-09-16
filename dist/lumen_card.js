@@ -2808,11 +2808,18 @@ autoplay: 1, mute: 1, controls: 0, rel: 0, modestbranding: 1,
 playsinline: 1, start: 4, iv_load_policy: 3, disablekb: 1, fs: 0
 },
 events: {
+
+
+
+
+
+
 onReady: function (ev) {
+if (dead) return;
 try { ev.target.mute(); ev.target.playVideo(); } catch (e) { }
 },
 onStateChange: function (ev) {
-if (!ev) return;
+if (dead || !ev) return;
 if (ev.data === 1) {
 if (timeout) { clearTimeout(timeout); timeout = null; }
 try { $host.addClass('is-live'); } catch (e) { }
@@ -6545,6 +6552,57 @@ return LC.backdrops.revive(layer) || s;
 
 
 
+LC.destroyActive = function () {
+var active = LC.active;
+if (!active) return;
+LC.active = null;
+try {
+LC.backdrops.cancel(active.body);
+} catch (e) {
+warn('destroy active: backdrop failed', e);
+}
+try {
+LC.reviews.cancel(active.body);
+} catch (e2) {
+warn('destroy active: reviews failed', e2);
+}
+try {
+if (active.slideshow && typeof active.slideshow.destroy === 'function') active.slideshow.destroy();
+} catch (e3) {
+warn('destroy active: slideshow failed', e3);
+}
+try {
+if (active.trailer && typeof active.trailer.destroy === 'function') active.trailer.destroy();
+} catch (e4) {
+warn('destroy active: trailer failed', e4);
+}
+};
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -6582,12 +6640,11 @@ if (!activated) return;
 
 if (LC.active && e.object === LC.active.object) {
 if (e.type === 'destroy') {
-LC.backdrops.cancel(LC.active.body);
 
 
 
-try { LC.reviews.cancel(LC.active.body); } catch (eRv) { warn('reviews cancel failed', eRv); }
-LC.active = null;
+
+LC.destroyActive();
 } else if (e.type === 'archive' || e.type === 'start') {
 
 
@@ -6920,7 +6977,19 @@ LC.active = null;
 function activate() {
 if (activated) return;
 activated = true;
+
+
+
+
+
+try {
 Lampa.Template.add('full_start_new', our_template);
+} catch (eTpl) {
+activated = false;
+warn('template add failed', eTpl);
+restoreOriginalTemplate();
+return;
+}
 LC.injectFonts();
 LC.injectCss();
 ui_active = true;

@@ -435,7 +435,17 @@ function initLC(opts) {
   const timelines = [];
   const extra = { added: [], bgCancel: [], reviewCancel: [], cast: 0 };
   const Lampa = {
-    Template: { all: () => ({ full_start_new: '<div>orig</div>' }), add: (name, html) => extra.added.push({ name: name, html: html }), get: () => '' },
+    Template: {
+      all: () => ({ full_start_new: '<div>orig</div>' }),
+      /* Task 11 (Step 2): templateAddFails моделирует Lampa, которая не приняла
+         НАШ шаблон (оригинал она принимает — иначе нечем было бы проверить сам
+         откат). */
+      add: (name, html) => {
+        extra.added.push({ name: name, html: html });
+        if (opts.templateAddFails && html !== '<div>orig</div>') throw new Error('template add failed');
+      },
+      get: () => ''
+    },
     Listener: { follow: (name, fn) => { if (name === 'full') full.push(fn); } },
     Lang: { add: () => { } },
     SettingsApi: { addComponent: () => { }, addParam: () => { } },
@@ -1009,5 +1019,173 @@ test('ревью п.1: выключение снимает запрос отзы
   assert.equal(clearedRows.length, 2, 'оба ряда прошли через clearRow');
   assert.ok(clearedRows.indexOf(historyRow) !== -1, 'ряд карточки из истории тоже снят');
   assert.equal(historyRow.hasClass('lumen-descr-row'), false, 'класс снят ПОСЛЕ clearRow, а не до');
+  assert.deepEqual(warnLog, []);
+});
+
+/* ====================================================================== */
+/* Task 11: LC.destroyActive() — все ресурсы открытой карточки в одной    */
+/* точке.                                                                 */
+/*                                                                        */
+/* Поправка контроллера: отдельного интервала-стража document.body.contains */
+/* здесь НЕТ — его роль выполняют проверки isMounted/isLayerMounted в      */
+/* колбэках и тиках (слайдшоу, трейлер, загрузка кадра). destroyActive()   */
+/* лишь сводит освобождение воедино поверх уже существующего хука          */
+/* закрытия карточки (LC.onActivityEvent, Task 5b/6).                      */
+/* ====================================================================== */
+
+test('Task 11: LC.destroyActive снимает слой фона, запрос отзывов, слайдшоу и трейлер ровно по разу; повторный вызов — no-op', () => {
+  const LC = freshLC();
+  const cancels = [];
+  const reviewCancels = [];
+  LC.backdrops = { apply: () => null, cancel: (b) => cancels.push(b), revive: () => null };
+  LC.reviews = { render: () => { }, clearRow: () => { }, cancel: (b) => reviewCancels.push(b) };
+
+  const slideshow = makeCtrl();
+  let trailerDestroys = 0;
+  const body = new FakeEl(['activity__body']);
+  LC.active = {
+    object: {}, body: body, slideshow: slideshow,
+    trailer: { destroy() { trailerDestroys++; }, isAlive: () => true },
+    data: { movie: { id: 1 } }
+  };
+
+  LC.destroyActive();
+
+  assert.deepEqual(cancels, [body], 'слой фона (кадр, слайдшоу, трейлер, предзагрузка) снят через cancel(body)');
+  assert.deepEqual(reviewCancels, [body], 'незавершённый запрос отзывов снят');
+  assert.equal(slideshow.destroyCalls, 1, 'контроллер слайдшоу уничтожен и по прямой ссылке');
+  assert.equal(trailerDestroys, 1);
+  assert.equal(LC.active, null, 'ссылка на карточку отпущена');
+
+  /* Идемпотентность: 'destroy' может прийти дважды, а выключение плагина —
+     наложиться на закрытие карточки. Второй раз освобождать уже нечего. */
+  LC.destroyActive();
+  assert.equal(cancels.length, 1);
+  assert.equal(reviewCancels.length, 1);
+  assert.equal(slideshow.destroyCalls, 1);
+  assert.equal(trailerDestroys, 1);
+  assert.deepEqual(warnLog, []);
+});
+
+test('Task 11: исключение в одном освобождении не мешает остальным и наружу не летит', () => {
+  const LC = freshLC();
+  const reviewCancels = [];
+  let trailerDestroys = 0;
+  LC.backdrops = { apply: () => null, cancel: () => { throw new Error('backdrop'); }, revive: () => null };
+  LC.reviews = { render: () => { }, clearRow: () => { }, cancel: (b) => reviewCancels.push(b) };
+
+  const slideshow = makeCtrl();
+  slideshow.destroy = function () { throw new Error('slideshow'); };
+  LC.active = {
+    object: {}, body: new FakeEl(['activity__body']), slideshow: slideshow,
+    trailer: { destroy() { trailerDestroys++; } }, data: null
+  };
+
+  LC.destroyActive();
+
+  assert.equal(reviewCancels.length, 1, 'запрос отзывов снят, хотя слой фона бросил исключение');
+  assert.equal(trailerDestroys, 1, 'трейлер погашен, хотя слайдшоу бросило исключение');
+  assert.equal(LC.active, null);
+  assert.equal(warnLog.length, 2, 'каждая ошибка — свой warn, ни одна не всплыла наружу');
+  warnLog.length = 0;
+});
+
+test('Task 11: LC.active обнуляется ДО освобождения — колбэк, доехавший во время уборки, карточки уже не находит', () => {
+  const LC = freshLC();
+  const seen = [];
+  LC.backdrops = { apply: () => null, cancel: () => seen.push(LC.active), revive: () => null };
+  LC.reviews = { render: () => { }, clearRow: () => { }, cancel: () => seen.push(LC.active) };
+  LC.active = { object: {}, body: new FakeEl(['activity__body']), slideshow: null, trailer: null, data: null };
+
+  LC.destroyActive();
+
+  assert.deepEqual(seen, [null, null], 'ни один освобождающий вызов не видит LC.active');
+  assert.deepEqual(warnLog, []);
+});
+
+test('Task 11: destroy своей активности гасит трейлер даже тогда, когда слоя фона в теле уже нет', () => {
+  const LC = freshLC();
+  const cancels = [];
+  LC.backdrops = { apply: () => null, cancel: (b) => cancels.push(b), revive: () => null };
+  let trailerDestroys = 0;
+
+  /* Слоя у активности нет вовсе: Lampa успела убрать DOM (ActivitySlide.stop())
+     — cancel(body) до контроллера трейлера уже не доберётся, и снять его можно
+     только по ссылке из LC.active. */
+  const objA = makeActivityObj('A', false, null);
+  LC.active = {
+    object: objA, body: new FakeEl(['activity__body']), slideshow: null,
+    trailer: { destroy() { trailerDestroys++; }, isAlive: () => true }, data: null
+  };
+
+  LC.onActivityEvent({ type: 'destroy', component: 'full', object: objA });
+
+  assert.equal(trailerDestroys, 1, 'контроллер трейлера снимается по ссылке из LC.active, а не только через слой');
+  assert.equal(cancels.length, 1);
+  assert.equal(LC.active, null);
+  assert.deepEqual(warnLog, []);
+});
+
+test('Task 11: тик Timeline после destroyActive карточку не воскрешает и в закрытую не рисует', () => {
+  const { LC, timelines } = initLC();
+  let scheduled = 0;
+  const hashes = [];
+  LC.header = { refreshEpisode: (h) => hashes.push(h), scheduleProgressRefresh: () => { scheduled++; }, refreshCast: () => { } };
+  LC.backdrops = { apply: () => null, cancel: () => { }, revive: () => null };
+  LC.active = { object: {}, body: new FakeEl(['activity__body']), slideshow: null, trailer: null, data: null };
+
+  LC.destroyActive();
+  timelines[0]({ data: { hash: '908552078' } });
+
+  assert.equal(LC.active, null, 'подписка Timeline закрытую карточку не восстанавливает');
+  assert.equal(scheduled, 1, 'перерисовка идёт по живому DOM — закрытой карточки в нём уже нет');
+  assert.deepEqual(hashes, ['908552078']);
+  assert.deepEqual(warnLog, []);
+});
+
+test('Task 11: выключенный плагин — destroyActive безопасен, ресурсы карточки заново не создаются', () => {
+  const storage = {};
+  const { LC, full, calls } = initLC({ storage });
+
+  storage.lumen_enabled = 'false';
+  LC.applyEnabledPref();
+  assert.equal(LC.active, null);
+
+  LC.destroyActive(); // карточки нет — освобождать нечего
+
+  full[0]({
+    type: 'complite', body: new FakeEl(['activity__body']), object: {},
+    data: { movie: { id: 1 } }, item: { render: () => new FakeEl(['full-start-new']) }
+  });
+
+  assert.equal(LC.active, null, 'выключенный плагин карточку не запоминает');
+  assert.equal(calls.schedule.length, 0, 'трейлер не планируется');
+  assert.equal(calls.bind.length, 0);
+  LC.destroyActive();
+  assert.deepEqual(warnLog, []);
+});
+
+/* Step 2: шаблон — единственное, без чего оформлять нечем. Если Lampa его не
+   приняла, плагин обязан остаться выключенным с ОРИГИНАЛЬНЫМ шаблоном, а не
+   считать себя активным (иначе подписка 'full' начала бы дорисовывать блоки в
+   штатную карточку, для которой наших классов нет). */
+test('Task 11 (Step 2): ошибка подмены шаблона на init — оригинал возвращён, оформление не активируется', () => {
+  const { LC, full, extra, calls, descrRows } = initLC({ templateAddFails: true });
+
+  assert.equal(extra.added[extra.added.length - 1].html, '<div>orig</div>', 'штатный шаблон Lampa возвращён');
+  assert.equal(warnLog.length, 1, 'ошибка записана в warn и наружу не вышла');
+  warnLog.length = 0;
+
+  /* Подписка заведена (включение из настроек не должно требовать перезагрузки),
+     но оформление выключено — обработчик выходит первой же строкой. */
+  assert.equal(full.length, 1);
+  full[0]({
+    type: 'complite', body: new FakeEl(['activity__body']), object: {},
+    data: { movie: { id: 1 } }, item: { render: () => new FakeEl(['full-start-new']) }
+  });
+
+  assert.equal(LC.active, null, 'карточка не оформляется и не запоминается');
+  assert.deepEqual(descrRows, []);
+  assert.equal(calls.schedule.length, 0);
   assert.deepEqual(warnLog, []);
 });

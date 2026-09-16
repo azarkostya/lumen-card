@@ -269,6 +269,57 @@
     return LC.backdrops.revive(layer) || s;
   }
 
+  /* Task 11: все ресурсы открытой карточки освобождаются одной точкой.
+     Вход один — 'destroy' своей активности (LC.onActivityEvent ниже):
+     отдельного интервала-стража document.body.contains здесь намеренно НЕТ
+     (поправка контроллера), его роль выполняют проверки isMounted() /
+     isLayerMounted() в колбэках и тиках самих ресурсов.
+
+     Что освобождается:
+       1) LC.backdrops.cancel(body) — слой фона целиком: незавершённая
+          предзагрузка кадра (Image + таймаут 8 с), контроллер слайдшоу
+          (setInterval ротации и таймер остывания кадра), контроллер трейлера
+          (таймер старта 3 с, таймаут 6 с, сторож 1 с, iframe) и отложенная
+          уборка кадра после revive();
+       2) LC.reviews.cancel(body) — незавершённый запрос отзывов (таймаут 8 с);
+       3) слайдшоу и трейлер ПО ПРЯМОЙ ССЫЛКЕ — страховка на случай, когда слоя
+          в теле активности уже нет (Lampa тихо убрала DOM через
+          ActivitySlide.stop(), без единого события): cancel(body) ищет слой
+          через body.children('.lumen-backdrop') и до контроллеров тогда не
+          доберётся. Оба destroy идемпотентны — после успешного cancel() это
+          no-op.
+
+     LC.active обнуляется ПЕРВЫМ делом. Это и идемпотентность (повторный
+     'destroy' либо наложившееся выключение плагина освобождать уже нечего), и
+     гарантия, что колбэк, доехавший во время самой уборки, карточку в LC.active
+     не найдёт. Каждое освобождение — в своём try/catch: ошибка одного ресурса
+     не должна оставить остальные висеть. */
+  LC.destroyActive = function () {
+    var active = LC.active;
+    if (!active) return;
+    LC.active = null;
+    try {
+      LC.backdrops.cancel(active.body);
+    } catch (e) {
+      warn('destroy active: backdrop failed', e);
+    }
+    try {
+      LC.reviews.cancel(active.body);
+    } catch (e2) {
+      warn('destroy active: reviews failed', e2);
+    }
+    try {
+      if (active.slideshow && typeof active.slideshow.destroy === 'function') active.slideshow.destroy();
+    } catch (e3) {
+      warn('destroy active: slideshow failed', e3);
+    }
+    try {
+      if (active.trailer && typeof active.trailer.destroy === 'function') active.trailer.destroy();
+    } catch (e4) {
+      warn('destroy active: trailer failed', e4);
+    }
+  };
+
   /* Единственный обработчик подписки 'activity' за всё время жизни
      плагина (правки координатора к Task 6: вторую подписку не заводить).
      Вынесен в именованную LC.onActivityEvent — LC.init() только подписывает
@@ -331,12 +382,11 @@
 
       if (LC.active && e.object === LC.active.object) {
         if (e.type === 'destroy') {
-          LC.backdrops.cancel(LC.active.body);
-          /* Ревью 2 Task 9 (п.4): вместе со слоем снимаем и незавершённый
-             запрос отзывов — иначе его колбэки жили бы до таймаута 8 с уже
-             после закрытия карточки. */
-          try { LC.reviews.cancel(LC.active.body); } catch (eRv) { warn('reviews cancel failed', eRv); }
-          LC.active = null;
+          /* Task 11: слой фона, незавершённый запрос отзывов (его колбэки иначе
+             жили бы до таймаута 8 с уже после закрытия карточки — ревью 2
+             Task 9, п.4), слайдшоу и трейлер — одной точкой, см.
+             LC.destroyActive выше. */
+          LC.destroyActive();
         } else if (e.type === 'archive' || e.type === 'start') {
           /* Ревью (fix, Important 1): та же самая liveSlideshow() — своя
              активность тоже может дойти сюда с уже мёртвым контроллером
@@ -669,7 +719,19 @@
   function activate() {
     if (activated) return;
     activated = true;
-    Lampa.Template.add('full_start_new', our_template);
+    /* Task 11 (Step 2): шаблон — единственное, без чего оформлять нечем. Если
+       Lampa его не приняла, откатываемся целиком: возвращаем оригинал и
+       остаёмся выключенными, вместо того чтобы считать себя активными без
+       своего шаблона — иначе подписка 'full' начала бы дорисовывать блоки в
+       штатную карточку, у которой наших классов нет. */
+    try {
+      Lampa.Template.add('full_start_new', our_template);
+    } catch (eTpl) {
+      activated = false;
+      warn('template add failed', eTpl);
+      restoreOriginalTemplate();
+      return;
+    }
     LC.injectFonts();
     LC.injectCss();
     ui_active = true;

@@ -194,11 +194,18 @@
               playsinline: 1, start: 4, iv_load_policy: 3, disablekb: 1, fs: 0
             },
             events: {
+              /* Task 11: iframe_api зовёт колбэки, когда ему удобно — в том
+                 числе уже ПОСЛЕ kill() (карточку закрыли, пока плеер
+                 поднимался). Мёртвый плеер не запускаем и слой не трогаем:
+                 иначе is-live возвращался бы на слой закрытой карточки, а
+                 onStart в schedule() пытался бы ставить слайдшоу на паузу и
+                 заводить сторож. */
               onReady: function (ev) {
+                if (dead) return;
                 try { ev.target.mute(); ev.target.playVideo(); } catch (e) { }
               },
               onStateChange: function (ev) {
-                if (!ev) return;
+                if (dead || !ev) return;
                 if (ev.data === 1) {
                   if (timeout) { clearTimeout(timeout); timeout = null; }
                   try { $host.addClass('is-live'); } catch (e) { }
