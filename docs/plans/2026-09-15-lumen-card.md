@@ -782,6 +782,10 @@ CSS: `.lumen-bg__img{position:absolute;inset:0;background-size:cover;background-
 
 ### Task 7: Фоновый трейлер YouTube
 
+> **ВЫПОЛНЕНО** (538715a, 84b8438, cae13d6; сверка PASS по экрану 02, ревью качества ×2 → Approved with minor): `LC.trailer` в `src/55_trailer.js` — выбор ролика по типу и языку, старт через 3 с, без звука (`youtube-nocookie`), таймаут 6 с и тихий откат, пауза/возврат слайдшоу через слой, метка «ТРЕЙЛЕР · БЕЗ ЗВУКА», кнопка «Стоп» (свой `.selector` вне групп кнопок, `collectionSet`/`collectionFocus` только для видимой карточки), узел `.lumen-bg__trailer` в `ensureLayer`, остановка через `layer.data(lumenTrailer)` в `stopSlideshow`/`revive`, сторож `.activity--active` раз в секунду только во время ролика (Lampa не шлёт событий покидаемой активности), глобальный хук `onYouTubeIframeAPIReady` с очередью (без утечки деревьев карточек), настройка `lumen_trailer` auto/on/off (auto → off на tizen/webos), не стартует при `lumen-motion-off`; класс `.lumen-actions` вместо `nth-child(6)`. 477 тестов, стенд 31/31, хэши 7/7. Живьём не проверялось только само воспроизведение (в скрытой панели браузера autoplay заблокирован) — проверены создание iframe, загрузка API и откат по таймауту на настоящем YouTube, остальное на застабленном плеере.
+>
+> **Отдельной задачей (7b, вне нумерации):** таймкод «00:05 / 02:18» и полоса прогресса ролика с экрана 02 — требуют третьего таймера (тик 1 с, `transform: scaleX`, снятие во всех ветках `kill`); делать после Task 11 (очистка ресурсов). Задание — `scratchpad/t7b-prompt.md`.
+
 > **Поправки контроллера:**
 > - Кнопка «Стоп» (экран 02) — собственный `.selector` вне `.full-start-new__buttons` и `.buttons--container` (иначе попадёт в группировку кнопок Lampa и в хэши); режим корня `.lumen-trailer-on`.
 > - Слушатель `Controller.listener 'toggle'` и `.lumen-compact` уже созданы в Task 4 — только добавить в него остановку трейлера, второй подписки не делать.
