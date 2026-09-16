@@ -483,15 +483,25 @@
     }
 
     /* Экран 13, панель 2: ключа нет — вместо пустоты показываем, где его
-       взять (поправка контроллера). Ни одного .selector внутри: нажимать
-       здесь нечего, а лишний фокусируемый узел изменил бы навигацию. */
+       взять (поправка контроллера). Task 20: единственный фокусируемый узел
+       внутри — кнопка «Скрыть»: подсказка висела на каждой карточке, пока
+       ключа нет, и убрать её было нечем. Кнопка гасит подсказку насовсем,
+       вернуть — переключателем «Подсказка про ключ» в настройках. */
     function hintHtml() {
       return '<div class="lumen-reviews__hint">' +
         '<div class="lumen-reviews__hint-ico"></div>' +
         '<div class="lumen-reviews__hint-title">' + esc(lang('lumen_card_reviews_nokey_title')) + '</div>' +
         '<div class="lumen-reviews__hint-text">' + esc(lang('lumen_card_reviews_nokey_text')) + '</div>' +
         '<div class="lumen-reviews__hint-path">' + esc(lang('lumen_card_reviews_nokey_path')) + '</div>' +
+        '<div class="lumen-reviews__hint-hide selector">' + esc(lang('lumen_kp_hint_hide')) + '</div>' +
         '</div>';
+    }
+
+    /* Task 20: показывать ли подсказку про ключ (lumen_kp_hint, по умолчанию
+       да). Значение входит в подпись ряда (sign), поэтому переключение
+       настройки перерисовывает ряд, а не отсекается ранним return. */
+    function hintEnabled() {
+      try { return LC.pref ? !!LC.pref('lumen_kp_hint', true) : true; } catch (e) { return true; }
     }
 
     /* ------------------------------------------------------------------ */
@@ -670,9 +680,57 @@
     }
 
     function paintHint(holder) {
+      if (!hintEnabled()) return;
       var block = $('<div class="lumen-reviews lumen-reviews--hint"></div>');
       block.html(hintHtml());
       holder.append(block);
+      bindHint(block);
+      appendHintSelector(block);
+    }
+
+    /* Task 20: нажатие кнопки «Скрыть». Делегированием на корне блока — как
+       у карточек отзывов (bind выше): дети собраны из html-строки, отдельных
+       узлов для навешивания обработчиков у нас нет. */
+    function bindHint(block) {
+      try {
+        var el = block[0];
+        if (!el || typeof el.addEventListener !== 'function' || el.lumenHintBound) return;
+        el.lumenHintBound = true;
+        el.addEventListener('hover:enter', function (event) {
+          try {
+            var btn = $(event.target).closest('.lumen-reviews__hint-hide');
+            if (!btn || !btn.length) return;
+            /* Строка 'false': Storage.set с JS-false не сохраняется вовсе
+               (план 0.2). Запись поднимает listener 'change' → подсказка
+               исчезает с открытой карточки через LC.applyReviewsPref. */
+            Lampa.Storage.set('lumen_kp_hint', 'false');
+            /* Узел под фокусом только что исчез вместе с подсказкой — фокус
+               надо вернуть живой коллекции, иначе пульт «залипает» (тот же
+               приём, что у кнопки «Стоп» трейлера, src/55_trailer.js). */
+            var cur = Lampa.Controller && typeof Lampa.Controller.enabled === 'function' ? Lampa.Controller.enabled() : null;
+            if (cur && cur.name && typeof Lampa.Controller.toggle === 'function') Lampa.Controller.toggle(cur.name);
+          } catch (e) {
+            warn('kp hint hide failed', e);
+          }
+        }, true);
+      } catch (err) {
+        warn('reviews hint bind failed', err);
+      }
+    }
+
+    /* Кнопка «Скрыть» — единственный .selector подсказки; в навигацию ряда
+       описания её отдаём той же проверкой, что карточки отзывов. */
+    function appendHintSelector(block) {
+      try {
+        if (!window.Lampa || !Lampa.Controller || typeof Lampa.Controller.collectionAppend !== 'function') return;
+        var enabled = typeof Lampa.Controller.enabled === 'function' ? Lampa.Controller.enabled() : null;
+        if (!enabled || enabled.name !== 'full_descr') return;
+        if (!isForeground(block)) return;
+        var nodes = block.find('.lumen-reviews__hint-hide');
+        if (nodes && nodes.length) Lampa.Controller.collectionAppend(nodes);
+      } catch (e) {
+        warn('reviews hint collection failed', e);
+      }
     }
 
     /* row — узел ряда описания (items_line), тот же, что получает
@@ -695,7 +753,7 @@
            есть». С флагом исправление опечатки в ключе подпись не меняло,
            рендер выходил по раннему return, и верный ключ применялся только со
            следующего открытия карточки. */
-        var sign = [on ? '1' : '0', imdb, keyStamp(key), lang('lumen_card_reviews_title')].join('|');
+        var sign = [on ? '1' : '0', imdb, keyStamp(key), lang('lumen_card_reviews_title'), hintEnabled() ? 'h1' : 'h0'].join('|');
 
         var state = stateOf(holder);
         if (state.sign === sign && (!state.painted || holder.find('.lumen-reviews').length)) return;

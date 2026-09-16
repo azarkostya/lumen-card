@@ -410,6 +410,10 @@
          стартующей активности: героя, смонтированного в её же корень (сейчас
          так монтируется только главная), событие не трогает. */
       if (e.type === 'start') {
+        /* Task 20: вернулись на экран, который ждал пересборки под новую
+           настройку (состав рядов главной, подсказка про ключ). Замена
+           откладывается на таймер — см. LC.refreshComponent. */
+        try { if (LC.refreshPending) LC.refreshPending(e.component); } catch (eRefresh) {}
         var startRender = null;
         try {
           if (e.object && e.object.activity && typeof e.object.activity.render === 'function') startRender = e.object.activity.render();
@@ -1085,20 +1089,160 @@
     try { if (LC.moods && LC.moods.uninstall) LC.moods.uninstall(); } catch (eMoodsOff) {}
   }
 
-  /* Task 15 (I5-fix): перерегистрация рядов при смене lumen_rows_limit.
+  /* -------------------------------------------------------------------- */
+  /* Task 20: пересборка экрана под изменившуюся настройку.                */
+  /*                                                                       */
+  /* Ряды главной живут в Lampa.ContentRows: перерегистрация меняет то,    */
+  /* что Lampa построит В СЛЕДУЮЩИЙ раз, а уже нарисованный экран остаётся */
+  /* прежним. Инвариант проекта («возврат из настроек Lampa экран не       */
+  /* перерисовывает — применяет настройка сама») требует пересобрать его    */
+  /* самим: Lampa.Activity.replace() уничтожает текущую активность и        */
+  /* поднимает её заново с тем же object (app.min.js ~46133).              */
+  /*                                                                       */
+  /* Пока пользователь в настройках, активна активность настроек — заменять */
+  /* её нельзя. Поэтому компонент запоминается и пересобирается на 'start'  */
+  /* при возврате (LC.onActivityEvent). Замена откладывается на таймер: она */
+  /* приходит ИЗ обработчика события Lampa, а replace() внутри рассылки     */
+  /* того же события рвал бы цикл подписчиков.                             */
+  /* -------------------------------------------------------------------- */
+
+  var pending_refresh = null;
+
+  function activeComponentName() {
+    try {
+      if (!window.Lampa || !Lampa.Activity || typeof Lampa.Activity.active !== 'function') return null;
+      var act = Lampa.Activity.active();
+      return (act && act.component) || null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function replaceSoon(component) {
+    setTimeout(function () {
+      try {
+        if (!activated) return;
+        if (activeComponentName() !== component) return;
+        if (!Lampa.Activity || typeof Lampa.Activity.replace !== 'function') return;
+        Lampa.Activity.replace();
+      } catch (e) {
+        warn('activity replace failed', e);
+      }
+    }, 0);
+  }
+
+  /* Настройки Lampa 3.3.4 — НЕ активность, а слой поверх текущей (её
+     Activity.active() всё это время остаётся главной). Пересобрать экран под
+     открытыми настройками нельзя: замена активности закрывает слой и уводит
+     фокус из раздела, где пользователь как раз крутит переключатели (видно
+     живьём). Поэтому пока слой открыт — только запоминаем. */
+  var settings_close_followed = false;
+
+  function settingsOpen() {
+    try {
+      var cur = window.Lampa && Lampa.Controller && typeof Lampa.Controller.enabled === 'function' ? Lampa.Controller.enabled() : null;
+      var name = cur && cur.name;
+      return name === 'settings' || name === 'settings_component';
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /* Слой настроек закрылся — Lampa шлёт своё событие 'close' (app.min.js
+     ~10332). Событий активности при этом нет вовсе, поэтому отложенная
+     пересборка держится на этой подписке. */
+  function followSettingsClose() {
+    if (settings_close_followed) return;
+    try {
+      if (!window.Lampa || !Lampa.Settings || !Lampa.Settings.listener || typeof Lampa.Settings.listener.follow !== 'function') return;
+      Lampa.Settings.listener.follow('close', function () {
+        try {
+          if (!pending_refresh) return;
+          var component = pending_refresh;
+          pending_refresh = null;
+          replaceSoon(component);
+        } catch (e) {
+          warn('settings close refresh failed', e);
+        }
+      });
+      settings_close_followed = true;
+    } catch (err) {
+      warn('settings close follow failed', err);
+    }
+  }
+
+  /* Пересобрать экран компонента: сейчас, если он открыт, иначе — когда на
+     него вернутся (или когда закроется слой настроек). Второй вызов до
+     пересборки просто заменяет запомненный компонент: пересборка всё равно
+     одна. */
+  LC.refreshComponent = function (component) {
+    if (!activated || !component) return;
+    if (settingsOpen()) {
+      pending_refresh = component;
+      followSettingsClose();
+      return;
+    }
+    if (activeComponentName() === component) {
+      pending_refresh = null;
+      replaceSoon(component);
+      return;
+    }
+    pending_refresh = component;
+  };
+
+  /* Вызывается из LC.onActivityEvent на 'start': вернулись на экран, который
+     ждал пересборки. */
+  LC.refreshPending = function (component) {
+    if (!component || pending_refresh !== component) return;
+    pending_refresh = null;
+    replaceSoon(component);
+  };
+
+  /* Task 15 (I5-fix) + Task 20: состав, число и фильтр рядов главной.
      Вызывается из applyPrefChange в 80_settings.js.
-     manifest.load использует кэш (синхронно), поэтому задержки нет. */
+     manifest.load использует кэш (синхронно), поэтому задержки нет; при
+     смене адреса каталога кэш уже сброшен и load идёт в сеть. */
   LC.applyRowsPref = function () {
     if (!activated) return;
     try {
       if (LC.rows && LC.rows.register && LC.manifest && LC.manifest.load) {
         LC.manifest.load(function (m) {
-          if (activated && LC.rows && LC.rows.register) LC.rows.register(m);
+          if (!activated || !LC.rows || !LC.rows.register) return;
+          LC.rows.register(m);
+          /* Ряды перерегистрированы — теперь пересобрать главную, иначе
+             пользователь увидит новый состав только со следующего захода. */
+          LC.refreshComponent('main');
         });
       }
     } catch (e) {
       warn('rows pref failed', e);
     }
+  };
+
+  /* Task 19/20: чипы профилей настроения включили или выключили. */
+  LC.applyMoodsPref = function () {
+    if (!activated) return;
+    try {
+      if (!LC.moods) return;
+      if (LC.pref('lumen_moods', true)) {
+        if (LC.moods.install) LC.moods.install();
+        if (LC.moods.mountCurrent) LC.moods.mountCurrent();
+      } else if (LC.moods.unmount) {
+        LC.moods.unmount();
+      }
+    } catch (e) {
+      warn('moods pref failed', e);
+    }
+  };
+
+  /* Task 20: подсказку «Ключ API не задан» убрали кнопкой «Скрыть» или
+     вернули настройкой. В карточке её перерисовывает LC.applyReviewsPref,
+     здесь — открытая сетка подборки Кинопоиска: текст подсказки рисуется
+     при загрузке страницы, поэтому сетку пересобираем целиком. */
+  LC.applyKpHintPref = function () {
+    if (!activated) return;
+    if (activeComponentName() !== 'lumen_grid') return;
+    LC.refreshComponent('lumen_grid');
   };
 
   /* Task 16: перерегистрация персональных рядов при смене lumen_personal_rows.
@@ -1109,6 +1253,9 @@
     try {
       if (LC.personal && LC.personal.unregister) LC.personal.unregister();
       if (LC.personal && LC.personal.register) LC.personal.register();
+      /* Task 20: как и у рядов подборок — пересобрать главную, иначе ряды
+         появятся или исчезнут только при следующем её открытии. */
+      LC.refreshComponent('main');
     } catch (e) {
       warn('personal pref failed', e);
     }

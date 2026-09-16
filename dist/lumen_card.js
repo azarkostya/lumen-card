@@ -16,7 +16,12 @@ LC.VERSION = '0.2.0';
 
 
 
-LC.MANIFEST_URL = '';
+
+
+
+
+
+LC.MANIFEST_URL = 'https://azarkostya.github.io/lumen-card/manifest.json';
 
 var PLUGIN = 'lumen_card';
 
@@ -981,6 +986,12 @@ css.push('.lumen-descr-row .lumen-reviews__hint-path{display:inline-block;paddin
 
 
 
+css.push('.lumen-descr-row .lumen-reviews__hint-hide{display:inline-block;margin-left:.53em;padding:.61em .79em;border-radius:.53em;background:' + C.buttonBg + ';border:.04em solid ' + C.line + ';font-family:' + FB + ';font-weight:600;font-size:.79em;line-height:1.3;color:' + C.text + '}');
+css.push('.lumen-descr-row .lumen-reviews__hint-hide.focus{background:' + A + ';color:' + t.onac + ';border-color:' + AL + ';border-width:.11em}');
+
+
+
+
 
 
 css.push('.lumen-review-modal{display:-webkit-box;display:-webkit-flex;display:flex;border-radius:.61em;overflow:hidden;background:linear-gradient(180deg,' + C.panel + ',#120E0B);border:.04em solid ' + C.line + ';color:' + C.text + '}');
@@ -1257,6 +1268,8 @@ css.push('.lumen-grid__empty{padding:2em 0}');
 css.push('.lumen-grid .lumen-grid__empty-text{font-family:' + FB + ';font-size:1.05em;color:' + C.muted + ';margin-bottom:1.05em;max-width:42.96em}');
 css.push('.lumen-grid .lumen-grid__back{display:-webkit-inline-box;display:-webkit-inline-flex;display:inline-flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;height:3.16em;padding:0 1.32em;border-radius:.79em;border:.04em solid ' + C.line + ';background:' + C.buttonBg + ';font-family:' + FB + ';font-weight:600;font-size:1em;color:' + C.text + '}');
 css.push('.lumen-grid .lumen-grid__back.focus{background:' + A + ';color:' + t.onac + ';border-color:' + AL + ';border-width:.11em}');
+
+css.push('.lumen-grid .lumen-grid__hide{margin-right:.79em}');
 
 
 
@@ -3549,6 +3562,8 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 
+
+
 LC.rows = (function () {
 
 
@@ -3658,6 +3673,59 @@ return list;
 
 
 
+function rowChoices(manifest, pickedIds) {
+if (!manifest || !Array.isArray(manifest.collections)) return [];
+var picked = (pickedIds && pickedIds.length) ? pickedIds : (manifest.home || []);
+var checked = {};
+var i;
+for (i = 0; i < picked.length; i++) checked[picked[i]] = 1;
+
+var byId = {};
+for (i = 0; i < manifest.collections.length; i++) {
+byId[manifest.collections[i].id] = manifest.collections[i];
+}
+
+var head = [];
+var seen = {};
+for (i = 0; i < picked.length; i++) {
+var item = byId[picked[i]];
+if (!item || seen[item.id]) continue;
+seen[item.id] = 1;
+head.push({ id: item.id, title: item.title, group: item.group, checked: true });
+}
+
+var tail = [];
+for (i = 0; i < manifest.collections.length; i++) {
+var c = manifest.collections[i];
+if (seen[c.id]) continue;
+tail.push({ id: c.id, title: c.title, group: c.group, checked: !!checked[c.id] });
+}
+return head.concat(tail);
+}
+
+
+
+
+
+
+
+
+function storedIds() {
+var raw = '';
+try { raw = LC.pref ? (LC.pref('lumen_home_rows', '') || '') : ''; } catch (e) {}
+if (!raw) return null;
+var parts = ('' + raw).split(',');
+var out = [];
+for (var i = 0; i < parts.length; i++) {
+var id = parts[i].replace(/^\s+|\s+$/g, '');
+if (id) out.push(id);
+}
+return out.length ? out : null;
+}
+
+
+
+
 
 
 function viewedIds(results) {
@@ -3735,9 +3803,7 @@ function register(manifest) {
 doUnregister();
 
 
-var storedRaw = '';
-try { storedRaw = LC.pref ? (LC.pref('lumen_home_rows', '') || '') : ''; } catch (e) {}
-var storedIds = storedRaw ? storedRaw.split(',').map(function (s) { return s.trim(); }).filter(Boolean) : null;
+var picked = storedIds();
 
 var limitRaw = 15;
 try { limitRaw = LC.pref ? (parseInt(LC.pref('lumen_rows_limit', '15'), 10) || 15) : 15; } catch (e) {}
@@ -3745,7 +3811,7 @@ try { limitRaw = LC.pref ? (parseInt(LC.pref('lumen_rows_limit', '15'), 10) || 1
 
 var month = new Date().getMonth() + 1;
 
-var rows = homeRows(manifest, storedIds, month, limitRaw);
+var rows = homeRows(manifest, picked, month, limitRaw);
 
 for (var i = 0; i < rows.length; i++) {
 registerRow(rows[i], i);
@@ -3830,6 +3896,8 @@ return {
 rowName: rowName,
 filterWatched: filterWatched,
 homeRows: homeRows,
+rowChoices: rowChoices,
+storedIds: storedIds,
 viewedIds: viewedIds,
 bumpGen: bumpGen,
 register: register,
@@ -4796,6 +4864,12 @@ return LC.util.esc('' + (text == null ? '' : text));
 
 
 
+function kpHintEnabled() {
+try { return LC.pref ? !!LC.pref('lumen_kp_hint', true) : true; } catch (e) { return true; }
+}
+
+
+
 
 
 
@@ -5380,8 +5454,22 @@ subtitle.html(esc(parts.join(' · ')));
 function showEmpty(reason) {
 itemsRow.empty();
 cardNodes = [];
-var text = reason === 'nokey' ? LC.lang('lumen_hub_nokey_text') : LC.lang('lumen_hub_empty');
+
+
+var nokey = reason === 'nokey' && kpHintEnabled();
+var text = nokey ? LC.lang('lumen_hub_nokey_text') : LC.lang('lumen_hub_empty');
 var box = $('<div class="lumen-grid__empty"><div class="lumen-grid__empty-text">' + esc(text) + '</div></div>');
+if (nokey) {
+
+
+
+var hide = $('<div class="lumen-grid__back lumen-grid__hide selector">' + esc(LC.lang('lumen_kp_hint_hide')) + '</div>');
+hide.on('hover:focus', function () { lastFocus = hide[0]; });
+hide.on('hover:enter', function () {
+try { Lampa.Storage.set('lumen_kp_hint', 'false'); } catch (e) {}
+});
+box.append(hide);
+}
 var back = $('<div class="lumen-grid__back selector">' + esc(LC.lang('lumen_grid_back')) + '</div>');
 back.on('hover:focus', function () { lastFocus = back[0]; });
 back.on('hover:enter', function () { Lampa.Activity.backward(); });
@@ -6492,6 +6580,7 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 
+
 LC.moods = (function () {
 
 
@@ -6542,10 +6631,12 @@ return null;
 
 
 function buildChip(mood) {
-var lang = typeof LC.lang === 'function' ? LC.lang._lang || '' : '';
-try {
-if (window.Lampa && Lampa.Lang && typeof Lampa.Lang.code === 'function') lang = Lampa.Lang.code();
-} catch (e) {}
+
+
+
+
+
+var lang = typeof LC.langCode === 'function' ? LC.langCode() : 'ru';
 var title = moodTitle(mood, lang);
 var node = $('<div class="lumen-mood-chip selector"></div>');
 node.text(title);
@@ -6613,6 +6704,10 @@ try {
 if (!root || !root.length) return;
 
 
+
+if (!enabled()) { unmount(); return; }
+
+
 if (state && state.root && state.root[0] === root[0]) return;
 unmount();
 var moodList = moods();
@@ -6668,6 +6763,30 @@ return !!state;
 
 var _listener = null;
 
+
+
+
+function enabled() {
+try { return LC.pref ? !!LC.pref('lumen_moods', true) : true; } catch (e) { return true; }
+}
+
+
+
+
+function mountCurrent() {
+try {
+
+
+if (!Lampa || !Lampa.Activity || typeof Lampa.Activity.active !== 'function') return;
+var act = Lampa.Activity.active();
+if (!act || act.component !== 'main') return;
+if (!act.activity || typeof act.activity.render !== 'function') return;
+mount(act.activity.render());
+} catch (e) {
+warn('moods: mountCurrent failed', e);
+}
+}
+
 function install() {
 if (_listener) return;
 _listener = function (e) {
@@ -6718,6 +6837,7 @@ unmount();
 return {
 moodTitle: moodTitle,
 mount: mount,
+mountCurrent: mountCurrent,
 unmount: unmount,
 detach: detach,
 active: active,
@@ -8776,13 +8896,23 @@ return '<div class="lumen-review-modal__tone"></div>' +
 
 
 
+
+
 function hintHtml() {
 return '<div class="lumen-reviews__hint">' +
 '<div class="lumen-reviews__hint-ico"></div>' +
 '<div class="lumen-reviews__hint-title">' + esc(lang('lumen_card_reviews_nokey_title')) + '</div>' +
 '<div class="lumen-reviews__hint-text">' + esc(lang('lumen_card_reviews_nokey_text')) + '</div>' +
 '<div class="lumen-reviews__hint-path">' + esc(lang('lumen_card_reviews_nokey_path')) + '</div>' +
+'<div class="lumen-reviews__hint-hide selector">' + esc(lang('lumen_kp_hint_hide')) + '</div>' +
 '</div>';
+}
+
+
+
+
+function hintEnabled() {
+try { return LC.pref ? !!LC.pref('lumen_kp_hint', true) : true; } catch (e) { return true; }
 }
 
 
@@ -8961,9 +9091,57 @@ appendSelectors(block);
 }
 
 function paintHint(holder) {
+if (!hintEnabled()) return;
 var block = $('<div class="lumen-reviews lumen-reviews--hint"></div>');
 block.html(hintHtml());
 holder.append(block);
+bindHint(block);
+appendHintSelector(block);
+}
+
+
+
+
+function bindHint(block) {
+try {
+var el = block[0];
+if (!el || typeof el.addEventListener !== 'function' || el.lumenHintBound) return;
+el.lumenHintBound = true;
+el.addEventListener('hover:enter', function (event) {
+try {
+var btn = $(event.target).closest('.lumen-reviews__hint-hide');
+if (!btn || !btn.length) return;
+
+
+
+Lampa.Storage.set('lumen_kp_hint', 'false');
+
+
+
+var cur = Lampa.Controller && typeof Lampa.Controller.enabled === 'function' ? Lampa.Controller.enabled() : null;
+if (cur && cur.name && typeof Lampa.Controller.toggle === 'function') Lampa.Controller.toggle(cur.name);
+} catch (e) {
+warn('kp hint hide failed', e);
+}
+}, true);
+} catch (err) {
+warn('reviews hint bind failed', err);
+}
+}
+
+
+
+function appendHintSelector(block) {
+try {
+if (!window.Lampa || !Lampa.Controller || typeof Lampa.Controller.collectionAppend !== 'function') return;
+var enabled = typeof Lampa.Controller.enabled === 'function' ? Lampa.Controller.enabled() : null;
+if (!enabled || enabled.name !== 'full_descr') return;
+if (!isForeground(block)) return;
+var nodes = block.find('.lumen-reviews__hint-hide');
+if (nodes && nodes.length) Lampa.Controller.collectionAppend(nodes);
+} catch (e) {
+warn('reviews hint collection failed', e);
+}
 }
 
 
@@ -8986,7 +9164,7 @@ var on = LC.pref('lumen_reviews', true);
 
 
 
-var sign = [on ? '1' : '0', imdb, keyStamp(key), lang('lumen_card_reviews_title')].join('|');
+var sign = [on ? '1' : '0', imdb, keyStamp(key), lang('lumen_card_reviews_title'), hintEnabled() ? 'h1' : 'h0'].join('|');
 
 var state = stateOf(holder);
 if (state.sign === sign && (!state.painted || holder.find('.lumen-reviews').length)) return;
@@ -10194,22 +10372,72 @@ uk: 'Налаштування → Lumen Card → Ключ Kinopoisk API'
 
 
 
+
 lumen_manifest_url: {
-ru: 'URL манифеста подборок',
-en: 'Collections manifest URL',
-uk: 'URL маніфесту підбірок'
+ru: 'Свой каталог подборок',
+en: 'Custom collections catalog',
+uk: 'Свій каталог підбірок'
 },
 lumen_manifest_url_descr: {
-ru: 'Внешний JSON-манифест подборок. Пусто — встроенный список (62 подборки). Кэш 12 ч.',
-en: 'External JSON manifest for collections. Empty — built-in list (62 collections). Cached 12 h.',
-uk: 'Зовнішній JSON-маніфест підбірок. Порожньо — вбудований список (62 підбірки). Кеш 12 год.'
+ru: 'Адрес JSON-каталога. Пусто — каталог плагина из интернета, он обновляется сам (кэш 12 ч). Без сети работает встроенный список.',
+en: 'JSON catalog address. Empty — the plugin catalog from the internet, updated automatically (12 h cache). Offline the built-in list is used.',
+uk: 'Адреса JSON-каталогу. Порожньо — каталог плагіна з інтернету, оновлюється сам (кеш 12 год). Без мережі працює вбудований список.'
+},
+
+
+
+
+lumen_kp_hint_name: {
+ru: 'Подсказка про ключ',
+en: 'API key hint',
+uk: 'Підказка про ключ'
+},
+lumen_kp_hint_descr: {
+ru: 'Напоминание «Ключ API не задан» в карточке и в подборках Кинопоиска. Его можно убрать кнопкой «Скрыть» прямо на экране.',
+en: 'The "API key is not set" reminder in the card and in Kinopoisk collections. It can also be dismissed with the "Hide" button on screen.',
+uk: 'Нагадування «Ключ API не задано» у картці та в підбірках Кінопошуку. Його можна прибрати кнопкою «Сховати» просто на екрані.'
+},
+
+
+lumen_kp_hint_hide: {
+ru: 'Скрыть',
+en: 'Hide',
+uk: 'Сховати'
 },
 
 
 lumen_group_home: {
-ru: 'Ряды на главной',
-en: 'Home rows',
-uk: 'Ряди на головній'
+ru: 'Главная и подборки',
+en: 'Home screen and collections',
+uk: 'Головна та підбірки'
+},
+
+lumen_moods_name: {
+ru: 'Профили настроения',
+en: 'Mood profiles',
+uk: 'Профілі настрою'
+},
+lumen_moods_descr: {
+ru: 'Строка быстрых подборок под описанием на главной: «Вечер пятницы», «Семейный просмотр», «Страшное на ночь», «Есть 90 минут».',
+en: 'A row of quick picks under the hero text: "Friday night", "Family time", "Scary at night", "90 minutes to spare".',
+uk: 'Рядок швидких підбірок під описом на головній: «Вечір п\'ятниці», «Сімейний перегляд», «Страшне на ніч», «Є 90 хвилин».'
+},
+
+lumen_home_rows_name: {
+ru: 'Какие ряды показывать',
+en: 'Which rows to show',
+uk: 'Які ряди показувати'
+},
+lumen_home_rows_descr: {
+ru: 'Отметьте подборки для главной. Если не отмечено ничего — показывается набор по умолчанию.',
+en: 'Tick the collections for the home screen. With nothing ticked the default set is shown.',
+uk: 'Позначте підбірки для головної. Якщо не позначено нічого — показується набір за замовчуванням.'
+},
+
+lumen_home_rows_select: {
+ru: 'Ряды подборок на главной',
+en: 'Collection rows on home',
+uk: 'Ряди підбірок на головній'
 },
 lumen_hide_watched_name: {
 ru: 'Скрывать досмотренное',
@@ -10432,9 +10660,22 @@ if (name === 'lumen_font') { LC.injectFonts(); LC.injectCss(); return true; }
 if (name === 'lumen_reviews' || name === 'lumen_kp_key') { LC.applyReviewsPref(); return true; }
 
 
-if (name === 'lumen_hide_watched') { return true; }
 
-if (name === 'lumen_rows_limit') {
+if (name === 'lumen_kp_hint') {
+LC.applyReviewsPref();
+try { if (LC.applyKpHintPref) LC.applyKpHintPref(); } catch (eHint) {}
+return true;
+}
+
+if (name === 'lumen_moods') {
+try { if (LC.applyMoodsPref) LC.applyMoodsPref(); } catch (eMoods) {}
+return true;
+}
+
+
+
+
+if (name === 'lumen_hide_watched' || name === 'lumen_rows_limit' || name === 'lumen_home_rows') {
 try { if (LC.applyRowsPref) LC.applyRowsPref(); } catch (eRows) {}
 return true;
 }
@@ -10446,8 +10687,10 @@ return true;
 }
 
 
+
 if (name === 'lumen_manifest_url') {
 try { if (window.Lampa && Lampa.Storage) Lampa.Storage.set('lumen_manifest', null); } catch (e) {}
+try { if (LC.applyRowsPref) LC.applyRowsPref(); } catch (eUrl) {}
 return true;
 }
 if (name.indexOf(PLUGIN + '_') !== 0) return false;
@@ -10469,6 +10712,80 @@ applyPrefChange(name);
 
 
 
+
+
+
+
+
+
+
+
+
+
+function openHomeRows() {
+try {
+if (!window.Lampa || !Lampa.Select || typeof Lampa.Select.show !== 'function') return;
+if (!LC.rows || typeof LC.rows.rowChoices !== 'function') return;
+if (!LC.manifest || typeof LC.manifest.get !== 'function') return;
+
+var manifest = LC.manifest.get();
+var choices = LC.rows.rowChoices(manifest, LC.rows.storedIds());
+var lang = langCode();
+
+
+var groupTitle = {};
+var groups = (manifest && manifest.groups) || [];
+for (var g = 0; g < groups.length; g++) {
+groupTitle[groups[g].id] = (LC.hub && typeof LC.hub.titleOf === 'function')
+? LC.hub.titleOf(groups[g], lang)
+: (groups[g].title || groups[g].id);
+}
+
+var items = [];
+var lastGroup = null;
+for (var i = 0; i < choices.length; i++) {
+var c = choices[i];
+
+
+if (!c.checked && c.group !== lastGroup) {
+lastGroup = c.group;
+items.push({ title: groupTitle[c.group] || c.group, separator: true });
+}
+items.push({ title: c.title, lumen_id: c.id, checkbox: true, checked: c.checked });
+}
+
+function save() {
+var ids = [];
+for (var k = 0; k < items.length; k++) {
+if (items[k].checkbox && items[k].checked) ids.push(items[k].lumen_id);
+}
+
+
+try { Lampa.Storage.set('lumen_home_rows', ids.join(',')); } catch (e) { }
+}
+
+Lampa.Select.show({
+title: LC.lang('lumen_home_rows_select'),
+items: items,
+onCheck: save,
+onBack: function () {
+try { if (Lampa.Controller && typeof Lampa.Controller.toggle === 'function') Lampa.Controller.toggle('settings_component'); } catch (e) { }
+}
+});
+} catch (err) {
+warn('home rows select failed', err);
+}
+}
+
+
+function onButtonFor(name) {
+return function () {
+if (name === 'lumen_home_rows') openHomeRows();
+};
+}
+
+
+
 function valuesOf(entry) {
 var out = {};
 for (var i = 0; i < entry.values.length; i++) {
@@ -10485,6 +10802,11 @@ if (entry.descr) field.description = LC.lang(entry.descr);
 
 if (entry.type === 'title') {
 Lampa.SettingsApi.addParam({ component: PLUGIN, param: param, field: field });
+return;
+}
+
+if (entry.type === 'button') {
+Lampa.SettingsApi.addParam({ component: PLUGIN, param: param, field: field, onChange: onButtonFor(entry.name) });
 return;
 }
 param['default'] = entry['default'];
@@ -10636,21 +10958,34 @@ var LIST = [
 { name: 'lumen_reviews', type: 'trigger', 'default': true, label: 'lumen_card_reviews_name', descr: 'lumen_card_reviews_descr' },
 { name: 'lumen_kp_key', type: 'input', 'default': '', label: 'lumen_card_kp_key', descr: 'lumen_card_kp_key_descr' },
 
+
+
+
+{ name: 'lumen_kp_hint', type: 'trigger', 'default': true, label: 'lumen_kp_hint_name', descr: 'lumen_kp_hint_descr' },
+
 { name: 'lumen_group_path', type: 'title', label: 'lumen_card_group_path' },
 { name: 'lumen_menus', type: 'select', values: ['all', 'path', 'off'], vprefix: 'lumen_card_menus_', 'default': 'all', label: 'lumen_card_menus' },
 { name: 'lumen_torrents', type: 'trigger', 'default': true, label: 'lumen_card_torrents_name', descr: 'lumen_card_torrents_descr' },
 
 
 
-{ name: 'lumen_manifest_url', type: 'input', 'default': '', label: 'lumen_manifest_url', descr: 'lumen_manifest_url_descr' },
+
+
 
 
 { name: 'lumen_group_home', type: 'title', label: 'lumen_group_home' },
-{ name: 'lumen_hide_watched', type: 'trigger', 'default': false, label: 'lumen_hide_watched_name', descr: 'lumen_hide_watched_descr' },
+{ name: 'lumen_moods', type: 'trigger', 'default': true, label: 'lumen_moods_name', descr: 'lumen_moods_descr' },
+{ name: 'lumen_personal_rows', type: 'trigger', 'default': true, label: 'lumen_personal_rows_name', descr: 'lumen_personal_rows_descr' },
+
+
+
+
+{ name: 'lumen_home_rows', type: 'button', label: 'lumen_home_rows_name', descr: 'lumen_home_rows_descr' },
 { name: 'lumen_rows_limit', type: 'select', values: ['10', '15', '25'], vsuffix: 'lumen_rows_limit_suffix', 'default': '15', label: 'lumen_rows_limit_name' },
+{ name: 'lumen_hide_watched', type: 'trigger', 'default': false, label: 'lumen_hide_watched_name', descr: 'lumen_hide_watched_descr' },
 
 
-{ name: 'lumen_personal_rows', type: 'trigger', 'default': true, label: 'lumen_personal_rows_name', descr: 'lumen_personal_rows_descr' }
+{ name: 'lumen_manifest_url', type: 'input', 'default': '', label: 'lumen_manifest_url', descr: 'lumen_manifest_url_descr' }
 ];
 
 function find(name) {
@@ -11978,6 +12313,10 @@ try { if (LC.personal && LC.personal.bumpGen) LC.personal.bumpGen(); } catch (eB
 
 
 if (e.type === 'start') {
+
+
+
+try { if (LC.refreshPending) LC.refreshPending(e.component); } catch (eRefresh) {}
 var startRender = null;
 try {
 if (e.object && e.object.activity && typeof e.object.activity.render === 'function') startRender = e.object.activity.render();
@@ -12656,17 +12995,157 @@ try { if (LC.moods && LC.moods.uninstall) LC.moods.uninstall(); } catch (eMoodsO
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+var pending_refresh = null;
+
+function activeComponentName() {
+try {
+if (!window.Lampa || !Lampa.Activity || typeof Lampa.Activity.active !== 'function') return null;
+var act = Lampa.Activity.active();
+return (act && act.component) || null;
+} catch (e) {
+return null;
+}
+}
+
+function replaceSoon(component) {
+setTimeout(function () {
+try {
+if (!activated) return;
+if (activeComponentName() !== component) return;
+if (!Lampa.Activity || typeof Lampa.Activity.replace !== 'function') return;
+Lampa.Activity.replace();
+} catch (e) {
+warn('activity replace failed', e);
+}
+}, 0);
+}
+
+
+
+
+
+
+var settings_close_followed = false;
+
+function settingsOpen() {
+try {
+var cur = window.Lampa && Lampa.Controller && typeof Lampa.Controller.enabled === 'function' ? Lampa.Controller.enabled() : null;
+var name = cur && cur.name;
+return name === 'settings' || name === 'settings_component';
+} catch (e) {
+return false;
+}
+}
+
+
+
+
+function followSettingsClose() {
+if (settings_close_followed) return;
+try {
+if (!window.Lampa || !Lampa.Settings || !Lampa.Settings.listener || typeof Lampa.Settings.listener.follow !== 'function') return;
+Lampa.Settings.listener.follow('close', function () {
+try {
+if (!pending_refresh) return;
+var component = pending_refresh;
+pending_refresh = null;
+replaceSoon(component);
+} catch (e) {
+warn('settings close refresh failed', e);
+}
+});
+settings_close_followed = true;
+} catch (err) {
+warn('settings close follow failed', err);
+}
+}
+
+
+
+
+
+LC.refreshComponent = function (component) {
+if (!activated || !component) return;
+if (settingsOpen()) {
+pending_refresh = component;
+followSettingsClose();
+return;
+}
+if (activeComponentName() === component) {
+pending_refresh = null;
+replaceSoon(component);
+return;
+}
+pending_refresh = component;
+};
+
+
+
+LC.refreshPending = function (component) {
+if (!component || pending_refresh !== component) return;
+pending_refresh = null;
+replaceSoon(component);
+};
+
+
+
+
+
 LC.applyRowsPref = function () {
 if (!activated) return;
 try {
 if (LC.rows && LC.rows.register && LC.manifest && LC.manifest.load) {
 LC.manifest.load(function (m) {
-if (activated && LC.rows && LC.rows.register) LC.rows.register(m);
+if (!activated || !LC.rows || !LC.rows.register) return;
+LC.rows.register(m);
+
+
+LC.refreshComponent('main');
 });
 }
 } catch (e) {
 warn('rows pref failed', e);
 }
+};
+
+
+LC.applyMoodsPref = function () {
+if (!activated) return;
+try {
+if (!LC.moods) return;
+if (LC.pref('lumen_moods', true)) {
+if (LC.moods.install) LC.moods.install();
+if (LC.moods.mountCurrent) LC.moods.mountCurrent();
+} else if (LC.moods.unmount) {
+LC.moods.unmount();
+}
+} catch (e) {
+warn('moods pref failed', e);
+}
+};
+
+
+
+
+
+LC.applyKpHintPref = function () {
+if (!activated) return;
+if (activeComponentName() !== 'lumen_grid') return;
+LC.refreshComponent('lumen_grid');
 };
 
 
@@ -12677,6 +13156,9 @@ if (!activated) return;
 try {
 if (LC.personal && LC.personal.unregister) LC.personal.unregister();
 if (LC.personal && LC.personal.register) LC.personal.register();
+
+
+LC.refreshComponent('main');
 } catch (e) {
 warn('personal pref failed', e);
 }

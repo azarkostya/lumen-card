@@ -326,6 +326,12 @@
       return LC.util.esc('' + (text == null ? '' : text));
     }
 
+    /* Task 20: показывать ли подсказку «нужен ключ Кинопоиска» (настройка
+       lumen_kp_hint, по умолчанию да; её же читает ряд отзывов карточки). */
+    function kpHintEnabled() {
+      try { return LC.pref ? !!LC.pref('lumen_kp_hint', true) : true; } catch (e) { return true; }
+    }
+
     /* Класс режима анимаций на корень нашего экрана. На карточке его ставит
        applyMotionMode (90_runtime.js) по её корню; хаб и сетка — отдельные
        активности, и без этого класса CSS-правила lite/off (они привязаны к
@@ -912,8 +918,22 @@
       function showEmpty(reason) {
         itemsRow.empty();
         cardNodes = [];
-        var text = reason === 'nokey' ? LC.lang('lumen_hub_nokey_text') : LC.lang('lumen_hub_empty');
+        /* Task 20: подсказку про ключ Кинопоиска можно выключить — тогда
+           сетка говорит просто «Здесь пока пусто», как любая другая пустая. */
+        var nokey = reason === 'nokey' && kpHintEnabled();
+        var text = nokey ? LC.lang('lumen_hub_nokey_text') : LC.lang('lumen_hub_empty');
         var box = $('<div class="lumen-grid__empty"><div class="lumen-grid__empty-text">' + esc(text) + '</div></div>');
+        if (nokey) {
+          /* Строка 'false': Storage.set с JS-false не сохраняется (план 0.2).
+             Запись поднимает listener 'change' → LC.applyKpHintPref
+             пересобирает эту сетку уже без подсказки. */
+          var hide = $('<div class="lumen-grid__back lumen-grid__hide selector">' + esc(LC.lang('lumen_kp_hint_hide')) + '</div>');
+          hide.on('hover:focus', function () { lastFocus = hide[0]; });
+          hide.on('hover:enter', function () {
+            try { Lampa.Storage.set('lumen_kp_hint', 'false'); } catch (e) {}
+          });
+          box.append(hide);
+        }
         var back = $('<div class="lumen-grid__back selector">' + esc(LC.lang('lumen_grid_back')) + '</div>');
         back.on('hover:focus', function () { lastFocus = back[0]; });
         back.on('hover:enter', function () { Lampa.Activity.backward(); });

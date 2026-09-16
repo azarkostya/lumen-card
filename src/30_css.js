@@ -718,6 +718,12 @@
     css.push('.lumen-descr-row .lumen-reviews__hint-title{font-family:' + FD + ';font-weight:700;font-size:1.23em;line-height:1.15;color:' + C.text + ';margin-bottom:.44em}');
     css.push('.lumen-descr-row .lumen-reviews__hint-text{font-family:' + FB + ';font-weight:400;font-size:.88em;line-height:1.4;color:' + C.muted + ';margin-bottom:.70em}');
     css.push('.lumen-descr-row .lumen-reviews__hint-path{display:inline-block;padding:.61em .79em;border-radius:.53em;background:rgba(' + A_RGB + ',.1);border:.04em solid rgba(' + A_RGB + ',.4);font-family:' + FB + ';font-weight:500;font-size:.79em;line-height:1.3;color:' + A + '}');
+    /* Task 20: кнопка «Скрыть» подсказки про ключ — тот же размер, что путь
+       до настройки рядом, но нейтральных цветов: это не подсказка, а
+       действие. Фокусируется пультом (.selector), поэтому обязана иметь
+       заметное состояние .focus, как остальные кнопки плагина. */
+    css.push('.lumen-descr-row .lumen-reviews__hint-hide{display:inline-block;margin-left:.53em;padding:.61em .79em;border-radius:.53em;background:' + C.buttonBg + ';border:.04em solid ' + C.line + ';font-family:' + FB + ';font-weight:600;font-size:.79em;line-height:1.3;color:' + C.text + '}');
+    css.push('.lumen-descr-row .lumen-reviews__hint-hide.focus{background:' + A + ';color:' + t.onac + ';border-color:' + AL + ';border-width:.11em}');
 
     /* Экран 08: модал отзыва. Живёт в .modal Lampa (вне карточки и вне ряда),
        поэтому корень правил — собственный класс .lumen-review-modal, который
@@ -998,6 +1004,8 @@
     css.push('.lumen-grid .lumen-grid__empty-text{font-family:' + FB + ';font-size:1.05em;color:' + C.muted + ';margin-bottom:1.05em;max-width:42.96em}');
     css.push('.lumen-grid .lumen-grid__back{display:-webkit-inline-box;display:-webkit-inline-flex;display:inline-flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;height:3.16em;padding:0 1.32em;border-radius:.79em;border:.04em solid ' + C.line + ';background:' + C.buttonBg + ';font-family:' + FB + ';font-weight:600;font-size:1em;color:' + C.text + '}');
     css.push('.lumen-grid .lumen-grid__back.focus{background:' + A + ';color:' + t.onac + ';border-color:' + AL + ';border-width:.11em}');
+    /* Task 20: «Скрыть» стоит слева от «Назад» и отделено от неё зазором. */
+    css.push('.lumen-grid .lumen-grid__hide{margin-right:.79em}');
 
     /* --- Task 18: герой главной (design-spec-main §0.2, экраны 15–19) ---
        Герой лежит первым ребёнком .activity (класс .lumen-main на ней же) и

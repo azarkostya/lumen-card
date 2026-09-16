@@ -1,5 +1,6 @@
 import test from 'node:test'; import assert from 'node:assert/strict';
 import { load } from './_load.mjs';
+import { readFileSync } from 'node:fs';
 const M = load('42_manifest.js');
 
 test('DEFAULT валиден: >=40 подборок, уникальные id, у каждой sources и group из groups', () => {
@@ -146,4 +147,15 @@ test('get: возвращает DEFAULT до вызова load', () => {
   const d = M.get();
   assert.ok(d && d.collections, 'get() должен вернуть DEFAULT');
   assert.ok(d.collections.length >= 40);
+});
+
+/* Task 20: каталог опубликован на GitHub Pages (ветка feat/lumen-v2, корень
+   репозитория), поэтому адрес зашит в LC.MANIFEST_URL — плагин подтягивает
+   свежий каталог сам, без настройки. Настройка lumen_manifest_url остаётся
+   приоритетнее (src/42_manifest.js, load). */
+test('Task 20: LC.MANIFEST_URL — адрес каталога на хостинге, https и .json', () => {
+  const head = readFileSync(new URL('../src/00_head.js', import.meta.url), 'utf8');
+  const m = head.match(/LC\.MANIFEST_URL\s*=\s*'([^']*)'/);
+  assert.ok(m, 'в src/00_head.js нет присваивания LC.MANIFEST_URL');
+  assert.equal(m[1], 'https://azarkostya.github.io/lumen-card/manifest.json');
 });

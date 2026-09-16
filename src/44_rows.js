@@ -5,6 +5,8 @@
   /*   rowName(id) → 'lumen_' + id                                          */
   /*   filterWatched(results, viewedIds, hide) → results[]                  */
   /*   homeRows(manifest, storedIds, month, limit) → collection[]           */
+  /*   rowChoices(manifest, pickedIds) → [{id, title, group, checked}]       */
+  /*   storedIds() → runtime: сохранённый состав рядов или null             */
   /*   viewedIds(results?) → number[]                                        */
   /*   bumpGen() — runtime: поднимает поколение главной                     */
   /*   register(manifest) — runtime: регистрирует ряды через ContentRows    */
@@ -127,9 +129,62 @@
       return list;
     }
 
+    /* Task 20: список подборок каталога для экрана выбора рядов (кнопка
+       «Какие ряды показывать» в настройках → Lampa.Select с чекбоксами,
+       src/80_settings.js). Отмеченные идут первыми, в своём порядке, —
+       иначе на пульте их пришлось бы искать среди полутора сотен строк.
+       storedIds пуст → отмечен набор manifest.home, ровно тот, что главная
+       и показывает. Неизвестные id из storedIds отбрасываются: каталог с
+       хостинга мог измениться с прошлого выбора. */
+    function rowChoices(manifest, pickedIds) {
+      if (!manifest || !Array.isArray(manifest.collections)) return [];
+      var picked = (pickedIds && pickedIds.length) ? pickedIds : (manifest.home || []);
+      var checked = {};
+      var i;
+      for (i = 0; i < picked.length; i++) checked[picked[i]] = 1;
+
+      var byId = {};
+      for (i = 0; i < manifest.collections.length; i++) {
+        byId[manifest.collections[i].id] = manifest.collections[i];
+      }
+
+      var head = [];
+      var seen = {};
+      for (i = 0; i < picked.length; i++) {
+        var item = byId[picked[i]];
+        if (!item || seen[item.id]) continue;
+        seen[item.id] = 1;
+        head.push({ id: item.id, title: item.title, group: item.group, checked: true });
+      }
+
+      var tail = [];
+      for (i = 0; i < manifest.collections.length; i++) {
+        var c = manifest.collections[i];
+        if (seen[c.id]) continue;
+        tail.push({ id: c.id, title: c.title, group: c.group, checked: !!checked[c.id] });
+      }
+      return head.concat(tail);
+    }
+
     /* ------------------------------------------------------------------ */
     /* Runtime: требуют Lampa.Favorite / Lampa.Timeline / Lampa.Utils.     */
     /* ------------------------------------------------------------------ */
+
+    /* Task 20: сохранённый состав рядов главной — массив id или null, если
+       настройка пуста (тогда действует manifest.home). Читают и register(),
+       и экран выбора рядов в настройках. */
+    function storedIds() {
+      var raw = '';
+      try { raw = LC.pref ? (LC.pref('lumen_home_rows', '') || '') : ''; } catch (e) {}
+      if (!raw) return null;
+      var parts = ('' + raw).split(',');
+      var out = [];
+      for (var i = 0; i < parts.length; i++) {
+        var id = parts[i].replace(/^\s+|\s+$/g, '');
+        if (id) out.push(id);
+      }
+      return out.length ? out : null;
+    }
 
     /* Собирает IDs просмотренных карточек:
        - type:'viewed' из Lampa.Favorite
@@ -211,9 +266,7 @@
       doUnregister();
 
       /* Настройки: пользовательский список id и лимит */
-      var storedRaw = '';
-      try { storedRaw = LC.pref ? (LC.pref('lumen_home_rows', '') || '') : ''; } catch (e) {}
-      var storedIds = storedRaw ? storedRaw.split(',').map(function (s) { return s.trim(); }).filter(Boolean) : null;
+      var picked = storedIds();
 
       var limitRaw = 15;
       try { limitRaw = LC.pref ? (parseInt(LC.pref('lumen_rows_limit', '15'), 10) || 15) : 15; } catch (e) {}
@@ -221,7 +274,7 @@
       /* Текущий месяц для сезонного порядка */
       var month = new Date().getMonth() + 1;
 
-      var rows = homeRows(manifest, storedIds, month, limitRaw);
+      var rows = homeRows(manifest, picked, month, limitRaw);
 
       for (var i = 0; i < rows.length; i++) {
         registerRow(rows[i], i);
@@ -306,6 +359,8 @@
       rowName: rowName,
       filterWatched: filterWatched,
       homeRows: homeRows,
+      rowChoices: rowChoices,
+      storedIds: storedIds,
       viewedIds: viewedIds,
       bumpGen: bumpGen,
       register: register,

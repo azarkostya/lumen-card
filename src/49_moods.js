@@ -4,6 +4,7 @@
   /* Публичное API:                                                         */
   /*   moodTitle(mood, lang) — строка названия настроения                  */
   /*   mount(root) — вставить блок чипов в текст героя текущей главной     */
+  /*   mountCurrent() — то же для уже открытой главной (Task 20)           */
   /*   unmount() — снять блок и все подписки                               */
   /*   detach(render) — снять, если блок не принадлежит этой активности    */
   /*   active() — смонтирован ли блок                                      */
@@ -79,10 +80,12 @@
        hover:enter на чипе: Lampa диспатчит событие при нажатии OK;
        слушаем в target-фазе (паттерн из 46_hub.js строки 847, 919, 998). */
     function buildChip(mood) {
-      var lang = typeof LC.lang === 'function' ? LC.lang._lang || '' : '';
-      try {
-        if (window.Lampa && Lampa.Lang && typeof Lampa.Lang.code === 'function') lang = Lampa.Lang.code();
-      } catch (e) {}
+      /* Язык интерфейса — через LC.langCode (src/80_settings.js), единый
+         источник для заголовков из манифеста (его же зовёт хаб). Прежняя
+         ветка искала Lampa.Lang.code(), которого в Lampa 3.3.4 нет: lang
+         оставался пустым, и moodTitle отдавал английские названия при
+         русском интерфейсе (видно живьём, Task 20). */
+      var lang = typeof LC.langCode === 'function' ? LC.langCode() : 'ru';
       var title = moodTitle(mood, lang);
       var node = $('<div class="lumen-mood-chip selector"></div>');
       node.text(title);
@@ -148,6 +151,10 @@
     function mount(root) {
       try {
         if (!root || !root.length) return;
+        /* Task 20: выключенные в настройках чипы не монтируются вовсе —
+           проверка стоит здесь, а не у вызывающих: точек монтирования три
+           (событие 'start', mountCurrent, LC.applyMoodsPref). */
+        if (!enabled()) { unmount(); return; }
         /* Тот же корень — повторное событие 'start' при возврате на главную:
            блок уже на месте, не пересобираем. */
         if (state && state.root && state.root[0] === root[0]) return;
@@ -205,6 +212,30 @@
        Хранится как замыкание, чтобы uninstall мог снять именно эту функцию. */
     var _listener = null;
 
+    /* Task 20: настройка «Профили настроения» (lumen_moods, по умолчанию
+       включена). Читается на каждом монтировании — возврат из настроек Lampa
+       экран не перерисовывает, применяет чипы LC.applyMoodsPref. */
+    function enabled() {
+      try { return LC.pref ? !!LC.pref('lumen_moods', true) : true; } catch (e) { return true; }
+    }
+
+    /* Task 20: смонтировать чипы на УЖЕ открытую главную — настройку
+       включили из настроек Lampa, лежащих поверх неё, и события 'start'
+       при возврате не будет (находка ревью Task 8, фаза 1). */
+    function mountCurrent() {
+      try {
+        /* Lampa модулю приходит извне (как и остальным вызовам здесь), окно
+           не трогаем: на тестовом стенде его нет. */
+        if (!Lampa || !Lampa.Activity || typeof Lampa.Activity.active !== 'function') return;
+        var act = Lampa.Activity.active();
+        if (!act || act.component !== 'main') return;
+        if (!act.activity || typeof act.activity.render !== 'function') return;
+        mount(act.activity.render());
+      } catch (e) {
+        warn('moods: mountCurrent failed', e);
+      }
+    }
+
     function install() {
       if (_listener) return;
       _listener = function (e) {
@@ -255,6 +286,7 @@
     return {
       moodTitle: moodTitle,
       mount: mount,
+      mountCurrent: mountCurrent,
       unmount: unmount,
       detach: detach,
       active: active,

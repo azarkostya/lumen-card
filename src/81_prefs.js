@@ -87,22 +87,35 @@
          ряд актёров, который Lampa рисует ниже по экрану. */
       { name: 'lumen_reviews', type: 'trigger', 'default': true, label: 'lumen_card_reviews_name', descr: 'lumen_card_reviews_descr' },
       { name: 'lumen_kp_key', type: 'input', 'default': '', label: 'lumen_card_kp_key', descr: 'lumen_card_kp_key_descr' },
+      /* Task 20 (решение координатора): подсказка «Ключ API не задан» в
+         карточке и в сетке подборки Кинопоиска убирается кнопкой «Скрыть»
+         прямо на экране, а возвращается этим переключателем — рядом с самим
+         полем ключа, где её и ищут. */
+      { name: 'lumen_kp_hint', type: 'trigger', 'default': true, label: 'lumen_kp_hint_name', descr: 'lumen_kp_hint_descr' },
 
       { name: 'lumen_group_path', type: 'title', label: 'lumen_card_group_path' },
       { name: 'lumen_menus', type: 'select', values: ['all', 'path', 'off'], vprefix: 'lumen_card_menus_', 'default': 'all', label: 'lumen_card_menus' },
       { name: 'lumen_torrents', type: 'trigger', 'default': true, label: 'lumen_card_torrents_name', descr: 'lumen_card_torrents_descr' },
 
-      /* Task 14 (фаза 2): URL внешнего манифеста подборок. Пусто → встроенный.
-         Тип input: Lampa рисует текстовое поле (как lumen_kp_key). */
-      { name: 'lumen_manifest_url', type: 'input', 'default': '', label: 'lumen_manifest_url', descr: 'lumen_manifest_url_descr' },
-
-      /* Task 15 (фаза 2): ряды подборок на главной. */
+      /* Task 20 (фаза 2): всё про главную и подборки — одной группой и в
+         порядке экрана сверху вниз: чипы настроения и персональные ряды
+         (верх главной), затем состав и число рядов подборок, фильтр
+         досмотренного и, последним, адрес каталога — настройка «на один раз».
+         Каждый пункт применяется на лету (src/80_settings.js,
+         applyPrefChange): возврат из настроек Lampa экран не перерисовывает. */
       { name: 'lumen_group_home', type: 'title', label: 'lumen_group_home' },
-      { name: 'lumen_hide_watched', type: 'trigger', 'default': false, label: 'lumen_hide_watched_name', descr: 'lumen_hide_watched_descr' },
+      { name: 'lumen_moods', type: 'trigger', 'default': true, label: 'lumen_moods_name', descr: 'lumen_moods_descr' },
+      { name: 'lumen_personal_rows', type: 'trigger', 'default': true, label: 'lumen_personal_rows_name', descr: 'lumen_personal_rows_descr' },
+      /* Кнопка-параметр: multi-select в SettingsApi нет, поэтому состав рядов
+         выбирается на экране Lampa.Select с чекбоксами (src/80_settings.js,
+         openHomeRows). Значение хранится строкой id через запятую в
+         lumen_home_rows — его читает LC.rows.register. */
+      { name: 'lumen_home_rows', type: 'button', label: 'lumen_home_rows_name', descr: 'lumen_home_rows_descr' },
       { name: 'lumen_rows_limit', type: 'select', values: ['10', '15', '25'], vsuffix: 'lumen_rows_limit_suffix', 'default': '15', label: 'lumen_rows_limit_name' },
-
-      /* Task 16 (фаза 2): персональные ряды на главной. */
-      { name: 'lumen_personal_rows', type: 'trigger', 'default': true, label: 'lumen_personal_rows_name', descr: 'lumen_personal_rows_descr' }
+      { name: 'lumen_hide_watched', type: 'trigger', 'default': false, label: 'lumen_hide_watched_name', descr: 'lumen_hide_watched_descr' },
+      /* Тип input: Lampa рисует текстовое поле (как lumen_kp_key). Пусто —
+         адрес по умолчанию из LC.MANIFEST_URL (src/00_head.js). */
+      { name: 'lumen_manifest_url', type: 'input', 'default': '', label: 'lumen_manifest_url', descr: 'lumen_manifest_url_descr' }
     ];
 
     function find(name) {

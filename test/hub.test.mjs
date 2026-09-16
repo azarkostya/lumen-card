@@ -375,6 +375,8 @@ function setupLampa(opts) {
     menuButtons: [],
     backward: 0,
     scrolls: [],
+    /* Task 20: записи в Lampa.Storage (кнопка «Скрыть» подсказки про ключ). */
+    stored: [],
     favorite: opts.favorite || {},
     timeline: opts.timeline || {}
   };
@@ -463,7 +465,7 @@ function setupLampa(opts) {
       }
     },
     TMDB: { image: function (url) { return 'https://proxy/' + url; } },
-    Storage: { get: function (k, d) { return d; }, set: function () {} }
+    Storage: { get: function (k, d) { return d; }, set: function (k, v) { log.stored.push({ name: k, value: v }); } }
   };
 
   globalThis.window = { Lampa: Lampa, Navigator: nav };
@@ -499,7 +501,10 @@ function loadHub(opts) {
     motionMode: function () { return opts.motion || 'full'; },
     icons: { get: function () { return '<svg></svg>'; } },
     cardinfo: { imageUrl: function (path) { return path ? 'https://proxy/t/p/w342' + path : ''; } },
-    manifest: { load: function (cb) { cb(MANIFEST); } }
+    manifest: { load: function (cb) { cb(MANIFEST); } },
+    /* Task 20: настройки читает только подсказка про ключ Кинопоиска —
+       по умолчанию её нет вовсе, как и в бандле до LC.init. */
+    pref: opts.pref
   });
   return { api: ctx.api, LC: ctx.LC, fetchCalls: fetchCalls, collageCalls: collageCalls };
 }
@@ -1004,6 +1009,31 @@ test('lumen_grid: ошибка «нет ключа» объясняет, чег�
   assert.equal(g.root.all('lumen-grid__empty-text').length, 1);
   assert.deepEqual(g.comp.activity.states, [true, false], 'лоадер гаснет и на ошибке');
   assert.deepEqual(warnLog, []);
+});
+
+/* Task 20: подсказку про ключ Кинопоиска можно убрать одной кнопкой — она
+   висела на каждом заходе в подборки КП, пока ключа нет. */
+test('Task 20: подсказка «нет ключа» даёт кнопку «Скрыть», она пишет настройку', function () {
+  var g = openGrid(MANIFEST.collections[4]);
+  g.h.fetchCalls[0].err({ nokey: true });
+  g.comp.start();
+
+  var hide = g.root.all('lumen-grid__hide');
+  assert.equal(hide.length, 1, 'ожидалась кнопка «Скрыть»');
+  assert.ok(hide[0].hasClass('selector'), 'кнопка обязана фокусироваться пультом');
+  fire(hide[0], 'hover:enter');
+  /* Строка, а не JS-false: Storage.set(name, false) у Lampa не сохраняется. */
+  assert.deepEqual(g.env.log.stored, [{ name: 'lumen_kp_hint', value: 'false' }]);
+  assert.equal(g.env.log.backward, 0, '«Скрыть» экран не закрывает');
+});
+
+test('Task 20: подсказка выключена — обычный пустой экран, кнопки «Скрыть» нет', function () {
+  var g = openGrid(MANIFEST.collections[4], { pref: function (name, def) { return name === 'lumen_kp_hint' ? false : def; } });
+  g.h.fetchCalls[0].err({ nokey: true });
+
+  assert.equal(g.root.all('lumen-grid__empty-text').length, 1, 'экран всё равно не пустой');
+  assert.equal(g.root.all('lumen-grid__hide').length, 0, 'прятать нечего — подсказки нет');
+  assert.equal(g.root.all('lumen-grid__back').length, 1, '«Назад» остаётся единственным .selector');
 });
 
 test('lumen_grid: destroy гасит запрос, скролл и DOM', function () {

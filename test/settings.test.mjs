@@ -80,6 +80,11 @@ function setup(opts) {
   LC.applyTrailerPref = mark('trailer');
   LC.applyProgressPref = mark('progress');
   LC.applyReviewsPref = mark('reviews');
+  /* Task 15/16/19/20 (фаза 2): точки применения главной и подборок. */
+  LC.applyRowsPref = mark('rows');
+  LC.applyPersonalPref = mark('personal');
+  LC.applyMoodsPref = mark('moods');
+  LC.applyKpHintPref = mark('kphint');
 
   return { LC, log, storage, params, components, subscribers, Storage, prependSubscriber: (cb) => subscribers.unshift(cb) };
 }
@@ -198,13 +203,19 @@ test('каждая настройка применяется ровно один
     lumen_kp_key: ['reviews'],
     lumen_menus: ['menus'],
     lumen_torrents: ['torrents'],
-    /* Task 14 (фаза 2): URL манифеста — сброс кэша Storage, никакой apply-функции. */
-    lumen_manifest_url: [],
-    /* Task 15 (фаза 2): настройки рядов — применяются при следующем call()/регистрации. */
-    lumen_hide_watched: [],
-    lumen_rows_limit: [],
-    /* Task 16 (фаза 2): персональные ряды — LC.applyPersonalPref без точек log. */
-    lumen_personal_rows: []
+    /* Task 20: подсказка про ключ — перерисовка ряда отзывов карточки плюс
+       сетки подборки (applyKpHintPref). */
+    lumen_kp_hint: ['reviews', 'kphint'],
+    /* Task 14/20 (фаза 2): адрес каталога — сброс кэша и перезагрузка каталога. */
+    lumen_manifest_url: ['rows'],
+    /* Task 15/20 (фаза 2): состав, число и фильтр рядов главной — один путь. */
+    lumen_hide_watched: ['rows'],
+    lumen_rows_limit: ['rows'],
+    lumen_home_rows: ['rows'],
+    /* Task 19/20 (фаза 2): чипы настроения монтируются и снимаются на лету. */
+    lumen_moods: ['moods'],
+    /* Task 16 (фаза 2): персональные ряды. */
+    lumen_personal_rows: ['personal']
   };
   const { LC, log, Storage, params } = setup();
   LC.addSettings();
@@ -283,4 +294,97 @@ test('lumen_card_* без своей ветки пересобирает CSS, п
   log.length = 0;
   Storage.set('lumen_card_unknown_future', '1');
   assert.deepEqual(log, ['css'], 'новая настройка карточки по умолчанию пересобирает CSS');
+});
+
+/* ====================================================================== */
+/* Task 20: экран выбора рядов подборок (кнопка-параметр lumen_home_rows). */
+/*                                                                        */
+/* Multi-select в SettingsApi нет: пункт — параметр type:'button', Lampa   */
+/* зовёт его onChange по нажатию, а выбор идёт на Lampa.Select с           */
+/* чекбоксами. Чекбокс селектбокс не закрывает, поэтому запись в Storage   */
+/* обязана идти на каждом onCheck.                                        */
+/* ====================================================================== */
+
+const CATALOG = {
+  version: 1,
+  groups: [{ id: 'franchise', title: 'Франшизы' }, { id: 'theme', title: 'Темы' }],
+  collections: [
+    { id: 'star-wars', title: 'Звёздные войны', group: 'franchise', sources: { movie: { type: 'collection', id: 10 } } },
+    { id: 'comedy', title: 'Комедии', group: 'theme', sources: { movie: { type: 'discover', params: {} } } },
+    { id: 'horror', title: 'Ужасы', group: 'theme', sources: { movie: { type: 'discover', params: {} } } }
+  ],
+  home: ['comedy']
+};
+
+function setupHomeRows(storage) {
+  const env = setup({ storage: storage || {} });
+  loadInto(env.LC, '10_util.js');
+  loadInto(env.LC, '44_rows.js');
+  env.LC.manifest = { get: () => CATALOG };
+  const shown = [];
+  globalThis.Lampa.Select = { show: (o) => shown.push(o) };
+  globalThis.Lampa.Controller = { toggle: () => { } };
+  env.LC.addSettings();
+  env.LC.followStorage();
+  return Object.assign({ shown }, env);
+}
+
+function pressHomeRows(env) {
+  const param = env.params.filter((p) => p.param.name === 'lumen_home_rows')[0];
+  assert.ok(param, 'пункт lumen_home_rows не зарегистрирован');
+  assert.equal(param.param.type, 'button');
+  param.onChange();
+  assert.equal(env.shown.length, 1, 'нажатие обязано открыть экран выбора');
+  return env.shown[0];
+}
+
+test('Task 20: нажатие кнопки открывает Lampa.Select — отмечен набор каталога, группы подписаны', () => {
+  const env = setupHomeRows();
+  const box = pressHomeRows(env);
+
+  assert.equal(box.title, 'Ряды подборок на главной');
+  const checks = box.items.filter((i) => i.checkbox);
+  assert.deepEqual(checks.map((i) => i.lumen_id), ['comedy', 'star-wars', 'horror'],
+    'отмеченные идут первыми, остальные — в порядке каталога');
+  assert.deepEqual(checks.map((i) => i.checked), [true, false, false],
+    'по умолчанию отмечен manifest.home');
+  assert.deepEqual(box.items.filter((i) => i.separator).map((i) => i.title), ['Франшизы', 'Темы']);
+});
+
+test('Task 20: галочка сохраняется сразу и применяется через ту же ветку, что лимит рядов', () => {
+  const env = setupHomeRows();
+  const box = pressHomeRows(env);
+  env.log.length = 0;
+
+  const horror = box.items.filter((i) => i.lumen_id === 'horror')[0];
+  horror.checked = true;           /* Lampa переключает поле сама, потом зовёт onCheck */
+  box.onCheck(horror);
+
+  assert.equal(env.storage.lumen_home_rows, 'comedy,horror');
+  assert.deepEqual(env.log, ['rows'], 'ряды перерегистрируются немедленно');
+});
+
+test('Task 20: сохранённый состав приходит на экран отмеченным и в своём порядке', () => {
+  const env = setupHomeRows({ lumen_home_rows: 'horror,star-wars' });
+  const box = pressHomeRows(env);
+  const checks = box.items.filter((i) => i.checkbox);
+  assert.deepEqual(checks.map((i) => i.lumen_id), ['horror', 'star-wars', 'comedy']);
+  assert.deepEqual(checks.map((i) => i.checked), [true, true, false]);
+});
+
+test('Task 20: снятая последняя галочка возвращает набор каталога (пустая главная не сохраняется)', () => {
+  const env = setupHomeRows({ lumen_home_rows: 'comedy' });
+  const box = pressHomeRows(env);
+  const comedy = box.items.filter((i) => i.lumen_id === 'comedy')[0];
+  comedy.checked = false;
+  box.onCheck(comedy);
+  assert.equal(env.storage.lumen_home_rows, '', 'пустая строка = набор по умолчанию');
+});
+
+test('Task 20: без Lampa.Select нажатие ничего не ломает', () => {
+  const env = setupHomeRows();
+  delete globalThis.Lampa.Select;
+  const param = env.params.filter((p) => p.param.name === 'lumen_home_rows')[0];
+  param.onChange();
+  assert.equal(env.shown.length, 0);
 });

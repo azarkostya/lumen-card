@@ -308,3 +308,53 @@ test('viewedIds: без results не падает и возвращает тол
   var ids = s.R.viewedIds();
   assert.deepEqual(ids, [55]);
 });
+
+/* ====================================================================== */
+/* Task 20: экран выбора рядов главной.                                    */
+/* ====================================================================== */
+
+test('rowChoices: отмеченные первыми, по умолчанию — набор manifest.home', function () {
+  var list = R.rowChoices(MANIFEST, null);
+  assert.deepEqual(list.map(function (c) { return c.id; }),
+    ['star-wars', 'kp-top250', 'anime', 'xmas-comedy', 'comedy']);
+  assert.deepEqual(list.map(function (c) { return c.checked; }), [true, true, true, false, false]);
+  assert.equal(list[0].title, 'Звёздные войны');
+  assert.equal(list[3].group, 'theme');
+});
+
+test('rowChoices: сохранённый список отмечен и стоит в своём порядке', function () {
+  var list = R.rowChoices(MANIFEST, ['comedy', 'anime']);
+  assert.deepEqual(list.map(function (c) { return c.id; }),
+    ['comedy', 'anime', 'star-wars', 'kp-top250', 'xmas-comedy']);
+  assert.deepEqual(list.map(function (c) { return c.checked; }), [true, true, false, false, false]);
+});
+
+test('rowChoices: id, которого больше нет в каталоге, отбрасывается', function () {
+  var list = R.rowChoices(MANIFEST, ['comedy', 'исчезнувшая']);
+  assert.deepEqual(list.map(function (c) { return c.id; }),
+    ['comedy', 'star-wars', 'kp-top250', 'anime', 'xmas-comedy']);
+  assert.equal(list.filter(function (c) { return c.checked; }).length, 1);
+});
+
+test('rowChoices: пустой/битый каталог — пустой список', function () {
+  assert.deepEqual(R.rowChoices(null, null), []);
+  assert.deepEqual(R.rowChoices({}, null), []);
+});
+
+test('storedIds: строка настройки разбирается в массив, пусто/мусор -> null', function () {
+  var s = setupRows({ prefs: { lumen_home_rows: 'col-a, col-b ,,' } });
+  assert.deepEqual(s.R.storedIds(), ['col-a', 'col-b']);
+
+  var empty = setupRows({ prefs: { lumen_home_rows: '' } });
+  assert.equal(empty.R.storedIds(), null);
+
+  var spaces = setupRows({ prefs: { lumen_home_rows: ' , ' } });
+  assert.equal(spaces.R.storedIds(), null);
+});
+
+test('register: сохранённый состав рядов важнее manifest.home', function () {
+  var s = setupRows({ prefs: { lumen_rows_limit: '15', lumen_home_rows: 'col-b' } });
+  s.R.register(s.manifest);
+  assert.equal(s.addedRows.length, 1);
+  assert.equal(s.addedRows[0].name, 'lumen_col-b');
+});

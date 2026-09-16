@@ -99,14 +99,54 @@ test('LIST: полный набор ключей — существующие и
     'lumen_card_accent', 'lumen_card_fonts', 'lumen_card_progress',
     'lumen_font', /* Правка 2026-09-16 (п.6): выбор гарнитуры */
     'lumen_enabled', 'lumen_kp_key',
-    'lumen_manifest_url', /* Task 14 (фаза 2): URL внешнего манифеста подборок */
+    'lumen_manifest_url', /* Task 14 (фаза 2): адрес каталога подборок */
     'lumen_menus', 'lumen_motion', 'lumen_reviews',
     'lumen_slide_interval', 'lumen_slideshow', 'lumen_torrents', 'lumen_trailer',
     /* Task 15 (фаза 2): ряды подборок на главной */
     'lumen_hide_watched', 'lumen_rows_limit',
     /* Task 16 (фаза 2): персональные ряды */
-    'lumen_personal_rows'
+    'lumen_personal_rows',
+    /* Task 20 (фаза 2): состав рядов, чипы настроения, подсказка про ключ */
+    'lumen_home_rows', 'lumen_moods', 'lumen_kp_hint'
   ].sort());
+});
+
+/* Task 20: все настройки фазы 2, кроме подсказки про ключ (она живёт рядом с
+   самим ключом), собраны в одну группу «Главная и подборки» и идут в порядке
+   экрана сверху вниз. */
+test('Task 20: настройки главной — одной группой, в порядке экрана', () => {
+  const at = LIST.map((e) => e.name).indexOf('lumen_group_home');
+  assert.ok(at >= 0, 'нет заголовка группы lumen_group_home');
+  assert.equal(LIST[at].type, 'title');
+  const group = LIST.slice(at + 1).map((e) => e.name);
+  assert.deepEqual(group, [
+    'lumen_moods', 'lumen_personal_rows', 'lumen_home_rows',
+    'lumen_rows_limit', 'lumen_hide_watched', 'lumen_manifest_url'
+  ]);
+  /* Группа — последняя в разделе: ни один пункт фазы 2 не потерялся выше. */
+  for (const e of LIST.slice(at + 1)) assert.notEqual(e.type, 'title', 'внутри группы новых заголовков нет');
+});
+
+test('Task 20: подсказка про ключ — переключатель сразу за полем ключа', () => {
+  const names = LIST.map((e) => e.name);
+  assert.equal(names[names.indexOf('lumen_kp_key') + 1], 'lumen_kp_hint');
+  const entry = prefs.find('lumen_kp_hint');
+  assert.equal(entry.type, 'trigger');
+  assert.equal(entry['default'], true, 'по умолчанию подсказка показывается');
+  assert.ok(entry.descr, 'у переключателя обязана быть подсказка — как вернуть скрытое');
+});
+
+test('Task 20: «Какие ряды показывать» — кнопка-параметр без значения', () => {
+  const entry = prefs.find('lumen_home_rows');
+  assert.equal(entry.type, 'button', 'multi-select в SettingsApi нет — это кнопка на экран выбора');
+  assert.equal(typeof entry['default'], 'undefined', 'кнопка ничего не хранит');
+  assert.ok(entry.label && entry.descr);
+});
+
+test('Task 20: профили настроения — переключатель, по умолчанию включён', () => {
+  const entry = prefs.find('lumen_moods');
+  assert.equal(entry.type, 'trigger');
+  assert.equal(entry['default'], true);
 });
 
 test('LIST: типы и значения по умолчанию', () => {

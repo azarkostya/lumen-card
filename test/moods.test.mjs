@@ -330,3 +330,67 @@ test('install: событие destroy своего root снимает блок'
   assert.equal(ctx.api.active(), false);
   ctx.api.uninstall();
 });
+
+/* ====================================================================== */
+/* Task 20: настройка «Профили настроения» (lumen_moods).                 */
+/* ====================================================================== */
+
+test('Task 20: настройка выключена — mount не вставляет чипы', function () {
+  var s = freshMoods({ pref: function (name, def) { return name === 'lumen_moods' ? false : def; } });
+  var root = makeMainRoot();
+  s.api.mount(root);
+  assert.equal(s.api.active(), false, 'чипов быть не должно');
+});
+
+test('Task 20: настройку выключили на смонтированных чипах — mount снимает их', function () {
+  var on = true;
+  var s = freshMoods({ pref: function (name, def) { return name === 'lumen_moods' ? on : def; } });
+  var root = makeMainRoot();
+  s.api.mount(root);
+  assert.equal(s.api.active(), true);
+
+  on = false;
+  s.api.mount(makeMainRoot());
+  assert.equal(s.api.active(), false);
+});
+
+test('Task 20: без LC.pref (старый профиль) чипы показываются', function () {
+  var s = freshMoods();
+  s.api.mount(makeMainRoot());
+  assert.equal(s.api.active(), true);
+});
+
+test('Task 20: mountCurrent монтирует на уже открытую главную и молчит на чужом экране', function () {
+  var s = freshMoods();
+  var root = makeMainRoot();
+  s.fakeLampa.Activity.active = function () { return { component: 'full', activity: { render: function () { return root; } } }; };
+  s.api.mountCurrent();
+  assert.equal(s.api.active(), false, 'не главная — монтировать нечего');
+
+  s.fakeLampa.Activity.active = function () { return { component: 'main', activity: { render: function () { return root; } } }; };
+  s.api.mountCurrent();
+  assert.equal(s.api.active(), true);
+});
+
+/* Task 20 (найдено живой проверкой): чипы показывали английские названия при
+   русском интерфейсе — язык брался из Lampa.Lang.code(), которого в Lampa
+   3.3.4 нет, и moodTitle получал пустую строку. Теперь язык идёт через
+   LC.langCode — тот же источник, что у заголовков хаба. */
+test('Task 20: названия чипов — на языке интерфейса (LC.langCode)', function () {
+  function titlesFor(langCode) {
+    var s = freshMoods(langCode ? { langCode: function () { return langCode; } } : null);
+    var root = makeMainRoot();
+    s.api.mount(root);
+    var textEl = root.find('lumen-hero__text');
+    var moodsEl = null;
+    for (var i = 0; i < textEl._children.length; i++) {
+      if (textEl._children[i].hasClass('lumen-moods')) { moodsEl = textEl._children[i]; break; }
+    }
+    return moodsEl._children.map(function (c) { return c.text(); });
+  }
+
+  assert.deepEqual(titlesFor('ru'), ['Пятничный вечер', 'Семейный просмотр', 'Страшное на ночь', '90 минут']);
+  assert.deepEqual(titlesFor('en'), ['Friday Evening', 'Family Viewing', 'Scary at Night', '90 Minutes']);
+  /* Нет LC.langCode (модуль поднят в одиночку) — русские названия манифеста. */
+  assert.deepEqual(titlesFor(null), ['Пятничный вечер', 'Семейный просмотр', 'Страшное на ночь', '90 минут']);
+});

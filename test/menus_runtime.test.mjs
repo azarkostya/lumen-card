@@ -134,11 +134,19 @@ test('долг ревью (п.2): каждая настройка раздела
     lumen_kp_key: ['applyReviewsPref'],
     lumen_menus: ['applyMenusPref'],
     lumen_torrents: ['applyTorrentsPref'],
-    /* Task 14 (фаза 2): URL манифеста — сброс кэша Storage, без apply-функции рантайма. */
+    /* Task 20: подсказка «Ключ API не задан» — тот же перерисовщик ряда
+       отзывов, что у самого ключа, плюс сетка подборки (вне POINTS). */
+    lumen_kp_hint: ['applyReviewsPref'],
+    /* Task 14/20 (фаза 2): адрес каталога — сброс кэша и перезагрузка
+       каталога (applyRowsPref, вне POINTS). */
     lumen_manifest_url: [],
-    /* Task 15 (фаза 2): настройки рядов — без apply-функции рантайма. */
+    /* Task 15/20 (фаза 2): состав, число и фильтр рядов главной —
+       applyRowsPref, вне POINTS. */
     lumen_hide_watched: [],
     lumen_rows_limit: [],
+    lumen_home_rows: [],
+    /* Task 19/20 (фаза 2): чипы настроения — applyMoodsPref, вне POINTS. */
+    lumen_moods: [],
     /* Task 16 (фаза 2): персональные ряды — applyPersonalPref без точек POINTS. */
     lumen_personal_rows: []
   };
@@ -375,4 +383,134 @@ test('I3: после повторного init настройка из меню 
   onChangeOf(params, 'lumen_card_accent')();                      // затем onChange параметра
 
   assert.deepEqual(log, ['css'], 'две подписки на Storage пересобрали бы CSS дважды');
+});
+
+/* ====================================================================== */
+/* Task 20: пересборка главной под новый состав рядов.                    */
+/*                                                                        */
+/* Ряды живут в Lampa.ContentRows: перерегистрация меняет то, что Lampa    */
+/* построит в СЛЕДУЮЩИЙ раз. Инвариант проекта — настройка применяется на  */
+/* лету, поэтому экран пересобирается сам: сразу, если открыт, и на        */
+/* возврате, если пользователь ещё в настройках.                          */
+/* ====================================================================== */
+
+function setupRefresh(component) {
+  const env = setup();
+  const registered = [];
+  let replaced = 0;
+  let current = component;
+  env.LC.manifest = { load: (cb) => cb({ collections: [], home: [] }) };
+  env.LC.rows = { register: (m) => registered.push(m), unregister: () => { } };
+  globalThis.Lampa.Activity = {
+    active: () => ({ component: current }),
+    replace: () => { replaced++; }
+  };
+  env.LC.init();
+  return Object.assign({
+    registered,
+    replaced: () => replaced,
+    setActive: (name) => { current = name; }
+  }, env);
+}
+
+const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+test('Task 20: открыта главная — состав рядов применяется сразу', async () => {
+  const env = setupRefresh('main');
+  env.registered.length = 0;
+
+  env.LC.applyRowsPref();
+  assert.equal(env.registered.length, 1, 'ряды перерегистрированы');
+  await tick();
+  assert.equal(env.replaced(), 1, 'главная пересобрана');
+});
+
+test('Task 20: пользователь в настройках — главная пересобирается при возврате, один раз', async () => {
+  const env = setupRefresh('settings');
+
+  env.LC.applyRowsPref();
+  await tick();
+  assert.equal(env.replaced(), 0, 'активность настроек заменять нельзя');
+
+  env.setActive('main');
+  env.LC.onActivityEvent({ type: 'start', component: 'main', object: {} });
+  await tick();
+  assert.equal(env.replaced(), 1);
+
+  /* Второй возврат на главную — пересобирать уже нечего. */
+  env.LC.onActivityEvent({ type: 'start', component: 'main', object: {} });
+  await tick();
+  assert.equal(env.replaced(), 1);
+});
+
+test('Task 20: возврат на ЧУЖОЙ экран пересборку не запускает', async () => {
+  const env = setupRefresh('settings');
+  env.LC.applyRowsPref();
+
+  env.setActive('full');
+  env.LC.onActivityEvent({ type: 'start', component: 'full', object: {} });
+  await tick();
+  assert.equal(env.replaced(), 0);
+});
+
+test('Task 20: подсказка про ключ пересобирает только открытую сетку подборки', async () => {
+  const env = setupRefresh('main');
+  env.LC.applyKpHintPref();
+  await tick();
+  assert.equal(env.replaced(), 0, 'на главной подсказки про ключ нет');
+
+  env.setActive('lumen_grid');
+  env.LC.applyKpHintPref();
+  await tick();
+  assert.equal(env.replaced(), 1);
+});
+
+/* Настройки Lampa 3.3.4 — слой поверх активности, а не активность: пересборка
+   под ними закрыла бы раздел и увела фокус (видно живьём, Task 20). */
+function setupSettingsLayer() {
+  const env = setup();
+  const registered = [];
+  let replaced = 0;
+  let controller = 'settings_component';
+  const closeCbs = [];
+  env.LC.manifest = { load: (cb) => cb({ collections: [], home: [] }) };
+  env.LC.rows = { register: (m) => registered.push(m), unregister: () => { } };
+  globalThis.Lampa.Activity = { active: () => ({ component: 'main' }), replace: () => { replaced++; } };
+  globalThis.Lampa.Controller.enabled = () => ({ name: controller });
+  globalThis.Lampa.Settings = { listener: { follow: (name, cb) => { if (name === 'close') closeCbs.push(cb); } } };
+  env.LC.init();
+  return Object.assign({
+    registered,
+    replaced: () => replaced,
+    closeSettings: () => { controller = 'content'; closeCbs.forEach((cb) => cb()); },
+    closeCbs
+  }, env);
+}
+
+test('Task 20: настройка меняется под открытым слоем настроек — экран пересобирается после его закрытия', async () => {
+  const env = setupSettingsLayer();
+  env.registered.length = 0;
+
+  env.LC.applyRowsPref();
+  await tick();
+  assert.equal(env.registered.length, 1, 'ряды перерегистрированы сразу');
+  assert.equal(env.replaced(), 0, 'пока раздел открыт, экран не трогаем');
+
+  env.closeSettings();
+  await tick();
+  assert.equal(env.replaced(), 1, 'закрыли настройки — главная пересобралась');
+});
+
+test('Task 20: несколько настроек подряд дают одну пересборку и одну подписку на закрытие', async () => {
+  const env = setupSettingsLayer();
+
+  env.LC.applyRowsPref();
+  env.LC.applyPersonalPref();
+  env.LC.applyRowsPref();
+  await tick();
+  assert.equal(env.closeCbs.length, 1, 'подписка на закрытие настроек заводится один раз');
+
+  env.closeSettings();
+  await tick();
+  assert.equal(env.replaced(), 1);
 });

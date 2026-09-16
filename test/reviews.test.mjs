@@ -525,8 +525,49 @@ test('render: без ключа — подсказка экрана 13, сети
   const html = blocksOf(d)[0].html();
   assert.ok(html.indexOf('lumen-reviews__hint') !== -1, 'ожидался блок-подсказка');
   assert.ok(html.indexOf('Настройки → Lumen Card → Ключ Kinopoisk API') !== -1);
-  assert.equal(html.indexOf('lumen-review selector'), -1, 'в подсказке нечего фокусировать');
+  assert.equal(html.indexOf('lumen-review selector'), -1, 'карточек отзывов в подсказке нет');
+  /* Task 20: единственный фокусируемый узел подсказки — кнопка «Скрыть». */
+  assert.ok(html.indexOf('lumen-reviews__hint-hide selector') !== -1, 'ожидалась кнопка «Скрыть»');
+  assert.ok(html.indexOf('Скрыть') !== -1);
   assert.equal(d.row.hasClass('lumen-descr-row--reviews'), false, 'подсказка низкая — описание поджимать незачем');
+});
+
+/* Task 20: подсказку про ключ можно убрать навсегда — кнопкой на экране или
+   переключателем «Подсказка про ключ» в настройках. */
+test('Task 20: lumen_kp_hint выключена — подсказки про ключ нет вовсе', () => {
+  const env = freshEnv({ store: { lumen_kp_hint: 'false' } });
+  const d = makeDescrRow();
+  env.LC.reviews.render(d.row, DUNE);
+
+  assert.equal(env.journal.calls.length, 0, 'без ключа в сеть не ходим');
+  assert.equal(blocksOf(d).length, 0, 'блока подсказки быть не должно');
+});
+
+test('Task 20: кнопка «Скрыть» пишет lumen_kp_hint = строку false и возвращает фокус', () => {
+  const env = freshEnv({ controller: 'full_descr' });
+  const d = makeDescrRow();
+  env.LC.reviews.render(d.row, DUNE);
+
+  const block = blocksOf(d)[0];
+  const enter = (block._listeners || []).filter((l) => l.type === 'hover:enter')[0];
+  assert.ok(enter, 'на блоке подсказки обязан висеть слушатель hover:enter');
+  enter.fn({ type: 'hover:enter', target: new FakeEl(['lumen-reviews__hint-hide', 'selector']) });
+
+  /* Строка, а не JS-false: Storage.set(name, false) у Lampa не сохраняется. */
+  assert.equal(env.store.lumen_kp_hint, 'false');
+  assert.deepEqual(env.toggled, ['full_descr'], 'фокус возвращается живой коллекции');
+  assert.deepEqual(warnLog, []);
+});
+
+test('Task 20: подпись ряда учитывает подсказку — выключение перерисовывает, а не отсекается', () => {
+  const env = freshEnv();
+  const d = makeDescrRow();
+  env.LC.reviews.render(d.row, DUNE);
+  assert.equal(blocksOf(d).length, 1);
+
+  env.store.lumen_kp_hint = 'false';
+  env.LC.reviews.render(d.row, DUNE);
+  assert.equal(blocksOf(d).length, 0, 'повторный рендер обязан снять подсказку, а не выйти по подписи');
 });
 
 test('render: с ключом и без отзывов — блок снят целиком', () => {

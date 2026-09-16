@@ -182,25 +182,75 @@
       en: 'Settings → Lumen Card → Kinopoisk API key',
       uk: 'Налаштування → Lumen Card → Ключ Kinopoisk API'
     },
-    /* Task 14 (фаза 2): URL внешнего манифеста подборок.
-       Пусто — используется встроенный DEFAULT (62 подборки).
-       Хостинговый манифест кэшируется 12 ч в Lampa.Storage. */
+    /* Task 14/20 (фаза 2): адрес каталога подборок.
+       Пусто — адрес по умолчанию LC.MANIFEST_URL (GitHub Pages плагина);
+       ответ кэшируется на 12 ч, при недоступности сети берётся встроенный
+       каталог (LC.manifest.DEFAULT, 147 подборок). */
     lumen_manifest_url: {
-      ru: 'URL манифеста подборок',
-      en: 'Collections manifest URL',
-      uk: 'URL маніфесту підбірок'
+      ru: 'Свой каталог подборок',
+      en: 'Custom collections catalog',
+      uk: 'Свій каталог підбірок'
     },
     lumen_manifest_url_descr: {
-      ru: 'Внешний JSON-манифест подборок. Пусто — встроенный список (62 подборки). Кэш 12 ч.',
-      en: 'External JSON manifest for collections. Empty — built-in list (62 collections). Cached 12 h.',
-      uk: 'Зовнішній JSON-маніфест підбірок. Порожньо — вбудований список (62 підбірки). Кеш 12 год.'
+      ru: 'Адрес JSON-каталога. Пусто — каталог плагина из интернета, он обновляется сам (кэш 12 ч). Без сети работает встроенный список.',
+      en: 'JSON catalog address. Empty — the plugin catalog from the internet, updated automatically (12 h cache). Offline the built-in list is used.',
+      uk: 'Адреса JSON-каталогу. Порожньо — каталог плагіна з інтернету, оновлюється сам (кеш 12 год). Без мережі працює вбудований список.'
     },
 
-    /* Task 15 (фаза 2): настройки рядов подборок на главной. */
+    /* Task 20 (фаза 2): подсказка «Ключ API не задан» — переключатель рядом
+       с полем ключа. Саму подсказку можно убрать кнопкой «Скрыть» на экране
+       (карточка и сетка подборки Кинопоиска), вернуть — отсюда. */
+    lumen_kp_hint_name: {
+      ru: 'Подсказка про ключ',
+      en: 'API key hint',
+      uk: 'Підказка про ключ'
+    },
+    lumen_kp_hint_descr: {
+      ru: 'Напоминание «Ключ API не задан» в карточке и в подборках Кинопоиска. Его можно убрать кнопкой «Скрыть» прямо на экране.',
+      en: 'The "API key is not set" reminder in the card and in Kinopoisk collections. It can also be dismissed with the "Hide" button on screen.',
+      uk: 'Нагадування «Ключ API не задано» у картці та в підбірках Кінопошуку. Його можна прибрати кнопкою «Сховати» просто на екрані.'
+    },
+    /* Подпись кнопки, которая убирает подсказку навсегда (до включения
+       переключателя выше). */
+    lumen_kp_hint_hide: {
+      ru: 'Скрыть',
+      en: 'Hide',
+      uk: 'Сховати'
+    },
+
+    /* Task 15/20 (фаза 2): группа настроек главной и подборок. */
     lumen_group_home: {
-      ru: 'Ряды на главной',
-      en: 'Home rows',
-      uk: 'Ряди на головній'
+      ru: 'Главная и подборки',
+      en: 'Home screen and collections',
+      uk: 'Головна та підбірки'
+    },
+    /* Task 19/20: чипы профилей настроения под текстом героя на главной. */
+    lumen_moods_name: {
+      ru: 'Профили настроения',
+      en: 'Mood profiles',
+      uk: 'Профілі настрою'
+    },
+    lumen_moods_descr: {
+      ru: 'Строка быстрых подборок под описанием на главной: «Вечер пятницы», «Семейный просмотр», «Страшное на ночь», «Есть 90 минут».',
+      en: 'A row of quick picks under the hero text: "Friday night", "Family time", "Scary at night", "90 minutes to spare".',
+      uk: 'Рядок швидких підбірок під описом на головній: «Вечір п\'ятниці», «Сімейний перегляд», «Страшне на ніч», «Є 90 хвилин».'
+    },
+    /* Task 20: кнопка-параметр — экран выбора подборок для главной. */
+    lumen_home_rows_name: {
+      ru: 'Какие ряды показывать',
+      en: 'Which rows to show',
+      uk: 'Які ряди показувати'
+    },
+    lumen_home_rows_descr: {
+      ru: 'Отметьте подборки для главной. Если не отмечено ничего — показывается набор по умолчанию.',
+      en: 'Tick the collections for the home screen. With nothing ticked the default set is shown.',
+      uk: 'Позначте підбірки для головної. Якщо не позначено нічого — показується набір за замовчуванням.'
+    },
+    /* Заголовок экрана выбора рядов (Lampa.Select). */
+    lumen_home_rows_select: {
+      ru: 'Ряды подборок на главной',
+      en: 'Collection rows on home',
+      uk: 'Ряди підбірок на головній'
     },
     lumen_hide_watched_name: {
       ru: 'Скрывать досмотренное',
@@ -421,11 +471,24 @@
        префикса PLUGIN, поэтому ветка стоит здесь, до проверки префикса. */
     if (name === 'lumen_font') { LC.injectFonts(); LC.injectCss(); return true; }
     if (name === 'lumen_reviews' || name === 'lumen_kp_key') { LC.applyReviewsPref(); return true; }
-    /* Task 15 (фаза 2): изменение настроек рядов на главной.
-       lumen_hide_watched применяется при следующем вызове call() каждого ряда. */
-    if (name === 'lumen_hide_watched') { return true; }
-    /* lumen_rows_limit применяется немедленно через перерегистрацию рядов (I5-fix). */
-    if (name === 'lumen_rows_limit') {
+    /* Task 20: подсказка «Ключ API не задан» — перерисовать ряд отзывов
+       открытой карточки (там же, где её рисует LC.reviews) и снять/вернуть
+       подсказку в открытой сетке подборки Кинопоиска. */
+    if (name === 'lumen_kp_hint') {
+      LC.applyReviewsPref();
+      try { if (LC.applyKpHintPref) LC.applyKpHintPref(); } catch (eHint) {}
+      return true;
+    }
+    /* Task 19/20: чипы профилей настроения — монтируются и снимаются на лету. */
+    if (name === 'lumen_moods') {
+      try { if (LC.applyMoodsPref) LC.applyMoodsPref(); } catch (eMoods) {}
+      return true;
+    }
+    /* Task 15/20 (фаза 2): состав, число и фильтр рядов главной. Все три
+       меняют НАБОР карточек в рядах, поэтому применяются одинаково:
+       ряды перерегистрируются, открытая главная пересобирается
+       (LC.applyRowsPref, src/90_runtime.js). */
+    if (name === 'lumen_hide_watched' || name === 'lumen_rows_limit' || name === 'lumen_home_rows') {
       try { if (LC.applyRowsPref) LC.applyRowsPref(); } catch (eRows) {}
       return true;
     }
@@ -435,10 +498,12 @@
       try { if (LC.applyPersonalPref) LC.applyPersonalPref(); } catch (eP) {}
       return true;
     }
-    /* Task 14 (фаза 2): URL манифеста изменён — сбрасываем кэш Storage, чтобы
-       при следующей загрузке главной пришёл свежий манифест. */
+    /* Task 14/20 (фаза 2): адрес каталога изменён — кэш прежнего каталога
+       больше не годится, сбрасываем его и тут же перезагружаем каталог с
+       нового адреса (LC.applyRowsPref → LC.manifest.load → register). */
     if (name === 'lumen_manifest_url') {
       try { if (window.Lampa && Lampa.Storage) Lampa.Storage.set('lumen_manifest', null); } catch (e) {}
+      try { if (LC.applyRowsPref) LC.applyRowsPref(); } catch (eUrl) {}
       return true;
     }
     if (name.indexOf(PLUGIN + '_') !== 0) return false;
@@ -455,6 +520,80 @@
     return function () {
       if (pref_handled === name) { pref_handled = ''; return; }
       applyPrefChange(name);
+    };
+  }
+
+  /* -------------------------------------------------------------------- */
+  /* Task 20: экран выбора рядов подборок для главной.                     */
+  /*                                                                       */
+  /* Multi-select в SettingsApi нет, поэтому пункт «Какие ряды показывать» */
+  /* — параметр type:'button': Lampa зовёт его onChange по нажатию (без    */
+  /* значения, app.min.js ~47543), и мы открываем Lampa.Select с           */
+  /* чекбоксами. Чекбокс селектбокс НЕ закрывает (app.min.js ~7036),       */
+  /* поэтому выбор сохраняется на каждом onCheck — «Назад» в любой момент  */
+  /* оставляет уже записанный набор. Сама запись в Storage поднимает        */
+  /* listener 'change' → applyPrefChange('lumen_home_rows') → ряды         */
+  /* перерегистрируются и главная перестраивается (LC.applyRowsPref).       */
+  /* -------------------------------------------------------------------- */
+  function openHomeRows() {
+    try {
+      if (!window.Lampa || !Lampa.Select || typeof Lampa.Select.show !== 'function') return;
+      if (!LC.rows || typeof LC.rows.rowChoices !== 'function') return;
+      if (!LC.manifest || typeof LC.manifest.get !== 'function') return;
+
+      var manifest = LC.manifest.get();
+      var choices = LC.rows.rowChoices(manifest, LC.rows.storedIds());
+      var lang = langCode();
+
+      /* Заголовки групп каталога: id → подпись на языке интерфейса. */
+      var groupTitle = {};
+      var groups = (manifest && manifest.groups) || [];
+      for (var g = 0; g < groups.length; g++) {
+        groupTitle[groups[g].id] = (LC.hub && typeof LC.hub.titleOf === 'function')
+          ? LC.hub.titleOf(groups[g], lang)
+          : (groups[g].title || groups[g].id);
+      }
+
+      var items = [];
+      var lastGroup = null;
+      for (var i = 0; i < choices.length; i++) {
+        var c = choices[i];
+        /* Отмеченные идут первыми (LC.rows.rowChoices), и разделять их по
+           группам незачем — группы начинаются там, где пошли неотмеченные. */
+        if (!c.checked && c.group !== lastGroup) {
+          lastGroup = c.group;
+          items.push({ title: groupTitle[c.group] || c.group, separator: true });
+        }
+        items.push({ title: c.title, lumen_id: c.id, checkbox: true, checked: c.checked });
+      }
+
+      function save() {
+        var ids = [];
+        for (var k = 0; k < items.length; k++) {
+          if (items[k].checkbox && items[k].checked) ids.push(items[k].lumen_id);
+        }
+        /* Пустая строка в Storage не сохраняется (план 0.2), да и пустая
+           главная никому не нужна: снятые все галочки = набор каталога. */
+        try { Lampa.Storage.set('lumen_home_rows', ids.join(',')); } catch (e) { }
+      }
+
+      Lampa.Select.show({
+        title: LC.lang('lumen_home_rows_select'),
+        items: items,
+        onCheck: save,
+        onBack: function () {
+          try { if (Lampa.Controller && typeof Lampa.Controller.toggle === 'function') Lampa.Controller.toggle('settings_component'); } catch (e) { }
+        }
+      });
+    } catch (err) {
+      warn('home rows select failed', err);
+    }
+  }
+
+  /* Обработчик нажатия для параметров type:'button'. */
+  function onButtonFor(name) {
+    return function () {
+      if (name === 'lumen_home_rows') openHomeRows();
     };
   }
 
@@ -476,6 +615,11 @@
     /* Заголовок группы ничего не хранит и не имеет обработчика. */
     if (entry.type === 'title') {
       Lampa.SettingsApi.addParam({ component: PLUGIN, param: param, field: field });
+      return;
+    }
+    /* Кнопка-параметр ничего не хранит: Lampa зовёт её onChange по нажатию. */
+    if (entry.type === 'button') {
+      Lampa.SettingsApi.addParam({ component: PLUGIN, param: param, field: field, onChange: onButtonFor(entry.name) });
       return;
     }
     param['default'] = entry['default'];
