@@ -468,12 +468,21 @@ test('buildCss: блок отзывов занимает всю ширину р�
 /* Замер живьём: ряд описания въезжает в экран прокруткой ленты рядов, но
    ВНУТРИ ряда Lampa не прокручивает (Task 5d). С рядом отзывов описание должно
    быть поджато, иначе карточки получают .focus ниже нижнего края экрана. */
-test('buildCss: с рядом отзывов описание ограничено 34vh (без отзывов остаётся 70vh)', () => {
+/* Ревью Task 9: обрезка по строкам, а не по пикселям — max-height резал
+   последнюю строку пополам и без многоточия (Task 5d такую обрезку снимал
+   намеренно). Маска низа возвращается ТОЛЬКО когда ряд отзывов нарисован. */
+test('buildCss: с рядом отзывов описание клампится восемью строками и получает мягкую маску низа', () => {
   const decl = findDecl(css, (sel) => sel === '.lumen-descr-row.lumen-descr-row--reviews .full-descr__text');
-  assert.ok(decl, 'правило поджатия описания при отзывах не найдено');
-  assert.ok(/max-height\s*:\s*34vh/.test(decl));
+  assert.ok(decl, 'правило обрезки описания при отзывах не найдено');
+  assert.ok(decl.indexOf('-webkit-line-clamp:8') !== -1, 'ожидался кламп на 8 строк');
+  assert.ok(decl.indexOf('display:-webkit-box') !== -1 && decl.indexOf('-webkit-box-orient:vertical') !== -1, 'без этих двух свойств кламп не работает');
+  assert.ok(/max-height\s*:\s*70vh/.test(decl), 'страховка для движков без клампа');
+  assert.ok(/mask-image\s*:\s*linear-gradient/.test(decl), 'мягкий низ вместо резаной строки');
+  assert.ok(decl.indexOf('-webkit-mask-image') !== -1, 'нужна и префиксная запись — на движках ТВ работает она');
+
   const base = findDecl(css, (sel) => sel === '.lumen-descr-row .full-descr__text');
   assert.ok(/max-height\s*:\s*70vh/.test(base), 'базовый предел Task 5d не тронут');
+  assert.ok(base.indexOf('-webkit-mask-image:none') !== -1, 'без отзывов описание по-прежнему не выцветает');
 });
 
 test('buildCss: карточка отзыва 480×260 (21.04em×11.4em), flex, не сжимается', () => {

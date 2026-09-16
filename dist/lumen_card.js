@@ -751,7 +751,12 @@ css.push('.lumen-descr-row .lumen-reviews{width:100%;-webkit-flex-basis:100%;fle
 
 
 
-css.push('.lumen-descr-row.lumen-descr-row--reviews .full-descr__text{max-height:34vh}');
+
+
+
+
+
+css.push('.lumen-descr-row.lumen-descr-row--reviews .full-descr__text{display:-webkit-box;-webkit-line-clamp:8;-webkit-box-orient:vertical;overflow:hidden;max-height:70vh;-webkit-mask-image:-webkit-linear-gradient(top,#000 86%,rgba(0,0,0,0) 100%);-webkit-mask-image:linear-gradient(180deg,#000 86%,rgba(0,0,0,0) 100%);mask-image:linear-gradient(180deg,#000 86%,rgba(0,0,0,0) 100%)}');
 css.push('.lumen-descr-row .lumen-reviews__head{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:baseline;-webkit-align-items:baseline;align-items:baseline;-webkit-flex-wrap:wrap;flex-wrap:wrap;margin-bottom:1.23em}');
 
 
@@ -3083,7 +3088,15 @@ var TTL = 24 * 3600 * 1000;
 
 
 
-var MAX_FILMS = 20;
+var EMPTY_TTL = 2 * 3600 * 1000;
+
+
+
+
+
+
+
+var MAX_FILMS = 8;
 var MAX_FULL = 4000;
 var MAX_EXCERPT = 300;
 var MAX_ITEMS = 12;
@@ -3101,8 +3114,15 @@ function cacheKey(imdbId) { return 'lumen_rv_' + imdbId; }
 
 function now(value) { return typeof value === 'number' ? value : Date.now(); }
 
+
+
+
+function ttlOf(rec) {
+return (rec && rec.list && rec.list.length) ? TTL : EMPTY_TTL;
+}
+
 function isFresh(rec, at) {
-return !!(rec && rec.at && (now(at) - rec.at) < TTL);
+return !!(rec && rec.at && (now(at) - rec.at) < ttlOf(rec));
 }
 
 
@@ -3116,6 +3136,18 @@ return text.slice(0, limit - 1) + '…';
 
 function trim(str) {
 return ('' + (str || '')).replace(/^\s+|\s+$/g, '');
+}
+
+
+
+
+
+
+function keyStamp(key) {
+if (!key) return '0';
+var h = 5381;
+for (var i = 0; i < key.length; i++) h = ((h << 5) + h + key.charCodeAt(i)) | 0;
+return key.length + ':' + (h >>> 0);
 }
 
 
@@ -3166,19 +3198,51 @@ if (window.Lampa && Lampa.Storage && typeof Lampa.Storage.get === 'function') re
 return null;
 }
 
+
+
+
+
 function readIndex(store) {
 var index = store.get(INDEX_KEY, []);
-return (index && typeof index.length === 'number') ? index : [];
+return Object.prototype.toString.call(index) === '[object Array]' ? index : [];
 }
 
 
 
 
+
+
+
+
+
 function drop(store, id) {
+try { store.set(cacheKey(id), ''); } catch (e) { }
 try {
-if (typeof store.remove === 'function') { store.remove(cacheKey(id)); return; }
-} catch (e) { }
-store.set(cacheKey(id), '');
+if (typeof window !== 'undefined' && window.localStorage) window.localStorage.removeItem(cacheKey(id));
+} catch (e2) { }
+}
+
+
+
+function purge(store) {
+try {
+LC.util.each(readIndex(store), function (it) { if (it && it.id) drop(store, it.id); });
+store.set(INDEX_KEY, []);
+try {
+if (typeof window !== 'undefined' && window.localStorage) window.localStorage.removeItem(INDEX_KEY);
+} catch (e2) { }
+} catch (e) {
+warn('reviews cache purge failed', e);
+}
+}
+
+
+
+function put(store, key, value) {
+store.set(key, value, false, function (err) {
+warn('reviews cache quota', err);
+purge(store);
+});
 }
 
 function cacheRead(imdbId, at) {
@@ -3186,7 +3250,12 @@ try {
 var store = storage();
 if (!store || !imdbId) return null;
 var rec = store.get(cacheKey(imdbId), null);
-return isFresh(rec, at) ? rec : null;
+if (!isFresh(rec, at)) return null;
+
+
+
+rec.total = parseInt(rec.total, 10) || 0;
+return rec;
 } catch (e) {
 warn('reviews cache read failed', e);
 return null;
@@ -3198,7 +3267,6 @@ try {
 var store = storage();
 if (!store || !imdbId) return;
 var stamp = now(at);
-store.set(cacheKey(imdbId), { at: stamp, list: list, total: total, kp: kp || 0 });
 
 var kept = [];
 LC.util.each(readIndex(store), function (it) {
@@ -3210,7 +3278,13 @@ kept.push({ id: imdbId, at: stamp });
 
 kept.sort(function (a, b) { return (a.at || 0) - (b.at || 0); });
 while (kept.length > MAX_FILMS) drop(store, kept.shift().id);
-store.set(INDEX_KEY, kept);
+
+
+
+
+
+put(store, INDEX_KEY, kept);
+put(store, cacheKey(imdbId), { at: stamp, list: list, total: total, kp: kp || 0 });
 } catch (e) {
 warn('reviews cache write failed', e);
 }
@@ -3238,21 +3312,25 @@ timeout: TIMEOUT_MS
 
 
 
+
+
+
+
 function load(imdbId, key, cb, alive, at) {
 function dead() {
 try { return typeof alive === 'function' && !alive(); } catch (e) { return false; }
 }
 try {
-if (!key) { cb({ nokey: true }); return; }
-if (!imdbId) { cb(null); return; }
+if (!key) { cb({ nokey: true }); return null; }
+if (!imdbId) { cb(null); return null; }
 
 var rec = cacheRead(imdbId, at);
 if (rec) {
 cb(rec.list && rec.list.length ? { list: rec.list, total: rec.total || rec.list.length } : null);
-return;
+return null;
 }
 
-if (!window.Lampa || typeof Lampa.Reguest !== 'function') { cb(null); return; }
+if (!window.Lampa || typeof Lampa.Reguest !== 'function') { cb(null); return null; }
 var net = new Lampa.Reguest();
 
 request(net, BASE + '?imdbId=' + encodeURIComponent(imdbId), key, function (found) {
@@ -3263,8 +3341,20 @@ if (!kp) { cb(null); return; }
 request(net, BASE + '/' + kp + '/reviews?page=1&order=USER_POSITIVE_RATING_DESC', key, function (resp) {
 if (dead()) return;
 try {
+
+
+
+
+
 var list = normalize(resp, anonWord()).slice(0, MAX_ITEMS);
-if (!list.length) { cb(null); return; }
+if (!list.length) {
+
+
+
+cacheWrite(imdbId, [], 0, at, kp);
+cb(null);
+return;
+}
 var total = parseInt(resp && resp.total, 10) || list.length;
 cacheWrite(imdbId, list, total, at, kp);
 cb({ list: list, total: total });
@@ -3278,9 +3368,12 @@ warn('reviews search failed', e);
 cb(null);
 }
 }, function () { if (!dead()) cb(null); });
+
+return net;
 } catch (e2) {
 warn('reviews load failed', e2);
 cb(null);
+return null;
 }
 }
 
@@ -3322,7 +3415,9 @@ return '<div class="lumen-reviews__head">' +
 '<span class="lumen-reviews__ico"></span>' +
 '<span class="lumen-reviews__title">' + esc(lang('lumen_card_reviews_title')) + '</span>' +
 '<span class="lumen-reviews__src">' + esc(lang('lumen_card_reviews_src')) + '</span>' +
-'<span class="lumen-reviews__total">· ' + total + ' ' + esc(totalWord(total)) + '</span>' +
+
+
+'<span class="lumen-reviews__total">· ' + esc(String(total)) + ' ' + esc(totalWord(total)) + '</span>' +
 '</div>';
 }
 
@@ -3442,8 +3537,22 @@ return holder && holder.length ? holder : null;
 
 function stateOf(holder) {
 var node = holder[0];
-if (!node.lumenReviews) node.lumenReviews = { sign: '', gen: 0, painted: false };
+if (!node.lumenReviews) node.lumenReviews = { sign: '', gen: 0, painted: false, net: null };
 return node.lumenReviews;
+}
+
+
+
+
+
+
+
+function isForeground(node) {
+try {
+if (LC.slideshow && typeof LC.slideshow.isMounted === 'function' && !LC.slideshow.isMounted(node[0])) return false;
+if (LC.slideshow && typeof LC.slideshow.isLayerForeground === 'function') return !!LC.slideshow.isLayerForeground(node);
+} catch (e) { }
+return true;
 }
 
 function clearBlock(holder) {
@@ -3523,6 +3632,10 @@ try {
 if (!window.Lampa || !Lampa.Controller || typeof Lampa.Controller.collectionAppend !== 'function') return;
 var enabled = typeof Lampa.Controller.enabled === 'function' ? Lampa.Controller.enabled() : null;
 if (!enabled || enabled.name !== 'full_descr') return;
+
+
+
+if (!isForeground(block)) return;
 var nodes = block.find('.lumen-review');
 if (nodes && nodes.length) Lampa.Controller.collectionAppend(nodes);
 } catch (e) {
@@ -3562,7 +3675,11 @@ var movie = (data && data.movie) || {};
 var imdb = movie.imdb_id || (movie.external_ids || {}).imdb_id || '';
 var key = trim(LC.pref('lumen_kp_key', ''));
 var on = LC.pref('lumen_reviews', true);
-var sign = [on ? '1' : '0', imdb, key ? '1' : '0', lang('lumen_card_reviews_title')].join('|');
+
+
+
+
+var sign = [on ? '1' : '0', imdb, keyStamp(key), lang('lumen_card_reviews_title')].join('|');
 
 var state = stateOf(holder);
 if (state.sign === sign && (!state.painted || holder.find('.lumen-reviews').length)) return;
@@ -3571,6 +3688,14 @@ state.sign = sign;
 state.gen++;
 state.painted = false;
 var gen = state.gen;
+
+
+
+
+if (state.net && typeof state.net.clear === 'function') {
+try { state.net.clear(); } catch (eNet) { }
+}
+state.net = null;
 clearBlock(holder);
 
 
@@ -3580,7 +3705,7 @@ if (!on) return;
 if (!key) { paintHint(holder); state.painted = true; return; }
 if (!imdb) return;
 
-load(imdb, key, function (res) {
+state.net = load(imdb, key, function (res) {
 try {
 var current = stateOf(holder);
 if (current.gen !== gen) return;
@@ -6215,7 +6340,11 @@ var slideshow = liveSlideshow(layer, layer.data('lumenSlideshow'));
 
 
 
-LC.active = { object: e.object, body: layer.parent(), slideshow: slideshow, trailer: layer.data('lumenTrailer') || null };
+
+
+
+
+LC.active = { object: e.object, body: layer.parent(), slideshow: slideshow, trailer: layer.data('lumenTrailer') || null, data: layer.data('lumenData') || null };
 if (slideshow) slideshow.resume();
 }
 }
@@ -6432,6 +6561,14 @@ applyMotionMode(root);
 
 
 LC.active = { object: e.object, body: e.body, slideshow: slideshow, data: e.data };
+
+
+
+
+try {
+var bgLayer = e.body && e.body.children ? e.body.children('.lumen-backdrop') : null;
+if (bgLayer && bgLayer.length) bgLayer.data('lumenData', e.data);
+} catch (eData) { warn('reviews data on layer failed', eData); }
 
 
 

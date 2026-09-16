@@ -317,6 +317,9 @@ body {
     };
     store.language = 'ru';
     store.poster_size = 'w500';
+    /* Task 9: ключ-заглушка — сеть в стенде подменена (см. Reguest ниже),
+       настоящий ключ Кинопоиска здесь не нужен и не используется. */
+    store.lumen_kp_key = 'harness-mock';
 
     /* ---------------- Utils ---------------- */
     var Utils = {
@@ -399,7 +402,40 @@ body {
 
     var Controller = {
         add: function () { }, toggle: function () { }, collectionSet: function () { },
-        collectionFocus: function () { }, enabled: function () { return {}; }
+        collectionFocus: function () { }, enabled: function () { return { name: 'full_descr' }; },
+        /* Task 9: ряд отзывов дополняет коллекцию активного full_descr */
+        collectionAppend: function (nodes) { Controller.appended = (Controller.appended || 0) + (nodes && nodes.length ? nodes.length : 0); }
+    };
+
+    /* ---------------- Reguest (Task 9: отзывы Кинопоиска) ----------------
+       Реального ключа в стенде нет и быть не должно: сеть подменена целиком,
+       отдаём записанный ответ API (docs/research/API_NOTES_2.md §4). */
+    var KP_SEARCH = { total: 1, items: [{ kinopoiskId: 301, imdbId: 'tt15239678' }] };
+    var KP_REVIEWS = {
+        total: 318,
+        items: [
+            { type: 'POSITIVE', date: '2024-03-02T10:30:00', positiveRating: 12, negativeRating: 3, author: 'Иван Петров', title: 'Шедевр визуального повествования', description: 'Фильм делает ровно то, чего не сделал первый: даёт героям решать.' },
+            { type: 'NEUTRAL', date: '2024-03-05T09:00:00', positiveRating: 4, negativeRating: 1, author: 'Мария Кузнецова', title: 'Красиво, но холодно', description: 'Визуально шедевр, эмоционально держит на расстоянии.' },
+            { type: 'NEGATIVE', date: '2024-03-09T21:00:00', positiveRating: 7, negativeRating: 9, author: 'Алексей Дёмин', title: 'Три часа ожидания', description: 'Сюжет топчется на месте, второй час можно было вырезать.' }
+        ]
+    };
+
+    function Reguest() { }
+    Reguest.prototype.timeout = function () { };
+    Reguest.prototype.silent = function (url, ok) {
+        setTimeout(function () { ok(url.indexOf('/reviews') === -1 ? KP_SEARCH : KP_REVIEWS); }, 0);
+    };
+    Reguest.prototype.quiet = Reguest.prototype.silent;
+    Reguest.prototype.get = Reguest.prototype.silent;
+    Reguest.prototype.clear = function () { };
+
+    var Modal = {
+        opened: null,
+        open: function (params) { Modal.opened = params; },
+        close: function () { Modal.opened = null; },
+        /* Оформление окон (Task 31) подписывается на fullshow — без заглушки
+           стенд писал бы в консоль «Lampa.Modal.listener not found». */
+        listener: { follow: function () { } }
     };
 
     var SettingsApi = {
@@ -425,8 +461,12 @@ body {
         Platform: Platform,
         SettingsApi: SettingsApi,
         Controller: Controller,
+        Reguest: Reguest,
+        Modal: Modal,
         Noty: { show: function () { } },
-        Select: { show: function () { } },
+        /* listener-заглушка — оформление меню (Task 31) на неё подписывается;
+           без неё стенд писал бы в консоль «Lampa.Select.listener not found». */
+        Select: { show: function () { }, listener: { follow: function () { } } },
         Activity: { active: function () { return {}; } }
     };
 
@@ -459,6 +499,9 @@ body {
         release_date: '2024-02-27',
         runtime: 166,
         vote_average: 8.243,
+        /* Task 9: без imdb_id отзывы Кинопоиска не запрашиваются вовсе —
+           это тот же id, что отдаёт живая карточка «Дюны» (план 0.5). */
+        imdb_id: 'tt15239678',
         imdb_rating: 8.5,
         kp_rating: 7.9,
         release_quality: 'BD 4K',
@@ -480,6 +523,7 @@ body {
         number_of_seasons: 2,
         number_of_episodes: 16,
         vote_average: 8.3,
+        imdb_id: 'tt12637874',
         imdb_rating: 8.4,
         kp_rating: 7.8,
         status: 'Returning Series',
@@ -622,6 +666,10 @@ body {
 
     /* ------------------------- Рендер ------------------------------ */
     var current = 'movie';
+    /* Task 9: последние данные и узел ряда описания — нужны проверке отзывов
+       (перерисовка без ключа, экран 13). */
+    var LAST_DATA = null;
+    var LAST_DESCR = null;
 
     function render() {
         var movie = current === 'movie' ? MOVIE : SERIAL;
@@ -640,12 +688,32 @@ body {
 
         var item = { render: function () { return html; } };
 
+        /* Task 5d/9: ряд описания Lampa (items_line -> .items-line__body ->
+           .full-descr -> .full-descr__left). В стенде он собирается вручную:
+           плагин дописывает в него таблицу «ПОДРОБНО» и ряд отзывов. */
+        var descr = $('<div class="items-line items-line--type-cards">' +
+            '<div class="items-line__head"><div class="items-line__title">Подробно</div></div>' +
+            '<div class="items-line__body">' +
+            '<div class="full-descr">' +
+            '<div class="full-descr__left">' +
+            '<div class="full-descr__text selector">' + (movie.overview || '') + '</div>' +
+            '<div class="full-descr__details"></div>' +
+            '<div class="full-descr__tags"><div class="full-descr__tag selector">Жанр</div></div>' +
+            '</div></div></div></div>');
+        component.find('.scroll__body').append(descr);
+
+        LAST_DATA = data;
+        LAST_DESCR = descr;
+
         L.Listener.send('full', { link: {}, type: 'build', props: {}, body: component, object: {}, name: 'start', item: item, data: data });
+        L.Listener.send('full', { link: {}, type: 'build', props: {}, body: component, object: {}, name: 'description', item: { render: function () { return descr; } }, data: data });
         L.Listener.send('full', { link: {}, type: 'complite', props: {}, body: component, object: {}, data: data });
 
         focusIndex = 0;
         applyFocus();
         runChecks(html);
+        /* Отзывы приходят асинхронно: мок Reguest отвечает через setTimeout. */
+        setTimeout(function () { runReviewChecks(descr); }, 30);
     }
 
     /* --------------------- Эмуляция пульта -------------------------- */
@@ -736,6 +804,38 @@ body {
 
         out.unshift('<div><b>Проверки: ' + (need.length + rawNeed.length + extra - failed) + '/' + (need.length + rawNeed.length + extra) + ' узлов Lampa на месте</b></div>');
         document.getElementById('checks').innerHTML = out.join('');
+    }
+
+    /* Task 9: ряд отзывов Кинопоиска (экран 07) и подсказка без ключа
+       (экран 13). Сеть подменена моком Reguest — реальный ключ не нужен. */
+    function runReviewChecks(descr) {
+        var out = ['<div><b>Отзывы Кинопоиска (Task 9)</b></div>'];
+        function check(ok, text) {
+            out.push('<div class="' + (ok ? 'ok' : 'fail') + '">' + (ok ? 'OK  ' : 'FAIL') + ' ' + text + '</div>');
+        }
+
+        var block = descr.find('.lumen-reviews');
+        var cards = descr.find('.lumen-review');
+        check(block.length === 1, 'блок отзывов вставлен в ряд описания');
+        check(descr.find('.lumen-facts').length === 1, 'таблица «ПОДРОБНО» на месте (соседи не мешают друг другу)');
+        check(cards.length === 3, 'карточек отзывов: ' + cards.length);
+        check(cards.length > 0 && cards.filter('.selector').length === cards.length, 'все карточки — .selector');
+        check(block.find('.lumen-reviews__src').text().indexOf('КИНОПОИСК') !== -1, 'источник в заголовке');
+        check(block.find('.lumen-reviews__total').text().indexOf('318') !== -1, 'число отзывов из total ответа');
+        check(descr.find('.lumen-review--good').length > 0 && descr.find('.lumen-review--bad').length > 0, 'тон отзывов размечен классами');
+        check(descr.hasClass('lumen-descr-row--reviews'), 'описание поджато, пока ряд отзывов на месте');
+        check(L.Controller.appended > 0, 'новые .selector отданы контроллеру: ' + (L.Controller.appended || 0));
+
+        /* Экран 13: без ключа вместо ряда — подсказка, где ключ взять. */
+        var key = L.Storage.get('lumen_kp_key', '');
+        L.Storage.set('lumen_kp_key', '');
+        window.lumen_card.reviews.render(descr, LAST_DATA);
+        check(descr.find('.lumen-reviews__hint').length === 1, 'без ключа — подсказка экрана 13');
+        check(descr.find('.lumen-review').length === 0, 'в подсказке нечего фокусировать');
+        L.Storage.set('lumen_kp_key', key);
+        window.lumen_card.reviews.render(descr, LAST_DATA);
+
+        document.getElementById('checks').innerHTML += out.join('');
     }
 
     /* --------------------------- UI --------------------------------- */

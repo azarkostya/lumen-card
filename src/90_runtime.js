@@ -357,7 +357,11 @@
              stopActive() не смог бы снять «залипший» режим трейлера.
              LC.backdrops.revive() гасит трейлер и снимает ссылку, поэтому в
              сценарии оживления здесь закономерно окажется null. */
-          LC.active = { object: e.object, body: layer.parent(), slideshow: slideshow, trailer: layer.data('lumenTrailer') || null };
+          /* Ревью Task 9 (Minor 10): данные карточки тоже восстанавливаются со
+             слоя — без них LC.applyReviewsPref на вернувшейся из истории
+             карточке не смог бы перерисовать ряд отзывов после ввода ключа
+             (complite для неё Lampa повторно не шлёт). */
+          LC.active = { object: e.object, body: layer.parent(), slideshow: slideshow, trailer: layer.data('lumenTrailer') || null, data: layer.data('lumenData') || null };
           if (slideshow) slideshow.resume();
         }
       }
@@ -574,6 +578,14 @@
                'full', ни complite, а перерисовать ряд отзывов после ввода
                ключа больше неоткуда. */
             LC.active = { object: e.object, body: e.body, slideshow: slideshow, data: e.data };
+            /* Ревью Task 9 (Minor 10): дубль данных на слое фона — тем же
+               приёмом, что контроллеры слайдшоу и трейлера. Карточка, к которой
+               вернулись backward'ом, восстанавливает LC.active из слоя
+               (LC.onActivityEvent), и без этой строки у неё не было бы data. */
+            try {
+              var bgLayer = e.body && e.body.children ? e.body.children('.lumen-backdrop') : null;
+              if (bgLayer && bgLayer.length) bgLayer.data('lumenData', e.data);
+            } catch (eData) { warn('reviews data on layer failed', eData); }
             /* Task 7: фоновый трейлер — отсчёт 3 с от complite. Контроллер
                хранится и в LC.active.trailer (остановка по toggle/OK), и на
                слое фона (остановка через LC.backdrops.cancel). bind() вешает

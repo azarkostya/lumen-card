@@ -101,13 +101,15 @@ function $(x) {
   return { length: 0, each() { return this; }, find() { return { length: 0 }; } };
 }
 
-/* Фейковый Lampa.Reguest: журнал вызовов silent + заданные таймауты. */
+/* Фейковый Lampa.Reguest: журнал вызовов silent, таймауты и сами экземпляры —
+   по ним видно, сняла ли смена карточки прошлый запрос (ревью, Important 6). */
 function makeNetwork(journal) {
-  function Reguest() { journal.instances++; }
+  function Reguest() { journal.instances++; this.cleared = 0; journal.nets.push(this); }
   Reguest.prototype.timeout = function (ms) { journal.timeouts.push(ms); };
   Reguest.prototype.silent = function (url, ok, err, post, params) {
     journal.calls.push({ url: url, ok: ok, err: err, post: post, params: params });
   };
+  Reguest.prototype.clear = function () { this.cleared++; };
   return Reguest;
 }
 
@@ -115,16 +117,40 @@ function freshEnv(opts) {
   opts = opts || {};
   warnLog.length = 0;
   const store = Object.assign({ language: 'ru' }, opts.store || {});
-  const journal = { calls: [], timeouts: [], instances: 0 };
+  /* ls — «сырое» хранилище, как localStorage: именно по нему видно, освободила
+     ли уборка кэша место. store остаётся зеркалом того, что отдаёт
+     Lampa.Storage.get (пустая строка для него — «значения нет»). */
+  const ls = {};
+  Object.keys(store).forEach((k) => { ls[k] = store[k]; });
+  const journal = { calls: [], timeouts: [], instances: 0, nets: [] };
   const collected = [];
   const modals = [];
   const toggled = [];
   const refocused = [];
+  const removeCalls = [];
+  const setOrder = [];
+  function films() { return Object.keys(ls).filter((k) => k.indexOf('lumen_rv_') === 0 && k !== 'lumen_rv_index'); }
   const Lampa = {
     Storage: {
       get: (name, def) => (Object.prototype.hasOwnProperty.call(store, name) && store[name] !== '' ? store[name] : def),
-      set: (name, value) => { store[name] = value; },
-      field: (name) => store[name]
+      /* Настоящая сигнатура Lampa: set(name, value, nolisten, callerror) —
+         четвёртый аргумент зовётся при исключении записи (квота на ТВ). */
+      set: (name, value, nolisten, callerror) => {
+        setOrder.push(name);
+        if (opts.quota && name.indexOf('lumen_rv_') === 0 && name !== 'lumen_rv_index'
+          && films().length >= opts.quota && !Object.prototype.hasOwnProperty.call(ls, name)) {
+          if (callerror) callerror(new Error('QuotaExceededError'));
+          return;
+        }
+        store[name] = value;
+        if (value === '') delete ls[name]; else ls[name] = value;
+      },
+      field: (name) => store[name],
+      /* Lampa 3.3.4: remove(field_name, value) убирает ЭЛЕМЕНТ из массива,
+         синхронизируемого с CUB (`if (workers[field_name]) …`), а не ключ.
+         Для наших ключей worker'а нет — это тихий no-op, поэтому модуль не
+         имеет права на него рассчитывать (ревью, Critical 1). */
+      remove: (field, value) => { removeCalls.push([field, value]); }
     },
     Reguest: makeNetwork(journal),
     Controller: {
@@ -139,7 +165,15 @@ function freshEnv(opts) {
     },
     Platform: { is: () => false, screen: () => true }
   };
-  globalThis.window = { Lampa: Lampa, innerWidth: 1920 };
+  globalThis.window = {
+    Lampa: Lampa,
+    innerWidth: 1920,
+    localStorage: {
+      getItem: (k) => (Object.prototype.hasOwnProperty.call(ls, k) ? ls[k] : null),
+      setItem: (k, v) => { ls[k] = v; },
+      removeItem: (k) => { delete ls[k]; }
+    }
+  };
   globalThis.Lampa = Lampa;
   globalThis.$ = $;
 
@@ -148,7 +182,7 @@ function freshEnv(opts) {
   loadInto(LC, module, '10_util.js');
   loadInto(LC, module, '80_settings.js');
   loadInto(LC, module, '60_reviews.js');
-  return { LC, store, journal, collected, modals, toggled, refocused, Lampa };
+  return { LC, store, ls, films, journal, collected, modals, toggled, refocused, removeCalls, setOrder, Lampa };
 }
 
 /* Ряд описания Lampa: items-line -> .items-line__body -> .full-descr ->
@@ -199,19 +233,72 @@ test('кэш: запись кладёт фильм и согласованный
   assert.deepEqual(warnLog, []);
 });
 
-test('кэш: 21-й фильм вытесняет самый старый по at, индекс остаётся согласован', () => {
+/* Ревью (Critical 1): вытеснение обязано РЕАЛЬНО освобождать место. Прежний
+   код звал Lampa.Storage.remove(ключ) — в Lampa это удаление элемента из
+   CUB-массива, для наших ключей тихий no-op, и вытесненная запись оставалась
+   в localStorage целиком (десятки килобайт на фильм при квоте ~5 МБ). */
+test('кэш: сверх предела фильм вытесняется, его ключ исчезает из хранилища, Storage.remove не используется', () => {
   const env = freshEnv();
-  for (let i = 1; i <= 20; i++) env.LC.reviews.cacheWrite('tt' + i, [{ title: 'i' + i }], i, 1000 + i);
-  assert.equal(env.store.lumen_rv_index.length, 20);
+  const LIMIT = 8;
+  for (let i = 1; i <= LIMIT; i++) env.LC.reviews.cacheWrite('tt' + i, [{ title: 'i' + i }], i, 1000 + i);
+  assert.equal(env.store.lumen_rv_index.length, LIMIT);
+  assert.equal(env.films().length, LIMIT);
 
-  env.LC.reviews.cacheWrite('tt21', [{ title: 'i21' }], 21, 9999);
+  env.LC.reviews.cacheWrite('tt9', [{ title: 'i9' }], 9, 9999);
   const index = env.store.lumen_rv_index;
-  assert.equal(index.length, 20, 'больше 20 фильмов в кэше не держим');
-  assert.equal(index.filter((it) => it.id === 'tt1').length, 0, 'самый старый по at вытеснен');
-  assert.equal(index.filter((it) => it.id === 'tt21').length, 1);
-  assert.equal(env.LC.reviews.cacheRead('tt1', 9999), null, 'запись вытесненного фильма стёрта');
+  assert.equal(index.length, LIMIT, 'в индексе не больше предела');
+  assert.equal(env.films().length, LIMIT, 'и в самом хранилище ровно столько же ключей — место освобождено');
+  assert.equal(env.films().indexOf('lumen_rv_tt1'), -1, 'ключ вытесненного фильма удалён физически');
+  assert.equal(index.filter((it) => it.id === 'tt1').length, 0, 'самый старый по at вытеснен из индекса');
+  assert.equal(index.filter((it) => it.id === 'tt9').length, 1);
+  assert.equal(env.LC.reviews.cacheRead('tt1', 9999), null, 'запись вытесненного фильма не читается');
   assert.equal(env.LC.reviews.cacheRead('tt2', 9999).total, 2, 'соседи не пострадали');
+  assert.deepEqual(env.removeCalls, [], 'Storage.remove в Lampa про CUB-массивы — на него нельзя рассчитывать');
   assert.deepEqual(warnLog, []);
+});
+
+/* Ревью (Minor 8): если запись фильма упадёт, в индексе окажется id без
+   данных — cacheRead вернёт null и фильм перезапросится. Обратный порядок
+   оставлял бы запись, которую уже некому вытеснить. */
+test('кэш: индекс записывается раньше самой записи фильма', () => {
+  const env = freshEnv();
+  env.LC.reviews.cacheWrite('tt1', [{ title: 'a' }], 1, 1000);
+  const order = env.setOrder.filter((n) => n.indexOf('lumen_rv_') === 0);
+  assert.deepEqual(order, ['lumen_rv_index', 'lumen_rv_tt1']);
+});
+
+/* Ревью (Minor 7): Storage.get на битом JSON возвращает исходную строку — у
+   неё тоже есть length, и прежняя проверка принимала её за индекс. */
+test('кэш: битый индекс (строка вместо массива) не ломает запись', () => {
+  const env = freshEnv({ store: { lumen_rv_index: '{битый json' } });
+  env.LC.reviews.cacheWrite('tt1', [{ title: 'a' }], 1, 1000);
+  assert.deepEqual(env.store.lumen_rv_index, [{ id: 'tt1', at: 1000 }]);
+});
+
+/* Ревью (Important 4): на ТВ запись может упасть по квоте — тогда половина
+   кэша бесполезна, чистим свои записи целиком и продолжаем работать. */
+test('кэш: QuotaExceededError чистит кэш отзывов через callerror', () => {
+  const env = freshEnv({ quota: 3 });
+  for (let i = 1; i <= 3; i++) env.LC.reviews.cacheWrite('tt' + i, [{ title: 'i' + i }], i, 1000 + i);
+  assert.equal(env.films().length, 3);
+
+  env.LC.reviews.cacheWrite('tt4', [{ title: 'i4' }], 4, 2000);
+  assert.equal(env.films().length, 0, 'после отказа по квоте свои записи убраны');
+  assert.deepEqual(env.store.lumen_rv_index, []);
+  assert.ok(warnLog.some((m) => m.indexOf('quota') !== -1), 'сбой квоты не должен быть беззвучным');
+  warnLog.length = 0;
+});
+
+/* Ревью (Important 5): у «отзывов нет» свой короткий TTL. */
+test('кэш: пустой результат живёт 2 часа, непустой — сутки', () => {
+  const env = freshEnv();
+  env.LC.reviews.cacheWrite('ttEmpty', [], 0, 1000);
+  env.LC.reviews.cacheWrite('ttFull', [{ title: 'a' }], 5, 1000);
+
+  assert.ok(env.LC.reviews.cacheRead('ttEmpty', 1000 + 1.5 * 3600 * 1000), 'через 1.5 ч пустая запись ещё свежа');
+  assert.equal(env.LC.reviews.cacheRead('ttEmpty', 1000 + 3 * 3600 * 1000), null, 'через 3 ч — уже нет');
+  assert.ok(env.LC.reviews.cacheRead('ttFull', 1000 + 12 * 3600 * 1000), 'непустая живёт сутки');
+  assert.equal(env.LC.reviews.cacheRead('ttFull', 1000 + 25 * 3600 * 1000), null);
 });
 
 test('кэш: повторная запись того же фильма не плодит строк в индексе', () => {
@@ -506,5 +593,107 @@ test('modal: «назад» возвращает фокус на ту же ка�
   assert.equal(env.refocused.length, 1, 'фокус возвращается явно');
   assert.equal(env.refocused[0].node, card, 'на ту самую карточку');
   assert.equal(env.refocused[0].root, line, 'корень коллекции — узел ряда описания');
+  assert.deepEqual(warnLog, []);
+});
+
+/* ------------------------- правки по ревью ------------------------- */
+
+/* Ревью (Important 2): пользователь ошибся в ключе, получил 401 и исправил
+   опечатку. С флагом «ключ есть» подпись не менялась, рендер выходил по
+   раннему return, и верный ключ срабатывал только со следующего открытия. */
+test('render: исправленный ключ применяется сразу, без переоткрытия карточки', () => {
+  const env = freshEnv({ store: { lumen_kp_key: 'WRONG-KEY' } });
+  const d = makeDescrRow();
+
+  env.LC.reviews.render(d.row, DUNE);
+  assert.equal(env.journal.calls.length, 1);
+  assert.equal(env.journal.calls[0].params.headers['X-API-KEY'], 'WRONG-KEY');
+  env.journal.calls[0].err({ status: 401 });
+  assert.equal(blocksOf(d).length, 0, 'с неверным ключом блока нет');
+
+  env.store.lumen_kp_key = 'RIGHT-KEY';
+  env.LC.reviews.render(d.row, DUNE);
+  assert.equal(env.journal.calls.length, 2, 'новый ключ — новый запрос');
+  assert.equal(env.journal.calls[1].params.headers['X-API-KEY'], 'RIGHT-KEY');
+
+  env.journal.calls[1].ok(SEARCH_OK);
+  env.journal.calls[2].ok(REVIEWS_OK);
+  assert.equal(blocksOf(d).length, 1);
+  assert.deepEqual(warnLog, []);
+});
+
+/* Ревью (Important 3): карточка, оставленная в истории Lampa, остаётся живым
+   DOM. Ответ, догнавший её, дорисовать ряд может (он её собственный), но
+   отдавать .selector в навигацию нельзя: пользователь в это время стоит в
+   ряду описания ДРУГОЙ карточки, и имя контроллера у обеих одинаковое. */
+test('render: ответ карточки из истории не попадает в навигацию текущей карточки', () => {
+  const env = freshEnv({ store: { lumen_kp_key: 'KEY' } });
+  const d = makeDescrRow();
+  env.LC.slideshow = { isMounted: () => true, isLayerForeground: () => false };
+
+  env.LC.reviews.render(d.row, DUNE);
+  env.journal.calls[0].ok(SEARCH_OK);
+  env.journal.calls[1].ok(REVIEWS_OK);
+
+  assert.equal(blocksOf(d).length, 1, 'свой ряд карточка дорисовывает');
+  assert.equal(env.collected.length, 0, 'но коллекцию активного контроллера не трогает');
+
+  const visible = freshEnv({ store: { lumen_kp_key: 'KEY' } });
+  visible.LC.slideshow = { isMounted: () => true, isLayerForeground: () => true };
+  const d2 = makeDescrRow();
+  visible.LC.reviews.render(d2.row, DUNE);
+  visible.journal.calls[0].ok(SEARCH_OK);
+  visible.journal.calls[1].ok(REVIEWS_OK);
+  assert.equal(visible.collected.length, 1, 'карточка на экране коллекцию дополняет');
+  assert.deepEqual(warnLog, []);
+});
+
+/* Ревью (Important 6): при быстром переборе карточек прошлый запрос обязан
+   сниматься — иначе на каждой висят два XHR до восьми секунд и тратится
+   бесплатная квота (500 запросов в день). */
+test('render: смена карточки снимает незавершённый запрос предыдущей', () => {
+  const env = freshEnv({ store: { lumen_kp_key: 'KEY' } });
+  const d = makeDescrRow();
+
+  env.LC.reviews.render(d.row, DUNE);
+  assert.equal(env.journal.nets.length, 1);
+  const first = env.journal.nets[0];
+  assert.equal(first.cleared, 0);
+
+  env.LC.reviews.render(d.row, { movie: { id: 2, imdb_id: 'tt777' } });
+  assert.equal(first.cleared, 1, 'колбэки и XHR прошлой карточки сняты');
+  assert.equal(env.journal.nets.length, 2, 'для новой карточки — свой экземпляр');
+});
+
+/* Ревью (Minor 9): total попадает в разметку заголовка, а в кэше он мог
+   оказаться чем угодно. */
+test('render: total из кэша не становится разметкой', () => {
+  const env = freshEnv({ store: { lumen_kp_key: 'KEY' } });
+  const list = env.LC.reviews.normalize(REVIEWS_OK);
+  env.LC.reviews.cacheWrite('tt15239678', list, '<b>318</b>');
+
+  const d = makeDescrRow();
+  env.LC.reviews.render(d.row, DUNE);
+  const html = blocksOf(d)[0].html();
+  assert.equal(html.indexOf('<b>318'), -1, 'разметка из кэша не должна попасть в DOM');
+  assert.equal(env.journal.calls.length, 0, 'данные взяты из кэша');
+});
+
+test('clearRow: снимает блок, класс поджатия описания и подпись', () => {
+  const env = freshEnv({ store: { lumen_kp_key: 'KEY' } });
+  const d = makeDescrRow();
+  env.LC.reviews.render(d.row, DUNE);
+  env.journal.calls[0].ok(SEARCH_OK);
+  env.journal.calls[1].ok(REVIEWS_OK);
+  assert.equal(blocksOf(d).length, 1);
+  assert.ok(d.row.hasClass('lumen-descr-row--reviews'));
+
+  env.LC.reviews.clearRow(d.row);
+  assert.equal(blocksOf(d).length, 0, 'блок снят');
+  assert.equal(d.row.hasClass('lumen-descr-row--reviews'), false, 'описанию вернули полный предел');
+
+  env.LC.reviews.render(d.row, DUNE);
+  assert.equal(env.journal.calls.length, 2, 'данные уже в кэше — новых запросов нет');
+  assert.equal(blocksOf(d).length, 1, 'после clearRow ряд собирается заново');
   assert.deepEqual(warnLog, []);
 });

@@ -499,10 +499,15 @@
        самого ряда Lampa не прокручивает (находка Task 5d: Descriptiopn.toggle
        двигает Navigator, но не scroll), поэтому при длинном описании (предел
        70vh = 756px) заголовок и карточки отзывов оказались бы ниже экрана,
-       получая .focus вне поля зрения. Пока ряд отзывов нарисован, описанию
-       хватает 34vh: 367 + теги 90 + заголовок и карточки ~360 ≈ 850 < 1080.
-       Класс ставит рендер отзывов и снимает, когда блока нет. */
-    css.push('.lumen-descr-row.lumen-descr-row--reviews .full-descr__text{max-height:34vh}');
+       получая .focus вне поля зрения. Пока ряд отзывов нарисован, описание
+       ограничено восемью строками (≈ 340px при 24px/1.45): вместе с тегами
+       (90) и рядом карточек (~360) это ≈ 830 < 1080.
+       Ревью Task 9: именно КЛАМП по строкам, а не max-height — обрезка по
+       пикселям резала последнюю строку пополам, без многоточия (Task 5d
+       снимал такую обрезку намеренно). max-height:70vh остаётся страховкой для
+       движков без -webkit-line-clamp, а мягкая маска низа возвращается ТОЛЬКО
+       здесь: в ряду без отзывов описание по-прежнему не выцветает. */
+    css.push('.lumen-descr-row.lumen-descr-row--reviews .full-descr__text{display:-webkit-box;-webkit-line-clamp:8;-webkit-box-orient:vertical;overflow:hidden;max-height:70vh;-webkit-mask-image:-webkit-linear-gradient(top,#000 86%,rgba(0,0,0,0) 100%);-webkit-mask-image:linear-gradient(180deg,#000 86%,rgba(0,0,0,0) 100%);mask-image:linear-gradient(180deg,#000 86%,rgba(0,0,0,0) 100%)}');
     css.push('.lumen-descr-row .lumen-reviews__head{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:baseline;-webkit-align-items:baseline;align-items:baseline;-webkit-flex-wrap:wrap;flex-wrap:wrap;margin-bottom:1.23em}');
     /* Иконка «комментарий» из общего набора — маской, как у всех наших иконок
        (свой svg в разметку не вставляем: 20_icons.js, план 0.3). */

@@ -20,10 +20,18 @@
 
     var BASE = 'https://kinopoiskapiunofficial.tech/api/v2.2/films';
     var TTL = 24 * 3600 * 1000;
-    /* Поправки контроллера: кэш не больше 20 фильмов, текст отзыва не
+    /* Ревью (Important 5): «отзывов нет» кэшируется отдельным коротким сроком —
+       иначе фильм без отзывов тратил бы два запроса на каждое открытие
+       карточки при бесплатной квоте 500 запросов в день. */
+    var EMPTY_TTL = 2 * 3600 * 1000;
+    /* Поправки контроллера: кэш ограничен по числу фильмов, текст отзыва не
        длиннее 4000 символов — иначе несколько карточек переполняют
-       localStorage на ТВ (квота 5 МБ делится со всей Lampa). */
-    var MAX_FILMS = 20;
+       localStorage на ТВ (квота ~5 МБ делится со всей Lampa).
+       Ревью (Important 4): произведение пределов и есть верхняя оценка кэша в
+       UTF-16 — 8 × 12 × 4000 ≈ 770 КБ вместо ~2 МБ при прежних 20 фильмах.
+       Режем число фильмов, а не `full`: полный текст нужен модалу и после
+       перезагрузки, иначе окно показывало бы обрезанный отзыв. */
+    var MAX_FILMS = 8;
     var MAX_FULL = 4000;
     var MAX_EXCERPT = 300;
     var MAX_ITEMS = 12;
@@ -41,8 +49,15 @@
 
     function now(value) { return typeof value === 'number' ? value : Date.now(); }
 
+    /* Срок жизни записи: сутки для найденных отзывов, EMPTY_TTL для «отзывов
+       нет» (Important 5). Запись без списка считается пустой — так же ведёт
+       себя и запись вида {at: …} из теста плана. */
+    function ttlOf(rec) {
+      return (rec && rec.list && rec.list.length) ? TTL : EMPTY_TTL;
+    }
+
     function isFresh(rec, at) {
-      return !!(rec && rec.at && (now(at) - rec.at) < TTL);
+      return !!(rec && rec.at && (now(at) - rec.at) < ttlOf(rec));
     }
 
     /* Обрезка с многоточием: длина результата никогда не превышает limit
@@ -56,6 +71,18 @@
 
     function trim(str) {
       return ('' + (str || '')).replace(/^\s+|\s+$/g, '');
+    }
+
+    /* Отпечаток ключа API для подписи рендера (ревью, Important 2): нужен
+       ровно для того, чтобы ЛЮБАЯ смена ключа меняла подпись — включая
+       исправление опечатки, когда «ключ был и остался». Сам ключ в подпись не
+       кладём: она живёт в JS-объекте на DOM-узле, и хранить там секрет незачем.
+       djb2 — самый дешёвый способ, криптостойкость здесь не требуется. */
+    function keyStamp(key) {
+      if (!key) return '0';
+      var h = 5381;
+      for (var i = 0; i < key.length; i++) h = ((h << 5) + h + key.charCodeAt(i)) | 0;
+      return key.length + ':' + (h >>> 0);
     }
 
     /* Отзыв без своего заголовка: первое законченное предложение (10-80
@@ -106,19 +133,51 @@
       return null;
     }
 
+    /* Ревью (Minor 7): проверки на .length мало — Storage.get при битом JSON
+       возвращает исходную СТРОКУ, у неё length тоже число, и индекс молча
+       перезаписался бы одной записью, а прежние фильмы остались бы сиротами в
+       localStorage. Принимаем только настоящий массив. */
     function readIndex(store) {
       var index = store.get(INDEX_KEY, []);
-      return (index && typeof index.length === 'number') ? index : [];
+      return Object.prototype.toString.call(index) === '[object Array]' ? index : [];
     }
 
-    /* Lampa.Storage.remove есть не во всех сборках — запасной путь — пустая
-       строка: Storage.get отдаёт default на пустом значении (план 0.2,
-       «Булевы настройки»), то есть запись становится невидимой. */
+    /* Ревью (Critical 1): Lampa.Storage.remove(field_name, value) — это НЕ
+       удаление ключа, а удаление элемента из синхронизируемого с CUB массива
+       (vendor/lampa/app.min.js: `if (workers[field_name]) workers[field_name]
+       .remove(value)`). Для нашего ключа worker'а нет, вызов был тихим no-op,
+       и вытесненная запись продолжала лежать в localStorage целиком — кэш рос
+       без предела. Поэтому: всегда обнуляем значение через Storage (get
+       отдаёт default на пустом значении — план 0.2), а сам ключ убираем из
+       localStorage напрямую, чтобы освободить место. */
     function drop(store, id) {
+      try { store.set(cacheKey(id), ''); } catch (e) { }
       try {
-        if (typeof store.remove === 'function') { store.remove(cacheKey(id)); return; }
-      } catch (e) { }
-      store.set(cacheKey(id), '');
+        if (typeof window !== 'undefined' && window.localStorage) window.localStorage.removeItem(cacheKey(id));
+      } catch (e2) { }
+    }
+
+    /* Квота кончилась — держать половину кэша бессмысленно: чистим все свои
+       записи по индексу (плюс сам индекс) и пробуем жить дальше. */
+    function purge(store) {
+      try {
+        LC.util.each(readIndex(store), function (it) { if (it && it.id) drop(store, it.id); });
+        store.set(INDEX_KEY, []);
+        try {
+          if (typeof window !== 'undefined' && window.localStorage) window.localStorage.removeItem(INDEX_KEY);
+        } catch (e2) { }
+      } catch (e) {
+        warn('reviews cache purge failed', e);
+      }
+    }
+
+    /* Lampa.Storage.set(name, value, nolisten, callerror) — четвёртый аргумент
+       зовётся при исключении записи (QuotaExceededError на ТВ). */
+    function put(store, key, value) {
+      store.set(key, value, false, function (err) {
+        warn('reviews cache quota', err);
+        purge(store);
+      });
     }
 
     function cacheRead(imdbId, at) {
@@ -126,7 +185,12 @@
         var store = storage();
         if (!store || !imdbId) return null;
         var rec = store.get(cacheKey(imdbId), null);
-        return isFresh(rec, at) ? rec : null;
+        if (!isFresh(rec, at)) return null;
+        /* Ревью (Minor 9): total уходит в разметку заголовка — из Storage он
+           мог прийти чем угодно (битый JSON, ручная правка), поэтому приводим
+           к числу здесь, у единственной точки чтения кэша. */
+        rec.total = parseInt(rec.total, 10) || 0;
+        return rec;
       } catch (e) {
         warn('reviews cache read failed', e);
         return null;
@@ -138,7 +202,6 @@
         var store = storage();
         if (!store || !imdbId) return;
         var stamp = now(at);
-        store.set(cacheKey(imdbId), { at: stamp, list: list, total: total, kp: kp || 0 });
 
         var kept = [];
         LC.util.each(readIndex(store), function (it) {
@@ -150,7 +213,13 @@
            Storage). */
         kept.sort(function (a, b) { return (a.at || 0) - (b.at || 0); });
         while (kept.length > MAX_FILMS) drop(store, kept.shift().id);
-        store.set(INDEX_KEY, kept);
+
+        /* Ревью (Minor 8): индекс пишется ПЕРВЫМ. Если упадёт запись фильма,
+           в индексе окажется id без данных — cacheRead вернёт null и фильм
+           просто перезапросится. Обратный порядок оставлял бы запись-сироту,
+           которую уже некому вытеснить. */
+        put(store, INDEX_KEY, kept);
+        put(store, cacheKey(imdbId), { at: stamp, list: list, total: total, kp: kp || 0 });
       } catch (e) {
         warn('reviews cache write failed', e);
       }
@@ -177,22 +246,26 @@
        нечего (нет id, ошибка сети, пустой ответ); {nokey:true} — ключ не
        задан (подсказка экрана 13). alive() — необязательный сторож
        актуальности (generation guard рендера): как только он вернёт false,
-       цепочка обрывается молча — ни второго запроса, ни колбэка. */
+       цепочка обрывается молча — ни второго запроса, ни колбэка.
+       Возвращает экземпляр Lampa.Reguest (или null, если запрос не
+       понадобился): ревью (Important 6) — при быстром переборе карточек
+       вызывающая сторона обязана звать net.clear(), иначе на каждой карточке
+       до восьми секунд висят два XHR, и квота тратится впустую. */
     function load(imdbId, key, cb, alive, at) {
       function dead() {
         try { return typeof alive === 'function' && !alive(); } catch (e) { return false; }
       }
       try {
-        if (!key) { cb({ nokey: true }); return; }
-        if (!imdbId) { cb(null); return; }
+        if (!key) { cb({ nokey: true }); return null; }
+        if (!imdbId) { cb(null); return null; }
 
         var rec = cacheRead(imdbId, at);
         if (rec) {
           cb(rec.list && rec.list.length ? { list: rec.list, total: rec.total || rec.list.length } : null);
-          return;
+          return null;
         }
 
-        if (!window.Lampa || typeof Lampa.Reguest !== 'function') { cb(null); return; }
+        if (!window.Lampa || typeof Lampa.Reguest !== 'function') { cb(null); return null; }
         var net = new Lampa.Reguest();
 
         request(net, BASE + '?imdbId=' + encodeURIComponent(imdbId), key, function (found) {
@@ -203,8 +276,20 @@
             request(net, BASE + '/' + kp + '/reviews?page=1&order=USER_POSITIVE_RATING_DESC', key, function (resp) {
               if (dead()) return;
               try {
+                /* Строки, попадающие в кэш (подпись «Аноним» у отзыва без
+                   автора), остаются на языке момента записи — метки тона и
+                   «полезно» этим не затронуты: они собираются из item.tone при
+                   каждом рендере. Запись живёт максимум сутки, поэтому
+                   нормализацию при чтении не городим (ревью, Minor 11). */
                 var list = normalize(resp, anonWord()).slice(0, MAX_ITEMS);
-                if (!list.length) { cb(null); return; }
+                if (!list.length) {
+                  /* Отрицательный кэш (Important 5): у фильма отзывов нет —
+                     запоминаем это на EMPTY_TTL, чтобы не ходить в API двумя
+                     запросами на каждое открытие карточки. */
+                  cacheWrite(imdbId, [], 0, at, kp);
+                  cb(null);
+                  return;
+                }
                 var total = parseInt(resp && resp.total, 10) || list.length;
                 cacheWrite(imdbId, list, total, at, kp);
                 cb({ list: list, total: total });
@@ -218,9 +303,12 @@
             cb(null);
           }
         }, function () { if (!dead()) cb(null); });
+
+        return net;
       } catch (e2) {
         warn('reviews load failed', e2);
         cb(null);
+        return null;
       }
     }
 
@@ -262,7 +350,9 @@
         '<span class="lumen-reviews__ico"></span>' +
         '<span class="lumen-reviews__title">' + esc(lang('lumen_card_reviews_title')) + '</span>' +
         '<span class="lumen-reviews__src">' + esc(lang('lumen_card_reviews_src')) + '</span>' +
-        '<span class="lumen-reviews__total">· ' + total + ' ' + esc(totalWord(total)) + '</span>' +
+        /* total приходит из ответа API или из кэша — в разметку только через
+           esc (ревью, Minor 9), даже после parseInt в cacheRead. */
+        '<span class="lumen-reviews__total">· ' + esc(String(total)) + ' ' + esc(totalWord(total)) + '</span>' +
         '</div>';
     }
 
@@ -382,8 +472,22 @@
 
     function stateOf(holder) {
       var node = holder[0];
-      if (!node.lumenReviews) node.lumenReviews = { sign: '', gen: 0, painted: false };
+      if (!node.lumenReviews) node.lumenReviews = { sign: '', gen: 0, painted: false, net: null };
       return node.lumenReviews;
+    }
+
+    /* Узел ещё в документе и его активность сейчас на экране. Карточка,
+       оставленная в истории Lampa, остаётся живым DOM (ревью, Important 3):
+       её .selector нельзя отдавать в навигацию — пользователь в это время
+       может стоять в ряду описания ДРУГОЙ карточки, и имени контроллера
+       (full_descr у обеих) для различения не хватает. Проверка — штатная
+       LC.slideshow.isLayerForeground, та же, что у кнопки «Стоп» трейлера. */
+    function isForeground(node) {
+      try {
+        if (LC.slideshow && typeof LC.slideshow.isMounted === 'function' && !LC.slideshow.isMounted(node[0])) return false;
+        if (LC.slideshow && typeof LC.slideshow.isLayerForeground === 'function') return !!LC.slideshow.isLayerForeground(node);
+      } catch (e) { }
+      return true;
     }
 
     function clearBlock(holder) {
@@ -463,6 +567,10 @@
         if (!window.Lampa || !Lampa.Controller || typeof Lampa.Controller.collectionAppend !== 'function') return;
         var enabled = typeof Lampa.Controller.enabled === 'function' ? Lampa.Controller.enabled() : null;
         if (!enabled || enabled.name !== 'full_descr') return;
+        /* Ревью (Important 3): имени контроллера мало — ответ, догнавший
+           карточку, которую уже покинули, добавил бы её карточки в навигацию
+           той карточки, что сейчас на экране. */
+        if (!isForeground(block)) return;
         var nodes = block.find('.lumen-review');
         if (nodes && nodes.length) Lampa.Controller.collectionAppend(nodes);
       } catch (e) {
@@ -502,7 +610,11 @@
         var imdb = movie.imdb_id || (movie.external_ids || {}).imdb_id || '';
         var key = trim(LC.pref('lumen_kp_key', ''));
         var on = LC.pref('lumen_reviews', true);
-        var sign = [on ? '1' : '0', imdb, key ? '1' : '0', lang('lumen_card_reviews_title')].join('|');
+        /* Ревью (Important 2): в подписи — ОТПЕЧАТОК ключа, а не флаг «ключ
+           есть». С флагом исправление опечатки в ключе подпись не меняло,
+           рендер выходил по раннему return, и верный ключ применялся только со
+           следующего открытия карточки. */
+        var sign = [on ? '1' : '0', imdb, keyStamp(key), lang('lumen_card_reviews_title')].join('|');
 
         var state = stateOf(holder);
         if (state.sign === sign && (!state.painted || holder.find('.lumen-reviews').length)) return;
@@ -511,6 +623,14 @@
         state.gen++;
         state.painted = false;
         var gen = state.gen;
+        /* Ревью (Important 6): прошлый запрос этой карточки больше не нужен —
+           снимаем его колбэки и сам XHR. Иначе при быстром переборе карточек
+           на каждой висят два запроса по 8 с, и бесплатная квота (500 в день)
+           уходит на экраны, которых пользователь уже не видит. */
+        if (state.net && typeof state.net.clear === 'function') {
+          try { state.net.clear(); } catch (eNet) { }
+        }
+        state.net = null;
         clearBlock(holder);
         /* Пока ряда отзывов нет, описанию достаётся весь его предел (70vh,
            Task 5d); класс вернётся, только если карточки реально нарисованы. */
@@ -520,7 +640,7 @@
         if (!key) { paintHint(holder); state.painted = true; return; }
         if (!imdb) return;
 
-        load(imdb, key, function (res) {
+        state.net = load(imdb, key, function (res) {
           try {
             var current = stateOf(holder);
             if (current.gen !== gen) return;
