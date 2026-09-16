@@ -9,10 +9,12 @@
   /*   load(cb) — загружает манифест; вызывает cb(manifest)                 */
   /*   get() → текущий (или DEFAULT) манифест                               */
   /*                                                                       */
-  /* TMDB id основных franchise/collection проверены живыми запросами       */
-  /* (API_NOTES_4.md). Идентификаторы companies, networks, keywords взяты   */
-  /* из официальной документации TMDB и требуют проверки перед первым       */
-  /* деплоем. Кинопоиск: 12 типов коллекций (kinopoiskapiunofficial.tech).  */
+  /* TMDB id franchise/collection: Star Wars 10, Harry Potter 1241, LOTR 119,*/
+  /* Hobbit 121938 — проверены живыми запросами (API_NOTES_4.md).           */
+  /* John Wick 404609, Mission Impossible 87359, Matrix 2344, Terminator 528 */
+  /* и with_people у персон — требуют проверки перед первым деплоем.        */
+  /* companies, networks, keywords взяты из документации TMDB, не проверены.*/
+  /* Кинопоиск: 12 типов коллекций (kinopoiskapiunofficial.tech).           */
   /* -------------------------------------------------------------------- */
 
   LC.manifest = (function () {

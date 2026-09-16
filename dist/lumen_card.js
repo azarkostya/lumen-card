@@ -1739,6 +1739,8 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 
+
+
 LC.manifest = (function () {
 
 
@@ -2490,7 +2492,16 @@ next,
 }
 next();
 },
-function () { if (!dead()) err({ kp_failed: true }); },
+function () {
+var s = storage();
+if (s) {
+try {
+var errData = { results: [], page: page || 1, total_pages: 1, total_results: 0, title: '' };
+s.set(cacheKey, { at: Date.now(), ttl: LIFE_KP_EMPTY * 60000, data: errData }, { nolisten: true });
+} catch (e2) {}
+}
+if (!dead()) err({ kp_failed: true });
+},
 false,
 { headers: { 'X-API-KEY': key }, dataType: 'json', timeout: 8000 }
 );
@@ -2516,6 +2527,10 @@ return net;
 
 
 
+
+
+
+
 var inflight = {};
 
 
@@ -2525,11 +2540,48 @@ var inflight = {};
 
 function fetchAll(item, page, ok, err, alive) {
 var gen = alive ? alive() : 0;
-function dead() { return alive && alive() !== gen; }
 
 var inflightKey = (item.id || '') + ':' + (page || 1);
-if (inflight[inflightKey]) { return { clear: function () {} }; }
-inflight[inflightKey] = true;
+var entry = inflight[inflightKey];
+if (entry) {
+
+var subId = ++entry._nextId;
+entry.subs[subId] = { ok: ok, err: err, alive: alive, gen: gen };
+return {
+clear: function () {
+var e = inflight[inflightKey];
+if (!e || !e.subs[subId]) return;
+delete e.subs[subId];
+
+if (!Object.keys(e.subs).length && e._cancel) { e._cancel(); }
+}
+};
+}
+
+
+entry = { subs: {}, _nextId: 1, _cancel: null };
+entry.subs[1] = { ok: ok, err: err, alive: alive, gen: gen };
+inflight[inflightKey] = entry;
+var mySubId = 1;
+
+
+function notifySubs(method, arg) {
+var e = inflight[inflightKey];
+delete inflight[inflightKey];
+if (!e) return;
+var ids = Object.keys(e.subs);
+for (var j = 0; j < ids.length; j++) {
+var sub = e.subs[ids[j]];
+var subGen = sub.alive ? sub.alive() : 0;
+if (sub.alive && subGen !== sub.gen) continue;
+sub[method](arg);
+}
+}
+
+
+
+var _reqAliveGen = 0;
+function requestAlive() { return _reqAliveGen; }
 
 var src = item.sources || {};
 var want = [];
@@ -2542,7 +2594,8 @@ if (src.movie) want.push('movie');
 if (src.tv) want.push('tv');
 if (!want.length) {
 delete inflight[inflightKey];
-if (!dead()) err({ no_sources: true });
+if (alive && alive() !== gen) {   }
+else { err({ no_sources: true }); }
 return { clear: function () {} };
 }
 
@@ -2566,20 +2619,16 @@ if (gotLen + failed < want.length) return;
 if (done_called) return;
 done_called = true;
 clearTimeout(deadline);
-delete inflight[inflightKey];
-if (dead()) return;
-if (!gotLen) { err({ all_failed: true }); return; }
-ok(buildResult());
+if (!gotLen) { notifySubs('err', { all_failed: true }); return; }
+notifySubs('ok', buildResult());
 }
 
 deadline = setTimeout(function () {
 if (done_called) return;
 done_called = true;
-delete inflight[inflightKey];
-if (dead()) return;
 var r = buildResult();
 r.partial = true;
-ok(r);
+notifySubs('ok', r);
 }, FETCH_TIMEOUT);
 
 LC.util.each(want, function (media) {
@@ -2593,26 +2642,34 @@ if (e && e.nokey) {
 if (done_called) return;
 done_called = true;
 clearTimeout(deadline);
-delete inflight[inflightKey];
-if (!dead()) err(e);
+notifySubs('err', e);
 } else {
 failed++;
 done();
 }
 },
-alive
+requestAlive
 );
 if (n) nets.push(n);
 });
 
-return {
-clear: function () {
+function cancelRequest() {
+_reqAliveGen++;
 clearTimeout(deadline);
 done_called = true;
 delete inflight[inflightKey];
 LC.util.each(nets, function (n) {
-try { if (n && n.clear) n.clear(); } catch (e) {}
+try { if (n && n.clear) n.clear(); } catch (eIgnore) {}
 });
+}
+entry._cancel = cancelRequest;
+
+return {
+clear: function () {
+var e = inflight[inflightKey];
+if (!e || !e.subs[mySubId]) return;
+delete e.subs[mySubId];
+if (!Object.keys(e.subs).length) { cancelRequest(); }
 }
 };
 }

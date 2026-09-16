@@ -217,8 +217,8 @@
 
     /* Кинопоиск: IMDb-ID → TMDB find.
        alive-guard обрывает цепочку next() при смене поколения (C1).
-       Только непустые результаты кэшируются надолго (C2);
-       пустые/ошибочные — на LIFE_KP_EMPTY мин (короткий негативный TTL).
+       Непустые результаты кэшируются на LIFE_KP (C2);
+       пустые ответы и сетевые ошибки — на LIFE_KP_EMPTY мин (отрицательный TTL).
        Механика кэша: nolisten, stored(), put(), purge() (C3).
        Ключ КП читается напрямую через LC.pref, без LC.reviews (I5).
        При отсутствии ключа: err({nokey:true}) (I5).
@@ -292,7 +292,16 @@
           }
           next();
         },
-        function () { if (!dead()) err({ kp_failed: true }); },
+        function () {
+          var s = storage();
+          if (s) {
+            try {
+              var errData = { results: [], page: page || 1, total_pages: 1, total_results: 0, title: '' };
+              s.set(cacheKey, { at: Date.now(), ttl: LIFE_KP_EMPTY * 60000, data: errData }, { nolisten: true });
+            } catch (e2) {}
+          }
+          if (!dead()) err({ kp_failed: true });
+        },
         false,
         { headers: { 'X-API-KEY': key }, dataType: 'json', timeout: 8000 }
       );
@@ -317,21 +326,62 @@
     }
 
     /* Карта in-flight запросов для дедупликации (I4).
-       Один и тот же ключ (id:page) не грузится параллельно дважды. */
+       Один и тот же ключ (id:page) не грузится параллельно дважды.
+       Структура: { subs: {id: {ok,err,alive,gen}}, _nextId: n, _cancel: fn|null }
+       Второй и последующие вызовы регистрируются как подписчики первого запроса;
+       каждый получает рабочий clear() (снимает только свою подписку, не гасит запрос);
+       когда отменились все подписчики — запрос гасится. */
     var inflight = {};
 
     /* Подборка целиком: movie и tv (если оба есть) → один список через mergeMedia.
-       alive-guard: после clear() или смены поколения ok/err не вызываются (C1).
+       alive-guard каждого подписчика: notifySubs проверяет alive перед вызовом ok/err.
        done-latch: ok вызывается ровно один раз (I3).
-       Глобальный дедлайн FETCH_TIMEOUT: при истечении — частичный результат (I4).
-       Возвращает {clear()} для принудительной отмены. */
+       Глобальный дедлайн FETCH_TIMEOUT: при истечении — частичный результат.
+       Возвращает {clear()} для принудительной отмены одной подписки. */
     function fetchAll(item, page, ok, err, alive) {
       var gen = alive ? alive() : 0;
-      function dead() { return alive && alive() !== gen; }
 
       var inflightKey = (item.id || '') + ':' + (page || 1);
-      if (inflight[inflightKey]) { return { clear: function () {} }; }
-      inflight[inflightKey] = true;
+      var entry = inflight[inflightKey];
+      if (entry) {
+        /* Подписываемся на уже идущий запрос. */
+        var subId = ++entry._nextId;
+        entry.subs[subId] = { ok: ok, err: err, alive: alive, gen: gen };
+        return {
+          clear: function () {
+            var e = inflight[inflightKey];
+            if (!e || !e.subs[subId]) return;
+            delete e.subs[subId];
+            /* Последний подписчик отменился — гасим весь запрос. */
+            if (!Object.keys(e.subs).length && e._cancel) { e._cancel(); }
+          }
+        };
+      }
+
+      /* Первый запрос: создаём entry и добавляем себя как подписчика. */
+      entry = { subs: {}, _nextId: 1, _cancel: null };
+      entry.subs[1] = { ok: ok, err: err, alive: alive, gen: gen };
+      inflight[inflightKey] = entry;
+      var mySubId = 1;
+
+      /* Уведомляем всех живых подписчиков и очищаем запись. */
+      function notifySubs(method, arg) {
+        var e = inflight[inflightKey];
+        delete inflight[inflightKey];
+        if (!e) return;
+        var ids = Object.keys(e.subs);
+        for (var j = 0; j < ids.length; j++) {
+          var sub = e.subs[ids[j]];
+          var subGen = sub.alive ? sub.alive() : 0;
+          if (sub.alive && subGen !== sub.gen) continue;
+          sub[method](arg);
+        }
+      }
+
+      /* Отдельный alive для самого запроса: умирает когда отменились все подписчики.
+         Это позволяет fetchKp прерывать цепочку find/ при полной отмене. */
+      var _reqAliveGen = 0;
+      function requestAlive() { return _reqAliveGen; }
 
       var src = item.sources || {};
       var want = [];
@@ -344,7 +394,8 @@
       if (src.tv) want.push('tv');
       if (!want.length) {
         delete inflight[inflightKey];
-        if (!dead()) err({ no_sources: true });
+        if (alive && alive() !== gen) { /* внешний вызывающий мёртв — молчим */ }
+        else { err({ no_sources: true }); }
         return { clear: function () {} };
       }
 
@@ -368,20 +419,16 @@
         if (done_called) return;
         done_called = true;
         clearTimeout(deadline);
-        delete inflight[inflightKey];
-        if (dead()) return;
-        if (!gotLen) { err({ all_failed: true }); return; }
-        ok(buildResult());
+        if (!gotLen) { notifySubs('err', { all_failed: true }); return; }
+        notifySubs('ok', buildResult());
       }
 
       deadline = setTimeout(function () {
         if (done_called) return;
         done_called = true;
-        delete inflight[inflightKey];
-        if (dead()) return;
         var r = buildResult();
         r.partial = true;
-        ok(r);
+        notifySubs('ok', r);
       }, FETCH_TIMEOUT);
 
       LC.util.each(want, function (media) {
@@ -395,26 +442,34 @@
               if (done_called) return;
               done_called = true;
               clearTimeout(deadline);
-              delete inflight[inflightKey];
-              if (!dead()) err(e);
+              notifySubs('err', e);
             } else {
               failed++;
               done();
             }
           },
-          alive
+          requestAlive
         );
         if (n) nets.push(n);
       });
 
+      function cancelRequest() {
+        _reqAliveGen++;
+        clearTimeout(deadline);
+        done_called = true;
+        delete inflight[inflightKey];
+        LC.util.each(nets, function (n) {
+          try { if (n && n.clear) n.clear(); } catch (eIgnore) {}
+        });
+      }
+      entry._cancel = cancelRequest;
+
       return {
         clear: function () {
-          clearTimeout(deadline);
-          done_called = true;
-          delete inflight[inflightKey];
-          LC.util.each(nets, function (n) {
-            try { if (n && n.clear) n.clear(); } catch (e) {}
-          });
+          var e = inflight[inflightKey];
+          if (!e || !e.subs[mySubId]) return;
+          delete e.subs[mySubId];
+          if (!Object.keys(e.subs).length) { cancelRequest(); }
         }
       };
     }
