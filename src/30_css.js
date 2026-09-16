@@ -112,7 +112,20 @@
        .lumen-backdrop.lumen-motion-full .lumen-bg__img.is-active ниже. */
     css.push('.lumen-backdrop .lumen-bg__img{position:absolute;top:0;right:0;bottom:0;left:0;background-position:72% 32%;background-repeat:no-repeat;-webkit-background-size:cover;background-size:cover;opacity:0;-webkit-transition:opacity 1.2s ease-in-out;transition:opacity 1.2s ease-in-out}');
     css.push('.lumen-backdrop .lumen-bg__img.is-active{opacity:1}');
-    css.push('.lumen-backdrop__veil{position:absolute;top:0;left:0;right:0;bottom:0}');
+    /* Task 7 (экран 02): слой фонового трейлера — между кадрами слайдшоу и
+       вуалями (порядок в DOM задаёт ensureLayer в 50_backdrops.js), поэтому
+       вуали остаются поверх ролика без z-index. Растянут по вертикали на
+       ±10 %, чтобы чёрные поля кадра 16:9 ушли за край экрана. Без inset —
+       план запрещает (top/bottom/left/right по отдельности). Появление —
+       1 с, как гаснут вуали (design-spec §12, «старт трейлера»). */
+    css.push('.lumen-backdrop .lumen-bg__trailer{position:absolute;top:-10%;bottom:-10%;left:0;right:0;overflow:hidden;opacity:0;-webkit-transition:opacity 1s ease;transition:opacity 1s ease}');
+    css.push('.lumen-backdrop .lumen-bg__trailer.is-live{opacity:1}');
+    css.push('.lumen-backdrop .lumen-bg__trailer iframe{width:100%;height:100%;border:0;pointer-events:none}');
+    /* Пока играет ролик, вуали приглушаются (экран 02 держит их заметно
+       светлее обычных: .34/.55/.28 против .96/.98/.70) — текст остаётся
+       читаемым, но кадр видно. */
+    css.push('.lumen-backdrop.lumen-trailer-live .lumen-backdrop__veil{opacity:.45}');
+    css.push('.lumen-backdrop__veil{position:absolute;top:0;left:0;right:0;bottom:0;-webkit-transition:opacity 1s ease;transition:opacity 1s ease}');
     css.push('.lumen-backdrop__veil--l{background:linear-gradient(90deg,rgba(11,9,8,0.96) 0%,rgba(11,9,8,0.88) 30%,rgba(11,9,8,0.35) 58%,rgba(11,9,8,0) 82%)}');
     css.push('.lumen-backdrop__veil--b{background:linear-gradient(0deg,rgba(11,9,8,0.98) 0%,rgba(11,9,8,0.60) 28%,rgba(11,9,8,0) 60%)}');
     css.push('.lumen-backdrop__veil--t{background:linear-gradient(180deg,rgba(11,9,8,0.70) 0%,rgba(11,9,8,0) 22%)}');
@@ -277,6 +290,30 @@
        поверх правила .focus выше и нативной анимации Lampa (план 0.2). */
     css.push('.lumen-card .full-start-new__buttons .full-start__button.focus.lumen-press{background:#C4924F !important;border-color:rgba(255,242,220,.6) !important;-webkit-transform:scale(1) !important;transform:scale(1) !important}');
     css.push('.lumen-card .full-start-new__buttons .full-start__button.loading:before{filter:none}');
+
+    /* --- Task 7: режим фонового трейлера (экран 02) ---
+       Кнопка «Стоп» и метка появляются только на время ролика (их создаёт и
+       удаляет src/55_trailer.js), поэтому display по умолчанию none — на
+       случай, если узел пережил остановку. Геометрия кнопки — та же, что у
+       текстовых кнопок карточки (§7a, 72px/18px/30px ÷ 22.811), но тёмная
+       «стеклянная» заливка экрана 02 вместо общей C.buttonBg. */
+    css.push('.lumen-card .lumen-stop{display:none;font-family:' + FB + ';font-weight:600;font-size:1em;height:3.16em;padding:0 1.32em;margin:0 .70em .6em 0;border-radius:.79em;border:.04em solid rgba(243,237,228,.2);background:rgba(11,9,8,.5);-webkit-backdrop-filter:blur(.88em);backdrop-filter:blur(.88em);color:' + C.text + ';white-space:nowrap;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;-webkit-transition:background-color .2s,border-color .2s,color .2s,-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25),-webkit-box-shadow .28s;transition:background-color .2s,border-color .2s,color .2s,transform .28s cubic-bezier(.2,.9,.3,1.25),box-shadow .28s}');
+    css.push('.lumen-card.lumen-trailer-on .lumen-stop{display:-webkit-box;display:-webkit-flex;display:flex}');
+    css.push('.lumen-card .lumen-stop__ico{-webkit-flex-shrink:0;flex-shrink:0;width:1.14em;height:1.14em;margin-right:.53em;background-color:currentColor;-webkit-mask-image:' + LC.icons.maskUrl('stop') + ';mask-image:' + LC.icons.maskUrl('stop') + ';-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;-webkit-mask-size:contain;mask-size:contain}');
+    css.push('.lumen-card .lumen-stop span{font-size:1.05em;line-height:1}');
+    css.push('.lumen-card .lumen-stop.focus{background:' + A + ';color:' + C.dark + ';border-color:' + AL + ';border-width:.11em;-webkit-transform:scale(1.06);transform:scale(1.06);-webkit-box-shadow:0 .614em 1.754em ' + AG + ';box-shadow:0 .614em 1.754em ' + AG + '}');
+    /* Метка «ТРЕЙЛЕР · БЕЗ ЗВУКА»: экран 02 — top 112px, right 64px, mono 18px,
+       радиус 30px, паддинг 10/18px; внутренние em — от кегля метки (÷18). */
+    css.push('.lumen-card .lumen-trailer-badge{display:none;position:absolute;top:4.91em;right:2.81em;z-index:6;font-family:' + FM + ';font-size:.79em;line-height:1;letter-spacing:.06em;color:' + C.text + ';background:rgba(11,9,8,.62);border:.05em solid rgba(243,237,228,.2);border-radius:1.67em;padding:.56em 1em;-webkit-backdrop-filter:blur(1.1em);backdrop-filter:blur(1.1em);-webkit-box-align:center;-webkit-align-items:center;align-items:center}');
+    css.push('.lumen-card.lumen-trailer-on .lumen-trailer-badge{display:-webkit-box;display:-webkit-flex;display:flex}');
+    css.push('.lumen-card .lumen-trailer-badge:before{content:"";display:block;-webkit-flex-shrink:0;flex-shrink:0;width:1.22em;height:1.22em;margin-right:.67em;background-color:' + A + ';-webkit-mask-image:' + LC.icons.maskUrl('mute') + ';mask-image:' + LC.icons.maskUrl('mute') + ';-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;-webkit-mask-size:contain;mask-size:contain}');
+    /* Компактная шапка экрана 02: заголовок 42px ÷ 22.811 = 1.84em, описание,
+       лента рейтингов, боковая колонка и ряд серий убраны — на экране их нет.
+       Шестой .lumen-in (реакции + кнопки + ряд серий) становится строкой,
+       чтобы «Стоп» встал рядом с рядом кнопок, а не под ним. */
+    css.push('.lumen-card.lumen-trailer-on .full-start-new__title{font-size:1.84em}');
+    css.push('.lumen-card.lumen-trailer-on .lumen-descr,.lumen-card.lumen-trailer-on .full-start-new__rate-line,.lumen-card.lumen-trailer-on .lumen-side,.lumen-card.lumen-trailer-on .lumen-episodes{display:none !important}');
+    css.push('.lumen-card.lumen-trailer-on .lumen-content > .lumen-in:nth-child(6){display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center}');
 
     /* --- Правая колонка (design-spec §8/экраны 01,10: статус первым над чипами
        качества, аватар 62px Golos Text, чипы качества раздельно). Ревью Task 5a:
@@ -467,6 +504,10 @@
     css.push('.lumen-card.lumen-motion-full .lumen-episode{-webkit-transition:border-color .2s,opacity .2s,-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25),-webkit-box-shadow .28s;transition:border-color .2s,opacity .2s,transform .28s cubic-bezier(.2,.9,.3,1.25),box-shadow .28s}');
     css.push('.lumen-card.lumen-motion-full .lumen-episodes__track{-webkit-transition:-webkit-transform .4s cubic-bezier(.2,.8,.2,1);transition:transform .4s cubic-bezier(.2,.8,.2,1)}');
     css.push('.lumen-card.lumen-motion-lite .lumen-episode.focus,.lumen-card.lumen-motion-off .lumen-episode.focus{-webkit-transform:none;transform:none}');
+    /* Task 7: кнопка «Стоп» — та же логика режимов, что у кнопок карточки
+       (в lite/off пружины фокуса нет; !important — поверх нативной анимации
+       Lampa, см. комментарий у .lumen-motion-lite выше). */
+    css.push('.lumen-card.lumen-motion-lite .lumen-stop.focus,.lumen-card.lumen-motion-off .lumen-stop.focus{-webkit-transform:none !important;transform:none !important}');
 
     /* Бэкдроп: медленный наезд (Ken Burns). Класс .lumen-bg__img подготовлен для слайдшоу кадров Task 6.
        Task 6 (исправление): корень — .lumen-backdrop, а не .lumen-card. Слой фона лежит в e.body, вне

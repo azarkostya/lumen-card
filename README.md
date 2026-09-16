@@ -57,6 +57,7 @@ Pages падает и адрес отдаёт 404). Ссылки `raw.githubuser
 | Анимации | Авто / Полные / Лёгкие / Выкл | Авто | Появление контента, пружина фокуса кнопок, наезд Ken Burns на бэкдроп, компактная шапка. «Авто» выбирает «Лёгкие» на Tizen/webOS, иначе «Полные» (`LC.motionModeFor`) |
 | Слайдшоу кадров | вкл / выкл | вкл | Смена кадров фона с кроссфейдом 1.2 с; пауза, когда карточка не на экране |
 | Интервал слайдшоу | 8 / 14 / 20 с | 14 с | Время показа одного кадра |
+| Трейлер в фоне | Авто / Вкл / Выкл | Авто | Трейлер с YouTube без звука через 3 с после открытия карточки: шапка сжимается, появляются метка «ТРЕЙЛЕР · БЕЗ ЗВУКА» и кнопка «Стоп», слайдшоу на паузе. «Авто» — выключено на Tizen/webOS. Не запускается при «Анимации → Выкл» |
 | Оформление меню | Все меню и окна / Только путь до плеера / Выкл | Все | Какие меню (`Select`) и окна (`Modal`) Lampa получают стиль Lumen — см. «Путь до плеера» |
 | Экраны TorrServer | вкл / выкл | вкл | Стиль экранов пути через TorrServer: список раздач, окна подключения и ошибок, списки файлов, предзагрузка |
 
@@ -66,8 +67,8 @@ Pages падает и адрес отдаёт 404). Ссылки `raw.githubuser
 
 Значения хранятся в `Lampa.Storage` под ключами `lumen_card_accent`, `lumen_card_fonts`,
 `lumen_card_progress`, `lumen_card_cast`, `lumen_motion`, `lumen_slideshow`, `lumen_slide_interval`,
-`lumen_menus` и `lumen_torrents`. **У ключей `lumen_motion`, `lumen_slideshow`, `lumen_slide_interval`,
-`lumen_menus`, `lumen_torrents` нет префикса `lumen_card_`** — `LC.followStorage` подписан на них
+`lumen_menus`, `lumen_torrents` и `lumen_trailer`. **У ключей `lumen_motion`, `lumen_slideshow`,
+`lumen_slide_interval`, `lumen_menus`, `lumen_torrents`, `lumen_trailer` нет префикса `lumen_card_`** — `LC.followStorage` подписан на них
 отдельными ветками, до общего фильтра по префиксу `lumen_card_`. Булевы значения Lampa хранит строками
 `'true'`/`'false'`.
 

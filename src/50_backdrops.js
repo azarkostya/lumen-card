@@ -93,6 +93,11 @@
       layer = $('<div class="lumen-backdrop">' +
         '<div class="lumen-backdrop__img"></div>' +
         '<div class="lumen-bg__slides"></div>' +
+        /* Task 7: узел фонового трейлера — после кадров слайдшоу, но ДО
+           вуалей, поэтому вуали всегда рисуются поверх ролика (тот же
+           приём, что и с .lumen-bg__slides, без z-index). Пустой и
+           прозрачный, пока src/55_trailer.js не вставит в него плеер. */
+        '<div class="lumen-bg__trailer"></div>' +
         '<div class="lumen-backdrop__veil lumen-backdrop__veil--l"></div>' +
         '<div class="lumen-backdrop__veil lumen-backdrop__veil--b"></div>' +
         '<div class="lumen-backdrop__veil lumen-backdrop__veil--t"></div>' +
@@ -391,6 +396,13 @@
     var s = layer.data('lumenSlideshow');
     if (s) { try { s.destroy(); } catch (e) { } }
     layer.removeData('lumenSlideshow');
+    /* Task 7: трейлер живёт на том же слое и гаснет вместе со слайдшоу —
+       и при закрытии карточки (LC.backdrops.cancel), и при повторном
+       apply() на том же слое. Ссылку кладёт LC.trailer.schedule(); сам
+       модуль отсюда не вызывается — обратной зависимости нет. */
+    var trailer = layer.data('lumenTrailer');
+    if (trailer) { try { trailer.destroy(); } catch (e2) { } }
+    layer.removeData('lumenTrailer');
     var reviveCleanup = layer.data('lumenReviveCleanup');
     if (reviveCleanup) { clearTimeout(reviveCleanup); layer.removeData('lumenReviveCleanup'); }
   }

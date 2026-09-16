@@ -204,6 +204,72 @@ test('cancel: снимает обработчики и таймер незаве
 });
 
 /* ====================================================================== */
+/* Task 7: трейлер живёт на том же слое (layer.data('lumenTrailer'),       */
+/* кладёт LC.trailer.schedule) и гаснет вместе со слайдшоу — так           */
+/* остановка достаётся бесплатно и своей карточке (cancel на destroy), и   */
+/* осиротевшим карточкам из истории Lampa, без обратной зависимости        */
+/* 50_backdrops.js от 55_trailer.js.                                       */
+/* ====================================================================== */
+
+test('Task 7: ensureLayer создаёт .lumen-bg__trailer — после кадров слайдшоу, но до вуалей', () => {
+  const LC = freshLC();
+  const body = fakeBody();
+  LC.backdrops.apply(null, body, { id: 1, backdrop_path: '/a.jpg' });
+  const layer = body._children[0];
+
+  const order = layer._children.map((c) => c._class[0]);
+  const slides = order.indexOf('lumen-bg__slides');
+  const trailer = order.indexOf('lumen-bg__trailer');
+  const veil = order.indexOf('lumen-backdrop__veil');
+
+  assert.ok(trailer !== -1, 'узел трейлера должен быть в слое');
+  assert.ok(slides < trailer, 'трейлер идёт после кадров слайдшоу');
+  assert.ok(trailer < veil, 'вуали обязаны рисоваться поверх ролика (порядок в DOM, без z-index)');
+});
+
+test('Task 7: cancel гасит трейлер и снимает ссылку — повторный вызов мёртвый контроллер не дёргает', () => {
+  const LC = freshLC();
+  const body = fakeBody();
+  LC.backdrops.apply(null, body, { id: 1, backdrop_path: '/a.jpg' });
+  const layer = mount(body._children[0]);
+
+  let destroyed = 0;
+  layer.data('lumenTrailer', { destroy() { destroyed++; } });
+
+  LC.backdrops.cancel(body);
+  assert.equal(destroyed, 1);
+  assert.equal(layer.data('lumenTrailer'), undefined);
+
+  LC.backdrops.cancel(body);
+  assert.equal(destroyed, 1, 'второй cancel не должен звать destroy повторно');
+  assert.deepEqual(warnLog, []);
+});
+
+test('Task 7: повторный apply на том же слое снимает трейлер предыдущей карточки', () => {
+  const LC = freshLC();
+  const body = fakeBody();
+  LC.backdrops.apply(null, body, { id: 1, backdrop_path: '/a.jpg' });
+  const layer = mount(body._children[0]);
+
+  let destroyed = 0;
+  layer.data('lumenTrailer', { destroy() { destroyed++; } });
+
+  LC.backdrops.apply(null, body, { id: 2, backdrop_path: '/b.jpg' });
+  assert.equal(destroyed, 1, 'новая карточка на том же слое не должна оставлять играть чужой ролик');
+});
+
+test('Task 7: исключение в destroy трейлера не ломает cancel', () => {
+  const LC = freshLC();
+  const body = fakeBody();
+  LC.backdrops.apply(null, body, { id: 1, backdrop_path: '/a.jpg' });
+  const layer = mount(body._children[0]);
+  layer.data('lumenTrailer', { destroy() { throw new Error('boom'); } });
+
+  assert.doesNotThrow(() => LC.backdrops.cancel(body));
+  assert.equal(layer.data('lumenTrailer'), undefined);
+});
+
+/* ====================================================================== */
 /* п.3: исключение в finish() не выходит наружу.                           */
 /* ====================================================================== */
 

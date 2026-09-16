@@ -71,7 +71,22 @@
     lumen_card_menus_all: { ru: 'Все меню и окна', en: 'All menus and dialogs', uk: 'Усі меню і вікна' },
     lumen_card_menus_path: { ru: 'Только путь до плеера', en: 'Player path only', uk: 'Лише шлях до плеєра' },
     lumen_card_menus_off: { ru: 'Выкл', en: 'Off', uk: 'Викл' },
-    lumen_card_torrents_name: { ru: 'Оформление экрана торрентов', en: 'Torrents screen style', uk: 'Оформлення екрана торентів' }
+    lumen_card_torrents_name: { ru: 'Оформление экрана торрентов', en: 'Torrents screen style', uk: 'Оформлення екрана торентів' },
+    /* Task 7 (экран 02): фоновый трейлер. «Авто» — включён в браузере и на
+       Android, выключен на Tizen/webOS (там iframe YouTube поверх карточки
+       стоит дороже, чем выигрыш — та же логика экономии, что у lumen_motion). */
+    lumen_card_trailer: { ru: 'Трейлер в фоне', en: 'Background trailer', uk: 'Трейлер у фоні' },
+    lumen_card_trailer_descr: {
+      ru: 'Трейлер с YouTube без звука через 3 с после открытия карточки. «Авто» — выключено на Tizen/webOS.',
+      en: 'Muted YouTube trailer 3 s after the card opens. "Auto" is off on Tizen/webOS.',
+      uk: 'Трейлер з YouTube без звуку через 3 с після відкриття картки. «Авто» — вимкнено на Tizen/webOS.'
+    },
+    lumen_card_trailer_auto: { ru: 'Авто', en: 'Auto', uk: 'Авто' },
+    lumen_card_trailer_on: { ru: 'Вкл', en: 'On', uk: 'Увімк' },
+    lumen_card_trailer_off: { ru: 'Выкл', en: 'Off', uk: 'Викл' },
+    /* Подпись кнопки остановки и метка-чип поверх кадра (экран 02). */
+    lumen_card_stop: { ru: 'Стоп', en: 'Stop', uk: 'Стоп' },
+    lumen_card_trailer_badge: { ru: 'ТРЕЙЛЕР · БЕЗ ЗВУКА', en: 'TRAILER · MUTED', uk: 'ТРЕЙЛЕР · БЕЗ ЗВУКУ' }
   };
 
   function langCode() {
@@ -255,6 +270,24 @@
         field: { name: LC.lang('lumen_card_torrents_name') },
         onChange: onlyWithoutStorage(function () { LC.applyTorrentsPref(); })
       });
+
+      /* Task 7: имя без префикса PLUGIN, как у lumen_motion/lumen_slideshow —
+         отдельная ветка в LC.followStorage. Выключение на открытой карточке
+         снимает уже играющий трейлер (LC.applyTrailerPref в 90_runtime.js);
+         включение на лету трейлер не запускает — он стартует при следующем
+         открытии карточки (отсчёт 3 с идёт от complite). */
+      var trailerValues = {
+        auto: LC.lang('lumen_card_trailer_auto'),
+        on: LC.lang('lumen_card_trailer_on'),
+        off: LC.lang('lumen_card_trailer_off')
+      };
+
+      Lampa.SettingsApi.addParam({
+        component: PLUGIN,
+        param: { name: 'lumen_trailer', type: 'select', values: trailerValues, 'default': 'auto' },
+        field: { name: LC.lang('lumen_card_trailer'), description: LC.lang('lumen_card_trailer_descr') },
+        onChange: onlyWithoutStorage(function () { LC.applyTrailerPref(); })
+      });
     } catch (e) {
       warn('settings failed', e);
     }
@@ -269,6 +302,7 @@
         if (e.name === 'lumen_slideshow' || e.name === 'lumen_slide_interval') { LC.applySlideshowPref(); return; }
         if (e.name === 'lumen_menus') { LC.applyMenusPref(); return; }
         if (e.name === 'lumen_torrents') { LC.applyTorrentsPref(); return; }
+        if (e.name === 'lumen_trailer') { LC.applyTrailerPref(); return; }
         if (e.name.indexOf(PLUGIN + '_') !== 0) return;
         if (e.name === PLUGIN + '_fonts') LC.injectFonts();
         LC.injectCss();

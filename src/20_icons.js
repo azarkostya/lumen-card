@@ -23,6 +23,10 @@
       film:     '<path d="M3 4.5h18v15H3z"/><path d="M7.5 4.5v15M16.5 4.5v15M3 12h18"/>',
       chevronR: '<path d="M9 6l6 6-6 6"/>',
       close:    '<path d="M6 6l12 12M18 6L6 18"/>',
+      // Task 7: экран 02 файла design/Lumen Card for Lampa - FHD.dc.html —
+      // кнопка «Стоп» (две полосы) и метка «ТРЕЙЛЕР · БЕЗ ЗВУКА» (динамик с чертой)
+      stop:     '<path d="M6 6h4v12H6zM14 6h4v12h-4z"/>',
+      mute:     '<path d="M4 9v6h3.5L13 19V5L7.5 9H4z"/><path d="M20 7.5L16 16.5"/>',
       // Task 32: экраны 34/35 файла design/Lumen Torrents for Lampa - FHD.dc.html
       search:   '<circle cx="11" cy="11" r="7"/><path d="M16.5 16.5L21 21"/>',
       check:    '<path d="M4.5 12.5l5 5L20 6.5"/>'

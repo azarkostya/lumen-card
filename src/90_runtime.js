@@ -110,6 +110,30 @@
 
   var toggle_followed = false;
 
+  /* Task 7 (находка живой проверки): «фокус ушёл с full_start» НЕЛЬЗЯ
+     понимать как «пришёл toggle с именем != full_start».
+
+     Замер в живой Lampa 3.3.4 — события Controller.listener 'toggle', мс
+     от 'full':complite: content -201, content -200, content +3,
+     full_start +4, content +5. То есть при открытии карточки Lampa встаёт
+     на 'full_start' и ТУТ ЖЕ возвращается на 'content' (toggle$2 шлёт имя
+     НОВОГО контроллера, инверсии нет — проверено исходником, app.min.js
+     ~46296). С признаком «любое имя != full_start» трейлер гас на этом
+     же +5 мс: stopActive() снимал таймер 3 с, и плеер не появлялся вовсе —
+     ни iframe, ни запроса iframe_api (симптом: LC.active.trailer === null
+     при том, что schedule() вернул контроллер).
+
+     Поэтому уходом считаем переключение, которое (1) случилось ПОСЛЕ того,
+     как карточка реально получила фокус, и (2) ведёт не на 'content'.
+     'content' — контроллер каталога/рядов активности: если пользователь
+     действительно ушёл в каталог, карточка уничтожается или архивируется,
+     и трейлер снимает LC.backdrops.cancel через слой (layer.data
+     'lumenTrailer') — ни одной настоящей остановки это исключение не
+     теряет. На каждой новой карточке признак сбрасывается в complite —
+     иначе фокус, оставшийся от ПРЕДЫДУЩЕЙ карточки, погасил бы трейлер
+     следующей. */
+  var focus_on_card = false;
+
   /* Одна подписка на переключение контроллера за всё время жизни плагина (не на карточку):
      спуск с кнопок на ряд описания/серий сжимает шапку, подъём обратно на кнопки — возвращает.
      Task 7 добавит сюда же остановку трейлера. */
@@ -125,6 +149,15 @@
           if (!root || !root.length) return;
           if (e.name === 'full_descr' || e.name === 'items_line') root.addClass('lumen-compact');
           else if (e.name === 'full_start') root.removeClass('lumen-compact');
+          /* Task 7: фокус ушёл с кнопок карточки (вниз по карточке, в меню,
+             в открывшееся окно) — фоновый трейлер снимаем. Вторую подписку
+             на 'toggle' не заводим, это та же самая (поправки координатора).
+             Про признак focus_on_card — см. комментарий у его объявления. */
+          if (e.name === 'full_start') focus_on_card = true;
+          else if (focus_on_card && e.name !== 'content') {
+            focus_on_card = false;
+            LC.trailer.stopActive();
+          }
         } catch (err) {
           warn('controller toggle failed', err);
         }
@@ -345,6 +378,18 @@
     }
   };
 
+  /* Task 7: lumen_trailer сменили на уже открытой карточке. Выключение
+     снимает играющий ролик немедленно; включение трейлер не запускает —
+     он стартует при следующем открытии карточки (отсчёт 3 с идёт от
+     complite, переигрывать его задним числом незачем). */
+  LC.applyTrailerPref = function () {
+    try {
+      if (LC.trailer.mode() === 'off') LC.trailer.stopActive();
+    } catch (e) {
+      warn('trailer pref failed', e);
+    }
+  };
+
   /* Task 31: плагин активен — LC.init дошёл до оформления (широкая
      раскладка, шаблон поддерживается). Пока false, смена lumen_menus/
      lumen_torrents не должна ставить наши классы ни на body, ни на экраны. */
@@ -466,6 +511,14 @@
             var slideshow = LC.backdrops.apply(root, e.body, (e.data && e.data.movie) || {});
             applyMotionMode(root);
             LC.active = { object: e.object, body: e.body, slideshow: slideshow };
+            /* Task 7: фоновый трейлер — отсчёт 3 с от complite. Контроллер
+               хранится и в LC.active.trailer (остановка по toggle/OK), и на
+               слое фона (остановка через LC.backdrops.cancel). bind() вешает
+               один capture-слушатель на корень карточки. Новая карточка —
+               фокуса на ней ещё не было (см. focus_on_card выше). */
+            focus_on_card = false;
+            LC.trailer.bind(root);
+            LC.active.trailer = LC.trailer.schedule(root, e.body, e.data);
           }
         } catch (err) {
           warn('listener failed', err);

@@ -456,3 +456,101 @@ test('buildCss: наезд Ken Burns — на корне .lumen-backdrop (не .
   assert.ok(decl, 'правило наезда (.lumen-backdrop.lumen-motion-full .lumen-bg__img.is-active) не найдено');
   assert.ok(decl.indexOf('lumen-kb') !== -1, 'ожидалась ссылка на @keyframes lumen-kb (14s, 1.00 -> 1.08)');
 });
+
+/* -------------------------------------------------------------------- */
+/* Task 7: фоновый трейлер (экран 02). Слой ролика живёт в .lumen-backdrop */
+/* (сосед .lumen-card), кнопка «Стоп» и метка — внутри .lumen-card.       */
+/* -------------------------------------------------------------------- */
+
+test('buildCss: .lumen-bg__trailer — слой ролика внутри .lumen-backdrop, ±10% по вертикали, без inset, проявление 1s', () => {
+  const decl = findDecl(css, (sel) => sel === '.lumen-backdrop .lumen-bg__trailer');
+  assert.ok(decl, 'правило .lumen-backdrop .lumen-bg__trailer не найдено');
+  assert.ok(decl.indexOf('top:-10%') !== -1 && decl.indexOf('bottom:-10%') !== -1, 'кадр 16:9 растягивается за края по вертикали');
+  assert.ok(decl.indexOf('left:0') !== -1 && decl.indexOf('right:0') !== -1);
+  assert.equal(/inset\s*:/.test(decl), false, 'inset запрещён планом — только top/bottom/left/right');
+  assert.ok(/opacity\s*:\s*0\b/.test(decl), 'до старта слой прозрачен');
+  assert.ok(decl.indexOf('transition:opacity 1s') !== -1, 'проявление 1 с (design-spec §12, старт трейлера)');
+});
+
+test('buildCss: .lumen-bg__trailer.is-live — opacity:1, iframe не перехватывает пульт', () => {
+  const live = findDecl(css, (sel) => sel === '.lumen-backdrop .lumen-bg__trailer.is-live');
+  assert.ok(live && /opacity\s*:\s*1\b/.test(live));
+  const frame = findDecl(css, (sel) => sel === '.lumen-backdrop .lumen-bg__trailer iframe');
+  assert.ok(frame, 'правило для iframe не найдено');
+  assert.ok(frame.indexOf('width:100%') !== -1 && frame.indexOf('height:100%') !== -1);
+  assert.ok(frame.indexOf('pointer-events:none') !== -1, 'iframe не должен ловить фокус/клики');
+});
+
+test('buildCss: пока играет ролик, вуали слоя приглушаются (переход 1 с задан на самой вуали)', () => {
+  const dim = findDecl(css, (sel) => sel === '.lumen-backdrop.lumen-trailer-live .lumen-backdrop__veil');
+  assert.ok(dim, 'правило приглушения вуалей не найдено');
+  assert.ok(/opacity\s*:\s*\.45/.test(dim));
+  const base = findDecl(css, (sel) => sel === '.lumen-backdrop__veil');
+  assert.ok(base && base.indexOf('transition:opacity 1s') !== -1, 'без transition на вуали приглушение было бы мгновенным');
+});
+
+test('buildCss: кнопка «Стоп» скрыта вне режима трейлера и показывается при .lumen-trailer-on', () => {
+  const base = findDecl(css, (sel) => sel === '.lumen-card .lumen-stop');
+  assert.ok(base, 'правило .lumen-card .lumen-stop не найдено');
+  assert.ok(/display\s*:\s*none/.test(base), 'по умолчанию кнопка скрыта');
+  assert.ok(base.indexOf('height:3.16em') !== -1, 'высота 72px = 3.16em (design-spec §7a)');
+  assert.ok(base.indexOf('border-radius:.79em') !== -1, 'радиус 18px = .79em');
+
+  const on = findDecl(css, (sel) => sel === '.lumen-card.lumen-trailer-on .lumen-stop');
+  assert.ok(on, 'правило показа кнопки в режиме трейлера не найдено');
+  assert.ok(on.indexOf('display:flex') !== -1);
+  const flex = on.indexOf('display:-webkit-box');
+  assert.ok(flex !== -1 && flex < on.indexOf('display:flex'), 'сначала старый -webkit-box, потом flex');
+});
+
+test('buildCss: иконка «Стоп» — CSS-маска (иконка из общего набора, не свой svg)', () => {
+  const ico = findDecl(css, (sel) => sel === '.lumen-card .lumen-stop__ico');
+  assert.ok(ico, 'правило иконки кнопки не найдено');
+  assert.ok(ico.indexOf('mask-image') !== -1);
+  assert.ok(ico.indexOf('background-color:currentColor') !== -1, 'цвет иконки следует за цветом кнопки (в фокусе — тёмный)');
+});
+
+test('buildCss: фокус кнопки «Стоп» — как у кнопок карточки; в lite/off пружины нет', () => {
+  const focus = findDecl(css, (sel) => sel === '.lumen-card .lumen-stop.focus');
+  assert.ok(focus, 'правило фокуса кнопки не найдено');
+  assert.ok(focus.indexOf('scale(1.06)') !== -1);
+  const lite = findDecl(css, (sel) => sel.indexOf('lumen-motion-lite') !== -1 && sel.indexOf('.lumen-stop.focus') !== -1);
+  const off = findDecl(css, (sel) => sel.indexOf('lumen-motion-off') !== -1 && sel.indexOf('.lumen-stop.focus') !== -1);
+  assert.ok(lite && /transform\s*:\s*none\s*!important/.test(lite), 'lite гасит пружину (нативная анимация Lampa требует !important)');
+  assert.ok(off && /transform\s*:\s*none\s*!important/.test(off));
+});
+
+test('buildCss: метка «ТРЕЙЛЕР · БЕЗ ЗВУКА» — правый верхний угол, иконка маской, видна только в режиме трейлера', () => {
+  const badge = findDecl(css, (sel) => sel === '.lumen-card .lumen-trailer-badge');
+  assert.ok(badge, 'правило метки не найдено');
+  assert.ok(/display\s*:\s*none/.test(badge), 'вне режима трейлера метки нет');
+  assert.ok(badge.indexOf('position:absolute') !== -1);
+  assert.ok(badge.indexOf('right:2.81em') !== -1, 'right 64px = 2.81em (safe area экрана 02)');
+  assert.ok(badge.indexOf('top:4.91em') !== -1, 'top 112px = 4.91em');
+
+  const on = findDecl(css, (sel) => sel === '.lumen-card.lumen-trailer-on .lumen-trailer-badge');
+  assert.ok(on && on.indexOf('display:flex') !== -1);
+  const ico = findDecl(css, (sel) => sel === '.lumen-card .lumen-trailer-badge:before');
+  assert.ok(ico && ico.indexOf('mask-image') !== -1, 'иконка «без звука» — маской');
+});
+
+test('buildCss: режим трейлера сжимает шапку — заголовок 42px, описание/рейтинги/колонка/серии убраны', () => {
+  const title = findDecl(css, (sel) => sel === '.lumen-card.lumen-trailer-on .full-start-new__title');
+  assert.ok(title && title.indexOf('font-size:1.84em') !== -1, 'заголовок экрана 02: 42px ÷ 22.811 = 1.84em');
+
+  const hidden = ruleBodies(css).find((r) => r.selectors.some((s) => s === '.lumen-card.lumen-trailer-on .lumen-descr'));
+  assert.ok(hidden, 'правило скрытия блоков в режиме трейлера не найдено');
+  assert.ok(/display\s*:\s*none\s*!important/.test(hidden.decl));
+  for (const sel of ['.lumen-card.lumen-trailer-on .full-start-new__rate-line',
+    '.lumen-card.lumen-trailer-on .lumen-side',
+    '.lumen-card.lumen-trailer-on .lumen-episodes']) {
+    assert.ok(hidden.selectors.indexOf(sel) !== -1, 'в режиме трейлера должен скрываться ' + sel);
+  }
+});
+
+test('buildCss: в режиме трейлера ряд кнопок и «Стоп» встают в одну строку', () => {
+  const row = findDecl(css, (sel) => sel === '.lumen-card.lumen-trailer-on .lumen-content > .lumen-in:nth-child(6)');
+  assert.ok(row, 'правило строки кнопок в режиме трейлера не найдено');
+  assert.ok(row.indexOf('display:flex') !== -1);
+  assert.ok(row.indexOf('align-items:center') !== -1);
+});
