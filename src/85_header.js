@@ -624,17 +624,27 @@
 
   /* Подпись данных таблицы: всё, из чего LC.cardinfo.facts собирает строки, но
      без самой сборки — числа и короткие строки, уже лежащие в e.data.movie.
-     lang — любая строка интерфейса: меняется вместе с языком. */
+     lang — любая строка интерфейса: меняется вместе с языком.
+     Ревью Task 5d (M4): у жанров, стран и съёмочной группы одной длины мало —
+     facts() берёт из них СОДЕРЖИМОЕ, и подмена первого жанра/страны или смена
+     режиссёра при той же длине списка прошла бы мимо подписи. Берём то же, что
+     реально попадает в таблицу: первый жанр, код первой страны и имя режиссёра
+     (LC.cardinfo.director — тот же обход crew, что и в facts, но без сборки
+     остальных строк). */
   function factsSign(data, lang) {
     var movie = (data && data.movie) || {};
-    var crew = (data && data.persons && data.persons.crew && data.persons.crew.length) || 0;
+    var persons = (data && data.persons) || null;
+    var crew = (persons && persons.crew) || null;
+    var genres = movie.genres || null;
+    var countries = movie.production_countries || null;
+    var firstCountry = (countries && countries.length && countries[0] && (countries[0].iso_3166_1 || countries[0].name)) || '';
     return [movie.id, movie.title || movie.name, movie.original_title || movie.original_name,
       movie.release_date || movie.first_air_date, movie.runtime,
       movie.number_of_seasons, movie.number_of_episodes,
-      (movie.genres && movie.genres.length) || 0,
-      (movie.production_countries && movie.production_countries.length) || 0,
+      (genres && genres.length) || 0, (genres && genres.length && genres[0] && genres[0].name) || '',
+      (countries && countries.length) || 0, firstCountry,
       (movie.created_by && movie.created_by.length && movie.created_by[0] && movie.created_by[0].name) || '',
-      crew, lang].join('|');
+      (crew && crew.length) || 0, LC.cardinfo.director(crew), lang].join('|');
   }
 
   /* Ряд описания строит сама Lampa (компонент 'description', в её исходнике

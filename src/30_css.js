@@ -173,7 +173,9 @@
        column-gap: -webkit-column-gap относится к multicol, в grid не работает. */
     css.push('.lumen-card .lumen-content{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;-webkit-box-align:end;-webkit-align-items:end;align-items:end;display:grid;grid-template-columns:minmax(0,1fr) auto;grid-auto-rows:auto;grid-column-gap:2.63em;column-gap:2.63em}');
     css.push('.lumen-card .lumen-content > .lumen-in{grid-column:1;max-width:52em}');
-    css.push('.lumen-card .lumen-content > .lumen-side{grid-column:2;grid-row:1 / 7;-ms-grid-row-align:end;align-self:end;-webkit-flex-shrink:0;flex-shrink:0;text-align:right;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-orient:vertical;-webkit-flex-direction:column;flex-direction:column;-webkit-box-align:end;-webkit-align-items:flex-end;align-items:flex-end}');
+    /* Ревью Task 5d (M3): -ms-grid-row-align убран — он работал только вместе
+       с display:-ms-grid, которого здесь больше нет (Minor 2). */
+    css.push('.lumen-card .lumen-content > .lumen-side{grid-column:2;grid-row:1 / 7;align-self:end;-webkit-flex-shrink:0;flex-shrink:0;text-align:right;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-orient:vertical;-webkit-flex-direction:column;flex-direction:column;-webkit-box-align:end;-webkit-align-items:flex-end;align-items:flex-end}');
     /* Фолбэк для Chromium < 57 (webOS 3, старые Tizen — CSS Grid ещё не
        поддержан, но @supports у них уже есть). На чистом flex-wrap каждый
        .lumen-in занимает всю строку (width:100%) — переносится сам по себе,
@@ -363,16 +365,32 @@
        Скрываем именно __head, а не __title: у head свои margin-bottom и
        горизонтальный padding, от __title осталась бы пустая полоса. .selector
        внутри head у ряда описания нет — навигация не затрагивается. */
-    css.push('.lumen-descr-row .items-line__head{display:none}');
+    /* Ревью Task 5d (M1): дочерний комбинатор — прячем ТОЛЬКО собственный
+       заголовок ряда описания. Потомковый селектор задел бы вложенный
+       items_line, если блок отзывов Task 9 соберут внутри .full-descr — тот
+       молча остался бы без заголовка. */
+    css.push('.lumen-descr-row > .items-line__head{display:none}');
     css.push('.lumen-descr-row .full-descr{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:start;-webkit-align-items:flex-start;align-items:flex-start;-webkit-flex-wrap:wrap;flex-wrap:wrap}');
     css.push('.lumen-descr-row .full-descr__left{-webkit-box-flex:1;-webkit-flex:1 1 auto;flex:1 1 auto;min-width:0;margin-right:3.51em}');
-    /* Ревью Task 5d (п.1): у Lampa на .full-descr__text висят max-height:41vh и
-       mask-image с прозрачным низом (vendor/lampa/css/app.css) — маска
-       применяется ВСЕГДА, поэтому низ описания выцветал на любой карточке, а
-       длинные описания обрезались. Экран 07 показывает полный ровный текст:
-       снимаем и ограничение высоты, и маску (обе записи — с -webkit-, у
-       движков ТВ работает именно префиксная). */
-    css.push('.lumen-descr-row .full-descr__text{font-family:' + FB + ';font-weight:400;font-size:1.05em;line-height:1.45;color:' + C.text + ';max-width:42.96em;width:auto;max-height:none;-webkit-mask-image:none;mask-image:none}');
+    /* Ревью Task 5d (п.1): у Lampa на .full-descr__text висят max-height (70vh,
+       следом 41vh) и mask-image с прозрачным низом (vendor/lampa/css/app.css) —
+       маска применяется ВСЕГДА, поэтому низ описания выцветал на любой карточке,
+       а типовой текст обрезался на 41vh. Маску снимаем совсем (обе записи, у
+       движков ТВ работает именно префиксная), высоту — поднимаем до 70vh, а не
+       до none.
+
+       Почему не none (ревью 2, Important 1; проверено живьём, overview 6750
+       символов при вьюпорте 1080): без предела текст вырастает до 3159px, ряд —
+       до 3340px, и .full-descr__tags уезжают на top 4356. Прокрутка контента у
+       Lampa происходит только при переключении РЯДА (Items.onAppend ->
+       scroll.update), а Descriptiopn.toggle на 'down' делает лишь
+       Navigator.move('down') без прокрутки — фокус на теги уходит (класс .focus
+       появляется), но экран не двигается, и жанры/студии становятся физически
+       недостижимы. 70vh (756px) оставляет ряд в пределах экрана: текст + теги +
+       отступы ~900px < 1080. На типовом описании TMDB (300-1500 знаков) предел
+       не достигается вовсе — §10 требует отсутствия выцветания и обрезки на
+       типовом тексте, а не буквального max-height:none. */
+    css.push('.lumen-descr-row .full-descr__text{font-family:' + FB + ';font-weight:400;font-size:1.05em;line-height:1.45;color:' + C.text + ';max-width:42.96em;width:auto;max-height:70vh;-webkit-mask-image:none;mask-image:none}');
     css.push('.lumen-descr-row .full-descr__details{display:none}');
     css.push('.lumen-descr-row .lumen-facts{-webkit-flex-shrink:0;flex-shrink:0;min-width:19.73em;max-width:100%}');
     css.push('.lumen-descr-row .lumen-facts__title{font-family:' + FM + ';font-weight:600;font-size:.70em;line-height:1;letter-spacing:.14em;color:' + C.smoke + ';margin-bottom:.88em}');

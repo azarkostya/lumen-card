@@ -430,6 +430,35 @@ test('descr: тот же e.data — рендер пропущен целиком
   assert.equal(factsOf(d).length, 1);
 });
 
+/* Ревью Task 5d (M5): язык интерфейса входит в подпись — смена языка обязана
+   перерисовать таблицу, иначе подписи остались бы от прошлого языка. */
+test('descr: смена языка интерфейса перерисовывает таблицу', () => {
+  const d = makeDescrRow();
+  LC.header.descr(d.row, DUNE);
+  const ru = factsOf(d)[0];
+  assert.ok(ru.html().indexOf('ПОДРОБНО') !== -1);
+
+  const EN = {
+    lumen_card_facts: 'DETAILS', lumen_card_fact_original: 'Original', lumen_card_fact_premiere: 'Premiere',
+    lumen_card_fact_country: 'Country', lumen_card_fact_director: 'Director', lumen_card_fact_creator: 'Creator',
+    lumen_card_fact_genre: 'Genre', lumen_card_fact_time: 'Runtime', lumen_card_min: 'min',
+    lumen_card_months_gen: 'January,February,March,April,May,June,July,August,September,October,November,December'
+  };
+  const original = LC.lang;
+  LC.lang = (key) => (Object.prototype.hasOwnProperty.call(EN, key) ? EN[key] : original(key));
+  try {
+    LC.header.descr(d.row, DUNE);
+  } finally {
+    LC.lang = original;
+  }
+
+  const en = factsOf(d)[0];
+  assert.notEqual(en, ru, 'язык другой — таблица пересобрана, а не пропущена по подписи');
+  assert.equal(factsOf(d).length, 1);
+  assert.ok(en.html().indexOf('DETAILS') !== -1);
+  assert.ok(en.html().indexOf('29 February 2024') !== -1, 'месяцы тоже из нового языка');
+});
+
 test('descr: значения экранируются — разметка из данных не становится тегом', () => {
   const d = makeDescrRow();
   LC.header.descr(d.row, { movie: { title: 'X', original_title: '<b>x</b>', release_date: '2024-01-01' } });

@@ -391,19 +391,41 @@ test('buildCss: полное описание в ряду — 24px/1.45 (1.05em)
   assert.ok(wrap && wrap.indexOf('display:flex') !== -1, 'ряд описания — flex (описание слева, таблица справа)');
 });
 
-test('buildCss: описание не обрезается и не выцветает — снятые max-height и mask-image Lampa', () => {
+/* Ревью Task 5d (Important 1): маска снимается совсем, а предел высоты
+   поднимается до 70vh, но НЕ до none — иначе на очень длинном overview ряд
+   перерастает вьюпорт, а Lampa внутри ряда не прокручивает (проверено живьём:
+   теги уезжают за нижний край и остаются недостижимыми). */
+test('buildCss: описание без выцветания, с мягким пределом высоты вместо штатного 41vh', () => {
   const decl = findDecl(css, (sel) => sel === '.lumen-descr-row .full-descr__text');
   assert.ok(decl, 'правило .full-descr__text не найдено');
-  assert.ok(/max-height\s*:\s*none/.test(decl), 'штатный max-height:41vh должен сниматься');
+  assert.ok(/max-height\s*:\s*70vh/.test(decl), 'ожидался мягкий предел 70vh');
+  assert.equal(/max-height\s*:\s*none/.test(decl), false, 'без предела теги под текстом становятся недостижимыми');
   assert.ok(decl.indexOf('-webkit-mask-image:none') !== -1, 'нужна префиксная запись — на движках ТВ работает именно она');
   assert.ok(/[^-]mask-image\s*:\s*none/.test(decl), 'нужна и беспрефиксная mask-image:none');
 });
 
-test('buildCss: штатный заголовок ряда «Подробно» скрыт целиком (__head, не __title)', () => {
-  const head = findDecl(css, (sel) => sel === '.lumen-descr-row .items-line__head');
-  assert.ok(head && /display\s*:\s*none/.test(head), 'нет правила скрытия .items-line__head');
+test('buildCss: штатный заголовок ряда «Подробно» скрыт дочерним комбинатором (__head, не __title)', () => {
+  const head = findDecl(css, (sel) => sel === '.lumen-descr-row > .items-line__head');
+  assert.ok(head && /display\s*:\s*none/.test(head), 'нет правила скрытия .lumen-descr-row > .items-line__head');
+  assert.equal(findDecl(css, (sel) => sel === '.lumen-descr-row .items-line__head'), null,
+    'потомковый селектор задел бы вложенный items_line будущего блока отзывов (Task 9)');
   assert.equal(findDecl(css, (sel) => sel.indexOf('.items-line__title') !== -1), null,
     'скрывать __title нельзя — у __head остаются свои отступы, получилась бы пустая полоса');
+});
+
+/* Ревью Task 5d (M2): после снятия display:-ms-grid раскладка на движках без
+   grid держится ровно на порядке деклараций — display:flex должен идти ДО
+   display:grid в том же правиле (последнее валидное значение выигрывает). */
+test('buildCss: у обеих сеток display:flex объявлен раньше display:grid', () => {
+  for (const sel of ['.lumen-card .lumen-content', '.lumen-descr-row .lumen-facts__grid']) {
+    const decl = findDecl(css, (s) => s === sel);
+    assert.ok(decl, 'правило не найдено: ' + sel);
+    const flex = decl.indexOf('display:flex');
+    const grid = decl.indexOf('display:grid');
+    assert.ok(flex !== -1, 'нет flex-фолбэка: ' + sel);
+    assert.ok(grid !== -1, 'нет display:grid: ' + sel);
+    assert.ok(flex < grid, 'flex должен объявляться до grid: ' + sel);
+  }
 });
 
 test('buildCss: у сетки таблицы есть старые grid-row-gap/grid-column-gap (Chrome 57-65: webOS 4, Tizen 3/4)', () => {
