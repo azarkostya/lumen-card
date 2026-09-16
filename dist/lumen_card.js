@@ -6552,6 +6552,9 @@ return LC.backdrops.revive(layer) || s;
 
 
 
+
+
+
 LC.destroyActive = function () {
 var active = LC.active;
 if (!active) return;
@@ -6678,6 +6681,36 @@ return;
 if (e.type === 'start' && e.component === 'full') {
 var layer = layerOf(e.object);
 if (layer && layer.length) {
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+if (LC.active && LC.active.object !== e.object) LC.destroyActive();
 var slideshow = liveSlideshow(layer, layer.data('lumenSlideshow'));
 
 

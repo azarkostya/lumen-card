@@ -150,6 +150,12 @@ test('(б) backward: start вернувшейся восстанавливает
   assert.equal(LC.active.object, objA, 'LC.active должен восстановиться на A');
   assert.equal(LC.active.slideshow, ctrlA);
   assert.equal(ctrlA.resumeCalls, 1);
+  /* Долг Task 11 (сверка с планом): ресурсы покинутой B освобождаются ЗДЕСЬ
+     же, на start возвращаемой. Ждать destroy(B) нельзя — Lampa шлёт его
+     СЛЕДОМ за start/archive(A), когда LC.active уже указывает на A. */
+  assert.equal(cancelCalls.length, 1, 'слой покинутой B снят сразу, а не по её следующему тику');
+  assert.equal(cancelCalls[0], objB.activity.render().find('.lumen-backdrop').parent());
+  assert.equal(ctrlB.destroyCalls, 1, 'интервал ротации B снят до тика');
 
   LC.onActivityEvent({ type: 'archive', component: 'full', object: objA });
   assert.equal(LC.active.object, objA, 'archive той же активности не должен ничего менять');
@@ -157,8 +163,7 @@ test('(б) backward: start вернувшейся восстанавливает
 
   LC.onActivityEvent({ type: 'destroy', component: 'full', object: objB }); // "через ~200мс"
   assert.equal(LC.active.object, objA, 'LC.active вернувшейся не должен обнуляться destroy-ом покинутой');
-  assert.equal(cancelCalls.length, 1, 'но слайдшоу покинутой B всё равно останавливается — осиротевшая карточка (п.2)');
-  assert.equal(cancelCalls[0], objB.activity.render().find('.lumen-backdrop').parent());
+  assert.equal(cancelCalls.length, 2, 'запоздавший destroy(B) идёт веткой осиротевших — cancel идемпотентен');
 });
 
 /* ====================================================================== */
@@ -433,7 +438,7 @@ function initLC(opts) {
      позвали снимать слой фона и незавершённый запрос отзывов, сколько раз
      перерисовали актёров. */
   const timelines = [];
-  const extra = { added: [], bgCancel: [], reviewCancel: [], cast: 0 };
+  const extra = { added: [], bgCancel: [], reviewCancel: [], cast: 0, css: 0 };
   const Lampa = {
     Template: {
       all: () => ({ full_start_new: '<div>orig</div>' }),
@@ -465,7 +470,13 @@ function initLC(opts) {
   loadInto(LC, module, '90_runtime.js');
   LC.template = { build: () => '<div class="lumen-card"></div>', assert: () => ({ ok: true, missingInOurs: [] }) };
   LC.injectFonts = () => { };
-  LC.injectCss = () => { };
+  /* Ревью Task 11 (Important): счётчик нужен, чтобы откат неудачной подмены
+     шаблона проверялся ЦЕЛИКОМ. Без него тесты не замечали потерю return
+     после restoreOriginalTemplate(): activated уже false, но выполнение шло
+     дальше — CSS, классы режима движения и оформления меню на body и маркеры
+     на Select/Modal ложились на ШТАТНУЮ карточку Lampa, а снять их было некому
+     (deactivate() выходит первой строкой по !activated). */
+  LC.injectCss = () => { extra.css++; };
   LC.removeCss = () => { };
   LC.menus = { mode: () => { }, install: () => { } };
   LC.torrents = { install: () => { }, toggle: () => { } };
@@ -1173,6 +1184,7 @@ test('Task 11 (Step 2): ошибка подмены шаблона на init —
   const { LC, full, extra, calls, descrRows } = initLC({ templateAddFails: true });
 
   assert.equal(extra.added[extra.added.length - 1].html, '<div>orig</div>', 'штатный шаблон Lampa возвращён');
+  assert.equal(extra.css, 0, 'откат целиком: CSS не инжектится — иначе стили и классы легли бы на штатную карточку, а снять их было бы некому');
   assert.equal(warnLog.length, 1, 'ошибка записана в warn и наружу не вышла');
   warnLog.length = 0;
 
@@ -1187,5 +1199,103 @@ test('Task 11 (Step 2): ошибка подмены шаблона на init —
   assert.equal(LC.active, null, 'карточка не оформляется и не запоминается');
   assert.deepEqual(descrRows, []);
   assert.equal(calls.schedule.length, 0);
+  assert.deepEqual(warnLog, []);
+});
+
+/* ====================================================================== */
+/* Долг Task 11 (сверка с планом): покидаемая карточка освобождается на    */
+/* start возвращаемой.                                                    */
+/*                                                                        */
+/* Порядок событий Lampa при backward() снят живьём: start:full(A) ->      */
+/* archive:full(A) -> destroy:full(B). К моменту destroy(B) ветка «своей    */
+/* активности» уже не про B (LC.active переключён на A), а ветка           */
+/* осиротевших слоя не находит — Lampa успевает вычистить                  */
+/* B.activity.render(). Раньше ресурсы B снимал только self-heal: трейлер  */
+/* — сторожем за 1 с, слайдшоу — СЛЕДУЮЩИМ тиком ротации, то есть до       */
+/* 8-20 с (по настройке интервала) закрытая карточка крутила таймер и      */
+/* тянула фоновые кадры.                                                   */
+/* ====================================================================== */
+
+test('долг Task 11: backward A->B — start возвращаемой освобождает ресурсы покидаемой сразу, не дожидаясь её тика', () => {
+  const LC = freshLC();
+  const cancels = [];
+  const reviewCancels = [];
+  LC.backdrops = { apply: () => null, cancel: (b) => cancels.push(b), revive: () => null };
+  LC.reviews = { render: () => { }, clearRow: () => { }, cancel: (b) => reviewCancels.push(b) };
+
+  const ctrlA = makeCtrl();
+  const objA = makeActivityObj('A', true, ctrlA);  // к ней возвращаемся
+  const ctrlB = makeCtrl();
+  const objB = makeActivityObj('B', true, ctrlB);  // покидаемая, сейчас LC.active
+  let trailerB = 0;
+  const bodyB = objB.activity.render().find('.lumen-backdrop').parent();
+  LC.active = {
+    object: objB, body: bodyB, slideshow: ctrlB,
+    trailer: { destroy() { trailerB++; }, isAlive: () => true }, data: null
+  };
+
+  LC.onActivityEvent({ type: 'start', component: 'full', object: objA });
+
+  assert.deepEqual(cancels, [bodyB], 'слой покидаемой снят на start возвращаемой');
+  assert.deepEqual(reviewCancels, [bodyB], 'и её незавершённый запрос отзывов тоже');
+  assert.equal(ctrlB.destroyCalls, 1, 'интервал ротации покидаемой снят до тика');
+  assert.equal(trailerB, 1, 'трейлер покидаемой погашен, не дожидаясь сторожа');
+
+  assert.equal(LC.active.object, objA, 'LC.active переключился на возвращаемую');
+  assert.equal(LC.active.slideshow, ctrlA);
+  assert.equal(ctrlA.resumeCalls, 1, 'возвращаемая ожила');
+
+  /* Идемпотентность: повторный start той же карточки идёт веткой «своей
+     активности» — второй раз освобождать нечего. */
+  LC.onActivityEvent({ type: 'start', component: 'full', object: objA });
+  assert.equal(cancels.length, 1, 'destroyActive второй раз не зовётся');
+  assert.equal(ctrlA.resumeCalls, 2);
+  assert.deepEqual(warnLog, []);
+});
+
+test('долг Task 11: возврат к ТОЙ ЖЕ карточке по-прежнему оживляет её слайдшоу, а не уничтожает', () => {
+  const LC = freshLC();
+  const cancels = [];
+  const reviveCalls = [];
+  const freshCtrl = makeCtrl();
+  LC.backdrops = {
+    apply: () => null,
+    cancel: (b) => cancels.push(b),
+    revive: (layer) => { reviveCalls.push(layer); return freshCtrl; }
+  };
+
+  const deadCtrl = makeCtrl();
+  deadCtrl.destroy(); // Lampa тихо убрала DOM, тик self-heal уничтожил контроллер
+  const objA = makeActivityObj('A', true, deadCtrl);
+  LC.active = { object: objA, body: {}, slideshow: deadCtrl, trailer: null, data: null };
+
+  LC.onActivityEvent({ type: 'start', component: 'full', object: objA });
+
+  assert.deepEqual(cancels, [], 'своя карточка не освобождается — её оживляют (поведение Task 6)');
+  assert.equal(reviveCalls.length, 1);
+  assert.equal(LC.active.slideshow, freshCtrl);
+  assert.equal(freshCtrl.resumeCalls, 1, 'ротация вернулась');
+  assert.deepEqual(warnLog, []);
+});
+
+test('долг Task 11: push вглубь (start ещё не построенной карточки) ресурсы покидаемой не трогает', () => {
+  const LC = freshLC();
+  const cancels = [];
+  LC.backdrops = { apply: () => null, cancel: (b) => cancels.push(b), revive: () => null };
+
+  const ctrlA = makeCtrl();
+  const objA = makeActivityObj('A', true, ctrlA);
+  const bodyA = objA.activity.render().find('.lumen-backdrop').parent();
+  LC.active = { object: objA, body: bodyA, slideshow: ctrlA, trailer: null, data: null };
+
+  /* У новой карточки слоя ещё нет — apply() не отработал. Это push вглубь:
+     A остаётся жить в истории, её ротация только паузится тиком по
+     .activity--active, уничтожать её нельзя. */
+  const objB = makeActivityObj('B', false, null);
+  LC.onActivityEvent({ type: 'start', component: 'full', object: objB });
+
+  assert.deepEqual(cancels, [], 'карточка в истории продолжает жить');
+  assert.equal(ctrlA.destroyCalls, 0);
+  assert.equal(LC.active.object, objA, 'LC.active по-прежнему указывает на неё');
   assert.deepEqual(warnLog, []);
 });
