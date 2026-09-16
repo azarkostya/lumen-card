@@ -3702,7 +3702,19 @@ return null;
 
 
 
-function fromEpisodes(key, episodes, view, hash) {
+
+
+
+
+
+
+
+function aired(ep, now) {
+var days = LC.util.daysUntil(ep.air_date, now);
+return days !== null && days <= 0;
+}
+
+function fromEpisodes(key, episodes, view, hash, now) {
 var best = null, afterDone = null, done = false, touched = false;
 for (var i = 0; i < episodes.length; i++) {
 var ep = episodes[i];
@@ -3724,7 +3736,7 @@ touched = true;
 if (!best || (v.updated || 0) >= (best.view.updated || 0)) {
 best = { view: v, season: season, episode: ep.episode_number };
 }
-} else if (done && !afterDone) {
+} else if (done && !afterDone && aired(ep, now)) {
 afterDone = { view: v || { percent: 0 }, season: season, episode: ep.episode_number };
 }
 }
@@ -3755,12 +3767,14 @@ return best;
 }
 
 
-function serialProgress(movie, view, hash, episodes) {
+
+
+function serialProgress(movie, view, hash, episodes, now) {
 var key = movie.original_name || movie.original_title || movie.name || movie.title;
 if (!key) return null;
 
 if (episodes && episodes.length) {
-var last = fromEpisodes(key, episodes, view, hash);
+var last = fromEpisodes(key, episodes, view, hash, now);
 if (last.found || last.touched) return last.found;
 }
 return scanAll(key, movie, view, hash);
@@ -4037,7 +4051,8 @@ onChange: onlyWithoutStorage(function () { LC.injectFonts(); LC.injectCss(); })
 Lampa.SettingsApi.addParam({
 component: PLUGIN,
 param: { name: PLUGIN + '_progress', type: 'trigger', 'default': true },
-field: { name: LC.lang('lumen_card_progress_name') }
+field: { name: LC.lang('lumen_card_progress_name') },
+onChange: onlyWithoutStorage(function () { LC.applyProgressPref(); })
 });
 
 Lampa.SettingsApi.addParam({
@@ -4143,6 +4158,9 @@ if (e.name === 'lumen_torrents') { LC.applyTorrentsPref(); return; }
 if (e.name === 'lumen_trailer') { LC.applyTrailerPref(); return; }
 if (e.name.indexOf(PLUGIN + '_') !== 0) return;
 if (e.name === PLUGIN + '_fonts') LC.injectFonts();
+
+
+if (e.name === PLUGIN + '_progress') LC.applyProgressPref();
 LC.injectCss();
 });
 LC.storageFollowed = true;
@@ -4415,8 +4433,10 @@ if (html.length) holder.append(html.join(''));
 
 
 
+
+
 function cssString(text) {
-return '"' + ('' + text).replace(/[\\"]/g, '\\$&').replace(/[\r\n]+/g, ' ') + '"';
+return '"' + ('' + text).replace(/[\\"]/g, '\\$&').replace(/[\r\n\f]+/g, ' ') + '"';
 }
 
 
@@ -4465,7 +4485,7 @@ if (row.length) row.addClass('hide');
 var found = null;
 if (on) {
 found = isSerial(movie)
-? LC.progress.serialProgress(movie, timelineView, utilsHash, episodes)
+? LC.progress.serialProgress(movie, timelineView, utilsHash, episodes, new Date())
 : LC.progress.movieProgress(movie, timelineView, utilsHash);
 }
 if (!found || !found.view) {
@@ -4505,6 +4525,30 @@ $('.lumen-card').each(function () {
 var info = this.lumenProgress;
 if (info) renderProgress($(this), info.movie, info.episodes);
 });
+}
+
+
+
+
+
+
+
+
+
+
+var PROGRESS_DEBOUNCE = 300;
+var progress_timer = null;
+
+function scheduleProgressRefresh() {
+if (progress_timer) return;
+progress_timer = setTimeout(function () {
+progress_timer = null;
+try {
+refreshProgress();
+} catch (e) {
+warn('progress refresh failed', e);
+}
+}, PROGRESS_DEBOUNCE);
 }
 
 function renderCast(root, data) {
@@ -4594,10 +4638,17 @@ if (!short.length) {
 chip.append('<div class="lumen-next-chip__short"></div>');
 short = chip.find('.lumen-next-chip__short');
 }
-short.text('· ' + LC.cardinfo.shortDate(movie.next_episode_to_air.air_date, monthsShort()));
+
+var date = LC.cardinfo.shortDate(movie.next_episode_to_air.air_date, monthsShort());
+short.text(date ? '· ' + date : '');
 
 chip.removeClass('hide');
-root.addClass('lumen-card--nextchip');
+
+
+
+
+var status = root.find('.full-start__status');
+if (status.length && !status.hasClass('hide')) root.addClass('lumen-card--nextchip');
 }
 
 var EPISODE_STATES = 'lumen-episode--watched lumen-episode--watching lumen-episode--aired lumen-episode--soon';
@@ -4695,6 +4746,12 @@ return '' +
 (st.state === 'watching' ? '<div class="lumen-episode__bar"><div style="width:' + st.percent + '%"></div></div>' : '') +
 '</div>';
 }
+
+
+
+
+
+
 
 
 
@@ -5022,7 +5079,13 @@ try { renderEpisodes(root, data); } catch (e) { warn('episodes failed', e); }
 try { bindEpisodes(root); } catch (e) { warn('episodes bind failed', e); }
 }
 
-LC.header = { decorate: decorate, descr: renderDescrRow, refreshEpisode: refreshEpisode, refreshProgress: refreshProgress };
+LC.header = {
+decorate: decorate,
+descr: renderDescrRow,
+refreshEpisode: refreshEpisode,
+refreshProgress: refreshProgress,
+scheduleProgressRefresh: scheduleProgressRefresh
+};
 
 
 /* ---- 90_runtime.js ---- */
@@ -5213,7 +5276,9 @@ if (e && e.data) LC.header.refreshEpisode(e.data.hash);
 
 
 
-LC.header.refreshProgress();
+
+
+LC.header.scheduleProgressRefresh();
 } catch (err) {
 warn('timeline listener failed', err);
 }
@@ -5430,6 +5495,21 @@ try {
 if (LC.trailer.mode() === 'off') LC.trailer.stopActive();
 } catch (e) {
 warn('trailer pref failed', e);
+}
+};
+
+
+
+
+
+
+
+
+LC.applyProgressPref = function () {
+try {
+LC.header.refreshProgress();
+} catch (e) {
+warn('progress pref failed', e);
 }
 };
 

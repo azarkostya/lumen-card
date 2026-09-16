@@ -501,6 +501,93 @@ test('renderNextChip: короткая дата «· 17 дек» для сжат
   assert.deepEqual(warnLog, []);
 });
 
+/* Ревью Task 8 (п.1): «Продолжить» не должно вести на серию, которой ещё нет. */
+test('progress: следующая серия ещё не вышла — ни строки, ни подписи на кнопке', () => {
+  const c = makeCard();
+  const data = serial(4);
+  data.episodes.episodes[3].air_date = ymd(dateIn(20));
+  withViews({
+    [hashOf(2, 1)]: { percent: 100, time: 3060, duration: 3060, updated: 1 },
+    [hashOf(2, 2)]: { percent: 100, time: 3120, duration: 3120, updated: 2 },
+    [hashOf(2, 3)]: { percent: 100, time: 3180, duration: 3180, updated: 3 }
+  }, () => {
+    LC.header.decorate(c.root, data);
+  });
+  assert.ok(c.progress.hasClass('hide'), 'E4 выйдет через 20 дней — продолжать нечего');
+  assert.equal(c.root.hasClass('lumen-continue'), false);
+  assert.deepEqual(warnLog, []);
+});
+
+/* Ревью Task 8 (п.2): синхронизация CUB прогоняет Timeline.update по всему
+   changelog — каждая запись не должна вызывать полный обход карточек. */
+test('scheduleProgressRefresh: пачка событий Timeline схлопывается в одну перерисовку', () => {
+  const c = makeCard();
+  LC.header.decorate(c.root, serial(4));
+
+  const timers = [];
+  const realSetTimeout = globalThis.setTimeout;
+  globalThis.setTimeout = (fn, ms) => { timers.push({ fn, ms }); return timers.length; };
+  try {
+    for (let i = 0; i < 5; i++) LC.header.scheduleProgressRefresh();
+    assert.equal(timers.length, 1, 'пять событий — один таймер');
+    assert.ok(timers[0].ms >= 100 && timers[0].ms <= 1000, 'окно коалесценции ~300 мс, получено ' + timers[0].ms);
+
+    withViews({ [hashOf(2, 2)]: { percent: 12, time: 300, duration: 2500, updated: 9 } }, () => {
+      timers[0].fn();
+      assert.equal(c.pLabel.text(), 'S2 E2 «Серия 2»', 'по срабатыванию таймера строка обновилась');
+    });
+
+    LC.header.scheduleProgressRefresh();
+    assert.equal(timers.length, 2, 'после срабатывания следующая пачка заводит таймер заново');
+  } finally {
+    globalThis.setTimeout = realSetTimeout;
+  }
+  assert.deepEqual(warnLog, []);
+});
+
+/* Ревью Task 8 (п.6): в CSS перевод строки — это и form feed (U+000C). */
+test('progress: form feed в подписи кнопки заменяется пробелом', () => {
+  const c = makeCard();
+  const original = LC.lang;
+  LC.lang = (key) => (key === 'lumen_card_continue' ? 'Про\fдолжить' : original(key));
+  try {
+    withViews({ [hashOf(2, 2)]: { percent: 20, time: 100, duration: 1000, updated: 5 } }, () => {
+      LC.header.decorate(c.root, serial(3));
+    });
+  } finally {
+    LC.lang = original;
+  }
+  assert.equal(c.root._css['--lumen-play-label'], '"Про должить S2 E2"');
+});
+
+/* Ревью Task 8 (п.4): статус Lampa показывает только при непустом movie.status. */
+test('renderNextChip: без видимого статуса класс склейки не ставится', () => {
+  const c = makeCard();
+  c.status.addClass('hide');
+  const data = serial(1);
+  data.movie.next_episode_to_air = { air_date: ymd(dateIn(31)) };
+  LC.header.decorate(c.root, data);
+
+  assert.equal(c.chip.hasClass('hide'), false, 'сам чип показывается как обычно');
+  assert.equal(c.root.hasClass('lumen-card--nextchip'), false, 'срезать край нечего — карты статуса на экране нет');
+});
+
+/* Ревью Task 8 (п.7): нераспознанная дата не должна оставлять голое «· ». */
+test('renderNextChip: пустая короткая дата не оставляет одиноким разделитель', () => {
+  const c = makeCard();
+  const data = serial(1);
+  data.movie.next_episode_to_air = { air_date: ymd(dateIn(31)) };
+  const original = LC.cardinfo.shortDate;
+  LC.cardinfo.shortDate = () => '';
+  try {
+    LC.header.decorate(c.root, data);
+  } finally {
+    LC.cardinfo.shortDate = original;
+  }
+  assert.equal(c.chip.find('.lumen-next-chip__short').text(), '');
+  assert.deepEqual(warnLog, []);
+});
+
 test('refreshProgress: обновление Timeline перерисовывает строку без повторного decorate', () => {
   const c = makeCard();
   LC.header.decorate(c.root, serial(4));

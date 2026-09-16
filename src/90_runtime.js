@@ -184,8 +184,10 @@
           /* Task 8: та же подписка обновляет строку «Продолжить» и подпись
              кнопки «Смотреть» — второй слушатель Timeline не заводится
              (поправки координатора). Хэш записи здесь не нужен: карточка
-             сама решает, какую серию продолжать, по всем своим данным. */
-          LC.header.refreshProgress();
+             сама решает, какую серию продолжать, по всем своим данным.
+             Ревью Task 8 (п.2): синхронизация CUB шлёт update пачками, поэтому
+             перерисовка коалесцируется (см. scheduleProgressRefresh). */
+          LC.header.scheduleProgressRefresh();
         } catch (err) {
           warn('timeline listener failed', err);
         }
@@ -402,6 +404,21 @@
       if (LC.trailer.mode() === 'off') LC.trailer.stopActive();
     } catch (e) {
       warn('trailer pref failed', e);
+    }
+  };
+
+  /* Ревью Task 8 (п.3): lumen_card_progress переключили на уже открытой
+     карточке. Настройки Lampa — активность ПОВЕРХ карточки, и при возврате она
+     не шлёт ни 'full', ни complite: без этого на карточке так и остались бы
+     строка «Продолжить», класс lumen-progress-on и подпись кнопки (или
+     наоборот — не появились бы). renderProgress перечитывает LC.pref сам,
+     поэтому достаточно перерисовки; ждать дебаунса тут незачем — реакция на
+     действие пользователя должна быть мгновенной. */
+  LC.applyProgressPref = function () {
+    try {
+      LC.header.refreshProgress();
+    } catch (e) {
+      warn('progress pref failed', e);
     }
   };
 

@@ -38,7 +38,19 @@
        начатая или досмотренная серия. Сезон досмотрен до конца -> found null
        при touched true: продолжать нечего, и падать на прошлые сезоны не
        нужно (поправка Task 8: «иначе не показывать»). */
-    function fromEpisodes(key, episodes, view, hash) {
+    /* Ревью Task 8 (п.1): в e.data.episodes.episodes лежит ВЕСЬ последний
+       сезон, включая ещё не вышедшие серии (ряд рисует им состояние 'soon').
+       Предлагать «Продолжить S2 E4» на серию, которой нет в природе, нельзя —
+       рядом на той же карточке стоит чип «Следующая серия — 17 декабря», и это
+       прямое противоречие на экране. Дата в будущем ИЛИ её отсутствие (TMDB не
+       даёт air_date только необъявленным сериям) — серия не вышла. Дни
+       календарные, через тот же LC.util.daysUntil, что у episodeState. */
+    function aired(ep, now) {
+      var days = LC.util.daysUntil(ep.air_date, now);
+      return days !== null && days <= 0;
+    }
+
+    function fromEpisodes(key, episodes, view, hash, now) {
       var best = null, afterDone = null, done = false, touched = false;
       for (var i = 0; i < episodes.length; i++) {
         var ep = episodes[i];
@@ -60,7 +72,7 @@
           if (!best || (v.updated || 0) >= (best.view.updated || 0)) {
             best = { view: v, season: season, episode: ep.episode_number };
           }
-        } else if (done && !afterDone) {
+        } else if (done && !afterDone && aired(ep, now)) {
           afterDone = { view: v || { percent: 0 }, season: season, episode: ep.episode_number };
         }
       }
@@ -90,13 +102,15 @@
       return best;
     }
 
-    /* episodes — необязательный четвёртый аргумент (e.data.episodes.episodes). */
-    function serialProgress(movie, view, hash, episodes) {
+    /* episodes и now — необязательные: серии последнего сезона
+       (e.data.episodes.episodes) и момент отсчёта для проверки «серия вышла»
+       (Date или мс; по умолчанию текущий), как у episodeState. */
+    function serialProgress(movie, view, hash, episodes, now) {
       var key = movie.original_name || movie.original_title || movie.name || movie.title;
       if (!key) return null;
 
       if (episodes && episodes.length) {
-        var last = fromEpisodes(key, episodes, view, hash);
+        var last = fromEpisodes(key, episodes, view, hash, now);
         if (last.found || last.touched) return last.found;
       }
       return scanAll(key, movie, view, hash);

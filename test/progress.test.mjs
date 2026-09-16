@@ -162,10 +162,27 @@ test('serialProgress: без episodes переход к следующей се�
 /* ------------------------------ Task 8: приоритет последнего сезона ------------------------------ */
 
 /* episodes — e.data.episodes.episodes[]: серии ТОЛЬКО последнего сезона
-   (API_NOTES_3), поля season_number/episode_number/name/runtime. */
-function season2(n) {
+   (API_NOTES_3), поля season_number/episode_number/name/runtime/air_date.
+   Ревью Task 8 (п.1): в списке лежит ВЕСЬ сезон, включая анонсированные серии,
+   поэтому даты обязательны — airedUpTo задаёт, сколько серий уже вышло
+   (по умолчанию все). */
+const PAST = '2025-01-10';
+
+function future(days) {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+function season2(n, airedUpTo) {
+  if (typeof airedUpTo !== 'number') airedUpTo = n;
   var out = [];
-  for (var i = 1; i <= n; i++) out.push({ season_number: 2, episode_number: i, name: 'Серия ' + i, runtime: 50 + i });
+  for (var i = 1; i <= n; i++) {
+    out.push({
+      season_number: 2, episode_number: i, name: 'Серия ' + i, runtime: 50 + i,
+      air_date: i <= airedUpTo ? PAST : future(7 * (i - airedUpTo))
+    });
+  }
   return out;
 }
 
@@ -208,6 +225,62 @@ test('serialProgress: все начатые досмотрены -> следую
   assert.equal(found.season, 2);
   assert.equal(found.episode, 3);
   assert.equal(found.view.percent, 0, 'следующая серия ещё не начата');
+});
+
+/* Ревью Task 8 (п.1): частый случай Returning Series — зритель догнал эфир.
+   Предлагать «Продолжить S2 E4» на серию, которая выйдет через неделю, нельзя:
+   на той же карточке рядом стоит чип «Следующая серия — 17 декабря». */
+test('serialProgress: следующая серия ещё не вышла -> null', () => {
+  var movie = { original_name: 'Fallout', number_of_seasons: 2 };
+  var view = viewsOf({
+    'h:21Fallout': { percent: 100, updated: 1 },
+    'h:22Fallout': { percent: 100, updated: 2 },
+    'h:23Fallout': { percent: 100, updated: 3 }
+  });
+  assert.equal(progress.serialProgress(movie, view, HASH, season2(6, 3)), null);
+});
+
+test('serialProgress: серия без air_date следующей не считается (TMDB не даёт дату необъявленным)', () => {
+  var movie = { original_name: 'Fallout', number_of_seasons: 2 };
+  var list = [
+    { season_number: 2, episode_number: 1, name: 'A', air_date: PAST },
+    { season_number: 2, episode_number: 2, name: 'B' }
+  ];
+  var view = viewsOf({ 'h:21Fallout': { percent: 100, updated: 1 } });
+  assert.equal(progress.serialProgress(movie, view, HASH, list), null);
+});
+
+/* Ревью Task 8 (п.1), обратная сторона: пропуск невышедших — это именно
+   пропуск, а не остановка. У TMDB встречается сезон с дырой в датах (поле
+   заполняют волонтёры), и одна серия без air_date не должна навсегда гасить
+   «Продолжить» для всего сезона. В реальном Returning Series даты монотонны,
+   поэтому после первой невышедшей вышедших уже не будет — там результат null
+   (тест выше). */
+test('serialProgress: серия с пропущенной датой не блокирует продолжение — берётся следующая вышедшая', () => {
+  var movie = { original_name: 'Fallout', number_of_seasons: 2 };
+  var list = [
+    { season_number: 2, episode_number: 1, name: 'A', air_date: PAST },
+    { season_number: 2, episode_number: 2, name: 'B' },
+    { season_number: 2, episode_number: 3, name: 'C', air_date: PAST }
+  ];
+  var view = viewsOf({ 'h:21Fallout': { percent: 100, updated: 1 } });
+  var found = progress.serialProgress(movie, view, HASH, list);
+  assert.equal(found.episode, 3);
+});
+
+test('serialProgress: «вышла» считается по календарным дням от now (пятый аргумент)', () => {
+  var movie = { original_name: 'Fallout', number_of_seasons: 2 };
+  var list = [
+    { season_number: 2, episode_number: 1, name: 'A', air_date: '2026-01-01' },
+    { season_number: 2, episode_number: 2, name: 'B', air_date: '2026-02-01' }
+  ];
+  var view = viewsOf({ 'h:21Fallout': { percent: 100, updated: 1 } });
+
+  var found = progress.serialProgress(movie, view, HASH, list, new Date(2026, 1, 5, 23, 50));
+  assert.equal(found.episode, 2, '5 февраля серия от 1 февраля уже вышла');
+  assert.equal(progress.serialProgress(movie, view, HASH, list, new Date(2026, 0, 15)), null, '15 января — ещё нет');
+  /* День выхода считается вышедшим — как aired в episodeState. */
+  assert.ok(progress.serialProgress(movie, view, HASH, list, new Date(2026, 1, 1, 0, 5)));
 });
 
 test('serialProgress: досмотрен весь сезон -> null (следующей серии в данных нет)', () => {

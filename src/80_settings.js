@@ -202,7 +202,8 @@
       Lampa.SettingsApi.addParam({
         component: PLUGIN,
         param: { name: PLUGIN + '_progress', type: 'trigger', 'default': true },
-        field: { name: LC.lang('lumen_card_progress_name') }
+        field: { name: LC.lang('lumen_card_progress_name') },
+        onChange: onlyWithoutStorage(function () { LC.applyProgressPref(); })
       });
 
       Lampa.SettingsApi.addParam({
@@ -308,6 +309,9 @@
         if (e.name === 'lumen_trailer') { LC.applyTrailerPref(); return; }
         if (e.name.indexOf(PLUGIN + '_') !== 0) return;
         if (e.name === PLUGIN + '_fonts') LC.injectFonts();
+        /* Ревью Task 8 (п.3): классы и CSS-переменную подписи кнопки ставит
+           рендер, а не таблица стилей — одного injectCss() здесь мало. */
+        if (e.name === PLUGIN + '_progress') LC.applyProgressPref();
         LC.injectCss();
       });
       LC.storageFollowed = true;

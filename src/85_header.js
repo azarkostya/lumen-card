@@ -220,9 +220,11 @@
      приходит переменной на корне карточки. В строке CSS кавычка и обратный
      слэш обязаны быть экранированы — иначе название серии вида «Он сказал
      "да"» оборвёт значение на первой же кавычке и правило станет невалидным.
-     Перевод строки в значении тоже недопустим — заменяем пробелом. */
+     Перевод строки в значении тоже недопустим — заменяем пробелом. Ревью
+     Task 8 (п.6): в CSS «newline» — это не только CR/LF, но и form feed
+     (U+000C), он тоже обрывает строковый литерал. */
   function cssString(text) {
-    return '"' + ('' + text).replace(/[\\"]/g, '\\$&').replace(/[\r\n]+/g, ' ') + '"';
+    return '"' + ('' + text).replace(/[\\"]/g, '\\$&').replace(/[\r\n\f]+/g, ' ') + '"';
   }
 
   /* Пустая подпись — снимаем и класс, и переменную (а с ней и пустой
@@ -271,7 +273,7 @@
     var found = null;
     if (on) {
       found = isSerial(movie)
-        ? LC.progress.serialProgress(movie, timelineView, utilsHash, episodes)
+        ? LC.progress.serialProgress(movie, timelineView, utilsHash, episodes, new Date())
         : LC.progress.movieProgress(movie, timelineView, utilsHash);
     }
     if (!found || !found.view) {
@@ -311,6 +313,30 @@
       var info = this.lumenProgress;
       if (info) renderProgress($(this), info.movie, info.episodes);
     });
+  }
+
+  /* Ревью Task 8 (п.2): события Timeline приходят не только от плеера — при
+     синхронизации CUB Account прогоняет update по всему changelog, а сокет шлёт
+     их на каждое сообщение. Перерисовка обходит ВСЕ карточки в DOM (Lampa
+     держит историю), и у карточки, чей последний сезон не тронут, работает
+     scanAll: 10 сезонов × 30 серий = 300 пар hash()+view(). Пачка из 200
+     записей превратилась бы в десятки тысяч синхронных вызовов — заметный фриз
+     на Android TV. Поэтому события коалесцируются: первое ставит таймер,
+     остальные схлопываются в него, перерисовка одна. Настройку и первичную
+     отрисовку это не задерживает — они зовут refreshProgress напрямую. */
+  var PROGRESS_DEBOUNCE = 300;
+  var progress_timer = null;
+
+  function scheduleProgressRefresh() {
+    if (progress_timer) return;
+    progress_timer = setTimeout(function () {
+      progress_timer = null;
+      try {
+        refreshProgress();
+      } catch (e) {
+        warn('progress refresh failed', e);
+      }
+    }, PROGRESS_DEBOUNCE);
   }
 
   function renderCast(root, data) {
@@ -400,10 +426,17 @@
       chip.append('<div class="lumen-next-chip__short"></div>');
       short = chip.find('.lumen-next-chip__short');
     }
-    short.text('· ' + LC.cardinfo.shortDate(movie.next_episode_to_air.air_date, monthsShort()));
+    /* Ревью Task 8 (п.7): нераспознанная дата дала бы голое «· ». */
+    var date = LC.cardinfo.shortDate(movie.next_episode_to_air.air_date, monthsShort());
+    short.text(date ? '· ' + date : '');
 
     chip.removeClass('hide');
-    root.addClass('lumen-card--nextchip');
+    /* Ревью Task 8 (п.4): класс срезает левый край чипа под карту статуса — но
+       .full-start__status Lampa показывает только при непустом movie.status.
+       Без статуса срезать нечего, иначе чип «· 17 дек» остался бы в сжатой
+       шапке без левой границы, скругления и точки-маркера. */
+    var status = root.find('.full-start__status');
+    if (status.length && !status.hasClass('hide')) root.addClass('lumen-card--nextchip');
   }
 
   var EPISODE_STATES = 'lumen-episode--watched lumen-episode--watching lumen-episode--aired lumen-episode--soon';
@@ -505,7 +538,13 @@
   /* Класс состояния + внутренность; возвращает состояние. Сам узел не
      пересоздаётся — фокус Navigator и класс .focus переживают перерисовку.
      Ревью п.8: если состояние, процент и остаток те же, innerHTML не трогаем
-     вовсе (Lampa шлёт update таймлайна каждые несколько секунд проигрывания). */
+     вовсе (Lampa шлёт update таймлайна каждые несколько секунд проигрывания).
+     Ревью Task 8 (п.5): view.time в подпись СОЗНАТЕЛЬНО не входит, поэтому
+     таймкод сжатой шапки («18:40 / 58:12») догоняет реальное время только со
+     сменой целого процента — у 58-минутной серии это раз в ~35 с. Размен в
+     пользу тишины: время в подписи означало бы полную пересборку innerHTML
+     карточки на каждое событие таймлайна, а их присылает пачками ещё и
+     синхронизация CUB (см. коалесценцию в scheduleProgressRefresh). */
   function paintEpisode(node, ep, hash, now, months) {
     var view = hash ? timelineView(hash) : null;
     var st = LC.progress.episodeState(view, ep.air_date, now, ep.runtime);
@@ -828,4 +867,10 @@
     try { bindEpisodes(root); } catch (e) { warn('episodes bind failed', e); }
   }
 
-  LC.header = { decorate: decorate, descr: renderDescrRow, refreshEpisode: refreshEpisode, refreshProgress: refreshProgress };
+  LC.header = {
+    decorate: decorate,
+    descr: renderDescrRow,
+    refreshEpisode: refreshEpisode,
+    refreshProgress: refreshProgress,
+    scheduleProgressRefresh: scheduleProgressRefresh
+  };

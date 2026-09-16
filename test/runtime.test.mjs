@@ -74,8 +74,8 @@ test('Task 5c/8: LC.followTimeline — одна подписка на update: х
   globalThis.Lampa = Lampa;
   try {
     const hashes = [];
-    let refreshed = 0;
-    LC.header = { refreshEpisode(h) { hashes.push(h); }, refreshProgress() { refreshed++; } };
+    let scheduled = 0;
+    LC.header = { refreshEpisode(h) { hashes.push(h); }, scheduleProgressRefresh() { scheduled++; } };
     LC.followTimeline();
     LC.followTimeline();
     assert.equal(follows.length, 1);
@@ -85,14 +85,34 @@ test('Task 5c/8: LC.followTimeline — одна подписка на update: х
     follows[0].fn({});
     assert.deepEqual(hashes, ['908552078']);
     /* Строке «Продолжить» хэш записи не нужен — карточка сама решает, какую
-       серию продолжать, по всем своим данным; поэтому она пересобирается на
-       каждое событие, в том числе на пустое. */
-    assert.equal(refreshed, 3);
+       серию продолжать, по всем своим данным; поэтому перерисовка ставится на
+       каждое событие, в том числе на пустое. Ревью Task 8 (п.2): подписка
+       зовёт КОАЛЕСЦИРУЮЩУЮ обёртку — пачка событий синхронизации CUB схлопы-
+       вается в одну перерисовку (сам дебаунс проверяет header.test.mjs). */
+    assert.equal(scheduled, 3);
     assert.deepEqual(warnLog, []);
   } finally {
     globalThis.window = prevWindow;
     globalThis.Lampa = prevLampa;
   }
+});
+
+/* Ревью Task 8 (п.3): настройки Lampa открываются активностью ПОВЕРХ карточки
+   и при возврате не шлют ни 'full', ни complite — без своего apply*Pref
+   переключатель «Показывать «Продолжить»» не действовал бы до переоткрытия. */
+test('Task 8: LC.applyProgressPref перерисовывает строку немедленно, мимо дебаунса', () => {
+  const LC = freshLC();
+  let immediate = 0, scheduled = 0;
+  LC.header = { refreshProgress() { immediate++; }, scheduleProgressRefresh() { scheduled++; } };
+
+  LC.applyProgressPref();
+  assert.equal(immediate, 1);
+  assert.equal(scheduled, 0, 'реакция на действие пользователя не ждёт 300 мс');
+  assert.deepEqual(warnLog, []);
+
+  LC.header = { refreshProgress() { throw new Error('bang'); } };
+  LC.applyProgressPref();
+  assert.equal(warnLog.length, 1, 'исключение не всплывает наружу');
 });
 
 /* ====================================================================== */
