@@ -366,23 +366,47 @@ test('buildCss: .lumen-facts — сетка «лейбл/значение» auto
   assert.ok(grid.indexOf('grid-template-columns:auto 1fr') !== -1, '§10: grid-template-columns:auto 1fr');
 });
 
-test('buildCss: лейбл и значение таблицы — 18px (.79em), лейбл smoke, значение 500 и text', () => {
+/* Правка пользователя 2026-09-16 (отступление от §10, зафиксировано в
+   docs/design/design-spec-card.md): ряд описания лежит поверх кадра, и на
+   светлом бэкдропе подписи цветом smoke не читались (2.06:1 к пикселю кадра).
+   Подписи подняты до muted, кегль — до 20px, у блока своя подложка. */
+test('правка 2026-09-16: лейбл и значение таблицы — не мельче 20px (.88em), лейбл muted, значение 500 и text', () => {
   const label = findDecl(css, (sel) => sel === '.lumen-descr-row .lumen-facts__label');
   const value = findDecl(css, (sel) => sel === '.lumen-descr-row .lumen-facts__value');
   assert.ok(label && value, 'правила лейбла/значения не найдены');
-  assert.ok(label.indexOf('font-size:.79em') !== -1, 'лейбл 18px = .79em');
-  assert.ok(label.indexOf('#7A6A5A') !== -1, 'лейбл — smoke');
-  assert.ok(value.indexOf('font-size:.79em') !== -1, 'значение 18px = .79em');
+
+  const size = (decl) => parseFloat(/font-size:([\d.]+)em/.exec(decl)[1]);
+  assert.ok(size(label) >= 0.877, 'лейбл не мельче 20px (.877em), сейчас ' + size(label) + 'em');
+  assert.ok(size(value) >= 0.877, 'значение не мельче 20px (.877em), сейчас ' + size(value) + 'em');
+
+  assert.ok(label.indexOf('#7A6A5A') === -1, 'лейбл больше не smoke — на светлом кадре не читался');
+  assert.ok(label.indexOf('#A89A8A') !== -1, 'лейбл — muted');
   assert.ok(value.indexOf('font-weight:500') !== -1, 'значение — 500');
   assert.ok(value.indexOf('#F3EDE4') !== -1, 'значение — text');
 });
 
-test('buildCss: заголовок «ПОДРОБНО» — 16px (.70em) mono, letter-spacing .14em, smoke', () => {
+test('правка 2026-09-16: заголовок «ПОДРОБНО» — mono, letter-spacing .14em, muted, не мельче 18px', () => {
   const title = findDecl(css, (sel) => sel === '.lumen-descr-row .lumen-facts__title');
   assert.ok(title, 'правило заголовка таблицы не найдено');
-  assert.ok(title.indexOf('font-size:.70em') !== -1, 'заголовок 16px = .70em');
+  assert.ok(parseFloat(/font-size:([\d.]+)em/.exec(title)[1]) >= 0.79, 'заголовок не мельче 18px = .79em');
   assert.ok(title.indexOf('letter-spacing:.14em') !== -1);
-  assert.ok(title.indexOf('#7A6A5A') !== -1);
+  assert.ok(title.indexOf('#7A6A5A') === -1, 'заголовок больше не smoke');
+  assert.ok(title.indexOf('#A89A8A') !== -1, 'заголовок — muted');
+});
+
+test('правка 2026-09-16: у .lumen-facts своя подложка, рамка и радиус; под рядом описания — локальная вуаль', () => {
+  const panel = findDecl(css, (sel) => sel === '.lumen-descr-row .lumen-facts');
+  assert.ok(panel, 'правило .lumen-facts не найдено');
+  assert.ok(/background:rgba\(11,9,8,\.85\)/.test(panel), 'нет собственной подложки блока: ' + panel);
+  assert.ok(panel.indexOf('border:.04em solid #2C231D') !== -1, 'нет тонкой рамки line');
+  assert.ok(panel.indexOf('border-radius:.61em') !== -1, 'радиус как у соседних блоков');
+  assert.ok(/(^|;)padding:/.test(panel), 'нет внутренних отступов — текст упрётся в рамку');
+  assert.ok(panel.indexOf('box-sizing:border-box') !== -1, 'паддинг не должен раздувать min-width 450px');
+  /* Блюр на ТВ дорог — подложка строго плоская. */
+  assert.ok(panel.indexOf('backdrop-filter') === -1, 'backdrop-filter запрещён (дорог для ТВ)');
+
+  const row = findDecl(css, (sel) => sel === '.lumen-descr-row');
+  assert.ok(row && /background:rgba\(11,9,8,/.test(row), 'нет локальной вуали под рядом описания');
 });
 
 test('buildCss: полное описание в ряду — 24px/1.45 (1.05em), колонка 980px (42.96em), таблица справа', () => {
@@ -436,9 +460,15 @@ test('buildCss: у обеих сеток display:flex объявлен рань�
 test('buildCss: у сетки таблицы есть старые grid-row-gap/grid-column-gap (Chrome 57-65: webOS 4, Tizen 3/4)', () => {
   const grid = findDecl(css, (sel) => sel === '.lumen-descr-row .lumen-facts__grid');
   assert.ok(grid, 'правило сетки не найдено');
-  assert.ok(grid.indexOf('grid-row-gap:.44em') !== -1, 'нет старого grid-row-gap');
-  assert.ok(grid.indexOf('grid-column-gap:1.05em') !== -1, 'нет старого grid-column-gap');
-  assert.ok(grid.indexOf('row-gap:.44em') !== -1 && grid.indexOf('column-gap:1.05em') !== -1, 'нет современных row-gap/column-gap');
+  /* Значения ритма — предмет вкусовых правок (правка 2026-09-16 сжала row-gap
+     под больший кегль), поэтому тест проверяет ПРИНЦИП: у каждой современной
+     записи есть старая с тем же значением, иначе на Chrome 57-65 таблица
+     поедет вплотную. */
+  const rowGap = /(^|;)row-gap:([\d.]+em)/.exec(grid);
+  const colGap = /(^|;)column-gap:([\d.]+em)/.exec(grid);
+  assert.ok(rowGap && colGap, 'нет современных row-gap/column-gap');
+  assert.ok(grid.indexOf('grid-row-gap:' + rowGap[2]) !== -1, 'нет старого grid-row-gap со значением ' + rowGap[2]);
+  assert.ok(grid.indexOf('grid-column-gap:' + colGap[2]) !== -1, 'нет старого grid-column-gap со значением ' + colGap[2]);
   assert.equal(grid.indexOf('-webkit-column-gap'), -1, '-webkit-column-gap — это multicol, в grid не работает');
 });
 

@@ -56,6 +56,12 @@
      не зависит от темы, поэтому переводится в rgb один раз при загрузке модуля. */
   var SPICE_RGB = hexToRgb(C.spice);
 
+  /* Правка пользователя 2026-09-16: фон приложения в rgb — из него делаются
+     полупрозрачные подложки блоков, которые лежат ПОВЕРХ кадра (ряд описания).
+     Цвет тот же, что у страницы, поэтому над тёмной областью подложка не видна
+     вовсе и проявляется ровно там, где под блок подтекает светлый бэкдроп. */
+  var BG_RGB = hexToRgb(C.bg);
+
   var FONT_DISPLAY_ON = '"Unbounded","Arial Black",Impact,sans-serif';
   var FONT_BODY_ON = '"Golos Text","Segoe UI",Roboto,Arial,sans-serif';
   var FONT_MONO_ON = '"JetBrains Mono",Consolas,"Courier New",monospace';
@@ -451,6 +457,13 @@
        items_line, если блок отзывов Task 9 соберут внутри .full-descr — тот
        молча остался бы без заголовка. */
     css.push('.lumen-descr-row > .items-line__head{display:none}');
+    /* Правка пользователя 2026-09-16: локальная вуаль под рядом описания.
+       Вуали шапки (§12) кончаются вместе со слоем фона, а ряд описания
+       заезжает прокруткой на ещё светлый кадр — на нём не читались ни само
+       описание, ни заголовок ряда отзывов. Цвет ровно фоновый, поэтому над
+       тёмной областью вуаль невидима и проявляется только поверх кадра.
+       Шапку намеренно НЕ трогаем: её вуали согласованы с дизайном. */
+    css.push('.lumen-descr-row{background:rgba(' + BG_RGB + ',.9)}');
     css.push('.lumen-descr-row .full-descr{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:start;-webkit-align-items:flex-start;align-items:flex-start;-webkit-flex-wrap:wrap;flex-wrap:wrap}');
     css.push('.lumen-descr-row .full-descr__left{-webkit-box-flex:1;-webkit-flex:1 1 auto;flex:1 1 auto;min-width:0;margin-right:3.51em}');
     /* Ревью Task 5d (п.1): у Lampa на .full-descr__text висят max-height (70vh,
@@ -473,8 +486,25 @@
        типовом тексте, а не буквального max-height:none. */
     css.push('.lumen-descr-row .full-descr__text{font-family:' + FB + ';font-weight:400;font-size:1.05em;line-height:1.45;color:' + C.text + ';max-width:42.96em;width:auto;max-height:70vh;-webkit-mask-image:none;mask-image:none}');
     css.push('.lumen-descr-row .full-descr__details{display:none}');
-    css.push('.lumen-descr-row .lumen-facts{-webkit-flex-shrink:0;flex-shrink:0;min-width:19.73em;max-width:100%}');
-    css.push('.lumen-descr-row .lumen-facts__title{font-family:' + FM + ';font-weight:600;font-size:.70em;line-height:1;letter-spacing:.14em;color:' + C.smoke + ';margin-bottom:.88em}');
+    /* --- Правка пользователя 2026-09-16 (осознанное отступление от §10) ---
+       §10 задаёт подписи таблицы цветом smoke, рассчитывая на тёмный фон. Но
+       ряд описания лежит ПОВЕРХ кадра: у светлого бэкдропа («Дюна» — оранжевая
+       пустыня) подписи практически сливались с фоном — замеренный контраст
+       smoke #7A6A5A к пикселю кадра #E08A3C всего 2.06:1, на ТВ с трёх метров
+       читать нечем. Поэтому здесь:
+         1) у блока своя плотная подложка с рамкой и радиусом соседних карт.
+            Без backdrop-filter — блюр на ТВ дорог (то же решение, что у пилюли
+            предзагрузки в Task 32);
+         2) подписи и заголовок подняты smoke -> muted;
+         3) кегль .79em -> .88em (20px) — правило проекта «приглушённый текст
+            не мельче 20px», уже применённое на экранах TorrServer.
+       Контраст подписи muted #A89A8A к подложке: 7.2:1 поверх вуали ряда (любой
+       кадр) и 4.9:1 в худшем случае голого белого кадра — обе цифры выше порога
+       4.5:1, целевые 7:1 достигаются в реальной раскладке. Значения остаются
+       text #F3EDE4 (17:1). Чтобы блок не распух от большего кегля, вертикальный
+       ритм сжат: row-gap .44 -> .35em, отступ заголовка .88 -> .79em. */
+    css.push('.lumen-descr-row .lumen-facts{-webkit-box-sizing:border-box;box-sizing:border-box;-webkit-flex-shrink:0;flex-shrink:0;min-width:19.73em;max-width:100%;padding:.79em 1.05em;border-radius:.61em;background:rgba(' + BG_RGB + ',.85);border:.04em solid ' + C.line + '}');
+    css.push('.lumen-descr-row .lumen-facts__title{font-family:' + FM + ';font-weight:600;font-size:.79em;line-height:1;letter-spacing:.14em;color:' + C.muted + ';margin-bottom:.79em}');
     /* Сетка: display:flex — база и фолбэк (webOS 3 / старые Tizen не знают
        grid и оставят последнее валидное значение), display:grid следующей
        декларацией переопределяет её там, где grid есть — тот же приём, что у
@@ -487,14 +517,18 @@
        вовсе. display:-ms-grid снят (Minor 2): без -ms-grid-columns старый
        Edge/IE сложил бы все ячейки в одну клетку 1×1 — внахлёст, что заметно
        хуже честного flex-фолбэка строкой выше. */
-    css.push('.lumen-descr-row .lumen-facts__grid{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;display:grid;grid-template-columns:auto 1fr;grid-row-gap:.44em;grid-column-gap:1.05em;row-gap:.44em;column-gap:1.05em}');
-    css.push('.lumen-descr-row .lumen-facts__label{font-family:' + FB + ';font-weight:400;font-size:.79em;line-height:1.3;color:' + C.smoke + '}');
-    css.push('.lumen-descr-row .lumen-facts__value{font-family:' + FB + ';font-weight:500;font-size:.79em;line-height:1.3;color:' + C.text + '}');
+    css.push('.lumen-descr-row .lumen-facts__grid{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;display:grid;grid-template-columns:auto 1fr;grid-row-gap:.35em;grid-column-gap:1.05em;row-gap:.35em;column-gap:1.05em}');
+    /* Колонка подписей — auto, то есть по ширине самой длинной («Режиссёр»);
+       white-space:nowrap не даёт ей ломаться и расшатывать выравнивание.
+       Значению — min-width:0 и перенос по словам: длинный список жанров
+       переносится внутри своей колонки, а не растягивает сетку «лесенкой». */
+    css.push('.lumen-descr-row .lumen-facts__label{font-family:' + FB + ';font-weight:400;font-size:.88em;line-height:1.3;color:' + C.muted + ';white-space:nowrap}');
+    css.push('.lumen-descr-row .lumen-facts__value{font-family:' + FB + ';font-weight:500;font-size:.88em;line-height:1.3;color:' + C.text + ';min-width:0;word-wrap:break-word;overflow-wrap:break-word}');
     /* Без grid row-gap/column-gap не работают, а пары «лейбл/значение» не знают,
        где кончается строка: лейбл получает фиксированную колонку, значение
        занимает остаток строки и переносит следующую пару. em здесь считаются
        от собственных 18px ячеек: 24px = 1.33em, 10px = .56em. */
-    css.push('@supports not (display:grid){.lumen-descr-row .lumen-facts__label{width:7em;margin:0 1.33em .56em 0}.lumen-descr-row .lumen-facts__value{-webkit-box-flex:1;-webkit-flex:1 1 auto;flex:1 1 auto;min-width:0;margin-bottom:.56em}}');
+    css.push('@supports not (display:grid){.lumen-descr-row .lumen-facts__label{width:6.3em;margin:0 1.2em .5em 0}.lumen-descr-row .lumen-facts__value{-webkit-box-flex:1;-webkit-flex:1 1 auto;flex:1 1 auto;min-width:0;margin-bottom:.5em}}');
 
     /* --- Task 9: ряд отзывов Кинопоиска (экран 07), подсказка без ключа
        (экран 13, панель 2) и модал отзыва (экран 08). px ÷ 22.811 ---
