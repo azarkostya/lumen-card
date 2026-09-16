@@ -856,6 +856,26 @@ body {
        (экран 13). Сеть подменена моком Reguest — реальный ключ не нужен. */
     function runReviewChecks(descr) {
         var out = ['<div><b>Отзывы Кинопоиска (Task 9)</b></div>'];
+
+        /* Ревью фазы 1 (DEF-01): на выключенном плагине проверки отзывов
+           пропускаются целиком. Причина — в двух прямых вызовах
+           window.lumen_card.reviews.render() ниже: это инструмент СТЕНДА, а не
+           путь плагина. LC.reviews.render читает только lumen_reviews и
+           lumen_kp_key и про главный выключатель lumen_enabled не знает, потому
+           что штатно его зовут лишь из подписки 'full' и LC.applyReviewsPref —
+           обе закрыты гейтом activated. Здесь же он звался напрямую и возвращал
+           .lumen-reviews в .full-descr, который выключатель только что раздел
+           (порядок в toggleBtn: Storage.set -> deactivate/stripAllCards ->
+           render() -> через 30 мс runReviewChecks). Приёмка фазы 1 приняла
+           именно это за дефект уборки; в живой Lampa узел снимается корректно —
+           проверено на «Дюне» (693134): после lumen_enabled='false' в DOM ноль
+           .lumen-reviews, .lumen-facts, .lumen-progress и .lumen-descr-row. */
+        if (!L.Storage.get('lumen_enabled', true)) {
+            out.push('<div class="hint">плагин выключен — проверки отзывов пропущены (стенд не должен дорисовывать ряд в обход выключателя)</div>');
+            document.getElementById('checks').innerHTML += out.join('');
+            return;
+        }
+
         function check(ok, text) {
             out.push('<div class="' + (ok ? 'ok' : 'fail') + '">' + (ok ? 'OK  ' : 'FAIL') + ' ' + text + '</div>');
         }

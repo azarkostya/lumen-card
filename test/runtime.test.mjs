@@ -438,7 +438,9 @@ function initLC(opts) {
      позвали снимать слой фона и незавершённый запрос отзывов, сколько раз
      перерисовали актёров. */
   const timelines = [];
-  const extra = { added: [], bgCancel: [], reviewCancel: [], cast: 0, css: 0 };
+  /* noty — что плагин показал пользователю через Lampa.Noty (единственное
+     сообщение плагина: неподдерживаемая сборка Lampa, ревью фазы 1 M2). */
+  const extra = { added: [], bgCancel: [], reviewCancel: [], cast: 0, css: 0, noty: [] };
   const Lampa = {
     Template: {
       all: () => ({ full_start_new: '<div>orig</div>' }),
@@ -457,6 +459,7 @@ function initLC(opts) {
     Controller: { listener: { follow: (name, fn) => { if (name === 'toggle') toggles.push(fn); } } },
     Storage: { field: (name) => storage[name], get: (name, def) => (name in storage ? storage[name] : def) },
     Platform: { screen: () => false },
+    Noty: { show: (msg) => extra.noty.push(msg) },
     Timeline: { listener: { follow: (name, fn) => { if (name === 'update') timelines.push(fn); } } }
   };
   globalThis.Lampa = Lampa;
@@ -468,7 +471,13 @@ function initLC(opts) {
   loadInto(LC, module, '80_settings.js');
   loadInto(LC, module, '81_prefs.js');
   loadInto(LC, module, '90_runtime.js');
-  LC.template = { build: () => '<div class="lumen-card"></div>', assert: () => ({ ok: true, missingInOurs: [] }) };
+  /* templateUnsupported моделирует сборку Lampa, чей штатный шаблон не проходит
+     assert (не хватает обязательных классов/языковых ключей): плагин обязан
+     оставить шаблон Lampa в покое и сказать об этом пользователю. */
+  LC.template = {
+    build: () => '<div class="lumen-card"></div>',
+    assert: () => (opts.templateUnsupported ? { ok: false, missingInOurs: ['lumen-card'] } : { ok: true, missingInOurs: [] })
+  };
   LC.injectFonts = () => { };
   /* Ревью Task 11 (Important): счётчик нужен, чтобы откат неудачной подмены
      шаблона проверялся ЦЕЛИКОМ. Без него тесты не замечали потерю return
@@ -1298,4 +1307,141 @@ test('долг Task 11: push вглубь (start ещё не построенн�
   assert.equal(ctrlA.destroyCalls, 0);
   assert.equal(LC.active.object, objA, 'LC.active по-прежнему указывает на неё');
   assert.deepEqual(warnLog, []);
+});
+
+/* ====================================================================== */
+/* Ревью фазы 1 (I2): осиротевшая карточка освобождалась наполовину.      */
+/*                                                                        */
+/* Ветка 'destroy' ЧУЖОЙ активности звала только LC.backdrops.cancel,      */
+/* тогда как своя (LC.destroyActive) освобождает и фон, и незавершённый    */
+/* запрос отзывов. Lampa шлёт destroy чужой активности при вытеснении по   */
+/* лимиту истории maxsave — это регулярный путь, а не экзотика; запрос     */
+/* отзывов при этом живёт до таймаута 8 с и держит замыканием holder/row   */
+/* уже уничтоженной карточки (инвариант 0.3 п.5).                          */
+/* ====================================================================== */
+
+test('I2: destroy осиротевшей карточки снимает и слой фона, и незавершённый запрос отзывов', () => {
+  const LC = freshLC();
+  const cancels = [];
+  const reviewCancels = [];
+  LC.backdrops = { apply: () => null, cancel: (b) => cancels.push(b), revive: () => null };
+  LC.reviews = { render: () => { }, clearRow: () => { }, cancel: (b) => reviewCancels.push(b) };
+
+  const objA = makeActivityObj('A', true, makeCtrl());
+  const objC = makeActivityObj('C', true, makeCtrl());
+  LC.active = {
+    object: objC, body: objC.activity.render().find('.lumen-backdrop').parent(),
+    slideshow: null, trailer: null, data: null
+  };
+
+  const bodyA = objA.activity.render().find('.lumen-backdrop').parent();
+  LC.onActivityEvent({ type: 'destroy', component: 'full', object: objA });
+
+  assert.deepEqual(cancels, [bodyA], 'слой фона осиротевшей карточки снят');
+  assert.deepEqual(reviewCancels, [bodyA],
+    'её запрос отзывов снимается тем же телом активности — cancel ищет body.find(".full-descr")');
+  assert.equal(LC.active.object, objC, 'текущая карточка не тронута');
+  assert.deepEqual(warnLog, []);
+});
+
+test('I2: у осиротевшей карточки без слоя не зовётся ни один cancel', () => {
+  const LC = freshLC();
+  const cancels = [];
+  const reviewCancels = [];
+  LC.backdrops = { apply: () => null, cancel: (b) => cancels.push(b), revive: () => null };
+  LC.reviews = { render: () => { }, clearRow: () => { }, cancel: (b) => reviewCancels.push(b) };
+  LC.active = { object: makeActivityObj('C', true, makeCtrl()), body: {}, slideshow: null };
+
+  LC.onActivityEvent({ type: 'destroy', component: 'full', object: makeActivityObj('Other', false, null) });
+
+  assert.deepEqual(cancels, []);
+  assert.deepEqual(reviewCancels, [],
+    'без слоя тела активности взять неоткуда — второго способа его искать не заводим');
+  assert.deepEqual(warnLog, []);
+});
+
+/* ====================================================================== */
+/* Ревью фазы 1 (M1): слайдшоу под играющим трейлером.                    */
+/*                                                                        */
+/* applySlideshowPref делал pause()+resume(), не глядя на трейлер: смена   */
+/* настройки слайдшоу во время ролика поднимала ротацию кадров ПОД ним —   */
+/* загрузка w1280 и кроссфейд в фон играющего iframe.                      */
+/*                                                                        */
+/* Признак «трейлер активен» берётся тот же, что у LC.trailer.stopActive — */
+/* поле LC.active.trailer, — и с той же проверкой живости контроллера,     */
+/* что у liveSlideshow(): доигравший до конца ролик поле НЕ обнуляет       */
+/* (обнуляет только stopActive), поэтому одного `if (trailer)` мало.       */
+/* ====================================================================== */
+
+test('M1: applySlideshowPref не поднимает кадры под играющим трейлером, но паузу ставит', () => {
+  const { LC } = initLC({ storage: { lumen_slideshow: 'true' } });
+  const slideshow = makeCtrl();
+  LC.active = {
+    object: {}, body: EMPTY, slideshow: slideshow,
+    trailer: { destroy() { }, isAlive: () => true }, data: null
+  };
+
+  LC.applySlideshowPref();
+  assert.equal(slideshow.pauseCalls, 1, 'пауза ставится всегда — «выключили слайдшоу» обязано сработать и под роликом');
+  assert.equal(slideshow.resumeCalls, 0, 'под играющим роликом кадры не крутим');
+
+  /* Ролик доиграл сам (player -> kill -> onEnd -> cleanup): alive стал false,
+     но LC.active.trailer всё ещё указывает на мёртвый контроллер. */
+  LC.active.trailer = { destroy() { }, isAlive: () => false };
+  LC.applySlideshowPref();
+  assert.equal(slideshow.pauseCalls, 2);
+  assert.equal(slideshow.resumeCalls, 1, 'трейлер мёртв — ротация возвращается');
+  assert.deepEqual(warnLog, []);
+});
+
+test('M1: без трейлера поведение прежнее — включено резюмирует, выключено только паузит', () => {
+  const storage = {};
+  const { LC } = initLC({ storage });
+  const slideshow = makeCtrl();
+  LC.active = { object: {}, body: EMPTY, slideshow: slideshow, trailer: null, data: null };
+
+  LC.applySlideshowPref();
+  assert.equal(slideshow.resumeCalls, 1);
+
+  storage.lumen_slideshow = 'false';
+  LC.applySlideshowPref();
+  assert.equal(slideshow.pauseCalls, 2);
+  assert.equal(slideshow.resumeCalls, 1, 'выключенное слайдшоу остаётся на текущем кадре');
+  assert.deepEqual(warnLog, []);
+});
+
+/* ====================================================================== */
+/* Ревью фазы 1 (M2): единственное сообщение плагина пользователю.        */
+/*                                                                        */
+/* «Lumen Card: версия Lampa не поддерживается» было зашито литералом      */
+/* прямо в вызов Noty.show — и всегда по-русски, в том числе в en/uk       */
+/* интерфейсе. Теперь строка живёт в LC.STRINGS (ru/en/uk) и проходит      */
+/* через LC.lang, у которого есть собственный фолбэк на словарь, если      */
+/* Lampa.Lang не поднялся (в этом окружении его translate и нет).          */
+/* ====================================================================== */
+
+test('M2: сообщение о неподдерживаемой сборке Lampa берётся из LC.STRINGS, а не из литерала', () => {
+  /* Проверяем именно ВЫЗОВ, а не текст файла целиком: сама фраза законно
+     остаётся в комментариях рантайма, которые объясняют ветку неподдерживаемой
+     сборки (в этом проекте комментарии несут вес документации). Дефект, от
+     которого защищаемся, — строковый литерал в Noty.show: любое сообщение
+     пользователю обязано идти через LC.lang. */
+  const src = readFileSync(new URL('../src/90_runtime.js', import.meta.url), 'utf8');
+  assert.equal(/Noty\.show\(\s*['"]/.test(src), false,
+    'Lampa.Noty.show обязан получать строку из LC.lang, а не литерал');
+
+  const ru = initLC({ templateUnsupported: true });
+  assert.deepEqual(ru.extra.noty, [ru.LC.STRINGS.lumen_card_unsupported.ru]);
+  /* В этой ветке Lampa.Template.add не зовётся ВООБЩЕ: init выходит раньше, чем
+     наш шаблон попадёт в our_template и в activate(), — штатный шаблон даже не
+     трогали, и восстанавливать нечего. Это не то же самое, что ветка «add
+     бросил исключение» (тест Task 11 Step 2 выше), где оригинал возвращают явно. */
+  assert.deepEqual(ru.extra.added, [], 'штатный шаблон Lampa не подменяется вовсе');
+  assert.equal(warnLog.length, 1, 'причина отказа по-прежнему уходит в warn');
+
+  const en = initLC({ templateUnsupported: true, storage: { language: 'en' } });
+  assert.deepEqual(en.extra.noty, [en.LC.STRINGS.lumen_card_unsupported.en]);
+  assert.notEqual(en.extra.noty[0], en.LC.STRINGS.lumen_card_unsupported.ru,
+    'в en-интерфейсе пользователь не должен получать русскую строку');
+  warnLog.length = 0;
 });

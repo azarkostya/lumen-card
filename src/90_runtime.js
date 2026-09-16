@@ -409,7 +409,18 @@
 
       if (e.type === 'destroy') {
         var orphanLayer = layerOf(e.object);
-        if (orphanLayer && orphanLayer.length) LC.backdrops.cancel(orphanLayer.parent());
+        if (orphanLayer && orphanLayer.length) {
+          /* Ревью фазы 1 (I2): осиротевшая карточка освобождается ТАК ЖЕ, как
+             своя в LC.destroyActive, — не только фон. Lampa шлёт destroy чужой
+             активности при вытеснении по лимиту истории maxsave, то есть это
+             регулярный путь, а не экзотика; незавершённый запрос отзывов иначе
+             живёт до таймаута 8 с и держит замыканием holder/row уже
+             уничтоженной карточки (инвариант 0.3 п.5). Тела активности
+             достаточно: cancel() ищет состояние по body.find('.full-descr'). */
+          var orphanBody = orphanLayer.parent();
+          LC.backdrops.cancel(orphanBody);
+          LC.reviews.cancel(orphanBody);
+        }
         return;
       }
 
@@ -495,6 +506,18 @@
     try {
       if (!LC.active || !LC.active.slideshow) return;
       LC.active.slideshow.pause();
+      /* Ревью фазы 1 (M1): под играющим роликом кадры не поднимаем — иначе
+         смена настройки слайдшоу во время трейлера запускала бы загрузку кадра
+         w1280 и кроссфейд в фон работающего iframe. Паузу при этом ставим
+         всегда: «выключили слайдшоу» обязано сработать и под роликом. Ничего не
+         теряется и при включении — когда трейлер закончится, его cleanup()
+         сам позовёт resume(), а тот перечитает lumen_slideshow заново.
+         Признак «трейлер активен» — тот же, что у LC.trailer.stopActive (поле
+         LC.active.trailer), и с той же проверкой живости контроллера, что в
+         liveSlideshow() выше: доигравший до конца ролик поле не обнуляет (его
+         обнуляет только stopActive), поэтому одного `if (trailer)` мало. */
+      var trailer = LC.active.trailer;
+      if (trailer && (typeof trailer.isAlive !== 'function' || trailer.isAlive())) return;
       if (LC.pref('lumen_slideshow', true)) LC.active.slideshow.resume();
     } catch (e) {
       warn('slideshow pref failed', e);
@@ -698,9 +721,18 @@
          уйти в историю через Activity.push — для неё Lampa не шлёт ни destroy,
          ни archive, LC.reviews.cancel для неё не звался бы, и доехавший ответ
          вернул бы .lumen-reviews и класс lumen-descr-row--reviews на уже
-         раздетую карточку (а «назад» её не перестраивает). clearRow поднимает
-         поколение ряда, зовёт dropNet и снимает класс — поэтому он обязан
-         отработать ДО removeClass ниже, пока ряды ещё находятся по классу. */
+         раздетую карточку (а «назад» её не перестраивает).
+
+         Ревью фазы 1 (M5) — что здесь происходит на самом деле. Сам узел
+         .lumen-reviews к этому моменту УЖЕ снят циклом STRIP_NODES выше, так
+         что clearBlock() внутри clearRow удалять нечего. Ценность обхода
+         целиком в сетевой части: dropNet() снимает колбэки незавершённого
+         запроса, а state.gen++ делает доехавший ответ неактуальным для
+         generation guard в render() — без этого paintList вернул бы и блок, и
+         класс lumen-descr-row--reviews обратно на уже раздетый ряд.
+         Порядок же обязателен по чисто механической причине: ряды набираются
+         селектором .lumen-descr-row, а следующая строка этот класс снимает —
+         после неё набор оказался бы пустым. */
       var rows = $('.lumen-descr-row');
       for (i = 0; i < rows.length; i++) {
         try {
@@ -827,9 +859,27 @@
     }
   };
 
+  /* Ревью фазы 1 (I3): init идемпотентен целиком. Каждая его подписка защищена
+     своим флагом по отдельности (followToggle, followActivityLifecycle,
+     LC.followTimeline, menus.install, torrents.install), но подписка на 'full',
+     LC.addSettings и LC.followStorage такой защиты не имели. Второй вызов
+     заводил вторую подписку Listener 'full' (двойной рендер каждой карточки),
+     вторую подписку Storage 'change' и повторно регистрировал пункты раздела —
+     и каждая настройка применялась бы ДВАЖДЫ: обработчик события применяет и
+     лишь потом ставит pref_handled, а onChange съедает ровно одно повторение.
+     В vendor 3.3.4 сценарий сегодня не воспроизводится — startApp() закрыт
+     своим гардом (if (window.appready || window.app_time_launch) return), — но
+     LC.boot подписку на 'app' не снимает, а src/00_head.js страхует только от
+     повторной ЗАГРУЗКИ скрипта, не от повторного вызова init.
+     Флаг ставится ПОСЛЕ проверки Lampa: вызов, на котором Lampa ещё не готова,
+     не сделал ничего и повтору мешать не должен. */
+  var inited = false;
+
   LC.init = function () {
+    if (inited) return;
     try {
       if (!window.Lampa || !Lampa.Template || !Lampa.Listener) return;
+      inited = true;
 
       try { if (Lampa.Lang && typeof Lampa.Lang.add === 'function') Lampa.Lang.add(LC.STRINGS); } catch (e) { }
 
@@ -848,7 +898,7 @@
       if (!tpl || !check.ok) {
         warn('template not supported' + (check ? ': missing ' + check.missingInOurs.join(', ') : ' (build failed)'));
         try {
-          if (Lampa.Noty && typeof Lampa.Noty.show === 'function') Lampa.Noty.show('Lumen Card: версия Lampa не поддерживается');
+          if (Lampa.Noty && typeof Lampa.Noty.show === 'function') Lampa.Noty.show(LC.lang('lumen_card_unsupported'));
         } catch (e3) { }
         return;
       }

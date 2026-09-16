@@ -10,6 +10,17 @@
 
   LC.STRINGS = {
     lumen_card_title: { ru: 'Lumen Card', en: 'Lumen Card', uk: 'Lumen Card' },
+    /* Ревью фазы 1 (M2): единственное, что плагин говорит пользователю ВНЕ
+       раздела настроек. Показывается через Lampa.Noty, когда штатный шаблон
+       карточки не проходит assert — то есть сборка Lampa не поддерживается и
+       оформления не будет вовсе. Раньше строка была зашита литералом в
+       src/90_runtime.js и всегда по-русски, в том числе в en/uk интерфейсе.
+       LC.lang читает словарь сам, если Lampa.Lang не поднялся. */
+    lumen_card_unsupported: {
+      ru: 'Lumen Card: версия Lampa не поддерживается',
+      en: 'Lumen Card: this Lampa version is not supported',
+      uk: 'Lumen Card: версія Lampa не підтримується'
+    },
     /* Task 10 (экран 09): главный выключатель первым пунктом раздела.
        Карточку на экране плагин при выключении раздевает сразу (снимает свои
        узлы, стили и классы), но заново её рисует уже Lampa — при следующем
@@ -317,6 +328,13 @@
   };
 
   LC.followStorage = function () {
+    /* Ревью фазы 1 (I3): признак проверяется и НА ВХОДЕ, а не только ставится в
+       конце. Вторая подписка на 'change' означала бы двойное применение каждой
+       настройки: Lampa рассылает событие всем подписчикам, а pref_handled гасит
+       ровно одно повторение. Обязательная точка защиты стоит в LC.init, эта —
+       чтобы функция была идемпотентна сама по себе, как все остальные подписки
+       плагина (followToggle, followActivityLifecycle, LC.followTimeline). */
+    if (LC.storageFollowed) return;
     try {
       if (!window.Lampa || !Lampa.Storage || !Lampa.Storage.listener) return;
       Lampa.Storage.listener.follow('change', function (e) {

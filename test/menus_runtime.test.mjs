@@ -22,13 +22,16 @@ function setup(opts) {
   const log = [];
   const storage = Object.assign({ lumen_menus: 'all', lumen_torrents: 'true' }, opts.storage || {});
   const storageCbs = [];
+  /* Ревью фазы 1 (I3): подписки на Lampa.Listener 'full' считаем — второй
+     LC.init() заводил бы вторую, то есть двойной рендер каждой карточки. */
+  const fulls = [];
   const params = [];
   /* Task 10: какой шаблон карточки отдан Lampa — наш или возвращённый
      оригинал (главный выключатель lumen_enabled). */
   const added = [];
   const Lampa = {
     Template: { all: () => ({ full_start_new: '<div>orig</div>' }), add: (name, html) => added.push({ name, html }), get: () => '' },
-    Listener: { follow: () => { } },
+    Listener: { follow: (name, cb) => { if (name === 'full') fulls.push(cb); } },
     Lang: { add: () => { } },
     SettingsApi: { addComponent: () => { }, addParam: (p) => params.push(p) },
     Controller: { listener: { follow: () => { } } },
@@ -68,7 +71,7 @@ function setup(opts) {
   globalThis.$ = (sel) => (sel === 'body' ? body : EMPTY);
   opts.body = body;
   LC.active = { object: {}, body: EMPTY, data: null, slideshow: { pause: () => log.push('slide-pause'), resume: () => log.push('slide-resume') } };
-  return { LC, log, storage, storageCbs, body, params, added };
+  return { LC, log, storage, storageCbs, fulls, body, params, added };
 }
 
 /* Оборачивает настоящие методы LC счётчиками, не подменяя поведение: после
@@ -309,4 +312,54 @@ test('LC.followStorage до активации (узкая раскладка): 
   storageCbs[0]({ name: 'lumen_menus' });
   storageCbs[0]({ name: 'lumen_torrents' });
   assert.deepEqual(log, []);
+});
+
+/* ====================================================================== */
+/* Ревью фазы 1 (I3): сам LC.init идемпотентным не был.                   */
+/*                                                                        */
+/* Все его подписки защищены флагами по отдельности (followToggle,        */
+/* followActivityLifecycle, LC.followTimeline, menus.install,             */
+/* torrents.install), но не сам init, не LC.addSettings и не              */
+/* LC.followStorage (её флаг LC.storageFollowed ставился ПОСЛЕ подписки и */
+/* в начале не проверялся). Второй вызов заводил вторую подписку          */
+/* Listener 'full', вторую подписку Storage 'change' и повторно           */
+/* регистрировал пункты раздела. Цена — двойной рендер карточки и ДВОЙНОЕ */
+/* применение каждой настройки: обработчик события применяет и лишь потом */
+/* ставит pref_handled, а onChange съедает ровно одно событие.            */
+/*                                                                        */
+/* В vendor 3.3.4 сценарий сегодня не воспроизводится (startApp() закрыт   */
+/* гардом if (window.appready || window.app_time_launch) return), но       */
+/* LC.boot подписку на 'app' не снимает, а src/00_head.js страхует только  */
+/* от повторной ЗАГРУЗКИ скрипта — не от повторного вызова init.          */
+/* ====================================================================== */
+
+test('I3: повторный LC.init не заводит вторых подписок и не дублирует пункты настроек', () => {
+  const { LC, log, fulls, storageCbs, params } = setup();
+  LC.init();
+  const firstParams = params.length;
+  assert.equal(fulls.length, 1, 'первая подписка на full заведена');
+  assert.equal(storageCbs.length, 1);
+  assert.ok(firstParams > 0, 'пункты раздела зарегистрированы');
+  log.length = 0;
+
+  LC.init();
+
+  assert.equal(fulls.length, 1, 'вторая подписка на full — двойной рендер каждой карточки');
+  assert.equal(storageCbs.length, 1, 'вторая подписка на Storage change — двойное применение каждой настройки');
+  assert.equal(params.length, firstParams, 'пункты раздела зарегистрированы повторно');
+  assert.deepEqual(log, [], 'оформление второй раз не собирается');
+});
+
+/* Та самая цена двойной подписки: Lampa рассылает событие 'change' ВСЕМ
+   подписчикам, а pref_handled гасит ровно одно повторение. */
+test('I3: после повторного init настройка из меню по-прежнему применяется ровно один раз', () => {
+  const { LC, log, storageCbs, params } = setup();
+  LC.init();
+  LC.init();
+  log.length = 0;
+
+  storageCbs.forEach((cb) => cb({ name: 'lumen_card_accent' }));  // Storage.set: рассылка ВСЕМ подписчикам
+  onChangeOf(params, 'lumen_card_accent')();                      // затем onChange параметра
+
+  assert.deepEqual(log, ['css'], 'две подписки на Storage пересобрали бы CSS дважды');
 });

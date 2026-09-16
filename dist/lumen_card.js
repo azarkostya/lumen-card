@@ -961,6 +961,24 @@ css.push('.lumen-card.lumen-motion-lite .lumen-stop.focus,.lumen-card.lumen-moti
 
 
 
+
+
+
+
+
+
+
+
+
+css.push('.lumen-card.lumen-motion-lite .full-start-new__buttons .full-start__button,.lumen-card.lumen-motion-off .full-start-new__buttons .full-start__button{-webkit-backdrop-filter:none;backdrop-filter:none}');
+css.push('.lumen-card.lumen-motion-lite .lumen-stop,.lumen-card.lumen-motion-off .lumen-stop{-webkit-backdrop-filter:none;backdrop-filter:none}');
+css.push('.lumen-card.lumen-motion-lite .lumen-trailer-badge,.lumen-card.lumen-motion-off .lumen-trailer-badge{-webkit-backdrop-filter:none;backdrop-filter:none}');
+
+
+
+
+
+
 css.push('.lumen-backdrop.lumen-motion-full .lumen-bg__img.is-active{-webkit-animation:lumen-kb 14s linear forwards;animation:lumen-kb 14s linear forwards}');
 css.push('@-webkit-keyframes lumen-kb{from{-webkit-transform:scale(1)}to{-webkit-transform:scale(1.08)}}');
 css.push('@keyframes lumen-kb{from{transform:scale(1)}to{transform:scale(1.08)}}');
@@ -4882,6 +4900,17 @@ lumen_card_title: { ru: 'Lumen Card', en: 'Lumen Card', uk: 'Lumen Card' },
 
 
 
+
+lumen_card_unsupported: {
+ru: 'Lumen Card: версия Lampa не поддерживается',
+en: 'Lumen Card: this Lampa version is not supported',
+uk: 'Lumen Card: версія Lampa не підтримується'
+},
+
+
+
+
+
 lumen_card_enabled_name: { ru: 'Включить Lumen Card', en: 'Enable Lumen Card', uk: 'Увімкнути Lumen Card' },
 lumen_card_enabled_descr: {
 ru: 'Выключите — вернётся штатная карточка Lampa. Открытая карточка перерисуется при следующем открытии.',
@@ -5184,6 +5213,13 @@ warn('settings failed', e);
 };
 
 LC.followStorage = function () {
+
+
+
+
+
+
+if (LC.storageFollowed) return;
 try {
 if (!window.Lampa || !Lampa.Storage || !Lampa.Storage.listener) return;
 Lampa.Storage.listener.follow('change', function (e) {
@@ -6667,7 +6703,18 @@ return;
 
 if (e.type === 'destroy') {
 var orphanLayer = layerOf(e.object);
-if (orphanLayer && orphanLayer.length) LC.backdrops.cancel(orphanLayer.parent());
+if (orphanLayer && orphanLayer.length) {
+
+
+
+
+
+
+
+var orphanBody = orphanLayer.parent();
+LC.backdrops.cancel(orphanBody);
+LC.reviews.cancel(orphanBody);
+}
 return;
 }
 
@@ -6753,6 +6800,18 @@ LC.applySlideshowPref = function () {
 try {
 if (!LC.active || !LC.active.slideshow) return;
 LC.active.slideshow.pause();
+
+
+
+
+
+
+
+
+
+
+var trailer = LC.active.trailer;
+if (trailer && (typeof trailer.isAlive !== 'function' || trailer.isAlive())) return;
 if (LC.pref('lumen_slideshow', true)) LC.active.slideshow.resume();
 } catch (e) {
 warn('slideshow pref failed', e);
@@ -6959,6 +7018,15 @@ try {
 
 
 
+
+
+
+
+
+
+
+
+
 var rows = $('.lumen-descr-row');
 for (i = 0; i < rows.length; i++) {
 try {
@@ -7085,9 +7153,27 @@ warn('enabled pref failed', e);
 }
 };
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+var inited = false;
+
 LC.init = function () {
+if (inited) return;
 try {
 if (!window.Lampa || !Lampa.Template || !Lampa.Listener) return;
+inited = true;
 
 try { if (Lampa.Lang && typeof Lampa.Lang.add === 'function') Lampa.Lang.add(LC.STRINGS); } catch (e) { }
 
@@ -7106,7 +7192,7 @@ var check = tpl ? LC.template.assert(original_template, tpl) : null;
 if (!tpl || !check.ok) {
 warn('template not supported' + (check ? ': missing ' + check.missingInOurs.join(', ') : ' (build failed)'));
 try {
-if (Lampa.Noty && typeof Lampa.Noty.show === 'function') Lampa.Noty.show('Lumen Card: версия Lampa не поддерживается');
+if (Lampa.Noty && typeof Lampa.Noty.show === 'function') Lampa.Noty.show(LC.lang('lumen_card_unsupported'));
 } catch (e3) { }
 return;
 }

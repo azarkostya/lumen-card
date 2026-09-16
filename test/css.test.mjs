@@ -825,6 +825,53 @@ test('buildCss: в сжатой шапке статус и чип серии —
   assert.ok(status.indexOf('border-right:0') !== -1);
 });
 
+/* -------------------------------------------------------------------- */
+/* Ревью фазы 1 (I1): backdrop-filter — самый дорогой эффект карточки.    */
+/*                                                                       */
+/* Режимы «Лёгкие»/«Выкл» гасили только transition/transform/animation, а */
+/* блюр подложки под каждой из 5-7 кнопок оставался — и пересобирался     */
+/* композитором ПОКАДРОВО, потому что фон под ним живой (кроссфейд 1.2 с, */
+/* Ken Burns, играющий iframe трейлера). Ровно на тех ТВ, куда «Авто»     */
+/* само ставит lite (Tizen/webOS, LC.motionModeFor).                      */
+/*                                                                       */
+/* Проверка идёт от САМОГО CSS, а не от списка известных селекторов:      */
+/* любое новое правило карточки с backdrop-filter:blur обязано завести    */
+/* себе пару под lumen-motion-lite и lumen-motion-off, иначе тест упадёт. */
+/* Заливки у всех трёх правил непрозрачные (C.buttonBg .82, rgba(11,9,8,  */
+/* .5/.62)) — визуально гашение почти не заметно. Тот же довод проект уже */
+/* принимал дважды: .lumen-facts (правка 2026-09-16) и пилюля             */
+/* предзагрузки Task 32.                                                  */
+/* -------------------------------------------------------------------- */
+
+function blurSelectors(cssText) {
+  const out = [];
+  for (const rule of ruleBodies(cssText)) {
+    if (rule.decl.indexOf('backdrop-filter:blur(') === -1) continue;
+    for (const sel of rule.selectors) if (sel.indexOf('.lumen-card') === 0) out.push(sel);
+  }
+  return out;
+}
+
+test('I1: каждое правило карточки с backdrop-filter:blur гасится и в lumen-motion-lite, и в lumen-motion-off', () => {
+  const blurred = blurSelectors(css);
+  /* Кнопки карточки, кнопка «Стоп» и метка «ТРЕЙЛЕР · БЕЗ ЗВУКА». */
+  assert.ok(blurred.length >= 3, 'ожидались правила блюра кнопок/«Стоп»/метки, найдено: ' + blurred.length);
+
+  for (const sel of blurred) {
+    for (const mode of ['lite', 'off']) {
+      /* Гасящий селектор — тот же самый плюс класс режима на корне карточки:
+         специфичность строго выше исходного правила, поэтому порядок
+         объявления в файле роли не играет и !important не нужен. */
+      const want = sel.replace('.lumen-card', '.lumen-card.lumen-motion-' + mode);
+      const decl = findDecl(css, (s) => s === want);
+      assert.ok(decl, 'нет правила, гасящего блюр: ' + want);
+      assert.ok(/(^|;)backdrop-filter:none/.test(decl), want + ' обязан задавать backdrop-filter:none, а не «' + decl + '»');
+      assert.ok(decl.indexOf('-webkit-backdrop-filter:none') !== -1,
+        want + ': нужен и -webkit-префикс — на WebView ТВ работает именно он');
+    }
+  }
+});
+
 test('buildCss: в режиме трейлера ряд кнопок и «Стоп» встают в одну строку', () => {
   /* Ревью: правило висит на собственном классе .lumen-actions, а не на
      nth-child(6) — порядок блоков шаблона не часть контракта стилей. */

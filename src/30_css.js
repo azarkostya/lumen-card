@@ -701,6 +701,24 @@
        (в lite/off пружины фокуса нет; !important — поверх нативной анимации
        Lampa, см. комментарий у .lumen-motion-lite выше). */
     css.push('.lumen-card.lumen-motion-lite .lumen-stop.focus,.lumen-card.lumen-motion-off .lumen-stop.focus{-webkit-transform:none !important;transform:none !important}');
+    /* Ревью фазы 1 (I1): blur подложки — самый дорогой эффект карточки, и в
+       lite/off он гасится вместе с остальным движением. Дело не в движении как
+       таковом: backdrop-filter пересобирается композитором ПОКАДРОВО, потому
+       что фон под кнопками живой (кроссфейд кадров 1.2 с, наезд Ken Burns,
+       играющий iframe трейлера) — то есть дороже всего он обходится ровно там,
+       куда «Авто» само ставит lite (Tizen/webOS, см. LC.motionModeFor). Раньше
+       lite/off снимали только transition/transform/animation, а блюр оставался
+       под каждой из 5-7 кнопок сразу.
+       Потерь почти нет: заливки у всех трёх правил непрозрачные — C.buttonBg
+       (.82), rgba(11,9,8,.5) у «Стоп» и rgba(11,9,8,.62) у метки. Тот же довод
+       проект уже принимал дважды: .lumen-facts (правка 2026-09-16) и пилюля
+       предзагрузки Task 32.
+       Специфичность: тот же селектор плюс класс режима на корне карточки —
+       строго выше исходного правила, поэтому !important здесь не нужен (в
+       отличие от transform/animation выше, где спорит нативная анимация Lampa). */
+    css.push('.lumen-card.lumen-motion-lite .full-start-new__buttons .full-start__button,.lumen-card.lumen-motion-off .full-start-new__buttons .full-start__button{-webkit-backdrop-filter:none;backdrop-filter:none}');
+    css.push('.lumen-card.lumen-motion-lite .lumen-stop,.lumen-card.lumen-motion-off .lumen-stop{-webkit-backdrop-filter:none;backdrop-filter:none}');
+    css.push('.lumen-card.lumen-motion-lite .lumen-trailer-badge,.lumen-card.lumen-motion-off .lumen-trailer-badge{-webkit-backdrop-filter:none;backdrop-filter:none}');
 
     /* Бэкдроп: медленный наезд (Ken Burns). Класс .lumen-bg__img подготовлен для слайдшоу кадров Task 6.
        Task 6 (исправление): корень — .lumen-backdrop, а не .lumen-card. Слой фона лежит в e.body, вне

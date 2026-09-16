@@ -231,6 +231,33 @@ function makeDescrRow(withFacts) {
 
 function blocksOf(d) { return d.descr._children.filter((n) => n.hasClass('lumen-reviews')); }
 
+/* ====================================================================== */
+/* Ревью фазы 1 (M2): подпись отзыва без автора не должна оставаться       */
+/* русской в en/uk.                                                        */
+/*                                                                        */
+/* Строка lumen_card_anon лежит в LC.STRINGS с тремя языками — здесь       */
+/* проверяется, что рабочий путь (load -> normalize) реально её берёт,     */
+/* причём БЕЗ Lampa.Lang: в freshEnv его нет вовсе, и LC.lang обязан сам   */
+/* прочитать словарь по коду языка из Storage. Литерал ANON в модуле       */
+/* остаётся последним рубежом и виден, только если 80_settings.js рядом    */
+/* не загружен (чистый unit-режим test/_load.mjs — тест normalize выше).   */
+/* ====================================================================== */
+
+['ru', 'en', 'uk'].forEach((code) => {
+  test('M2: отзыв без автора подписывается строкой словаря для языка ' + code + ' (Lampa.Lang недоступен)', () => {
+    const env = freshEnv({ store: { language: code } });
+    const seen = [];
+    env.LC.reviews.load('tt1', 'key', (res) => seen.push(res));
+
+    env.journal.calls[0].ok({ items: [{ kinopoiskId: 42 }] });
+    env.journal.calls[1].ok({ total: 1, items: [{ type: 'NEUTRAL', description: 'текст отзыва без автора' }] });
+
+    assert.equal(seen.length, 1, 'ответ разобран');
+    assert.equal(seen[0].list[0].author, env.LC.STRINGS.lumen_card_anon[code]);
+    assert.deepEqual(warnLog, []);
+  });
+});
+
 const DUNE = { movie: { id: 693134, title: 'Дюна: Часть вторая', imdb_id: 'tt15239678' } };
 
 /* Живой ответ kinopoiskapiunofficial.tech (docs/research/API_NOTES_2.md §4). */
