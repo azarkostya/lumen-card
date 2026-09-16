@@ -2691,6 +2691,255 @@ return api;
 if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.sources;
 
 
+/* ---- 44_rows.js ---- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+LC.rows = (function () {
+
+
+var _registered = false;
+
+
+
+
+
+
+
+function rowName(id) {
+return 'lumen_' + id;
+}
+
+
+
+
+function filterWatched(results, viewedIds, hide) {
+if (!results || !results.length) return [];
+if (!hide) return results;
+var ids = viewedIds && viewedIds.length ? viewedIds : null;
+if (!ids) return results;
+var seen = {};
+var i;
+for (i = 0; i < ids.length; i++) {
+if (ids[i] != null) seen[ids[i]] = 1;
+}
+var out = [];
+for (i = 0; i < results.length; i++) {
+if (!seen[results[i].id]) out.push(results[i]);
+}
+return out;
+}
+
+
+
+
+
+
+function homeRows(manifest, storedIds, month, limit) {
+if (!manifest || !Array.isArray(manifest.collections)) return [];
+if (typeof limit === 'number' && limit <= 0) return [];
+
+
+var byId = {};
+var i;
+for (i = 0; i < manifest.collections.length; i++) {
+byId[manifest.collections[i].id] = manifest.collections[i];
+}
+
+
+var ids = (storedIds && storedIds.length) ? storedIds : (manifest.home || []);
+
+
+var list = [];
+for (i = 0; i < ids.length; i++) {
+var item = byId[ids[i]];
+if (item) list.push(item);
+}
+
+
+
+
+if (month) {
+var seasonal = [];
+var rest = [];
+for (i = 0; i < list.length; i++) {
+var inSeason = false;
+if (list[i].season) {
+for (var j = 0; j < list[i].season.length; j++) {
+if (list[i].season[j] === month) { inSeason = true; break; }
+}
+}
+if (inSeason) { seasonal.push(list[i]); } else { rest.push(list[i]); }
+}
+list = seasonal.concat(rest);
+}
+
+
+if (typeof limit === 'number' && limit < list.length) {
+list = list.slice(0, limit);
+}
+
+return list;
+}
+
+
+
+
+
+
+
+
+
+function viewedIds() {
+var ids = [];
+try {
+if (window.Lampa && Lampa.Favorite) {
+var viewed = Lampa.Favorite.get({ type: 'viewed' });
+if (Array.isArray(viewed)) {
+for (var i = 0; i < viewed.length; i++) {
+if (viewed[i] && viewed[i].id != null) ids.push(viewed[i].id);
+}
+}
+}
+} catch (e) {}
+return ids;
+}
+
+
+
+
+
+
+
+
+
+
+function register(manifest) {
+if (_registered) return;
+_registered = true;
+
+
+var storedRaw = '';
+try { storedRaw = LC.pref ? (LC.pref('lumen_home_rows', '') || '') : ''; } catch (e) {}
+var storedIds = storedRaw ? storedRaw.split(',').map(function (s) { return s.trim(); }).filter(Boolean) : null;
+
+var limitRaw = 15;
+try { limitRaw = LC.pref ? (parseInt(LC.pref('lumen_rows_limit', '15'), 10) || 15) : 15; } catch (e) {}
+
+
+var month = new Date().getMonth() + 1;
+
+var rows = homeRows(manifest, storedIds, month, limitRaw);
+
+for (var i = 0; i < rows.length; i++) {
+registerRow(rows[i], i);
+}
+}
+
+
+
+
+
+
+function registerRow(item, index) {
+try {
+if (!window.Lampa || !Lampa.ContentRows) return;
+
+
+var rowTitle = item.title;
+if (item.badge) rowTitle += ' · ' + item.badge;
+
+Lampa.ContentRows.add({
+name: rowName(item.id),
+title: rowTitle,
+screen: 'main',
+index: index + 1,
+call: makeCall(item)
+});
+} catch (e) {}
+}
+
+
+
+
+
+function makeCall(item) {
+return function (params, screen) {
+return function (call) {
+
+
+var alive = screen && typeof screen._alive === 'function' ? screen._alive : null;
+
+var handle = LC.sources['fetch'](
+item,
+1,
+function (json) {
+
+var hide = false;
+try { hide = LC.pref ? !!LC.pref('lumen_hide_watched', false) : false; } catch (eIgnore) {}
+var filtered = filterWatched(json.results, viewedIds(), hide);
+
+
+
+
+call({ results: filtered, title: item.title });
+},
+function () {
+
+call({ results: [] });
+},
+alive
+);
+
+
+return {
+cancel: function () {
+if (handle && handle.clear) handle.clear();
+}
+};
+};
+};
+}
+
+
+
+function unregister() {
+_registered = false;
+}
+
+return {
+rowName: rowName,
+filterWatched: filterWatched,
+homeRows: homeRows,
+viewedIds: viewedIds,
+register: register,
+unregister: unregister
+};
+})();
+
+if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.rows;
+
+
 /* ---- 50_backdrops.js ---- */
 
 
@@ -6096,6 +6345,34 @@ lumen_manifest_url_descr: {
 ru: 'Внешний JSON-манифест подборок. Пусто — встроенный список (62 подборки). Кэш 12 ч.',
 en: 'External JSON manifest for collections. Empty — built-in list (62 collections). Cached 12 h.',
 uk: 'Зовнішній JSON-маніфест підбірок. Порожньо — вбудований список (62 підбірки). Кеш 12 год.'
+},
+
+
+lumen_group_home: {
+ru: 'Ряды на главной',
+en: 'Home rows',
+uk: 'Ряди на головній'
+},
+lumen_hide_watched_name: {
+ru: 'Скрывать досмотренное',
+en: 'Hide watched',
+uk: 'Приховувати переглянуте'
+},
+lumen_hide_watched_descr: {
+ru: 'Убирает из рядов подборок фильмы и сериалы, которые вы уже смотрели.',
+en: 'Removes already-watched movies and shows from collection rows.',
+uk: 'Забирає з рядів підбірок фільми та серіали, які ви вже переглянули.'
+},
+lumen_rows_limit_name: {
+ru: 'Количество рядов',
+en: 'Number of rows',
+uk: 'Кількість рядів'
+},
+
+lumen_rows_limit_suffix: {
+ru: 'рядов',
+en: 'rows',
+uk: 'рядів'
 }
 };
 
@@ -6193,6 +6470,10 @@ if (name === 'lumen_menus') { LC.applyMenusPref(); return true; }
 if (name === 'lumen_torrents') { LC.applyTorrentsPref(); return true; }
 if (name === 'lumen_trailer') { LC.applyTrailerPref(); return true; }
 if (name === 'lumen_reviews' || name === 'lumen_kp_key') { LC.applyReviewsPref(); return true; }
+
+
+
+if (name === 'lumen_hide_watched' || name === 'lumen_rows_limit') { return true; }
 
 
 if (name === 'lumen_manifest_url') {
@@ -6384,7 +6665,12 @@ var LIST = [
 
 
 
-{ name: 'lumen_manifest_url', type: 'input', 'default': '', label: 'lumen_manifest_url', descr: 'lumen_manifest_url_descr' }
+{ name: 'lumen_manifest_url', type: 'input', 'default': '', label: 'lumen_manifest_url', descr: 'lumen_manifest_url_descr' },
+
+
+{ name: 'lumen_group_home', type: 'title', label: 'lumen_group_home' },
+{ name: 'lumen_hide_watched', type: 'trigger', 'default': false, label: 'lumen_hide_watched_name', descr: 'lumen_hide_watched_descr' },
+{ name: 'lumen_rows_limit', type: 'select', values: ['10', '15', '25'], vsuffix: 'lumen_rows_limit_suffix', 'default': '15', label: 'lumen_rows_limit_name' }
 ];
 
 function find(name) {
@@ -8280,6 +8566,16 @@ if (LC.torrents && typeof LC.torrents.install === 'function') LC.torrents.instal
 warn('torrents init failed', e5);
 }
 LC.applyTorrentsPref();
+
+
+
+try {
+if (LC.rows && LC.rows.register && LC.manifest && LC.manifest.get) {
+LC.rows.register(LC.manifest.get());
+}
+} catch (eRows2) {
+warn('rows register failed', eRows2);
+}
 }
 
 function deactivate() {
@@ -8312,6 +8608,10 @@ if (body && body.length) body.removeClass(MOTION_CLASSES);
 warn('motion class off failed', e3);
 }
 stripAllCards();
+
+
+
+try { if (LC.rows && LC.rows.unregister) LC.rows.unregister(); } catch (eRows) {}
 }
 
 LC.applyEnabledPref = function () {
@@ -8379,6 +8679,19 @@ followFull();
 followToggle();
 followActivityLifecycle();
 LC.followTimeline();
+
+
+
+
+
+
+
+
+try {
+LC.manifest.load(function (m) {
+if (LC.enabled()) LC.rows.register(m);
+});
+} catch (eManifest) {}
 
 
 

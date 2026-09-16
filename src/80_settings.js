@@ -182,6 +182,34 @@
       ru: 'Внешний JSON-манифест подборок. Пусто — встроенный список (62 подборки). Кэш 12 ч.',
       en: 'External JSON manifest for collections. Empty — built-in list (62 collections). Cached 12 h.',
       uk: 'Зовнішній JSON-маніфест підбірок. Порожньо — вбудований список (62 підбірки). Кеш 12 год.'
+    },
+
+    /* Task 15 (фаза 2): настройки рядов подборок на главной. */
+    lumen_group_home: {
+      ru: 'Ряды на главной',
+      en: 'Home rows',
+      uk: 'Ряди на головній'
+    },
+    lumen_hide_watched_name: {
+      ru: 'Скрывать досмотренное',
+      en: 'Hide watched',
+      uk: 'Приховувати переглянуте'
+    },
+    lumen_hide_watched_descr: {
+      ru: 'Убирает из рядов подборок фильмы и сериалы, которые вы уже смотрели.',
+      en: 'Removes already-watched movies and shows from collection rows.',
+      uk: 'Забирає з рядів підбірок фільми та серіали, які ви вже переглянули.'
+    },
+    lumen_rows_limit_name: {
+      ru: 'Количество рядов',
+      en: 'Number of rows',
+      uk: 'Кількість рядів'
+    },
+    /* Суффикс для значений select lumen_rows_limit: '10 рядов', '15 рядов', '25 рядов'. */
+    lumen_rows_limit_suffix: {
+      ru: 'рядов',
+      en: 'rows',
+      uk: 'рядів'
     }
   };
 
@@ -279,6 +307,10 @@
     if (name === 'lumen_torrents') { LC.applyTorrentsPref(); return true; }
     if (name === 'lumen_trailer') { LC.applyTrailerPref(); return true; }
     if (name === 'lumen_reviews' || name === 'lumen_kp_key') { LC.applyReviewsPref(); return true; }
+    /* Task 15 (фаза 2): изменение настроек рядов на главной.
+       lumen_hide_watched применяется при следующем вызове call() каждого ряда.
+       lumen_rows_limit применяется при следующей регистрации рядов. */
+    if (name === 'lumen_hide_watched' || name === 'lumen_rows_limit') { return true; }
     /* Task 14 (фаза 2): URL манифеста изменён — сбрасываем кэш Storage, чтобы
        при следующей загрузке главной пришёл свежий манифест. */
     if (name === 'lumen_manifest_url') {

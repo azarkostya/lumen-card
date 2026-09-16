@@ -928,6 +928,16 @@
       warn('torrents init failed', e5);
     }
     LC.applyTorrentsPref();
+    /* Task 15: при реактивации регистрируем ряды по уже загруженному манифесту.
+       LC.manifest.get() возвращает кэшированный или встроенный DEFAULT.
+       LC.rows.register защищён флагом — no-op если уже зарегистрированы. */
+    try {
+      if (LC.rows && LC.rows.register && LC.manifest && LC.manifest.get) {
+        LC.rows.register(LC.manifest.get());
+      }
+    } catch (eRows2) {
+      warn('rows register failed', eRows2);
+    }
   }
 
   function deactivate() {
@@ -960,6 +970,10 @@
       warn('motion class off failed', e3);
     }
     stripAllCards();
+    /* Task 15: сброс флага регистрации рядов — следующий activate() заново
+       зарегистрирует ряды через LC.rows.register (может понадобиться, если
+       плагин выключили и снова включили). */
+    try { if (LC.rows && LC.rows.unregister) LC.rows.unregister(); } catch (eRows) {}
   }
 
   LC.applyEnabledPref = function () {
@@ -1027,6 +1041,19 @@
       followToggle();
       followActivityLifecycle();
       LC.followTimeline();
+
+      /* Task 15: загрузка манифеста и регистрация рядов подборок на главной.
+         manifest.load вызывает колбэк асинхронно (сеть или кэш Storage);
+         к моменту, когда пользователь откроет главную, ряды уже должны быть
+         зарегистрированы. Регистрация защищена флагом _registered в LC.rows —
+         повторный вызов (при переоткрытии главной) — no-op.
+         LC.rows.register проверяет LC.enabled() косвенно: если плагин выключен
+         после load, activated=false, а register вызывается из activate(). */
+      try {
+        LC.manifest.load(function (m) {
+          if (LC.enabled()) LC.rows.register(m);
+        });
+      } catch (eManifest) {}
 
       /* Оформление — последним шагом: к этому моменту шаблон собран и все
          подписки заведены. Выключенный плагин просто ждёт включения из

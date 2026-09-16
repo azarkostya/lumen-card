@@ -194,7 +194,10 @@ test('каждая настройка применяется ровно один
     lumen_menus: ['menus'],
     lumen_torrents: ['torrents'],
     /* Task 14 (фаза 2): URL манифеста — сброс кэша Storage, никакой apply-функции. */
-    lumen_manifest_url: []
+    lumen_manifest_url: [],
+    /* Task 15 (фаза 2): настройки рядов — применяются при следующем call()/регистрации. */
+    lumen_hide_watched: [],
+    lumen_rows_limit: []
   };
   const { LC, log, Storage, params } = setup();
   LC.addSettings();

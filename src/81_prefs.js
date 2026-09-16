@@ -86,7 +86,12 @@
 
       /* Task 14 (фаза 2): URL внешнего манифеста подборок. Пусто → встроенный.
          Тип input: Lampa рисует текстовое поле (как lumen_kp_key). */
-      { name: 'lumen_manifest_url', type: 'input', 'default': '', label: 'lumen_manifest_url', descr: 'lumen_manifest_url_descr' }
+      { name: 'lumen_manifest_url', type: 'input', 'default': '', label: 'lumen_manifest_url', descr: 'lumen_manifest_url_descr' },
+
+      /* Task 15 (фаза 2): ряды подборок на главной. */
+      { name: 'lumen_group_home', type: 'title', label: 'lumen_group_home' },
+      { name: 'lumen_hide_watched', type: 'trigger', 'default': false, label: 'lumen_hide_watched_name', descr: 'lumen_hide_watched_descr' },
+      { name: 'lumen_rows_limit', type: 'select', values: ['10', '15', '25'], vsuffix: 'lumen_rows_limit_suffix', 'default': '15', label: 'lumen_rows_limit_name' }
     ];
 
     function find(name) {

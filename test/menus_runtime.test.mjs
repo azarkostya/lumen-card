@@ -134,7 +134,10 @@ test('долг ревью (п.2): каждая настройка раздела
     lumen_menus: ['applyMenusPref'],
     lumen_torrents: ['applyTorrentsPref'],
     /* Task 14 (фаза 2): URL манифеста — сброс кэша Storage, без apply-функции рантайма. */
-    lumen_manifest_url: []
+    lumen_manifest_url: [],
+    /* Task 15 (фаза 2): настройки рядов — без apply-функции рантайма. */
+    lumen_hide_watched: [],
+    lumen_rows_limit: []
   };
 
   /* В проверке обязаны быть все пункты раздела — иначе она снова отстанет от

@@ -97,7 +97,9 @@ test('LIST: полный набор ключей — существующие и
     'lumen_enabled', 'lumen_kp_key',
     'lumen_manifest_url', /* Task 14 (фаза 2): URL внешнего манифеста подборок */
     'lumen_menus', 'lumen_motion', 'lumen_reviews',
-    'lumen_slide_interval', 'lumen_slideshow', 'lumen_torrents', 'lumen_trailer'
+    'lumen_slide_interval', 'lumen_slideshow', 'lumen_torrents', 'lumen_trailer',
+    /* Task 15 (фаза 2): ряды подборок на главной */
+    'lumen_hide_watched', 'lumen_rows_limit'
   ].sort());
 });
 
