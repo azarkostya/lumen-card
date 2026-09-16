@@ -46,6 +46,13 @@
     function maskUrl(name) {
       return 'url("data:image/svg+xml;charset=utf-8,' + encodeURIComponent(maskSvg(name)) + '")';
     }
+    /* Условие фолбэка «движок без CSS-масок» — общее с src/65_torrents.js.
+       Долг ревью Task 9 (п.4): объявление стояло НИЖЕ css(), которая им
+       пользуется. Работало только на подъёме var'а (css() зовётся уже после
+       конца IIFE, когда присваивание прошло) — но читалось как ошибка и
+       сломалось бы от любого вызова css() внутри модуля. */
+    var NO_MASK = '@supports not ((-webkit-mask-image:none) or (mask-image:none))';
+
     // Иконки кнопок заменяются ТОЛЬКО через CSS: outerHTML кнопок не меняется (хэш приоритета, см. план 0.2).
     // Селекторы по классу покрывают и клон .button--priority, и кнопки, вставленные другими плагинами позже.
     function css() {
@@ -74,8 +81,6 @@
       rules.push(NO_MASK + '{' + fallback.join('') + '}');
       return rules.join('\n');
     }
-    /* Условие фолбэка «движок без CSS-масок» — общее с src/65_torrents.js. */
-    var NO_MASK = '@supports not ((-webkit-mask-image:none) or (mask-image:none))';
     return { get: get, names: names, forButton: forButton, maskSvg: maskSvg, maskUrl: maskUrl, css: css, NO_MASK: NO_MASK };
   })();
 

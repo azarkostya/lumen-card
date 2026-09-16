@@ -208,6 +208,13 @@ return 'url("data:image/svg+xml;charset=utf-8,' + encodeURIComponent(maskSvg(nam
 }
 
 
+
+
+
+var NO_MASK = '@supports not ((-webkit-mask-image:none) or (mask-image:none))';
+
+
+
 function css() {
 var rules = [], fallback = [], sel, k, name;
 var map = {};
@@ -234,8 +241,6 @@ fallback.push(btn + ':before{display:none !important}');
 rules.push(NO_MASK + '{' + fallback.join('') + '}');
 return rules.join('\n');
 }
-
-var NO_MASK = '@supports not ((-webkit-mask-image:none) or (mask-image:none))';
 return { get: get, names: names, forButton: forButton, maskSvg: maskSvg, maskUrl: maskUrl, css: css, NO_MASK: NO_MASK };
 })();
 
@@ -278,11 +283,17 @@ raised: '#241C17'
 
 
 
+
+
+
+
+
+
 var ACCENTS = {
 sand: { color: '#E8B87A', light: '#FFF2DC', glow: 'rgba(232,184,122,0.35)', onac: '#1A120A' },
-ice: { color: '#7FB7C9', light: '#DCF1F8', glow: 'rgba(127,183,201,0.35)', onac: '#08171C' },
-wine: { color: '#C46A8F', light: '#F8DCE7', glow: 'rgba(196,106,143,0.35)', onac: '#1C0A12' },
-mint: { color: '#9FCF8A', light: '#E7F8DC', glow: 'rgba(159,207,138,0.35)', onac: '#0C1608' }
+ice: { color: '#7FB7C9', light: '#E9F7FB', glow: 'rgba(127,183,201,0.35)', onac: '#08171C' },
+wine: { color: '#C46A8F', light: '#FBEAF1', glow: 'rgba(196,106,143,0.35)', onac: '#1C0A12' },
+mint: { color: '#9FCF8A', light: '#EEFBE7', glow: 'rgba(159,207,138,0.35)', onac: '#0C1608' }
 };
 
 
@@ -311,8 +322,12 @@ var key = LC.pref(PLUGIN + '_accent', 'sand');
 return ACCENTS[key] || ACCENTS.sand;
 }
 
+
+
+
+
 function useFonts() {
-return LC.pref(PLUGIN + '_fonts', true);
+return LC.enabled() && LC.pref(PLUGIN + '_fonts', true);
 }
 
 
@@ -971,6 +986,21 @@ card_css_text = text;
 if (typeof LC.applyTorrentsPref === 'function') LC.applyTorrentsPref();
 } catch (e) {
 warn('css inject failed', e);
+}
+};
+
+
+
+
+
+
+LC.removeCss = function () {
+try {
+var el = document.getElementById(STYLE_ID);
+if (el && el.parentNode) el.parentNode.removeChild(el);
+card_css_text = null;
+} catch (e) {
+warn('css remove failed', e);
 }
 };
 
@@ -3160,6 +3190,27 @@ return m ? m[1] : text.slice(0, 60);
 
 
 
+
+function kpRateOf(item) {
+var rate = parseFloat(item && item.ratingKinopoisk);
+if (!rate || rate <= 0) return 0;
+return rate > 10 ? 10 : rate;
+}
+
+
+
+
+function reportRate(rate) {
+try {
+if (rate > 0 && typeof LC.applyKpRate === 'function') LC.applyKpRate(rate);
+} catch (e) {
+warn('kp rate apply failed', e);
+}
+}
+
+
+
+
 function normalize(resp, anon) {
 var items = (resp && resp.items) || [];
 var out = [];
@@ -3292,6 +3343,9 @@ if (!isFresh(rec, at)) return null;
 
 
 rec.total = parseInt(rec.total, 10) || 0;
+
+
+rec.rate = parseFloat(rec.rate) || 0;
 return rec;
 } catch (e) {
 warn('reviews cache read failed', e);
@@ -3299,7 +3353,7 @@ return null;
 }
 }
 
-function cacheWrite(imdbId, list, total, at, kp) {
+function cacheWrite(imdbId, list, total, at, kp, rate) {
 try {
 var store = storage();
 if (!store || !imdbId) return;
@@ -3326,7 +3380,7 @@ while (kept.length > MAX_FILMS) drop(store, kept.shift().id);
 
 
 if (!put(store, INDEX_KEY, kept)) return;
-put(store, cacheKey(imdbId), { at: stamp, list: list, total: total, kp: kp || 0 });
+put(store, cacheKey(imdbId), { at: stamp, list: list, total: total, kp: kp || 0, rate: rate || 0 });
 } catch (e) {
 warn('reviews cache write failed', e);
 }
@@ -3369,6 +3423,9 @@ if (!imdbId) { cb(null); return null; }
 
 var rec = cacheRead(imdbId, at);
 if (rec) {
+
+
+reportRate(rec.rate);
 cb(rec.list && rec.list.length ? { list: rec.list, total: rec.total || rec.list.length } : null);
 return null;
 }
@@ -3379,7 +3436,12 @@ var net = new Lampa.Reguest();
 request(net, BASE + '?imdbId=' + encodeURIComponent(imdbId), key, function (found) {
 if (dead()) return;
 try {
-var kp = found && found.items && found.items[0] && found.items[0].kinopoiskId;
+var item = found && found.items && found.items[0];
+var kp = item && item.kinopoiskId;
+
+
+var rate = kpRateOf(item);
+reportRate(rate);
 if (!kp) { cb(null); return; }
 request(net, BASE + '/' + kp + '/reviews?page=1&order=USER_POSITIVE_RATING_DESC', key, function (resp) {
 if (dead()) return;
@@ -3394,12 +3456,12 @@ if (!list.length) {
 
 
 
-cacheWrite(imdbId, [], 0, at, kp);
+cacheWrite(imdbId, [], 0, at, kp, rate);
 cb(null);
 return;
 }
 var total = parseInt(resp && resp.total, 10) || list.length;
-cacheWrite(imdbId, list, total, at, kp);
+cacheWrite(imdbId, list, total, at, kp, rate);
 cb({ list: list, total: total });
 } catch (inner) {
 warn('reviews parse failed', inner);
@@ -3815,6 +3877,7 @@ TTL: TTL,
 cacheKey: cacheKey,
 isFresh: isFresh,
 normalize: normalize,
+kpRateOf: kpRateOf,
 cacheRead: cacheRead,
 cacheWrite: cacheWrite,
 load: load,
@@ -4737,8 +4800,30 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 
+
+
+
+
+
+
 LC.STRINGS = {
 lumen_card_title: { ru: 'Lumen Card', en: 'Lumen Card', uk: 'Lumen Card' },
+
+
+
+
+
+lumen_card_enabled_name: { ru: 'Включить Lumen Card', en: 'Enable Lumen Card', uk: 'Увімкнути Lumen Card' },
+lumen_card_enabled_descr: {
+ru: 'Выключите — вернётся штатная карточка Lampa. Открытая карточка перерисуется при следующем открытии.',
+en: 'Turn off to get the stock Lampa card back. An open card is redrawn the next time you open it.',
+uk: 'Вимкніть — повернеться штатна картка Lampa. Відкрита картка перемалюється при наступному відкритті.'
+},
+
+lumen_card_group_look: { ru: 'Оформление', en: 'Appearance', uk: 'Оформлення' },
+lumen_card_group_backdrop: { ru: 'Фон карточки', en: 'Card background', uk: 'Фон картки' },
+lumen_card_group_blocks: { ru: 'Блоки карточки', en: 'Card blocks', uk: 'Блоки картки' },
+lumen_card_group_path: { ru: 'Меню и экраны плеера', en: 'Menus and player screens', uk: 'Меню та екрани плеєра' },
 lumen_card_accent: { ru: 'Акцентный цвет', en: 'Accent color', uk: 'Акцентний колір' },
 lumen_card_accent_sand: { ru: 'Песок', en: 'Sand', uk: 'Пісок' },
 lumen_card_accent_ice: { ru: 'Лёд', en: 'Ice', uk: 'Лід' },
@@ -4753,6 +4838,11 @@ uk: 'Unbounded / Golos Text / JetBrains Mono. Потрібен інтернет.
 lumen_card_progress_name: { ru: 'Показывать «Продолжить»', en: 'Show "Continue"', uk: 'Показувати «Продовжити»' },
 lumen_card_cast_name: { ru: 'Показывать актёров', en: 'Show cast', uk: 'Показувати акторів' },
 lumen_card_motion: { ru: 'Анимации', en: 'Animations', uk: 'Анімації' },
+lumen_card_motion_descr: {
+ru: '«Авто» — лёгкие анимации на Tizen/webOS, полные на остальных. «Выкл» отключает и появление блоков, и наезд на кадр.',
+en: '"Auto" means light animations on Tizen/webOS and full ones elsewhere. "Off" disables both block reveal and the Ken Burns zoom.',
+uk: '«Авто» — легкі анімації на Tizen/webOS, повні на інших. «Викл» вимикає і появу блоків, і наїзд на кадр.'
+},
 lumen_card_motion_auto: { ru: 'Авто', en: 'Auto', uk: 'Авто' },
 lumen_card_motion_full: { ru: 'Полные', en: 'Full', uk: 'Повні' },
 lumen_card_motion_lite: { ru: 'Лёгкие', en: 'Light', uk: 'Легкі' },
@@ -4810,6 +4900,11 @@ lumen_card_menus_all: { ru: 'Все меню и окна', en: 'All menus and di
 lumen_card_menus_path: { ru: 'Только путь до плеера', en: 'Player path only', uk: 'Лише шлях до плеєра' },
 lumen_card_menus_off: { ru: 'Выкл', en: 'Off', uk: 'Викл' },
 lumen_card_torrents_name: { ru: 'Оформление экрана торрентов', en: 'Torrents screen style', uk: 'Оформлення екрана торентів' },
+lumen_card_torrents_descr: {
+ru: 'Список раздач, окна подключения и ошибок, списки файлов и предзагрузка — в стиле карточки.',
+en: 'Torrent list, connection and error dialogs, file lists and preloading in the card style.',
+uk: 'Список роздач, вікна підключення та помилок, списки файлів і передзавантаження — у стилі картки.'
+},
 
 
 
@@ -4836,10 +4931,12 @@ en: 'A row of viewer reviews in the description block. Requires the API key belo
 uk: 'Ряд відгуків глядачів у блоці опису. Потрібен ключ API — рядок нижче.'
 },
 lumen_card_kp_key: { ru: 'Ключ Kinopoisk API', en: 'Kinopoisk API key', uk: 'Ключ Kinopoisk API' },
+
+
 lumen_card_kp_key_descr: {
-ru: 'Бесплатно на kinopoiskapiunofficial.tech, 500 запросов/день',
-en: 'Free at kinopoiskapiunofficial.tech, 500 requests a day',
-uk: 'Безкоштовно на kinopoiskapiunofficial.tech, 500 запитів на день'
+ru: 'Нужен для отзывов и рейтинга КП. Бесплатно на kinopoiskapiunofficial.tech, 500 запросов/день',
+en: 'Needed for reviews and the KP rating. Free at kinopoiskapiunofficial.tech, 500 requests a day',
+uk: 'Потрібен для відгуків і рейтингу КП. Безкоштовно на kinopoiskapiunofficial.tech, 500 запитів на день'
 },
 lumen_card_reviews_title: { ru: 'Отзывы зрителей', en: 'Viewer reviews', uk: 'Відгуки глядачів' },
 lumen_card_reviews_src: { ru: 'КИНОПОИСК', en: 'KINOPOISK', uk: 'КІНОПОШУК' },
@@ -4902,25 +4999,6 @@ if (isSlavic()) return LC.util.plural(n, ['отзыв', 'отзыва', 'отз�
 return n === 1 ? 'review' : 'reviews';
 };
 
-
-LC.pref = function (name, def) {
-var value;
-try {
-if (window.Lampa && Lampa.Storage && typeof Lampa.Storage.get === 'function') {
-value = Lampa.Storage.get(name, def);
-}
-} catch (e) {
-warn('storage read failed: ' + name, e);
-}
-if (typeof value === 'undefined' || value === null || value === '') return def;
-if (typeof def === 'boolean') {
-if (value === 'true' || value === true || value === 1 || value === '1') return true;
-if (value === 'false' || value === false || value === 0 || value === '0') return false;
-return def;
-}
-return value;
-};
-
 LC.lang = function (key) {
 try {
 if (window.Lampa && Lampa.Lang && typeof Lampa.Lang.translate === 'function') {
@@ -4940,10 +5018,78 @@ var ICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="2
 
 
 
-function onlyWithoutStorage(fn) {
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+var pref_handled = '';
+
+
+function applyPrefChange(name) {
+if (!name) return false;
+if (name === 'lumen_enabled') { LC.applyEnabledPref(); return true; }
+if (name === 'lumen_motion') { LC.applyMotionMode(); return true; }
+if (name === 'lumen_slideshow' || name === 'lumen_slide_interval') { LC.applySlideshowPref(); return true; }
+if (name === 'lumen_menus') { LC.applyMenusPref(); return true; }
+if (name === 'lumen_torrents') { LC.applyTorrentsPref(); return true; }
+if (name === 'lumen_trailer') { LC.applyTrailerPref(); return true; }
+if (name === 'lumen_reviews' || name === 'lumen_kp_key') { LC.applyReviewsPref(); return true; }
+if (name.indexOf(PLUGIN + '_') !== 0) return false;
+
+
+
+if (name === PLUGIN + '_fonts') { LC.injectFonts(); LC.injectCss(); return true; }
+if (name === PLUGIN + '_progress') { LC.applyProgressPref(); return true; }
+if (name === PLUGIN + '_cast') { LC.applyCastPref(); return true; }
+LC.injectCss();
+return true;
+}
+
+function onChangeFor(name) {
 return function () {
-if (!LC.storageFollowed) fn();
+if (pref_handled === name) { pref_handled = ''; return; }
+applyPrefChange(name);
 };
+}
+
+
+
+function valuesOf(entry) {
+var out = {};
+for (var i = 0; i < entry.values.length; i++) {
+var v = entry.values[i];
+out[v] = entry.vprefix ? LC.lang(entry.vprefix + v) : v + ' ' + LC.lang(entry.vsuffix);
+}
+return out;
+}
+
+function addPrefParam(entry) {
+var param = { name: entry.name, type: entry.type };
+var field = { name: LC.lang(entry.label) };
+if (entry.descr) field.description = LC.lang(entry.descr);
+
+if (entry.type === 'title') {
+Lampa.SettingsApi.addParam({ component: PLUGIN, param: param, field: field });
+return;
+}
+param['default'] = entry['default'];
+if (entry.type === 'select') param.values = valuesOf(entry);
+if (entry.type === 'input') param.values = '';
+Lampa.SettingsApi.addParam({ component: PLUGIN, param: param, field: field, onChange: onChangeFor(entry.name) });
 }
 
 LC.addSettings = function () {
@@ -4956,139 +5102,8 @@ icon: ICON,
 name: LC.lang('lumen_card_title')
 });
 
-var accentValues = {
-sand: LC.lang('lumen_card_accent_sand'),
-ice: LC.lang('lumen_card_accent_ice'),
-wine: LC.lang('lumen_card_accent_wine'),
-mint: LC.lang('lumen_card_accent_mint')
-};
 
-Lampa.SettingsApi.addParam({
-component: PLUGIN,
-param: { name: PLUGIN + '_accent', type: 'select', values: accentValues, 'default': 'sand' },
-field: { name: LC.lang('lumen_card_accent') },
-onChange: onlyWithoutStorage(function () { LC.injectCss(); })
-});
-
-Lampa.SettingsApi.addParam({
-component: PLUGIN,
-param: { name: PLUGIN + '_fonts', type: 'trigger', 'default': true },
-field: { name: LC.lang('lumen_card_fonts_name'), description: LC.lang('lumen_card_fonts_descr') },
-onChange: onlyWithoutStorage(function () { LC.injectFonts(); LC.injectCss(); })
-});
-
-Lampa.SettingsApi.addParam({
-component: PLUGIN,
-param: { name: PLUGIN + '_progress', type: 'trigger', 'default': true },
-field: { name: LC.lang('lumen_card_progress_name') },
-onChange: onlyWithoutStorage(function () { LC.applyProgressPref(); })
-});
-
-Lampa.SettingsApi.addParam({
-component: PLUGIN,
-param: { name: PLUGIN + '_cast', type: 'trigger', 'default': true },
-field: { name: LC.lang('lumen_card_cast_name') }
-});
-
-var motionValues = {
-auto: LC.lang('lumen_card_motion_auto'),
-full: LC.lang('lumen_card_motion_full'),
-lite: LC.lang('lumen_card_motion_lite'),
-off: LC.lang('lumen_card_motion_off')
-};
-
-
-
-
-Lampa.SettingsApi.addParam({
-component: PLUGIN,
-param: { name: 'lumen_motion', type: 'select', values: motionValues, 'default': 'auto' },
-field: { name: LC.lang('lumen_card_motion') },
-onChange: onlyWithoutStorage(function () { LC.applyMotionMode(); })
-});
-
-
-
-
-
-
-
-Lampa.SettingsApi.addParam({
-component: PLUGIN,
-param: { name: 'lumen_slideshow', type: 'trigger', 'default': true },
-field: { name: LC.lang('lumen_card_slideshow_name') },
-onChange: onlyWithoutStorage(function () { LC.applySlideshowPref(); })
-});
-
-var seconds = LC.lang('lumen_card_seconds');
-var intervalValues = { '8': '8 ' + seconds, '14': '14 ' + seconds, '20': '20 ' + seconds };
-
-Lampa.SettingsApi.addParam({
-component: PLUGIN,
-param: { name: 'lumen_slide_interval', type: 'select', values: intervalValues, 'default': '14' },
-field: { name: LC.lang('lumen_card_slide_interval') },
-onChange: onlyWithoutStorage(function () { LC.applySlideshowPref(); })
-});
-
-
-
-
-var menusValues = {
-all: LC.lang('lumen_card_menus_all'),
-path: LC.lang('lumen_card_menus_path'),
-off: LC.lang('lumen_card_menus_off')
-};
-
-Lampa.SettingsApi.addParam({
-component: PLUGIN,
-param: { name: 'lumen_menus', type: 'select', values: menusValues, 'default': 'all' },
-field: { name: LC.lang('lumen_card_menus') },
-onChange: onlyWithoutStorage(function () { LC.applyMenusPref(); })
-});
-
-Lampa.SettingsApi.addParam({
-component: PLUGIN,
-param: { name: 'lumen_torrents', type: 'trigger', 'default': true },
-field: { name: LC.lang('lumen_card_torrents_name') },
-onChange: onlyWithoutStorage(function () { LC.applyTorrentsPref(); })
-});
-
-
-
-
-
-
-var trailerValues = {
-auto: LC.lang('lumen_card_trailer_auto'),
-on: LC.lang('lumen_card_trailer_on'),
-off: LC.lang('lumen_card_trailer_off')
-};
-
-Lampa.SettingsApi.addParam({
-component: PLUGIN,
-param: { name: 'lumen_trailer', type: 'select', values: trailerValues, 'default': 'auto' },
-field: { name: LC.lang('lumen_card_trailer'), description: LC.lang('lumen_card_trailer_descr') },
-onChange: onlyWithoutStorage(function () { LC.applyTrailerPref(); })
-});
-
-
-
-
-
-
-Lampa.SettingsApi.addParam({
-component: PLUGIN,
-param: { name: 'lumen_reviews', type: 'trigger', 'default': true },
-field: { name: LC.lang('lumen_card_reviews_name'), description: LC.lang('lumen_card_reviews_descr') },
-onChange: onlyWithoutStorage(function () { LC.applyReviewsPref(); })
-});
-
-Lampa.SettingsApi.addParam({
-component: PLUGIN,
-param: { name: 'lumen_kp_key', type: 'input', values: '', 'default': '' },
-field: { name: LC.lang('lumen_card_kp_key'), description: LC.lang('lumen_card_kp_key_descr') },
-onChange: onlyWithoutStorage(function () { LC.applyReviewsPref(); })
-});
+for (var i = 0; i < LC.prefs.LIST.length; i++) addPrefParam(LC.prefs.LIST[i]);
 } catch (e) {
 warn('settings failed', e);
 }
@@ -5099,21 +5114,15 @@ try {
 if (!window.Lampa || !Lampa.Storage || !Lampa.Storage.listener) return;
 Lampa.Storage.listener.follow('change', function (e) {
 if (!e || !e.name) return;
-if (e.name === 'lumen_motion') { LC.applyMotionMode(); return; }
-if (e.name === 'lumen_slideshow' || e.name === 'lumen_slide_interval') { LC.applySlideshowPref(); return; }
-if (e.name === 'lumen_menus') { LC.applyMenusPref(); return; }
-if (e.name === 'lumen_torrents') { LC.applyTorrentsPref(); return; }
-if (e.name === 'lumen_trailer') { LC.applyTrailerPref(); return; }
-if (e.name === 'lumen_reviews' || e.name === 'lumen_kp_key') { LC.applyReviewsPref(); return; }
-if (e.name.indexOf(PLUGIN + '_') !== 0) return;
-if (e.name === PLUGIN + '_fonts') LC.injectFonts();
 
 
 
 
-
-if (e.name === PLUGIN + '_progress') { LC.applyProgressPref(); return; }
-LC.injectCss();
+try {
+if (applyPrefChange(e.name)) pref_handled = e.name;
+} catch (err) {
+warn('storage change failed: ' + e.name, err);
+}
 });
 LC.storageFollowed = true;
 } catch (err) {
@@ -5122,6 +5131,7 @@ warn('storage listener failed', err);
 };
 
 
+/* ---- 81_prefs.js ---- */
 
 
 
@@ -5131,13 +5141,116 @@ warn('storage listener failed', err);
 
 
 
-LC.motionModeFor = function (stored, platform) {
+
+
+
+
+
+
+
+LC.prefs = (function () {
+
+
+
+
+
+
+function boolOf(value, def) {
+if (typeof value === 'undefined' || value === null || value === '') return def;
+if (value === 'true' || value === true || value === 1 || value === '1') return true;
+if (value === 'false' || value === false || value === 0 || value === '0') return false;
+return def;
+}
+
+
+
+
+
+
+function motionModeFor(stored, platform) {
 if (stored !== 'full' && stored !== 'lite' && stored !== 'off') stored = 'auto';
 if (stored !== 'auto') return stored;
 platform = platform || {};
 if (platform.tizen || platform.webos) return 'lite';
 return 'full';
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+var LIST = [
+{ name: 'lumen_enabled', type: 'trigger', 'default': true, label: 'lumen_card_enabled_name', descr: 'lumen_card_enabled_descr' },
+
+{ name: 'lumen_group_look', type: 'title', label: 'lumen_card_group_look' },
+{ name: 'lumen_card_accent', type: 'select', values: ['sand', 'ice', 'wine', 'mint'], vprefix: 'lumen_card_accent_', 'default': 'sand', label: 'lumen_card_accent' },
+{ name: 'lumen_card_fonts', type: 'trigger', 'default': true, label: 'lumen_card_fonts_name', descr: 'lumen_card_fonts_descr' },
+{ name: 'lumen_motion', type: 'select', values: ['auto', 'full', 'lite', 'off'], vprefix: 'lumen_card_motion_', 'default': 'auto', label: 'lumen_card_motion', descr: 'lumen_card_motion_descr' },
+
+{ name: 'lumen_group_backdrop', type: 'title', label: 'lumen_card_group_backdrop' },
+{ name: 'lumen_slideshow', type: 'trigger', 'default': true, label: 'lumen_card_slideshow_name' },
+{ name: 'lumen_slide_interval', type: 'select', values: ['8', '14', '20'], vsuffix: 'lumen_card_seconds', 'default': '14', label: 'lumen_card_slide_interval' },
+{ name: 'lumen_trailer', type: 'select', values: ['auto', 'on', 'off'], vprefix: 'lumen_card_trailer_', 'default': 'auto', label: 'lumen_card_trailer', descr: 'lumen_card_trailer_descr' },
+
+{ name: 'lumen_group_blocks', type: 'title', label: 'lumen_card_group_blocks' },
+{ name: 'lumen_card_progress', type: 'trigger', 'default': true, label: 'lumen_card_progress_name' },
+{ name: 'lumen_card_cast', type: 'trigger', 'default': true, label: 'lumen_card_cast_name' },
+{ name: 'lumen_reviews', type: 'trigger', 'default': true, label: 'lumen_card_reviews_name', descr: 'lumen_card_reviews_descr' },
+{ name: 'lumen_kp_key', type: 'input', 'default': '', label: 'lumen_card_kp_key', descr: 'lumen_card_kp_key_descr' },
+
+{ name: 'lumen_group_path', type: 'title', label: 'lumen_card_group_path' },
+{ name: 'lumen_menus', type: 'select', values: ['all', 'path', 'off'], vprefix: 'lumen_card_menus_', 'default': 'all', label: 'lumen_card_menus' },
+{ name: 'lumen_torrents', type: 'trigger', 'default': true, label: 'lumen_card_torrents_name', descr: 'lumen_card_torrents_descr' }
+];
+
+function find(name) {
+if (!name) return null;
+for (var i = 0; i < LIST.length; i++) if (LIST[i].name === name) return LIST[i];
+return null;
+}
+
+return { LIST: LIST, find: find, boolOf: boolOf, motionModeFor: motionModeFor };
+})();
+
+
+LC.pref = function (name, def) {
+var value;
+try {
+if (window.Lampa && Lampa.Storage && typeof Lampa.Storage.get === 'function') {
+value = Lampa.Storage.get(name, def);
+}
+} catch (e) {
+warn('storage read failed: ' + name, e);
+}
+if (typeof value === 'undefined' || value === null || value === '') return def;
+if (typeof def === 'boolean') return LC.prefs.boolOf(value, def);
+return value;
 };
+
+
+
+
+LC.enabled = function () {
+return LC.pref('lumen_enabled', true);
+};
+
+LC.motionModeFor = LC.prefs.motionModeFor;
 
 LC.motionMode = function () {
 var stored = 'auto';
@@ -5151,14 +5264,14 @@ platform.tizen = !!Lampa.Platform.is('tizen');
 platform.webos = !!Lampa.Platform.is('webos');
 }
 } catch (e2) { }
-return LC.motionModeFor(stored, platform);
+return LC.prefs.motionModeFor(stored, platform);
 };
 
 
 
 
 
-if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.motionModeFor;
+if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.prefs;
 
 
 /* ---- 85_header.js ---- */
@@ -5516,6 +5629,12 @@ function renderCast(root, data) {
 var block = root.find('.lumen-cast');
 if (!block.length) return;
 
+
+
+
+
+if (root[0]) root[0].lumenCast = data || null;
+
 block.addClass('hide');
 block.find('.lumen-cast__row').empty();
 
@@ -5536,6 +5655,18 @@ html.push('<div class="lumen-cast__item lumen-cast__more">+' + (cast.length - li
 block.find('.lumen-cast__label').text(LC.lang('lumen_card_cast'));
 block.find('.lumen-cast__row').html(html.join(''));
 block.removeClass('hide');
+}
+
+
+
+
+
+
+function refreshCast() {
+$('.lumen-card').each(function () {
+var data = this.lumenCast;
+if (data) renderCast($(this), data);
+});
 }
 
 
@@ -6045,6 +6176,7 @@ decorate: decorate,
 descr: renderDescrRow,
 refreshEpisode: refreshEpisode,
 refreshProgress: refreshProgress,
+refreshCast: refreshCast,
 scheduleProgressRefresh: scheduleProgressRefresh
 };
 
@@ -6503,6 +6635,40 @@ warn('reviews pref failed', e);
 
 
 
+
+LC.applyCastPref = function () {
+try {
+LC.header.refreshCast();
+} catch (e) {
+warn('cast pref failed', e);
+}
+};
+
+
+
+
+
+
+
+
+
+
+LC.applyKpRate = function (rate) {
+try {
+var num = parseFloat(rate);
+if (!num || num <= 0) return;
+var chip = $('.activity--active .lumen-card .rate--kp');
+if (!chip || !chip.length || !chip.hasClass('hide')) return;
+chip.children().eq(0).text(num > 10 ? 10 : num);
+chip.removeClass('hide');
+} catch (e) {
+warn('kp rate failed', e);
+}
+};
+
+
+
+
 var ui_active = false;
 
 LC.applyMenusPref = function () {
@@ -6532,6 +6698,14 @@ warn('torrents pref failed', e);
 
 var original_template = '';
 
+
+
+var our_template = '';
+
+
+
+var activated = false;
+
 function saveOriginalTemplate() {
 try {
 if (Lampa.Template && typeof Lampa.Template.all === 'function') {
@@ -6558,6 +6732,129 @@ warn('cannot restore original template', e);
 }
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+var STRIP_NODES = ['.lumen-progress', '.lumen-episodes', '.lumen-facts', '.lumen-reviews'];
+
+
+
+
+
+
+function stripActiveCard() {
+var i;
+for (i = 0; i < STRIP_NODES.length; i++) {
+try {
+$('.activity--active ' + STRIP_NODES[i]).remove();
+} catch (e) {
+warn('strip failed: ' + STRIP_NODES[i], e);
+}
+}
+try {
+var row = $('.activity--active .lumen-descr-row');
+if (row && row.length) row.removeClass('lumen-descr-row lumen-descr-row--reviews');
+} catch (e1) {
+warn('strip descr row failed', e1);
+}
+try {
+var root = $('.activity--active .lumen-card');
+if (root && root.length) {
+root.removeClass('lumen-continue');
+var node = root[0];
+if (node && node.style && typeof node.style.removeProperty === 'function') node.style.removeProperty('--lumen-play-label');
+}
+} catch (e2) {
+warn('strip play label failed', e2);
+}
+try {
+if (LC.active) {
+
+
+LC.backdrops.cancel(LC.active.body);
+LC.reviews.cancel(LC.active.body);
+}
+} catch (e3) {
+warn('strip active card failed', e3);
+}
+LC.active = null;
+}
+
+function activate() {
+if (activated) return;
+activated = true;
+Lampa.Template.add('full_start_new', our_template);
+LC.injectFonts();
+LC.injectCss();
+ui_active = true;
+applyMotionMode(bodyRoot());
+try {
+LC.menus.mode(Lampa.Storage.field('lumen_menus'));
+LC.menus.install();
+} catch (e4) {
+warn('menus init failed', e4);
+}
+try {
+if (LC.torrents && typeof LC.torrents.install === 'function') LC.torrents.install();
+} catch (e5) {
+warn('torrents init failed', e5);
+}
+LC.applyTorrentsPref();
+}
+
+function deactivate() {
+if (!activated) return;
+activated = false;
+
+
+restoreOriginalTemplate();
+ui_active = false;
+LC.removeCss();
+
+
+LC.injectFonts();
+try {
+if (LC.torrents && typeof LC.torrents.toggle === 'function') LC.torrents.toggle(false);
+} catch (e) {
+warn('torrents off failed', e);
+}
+
+
+try {
+LC.menus.mode('off');
+} catch (e2) {
+warn('menus off failed', e2);
+}
+try {
+var body = bodyRoot();
+if (body && body.length) body.removeClass(MOTION_CLASSES);
+} catch (e3) {
+warn('motion class off failed', e3);
+}
+stripActiveCard();
+}
+
+LC.applyEnabledPref = function () {
+try {
+
+
+if (!our_template) return;
+if (LC.enabled()) activate();
+else deactivate();
+} catch (e) {
+warn('enabled pref failed', e);
+}
+};
+
 LC.init = function () {
 try {
 if (!window.Lampa || !Lampa.Template || !Lampa.Listener) return;
@@ -6583,29 +6880,15 @@ if (Lampa.Noty && typeof Lampa.Noty.show === 'function') Lampa.Noty.show('Lumen 
 } catch (e3) { }
 return;
 }
-Lampa.Template.add('full_start_new', tpl);
+our_template = tpl;
 
-LC.injectFonts();
-LC.injectCss();
 
-ui_active = true;
-applyMotionMode(bodyRoot());
-try {
-LC.menus.mode(Lampa.Storage.field('lumen_menus'));
-LC.menus.install();
-} catch (e4) {
-warn('menus init failed', e4);
-}
-try {
-if (LC.torrents && typeof LC.torrents.install === 'function') LC.torrents.install();
-} catch (e5) {
-warn('torrents init failed', e5);
-}
-LC.applyTorrentsPref();
+
+
 
 Lampa.Listener.follow('full', function (e) {
 try {
-if (!e) return;
+if (!e || !activated) return;
 if (e.type === 'build' && e.name === 'start') {
 LC.header.decorate(findRoot(e), e.data);
 } else if (e.type === 'build' && e.name === 'description') {
@@ -6659,6 +6942,11 @@ warn('listener failed', err);
 followToggle();
 followActivityLifecycle();
 LC.followTimeline();
+
+
+
+
+if (LC.enabled()) activate();
 } catch (e) {
 warn('init failed', e);
 restoreOriginalTemplate();

@@ -304,15 +304,43 @@ body {
     ].join('');
 
     /* ---------------- Storage ---------------- */
+    /* Долг ревью Task 9 (п.5): мок держал значения только в своём объекте и в
+       localStorage не писал ничего. Кэш отзывов (src/60_reviews.js, stored())
+       проверяет факт записи по самому localStorage — в стенде проверка была
+       всегда отрицательной, put() считал, что кончилась квота, и вызывал
+       purge(): кэш отзывов в стенде был фактически выключен, а его ветки —
+       непокрыты. Теперь мок пишет строкой, как вендор (Storage.set ->
+       localStorage.setItem(name, JSON.stringify(value))), и уважает nolisten
+       (четвёртый аргумент Lampa — кэш пишет с ним, чтобы не будить
+       подписчиков на каждую запись). */
     var store = {};
     var storageListener = Subscribe();
+
+    function lsWrite(name, value) {
+        try { window.localStorage.setItem(name, JSON.stringify(value)); } catch (e) { }
+    }
+    function lsRead(name) {
+        try {
+            var raw = window.localStorage.getItem(name);
+            if (raw === null || raw === '') return undefined;
+            return JSON.parse(raw);
+        } catch (e) { return undefined; }
+    }
+
     var Storage = {
-        get: function (name, def) { return typeof store[name] !== 'undefined' ? store[name] : def; },
-        set: function (name, value) {
-            store[name] = value;
-            storageListener.send('change', { name: name, value: value });
+        get: function (name, def) {
+            if (typeof store[name] === 'undefined') {
+                var saved = lsRead(name);
+                if (typeof saved !== 'undefined') store[name] = saved;
+            }
+            return typeof store[name] !== 'undefined' ? store[name] : def;
         },
-        field: function (name) { return store[name]; },
+        set: function (name, value, nolisten) {
+            store[name] = value;
+            lsWrite(name, value);
+            if (!nolisten) storageListener.send('change', { name: name, value: value });
+        },
+        field: function (name) { return Storage.get(name); },
         listener: storageListener
     };
     store.language = 'ru';

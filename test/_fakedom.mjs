@@ -176,8 +176,12 @@ FakeEl.prototype.closest = function (sel) {
    тихо никогда не находили ничего, тесты на этом молча шли по запасной
    (пустой) ветке. selectorClasses разбивает ЛЮБОЕ число точек на список
    классов, matchesSelector требует совпадения всех. */
+/* Task 10: селектор может отсутствовать вовсе — jQuery .children() без
+   аргумента отдаёт ВСЕХ прямых детей (наш фейк, как и с селектором, отдаёт
+   первого: этого хватает связке .children().eq(0), которой src/90_runtime.js
+   пишет число в чип рейтинга КП, не трогая разметку кнопок). */
 function selectorClasses(sel) {
-  return sel.split('.').filter(Boolean);
+  return String(sel == null ? '' : sel).split('.').filter(Boolean);
 }
 function matchesSelector(el, classes) {
   for (let i = 0; i < classes.length; i++) if (!el.hasClass(classes[i])) return false;

@@ -92,6 +92,27 @@
       return m ? m[1] : text.slice(0, 60);
     }
 
+    /* Экран 09 («Ключ Kinopoisk API — нужен для отзывов и рейтинга КП»):
+       рейтинг приходит ТЕМ ЖЕ ответом films?imdbId, которым мы ищем
+       kinopoiskId для отзывов, — отдельного запроса ради рейтинга не делаем.
+       Поле приходит числом или строкой, у фильмов без оценок — null. */
+    function kpRateOf(item) {
+      var rate = parseFloat(item && item.ratingKinopoisk);
+      if (!rate || rate <= 0) return 0;
+      return rate > 10 ? 10 : rate;
+    }
+
+    /* Рейтинг ставит на чип .rate--kp рантайм (LC.applyKpRate, 90_runtime.js):
+       он знает про DOM активной карточки, этот модуль — только про данные.
+       Зовётся и на попадании в кэш, и на свежем ответе. */
+    function reportRate(rate) {
+      try {
+        if (rate > 0 && typeof LC.applyKpRate === 'function') LC.applyKpRate(rate);
+      } catch (e) {
+        warn('kp rate apply failed', e);
+      }
+    }
+
     /* resp — ответ /reviews. anon — как подписывать отзыв без автора (строка
        интерфейса приходит параметром: модуль остаётся чистым и не зависит от
        LC.lang, как LC.cardinfo от словаря words). */
@@ -227,6 +248,9 @@
            мог прийти чем угодно (битый JSON, ручная правка), поэтому приводим
            к числу здесь, у единственной точки чтения кэша. */
         rec.total = parseInt(rec.total, 10) || 0;
+        /* Task 10: рейтинг КП лежит в той же записи — приводим к числу здесь,
+           у единственной точки чтения кэша (как total выше). */
+        rec.rate = parseFloat(rec.rate) || 0;
         return rec;
       } catch (e) {
         warn('reviews cache read failed', e);
@@ -234,7 +258,7 @@
       }
     }
 
-    function cacheWrite(imdbId, list, total, at, kp) {
+    function cacheWrite(imdbId, list, total, at, kp, rate) {
       try {
         var store = storage();
         if (!store || !imdbId) return;
@@ -261,7 +285,7 @@
            прошла бы успешно: получился бы ключ, которого нет в индексе, —
            его не вытеснит цикл выше и не найдёт следующий purge(). */
         if (!put(store, INDEX_KEY, kept)) return;
-        put(store, cacheKey(imdbId), { at: stamp, list: list, total: total, kp: kp || 0 });
+        put(store, cacheKey(imdbId), { at: stamp, list: list, total: total, kp: kp || 0, rate: rate || 0 });
       } catch (e) {
         warn('reviews cache write failed', e);
       }
@@ -304,6 +328,9 @@
 
         var rec = cacheRead(imdbId, at);
         if (rec) {
+          /* Task 10: рейтинг КП — даже когда отзывов у фильма нет (отрицательный
+             кэш): чип рейтинга от их наличия не зависит. */
+          reportRate(rec.rate);
           cb(rec.list && rec.list.length ? { list: rec.list, total: rec.total || rec.list.length } : null);
           return null;
         }
@@ -314,7 +341,12 @@
         request(net, BASE + '?imdbId=' + encodeURIComponent(imdbId), key, function (found) {
           if (dead()) return;
           try {
-            var kp = found && found.items && found.items[0] && found.items[0].kinopoiskId;
+            var item = found && found.items && found.items[0];
+            var kp = item && item.kinopoiskId;
+            /* Рейтинг ставим сразу, не дожидаясь второго запроса: к отзывам он
+               отношения не имеет, а ответ уже на руках. */
+            var rate = kpRateOf(item);
+            reportRate(rate);
             if (!kp) { cb(null); return; }
             request(net, BASE + '/' + kp + '/reviews?page=1&order=USER_POSITIVE_RATING_DESC', key, function (resp) {
               if (dead()) return;
@@ -329,12 +361,12 @@
                   /* Отрицательный кэш (Important 5): у фильма отзывов нет —
                      запоминаем это на EMPTY_TTL, чтобы не ходить в API двумя
                      запросами на каждое открытие карточки. */
-                  cacheWrite(imdbId, [], 0, at, kp);
+                  cacheWrite(imdbId, [], 0, at, kp, rate);
                   cb(null);
                   return;
                 }
                 var total = parseInt(resp && resp.total, 10) || list.length;
-                cacheWrite(imdbId, list, total, at, kp);
+                cacheWrite(imdbId, list, total, at, kp, rate);
                 cb({ list: list, total: total });
               } catch (inner) {
                 warn('reviews parse failed', inner);
@@ -750,6 +782,7 @@
       cacheKey: cacheKey,
       isFresh: isFresh,
       normalize: normalize,
+      kpRateOf: kpRateOf,
       cacheRead: cacheRead,
       cacheWrite: cacheWrite,
       load: load,

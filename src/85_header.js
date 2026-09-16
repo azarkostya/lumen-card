@@ -352,6 +352,12 @@
     var block = root.find('.lumen-cast');
     if (!block.length) return;
 
+    /* Task 10: данные для перерисовки по смене настройки «Показывать актёров»
+       (refreshCast ниже) — тем же приёмом, что lumenProgress у строки
+       прогресса: в событии настройки данных карточки нет, а карточек в DOM у
+       Lampa несколько (история). */
+    if (root[0]) root[0].lumenCast = data || null;
+
     block.addClass('hide');
     block.find('.lumen-cast__row').empty();
 
@@ -372,6 +378,18 @@
     block.find('.lumen-cast__label').text(LC.lang('lumen_card_cast'));
     block.find('.lumen-cast__row').html(html.join(''));
     block.removeClass('hide');
+  }
+
+  /* Task 10: настройку «Показывать актёров» переключили на уже открытой
+     карточке. Возврат из настроек Lampa карточку не перестраивает (ни 'full',
+     ни complite — находка ревью Task 8), поэтому блок перерисовывается здесь,
+     по данным, сохранённым renderCast. Обход всех .lumen-card — как в
+     refreshProgress: Lampa держит в DOM и карточки из истории. */
+  function refreshCast() {
+    $('.lumen-card').each(function () {
+      var data = this.lumenCast;
+      if (data) renderCast($(this), data);
+    });
   }
 
   /* -------------------------------------------------------------------- */
@@ -881,5 +899,6 @@
     descr: renderDescrRow,
     refreshEpisode: refreshEpisode,
     refreshProgress: refreshProgress,
+    refreshCast: refreshCast,
     scheduleProgressRefresh: scheduleProgressRefresh
   };

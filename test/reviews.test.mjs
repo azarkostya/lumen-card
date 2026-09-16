@@ -210,6 +210,7 @@ function freshEnv(opts) {
   const module = { exports: null, lumen: false };
   loadInto(LC, module, '10_util.js');
   loadInto(LC, module, '80_settings.js');
+  loadInto(LC, module, '81_prefs.js');
   loadInto(LC, module, '60_reviews.js');
   return { LC, store, ls, films, journal, collected, modals, toggled, refocused, removeCalls, setOrder, nolistenFlags, opts, Lampa };
 }
@@ -250,10 +251,10 @@ test('кэш: запись кладёт фильм и согласованный
   const env = freshEnv();
   env.LC.reviews.cacheWrite('tt1', [{ title: 'a' }], 7, 1000);
   assert.deepEqual(env.store.lumen_rv_index, [{ id: 'tt1', at: 1000 }]);
-  /* kp — id Кинопоиска, найденный по imdbId: лежит рядом с отзывами, чтобы
-     рейтинг КП (Task 10) не искал фильм второй раз. Прямая запись без поиска
-     оставляет его нулём. */
-  assert.deepEqual(env.store.lumen_rv_tt1, { at: 1000, kp: 0, list: [{ title: 'a' }], total: 7 });
+  /* kp — id Кинопоиска, найденный по imdbId, rate — рейтинг КП оттуда же
+     (Task 10): оба лежат рядом с отзывами, чтобы чип рейтинга не искал фильм
+     вторым запросом. Прямая запись без поиска оставляет их нулями. */
+  assert.deepEqual(env.store.lumen_rv_tt1, { at: 1000, kp: 0, rate: 0, list: [{ title: 'a' }], total: 7 });
 
   const rec = env.LC.reviews.cacheRead('tt1', 1000 + 60000);
   assert.equal(rec.total, 7);
@@ -805,5 +806,83 @@ test('clearRow: снимает блок, класс поджатия описа�
   env.LC.reviews.render(d.row, DUNE);
   assert.equal(env.journal.calls.length, 2, 'данные уже в кэше — новых запросов нет');
   assert.equal(blocksOf(d).length, 1, 'после clearRow ряд собирается заново');
+  assert.deepEqual(warnLog, []);
+});
+
+/* ------------------------- рейтинг Кинопоиска (Task 10) ------------------------- */
+
+/* Экран 09: «Ключ Kinopoisk API — нужен для отзывов и рейтинга КП». Рейтинг
+   приходит ТЕМ ЖЕ ответом films?imdbId, которым модуль ищет kinopoiskId для
+   отзывов, поэтому лишних запросов ради него не появляется. Само заполнение
+   чипа .rate--kp — в 90_runtime.js (LC.applyKpRate), здесь только данные. */
+
+test('kpRateOf: число или строка -> число, пусто/ноль/мусор -> 0, потолок 10', () => {
+  assert.equal(r.kpRateOf({ ratingKinopoisk: 7.8 }), 7.8);
+  assert.equal(r.kpRateOf({ ratingKinopoisk: '8.3' }), 8.3);
+  assert.equal(r.kpRateOf({ ratingKinopoisk: 11 }), 10, 'чип рейтинга шире 10 не бывает');
+  assert.equal(r.kpRateOf({ ratingKinopoisk: null }), 0, 'у фильма без оценок поле null');
+  assert.equal(r.kpRateOf({ ratingKinopoisk: 0 }), 0);
+  assert.equal(r.kpRateOf({ ratingKinopoisk: 'нет' }), 0);
+  assert.equal(r.kpRateOf({}), 0);
+  assert.equal(r.kpRateOf(null), 0);
+});
+
+test('load: рейтинг КП берётся из ответа films?imdbId, второго запроса ради него нет', () => {
+  const env = freshEnv();
+  const rates = [];
+  env.LC.applyKpRate = (v) => rates.push(v);
+
+  env.LC.reviews.load('tt15239678', 'KEY', () => { });
+  env.journal.calls[0].ok({ total: 1, items: [{ kinopoiskId: 301, imdbId: 'tt15239678', ratingKinopoisk: 7.8 }] });
+
+  assert.deepEqual(rates, [7.8], 'рейтинг уходит на чип сразу, не дожидаясь отзывов');
+  assert.equal(env.journal.calls.length, 2, 'запросов по-прежнему два: поиск и отзывы');
+
+  env.journal.calls[1].ok(REVIEWS_OK);
+  assert.equal(env.store.lumen_rv_tt15239678.rate, 7.8, 'рейтинг лёг в кэш рядом с отзывами');
+  assert.deepEqual(warnLog, []);
+});
+
+test('load: рейтинг КП отдаётся из кэша без единого запроса', () => {
+  const env = freshEnv();
+  const rates = [];
+  env.LC.applyKpRate = (v) => rates.push(v);
+  env.LC.reviews.cacheWrite('tt1', [{ title: 'из кэша' }], 5, 1000, 301, 8.4);
+
+  env.LC.reviews.load('tt1', 'KEY', () => { }, null, 1000);
+
+  assert.equal(env.journal.calls.length, 0, 'кэш свежий — в сеть не идём');
+  assert.deepEqual(rates, [8.4]);
+});
+
+test('load: у фильма нет отзывов — рейтинг всё равно показан и закэширован', () => {
+  const env = freshEnv();
+  const rates = [];
+  env.LC.applyKpRate = (v) => rates.push(v);
+
+  env.LC.reviews.load('tt15239678', 'KEY', () => { });
+  env.journal.calls[0].ok({ total: 1, items: [{ kinopoiskId: 301, ratingKinopoisk: 6.1 }] });
+  env.journal.calls[1].ok({ total: 0, items: [] });
+
+  assert.deepEqual(rates, [6.1], 'чип рейтинга от наличия отзывов не зависит');
+  assert.equal(env.store.lumen_rv_tt15239678.rate, 6.1, 'отрицательный кэш тоже держит рейтинг');
+  assert.deepEqual(warnLog, []);
+});
+
+test('load: фильма в Кинопоиске нет — рейтинг не показываем', () => {
+  const env = freshEnv();
+  const rates = [];
+  env.LC.applyKpRate = (v) => rates.push(v);
+
+  env.LC.reviews.load('tt15239678', 'KEY', () => { });
+  env.journal.calls[0].ok({ total: 0, items: [] });
+
+  assert.deepEqual(rates, []);
+});
+
+test('load: рантайм ещё не подключил LC.applyKpRate — модуль это переживает', () => {
+  const env = freshEnv();
+  env.LC.reviews.load('tt15239678', 'KEY', () => { });
+  env.journal.calls[0].ok({ total: 1, items: [{ kinopoiskId: 301, ratingKinopoisk: 7.8 }] });
   assert.deepEqual(warnLog, []);
 });

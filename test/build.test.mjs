@@ -23,7 +23,7 @@ const readSrc = f => readFileSync(new URL(f, srcDir), 'utf8');
 
 /* Порядок — как в бандле: 10 -> 20 -> 64 -> 80 -> 30 -> 65 (80_settings даёт
    LC.pref, он нужен 30/65 только при вызове, не при загрузке). */
-const MODULES = ['10_util.js', '20_icons.js', '64_menus.js', '80_settings.js', '30_css.js', '65_torrents.js'];
+const MODULES = ['10_util.js', '20_icons.js', '64_menus.js', '80_settings.js', '81_prefs.js', '30_css.js', '65_torrents.js'];
 
 function sliceModule(name) {
   const marker = '/* ---- ' + name + ' ---- */';

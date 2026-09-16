@@ -1,9 +1,31 @@
   /* -------------------------------------------------------------------- */
-  /* Настройки и локализация.                                             */
+  /* Локализация и раздел «Lumen Card» в настройках Lampa.                 */
+  /*                                                                       */
+  /* Task 10: чистая логика (нормализация значений, режим по платформе,    */
+  /* таблица пунктов раздела) живёт в соседнем src/81_prefs.js — здесь     */
+  /* словарь строк, сборка параметров для Lampa.SettingsApi и ОДНА точка   */
+  /* применения на настройку (applyPrefChange). Сами применения — в        */
+  /* 90_runtime.js (LC.apply*Pref).                                        */
   /* -------------------------------------------------------------------- */
 
   LC.STRINGS = {
     lumen_card_title: { ru: 'Lumen Card', en: 'Lumen Card', uk: 'Lumen Card' },
+    /* Task 10 (экран 09): главный выключатель первым пунктом раздела.
+       Карточку на экране плагин при выключении раздевает сразу (снимает свои
+       узлы, стили и классы), но заново её рисует уже Lampa — при следующем
+       открытии: настройки Lampa лежат активностью ПОВЕРХ карточки и при
+       возврате не шлют ни 'full', ни complite (находка ревью Task 8). */
+    lumen_card_enabled_name: { ru: 'Включить Lumen Card', en: 'Enable Lumen Card', uk: 'Увімкнути Lumen Card' },
+    lumen_card_enabled_descr: {
+      ru: 'Выключите — вернётся штатная карточка Lampa. Открытая карточка перерисуется при следующем открытии.',
+      en: 'Turn off to get the stock Lampa card back. An open card is redrawn the next time you open it.',
+      uk: 'Вимкніть — повернеться штатна картка Lampa. Відкрита картка перемалюється при наступному відкритті.'
+    },
+    /* Заголовки групп раздела (штатный параметр Lampa type:'title'). */
+    lumen_card_group_look: { ru: 'Оформление', en: 'Appearance', uk: 'Оформлення' },
+    lumen_card_group_backdrop: { ru: 'Фон карточки', en: 'Card background', uk: 'Фон картки' },
+    lumen_card_group_blocks: { ru: 'Блоки карточки', en: 'Card blocks', uk: 'Блоки картки' },
+    lumen_card_group_path: { ru: 'Меню и экраны плеера', en: 'Menus and player screens', uk: 'Меню та екрани плеєра' },
     lumen_card_accent: { ru: 'Акцентный цвет', en: 'Accent color', uk: 'Акцентний колір' },
     lumen_card_accent_sand: { ru: 'Песок', en: 'Sand', uk: 'Пісок' },
     lumen_card_accent_ice: { ru: 'Лёд', en: 'Ice', uk: 'Лід' },
@@ -18,6 +40,11 @@
     lumen_card_progress_name: { ru: 'Показывать «Продолжить»', en: 'Show "Continue"', uk: 'Показувати «Продовжити»' },
     lumen_card_cast_name: { ru: 'Показывать актёров', en: 'Show cast', uk: 'Показувати акторів' },
     lumen_card_motion: { ru: 'Анимации', en: 'Animations', uk: 'Анімації' },
+    lumen_card_motion_descr: {
+      ru: '«Авто» — лёгкие анимации на Tizen/webOS, полные на остальных. «Выкл» отключает и появление блоков, и наезд на кадр.',
+      en: '"Auto" means light animations on Tizen/webOS and full ones elsewhere. "Off" disables both block reveal and the Ken Burns zoom.',
+      uk: '«Авто» — легкі анімації на Tizen/webOS, повні на інших. «Викл» вимикає і появу блоків, і наїзд на кадр.'
+    },
     lumen_card_motion_auto: { ru: 'Авто', en: 'Auto', uk: 'Авто' },
     lumen_card_motion_full: { ru: 'Полные', en: 'Full', uk: 'Повні' },
     lumen_card_motion_lite: { ru: 'Лёгкие', en: 'Light', uk: 'Легкі' },
@@ -75,6 +102,11 @@
     lumen_card_menus_path: { ru: 'Только путь до плеера', en: 'Player path only', uk: 'Лише шлях до плеєра' },
     lumen_card_menus_off: { ru: 'Выкл', en: 'Off', uk: 'Викл' },
     lumen_card_torrents_name: { ru: 'Оформление экрана торрентов', en: 'Torrents screen style', uk: 'Оформлення екрана торентів' },
+    lumen_card_torrents_descr: {
+      ru: 'Список раздач, окна подключения и ошибок, списки файлов и предзагрузка — в стиле карточки.',
+      en: 'Torrent list, connection and error dialogs, file lists and preloading in the card style.',
+      uk: 'Список роздач, вікна підключення та помилок, списки файлів і передзавантаження — у стилі картки.'
+    },
     /* Task 7 (экран 02): фоновый трейлер. «Авто» — включён в браузере и на
        Android, выключен на Tizen/webOS (там iframe YouTube поверх карточки
        стоит дороже, чем выигрыш — та же логика экономии, что у lumen_motion). */
@@ -101,10 +133,12 @@
       uk: 'Ряд відгуків глядачів у блоці опису. Потрібен ключ API — рядок нижче.'
     },
     lumen_card_kp_key: { ru: 'Ключ Kinopoisk API', en: 'Kinopoisk API key', uk: 'Ключ Kinopoisk API' },
+    /* Экран 09: «нужен для отзывов и рейтинга КП» — с ключом плагин заполняет
+       ещё и чип рейтинга Кинопоиска, если Lampa его не дала (Task 10). */
     lumen_card_kp_key_descr: {
-      ru: 'Бесплатно на kinopoiskapiunofficial.tech, 500 запросов/день',
-      en: 'Free at kinopoiskapiunofficial.tech, 500 requests a day',
-      uk: 'Безкоштовно на kinopoiskapiunofficial.tech, 500 запитів на день'
+      ru: 'Нужен для отзывов и рейтинга КП. Бесплатно на kinopoiskapiunofficial.tech, 500 запросов/день',
+      en: 'Needed for reviews and the KP rating. Free at kinopoiskapiunofficial.tech, 500 requests a day',
+      uk: 'Потрібен для відгуків і рейтингу КП. Безкоштовно на kinopoiskapiunofficial.tech, 500 запитів на день'
     },
     lumen_card_reviews_title: { ru: 'Отзывы зрителей', en: 'Viewer reviews', uk: 'Відгуки глядачів' },
     lumen_card_reviews_src: { ru: 'КИНОПОИСК', en: 'KINOPOISK', uk: 'КІНОПОШУК' },
@@ -167,25 +201,6 @@
     return n === 1 ? 'review' : 'reviews';
   };
 
-  /* Читает настройку плагина из Lampa.Storage с нормализацией булевых. */
-  LC.pref = function (name, def) {
-    var value;
-    try {
-      if (window.Lampa && Lampa.Storage && typeof Lampa.Storage.get === 'function') {
-        value = Lampa.Storage.get(name, def);
-      }
-    } catch (e) {
-      warn('storage read failed: ' + name, e);
-    }
-    if (typeof value === 'undefined' || value === null || value === '') return def;
-    if (typeof def === 'boolean') {
-      if (value === 'true' || value === true || value === 1 || value === '1') return true;
-      if (value === 'false' || value === false || value === 0 || value === '0') return false;
-      return def;
-    }
-    return value;
-  };
-
   LC.lang = function (key) {
     try {
       if (window.Lampa && Lampa.Lang && typeof Lampa.Lang.translate === 'function') {
@@ -200,15 +215,83 @@
 
   var ICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="4" width="20" height="16" rx="3"/><path d="M2 15h20"/><circle cx="7" cy="9" r="2"/></svg>';
 
-  /* Lampa в Storage.set сначала шлёт listener 'change' (его ловит
-     LC.followStorage ниже), а потом вызывает onChange параметра — без этой
-     обёртки каждое изменение из меню применялось бы дважды (2× buildCss и
-     css() пути, два toggle). onChange остаётся запасным путём, если подписка
-     на Storage не удалась (LC.storageFollowed не выставлен). */
-  function onlyWithoutStorage(fn) {
+  /* -------------------------------------------------------------------- */
+  /* Одна точка применения на настройку.                                   */
+  /*                                                                       */
+  /* Ключевой факт (ревью Task 8): настройки Lampa — активность ПОВЕРХ      */
+  /* карточки, и возврат из них не шлёт ни 'full', ни complite. Значит      */
+  /* каждая настройка обязана применяться на лету сама — иначе на открытой  */
+  /* карточке останутся старые классы, узлы и CSS-переменные.               */
+  /*                                                                       */
+  /* Lampa в Storage.set сначала шлёт listener 'change' (его ловит          */
+  /* LC.followStorage), а потом вызывает onChange параметра — применить     */
+  /* дважды нельзя. Долг ревью Task 9 (п.1): прежний признак «подписка      */
+  /* удалась» (LC.storageFollowed) эту задачу решал неверно. Subscribe.send */
+  /* вендора оборачивает ВЕСЬ цикл подписчиков в один try/catch             */
+  /* (app.min.js ~2252): стоит чужому подписчику на 'change' бросить        */
+  /* исключение раньше нашего — рассылка обрывается, наш обработчик события */
+  /* не получает, а onChange молчал, считая, что «подписка же есть». Итог:  */
+  /* настройка применялась только после перезахода в Lampa.                 */
+  /*                                                                       */
+  /* Поэтому признак теперь пофактовый: пометку ставит сам обработчик       */
+  /* события, и только если применение прошло. onChange её снимает и        */
+  /* пропускает ровно одно, СВОЁ, уже обработанное событие.                 */
+  /* -------------------------------------------------------------------- */
+
+  var pref_handled = '';
+
+  /* Возвращает true, если имя — наше и настройка применена. */
+  function applyPrefChange(name) {
+    if (!name) return false;
+    if (name === 'lumen_enabled') { LC.applyEnabledPref(); return true; }
+    if (name === 'lumen_motion') { LC.applyMotionMode(); return true; }
+    if (name === 'lumen_slideshow' || name === 'lumen_slide_interval') { LC.applySlideshowPref(); return true; }
+    if (name === 'lumen_menus') { LC.applyMenusPref(); return true; }
+    if (name === 'lumen_torrents') { LC.applyTorrentsPref(); return true; }
+    if (name === 'lumen_trailer') { LC.applyTrailerPref(); return true; }
+    if (name === 'lumen_reviews' || name === 'lumen_kp_key') { LC.applyReviewsPref(); return true; }
+    if (name.indexOf(PLUGIN + '_') !== 0) return false;
+    /* Ревью Task 8 (п.3/ревью 2 п.4): от этих двух настроек таблица стилей не
+       зависит вовсе — классы, узлы и CSS-переменную подписи кнопки ставит
+       рендер. Гонять пересборку всего CSS впустую незачем. */
+    if (name === PLUGIN + '_fonts') { LC.injectFonts(); LC.injectCss(); return true; }
+    if (name === PLUGIN + '_progress') { LC.applyProgressPref(); return true; }
+    if (name === PLUGIN + '_cast') { LC.applyCastPref(); return true; }
+    LC.injectCss();
+    return true;
+  }
+
+  function onChangeFor(name) {
     return function () {
-      if (!LC.storageFollowed) fn();
+      if (pref_handled === name) { pref_handled = ''; return; }
+      applyPrefChange(name);
     };
+  }
+
+  /* {sand:'Песок', …} для параметра select: подпись значения — либо
+     vprefix + значение из словаря, либо «значение + слово» (интервал: «14 с»). */
+  function valuesOf(entry) {
+    var out = {};
+    for (var i = 0; i < entry.values.length; i++) {
+      var v = entry.values[i];
+      out[v] = entry.vprefix ? LC.lang(entry.vprefix + v) : v + ' ' + LC.lang(entry.vsuffix);
+    }
+    return out;
+  }
+
+  function addPrefParam(entry) {
+    var param = { name: entry.name, type: entry.type };
+    var field = { name: LC.lang(entry.label) };
+    if (entry.descr) field.description = LC.lang(entry.descr);
+    /* Заголовок группы ничего не хранит и не имеет обработчика. */
+    if (entry.type === 'title') {
+      Lampa.SettingsApi.addParam({ component: PLUGIN, param: param, field: field });
+      return;
+    }
+    param['default'] = entry['default'];
+    if (entry.type === 'select') param.values = valuesOf(entry);
+    if (entry.type === 'input') param.values = '';
+    Lampa.SettingsApi.addParam({ component: PLUGIN, param: param, field: field, onChange: onChangeFor(entry.name) });
   }
 
   LC.addSettings = function () {
@@ -221,139 +304,8 @@
         name: LC.lang('lumen_card_title')
       });
 
-      var accentValues = {
-        sand: LC.lang('lumen_card_accent_sand'),
-        ice: LC.lang('lumen_card_accent_ice'),
-        wine: LC.lang('lumen_card_accent_wine'),
-        mint: LC.lang('lumen_card_accent_mint')
-      };
-
-      Lampa.SettingsApi.addParam({
-        component: PLUGIN,
-        param: { name: PLUGIN + '_accent', type: 'select', values: accentValues, 'default': 'sand' },
-        field: { name: LC.lang('lumen_card_accent') },
-        onChange: onlyWithoutStorage(function () { LC.injectCss(); })
-      });
-
-      Lampa.SettingsApi.addParam({
-        component: PLUGIN,
-        param: { name: PLUGIN + '_fonts', type: 'trigger', 'default': true },
-        field: { name: LC.lang('lumen_card_fonts_name'), description: LC.lang('lumen_card_fonts_descr') },
-        onChange: onlyWithoutStorage(function () { LC.injectFonts(); LC.injectCss(); })
-      });
-
-      Lampa.SettingsApi.addParam({
-        component: PLUGIN,
-        param: { name: PLUGIN + '_progress', type: 'trigger', 'default': true },
-        field: { name: LC.lang('lumen_card_progress_name') },
-        onChange: onlyWithoutStorage(function () { LC.applyProgressPref(); })
-      });
-
-      Lampa.SettingsApi.addParam({
-        component: PLUGIN,
-        param: { name: PLUGIN + '_cast', type: 'trigger', 'default': true },
-        field: { name: LC.lang('lumen_card_cast_name') }
-      });
-
-      var motionValues = {
-        auto: LC.lang('lumen_card_motion_auto'),
-        full: LC.lang('lumen_card_motion_full'),
-        lite: LC.lang('lumen_card_motion_lite'),
-        off: LC.lang('lumen_card_motion_off')
-      };
-
-      /* Имя параметра — 'lumen_motion' (без префикса lumen_card_): так задано планом Task 4
-         (Lampa.Storage.field('lumen_motion') в LC.motionMode). LC.followStorage ниже подписан
-         на него отдельной веткой, вне общего префиксного фильтра PLUGIN + '_'. */
-      Lampa.SettingsApi.addParam({
-        component: PLUGIN,
-        param: { name: 'lumen_motion', type: 'select', values: motionValues, 'default': 'auto' },
-        field: { name: LC.lang('lumen_card_motion') },
-        onChange: onlyWithoutStorage(function () { LC.applyMotionMode(); })
-      });
-
-      /* Task 6: имена без префикса PLUGIN, как у lumen_motion выше —
-         LC.followStorage подписан на них отдельной веткой, вне общего
-         префиксного фильтра PLUGIN + '_'. onChange у обоих — одна и та же
-         LC.applySlideshowPref (90_runtime.js): и выключение, и смена
-         интервала на уже открытой карточке идут через pause()+resume()
-         контроллера слайдшоу. */
-      Lampa.SettingsApi.addParam({
-        component: PLUGIN,
-        param: { name: 'lumen_slideshow', type: 'trigger', 'default': true },
-        field: { name: LC.lang('lumen_card_slideshow_name') },
-        onChange: onlyWithoutStorage(function () { LC.applySlideshowPref(); })
-      });
-
-      var seconds = LC.lang('lumen_card_seconds');
-      var intervalValues = { '8': '8 ' + seconds, '14': '14 ' + seconds, '20': '20 ' + seconds };
-
-      Lampa.SettingsApi.addParam({
-        component: PLUGIN,
-        param: { name: 'lumen_slide_interval', type: 'select', values: intervalValues, 'default': '14' },
-        field: { name: LC.lang('lumen_card_slide_interval') },
-        onChange: onlyWithoutStorage(function () { LC.applySlideshowPref(); })
-      });
-
-      /* Task 31: имена без префикса PLUGIN, как у lumen_motion — отдельные
-         ветки в LC.followStorage. Применение — LC.applyMenusPref/
-         LC.applyTorrentsPref (90_runtime.js), без перезагрузки. */
-      var menusValues = {
-        all: LC.lang('lumen_card_menus_all'),
-        path: LC.lang('lumen_card_menus_path'),
-        off: LC.lang('lumen_card_menus_off')
-      };
-
-      Lampa.SettingsApi.addParam({
-        component: PLUGIN,
-        param: { name: 'lumen_menus', type: 'select', values: menusValues, 'default': 'all' },
-        field: { name: LC.lang('lumen_card_menus') },
-        onChange: onlyWithoutStorage(function () { LC.applyMenusPref(); })
-      });
-
-      Lampa.SettingsApi.addParam({
-        component: PLUGIN,
-        param: { name: 'lumen_torrents', type: 'trigger', 'default': true },
-        field: { name: LC.lang('lumen_card_torrents_name') },
-        onChange: onlyWithoutStorage(function () { LC.applyTorrentsPref(); })
-      });
-
-      /* Task 7: имя без префикса PLUGIN, как у lumen_motion/lumen_slideshow —
-         отдельная ветка в LC.followStorage. Выключение на открытой карточке
-         снимает уже играющий трейлер (LC.applyTrailerPref в 90_runtime.js);
-         включение на лету трейлер не запускает — он стартует при следующем
-         открытии карточки (отсчёт 3 с идёт от complite). */
-      var trailerValues = {
-        auto: LC.lang('lumen_card_trailer_auto'),
-        on: LC.lang('lumen_card_trailer_on'),
-        off: LC.lang('lumen_card_trailer_off')
-      };
-
-      Lampa.SettingsApi.addParam({
-        component: PLUGIN,
-        param: { name: 'lumen_trailer', type: 'select', values: trailerValues, 'default': 'auto' },
-        field: { name: LC.lang('lumen_card_trailer'), description: LC.lang('lumen_card_trailer_descr') },
-        onChange: onlyWithoutStorage(function () { LC.applyTrailerPref(); })
-      });
-
-      /* Task 9: имена без префикса PLUGIN, как lumen_motion/lumen_trailer —
-         отдельные ветки в LC.followStorage. Своя точка применения обязательна:
-         возврат из настроек Lampa карточку не перестраивает (ни 'full', ни
-         complite), поэтому и включение ряда, и введённый ключ применяет
-         LC.applyReviewsPref (90_runtime.js) прямо на открытой карточке. */
-      Lampa.SettingsApi.addParam({
-        component: PLUGIN,
-        param: { name: 'lumen_reviews', type: 'trigger', 'default': true },
-        field: { name: LC.lang('lumen_card_reviews_name'), description: LC.lang('lumen_card_reviews_descr') },
-        onChange: onlyWithoutStorage(function () { LC.applyReviewsPref(); })
-      });
-
-      Lampa.SettingsApi.addParam({
-        component: PLUGIN,
-        param: { name: 'lumen_kp_key', type: 'input', values: '', 'default': '' },
-        field: { name: LC.lang('lumen_card_kp_key'), description: LC.lang('lumen_card_kp_key_descr') },
-        onChange: onlyWithoutStorage(function () { LC.applyReviewsPref(); })
-      });
+      /* Порядок пунктов и группы — LC.prefs.LIST (src/81_prefs.js, экран 09). */
+      for (var i = 0; i < LC.prefs.LIST.length; i++) addPrefParam(LC.prefs.LIST[i]);
     } catch (e) {
       warn('settings failed', e);
     }
@@ -364,63 +316,18 @@
       if (!window.Lampa || !Lampa.Storage || !Lampa.Storage.listener) return;
       Lampa.Storage.listener.follow('change', function (e) {
         if (!e || !e.name) return;
-        if (e.name === 'lumen_motion') { LC.applyMotionMode(); return; }
-        if (e.name === 'lumen_slideshow' || e.name === 'lumen_slide_interval') { LC.applySlideshowPref(); return; }
-        if (e.name === 'lumen_menus') { LC.applyMenusPref(); return; }
-        if (e.name === 'lumen_torrents') { LC.applyTorrentsPref(); return; }
-        if (e.name === 'lumen_trailer') { LC.applyTrailerPref(); return; }
-        if (e.name === 'lumen_reviews' || e.name === 'lumen_kp_key') { LC.applyReviewsPref(); return; }
-        if (e.name.indexOf(PLUGIN + '_') !== 0) return;
-        if (e.name === PLUGIN + '_fonts') LC.injectFonts();
-        /* Ревью Task 8 (п.3): классы и CSS-переменную подписи кнопки ставит
-           рендер, а не таблица стилей — одного injectCss() здесь мало.
-           Ревью 2 (п.4): и наоборот — от этой настройки CSS не зависит вовсе,
-           поэтому выходим сразу, как ветка lumen_trailer выше, а не гоняем
-           пересборку всей таблицы стилей впустую. */
-        if (e.name === PLUGIN + '_progress') { LC.applyProgressPref(); return; }
-        LC.injectCss();
+        /* Свой try/catch обязателен в обе стороны: (1) исключение отсюда
+           оборвало бы рассылку ОСТАЛЬНЫМ подписчикам Lampa (один try/catch на
+           весь цикл, см. выше); (2) не пометив событие обработанным, мы
+           оставляем onChange запасным путём — настройка всё равно применится. */
+        try {
+          if (applyPrefChange(e.name)) pref_handled = e.name;
+        } catch (err) {
+          warn('storage change failed: ' + e.name, err);
+        }
       });
       LC.storageFollowed = true;
     } catch (err) {
       warn('storage listener failed', err);
     }
   };
-
-  /* -------------------------------------------------------------------- */
-  /* Task 4: режим анимаций. Чистая логика выбора — тестируется отдельно   */
-  /* от Lampa (test/settings.test.mjs); применение класса на DOM карточки  */
-  /* живёт в 90_runtime.js (LC.applyMotionMode ссылается сюда извне).      */
-  /* -------------------------------------------------------------------- */
-
-  /* stored — сырое значение параметра lumen_motion ('auto'|'full'|'lite'|'off'),
-     platform — {tizen:bool, webos:bool}. Не 'auto' -> как есть; 'auto' на tizen/webos -> 'lite',
-     иначе 'full'. Любое незнакомое значение (undefined/null/''/мусор — например, старый профиль
-     без этого ключа или битое значение в Storage) считается как 'auto', а не возвращается как есть. */
-  LC.motionModeFor = function (stored, platform) {
-    if (stored !== 'full' && stored !== 'lite' && stored !== 'off') stored = 'auto';
-    if (stored !== 'auto') return stored;
-    platform = platform || {};
-    if (platform.tizen || platform.webos) return 'lite';
-    return 'full';
-  };
-
-  LC.motionMode = function () {
-    var stored = 'auto';
-    try {
-      if (window.Lampa && Lampa.Storage && typeof Lampa.Storage.field === 'function') stored = Lampa.Storage.field('lumen_motion');
-    } catch (e) { }
-    var platform = { tizen: false, webos: false };
-    try {
-      if (window.Lampa && Lampa.Platform && typeof Lampa.Platform.is === 'function') {
-        platform.tizen = !!Lampa.Platform.is('tizen');
-        platform.webos = !!Lampa.Platform.is('webos');
-      }
-    } catch (e2) { }
-    return LC.motionModeFor(stored, platform);
-  };
-
-  /* В браузере "module" не определён — ветка не выполняется. Метка module.lumen
-     ставится только тестовым загрузчиком (test/_load.mjs) — так мы не затираем
-     чужой глобальный module.exports, если он есть у страницы (например, у
-     Electron/NW.js-обёрток Lampa с nodeIntegration). */
-  if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.motionModeFor;

@@ -29,11 +29,17 @@
 
   /* onac — текст на заливке акцентом (Task 32, экспорт «Lumen Torrents»,
      карта акцентов DCLogic: --onac). Карточка по-прежнему пишет C.dark. */
+  /* Task 10 (экран 14 «ACCENT VARIANTS»): у каждого акцента своя ЧЕТВЁРКА
+     токенов — цвет, текст на акценте, кольцо фокуса и свечение. Значения 1:1
+     из DCLogic.accents() экспорта design/Lumen Card for Lampa - FHD.dc.html:
+     кольца ice/wine/mint были взяты на глаз в v1 (#DCF1F8/#F8DCE7/#E7F8DC) и
+     расходились с дизайном — выправлено здесь, вместе со смыслом «смена
+     акцента меняет всю группу разом». */
   var ACCENTS = {
     sand: { color: '#E8B87A', light: '#FFF2DC', glow: 'rgba(232,184,122,0.35)', onac: '#1A120A' },
-    ice: { color: '#7FB7C9', light: '#DCF1F8', glow: 'rgba(127,183,201,0.35)', onac: '#08171C' },
-    wine: { color: '#C46A8F', light: '#F8DCE7', glow: 'rgba(196,106,143,0.35)', onac: '#1C0A12' },
-    mint: { color: '#9FCF8A', light: '#E7F8DC', glow: 'rgba(159,207,138,0.35)', onac: '#0C1608' }
+    ice: { color: '#7FB7C9', light: '#E9F7FB', glow: 'rgba(127,183,201,0.35)', onac: '#08171C' },
+    wine: { color: '#C46A8F', light: '#FBEAF1', glow: 'rgba(196,106,143,0.35)', onac: '#1C0A12' },
+    mint: { color: '#9FCF8A', light: '#EEFBE7', glow: 'rgba(159,207,138,0.35)', onac: '#0C1608' }
   };
 
   /* '#RRGGBB' -> 'R,G,B' для rgba(...) — так цвет не дублируется как отдельная
@@ -62,8 +68,12 @@
     return ACCENTS[key] || ACCENTS.sand;
   }
 
+  /* Task 10: выключенный плагин не должен оставлять за собой <link> на Google
+     Fonts — это наш ресурс, а не Lampa. LC.applyEnabledPref (90_runtime.js)
+     зовёт LC.injectFonts() на выключении, и ветка удаления срабатывает именно
+     отсюда: отдельной функции снятия не нужно. */
   function useFonts() {
-    return LC.pref(PLUGIN + '_fonts', true);
+    return LC.enabled() && LC.pref(PLUGIN + '_fonts', true);
   }
 
   /* Task 32: токены наружу для CSS экранов пути (src/65_torrents.js) —
@@ -722,6 +732,21 @@
       if (typeof LC.applyTorrentsPref === 'function') LC.applyTorrentsPref();
     } catch (e) {
       warn('css inject failed', e);
+    }
+  };
+
+  /* Task 10: плагин выключили — <style> карточки снимаем целиком (а не
+     подменяем пустым текстом): пустой узел в <head> так же вводил бы в
+     заблуждение при разборе DOM, как и наши правила. Сброс card_css_text
+     обязателен — иначе повторное включение сочло бы текст неизменившимся и
+     оставило бы пустой <style>. */
+  LC.removeCss = function () {
+    try {
+      var el = document.getElementById(STYLE_ID);
+      if (el && el.parentNode) el.parentNode.removeChild(el);
+      card_css_text = null;
+    } catch (e) {
+      warn('css remove failed', e);
     }
   };
 

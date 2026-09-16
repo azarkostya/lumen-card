@@ -439,8 +439,12 @@ function initLC(opts) {
   const storage = opts.storage || {};
   const full = [];
   const toggles = [];
+  /* Task 10: следы главного выключателя — какой шаблон отдан Lampa, кого
+     позвали снимать слой фона и незавершённый запрос отзывов, сколько раз
+     перерисовали актёров. */
+  const extra = { added: [], bgCancel: [], reviewCancel: [], cast: 0 };
   const Lampa = {
-    Template: { all: () => ({ full_start_new: '<div>orig</div>' }), add: () => { }, get: () => '' },
+    Template: { all: () => ({ full_start_new: '<div>orig</div>' }), add: (name, html) => extra.added.push({ name: name, html: html }), get: () => '' },
     Listener: { follow: (name, fn) => { if (name === 'full') full.push(fn); } },
     Lang: { add: () => { } },
     SettingsApi: { addComponent: () => { }, addParam: () => { } },
@@ -456,21 +460,23 @@ function initLC(opts) {
   const LC = {};
   const module = { exports: null, lumen: true };
   loadInto(LC, module, '80_settings.js');
+  loadInto(LC, module, '81_prefs.js');
   loadInto(LC, module, '90_runtime.js');
   LC.template = { build: () => '<div class="lumen-card"></div>', assert: () => ({ ok: true, missingInOurs: [] }) };
   LC.injectFonts = () => { };
   LC.injectCss = () => { };
+  LC.removeCss = () => { };
   LC.menus = { mode: () => { }, install: () => { } };
   LC.torrents = { install: () => { }, toggle: () => { } };
   const descrRows = [];
-  LC.header = { decorate: () => { }, descr: (row) => descrRows.push(row) };
-  LC.backdrops = { apply: () => null, cancel: () => { } };
+  LC.header = { decorate: () => { }, descr: (row) => descrRows.push(row), refreshCast: () => { extra.cast++; } };
+  LC.backdrops = { apply: () => null, cancel: (body) => extra.bgCancel.push(body) };
   /* Task 9: ряд отзывов рисует свой модуль — здесь он такая же заглушка, как
      header/backdrops/trailer; вызовы пишем в журнал (проверка ниже: и таблица
      «ПОДРОБНО», и отзывы получают ОДИН и тот же узел ряда описания). */
   const reviewRows = [];
   const clearedRows = [];
-  LC.reviews = { render: (row) => reviewRows.push(row), clearRow: (row) => clearedRows.push(row) };
+  LC.reviews = { render: (row) => reviewRows.push(row), clearRow: (row) => clearedRows.push(row), cancel: (body) => extra.reviewCancel.push(body) };
 
   const calls = { bind: [], schedule: [], stop: 0 };
   LC.trailer = {
@@ -481,7 +487,7 @@ function initLC(opts) {
   };
 
   LC.init();
-  return { LC, calls, full, toggles, descrRows, reviewRows, clearedRows };
+  return { LC, calls, full, toggles, descrRows, reviewRows, clearedRows, extra };
 }
 
 test('Task 7: complite — bind(root) и schedule(root, body, data), контроллер попадает в LC.active.trailer', () => {
@@ -711,5 +717,119 @@ test('Task 7: LC.applyTrailerPref — выключение снимает игр
   const on = initLC({ mode: 'on' });
   on.LC.applyTrailerPref();
   assert.equal(on.calls.stop, 0, 'включение на лету ничего не останавливает (и не запускает — старт от complite)');
+  assert.deepEqual(warnLog, []);
+});
+
+/* ====================================================================== */
+/* Task 10: главный выключатель на УЖЕ ОТКРЫТОЙ карточке.                 */
+/*                                                                        */
+/* Настройки Lampa лежат активностью поверх карточки и при возврате не     */
+/* шлют ни 'full', ни complite (находка ревью Task 8) — значит выключение  */
+/* обязано само раздеть карточку: снять наши узлы, CSS-переменную подписи  */
+/* кнопки «Смотреть», слайдшоу и трейлер. Саму карточку не трогаем — её    */
+/* нарисует заново Lampa при следующем открытии (штатным шаблоном).        */
+/* ====================================================================== */
+
+/* Разметка открытой карточки в объёме, который снимает выключатель: узлы
+   шапки лежат в .lumen-card, таблица «ПОДРОБНО» и отзывы — в ряду описания
+   (он вне карточки, отдельный items-line — план 0.2). */
+function openCard() {
+  const facts = new FakeEl(['lumen-facts']);
+  const reviews = new FakeEl(['lumen-reviews']);
+  const descrRow = new FakeEl(['items-line', 'lumen-descr-row', 'lumen-descr-row--reviews'], [facts, reviews]);
+  const progress = new FakeEl(['lumen-in', 'lumen-progress']);
+  const episodes = new FakeEl(['lumen-in', 'lumen-episodes']);
+  const card = new FakeEl(['full-start-new', 'lumen-card', 'lumen-continue'], [progress, episodes]);
+  card.style.setProperty('--lumen-play-label', '"Продолжить S2 E3"');
+  const body = new FakeEl(['activity__body'], [card, descrRow]);
+  const bodyTag = new FakeEl(['body-mock']);
+  const map = {
+    'body': bodyTag,
+    '.activity--active .lumen-card': card,
+    '.activity--active .lumen-descr-row': descrRow,
+    '.activity--active .lumen-facts': facts,
+    '.activity--active .lumen-reviews': reviews,
+    '.activity--active .lumen-progress': progress,
+    '.activity--active .lumen-episodes': episodes
+  };
+  globalThis.$ = (sel) => map[sel] || EMPTY;
+  return { card, descrRow, facts, reviews, progress, episodes, body, bodyTag };
+}
+
+test('Task 10: выключение снимает узлы плагина и подпись кнопки с открытой карточки', () => {
+  const storage = {};
+  const { LC, extra } = initLC({ storage });
+  const c = openCard();
+  LC.active = { object: {}, body: c.body, data: { movie: { id: 1 } } };
+
+  storage.lumen_enabled = 'false';
+  LC.applyEnabledPref();
+
+  assert.equal(c.card._children.length, 0, 'строка «Продолжить» и ряд серий сняты');
+  assert.equal(c.descrRow._children.length, 0, 'таблица «ПОДРОБНО» и ряд отзывов сняты');
+  assert.equal(c.card.hasClass('lumen-continue'), false);
+  assert.equal(c.card._css['--lumen-play-label'], undefined, 'CSS-переменная подписи кнопки снята');
+  assert.equal(c.descrRow.hasClass('lumen-descr-row--reviews'), false, 'описание больше не поджато');
+  assert.deepEqual(extra.bgCancel, [c.body], 'слайдшоу и трейлер сняты через LC.backdrops.cancel');
+  assert.deepEqual(extra.reviewCancel, [c.body], 'незавершённый запрос отзывов снят');
+  assert.equal(LC.active, null, 'ссылка на карточку отпущена');
+  assert.equal(extra.added[extra.added.length - 1].html, '<div>orig</div>', 'штатный шаблон Lampa возвращён');
+  assert.deepEqual(warnLog, []);
+});
+
+test('Task 10: карточка, открытая при выключенном плагине, не оформляется вовсе', () => {
+  const { LC, full, calls, descrRows, reviewRows } = initLC({ storage: { lumen_enabled: 'false' } });
+  assert.equal(full.length, 1, 'подписка на full нужна и выключенному плагину — иначе включение потребует перезагрузки');
+
+  const root = new FakeEl(['full-start-new']);
+  const body = new FakeEl(['activity__body']);
+  full[0]({ type: 'complite', body: body, object: {}, data: { movie: { id: 1 } }, item: { render: () => root } });
+
+  assert.deepEqual(descrRows, [], 'таблица «ПОДРОБНО» не рисуется');
+  assert.deepEqual(reviewRows, [], 'ряд отзывов не рисуется');
+  assert.equal(calls.bind.length, 0, 'трейлер не привязывается');
+  assert.equal(calls.schedule.length, 0, 'трейлер не планируется');
+  assert.equal(LC.active, null, 'фон не строится, карточку не запоминаем');
+  assert.deepEqual(warnLog, []);
+});
+
+test('Task 10: LC.applyCastPref перерисовывает актёров на открытой карточке', () => {
+  const { LC, extra } = initLC();
+  LC.applyCastPref();
+  assert.equal(extra.cast, 1, 'у настройки «Показывать актёров» своя точка применения на лету');
+  assert.deepEqual(warnLog, []);
+});
+
+/* Экран 09: «Ключ Kinopoisk API — нужен для отзывов и рейтинга КП». Рейтинг
+   приходит тем же ответом films?imdbId, что и id для отзывов (лишних запросов
+   не делаем), и ставится ТОЛЬКО если Lampa своего не дала: её значение
+   (CUB/парсер) приоритетнее нашего. */
+test('Task 10: LC.applyKpRate заполняет rate--kp только когда Lampa рейтинг не дала', () => {
+  const { LC } = initLC();
+  const value = new FakeEl([]);
+  const label = new FakeEl([]);
+  const chip = new FakeEl(['full-start__rate', 'rate--kp', 'hide'], [value, label]);
+  globalThis.$ = (sel) => (sel === '.activity--active .lumen-card .rate--kp' ? chip : EMPTY);
+
+  LC.applyKpRate(0);
+  assert.equal(chip.hasClass('hide'), true, 'нулевой рейтинг не показываем');
+  LC.applyKpRate('нет');
+  assert.equal(chip.hasClass('hide'), true, 'мусор не показываем');
+
+  LC.applyKpRate(7.8);
+  assert.equal(chip.hasClass('hide'), false, 'чип показан');
+  assert.equal(value.text(), '7.8');
+
+  /* Lampa уже заполнила чип (kp_rating из CUB) — своё значение не навязываем. */
+  value.text('9.1');
+  LC.applyKpRate(7.8);
+  assert.equal(value.text(), '9.1');
+  assert.deepEqual(warnLog, []);
+});
+
+test('Task 10: rate--kp на карточке нет (чужой шаблон) — LC.applyKpRate молча выходит', () => {
+  const { LC } = initLC();
+  globalThis.$ = () => EMPTY;
+  LC.applyKpRate(7.8);
   assert.deepEqual(warnLog, []);
 });

@@ -52,7 +52,7 @@ globalThis.$ = $;
 function loadLC() {
   const LC = {};
   const module = { exports: null, lumen: false };
-  const names = ['10_util.js', '35_cardinfo.js', '50_backdrops.js', '70_progress.js', '80_settings.js', '85_header.js'];
+  const names = ['10_util.js', '35_cardinfo.js', '50_backdrops.js', '70_progress.js', '80_settings.js', '81_prefs.js', '85_header.js'];
   const src = names.map((n) => readFileSync(new URL(`../src/${n}`, import.meta.url), 'utf8')).join('\n');
   new Function('LC', 'module', src)(LC, module);
   return LC;
@@ -771,4 +771,37 @@ test('refreshEpisode: перерисовывает только серию с э
   LC.header.refreshEpisode('abc');
   LC.header.refreshEpisode(null);
   assert.deepEqual(warnLog, []);
+});
+
+/* ------------------------------ refreshCast (Task 10) ------------------------------ */
+
+/* Настройка «Показывать актёров» тоже обязана применяться на лету: возврат из
+   настроек Lampa карточку не перестраивает (ни 'full', ни complite), и без
+   своей точки применения кружки инициалов остались бы на экране. Данные для
+   перерисовки кладёт сам renderCast — тем же приёмом, что renderProgress
+   (root[0].lumenProgress). Тест последний в файле: decorate на урезанной
+   разметке пишет в warnLog, а соседние тесты ждут его пустым. */
+test('Task 10: LC.header.refreshCast снимает и возвращает блок актёров без открытия карточки', () => {
+  warnLog.length = 0;
+  const label = new FakeEl(['lumen-cast__label']);
+  const row = new FakeEl(['lumen-cast__row']);
+  const cast = new FakeEl(['lumen-cast', 'hide'], [label, row]);
+  const root = new FakeEl(['full-start-new', 'lumen-card'], [cast]);
+  docRoots.push(root);
+
+  LC.header.decorate(root, { movie: { title: 'Дюна' }, persons: { cast: [{ name: 'Тимоти Шаламе' }, { name: 'Зендея' }] } });
+  assert.equal(cast.hasClass('hide'), false, 'актёры показаны');
+
+  const orig = Lampa.Storage.get;
+  Lampa.Storage.get = (name, def) => (name === 'lumen_card_cast' ? 'false' : def);
+  try {
+    LC.header.refreshCast();
+    assert.equal(cast.hasClass('hide'), true, 'выключили — блок снят на лету');
+  } finally {
+    Lampa.Storage.get = orig;
+  }
+
+  LC.header.refreshCast();
+  assert.equal(cast.hasClass('hide'), false, 'включили обратно — блок вернулся по сохранённым данным');
+  assert.equal(row._children.length, 2, 'кружки инициалов перерисованы');
 });

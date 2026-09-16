@@ -23,8 +23,11 @@ function setup(opts) {
   const storage = Object.assign({ lumen_menus: 'all', lumen_torrents: 'true' }, opts.storage || {});
   const storageCbs = [];
   const params = [];
+  /* Task 10: какой шаблон карточки отдан Lampa — наш или возвращённый
+     оригинал (главный выключатель lumen_enabled). */
+  const added = [];
   const Lampa = {
-    Template: { all: () => ({ full_start_new: '<div>orig</div>' }), add: () => { }, get: () => '' },
+    Template: { all: () => ({ full_start_new: '<div>orig</div>' }), add: (name, html) => added.push({ name, html }), get: () => '' },
     Listener: { follow: () => { } },
     Lang: { add: () => { } },
     SettingsApi: { addComponent: () => { }, addParam: (p) => params.push(p) },
@@ -41,6 +44,7 @@ function setup(opts) {
 
   const LC = {};
   loadInto(LC, '80_settings.js');
+  loadInto(LC, '81_prefs.js');
   loadInto(LC, '90_runtime.js');
   LC.template = { build: () => '<div class="lumen-card"></div>', assert: () => ({ ok: true, missingInOurs: [] }) };
   LC.injectFonts = () => log.push('fonts');
@@ -50,11 +54,33 @@ function setup(opts) {
     install: () => log.push('install')
   };
   LC.torrents = { toggle: (on) => log.push('torrents:' + on), install: () => log.push('torrents-install') };
+  LC.removeCss = () => log.push('css-remove');
+  /* Task 10: применение настроек из 90_runtime.js здесь НАСТОЯЩЕЕ — заглушки
+     стоят только на том, до чего оно дотягивается (рендеры карточки, трейлер,
+     отзывы, фон). Так проверка «одна точка применения» бьёт по реальной
+     цепочке applyPrefChange -> LC.apply*Pref, а не по моку всей цепочки. */
+  LC.header = { decorate: () => { }, descr: () => { }, refreshProgress: () => log.push('progress'), refreshCast: () => log.push('cast') };
+  LC.trailer = { bind: () => { }, schedule: () => null, stopActive: () => log.push('trailer-stop'), mode: () => opts.trailerMode || 'auto' };
+  LC.reviews = { render: () => log.push('reviews-render'), clearRow: () => log.push('reviews-clear'), cancel: () => { } };
+  LC.backdrops = { apply: () => null, cancel: () => log.push('bg-cancel') };
   /* Task 32: класс режима движения на body — фейковый $('body'). */
   const body = new FakeEl(['body-mock']);
   globalThis.$ = (sel) => (sel === 'body' ? body : EMPTY);
   opts.body = body;
-  return { LC, log, storage, storageCbs, body, params };
+  LC.active = { object: {}, body: EMPTY, data: null, slideshow: { pause: () => log.push('slide-pause'), resume: () => log.push('slide-resume') } };
+  return { LC, log, storage, storageCbs, body, params, added };
+}
+
+/* Оборачивает настоящие методы LC счётчиками, не подменяя поведение: после
+   LC.init() видно, СКОЛЬКО раз каждая точка применения была вызвана. */
+function countCalls(LC, names) {
+  const seen = {};
+  names.forEach((name) => {
+    const orig = LC[name];
+    seen[name] = 0;
+    LC[name] = function () { seen[name]++; return orig.apply(LC, arguments); };
+  });
+  return seen;
 }
 
 function onChangeOf(params, name) {
@@ -70,6 +96,131 @@ test('fix ревью: настройка из меню Lampa применяет�
     onChangeOf(params, name)(); // затем onChange параметра
   }
   assert.deepEqual(log, ['css', 'fonts', 'css', 'mode:all', 'torrents:true']);
+});
+
+/* Долг ревью Task 9 (п.2): проверка выше покрывала 4 имени из 7 — а настройка
+   без своей ветки молча не применяется до перезахода в Lampa. Здесь — ВСЕ
+   пункты раздела разом, по настоящей цепочке applyPrefChange -> LC.apply*Pref
+   (счётчики навешаны поверх, поведение не подменено). */
+test('долг ревью (п.2): каждая настройка раздела применяется ровно один раз — ни одна не забыта и ни одна не дублируется', () => {
+  const { LC, storageCbs, params } = setup();
+  LC.init();
+
+  const POINTS = ['applyEnabledPref', 'applyMotionMode', 'applySlideshowPref', 'applyMenusPref',
+    'applyTorrentsPref', 'applyTrailerPref', 'applyProgressPref', 'applyCastPref', 'applyReviewsPref',
+    'injectCss', 'injectFonts'];
+  const spies = countCalls(LC, POINTS);
+
+  const expected = {
+    lumen_enabled: ['applyEnabledPref'],
+    lumen_card_accent: ['injectCss'],
+    lumen_card_fonts: ['injectFonts', 'injectCss'],
+    lumen_motion: ['applyMotionMode'],
+    lumen_slideshow: ['applySlideshowPref'],
+    lumen_slide_interval: ['applySlideshowPref'],
+    lumen_trailer: ['applyTrailerPref'],
+    lumen_card_progress: ['applyProgressPref'],
+    lumen_card_cast: ['applyCastPref'],
+    lumen_reviews: ['applyReviewsPref'],
+    lumen_kp_key: ['applyReviewsPref'],
+    lumen_menus: ['applyMenusPref'],
+    lumen_torrents: ['applyTorrentsPref']
+  };
+
+  /* В проверке обязаны быть все пункты раздела — иначе она снова отстанет от
+     списка настроек, как отстала после Task 6/7/9. */
+  assert.deepEqual(Object.keys(expected).sort(),
+    LC.prefs.LIST.filter((e) => e.type !== 'title').map((e) => e.name).sort());
+
+  for (const name of Object.keys(expected)) {
+    const before = Object.assign({}, spies);
+    storageCbs[0]({ name });      // Lampa Storage.set: сначала listener 'change'
+    onChangeOf(params, name)();   // затем onChange параметра
+    for (const point of POINTS) {
+      const delta = spies[point] - before[point];
+      const want = expected[name].indexOf(point) !== -1 ? 1 : 0;
+      assert.equal(delta, want, name + ' -> ' + point + ': ожидалось ' + want + ' вызовов, было ' + delta);
+    }
+  }
+});
+
+/* ====================================================================== */
+/* Task 10: главный выключатель lumen_enabled.                            */
+/*                                                                        */
+/* Выключенный плагин обязан вернуть Lampa её собственный шаблон карточки  */
+/* и снять за собой всё: оба <style>, классы на body, маркеры меню,        */
+/* слайдшоу и трейлер открытой карточки. Включение возвращает наш шаблон   */
+/* и оформление — без перезагрузки Lampa.                                 */
+/* ====================================================================== */
+
+test('Task 10: lumen_enabled=false на старте — плагин ничего не оформляет, шаблон Lampa не подменяется', () => {
+  const { LC, log, added, body } = setup({ storage: { lumen_enabled: 'false', lumen_motion: 'full' } });
+  LC.init();
+  assert.deepEqual(log, [], 'ни CSS, ни шрифтов, ни меню, ни экранов торрентов');
+  assert.deepEqual(added, [], 'шаблон full_start_new остаётся штатным');
+  assert.deepEqual(body._class, ['body-mock'], 'на body нет классов плагина');
+});
+
+test('Task 10: включение на лету активирует оформление и ставит наш шаблон', () => {
+  const { LC, log, added, storage, storageCbs } = setup({ storage: { lumen_enabled: 'false' } });
+  LC.init();
+  log.length = 0;
+
+  storage.lumen_enabled = 'true';
+  storageCbs[0]({ name: 'lumen_enabled' });
+
+  assert.deepEqual(log, ['fonts', 'css', 'mode:all', 'install', 'torrents-install', 'torrents:true']);
+  assert.deepEqual(added, [{ name: 'full_start_new', html: '<div class="lumen-card"></div>' }]);
+});
+
+test('Task 10: выключение на лету возвращает штатный шаблон и снимает оформление', () => {
+  const { LC, log, added, body, storage, storageCbs } = setup({ storage: { lumen_motion: 'full' } });
+  LC.init();
+  assert.equal(body.hasClass('lumen-motion-full'), true, 'до выключения класс режима на body стоит');
+  log.length = 0;
+  added.length = 0;
+
+  storage.lumen_enabled = 'false';
+  storageCbs[0]({ name: 'lumen_enabled' });
+
+  assert.deepEqual(added, [{ name: 'full_start_new', html: '<div>orig</div>' }], 'вернулся оригинал Lampa');
+  assert.deepEqual(log, ['css-remove', 'fonts', 'torrents:false', 'mode:off', 'bg-cancel'],
+    'сняты: CSS карточки, <link> шрифтов, CSS и класс экранов торрентов, маркеры меню, слайдшоу с трейлером');
+  assert.equal(body.hasClass('lumen-motion-full'), false, 'класс режима движения снят с body');
+  assert.equal(LC.active, null, 'ссылка на открытую карточку отпущена');
+});
+
+test('Task 10: повторное выключение/включение идемпотентны', () => {
+  const { LC, log, storage, storageCbs } = setup();
+  LC.init();
+
+  storage.lumen_enabled = 'false';
+  storageCbs[0]({ name: 'lumen_enabled' });
+  log.length = 0;
+  storageCbs[0]({ name: 'lumen_enabled' });
+  assert.deepEqual(log, [], 'второе выключение подряд ничего не делает');
+
+  storage.lumen_enabled = 'true';
+  storageCbs[0]({ name: 'lumen_enabled' });
+  log.length = 0;
+  storageCbs[0]({ name: 'lumen_enabled' });
+  assert.deepEqual(log, [], 'второе включение подряд ничего не делает');
+});
+
+test('Task 10: пока плагин выключен, смена прочих настроек не ставит классы и не трогает экраны', () => {
+  const { LC, log, storage, storageCbs, body } = setup({ storage: { lumen_enabled: 'false' } });
+  LC.init();
+  log.length = 0;
+
+  storage.lumen_menus = 'path';
+  storageCbs[0]({ name: 'lumen_menus' });
+  storage.lumen_torrents = 'true';
+  storageCbs[0]({ name: 'lumen_torrents' });
+  storage.lumen_motion = 'off';
+  storageCbs[0]({ name: 'lumen_motion' });
+
+  assert.deepEqual(log, [], 'оформление выключено целиком — применять нечего');
+  assert.deepEqual(body._class, ['body-mock']);
 });
 
 test('fix ревью: без подписки на Storage onChange остаётся рабочим путём', () => {

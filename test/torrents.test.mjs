@@ -20,7 +20,7 @@ function loadInto(LC, module, name) {
 function freshLC() {
   const LC = {};
   const module = { exports: null, lumen: true };
-  for (const f of ['10_util.js', '20_icons.js', '64_menus.js', '80_settings.js', '30_css.js', '65_torrents.js']) loadInto(LC, module, f);
+  for (const f of ['10_util.js', '20_icons.js', '64_menus.js', '80_settings.js', '81_prefs.js', '30_css.js', '65_torrents.js']) loadInto(LC, module, f);
   return { LC, t: module.exports };
 }
 
@@ -372,4 +372,42 @@ test('LC.injectCss с тем же текстом не переписывает C
     LC.injectCss();
     assert.equal(doc.getElementById('lumen-card-css').writes, 1);
   });
+});
+
+/* Долг ревью Task 9 (п.3): движок без CSS-масок (старые webOS/Tizen) рисует
+   вместо маски пустой закрашенный прямоугольник — на экранах пути это были бы
+   цветные кубики вместо галочек, звёзд и спиннера. Инвариант: КАЖДЫЙ селектор,
+   которому выдана mask-image:url(...), обязан быть погашен внутри
+   @supports not (...mask-image...) — либо display:none, либо (там, где узел
+   несёт собственное оформление, как спиннер-кольцо) background-color:transparent.
+
+   Раньше это держалось только на глазах ревьюера: маску легко добавить и
+   забыть фолбэк, ни один тест этого не ловил. */
+test('маски: у каждого селектора с mask-image есть фолбэк в @supports not — display:none или background-color:transparent', () => {
+  const masked = [];
+  const fallback = {};
+
+  for (const r of rules()) {
+    if (r.indexOf('/*') === 0) continue;
+    const isFallback = r.indexOf('@supports not (') === 0;
+    const parsed = parse(r);
+    if (!parsed) continue;
+    for (const p of parsed) {
+      for (const s of p.selectors) {
+        if (isFallback) {
+          fallback[s] = (fallback[s] || '') + ';' + p.decl;
+        } else if (/(^|;)mask-image:url/.test(p.decl)) {
+          masked.push(s);
+        }
+      }
+    }
+  }
+
+  assert.ok(masked.length > 0, 'в CSS пути не нашлось ни одной маски — проверка потеряла смысл');
+  for (const s of masked) {
+    const decl = fallback[s];
+    assert.ok(decl, 'маска без фолбэка @supports not: ' + s);
+    assert.ok(/(^|;)display:none/.test(decl) || /(^|;)background-color:transparent/.test(decl),
+      'фолбэк не гасит закрашенный прямоугольник: ' + s + '\n  ' + decl);
+  }
 });

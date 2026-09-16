@@ -448,6 +448,40 @@
     }
   };
 
+  /* Task 10: lumen_card_cast переключили на уже открытой карточке — причина та
+     же, что у applyProgressPref: настройки Lampa лежат активностью ПОВЕРХ
+     карточки и при возврате не шлют ни 'full', ни complite. Данные для
+     перерисовки хранит сам renderCast (85_header.js). */
+  LC.applyCastPref = function () {
+    try {
+      LC.header.refreshCast();
+    } catch (e) {
+      warn('cast pref failed', e);
+    }
+  };
+
+  /* Task 10 (экран 09, «Ключ Kinopoisk API — нужен для отзывов и рейтинга КП»):
+     рейтинг Кинопоиска на чип .rate--kp. Значение приносит src/60_reviews.js —
+     из своего кэша или из того же ответа films?imdbId, которым он ищет id для
+     отзывов: отдельных запросов ради рейтинга не делаем.
+
+     Заполняем ТОЛЬКО скрытый чип: если Lampa уже показала свой kp_rating
+     (CUB или парсер-сервер), её значение приоритетнее нашего. Разметку чипа не
+     трогаем — пишем в первый div, ровно как это делает сама Lampa
+     (app.min.js ~37878: .rate--kp .removeClass('hide').find('> div').eq(0)). */
+  LC.applyKpRate = function (rate) {
+    try {
+      var num = parseFloat(rate);
+      if (!num || num <= 0) return;
+      var chip = $('.activity--active .lumen-card .rate--kp');
+      if (!chip || !chip.length || !chip.hasClass('hide')) return;
+      chip.children().eq(0).text(num > 10 ? 10 : num);
+      chip.removeClass('hide');
+    } catch (e) {
+      warn('kp rate failed', e);
+    }
+  };
+
   /* Task 31: плагин активен — LC.init дошёл до оформления (широкая
      раскладка, шаблон поддерживается). Пока false, смена lumen_menus/
      lumen_torrents не должна ставить наши классы ни на body, ни на экраны. */
@@ -479,6 +513,14 @@
   /* -------------------------------------------------------------------- */
 
   var original_template = '';
+  /* Task 10: наш шаблон, собранный один раз в LC.init — включение плагина из
+     настроек не должно собирать его заново. Пустая строка означает «оформлять
+     нечего»: узкая раскладка или неподдерживаемая версия Lampa. */
+  var our_template = '';
+  /* Оформление сейчас применено. Держим флагом, а не чтением Storage: Lampa
+     шлёт 'change' на КАЖДУЮ запись, и повторное событие с тем же значением не
+     должно ни пересобирать CSS, ни повторно раздевать карточку. */
+  var activated = false;
 
   function saveOriginalTemplate() {
     try {
@@ -506,6 +548,129 @@
     }
   }
 
+  /* -------------------------------------------------------------------- */
+  /* Task 10: главный выключатель lumen_enabled.                           */
+  /*                                                                       */
+  /* Всё, что делает activate(), обязано иметь зеркало в deactivate() —     */
+  /* иначе выключенный плагин оставит за собой шаблон, стили, классы или    */
+  /* узлы. Перезагрузка Lampa не требуется ни в ту, ни в другую сторону.    */
+  /* -------------------------------------------------------------------- */
+
+  /* Узлы, которые плагин дорисовывает в чужую разметку: первые два живут в
+     .lumen-card, последние два — в ряду описания (он отдельный items-line вне
+     карточки, план 0.2). Ищем в активной активности: карточки из истории
+     Lampa держит в DOM, и чужую трогать незачем. */
+  var STRIP_NODES = ['.lumen-progress', '.lumen-episodes', '.lumen-facts', '.lumen-reviews'];
+
+  /* Плагин выключили на ОТКРЫТОЙ карточке. Саму карточку не трогаем — её
+     перерисует Lampa при следующем открытии, уже штатным шаблоном; снимаем
+     только своё: дорисованные узлы, класс и CSS-переменную подписи кнопки
+     «Смотреть», слой фона со слайдшоу и трейлером, незавершённый запрос
+     отзывов. */
+  function stripActiveCard() {
+    var i;
+    for (i = 0; i < STRIP_NODES.length; i++) {
+      try {
+        $('.activity--active ' + STRIP_NODES[i]).remove();
+      } catch (e) {
+        warn('strip failed: ' + STRIP_NODES[i], e);
+      }
+    }
+    try {
+      var row = $('.activity--active .lumen-descr-row');
+      if (row && row.length) row.removeClass('lumen-descr-row lumen-descr-row--reviews');
+    } catch (e1) {
+      warn('strip descr row failed', e1);
+    }
+    try {
+      var root = $('.activity--active .lumen-card');
+      if (root && root.length) {
+        root.removeClass('lumen-continue');
+        var node = root[0];
+        if (node && node.style && typeof node.style.removeProperty === 'function') node.style.removeProperty('--lumen-play-label');
+      }
+    } catch (e2) {
+      warn('strip play label failed', e2);
+    }
+    try {
+      if (LC.active) {
+        /* cancel() снимает и слайдшоу, и трейлер: оба контроллера лежат на слое
+           фона (см. stopSlideshow в 50_backdrops.js). */
+        LC.backdrops.cancel(LC.active.body);
+        LC.reviews.cancel(LC.active.body);
+      }
+    } catch (e3) {
+      warn('strip active card failed', e3);
+    }
+    LC.active = null;
+  }
+
+  function activate() {
+    if (activated) return;
+    activated = true;
+    Lampa.Template.add('full_start_new', our_template);
+    LC.injectFonts();
+    LC.injectCss();
+    ui_active = true;
+    applyMotionMode(bodyRoot());
+    try {
+      LC.menus.mode(Lampa.Storage.field('lumen_menus'));
+      LC.menus.install();
+    } catch (e4) {
+      warn('menus init failed', e4);
+    }
+    try {
+      if (LC.torrents && typeof LC.torrents.install === 'function') LC.torrents.install();
+    } catch (e5) {
+      warn('torrents init failed', e5);
+    }
+    LC.applyTorrentsPref();
+  }
+
+  function deactivate() {
+    if (!activated) return;
+    activated = false;
+    /* Порядок обратный activate(): сперва шаблон (следующее открытие карточки
+       уже штатное), затем стили и классы, последней — живая карточка. */
+    restoreOriginalTemplate();
+    ui_active = false;
+    LC.removeCss();
+    /* useFonts() в 30_css.js учитывает lumen_enabled, поэтому этот вызов
+       снимает <link> Google Fonts — отдельной функции снятия не нужно. */
+    LC.injectFonts();
+    try {
+      if (LC.torrents && typeof LC.torrents.toggle === 'function') LC.torrents.toggle(false);
+    } catch (e) {
+      warn('torrents off failed', e);
+    }
+    /* 'off' снимает классы lumen-menus-* с body и маркеры с уже открытых
+       Select/Modal, а заодно запрещает ставить их новым (src/64_menus.js). */
+    try {
+      LC.menus.mode('off');
+    } catch (e2) {
+      warn('menus off failed', e2);
+    }
+    try {
+      var body = bodyRoot();
+      if (body && body.length) body.removeClass(MOTION_CLASSES);
+    } catch (e3) {
+      warn('motion class off failed', e3);
+    }
+    stripActiveCard();
+  }
+
+  LC.applyEnabledPref = function () {
+    try {
+      /* Оформлять нечего: LC.init не дошёл до шаблона (узкая раскладка либо
+         версия Lampa не поддерживается). */
+      if (!our_template) return;
+      if (LC.enabled()) activate();
+      else deactivate();
+    } catch (e) {
+      warn('enabled pref failed', e);
+    }
+  };
+
   LC.init = function () {
     try {
       if (!window.Lampa || !Lampa.Template || !Lampa.Listener) return;
@@ -531,29 +696,15 @@
         } catch (e3) { }
         return;
       }
-      Lampa.Template.add('full_start_new', tpl);
+      our_template = tpl;
 
-      LC.injectFonts();
-      LC.injectCss();
-
-      ui_active = true;
-      applyMotionMode(bodyRoot());
-      try {
-        LC.menus.mode(Lampa.Storage.field('lumen_menus'));
-        LC.menus.install();
-      } catch (e4) {
-        warn('menus init failed', e4);
-      }
-      try {
-        if (LC.torrents && typeof LC.torrents.install === 'function') LC.torrents.install();
-      } catch (e5) {
-        warn('torrents init failed', e5);
-      }
-      LC.applyTorrentsPref();
-
+      /* Подписки заводятся всегда, даже при выключенном плагине: включение из
+         настроек не должно требовать перезагрузки Lampa. Пока оформление не
+         активировано, обработчик выходит первой же строкой — иначе выключенный
+         плагин продолжал бы дорисовывать блоки и строить фон. */
       Lampa.Listener.follow('full', function (e) {
         try {
-          if (!e) return;
+          if (!e || !activated) return;
           if (e.type === 'build' && e.name === 'start') {
             LC.header.decorate(findRoot(e), e.data);
           } else if (e.type === 'build' && e.name === 'description') {
@@ -607,6 +758,11 @@
       followToggle();
       followActivityLifecycle();
       LC.followTimeline();
+
+      /* Оформление — последним шагом: к этому моменту шаблон собран и все
+         подписки заведены. Выключенный плагин просто ждёт включения из
+         настроек (LC.applyEnabledPref). */
+      if (LC.enabled()) activate();
     } catch (e) {
       warn('init failed', e);
       restoreOriginalTemplate();

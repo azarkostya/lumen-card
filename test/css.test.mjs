@@ -23,6 +23,7 @@ function buildCss() {
   loadInto(LC, module, '10_util.js');
   loadInto(LC, module, '20_icons.js');
   loadInto(LC, module, '80_settings.js');
+  loadInto(LC, module, '81_prefs.js');
   loadInto(LC, module, '30_css.js');
   return LC.buildCss();
 }
@@ -42,6 +43,7 @@ function tokensWith(storage) {
     loadInto(LC, module, '10_util.js');
     loadInto(LC, module, '20_icons.js');
     loadInto(LC, module, '80_settings.js');
+    loadInto(LC, module, '81_prefs.js');
     loadInto(LC, module, '30_css.js');
     return LC.tokens();
   } finally {
@@ -76,7 +78,7 @@ test('LC.tokens: палитра карточки, акцент по настро
   const ice = tokensWith({ lumen_card_accent: 'ice', lumen_card_fonts: 'false' });
   assert.equal(ice.accent, '#7FB7C9');
   assert.equal(ice.onac, '#08171C');
-  assert.equal(ice.ring, '#DCF1F8');
+  assert.equal(ice.ring, '#E9F7FB');
   assert.equal(ice.fontBody, 'inherit');
   assert.ok(ice.fontDisplay.indexOf('Unbounded') === -1);
 
