@@ -347,11 +347,21 @@
 
     /* Карта in-flight запросов для дедупликации (I4).
        Один и тот же ключ (id:page) не грузится параллельно дважды.
-       Структура: { subs: {id: {ok,err,alive,gen}}, _nextId: n, _cancel: fn|null }
+       Структура: { subs: {id: {ok,err,alive,gen}}, _cancel: fn|null }
        Второй и последующие вызовы регистрируются как подписчики первого запроса;
        каждый получает рабочий clear() (снимает только свою подписку, не гасит запрос);
        когда отменились все подписчики — запрос гасится. */
     var inflight = {};
+
+    /* Сквозной счётчик id подписчиков — на модуль, а не на запись (fix-раунд
+       итогового ревью фазы 2, Important 3). Раньше владелец запроса всегда
+       получал id 1, и поздний clear() уже отработавшего дескриптора попадал
+       в НОВУЮ запись с тем же ключом: удалял её живого подписчика и звал
+       старый cancelRequest с delete inflight[key] — новый запрос завершался
+       в пустоту (плитка навсегда без коллажа, сетка с вечным лоадером).
+       Дополнительно каждый дескриптор держит ссылку на свою запись и
+       сверяет её с текущей: id уникален, но запись могла смениться. */
+    var _subSeq = 0;
 
     /* Подборка целиком: movie и tv (если оба есть) → один список через mergeMedia.
        alive-guard каждого подписчика: notifySubs проверяет alive перед вызовом ok/err.
@@ -365,33 +375,36 @@
       var entry = inflight[inflightKey];
       if (entry) {
         /* Подписываемся на уже идущий запрос. */
-        var subId = ++entry._nextId;
-        entry.subs[subId] = { ok: ok, err: err, alive: alive, gen: gen };
+        var subId = ++_subSeq;
+        var subEntry = entry;
+        subEntry.subs[subId] = { ok: ok, err: err, alive: alive, gen: gen };
         return {
           clear: function () {
-            var e = inflight[inflightKey];
-            if (!e || !e.subs[subId]) return;
-            delete e.subs[subId];
+            /* Только своя запись: к этому моменту под тем же ключом могла
+               появиться новая — её подписчиков трогать нельзя. */
+            if (inflight[inflightKey] !== subEntry) return;
+            if (!subEntry.subs[subId]) return;
+            delete subEntry.subs[subId];
             /* Последний подписчик отменился — гасим весь запрос. */
-            if (!Object.keys(e.subs).length && e._cancel) { e._cancel(); }
+            if (!Object.keys(subEntry.subs).length && subEntry._cancel) { subEntry._cancel(); }
           }
         };
       }
 
       /* Первый запрос: создаём entry и добавляем себя как подписчика. */
-      entry = { subs: {}, _nextId: 1, _cancel: null };
-      entry.subs[1] = { ok: ok, err: err, alive: alive, gen: gen };
+      entry = { subs: {}, _cancel: null };
+      var mySubId = ++_subSeq;
+      entry.subs[mySubId] = { ok: ok, err: err, alive: alive, gen: gen };
       inflight[inflightKey] = entry;
-      var mySubId = 1;
+      var myEntry = entry;
 
-      /* Уведомляем всех живых подписчиков и очищаем запись. */
+      /* Уведомляем всех живых подписчиков СВОЕЙ записи и убираем её из
+         inflight (только если там всё ещё она). */
       function notifySubs(method, arg) {
-        var e = inflight[inflightKey];
-        delete inflight[inflightKey];
-        if (!e) return;
-        var ids = Object.keys(e.subs);
+        if (inflight[inflightKey] === myEntry) delete inflight[inflightKey];
+        var ids = Object.keys(myEntry.subs);
         for (var j = 0; j < ids.length; j++) {
-          var sub = e.subs[ids[j]];
+          var sub = myEntry.subs[ids[j]];
           var subGen = sub.alive ? sub.alive() : 0;
           if (sub.alive && subGen !== sub.gen) continue;
           sub[method](arg);
@@ -413,7 +426,7 @@
       if (src.movie) want.push('movie');
       if (src.tv) want.push('tv');
       if (!want.length) {
-        delete inflight[inflightKey];
+        if (inflight[inflightKey] === myEntry) delete inflight[inflightKey];
         if (alive && alive() !== gen) { /* внешний вызывающий мёртв — молчим */ }
         else { err({ no_sources: true }); }
         return { clear: function () {} };
@@ -477,7 +490,8 @@
         _reqAliveGen++;
         clearTimeout(deadline);
         done_called = true;
-        delete inflight[inflightKey];
+        /* Только своя запись — чужую под тем же ключом не удаляем. */
+        if (inflight[inflightKey] === myEntry) delete inflight[inflightKey];
         LC.util.each(nets, function (n) {
           try { if (n && n.clear) n.clear(); } catch (eIgnore) {}
         });
@@ -486,10 +500,10 @@
 
       return {
         clear: function () {
-          var e = inflight[inflightKey];
-          if (!e || !e.subs[mySubId]) return;
-          delete e.subs[mySubId];
-          if (!Object.keys(e.subs).length) { cancelRequest(); }
+          if (inflight[inflightKey] !== myEntry) return;
+          if (!myEntry.subs[mySubId]) return;
+          delete myEntry.subs[mySubId];
+          if (!Object.keys(myEntry.subs).length) { cancelRequest(); }
         }
       };
     }

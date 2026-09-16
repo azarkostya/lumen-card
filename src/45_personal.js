@@ -14,8 +14,15 @@
   /*   unregister() — снимает ряды через ContentRows.remove                  */
   /*                                                                       */
   /* Отмена запросов: сторож поколения _gen — тот же паттерн, что в        */
-  /* LC.rows. bumpGen() поднимает _gen при уходе с главной; каждый          */
-  /* in-flight колбэк проверяет alive() перед обновлением UI.              */
+  /* LC.rows. bumpGen() поднимает _gen, когда главную ВЫБРОСИЛИ (событие   */
+  /* 'activity':{type:'destroy', component:'main'}); каждый in-flight      */
+  /* колбэк проверяет alive() перед обновлением UI.                        */
+  /*                                                                       */
+  /* Контракт call-функции ряда: ровно ОДИН вызов call(...) при любом      */
+  /* исходе — тот же, что в LC.rows, и по той же причине (Lampa ждёт       */
+  /* ответа каждой части пачки, см. шапку src/44_rows.js). Держит его      */
+  /* makeResolver: поздние колбэки глохнут защёлкой, а bumpGen() закрывает */
+  /* всё незавершённое пустым результатом.                                 */
   /*                                                                       */
   /* Снятие рядов: _addedRows + ContentRows.remove — тот же паттерн,       */
   /* что в LC.rows. doUnregister() вызывается из register() и unregister(). */
@@ -192,10 +199,38 @@
     /* Поколение главной: сторож отмены in-flight запросов.               */
     /* ------------------------------------------------------------------ */
 
-    /* Поднимает _gen, делая все текущие alive()-функции вернуть false.
-       Вызывается из LC.onActivityEvent при archive/destroy component='main'. */
+    /* Ещё не ответившие call-функции рядов (контракт «ровно один call»). */
+    var _waiting = [];
+
+    /* Оборачивает call ряда в резолвер с защёлкой. */
+    function makeResolver(call) {
+      var done = false;
+      function resolve(payload) {
+        if (done) return;
+        done = true;
+        var i = _waiting.indexOf(resolve);
+        if (i !== -1) _waiting.splice(i, 1);
+        try { call(payload); } catch (e) {}
+      }
+      _waiting.push(resolve);
+      return resolve;
+    }
+
+    /* Закрывает все незавершённые ряды пустым результатом. */
+    function flushWaiting() {
+      var pending = _waiting;
+      _waiting = [];
+      for (var i = 0; i < pending.length; i++) {
+        pending[i]({ results: [] });
+      }
+    }
+
+    /* Поднимает _gen, делая все текущие alive()-функции вернуть false, и
+       закрывает ряды, которые уже никогда не дождутся своих колбэков.
+       Вызывается из LC.onActivityEvent при destroy component='main'. */
     function bumpGen() {
       _gen++;
+      flushWaiting();
     }
 
     /* ------------------------------------------------------------------ */
@@ -299,10 +334,12 @@
         return function (call) {
           var gen = _gen;
           function alive() { return _gen === gen; }
-          if (!alive()) { call({ results: [] }); return { cancel: function () {} }; }
+          /* Ровно один ответ Lampa при любом исходе — см. шапку модуля. */
+          var resolve = makeResolver(call);
+          if (!alive()) { resolve({ results: [] }); return { cancel: function () {} }; }
           var items = continuesList();
-          if (!alive()) { call({ results: [] }); return { cancel: function () {} }; }
-          call({ results: items, title: LC.lang ? LC.lang('lumen_row_continue') : 'Continue watching' });
+          if (!alive()) { resolve({ results: [] }); return { cancel: function () {} }; }
+          resolve({ results: items, title: LC.lang ? LC.lang('lumen_row_continue') : 'Continue watching' });
           return { cancel: function () {} };
         };
       };
@@ -316,8 +353,10 @@
         return function (call) {
           var gen = _gen;
           function alive() { return _gen === gen; }
+          /* Ровно один ответ Lampa при любом исходе — см. шапку модуля. */
+          var resolve = makeResolver(call);
           if (!alive() || !picked || !picked.length) {
-            call({ results: [] }); return { cancel: function () {} };
+            resolve({ results: [] }); return { cancel: function () {} };
           }
           var results = [];
           var pending = picked.length;
@@ -326,7 +365,7 @@
 
           function done() {
             if (cancelled || !alive()) return;
-            call({ results: results, title: rowTitle });
+            resolve({ results: results, title: rowTitle });
           }
 
           for (var i = 0; i < picked.length; i++) {
@@ -384,8 +423,10 @@
         return function (call) {
           var gen = _gen;
           function alive() { return _gen === gen; }
+          /* Ровно один ответ Lampa при любом исходе — см. шапку модуля. */
+          var resolve = makeResolver(call);
           if (!alive() || !shows || !shows.length) {
-            call({ results: [] }); return { cancel: function () {} };
+            resolve({ results: [] }); return { cancel: function () {} };
           }
           var details = [];
           var pending = shows.length;
@@ -395,7 +436,7 @@
           function done() {
             if (cancelled || !alive()) return;
             var filtered = newEpisodes(details, null);
-            call({ results: filtered, title: LC.lang ? LC.lang('lumen_row_new_episodes') : 'New episodes' });
+            resolve({ results: filtered, title: LC.lang ? LC.lang('lumen_row_new_episodes') : 'New episodes' });
           }
 
           for (var i = 0; i < shows.length; i++) {
@@ -452,7 +493,9 @@
         return function (call) {
           var gen = _gen;
           function alive() { return _gen === gen; }
-          if (!alive()) { call({ results: [] }); return { cancel: function () {} }; }
+          /* Ровно один ответ Lampa при любом исходе — см. шапку модуля. */
+          var resolve = makeResolver(call);
+          if (!alive()) { resolve({ results: [] }); return { cancel: function () {} }; }
 
           var range = soonRange(null);
           var movies = [];
@@ -470,7 +513,7 @@
               var db = b.release_date || b.first_air_date || '';
               return da < db ? -1 : da > db ? 1 : 0;
             });
-            call({ results: all, title: LC.lang ? LC.lang('lumen_row_soon') : 'Coming soon' });
+            resolve({ results: all, title: LC.lang ? LC.lang('lumen_row_soon') : 'Coming soon' });
           }
 
           function fetchDiscover(media, resultArr) {

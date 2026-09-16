@@ -1,7 +1,7 @@
 import test from 'node:test'; import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { FakeEl, EMPTY } from './_fakedom.mjs';
-import { load } from './_load.mjs';
+import { load, loadCtx } from './_load.mjs';
 
 /* Task 19: чипы профилей настроения на главной.
    Чистые функции (moodTitle, moodActivityObj) проверяются без Lampa.
@@ -34,6 +34,7 @@ function freshMoods(extra) {
   var listeners = {};
   var controllers = {};
   var pushed = [];
+  var activeAct = null;
 
   var fakeLampa = {
     Listener: {
@@ -50,15 +51,20 @@ function freshMoods(extra) {
       get: function (name) { return controllers[name] || null; }
     },
     Activity: {
-      push: function (obj) { pushed.push(obj); }
+      push: function (obj) { pushed.push(obj); },
+      active: function () { return activeAct; }
     },
     Lang: { code: function () { return 'ru'; } }
   };
 
   var LC = Object.assign({
     sources: SOURCES,
+    /* Заглушка повторяет ПУБЛИЧНОЕ API src/42_manifest.js: get() отдаёт
+       загруженный каталог, DEFAULT — встроенный. Метода current() наружу
+       модуль не отдаёт (это его приватная переменная), и заглушка его
+       больше не выдумывает — настоящий модуль проверяют тесты ниже. */
     manifest: {
-      current: function () { return { moods: MOODS }; },
+      get: function () { return { moods: MOODS }; },
       DEFAULT: MANIFEST_DEFAULT
     },
     lang: function (k) { return k; }
@@ -85,7 +91,11 @@ function freshMoods(extra) {
 
   var module = { exports: null, lumen: true };
   new Function('LC', 'module', '$', 'Lampa', SRC)(LC, module, fakeQ, fakeLampa);
-  return { api: module.exports, LC: LC, listeners: listeners, controllers: controllers, pushed: pushed, fakeLampa: fakeLampa };
+  return {
+    api: module.exports, LC: LC, listeners: listeners, controllers: controllers,
+    pushed: pushed, fakeLampa: fakeLampa,
+    setActive: function (a) { activeAct = a; }
+  };
 }
 
 /* ====================================================================== */
@@ -252,83 +262,55 @@ test('detach: другой render — снимает', function () {
 /* install / uninstall                                                    */
 /* ====================================================================== */
 
-test('install: подписывается на событие activity Lampa', function () {
-  var ctx = freshMoods();
-  ctx.api.install();
-  assert.ok(ctx.listeners['activity'] && ctx.listeners['activity'].length > 0, 'подписка на activity не добавлена');
-  ctx.api.uninstall();
-});
+/* Important 2 (fix-раунд итогового ревью фазы 2): модуль НЕ заводит своей
+   подписки на 'activity'. Подписка на плагин ровно одна — LC.onActivityEvent
+   в src/90_runtime.js; она же монтирует чипы сразу после LC.hero.mount.
+   Причина: Subscribe.send вендора оборачивает весь цикл подписчиков одним
+   try/catch, и исключение у более раннего подписчика оборвало бы рассылку
+   всем следующим. install/uninstall остались гейтом настройки. */
 
-test('install: повторный install не дублирует подписку', function () {
+test('install: своей подписки на activity не заводит', function () {
   var ctx = freshMoods();
-  ctx.api.install();
   ctx.api.install();
   var cnt = ctx.listeners['activity'] ? ctx.listeners['activity'].length : 0;
-  assert.equal(cnt, 1, 'двойная подписка');
+  assert.equal(cnt, 0, 'вторая подписка на activity запрещена');
   ctx.api.uninstall();
 });
 
-test('uninstall: снимает подписку и unmount', function () {
+test('install: монтирует чипы на уже открытую главную (возврат из настроек события не шлёт)', function () {
   var ctx = freshMoods();
   var root = makeMainRoot();
+  ctx.setActive({ component: 'main', activity: { render: function () { return root; } } });
   ctx.api.install();
-  ctx.api.mount(root);
-  ctx.api.uninstall();
-  assert.equal(ctx.api.active(), false);
-  var cnt = ctx.listeners['activity'] ? ctx.listeners['activity'].length : 0;
-  assert.equal(cnt, 0, 'подписка не снята');
-});
-
-test('install: событие start/main монтирует блок', function () {
-  var ctx = freshMoods();
-  ctx.api.install();
-  var root = makeMainRoot();
-  var fakeAct = { activity: { render: function () { return root; } } };
-  if (ctx.listeners['activity'] && ctx.listeners['activity'].length) {
-    ctx.listeners['activity'][0]({ type: 'start', component: 'main', object: fakeAct });
-  }
   assert.equal(ctx.api.active(), true);
   ctx.api.uninstall();
 });
 
-test('install: событие start/НЕ main не монтирует блок', function () {
+test('install: открыта не главная — чипы не монтируются', function () {
   var ctx = freshMoods();
-  ctx.api.install();
   var root = makeMainRoot();
-  var fakeAct = { activity: { render: function () { return root; } } };
-  if (ctx.listeners['activity'] && ctx.listeners['activity'].length) {
-    ctx.listeners['activity'][0]({ type: 'start', component: 'full', object: fakeAct });
-  }
+  ctx.setActive({ component: 'full', activity: { render: function () { return root; } } });
+  ctx.api.install();
   assert.equal(ctx.api.active(), false);
-  ctx.api.uninstall();
 });
 
-test('install: событие start чужой активности снимает блок', function () {
+test('uninstall: снимает чипы', function () {
   var ctx = freshMoods();
   var root = makeMainRoot();
-  ctx.api.install();
   ctx.api.mount(root);
-  /* Приходит start чужой активности (другой root). */
+  assert.equal(ctx.api.active(), true);
+  ctx.api.uninstall();
+  assert.equal(ctx.api.active(), false);
+});
+
+test('owns: true только для активности, которой принадлежит корень чипов', function () {
+  var ctx = freshMoods();
+  var root = makeMainRoot();
   var other = makeMainRoot();
-  var fakeAct = { activity: { render: function () { return other; } } };
-  if (ctx.listeners['activity'] && ctx.listeners['activity'].length) {
-    ctx.listeners['activity'][0]({ type: 'start', component: 'full', object: fakeAct });
-  }
-  assert.equal(ctx.api.active(), false);
-  ctx.api.uninstall();
-});
-
-test('install: событие destroy своего root снимает блок', function () {
-  var ctx = freshMoods();
-  var root = makeMainRoot();
-  ctx.api.install();
+  assert.equal(ctx.api.owns(root), false, 'до mount чипов нет');
   ctx.api.mount(root);
-  var fakeAct = { activity: { render: function () { return root; } } };
-  if (ctx.listeners['activity'] && ctx.listeners['activity'].length) {
-    ctx.listeners['activity'][0]({ type: 'destroy', component: 'main', object: fakeAct });
-  }
-  assert.equal(ctx.api.active(), false);
-  ctx.api.uninstall();
+  assert.equal(ctx.api.owns(root), true);
+  assert.equal(ctx.api.owns(other), false);
 });
 
 /* ====================================================================== */
@@ -393,4 +375,91 @@ test('Task 20: названия чипов — на языке интерфей�
   assert.deepEqual(titlesFor('en'), ['Friday Evening', 'Family Viewing', 'Scary at Night', '90 Minutes']);
   /* Нет LC.langCode (модуль поднят в одиночку) — русские названия манифеста. */
   assert.deepEqual(titlesFor(null), ['Пятничный вечер', 'Семейный просмотр', 'Страшное на ночь', '90 минут']);
+});
+
+/* ====================================================================== */
+/* Important 1 (fix-раунд итогового ревью фазы 2): источник настроений.    */
+/*                                                                       */
+/* Чипы обязаны брать настроения из ПОЛЬЗОВАТЕЛЬСКОГО каталога, если он   */
+/* загружен. Прежний код звал LC.manifest.current() — такого метода в      */
+/* публичном API модуля манифеста нет (current — приватная переменная,     */
+/* наружу отдаются DEFAULT, validate, orderForMonth, isFresh, load, get),  */
+/* ветка всегда была ложной и чипы всегда брали встроенный каталог.        */
+/* Поэтому здесь НАСТОЯЩИЙ модуль манифеста, а не заглушка с current().    */
+/* ====================================================================== */
+
+/* Поднимает настоящий LC.manifest (src/42_manifest.js).
+   customMoods !== null → каталог с этими настроениями лежит в кэше
+   Lampa.Storage и будет загружен load()'ом (та же ветка, что живьём при
+   свежем кэше пользовательского адреса). */
+function realManifestModule(customMoods) {
+  const prevLampa = globalThis.Lampa;
+  const store = {};
+  globalThis.Lampa = {
+    Storage: {
+      get: (k, d) => (k in store ? store[k] : d),
+      set: (k, v) => { store[k] = v; }
+    },
+    Reguest: function () { return { silent: function () {} }; }
+  };
+  globalThis.window = { Lampa: globalThis.Lampa };
+  const ctx = loadCtx('42_manifest.js', {
+    pref: (k, d) => (k === 'lumen_manifest_url' ? 'https://example.test/manifest.json' : d)
+  });
+  if (customMoods) {
+    const custom = Object.assign({}, ctx.api.DEFAULT, { moods: customMoods });
+    store['lumen_manifest'] = { at: Date.now(), data: custom };
+  }
+  return { manifest: ctx.api, restore: () => { globalThis.Lampa = prevLampa; } };
+}
+
+/* Собирает названия чипов, смонтированных в root. */
+function chipTitles(root) {
+  const textEl = root.find('lumen-hero__text');
+  let moodsEl = null;
+  for (let i = 0; i < textEl._children.length; i++) {
+    if (textEl._children[i].hasClass('lumen-moods')) { moodsEl = textEl._children[i]; break; }
+  }
+  if (!moodsEl) return [];
+  const out = [];
+  for (let j = 0; j < moodsEl._children.length; j++) {
+    if (moodsEl._children[j].hasClass('lumen-mood-chip')) out.push(moodsEl._children[j].text());
+  }
+  return out;
+}
+
+test('Important 1: чипы берут настроения из загруженного пользовательского каталога', function () {
+  const CUSTOM = [
+    { id: 'rainy', title: 'Дождливый день', sources: { movie: { type: 'discover', params: {} } } },
+    { id: 'road', title: 'В дорогу', sources: { movie: { type: 'discover', params: {} } } }
+  ];
+  const mf = realManifestModule(CUSTOM);
+  try {
+    let loaded = null;
+    mf.manifest.load(function (m) { loaded = m; });
+    assert.ok(loaded, 'манифест загружен из кэша');
+    assert.deepEqual(loaded.moods.map((m) => m.id), ['rainy', 'road'], 'в каталоге пользовательские настроения');
+
+    const ctx = freshMoods({ manifest: mf.manifest, langCode: () => 'ru' });
+    const root = makeMainRoot();
+    ctx.api.mount(root);
+    assert.deepEqual(chipTitles(root), ['Дождливый день', 'В дорогу'],
+      'чипы обязаны читать каталог через публичный LC.manifest.get()');
+  } finally {
+    mf.restore();
+  }
+});
+
+test('Important 1: каталог не загружен — чипы берут встроенный DEFAULT', function () {
+  const mf = realManifestModule(null);
+  try {
+    const ctx = freshMoods({ manifest: mf.manifest, langCode: () => 'ru' });
+    const root = makeMainRoot();
+    ctx.api.mount(root);
+    const titles = chipTitles(root);
+    assert.equal(titles.length, mf.manifest.DEFAULT.moods.length);
+    assert.deepEqual(titles, mf.manifest.DEFAULT.moods.map((m) => m.title));
+  } finally {
+    mf.restore();
+  }
 });

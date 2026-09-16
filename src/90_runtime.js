@@ -393,10 +393,18 @@
          Гейт тот же, что у подписки 'full'. */
       if (!activated) return;
 
-      /* Task 15 (C1-fix): уход с главной поднимает поколение _homeGen в LC.rows,
-         делая alive() в makeCall вернуть false для всех текущих запросов рядов.
+      /* Task 15 (C1-fix) + fix-раунд итогового ревью фазы 2: главную ВЫБРОСИЛИ
+         — поднимаем поколение _homeGen в LC.rows, делая alive() в makeCall
+         вернуть false для всех текущих запросов рядов.
+         Только 'destroy' (вытеснение по лимиту истории maxsave или закрытие).
+         'archive' сюда НЕ входит: по разбору выше backward() шлёт start+archive
+         той активности, к которой ВЕРНУЛИСЬ, то есть archive главной означает
+         «снова на экране». Гашение по archive убивало недогруженные ряды при
+         каждом возврате из карточки: мёртвый ряд не звал свой call, пачка
+         Lampa (parts_limit=6) не завершалась, и главная переставала
+         достраиваться до перезапуска Lampa (проверено живьём).
          Используем существующую подписку — вторая не заводится. */
-      if ((e.type === 'archive' || e.type === 'destroy') && e.component === 'main') {
+      if (e.type === 'destroy' && e.component === 'main') {
         try { if (LC.rows && LC.rows.bumpGen) LC.rows.bumpGen(); } catch (eBump) {}
         /* Task 16: то же поколение поднимает LC.personal — вторая подписка не нужна. */
         try { if (LC.personal && LC.personal.bumpGen) LC.personal.bumpGen(); } catch (eBumpP) {}
@@ -426,22 +434,44 @@
         } catch (eHeroStart) {
           warn('hero start failed', eHeroStart);
         }
+        /* Task 19 (fix-раунд итогового ревью фазы 2): чипы настроения
+           монтируются ИЗ ЭТОЙ ЖЕ точки и строго ПОСЛЕ героя — блок
+           .lumen-moods живёт внутри .lumen-hero__text, которого до
+           LC.hero.mount ещё нет. Своей подписки на 'activity' модуль
+           больше не заводит: Subscribe.send вендора оборачивает весь цикл
+           подписчиков одним try/catch, и исключение у более раннего
+           подписчика оборвало бы рассылку нашему. */
+        try {
+          if (LC.moods) {
+            LC.moods.detach(startRender);
+            if (e.component === 'main' && startRender && startRender.length) LC.moods.mount(startRender);
+          }
+        } catch (eMoodsStart) {
+          warn('moods start failed', eMoodsStart);
+        }
       } else if (e.type === 'destroy') {
         /* Активность вытеснили из истории (лимит maxsave) или закрыли: если
            герой всё ещё её — он уходит вместе с DOM, а наблюдатель и
            незавершённые запросы обязаны уйти явно. Проверка owns()
            обязательна: к этому моменту герой может принадлежать уже другому
            экрану, и снимать чужого мы права не имеем. */
+        var deadRender = null;
+        try {
+          if (e.object && e.object.activity && typeof e.object.activity.render === 'function') deadRender = e.object.activity.render();
+        } catch (eDeadRender) {}
         try {
           if (LC.hero && LC.hero.active()) {
-            var deadRender = null;
-            try {
-              if (e.object && e.object.activity && typeof e.object.activity.render === 'function') deadRender = e.object.activity.render();
-            } catch (eDeadRender) {}
             if (LC.hero.owns(deadRender)) LC.hero.unmount();
           }
         } catch (eHeroKill) {
           warn('hero destroy failed', eHeroKill);
+        }
+        /* Чипы настроения уходят вместе со своей активностью — та же
+           проверка owns(): блок мог уже переехать на другой экран. */
+        try {
+          if (LC.moods && LC.moods.active() && LC.moods.owns(deadRender)) LC.moods.unmount();
+        } catch (eMoodsKill) {
+          warn('moods destroy failed', eMoodsKill);
         }
       }
 
@@ -1122,6 +1152,15 @@
     setTimeout(function () {
       try {
         if (!activated) return;
+        /* Слой проверяется ЗДЕСЬ, а не только при постановке таймера: за
+           эти миллисекунды пользователь успевает открыть селектбокс (и,
+           наоборот, закрыть настройки). Не закрылось — откладываем через
+           тот же pending_refresh. */
+        if (layerOpen()) {
+          pending_refresh = component;
+          followSettingsClose();
+          return;
+        }
         if (activeComponentName() !== component) return;
         if (!Lampa.Activity || typeof Lampa.Activity.replace !== 'function') return;
         Lampa.Activity.replace();
@@ -1138,6 +1177,9 @@
      живьём). Поэтому пока слой открыт — только запоминаем. */
   var settings_close_followed = false;
 
+  /* Имя активного контроллера — узкий признак: он покрывает сами настройки,
+     но НЕ селектбокс поверх них (там контроллер называется 'select') и не
+     клавиатуру ввода. Поэтому это лишь одно из слагаемых layerOpen(). */
   function settingsOpen() {
     try {
       var cur = window.Lampa && Lampa.Controller && typeof Lampa.Controller.enabled === 'function' ? Lampa.Controller.enabled() : null;
@@ -1146,6 +1188,32 @@
     } catch (e) {
       return false;
     }
+  }
+
+  /* Открыт ли ПОВЕРХ активности какой-нибудь слой. Признак берём тот же,
+     что сама Lampa в Controller.toContent() (vendor/lampa/app.min.js):
+     классы settings--open / selectbox--open на body плюс присутствие .modal.
+     Это важно именно для type:'select' и 'input': Lampa пишет Storage ДО
+     возврата контроллера (у нашего экрана состава рядов, src/80_settings.js,
+     — на каждую галочку), так что onChange прилетает, пока список открыт.
+     Пересборка в этот момент делает Controller.toggle('content') внутри
+     ActivitySlide.start(), и пульт перестаёт управлять открытым списком. */
+  function layerOpen() {
+    try {
+      var body = bodyRoot();
+      if (body && body.length && typeof body.hasClass === 'function') {
+        if (body.hasClass('settings--open')) return true;
+        if (body.hasClass('selectbox--open')) return true;
+      }
+    } catch (eBody) {}
+    try {
+      if (window.Lampa && Lampa.Select && typeof Lampa.Select.opened === 'function' && Lampa.Select.opened()) return true;
+    } catch (eSelect) {}
+    try {
+      var modal = $('.modal');
+      if (modal && modal.length) return true;
+    } catch (eModal) {}
+    return settingsOpen();
   }
 
   /* Слой настроек закрылся — Lampa шлёт своё событие 'close' (app.min.js
@@ -1177,7 +1245,7 @@
      одна. */
   LC.refreshComponent = function (component) {
     if (!activated || !component) return;
-    if (settingsOpen()) {
+    if (layerOpen()) {
       pending_refresh = component;
       followSettingsClose();
       return;

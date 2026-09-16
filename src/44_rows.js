@@ -12,19 +12,32 @@
   /*   register(manifest) — runtime: регистрирует ряды через ContentRows    */
   /*   unregister() — runtime: снимает ряды через ContentRows.remove        */
   /*                                                                       */
-  /* Отмена запросов (C1-fix): при уходе с главной Lampa.Listener шлёт     */
-  /* 'activity':{type:'archive'|'destroy', component:'main'} →             */
-  /* LC.onActivityEvent() → bumpGen() поднимает _homeGen.                  */
+  /* Отмена запросов: главную ВЫБРОСИЛИ — Lampa.Listener шлёт             */
+  /* 'activity':{type:'destroy', component:'main'} → LC.onActivityEvent()  */
+  /* → bumpGen() поднимает _homeGen. Событие 'archive' сюда НЕ входит: в   */
+  /* Lampa 3.3.4 backward() шлёт start+archive той активности, к которой   */
+  /* ВЕРНУЛИСЬ, то есть archive означает «снова на экране» (подробный      */
+  /* разбор с ссылками на vendor/lampa/app.min.js — в src/90_runtime.js у  */
+  /* LC.onActivityEvent). Уход вглубь (push) покидаемой главной не шлёт    */
+  /* вообще ничего, поэтому отменять её запросы при push нечем и незачем.  */
   /* makeCall захватывает gen при вызове inner-функции; alive() сравнивает  */
   /* текущий _homeGen с захваченным gen. LC.sources.fetch проверяет alive.  */
+  /*                                                                       */
+  /* Контракт call-функции ряда: ровно ОДИН вызов call(...) при любом      */
+  /* исходе — успех, ошибка, мёртвое поколение. Lampa грузит ряды пачками  */
+  /* по parts_limit=6 через Progress (vendor/lampa/app.min.js, partNext /  */
+  /* Progress): пачка завершается, только когда КАЖДАЯ её часть позвала    */
+  /* свой call. Молчащий ряд навсегда останавливает достройку главной, а   */
+  /* двойной вызов сбивает счётчик Progress. Держит контракт makeResolver. */
   /*                                                                       */
   /* Снятие рядов (C2-fix): register() перед регистрацией вызывает         */
   /* ContentRows.remove для дескрипторов предыдущего набора (doUnregister). */
   /* unregister() делает то же самое — из deactivate() в 90_runtime.js.    */
   /*                                                                       */
-  /* Ленивая загрузка: Lampa вызывает call() только при появлении ряда     */
-  /* во viewport (механизм ContentRows.add). Повторный вызов call()        */
-  /* исключён самой ContentRows без перерегистрации.                        */
+  /* Порядок загрузки: ContentRows.call('main', …) зовёт row.call(params,   */
+  /* screen) сразу для ВСЕХ зарегистрированных рядов и складывает          */
+  /* полученные функции в общий список частей; исполняются они пачками по  */
+  /* 6, следующая пачка — по докрутке главной, а не по видимости ряда.      */
   /* -------------------------------------------------------------------- */
 
   LC.rows = (function () {
@@ -42,6 +55,35 @@
     /* Дескрипторы, переданные в ContentRows.add при последней регистрации.
        doUnregister() снимает их через ContentRows.remove и очищает массив. */
     var _addedRows = [];
+
+    /* Ещё не ответившие call-функции рядов. Держит контракт «ровно один
+       call при любом исходе»: makeResolver кладёт сюда резолвер, первый же
+       вызов резолвера убирает его, а bumpGen() закрывает всё оставшееся
+       пустым результатом — иначе пачка Lampa не завершится никогда. */
+    var _waiting = [];
+
+    /* Оборачивает call ряда в резолвер с защёлкой. */
+    function makeResolver(call) {
+      var done = false;
+      function resolve(payload) {
+        if (done) return;
+        done = true;
+        var i = _waiting.indexOf(resolve);
+        if (i !== -1) _waiting.splice(i, 1);
+        try { call(payload); } catch (e) {}
+      }
+      _waiting.push(resolve);
+      return resolve;
+    }
+
+    /* Закрывает все незавершённые ряды пустым результатом. */
+    function flushWaiting() {
+      var pending = _waiting;
+      _waiting = [];
+      for (var i = 0; i < pending.length; i++) {
+        pending[i]({ results: [] });
+      }
+    }
 
     /* ------------------------------------------------------------------ */
     /* Чистые функции (без обращения к DOM, Lampa, Storage).               */
@@ -228,10 +270,13 @@
     /* Поколение главной (C1: отмена in-flight запросов при уходе).         */
     /* ------------------------------------------------------------------ */
 
-    /* Вызывается из LC.onActivityEvent при archive/destroy component==='main'.
-       Поднимает _homeGen, делая все активные alive()-функции вернуть false. */
+    /* Вызывается из LC.onActivityEvent при destroy component==='main'.
+       Поднимает _homeGen, делая все активные alive()-функции вернуть false,
+       и тут же закрывает пустым результатом ряды, которые уже никогда не
+       получат ответа: LC.sources.fetch мёртвого подписчика не уведомляет. */
     function bumpGen() {
       _homeGen++;
+      flushWaiting();
     }
 
     /* ------------------------------------------------------------------ */
@@ -323,6 +368,9 @@
           var gen = _homeGen;
           function alive() { return _homeGen === gen; }
 
+          /* Ровно один ответ Lampa при любом исходе — см. шапку модуля. */
+          var resolve = makeResolver(call);
+
           var handle = LC.sources['fetch'](
             item,
             1,
@@ -331,11 +379,11 @@
               var hide = false;
               try { hide = LC.pref ? !!LC.pref('lumen_hide_watched', false) : false; } catch (eIgnore) {}
               var filtered = filterWatched(json.results, viewedIds(json.results), hide);
-              call({ results: filtered, title: item.title });
+              resolve({ results: filtered, title: item.title });
             },
             function () {
               /* Ошибка загрузки: пустой ряд */
-              call({ results: [] });
+              resolve({ results: [] });
             },
             alive
           );

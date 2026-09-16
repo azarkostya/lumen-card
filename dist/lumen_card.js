@@ -3291,6 +3291,16 @@ var inflight = {};
 
 
 
+
+
+
+var _subSeq = 0;
+
+
+
+
+
+
 function fetchAll(item, page, ok, err, alive) {
 var gen = alive ? alive() : 0;
 
@@ -3298,33 +3308,36 @@ var inflightKey = (item.id || '') + ':' + (page || 1) + ':' + sortSignature(item
 var entry = inflight[inflightKey];
 if (entry) {
 
-var subId = ++entry._nextId;
-entry.subs[subId] = { ok: ok, err: err, alive: alive, gen: gen };
+var subId = ++_subSeq;
+var subEntry = entry;
+subEntry.subs[subId] = { ok: ok, err: err, alive: alive, gen: gen };
 return {
 clear: function () {
-var e = inflight[inflightKey];
-if (!e || !e.subs[subId]) return;
-delete e.subs[subId];
 
-if (!Object.keys(e.subs).length && e._cancel) { e._cancel(); }
+
+if (inflight[inflightKey] !== subEntry) return;
+if (!subEntry.subs[subId]) return;
+delete subEntry.subs[subId];
+
+if (!Object.keys(subEntry.subs).length && subEntry._cancel) { subEntry._cancel(); }
 }
 };
 }
 
 
-entry = { subs: {}, _nextId: 1, _cancel: null };
-entry.subs[1] = { ok: ok, err: err, alive: alive, gen: gen };
+entry = { subs: {}, _cancel: null };
+var mySubId = ++_subSeq;
+entry.subs[mySubId] = { ok: ok, err: err, alive: alive, gen: gen };
 inflight[inflightKey] = entry;
-var mySubId = 1;
+var myEntry = entry;
+
 
 
 function notifySubs(method, arg) {
-var e = inflight[inflightKey];
-delete inflight[inflightKey];
-if (!e) return;
-var ids = Object.keys(e.subs);
+if (inflight[inflightKey] === myEntry) delete inflight[inflightKey];
+var ids = Object.keys(myEntry.subs);
 for (var j = 0; j < ids.length; j++) {
-var sub = e.subs[ids[j]];
+var sub = myEntry.subs[ids[j]];
 var subGen = sub.alive ? sub.alive() : 0;
 if (sub.alive && subGen !== sub.gen) continue;
 sub[method](arg);
@@ -3346,7 +3359,7 @@ var nets = [];
 if (src.movie) want.push('movie');
 if (src.tv) want.push('tv');
 if (!want.length) {
-delete inflight[inflightKey];
+if (inflight[inflightKey] === myEntry) delete inflight[inflightKey];
 if (alive && alive() !== gen) {   }
 else { err({ no_sources: true }); }
 return { clear: function () {} };
@@ -3410,7 +3423,8 @@ function cancelRequest() {
 _reqAliveGen++;
 clearTimeout(deadline);
 done_called = true;
-delete inflight[inflightKey];
+
+if (inflight[inflightKey] === myEntry) delete inflight[inflightKey];
 LC.util.each(nets, function (n) {
 try { if (n && n.clear) n.clear(); } catch (eIgnore) {}
 });
@@ -3419,10 +3433,10 @@ entry._cancel = cancelRequest;
 
 return {
 clear: function () {
-var e = inflight[inflightKey];
-if (!e || !e.subs[mySubId]) return;
-delete e.subs[mySubId];
-if (!Object.keys(e.subs).length) { cancelRequest(); }
+if (inflight[inflightKey] !== myEntry) return;
+if (!myEntry.subs[mySubId]) return;
+delete myEntry.subs[mySubId];
+if (!Object.keys(myEntry.subs).length) { cancelRequest(); }
 }
 };
 }
@@ -3564,6 +3578,19 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
 LC.rows = (function () {
 
 
@@ -3579,6 +3606,35 @@ var _homeGen = 0;
 
 
 var _addedRows = [];
+
+
+
+
+
+var _waiting = [];
+
+
+function makeResolver(call) {
+var done = false;
+function resolve(payload) {
+if (done) return;
+done = true;
+var i = _waiting.indexOf(resolve);
+if (i !== -1) _waiting.splice(i, 1);
+try { call(payload); } catch (e) {}
+}
+_waiting.push(resolve);
+return resolve;
+}
+
+
+function flushWaiting() {
+var pending = _waiting;
+_waiting = [];
+for (var i = 0; i < pending.length; i++) {
+pending[i]({ results: [] });
+}
+}
 
 
 
@@ -3767,8 +3823,11 @@ return isNaN(n) ? k : n;
 
 
 
+
+
 function bumpGen() {
 _homeGen++;
+flushWaiting();
 }
 
 
@@ -3860,6 +3919,9 @@ return function (call) {
 var gen = _homeGen;
 function alive() { return _homeGen === gen; }
 
+
+var resolve = makeResolver(call);
+
 var handle = LC.sources['fetch'](
 item,
 1,
@@ -3868,11 +3930,11 @@ function (json) {
 var hide = false;
 try { hide = LC.pref ? !!LC.pref('lumen_hide_watched', false) : false; } catch (eIgnore) {}
 var filtered = filterWatched(json.results, viewedIds(json.results), hide);
-call({ results: filtered, title: item.title });
+resolve({ results: filtered, title: item.title });
 },
 function () {
 
-call({ results: [] });
+resolve({ results: [] });
 },
 alive
 );
@@ -3909,6 +3971,13 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 /* ---- 45_personal.js ---- */
+
+
+
+
+
+
+
 
 
 
@@ -4104,9 +4173,37 @@ return out;
 
 
 
+var _waiting = [];
+
+
+function makeResolver(call) {
+var done = false;
+function resolve(payload) {
+if (done) return;
+done = true;
+var i = _waiting.indexOf(resolve);
+if (i !== -1) _waiting.splice(i, 1);
+try { call(payload); } catch (e) {}
+}
+_waiting.push(resolve);
+return resolve;
+}
+
+
+function flushWaiting() {
+var pending = _waiting;
+_waiting = [];
+for (var i = 0; i < pending.length; i++) {
+pending[i]({ results: [] });
+}
+}
+
+
+
 
 function bumpGen() {
 _gen++;
+flushWaiting();
 }
 
 
@@ -4210,10 +4307,12 @@ return function (params, screen) {
 return function (call) {
 var gen = _gen;
 function alive() { return _gen === gen; }
-if (!alive()) { call({ results: [] }); return { cancel: function () {} }; }
+
+var resolve = makeResolver(call);
+if (!alive()) { resolve({ results: [] }); return { cancel: function () {} }; }
 var items = continuesList();
-if (!alive()) { call({ results: [] }); return { cancel: function () {} }; }
-call({ results: items, title: LC.lang ? LC.lang('lumen_row_continue') : 'Continue watching' });
+if (!alive()) { resolve({ results: [] }); return { cancel: function () {} }; }
+resolve({ results: items, title: LC.lang ? LC.lang('lumen_row_continue') : 'Continue watching' });
 return { cancel: function () {} };
 };
 };
@@ -4227,8 +4326,10 @@ return function (params, screen) {
 return function (call) {
 var gen = _gen;
 function alive() { return _gen === gen; }
+
+var resolve = makeResolver(call);
 if (!alive() || !picked || !picked.length) {
-call({ results: [] }); return { cancel: function () {} };
+resolve({ results: [] }); return { cancel: function () {} };
 }
 var results = [];
 var pending = picked.length;
@@ -4237,7 +4338,7 @@ var handles = [];
 
 function done() {
 if (cancelled || !alive()) return;
-call({ results: results, title: rowTitle });
+resolve({ results: results, title: rowTitle });
 }
 
 for (var i = 0; i < picked.length; i++) {
@@ -4295,8 +4396,10 @@ return function (params, screen) {
 return function (call) {
 var gen = _gen;
 function alive() { return _gen === gen; }
+
+var resolve = makeResolver(call);
 if (!alive() || !shows || !shows.length) {
-call({ results: [] }); return { cancel: function () {} };
+resolve({ results: [] }); return { cancel: function () {} };
 }
 var details = [];
 var pending = shows.length;
@@ -4306,7 +4409,7 @@ var handles = [];
 function done() {
 if (cancelled || !alive()) return;
 var filtered = newEpisodes(details, null);
-call({ results: filtered, title: LC.lang ? LC.lang('lumen_row_new_episodes') : 'New episodes' });
+resolve({ results: filtered, title: LC.lang ? LC.lang('lumen_row_new_episodes') : 'New episodes' });
 }
 
 for (var i = 0; i < shows.length; i++) {
@@ -4363,7 +4466,9 @@ return function (params, screen) {
 return function (call) {
 var gen = _gen;
 function alive() { return _gen === gen; }
-if (!alive()) { call({ results: [] }); return { cancel: function () {} }; }
+
+var resolve = makeResolver(call);
+if (!alive()) { resolve({ results: [] }); return { cancel: function () {} }; }
 
 var range = soonRange(null);
 var movies = [];
@@ -4381,7 +4486,7 @@ var da = a.release_date || a.first_air_date || '';
 var db = b.release_date || b.first_air_date || '';
 return da < db ? -1 : da > db ? 1 : 0;
 });
-call({ results: all, title: LC.lang ? LC.lang('lumen_row_soon') : 'Coming soon' });
+resolve({ results: all, title: LC.lang ? LC.lang('lumen_row_soon') : 'Coming soon' });
 }
 
 function fetchDiscover(media, resultArr) {
@@ -6412,6 +6517,11 @@ if (!root || !root.length) return;
 
 
 
+
+
+
+
+
 if (state && state.root && state.root[0] === root[0]) return;
 unmount();
 opts = opts || {};
@@ -6581,6 +6691,11 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 
+
+
+
+
+
 LC.moods = (function () {
 
 
@@ -6652,10 +6767,15 @@ return node;
 }
 
 
+
+
+
+
+
 function moods() {
 try {
-if (LC.manifest && LC.manifest.current) {
-var m = LC.manifest.current();
+if (LC.manifest && LC.manifest.get) {
+var m = LC.manifest.get();
 if (m && m.moods && m.moods.length) return m.moods;
 }
 if (LC.manifest && LC.manifest.DEFAULT && LC.manifest.DEFAULT.moods) {
@@ -6743,25 +6863,36 @@ try { s.node.remove(); } catch (eN) {}
 }
 
 
+function ownedBy(render) {
+if (!state) return false;
+if (!render || !render.length) return false;
+if (state.root && state.root[0] === render[0]) return true;
+try {
+var act = state.root && state.root.closest ? state.root.closest('.activity') : null;
+if (act && act.length && act[0] === render[0]) return true;
+} catch (e) {}
+return false;
+}
+
+
 
 function detach(render) {
 if (!state) return;
 if (!render || !render.length) { unmount(); return; }
-if (state.root && state.root[0] === render[0]) return;
-try {
-var act = state.root && state.root.closest ? state.root.closest('.activity') : null;
-if (act && act.length && act[0] === render[0]) return;
-} catch (e) {}
+if (ownedBy(render)) return;
 unmount();
+}
+
+
+
+
+function owns(render) {
+return ownedBy(render);
 }
 
 function active() {
 return !!state;
 }
-
-
-
-var _listener = null;
 
 
 
@@ -6787,50 +6918,25 @@ warn('moods: mountCurrent failed', e);
 }
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 function install() {
-if (_listener) return;
-_listener = function (e) {
-try {
-if (!e) return;
-if (e.type === 'start') {
-var startRender = null;
-try {
-if (e.object && e.object.activity && typeof e.object.activity.render === 'function') {
-startRender = e.object.activity.render();
-}
-} catch (eR) {}
-detach(startRender);
-if (e.component === 'main' && startRender && startRender.length) {
-mount(startRender);
-}
-} else if (e.type === 'destroy') {
-var deadRender = null;
-try {
-if (e.object && e.object.activity && typeof e.object.activity.render === 'function') {
-deadRender = e.object.activity.render();
-}
-} catch (eD) {}
-if (state && deadRender && state.root && state.root[0] === deadRender[0]) {
-unmount();
-}
-}
-} catch (eEv) {
-warn('moods: event handler failed', eEv);
-}
-};
-try {
-Lampa.Listener.follow('activity', _listener);
-} catch (e) {
-warn('moods: follow failed', e);
-_listener = null;
-}
+mountCurrent();
 }
 
 function uninstall() {
-if (_listener) {
-try { Lampa.Listener.remove('activity', _listener); } catch (e) {}
-_listener = null;
-}
 unmount();
 }
 
@@ -6840,6 +6946,7 @@ mount: mount,
 mountCurrent: mountCurrent,
 unmount: unmount,
 detach: detach,
+owns: owns,
 active: active,
 install: install,
 uninstall: uninstall
@@ -12299,7 +12406,15 @@ if (!activated) return;
 
 
 
-if ((e.type === 'archive' || e.type === 'destroy') && e.component === 'main') {
+
+
+
+
+
+
+
+
+if (e.type === 'destroy' && e.component === 'main') {
 try { if (LC.rows && LC.rows.bumpGen) LC.rows.bumpGen(); } catch (eBump) {}
 
 try { if (LC.personal && LC.personal.bumpGen) LC.personal.bumpGen(); } catch (eBumpP) {}
@@ -12329,22 +12444,44 @@ if (e.component === 'main' && startRender && startRender.length) LC.hero.mount(s
 } catch (eHeroStart) {
 warn('hero start failed', eHeroStart);
 }
+
+
+
+
+
+
+
+try {
+if (LC.moods) {
+LC.moods.detach(startRender);
+if (e.component === 'main' && startRender && startRender.length) LC.moods.mount(startRender);
+}
+} catch (eMoodsStart) {
+warn('moods start failed', eMoodsStart);
+}
 } else if (e.type === 'destroy') {
 
 
 
 
 
-try {
-if (LC.hero && LC.hero.active()) {
 var deadRender = null;
 try {
 if (e.object && e.object.activity && typeof e.object.activity.render === 'function') deadRender = e.object.activity.render();
 } catch (eDeadRender) {}
+try {
+if (LC.hero && LC.hero.active()) {
 if (LC.hero.owns(deadRender)) LC.hero.unmount();
 }
 } catch (eHeroKill) {
 warn('hero destroy failed', eHeroKill);
+}
+
+
+try {
+if (LC.moods && LC.moods.active() && LC.moods.owns(deadRender)) LC.moods.unmount();
+} catch (eMoodsKill) {
+warn('moods destroy failed', eMoodsKill);
 }
 }
 
@@ -13025,6 +13162,15 @@ function replaceSoon(component) {
 setTimeout(function () {
 try {
 if (!activated) return;
+
+
+
+
+if (layerOpen()) {
+pending_refresh = component;
+followSettingsClose();
+return;
+}
 if (activeComponentName() !== component) return;
 if (!Lampa.Activity || typeof Lampa.Activity.replace !== 'function') return;
 Lampa.Activity.replace();
@@ -13041,6 +13187,9 @@ warn('activity replace failed', e);
 
 var settings_close_followed = false;
 
+
+
+
 function settingsOpen() {
 try {
 var cur = window.Lampa && Lampa.Controller && typeof Lampa.Controller.enabled === 'function' ? Lampa.Controller.enabled() : null;
@@ -13049,6 +13198,32 @@ return name === 'settings' || name === 'settings_component';
 } catch (e) {
 return false;
 }
+}
+
+
+
+
+
+
+
+
+
+function layerOpen() {
+try {
+var body = bodyRoot();
+if (body && body.length && typeof body.hasClass === 'function') {
+if (body.hasClass('settings--open')) return true;
+if (body.hasClass('selectbox--open')) return true;
+}
+} catch (eBody) {}
+try {
+if (window.Lampa && Lampa.Select && typeof Lampa.Select.opened === 'function' && Lampa.Select.opened()) return true;
+} catch (eSelect) {}
+try {
+var modal = $('.modal');
+if (modal && modal.length) return true;
+} catch (eModal) {}
+return settingsOpen();
 }
 
 
@@ -13080,7 +13255,7 @@ warn('settings close follow failed', err);
 
 LC.refreshComponent = function (component) {
 if (!activated || !component) return;
-if (settingsOpen()) {
+if (layerOpen()) {
 pending_refresh = component;
 followSettingsClose();
 return;

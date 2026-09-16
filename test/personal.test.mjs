@@ -209,9 +209,14 @@ test('newEpisodes: today в виде Date', function () {
   assert.equal(result.length, 1);
 });
 
-// --- runtime: bumpGen гасит колбэки ---
+// --- runtime: bumpGen гасит сеть, но закрывает ряд ---
 
-test('runtime: bumpGen отменяет in-flight колбэки сетевых рядов', function () {
+/* Прежняя версия этого теста закрепляла сломанный контракт («после bumpGen
+   call не зовём»). Lampa ждёт, пока КАЖДАЯ часть пачки вызовет свой call
+   (vendor/lampa/app.min.js, function Progress / function partNext): молчащий
+   ряд останавливает достройку главной до перезапуска Lampa. Правильный
+   контракт — сеть глушим, а ряд закрываем пустым результатом ровно один раз. */
+test('runtime: bumpGen закрывает незавершённый ряд пустым результатом', function () {
   /* Создаём историю с одной карточкой → регистрирует «because» и «new_episodes» ряды. */
   var s = setupRuntime({
     getFav: function (opts) {
@@ -229,18 +234,71 @@ test('runtime: bumpGen отменяет in-flight колбэки сетевых 
   }
   assert.ok(because, 'ряд lumen_because зарегистрирован');
 
-  var callCount = 0;
-  because.call({}, {})(function () { callCount++; });
+  var got = [];
+  because.call({}, {})(function (data) { got.push(data); });
+  assert.equal(got.length, 0, 'пока сеть не ответила — ряд молчит');
 
-  /* Поднимаем поколение — живые колбэки должны замолчать. */
+  /* Поднимаем поколение: главную выбросили. */
   s.api.bumpGen();
+  assert.equal(got.length, 1, 'ряд обязан ответить, иначе пачка Lampa не завершится');
+  assert.deepEqual(got[0].results, [], 'ответ пустой — результат уже никому не нужен');
 
-  /* Симулируем ответ сети уже после bumpGen. */
+  /* Симулируем ответ сети уже после bumpGen — второго call быть не должно. */
   for (var j = 0; j < s.tmdbCalls.length; j++) {
     s.tmdbCalls[j].ok({ results: [{ id: 42, title: 'Rec' }] });
   }
 
-  assert.equal(callCount, 0, 'call не должен быть вызван после bumpGen');
+  assert.equal(got.length, 1, 'call строго один раз при любом исходе');
+});
+
+test('runtime: bumpGen закрывает ВСЕ незавершённые персональные ряды', function () {
+  var s = setupRuntime({
+    getFav: function (opts) {
+      if (opts.type === 'history') return [{ id: 1, title: 'Movie' }];
+      if (opts.type === 'book')    return [{ id: 100, name: 'Show', title: 'Show' }];
+      return [];
+    }
+  });
+  s.api.register();
+
+  var names = [];
+  var got = [];
+  for (var i = 0; i < s.addCalls.length; i++) {
+    (function (d) {
+      names.push(d.name);
+      d.call({}, {})(function () { got.push(d.name); });
+    })(s.addCalls[i]);
+  }
+  /* «Досмотреть» отвечает синхронно (данные локальные), сетевые — нет. */
+  var pendingBefore = names.length - got.length;
+  assert.ok(pendingBefore > 0, 'хотя бы один ряд ждёт сеть');
+
+  s.api.bumpGen();
+  assert.equal(got.length, names.length, 'после bumpGen ответили все ряды');
+});
+
+test('runtime: обычное завершение ряда «Скоро на экранах» — ровно один call', function () {
+  var s = setupRuntime();
+  s.api.register();
+  var soon = null;
+  for (var i = 0; i < s.addCalls.length; i++) {
+    if (s.addCalls[i].name === 'lumen_soon') { soon = s.addCalls[i]; break; }
+  }
+  assert.ok(soon, 'ряд lumen_soon зарегистрирован');
+
+  var got = [];
+  soon.call({}, {})(function (data) { got.push(data); });
+  /* Два discover-запроса: movie и tv. */
+  assert.equal(s.tmdbCalls.length, 2);
+  s.tmdbCalls[0].ok({ results: [{ id: 1, release_date: '2026-10-01' }] });
+  assert.equal(got.length, 0, 'ответ только после обоих запросов');
+  s.tmdbCalls[1].ok({ results: [{ id: 2, first_air_date: '2026-09-25' }] });
+  assert.equal(got.length, 1);
+  assert.equal(got[0].results.length, 2);
+
+  /* Поздний bumpGen второго call не даёт. */
+  s.api.bumpGen();
+  assert.equal(got.length, 1);
 });
 
 // --- runtime: register не задваивает ---

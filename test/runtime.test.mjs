@@ -1841,3 +1841,194 @@ test('Task 18: смена режима анимаций доезжает до о
   LC.applyMotionMode();
   assert.equal(hero.motion, 1);
 });
+
+/* ====================================================================== */
+/* Fix-раунд итогового ревью фазы 2.                                      */
+/* ====================================================================== */
+
+/* C1: поколение рядов главной поднимается ТОЛЬКО на 'destroy'.
+   Реальная последовательность Lampa 3.3.4 (vendor/lampa/app.min.js,
+   push$3 / backward() / start$4):
+     push вглубь — покидаемая главная не получает вообще ничего;
+     backward() — 'destroy' покидаемой активности, затем 'start' и
+     'archive' той, к которой ВЕРНУЛИСЬ.
+   То есть archive главной означает «снова на экране». Гашение рядов по
+   archive убивало недогруженные ряды при каждом возврате из карточки. */
+function genLC() {
+  const ctx = heroLC();
+  ctx.bumps = [];
+  ctx.LC.rows = { bumpGen: () => ctx.bumps.push('rows') };
+  ctx.LC.personal = { bumpGen: () => ctx.bumps.push('personal') };
+  return ctx;
+}
+
+test('C1: последовательность backward() (destroy карточки → start+archive главной) поколение не поднимает', () => {
+  const { LC, bumps } = genLC();
+  const main = makeActivityObj('main', false);
+  const card = makeActivityObj('card', false);
+
+  /* Уход вглубь: Lampa шлёт только start карточки. */
+  LC.onActivityEvent({ type: 'start', component: 'main', object: main });
+  LC.onActivityEvent({ type: 'start', component: 'full', object: card });
+  assert.deepEqual(bumps, [], 'push вглубь главную не трогает');
+
+  /* Возврат: destroy карточки, затем start и archive главной. */
+  LC.onActivityEvent({ type: 'destroy', component: 'full', object: card });
+  LC.onActivityEvent({ type: 'start', component: 'main', object: main });
+  LC.onActivityEvent({ type: 'archive', component: 'main', object: main });
+
+  assert.deepEqual(bumps, [], 'archive главной — это «снова на экране», ряды обязаны достраиваться');
+  assert.deepEqual(warnLog, []);
+});
+
+test('C1: destroy главной (вытеснение по лимиту истории) поколение поднимает', () => {
+  const { LC, bumps } = genLC();
+  const main = makeActivityObj('main', false);
+  LC.onActivityEvent({ type: 'start', component: 'main', object: main });
+  LC.onActivityEvent({ type: 'destroy', component: 'main', object: main });
+  assert.deepEqual(bumps, ['rows', 'personal'], 'главную выбросили — запросы её рядов больше не нужны');
+});
+
+/* C2: настройки и селектбокс — это СЛОЙ поверх активности; активностью всё
+   это время остаётся главная. Пересборка под открытым слоем уводит фокус:
+   ActivitySlide.start() делает Controller.toggle('content'), и пульт
+   перестаёт управлять открытым списком. Признак слоя берём тот же, что
+   сама Lampa (body.settings--open / body.selectbox--open / .modal —
+   vendor/lampa/app.min.js, toContent()). */
+function layerLC(state) {
+  const ctx = initLC();
+  ctx.LC.backdrops = { apply: () => null, cancel: () => { } };
+  const replaces = [];
+  const bodyEl = new FakeEl(['body']);
+  globalThis.$ = (sel) => {
+    if (sel === 'body') return bodyEl;
+    return EMPTY;
+  };
+  globalThis.Lampa.Activity = {
+    active: () => ({ component: 'main' }),
+    replace: () => replaces.push(1)
+  };
+  globalThis.Lampa.Select = { opened: () => !!state.selectbox };
+  const closeHandlers = [];
+  globalThis.Lampa.Settings = { listener: { follow: (name, fn) => { if (name === 'close') closeHandlers.push(fn); } } };
+  ctx.bodyEl = bodyEl;
+  ctx.replaces = replaces;
+  ctx.closeHandlers = closeHandlers;
+  return ctx;
+}
+
+const tick = () => new Promise((r) => setTimeout(r, 0));
+
+test('C2: настройка меняется при открытом селектбоксе — Activity.replace не зовётся', async () => {
+  const state = { selectbox: true };
+  const { LC, bodyEl, replaces, closeHandlers } = layerLC(state);
+  bodyEl.addClass('selectbox--open');
+
+  LC.refreshComponent('main');
+  await tick();
+  assert.equal(replaces.length, 0, 'под открытым селектбоксом главную не пересобираем');
+  assert.ok(closeHandlers.length, 'пересборка отложена — подписка на закрытие настроек поставлена');
+
+  /* Селектбокс закрылся, настройки закрылись — теперь можно. */
+  state.selectbox = false;
+  bodyEl.removeClass('selectbox--open');
+  closeHandlers[0]();
+  await tick();
+  assert.equal(replaces.length, 1, 'после закрытия слоя пересборка выполняется');
+  assert.deepEqual(warnLog, []);
+});
+
+test('C2: слой открылся ПОСЛЕ постановки таймера — проверка в момент срабатывания', async () => {
+  const state = { selectbox: false };
+  const { LC, bodyEl, replaces, closeHandlers } = layerLC(state);
+
+  /* На момент вызова слоя нет — replaceSoon ставит таймер. */
+  LC.refreshComponent('main');
+  /* А пока таймер не сработал, пользователь открыл селектбокс. */
+  state.selectbox = true;
+  bodyEl.addClass('selectbox--open');
+  await tick();
+  assert.equal(replaces.length, 0, 'слой проверяется в момент срабатывания таймера, а не только при постановке');
+
+  state.selectbox = false;
+  bodyEl.removeClass('selectbox--open');
+  closeHandlers[0]();
+  await tick();
+  assert.equal(replaces.length, 1);
+});
+
+test('C2: слоя нет — пересборка идёт как прежде', async () => {
+  const { LC, replaces } = layerLC({ selectbox: false });
+  LC.refreshComponent('main');
+  await tick();
+  assert.equal(replaces.length, 1);
+  assert.deepEqual(warnLog, []);
+});
+
+test('C2: открытые настройки Lampa (body.settings--open) тоже откладывают пересборку', async () => {
+  const { LC, bodyEl, replaces } = layerLC({ selectbox: false });
+  bodyEl.addClass('settings--open');
+  LC.refreshComponent('main');
+  await tick();
+  assert.equal(replaces.length, 0);
+});
+
+/* Important 2: чипы настроения монтируются из ЕДИНСТВЕННОЙ подписки плагина
+   (LC.onActivityEvent), сразу после героя — блок .lumen-moods живёт внутри
+   .lumen-hero__text, которого до LC.hero.mount ещё нет. */
+function moodsLC() {
+  const ctx = heroLC();
+  const log = [];
+  let root = null;
+  ctx.LC.moods = {
+    mount: (r) => { log.push(['mount', r]); root = r; },
+    unmount: () => { log.push(['unmount']); root = null; },
+    detach: (r) => { log.push(['detach', r]); if (root && root !== r) { root = null; log.push(['unmount']); } },
+    owns: (r) => !!r && root === r,
+    active: () => !!root,
+    install: () => log.push(['install']),
+    uninstall: () => log.push(['uninstall'])
+  };
+  ctx.moodsLog = log;
+  ctx.moodsRoot = () => root;
+  return ctx;
+}
+
+test('Important 2: старт главной монтирует чипы, и строго ПОСЛЕ героя', () => {
+  const { LC, hero, moodsLog, moodsRoot } = moodsLC();
+  const main = makeActivityObj('main', false);
+  /* Фиксируем порядок: герой должен успеть построить .lumen-hero__text. */
+  const order = [];
+  const heroMount = LC.hero.mount;
+  LC.hero.mount = (r) => { order.push('hero'); heroMount(r); };
+  LC.moods.mount = (r) => { order.push('moods'); moodsLog.push(['mount', r]); };
+
+  LC.onActivityEvent({ type: 'start', component: 'main', object: main });
+  assert.deepEqual(order, ['hero', 'moods'], 'чипы монтируются после героя');
+  assert.equal(hero.root, main.activity.render());
+  assert.deepEqual(warnLog, []);
+});
+
+test('Important 2: старт чужой активности снимает чипы', () => {
+  const { LC, moodsRoot } = moodsLC();
+  const main = makeActivityObj('main', false);
+  const card = makeActivityObj('card', false);
+  LC.onActivityEvent({ type: 'start', component: 'main', object: main });
+  assert.ok(moodsRoot(), 'чипы на главной');
+  LC.onActivityEvent({ type: 'start', component: 'full', object: card });
+  assert.equal(moodsRoot(), null, 'на чужом экране чипов нет');
+});
+
+test('Important 2: destroy активности-хозяина снимает чипы, чужой — нет', () => {
+  const { LC, moodsRoot } = moodsLC();
+  const main = makeActivityObj('main', false);
+  const other = makeActivityObj('other', false);
+  LC.onActivityEvent({ type: 'start', component: 'main', object: main });
+
+  LC.onActivityEvent({ type: 'destroy', component: 'full', object: other });
+  assert.ok(moodsRoot(), 'owns() сказал «не мой»');
+
+  LC.onActivityEvent({ type: 'destroy', component: 'main', object: main });
+  assert.equal(moodsRoot(), null);
+  assert.deepEqual(warnLog, []);
+});

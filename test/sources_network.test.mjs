@@ -525,3 +525,79 @@ test('collagePaths: отмена гасит запрос Кинопоиска', 
   h.clear();
   assert.equal(cleared, 1);
 });
+
+/* Important 3 (fix-раунд итогового ревью фазы 2): дескриптор подписки
+   действителен только для СВОЕЙ записи в inflight.
+   Владелец запроса всегда получал mySubId = 1, а clear() не проверял
+   идентичность записи. Запись уходит из inflight при завершении, но
+   дескриптор у вызывающего живёт дальше (хаб и сетка чистят все свои
+   дескрипторы разом — при смене чипа, stop() и destroy()). Если к этому
+   моменту создана НОВАЯ запись с тем же ключом, поздний clear() старого
+   дескриптора удалял живого подписчика и звал старый cancelRequest с
+   delete inflight[key] — новый запрос завершался в пустоту: плитка
+   навсегда без коллажа, сетка с вечным лоадером. */
+test('fetchAll: поздний clear() завершённого дескриптора не убивает новый запрос с тем же ключом (Important 3)', function () {
+  var calls = [];
+  global.Lampa = makeFakeLampa({
+    Api: { sources: { tmdb: { get: function (url, params, ok, err) {
+      var h = { url: url, ok: ok, err: err, cleared: false };
+      h.clear = function () { h.cleared = true; };
+      calls.push(h);
+      return h;
+    } } } }
+  });
+  global.window = { localStorage: null };
+  var S = loadCtx('43_sources.js', { pref: function () { return ''; } }).api;
+  var item = { id: 'dup', title: 'Dup', sources: { movie: { type: 'discover', params: {} } } };
+
+  /* Первый запрос завершается — его запись уходит из inflight. */
+  var first = 0;
+  var h1 = S['fetch'](item, 1, function () { first++; }, function () {}, null);
+  calls[0].ok({ results: [{ id: 1 }], page: 1, total_pages: 1, total_results: 1 });
+  assert.equal(first, 1, 'первый подписчик получил ответ');
+
+  /* Новый запрос по тому же ключу. */
+  var second = 0;
+  var h2 = S['fetch'](item, 1, function () { second++; }, function () {}, null);
+  assert.equal(calls.length, 2, 'второй запрос действительно ушёл в сеть');
+
+  /* Поздняя уборка старого дескриптора не должна трогать новый запрос. */
+  h1.clear();
+  assert.equal(calls[1].cleared, false, 'чужой сетевой запрос не отменён');
+
+  calls[1].ok({ results: [{ id: 2 }], page: 1, total_pages: 1, total_results: 1 });
+  assert.equal(second, 1, 'новый подписчик обязан получить свой ответ');
+
+  /* Свой clear() по-прежнему работает. */
+  h2.clear();
+});
+
+test('fetchAll: clear() второго подписчика не гасит запрос, пока жив первый (Important 3)', function () {
+  var calls = [];
+  global.Lampa = makeFakeLampa({
+    Api: { sources: { tmdb: { get: function (url, params, ok, err) {
+      var h = { url: url, ok: ok, err: err, cleared: false };
+      h.clear = function () { h.cleared = true; };
+      calls.push(h);
+      return h;
+    } } } }
+  });
+  global.window = { localStorage: null };
+  var S = loadCtx('43_sources.js', { pref: function () { return ''; } }).api;
+  var item = { id: 'shared', title: 'Shared', sources: { movie: { type: 'discover', params: {} } } };
+
+  var a = 0, b = 0;
+  var hA = S['fetch'](item, 1, function () { a++; }, function () {}, null);
+  var hB = S['fetch'](item, 1, function () { b++; }, function () {}, null);
+  assert.equal(calls.length, 1, 'второй вызов подписался на летящий запрос');
+
+  hB.clear();
+  assert.equal(calls[0].cleared, false, 'первый подписчик ещё ждёт');
+  calls[0].ok({ results: [{ id: 1 }], page: 1, total_pages: 1, total_results: 1 });
+  assert.equal(a, 1);
+  assert.equal(b, 0, 'отписавшийся ответа не получает');
+
+  /* Повторный clear() отписавшегося ничего не ломает. */
+  hB.clear();
+  hA.clear();
+});

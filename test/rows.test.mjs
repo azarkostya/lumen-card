@@ -358,3 +358,76 @@ test('register: сохранённый состав рядов важнее mani
   assert.equal(s.addedRows.length, 1);
   assert.equal(s.addedRows[0].name, 'lumen_col-b');
 });
+
+/* ------------------------------------------------------------------ */
+/* Контракт call-функции ряда (fix-раунд итогового ревью фазы 2, C1).  */
+/*                                                                     */
+/* Lampa грузит ряды главной пачками: Api.main() отдаёт parts_data в    */
+/* partNext(parts, parts_limit=6, …), тот кладёт первые 6 в Progress,   */
+/* а Progress.start() ждёт, пока КАЖДАЯ часть вызовет свой call(…)      */
+/* (vendor/lampa/app.min.js, function Progress / function partNext).    */
+/* Молчащий ряд — это незавершённая пачка: следующая не начнётся, и     */
+/* главная перестаёт достраиваться до перезапуска Lampa. Поэтому ряд   */
+/* обязан ответить ровно ОДИН раз при любом исходе: успех, ошибка,      */
+/* мёртвое поколение. Два ответа тоже ломают Progress — его счётчик     */
+/* loaded сравнивается с works.length на равенство.                     */
+/* ------------------------------------------------------------------ */
+
+test('call: мёртвое поколение закрывает ряд пустым результатом, а не молчанием', function () {
+  var s = setupRows();
+  s.R.register(s.manifest);
+  var got = [];
+  s.addedRows[0].call({}, 'main')(function (data) { got.push(data); });
+  assert.equal(got.length, 0, 'пока сеть не ответила — ряд молчит');
+
+  s.R.bumpGen();
+  assert.equal(got.length, 1, 'bumpGen обязан закрыть незавершённый ряд');
+  assert.deepEqual(got[0].results, [], 'закрывается пустым результатом');
+});
+
+test('call: после закрытия по мёртвому поколению поздний ответ сети ничего не добавляет', function () {
+  var s = setupRows();
+  s.R.register(s.manifest);
+  var got = [];
+  s.addedRows[0].call({}, 'main')(function (data) { got.push(data); });
+  s.R.bumpGen();
+  s.fetchCalls[0].ok({ results: [{ id: 1 }] });
+  s.fetchCalls[0].err({ all_failed: true });
+  assert.equal(got.length, 1, 'call строго один раз');
+});
+
+test('call: успешный ответ — ровно один call, повторный ok игнорируется', function () {
+  var s = setupRows();
+  s.R.register(s.manifest);
+  var got = [];
+  s.addedRows[0].call({}, 'main')(function (data) { got.push(data); });
+  s.fetchCalls[0].ok({ results: [{ id: 1 }, { id: 2 }] });
+  s.fetchCalls[0].ok({ results: [{ id: 3 }] });
+  assert.equal(got.length, 1);
+  assert.equal(got[0].results.length, 2);
+  assert.equal(got[0].title, 'Collection A');
+  /* И bumpGen после завершения второй раз ряд не зовёт. */
+  s.R.bumpGen();
+  assert.equal(got.length, 1);
+});
+
+test('call: ошибка источника — ровно один call с пустым результатом', function () {
+  var s = setupRows();
+  s.R.register(s.manifest);
+  var got = [];
+  s.addedRows[0].call({}, 'main')(function (data) { got.push(data); });
+  s.fetchCalls[0].err({ all_failed: true });
+  s.R.bumpGen();
+  assert.equal(got.length, 1);
+  assert.deepEqual(got[0].results, []);
+});
+
+test('call: bumpGen закрывает ВСЕ незавершённые ряды пачки', function () {
+  var s = setupRows();
+  s.R.register(s.manifest);
+  var got = [];
+  s.addedRows[0].call({}, 'main')(function () { got.push('a'); });
+  s.addedRows[1].call({}, 'main')(function () { got.push('b'); });
+  s.R.bumpGen();
+  assert.deepEqual(got, ['a', 'b']);
+});

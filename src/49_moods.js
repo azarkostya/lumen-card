@@ -5,11 +5,16 @@
   /*   moodTitle(mood, lang) — строка названия настроения                  */
   /*   mount(root) — вставить блок чипов в текст героя текущей главной     */
   /*   mountCurrent() — то же для уже открытой главной (Task 20)           */
-  /*   unmount() — снять блок и все подписки                               */
+  /*   unmount() — снять блок                                               */
   /*   detach(render) — снять, если блок не принадлежит этой активности    */
+  /*   owns(render) — принадлежит ли блок этой активности                  */
   /*   active() — смонтирован ли блок                                      */
-  /*   install() — подписаться на события активности Lampa                  */
-  /*   uninstall() — снять подписки и unmount                              */
+  /*   install() — гейт настройки: поставить чипы на открытую главную      */
+  /*   uninstall() — гейт настройки: снять чипы                            */
+  /*                                                                       */
+  /* Событий Lampa модуль не слушает: монтирует и снимает чипы единственная */
+  /* подписка плагина — LC.onActivityEvent в src/90_runtime.js, сразу      */
+  /* после LC.hero.mount (чипы живут внутри узла героя).                    */
   /*                                                                       */
   /* Архитектура:                                                           */
   /*   Блок .lumen-moods монтируется ВНУТРЬ .lumen-hero__text (после       */
@@ -100,11 +105,16 @@
       return node;
     }
 
-    /* Список настроений из манифеста. */
+    /* Список настроений из манифеста. get() — публичный метод модуля
+       (src/42_manifest.js): отдаёт загруженный каталог, а до первой
+       загрузки — встроенный DEFAULT. Прежде здесь звалась current(),
+       которой в публичном API нет (это приватная переменная модуля):
+       ветка всегда была ложной, и чипы игнорировали каталог
+       пользователя. */
     function moods() {
       try {
-        if (LC.manifest && LC.manifest.current) {
-          var m = LC.manifest.current();
+        if (LC.manifest && LC.manifest.get) {
+          var m = LC.manifest.get();
           if (m && m.moods && m.moods.length) return m.moods;
         }
         if (LC.manifest && LC.manifest.DEFAULT && LC.manifest.DEFAULT.moods) {
@@ -191,26 +201,37 @@
       try { s.node.remove(); } catch (eN) {}
     }
 
+    /* Принадлежит ли смонтированный блок этой активности. */
+    function ownedBy(render) {
+      if (!state) return false;
+      if (!render || !render.length) return false;
+      if (state.root && state.root[0] === render[0]) return true;
+      try {
+        var act = state.root && state.root.closest ? state.root.closest('.activity') : null;
+        if (act && act.length && act[0] === render[0]) return true;
+      } catch (e) {}
+      return false;
+    }
+
     /* Снимает блок, если он не принадлежит стартующей активности.
        Симметрично LC.hero.detach — вызывается при каждом 'start'. */
     function detach(render) {
       if (!state) return;
       if (!render || !render.length) { unmount(); return; }
-      if (state.root && state.root[0] === render[0]) return;
-      try {
-        var act = state.root && state.root.closest ? state.root.closest('.activity') : null;
-        if (act && act.length && act[0] === render[0]) return;
-      } catch (e) {}
+      if (ownedBy(render)) return;
       unmount();
+    }
+
+    /* Публичная проверка принадлежности — симметрично LC.hero.owns.
+       Нужна рантайму на 'destroy': снимать блок можно ТОЛЬКО если он всё
+       ещё принадлежит умирающей активности. */
+    function owns(render) {
+      return ownedBy(render);
     }
 
     function active() {
       return !!state;
     }
-
-    /* Подписчик событий Lampa Activity: монтирует/снимает блок чипов.
-       Хранится как замыкание, чтобы uninstall мог снять именно эту функцию. */
-    var _listener = null;
 
     /* Task 20: настройка «Профили настроения» (lumen_moods, по умолчанию
        включена). Читается на каждом монтировании — возврат из настроек Lampa
@@ -236,50 +257,25 @@
       }
     }
 
+    /* Important 2 (fix-раунд итогового ревью фазы 2): своей подписки на
+       'activity' модуль НЕ заводит. Подписка на плагин ровно одна —
+       LC.onActivityEvent в src/90_runtime.js; она же монтирует чипы сразу
+       после LC.hero.mount (чипы живут ВНУТРИ .lumen-hero__text, так что
+       порядок обязателен) и снимает их через detach/owns.
+       Причина: Subscribe.send вендора оборачивает весь цикл подписчиков
+       одним try/catch — исключение у более раннего подписчика оборвало бы
+       рассылку всем следующим, и наши чипы жили бы только по везению в
+       порядке подписки.
+
+       install/uninstall остались гейтом настройки: плагин включили —
+       ставим чипы на уже открытую главную (возврат из настроек Lampa
+       события 'start' не шлёт, ровно как у LC.hero.mountCurrent() в
+       activate()); выключили — снимаем. */
     function install() {
-      if (_listener) return;
-      _listener = function (e) {
-        try {
-          if (!e) return;
-          if (e.type === 'start') {
-            var startRender = null;
-            try {
-              if (e.object && e.object.activity && typeof e.object.activity.render === 'function') {
-                startRender = e.object.activity.render();
-              }
-            } catch (eR) {}
-            detach(startRender);
-            if (e.component === 'main' && startRender && startRender.length) {
-              mount(startRender);
-            }
-          } else if (e.type === 'destroy') {
-            var deadRender = null;
-            try {
-              if (e.object && e.object.activity && typeof e.object.activity.render === 'function') {
-                deadRender = e.object.activity.render();
-              }
-            } catch (eD) {}
-            if (state && deadRender && state.root && state.root[0] === deadRender[0]) {
-              unmount();
-            }
-          }
-        } catch (eEv) {
-          warn('moods: event handler failed', eEv);
-        }
-      };
-      try {
-        Lampa.Listener.follow('activity', _listener);
-      } catch (e) {
-        warn('moods: follow failed', e);
-        _listener = null;
-      }
+      mountCurrent();
     }
 
     function uninstall() {
-      if (_listener) {
-        try { Lampa.Listener.remove('activity', _listener); } catch (e) {}
-        _listener = null;
-      }
       unmount();
     }
 
@@ -289,6 +285,7 @@
       mountCurrent: mountCurrent,
       unmount: unmount,
       detach: detach,
+      owns: owns,
       active: active,
       install: install,
       uninstall: uninstall
