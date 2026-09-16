@@ -1131,21 +1131,35 @@ css.push('.lumen-grid__title{font-family:' + FD + ';font-weight:700;font-size:2.
 css.push('.lumen-grid__sub{font-family:' + FM + ';font-size:.88em;color:' + C.smoke + ';margin-top:.5em}');
 css.push('.lumen-grid__sorts{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;margin-bottom:1.4em}');
 css.push('.lumen-grid__items{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap}');
-css.push('.lumen-grid__items .lumen-gcard{width:-webkit-calc((100% - 4.4em) / 6);width:calc((100% - 4.4em) / 6);margin:0 .88em 1.4em 0;-webkit-transition:-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25);transition:transform .28s cubic-bezier(.2,.9,.3,1.25)}');
-css.push('.lumen-grid__items .lumen-gcard:nth-child(6n){margin-right:0}');
 
-css.push('.lumen-grid .lumen-gcard__view{position:relative;padding-top:150%;border-radius:.31em;border:.04em solid ' + C.line + ';background-color:' + C.panel + ';-webkit-background-size:cover;background-size:cover;background-position:center;-webkit-transition:border-color .2s,-webkit-box-shadow .28s;transition:border-color .2s,box-shadow .28s}');
-css.push('.lumen-grid .lumen-gcard__view--empty{background-color:' + C.panelLo + '}');
-css.push('.lumen-grid .lumen-gcard__title{font-family:' + FD + ';font-weight:700;font-size:.96em;line-height:1.15;margin-top:.5em;color:' + C.text + ';overflow:hidden}');
-css.push('.lumen-grid .lumen-gcard__meta{font-family:' + FM + ';font-size:.88em;line-height:1;margin-top:.25em;color:' + C.muted + '}');
-css.push('.lumen-grid__items .lumen-gcard.focus{-webkit-transform:scale(1.08);transform:scale(1.08)}');
-css.push('.lumen-grid__items .lumen-gcard.focus .lumen-gcard__view{border-color:' + AL + ';border-width:.13em;-webkit-box-shadow:0 .7em 1.97em ' + AG + ';box-shadow:0 .7em 1.97em ' + AG + '}');
+
+
+
+css.push('.lumen-grid__items .lumen-gcard{-webkit-flex-shrink:0;flex-shrink:0;width:-webkit-calc((100% - 4.4em) / 6);width:calc((100% - 4.4em) / 6);margin:0 .88em 1.4em 0;position:relative;-webkit-transition:-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25);transition:transform .28s cubic-bezier(.2,.9,.3,1.25)}');
+css.push('.lumen-grid__items .lumen-gcard:nth-child(6n){margin-right:0}');
+css.push('.lumen-grid .lumen-gcard .card__view{margin-bottom:.5em;border-radius:.31em;background-color:' + C.panel + '}');
+css.push('.lumen-grid .lumen-gcard .card__img{border-radius:.31em;background-color:' + C.panelLo + '}');
+css.push('.lumen-grid .lumen-gcard .card__title{font-family:' + FD + ';font-weight:700;font-size:.96em;line-height:1.15;color:' + C.text + '}');
+css.push('.lumen-grid .lumen-gcard .card__age{font-family:' + FM + ';font-size:.88em;line-height:1;margin-top:.25em;color:' + C.muted + '}');
+
+
+
+css.push('.lumen-grid__items .lumen-gcard.focus{-webkit-transform:scale(1.08);transform:scale(1.08);z-index:3}');
+css.push('.lumen-grid .lumen-gcard.focus .card__view:after{border-width:.13em;border-color:' + AL + ';border-radius:.44em;-webkit-box-shadow:0 .7em 1.97em ' + AG + ';box-shadow:0 .7em 1.97em ' + AG + '}');
 css.push('.lumen-grid.lumen-motion-lite .lumen-gcard.focus,.lumen-grid.lumen-motion-off .lumen-gcard.focus{-webkit-transform:none;transform:none}');
 css.push('.lumen-grid.lumen-motion-off .lumen-gcard{-webkit-transition:none;transition:none}');
+
+
+css.push('.lumen-grid .lumen-gcard__bar{position:absolute;left:.53em;right:.53em;bottom:.53em;height:.18em;border-radius:.09em;background:rgba(' + hexToRgb(C.text) + ',.2);overflow:hidden}');
+css.push('.lumen-grid .lumen-gcard__bar > div{height:100%;border-radius:.09em;background:' + A + '}');
 css.push('.lumen-grid__empty{padding:2em 0}');
 css.push('.lumen-grid .lumen-grid__empty-text{font-family:' + FB + ';font-size:1.05em;color:' + C.muted + ';margin-bottom:1.05em;max-width:42.96em}');
 css.push('.lumen-grid .lumen-grid__back{display:-webkit-inline-box;display:-webkit-inline-flex;display:inline-flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;height:3.16em;padding:0 1.32em;border-radius:.79em;border:.04em solid ' + C.line + ';background:' + C.buttonBg + ';font-family:' + FB + ';font-weight:600;font-size:1em;color:' + C.text + '}');
 css.push('.lumen-grid .lumen-grid__back.focus{background:' + A + ';color:' + t.onac + ';border-color:' + AL + ';border-width:.11em}');
+
+
+
+css.push('.lumen-menu-hub .lumen-ico{width:1.5em;height:1.5em}');
 
 
 css.push(LC.icons.css());
@@ -2625,6 +2639,26 @@ return net;
 
 
 
+
+function sortSignature(item) {
+var src = (item && item.sources) || {};
+var parts = [];
+var k;
+for (k in src) {
+if (!src.hasOwnProperty(k) || !src[k]) continue;
+if (src[k].type !== 'discover') continue;
+parts.push(k + '=' + ((src[k].params && src[k].params.sort_by) || ''));
+}
+parts.sort();
+return parts.join(',');
+}
+
+
+
+
+
+
+
 var inflight = {};
 
 
@@ -2635,7 +2669,7 @@ var inflight = {};
 function fetchAll(item, page, ok, err, alive) {
 var gen = alive ? alive() : 0;
 
-var inflightKey = (item.id || '') + ':' + (page || 1);
+var inflightKey = (item.id || '') + ':' + (page || 1) + ':' + sortSignature(item);
 var entry = inflight[inflightKey];
 if (entry) {
 
@@ -2770,13 +2804,103 @@ if (!Object.keys(e.subs).length) { cancelRequest(); }
 
 
 
+
+
+
+
+function kpPosters(spec, limit, ok, err, alive) {
+var gen = alive ? alive() : 0;
+function dead() { return alive && alive() !== gen; }
+
+var key = typeof LC.pref === 'function' ? LC.pref('lumen_kp_key', '') : '';
+if (!key) { err({ nokey: true }); return null; }
+
+var cacheKey = 'lumen_kpp_' + spec.collection;
+var store = storage();
+var cached = null;
+try {
+var raw = store ? store.get(cacheKey, null) : null;
+if (raw && typeof raw === 'object' && !Array.isArray(raw) && raw.at && Array.isArray(raw.data)) cached = raw;
+} catch (e) {}
+if (cached && (Date.now() - cached.at) < (cached.ttl || LIFE_KP * 60000)) {
+if (!dead()) ok(cached.data.slice(0, limit));
+return null;
+}
+
+var net = new Lampa.Reguest();
+net.silent(
+'https://kinopoiskapiunofficial.tech/api/v2.2/films/collections?type=' +
+spec.collection + '&page=1',
+function (json) {
+if (dead()) return;
+var urls = [];
+LC.util.each((json && json.items) || [], function (it) {
+var url = it && (it.posterUrlPreview || it.posterUrl);
+if (url && urls.length < 20) urls.push(url);
+});
+var s = storage();
+if (s) {
+if (urls.length) {
+put(s, cacheKey, { at: Date.now(), ttl: LIFE_KP * 60000, data: urls });
+} else {
+try { s.set(cacheKey, { at: Date.now(), ttl: LIFE_KP_EMPTY * 60000, data: [] }, { nolisten: true }); } catch (e2) {}
+}
+}
+if (!dead()) ok(urls.slice(0, limit));
+},
+function () {
+if (!dead()) err({ kp_failed: true });
+},
+false,
+{ headers: { 'X-API-KEY': key }, dataType: 'json', timeout: 8000 }
+);
+return net;
+}
+
+
+
+
+
+
+
+
+
+function collagePaths(item, count, ok, err, alive) {
+var src = (item && item.sources) || {};
+var media = src.movie ? 'movie' : (src.tv ? 'tv' : '');
+var spec = media ? src[media] : null;
+if (!spec) { err({ no_sources: true }); return { clear: function () {} }; }
+
+if (spec.type === 'kp') {
+var net = kpPosters(spec, count, ok, err, alive);
+return {
+clear: function () {
+try { if (net && net.clear) net.clear(); } catch (e) {}
+}
+};
+}
+
+return fetchAll(item, 1, function (json) {
+var out = [];
+LC.util.each((json && json.results) || [], function (card) {
+if (card && card.poster_path && out.length < count) out.push(card.poster_path);
+});
+ok(out);
+}, err, alive);
+}
+
+
+
 var api = {
 buildRequest: buildRequest,
 normalize: normalize,
 discoverUrl: discoverUrl,
 kpToFinds: kpToFinds,
 mergeMedia: mergeMedia,
-fetchOne: fetchOne
+sortSignature: sortSignature,
+fetchOne: fetchOne,
+kpPosters: kpPosters,
+collagePaths: collagePaths
 };
 api['fetch'] = fetchAll;
 return api;
@@ -3791,15 +3915,19 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 
-
 LC.hub = (function () {
 
 
 
 
-
-var HUB_COLS = 4;
 var GRID_COLS = 6;
+
+
+
+
+var POSTER_AHEAD = 14;
+
+
 
 
 
@@ -4116,103 +4244,48 @@ warn('hub: open collection failed', e);
 
 
 
-function Nav(onFocus) {
-var rows = [];
-var row = 0;
-var idx = 0;
-
-
-
-
-var lastIdx = [];
-
-this.set = function (list) { rows = list || []; };
 
 
 
 
 
-
-this.sync = function (node) {
-for (var r = 0; r < rows.length; r++) {
-for (var i = 0; i < rows[r].nodes.length; i++) {
-if (rows[r].nodes[i] === node) { row = r; idx = i; lastIdx[r] = i; return true; }
+function navMove(dir) {
+try {
+if (window.Navigator && typeof Navigator.canmove === 'function' && Navigator.canmove(dir)) {
+Navigator.move(dir);
+return true;
 }
+} catch (e) {
+warn('hub: navigator failed', e);
 }
 return false;
-};
-
-function clampRow() {
-if (row < 0) row = 0;
-if (row > rows.length - 1) row = rows.length - 1;
-}
-
-
-this.focus = function (node) {
-var r, i;
-for (r = 0; r < rows.length; r++) {
-for (i = 0; i < rows[r].nodes.length; i++) {
-if (rows[r].nodes[i] === node) {
-row = r; idx = i; lastIdx[r] = i;
-onFocus(node);
-return node;
-}
-}
-}
-for (r = 0; r < rows.length; r++) {
-if (rows[r].nodes.length) {
-row = r; idx = 0; lastIdx[r] = 0;
-onFocus(rows[r].nodes[0]);
-return rows[r].nodes[0];
-}
-}
-return null;
-};
-
-
-
-this.move = function (dir) {
-clampRow();
-var r = rows[row];
-if (!r || !r.nodes.length) return false;
-var cols = r.cols || r.nodes.length;
-var next = idx;
-if (dir === 'right') next = idx + 1;
-else if (dir === 'left') next = idx - 1;
-else if (dir === 'down') next = idx + cols;
-else if (dir === 'up') next = idx - cols;
-
-
-
-
-if (next >= 0 && next <= r.nodes.length - 1) {
-idx = next;
-lastIdx[row] = idx;
-onFocus(r.nodes[idx]);
-return true;
 }
 
 
 
-var step = dir === 'down' ? 1 : (dir === 'up' ? -1 : 0);
-if (!step) return false;
-var target = row + step;
-if (target < 0 || target > rows.length - 1) return false;
-var rt = rows[target];
-if (!rt.nodes.length) return false;
-row = target;
-idx = lastIdx[row] || 0;
-if (idx > rt.nodes.length - 1) idx = rt.nodes.length - 1;
-lastIdx[row] = idx;
-onFocus(rt.nodes[idx]);
-return true;
-};
 
 
-
-this.position = function () {
-clampRow();
-return { row: row, index: idx, length: rows[row] ? rows[row].nodes.length : 0, cols: (rows[row] && rows[row].cols) || 0 };
+function screenController(root, focusTarget, afterMove) {
+return {
+toggle: function () {
+Lampa.Controller.collectionSet(root[0]);
+Lampa.Controller.collectionFocus(focusTarget() || false, root[0]);
+},
+left: function () {
+if (!navMove('left')) Lampa.Controller.toggle('menu');
+},
+right: function () {
+if (navMove('right') && afterMove) afterMove();
+},
+up: function () {
+if (!navMove('up')) Lampa.Controller.toggle('head');
+},
+down: function () {
+if (navMove('down') && afterMove) afterMove();
+},
+back: function () {
+Lampa.Activity.backward();
+}
 };
 }
 
@@ -4229,46 +4302,48 @@ var chipsRow = $('<div class="lumen-hub__chips"></div>');
 var tilesRow = $('<div class="lumen-hub__tiles"></div>');
 
 
-var gen = 0;
 
+
+var gen = 0;
 var handles = [];
-var groups = [];
 var manifest = null;
+var groups = [];
 var activeGroup = '';
 var chipNodes = [];
 var tileNodes = [];
 var lastFocus = null;
 var started = false;
-var nav = new Nav(function (node) { focusNode(node); });
 
 function alive(captured) {
 return function () { return gen === captured; };
 }
 
-function focusNode(node) {
-lastFocus = node;
-try {
-Lampa.Controller.collectionFocus(node, root[0]);
-scroll.update($(node), false);
-} catch (e) {
-warn('hub: focus failed', e);
+function clearHandles() {
+for (var i = 0; i < handles.length; i++) {
+try { if (handles[i] && handles[i].clear) handles[i].clear(); } catch (e) {}
 }
-}
-
-function refreshNav() {
-nav.set([
-{ nodes: chipNodes, cols: chipNodes.length || 1 },
-{ nodes: tileNodes, cols: HUB_COLS }
-]);
+handles = [];
 }
 
 
 
-function recollect(focusOn) {
+function bump() {
+gen++;
+clearHandles();
+}
+
+
+
+function focusTarget() {
+if (lastFocus && root[0] && root[0].contains && root[0].contains(lastFocus)) return lastFocus;
+return null;
+}
+
+function recollect(prefer) {
 try {
 Lampa.Controller.collectionSet(root[0]);
-refreshNav();
-nav.focus(focusOn || null);
+var node = prefer || focusTarget();
+Lampa.Controller.collectionFocus(node || false, root[0]);
 } catch (e) {
 warn('hub: collection failed', e);
 }
@@ -4277,30 +4352,49 @@ warn('hub: collection failed', e);
 
 
 
+
+function paintCollage(node, paths) {
+var box = $(node).find('.lumen-tile__collage');
+box.empty();
+var painted = 0;
+for (var i = 0; i < paths.length; i++) {
+var path = '' + paths[i];
+var url = path.indexOf('http') === 0 ? path : imageUrl(path, 'w342');
+if (!url) continue;
+var poster = $('<div class="lumen-tile__poster lumen-tile__poster--' + (painted + 1) + '"></div>');
+poster.css('background-image', 'url("' + url + '")');
+box.append(poster);
+painted++;
+}
+if (painted) $(node).addClass('lumen-tile--filled');
+}
+
 function loadCollage(item, node) {
 if (node.lumen_collage) return;
 node.lumen_collage = true;
 var captured = gen;
-var handle = LC.sources['fetch'](item, 1, function (json) {
+var handle = LC.sources.collagePaths(item, COLLAGE_SIZE, function (paths) {
 if (gen !== captured) return;
-var paths = collage(json && json.results, COLLAGE_SIZE);
-var box = $(node).find('.lumen-tile__collage');
-box.empty();
-for (var i = 0; i < paths.length; i++) {
-var url = imageUrl(paths[i], 'w342');
-if (!url) continue;
-var poster = $('<div class="lumen-tile__poster lumen-tile__poster--' + (i + 1) + '"></div>');
-poster.css('background-image', 'url("' + url + '")');
-box.append(poster);
-}
-if (paths.length) $(node).addClass('lumen-tile--filled');
+paintCollage(node, paths);
 }, function (err) {
 if (gen !== captured) return;
 
 
+
+
+node.lumen_collage = false;
 if (err && err.nokey) $(node).addClass('lumen-tile--nokey');
 }, alive(captured));
 if (handle) handles.push(handle);
+}
+
+
+
+function loadVisibleCollages() {
+var list = tilesFor(manifest, activeGroup);
+for (var i = 0; i < tileNodes.length && i < COLLAGE_EAGER; i++) {
+loadCollage(list[i], tileNodes[i]);
+}
 }
 
 function tileNode(item) {
@@ -4323,7 +4417,6 @@ var node = $(
 );
 node.on('hover:focus', function () {
 lastFocus = node[0];
-nav.sync(node[0]);
 loadCollage(item, node[0]);
 });
 node.on('hover:enter', function () {
@@ -4333,6 +4426,9 @@ return node[0];
 }
 
 function buildTiles(groupId) {
+
+
+bump();
 activeGroup = groupId;
 var list = tilesFor(manifest, groupId);
 tilesRow.empty();
@@ -4342,9 +4438,7 @@ var node = tileNode(list[i]);
 tilesRow.append(node);
 tileNodes.push(node);
 }
-for (var j = 0; j < tileNodes.length && j < COLLAGE_EAGER; j++) {
-loadCollage(list[j], tileNodes[j]);
-}
+loadVisibleCollages();
 for (var c = 0; c < chipNodes.length; c++) {
 $(chipNodes[c]).toggleClass('lumen-chip--on', chipNodes[c].lumen_group === groupId);
 }
@@ -4353,7 +4447,7 @@ $(chipNodes[c]).toggleClass('lumen-chip--on', chipNodes[c].lumen_group === group
 function chipNode(group) {
 var node = $('<div class="lumen-chip selector">' + esc(group.title) + '<span class="lumen-chip__count">' + group.count + '</span></div>');
 node[0].lumen_group = group.id;
-node.on('hover:focus', function () { lastFocus = node[0]; nav.sync(node[0]); });
+node.on('hover:focus', function () { lastFocus = node[0]; });
 node.on('hover:enter', function () {
 if (activeGroup === group.id) return;
 buildTiles(group.id);
@@ -4415,45 +4509,41 @@ return js ? scroll.render(true) : scroll.render();
 this.start = function () {
 
 
-
 var act = null;
 try { act = Lampa.Activity.active(); } catch (eAct) {}
 if (act && act.activity && act.activity !== this.activity) return;
 started = true;
-Lampa.Controller.add('content', {
-toggle: function () {
-Lampa.Controller.collectionSet(root[0]);
-refreshNav();
-nav.focus(lastFocus);
-},
-left: function () {
-if (!nav.move('left')) Lampa.Controller.toggle('menu');
-},
-right: function () {
-nav.move('right');
-},
-up: function () {
-if (!nav.move('up')) Lampa.Controller.toggle('head');
-},
-down: function () {
-nav.move('down');
-},
-back: function () {
-Lampa.Activity.backward();
-}
-});
+motionClass(root);
+Lampa.Controller.add('content', screenController(root, focusTarget, null));
 Lampa.Controller.toggle('content');
+
+
+
+if (manifest) loadVisibleCollages();
 };
 
 this.pause = function () {};
-this.stop = function () {};
+
+
+
+
+
+
+
+
+this.stop = function () {
+started = false;
+bump();
+
+
+
+for (var i = 0; i < tileNodes.length; i++) {
+if (!$(tileNodes[i]).hasClass('lumen-tile--filled')) tileNodes[i].lumen_collage = false;
+}
+};
 
 this.destroy = function () {
-gen++;
-for (var i = 0; i < handles.length; i++) {
-try { if (handles[i] && handles[i].clear) handles[i].clear(); } catch (e) {}
-}
-handles = [];
+bump();
 chipNodes = [];
 tileNodes = [];
 lastFocus = null;
@@ -4485,78 +4575,176 @@ var totalResults = 0;
 var loading = false;
 
 
+var pending = null;
+var resumeAfterStop = null;
+
+
 var raw = [];
 var cardNodes = [];
 var sortNodes = [];
 var lastFocus = null;
+
+
+
+var lastCardId = null;
 var started = false;
-var nav = new Nav(function (node) { focusNode(node); });
 
 function alive(captured) {
 return function () { return gen === captured; };
 }
 
-function focusNode(node) {
-lastFocus = node;
-try {
-Lampa.Controller.collectionFocus(node, root[0]);
-scroll.update($(node), false);
-} catch (e) {
-warn('grid: focus failed', e);
+function clearHandles() {
+for (var i = 0; i < handles.length; i++) {
+try { if (handles[i] && handles[i].clear) handles[i].clear(); } catch (e) {}
 }
+handles = [];
 }
 
-function refreshNav() {
-nav.set([
-{ nodes: sortNodes, cols: sortNodes.length || 1 },
-{ nodes: cardNodes, cols: GRID_COLS }
-]);
+function bump() {
+gen++;
+clearHandles();
 }
 
-function recollect(focusOn) {
+
+function focusTarget() {
+if (lastFocus && root[0] && root[0].contains && root[0].contains(lastFocus)) return lastFocus;
+if (lastCardId != null) {
+for (var i = 0; i < cardNodes.length; i++) {
+if (cardNodes[i].card_data && cardNodes[i].card_data.id === lastCardId) return cardNodes[i];
+}
+}
+return null;
+}
+
+function recollect(prefer) {
 try {
 Lampa.Controller.collectionSet(root[0]);
-refreshNav();
-nav.focus(focusOn || null);
+var node = prefer || focusTarget();
+Lampa.Controller.collectionFocus(node || false, root[0]);
 } catch (e) {
 warn('grid: collection failed', e);
 }
 }
 
 
-
-
-
-
-
-
-
-
-
-function maybeNextPage() {
-var pos = nav.position();
-if (pos.row !== 1) return;
-var lastRowStart = Math.max(0, cardNodes.length - GRID_COLS);
-if (pos.index >= lastRowStart) loadNext();
+function focusedIndex() {
+for (var i = 0; i < cardNodes.length; i++) {
+if (cardNodes[i] === lastFocus) return i;
+}
+return -1;
 }
 
+
+
+
+function loadPosters(upTo) {
+for (var i = 0; i < cardNodes.length && i <= upTo; i++) {
+var node = cardNodes[i];
+if (!node.lumen_poster || node.lumen_posted) continue;
+node.lumen_posted = true;
+var img = node.querySelector ? node.querySelector('.card__img') : null;
+if (!img) continue;
+bindPoster(node, img, node.lumen_poster);
+}
+}
+
+function bindPoster(node, img, url) {
+img.onload = function () { $(node).addClass('card--loaded'); };
+img.onerror = function () { $(node).addClass('card--broken'); };
+img.src = url;
+}
+
+
+
+
+
+function afterMove() {
+var i = focusedIndex();
+if (i < 0) return;
+loadPosters(i + POSTER_AHEAD);
+if (i >= cardNodes.length - GRID_COLS) loadNext();
+}
+
+
+
+
+
+
+
+
 function cardNode(card) {
-var poster = imageUrl(card.poster_path, 'w342');
-var node = $(
-'<div class="lumen-gcard selector">' +
-'<div class="lumen-gcard__view"></div>' +
-'<div class="lumen-gcard__title">' + esc(card.title || card.name || '') + '</div>' +
-'<div class="lumen-gcard__meta">' + esc(cardMeta(card)) + '</div>' +
-'</div>'
-);
-if (poster) node.find('.lumen-gcard__view').css('background-image', 'url("' + poster + '")');
-else node.find('.lumen-gcard__view').addClass('lumen-gcard__view--empty');
+var year = cardYear(card);
+var node = $(Lampa.Template.js('card', {
+title: card.title || card.name || '',
+release_year: year
+}));
+node.addClass('lumen-gcard');
+var el = node[0];
+el.card_data = card;
+if (!year) node.find('.card__age').remove();
 
+var view = node.find('.card__view');
+if (card.name) {
+node.addClass('card--tv');
+view.append($('<div class="card__type"></div>').text('TV'));
+}
+var vote = Number(card.vote_average) || 0;
+if (vote > 0) view.append($('<div class="card__vote"></div>').text(vote >= 10 ? 10 : vote.toFixed(1)));
+var quality = card.quality || card.release_quality;
+if (quality && !card.name) view.append($('<div class="card__quality"></div>').text(quality));
 
-node[0].card_data = card;
-node.on('hover:focus', function () { lastFocus = node[0]; nav.sync(node[0]); });
+markCard(node, card);
+el.lumen_poster = imageUrl(card.poster_path, 'w342');
+
+node.on('hover:focus', function () {
+lastFocus = el;
+lastCardId = card.id;
+});
 node.on('hover:enter', function () { openCard(card); });
-return node[0];
+return el;
+}
+
+
+
+function markCard(node, card) {
+var marks = ['look', 'viewed', 'scheduled', 'continued', 'thrown'];
+try {
+if (!window.Lampa || !Lampa.Favorite || typeof Lampa.Favorite.check !== 'function') return;
+var status = Lampa.Favorite.check(card) || {};
+var icons = node.find('.card__icons-inner');
+var names = ['book', 'like', 'wath'];
+for (var i = 0; i < names.length; i++) {
+if (status[names[i]]) icons.append($('<div class="card__icon icon--' + names[i] + '"></div>'));
+}
+if (status.history) icons.append($('<div class="card__icon icon--history"></div>'));
+for (var m = 0; m < marks.length; m++) {
+if (!status[marks[m]]) continue;
+var text = marks[m];
+try { text = Lampa.Lang.translate('title_' + marks[m]); } catch (eLang) {}
+node.find('.card__view').append($('<div class="card__marker card__marker--' + marks[m] + '"><span></span></div>').find('span').text(text).end());
+break;
+}
+} catch (e) {
+warn('grid: card marks failed', e);
+}
+progressBar(node, card);
+}
+
+function progressBar(node, card) {
+try {
+if (!window.Lampa || !Lampa.Timeline || typeof Lampa.Timeline.view !== 'function') return;
+if (!Lampa.Utils || typeof Lampa.Utils.hash !== 'function') return;
+var key = card.original_title || card.original_name || card.title || card.name || '';
+if (!key) return;
+var view = Lampa.Timeline.view(Lampa.Utils.hash(key));
+var percent = view ? (Number(view.percent) || 0) : 0;
+if (percent <= 0 || percent >= 100) return;
+var bar = $('<div class="lumen-gcard__bar"><div></div></div>');
+bar.find('div').css('width', percent + '%');
+node.find('.card__view').append(bar);
+} catch (e) {
+warn('grid: progress failed', e);
+}
 }
 
 function appendCards(list) {
@@ -4583,10 +4771,20 @@ cardNodes = [];
 var text = reason === 'nokey' ? LC.lang('lumen_hub_nokey_text') : LC.lang('lumen_hub_empty');
 var box = $('<div class="lumen-grid__empty"><div class="lumen-grid__empty-text">' + esc(text) + '</div></div>');
 var back = $('<div class="lumen-grid__back selector">' + esc(LC.lang('lumen_grid_back')) + '</div>');
+back.on('hover:focus', function () { lastFocus = back[0]; });
 back.on('hover:enter', function () { Lampa.Activity.backward(); });
 box.append(back);
 itemsRow.append(box);
-cardNodes.push(back[0]);
+}
+
+
+function rebuild() {
+itemsRow.empty();
+cardNodes = [];
+appendCards(sortLocal(raw, sortMode));
+loadPosters(POSTER_AHEAD);
+renderSub();
+if (started) recollect(null);
 }
 
 
@@ -4594,31 +4792,41 @@ cardNodes.push(back[0]);
 function loadPage(nextPage, reset) {
 if (loading) return;
 loading = true;
+pending = { page: nextPage, reset: reset };
 try { self.activity.loader(true); } catch (e) {}
 var captured = gen;
 var request = needsLocalSort(item) ? item : applySort(item, sortMode);
 var handle = LC.sources['fetch'](request, nextPage, function (json) {
 if (gen !== captured) return;
 loading = false;
+pending = null;
 try { self.activity.loader(false); } catch (e2) {}
 page = json.page || nextPage;
 totalPages = json.total_pages || 1;
 totalResults = json.total_results || (json.results || []).length;
 if (reset) raw = [];
 raw = raw.concat(json.results || []);
-var list = json.results || [];
-if (needsLocalSort(item)) list = sortLocal(raw, sortMode);
-if (reset || needsLocalSort(item)) {
+
+
+
+
+
+var localSort = needsLocalSort(item);
+var list = localSort ? sortLocal(raw, sortMode) : (json.results || []);
+if (reset || localSort) {
 itemsRow.empty();
 cardNodes = [];
 }
 if (!list.length && !cardNodes.length) showEmpty('');
 else appendCards(list);
+var from = focusedIndex();
+loadPosters((from < 0 ? 0 : from) + POSTER_AHEAD);
 renderSub();
-if (started) recollect(reset ? null : lastFocus);
+if (started) recollect(null);
 }, function (err) {
 if (gen !== captured) return;
 loading = false;
+pending = null;
 try { self.activity.loader(false); } catch (e3) {}
 if (!cardNodes.length) showEmpty(err && err.nokey ? 'nokey' : '');
 renderSub();
@@ -4630,35 +4838,45 @@ if (handle) handles.push(handle);
 function loadNext() {
 if (loading) return;
 if (!hasMore({ page: page, total_pages: totalPages })) return;
-
-
 loadPage(page + 1, false);
+}
+
+function highlightSort() {
+for (var i = 0; i < sortNodes.length; i++) {
+$(sortNodes[i]).toggleClass('lumen-chip--on', sortNodes[i].lumen_sort === sortMode);
+}
 }
 
 function sortNode(mode) {
 var node = $('<div class="lumen-chip selector">' + esc(LC.lang(mode.key)) + '</div>');
 node[0].lumen_sort = mode.id;
-node.on('hover:focus', function () { lastFocus = node[0]; nav.sync(node[0]); });
+node.on('hover:focus', function () { lastFocus = node[0]; });
 node.on('hover:enter', function () {
 if (sortMode === mode.id) return;
-sortMode = mode.id;
-for (var i = 0; i < sortNodes.length; i++) {
-$(sortNodes[i]).toggleClass('lumen-chip--on', sortNodes[i].lumen_sort === sortMode);
+
+
+
+
+if (loading) {
+bump();
+loading = false;
+pending = null;
+try { self.activity.loader(false); } catch (eL) {}
 }
+sortMode = mode.id;
+highlightSort();
 
 
 
 
 if (needsLocalSort(item) && raw.length) {
-itemsRow.empty();
-cardNodes = [];
-appendCards(sortLocal(raw, sortMode));
-renderSub();
+rebuild();
 recollect(node[0]);
 return;
 }
 page = 1;
 loadPage(1, true);
+recollect(node[0]);
 });
 return node[0];
 }
@@ -4674,7 +4892,7 @@ var node = sortNode(modes[i]);
 sortsRow.append(node);
 sortNodes.push(node);
 }
-$(sortNodes[0]).addClass('lumen-chip--on');
+highlightSort();
 root.append(sortsRow);
 root.append(itemsRow);
 scroll.append(root);
@@ -4686,50 +4904,42 @@ return js ? scroll.render(true) : scroll.render();
 };
 
 this.start = function () {
-
-
-
 var act = null;
 try { act = Lampa.Activity.active(); } catch (eAct) {}
 if (act && act.activity && act.activity !== this.activity) return;
 started = true;
-Lampa.Controller.add('content', {
-toggle: function () {
-Lampa.Controller.collectionSet(root[0]);
-refreshNav();
-nav.focus(lastFocus);
-},
-left: function () {
-if (!nav.move('left')) Lampa.Controller.toggle('menu');
-},
-right: function () {
-if (nav.move('right')) maybeNextPage();
-},
-up: function () {
-if (!nav.move('up')) Lampa.Controller.toggle('head');
-},
-down: function () {
-if (nav.move('down')) maybeNextPage();
-},
-back: function () {
-Lampa.Activity.backward();
-}
-});
+motionClass(root);
+Lampa.Controller.add('content', screenController(root, focusTarget, afterMove));
 Lampa.Controller.toggle('content');
+
+if (resumeAfterStop) {
+var again = resumeAfterStop;
+resumeAfterStop = null;
+loadPage(again.page, again.reset);
+}
 };
 
 this.pause = function () {};
-this.stop = function () {};
+
+
+
+
+
+
+this.stop = function () {
+started = false;
+resumeAfterStop = loading ? pending : null;
+bump();
+loading = false;
+pending = null;
+};
 
 this.destroy = function () {
-gen++;
-for (var i = 0; i < handles.length; i++) {
-try { if (handles[i] && handles[i].clear) handles[i].clear(); } catch (e) {}
-}
-handles = [];
+bump();
 cardNodes = [];
 sortNodes = [];
 lastFocus = null;
+resumeAfterStop = null;
 try { scroll.destroy(); } catch (e2) {}
 try { root.remove(); } catch (e3) {}
 };
@@ -9759,6 +9969,11 @@ LC.applyMotionMode = function () {
 applyMotionMode(activeCardRoot());
 applyMotionMode(activeBackdropLayer());
 if (ui_active) applyMotionMode(bodyRoot());
+
+
+
+try { applyMotionMode($('.activity--active .lumen-hub')); } catch (eHub) {}
+try { applyMotionMode($('.activity--active .lumen-grid')); } catch (eGrid) {}
 };
 
 var toggle_followed = false;

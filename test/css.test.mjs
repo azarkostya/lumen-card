@@ -123,7 +123,7 @@ test('buildCss: .lumen-title--long содержит display:-webkit-box и -webk
    целиком построенные плагином (компоненты lumen_hub / lumen_grid). Чужой
    разметки внутри них нет, а снаружи ни одно правило не действует: корень
    ставит сам компонент. */
-const ALLOWED_ROOTS = ['.lumen-card', '.lumen-backdrop', '.lumen-descr-row', '.lumen-review-modal', '.lumen-hub', '.lumen-grid', '.full-start__background', '.full-start-new', 'body'];
+const ALLOWED_ROOTS = ['.lumen-card', '.lumen-backdrop', '.lumen-descr-row', '.lumen-review-modal', '.lumen-hub', '.lumen-grid', '.lumen-menu-hub', '.full-start__background', '.full-start-new', 'body'];
 
 /* Ревью Task 5a (замечание, зафиксировано в Task 5b): проверка была по
    sel.indexOf(root) === 0 без учёта границы селектора — так
@@ -137,7 +137,7 @@ const ALLOWED_ROOTS = ['.lumen-card', '.lumen-backdrop', '.lumen-descr-row', '.l
    между корнем и модификатором, но это className плагин создаёт сам (его
    не бывает без нашего DOM) — поэтому '_'/'-' сразу после корня для них
    тоже безопасная граница, в отличие от чужих классов Lampa. */
-var OWN_NAMESPACE_ROOTS = ['.lumen-card', '.lumen-backdrop', '.lumen-descr-row', '.lumen-review-modal', '.lumen-hub', '.lumen-grid'];
+var OWN_NAMESPACE_ROOTS = ['.lumen-card', '.lumen-backdrop', '.lumen-descr-row', '.lumen-review-modal', '.lumen-hub', '.lumen-grid', '.lumen-menu-hub'];
 
 function startsWithRoot(sel, root) {
   if (sel.indexOf(root) !== 0) return false;
@@ -1047,15 +1047,41 @@ test('Task 17: хаб — safe area 2.81em с обеих сторон, плит�
   assert.ok(ratio && ratio.indexOf('padding-top:56.25%') !== -1, 'пропорция 16:9 распоркой, без aspect-ratio');
 });
 
-test('Task 17: сетка — ровно 6 карточек в ряд, постер 2:3', () => {
+test('Task 17: сетка — ровно 6 карточек в ряд на штатной карточке Lampa', () => {
   const grid = findDecl(css, (sel) => sel === '.lumen-grid');
   assert.ok(grid && /padding:2\.81em 2\.81em/.test(grid), 'safe area с обеих сторон');
   const card = findDecl(css, (sel) => sel === '.lumen-grid__items .lumen-gcard');
   assert.ok(card, 'правило карточки сетки не найдено');
   assert.ok(card.indexOf('width:calc((100% - 4.4em) / 6)') !== -1, 'ширина = (100% − 5×.88em) / 6: ' + card);
   assert.ok(findDecl(css, (sel) => sel === '.lumen-grid__items .lumen-gcard:nth-child(6n)'), 'у шестой карточки ряда нет правого отступа');
-  const view = findDecl(css, (sel) => sel === '.lumen-grid .lumen-gcard__view');
-  assert.ok(view && view.indexOf('padding-top:150%') !== -1, 'постер 2:3 распоркой');
+  /* Пропорцию 2:3 и позиционирование даёт штатный .card__view Lampa —
+     свой распорки больше нет; наши правила только перекрашивают. */
+  const view = findDecl(css, (sel) => sel === '.lumen-grid .lumen-gcard .card__view');
+  assert.ok(view && view.indexOf('border-radius:.31em') !== -1, 'радиус постера по design-spec §0.4');
+});
+
+test('Task 17: фокус карточки сетки поднимается над соседями и красит кольцо акцентом', () => {
+  const focus = findDecl(css, (sel) => sel === '.lumen-grid__items .lumen-gcard.focus');
+  assert.ok(focus, 'правило фокуса карточки не найдено');
+  assert.ok(focus.indexOf('transform:scale(1.08)') !== -1);
+  assert.ok(/z-index:\d/.test(focus), 'без z-index увеличенная карточка ныряет под соседнюю: ' + focus);
+  const ring = findDecl(css, (sel) => sel === '.lumen-grid .lumen-gcard.focus .card__view:after');
+  assert.ok(ring, 'кольцо фокуса не перекрашено — осталось бы белым штатным');
+  assert.ok(ring.indexOf('box-shadow') !== -1);
+});
+
+test('Task 17: полоса продолжения просмотра на карточке сетки', () => {
+  const bar = findDecl(css, (sel) => sel === '.lumen-grid .lumen-gcard__bar');
+  assert.ok(bar, 'полоса прогресса не найдена');
+  assert.ok(bar.indexOf('position:absolute') !== -1);
+  const fill = findDecl(css, (sel) => sel === '.lumen-grid .lumen-gcard__bar > div');
+  assert.ok(fill && fill.indexOf('background:') !== -1, 'заливка полосы — акцент');
+});
+
+test('Task 17: иконка пункта меню — того же кегля, что у штатных пунктов', () => {
+  const ico = findDecl(css, (sel) => sel === '.lumen-menu-hub .lumen-ico');
+  assert.ok(ico, 'правило иконки пункта меню не найдено');
+  assert.ok(ico.indexOf('width:1.5em') !== -1, 'штатные иконки меню Lampa — 1.5em: ' + ico);
 });
 
 test('Task 17: чип — один паттерн на хаб и сетку, выбранный виден без фокуса', () => {

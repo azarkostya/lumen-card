@@ -106,6 +106,11 @@
     applyMotionMode(activeCardRoot());
     applyMotionMode(activeBackdropLayer());
     if (ui_active) applyMotionMode(bodyRoot());
+    /* Task 17: хаб и сетка — свои активности, класс режима они ставят себе
+       сами при create/start; на уже открытом экране его меняет эта же точка
+       (ревью Task 17: смена режима не доезжала до открытого хаба). */
+    try { applyMotionMode($('.activity--active .lumen-hub')); } catch (eHub) {}
+    try { applyMotionMode($('.activity--active .lumen-grid')); } catch (eGrid) {}
   };
 
   var toggle_followed = false;

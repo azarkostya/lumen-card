@@ -30,24 +30,23 @@
   /*    возвращаются, но наши собственные замыкания живут — их гасит        */
   /*    поколение gen (см. ниже).                                           */
   /*                                                                        */
-  /* 2. Навигация. Lampa.Controller.move(dir) вызывает ТОЛЬКО одноимённый   */
-  /*    метод активного контроллера (app.min.js run/move 46238-46255):      */
-  /*    не определил right — фокус не двинется. Штатные компоненты зовут    */
-  /*    Navigator.canmove/move, но Navigator в window.Lampa НЕ экспортирован*/
-  /*    (проверено по списку экспорта, app.min.js 55947-56041). Поэтому наша*/
-  /*    навигация геометрическая (Nav ниже): свой массив узлов по рядам,    */
-  /*    индекс фокуса, шаг вправо/влево ±1, вверх/вниз ±(число колонок), а   */
-  /*    на краю ряда — переход в соседний ряд на запомненную в нём позицию.  */
-  /*    Фокус ставится экспортированным Lampa.Controller.collectionFocus     */
-  /*    (node, root) — он же шлёт элементу 'hover:focus'.                    */
+  /* 2. Навигация — штатная. Lampa.Controller.move(dir) вызывает только     */
+  /*    одноимённый метод активного контроллера (app.min.js run/move         */
+  /*    46238-46255), а перемещение фокуса внутри экрана делает Navigator —  */
+  /*    глобал из отдельного скрипта vendor/lampa/vender/navigator/          */
+  /*    navigator.js (index.html:52, `var Navigator = new SpatialNavigator`).*/
+  /*    В объекте window.Lampa его нет, но он доступен как window.Navigator  */
+  /*    и его же зовут все компоненты Lampa. См. navMove ниже.               */
   /*                                                                        */
-  /* 3. Карточки. Экспортированный Lampa.Card помечен deprecated и на       */
-  /*    КАЖДОМ создании печатает console.warn (app.min.js 51893) — 20 строк */
-  /*    в консоли на страницу сетки. Новый внутренний класс карточки        */
-  /*    (app.min.js 19114) плагинам не отдан. Поэтому карточка сетки — свой */
-  /*    DOM с оформлением из design-spec-main §0.4, а данные карточки лежат */
-  /*    в нативном свойстве node.card_data, как и у штатной (app.min.js     */
-  /*    51914) — так их видят и сторонние плагины, и Task 18 (герой).       */
+  /* 3. Карточки сетки — штатный шаблон 'card' (Lampa.Template.js): те же    */
+  /*    классы, что у штатной сетки, а значит метки закладок и истории,      */
+  /*    рейтинг, качество и тип рисуются как у Lampa. Сам Lampa.Card не      */
+  /*    годится: помечен deprecated и печатает console.warn на КАЖДОЙ        */
+  /*    карточке (app.min.js 51893) — 20 строк в консоли на страницу, а      */
+  /*    новый внутренний класс карточки (app.min.js 19114) плагинам не       */
+  /*    отдан. Оформление задаёт наш CSS под корнем .lumen-grid              */
+  /*    (design-spec-main §0.4); данные карточки лежат в нативном свойстве   */
+  /*    node.card_data, как и у штатной (app.min.js 51914).                  */
   /*                                                                        */
   /* 4. Пункт меню: Lampa.Menu.addButton(svg, title, onEnter) возвращает    */
   /*    jQuery-узел <li class="menu__item selector"> (app.min.js 10077).    */
@@ -62,17 +61,22 @@
 
   LC.hub = (function () {
 
-    /* Число колонок. Хаб — 4 плитки в ряд (design-spec-main §0.8: плитка
-       430px + gap 20 при safe area 64 с обеих сторон), сетка — 6 карточек
-       (поправка контроллера к Task 17). Оба числа заданы и в CSS, и здесь:
-       CSS раскладывает, а навигация по ним считает соседа по вертикали. */
-    var HUB_COLS = 4;
+    /* Колонок в сетке — 6 (поправка контроллера к Task 17). Число задано и
+       в CSS: раскладку делает CSS, а здесь по нему определяется последняя
+       строка карточек, на которой пора грузить следующую страницу. */
     var GRID_COLS = 6;
 
+    /* Сколько карточек вперёд от фокуса получают постеры. Окно чуть больше
+       двух рядов: следующий ряд уже с картинками к моменту, когда фокус до
+       него дойдёт. */
+    var POSTER_AHEAD = 14;
+
     /* Сколько плиток группы получают коллаж постеров сразу при открытии.
-       Ровно два первых ряда — столько видно на экране без прокрутки;
-       остальным коллаж грузится при получении фокуса. Каждая плитка стоит
-       1-2 запроса TMDB (кэш 12 ч у discover, неделя у коллекций). */
+       Ровно два первых ряда по четыре — столько видно без прокрутки;
+       остальным коллаж грузится при получении фокуса. Цена одной плитки —
+       один запрос: для discover это первая страница подборки (кэш 12 ч), для
+       Кинопоиска — LC.sources.collagePaths берёт постеры прямо из ответа КП,
+       не сопоставляя фильмы с TMDB (кэш 30 дней). */
     var COLLAGE_EAGER = 8;
 
     /* Сколько постеров в коллаже плитки (design-spec-main §0.8: три со сдвигом). */
@@ -376,111 +380,56 @@
     }
 
     /* ------------------------------------------------------------------ */
-    /* Общая навигация по коллекции узлов (см. п.2 шапки).                 */
+    /* Навигация и общий контроллер экрана.                                */
     /*                                                                     */
-    /* rows — описание рядов экрана: [{nodes:[…], cols:N}, …]. Ряд чипов —  */
-    /* один ряд из своих узлов (cols = длине), сетка — один «ряд» со всеми  */
-    /* карточками и cols = числу колонок: вверх/вниз внутри него шагают     */
-    /* через cols, а на краю переходят в соседний ряд описания.             */
+    /* Навигация штатная: Navigator — глобал из отдельного скрипта         */
+    /* vendor/lampa/vender/navigator/navigator.js (index.html:52,          */
+    /* `var Navigator = new SpatialNavigator()`), его же зовут все          */
+    /* компоненты Lampa; в объекте window.Lampa он не экспортирован.        */
+    /* canmove(dir) вернул false — двигаться внутри экрана некуда, и        */
+    /* контроллер решает сам: влево — меню, вверх — шапка.                  */
+    /* Navigator.move синхронно шлёт элементу 'hover:focus' (Navigator      */
+    /* 'focus' -> Controller.focus -> Utils.trigger, app.min.js 46437),     */
+    /* поэтому сразу после move наши обработчики фокуса уже отработали.     */
     /* ------------------------------------------------------------------ */
 
-    function Nav(onFocus) {
-      var rows = [];
-      var row = 0;
-      var idx = 0;
-      /* Последняя позиция в каждом ряду. Переход между рядами возвращает
-         фокус туда, откуда пользователь ушёл, а не в тот же столбец: ряды
-         тут разной природы (чипы и сетка), и «тот же столбец» уводил бы с
-         выбранной группы на соседнюю. */
-      var lastIdx = [];
-
-      this.set = function (list) { rows = list || []; };
-
-      /* Запомнить узел как текущий, НЕ трогая сам фокус. Нужно для мыши:
-         в браузере Lampa шлёт 'hover:focus' по наведению, минуя наши
-         стрелки, и без синхронизации следующий шаг пультом пошёл бы от
-         старой позиции. Через onFocus этого делать нельзя — collectionFocus
-         внутри снова пошлёт 'hover:focus' и получится рекурсия. */
-      this.sync = function (node) {
-        for (var r = 0; r < rows.length; r++) {
-          for (var i = 0; i < rows[r].nodes.length; i++) {
-            if (rows[r].nodes[i] === node) { row = r; idx = i; lastIdx[r] = i; return true; }
-          }
-        }
-        return false;
-      };
-
-      function clampRow() {
-        if (row < 0) row = 0;
-        if (row > rows.length - 1) row = rows.length - 1;
-      }
-
-      /* Поставить фокус на узел (если он есть в коллекции) или на первый. */
-      this.focus = function (node) {
-        var r, i;
-        for (r = 0; r < rows.length; r++) {
-          for (i = 0; i < rows[r].nodes.length; i++) {
-            if (rows[r].nodes[i] === node) {
-              row = r; idx = i; lastIdx[r] = i;
-              onFocus(node);
-              return node;
-            }
-          }
-        }
-        for (r = 0; r < rows.length; r++) {
-          if (rows[r].nodes.length) {
-            row = r; idx = 0; lastIdx[r] = 0;
-            onFocus(rows[r].nodes[0]);
-            return rows[r].nodes[0];
-          }
-        }
-        return null;
-      };
-
-      /* Шаг по горизонтали. Возвращает false, если двигаться некуда
-         (тогда вызывающий уводит фокус в меню). */
-      this.move = function (dir) {
-        clampRow();
-        var r = rows[row];
-        if (!r || !r.nodes.length) return false;
-        var cols = r.cols || r.nodes.length;
-        var next = idx;
-        if (dir === 'right') next = idx + 1;
-        else if (dir === 'left') next = idx - 1;
-        else if (dir === 'down') next = idx + cols;
-        else if (dir === 'up') next = idx - cols;
-
-        /* Внутри ряда. Для сетки «вправо» на последней карточке ряда
-           переносит на следующую строку — так же ведёт себя штатный
-           Navigator, и пользователю не приходится идти вниз-влево. */
-        if (next >= 0 && next <= r.nodes.length - 1) {
-          idx = next;
-          lastIdx[row] = idx;
-          onFocus(r.nodes[idx]);
+    function navMove(dir) {
+      try {
+        if (window.Navigator && typeof Navigator.canmove === 'function' && Navigator.canmove(dir)) {
+          Navigator.move(dir);
           return true;
         }
+      } catch (e) {
+        warn('hub: navigator failed', e);
+      }
+      return false;
+    }
 
-        /* Край ряда: вниз/вверх — в соседний ряд описания, на запомненную
-           в нём позицию (первый вход — начало ряда). */
-        var step = dir === 'down' ? 1 : (dir === 'up' ? -1 : 0);
-        if (!step) return false;
-        var target = row + step;
-        if (target < 0 || target > rows.length - 1) return false;
-        var rt = rows[target];
-        if (!rt.nodes.length) return false;
-        row = target;
-        idx = lastIdx[row] || 0;
-        if (idx > rt.nodes.length - 1) idx = rt.nodes.length - 1;
-        lastIdx[row] = idx;
-        onFocus(rt.nodes[idx]);
-        return true;
-      };
-
-      /* Индекс узла в его ряду и номер ряда — нужен сетке, чтобы понять,
-         что фокус дошёл до последней строки карточек. */
-      this.position = function () {
-        clampRow();
-        return { row: row, index: idx, length: rows[row] ? rows[row].nodes.length : 0, cols: (rows[row] && rows[row].cols) || 0 };
+    /* Контроллер экрана плагина. focusTarget() отдаёт узел, на который надо
+       вернуть фокус при входе (возврат назад, перестройка списка); afterMove
+       вызывается после каждого успешного шага вправо/вниз — сетка по нему
+       догружает постеры и следующую страницу. */
+    function screenController(root, focusTarget, afterMove) {
+      return {
+        toggle: function () {
+          Lampa.Controller.collectionSet(root[0]);
+          Lampa.Controller.collectionFocus(focusTarget() || false, root[0]);
+        },
+        left: function () {
+          if (!navMove('left')) Lampa.Controller.toggle('menu');
+        },
+        right: function () {
+          if (navMove('right') && afterMove) afterMove();
+        },
+        up: function () {
+          if (!navMove('up')) Lampa.Controller.toggle('head');
+        },
+        down: function () {
+          if (navMove('down') && afterMove) afterMove();
+        },
+        back: function () {
+          Lampa.Activity.backward();
+        }
       };
     }
 
@@ -496,79 +445,100 @@
       var chipsRow = $('<div class="lumen-hub__chips"></div>');
       var tilesRow = $('<div class="lumen-hub__tiles"></div>');
 
-      /* Поколение: destroy() поднимает, все отложенные колбэки замолкают. */
+      /* Поколение запросов. Поднимается при смене группы, stop() и destroy():
+         дескрипторы гасятся, а доехавшие колбэки сверяют захваченное
+         значение и в снятый с экрана DOM уже не пишут. */
       var gen = 0;
-      /* Дескрипторы {clear} незавершённых запросов коллажей. */
       var handles = [];
-      var groups = [];
       var manifest = null;
+      var groups = [];
       var activeGroup = '';
       var chipNodes = [];
       var tileNodes = [];
       var lastFocus = null;
       var started = false;
-      var nav = new Nav(function (node) { focusNode(node); });
 
       function alive(captured) {
         return function () { return gen === captured; };
       }
 
-      function focusNode(node) {
-        lastFocus = node;
-        try {
-          Lampa.Controller.collectionFocus(node, root[0]);
-          scroll.update($(node), false);
-        } catch (e) {
-          warn('hub: focus failed', e);
+      function clearHandles() {
+        for (var i = 0; i < handles.length; i++) {
+          try { if (handles[i] && handles[i].clear) handles[i].clear(); } catch (e) {}
         }
+        handles = [];
       }
 
-      function refreshNav() {
-        nav.set([
-          { nodes: chipNodes, cols: chipNodes.length || 1 },
-          { nodes: tileNodes, cols: HUB_COLS }
-        ]);
+      /* Всё, что было запрошено для прежнего состояния экрана, становится
+         неактуальным разом. */
+      function bump() {
+        gen++;
+        clearHandles();
       }
 
-      /* Коллекция .selector пересобирается после каждой перестройки плиток —
-         иначе Navigator держал бы узлы снятой группы. */
-      function recollect(focusOn) {
+      /* Узел, на который вернуть фокус при входе в экран: тот же, если он ещё
+         в нашем дереве, иначе выбор оставляем Lampa (первый .selector). */
+      function focusTarget() {
+        if (lastFocus && root[0] && root[0].contains && root[0].contains(lastFocus)) return lastFocus;
+        return null;
+      }
+
+      function recollect(prefer) {
         try {
           Lampa.Controller.collectionSet(root[0]);
-          refreshNav();
-          nav.focus(focusOn || null);
+          var node = prefer || focusTarget();
+          Lampa.Controller.collectionFocus(node || false, root[0]);
         } catch (e) {
           warn('hub: collection failed', e);
         }
       }
 
-      /* Коллаж постеров одной плитки. Запрос идёт через тот же
-         LC.sources.fetch, что и ряды главной: кэш TMDB общий, повторное
-         открытие хаба в сеть не ходит. */
+      /* Коллаж плитки. Путь дешёвый: LC.sources.collagePaths просит ровно три
+         картинки и для подборки Кинопоиска берёт их прямо из ответа КП —
+         один запрос вместо «1 к КП + до 20 к TMDB», которых стоила бы целая
+         страница подборки (ревью Task 17, C1). */
+      function paintCollage(node, paths) {
+        var box = $(node).find('.lumen-tile__collage');
+        box.empty();
+        var painted = 0;
+        for (var i = 0; i < paths.length; i++) {
+          var path = '' + paths[i];
+          var url = path.indexOf('http') === 0 ? path : imageUrl(path, 'w342');
+          if (!url) continue;
+          var poster = $('<div class="lumen-tile__poster lumen-tile__poster--' + (painted + 1) + '"></div>');
+          poster.css('background-image', 'url("' + url + '")');
+          box.append(poster);
+          painted++;
+        }
+        if (painted) $(node).addClass('lumen-tile--filled');
+      }
+
       function loadCollage(item, node) {
         if (node.lumen_collage) return;
         node.lumen_collage = true;
         var captured = gen;
-        var handle = LC.sources['fetch'](item, 1, function (json) {
+        var handle = LC.sources.collagePaths(item, COLLAGE_SIZE, function (paths) {
           if (gen !== captured) return;
-          var paths = collage(json && json.results, COLLAGE_SIZE);
-          var box = $(node).find('.lumen-tile__collage');
-          box.empty();
-          for (var i = 0; i < paths.length; i++) {
-            var url = imageUrl(paths[i], 'w342');
-            if (!url) continue;
-            var poster = $('<div class="lumen-tile__poster lumen-tile__poster--' + (i + 1) + '"></div>');
-            poster.css('background-image', 'url("' + url + '")');
-            box.append(poster);
-          }
-          if (paths.length) $(node).addClass('lumen-tile--filled');
+          paintCollage(node, paths);
         }, function (err) {
           if (gen !== captured) return;
-          /* Кинопоиск без ключа — единственная ошибка, о которой стоит
-             сказать пользователю: подборка откроется, но будет пустой. */
+          /* Неудача не должна оставлять плитку пустой навсегда: снимаем
+             отметку, и коллаж перезапросится, когда плитка снова получит
+             фокус. Единственная ошибка, о которой стоит сказать сразу, —
+             подборка Кинопоиска без ключа API. */
+          node.lumen_collage = false;
           if (err && err.nokey) $(node).addClass('lumen-tile--nokey');
         }, alive(captured));
         if (handle) handles.push(handle);
+      }
+
+      /* Коллажи видимых плиток: первые COLLAGE_EAGER (два ряда по четыре —
+         столько видно без прокрутки), остальные по фокусу. */
+      function loadVisibleCollages() {
+        var list = tilesFor(manifest, activeGroup);
+        for (var i = 0; i < tileNodes.length && i < COLLAGE_EAGER; i++) {
+          loadCollage(list[i], tileNodes[i]);
+        }
       }
 
       function tileNode(item) {
@@ -591,7 +561,6 @@
         );
         node.on('hover:focus', function () {
           lastFocus = node[0];
-          nav.sync(node[0]);
           loadCollage(item, node[0]);
         });
         node.on('hover:enter', function () {
@@ -601,6 +570,9 @@
       }
 
       function buildTiles(groupId) {
+        /* Запросы снятой группы больше не нужны: их колбэки рисовали бы в
+           узлы, выброшенные из DOM (ревью Task 17, I1). */
+        bump();
         activeGroup = groupId;
         var list = tilesFor(manifest, groupId);
         tilesRow.empty();
@@ -610,9 +582,7 @@
           tilesRow.append(node);
           tileNodes.push(node);
         }
-        for (var j = 0; j < tileNodes.length && j < COLLAGE_EAGER; j++) {
-          loadCollage(list[j], tileNodes[j]);
-        }
+        loadVisibleCollages();
         for (var c = 0; c < chipNodes.length; c++) {
           $(chipNodes[c]).toggleClass('lumen-chip--on', chipNodes[c].lumen_group === groupId);
         }
@@ -621,7 +591,7 @@
       function chipNode(group) {
         var node = $('<div class="lumen-chip selector">' + esc(group.title) + '<span class="lumen-chip__count">' + group.count + '</span></div>');
         node[0].lumen_group = group.id;
-        node.on('hover:focus', function () { lastFocus = node[0]; nav.sync(node[0]); });
+        node.on('hover:focus', function () { lastFocus = node[0]; });
         node.on('hover:enter', function () {
           if (activeGroup === group.id) return;
           buildTiles(group.id);
@@ -682,46 +652,42 @@
 
       this.start = function () {
         /* Тот же гард, что у штатных компонентов: 'start' приходит и той
-           активности, что уже не на экране (Lampa зовёт start у слайда при
-           возврате), — перехватывать контроллер ей нельзя. */
+           активности, что уже не на экране. */
         var act = null;
         try { act = Lampa.Activity.active(); } catch (eAct) {}
         if (act && act.activity && act.activity !== this.activity) return;
         started = true;
-        Lampa.Controller.add('content', {
-          toggle: function () {
-            Lampa.Controller.collectionSet(root[0]);
-            refreshNav();
-            nav.focus(lastFocus);
-          },
-          left: function () {
-            if (!nav.move('left')) Lampa.Controller.toggle('menu');
-          },
-          right: function () {
-            nav.move('right');
-          },
-          up: function () {
-            if (!nav.move('up')) Lampa.Controller.toggle('head');
-          },
-          down: function () {
-            nav.move('down');
-          },
-          back: function () {
-            Lampa.Activity.backward();
-          }
-        });
+        motionClass(root);
+        Lampa.Controller.add('content', screenController(root, focusTarget, null));
         Lampa.Controller.toggle('content');
+        /* Возврат после stop(): коллажи, которые тогда погасили (или которые
+           не успели прийти), запрашиваются снова — в этот момент они уже в
+           кэше TMDB/КП, поэтому возврат сетью не платит. */
+        if (manifest) loadVisibleCollages();
       };
 
       this.pause = function () {};
-      this.stop = function () {};
+
+      /* Lampa зовёт stop() при уходе вглубь и тут же снимает слайд из DOM
+         (ActivitySlide.stop: component.stop() + slide.remove()), а destroy()
+         наступает только при возврате или вытеснении по лимиту истории.
+         Поэтому запросы гасятся здесь, а не только в destroy: иначе коллажи
+         продолжали бы лететь и дорисовываться в снятый с экрана DOM ровно
+         тогда, когда сеть нужна открытой карточке (ревью Task 17, I2).
+         Экран при этом остаётся целым: start() вернёт слайд и коллажи. */
+      this.stop = function () {
+        started = false;
+        bump();
+        /* Погашенные коллажи помечаем как незагруженные — чтобы start()
+           запросил их снова. Плитки, которые успели нарисоваться, остаются
+           как есть: у них уже есть постеры. */
+        for (var i = 0; i < tileNodes.length; i++) {
+          if (!$(tileNodes[i]).hasClass('lumen-tile--filled')) tileNodes[i].lumen_collage = false;
+        }
+      };
 
       this.destroy = function () {
-        gen++;
-        for (var i = 0; i < handles.length; i++) {
-          try { if (handles[i] && handles[i].clear) handles[i].clear(); } catch (e) {}
-        }
-        handles = [];
+        bump();
         chipNodes = [];
         tileNodes = [];
         lastFocus = null;
@@ -751,80 +717,178 @@
       var totalPages = 1;
       var totalResults = 0;
       var loading = false;
+      /* Что грузится прямо сейчас — чтобы stop() мог прервать запрос, а
+         start() возобновить его с того же места. */
+      var pending = null;
+      var resumeAfterStop = null;
       /* Сырые карточки всех загруженных страниц — из них пересобирается
          список при локальной сортировке, без повторного запроса. */
       var raw = [];
       var cardNodes = [];
       var sortNodes = [];
       var lastFocus = null;
+      /* id карточки под фокусом: список могут пересобрать (сортировка на
+         месте при догрузке страницы), и тогда прежний узел исчезает —
+         фокус возвращается на ту же карточку, а не на первый чип. */
+      var lastCardId = null;
       var started = false;
-      var nav = new Nav(function (node) { focusNode(node); });
 
       function alive(captured) {
         return function () { return gen === captured; };
       }
 
-      function focusNode(node) {
-        lastFocus = node;
-        try {
-          Lampa.Controller.collectionFocus(node, root[0]);
-          scroll.update($(node), false);
-        } catch (e) {
-          warn('grid: focus failed', e);
+      function clearHandles() {
+        for (var i = 0; i < handles.length; i++) {
+          try { if (handles[i] && handles[i].clear) handles[i].clear(); } catch (e) {}
         }
+        handles = [];
       }
 
-      function refreshNav() {
-        nav.set([
-          { nodes: sortNodes, cols: sortNodes.length || 1 },
-          { nodes: cardNodes, cols: GRID_COLS }
-        ]);
+      function bump() {
+        gen++;
+        clearHandles();
       }
 
-      function recollect(focusOn) {
+      /* Узел для фокуса при входе в экран и после перестройки списка. */
+      function focusTarget() {
+        if (lastFocus && root[0] && root[0].contains && root[0].contains(lastFocus)) return lastFocus;
+        if (lastCardId != null) {
+          for (var i = 0; i < cardNodes.length; i++) {
+            if (cardNodes[i].card_data && cardNodes[i].card_data.id === lastCardId) return cardNodes[i];
+          }
+        }
+        return null;
+      }
+
+      function recollect(prefer) {
         try {
           Lampa.Controller.collectionSet(root[0]);
-          refreshNav();
-          nav.focus(focusOn || null);
+          var node = prefer || focusTarget();
+          Lampa.Controller.collectionFocus(node || false, root[0]);
         } catch (e) {
           warn('grid: collection failed', e);
         }
       }
 
-      /* Догрузка следующей страницы, когда фокус дошёл до последней строки
-         карточек. Так страница листается ровно по мере надобности — на ТВ
-         сразу весь список не грузится (требование Task 17).
-         Зовётся ТОЛЬКО из обработчиков пульта, а не из focusNode: фокус
-         ставится и программно (recollect после каждой пришедшей страницы), и
-         тогда цепочка «страница пришла -> фокус -> догрузка» крутилась бы
-         сама. Живая проверка на «Супергероях» показала ровно это: сетка
-         набирала 320 карточек за один заход. По той же причине не
-         используется Lampa.Scroll.onEnd — он срабатывает на КАЖДОМ
-         обновлении позиции скролла, в том числе на нашем же scroll.update. */
-      function maybeNextPage() {
-        var pos = nav.position();
-        if (pos.row !== 1) return;
-        var lastRowStart = Math.max(0, cardNodes.length - GRID_COLS);
-        if (pos.index >= lastRowStart) loadNext();
+      /* Индекс карточки под фокусом или -1 (фокус на чипе сортировки). */
+      function focusedIndex() {
+        for (var i = 0; i < cardNodes.length; i++) {
+          if (cardNodes[i] === lastFocus) return i;
+        }
+        return -1;
       }
 
+      /* Постеры грузятся окном вокруг фокуса, а не все разом: страница — это
+         20-40 карточек, и одновременная загрузка стольких картинок на ТВ
+         заметна (ревью Task 17, I6). */
+      function loadPosters(upTo) {
+        for (var i = 0; i < cardNodes.length && i <= upTo; i++) {
+          var node = cardNodes[i];
+          if (!node.lumen_poster || node.lumen_posted) continue;
+          node.lumen_posted = true;
+          var img = node.querySelector ? node.querySelector('.card__img') : null;
+          if (!img) continue;
+          bindPoster(node, img, node.lumen_poster);
+        }
+      }
+
+      function bindPoster(node, img, url) {
+        img.onload = function () { $(node).addClass('card--loaded'); };
+        img.onerror = function () { $(node).addClass('card--broken'); };
+        img.src = url;
+      }
+
+      /* Догрузка следующей страницы и постеров — только от пульта: фокус
+         ставится и программно (после каждой пришедшей страницы), и цепочка
+         «страница пришла -> фокус -> догрузка» крутилась бы сама (живая
+         проверка: сетка набирала 320 карточек за заход). */
+      function afterMove() {
+        var i = focusedIndex();
+        if (i < 0) return;
+        loadPosters(i + POSTER_AHEAD);
+        if (i >= cardNodes.length - GRID_COLS) loadNext();
+      }
+
+      /* Карточка сетки — штатный шаблон Lampa ('card'), а не свой DOM: так
+         сетка плагина показывает то же, что штатная (метки закладок и
+         истории, рейтинг, качество, тип), и чинится вместе с Lampa. Сам
+         Lampa.Card для этого не годится — он помечен deprecated и печатает
+         console.warn на каждую карточку (app.min.js 51893), а новый
+         внутренний класс карточки плагинам не отдан. Оформление задаёт наш
+         CSS под корнем .lumen-grid (design-spec-main §0.4). */
       function cardNode(card) {
-        var poster = imageUrl(card.poster_path, 'w342');
-        var node = $(
-          '<div class="lumen-gcard selector">' +
-            '<div class="lumen-gcard__view"></div>' +
-            '<div class="lumen-gcard__title">' + esc(card.title || card.name || '') + '</div>' +
-            '<div class="lumen-gcard__meta">' + esc(cardMeta(card)) + '</div>' +
-          '</div>'
-        );
-        if (poster) node.find('.lumen-gcard__view').css('background-image', 'url("' + poster + '")');
-        else node.find('.lumen-gcard__view').addClass('lumen-gcard__view--empty');
-        /* Данные карточки — в нативном свойстве узла, как у штатной карточки
-           Lampa (app.min.js 51914): по нему их находит и Task 18 (герой). */
-        node[0].card_data = card;
-        node.on('hover:focus', function () { lastFocus = node[0]; nav.sync(node[0]); });
+        var year = cardYear(card);
+        var node = $(Lampa.Template.js('card', {
+          title: card.title || card.name || '',
+          release_year: year
+        }));
+        node.addClass('lumen-gcard');
+        var el = node[0];
+        el.card_data = card;
+        if (!year) node.find('.card__age').remove();
+
+        var view = node.find('.card__view');
+        if (card.name) {
+          node.addClass('card--tv');
+          view.append($('<div class="card__type"></div>').text('TV'));
+        }
+        var vote = Number(card.vote_average) || 0;
+        if (vote > 0) view.append($('<div class="card__vote"></div>').text(vote >= 10 ? 10 : vote.toFixed(1)));
+        var quality = card.quality || card.release_quality;
+        if (quality && !card.name) view.append($('<div class="card__quality"></div>').text(quality));
+
+        markCard(node, card);
+        el.lumen_poster = imageUrl(card.poster_path, 'w342');
+
+        node.on('hover:focus', function () {
+          lastFocus = el;
+          lastCardId = card.id;
+        });
         node.on('hover:enter', function () { openCard(card); });
-        return node[0];
+        return el;
+      }
+
+      /* Метки закладок/истории и полоса продолжения — то же, что рисует
+         Lampa на своих карточках (Favorite.check + Timeline). */
+      function markCard(node, card) {
+        var marks = ['look', 'viewed', 'scheduled', 'continued', 'thrown'];
+        try {
+          if (!window.Lampa || !Lampa.Favorite || typeof Lampa.Favorite.check !== 'function') return;
+          var status = Lampa.Favorite.check(card) || {};
+          var icons = node.find('.card__icons-inner');
+          var names = ['book', 'like', 'wath'];
+          for (var i = 0; i < names.length; i++) {
+            if (status[names[i]]) icons.append($('<div class="card__icon icon--' + names[i] + '"></div>'));
+          }
+          if (status.history) icons.append($('<div class="card__icon icon--history"></div>'));
+          for (var m = 0; m < marks.length; m++) {
+            if (!status[marks[m]]) continue;
+            var text = marks[m];
+            try { text = Lampa.Lang.translate('title_' + marks[m]); } catch (eLang) {}
+            node.find('.card__view').append($('<div class="card__marker card__marker--' + marks[m] + '"><span></span></div>').find('span').text(text).end());
+            break;
+          }
+        } catch (e) {
+          warn('grid: card marks failed', e);
+        }
+        progressBar(node, card);
+      }
+
+      function progressBar(node, card) {
+        try {
+          if (!window.Lampa || !Lampa.Timeline || typeof Lampa.Timeline.view !== 'function') return;
+          if (!Lampa.Utils || typeof Lampa.Utils.hash !== 'function') return;
+          var key = card.original_title || card.original_name || card.title || card.name || '';
+          if (!key) return;
+          var view = Lampa.Timeline.view(Lampa.Utils.hash(key));
+          var percent = view ? (Number(view.percent) || 0) : 0;
+          if (percent <= 0 || percent >= 100) return;
+          var bar = $('<div class="lumen-gcard__bar"><div></div></div>');
+          bar.find('div').css('width', percent + '%');
+          node.find('.card__view').append(bar);
+        } catch (e) {
+          warn('grid: progress failed', e);
+        }
       }
 
       function appendCards(list) {
@@ -851,42 +915,62 @@
         var text = reason === 'nokey' ? LC.lang('lumen_hub_nokey_text') : LC.lang('lumen_hub_empty');
         var box = $('<div class="lumen-grid__empty"><div class="lumen-grid__empty-text">' + esc(text) + '</div></div>');
         var back = $('<div class="lumen-grid__back selector">' + esc(LC.lang('lumen_grid_back')) + '</div>');
+        back.on('hover:focus', function () { lastFocus = back[0]; });
         back.on('hover:enter', function () { Lampa.Activity.backward(); });
         box.append(back);
         itemsRow.append(box);
-        cardNodes.push(back[0]);
       }
 
-      /* Одна страница подборки. mode='reset' — первая страница после смены
-         сортировки (список карточек собирается заново). */
+      /* Пересобрать список из накопленных страниц в текущем порядке. */
+      function rebuild() {
+        itemsRow.empty();
+        cardNodes = [];
+        appendCards(sortLocal(raw, sortMode));
+        loadPosters(POSTER_AHEAD);
+        renderSub();
+        if (started) recollect(null);
+      }
+
+      /* Одна страница подборки. reset — начать список заново (первая
+         загрузка и смена сортировки у discover-подборок). */
       function loadPage(nextPage, reset) {
         if (loading) return;
         loading = true;
+        pending = { page: nextPage, reset: reset };
         try { self.activity.loader(true); } catch (e) {}
         var captured = gen;
         var request = needsLocalSort(item) ? item : applySort(item, sortMode);
         var handle = LC.sources['fetch'](request, nextPage, function (json) {
           if (gen !== captured) return;
           loading = false;
+          pending = null;
           try { self.activity.loader(false); } catch (e2) {}
           page = json.page || nextPage;
           totalPages = json.total_pages || 1;
           totalResults = json.total_results || (json.results || []).length;
           if (reset) raw = [];
           raw = raw.concat(json.results || []);
-          var list = json.results || [];
-          if (needsLocalSort(item)) list = sortLocal(raw, sortMode);
-          if (reset || needsLocalSort(item)) {
+          /* Коллекция, список TMDB и Кинопоиск приходят в своём порядке —
+             его задаёт сортировка на месте, и при догрузке страницы список
+             приходится пересобирать целиком. Кинопоиск, в отличие от
+             коллекции, многостраничный (total_pages из ответа КП), так что
+             ветка рабочая, а не теоретическая. */
+          var localSort = needsLocalSort(item);
+          var list = localSort ? sortLocal(raw, sortMode) : (json.results || []);
+          if (reset || localSort) {
             itemsRow.empty();
             cardNodes = [];
           }
           if (!list.length && !cardNodes.length) showEmpty('');
           else appendCards(list);
+          var from = focusedIndex();
+          loadPosters((from < 0 ? 0 : from) + POSTER_AHEAD);
           renderSub();
-          if (started) recollect(reset ? null : lastFocus);
+          if (started) recollect(null);
         }, function (err) {
           if (gen !== captured) return;
           loading = false;
+          pending = null;
           try { self.activity.loader(false); } catch (e3) {}
           if (!cardNodes.length) showEmpty(err && err.nokey ? 'nokey' : '');
           renderSub();
@@ -898,35 +982,45 @@
       function loadNext() {
         if (loading) return;
         if (!hasMore({ page: page, total_pages: totalPages })) return;
-        /* Коллекции, списки TMDB и Кинопоиск отдают всё одной страницей —
-           у них total_pages = 1, и сюда мы не доходим. */
         loadPage(page + 1, false);
+      }
+
+      function highlightSort() {
+        for (var i = 0; i < sortNodes.length; i++) {
+          $(sortNodes[i]).toggleClass('lumen-chip--on', sortNodes[i].lumen_sort === sortMode);
+        }
       }
 
       function sortNode(mode) {
         var node = $('<div class="lumen-chip selector">' + esc(LC.lang(mode.key)) + '</div>');
         node[0].lumen_sort = mode.id;
-        node.on('hover:focus', function () { lastFocus = node[0]; nav.sync(node[0]); });
+        node.on('hover:focus', function () { lastFocus = node[0]; });
         node.on('hover:enter', function () {
           if (sortMode === mode.id) return;
-          sortMode = mode.id;
-          for (var i = 0; i < sortNodes.length; i++) {
-            $(sortNodes[i]).toggleClass('lumen-chip--on', sortNodes[i].lumen_sort === sortMode);
+          /* Первая загрузка ещё идёт, а фокус по умолчанию стоит именно на
+             чипах — без отмены подсветка и подпись говорили бы «По рейтингу»,
+             а карточки пришли бы в прежнем порядке, и повторное нажатие
+             блокировал бы гард выше (ревью Task 17, C2). */
+          if (loading) {
+            bump();
+            loading = false;
+            pending = null;
+            try { self.activity.loader(false); } catch (eL) {}
           }
-          /* Коллекция, список TMDB и Кинопоиск приходят целиком одной
-             страницей — их достаточно переставить на месте, в сеть за тем же
-             ответом не ходим. Для discover порядок задаёт сам TMDB, поэтому
-             там нужен новый запрос с первой страницы. */
+          sortMode = mode.id;
+          highlightSort();
+          /* Коллекция, список TMDB и Кинопоиск уже загружены целиком —
+             их достаточно переставить на месте, в сеть за тем же ответом не
+             ходим. Для discover порядок задаёт TMDB, там нужен новый запрос
+             с первой страницы. */
           if (needsLocalSort(item) && raw.length) {
-            itemsRow.empty();
-            cardNodes = [];
-            appendCards(sortLocal(raw, sortMode));
-            renderSub();
+            rebuild();
             recollect(node[0]);
             return;
           }
           page = 1;
           loadPage(1, true);
+          recollect(node[0]);
         });
         return node[0];
       }
@@ -942,7 +1036,7 @@
           sortsRow.append(node);
           sortNodes.push(node);
         }
-        $(sortNodes[0]).addClass('lumen-chip--on');
+        highlightSort();
         root.append(sortsRow);
         root.append(itemsRow);
         scroll.append(root);
@@ -954,50 +1048,42 @@
       };
 
       this.start = function () {
-        /* Тот же гард, что у штатных компонентов: 'start' приходит и той
-           активности, что уже не на экране (Lampa зовёт start у слайда при
-           возврате), — перехватывать контроллер ей нельзя. */
         var act = null;
         try { act = Lampa.Activity.active(); } catch (eAct) {}
         if (act && act.activity && act.activity !== this.activity) return;
         started = true;
-        Lampa.Controller.add('content', {
-          toggle: function () {
-            Lampa.Controller.collectionSet(root[0]);
-            refreshNav();
-            nav.focus(lastFocus);
-          },
-          left: function () {
-            if (!nav.move('left')) Lampa.Controller.toggle('menu');
-          },
-          right: function () {
-            if (nav.move('right')) maybeNextPage();
-          },
-          up: function () {
-            if (!nav.move('up')) Lampa.Controller.toggle('head');
-          },
-          down: function () {
-            if (nav.move('down')) maybeNextPage();
-          },
-          back: function () {
-            Lampa.Activity.backward();
-          }
-        });
+        motionClass(root);
+        Lampa.Controller.add('content', screenController(root, focusTarget, afterMove));
         Lampa.Controller.toggle('content');
+        /* Запрос, прерванный на stop(), возобновляется с той же страницы. */
+        if (resumeAfterStop) {
+          var again = resumeAfterStop;
+          resumeAfterStop = null;
+          loadPage(again.page, again.reset);
+        }
       };
 
       this.pause = function () {};
-      this.stop = function () {};
+
+      /* Уход вглубь: Lampa снимает слайд из DOM (ActivitySlide.stop), но
+         компонент жив и вернётся по start(). Незавершённую страницу гасим —
+         она дорисовывалась бы в снятый экран и занимала сеть, нужную
+         карточке (ревью Task 17, I2), — и запоминаем, чтобы догрузить при
+         возврате. */
+      this.stop = function () {
+        started = false;
+        resumeAfterStop = loading ? pending : null;
+        bump();
+        loading = false;
+        pending = null;
+      };
 
       this.destroy = function () {
-        gen++;
-        for (var i = 0; i < handles.length; i++) {
-          try { if (handles[i] && handles[i].clear) handles[i].clear(); } catch (e) {}
-        }
-        handles = [];
+        bump();
         cardNodes = [];
         sortNodes = [];
         lastFocus = null;
+        resumeAfterStop = null;
         try { scroll.destroy(); } catch (e2) {}
         try { root.remove(); } catch (e3) {}
       };

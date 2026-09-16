@@ -325,6 +325,26 @@
       return net;
     }
 
+    /* Подпись сортировки подборки — часть ключа дедупликации (ревью Task 17,
+       I5). LC.hub.applySort копирует подборку вместе с id, меняя только
+       sort_by, поэтому без подписи запрос «та же подборка, другая сортировка»
+       подписывался бы на уже летящий с прежним порядком и получал бы чужой
+       ответ: сетка показывала порядок манифеста, а подпись — выбранный
+       пользователем. Считается только по discover-источникам: у collection,
+       list и kp порядок задаёт не запрос, а сортировка на месте. */
+    function sortSignature(item) {
+      var src = (item && item.sources) || {};
+      var parts = [];
+      var k;
+      for (k in src) {
+        if (!src.hasOwnProperty(k) || !src[k]) continue;
+        if (src[k].type !== 'discover') continue;
+        parts.push(k + '=' + ((src[k].params && src[k].params.sort_by) || ''));
+      }
+      parts.sort();
+      return parts.join(',');
+    }
+
     /* Карта in-flight запросов для дедупликации (I4).
        Один и тот же ключ (id:page) не грузится параллельно дважды.
        Структура: { subs: {id: {ok,err,alive,gen}}, _nextId: n, _cancel: fn|null }
@@ -341,7 +361,7 @@
     function fetchAll(item, page, ok, err, alive) {
       var gen = alive ? alive() : 0;
 
-      var inflightKey = (item.id || '') + ':' + (page || 1);
+      var inflightKey = (item.id || '') + ':' + (page || 1) + ':' + sortSignature(item);
       var entry = inflight[inflightKey];
       if (entry) {
         /* Подписываемся на уже идущий запрос. */
@@ -474,6 +494,93 @@
       };
     }
 
+    /* Постеры Кинопоиска для коллажа плитки: ОДИН запрос к КП, без
+       сопоставления с TMDB (ревью Task 17, C1). Полный путь подборки КП стоит
+       1 запрос к КП + до 20 к TMDB (fetchKp выше), а коллажу нужно три
+       картинки — и они уже есть в ответе КП полем posterUrlPreview.
+       Возвращает абсолютные URL (st.kp.yandex.net), не пути TMDB.
+       Кэш — свой ключ, тот же механизм и те же TTL, что у fetchKp. */
+    function kpPosters(spec, limit, ok, err, alive) {
+      var gen = alive ? alive() : 0;
+      function dead() { return alive && alive() !== gen; }
+
+      var key = typeof LC.pref === 'function' ? LC.pref('lumen_kp_key', '') : '';
+      if (!key) { err({ nokey: true }); return null; }
+
+      var cacheKey = 'lumen_kpp_' + spec.collection;
+      var store = storage();
+      var cached = null;
+      try {
+        var raw = store ? store.get(cacheKey, null) : null;
+        if (raw && typeof raw === 'object' && !Array.isArray(raw) && raw.at && Array.isArray(raw.data)) cached = raw;
+      } catch (e) {}
+      if (cached && (Date.now() - cached.at) < (cached.ttl || LIFE_KP * 60000)) {
+        if (!dead()) ok(cached.data.slice(0, limit));
+        return null;
+      }
+
+      var net = new Lampa.Reguest();
+      net.silent(
+        'https://kinopoiskapiunofficial.tech/api/v2.2/films/collections?type=' +
+          spec.collection + '&page=1',
+        function (json) {
+          if (dead()) return;
+          var urls = [];
+          LC.util.each((json && json.items) || [], function (it) {
+            var url = it && (it.posterUrlPreview || it.posterUrl);
+            if (url && urls.length < 20) urls.push(url);
+          });
+          var s = storage();
+          if (s) {
+            if (urls.length) {
+              put(s, cacheKey, { at: Date.now(), ttl: LIFE_KP * 60000, data: urls });
+            } else {
+              try { s.set(cacheKey, { at: Date.now(), ttl: LIFE_KP_EMPTY * 60000, data: [] }, { nolisten: true }); } catch (e2) {}
+            }
+          }
+          if (!dead()) ok(urls.slice(0, limit));
+        },
+        function () {
+          if (!dead()) err({ kp_failed: true });
+        },
+        false,
+        { headers: { 'X-API-KEY': key }, dataType: 'json', timeout: 8000 }
+      );
+      return net;
+    }
+
+    /* Картинки для коллажа плитки хаба: до count штук.
+       Для подборки Кинопоиска — дешёвый путь kpPosters (1 запрос вместо 21),
+       для остальных — обычная первая страница (её ответ всё равно нужен и
+       кэшируется на общих основаниях).
+       В ok приходит массив строк: абсолютный URL (начинается с http) — готовая
+       картинка Кинопоиска, иначе это poster_path TMDB, который вызывающий
+       превращает в URL через прокси (LC.cardinfo.imageUrl).
+       Возвращает {clear} — как fetchAll. */
+    function collagePaths(item, count, ok, err, alive) {
+      var src = (item && item.sources) || {};
+      var media = src.movie ? 'movie' : (src.tv ? 'tv' : '');
+      var spec = media ? src[media] : null;
+      if (!spec) { err({ no_sources: true }); return { clear: function () {} }; }
+
+      if (spec.type === 'kp') {
+        var net = kpPosters(spec, count, ok, err, alive);
+        return {
+          clear: function () {
+            try { if (net && net.clear) net.clear(); } catch (e) {}
+          }
+        };
+      }
+
+      return fetchAll(item, 1, function (json) {
+        var out = [];
+        LC.util.each((json && json.results) || [], function (card) {
+          if (card && card.poster_path && out.length < count) out.push(card.poster_path);
+        });
+        ok(out);
+      }, err, alive);
+    }
+
     /* 'fetch' — зарезервированный BARE_NAME в es5check (глобальный Web API).
        Публичный ключ задаётся строкой, чтобы es5check не считал его нарушением. */
     var api = {
@@ -482,7 +589,10 @@
       discoverUrl: discoverUrl,
       kpToFinds: kpToFinds,
       mergeMedia: mergeMedia,
-      fetchOne: fetchOne
+      sortSignature: sortSignature,
+      fetchOne: fetchOne,
+      kpPosters: kpPosters,
+      collagePaths: collagePaths
     };
     api['fetch'] = fetchAll;
     return api;

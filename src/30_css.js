@@ -872,21 +872,35 @@
     css.push('.lumen-grid__sub{font-family:' + FM + ';font-size:.88em;color:' + C.smoke + ';margin-top:.5em}');
     css.push('.lumen-grid__sorts{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;margin-bottom:1.4em}');
     css.push('.lumen-grid__items{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap}');
-    css.push('.lumen-grid__items .lumen-gcard{width:-webkit-calc((100% - 4.4em) / 6);width:calc((100% - 4.4em) / 6);margin:0 .88em 1.4em 0;-webkit-transition:-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25);transition:transform .28s cubic-bezier(.2,.9,.3,1.25)}');
+    /* Карточка сетки — штатная разметка Lampa ('card'), поэтому правила
+       навешиваются на её классы; наш корень .lumen-grid держит их в скоупе.
+       Ширина считается под 6 в ряд: (100% − 5 промежутков по .88em) / 6 —
+       штатные 12.75em переопределяются двумя классами. */
+    css.push('.lumen-grid__items .lumen-gcard{-webkit-flex-shrink:0;flex-shrink:0;width:-webkit-calc((100% - 4.4em) / 6);width:calc((100% - 4.4em) / 6);margin:0 .88em 1.4em 0;position:relative;-webkit-transition:-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25);transition:transform .28s cubic-bezier(.2,.9,.3,1.25)}');
     css.push('.lumen-grid__items .lumen-gcard:nth-child(6n){margin-right:0}');
-    /* Постер 2:3 распоркой padding-top — те же соображения, что у плитки. */
-    css.push('.lumen-grid .lumen-gcard__view{position:relative;padding-top:150%;border-radius:.31em;border:.04em solid ' + C.line + ';background-color:' + C.panel + ';-webkit-background-size:cover;background-size:cover;background-position:center;-webkit-transition:border-color .2s,-webkit-box-shadow .28s;transition:border-color .2s,box-shadow .28s}');
-    css.push('.lumen-grid .lumen-gcard__view--empty{background-color:' + C.panelLo + '}');
-    css.push('.lumen-grid .lumen-gcard__title{font-family:' + FD + ';font-weight:700;font-size:.96em;line-height:1.15;margin-top:.5em;color:' + C.text + ';overflow:hidden}');
-    css.push('.lumen-grid .lumen-gcard__meta{font-family:' + FM + ';font-size:.88em;line-height:1;margin-top:.25em;color:' + C.muted + '}');
-    css.push('.lumen-grid__items .lumen-gcard.focus{-webkit-transform:scale(1.08);transform:scale(1.08)}');
-    css.push('.lumen-grid__items .lumen-gcard.focus .lumen-gcard__view{border-color:' + AL + ';border-width:.13em;-webkit-box-shadow:0 .7em 1.97em ' + AG + ';box-shadow:0 .7em 1.97em ' + AG + '}');
+    css.push('.lumen-grid .lumen-gcard .card__view{margin-bottom:.5em;border-radius:.31em;background-color:' + C.panel + '}');
+    css.push('.lumen-grid .lumen-gcard .card__img{border-radius:.31em;background-color:' + C.panelLo + '}');
+    css.push('.lumen-grid .lumen-gcard .card__title{font-family:' + FD + ';font-weight:700;font-size:.96em;line-height:1.15;color:' + C.text + '}');
+    css.push('.lumen-grid .lumen-gcard .card__age{font-family:' + FM + ';font-size:.88em;line-height:1;margin-top:.25em;color:' + C.muted + '}');
+    /* Фокус: акцентное кольцо вместо белого штатного, пружина и подъём над
+       соседями — без z-index увеличенная карточка ныряет под соседнюю и
+       тень срезается (ревью Task 17). */
+    css.push('.lumen-grid__items .lumen-gcard.focus{-webkit-transform:scale(1.08);transform:scale(1.08);z-index:3}');
+    css.push('.lumen-grid .lumen-gcard.focus .card__view:after{border-width:.13em;border-color:' + AL + ';border-radius:.44em;-webkit-box-shadow:0 .7em 1.97em ' + AG + ';box-shadow:0 .7em 1.97em ' + AG + '}');
     css.push('.lumen-grid.lumen-motion-lite .lumen-gcard.focus,.lumen-grid.lumen-motion-off .lumen-gcard.focus{-webkit-transform:none;transform:none}');
     css.push('.lumen-grid.lumen-motion-off .lumen-gcard{-webkit-transition:none;transition:none}');
+    /* Полоса продолжения просмотра (design-spec-main §0.6): данные те же,
+       что у строки «Продолжить» в карточке — Lampa.Timeline. */
+    css.push('.lumen-grid .lumen-gcard__bar{position:absolute;left:.53em;right:.53em;bottom:.53em;height:.18em;border-radius:.09em;background:rgba(' + hexToRgb(C.text) + ',.2);overflow:hidden}');
+    css.push('.lumen-grid .lumen-gcard__bar > div{height:100%;border-radius:.09em;background:' + A + '}');
     css.push('.lumen-grid__empty{padding:2em 0}');
     css.push('.lumen-grid .lumen-grid__empty-text{font-family:' + FB + ';font-size:1.05em;color:' + C.muted + ';margin-bottom:1.05em;max-width:42.96em}');
     css.push('.lumen-grid .lumen-grid__back{display:-webkit-inline-box;display:-webkit-inline-flex;display:inline-flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;height:3.16em;padding:0 1.32em;border-radius:.79em;border:.04em solid ' + C.line + ';background:' + C.buttonBg + ';font-family:' + FB + ';font-weight:600;font-size:1em;color:' + C.text + '}');
     css.push('.lumen-grid .lumen-grid__back.focus{background:' + A + ';color:' + t.onac + ';border-color:' + AL + ';border-width:.11em}');
+
+    /* Пункт меню «Подборки»: штатные иконки меню Lampa — 1.5em, а наш набор
+       отдаёт svg в 1em (src/20_icons.js), и пункт выглядел мельче соседей. */
+    css.push('.lumen-menu-hub .lumen-ico{width:1.5em;height:1.5em}');
 
     /* --- Иконки кнопок (единый набор через CSS-маску, см. src/20_icons.js) --- */
     css.push(LC.icons.css());

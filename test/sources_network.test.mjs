@@ -362,3 +362,166 @@ test('fetchKp: clear() посреди цепочки find/ останавлив�
     done();
   }, 120);
 });
+
+/* ---- Ревью Task 17: подпись сортировки в ключе дедупликации (I5) -------- */
+
+test('sortSignature: разные sort_by — разные подписи, порядок медиа не важен', function () {
+  global.Lampa = makeFakeLampa({});
+  global.window = { localStorage: null };
+  var S = loadCtx('43_sources.js', { pref: function () { return ''; } }).api;
+
+  var pop = { id: 'x', sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc' } } } };
+  var rat = { id: 'x', sources: { movie: { type: 'discover', params: { sort_by: 'vote_average.desc' } } } };
+  assert.notEqual(S.sortSignature(pop), S.sortSignature(rat));
+
+  var both = { id: 'y', sources: { movie: { type: 'discover', params: { sort_by: 'a' } }, tv: { type: 'discover', params: { sort_by: 'b' } } } };
+  var both2 = { id: 'y', sources: { tv: { type: 'discover', params: { sort_by: 'b' } }, movie: { type: 'discover', params: { sort_by: 'a' } } } };
+  assert.equal(S.sortSignature(both), S.sortSignature(both2));
+});
+
+test('sortSignature: коллекция, список и КП подписи не дают (их порядок не от запроса)', function () {
+  global.Lampa = makeFakeLampa({});
+  global.window = { localStorage: null };
+  var S = loadCtx('43_sources.js', { pref: function () { return ''; } }).api;
+  assert.equal(S.sortSignature({ id: 'c', sources: { movie: { type: 'collection', id: 10 } } }), '');
+  assert.equal(S.sortSignature({ id: 'k', sources: { movie: { type: 'kp', collection: 'TOP_250_MOVIES' } } }), '');
+});
+
+test('fetch: та же подборка с другой сортировкой не подписывается на летящий запрос (I5)', function () {
+  var calls = [];
+  global.Lampa = makeFakeLampa({
+    Api: { sources: { tmdb: { get: function (url, params, ok, err) { calls.push({ url: url, params: params, ok: ok }); return { clear: function () {} }; } } } }
+  });
+  global.window = { localStorage: null };
+  var S = loadCtx('43_sources.js', { pref: function () { return ''; } }).api;
+
+  var base = { id: 'pixar', title: 'Pixar', sources: { movie: { type: 'discover', params: { companies: 3, sort_by: 'popularity.desc' } } } };
+  var sorted = { id: 'pixar', title: 'Pixar', sources: { movie: { type: 'discover', params: { companies: 3, sort_by: 'vote_average.desc' } } } };
+
+  var got = [];
+  S['fetch'](base, 1, function (j) { got.push(['pop', j.results.length]); }, function () {}, null);
+  S['fetch'](sorted, 1, function (j) { got.push(['rating', j.results.length]); }, function () {}, null);
+
+  assert.equal(calls.length, 2, 'два разных запроса, а не подписка на один');
+  assert.equal(calls[0].params.sort_by, 'popularity.desc');
+  assert.equal(calls[1].params.sort_by, 'vote_average.desc');
+});
+
+test('fetch: та же подборка с той же сортировкой по-прежнему дедуплицируется', function () {
+  var calls = [];
+  global.Lampa = makeFakeLampa({
+    Api: { sources: { tmdb: { get: function (url, params, ok) { calls.push({ ok: ok }); return { clear: function () {} }; } } } }
+  });
+  global.window = { localStorage: null };
+  var S = loadCtx('43_sources.js', { pref: function () { return ''; } }).api;
+  var item = { id: 'pixar', sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc' } } } };
+  S['fetch'](item, 1, function () {}, function () {}, null);
+  S['fetch'](item, 1, function () {}, function () {}, null);
+  assert.equal(calls.length, 1, 'второй вызов — подписчик первого');
+});
+
+/* ---- Ревью Task 17: дешёвый коллаж (C1) -------------------------------- */
+
+test('collagePaths: подборка Кинопоиска — один запрос к КП, ноль к TMDB (C1)', function (t, done) {
+  var tmdbCalls = 0;
+  var kpUrls = [];
+  global.Lampa = makeFakeLampa({
+    storage: makeFakeStorage(),
+    Reguest: function () {
+      return new FakeReguest(function (url, ok) {
+        kpUrls.push(url);
+        ok({ items: [
+          { kinopoiskId: 1, imdbId: 'tt1', posterUrlPreview: 'https://kp/1.jpg' },
+          { kinopoiskId: 2, imdbId: 'tt2', posterUrlPreview: 'https://kp/2.jpg' },
+          { kinopoiskId: 3, imdbId: 'tt3', posterUrlPreview: 'https://kp/3.jpg' },
+          { kinopoiskId: 4, imdbId: 'tt4', posterUrlPreview: 'https://kp/4.jpg' }
+        ], totalPages: 5, total: 100 });
+      });
+    },
+    Api: { sources: { tmdb: { get: function () { tmdbCalls++; return { clear: function () {} }; } } } }
+  });
+  global.window = { localStorage: null };
+  var S = loadCtx('43_sources.js', { pref: function (k) { return k === 'lumen_kp_key' ? 'KEY' : ''; } }).api;
+
+  var item = { id: 'kp-top250', title: 'КП', sources: { movie: { type: 'kp', collection: 'TOP_250_MOVIES' } } };
+  S.collagePaths(item, 3, function (paths) {
+    assert.deepEqual(paths, ['https://kp/1.jpg', 'https://kp/2.jpg', 'https://kp/3.jpg'], 'три готовых URL Кинопоиска');
+    assert.equal(tmdbCalls, 0, 'сопоставления с TMDB для коллажа не нужно');
+    assert.equal(kpUrls.length, 1, 'ровно один запрос к Кинопоиску');
+    done();
+  }, function (e) { done(new Error('err: ' + JSON.stringify(e))); }, null);
+});
+
+test('collagePaths: постеры КП кэшируются — второй коллаж в сеть не идёт (C1)', function (t, done) {
+  var kpCalls = 0;
+  var storage = makeFakeStorage();
+  global.Lampa = makeFakeLampa({
+    storage: storage,
+    Reguest: function () {
+      return new FakeReguest(function (url, ok) {
+        kpCalls++;
+        ok({ items: [{ posterUrlPreview: 'https://kp/a.jpg' }, { posterUrlPreview: 'https://kp/b.jpg' }], totalPages: 1, total: 2 });
+      });
+    }
+  });
+  global.window = { localStorage: null };
+  var S = loadCtx('43_sources.js', { pref: function (k) { return k === 'lumen_kp_key' ? 'KEY' : ''; } }).api;
+  var item = { id: 'kp-top250', sources: { movie: { type: 'kp', collection: 'TOP_250_MOVIES' } } };
+
+  S.collagePaths(item, 3, function () {
+    S.collagePaths(item, 3, function (paths) {
+      assert.equal(kpCalls, 1, 'второй раз — из кэша');
+      assert.deepEqual(paths, ['https://kp/a.jpg', 'https://kp/b.jpg']);
+      done();
+    }, function (e) { done(new Error('err: ' + JSON.stringify(e))); }, null);
+  }, function (e) { done(new Error('err: ' + JSON.stringify(e))); }, null);
+});
+
+test('collagePaths: без ключа КП — err({nokey:true}) и ни одного запроса (C1)', function (t, done) {
+  var made = 0;
+  global.Lampa = makeFakeLampa({
+    storage: makeFakeStorage(),
+    Reguest: function () { made++; return new FakeReguest('ok_empty'); }
+  });
+  global.window = { localStorage: null };
+  var S = loadCtx('43_sources.js', { pref: function () { return ''; } }).api;
+  S.collagePaths({ id: 'kp', sources: { movie: { type: 'kp', collection: 'X' } } }, 3, function () {
+    done(new Error('ok не должен вызываться'));
+  }, function (e) {
+    assert.ok(e && e.nokey);
+    assert.equal(made, 0);
+    done();
+  }, null);
+});
+
+test('collagePaths: обычная подборка — первая страница, до count путей постеров', function (t, done) {
+  global.Lampa = makeFakeLampa({
+    Api: { sources: { tmdb: { get: function (url, params, ok) {
+      ok({ results: [{ id: 1, poster_path: '/a.jpg' }, { id: 2 }, { id: 3, poster_path: '/b.jpg' }, { id: 4, poster_path: '/c.jpg' }, { id: 5, poster_path: '/d.jpg' }], page: 1, total_pages: 2, total_results: 5 });
+      return { clear: function () {} };
+    } } } }
+  });
+  global.window = { localStorage: null };
+  var S = loadCtx('43_sources.js', { pref: function () { return ''; } }).api;
+  S.collagePaths({ id: 'pixar', sources: { movie: { type: 'discover', params: {} } } }, 3, function (paths) {
+    assert.deepEqual(paths, ['/a.jpg', '/b.jpg', '/c.jpg'], 'позиции без постера пропускаются');
+    done();
+  }, function (e) { done(new Error('err: ' + JSON.stringify(e))); }, null);
+});
+
+test('collagePaths: отмена гасит запрос Кинопоиска', function () {
+  var cleared = 0;
+  global.Lampa = makeFakeLampa({
+    storage: makeFakeStorage(),
+    Reguest: function () {
+      var r = new FakeReguest(function () {});
+      r.clear = function () { cleared++; };
+      return r;
+    }
+  });
+  global.window = { localStorage: null };
+  var S = loadCtx('43_sources.js', { pref: function (k) { return k === 'lumen_kp_key' ? 'KEY' : ''; } }).api;
+  var h = S.collagePaths({ id: 'kp', sources: { movie: { type: 'kp', collection: 'X' } } }, 3, function () {}, function () {}, null);
+  h.clear();
+  assert.equal(cleared, 1);
+});

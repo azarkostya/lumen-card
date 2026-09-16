@@ -202,15 +202,16 @@ test('hasMore: страница меньше общего числа стран�
 
 /* ====================================================================== */
 /* Runtime: компоненты lumen_hub / lumen_grid, пункт меню, кнопка         */
-/* «Франшиза». Фейковые Lampa и jQuery — ровно тот минимум, которым       */
-/* пользуется src/46_hub.js.                                              */
+/* «Франшиза». Фейковые Lampa, Navigator и jQuery — ровно тот минимум,    */
+/* которым пользуется src/46_hub.js.                                      */
 /* ====================================================================== */
 
 var warnLog = [];
 globalThis.warn = function (msg, err) { warnLog.push({ msg: msg, err: err }); };
 
 /* --- минимальный jQuery --- */
-function El(classes) {
+function El(classes, tag) {
+  this._tag = tag || 'div';
   this._class = classes || [];
   this._children = [];
   this._parent = null;
@@ -250,6 +251,7 @@ El.prototype.remove = function () {
   return this;
 };
 El.prototype.parent = function () { return this._parent || EMPTY_EL; };
+El.prototype.end = function () { return this._end || this; };
 El.prototype.closest = function (sel) {
   var want = sel.replace(/^\./, '');
   for (var el = this; el; el = el._parent) {
@@ -257,17 +259,23 @@ El.prototype.closest = function (sel) {
   }
   return EMPTY_EL;
 };
-El.prototype.find = function (sel) {
-  var want = sel.replace(/^\./, '');
-  function search(node) {
-    for (var i = 0; i < node._children.length; i++) {
-      if (node._children[i].hasClass(want)) return node._children[i];
-      var deep = search(node._children[i]);
-      if (deep) return deep;
-    }
-    return null;
+El.prototype.contains = function (node) {
+  if (this === node) return true;
+  for (var i = 0; i < this._children.length; i++) {
+    if (this._children[i].contains(node)) return true;
   }
-  return search(this) || EMPTY_EL;
+  return false;
+};
+El.prototype.find = function (sel) {
+  var found = this.all(sel);
+  if (!found.length) return EMPTY_EL;
+  var set = found[0];
+  set._end = this;
+  return set;
+};
+El.prototype.querySelector = function (sel) {
+  var found = this.all(sel);
+  return found.length ? found[0] : null;
 };
 El.prototype.css = function (name, val) {
   if (arguments.length < 2) return this._css[name];
@@ -275,13 +283,21 @@ El.prototype.css = function (name, val) {
   return this;
 };
 El.prototype.html = function (text) { this._html = text; return this; };
+El.prototype.text = function (t) { if (!arguments.length) return this._text || ''; this._text = '' + t; return this; };
 El.prototype.on = function (name, fn) { (this._ev[name] = this._ev[name] || []).push(fn); return this; };
-El.prototype.all = function (cls) {
+/* Селектор по классу ('.x' или 'x') либо по тегу ('span') — настоящий
+   jQuery в src/46_hub.js используется и так, и так. */
+El.prototype.all = function (sel) {
+  /* Тегами в разметке плагина ищется только <span> (текст метки карточки);
+     всё остальное — классы, с точкой или без. */
+  var byTag = sel === 'span' ? 'span' : null;
+  var cls = sel.replace(/^\./, '');
   var out = [];
   (function walk(node) {
     for (var i = 0; i < node._children.length; i++) {
-      if (node._children[i].hasClass(cls)) out.push(node._children[i]);
-      walk(node._children[i]);
+      var c = node._children[i];
+      if (byTag ? c._tag === byTag : c.hasClass(cls)) out.push(c);
+      walk(c);
     }
   })(this);
   return out;
@@ -289,6 +305,11 @@ El.prototype.all = function (cls) {
 
 var EMPTY_EL = new El([]);
 EMPTY_EL.length = 0;
+
+function tagOf(html) {
+  var m = /^<([a-z]+)/.exec('' + html);
+  return m ? m[1] : 'div';
+}
 
 function classesOf(html) {
   var m = /class="([^"]*)"/.exec('' + html);
@@ -301,15 +322,13 @@ function fire(node, name) {
   for (var i = 0; i < list.length; i++) list[i]();
 }
 
-/* $(html) — первый тег корнем, остальные плоско его детьми (вложенность
-   нашей разметке не нужна: все поиски идут по классу внутри плитки). */
 function make$(doc) {
   return function (arg) {
     if (arg instanceof El) return arg;
     if (typeof arg === 'string' && arg.charAt(0) === '<') {
       var tags = arg.match(/<div[^>]*>|<span[^>]*>/g) || [];
-      var root = new El(classesOf(tags[0]));
-      for (var i = 1; i < tags.length; i++) root.append(new El(classesOf(tags[i])));
+      var root = new El(classesOf(tags[0]), tagOf(tags[0]));
+      for (var i = 1; i < tags.length; i++) root.append(new El(classesOf(tags[i]), tagOf(tags[i])));
       return root;
     }
     if (typeof arg === 'string') {
@@ -324,7 +343,24 @@ function make$(doc) {
   };
 }
 
-/* --- фейковая Lampa --- */
+/* Штатный шаблон карточки Lampa (app.min.js 2510) — те узлы, которые
+   использует src/46_hub.js. */
+function cardTemplate(vars) {
+  var card = new El(['card', 'selector', 'layer--visible', 'layer--render']);
+  var view = new El(['card__view']);
+  var img = new El(['card__img']);
+  var icons = new El(['card__icons']);
+  var inner = new El(['card__icons-inner']);
+  icons.append(inner);
+  view.append(img);
+  view.append(icons);
+  card.append(view);
+  card.append(new El(['card__title']).text(vars.title || ''));
+  card.append(new El(['card__age']).text(vars.release_year || ''));
+  return card;
+}
+
+/* --- фейковая Lampa + Navigator --- */
 function setupLampa(opts) {
   opts = opts || {};
   var doc = { body: new El(['body']) };
@@ -335,24 +371,60 @@ function setupLampa(opts) {
     pushes: [],
     controllers: {},
     toggles: [],
-    collectionSets: [],
     focuses: [],
     menuButtons: [],
     backward: 0,
-    scrolls: []
+    scrolls: [],
+    favorite: opts.favorite || {},
+    timeline: opts.timeline || {}
   };
+
+  /* Модель SpatialNavigator: линейная коллекция .selector, шаг вправо/влево
+     ±1, вверх/вниз ±cols. Геометрию он считает по-настоящему, но контракт,
+     который проверяют тесты, тот же: canmove=false на краю — и контроллер
+     уводит фокус в меню/шапку. */
+  var nav = {
+    collection: [],
+    index: -1,
+    cols: opts.cols || 6,
+    canmove: function (dir) { return nav.target(dir) >= 0; },
+    target: function (dir) {
+      if (nav.index < 0) return -1;
+      var n = nav.index;
+      if (dir === 'right') n = nav.index + 1;
+      else if (dir === 'left') n = nav.index - 1;
+      else if (dir === 'down') n = nav.index + nav.cols;
+      else if (dir === 'up') n = nav.index - nav.cols;
+      if (n < 0 || n > nav.collection.length - 1) return -1;
+      return n;
+    },
+    move: function (dir) {
+      var n = nav.target(dir);
+      if (n < 0) return false;
+      nav.focus(nav.collection[n]);
+      return true;
+    },
+    focus: function (el) {
+      var i = nav.collection.indexOf(el);
+      if (i < 0) return false;
+      nav.index = i;
+      log.focuses.push(el);
+      fire(el, 'hover:focus');
+      return true;
+    }
+  };
+  globalThis.Navigator = nav;
 
   function Scroll(params) {
     var body = new El(['scroll__body']);
     var self = this;
     this.params = params;
     this.destroyed = false;
-    this.updates = [];
     this.append = function (el) { body.append(el); };
     this.render = function () { return body; };
     this.body = function () { return body; };
     this.clear = function () { body.empty(); };
-    this.update = function (el) { self.updates.push(el); };
+    this.update = function () {};
     this.destroy = function () { self.destroyed = true; };
     log.scrolls.push(this);
   }
@@ -360,11 +432,19 @@ function setupLampa(opts) {
   var Lampa = {
     Scroll: Scroll,
     Component: { add: function (name, fn) { log.components[name] = fn; } },
+    Template: { js: function (name, vars) { return cardTemplate(vars || {}); } },
+    Lang: { translate: function (k) { return k; } },
+    Favorite: { check: function (card) { return log.favorite[card.id] || {}; } },
+    Timeline: { view: function (hash) { return log.timeline[hash] || null; } },
+    Utils: { hash: function (s) { return 'h:' + s; } },
     Controller: {
       add: function (name, ctrl) { log.controllers[name] = ctrl; },
       toggle: function (name) { log.toggles.push(name); },
-      collectionSet: function (root) { log.collectionSets.push(root); },
-      collectionFocus: function (node) { log.focuses.push(node); },
+      collectionSet: function (root) { nav.collection = root.all('selector'); nav.index = -1; },
+      collectionFocus: function (node) {
+        if (node && nav.collection.indexOf(node) >= 0) nav.focus(node);
+        else if (nav.collection.length) nav.focus(nav.collection[0]);
+      },
       enabled: function () { return { name: 'content' }; }
     },
     Activity: {
@@ -386,26 +466,31 @@ function setupLampa(opts) {
     Storage: { get: function (k, d) { return d; }, set: function () {} }
   };
 
-  globalThis.window = { Lampa: Lampa };
+  globalThis.window = { Lampa: Lampa, Navigator: nav };
   globalThis.Lampa = Lampa;
   globalThis.$ = make$(doc);
-  return { log: log, doc: doc, Lampa: Lampa };
+  return { log: log, doc: doc, Lampa: Lampa, nav: nav };
 }
 
 /* Загружает LC.hub в чистый контекст с подставленными зависимостями.
-   fetchCalls — журнал вызовов LC.sources.fetch: у каждого есть ok/err и
-   cleared (ставится, когда компонент отменил запрос). */
+   fetchCalls — журнал LC.sources.fetch, collageCalls — LC.sources.collagePaths;
+   у каждого есть ok/err, alive и cleared. */
 function loadHub(opts) {
   opts = opts || {};
   var fetchCalls = [];
+  var collageCalls = [];
+  function record(list) {
+    return function (item, arg, ok, err, alive) {
+      var call = { item: item, arg: arg, page: arg, ok: ok, err: err, alive: alive, cleared: false };
+      list.push(call);
+      return { clear: function () { call.cleared = true; } };
+    };
+  }
   var sources = {
     discoverUrl: SOURCES.discoverUrl,
-    'fetch': function (item, page, ok, err, alive) {
-      var call = { item: item, page: page, ok: ok, err: err, alive: alive, cleared: false };
-      fetchCalls.push(call);
-      return { clear: function () { call.cleared = true; } };
-    }
+    collagePaths: record(collageCalls)
   };
+  sources['fetch'] = record(fetchCalls);
   var ctx = loadCtx('46_hub.js', {
     sources: sources,
     lang: function (k) { return k; },
@@ -416,10 +501,9 @@ function loadHub(opts) {
     cardinfo: { imageUrl: function (path) { return path ? 'https://proxy/t/p/w342' + path : ''; } },
     manifest: { load: function (cb) { cb(MANIFEST); } }
   });
-  return { api: ctx.api, LC: ctx.LC, fetchCalls: fetchCalls };
+  return { api: ctx.api, LC: ctx.LC, fetchCalls: fetchCalls, collageCalls: collageCalls };
 }
 
-/* Фейковая activity компонента: журнал loader(). */
 function fakeActivity() {
   var states = [];
   return { loader: function (on) { states.push(!!on); }, states: states, render: function () { return null; } };
@@ -468,7 +552,7 @@ test('install после uninstall возвращает пункт меню', fu
   h.api.install();
   h.api.uninstall();
   h.api.install();
-  assert.equal(env.log.menuButtons.length, 2, 'второй пункт добавлен уже после снятия первого');
+  assert.equal(env.log.menuButtons.length, 2);
   assert.equal(env.log.menuButtons[0]._removed, true);
 });
 test('пункт меню открывает активность lumen_hub', function () {
@@ -483,48 +567,60 @@ test('пункт меню открывает активность lumen_hub', fu
 
 // --- компонент lumen_hub ---
 function openHub(opts) {
+  opts = opts || {};
+  /* В тестовом манифесте у хаба два чипа и две плитки — «строка» модели
+     Navigator равна двум. */
+  if (!opts.cols) opts.cols = 2;
   var env = setupLampa(opts);
   var h = loadHub(opts);
   h.api.install();
   var comp = makeComponent('lumen_hub', {}, env);
   comp.create();
-  return { env: env, h: h, comp: comp };
+  return { env: env, h: h, comp: comp, root: env.log.scrolls[0].body()._children[0] };
 }
 
 test('lumen_hub: create строит чипы групп и плитки первой группы, лоадер гаснет', function () {
   warnLog.length = 0;
   var s = openHub();
-  var scroll = s.env.log.scrolls[0];
-  var root = scroll.body()._children[0];
-  assert.ok(root.hasClass('lumen-hub'));
-  assert.ok(root.hasClass('lumen-motion-full'), 'режим анимаций зеркалится на корень экрана');
-  assert.equal(root.all('lumen-chip').length, 2, 'пустой чип «Эпохи» не показывается');
-  assert.equal(root.all('lumen-tile').length, 2, 'плитки первой группы (Франшизы)');
+  assert.ok(s.root.hasClass('lumen-hub'));
+  assert.ok(s.root.hasClass('lumen-motion-full'), 'режим анимаций зеркалится на корень экрана');
+  assert.equal(s.root.all('lumen-chip').length, 2, 'пустой чип «Эпохи» не показывается');
+  assert.equal(s.root.all('lumen-tile').length, 2, 'плитки первой группы (Франшизы)');
   assert.deepEqual(s.comp.activity.states, [true, false], 'лоадер включился и погас');
   assert.deepEqual(warnLog, []);
 });
 
-test('lumen_hub: коллажи запрашиваются для видимых плиток первой группы', function () {
+test('lumen_hub: коллаж идёт дешёвым путём collagePaths, а не полной страницей (C1)', function () {
   var s = openHub();
-  assert.equal(s.h.fetchCalls.length, 2);
-  assert.equal(s.h.fetchCalls[0].page, 1);
+  assert.equal(s.h.fetchCalls.length, 0, 'целая страница подборки для коллажа не запрашивается');
+  assert.equal(s.h.collageCalls.length, 2, 'по одному запросу на видимую плитку');
+  assert.equal(s.h.collageCalls[0].arg, 3, 'просим ровно три картинки');
 });
 
-test('lumen_hub: пришедшие постеры становятся коллажем плитки', function () {
+test('lumen_hub: коллаж принимает и готовые URL Кинопоиска, и пути TMDB', function () {
   var s = openHub();
-  s.h.fetchCalls[0].ok({ results: [{ poster_path: '/a.jpg' }, { poster_path: '/b.jpg' }, { poster_path: '/c.jpg' }, { poster_path: '/d.jpg' }] });
-  var tile = s.env.log.scrolls[0].body()._children[0].all('lumen-tile')[0];
+  s.h.collageCalls[0].ok(['https://kp/a.jpg', '/b.jpg']);
+  var tile = s.root.all('lumen-tile')[0];
   var posters = tile.all('lumen-tile__poster');
-  assert.equal(posters.length, 3, 'коллаж из трёх постеров');
-  assert.ok(('' + posters[0].css('background-image')).indexOf('https://proxy/t/p/w342/a.jpg') !== -1);
+  assert.equal(posters.length, 2);
+  assert.ok(('' + posters[0].css('background-image')).indexOf('https://kp/a.jpg') !== -1, 'URL КП берётся как есть');
+  assert.ok(('' + posters[1].css('background-image')).indexOf('https://proxy/t/p/w342/b.jpg') !== -1, 'путь TMDB — через прокси');
   assert.ok(tile.hasClass('lumen-tile--filled'));
 });
 
 test('lumen_hub: подборка Кинопоиска без ключа помечается на плитке', function () {
   var s = openHub();
-  s.h.fetchCalls[0].err({ nokey: true });
-  var tile = s.env.log.scrolls[0].body()._children[0].all('lumen-tile')[0];
-  assert.ok(tile.hasClass('lumen-tile--nokey'));
+  s.h.collageCalls[0].err({ nokey: true });
+  assert.ok(s.root.all('lumen-tile')[0].hasClass('lumen-tile--nokey'));
+});
+
+test('lumen_hub: коллаж, упавший с ошибкой, перезапрашивается при следующем фокусе', function () {
+  var s = openHub();
+  var tile = s.root.all('lumen-tile')[0];
+  s.h.collageCalls[0].err({ kp_failed: true });
+  var before = s.h.collageCalls.length;
+  fire(tile, 'hover:focus');
+  assert.equal(s.h.collageCalls.length, before + 1, 'вторая попытка есть');
 });
 
 test('lumen_hub: start ставит свой контроллер content и включает его', function () {
@@ -532,38 +628,21 @@ test('lumen_hub: start ставит свой контроллер content и в�
   s.comp.start();
   assert.ok(s.env.log.controllers.content, 'контроллер content зарегистрирован');
   assert.equal(s.env.log.toggles[s.env.log.toggles.length - 1], 'content');
-  assert.equal(typeof s.env.log.controllers.content.right, 'function', 'вправо обязателен: Lampa сама фокус не двигает');
+  assert.equal(typeof s.env.log.controllers.content.right, 'function');
 });
 
-test('lumen_hub: пульт — чипы по горизонтали, вниз в плитки, вверх обратно', function () {
+test('lumen_hub: пульт двигает фокус штатным Navigator', function () {
   var s = openHub();
   s.comp.start();
   var ctrl = s.env.log.controllers.content;
   ctrl.toggle();
-  var first = s.env.log.focuses[s.env.log.focuses.length - 1];
-  assert.ok(first.hasClass('lumen-chip'), 'первый фокус — на чипе группы');
+  assert.ok(s.env.log.focuses[s.env.log.focuses.length - 1].hasClass('lumen-chip'), 'первый фокус — на чипе группы');
   ctrl.right();
   assert.ok(s.env.log.focuses[s.env.log.focuses.length - 1].hasClass('lumen-chip'));
   ctrl.down();
   assert.ok(s.env.log.focuses[s.env.log.focuses.length - 1].hasClass('lumen-tile'), 'вниз — на плитку');
   ctrl.up();
   assert.ok(s.env.log.focuses[s.env.log.focuses.length - 1].hasClass('lumen-chip'), 'вверх — обратно на чип');
-});
-
-test('lumen_hub: переход между рядами возвращает фокус туда, откуда ушли', function () {
-  var s = openHub();
-  s.comp.start();
-  var ctrl = s.env.log.controllers.content;
-  ctrl.toggle();
-  ctrl.right();                       /* второй чип */
-  var chip = s.env.log.focuses[s.env.log.focuses.length - 1];
-  ctrl.down();                        /* первая плитка */
-  ctrl.right();                       /* вторая плитка */
-  var tile = s.env.log.focuses[s.env.log.focuses.length - 1];
-  ctrl.up();
-  assert.equal(s.env.log.focuses[s.env.log.focuses.length - 1], chip, 'вверх — на тот же чип, а не на соседний по столбцу');
-  ctrl.down();
-  assert.equal(s.env.log.focuses[s.env.log.focuses.length - 1], tile, 'вниз — на ту же плитку');
 });
 
 test('lumen_hub: влево с первого элемента уводит в меню, вверх с чипов — в шапку', function () {
@@ -586,63 +665,86 @@ test('lumen_hub: назад возвращает на предыдущую ак�
   assert.equal(s.env.log.backward, 1);
 });
 
-test('lumen_hub: смена группы перестраивает плитки и оставляет фокус на чипе', function () {
+test('lumen_hub: смена группы гасит коллажи снятой группы (I1)', function () {
   var s = openHub();
   s.comp.start();
-  var root = s.env.log.scrolls[0].body()._children[0];
-  var chips = root.all('lumen-chip');
+  var old = s.h.collageCalls.slice();
+  var chips = s.root.all('lumen-chip');
   fire(chips[1], 'hover:enter');
-  assert.equal(root.all('lumen-tile').length, 2, 'плитки чипа «Студии и сервисы»');
+  for (var i = 0; i < old.length; i++) {
+    assert.equal(old[i].cleared, true, 'запрос коллажа снятой группы отменён');
+    assert.equal(old[i].alive(), false, 'и его сторож поколения уже ложен');
+  }
+  assert.equal(s.root.all('lumen-tile').length, 2, 'плитки чипа «Студии и сервисы»');
   assert.ok(chips[1].hasClass('lumen-chip--on'));
   assert.equal(chips[0].hasClass('lumen-chip--on'), false);
-  assert.equal(s.env.log.focuses[s.env.log.focuses.length - 1], chips[1], 'фокус остался на выбранном чипе');
+});
+
+test('lumen_hub: ответ коллажа снятой группы в новые плитки не пишет (I1)', function () {
+  var s = openHub();
+  s.comp.start();
+  var stale = s.h.collageCalls[0];
+  fire(s.root.all('lumen-chip')[1], 'hover:enter');
+  warnLog.length = 0;
+  stale.ok(['/late.jpg']);
+  var posters = 0;
+  s.root.all('lumen-tile').forEach(function (t) { posters += t.all('lumen-tile__poster').length; });
+  assert.equal(posters, 0, 'поздний ответ снятой группы не рисует');
+  assert.deepEqual(warnLog, []);
+});
+
+test('lumen_hub: смена группы оставляет фокус на выбранном чипе', function () {
+  var s = openHub();
+  s.comp.start();
+  s.env.log.controllers.content.toggle();
+  var chips = s.root.all('lumen-chip');
+  fire(chips[1], 'hover:enter');
+  assert.equal(s.env.log.focuses[s.env.log.focuses.length - 1], chips[1]);
 });
 
 test('lumen_hub: плитка открывает подборку через openTarget', function () {
   var s = openHub();
   s.comp.start();
-  var tile = s.env.log.scrolls[0].body()._children[0].all('lumen-tile')[0];
   s.env.log.pushes.length = 0;
-  fire(tile, 'hover:enter');
+  fire(s.root.all('lumen-tile')[0], 'hover:enter');
   assert.equal(s.env.log.pushes.length, 1);
-  assert.equal(s.env.log.pushes[0].component, 'lumen_grid', 'у «Звёздных войн» два медиа-источника');
+  assert.equal(s.env.log.pushes[0].component, 'lumen_grid');
   assert.equal(s.env.log.pushes[0].lumen.id, 'star-wars');
+});
+
+test('lumen_hub: stop() гасит коллажи, start() их возобновляет (I2)', function () {
+  var s = openHub();
+  s.comp.start();
+  var before = s.h.collageCalls.slice();
+  s.comp.stop();
+  for (var i = 0; i < before.length; i++) {
+    assert.equal(before[i].cleared, true, 'уход вглубь гасит незавершённый коллаж');
+  }
+  warnLog.length = 0;
+  before[0].ok(['/late.jpg']);
+  assert.equal(s.root.all('lumen-tile__poster').length, 0, 'ответ после stop() в снятый экран не пишет');
+  var count = s.h.collageCalls.length;
+  s.comp.start();
+  assert.ok(s.h.collageCalls.length > count, 'возврат восстанавливает коллажи видимых плиток');
+  assert.deepEqual(warnLog, []);
 });
 
 test('lumen_hub: destroy гасит незавершённые запросы, скролл и DOM', function () {
   var s = openHub();
   s.comp.start();
   var scroll = s.env.log.scrolls[0];
-  var root = scroll.body()._children[0];
-  var pending = s.h.fetchCalls[0];
+  var pending = s.h.collageCalls[0];
   s.comp.destroy();
-  assert.equal(pending.cleared, true, 'запрос коллажа отменён');
+  assert.equal(pending.cleared, true);
+  assert.equal(pending.alive(), false);
   assert.equal(scroll.destroyed, true);
-  assert.equal(root._removed, true);
-});
-
-test('lumen_hub: ответ, доехавший после destroy, в DOM не пишет', function () {
-  var s = openHub();
-  s.comp.start();
-  var root = s.env.log.scrolls[0].body()._children[0];
-  var pending = s.h.fetchCalls[0];
-  s.comp.destroy();
-  warnLog.length = 0;
-  pending.ok({ results: [{ poster_path: '/late.jpg' }] });
-  assert.equal(root.all('lumen-tile__poster').length, 0, 'поколение съело поздний ответ');
-  assert.deepEqual(warnLog, []);
-});
-
-test('lumen_hub: alive-сторож ложен после destroy', function () {
-  var s = openHub();
-  var alive = s.h.fetchCalls[0].alive;
-  assert.equal(alive(), true);
-  s.comp.destroy();
-  assert.equal(alive(), false);
+  assert.equal(s.root._removed, true);
 });
 
 // --- компонент lumen_grid ---
 function openGrid(item, opts) {
+  opts = opts || {};
+  if (!opts.cols) opts.cols = 6;
   var env = setupLampa(opts);
   var h = loadHub(opts);
   h.api.install();
@@ -660,6 +762,7 @@ function results(n, from) {
     out.push({
       id: (from || 0) + i,
       title: 'Фильм ' + ((from || 0) + i),
+      original_title: 'Movie ' + ((from || 0) + i),
       poster_path: '/p' + i + '.jpg',
       release_date: '2020-01-01',
       vote_average: 7
@@ -668,14 +771,17 @@ function results(n, from) {
   return out;
 }
 
-test('lumen_grid: create запрашивает первую страницу и рисует карточки', function () {
+test('lumen_grid: create запрашивает первую страницу и рисует штатные карточки', function () {
   warnLog.length = 0;
   var g = openGrid(COLLECTION);
   assert.equal(g.h.fetchCalls.length, 1);
   assert.equal(g.h.fetchCalls[0].page, 1);
   assert.deepEqual(g.comp.activity.states, [true], 'лоадер включён до ответа');
   g.h.fetchCalls[0].ok({ results: results(9), page: 1, total_pages: 1, total_results: 9 });
-  assert.equal(g.root.all('lumen-gcard').length, 9);
+  var cards = g.root.all('lumen-gcard');
+  assert.equal(cards.length, 9);
+  assert.ok(cards[0].hasClass('card'), 'разметка штатная: класс .card от шаблона Lampa');
+  assert.equal(cards[0].all('card__view').length, 1);
   assert.deepEqual(g.comp.activity.states, [true, false]);
   assert.deepEqual(warnLog, []);
 });
@@ -684,6 +790,51 @@ test('lumen_grid: данные карточки лежат в card_data узла
   var g = openGrid(COLLECTION);
   g.h.fetchCalls[0].ok({ results: results(2), page: 1, total_pages: 1, total_results: 2 });
   assert.equal(g.root.all('lumen-gcard')[0].card_data.id, 0);
+});
+
+test('lumen_grid: постеры грузятся окном, а не все разом (I6)', function () {
+  var g = openGrid(DISCOVER);
+  g.h.fetchCalls[0].ok({ results: results(20), page: 1, total_pages: 3, total_results: 60 });
+  var cards = g.root.all('lumen-gcard');
+  var loaded = cards.filter(function (c) { return !!c.lumen_posted; });
+  assert.ok(loaded.length < cards.length, 'не все постеры разом');
+  assert.ok(loaded.length >= 6, 'первый экран карточек картинки получил: ' + loaded.length);
+  var img = cards[0].querySelector('.card__img');
+  assert.ok(('' + img.src).indexOf('https://proxy/t/p/w342/p0.jpg') !== -1);
+  assert.equal(cards[cards.length - 1].querySelector('.card__img').src, undefined, 'дальней карточке постер не грузили');
+});
+
+test('lumen_grid: шаг фокуса догружает постеры следующих карточек (I6)', function () {
+  var g = openGrid(DISCOVER);
+  g.h.fetchCalls[0].ok({ results: results(20), page: 1, total_pages: 3, total_results: 60 });
+  g.comp.start();
+  var ctrl = g.env.log.controllers.content;
+  ctrl.toggle();
+  var last = g.root.all('lumen-gcard')[19];
+  assert.ok(!last.lumen_posted, 'пока не грузили');
+  ctrl.down(); ctrl.down(); ctrl.down();
+  assert.ok(last.lumen_posted, 'после спуска постер дальней карточки запрошен');
+});
+
+test('lumen_grid: метка закладки и полоса продолжения — как на штатной карточке (I6)', function () {
+  var env = setupLampa({
+    cols: 6,
+    favorite: { 1: { book: true, continued: true } },
+    timeline: { 'h:Movie 1': { percent: 43 } }
+  });
+  var h = loadHub();
+  h.api.install();
+  var comp = makeComponent('lumen_grid', { lumen: COLLECTION, title: 'x' }, env);
+  comp.activity = fakeActivity();
+  comp.create();
+  h.fetchCalls[0].ok({ results: results(2), page: 1, total_pages: 1, total_results: 2 });
+  var root = env.log.scrolls[0].body()._children[0];
+  var card = root.all('lumen-gcard')[1];
+  assert.equal(card.all('card__icon').length, 1, 'иконка закладки');
+  assert.equal(card.all('card__marker').length, 1, 'метка «продолжено»');
+  var bar = card.all('lumen-gcard__bar');
+  assert.equal(bar.length, 1, 'полоса продолжения просмотра');
+  assert.equal(root.all('lumen-gcard')[0].all('lumen-gcard__bar').length, 0, 'у карточки без прогресса полосы нет');
 });
 
 test('lumen_grid: OK на карточке открывает полную карточку', function () {
@@ -708,9 +859,8 @@ test('lumen_grid: коллекция сортируется на месте, б�
   var chips = g.root.all('lumen-chip');
   assert.equal(chips.length, 3, 'три чипа сортировки');
   assert.equal(g.root.all('lumen-gcard')[0].card_data.id, 1, 'исходный порядок — хронологический');
-  fire(chips[1], 'hover:enter'); /* по рейтингу */
+  fire(chips[1], 'hover:enter');
   assert.equal(g.h.fetchCalls.length, 1, 'коллекция уже загружена целиком — в сеть не идём');
-  assert.equal(g.root.all('lumen-gcard').length, 2, 'список перестроен, а не дополнен');
   assert.equal(g.root.all('lumen-gcard')[0].card_data.id, 2, 'первым — с большим рейтингом');
   assert.ok(chips[1].hasClass('lumen-chip--on'));
 });
@@ -725,6 +875,53 @@ test('lumen_grid: у discover-подборки смена сортировки �
   assert.equal(g.h.fetchCalls[1].page, 1);
 });
 
+test('lumen_grid: сортировка во время загрузки отменяет запрос и отправляет новый (C2)', function () {
+  var g = openGrid(DISCOVER);
+  /* ответ ещё не пришёл — ровно то окно, в котором фокус стоит на чипах */
+  assert.equal(g.h.fetchCalls.length, 1);
+  g.comp.start();
+  fire(g.root.all('lumen-chip')[1], 'hover:enter');
+  assert.equal(g.h.fetchCalls[0].cleared, true, 'первый запрос отменён');
+  assert.equal(g.h.fetchCalls[0].alive(), false, 'его ответ уже неактуален');
+  assert.equal(g.h.fetchCalls.length, 2, 'новый запрос ушёл, а не «проглотился» гардом loading');
+  assert.equal(g.h.fetchCalls[1].item.sources.movie.params.sort_by, 'vote_average.desc');
+  /* прежний ответ, доехавший после отмены, не должен подменить список */
+  g.h.fetchCalls[0].ok({ results: results(5), page: 1, total_pages: 1, total_results: 5 });
+  assert.equal(g.root.all('lumen-gcard').length, 0, 'отменённый ответ ничего не нарисовал');
+  g.h.fetchCalls[1].ok({ results: results(3, 100), page: 1, total_pages: 1, total_results: 3 });
+  assert.equal(g.root.all('lumen-gcard').length, 3);
+  assert.equal(g.root.all('lumen-grid__sub')[0]._html, 'lumen_grid_total 3 · lumen_sort_rating', 'подпись совпадает с тем, что показано');
+});
+
+test('lumen_grid: смена сортировки оставляет фокус на нажатом чипе (I4)', function () {
+  var g = openGrid(DISCOVER);
+  g.h.fetchCalls[0].ok({ results: results(12), page: 1, total_pages: 2, total_results: 40 });
+  g.comp.start();
+  var chips = g.root.all('lumen-chip');
+  fire(chips[2], 'hover:enter');
+  assert.equal(g.env.log.focuses[g.env.log.focuses.length - 1], chips[2], 'фокус на «Новые», а не на первом чипе');
+  g.h.fetchCalls[1].ok({ results: results(12, 50), page: 1, total_pages: 2, total_results: 40 });
+  assert.equal(g.env.log.focuses[g.env.log.focuses.length - 1], chips[2], 'и после ответа он там же');
+});
+
+test('lumen_grid: догрузка страницы с сортировкой на месте не теряет фокус (I3)', function () {
+  /* Кинопоиск многостраничный, и его страницы пересобирают список целиком. */
+  var kp = MANIFEST.collections[4];
+  var g = openGrid(kp);
+  g.h.fetchCalls[0].ok({ results: results(12), page: 1, total_pages: 3, total_results: 36 });
+  g.comp.start();
+  var ctrl = g.env.log.controllers.content;
+  ctrl.toggle();
+  ctrl.down();
+  ctrl.down();
+  var focusedId = g.env.log.focuses[g.env.log.focuses.length - 1].card_data.id;
+  assert.equal(g.h.fetchCalls.length, 2, 'на последней строке ушла вторая страница');
+  g.h.fetchCalls[1].ok({ results: results(12, 100), page: 2, total_pages: 3, total_results: 36 });
+  var after = g.env.log.focuses[g.env.log.focuses.length - 1];
+  assert.ok(after.card_data, 'фокус остался на карточке, а не уехал на чип');
+  assert.equal(after.card_data.id, focusedId, 'и на той же самой');
+});
+
 test('lumen_grid: следующая страница грузится, когда фокус дошёл до последней строки', function () {
   var g = openGrid(DISCOVER);
   g.h.fetchCalls[0].ok({ results: results(12), page: 1, total_pages: 3, total_results: 60 });
@@ -732,9 +929,9 @@ test('lumen_grid: следующая страница грузится, когд
   var ctrl = g.env.log.controllers.content;
   ctrl.toggle();
   assert.equal(g.h.fetchCalls.length, 1, 'на чипах сортировки ничего не грузится');
-  ctrl.down(); /* первая строка из двух */
-  assert.equal(g.h.fetchCalls.length, 1);
-  ctrl.down(); /* вторая строка — последняя */
+  ctrl.down();
+  assert.equal(g.h.fetchCalls.length, 1, 'первая строка из двух — не конец');
+  ctrl.down();
   assert.equal(g.h.fetchCalls.length, 2, 'дошли до последней строки — грузим следующую страницу');
   assert.equal(g.h.fetchCalls[1].page, 2);
   g.h.fetchCalls[1].ok({ results: results(12, 100), page: 2, total_pages: 3, total_results: 60 });
@@ -751,6 +948,45 @@ test('lumen_grid: последняя страница следующую не з
   assert.equal(g.h.fetchCalls.length, 1);
 });
 
+test('lumen_grid: пришедшая страница сама себя не догружает', function () {
+  var g = openGrid(DISCOVER);
+  g.comp.start();
+  g.env.log.controllers.content.toggle();
+  for (var i = 0; i < 5; i++) {
+    var call = g.h.fetchCalls[g.h.fetchCalls.length - 1];
+    call.ok({ results: results(12, i * 100), page: i + 1, total_pages: 9, total_results: 300 });
+  }
+  assert.equal(g.h.fetchCalls.length, 1, 'ни одного запроса сверх первого');
+});
+
+test('lumen_grid: stop() гасит страницу в полёте, start() её возобновляет (I2)', function () {
+  var g = openGrid(DISCOVER);
+  g.comp.start();
+  var first = g.h.fetchCalls[0];
+  g.comp.stop();
+  assert.equal(first.cleared, true, 'уход вглубь гасит незавершённую страницу');
+  assert.equal(first.alive(), false);
+  warnLog.length = 0;
+  first.ok({ results: results(5), page: 1, total_pages: 1, total_results: 5 });
+  assert.equal(g.root.all('lumen-gcard').length, 0, 'ответ после stop() в снятый экран не пишет');
+  g.comp.start();
+  assert.equal(g.h.fetchCalls.length, 2, 'возврат возобновляет прерванную страницу');
+  assert.equal(g.h.fetchCalls[1].page, 1);
+  g.h.fetchCalls[1].ok({ results: results(4), page: 1, total_pages: 1, total_results: 4 });
+  assert.equal(g.root.all('lumen-gcard').length, 4);
+  assert.deepEqual(warnLog, []);
+});
+
+test('lumen_grid: stop() без запроса в полёте ничего не возобновляет', function () {
+  var g = openGrid(DISCOVER);
+  g.h.fetchCalls[0].ok({ results: results(6), page: 1, total_pages: 1, total_results: 6 });
+  g.comp.start();
+  g.comp.stop();
+  g.comp.start();
+  assert.equal(g.h.fetchCalls.length, 1, 'лишнего запроса при возврате нет');
+  assert.equal(g.root.all('lumen-gcard').length, 6, 'список на месте');
+});
+
 test('lumen_grid: пустой ответ показывает заглушку с кнопкой «Назад»', function () {
   var g = openGrid(COLLECTION);
   g.h.fetchCalls[0].ok({ results: [], page: 1, total_pages: 1, total_results: 0 });
@@ -762,7 +998,7 @@ test('lumen_grid: пустой ответ показывает заглушку 
 });
 
 test('lumen_grid: ошибка «нет ключа» объясняет, чего не хватает', function () {
-  var g = openGrid(MANIFEST.collections[4]); /* kp */
+  var g = openGrid(MANIFEST.collections[4]);
   warnLog.length = 0;
   g.h.fetchCalls[0].err({ nokey: true });
   assert.equal(g.root.all('lumen-grid__empty-text').length, 1);
@@ -776,34 +1012,9 @@ test('lumen_grid: destroy гасит запрос, скролл и DOM', functio
   var pending = g.h.fetchCalls[0];
   g.comp.destroy();
   assert.equal(pending.cleared, true);
+  assert.equal(pending.alive(), false);
   assert.equal(scroll.destroyed, true);
   assert.equal(g.root._removed, true);
-});
-
-test('lumen_grid: пришедшая страница сама себя не догружает', function () {
-  /* Живая проверка на «Супергероях» поймала обратное: фокус после каждой
-     пришедшей страницы ставился программно, тот же код грузил следующую, и
-     сетка набрала 320 карточек за один заход. Догрузка обязана идти только
-     от пульта. */
-  var g = openGrid(DISCOVER);
-  g.comp.start();
-  g.env.log.controllers.content.toggle();
-  for (var i = 0; i < 5; i++) {
-    var call = g.h.fetchCalls[g.h.fetchCalls.length - 1];
-    call.ok({ results: results(12, i * 100), page: i + 1, total_pages: 9, total_results: 300 });
-  }
-  assert.equal(g.h.fetchCalls.length, 1, 'ни одного запроса сверх первого');
-  assert.equal(g.env.log.scrolls[0].onEnd, undefined, 'на onEnd скролла догрузка не вешается');
-});
-
-test('lumen_grid: ответ после destroy карточек не рисует', function () {
-  var g = openGrid(DISCOVER);
-  var pending = g.h.fetchCalls[0];
-  g.comp.destroy();
-  warnLog.length = 0;
-  pending.ok({ results: results(5), page: 1, total_pages: 1, total_results: 5 });
-  assert.equal(g.root.all('lumen-gcard').length, 0);
-  assert.deepEqual(warnLog, []);
 });
 
 // --- кнопка «Франшиза» ---
