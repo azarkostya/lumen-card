@@ -119,7 +119,11 @@ test('buildCss: .lumen-title--long содержит display:-webkit-box и -webk
 /* Task 9: модал отзыва (экран 08) живёт в .modal Lampa — вне карточки и вне
    ряда описания, поэтому у него собственный корень .lumen-review-modal (класс
    ставит сам блок, без нашего DOM ни одно правило не сработает). */
-const ALLOWED_ROOTS = ['.lumen-card', '.lumen-backdrop', '.lumen-descr-row', '.lumen-review-modal', '.full-start__background', '.full-start-new', 'body'];
+/* Task 17: хаб подборок и сетка подборки — отдельные активности Lampa,
+   целиком построенные плагином (компоненты lumen_hub / lumen_grid). Чужой
+   разметки внутри них нет, а снаружи ни одно правило не действует: корень
+   ставит сам компонент. */
+const ALLOWED_ROOTS = ['.lumen-card', '.lumen-backdrop', '.lumen-descr-row', '.lumen-review-modal', '.lumen-hub', '.lumen-grid', '.full-start__background', '.full-start-new', 'body'];
 
 /* Ревью Task 5a (замечание, зафиксировано в Task 5b): проверка была по
    sel.indexOf(root) === 0 без учёта границы селектора — так
@@ -133,7 +137,7 @@ const ALLOWED_ROOTS = ['.lumen-card', '.lumen-backdrop', '.lumen-descr-row', '.l
    между корнем и модификатором, но это className плагин создаёт сам (его
    не бывает без нашего DOM) — поэтому '_'/'-' сразу после корня для них
    тоже безопасная граница, в отличие от чужих классов Lampa. */
-var OWN_NAMESPACE_ROOTS = ['.lumen-card', '.lumen-backdrop', '.lumen-descr-row', '.lumen-review-modal'];
+var OWN_NAMESPACE_ROOTS = ['.lumen-card', '.lumen-backdrop', '.lumen-descr-row', '.lumen-review-modal', '.lumen-hub', '.lumen-grid'];
 
 function startsWithRoot(sel, root) {
   if (sel.indexOf(root) !== 0) return false;
@@ -980,4 +984,94 @@ test('buildCss: в режиме трейлера ряд кнопок и «Сто
     'режим трейлера не должен зависеть от порядкового номера блока');
   assert.ok(row.indexOf('display:flex') !== -1);
   assert.ok(row.indexOf('align-items:center') !== -1);
+});
+
+/* ---------------------------------------------------------------------- */
+/* Task 17: кнопка «Франшиза», хаб подборок, сетка подборки.               */
+/* ---------------------------------------------------------------------- */
+
+test('Task 17: кнопка «Франшиза» скрыта, пока корень карточки не помечен классом', () => {
+  const base = findDecl(css, (sel) => sel === '.lumen-card .lumen-franchise');
+  assert.ok(base, 'базовое правило кнопки не найдено');
+  assert.ok(base.indexOf('display:none') !== -1, 'без класса корня кнопки на экране быть не должно');
+  const on = findDecl(css, (sel) => sel === '.lumen-card.lumen-card--franchise .lumen-franchise');
+  assert.ok(on, 'правило показа кнопки не найдено');
+  assert.ok(on.indexOf('display:flex') !== -1);
+});
+
+test('Task 17: кнопка «Франшиза» выровнена по ряду кнопок теми же отступами, что «Стоп»', () => {
+  const base = findDecl(css, (sel) => sel === '.lumen-card .lumen-franchise');
+  /* Ряд кнопок: margin-top 1.40em; кнопки внутри: margin-bottom .6em.
+     Тот же расчёт, что у .lumen-stop (см. комментарий в src/30_css.js). */
+  assert.ok(/margin:1\.40em [^;]*\.6em/.test(base), 'ожидались MT 1.40em и MB .6em: ' + base);
+  assert.ok(base.indexOf('height:3.16em') !== -1, 'высота кнопки карточки — 72px ÷ 22.811');
+});
+
+test('Task 17: строка кнопок с «Франшизой» — flex, реакции и ряд серий занимают всю ширину', () => {
+  const row = findDecl(css, (sel) => sel === '.lumen-card.lumen-card--franchise .lumen-actions');
+  assert.ok(row, 'правило раскладки не найдено');
+  assert.ok(row.indexOf('display:flex') !== -1);
+  assert.ok(row.indexOf('flex-wrap:wrap') !== -1);
+  const full = findDecl(css, (sel) => sel === '.lumen-card.lumen-card--franchise .full-start-new__reactions');
+  assert.ok(full, 'правило переноса реакций не найдено');
+  assert.ok(full.indexOf('flex-basis:100%') !== -1);
+});
+
+test('Task 17: иконка кнопки «Франшиза» — CSS-маска из общего набора, без масок скрыта', () => {
+  const ico = findDecl(css, (sel) => sel === '.lumen-card .lumen-franchise__ico');
+  assert.ok(ico, 'правило иконки не найдено');
+  assert.ok(ico.indexOf('mask-image:url("data:image/svg+xml') !== -1, 'иконка обязана быть маской, а не своим svg');
+  assert.ok(css.indexOf('@supports not ((-webkit-mask-image:none) or (mask-image:none)){.lumen-card .lumen-franchise__ico{display:none}}') !== -1,
+    'без поддержки масок пустой квадрат не рисуем');
+});
+
+test('Task 17: фокус кнопки «Франшиза» — акцент; в lite/off пружины нет', () => {
+  const focus = findDecl(css, (sel) => sel === '.lumen-card .lumen-franchise.focus');
+  assert.ok(focus, 'правило фокуса не найдено');
+  assert.ok(focus.indexOf('transform:scale(1.06)') !== -1);
+  const lite = findDecl(css, (sel) => sel === '.lumen-card.lumen-motion-lite .lumen-franchise.focus');
+  assert.ok(lite, 'правило lite не найдено');
+  assert.ok(/transform:none !important/.test(lite), 'нативная анимация Lampa перебивается только !important');
+  assert.ok(/(^|;)background:/.test(lite), 'lite обязан вернуть акцентную заливку (как у «Стоп»)');
+});
+
+test('Task 17: хаб — safe area 2.81em с обеих сторон, плитки по 4 в ряд', () => {
+  const root = findDecl(css, (sel) => sel === '.lumen-hub');
+  assert.ok(root, 'корень хаба не найден');
+  assert.ok(/padding:2\.81em 2\.81em/.test(root), 'safe area 64px ÷ 22.811 = 2.81em: ' + root);
+  const tile = findDecl(css, (sel) => sel === '.lumen-hub__tiles .lumen-tile');
+  assert.ok(tile, 'правило плитки не найдено');
+  assert.ok(tile.indexOf('width:calc((100% - 2.64em) / 4)') !== -1, 'ширина = (100% − 3×.88em) / 4: ' + tile);
+  assert.ok(findDecl(css, (sel) => sel === '.lumen-hub__tiles .lumen-tile:nth-child(4n)'), 'у последней плитки ряда нет правого отступа');
+  const ratio = findDecl(css, (sel) => sel === '.lumen-hub__tiles .lumen-tile:before');
+  assert.ok(ratio && ratio.indexOf('padding-top:56.25%') !== -1, 'пропорция 16:9 распоркой, без aspect-ratio');
+});
+
+test('Task 17: сетка — ровно 6 карточек в ряд, постер 2:3', () => {
+  const grid = findDecl(css, (sel) => sel === '.lumen-grid');
+  assert.ok(grid && /padding:2\.81em 2\.81em/.test(grid), 'safe area с обеих сторон');
+  const card = findDecl(css, (sel) => sel === '.lumen-grid__items .lumen-gcard');
+  assert.ok(card, 'правило карточки сетки не найдено');
+  assert.ok(card.indexOf('width:calc((100% - 4.4em) / 6)') !== -1, 'ширина = (100% − 5×.88em) / 6: ' + card);
+  assert.ok(findDecl(css, (sel) => sel === '.lumen-grid__items .lumen-gcard:nth-child(6n)'), 'у шестой карточки ряда нет правого отступа');
+  const view = findDecl(css, (sel) => sel === '.lumen-grid .lumen-gcard__view');
+  assert.ok(view && view.indexOf('padding-top:150%') !== -1, 'постер 2:3 распоркой');
+});
+
+test('Task 17: чип — один паттерн на хаб и сетку, выбранный виден без фокуса', () => {
+  const chip = findDecl(css, (sel) => sel === '.lumen-hub .lumen-chip');
+  assert.ok(chip, 'правило чипа не найдено');
+  assert.ok(chip.indexOf('height:2.46em') !== -1, 'высота 56px ÷ 22.811');
+  assert.ok(chip.indexOf('border-radius:.53em') !== -1, 'радиус 12px ÷ 22.811');
+  const on = findDecl(css, (sel) => sel === '.lumen-hub .lumen-chip.lumen-chip--on');
+  assert.ok(on, 'правило выбранного чипа не найдено');
+  const focus = findDecl(css, (sel) => sel === '.lumen-hub .lumen-chip.focus');
+  assert.ok(focus && focus.indexOf('transform:scale(1.06)') !== -1, 'фокус чипа — семейство «чип/плитка», scale 1.06');
+});
+
+test('Task 17: на слабых ТВ пружины фокуса в хабе и сетке нет', () => {
+  for (const mode of ['lite', 'off']) {
+    assert.ok(findDecl(css, (sel) => sel === '.lumen-hub.lumen-motion-' + mode + ' .lumen-tile.focus'), 'нет правила плиток для ' + mode);
+    assert.ok(findDecl(css, (sel) => sel === '.lumen-grid.lumen-motion-' + mode + ' .lumen-gcard.focus'), 'нет правила карточек для ' + mode);
+  }
 });

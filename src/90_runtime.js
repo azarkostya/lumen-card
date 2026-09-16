@@ -598,6 +598,14 @@
             focus_on_card = false;
             LC.trailer.bind(root);
             LC.active.trailer = LC.trailer.schedule(root, e.body, e.data);
+            /* Task 17: кнопка «Франшиза» — собственный .selector рядом с
+               рядом кнопок (разметка кнопок Lampa не трогается, см. шапку
+               src/46_hub.js). Вставляется здесь, до activity.toggle():
+               порядок complite у Lampa синхронный (Listener.send('full') ->
+               emit('groupButtons') -> activity.toggle()), поэтому контроллер
+               full_start соберёт кнопку в коллекцию сам — пересобирать её
+               вручную, как у «Стоп», не нужно. */
+            LC.hub.franchise(root, (e.data && e.data.movie) || {});
           }
         } catch (err) {
           warn('listener failed', err);
@@ -819,7 +827,7 @@
      .lumen-card, последние два — в ряду описания (он отдельный items-line вне
      карточки, план 0.2). Ищем в активной активности: карточки из истории
      Lampa держит в DOM, и чужую трогать незачем. */
-  var STRIP_NODES = ['.lumen-progress', '.lumen-episodes', '.lumen-facts', '.lumen-reviews'];
+  var STRIP_NODES = ['.lumen-progress', '.lumen-episodes', '.lumen-facts', '.lumen-reviews', '.lumen-franchise'];
 
   /* Плагин выключили. Сами карточки не трогаем — их перерисует Lampa при
      следующем открытии, уже штатным шаблоном; снимаем только своё:
@@ -878,7 +886,7 @@
       /* Ревью (п.5): класс режима движения и сжатая шапка снимаются и с самих
          карточек — с body их снимает deactivate(), но на .lumen-card они
          ставятся отдельно (applyMotionMode / followToggle). */
-      cards.removeClass('lumen-continue lumen-compact ' + MOTION_CLASSES);
+      cards.removeClass('lumen-continue lumen-compact lumen-card--franchise ' + MOTION_CLASSES);
       for (j = 0; j < cards.length; j++) {
         var node = cards[j];
         if (node && node.style && typeof node.style.removeProperty === 'function') node.style.removeProperty('--lumen-play-label');
@@ -957,6 +965,14 @@
     } catch (ePersonal) {
       warn('personal rows register failed', ePersonal);
     }
+    /* Task 17: компоненты хаба и сетки + пункт меню «Подборки». install()
+       идемпотентен: компоненты регистрируются один раз, пункт меню — только
+       если его ещё нет. */
+    try {
+      if (LC.hub && LC.hub.install) LC.hub.install();
+    } catch (eHub) {
+      warn('hub install failed', eHub);
+    }
   }
 
   function deactivate() {
@@ -995,6 +1011,8 @@
     try { if (LC.rows && LC.rows.unregister) LC.rows.unregister(); } catch (eRows) {}
     /* Task 16: снять персональные ряды. */
     try { if (LC.personal && LC.personal.unregister) LC.personal.unregister(); } catch (ePersonalOff) {}
+    /* Task 17: убрать пункт меню «Подборки». */
+    try { if (LC.hub && LC.hub.uninstall) LC.hub.uninstall(); } catch (eHubOff) {}
   }
 
   /* Task 15 (I5-fix): перерегистрация рядов при смене lumen_rows_limit.

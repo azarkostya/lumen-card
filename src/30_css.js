@@ -794,6 +794,100 @@
     css.push('.lumen-card.lumen-card--nextchip.lumen-compact .full-start-new__rate-line .full-start__status{margin-right:0 !important;border-right:0;border-top-right-radius:0;border-bottom-right-radius:0;padding-right:.45em}');
     css.push('.lumen-card.lumen-motion-lite .full-start-new__title,.lumen-card.lumen-motion-lite .full-start-new__rate-line,.lumen-card.lumen-motion-lite .full-start-new__buttons,.lumen-card.lumen-motion-off .full-start-new__title,.lumen-card.lumen-motion-off .full-start-new__rate-line,.lumen-card.lumen-motion-off .full-start-new__buttons{-webkit-transition:none;transition:none}');
 
+    /* --- Task 17: кнопка «Франшиза» в карточке (design-spec-card §7a) ---
+       Собственный .selector рядом с рядом кнопок, НЕ внутри него: Lampa
+       хэширует outerHTML кнопок в .buttons--container (план 0.2), и любая
+       вставка туда сбивает приоритетную кнопку пользователя. Геометрия и
+       фокус — те же, что у кнопки «Стоп» режима трейлера, включая расчёт
+       выравнивания по ряду кнопок (MT 1.40em / MB .6em, см. комментарий
+       над .lumen-stop выше). */
+    css.push('.lumen-card .lumen-franchise{display:none;font-family:' + FB + ';font-weight:600;font-size:1em;height:3.16em;padding:0 1.32em;margin:1.40em .70em .6em 0;border-radius:.79em;border:.04em solid ' + C.line + ';background:' + C.buttonBg + ';color:' + C.text + ';white-space:nowrap;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;-webkit-transition:background-color .2s,border-color .2s,color .2s,-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25),-webkit-box-shadow .28s;transition:background-color .2s,border-color .2s,color .2s,transform .28s cubic-bezier(.2,.9,.3,1.25),box-shadow .28s}');
+    /* Класс корня ставит LC.hub.franchise только когда кнопка вставлена:
+       без него ряд кнопок и наша кнопка остались бы двумя блоками друг под
+       другом (.lumen-actions в обычном режиме — не flex). Реакции и ряд
+       серий занимают всю ширину, поэтому строка получается одна: кнопки +
+       «Франшиза». */
+    css.push('.lumen-card.lumen-card--franchise .lumen-franchise{display:-webkit-box;display:-webkit-flex;display:flex}');
+    css.push('.lumen-card.lumen-card--franchise .lumen-actions{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;-webkit-box-align:center;-webkit-align-items:center;align-items:center}');
+    css.push('.lumen-card.lumen-card--franchise .full-start-new__reactions,.lumen-card.lumen-card--franchise .lumen-episodes{-webkit-flex-basis:100%;flex-basis:100%;width:100%}');
+    css.push('.lumen-card .lumen-franchise__ico{-webkit-flex-shrink:0;flex-shrink:0;width:1.14em;height:1.14em;margin-right:.53em;background-color:currentColor;-webkit-mask-image:' + LC.icons.maskUrl('film') + ';mask-image:' + LC.icons.maskUrl('film') + ';-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;-webkit-mask-size:contain;mask-size:contain}');
+    css.push('.lumen-card .lumen-franchise span{font-size:1.05em;line-height:1}');
+    css.push('.lumen-card .lumen-franchise.focus{background:' + A + ';color:' + C.dark + ';border-color:' + AL + ';border-width:.11em;-webkit-transform:scale(1.06);transform:scale(1.06);-webkit-box-shadow:0 .614em 1.754em ' + AG + ';box-shadow:0 .614em 1.754em ' + AG + '}');
+    css.push('.lumen-card.lumen-motion-lite .lumen-franchise.focus,.lumen-card.lumen-motion-off .lumen-franchise.focus{background:' + A + ';-webkit-transform:none !important;transform:none !important}');
+    /* Движка без CSS-масок (старые Tizen/webOS) пустой квадрат иконки не
+       получает — тот же приём, что у иконок кнопок в src/20_icons.js. */
+    css.push(LC.icons.NO_MASK + '{.lumen-card .lumen-franchise__ico{display:none}}');
+
+    /* --- Task 17: хаб подборок (design-spec-main §0.1, §0.7, §0.8) ---
+       Свой корень .lumen-hub: экран целиком наш, чужой разметки Lampa
+       внутри нет, поэтому ни одно правило не может протечь на её экраны. */
+    css.push('.lumen-hub{padding:2.81em 2.81em 3.5em 2.81em;color:' + C.text + '}');
+    css.push('.lumen-hub__head{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:baseline;-webkit-align-items:baseline;align-items:baseline;-webkit-flex-wrap:wrap;flex-wrap:wrap;margin-bottom:1.4em}');
+    css.push('.lumen-hub__title{font-family:' + FD + ';font-weight:700;font-size:2.28em;line-height:1;margin-right:.6em}');
+    css.push('.lumen-hub__count{font-family:' + FM + ';font-size:.88em;color:' + C.smoke + '}');
+    css.push('.lumen-hub__search{font-family:' + FM + ';font-size:.88em;letter-spacing:.06em;color:' + C.smoke + ';margin-left:auto}');
+    css.push('.lumen-hub__empty{font-family:' + FB + ';font-size:1.05em;color:' + C.muted + ';padding:2em 0}');
+    css.push('.lumen-hub__chips{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;margin-bottom:1.4em}');
+    css.push('.lumen-hub__tiles{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap}');
+
+    /* Чип (§0.7) — общий для групп хаба и сортировки сетки. Оба корня
+       перечислены явно: собственный класс без корня оставлял бы правило
+       глобальным. */
+    css.push('.lumen-hub .lumen-chip,.lumen-grid .lumen-chip{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;height:2.46em;padding:0 1.05em;margin:0 .53em .53em 0;border-radius:.53em;border:.04em solid ' + C.line + ';background:' + C.buttonBg + ';font-family:' + FB + ';font-weight:600;font-size:.92em;line-height:1;color:' + C.muted + ';white-space:nowrap;-webkit-transition:background-color .2s,border-color .2s,color .2s,-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25);transition:background-color .2s,border-color .2s,color .2s,transform .28s cubic-bezier(.2,.9,.3,1.25)}');
+    css.push('.lumen-hub .lumen-chip__count{font-family:' + FM + ';font-size:.8em;margin-left:.6em;color:' + C.smoke + '}');
+    /* Выбранная группа/сортировка — приглушённый акцент, чтобы её было видно
+       и когда фокус ушёл на другой чип. */
+    css.push('.lumen-hub .lumen-chip.lumen-chip--on,.lumen-grid .lumen-chip.lumen-chip--on{color:' + A + ';border-color:' + A + ';background:rgba(' + A_RGB + ',.14)}');
+    css.push('.lumen-hub .lumen-chip.focus,.lumen-grid .lumen-chip.focus{background:' + A + ';color:' + t.onac + ';border-color:' + AL + ';border-width:.11em;-webkit-transform:scale(1.06);transform:scale(1.06);-webkit-box-shadow:0 .53em 1.53em ' + AG + ';box-shadow:0 .53em 1.53em ' + AG + '}');
+    css.push('.lumen-hub.lumen-motion-lite .lumen-chip.focus,.lumen-hub.lumen-motion-off .lumen-chip.focus,.lumen-grid.lumen-motion-lite .lumen-chip.focus,.lumen-grid.lumen-motion-off .lumen-chip.focus{-webkit-transform:none;transform:none}');
+    css.push('.lumen-hub.lumen-motion-off .lumen-chip,.lumen-grid.lumen-motion-off .lumen-chip{-webkit-transition:none;transition:none}');
+
+    /* Плитка 430×242 (16:9), 4 в ряд при safe area 64 с обеих сторон:
+       ширина = (100% − 3 промежутка по .88em) / 4. */
+    css.push('.lumen-hub__tiles .lumen-tile{position:relative;width:-webkit-calc((100% - 2.64em) / 4);width:calc((100% - 2.64em) / 4);margin:0 .88em .88em 0;border-radius:.44em;overflow:hidden;background:' + C.panel + ';border:.04em solid ' + C.line + ';-webkit-transition:border-color .2s,-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25),-webkit-box-shadow .28s;transition:border-color .2s,transform .28s cubic-bezier(.2,.9,.3,1.25),box-shadow .28s}');
+    css.push('.lumen-hub__tiles .lumen-tile:nth-child(4n){margin-right:0}');
+    /* Пропорция 16:9 распоркой (aspect-ratio нет на старых webOS/Tizen). */
+    css.push('.lumen-hub__tiles .lumen-tile:before{content:"";display:block;padding-top:56.25%}');
+    css.push('.lumen-hub .lumen-tile__collage{position:absolute;top:0;left:0;right:0;bottom:0;overflow:hidden}');
+    css.push('.lumen-hub .lumen-tile__poster{position:absolute;width:5.70em;height:8.55em;border-radius:.31em;-webkit-background-size:cover;background-size:cover;background-position:center;-webkit-box-shadow:0 .4em 1.2em rgba(0,0,0,.5);box-shadow:0 .4em 1.2em rgba(0,0,0,.5)}');
+    css.push('.lumen-hub .lumen-tile__poster--1{left:1.1em;top:-.88em;-webkit-transform:rotate(-6deg);transform:rotate(-6deg)}');
+    css.push('.lumen-hub .lumen-tile__poster--2{left:6.2em;top:-.44em;-webkit-transform:rotate(2deg);transform:rotate(2deg)}');
+    css.push('.lumen-hub .lumen-tile__poster--3{left:11.3em;top:-1.1em;-webkit-transform:rotate(8deg);transform:rotate(8deg)}');
+    css.push('.lumen-hub .lumen-tile__scrim{position:absolute;top:0;left:0;right:0;bottom:0;background:-webkit-linear-gradient(bottom,rgba(' + BG_RGB + ',.98) 0%,rgba(' + BG_RGB + ',.7) 40%,rgba(' + BG_RGB + ',.2) 100%);background:linear-gradient(0deg,rgba(' + BG_RGB + ',.98) 0%,rgba(' + BG_RGB + ',.7) 40%,rgba(' + BG_RGB + ',.2) 100%)}');
+    css.push('.lumen-hub .lumen-tile__text{position:absolute;left:.88em;right:.88em;bottom:.7em}');
+    css.push('.lumen-hub .lumen-tile__title{font-family:' + FD + ';font-weight:700;font-size:1.27em;line-height:1.06;color:' + C.text + ';overflow:hidden}');
+    css.push('.lumen-hub .lumen-tile__sub{font-family:' + FM + ';font-size:.88em;line-height:1;color:' + C.muted + ';margin-top:.35em;overflow:hidden}');
+    css.push('.lumen-hub .lumen-tile__nokey{display:none;position:absolute;top:.7em;right:.7em;font-family:' + FM + ';font-size:.7em;letter-spacing:.04em;color:' + C.text + ';background:rgba(' + BG_RGB + ',.8);border:.05em solid rgba(' + hexToRgb(C.text) + ',.3);border-radius:.2em;padding:.25em .45em}');
+    css.push('.lumen-hub .lumen-tile--nokey .lumen-tile__nokey{display:block}');
+    css.push('.lumen-hub__tiles .lumen-tile.focus{border-color:' + AL + ';border-width:.13em;-webkit-transform:scale(1.06);transform:scale(1.06);-webkit-box-shadow:0 .7em 1.97em ' + AG + ';box-shadow:0 .7em 1.97em ' + AG + '}');
+    css.push('.lumen-hub.lumen-motion-lite .lumen-tile.focus,.lumen-hub.lumen-motion-off .lumen-tile.focus{-webkit-transform:none;transform:none}');
+    css.push('.lumen-hub.lumen-motion-off .lumen-tile{-webkit-transition:none;transition:none}');
+
+    /* --- Task 17: сетка подборки (design-spec-main §0.4, экран 20) ---
+       Safe area с обеих сторон и ровно 6 карточек в ряд (поправка
+       контроллера: bleed справа на экране 20 — дефект макета). */
+    css.push('.lumen-grid{padding:2.81em 2.81em 3.5em 2.81em;color:' + C.text + '}');
+    css.push('.lumen-grid__head{margin-bottom:1.05em}');
+    css.push('.lumen-grid__title{font-family:' + FD + ';font-weight:700;font-size:2.10em;line-height:1}');
+    css.push('.lumen-grid__sub{font-family:' + FM + ';font-size:.88em;color:' + C.smoke + ';margin-top:.5em}');
+    css.push('.lumen-grid__sorts{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;margin-bottom:1.4em}');
+    css.push('.lumen-grid__items{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap}');
+    css.push('.lumen-grid__items .lumen-gcard{width:-webkit-calc((100% - 4.4em) / 6);width:calc((100% - 4.4em) / 6);margin:0 .88em 1.4em 0;-webkit-transition:-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25);transition:transform .28s cubic-bezier(.2,.9,.3,1.25)}');
+    css.push('.lumen-grid__items .lumen-gcard:nth-child(6n){margin-right:0}');
+    /* Постер 2:3 распоркой padding-top — те же соображения, что у плитки. */
+    css.push('.lumen-grid .lumen-gcard__view{position:relative;padding-top:150%;border-radius:.31em;border:.04em solid ' + C.line + ';background-color:' + C.panel + ';-webkit-background-size:cover;background-size:cover;background-position:center;-webkit-transition:border-color .2s,-webkit-box-shadow .28s;transition:border-color .2s,box-shadow .28s}');
+    css.push('.lumen-grid .lumen-gcard__view--empty{background-color:' + C.panelLo + '}');
+    css.push('.lumen-grid .lumen-gcard__title{font-family:' + FD + ';font-weight:700;font-size:.96em;line-height:1.15;margin-top:.5em;color:' + C.text + ';overflow:hidden}');
+    css.push('.lumen-grid .lumen-gcard__meta{font-family:' + FM + ';font-size:.88em;line-height:1;margin-top:.25em;color:' + C.muted + '}');
+    css.push('.lumen-grid__items .lumen-gcard.focus{-webkit-transform:scale(1.08);transform:scale(1.08)}');
+    css.push('.lumen-grid__items .lumen-gcard.focus .lumen-gcard__view{border-color:' + AL + ';border-width:.13em;-webkit-box-shadow:0 .7em 1.97em ' + AG + ';box-shadow:0 .7em 1.97em ' + AG + '}');
+    css.push('.lumen-grid.lumen-motion-lite .lumen-gcard.focus,.lumen-grid.lumen-motion-off .lumen-gcard.focus{-webkit-transform:none;transform:none}');
+    css.push('.lumen-grid.lumen-motion-off .lumen-gcard{-webkit-transition:none;transition:none}');
+    css.push('.lumen-grid__empty{padding:2em 0}');
+    css.push('.lumen-grid .lumen-grid__empty-text{font-family:' + FB + ';font-size:1.05em;color:' + C.muted + ';margin-bottom:1.05em;max-width:42.96em}');
+    css.push('.lumen-grid .lumen-grid__back{display:-webkit-inline-box;display:-webkit-inline-flex;display:inline-flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;height:3.16em;padding:0 1.32em;border-radius:.79em;border:.04em solid ' + C.line + ';background:' + C.buttonBg + ';font-family:' + FB + ';font-weight:600;font-size:1em;color:' + C.text + '}');
+    css.push('.lumen-grid .lumen-grid__back.focus{background:' + A + ';color:' + t.onac + ';border-color:' + AL + ';border-width:.11em}');
+
     /* --- Иконки кнопок (единый набор через CSS-маску, см. src/20_icons.js) --- */
     css.push(LC.icons.css());
 

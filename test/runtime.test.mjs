@@ -440,7 +440,7 @@ function initLC(opts) {
   const timelines = [];
   /* noty — что плагин показал пользователю через Lampa.Noty (единственное
      сообщение плагина: неподдерживаемая сборка Lampa, ревью фазы 1 M2). */
-  const extra = { added: [], bgCancel: [], reviewCancel: [], cast: 0, css: 0, noty: [] };
+  const extra = { added: [], bgCancel: [], reviewCancel: [], cast: 0, css: 0, noty: [], hubInstall: 0, hubUninstall: 0 };
   const Lampa = {
     Template: {
       all: () => ({ full_start_new: '<div>orig</div>' }),
@@ -525,8 +525,17 @@ function initLC(opts) {
     isLive: (layer) => !!(layer && layer.length && typeof layer.hasClass === 'function' && layer.hasClass('lumen-trailer-live'))
   };
 
+  /* Task 17: хаб — такая же заглушка, как header/reviews/trailer. install()
+     зовётся из activate(), franchise() — из complite. */
+  const franchiseCalls = [];
+  LC.hub = {
+    install: () => { extra.hubInstall++; },
+    uninstall: () => { extra.hubUninstall++; },
+    franchise: (root, movie) => franchiseCalls.push({ root, movie })
+  };
+
   LC.init();
-  return { LC, calls, full, toggles, timelines, descrRows, reviewRows, clearedRows, extra };
+  return { LC, calls, full, toggles, timelines, descrRows, reviewRows, clearedRows, franchiseCalls, extra };
 }
 
 test('Task 7: complite — bind(root) и schedule(root, body, data), контроллер попадает в LC.active.trailer', () => {

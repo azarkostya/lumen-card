@@ -256,7 +256,31 @@
       ru: 'Показывать «Досмотреть», «Потому что вы смотрели», «Новые серии» и «Скоро на экранах».',
       en: 'Show "Continue watching", "Because you watched", "New episodes" and "Coming soon" rows.',
       uk: 'Показувати «Досивитися», «Тому що ви дивилися», «Нові серії» та «Незабаром».'
-    }
+    },
+
+    /* Task 17 (фаза 2): хаб подборок, сетка подборки, кнопка «Франшиза».
+       Названия самих подборок и групп берутся из манифеста (там свой i18n),
+       здесь — только строки интерфейса. */
+    lumen_hub_title: { ru: 'Подборки', en: 'Collections', uk: 'Підбірки' },
+    /* Метка места под поиск в шапке хаба (design-spec-main §0.8). Узел скрыт
+       до Task 27 — верхним регистром, как остальные метки-капсы плагина. */
+    lumen_hub_search: { ru: 'ПОИСК ПО ПОДБОРКАМ', en: 'SEARCH COLLECTIONS', uk: 'ПОШУК ПО ПІДБІРКАХ' },
+    lumen_hub_empty: { ru: 'Здесь пока пусто', en: 'Nothing here yet', uk: 'Тут поки порожньо' },
+    /* Плитка и сетка подборки Кинопоиска без ключа API (риск фазы 2). */
+    lumen_hub_nokey: { ru: 'НУЖЕН КЛЮЧ', en: 'KEY REQUIRED', uk: 'ПОТРІБЕН КЛЮЧ' },
+    lumen_hub_nokey_text: {
+      ru: 'Подборки Кинопоиска недоступны без ключа API. Настройки → Lumen Card → Ключ Kinopoisk API',
+      en: 'Kinopoisk collections are unavailable without an API key. Settings → Lumen Card → Kinopoisk API key',
+      uk: 'Підбірки Кінопошуку недоступні без ключа API. Налаштування → Lumen Card → Ключ Kinopoisk API'
+    },
+    lumen_grid_back: { ru: 'Назад', en: 'Back', uk: 'Назад' },
+    /* «Всего 124 · По популярности» — подпись под заголовком сетки. */
+    lumen_grid_total: { ru: 'Всего', en: 'Total', uk: 'Усього' },
+    lumen_sort_popular: { ru: 'По популярности', en: 'By popularity', uk: 'За популярністю' },
+    lumen_sort_rating: { ru: 'По рейтингу', en: 'By rating', uk: 'За рейтингом' },
+    lumen_sort_new: { ru: 'Новые', en: 'Newest', uk: 'Нові' },
+    /* Подпись кнопки в карточке фильма, входящего в коллекцию TMDB. */
+    lumen_card_franchise: { ru: 'Франшиза', en: 'Franchise', uk: 'Франшиза' }
   };
 
   function langCode() {
@@ -273,6 +297,12 @@
     var c = langCode();
     return c === 'ru' || c === 'uk' || c === 'be' || c === 'bg';
   }
+
+  /* Task 17: код языка нужен и вне этого модуля — заголовки групп и чипов
+     хаба лежат в манифесте с собственным i18n (LC.hub.titleOf), а не в
+     LC.STRINGS. Отдельная копия langCode() в 46_hub.js была бы вторым
+     источником правды о языке интерфейса. */
+  LC.langCode = langCode;
 
   LC.seasonsWord = function (n) {
     if (isSlavic()) return LC.util.plural(n, ['сезон', 'сезона', 'сезонов']);
@@ -297,6 +327,13 @@
   LC.reviewsWord = function (n) {
     if (isSlavic()) return LC.util.plural(n, ['отзыв', 'отзыва', 'отзывов']);
     return n === 1 ? 'review' : 'reviews';
+  };
+
+  /* Task 17: «62 подборки» в шапке хаба (design-spec-main §0.8) — та же
+     ветка isSlavic, что у сезонов/серий/дней/отзывов. */
+  LC.collectionsWord = function (n) {
+    if (isSlavic()) return LC.util.plural(n, ['подборка', 'подборки', 'подборок']);
+    return n === 1 ? 'collection' : 'collections';
   };
 
   LC.lang = function (key) {
