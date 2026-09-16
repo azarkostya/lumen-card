@@ -129,7 +129,21 @@ function freshEnv(opts) {
   const refocused = [];
   const removeCalls = [];
   const setOrder = [];
+  const nolistenFlags = [];
   function films() { return Object.keys(ls).filter((k) => k.indexOf('lumen_rv_') === 0 && k !== 'lumen_rv_index'); }
+  /* Режим отказа записи. Настоящая Lampa при переполнении квоты кладёт
+     значение в память (readed) и в reserve/IndexedDB, но в localStorage его
+     НЕ остаётся; callerror при этом зовётся только если имя исключения ровно
+     'QuotaExceededError' (app.min.js). Отсюда три режима:
+       callerror — как современный Chrome: колбэк ошибки вызван;
+       throw     — старый WebKit/Tizen: QUOTA_EXCEEDED_ERR наружу, колбэка нет;
+       silent    — исключение проглочено вендором, наружу ничего. */
+  function failMode(name) {
+    if (opts.quota && name.indexOf('lumen_rv_') === 0 && name !== 'lumen_rv_index'
+      && films().length >= opts.quota && !Object.prototype.hasOwnProperty.call(ls, name)) return 'callerror';
+    if (opts.failKey && name === opts.failKey) return opts.failMode || 'callerror';
+    return null;
+  }
   const Lampa = {
     Storage: {
       get: (name, def) => (Object.prototype.hasOwnProperty.call(store, name) && store[name] !== '' ? store[name] : def),
@@ -137,13 +151,28 @@ function freshEnv(opts) {
          четвёртый аргумент зовётся при исключении записи (квота на ТВ). */
       set: (name, value, nolisten, callerror) => {
         setOrder.push(name);
-        if (opts.quota && name.indexOf('lumen_rv_') === 0 && name !== 'lumen_rv_index'
-          && films().length >= opts.quota && !Object.prototype.hasOwnProperty.call(ls, name)) {
-          if (callerror) callerror(new Error('QuotaExceededError'));
+        nolistenFlags.push({ name, nolisten: !!nolisten });
+        const mode = failMode(name);
+        if (mode) {
+          /* Память Storage (readed) обновляется всегда — именно поэтому
+             «записалось ли» приходится проверять по самому localStorage. */
+          store[name] = value;
+          if (mode === 'callerror') {
+            if (callerror) callerror(new Error('QuotaExceededError'));
+            return;
+          }
+          if (mode === 'throw') {
+            const err = new Error('QUOTA_EXCEEDED_ERR');
+            err.name = 'QUOTA_EXCEEDED_ERR';
+            throw err;
+          }
           return;
         }
         store[name] = value;
-        if (value === '') delete ls[name]; else ls[name] = value;
+        if (value === '') delete ls[name];
+        /* localStorage хранит строки — как настоящий Storage.set, который
+           прогоняет объекты и массивы через JSON.stringify. */
+        else ls[name] = (value && typeof value === 'object') ? JSON.stringify(value) : String(value);
       },
       field: (name) => store[name],
       /* Lampa 3.3.4: remove(field_name, value) убирает ЭЛЕМЕНТ из массива,
@@ -182,7 +211,7 @@ function freshEnv(opts) {
   loadInto(LC, module, '10_util.js');
   loadInto(LC, module, '80_settings.js');
   loadInto(LC, module, '60_reviews.js');
-  return { LC, store, ls, films, journal, collected, modals, toggled, refocused, removeCalls, setOrder, Lampa };
+  return { LC, store, ls, films, journal, collected, modals, toggled, refocused, removeCalls, setOrder, nolistenFlags, opts, Lampa };
 }
 
 /* Ряд описания Lampa: items-line -> .items-line__body -> .full-descr ->
@@ -677,6 +706,87 @@ test('render: total из кэша не становится разметкой',
   const html = blocksOf(d)[0].html();
   assert.equal(html.indexOf('<b>318'), -1, 'разметка из кэша не должна попасть в DOM');
   assert.equal(env.journal.calls.length, 0, 'данные взяты из кэша');
+});
+
+/* ------------------------- ревью 2 ------------------------- */
+
+/* Ревью 2 (п.1): отказ квоты на ЗАПИСИ ИНДЕКСА раньше оставлял сироту —
+   purge() чистил всё и ставил индекс пустым, место освобождалось, и следующая
+   запись фильма проходила успешно: ключ есть, в индексе его нет, вытеснить
+   некому. */
+test('кэш: отказ записи индекса не оставляет запись-сироту', () => {
+  const env = freshEnv({ failKey: 'lumen_rv_index', failMode: 'callerror' });
+  env.LC.reviews.cacheWrite('tt1', [{ title: 'a' }], 1, 1000);
+
+  assert.deepEqual(env.films(), [], 'без индекса запись фильма не делается');
+  assert.equal(env.LC.reviews.cacheRead('tt1', 1000), null, 'и не читается');
+  assert.ok(warnLog.some((m) => m.indexOf('quota') !== -1), 'отказ не должен быть беззвучным');
+  warnLog.length = 0;
+});
+
+/* Ревью 2 (п.2): на старых WebKit/Tizen имя исключения не
+   'QuotaExceededError', поэтому Lampa не зовёт callerror вовсе — сбой обязан
+   ловиться по факту отсутствия значения в localStorage. */
+test('кэш: отказ без callerror (QUOTA_EXCEEDED_ERR) тоже чистит кэш', () => {
+  const env = freshEnv({ failKey: 'lumen_rv_tt2', failMode: 'throw' });
+  env.LC.reviews.cacheWrite('tt1', [{ title: 'a' }], 1, 1000);
+  assert.equal(env.films().length, 1);
+
+  env.LC.reviews.cacheWrite('tt2', [{ title: 'b' }], 2, 2000);
+  assert.deepEqual(env.films(), [], 'кэш вычищен, а не оставлен наполовину');
+  assert.deepEqual(env.store.lumen_rv_index, []);
+  assert.ok(warnLog.some((m) => m.indexOf('quota') !== -1));
+  warnLog.length = 0;
+});
+
+test('кэш: молчаливый отказ (значение осело в памяти, но не в localStorage) ловится проверкой записи', () => {
+  const env = freshEnv({ failKey: 'lumen_rv_tt2', failMode: 'silent' });
+  env.LC.reviews.cacheWrite('tt1', [{ title: 'a' }], 1, 1000);
+  assert.equal(env.films().length, 1);
+
+  env.LC.reviews.cacheWrite('tt2', [{ title: 'b' }], 2, 2000);
+  assert.deepEqual(env.films(), [], 'несохранённая запись обнаружена без исключения и без callerror');
+  assert.ok(warnLog.some((m) => m.indexOf('not stored') !== -1), 'в лог уходит причина');
+  warnLog.length = 0;
+});
+
+/* Ревью 2 (п.6): событие 'change' на каждую запись кэша подписчикам не нужно. */
+test('кэш: записи идут с nolisten = true', () => {
+  const env = freshEnv();
+  env.LC.reviews.cacheWrite('tt1', [{ title: 'a' }], 1, 1000);
+  const cacheWrites = env.nolistenFlags.filter((w) => w.name.indexOf('lumen_rv_') === 0);
+  assert.ok(cacheWrites.length >= 2);
+  assert.ok(cacheWrites.every((w) => w.nolisten === true), 'лишних событий change кэш не шлёт');
+});
+
+/* Ревью 2 (п.4): поднять поколение мало — сам запрос продолжал бы висеть до
+   таймаута и после выключения настройки, и после закрытия карточки. */
+test('запрос снимается при выключении настройки (clearRow) и при закрытии карточки (cancel)', () => {
+  const env = freshEnv({ store: { lumen_kp_key: 'KEY' } });
+
+  const d = makeDescrRow();
+  env.LC.reviews.render(d.row, DUNE);
+  const net1 = env.journal.nets[0];
+  assert.equal(net1.cleared, 0);
+  env.LC.reviews.clearRow(d.row);
+  assert.equal(net1.cleared, 1, 'clearRow снимает висящий запрос');
+
+  const d2 = makeDescrRow();
+  env.LC.reviews.render(d2.row, DUNE);
+  const net2 = env.journal.nets[env.journal.nets.length - 1];
+  assert.equal(net2.cleared, 0);
+
+  const body = new FakeEl(['activity__body'], [d2.row]);
+  env.LC.reviews.cancel(body);
+  assert.equal(net2.cleared, 1, 'закрытие карточки снимает запрос её ряда');
+
+  /* На узле без рендера состояние не создаётся и исключений нет. */
+  const fresh = makeDescrRow();
+  env.LC.reviews.cancel(new FakeEl(['activity__body'], [fresh.row]));
+  assert.equal(fresh.descr[0].lumenReviews, undefined);
+  env.LC.reviews.cancel(null);
+  env.LC.reviews.cancel(new FakeEl(['activity__body']));
+  assert.deepEqual(warnLog, []);
 });
 
 test('clearRow: снимает блок, класс поджатия описания и подпись', () => {

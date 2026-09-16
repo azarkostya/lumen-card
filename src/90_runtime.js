@@ -317,6 +317,10 @@
       if (LC.active && e.object === LC.active.object) {
         if (e.type === 'destroy') {
           LC.backdrops.cancel(LC.active.body);
+          /* Ревью 2 Task 9 (п.4): вместе со слоем снимаем и незавершённый
+             запрос отзывов — иначе его колбэки жили бы до таймаута 8 с уже
+             после закрытия карточки. */
+          try { LC.reviews.cancel(LC.active.body); } catch (eRv) { warn('reviews cancel failed', eRv); }
           LC.active = null;
         } else if (e.type === 'archive' || e.type === 'start') {
           /* Ревью (fix, Important 1): та же самая liveSlideshow() — своя

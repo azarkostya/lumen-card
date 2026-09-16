@@ -171,13 +171,50 @@
       }
     }
 
-    /* Lampa.Storage.set(name, value, nolisten, callerror) — четвёртый аргумент
-       зовётся при исключении записи (QuotaExceededError на ТВ). */
+    /* Ревью 2 (п.2): на callerror полагаться нельзя. Lampa зовёт его ТОЛЬКО
+       при e.name == 'QuotaExceededError' (app.min.js, Storage.set) — старые
+       WebKit/Tizen бросают QUOTA_EXCEEDED_ERR, Firefox —
+       NS_ERROR_DOM_QUOTA_REACHED, и там исключение глотается молча: значение
+       остаётся в памяти Storage (readed) и в reserve/IndexedDB, а места в
+       localStorage нет. Поэтому факт записи проверяем сами — по самому
+       localStorage. Если его нет вовсе (экзотическая сборка), проверять
+       нечего: доверяем Storage. */
+    function stored(key, value) {
+      try {
+        if (typeof window === 'undefined' || !window.localStorage) return true;
+        var raw = window.localStorage.getItem(key);
+        if (raw === null || raw === '') return false;
+        var want;
+        try { want = JSON.stringify(value); } catch (e) { return true; }
+        /* Обрезанное или чужое значение — тоже «не сохранилось». */
+        return raw.length === want.length;
+      } catch (e2) {
+        return true;
+      }
+    }
+
+    /* Lampa.Storage.set(name, value, nolisten, callerror). nolisten = true:
+       событие 'change' на каждую запись кэша подписчикам вендора не нужно
+       (ревью 2, п.6). Возвращает признак успеха — вызывающая сторона обязана
+       на него смотреть, иначе после отказа квоты остаётся рассинхрон индекса
+       и записей (ревью 2, п.1). */
     function put(store, key, value) {
-      store.set(key, value, false, function (err) {
-        warn('reviews cache quota', err);
-        purge(store);
-      });
+      var failed = false;
+      try {
+        store.set(key, value, true, function (err) {
+          failed = true;
+          warn('reviews cache quota', err);
+        });
+      } catch (e) {
+        failed = true;
+        warn('reviews cache quota', e);
+      }
+      if (!failed && !stored(key, value)) {
+        failed = true;
+        warn('reviews cache not stored: ' + key);
+      }
+      if (failed) purge(store);
+      return !failed;
     }
 
     function cacheRead(imdbId, at) {
@@ -217,8 +254,13 @@
         /* Ревью (Minor 8): индекс пишется ПЕРВЫМ. Если упадёт запись фильма,
            в индексе окажется id без данных — cacheRead вернёт null и фильм
            просто перезапросится. Обратный порядок оставлял бы запись-сироту,
-           которую уже некому вытеснить. */
-        put(store, INDEX_KEY, kept);
+           которую уже некому вытеснить.
+           Ревью 2 (п.1): но если не записался САМ ИНДЕКС, писать фильм нельзя.
+           Отказ квоты на индексе запускает purge() — тот чистит записи и
+           ставит индекс пустым, место освобождается, и следующая запись фильма
+           прошла бы успешно: получился бы ключ, которого нет в индексе, —
+           его не вытеснит цикл выше и не найдёт следующий purge(). */
+        if (!put(store, INDEX_KEY, kept)) return;
         put(store, cacheKey(imdbId), { at: stamp, list: list, total: total, kp: kp || 0 });
       } catch (e) {
         warn('reviews cache write failed', e);
@@ -248,9 +290,10 @@
        актуальности (generation guard рендера): как только он вернёт false,
        цепочка обрывается молча — ни второго запроса, ни колбэка.
        Возвращает экземпляр Lampa.Reguest (или null, если запрос не
-       понадобился): ревью (Important 6) — при быстром переборе карточек
-       вызывающая сторона обязана звать net.clear(), иначе на каждой карточке
-       до восьми секунд висят два XHR, и квота тратится впустую. */
+       понадобился): вызывающая сторона обязана звать net.clear() при смене
+       карточки. Уточнение ревью 2 (п.3): clear() у Lampa только очищает
+       список вызовов — колбэки больше не отрабатывают, но abort() нет, ответ
+       всё равно долетит. Экономится разбор и рендер, а не квота Кинопоиска. */
     function load(imdbId, key, cb, alive, at) {
       function dead() {
         try { return typeof alive === 'function' && !alive(); } catch (e) { return false; }
@@ -623,14 +666,10 @@
         state.gen++;
         state.painted = false;
         var gen = state.gen;
-        /* Ревью (Important 6): прошлый запрос этой карточки больше не нужен —
-           снимаем его колбэки и сам XHR. Иначе при быстром переборе карточек
-           на каждой висят два запроса по 8 с, и бесплатная квота (500 в день)
-           уходит на экраны, которых пользователь уже не видит. */
-        if (state.net && typeof state.net.clear === 'function') {
-          try { state.net.clear(); } catch (eNet) { }
-        }
-        state.net = null;
+        /* Прошлый запрос этой карточки больше не нужен — снимаем колбэки
+           (ревью 2, п.3: abort() у Lampa нет, ответ долетит, но разбирать и
+           рисовать его никто не будет). */
+        dropNet(state);
         clearBlock(holder);
         /* Пока ряда отзывов нет, описанию достаётся весь его предел (70vh,
            Task 5d); класс вернётся, только если карточки реально нарисованы. */
@@ -661,6 +700,17 @@
       }
     }
 
+    /* Снять незавершённый запрос ряда: колбэки Lampa после clear() не
+       отрабатывают (abort()'а у неё нет — ревью 2, п.3). Общий хелпер для
+       смены карточки, выключения настройки и закрытия карточки. */
+    function dropNet(state) {
+      if (!state) return;
+      if (state.net && typeof state.net.clear === 'function') {
+        try { state.net.clear(); } catch (e) { }
+      }
+      state.net = null;
+    }
+
     /* Снять блок с ряда (выключили настройку на уже открытой карточке). */
     function clearRow(row) {
       try {
@@ -672,8 +722,26 @@
         state.sign = '';
         state.painted = false;
         state.gen++;
+        /* Ревью 2 (п.4): поднять поколение мало — сам запрос продолжал бы
+           висеть до таймаута. */
+        dropNet(state);
       } catch (e) {
         warn('reviews clear failed', e);
+      }
+    }
+
+    /* Карточку закрыли: LC.onActivityEvent зовёт это на 'destroy' вместе с
+       LC.backdrops.cancel (ревью 2, п.4). body — тело активности; состояние
+       НЕ создаём, если рендера на этом узле ещё не было. */
+    function cancel(body) {
+      try {
+        if (!body || typeof body.find !== 'function') return;
+        var holder = body.find('.full-descr');
+        if (!holder || !holder.length) return;
+        var node = holder[0];
+        if (node && node.lumenReviews) dropNet(node.lumenReviews);
+      } catch (e) {
+        warn('reviews cancel failed', e);
       }
     }
 
@@ -687,6 +755,7 @@
       load: load,
       render: render,
       clearRow: clearRow,
+      cancel: cancel,
       openModal: openModal
     };
   })();

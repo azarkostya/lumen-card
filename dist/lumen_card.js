@@ -3238,11 +3238,48 @@ warn('reviews cache purge failed', e);
 
 
 
+
+
+
+
+
+
+function stored(key, value) {
+try {
+if (typeof window === 'undefined' || !window.localStorage) return true;
+var raw = window.localStorage.getItem(key);
+if (raw === null || raw === '') return false;
+var want;
+try { want = JSON.stringify(value); } catch (e) { return true; }
+
+return raw.length === want.length;
+} catch (e2) {
+return true;
+}
+}
+
+
+
+
+
+
 function put(store, key, value) {
-store.set(key, value, false, function (err) {
+var failed = false;
+try {
+store.set(key, value, true, function (err) {
+failed = true;
 warn('reviews cache quota', err);
-purge(store);
 });
+} catch (e) {
+failed = true;
+warn('reviews cache quota', e);
+}
+if (!failed && !stored(key, value)) {
+failed = true;
+warn('reviews cache not stored: ' + key);
+}
+if (failed) purge(store);
+return !failed;
 }
 
 function cacheRead(imdbId, at) {
@@ -3283,7 +3320,12 @@ while (kept.length > MAX_FILMS) drop(store, kept.shift().id);
 
 
 
-put(store, INDEX_KEY, kept);
+
+
+
+
+
+if (!put(store, INDEX_KEY, kept)) return;
 put(store, cacheKey(imdbId), { at: stamp, list: list, total: total, kp: kp || 0 });
 } catch (e) {
 warn('reviews cache write failed', e);
@@ -3306,6 +3348,7 @@ dataType: 'json',
 timeout: TIMEOUT_MS
 });
 }
+
 
 
 
@@ -3691,11 +3734,7 @@ var gen = state.gen;
 
 
 
-
-if (state.net && typeof state.net.clear === 'function') {
-try { state.net.clear(); } catch (eNet) { }
-}
-state.net = null;
+dropNet(state);
 clearBlock(holder);
 
 
@@ -3727,6 +3766,17 @@ warn('reviews render failed', err);
 }
 
 
+
+
+function dropNet(state) {
+if (!state) return;
+if (state.net && typeof state.net.clear === 'function') {
+try { state.net.clear(); } catch (e) { }
+}
+state.net = null;
+}
+
+
 function clearRow(row) {
 try {
 var holder = holderOf(row);
@@ -3737,8 +3787,26 @@ var state = stateOf(holder);
 state.sign = '';
 state.painted = false;
 state.gen++;
+
+
+dropNet(state);
 } catch (e) {
 warn('reviews clear failed', e);
+}
+}
+
+
+
+
+function cancel(body) {
+try {
+if (!body || typeof body.find !== 'function') return;
+var holder = body.find('.full-descr');
+if (!holder || !holder.length) return;
+var node = holder[0];
+if (node && node.lumenReviews) dropNet(node.lumenReviews);
+} catch (e) {
+warn('reviews cancel failed', e);
 }
 }
 
@@ -3752,6 +3820,7 @@ cacheWrite: cacheWrite,
 load: load,
 render: render,
 clearRow: clearRow,
+cancel: cancel,
 openModal: openModal
 };
 })();
@@ -6300,6 +6369,10 @@ if (!e) return;
 if (LC.active && e.object === LC.active.object) {
 if (e.type === 'destroy') {
 LC.backdrops.cancel(LC.active.body);
+
+
+
+try { LC.reviews.cancel(LC.active.body); } catch (eRv) { warn('reviews cancel failed', eRv); }
 LC.active = null;
 } else if (e.type === 'archive' || e.type === 'start') {
 
