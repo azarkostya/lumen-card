@@ -5,26 +5,41 @@
   /*   rowName(id) → 'lumen_' + id                                          */
   /*   filterWatched(results, viewedIds, hide) → results[]                  */
   /*   homeRows(manifest, storedIds, month, limit) → collection[]           */
-  /*   viewedIds() → number[] — runtime: IDs просмотренных (>= 95%)        */
+  /*   viewedIds(results?) → number[]                                        */
+  /*   bumpGen() — runtime: поднимает поколение главной                     */
   /*   register(manifest) — runtime: регистрирует ряды через ContentRows    */
-  /*   unregister() — runtime: сбрасывает флаг регистрации                  */
+  /*   unregister() — runtime: снимает ряды через ContentRows.remove        */
   /*                                                                       */
-  /* Отмена запросов: каждый ряд получает screen._alive от Lampa в call(); */
-  /* Lampa сама вызывает cancel() при уходе с главной — handle.clear()     */
-  /* немедленно отменяет in-flight запрос через LC.sources.                 */
+  /* Отмена запросов (C1-fix): при уходе с главной Lampa.Listener шлёт     */
+  /* 'activity':{type:'archive'|'destroy', component:'main'} →             */
+  /* LC.onActivityEvent() → bumpGen() поднимает _homeGen.                  */
+  /* makeCall захватывает gen при вызове inner-функции; alive() сравнивает  */
+  /* текущий _homeGen с захваченным gen. LC.sources.fetch проверяет alive.  */
+  /*                                                                       */
+  /* Снятие рядов (C2-fix): register() перед регистрацией вызывает         */
+  /* ContentRows.remove для дескрипторов предыдущего набора (doUnregister). */
+  /* unregister() делает то же самое — из deactivate() в 90_runtime.js.    */
   /*                                                                       */
   /* Ленивая загрузка: Lampa вызывает call() только при появлении ряда     */
-  /* во viewport (механизм ContentRows.add). Флаг loaded предотвращает     */
-  /* повторный запрос при повторном показе уже загруженного ряда.          */
-  /*                                                                       */
-  /* Одна регистрация: флаг _registered снимается только через unregister()*/
-  /* (или при деактивации плагина). Повторный вызов register() — no-op.    */
+  /* во viewport (механизм ContentRows.add). Повторный вызов call()        */
+  /* исключён самой ContentRows без перерегистрации.                        */
   /* -------------------------------------------------------------------- */
 
   LC.rows = (function () {
 
-    /* Флаг: ряды уже зарегистрированы. Повторный вызов register() — no-op. */
-    var _registered = false;
+    /* Порог «досмотрено» — тот же, что в LC.progress (src/70_progress.js).
+       Значение 95 дублируется намеренно: это единственная литеральная
+       константа, не общий объект — экспорт/импорт создал бы зависимость
+       между модулями, не нужную для такого малого порога. */
+    var WATCHED = 95;
+
+    /* Поколение главной. Поднимается bumpGen() при уходе с главной.
+       makeCall захватывает текущее значение в момент вызова inner-функции. */
+    var _homeGen = 0;
+
+    /* Дескрипторы, переданные в ContentRows.add при последней регистрации.
+       doUnregister() снимает их через ContentRows.remove и очищает массив. */
+    var _addedRows = [];
 
     /* ------------------------------------------------------------------ */
     /* Чистые функции (без обращения к DOM, Lampa, Storage).               */
@@ -60,7 +75,7 @@
        storedIds: массив id — пользовательский список (не null/пустой → заменяет manifest.home).
        month: 1-12 — текущий месяц для сезонного порядка (null → без сдвига).
        limit: максимальное число рядов (<=0 → пусто; undefined/null → без обрезки).
-       Неизвестные id (не найдены в collections) пропускаются. */
+       Неизвестные id пропускаются. Дубликаты id в списке снимаются. */
     function homeRows(manifest, storedIds, month, limit) {
       if (!manifest || !Array.isArray(manifest.collections)) return [];
       if (typeof limit === 'number' && limit <= 0) return [];
@@ -75,11 +90,15 @@
       /* Список id для главной: пользовательский (непустой) или manifest.home */
       var ids = (storedIds && storedIds.length) ? storedIds : (manifest.home || []);
 
-      /* Собираем объекты, пропуская неизвестные id */
+      /* Собираем объекты, пропуская неизвестные и дублирующиеся id */
+      var seenIds = {};
       var list = [];
       for (i = 0; i < ids.length; i++) {
-        var item = byId[ids[i]];
-        if (item) list.push(item);
+        if (!seenIds[ids[i]]) {
+          seenIds[ids[i]] = 1;
+          var item = byId[ids[i]];
+          if (item) list.push(item);
+        }
       }
 
       /* Сезонный порядок: подборки с season[], содержащим month, наверх.
@@ -109,26 +128,74 @@
     }
 
     /* ------------------------------------------------------------------ */
-    /* Runtime: требуют Lampa.Favorite, Lampa.Timeline.                    */
+    /* Runtime: требуют Lampa.Favorite / Lampa.Timeline / Lampa.Utils.     */
     /* ------------------------------------------------------------------ */
 
     /* Собирает IDs просмотренных карточек:
        - type:'viewed' из Lampa.Favorite
-       - фильмы/сериалы с прогрессом >= 95% (Lampa.Timeline.view)
-       Используется внутри call() при формировании ответа ряда. */
-    function viewedIds() {
-      var ids = [];
+       - карточки из results с прогрессом >= 95% (Lampa.Timeline.view / Lampa.Utils.hash)
+       results — опциональный массив карточек текущего ряда (для Timeline-проверки).
+       Используется в makeCall при формировании ответа ряда. */
+    function viewedIds(results) {
+      var ids = {};
       try {
         if (window.Lampa && Lampa.Favorite) {
           var viewed = Lampa.Favorite.get({ type: 'viewed' });
           if (Array.isArray(viewed)) {
             for (var i = 0; i < viewed.length; i++) {
-              if (viewed[i] && viewed[i].id != null) ids.push(viewed[i].id);
+              if (viewed[i] && viewed[i].id != null) ids[viewed[i].id] = 1;
             }
           }
         }
       } catch (e) {}
-      return ids;
+      try {
+        if (results && results.length &&
+            window.Lampa && Lampa.Timeline &&
+            typeof Lampa.Timeline.view === 'function' &&
+            Lampa.Utils && typeof Lampa.Utils.hash === 'function') {
+          for (var j = 0; j < results.length; j++) {
+            var card = results[j];
+            if (!card || card.id == null || ids[card.id]) continue;
+            var key = card.original_title || card.original_name || card.title || card.name || '';
+            if (!key) continue;
+            var v = Lampa.Timeline.view(Lampa.Utils.hash(key));
+            if (v && (Number(v.percent) || 0) >= WATCHED) ids[card.id] = 1;
+          }
+        }
+      } catch (eT) {}
+      return Object.keys(ids).map(function (k) {
+        var n = parseInt(k, 10);
+        return isNaN(n) ? k : n;
+      });
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* Поколение главной (C1: отмена in-flight запросов при уходе).         */
+    /* ------------------------------------------------------------------ */
+
+    /* Вызывается из LC.onActivityEvent при archive/destroy component==='main'.
+       Поднимает _homeGen, делая все активные alive()-функции вернуть false. */
+    function bumpGen() {
+      _homeGen++;
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* Снятие зарегистрированных рядов (C2-fix: ContentRows.remove).        */
+    /* ------------------------------------------------------------------ */
+
+    /* Снимает все дескрипторы из ContentRows и очищает _addedRows.
+       Вызывается из register() (перед новой регистрацией) и unregister(). */
+    function doUnregister() {
+      if (!_addedRows.length) return;
+      for (var i = 0; i < _addedRows.length; i++) {
+        try {
+          if (window.Lampa && Lampa.ContentRows &&
+              typeof Lampa.ContentRows.remove === 'function') {
+            Lampa.ContentRows.remove(_addedRows[i]);
+          }
+        } catch (e) {}
+      }
+      _addedRows = [];
     }
 
     /* ------------------------------------------------------------------ */
@@ -136,13 +203,12 @@
     /* ------------------------------------------------------------------ */
 
     /* Регистрирует ряды подборок на главной.
-       Одна регистрация за жизнь плагина: повторный вызов — no-op.
-       Ряды берутся из homeRows с настройками lumen_home_rows / lumen_rows_limit.
-       Каждый ряд передаёт screen._alive (alive-guard поколения) в LC.sources.fetch,
-       чтобы при уходе с главной отменить in-flight запрос. */
+       Перед регистрацией снимает ранее добавленные ряды (ContentRows.remove),
+       чтобы не задваивать при повторном вызове (реактивация, смена лимита,
+       поздний манифест). */
     function register(manifest) {
-      if (_registered) return;
-      _registered = true;
+      /* Снять предыдущий набор рядов перед регистрацией нового */
+      doUnregister();
 
       /* Настройки: пользовательский список id и лимит */
       var storedRaw = '';
@@ -162,11 +228,11 @@
       }
     }
 
-    /* Регистрирует один ряд через ContentRows.add.
+    /* Регистрирует один ряд через ContentRows.add и сохраняет дескриптор.
        index — позиция в списке рядов плагина (к нему прибавляется 1,
        чтобы не занимать позицию 0, которую обычно используют штатные ряды).
-       call-функция возвращается фабрикой, чтобы item захватывался замыканием
-       правильно (ES5: var в цикле не создаёт отдельного scope). */
+       call-функция возвращается фабрикой makeCall — item захватывается замыканием
+       правильно в ES5 (var в цикле не создаёт отдельного scope). */
     function registerRow(item, index) {
       try {
         if (!window.Lampa || !Lampa.ContentRows) return;
@@ -175,39 +241,41 @@
         var rowTitle = item.title;
         if (item.badge) rowTitle += ' · ' + item.badge;
 
-        Lampa.ContentRows.add({
+        var descriptor = {
           name: rowName(item.id),
           title: rowTitle,
           screen: 'main',
           index: index + 1,
           call: makeCall(item)
-        });
+        };
+        Lampa.ContentRows.add(descriptor);
+        _addedRows.push(descriptor);
       } catch (e) {}
     }
 
     /* Фабрика call-функции для одного элемента.
-       Lampa передаёт (params, screen) и ждёт функцию(call).
-       screen._alive — alive-guard поколения главной: загрузчик проверяет его
-       перед каждым следующим запросом и перед колбэком. */
+       Lampa передаёт (params, screen) — screen это строка 'main', не объект.
+       Функция(call) выполняет запрос через LC.sources.fetch с alive-guard.
+       alive() сравнивает захваченный gen с текущим _homeGen: если bumpGen()
+       был вызван при уходе с главной, alive() вернёт false и LC.sources.fetch
+       не вызовет колбэки результата. */
     function makeCall(item) {
       return function (params, screen) {
         return function (call) {
-          /* screen._alive — живая функция поколения Lampa.
-             Если главная ушла в архив, живые функции вернут другой gen. */
-          var alive = screen && typeof screen._alive === 'function' ? screen._alive : null;
+          /* Захватываем поколение в момент начала загрузки ряда.
+             bumpGen() при archive/destroy component='main' поднимет _homeGen,
+             после чего alive() вернёт false для этого gen. */
+          var gen = _homeGen;
+          function alive() { return _homeGen === gen; }
 
           var handle = LC.sources['fetch'](
             item,
             1,
             function (json) {
-              /* Фильтр досмотренных применяется прямо перед отдачей в Lampa */
+              /* Фильтр досмотренных: Favorite + Timeline >= 95% */
               var hide = false;
               try { hide = LC.pref ? !!LC.pref('lumen_hide_watched', false) : false; } catch (eIgnore) {}
-              var filtered = filterWatched(json.results, viewedIds(), hide);
-              /* Пустые результаты: передаём как есть — Lampa ContentRows
-                 сама решает, рисовать ряд или нет.
-                 Если живьём окажется что пустой ряд ломает главную —
-                 в notes зафиксировать и переключить на call(false). */
+              var filtered = filterWatched(json.results, viewedIds(json.results), hide);
               call({ results: filtered, title: item.title });
             },
             function () {
@@ -217,7 +285,6 @@
             alive
           );
 
-          /* Lampa вызовет cancel() при уходе с главной */
           return {
             cancel: function () {
               if (handle && handle.clear) handle.clear();
@@ -227,10 +294,10 @@
       };
     }
 
-    /* Сбрасывает флаг регистрации. Вызывается при деактивации плагина,
-       чтобы следующий activate() снова зарегистрировал ряды. */
+    /* Снимает все зарегистрированные ряды через ContentRows.remove (C2-fix).
+       Вызывается из deactivate() в src/90_runtime.js. */
     function unregister() {
-      _registered = false;
+      doUnregister();
     }
 
     return {
@@ -238,6 +305,7 @@
       filterWatched: filterWatched,
       homeRows: homeRows,
       viewedIds: viewedIds,
+      bumpGen: bumpGen,
       register: register,
       unregister: unregister
     };

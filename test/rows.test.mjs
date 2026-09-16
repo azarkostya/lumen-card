@@ -1,5 +1,5 @@
 import test from 'node:test'; import assert from 'node:assert/strict';
-import { load } from './_load.mjs';
+import { load, loadCtx } from './_load.mjs';
 const R = load('44_rows.js');
 
 /* Минимальный манифест для тестов */
@@ -122,4 +122,189 @@ test('homeRows: limit 0 — возвращает []', function () {
 test('homeRows: без limit — не обрезает', function () {
   var rows = R.homeRows(MANIFEST, null, null);
   assert.equal(rows.length, 3);
+});
+test('homeRows: дубликаты id в storedIds не задваивают ряды', function () {
+  var rows = R.homeRows(MANIFEST, ['star-wars', 'anime', 'star-wars'], null, 15);
+  assert.equal(rows.length, 2);
+  assert.equal(rows[0].id, 'star-wars');
+  assert.equal(rows[1].id, 'anime');
+});
+test('homeRows: дубликаты id в manifest.home не задваивают ряды', function () {
+  var m = Object.assign({}, MANIFEST, { home: ['star-wars', 'anime', 'star-wars'] });
+  var rows = R.homeRows(m, null, null, 15);
+  assert.equal(rows.length, 2);
+});
+
+/* ------------------------------------------------------------------ */
+/* Runtime-тесты: register / unregister / bumpGen / makeCall /         */
+/* viewedIds — с fake Lampa                                            */
+/* ------------------------------------------------------------------ */
+
+function setupRows(opts) {
+  opts = opts || {};
+  var addedRows = [];
+  var removedRows = [];
+  var fetchCalls = [];
+  var favViewed = opts.favViewed || [];
+  var timelineData = opts.timelineData || {};
+
+  var Lampa = {
+    ContentRows: {
+      add: function (d) { addedRows.push(d); },
+      remove: function (d) { removedRows.push(d); }
+    },
+    Favorite: {
+      get: function (q) {
+        if (q && q.type === 'viewed') return favViewed;
+        return [];
+      }
+    },
+    Timeline: {
+      view: function (hash) { return timelineData[hash] || null; }
+    },
+    Utils: {
+      hash: function (s) { return 'h:' + s; }
+    }
+  };
+  globalThis.window = { Lampa: Lampa, innerWidth: 1920 };
+  globalThis.Lampa = Lampa;
+
+  var manifest = opts.manifest || {
+    version: 1,
+    home: ['col-a', 'col-b'],
+    collections: [
+      { id: 'col-a', title: 'Collection A', sources: { movie: {} } },
+      { id: 'col-b', title: 'Collection B', sources: { movie: {} } }
+    ]
+  };
+
+  var prefs = Object.assign({ lumen_rows_limit: '15', lumen_home_rows: '', lumen_hide_watched: false }, opts.prefs || {});
+  var fakeSources = {
+    fetch: function (item, page, ok, err, alive) {
+      fetchCalls.push({ item: item, page: page, ok: ok, err: err, alive: alive });
+      return { clear: function () { fetchCalls[fetchCalls.length - 1].cleared = true; } };
+    }
+  };
+
+  var ctx = loadCtx('44_rows.js', {
+    pref: function (name, def) { return (name in prefs) ? prefs[name] : def; },
+    sources: fakeSources,
+    manifest: { get: function () { return manifest; }, load: function (cb) { cb(manifest); } }
+  });
+  var R = ctx.api;
+
+  return { R: R, addedRows: addedRows, removedRows: removedRows, fetchCalls: fetchCalls, Lampa: Lampa, manifest: manifest, prefs: prefs, LC: ctx.LC };
+}
+
+// --- bumpGen ---
+test('bumpGen: метод существует и живёт на публичном API', function () {
+  var s = setupRows();
+  assert.equal(typeof s.R.bumpGen, 'function');
+});
+
+// --- register + unregister ---
+test('register: добавляет дескрипторы в ContentRows.add', function () {
+  var s = setupRows();
+  s.R.register(s.manifest);
+  assert.equal(s.addedRows.length, 2);
+  assert.equal(s.addedRows[0].name, 'lumen_col-a');
+  assert.equal(s.addedRows[1].name, 'lumen_col-b');
+});
+test('unregister: вызывает ContentRows.remove для каждого дескриптора', function () {
+  var s = setupRows();
+  s.R.register(s.manifest);
+  var refs = s.addedRows.slice();
+  s.R.unregister();
+  assert.equal(s.removedRows.length, 2);
+  assert.equal(s.removedRows[0], refs[0]);
+  assert.equal(s.removedRows[1], refs[1]);
+});
+test('unregister: после вызова новый register не задваивает ряды', function () {
+  var s = setupRows();
+  s.R.register(s.manifest);
+  s.R.unregister();
+  s.R.register(s.manifest);
+  /* remove должна быть вызвана по одному разу для каждой регистрации */
+  assert.equal(s.addedRows.length, 4); /* 2 первый + 2 второй */
+  assert.equal(s.removedRows.length, 2); /* 2 — первый набор снят */
+  /* В ContentRows живых должно быть ровно 2 последних (убрали первые 2) */
+  assert.equal(s.addedRows.length - s.removedRows.length, 2);
+});
+test('register: повторный вызов без unregister снимает старые ряды (важно для манифеста)', function () {
+  var s = setupRows();
+  s.R.register(s.manifest);
+  s.R.register(s.manifest); /* второй вызов: должен снять первые */
+  assert.equal(s.removedRows.length, 2); /* первые 2 сняты */
+  assert.equal(s.addedRows.length, 4);  /* 2 + 2 */
+});
+test('lumen_rows_limit: применяется при register', function () {
+  var s = setupRows({ prefs: { lumen_rows_limit: '1', lumen_home_rows: '', lumen_hide_watched: false } });
+  s.R.register(s.manifest);
+  assert.equal(s.addedRows.length, 1);
+});
+
+// --- makeCall + bumpGen (C1) ---
+test('makeCall: alive возвращает true до bumpGen', function () {
+  var s = setupRows();
+  s.R.register(s.manifest);
+  var callFn = s.addedRows[0].call;
+  var innerFn = callFn({}, 'main');
+  var callReceived = false;
+  innerFn(function () { callReceived = true; });
+  var fc = s.fetchCalls[0];
+  assert.ok(typeof fc.alive === 'function', 'alive должна быть функцией');
+  assert.equal(fc.alive(), true); /* до bump — жив */
+});
+test('makeCall: alive возвращает false после bumpGen', function () {
+  var s = setupRows();
+  s.R.register(s.manifest);
+  var callFn = s.addedRows[0].call;
+  var innerFn = callFn({}, 'main');
+  innerFn(function () {});
+  var fc = s.fetchCalls[0];
+  assert.equal(fc.alive(), true);
+  s.R.bumpGen();
+  assert.equal(fc.alive(), false); /* после bump — мёртв */
+});
+test('makeCall: каждый вызов call получает независимое поколение', function () {
+  var s = setupRows();
+  s.R.register(s.manifest);
+  var innerFn1 = s.addedRows[0].call({}, 'main');
+  innerFn1(function () {});
+  var alive1 = s.fetchCalls[0].alive;
+  s.R.bumpGen();
+  var innerFn2 = s.addedRows[0].call({}, 'main');
+  innerFn2(function () {});
+  var alive2 = s.fetchCalls[1].alive;
+  assert.equal(alive1(), false); /* первый мёртв */
+  assert.equal(alive2(), true);  /* второй жив */
+});
+
+// --- viewedIds (I3) ---
+test('viewedIds: возвращает ids из Favorite.viewed', function () {
+  var s = setupRows({ favViewed: [{ id: 101 }, { id: 202 }] });
+  var ids = s.R.viewedIds();
+  assert.ok(ids.includes(101));
+  assert.ok(ids.includes(202));
+});
+test('viewedIds: добавляет id карточек из results с Timeline >= 95', function () {
+  var s = setupRows({
+    timelineData: { 'h:My Movie': { percent: 97 } }
+  });
+  var results = [{ id: 999, original_title: 'My Movie', title: 'My Movie' }];
+  var ids = s.R.viewedIds(results);
+  assert.ok(ids.includes(999), 'должен включать id из Timeline');
+});
+test('viewedIds: НЕ добавляет карточку с Timeline < 95', function () {
+  var s = setupRows({
+    timelineData: { 'h:Partial Movie': { percent: 60 } }
+  });
+  var results = [{ id: 888, original_title: 'Partial Movie', title: 'Partial Movie' }];
+  var ids = s.R.viewedIds(results);
+  assert.ok(!ids.includes(888));
+});
+test('viewedIds: без results не падает и возвращает только Favorite', function () {
+  var s = setupRows({ favViewed: [{ id: 55 }] });
+  var ids = s.R.viewedIds();
+  assert.deepEqual(ids, [55]);
 });

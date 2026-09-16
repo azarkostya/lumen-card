@@ -383,6 +383,13 @@
          Гейт тот же, что у подписки 'full'. */
       if (!activated) return;
 
+      /* Task 15 (C1-fix): уход с главной поднимает поколение _homeGen в LC.rows,
+         делая alive() в makeCall вернуть false для всех текущих запросов рядов.
+         Используем существующую подписку — вторая не заводится. */
+      if ((e.type === 'archive' || e.type === 'destroy') && e.component === 'main') {
+        try { if (LC.rows && LC.rows.bumpGen) LC.rows.bumpGen(); } catch (eBump) {}
+      }
+
       if (LC.active && e.object === LC.active.object) {
         if (e.type === 'destroy') {
           /* Task 11: слой фона, незавершённый запрос отзывов (его колбэки иначе
@@ -928,12 +935,15 @@
       warn('torrents init failed', e5);
     }
     LC.applyTorrentsPref();
-    /* Task 15: при реактивации регистрируем ряды по уже загруженному манифесту.
-       LC.manifest.get() возвращает кэшированный или встроенный DEFAULT.
-       LC.rows.register защищён флагом — no-op если уже зарегистрированы. */
+    /* Task 15 (I4-fix): ряды регистрируются только через manifest.load —
+       и при первой активации (нет гонки с async-загрузкой манифеста),
+       и при реактивации (load отдаёт кэш синхронно).
+       register() сам снимает предыдущие ряды через ContentRows.remove (C2-fix). */
     try {
-      if (LC.rows && LC.rows.register && LC.manifest && LC.manifest.get) {
-        LC.rows.register(LC.manifest.get());
+      if (LC.rows && LC.rows.register && LC.manifest && LC.manifest.load) {
+        LC.manifest.load(function (m) {
+          if (activated && LC.rows && LC.rows.register) LC.rows.register(m);
+        });
       }
     } catch (eRows2) {
       warn('rows register failed', eRows2);
@@ -975,6 +985,22 @@
        плагин выключили и снова включили). */
     try { if (LC.rows && LC.rows.unregister) LC.rows.unregister(); } catch (eRows) {}
   }
+
+  /* Task 15 (I5-fix): перерегистрация рядов при смене lumen_rows_limit.
+     Вызывается из applyPrefChange в 80_settings.js.
+     manifest.load использует кэш (синхронно), поэтому задержки нет. */
+  LC.applyRowsPref = function () {
+    if (!activated) return;
+    try {
+      if (LC.rows && LC.rows.register && LC.manifest && LC.manifest.load) {
+        LC.manifest.load(function (m) {
+          if (activated && LC.rows && LC.rows.register) LC.rows.register(m);
+        });
+      }
+    } catch (e) {
+      warn('rows pref failed', e);
+    }
+  };
 
   LC.applyEnabledPref = function () {
     try {
@@ -1041,19 +1067,6 @@
       followToggle();
       followActivityLifecycle();
       LC.followTimeline();
-
-      /* Task 15: загрузка манифеста и регистрация рядов подборок на главной.
-         manifest.load вызывает колбэк асинхронно (сеть или кэш Storage);
-         к моменту, когда пользователь откроет главную, ряды уже должны быть
-         зарегистрированы. Регистрация защищена флагом _registered в LC.rows —
-         повторный вызов (при переоткрытии главной) — no-op.
-         LC.rows.register проверяет LC.enabled() косвенно: если плагин выключен
-         после load, activated=false, а register вызывается из activate(). */
-      try {
-        LC.manifest.load(function (m) {
-          if (LC.enabled()) LC.rows.register(m);
-        });
-      } catch (eManifest) {}
 
       /* Оформление — последним шагом: к этому моменту шаблон собран и все
          подписки заведены. Выключенный плагин просто ждёт включения из

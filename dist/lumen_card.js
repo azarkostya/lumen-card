@@ -2715,10 +2715,25 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 
+
+
+
+
 LC.rows = (function () {
 
 
-var _registered = false;
+
+
+
+var WATCHED = 95;
+
+
+
+var _homeGen = 0;
+
+
+
+var _addedRows = [];
 
 
 
@@ -2770,10 +2785,14 @@ byId[manifest.collections[i].id] = manifest.collections[i];
 var ids = (storedIds && storedIds.length) ? storedIds : (manifest.home || []);
 
 
+var seenIds = {};
 var list = [];
 for (i = 0; i < ids.length; i++) {
+if (!seenIds[ids[i]]) {
+seenIds[ids[i]] = 1;
 var item = byId[ids[i]];
 if (item) list.push(item);
+}
 }
 
 
@@ -2810,21 +2829,68 @@ return list;
 
 
 
-function viewedIds() {
-var ids = [];
+
+function viewedIds(results) {
+var ids = {};
 try {
 if (window.Lampa && Lampa.Favorite) {
 var viewed = Lampa.Favorite.get({ type: 'viewed' });
 if (Array.isArray(viewed)) {
 for (var i = 0; i < viewed.length; i++) {
-if (viewed[i] && viewed[i].id != null) ids.push(viewed[i].id);
+if (viewed[i] && viewed[i].id != null) ids[viewed[i].id] = 1;
 }
 }
 }
 } catch (e) {}
-return ids;
+try {
+if (results && results.length &&
+window.Lampa && Lampa.Timeline &&
+typeof Lampa.Timeline.view === 'function' &&
+Lampa.Utils && typeof Lampa.Utils.hash === 'function') {
+for (var j = 0; j < results.length; j++) {
+var card = results[j];
+if (!card || card.id == null || ids[card.id]) continue;
+var key = card.original_title || card.original_name || card.title || card.name || '';
+if (!key) continue;
+var v = Lampa.Timeline.view(Lampa.Utils.hash(key));
+if (v && (Number(v.percent) || 0) >= WATCHED) ids[card.id] = 1;
+}
+}
+} catch (eT) {}
+return Object.keys(ids).map(function (k) {
+var n = parseInt(k, 10);
+return isNaN(n) ? k : n;
+});
 }
 
+
+
+
+
+
+
+function bumpGen() {
+_homeGen++;
+}
+
+
+
+
+
+
+
+function doUnregister() {
+if (!_addedRows.length) return;
+for (var i = 0; i < _addedRows.length; i++) {
+try {
+if (window.Lampa && Lampa.ContentRows &&
+typeof Lampa.ContentRows.remove === 'function') {
+Lampa.ContentRows.remove(_addedRows[i]);
+}
+} catch (e) {}
+}
+_addedRows = [];
+}
 
 
 
@@ -2835,8 +2901,8 @@ return ids;
 
 
 function register(manifest) {
-if (_registered) return;
-_registered = true;
+
+doUnregister();
 
 
 var storedRaw = '';
@@ -2869,15 +2935,19 @@ if (!window.Lampa || !Lampa.ContentRows) return;
 var rowTitle = item.title;
 if (item.badge) rowTitle += ' · ' + item.badge;
 
-Lampa.ContentRows.add({
+var descriptor = {
 name: rowName(item.id),
 title: rowTitle,
 screen: 'main',
 index: index + 1,
 call: makeCall(item)
-});
+};
+Lampa.ContentRows.add(descriptor);
+_addedRows.push(descriptor);
 } catch (e) {}
 }
+
+
 
 
 
@@ -2888,7 +2958,9 @@ return function (params, screen) {
 return function (call) {
 
 
-var alive = screen && typeof screen._alive === 'function' ? screen._alive : null;
+
+var gen = _homeGen;
+function alive() { return _homeGen === gen; }
 
 var handle = LC.sources['fetch'](
 item,
@@ -2897,11 +2969,7 @@ function (json) {
 
 var hide = false;
 try { hide = LC.pref ? !!LC.pref('lumen_hide_watched', false) : false; } catch (eIgnore) {}
-var filtered = filterWatched(json.results, viewedIds(), hide);
-
-
-
-
+var filtered = filterWatched(json.results, viewedIds(json.results), hide);
 call({ results: filtered, title: item.title });
 },
 function () {
@@ -2910,7 +2978,6 @@ call({ results: [] });
 },
 alive
 );
-
 
 return {
 cancel: function () {
@@ -2924,7 +2991,7 @@ if (handle && handle.clear) handle.clear();
 
 
 function unregister() {
-_registered = false;
+doUnregister();
 }
 
 return {
@@ -2932,6 +2999,7 @@ rowName: rowName,
 filterWatched: filterWatched,
 homeRows: homeRows,
 viewedIds: viewedIds,
+bumpGen: bumpGen,
 register: register,
 unregister: unregister
 };
@@ -6472,8 +6540,12 @@ if (name === 'lumen_trailer') { LC.applyTrailerPref(); return true; }
 if (name === 'lumen_reviews' || name === 'lumen_kp_key') { LC.applyReviewsPref(); return true; }
 
 
+if (name === 'lumen_hide_watched') { return true; }
 
-if (name === 'lumen_hide_watched' || name === 'lumen_rows_limit') { return true; }
+if (name === 'lumen_rows_limit') {
+try { if (LC.applyRowsPref) LC.applyRowsPref(); } catch (eRows) {}
+return true;
+}
 
 
 if (name === 'lumen_manifest_url') {
@@ -8021,6 +8093,13 @@ if (!e) return;
 
 if (!activated) return;
 
+
+
+
+if ((e.type === 'archive' || e.type === 'destroy') && e.component === 'main') {
+try { if (LC.rows && LC.rows.bumpGen) LC.rows.bumpGen(); } catch (eBump) {}
+}
+
 if (LC.active && e.object === LC.active.object) {
 if (e.type === 'destroy') {
 
@@ -8569,9 +8648,12 @@ LC.applyTorrentsPref();
 
 
 
+
 try {
-if (LC.rows && LC.rows.register && LC.manifest && LC.manifest.get) {
-LC.rows.register(LC.manifest.get());
+if (LC.rows && LC.rows.register && LC.manifest && LC.manifest.load) {
+LC.manifest.load(function (m) {
+if (activated && LC.rows && LC.rows.register) LC.rows.register(m);
+});
 }
 } catch (eRows2) {
 warn('rows register failed', eRows2);
@@ -8613,6 +8695,22 @@ stripAllCards();
 
 try { if (LC.rows && LC.rows.unregister) LC.rows.unregister(); } catch (eRows) {}
 }
+
+
+
+
+LC.applyRowsPref = function () {
+if (!activated) return;
+try {
+if (LC.rows && LC.rows.register && LC.manifest && LC.manifest.load) {
+LC.manifest.load(function (m) {
+if (activated && LC.rows && LC.rows.register) LC.rows.register(m);
+});
+}
+} catch (e) {
+warn('rows pref failed', e);
+}
+};
 
 LC.applyEnabledPref = function () {
 try {
@@ -8679,19 +8777,6 @@ followFull();
 followToggle();
 followActivityLifecycle();
 LC.followTimeline();
-
-
-
-
-
-
-
-
-try {
-LC.manifest.load(function (m) {
-if (LC.enabled()) LC.rows.register(m);
-});
-} catch (eManifest) {}
 
 
 

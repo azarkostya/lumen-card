@@ -308,9 +308,13 @@
     if (name === 'lumen_trailer') { LC.applyTrailerPref(); return true; }
     if (name === 'lumen_reviews' || name === 'lumen_kp_key') { LC.applyReviewsPref(); return true; }
     /* Task 15 (фаза 2): изменение настроек рядов на главной.
-       lumen_hide_watched применяется при следующем вызове call() каждого ряда.
-       lumen_rows_limit применяется при следующей регистрации рядов. */
-    if (name === 'lumen_hide_watched' || name === 'lumen_rows_limit') { return true; }
+       lumen_hide_watched применяется при следующем вызове call() каждого ряда. */
+    if (name === 'lumen_hide_watched') { return true; }
+    /* lumen_rows_limit применяется немедленно через перерегистрацию рядов (I5-fix). */
+    if (name === 'lumen_rows_limit') {
+      try { if (LC.applyRowsPref) LC.applyRowsPref(); } catch (eRows) {}
+      return true;
+    }
     /* Task 14 (фаза 2): URL манифеста изменён — сбрасываем кэш Storage, чтобы
        при следующей загрузке главной пришёл свежий манифест. */
     if (name === 'lumen_manifest_url') {
