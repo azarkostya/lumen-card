@@ -6712,8 +6712,21 @@ if (orphanLayer && orphanLayer.length) {
 
 
 var orphanBody = orphanLayer.parent();
+
+
+
+
+
+try {
 LC.backdrops.cancel(orphanBody);
+} catch (eBg) {
+warn('destroy orphan: backdrop failed', eBg);
+}
+try {
 LC.reviews.cancel(orphanBody);
+} catch (eRv) {
+warn('destroy orphan: reviews failed', eRv);
+}
 }
 return;
 }
@@ -6810,8 +6823,16 @@ LC.active.slideshow.pause();
 
 
 
-var trailer = LC.active.trailer;
-if (trailer && (typeof trailer.isAlive !== 'function' || trailer.isAlive())) return;
+
+
+
+
+
+
+
+
+var layer = LC.active.body && LC.active.body.children ? LC.active.body.children('.lumen-backdrop') : null;
+if (layer && layer.length && layer.hasClass('lumen-trailer-live')) return;
 if (LC.pref('lumen_slideshow', true)) LC.active.slideshow.resume();
 } catch (e) {
 warn('slideshow pref failed', e);

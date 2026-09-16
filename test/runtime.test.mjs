@@ -1360,6 +1360,44 @@ test('I2: у осиротевшей карточки без слоя не зов
   assert.deepEqual(warnLog, []);
 });
 
+/* Инвариант LC.destroyActive «ошибка одного ресурса не оставляет остальные
+   висеть» действует и в ветке осиротевших: вытеснение по лимиту истории
+   maxsave — регулярный путь, и падение одного освобождения не должно возвращать
+   ровно тот дефект (висящий запрос отзывов), который чинит I2. */
+test('I2: исключение при снятии фона не мешает снять запрос отзывов осиротевшей карточки', () => {
+  const LC = freshLC();
+  const reviewCancels = [];
+  LC.backdrops = { apply: () => null, cancel: () => { throw new Error('backdrop'); }, revive: () => null };
+  LC.reviews = { render: () => { }, clearRow: () => { }, cancel: (b) => reviewCancels.push(b) };
+
+  const objA = makeActivityObj('A', true, makeCtrl());
+  const bodyA = objA.activity.render().find('.lumen-backdrop').parent();
+  LC.active = { object: makeActivityObj('C', true, makeCtrl()), body: {}, slideshow: null, trailer: null, data: null };
+
+  LC.onActivityEvent({ type: 'destroy', component: 'full', object: objA });
+
+  assert.deepEqual(reviewCancels, [bodyA], 'запрос отзывов снят, хотя слой фона бросил исключение');
+  assert.equal(warnLog.length, 1, 'ошибка записана своим warn и наружу не вышла');
+  warnLog.length = 0;
+});
+
+test('I2: исключение при снятии запроса отзывов не отменяет уже сделанное освобождение фона', () => {
+  const LC = freshLC();
+  const cancels = [];
+  LC.backdrops = { apply: () => null, cancel: (b) => cancels.push(b), revive: () => null };
+  LC.reviews = { render: () => { }, clearRow: () => { }, cancel: () => { throw new Error('reviews'); } };
+
+  const objA = makeActivityObj('A', true, makeCtrl());
+  const bodyA = objA.activity.render().find('.lumen-backdrop').parent();
+  LC.active = null;
+
+  LC.onActivityEvent({ type: 'destroy', component: 'full', object: objA });
+
+  assert.deepEqual(cancels, [bodyA], 'фон освобождён');
+  assert.equal(warnLog.length, 1, 'исключение не всплыло в подписку activity');
+  warnLog.length = 0;
+});
+
 /* ====================================================================== */
 /* Ревью фазы 1 (M1): слайдшоу под играющим трейлером.                    */
 /*                                                                        */
@@ -1367,30 +1405,66 @@ test('I2: у осиротевшей карточки без слоя не зов
 /* настройки слайдшоу во время ролика поднимала ротацию кадров ПОД ним —   */
 /* загрузка w1280 и кроссфейд в фон играющего iframe.                      */
 /*                                                                        */
-/* Признак «трейлер активен» берётся тот же, что у LC.trailer.stopActive — */
-/* поле LC.active.trailer, — и с той же проверкой живости контроллера,     */
-/* что у liveSlideshow(): доигравший до конца ролик поле НЕ обнуляет       */
-/* (обнуляет только stopActive), поэтому одного `if (trailer)` мало.       */
+/* Признак «ролик РЕАЛЬНО играет» — класс lumen-trailer-live на слое, его    */
+/* ставит onStart вместе с паузой слайдшоу и снимает cleanup() (жизненный   */
+/* цикл класса запинан в test/trailer.test.mjs:550-560, 596-597, 706).      */
+/* Живости контроллера здесь НЕДОСТАТОЧНО: schedule() возвращает живой      */
+/* контроллер сразу, а ролик стартует лишь через 3 с и может не стартовать  */
+/* вовсе (таймаут 6 с). Гейт по живости заморозил бы слайдшоу на всё это    */
+/* окно, и при неудавшемся ролике cleanup() его бы не вернул — paused у     */
+/* него остался бы false. Слой берётся из LC.active.body тем же путём, что  */
+/* и везде в модуле (body.children('.lumen-backdrop')), без глобального     */
+/* .activity--active.                                                       */
 /* ====================================================================== */
 
-test('M1: applySlideshowPref не поднимает кадры под играющим трейлером, но паузу ставит', () => {
+function activeWithLayer(LC, slideshow, opts) {
+  opts = opts || {};
+  const layer = new FakeEl(opts.live ? ['lumen-backdrop', 'lumen-trailer-live'] : ['lumen-backdrop']);
+  const body = new FakeEl(['activity__body'], [layer]);
+  LC.active = { object: {}, body: body, slideshow: slideshow, trailer: opts.trailer || null, data: null };
+  return layer;
+}
+
+test('M1: под играющим роликом кадры не поднимаем — признак берётся со слоя (lumen-trailer-live)', () => {
   const { LC } = initLC({ storage: { lumen_slideshow: 'true' } });
   const slideshow = makeCtrl();
-  LC.active = {
-    object: {}, body: EMPTY, slideshow: slideshow,
-    trailer: { destroy() { }, isAlive: () => true }, data: null
-  };
+  const layer = activeWithLayer(LC, slideshow, { live: true, trailer: { destroy() { }, isAlive: () => true } });
 
   LC.applySlideshowPref();
   assert.equal(slideshow.pauseCalls, 1, 'пауза ставится всегда — «выключили слайдшоу» обязано сработать и под роликом');
   assert.equal(slideshow.resumeCalls, 0, 'под играющим роликом кадры не крутим');
 
-  /* Ролик доиграл сам (player -> kill -> onEnd -> cleanup): alive стал false,
-     но LC.active.trailer всё ещё указывает на мёртвый контроллер. */
-  LC.active.trailer = { destroy() { }, isAlive: () => false };
+  /* Ролик закончился штатно: cleanup() снял класс со слоя (и сам вернул
+     ротацию — паузу ставил onStart, paused был true). Поведение прежнее. */
+  layer.removeClass('lumen-trailer-live');
   LC.applySlideshowPref();
   assert.equal(slideshow.pauseCalls, 2);
-  assert.equal(slideshow.resumeCalls, 1, 'трейлер мёртв — ротация возвращается');
+  assert.equal(slideshow.resumeCalls, 1, 'ролик кончился — ротация возвращается');
+  assert.deepEqual(warnLog, []);
+});
+
+/* Долг, закрытый по решению координатора: именно тот сценарий, ради которого
+   признак уточнён с «контроллер жив» до «ролик реально играет». */
+test('M1 (долг): настройку сменили в окне ожидания ролика, ролик не завёлся — слайдшоу не осталось на паузе', () => {
+  const { LC } = initLC({ storage: { lumen_slideshow: 'true' } });
+  const slideshow = makeCtrl();
+  /* Окно ожидания: schedule() уже вернул ЖИВОЙ контроллер (таймер старта 3 с,
+     дальше таймаут 6 с), но onStart ещё не случился — класса на слое нет и
+     слайдшоу никто не паузил. */
+  const layer = activeWithLayer(LC, slideshow, { live: false, trailer: { destroy() { }, isAlive: () => true } });
+
+  LC.applySlideshowPref();
+
+  assert.equal(slideshow.resumeCalls, 1,
+    'ролик ещё не пошёл — кадры обязаны крутиться, одного живого контроллера мало');
+
+  /* Ролик так и не завёлся (нет сети, YouTube недоступен): player() убивает
+     себя по WAIT_MS -> onEnd -> cleanup(). Класс на слой не ставился, paused у
+     трейлера остался false — значит cleanup() слайдшоу НЕ возобновляет. Если
+     бы мы оставили его на паузе, он провисел бы до переоткрытия карточки. */
+  assert.equal(layer.hasClass('lumen-trailer-live'), false, 'ролик не играл — класса на слое не было');
+  assert.equal(slideshow.pauseCalls, 1);
+  assert.equal(slideshow.resumeCalls, 1, 'слайдшоу не должно остаться на паузе после неудавшегося трейлера');
   assert.deepEqual(warnLog, []);
 });
 
@@ -1398,7 +1472,7 @@ test('M1: без трейлера поведение прежнее — вклю
   const storage = {};
   const { LC } = initLC({ storage });
   const slideshow = makeCtrl();
-  LC.active = { object: {}, body: EMPTY, slideshow: slideshow, trailer: null, data: null };
+  activeWithLayer(LC, slideshow, { live: false });
 
   LC.applySlideshowPref();
   assert.equal(slideshow.resumeCalls, 1);
@@ -1407,6 +1481,13 @@ test('M1: без трейлера поведение прежнее — вклю
   LC.applySlideshowPref();
   assert.equal(slideshow.pauseCalls, 2);
   assert.equal(slideshow.resumeCalls, 1, 'выключенное слайдшоу остаётся на текущем кадре');
+
+  /* Тела активности со слоем может не оказаться вовсе (слой сняли, тело
+     пересобрали) — гейт не должен ни падать, ни блокировать ротацию. */
+  storage.lumen_slideshow = 'true';
+  LC.active = { object: {}, body: EMPTY, slideshow: slideshow, trailer: null, data: null };
+  LC.applySlideshowPref();
+  assert.equal(slideshow.resumeCalls, 2, 'без слоя признака «ролик играет» нет — ротация возвращается');
   assert.deepEqual(warnLog, []);
 });
 

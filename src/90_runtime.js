@@ -418,8 +418,21 @@
              уничтоженной карточки (инвариант 0.3 п.5). Тела активности
              достаточно: cancel() ищет состояние по body.find('.full-descr'). */
           var orphanBody = orphanLayer.parent();
-          LC.backdrops.cancel(orphanBody);
-          LC.reviews.cancel(orphanBody);
+          /* Каждое освобождение — в своём try/catch, тот же инвариант, что у
+             LC.destroyActive: ошибка одного ресурса не должна оставить
+             остальные висеть. Ветка вытеснения по лимиту истории maxsave —
+             регулярный путь, и падение снятия фона вернуло бы ровно тот дефект,
+             который здесь и чинится, — висящий до таймаута 8 с запрос отзывов. */
+          try {
+            LC.backdrops.cancel(orphanBody);
+          } catch (eBg) {
+            warn('destroy orphan: backdrop failed', eBg);
+          }
+          try {
+            LC.reviews.cancel(orphanBody);
+          } catch (eRv) {
+            warn('destroy orphan: reviews failed', eRv);
+          }
         }
         return;
       }
@@ -510,14 +523,22 @@
          смена настройки слайдшоу во время трейлера запускала бы загрузку кадра
          w1280 и кроссфейд в фон работающего iframe. Паузу при этом ставим
          всегда: «выключили слайдшоу» обязано сработать и под роликом. Ничего не
-         теряется и при включении — когда трейлер закончится, его cleanup()
+         теряется и при включении — когда ролик закончится, cleanup() трейлера
          сам позовёт resume(), а тот перечитает lumen_slideshow заново.
-         Признак «трейлер активен» — тот же, что у LC.trailer.stopActive (поле
-         LC.active.trailer), и с той же проверкой живости контроллера, что в
-         liveSlideshow() выше: доигравший до конца ролик поле не обнуляет (его
-         обнуляет только stopActive), поэтому одного `if (trailer)` мало. */
-      var trailer = LC.active.trailer;
-      if (trailer && (typeof trailer.isAlive !== 'function' || trailer.isAlive())) return;
+
+         Признак — «ролик РЕАЛЬНО играет», то есть класс lumen-trailer-live на
+         слое: его ставит onStart вместе с паузой слайдшоу и снимает cleanup()
+         (src/55_trailer.js). Живости контроллера здесь НЕДОСТАТОЧНО:
+         schedule() отдаёт живой контроллер сразу, а ролик стартует лишь через
+         3 с и может не стартовать вовсе (таймаут 6 с). Гейт по живости
+         заморозил бы кадры на всё это окно, а при неудавшемся ролике cleanup()
+         их бы не вернул — paused у него так и остался бы false, и слайдшоу
+         провисело бы до переоткрытия карточки.
+         Слой берётся из тела активности тем же путём, что и везде в плагине
+         (body.children('.lumen-backdrop') — так его ищут и LC.backdrops.cancel,
+         и LC.trailer.schedule), без глобального .activity--active. */
+      var layer = LC.active.body && LC.active.body.children ? LC.active.body.children('.lumen-backdrop') : null;
+      if (layer && layer.length && layer.hasClass('lumen-trailer-live')) return;
       if (LC.pref('lumen_slideshow', true)) LC.active.slideshow.resume();
     } catch (e) {
       warn('slideshow pref failed', e);
