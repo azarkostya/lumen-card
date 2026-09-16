@@ -164,7 +164,14 @@
        display:grid следующей декларацией того же свойства переопределяет её
        там, где grid поддерживается (невалидное значение в старом браузере
        просто не применяется, действует последнее валидное — flex). */
-    css.push('.lumen-card .lumen-content{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;-webkit-box-align:end;-webkit-align-items:end;align-items:end;display:-ms-grid;display:grid;grid-template-columns:minmax(0,1fr) auto;grid-auto-rows:auto;-webkit-column-gap:2.63em;column-gap:2.63em}');
+    /* Ревью Task 5d (Minor 2): display:-ms-grid убран и здесь. Он включал
+       старую реализацию грида (IE/Edge ≤ 15) БЕЗ -ms-grid-columns, а в ней без
+       явных дорожек и -ms-grid-column/-row у каждого ребёнка всё складывается
+       в клетку 1×1 внахлёст; -ms-grid-columns:minmax(0,1fr) auto тут не
+       спасает — minmax() в том синтаксисе не поддерживался. Флекс-фолбэк
+       строкой выше раскладывает колонки корректно. Зазор колонок — только
+       column-gap: -webkit-column-gap относится к multicol, в grid не работает. */
+    css.push('.lumen-card .lumen-content{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;-webkit-box-align:end;-webkit-align-items:end;align-items:end;display:grid;grid-template-columns:minmax(0,1fr) auto;grid-auto-rows:auto;grid-column-gap:2.63em;column-gap:2.63em}');
     css.push('.lumen-card .lumen-content > .lumen-in{grid-column:1;max-width:52em}');
     css.push('.lumen-card .lumen-content > .lumen-side{grid-column:2;grid-row:1 / 7;-ms-grid-row-align:end;align-self:end;-webkit-flex-shrink:0;flex-shrink:0;text-align:right;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-orient:vertical;-webkit-flex-direction:column;flex-direction:column;-webkit-box-align:end;-webkit-align-items:flex-end;align-items:flex-end}');
     /* Фолбэк для Chromium < 57 (webOS 3, старые Tizen — CSS Grid ещё не
@@ -350,17 +357,38 @@
        (Дата выхода / Бюджет / Страны) скрыт — это ровно то, что теперь
        показывает наша таблица; .full-descr__tags (жанры, студии) остаётся:
        там живут .selector, их убирать нельзя — сломается навигация пультом. */
+    /* Ревью Task 5d (п.2): штатный заголовок ряда — «Подробно» (Descriptiopn.
+       create(): Template.get('items_line', {title: Lang.translate('full_detail')}),
+       lang/ru.js = «Подробно»), он дублировал бы нашу метку панели из §10.
+       Скрываем именно __head, а не __title: у head свои margin-bottom и
+       горизонтальный padding, от __title осталась бы пустая полоса. .selector
+       внутри head у ряда описания нет — навигация не затрагивается. */
+    css.push('.lumen-descr-row .items-line__head{display:none}');
     css.push('.lumen-descr-row .full-descr{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:start;-webkit-align-items:flex-start;align-items:flex-start;-webkit-flex-wrap:wrap;flex-wrap:wrap}');
     css.push('.lumen-descr-row .full-descr__left{-webkit-box-flex:1;-webkit-flex:1 1 auto;flex:1 1 auto;min-width:0;margin-right:3.51em}');
-    css.push('.lumen-descr-row .full-descr__text{font-family:' + FB + ';font-weight:400;font-size:1.05em;line-height:1.45;color:' + C.text + ';max-width:42.96em;width:auto}');
+    /* Ревью Task 5d (п.1): у Lampa на .full-descr__text висят max-height:41vh и
+       mask-image с прозрачным низом (vendor/lampa/css/app.css) — маска
+       применяется ВСЕГДА, поэтому низ описания выцветал на любой карточке, а
+       длинные описания обрезались. Экран 07 показывает полный ровный текст:
+       снимаем и ограничение высоты, и маску (обе записи — с -webkit-, у
+       движков ТВ работает именно префиксная). */
+    css.push('.lumen-descr-row .full-descr__text{font-family:' + FB + ';font-weight:400;font-size:1.05em;line-height:1.45;color:' + C.text + ';max-width:42.96em;width:auto;max-height:none;-webkit-mask-image:none;mask-image:none}');
     css.push('.lumen-descr-row .full-descr__details{display:none}');
     css.push('.lumen-descr-row .lumen-facts{-webkit-flex-shrink:0;flex-shrink:0;min-width:19.73em;max-width:100%}');
     css.push('.lumen-descr-row .lumen-facts__title{font-family:' + FM + ';font-weight:600;font-size:.70em;line-height:1;letter-spacing:.14em;color:' + C.smoke + ';margin-bottom:.88em}');
     /* Сетка: display:flex — база и фолбэк (webOS 3 / старые Tizen не знают
        grid и оставят последнее валидное значение), display:grid следующей
        декларацией переопределяет её там, где grid есть — тот же приём, что у
-       .lumen-content. Зазоры §10: 10px/24px = .44em/1.05em. */
-    css.push('.lumen-descr-row .lumen-facts__grid{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;display:-ms-grid;display:grid;grid-template-columns:auto 1fr;-webkit-column-gap:1.05em;column-gap:1.05em;row-gap:.44em}');
+       .lumen-content. Зазоры §10: 10px/24px = .44em/1.05em.
+       Ревью Task 5d (Minor 1): у Chrome 57–65 (webOS 4.x, Tizen 3/4) grid уже
+       есть — значит @supports not (display:grid) их НЕ поймает, — но зазоры
+       там назывались grid-row-gap/grid-column-gap, а row-gap/column-gap ещё
+       нет; без старых записей таблица на этих ТВ шла бы вплотную. Прежний
+       -webkit-column-gap убран: это свойство multicol, в grid оно не работает
+       вовсе. display:-ms-grid снят (Minor 2): без -ms-grid-columns старый
+       Edge/IE сложил бы все ячейки в одну клетку 1×1 — внахлёст, что заметно
+       хуже честного flex-фолбэка строкой выше. */
+    css.push('.lumen-descr-row .lumen-facts__grid{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;display:grid;grid-template-columns:auto 1fr;grid-row-gap:.44em;grid-column-gap:1.05em;row-gap:.44em;column-gap:1.05em}');
     css.push('.lumen-descr-row .lumen-facts__label{font-family:' + FB + ';font-weight:400;font-size:.79em;line-height:1.3;color:' + C.smoke + '}');
     css.push('.lumen-descr-row .lumen-facts__value{font-family:' + FB + ';font-weight:500;font-size:.79em;line-height:1.3;color:' + C.text + '}');
     /* Без grid row-gap/column-gap не работают, а пары «лейбл/значение» не знают,

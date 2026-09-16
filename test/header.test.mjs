@@ -178,6 +178,13 @@ test('renderEpisodes: мутация того же массива серий (д
   list[5].air_date = '2025-12-30';
   LC.header.decorate(c.root, data);
   assert.equal(c.track._children.length, 6);
+
+  /* Ревью Task 5d (Minor 3): сезон входит в подпись — новый сезон в том же
+     массиве пересобирает ряд, а не оставляет серии прошлого. */
+  const before = c.track._children[0];
+  list[0].season_number = 3;
+  LC.header.decorate(c.root, data);
+  assert.notEqual(c.track._children[0], before, 'сменился сезон — ряд пересобран');
   assert.deepEqual(warnLog, []);
 });
 
@@ -404,6 +411,31 @@ test('descr: повторный build/открытие карточки не д�
   LC.header.descr(d.row, DUNE);
   LC.header.descr(d.row, DUNE);
   assert.equal(factsOf(d).length, 1);
+});
+
+/* Ревью Task 5d (Minor 4): decorate ряда приходит дважды на открытие (build
+   description и страховочный complite) — второй раз таблица не пересобирается. */
+test('descr: тот же e.data — рендер пропущен целиком; изменившиеся данные перерисовывают', () => {
+  const d = makeDescrRow();
+  LC.header.descr(d.row, DUNE);
+  const first = factsOf(d)[0];
+
+  LC.header.descr(d.row, DUNE);
+  assert.equal(factsOf(d)[0], first, 'узел тот же — повторная сборка пропущена по подписи');
+
+  LC.header.descr(d.row, { movie: { title: 'Дюна', original_title: 'Dune', release_date: '2021-09-15', runtime: 155 } });
+  const second = factsOf(d)[0];
+  assert.notEqual(second, first, 'данные другие — таблица пересобрана');
+  assert.ok(second.html().indexOf('Dune') !== -1);
+  assert.equal(factsOf(d).length, 1);
+});
+
+test('descr: значения экранируются — разметка из данных не становится тегом', () => {
+  const d = makeDescrRow();
+  LC.header.descr(d.row, { movie: { title: 'X', original_title: '<b>x</b>', release_date: '2024-01-01' } });
+  const html = factsOf(d)[0].html();
+  assert.equal(html.indexOf('<b>'), -1, 'тег из данных не должен попасть в разметку');
+  assert.ok(html.indexOf('&lt;b&gt;x&lt;/b&gt;') !== -1, 'ожидалось экранированное значение');
 });
 
 test('descr: сериал — создатель и «сезонов · серий»', () => {

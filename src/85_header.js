@@ -435,14 +435,20 @@
   /* Долг ревью Task 5c (п.2): «тот же список» — это та же ссылка И та же
      сигнатура. Lampa дописывает вышедшую серию и правит её поля прямо в том же
      массиве e.data.episodes.episodes[], поэтому сверки по ссылке не хватало:
-     ряд оставался старым. Длина, номера краёв и дата последней серии ловят
-     реальные правки (добавили серию, сменился сезон, уточнили дату выхода), не
-     обходя весь массив на каждый decorate. */
+     ряд оставался старым.
+     Ревью Task 5d (Minor 3): в подпись входят длина списка, сезон и номер
+     первой серии, номер и дата выхода последней — то есть ровно смена сезона,
+     дописанная в конец серия и уточнённая дата её выхода. Правку В СЕРЕДИНЕ
+     списка (переименовали третью серию, сдвинули её дату) подпись НЕ ловит —
+     это осознанный размен: обход всего массива на каждый decorate (а он
+     приходит и на build, и на complite, и на каждый update таймлайна) дороже,
+     чем редкий неперерисованный заголовок серии. Состояния просмотра при этом
+     обновляются отдельно — через refreshEpisode по хэшу. */
   function episodesSign(list) {
     if (!list || !list.length) return '';
     var first = list[0] || {};
     var last = list[list.length - 1] || {};
-    return [list.length, first.episode_number, last.episode_number, last.air_date].join('|');
+    return [list.length, first.season_number, first.episode_number, last.episode_number, last.air_date].join('|');
   }
 
   function renderEpisodes(root, data) {
@@ -616,6 +622,21 @@
     };
   }
 
+  /* Подпись данных таблицы: всё, из чего LC.cardinfo.facts собирает строки, но
+     без самой сборки — числа и короткие строки, уже лежащие в e.data.movie.
+     lang — любая строка интерфейса: меняется вместе с языком. */
+  function factsSign(data, lang) {
+    var movie = (data && data.movie) || {};
+    var crew = (data && data.persons && data.persons.crew && data.persons.crew.length) || 0;
+    return [movie.id, movie.title || movie.name, movie.original_title || movie.original_name,
+      movie.release_date || movie.first_air_date, movie.runtime,
+      movie.number_of_seasons, movie.number_of_episodes,
+      (movie.genres && movie.genres.length) || 0,
+      (movie.production_countries && movie.production_countries.length) || 0,
+      (movie.created_by && movie.created_by.length && movie.created_by[0] && movie.created_by[0].name) || '',
+      crew, lang].join('|');
+  }
+
   /* Ряд описания строит сама Lampa (компонент 'description', в её исходнике
      класс назван Descriptiopn): items_line -> .items-line__body -> .full-descr
      -> .full-descr__left (текст, детали, теги). Мы дописываем в .full-descr
@@ -626,17 +647,39 @@
      Идемпотентно: повторный build, возврат на карточку backward'ом и запасной
      вызов на complite не должны дублировать блок — старый узел снимается
      перед вставкой. Сам .full-descr — та же точка вставки для отзывов
-     Кинопоиска (Task 9): блок отзывов встанет соседом, эту разметку не трогая. */
+     Кинопоиска (Task 9): блок отзывов встанет соседом, эту разметку не трогая.
+
+     Ревью Task 5d (Minor 5): блок живёт ровно столько, сколько узел ряда —
+     своего таймера, слушателя и ссылок наружу у него нет, снимать его при
+     закрытии карточки не нужно. Выключения оформления «на лету» у карточки
+     нет вовсе: ui_active (90_runtime.js) выставляется один раз в LC.init и не
+     гасится, а смена настроек пересобирает <style id="lumen-card-css">, а не
+     удаляет его (LC.injectCss) — сценария «CSS снят, а .lumen-facts остался
+     нестилизованным» на карточке не существует. Отдельный toggle(false) есть
+     только у экранов торрентов, и у них свой <style>. */
   function renderDescrRow(row, data) {
     if (!row || !row.length) return;
     var holder = row.find('.full-descr');
     if (!holder.length) return;
 
     row.addClass('lumen-descr-row');
+
+    /* Ревью Task 5d (Minor 4): decorate ряда приходит дважды на открытие
+       (build description и страховочный complite) с одним и тем же e.data —
+       второй раз пропускаем целиком, до сборки словаря строк и пересчёта
+       фактов, как renderEpisodes пропускает повторную сборку того же списка.
+       Подпись дешёвая (без обхода жанров и съёмочной группы) и включает
+       LC.lang: смена языка интерфейса перерисует таблицу. */
+    var sign = factsSign(data, LC.lang('lumen_card_facts'));
+    var previous = holder[0].lumenFacts;
+    if (previous && previous.sign === sign && (!previous.count || holder.find('.lumen-facts').length)) return;
+
     holder.find('.lumen-facts').remove();
+    holder[0].lumenFacts = { sign: sign, count: 0 };
 
     var list = LC.cardinfo.facts((data && data.movie) || null, data && data.persons, factWords());
     if (!list.length) return;
+    holder[0].lumenFacts = { sign: sign, count: list.length };
 
     var esc = LC.util.esc;
     var cells = [];

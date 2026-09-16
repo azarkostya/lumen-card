@@ -391,6 +391,41 @@ test('buildCss: полное описание в ряду — 24px/1.45 (1.05em)
   assert.ok(wrap && wrap.indexOf('display:flex') !== -1, 'ряд описания — flex (описание слева, таблица справа)');
 });
 
+test('buildCss: описание не обрезается и не выцветает — снятые max-height и mask-image Lampa', () => {
+  const decl = findDecl(css, (sel) => sel === '.lumen-descr-row .full-descr__text');
+  assert.ok(decl, 'правило .full-descr__text не найдено');
+  assert.ok(/max-height\s*:\s*none/.test(decl), 'штатный max-height:41vh должен сниматься');
+  assert.ok(decl.indexOf('-webkit-mask-image:none') !== -1, 'нужна префиксная запись — на движках ТВ работает именно она');
+  assert.ok(/[^-]mask-image\s*:\s*none/.test(decl), 'нужна и беспрефиксная mask-image:none');
+});
+
+test('buildCss: штатный заголовок ряда «Подробно» скрыт целиком (__head, не __title)', () => {
+  const head = findDecl(css, (sel) => sel === '.lumen-descr-row .items-line__head');
+  assert.ok(head && /display\s*:\s*none/.test(head), 'нет правила скрытия .items-line__head');
+  assert.equal(findDecl(css, (sel) => sel.indexOf('.items-line__title') !== -1), null,
+    'скрывать __title нельзя — у __head остаются свои отступы, получилась бы пустая полоса');
+});
+
+test('buildCss: у сетки таблицы есть старые grid-row-gap/grid-column-gap (Chrome 57-65: webOS 4, Tizen 3/4)', () => {
+  const grid = findDecl(css, (sel) => sel === '.lumen-descr-row .lumen-facts__grid');
+  assert.ok(grid, 'правило сетки не найдено');
+  assert.ok(grid.indexOf('grid-row-gap:.44em') !== -1, 'нет старого grid-row-gap');
+  assert.ok(grid.indexOf('grid-column-gap:1.05em') !== -1, 'нет старого grid-column-gap');
+  assert.ok(grid.indexOf('row-gap:.44em') !== -1 && grid.indexOf('column-gap:1.05em') !== -1, 'нет современных row-gap/column-gap');
+  assert.equal(grid.indexOf('-webkit-column-gap'), -1, '-webkit-column-gap — это multicol, в grid не работает');
+});
+
+/* Ревью Task 5d (Minor 2): display:-ms-grid включает старую реализацию грида
+   (IE/Edge <= 15), и без явных -ms-grid-columns все ячейки ложатся в клетку
+   1x1 внахлёст — хуже, чем честный flex-фолбэк. Либо дорожки заданы, либо
+   -ms-grid не объявляется вовсе. */
+test('buildCss: нет display:-ms-grid без -ms-grid-columns', () => {
+  const offenders = ruleBodies(css)
+    .filter((r) => /display\s*:\s*-ms-grid/.test(r.decl) && !/-ms-grid-columns/.test(r.decl))
+    .map((r) => r.selectors.join(','));
+  assert.deepEqual(offenders, []);
+});
+
 test('buildCss: наезд Ken Burns — на корне .lumen-backdrop (не .lumen-card: слой фона лежит вне карточки)', () => {
   const offender = findDecl(css, (sel) => sel.indexOf('.lumen-card') === 0 && sel.indexOf('lumen-bg__img') !== -1);
   assert.equal(offender, null, '.lumen-bg__img не должен встречаться в правилах с корнем .lumen-card — такой потомковый селектор никогда не совпадёт с реальным DOM (.lumen-backdrop — сосед .lumen-card, не предок .lumen-bg__img)');
