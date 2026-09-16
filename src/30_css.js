@@ -1078,6 +1078,18 @@
     css.push('@keyframes lumen-hero-in{from{opacity:0;transform:translateY(.53em)}to{opacity:1;transform:none}}');
     css.push('.lumen-hero.lumen-motion-lite .lumen-hero__text,.lumen-hero.lumen-motion-off .lumen-hero__text{opacity:1;-webkit-transform:none;transform:none;-webkit-transition:none;transition:none;-webkit-animation:none;animation:none}');
 
+    /* --- Task 19: чипы профилей настроения (design-spec-main §Task 19) ---
+       .lumen-moods живёт ВНУТРИ .lumen-hero__text (после .lumen-hero__chips).
+       Чтобы чипы были кликабельны, перекрываем pointer-events: none героя
+       прямо на блоке (не на всём герое — тот не интерактивен намеренно).
+       Чипы используют те же токены акцента, что хабовые .lumen-chip. */
+    css.push('.lumen-hero .lumen-moods{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;margin-top:.79em;pointer-events:auto}');
+    css.push('.lumen-hero .lumen-mood-chip{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;height:2.46em;padding:0 1.05em;margin:0 .53em .53em 0;border-radius:.53em;border:.04em solid ' + C.line + ';background:rgba(' + hexToRgb(C.panel) + ',.78);font-family:' + FB + ';font-weight:600;font-size:.88em;line-height:1;color:' + C.muted + ';white-space:nowrap;cursor:default;-webkit-transition:background-color .2s,border-color .2s,color .2s;transition:background-color .2s,border-color .2s,color .2s}');
+    css.push('.lumen-hero .lumen-mood-chip.focus{background:' + A + ';color:' + t.onac + ';border-color:' + AL + ';border-width:.11em}');
+    /* Motion-off и lite: класс ставится на .lumen-hero (applyMotion), поэтому
+       правило отключения перехода вешаем на героя — не на .lumen-main. */
+    css.push('.lumen-hero.lumen-motion-off .lumen-mood-chip,.lumen-hero.lumen-motion-lite .lumen-mood-chip{-webkit-transition:none;transition:none}');
+
     /* Ряды живут в СВОЕЙ области — под героем. Сдвигается сама область
        прокрутки (margin-top + height), а не содержимое (padding-top).
 

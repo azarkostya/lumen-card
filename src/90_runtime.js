@@ -1031,6 +1031,13 @@
     } catch (eHero) {
       warn('hero mount failed', eHero);
     }
+    /* Task 19: чипы профилей настроения — подписываются на события Activity
+       и сами монтируются/снимаются при переходах на главную и с неё. */
+    try {
+      if (LC.moods && LC.moods.install) LC.moods.install();
+    } catch (eMoods) {
+      warn('moods install failed', eMoods);
+    }
   }
 
   function deactivate() {
@@ -1074,6 +1081,8 @@
     /* Task 18: снять героя целиком — узел, класс корня, наблюдатель,
        незавершённые предзагрузку кадра и запрос деталей. */
     try { if (LC.hero && LC.hero.unmount) LC.hero.unmount(); } catch (eHeroOff) {}
+    /* Task 19: снять чипы настроения и отписаться от событий Activity. */
+    try { if (LC.moods && LC.moods.uninstall) LC.moods.uninstall(); } catch (eMoodsOff) {}
   }
 
   /* Task 15 (I5-fix): перерегистрация рядов при смене lumen_rows_limit.
