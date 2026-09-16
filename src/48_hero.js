@@ -425,9 +425,18 @@
 
     /* Предзагрузка кадра фокусной карточки. Кадра нет — берём постер и
        помечаем слой для размытия (экран 22 брифа: композиция не меняется).
-       Тот же URL повторно не грузится. */
+       Тот же URL повторно не грузится.
+
+       Режим анимаций 'off' кадр НЕ обновляет вовсе (таблица рисков плана:
+       «в режиме motion off герой не обновляет кадр, только текст»). Гейт
+       стоит до new Image(): в 'off' дорога не плавность смены слоёв (её и
+       так гасит CSS), а сама загрузка и декодирование большого кадра —
+       w1280/original на каждую остановку фокуса, поверх кадра, который
+       параллельно тянет сама Lampa через Background.change. Пользователь
+       слабого ТВ выбирает 'off' именно ради этого. */
     function loadFrame(model, captured) {
       if (!state) return;
+      if (motionMode() === 'off') return;
       var blur = false;
       var path = model.backdrop;
       if (!path) { path = model.poster; blur = true; }
@@ -512,7 +521,6 @@
         var captured = ++gen;
         cancelPending();
         state.shownId = card.id;
-        state.card = card;
         state.details = null;
         state.model = null;
         var model = heroModel(card, null, words());
@@ -653,7 +661,6 @@
           loader: null,
           net: null,
           shownId: null,
-          card: null,
           details: null,
           model: null,
           pending: null,

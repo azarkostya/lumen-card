@@ -537,8 +537,26 @@ function initLC(opts) {
     franchise: (root, movie) => franchiseCalls.push({ root, movie })
   };
 
+  /* Task 18: герой главной — заглушка того же рода, что hub/backdrops/trailer.
+     Сам модуль проверяет test/hero.test.mjs; здесь важна СКЛЕЙКА: какие
+     события его монтируют и снимают и какой корень при этом передан. Поэтому
+     заглушка повторяет ровно тот контракт настоящего LC.hero, на который
+     опирается 90_runtime.js: mount() на уже смонтированный корень — no-op
+     (второго наблюдателя не бывает), detach() снимает героя только чужой
+     активности, owns() отвечает «мой» лишь про корень, отданный при mount. */
+  const hero = { mounts: 0, unmounts: 0, detaches: [], mountCurrent: 0, motion: 0, root: null };
+  LC.hero = {
+    mount: (root) => { if (hero.root === root) return; hero.mounts++; hero.root = root; },
+    unmount: () => { if (!hero.root) return; hero.unmounts++; hero.root = null; },
+    detach: (render) => { hero.detaches.push(render); if (hero.root && hero.root !== render) LC.hero.unmount(); },
+    owns: (render) => !!render && hero.root === render,
+    active: () => !!hero.root,
+    mountCurrent: () => { hero.mountCurrent++; },
+    applyMotion: () => { hero.motion++; }
+  };
+
   LC.init();
-  return { LC, calls, full, toggles, timelines, descrRows, reviewRows, clearedRows, franchiseCalls, extra };
+  return { LC, calls, full, toggles, timelines, descrRows, reviewRows, clearedRows, franchiseCalls, extra, hero };
 }
 
 test('Task 7: complite — bind(root) и schedule(root, body, data), контроллер попадает в LC.active.trailer', () => {
@@ -1717,4 +1735,109 @@ test('M2: сообщение о неподдерживаемой сборке La
   assert.notEqual(en.extra.noty[0], en.LC.STRINGS.lumen_card_unsupported.ru,
     'в en-интерфейсе пользователь не должен получать русскую строку');
   warnLog.length = 0;
+});
+
+
+/* ====================================================================== */
+/* Task 18: событийная склейка героя главной. Ветки в LC.onActivityEvent   */
+/* иначе не исполняются ни одним тестом — LC.hero там просто не было бы,   */
+/* и все `if (LC.hero)` тихо проходили бы мимо.                            */
+/* ====================================================================== */
+
+function heroLC() {
+  const ctx = initLC();
+  ctx.LC.backdrops = { apply: () => null, cancel: () => { } };
+  return ctx;
+}
+
+test('Task 18: старт главной монтирует героя в корень её активности', () => {
+  const { LC, hero } = heroLC();
+  const main = makeActivityObj('main', false);
+  LC.onActivityEvent({ type: 'start', component: 'main', object: main });
+  assert.equal(hero.mounts, 1);
+  assert.equal(hero.root, main.activity.render(), 'герою отдан render() активности главной');
+  assert.deepEqual(warnLog, []);
+});
+
+test('Task 18: повторный старт той же главной второго наблюдателя не заводит', () => {
+  const { LC, hero } = heroLC();
+  const main = makeActivityObj('main', false);
+  LC.onActivityEvent({ type: 'start', component: 'main', object: main });
+  /* Возврат из карточки шлёт start ещё раз — герой обязан остаться тем же. */
+  LC.onActivityEvent({ type: 'start', component: 'main', object: main });
+  assert.equal(hero.mounts, 1, 'монтирование одно');
+  assert.equal(hero.unmounts, 0, 'и снятия между ними не было — кадр не мигает');
+});
+
+test('Task 18: старт полной карточки снимает героя главной (уход вглубь Lampa событием не сопровождает)', () => {
+  const { LC, hero } = heroLC();
+  const main = makeActivityObj('main', false);
+  const card = makeActivityObj('card', false);
+  LC.onActivityEvent({ type: 'start', component: 'main', object: main });
+
+  LC.onActivityEvent({ type: 'start', component: 'full', object: card });
+  assert.equal(hero.detaches[hero.detaches.length - 1], card.activity.render(), 'detach получил корень стартующей активности');
+  assert.equal(hero.unmounts, 1);
+  assert.equal(hero.root, null, 'герой снят');
+  assert.equal(hero.mounts, 1, 'на чужой активности герой не монтируется');
+
+  /* Возврат на главную поднимает его заново. */
+  LC.onActivityEvent({ type: 'start', component: 'main', object: main });
+  assert.equal(hero.mounts, 2);
+  assert.ok(hero.root, 'герой снова на главной');
+  assert.deepEqual(warnLog, []);
+});
+
+test('Task 18: destroy ЧУЖОЙ активности героя не трогает', () => {
+  const { LC, hero } = heroLC();
+  const main = makeActivityObj('main', false);
+  const other = makeActivityObj('other', false);
+  LC.onActivityEvent({ type: 'start', component: 'main', object: main });
+
+  /* Вытеснение чужой карточки по лимиту истории — регулярный путь Lampa. */
+  LC.onActivityEvent({ type: 'destroy', component: 'full', object: other });
+  assert.equal(hero.unmounts, 0, 'owns() сказал «не мой»');
+  assert.equal(hero.root, main.activity.render(), 'герой остался на главной');
+});
+
+test('Task 18: destroy активности-хозяина снимает героя', () => {
+  const { LC, hero } = heroLC();
+  const main = makeActivityObj('main', false);
+  LC.onActivityEvent({ type: 'start', component: 'main', object: main });
+
+  LC.onActivityEvent({ type: 'destroy', component: 'main', object: main });
+  assert.equal(hero.unmounts, 1);
+  assert.equal(hero.root, null);
+  /* Повторный destroy идемпотентен. */
+  LC.onActivityEvent({ type: 'destroy', component: 'main', object: main });
+  assert.equal(hero.unmounts, 1);
+  assert.deepEqual(warnLog, []);
+});
+
+test('Task 18: выключение плагина снимает героя, включение ставит его на открытую главную', () => {
+  /* LC.init() уже прошёл через activate() — считаем ДЕЛЬТЫ от этого старта. */
+  const { LC, hero } = heroLC();
+  const mountedAtStart = hero.mountCurrent;
+  const main = makeActivityObj('main', false);
+  LC.onActivityEvent({ type: 'start', component: 'main', object: main });
+  assert.ok(hero.root, 'герой на главной');
+
+  /* lumen_enabled читается из Storage; переключатели Lampa пишут строки. */
+  globalThis.Lampa.Storage.field = (name) => (name === 'lumen_enabled' ? 'false' : undefined);
+  globalThis.Lampa.Storage.get = (name, def) => (name === 'lumen_enabled' ? 'false' : def);
+  LC.applyEnabledPref();
+  assert.equal(hero.unmounts, 1, 'deactivate() снял героя целиком');
+  assert.equal(hero.root, null);
+
+  globalThis.Lampa.Storage.field = () => undefined;
+  globalThis.Lampa.Storage.get = (name, def) => def;
+  LC.applyEnabledPref();
+  assert.equal(hero.mountCurrent - mountedAtStart, 1, 'activate() зовёт mountCurrent — возврат из настроек события не шлёт');
+  assert.deepEqual(warnLog, []);
+});
+
+test('Task 18: смена режима анимаций доезжает до открытого героя', () => {
+  const { LC, hero } = heroLC();
+  LC.applyMotionMode();
+  assert.equal(hero.motion, 1);
 });

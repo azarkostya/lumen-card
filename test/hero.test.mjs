@@ -503,7 +503,10 @@ test('applyMotion зеркалит режим анимаций на узел г�
   assert.equal(node.hasClass('lumen-motion-full'), false);
 });
 
-test('режим off: текст меняется без промежуточного класса подмены', () => {
+test('режим off: текст меняется без подмены и БЕЗ загрузки кадра', () => {
+  /* В 'off' дорога не плавность (её гасит CSS), а сама загрузка и
+     декодирование кадра w1280/original на каждую остановку фокуса — поверх
+     кадра, который параллельно тянет сама Lampa (Background.change). */
   const env = makeEnv();
   env.LC.motionMode = () => 'off';
   const main = makeMain();
@@ -516,6 +519,39 @@ test('режим off: текст меняется без промежуточн�
   env.advance(400);
   assert.equal(node.find('.lumen-hero__text').hasClass('is-swapping'), false);
   assert.equal(node.find('.lumen-hero__title').text(), 'Первый');
+  assert.equal(env.images.length, 0, 'ни одной предзагрузки кадра');
+  assert.equal(env.timers.filter((t) => !t.done).length, 0, 'и ни одного таймаута загрузки');
+
+  /* Текст при этом живой: детали запрашиваются и дорисовываются. */
+  assert.equal(env.requests.length, 1);
+  env.requests[0].ok({ runtime: 100, genres: [{ name: 'драма' }], overview: 'полное' });
+  assert.equal(node.find('.lumen-hero__meta').text(), '2024 · 1:40 · драма');
+  assert.equal(env.images.length, 0, 'ответ деталей тоже не тянет кадр');
+  assert.deepEqual(warnLog, []);
+});
+
+test('режим off: кадр не грузится и когда он есть только в деталях', () => {
+  const env = makeEnv();
+  env.LC.motionMode = () => 'off';
+  const main = makeMain();
+  main.card1.card_data = { id: 55, title: 'Без кадра в ряду', release_date: '2022-02-02' };
+  main.card1.addClass('focus');
+  env.hero.mount(main.activity);
+  env.advance(400);
+  env.requests[0].ok({ backdrop_path: '/late.jpg', runtime: 90, genres: [] });
+  assert.equal(env.images.length, 0);
+});
+
+test('режимы full и lite кадр грузят — гейт стоит только на off', () => {
+  ['full', 'lite'].forEach((mode) => {
+    const env = makeEnv();
+    env.LC.motionMode = () => mode;
+    const main = makeMain();
+    main.card1.addClass('focus');
+    env.hero.mount(main.activity);
+    env.advance(400);
+    assert.equal(env.images.length, 1, mode + ': кадр грузится');
+  });
 });
 
 test('нет кадра — используется постер, слой помечается для размытия', () => {

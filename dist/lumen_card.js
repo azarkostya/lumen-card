@@ -5719,8 +5719,17 @@ state.frameUrl = url;
 
 
 
+
+
+
+
+
+
+
+
 function loadFrame(model, captured) {
 if (!state) return;
+if (motionMode() === 'off') return;
 var blur = false;
 var path = model.backdrop;
 if (!path) { path = model.poster; blur = true; }
@@ -5805,7 +5814,6 @@ try {
 var captured = ++gen;
 cancelPending();
 state.shownId = card.id;
-state.card = card;
 state.details = null;
 state.model = null;
 var model = heroModel(card, null, words());
@@ -5946,7 +5954,6 @@ loadTimer: null,
 loader: null,
 net: null,
 shownId: null,
-card: null,
 details: null,
 model: null,
 pending: null,
