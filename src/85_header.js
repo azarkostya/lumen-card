@@ -82,11 +82,11 @@
   /* -------------------------------------------------------------------- */
 
   /* Task 5a Step 3b.2/3b.4: мета-строка — год · страна · хронометраж/сезоны ·
-     жанры · 18+ · «реж. Имя» (у сериала режиссёр не показывается — там вместо
-     него в строке оригинального названия стоит создатель, см. renderOriginal).
+     жанры · 18+ · «реж. Имя» (у сериала режиссёр не показывается — вместо него
+     в конце строки студия/сеть, а создателя показывает таблица «ПОДРОБНО»).
      Инлайн-чип качества/«СЕРИАЛ» из v1 убран — лишний узел, дизайну не
      соответствует (design-spec-card.md §2); раздельные чипы качества теперь
-     в боковой колонке (renderQualityChips). */
+     в ленте рейтингов (renderQualityChips). */
   function renderMeta(root, movie, data) {
     var parts = [];
     var serial = isSerial(movie);
@@ -137,23 +137,10 @@
     root.addClass('lumen--meta');
   }
 
-  /* Task 5a Step 3b.4: у сериала вместо режиссёра — created_by[0].name рядом
-     с оригинальным названием («Fallout · Джонатан Нолан», экран 05). */
-  function renderOriginal(root, movie) {
-    var title = movie.title || movie.name || '';
-    var original = movie.original_title || movie.original_name || '';
-    var node = root.find('.lumen-original');
-    if (!node.length) return;
-
-    var text = (!original || original === title) ? '' : original;
-
-    if (isSerial(movie)) {
-      var creator = LC.cardinfo.creator(movie);
-      if (creator) text = text ? (text + ' · ' + creator) : creator;
-    }
-
-    node.text(text);
-  }
+  /* Правка пользователя 2026-09-16 (п.2): строки оригинального названия в
+     шапке больше нет — вместе с её узлом убран и рисовавший её код.
+     Оригинальное название показывает строка «Оригинал» таблицы «ПОДРОБНО»
+     (LC.cardinfo.facts), создателя сериала — строка «Создатель» там же. */
 
   /* Task 5a Step 3/3b: заголовок целиком — .lumen-title--long при длине > 18
      символов (класс переключает line-clamp 1 -> 2 в CSS, см. design-spec §3). */
@@ -196,8 +183,10 @@
     chip.removeClass('hide');
   }
 
-  /* Task 5a Step 3/4: раздельные чипы качества (4K/HDR/BD) в боковой колонке
-     вместо одного составного tag--quality (design-spec §5c). Штатный узел
+  /* Task 5a Step 3/4: раздельные чипы качества (4K/HDR/BD) вместо одного
+     составного tag--quality (design-spec §5c). Держатель .lumen-tags после
+     правки 2026-09-16 (п.1) лежит в ленте рейтингов, а не в боковой колонке —
+     сам рендер от этого не зависит, он ищет держатель по классу. Штатный узел
      tag--quality остаётся в разметке (Lampa пишет в него), но всегда скрыт —
      видимые чипы рисуем сами по cardinfo.qualityChips. */
   function renderQualityChips(root, movie) {
@@ -348,61 +337,25 @@
     }, PROGRESS_DEBOUNCE);
   }
 
-  function renderCast(root, data) {
-    var block = root.find('.lumen-cast');
-    if (!block.length) return;
-
-    /* Task 10: данные для перерисовки по смене настройки «Показывать актёров»
-       (refreshCast ниже) — тем же приёмом, что lumenProgress у строки
-       прогресса: в событии настройки данных карточки нет, а карточек в DOM у
-       Lampa несколько (история). */
-    if (root[0]) root[0].lumenCast = data || null;
-
-    block.addClass('hide');
-    block.find('.lumen-cast__row').empty();
-
-    if (!LC.pref(PLUGIN + '_cast', true)) return;
-
-    var cast = data && data.persons && data.persons.cast;
-    if (!cast || !cast.length) return;
-
-    var html = [];
-    var limit = Math.min(5, cast.length);
-    for (var i = 0; i < limit; i++) {
-      html.push('<div class="lumen-cast__item">' + LC.util.esc(LC.util.initials(cast[i] && cast[i].name)) + '</div>');
-    }
-    if (cast.length > limit) {
-      html.push('<div class="lumen-cast__item lumen-cast__more">+' + (cast.length - limit) + '</div>');
-    }
-
-    block.find('.lumen-cast__label').text(LC.lang('lumen_card_cast'));
-    block.find('.lumen-cast__row').html(html.join(''));
-    block.removeClass('hide');
-  }
-
-  /* Task 10: настройку «Показывать актёров» переключили на уже открытой
-     карточке. Возврат из настроек Lampa карточку не перестраивает (ни 'full',
-     ни complite — находка ревью Task 8), поэтому блок перерисовывается здесь,
-     по данным, сохранённым renderCast. Обход всех .lumen-card — как в
-     refreshProgress: Lampa держит в DOM и карточки из истории. */
-  function refreshCast() {
-    $('.lumen-card').each(function () {
-      var data = this.lumenCast;
-      if (data) renderCast($(this), data);
-    });
-  }
+  /* Правка пользователя 2026-09-16 (п.1): блок «В ролях» (кружки с инициалами
+     в боковой колонке) убран вместе с самой колонкой — он дублировал ряд
+     актёров, который Lampa рисует ниже по экрану, и вместо фотографий
+     показывал инициалы. Вместе с блоком ушли его отрисовка, перерисовка по
+     настройке и сама настройка «Показывать актёров». */
 
   /* -------------------------------------------------------------------- */
   /* Task 5c: сериал — статус в ленте рейтингов, чип следующей серии, ряд   */
   /* серий последнего сезона (design-spec §5e/§8/§9, экраны 05/06).         */
   /* -------------------------------------------------------------------- */
 
-  /* Step 2 (design-spec §8, экран 05): у сериала статус стоит в ленте
-     рейтингов перед чипом следующей серии, правая колонка — только качество.
-     Узел статуса один, копию разметки не заводим: для сериала переносим этот
-     же узел в ленту, остальное (вид карты вместо пилюли, скрытый каст) задаёт
-     класс режима .lumen-card--serial. Корень каждой карточки строится из
-     шаблона заново, поэтому у фильма статус всегда на месте в .lumen-side. */
+  /* Step 2 (design-spec §8, экран 05): у сериала статус стоит в ленте рейтингов
+     перед чипом следующей серии, и вид карты вместо пилюли ему задаёт класс
+     режима .lumen-card--serial.
+     Правка 2026-09-16 (п.1): после удаления боковой колонки статус лежит в
+     ленте уже в самом шаблоне, ровно перед чипом, — перестановка ниже стала
+     страховкой (чужой плагин или будущая версия Lampa могут вставить узел в
+     другое место) и на открытии карточки не срабатывает. У фильма статус в
+     ленте гасит CSS: «Выпущенный» пользователю не нужен. */
   function renderSerialMode(root, movie) {
     var serial = isSerial(movie);
     root.toggleClass('lumen-card--serial', serial);
@@ -882,14 +835,12 @@
 
     try { renderTitleClass(root, movie); } catch (e) { warn('title failed', e); }
     try { renderMeta(root, movie, data); } catch (e) { warn('meta failed', e); }
-    try { renderOriginal(root, movie); } catch (e) { warn('original failed', e); }
     try { renderStatus(root, movie); } catch (e) { warn('status failed', e); }
     try { renderSerialMode(root, movie); } catch (e) { warn('serial mode failed', e); }
     try { renderNextChip(root, movie); } catch (e) { warn('next episode chip failed', e); }
     try { renderReactionsChip(root, data); } catch (e) { warn('reactions chip failed', e); }
     try { renderQualityChips(root, movie); } catch (e) { warn('quality chips failed', e); }
     try { renderProgress(root, movie, (data && data.episodes && data.episodes.episodes) || null); } catch (e) { warn('progress failed', e); }
-    try { renderCast(root, data); } catch (e) { warn('cast failed', e); }
     try { renderEpisodes(root, data); } catch (e) { warn('episodes failed', e); }
     try { bindEpisodes(root); } catch (e) { warn('episodes bind failed', e); }
   }
@@ -899,6 +850,5 @@
     descr: renderDescrRow,
     refreshEpisode: refreshEpisode,
     refreshProgress: refreshProgress,
-    refreshCast: refreshCast,
     scheduleProgressRefresh: scheduleProgressRefresh
   };

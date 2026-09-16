@@ -706,17 +706,8 @@
     }
   };
 
-  /* Task 10: lumen_card_cast переключили на уже открытой карточке — причина та
-     же, что у applyProgressPref: настройки Lampa лежат активностью ПОВЕРХ
-     карточки и при возврате не шлют ни 'full', ни complite. Данные для
-     перерисовки хранит сам renderCast (85_header.js). */
-  LC.applyCastPref = function () {
-    try {
-      LC.header.refreshCast();
-    } catch (e) {
-      warn('cast pref failed', e);
-    }
-  };
+  /* Правка пользователя 2026-09-16 (п.1): LC.applyCastPref убрана вместе с
+     настройкой lumen_card_cast и блоком «В ролях» — управлять больше нечем. */
 
   /* Task 10 (экран 09, «Ключ Kinopoisk API — нужен для отзывов и рейтинга КП»):
      рейтинг Кинопоиска на чип .rate--kp. Значение приносит src/60_reviews.js —

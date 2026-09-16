@@ -263,7 +263,6 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 var STYLE_ID = 'lumen-card-css';
 var FONTS_ID = 'lumen-card-fonts';
-var FONTS_URL = 'https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Golos+Text:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap';
 
 var C = {
 bg: '#0B0908',
@@ -321,12 +320,53 @@ var SPICE_RGB = hexToRgb(C.spice);
 
 var BG_RGB = hexToRgb(C.bg);
 
+
+
+
+
+
+
+
+
+
+
+var FONT_SETS = {
+golos: { body: 'Golos Text', bodyW: '400;500;600', mono: 'JetBrains Mono', monoW: '400;600' },
+onest: { body: 'Onest', bodyW: '400;500;600', mono: 'JetBrains Mono', monoW: '400;600' },
+manrope: { body: 'Manrope', bodyW: '400;500;600', mono: 'JetBrains Mono', monoW: '400;600' },
+inter: { body: 'Inter', bodyW: '400;500;600', mono: 'JetBrains Mono', monoW: '400;600' },
+plex: { body: 'IBM Plex Sans', bodyW: '400;500;600', mono: 'IBM Plex Mono', monoW: '400;600' }
+};
+var FONT_DEFAULT = 'golos';
+
 var FONT_DISPLAY_ON = '"Unbounded","Arial Black",Impact,sans-serif';
-var FONT_BODY_ON = '"Golos Text","Segoe UI",Roboto,Arial,sans-serif';
-var FONT_MONO_ON = '"JetBrains Mono",Consolas,"Courier New",monospace';
 var FONT_DISPLAY_OFF = '"Arial Black",Impact,sans-serif';
 var FONT_BODY_OFF = 'inherit';
 var FONT_MONO_OFF = 'Consolas,"Courier New",monospace';
+
+
+
+function fontSet() {
+return FONT_SETS[LC.pref('lumen_font', FONT_DEFAULT)] || FONT_SETS[FONT_DEFAULT];
+}
+
+function bodyStack(set) {
+return '"' + set.body + '","Segoe UI",Roboto,Arial,sans-serif';
+}
+
+function monoStack(set) {
+return '"' + set.mono + '",Consolas,"Courier New",monospace';
+}
+
+
+
+LC.fontsUrl = function () {
+var set = fontSet();
+return 'https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800' +
+'&family=' + set.body.replace(/ /g, '+') + ':wght@' + set.bodyW +
+'&family=' + set.mono.replace(/ /g, '+') + ':wght@' + set.monoW +
+'&display=swap';
+};
 
 function theme() {
 var key = LC.pref(PLUGIN + '_accent', 'sand');
@@ -347,14 +387,15 @@ return LC.enabled() && LC.pref(PLUGIN + '_fonts', true);
 LC.tokens = function () {
 var t = theme();
 var fonts = useFonts();
+var set = fontSet();
 return {
 bg: C.bg, panel: C.panel, line: C.line, text: C.text, muted: C.muted, smoke: C.smoke,
 spice: C.spice, dark: C.dark,
 panelHi: C.panelHi, panelLo: C.panelLo, raised: C.raised, textRgb: hexToRgb(C.text), bgRgb: hexToRgb(C.bg),
 accent: t.color, accentRgb: hexToRgb(t.color), onac: t.onac, ring: t.light, acglow: t.glow,
 fontDisplay: fonts ? FONT_DISPLAY_ON : FONT_DISPLAY_OFF,
-fontBody: fonts ? FONT_BODY_ON : FONT_BODY_OFF,
-fontMono: fonts ? FONT_MONO_ON : FONT_MONO_OFF
+fontBody: fonts ? bodyStack(set) : FONT_BODY_OFF,
+fontMono: fonts ? monoStack(set) : FONT_MONO_OFF
 };
 };
 
@@ -365,9 +406,10 @@ var AL = t.light;
 var AG = t.glow;
 var A_RGB = hexToRgb(A);
 var fonts = useFonts();
+var set = fontSet();
 var FD = fonts ? FONT_DISPLAY_ON : FONT_DISPLAY_OFF;
-var FB = fonts ? FONT_BODY_ON : FONT_BODY_OFF;
-var FM = fonts ? FONT_MONO_ON : FONT_MONO_OFF;
+var FB = fonts ? bodyStack(set) : FONT_BODY_OFF;
+var FM = fonts ? monoStack(set) : FONT_MONO_OFF;
 
 var css = [];
 
@@ -454,26 +496,8 @@ css.push('.lumen-card .full-start-new__right{-webkit-box-flex:1;-webkit-flex-gro
 
 
 
-
-
-
-
-
-css.push('.lumen-card .lumen-content{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;-webkit-box-align:end;-webkit-align-items:end;align-items:end;display:grid;grid-template-columns:minmax(0,1fr) auto;grid-auto-rows:auto;grid-column-gap:2.63em;column-gap:2.63em}');
-css.push('.lumen-card .lumen-content > .lumen-in{grid-column:1;max-width:52em}');
-
-
-css.push('.lumen-card .lumen-content > .lumen-side{grid-column:2;grid-row:1 / 7;align-self:end;-webkit-flex-shrink:0;flex-shrink:0;text-align:right;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-orient:vertical;-webkit-flex-direction:column;flex-direction:column;-webkit-box-align:end;-webkit-align-items:flex-end;align-items:flex-end}');
-
-
-
-
-
-
-
-
-
-css.push('@supports not (display:grid){.lumen-card .lumen-content > .lumen-in{width:100%}.lumen-card .lumen-content > .lumen-actions{width:auto;-webkit-box-flex:0;-webkit-flex:0 1 auto;flex:0 1 auto}.lumen-card .lumen-content > .lumen-side{margin-left:auto}}');
+css.push('.lumen-card .lumen-content{display:block}');
+css.push('.lumen-card .lumen-content > .lumen-in{max-width:52em}');
 
 
 css.push('.lumen-card .full-start-new__tagline,.lumen-card .full-start-new__reactions,.lumen-card .lumen-keep{display:none !important}');
@@ -481,7 +505,10 @@ css.push('.lumen-card.lumen--meta .full-start-new__head,.lumen-card.lumen--meta 
 css.push('.lumen-card .full-start__pg{display:none !important}');
 
 
-css.push('.lumen-card .lumen-meta{font-family:' + FM + ';font-size:.88em;color:' + C.muted + ';letter-spacing:.03em;line-height:1.3;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-flex-wrap:wrap;flex-wrap:wrap}');
+
+
+
+css.push('.lumen-card .lumen-meta{font-family:' + FB + ';font-size:.88em;color:' + C.muted + ';letter-spacing:.03em;line-height:1.3;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-flex-wrap:wrap;flex-wrap:wrap}');
 css.push('.lumen-card .lumen-meta > *{margin:0 .53em .2em 0}');
 css.push('.lumen-card .lumen-meta__sep{color:' + C.line + '}');
 
@@ -492,8 +519,9 @@ css.push('.lumen-card .full-start-new__title{font-family:' + FD + ';font-size:3.
 
 
 css.push('.lumen-card .full-start-new__title.lumen-title--long{display:-webkit-box;-webkit-box-orient:vertical;overflow:hidden;-webkit-line-clamp:2;line-clamp:2}');
-css.push('.lumen-card .lumen-original{font-family:' + FM + ';font-size:.88em;color:' + C.smoke + ';margin-top:.53em;overflow:hidden;white-space:nowrap;-o-text-overflow:ellipsis;text-overflow:ellipsis}');
-css.push('.lumen-card .lumen-original:empty{display:none}');
+
+
+
 
 
 css.push('.lumen-card .lumen-descr{font-size:1.05em;line-height:1.45;color:' + C.muted + ';max-width:42.96em;margin-top:.88em;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;line-clamp:2;-webkit-box-orient:vertical}');
@@ -518,6 +546,13 @@ css.push('.lumen-card .lumen-reactions-chip__label{font-size:.61em;letter-spacin
 
 
 css.push('.lumen-card .full-start-new__rate-line .tag--episode{display:none !important}');
+
+
+
+
+
+
+css.push('.lumen-card .full-start-new__rate-line .full-start__status{display:none}');
 css.push('.lumen-card .lumen-next-chip{font-family:' + FB + ';font-weight:500;font-size:.79em;line-height:1;color:' + C.text + ';background:' + C.chipBg + ';border:.05em solid ' + C.line + ';border-radius:.67em;padding:0 .89em;white-space:nowrap;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center}');
 css.push('.lumen-card .lumen-next-chip:before{content:"";display:block;-webkit-flex-shrink:0;flex-shrink:0;width:1.22em;height:1.22em;margin-right:.56em;background-color:' + C.muted + ';-webkit-mask-image:' + LC.icons.maskUrl('clock') + ';mask-image:' + LC.icons.maskUrl('clock') + ';-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-size:contain;mask-size:contain}');
 
@@ -606,7 +641,8 @@ css.push('.lumen-card .lumen-stop span{font-size:1.05em;line-height:1}');
 css.push('.lumen-card .lumen-stop.focus{background:' + A + ';color:' + C.dark + ';border-color:' + AL + ';border-width:.11em;-webkit-transform:scale(1.06);transform:scale(1.06);-webkit-box-shadow:0 .614em 1.754em ' + AG + ';box-shadow:0 .614em 1.754em ' + AG + '}');
 
 
-css.push('.lumen-card .lumen-trailer-badge{display:none;position:absolute;top:4.91em;right:2.81em;z-index:6;font-family:' + FM + ';font-size:.79em;line-height:1;letter-spacing:.06em;color:' + C.text + ';background:rgba(11,9,8,.62);border:.05em solid rgba(243,237,228,.2);border-radius:1.67em;padding:.56em 1em;-webkit-backdrop-filter:blur(1.1em);backdrop-filter:blur(1.1em);-webkit-box-align:center;-webkit-align-items:center;align-items:center}');
+
+css.push('.lumen-card .lumen-trailer-badge{display:none;position:absolute;top:4.91em;right:2.81em;z-index:6;font-family:' + FB + ';font-size:.79em;line-height:1;letter-spacing:.06em;color:' + C.text + ';background:rgba(11,9,8,.62);border:.05em solid rgba(243,237,228,.2);border-radius:1.67em;padding:.56em 1em;-webkit-backdrop-filter:blur(1.1em);backdrop-filter:blur(1.1em);-webkit-box-align:center;-webkit-align-items:center;align-items:center}');
 css.push('.lumen-card.lumen-trailer-on .lumen-trailer-badge{display:-webkit-box;display:-webkit-flex;display:flex}');
 css.push('.lumen-card .lumen-trailer-badge:before{content:"";display:block;-webkit-flex-shrink:0;flex-shrink:0;width:1.22em;height:1.22em;margin-right:.67em;background-color:' + A + ';-webkit-mask-image:' + LC.icons.maskUrl('mute') + ';mask-image:' + LC.icons.maskUrl('mute') + ';-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;-webkit-mask-size:contain;mask-size:contain}');
 
@@ -616,32 +652,26 @@ css.push('.lumen-card .lumen-trailer-badge:before{content:"";display:block;-webk
 css.push('.lumen-card.lumen-trailer-on .full-start-new__title{font-size:1.84em;opacity:.92}');
 
 
-css.push('.lumen-card.lumen-trailer-on .lumen-descr,.lumen-card.lumen-trailer-on .full-start-new__rate-line,.lumen-card.lumen-trailer-on .lumen-side,.lumen-card.lumen-trailer-on .lumen-episodes,.lumen-card.lumen-trailer-on .lumen-progress{display:none !important}');
+css.push('.lumen-card.lumen-trailer-on .lumen-descr,.lumen-card.lumen-trailer-on .full-start-new__rate-line,.lumen-card.lumen-trailer-on .lumen-episodes,.lumen-card.lumen-trailer-on .lumen-progress{display:none !important}');
 css.push('.lumen-card.lumen-trailer-on .lumen-actions{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center}');
 
 
 
-
-
-
-
-
-css.push('.lumen-card .lumen-side .full-start__status{font-family:' + FB + ';font-weight:500;font-size:.79em;letter-spacing:normal;text-transform:none;background:' + C.chipBg + ';border:.04em solid ' + C.line + ';border-radius:1.32em;padding:.35em .70em;margin-bottom:1.05em;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;color:' + C.text + '}');
-css.push('.lumen-card .lumen-side .full-start__status:before{content:"";display:block;width:.44em;height:.44em;border-radius:50%;background:currentColor;margin-right:.44em}');
 css.push('.lumen-card .lumen-status--good:before{color:' + C.good + '}');
 css.push('.lumen-card .lumen-status--accent:before{color:' + A + '}');
 css.push('.lumen-card .lumen-status--muted:before,.lumen-card .lumen-status--soon:before{color:' + C.smoke + '}');
-css.push('.lumen-card .lumen-tags{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;-webkit-box-pack:end;-webkit-justify-content:flex-end;justify-content:flex-end}');
-css.push('.lumen-card .lumen-tags .full-start__tag{display:none !important}');
-css.push('.lumen-card .lumen-quality-chip{font-family:' + FM + ';font-size:.66em;letter-spacing:.08em;color:' + C.text + ';border:.04em solid rgba(243,237,228,.24);border-radius:.31em;padding:.31em .48em;margin:0 0 .35em .35em;white-space:nowrap}');
-css.push('.lumen-card .lumen-cast{margin-top:1.05em}');
-css.push('.lumen-card .lumen-cast__label{font-size:.79em;color:' + C.smoke + ';margin-bottom:.53em}');
-css.push('.lumen-card .lumen-cast__row{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-pack:end;-webkit-justify-content:flex-end;justify-content:flex-end}');
-css.push('.lumen-card .lumen-cast__item{font-family:' + FB + ';font-size:.88em;font-weight:500;width:2.72em;height:2.72em;border-radius:50%;background:' + C.panel + ';border:.13em solid ' + C.bg + ';margin-left:-.61em;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;color:' + C.muted + ';overflow:hidden}');
-css.push('.lumen-card .lumen-cast__row .lumen-cast__item:first-child{margin-left:0}');
-css.push('.lumen-card .lumen-cast__more{font-family:' + FM + ';font-weight:600;font-size:.75em;color:' + C.smoke + '}');
 
-css.push('.lumen-card.lumen-card--serial .lumen-cast{display:none}');
+
+
+
+
+
+
+css.push('.lumen-card .full-start-new__rate-line .lumen-tags{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;-webkit-box-align:center;-webkit-align-items:center;align-items:center}');
+css.push('.lumen-card .lumen-tags .full-start__tag{display:none !important}');
+
+
+css.push('.lumen-card .lumen-quality-chip{font-family:' + FB + ';font-weight:600;font-size:.66em;letter-spacing:.08em;color:' + C.text + ';border:.04em solid rgba(243,237,228,.24);border-radius:.31em;padding:.31em .48em;margin:0 .35em .35em 0;white-space:nowrap}');
 
 
 
@@ -732,9 +762,29 @@ css.push('.lumen-descr-row > .items-line__head{display:none}');
 
 
 
-css.push('.lumen-descr-row{background:rgba(' + BG_RGB + ',.9);background:-webkit-linear-gradient(top,rgba(' + BG_RGB + ',0) 0,rgba(' + BG_RGB + ',.9) 1em,rgba(' + BG_RGB + ',.9) 100%);background:linear-gradient(180deg,rgba(' + BG_RGB + ',0) 0,rgba(' + BG_RGB + ',.9) 1em,rgba(' + BG_RGB + ',.9) 100%)}');
-css.push('.lumen-descr-row .full-descr{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:start;-webkit-align-items:flex-start;align-items:flex-start;-webkit-flex-wrap:wrap;flex-wrap:wrap}');
-css.push('.lumen-descr-row .full-descr__left{-webkit-box-flex:1;-webkit-flex:1 1 auto;flex:1 1 auto;min-width:0;margin-right:3.51em}');
+
+
+
+
+
+
+
+
+
+
+
+
+css.push('.lumen-descr-row .full-descr{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:start;-webkit-align-items:flex-start;align-items:flex-start;-webkit-flex-wrap:wrap;flex-wrap:wrap;padding-left:2.81em;padding-right:2.81em}');
+
+
+
+
+
+
+
+
+
+css.push('.lumen-descr-row .full-descr__left{-webkit-box-flex:1;-webkit-flex:1 1 42.96em;flex:1 1 42.96em;max-width:42.96em;min-width:0;margin-right:3.51em}');
 
 
 
@@ -753,7 +803,12 @@ css.push('.lumen-descr-row .full-descr__left{-webkit-box-flex:1;-webkit-flex:1 1
 
 
 
-css.push('.lumen-descr-row .full-descr__text{font-family:' + FB + ';font-weight:400;font-size:1.05em;line-height:1.45;color:' + C.text + ';max-width:42.96em;width:auto;max-height:70vh;-webkit-mask-image:none;mask-image:none}');
+
+
+
+
+
+css.push('.lumen-descr-row .full-descr__text{-webkit-box-sizing:border-box;box-sizing:border-box;font-family:' + FB + ';font-weight:400;font-size:1.05em;line-height:1.45;color:' + C.text + ';max-width:42.96em;width:auto;max-height:70vh;padding:.75em 1em;border-radius:.58em;background:rgba(' + BG_RGB + ',.85);-webkit-mask-image:none;mask-image:none}');
 css.push('.lumen-descr-row .full-descr__details{display:none}');
 
 
@@ -772,8 +827,13 @@ css.push('.lumen-descr-row .full-descr__details{display:none}');
 
 
 
-css.push('.lumen-descr-row .lumen-facts{-webkit-box-sizing:border-box;box-sizing:border-box;-webkit-flex-shrink:0;flex-shrink:0;min-width:19.73em;max-width:100%;padding:.79em 1.05em;border-radius:.61em;background:rgba(' + BG_RGB + ',.85);border:.04em solid ' + C.line + '}');
-css.push('.lumen-descr-row .lumen-facts__title{font-family:' + FM + ';font-weight:600;font-size:.79em;line-height:1;letter-spacing:.14em;color:' + C.muted + ';margin-bottom:.79em}');
+
+
+
+
+css.push('.lumen-descr-row .lumen-facts{-webkit-box-sizing:border-box;box-sizing:border-box;-webkit-box-flex:1;-webkit-flex:1 1 19.73em;flex:1 1 19.73em;min-width:19.73em;max-width:100%;padding:.79em 1.05em;border-radius:.61em;background:rgba(' + BG_RGB + ',.85);border:.04em solid ' + C.line + '}');
+
+css.push('.lumen-descr-row .lumen-facts__title{font-family:' + FB + ';font-weight:600;font-size:.79em;line-height:1;letter-spacing:.14em;color:' + C.muted + ';margin-bottom:.79em}');
 
 
 
@@ -821,12 +881,19 @@ css.push('.lumen-descr-row .lumen-reviews{width:100%;-webkit-flex-basis:100%;fle
 
 
 css.push('.lumen-descr-row.lumen-descr-row--reviews .full-descr__text{display:-webkit-box;-webkit-line-clamp:8;-webkit-box-orient:vertical;overflow:hidden;max-height:70vh;-webkit-mask-image:-webkit-linear-gradient(top,#000 86%,rgba(0,0,0,0) 100%);-webkit-mask-image:linear-gradient(180deg,#000 86%,rgba(0,0,0,0) 100%);mask-image:linear-gradient(180deg,#000 86%,rgba(0,0,0,0) 100%)}');
-css.push('.lumen-descr-row .lumen-reviews__head{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:baseline;-webkit-align-items:baseline;align-items:baseline;-webkit-flex-wrap:wrap;flex-wrap:wrap;margin-bottom:1.23em}');
+
+
+
+
+
+
+css.push('.lumen-descr-row .lumen-reviews__head{display:-webkit-inline-box;display:-webkit-inline-flex;display:inline-flex;-webkit-box-align:baseline;-webkit-align-items:baseline;align-items:baseline;-webkit-flex-wrap:wrap;flex-wrap:wrap;-webkit-box-sizing:border-box;box-sizing:border-box;max-width:100%;margin:0 0 .79em -.7em;padding:.44em .7em;border-radius:.61em;background:rgba(' + BG_RGB + ',.85)}');
 
 
 css.push('.lumen-descr-row .lumen-reviews__ico{width:1.05em;height:1.05em;-webkit-flex-shrink:0;flex-shrink:0;background-color:' + C.muted + ';-webkit-mask-image:' + LC.icons.maskUrl('comment') + ';mask-image:' + LC.icons.maskUrl('comment') + ';-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;-webkit-mask-size:contain;mask-size:contain;margin-right:.44em;-webkit-align-self:center;align-self:center}');
 css.push('.lumen-descr-row .lumen-reviews__title{font-family:' + FD + ';font-weight:700;font-size:1.40em;line-height:1;color:' + C.text + ';margin-right:.61em}');
-css.push('.lumen-descr-row .lumen-reviews__src{font-family:' + FM + ';font-weight:600;font-size:.70em;line-height:1;letter-spacing:.16em;color:' + A + ';margin-right:.61em}');
+
+css.push('.lumen-descr-row .lumen-reviews__src{font-family:' + FB + ';font-weight:600;font-size:.70em;line-height:1;letter-spacing:.16em;color:' + A + ';margin-right:.61em}');
 
 
 
@@ -912,7 +979,10 @@ css.push('.lumen-review-modal__text{font-family:' + FB + ';font-weight:400;font-
 css.push(LC.icons.NO_MASK + '{.lumen-descr-row .lumen-reviews__ico,.lumen-descr-row .lumen-reviews__hint-ico,.lumen-descr-row .lumen-review__likes:before,.lumen-review-modal__likes:before{display:none}}');
 
 
-css.push('@media screen and (max-width:1000px){.lumen-card .lumen-content{display:block}.lumen-card .lumen-content > .lumen-side{text-align:left;-webkit-box-align:start;-webkit-align-items:flex-start;align-items:flex-start;margin-top:1.5em}.lumen-card .full-start-new__title{font-size:2.43em}.lumen-card .full-start-new__body{min-height:0}}');
+
+
+
+css.push('@media screen and (max-width:1000px){.lumen-card .full-start-new__title{font-size:2.43em}.lumen-card .full-start-new__body{min-height:0}}');
 
 
 
@@ -1218,11 +1288,20 @@ if (!useFonts()) {
 if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
 return;
 }
-if (existing) return;
+
+
+
+
+
+var href = LC.fontsUrl();
+if (existing) {
+if (existing.getAttribute('href') !== href) existing.setAttribute('href', href);
+return;
+}
 var link = document.createElement('link');
 link.id = FONTS_ID;
 link.rel = 'stylesheet';
-link.href = FONTS_URL;
+link.href = href;
 (document.head || document.getElementsByTagName('head')[0]).appendChild(link);
 } catch (e) {
 warn('fonts inject failed', e);
@@ -1704,6 +1783,9 @@ if (buttons.indexOf('button--play') === -1) return null;
 
 
 
+
+
+
 return '' +
 '<div class="full-start-new lumen-card">' +
 '<div class="full-start-new__body">' +
@@ -1722,14 +1804,19 @@ return '' +
 '</div>' +
 
 
+
+
 '<div class="lumen-in">' +
 '<div class="full-start-new__title">{title}</div>' +
-'<div class="lumen-original">{original_title}</div>' +
 '<div class="full-start-new__tagline full--tagline">{tagline}</div>' +
 '</div>' +
 
 
 '<div class="lumen-in lumen-descr">{descr}</div>' +
+
+
+
+
 
 
 
@@ -1740,10 +1827,13 @@ return '' +
 '<div class="full-start__rate rate--imdb hide"><div></div><div>IMDB</div></div>' +
 '<div class="full-start__rate rate--kp hide"><div></div><div>KP</div></div>' +
 '<div class="full-start__tag tag--episode hide"><div></div></div>' +
-
+'<div class="full-start__status hide"></div>' +
 
 '<div class="lumen-next-chip hide"><div class="lumen-next-chip__text"></div></div>' +
 '<div class="lumen-reactions-chip hide"><div class="lumen-reactions-chip__value"></div><div class="lumen-reactions-chip__label"></div></div>' +
+'<div class="lumen-tags">' +
+'<div class="full-start__tag tag--quality hide"><div></div></div>' +
+'</div>' +
 '</div>' +
 '</div>' +
 
@@ -1772,19 +1862,6 @@ return '' +
 '<div class="lumen-episodes hide">' +
 '<div class="lumen-episodes__head"><div class="lumen-episodes__title"></div><div class="lumen-episodes__count"></div></div>' +
 '<div class="lumen-episodes__viewport"><div class="lumen-episodes__track"></div></div>' +
-'</div>' +
-'</div>' +
-
-
-
-'<div class="lumen-side">' +
-'<div class="full-start__status hide"></div>' +
-'<div class="lumen-tags">' +
-'<div class="full-start__tag tag--quality hide"><div></div></div>' +
-'</div>' +
-'<div class="lumen-cast hide">' +
-'<div class="lumen-cast__label"></div>' +
-'<div class="lumen-cast__row"></div>' +
 '</div>' +
 '</div>' +
 
@@ -8336,12 +8413,25 @@ lumen_card_accent_wine: { ru: 'Вино', en: 'Wine', uk: 'Вино' },
 lumen_card_accent_mint: { ru: 'Мята', en: 'Mint', uk: 'М\'ята' },
 lumen_card_fonts_name: { ru: 'Фирменные шрифты', en: 'Custom fonts', uk: 'Фірмові шрифти' },
 lumen_card_fonts_descr: {
-ru: 'Unbounded / Golos Text / JetBrains Mono. Требуется интернет. Выключите, если шрифты не грузятся.',
-en: 'Unbounded / Golos Text / JetBrains Mono. Requires internet access.',
-uk: 'Unbounded / Golos Text / JetBrains Mono. Потрібен інтернет.'
+ru: 'Шрифты с Google Fonts. Требуется интернет. Выключите, если шрифты не грузятся.',
+en: 'Fonts from Google Fonts. Requires internet access.',
+uk: 'Шрифти з Google Fonts. Потрібен інтернет.'
 },
 lumen_card_progress_name: { ru: 'Показывать «Продолжить»', en: 'Show "Continue"', uk: 'Показувати «Продовжити»' },
-lumen_card_cast_name: { ru: 'Показывать актёров', en: 'Show cast', uk: 'Показувати акторів' },
+
+
+
+lumen_card_font_name: { ru: 'Шрифт', en: 'Font', uk: 'Шрифт' },
+lumen_card_font_descr: {
+ru: 'Гарнитура текста и цифр. Действует только при включённых фирменных шрифтах. Применяется сразу.',
+en: 'Typeface for text and figures. Works only with custom fonts on. Applied immediately.',
+uk: 'Гарнітура тексту й цифр. Діє лише з увімкненими фірмовими шрифтами. Застосовується одразу.'
+},
+lumen_card_font_golos: { ru: 'Golos Text', en: 'Golos Text', uk: 'Golos Text' },
+lumen_card_font_onest: { ru: 'Onest', en: 'Onest', uk: 'Onest' },
+lumen_card_font_manrope: { ru: 'Manrope', en: 'Manrope', uk: 'Manrope' },
+lumen_card_font_inter: { ru: 'Inter', en: 'Inter', uk: 'Inter' },
+lumen_card_font_plex: { ru: 'IBM Plex Sans', en: 'IBM Plex Sans', uk: 'IBM Plex Sans' },
 lumen_card_motion: { ru: 'Анимации', en: 'Animations', uk: 'Анімації' },
 lumen_card_motion_descr: {
 ru: '«Авто» — лёгкие анимации на Tizen/webOS, полные на остальных. «Выкл» отключает и появление блоков, и наезд на кадр.',
@@ -8356,7 +8446,6 @@ lumen_card_motion_off: { ru: 'Выкл', en: 'Off', uk: 'Викл' },
 
 
 lumen_card_continue: { ru: 'Продолжить', en: 'Continue', uk: 'Продовжити' },
-lumen_card_cast: { ru: 'В ролях', en: 'Cast', uk: 'У ролях' },
 lumen_card_serial: { ru: 'СЕРИАЛ', en: 'SERIES', uk: 'СЕРІАЛ' },
 lumen_card_min: { ru: 'мин', en: 'min', uk: 'хв' },
 lumen_card_director: { ru: 'реж.', en: 'dir.', uk: 'реж.' },
@@ -8681,6 +8770,11 @@ if (name === 'lumen_slideshow' || name === 'lumen_slide_interval') { LC.applySli
 if (name === 'lumen_menus') { LC.applyMenusPref(); return true; }
 if (name === 'lumen_torrents') { LC.applyTorrentsPref(); return true; }
 if (name === 'lumen_trailer') { LC.applyTrailerPref(); return true; }
+
+
+
+
+if (name === 'lumen_font') { LC.injectFonts(); LC.injectCss(); return true; }
 if (name === 'lumen_reviews' || name === 'lumen_kp_key') { LC.applyReviewsPref(); return true; }
 
 
@@ -8708,7 +8802,6 @@ if (name.indexOf(PLUGIN + '_') !== 0) return false;
 
 if (name === PLUGIN + '_fonts') { LC.injectFonts(); LC.injectCss(); return true; }
 if (name === PLUGIN + '_progress') { LC.applyProgressPref(); return true; }
-if (name === PLUGIN + '_cast') { LC.applyCastPref(); return true; }
 LC.injectCss();
 return true;
 }
@@ -8868,6 +8961,12 @@ var LIST = [
 { name: 'lumen_group_look', type: 'title', label: 'lumen_card_group_look' },
 { name: 'lumen_card_accent', type: 'select', values: ['sand', 'ice', 'wine', 'mint'], vprefix: 'lumen_card_accent_', 'default': 'sand', label: 'lumen_card_accent' },
 { name: 'lumen_card_fonts', type: 'trigger', 'default': true, label: 'lumen_card_fonts_name', descr: 'lumen_card_fonts_descr' },
+
+
+
+
+
+{ name: 'lumen_font', type: 'select', values: ['golos', 'onest', 'manrope', 'inter', 'plex'], vprefix: 'lumen_card_font_', 'default': 'golos', label: 'lumen_card_font_name', descr: 'lumen_card_font_descr' },
 { name: 'lumen_motion', type: 'select', values: ['auto', 'full', 'lite', 'off'], vprefix: 'lumen_card_motion_', 'default': 'auto', label: 'lumen_card_motion', descr: 'lumen_card_motion_descr' },
 
 { name: 'lumen_group_backdrop', type: 'title', label: 'lumen_card_group_backdrop' },
@@ -8877,7 +8976,9 @@ var LIST = [
 
 { name: 'lumen_group_blocks', type: 'title', label: 'lumen_card_group_blocks' },
 { name: 'lumen_card_progress', type: 'trigger', 'default': true, label: 'lumen_card_progress_name' },
-{ name: 'lumen_card_cast', type: 'trigger', 'default': true, label: 'lumen_card_cast_name' },
+
+
+
 { name: 'lumen_reviews', type: 'trigger', 'default': true, label: 'lumen_card_reviews_name', descr: 'lumen_card_reviews_descr' },
 { name: 'lumen_kp_key', type: 'input', 'default': '', label: 'lumen_card_kp_key', descr: 'lumen_card_kp_key_descr' },
 
@@ -9095,21 +9196,8 @@ root.addClass('lumen--meta');
 
 
 
-function renderOriginal(root, movie) {
-var title = movie.title || movie.name || '';
-var original = movie.original_title || movie.original_name || '';
-var node = root.find('.lumen-original');
-if (!node.length) return;
 
-var text = (!original || original === title) ? '' : original;
 
-if (isSerial(movie)) {
-var creator = LC.cardinfo.creator(movie);
-if (creator) text = text ? (text + ' · ' + creator) : creator;
-}
-
-node.text(text);
-}
 
 
 
@@ -9151,6 +9239,8 @@ chip.find('.lumen-reactions-chip__value').text(bigNumber(count));
 chip.find('.lumen-reactions-chip__label').text(LC.lang('lumen_card_reactions'));
 chip.removeClass('hide');
 }
+
+
 
 
 
@@ -9304,49 +9394,13 @@ warn('progress refresh failed', e);
 }, PROGRESS_DEBOUNCE);
 }
 
-function renderCast(root, data) {
-var block = root.find('.lumen-cast');
-if (!block.length) return;
-
-
-
-
-
-if (root[0]) root[0].lumenCast = data || null;
-
-block.addClass('hide');
-block.find('.lumen-cast__row').empty();
-
-if (!LC.pref(PLUGIN + '_cast', true)) return;
-
-var cast = data && data.persons && data.persons.cast;
-if (!cast || !cast.length) return;
-
-var html = [];
-var limit = Math.min(5, cast.length);
-for (var i = 0; i < limit; i++) {
-html.push('<div class="lumen-cast__item">' + LC.util.esc(LC.util.initials(cast[i] && cast[i].name)) + '</div>');
-}
-if (cast.length > limit) {
-html.push('<div class="lumen-cast__item lumen-cast__more">+' + (cast.length - limit) + '</div>');
-}
-
-block.find('.lumen-cast__label').text(LC.lang('lumen_card_cast'));
-block.find('.lumen-cast__row').html(html.join(''));
-block.removeClass('hide');
-}
 
 
 
 
 
 
-function refreshCast() {
-$('.lumen-card').each(function () {
-var data = this.lumenCast;
-if (data) renderCast($(this), data);
-});
-}
+
 
 
 
@@ -9838,14 +9892,12 @@ var movie = (data && data.movie) || {};
 
 try { renderTitleClass(root, movie); } catch (e) { warn('title failed', e); }
 try { renderMeta(root, movie, data); } catch (e) { warn('meta failed', e); }
-try { renderOriginal(root, movie); } catch (e) { warn('original failed', e); }
 try { renderStatus(root, movie); } catch (e) { warn('status failed', e); }
 try { renderSerialMode(root, movie); } catch (e) { warn('serial mode failed', e); }
 try { renderNextChip(root, movie); } catch (e) { warn('next episode chip failed', e); }
 try { renderReactionsChip(root, data); } catch (e) { warn('reactions chip failed', e); }
 try { renderQualityChips(root, movie); } catch (e) { warn('quality chips failed', e); }
 try { renderProgress(root, movie, (data && data.episodes && data.episodes.episodes) || null); } catch (e) { warn('progress failed', e); }
-try { renderCast(root, data); } catch (e) { warn('cast failed', e); }
 try { renderEpisodes(root, data); } catch (e) { warn('episodes failed', e); }
 try { bindEpisodes(root); } catch (e) { warn('episodes bind failed', e); }
 }
@@ -9855,7 +9907,6 @@ decorate: decorate,
 descr: renderDescrRow,
 refreshEpisode: refreshEpisode,
 refreshProgress: refreshProgress,
-refreshCast: refreshCast,
 scheduleProgressRefresh: scheduleProgressRefresh
 };
 
@@ -10571,15 +10622,6 @@ warn('reviews pref failed', e);
 
 
 
-
-
-LC.applyCastPref = function () {
-try {
-LC.header.refreshCast();
-} catch (e) {
-warn('cast pref failed', e);
-}
-};
 
 
 

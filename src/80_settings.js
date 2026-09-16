@@ -44,12 +44,25 @@
     lumen_card_accent_mint: { ru: 'Мята', en: 'Mint', uk: 'М\'ята' },
     lumen_card_fonts_name: { ru: 'Фирменные шрифты', en: 'Custom fonts', uk: 'Фірмові шрифти' },
     lumen_card_fonts_descr: {
-      ru: 'Unbounded / Golos Text / JetBrains Mono. Требуется интернет. Выключите, если шрифты не грузятся.',
-      en: 'Unbounded / Golos Text / JetBrains Mono. Requires internet access.',
-      uk: 'Unbounded / Golos Text / JetBrains Mono. Потрібен інтернет.'
+      ru: 'Шрифты с Google Fonts. Требуется интернет. Выключите, если шрифты не грузятся.',
+      en: 'Fonts from Google Fonts. Requires internet access.',
+      uk: 'Шрифти з Google Fonts. Потрібен інтернет.'
     },
     lumen_card_progress_name: { ru: 'Показывать «Продолжить»', en: 'Show "Continue"', uk: 'Показувати «Продовжити»' },
-    lumen_card_cast_name: { ru: 'Показывать актёров', en: 'Show cast', uk: 'Показувати акторів' },
+    /* Правка пользователя 2026-09-16 (п.6): выбор гарнитуры. Имена шрифтов —
+       собственные, во всех трёх языках пишутся одинаково, но идут через
+       LC.STRINGS, как все строки интерфейса. */
+    lumen_card_font_name: { ru: 'Шрифт', en: 'Font', uk: 'Шрифт' },
+    lumen_card_font_descr: {
+      ru: 'Гарнитура текста и цифр. Действует только при включённых фирменных шрифтах. Применяется сразу.',
+      en: 'Typeface for text and figures. Works only with custom fonts on. Applied immediately.',
+      uk: 'Гарнітура тексту й цифр. Діє лише з увімкненими фірмовими шрифтами. Застосовується одразу.'
+    },
+    lumen_card_font_golos: { ru: 'Golos Text', en: 'Golos Text', uk: 'Golos Text' },
+    lumen_card_font_onest: { ru: 'Onest', en: 'Onest', uk: 'Onest' },
+    lumen_card_font_manrope: { ru: 'Manrope', en: 'Manrope', uk: 'Manrope' },
+    lumen_card_font_inter: { ru: 'Inter', en: 'Inter', uk: 'Inter' },
+    lumen_card_font_plex: { ru: 'IBM Plex Sans', en: 'IBM Plex Sans', uk: 'IBM Plex Sans' },
     lumen_card_motion: { ru: 'Анимации', en: 'Animations', uk: 'Анімації' },
     lumen_card_motion_descr: {
       ru: '«Авто» — лёгкие анимации на Tizen/webOS, полные на остальных. «Выкл» отключает и появление блоков, и наезд на кадр.',
@@ -64,7 +77,6 @@
        «Продолжить S2 E3» (экран 05). В самой строке прогресса подписи
        «ПРОДОЛЖИТЬ» больше нет: по design-spec §6 там таймкод и процент. */
     lumen_card_continue: { ru: 'Продолжить', en: 'Continue', uk: 'Продовжити' },
-    lumen_card_cast: { ru: 'В ролях', en: 'Cast', uk: 'У ролях' },
     lumen_card_serial: { ru: 'СЕРИАЛ', en: 'SERIES', uk: 'СЕРІАЛ' },
     lumen_card_min: { ru: 'мин', en: 'min', uk: 'хв' },
     lumen_card_director: { ru: 'реж.', en: 'dir.', uk: 'реж.' },
@@ -389,6 +401,11 @@
     if (name === 'lumen_menus') { LC.applyMenusPref(); return true; }
     if (name === 'lumen_torrents') { LC.applyTorrentsPref(); return true; }
     if (name === 'lumen_trailer') { LC.applyTrailerPref(); return true; }
+    /* Правка пользователя 2026-09-16 (п.6): гарнитура меняется на лету, как
+       акцент: подменяется <link> на Google Fonts (адрес зависит от пары) и
+       пересобирается CSS — стеки font-family зашиты в текст стилей. Имя без
+       префикса PLUGIN, поэтому ветка стоит здесь, до проверки префикса. */
+    if (name === 'lumen_font') { LC.injectFonts(); LC.injectCss(); return true; }
     if (name === 'lumen_reviews' || name === 'lumen_kp_key') { LC.applyReviewsPref(); return true; }
     /* Task 15 (фаза 2): изменение настроек рядов на главной.
        lumen_hide_watched применяется при следующем вызове call() каждого ряда. */
@@ -416,7 +433,6 @@
        рендер. Гонять пересборку всего CSS впустую незачем. */
     if (name === PLUGIN + '_fonts') { LC.injectFonts(); LC.injectCss(); return true; }
     if (name === PLUGIN + '_progress') { LC.applyProgressPref(); return true; }
-    if (name === PLUGIN + '_cast') { LC.applyCastPref(); return true; }
     LC.injectCss();
     return true;
   }

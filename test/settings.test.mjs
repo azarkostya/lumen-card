@@ -79,7 +79,6 @@ function setup(opts) {
   LC.applyTorrentsPref = mark('torrents');
   LC.applyTrailerPref = mark('trailer');
   LC.applyProgressPref = mark('progress');
-  LC.applyCastPref = mark('cast');
   LC.applyReviewsPref = mark('reviews');
 
   return { LC, log, storage, params, components, subscribers, Storage, prependSubscriber: (cb) => subscribers.unshift(cb) };
@@ -134,7 +133,7 @@ test('addSettings: подписи и описания по-русски, зна�
   assert.ok(paramOf(params, 'lumen_enabled').field.description.indexOf('штатн') !== -1,
     'подсказка обязана сказать, что вернётся штатная карточка Lampa');
   assert.equal(paramOf(params, 'lumen_card_accent').field.name, 'Акцентный цвет');
-  assert.equal(paramOf(params, 'lumen_card_cast').field.name, 'Показывать актёров');
+  assert.equal(paramOf(params, 'lumen_font').field.name, 'Шрифт');
   assert.equal(paramOf(params, 'lumen_reviews').field.name, 'Отзывы Кинопоиска');
   assert.equal(paramOf(params, 'lumen_kp_key').field.name, 'Ключ Kinopoisk API');
 
@@ -148,6 +147,10 @@ test('addSettings: подписи и описания по-русски, зна�
     { auto: 'Авто', on: 'Вкл', off: 'Выкл' });
   assert.deepEqual(paramOf(params, 'lumen_menus').param.values,
     { all: 'Все меню и окна', path: 'Только путь до плеера', off: 'Выкл' });
+  /* Правка 2026-09-16 (п.6): имена гарнитур — собственные, во всех трёх
+     языках пишутся одинаково, но идут через LC.STRINGS, как все строки. */
+  assert.deepEqual(paramOf(params, 'lumen_font').param.values,
+    { golos: 'Golos Text', onest: 'Onest', manrope: 'Manrope', inter: 'Inter', plex: 'IBM Plex Sans' });
 });
 
 test('addSettings: заголовки групп — параметры type "title" без onChange и без значения', () => {
@@ -188,7 +191,9 @@ test('каждая настройка применяется ровно один
     lumen_slide_interval: ['slideshow'],
     lumen_trailer: ['trailer'],
     lumen_card_progress: ['progress'],
-    lumen_card_cast: ['cast'],
+    /* Правка 2026-09-16 (п.6): смена гарнитуры — подмена <link> шрифтов плюс
+       пересборка CSS (стеки font-family зашиты в текст стилей). */
+    lumen_font: ['fonts', 'css'],
     lumen_reviews: ['reviews'],
     lumen_kp_key: ['reviews'],
     lumen_menus: ['menus'],

@@ -52,6 +52,27 @@ function tokensWith(storage) {
   }
 }
 
+/* Правка 2026-09-16 (п.6): CSS и адрес <link> шрифтов зависят от настройки
+   lumen_font — собираем их с подменённым Storage тем же приёмом, что tokens. */
+function withStorage(storage, fn) {
+  const LC = {};
+  const module = { exports: null, lumen: true };
+  const Lampa = { Storage: { get: (name, def) => (name in storage ? storage[name] : def) } };
+  globalThis.window = { Lampa: Lampa };
+  globalThis.Lampa = Lampa;
+  try {
+    loadInto(LC, module, '10_util.js');
+    loadInto(LC, module, '20_icons.js');
+    loadInto(LC, module, '80_settings.js');
+    loadInto(LC, module, '81_prefs.js');
+    loadInto(LC, module, '30_css.js');
+    return fn(LC);
+  } finally {
+    delete globalThis.window;
+    delete globalThis.Lampa;
+  }
+}
+
 test('LC.tokens: палитра карточки, акцент по настройке, onac/ring/acglow, шрифты', () => {
   const t = tokensWith({});
   assert.equal(t.panel, '#1C1613');
@@ -304,12 +325,50 @@ test('buildCss: штатный tag--episode скрыт, вместо него .l
   assert.ok(icon && icon.indexOf('mask-image') !== -1, 'иконка часов — маской');
 });
 
-test('buildCss: у сериала статус — карта в ленте рейтингов, каст в правой колонке скрыт', () => {
+test('buildCss: у сериала статус — карта в ленте рейтингов', () => {
   const status = findDecl(css, (sel) => sel === '.lumen-card.lumen-card--serial .full-start-new__rate-line .full-start__status');
   assert.ok(status, 'правило статуса в ленте для .lumen-card--serial не найдено');
   assert.ok(status.indexOf('border-radius:.67em') !== -1, 'радиус карты 12px, не пилюля');
-  const cast = findDecl(css, (sel) => sel === '.lumen-card.lumen-card--serial .lumen-cast');
-  assert.ok(cast && /display\s*:\s*none/.test(cast), 'каст сериала должен быть скрыт');
+  assert.ok(status.indexOf('display:flex') !== -1, 'у сериала статус виден');
+});
+
+/* -------------------------------------------------------------------- */
+/* Правка 2026-09-16, п.1: боковой колонки нет.                          */
+/* -------------------------------------------------------------------- */
+
+test('правка 2026-09-16 (п.1): ни одного правила .lumen-side / .lumen-cast не осталось', () => {
+  assert.equal(css.indexOf('lumen-side'), -1, 'боковая колонка убрана вместе со всеми своими правилами');
+  assert.equal(css.indexOf('lumen-cast'), -1, 'блок «В ролях» убран вместе со всеми своими правилами');
+});
+
+test('правка 2026-09-16 (п.1): .lumen-content — одна колонка, без grid и без фолбэка @supports', () => {
+  const content = findDecl(css, (sel) => sel === '.lumen-card .lumen-content');
+  assert.ok(content, 'правило .lumen-content не найдено');
+  assert.equal(/display\s*:\s*(-ms-)?grid/.test(content), false, 'вторая колонка исчезла — сетка больше не нужна');
+  assert.equal(/column-gap/.test(content), false, 'зазор между колонками больше не нужен');
+  const inBlock = findDecl(css, (sel) => sel === '.lumen-card .lumen-content > .lumen-in');
+  assert.ok(inBlock && inBlock.indexOf('max-width:52em') !== -1, 'ширина главной колонки сохранена');
+  assert.equal(/grid-column/.test(inBlock), false, 'привязки к колонке сетки не осталось');
+});
+
+test('правка 2026-09-16 (п.1): у фильма статус в ленте скрыт, у сериала — показан', () => {
+  const rules = ruleBodies(css);
+  const hide = rules.find((r) => r.selectors.some((s) => s === '.lumen-card .full-start-new__rate-line .full-start__status'));
+  assert.ok(hide && /display\s*:\s*none/.test(hide.decl), 'базовое правило обязано гасить статус (у фильма «Выпущенный» бесполезен)');
+
+  const hideAt = rules.indexOf(hide);
+  const showAt = rules.findIndex((r) => r.selectors.some((s) => s === '.lumen-card.lumen-card--serial .full-start-new__rate-line .full-start__status'));
+  assert.ok(showAt > hideAt, 'правило сериала объявлено позже — иначе одинаковый вес решил бы порядок не в его пользу');
+});
+
+test('правка 2026-09-16 (п.1): чипы качества — в ленте рейтингов, прижаты влево', () => {
+  const tags = findDecl(css, (sel) => sel === '.lumen-card .full-start-new__rate-line .lumen-tags');
+  assert.ok(tags, 'правило держателя чипов в ленте не найдено');
+  assert.equal(/justify-content\s*:\s*flex-end/.test(tags), false, 'в ленте чипы идут слева направо, а не к правому краю');
+  assert.ok(tags.indexOf('align-items:center') !== -1, 'лента тянет детей по высоте — чипы центрируются');
+  const chip = findDecl(css, (sel) => sel === '.lumen-card .lumen-quality-chip');
+  assert.ok(chip, 'правило чипа качества не найдено');
+  assert.ok(chip.indexOf('margin:0 .35em .35em 0') !== -1, 'зазор чипа — справа, а не слева');
 });
 
 test('buildCss: карточка серии 340×150 (14.9em×6.58em), flex без grid, дорожка absolute', () => {
@@ -398,7 +457,7 @@ test('правка 2026-09-16: заголовок «ПОДРОБНО» — mono,
   assert.ok(title.indexOf('#A89A8A') !== -1, 'заголовок — muted');
 });
 
-test('правка 2026-09-16: у .lumen-facts своя подложка, рамка и радиус; под рядом описания — локальная вуаль', () => {
+test('правка 2026-09-16: у .lumen-facts своя подложка, рамка и радиус', () => {
   const panel = findDecl(css, (sel) => sel === '.lumen-descr-row .lumen-facts');
   assert.ok(panel, 'правило .lumen-facts не найдено');
   assert.ok(/background:rgba\(11,9,8,\.85\)/.test(panel), 'нет собственной подложки блока: ' + panel);
@@ -408,12 +467,73 @@ test('правка 2026-09-16: у .lumen-facts своя подложка, рам
   assert.ok(panel.indexOf('box-sizing:border-box') !== -1, 'паддинг не должен раздувать min-width 450px');
   /* Блюр на ТВ дорог — подложка строго плоская. */
   assert.ok(panel.indexOf('backdrop-filter') === -1, 'backdrop-filter запрещён (дорог для ТВ)');
+});
 
+/* -------------------------------------------------------------------- */
+/* Правка 2026-09-16, п.3: «полоса» под рядом описания.                  */
+/*                                                                       */
+/* Сплошная вуаль по всей ширине ряда читалась на тёмном кадре как лишняя */
+/* горизонтальная полоса поперёк экрана (верхняя кромка + градиент на     */
+/* первом em). Вместо неё — локальные подложки СТРОГО по границам своих   */
+/* блоков: у самого ряда фона нет вовсе, поэтому и границы поперёк экрана */
+/* взяться неоткуда, а над светлым кадром каждый текстовый блок лежит на  */
+/* своей плотной карте.                                                   */
+/* -------------------------------------------------------------------- */
+
+test('правка 2026-09-16 (п.3): у ряда описания нет собственного фона — полосе взяться неоткуда', () => {
   const row = findDecl(css, (sel) => sel === '.lumen-descr-row');
-  assert.ok(row && /background:rgba\(11,9,8,/.test(row), 'нет локальной вуали под рядом описания');
-  /* Ревью (п.3): сплошная вуаль давала резкую кромку на светлом кадре —
-     верхний край растушёван, но плоская заливка остаётся фолбэком. */
-  assert.ok(/background:linear-gradient\(180deg,rgba\(11,9,8,0\)/.test(row), 'верхняя кромка вуали не растушёвана');
+  assert.equal(row, null, 'у .lumen-descr-row не должно быть правила с фоном: ' + row);
+  const anyRowBg = ruleBodies(css).filter((r) => r.selectors.some((s) => s === '.lumen-descr-row') && /background/.test(r.decl));
+  assert.equal(anyRowBg.length, 0, 'ни одно правило не красит ряд целиком');
+});
+
+test('правка 2026-09-16 (п.3): подложка описания — по границам текста, плоская, того же цвета, что страница', () => {
+  const text = findDecl(css, (sel) => sel === '.lumen-descr-row .full-descr__text');
+  assert.ok(text, 'правило .full-descr__text не найдено');
+  assert.ok(/background:rgba\(11,9,8,\.85\)/.test(text), 'у текста описания должна быть своя подложка цвета страницы');
+  /* Радиус считается в em СОБСТВЕННОГО кегля узла (1.05em базового), поэтому
+     число другое, а размер тот же ~14px, что у .lumen-facts. */
+  assert.ok(text.indexOf('border-radius:.58em') !== -1, 'радиус как у таблицы «ПОДРОБНО»');
+  assert.ok(/(^|;)padding:/.test(text), 'без внутренних отступов текст упрётся в край подложки');
+  assert.ok(text.indexOf('box-sizing:border-box') !== -1, 'паддинг не должен раздувать колонку описания');
+  assert.equal(/linear-gradient/.test(text), false, 'никаких градиентных кромок — именно они читались полосой');
+  assert.ok(text.indexOf('backdrop-filter') === -1, 'backdrop-filter запрещён (дорог для ТВ)');
+});
+
+test('правка 2026-09-16 (п.3): заголовок ряда отзывов — своя подложка по содержимому, а не во всю ширину', () => {
+  const head = findDecl(css, (sel) => sel === '.lumen-descr-row .lumen-reviews__head');
+  assert.ok(head, 'правило .lumen-reviews__head не найдено');
+  assert.ok(/background:rgba\(11,9,8,\.85\)/.test(head), 'заголовок ряда отзывов лежит поверх кадра — ему нужна своя подложка');
+  assert.ok(head.indexOf('display:inline-flex') !== -1, 'подложка обязана обтягивать содержимое, а не тянуться на всю ширину');
+});
+
+/* -------------------------------------------------------------------- */
+/* Правка 2026-09-16, пп. 4-5: таблица «ПОДРОБНО» и отступ ряда.          */
+/* -------------------------------------------------------------------- */
+
+test('правка 2026-09-16 (п.5): боковой отступ ряда описания равен отступу шапки', () => {
+  const card = findDecl(css, (sel) => sel === '.full-start-new.lumen-card');
+  assert.ok(card && card.indexOf('padding:0 2.81em 2.81em') !== -1, 'safe area шапки — 64px = 2.81em');
+  const descr = findDecl(css, (sel) => sel === '.lumen-descr-row .full-descr');
+  assert.ok(descr, 'правило .full-descr не найдено');
+  assert.ok(descr.indexOf('padding-left:2.81em') !== -1, 'левый край ряда не совпадает с шапкой');
+  assert.ok(descr.indexOf('padding-right:2.81em') !== -1, 'правый край ряда не совпадает с шапкой');
+});
+
+test('правка 2026-09-16 (п.4): колонка описания 980px, таблица занимает остаток справа, верх — по одной линии', () => {
+  const wrap = findDecl(css, (sel) => sel === '.lumen-descr-row .full-descr');
+  assert.ok(/align-items\s*:\s*flex-start/.test(wrap), 'верх таблицы и верх описания — на одной линии');
+
+  const left = findDecl(css, (sel) => sel === '.lumen-descr-row .full-descr__left');
+  assert.ok(left, 'правило .full-descr__left не найдено');
+  assert.ok(left.indexOf('flex:1 1 42.96em') !== -1, '§10: колонка описания 980px = 42.96em');
+  assert.ok(left.indexOf('max-width:42.96em') !== -1, 'колонка описания не должна разрастаться шире 980px');
+  assert.ok(left.indexOf('margin-right:3.51em') !== -1, '§10: зазор до таблицы 80px = 3.51em');
+
+  const panel = findDecl(css, (sel) => sel === '.lumen-descr-row .lumen-facts');
+  assert.ok(panel.indexOf('flex:1 1 19.73em') !== -1, 'таблица добирает остаток строки, не оставляя пустоты справа');
+  assert.ok(panel.indexOf('min-width:19.73em') !== -1, '§10: панель не уже 450px = 19.73em');
+  assert.equal(/flex-shrink\s*:\s*0/.test(panel), false, 'на узком экране таблица обязана сжиматься, а не выталкивать описание');
 });
 
 /* Ревью (п.2): соседи таблицы в том же ряду лежат на той же вуали поверх
@@ -474,8 +594,8 @@ test('buildCss: штатный заголовок ряда «Подробно» 
 /* Ревью Task 5d (M2): после снятия display:-ms-grid раскладка на движках без
    grid держится ровно на порядке деклараций — display:flex должен идти ДО
    display:grid в том же правиле (последнее валидное значение выигрывает). */
-test('buildCss: у обеих сеток display:flex объявлен раньше display:grid', () => {
-  for (const sel of ['.lumen-card .lumen-content', '.lumen-descr-row .lumen-facts__grid']) {
+test('buildCss: у сетки таблицы display:flex объявлен раньше display:grid', () => {
+  for (const sel of ['.lumen-descr-row .lumen-facts__grid']) {
     const decl = findDecl(css, (s) => s === sel);
     assert.ok(decl, 'правило не найдено: ' + sel);
     const flex = decl.indexOf('display:flex');
@@ -760,7 +880,6 @@ test('buildCss: режим трейлера сжимает шапку — заг
   assert.ok(hidden, 'правило скрытия блоков в режиме трейлера не найдено');
   assert.ok(/display\s*:\s*none\s*!important/.test(hidden.decl));
   for (const sel of ['.lumen-card.lumen-trailer-on .full-start-new__rate-line',
-    '.lumen-card.lumen-trailer-on .lumen-side',
     '.lumen-card.lumen-trailer-on .lumen-episodes']) {
     assert.ok(hidden.selectors.indexOf(sel) !== -1, 'в режиме трейлера должен скрываться ' + sel);
   }
@@ -1099,5 +1218,98 @@ test('Task 17: на слабых ТВ пружины фокуса в хабе и
   for (const mode of ['lite', 'off']) {
     assert.ok(findDecl(css, (sel) => sel === '.lumen-hub.lumen-motion-' + mode + ' .lumen-tile.focus'), 'нет правила плиток для ' + mode);
     assert.ok(findDecl(css, (sel) => sel === '.lumen-grid.lumen-motion-' + mode + ' .lumen-gcard.focus'), 'нет правила карточек для ' + mode);
+  }
+});
+
+/* ====================================================================== */
+/* Правка 2026-09-16, п.6: настройка «Шрифт».                             */
+/*                                                                        */
+/* Пять пар «текстовая гарнитура + моноширинная к ней», все с Google Fonts */
+/* (CSP плагина другого источника не пропустит). Заголовочная Unbounded    */
+/* общая для всех пар — это фирменный знак карточки, а меняется именно то, */
+/* что читают: текст и цифры.                                             */
+/* ====================================================================== */
+
+const FONT_PAIRS = {
+  golos: ['Golos Text', 'JetBrains Mono'],
+  onest: ['Onest', 'JetBrains Mono'],
+  manrope: ['Manrope', 'JetBrains Mono'],
+  inter: ['Inter', 'JetBrains Mono'],
+  plex: ['IBM Plex Sans', 'IBM Plex Mono']
+};
+
+test('правка 2026-09-16 (п.6): каждая пара доезжает до LC.tokens', () => {
+  for (const key of Object.keys(FONT_PAIRS)) {
+    const t = withStorage({ lumen_font: key }, (LC) => LC.tokens());
+    assert.ok(t.fontBody.indexOf('"' + FONT_PAIRS[key][0] + '"') === 0, key + ': текстовая гарнитура первой в стеке, было ' + t.fontBody);
+    assert.ok(t.fontMono.indexOf('"' + FONT_PAIRS[key][1] + '"') === 0, key + ': моноширинная гарнитура пары, было ' + t.fontMono);
+    assert.ok(t.fontDisplay.indexOf('"Unbounded"') === 0, key + ': заголовочная гарнитура общая для всех пар');
+    assert.ok(/sans-serif$/.test(t.fontBody), key + ': у стека обязан быть системный фолбэк');
+    assert.ok(/monospace$/.test(t.fontMono), key + ': у моно-стека обязан быть системный фолбэк');
+  }
+});
+
+test('правка 2026-09-16 (п.6): незнакомое значение — как Golos Text; при выключенных шрифтах настройка не действует', () => {
+  const junk = withStorage({ lumen_font: 'nope' }, (LC) => LC.tokens());
+  assert.equal(junk.fontBody, withStorage({}, (LC) => LC.tokens()).fontBody);
+
+  const off = withStorage({ lumen_font: 'inter', lumen_card_fonts: 'false' }, (LC) => LC.tokens());
+  assert.equal(off.fontBody, 'inherit', 'шрифты выключены — системный стек, выбор гарнитуры не действует');
+  assert.equal(off.fontMono.indexOf('Inter'), -1);
+});
+
+test('правка 2026-09-16 (п.6): адрес <link> собирается под выбранную пару и только с Google Fonts', () => {
+  for (const key of Object.keys(FONT_PAIRS)) {
+    const url = withStorage({ lumen_font: key }, (LC) => LC.fontsUrl());
+    assert.ok(url.indexOf('https://fonts.googleapis.com/css2?') === 0, key + ': единственный разрешённый CSP источник, было ' + url);
+    assert.ok(url.indexOf('family=Unbounded:') !== -1, key + ': заголовочная гарнитура всегда в наборе');
+    assert.ok(url.indexOf('family=' + FONT_PAIRS[key][0].replace(/ /g, '+') + ':') !== -1, key + ': нет текстовой гарнитуры');
+    assert.ok(url.indexOf('family=' + FONT_PAIRS[key][1].replace(/ /g, '+') + ':') !== -1, key + ': нет моноширинной гарнитуры');
+    assert.ok(url.indexOf('display=swap') !== -1, key + ': нет display=swap');
+    /* Чужие гарнитуры не грузятся — иначе каждая смена тянула бы все пять. */
+    for (const other of Object.keys(FONT_PAIRS)) {
+      if (FONT_PAIRS[other][0] === FONT_PAIRS[key][0] || FONT_PAIRS[other][0] === FONT_PAIRS[key][1]) continue;
+      assert.equal(url.indexOf('family=' + FONT_PAIRS[other][0].replace(/ /g, '+') + ':'), -1,
+        key + ': в наборе оказалась лишняя гарнитура ' + FONT_PAIRS[other][0]);
+    }
+  }
+});
+
+test('правка 2026-09-16 (п.6): выбранная гарнитура попадает в текст стилей карточки', () => {
+  const inter = withStorage({ lumen_font: 'inter' }, (LC) => LC.buildCss());
+  const descr = findDecl(inter, (sel) => sel === '.lumen-descr-row .full-descr__text');
+  assert.ok(descr.indexOf('"Inter"') !== -1, 'описание рисуется выбранной гарнитурой');
+  assert.equal(inter.indexOf('Golos Text'), -1, 'прежняя гарнитура не должна оставаться в стилях');
+});
+
+/* «Моноширинный даёт ощущение консоли» — поэтому он остаётся только там, где
+   выравниваются цифры (таймкоды, проценты, счётчики), а метки и мета-строка
+   переведены на основную гарнитуру. */
+test('правка 2026-09-16 (п.6): моно ушёл из мета-строки и меток, но остался на цифрах', () => {
+  const MONO = '"JetBrains Mono"';
+  const body = [
+    '.lumen-card .lumen-meta',
+    '.lumen-card .lumen-quality-chip',
+    '.lumen-card .lumen-trailer-badge',
+    '.lumen-descr-row .lumen-facts__title',
+    '.lumen-descr-row .lumen-reviews__src'
+  ];
+  for (const sel of body) {
+    const decl = findDecl(css, (s) => s === sel);
+    assert.ok(decl, 'правило не найдено: ' + sel);
+    assert.equal(decl.indexOf(MONO), -1, sel + ' — не место моноширинному');
+    assert.ok(decl.indexOf('"Golos Text"') !== -1, sel + ' — основная гарнитура');
+  }
+
+  const digits = [
+    '.lumen-card .full-start__rate',
+    '.lumen-card .lumen-progress',
+    '.lumen-card .lumen-episode__timecode',
+    '.lumen-descr-row .lumen-reviews__total'
+  ];
+  for (const sel of digits) {
+    const decl = findDecl(css, (s) => s === sel);
+    assert.ok(decl, 'правило не найдено: ' + sel);
+    assert.ok(decl.indexOf(MONO) !== -1, sel + ' — цифры обязаны выравниваться');
   }
 });

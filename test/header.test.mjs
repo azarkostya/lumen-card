@@ -79,9 +79,10 @@ function makeCard() {
   const text = new FakeEl(['lumen-next-chip__text']);
   const chip = new FakeEl(['lumen-next-chip', 'hide'], [text]);
   const rate = new FakeEl(['full-start__rate', 'rate--tmdb']);
-  const rateLine = new FakeEl(['full-start-new__rate-line'], [rate, chip]);
+  /* Правка 2026-09-16 (п.1): боковой колонки больше нет — статус стоит прямо
+     в ленте рейтингов, перед чипом следующей серии. */
   const status = new FakeEl(['full-start__status']);
-  const side = new FakeEl(['lumen-side'], [status]);
+  const rateLine = new FakeEl(['full-start-new__rate-line'], [rate, status, chip]);
   const play = new FakeEl(['full-start__button', 'selector', 'button--play']);
   const book = new FakeEl(['full-start__button', 'selector', 'button--book']);
   const buttons = new FakeEl(['full-start-new__buttons'], [play, book]);
@@ -98,9 +99,9 @@ function makeCard() {
   const viewport = new FakeEl(['lumen-episodes__viewport'], [track]);
   viewport.getBoundingClientRect = () => ({ left: 64 });
   const row = new FakeEl(['lumen-episodes', 'hide'], [head, viewport]);
-  const root = new FakeEl(['full-start-new', 'lumen-card'], [rateLine, progress, side, buttons, row]);
+  const root = new FakeEl(['full-start-new', 'lumen-card'], [rateLine, progress, buttons, row]);
   docRoots.push(root);
-  return { root, chip, text, rateLine, status, side, play, book, buttons, row, track, title, count, progress, pLabel, pTime };
+  return { root, chip, text, rateLine, status, play, book, buttons, row, track, title, count, progress, pLabel, pTime };
 }
 
 function serial(n) {
@@ -328,19 +329,23 @@ test('bindEpisodes: OK -> «Смотреть» только с карточки 
 
 /* ------------------------------ renderSerialMode / renderNextChip ------------------------------ */
 
-test('renderSerialMode: статус переносится в ленту перед чипом один раз; у фильма остаётся в правой колонке', () => {
+/* Правка 2026-09-16 (п.1): боковой колонки нет, статус стоит в ленте
+   рейтингов у всех карточек. Порядок узлов ленты не меняется ни у сериала
+   (renderSerialMode находит статус уже на месте и ничего не двигает), ни у
+   фильма — у фильма статус гасит CSS (.lumen-card--serial нет). */
+test('renderSerialMode: статус уже стоит в ленте перед чипом — порядок не меняется ни у сериала, ни у фильма', () => {
   const c = makeCard();
   const data = serial(2);
   LC.header.decorate(c.root, data);
   LC.header.decorate(c.root, data);
   assert.ok(c.root.hasClass('lumen-card--serial'));
   assert.deepEqual(c.rateLine._children.map((n) => n._class[0]), ['full-start__rate', 'full-start__status', 'lumen-next-chip']);
-  assert.equal(c.side._children.length, 0);
 
   const f = makeCard();
   LC.header.decorate(f.root, { movie: { title: 'Дюна', original_title: 'Dune: Part Two', release_date: '2024-02-27' } });
   assert.equal(f.root.hasClass('lumen-card--serial'), false);
-  assert.equal(f.status.parent(), f.side);
+  assert.equal(f.status.parent(), f.rateLine);
+  assert.deepEqual(f.rateLine._children.map((n) => n._class[0]), ['full-start__rate', 'full-start__status', 'lumen-next-chip']);
 });
 
 test('renderNextChip: текст из LC.STRINGS со склонением; скрыт без next_episode_to_air и у фильма', () => {
@@ -773,35 +778,15 @@ test('refreshEpisode: перерисовывает только серию с э
   assert.deepEqual(warnLog, []);
 });
 
-/* ------------------------------ refreshCast (Task 10) ------------------------------ */
+/* ------------------------------ правка 2026-09-16 (пп. 1-2) ------------------------------ */
 
-/* Настройка «Показывать актёров» тоже обязана применяться на лету: возврат из
-   настроек Lampa карточку не перестраивает (ни 'full', ни complite), и без
-   своей точки применения кружки инициалов остались бы на экране. Данные для
-   перерисовки кладёт сам renderCast — тем же приёмом, что renderProgress
-   (root[0].lumenProgress). Тест последний в файле: decorate на урезанной
-   разметке пишет в warnLog, а соседние тесты ждут его пустым. */
-test('Task 10: LC.header.refreshCast снимает и возвращает блок актёров без открытия карточки', () => {
-  warnLog.length = 0;
-  const label = new FakeEl(['lumen-cast__label']);
-  const row = new FakeEl(['lumen-cast__row']);
-  const cast = new FakeEl(['lumen-cast', 'hide'], [label, row]);
-  const root = new FakeEl(['full-start-new', 'lumen-card'], [cast]);
-  docRoots.push(root);
-
-  LC.header.decorate(root, { movie: { title: 'Дюна' }, persons: { cast: [{ name: 'Тимоти Шаламе' }, { name: 'Зендея' }] } });
-  assert.equal(cast.hasClass('hide'), false, 'актёры показаны');
-
-  const orig = Lampa.Storage.get;
-  Lampa.Storage.get = (name, def) => (name === 'lumen_card_cast' ? 'false' : def);
-  try {
-    LC.header.refreshCast();
-    assert.equal(cast.hasClass('hide'), true, 'выключили — блок снят на лету');
-  } finally {
-    Lampa.Storage.get = orig;
-  }
-
-  LC.header.refreshCast();
-  assert.equal(cast.hasClass('hide'), false, 'включили обратно — блок вернулся по сохранённым данным');
-  assert.equal(row._children.length, 2, 'кружки инициалов перерисованы');
+/* Кружки «В ролях» и оригинальное название в шапке убраны вместе со своими
+   узлами: первое дублировало ряд актёров Lampa ниже по экрану, второе —
+   строку «Оригинал» таблицы «ПОДРОБНО». Вместе с блоками ушли и их рендеры —
+   мёртвых веток в decorate не остаётся. */
+test('правка 2026-09-16 (пп. 1-2): рендеров каста и оригинального названия больше нет', () => {
+  assert.equal(typeof LC.header.refreshCast, 'undefined', 'LC.header.refreshCast убран вместе с блоком');
+  const src = readFileSync(new URL('../src/85_header.js', import.meta.url), 'utf8');
+  assert.equal(/renderCast|lumen-cast/.test(src), false, 'в 85_header.js не осталось кода блока актёров');
+  assert.equal(/renderOriginal|lumen-original/.test(src), false, 'в 85_header.js не осталось кода оригинального названия');
 });

@@ -4,7 +4,6 @@
 
   var STYLE_ID = 'lumen-card-css';
   var FONTS_ID = 'lumen-card-fonts';
-  var FONTS_URL = 'https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Golos+Text:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap';
 
   var C = {
     bg: '#0B0908',
@@ -62,12 +61,53 @@
      вовсе и проявляется ровно там, где под блок подтекает светлый бэкдроп. */
   var BG_RGB = hexToRgb(C.bg);
 
+  /* Правка пользователя 2026-09-16 (п.6, настройка «Шрифт»): пять пар
+     «текстовая гарнитура + моноширинная к ней». Заголовочная Unbounded общая
+     для всех пар — это фирменный знак карточки; меняется то, что читают:
+     текст и цифры. Все гарнитуры есть на Google Fonts — CSP плагина другого
+     источника не пропустит. Пара, а не одна гарнитура, потому что моно
+     остаётся на таймкодах и счётчиках, и семейство IBM Plex логично тянет за
+     собой свой же моно; остальным парам JetBrains Mono подходит нейтрально.
+     bodyW/monoW — начертания, которые реально используются в стилях
+     (400/500/600 у текста, 400/600 у моно): лишние веса — лишние килобайты
+     на ТВ. */
+  var FONT_SETS = {
+    golos: { body: 'Golos Text', bodyW: '400;500;600', mono: 'JetBrains Mono', monoW: '400;600' },
+    onest: { body: 'Onest', bodyW: '400;500;600', mono: 'JetBrains Mono', monoW: '400;600' },
+    manrope: { body: 'Manrope', bodyW: '400;500;600', mono: 'JetBrains Mono', monoW: '400;600' },
+    inter: { body: 'Inter', bodyW: '400;500;600', mono: 'JetBrains Mono', monoW: '400;600' },
+    plex: { body: 'IBM Plex Sans', bodyW: '400;500;600', mono: 'IBM Plex Mono', monoW: '400;600' }
+  };
+  var FONT_DEFAULT = 'golos';
+
   var FONT_DISPLAY_ON = '"Unbounded","Arial Black",Impact,sans-serif';
-  var FONT_BODY_ON = '"Golos Text","Segoe UI",Roboto,Arial,sans-serif';
-  var FONT_MONO_ON = '"JetBrains Mono",Consolas,"Courier New",monospace';
   var FONT_DISPLAY_OFF = '"Arial Black",Impact,sans-serif';
   var FONT_BODY_OFF = 'inherit';
   var FONT_MONO_OFF = 'Consolas,"Courier New",monospace';
+
+  /* Незнакомое значение (старый профиль, битый Storage) — набор по умолчанию,
+     ровно как LC.prefs.boolOf не превращает мусор в «ложь». */
+  function fontSet() {
+    return FONT_SETS[LC.pref('lumen_font', FONT_DEFAULT)] || FONT_SETS[FONT_DEFAULT];
+  }
+
+  function bodyStack(set) {
+    return '"' + set.body + '","Segoe UI",Roboto,Arial,sans-serif';
+  }
+
+  function monoStack(set) {
+    return '"' + set.mono + '",Consolas,"Courier New",monospace';
+  }
+
+  /* Адрес <link> Google Fonts под выбранную пару: грузится ровно то, что
+     используется (Unbounded + пара), а не все пять гарнитур сразу. */
+  LC.fontsUrl = function () {
+    var set = fontSet();
+    return 'https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800' +
+      '&family=' + set.body.replace(/ /g, '+') + ':wght@' + set.bodyW +
+      '&family=' + set.mono.replace(/ /g, '+') + ':wght@' + set.monoW +
+      '&display=swap';
+  };
 
   function theme() {
     var key = LC.pref(PLUGIN + '_accent', 'sand');
@@ -88,14 +128,15 @@
   LC.tokens = function () {
     var t = theme();
     var fonts = useFonts();
+    var set = fontSet();
     return {
       bg: C.bg, panel: C.panel, line: C.line, text: C.text, muted: C.muted, smoke: C.smoke,
       spice: C.spice, dark: C.dark,
       panelHi: C.panelHi, panelLo: C.panelLo, raised: C.raised, textRgb: hexToRgb(C.text), bgRgb: hexToRgb(C.bg),
       accent: t.color, accentRgb: hexToRgb(t.color), onac: t.onac, ring: t.light, acglow: t.glow,
       fontDisplay: fonts ? FONT_DISPLAY_ON : FONT_DISPLAY_OFF,
-      fontBody: fonts ? FONT_BODY_ON : FONT_BODY_OFF,
-      fontMono: fonts ? FONT_MONO_ON : FONT_MONO_OFF
+      fontBody: fonts ? bodyStack(set) : FONT_BODY_OFF,
+      fontMono: fonts ? monoStack(set) : FONT_MONO_OFF
     };
   };
 
@@ -106,9 +147,10 @@
     var AG = t.glow;
     var A_RGB = hexToRgb(A);
     var fonts = useFonts();
+    var set = fontSet();
     var FD = fonts ? FONT_DISPLAY_ON : FONT_DISPLAY_OFF;
-    var FB = fonts ? FONT_BODY_ON : FONT_BODY_OFF;
-    var FM = fonts ? FONT_MONO_ON : FONT_MONO_OFF;
+    var FB = fonts ? bodyStack(set) : FONT_BODY_OFF;
+    var FM = fonts ? monoStack(set) : FONT_MONO_OFF;
 
     var css = [];
 
@@ -183,46 +225,31 @@
     css.push('.lumen-card.lumen-card--poster .lumen-poster-tmdb{position:absolute;left:0;right:0;bottom:0;padding:0 1.05em 1.05em;font-family:' + FD + ';font-weight:600;font-size:.88em;line-height:1.3;color:' + C.smoke + '}');
     css.push('.lumen-card .full-start-new__body{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:end;-webkit-align-items:flex-end;align-items:flex-end;min-height:74vh}');
     css.push('.lumen-card .full-start-new__right{-webkit-box-flex:1;-webkit-flex-grow:1;flex-grow:1;min-width:0}');
-    /* .lumen-content — сетка из двух колонок: шесть .lumen-in (главная колонка,
-       col 1, друг под другом в порядке документа) и .lumen-side (col 2, во всю
-       высоту первой колонки, прижат к низу) — без промежуточного .lumen-main/
-       .lumen-cols, разметка Task 5a Step 2 держит их прямыми соседями ради
-       stagger-подбора Task 4 (nth-child(1..6) считает по прямым детям). Gap
-       между колонками — design-spec §1 (60px ÷ 22.811 = 2.63em). */
-    /* display:flex — база (и фолбэк для браузеров без CSS Grid, см. ниже),
-       display:grid следующей декларацией того же свойства переопределяет её
-       там, где grid поддерживается (невалидное значение в старом браузере
-       просто не применяется, действует последнее валидное — flex). */
-    /* Ревью Task 5d (Minor 2): display:-ms-grid убран и здесь. Он включал
-       старую реализацию грида (IE/Edge ≤ 15) БЕЗ -ms-grid-columns, а в ней без
-       явных дорожек и -ms-grid-column/-row у каждого ребёнка всё складывается
-       в клетку 1×1 внахлёст; -ms-grid-columns:minmax(0,1fr) auto тут не
-       спасает — minmax() в том синтаксисе не поддерживался. Флекс-фолбэк
-       строкой выше раскладывает колонки корректно. Зазор колонок — только
-       column-gap: -webkit-column-gap относится к multicol, в grid не работает. */
-    css.push('.lumen-card .lumen-content{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;-webkit-box-align:end;-webkit-align-items:end;align-items:end;display:grid;grid-template-columns:minmax(0,1fr) auto;grid-auto-rows:auto;grid-column-gap:2.63em;column-gap:2.63em}');
-    css.push('.lumen-card .lumen-content > .lumen-in{grid-column:1;max-width:52em}');
-    /* Ревью Task 5d (M3): -ms-grid-row-align убран — он работал только вместе
-       с display:-ms-grid, которого здесь больше нет (Minor 2). */
-    css.push('.lumen-card .lumen-content > .lumen-side{grid-column:2;grid-row:1 / 7;align-self:end;-webkit-flex-shrink:0;flex-shrink:0;text-align:right;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-orient:vertical;-webkit-flex-direction:column;flex-direction:column;-webkit-box-align:end;-webkit-align-items:flex-end;align-items:flex-end}');
-    /* Фолбэк для Chromium < 57 (webOS 3, старые Tizen — CSS Grid ещё не
-       поддержан, но @supports у них уже есть). На чистом flex-wrap каждый
-       .lumen-in занимает всю строку (width:100%) — переносится сам по себе,
-       кроме шестого (кнопки: узкий по содержимому, не тянется на всю ширину)
-       — в его строке остаётся свободное место, куда margin-left:auto
-       прижимает .lumen-side. Так боковая колонка держится справа у нижнего
-       края стопки контента (там же, где кнопки), а не проваливается под неё
-       седьмой строкой. @supports not исключает блок целиком там, где grid
-       поддержан — сбрасывать эти правила отдельно не нужно. */
-    css.push('@supports not (display:grid){.lumen-card .lumen-content > .lumen-in{width:100%}.lumen-card .lumen-content > .lumen-actions{width:auto;-webkit-box-flex:0;-webkit-flex:0 1 auto;flex:0 1 auto}.lumen-card .lumen-content > .lumen-side{margin-left:auto}}');
+    /* Правка пользователя 2026-09-16 (п.1): боковой колонки .lumen-side больше
+       нет — кружки «В ролях» дублировали ряд актёров, который Lampa рисует
+       ниже (и показывали инициалы вместо фотографий), а статус фильма
+       («Выпущенный») пользователю не нужен. Вместе с колонкой ушла и сетка из
+       двух колонок: у .lumen-content остался один поток из шести .lumen-in,
+       поэтому здесь простой блок. Так после удаления колонки контент занимает
+       освободившееся место без «дыры» справа: пустая дорожка auto вместе с
+       column-gap оставляла бы 60px мёртвой зоны у правого края.
+       Заодно отпал и фолбэк @supports not (display:grid) — держать раскладку
+       на Chromium < 57 больше нечем: блочный поток одинаков везде.
+       Stagger Task 4 (nth-child(1..6)) не затронут: .lumen-in остаются
+       прямыми соседями в том же порядке, а .lumen-side был седьмым. */
+    css.push('.lumen-card .lumen-content{display:block}');
+    css.push('.lumen-card .lumen-content > .lumen-in{max-width:52em}');
 
     /* Скрытые узлы оригинала (нужны Lampa, но не нужны дизайну) */
     css.push('.lumen-card .full-start-new__tagline,.lumen-card .full-start-new__reactions,.lumen-card .lumen-keep{display:none !important}');
     css.push('.lumen-card.lumen--meta .full-start-new__head,.lumen-card.lumen--meta .full-start-new__details{display:none !important}');
     css.push('.lumen-card .full-start__pg{display:none !important}');
 
-    /* --- Мета-строка (design-spec §2: 20px, gap 12px, разделитель #2C231D) --- */
-    css.push('.lumen-card .lumen-meta{font-family:' + FM + ';font-size:.88em;color:' + C.muted + ';letter-spacing:.03em;line-height:1.3;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-flex-wrap:wrap;flex-wrap:wrap}');
+    /* --- Мета-строка (design-spec §2: 20px, gap 12px, разделитель #2C231D) ---
+       Правка пользователя 2026-09-16 (п.6): гарнитура основная, не моноширинная.
+       Цифр, которые надо выравнивать по колонкам, здесь нет (год, хронометраж и
+       жанры идут сплошной строкой), а моно давало всей шапке вид консоли. */
+    css.push('.lumen-card .lumen-meta{font-family:' + FB + ';font-size:.88em;color:' + C.muted + ';letter-spacing:.03em;line-height:1.3;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-flex-wrap:wrap;flex-wrap:wrap}');
     css.push('.lumen-card .lumen-meta > *{margin:0 .53em .2em 0}');
     css.push('.lumen-card .lumen-meta__sep{color:' + C.line + '}');
 
@@ -233,8 +260,9 @@
     /* Ревью Task 5a: line-clamp не работает без полной тройки display/box-orient/
        overflow (иначе длинный заголовок не обрезается многоточием вовсе). */
     css.push('.lumen-card .full-start-new__title.lumen-title--long{display:-webkit-box;-webkit-box-orient:vertical;overflow:hidden;-webkit-line-clamp:2;line-clamp:2}');
-    css.push('.lumen-card .lumen-original{font-family:' + FM + ';font-size:.88em;color:' + C.smoke + ';margin-top:.53em;overflow:hidden;white-space:nowrap;-o-text-overflow:ellipsis;text-overflow:ellipsis}');
-    css.push('.lumen-card .lumen-original:empty{display:none}');
+    /* Правка пользователя 2026-09-16 (п.2): оригинальное название из шапки
+       убрано вместе с узлом .lumen-original — оно дублировало строку
+       «Оригинал» таблицы «ПОДРОБНО», которая и есть нужное для него место. */
 
     /* --- Описание (design-spec §4: 24px, max-width 980px, margin-top 20px) --- */
     css.push('.lumen-card .lumen-descr{font-size:1.05em;line-height:1.45;color:' + C.muted + ';max-width:42.96em;margin-top:.88em;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;line-clamp:2;-webkit-box-orient:vertical}');
@@ -259,6 +287,13 @@
        18px Golos 500. em внутри чипа — от его 18px: радиус 12px=.67em, паддинг
        16px=.89em, иконка 22px=1.22em, зазор 10px=.56em. */
     css.push('.lumen-card .full-start-new__rate-line .tag--episode{display:none !important}');
+    /* Правка пользователя 2026-09-16 (п.1): статус переехал из боковой колонки
+       в ленту рейтингов и по умолчанию не показывается. У фильма он говорит
+       «Выпущенный» — бесполезно; у сериала («Выходит», «Завершён») смысл есть,
+       и его возвращает правило .lumen-card--serial ниже: у него на класс
+       больше, поэтому оно выигрывает независимо от порядка. Порядок всё же
+       соблюдён — правило сериала объявлено следующим. */
+    css.push('.lumen-card .full-start-new__rate-line .full-start__status{display:none}');
     css.push('.lumen-card .lumen-next-chip{font-family:' + FB + ';font-weight:500;font-size:.79em;line-height:1;color:' + C.text + ';background:' + C.chipBg + ';border:.05em solid ' + C.line + ';border-radius:.67em;padding:0 .89em;white-space:nowrap;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center}');
     css.push('.lumen-card .lumen-next-chip:before{content:"";display:block;-webkit-flex-shrink:0;flex-shrink:0;width:1.22em;height:1.22em;margin-right:.56em;background-color:' + C.muted + ';-webkit-mask-image:' + LC.icons.maskUrl('clock') + ';mask-image:' + LC.icons.maskUrl('clock') + ';-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-size:contain;mask-size:contain}');
     /* Task 5c Step 2 (design-spec §8, экран 05): у сериала статус перенесён в
@@ -347,7 +382,8 @@
     css.push('.lumen-card .lumen-stop.focus{background:' + A + ';color:' + C.dark + ';border-color:' + AL + ';border-width:.11em;-webkit-transform:scale(1.06);transform:scale(1.06);-webkit-box-shadow:0 .614em 1.754em ' + AG + ';box-shadow:0 .614em 1.754em ' + AG + '}');
     /* Метка «ТРЕЙЛЕР · БЕЗ ЗВУКА»: экран 02 — top 112px, right 64px, mono 18px,
        радиус 30px, паддинг 10/18px; внутренние em — от кегля метки (÷18). */
-    css.push('.lumen-card .lumen-trailer-badge{display:none;position:absolute;top:4.91em;right:2.81em;z-index:6;font-family:' + FM + ';font-size:.79em;line-height:1;letter-spacing:.06em;color:' + C.text + ';background:rgba(11,9,8,.62);border:.05em solid rgba(243,237,228,.2);border-radius:1.67em;padding:.56em 1em;-webkit-backdrop-filter:blur(1.1em);backdrop-filter:blur(1.1em);-webkit-box-align:center;-webkit-align-items:center;align-items:center}');
+    /* Правка 2026-09-16, п.6: метка — текст без цифр, гарнитура основная. */
+    css.push('.lumen-card .lumen-trailer-badge{display:none;position:absolute;top:4.91em;right:2.81em;z-index:6;font-family:' + FB + ';font-size:.79em;line-height:1;letter-spacing:.06em;color:' + C.text + ';background:rgba(11,9,8,.62);border:.05em solid rgba(243,237,228,.2);border-radius:1.67em;padding:.56em 1em;-webkit-backdrop-filter:blur(1.1em);backdrop-filter:blur(1.1em);-webkit-box-align:center;-webkit-align-items:center;align-items:center}');
     css.push('.lumen-card.lumen-trailer-on .lumen-trailer-badge{display:-webkit-box;display:-webkit-flex;display:flex}');
     css.push('.lumen-card .lumen-trailer-badge:before{content:"";display:block;-webkit-flex-shrink:0;flex-shrink:0;width:1.22em;height:1.22em;margin-right:.67em;background-color:' + A + ';-webkit-mask-image:' + LC.icons.maskUrl('mute') + ';mask-image:' + LC.icons.maskUrl('mute') + ';-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;-webkit-mask-size:contain;mask-size:contain}');
     /* Компактная шапка экрана 02: заголовок 42px ÷ 22.811 = 1.84em, описание,
@@ -357,32 +393,26 @@
     css.push('.lumen-card.lumen-trailer-on .full-start-new__title{font-size:1.84em;opacity:.92}');
     /* Task 8: строки «Продолжить» на экране 02 тоже нет — под роликом остаются
        только заголовок, мета-строка и ряд кнопок. */
-    css.push('.lumen-card.lumen-trailer-on .lumen-descr,.lumen-card.lumen-trailer-on .full-start-new__rate-line,.lumen-card.lumen-trailer-on .lumen-side,.lumen-card.lumen-trailer-on .lumen-episodes,.lumen-card.lumen-trailer-on .lumen-progress{display:none !important}');
+    css.push('.lumen-card.lumen-trailer-on .lumen-descr,.lumen-card.lumen-trailer-on .full-start-new__rate-line,.lumen-card.lumen-trailer-on .lumen-episodes,.lumen-card.lumen-trailer-on .lumen-progress{display:none !important}');
     css.push('.lumen-card.lumen-trailer-on .lumen-actions{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center}');
 
-    /* --- Правая колонка (design-spec §8/экраны 01,10: статус первым над чипами
-       качества, аватар 62px Golos Text, чипы качества раздельно). Ревью Task 5a:
-       .full-start__status переехал сюда из общей ленты рейтингов — Step 2 плана
-       был неточен, экраны 01/03/10 однозначно держат пилюлю статуса в боковой
-       колонке. Пилюля та же, что и была (5b), просто без правого выравнивания
-       текста внутри самой пилюли — align-items:flex-end колонки прижимает её
-       целиком к правому краю. */
-    css.push('.lumen-card .lumen-side .full-start__status{font-family:' + FB + ';font-weight:500;font-size:.79em;letter-spacing:normal;text-transform:none;background:' + C.chipBg + ';border:.04em solid ' + C.line + ';border-radius:1.32em;padding:.35em .70em;margin-bottom:1.05em;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;color:' + C.text + '}');
-    css.push('.lumen-card .lumen-side .full-start__status:before{content:"";display:block;width:.44em;height:.44em;border-radius:50%;background:currentColor;margin-right:.44em}');
+    /* --- Точка статуса (design-spec §8): красится только маркер, текст всегда
+       нейтральный. Сама карта статуса описана выше, в ленте рейтингов. --- */
     css.push('.lumen-card .lumen-status--good:before{color:' + C.good + '}');
     css.push('.lumen-card .lumen-status--accent:before{color:' + A + '}');
     css.push('.lumen-card .lumen-status--muted:before,.lumen-card .lumen-status--soon:before{color:' + C.smoke + '}');
-    css.push('.lumen-card .lumen-tags{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;-webkit-box-pack:end;-webkit-justify-content:flex-end;justify-content:flex-end}');
+    /* Правка пользователя 2026-09-16 (п.1): раздельные чипы качества (4K/HDR/BD,
+       design-spec §5c) переехали из боковой колонки в ленту рейтингов —
+       последним её элементом. Лента тянет детей по высоте (align-items:stretch),
+       поэтому чипы центрируются внутри своего держателя, а зазор у них теперь
+       справа, а не слева: в ленте они идут слева направо, как рейтинги.
+       Штатный узел tag--quality остаётся в разметке (Lampa в него пишет), но
+       по-прежнему скрыт — видимые чипы рисует renderQualityChips. */
+    css.push('.lumen-card .full-start-new__rate-line .lumen-tags{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;-webkit-box-align:center;-webkit-align-items:center;align-items:center}');
     css.push('.lumen-card .lumen-tags .full-start__tag{display:none !important}');
-    css.push('.lumen-card .lumen-quality-chip{font-family:' + FM + ';font-size:.66em;letter-spacing:.08em;color:' + C.text + ';border:.04em solid rgba(243,237,228,.24);border-radius:.31em;padding:.31em .48em;margin:0 0 .35em .35em;white-space:nowrap}');
-    css.push('.lumen-card .lumen-cast{margin-top:1.05em}');
-    css.push('.lumen-card .lumen-cast__label{font-size:.79em;color:' + C.smoke + ';margin-bottom:.53em}');
-    css.push('.lumen-card .lumen-cast__row{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-pack:end;-webkit-justify-content:flex-end;justify-content:flex-end}');
-    css.push('.lumen-card .lumen-cast__item{font-family:' + FB + ';font-size:.88em;font-weight:500;width:2.72em;height:2.72em;border-radius:50%;background:' + C.panel + ';border:.13em solid ' + C.bg + ';margin-left:-.61em;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;color:' + C.muted + ';overflow:hidden}');
-    css.push('.lumen-card .lumen-cast__row .lumen-cast__item:first-child{margin-left:0}');
-    css.push('.lumen-card .lumen-cast__more{font-family:' + FM + ';font-weight:600;font-size:.75em;color:' + C.smoke + '}');
-    /* Task 5c (design-spec §8): правая колонка сериала — только качество. */
-    css.push('.lumen-card.lumen-card--serial .lumen-cast{display:none}');
+    /* Правка 2026-09-16 (п.6): «4K · HDR · BD» — метки, а не колонка цифр;
+       моно здесь только добавлял карточке вид консоли. */
+    css.push('.lumen-card .lumen-quality-chip{font-family:' + FB + ';font-weight:600;font-size:.66em;letter-spacing:.08em;color:' + C.text + ';border:.04em solid rgba(243,237,228,.24);border-radius:.31em;padding:.31em .48em;margin:0 .35em .35em 0;white-space:nowrap}');
 
     /* --- Ряд серий сезона (design-spec §9, экраны 05/06; px ÷ 22.811) ---
        Заголовок «Сезон 2» 28px Unbounded 700 + «8 СЕРИЙ» 16px mono smoke;
@@ -464,18 +494,38 @@
        items_line, если блок отзывов Task 9 соберут внутри .full-descr — тот
        молча остался бы без заголовка. */
     css.push('.lumen-descr-row > .items-line__head{display:none}');
-    /* Правка пользователя 2026-09-16: локальная вуаль под рядом описания.
-       Вуали шапки (§12) кончаются вместе со слоем фона, а ряд описания
-       заезжает прокруткой на ещё светлый кадр — на нём не читались ни само
-       описание, ни заголовок ряда отзывов. Цвет ровно фоновый, поэтому над
-       тёмной областью вуаль невидима и проявляется только поверх кадра.
-       Шапку намеренно НЕ трогаем: её вуали согласованы с дизайном. */
-    /* Ревью (п.3): сплошная вуаль давала резкую горизонтальную кромку на
-       светлом кадре — выше ряда вуаль кадра ещё прозрачная. Растушёвываем
-       первый 1em. Первая декларация — фолбэк для движков без градиента. */
-    css.push('.lumen-descr-row{background:rgba(' + BG_RGB + ',.9);background:-webkit-linear-gradient(top,rgba(' + BG_RGB + ',0) 0,rgba(' + BG_RGB + ',.9) 1em,rgba(' + BG_RGB + ',.9) 100%);background:linear-gradient(180deg,rgba(' + BG_RGB + ',0) 0,rgba(' + BG_RGB + ',.9) 1em,rgba(' + BG_RGB + ',.9) 100%)}');
-    css.push('.lumen-descr-row .full-descr{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:start;-webkit-align-items:flex-start;align-items:flex-start;-webkit-flex-wrap:wrap;flex-wrap:wrap}');
-    css.push('.lumen-descr-row .full-descr__left{-webkit-box-flex:1;-webkit-flex:1 1 auto;flex:1 1 auto;min-width:0;margin-right:3.51em}');
+    /* --- Правка пользователя 2026-09-16, п.3: «полоса» под рядом описания ---
+       Раньше читаемость поверх светлого кадра давала сплошная вуаль всего ряда
+       (rgba(bg,.9) с растушёвкой первого em). На тёмном кадре она читалась как
+       лишняя горизонтальная полоса поперёк экрана: у неё край во всю ширину
+       вьюпорта, и именно градиентная кромка делала его заметным — полоса
+       меняющейся яркости видна там, где ровный стык ещё нет.
+       Вуаль ряда убрана совсем. Читаемость дают локальные подложки СТРОГО по
+       границам своих блоков — описание, таблица «ПОДРОБНО» и заголовок ряда
+       отзывов: это скруглённые карты по содержимому, границ во всю ширину
+       экрана у них нет по построению. Цвет тот же фоновый rgba(bg,.85), так
+       что над тёмной областью карты практически не видны, а над светлым кадром
+       работают как плотная подложка (замеры — в отчёте и design-spec §10).
+       Прочее содержимое ряда своей подложкой уже обладает: карточки отзывов и
+       панель-подсказка непрозрачны, штатные .full-descr__tag Lampa рисует на
+       собственном rgba(0,0,0,.3) и лежат они в левой, самой затенённой вуалью
+       кадра части экрана. --- */
+    /* Правка 2026-09-16, п.5: боковой отступ ряда — как у шапки карточки
+       (2.81em = 64px safe area, §1). Штатные у Lampa 1.5em (34px), из-за чего
+       описание начиналось заметно левее заголовка и кнопок. Единица та же
+       (em от базового кегля Lampa), поэтому отступ масштабируется вместе со
+       всей раскладкой — и на 1280, и на 4K. */
+    css.push('.lumen-descr-row .full-descr{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:start;-webkit-align-items:flex-start;align-items:flex-start;-webkit-flex-wrap:wrap;flex-wrap:wrap;padding-left:2.81em;padding-right:2.81em}');
+    /* Правка 2026-09-16, п.4: колонка описания — ровно 980px (§10), таблица
+       забирает остаток строки справа. Раньше у левой колонки был flex:1 1 auto:
+       она растягивалась на всё свободное место, текст внутри упирался в свой
+       max-width, и между текстом и прижатой к правому краю таблицей зияло
+       ~370px пустоты. Теперь базис левой колонки — те самые 42.96em, ограниченные
+       max-width, а весь избыток свободного места по правилам flexbox достаётся
+       таблице (её max-width нет): зазор равен заданным §10 80px, таблица стоит
+       справа и не «вжата». align-items:flex-start (выше) держит верх таблицы на
+       одной линии с первой строкой описания. */
+    css.push('.lumen-descr-row .full-descr__left{-webkit-box-flex:1;-webkit-flex:1 1 42.96em;flex:1 1 42.96em;max-width:42.96em;min-width:0;margin-right:3.51em}');
     /* Ревью Task 5d (п.1): у Lampa на .full-descr__text висят max-height (70vh,
        следом 41vh) и mask-image с прозрачным низом (vendor/lampa/css/app.css) —
        маска применяется ВСЕГДА, поэтому низ описания выцветал на любой карточке,
@@ -494,7 +544,12 @@
        отступы ~900px < 1080. На типовом описании TMDB (300-1500 знаков) предел
        не достигается вовсе — §10 требует отсутствия выцветания и обрезки на
        типовом тексте, а не буквального max-height:none. */
-    css.push('.lumen-descr-row .full-descr__text{font-family:' + FB + ';font-weight:400;font-size:1.05em;line-height:1.45;color:' + C.text + ';max-width:42.96em;width:auto;max-height:70vh;-webkit-mask-image:none;mask-image:none}');
+    /* Правка 2026-09-16, п.3: собственная подложка описания вместо вуали всего
+       ряда. Паддинг и радиус — в em СОБСТВЕННОГО кегля узла (1.05em базового):
+       .75em = 18px и 1em = 24px повторяют внутренние отступы .lumen-facts,
+       .58em = 14px — тот же радиус .61em соседних карт. box-sizing обязателен,
+       иначе паддинг раздул бы колонку описания сверх 980px. */
+    css.push('.lumen-descr-row .full-descr__text{-webkit-box-sizing:border-box;box-sizing:border-box;font-family:' + FB + ';font-weight:400;font-size:1.05em;line-height:1.45;color:' + C.text + ';max-width:42.96em;width:auto;max-height:70vh;padding:.75em 1em;border-radius:.58em;background:rgba(' + BG_RGB + ',.85);-webkit-mask-image:none;mask-image:none}');
     css.push('.lumen-descr-row .full-descr__details{display:none}');
     /* --- Правка пользователя 2026-09-16 (осознанное отступление от §10) ---
        §10 задаёт подписи таблицы цветом smoke, рассчитывая на тёмный фон. Но
@@ -513,8 +568,13 @@
        4.5:1, целевые 7:1 достигаются в реальной раскладке. Значения остаются
        text #F3EDE4 (17:1). Чтобы блок не распух от большего кегля, вертикальный
        ритм сжат: row-gap .44 -> .35em, отступ заголовка .88 -> .79em. */
-    css.push('.lumen-descr-row .lumen-facts{-webkit-box-sizing:border-box;box-sizing:border-box;-webkit-flex-shrink:0;flex-shrink:0;min-width:19.73em;max-width:100%;padding:.79em 1.05em;border-radius:.61em;background:rgba(' + BG_RGB + ',.85);border:.04em solid ' + C.line + '}');
-    css.push('.lumen-descr-row .lumen-facts__title{font-family:' + FM + ';font-weight:600;font-size:.79em;line-height:1;letter-spacing:.14em;color:' + C.muted + ';margin-bottom:.79em}');
+    /* Правка 2026-09-16, п.4: таблица забирает остаток строки справа
+       (flex:1 1 19.73em вместо flex-shrink:0) — при базисе левой колонки 980px
+       свободного места на 1920 остаётся ~280px, и без роста они превращались бы
+       в пустоту у правого края. min-width — те же 450px §10. */
+    css.push('.lumen-descr-row .lumen-facts{-webkit-box-sizing:border-box;box-sizing:border-box;-webkit-box-flex:1;-webkit-flex:1 1 19.73em;flex:1 1 19.73em;min-width:19.73em;max-width:100%;padding:.79em 1.05em;border-radius:.61em;background:rgba(' + BG_RGB + ',.85);border:.04em solid ' + C.line + '}');
+    /* Правка 2026-09-16, п.6: «ПОДРОБНО» — метка, цифр в ней нет. */
+    css.push('.lumen-descr-row .lumen-facts__title{font-family:' + FB + ';font-weight:600;font-size:.79em;line-height:1;letter-spacing:.14em;color:' + C.muted + ';margin-bottom:.79em}');
     /* Сетка: display:flex — база и фолбэк (webOS 3 / старые Tizen не знают
        grid и оставят последнее валидное значение), display:grid следующей
        декларацией переопределяет её там, где grid есть — тот же приём, что у
@@ -562,12 +622,19 @@
        движков без -webkit-line-clamp, а мягкая маска низа возвращается ТОЛЬКО
        здесь: в ряду без отзывов описание по-прежнему не выцветает. */
     css.push('.lumen-descr-row.lumen-descr-row--reviews .full-descr__text{display:-webkit-box;-webkit-line-clamp:8;-webkit-box-orient:vertical;overflow:hidden;max-height:70vh;-webkit-mask-image:-webkit-linear-gradient(top,#000 86%,rgba(0,0,0,0) 100%);-webkit-mask-image:linear-gradient(180deg,#000 86%,rgba(0,0,0,0) 100%);mask-image:linear-gradient(180deg,#000 86%,rgba(0,0,0,0) 100%)}');
-    css.push('.lumen-descr-row .lumen-reviews__head{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:baseline;-webkit-align-items:baseline;align-items:baseline;-webkit-flex-wrap:wrap;flex-wrap:wrap;margin-bottom:1.23em}');
+    /* Правка 2026-09-16, п.3: заголовок ряда отзывов лежит прямо на кадре —
+       вуали ряда, которая раньше его прикрывала, больше нет. Даём ему такую же
+       локальную подложку, как у описания и таблицы, но по СОДЕРЖИМОМУ:
+       inline-flex сжимает блок до текста, поэтому никакой кромки во всю ширину
+       экрана не появляется. Отрицательный margin компенсирует паддинг, чтобы
+       заголовок остался на одной вертикали с карточками отзывов под ним. */
+    css.push('.lumen-descr-row .lumen-reviews__head{display:-webkit-inline-box;display:-webkit-inline-flex;display:inline-flex;-webkit-box-align:baseline;-webkit-align-items:baseline;align-items:baseline;-webkit-flex-wrap:wrap;flex-wrap:wrap;-webkit-box-sizing:border-box;box-sizing:border-box;max-width:100%;margin:0 0 .79em -.7em;padding:.44em .7em;border-radius:.61em;background:rgba(' + BG_RGB + ',.85)}');
     /* Иконка «комментарий» из общего набора — маской, как у всех наших иконок
        (свой svg в разметку не вставляем: 20_icons.js, план 0.3). */
     css.push('.lumen-descr-row .lumen-reviews__ico{width:1.05em;height:1.05em;-webkit-flex-shrink:0;flex-shrink:0;background-color:' + C.muted + ';-webkit-mask-image:' + LC.icons.maskUrl('comment') + ';mask-image:' + LC.icons.maskUrl('comment') + ';-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;-webkit-mask-size:contain;mask-size:contain;margin-right:.44em;-webkit-align-self:center;align-self:center}');
     css.push('.lumen-descr-row .lumen-reviews__title{font-family:' + FD + ';font-weight:700;font-size:1.40em;line-height:1;color:' + C.text + ';margin-right:.61em}');
-    css.push('.lumen-descr-row .lumen-reviews__src{font-family:' + FM + ';font-weight:600;font-size:.70em;line-height:1;letter-spacing:.16em;color:' + A + ';margin-right:.61em}');
+    /* Правка 2026-09-16, п.6: «КИНОПОИСК» — метка источника, не колонка цифр. */
+    css.push('.lumen-descr-row .lumen-reviews__src{font-family:' + FB + ';font-weight:600;font-size:.70em;line-height:1;letter-spacing:.16em;color:' + A + ';margin-right:.61em}');
     /* Ревью (п.2), та же правка читаемости, что у таблицы «ПОДРОБНО»: заголовок
        ряда лежит на вуали поверх кадра, и smoke давал там 2.9-3.8:1. Цвет
        поднят до muted (5.6:1 над светлым кадром, 7.2:1 над тёмным), кегль — до
@@ -652,8 +719,11 @@
     /* Движок без масок: пустые закрашенные квадраты вместо иконок не рисуем. */
     css.push(LC.icons.NO_MASK + '{.lumen-descr-row .lumen-reviews__ico,.lumen-descr-row .lumen-reviews__hint-ico,.lumen-descr-row .lumen-review__likes:before,.lumen-review-modal__likes:before{display:none}}');
 
-    /* --- Компактная раскладка на узких экранах (страховка) --- */
-    css.push('@media screen and (max-width:1000px){.lumen-card .lumen-content{display:block}.lumen-card .lumen-content > .lumen-side{text-align:left;-webkit-box-align:start;-webkit-align-items:flex-start;align-items:flex-start;margin-top:1.5em}.lumen-card .full-start-new__title{font-size:2.43em}.lumen-card .full-start-new__body{min-height:0}}');
+    /* --- Компактная раскладка на узких экранах (страховка). Правка 2026-09-16
+       (п.1): правил боковой колонки здесь больше нет, а одноколоночный поток
+       .lumen-content теперь и так базовый — остаются только кегль заголовка и
+       снятая минимальная высота шапки. --- */
+    css.push('@media screen and (max-width:1000px){.lumen-card .full-start-new__title{font-size:2.43em}.lumen-card .full-start-new__body{min-height:0}}');
 
     /* Task 4: motion — анимации в духе Apple TV. */
 
@@ -959,11 +1029,20 @@
         if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
         return;
       }
-      if (existing) return;
+      /* Правка 2026-09-16 (п.6): адрес зависит от настройки «Шрифт», поэтому
+         существующий <link> не просто оставляется, а сверяется с нужным — иначе
+         смена гарнитуры применилась бы только после перезахода в Lampa. Тот же
+         адрес переписывать нельзя: браузер перезапросит стили и на ТВ это
+         заметное мигание текста. */
+      var href = LC.fontsUrl();
+      if (existing) {
+        if (existing.getAttribute('href') !== href) existing.setAttribute('href', href);
+        return;
+      }
       var link = document.createElement('link');
       link.id = FONTS_ID;
       link.rel = 'stylesheet';
-      link.href = FONTS_URL;
+      link.href = href;
       (document.head || document.getElementsByTagName('head')[0]).appendChild(link);
     } catch (e) {
       warn('fonts inject failed', e);

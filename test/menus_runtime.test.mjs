@@ -115,7 +115,7 @@ test('долг ревью (п.2): каждая настройка раздела
   LC.init();
 
   const POINTS = ['applyEnabledPref', 'applyMotionMode', 'applySlideshowPref', 'applyMenusPref',
-    'applyTorrentsPref', 'applyTrailerPref', 'applyProgressPref', 'applyCastPref', 'applyReviewsPref',
+    'applyTorrentsPref', 'applyTrailerPref', 'applyProgressPref', 'applyReviewsPref',
     'injectCss', 'injectFonts'];
   const spies = countCalls(LC, POINTS);
 
@@ -128,7 +128,8 @@ test('долг ревью (п.2): каждая настройка раздела
     lumen_slide_interval: ['applySlideshowPref'],
     lumen_trailer: ['applyTrailerPref'],
     lumen_card_progress: ['applyProgressPref'],
-    lumen_card_cast: ['applyCastPref'],
+    /* Правка 2026-09-16 (п.6): гарнитура — подмена <link> и пересборка CSS. */
+    lumen_font: ['injectFonts', 'injectCss'],
     lumen_reviews: ['applyReviewsPref'],
     lumen_kp_key: ['applyReviewsPref'],
     lumen_menus: ['applyMenusPref'],

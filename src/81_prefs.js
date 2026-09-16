@@ -67,6 +67,12 @@
       { name: 'lumen_group_look', type: 'title', label: 'lumen_card_group_look' },
       { name: 'lumen_card_accent', type: 'select', values: ['sand', 'ice', 'wine', 'mint'], vprefix: 'lumen_card_accent_', 'default': 'sand', label: 'lumen_card_accent' },
       { name: 'lumen_card_fonts', type: 'trigger', 'default': true, label: 'lumen_card_fonts_name', descr: 'lumen_card_fonts_descr' },
+      /* Правка пользователя 2026-09-16 (п.6): выбор гарнитуры — сразу за
+         выключателем шрифтов: при выключенных шрифтах он не действует, и
+         рядом это очевиднее всего. Пять пар «текст + моно», все с Google
+         Fonts (CSP плагина другого источника не пропустит), набор — в
+         FONT_SETS (src/30_css.js). */
+      { name: 'lumen_font', type: 'select', values: ['golos', 'onest', 'manrope', 'inter', 'plex'], vprefix: 'lumen_card_font_', 'default': 'golos', label: 'lumen_card_font_name', descr: 'lumen_card_font_descr' },
       { name: 'lumen_motion', type: 'select', values: ['auto', 'full', 'lite', 'off'], vprefix: 'lumen_card_motion_', 'default': 'auto', label: 'lumen_card_motion', descr: 'lumen_card_motion_descr' },
 
       { name: 'lumen_group_backdrop', type: 'title', label: 'lumen_card_group_backdrop' },
@@ -76,7 +82,9 @@
 
       { name: 'lumen_group_blocks', type: 'title', label: 'lumen_card_group_blocks' },
       { name: 'lumen_card_progress', type: 'trigger', 'default': true, label: 'lumen_card_progress_name' },
-      { name: 'lumen_card_cast', type: 'trigger', 'default': true, label: 'lumen_card_cast_name' },
+      /* Правка пользователя 2026-09-16 (п.1): пункт «Показывать актёров» убран
+         вместе с блоком, которым он управлял, — кружки инициалов дублировали
+         ряд актёров, который Lampa рисует ниже по экрану. */
       { name: 'lumen_reviews', type: 'trigger', 'default': true, label: 'lumen_card_reviews_name', descr: 'lumen_card_reviews_descr' },
       { name: 'lumen_kp_key', type: 'input', 'default': '', label: 'lumen_card_kp_key', descr: 'lumen_card_kp_key_descr' },
 

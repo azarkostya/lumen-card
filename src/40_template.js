@@ -125,10 +125,13 @@
       /* Task 5a Step 2: шесть .lumen-in — соседние дети ОДНОГО .lumen-content
          (совпадает с .full-start-new__right), между ними нет посторонних
          узлов — на этом основан stagger-подбор Task 4 (nth-child(1..6)).
-         .lumen-side идёт следом седьмым ребёнком, на нумерацию первых
-         шести не влияет. Порядок блоков — по Task 5a: мета; заголовок +
-         оригинал/режиссёр; описание; рейтинги + статус + чип реакций;
-         прогресс; кнопки. */
+         Правка пользователя 2026-09-16 (п.1): седьмого ребёнка .lumen-side
+         больше нет — боковая колонка убрана целиком (кружки «В ролях»
+         дублировали ряд актёров Lampa ниже по экрану). Статус и чипы качества
+         переехали в ленту рейтингов, .lumen-content стал одноколоночным
+         (см. 30_css.js). Нумерация первых шести не изменилась.
+         Порядок блоков — по Task 5a: мета; заголовок; описание; рейтинги +
+         статус + чип реакций + чипы качества; прогресс; кнопки. */
       return '' +
         '<div class="full-start-new lumen-card">' +
         '<div class="full-start-new__body">' +
@@ -146,29 +149,37 @@
         '<div class="full-start__pg hide"></div>' +
         '</div>' +
 
-        /* 2: заголовок + оригинальное название/режиссёр(создатель) */
+        /* 2: заголовок. Правка пользователя 2026-09-16 (п.2): оригинального
+           названия здесь больше нет — оно дублировало строку «Оригинал»
+           таблицы «ПОДРОБНО», которая и есть нужное для него место. */
         '<div class="lumen-in">' +
         '<div class="full-start-new__title">{title}</div>' +
-        '<div class="lumen-original">{original_title}</div>' +
         '<div class="full-start-new__tagline full--tagline">{tagline}</div>' +
         '</div>' +
 
         /* 3: описание (2 строки, line-clamp в CSS) */
         '<div class="lumen-in lumen-descr">{descr}</div>' +
 
-        /* 4: рейтинги + чип реакций (статус — в боковой колонке, design-spec §8 /
-           экраны 01,10: пилюля стоит первой над чипами качества, а не в общей
-           ленте — уточнение по ревью Task 5a, Step 2 плана был неточен) */
+        /* 4: рейтинги + статус + чип следующей серии + чип реакций + чипы
+           качества. Правка пользователя 2026-09-16 (п.1): статус и держатель
+           чипов качества переехали сюда из убранной боковой колонки. Статус
+           стоит СРАЗУ перед чипом следующей серии — ровно туда его для сериала
+           ставил renderSerialMode (85_header.js), так что перестановки узлов
+           на открытии карточки больше не происходит. У фильма статус гасит CSS:
+           «Выпущенный» пользователю не нужен. */
         '<div class="lumen-in">' +
         '<div class="full-start-new__rate-line">' +
         '<div class="full-start__rate rate--tmdb"><div>{rating}</div><div class="source--name">TMDB</div></div>' +
         '<div class="full-start__rate rate--imdb hide"><div></div><div>IMDB</div></div>' +
         '<div class="full-start__rate rate--kp hide"><div></div><div>KP</div></div>' +
         '<div class="full-start__tag tag--episode hide"><div></div></div>' +
-        /* Task 5c: чип «Следующая серия» (design-spec §5e, экран 05) — у сериала
-           перед ним встаёт статус (renderSerialMode в 85_header.js). */
+        '<div class="full-start__status hide"></div>' +
+        /* Task 5c: чип «Следующая серия» (design-spec §5e, экран 05). */
         '<div class="lumen-next-chip hide"><div class="lumen-next-chip__text"></div></div>' +
         '<div class="lumen-reactions-chip hide"><div class="lumen-reactions-chip__value"></div><div class="lumen-reactions-chip__label"></div></div>' +
+        '<div class="lumen-tags">' +
+        '<div class="full-start__tag tag--quality hide"><div></div></div>' +
+        '</div>' +
         '</div>' +
         '</div>' +
 
@@ -197,19 +208,6 @@
         '<div class="lumen-episodes hide">' +
         '<div class="lumen-episodes__head"><div class="lumen-episodes__title"></div><div class="lumen-episodes__count"></div></div>' +
         '<div class="lumen-episodes__viewport"><div class="lumen-episodes__track"></div></div>' +
-        '</div>' +
-        '</div>' +
-
-        /* Боковая колонка: статус (первым, над чипами качества) + раздельные
-           чипы качества + «В ролях». */
-        '<div class="lumen-side">' +
-        '<div class="full-start__status hide"></div>' +
-        '<div class="lumen-tags">' +
-        '<div class="full-start__tag tag--quality hide"><div></div></div>' +
-        '</div>' +
-        '<div class="lumen-cast hide">' +
-        '<div class="lumen-cast__label"></div>' +
-        '<div class="lumen-cast__row"></div>' +
         '</div>' +
         '</div>' +
 

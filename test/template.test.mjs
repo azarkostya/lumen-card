@@ -133,7 +133,7 @@ test('build: найден только один из двух блоков -> nu
 
 test('build(фикстура): ключевые классы v1 на месте', () => {
   const result = template.build(fixture);
-  for (const cls of ['lumen-card', 'full-start-new__title', 'rate--tmdb', 'lumen-side', 'tag--year']) {
+  for (const cls of ['lumen-card', 'full-start-new__title', 'rate--tmdb', 'full-start__status', 'tag--year']) {
     assert.ok(result.indexOf(cls) !== -1, cls);
   }
 });
@@ -147,8 +147,7 @@ test('build(фикстура), Task 5c: чип следующей серии в 
   assert.equal((result.match(/class="lumen-in[ "]/g) || []).length, 6);
   const buttonsAt = result.indexOf('full-start-new__buttons');
   const episodesAt = result.indexOf('lumen-episodes');
-  const sideAt = result.indexOf('lumen-side');
-  assert.ok(buttonsAt < episodesAt && episodesAt < sideAt, 'ряд серий — после кнопок, до боковой колонки');
+  assert.ok(buttonsAt < episodesAt, 'ряд серий — после кнопок');
   const lastIn = result.lastIndexOf('class="lumen-in', episodesAt);
   assert.ok(result.slice(lastIn, episodesAt).indexOf('full-start-new__buttons') !== -1, 'ряд серий — в том же .lumen-in, что и кнопки');
   assert.ok(result.indexOf('<div class="lumen-episodes hide">') !== -1, 'ряд скрыт до отрисовки');
@@ -167,11 +166,48 @@ test('build(фикстура), Task 7: .lumen-actions — ровно один, �
 
   const actionsAt = result.indexOf('lumen-actions');
   const buttonsAt = result.indexOf('full-start-new__buttons');
-  const sideAt = result.indexOf('lumen-side');
-  assert.ok(actionsAt < buttonsAt && buttonsAt < sideAt, 'ряд кнопок лежит внутри .lumen-actions');
+  assert.ok(actionsAt < buttonsAt, 'ряд кнопок лежит внутри .lumen-actions');
   const lastInBeforeButtons = result.lastIndexOf('class="lumen-in', buttonsAt);
   assert.ok(result.slice(lastInBeforeButtons, buttonsAt).indexOf('lumen-actions') !== -1,
     'ближайший .lumen-in перед кнопками — именно .lumen-actions');
+});
+
+/* -------------------------------------------------------------------- */
+/* Правка 2026-09-16 (пп. 1-2): боковой колонки и оригинального названия  */
+/* в шапке больше нет. Колонка дублировала ряд актёров, который Lampa     */
+/* рисует ниже (и показывала инициалы вместо фотографий), оригинальное    */
+/* название осталось строкой «Оригинал» в таблице «ПОДРОБНО».             */
+/* -------------------------------------------------------------------- */
+
+test('правка 2026-09-16 (п.1): в шаблоне нет .lumen-side и .lumen-cast', () => {
+  const result = template.build(fixture);
+  assert.equal(result.indexOf('lumen-side'), -1, 'боковая колонка убрана целиком');
+  assert.equal(result.indexOf('lumen-cast'), -1, 'блок «В ролях» убран вместе с колонкой');
+});
+
+test('правка 2026-09-16 (п.1): статус и чипы качества переехали в ленту рейтингов', () => {
+  const result = template.build(fixture);
+  const rate = template.innerOf(result, 'full-start-new__rate-line');
+  assert.ok(rate.indexOf('full-start__status') !== -1, 'статус — внутри ленты рейтингов');
+  assert.ok(rate.indexOf('lumen-tags') !== -1, 'держатель чипов качества — внутри ленты рейтингов');
+  assert.ok(rate.indexOf('tag--quality') !== -1, 'штатный tag--quality остаётся в разметке (в него пишет Lampa)');
+
+  /* renderSerialMode (85_header.js) двигает статус ПЕРЕД чипом следующей
+     серии — в шаблоне он уже стоит там, значит перестановки не будет. */
+  const statusAt = rate.indexOf('full-start__status');
+  const chipAt = rate.indexOf('lumen-next-chip');
+  assert.ok(statusAt < chipAt, 'статус стоит перед чипом следующей серии');
+});
+
+test('правка 2026-09-16 (п.1): статус скрыт разметкой — показывает его Lampa, а у фильма гасит CSS', () => {
+  const result = template.build(fixture);
+  assert.ok(result.indexOf('<div class="full-start__status hide"></div>') !== -1);
+});
+
+test('правка 2026-09-16 (п.2): оригинального названия в шапке нет', () => {
+  const result = template.build(fixture);
+  assert.equal(result.indexOf('lumen-original'), -1);
+  assert.equal(result.indexOf('{original_title}'), -1, 'ключ подстановки тоже убран');
 });
 
 /* -------------------------------------------------------------------- */

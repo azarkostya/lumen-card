@@ -78,8 +78,11 @@ const LIST = prefs.LIST;
 const names = LIST.filter((e) => e.type !== 'title').map((e) => e.name);
 
 test('LIST: порядок пунктов экрана 09 сохранён', () => {
+  /* Правка 2026-09-16 (п.1): пункт «Показывать актёров» убран вместе с боковой
+     колонкой — кружки инициалов дублировали ряд актёров, который Lampa рисует
+     ниже. Остальной порядок экрана 09 не тронут. */
   const screen09 = ['lumen_enabled', 'lumen_card_accent', 'lumen_motion', 'lumen_slideshow',
-    'lumen_slide_interval', 'lumen_trailer', 'lumen_card_cast', 'lumen_reviews', 'lumen_kp_key'];
+    'lumen_slide_interval', 'lumen_trailer', 'lumen_reviews', 'lumen_kp_key'];
   const seen = names.filter((n) => screen09.indexOf(n) !== -1);
   assert.deepEqual(seen, screen09);
 });
@@ -93,7 +96,8 @@ test('LIST: «Включить Lumen Card» — первый пункт разд
 
 test('LIST: полный набор ключей — существующие имена не переименованы', () => {
   assert.deepEqual(names.slice().sort(), [
-    'lumen_card_accent', 'lumen_card_cast', 'lumen_card_fonts', 'lumen_card_progress',
+    'lumen_card_accent', 'lumen_card_fonts', 'lumen_card_progress',
+    'lumen_font', /* Правка 2026-09-16 (п.6): выбор гарнитуры */
     'lumen_enabled', 'lumen_kp_key',
     'lumen_manifest_url', /* Task 14 (фаза 2): URL внешнего манифеста подборок */
     'lumen_menus', 'lumen_motion', 'lumen_reviews',
@@ -116,11 +120,27 @@ test('LIST: типы и значения по умолчанию', () => {
   assert.deepEqual(def.lumen_slide_interval, ['select', '14']);
   assert.deepEqual(def.lumen_trailer, ['select', 'auto']);
   assert.deepEqual(def.lumen_card_progress, ['trigger', true]);
-  assert.deepEqual(def.lumen_card_cast, ['trigger', true]);
+  assert.deepEqual(def.lumen_font, ['select', 'golos']);
   assert.deepEqual(def.lumen_reviews, ['trigger', true]);
   assert.deepEqual(def.lumen_kp_key, ['input', '']);
   assert.deepEqual(def.lumen_menus, ['select', 'all']);
   assert.deepEqual(def.lumen_torrents, ['trigger', true]);
+});
+
+/* Правка 2026-09-16 (п.6): выбор гарнитуры стоит сразу за выключателем
+   «Фирменные шрифты» — при выключенных шрифтах он не действует, и рядом это
+   очевиднее всего. Пять пар, все с Google Fonts (CSP плагина разрешает
+   только его). */
+test('правка 2026-09-16 (п.6): lumen_font — select из пяти пар, сразу после lumen_card_fonts', () => {
+  const at = names.indexOf('lumen_font');
+  assert.ok(at > 0, 'пункта lumen_font нет в списке');
+  assert.equal(names[at - 1], 'lumen_card_fonts', 'выбор шрифта должен стоять сразу за выключателем шрифтов');
+
+  const entry = prefs.find('lumen_font');
+  assert.equal(entry.type, 'select');
+  assert.deepEqual(entry.values, ['golos', 'onest', 'manrope', 'inter', 'plex']);
+  assert.ok(entry.values.length <= 5, 'не больше пяти вариантов');
+  assert.equal(entry.vprefix, 'lumen_card_font_');
 });
 
 test('LIST: у select перечислены значения, у каждого пункта есть строка подписи', () => {

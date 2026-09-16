@@ -129,9 +129,8 @@ body {
 #stage .lumen-card .full-start-new__body { min-height: 800px; }
 
 /* Стенд всегда эмулирует ширину 1920px, а media-запросы плагина смотрят на
-   реальное окно браузера. Отменяем компактную раскладку внутри сцены. */
-#stage .lumen-card .lumen-content { display: grid !important; }
-#stage .lumen-card .lumen-side { margin-top: 0; text-align: right; align-items: flex-end; }
+   реальное окно браузера. Правка 2026-09-16 (п.1): компактной раскладки для
+   .lumen-content больше нет — колонка всегда одна, отменять нечего. */
 </style>
 </head>
 <body>
@@ -168,7 +167,6 @@ body {
   <div>
     <button id="btn-fonts" class="on">Шрифты вкл</button>
     <button id="btn-progress" class="on">Продолжить</button>
-    <button id="btn-cast" class="on">Актёры</button>
   </div>
   <div>
     <button id="btn-enabled" class="on">Плагин вкл</button>
@@ -340,7 +338,13 @@ body {
         },
         set: function (name, value, nolisten) {
             store[name] = value;
-            lsWrite(name, value);
+            /* Стенд и живая Lampa живут в ОДНОМ origin (localhost:8766), то есть
+               делят localStorage. Ключ Кинопоиска — данные пользователя, и
+               заглушка 'harness-mock' (плюс её временное обнуление в проверке
+               экрана 13) попадала прямо в настройки живой Lampa. Держим этот
+               ключ только в памяти стенда: проверки читают его через тот же
+               Storage.get и ничего не теряют. */
+            if (name !== 'lumen_kp_key') lsWrite(name, value);
             if (!nolisten) storageListener.send('change', { name: name, value: value });
         },
         field: function (name) { return Storage.get(name); },
@@ -812,8 +816,10 @@ body {
         var prog = !html.find('.lumen-progress').hasClass('hide');
         out.push('<div class="' + (prog ? 'ok' : 'fail') + '">' + (prog ? 'OK  ' : 'FAIL') + ' «Продолжить» видна</div>');
 
-        var cast = html.find('.lumen-cast__item').length;
-        out.push('<div class="' + (cast ? 'ok' : 'fail') + '">' + (cast ? 'OK  ' : 'FAIL') + ' актёров отрисовано: ' + cast + '</div>');
+        /* Правка 2026-09-16 (п.1): блока «В ролях» больше нет — вместо него
+           проверяем, что статус переехал в ленту рейтингов. */
+        var statusOk = html.find('.full-start-new__rate-line > .full-start__status').length === 1;
+        out.push('<div class="' + (statusOk ? 'ok' : 'fail') + '">' + (statusOk ? 'OK  ' : 'FAIL') + ' статус — в ленте рейтингов</div>');
 
         var bd = $('#component .lumen-backdrop').length;
         out.push('<div class="' + (bd ? 'ok' : 'fail') + '">' + (bd ? 'OK  ' : 'FAIL') + ' слой бэкдропа создан</div>');
@@ -828,8 +834,9 @@ body {
         }
 
         /* Task 5a Step 2: .lumen-content — единственный родитель шести
-           .lumen-in (соседние дети, stagger Task 4 считает nth-child(1..6)),
-           .lumen-side идёт следом, не разрывая их нумерацию. */
+           .lumen-in (соседние дети, stagger Task 4 считает nth-child(1..6)).
+           Правка 2026-09-16 (п.1): седьмого ребёнка .lumen-side больше нет —
+           боковая колонка убрана, .lumen-content стал одноколоночным. */
         var extra = 0;
         var content = html.find('.lumen-content');
         var contentOk = content.length > 0;
@@ -843,10 +850,10 @@ body {
         extra++;
         out.push('<div class="' + (inOk ? 'ok' : 'fail') + '">' + (inOk ? 'OK  ' : 'FAIL') + ' .lumen-in — ровно 6 прямых потомков .lumen-content: ' + inCount + '</div>');
 
-        var sideOk = content.children('.lumen-side').length === 1 && content.children().last().hasClass('lumen-side');
+        var sideOk = content.children('.lumen-side').length === 0 && content.children().length === 6;
         if (!sideOk) failed++;
         extra++;
-        out.push('<div class="' + (sideOk ? 'ok' : 'fail') + '">' + (sideOk ? 'OK  ' : 'FAIL') + ' .lumen-side — последний ребёнок .lumen-content (после шести .lumen-in)</div>');
+        out.push('<div class="' + (sideOk ? 'ok' : 'fail') + '">' + (sideOk ? 'OK  ' : 'FAIL') + ' у .lumen-content ровно шесть детей, боковой колонки нет</div>');
 
         out.unshift('<div><b>Проверки: ' + (need.length + rawNeed.length + extra - failed) + '/' + (need.length + rawNeed.length + extra) + ' узлов Lampa на месте</b></div>');
         document.getElementById('checks').innerHTML = out.join('');
@@ -934,7 +941,6 @@ body {
     }
     toggleBtn('#btn-fonts', 'lumen_card_fonts');
     toggleBtn('#btn-progress', 'lumen_card_progress');
-    toggleBtn('#btn-cast', 'lumen_card_cast');
     /* Task 10: главный выключатель — руками. «Выкл» возвращает штатный шаблон
        Lampa, поэтому следующий render() рисует карточку без Lumen. */
     toggleBtn('#btn-enabled', 'lumen_enabled');
