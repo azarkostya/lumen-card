@@ -407,6 +407,31 @@ test('правка 2026-09-16: у .lumen-facts своя подложка, рам
 
   const row = findDecl(css, (sel) => sel === '.lumen-descr-row');
   assert.ok(row && /background:rgba\(11,9,8,/.test(row), 'нет локальной вуали под рядом описания');
+  /* Ревью (п.3): сплошная вуаль давала резкую кромку на светлом кадре —
+     верхний край растушёван, но плоская заливка остаётся фолбэком. */
+  assert.ok(/background:linear-gradient\(180deg,rgba\(11,9,8,0\)/.test(row), 'верхняя кромка вуали не растушёвана');
+});
+
+/* Ревью (п.2): соседи таблицы в том же ряду лежат на той же вуали поверх
+   кадра — заголовок ряда отзывов страдал ровно тем же, чем подписи таблицы. */
+test('ревью п.2: подписи блока отзывов не smoke; счётчик отзывов не мельче 20px', () => {
+  const total = findDecl(css, (sel) => sel === '.lumen-descr-row .lumen-reviews__total');
+  assert.ok(total, 'правило .lumen-reviews__total не найдено');
+  assert.ok(total.indexOf('#7A6A5A') === -1, 'счётчик отзывов больше не smoke');
+  assert.ok(total.indexOf('#A89A8A') !== -1, 'счётчик отзывов — muted');
+  assert.ok(parseFloat(/font-size:([\d.]+)em/.exec(total)[1]) >= 0.877, 'счётчик отзывов не мельче 20px');
+
+  const ico = findDecl(css, (sel) => sel === '.lumen-descr-row .lumen-reviews__ico');
+  assert.ok(ico.indexOf('background-color:#A89A8A') !== -1, 'иконка ряда отзывов — muted');
+
+  /* Мета отзыва и модала лежат на своих непрозрачных фонах: там поднят только
+     цвет, кегль оставлен (карточка фиксированной высоты 11.4em, экран 07). */
+  for (const sel of ['.lumen-descr-row .lumen-review__meta', '.lumen-review-modal__meta', '.lumen-review-modal__src']) {
+    const decl = findDecl(css, (s) => s === sel);
+    assert.ok(decl, 'правило не найдено: ' + sel);
+    assert.ok(decl.indexOf('#7A6A5A') === -1, sel + ' — больше не smoke');
+    assert.ok(decl.indexOf('#A89A8A') !== -1, sel + ' — muted');
+  }
 });
 
 test('buildCss: полное описание в ряду — 24px/1.45 (1.05em), колонка 980px (42.96em), таблица справа', () => {
@@ -574,7 +599,9 @@ test('buildCss: заголовок ряда — название 32px (1.40em) U
   assert.ok(src.indexOf('font-size:.70em') !== -1 && src.indexOf('letter-spacing:.16em') !== -1);
   assert.ok(src.indexOf('#E8B87A') !== -1, 'метка источника — акцентом (экран 07)');
   const total = findDecl(css, (sel) => sel === '.lumen-descr-row .lumen-reviews__total');
-  assert.ok(total && total.indexOf('#7A6A5A') !== -1, '«· 318 отзывов» — smoke');
+  /* Цвет и кегль счётчика подняты правкой читаемости 2026-09-16 (заголовок ряда
+     лежит на вуали поверх кадра) — детали в тесте «ревью п.2» ниже. */
+  assert.ok(total && total.indexOf('#A89A8A') !== -1, '«· 318 отзывов» — muted');
 });
 
 test('buildCss: подсказка без ключа (экран 13) — плашка пути на прозрачном акценте', () => {

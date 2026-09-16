@@ -498,7 +498,11 @@
         var act = row.closest('.activity');
         if (act && act.length && typeof act.find === 'function') chip = act.find('.lumen-card .rate--kp');
       }
-      if (!chip || !chip.length) chip = $('.activity--active .lumen-card .rate--kp');
+      /* Ревью (п.6): глобальный селектор — ТОЛЬКО когда row не передан (прямой
+         вызов LC.applyKpRate). Если row есть, а чипа в его активности нет,
+         значит карточка уже перестроена или ушла: писать в чужую активность
+         нельзя — именно от этого и защищались в п.2. */
+      if (!chip && !row) chip = $('.activity--active .lumen-card .rate--kp');
       if (!chip || !chip.length || !chip.hasClass('hide')) return;
       chip.children().eq(0).text(num > 10 ? 10 : num);
       chip.removeClass('hide');
@@ -606,13 +610,36 @@
       }
     }
     try {
+      /* Ревью (п.1): незавершённый запрос отзывов снимаем по ВСЕМ рядам, а не
+         только у LC.active. Карточка A могла отправить запрос (таймаут 8 с) и
+         уйти в историю через Activity.push — для неё Lampa не шлёт ни destroy,
+         ни archive, LC.reviews.cancel для неё не звался бы, и доехавший ответ
+         вернул бы .lumen-reviews и класс lumen-descr-row--reviews на уже
+         раздетую карточку (а «назад» её не перестраивает). clearRow поднимает
+         поколение ряда, зовёт dropNet и снимает класс — поэтому он обязан
+         отработать ДО removeClass ниже, пока ряды ещё находятся по классу. */
+      var rows = $('.lumen-descr-row');
+      for (i = 0; i < rows.length; i++) {
+        try {
+          LC.reviews.clearRow(rows.eq(i));
+        } catch (inner) {
+          warn('strip reviews row failed', inner);
+        }
+      }
+    } catch (eRv) {
+      warn('strip reviews failed', eRv);
+    }
+    try {
       $('.lumen-descr-row').removeClass('lumen-descr-row lumen-descr-row--reviews');
     } catch (e1) {
       warn('strip descr row failed', e1);
     }
     try {
       var cards = $('.lumen-card');
-      cards.removeClass('lumen-continue');
+      /* Ревью (п.5): класс режима движения и сжатая шапка снимаются и с самих
+         карточек — с body их снимает deactivate(), но на .lumen-card они
+         ставятся отдельно (applyMotionMode / followToggle). */
+      cards.removeClass('lumen-continue lumen-compact ' + MOTION_CLASSES);
       for (j = 0; j < cards.length; j++) {
         var node = cards[j];
         if (node && node.style && typeof node.style.removeProperty === 'function') node.style.removeProperty('--lumen-play-label');
@@ -635,11 +662,6 @@
       }
     } catch (e3) {
       warn('strip backdrops failed', e3);
-    }
-    try {
-      if (LC.active) LC.reviews.cancel(LC.active.body);
-    } catch (e4) {
-      warn('strip reviews failed', e4);
     }
     LC.active = null;
   }

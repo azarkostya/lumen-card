@@ -753,7 +753,7 @@ function openCard() {
 
 test('Task 10: выключение снимает узлы плагина и подпись кнопки с открытой карточки', () => {
   const storage = {};
-  const { LC, extra } = initLC({ storage });
+  const { LC, extra, clearedRows } = initLC({ storage });
   const c = openCard();
   LC.active = { object: {}, body: c.body, data: { movie: { id: 1 } } };
 
@@ -766,7 +766,11 @@ test('Task 10: выключение снимает узлы плагина и п
   assert.equal(c.card._css['--lumen-play-label'], undefined, 'CSS-переменная подписи кнопки снята');
   assert.equal(c.descrRow.hasClass('lumen-descr-row--reviews'), false, 'описание больше не поджато');
   assert.deepEqual(extra.bgCancel, [c.body], 'слайдшоу и трейлер сняты через LC.backdrops.cancel');
-  assert.deepEqual(extra.reviewCancel, [c.body], 'незавершённый запрос отзывов снят');
+  /* Ревью (п.1): запрос отзывов снимается не через LC.reviews.cancel по
+     LC.active, а обходом рядов — clearRow поднимает поколение, зовёт dropNet и
+     снимает класс, и делает это для КАЖДОЙ карточки в DOM, а не только
+     активной. */
+  assert.deepEqual(clearedRows, [c.descrRow], 'незавершённый запрос отзывов снят через clearRow ряда');
   assert.equal(LC.active, null, 'ссылка на карточку отпущена');
   assert.equal(extra.added[extra.added.length - 1].html, '<div>orig</div>', 'штатный шаблон Lampa возвращён');
   assert.deepEqual(warnLog, []);
@@ -826,6 +830,25 @@ test('Task 10: rate--kp на карточке нет (чужой шаблон) �
   const { LC } = initLC();
   globalThis.$ = () => EMPTY;
   LC.applyKpRate(7.8);
+  assert.deepEqual(warnLog, []);
+});
+
+/* Ревью (п.6): когда row передан, глобального фолбэка быть не должно — иначе
+   возвращается ровно то поведение, от которого защищались в п.2. */
+test('ревью п.6: с переданным row чип НЕ ищется по глобальному .activity--active', () => {
+  const { LC } = initLC();
+  const value = new FakeEl([]);
+  const foreignChip = new FakeEl(['full-start__rate', 'rate--kp', 'hide'], [value, new FakeEl([])]);
+  /* Ряд своей активности чипа не содержит (карточка уже перестроена), а
+     глобальный селектор ведёт на ЧУЖУЮ активную карточку. */
+  const row = new FakeEl(['items-line', 'lumen-descr-row']);
+  row._closestActivity = new FakeEl(['activity']);
+  globalThis.$ = (sel) => (sel === '.activity--active .lumen-card .rate--kp' ? foreignChip : EMPTY);
+
+  LC.applyKpRate(7.8, row);
+
+  assert.equal(foreignChip.hasClass('hide'), true, 'чужой чип не тронут');
+  assert.equal(value.text(), '', 'рейтинг в чужую карточку не записан');
   assert.deepEqual(warnLog, []);
 });
 
@@ -901,7 +924,7 @@ function setOf(list) {
 
 test('ревью п.3: выключение раздевает и карточку из истории, а не только активную', () => {
   const storage = {};
-  const { LC } = initLC({ storage });
+  const { LC, clearedRows } = initLC({ storage });
 
   function makeCard(mark) {
     const progress = new FakeEl(['lumen-in', 'lumen-progress']);
@@ -909,7 +932,7 @@ test('ревью п.3: выключение раздевает и карточк
     const facts = new FakeEl(['lumen-facts']);
     const reviews = new FakeEl(['lumen-reviews']);
     const descr = new FakeEl(['items-line', 'lumen-descr-row', 'lumen-descr-row--reviews'], [facts, reviews]);
-    const root = new FakeEl(['full-start-new', 'lumen-card', 'lumen-continue'], [progress, episodes]);
+    const root = new FakeEl(['full-start-new', 'lumen-card', 'lumen-continue', 'lumen-compact', 'lumen-motion-full'], [progress, episodes]);
     root.style.setProperty('--lumen-play-label', '"Продолжить S2 E3"');
     const layer = new FakeEl(['lumen-backdrop']);
     const body = new FakeEl(['activity__body', mark], [root, descr, layer]);
@@ -946,5 +969,45 @@ test('ревью п.3: выключение раздевает и карточк
     assert.equal(c.descr.hasClass('lumen-descr-row'), false, what + ': маркер ряда снят');
   });
   assert.equal(cancelled.length, 2, 'слой фона гасится у обеих карточек');
+
+  /* Ревью (п.5): класс режима движения и сжатая шапка живут и на самих
+     карточках, а не только на body — иначе выключенный плагин оставил бы их. */
+  [['активная', active], ['из истории', history]].forEach(([what, c]) => {
+    assert.equal(c.root.hasClass('lumen-compact'), false, what + ': сжатая шапка снята');
+    assert.equal(c.root.hasClass('lumen-motion-full'), false, what + ': класс режима движения снят');
+  });
+
+  /* Ревью (п.1): запрос отзывов снимается у КАЖДОГО ряда, а не только у
+     LC.active, — иначе доехавший ответ вернул бы блок на раздетую карточку. */
+  assert.equal(clearedRows.length, 2, 'clearRow позван для обоих рядов описания');
+  assert.ok(clearedRows.indexOf(active.descr) !== -1 && clearedRows.indexOf(history.descr) !== -1,
+    'сняты запросы и активной карточки, и той, что в истории');
+  assert.deepEqual(warnLog, []);
+});
+
+/* Ревью (п.1), сценарий целиком: карточка A отправила запрос отзывов (таймаут
+   8 с) и ушла в историю через Activity.push — Lampa для неё не шлёт ни destroy,
+   ни archive, поэтому LC.reviews.cancel(LC.active.body) её не касался. Плагин
+   выключают, ответ доезжает — и paintList вернул бы .lumen-reviews и класс
+   lumen-descr-row--reviews на карточку, которую «назад» уже не перестроит. */
+test('ревью п.1: выключение снимает запрос отзывов и у карточки, которая уже не LC.active', () => {
+  const storage = {};
+  const { LC, clearedRows } = initLC({ storage });
+
+  const historyRow = new FakeEl(['items-line', 'lumen-descr-row', 'lumen-descr-row--reviews']);
+  const activeRow = new FakeEl(['items-line', 'lumen-descr-row']);
+  /* LC.active указывает на B — карточка A (historyRow) для него чужая. */
+  LC.active = { object: {}, body: new FakeEl(['activity__body'], [activeRow]), data: { movie: {} } };
+
+  const map = { '.lumen-descr-row': [activeRow, historyRow] };
+  const bodyTag = new FakeEl(['body-mock']);
+  globalThis.$ = (sel) => (sel === 'body' ? bodyTag : (map[sel] ? setOf(map[sel]) : EMPTY));
+
+  storage.lumen_enabled = 'false';
+  LC.applyEnabledPref();
+
+  assert.equal(clearedRows.length, 2, 'оба ряда прошли через clearRow');
+  assert.ok(clearedRows.indexOf(historyRow) !== -1, 'ряд карточки из истории тоже снят');
+  assert.equal(historyRow.hasClass('lumen-descr-row'), false, 'класс снят ПОСЛЕ clearRow, а не до');
   assert.deepEqual(warnLog, []);
 });

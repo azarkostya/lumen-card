@@ -463,7 +463,10 @@
        описание, ни заголовок ряда отзывов. Цвет ровно фоновый, поэтому над
        тёмной областью вуаль невидима и проявляется только поверх кадра.
        Шапку намеренно НЕ трогаем: её вуали согласованы с дизайном. */
-    css.push('.lumen-descr-row{background:rgba(' + BG_RGB + ',.9)}');
+    /* Ревью (п.3): сплошная вуаль давала резкую горизонтальную кромку на
+       светлом кадре — выше ряда вуаль кадра ещё прозрачная. Растушёвываем
+       первый 1em. Первая декларация — фолбэк для движков без градиента. */
+    css.push('.lumen-descr-row{background:rgba(' + BG_RGB + ',.9);background:-webkit-linear-gradient(top,rgba(' + BG_RGB + ',0) 0,rgba(' + BG_RGB + ',.9) 1em,rgba(' + BG_RGB + ',.9) 100%);background:linear-gradient(180deg,rgba(' + BG_RGB + ',0) 0,rgba(' + BG_RGB + ',.9) 1em,rgba(' + BG_RGB + ',.9) 100%)}');
     css.push('.lumen-descr-row .full-descr{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:start;-webkit-align-items:flex-start;align-items:flex-start;-webkit-flex-wrap:wrap;flex-wrap:wrap}');
     css.push('.lumen-descr-row .full-descr__left{-webkit-box-flex:1;-webkit-flex:1 1 auto;flex:1 1 auto;min-width:0;margin-right:3.51em}');
     /* Ревью Task 5d (п.1): у Lampa на .full-descr__text висят max-height (70vh,
@@ -555,10 +558,14 @@
     css.push('.lumen-descr-row .lumen-reviews__head{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:baseline;-webkit-align-items:baseline;align-items:baseline;-webkit-flex-wrap:wrap;flex-wrap:wrap;margin-bottom:1.23em}');
     /* Иконка «комментарий» из общего набора — маской, как у всех наших иконок
        (свой svg в разметку не вставляем: 20_icons.js, план 0.3). */
-    css.push('.lumen-descr-row .lumen-reviews__ico{width:1.05em;height:1.05em;-webkit-flex-shrink:0;flex-shrink:0;background-color:' + C.smoke + ';-webkit-mask-image:' + LC.icons.maskUrl('comment') + ';mask-image:' + LC.icons.maskUrl('comment') + ';-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;-webkit-mask-size:contain;mask-size:contain;margin-right:.44em;-webkit-align-self:center;align-self:center}');
+    css.push('.lumen-descr-row .lumen-reviews__ico{width:1.05em;height:1.05em;-webkit-flex-shrink:0;flex-shrink:0;background-color:' + C.muted + ';-webkit-mask-image:' + LC.icons.maskUrl('comment') + ';mask-image:' + LC.icons.maskUrl('comment') + ';-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;-webkit-mask-size:contain;mask-size:contain;margin-right:.44em;-webkit-align-self:center;align-self:center}');
     css.push('.lumen-descr-row .lumen-reviews__title{font-family:' + FD + ';font-weight:700;font-size:1.40em;line-height:1;color:' + C.text + ';margin-right:.61em}');
     css.push('.lumen-descr-row .lumen-reviews__src{font-family:' + FM + ';font-weight:600;font-size:.70em;line-height:1;letter-spacing:.16em;color:' + A + ';margin-right:.61em}');
-    css.push('.lumen-descr-row .lumen-reviews__total{font-family:' + FM + ';font-weight:400;font-size:.70em;line-height:1;letter-spacing:.08em;color:' + C.smoke + '}');
+    /* Ревью (п.2), та же правка читаемости, что у таблицы «ПОДРОБНО»: заголовок
+       ряда лежит на вуали поверх кадра, и smoke давал там 2.9-3.8:1. Цвет
+       поднят до muted (5.6:1 над светлым кадром, 7.2:1 над тёмным), кегль — до
+       20px по правилу «приглушённый текст не мельче 20px». */
+    css.push('.lumen-descr-row .lumen-reviews__total{font-family:' + FM + ';font-weight:400;font-size:.88em;line-height:1;letter-spacing:.08em;color:' + C.muted + '}');
     /* Горизонтальный ряд: карточки не сжимаются, лишнее скрыто, к карточке в
        фокусе ряд подкручивается scrollLeft (Lampa ряды ВНУТРИ ряда описания
        не двигает — находка Task 5d). */
@@ -576,7 +583,11 @@
     css.push('.lumen-descr-row .lumen-review__ava{-webkit-box-sizing:border-box;box-sizing:border-box;width:2.53em;height:2.53em;-webkit-box-flex:0;-webkit-flex:none;flex:none;border-radius:50%;background:' + C.panel + ';font-family:' + FB + ';font-weight:500;font-size:.83em;line-height:2.53em;text-align:center;color:' + C.muted + ';margin-right:.63em;overflow:hidden}');
     css.push('.lumen-descr-row .lumen-review__who{min-width:0}');
     css.push('.lumen-descr-row .lumen-review__author{font-family:' + FB + ';font-weight:600;font-size:.88em;line-height:1.1;color:' + C.text + ';margin-bottom:.25em;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis;white-space:nowrap}');
-    css.push('.lumen-descr-row .lumen-review__meta{font-family:' + FM + ';font-weight:400;font-size:.66em;line-height:1.2;color:' + C.smoke + '}');
+    /* Ревью (п.2): мета отзыва лежит на СВОЁМ непрозрачном фоне карточки, а не
+       на кадре, поэтому кегль не трогаем — карточка фиксированной высоты
+       11.4em (экран 07), рост кегля её переполнит. Поднимаем только цвет:
+       smoke давал 3.7:1 к фону карточки, muted даёт 7.1:1. */
+    css.push('.lumen-descr-row .lumen-review__meta{font-family:' + FM + ';font-weight:400;font-size:.66em;line-height:1.2;color:' + C.muted + '}');
     css.push('.lumen-descr-row .lumen-review__meta > span{margin-right:.66em}');
     css.push('.lumen-descr-row .lumen-review__tag{color:' + C.muted + '}');
     css.push('.lumen-descr-row .lumen-review--good .lumen-review__tag{color:' + C.good + '}');
@@ -618,12 +629,14 @@
     css.push('.lumen-review-modal__ava{-webkit-box-sizing:border-box;box-sizing:border-box;width:2.82em;height:2.82em;-webkit-box-flex:0;-webkit-flex:none;flex:none;border-radius:50%;background:' + C.bg + ';border:.05em solid ' + C.line + ';font-family:' + FB + ';font-weight:500;font-size:.96em;line-height:2.72em;text-align:center;color:' + C.muted + ';margin-right:.64em}');
     css.push('.lumen-review-modal__who{min-width:0;-webkit-box-flex:1;-webkit-flex:1 1 auto;flex:1 1 auto}');
     css.push('.lumen-review-modal__author{font-family:' + FB + ';font-weight:600;font-size:1.14em;line-height:1.1;margin-bottom:.26em}');
-    css.push('.lumen-review-modal__meta{font-family:' + FM + ';font-weight:400;font-size:.70em;line-height:1.2;color:' + C.smoke + '}');
+    /* Ревью (п.2): модал лежит на своей панели, не на кадре — но smoke давал к
+       ней 3.4:1, ниже порога. Цвет поднят до muted (6.5:1). */
+    css.push('.lumen-review-modal__meta{font-family:' + FM + ';font-weight:400;font-size:.70em;line-height:1.2;color:' + C.muted + '}');
     css.push('.lumen-review-modal__meta > span{margin-right:.75em}');
     css.push('.lumen-review-modal--good .lumen-review-modal__tag{color:' + C.good + '}');
     css.push('.lumen-review-modal--bad .lumen-review-modal__tag{color:' + C.spice + '}');
     css.push('.lumen-review-modal__likes:before{content:"";display:inline-block;vertical-align:-.1em;width:1em;height:1em;background-color:currentColor;-webkit-mask-image:' + LC.icons.maskUrl('star') + ';mask-image:' + LC.icons.maskUrl('star') + ';-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;-webkit-mask-size:contain;mask-size:contain;margin-right:.33em}');
-    css.push('.lumen-review-modal__src{font-family:' + FM + ';font-weight:600;font-size:.70em;line-height:1;letter-spacing:.16em;color:' + C.smoke + ';-webkit-box-flex:0;-webkit-flex:none;flex:none;margin-left:.88em}');
+    css.push('.lumen-review-modal__src{font-family:' + FM + ';font-weight:600;font-size:.70em;line-height:1;letter-spacing:.16em;color:' + C.muted + ';-webkit-box-flex:0;-webkit-flex:none;flex:none;margin-left:.88em}');
     css.push('.lumen-review-modal__line{height:.04em;background:' + C.line + ';margin:.88em 0}');
     css.push('.lumen-review-modal__title{font-family:' + FD + ';font-weight:700;font-size:1.58em;line-height:1.18;margin-bottom:.88em}');
     /* Длинный отзыв прокручивается внутри модала: контроллер modal у Lampa
