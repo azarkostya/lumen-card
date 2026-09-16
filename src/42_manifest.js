@@ -9,12 +9,10 @@
   /*   load(cb) — загружает манифест; вызывает cb(manifest)                 */
   /*   get() → текущий (или DEFAULT) манифест                               */
   /*                                                                       */
-  /* TMDB id franchise/collection: Star Wars 10, Harry Potter 1241, LOTR 119,*/
-  /* Hobbit 121938 — проверены живыми запросами (API_NOTES_4.md).           */
-  /* John Wick 404609, Mission Impossible 87359, Matrix 2344, Terminator 528 */
-  /* и with_people у персон — требуют проверки перед первым деплоем.        */
-  /* companies, networks, keywords взяты из документации TMDB, не проверены.*/
-  /* Кинопоиск: 12 типов коллекций (kinopoiskapiunofficial.tech).           */
+  /* Все идентификаторы TMDB проверены живыми запросами — см. API_NOTES_4. */
+  /* НЕ подтверждены и НЕ включены: col 8783 (Ice Age — чужая коллекция),  */
+  /* col 398 (Kingsman — ошибка), col 576734 (ОС), col 654159 (Веном).     */
+  /* Правильные: Ice Age 8354, Kingsman 391860, ОС 531242, Веном 558216.    */
   /* -------------------------------------------------------------------- */
 
   LC.manifest = (function () {
@@ -66,10 +64,12 @@
         'kdrama', 'anime', 'kp-top250'
       ],
 
-      /* ---- 62 подборки ------------------------------------------------ */
+      /* ---- 150 подборок ------------------------------------------------ */
       collections: [
 
-        /* === FRANCHISE (8 подборок) === */
+        /* === FRANCHISE (34 подборки) === */
+
+        /* Существующие (8) */
         {
           id: 'star-wars', title: 'Звёздные войны', group: 'franchise', icon: 'film',
           sources: {
@@ -106,7 +106,115 @@
           sources: { movie: { type: 'collection', id: 528 } }
         },
 
-        /* === STUDIO (6 подборок) === */
+        /* Новые (26), проверены live — API_NOTES_4.md */
+        {
+          id: 'avengers', title: 'Мстители', group: 'franchise', icon: 'film',
+          sources: { movie: { type: 'collection', id: 86311 } }
+        },
+        {
+          id: 'xmen', title: 'Люди Икс', group: 'franchise', icon: 'film',
+          sources: { movie: { type: 'collection', id: 748 } }
+        },
+        {
+          id: 'dark-knight', title: 'Тёмный рыцарь', group: 'franchise', icon: 'film',
+          sources: { movie: { type: 'collection', id: 263 } }
+        },
+        {
+          id: 'james-bond', title: 'Джеймс Бонд', group: 'franchise', icon: 'film',
+          sources: { movie: { type: 'collection', id: 645 } }
+        },
+        {
+          id: 'fast-furious', title: 'Форсаж', group: 'franchise', icon: 'film',
+          sources: { movie: { type: 'collection', id: 9485 } }
+        },
+        {
+          id: 'alien', title: 'Чужой', group: 'franchise', icon: 'film',
+          sources: { movie: { type: 'collection', id: 8091 } }
+        },
+        {
+          id: 'predator', title: 'Хищник', group: 'franchise', icon: 'film',
+          sources: { movie: { type: 'collection', id: 399 } }
+        },
+        {
+          id: 'jurassic-park', title: 'Парк Юрского периода', group: 'franchise', icon: 'film',
+          sources: { movie: { type: 'collection', id: 328 } }
+        },
+        {
+          id: 'indiana-jones', title: 'Индиана Джонс', group: 'franchise', icon: 'film',
+          sources: { movie: { type: 'collection', id: 84 } }
+        },
+        {
+          id: 'back-to-future', title: 'Назад в будущее', group: 'franchise', icon: 'film',
+          sources: { movie: { type: 'collection', id: 264 } }
+        },
+        {
+          id: 'rocky', title: 'Рокки', group: 'franchise', icon: 'film',
+          sources: { movie: { type: 'collection', id: 1575 } }
+        },
+        {
+          id: 'die-hard', title: 'Крепкий орешек', group: 'franchise', icon: 'film',
+          sources: { movie: { type: 'collection', id: 1570 } }
+        },
+        {
+          id: 'pirates-caribbean', title: 'Пираты Карибского моря', group: 'franchise', icon: 'film',
+          sources: { movie: { type: 'collection', id: 295 } }
+        },
+        {
+          id: 'transformers', title: 'Трансформеры', group: 'franchise', icon: 'film',
+          sources: { movie: { type: 'collection', id: 8650 } }
+        },
+        {
+          id: 'twilight', title: 'Сумерки. Сага', group: 'franchise', icon: 'film',
+          sources: { movie: { type: 'collection', id: 33514 } }
+        },
+        {
+          id: 'hunger-games', title: 'Голодные игры', group: 'franchise', icon: 'film',
+          sources: { movie: { type: 'collection', id: 131635 } }
+        },
+        {
+          id: 'dune', title: 'Дюна', group: 'franchise', icon: 'film',
+          sources: { movie: { type: 'collection', id: 726871 } }
+        },
+        {
+          id: 'shrek', title: 'Шрек', group: 'franchise', icon: 'film',
+          sources: { movie: { type: 'collection', id: 2150 } }
+        },
+        {
+          id: 'toy-story', title: 'История игрушек', group: 'franchise', icon: 'film',
+          sources: { movie: { type: 'collection', id: 10194 } }
+        },
+        {
+          id: 'despicable-me', title: 'Гадкий я', group: 'franchise', icon: 'film',
+          sources: { movie: { type: 'collection', id: 86066 } }
+        },
+        {
+          id: 'spiderman-mcu', title: 'Человек-паук', group: 'franchise', icon: 'film',
+          sources: { movie: { type: 'collection', id: 531241 } }
+        },
+        {
+          id: 'madagascar', title: 'Мадагаскар', group: 'franchise', icon: 'film',
+          sources: { movie: { type: 'collection', id: 14740 } }
+        },
+        {
+          id: 'ice-age', title: 'Ледниковый период', group: 'franchise', icon: 'film',
+          sources: { movie: { type: 'collection', id: 8354 } }
+        },
+        {
+          id: 'kingsman', title: 'Kingsman', group: 'franchise', icon: 'film',
+          sources: { movie: { type: 'collection', id: 391860 } }
+        },
+        {
+          id: 'suicide-squad', title: 'Отряд самоубийц', group: 'franchise', icon: 'film',
+          sources: { movie: { type: 'collection', id: 531242 } }
+        },
+        {
+          id: 'venom', title: 'Веном', group: 'franchise', icon: 'film',
+          sources: { movie: { type: 'collection', id: 558216 } }
+        },
+
+        /* === STUDIO (16 подборок) === */
+
+        /* Существующие (6) */
         {
           id: 'pixar', title: 'Pixar', group: 'studio',
           sources: { movie: { type: 'discover', params: { companies: 3, sort_by: 'popularity.desc' } } }
@@ -132,7 +240,51 @@
           sources: { movie: { type: 'discover', params: { companies: 1, sort_by: 'popularity.desc' } } }
         },
 
-        /* === SERVICE (6 подборок) === */
+        /* Новые (10), companies проверены live */
+        {
+          id: 'warner-bros', title: 'Warner Bros.', group: 'studio',
+          sources: { movie: { type: 'discover', params: { companies: 174, sort_by: 'popularity.desc' } } }
+        },
+        {
+          id: 'universal', title: 'Universal Pictures', group: 'studio',
+          sources: { movie: { type: 'discover', params: { companies: 33, sort_by: 'popularity.desc' } } }
+        },
+        {
+          id: 'paramount', title: 'Paramount Pictures', group: 'studio',
+          sources: { movie: { type: 'discover', params: { companies: 4, sort_by: 'popularity.desc' } } }
+        },
+        {
+          id: 'sony-pictures', title: 'Sony Pictures', group: 'studio',
+          sources: { movie: { type: 'discover', params: { companies: 5, sort_by: 'popularity.desc' } } }
+        },
+        {
+          id: 'dreamworks', title: 'DreamWorks Animation', group: 'studio',
+          sources: { movie: { type: 'discover', params: { companies: 521, sort_by: 'popularity.desc' } } }
+        },
+        {
+          id: 'illumination', title: 'Illumination', group: 'studio',
+          sources: { movie: { type: 'discover', params: { companies: 6704, sort_by: 'popularity.desc' } } }
+        },
+        {
+          id: 'blumhouse', title: 'Blumhouse', group: 'studio',
+          sources: { movie: { type: 'discover', params: { companies: 3172, sort_by: 'popularity.desc' } } }
+        },
+        {
+          id: 'legendary', title: 'Legendary Pictures', group: 'studio',
+          sources: { movie: { type: 'discover', params: { companies: 923, sort_by: 'popularity.desc' } } }
+        },
+        {
+          id: 'fox', title: '20th Century Studios', group: 'studio',
+          sources: { movie: { type: 'discover', params: { companies: 25, sort_by: 'popularity.desc' } } }
+        },
+        {
+          id: 'miramax', title: 'Miramax', group: 'studio',
+          sources: { movie: { type: 'discover', params: { companies: 14, sort_by: 'popularity.desc' } } }
+        },
+
+        /* === SERVICE (8 подборок) === */
+
+        /* Существующие (6) */
         {
           id: 'netflix-comedy', title: 'Netflix: Комедии', group: 'service', badge: 'NETFLIX',
           sources: {
@@ -161,7 +313,19 @@
           sources: { tv: { type: 'discover', params: { networks: 213, sort_by: 'popularity.desc' } } }
         },
 
-        /* === THEME (7 подборок) === */
+        /* Новые (2), networks проверены live */
+        {
+          id: 'hulu', title: 'Hulu', group: 'service', badge: 'HULU',
+          sources: { tv: { type: 'discover', params: { networks: 453, sort_by: 'popularity.desc' } } }
+        },
+        {
+          id: 'paramount-plus', title: 'Paramount+', group: 'service', badge: 'PARAMOUNT+',
+          sources: { tv: { type: 'discover', params: { networks: 4330, sort_by: 'popularity.desc' } } }
+        },
+
+        /* === THEME (30 подборок) === */
+
+        /* Существующие (7) */
         {
           id: 'xmas-comedy', title: 'Рождественские комедии', group: 'theme', icon: 'star', season: [12, 1],
           sources: { movie: { type: 'discover', params: { genres: 35, keywords: 207317, sort_by: 'popularity.desc' } } }
@@ -194,7 +358,108 @@
           sources: { movie: { type: 'discover', params: { genres: 53, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 200 } } } }
         },
 
-        /* === COUNTRY (7 подборок) === */
+        /* Новые (23), keywords и genres проверены live */
+        {
+          id: 'space', title: 'Космос', group: 'theme',
+          sources: { movie: { type: 'discover', params: { keywords: 9882, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 100 } } } }
+        },
+        {
+          id: 'post-apocalyptic', title: 'Постапокалипсис', group: 'theme',
+          sources: { movie: { type: 'discover', params: { keywords: 359337, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 50 } } } }
+        },
+        {
+          id: 'zombie', title: 'Зомби', group: 'theme',
+          sources: {
+            movie: { type: 'discover', params: { keywords: 12377, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 50 } } },
+            tv:    { type: 'discover', params: { keywords: 12377, sort_by: 'popularity.desc' } }
+          }
+        },
+        {
+          id: 'vampire', title: 'Вампиры', group: 'theme',
+          sources: {
+            movie: { type: 'discover', params: { keywords: 3133, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 50 } } },
+            tv:    { type: 'discover', params: { keywords: 3133, sort_by: 'popularity.desc' } }
+          }
+        },
+        {
+          id: 'spy', title: 'Шпионы', group: 'theme',
+          sources: { movie: { type: 'discover', params: { keywords: 470, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 100 } } } }
+        },
+        {
+          id: 'heist', title: 'Ограбления', group: 'theme',
+          sources: {
+            movie: { type: 'discover', params: { keywords: 10051, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 100 } } },
+            tv:    { type: 'discover', params: { keywords: 10051, sort_by: 'popularity.desc' } }
+          }
+        },
+        {
+          id: 'survival', title: 'Выживание', group: 'theme',
+          sources: { movie: { type: 'discover', params: { keywords: 10349, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 100 } } } }
+        },
+        {
+          id: 'sport', title: 'Спорт', group: 'theme',
+          sources: { movie: { type: 'discover', params: { keywords: 333328, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 50 } } } }
+        },
+        {
+          id: 'biopic', title: 'Байопики', group: 'theme',
+          sources: { movie: { type: 'discover', params: { keywords: 360939, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 100 } } } }
+        },
+        {
+          id: 'noir', title: 'Нуар', group: 'theme',
+          sources: { movie: { type: 'discover', params: { keywords: 9807, sort_by: 'vote_average.desc', filter: { 'vote_count.gte': 100 } } } }
+        },
+        {
+          id: 'slasher', title: 'Слэшеры', group: 'theme',
+          sources: { movie: { type: 'discover', params: { keywords: 12339, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 50 } } } }
+        },
+        {
+          id: 'road-movie', title: 'Роуд-муви', group: 'theme',
+          sources: { movie: { type: 'discover', params: { keywords: 167043, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 50 } } } }
+        },
+        {
+          id: 'romcom', title: 'Романтические комедии', group: 'theme',
+          sources: { movie: { type: 'discover', params: { genres: '35|10749', sort_by: 'popularity.desc', filter: { 'vote_count.gte': 100 } } } }
+        },
+        {
+          id: 'psycho-thriller', title: 'Психологические триллеры', group: 'theme',
+          sources: { movie: { type: 'discover', params: { genres: '9648|53', sort_by: 'vote_average.desc', filter: { 'vote_count.gte': 200 } } } }
+        },
+        {
+          id: 'anime-movies', title: 'Аниме-фильмы', group: 'theme',
+          sources: { movie: { type: 'discover', params: { genres: 16, orig_lang: 'ja', sort_by: 'popularity.desc' } } }
+        },
+        {
+          id: 'fantasy', title: 'Фэнтези', group: 'theme',
+          sources: { movie: { type: 'discover', params: { genres: 14, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 100 } } } }
+        },
+        {
+          id: 'scifi', title: 'Научная фантастика', group: 'theme',
+          sources: { movie: { type: 'discover', params: { genres: 878, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 100 } } } }
+        },
+        {
+          id: 'western', title: 'Вестерны', group: 'theme',
+          sources: { movie: { type: 'discover', params: { genres: 37, sort_by: 'vote_average.desc', filter: { 'vote_count.gte': 200 } } } }
+        },
+        {
+          id: 'new-year', title: 'Новогоднее', group: 'theme', icon: 'star', season: [12, 1],
+          sources: { movie: { type: 'discover', params: { keywords: 252123, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 50 } } } }
+        },
+        {
+          id: 'war-movies', title: 'Военные фильмы', group: 'theme',
+          sources: { movie: { type: 'discover', params: { genres: 10752, sort_by: 'vote_average.desc', filter: { 'vote_count.gte': 200 } } } }
+        },
+        {
+          id: 'musical', title: 'Мюзиклы', group: 'theme',
+          sources: { movie: { type: 'discover', params: { genres: 10402, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 100 } } } }
+        },
+        {
+          id: 'crime', title: 'Криминал', group: 'theme',
+          sources: { movie: { type: 'discover', params: { genres: 80, sort_by: 'vote_average.desc', filter: { 'vote_count.gte': 300 } } } }
+        },
+
+        /* === COUNTRY (14 подборок) === */
+
+        /* Существующие (7) */
         {
           id: 'kdrama', title: 'Корейские дорамы', group: 'country',
           sources: { tv: { type: 'discover', params: { genres: 18, sort_by: 'popularity.desc', filter: { with_origin_country: 'KR' } } } }
@@ -227,7 +492,39 @@
           sources: { tv: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_origin_country: 'ES' } } } }
         },
 
-        /* === ERA (5 подборок) === */
+        /* Новые (7), страны проверены live */
+        {
+          id: 'japan-movies', title: 'Японское кино', group: 'country',
+          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_origin_country: 'JP', 'vote_count.gte': 100 } } } }
+        },
+        {
+          id: 'italy', title: 'Итальянское кино', group: 'country',
+          sources: { movie: { type: 'discover', params: { sort_by: 'vote_average.desc', filter: { with_origin_country: 'IT', 'vote_count.gte': 100 } } } }
+        },
+        {
+          id: 'russia', title: 'Российское кино', group: 'country',
+          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_origin_country: 'RU', 'vote_count.gte': 50 } } } }
+        },
+        {
+          id: 'nordic', title: 'Скандинавские сериалы', group: 'country',
+          sources: { tv: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_origin_country: 'SE' } } } }
+        },
+        {
+          id: 'norway', title: 'Норвежские сериалы', group: 'country',
+          sources: { tv: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_origin_country: 'NO' } } } }
+        },
+        {
+          id: 'germany', title: 'Немецкое кино', group: 'country',
+          sources: { movie: { type: 'discover', params: { sort_by: 'vote_average.desc', filter: { with_origin_country: 'DE', 'vote_count.gte': 100 } } } }
+        },
+        {
+          id: 'australia', title: 'Австралийское кино', group: 'country',
+          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_origin_country: 'AU', 'vote_count.gte': 50 } } } }
+        },
+
+        /* === ERA (9 подборок) === */
+
+        /* Существующие (5) */
         {
           id: 'best-70s', title: 'Лучшее из 70-х', group: 'era',
           sources: { movie: { type: 'discover', params: { sort_by: 'vote_average.desc', filter: { 'primary_release_date.gte': '1970-01-01', 'primary_release_date.lte': '1979-12-31', 'vote_count.gte': 300 } } } }
@@ -249,7 +546,27 @@
           sources: { movie: { type: 'discover', params: { sort_by: 'vote_average.desc', filter: { 'primary_release_date.gte': '2010-01-01', 'primary_release_date.lte': '2019-12-31', 'vote_count.gte': 500 } } } }
         },
 
-        /* === PEOPLE (8 подборок) === */
+        /* Новые (4) — аналогичные запросы, проверять не нужно */
+        {
+          id: 'best-50s', title: 'Лучшее из 50-х', group: 'era',
+          sources: { movie: { type: 'discover', params: { sort_by: 'vote_average.desc', filter: { 'primary_release_date.gte': '1950-01-01', 'primary_release_date.lte': '1959-12-31', 'vote_count.gte': 200 } } } }
+        },
+        {
+          id: 'best-60s', title: 'Лучшее из 60-х', group: 'era',
+          sources: { movie: { type: 'discover', params: { sort_by: 'vote_average.desc', filter: { 'primary_release_date.gte': '1960-01-01', 'primary_release_date.lte': '1969-12-31', 'vote_count.gte': 200 } } } }
+        },
+        {
+          id: 'best-2020s', title: 'Лучшее из 2020-х', group: 'era',
+          sources: { movie: { type: 'discover', params: { sort_by: 'vote_average.desc', filter: { 'primary_release_date.gte': '2020-01-01', 'vote_count.gte': 300 } } } }
+        },
+        {
+          id: 'best-classics', title: 'Классика до 50-х', group: 'era',
+          sources: { movie: { type: 'discover', params: { sort_by: 'vote_average.desc', filter: { 'primary_release_date.lte': '1949-12-31', 'vote_count.gte': 100 } } } }
+        },
+
+        /* === PEOPLE (21 подборка) === */
+
+        /* Существующие (8) */
         {
           id: 'nolan', title: 'Кристофер Нолан', group: 'people',
           sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_people: 525 } } } }
@@ -283,7 +600,63 @@
           sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_people: 608 } } } }
         },
 
-        /* === TOP (3 подборки) === */
+        /* Новые (13), person ID проверены live */
+        {
+          id: 'ridley-scott', title: 'Ридли Скотт', group: 'people',
+          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_people: 578 } } } }
+        },
+        {
+          id: 'cameron', title: 'Джеймс Кэмерон', group: 'people',
+          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_people: 2710 } } } }
+        },
+        {
+          id: 'del-toro', title: 'Гильермо дель Торо', group: 'people',
+          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_people: 10828 } } } }
+        },
+        {
+          id: 'wes-anderson', title: 'Уэс Андерсон', group: 'people',
+          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_people: 5655 } } } }
+        },
+        {
+          id: 'coen-brothers', title: 'Братья Коэн', group: 'people',
+          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_people: '1223|1224' } } } }
+        },
+        {
+          id: 'tom-hanks', title: 'Том Хэнкс', group: 'people',
+          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_people: 31 } } } }
+        },
+        {
+          id: 'keanu-reeves', title: 'Киану Ривз', group: 'people',
+          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_people: 6384 } } } }
+        },
+        {
+          id: 'denzel', title: 'Дензел Вашингтон', group: 'people',
+          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_people: 5292 } } } }
+        },
+        {
+          id: 'brad-pitt', title: 'Брэд Питт', group: 'people',
+          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_people: 287 } } } }
+        },
+        {
+          id: 'scarlett', title: 'Скарлетт Йоханссон', group: 'people',
+          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_people: 1245 } } } }
+        },
+        {
+          id: 'kubrick', title: 'Стэнли Кубрик', group: 'people',
+          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_people: 240 } } } }
+        },
+        {
+          id: 'de-niro', title: 'Роберт Де Ниро', group: 'people',
+          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_people: 380 } } } }
+        },
+        {
+          id: 'tom-cruise', title: 'Том Круз', group: 'people',
+          sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_people: 500 } } } }
+        },
+
+        /* === TOP (4 подборки) === */
+
+        /* Существующие (3) */
         {
           id: 'top-grossing', title: 'Кассовые хиты', group: 'top',
           sources: { movie: { type: 'list', id: 10 } }
@@ -298,6 +671,12 @@
             movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { 'vote_count.gte': 100 } } },
             tv:    { type: 'discover', params: { sort_by: 'popularity.desc', filter: { 'vote_count.gte': 50 } } }
           }
+        },
+
+        /* Новая (1), discover/tv проверен live */
+        {
+          id: 'top-tv', title: 'Лучшие сериалы', group: 'top',
+          sources: { tv: { type: 'discover', params: { sort_by: 'vote_average.desc', filter: { 'vote_count.gte': 200, 'vote_average.gte': 8 } } } }
         },
 
         /* === KP (12 типов Кинопоиска) === */
