@@ -292,7 +292,12 @@
     lumen_sort_rating: { ru: 'По рейтингу', en: 'By rating', uk: 'За рейтингом' },
     lumen_sort_new: { ru: 'Новые', en: 'Newest', uk: 'Нові' },
     /* Подпись кнопки в карточке фильма, входящего в коллекцию TMDB. */
-    lumen_card_franchise: { ru: 'Франшиза', en: 'Franchise', uk: 'Франшиза' }
+    lumen_card_franchise: { ru: 'Франшиза', en: 'Franchise', uk: 'Франшиза' },
+    /* Task 18: статус сериала в герое — «Выходит · 17 дек» (поправка
+       контроллера к экрану 19: текстом, без чипа обратного отсчёта —
+       тот остаётся в карточке, фаза 1 Task 5c). Дата собирается из
+       lumen_card_months_short, тем же словарём, что чип серии. */
+    lumen_hero_airing: { ru: 'Выходит', en: 'Airing', uk: 'Виходить' }
   };
 
   function langCode() {

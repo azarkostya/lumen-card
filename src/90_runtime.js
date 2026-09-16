@@ -111,6 +111,11 @@
        (ревью Task 17: смена режима не доезжала до открытого хаба). */
     try { applyMotionMode($('.activity--active .lumen-hub')); } catch (eHub) {}
     try { applyMotionMode($('.activity--active .lumen-grid')); } catch (eGrid) {}
+    /* Task 18: герой главной — свой узел вне .lumen-card; класс режима ему
+       ставит сам LC.hero при монтировании, на уже открытом экране его
+       перечитывает эта же точка (в lite/off герой обязан обходиться без
+       кроссфейда кадра и подъёма текста). */
+    try { if (LC.hero && LC.hero.applyMotion) LC.hero.applyMotion(); } catch (eHero) {}
   };
 
   var toggle_followed = false;
@@ -395,6 +400,45 @@
         try { if (LC.rows && LC.rows.bumpGen) LC.rows.bumpGen(); } catch (eBump) {}
         /* Task 16: то же поколение поднимает LC.personal — вторая подписка не нужна. */
         try { if (LC.personal && LC.personal.bumpGen) LC.personal.bumpGen(); } catch (eBumpP) {}
+      }
+
+      /* Task 18: герой главной. Смонтирован ровно один (модуль сам снимает
+         предыдущего), и снимается он на 'start' ЛЮБОЙ чужой активности —
+         Lampa для покидаемой активности событий не шлёт вовсе (раздел 0
+         плана), так что уход вглубь виден только по старту той, куда ушли.
+         detach() снимает героя лишь тогда, когда его корень лежит ВНЕ
+         стартующей активности: героя, смонтированного в её же корень (сейчас
+         так монтируется только главная), событие не трогает. */
+      if (e.type === 'start') {
+        var startRender = null;
+        try {
+          if (e.object && e.object.activity && typeof e.object.activity.render === 'function') startRender = e.object.activity.render();
+        } catch (eRender) {}
+        try {
+          if (LC.hero) {
+            LC.hero.detach(startRender);
+            if (e.component === 'main' && startRender && startRender.length) LC.hero.mount(startRender);
+          }
+        } catch (eHeroStart) {
+          warn('hero start failed', eHeroStart);
+        }
+      } else if (e.type === 'destroy') {
+        /* Активность вытеснили из истории (лимит maxsave) или закрыли: если
+           герой всё ещё её — он уходит вместе с DOM, а наблюдатель и
+           незавершённые запросы обязаны уйти явно. Проверка owns()
+           обязательна: к этому моменту герой может принадлежать уже другому
+           экрану, и снимать чужого мы права не имеем. */
+        try {
+          if (LC.hero && LC.hero.active()) {
+            var deadRender = null;
+            try {
+              if (e.object && e.object.activity && typeof e.object.activity.render === 'function') deadRender = e.object.activity.render();
+            } catch (eDeadRender) {}
+            if (LC.hero.owns(deadRender)) LC.hero.unmount();
+          }
+        } catch (eHeroKill) {
+          warn('hero destroy failed', eHeroKill);
+        }
       }
 
       if (LC.active && e.object === LC.active.object) {
@@ -978,6 +1022,15 @@
     } catch (eHub) {
       warn('hub install failed', eHub);
     }
+    /* Task 18: плагин включили из настроек, а под ними открыта главная —
+       возврат из настроек Lampa событием 'activity' не сопровождает (находка
+       ревью Task 8), поэтому героя на неё ставим отсюда. Если открыто что-то
+       другое, mountCurrent() ничего не делает. */
+    try {
+      if (LC.hero && LC.hero.mountCurrent) LC.hero.mountCurrent();
+    } catch (eHero) {
+      warn('hero mount failed', eHero);
+    }
   }
 
   function deactivate() {
@@ -1018,6 +1071,9 @@
     try { if (LC.personal && LC.personal.unregister) LC.personal.unregister(); } catch (ePersonalOff) {}
     /* Task 17: убрать пункт меню «Подборки». */
     try { if (LC.hub && LC.hub.uninstall) LC.hub.uninstall(); } catch (eHubOff) {}
+    /* Task 18: снять героя целиком — узел, класс корня, наблюдатель,
+       незавершённые предзагрузку кадра и запрос деталей. */
+    try { if (LC.hero && LC.hero.unmount) LC.hero.unmount(); } catch (eHeroOff) {}
   }
 
   /* Task 15 (I5-fix): перерегистрация рядов при смене lumen_rows_limit.

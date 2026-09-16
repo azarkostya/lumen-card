@@ -999,6 +999,107 @@
     css.push('.lumen-grid .lumen-grid__back{display:-webkit-inline-box;display:-webkit-inline-flex;display:inline-flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;height:3.16em;padding:0 1.32em;border-radius:.79em;border:.04em solid ' + C.line + ';background:' + C.buttonBg + ';font-family:' + FB + ';font-weight:600;font-size:1em;color:' + C.text + '}');
     css.push('.lumen-grid .lumen-grid__back.focus{background:' + A + ';color:' + t.onac + ';border-color:' + AL + ';border-width:.11em}');
 
+    /* --- Task 18: герой главной (design-spec-main §0.2, экраны 15–19) ---
+       Герой лежит первым ребёнком .activity (класс .lumen-main на ней же) и
+       рисуется ПОД рядами: .activity__body идёт следом в DOM, поэтому
+       порядок отрисовки задаёт разметка, а не z-index.
+
+       top:-4em — высота штатной шапки Lampa: .activitys начинается на 4em
+       ниже верха экрана (проверено живьём: rect.y = 91.23 при базе 22.811),
+       и без этого сдвига кадр не доходил бы до верхней кромки, как на
+       экранах 15–19. Высота считается от ЭКРАНА (vh), а не от активности:
+       58 % — ровно то число, что даёт спецификация. */
+    css.push('.lumen-hero{position:absolute;top:-4em;left:0;right:0;height:58vh;overflow:hidden;pointer-events:none}');
+    /* Фокус ниже первого ряда — 42 % (§0.2, раскадровка 23б). */
+    css.push('.lumen-hero.lumen-hero--compact{height:42vh}');
+    css.push('.lumen-hero.lumen-motion-full{-webkit-transition:height .42s cubic-bezier(.2,.8,.2,1);transition:height .42s cubic-bezier(.2,.8,.2,1)}');
+
+    /* Два слоя кадра: новый проявляется поверх старого за 600 мс
+       (раскадровка 23а). Пока новый кадр грузится, на экране остаётся
+       прежний — фон при листании не мигает (ограничение брифа 1). */
+    css.push('.lumen-hero .lumen-hero__bg{position:absolute;top:0;left:0;right:0;bottom:0;-webkit-background-size:cover;background-size:cover;background-position:center top;background-repeat:no-repeat;opacity:0}');
+    css.push('.lumen-hero .lumen-hero__bg.is-active{opacity:1}');
+    css.push('.lumen-hero.lumen-motion-full .lumen-hero__bg{-webkit-transition:opacity .6s ease-in-out;transition:opacity .6s ease-in-out}');
+    /* Кадра нет — герой собирается из размытого постера (экран 22). Blur на
+       всю площадь дорог для слабых ТВ, поэтому в lite/off его нет вовсе —
+       то же решение, что у фона карточки (.lumen-bg--blur). */
+    css.push('.lumen-hero.lumen-motion-full.lumen-hero--blur .lumen-hero__bg{-webkit-filter:blur(1.75em);filter:blur(1.75em);-webkit-transform:scale(1.1);transform:scale(1.1)}');
+
+    /* Вуали — градиенты, не фильтры (ограничение брифа 5): слева под текст,
+       снизу под ряды (там фон почти чёрный). */
+    css.push('.lumen-hero .lumen-hero__veil{position:absolute;top:0;left:0;right:0;bottom:0}');
+    css.push('.lumen-hero .lumen-hero__veil--l{background:-webkit-linear-gradient(left,rgba(' + BG_RGB + ',.94) 0%,rgba(' + BG_RGB + ',.6) 38%,rgba(' + BG_RGB + ',0) 72%);background:linear-gradient(90deg,rgba(' + BG_RGB + ',.94) 0%,rgba(' + BG_RGB + ',.6) 38%,rgba(' + BG_RGB + ',0) 72%)}');
+    css.push('.lumen-hero .lumen-hero__veil--b{background:-webkit-linear-gradient(bottom,' + C.bg + ' 0%,rgba(' + BG_RGB + ',.86) 16%,rgba(' + BG_RGB + ',0) 62%);background:linear-gradient(0deg,' + C.bg + ' 0%,rgba(' + BG_RGB + ',.86) 16%,rgba(' + BG_RGB + ',0) 62%)}');
+
+    /* Текстовый блок стоит в ВЕРХНЕЙ зоне героя — ровно там, где ряды его не
+       перекроют (см. сдвиг области прокрутки ниже): 5.2em от верха экрана —
+       сразу под штатной шапкой Lampa (4em). К низу героя блок прижать
+       нельзя: кадр 58vh уходит под ряды, и текст оказался бы под ними.
+       Safe area слева — 2.81em (§0.1). */
+    css.push('.lumen-hero .lumen-hero__text{position:absolute;left:2.81em;right:2.81em;top:4.8em;max-width:46em}');
+    css.push('.lumen-hero .lumen-hero__meta{font-family:' + FM + ';font-weight:400;font-size:.88em;line-height:1.2;letter-spacing:.03em;color:' + C.muted + '}');
+    /* Логотип фильма — фоном (contain), максимум 30.69em = 700 px FHD (§0.2).
+       Отдельного <img> нет: единственный путь к картинкам — прокси TMDB. */
+    css.push('.lumen-hero .lumen-hero__logo{display:none;width:30.69em;max-width:100%;height:4.4em;margin-top:.4em;-webkit-background-size:contain;background-size:contain;background-position:left bottom;background-repeat:no-repeat}');
+    css.push('.lumen-hero.lumen-hero--logo .lumen-hero__logo{display:block}');
+    /* Текстовый фолбэк названия — обычный текст без панели (поправка
+       контроллера к Task 18, единообразно с экранами 16–19). */
+    css.push('.lumen-hero .lumen-hero__title{font-family:' + FD + ';font-weight:800;font-size:3.33em;line-height:1.02;color:' + C.text + ';margin-top:.14em;overflow:hidden}');
+    css.push('.lumen-hero.lumen-hero--logo .lumen-hero__title{display:none}');
+    css.push('.lumen-hero .lumen-hero__descr{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;font-family:' + FB + ';font-weight:400;font-size:1.05em;line-height:1.45;color:' + C.muted + ';max-width:39.45em;margin-top:.5em}');
+
+    /* Скелетон, пока грузятся детали (ограничение брифа 3): плашка меты —
+       всегда (жанров и длительности в данных ряда нет), плашки описания —
+       только когда у карточки нет и краткого overview. */
+    css.push('.lumen-hero .lumen-hero__sk{display:none;height:.75em;border-radius:.37em;background:-webkit-linear-gradient(left,rgba(' + hexToRgb(C.text) + ',.14),rgba(' + hexToRgb(C.text) + ',.06));background:linear-gradient(90deg,rgba(' + hexToRgb(C.text) + ',.14),rgba(' + hexToRgb(C.text) + ',.06))}');
+    css.push('.lumen-hero.lumen-hero--pending .lumen-hero__sk--meta{display:block;width:14em;max-width:60%;margin-top:.4em}');
+    css.push('.lumen-hero.lumen-hero--pending.lumen-hero--nodescr .lumen-hero__sk--descr{display:block;width:39.45em;max-width:100%;margin-top:.8em}');
+    css.push('.lumen-hero.lumen-hero--pending.lumen-hero--nodescr .lumen-hero__sk--short{display:block;width:26.3em;max-width:67%;margin-top:.4em}');
+
+    /* Чип рейтинга TMDB (§0.2, тот же паттерн, что в карточке) и статус
+       сериала текстом «Выходит · 17 дек» (поправка контроллера). */
+    css.push('.lumen-hero .lumen-hero__chips{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-flex-wrap:wrap;flex-wrap:wrap;margin-top:.45em}');
+    css.push('.lumen-hero .lumen-hero__rate{display:none;font-family:' + FM + ';font-weight:600;font-size:1.05em;line-height:1;color:' + C.text + ';background:rgba(' + hexToRgb(C.panel) + ',.78);border:.04em solid ' + C.line + ';border-radius:.53em;padding:.32em .7em;margin-right:.53em}');
+    css.push('.lumen-hero.lumen-hero--rated .lumen-hero__rate{display:block}');
+    css.push('.lumen-hero .lumen-hero__rate:after{content:"TMDB";font-size:.5em;letter-spacing:.1em;color:' + C.smoke + ';margin-left:.7em}');
+    css.push('.lumen-hero .lumen-hero__status{display:none;font-family:' + FB + ';font-weight:600;font-size:.88em;line-height:1;color:' + A + ';background:rgba(' + A_RGB + ',.1);border:.04em solid rgba(' + A_RGB + ',.4);border-radius:.53em;padding:.4em .7em}');
+    css.push('.lumen-hero.lumen-hero--status .lumen-hero__status{display:block}');
+
+    /* Сжатый и мини-герой описания не показывают (§0.2, экраны 17/18/20). */
+    css.push('.lumen-hero.lumen-hero--compact .lumen-hero__descr,.lumen-hero.lumen-hero--compact .lumen-hero__sk--descr,.lumen-hero.lumen-hero--compact .lumen-hero__sk--short{display:none}');
+
+    /* Подмена текста (раскадровка 23а): старый уходит вниз за 180 мс, новый
+       поднимается за 420 мс. В lite/off — мгновенно и без анимаций: подъём
+       текста и плавная высота на слабых ТВ дороже, чем стоят. */
+    css.push('.lumen-hero.lumen-motion-full .lumen-hero__text{-webkit-transition:opacity .18s ease,-webkit-transform .18s ease;transition:opacity .18s ease,transform .18s ease}');
+    css.push('.lumen-hero.lumen-motion-full .lumen-hero__text.is-swapping{opacity:0;-webkit-transform:translateY(.53em);transform:translateY(.53em)}');
+    css.push('.lumen-hero.lumen-motion-full .lumen-hero__text.is-in{-webkit-animation:lumen-hero-in .42s cubic-bezier(.2,.8,.2,1);animation:lumen-hero-in .42s cubic-bezier(.2,.8,.2,1)}');
+    css.push('@-webkit-keyframes lumen-hero-in{from{opacity:0;-webkit-transform:translateY(.53em)}to{opacity:1;-webkit-transform:none}}');
+    css.push('@keyframes lumen-hero-in{from{opacity:0;transform:translateY(.53em)}to{opacity:1;transform:none}}');
+    css.push('.lumen-hero.lumen-motion-lite .lumen-hero__text,.lumen-hero.lumen-motion-off .lumen-hero__text{opacity:1;-webkit-transform:none;transform:none;-webkit-transition:none;transition:none;-webkit-animation:none;animation:none}');
+
+    /* Ряды живут в СВОЕЙ области — под героем. Сдвигается сама область
+       прокрутки (margin-top + height), а не содержимое (padding-top).
+
+       Найдено живьём (первый круг Task 18): padding-top у .scroll__body
+       работает ровно до первой прокрутки — Lampa выравнивает ряд, получивший
+       фокус, по верху области прокрутки, и после первого же шага вниз-вверх
+       первый ряд вставал на место героя, закрывая его совсем. Со сдвинутой
+       областью «верх области» и есть нижняя кромка героя, поэтому любой ряд
+       под фокусом оказывается под ним.
+
+       22vh — предел, дальше которого штатная карточка главной Lampa
+       (290×563 при 1920) перестаёт помещаться в остаток экрана: Lampa
+       оставляет над фокусным рядом ещё ~57 px. Дизайн (design-spec-main
+       §0.4) рисует карточку 230×345 — при ней под героя ушло бы 58 % экрана,
+       как на экране 15; пока ряды главной штатного размера, видимая часть
+       героя — верхние ~36 % (кадр 58vh, нижняя часть уходит под ряды).
+
+       Селектор — главный ВЕРТИКАЛЬНЫЙ скролл активности (.layer--wheight);
+       горизонтальные скроллы рядов (.scroll--horizontal) под него не
+       попадают. height Lampa задаёт инлайном, поэтому !important. */
+    css.push('.lumen-main .scroll.layer--wheight{margin-top:22vh;height:-webkit-calc(78vh - 4em) !important;height:calc(78vh - 4em) !important}');
+
     /* Пункт меню «Подборки»: штатные иконки меню Lampa — 1.5em, а наш набор
        отдаёт svg в 1em (src/20_icons.js), и пункт выглядел мельче соседей. */
     css.push('.lumen-menu-hub .lumen-ico{width:1.5em;height:1.5em}');

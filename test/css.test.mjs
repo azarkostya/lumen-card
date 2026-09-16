@@ -144,7 +144,7 @@ test('buildCss: .lumen-title--long содержит display:-webkit-box и -webk
    целиком построенные плагином (компоненты lumen_hub / lumen_grid). Чужой
    разметки внутри них нет, а снаружи ни одно правило не действует: корень
    ставит сам компонент. */
-const ALLOWED_ROOTS = ['.lumen-card', '.lumen-backdrop', '.lumen-descr-row', '.lumen-review-modal', '.lumen-hub', '.lumen-grid', '.lumen-menu-hub', '.full-start__background', '.full-start-new', 'body'];
+const ALLOWED_ROOTS = ['.lumen-card', '.lumen-backdrop', '.lumen-descr-row', '.lumen-review-modal', '.lumen-hub', '.lumen-grid', '.lumen-menu-hub', '.lumen-hero', '.lumen-main', '.full-start__background', '.full-start-new', 'body'];
 
 /* Ревью Task 5a (замечание, зафиксировано в Task 5b): проверка была по
    sel.indexOf(root) === 0 без учёта границы селектора — так
@@ -158,7 +158,7 @@ const ALLOWED_ROOTS = ['.lumen-card', '.lumen-backdrop', '.lumen-descr-row', '.l
    между корнем и модификатором, но это className плагин создаёт сам (его
    не бывает без нашего DOM) — поэтому '_'/'-' сразу после корня для них
    тоже безопасная граница, в отличие от чужих классов Lampa. */
-var OWN_NAMESPACE_ROOTS = ['.lumen-card', '.lumen-backdrop', '.lumen-descr-row', '.lumen-review-modal', '.lumen-hub', '.lumen-grid', '.lumen-menu-hub'];
+var OWN_NAMESPACE_ROOTS = ['.lumen-card', '.lumen-backdrop', '.lumen-descr-row', '.lumen-review-modal', '.lumen-hub', '.lumen-grid', '.lumen-menu-hub', '.lumen-hero', '.lumen-main'];
 
 function startsWithRoot(sel, root) {
   if (sel.indexOf(root) !== 0) return false;
@@ -1356,4 +1356,78 @@ test('правка 2026-09-16 (п.6): моно ушёл из мета-строк
     assert.ok(decl, 'правило не найдено: ' + sel);
     assert.ok(decl.indexOf(MONO) !== -1, sel + ' — цифры обязаны выравниваться');
   }
+});
+
+/* -------------------------------------------------------------------- */
+/* Task 18: герой главной (design-spec-main §0.2, экраны 15–19).          */
+/* -------------------------------------------------------------------- */
+
+test('Task 18: герой — 58 % экрана, сжатый 42 %', () => {
+  const hero = findDecl(css, (sel) => sel === '.lumen-hero');
+  assert.ok(hero, 'корень героя не найден');
+  assert.ok(hero.indexOf('height:58vh') !== -1, 'полная высота 58 % экрана: ' + hero);
+  assert.ok(hero.indexOf('position:absolute') !== -1, 'герой не участвует в потоке рядов');
+  assert.ok(hero.indexOf('top:-4em') !== -1, 'кадр доходит до верхней кромки под шапкой Lampa (4em)');
+  assert.ok(hero.indexOf('pointer-events:none') !== -1, 'герой не перехватывает указатель — он не фокусируется');
+  assert.equal(/inset\s*:/.test(hero), false, 'inset запрещён планом');
+
+  const compact = findDecl(css, (sel) => sel === '.lumen-hero.lumen-hero--compact');
+  assert.ok(compact && compact.indexOf('height:42vh') !== -1, 'фокус ниже первого ряда — 42 %');
+});
+
+test('Task 18: кроссфейд кадра 600 мс только в полном режиме анимаций', () => {
+  const bg = findDecl(css, (sel) => sel === '.lumen-hero .lumen-hero__bg');
+  assert.ok(bg && bg.indexOf('opacity:0') !== -1, 'неактивный слой прозрачен');
+  assert.ok(findDecl(css, (sel) => sel === '.lumen-hero .lumen-hero__bg.is-active').indexOf('opacity:1') !== -1);
+
+  const full = findDecl(css, (sel) => sel === '.lumen-hero.lumen-motion-full .lumen-hero__bg');
+  assert.ok(full && full.indexOf('transition:opacity .6s ease-in-out') !== -1, 'кроссфейд 600 мс: ' + full);
+  assert.equal(findDecl(css, (sel) => sel === '.lumen-hero.lumen-motion-lite .lumen-hero__bg'), null, 'в lite перехода нет вовсе — гасить нечего');
+});
+
+test('Task 18: blur размытого постера — только в полном режиме (на слабых ТВ его нет)', () => {
+  const blur = findDecl(css, (sel) => sel === '.lumen-hero.lumen-motion-full.lumen-hero--blur .lumen-hero__bg');
+  assert.ok(blur && blur.indexOf('filter:blur(1.75em)') !== -1, 'кадра нет — размытый постер, как на экране 22');
+  const offenders = ruleSelectors(css).filter((sel) => sel.indexOf('lumen-hero--blur') !== -1 && sel.indexOf('lumen-motion-full') === -1);
+  assert.deepEqual(offenders, [], 'blur героя вне режима full — дорогая заливка на ТВ');
+});
+
+test('Task 18: подмена текста 180/420 мс в full, в lite/off — мгновенно и без анимаций', () => {
+  const swap = findDecl(css, (sel) => sel === '.lumen-hero.lumen-motion-full .lumen-hero__text.is-swapping');
+  assert.ok(swap && swap.indexOf('opacity:0') !== -1 && swap.indexOf('translateY(.53em)') !== -1, 'старый текст уходит вниз на 12 px FHD');
+  const inCls = findDecl(css, (sel) => sel === '.lumen-hero.lumen-motion-full .lumen-hero__text.is-in');
+  assert.ok(inCls && inCls.indexOf('lumen-hero-in .42s') !== -1, 'новый поднимается 420 мс');
+
+  const calm = findDecl(css, (sel) => sel === '.lumen-hero.lumen-motion-lite .lumen-hero__text');
+  const calmOff = findDecl(css, (sel) => sel === '.lumen-hero.lumen-motion-off .lumen-hero__text');
+  assert.equal(calm, calmOff, 'lite и off гасят анимацию одним правилом');
+  assert.ok(calm, 'правило lite/off не найдено');
+  assert.ok(/animation:none/.test(calm) && /transition:none/.test(calm) && calm.indexOf('opacity:1') !== -1, 'в lite/off текст виден сразу: ' + calm);
+});
+
+test('Task 18: логотип фильма с текстовым фолбэком, описание в две строки, скелетон до ответа деталей', () => {
+  const logo = findDecl(css, (sel) => sel === '.lumen-hero .lumen-hero__logo');
+  assert.ok(logo && logo.indexOf('width:30.69em') !== -1, 'логотип до 700 px FHD (§0.2)');
+  assert.ok(logo.indexOf('display:none') !== -1, 'без логотипа узел скрыт');
+  assert.ok(findDecl(css, (sel) => sel === '.lumen-hero.lumen-hero--logo .lumen-hero__title').indexOf('display:none') !== -1, 'есть логотип — заголовка нет');
+
+  const descr = findDecl(css, (sel) => sel === '.lumen-hero .lumen-hero__descr');
+  assert.ok(descr && descr.indexOf('-webkit-line-clamp:2') !== -1, 'описание — две строки (§0.2)');
+  assert.ok(descr.indexOf('max-width:39.45em') !== -1, '900 px FHD');
+
+  assert.ok(findDecl(css, (sel) => sel === '.lumen-hero.lumen-hero--pending .lumen-hero__sk--meta'), 'скелетон меты, пока грузятся детали');
+  assert.ok(findDecl(css, (sel) => sel === '.lumen-hero.lumen-hero--pending.lumen-hero--nodescr .lumen-hero__sk--descr'), 'скелетон описания — только когда описания нет вовсе');
+});
+
+test('Task 18: сдвигается область прокрутки рядов, а не её содержимое', () => {
+  /* padding-top у .scroll__body Lampa съедает первой же прокруткой: она
+     выравнивает фокусный ряд по верху области. Сдвигать надо саму область. */
+  const rows = findDecl(css, (sel) => sel === '.lumen-main .scroll.layer--wheight');
+  assert.ok(rows, 'правило области прокрутки главной не найдено');
+  assert.ok(rows.indexOf('margin-top:22vh') !== -1, 'область начинается под героем: ' + rows);
+  assert.ok(/height:calc\(78vh - 4em\) !important/.test(rows), 'высота области — остаток экрана; height Lampa задаёт инлайном');
+  assert.equal(findDecl(css, (sel) => sel.indexOf('.scroll__body') !== -1 && sel.indexOf('.lumen-main') === 0), null, 'содержимое скролла отступами не двигаем');
+
+  const offenders = ruleSelectors(css).filter((sel) => sel.indexOf('.lumen-main') === 0 && sel.indexOf('layer--wheight') === -1);
+  assert.deepEqual(offenders, [], 'под .lumen-main не должно быть правил мимо главного скролла — иначе заденем горизонтальные ряды');
 });
