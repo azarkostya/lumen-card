@@ -549,6 +549,94 @@ test('buildCss: режим трейлера сжимает шапку — заг
   }
 });
 
+/* -------------------------------------------------------------------- */
+/* Task 8: «Продолжить» — строка прогресса (design-spec §6, экраны 01/05), */
+/* подпись кнопки переменной и надписи сжатой шапки (экран 06).           */
+/* -------------------------------------------------------------------- */
+
+test('buildCss: строка прогресса — одна подпись над полосой (flex-wrap, полоса 100 %, 760px = 33.32em)', () => {
+  const row = findDecl(css, (sel) => sel === '.lumen-card .lumen-progress');
+  assert.ok(row, 'правило .lumen-progress не найдено');
+  assert.ok(row.indexOf('width:33.32em') !== -1, '§6: ширина 760px = 33.32em');
+  assert.ok(row.indexOf('flex-wrap:wrap') !== -1, 'подпись и полоса — разные строки одного flex-контейнера');
+  assert.ok(row.indexOf('letter-spacing:.04em') !== -1);
+
+  const bar = findDecl(css, (sel) => sel === '.lumen-card .lumen-progress__bar');
+  assert.ok(bar, 'правило полосы не найдено');
+  assert.ok(bar.indexOf('flex:0 0 100%') !== -1, 'полоса обязана переноситься под подпись, а не делить с ней строку');
+  assert.ok(bar.indexOf('height:.18em') !== -1 && bar.indexOf('border-radius:.09em') !== -1, '§6: 4px/2px');
+  assert.ok(bar.indexOf('margin:.44em 0 0') !== -1, 'зазор до полосы 10px = .44em');
+});
+
+test('buildCss: подпись и таймкод — 18px (.79em) muted, пустой узел убран :empty', () => {
+  const label = findDecl(css, (sel) => sel === '.lumen-card .lumen-progress__label');
+  const time = findDecl(css, (sel) => sel === '.lumen-card .lumen-progress__time');
+  assert.ok(label && time, 'правила подписи/таймкода не найдены');
+  for (const decl of [label, time]) {
+    assert.ok(decl.indexOf('font-size:.79em') !== -1, '§6: 18px = .79em');
+    assert.ok(decl.indexOf('#A89A8A') !== -1, '§6: цвет muted, а не text');
+  }
+  const empty = findDecl(css, (sel) => sel === '.lumen-card .lumen-progress__label:empty');
+  assert.ok(empty && /display\s*:\s*none/.test(empty), 'у фильма подписи нет — пустой узел не должен занимать место');
+});
+
+test('buildCss: подпись кнопки — :after с var(--lumen-play-label), :before не занят', () => {
+  const after = findDecl(css, (sel) => sel.indexOf('.lumen-card.lumen-continue') === 0 && sel.indexOf('.button--play:after') !== -1);
+  assert.ok(after, 'правило подписи кнопки не найдено');
+  assert.ok(after.indexOf('content:var(--lumen-play-label)') !== -1, 'текст кнопки нельзя писать в разметку — только переменной');
+  assert.equal(findDecl(css, (sel) => sel.indexOf('.lumen-continue') !== -1 && sel.indexOf('.button--play:before') !== -1), null,
+    ':before у кнопки занят маской иконки (Task 3)');
+});
+
+test('buildCss: штатный span кнопки скрыт только при поддержке CSS-переменных', () => {
+  const rule = ruleBodies(css).find((r) => r.selectors.some((s) => s.indexOf('.lumen-continue') !== -1 && s.indexOf('.button--play span') !== -1));
+  assert.ok(rule, 'правило скрытия span не найдено');
+  assert.ok(/display\s*:\s*none/.test(rule.decl));
+  const line = css.split('\n').find((l) => l.indexOf('.button--play span') !== -1 && l.indexOf('.lumen-continue') !== -1);
+  assert.ok(line.indexOf('@supports (--') === 0,
+    'без @supports на старом WebView кнопка осталась бы вовсе без подписи: :after там не работает');
+});
+
+test('buildCss: в режиме трейлера подписи на кнопке нет и строка прогресса скрыта (экран 02)', () => {
+  const after = ruleBodies(css).find((r) => r.selectors.some((s) => s.indexOf('.button--play:after') !== -1));
+  assert.ok(after.selectors.every((s) => s.indexOf(':not(.lumen-trailer-on)') !== -1),
+    'на экране 02 кнопка называется «Смотреть» — подпись обязана отключаться');
+
+  const hidden = ruleBodies(css).find((r) => r.selectors.some((s) => s === '.lumen-card.lumen-trailer-on .lumen-descr'));
+  assert.ok(hidden.selectors.indexOf('.lumen-card.lumen-trailer-on .lumen-progress') !== -1,
+    'строки прогресса на экране 02 нет');
+});
+
+test('buildCss: надписи сжатой шапки (экран 06) видны только при фокусе на серии и включённой настройке', () => {
+  for (const node of ['state', 'timecode']) {
+    const base = findDecl(css, (sel) => sel === '.lumen-card .lumen-episode__' + node);
+    assert.ok(base && /display\s*:\s*none/.test(base), 'узел .lumen-episode__' + node + ' должен быть скрыт по умолчанию');
+  }
+  const shown = ruleBodies(css).find((r) => r.selectors.some((s) => s.indexOf('.lumen-episode__timecode') !== -1 && s.indexOf('.lumen-compact') !== -1));
+  assert.ok(shown, 'правило показа надписей в сжатой шапке не найдено');
+  assert.ok(shown.selectors.every((s) => s.indexOf('.lumen-progress-on') !== -1 && s.indexOf('.lumen-episode.focus') !== -1),
+    'надписи гасятся выключателем lumen_card_progress и показываются только у фокусной серии');
+
+  const caption = findDecl(css, (sel) => sel.indexOf('.lumen-compact') !== -1 && sel.indexOf('.lumen-episode__caption') !== -1);
+  assert.ok(caption && /display\s*:\s*none/.test(caption), 'таймкод заменяет подпись «смотрите · осталось N мин», а не дополняет её');
+});
+
+test('buildCss: в сжатой шапке статус и чип серии — одна карта «Выходит · 17 дек»', () => {
+  const short = findDecl(css, (sel) => sel === '.lumen-card .lumen-next-chip__short');
+  assert.ok(short && /display\s*:\s*none/.test(short), 'короткая дата вне сжатой шапки скрыта');
+  const shortOn = findDecl(css, (sel) => sel === '.lumen-card.lumen-compact .lumen-next-chip__short');
+  const longOff = findDecl(css, (sel) => sel === '.lumen-card.lumen-compact .lumen-next-chip__text');
+  assert.ok(shortOn && shortOn.indexOf('display:block') !== -1);
+  assert.ok(longOff && /display\s*:\s*none/.test(longOff), 'длинная строка в сжатой шапке не помещается');
+
+  const chip = findDecl(css, (sel) => sel === '.lumen-card.lumen-compact .lumen-next-chip');
+  assert.ok(chip && chip.indexOf('border-left:0') !== -1 && chip.indexOf('border-top-left-radius:0') !== -1);
+  const status = findDecl(css, (sel) => sel.indexOf('.lumen-card--nextchip') !== -1 && sel.indexOf('.full-start__status') !== -1);
+  assert.ok(status, 'край статуса срезается только когда чип виден (класс .lumen-card--nextchip)');
+  assert.ok(/margin-right\s*:\s*0\s*!important/.test(status), 'зазор .53em между картами Lampa ставит !important-ом');
+  assert.ok(status.indexOf('border-right:0') !== -1);
+});
+
 test('buildCss: в режиме трейлера ряд кнопок и «Стоп» встают в одну строку', () => {
   /* Ревью: правило висит на собственном классе .lumen-actions, а не на
      nth-child(6) — порядок блоков шаблона не часть контракта стилей. */

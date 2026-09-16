@@ -251,12 +251,32 @@
     css.push('.lumen-card.lumen-card--serial .full-start-new__rate-line .full-start__status{font-family:' + FB + ';font-weight:500;font-size:.79em;line-height:1;letter-spacing:normal;text-transform:none;color:' + C.text + ';background:' + C.chipBg + ';border:.05em solid ' + C.line + ';border-radius:.67em;padding:0 .89em;white-space:nowrap;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center}');
     css.push('.lumen-card.lumen-card--serial .full-start-new__rate-line .full-start__status:before{content:"";display:block;-webkit-flex-shrink:0;flex-shrink:0;width:.56em;height:.56em;border-radius:50%;background:currentColor;margin-right:.56em}');
 
-    /* --- Продолжить (design-spec §6: ширина 760px, margin-top 24px) --- */
-    css.push('.lumen-card .lumen-progress{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;width:33.32em;max-width:100%;margin-top:1.05em;font-family:' + FM + ';font-size:1em;color:' + C.muted + ';letter-spacing:.04em}');
-    css.push('.lumen-card .lumen-progress__label{-webkit-flex-shrink:0;flex-shrink:0;font-size:.79em;color:' + C.text + '}');
-    css.push('.lumen-card .lumen-progress__bar{-webkit-box-flex:1;-webkit-flex-grow:1;flex-grow:1;height:.18em;background:rgba(243,237,228,0.16);border-radius:.09em;overflow:hidden;margin:0 1.1em}');
-    css.push('.lumen-card .lumen-progress__bar > div{height:100%;width:0;background:' + A + '}');
-    css.push('.lumen-card .lumen-progress__time{-webkit-flex-shrink:0;flex-shrink:0;font-size:.79em}');
+    /* --- Продолжить (design-spec §6, экраны 01/05) ---
+       Task 8: подпись — ОДНА строка над полосой («01:12 / 02:46 · 43 %» у
+       фильма, «S2 E3 «Голова» · 18:40 / 58:12 · 32 %» у сериала), а не метка
+       слева и время справа, как было в v1. Узлов в шаблоне два (__label —
+       серия, __time — таймкод), поэтому строку собирает flex-wrap: оба текста
+       встают рядом, а полоса (flex-basis 100 %) переносится под них. Пустой
+       узел убирается :empty — иначе у фильма остался бы зазор от __time.
+       Числа §6: ширина 760px = 33.32em, кегль 18px = .79em, цвет muted,
+       трекинг .04em, зазор до полосы 10px = .44em, полоса 4px/2px. */
+    css.push('.lumen-card .lumen-progress{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;-webkit-box-align:center;-webkit-align-items:center;align-items:center;width:33.32em;max-width:100%;margin-top:1.05em;font-family:' + FM + ';font-size:1em;color:' + C.muted + ';letter-spacing:.04em}');
+    css.push('.lumen-card .lumen-progress__label{font-size:.79em;line-height:1;color:' + C.muted + '}');
+    css.push('.lumen-card .lumen-progress__time{font-size:.79em;line-height:1;color:' + C.muted + ';margin-left:.35em}');
+    css.push('.lumen-card .lumen-progress__label:empty,.lumen-card .lumen-progress__time:empty{display:none}');
+    css.push('.lumen-card .lumen-progress__bar{-webkit-box-flex:0;-webkit-flex:0 0 100%;flex:0 0 100%;width:100%;height:.18em;background:rgba(243,237,228,0.16);border-radius:.09em;overflow:hidden;margin:.44em 0 0}');
+    css.push('.lumen-card .lumen-progress__bar > div{height:100%;width:0;border-radius:.09em;background:' + A + '}');
+
+    /* Task 8 (экран 05): «Продолжить S2 E3» на кнопке «Смотреть». Текст кнопки
+       не трогается ничем — её outerHTML хэширует Lampa (план 0.2), поэтому
+       подпись рисует псевдоэлемент :after (:before занят маской иконки,
+       Task 3), а сама строка приходит переменной --lumen-play-label с корня
+       карточки (LC.header). Штатный span гасится ТОЛЬКО там, где переменные
+       поддерживаются: на старом WebView без них :after не покажет ничего, и
+       кнопка обязана остаться с родным текстом. В режиме трейлера (экран 02)
+       подписи нет — там кнопка снова «Смотреть», поэтому :not(.lumen-trailer-on). */
+    css.push('.lumen-card.lumen-continue:not(.lumen-trailer-on) .full-start-new__buttons .button--play:after{content:var(--lumen-play-label);font-size:1.05em;line-height:1;margin-left:.53em;white-space:nowrap}');
+    css.push('@supports (--lumen-probe:0){.lumen-card.lumen-continue:not(.lumen-trailer-on) .full-start-new__buttons .button--play span{display:none}}');
 
     /* --- Кнопки (design-spec §7a-c: 72px, тёмная карта, blur, раскрытие подписи в фокусе) --- */
     /* Ревью Task 5a: margin-top был остатком базы 16 (1.75em = 28/16, v1).
@@ -312,7 +332,9 @@
        Шестой .lumen-in (реакции + кнопки + ряд серий) становится строкой,
        чтобы «Стоп» встал рядом с рядом кнопок, а не под ним. */
     css.push('.lumen-card.lumen-trailer-on .full-start-new__title{font-size:1.84em;opacity:.92}');
-    css.push('.lumen-card.lumen-trailer-on .lumen-descr,.lumen-card.lumen-trailer-on .full-start-new__rate-line,.lumen-card.lumen-trailer-on .lumen-side,.lumen-card.lumen-trailer-on .lumen-episodes{display:none !important}');
+    /* Task 8: строки «Продолжить» на экране 02 тоже нет — под роликом остаются
+       только заголовок, мета-строка и ряд кнопок. */
+    css.push('.lumen-card.lumen-trailer-on .lumen-descr,.lumen-card.lumen-trailer-on .full-start-new__rate-line,.lumen-card.lumen-trailer-on .lumen-side,.lumen-card.lumen-trailer-on .lumen-episodes,.lumen-card.lumen-trailer-on .lumen-progress{display:none !important}');
     css.push('.lumen-card.lumen-trailer-on .lumen-actions{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center}');
 
     /* --- Правая колонка (design-spec §8/экраны 01,10: статус первым над чипами
@@ -381,6 +403,18 @@
     css.push('.lumen-card .lumen-episode.focus .lumen-episode__play{display:block}');
     css.push('.lumen-card .lumen-episode.focus .lumen-episode__check,.lumen-card .lumen-episode.focus .lumen-episode__percent{display:none}');
     css.push('.lumen-card .lumen-episode.focus .lumen-episode__name{font-weight:600}');
+    /* Task 8 (экран 06): в сжатой шапке фокусная серия подписана иначе —
+       «E3 · СМОТРИТЕ» вместо «E3» и таймкод «18:40 / 58:12 · 32 %» вместо
+       «смотрите · осталось 39 мин». Узлы рисует LC.header у каждой начатой
+       серии и по умолчанию они скрыты: показывает их только эта пара условий
+       (сжатая шапка + фокус). Класс .lumen-progress-on ставит renderProgress
+       по настройке lumen_card_progress — выключатель гасит и эти надписи.
+       margin-right:auto прижимает «· СМОТРИТЕ» к номеру серии, оставляя кружок
+       play у правого края (в .lumen-episode__top — space-between). */
+    css.push('.lumen-card .lumen-episode__state{display:none;font-family:' + FM + ';font-weight:600;font-size:.75em;line-height:1;letter-spacing:.1em;text-transform:uppercase;color:' + A + ';margin:0 auto 0 .35em}');
+    css.push('.lumen-card .lumen-episode__timecode{display:none;font-family:' + FM + ';font-size:.70em;line-height:1;color:' + C.muted + ';margin-top:.44em;white-space:nowrap;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis}');
+    css.push('.lumen-card.lumen-progress-on.lumen-compact .lumen-episode.focus .lumen-episode__state,.lumen-card.lumen-progress-on.lumen-compact .lumen-episode.focus .lumen-episode__timecode{display:block}');
+    css.push('.lumen-card.lumen-progress-on.lumen-compact .lumen-episode.focus .lumen-episode__caption{display:none}');
     /* Движок без масок: пустые закрашенные квадраты вместо иконок не рисуем. */
     css.push(LC.icons.NO_MASK + '{.lumen-card .lumen-next-chip:before,.lumen-card .lumen-episode__check,.lumen-card .lumen-episode__play:before{display:none}}');
 
@@ -539,6 +573,19 @@
     css.push('.lumen-card.lumen-compact .lumen-descr{display:none}');
     css.push('.lumen-card.lumen-compact .full-start-new__rate-line{margin-top:.87em}');
     css.push('.lumen-card.lumen-compact .full-start-new__buttons{margin-top:.95em}');
+    /* Task 8 (экран 06): «Следующая серия — 17 декабря, через 31 день» в сжатой
+       шапке не помещается — там одна карта «● Выходит · 17 дек». Статус у
+       сериала уже стоит в ленте непосредственно перед чипом (renderSerialMode),
+       поэтому карты склеиваются срезкой смежных краёв: у статуса правый, у чипа
+       левый. Короткая дата — собственный узел чипа (его дописывает LC.header).
+       Срезать край статуса можно только когда чип виден — это и означает класс
+       .lumen-card--nextchip на корне (:has() план запрещает). */
+    css.push('.lumen-card .lumen-next-chip__short{display:none}');
+    css.push('.lumen-card.lumen-compact .lumen-next-chip__text{display:none}');
+    css.push('.lumen-card.lumen-compact .lumen-next-chip__short{display:block}');
+    css.push('.lumen-card.lumen-compact .lumen-next-chip{border-left:0;border-top-left-radius:0;border-bottom-left-radius:0;padding-left:0}');
+    css.push('.lumen-card.lumen-compact .lumen-next-chip:before{display:none}');
+    css.push('.lumen-card.lumen-card--nextchip.lumen-compact .full-start-new__rate-line .full-start__status{margin-right:0 !important;border-right:0;border-top-right-radius:0;border-bottom-right-radius:0;padding-right:.45em}');
     css.push('.lumen-card.lumen-motion-lite .full-start-new__title,.lumen-card.lumen-motion-lite .full-start-new__rate-line,.lumen-card.lumen-motion-lite .full-start-new__buttons,.lumen-card.lumen-motion-off .full-start-new__title,.lumen-card.lumen-motion-off .full-start-new__rate-line,.lumen-card.lumen-motion-off .full-start-new__buttons{-webkit-transition:none;transition:none}');
 
     /* --- Иконки кнопок (единый набор через CSS-маску, см. src/20_icons.js) --- */

@@ -35,6 +35,22 @@ export function FakeEl(classes, children) {
   this._parentEl = null;
   const self = this;
   this._children.forEach((c) => { c._parentEl = self; });
+  /* Task 8: инлайн-стиль узла как в DOM — src/85_header.js ставит подпись
+     кнопки «Смотреть» CSS-переменной через root[0].style.setProperty (текст
+     кнопки трогать нельзя, её outerHTML хэширует Lampa). Пишем в тот же
+     _css/style, что и jQuery-подобный css(), чтобы ловушка пустого style=""
+     (clearInlineStyleIfEmpty) проверялась и здесь. */
+  this.style = {
+    setProperty(name, value) { self._css[name] = value; syncStyleAttr(self); },
+    removeProperty(name) { delete self._css[name]; syncStyleAttr(self); }
+  };
+}
+function syncStyleAttr(el) {
+  if (!el._attr) el._attr = {};
+  el._attr.style = Object.keys(el._css)
+    .filter((k) => el._css[k] !== '' && el._css[k] != null)
+    .map((k) => k + ':' + el._css[k])
+    .join(';');
 }
 FakeEl.prototype.hasClass = function (c) { return this._class.indexOf(c) !== -1; };
 FakeEl.prototype.addClass = function (list) {
@@ -58,9 +74,7 @@ FakeEl.prototype.css = function (name, val) {
   }
   if (arguments.length < 2) return this._css[name];
   this._css[name] = val;
-  const css = this._css;
-  if (!this._attr) this._attr = {};
-  this._attr.style = Object.keys(css).filter((k) => css[k] !== '' && css[k] != null).map((k) => k + ':' + css[k]).join(';');
+  syncStyleAttr(this);
   return this;
 };
 FakeEl.prototype.data = function (key, val) {

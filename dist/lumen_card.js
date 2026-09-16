@@ -501,11 +501,31 @@ css.push('.lumen-card.lumen-card--serial .full-start-new__rate-line .full-start_
 css.push('.lumen-card.lumen-card--serial .full-start-new__rate-line .full-start__status:before{content:"";display:block;-webkit-flex-shrink:0;flex-shrink:0;width:.56em;height:.56em;border-radius:50%;background:currentColor;margin-right:.56em}');
 
 
-css.push('.lumen-card .lumen-progress{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;width:33.32em;max-width:100%;margin-top:1.05em;font-family:' + FM + ';font-size:1em;color:' + C.muted + ';letter-spacing:.04em}');
-css.push('.lumen-card .lumen-progress__label{-webkit-flex-shrink:0;flex-shrink:0;font-size:.79em;color:' + C.text + '}');
-css.push('.lumen-card .lumen-progress__bar{-webkit-box-flex:1;-webkit-flex-grow:1;flex-grow:1;height:.18em;background:rgba(243,237,228,0.16);border-radius:.09em;overflow:hidden;margin:0 1.1em}');
-css.push('.lumen-card .lumen-progress__bar > div{height:100%;width:0;background:' + A + '}');
-css.push('.lumen-card .lumen-progress__time{-webkit-flex-shrink:0;flex-shrink:0;font-size:.79em}');
+
+
+
+
+
+
+
+
+css.push('.lumen-card .lumen-progress{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;-webkit-box-align:center;-webkit-align-items:center;align-items:center;width:33.32em;max-width:100%;margin-top:1.05em;font-family:' + FM + ';font-size:1em;color:' + C.muted + ';letter-spacing:.04em}');
+css.push('.lumen-card .lumen-progress__label{font-size:.79em;line-height:1;color:' + C.muted + '}');
+css.push('.lumen-card .lumen-progress__time{font-size:.79em;line-height:1;color:' + C.muted + ';margin-left:.35em}');
+css.push('.lumen-card .lumen-progress__label:empty,.lumen-card .lumen-progress__time:empty{display:none}');
+css.push('.lumen-card .lumen-progress__bar{-webkit-box-flex:0;-webkit-flex:0 0 100%;flex:0 0 100%;width:100%;height:.18em;background:rgba(243,237,228,0.16);border-radius:.09em;overflow:hidden;margin:.44em 0 0}');
+css.push('.lumen-card .lumen-progress__bar > div{height:100%;width:0;border-radius:.09em;background:' + A + '}');
+
+
+
+
+
+
+
+
+
+css.push('.lumen-card.lumen-continue:not(.lumen-trailer-on) .full-start-new__buttons .button--play:after{content:var(--lumen-play-label);font-size:1.05em;line-height:1;margin-left:.53em;white-space:nowrap}');
+css.push('@supports (--lumen-probe:0){.lumen-card.lumen-continue:not(.lumen-trailer-on) .full-start-new__buttons .button--play span{display:none}}');
 
 
 
@@ -561,7 +581,9 @@ css.push('.lumen-card .lumen-trailer-badge:before{content:"";display:block;-webk
 
 
 css.push('.lumen-card.lumen-trailer-on .full-start-new__title{font-size:1.84em;opacity:.92}');
-css.push('.lumen-card.lumen-trailer-on .lumen-descr,.lumen-card.lumen-trailer-on .full-start-new__rate-line,.lumen-card.lumen-trailer-on .lumen-side,.lumen-card.lumen-trailer-on .lumen-episodes{display:none !important}');
+
+
+css.push('.lumen-card.lumen-trailer-on .lumen-descr,.lumen-card.lumen-trailer-on .full-start-new__rate-line,.lumen-card.lumen-trailer-on .lumen-side,.lumen-card.lumen-trailer-on .lumen-episodes,.lumen-card.lumen-trailer-on .lumen-progress{display:none !important}');
 css.push('.lumen-card.lumen-trailer-on .lumen-actions{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center}');
 
 
@@ -630,6 +652,18 @@ css.push('.lumen-card .lumen-episode.focus{opacity:1;background:linear-gradient(
 css.push('.lumen-card .lumen-episode.focus .lumen-episode__play{display:block}');
 css.push('.lumen-card .lumen-episode.focus .lumen-episode__check,.lumen-card .lumen-episode.focus .lumen-episode__percent{display:none}');
 css.push('.lumen-card .lumen-episode.focus .lumen-episode__name{font-weight:600}');
+
+
+
+
+
+
+
+
+css.push('.lumen-card .lumen-episode__state{display:none;font-family:' + FM + ';font-weight:600;font-size:.75em;line-height:1;letter-spacing:.1em;text-transform:uppercase;color:' + A + ';margin:0 auto 0 .35em}');
+css.push('.lumen-card .lumen-episode__timecode{display:none;font-family:' + FM + ';font-size:.70em;line-height:1;color:' + C.muted + ';margin-top:.44em;white-space:nowrap;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis}');
+css.push('.lumen-card.lumen-progress-on.lumen-compact .lumen-episode.focus .lumen-episode__state,.lumen-card.lumen-progress-on.lumen-compact .lumen-episode.focus .lumen-episode__timecode{display:block}');
+css.push('.lumen-card.lumen-progress-on.lumen-compact .lumen-episode.focus .lumen-episode__caption{display:none}');
 
 css.push(LC.icons.NO_MASK + '{.lumen-card .lumen-next-chip:before,.lumen-card .lumen-episode__check,.lumen-card .lumen-episode__play:before{display:none}}');
 
@@ -788,6 +822,19 @@ css.push('.lumen-card.lumen-compact .full-start-new__title{font-size:2.104em}');
 css.push('.lumen-card.lumen-compact .lumen-descr{display:none}');
 css.push('.lumen-card.lumen-compact .full-start-new__rate-line{margin-top:.87em}');
 css.push('.lumen-card.lumen-compact .full-start-new__buttons{margin-top:.95em}');
+
+
+
+
+
+
+
+css.push('.lumen-card .lumen-next-chip__short{display:none}');
+css.push('.lumen-card.lumen-compact .lumen-next-chip__text{display:none}');
+css.push('.lumen-card.lumen-compact .lumen-next-chip__short{display:block}');
+css.push('.lumen-card.lumen-compact .lumen-next-chip{border-left:0;border-top-left-radius:0;border-bottom-left-radius:0;padding-left:0}');
+css.push('.lumen-card.lumen-compact .lumen-next-chip:before{display:none}');
+css.push('.lumen-card.lumen-card--nextchip.lumen-compact .full-start-new__rate-line .full-start__status{margin-right:0 !important;border-right:0;border-top-right-radius:0;border-bottom-right-radius:0;padding-right:.45em}');
 css.push('.lumen-card.lumen-motion-lite .full-start-new__title,.lumen-card.lumen-motion-lite .full-start-new__rate-line,.lumen-card.lumen-motion-lite .full-start-new__buttons,.lumen-card.lumen-motion-off .full-start-new__title,.lumen-card.lumen-motion-off .full-start-new__rate-line,.lumen-card.lumen-motion-off .full-start-new__buttons{-webkit-transition:none;transition:none}');
 
 
@@ -3623,18 +3670,72 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 LC.progress = (function () {
+
+
+
+var WATCHED = 95;
+
+
+
+
+function episodeHash(season, episode, key, hash) {
+return hash([season, season > 10 ? ':' : '', episode, key].join(''));
+}
+
+function percentOf(v) {
+return v ? Number(v.percent) || 0 : 0;
+}
+
 function movieProgress(movie, view, hash) {
 var key = movie.original_title || movie.original_name || movie.title || movie.name;
 if (!key) return null;
 var v = view(hash(key));
-if (v && v.percent > 0) return { view: v, season: 0, episode: 0 };
+if (v && v.percent > 0 && v.percent < WATCHED) return { view: v, season: 0, episode: 0 };
 return null;
 }
 
-function serialProgress(movie, view, hash) {
-var key = movie.original_name || movie.original_title || movie.name || movie.title;
-if (!key) return null;
 
+
+
+
+
+
+
+
+function fromEpisodes(key, episodes, view, hash) {
+var best = null, afterDone = null, done = false, touched = false;
+for (var i = 0; i < episodes.length; i++) {
+var ep = episodes[i];
+if (!ep || !(ep.episode_number > 0)) continue;
+var season = parseInt(ep.season_number, 10) || 0;
+if (!season) continue;
+
+var v = view(episodeHash(season, ep.episode_number, key, hash));
+var percent = percentOf(v);
+
+if (percent >= WATCHED) {
+
+
+done = true;
+touched = true;
+afterDone = null;
+} else if (percent > 0) {
+touched = true;
+if (!best || (v.updated || 0) >= (best.view.updated || 0)) {
+best = { view: v, season: season, episode: ep.episode_number };
+}
+} else if (done && !afterDone) {
+afterDone = { view: v || { percent: 0 }, season: season, episode: ep.episode_number };
+}
+}
+return { found: best || afterDone, touched: touched };
+}
+
+
+
+
+
+function scanAll(key, movie, view, hash) {
 var maxSeason = parseInt(movie.number_of_seasons, 10) || 1;
 if (maxSeason > 10) maxSeason = 10;
 if (maxSeason < 1) maxSeason = 1;
@@ -3642,9 +3743,8 @@ if (maxSeason < 1) maxSeason = 1;
 var best = null;
 for (var s = 1; s <= maxSeason; s++) {
 for (var ep = 1; ep <= 30; ep++) {
-var h = hash([s, s > 10 ? ':' : '', ep, key].join(''));
-var v = view(h);
-if (v && v.percent > 0) {
+var v = view(episodeHash(s, ep, key, hash));
+if (v && v.percent > 0 && v.percent < WATCHED) {
 if (!best || (v.updated || 0) >= (best.view.updated || 0)) {
 best = { view: v, season: s, episode: ep };
 }
@@ -3652,6 +3752,47 @@ best = { view: v, season: s, episode: ep };
 }
 }
 return best;
+}
+
+
+function serialProgress(movie, view, hash, episodes) {
+var key = movie.original_name || movie.original_title || movie.name || movie.title;
+if (!key) return null;
+
+if (episodes && episodes.length) {
+var last = fromEpisodes(key, episodes, view, hash);
+if (last.found || last.touched) return last.found;
+}
+return scanAll(key, movie, view, hash);
+}
+
+function episodeOf(episodes, season, episode) {
+if (!episodes) return null;
+for (var i = 0; i < episodes.length; i++) {
+var ep = episodes[i];
+if (ep && (parseInt(ep.season_number, 10) || 0) === season && ep.episode_number === episode) return ep;
+}
+return null;
+}
+
+
+
+
+
+
+
+
+
+
+function label(found, episodes, words) {
+if (!found || !found.season) return '';
+var out = 'S' + found.season + ' E' + found.episode;
+var ep = episodeOf(episodes, found.season, found.episode);
+if (ep && ep.name) out += ' «' + ep.name + '»';
+if (!percentOf(found.view) && ep && ep.runtime > 0 && words && words.min) {
+out += ' · ' + ep.runtime + ' ' + words.min;
+}
+return out;
 }
 
 
@@ -3663,7 +3804,7 @@ return best;
 
 function episodeState(view, airDate, now, runtimeMin) {
 var percent = view ? Number(view.percent) || 0 : 0;
-if (percent >= 95) return { state: 'watched' };
+if (percent >= WATCHED) return { state: 'watched' };
 if (percent > 0) {
 var leftMin = null;
 if (view.duration > 0) leftMin = Math.max(1, Math.floor((view.duration - (view.time || 0)) / 60));
@@ -3679,7 +3820,8 @@ return { state: days === null || days > 0 ? 'soon' : 'aired' };
 return {
 movieProgress: movieProgress,
 serialProgress: serialProgress,
-episodeState: episodeState
+episodeState: episodeState,
+label: label
 };
 })();
 
@@ -3715,7 +3857,10 @@ lumen_card_motion_auto: { ru: 'Авто', en: 'Auto', uk: 'Авто' },
 lumen_card_motion_full: { ru: 'Полные', en: 'Full', uk: 'Повні' },
 lumen_card_motion_lite: { ru: 'Лёгкие', en: 'Light', uk: 'Легкі' },
 lumen_card_motion_off: { ru: 'Выкл', en: 'Off', uk: 'Викл' },
-lumen_card_continue: { ru: 'ПРОДОЛЖИТЬ', en: 'CONTINUE', uk: 'ПРОДОВЖИТИ' },
+
+
+
+lumen_card_continue: { ru: 'Продолжить', en: 'Continue', uk: 'Продовжити' },
 lumen_card_cast: { ru: 'В ролях', en: 'Cast', uk: 'У ролях' },
 lumen_card_serial: { ru: 'СЕРИАЛ', en: 'SERIES', uk: 'СЕРІАЛ' },
 lumen_card_min: { ru: 'мин', en: 'min', uk: 'хв' },
@@ -4262,31 +4407,104 @@ for (var i = 0; i < chips.length; i++) html.push('<div class="lumen-quality-chip
 if (html.length) holder.append(html.join(''));
 }
 
-function renderProgress(root, movie) {
+
+
+
+
+
+
+
+
+function cssString(text) {
+return '"' + ('' + text).replace(/[\\"]/g, '\\$&').replace(/[\r\n]+/g, ' ') + '"';
+}
+
+
+
+
+
+
+function setPlayLabel(root, text) {
+var node = root[0];
+if (!node || !node.style || typeof node.style.setProperty !== 'function') return;
+if (text) {
+node.style.setProperty('--lumen-play-label', cssString(text));
+root.addClass('lumen-continue');
+return;
+}
+root.removeClass('lumen-continue');
+if (typeof node.style.removeProperty === 'function') node.style.removeProperty('--lumen-play-label');
+clearInlineStyleIfEmpty(root);
+}
+
+
+
+
+
+
+
+
+
+
+
+function renderProgress(root, movie, episodes) {
+
+
+
+if (root[0]) root[0].lumenProgress = { movie: movie, episodes: episodes || null };
+
+var on = LC.pref(PLUGIN + '_progress', true);
+
+
+
+root.toggleClass('lumen-progress-on', on);
+
 var row = root.find('.lumen-progress');
+if (row.length) row.addClass('hide');
+
+var found = null;
+if (on) {
+found = isSerial(movie)
+? LC.progress.serialProgress(movie, timelineView, utilsHash, episodes)
+: LC.progress.movieProgress(movie, timelineView, utilsHash);
+}
+if (!found || !found.view) {
+setPlayLabel(root, '');
+return;
+}
+
+
+
+setPlayLabel(root, found.season ? LC.lang('lumen_card_continue') + ' S' + found.season + ' E' + found.episode : '');
 if (!row.length) return;
 
-row.addClass('hide');
-if (!LC.pref(PLUGIN + '_progress', true)) return;
-
-var found = isSerial(movie)
-? LC.progress.serialProgress(movie, timelineView, utilsHash)
-: LC.progress.movieProgress(movie, timelineView, utilsHash);
-if (!found || !found.view || !(found.view.percent > 0)) return;
-
-var percent = Math.max(0, Math.min(100, Math.round(found.view.percent)));
-var label = LC.lang('lumen_card_continue');
-if (found.season) label += ' · S' + found.season + ' E' + found.episode;
+var percent = Math.max(0, Math.min(100, Math.round(found.view.percent || 0)));
+var caption = LC.progress.label(found, episodes, { min: LC.lang('lumen_card_min') });
 
 var time = '';
 if (found.view.duration > 0) time = LC.util.fmtTime(found.view.time) + ' / ' + LC.util.fmtTime(found.view.duration);
 else if (found.view.time > 0) time = LC.util.fmtTime(found.view.time);
-else time = percent + '%';
+if (percent > 0) time = time ? time + ' · ' + percent + ' %' : percent + ' %';
 
-row.find('.lumen-progress__label').text(label);
-row.find('.lumen-progress__time').text(time);
-row.find('.lumen-progress__bar > div').css('width', percent + '%');
+if (!caption && !time) return;
+
+row.find('.lumen-progress__label').text(caption);
+row.find('.lumen-progress__time').text(caption && time ? '· ' + time : time);
+var fill = row.find('.lumen-progress__bar > div');
+fill.css('width', percent ? percent + '%' : '');
+clearInlineStyleIfEmpty(fill);
 row.removeClass('hide');
+}
+
+
+
+
+
+function refreshProgress() {
+$('.lumen-card').each(function () {
+var info = this.lumenProgress;
+if (info) renderProgress($(this), info.movie, info.episodes);
+});
 }
 
 function renderCast(root, data) {
@@ -4359,11 +4577,27 @@ function renderNextChip(root, movie) {
 var chip = root.find('.lumen-next-chip');
 if (!chip.length) return;
 chip.addClass('hide');
+root.removeClass('lumen-card--nextchip');
 if (!isSerial(movie)) return;
 var next = LC.cardinfo.nextEpisode(movie.next_episode_to_air, new Date(), dateWords());
 if (!next) return;
 chip.find('.lumen-next-chip__text').text(next.text);
+
+
+
+
+
+
+
+var short = chip.find('.lumen-next-chip__short');
+if (!short.length) {
+chip.append('<div class="lumen-next-chip__short"></div>');
+short = chip.find('.lumen-next-chip__short');
+}
+short.text('· ' + LC.cardinfo.shortDate(movie.next_episode_to_air.air_date, monthsShort()));
+
 chip.removeClass('hide');
+root.addClass('lumen-card--nextchip');
 }
 
 var EPISODE_STATES = 'lumen-episode--watched lumen-episode--watching lumen-episode--aired lumen-episode--soon';
@@ -4416,12 +4650,14 @@ clearInlineStyleIfEmpty(still);
 
 
 
-function episodeInner(ep, st, months, hasStill) {
+function episodeInner(ep, st, months, hasStill, view) {
 var esc = LC.util.esc;
 var min = LC.lang('lumen_card_min');
 var runtime = ep.runtime > 0 ? ep.runtime + ' ' + min : '';
 var caption = runtime;
 var badge = '';
+var state = '';
+var timecode = '';
 
 if (st.state === 'watched') {
 caption = (runtime ? runtime + ' · ' : '') + LC.lang('lumen_card_ep_watched');
@@ -4429,6 +4665,19 @@ badge = '<div class="lumen-episode__check"></div>';
 } else if (st.state === 'watching') {
 caption = LC.lang('lumen_card_ep_watching') + (st.leftMin ? ' · ' + LC.lang('lumen_card_ep_left') + ' ' + st.leftMin + ' ' + min : '');
 badge = '<div class="lumen-episode__percent">' + st.percent + ' %</div>';
+
+
+
+
+
+
+
+
+state = '<div class="lumen-episode__state">· ' + esc(LC.lang('lumen_card_ep_watching')) + '</div>';
+var played = view && view.time > 0 ? LC.util.fmtTime(view.time) : '';
+var total = view && view.duration > 0 ? LC.util.fmtTime(view.duration) : '';
+var stamp = played && total ? played + ' / ' + total : played;
+timecode = '<div class="lumen-episode__timecode">' + esc(stamp ? stamp + ' · ' + st.percent + ' %' : st.percent + ' %') + '</div>';
 } else if (st.state === 'soon') {
 var date = LC.cardinfo.shortDate(ep.air_date, months);
 caption = (date ? date + ' · ' : '') + LC.lang('lumen_card_ep_soon');
@@ -4437,12 +4686,12 @@ caption = (date ? date + ' · ' : '') + LC.lang('lumen_card_ep_soon');
 return '' +
 (hasStill ? '<div class="lumen-episode__still"></div>' : '') +
 '<div class="lumen-episode__top">' +
-'<div class="lumen-episode__num">E' + esc(ep.episode_number) + '</div>' + badge +
+'<div class="lumen-episode__num">E' + esc(ep.episode_number) + '</div>' + state + badge +
 '<div class="lumen-episode__play"></div>' +
 '</div>' +
 '<div class="lumen-episode__bottom">' +
 '<div class="lumen-episode__name">' + esc(ep.name || '') + '</div>' +
-(caption ? '<div class="lumen-episode__caption">' + esc(caption) + '</div>' : '') +
+(caption ? '<div class="lumen-episode__caption">' + esc(caption) + '</div>' : '') + timecode +
 (st.state === 'watching' ? '<div class="lumen-episode__bar"><div style="width:' + st.percent + '%"></div></div>' : '') +
 '</div>';
 }
@@ -4458,7 +4707,7 @@ var sign = st.state + '|' + (st.percent || '') + '|' + (st.leftMin || '');
 if (node[0].lumenSign === sign) return st;
 
 node[0].lumenSign = sign;
-node.removeClass(EPISODE_STATES).addClass('lumen-episode--' + st.state).html(episodeInner(ep, st, months, !!node.attr('data-still')));
+node.removeClass(EPISODE_STATES).addClass('lumen-episode--' + st.state).html(episodeInner(ep, st, months, !!node.attr('data-still'), view));
 if (node[0].lumenStill) applyStill(node);
 return st;
 }
@@ -4767,13 +5016,13 @@ try { renderSerialMode(root, movie); } catch (e) { warn('serial mode failed', e)
 try { renderNextChip(root, movie); } catch (e) { warn('next episode chip failed', e); }
 try { renderReactionsChip(root, data); } catch (e) { warn('reactions chip failed', e); }
 try { renderQualityChips(root, movie); } catch (e) { warn('quality chips failed', e); }
-try { renderProgress(root, movie); } catch (e) { warn('progress failed', e); }
+try { renderProgress(root, movie, (data && data.episodes && data.episodes.episodes) || null); } catch (e) { warn('progress failed', e); }
 try { renderCast(root, data); } catch (e) { warn('cast failed', e); }
 try { renderEpisodes(root, data); } catch (e) { warn('episodes failed', e); }
 try { bindEpisodes(root); } catch (e) { warn('episodes bind failed', e); }
 }
 
-LC.header = { decorate: decorate, descr: renderDescrRow, refreshEpisode: refreshEpisode };
+LC.header = { decorate: decorate, descr: renderDescrRow, refreshEpisode: refreshEpisode, refreshProgress: refreshProgress };
 
 
 /* ---- 90_runtime.js ---- */
@@ -4960,6 +5209,11 @@ if (!window.Lampa || !Lampa.Timeline || !Lampa.Timeline.listener) return;
 Lampa.Timeline.listener.follow('update', function (e) {
 try {
 if (e && e.data) LC.header.refreshEpisode(e.data.hash);
+
+
+
+
+LC.header.refreshProgress();
 } catch (err) {
 warn('timeline listener failed', err);
 }

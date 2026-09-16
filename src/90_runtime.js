@@ -181,6 +181,11 @@
       Lampa.Timeline.listener.follow('update', function (e) {
         try {
           if (e && e.data) LC.header.refreshEpisode(e.data.hash);
+          /* Task 8: та же подписка обновляет строку «Продолжить» и подпись
+             кнопки «Смотреть» — второй слушатель Timeline не заводится
+             (поправки координатора). Хэш записи здесь не нужен: карточка
+             сама решает, какую серию продолжать, по всем своим данным. */
+          LC.header.refreshProgress();
         } catch (err) {
           warn('timeline listener failed', err);
         }

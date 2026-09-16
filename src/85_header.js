@@ -213,31 +213,104 @@
     if (html.length) holder.append(html.join(''));
   }
 
-  function renderProgress(root, movie) {
+  /* Task 8: подпись «Продолжить S2 E3» на кнопке «Смотреть» (экран 05).
+     Текст кнопки не трогаем ничем — её outerHTML хэширует Lampa (план 0.2,
+     «Кнопки и хэш приоритета»): подпись выводит CSS (.lumen-card.lumen-continue
+     … .button--play:after{content:var(--lumen-play-label)}), а сама строка
+     приходит переменной на корне карточки. В строке CSS кавычка и обратный
+     слэш обязаны быть экранированы — иначе название серии вида «Он сказал
+     "да"» оборвёт значение на первой же кавычке и правило станет невалидным.
+     Перевод строки в значении тоже недопустим — заменяем пробелом. */
+  function cssString(text) {
+    return '"' + ('' + text).replace(/[\\"]/g, '\\$&').replace(/[\r\n]+/g, ' ') + '"';
+  }
+
+  /* Пустая подпись — снимаем и класс, и переменную (а с ней и пустой
+     атрибут style="", тем же clearInlineStyleIfEmpty, что у дорожки серий).
+     style.setProperty у движка без CSS-переменных просто ничего не делает —
+     кнопка остаётся со штатным текстом, ради этого span и скрывается только
+     под @supports (--a:0). */
+  function setPlayLabel(root, text) {
+    var node = root[0];
+    if (!node || !node.style || typeof node.style.setProperty !== 'function') return;
+    if (text) {
+      node.style.setProperty('--lumen-play-label', cssString(text));
+      root.addClass('lumen-continue');
+      return;
+    }
+    root.removeClass('lumen-continue');
+    if (typeof node.style.removeProperty === 'function') node.style.removeProperty('--lumen-play-label');
+    clearInlineStyleIfEmpty(root);
+  }
+
+  /* Task 8 (design-spec §6, экраны 01/05): «Продолжить» — одна подпись над
+     полосой, а не «ПРОДОЛЖИТЬ» слева и время справа, как было в v1.
+     Фильм: «01:12 / 02:46 · 43 %». Сериал: «S2 E3 «Голова» · 18:40 / 58:12 ·
+     32 %» (левая часть — чистая LC.progress.label, она же знает про серию, к
+     которой только предстоит перейти: «S2 E4 «Гуль» · 61 мин»). Разделитель
+     «·» между подписью и таймкодом ставится текстом: узлов в шаблоне два
+     (__label/__time), а строка дизайна одна, и псевдоэлемент с :not(:empty)
+     на движках ТВ надёжным не будет.
+     episodes — e.data.episodes.episodes (серии последнего сезона): из них
+     берутся название и длительность серии, без них подпись остаётся «S2 E3». */
+  function renderProgress(root, movie, episodes) {
+    /* Данные для перерисовки по событию Timeline (refreshProgress ниже):
+       в самом событии есть только хэш записи, а карточек в DOM у Lampa
+       несколько — история держит и прошлые. */
+    if (root[0]) root[0].lumenProgress = { movie: movie, episodes: episodes || null };
+
+    var on = LC.pref(PLUGIN + '_progress', true);
+    /* Класс-выключатель для надписей сжатой шапки (экран 06): они живут в
+       карточках серий, которые рисует renderEpisodes, и гасятся тем же
+       переключателем lumen_card_progress, что строка и подпись кнопки. */
+    root.toggleClass('lumen-progress-on', on);
+
     var row = root.find('.lumen-progress');
+    if (row.length) row.addClass('hide');
+
+    var found = null;
+    if (on) {
+      found = isSerial(movie)
+        ? LC.progress.serialProgress(movie, timelineView, utilsHash, episodes)
+        : LC.progress.movieProgress(movie, timelineView, utilsHash);
+    }
+    if (!found || !found.view) {
+      setPlayLabel(root, '');
+      return;
+    }
+
+    /* Подпись кнопки — только у сериала: на экране 01 фильм с прогрессом
+       43 % оставляет штатное «Смотреть», серия же меняет смысл кнопки. */
+    setPlayLabel(root, found.season ? LC.lang('lumen_card_continue') + ' S' + found.season + ' E' + found.episode : '');
     if (!row.length) return;
 
-    row.addClass('hide');
-    if (!LC.pref(PLUGIN + '_progress', true)) return;
-
-    var found = isSerial(movie)
-      ? LC.progress.serialProgress(movie, timelineView, utilsHash)
-      : LC.progress.movieProgress(movie, timelineView, utilsHash);
-    if (!found || !found.view || !(found.view.percent > 0)) return;
-
-    var percent = Math.max(0, Math.min(100, Math.round(found.view.percent)));
-    var label = LC.lang('lumen_card_continue');
-    if (found.season) label += ' · S' + found.season + ' E' + found.episode;
+    var percent = Math.max(0, Math.min(100, Math.round(found.view.percent || 0)));
+    var caption = LC.progress.label(found, episodes, { min: LC.lang('lumen_card_min') });
 
     var time = '';
     if (found.view.duration > 0) time = LC.util.fmtTime(found.view.time) + ' / ' + LC.util.fmtTime(found.view.duration);
     else if (found.view.time > 0) time = LC.util.fmtTime(found.view.time);
-    else time = percent + '%';
+    if (percent > 0) time = time ? time + ' · ' + percent + ' %' : percent + ' %';
 
-    row.find('.lumen-progress__label').text(label);
-    row.find('.lumen-progress__time').text(time);
-    row.find('.lumen-progress__bar > div').css('width', percent + '%');
+    if (!caption && !time) return;
+
+    row.find('.lumen-progress__label').text(caption);
+    row.find('.lumen-progress__time').text(caption && time ? '· ' + time : time);
+    var fill = row.find('.lumen-progress__bar > div');
+    fill.css('width', percent ? percent + '%' : '');
+    clearInlineStyleIfEmpty(fill);
     row.removeClass('hide');
+  }
+
+  /* Task 8: запись Lampa.Timeline обновилась (плеер, синхронизация CUB) —
+     строка и подпись кнопки пересобираются по сохранённым данным карточки.
+     Подписка одна на всё время жизни плагина и общая с рядом серий
+     (LC.followTimeline в 90_runtime.js) — второй не заводим. */
+  function refreshProgress() {
+    $('.lumen-card').each(function () {
+      var info = this.lumenProgress;
+      if (info) renderProgress($(this), info.movie, info.episodes);
+    });
   }
 
   function renderCast(root, data) {
@@ -310,11 +383,27 @@
     var chip = root.find('.lumen-next-chip');
     if (!chip.length) return;
     chip.addClass('hide');
+    root.removeClass('lumen-card--nextchip');
     if (!isSerial(movie)) return;
     var next = LC.cardinfo.nextEpisode(movie.next_episode_to_air, new Date(), dateWords());
     if (!next) return;
     chip.find('.lumen-next-chip__text').text(next.text);
+
+    /* Task 8 (экран 06): в сжатой шапке чип сливается со статусом в одну карту
+       «Выходит · 17 дек» — длинной строке там места нет. Короткая дата живёт
+       собственным узлом: в шаблоне его нет (шаблон Task 8 не трогает), поэтому
+       дописывается один раз при первом показе чипа. Класс на корне нужен
+       стилям: срезать правый край карты статуса можно только когда чип рядом
+       действительно виден, а :has() план запрещает. */
+    var short = chip.find('.lumen-next-chip__short');
+    if (!short.length) {
+      chip.append('<div class="lumen-next-chip__short"></div>');
+      short = chip.find('.lumen-next-chip__short');
+    }
+    short.text('· ' + LC.cardinfo.shortDate(movie.next_episode_to_air.air_date, monthsShort()));
+
     chip.removeClass('hide');
+    root.addClass('lumen-card--nextchip');
   }
 
   var EPISODE_STATES = 'lumen-episode--watched lumen-episode--watching lumen-episode--aired lumen-episode--soon';
@@ -367,12 +456,14 @@
      (галочка у просмотренной, «32 %» у начатой; в фокусе вместо него кружок
      play — экран 06), название, подпись, полоса у начатой. Узел кадра пустой —
      картинку вешает applyStill, когда серия попадает в окно загрузки. */
-  function episodeInner(ep, st, months, hasStill) {
+  function episodeInner(ep, st, months, hasStill, view) {
     var esc = LC.util.esc;
     var min = LC.lang('lumen_card_min');
     var runtime = ep.runtime > 0 ? ep.runtime + ' ' + min : '';
     var caption = runtime;
     var badge = '';
+    var state = '';
+    var timecode = '';
 
     if (st.state === 'watched') {
       caption = (runtime ? runtime + ' · ' : '') + LC.lang('lumen_card_ep_watched');
@@ -380,6 +471,19 @@
     } else if (st.state === 'watching') {
       caption = LC.lang('lumen_card_ep_watching') + (st.leftMin ? ' · ' + LC.lang('lumen_card_ep_left') + ' ' + st.leftMin + ' ' + min : '');
       badge = '<div class="lumen-episode__percent">' + st.percent + ' %</div>';
+      /* Task 8 (экран 06, сжатая шапка): у начатой серии номер дополняется
+         состоянием — «E3 · СМОТРИТЕ», а подпись «смотрите · осталось 39 мин»
+         уступает место таймкоду «18:40 / 58:12 · 32 %». Оба узла рисуются
+         всегда; показывает их CSS (.lumen-progress-on.lumen-compact
+         .lumen-episode.focus), поэтому ни фокус, ни режим шапки не требуют
+         перерисовки ряда. Таймкод обновляется вместе с процентом (подпись
+         lumenSign в paintEpisode): секунды между соседними update таймлайна
+         карточку не пересобирают — ровно как решено ревью Task 5c (п.8). */
+      state = '<div class="lumen-episode__state">· ' + esc(LC.lang('lumen_card_ep_watching')) + '</div>';
+      var played = view && view.time > 0 ? LC.util.fmtTime(view.time) : '';
+      var total = view && view.duration > 0 ? LC.util.fmtTime(view.duration) : '';
+      var stamp = played && total ? played + ' / ' + total : played;
+      timecode = '<div class="lumen-episode__timecode">' + esc(stamp ? stamp + ' · ' + st.percent + ' %' : st.percent + ' %') + '</div>';
     } else if (st.state === 'soon') {
       var date = LC.cardinfo.shortDate(ep.air_date, months);
       caption = (date ? date + ' · ' : '') + LC.lang('lumen_card_ep_soon');
@@ -388,12 +492,12 @@
     return '' +
       (hasStill ? '<div class="lumen-episode__still"></div>' : '') +
       '<div class="lumen-episode__top">' +
-      '<div class="lumen-episode__num">E' + esc(ep.episode_number) + '</div>' + badge +
+      '<div class="lumen-episode__num">E' + esc(ep.episode_number) + '</div>' + state + badge +
       '<div class="lumen-episode__play"></div>' +
       '</div>' +
       '<div class="lumen-episode__bottom">' +
       '<div class="lumen-episode__name">' + esc(ep.name || '') + '</div>' +
-      (caption ? '<div class="lumen-episode__caption">' + esc(caption) + '</div>' : '') +
+      (caption ? '<div class="lumen-episode__caption">' + esc(caption) + '</div>' : '') + timecode +
       (st.state === 'watching' ? '<div class="lumen-episode__bar"><div style="width:' + st.percent + '%"></div></div>' : '') +
       '</div>';
   }
@@ -409,7 +513,7 @@
     if (node[0].lumenSign === sign) return st;
 
     node[0].lumenSign = sign;
-    node.removeClass(EPISODE_STATES).addClass('lumen-episode--' + st.state).html(episodeInner(ep, st, months, !!node.attr('data-still')));
+    node.removeClass(EPISODE_STATES).addClass('lumen-episode--' + st.state).html(episodeInner(ep, st, months, !!node.attr('data-still'), view));
     if (node[0].lumenStill) applyStill(node);
     return st;
   }
@@ -718,10 +822,10 @@
     try { renderNextChip(root, movie); } catch (e) { warn('next episode chip failed', e); }
     try { renderReactionsChip(root, data); } catch (e) { warn('reactions chip failed', e); }
     try { renderQualityChips(root, movie); } catch (e) { warn('quality chips failed', e); }
-    try { renderProgress(root, movie); } catch (e) { warn('progress failed', e); }
+    try { renderProgress(root, movie, (data && data.episodes && data.episodes.episodes) || null); } catch (e) { warn('progress failed', e); }
     try { renderCast(root, data); } catch (e) { warn('cast failed', e); }
     try { renderEpisodes(root, data); } catch (e) { warn('episodes failed', e); }
     try { bindEpisodes(root); } catch (e) { warn('episodes bind failed', e); }
   }
 
-  LC.header = { decorate: decorate, descr: renderDescrRow, refreshEpisode: refreshEpisode };
+  LC.header = { decorate: decorate, descr: renderDescrRow, refreshEpisode: refreshEpisode, refreshProgress: refreshProgress };

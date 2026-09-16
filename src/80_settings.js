@@ -22,7 +22,10 @@
     lumen_card_motion_full: { ru: 'Полные', en: 'Full', uk: 'Повні' },
     lumen_card_motion_lite: { ru: 'Лёгкие', en: 'Light', uk: 'Легкі' },
     lumen_card_motion_off: { ru: 'Выкл', en: 'Off', uk: 'Викл' },
-    lumen_card_continue: { ru: 'ПРОДОЛЖИТЬ', en: 'CONTINUE', uk: 'ПРОДОВЖИТИ' },
+    /* Task 8: строка ушла из блока прогресса на кнопку «Смотреть» —
+       «Продолжить S2 E3» (экран 05). В самой строке прогресса подписи
+       «ПРОДОЛЖИТЬ» больше нет: по design-spec §6 там таймкод и процент. */
+    lumen_card_continue: { ru: 'Продолжить', en: 'Continue', uk: 'Продовжити' },
     lumen_card_cast: { ru: 'В ролях', en: 'Cast', uk: 'У ролях' },
     lumen_card_serial: { ru: 'СЕРИАЛ', en: 'SERIES', uk: 'СЕРІАЛ' },
     lumen_card_min: { ru: 'мин', en: 'min', uk: 'хв' },

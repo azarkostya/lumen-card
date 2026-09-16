@@ -85,6 +85,12 @@ function makeCard() {
   const play = new FakeEl(['full-start__button', 'selector', 'button--play']);
   const book = new FakeEl(['full-start__button', 'selector', 'button--book']);
   const buttons = new FakeEl(['full-start-new__buttons'], [play, book]);
+  /* Task 8: блок «Продолжить» из шаблона — подпись, полоса, таймкод. */
+  const pLabel = new FakeEl(['lumen-progress__label']);
+  const pFill = new FakeEl([]);
+  const pBar = new FakeEl(['lumen-progress__bar'], [pFill]);
+  const pTime = new FakeEl(['lumen-progress__time']);
+  const progress = new FakeEl(['lumen-in', 'lumen-progress', 'hide'], [pLabel, pBar, pTime]);
   const title = new FakeEl(['lumen-episodes__title']);
   const count = new FakeEl(['lumen-episodes__count']);
   const head = new FakeEl(['lumen-episodes__head'], [title, count]);
@@ -92,9 +98,9 @@ function makeCard() {
   const viewport = new FakeEl(['lumen-episodes__viewport'], [track]);
   viewport.getBoundingClientRect = () => ({ left: 64 });
   const row = new FakeEl(['lumen-episodes', 'hide'], [head, viewport]);
-  const root = new FakeEl(['full-start-new', 'lumen-card'], [rateLine, side, buttons, row]);
+  const root = new FakeEl(['full-start-new', 'lumen-card'], [rateLine, progress, side, buttons, row]);
   docRoots.push(root);
-  return { root, chip, text, rateLine, status, side, play, book, buttons, row, track, title, count };
+  return { root, chip, text, rateLine, status, side, play, book, buttons, row, track, title, count, progress, pLabel, pTime };
 }
 
 function serial(n) {
@@ -359,6 +365,155 @@ test('LC.daysWord: склонения на славянских языках', (
   assert.equal(LC.daysWord(31), 'день');
   assert.equal(LC.daysWord(22), 'дня');
   assert.equal(LC.daysWord(25), 'дней');
+});
+
+/* ------------------------------ Task 8: «Продолжить» ------------------------------ */
+
+const FILM = { title: 'Дюна: Часть вторая', original_title: 'Dune: Part Two', release_date: '2024-02-27' };
+
+function withViews(map, fn) {
+  const keys = Object.keys(map);
+  keys.forEach((h) => { views[h] = map[h]; });
+  try { return fn(); } finally { keys.forEach((h) => { delete views[h]; }); }
+}
+
+test('progress: фильм — одна строка «01:12 / 02:46 · 43 %», кнопка остаётся штатной', () => {
+  const c = makeCard();
+  withViews({ [lampaHash('Dune: Part Two')]: { percent: 43, time: 4320, duration: 9960 } }, () => {
+    LC.header.decorate(c.root, { movie: FILM });
+  });
+  assert.equal(c.progress.hasClass('hide'), false);
+  assert.equal(c.pLabel.text(), '', 'у фильма подписи серии нет — по §6 там только таймкод и процент');
+  assert.equal(c.pTime.text(), '01:12 / 02:46 · 43 %');
+  assert.equal(c.root.hasClass('lumen-continue'), false, 'на экране 01 кнопка фильма — «Смотреть»');
+  assert.deepEqual(warnLog, []);
+});
+
+test('progress: досмотренный фильм (97 %) строки не показывает', () => {
+  const c = makeCard();
+  withViews({ [lampaHash('Dune: Part Two')]: { percent: 97, time: 9700, duration: 9960 } }, () => {
+    LC.header.decorate(c.root, { movie: FILM });
+  });
+  assert.ok(c.progress.hasClass('hide'));
+  assert.equal(c.root.hasClass('lumen-continue'), false);
+});
+
+test('progress: сериал — «S2 E3 «Серия 3» · 18:40 / 58:12 · 32 %» и подпись кнопки переменной', () => {
+  const c = makeCard();
+  withViews({ [hashOf(2, 3)]: { percent: 32, time: 1120, duration: 3492, updated: 5 } }, () => {
+    LC.header.decorate(c.root, serial(8));
+  });
+  assert.equal(c.progress.hasClass('hide'), false);
+  assert.equal(c.pLabel.text(), 'S2 E3 «Серия 3»');
+  assert.equal(c.pTime.text(), '· 18:40 / 58:12 · 32 %');
+  assert.ok(c.root.hasClass('lumen-continue'));
+  assert.equal(c.root._css['--lumen-play-label'], '"Продолжить S2 E3"');
+  assert.equal(c.play.getAttribute('style'), null, 'на кнопке инлайн-стилей нет — её outerHTML хэширует Lampa');
+  assert.equal(c.play.html(), '', 'разметка кнопки не тронута');
+});
+
+test('progress: подпись кнопки экранируется для строки CSS (кавычка и обратный слэш)', () => {
+  const c = makeCard();
+  const original = LC.lang;
+  LC.lang = (key) => (key === 'lumen_card_continue' ? 'Про"дол\\жить' : original(key));
+  try {
+    withViews({ [hashOf(2, 2)]: { percent: 20, time: 100, duration: 1000, updated: 5 } }, () => {
+      LC.header.decorate(c.root, serial(3));
+    });
+  } finally {
+    LC.lang = original;
+  }
+  assert.equal(c.root._css['--lumen-play-label'], '"Про\\"дол\\\\жить S2 E2"',
+    'неэкранированная кавычка оборвала бы значение и правило стало бы невалидным');
+});
+
+test('progress: досмотренные серии ведут к следующей — «S2 E3 «Серия 3» · 53 мин», без таймкода', () => {
+  const c = makeCard();
+  withViews({
+    [hashOf(2, 1)]: { percent: 100, time: 3060, duration: 3060, updated: 1 },
+    [hashOf(2, 2)]: { percent: 96, time: 3000, duration: 3120, updated: 2 }
+  }, () => {
+    LC.header.decorate(c.root, serial(4));
+  });
+  assert.equal(c.progress.hasClass('hide'), false);
+  assert.equal(c.pLabel.text(), 'S2 E3 «Серия 3» · 53 мин', 'у не начатой серии вместо таймкода — её длительность');
+  assert.equal(c.pTime.text(), '');
+  assert.equal(c.root._css['--lumen-play-label'], '"Продолжить S2 E3"');
+});
+
+test('progress: весь сезон досмотрен — ни строки, ни подписи, пустой style="" снят', () => {
+  const c = makeCard();
+  withViews({
+    [hashOf(2, 1)]: { percent: 100, time: 3060, duration: 3060, updated: 1 },
+    [hashOf(2, 2)]: { percent: 100, time: 3120, duration: 3120, updated: 2 }
+  }, () => {
+    LC.header.decorate(c.root, serial(2));
+  });
+  assert.ok(c.progress.hasClass('hide'));
+  assert.equal(c.root.hasClass('lumen-continue'), false);
+  assert.equal(c.root.getAttribute('style'), null);
+});
+
+test('progress: выключатель lumen_card_progress гасит строку, подпись кнопки и надписи сжатой шапки', () => {
+  const c = makeCard();
+  const get = Lampa.Storage.get;
+  Lampa.Storage.get = (name, def) => (name === 'lumen_card_progress' ? false : def);
+  try {
+    withViews({ [hashOf(2, 3)]: { percent: 32, time: 1120, duration: 3492, updated: 5 } }, () => {
+      LC.header.decorate(c.root, serial(4));
+    });
+  } finally {
+    Lampa.Storage.get = get;
+  }
+  assert.ok(c.progress.hasClass('hide'));
+  assert.equal(c.root.hasClass('lumen-continue'), false);
+  assert.equal(c.root.hasClass('lumen-progress-on'), false, 'без этого класса CSS не покажет и надписи экрана 06');
+});
+
+test('progress: надписи экрана 06 — «· смотрите» у номера и таймкод в карточке серии', () => {
+  const c = makeCard();
+  withViews({ [hashOf(2, 3)]: { percent: 32, time: 1120, duration: 3492, updated: 5 } }, () => {
+    LC.header.decorate(c.root, serial(4));
+  });
+  const html = c.track._children[2].html();
+  assert.ok(html.indexOf('<div class="lumen-episode__state">· смотрите</div>') !== -1, 'нет узла состояния «E3 · СМОТРИТЕ»');
+  assert.ok(html.indexOf('<div class="lumen-episode__timecode">18:40 / 58:12 · 32 %</div>') !== -1, 'нет таймкода сжатой шапки');
+  assert.ok(html.indexOf('смотрите · осталось 39 мин') !== -1, 'обычная подпись остаётся — её подменяет CSS, а не рендер');
+  assert.ok(c.root.hasClass('lumen-progress-on'));
+});
+
+test('renderNextChip: короткая дата «· 17 дек» для сжатой шапки и класс склейки со статусом', () => {
+  const c = makeCard();
+  const data = serial(1);
+  const next = dateIn(31);
+  data.movie.next_episode_to_air = { air_date: ymd(next) };
+  LC.header.decorate(c.root, data);
+
+  assert.equal(c.chip.find('.lumen-next-chip__short').text(), '· ' + next.getDate() + ' ' + RU_SHORT[next.getMonth()]);
+  assert.ok(c.root.hasClass('lumen-card--nextchip'));
+
+  LC.header.decorate(c.root, data);
+  assert.equal(c.chip._children.filter((n) => n.hasClass('lumen-next-chip__short')).length, 1, 'узел не дублируется');
+
+  const film = makeCard();
+  LC.header.decorate(film.root, { movie: FILM });
+  assert.equal(film.root.hasClass('lumen-card--nextchip'), false, 'у фильма чипа нет — статус остаётся целой картой');
+  assert.deepEqual(warnLog, []);
+});
+
+test('refreshProgress: обновление Timeline перерисовывает строку без повторного decorate', () => {
+  const c = makeCard();
+  LC.header.decorate(c.root, serial(4));
+  assert.ok(c.progress.hasClass('hide'), 'ничего не начато — строки нет');
+
+  withViews({ [hashOf(2, 2)]: { percent: 12, time: 300, duration: 2500, updated: 9 } }, () => {
+    LC.header.refreshProgress();
+    assert.equal(c.progress.hasClass('hide'), false);
+    assert.equal(c.pLabel.text(), 'S2 E2 «Серия 2»');
+    assert.equal(c.pTime.text(), '· 05:00 / 41:40 · 12 %');
+    assert.equal(c.root._css['--lumen-play-label'], '"Продолжить S2 E2"');
+  });
+  assert.deepEqual(warnLog, []);
 });
 
 /* ------------------------------ Task 5d: таблица «ПОДРОБНО» ------------------------------ */

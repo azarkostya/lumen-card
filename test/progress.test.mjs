@@ -130,6 +130,156 @@ test('serialProgress: сериал без ключей -> null, view/hash не �
   assert.equal(found, null);
 });
 
+/* ------------------------------ Task 8: порог «досмотрено» ------------------------------ */
+
+test('movieProgress: percent >= 95 -> null (фильм досмотрен, продолжать нечего)', () => {
+  var movie = { original_title: 'Dune: Part Two' };
+  var hash = function (s) { return 'h:' + s; };
+  assert.equal(progress.movieProgress(movie, function () { return { percent: 95 }; }, hash), null);
+  assert.equal(progress.movieProgress(movie, function () { return { percent: 97 }; }, hash), null);
+  assert.ok(progress.movieProgress(movie, function () { return { percent: 94.9 }; }, hash));
+});
+
+test('serialProgress: досмотренные серии пропускаются при общем переборе', () => {
+  var movie = { original_name: 'Fallout', number_of_seasons: 1 };
+  var hash = function (s) { return 'h:' + s; };
+  var view = function (h) {
+    if (h === 'h:11Fallout') return { percent: 100, updated: 9 }; // S1E1 досмотрена
+    if (h === 'h:12Fallout') return { percent: 20, updated: 5 };  // S1E2 начата
+    return null;
+  };
+  var found = progress.serialProgress(movie, view, hash);
+  assert.equal(found.episode, 2, 'досмотренная серия не «продолжается», даже если она свежее по updated');
+});
+
+test('serialProgress: без episodes переход к следующей серии не делается (данных о ней нет)', () => {
+  var movie = { original_name: 'Fallout', number_of_seasons: 1 };
+  var hash = function (s) { return 'h:' + s; };
+  var view = function (h) { return h === 'h:11Fallout' ? { percent: 100, updated: 9 } : null; };
+  assert.equal(progress.serialProgress(movie, view, hash), null);
+});
+
+/* ------------------------------ Task 8: приоритет последнего сезона ------------------------------ */
+
+/* episodes — e.data.episodes.episodes[]: серии ТОЛЬКО последнего сезона
+   (API_NOTES_3), поля season_number/episode_number/name/runtime. */
+function season2(n) {
+  var out = [];
+  for (var i = 1; i <= n; i++) out.push({ season_number: 2, episode_number: i, name: 'Серия ' + i, runtime: 50 + i });
+  return out;
+}
+
+const HASH = function (s) { return 'h:' + s; };
+function viewsOf(map) {
+  return function (h) { return Object.prototype.hasOwnProperty.call(map, h) ? map[h] : null; };
+}
+
+test('serialProgress: начатая серия последнего сезона важнее более свежей начатой серии первого', () => {
+  var movie = { original_name: 'Fallout', number_of_seasons: 2 };
+  var view = viewsOf({
+    'h:15Fallout': { percent: 40, updated: 99 }, // S1E5 — свежее по updated
+    'h:23Fallout': { percent: 32, updated: 10 }  // S2E3 — последний сезон
+  });
+  var found = progress.serialProgress(movie, view, HASH, season2(8));
+  assert.equal(found.season, 2);
+  assert.equal(found.episode, 3);
+  assert.equal(found.view.percent, 32);
+});
+
+test('serialProgress: в последнем сезоне несколько начатых — побеждает последняя по updated', () => {
+  var movie = { original_name: 'Fallout', number_of_seasons: 2 };
+  var view = viewsOf({
+    'h:22Fallout': { percent: 10, updated: 50 },
+    'h:25Fallout': { percent: 70, updated: 80 },
+    'h:27Fallout': { percent: 5, updated: 20 }
+  });
+  var found = progress.serialProgress(movie, view, HASH, season2(8));
+  assert.equal(found.episode, 5);
+  assert.equal(found.view.percent, 70);
+});
+
+test('serialProgress: все начатые досмотрены -> следующая серия из episodes (percent 0)', () => {
+  var movie = { original_name: 'Fallout', number_of_seasons: 2 };
+  var view = viewsOf({
+    'h:21Fallout': { percent: 100, updated: 10 },
+    'h:22Fallout': { percent: 96, updated: 20 }
+  });
+  var found = progress.serialProgress(movie, view, HASH, season2(4));
+  assert.equal(found.season, 2);
+  assert.equal(found.episode, 3);
+  assert.equal(found.view.percent, 0, 'следующая серия ещё не начата');
+});
+
+test('serialProgress: досмотрен весь сезон -> null (следующей серии в данных нет)', () => {
+  var movie = { original_name: 'Fallout', number_of_seasons: 2 };
+  var view = viewsOf({
+    'h:21Fallout': { percent: 100, updated: 10 },
+    'h:22Fallout': { percent: 100, updated: 20 }
+  });
+  assert.equal(progress.serialProgress(movie, view, HASH, season2(2)), null);
+});
+
+test('serialProgress: последний сезон не тронут -> общий перебор находит начатую серию прошлого', () => {
+  var movie = { original_name: 'Fallout', number_of_seasons: 2 };
+  var view = viewsOf({ 'h:15Fallout': { percent: 40, updated: 99 } });
+  var found = progress.serialProgress(movie, view, HASH, season2(8));
+  assert.equal(found.season, 1);
+  assert.equal(found.episode, 5);
+});
+
+test('serialProgress: сезон из episodes важнее number_of_seasons (сезон 12 -> разделитель «:»)', () => {
+  var movie = { original_name: 'X', number_of_seasons: 12 };
+  var list = [{ season_number: 12, episode_number: 1, name: 'A' }, { season_number: 12, episode_number: 2, name: 'B' }];
+  var view = viewsOf({ 'h:12:2X': { percent: 33, updated: 1 } });
+  var found = progress.serialProgress(movie, view, HASH, list);
+  assert.equal(found.season, 12);
+  assert.equal(found.episode, 2);
+});
+
+test('serialProgress: серии без номера в episodes пропускаются', () => {
+  var movie = { original_name: 'Fallout', number_of_seasons: 2 };
+  var list = [{ season_number: 2, name: 'спецвыпуск' }].concat(season2(3));
+  var view = viewsOf({ 'h:22Fallout': { percent: 12, updated: 5 } });
+  var found = progress.serialProgress(movie, view, HASH, list);
+  assert.equal(found.episode, 2);
+});
+
+/* ------------------------------ Task 8: label ------------------------------ */
+
+const WORDS = { min: 'мин' };
+
+test('label: серия с названием -> S2 E3 «Голова»', () => {
+  var episodes = [{ season_number: 2, episode_number: 3, name: 'Голова', runtime: 58 }];
+  var found = { view: { percent: 32 }, season: 2, episode: 3 };
+  assert.equal(progress.label(found, episodes, WORDS), 'S2 E3 «Голова»');
+});
+
+test('label: серии нет в episodes или названия нет -> S2 E3', () => {
+  var found = { view: { percent: 32 }, season: 2, episode: 3 };
+  assert.equal(progress.label(found, [], WORDS), 'S2 E3');
+  assert.equal(progress.label(found, null, WORDS), 'S2 E3');
+  assert.equal(progress.label(found, [{ season_number: 2, episode_number: 3, name: '' }], WORDS), 'S2 E3');
+});
+
+test('label: не начатая серия — с длительностью из episodes («S2 E4 «Гуль» · 61 мин»)', () => {
+  var episodes = [{ season_number: 2, episode_number: 4, name: 'Гуль', runtime: 61 }];
+  var found = { view: { percent: 0 }, season: 2, episode: 4 };
+  assert.equal(progress.label(found, episodes, WORDS), 'S2 E4 «Гуль» · 61 мин');
+  /* у начатой длительность не дублируем — она уже есть в таймкоде строки */
+  assert.equal(progress.label({ view: { percent: 32 }, season: 2, episode: 4 }, episodes, WORDS), 'S2 E4 «Гуль»');
+});
+
+test('label: фильм (season 0) и пустой аргумент -> пустая строка', () => {
+  assert.equal(progress.label({ view: { percent: 43 }, season: 0, episode: 0 }, null, WORDS), '');
+  assert.equal(progress.label(null, null, WORDS), '');
+});
+
+test('label: кавычки и обратный слэш в названии остаются как есть (экранирование — дело рендера)', () => {
+  var episodes = [{ season_number: 1, episode_number: 1, name: 'Он сказал "да" \\ нет', runtime: 0 }];
+  var found = { view: { percent: 10 }, season: 1, episode: 1 };
+  assert.equal(progress.label(found, episodes, WORDS), 'S1 E1 «Он сказал "да" \\ нет»');
+});
+
 /* ------------------------------ episodeState (Task 5c) ------------------------------ */
 
 /* now — локальная дата поздним вечером: сравнение по календарным дням не

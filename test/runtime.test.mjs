@@ -61,8 +61,10 @@ function freshLC() {
 }
 
 /* Task 5c (ревью качества, п.2): одна подписка на Lampa.Timeline за жизнь
-   плагина; событие update -> LC.header.refreshEpisode(hash). */
-test('Task 5c: LC.followTimeline — одна подписка на update, событие передаёт хэш в LC.header.refreshEpisode', () => {
+   плагина; событие update -> LC.header.refreshEpisode(hash).
+   Task 8 (поправки координатора): вторая подписка не заводится — та же
+   обновляет строку «Продолжить» и подпись кнопки «Смотреть». */
+test('Task 5c/8: LC.followTimeline — одна подписка на update: хэш в refreshEpisode, строка «Продолжить» через refreshProgress', () => {
   const LC = freshLC();
   const follows = [];
   const Lampa = { Timeline: { listener: { follow(name, fn) { follows.push({ name: name, fn: fn }); } } } };
@@ -72,7 +74,8 @@ test('Task 5c: LC.followTimeline — одна подписка на update, со
   globalThis.Lampa = Lampa;
   try {
     const hashes = [];
-    LC.header = { refreshEpisode(h) { hashes.push(h); } };
+    let refreshed = 0;
+    LC.header = { refreshEpisode(h) { hashes.push(h); }, refreshProgress() { refreshed++; } };
     LC.followTimeline();
     LC.followTimeline();
     assert.equal(follows.length, 1);
@@ -81,6 +84,10 @@ test('Task 5c: LC.followTimeline — одна подписка на update, со
     follows[0].fn(null);
     follows[0].fn({});
     assert.deepEqual(hashes, ['908552078']);
+    /* Строке «Продолжить» хэш записи не нужен — карточка сама решает, какую
+       серию продолжать, по всем своим данным; поэтому она пересобирается на
+       каждое событие, в том числе на пустое. */
+    assert.equal(refreshed, 3);
     assert.deepEqual(warnLog, []);
   } finally {
     globalThis.window = prevWindow;
