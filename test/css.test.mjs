@@ -691,6 +691,31 @@ test('buildCss: кнопка «Стоп» скрыта вне режима тр�
   assert.ok(flex !== -1 && flex < on.indexOf('display:flex'), 'сначала старый -webkit-box, потом flex');
 });
 
+test('buildCss: кнопка «Стоп» в режиме трейлера выровнена с рядом кнопок по вертикали', () => {
+  /* В flex(.lumen-actions, align-items:center) центр content-box = center_line + (MT − MB)/2.
+     Кнопки ряда (MT=0, MB=0.6em) → offset −0.3em от центра ряда.
+     Ряд .full-start-new__buttons (MT=1.40em, MB=0) → center_actions+0.7em.
+     Итого центр кнопок = center_actions+0.4em.
+     «Стоп»: MT=1.40em, MB=0.6em → (1.40−0.6)/2=0.4em ✓.
+     MB=0.6em задан явно — Chrome-CSSOM при одном MT-longhand обнуляет MB каскада. */
+  const buttonsRow = findDecl(css, (sel) => sel === '.lumen-card .full-start-new__buttons');
+  assert.ok(buttonsRow, '.full-start-new__buttons не найден');
+  const mtMatch = buttonsRow.match(/margin-top:([\d.]+em)/);
+  const mt = mtMatch ? mtMatch[1] : null;
+  assert.ok(mt, 'у .full-start-new__buttons должен быть margin-top');
+  /* кнопки ряда имеют margin-bottom:.6em */
+  const btnRule = findDecl(css, (sel) => sel === '.lumen-card .full-start-new__buttons .full-start__button');
+  const mbMatch = btnRule && btnRule.match(/margin:[^;]*?([\d.]+em) 0/);
+  const mb = mbMatch ? mbMatch[1] : '.6em';
+
+  const on = findDecl(css, (sel) => sel === '.lumen-card.lumen-trailer-on .lumen-stop');
+  assert.ok(on, 'правило режима трейлера для «Стоп» не найдено');
+  assert.ok(on.indexOf('margin-top:' + mt) !== -1,
+    'в режиме трейлера margin-top «Стоп» должен совпадать с margin-top ряда (' + mt + ')');
+  assert.ok(on.indexOf('margin-bottom:' + mb) !== -1,
+    'в режиме трейлера margin-bottom «Стоп» (' + mb + ') должен быть задан явно — иначе Chrome-CSSOM обнуляет его через longhand-нормализацию');
+});
+
 test('buildCss: иконка «Стоп» — CSS-маска (иконка из общего набора, не свой svg)', () => {
   const ico = findDecl(css, (sel) => sel === '.lumen-card .lumen-stop__ico');
   assert.ok(ico, 'правило иконки кнопки не найдено');

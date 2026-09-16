@@ -334,7 +334,14 @@
        текстовых кнопок карточки (§7a, 72px/18px/30px ÷ 22.811), но тёмная
        «стеклянная» заливка экрана 02 вместо общей C.buttonBg. */
     css.push('.lumen-card .lumen-stop{display:none;font-family:' + FB + ';font-weight:600;font-size:1em;height:3.16em;padding:0 1.32em;margin:0 .70em .6em 0;border-radius:.79em;border:.04em solid rgba(243,237,228,.2);background:rgba(11,9,8,.5);-webkit-backdrop-filter:blur(.88em);backdrop-filter:blur(.88em);color:' + C.text + ';white-space:nowrap;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;-webkit-transition:background-color .2s,border-color .2s,color .2s,-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25),-webkit-box-shadow .28s;transition:background-color .2s,border-color .2s,color .2s,transform .28s cubic-bezier(.2,.9,.3,1.25),box-shadow .28s}');
-    css.push('.lumen-card.lumen-trailer-on .lumen-stop{display:-webkit-box;display:-webkit-flex;display:flex}');
+    /* Выравнивание по вертикали: в flex(.lumen-actions, align-items:center)
+       центр content-box = center_line + (MT−MB)/2.
+       Кнопки ряда (MT=0, MB=0.6em) → offset −0.3em от центра ряда.
+       Ряд .full-start-new__buttons (MT=1.40em, MB=0) → center_row = center_actions+0.7em.
+       Итого центр кнопок ряда = center_actions+0.4em.
+       «Стоп»: MT=1.40em, MB=0.6em → (1.40−0.6)/2=0.4em ✓.
+       MB=0.6em задан явно — Chrome-CSSOM при одном MT-longhand обнуляет MB. */
+    css.push('.lumen-card.lumen-trailer-on .lumen-stop{display:-webkit-box;display:-webkit-flex;display:flex;margin-top:1.40em;margin-bottom:.6em}');
     css.push('.lumen-card .lumen-stop__ico{-webkit-flex-shrink:0;flex-shrink:0;width:1.14em;height:1.14em;margin-right:.53em;background-color:currentColor;-webkit-mask-image:' + LC.icons.maskUrl('stop') + ';mask-image:' + LC.icons.maskUrl('stop') + ';-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;-webkit-mask-size:contain;mask-size:contain}');
     css.push('.lumen-card .lumen-stop span{font-size:1.05em;line-height:1}');
     css.push('.lumen-card .lumen-stop.focus{background:' + A + ';color:' + C.dark + ';border-color:' + AL + ';border-width:.11em;-webkit-transform:scale(1.06);transform:scale(1.06);-webkit-box-shadow:0 .614em 1.754em ' + AG + ';box-shadow:0 .614em 1.754em ' + AG + '}');
