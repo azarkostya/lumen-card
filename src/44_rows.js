@@ -229,10 +229,12 @@
     }
 
     /* Регистрирует один ряд через ContentRows.add и сохраняет дескриптор.
-       index — позиция в списке рядов плагина (к нему прибавляется 1,
-       чтобы не занимать позицию 0, которую обычно используют штатные ряды).
+       index — позиция в списке рядов плагина (к нему прибавляется ROWS_OFFSET,
+       чтобы оставить позиции 0–3 для персональных рядов LC.personal из 45_personal.js;
+       позиции 0–3 — personal, 4+ — подборки манифеста).
        call-функция возвращается фабрикой makeCall — item захватывается замыканием
        правильно в ES5 (var в цикле не создаёт отдельного scope). */
+    var ROWS_OFFSET = 4;
     function registerRow(item, index) {
       try {
         if (!window.Lampa || !Lampa.ContentRows) return;
@@ -245,7 +247,7 @@
           name: rowName(item.id),
           title: rowTitle,
           screen: 'main',
-          index: index + 1,
+          index: index + ROWS_OFFSET,
           call: makeCall(item)
         };
         Lampa.ContentRows.add(descriptor);

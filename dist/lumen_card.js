@@ -2927,6 +2927,8 @@ registerRow(rows[i], i);
 
 
 
+
+var ROWS_OFFSET = 4;
 function registerRow(item, index) {
 try {
 if (!window.Lampa || !Lampa.ContentRows) return;
@@ -2939,7 +2941,7 @@ var descriptor = {
 name: rowName(item.id),
 title: rowTitle,
 screen: 'main',
-index: index + 1,
+index: index + ROWS_OFFSET,
 call: makeCall(item)
 };
 Lampa.ContentRows.add(descriptor);
@@ -3042,9 +3044,6 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 LC.personal = (function () {
-
-
-var WATCHED = 95;
 
 
 var BECAUSE_LIMIT = 2;
@@ -3350,7 +3349,7 @@ var net = null;
 try {
 net = Lampa.Api.sources.tmdb.get(
 url,
-{ langs: 'ru-RU', filter: { page: 1 } },
+{ filter: { page: 1 } },
 function (json) {
 if (!alive()) return;
 var arr = (json && json.results) ? json.results : [];
@@ -3419,7 +3418,7 @@ var net = null;
 try {
 net = Lampa.Api.sources.tmdb.get(
 url,
-{ langs: 'ru-RU' },
+{},
 function (json) {
 if (!alive()) return;
 if (json && json.id != null) details.push(json);
@@ -3496,7 +3495,7 @@ var net = null;
 try {
 net = Lampa.Api.sources.tmdb.get(
 'discover/' + media,
-{ filter: f, sort_by: 'popularity.desc', langs: 'ru-RU' },
+{ filter: f, sort_by: 'popularity.desc' },
 function (json) {
 if (!alive()) return;
 var arr = (json && json.results) ? json.results : [];
@@ -3572,13 +3571,14 @@ call: makeContinueCall()
 
 
 
+
 try {
 var history = getHistory();
 var picked = pickBecause(history, BECAUSE_LIMIT);
 if (picked && picked.length) {
 var becauseTitle = LC.lang ? LC.lang('lumen_row_because') : 'Because you watched';
 if (picked[0] && picked[0].title) {
-becauseTitle += ' «' + picked[0].title + '»';
+becauseTitle += ': «' + picked[0].title + '»';
 }
 addRow({
 name: 'lumen_because',

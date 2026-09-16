@@ -32,9 +32,6 @@
 
   LC.personal = (function () {
 
-    /* Порог «досмотрено» — тот же что в LC.rows (95%). */
-    var WATCHED = 95;
-
     /* Максимум исходных карточек для «Потому что вы смотрели». */
     var BECAUSE_LIMIT = 2;
 
@@ -339,7 +336,7 @@
               try {
                 net = Lampa.Api.sources.tmdb.get(
                   url,
-                  { langs: 'ru-RU', filter: { page: 1 } },
+                  { filter: { page: 1 } },
                   function (json) {
                     if (!alive()) return;
                     var arr = (json && json.results) ? json.results : [];
@@ -408,7 +405,7 @@
               try {
                 net = Lampa.Api.sources.tmdb.get(
                   url,
-                  { langs: 'ru-RU' },
+                  {},
                   function (json) {
                     if (!alive()) return;
                     if (json && json.id != null) details.push(json);
@@ -485,7 +482,7 @@
             try {
               net = Lampa.Api.sources.tmdb.get(
                 'discover/' + media,
-                { filter: f, sort_by: 'popularity.desc', langs: 'ru-RU' },
+                { filter: f, sort_by: 'popularity.desc' },
                 function (json) {
                   if (!alive()) return;
                   var arr = (json && json.results) ? json.results : [];
@@ -557,17 +554,18 @@
         }
       } catch (e) {}
 
-      /* «Потому что вы смотрели «X»» (index 1): только если в истории ≥1 карточки.
-         Заголовок включает название последней просмотренной карточки (именительный
-         падеж — автоматическое склонение произвольного названия фильма нереализуемо
-         без словаря). */
+      /* «Потому что вы смотрели: «X»» (index 1): только если в истории ≥1 карточки.
+         Заголовок строится как «<строка>: «<название>»». Двоеточие избавляет от
+         необходимости склонять произвольное название фильма, что нереализуемо без
+         словаря (например, «Оппенгеймер» → родительный «Оппенгеймера» неоднозначен
+         для автоматики без морфологического анализатора). */
       try {
         var history = getHistory();
         var picked = pickBecause(history, BECAUSE_LIMIT);
         if (picked && picked.length) {
           var becauseTitle = LC.lang ? LC.lang('lumen_row_because') : 'Because you watched';
           if (picked[0] && picked[0].title) {
-            becauseTitle += ' «' + picked[0].title + '»';
+            becauseTitle += ': «' + picked[0].title + '»';
           }
           addRow({
             name: 'lumen_because',

@@ -1,6 +1,52 @@
 import test from 'node:test'; import assert from 'node:assert/strict';
-import { load } from './_load.mjs';
+import { load, loadCtx } from './_load.mjs';
 const P = load('45_personal.js');
+
+/* --- runtime helpers --- */
+
+/* Строит поддельную Lampa и загружает LC.personal в чистый контекст.
+   Возвращает {api, LC, addCalls, removeCalls, tmdbCalls}.
+   tmdbCalls — массив объектов {url, params, ok, err, clear, cleared}:
+   колбэки ok/err вызываются вручную в тесте для симуляции сетевого ответа. */
+function setupRuntime(opts) {
+  opts = opts || {};
+  var addCalls = [];
+  var removeCalls = [];
+  var tmdbCalls = [];
+
+  var Lampa = {
+    ContentRows: {
+      add: function (d) { addCalls.push(d); },
+      remove: function (d) { removeCalls.push(d); }
+    },
+    Favorite: opts.noFavorite ? undefined : {
+      continues: opts.continues || function () { return []; },
+      get: opts.getFav || function () { return []; }
+    },
+    Api: opts.noApi ? undefined : {
+      sources: {
+        tmdb: {
+          get: function (url, params, ok, err) {
+            var h = { url: url, params: params, ok: ok, err: err, cleared: false };
+            h.clear = function () { h.cleared = true; };
+            tmdbCalls.push(h);
+            return h;
+          }
+        }
+      }
+    },
+    Storage: { field: function (k) { return opts.storage && opts.storage[k]; } }
+  };
+  globalThis.window = { Lampa: Lampa };
+  globalThis.Lampa = Lampa;
+
+  var ctx = loadCtx('45_personal.js', {
+    lang: function (k) { return k; },
+    pref: function (k, d) { return (opts.prefs && k in opts.prefs) ? opts.prefs[k] : d; },
+    daysWord: function (n) { return n + ' d'; }
+  });
+  return { api: ctx.api, LC: ctx.LC, addCalls: addCalls, removeCalls: removeCalls, tmdbCalls: tmdbCalls };
+}
 
 // --- pickBecause ---
 test('pickBecause: пустая история → []', function () {
@@ -161,4 +207,97 @@ test('newEpisodes: today в виде Date', function () {
   var today = new Date(Date.UTC(2026, 8, 10)); /* 10 сентября */
   var result = P.newEpisodes(shows, today);
   assert.equal(result.length, 1);
+});
+
+// --- runtime: bumpGen гасит колбэки ---
+
+test('runtime: bumpGen отменяет in-flight колбэки сетевых рядов', function () {
+  /* Создаём историю с одной карточкой → регистрирует «because» и «new_episodes» ряды. */
+  var s = setupRuntime({
+    getFav: function (opts) {
+      if (opts.type === 'history') return [{ id: 1, title: 'Movie' }];
+      if (opts.type === 'book')    return [{ id: 100, id: 100, name: 'Show', title: 'Show' }];
+      return [];
+    }
+  });
+  s.api.register();
+
+  /* Запускаем call-функцию ряда «because». */
+  var because = null;
+  for (var i = 0; i < s.addCalls.length; i++) {
+    if (s.addCalls[i].name === 'lumen_because') { because = s.addCalls[i]; break; }
+  }
+  assert.ok(because, 'ряд lumen_because зарегистрирован');
+
+  var callCount = 0;
+  because.call({}, {})(function () { callCount++; });
+
+  /* Поднимаем поколение — живые колбэки должны замолчать. */
+  s.api.bumpGen();
+
+  /* Симулируем ответ сети уже после bumpGen. */
+  for (var j = 0; j < s.tmdbCalls.length; j++) {
+    s.tmdbCalls[j].ok({ results: [{ id: 42, title: 'Rec' }] });
+  }
+
+  assert.equal(callCount, 0, 'call не должен быть вызван после bumpGen');
+});
+
+// --- runtime: register не задваивает ---
+
+test('runtime: повторный register не задваивает дескрипторы', function () {
+  var s = setupRuntime({
+    getFav: function (opts) {
+      if (opts.type === 'history') return [{ id: 1, title: 'Movie' }];
+      return [];
+    }
+  });
+  s.api.register();
+  var addAfterFirst = s.addCalls.length;
+
+  s.api.register();
+  var addAfterSecond = s.addCalls.length;
+
+  /* doUnregister + повторный register добавляет ≤ первого числа дескрипторов,
+     не удваивает. */
+  assert.ok(addAfterFirst > 0, 'хотя бы один ряд при первом register');
+  assert.equal(addAfterSecond - addAfterFirst, addAfterFirst, 'второй register добавил ровно столько же сколько первый');
+  /* doUnregister перед вторым register снял все дескрипторы первого. */
+  assert.equal(s.removeCalls.length, addAfterFirst, 'remove вызван для всех дескрипторов первого register');
+});
+
+// --- runtime: unregister передаёт те же дескрипторы ---
+
+test('runtime: unregister вызывает ContentRows.remove с теми же объектами что add', function () {
+  var s = setupRuntime({
+    getFav: function (opts) {
+      if (opts.type === 'history') return [{ id: 2, title: 'Film' }];
+      return [];
+    }
+  });
+  s.api.register();
+  var added = s.addCalls.slice();
+  s.api.unregister();
+
+  assert.equal(s.removeCalls.length, added.length, 'remove вызван для каждого add');
+  for (var i = 0; i < added.length; i++) {
+    assert.ok(s.removeCalls.indexOf(added[i]) >= 0, 'дескриптор #' + i + ' передан в remove');
+  }
+});
+
+// --- runtime: отсутствие Lampa.Favorite не падает ---
+
+test('runtime: нет Lampa.Favorite → register не падает, ряды «Досмотреть»/«Потому что»/«Новые серии» не регистрируются', function () {
+  var s = setupRuntime({ noFavorite: true });
+  assert.doesNotThrow(function () { s.api.register(); });
+  /* Без Favorite данных нет → только «Скоро» может быть зарегистрирован. */
+  var names = s.addCalls.map(function (d) { return d.name; });
+  assert.ok(names.indexOf('lumen_continue') === -1, 'Досмотреть не добавлен без Favorite');
+  assert.ok(names.indexOf('lumen_because') === -1, 'Потому что не добавлен без Favorite');
+  assert.ok(names.indexOf('lumen_new_episodes') === -1, 'Новые серии не добавлен без Favorite');
+});
+
+test('runtime: нет Lampa.Api → register не падает', function () {
+  var s = setupRuntime({ noApi: true });
+  assert.doesNotThrow(function () { s.api.register(); });
 });
