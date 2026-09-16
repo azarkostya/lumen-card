@@ -539,6 +539,11 @@ test('scheduleProgressRefresh: пачка событий Timeline схлопыв
 
     LC.header.scheduleProgressRefresh();
     assert.equal(timers.length, 2, 'после срабатывания следующая пачка заводит таймер заново');
+    /* Ревью 2 (п.2): второй таймер обязателен к дренажу — иначе модульный флаг
+       остался бы взведённым навсегда и любой следующий тест, зовущий
+       scheduleProgressRefresh, молча стал бы no-op и «прошёл» по ложной
+       причине. */
+    timers[1].fn();
   } finally {
     globalThis.setTimeout = realSetTimeout;
   }

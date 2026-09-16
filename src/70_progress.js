@@ -42,16 +42,30 @@
        сезон, включая ещё не вышедшие серии (ряд рисует им состояние 'soon').
        Предлагать «Продолжить S2 E4» на серию, которой нет в природе, нельзя —
        рядом на той же карточке стоит чип «Следующая серия — 17 декабря», и это
-       прямое противоречие на экране. Дата в будущем ИЛИ её отсутствие (TMDB не
-       даёт air_date только необъявленным сериям) — серия не вышла. Дни
-       календарные, через тот же LC.util.daysUntil, что у episodeState. */
-    function aired(ep, now) {
-      var days = LC.util.daysUntil(ep.air_date, now);
-      return days !== null && days <= 0;
+       прямое противоречие на экране.
+
+       Ревью 2 (п.1): проверять КАЖДУЮ серию по её собственной дате оказалось
+       мало. У старых сериалов, аниме и доп. серий пробелы в air_date обычны, и
+       серия без даты ПОСЕРЕДИНЕ вышедшего сезона выглядела как «не вышла» —
+       «Продолжить» перескакивало через неё на следующую (спойлер: зритель не
+       видел пропущенную серию вовсе). Поэтому граница эфира считается один раз
+       на сезон: индекс ПОСЛЕДНЕЙ серии с датой не в будущем. Всё до неё
+       включительно вышло — даже если у отдельных серий даты нет; всё после —
+       ещё нет. Главный сценарий (Returning Series: хвост сезона анонсирован)
+       работает как прежде, а дыра в данных больше не вызывает перескок.
+       Дни календарные, через тот же LC.util.daysUntil, что у episodeState. */
+    function lastAiredIndex(episodes, now) {
+      var last = -1;
+      for (var i = 0; i < episodes.length; i++) {
+        var days = episodes[i] ? LC.util.daysUntil(episodes[i].air_date, now) : null;
+        if (days !== null && days <= 0) last = i;
+      }
+      return last;
     }
 
     function fromEpisodes(key, episodes, view, hash, now) {
       var best = null, afterDone = null, done = false, touched = false;
+      var airedTo = lastAiredIndex(episodes, now);
       for (var i = 0; i < episodes.length; i++) {
         var ep = episodes[i];
         if (!ep || !(ep.episode_number > 0)) continue;
@@ -72,7 +86,7 @@
           if (!best || (v.updated || 0) >= (best.view.updated || 0)) {
             best = { view: v, season: season, episode: ep.episode_number };
           }
-        } else if (done && !afterDone && aired(ep, now)) {
+        } else if (done && !afterDone && i <= airedTo) {
           afterDone = { view: v || { percent: 0 }, season: season, episode: ep.episode_number };
         }
       }

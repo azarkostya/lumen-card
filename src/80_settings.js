@@ -310,8 +310,11 @@
         if (e.name.indexOf(PLUGIN + '_') !== 0) return;
         if (e.name === PLUGIN + '_fonts') LC.injectFonts();
         /* Ревью Task 8 (п.3): классы и CSS-переменную подписи кнопки ставит
-           рендер, а не таблица стилей — одного injectCss() здесь мало. */
-        if (e.name === PLUGIN + '_progress') LC.applyProgressPref();
+           рендер, а не таблица стилей — одного injectCss() здесь мало.
+           Ревью 2 (п.4): и наоборот — от этой настройки CSS не зависит вовсе,
+           поэтому выходим сразу, как ветка lumen_trailer выше, а не гоняем
+           пересборку всей таблицы стилей впустую. */
+        if (e.name === PLUGIN + '_progress') { LC.applyProgressPref(); return; }
         LC.injectCss();
       });
       LC.storageFollowed = true;

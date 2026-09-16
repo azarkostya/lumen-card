@@ -3709,13 +3709,27 @@ return null;
 
 
 
-function aired(ep, now) {
-var days = LC.util.daysUntil(ep.air_date, now);
-return days !== null && days <= 0;
+
+
+
+
+
+
+
+
+
+function lastAiredIndex(episodes, now) {
+var last = -1;
+for (var i = 0; i < episodes.length; i++) {
+var days = episodes[i] ? LC.util.daysUntil(episodes[i].air_date, now) : null;
+if (days !== null && days <= 0) last = i;
+}
+return last;
 }
 
 function fromEpisodes(key, episodes, view, hash, now) {
 var best = null, afterDone = null, done = false, touched = false;
+var airedTo = lastAiredIndex(episodes, now);
 for (var i = 0; i < episodes.length; i++) {
 var ep = episodes[i];
 if (!ep || !(ep.episode_number > 0)) continue;
@@ -3736,7 +3750,7 @@ touched = true;
 if (!best || (v.updated || 0) >= (best.view.updated || 0)) {
 best = { view: v, season: season, episode: ep.episode_number };
 }
-} else if (done && !afterDone && aired(ep, now)) {
+} else if (done && !afterDone && i <= airedTo) {
 afterDone = { view: v || { percent: 0 }, season: season, episode: ep.episode_number };
 }
 }
@@ -4160,7 +4174,10 @@ if (e.name.indexOf(PLUGIN + '_') !== 0) return;
 if (e.name === PLUGIN + '_fonts') LC.injectFonts();
 
 
-if (e.name === PLUGIN + '_progress') LC.applyProgressPref();
+
+
+
+if (e.name === PLUGIN + '_progress') { LC.applyProgressPref(); return; }
 LC.injectCss();
 });
 LC.storageFollowed = true;
@@ -4484,6 +4501,11 @@ if (row.length) row.addClass('hide');
 
 var found = null;
 if (on) {
+
+
+
+
+
 found = isSerial(movie)
 ? LC.progress.serialProgress(movie, timelineView, utilsHash, episodes, new Date())
 : LC.progress.movieProgress(movie, timelineView, utilsHash);
@@ -4526,6 +4548,10 @@ var info = this.lumenProgress;
 if (info) renderProgress($(this), info.movie, info.episodes);
 });
 }
+
+
+
+
 
 
 

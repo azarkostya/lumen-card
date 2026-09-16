@@ -250,13 +250,12 @@ test('serialProgress: серия без air_date следующей не счи�
   assert.equal(progress.serialProgress(movie, view, HASH, list), null);
 });
 
-/* Ревью Task 8 (п.1), обратная сторона: пропуск невышедших — это именно
-   пропуск, а не остановка. У TMDB встречается сезон с дырой в датах (поле
-   заполняют волонтёры), и одна серия без air_date не должна навсегда гасить
-   «Продолжить» для всего сезона. В реальном Returning Series даты монотонны,
-   поэтому после первой невышедшей вышедших уже не будет — там результат null
-   (тест выше). */
-test('serialProgress: серия с пропущенной датой не блокирует продолжение — берётся следующая вышедшая', () => {
+/* Ревью 2 (п.1): граница эфира считается по ПОСЛЕДНЕЙ серии с датой не в
+   будущем, а не по дате каждой серии отдельно. Пробелы в air_date у TMDB
+   обычны (старые сериалы, аниме, доп. серии), и серия без даты посередине
+   вышедшего сезона не должна выглядеть «не вышедшей»: иначе «Продолжить»
+   перескочило бы через неё на следующую — зритель пропустил бы серию. */
+test('serialProgress: серия без даты ВНУТРИ вышедшего отрезка считается вышедшей (перескока нет)', () => {
   var movie = { original_name: 'Fallout', number_of_seasons: 2 };
   var list = [
     { season_number: 2, episode_number: 1, name: 'A', air_date: PAST },
@@ -265,7 +264,31 @@ test('serialProgress: серия с пропущенной датой не бл�
   ];
   var view = viewsOf({ 'h:21Fallout': { percent: 100, updated: 1 } });
   var found = progress.serialProgress(movie, view, HASH, list);
-  assert.equal(found.episode, 3);
+  assert.equal(found.episode, 2, 'продолжать надо с пропущенной E2, а не с E3');
+});
+
+test('serialProgress: несколько серий без дат подряд внутри отрезка — берётся первая из них', () => {
+  var movie = { original_name: 'Fallout', number_of_seasons: 2 };
+  var list = [
+    { season_number: 2, episode_number: 1, name: 'A', air_date: PAST },
+    { season_number: 2, episode_number: 2, name: 'B' },
+    { season_number: 2, episode_number: 3, name: 'C' },
+    { season_number: 2, episode_number: 4, name: 'D', air_date: PAST }
+  ];
+  var view = viewsOf({ 'h:21Fallout': { percent: 100, updated: 1 } });
+  assert.equal(progress.serialProgress(movie, view, HASH, list).episode, 2);
+});
+
+test('serialProgress: ХВОСТ без дат вышедшим не считается -> null', () => {
+  var movie = { original_name: 'Fallout', number_of_seasons: 2 };
+  var list = [
+    { season_number: 2, episode_number: 1, name: 'A', air_date: PAST },
+    { season_number: 2, episode_number: 2, name: 'B' },
+    { season_number: 2, episode_number: 3, name: 'C' }
+  ];
+  var view = viewsOf({ 'h:21Fallout': { percent: 100, updated: 1 } });
+  assert.equal(progress.serialProgress(movie, view, HASH, list), null,
+    'после последней датированной серии сезон не вышел — продолжать нечем');
 });
 
 test('serialProgress: «вышла» считается по календарным дням от now (пятый аргумент)', () => {
