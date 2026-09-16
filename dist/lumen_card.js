@@ -447,7 +447,7 @@ css.push('.lumen-card .lumen-content > .lumen-side{grid-column:2;grid-row:1 / 7;
 
 
 
-css.push('@supports not (display:grid){.lumen-card .lumen-content > .lumen-in{width:100%}.lumen-card .lumen-content > .lumen-in:nth-child(6){width:auto;-webkit-box-flex:0;-webkit-flex:0 1 auto;flex:0 1 auto}.lumen-card .lumen-content > .lumen-side{margin-left:auto}}');
+css.push('@supports not (display:grid){.lumen-card .lumen-content > .lumen-in{width:100%}.lumen-card .lumen-content > .lumen-actions{width:auto;-webkit-box-flex:0;-webkit-flex:0 1 auto;flex:0 1 auto}.lumen-card .lumen-content > .lumen-side{margin-left:auto}}');
 
 
 css.push('.lumen-card .full-start-new__tagline,.lumen-card .full-start-new__reactions,.lumen-card .lumen-keep{display:none !important}');
@@ -2641,13 +2641,31 @@ return host;
 
 
 
-function pauseSlideshow() {
-try { if (LC.active && LC.active.slideshow) LC.active.slideshow.pause(); } catch (e) { }
+
+
+
+
+function slideshowOf(layer) {
+try { return layer.data('lumenSlideshow'); } catch (e) { return null; }
 }
 
-function resumeSlideshow() {
-try { if (LC.active && LC.active.slideshow) LC.active.slideshow.resume(); } catch (e) { }
+function pauseSlideshow(layer) {
+try { var s = slideshowOf(layer); if (s) s.pause(); } catch (e) { }
 }
+
+function resumeSlideshow(layer) {
+try { var s = slideshowOf(layer); if (s) s.resume(); } catch (e) { }
+}
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -2657,6 +2675,7 @@ try { if (LC.active && LC.active.slideshow) LC.active.slideshow.resume(); } catc
 
 function recollect(root, target) {
 try {
+if (!LC.slideshow.isLayerForeground(root)) return;
 if (!window.Lampa || !Lampa.Controller) return;
 if (typeof Lampa.Controller.collectionSet !== 'function') return;
 var enabled = typeof Lampa.Controller.enabled === 'function' ? Lampa.Controller.enabled() : null;
@@ -2784,7 +2803,7 @@ removeBadge(root);
 removeStop(root);
 if (paused) {
 paused = false;
-resumeSlideshow();
+resumeSlideshow(layer);
 }
 }
 
@@ -2801,7 +2820,7 @@ if (!alive) return;
 
 
 paused = true;
-pauseSlideshow();
+pauseSlideshow(layer);
 startWatchdog();
 try { root.addClass('lumen-trailer-on'); } catch (e) { }
 try { layer.addClass('lumen-trailer-live'); } catch (e2) { }
@@ -5077,8 +5096,13 @@ LC.active = null;
 
 
 
-LC.active.slideshow = liveSlideshow(layerOf(e.object), LC.active.slideshow);
+var ownLayer = layerOf(e.object);
+LC.active.slideshow = liveSlideshow(ownLayer, LC.active.slideshow);
 if (LC.active.slideshow) LC.active.slideshow.resume();
+
+
+
+if (ownLayer && ownLayer.length) LC.active.trailer = ownLayer.data('lumenTrailer') || null;
 }
 return;
 }

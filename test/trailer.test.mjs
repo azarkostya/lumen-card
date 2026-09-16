@@ -393,10 +393,17 @@ function scheduleEnv(opts) {
   FakePlayer.prototype.mute = function () { };
   FakePlayer.prototype.playVideo = function () { };
 
+  /* Журнал вызовов контроллера: без него правки «один перевод фокуса» и
+     «не перекладывать коллекцию на невидимую карточку» не проверить. */
+  const controllerCalls = { set: [], focus: [] };
   const Lampa = {
     Storage: { field: () => (opts.stored || 'auto') },
     Platform: { is: () => false },
-    Controller: { enabled: () => ({ name: 'full_start' }), collectionSet() { }, collectionFocus() { } }
+    Controller: {
+      enabled: () => ({ name: opts.controllerName || 'full_start' }),
+      collectionSet(html) { controllerCalls.set.push(html); },
+      collectionFocus(target, html) { controllerCalls.focus.push({ target: target, html: html }); }
+    }
   };
   globalThis.Lampa = Lampa;
   globalThis.window = { Lampa: Lampa, YT: opts.noYT ? undefined : { Player: FakePlayer } };
@@ -416,6 +423,9 @@ function scheduleEnv(opts) {
     pauseCalls: 0, resumeCalls: 0,
     pause() { this.pauseCalls++; }, resume() { this.resumeCalls++; }
   };
+  /* Ревью: пауза/возврат слайдшоу берутся СО СЛОЯ, а не из LC.active —
+     иначе сторож карточки A снимал бы паузу со слайдшоу уже открытой B. */
+  layer.data('lumenSlideshow', slideshow);
 
   const { LC, mod } = freshModule();
   LC.motionMode = () => opts.motion || 'full';
@@ -431,7 +441,7 @@ function scheduleEnv(opts) {
   };
 
   return {
-    LC, mod, root, body, layer, trailerHost, slideshow, timers, intervals, cfgs, data,
+    LC, mod, root, body, layer, trailerHost, slideshow, timers, intervals, cfgs, data, play, controllerCalls,
     run: () => mod.schedule(root, body, data),
     fire: (i) => { const x = timers[i - 1]; if (x && !x.cleared) x.fn(); },
     tick: (i) => { const x = intervals[i - 1]; if (x && !x.cleared) x.fn(); }
@@ -588,6 +598,73 @@ test('schedule: без старта ролика сторож не заводи�
   env.run();
   env.fire(1); // плеер создан, но onStateChange(1) не приходил
   assert.equal(env.intervals.length, 0, 'лишних таймеров на ТВ быть не должно');
+});
+
+/* ====================================================================== */
+/* Ревью: recollect не должен перекладывать коллекцию пульта на карточку,  */
+/* которой уже нет на экране. Сторож карточки A срабатывает и когда сверху */
+/* открыта карточка B; на B фокус стоит на кнопках, то есть               */
+/* enabled().name === 'full_start' — проверки имени контроллера мало.      */
+/* Lampa прячет неактивную активность прозрачностью (.activity{opacity:0}),*/
+/* а не display, поэтому offsetParent у её узлов НЕ null и collectionFocus */
+/* честно сфокусировал бы невидимое дерево.                                */
+/* ====================================================================== */
+
+test('recollect: карточка ушла с экрана — коллекция пульта на неё не перекладывается', () => {
+  let fg = true;
+  const env = scheduleEnv({ foregroundFn: () => fg });
+  const api = env.run();
+  env.fire(1);
+  env.cfgs[0].events.onStateChange({ data: 1 });
+
+  assert.ok(env.controllerCalls.set.length >= 1, 'на видимой карточке кнопка «Стоп» коллекцию обновляет');
+  env.controllerCalls.set.length = 0;
+  env.controllerCalls.focus.length = 0;
+
+  /* Ушли вглубь / открылась другая карточка — имя контроллера при этом
+     по-прежнему 'full_start' (фокус на кнопках карточки B). */
+  fg = false;
+  env.tick(1);
+
+  assert.equal(api.isAlive(), false, 'сторож обязан погасить ролик');
+  assert.equal(env.controllerCalls.set.length, 0, 'collectionSet увёл бы пульт в дерево невидимой карточки');
+  assert.equal(env.controllerCalls.focus.length, 0);
+  assert.equal(env.root.hasClass('lumen-trailer-on'), false, 'оформление при этом всё равно снимается');
+  assert.equal(env.root.find('.lumen-stop').length, 0);
+});
+
+test('removeStop: фокус переводится ровно один раз и именно на «Смотреть»', () => {
+  const env = scheduleEnv();
+  const api = env.run();
+  env.fire(1);
+  env.cfgs[0].events.onStateChange({ data: 1 });
+
+  env.root.find('.lumen-stop').addClass('focus'); // пульт стоит на «Стоп»
+  env.controllerCalls.set.length = 0;
+  env.controllerCalls.focus.length = 0;
+
+  api.destroy();
+
+  assert.equal(env.controllerCalls.focus.length, 1, 'ровно один перевод фокуса, а не два подряд');
+  assert.equal(env.controllerCalls.focus[0].target, env.play, 'фокус возвращается на «Смотреть»');
+  assert.equal(env.controllerCalls.set.length, 1, 'коллекция пересобирается один раз');
+});
+
+test('слайдшоу паузится и возвращается ИМЕННО своего слоя (не через глобальный LC.active)', () => {
+  const env = scheduleEnv();
+  /* LC.active указывает на слайдшоу ДРУГОЙ карточки — трогать его нельзя. */
+  const other = { pauseCalls: 0, resumeCalls: 0, pause() { this.pauseCalls++; }, resume() { this.resumeCalls++; } };
+  env.LC.active = { slideshow: other };
+
+  const api = env.run();
+  env.fire(1);
+  env.cfgs[0].events.onStateChange({ data: 1 });
+  assert.equal(env.slideshow.pauseCalls, 1);
+  assert.equal(other.pauseCalls, 0, 'пауза ушла бы чужой карточке');
+
+  api.destroy();
+  assert.equal(env.slideshow.resumeCalls, 1);
+  assert.equal(other.resumeCalls, 0, 'возврат снялся бы с чужого слайдшоу');
 });
 
 test('schedule: stopActive снимает трейлер текущей карточки и обнуляет поле', () => {

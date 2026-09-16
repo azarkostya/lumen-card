@@ -250,25 +250,44 @@
       return host;
     }
 
-    /* Слайдшоу берётся из LC.active В МОМЕНТ вызова: за время ролика
-       контроллер мог быть пересоздан LC.backdrops.revive() (карточка
-       уходила на 2+ уровня в историю и вернулась). */
-    function pauseSlideshow() {
-      try { if (LC.active && LC.active.slideshow) LC.active.slideshow.pause(); } catch (e) { }
+    /* Слайдшоу берётся СО СВОЕГО СЛОЯ, а не из глобального LC.active:
+       сторож карточки A может сработать уже после 'full':complite карточки
+       B, и тогда снятие паузы через LC.active достало бы слайдшоу B — паузу
+       ставили одному контроллеру, снимали бы с другого. Прежняя причина
+       читать из LC.active («контроллер мог быть пересоздан revive») теперь
+       закрыта самим слоем: LC.backdrops.revive() кладёт новый контроллер в
+       layer.data('lumenSlideshow'), поэтому актуальное значение всегда там. */
+    function slideshowOf(layer) {
+      try { return layer.data('lumenSlideshow'); } catch (e) { return null; }
     }
 
-    function resumeSlideshow() {
-      try { if (LC.active && LC.active.slideshow) LC.active.slideshow.resume(); } catch (e) { }
+    function pauseSlideshow(layer) {
+      try { var s = slideshowOf(layer); if (s) s.pause(); } catch (e) { }
+    }
+
+    function resumeSlideshow(layer) {
+      try { var s = slideshowOf(layer); if (s) s.resume(); } catch (e) { }
     }
 
     /* Пересборка .selector'ов карточки после появления/удаления кнопки
-       «Стоп». Снимок Navigator'а иначе не узнает о новом узле (и будет
-       держать удалённый). Текущий фокус сохраняется: collectionFocus сам
-       отбрасывает target, у которого offsetParent === null. Трогаем только
-       пока активен контроллер карточки — на чужом экране перекладывать
-       коллекцию нельзя. */
+       «Стоп»: снимок Navigator'а иначе не узнает о новом узле (и будет
+       держать удалённый).
+
+       Ревью: имени контроллера НЕДОСТАТОЧНО. Сторож карточки A срабатывает
+       и тогда, когда пользователь уже ушёл вглубь или открыл карточку B
+       (hover:enter до корня A не долетает: bind висит на .full-start-new, а
+       ряды «похожие»/актёры лежат в .activity__body вне корня). Если на B
+       фокус стоит на кнопках, enabled().name === 'full_start' — прежний
+       guard пропускал вызов, и collectionSet(root_A) перекладывал навигацию
+       на НЕВИДИМУЮ карточку A: пульт ходил по её дереву до следующего
+       toggle. Страховки в Lampa нет — неактивная активность скрыта
+       прозрачностью (.activity{opacity:0}), а не display, поэтому
+       offsetParent у её узлов НЕ null и collectionFocus честно их фокусирует.
+       Поэтому проверяем принадлежность экрану тем же механизмом, что и
+       сторож: корень должен лежать в .activity--active. */
     function recollect(root, target) {
       try {
+        if (!LC.slideshow.isLayerForeground(root)) return;
         if (!window.Lampa || !Lampa.Controller) return;
         if (typeof Lampa.Controller.collectionSet !== 'function') return;
         var enabled = typeof Lampa.Controller.enabled === 'function' ? Lampa.Controller.enabled() : null;
@@ -396,7 +415,7 @@
           removeStop(root);
           if (paused) {
             paused = false;
-            resumeSlideshow();
+            resumeSlideshow(layer);
           }
         }
 
@@ -413,7 +432,7 @@
             /* Пауза — только когда ролик РЕАЛЬНО пошёл: при недоступном
                YouTube кадры иначе замирали бы на все 6 с ожидания впустую. */
             paused = true;
-            pauseSlideshow();
+            pauseSlideshow(layer);
             startWatchdog();
             try { root.addClass('lumen-trailer-on'); } catch (e) { }
             try { layer.addClass('lumen-trailer-live'); } catch (e2) { }

@@ -317,8 +317,13 @@
              (A -> не-full активности -> A сама ActivitySlide.stop()'нута,
              LC.active всё это время не менялся, см. комментарий над
              liveSlideshow()). */
-          LC.active.slideshow = liveSlideshow(layerOf(e.object), LC.active.slideshow);
+          var ownLayer = layerOf(e.object);
+          LC.active.slideshow = liveSlideshow(ownLayer, LC.active.slideshow);
           if (LC.active.slideshow) LC.active.slideshow.resume();
+          /* Ревью: симметрично ветке восстановления чужой активности ниже —
+             после revive() трейлер уже погашен и снят со слоя, поэтому поле
+             не должно продолжать указывать на мёртвый контроллер. */
+          if (ownLayer && ownLayer.length) LC.active.trailer = ownLayer.data('lumenTrailer') || null;
         }
         return;
       }

@@ -198,7 +198,7 @@
        края стопки контента (там же, где кнопки), а не проваливается под неё
        седьмой строкой. @supports not исключает блок целиком там, где grid
        поддержан — сбрасывать эти правила отдельно не нужно. */
-    css.push('@supports not (display:grid){.lumen-card .lumen-content > .lumen-in{width:100%}.lumen-card .lumen-content > .lumen-in:nth-child(6){width:auto;-webkit-box-flex:0;-webkit-flex:0 1 auto;flex:0 1 auto}.lumen-card .lumen-content > .lumen-side{margin-left:auto}}');
+    css.push('@supports not (display:grid){.lumen-card .lumen-content > .lumen-in{width:100%}.lumen-card .lumen-content > .lumen-actions{width:auto;-webkit-box-flex:0;-webkit-flex:0 1 auto;flex:0 1 auto}.lumen-card .lumen-content > .lumen-side{margin-left:auto}}');
 
     /* Скрытые узлы оригинала (нужны Lampa, но не нужны дизайну) */
     css.push('.lumen-card .full-start-new__tagline,.lumen-card .full-start-new__reactions,.lumen-card .lumen-keep{display:none !important}');

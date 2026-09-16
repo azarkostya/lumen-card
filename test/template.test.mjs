@@ -154,6 +154,26 @@ test('build(фикстура), Task 5c: чип следующей серии в 
   assert.ok(result.indexOf('<div class="lumen-episodes hide">') !== -1, 'ряд скрыт до отрисовки');
 });
 
+/* Task 7 (ревью): CSS режима трейлера и flex-фолбэк без grid держатся на
+   классе .lumen-actions, а не на порядковом номере блока — закрепляем
+   контракт: класс ровно один, стоит на одном из шести .lumen-in и это
+   именно блок с рядом кнопок. */
+test('build(фикстура), Task 7: .lumen-actions — ровно один, на шестом .lumen-in, с рядом кнопок внутри', () => {
+  const result = template.build(fixture);
+
+  assert.equal((result.match(/lumen-actions/g) || []).length, 1, 'класс должен быть ровно один');
+  assert.ok(result.indexOf('class="lumen-in lumen-actions"') !== -1, '.lumen-actions — это один из .lumen-in');
+  assert.equal((result.match(/class="lumen-in[ "]/g) || []).length, 6, 'шесть .lumen-in (stagger nth-child 1..6) не меняется');
+
+  const actionsAt = result.indexOf('lumen-actions');
+  const buttonsAt = result.indexOf('full-start-new__buttons');
+  const sideAt = result.indexOf('lumen-side');
+  assert.ok(actionsAt < buttonsAt && buttonsAt < sideAt, 'ряд кнопок лежит внутри .lumen-actions');
+  const lastInBeforeButtons = result.lastIndexOf('class="lumen-in', buttonsAt);
+  assert.ok(result.slice(lastInBeforeButtons, buttonsAt).indexOf('lumen-actions') !== -1,
+    'ближайший .lumen-in перед кнопками — именно .lumen-actions');
+});
+
 /* -------------------------------------------------------------------- */
 /* Task 5/5a Step 1: REQUIRED/assert                                     */
 /* -------------------------------------------------------------------- */
