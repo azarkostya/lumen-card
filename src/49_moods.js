@@ -2,37 +2,31 @@
   /* LC.moods — чипы профиля настроения на главной (Task 19).             */
   /*                                                                       */
   /* Публичное API:                                                         */
-  /*   moodTitle(mood, lang) → строка названия настроения                  */
+  /*   moodTitle(mood, lang) — строка названия настроения                  */
   /*   mount(root) — вставить блок чипов в текст героя текущей главной     */
-  /*   unmount() — снять блок, контроллер и все подписки                   */
+  /*   unmount() — снять блок и все подписки                               */
   /*   detach(render) — снять, если блок не принадлежит этой активности    */
-  /*   active() → смонтирован ли блок                                      */
+  /*   active() — смонтирован ли блок                                      */
   /*   install() — подписаться на события активности Lampa                  */
   /*   uninstall() — снять подписки и unmount                              */
   /*                                                                       */
   /* Архитектура:                                                           */
   /*   Блок .lumen-moods монтируется ВНУТРЬ .lumen-hero__text (после       */
-  /*   .lumen-hero__chips). Это позволяет использовать позиционирование    */
-  /*   самого текстового блока героя без дублирования CSS.                 */
+  /*   .lumen-hero__chips). Чипы имеют класс .selector, поэтому            */
+  /*   пространственный Navigator Lampa (window.Navigator) находит их      */
+  /*   геометрически: "вниз" из шапки и "вверх" из первого ряда            */
+  /*   приходят на чипы без явного перехвата чужих контроллеров.           */
   /*   pointer-events: auto на .lumen-moods снимает ограничение            */
   /*   pointer-events: none с родителя .lumen-hero.                        */
   /*                                                                       */
-  /* Навигация (минимально допустимый вариант из плана, §Task 19):         */
-  /*   Чипы доступны из шапки: head → down → lumen_moods → down → content. */
-  /*   Переход head→lumen_moods: при монтировании перехватываем текущий    */
-  /*   обработчик head.down; при unmount восстанавливаем.                  */
-  /*   Переход content→lumen_moods (вверх из первого ряда) — не            */
-  /*   реализуется без правки штатного контроллера Lampa; путь записан в   */
-  /*   acceptance ниже.                                                    */
-  /*                                                                       */
-  /* Acceptance (Task 19):                                                  */
-  /*   - Выбранный путь навигации: head → down → lumen_moods → down →      */
-  /*     content. Переход из первого ряда вверх → head (штатно), затем    */
-  /*     head → down → чипы.                                               */
-  /*   - Перехват head.down: сохраняем исходный обработчик и ставим свой;  */
-  /*     unmount восстанавливает оригинал.                                  */
-  /*   - Переход content→lumen_moods не реализован (нет штатной точки      */
-  /*     перехвата без патча Lampa).                                        */
+  /* Навигация:                                                             */
+  /*   Чипы — обычные .selector узлы внутри корня активной активности.    */
+  /*   Navigator обходит их пространственно: стрелками влево/вправо        */
+  /*   переходим между чипами, вверх — к шапке, вниз — к рядам.           */
+  /*   После mount вызываем recollect(root) — обновляем снимок Navigator,  */
+  /*   чтобы новые .selector узлы сразу попали в коллекцию.               */
+  /*   Нажатие OK на чипе: Lampa диспатчит hover:enter на узле;            */
+  /*   обработчик вызывает Lampa.Activity.push.                            */
   /* -------------------------------------------------------------------- */
 
   LC.moods = (function () {
@@ -41,12 +35,8 @@
        Любой отложенный колбэк сверяет захваченный gen с текущим. */
     var gen = 0;
 
-    /* Единственный смонтированный блок: null или {root, node, ctrl} */
+    /* Единственный смонтированный блок: null или {root, node} */
     var state = null;
-
-    /* Исходный обработчик down у контроллера head — восстанавливаем при unmount. */
-    var origHeadDown = null;
-    var headPatched = false;
 
     function warn() {
       try { if (window.warn) window.warn.apply(window, arguments); } catch (e) {}
@@ -64,36 +54,7 @@
       return mood.title || '';
     }
 
-    /* Строит DOM-узел одного чипа. */
-    function buildChip(mood) {
-      var lang = typeof LC.lang === 'function' ? LC.lang._lang || '' : '';
-      try {
-        if (window.Lampa && Lampa.Lang && typeof Lampa.Lang.code === 'function') lang = Lampa.Lang.code();
-      } catch (e) {}
-      var title = moodTitle(mood, lang);
-      var node = $('<div class="lumen-mood-chip selector"></div>');
-      node.text(title);
-      node[0].lumen_mood = mood;
-      return node;
-    }
-
-    /* Список настроений из манифеста. */
-    function moods() {
-      try {
-        if (LC.manifest && LC.manifest.current) {
-          var m = LC.manifest.current();
-          if (m && m.moods && m.moods.length) return m.moods;
-        }
-        if (LC.manifest && LC.manifest.DEFAULT && LC.manifest.DEFAULT.moods) {
-          return LC.manifest.DEFAULT.moods;
-        }
-      } catch (e) {
-        warn('moods: manifest read failed', e);
-      }
-      return [];
-    }
-
-    /* URL для Lampa.Activity.push при выборе настроения.
+    /* URL-объект для Lampa.Activity.push при выборе настроения.
        Тип — 'movie' (все 4 настроения в манифесте имеют только movie-источник). */
     function moodActivityObj(mood) {
       var spec = mood.sources && mood.sources.movie;
@@ -113,128 +74,72 @@
       return null;
     }
 
+    /* Строит DOM-узел одного чипа с классом .selector —
+       пространственный Navigator видит его геометрически.
+       hover:enter на чипе: Lampa диспатчит событие при нажатии OK;
+       слушаем в target-фазе (паттерн из 46_hub.js строки 847, 919, 998). */
+    function buildChip(mood) {
+      var lang = typeof LC.lang === 'function' ? LC.lang._lang || '' : '';
+      try {
+        if (window.Lampa && Lampa.Lang && typeof Lampa.Lang.code === 'function') lang = Lampa.Lang.code();
+      } catch (e) {}
+      var title = moodTitle(mood, lang);
+      var node = $('<div class="lumen-mood-chip selector"></div>');
+      node.text(title);
+      node[0].lumen_mood = mood;
+      node.on('hover:enter', function () {
+        var m = this.lumen_mood;
+        if (!m) return;
+        var obj = moodActivityObj(m);
+        if (!obj) return;
+        try { Lampa.Activity.push(obj); } catch (e) { warn('moods: push failed', e); }
+      });
+      return node;
+    }
+
+    /* Список настроений из манифеста. */
+    function moods() {
+      try {
+        if (LC.manifest && LC.manifest.current) {
+          var m = LC.manifest.current();
+          if (m && m.moods && m.moods.length) return m.moods;
+        }
+        if (LC.manifest && LC.manifest.DEFAULT && LC.manifest.DEFAULT.moods) {
+          return LC.manifest.DEFAULT.moods;
+        }
+      } catch (e) {
+        warn('moods: manifest read failed', e);
+      }
+      return [];
+    }
+
     /* Строит узел блока чипов (.lumen-moods). */
     function buildNode(moodList) {
       var wrap = $('<div class="lumen-moods"></div>');
       for (var i = 0; i < moodList.length; i++) {
-        var chip = buildChip(moodList[i]);
-        wrap.append(chip);
+        wrap.append(buildChip(moodList[i]));
       }
       return wrap;
     }
 
-    /* Возвращает массив чипов (узлов .selector) внутри state.node. */
-    function chipNodes() {
-      if (!state || !state.node) return [];
-      return state.node.find('.lumen-mood-chip').toArray();
-    }
-
-    /* Возвращает индекс сфокусированного чипа или -1. */
-    function focusedIndex() {
-      var chips = chipNodes();
-      for (var i = 0; i < chips.length; i++) {
-        if ($(chips[i]).hasClass('focus')) return i;
-      }
-      return -1;
-    }
-
-    /* Устанавливает фокус на чип по индексу. */
-    function focusChip(idx) {
-      var chips = chipNodes();
-      if (!chips.length) return;
-      if (idx < 0) idx = 0;
-      if (idx >= chips.length) idx = chips.length - 1;
-      for (var i = 0; i < chips.length; i++) $(chips[i]).removeClass('focus');
-      $(chips[idx]).addClass('focus');
-    }
-
-    /* Регистрирует контроллер lumen_moods.
-       toggle: устанавливает фокус на первый (или последний выбранный) чип.
-       left/right: листание между чипами.
-       up: переход к head.
-       down: переход к content (ряды).
-       back: переход к head. */
-    function registerController() {
+    /* Обновляет снимок Navigator после добавления новых .selector узлов.
+       Вызываем только когда наш корень лежит в активной активности
+       (.activity--active), — иначе рискуем переключить Navigator на
+       скрытый экран (паттерн из recollect в 55_trailer.js). */
+    function recollect(root) {
       try {
-        Lampa.Controller.add('lumen_moods', {
-          toggle: function () {
-            var idx = focusedIndex();
-            focusChip(idx < 0 ? 0 : idx);
-          },
-          left: function () {
-            var idx = focusedIndex();
-            if (idx > 0) focusChip(idx - 1);
-          },
-          right: function () {
-            var idx = focusedIndex();
-            var chips = chipNodes();
-            if (idx < chips.length - 1) focusChip(idx + 1);
-          },
-          up: function () {
-            Lampa.Controller.toggle('head');
-          },
-          down: function () {
-            Lampa.Controller.toggle('content');
-          },
-          back: function () {
-            Lampa.Controller.toggle('head');
-          },
-          enter: function () {
-            var idx = focusedIndex();
-            var chips = chipNodes();
-            if (idx < 0 || idx >= chips.length) return;
-            var mood = chips[idx].lumen_mood;
-            if (!mood) return;
-            var obj = moodActivityObj(mood);
-            if (!obj) return;
-            try { Lampa.Activity.push(obj); } catch (e) { warn('moods: push failed', e); }
-          }
-        });
-      } catch (e) {
-        warn('moods: controller add failed', e);
-      }
-    }
-
-    /* Перехватывает down у контроллера head, чтобы head → down → lumen_moods.
-       Сохраняет оригинал и восстанавливает при unmount. */
-    function patchHead() {
-      try {
-        if (headPatched) return;
-        var ctrl = Lampa.Controller.get ? Lampa.Controller.get('head') : null;
-        if (!ctrl) return;
-        origHeadDown = ctrl.down || null;
-        ctrl.down = function () {
-          /* Переходим в чипы только если блок смонтирован. */
-          if (state && state.node && state.node[0] && document.body && document.body.contains(state.node[0])) {
-            try { Lampa.Controller.toggle('lumen_moods'); } catch (e) {}
-          } else if (origHeadDown) {
-            origHeadDown.call(this);
-          } else {
-            try { Lampa.Controller.toggle('content'); } catch (e) {}
-          }
-        };
-        headPatched = true;
-      } catch (e) {
-        warn('moods: patch head failed', e);
-      }
-    }
-
-    /* Снимает перехват down у контроллера head. */
-    function unpatchHead() {
-      try {
-        if (!headPatched) return;
-        var ctrl = Lampa.Controller.get ? Lampa.Controller.get('head') : null;
-        if (ctrl) {
-          if (origHeadDown) {
-            ctrl.down = origHeadDown;
-          } else {
-            delete ctrl.down;
-          }
+        if (!window.Lampa || !Lampa.Controller) return;
+        if (typeof Lampa.Controller.collectionSet !== 'function') return;
+        /* Проверяем что root виден: он должен лежать внутри .activity--active. */
+        var inActive = root.closest('.activity--active').length > 0;
+        if (!inActive) return;
+        var focused = root.find('.focus');
+        Lampa.Controller.collectionSet(root[0]);
+        if (typeof Lampa.Controller.collectionFocus === 'function') {
+          Lampa.Controller.collectionFocus(focused && focused.length ? focused : false, root[0]);
         }
-        origHeadDown = null;
-        headPatched = false;
       } catch (e) {
-        warn('moods: unpatch head failed', e);
+        warn('moods: recollect failed', e);
       }
     }
 
@@ -243,7 +148,7 @@
     function mount(root) {
       try {
         if (!root || !root.length) return;
-        /* Тот же корень — повторное событие 'start' главной при возврате:
+        /* Тот же корень — повторное событие 'start' при возврате на главную:
            блок уже на месте, не пересобираем. */
         if (state && state.root && state.root[0] === root[0]) return;
         unmount();
@@ -262,31 +167,21 @@
         }
         gen++;
         state = { root: root, node: node };
-        registerController();
-        patchHead();
-        /* Обработчик enter для чипов через Lampa-паттерн hover:enter. */
-        node.on('click', '.lumen-mood-chip', function () {
-          var mood = this.lumen_mood;
-          if (!mood) return;
-          var obj = moodActivityObj(mood);
-          if (!obj) return;
-          try { Lampa.Activity.push(obj); } catch (e) { warn('moods: click push failed', e); }
-        });
+        /* Пересобрать снимок Navigator: новые .selector чипы должны
+           войти в коллекцию немедленно, а не ждать следующего toggle. */
+        recollect(root);
       } catch (e) {
         warn('moods: mount failed', e);
       }
     }
 
-    /* Снимает блок, перехват head.down и контроллер. Идемпотентна. */
+    /* Снимает блок и все его подписки. Идемпотентна. */
     function unmount() {
       if (!state) return;
       var s = state;
       state = null;
       gen++;
       try { s.node.remove(); } catch (eN) {}
-      unpatchHead();
-      /* Контроллер удалить нельзя (Lampa API нет remove), но он безвреден
-         без смонтированного блока — toggle на отсутствующие узлы ничего не делает. */
     }
 
     /* Снимает блок, если он не принадлежит стартующей активности.

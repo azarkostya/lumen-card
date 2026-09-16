@@ -6113,12 +6113,6 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 
-
-
-
-
-
-
 LC.moods = (function () {
 
 
@@ -6127,10 +6121,6 @@ var gen = 0;
 
 
 var state = null;
-
-
-var origHeadDown = null;
-var headPatched = false;
 
 function warn() {
 try { if (window.warn) window.warn.apply(window, arguments); } catch (e) {}
@@ -6146,35 +6136,6 @@ if (mood.i18n && lang && mood.i18n[lang]) return mood.i18n[lang];
 if (lang === 'ru') return mood.title || '';
 if (mood.i18n && mood.i18n.en) return mood.i18n.en;
 return mood.title || '';
-}
-
-
-function buildChip(mood) {
-var lang = typeof LC.lang === 'function' ? LC.lang._lang || '' : '';
-try {
-if (window.Lampa && Lampa.Lang && typeof Lampa.Lang.code === 'function') lang = Lampa.Lang.code();
-} catch (e) {}
-var title = moodTitle(mood, lang);
-var node = $('<div class="lumen-mood-chip selector"></div>');
-node.text(title);
-node[0].lumen_mood = mood;
-return node;
-}
-
-
-function moods() {
-try {
-if (LC.manifest && LC.manifest.current) {
-var m = LC.manifest.current();
-if (m && m.moods && m.moods.length) return m.moods;
-}
-if (LC.manifest && LC.manifest.DEFAULT && LC.manifest.DEFAULT.moods) {
-return LC.manifest.DEFAULT.moods;
-}
-} catch (e) {
-warn('moods: manifest read failed', e);
-}
-return [];
 }
 
 
@@ -6198,127 +6159,71 @@ return null;
 }
 
 
+
+
+
+function buildChip(mood) {
+var lang = typeof LC.lang === 'function' ? LC.lang._lang || '' : '';
+try {
+if (window.Lampa && Lampa.Lang && typeof Lampa.Lang.code === 'function') lang = Lampa.Lang.code();
+} catch (e) {}
+var title = moodTitle(mood, lang);
+var node = $('<div class="lumen-mood-chip selector"></div>');
+node.text(title);
+node[0].lumen_mood = mood;
+node.on('hover:enter', function () {
+var m = this.lumen_mood;
+if (!m) return;
+var obj = moodActivityObj(m);
+if (!obj) return;
+try { Lampa.Activity.push(obj); } catch (e) { warn('moods: push failed', e); }
+});
+return node;
+}
+
+
+function moods() {
+try {
+if (LC.manifest && LC.manifest.current) {
+var m = LC.manifest.current();
+if (m && m.moods && m.moods.length) return m.moods;
+}
+if (LC.manifest && LC.manifest.DEFAULT && LC.manifest.DEFAULT.moods) {
+return LC.manifest.DEFAULT.moods;
+}
+} catch (e) {
+warn('moods: manifest read failed', e);
+}
+return [];
+}
+
+
 function buildNode(moodList) {
 var wrap = $('<div class="lumen-moods"></div>');
 for (var i = 0; i < moodList.length; i++) {
-var chip = buildChip(moodList[i]);
-wrap.append(chip);
+wrap.append(buildChip(moodList[i]));
 }
 return wrap;
 }
 
 
-function chipNodes() {
-if (!state || !state.node) return [];
-return state.node.find('.lumen-mood-chip').toArray();
-}
-
-
-function focusedIndex() {
-var chips = chipNodes();
-for (var i = 0; i < chips.length; i++) {
-if ($(chips[i]).hasClass('focus')) return i;
-}
-return -1;
-}
-
-
-function focusChip(idx) {
-var chips = chipNodes();
-if (!chips.length) return;
-if (idx < 0) idx = 0;
-if (idx >= chips.length) idx = chips.length - 1;
-for (var i = 0; i < chips.length; i++) $(chips[i]).removeClass('focus');
-$(chips[idx]).addClass('focus');
-}
 
 
 
-
-
-
-
-function registerController() {
+function recollect(root) {
 try {
-Lampa.Controller.add('lumen_moods', {
-toggle: function () {
-var idx = focusedIndex();
-focusChip(idx < 0 ? 0 : idx);
-},
-left: function () {
-var idx = focusedIndex();
-if (idx > 0) focusChip(idx - 1);
-},
-right: function () {
-var idx = focusedIndex();
-var chips = chipNodes();
-if (idx < chips.length - 1) focusChip(idx + 1);
-},
-up: function () {
-Lampa.Controller.toggle('head');
-},
-down: function () {
-Lampa.Controller.toggle('content');
-},
-back: function () {
-Lampa.Controller.toggle('head');
-},
-enter: function () {
-var idx = focusedIndex();
-var chips = chipNodes();
-if (idx < 0 || idx >= chips.length) return;
-var mood = chips[idx].lumen_mood;
-if (!mood) return;
-var obj = moodActivityObj(mood);
-if (!obj) return;
-try { Lampa.Activity.push(obj); } catch (e) { warn('moods: push failed', e); }
+if (!window.Lampa || !Lampa.Controller) return;
+if (typeof Lampa.Controller.collectionSet !== 'function') return;
+
+var inActive = root.closest('.activity--active').length > 0;
+if (!inActive) return;
+var focused = root.find('.focus');
+Lampa.Controller.collectionSet(root[0]);
+if (typeof Lampa.Controller.collectionFocus === 'function') {
+Lampa.Controller.collectionFocus(focused && focused.length ? focused : false, root[0]);
 }
-});
 } catch (e) {
-warn('moods: controller add failed', e);
-}
-}
-
-
-
-function patchHead() {
-try {
-if (headPatched) return;
-var ctrl = Lampa.Controller.get ? Lampa.Controller.get('head') : null;
-if (!ctrl) return;
-origHeadDown = ctrl.down || null;
-ctrl.down = function () {
-
-if (state && state.node && state.node[0] && document.body && document.body.contains(state.node[0])) {
-try { Lampa.Controller.toggle('lumen_moods'); } catch (e) {}
-} else if (origHeadDown) {
-origHeadDown.call(this);
-} else {
-try { Lampa.Controller.toggle('content'); } catch (e) {}
-}
-};
-headPatched = true;
-} catch (e) {
-warn('moods: patch head failed', e);
-}
-}
-
-
-function unpatchHead() {
-try {
-if (!headPatched) return;
-var ctrl = Lampa.Controller.get ? Lampa.Controller.get('head') : null;
-if (ctrl) {
-if (origHeadDown) {
-ctrl.down = origHeadDown;
-} else {
-delete ctrl.down;
-}
-}
-origHeadDown = null;
-headPatched = false;
-} catch (e) {
-warn('moods: unpatch head failed', e);
+warn('moods: recollect failed', e);
 }
 }
 
@@ -6346,16 +6251,9 @@ text.append(node);
 }
 gen++;
 state = { root: root, node: node };
-registerController();
-patchHead();
 
-node.on('click', '.lumen-mood-chip', function () {
-var mood = this.lumen_mood;
-if (!mood) return;
-var obj = moodActivityObj(mood);
-if (!obj) return;
-try { Lampa.Activity.push(obj); } catch (e) { warn('moods: click push failed', e); }
-});
+
+recollect(root);
 } catch (e) {
 warn('moods: mount failed', e);
 }
@@ -6368,9 +6266,6 @@ var s = state;
 state = null;
 gen++;
 try { s.node.remove(); } catch (eN) {}
-unpatchHead();
-
-
 }
 
 
