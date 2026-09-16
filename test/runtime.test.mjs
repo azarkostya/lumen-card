@@ -492,7 +492,15 @@ function initLC(opts) {
      дальше — CSS, классы режима движения и оформления меню на body и маркеры
      на Select/Modal ложились на ШТАТНУЮ карточку Lampa, а снять их было некому
      (deactivate() выходит первой строкой по !activated). */
-  LC.injectCss = () => { extra.css++; };
+  /* injectCssThrowsOnce роняет ПЕРВЫЙ заход init уже ПОСЛЕ подписки на 'full'
+     (activate() зовётся последним шагом, а LC.injectCss внутри него не обёрнут
+     своим try/catch) — в отличие от buildThrowsOnce, который роняет ДО неё. */
+  let cssCalls = 0;
+  LC.injectCss = () => {
+    cssCalls++;
+    if (opts.injectCssThrowsOnce && cssCalls === 1) throw new Error('css boom');
+    extra.css++;
+  };
   LC.removeCss = () => { };
   LC.menus = { mode: () => { }, install: () => { } };
   LC.torrents = { install: () => { }, toggle: () => { } };
@@ -1476,6 +1484,55 @@ test('Important 3: исключение в LC.init сбрасывает флаг
   assert.equal(full.length, 1, 'повторный init завёл подписку — состояние не заперто навсегда');
   assert.equal(extra.added[extra.added.length - 1].html, '<div class="lumen-card"></div>', 'шаблон подменён');
   assert.deepEqual(warnLog, []);
+});
+
+/* Ревью фазы 1, третий круг (Important): подписка на 'full' была последней без
+   собственного флага — её гардом служил inited, а он теперь сбрасывается в
+   catch (Important 3). Значит исключение МЕЖДУ подпиской и концом init делало
+   второй 'app':ready заводящим вторую подписку: двойные decorate/descr/
+   reviews.render/backdrops.apply на каждой карточке, LC.active переписывается
+   дважды — на ТВ это мерцание фона и дублирующийся запрос отзывов на каждое
+   открытие. Существующий тест выше роняет template.build, то есть ДО подписки,
+   и этот случай не покрывает. */
+test('Important (3-й круг): исключение ПОСЛЕ подписки на full — повторный init не заводит вторую', () => {
+  const { LC, full, extra, descrRows, reviewRows } = initLC({ injectCssThrowsOnce: true });
+
+  assert.equal(full.length, 1, 'подписка уже заведена — падение случилось после неё');
+  assert.equal(warnLog.length, 1, 'падение записано в warn');
+  warnLog.length = 0;
+
+  LC.init();                       // inited сброшен в catch — заход повторяется
+  assert.equal(full.length, 1, 'вторая подписка на full не заведена');
+  /* Оформление повторный заход при этом НЕ пересобирает: activate() пометил его
+     активным ещё до падения injectCss и назад флаг не откатывает (откат есть
+     только у неудачной подмены шаблона, Task 11 Step 2). К этой находке отношения
+     не имеет — здесь важно ровно то, что подписка не удвоилась, — но проверку на
+     extra.css тут держать нельзя, она бы утверждала обратное. */
+
+  /* Lampa рассылает событие ВСЕМ подписчикам — так и проверяем цену дубля. */
+  const root = new FakeEl(['full-start-new', 'lumen-card']);
+  const descr = new FakeEl(['full-descr']);
+  const body = new FakeEl(['activity__body'], [new FakeEl(['items-line'], [new FakeEl(['items-line__body'], [descr])])]);
+  full.forEach((fn) => fn({ type: 'complite', body: body, object: {}, data: { movie: { id: 1 } }, item: { render: () => root } }));
+
+  assert.equal(descrRows.length, 1, 'таблица «ПОДРОБНО» рисуется один раз');
+  assert.equal(reviewRows.length, 1, 'запрос отзывов уходит один раз, а не дважды на карточку');
+  assert.deepEqual(warnLog, []);
+});
+
+/* Minor (3-й круг): Minor 6 был исправлен только в гейте слайдшоу. Здесь тот же
+   паттерн на дубле данных карточки: у DOM-узла children — HTMLCollection, вызов
+   бросал TypeError. Он гасился своим try/catch, поэтому симптом мягче — карточка
+   тихо теряла lumenData на слое, и ряд отзывов после возврата из истории
+   перерисовать было бы нечем (LC.applyReviewsPref читает LC.active.data). */
+test('Minor 6 (3-й круг): тело-DOM-узел на complite — дубль данных на слое не бросает TypeError', () => {
+  const { LC, full } = initLC();
+  const root = new FakeEl(['full-start-new', 'lumen-card']);
+
+  full[0]({ type: 'complite', body: { children: { length: 0 } }, object: {}, data: { movie: { id: 1 } }, item: { render: () => root } });
+
+  assert.deepEqual(warnLog, [], 'вызов HTMLCollection как функции дал бы TypeError и warn');
+  assert.equal(LC.active.data.movie.id, 1, 'сама карточка при этом запомнена');
 });
 
 test('Important 3: успешный init флаг сохраняет — идемпотентность не пострадала', () => {

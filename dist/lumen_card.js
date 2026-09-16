@@ -988,6 +988,10 @@ css.push('.lumen-card.lumen-motion-lite .lumen-stop.focus,.lumen-card.lumen-moti
 
 
 
+
+
+
+
 css.push('.lumen-card.lumen-motion-lite .full-start-new__buttons .full-start__button,.lumen-card.lumen-motion-off .full-start-new__buttons .full-start__button{-webkit-backdrop-filter:none;backdrop-filter:none}');
 css.push('.lumen-card.lumen-motion-lite .lumen-stop,.lumen-card.lumen-motion-off .lumen-stop{-webkit-backdrop-filter:none;backdrop-filter:none;background:rgba(' + BG_RGB + ',.9)}');
 css.push('.lumen-card.lumen-motion-lite .lumen-trailer-badge,.lumen-card.lumen-motion-off .lumen-trailer-badge{-webkit-backdrop-filter:none;backdrop-filter:none;background:rgba(' + BG_RGB + ',.9)}');
@@ -6859,6 +6863,89 @@ warn('activity listener failed', e2);
 }
 }
 
+var full_followed = false;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function followFull() {
+if (full_followed) return;
+full_followed = true;
+try {
+if (!window.Lampa || !Lampa.Listener) return;
+Lampa.Listener.follow('full', function (e) {
+try {
+if (!e || !activated) return;
+if (e.type === 'build' && e.name === 'start') {
+LC.header.decorate(findRoot(e), e.data);
+} else if (e.type === 'build' && e.name === 'description') {
+
+
+
+
+var descrRow = findDescrRow(e);
+LC.header.descr(descrRow, e.data);
+LC.reviews.render(descrRow, e.data);
+} else if (e.type === 'complite') {
+var root = findRoot(e);
+LC.header.decorate(root, e.data);
+
+
+
+
+
+var doneRow = findDescrRow(e);
+LC.header.descr(doneRow, e.data);
+LC.reviews.render(doneRow, e.data);
+var slideshow = LC.backdrops.apply(root, e.body, (e.data && e.data.movie) || {});
+applyMotionMode(root);
+
+
+
+
+LC.active = { object: e.object, body: e.body, slideshow: slideshow, data: e.data };
+
+
+
+
+
+
+
+
+
+try {
+var bgLayer = e.body && typeof e.body.children === 'function' ? e.body.children('.lumen-backdrop') : null;
+if (bgLayer && bgLayer.length) bgLayer.data('lumenData', e.data);
+} catch (eData) { warn('reviews data on layer failed', eData); }
+
+
+
+
+
+focus_on_card = false;
+LC.trailer.bind(root);
+LC.active.trailer = LC.trailer.schedule(root, e.body, e.data);
+}
+} catch (err) {
+warn('listener failed', err);
+}
+});
+} catch (e3) {
+warn('full listener failed', e3);
+}
+}
+
 
 
 
@@ -7248,6 +7335,10 @@ warn('enabled pref failed', e);
 
 
 
+
+
+
+
 var inited = false;
 
 LC.init = function () {
@@ -7279,63 +7370,7 @@ return;
 }
 our_template = tpl;
 
-
-
-
-
-Lampa.Listener.follow('full', function (e) {
-try {
-if (!e || !activated) return;
-if (e.type === 'build' && e.name === 'start') {
-LC.header.decorate(findRoot(e), e.data);
-} else if (e.type === 'build' && e.name === 'description') {
-
-
-
-
-var descrRow = findDescrRow(e);
-LC.header.descr(descrRow, e.data);
-LC.reviews.render(descrRow, e.data);
-} else if (e.type === 'complite') {
-var root = findRoot(e);
-LC.header.decorate(root, e.data);
-
-
-
-
-
-var doneRow = findDescrRow(e);
-LC.header.descr(doneRow, e.data);
-LC.reviews.render(doneRow, e.data);
-var slideshow = LC.backdrops.apply(root, e.body, (e.data && e.data.movie) || {});
-applyMotionMode(root);
-
-
-
-
-LC.active = { object: e.object, body: e.body, slideshow: slideshow, data: e.data };
-
-
-
-
-try {
-var bgLayer = e.body && e.body.children ? e.body.children('.lumen-backdrop') : null;
-if (bgLayer && bgLayer.length) bgLayer.data('lumenData', e.data);
-} catch (eData) { warn('reviews data on layer failed', eData); }
-
-
-
-
-
-focus_on_card = false;
-LC.trailer.bind(root);
-LC.active.trailer = LC.trailer.schedule(root, e.body, e.data);
-}
-} catch (err) {
-warn('listener failed', err);
-}
-});
-
+followFull();
 followToggle();
 followActivityLifecycle();
 LC.followTimeline();

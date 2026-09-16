@@ -516,6 +516,89 @@
     }
   }
 
+  var full_followed = false;
+
+  /* Ревью фазы 1, третий круг: последняя подписка без собственного флага.
+     Её гардом служил inited в LC.init, но он сбрасывается в catch (Important 3),
+     поэтому исключение МЕЖДУ этой подпиской и концом init делало второй
+     'app':ready заводящим ВТОРУЮ подписку: двойные decorate/descr/
+     reviews.render/backdrops.apply на каждой карточке и LC.active, переписанный
+     дважды — на ТВ это мерцание фона и дублирующийся сетевой запрос отзывов на
+     каждое открытие. Сегодня не воспроизводится (весь код после подписки — в
+     своих try/catch), но инвариант не должен держаться на аудите будущих
+     правок: флаг здесь, как у followToggle и followActivityLifecycle.
+
+     Подписка заводится всегда, даже при выключенном плагине: включение из
+     настроек не должно требовать перезагрузки Lampa. Пока оформление не
+     активировано, обработчик выходит первой же строкой — иначе выключенный
+     плагин продолжал бы дорисовывать блоки и строить фон. */
+  function followFull() {
+    if (full_followed) return;
+    full_followed = true;
+    try {
+      if (!window.Lampa || !Lampa.Listener) return;
+      Lampa.Listener.follow('full', function (e) {
+        try {
+          if (!e || !activated) return;
+          if (e.type === 'build' && e.name === 'start') {
+            LC.header.decorate(findRoot(e), e.data);
+          } else if (e.type === 'build' && e.name === 'description') {
+            /* Task 5d: таблица «ПОДРОБНО» в теле ряда описания (design-spec §10).
+               Task 9: ряд отзывов Кинопоиска — сосед таблицы в том же
+               .full-descr (свой тип ряда в Lampa создать нельзя, план 0.2);
+               узел ряда ищется один раз на оба рендера. */
+            var descrRow = findDescrRow(e);
+            LC.header.descr(descrRow, e.data);
+            LC.reviews.render(descrRow, e.data);
+          } else if (e.type === 'complite') {
+            var root = findRoot(e);
+            LC.header.decorate(root, e.data);
+            /* Вторая, страховочная точка: вставка идемпотентна (старый блок
+               снимается), а ряд описания к complite уже построен — так таблица
+               появится, даже если 'build' для него до нас не дошёл. Для отзывов
+               это тем более важно: запрос уходит отсюда, если 'build' прошёл
+               мимо, а повторный вызов с теми же данными в сеть не идёт. */
+            var doneRow = findDescrRow(e);
+            LC.header.descr(doneRow, e.data);
+            LC.reviews.render(doneRow, e.data);
+            var slideshow = LC.backdrops.apply(root, e.body, (e.data && e.data.movie) || {});
+            applyMotionMode(root);
+            /* Task 9: данные карточки нужны LC.applyReviewsPref — настройки
+               Lampa открываются ПОВЕРХ карточки и при возврате не шлют ни
+               'full', ни complite, а перерисовать ряд отзывов после ввода
+               ключа больше неоткуда. */
+            LC.active = { object: e.object, body: e.body, slideshow: slideshow, data: e.data };
+            /* Ревью Task 9 (Minor 10): дубль данных на слое фона — тем же
+               приёмом, что контроллеры слайдшоу и трейлера. Карточка, к которой
+               вернулись backward'ом, восстанавливает LC.active из слоя
+               (LC.onActivityEvent), и без этой строки у неё не было бы data.
+               Ревью фазы 1, третий круг: проверка та же, что в гейте слайдшоу
+               (Minor 6) — у DOM-узла children это HTMLCollection, и вызов её как
+               функции бросал бы TypeError. Он гасился try/catch ниже, поэтому
+               симптом был тихий: карточка теряла lumenData на слое, и после
+               возврата из истории ряд отзывов перерисовать было бы нечем. */
+            try {
+              var bgLayer = e.body && typeof e.body.children === 'function' ? e.body.children('.lumen-backdrop') : null;
+              if (bgLayer && bgLayer.length) bgLayer.data('lumenData', e.data);
+            } catch (eData) { warn('reviews data on layer failed', eData); }
+            /* Task 7: фоновый трейлер — отсчёт 3 с от complite. Контроллер
+               хранится и в LC.active.trailer (остановка по toggle/OK), и на
+               слое фона (остановка через LC.backdrops.cancel). bind() вешает
+               один capture-слушатель на корень карточки. Новая карточка —
+               фокуса на ней ещё не было (см. focus_on_card выше). */
+            focus_on_card = false;
+            LC.trailer.bind(root);
+            LC.active.trailer = LC.trailer.schedule(root, e.body, e.data);
+          }
+        } catch (err) {
+          warn('listener failed', err);
+        }
+      });
+    } catch (e3) {
+      warn('full listener failed', e3);
+    }
+  }
+
   /* Task 6: lumen_slideshow/lumen_slide_interval меняются на уже открытой
      карточке через LC.followStorage (80_settings.js). pause()+resume() —
      единственные операции на контроллере (план: LC.active.slideshow =
@@ -891,11 +974,15 @@
     }
   };
 
-  /* Ревью фазы 1 (I3): init идемпотентен целиком. Каждая его подписка защищена
-     своим флагом по отдельности (followToggle, followActivityLifecycle,
-     LC.followTimeline, menus.install, torrents.install), но подписка на 'full',
-     LC.addSettings и LC.followStorage такой защиты не имели. Второй вызов
-     заводил вторую подписку Listener 'full' (двойной рендер каждой карточки),
+  /* Ревью фазы 1 (I3): init идемпотентен целиком. Каждый его шаг защищён своим
+     флагом ОТДЕЛЬНО — followFull, followToggle, followActivityLifecycle,
+     LC.followTimeline, LC.addSettings, LC.followStorage, menus.install,
+     torrents.install, — и флаг ниже не единственная их защита, а только
+     верхняя. Так и задумано: inited сбрасывается в catch (Important 3), то есть
+     после падения init заходит повторно, и каждая подписка обязана сама
+     пережить этот повтор. Раньше своей защиты не имели подписка на 'full',
+     LC.addSettings и LC.followStorage: второй вызов заводил вторую подписку
+     Listener 'full' (двойной рендер каждой карточки),
      вторую подписку Storage 'change' и повторно регистрировал пункты раздела —
      и каждая настройка применялась бы ДВАЖДЫ: обработчик события применяет и
      лишь потом ставит pref_handled, а onChange съедает ровно одно повторение.
@@ -936,63 +1023,7 @@
       }
       our_template = tpl;
 
-      /* Подписки заводятся всегда, даже при выключенном плагине: включение из
-         настроек не должно требовать перезагрузки Lampa. Пока оформление не
-         активировано, обработчик выходит первой же строкой — иначе выключенный
-         плагин продолжал бы дорисовывать блоки и строить фон. */
-      Lampa.Listener.follow('full', function (e) {
-        try {
-          if (!e || !activated) return;
-          if (e.type === 'build' && e.name === 'start') {
-            LC.header.decorate(findRoot(e), e.data);
-          } else if (e.type === 'build' && e.name === 'description') {
-            /* Task 5d: таблица «ПОДРОБНО» в теле ряда описания (design-spec §10).
-               Task 9: ряд отзывов Кинопоиска — сосед таблицы в том же
-               .full-descr (свой тип ряда в Lampa создать нельзя, план 0.2);
-               узел ряда ищется один раз на оба рендера. */
-            var descrRow = findDescrRow(e);
-            LC.header.descr(descrRow, e.data);
-            LC.reviews.render(descrRow, e.data);
-          } else if (e.type === 'complite') {
-            var root = findRoot(e);
-            LC.header.decorate(root, e.data);
-            /* Вторая, страховочная точка: вставка идемпотентна (старый блок
-               снимается), а ряд описания к complite уже построен — так таблица
-               появится, даже если 'build' для него до нас не дошёл. Для отзывов
-               это тем более важно: запрос уходит отсюда, если 'build' прошёл
-               мимо, а повторный вызов с теми же данными в сеть не идёт. */
-            var doneRow = findDescrRow(e);
-            LC.header.descr(doneRow, e.data);
-            LC.reviews.render(doneRow, e.data);
-            var slideshow = LC.backdrops.apply(root, e.body, (e.data && e.data.movie) || {});
-            applyMotionMode(root);
-            /* Task 9: данные карточки нужны LC.applyReviewsPref — настройки
-               Lampa открываются ПОВЕРХ карточки и при возврате не шлют ни
-               'full', ни complite, а перерисовать ряд отзывов после ввода
-               ключа больше неоткуда. */
-            LC.active = { object: e.object, body: e.body, slideshow: slideshow, data: e.data };
-            /* Ревью Task 9 (Minor 10): дубль данных на слое фона — тем же
-               приёмом, что контроллеры слайдшоу и трейлера. Карточка, к которой
-               вернулись backward'ом, восстанавливает LC.active из слоя
-               (LC.onActivityEvent), и без этой строки у неё не было бы data. */
-            try {
-              var bgLayer = e.body && e.body.children ? e.body.children('.lumen-backdrop') : null;
-              if (bgLayer && bgLayer.length) bgLayer.data('lumenData', e.data);
-            } catch (eData) { warn('reviews data on layer failed', eData); }
-            /* Task 7: фоновый трейлер — отсчёт 3 с от complite. Контроллер
-               хранится и в LC.active.trailer (остановка по toggle/OK), и на
-               слое фона (остановка через LC.backdrops.cancel). bind() вешает
-               один capture-слушатель на корень карточки. Новая карточка —
-               фокуса на ней ещё не было (см. focus_on_card выше). */
-            focus_on_card = false;
-            LC.trailer.bind(root);
-            LC.active.trailer = LC.trailer.schedule(root, e.body, e.data);
-          }
-        } catch (err) {
-          warn('listener failed', err);
-        }
-      });
-
+      followFull();
       followToggle();
       followActivityLifecycle();
       LC.followTimeline();
