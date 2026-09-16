@@ -398,7 +398,12 @@
              liveSlideshow()). */
           var ownLayer = layerOf(e.object);
           LC.active.slideshow = liveSlideshow(ownLayer, LC.active.slideshow);
-          if (LC.active.slideshow) LC.active.slideshow.resume();
+          /* Ревью фазы 1, второй круг (Important 2): тот же гейт, что в
+             LC.applySlideshowPref. Пользователь мог уйти вглубь и вернуться
+             БЫСТРЕЕ, чем тикнул сторож трейлера (WATCH_MS 1 с) — тогда ролик
+             ещё играет, и ротация подняла бы кадры прямо под живым iframe.
+             Когда ролик закончится, слайдшоу вернёт его же cleanup(). */
+          if (LC.active.slideshow && !LC.trailer.isLive(ownLayer)) LC.active.slideshow.resume();
           /* Ревью: симметрично ветке восстановления чужой активности ниже —
              после revive() трейлер уже погашен и снят со слоя, поэтому поле
              не должно продолжать указывать на мёртвый контроллер. */
@@ -488,7 +493,11 @@
              карточке не смог бы перерисовать ряд отзывов после ввода ключа
              (complite для неё Lampa повторно не шлёт). */
           LC.active = { object: e.object, body: layer.parent(), slideshow: slideshow, trailer: layer.data('lumenTrailer') || null, data: layer.data('lumenData') || null };
-          if (slideshow) slideshow.resume();
+          /* Тот же гейт (Important 2): к карточке могли вернуться раньше, чем
+             сторож трейлера её погасил. Если liveSlideshow() выше прошёл через
+             revive(), тот уже снял и трейлер, и класс со слоя — значит isLive
+             здесь честно вернёт false и ротация поднимется, как и раньше. */
+          if (slideshow && !LC.trailer.isLive(layer)) slideshow.resume();
         }
       }
     } catch (err) {
@@ -526,19 +535,21 @@
          теряется и при включении — когда ролик закончится, cleanup() трейлера
          сам позовёт resume(), а тот перечитает lumen_slideshow заново.
 
-         Признак — «ролик РЕАЛЬНО играет», то есть класс lumen-trailer-live на
-         слое: его ставит onStart вместе с паузой слайдшоу и снимает cleanup()
-         (src/55_trailer.js). Живости контроллера здесь НЕДОСТАТОЧНО:
-         schedule() отдаёт живой контроллер сразу, а ролик стартует лишь через
-         3 с и может не стартовать вовсе (таймаут 6 с). Гейт по живости
-         заморозил бы кадры на всё это окно, а при неудавшемся ролике cleanup()
-         их бы не вернул — paused у него так и остался бы false, и слайдшоу
-         провисело бы до переоткрытия карточки.
+         Признак «ролик РЕАЛЬНО играет» — LC.trailer.isLive: одна точка на всех
+         потребителей, см. шапку src/55_trailer.js. Живости контроллера здесь
+         НЕДОСТАТОЧНО: schedule() отдаёт живой контроллер сразу, а ролик
+         стартует лишь через 3 с и может не стартовать вовсе (таймаут 6 с) —
+         гейт по живости заморозил бы кадры на всё это окно, а при неудавшемся
+         ролике cleanup() их бы не вернул (paused у него остался бы false).
          Слой берётся из тела активности тем же путём, что и везде в плагине
          (body.children('.lumen-backdrop') — так его ищут и LC.backdrops.cancel,
-         и LC.trailer.schedule), без глобального .activity--active. */
-      var layer = LC.active.body && LC.active.body.children ? LC.active.body.children('.lumen-backdrop') : null;
-      if (layer && layer.length && layer.hasClass('lumen-trailer-live')) return;
+         и LC.trailer.schedule), без глобального .activity--active. Проверяем
+         именно typeof ... === 'function' (Minor 6): у DOM-узла children — это
+         HTMLCollection, и вызов бросил бы TypeError, съев вместе с собой и
+         resume(), то есть ротация после смены настройки не вернулась бы вовсе. */
+      var body = LC.active.body;
+      var layer = body && typeof body.children === 'function' ? body.children('.lumen-backdrop') : null;
+      if (LC.trailer.isLive(layer)) return;
       if (LC.pref('lumen_slideshow', true)) LC.active.slideshow.resume();
     } catch (e) {
       warn('slideshow pref failed', e);
@@ -991,6 +1002,13 @@
          настроек (LC.applyEnabledPref). */
       if (LC.enabled()) activate();
     } catch (e) {
+      /* Ревью фазы 1, второй круг (Important 3): флаг поднимается ДО
+         LC.addSettings/saveOriginalTemplate/LC.template.build, поэтому без
+         сброса любое исключение делало состояние необратимым — второй
+         'app':ready уже ничего не собрал бы, и пользователь остался бы без
+         оформления до перезапуска Lampa. Идемпотентность от сброса не страдает:
+         успешный проход сюда не заходит и флаг сохраняет. */
+      inited = false;
       warn('init failed', e);
       restoreOriginalTemplate();
     }

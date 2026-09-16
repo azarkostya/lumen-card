@@ -474,8 +474,15 @@ function initLC(opts) {
   /* templateUnsupported моделирует сборку Lampa, чей штатный шаблон не проходит
      assert (не хватает обязательных классов/языковых ключей): плагин обязан
      оставить шаблон Lampa в покое и сказать об этом пользователю. */
+  /* buildThrowsOnce роняет ПЕРВЫЙ заход init изнутри try — как упало бы любое
+     исключение в сборке шаблона (Important 3). */
+  let buildCalls = 0;
   LC.template = {
-    build: () => '<div class="lumen-card"></div>',
+    build: () => {
+      buildCalls++;
+      if (opts.buildThrowsOnce && buildCalls === 1) throw new Error('build boom');
+      return '<div class="lumen-card"></div>';
+    },
     assert: () => (opts.templateUnsupported ? { ok: false, missingInOurs: ['lumen-card'] } : { ok: true, missingInOurs: [] })
   };
   LC.injectFonts = () => { };
@@ -504,7 +511,10 @@ function initLC(opts) {
     bind: (root) => calls.bind.push(root),
     schedule: (root, body, data) => { calls.schedule.push({ root, body, data }); return opts.controller || null; },
     stopActive: () => { calls.stop++; },
-    mode: () => opts.mode || 'auto'
+    mode: () => opts.mode || 'auto',
+    /* Заглушка повторяет НАСТОЯЩУЮ LC.trailer.isLive (её саму проверяет
+       test/trailer.test.mjs): признак — класс на слое, всё остальное false. */
+    isLive: (layer) => !!(layer && layer.length && typeof layer.hasClass === 'function' && layer.hasClass('lumen-trailer-live'))
   };
 
   LC.init();
@@ -1379,6 +1389,102 @@ test('I2: исключение при снятии фона не мешает с
   assert.deepEqual(reviewCancels, [bodyA], 'запрос отзывов снят, хотя слой фона бросил исключение');
   assert.equal(warnLog.length, 1, 'ошибка записана своим warn и наружу не вышла');
   warnLog.length = 0;
+});
+
+/* ====================================================================== */
+/* Ревью фазы 1, второй круг (Important 2): M1 закрыт на ВСЕХ входах.      */
+/*                                                                        */
+/* resume() без гейта оставался ещё в двух местах LC.onActivityEvent — в   */
+/* ветке 'archive'|'start' своей активности и при восстановлении карточки  */
+/* из истории. Сценарий: ролик играет, пользователь ушёл вглубь и вернулся */
+/* БЫСТРЕЕ, чем тикнул сторож трейлера (WATCH_MS 1000), — ротация снимала  */
+/* паузу под живым iframe, то есть ровно тот дефект, что чинил M1, но      */
+/* другим входом.                                                          */
+/* ====================================================================== */
+
+test('Important 2: archive/start своей активности — под играющим роликом resume() не зовём', () => {
+  const LC = freshLC();
+  const ctrl = makeCtrl();
+  const objA = makeActivityObj('A', true, ctrl);
+  const layer = objA.activity.render().find('.lumen-backdrop');
+  layer.addClass('lumen-trailer-live');                 // ролик играет
+  LC.backdrops = { apply: () => null, cancel: () => { }, revive: () => null };
+  LC.active = { object: objA, body: layer.parent(), slideshow: ctrl, trailer: null, data: null };
+
+  LC.onActivityEvent({ type: 'start', component: 'full', object: objA });
+  assert.equal(ctrl.resumeCalls, 0, 'вернулись раньше сторожа — кадры под роликом не поднимаем');
+
+  LC.onActivityEvent({ type: 'archive', component: 'full', object: objA });
+  assert.equal(ctrl.resumeCalls, 0, 'archive той же активности — то же самое');
+
+  /* Сторож (или конец ролика) снял класс — поведение прежнее. */
+  layer.removeClass('lumen-trailer-live');
+  LC.onActivityEvent({ type: 'start', component: 'full', object: objA });
+  assert.equal(ctrl.resumeCalls, 1, 'ролика нет — карточка оживает как раньше');
+  assert.deepEqual(warnLog, []);
+});
+
+test('Important 2: восстановление карточки из истории — под играющим роликом resume() не зовём', () => {
+  const LC = freshLC();
+  const ctrl = makeCtrl();
+  const objA = makeActivityObj('A', true, ctrl);
+  const layer = objA.activity.render().find('.lumen-backdrop');
+  layer.addClass('lumen-trailer-live');
+  LC.backdrops = { apply: () => null, cancel: () => { }, revive: () => null };
+  LC.active = null;                                     // не текущая — ветка восстановления
+
+  LC.onActivityEvent({ type: 'start', component: 'full', object: objA });
+
+  assert.equal(LC.active.object, objA, 'LC.active восстановлен со слоя');
+  assert.equal(ctrl.resumeCalls, 0, 'ротация под играющим роликом не поднимается');
+
+  layer.removeClass('lumen-trailer-live');
+  LC.active = null;
+  LC.onActivityEvent({ type: 'start', component: 'full', object: objA });
+  assert.equal(ctrl.resumeCalls, 1, 'ролик кончился — возврат оживляет карточку как прежде');
+  assert.deepEqual(warnLog, []);
+});
+
+/* Minor 6: у DOM-узла children — это HTMLCollection, а не функция. Проверка
+   «есть свойство» пропустила бы вызов, тот бросил бы TypeError, и ротация
+   после смены настройки не вернулась бы вовсе. */
+test('Minor 6: тело активности с DOM-ским children (HTMLCollection) — гейт не падает и ротацию возвращает', () => {
+  const { LC } = initLC({ storage: { lumen_slideshow: 'true' } });
+  const slideshow = makeCtrl();
+  LC.active = { object: {}, body: { children: { length: 0 } }, slideshow: slideshow, trailer: null, data: null };
+
+  LC.applySlideshowPref();
+
+  assert.equal(slideshow.pauseCalls, 1);
+  assert.equal(slideshow.resumeCalls, 1, 'ротация обязана вернуться, а не утонуть в TypeError');
+  assert.deepEqual(warnLog, [], 'исключения быть не должно вовсе');
+});
+
+/* Important 3: флаг inited поднимается ДО addSettings/saveOriginalTemplate/
+   template.build, поэтому любое исключение делало состояние необратимым —
+   второй 'app':ready уже ничего не собрал бы, и пользователь остался бы без
+   оформления до перезапуска Lampa. */
+test('Important 3: исключение в LC.init сбрасывает флаг — повторный заход собирает оформление', () => {
+  const { LC, full, extra } = initLC({ buildThrowsOnce: true });
+
+  assert.equal(full.length, 0, 'первый заход упал до подписки на full');
+  assert.equal(warnLog.length, 1, 'падение записано в warn');
+  warnLog.length = 0;
+
+  LC.init();
+
+  assert.equal(full.length, 1, 'повторный init завёл подписку — состояние не заперто навсегда');
+  assert.equal(extra.added[extra.added.length - 1].html, '<div class="lumen-card"></div>', 'шаблон подменён');
+  assert.deepEqual(warnLog, []);
+});
+
+test('Important 3: успешный init флаг сохраняет — идемпотентность не пострадала', () => {
+  const { LC, full } = initLC();
+  assert.equal(full.length, 1);
+  LC.init();
+  LC.init();
+  assert.equal(full.length, 1, 'второй и третий заход по-прежнему no-op');
+  assert.deepEqual(warnLog, []);
 });
 
 test('I2: исключение при снятии запроса отзывов не отменяет уже сделанное освобождение фона', () => {

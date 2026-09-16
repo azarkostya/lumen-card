@@ -870,7 +870,17 @@ body {
            именно это за дефект уборки; в живой Lampa узел снимается корректно —
            проверено на «Дюне» (693134): после lumen_enabled='false' в DOM ноль
            .lumen-reviews, .lumen-facts, .lumen-progress и .lumen-descr-row. */
-        if (!L.Storage.get('lumen_enabled', true)) {
+        /* Ревью фазы 1, второй круг (Minor 8): нормализуем ТЕМ ЖЕ кодом, что и
+           плагин. Живая Lampa хранит переключатели строками 'true'/'false'
+           (план 0.2), а голый Storage.get на строке 'false' вернул бы истину —
+           гейт не сработал бы, и стенд снова дорисовал бы ряд в обход
+           выключателя. Именно расхождение стенда с плагином породило ложный
+           DEF-01, второго такого быть не должно. */
+        var enabledRaw = L.Storage.get('lumen_enabled', true);
+        var enabled = (window.lumen_card && window.lumen_card.prefs)
+            ? window.lumen_card.prefs.boolOf(enabledRaw, true)
+            : enabledRaw;
+        if (!enabled) {
             out.push('<div class="hint">плагин выключен — проверки отзывов пропущены (стенд не должен дорисовывать ряд в обход выключателя)</div>');
             document.getElementById('checks').innerHTML += out.join('');
             return;

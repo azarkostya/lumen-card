@@ -837,38 +837,87 @@ test('buildCss: в сжатой шапке статус и чип серии —
 /* Проверка идёт от САМОГО CSS, а не от списка известных селекторов:      */
 /* любое новое правило карточки с backdrop-filter:blur обязано завести    */
 /* себе пару под lumen-motion-lite и lumen-motion-off, иначе тест упадёт. */
-/* Заливки у всех трёх правил непрозрачные (C.buttonBg .82, rgba(11,9,8,  */
-/* .5/.62)) — визуально гашение почти не заметно. Тот же довод проект уже */
-/* принимал дважды: .lumen-facts (правка 2026-09-16) и пилюля             */
-/* предзагрузки Task 32.                                                  */
+/* Но снять блюр — мало. У кнопок заливка действительно плотная (C.buttonBg */
+/* .82, да ещё поверх нижней вуали .98 -> .60). А «Стоп» (.5) и метка       */
+/* (.62) ПОЛУПРОЗРАЧНЫ и показываются ТОЛЬКО при lumen-trailer-on, то есть  */
+/* всегда поверх живого кадра YouTube, где вуали слоя вдобавок приглушены   */
+/* до opacity .45 (.lumen-backdrop.lumen-trailer-live). На светлой сцене    */
+/* ролика белый текст на такой подложке теряется: замеренный контраст       */
+/* #F3EDE4 к подложке поверх белого кадра — 3.1:1 у «Стоп» и 4.8:1 у метки, */
+/* против целевых 7:1 проекта. Поэтому правило, снявшее блюр с прозрачной   */
+/* подложки, ОБЯЗАНО компенсировать это плотной заливкой.                   */
+/*                                                                         */
+/* Проверка идёт от самого CSS и по ВСЕМ нашим корням (Minor 7): блюр на    */
+/* слое фона или под body-корнем тест не должен молча пропустить.           */
 /* -------------------------------------------------------------------- */
 
-function blurSelectors(cssText) {
+/* Тот же список корней, что у ALLOWED_ROOTS выше. */
+const MOTION_ROOTS = ['.lumen-card', '.lumen-backdrop', '.lumen-descr-row', '.lumen-review-modal', 'body'];
+
+function rootOf(sel) {
+  for (const root of MOTION_ROOTS) if (startsWithRoot(sel, root)) return root;
+  return null;
+}
+
+function blurRules(cssText) {
   const out = [];
   for (const rule of ruleBodies(cssText)) {
     if (rule.decl.indexOf('backdrop-filter:blur(') === -1) continue;
-    for (const sel of rule.selectors) if (sel.indexOf('.lumen-card') === 0) out.push(sel);
+    for (const sel of rule.selectors) {
+      const root = rootOf(sel);
+      if (root) out.push({ sel, root, decl: rule.decl });
+    }
   }
   return out;
 }
 
-test('I1: каждое правило карточки с backdrop-filter:blur гасится и в lumen-motion-lite, и в lumen-motion-off', () => {
-  const blurred = blurSelectors(css);
+/* Альфа собственной заливки правила: background:rgba(r,g,b,a) -> a. */
+function fillAlpha(decl) {
+  const m = /(?:^|;)background:rgba\([^)]*?,\s*([\d.]+)\s*\)/.exec(decl);
+  return m ? parseFloat(m[1]) : null;
+}
+
+test('I1: blur гасится в lumen-motion-lite/off, а полупрозрачная подложка при этом уплотняется', () => {
+  const blurred = blurRules(css);
   /* Кнопки карточки, кнопка «Стоп» и метка «ТРЕЙЛЕР · БЕЗ ЗВУКА». */
   assert.ok(blurred.length >= 3, 'ожидались правила блюра кнопок/«Стоп»/метки, найдено: ' + blurred.length);
 
-  for (const sel of blurred) {
+  for (const { sel, root, decl } of blurred) {
+    const base = fillAlpha(decl);
     for (const mode of ['lite', 'off']) {
-      /* Гасящий селектор — тот же самый плюс класс режима на корне карточки:
+      /* Гасящий селектор — тот же самый плюс класс режима на корне:
          специфичность строго выше исходного правила, поэтому порядок
          объявления в файле роли не играет и !important не нужен. */
-      const want = sel.replace('.lumen-card', '.lumen-card.lumen-motion-' + mode);
-      const decl = findDecl(css, (s) => s === want);
-      assert.ok(decl, 'нет правила, гасящего блюр: ' + want);
-      assert.ok(/(^|;)backdrop-filter:none/.test(decl), want + ' обязан задавать backdrop-filter:none, а не «' + decl + '»');
-      assert.ok(decl.indexOf('-webkit-backdrop-filter:none') !== -1,
+      const want = root + '.lumen-motion-' + mode + sel.slice(root.length);
+      const quench = findDecl(css, (s) => s === want);
+      assert.ok(quench, 'нет правила, гасящего блюр: ' + want);
+      assert.ok(/(^|;)backdrop-filter:none/.test(quench), want + ' обязан задавать backdrop-filter:none, а не «' + quench + '»');
+      assert.ok(quench.indexOf('-webkit-backdrop-filter:none') !== -1,
         want + ': нужен и -webkit-префикс — на WebView ТВ работает именно он');
+
+      /* Компенсация — только там, где подложка сама по себе прозрачная.
+         Кнопкам (.82 плюс вуаль) она не нужна и только утяжелила бы вид. */
+      if (base !== null && base < 0.8) {
+        const dense = fillAlpha(quench);
+        assert.ok(dense !== null,
+          want + ': исходная заливка ' + base + ' — сняв блюр, правило обязано задать свою, иначе текст поплывёт на светлом кадре');
+        assert.ok(dense >= 0.88,
+          want + ': заливка ' + dense + ' слишком прозрачна для белого текста поверх светлого кадра (нужно >= .88)');
+      }
     }
+  }
+});
+
+/* Фокус «Стоп» красится акцентом, и уплотнённая подложка выше не должна его
+   перебить: у неё 3 класса специфичности, ровно как у v1-правила
+   .lumen-card .lumen-stop.focus, а объявлена она ПОЗЖЕ — то есть выиграла бы
+   по порядку. Акцент возвращает правило режима с 4 классами. */
+test('I1: уплотнённая подложка «Стоп» не перекрашивает кнопку в фокусе (акцент остаётся)', () => {
+  for (const mode of ['lite', 'off']) {
+    const focus = findDecl(css, (s) => s === '.lumen-card.lumen-motion-' + mode + ' .lumen-stop.focus');
+    assert.ok(focus, 'правило фокуса «Стоп» для ' + mode + ' не найдено');
+    assert.ok(/background:#[0-9A-Fa-f]{6}/.test(focus),
+      mode + ': фокусная кнопка обязана заново объявить акцентную заливку, иначе её перебьёт уплотнение: ' + focus);
   }
 });
 

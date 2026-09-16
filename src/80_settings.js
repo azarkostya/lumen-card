@@ -311,6 +311,11 @@
   }
 
   LC.addSettings = function () {
+    /* Ревью фазы 1, второй круг (Minor 4): свой гард, как у LC.followStorage.
+       Снаружи повтор прикрывает inited в LC.init, но полагаться на единственную
+       внешнюю защиту нельзя — повторная регистрация продублировала бы весь
+       раздел «Lumen Card» в настройках Lampa. */
+    if (LC.settingsAdded) return;
     try {
       if (!window.Lampa || !Lampa.SettingsApi || typeof Lampa.SettingsApi.addComponent !== 'function') return;
 
@@ -322,6 +327,7 @@
 
       /* Порядок пунктов и группы — LC.prefs.LIST (src/81_prefs.js, экран 09). */
       for (var i = 0; i < LC.prefs.LIST.length; i++) addPrefParam(LC.prefs.LIST[i]);
+      LC.settingsAdded = true;
     } catch (e) {
       warn('settings failed', e);
     }

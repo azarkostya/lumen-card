@@ -63,7 +63,12 @@ function setup(opts) {
      отзывы, фон). Так проверка «одна точка применения» бьёт по реальной
      цепочке applyPrefChange -> LC.apply*Pref, а не по моку всей цепочки. */
   LC.header = { decorate: () => { }, descr: () => { }, refreshProgress: () => log.push('progress'), refreshCast: () => log.push('cast') };
-  LC.trailer = { bind: () => { }, schedule: () => null, stopActive: () => log.push('trailer-stop'), mode: () => opts.trailerMode || 'auto' };
+  LC.trailer = {
+    bind: () => { }, schedule: () => null, stopActive: () => log.push('trailer-stop'),
+    mode: () => opts.trailerMode || 'auto',
+    /* Как настоящая LC.trailer.isLive: признак — класс на слое (здесь слоёв нет). */
+    isLive: (layer) => !!(layer && layer.length && typeof layer.hasClass === 'function' && layer.hasClass('lumen-trailer-live'))
+  };
   LC.reviews = { render: () => log.push('reviews-render'), clearRow: () => log.push('reviews-clear'), cancel: () => { } };
   LC.backdrops = { apply: () => null, cancel: () => log.push('bg-cancel') };
   /* Task 32: класс режима движения на body — фейковый $('body'). */

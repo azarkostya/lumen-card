@@ -54,6 +54,27 @@ test('без key → пропуск', () => assert.equal(t.pickTrailer([{ name: 
 
 test('пусто', () => assert.equal(t.pickTrailer([]), null));
 
+/* ====================================================================== */
+/* Ревью фазы 1, второй круг (п.3 и Minor 5): LC.trailer.isLive(layer) —   */
+/* ЕДИНСТВЕННАЯ точка признака «ролик реально играет». Потребителей у него */
+/* стало три (applySlideshowPref и два resume() в LC.onActivityEvent),     */
+/* поэтому класс lumen-trailer-live перестал быть внутренним делом модуля  */
+/* и описан в его шапке как публичный межмодульный контракт.               */
+/* ====================================================================== */
+
+test('isLive: признак — класс lumen-trailer-live на слое', () => {
+  assert.equal(t.isLive(new FakeEl(['lumen-backdrop', 'lumen-trailer-live'])), true);
+  assert.equal(t.isLive(new FakeEl(['lumen-backdrop'])), false, 'слой есть, но ролик не играет');
+});
+
+test('isLive: мусор на входе -> false, без исключений', () => {
+  assert.equal(t.isLive(null), false);
+  assert.equal(t.isLive(undefined), false);
+  assert.equal(t.isLive({ length: 0 }), false, 'пустой набор jQuery');
+  assert.equal(t.isLive({ length: 1 }), false, 'узел без hasClass не должен ронять вызов');
+  assert.equal(t.isLive({ length: 1, hasClass: () => { throw new Error('boom'); } }), false);
+});
+
 test('pickTrailer: мусор на входе (undefined/null/не массив/дырки) -> null, без исключений', () => {
   assert.equal(t.pickTrailer(undefined), null);
   assert.equal(t.pickTrailer(null), null);

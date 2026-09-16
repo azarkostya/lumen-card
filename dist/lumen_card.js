@@ -954,7 +954,25 @@ css.push('.lumen-card.lumen-motion-lite .lumen-episode.focus,.lumen-card.lumen-m
 
 
 
-css.push('.lumen-card.lumen-motion-lite .lumen-stop.focus,.lumen-card.lumen-motion-off .lumen-stop.focus{-webkit-transform:none !important;transform:none !important}');
+
+
+
+
+css.push('.lumen-card.lumen-motion-lite .lumen-stop.focus,.lumen-card.lumen-motion-off .lumen-stop.focus{background:' + A + ';-webkit-transform:none !important;transform:none !important}');
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -971,8 +989,8 @@ css.push('.lumen-card.lumen-motion-lite .lumen-stop.focus,.lumen-card.lumen-moti
 
 
 css.push('.lumen-card.lumen-motion-lite .full-start-new__buttons .full-start__button,.lumen-card.lumen-motion-off .full-start-new__buttons .full-start__button{-webkit-backdrop-filter:none;backdrop-filter:none}');
-css.push('.lumen-card.lumen-motion-lite .lumen-stop,.lumen-card.lumen-motion-off .lumen-stop{-webkit-backdrop-filter:none;backdrop-filter:none}');
-css.push('.lumen-card.lumen-motion-lite .lumen-trailer-badge,.lumen-card.lumen-motion-off .lumen-trailer-badge{-webkit-backdrop-filter:none;backdrop-filter:none}');
+css.push('.lumen-card.lumen-motion-lite .lumen-stop,.lumen-card.lumen-motion-off .lumen-stop{-webkit-backdrop-filter:none;backdrop-filter:none;background:rgba(' + BG_RGB + ',.9)}');
+css.push('.lumen-card.lumen-motion-lite .lumen-trailer-badge,.lumen-card.lumen-motion-off .lumen-trailer-badge{-webkit-backdrop-filter:none;backdrop-filter:none;background:rgba(' + BG_RGB + ',.9)}');
 
 
 
@@ -2663,6 +2681,15 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 
+
+
+
+
+
+
+
+
+
 LC.trailer = (function () {
 
 var API_ID = 'lumen-yt-api';
@@ -2887,6 +2914,21 @@ host = $('<div class="lumen-bg__trailer"></div>');
 layer.append(host);
 }
 return host;
+}
+
+
+
+
+
+
+
+
+function isLive(layer) {
+try {
+return !!(layer && layer.length && typeof layer.hasClass === 'function' && layer.hasClass('lumen-trailer-live'));
+} catch (e) {
+return false;
+}
 }
 
 
@@ -3155,6 +3197,7 @@ mode: mode,
 player: player,
 schedule: schedule,
 stopActive: stopActive,
+isLive: isLive,
 bind: bind
 };
 })();
@@ -5196,6 +5239,11 @@ Lampa.SettingsApi.addParam({ component: PLUGIN, param: param, field: field, onCh
 }
 
 LC.addSettings = function () {
+
+
+
+
+if (LC.settingsAdded) return;
 try {
 if (!window.Lampa || !Lampa.SettingsApi || typeof Lampa.SettingsApi.addComponent !== 'function') return;
 
@@ -5207,6 +5255,7 @@ name: LC.lang('lumen_card_title')
 
 
 for (var i = 0; i < LC.prefs.LIST.length; i++) addPrefParam(LC.prefs.LIST[i]);
+LC.settingsAdded = true;
 } catch (e) {
 warn('settings failed', e);
 }
@@ -6692,7 +6741,12 @@ LC.destroyActive();
 
 var ownLayer = layerOf(e.object);
 LC.active.slideshow = liveSlideshow(ownLayer, LC.active.slideshow);
-if (LC.active.slideshow) LC.active.slideshow.resume();
+
+
+
+
+
+if (LC.active.slideshow && !LC.trailer.isLive(ownLayer)) LC.active.slideshow.resume();
 
 
 
@@ -6782,7 +6836,11 @@ var slideshow = liveSlideshow(layer, layer.data('lumenSlideshow'));
 
 
 LC.active = { object: e.object, body: layer.parent(), slideshow: slideshow, trailer: layer.data('lumenTrailer') || null, data: layer.data('lumenData') || null };
-if (slideshow) slideshow.resume();
+
+
+
+
+if (slideshow && !LC.trailer.isLive(layer)) slideshow.resume();
 }
 }
 } catch (err) {
@@ -6831,8 +6889,10 @@ LC.active.slideshow.pause();
 
 
 
-var layer = LC.active.body && LC.active.body.children ? LC.active.body.children('.lumen-backdrop') : null;
-if (layer && layer.length && layer.hasClass('lumen-trailer-live')) return;
+
+var body = LC.active.body;
+var layer = body && typeof body.children === 'function' ? body.children('.lumen-backdrop') : null;
+if (LC.trailer.isLive(layer)) return;
 if (LC.pref('lumen_slideshow', true)) LC.active.slideshow.resume();
 } catch (e) {
 warn('slideshow pref failed', e);
@@ -7285,6 +7345,13 @@ LC.followTimeline();
 
 if (LC.enabled()) activate();
 } catch (e) {
+
+
+
+
+
+
+inited = false;
 warn('init failed', e);
 restoreOriginalTemplate();
 }

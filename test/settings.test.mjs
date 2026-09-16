@@ -102,6 +102,22 @@ test('addSettings: раздел зарегистрирован один раз, 
   assert.ok(components[0].icon.indexOf('<svg') === 0, 'иконка раздела — svg');
 });
 
+/* Ревью фазы 1, второй круг (Minor 4): у LC.addSettings свой гард, как у
+   LC.followStorage. Снаружи его прикрывает inited в LC.init, но полагаться на
+   единственную внешнюю защиту нельзя — повторная регистрация продублировала бы
+   весь раздел в настройках Lampa. */
+test('Minor 4: повторный LC.addSettings не регистрирует раздел и пункты второй раз', () => {
+  const { LC, params, components } = setup();
+  LC.addSettings();
+  const first = params.length;
+  assert.ok(first > 0, 'первый вызов зарегистрировал пункты');
+
+  LC.addSettings();
+
+  assert.equal(components.length, 1, 'раздел зарегистрирован один раз');
+  assert.equal(params.length, first, 'пункты раздела не продублированы');
+});
+
 test('addSettings: порядок и типы параметров — как в таблице LC.prefs.LIST (экран 09)', () => {
   const { LC, params } = setup();
   LC.addSettings();
