@@ -132,7 +132,9 @@ test('долг ревью (п.2): каждая настройка раздела
     lumen_reviews: ['applyReviewsPref'],
     lumen_kp_key: ['applyReviewsPref'],
     lumen_menus: ['applyMenusPref'],
-    lumen_torrents: ['applyTorrentsPref']
+    lumen_torrents: ['applyTorrentsPref'],
+    /* Task 14 (фаза 2): URL манифеста — сброс кэша Storage, без apply-функции рантайма. */
+    lumen_manifest_url: []
   };
 
   /* В проверке обязаны быть все пункты раздела — иначе она снова отстанет от

@@ -94,7 +94,9 @@ test('LIST: «Включить Lumen Card» — первый пункт разд
 test('LIST: полный набор ключей — существующие имена не переименованы', () => {
   assert.deepEqual(names.slice().sort(), [
     'lumen_card_accent', 'lumen_card_cast', 'lumen_card_fonts', 'lumen_card_progress',
-    'lumen_enabled', 'lumen_kp_key', 'lumen_menus', 'lumen_motion', 'lumen_reviews',
+    'lumen_enabled', 'lumen_kp_key',
+    'lumen_manifest_url', /* Task 14 (фаза 2): URL внешнего манифеста подборок */
+    'lumen_menus', 'lumen_motion', 'lumen_reviews',
     'lumen_slide_interval', 'lumen_slideshow', 'lumen_torrents', 'lumen_trailer'
   ].sort());
 });

@@ -13,6 +13,11 @@ var LC = {};
 if (typeof window !== 'undefined') window.lumen_card = LC;
 LC.VERSION = '0.2.0';
 
+
+
+
+LC.MANIFEST_URL = '';
+
 var PLUGIN = 'lumen_card';
 
 
@@ -1707,6 +1712,736 @@ return { innerOf: innerOf, build: build, REQUIRED: REQUIRED, assert: assert };
 })();
 
 if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.template;
+
+
+/* ---- 42_manifest.js ---- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+LC.manifest = (function () {
+
+
+var DEFAULT = {
+version: 1,
+
+
+groups: [
+{ id: 'franchise', title: 'Franchises' },
+{ id: 'studio',    title: 'Studios' },
+{ id: 'service',   title: 'Services' },
+{ id: 'theme',     title: 'Themes' },
+{ id: 'country',   title: 'Countries' },
+{ id: 'era',       title: 'Eras' },
+{ id: 'people',    title: 'People' },
+{ id: 'top',       title: 'Top' },
+{ id: 'kp',        title: 'Kinopoisk' },
+{ id: 'mood',      title: 'Mood' }
+],
+
+
+hubGroups: [
+{ id: 'franchises', title: 'Franchises',           groups: ['franchise'] },
+{ id: 'studios',    title: 'Studios & Services',   groups: ['studio', 'service'] },
+{ id: 'themes',     title: 'Themes',               groups: ['theme'] },
+{ id: 'countries',  title: 'Countries',            groups: ['country'] },
+{ id: 'eras',       title: 'Eras',                 groups: ['era'] },
+{ id: 'people',     title: 'People',               groups: ['people'] },
+{ id: 'tops',       title: 'Top & Kinopoisk',      groups: ['top', 'kp'] }
+],
+
+
+moods: [
+{ id: 'friday',  title: 'Friday Evening',  sources: { movie: { type: 'discover', params: { genres: '28|12|35', sort_by: 'popularity.desc', filter: { 'vote_average.gte': 6.5, 'with_runtime.lte': 130 } } } } },
+{ id: 'family',  title: 'Family Viewing',  sources: { movie: { type: 'discover', params: { genres: '10751|16', sort_by: 'popularity.desc', filter: { certification_country: 'US', 'certification.lte': 'PG' } } } } },
+{ id: 'scary',   title: 'Scary at Night',  sources: { movie: { type: 'discover', params: { genres: 27, sort_by: 'vote_average.desc', filter: { 'vote_count.gte': 300 } } } } },
+{ id: 'short',   title: '90 Minutes',      sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { 'with_runtime.lte': 90, 'vote_count.gte': 200 } } } } }
+],
+
+
+home: [
+'continue', 'because', 'new-episodes', 'soon',
+'star-wars', 'xmas-comedy', 'netflix-comedy', 'apple-tv',
+'kdrama', 'anime', 'kp-top250'
+],
+
+
+collections: [
+
+
+{
+id: 'star-wars', title: 'Star Wars', group: 'franchise', icon: 'film',
+sources: {
+movie: { type: 'collection', id: 10 },
+tv:    { type: 'discover',   params: { keywords: 379196, sort_by: 'popularity.desc' } }
+}
+},
+{
+id: 'harry-potter', title: 'Harry Potter', group: 'franchise', icon: 'film',
+sources: { movie: { type: 'collection', id: 1241 } }
+},
+{
+id: 'lotr', title: 'Lord of the Rings', group: 'franchise', icon: 'film',
+sources: { movie: { type: 'collection', id: 119 } }
+},
+{
+id: 'hobbit', title: 'The Hobbit', group: 'franchise', icon: 'film',
+sources: { movie: { type: 'collection', id: 121938 } }
+},
+{
+id: 'john-wick', title: 'John Wick', group: 'franchise', icon: 'film',
+sources: { movie: { type: 'collection', id: 404609 } }
+},
+{
+id: 'mission-impossible', title: 'Mission: Impossible', group: 'franchise', icon: 'film',
+sources: { movie: { type: 'collection', id: 87359 } }
+},
+{
+id: 'matrix', title: 'The Matrix', group: 'franchise', icon: 'film',
+sources: { movie: { type: 'collection', id: 2344 } }
+},
+{
+id: 'terminator', title: 'Terminator', group: 'franchise', icon: 'film',
+sources: { movie: { type: 'collection', id: 528 } }
+},
+
+
+{
+id: 'pixar', title: 'Pixar', group: 'studio',
+sources: { movie: { type: 'discover', params: { companies: 3, sort_by: 'popularity.desc' } } }
+},
+{
+id: 'ghibli', title: 'Studio Ghibli', group: 'studio',
+sources: { movie: { type: 'discover', params: { companies: 10342, sort_by: 'popularity.desc' } } }
+},
+{
+id: 'marvel', title: 'Marvel Studios', group: 'studio',
+sources: { movie: { type: 'discover', params: { companies: 420, sort_by: 'popularity.desc' } } }
+},
+{
+id: 'a24', title: 'A24', group: 'studio',
+sources: { movie: { type: 'discover', params: { companies: 41077, sort_by: 'popularity.desc' } } }
+},
+{
+id: 'dc', title: 'DC Studios', group: 'studio',
+sources: { movie: { type: 'discover', params: { companies: 128064, sort_by: 'popularity.desc' } } }
+},
+{
+id: 'lucasfilm', title: 'Lucasfilm', group: 'studio',
+sources: { movie: { type: 'discover', params: { companies: 1, sort_by: 'popularity.desc' } } }
+},
+
+
+{
+id: 'netflix-comedy', title: 'Netflix Comedy', group: 'service', badge: 'NETFLIX',
+sources: {
+tv:    { type: 'discover', params: { genres: 35, networks: 213, sort_by: 'popularity.desc' } },
+movie: { type: 'discover', params: { genres: 35, watch_providers: 8, watch_region: 'US', sort_by: 'popularity.desc' } }
+}
+},
+{
+id: 'apple-tv', title: 'Apple TV+', group: 'service', badge: 'APPLE TV+',
+sources: { tv: { type: 'discover', params: { networks: 2552, sort_by: 'popularity.desc' } } }
+},
+{
+id: 'hbo-series', title: 'HBO', group: 'service', badge: 'HBO',
+sources: { tv: { type: 'discover', params: { networks: 49, sort_by: 'popularity.desc' } } }
+},
+{
+id: 'disney-series', title: 'Disney+', group: 'service', badge: 'DISNEY+',
+sources: { tv: { type: 'discover', params: { networks: 2739, sort_by: 'popularity.desc' } } }
+},
+{
+id: 'amazon-series', title: 'Amazon Prime', group: 'service', badge: 'PRIME',
+sources: { tv: { type: 'discover', params: { networks: 1024, sort_by: 'popularity.desc' } } }
+},
+{
+id: 'netflix-series', title: 'Netflix Series', group: 'service', badge: 'NETFLIX',
+sources: { tv: { type: 'discover', params: { networks: 213, sort_by: 'popularity.desc' } } }
+},
+
+
+{
+id: 'xmas-comedy', title: 'Christmas Comedies', group: 'theme', icon: 'star', season: [12, 1],
+sources: { movie: { type: 'discover', params: { genres: 35, keywords: 207317, sort_by: 'popularity.desc' } } }
+},
+{
+id: 'halloween', title: 'Halloween', group: 'theme', icon: 'star', season: [9, 10, 11],
+sources: { movie: { type: 'discover', params: { genres: 27, keywords: 3335, sort_by: 'popularity.desc' } } }
+},
+{
+id: 'comedy', title: 'Comedies', group: 'theme',
+sources: { movie: { type: 'discover', params: { genres: 35, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 200 } } } }
+},
+{
+id: 'superhero', title: 'Superheroes', group: 'theme',
+sources: {
+movie: { type: 'discover', params: { genres: '28|12', sort_by: 'popularity.desc', filter: { 'vote_count.gte': 100 } } },
+tv:    { type: 'discover', params: { genres: '10759|10765', sort_by: 'popularity.desc' } }
+}
+},
+{
+id: 'horror-top', title: 'Horror', group: 'theme',
+sources: { movie: { type: 'discover', params: { genres: 27, sort_by: 'vote_average.desc', filter: { 'vote_count.gte': 300 } } } }
+},
+{
+id: 'documentary', title: 'Documentary', group: 'theme',
+sources: { movie: { type: 'discover', params: { genres: 99, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 100 } } } }
+},
+{
+id: 'thriller', title: 'Thrillers', group: 'theme',
+sources: { movie: { type: 'discover', params: { genres: 53, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 200 } } } }
+},
+
+
+{
+id: 'kdrama', title: 'K-Drama', group: 'country',
+sources: { tv: { type: 'discover', params: { genres: 18, sort_by: 'popularity.desc', filter: { with_origin_country: 'KR' } } } }
+},
+{
+id: 'anime', title: 'Anime', group: 'country',
+sources: { tv: { type: 'discover', params: { genres: 16, orig_lang: 'ja', sort_by: 'popularity.desc' } } }
+},
+{
+id: 'turkish', title: 'Turkish Series', group: 'country',
+sources: { tv: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_origin_country: 'TR' } } } }
+},
+{
+id: 'french', title: 'French Cinema', group: 'country',
+sources: { movie: { type: 'discover', params: { sort_by: 'vote_average.desc', filter: { with_origin_country: 'FR', 'vote_count.gte': 100 } } } }
+},
+{
+id: 'british', title: 'British TV', group: 'country',
+sources: {
+tv:    { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_origin_country: 'GB' } } },
+movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_origin_country: 'GB', 'vote_count.gte': 100 } } }
+}
+},
+{
+id: 'bollywood', title: 'Bollywood', group: 'country',
+sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_origin_country: 'IN', 'vote_count.gte': 50 } } } }
+},
+{
+id: 'spanish', title: 'Spanish Series', group: 'country',
+sources: { tv: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_origin_country: 'ES' } } } }
+},
+
+
+{
+id: 'best-70s', title: 'Best of 1970s', group: 'era',
+sources: { movie: { type: 'discover', params: { sort_by: 'vote_average.desc', filter: { 'primary_release_date.gte': '1970-01-01', 'primary_release_date.lte': '1979-12-31', 'vote_count.gte': 300 } } } }
+},
+{
+id: 'best-80s', title: 'Best of 1980s', group: 'era',
+sources: { movie: { type: 'discover', params: { sort_by: 'vote_average.desc', filter: { 'primary_release_date.gte': '1980-01-01', 'primary_release_date.lte': '1989-12-31', 'vote_count.gte': 500 } } } }
+},
+{
+id: 'best-90s', title: 'Best of 1990s', group: 'era',
+sources: { movie: { type: 'discover', params: { sort_by: 'vote_average.desc', filter: { 'primary_release_date.gte': '1990-01-01', 'primary_release_date.lte': '1999-12-31', 'vote_count.gte': 500 } } } }
+},
+{
+id: 'best-2000s', title: 'Best of 2000s', group: 'era',
+sources: { movie: { type: 'discover', params: { sort_by: 'vote_average.desc', filter: { 'primary_release_date.gte': '2000-01-01', 'primary_release_date.lte': '2009-12-31', 'vote_count.gte': 500 } } } }
+},
+{
+id: 'best-2010s', title: 'Best of 2010s', group: 'era',
+sources: { movie: { type: 'discover', params: { sort_by: 'vote_average.desc', filter: { 'primary_release_date.gte': '2010-01-01', 'primary_release_date.lte': '2019-12-31', 'vote_count.gte': 500 } } } }
+},
+
+
+{
+id: 'nolan', title: 'Christopher Nolan', group: 'people',
+sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_people: 525 } } } }
+},
+{
+id: 'tarantino', title: 'Quentin Tarantino', group: 'people',
+sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_people: 138 } } } }
+},
+{
+id: 'dicaprio', title: 'Leonardo DiCaprio', group: 'people',
+sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_people: 6193 } } } }
+},
+{
+id: 'spielberg', title: 'Steven Spielberg', group: 'people',
+sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_people: 488 } } } }
+},
+{
+id: 'fincher', title: 'David Fincher', group: 'people',
+sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_people: 7467 } } } }
+},
+{
+id: 'scorsese', title: 'Martin Scorsese', group: 'people',
+sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_people: 1032 } } } }
+},
+{
+id: 'villeneuve', title: 'Denis Villeneuve', group: 'people',
+sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_people: 137427 } } } }
+},
+{
+id: 'miyazaki', title: 'Hayao Miyazaki', group: 'people',
+sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_people: 608 } } } }
+},
+
+
+{
+id: 'top-grossing', title: 'Top Grossing', group: 'top',
+sources: { movie: { type: 'list', id: 10 } }
+},
+{
+id: 'top-rated', title: 'Top Rated', group: 'top',
+sources: { movie: { type: 'discover', params: { sort_by: 'vote_average.desc', filter: { 'vote_count.gte': 1000, 'vote_average.gte': 8 } } } }
+},
+{
+id: 'popular-all', title: 'Popular Now', group: 'top',
+sources: {
+movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { 'vote_count.gte': 100 } } },
+tv:    { type: 'discover', params: { sort_by: 'popularity.desc', filter: { 'vote_count.gte': 50 } } }
+}
+},
+
+
+{
+id: 'kp-top250', title: 'KP Top-250 Movies', group: 'kp', badge: 'KINOPOISK',
+sources: { movie: { type: 'kp', collection: 'TOP_250_MOVIES' } }
+},
+{
+id: 'kp-top250-tv', title: 'KP Top-250 Series', group: 'kp', badge: 'KINOPOISK',
+sources: { movie: { type: 'kp', collection: 'TOP_250_TV_SHOWS' } }
+},
+{
+id: 'kp-popular-all', title: 'KP Popular', group: 'kp', badge: 'KINOPOISK',
+sources: { movie: { type: 'kp', collection: 'TOP_POPULAR_ALL' } }
+},
+{
+id: 'kp-popular-series', title: 'KP Popular Series', group: 'kp', badge: 'KINOPOISK',
+sources: { movie: { type: 'kp', collection: 'POPULAR_SERIES' } }
+},
+{
+id: 'kp-family', title: 'KP Family', group: 'kp', badge: 'KINOPOISK',
+sources: { movie: { type: 'kp', collection: 'FAMILY' } }
+},
+{
+id: 'kp-animation', title: 'KP Animation', group: 'kp', badge: 'KINOPOISK',
+sources: { movie: { type: 'kp', collection: 'KIDS_ANIMATION_THEME' } }
+},
+{
+id: 'kp-comics', title: 'KP Comics', group: 'kp', badge: 'KINOPOISK',
+sources: { movie: { type: 'kp', collection: 'COMICS_THEME' } }
+},
+{
+id: 'kp-vampire', title: 'KP Vampire', group: 'kp', badge: 'KINOPOISK',
+sources: { movie: { type: 'kp', collection: 'VAMPIRE_THEME' } }
+},
+{
+id: 'kp-zombie', title: 'KP Zombie', group: 'kp', badge: 'KINOPOISK',
+sources: { movie: { type: 'kp', collection: 'ZOMBIE_THEME' } }
+},
+{
+id: 'kp-love', title: 'KP Love', group: 'kp', badge: 'KINOPOISK',
+sources: { movie: { type: 'kp', collection: 'LOVE_THEME' } }
+},
+{
+id: 'kp-catastrophe', title: 'KP Catastrophe', group: 'kp', badge: 'KINOPOISK',
+sources: { movie: { type: 'kp', collection: 'CATASTROPHE_THEME' } }
+},
+{
+id: 'kp-oscars', title: 'KP Oscar Winners', group: 'kp', badge: 'KINOPOISK',
+sources: { movie: { type: 'kp', collection: 'OSKAR_WINNERS_2021' } }
+}
+
+]
+};
+
+
+
+
+
+
+function validate(m) {
+if (!m || typeof m !== 'object' || Array.isArray(m)) {
+return { ok: false, reason: 'not_object' };
+}
+if (!m.version) return { ok: false, reason: 'no_version' };
+if (!Array.isArray(m.collections)) return { ok: false, reason: 'no_collections' };
+var seen = {};
+var i, c;
+for (i = 0; i < m.collections.length; i++) {
+c = m.collections[i];
+if (!c || !c.id) return { ok: false, reason: 'collection_no_id' };
+if (seen[c.id]) return { ok: false, reason: 'duplicate_id: ' + c.id };
+seen[c.id] = 1;
+if (!c.sources || (!c.sources.movie && !c.sources.tv)) {
+return { ok: false, reason: 'no_sources: ' + c.id };
+}
+}
+return { ok: true };
+}
+
+
+
+function orderForMonth(list, month) {
+var seasonal = [];
+var rest = [];
+var i;
+for (i = 0; i < list.length; i++) {
+var c = list[i];
+var inSeason = false;
+if (c.season && month) {
+for (var j = 0; j < c.season.length; j++) {
+if (c.season[j] === month) { inSeason = true; break; }
+}
+}
+if (inSeason) { seasonal.push(c); } else { rest.push(c); }
+}
+return seasonal.concat(rest);
+}
+
+
+function isFresh(rec) {
+if (!rec || !rec.at) return false;
+return (Date.now() - rec.at) < 12 * 3600000;
+}
+
+
+var current = null;
+
+
+
+
+function load(cb) {
+var url = '';
+try {
+if (typeof LC.pref === 'function') url = LC.pref('lumen_manifest_url', '') || '';
+} catch (e) {}
+try {
+if (!url && typeof LC.MANIFEST_URL === 'string') url = LC.MANIFEST_URL || '';
+} catch (e) {}
+if (!url) { current = DEFAULT; cb(DEFAULT); return; }
+var cached = null;
+try { cached = Lampa.Storage.get('lumen_manifest', null); } catch (e) {}
+if (isFresh(cached) && cached && validate(cached.data).ok) {
+current = cached.data;
+cb(current);
+return;
+}
+var sep = url.indexOf('?') >= 0 ? '&' : '?';
+var reqUrl = url + sep + 't=' + Math.floor(Date.now() / 3600000);
+var net = new Lampa.Reguest();
+net.silent(
+reqUrl,
+function (json) {
+if (validate(json).ok) {
+try { Lampa.Storage.set('lumen_manifest', { at: Date.now(), data: json }); } catch (e) {}
+current = json;
+cb(json);
+} else {
+current = (cached && cached.data) || DEFAULT;
+cb(current);
+}
+},
+function () {
+current = (cached && cached.data) || DEFAULT;
+cb(current);
+},
+false,
+{ dataType: 'json', timeout: 8000 }
+);
+}
+
+
+function get() {
+return current || DEFAULT;
+}
+
+return {
+DEFAULT: DEFAULT,
+validate: validate,
+orderForMonth: orderForMonth,
+isFresh: isFresh,
+load: load,
+get: get
+};
+})();
+
+if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.manifest;
+
+
+/* ---- 43_sources.js ---- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+LC.sources = (function () {
+
+
+
+
+
+
+var MAP = {
+genres: 'with_genres',
+keywords: 'with_keywords',
+companies: 'with_companies',
+networks: 'with_networks',
+watch_providers: 'with_watch_providers',
+watch_region: 'watch_region',
+sort_by: 'sort_by',
+orig_lang: 'with_original_language'
+};
+
+
+
+
+
+var LIFE_DISCOVER = 720;
+var LIFE_STATIC = 10080;
+var LIFE_KP = 43200;
+
+
+
+
+function buildRequest(spec, media, page) {
+if (spec.type === 'collection') {
+return { url: 'collection/' + spec.id, params: {}, life: LIFE_STATIC };
+}
+if (spec.type === 'list') {
+return { url: 'list/' + spec.id, params: {}, life: LIFE_STATIC };
+}
+var params = {};
+var k;
+for (k in spec.params) {
+if (spec.params.hasOwnProperty(k)) {
+params[k] = spec.params[k];
+}
+}
+params.page = page || 1;
+return { url: 'discover/' + media, params: params, life: LIFE_DISCOVER };
+}
+
+
+
+
+
+
+function normalize(type, json) {
+json = json || {};
+var results;
+if (type === 'collection') {
+results = (json.parts || []).slice();
+results.sort(function (a, b) {
+var da = String(a.release_date || '9999');
+var db = String(b.release_date || '9999');
+if (da < db) return -1;
+if (da > db) return 1;
+return 0;
+});
+} else if (type === 'list') {
+results = (json.items || []).slice();
+} else {
+results = (json.results || []).slice();
+}
+var out = {
+results: results,
+title: json.title || json.name || '',
+page: json.page || 1
+};
+out.total_results = json.total_results || results.length;
+out.total_pages = json.total_pages || 1;
+return out;
+}
+
+
+
+
+function discoverUrl(spec, media) {
+var q = [];
+var p = spec.params || {};
+var k;
+for (k in p) {
+if (p.hasOwnProperty(k) && k !== 'filter') {
+q.push((MAP[k] || k) + '=' + encodeURIComponent(p[k]));
+}
+}
+var f = p.filter || {};
+for (k in f) {
+if (f.hasOwnProperty(k)) {
+q.push(k + '=' + encodeURIComponent(f[k]));
+}
+}
+return 'discover/' + media + (q.length ? '?' + q.join('&') : '');
+}
+
+
+
+function kpToFinds(json, limit) {
+var ids = [];
+LC.util.each((json && json.items) || [], function (it) {
+if (it && it.imdbId && ids.length < limit) {
+ids.push(it.imdbId);
+}
+});
+return ids;
+}
+
+
+
+
+function mergeMedia(movies, tv) {
+var out = [];
+var seen = {};
+var a = movies || [];
+var b = tv || [];
+var len = Math.max(a.length, b.length);
+var i;
+for (i = 0; i < len; i++) {
+if (a[i] && !seen[a[i].id]) {
+seen[a[i].id] = 1;
+out.push(a[i]);
+}
+if (b[i] && !seen[b[i].id]) {
+seen[b[i].id] = 1;
+out.push(b[i]);
+}
+}
+return out;
+}
+
+
+
+
+function fetchKp(spec, page, ok, err) {
+var key = (LC.reviews && typeof LC.pref === 'function') ? LC.pref('lumen_kp_key', '') : '';
+if (!key) { err('no_key'); return; }
+var cacheKey = 'lumen_kp_' + spec.collection + '_' + (page || 1);
+var cached;
+try { cached = Lampa.Storage.get(cacheKey, null); } catch (e) { cached = null; }
+if (cached && cached.at && (Date.now() - cached.at) < LIFE_KP * 60000) {
+ok(cached.data);
+return;
+}
+var net = new Lampa.Reguest();
+net.silent(
+'https://kinopoiskapiunofficial.tech/api/v2.2/films/collections?type=' + spec.collection + '&page=' + (page || 1),
+function (json) {
+var ids = kpToFinds(json, 20);
+var results = [];
+var i = 0;
+function next() {
+if (i >= ids.length) {
+var data = {
+results: results,
+page: page || 1,
+total_pages: json.totalPages || 1,
+total_results: json.total || results.length,
+title: ''
+};
+try { Lampa.Storage.set(cacheKey, { at: Date.now(), data: data }); } catch (e2) {}
+ok(data);
+return;
+}
+var id = ids[i++];
+Lampa.Api.sources.tmdb.get(
+'find/' + id,
+{ filter: { external_source: 'imdb_id' } },
+function (f) {
+var m = (f.movie_results && f.movie_results[0]) || (f.tv_results && f.tv_results[0]);
+if (m) results.push(m);
+next();
+},
+next,
+{ life: LIFE_KP }
+);
+}
+next();
+},
+function () { err('kp_failed'); },
+false,
+{ headers: { 'X-API-KEY': key }, dataType: 'json', timeout: 8000 }
+);
+}
+
+
+function fetchOne(spec, media, page, ok, err) {
+if (spec.type === 'kp') { fetchKp(spec, page, ok, err); return; }
+var r = buildRequest(spec, media, page);
+Lampa.Api.sources.tmdb.get(
+r.url,
+r.params,
+function (json) { ok(normalize(spec.type, json)); },
+err,
+{ life: r.life }
+);
+}
+
+
+
+
+function fetchAll(item, page, ok, err) {
+var src = item.sources || {};
+var want = [];
+var got = {};
+var failed = 0;
+if (src.movie) want.push('movie');
+if (src.tv) want.push('tv');
+if (!want.length) { err('no_sources'); return; }
+function done() {
+var gotLen = Object.keys(got).length;
+if (gotLen + failed < want.length) return;
+if (!gotLen) { err('all_failed'); return; }
+var m = got.movie || { results: [], total_pages: 1, total_results: 0 };
+var t = got.tv || { results: [], total_pages: 1, total_results: 0 };
+ok({
+results: mergeMedia(m.results, t.results),
+title: item.title,
+page: page || 1,
+total_pages: Math.max(m.total_pages || 1, t.total_pages || 1),
+total_results: (m.total_results || 0) + (t.total_results || 0)
+});
+}
+LC.util.each(want, function (media) {
+fetchOne(src[media], media, page, function (json) { got[media] = json; done(); }, function () { failed++; done(); });
+});
+}
+
+
+
+var api = {
+buildRequest: buildRequest,
+normalize: normalize,
+discoverUrl: discoverUrl,
+kpToFinds: kpToFinds,
+mergeMedia: mergeMedia,
+fetchOne: fetchOne
+};
+api['fetch'] = fetchAll;
+return api;
+})();
+
+if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.sources;
 
 
 /* ---- 50_backdrops.js ---- */
@@ -5101,6 +5836,19 @@ lumen_card_reviews_nokey_path: {
 ru: 'Настройки → Lumen Card → Ключ Kinopoisk API',
 en: 'Settings → Lumen Card → Kinopoisk API key',
 uk: 'Налаштування → Lumen Card → Ключ Kinopoisk API'
+},
+
+
+
+lumen_manifest_url: {
+ru: 'URL манифеста подборок',
+en: 'Collections manifest URL',
+uk: 'URL маніфесту підбірок'
+},
+lumen_manifest_url_descr: {
+ru: 'Внешний JSON-манифест подборок. Пусто — встроенный список (62 подборки). Кэш 12 ч.',
+en: 'External JSON manifest for collections. Empty — built-in list (62 collections). Cached 12 h.',
+uk: 'Зовнішній JSON-маніфест підбірок. Порожньо — вбудований список (62 підбірки). Кеш 12 год.'
 }
 };
 
@@ -5198,6 +5946,12 @@ if (name === 'lumen_menus') { LC.applyMenusPref(); return true; }
 if (name === 'lumen_torrents') { LC.applyTorrentsPref(); return true; }
 if (name === 'lumen_trailer') { LC.applyTrailerPref(); return true; }
 if (name === 'lumen_reviews' || name === 'lumen_kp_key') { LC.applyReviewsPref(); return true; }
+
+
+if (name === 'lumen_manifest_url') {
+try { if (window.Lampa && Lampa.Storage) Lampa.Storage.set('lumen_manifest', null); } catch (e) {}
+return true;
+}
 if (name.indexOf(PLUGIN + '_') !== 0) return false;
 
 
@@ -5379,7 +6133,11 @@ var LIST = [
 
 { name: 'lumen_group_path', type: 'title', label: 'lumen_card_group_path' },
 { name: 'lumen_menus', type: 'select', values: ['all', 'path', 'off'], vprefix: 'lumen_card_menus_', 'default': 'all', label: 'lumen_card_menus' },
-{ name: 'lumen_torrents', type: 'trigger', 'default': true, label: 'lumen_card_torrents_name', descr: 'lumen_card_torrents_descr' }
+{ name: 'lumen_torrents', type: 'trigger', 'default': true, label: 'lumen_card_torrents_name', descr: 'lumen_card_torrents_descr' },
+
+
+
+{ name: 'lumen_manifest_url', type: 'input', 'default': '', label: 'lumen_manifest_url', descr: 'lumen_manifest_url_descr' }
 ];
 
 function find(name) {

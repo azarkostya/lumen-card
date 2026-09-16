@@ -192,7 +192,9 @@ test('каждая настройка применяется ровно один
     lumen_reviews: ['reviews'],
     lumen_kp_key: ['reviews'],
     lumen_menus: ['menus'],
-    lumen_torrents: ['torrents']
+    lumen_torrents: ['torrents'],
+    /* Task 14 (фаза 2): URL манифеста — сброс кэша Storage, никакой apply-функции. */
+    lumen_manifest_url: []
   };
   const { LC, log, Storage, params } = setup();
   LC.addSettings();

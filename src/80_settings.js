@@ -169,6 +169,19 @@
       ru: 'Настройки → Lumen Card → Ключ Kinopoisk API',
       en: 'Settings → Lumen Card → Kinopoisk API key',
       uk: 'Налаштування → Lumen Card → Ключ Kinopoisk API'
+    },
+    /* Task 14 (фаза 2): URL внешнего манифеста подборок.
+       Пусто — используется встроенный DEFAULT (62 подборки).
+       Хостинговый манифест кэшируется 12 ч в Lampa.Storage. */
+    lumen_manifest_url: {
+      ru: 'URL манифеста подборок',
+      en: 'Collections manifest URL',
+      uk: 'URL маніфесту підбірок'
+    },
+    lumen_manifest_url_descr: {
+      ru: 'Внешний JSON-манифест подборок. Пусто — встроенный список (62 подборки). Кэш 12 ч.',
+      en: 'External JSON manifest for collections. Empty — built-in list (62 collections). Cached 12 h.',
+      uk: 'Зовнішній JSON-маніфест підбірок. Порожньо — вбудований список (62 підбірки). Кеш 12 год.'
     }
   };
 
@@ -266,6 +279,12 @@
     if (name === 'lumen_torrents') { LC.applyTorrentsPref(); return true; }
     if (name === 'lumen_trailer') { LC.applyTrailerPref(); return true; }
     if (name === 'lumen_reviews' || name === 'lumen_kp_key') { LC.applyReviewsPref(); return true; }
+    /* Task 14 (фаза 2): URL манифеста изменён — сбрасываем кэш Storage, чтобы
+       при следующей загрузке главной пришёл свежий манифест. */
+    if (name === 'lumen_manifest_url') {
+      try { if (window.Lampa && Lampa.Storage) Lampa.Storage.set('lumen_manifest', null); } catch (e) {}
+      return true;
+    }
     if (name.indexOf(PLUGIN + '_') !== 0) return false;
     /* Ревью Task 8 (п.3/ревью 2 п.4): от этих двух настроек таблица стилей не
        зависит вовсе — классы, узлы и CSS-переменную подписи кнопки ставит

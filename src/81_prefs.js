@@ -82,7 +82,11 @@
 
       { name: 'lumen_group_path', type: 'title', label: 'lumen_card_group_path' },
       { name: 'lumen_menus', type: 'select', values: ['all', 'path', 'off'], vprefix: 'lumen_card_menus_', 'default': 'all', label: 'lumen_card_menus' },
-      { name: 'lumen_torrents', type: 'trigger', 'default': true, label: 'lumen_card_torrents_name', descr: 'lumen_card_torrents_descr' }
+      { name: 'lumen_torrents', type: 'trigger', 'default': true, label: 'lumen_card_torrents_name', descr: 'lumen_card_torrents_descr' },
+
+      /* Task 14 (фаза 2): URL внешнего манифеста подборок. Пусто → встроенный.
+         Тип input: Lampa рисует текстовое поле (как lumen_kp_key). */
+      { name: 'lumen_manifest_url', type: 'input', 'default': '', label: 'lumen_manifest_url', descr: 'lumen_manifest_url_descr' }
     ];
 
     function find(name) {
