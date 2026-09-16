@@ -388,6 +388,8 @@
          Используем существующую подписку — вторая не заводится. */
       if ((e.type === 'archive' || e.type === 'destroy') && e.component === 'main') {
         try { if (LC.rows && LC.rows.bumpGen) LC.rows.bumpGen(); } catch (eBump) {}
+        /* Task 16: то же поколение поднимает LC.personal — вторая подписка не нужна. */
+        try { if (LC.personal && LC.personal.bumpGen) LC.personal.bumpGen(); } catch (eBumpP) {}
       }
 
       if (LC.active && e.object === LC.active.object) {
@@ -948,6 +950,13 @@
     } catch (eRows2) {
       warn('rows register failed', eRows2);
     }
+    /* Task 16: персональные ряды регистрируются синхронно — данные берутся
+       из Lampa.Favorite (локально) без async-загрузки манифеста. */
+    try {
+      if (LC.personal && LC.personal.register) LC.personal.register();
+    } catch (ePersonal) {
+      warn('personal rows register failed', ePersonal);
+    }
   }
 
   function deactivate() {
@@ -984,6 +993,8 @@
        зарегистрирует ряды через LC.rows.register (может понадобиться, если
        плагин выключили и снова включили). */
     try { if (LC.rows && LC.rows.unregister) LC.rows.unregister(); } catch (eRows) {}
+    /* Task 16: снять персональные ряды. */
+    try { if (LC.personal && LC.personal.unregister) LC.personal.unregister(); } catch (ePersonalOff) {}
   }
 
   /* Task 15 (I5-fix): перерегистрация рядов при смене lumen_rows_limit.
@@ -999,6 +1010,19 @@
       }
     } catch (e) {
       warn('rows pref failed', e);
+    }
+  };
+
+  /* Task 16: перерегистрация персональных рядов при смене lumen_personal_rows.
+     Снимает все персональные ряды и строит новые (с учётом текущего значения
+     настройки — если выключена, register() вернётся сразу без регистрации). */
+  LC.applyPersonalPref = function () {
+    if (!activated) return;
+    try {
+      if (LC.personal && LC.personal.unregister) LC.personal.unregister();
+      if (LC.personal && LC.personal.register) LC.personal.register();
+    } catch (e) {
+      warn('personal pref failed', e);
     }
   };
 

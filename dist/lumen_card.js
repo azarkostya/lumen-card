@@ -3008,6 +3008,633 @@ unregister: unregister
 if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.rows;
 
 
+/* ---- 45_personal.js ---- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+LC.personal = (function () {
+
+
+var WATCHED = 95;
+
+
+var BECAUSE_LIMIT = 2;
+
+
+var SHOWS_LIMIT = 12;
+
+
+var SOON_DAYS = 30;
+
+
+var RECENT_DAYS = 14;
+
+
+var UPCOMING_DAYS = 7;
+
+
+var _gen = 0;
+
+
+var _addedRows = [];
+
+
+
+
+
+
+
+
+function pickBecause(history, n) {
+if (!history || !history.length || n <= 0) return [];
+var seen = {};
+var out = [];
+for (var i = history.length - 1; i >= 0 && out.length < n; i--) {
+var c = history[i];
+if (!c || c.id == null) continue;
+if (seen[c.id]) continue;
+seen[c.id] = 1;
+out.push({
+id: c.id,
+
+media: c.name ? 'tv' : 'movie',
+title: c.title || c.name || ''
+});
+}
+return out;
+}
+
+
+function dateFmt(d) {
+var y = d.getUTCFullYear();
+var m = d.getUTCMonth() + 1;
+var day = d.getUTCDate();
+return y + '-' + (m < 10 ? '0' + m : '' + m) + '-' + (day < 10 ? '0' + day : '' + day);
+}
+
+
+
+
+function soonRange(today) {
+var d0;
+if (today instanceof Date) {
+d0 = today;
+} else if (today && typeof today === 'string') {
+var parts = today.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+d0 = parts ? new Date(Date.UTC(+parts[1], +parts[2] - 1, +parts[3])) : new Date();
+} else {
+d0 = new Date();
+}
+var d1 = new Date(d0.getTime() + SOON_DAYS * 86400000);
+return { gte: dateFmt(d0), lte: dateFmt(d1) };
+}
+
+
+function parseDate(s) {
+if (!s || typeof s !== 'string') return NaN;
+var m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+if (!m) return NaN;
+return Date.UTC(+m[1], +m[2] - 1, +m[3]);
+}
+
+
+
+function shortDate(ms) {
+var d = new Date(ms);
+var day = d.getUTCDate();
+var monthIdx = d.getUTCMonth();
+var monthsRaw = '';
+try { monthsRaw = LC.lang ? LC.lang('lumen_card_months_short') : ''; } catch (e) {}
+var months = monthsRaw ? monthsRaw.split(',') : [];
+var mon = months[monthIdx] || (monthIdx + 1 < 10 ? '0' + (monthIdx + 1) : '' + (monthIdx + 1));
+return day + ' ' + mon;
+}
+
+
+
+
+
+
+function newEpisodes(shows, today) {
+var nowMs;
+if (today instanceof Date) {
+nowMs = today.getTime();
+} else if (today && typeof today === 'string') {
+var parsed = parseDate(today);
+nowMs = isNaN(parsed) ? Date.now() : parsed;
+} else {
+nowMs = Date.now();
+}
+
+var out = [];
+for (var i = 0; i < shows.length; i++) {
+var s = shows[i];
+if (!s) continue;
+var lastAir = s.last_episode_to_air;
+var nextAir = s.next_episode_to_air;
+var lastMs = parseDate(lastAir && lastAir.air_date);
+var nextMs = parseDate(nextAir && nextAir.air_date);
+var badge = '';
+
+if (!isNaN(lastMs) && lastMs <= nowMs && (nowMs - lastMs) <= RECENT_DAYS * 86400000) {
+var badgeLabel = '';
+try { badgeLabel = LC.lang ? LC.lang('lumen_badge_new_episode') : 'New episode'; } catch (e) { badgeLabel = 'New episode'; }
+badge = badgeLabel + ' · ' + shortDate(lastMs);
+} else if (!isNaN(nextMs) && nextMs > nowMs && (nextMs - nowMs) <= UPCOMING_DAYS * 86400000) {
+var diffDays = Math.ceil((nextMs - nowMs) / 86400000);
+var inLabel = '';
+try { inLabel = LC.lang ? LC.lang('lumen_badge_coming_in') : 'In'; } catch (e) { inLabel = 'In'; }
+var daysLabel = '';
+try { daysLabel = LC.daysWord ? LC.daysWord(diffDays) : (diffDays === 1 ? 'day' : 'days'); } catch (e) { daysLabel = 'days'; }
+badge = inLabel + ' ' + diffDays + ' ' + daysLabel;
+}
+
+if (badge) {
+
+var copy = {};
+for (var k in s) {
+if (Object.prototype.hasOwnProperty.call(s, k)) copy[k] = s[k];
+}
+copy.lumen_badge = badge;
+out.push(copy);
+}
+}
+
+
+
+out.sort(function (a, b) {
+var aMs = parseDate(a.last_episode_to_air && a.last_episode_to_air.air_date);
+var bMs = parseDate(b.last_episode_to_air && b.last_episode_to_air.air_date);
+if (!isNaN(aMs) && !isNaN(bMs)) return bMs - aMs;
+if (!isNaN(aMs)) return -1;
+if (!isNaN(bMs)) return 1;
+return 0;
+});
+return out;
+}
+
+
+
+
+
+
+
+function bumpGen() {
+_gen++;
+}
+
+
+
+
+
+function doUnregister() {
+if (!_addedRows.length) return;
+for (var i = 0; i < _addedRows.length; i++) {
+try {
+if (window.Lampa && Lampa.ContentRows &&
+typeof Lampa.ContentRows.remove === 'function') {
+Lampa.ContentRows.remove(_addedRows[i]);
+}
+} catch (e) {}
+}
+_addedRows = [];
+}
+
+
+
+
+
+
+
+function continuesList() {
+var out = [];
+var seen = {};
+try {
+if (!window.Lampa || !Lampa.Favorite) return out;
+var medias = ['movie', 'tv'];
+for (var m = 0; m < medias.length; m++) {
+var arr = [];
+try {
+if (typeof Lampa.Favorite.continues === 'function') {
+arr = Lampa.Favorite.continues(medias[m]);
+}
+} catch (e) {}
+if (!Array.isArray(arr)) continue;
+for (var j = 0; j < arr.length; j++) {
+var c = arr[j];
+if (!c || c.id == null || seen[c.id]) continue;
+seen[c.id] = 1;
+out.push(c);
+}
+}
+} catch (e) {}
+return out;
+}
+
+
+function getHistory() {
+try {
+if (!window.Lampa || !Lampa.Favorite) return [];
+var h = Lampa.Favorite.get({ type: 'history' });
+return Array.isArray(h) ? h : [];
+} catch (e) { return []; }
+}
+
+
+
+function getShows(limit) {
+var out = [];
+var seen = {};
+try {
+if (!window.Lampa || !Lampa.Favorite) return out;
+var sources = ['book', 'history'];
+for (var s = 0; s < sources.length; s++) {
+var arr = [];
+try { arr = Lampa.Favorite.get({ type: sources[s] }); } catch (e) {}
+if (!Array.isArray(arr)) continue;
+for (var j = 0; j < arr.length; j++) {
+var c = arr[j];
+if (!c || c.id == null || !c.name) continue;
+if (seen[c.id]) continue;
+seen[c.id] = 1;
+out.push(c);
+if (out.length >= limit) return out;
+}
+}
+} catch (e) {}
+return out;
+}
+
+
+function addRow(descriptor) {
+try {
+if (!window.Lampa || !Lampa.ContentRows) return;
+Lampa.ContentRows.add(descriptor);
+_addedRows.push(descriptor);
+} catch (e) {}
+}
+
+
+
+
+
+
+function makeContinueCall() {
+return function (params, screen) {
+return function (call) {
+var gen = _gen;
+function alive() { return _gen === gen; }
+if (!alive()) { call({ results: [] }); return { cancel: function () {} }; }
+var items = continuesList();
+if (!alive()) { call({ results: [] }); return { cancel: function () {} }; }
+call({ results: items, title: LC.lang ? LC.lang('lumen_row_continue') : 'Continue watching' });
+return { cancel: function () {} };
+};
+};
+}
+
+
+
+
+function makeBecauseCall(picked, rowTitle) {
+return function (params, screen) {
+return function (call) {
+var gen = _gen;
+function alive() { return _gen === gen; }
+if (!alive() || !picked || !picked.length) {
+call({ results: [] }); return { cancel: function () {} };
+}
+var results = [];
+var pending = picked.length;
+var cancelled = false;
+var handles = [];
+
+function done() {
+if (cancelled || !alive()) return;
+call({ results: results, title: rowTitle });
+}
+
+for (var i = 0; i < picked.length; i++) {
+(function (card) {
+var url = card.media + '/' + card.id + '/recommendations';
+var net = null;
+try {
+net = Lampa.Api.sources.tmdb.get(
+url,
+{ langs: 'ru-RU', filter: { page: 1 } },
+function (json) {
+if (!alive()) return;
+var arr = (json && json.results) ? json.results : [];
+for (var k = 0; k < arr.length; k++) results.push(arr[k]);
+pending--;
+if (pending === 0) done();
+},
+function () {
+if (!alive()) return;
+pending--;
+if (pending === 0) done();
+},
+{ life: 1440 }
+);
+} catch (e) {
+pending--;
+if (pending === 0 && alive() && !cancelled) done();
+}
+if (net) handles.push(net);
+})(picked[i]);
+}
+
+return {
+cancel: function () {
+cancelled = true;
+for (var i = 0; i < handles.length; i++) {
+try {
+if (handles[i]) {
+if (typeof handles[i].clear === 'function') handles[i].clear();
+else if (typeof handles[i].abort === 'function') handles[i].abort();
+}
+} catch (e) {}
+}
+}
+};
+};
+};
+}
+
+
+
+
+function makeNewEpisodesCall(shows) {
+return function (params, screen) {
+return function (call) {
+var gen = _gen;
+function alive() { return _gen === gen; }
+if (!alive() || !shows || !shows.length) {
+call({ results: [] }); return { cancel: function () {} };
+}
+var details = [];
+var pending = shows.length;
+var cancelled = false;
+var handles = [];
+
+function done() {
+if (cancelled || !alive()) return;
+var filtered = newEpisodes(details, null);
+call({ results: filtered, title: LC.lang ? LC.lang('lumen_row_new_episodes') : 'New episodes' });
+}
+
+for (var i = 0; i < shows.length; i++) {
+(function (card) {
+var url = 'tv/' + card.id;
+var net = null;
+try {
+net = Lampa.Api.sources.tmdb.get(
+url,
+{ langs: 'ru-RU' },
+function (json) {
+if (!alive()) return;
+if (json && json.id != null) details.push(json);
+pending--;
+if (pending === 0) done();
+},
+function () {
+if (!alive()) return;
+pending--;
+if (pending === 0) done();
+},
+{ life: 720 }
+);
+} catch (e) {
+pending--;
+if (pending === 0 && alive() && !cancelled) done();
+}
+if (net) handles.push(net);
+})(shows[i]);
+}
+
+return {
+cancel: function () {
+cancelled = true;
+for (var i = 0; i < handles.length; i++) {
+try {
+if (handles[i]) {
+if (typeof handles[i].clear === 'function') handles[i].clear();
+else if (typeof handles[i].abort === 'function') handles[i].abort();
+}
+} catch (e) {}
+}
+}
+};
+};
+};
+}
+
+
+
+
+function makeSoonCall() {
+return function (params, screen) {
+return function (call) {
+var gen = _gen;
+function alive() { return _gen === gen; }
+if (!alive()) { call({ results: [] }); return { cancel: function () {} }; }
+
+var range = soonRange(null);
+var movies = [];
+var tvShows = [];
+var pending = 2;
+var cancelled = false;
+var handles = [];
+
+function done() {
+if (cancelled || !alive()) return;
+
+var all = movies.concat(tvShows);
+all.sort(function (a, b) {
+var da = a.release_date || a.first_air_date || '';
+var db = b.release_date || b.first_air_date || '';
+return da < db ? -1 : da > db ? 1 : 0;
+});
+call({ results: all, title: LC.lang ? LC.lang('lumen_row_soon') : 'Coming soon' });
+}
+
+function fetchDiscover(media, resultArr) {
+var filterKey = media === 'movie' ? 'primary_release_date' : 'first_air_date';
+var f = {};
+f[filterKey + '.gte'] = range.gte;
+f[filterKey + '.lte'] = range.lte;
+var net = null;
+try {
+net = Lampa.Api.sources.tmdb.get(
+'discover/' + media,
+{ filter: f, sort_by: 'popularity.desc', langs: 'ru-RU' },
+function (json) {
+if (!alive()) return;
+var arr = (json && json.results) ? json.results : [];
+for (var k = 0; k < arr.length; k++) resultArr.push(arr[k]);
+pending--;
+if (pending === 0) done();
+},
+function () {
+if (!alive()) return;
+pending--;
+if (pending === 0) done();
+},
+{ life: 360 }
+);
+} catch (e) {
+pending--;
+if (pending === 0 && alive() && !cancelled) done();
+}
+return net;
+}
+
+handles.push(fetchDiscover('movie', movies));
+handles.push(fetchDiscover('tv', tvShows));
+
+return {
+cancel: function () {
+cancelled = true;
+for (var i = 0; i < handles.length; i++) {
+try {
+if (handles[i]) {
+if (typeof handles[i].clear === 'function') handles[i].clear();
+else if (typeof handles[i].abort === 'function') handles[i].abort();
+}
+} catch (e) {}
+}
+}
+};
+};
+};
+}
+
+
+
+
+
+
+
+
+
+function register() {
+doUnregister();
+
+
+var enabled = true;
+try { enabled = LC.pref ? LC.pref('lumen_personal_rows', true) : true; } catch (e) {}
+if (!enabled) return;
+
+
+try {
+var cont = continuesList();
+if (cont && cont.length) {
+addRow({
+name: 'lumen_continue',
+title: LC.lang ? LC.lang('lumen_row_continue') : 'Continue watching',
+screen: 'main',
+index: 0,
+call: makeContinueCall()
+});
+}
+} catch (e) {}
+
+
+
+
+
+try {
+var history = getHistory();
+var picked = pickBecause(history, BECAUSE_LIMIT);
+if (picked && picked.length) {
+var becauseTitle = LC.lang ? LC.lang('lumen_row_because') : 'Because you watched';
+if (picked[0] && picked[0].title) {
+becauseTitle += ' «' + picked[0].title + '»';
+}
+addRow({
+name: 'lumen_because',
+title: becauseTitle,
+screen: 'main',
+index: 1,
+call: makeBecauseCall(picked, becauseTitle)
+});
+}
+} catch (e) {}
+
+
+
+try {
+var shows = getShows(SHOWS_LIMIT);
+if (shows && shows.length) {
+addRow({
+name: 'lumen_new_episodes',
+title: LC.lang ? LC.lang('lumen_row_new_episodes') : 'New episodes of your shows',
+screen: 'main',
+index: 2,
+call: makeNewEpisodesCall(shows)
+});
+}
+} catch (e) {}
+
+
+try {
+addRow({
+name: 'lumen_soon',
+title: LC.lang ? LC.lang('lumen_row_soon') : 'Coming soon',
+screen: 'main',
+index: 3,
+call: makeSoonCall()
+});
+} catch (e) {}
+}
+
+
+function unregister() {
+doUnregister();
+}
+
+return {
+pickBecause: pickBecause,
+newEpisodes: newEpisodes,
+soonRange: soonRange,
+bumpGen: bumpGen,
+register: register,
+unregister: unregister
+};
+})();
+
+if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.personal;
+
+
 /* ---- 50_backdrops.js ---- */
 
 
@@ -6441,6 +7068,52 @@ lumen_rows_limit_suffix: {
 ru: 'рядов',
 en: 'rows',
 uk: 'рядів'
+},
+
+
+lumen_row_continue: {
+ru: 'Досмотреть',
+en: 'Continue watching',
+uk: 'Досивитися'
+},
+
+
+lumen_row_because: {
+ru: 'Потому что вы смотрели',
+en: 'Because you watched',
+uk: 'Тому що ви дивилися'
+},
+lumen_row_new_episodes: {
+ru: 'Новые серии ваших сериалов',
+en: 'New episodes of your shows',
+uk: 'Нові серії ваших серіалів'
+},
+lumen_row_soon: {
+ru: 'Скоро на экранах',
+en: 'Coming soon',
+uk: 'Незабаром на екранах'
+},
+
+lumen_badge_new_episode: {
+ru: 'Новая серия',
+en: 'New episode',
+uk: 'Нова серія'
+},
+
+lumen_badge_coming_in: {
+ru: 'Через',
+en: 'In',
+uk: 'Через'
+},
+lumen_personal_rows_name: {
+ru: 'Персональные ряды',
+en: 'Personal rows',
+uk: 'Персональні ряди'
+},
+lumen_personal_rows_descr: {
+ru: 'Показывать «Досмотреть», «Потому что вы смотрели», «Новые серии» и «Скоро на экранах».',
+en: 'Show "Continue watching", "Because you watched", "New episodes" and "Coming soon" rows.',
+uk: 'Показувати «Досивитися», «Тому що ви дивилися», «Нові серії» та «Незабаром».'
 }
 };
 
@@ -6544,6 +7217,12 @@ if (name === 'lumen_hide_watched') { return true; }
 
 if (name === 'lumen_rows_limit') {
 try { if (LC.applyRowsPref) LC.applyRowsPref(); } catch (eRows) {}
+return true;
+}
+
+
+if (name === 'lumen_personal_rows') {
+try { if (LC.applyPersonalPref) LC.applyPersonalPref(); } catch (eP) {}
 return true;
 }
 
@@ -6742,7 +7421,10 @@ var LIST = [
 
 { name: 'lumen_group_home', type: 'title', label: 'lumen_group_home' },
 { name: 'lumen_hide_watched', type: 'trigger', 'default': false, label: 'lumen_hide_watched_name', descr: 'lumen_hide_watched_descr' },
-{ name: 'lumen_rows_limit', type: 'select', values: ['10', '15', '25'], vsuffix: 'lumen_rows_limit_suffix', 'default': '15', label: 'lumen_rows_limit_name' }
+{ name: 'lumen_rows_limit', type: 'select', values: ['10', '15', '25'], vsuffix: 'lumen_rows_limit_suffix', 'default': '15', label: 'lumen_rows_limit_name' },
+
+
+{ name: 'lumen_personal_rows', type: 'trigger', 'default': true, label: 'lumen_personal_rows_name', descr: 'lumen_personal_rows_descr' }
 ];
 
 function find(name) {
@@ -8098,6 +8780,8 @@ if (!activated) return;
 
 if ((e.type === 'archive' || e.type === 'destroy') && e.component === 'main') {
 try { if (LC.rows && LC.rows.bumpGen) LC.rows.bumpGen(); } catch (eBump) {}
+
+try { if (LC.personal && LC.personal.bumpGen) LC.personal.bumpGen(); } catch (eBumpP) {}
 }
 
 if (LC.active && e.object === LC.active.object) {
@@ -8658,6 +9342,13 @@ if (activated && LC.rows && LC.rows.register) LC.rows.register(m);
 } catch (eRows2) {
 warn('rows register failed', eRows2);
 }
+
+
+try {
+if (LC.personal && LC.personal.register) LC.personal.register();
+} catch (ePersonal) {
+warn('personal rows register failed', ePersonal);
+}
 }
 
 function deactivate() {
@@ -8694,6 +9385,8 @@ stripAllCards();
 
 
 try { if (LC.rows && LC.rows.unregister) LC.rows.unregister(); } catch (eRows) {}
+
+try { if (LC.personal && LC.personal.unregister) LC.personal.unregister(); } catch (ePersonalOff) {}
 }
 
 
@@ -8709,6 +9402,19 @@ if (activated && LC.rows && LC.rows.register) LC.rows.register(m);
 }
 } catch (e) {
 warn('rows pref failed', e);
+}
+};
+
+
+
+
+LC.applyPersonalPref = function () {
+if (!activated) return;
+try {
+if (LC.personal && LC.personal.unregister) LC.personal.unregister();
+if (LC.personal && LC.personal.register) LC.personal.register();
+} catch (e) {
+warn('personal pref failed', e);
 }
 };
 

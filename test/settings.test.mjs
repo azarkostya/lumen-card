@@ -197,7 +197,9 @@ test('каждая настройка применяется ровно один
     lumen_manifest_url: [],
     /* Task 15 (фаза 2): настройки рядов — применяются при следующем call()/регистрации. */
     lumen_hide_watched: [],
-    lumen_rows_limit: []
+    lumen_rows_limit: [],
+    /* Task 16 (фаза 2): персональные ряды — LC.applyPersonalPref без точек log. */
+    lumen_personal_rows: []
   };
   const { LC, log, Storage, params } = setup();
   LC.addSettings();

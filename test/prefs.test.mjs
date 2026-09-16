@@ -99,7 +99,9 @@ test('LIST: полный набор ключей — существующие и
     'lumen_menus', 'lumen_motion', 'lumen_reviews',
     'lumen_slide_interval', 'lumen_slideshow', 'lumen_torrents', 'lumen_trailer',
     /* Task 15 (фаза 2): ряды подборок на главной */
-    'lumen_hide_watched', 'lumen_rows_limit'
+    'lumen_hide_watched', 'lumen_rows_limit',
+    /* Task 16 (фаза 2): персональные ряды */
+    'lumen_personal_rows'
   ].sort());
 });
 

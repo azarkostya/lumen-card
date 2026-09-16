@@ -210,6 +210,52 @@
       ru: 'рядов',
       en: 'rows',
       uk: 'рядів'
+    },
+
+    /* Task 16 (фаза 2): персональные ряды на главной. */
+    lumen_row_continue: {
+      ru: 'Досмотреть',
+      en: 'Continue watching',
+      uk: 'Досивитися'
+    },
+    /* «Потому что вы смотрели» — базовая часть заголовка. Название фильма
+       добавляется кодом: «Потому что вы смотрели «Дюна»». */
+    lumen_row_because: {
+      ru: 'Потому что вы смотрели',
+      en: 'Because you watched',
+      uk: 'Тому що ви дивилися'
+    },
+    lumen_row_new_episodes: {
+      ru: 'Новые серии ваших сериалов',
+      en: 'New episodes of your shows',
+      uk: 'Нові серії ваших серіалів'
+    },
+    lumen_row_soon: {
+      ru: 'Скоро на экранах',
+      en: 'Coming soon',
+      uk: 'Незабаром на екранах'
+    },
+    /* Бейдж на карточке сериала с новой серией. Дата добавляется кодом: «Новая серия · 12 сен». */
+    lumen_badge_new_episode: {
+      ru: 'Новая серия',
+      en: 'New episode',
+      uk: 'Нова серія'
+    },
+    /* «Через» — первая часть «Через 3 дня». Число и склонение добавляются кодом. */
+    lumen_badge_coming_in: {
+      ru: 'Через',
+      en: 'In',
+      uk: 'Через'
+    },
+    lumen_personal_rows_name: {
+      ru: 'Персональные ряды',
+      en: 'Personal rows',
+      uk: 'Персональні ряди'
+    },
+    lumen_personal_rows_descr: {
+      ru: 'Показывать «Досмотреть», «Потому что вы смотрели», «Новые серии» и «Скоро на экранах».',
+      en: 'Show "Continue watching", "Because you watched", "New episodes" and "Coming soon" rows.',
+      uk: 'Показувати «Досивитися», «Тому що ви дивилися», «Нові серії» та «Незабаром».'
     }
   };
 
@@ -313,6 +359,12 @@
     /* lumen_rows_limit применяется немедленно через перерегистрацию рядов (I5-fix). */
     if (name === 'lumen_rows_limit') {
       try { if (LC.applyRowsPref) LC.applyRowsPref(); } catch (eRows) {}
+      return true;
+    }
+    /* Task 16 (фаза 2): персональные ряды включены/выключены —
+       перерегистрируем ряды (unregister снимает старые, register строит новые). */
+    if (name === 'lumen_personal_rows') {
+      try { if (LC.applyPersonalPref) LC.applyPersonalPref(); } catch (eP) {}
       return true;
     }
     /* Task 14 (фаза 2): URL манифеста изменён — сбрасываем кэш Storage, чтобы

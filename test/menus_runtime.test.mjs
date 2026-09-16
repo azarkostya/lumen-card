@@ -137,7 +137,9 @@ test('долг ревью (п.2): каждая настройка раздела
     lumen_manifest_url: [],
     /* Task 15 (фаза 2): настройки рядов — без apply-функции рантайма. */
     lumen_hide_watched: [],
-    lumen_rows_limit: []
+    lumen_rows_limit: [],
+    /* Task 16 (фаза 2): персональные ряды — applyPersonalPref без точек POINTS. */
+    lumen_personal_rows: []
   };
 
   /* В проверке обязаны быть все пункты раздела — иначе она снова отстанет от
