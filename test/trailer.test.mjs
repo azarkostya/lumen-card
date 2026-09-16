@@ -712,6 +712,80 @@ test('слайдшоу паузится и возвращается ИМЕННО
   assert.equal(other.resumeCalls, 0, 'возврат снялся бы с чужого слайдшоу');
 });
 
+/* ====================================================================== */
+/* Task 18: показ ШТАТНОЙ кнопки «Трейлер» (полноценный просмотр со       */
+/* звуком штатным плеером Lampa). reveal не трогает разметку кнопок и не  */
+/* спрашивает настройку lumen_trailer — только ставит/снимает класс на    */
+/* корне карточки, по которому CSS показывает узел .view--trailer.        */
+/* ====================================================================== */
+
+/* Карточка в объёме, который читает reveal: ряд кнопок и служебный пул с
+   кнопкой трейлера внутри него (как в шаблоне после Task 18). */
+function revealRoot(withTrailer) {
+  const play = new FakeEl(['full-start__button', 'selector', 'button--play']);
+  const pool = withTrailer
+    ? [new FakeEl(['full-start__button', 'selector', 'view--trailer'])]
+    : [];
+  const container = new FakeEl(['hide', 'buttons--container'], pool);
+  const buttons = new FakeEl(['full-start-new__buttons'], [play, container]);
+  const actions = new FakeEl(['lumen-in', 'lumen-actions'], [buttons]);
+  return new FakeEl(['full-start-new', 'lumen-card'], [actions]);
+}
+
+const withTrailerData = { videos: { results: [{ key: 'K1', name: 'Official Trailer', iso_639_1: 'ru', official: true }] } };
+
+test('reveal: есть узел кнопки и есть ролик -> класс lumen-card--trailer на корне', () => {
+  const root = revealRoot(true);
+  assert.equal(t.reveal(root, withTrailerData), true);
+  assert.equal(root.hasClass('lumen-card--trailer'), true);
+});
+
+test('reveal: Lampa удалила узел кнопки (роликов нет) -> класса нет', () => {
+  const root = revealRoot(false);
+  assert.equal(t.reveal(root, withTrailerData), false);
+  assert.equal(root.hasClass('lumen-card--trailer'), false);
+});
+
+test('reveal: узел есть, но играть нечего (ролик без key) -> класса нет', () => {
+  const root = revealRoot(true);
+  assert.equal(t.reveal(root, { videos: { results: [{ name: 'Trailer', iso_639_1: 'ru' }] } }), false);
+  assert.equal(root.hasClass('lumen-card--trailer'), false);
+});
+
+test('reveal: класс СНИМАЕТСЯ на карточке без ролика — узел из истории Lampa не остаётся показанным', () => {
+  const root = revealRoot(false);
+  root.addClass('lumen-card--trailer');
+  t.reveal(root, { videos: { results: [] } });
+  assert.equal(root.hasClass('lumen-card--trailer'), false);
+});
+
+test('reveal: настройка lumen_trailer не спрашивается — кнопка есть и при off', () => {
+  /* Storage подменяется так же, как в scheduleEnv: mode() читает
+     Lampa.Storage.field('lumen_trailer'). Если бы reveal её спрашивал, при
+     'off' класс бы не появился, и полноценный просмотр стал бы недоступен. */
+  const prevWindow = globalThis.window, prevLampa = globalThis.Lampa;
+  const Lampa = { Storage: { field: () => 'off' }, Platform: { is: () => false } };
+  globalThis.Lampa = Lampa;
+  globalThis.window = { Lampa: Lampa };
+  try {
+    assert.equal(t.mode(), 'off', 'предусловие: настройка действительно выключена');
+    const root = revealRoot(true);
+    assert.equal(t.reveal(root, withTrailerData), true);
+    assert.equal(root.hasClass('lumen-card--trailer'), true);
+  } finally {
+    globalThis.window = prevWindow;
+    globalThis.Lampa = prevLampa;
+  }
+});
+
+test('reveal: мусор на входе -> false, без исключений', () => {
+  assert.equal(t.reveal(null, withTrailerData), false);
+  assert.equal(t.reveal({ length: 0 }, withTrailerData), false);
+  assert.equal(t.reveal(revealRoot(true), null), false, 'нет данных — нечего играть');
+  assert.equal(t.reveal(revealRoot(true), {}), false);
+  assert.equal(t.reveal({ length: 1, find: () => { throw new Error('boom'); } }, withTrailerData), false);
+});
+
 test('schedule: stopActive снимает трейлер текущей карточки и обнуляет поле', () => {
   const env = scheduleEnv();
   const api = env.run();

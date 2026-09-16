@@ -599,7 +599,38 @@ css.push('.lumen-card .full-start-new__buttons .full-start__button{font-size:1em
 css.push('.lumen-card .full-start-new__buttons .full-start__button > svg{width:1.14em;height:1.14em;-webkit-flex-shrink:0;flex-shrink:0}');
 css.push('.lumen-card .full-start-new__buttons .full-start__button > svg + span{font-size:1.05em;margin:0 0 0 .53em;line-height:1}');
 css.push('.lumen-card .full-start-new__buttons .full-start__button span{display:none}');
-css.push('.lumen-card .full-start-new__buttons .button--play span,.lumen-card .full-start-new__buttons .button--priority span{display:block}');
+css.push('.lumen-card .full-start-new__buttons .button--play span,.lumen-card .full-start-new__buttons .button--priority span,.lumen-card .full-start-new__buttons .view--trailer span{display:block}');
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+css.push('.lumen-card .full-start-new__buttons > .buttons--container{-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-order:1;order:1}');
+css.push('.lumen-card .full-start-new__buttons > .buttons--container > .full-start__button{display:none}');
+css.push('.lumen-card.lumen-card--trailer .full-start-new__buttons > .buttons--container{display:-webkit-box !important;display:-webkit-flex !important;display:flex !important}');
+css.push('.lumen-card.lumen-card--trailer .full-start-new__buttons > .buttons--container > .view--trailer{display:-webkit-box;display:-webkit-flex;display:flex}');
+
+
+
+
+
+css.push('.lumen-card .full-start-new__buttons > .button--book,.lumen-card .full-start-new__buttons > .button--reaction,.lumen-card .full-start-new__buttons > .button--subscribe,.lumen-card .full-start-new__buttons > .button--options{-webkit-order:2;order:2}');
+
 
 
 
@@ -1853,7 +1884,22 @@ return '' +
 '<div class="full-start-new__reactions"><div>#{reactions_none}</div></div>' +
 
 
-'<div class="full-start-new__buttons">' + buttons + '</div>' +
+'<div class="full-start-new__buttons">' + buttons +
+
+
+
+
+
+
+
+
+
+
+
+
+
+'<div class="hide buttons--container">' + pool + '</div>' +
+'</div>' +
 
 
 
@@ -1873,9 +1919,6 @@ return '' +
 '<div class="is--serial hide"></div>' +
 '</div>' +
 '</div>' +
-
-
-'<div class="hide buttons--container">' + pool + '</div>' +
 '</div>';
 }
 
@@ -6131,6 +6174,12 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 
+
+
+
+
+
+
 LC.trailer = (function () {
 
 var API_ID = 'lumen-yt-api';
@@ -6483,6 +6532,47 @@ warn('trailer stop button cleanup failed', e);
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function reveal(root, data) {
+try {
+if (!root || !root.length) return false;
+var videos = data && data.videos && data.videos.results;
+
+
+
+var node = root.find('.view--trailer');
+var has = !!(node && node.length) && !!pickTrailer(videos);
+root.toggleClass('lumen-card--trailer', has);
+return has;
+} catch (e) {
+warn('trailer button failed', e);
+return false;
+}
+}
+
+
+
+
 function schedule(root, body, data) {
 try {
 if (!root || !root.length || !body || !body.length) return null;
@@ -6618,6 +6708,15 @@ warn('trailer stop failed', e);
 
 
 
+
+
+
+
+
+
+
+
+
 function bind(root) {
 try {
 var el = root && root[0];
@@ -6636,6 +6735,7 @@ pickTrailer: pickTrailer,
 modeFor: modeFor,
 mode: mode,
 player: player,
+reveal: reveal,
 schedule: schedule,
 stopActive: stopActive,
 isLive: isLive,
@@ -10516,6 +10616,15 @@ if (bgLayer && bgLayer.length) bgLayer.data('lumenData', e.data);
 
 focus_on_card = false;
 LC.trailer.bind(root);
+
+
+
+
+
+
+
+
+LC.trailer.reveal(root, e.data);
 LC.active.trailer = LC.trailer.schedule(root, e.body, e.data);
 
 

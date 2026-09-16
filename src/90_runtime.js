@@ -602,6 +602,15 @@
                фокуса на ней ещё не было (см. focus_on_card выше). */
             focus_on_card = false;
             LC.trailer.bind(root);
+            /* Task 18: показ штатной кнопки «Трейлер» — ДО schedule и вне
+               зависимости от него: кнопка живёт и при lumen_trailer=off, и на
+               Tizen/webOS, где фоновый ролик выключен режимом auto. Класс на
+               корне, разметку кнопок не трогаем (см. reveal в 55_trailer.js).
+               Как и «Франшиза», вставка идёт до activity.toggle(): порядок
+               complite у Lampa синхронный, контроллер full_start соберёт
+               кнопку сам — она и так уже есть в разметке, меняется лишь её
+               видимость. */
+            LC.trailer.reveal(root, e.data);
             LC.active.trailer = LC.trailer.schedule(root, e.body, e.data);
             /* Task 17: кнопка «Франшиза» — собственный .selector рядом с
                рядом кнопок (разметка кнопок Lampa не трогается, см. шапку

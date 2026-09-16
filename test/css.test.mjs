@@ -933,6 +933,50 @@ test('buildCss: штатный span кнопки скрыт только при 
     'без @supports на старом WebView кнопка осталась бы вовсе без подписи: :after там не работает');
 });
 
+/* ====================================================================== */
+/* Task 18: штатная кнопка «Трейлер». Разметка кнопки не трогается (её     */
+/* outerHTML хэширует Lampa), поэтому весь показ — на этих правилах.       */
+/* ====================================================================== */
+
+test('buildCss: Task 18 — пул .buttons--container раскрывается только под классом корня, и только для .view--trailer', () => {
+  const rules = ruleBodies(css);
+
+  const shown = rules.find((r) => r.selectors.some((s) => s === '.lumen-card.lumen-card--trailer .full-start-new__buttons > .buttons--container'));
+  assert.ok(shown, 'правила показа пула нет');
+  assert.ok(/display\s*:\s*flex\s*!important/.test(shown.decl),
+    '.hide у пула объявлен через display:none !important — перебить его можно только своим !important');
+
+  const btn = rules.find((r) => r.selectors.some((s) => s === '.lumen-card.lumen-card--trailer .full-start-new__buttons > .buttons--container > .view--trailer'));
+  assert.ok(btn && /display\s*:\s*flex/.test(btn.decl), 'кнопка трейлера должна показываться');
+
+  const hidden = rules.find((r) => r.selectors.some((s) => s === '.lumen-card .full-start-new__buttons > .buttons--container > .full-start__button'));
+  assert.ok(hidden && /display\s*:\s*none/.test(hidden.decl),
+    'остальные кнопки пула (торренты, .view--online_mod чужих плагинов) обязаны остаться скрытыми: их путь к пользователю — меню «Смотреть»');
+});
+
+test('buildCss: Task 18 — кнопка «Трейлер» вторая в ряду и с подписью (экран 01)', () => {
+  const rules = ruleBodies(css);
+
+  const pool = rules.find((r) => r.selectors.some((s) => s === '.lumen-card .full-start-new__buttons > .buttons--container'));
+  assert.ok(pool && /(^|;)order\s*:\s*1/.test(pool.decl), 'пул в разметке последний — вторым местом он становится через order');
+  const icons = rules.find((r) => r.selectors.some((s) => s === '.lumen-card .full-start-new__buttons > .button--book'));
+  assert.ok(icons && /(^|;)order\s*:\s*2/.test(icons.decl), 'иконочные кнопки уезжают за «Трейлер»');
+  for (const cls of ['.button--reaction', '.button--subscribe', '.button--options']) {
+    assert.ok(icons.selectors.some((s) => s.indexOf(cls) !== -1), cls + ': тоже должна уехать за «Трейлер»');
+  }
+
+  const span = rules.find((r) => r.selectors.some((s) => s === '.lumen-card .full-start-new__buttons .view--trailer span'));
+  assert.ok(span && /display\s*:\s*block/.test(span.decl),
+    'по дизайну «Трейлер» — кнопка с подписью, как «Смотреть», а не иконочный квадрат');
+});
+
+test('buildCss: Task 18 — показ кнопки не завязан на режим фонового ролика', () => {
+  // lumen_trailer управляет ТОЛЬКО фоном; полноценный просмотр по кнопке —
+  // осознанное действие пользователя и обязан работать при lumen_trailer=off.
+  const wrong = ruleBodies(css).filter((r) => r.selectors.some((s) => s.indexOf('.buttons--container') !== -1 && s.indexOf('lumen-trailer-on') !== -1));
+  assert.equal(wrong.length, 0, 'кнопка не должна зависеть от того, играет ли фоновый ролик');
+});
+
 test('buildCss: в режиме трейлера подписи на кнопке нет и строка прогресса скрыта (экран 02)', () => {
   const after = ruleBodies(css).find((r) => r.selectors.some((s) => s.indexOf('.button--play:after') !== -1));
   assert.ok(after.selectors.every((s) => s.indexOf(':not(.lumen-trailer-on)') !== -1),

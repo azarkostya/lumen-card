@@ -514,9 +514,12 @@ function initLC(opts) {
   const clearedRows = [];
   LC.reviews = { render: (row) => reviewRows.push(row), clearRow: (row) => clearedRows.push(row), cancel: (body) => extra.reviewCancel.push(body) };
 
-  const calls = { bind: [], schedule: [], stop: 0 };
+  const calls = { bind: [], reveal: [], schedule: [], stop: 0 };
   LC.trailer = {
     bind: (root) => calls.bind.push(root),
+    /* Task 18: показ штатной кнопки «Трейлер» — отдельный от schedule вызов
+       (кнопка живёт и при выключенном фоновом ролике). */
+    reveal: (root, data) => { calls.reveal.push({ root, data }); return true; },
     schedule: (root, body, data) => { calls.schedule.push({ root, body, data }); return opts.controller || null; },
     stopActive: () => { calls.stop++; },
     mode: () => opts.mode || 'auto',
@@ -557,6 +560,23 @@ test('Task 7: complite — bind(root) и schedule(root, body, data), контр�
   assert.equal(calls.schedule[0].body, body);
   assert.equal(calls.schedule[0].data, data, 'ролики берутся из e.data.videos — передаём всю data');
   assert.equal(LC.active.trailer, controller);
+  assert.deepEqual(warnLog, []);
+});
+
+test('Task 18: complite — reveal(root, data) зовётся отдельно от schedule и ДО него', () => {
+  /* Кнопка «Трейлер» не зависит от настройки фонового ролика: при
+     lumen_trailer=off schedule вернёт null, а кнопка обязана появиться. */
+  const { LC, calls, full } = initLC({ controller: null, mode: 'off' });
+  const root = new FakeEl(['full-start-new', 'lumen-card']);
+  const body = new FakeEl(['activity__body']);
+  const data = { movie: { id: 1 }, videos: { results: [{ key: 'k', name: 'Trailer' }] } };
+
+  full[0]({ type: 'complite', body: body, object: {}, data: data, item: { render: () => root } });
+
+  assert.equal(calls.reveal.length, 1, 'кнопка показывается ровно один раз на карточку');
+  assert.equal(calls.reveal[0].root, root);
+  assert.equal(calls.reveal[0].data, data, 'ролики берутся из e.data.videos — передаём всю data');
+  assert.equal(LC.active.trailer, null, 'фонового ролика при off нет, а кнопка есть');
   assert.deepEqual(warnLog, []);
 });
 

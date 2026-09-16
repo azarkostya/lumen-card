@@ -340,7 +340,38 @@
     css.push('.lumen-card .full-start-new__buttons .full-start__button > svg{width:1.14em;height:1.14em;-webkit-flex-shrink:0;flex-shrink:0}');
     css.push('.lumen-card .full-start-new__buttons .full-start__button > svg + span{font-size:1.05em;margin:0 0 0 .53em;line-height:1}');
     css.push('.lumen-card .full-start-new__buttons .full-start__button span{display:none}');
-    css.push('.lumen-card .full-start-new__buttons .button--play span,.lumen-card .full-start-new__buttons .button--priority span{display:block}');
+    css.push('.lumen-card .full-start-new__buttons .button--play span,.lumen-card .full-start-new__buttons .button--priority span,.lumen-card .full-start-new__buttons .view--trailer span{display:block}');
+
+    /* --- Task 18: штатная кнопка «Трейлер» (design-spec-card §13 п.9, экран 01) ---
+       Разметка кнопки не трогается вовсе — ни класса, ни атрибута: её
+       outerHTML хэширует Lampa (план 0.2). Показ целиком на CSS:
+        - .buttons--container переехал внутрь ряда кнопок (40_template.js) и
+          остался .hide, то есть display:none !important. Перебить его можно
+          только своим !important — отсюда три строки display у контейнера;
+        - ВСЕ его дети скрыты по умолчанию (селектор на класс кнопки,
+          специфичность выше базового правила .full-start__button): кнопки
+          чужих плагинов, которые Lampa и Online Mod кладут в контейнер
+          (.view--online_mod и подобные), обязаны остаться там же, где были,
+          — их путь к пользователю прежний, через «Смотреть»;
+        - показывается ровно один ребёнок, .view--trailer, и только когда на
+          корне есть lumen-card--trailer (его ставит LC.trailer.reveal, когда
+          pickTrailer нашёл ролик). Настройка lumen_trailer здесь ни при чём:
+          она управляет ФОНОВЫМ роликом, а кнопка — осознанное действие
+          пользователя и работает даже при lumen_trailer=off.
+       .view--torrent скрыт вдвойне — своим собственным .hide.
+       Всё остальное (габариты, фон, фокус, иконка-маска) кнопка получает от
+       общих правил .full-start__button и src/20_icons.js. */
+    css.push('.lumen-card .full-start-new__buttons > .buttons--container{-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-order:1;order:1}');
+    css.push('.lumen-card .full-start-new__buttons > .buttons--container > .full-start__button{display:none}');
+    css.push('.lumen-card.lumen-card--trailer .full-start-new__buttons > .buttons--container{display:-webkit-box !important;display:-webkit-flex !important;display:flex !important}');
+    css.push('.lumen-card.lumen-card--trailer .full-start-new__buttons > .buttons--container > .view--trailer{display:-webkit-box;display:-webkit-flex;display:flex}');
+    /* Порядок ряда (экран 01): «Смотреть», «Трейлер», дальше иконочные.
+       Контейнер лежит в разметке ПОСЛЕДНИМ (переносить сами кнопки нельзя),
+       поэтому вторым местом он становится через order — и иконочные кнопки
+       уезжают за него. Клон приоритетной кнопки Lampa (.button--priority,
+       prepend в ряд) остаётся с order 0 и идёт первым, как и раньше. */
+    css.push('.lumen-card .full-start-new__buttons > .button--book,.lumen-card .full-start-new__buttons > .button--reaction,.lumen-card .full-start-new__buttons > .button--subscribe,.lumen-card .full-start-new__buttons > .button--options{-webkit-order:2;order:2}');
+
     /* Ревью Task 5a, design-spec §7b «АКТИВНА»: из наших кнопок класс active
        на карточке ставит только сама Lampa на .button--subscribe (когда уже
        подписан — app.min.js, onSubscribed(): this.html.find('.button--subscribe')

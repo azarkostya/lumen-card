@@ -199,7 +199,22 @@
         '<div class="full-start-new__reactions"><div>#{reactions_none}</div></div>' +
         /* Обёртка константна (только этот один div), хэшируется НЕ она —
            хэшируются кнопки внутри (innerOf вырезает только их, план 0.2). */
-        '<div class="full-start-new__buttons">' + buttons + '</div>' +
+        '<div class="full-start-new__buttons">' + buttons +
+        /* Task 18: .buttons--container переехал ВНУТРЬ ряда кнопок — это
+           единственный способ показать штатную кнопку «Трейлер» на её
+           дизайн-месте (design-spec-card §13 п.9), не трогая разметку самих
+           кнопок: Lampa хэширует outerHTML каждой кнопки контейнера и сверяет
+           с Storage 'full_btn_priority' (план 0.2), поэтому ни переносить сами
+           кнопки, ни дописывать им классы нельзя. Перенос ОБЁРТКИ на хэши не
+           влияет (outerHTML кнопок тот же), а Lampa обращается к ней только
+           селектором '.buttons--container > .full-start__button'
+           (app.min.js onGroupButtons) — от места контейнера в дереве он не
+           зависит. Контейнер остаётся .hide: его и всех его детей показывает
+           точечно CSS (30_css.js), и только когда LC.trailer.reveal нашёл
+           ролик. Вырезаны и вставлены дословно только сами кнопки-альтернативы
+           (торренты/трейлеры) внутри неё — обёртка константна. */
+        '<div class="hide buttons--container">' + pool + '</div>' +
+        '</div>' +
         /* Task 5c: ряд серий последнего сезона (design-spec §9, экран 05) —
            внутри шестого .lumen-in, чтобы не сбить nth-child stagger; карточки
            .lumen-episode.selector рисует LC.header, их собирает контроллер
@@ -219,9 +234,6 @@
         '<div class="is--serial hide"></div>' +
         '</div>' +
         '</div>' +
-        /* Та же логика: обёртка константна, вырезаны и вставлены дословно
-           только сами кнопки-альтернативы (торренты/трейлеры) внутри неё. */
-        '<div class="hide buttons--container">' + pool + '</div>' +
         '</div>';
     }
 

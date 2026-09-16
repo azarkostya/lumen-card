@@ -101,6 +101,24 @@ test('build(фикстура): один корневой элемент — div-
   assert.ok(rootInner.indexOf('buttons--container') !== -1, 'buttons--container должен быть потомком корня, а не соседом');
 });
 
+test('build(фикстура): Task 18 — .buttons--container лежит ВНУТРИ ряда кнопок и остаётся .hide', () => {
+  // Показ штатной кнопки «Трейлер» делает CSS по классу корня, а флекс-ряд
+  // ей даёт только .full-start-new__buttons: вне ряда кнопка встала бы
+  // отдельным блоком. Разметка самих кнопок при этом не меняется — их
+  // outerHTML хэширует Lampa (план 0.2), проверка дословности ниже.
+  const result = template.build(fixture);
+  const row = template.innerOf(result, 'full-start-new__buttons');
+  assert.notEqual(row, null);
+  assert.ok(row.indexOf('buttons--container') !== -1, 'контейнер должен быть внутри ряда кнопок');
+  assert.ok(row.indexOf('class="hide buttons--container"') !== -1, 'контейнер обязан остаться скрытым по умолчанию');
+  // Кнопки пула — внутри контейнера, а не рассыпаны по ряду: от состава пула
+  // зависит меню кнопки «Смотреть» (onGroupButtons) и хэш приоритетной кнопки.
+  const pool = template.innerOf(row, 'buttons--container');
+  assert.notEqual(pool, null);
+  assert.ok(pool.indexOf('view--trailer') !== -1);
+  assert.ok(pool.indexOf('view--torrent') !== -1);
+});
+
 test('build(фикстура): каждая кнопка оригинала целиком встречается в результате дословно', () => {
   const result = template.build(fixture);
   assert.notEqual(result, null);
