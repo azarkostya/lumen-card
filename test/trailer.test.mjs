@@ -1,6 +1,7 @@
 import test from 'node:test'; import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { load } from './_load.mjs';
-import { FakeEl } from './_fakedom.mjs';
+import { FakeEl, fakeQuery } from './_fakedom.mjs';
 
 /* Task 7: фоновый трейлер YouTube (экран 02 дизайна).
 
@@ -18,6 +19,24 @@ var warnLog = [];
 globalThis.warn = function (msg, err) { warnLog.push({ msg: msg, err: err }); };
 
 const t = load('55_trailer.js');
+
+/* Списки ожидания API (pending) и признак «глобальный хук уже поставлен»
+   (hooked) — состояние УРОВНЯ МОДУЛЯ. Тесты плеера и schedule поэтому
+   поднимают СВОЙ экземпляр модуля: с общим на весь файл hooked остался бы
+   true от предыдущего теста, и проверка «обёртка ставится один раз» ничего
+   бы не проверяла. Чистые pickTrailer/modeFor выше в общем экземпляре t. */
+function loadInto(LC, module, name) {
+  const src = readFileSync(new URL(`../src/${name}`, import.meta.url), 'utf8');
+  new Function('LC', 'module', src)(LC, module);
+}
+
+function freshModule() {
+  const LC = {};
+  const module = { exports: null, lumen: true };
+  loadInto(LC, module, '10_util.js');
+  loadInto(LC, module, '55_trailer.js');
+  return { LC, mod: module.exports };
+}
 
 /* ====================================================================== */
 /* Step 2: выбор ролика — чистая функция.                                 */
@@ -132,14 +151,15 @@ function freshEnv(opts) {
 
   const host = new FakeEl(['lumen-bg__trailer']);
   const events = { start: 0, end: 0 };
+  const { mod } = freshModule();
 
   return {
     host, events, players, timers, created, head, byId,
-    FakePlayer,
+    FakePlayer, mod,
     fire: (id) => { const x = timers[id - 1]; if (x && !x.cleared) x.fn(); },
     /* последний созданный плеер и его колбэки из cfg.events */
     last: () => players[players.length - 1],
-    make: () => t.player(host, 'KEY1', () => events.start++, () => events.end++)
+    make: () => mod.player(host, 'KEY1', () => events.start++, () => events.end++)
   };
 }
 
@@ -231,7 +251,7 @@ test('player: YT ещё не загружен — <script id="lumen-yt-api"> в�
   assert.equal(scripts[0].src, 'https://www.youtube.com/iframe_api');
 
   /* второй плеер: тег уже в документе — повторно не добавляем */
-  t.player(new FakeEl(['lumen-bg__trailer']), 'KEY2', () => { }, () => { });
+  env.mod.player(new FakeEl(['lumen-bg__trailer']), 'KEY2', () => { }, () => { });
   assert.equal(env.head.children.filter((el) => el.id === 'lumen-yt-api').length, 1);
 });
 
@@ -272,4 +292,317 @@ test('player: исключение конструктора YT.Player перех
 
   assert.doesNotThrow(() => env.make());
   assert.equal(env.events.end, 1);
+});
+
+/* ====================================================================== */
+/* Ревью (утечка памяти): цепочка onYouTubeIframeAPIReady.                 */
+/* Раньше каждый плеер оборачивал предыдущий глобальный обработчик своей   */
+/* функцией, замыкающей create -> $host -> (через parentNode) всё дерево   */
+/* карточки. При недоступном YouTube kill() по таймауту обнулял только yt, */
+/* а ссылка из цепочки оставалась: 20-30 карточек за сессию = столько же   */
+/* удержанных деревьев в памяти ТВ.                                        */
+/* ====================================================================== */
+
+test('утечка: глобальный хук ставится РОВНО один раз на все плееры', () => {
+  const env = freshEnv({ ytReady: false });
+
+  env.make();
+  const afterFirst = globalThis.window.onYouTubeIframeAPIReady;
+  assert.equal(typeof afterFirst, 'function');
+
+  env.mod.player(new FakeEl(['lumen-bg__trailer']), 'K2', () => { }, () => { });
+  env.mod.player(new FakeEl(['lumen-bg__trailer']), 'K3', () => { }, () => { });
+
+  assert.equal(globalThis.window.onYouTubeIframeAPIReady, afterFirst,
+    'обёртка не должна навешиваться поверх предыдущей на каждую карточку');
+});
+
+test('утечка: kill() вычёркивает свой create из очереди — мёртвая карточка не создаётся и не держится', () => {
+  const env = freshEnv({ ytReady: false });
+
+  const ctlA = env.make();
+  const hostB = new FakeEl(['lumen-bg__trailer']);
+  let bStarted = 0;
+  env.mod.player(hostB, 'KEEP', () => bStarted++, () => { });
+
+  /* Карточку A закрыли, не дождавшись API. */
+  ctlA.destroy();
+  assert.equal(env.events.end, 1);
+
+  /* API догрузилось — создаётся ТОЛЬКО живой плеер B. */
+  globalThis.window.YT = { Player: env.FakePlayer };
+  globalThis.window.onYouTubeIframeAPIReady();
+
+  assert.equal(env.players.length, 1, 'мёртвый плеер не должен создаваться');
+  assert.equal(env.players[0].cfg.videoId, 'KEEP');
+
+  /* Очередь опустошена: повторный вызов хука ничего не создаёт заново. */
+  globalThis.window.onYouTubeIframeAPIReady();
+  assert.equal(env.players.length, 1, 'очередь ожидания должна очищаться после вызова');
+});
+
+test('утечка: чужой обработчик вызывается один раз, сколько бы плееров ни ждало API', () => {
+  let foreign = 0;
+  const env = freshEnv({ ytReady: false, foreignHandler: () => { foreign++; } });
+
+  env.make();
+  env.mod.player(new FakeEl(['lumen-bg__trailer']), 'K2', () => { }, () => { });
+
+  globalThis.window.YT = { Player: env.FakePlayer };
+  globalThis.window.onYouTubeIframeAPIReady();
+
+  assert.equal(foreign, 1, 'чужой обработчик не должен вызываться по разу на каждый ожидающий плеер');
+  assert.equal(env.players.length, 2);
+});
+
+test('player: id узла — счётчик, а не Date.now (два плеера в одну миллисекунду)', () => {
+  const env = freshEnv();
+  env.make();
+  env.mod.player(new FakeEl(['lumen-bg__trailer']), 'K2', () => { }, () => { });
+  assert.notEqual(env.players[0].id, env.players[1].id);
+});
+
+test('player: host — youtube-nocookie (приватность фонового ролика)', () => {
+  const env = freshEnv();
+  env.make();
+  assert.equal(env.last().cfg.host, 'https://www.youtube-nocookie.com');
+});
+
+/* ====================================================================== */
+/* Ревью (тестовый пробел): schedule — планирование, guard'ы и полный цикл */
+/* pause -> onEnd -> resume. Раньше не вызывался ни разу (в runtime-тестах */
+/* LC.trailer замокан целиком), поэтому ветка LC.motionMode() === 'off' не */
+/* исполнялась вовсе.                                                      */
+/* ====================================================================== */
+
+function scheduleEnv(opts) {
+  opts = opts || {};
+  warnLog.length = 0;
+
+  const timers = [];
+  globalThis.setTimeout = (fn, ms) => { timers.push({ fn, ms, cleared: false }); return timers.length; };
+  globalThis.clearTimeout = (id) => { const x = timers[id - 1]; if (x) x.cleared = true; };
+  const intervals = [];
+  globalThis.setInterval = (fn, ms) => { intervals.push({ fn, ms, cleared: false }); return intervals.length; };
+  globalThis.clearInterval = (id) => { const x = intervals[id - 1]; if (x) x.cleared = true; };
+  globalThis.document = { head: { appendChild() { } }, getElementById: () => null, createElement: () => ({}) };
+
+  const cfgs = [];
+  function FakePlayer(id, cfg) { this.id = id; this.cfg = cfg; cfgs.push(cfg); }
+  FakePlayer.prototype.destroy = function () { this.destroyed = true; };
+  FakePlayer.prototype.mute = function () { };
+  FakePlayer.prototype.playVideo = function () { };
+
+  const Lampa = {
+    Storage: { field: () => (opts.stored || 'auto') },
+    Platform: { is: () => false },
+    Controller: { enabled: () => ({ name: 'full_start' }), collectionSet() { }, collectionFocus() { } }
+  };
+  globalThis.Lampa = Lampa;
+  globalThis.window = { Lampa: Lampa, YT: opts.noYT ? undefined : { Player: FakePlayer } };
+  globalThis.$ = (x) => (typeof x === 'string' ? fakeQuery(x) : x);
+
+  /* Разметка в объёме, который трогает schedule: слой фона с узлом трейлера
+     и карточка с рядом кнопок внутри .lumen-actions. */
+  const trailerHost = new FakeEl(['lumen-bg__trailer']);
+  const layer = new FakeEl(['lumen-backdrop'], [trailerHost]);
+  const play = new FakeEl(['full-start__button', 'selector', 'button--play']);
+  const buttons = new FakeEl(['full-start-new__buttons'], [play]);
+  const actions = new FakeEl(['lumen-in', 'lumen-actions'], [buttons]);
+  const root = new FakeEl(['full-start-new', 'lumen-card'], [actions]);
+  const body = new FakeEl(['activity__body'], [layer]);
+
+  const slideshow = {
+    pauseCalls: 0, resumeCalls: 0,
+    pause() { this.pauseCalls++; }, resume() { this.resumeCalls++; }
+  };
+
+  const { LC, mod } = freshModule();
+  LC.motionMode = () => opts.motion || 'full';
+  LC.lang = (key) => key;
+  LC.active = { slideshow: slideshow };
+  LC.slideshow = {
+    isMounted: () => (opts.mountedFn ? opts.mountedFn() : opts.mounted !== false),
+    isLayerForeground: () => (opts.foregroundFn ? opts.foregroundFn() : opts.foreground !== false)
+  };
+
+  const data = opts.data !== undefined ? opts.data : {
+    videos: { results: [{ key: 'K1', name: 'Official Trailer', iso_639_1: 'ru', official: true }] }
+  };
+
+  return {
+    LC, mod, root, body, layer, trailerHost, slideshow, timers, intervals, cfgs, data,
+    run: () => mod.schedule(root, body, data),
+    fire: (i) => { const x = timers[i - 1]; if (x && !x.cleared) x.fn(); },
+    tick: (i) => { const x = intervals[i - 1]; if (x && !x.cleared) x.fn(); }
+  };
+}
+
+test('schedule: настройка lumen_trailer=off — ничего не планируется', () => {
+  const env = scheduleEnv({ stored: 'off' });
+  assert.equal(env.run(), null);
+  assert.equal(env.timers.length, 0, 'таймер старта не должен заводиться');
+  assert.equal(env.layer.data('lumenTrailer'), undefined);
+});
+
+test('schedule: режим движения off — трейлера нет (экономия ТВ)', () => {
+  const env = scheduleEnv({ motion: 'off' });
+  assert.equal(env.run(), null);
+  assert.equal(env.timers.length, 0);
+});
+
+test('schedule: подходящего ролика нет — null (и пустой список, и элементы без key)', () => {
+  assert.equal(scheduleEnv({ data: { videos: { results: [] } } }).run(), null);
+  assert.equal(scheduleEnv({ data: {} }).run(), null);
+  assert.equal(scheduleEnv({ data: { videos: { results: [{ name: 'Trailer' }] } } }).run(), null);
+});
+
+test('schedule: планирует старт через 3 с и кладёт контроллер на слой', () => {
+  const env = scheduleEnv();
+  const api = env.run();
+  assert.ok(api && typeof api.destroy === 'function');
+  assert.equal(api.isAlive(), true);
+  assert.equal(env.timers.length, 1);
+  assert.equal(env.timers[0].ms, 3000);
+  assert.equal(env.layer.data('lumenTrailer'), api, 'ссылка на слое — через неё гасит stopSlideshow/cancel');
+});
+
+test('schedule: слой уже не в документе — плеер не создаётся, слайдшоу не трогаем', () => {
+  const env = scheduleEnv({ mounted: false });
+  const api = env.run();
+  env.fire(1);
+  assert.equal(env.cfgs.length, 0, 'плеер создаваться не должен');
+  assert.equal(env.slideshow.pauseCalls, 0);
+  assert.equal(env.slideshow.resumeCalls, 0);
+  assert.equal(api.isAlive(), false);
+});
+
+test('schedule: карточка ушла в фон под другую активность — старт отменяется', () => {
+  const env = scheduleEnv({ foreground: false });
+  const api = env.run();
+  env.fire(1);
+  assert.equal(env.cfgs.length, 0);
+  assert.equal(env.slideshow.pauseCalls, 0);
+  assert.equal(api.isAlive(), false);
+});
+
+test('schedule: destroy до старта — таймер снят, плеера нет, resume вхолостую не зовётся', () => {
+  const env = scheduleEnv();
+  const api = env.run();
+
+  api.destroy();
+  assert.equal(env.timers[0].cleared, true, 'таймер старта обязан сниматься');
+  assert.equal(api.isAlive(), false);
+  assert.equal(env.layer.data('lumenTrailer'), undefined, 'мёртвый контроллер не остаётся на слое');
+
+  env.fire(1); // даже если таймер всё же сработает — ничего не произойдёт
+  assert.equal(env.cfgs.length, 0);
+  assert.equal(env.slideshow.pauseCalls, 0);
+  assert.equal(env.slideshow.resumeCalls, 0, 'паузы не было — возобновлять нечего');
+  assert.deepEqual(warnLog, []);
+});
+
+test('schedule: полный цикл — старт ролика ставит слайдшоу на паузу и рисует оформление, конец возвращает всё ровно по разу', () => {
+  const env = scheduleEnv();
+  const api = env.run();
+  env.fire(1);
+
+  assert.equal(env.cfgs.length, 1, 'плеер создан');
+  assert.equal(env.slideshow.pauseCalls, 0, 'до фактического старта слайдшоу не паузим');
+
+  /* Ролик пошёл. */
+  env.cfgs[0].events.onStateChange({ data: 1 });
+  assert.equal(env.slideshow.pauseCalls, 1);
+  assert.equal(env.root.hasClass('lumen-trailer-on'), true);
+  assert.equal(env.layer.hasClass('lumen-trailer-live'), true);
+  assert.equal(env.root.find('.lumen-trailer-badge').length, 1);
+  assert.equal(env.root.find('.lumen-stop').length, 1);
+  assert.equal(env.root.find('.lumen-stop').hasClass('selector'), true);
+
+  /* Ролик кончился. */
+  env.cfgs[0].events.onStateChange({ data: 0 });
+  assert.equal(env.slideshow.resumeCalls, 1, 'ровно один resume');
+  assert.equal(env.root.hasClass('lumen-trailer-on'), false);
+  assert.equal(env.layer.hasClass('lumen-trailer-live'), false);
+  assert.equal(env.root.find('.lumen-trailer-badge').length, 0);
+  assert.equal(env.root.find('.lumen-stop').length, 0);
+  assert.equal(api.isAlive(), false);
+
+  /* Повторный destroy ничего не дублирует. */
+  api.destroy();
+  assert.equal(env.slideshow.resumeCalls, 1);
+  assert.deepEqual(warnLog, []);
+});
+
+/* Живая находка: Lampa не шлёт события для ПОКИДАЕМОЙ активности
+   (Activity.push), а 'content' исключён из признака ухода фокуса — без
+   сторожа ролик продолжал играть за чужим экраном, и карточка возвращалась
+   из истории в режиме трейлера (сценарий push x2 + backward x2). */
+test('schedule: сторож гасит ролик, когда карточка ушла вглубь (слой больше не на экране)', () => {
+  let foreground = true;
+  const env = scheduleEnv({ foregroundFn: () => foreground });
+  const api = env.run();
+  env.fire(1);
+  env.cfgs[0].events.onStateChange({ data: 1 });
+
+  assert.equal(env.intervals.length, 1, 'на время ролика заводится ровно один сторож');
+  assert.equal(env.intervals[0].ms, 1000);
+  assert.equal(env.root.hasClass('lumen-trailer-on'), true);
+
+  /* Пока карточка на экране — тик ничего не меняет. */
+  env.tick(1);
+  assert.equal(api.isAlive(), true);
+  assert.equal(env.root.hasClass('lumen-trailer-on'), true);
+
+  /* Ушли вглубь: поверх открылась другая активность. */
+  foreground = false;
+  env.tick(1);
+
+  assert.equal(api.isAlive(), false, 'ролик обязан гаснуть при уходе вглубь');
+  assert.equal(env.root.hasClass('lumen-trailer-on'), false, 'режим трейлера не должен «залипать» на карточке');
+  assert.equal(env.layer.hasClass('lumen-trailer-live'), false);
+  assert.equal(env.root.find('.lumen-stop').length, 0);
+  assert.equal(env.root.find('.lumen-trailer-badge').length, 0);
+  assert.equal(env.slideshow.resumeCalls, 1, 'слайдшоу возвращается');
+  assert.equal(env.intervals[0].cleared, true, 'сторож снимается вместе с роликом');
+  assert.equal(env.layer.data('lumenTrailer'), undefined);
+  assert.deepEqual(warnLog, []);
+});
+
+test('schedule: сторож гасит ролик и когда слой вообще исчез из документа', () => {
+  let mounted = true;
+  const env = scheduleEnv({ mountedFn: () => mounted });
+  const api = env.run();
+  env.fire(1);
+  env.cfgs[0].events.onStateChange({ data: 1 });
+
+  mounted = false;
+  env.tick(1);
+
+  assert.equal(api.isAlive(), false);
+  assert.equal(env.intervals[0].cleared, true);
+});
+
+test('schedule: без старта ролика сторож не заводится вовсе', () => {
+  const env = scheduleEnv();
+  env.run();
+  env.fire(1); // плеер создан, но onStateChange(1) не приходил
+  assert.equal(env.intervals.length, 0, 'лишних таймеров на ТВ быть не должно');
+});
+
+test('schedule: stopActive снимает трейлер текущей карточки и обнуляет поле', () => {
+  const env = scheduleEnv();
+  const api = env.run();
+  env.LC.active.trailer = api;
+  env.fire(1);
+  env.cfgs[0].events.onStateChange({ data: 1 });
+  assert.equal(env.root.hasClass('lumen-trailer-on'), true);
+
+  env.mod.stopActive();
+
+  assert.equal(env.LC.active.trailer, null);
+  assert.equal(api.isAlive(), false);
+  assert.equal(env.root.hasClass('lumen-trailer-on'), false);
+  assert.equal(env.slideshow.resumeCalls, 1);
+  assert.equal(env.layer.data('lumenTrailer'), undefined);
 });

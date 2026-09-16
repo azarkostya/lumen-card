@@ -180,7 +180,11 @@
         '</div>' +
 
         /* 6: кнопки (только LC.template.build — содержимое не трогать) */
-        '<div class="lumen-in">' +
+        /* Task 7 (ревью): собственный класс .lumen-actions вместо привязки
+           CSS к nth-child(6) — порядок блоков шаблона перестаёт быть частью
+           контракта стилей. На stagger Task 4 (nth-child(1..6)) лишний класс
+           не влияет: узел остаётся шестым прямым ребёнком .lumen-content. */
+        '<div class="lumen-in lumen-actions">' +
         '<div class="full-start-new__reactions"><div>#{reactions_none}</div></div>' +
         /* Обёртка константна (только этот один div), хэшируется НЕ она —
            хэшируются кнопки внутри (innerOf вырезает только их, план 0.2). */

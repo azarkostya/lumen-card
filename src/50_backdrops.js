@@ -495,6 +495,19 @@
      stopSlideshow() (apply()/cancel()), чтобы не пережил layer. */
   function revive(layer) {
     try {
+      /* Task 7 (ревью): revive() зовут ровно тогда, когда слой побывал вне
+         DOM — Lampa тихо убрала карточку на 2+ уровня истории, без события
+         'destroy'. У трейлера, в отличие от слайдшоу, нет страховки тиком:
+         его alive остался бы true, а классы lumen-trailer-on/-live — висеть
+         на карточке, которую сейчас переоткрывают. Тогда после backward()
+         карточка показалась бы в режиме трейлера (описание, рейтинги,
+         боковая колонка и ряд серий скрыты display:none !important) без
+         самого ролика, и stopActive() уже ничего бы не снял. Гасим так же,
+         как это делает stopSlideshow() ниже. */
+      var trailer = layer.data('lumenTrailer');
+      if (trailer) { try { trailer.destroy(); } catch (e0) { } }
+      layer.removeData('lumenTrailer');
+
       var urls = layer.data('lumenUrls');
       if (!urls || !urls.length) return null;
       var opts = layer.data('lumenOpts');

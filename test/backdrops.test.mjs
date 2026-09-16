@@ -258,6 +258,46 @@ test('Task 7: повторный apply на том же слое снимает 
   assert.equal(destroyed, 1, 'новая карточка на том же слое не должна оставлять играть чужой ролик');
 });
 
+/* Ревью: revive() зовут ровно тогда, когда слой побывал ВНЕ DOM (Lampa тихо
+   убрала карточку на 2+ уровня истории, без события 'destroy'). У трейлера,
+   в отличие от слайдшоу, нет страховки тиком: без явного гашения его alive
+   остался бы true, а классы lumen-trailer-on/-live висели бы на карточке,
+   которую сейчас переоткрывают — после backward() она показалась бы в режиме
+   трейлера (описание, рейтинги, боковая колонка и ряд серий скрыты
+   display:none !important) без самого ролика. */
+test('Task 7 (ревью): revive() гасит трейлер слоя и снимает ссылку', () => {
+  const LC = freshLC({ prefs: { lumen_slideshow: true } });
+  const body = fakeBody();
+  const movie = { id: 1, backdrop_path: '/main.jpg', images: { backdrops: [mk('/main.jpg', null, 9), mk('/c.jpg', null, 7)] } };
+
+  LC.backdrops.apply(null, body, movie);
+  const layer = mount(body._children[0]);
+  loaders[0].onload(); // слайдшоу активировано
+
+  let destroyed = 0;
+  layer.data('lumenTrailer', { destroy() { destroyed++; } });
+  layer.data('lumenSlideshow').destroy(); // страховка isLayerMounted() в реальности
+
+  const newCtrl = LC.backdrops.revive(layer);
+
+  assert.ok(newCtrl, 'слайдшоу должно ожить');
+  assert.equal(destroyed, 1, 'трейлер обязан гаснуть вместе с оживлением слоя');
+  assert.equal(layer.data('lumenTrailer'), undefined, 'ссылка на мёртвый трейлер не должна оставаться на слое');
+});
+
+test('Task 7 (ревью): трейлер гаснет даже когда revive() выходит рано (оживлять слайдшоу нечего)', () => {
+  const LC = freshLC();
+  /* Слой без lumenUrls — apply() на нём не вызывался: revive вернёт null,
+     но слой всё равно побывал вне DOM, поэтому трейлер обязан быть снят. */
+  const layer = mount(fakeQuery('<div class="lumen-backdrop"><div class="lumen-backdrop__img"></div><div class="lumen-bg__slides"></div></div>'));
+  let destroyed = 0;
+  layer.data('lumenTrailer', { destroy() { destroyed++; } });
+
+  assert.equal(LC.backdrops.revive(layer), null);
+  assert.equal(destroyed, 1);
+  assert.equal(layer.data('lumenTrailer'), undefined);
+});
+
 test('Task 7: исключение в destroy трейлера не ломает cancel', () => {
   const LC = freshLC();
   const body = fakeBody();

@@ -560,9 +560,9 @@ css.push('.lumen-card .lumen-trailer-badge:before{content:"";display:block;-webk
 
 
 
-css.push('.lumen-card.lumen-trailer-on .full-start-new__title{font-size:1.84em}');
+css.push('.lumen-card.lumen-trailer-on .full-start-new__title{font-size:1.84em;opacity:.92}');
 css.push('.lumen-card.lumen-trailer-on .lumen-descr,.lumen-card.lumen-trailer-on .full-start-new__rate-line,.lumen-card.lumen-trailer-on .lumen-side,.lumen-card.lumen-trailer-on .lumen-episodes{display:none !important}');
-css.push('.lumen-card.lumen-trailer-on .lumen-content > .lumen-in:nth-child(6){display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center}');
+css.push('.lumen-card.lumen-trailer-on .lumen-actions{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center}');
 
 
 
@@ -1369,7 +1369,11 @@ return '' +
 '</div>' +
 
 
-'<div class="lumen-in">' +
+
+
+
+
+'<div class="lumen-in lumen-actions">' +
 '<div class="full-start-new__reactions"><div>#{reactions_none}</div></div>' +
 
 
@@ -1937,6 +1941,19 @@ if (reviveCleanup) { clearTimeout(reviveCleanup); layer.removeData('lumenReviveC
 
 function revive(layer) {
 try {
+
+
+
+
+
+
+
+
+
+var trailer = layer.data('lumenTrailer');
+if (trailer) { try { trailer.destroy(); } catch (e0) { } }
+layer.removeData('lumenTrailer');
+
 var urls = layer.data('lumenUrls');
 if (!urls || !urls.length) return null;
 var opts = layer.data('lumenOpts');
@@ -2413,6 +2430,9 @@ var START_DELAY_MS = 3000;
 var WAIT_MS = 6000;
 
 
+var WATCH_MS = 1000;
+
+
 
 
 
@@ -2490,8 +2510,38 @@ return modeFor(stored, platform);
 
 
 
+
+
+
+
+var pending = [];
+var hooked = false;
+
+function hook() {
+if (hooked) return;
+hooked = true;
+var prev = window.onYouTubeIframeAPIReady;
+window.onYouTubeIframeAPIReady = function () {
+if (prev) { try { prev(); } catch (e) { } }
+var list = pending;
+pending = [];
+for (var i = 0; i < list.length; i++) {
+try { list[i](); } catch (e2) { }
+}
+};
+}
+
+
+
+var seq = 0;
+
+
+
+
+
+
 function player($host, key, onStart, onEnd) {
-var id = 'lumen-yt-' + Date.now();
+var id = 'lumen-yt-' + (++seq);
 var yt = null;
 var dead = false;
 var timeout = null;
@@ -2501,6 +2551,12 @@ $host.html('<div id="' + id + '"></div>');
 function kill() {
 if (dead) return;
 dead = true;
+
+
+
+for (var p = 0; p < pending.length; p++) {
+if (pending[p] === create) { pending.splice(p, 1); break; }
+}
 if (timeout) { clearTimeout(timeout); timeout = null; }
 try { if (yt && yt.destroy) yt.destroy(); } catch (e) { }
 yt = null;
@@ -2515,6 +2571,9 @@ yt = new window.YT.Player(id, {
 videoId: key,
 width: '100%',
 height: '100%',
+
+
+host: 'https://www.youtube-nocookie.com',
 
 
 
@@ -2549,11 +2608,8 @@ if (window.YT && window.YT.Player) create();
 else {
 
 
-var prev = window.onYouTubeIframeAPIReady;
-window.onYouTubeIframeAPIReady = function () {
-if (prev) { try { prev(); } catch (e) { } }
-create();
-};
+pending.push(create);
+hook();
 if (!document.getElementById(API_ID)) {
 var script = document.createElement('script');
 script.id = API_ID;
@@ -2599,13 +2655,15 @@ try { if (LC.active && LC.active.slideshow) LC.active.slideshow.resume(); } catc
 
 
 
-function recollect(root) {
+function recollect(root, target) {
 try {
 if (!window.Lampa || !Lampa.Controller) return;
 if (typeof Lampa.Controller.collectionSet !== 'function') return;
 var enabled = typeof Lampa.Controller.enabled === 'function' ? Lampa.Controller.enabled() : null;
 if (!enabled || enabled.name !== 'full_start') return;
-var focused = root.find('.focus');
+
+
+var focused = (target && target.length) ? target : root.find('.focus');
 Lampa.Controller.collectionSet(root);
 if (typeof Lampa.Controller.collectionFocus === 'function') {
 Lampa.Controller.collectionFocus(focused && focused.length ? focused : false, root);
@@ -2659,15 +2717,11 @@ var btn = root.find('.lumen-stop');
 if (!btn.length) return;
 var focused = btn.hasClass('focus');
 btn.remove();
-recollect(root);
 
 
-if (focused) {
-var play = root.find('.full-start-new__buttons').find('.full-start__button').not('.hide').eq(0);
-if (play.length && window.Lampa && Lampa.Controller && typeof Lampa.Controller.collectionFocus === 'function') {
-Lampa.Controller.collectionFocus(play, root);
-}
-}
+
+var play = focused ? root.find('.full-start-new__buttons').find('.full-start__button').not('.hide').eq(0) : null;
+recollect(root, play);
 } catch (e) {
 warn('trailer stop button cleanup failed', e);
 }
@@ -2695,12 +2749,43 @@ var alive = true;
 var control = null;
 var timer = null;
 
+
+
+var paused = false;
+var watchdog = null;
+
+function stopWatchdog() {
+if (watchdog) { clearInterval(watchdog); watchdog = null; }
+}
+
+
+
+
+
+
+
+
+
+
+function startWatchdog() {
+if (watchdog) return;
+watchdog = setInterval(function () {
+try {
+if (!LC.slideshow.isMounted(layer[0]) || !LC.slideshow.isLayerForeground(layer)) destroy();
+} catch (e) { }
+}, WATCH_MS);
+}
+
 function cleanup() {
+stopWatchdog();
 try { root.removeClass('lumen-trailer-on'); } catch (e) { }
 try { layer.removeClass('lumen-trailer-live'); } catch (e2) { }
 removeBadge(root);
 removeStop(root);
+if (paused) {
+paused = false;
 resumeSlideshow();
+}
 }
 
 function begin() {
@@ -2711,9 +2796,13 @@ if (!alive) return;
 if (!LC.slideshow.isMounted(layer[0])) { alive = false; return; }
 if (!LC.slideshow.isLayerForeground(layer)) { alive = false; return; }
 
-pauseSlideshow();
 control = player(ensureHost(layer), video.key, function () {
 if (!alive) return;
+
+
+paused = true;
+pauseSlideshow();
+startWatchdog();
 try { root.addClass('lumen-trailer-on'); } catch (e) { }
 try { layer.addClass('lumen-trailer-live'); } catch (e2) { }
 addBadge(root);
@@ -2728,6 +2817,9 @@ cleanup();
 
 function destroy() {
 if (timer) { clearTimeout(timer); timer = null; }
+
+
+try { if (layer.data('lumenTrailer') === api) layer.removeData('lumenTrailer'); } catch (e) { }
 if (!alive) return;
 if (control) {
 
@@ -5008,7 +5100,12 @@ if (e.type === 'start' && e.component === 'full') {
 var layer = layerOf(e.object);
 if (layer && layer.length) {
 var slideshow = liveSlideshow(layer, layer.data('lumenSlideshow'));
-LC.active = { object: e.object, body: layer.parent(), slideshow: slideshow };
+
+
+
+
+
+LC.active = { object: e.object, body: layer.parent(), slideshow: slideshow, trailer: layer.data('lumenTrailer') || null };
 if (slideshow) slideshow.resume();
 }
 }

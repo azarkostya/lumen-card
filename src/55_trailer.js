@@ -40,6 +40,9 @@
        запрещён) — тихо убираем и возвращаем слайдшоу. */
     var START_DELAY_MS = 3000;
     var WAIT_MS = 6000;
+    /* Период сторожа «карточка ещё на экране» (см. startWatchdog ниже).
+       Тикает только пока ролик реально играет. */
+    var WATCH_MS = 1000;
 
     /* ------------------------------------------------------------------ */
     /* Чистая часть: выбор ролика и режим настройки.                       */
@@ -114,13 +117,43 @@
     /* Контроллер плеера YouTube IFrame API.                               */
     /* ------------------------------------------------------------------ */
 
+    /* Ревью (утечка): ждущие готовности API плееры держатся СПИСКОМ, а
+       window.onYouTubeIframeAPIReady оборачивается РОВНО ОДИН раз за жизнь
+       плагина. Раньше каждая карточка навешивала свою обёртку поверх
+       предыдущей, замыкая create -> $host -> (через parentNode) всё дерево
+       карточки; если YouTube недоступен (нет сети, блокировка), kill() по
+       таймауту обнулял только yt, а ссылка из цепочки оставалась — 20-30
+       карточек за сессию давали столько же удержанных деревьев в памяти ТВ.
+       Теперь kill() вычёркивает свой create из pending, и последняя ссылка
+       на карточку исчезает вместе с ним. */
+    var pending = [];
+    var hooked = false;
+
+    function hook() {
+      if (hooked) return;
+      hooked = true;
+      var prev = window.onYouTubeIframeAPIReady;
+      window.onYouTubeIframeAPIReady = function () {
+        if (prev) { try { prev(); } catch (e) { } }
+        var list = pending;
+        pending = [];
+        for (var i = 0; i < list.length; i++) {
+          try { list[i](); } catch (e2) { }
+        }
+      };
+    }
+
+    /* Порядковый номер вместо Date.now(): два плеера в одну миллисекунду
+       (быстрый backward между карточками) получили бы одинаковый id узла. */
+    var seq = 0;
+
     /* $host — узел .lumen-bg__trailer внутри слоя фона. Возвращает
        {destroy}; destroy идемпотентен и всегда проходит через kill(), то
        есть onEnd вызывается ровно один раз, каким бы путём ни завершилось
        воспроизведение (старт не случился за WAIT_MS, ошибка плеера, конец
        ролика, закрытие карточки). */
     function player($host, key, onStart, onEnd) {
-      var id = 'lumen-yt-' + Date.now();
+      var id = 'lumen-yt-' + (++seq);
       var yt = null;
       var dead = false;
       var timeout = null;
@@ -130,6 +163,12 @@
       function kill() {
         if (dead) return;
         dead = true;
+        /* Вычёркиваем свой create из очереди ожидания API — иначе глобальный
+           хук держал бы его (а через него и всё дерево карточки) до конца
+           сессии. */
+        for (var p = 0; p < pending.length; p++) {
+          if (pending[p] === create) { pending.splice(p, 1); break; }
+        }
         if (timeout) { clearTimeout(timeout); timeout = null; }
         try { if (yt && yt.destroy) yt.destroy(); } catch (e) { }
         yt = null;
@@ -144,6 +183,9 @@
             videoId: key,
             width: '100%',
             height: '100%',
+            /* Приватность: домен без рекламных кук (ролик фоновый, счётчики
+               просмотров нам не нужны). */
+            host: 'https://www.youtube-nocookie.com',
             /* mute:1 обязателен — без звука это ещё и единственный способ
                получить autoplay в браузерах. start:4 пропускает заставку
                студии, controls/disablekb/fs убирают всю обвязку плеера. */
@@ -177,12 +219,9 @@
       if (window.YT && window.YT.Player) create();
       else {
         /* Чужой обработчик (сама Lampa, другой плагин) обязан пережить нашу
-           подписку — иначе их плеер молча перестанет инициализироваться. */
-        var prev = window.onYouTubeIframeAPIReady;
-        window.onYouTubeIframeAPIReady = function () {
-          if (prev) { try { prev(); } catch (e) { } }
-          create();
-        };
+           подписку — его сохраняет hook() при первой обёртке. */
+        pending.push(create);
+        hook();
         if (!document.getElementById(API_ID)) {
           var script = document.createElement('script');
           script.id = API_ID;
@@ -228,13 +267,15 @@
        отбрасывает target, у которого offsetParent === null. Трогаем только
        пока активен контроллер карточки — на чужом экране перекладывать
        коллекцию нельзя. */
-    function recollect(root) {
+    function recollect(root, target) {
       try {
         if (!window.Lampa || !Lampa.Controller) return;
         if (typeof Lampa.Controller.collectionSet !== 'function') return;
         var enabled = typeof Lampa.Controller.enabled === 'function' ? Lampa.Controller.enabled() : null;
         if (!enabled || enabled.name !== 'full_start') return;
-        var focused = root.find('.focus');
+        /* target — куда вернуть фокус явно (снятая кнопка «Стоп» уводит его
+           на ряд кнопок). Без него — тот, кто в фокусе сейчас. */
+        var focused = (target && target.length) ? target : root.find('.focus');
         Lampa.Controller.collectionSet(root);
         if (typeof Lampa.Controller.collectionFocus === 'function') {
           Lampa.Controller.collectionFocus(focused && focused.length ? focused : false, root);
@@ -288,15 +329,11 @@
         if (!btn.length) return;
         var focused = btn.hasClass('focus');
         btn.remove();
-        recollect(root);
-        /* Фокус стоял на снятой кнопке — возвращаем его на ряд кнопок
-           (иначе контроллер останется без цели). */
-        if (focused) {
-          var play = root.find('.full-start-new__buttons').find('.full-start__button').not('.hide').eq(0);
-          if (play.length && window.Lampa && Lampa.Controller && typeof Lampa.Controller.collectionFocus === 'function') {
-            Lampa.Controller.collectionFocus(play, root);
-          }
-        }
+        /* Фокус стоял на снятой кнопке — возвращаем его на ряд кнопок одним
+           проходом recollect (иначе фокус переставлялся бы дважды: сперва на
+           первый .selector, потом на «Смотреть»). */
+        var play = focused ? root.find('.full-start-new__buttons').find('.full-start__button').not('.hide').eq(0) : null;
+        recollect(root, play);
       } catch (e) {
         warn('trailer stop button cleanup failed', e);
       }
@@ -323,13 +360,44 @@
         var alive = true;
         var control = null;
         var timer = null;
+        /* Слайдшоу ставится на паузу только с фактическим стартом ролика,
+           поэтому и возобновлять его нужно только если пауза была: иначе
+           destroy() до старта дёргал бы resume() вхолостую. */
+        var paused = false;
+        var watchdog = null;
+
+        function stopWatchdog() {
+          if (watchdog) { clearInterval(watchdog); watchdog = null; }
+        }
+
+        /* Уход вглубь (другая карточка, актёр, каталог, настройки, плеер)
+           Lampa НЕ сообщает событием для покидаемой активности — ровно та же
+           история, что со слайдшоу (см. tryFrom в 51_slideshow.js и большой
+           комментарий про Activity.push в 90_runtime.js). Поэтому пока ролик
+           играет, раз в секунду проверяем, на экране ли ещё наш слой, и
+           гасим трейлер, если нет: иначе звук-без-звука продолжал бы крутить
+           iframe за чужим экраном, а карточка возвращалась бы из истории в
+           режиме трейлера (описание и боковая колонка скрыты, ролика нет).
+           Тик заводится только на время проигрывания и снимается в cleanup. */
+        function startWatchdog() {
+          if (watchdog) return;
+          watchdog = setInterval(function () {
+            try {
+              if (!LC.slideshow.isMounted(layer[0]) || !LC.slideshow.isLayerForeground(layer)) destroy();
+            } catch (e) { }
+          }, WATCH_MS);
+        }
 
         function cleanup() {
+          stopWatchdog();
           try { root.removeClass('lumen-trailer-on'); } catch (e) { }
           try { layer.removeClass('lumen-trailer-live'); } catch (e2) { }
           removeBadge(root);
           removeStop(root);
-          resumeSlideshow();
+          if (paused) {
+            paused = false;
+            resumeSlideshow();
+          }
         }
 
         function begin() {
@@ -340,9 +408,13 @@
           if (!LC.slideshow.isMounted(layer[0])) { alive = false; return; }
           if (!LC.slideshow.isLayerForeground(layer)) { alive = false; return; }
 
-          pauseSlideshow();
           control = player(ensureHost(layer), video.key, function () {
             if (!alive) return;
+            /* Пауза — только когда ролик РЕАЛЬНО пошёл: при недоступном
+               YouTube кадры иначе замирали бы на все 6 с ожидания впустую. */
+            paused = true;
+            pauseSlideshow();
+            startWatchdog();
             try { root.addClass('lumen-trailer-on'); } catch (e) { }
             try { layer.addClass('lumen-trailer-live'); } catch (e2) { }
             addBadge(root);
@@ -357,6 +429,9 @@
 
         function destroy() {
           if (timer) { clearTimeout(timer); timer = null; }
+          /* Симметрично schedule(): мёртвый контроллер не должен оставаться
+             на слое до следующего stopSlideshow(). */
+          try { if (layer.data('lumenTrailer') === api) layer.removeData('lumenTrailer'); } catch (e) { }
           if (!alive) return;
           if (control) {
             /* kill() -> onEnd -> cleanup(): порядок и однократность

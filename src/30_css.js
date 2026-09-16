@@ -311,9 +311,9 @@
        лента рейтингов, боковая колонка и ряд серий убраны — на экране их нет.
        Шестой .lumen-in (реакции + кнопки + ряд серий) становится строкой,
        чтобы «Стоп» встал рядом с рядом кнопок, а не под ним. */
-    css.push('.lumen-card.lumen-trailer-on .full-start-new__title{font-size:1.84em}');
+    css.push('.lumen-card.lumen-trailer-on .full-start-new__title{font-size:1.84em;opacity:.92}');
     css.push('.lumen-card.lumen-trailer-on .lumen-descr,.lumen-card.lumen-trailer-on .full-start-new__rate-line,.lumen-card.lumen-trailer-on .lumen-side,.lumen-card.lumen-trailer-on .lumen-episodes{display:none !important}');
-    css.push('.lumen-card.lumen-trailer-on .lumen-content > .lumen-in:nth-child(6){display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center}');
+    css.push('.lumen-card.lumen-trailer-on .lumen-actions{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center}');
 
     /* --- Правая колонка (design-spec §8/экраны 01,10: статус первым над чипами
        качества, аватар 62px Golos Text, чипы качества раздельно). Ревью Task 5a:

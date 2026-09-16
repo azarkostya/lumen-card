@@ -579,6 +579,36 @@ test('Task 7: фокус, оставшийся от предыдущей кар�
   assert.equal(LC.active.trailer, controller);
 });
 
+/* Ревью: у вернувшейся карточки LC.active обязан нести поле trailer — иначе
+   «залипший» режим трейлера (классы lumen-trailer-on/-live на карточке, чей
+   DOM Lampa тихо убирала на 2+ уровня истории) уже нечем было бы снять:
+   stopActive() смотрит именно в LC.active.trailer. */
+test('Task 7 (ревью): start вернувшейся карточки восстанавливает LC.active.trailer со слоя', () => {
+  const LC = freshLC();
+  const ctrl = makeCtrl();
+  const objA = makeActivityObj('A', true, ctrl);
+  const layer = objA.activity.render().find('.lumen-backdrop');
+  const trailer = { destroy() { }, isAlive: () => true };
+  layer.data('lumenTrailer', trailer);
+  LC.backdrops = { cancel: () => { }, revive: () => ctrl };
+
+  LC.onActivityEvent({ type: 'start', component: 'full', object: objA });
+
+  assert.equal(LC.active.object, objA);
+  assert.equal(LC.active.trailer, trailer);
+});
+
+test('Task 7 (ревью): трейлера на слое нет (revive его погасил) -> поле trailer равно null, а не undefined', () => {
+  const LC = freshLC();
+  const ctrl = makeCtrl();
+  const objA = makeActivityObj('A', true, ctrl);
+  LC.backdrops = { cancel: () => { }, revive: () => ctrl };
+
+  LC.onActivityEvent({ type: 'start', component: 'full', object: objA });
+
+  assert.equal(LC.active.trailer, null);
+});
+
 test('Task 7: LC.applyTrailerPref — выключение снимает играющий ролик, прочие значения не трогают', () => {
   const off = initLC({ mode: 'off' });
   off.LC.applyTrailerPref();

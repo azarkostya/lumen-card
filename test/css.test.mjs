@@ -537,6 +537,7 @@ test('buildCss: метка «ТРЕЙЛЕР · БЕЗ ЗВУКА» — прав�
 test('buildCss: режим трейлера сжимает шапку — заголовок 42px, описание/рейтинги/колонка/серии убраны', () => {
   const title = findDecl(css, (sel) => sel === '.lumen-card.lumen-trailer-on .full-start-new__title');
   assert.ok(title && title.indexOf('font-size:1.84em') !== -1, 'заголовок экрана 02: 42px ÷ 22.811 = 1.84em');
+  assert.ok(title.indexOf('opacity:.92') !== -1, 'на экране 02 заголовок слегка приглушён (opacity .92)');
 
   const hidden = ruleBodies(css).find((r) => r.selectors.some((s) => s === '.lumen-card.lumen-trailer-on .lumen-descr'));
   assert.ok(hidden, 'правило скрытия блоков в режиме трейлера не найдено');
@@ -549,8 +550,12 @@ test('buildCss: режим трейлера сжимает шапку — заг
 });
 
 test('buildCss: в режиме трейлера ряд кнопок и «Стоп» встают в одну строку', () => {
-  const row = findDecl(css, (sel) => sel === '.lumen-card.lumen-trailer-on .lumen-content > .lumen-in:nth-child(6)');
+  /* Ревью: правило висит на собственном классе .lumen-actions, а не на
+     nth-child(6) — порядок блоков шаблона не часть контракта стилей. */
+  const row = findDecl(css, (sel) => sel === '.lumen-card.lumen-trailer-on .lumen-actions');
   assert.ok(row, 'правило строки кнопок в режиме трейлера не найдено');
+  assert.equal(findDecl(css, (sel) => sel.indexOf('.lumen-trailer-on') !== -1 && sel.indexOf('nth-child') !== -1), null,
+    'режим трейлера не должен зависеть от порядкового номера блока');
   assert.ok(row.indexOf('display:flex') !== -1);
   assert.ok(row.indexOf('align-items:center') !== -1);
 });

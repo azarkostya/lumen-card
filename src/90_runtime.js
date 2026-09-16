@@ -340,7 +340,12 @@
         var layer = layerOf(e.object);
         if (layer && layer.length) {
           var slideshow = liveSlideshow(layer, layer.data('lumenSlideshow'));
-          LC.active = { object: e.object, body: layer.parent(), slideshow: slideshow };
+          /* Task 7 (ревью): поле trailer обязано восстанавливаться вместе с
+             LC.active — иначе у вернувшейся карточки его бы не было вовсе и
+             stopActive() не смог бы снять «залипший» режим трейлера.
+             LC.backdrops.revive() гасит трейлер и снимает ссылку, поэтому в
+             сценарии оживления здесь закономерно окажется null. */
+          LC.active = { object: e.object, body: layer.parent(), slideshow: slideshow, trailer: layer.data('lumenTrailer') || null };
           if (slideshow) slideshow.resume();
         }
       }
