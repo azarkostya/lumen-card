@@ -95,9 +95,10 @@ test('kpToFinds: все с imdbId', () => {
 });
 
 // --- mergeMedia ---
-test('mergeMedia: фильмы и сериалы чередуются, дубли по id убраны', () => {
+test('mergeMedia: фильмы и сериалы чередуются; дубли — только внутри той же медиа (I1: ключ media:id)', () => {
+  // movie:1 != tv:1 — фильм и сериал с одинаковым TMDB id разные объекты, оба попадают
   const m = S.mergeMedia([{ id: 1 }, { id: 2 }], [{ id: 3 }, { id: 1 }]);
-  assert.deepEqual(m.map(function(x) { return x.id; }), [1, 3, 2]);
+  assert.deepEqual(m.map(function(x) { return x.id; }), [1, 3, 2, 1]);
 });
 test('mergeMedia: только movies', () => {
   const m = S.mergeMedia([{ id: 1 }, { id: 2 }], []);

@@ -3,56 +3,104 @@
   "groups": [
     {
       "id": "franchise",
-      "title": "Franchises"
+      "title": "Франшизы",
+      "i18n": {
+        "en": "Franchises",
+        "uk": "Франшизи"
+      }
     },
     {
       "id": "studio",
-      "title": "Studios"
+      "title": "Студии",
+      "i18n": {
+        "en": "Studios",
+        "uk": "Студії"
+      }
     },
     {
       "id": "service",
-      "title": "Services"
+      "title": "Сервисы",
+      "i18n": {
+        "en": "Services",
+        "uk": "Сервіси"
+      }
     },
     {
       "id": "theme",
-      "title": "Themes"
+      "title": "Темы",
+      "i18n": {
+        "en": "Themes",
+        "uk": "Теми"
+      }
     },
     {
       "id": "country",
-      "title": "Countries"
+      "title": "Страны",
+      "i18n": {
+        "en": "Countries",
+        "uk": "Країни"
+      }
     },
     {
       "id": "era",
-      "title": "Eras"
+      "title": "Эпохи",
+      "i18n": {
+        "en": "Eras",
+        "uk": "Епохи"
+      }
     },
     {
       "id": "people",
-      "title": "People"
+      "title": "Режиссёры",
+      "i18n": {
+        "en": "People",
+        "uk": "Режисери"
+      }
     },
     {
       "id": "top",
-      "title": "Top"
+      "title": "Топ",
+      "i18n": {
+        "en": "Top",
+        "uk": "Топ"
+      }
     },
     {
       "id": "kp",
-      "title": "Kinopoisk"
+      "title": "Кинопоиск",
+      "i18n": {
+        "en": "Kinopoisk",
+        "uk": "Кінопошук"
+      }
     },
     {
       "id": "mood",
-      "title": "Mood"
+      "title": "Настроение",
+      "i18n": {
+        "en": "Mood",
+        "uk": "Настрій"
+      }
     }
   ],
   "hubGroups": [
     {
       "id": "franchises",
-      "title": "Franchises",
+      "title": "Франшизы",
+      "i18n": {
+        "en": "Franchises",
+        "uk": "Франшизи"
+      },
       "groups": [
         "franchise"
       ]
     },
     {
       "id": "studios",
-      "title": "Studios & Services",
+      "title": "Студии и сервисы",
+      "i18n": {
+        "en": "Studios & Services",
+        "uk": "Студії та сервіси"
+      },
       "groups": [
         "studio",
         "service"
@@ -60,35 +108,55 @@
     },
     {
       "id": "themes",
-      "title": "Themes",
+      "title": "Темы",
+      "i18n": {
+        "en": "Themes",
+        "uk": "Теми"
+      },
       "groups": [
         "theme"
       ]
     },
     {
       "id": "countries",
-      "title": "Countries",
+      "title": "Страны",
+      "i18n": {
+        "en": "Countries",
+        "uk": "Країни"
+      },
       "groups": [
         "country"
       ]
     },
     {
       "id": "eras",
-      "title": "Eras",
+      "title": "Эпохи",
+      "i18n": {
+        "en": "Eras",
+        "uk": "Епохи"
+      },
       "groups": [
         "era"
       ]
     },
     {
       "id": "people",
-      "title": "People",
+      "title": "Режиссёры",
+      "i18n": {
+        "en": "People",
+        "uk": "Режисери"
+      },
       "groups": [
         "people"
       ]
     },
     {
       "id": "tops",
-      "title": "Top & Kinopoisk",
+      "title": "Топ и Кинопоиск",
+      "i18n": {
+        "en": "Top & Kinopoisk",
+        "uk": "Топ та Кінопошук"
+      },
       "groups": [
         "top",
         "kp"
@@ -98,7 +166,11 @@
   "moods": [
     {
       "id": "friday",
-      "title": "Friday Evening",
+      "title": "Пятничный вечер",
+      "i18n": {
+        "en": "Friday Evening",
+        "uk": "П'ятничний вечір"
+      },
       "sources": {
         "movie": {
           "type": "discover",
@@ -115,7 +187,11 @@
     },
     {
       "id": "family",
-      "title": "Family Viewing",
+      "title": "Семейный просмотр",
+      "i18n": {
+        "en": "Family Viewing",
+        "uk": "Сімейний перегляд"
+      },
       "sources": {
         "movie": {
           "type": "discover",
@@ -132,7 +208,11 @@
     },
     {
       "id": "scary",
-      "title": "Scary at Night",
+      "title": "Страшное на ночь",
+      "i18n": {
+        "en": "Scary at Night",
+        "uk": "Страшне вночі"
+      },
       "sources": {
         "movie": {
           "type": "discover",
@@ -148,7 +228,11 @@
     },
     {
       "id": "short",
-      "title": "90 Minutes",
+      "title": "90 минут",
+      "i18n": {
+        "en": "90 Minutes",
+        "uk": "90 хвилин"
+      },
       "sources": {
         "movie": {
           "type": "discover",
@@ -179,7 +263,7 @@
   "collections": [
     {
       "id": "star-wars",
-      "title": "Star Wars",
+      "title": "Звёздные войны",
       "group": "franchise",
       "icon": "film",
       "sources": {
@@ -198,7 +282,7 @@
     },
     {
       "id": "harry-potter",
-      "title": "Harry Potter",
+      "title": "Гарри Поттер",
       "group": "franchise",
       "icon": "film",
       "sources": {
@@ -210,7 +294,7 @@
     },
     {
       "id": "lotr",
-      "title": "Lord of the Rings",
+      "title": "Властелин колец",
       "group": "franchise",
       "icon": "film",
       "sources": {
@@ -222,7 +306,7 @@
     },
     {
       "id": "hobbit",
-      "title": "The Hobbit",
+      "title": "Хоббит",
       "group": "franchise",
       "icon": "film",
       "sources": {
@@ -234,7 +318,7 @@
     },
     {
       "id": "john-wick",
-      "title": "John Wick",
+      "title": "Джон Уик",
       "group": "franchise",
       "icon": "film",
       "sources": {
@@ -246,7 +330,7 @@
     },
     {
       "id": "mission-impossible",
-      "title": "Mission: Impossible",
+      "title": "Миссия невыполнима",
       "group": "franchise",
       "icon": "film",
       "sources": {
@@ -258,7 +342,7 @@
     },
     {
       "id": "matrix",
-      "title": "The Matrix",
+      "title": "Матрица",
       "group": "franchise",
       "icon": "film",
       "sources": {
@@ -270,7 +354,7 @@
     },
     {
       "id": "terminator",
-      "title": "Terminator",
+      "title": "Терминатор",
       "group": "franchise",
       "icon": "film",
       "sources": {
@@ -296,7 +380,7 @@
     },
     {
       "id": "ghibli",
-      "title": "Studio Ghibli",
+      "title": "Студия Гибли",
       "group": "studio",
       "sources": {
         "movie": {
@@ -366,7 +450,7 @@
     },
     {
       "id": "netflix-comedy",
-      "title": "Netflix Comedy",
+      "title": "Netflix: Комедии",
       "group": "service",
       "badge": "NETFLIX",
       "sources": {
@@ -451,7 +535,7 @@
     },
     {
       "id": "netflix-series",
-      "title": "Netflix Series",
+      "title": "Netflix: Сериалы",
       "group": "service",
       "badge": "NETFLIX",
       "sources": {
@@ -466,7 +550,7 @@
     },
     {
       "id": "xmas-comedy",
-      "title": "Christmas Comedies",
+      "title": "Рождественские комедии",
       "group": "theme",
       "icon": "star",
       "season": [
@@ -486,7 +570,7 @@
     },
     {
       "id": "halloween",
-      "title": "Halloween",
+      "title": "Хэллоуин",
       "group": "theme",
       "icon": "star",
       "season": [
@@ -507,7 +591,7 @@
     },
     {
       "id": "comedy",
-      "title": "Comedies",
+      "title": "Комедии",
       "group": "theme",
       "sources": {
         "movie": {
@@ -524,7 +608,7 @@
     },
     {
       "id": "superhero",
-      "title": "Superheroes",
+      "title": "Супергерои",
       "group": "theme",
       "sources": {
         "movie": {
@@ -548,7 +632,7 @@
     },
     {
       "id": "horror-top",
-      "title": "Horror",
+      "title": "Хоррор",
       "group": "theme",
       "sources": {
         "movie": {
@@ -565,7 +649,7 @@
     },
     {
       "id": "documentary",
-      "title": "Documentary",
+      "title": "Документальное",
       "group": "theme",
       "sources": {
         "movie": {
@@ -582,7 +666,7 @@
     },
     {
       "id": "thriller",
-      "title": "Thrillers",
+      "title": "Триллеры",
       "group": "theme",
       "sources": {
         "movie": {
@@ -599,7 +683,7 @@
     },
     {
       "id": "kdrama",
-      "title": "K-Drama",
+      "title": "Корейские дорамы",
       "group": "country",
       "sources": {
         "tv": {
@@ -616,7 +700,7 @@
     },
     {
       "id": "anime",
-      "title": "Anime",
+      "title": "Аниме",
       "group": "country",
       "sources": {
         "tv": {
@@ -631,7 +715,7 @@
     },
     {
       "id": "turkish",
-      "title": "Turkish Series",
+      "title": "Турецкие сериалы",
       "group": "country",
       "sources": {
         "tv": {
@@ -647,7 +731,7 @@
     },
     {
       "id": "french",
-      "title": "French Cinema",
+      "title": "Французское кино",
       "group": "country",
       "sources": {
         "movie": {
@@ -664,7 +748,7 @@
     },
     {
       "id": "british",
-      "title": "British TV",
+      "title": "Британское ТВ",
       "group": "country",
       "sources": {
         "tv": {
@@ -690,7 +774,7 @@
     },
     {
       "id": "bollywood",
-      "title": "Bollywood",
+      "title": "Болливуд",
       "group": "country",
       "sources": {
         "movie": {
@@ -707,7 +791,7 @@
     },
     {
       "id": "spanish",
-      "title": "Spanish Series",
+      "title": "Испанские сериалы",
       "group": "country",
       "sources": {
         "tv": {
@@ -723,7 +807,7 @@
     },
     {
       "id": "best-70s",
-      "title": "Best of 1970s",
+      "title": "Лучшее из 70-х",
       "group": "era",
       "sources": {
         "movie": {
@@ -741,7 +825,7 @@
     },
     {
       "id": "best-80s",
-      "title": "Best of 1980s",
+      "title": "Лучшее из 80-х",
       "group": "era",
       "sources": {
         "movie": {
@@ -759,7 +843,7 @@
     },
     {
       "id": "best-90s",
-      "title": "Best of 1990s",
+      "title": "Лучшее из 90-х",
       "group": "era",
       "sources": {
         "movie": {
@@ -777,7 +861,7 @@
     },
     {
       "id": "best-2000s",
-      "title": "Best of 2000s",
+      "title": "Лучшее из 2000-х",
       "group": "era",
       "sources": {
         "movie": {
@@ -795,7 +879,7 @@
     },
     {
       "id": "best-2010s",
-      "title": "Best of 2010s",
+      "title": "Лучшее из 2010-х",
       "group": "era",
       "sources": {
         "movie": {
@@ -813,7 +897,7 @@
     },
     {
       "id": "nolan",
-      "title": "Christopher Nolan",
+      "title": "Кристофер Нолан",
       "group": "people",
       "sources": {
         "movie": {
@@ -829,7 +913,7 @@
     },
     {
       "id": "tarantino",
-      "title": "Quentin Tarantino",
+      "title": "Квентин Тарантино",
       "group": "people",
       "sources": {
         "movie": {
@@ -845,7 +929,7 @@
     },
     {
       "id": "dicaprio",
-      "title": "Leonardo DiCaprio",
+      "title": "Леонардо ДиКаприо",
       "group": "people",
       "sources": {
         "movie": {
@@ -861,7 +945,7 @@
     },
     {
       "id": "spielberg",
-      "title": "Steven Spielberg",
+      "title": "Стивен Спилберг",
       "group": "people",
       "sources": {
         "movie": {
@@ -877,7 +961,7 @@
     },
     {
       "id": "fincher",
-      "title": "David Fincher",
+      "title": "Дэвид Финчер",
       "group": "people",
       "sources": {
         "movie": {
@@ -893,7 +977,7 @@
     },
     {
       "id": "scorsese",
-      "title": "Martin Scorsese",
+      "title": "Мартин Скорсезе",
       "group": "people",
       "sources": {
         "movie": {
@@ -909,7 +993,7 @@
     },
     {
       "id": "villeneuve",
-      "title": "Denis Villeneuve",
+      "title": "Дени Вильнёв",
       "group": "people",
       "sources": {
         "movie": {
@@ -925,7 +1009,7 @@
     },
     {
       "id": "miyazaki",
-      "title": "Hayao Miyazaki",
+      "title": "Хаяо Миядзаки",
       "group": "people",
       "sources": {
         "movie": {
@@ -941,7 +1025,7 @@
     },
     {
       "id": "top-grossing",
-      "title": "Top Grossing",
+      "title": "Кассовые хиты",
       "group": "top",
       "sources": {
         "movie": {
@@ -952,7 +1036,7 @@
     },
     {
       "id": "top-rated",
-      "title": "Top Rated",
+      "title": "Высокий рейтинг",
       "group": "top",
       "sources": {
         "movie": {
@@ -969,7 +1053,7 @@
     },
     {
       "id": "popular-all",
-      "title": "Popular Now",
+      "title": "Популярное сейчас",
       "group": "top",
       "sources": {
         "movie": {
@@ -994,7 +1078,7 @@
     },
     {
       "id": "kp-top250",
-      "title": "KP Top-250 Movies",
+      "title": "КП Топ-250 фильмов",
       "group": "kp",
       "badge": "KINOPOISK",
       "sources": {
@@ -1006,7 +1090,7 @@
     },
     {
       "id": "kp-top250-tv",
-      "title": "KP Top-250 Series",
+      "title": "КП Топ-250 сериалов",
       "group": "kp",
       "badge": "KINOPOISK",
       "sources": {
@@ -1018,7 +1102,7 @@
     },
     {
       "id": "kp-popular-all",
-      "title": "KP Popular",
+      "title": "КП Популярное",
       "group": "kp",
       "badge": "KINOPOISK",
       "sources": {
@@ -1030,7 +1114,7 @@
     },
     {
       "id": "kp-popular-series",
-      "title": "KP Popular Series",
+      "title": "КП Популярные сериалы",
       "group": "kp",
       "badge": "KINOPOISK",
       "sources": {
@@ -1042,7 +1126,7 @@
     },
     {
       "id": "kp-family",
-      "title": "KP Family",
+      "title": "КП Семейные",
       "group": "kp",
       "badge": "KINOPOISK",
       "sources": {
@@ -1054,7 +1138,7 @@
     },
     {
       "id": "kp-animation",
-      "title": "KP Animation",
+      "title": "КП Анимация",
       "group": "kp",
       "badge": "KINOPOISK",
       "sources": {
@@ -1066,7 +1150,7 @@
     },
     {
       "id": "kp-comics",
-      "title": "KP Comics",
+      "title": "КП Комиксы",
       "group": "kp",
       "badge": "KINOPOISK",
       "sources": {
@@ -1078,7 +1162,7 @@
     },
     {
       "id": "kp-vampire",
-      "title": "KP Vampire",
+      "title": "КП Вампиры",
       "group": "kp",
       "badge": "KINOPOISK",
       "sources": {
@@ -1090,7 +1174,7 @@
     },
     {
       "id": "kp-zombie",
-      "title": "KP Zombie",
+      "title": "КП Зомби",
       "group": "kp",
       "badge": "KINOPOISK",
       "sources": {
@@ -1102,7 +1186,7 @@
     },
     {
       "id": "kp-love",
-      "title": "KP Love",
+      "title": "КП Романтика",
       "group": "kp",
       "badge": "KINOPOISK",
       "sources": {
@@ -1114,7 +1198,7 @@
     },
     {
       "id": "kp-catastrophe",
-      "title": "KP Catastrophe",
+      "title": "КП Катастрофы",
       "group": "kp",
       "badge": "KINOPOISK",
       "sources": {
@@ -1126,7 +1210,7 @@
     },
     {
       "id": "kp-oscars",
-      "title": "KP Oscar Winners",
+      "title": "КП Лауреаты Оскара",
       "group": "kp",
       "badge": "KINOPOISK",
       "sources": {

@@ -1731,6 +1731,7 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 
+
 LC.manifest = (function () {
 
 
@@ -1738,36 +1739,39 @@ var DEFAULT = {
 version: 1,
 
 
+
 groups: [
-{ id: 'franchise', title: 'Franchises' },
-{ id: 'studio',    title: 'Studios' },
-{ id: 'service',   title: 'Services' },
-{ id: 'theme',     title: 'Themes' },
-{ id: 'country',   title: 'Countries' },
-{ id: 'era',       title: 'Eras' },
-{ id: 'people',    title: 'People' },
-{ id: 'top',       title: 'Top' },
-{ id: 'kp',        title: 'Kinopoisk' },
-{ id: 'mood',      title: 'Mood' }
+{ id: 'franchise', title: 'Франшизы',    i18n: { en: 'Franchises',  uk: 'Франшизи' } },
+{ id: 'studio',    title: 'Студии',       i18n: { en: 'Studios',     uk: 'Студії' } },
+{ id: 'service',   title: 'Сервисы',      i18n: { en: 'Services',    uk: 'Сервіси' } },
+{ id: 'theme',     title: 'Темы',         i18n: { en: 'Themes',      uk: 'Теми' } },
+{ id: 'country',   title: 'Страны',       i18n: { en: 'Countries',   uk: 'Країни' } },
+{ id: 'era',       title: 'Эпохи',        i18n: { en: 'Eras',        uk: 'Епохи' } },
+{ id: 'people',    title: 'Режиссёры',    i18n: { en: 'People',      uk: 'Режисери' } },
+{ id: 'top',       title: 'Топ',          i18n: { en: 'Top',         uk: 'Топ' } },
+{ id: 'kp',        title: 'Кинопоиск',   i18n: { en: 'Kinopoisk',   uk: 'Кінопошук' } },
+{ id: 'mood',      title: 'Настроение',   i18n: { en: 'Mood',        uk: 'Настрій' } }
 ],
+
 
 
 hubGroups: [
-{ id: 'franchises', title: 'Franchises',           groups: ['franchise'] },
-{ id: 'studios',    title: 'Studios & Services',   groups: ['studio', 'service'] },
-{ id: 'themes',     title: 'Themes',               groups: ['theme'] },
-{ id: 'countries',  title: 'Countries',            groups: ['country'] },
-{ id: 'eras',       title: 'Eras',                 groups: ['era'] },
-{ id: 'people',     title: 'People',               groups: ['people'] },
-{ id: 'tops',       title: 'Top & Kinopoisk',      groups: ['top', 'kp'] }
+{ id: 'franchises', title: 'Франшизы',          i18n: { en: 'Franchises',        uk: 'Франшизи' },         groups: ['franchise'] },
+{ id: 'studios',    title: 'Студии и сервисы',  i18n: { en: 'Studios & Services', uk: 'Студії та сервіси' }, groups: ['studio', 'service'] },
+{ id: 'themes',     title: 'Темы',              i18n: { en: 'Themes',             uk: 'Теми' },              groups: ['theme'] },
+{ id: 'countries',  title: 'Страны',            i18n: { en: 'Countries',          uk: 'Країни' },            groups: ['country'] },
+{ id: 'eras',       title: 'Эпохи',             i18n: { en: 'Eras',               uk: 'Епохи' },             groups: ['era'] },
+{ id: 'people',     title: 'Режиссёры',         i18n: { en: 'People',             uk: 'Режисери' },          groups: ['people'] },
+{ id: 'tops',       title: 'Топ и Кинопоиск',  i18n: { en: 'Top & Kinopoisk',    uk: 'Топ та Кінопошук' }, groups: ['top', 'kp'] }
 ],
 
 
+
 moods: [
-{ id: 'friday',  title: 'Friday Evening',  sources: { movie: { type: 'discover', params: { genres: '28|12|35', sort_by: 'popularity.desc', filter: { 'vote_average.gte': 6.5, 'with_runtime.lte': 130 } } } } },
-{ id: 'family',  title: 'Family Viewing',  sources: { movie: { type: 'discover', params: { genres: '10751|16', sort_by: 'popularity.desc', filter: { certification_country: 'US', 'certification.lte': 'PG' } } } } },
-{ id: 'scary',   title: 'Scary at Night',  sources: { movie: { type: 'discover', params: { genres: 27, sort_by: 'vote_average.desc', filter: { 'vote_count.gte': 300 } } } } },
-{ id: 'short',   title: '90 Minutes',      sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { 'with_runtime.lte': 90, 'vote_count.gte': 200 } } } } }
+{ id: 'friday', title: 'Пятничный вечер',  i18n: { en: 'Friday Evening',  uk: 'П\'ятничний вечір' },  sources: { movie: { type: 'discover', params: { genres: '28|12|35', sort_by: 'popularity.desc', filter: { 'vote_average.gte': 6.5, 'with_runtime.lte': 130 } } } } },
+{ id: 'family', title: 'Семейный просмотр', i18n: { en: 'Family Viewing',  uk: 'Сімейний перегляд' }, sources: { movie: { type: 'discover', params: { genres: '10751|16', sort_by: 'popularity.desc', filter: { certification_country: 'US', 'certification.lte': 'PG' } } } } },
+{ id: 'scary',  title: 'Страшное на ночь',  i18n: { en: 'Scary at Night',  uk: 'Страшне вночі' },    sources: { movie: { type: 'discover', params: { genres: 27, sort_by: 'vote_average.desc', filter: { 'vote_count.gte': 300 } } } } },
+{ id: 'short',  title: '90 минут',           i18n: { en: '90 Minutes',      uk: '90 хвилин' },         sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { 'with_runtime.lte': 90, 'vote_count.gte': 200 } } } } }
 ],
 
 
@@ -1782,38 +1786,38 @@ collections: [
 
 
 {
-id: 'star-wars', title: 'Star Wars', group: 'franchise', icon: 'film',
+id: 'star-wars', title: 'Звёздные войны', group: 'franchise', icon: 'film',
 sources: {
 movie: { type: 'collection', id: 10 },
 tv:    { type: 'discover',   params: { keywords: 379196, sort_by: 'popularity.desc' } }
 }
 },
 {
-id: 'harry-potter', title: 'Harry Potter', group: 'franchise', icon: 'film',
+id: 'harry-potter', title: 'Гарри Поттер', group: 'franchise', icon: 'film',
 sources: { movie: { type: 'collection', id: 1241 } }
 },
 {
-id: 'lotr', title: 'Lord of the Rings', group: 'franchise', icon: 'film',
+id: 'lotr', title: 'Властелин колец', group: 'franchise', icon: 'film',
 sources: { movie: { type: 'collection', id: 119 } }
 },
 {
-id: 'hobbit', title: 'The Hobbit', group: 'franchise', icon: 'film',
+id: 'hobbit', title: 'Хоббит', group: 'franchise', icon: 'film',
 sources: { movie: { type: 'collection', id: 121938 } }
 },
 {
-id: 'john-wick', title: 'John Wick', group: 'franchise', icon: 'film',
+id: 'john-wick', title: 'Джон Уик', group: 'franchise', icon: 'film',
 sources: { movie: { type: 'collection', id: 404609 } }
 },
 {
-id: 'mission-impossible', title: 'Mission: Impossible', group: 'franchise', icon: 'film',
+id: 'mission-impossible', title: 'Миссия невыполнима', group: 'franchise', icon: 'film',
 sources: { movie: { type: 'collection', id: 87359 } }
 },
 {
-id: 'matrix', title: 'The Matrix', group: 'franchise', icon: 'film',
+id: 'matrix', title: 'Матрица', group: 'franchise', icon: 'film',
 sources: { movie: { type: 'collection', id: 2344 } }
 },
 {
-id: 'terminator', title: 'Terminator', group: 'franchise', icon: 'film',
+id: 'terminator', title: 'Терминатор', group: 'franchise', icon: 'film',
 sources: { movie: { type: 'collection', id: 528 } }
 },
 
@@ -1823,7 +1827,7 @@ id: 'pixar', title: 'Pixar', group: 'studio',
 sources: { movie: { type: 'discover', params: { companies: 3, sort_by: 'popularity.desc' } } }
 },
 {
-id: 'ghibli', title: 'Studio Ghibli', group: 'studio',
+id: 'ghibli', title: 'Студия Гибли', group: 'studio',
 sources: { movie: { type: 'discover', params: { companies: 10342, sort_by: 'popularity.desc' } } }
 },
 {
@@ -1845,7 +1849,7 @@ sources: { movie: { type: 'discover', params: { companies: 1, sort_by: 'populari
 
 
 {
-id: 'netflix-comedy', title: 'Netflix Comedy', group: 'service', badge: 'NETFLIX',
+id: 'netflix-comedy', title: 'Netflix: Комедии', group: 'service', badge: 'NETFLIX',
 sources: {
 tv:    { type: 'discover', params: { genres: 35, networks: 213, sort_by: 'popularity.desc' } },
 movie: { type: 'discover', params: { genres: 35, watch_providers: 8, watch_region: 'US', sort_by: 'popularity.desc' } }
@@ -1868,143 +1872,143 @@ id: 'amazon-series', title: 'Amazon Prime', group: 'service', badge: 'PRIME',
 sources: { tv: { type: 'discover', params: { networks: 1024, sort_by: 'popularity.desc' } } }
 },
 {
-id: 'netflix-series', title: 'Netflix Series', group: 'service', badge: 'NETFLIX',
+id: 'netflix-series', title: 'Netflix: Сериалы', group: 'service', badge: 'NETFLIX',
 sources: { tv: { type: 'discover', params: { networks: 213, sort_by: 'popularity.desc' } } }
 },
 
 
 {
-id: 'xmas-comedy', title: 'Christmas Comedies', group: 'theme', icon: 'star', season: [12, 1],
+id: 'xmas-comedy', title: 'Рождественские комедии', group: 'theme', icon: 'star', season: [12, 1],
 sources: { movie: { type: 'discover', params: { genres: 35, keywords: 207317, sort_by: 'popularity.desc' } } }
 },
 {
-id: 'halloween', title: 'Halloween', group: 'theme', icon: 'star', season: [9, 10, 11],
+id: 'halloween', title: 'Хэллоуин', group: 'theme', icon: 'star', season: [9, 10, 11],
 sources: { movie: { type: 'discover', params: { genres: 27, keywords: 3335, sort_by: 'popularity.desc' } } }
 },
 {
-id: 'comedy', title: 'Comedies', group: 'theme',
+id: 'comedy', title: 'Комедии', group: 'theme',
 sources: { movie: { type: 'discover', params: { genres: 35, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 200 } } } }
 },
 {
-id: 'superhero', title: 'Superheroes', group: 'theme',
+id: 'superhero', title: 'Супергерои', group: 'theme',
 sources: {
 movie: { type: 'discover', params: { genres: '28|12', sort_by: 'popularity.desc', filter: { 'vote_count.gte': 100 } } },
 tv:    { type: 'discover', params: { genres: '10759|10765', sort_by: 'popularity.desc' } }
 }
 },
 {
-id: 'horror-top', title: 'Horror', group: 'theme',
+id: 'horror-top', title: 'Хоррор', group: 'theme',
 sources: { movie: { type: 'discover', params: { genres: 27, sort_by: 'vote_average.desc', filter: { 'vote_count.gte': 300 } } } }
 },
 {
-id: 'documentary', title: 'Documentary', group: 'theme',
+id: 'documentary', title: 'Документальное', group: 'theme',
 sources: { movie: { type: 'discover', params: { genres: 99, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 100 } } } }
 },
 {
-id: 'thriller', title: 'Thrillers', group: 'theme',
+id: 'thriller', title: 'Триллеры', group: 'theme',
 sources: { movie: { type: 'discover', params: { genres: 53, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 200 } } } }
 },
 
 
 {
-id: 'kdrama', title: 'K-Drama', group: 'country',
+id: 'kdrama', title: 'Корейские дорамы', group: 'country',
 sources: { tv: { type: 'discover', params: { genres: 18, sort_by: 'popularity.desc', filter: { with_origin_country: 'KR' } } } }
 },
 {
-id: 'anime', title: 'Anime', group: 'country',
+id: 'anime', title: 'Аниме', group: 'country',
 sources: { tv: { type: 'discover', params: { genres: 16, orig_lang: 'ja', sort_by: 'popularity.desc' } } }
 },
 {
-id: 'turkish', title: 'Turkish Series', group: 'country',
+id: 'turkish', title: 'Турецкие сериалы', group: 'country',
 sources: { tv: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_origin_country: 'TR' } } } }
 },
 {
-id: 'french', title: 'French Cinema', group: 'country',
+id: 'french', title: 'Французское кино', group: 'country',
 sources: { movie: { type: 'discover', params: { sort_by: 'vote_average.desc', filter: { with_origin_country: 'FR', 'vote_count.gte': 100 } } } }
 },
 {
-id: 'british', title: 'British TV', group: 'country',
+id: 'british', title: 'Британское ТВ', group: 'country',
 sources: {
 tv:    { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_origin_country: 'GB' } } },
 movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_origin_country: 'GB', 'vote_count.gte': 100 } } }
 }
 },
 {
-id: 'bollywood', title: 'Bollywood', group: 'country',
+id: 'bollywood', title: 'Болливуд', group: 'country',
 sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_origin_country: 'IN', 'vote_count.gte': 50 } } } }
 },
 {
-id: 'spanish', title: 'Spanish Series', group: 'country',
+id: 'spanish', title: 'Испанские сериалы', group: 'country',
 sources: { tv: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_origin_country: 'ES' } } } }
 },
 
 
 {
-id: 'best-70s', title: 'Best of 1970s', group: 'era',
+id: 'best-70s', title: 'Лучшее из 70-х', group: 'era',
 sources: { movie: { type: 'discover', params: { sort_by: 'vote_average.desc', filter: { 'primary_release_date.gte': '1970-01-01', 'primary_release_date.lte': '1979-12-31', 'vote_count.gte': 300 } } } }
 },
 {
-id: 'best-80s', title: 'Best of 1980s', group: 'era',
+id: 'best-80s', title: 'Лучшее из 80-х', group: 'era',
 sources: { movie: { type: 'discover', params: { sort_by: 'vote_average.desc', filter: { 'primary_release_date.gte': '1980-01-01', 'primary_release_date.lte': '1989-12-31', 'vote_count.gte': 500 } } } }
 },
 {
-id: 'best-90s', title: 'Best of 1990s', group: 'era',
+id: 'best-90s', title: 'Лучшее из 90-х', group: 'era',
 sources: { movie: { type: 'discover', params: { sort_by: 'vote_average.desc', filter: { 'primary_release_date.gte': '1990-01-01', 'primary_release_date.lte': '1999-12-31', 'vote_count.gte': 500 } } } }
 },
 {
-id: 'best-2000s', title: 'Best of 2000s', group: 'era',
+id: 'best-2000s', title: 'Лучшее из 2000-х', group: 'era',
 sources: { movie: { type: 'discover', params: { sort_by: 'vote_average.desc', filter: { 'primary_release_date.gte': '2000-01-01', 'primary_release_date.lte': '2009-12-31', 'vote_count.gte': 500 } } } }
 },
 {
-id: 'best-2010s', title: 'Best of 2010s', group: 'era',
+id: 'best-2010s', title: 'Лучшее из 2010-х', group: 'era',
 sources: { movie: { type: 'discover', params: { sort_by: 'vote_average.desc', filter: { 'primary_release_date.gte': '2010-01-01', 'primary_release_date.lte': '2019-12-31', 'vote_count.gte': 500 } } } }
 },
 
 
 {
-id: 'nolan', title: 'Christopher Nolan', group: 'people',
+id: 'nolan', title: 'Кристофер Нолан', group: 'people',
 sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_people: 525 } } } }
 },
 {
-id: 'tarantino', title: 'Quentin Tarantino', group: 'people',
+id: 'tarantino', title: 'Квентин Тарантино', group: 'people',
 sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_people: 138 } } } }
 },
 {
-id: 'dicaprio', title: 'Leonardo DiCaprio', group: 'people',
+id: 'dicaprio', title: 'Леонардо ДиКаприо', group: 'people',
 sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_people: 6193 } } } }
 },
 {
-id: 'spielberg', title: 'Steven Spielberg', group: 'people',
+id: 'spielberg', title: 'Стивен Спилберг', group: 'people',
 sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_people: 488 } } } }
 },
 {
-id: 'fincher', title: 'David Fincher', group: 'people',
+id: 'fincher', title: 'Дэвид Финчер', group: 'people',
 sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_people: 7467 } } } }
 },
 {
-id: 'scorsese', title: 'Martin Scorsese', group: 'people',
+id: 'scorsese', title: 'Мартин Скорсезе', group: 'people',
 sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_people: 1032 } } } }
 },
 {
-id: 'villeneuve', title: 'Denis Villeneuve', group: 'people',
+id: 'villeneuve', title: 'Дени Вильнёв', group: 'people',
 sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_people: 137427 } } } }
 },
 {
-id: 'miyazaki', title: 'Hayao Miyazaki', group: 'people',
+id: 'miyazaki', title: 'Хаяо Миядзаки', group: 'people',
 sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_people: 608 } } } }
 },
 
 
 {
-id: 'top-grossing', title: 'Top Grossing', group: 'top',
+id: 'top-grossing', title: 'Кассовые хиты', group: 'top',
 sources: { movie: { type: 'list', id: 10 } }
 },
 {
-id: 'top-rated', title: 'Top Rated', group: 'top',
+id: 'top-rated', title: 'Высокий рейтинг', group: 'top',
 sources: { movie: { type: 'discover', params: { sort_by: 'vote_average.desc', filter: { 'vote_count.gte': 1000, 'vote_average.gte': 8 } } } }
 },
 {
-id: 'popular-all', title: 'Popular Now', group: 'top',
+id: 'popular-all', title: 'Популярное сейчас', group: 'top',
 sources: {
 movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { 'vote_count.gte': 100 } } },
 tv:    { type: 'discover', params: { sort_by: 'popularity.desc', filter: { 'vote_count.gte': 50 } } }
@@ -2013,56 +2017,57 @@ tv:    { type: 'discover', params: { sort_by: 'popularity.desc', filter: { 'vote
 
 
 {
-id: 'kp-top250', title: 'KP Top-250 Movies', group: 'kp', badge: 'KINOPOISK',
+id: 'kp-top250', title: 'КП Топ-250 фильмов', group: 'kp', badge: 'KINOPOISK',
 sources: { movie: { type: 'kp', collection: 'TOP_250_MOVIES' } }
 },
 {
-id: 'kp-top250-tv', title: 'KP Top-250 Series', group: 'kp', badge: 'KINOPOISK',
+id: 'kp-top250-tv', title: 'КП Топ-250 сериалов', group: 'kp', badge: 'KINOPOISK',
 sources: { movie: { type: 'kp', collection: 'TOP_250_TV_SHOWS' } }
 },
 {
-id: 'kp-popular-all', title: 'KP Popular', group: 'kp', badge: 'KINOPOISK',
+id: 'kp-popular-all', title: 'КП Популярное', group: 'kp', badge: 'KINOPOISK',
 sources: { movie: { type: 'kp', collection: 'TOP_POPULAR_ALL' } }
 },
 {
-id: 'kp-popular-series', title: 'KP Popular Series', group: 'kp', badge: 'KINOPOISK',
+id: 'kp-popular-series', title: 'КП Популярные сериалы', group: 'kp', badge: 'KINOPOISK',
 sources: { movie: { type: 'kp', collection: 'POPULAR_SERIES' } }
 },
 {
-id: 'kp-family', title: 'KP Family', group: 'kp', badge: 'KINOPOISK',
+id: 'kp-family', title: 'КП Семейные', group: 'kp', badge: 'KINOPOISK',
 sources: { movie: { type: 'kp', collection: 'FAMILY' } }
 },
 {
-id: 'kp-animation', title: 'KP Animation', group: 'kp', badge: 'KINOPOISK',
+id: 'kp-animation', title: 'КП Анимация', group: 'kp', badge: 'KINOPOISK',
 sources: { movie: { type: 'kp', collection: 'KIDS_ANIMATION_THEME' } }
 },
 {
-id: 'kp-comics', title: 'KP Comics', group: 'kp', badge: 'KINOPOISK',
+id: 'kp-comics', title: 'КП Комиксы', group: 'kp', badge: 'KINOPOISK',
 sources: { movie: { type: 'kp', collection: 'COMICS_THEME' } }
 },
 {
-id: 'kp-vampire', title: 'KP Vampire', group: 'kp', badge: 'KINOPOISK',
+id: 'kp-vampire', title: 'КП Вампиры', group: 'kp', badge: 'KINOPOISK',
 sources: { movie: { type: 'kp', collection: 'VAMPIRE_THEME' } }
 },
 {
-id: 'kp-zombie', title: 'KP Zombie', group: 'kp', badge: 'KINOPOISK',
+id: 'kp-zombie', title: 'КП Зомби', group: 'kp', badge: 'KINOPOISK',
 sources: { movie: { type: 'kp', collection: 'ZOMBIE_THEME' } }
 },
 {
-id: 'kp-love', title: 'KP Love', group: 'kp', badge: 'KINOPOISK',
+id: 'kp-love', title: 'КП Романтика', group: 'kp', badge: 'KINOPOISK',
 sources: { movie: { type: 'kp', collection: 'LOVE_THEME' } }
 },
 {
-id: 'kp-catastrophe', title: 'KP Catastrophe', group: 'kp', badge: 'KINOPOISK',
+id: 'kp-catastrophe', title: 'КП Катастрофы', group: 'kp', badge: 'KINOPOISK',
 sources: { movie: { type: 'kp', collection: 'CATASTROPHE_THEME' } }
 },
 {
-id: 'kp-oscars', title: 'KP Oscar Winners', group: 'kp', badge: 'KINOPOISK',
+id: 'kp-oscars', title: 'КП Лауреаты Оскара', group: 'kp', badge: 'KINOPOISK',
 sources: { movie: { type: 'kp', collection: 'OSKAR_WINNERS_2021' } }
 }
 
 ]
 };
+
 
 
 
@@ -2075,11 +2080,16 @@ return { ok: false, reason: 'not_object' };
 }
 if (!m.version) return { ok: false, reason: 'no_version' };
 if (!Array.isArray(m.collections)) return { ok: false, reason: 'no_collections' };
+if (!Array.isArray(m.groups) || m.groups.length === 0) return { ok: false, reason: 'no_groups' };
+if (!Array.isArray(m.home)) return { ok: false, reason: 'no_home' };
 var seen = {};
 var i, c;
 for (i = 0; i < m.collections.length; i++) {
 c = m.collections[i];
 if (!c || !c.id) return { ok: false, reason: 'collection_no_id' };
+if (typeof c.title !== 'string' || !c.title) {
+return { ok: false, reason: 'collection_no_title: ' + c.id };
+}
 if (seen[c.id]) return { ok: false, reason: 'duplicate_id: ' + c.id };
 seen[c.id] = 1;
 if (!c.sources || (!c.sources.movie && !c.sources.tv)) {
@@ -2195,6 +2205,7 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 
+
 LC.sources = (function () {
 
 
@@ -2217,9 +2228,73 @@ orig_lang: 'with_original_language'
 
 
 
+
 var LIFE_DISCOVER = 720;
 var LIFE_STATIC = 10080;
 var LIFE_KP = 43200;
+var LIFE_KP_EMPTY = 10;
+
+
+var FETCH_TIMEOUT = 15000;
+
+
+
+
+
+
+var INDEX_KEY = 'lumen_sources_index';
+var MAX_CACHED = 60;
+
+function storage() {
+try { return Lampa && Lampa.Storage; } catch (e) { return null; }
+}
+
+function readIndex(store) {
+var raw = null;
+try { raw = store.get(INDEX_KEY, null); } catch (e) {}
+return Array.isArray(raw) ? raw : [];
+}
+
+function drop(store, key) {
+try { store.set(key, '', { nolisten: true }); } catch (e) {}
+try {
+var ls = (typeof window !== 'undefined' && window.localStorage) ||
+(typeof localStorage !== 'undefined' ? localStorage : null);
+if (ls) ls.removeItem(key);
+} catch (e) {}
+}
+
+function stored(key, value) {
+try {
+var ls = (typeof window !== 'undefined' && window.localStorage) ||
+(typeof localStorage !== 'undefined' ? localStorage : null);
+if (!ls) return true;
+var s = JSON.stringify(value);
+ls.setItem(key, s);
+var got = ls.getItem(key);
+return got !== null && got.length >= s.length;
+} catch (e) { return false; }
+}
+
+function purge(store) {
+var idx = readIndex(store);
+LC.util.each(idx, function (k) { drop(store, k); });
+try { store.set(INDEX_KEY, [], { nolisten: true }); } catch (e) {}
+}
+
+function put(store, key, value) {
+var idx = readIndex(store);
+if (idx.indexOf(key) < 0) { idx.push(key); }
+while (idx.length > MAX_CACHED) { drop(store, idx.shift()); }
+try { store.set(INDEX_KEY, idx, { nolisten: true }); } catch (e) {}
+try { store.set(key, value, { nolisten: true }); } catch (e2) {}
+if (!stored(key, value)) {
+purge(store);
+try { store.set(key, value, { nolisten: true }); } catch (e3) {}
+}
+}
+
+
 
 
 
@@ -2310,21 +2385,22 @@ return ids;
 
 
 
+
 function mergeMedia(movies, tv) {
 var out = [];
 var seen = {};
 var a = movies || [];
 var b = tv || [];
 var len = Math.max(a.length, b.length);
-var i;
+var i, km, kt;
 for (i = 0; i < len; i++) {
-if (a[i] && !seen[a[i].id]) {
-seen[a[i].id] = 1;
-out.push(a[i]);
+if (a[i]) {
+km = 'movie:' + a[i].id;
+if (!seen[km]) { seen[km] = 1; out.push(a[i]); }
 }
-if (b[i] && !seen[b[i].id]) {
-seen[b[i].id] = 1;
-out.push(b[i]);
+if (b[i]) {
+kt = 'tv:' + b[i].id;
+if (!seen[kt]) { seen[kt] = 1; out.push(b[i]); }
 }
 }
 return out;
@@ -2333,34 +2409,62 @@ return out;
 
 
 
-function fetchKp(spec, page, ok, err) {
-var key = (LC.reviews && typeof LC.pref === 'function') ? LC.pref('lumen_kp_key', '') : '';
-if (!key) { err('no_key'); return; }
+
+
+
+
+
+function fetchKp(spec, page, ok, err, alive) {
+var gen = alive ? alive() : 0;
+function dead() { return alive && alive() !== gen; }
+
+var key = typeof LC.pref === 'function' ? LC.pref('lumen_kp_key', '') : '';
+if (!key) { err({ nokey: true }); return null; }
+
 var cacheKey = 'lumen_kp_' + spec.collection + '_' + (page || 1);
-var cached;
-try { cached = Lampa.Storage.get(cacheKey, null); } catch (e) { cached = null; }
-if (cached && cached.at && (Date.now() - cached.at) < LIFE_KP * 60000) {
-ok(cached.data);
-return;
+var store = storage();
+var cached = null;
+try {
+var raw = store ? store.get(cacheKey, null) : null;
+if (raw && typeof raw === 'object' && !Array.isArray(raw) && raw.at) {
+cached = raw;
 }
+} catch (e) {}
+if (cached && (Date.now() - cached.at) < (cached.ttl || LIFE_KP * 60000)) {
+if (!dead()) ok(cached.data);
+return null;
+}
+
 var net = new Lampa.Reguest();
 net.silent(
-'https://kinopoiskapiunofficial.tech/api/v2.2/films/collections?type=' + spec.collection + '&page=' + (page || 1),
+'https://kinopoiskapiunofficial.tech/api/v2.2/films/collections?type=' +
+spec.collection + '&page=' + (page || 1),
 function (json) {
+if (dead()) return;
 var ids = kpToFinds(json, 20);
 var results = [];
 var i = 0;
 function next() {
+if (dead()) return;
 if (i >= ids.length) {
 var data = {
 results: results,
 page: page || 1,
-total_pages: json.totalPages || 1,
-total_results: json.total || results.length,
+total_pages: (json && json.totalPages) || 1,
+total_results: (json && json.total) || results.length,
 title: ''
 };
-try { Lampa.Storage.set(cacheKey, { at: Date.now(), data: data }); } catch (e2) {}
-ok(data);
+var s = storage();
+if (s) {
+if (results.length > 0) {
+put(s, cacheKey, { at: Date.now(), ttl: LIFE_KP * 60000, data: data });
+} else {
+try {
+s.set(cacheKey, { at: Date.now(), ttl: LIFE_KP_EMPTY * 60000, data: data }, { nolisten: true });
+} catch (e2) {}
+}
+}
+if (!dead()) ok(data);
 return;
 }
 var id = ids[i++];
@@ -2368,7 +2472,8 @@ Lampa.Api.sources.tmdb.get(
 'find/' + id,
 { filter: { external_source: 'imdb_id' } },
 function (f) {
-var m = (f.movie_results && f.movie_results[0]) || (f.tv_results && f.tv_results[0]);
+var m = (f.movie_results && f.movie_results[0]) ||
+(f.tv_results && f.tv_results[0]);
 if (m) results.push(m);
 next();
 },
@@ -2378,53 +2483,131 @@ next,
 }
 next();
 },
-function () { err('kp_failed'); },
+function () { if (!dead()) err({ kp_failed: true }); },
 false,
 { headers: { 'X-API-KEY': key }, dataType: 'json', timeout: 8000 }
 );
+return net;
 }
 
 
-function fetchOne(spec, media, page, ok, err) {
-if (spec.type === 'kp') { fetchKp(spec, page, ok, err); return; }
+
+function fetchOne(spec, media, page, ok, err, alive) {
+if (spec.type === 'kp') { return fetchKp(spec, page, ok, err, alive); }
+var gen = alive ? alive() : 0;
+function dead() { return alive && alive() !== gen; }
 var r = buildRequest(spec, media, page);
-Lampa.Api.sources.tmdb.get(
+var net = Lampa.Api.sources.tmdb.get(
 r.url,
 r.params,
-function (json) { ok(normalize(spec.type, json)); },
-err,
+function (json) { if (!dead()) ok(normalize(spec.type, json)); },
+function (e) { if (!dead()) err(e); },
 { life: r.life }
 );
+return net;
 }
 
 
 
+var inflight = {};
 
-function fetchAll(item, page, ok, err) {
+
+
+
+
+
+function fetchAll(item, page, ok, err, alive) {
+var gen = alive ? alive() : 0;
+function dead() { return alive && alive() !== gen; }
+
+var inflightKey = (item.id || '') + ':' + (page || 1);
+if (inflight[inflightKey]) { return { clear: function () {} }; }
+inflight[inflightKey] = true;
+
 var src = item.sources || {};
 var want = [];
 var got = {};
 var failed = 0;
+var done_called = false;
+var nets = [];
+
 if (src.movie) want.push('movie');
 if (src.tv) want.push('tv');
-if (!want.length) { err('no_sources'); return; }
-function done() {
-var gotLen = Object.keys(got).length;
-if (gotLen + failed < want.length) return;
-if (!gotLen) { err('all_failed'); return; }
+if (!want.length) {
+delete inflight[inflightKey];
+if (!dead()) err({ no_sources: true });
+return { clear: function () {} };
+}
+
+function buildResult() {
 var m = got.movie || { results: [], total_pages: 1, total_results: 0 };
 var t = got.tv || { results: [], total_pages: 1, total_results: 0 };
-ok({
+return {
 results: mergeMedia(m.results, t.results),
 title: item.title,
 page: page || 1,
 total_pages: Math.max(m.total_pages || 1, t.total_pages || 1),
 total_results: (m.total_results || 0) + (t.total_results || 0)
+};
+}
+
+var deadline;
+
+function done() {
+var gotLen = Object.keys(got).length;
+if (gotLen + failed < want.length) return;
+if (done_called) return;
+done_called = true;
+clearTimeout(deadline);
+delete inflight[inflightKey];
+if (dead()) return;
+if (!gotLen) { err({ all_failed: true }); return; }
+ok(buildResult());
+}
+
+deadline = setTimeout(function () {
+if (done_called) return;
+done_called = true;
+delete inflight[inflightKey];
+if (dead()) return;
+var r = buildResult();
+r.partial = true;
+ok(r);
+}, FETCH_TIMEOUT);
+
+LC.util.each(want, function (media) {
+var n = fetchOne(
+src[media], media, page,
+function (json) { got[media] = json; done(); },
+function (e) {
+
+
+if (e && e.nokey) {
+if (done_called) return;
+done_called = true;
+clearTimeout(deadline);
+delete inflight[inflightKey];
+if (!dead()) err(e);
+} else {
+failed++;
+done();
+}
+},
+alive
+);
+if (n) nets.push(n);
+});
+
+return {
+clear: function () {
+clearTimeout(deadline);
+done_called = true;
+delete inflight[inflightKey];
+LC.util.each(nets, function (n) {
+try { if (n && n.clear) n.clear(); } catch (e) {}
 });
 }
-LC.util.each(want, function (media) {
-fetchOne(src[media], media, page, function (json) { got[media] = json; done(); }, function () { failed++; done(); });
-});
+};
 }
 
 

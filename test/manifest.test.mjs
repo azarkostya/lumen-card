@@ -95,7 +95,23 @@ test('validate: чужой манифест без collections или с дуб�
     home: []
   }).ok, true);
   assert.equal(M.validate({ version: 1 }).ok, false);
-  assert.equal(M.validate({ version: 1, collections: [{ id: 'a' }, { id: 'a' }], groups: [], home: [] }).ok, false);
+  // дубль id — groups непустой, но коллекция без title: отклоняется
+  assert.equal(M.validate({ version: 1, collections: [{ id: 'a', title: 't', sources: { movie: { type: 'discover', params: {} } } }, { id: 'a', title: 't', sources: { movie: { type: 'discover', params: {} } } }], groups: [{ id: 'g', title: 'G' }], home: [] }).ok, false);
+});
+test('validate: нет groups или groups пустой — отклоняется (C4)', () => {
+  assert.equal(M.validate({ version: 1, collections: [], home: [] }).ok, false);
+  assert.equal(M.validate({ version: 1, collections: [], groups: [], home: [] }).ok, false);
+});
+test('validate: нет home — отклоняется (C4)', () => {
+  assert.equal(M.validate({ version: 1, collections: [], groups: [{ id: 'g', title: 'G' }] }).ok, false);
+});
+test('validate: коллекция без title — отклоняется (C4)', () => {
+  assert.equal(M.validate({
+    version: 1,
+    collections: [{ id: 'a', sources: { movie: { type: 'discover', params: {} } } }],
+    groups: [{ id: 'g', title: 'G' }],
+    home: []
+  }).ok, false);
 });
 test('validate: нет version — отклоняется', () => {
   assert.equal(M.validate({ collections: [], groups: [], home: [] }).ok, false);

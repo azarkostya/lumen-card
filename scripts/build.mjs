@@ -104,6 +104,8 @@ if (checkOnly) {
     process.exit(1);
   }
   console.log('dist is up to date');
+  // Проверяем синхронность manifest.json с DEFAULT (I8).
+  execFileSync(process.execPath, [join(dirname(fileURLToPath(import.meta.url)), 'manifest.mjs'), '--check'], { stdio: 'inherit' });
   process.exit(0);
 }
 
@@ -116,13 +118,8 @@ try {
   execFileSync(process.execPath, ['--check', tmp], { stdio: 'inherit' });
   renameSync(tmp, distFile);
   console.log(`built ${distFile} (${out.length} bytes из ${raw.length}, ${files.length} modules)`);
-  // Синхронизируем manifest.json с LC.manifest.DEFAULT из 42_manifest.js.
-  try {
-    const { default: manifestScript } = await import('./manifest.mjs');
-  } catch (me) {
-    // manifest.mjs — скрипт с побочными эффектами, импорт через execFileSync
-    execFileSync(process.execPath, [join(dirname(fileURLToPath(import.meta.url)), 'manifest.mjs')], { stdio: 'inherit' });
-  }
+  // Синхронизируем manifest.json с LC.manifest.DEFAULT из 42_manifest.js (I7).
+  execFileSync(process.execPath, [join(dirname(fileURLToPath(import.meta.url)), 'manifest.mjs')], { stdio: 'inherit' });
 } catch (e) {
   console.error('build failed: ' + (e && e.message ? e.message : e));
   process.exitCode = 1;

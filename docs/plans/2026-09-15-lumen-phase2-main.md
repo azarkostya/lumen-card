@@ -134,9 +134,10 @@ test('discoverUrl: query-строка для category_full, filter раскры�
 test('kpToFinds: items → список imdbId без пустых, не больше лимита', () => {
   assert.deepEqual(S.kpToFinds({ items: [{ imdbId: 'tt1' }, { imdbId: null }, { imdbId: 'tt2' }, { imdbId: 'tt3' }] }, 2), ['tt1', 'tt2']);
 });
-test('mergeMedia: фильмы и сериалы чередуются, дубли по id убраны', () => {
+test('mergeMedia: фильмы и сериалы чередуются; дубли только внутри той же медиа (ключ media:id)', () => {
+  // movie:1 != tv:1, поэтому оба попадают
   const m = S.mergeMedia([{ id: 1 }, { id: 2 }], [{ id: 3 }, { id: 1 }]);
-  assert.deepEqual(m.map(x => x.id), [1, 3, 2]);
+  assert.deepEqual(m.map(x => x.id), [1, 3, 2, 1]);
 });
 ```
 
@@ -159,7 +160,7 @@ test('mergeMedia: фильмы и сериалы чередуются, дубл�
     function normalize(type, json) {
       json = json || {};
       var results = type === 'collection' ? (json.parts || []).slice() : type === 'list' ? (json.items || []).slice() : (json.results || []).slice();
-      if (type === 'collection') results.sort(function (a, b) { return String(a.release_date || '9999') < String(b.release_date || '9999') ? -1 : 1; });
+      if (type === 'collection') results.sort(function (a, b) { var da = String(a.release_date || '9999'), db = String(b.release_date || '9999'); return da < db ? -1 : da > db ? 1 : 0; }); // триstate comparator
       var out = { results: results, title: json.title || json.name || '', page: json.page || 1 };
       out.total_results = json.total_results || results.length;
       out.total_pages = json.total_pages || 1;
@@ -177,10 +178,11 @@ test('mergeMedia: фильмы и сериалы чередуются, дубл�
       return ids;
     }
     function mergeMedia(movies, tv) {
-      var out = [], seen = {}, i, a = movies || [], b = tv || [];
+      var out = [], seen = {}, i, km, kt, a = movies || [], b = tv || [];
       for (i = 0; i < Math.max(a.length, b.length); i++) {
-        if (a[i] && !seen[a[i].id]) { seen[a[i].id] = 1; out.push(a[i]); }
-        if (b[i] && !seen[b[i].id]) { seen[b[i].id] = 1; out.push(b[i]); }
+        // Ключ — media + ':' + id: фильм и сериал с одинаковым TMDB id — разные объекты
+        if (a[i]) { km = 'movie:' + a[i].id; if (!seen[km]) { seen[km] = 1; out.push(a[i]); } }
+        if (b[i]) { kt = 'tv:' + b[i].id; if (!seen[kt]) { seen[kt] = 1; out.push(b[i]); } }
       }
       return out;
     }
@@ -191,9 +193,10 @@ test('mergeMedia: фильмы и сериалы чередуются, дубл�
       Lampa.Api.sources.tmdb.get(r.url, r.params, function (json) { ok(normalize(spec.type, json)); }, err, { life: r.life });
     }
     // Кинопоиск → imdbId → TMDB find; кэш страницы в Storage 30 дней
-    function fetchKp(spec, page, ok, err) {
-      var key = LC.reviews ? LC.pref('lumen_kp_key', '') : '';
-      if (!key) return err('no_key');
+    function fetchKp(spec, page, ok, err, alive) {
+      // Ключ КП напрямую через LC.pref — без зависимости от LC.reviews
+      var key = typeof LC.pref === 'function' ? LC.pref('lumen_kp_key', '') : '';
+      if (!key) return err({ nokey: true });
       var cacheKey = 'lumen_kp_' + spec.collection + '_' + (page || 1);
       var cached = Lampa.Storage.get(cacheKey, null);
       if (cached && cached.at && Date.now() - cached.at < LIFE_KP * 60000) return ok(cached.data);
@@ -274,7 +277,7 @@ test('isFresh 12 часов', () => { assert.equal(M.isFresh({ at: Date.now() - 
 **Files:** Create `src/44_rows.js`, `test/rows.test.mjs`. Modify `src/80_settings.js` (`lumen_home_rows` — список id через запятую, default = `manifest.home`; `lumen_hide_watched` trigger, default false; `lumen_rows_limit` select 10/15/25, default 15), `src/90_runtime.js` (`LC.init` → `LC.manifest.load(function(m){ LC.rows.register(m); LC.personal.register(m); })` до появления главной).
 
 - [ ] **Step 1: Тесты** — `homeRows(manifest, storedIds, month, limit)` → упорядоченный список объектов подборок (персональные id остаются строками-маркерами), сезонные наверх, лимит; `filterWatched(results, viewedIds, hide)`; `rowName(id)` → `'lumen_' + id`.
-- [ ] **Step 2: Регистрация** — для каждого элемента `homeRows` с индексом i: `Lampa.ContentRows.add({ name: LC.rows.rowName(item.id), title: item.title, screen: 'main', index: i + 1, call: function (params, screen) { return function (call) { LC.sources.fetch(item, 1, function (json) { json.results = LC.rows.filterWatched(json.results, LC.rows.viewedIds(), LC.pref('lumen_hide_watched', false)); json.title = item.title; if (item.badge) json.title += ' · ' + item.badge; call(json); }, function () { call({ results: [] }); }); }; } })`. `viewedIds()` — `Lampa.Favorite.get({type:'viewed'})` ids + фильмы с `Lampa.Timeline.view(hash) >= 95`. Проверить живьём, что ряд с пустыми `results` не рисуется и не ломает главную; если ломает — не регистрировать `call` результата, а звать `call(false)`.
+- [ ] **Step 2: Регистрация** — для каждого элемента `homeRows` с индексом i: `Lampa.ContentRows.add({ name: LC.rows.rowName(item.id), title: item.title, screen: 'main', index: i + 1, call: function (params, screen) { return function (call) { var handle = LC.sources.fetch(item, 1, function (json) { json.results = LC.rows.filterWatched(json.results, LC.rows.viewedIds(), LC.pref('lumen_hide_watched', false)); json.title = item.title; if (item.badge) json.title += ' · ' + item.badge; call(json); }, function () { call({ results: [] }); }, screen._alive); return { cancel: function () { if (handle) handle.clear(); } }; }; } })`. При уходе с главного экрана Lampa вызовет `cancel()` — активные запросы отменяются. `viewedIds()` — `Lampa.Favorite.get({type:'viewed'})` ids + фильмы с `Lampa.Timeline.view(hash) >= 95`. Проверить живьём, что ряд с пустыми `results` не рисуется и не ломает главную; если ломает — не регистрировать `call` результата, а звать `call(false)`. `viewedIds()` — `Lampa.Favorite.get({type:'viewed'})` ids + фильмы с `Lampa.Timeline.view(hash) >= 95`. Проверить живьём, что ряд с пустыми `results` не рисуется и не ломает главную; если ломает — не регистрировать `call` результата, а звать `call(false)`.
 - [ ] **Step 3: Живая проверка** — открыть главную заново (`Lampa.Activity.push({url:'', title:'Главная', component:'main', source:'tmdb', page:1})`), дождаться `.items-line` с заголовками: ряды из `manifest.home` присутствуют в заданном порядке после штатного первого ряда; фокус в ряд подборки → OK открывает карточку (контроллер `full_start`). Скриншот. Commit `feat: ряды подборок на главной`.
 
 ### Task 16: Персональные ряды
