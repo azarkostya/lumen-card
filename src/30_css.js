@@ -486,6 +486,103 @@
        от собственных 18px ячеек: 24px = 1.33em, 10px = .56em. */
     css.push('@supports not (display:grid){.lumen-descr-row .lumen-facts__label{width:7em;margin:0 1.33em .56em 0}.lumen-descr-row .lumen-facts__value{-webkit-box-flex:1;-webkit-flex:1 1 auto;flex:1 1 auto;min-width:0;margin-bottom:.56em}}');
 
+    /* --- Task 9: ряд отзывов Кинопоиска (экран 07), подсказка без ключа
+       (экран 13, панель 2) и модал отзыва (экран 08). px ÷ 22.811 ---
+       Блок лежит в том же .full-descr, что и таблица «ПОДРОБНО»: своего типа
+       ряда в Lampa создать нельзя (план 0.2), а контроллер full_descr собирает
+       .selector внутри всего ряда описания. .full-descr — flex с wrap, поэтому
+       блоку хватает width:100% + flex-basis:100%, чтобы встать целой строкой
+       под описанием и таблицей. */
+    css.push('.lumen-descr-row .lumen-reviews{width:100%;-webkit-flex-basis:100%;flex-basis:100%;margin-top:1.75em}');
+    /* Замер живьём (карточка «Дюны», вьюпорт 1080): ряд описания начинается за
+       нижним краем экрана и въезжает в него прокруткой ЛЕНТЫ рядов. Внутри
+       самого ряда Lampa не прокручивает (находка Task 5d: Descriptiopn.toggle
+       двигает Navigator, но не scroll), поэтому при длинном описании (предел
+       70vh = 756px) заголовок и карточки отзывов оказались бы ниже экрана,
+       получая .focus вне поля зрения. Пока ряд отзывов нарисован, описанию
+       хватает 34vh: 367 + теги 90 + заголовок и карточки ~360 ≈ 850 < 1080.
+       Класс ставит рендер отзывов и снимает, когда блока нет. */
+    css.push('.lumen-descr-row.lumen-descr-row--reviews .full-descr__text{max-height:34vh}');
+    css.push('.lumen-descr-row .lumen-reviews__head{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:baseline;-webkit-align-items:baseline;align-items:baseline;-webkit-flex-wrap:wrap;flex-wrap:wrap;margin-bottom:1.23em}');
+    /* Иконка «комментарий» из общего набора — маской, как у всех наших иконок
+       (свой svg в разметку не вставляем: 20_icons.js, план 0.3). */
+    css.push('.lumen-descr-row .lumen-reviews__ico{width:1.05em;height:1.05em;-webkit-flex-shrink:0;flex-shrink:0;background-color:' + C.smoke + ';-webkit-mask-image:' + LC.icons.maskUrl('comment') + ';mask-image:' + LC.icons.maskUrl('comment') + ';-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;-webkit-mask-size:contain;mask-size:contain;margin-right:.44em;-webkit-align-self:center;align-self:center}');
+    css.push('.lumen-descr-row .lumen-reviews__title{font-family:' + FD + ';font-weight:700;font-size:1.40em;line-height:1;color:' + C.text + ';margin-right:.61em}');
+    css.push('.lumen-descr-row .lumen-reviews__src{font-family:' + FM + ';font-weight:600;font-size:.70em;line-height:1;letter-spacing:.16em;color:' + A + ';margin-right:.61em}');
+    css.push('.lumen-descr-row .lumen-reviews__total{font-family:' + FM + ';font-weight:400;font-size:.70em;line-height:1;letter-spacing:.08em;color:' + C.smoke + '}');
+    /* Горизонтальный ряд: карточки не сжимаются, лишнее скрыто, к карточке в
+       фокусе ряд подкручивается scrollLeft (Lampa ряды ВНУТРИ ряда описания
+       не двигает — находка Task 5d). */
+    css.push('.lumen-descr-row .lumen-reviews__row{display:-webkit-box;display:-webkit-flex;display:flex;overflow:hidden;padding:.26em 0}');
+    css.push('.lumen-descr-row .lumen-review{position:relative;-webkit-box-sizing:border-box;box-sizing:border-box;width:21.04em;height:11.4em;-webkit-box-flex:0;-webkit-flex:none;flex:none;margin-right:.88em;border-radius:.61em;overflow:hidden;background:linear-gradient(180deg,#0C0D0F,#161825);border:.04em solid ' + C.line + ';color:' + C.text + ';display:-webkit-box;display:-webkit-flex;display:flex}');
+    /* Тон отзыва — левая полоса 4px (экран 07): позитив good, нейтраль muted,
+       негатив spice. */
+    css.push('.lumen-descr-row .lumen-review__tone{width:.18em;-webkit-box-flex:0;-webkit-flex:none;flex:none;background:' + C.muted + '}');
+    css.push('.lumen-descr-row .lumen-review--good .lumen-review__tone{background:' + C.good + '}');
+    css.push('.lumen-descr-row .lumen-review--bad .lumen-review__tone{background:' + C.spice + '}');
+    css.push('.lumen-descr-row .lumen-review__body{-webkit-box-sizing:border-box;box-sizing:border-box;padding:.96em;min-width:0;-webkit-box-flex:1;-webkit-flex:1 1 auto;flex:1 1 auto;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-orient:vertical;-webkit-flex-direction:column;flex-direction:column}');
+    css.push('.lumen-descr-row .lumen-review__top{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;margin-bottom:.53em}');
+    /* Аватар-инициалы 48×48 при шрифте 19px: ширина/высота в em считаются от
+       СОБСТВЕННОГО font-size узла, поэтому 48 ÷ 19 = 2.53em, а не 48 ÷ 22.811. */
+    css.push('.lumen-descr-row .lumen-review__ava{-webkit-box-sizing:border-box;box-sizing:border-box;width:2.53em;height:2.53em;-webkit-box-flex:0;-webkit-flex:none;flex:none;border-radius:50%;background:' + C.panel + ';font-family:' + FB + ';font-weight:500;font-size:.83em;line-height:2.53em;text-align:center;color:' + C.muted + ';margin-right:.63em;overflow:hidden}');
+    css.push('.lumen-descr-row .lumen-review__who{min-width:0}');
+    css.push('.lumen-descr-row .lumen-review__author{font-family:' + FB + ';font-weight:600;font-size:.88em;line-height:1.1;color:' + C.text + ';margin-bottom:.25em;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis;white-space:nowrap}');
+    css.push('.lumen-descr-row .lumen-review__meta{font-family:' + FM + ';font-weight:400;font-size:.66em;line-height:1.2;color:' + C.smoke + '}');
+    css.push('.lumen-descr-row .lumen-review__meta > span{margin-right:.66em}');
+    css.push('.lumen-descr-row .lumen-review__tag{color:' + C.muted + '}');
+    css.push('.lumen-descr-row .lumen-review--good .lumen-review__tag{color:' + C.good + '}');
+    css.push('.lumen-descr-row .lumen-review--bad .lumen-review__tag{color:' + C.spice + '}');
+    /* «12 полезно» — со звездой экрана 07, тоже маской. */
+    css.push('.lumen-descr-row .lumen-review__likes:before{content:"";display:inline-block;vertical-align:-.1em;width:1em;height:1em;background-color:currentColor;-webkit-mask-image:' + LC.icons.maskUrl('star') + ';mask-image:' + LC.icons.maskUrl('star') + ';-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;-webkit-mask-size:contain;mask-size:contain;margin-right:.33em}');
+    css.push('.lumen-descr-row .lumen-review__title{font-family:' + FB + ';font-weight:600;font-size:1.05em;line-height:1.25;color:' + C.text + ';margin-bottom:.53em;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis;white-space:nowrap}');
+    /* Текст — ровно 4 строки (экран 07). -webkit-line-clamp работает во всех
+       webkit-движках ТВ; на движке без него текст просто обрежется по
+       overflow:hidden внутри фиксированной высоты карточки. */
+    css.push('.lumen-descr-row .lumen-review__text{font-family:' + FB + ';font-weight:400;font-size:.83em;line-height:1.45;color:' + C.muted + ';display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}');
+    css.push('.lumen-descr-row .lumen-review.focus{border:.13em solid ' + A + ';-webkit-transform:scale(1.03);transform:scale(1.03);-webkit-box-shadow:0 .614em 1.754em ' + AG + ';box-shadow:0 .614em 1.754em ' + AG + '}');
+    css.push('.lumen-descr-row .lumen-review.focus .lumen-review__title{white-space:normal}');
+    /* Переходы — только в режиме полных анимаций (как у ряда серий Task 5c);
+       в lite/off пружины нет вовсе. Класс режима стоит на body (LC.init), а не
+       на ряду: ряд описания лежит вне .lumen-card. */
+    css.push('body.lumen-motion-full .lumen-descr-row .lumen-review{-webkit-transition:border-color .2s,-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25),-webkit-box-shadow .28s;transition:border-color .2s,transform .28s cubic-bezier(.2,.9,.3,1.25),box-shadow .28s}');
+    css.push('body.lumen-motion-lite .lumen-descr-row .lumen-review.focus,body.lumen-motion-off .lumen-descr-row .lumen-review.focus{-webkit-transform:none;transform:none}');
+
+    /* Экран 13, панель 2: ключа нет — вместо пустоты путь до настройки. */
+    css.push('.lumen-descr-row .lumen-reviews__hint{-webkit-box-sizing:border-box;box-sizing:border-box;max-width:28.06em;border-radius:.61em;background:linear-gradient(180deg,#120E0B,' + C.bg + ');border:.04em solid ' + C.line + ';padding:1.40em}');
+    css.push('.lumen-descr-row .lumen-reviews__hint-ico{width:2.10em;height:2.10em;background-color:' + A + ';-webkit-mask-image:' + LC.icons.maskUrl('comment') + ';mask-image:' + LC.icons.maskUrl('comment') + ';-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;-webkit-mask-size:contain;mask-size:contain;margin-bottom:.70em}');
+    css.push('.lumen-descr-row .lumen-reviews__hint-title{font-family:' + FD + ';font-weight:700;font-size:1.23em;line-height:1.15;color:' + C.text + ';margin-bottom:.44em}');
+    css.push('.lumen-descr-row .lumen-reviews__hint-text{font-family:' + FB + ';font-weight:400;font-size:.88em;line-height:1.4;color:' + C.muted + ';margin-bottom:.70em}');
+    css.push('.lumen-descr-row .lumen-reviews__hint-path{display:inline-block;padding:.61em .79em;border-radius:.53em;background:rgba(' + A_RGB + ',.1);border:.04em solid rgba(' + A_RGB + ',.4);font-family:' + FB + ';font-weight:500;font-size:.79em;line-height:1.3;color:' + A + '}');
+
+    /* Экран 08: модал отзыва. Живёт в .modal Lampa (вне карточки и вне ряда),
+       поэтому корень правил — собственный класс .lumen-review-modal, который
+       ставит сам блок: маркер оформления пути TorrServer (lumen-modal,
+       src/64_menus.js) на него не попадает — он вешается только по
+       .modal-loading/.torrent-install. */
+    css.push('.lumen-review-modal{display:-webkit-box;display:-webkit-flex;display:flex;border-radius:.61em;overflow:hidden;background:linear-gradient(180deg,' + C.panel + ',#120E0B);border:.04em solid ' + C.line + ';color:' + C.text + '}');
+    css.push('.lumen-review-modal__tone{width:.18em;-webkit-box-flex:0;-webkit-flex:none;flex:none;background:' + C.muted + '}');
+    css.push('.lumen-review-modal--good .lumen-review-modal__tone{background:' + C.good + '}');
+    css.push('.lumen-review-modal--bad .lumen-review-modal__tone{background:' + C.spice + '}');
+    css.push('.lumen-review-modal__body{-webkit-box-sizing:border-box;box-sizing:border-box;padding:1.75em;min-width:0;-webkit-box-flex:1;-webkit-flex:1 1 auto;flex:1 1 auto}');
+    css.push('.lumen-review-modal__top{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-box-pack:justify;-webkit-justify-content:space-between;justify-content:space-between}');
+    /* 62×62 при шрифте 22px: 62 ÷ 22 = 2.82em (в em собственного font-size). */
+    css.push('.lumen-review-modal__ava{-webkit-box-sizing:border-box;box-sizing:border-box;width:2.82em;height:2.82em;-webkit-box-flex:0;-webkit-flex:none;flex:none;border-radius:50%;background:' + C.bg + ';border:.05em solid ' + C.line + ';font-family:' + FB + ';font-weight:500;font-size:.96em;line-height:2.72em;text-align:center;color:' + C.muted + ';margin-right:.64em}');
+    css.push('.lumen-review-modal__who{min-width:0;-webkit-box-flex:1;-webkit-flex:1 1 auto;flex:1 1 auto}');
+    css.push('.lumen-review-modal__author{font-family:' + FB + ';font-weight:600;font-size:1.14em;line-height:1.1;margin-bottom:.26em}');
+    css.push('.lumen-review-modal__meta{font-family:' + FM + ';font-weight:400;font-size:.70em;line-height:1.2;color:' + C.smoke + '}');
+    css.push('.lumen-review-modal__meta > span{margin-right:.75em}');
+    css.push('.lumen-review-modal--good .lumen-review-modal__tag{color:' + C.good + '}');
+    css.push('.lumen-review-modal--bad .lumen-review-modal__tag{color:' + C.spice + '}');
+    css.push('.lumen-review-modal__likes:before{content:"";display:inline-block;vertical-align:-.1em;width:1em;height:1em;background-color:currentColor;-webkit-mask-image:' + LC.icons.maskUrl('star') + ';mask-image:' + LC.icons.maskUrl('star') + ';-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;-webkit-mask-size:contain;mask-size:contain;margin-right:.33em}');
+    css.push('.lumen-review-modal__src{font-family:' + FM + ';font-weight:600;font-size:.70em;line-height:1;letter-spacing:.16em;color:' + C.smoke + ';-webkit-box-flex:0;-webkit-flex:none;flex:none;margin-left:.88em}');
+    css.push('.lumen-review-modal__line{height:.04em;background:' + C.line + ';margin:.88em 0}');
+    css.push('.lumen-review-modal__title{font-family:' + FD + ';font-weight:700;font-size:1.58em;line-height:1.18;margin-bottom:.88em}');
+    /* Длинный отзыв прокручивается внутри модала: контроллер modal у Lampa
+       двигает собственный скролл окна, а высота ограничена вьюпортом. */
+    css.push('.lumen-review-modal__text{font-family:' + FB + ';font-weight:400;font-size:.96em;line-height:1.5;color:' + C.muted + ';max-height:50vh;overflow:auto}');
+    /* Движок без масок: пустые закрашенные квадраты вместо иконок не рисуем. */
+    css.push(LC.icons.NO_MASK + '{.lumen-descr-row .lumen-reviews__ico,.lumen-descr-row .lumen-reviews__hint-ico,.lumen-descr-row .lumen-review__likes:before,.lumen-review-modal__likes:before{display:none}}');
+
     /* --- Компактная раскладка на узких экранах (страховка) --- */
     css.push('@media screen and (max-width:1000px){.lumen-card .lumen-content{display:block}.lumen-card .lumen-content > .lumen-side{text-align:left;-webkit-box-align:start;-webkit-align-items:flex-start;align-items:flex-start;margin-top:1.5em}.lumen-card .full-start-new__title{font-size:2.43em}.lumen-card .full-start-new__body{min-height:0}}');
 

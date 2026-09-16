@@ -114,7 +114,10 @@ test('buildCss: .lumen-title--long содержит display:-webkit-box и -webk
    с корня карточки. Свой корень .lumen-descr-row (класс вешает LC.header на
    узел ряда) держит их так же строго в скоупе плагина: без нашего класса ни
    одно правило на чужой ряд не подействует. */
-const ALLOWED_ROOTS = ['.lumen-card', '.lumen-backdrop', '.lumen-descr-row', '.full-start__background', '.full-start-new', 'body'];
+/* Task 9: модал отзыва (экран 08) живёт в .modal Lampa — вне карточки и вне
+   ряда описания, поэтому у него собственный корень .lumen-review-modal (класс
+   ставит сам блок, без нашего DOM ни одно правило не сработает). */
+const ALLOWED_ROOTS = ['.lumen-card', '.lumen-backdrop', '.lumen-descr-row', '.lumen-review-modal', '.full-start__background', '.full-start-new', 'body'];
 
 /* Ревью Task 5a (замечание, зафиксировано в Task 5b): проверка была по
    sel.indexOf(root) === 0 без учёта границы селектора — так
@@ -128,7 +131,7 @@ const ALLOWED_ROOTS = ['.lumen-card', '.lumen-backdrop', '.lumen-descr-row', '.f
    между корнем и модификатором, но это className плагин создаёт сам (его
    не бывает без нашего DOM) — поэтому '_'/'-' сразу после корня для них
    тоже безопасная граница, в отличие от чужих классов Lampa. */
-var OWN_NAMESPACE_ROOTS = ['.lumen-card', '.lumen-backdrop', '.lumen-descr-row'];
+var OWN_NAMESPACE_ROOTS = ['.lumen-card', '.lumen-backdrop', '.lumen-descr-row', '.lumen-review-modal'];
 
 function startsWithRoot(sel, root) {
   if (sel.indexOf(root) !== 0) return false;
@@ -446,6 +449,123 @@ test('buildCss: нет display:-ms-grid без -ms-grid-columns', () => {
     .filter((r) => /display\s*:\s*-ms-grid/.test(r.decl) && !/-ms-grid-columns/.test(r.decl))
     .map((r) => r.selectors.join(','));
   assert.deepEqual(offenders, []);
+});
+
+/* -------------------------------------------------------------------- */
+/* Task 9: ряд отзывов Кинопоиска (экран 07), подсказка без ключа (экран  */
+/* 13, панель 2) и модал отзыва (экран 08). Корень ряда — .lumen-descr-row */
+/* (блок лежит в том же .full-descr, что и таблица «ПОДРОБНО»), корень     */
+/* модала — собственный .lumen-review-modal: окно Lampa живёт вне ряда.    */
+/* -------------------------------------------------------------------- */
+
+test('buildCss: блок отзывов занимает всю ширину ряда описания (flex-basis:100%, .full-descr — flex с wrap)', () => {
+  const decl = findDecl(css, (sel) => sel === '.lumen-descr-row .lumen-reviews');
+  assert.ok(decl, 'правило .lumen-reviews не найдено');
+  assert.ok(decl.indexOf('width:100%') !== -1);
+  assert.ok(decl.indexOf('flex-basis:100%') !== -1, 'иначе блок встал бы третьей колонкой рядом с таблицей');
+});
+
+/* Замер живьём: ряд описания въезжает в экран прокруткой ленты рядов, но
+   ВНУТРИ ряда Lampa не прокручивает (Task 5d). С рядом отзывов описание должно
+   быть поджато, иначе карточки получают .focus ниже нижнего края экрана. */
+test('buildCss: с рядом отзывов описание ограничено 34vh (без отзывов остаётся 70vh)', () => {
+  const decl = findDecl(css, (sel) => sel === '.lumen-descr-row.lumen-descr-row--reviews .full-descr__text');
+  assert.ok(decl, 'правило поджатия описания при отзывах не найдено');
+  assert.ok(/max-height\s*:\s*34vh/.test(decl));
+  const base = findDecl(css, (sel) => sel === '.lumen-descr-row .full-descr__text');
+  assert.ok(/max-height\s*:\s*70vh/.test(base), 'базовый предел Task 5d не тронут');
+});
+
+test('buildCss: карточка отзыва 480×260 (21.04em×11.4em), flex, не сжимается', () => {
+  const decl = findDecl(css, (sel) => sel === '.lumen-descr-row .lumen-review');
+  assert.ok(decl, 'правило .lumen-review не найдено');
+  assert.ok(decl.indexOf('width:21.04em') !== -1, 'ширина 480px = 21.04em');
+  assert.ok(decl.indexOf('height:11.4em') !== -1, 'высота 260px = 11.4em');
+  assert.ok(decl.indexOf('flex:none') !== -1, 'карточки в ряду не сжимаются');
+  assert.ok(decl.indexOf('border-radius:.61em') !== -1, 'радиус 14px = .61em');
+  assert.ok(decl.indexOf('box-sizing:border-box') !== -1, 'рамка в фокусе растёт внутрь — размер карточки не скачет');
+});
+
+test('buildCss: тон отзыва — полоса 4px цветами токенов (good / muted / spice), не своими hex', () => {
+  const base = findDecl(css, (sel) => sel === '.lumen-descr-row .lumen-review__tone');
+  assert.ok(base, 'правило полосы тона не найдено');
+  assert.ok(base.indexOf('width:.18em') !== -1, 'полоса 4px = .18em');
+  assert.ok(base.indexOf('#A89A8A') !== -1, 'нейтральный — muted');
+  const good = findDecl(css, (sel) => sel === '.lumen-descr-row .lumen-review--good .lumen-review__tone');
+  const bad = findDecl(css, (sel) => sel === '.lumen-descr-row .lumen-review--bad .lumen-review__tone');
+  assert.ok(good && good.indexOf('#8FBF7A') !== -1, 'позитивный — good');
+  assert.ok(bad && bad.indexOf('#D9622B') !== -1, 'негативный — spice');
+});
+
+test('buildCss: текст отзыва — ровно 4 строки клампом, 19px (.83em) muted', () => {
+  const decl = findDecl(css, (sel) => sel === '.lumen-descr-row .lumen-review__text');
+  assert.ok(decl, 'правило текста отзыва не найдено');
+  assert.ok(decl.indexOf('-webkit-line-clamp:4') !== -1, 'экран 07: четыре строки');
+  assert.ok(decl.indexOf('display:-webkit-box') !== -1 && decl.indexOf('-webkit-box-orient:vertical') !== -1, 'кламп без этих двух свойств не работает');
+  assert.ok(decl.indexOf('font-size:.83em') !== -1, 'текст 19px = .83em');
+  assert.ok(decl.indexOf('#A89A8A') !== -1);
+});
+
+test('buildCss: фокус карточки отзыва — рамка accent и scale(1.03); в lite/off scale нет', () => {
+  const focus = findDecl(css, (sel) => sel === '.lumen-descr-row .lumen-review.focus');
+  assert.ok(focus, 'правило фокуса карточки отзыва не найдено');
+  assert.ok(focus.indexOf('scale(1.03)') !== -1);
+  assert.ok(focus.indexOf('border:.13em solid #E8B87A') !== -1, 'рамка акцентом');
+
+  /* Класс режима движения стоит на body (LC.init), а не на ряду: ряд описания
+     лежит вне .lumen-card, и правило с корнем карточки сюда не дотянулось бы. */
+  const lite = findDecl(css, (sel) => sel === 'body.lumen-motion-lite .lumen-descr-row .lumen-review.focus');
+  const off = findDecl(css, (sel) => sel === 'body.lumen-motion-off .lumen-descr-row .lumen-review.focus');
+  assert.ok(lite && /transform\s*:\s*none/.test(lite), 'в lite пружины нет');
+  assert.ok(off && /transform\s*:\s*none/.test(off), 'в off пружины нет');
+
+  const withTransition = ruleBodies(css).filter((r) => r.selectors.some((s) => s.indexOf('.lumen-review') !== -1 && s.indexOf('modal') === -1) && /transition\s*:/.test(r.decl));
+  for (const r of withTransition) {
+    assert.ok(r.selectors.every((s) => s.indexOf('lumen-motion-full') !== -1), 'переход вне lumen-motion-full: ' + r.selectors.join(','));
+  }
+});
+
+test('buildCss: заголовок ряда — название 32px (1.40em) Unbounded, «КИНОПОИСК» акцентом mono .70em', () => {
+  const title = findDecl(css, (sel) => sel === '.lumen-descr-row .lumen-reviews__title');
+  assert.ok(title && title.indexOf('font-size:1.40em') !== -1, 'название 32px = 1.40em');
+  const src = findDecl(css, (sel) => sel === '.lumen-descr-row .lumen-reviews__src');
+  assert.ok(src, 'правило метки источника не найдено');
+  assert.ok(src.indexOf('font-size:.70em') !== -1 && src.indexOf('letter-spacing:.16em') !== -1);
+  assert.ok(src.indexOf('#E8B87A') !== -1, 'метка источника — акцентом (экран 07)');
+  const total = findDecl(css, (sel) => sel === '.lumen-descr-row .lumen-reviews__total');
+  assert.ok(total && total.indexOf('#7A6A5A') !== -1, '«· 318 отзывов» — smoke');
+});
+
+test('buildCss: подсказка без ключа (экран 13) — плашка пути на прозрачном акценте', () => {
+  const path = findDecl(css, (sel) => sel === '.lumen-descr-row .lumen-reviews__hint-path');
+  assert.ok(path, 'правило плашки пути не найдено');
+  assert.ok(path.indexOf('rgba(232,184,122,.1)') !== -1, 'фон — акцент 10 %');
+  assert.ok(path.indexOf('rgba(232,184,122,.4)') !== -1, 'рамка — акцент 40 %');
+  assert.ok(path.indexOf('font-size:.79em') !== -1, 'текст 18px = .79em');
+  const hint = findDecl(css, (sel) => sel === '.lumen-descr-row .lumen-reviews__hint');
+  assert.ok(hint && hint.indexOf('border-radius:.61em') !== -1);
+});
+
+test('buildCss: модал отзыва (экран 08) — свой корень, полоса тона, текст с прокруткой', () => {
+  const root = findDecl(css, (sel) => sel === '.lumen-review-modal');
+  assert.ok(root, 'правило .lumen-review-modal не найдено');
+  assert.ok(root.indexOf('display:flex') !== -1);
+  assert.ok(root.indexOf('border-radius:.61em') !== -1);
+  const tone = findDecl(css, (sel) => sel === '.lumen-review-modal--bad .lumen-review-modal__tone');
+  assert.ok(tone && tone.indexOf('#D9622B') !== -1, 'тон модала — те же токены, что у карточки');
+  const text = findDecl(css, (sel) => sel === '.lumen-review-modal__text');
+  assert.ok(text, 'правило текста модала не найдено');
+  assert.ok(text.indexOf('font-size:.96em') !== -1, 'текст 22px = .96em');
+  assert.ok(text.indexOf('overflow:auto') !== -1 && text.indexOf('max-height:50vh') !== -1, 'длинный отзыв прокручивается внутри окна');
+  const title = findDecl(css, (sel) => sel === '.lumen-review-modal__title');
+  assert.ok(title && title.indexOf('font-size:1.58em') !== -1, 'заголовок 36px = 1.58em');
+});
+
+test('buildCss: без CSS-масок иконки отзывов скрыты (пустых квадратов не рисуем)', () => {
+  const line = css.split('\n').find((l) => l.indexOf('@supports not ((-webkit-mask-image:none)') === 0 && l.indexOf('lumen-reviews__ico') !== -1);
+  assert.ok(line, 'фолбэк без масок для отзывов не найден');
+  assert.ok(line.indexOf('lumen-review__likes:before') !== -1);
+  assert.ok(line.indexOf('lumen-review-modal__likes:before') !== -1);
 });
 
 test('buildCss: наезд Ken Burns — на корне .lumen-backdrop (не .lumen-card: слой фона лежит вне карточки)', () => {

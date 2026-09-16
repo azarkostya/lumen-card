@@ -736,6 +736,103 @@ css.push('.lumen-descr-row .lumen-facts__value{font-family:' + FB + ';font-weigh
 css.push('@supports not (display:grid){.lumen-descr-row .lumen-facts__label{width:7em;margin:0 1.33em .56em 0}.lumen-descr-row .lumen-facts__value{-webkit-box-flex:1;-webkit-flex:1 1 auto;flex:1 1 auto;min-width:0;margin-bottom:.56em}}');
 
 
+
+
+
+
+
+
+css.push('.lumen-descr-row .lumen-reviews{width:100%;-webkit-flex-basis:100%;flex-basis:100%;margin-top:1.75em}');
+
+
+
+
+
+
+
+
+css.push('.lumen-descr-row.lumen-descr-row--reviews .full-descr__text{max-height:34vh}');
+css.push('.lumen-descr-row .lumen-reviews__head{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:baseline;-webkit-align-items:baseline;align-items:baseline;-webkit-flex-wrap:wrap;flex-wrap:wrap;margin-bottom:1.23em}');
+
+
+css.push('.lumen-descr-row .lumen-reviews__ico{width:1.05em;height:1.05em;-webkit-flex-shrink:0;flex-shrink:0;background-color:' + C.smoke + ';-webkit-mask-image:' + LC.icons.maskUrl('comment') + ';mask-image:' + LC.icons.maskUrl('comment') + ';-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;-webkit-mask-size:contain;mask-size:contain;margin-right:.44em;-webkit-align-self:center;align-self:center}');
+css.push('.lumen-descr-row .lumen-reviews__title{font-family:' + FD + ';font-weight:700;font-size:1.40em;line-height:1;color:' + C.text + ';margin-right:.61em}');
+css.push('.lumen-descr-row .lumen-reviews__src{font-family:' + FM + ';font-weight:600;font-size:.70em;line-height:1;letter-spacing:.16em;color:' + A + ';margin-right:.61em}');
+css.push('.lumen-descr-row .lumen-reviews__total{font-family:' + FM + ';font-weight:400;font-size:.70em;line-height:1;letter-spacing:.08em;color:' + C.smoke + '}');
+
+
+
+css.push('.lumen-descr-row .lumen-reviews__row{display:-webkit-box;display:-webkit-flex;display:flex;overflow:hidden;padding:.26em 0}');
+css.push('.lumen-descr-row .lumen-review{position:relative;-webkit-box-sizing:border-box;box-sizing:border-box;width:21.04em;height:11.4em;-webkit-box-flex:0;-webkit-flex:none;flex:none;margin-right:.88em;border-radius:.61em;overflow:hidden;background:linear-gradient(180deg,#0C0D0F,#161825);border:.04em solid ' + C.line + ';color:' + C.text + ';display:-webkit-box;display:-webkit-flex;display:flex}');
+
+
+css.push('.lumen-descr-row .lumen-review__tone{width:.18em;-webkit-box-flex:0;-webkit-flex:none;flex:none;background:' + C.muted + '}');
+css.push('.lumen-descr-row .lumen-review--good .lumen-review__tone{background:' + C.good + '}');
+css.push('.lumen-descr-row .lumen-review--bad .lumen-review__tone{background:' + C.spice + '}');
+css.push('.lumen-descr-row .lumen-review__body{-webkit-box-sizing:border-box;box-sizing:border-box;padding:.96em;min-width:0;-webkit-box-flex:1;-webkit-flex:1 1 auto;flex:1 1 auto;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-orient:vertical;-webkit-flex-direction:column;flex-direction:column}');
+css.push('.lumen-descr-row .lumen-review__top{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;margin-bottom:.53em}');
+
+
+css.push('.lumen-descr-row .lumen-review__ava{-webkit-box-sizing:border-box;box-sizing:border-box;width:2.53em;height:2.53em;-webkit-box-flex:0;-webkit-flex:none;flex:none;border-radius:50%;background:' + C.panel + ';font-family:' + FB + ';font-weight:500;font-size:.83em;line-height:2.53em;text-align:center;color:' + C.muted + ';margin-right:.63em;overflow:hidden}');
+css.push('.lumen-descr-row .lumen-review__who{min-width:0}');
+css.push('.lumen-descr-row .lumen-review__author{font-family:' + FB + ';font-weight:600;font-size:.88em;line-height:1.1;color:' + C.text + ';margin-bottom:.25em;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis;white-space:nowrap}');
+css.push('.lumen-descr-row .lumen-review__meta{font-family:' + FM + ';font-weight:400;font-size:.66em;line-height:1.2;color:' + C.smoke + '}');
+css.push('.lumen-descr-row .lumen-review__meta > span{margin-right:.66em}');
+css.push('.lumen-descr-row .lumen-review__tag{color:' + C.muted + '}');
+css.push('.lumen-descr-row .lumen-review--good .lumen-review__tag{color:' + C.good + '}');
+css.push('.lumen-descr-row .lumen-review--bad .lumen-review__tag{color:' + C.spice + '}');
+
+css.push('.lumen-descr-row .lumen-review__likes:before{content:"";display:inline-block;vertical-align:-.1em;width:1em;height:1em;background-color:currentColor;-webkit-mask-image:' + LC.icons.maskUrl('star') + ';mask-image:' + LC.icons.maskUrl('star') + ';-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;-webkit-mask-size:contain;mask-size:contain;margin-right:.33em}');
+css.push('.lumen-descr-row .lumen-review__title{font-family:' + FB + ';font-weight:600;font-size:1.05em;line-height:1.25;color:' + C.text + ';margin-bottom:.53em;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis;white-space:nowrap}');
+
+
+
+css.push('.lumen-descr-row .lumen-review__text{font-family:' + FB + ';font-weight:400;font-size:.83em;line-height:1.45;color:' + C.muted + ';display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}');
+css.push('.lumen-descr-row .lumen-review.focus{border:.13em solid ' + A + ';-webkit-transform:scale(1.03);transform:scale(1.03);-webkit-box-shadow:0 .614em 1.754em ' + AG + ';box-shadow:0 .614em 1.754em ' + AG + '}');
+css.push('.lumen-descr-row .lumen-review.focus .lumen-review__title{white-space:normal}');
+
+
+
+css.push('body.lumen-motion-full .lumen-descr-row .lumen-review{-webkit-transition:border-color .2s,-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25),-webkit-box-shadow .28s;transition:border-color .2s,transform .28s cubic-bezier(.2,.9,.3,1.25),box-shadow .28s}');
+css.push('body.lumen-motion-lite .lumen-descr-row .lumen-review.focus,body.lumen-motion-off .lumen-descr-row .lumen-review.focus{-webkit-transform:none;transform:none}');
+
+
+css.push('.lumen-descr-row .lumen-reviews__hint{-webkit-box-sizing:border-box;box-sizing:border-box;max-width:28.06em;border-radius:.61em;background:linear-gradient(180deg,#120E0B,' + C.bg + ');border:.04em solid ' + C.line + ';padding:1.40em}');
+css.push('.lumen-descr-row .lumen-reviews__hint-ico{width:2.10em;height:2.10em;background-color:' + A + ';-webkit-mask-image:' + LC.icons.maskUrl('comment') + ';mask-image:' + LC.icons.maskUrl('comment') + ';-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;-webkit-mask-size:contain;mask-size:contain;margin-bottom:.70em}');
+css.push('.lumen-descr-row .lumen-reviews__hint-title{font-family:' + FD + ';font-weight:700;font-size:1.23em;line-height:1.15;color:' + C.text + ';margin-bottom:.44em}');
+css.push('.lumen-descr-row .lumen-reviews__hint-text{font-family:' + FB + ';font-weight:400;font-size:.88em;line-height:1.4;color:' + C.muted + ';margin-bottom:.70em}');
+css.push('.lumen-descr-row .lumen-reviews__hint-path{display:inline-block;padding:.61em .79em;border-radius:.53em;background:rgba(' + A_RGB + ',.1);border:.04em solid rgba(' + A_RGB + ',.4);font-family:' + FB + ';font-weight:500;font-size:.79em;line-height:1.3;color:' + A + '}');
+
+
+
+
+
+
+css.push('.lumen-review-modal{display:-webkit-box;display:-webkit-flex;display:flex;border-radius:.61em;overflow:hidden;background:linear-gradient(180deg,' + C.panel + ',#120E0B);border:.04em solid ' + C.line + ';color:' + C.text + '}');
+css.push('.lumen-review-modal__tone{width:.18em;-webkit-box-flex:0;-webkit-flex:none;flex:none;background:' + C.muted + '}');
+css.push('.lumen-review-modal--good .lumen-review-modal__tone{background:' + C.good + '}');
+css.push('.lumen-review-modal--bad .lumen-review-modal__tone{background:' + C.spice + '}');
+css.push('.lumen-review-modal__body{-webkit-box-sizing:border-box;box-sizing:border-box;padding:1.75em;min-width:0;-webkit-box-flex:1;-webkit-flex:1 1 auto;flex:1 1 auto}');
+css.push('.lumen-review-modal__top{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-box-pack:justify;-webkit-justify-content:space-between;justify-content:space-between}');
+
+css.push('.lumen-review-modal__ava{-webkit-box-sizing:border-box;box-sizing:border-box;width:2.82em;height:2.82em;-webkit-box-flex:0;-webkit-flex:none;flex:none;border-radius:50%;background:' + C.bg + ';border:.05em solid ' + C.line + ';font-family:' + FB + ';font-weight:500;font-size:.96em;line-height:2.72em;text-align:center;color:' + C.muted + ';margin-right:.64em}');
+css.push('.lumen-review-modal__who{min-width:0;-webkit-box-flex:1;-webkit-flex:1 1 auto;flex:1 1 auto}');
+css.push('.lumen-review-modal__author{font-family:' + FB + ';font-weight:600;font-size:1.14em;line-height:1.1;margin-bottom:.26em}');
+css.push('.lumen-review-modal__meta{font-family:' + FM + ';font-weight:400;font-size:.70em;line-height:1.2;color:' + C.smoke + '}');
+css.push('.lumen-review-modal__meta > span{margin-right:.75em}');
+css.push('.lumen-review-modal--good .lumen-review-modal__tag{color:' + C.good + '}');
+css.push('.lumen-review-modal--bad .lumen-review-modal__tag{color:' + C.spice + '}');
+css.push('.lumen-review-modal__likes:before{content:"";display:inline-block;vertical-align:-.1em;width:1em;height:1em;background-color:currentColor;-webkit-mask-image:' + LC.icons.maskUrl('star') + ';mask-image:' + LC.icons.maskUrl('star') + ';-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;-webkit-mask-size:contain;mask-size:contain;margin-right:.33em}');
+css.push('.lumen-review-modal__src{font-family:' + FM + ';font-weight:600;font-size:.70em;line-height:1;letter-spacing:.16em;color:' + C.smoke + ';-webkit-box-flex:0;-webkit-flex:none;flex:none;margin-left:.88em}');
+css.push('.lumen-review-modal__line{height:.04em;background:' + C.line + ';margin:.88em 0}');
+css.push('.lumen-review-modal__title{font-family:' + FD + ';font-weight:700;font-size:1.58em;line-height:1.18;margin-bottom:.88em}');
+
+
+css.push('.lumen-review-modal__text{font-family:' + FB + ';font-weight:400;font-size:.96em;line-height:1.5;color:' + C.muted + ';max-height:50vh;overflow:auto}');
+
+css.push(LC.icons.NO_MASK + '{.lumen-descr-row .lumen-reviews__ico,.lumen-descr-row .lumen-reviews__hint-ico,.lumen-descr-row .lumen-review__likes:before,.lumen-review-modal__likes:before{display:none}}');
+
+
 css.push('@media screen and (max-width:1000px){.lumen-card .lumen-content{display:block}.lumen-card .lumen-content > .lumen-side{text-align:left;-webkit-box-align:start;-webkit-align-items:flex-start;align-items:flex-start;margin-top:1.5em}.lumen-card .full-start-new__title{font-size:2.43em}.lumen-card .full-start-new__body{min-height:0}}');
 
 
@@ -2960,6 +3057,587 @@ bind: bind
 if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.trailer;
 
 
+/* ---- 60_reviews.js ---- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+LC.reviews = (function () {
+
+var BASE = 'https://kinopoiskapiunofficial.tech/api/v2.2/films';
+var TTL = 24 * 3600 * 1000;
+
+
+
+var MAX_FILMS = 20;
+var MAX_FULL = 4000;
+var MAX_EXCERPT = 300;
+var MAX_ITEMS = 12;
+var TIMEOUT_MS = 8000;
+var INDEX_KEY = 'lumen_rv_index';
+var ANON = 'Аноним';
+
+var esc = LC.util.esc;
+
+
+
+
+
+function cacheKey(imdbId) { return 'lumen_rv_' + imdbId; }
+
+function now(value) { return typeof value === 'number' ? value : Date.now(); }
+
+function isFresh(rec, at) {
+return !!(rec && rec.at && (now(at) - rec.at) < TTL);
+}
+
+
+
+
+
+function cut(text, limit) {
+if (text.length <= limit) return text;
+return text.slice(0, limit - 1) + '…';
+}
+
+function trim(str) {
+return ('' + (str || '')).replace(/^\s+|\s+$/g, '');
+}
+
+
+
+function firstSentence(text) {
+var m = text.match(/^(.{10,80}?[.!?])\s/);
+return m ? m[1] : text.slice(0, 60);
+}
+
+
+
+
+function normalize(resp, anon) {
+var items = (resp && resp.items) || [];
+var out = [];
+if (!items || typeof items.length !== 'number') return out;
+LC.util.each(items, function (it) {
+if (!it) return;
+var text = trim(('' + (it.description || '')).replace(/\s+/g, ' '));
+if (!text) return;
+var title = trim(('' + (it.title || '')).replace(/\s+/g, ' '));
+if (!title) title = firstSentence(text);
+var author = trim(it.author) || anon || ANON;
+var dm = ('' + (it.date || '')).match(/^(\d{4})-(\d{2})-(\d{2})/);
+out.push({
+tone: it.type === 'POSITIVE' ? 'good' : (it.type === 'NEGATIVE' ? 'bad' : 'mid'),
+author: esc(author),
+initials: esc(LC.util.initials(author)),
+title: esc(title),
+excerpt: esc(cut(text, MAX_EXCERPT)),
+full: esc(cut(text, MAX_FULL)),
+date: dm ? dm[3] + '.' + dm[2] + '.' + dm[1] : '',
+likes: parseInt(it.positiveRating, 10) || 0,
+dislikes: parseInt(it.negativeRating, 10) || 0
+});
+});
+return out;
+}
+
+
+
+
+
+function storage() {
+try {
+if (window.Lampa && Lampa.Storage && typeof Lampa.Storage.get === 'function') return Lampa.Storage;
+} catch (e) { }
+return null;
+}
+
+function readIndex(store) {
+var index = store.get(INDEX_KEY, []);
+return (index && typeof index.length === 'number') ? index : [];
+}
+
+
+
+
+function drop(store, id) {
+try {
+if (typeof store.remove === 'function') { store.remove(cacheKey(id)); return; }
+} catch (e) { }
+store.set(cacheKey(id), '');
+}
+
+function cacheRead(imdbId, at) {
+try {
+var store = storage();
+if (!store || !imdbId) return null;
+var rec = store.get(cacheKey(imdbId), null);
+return isFresh(rec, at) ? rec : null;
+} catch (e) {
+warn('reviews cache read failed', e);
+return null;
+}
+}
+
+function cacheWrite(imdbId, list, total, at, kp) {
+try {
+var store = storage();
+if (!store || !imdbId) return;
+var stamp = now(at);
+store.set(cacheKey(imdbId), { at: stamp, list: list, total: total, kp: kp || 0 });
+
+var kept = [];
+LC.util.each(readIndex(store), function (it) {
+if (it && it.id && it.id !== imdbId) kept.push(it);
+});
+kept.push({ id: imdbId, at: stamp });
+
+
+
+kept.sort(function (a, b) { return (a.at || 0) - (b.at || 0); });
+while (kept.length > MAX_FILMS) drop(store, kept.shift().id);
+store.set(INDEX_KEY, kept);
+} catch (e) {
+warn('reviews cache write failed', e);
+}
+}
+
+
+
+
+
+
+
+
+
+function request(net, url, key, ok, err) {
+net.timeout(TIMEOUT_MS);
+net.silent(url, ok, err, false, {
+headers: { 'X-API-KEY': key, 'accept': 'application/json' },
+dataType: 'json',
+timeout: TIMEOUT_MS
+});
+}
+
+
+
+
+
+
+function load(imdbId, key, cb, alive, at) {
+function dead() {
+try { return typeof alive === 'function' && !alive(); } catch (e) { return false; }
+}
+try {
+if (!key) { cb({ nokey: true }); return; }
+if (!imdbId) { cb(null); return; }
+
+var rec = cacheRead(imdbId, at);
+if (rec) {
+cb(rec.list && rec.list.length ? { list: rec.list, total: rec.total || rec.list.length } : null);
+return;
+}
+
+if (!window.Lampa || typeof Lampa.Reguest !== 'function') { cb(null); return; }
+var net = new Lampa.Reguest();
+
+request(net, BASE + '?imdbId=' + encodeURIComponent(imdbId), key, function (found) {
+if (dead()) return;
+try {
+var kp = found && found.items && found.items[0] && found.items[0].kinopoiskId;
+if (!kp) { cb(null); return; }
+request(net, BASE + '/' + kp + '/reviews?page=1&order=USER_POSITIVE_RATING_DESC', key, function (resp) {
+if (dead()) return;
+try {
+var list = normalize(resp, anonWord()).slice(0, MAX_ITEMS);
+if (!list.length) { cb(null); return; }
+var total = parseInt(resp && resp.total, 10) || list.length;
+cacheWrite(imdbId, list, total, at, kp);
+cb({ list: list, total: total });
+} catch (inner) {
+warn('reviews parse failed', inner);
+cb(null);
+}
+}, function () { if (!dead()) cb(null); });
+} catch (e) {
+warn('reviews search failed', e);
+cb(null);
+}
+}, function () { if (!dead()) cb(null); });
+} catch (e2) {
+warn('reviews load failed', e2);
+cb(null);
+}
+}
+
+
+
+
+
+function lang(key) {
+try {
+if (typeof LC.lang === 'function') return LC.lang(key);
+} catch (e) { }
+return key;
+}
+
+function anonWord() {
+var word = lang('lumen_card_anon');
+return word === 'lumen_card_anon' ? ANON : word;
+}
+
+function toneLabel(tone) {
+if (tone === 'good') return lang('lumen_card_review_good');
+if (tone === 'bad') return lang('lumen_card_review_bad');
+return lang('lumen_card_review_mid');
+}
+
+function totalWord(total) {
+try {
+if (typeof LC.reviewsWord === 'function') return LC.reviewsWord(total);
+} catch (e) { }
+return '';
+}
+
+
+
+
+
+function headHtml(total) {
+return '<div class="lumen-reviews__head">' +
+'<span class="lumen-reviews__ico"></span>' +
+'<span class="lumen-reviews__title">' + esc(lang('lumen_card_reviews_title')) + '</span>' +
+'<span class="lumen-reviews__src">' + esc(lang('lumen_card_reviews_src')) + '</span>' +
+'<span class="lumen-reviews__total">· ' + total + ' ' + esc(totalWord(total)) + '</span>' +
+'</div>';
+}
+
+
+
+function cardHtml(item, index) {
+var likes = item.likes ? '<span class="lumen-review__likes">' + item.likes + ' ' + esc(lang('lumen_card_review_useful')) + '</span>' : '';
+return '<div class="lumen-review selector lumen-review--' + item.tone + '" data-lumen-review="' + index + '">' +
+'<div class="lumen-review__tone"></div>' +
+'<div class="lumen-review__body">' +
+'<div class="lumen-review__top">' +
+'<div class="lumen-review__ava">' + item.initials + '</div>' +
+'<div class="lumen-review__who">' +
+'<div class="lumen-review__author">' + item.author + '</div>' +
+'<div class="lumen-review__meta">' +
+'<span class="lumen-review__date">' + item.date + '</span>' +
+'<span class="lumen-review__tag">' + esc(toneLabel(item.tone)) + '</span>' +
+likes +
+'</div>' +
+'</div>' +
+'</div>' +
+'<div class="lumen-review__title">' + item.title + '</div>' +
+'<div class="lumen-review__text">' + item.excerpt + '</div>' +
+'</div>' +
+'</div>';
+}
+
+function modalHtml(item) {
+return '<div class="lumen-review-modal__tone"></div>' +
+'<div class="lumen-review-modal__body">' +
+'<div class="lumen-review-modal__top">' +
+'<div class="lumen-review-modal__ava">' + item.initials + '</div>' +
+'<div class="lumen-review-modal__who">' +
+'<div class="lumen-review-modal__author">' + item.author + '</div>' +
+'<div class="lumen-review-modal__meta">' +
+'<span>' + item.date + '</span>' +
+'<span class="lumen-review-modal__tag">' + esc(toneLabel(item.tone)) + '</span>' +
+(item.likes ? '<span class="lumen-review-modal__likes">' + item.likes + ' ' + esc(lang('lumen_card_review_useful')) + '</span>' : '') +
+'</div>' +
+'</div>' +
+'<div class="lumen-review-modal__src">' + esc(lang('lumen_card_reviews_src')) + '</div>' +
+'</div>' +
+'<div class="lumen-review-modal__line"></div>' +
+'<div class="lumen-review-modal__title">' + item.title + '</div>' +
+'<div class="lumen-review-modal__text">' + item.full + '</div>' +
+'</div>';
+}
+
+
+
+
+function hintHtml() {
+return '<div class="lumen-reviews__hint">' +
+'<div class="lumen-reviews__hint-ico"></div>' +
+'<div class="lumen-reviews__hint-title">' + esc(lang('lumen_card_reviews_nokey_title')) + '</div>' +
+'<div class="lumen-reviews__hint-text">' + esc(lang('lumen_card_reviews_nokey_text')) + '</div>' +
+'<div class="lumen-reviews__hint-path">' + esc(lang('lumen_card_reviews_nokey_path')) + '</div>' +
+'</div>';
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function openModal(item, card) {
+try {
+if (!item || !window.Lampa || !Lampa.Modal || typeof Lampa.Modal.open !== 'function') return;
+var back = 'full_descr';
+try {
+var enabled = Lampa.Controller && typeof Lampa.Controller.enabled === 'function' ? Lampa.Controller.enabled() : null;
+if (enabled && enabled.name) back = enabled.name;
+} catch (e) { }
+
+var html = $('<div class="lumen-review-modal lumen-review-modal--' + item.tone + '"></div>');
+html.html(modalHtml(item));
+
+Lampa.Modal.open({
+title: '',
+html: html,
+size: 'medium',
+onBack: function () {
+try { Lampa.Modal.close(); } catch (e2) { }
+try { Lampa.Controller.toggle(back); } catch (e3) { }
+try {
+if (card && card.length && typeof Lampa.Controller.collectionFocus === 'function') {
+Lampa.Controller.collectionFocus(card, card.closest('.items-line'));
+}
+} catch (e4) { }
+}
+});
+} catch (err) {
+warn('reviews modal failed', err);
+}
+}
+
+
+
+
+
+function holderOf(row) {
+if (!row || !row.length || typeof row.find !== 'function') return null;
+var holder = row.find('.full-descr');
+return holder && holder.length ? holder : null;
+}
+
+function stateOf(holder) {
+var node = holder[0];
+if (!node.lumenReviews) node.lumenReviews = { sign: '', gen: 0, painted: false };
+return node.lumenReviews;
+}
+
+function clearBlock(holder) {
+try {
+var old = holder.find('.lumen-reviews');
+if (old && old.length) old.remove();
+} catch (e) { }
+}
+
+
+
+
+function scrollToCard(block, card) {
+try {
+var row = block.find('.lumen-reviews__row');
+if (!row || !row.length || !card || !card.length) return;
+var box = row[0];
+var node = card[0];
+if (!box || !node || typeof node.offsetLeft !== 'number') return;
+var target = node.offsetLeft - (box.clientWidth - node.offsetWidth) / 2;
+var max = box.scrollWidth - box.clientWidth;
+if (target > max) target = max;
+if (target < 0) target = 0;
+var motion = 'full';
+try { motion = LC.motionMode(); } catch (e) { }
+if (motion === 'full' && typeof row.animate === 'function') row.stop().animate({ scrollLeft: target }, 250);
+else box.scrollLeft = target;
+} catch (err) {
+warn('reviews scroll failed', err);
+}
+}
+
+
+
+
+
+function bind(block, list) {
+try {
+var el = block[0];
+if (!el || typeof el.addEventListener !== 'function' || el.lumenReviewsBound) return;
+el.lumenReviewsBound = true;
+
+function cardOf(target) {
+try {
+var $card = $(target).closest('.lumen-review');
+return $card && $card.length ? $card : null;
+} catch (e) { return null; }
+}
+
+el.addEventListener('hover:focus', function (event) {
+try {
+var card = cardOf(event.target);
+if (card) scrollToCard(block, card);
+} catch (e) { warn('reviews focus failed', e); }
+}, true);
+
+el.addEventListener('hover:enter', function (event) {
+try {
+var card = cardOf(event.target);
+if (!card) return;
+var index = parseInt(card.attr('data-lumen-review'), 10);
+if (isNaN(index)) return;
+openModal(list[index], card);
+} catch (e) { warn('reviews enter failed', e); }
+}, true);
+} catch (err) {
+warn('reviews bind failed', err);
+}
+}
+
+
+
+
+
+function appendSelectors(block) {
+try {
+if (!window.Lampa || !Lampa.Controller || typeof Lampa.Controller.collectionAppend !== 'function') return;
+var enabled = typeof Lampa.Controller.enabled === 'function' ? Lampa.Controller.enabled() : null;
+if (!enabled || enabled.name !== 'full_descr') return;
+var nodes = block.find('.lumen-review');
+if (nodes && nodes.length) Lampa.Controller.collectionAppend(nodes);
+} catch (e) {
+warn('reviews collection failed', e);
+}
+}
+
+function paintList(holder, list, total) {
+var block = $('<div class="lumen-reviews"></div>');
+var cards = [];
+LC.util.each(list, function (item, i) { cards.push(cardHtml(item, i)); });
+block.html(headHtml(total) + '<div class="lumen-reviews__row">' + cards.join('') + '</div>');
+holder.append(block);
+bind(block, list);
+appendSelectors(block);
+}
+
+function paintHint(holder) {
+var block = $('<div class="lumen-reviews lumen-reviews--hint"></div>');
+block.html(hintHtml());
+holder.append(block);
+}
+
+
+
+
+
+
+
+function render(row, data) {
+try {
+var holder = holderOf(row);
+if (!holder) return;
+row.addClass('lumen-descr-row');
+
+var movie = (data && data.movie) || {};
+var imdb = movie.imdb_id || (movie.external_ids || {}).imdb_id || '';
+var key = trim(LC.pref('lumen_kp_key', ''));
+var on = LC.pref('lumen_reviews', true);
+var sign = [on ? '1' : '0', imdb, key ? '1' : '0', lang('lumen_card_reviews_title')].join('|');
+
+var state = stateOf(holder);
+if (state.sign === sign && (!state.painted || holder.find('.lumen-reviews').length)) return;
+
+state.sign = sign;
+state.gen++;
+state.painted = false;
+var gen = state.gen;
+clearBlock(holder);
+
+
+row.removeClass('lumen-descr-row--reviews');
+
+if (!on) return;
+if (!key) { paintHint(holder); state.painted = true; return; }
+if (!imdb) return;
+
+load(imdb, key, function (res) {
+try {
+var current = stateOf(holder);
+if (current.gen !== gen) return;
+if (!res) return;
+if (res.nokey) { paintHint(holder); current.painted = true; return; }
+paintList(holder, res.list, res.total);
+
+
+
+row.addClass('lumen-descr-row--reviews');
+current.painted = true;
+} catch (e) {
+warn('reviews paint failed', e);
+}
+}, function () { return stateOf(holder).gen === gen; });
+} catch (err) {
+warn('reviews render failed', err);
+}
+}
+
+
+function clearRow(row) {
+try {
+var holder = holderOf(row);
+if (!holder) return;
+clearBlock(holder);
+row.removeClass('lumen-descr-row--reviews');
+var state = stateOf(holder);
+state.sign = '';
+state.painted = false;
+state.gen++;
+} catch (e) {
+warn('reviews clear failed', e);
+}
+}
+
+return {
+TTL: TTL,
+cacheKey: cacheKey,
+isFresh: isFresh,
+normalize: normalize,
+cacheRead: cacheRead,
+cacheWrite: cacheWrite,
+load: load,
+render: render,
+clearRow: clearRow,
+openModal: openModal
+};
+})();
+
+
+
+
+
+if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.reviews;
+
+
 /* ---- 64_menus.js ---- */
 
 
@@ -3952,7 +4630,42 @@ lumen_card_trailer_on: { ru: 'Вкл', en: 'On', uk: 'Увімк' },
 lumen_card_trailer_off: { ru: 'Выкл', en: 'Off', uk: 'Викл' },
 
 lumen_card_stop: { ru: 'Стоп', en: 'Stop', uk: 'Стоп' },
-lumen_card_trailer_badge: { ru: 'ТРЕЙЛЕР · БЕЗ ЗВУКА', en: 'TRAILER · MUTED', uk: 'ТРЕЙЛЕР · БЕЗ ЗВУКУ' }
+lumen_card_trailer_badge: { ru: 'ТРЕЙЛЕР · БЕЗ ЗВУКА', en: 'TRAILER · MUTED', uk: 'ТРЕЙЛЕР · БЕЗ ЗВУКУ' },
+
+
+
+
+lumen_card_reviews_name: { ru: 'Отзывы Кинопоиска', en: 'Kinopoisk reviews', uk: 'Відгуки Кінопошуку' },
+lumen_card_reviews_descr: {
+ru: 'Ряд отзывов зрителей в блоке описания. Нужен ключ API — строка ниже.',
+en: 'A row of viewer reviews in the description block. Requires the API key below.',
+uk: 'Ряд відгуків глядачів у блоці опису. Потрібен ключ API — рядок нижче.'
+},
+lumen_card_kp_key: { ru: 'Ключ Kinopoisk API', en: 'Kinopoisk API key', uk: 'Ключ Kinopoisk API' },
+lumen_card_kp_key_descr: {
+ru: 'Бесплатно на kinopoiskapiunofficial.tech, 500 запросов/день',
+en: 'Free at kinopoiskapiunofficial.tech, 500 requests a day',
+uk: 'Безкоштовно на kinopoiskapiunofficial.tech, 500 запитів на день'
+},
+lumen_card_reviews_title: { ru: 'Отзывы зрителей', en: 'Viewer reviews', uk: 'Відгуки глядачів' },
+lumen_card_reviews_src: { ru: 'КИНОПОИСК', en: 'KINOPOISK', uk: 'КІНОПОШУК' },
+lumen_card_review_good: { ru: 'ПОЗИТИВНЫЙ', en: 'POSITIVE', uk: 'ПОЗИТИВНИЙ' },
+lumen_card_review_mid: { ru: 'НЕЙТРАЛЬНЫЙ', en: 'NEUTRAL', uk: 'НЕЙТРАЛЬНИЙ' },
+lumen_card_review_bad: { ru: 'НЕГАТИВНЫЙ', en: 'NEGATIVE', uk: 'НЕГАТИВНИЙ' },
+lumen_card_review_useful: { ru: 'полезно', en: 'helpful', uk: 'корисно' },
+lumen_card_anon: { ru: 'Аноним', en: 'Anonymous', uk: 'Анонім' },
+
+lumen_card_reviews_nokey_title: { ru: 'Ключ API не задан', en: 'API key is not set', uk: 'Ключ API не задано' },
+lumen_card_reviews_nokey_text: {
+ru: 'Рейтинг Кинопоиска и отзывы недоступны без ключа.',
+en: 'Kinopoisk rating and reviews are unavailable without a key.',
+uk: 'Рейтинг Кінопошуку та відгуки недоступні без ключа.'
+},
+lumen_card_reviews_nokey_path: {
+ru: 'Настройки → Lumen Card → Ключ Kinopoisk API',
+en: 'Settings → Lumen Card → Kinopoisk API key',
+uk: 'Налаштування → Lumen Card → Ключ Kinopoisk API'
+}
 };
 
 function langCode() {
@@ -3985,6 +4698,14 @@ return n === 1 ? 'episode' : 'episodes';
 LC.daysWord = function (n) {
 if (isSlavic()) return LC.util.plural(n, ['день', 'дня', 'дней']);
 return n === 1 ? 'day' : 'days';
+};
+
+
+
+
+LC.reviewsWord = function (n) {
+if (isSlavic()) return LC.util.plural(n, ['отзыв', 'отзыва', 'отзывов']);
+return n === 1 ? 'review' : 'reviews';
 };
 
 
@@ -4155,6 +4876,25 @@ param: { name: 'lumen_trailer', type: 'select', values: trailerValues, 'default'
 field: { name: LC.lang('lumen_card_trailer'), description: LC.lang('lumen_card_trailer_descr') },
 onChange: onlyWithoutStorage(function () { LC.applyTrailerPref(); })
 });
+
+
+
+
+
+
+Lampa.SettingsApi.addParam({
+component: PLUGIN,
+param: { name: 'lumen_reviews', type: 'trigger', 'default': true },
+field: { name: LC.lang('lumen_card_reviews_name'), description: LC.lang('lumen_card_reviews_descr') },
+onChange: onlyWithoutStorage(function () { LC.applyReviewsPref(); })
+});
+
+Lampa.SettingsApi.addParam({
+component: PLUGIN,
+param: { name: 'lumen_kp_key', type: 'input', values: '', 'default': '' },
+field: { name: LC.lang('lumen_card_kp_key'), description: LC.lang('lumen_card_kp_key_descr') },
+onChange: onlyWithoutStorage(function () { LC.applyReviewsPref(); })
+});
 } catch (e) {
 warn('settings failed', e);
 }
@@ -4170,6 +4910,7 @@ if (e.name === 'lumen_slideshow' || e.name === 'lumen_slide_interval') { LC.appl
 if (e.name === 'lumen_menus') { LC.applyMenusPref(); return; }
 if (e.name === 'lumen_torrents') { LC.applyTorrentsPref(); return; }
 if (e.name === 'lumen_trailer') { LC.applyTrailerPref(); return; }
+if (e.name === 'lumen_reviews' || e.name === 'lumen_kp_key') { LC.applyReviewsPref(); return; }
 if (e.name.indexOf(PLUGIN + '_') !== 0) return;
 if (e.name === PLUGIN + '_fonts') LC.injectFonts();
 
@@ -5542,6 +6283,24 @@ warn('progress pref failed', e);
 
 
 
+
+
+
+
+LC.applyReviewsPref = function () {
+try {
+var row = $('.activity--active .lumen-descr-row');
+if (!row || !row.length) return;
+if (!LC.pref('lumen_reviews', true)) { LC.reviews.clearRow(row); return; }
+if (LC.active && LC.active.data) LC.reviews.render(row, LC.active.data);
+} catch (e) {
+warn('reviews pref failed', e);
+}
+};
+
+
+
+
 var ui_active = false;
 
 LC.applyMenusPref = function () {
@@ -5649,17 +6408,30 @@ if (e.type === 'build' && e.name === 'start') {
 LC.header.decorate(findRoot(e), e.data);
 } else if (e.type === 'build' && e.name === 'description') {
 
-LC.header.descr(findDescrRow(e), e.data);
+
+
+
+var descrRow = findDescrRow(e);
+LC.header.descr(descrRow, e.data);
+LC.reviews.render(descrRow, e.data);
 } else if (e.type === 'complite') {
 var root = findRoot(e);
 LC.header.decorate(root, e.data);
 
 
 
-LC.header.descr(findDescrRow(e), e.data);
+
+
+var doneRow = findDescrRow(e);
+LC.header.descr(doneRow, e.data);
+LC.reviews.render(doneRow, e.data);
 var slideshow = LC.backdrops.apply(root, e.body, (e.data && e.data.movie) || {});
 applyMotionMode(root);
-LC.active = { object: e.object, body: e.body, slideshow: slideshow };
+
+
+
+
+LC.active = { object: e.object, body: e.body, slideshow: slideshow, data: e.data };
 
 
 

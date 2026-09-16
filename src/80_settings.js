@@ -89,7 +89,42 @@
     lumen_card_trailer_off: { ru: 'Выкл', en: 'Off', uk: 'Викл' },
     /* Подпись кнопки остановки и метка-чип поверх кадра (экран 02). */
     lumen_card_stop: { ru: 'Стоп', en: 'Stop', uk: 'Стоп' },
-    lumen_card_trailer_badge: { ru: 'ТРЕЙЛЕР · БЕЗ ЗВУКА', en: 'TRAILER · MUTED', uk: 'ТРЕЙЛЕР · БЕЗ ЗВУКУ' }
+    lumen_card_trailer_badge: { ru: 'ТРЕЙЛЕР · БЕЗ ЗВУКА', en: 'TRAILER · MUTED', uk: 'ТРЕЙЛЕР · БЕЗ ЗВУКУ' },
+    /* Task 9 (экраны 07/08/13): отзывы Кинопоиска. Метка источника и метки
+       тона заданы верхним регистром прямо в строке — как «ПОДРОБНО» и
+       «ТРЕЙЛЕР · БЕЗ ЗВУКА»: на экране это letter-spacing без
+       text-transform, а в языках с иным регистром перевод сам решает. */
+    lumen_card_reviews_name: { ru: 'Отзывы Кинопоиска', en: 'Kinopoisk reviews', uk: 'Відгуки Кінопошуку' },
+    lumen_card_reviews_descr: {
+      ru: 'Ряд отзывов зрителей в блоке описания. Нужен ключ API — строка ниже.',
+      en: 'A row of viewer reviews in the description block. Requires the API key below.',
+      uk: 'Ряд відгуків глядачів у блоці опису. Потрібен ключ API — рядок нижче.'
+    },
+    lumen_card_kp_key: { ru: 'Ключ Kinopoisk API', en: 'Kinopoisk API key', uk: 'Ключ Kinopoisk API' },
+    lumen_card_kp_key_descr: {
+      ru: 'Бесплатно на kinopoiskapiunofficial.tech, 500 запросов/день',
+      en: 'Free at kinopoiskapiunofficial.tech, 500 requests a day',
+      uk: 'Безкоштовно на kinopoiskapiunofficial.tech, 500 запитів на день'
+    },
+    lumen_card_reviews_title: { ru: 'Отзывы зрителей', en: 'Viewer reviews', uk: 'Відгуки глядачів' },
+    lumen_card_reviews_src: { ru: 'КИНОПОИСК', en: 'KINOPOISK', uk: 'КІНОПОШУК' },
+    lumen_card_review_good: { ru: 'ПОЗИТИВНЫЙ', en: 'POSITIVE', uk: 'ПОЗИТИВНИЙ' },
+    lumen_card_review_mid: { ru: 'НЕЙТРАЛЬНЫЙ', en: 'NEUTRAL', uk: 'НЕЙТРАЛЬНИЙ' },
+    lumen_card_review_bad: { ru: 'НЕГАТИВНЫЙ', en: 'NEGATIVE', uk: 'НЕГАТИВНИЙ' },
+    lumen_card_review_useful: { ru: 'полезно', en: 'helpful', uk: 'корисно' },
+    lumen_card_anon: { ru: 'Аноним', en: 'Anonymous', uk: 'Анонім' },
+    /* Экран 13, панель 2: ключа нет — показываем путь до настройки, а не пустоту. */
+    lumen_card_reviews_nokey_title: { ru: 'Ключ API не задан', en: 'API key is not set', uk: 'Ключ API не задано' },
+    lumen_card_reviews_nokey_text: {
+      ru: 'Рейтинг Кинопоиска и отзывы недоступны без ключа.',
+      en: 'Kinopoisk rating and reviews are unavailable without a key.',
+      uk: 'Рейтинг Кінопошуку та відгуки недоступні без ключа.'
+    },
+    lumen_card_reviews_nokey_path: {
+      ru: 'Настройки → Lumen Card → Ключ Kinopoisk API',
+      en: 'Settings → Lumen Card → Kinopoisk API key',
+      uk: 'Налаштування → Lumen Card → Ключ Kinopoisk API'
+    }
   };
 
   function langCode() {
@@ -122,6 +157,14 @@
   LC.daysWord = function (n) {
     if (isSlavic()) return LC.util.plural(n, ['день', 'дня', 'дней']);
     return n === 1 ? 'day' : 'days';
+  };
+
+  /* Task 9: «318 отзывов» в заголовке ряда (экран 07) — та же ветка isSlavic,
+     что у сезонов/серий/дней. Число берётся из поля total ответа Кинопоиска,
+     а не из длины показанного списка (показываем максимум 12). */
+  LC.reviewsWord = function (n) {
+    if (isSlavic()) return LC.util.plural(n, ['отзыв', 'отзыва', 'отзывов']);
+    return n === 1 ? 'review' : 'reviews';
   };
 
   /* Читает настройку плагина из Lampa.Storage с нормализацией булевых. */
@@ -292,6 +335,25 @@
         field: { name: LC.lang('lumen_card_trailer'), description: LC.lang('lumen_card_trailer_descr') },
         onChange: onlyWithoutStorage(function () { LC.applyTrailerPref(); })
       });
+
+      /* Task 9: имена без префикса PLUGIN, как lumen_motion/lumen_trailer —
+         отдельные ветки в LC.followStorage. Своя точка применения обязательна:
+         возврат из настроек Lampa карточку не перестраивает (ни 'full', ни
+         complite), поэтому и включение ряда, и введённый ключ применяет
+         LC.applyReviewsPref (90_runtime.js) прямо на открытой карточке. */
+      Lampa.SettingsApi.addParam({
+        component: PLUGIN,
+        param: { name: 'lumen_reviews', type: 'trigger', 'default': true },
+        field: { name: LC.lang('lumen_card_reviews_name'), description: LC.lang('lumen_card_reviews_descr') },
+        onChange: onlyWithoutStorage(function () { LC.applyReviewsPref(); })
+      });
+
+      Lampa.SettingsApi.addParam({
+        component: PLUGIN,
+        param: { name: 'lumen_kp_key', type: 'input', values: '', 'default': '' },
+        field: { name: LC.lang('lumen_card_kp_key'), description: LC.lang('lumen_card_kp_key_descr') },
+        onChange: onlyWithoutStorage(function () { LC.applyReviewsPref(); })
+      });
     } catch (e) {
       warn('settings failed', e);
     }
@@ -307,6 +369,7 @@
         if (e.name === 'lumen_menus') { LC.applyMenusPref(); return; }
         if (e.name === 'lumen_torrents') { LC.applyTorrentsPref(); return; }
         if (e.name === 'lumen_trailer') { LC.applyTrailerPref(); return; }
+        if (e.name === 'lumen_reviews' || e.name === 'lumen_kp_key') { LC.applyReviewsPref(); return; }
         if (e.name.indexOf(PLUGIN + '_') !== 0) return;
         if (e.name === PLUGIN + '_fonts') LC.injectFonts();
         /* Ревью Task 8 (п.3): классы и CSS-переменную подписи кнопки ставит

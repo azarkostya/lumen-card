@@ -422,6 +422,24 @@
     }
   };
 
+  /* Task 9: lumen_reviews/lumen_kp_key переключили на уже открытой карточке.
+     Возврат из настроек Lampa карточку не перестраивает (та же причина, что у
+     applyProgressPref), поэтому ряд отзывов перерисовывается здесь: данные
+     лежат в LC.active.data (кладутся в complite). Выключение снимает блок даже
+     без данных — ему хватает самого узла ряда; включение без данных (карточка
+     из истории, для которой complite не приходил) молча ждёт следующего
+     открытия, как включение трейлера. */
+  LC.applyReviewsPref = function () {
+    try {
+      var row = $('.activity--active .lumen-descr-row');
+      if (!row || !row.length) return;
+      if (!LC.pref('lumen_reviews', true)) { LC.reviews.clearRow(row); return; }
+      if (LC.active && LC.active.data) LC.reviews.render(row, LC.active.data);
+    } catch (e) {
+      warn('reviews pref failed', e);
+    }
+  };
+
   /* Task 31: плагин активен — LC.init дошёл до оформления (широкая
      раскладка, шаблон поддерживается). Пока false, смена lumen_menus/
      lumen_torrents не должна ставить наши классы ни на body, ни на экраны. */
@@ -531,18 +549,31 @@
           if (e.type === 'build' && e.name === 'start') {
             LC.header.decorate(findRoot(e), e.data);
           } else if (e.type === 'build' && e.name === 'description') {
-            /* Task 5d: таблица «ПОДРОБНО» в теле ряда описания (design-spec §10). */
-            LC.header.descr(findDescrRow(e), e.data);
+            /* Task 5d: таблица «ПОДРОБНО» в теле ряда описания (design-spec §10).
+               Task 9: ряд отзывов Кинопоиска — сосед таблицы в том же
+               .full-descr (свой тип ряда в Lampa создать нельзя, план 0.2);
+               узел ряда ищется один раз на оба рендера. */
+            var descrRow = findDescrRow(e);
+            LC.header.descr(descrRow, e.data);
+            LC.reviews.render(descrRow, e.data);
           } else if (e.type === 'complite') {
             var root = findRoot(e);
             LC.header.decorate(root, e.data);
             /* Вторая, страховочная точка: вставка идемпотентна (старый блок
                снимается), а ряд описания к complite уже построен — так таблица
-               появится, даже если 'build' для него до нас не дошёл. */
-            LC.header.descr(findDescrRow(e), e.data);
+               появится, даже если 'build' для него до нас не дошёл. Для отзывов
+               это тем более важно: запрос уходит отсюда, если 'build' прошёл
+               мимо, а повторный вызов с теми же данными в сеть не идёт. */
+            var doneRow = findDescrRow(e);
+            LC.header.descr(doneRow, e.data);
+            LC.reviews.render(doneRow, e.data);
             var slideshow = LC.backdrops.apply(root, e.body, (e.data && e.data.movie) || {});
             applyMotionMode(root);
-            LC.active = { object: e.object, body: e.body, slideshow: slideshow };
+            /* Task 9: данные карточки нужны LC.applyReviewsPref — настройки
+               Lampa открываются ПОВЕРХ карточки и при возврате не шлют ни
+               'full', ни complite, а перерисовать ряд отзывов после ввода
+               ключа больше неоткуда. */
+            LC.active = { object: e.object, body: e.body, slideshow: slideshow, data: e.data };
             /* Task 7: фоновый трейлер — отсчёт 3 с от complite. Контроллер
                хранится и в LC.active.trailer (остановка по toggle/OK), и на
                слое фона (остановка через LC.backdrops.cancel). bind() вешает

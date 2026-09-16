@@ -462,8 +462,15 @@ function initLC(opts) {
   LC.injectCss = () => { };
   LC.menus = { mode: () => { }, install: () => { } };
   LC.torrents = { install: () => { }, toggle: () => { } };
-  LC.header = { decorate: () => { }, descr: () => { } };
+  const descrRows = [];
+  LC.header = { decorate: () => { }, descr: (row) => descrRows.push(row) };
   LC.backdrops = { apply: () => null, cancel: () => { } };
+  /* Task 9: ряд отзывов рисует свой модуль — здесь он такая же заглушка, как
+     header/backdrops/trailer; вызовы пишем в журнал (проверка ниже: и таблица
+     «ПОДРОБНО», и отзывы получают ОДИН и тот же узел ряда описания). */
+  const reviewRows = [];
+  const clearedRows = [];
+  LC.reviews = { render: (row) => reviewRows.push(row), clearRow: (row) => clearedRows.push(row) };
 
   const calls = { bind: [], schedule: [], stop: 0 };
   LC.trailer = {
@@ -474,7 +481,7 @@ function initLC(opts) {
   };
 
   LC.init();
-  return { LC, calls, full, toggles };
+  return { LC, calls, full, toggles, descrRows, reviewRows, clearedRows };
 }
 
 test('Task 7: complite — bind(root) и schedule(root, body, data), контроллер попадает в LC.active.trailer', () => {
@@ -496,6 +503,66 @@ test('Task 7: complite — bind(root) и schedule(root, body, data), контр�
   assert.equal(calls.schedule[0].body, body);
   assert.equal(calls.schedule[0].data, data, 'ролики берутся из e.data.videos — передаём всю data');
   assert.equal(LC.active.trailer, controller);
+  assert.deepEqual(warnLog, []);
+});
+
+/* Task 9: блок отзывов встраивается в тот же узел ряда описания, что и
+   таблица «ПОДРОБНО» (в Lampa нельзя завести свой тип ряда — план 0.2).
+   Узел ищется ОДИН раз на оба рендера: разойдись они, класс .lumen-descr-row
+   и содержимое оказались бы на разных уровнях разметки ряда. */
+test('Task 9: на build ряда описания таблица и отзывы получают один и тот же узел', () => {
+  const { full, descrRows, reviewRows } = initLC();
+  const row = new FakeEl(['items-line'], [new FakeEl(['items-line__body'], [new FakeEl(['full-descr'])])]);
+
+  full[0]({ type: 'build', name: 'description', body: EMPTY, data: { movie: { id: 1 } }, item: { render: () => row } });
+
+  assert.equal(descrRows.length, 1, 'таблица «ПОДРОБНО» рисуется как раньше');
+  assert.equal(reviewRows.length, 1, 'отзывы рисуются на том же событии');
+  assert.equal(descrRows[0], row);
+  assert.equal(reviewRows[0], row, 'оба рендера получают один узел ряда');
+  assert.deepEqual(warnLog, []);
+});
+
+test('Task 9: complite — страховочный повтор обоих рендеров, данные карточки попадают в LC.active', () => {
+  const { LC, full, descrRows, reviewRows } = initLC();
+  const root = new FakeEl(['full-start-new', 'lumen-card']);
+  const descr = new FakeEl(['full-descr']);
+  const body = new FakeEl(['activity__body'], [new FakeEl(['items-line'], [new FakeEl(['items-line__body'], [descr])])]);
+  const data = { movie: { id: 1, imdb_id: 'tt1' } };
+
+  full[0]({ type: 'complite', body: body, object: {}, data: data, item: { render: () => root } });
+
+  assert.equal(descrRows.length, 1);
+  assert.equal(reviewRows.length, 1);
+  assert.equal(reviewRows[0], descrRows[0], 'и на complite узел ряда один на оба рендера');
+  assert.equal(LC.active.data, data, 'данные нужны LC.applyReviewsPref — из настроек карточку иначе не перерисовать');
+  assert.deepEqual(warnLog, []);
+});
+
+/* Настройки Lampa открываются активностью ПОВЕРХ карточки: при возврате не
+   приходит ни 'full', ни complite, поэтому у настройки обязана быть своя точка
+   применения — иначе введённый ключ подействовал бы только со следующего
+   открытия карточки (та же причина, что у applyProgressPref в Task 8). */
+test('Task 9: LC.applyReviewsPref — включение перерисовывает ряд по данным карточки, выключение снимает блок', () => {
+  const storage = {};
+  const { LC, reviewRows, clearedRows } = initLC({ storage });
+  const row = new FakeEl(['items-line', 'lumen-descr-row']);
+  globalThis.$ = (sel) => (sel === '.activity--active .lumen-descr-row' ? row : EMPTY);
+
+  LC.applyReviewsPref();
+  assert.equal(reviewRows.length, 0, 'данных карточки ещё нет — рисовать нечего');
+  assert.equal(clearedRows.length, 0);
+
+  LC.active = { data: { movie: { id: 1, imdb_id: 'tt1' } } };
+  LC.applyReviewsPref();
+  assert.equal(reviewRows.length, 1, 'ключ введён — ряд перерисован без нового открытия карточки');
+  assert.equal(reviewRows[0], row);
+
+  /* Переключатели Lampa пишут в Storage строки 'true'/'false' (план 0.2). */
+  storage.lumen_reviews = 'false';
+  LC.applyReviewsPref();
+  assert.equal(clearedRows.length, 1, 'выключение снимает блок на лету');
+  assert.equal(reviewRows.length, 1, 'и не рисует его заново');
   assert.deepEqual(warnLog, []);
 });
 
