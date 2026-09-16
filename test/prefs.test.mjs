@@ -1,4 +1,5 @@
 import test from 'node:test'; import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { load } from './_load.mjs';
 
 /* Task 10 (поправка контроллера): src/80_settings.js перевалил за 300 строк,
@@ -143,4 +144,62 @@ test('find: неизвестное имя -> null (ветка applyChange без
   assert.equal(prefs.find('lumen_nope'), null);
   assert.equal(prefs.find(''), null);
   assert.equal(prefs.find(), null);
+});
+
+/* ====================================================================== */
+/* Связка таблицы пунктов со словарём (ревью Task 10, п.5).               */
+/*                                                                        */
+/* LC.lang отдаёт САМ КЛЮЧ, если строки в словаре нет, — незамеченная     */
+/* опечатка в label/descr/подписи значения показала бы пользователю       */
+/* «lumen_card_group_look» вместо «Оформление». Проверяем все три языка.  */
+/* ====================================================================== */
+
+const LANGS = ['ru', 'en', 'uk'];
+
+function loadStrings() {
+  const LC = {};
+  for (const f of ['80_settings.js', '81_prefs.js']) {
+    const src = readFileSync(new URL(`../src/${f}`, import.meta.url), 'utf8');
+    new Function('LC', 'module', src)(LC, { exports: null, lumen: true });
+  }
+  return LC;
+}
+
+test('каждый пункт LIST имеет строки label/descr во всех трёх языках', () => {
+  const LC = loadStrings();
+  for (const e of LC.prefs.LIST) {
+    for (const key of [e.label, e.descr]) {
+      if (!key) continue;
+      const pack = LC.STRINGS[key];
+      assert.ok(pack, 'нет строки в LC.STRINGS: ' + key + ' (пункт ' + e.name + ')');
+      for (const lang of LANGS) {
+        assert.ok(pack[lang] && ('' + pack[lang]).trim(), 'пустой перевод ' + lang + ' у ' + key);
+      }
+    }
+  }
+});
+
+test('каждое значение select имеет подпись во всех трёх языках', () => {
+  const LC = loadStrings();
+  for (const e of LC.prefs.LIST) {
+    if (e.type !== 'select') continue;
+    for (const v of e.values) {
+      const key = e.vprefix ? e.vprefix + v : e.vsuffix;
+      const pack = LC.STRINGS[key];
+      assert.ok(pack, 'нет подписи значения: ' + key + ' (пункт ' + e.name + ')');
+      for (const lang of LANGS) {
+        assert.ok(pack[lang] && ('' + pack[lang]).trim(), 'пустой перевод ' + lang + ' у ' + key);
+      }
+    }
+  }
+});
+
+test('в словаре нет пунктов-сирот: каждая строка lumen_card_group_* принадлежит заголовку из LIST', () => {
+  const LC = loadStrings();
+  const used = {};
+  for (const e of LC.prefs.LIST) { if (e.label) used[e.label] = true; }
+  for (const key of Object.keys(LC.STRINGS)) {
+    if (key.indexOf('lumen_card_group_') !== 0) continue;
+    assert.ok(used[key], 'заголовок группы не используется в LIST: ' + key);
+  }
 });

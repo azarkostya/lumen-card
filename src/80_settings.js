@@ -242,6 +242,11 @@
 
   /* Возвращает true, если имя — наше и настройка применена. */
   function applyPrefChange(name) {
+    /* Ревью Task 10 (п.7): метка живёт ровно до следующего применения. Если
+       параметр записали в Storage мимо SettingsApi (чужой код, наш же вызов),
+       onChange для него не придёт и метка дожила бы до следующего нашего
+       события. Двойного применения это не давало, но так честнее. */
+    pref_handled = '';
     if (!name) return false;
     if (name === 'lumen_enabled') { LC.applyEnabledPref(); return true; }
     if (name === 'lumen_motion') { LC.applyMotionMode(); return true; }

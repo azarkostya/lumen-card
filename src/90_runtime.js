@@ -145,6 +145,10 @@
       Lampa.Controller.listener.follow('toggle', function (e) {
         try {
           if (!e || !e.name) return;
+          /* Ревью Task 10 (п.4): выключенный плагин не ставит своих классов и
+             не трогает трейлер — без CSS этого не видно, но состояние он
+             оставлять не должен. */
+          if (!activated) return;
           var root = activeCardRoot();
           if (!root || !root.length) return;
           if (e.name === 'full_descr' || e.name === 'items_line') root.addClass('lumen-compact');
@@ -180,6 +184,10 @@
       if (!window.Lampa || !Lampa.Timeline || !Lampa.Timeline.listener) return;
       Lampa.Timeline.listener.follow('update', function (e) {
         try {
+          /* Ревью Task 10 (п.4): иначе запись просмотра возвращала бы на
+             карточки класс lumen-continue и переменную --lumen-play-label уже
+             после выключения плагина. */
+          if (!activated) return;
           if (e && e.data) LC.header.refreshEpisode(e.data.hash);
           /* Task 8: та же подписка обновляет строку «Продолжить» и подпись
              кнопки «Смотреть» — второй слушатель Timeline не заводится
@@ -313,6 +321,13 @@
   LC.onActivityEvent = function (e) {
     try {
       if (!e) return;
+      /* Ревью Task 10 (п.1): выключенный плагин не воскрешает свой фон.
+         LC.backdrops.cancel гасит таймеры, но слой .lumen-backdrop остаётся в
+         DOM вместе с lumenUrls/lumenOpts — и возврат «назад» на карточку из
+         истории (activity:start) через liveSlideshow() -> revive() -> resume()
+         снова запускал бы ротацию и загрузку кадров при выключенном плагине.
+         Гейт тот же, что у подписки 'full'. */
+      if (!activated) return;
 
       if (LC.active && e.object === LC.active.object) {
         if (e.type === 'destroy') {
@@ -469,11 +484,21 @@
      (CUB или парсер-сервер), её значение приоритетнее нашего. Разметку чипа не
      трогаем — пишем в первый div, ровно как это делает сама Lampa
      (app.min.js ~37878: .rate--kp .removeClass('hide').find('> div').eq(0)). */
-  LC.applyKpRate = function (rate) {
+  LC.applyKpRate = function (rate, row) {
     try {
       var num = parseFloat(rate);
       if (!num || num <= 0) return;
-      var chip = $('.activity--active .lumen-card .rate--kp');
+      var chip = null;
+      /* Ревью Task 10 (п.2): row — ряд описания той карточки, которая рейтинг и
+         запрашивала. Ищем чип внутри ЕЁ активности, а не по глобальному
+         .activity--active: сетевой ответ мог долететь, когда пользователь уже
+         открыл другую карточку (при Activity.push A -> B Lampa для A не шлёт ни
+         destroy, ни archive — план 0.2). */
+      if (row && row.length && typeof row.closest === 'function') {
+        var act = row.closest('.activity');
+        if (act && act.length && typeof act.find === 'function') chip = act.find('.lumen-card .rate--kp');
+      }
+      if (!chip || !chip.length) chip = $('.activity--active .lumen-card .rate--kp');
       if (!chip || !chip.length || !chip.hasClass('hide')) return;
       chip.children().eq(0).text(num > 10 ? 10 : num);
       chip.removeClass('hide');
@@ -562,45 +587,59 @@
      Lampa держит в DOM, и чужую трогать незачем. */
   var STRIP_NODES = ['.lumen-progress', '.lumen-episodes', '.lumen-facts', '.lumen-reviews'];
 
-  /* Плагин выключили на ОТКРЫТОЙ карточке. Саму карточку не трогаем — её
-     перерисует Lampa при следующем открытии, уже штатным шаблоном; снимаем
-     только своё: дорисованные узлы, класс и CSS-переменную подписи кнопки
-     «Смотреть», слой фона со слайдшоу и трейлером, незавершённый запрос
-     отзывов. */
-  function stripActiveCard() {
-    var i;
+  /* Плагин выключили. Сами карточки не трогаем — их перерисует Lampa при
+     следующем открытии, уже штатным шаблоном; снимаем только своё:
+     дорисованные узлы, класс и CSS-переменную подписи кнопки «Смотреть», слои
+     фона со слайдшоу и трейлером, незавершённый запрос отзывов.
+
+     Ревью Task 10 (п.3): обходим ВЕСЬ документ, а не .activity--active. Lampa
+     держит карточки из истории живым DOM, и возврат «назад» их НЕ
+     перестраивает — раздень мы только активную, пользователь вернулся бы на
+     карточку с нашим шаблоном и узлами, но уже без CSS. */
+  function stripAllCards() {
+    var i, k, j;
     for (i = 0; i < STRIP_NODES.length; i++) {
       try {
-        $('.activity--active ' + STRIP_NODES[i]).remove();
+        $(STRIP_NODES[i]).remove();
       } catch (e) {
         warn('strip failed: ' + STRIP_NODES[i], e);
       }
     }
     try {
-      var row = $('.activity--active .lumen-descr-row');
-      if (row && row.length) row.removeClass('lumen-descr-row lumen-descr-row--reviews');
+      $('.lumen-descr-row').removeClass('lumen-descr-row lumen-descr-row--reviews');
     } catch (e1) {
       warn('strip descr row failed', e1);
     }
     try {
-      var root = $('.activity--active .lumen-card');
-      if (root && root.length) {
-        root.removeClass('lumen-continue');
-        var node = root[0];
+      var cards = $('.lumen-card');
+      cards.removeClass('lumen-continue');
+      for (j = 0; j < cards.length; j++) {
+        var node = cards[j];
         if (node && node.style && typeof node.style.removeProperty === 'function') node.style.removeProperty('--lumen-play-label');
       }
     } catch (e2) {
       warn('strip play label failed', e2);
     }
     try {
-      if (LC.active) {
-        /* cancel() снимает и слайдшоу, и трейлер: оба контроллера лежат на слое
-           фона (см. stopSlideshow в 50_backdrops.js). */
-        LC.backdrops.cancel(LC.active.body);
-        LC.reviews.cancel(LC.active.body);
+      /* cancel() снимает и слайдшоу, и трейлер: оба контроллера лежат на слое
+         фона (см. stopSlideshow в 50_backdrops.js). Обходим ВСЕ слои, а не
+         только активной карточки: cancel() ждёт тело активности, а слой лежит
+         в нём (layer.parent()). */
+      var layers = $('.lumen-backdrop');
+      for (k = 0; k < layers.length; k++) {
+        try {
+          LC.backdrops.cancel(layers.eq(k).parent());
+        } catch (inner) {
+          warn('strip backdrop failed', inner);
+        }
       }
     } catch (e3) {
-      warn('strip active card failed', e3);
+      warn('strip backdrops failed', e3);
+    }
+    try {
+      if (LC.active) LC.reviews.cancel(LC.active.body);
+    } catch (e4) {
+      warn('strip reviews failed', e4);
     }
     LC.active = null;
   }
@@ -656,7 +695,7 @@
     } catch (e3) {
       warn('motion class off failed', e3);
     }
-    stripActiveCard();
+    stripAllCards();
   }
 
   LC.applyEnabledPref = function () {

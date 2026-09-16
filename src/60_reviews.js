@@ -105,9 +105,15 @@
     /* Рейтинг ставит на чип .rate--kp рантайм (LC.applyKpRate, 90_runtime.js):
        он знает про DOM активной карточки, этот модуль — только про данные.
        Зовётся и на попадании в кэш, и на свежем ответе. */
-    function reportRate(rate) {
+    function reportRate(rate, onRate) {
       try {
-        if (rate > 0 && typeof LC.applyKpRate === 'function') LC.applyKpRate(rate);
+        if (!(rate > 0)) return;
+        /* onRate задаёт render(): он знает, какому ряду принадлежит ответ, и
+           не даёт рейтингу уехать на чужую карточку (ревью Task 10, п.2).
+           Прямой вызов load() без него (тесты, будущие точки) остаётся на
+           общем LC.applyKpRate. */
+        if (typeof onRate === 'function') { onRate(rate); return; }
+        if (typeof LC.applyKpRate === 'function') LC.applyKpRate(rate);
       } catch (e) {
         warn('kp rate apply failed', e);
       }
@@ -318,7 +324,7 @@
        карточки. Уточнение ревью 2 (п.3): clear() у Lampa только очищает
        список вызовов — колбэки больше не отрабатывают, но abort() нет, ответ
        всё равно долетит. Экономится разбор и рендер, а не квота Кинопоиска. */
-    function load(imdbId, key, cb, alive, at) {
+    function load(imdbId, key, cb, alive, at, onRate) {
       function dead() {
         try { return typeof alive === 'function' && !alive(); } catch (e) { return false; }
       }
@@ -330,7 +336,7 @@
         if (rec) {
           /* Task 10: рейтинг КП — даже когда отзывов у фильма нет (отрицательный
              кэш): чип рейтинга от их наличия не зависит. */
-          reportRate(rec.rate);
+          reportRate(rec.rate, onRate);
           cb(rec.list && rec.list.length ? { list: rec.list, total: rec.total || rec.list.length } : null);
           return null;
         }
@@ -346,7 +352,7 @@
             /* Рейтинг ставим сразу, не дожидаясь второго запроса: к отзывам он
                отношения не имеет, а ответ уже на руках. */
             var rate = kpRateOf(item);
-            reportRate(rate);
+            reportRate(rate, onRate);
             if (!kp) { cb(null); return; }
             request(net, BASE + '/' + kp + '/reviews?page=1&order=USER_POSITIVE_RATING_DESC', key, function (resp) {
               if (dead()) return;
@@ -726,7 +732,16 @@
           } catch (e) {
             warn('reviews paint failed', e);
           }
-        }, function () { return stateOf(holder).gen === gen; });
+        }, function () { return stateOf(holder).gen === gen; }, undefined, function (rate) {
+          /* Ревью Task 10 (п.2): рейтинг принадлежит ИМЕННО этой карточке.
+             Сторож alive() выше тут не спасает: при Activity.push A -> B Lampa
+             для A не шлёт ни destroy, ни archive (план 0.2), поэтому ни
+             поколение ряда A не растёт, ни LC.reviews.cancel для неё не
+             зовётся — и рейтинг фильма A попал бы в чип уже открытой B. */
+          if (stateOf(holder).gen !== gen) return;
+          if (!isForeground(holder)) return;
+          if (typeof LC.applyKpRate === 'function') LC.applyKpRate(rate, row);
+        });
       } catch (err) {
         warn('reviews render failed', err);
       }

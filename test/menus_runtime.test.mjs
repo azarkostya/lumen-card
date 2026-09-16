@@ -184,8 +184,11 @@ test('Task 10: выключение на лету возвращает штат�
   storageCbs[0]({ name: 'lumen_enabled' });
 
   assert.deepEqual(added, [{ name: 'full_start_new', html: '<div>orig</div>' }], 'вернулся оригинал Lampa');
-  assert.deepEqual(log, ['css-remove', 'fonts', 'torrents:false', 'mode:off', 'bg-cancel'],
-    'сняты: CSS карточки, <link> шрифтов, CSS и класс экранов торрентов, маркеры меню, слайдшоу с трейлером');
+  /* Слои фона гасятся обходом .lumen-backdrop по всему документу (ревью п.3),
+     а в этом фейковом DOM слоёв нет — отсюда отсутствие bg-cancel. Сам обход
+     проверяет test/runtime.test.mjs на двух карточках (активной и из истории). */
+  assert.deepEqual(log, ['css-remove', 'fonts', 'torrents:false', 'mode:off'],
+    'сняты: CSS карточки, <link> шрифтов, CSS и класс экранов торрентов, маркеры меню');
   assert.equal(body.hasClass('lumen-motion-full'), false, 'класс режима движения снят с body');
   assert.equal(LC.active, null, 'ссылка на открытую карточку отпущена');
 });

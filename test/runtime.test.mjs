@@ -52,12 +52,14 @@ function makeCtrl() {
   };
 }
 
+/* Ревью Task 10 (п.1/п.4): подписки на activity, toggle и Timeline теперь
+   загейчены флагом «оформление активно» — тем же, что подписка 'full'. Значит
+   их тестам нужен ПРОШЕДШИЙ инициализацию плагин, а не голый модуль: freshLC
+   поднимает то же окружение, что initLC (80+81+90 и LC.init с фейковой Lampa),
+   и отдаёт только LC. Тесты, как и раньше, переопределяют LC.backdrops/
+   LC.header/$ под себя уже после. */
 function freshLC() {
-  warnLog.length = 0;
-  const LC = {};
-  const module = { exports: null, lumen: true };
-  loadInto(LC, module, '90_runtime.js');
-  return LC;
+  return initLC().LC;
 }
 
 /* Task 5c (ревью качества, п.2): одна подписка на Lampa.Timeline за жизнь
@@ -65,36 +67,24 @@ function freshLC() {
    Task 8 (поправки координатора): вторая подписка не заводится — та же
    обновляет строку «Продолжить» и подпись кнопки «Смотреть». */
 test('Task 5c/8: LC.followTimeline — одна подписка на update: хэш в refreshEpisode, строка «Продолжить» через refreshProgress', () => {
-  const LC = freshLC();
-  const follows = [];
-  const Lampa = { Timeline: { listener: { follow(name, fn) { follows.push({ name: name, fn: fn }); } } } };
-  const prevWindow = globalThis.window;
-  const prevLampa = globalThis.Lampa;
-  globalThis.window = { Lampa: Lampa };
-  globalThis.Lampa = Lampa;
-  try {
-    const hashes = [];
-    let scheduled = 0;
-    LC.header = { refreshEpisode(h) { hashes.push(h); }, scheduleProgressRefresh() { scheduled++; } };
-    LC.followTimeline();
-    LC.followTimeline();
-    assert.equal(follows.length, 1);
-    assert.equal(follows[0].name, 'update');
-    follows[0].fn({ data: { hash: '908552078', road: { percent: 32 } } });
-    follows[0].fn(null);
-    follows[0].fn({});
-    assert.deepEqual(hashes, ['908552078']);
-    /* Строке «Продолжить» хэш записи не нужен — карточка сама решает, какую
-       серию продолжать, по всем своим данным; поэтому перерисовка ставится на
-       каждое событие, в том числе на пустое. Ревью Task 8 (п.2): подписка
-       зовёт КОАЛЕСЦИРУЮЩУЮ обёртку — пачка событий синхронизации CUB схлопы-
-       вается в одну перерисовку (сам дебаунс проверяет header.test.mjs). */
-    assert.equal(scheduled, 3);
-    assert.deepEqual(warnLog, []);
-  } finally {
-    globalThis.window = prevWindow;
-    globalThis.Lampa = prevLampa;
-  }
+  const { LC, timelines } = initLC();
+  const hashes = [];
+  let scheduled = 0;
+  LC.header = { refreshEpisode(h) { hashes.push(h); }, scheduleProgressRefresh() { scheduled++; } };
+  /* LC.init уже подписался — повторный вызов второй подписки не заводит. */
+  LC.followTimeline();
+  assert.equal(timelines.length, 1);
+  timelines[0]({ data: { hash: '908552078', road: { percent: 32 } } });
+  timelines[0](null);
+  timelines[0]({});
+  assert.deepEqual(hashes, ['908552078']);
+  /* Строке «Продолжить» хэш записи не нужен — карточка сама решает, какую
+     серию продолжать, по всем своим данным; поэтому перерисовка ставится на
+     каждое событие, в том числе на пустое. Ревью Task 8 (п.2): подписка
+     зовёт КОАЛЕСЦИРУЮЩУЮ обёртку — пачка событий синхронизации CUB схлопы-
+     вается в одну перерисовку (сам дебаунс проверяет header.test.mjs). */
+  assert.equal(scheduled, 3);
+  assert.deepEqual(warnLog, []);
 });
 
 /* Ревью Task 8 (п.3): настройки Lampa открываются активностью ПОВЕРХ карточки
@@ -442,6 +432,7 @@ function initLC(opts) {
   /* Task 10: следы главного выключателя — какой шаблон отдан Lampa, кого
      позвали снимать слой фона и незавершённый запрос отзывов, сколько раз
      перерисовали актёров. */
+  const timelines = [];
   const extra = { added: [], bgCancel: [], reviewCancel: [], cast: 0 };
   const Lampa = {
     Template: { all: () => ({ full_start_new: '<div>orig</div>' }), add: (name, html) => extra.added.push({ name: name, html: html }), get: () => '' },
@@ -451,7 +442,7 @@ function initLC(opts) {
     Controller: { listener: { follow: (name, fn) => { if (name === 'toggle') toggles.push(fn); } } },
     Storage: { field: (name) => storage[name], get: (name, def) => (name in storage ? storage[name] : def) },
     Platform: { screen: () => false },
-    Timeline: { listener: { follow: () => { } } }
+    Timeline: { listener: { follow: (name, fn) => { if (name === 'update') timelines.push(fn); } } }
   };
   globalThis.Lampa = Lampa;
   globalThis.window = { Lampa: Lampa, innerWidth: 1920 };
@@ -487,7 +478,7 @@ function initLC(opts) {
   };
 
   LC.init();
-  return { LC, calls, full, toggles, descrRows, reviewRows, clearedRows, extra };
+  return { LC, calls, full, toggles, timelines, descrRows, reviewRows, clearedRows, extra };
 }
 
 test('Task 7: complite — bind(root) и schedule(root, body, data), контроллер попадает в LC.active.trailer', () => {
@@ -741,19 +732,23 @@ function openCard() {
   const episodes = new FakeEl(['lumen-in', 'lumen-episodes']);
   const card = new FakeEl(['full-start-new', 'lumen-card', 'lumen-continue'], [progress, episodes]);
   card.style.setProperty('--lumen-play-label', '"Продолжить S2 E3"');
-  const body = new FakeEl(['activity__body'], [card, descrRow]);
+  const layer = new FakeEl(['lumen-backdrop']);
+  const body = new FakeEl(['activity__body'], [card, descrRow, layer]);
   const bodyTag = new FakeEl(['body-mock']);
+  /* Ревью п.3: выключение обходит ВЕСЬ документ, а не .activity--active —
+     карточки из истории Lampa не перестраивает при возврате «назад». */
   const map = {
     'body': bodyTag,
-    '.activity--active .lumen-card': card,
-    '.activity--active .lumen-descr-row': descrRow,
-    '.activity--active .lumen-facts': facts,
-    '.activity--active .lumen-reviews': reviews,
-    '.activity--active .lumen-progress': progress,
-    '.activity--active .lumen-episodes': episodes
+    '.lumen-card': card,
+    '.lumen-descr-row': descrRow,
+    '.lumen-facts': facts,
+    '.lumen-reviews': reviews,
+    '.lumen-progress': progress,
+    '.lumen-episodes': episodes,
+    '.lumen-backdrop': layer
   };
   globalThis.$ = (sel) => map[sel] || EMPTY;
-  return { card, descrRow, facts, reviews, progress, episodes, body, bodyTag };
+  return { card, descrRow, facts, reviews, progress, episodes, layer, body, bodyTag };
 }
 
 test('Task 10: выключение снимает узлы плагина и подпись кнопки с открытой карточки', () => {
@@ -831,5 +826,125 @@ test('Task 10: rate--kp на карточке нет (чужой шаблон) �
   const { LC } = initLC();
   globalThis.$ = () => EMPTY;
   LC.applyKpRate(7.8);
+  assert.deepEqual(warnLog, []);
+});
+
+/* ====================================================================== */
+/* Ревью Task 10: выключенный плагин не должен ничего оживлять.           */
+/* ====================================================================== */
+
+/* п.1. LC.backdrops.cancel гасит таймеры, но слой .lumen-backdrop остаётся в
+   DOM вместе с данными кадров. Возврат «назад» на карточку из истории шлёт
+   activity:start — и раньше это шло в liveSlideshow() -> revive() -> resume(),
+   то есть ротация кадров и их загрузка возобновлялись при ВЫКЛЮЧЕННОМ плагине. */
+test('ревью п.1: выключенный плагин — activity:start карточки со слоем ничего не оживляет', () => {
+  const storage = {};
+  const { LC } = initLC({ storage });
+  const reviveCalls = [];
+  const fresh = makeCtrl();
+  LC.backdrops = { apply: () => null, cancel: () => { }, revive: (layer) => { reviveCalls.push(layer); return fresh; } };
+
+  storage.lumen_enabled = 'false';
+  LC.applyEnabledPref();
+
+  const dead = makeCtrl();
+  dead.destroy();
+  const objA = makeActivityObj('A', true, dead);
+  LC.onActivityEvent({ type: 'start', component: 'full', object: objA });
+
+  assert.deepEqual(reviveCalls, [], 'revive() не зовётся');
+  assert.equal(fresh.resumeCalls, 0, 'ротация кадров не возобновляется');
+  assert.equal(dead.resumeCalls, 0);
+  assert.equal(LC.active, null, 'LC.active не восстанавливается');
+  assert.deepEqual(warnLog, []);
+});
+
+/* п.4. Визуального эффекта без CSS нет, но состояние выключенный плагин
+   ставить не должен: Timeline возвращал бы lumen-continue и переменную
+   подписи, toggle — lumen-compact и остановку трейлера. */
+test('ревью п.4: выключенный плагин не трогает состояние по toggle и Timeline', () => {
+  const storage = {};
+  const { LC, calls, toggles, timelines } = initLC({ storage });
+  const root = new FakeEl(['lumen-card']);
+  const hashes = [];
+  let scheduled = 0;
+  LC.header = { refreshEpisode: (h) => hashes.push(h), scheduleProgressRefresh: () => { scheduled++; }, refreshCast: () => { } };
+
+  storage.lumen_enabled = 'false';
+  LC.applyEnabledPref();
+  globalThis.$ = (sel) => (sel === '.activity--active .lumen-card' ? root : EMPTY);
+
+  toggles[0]({ name: 'full_start' });
+  toggles[0]({ name: 'full_descr' });
+  timelines[0]({ data: { hash: '908552078' } });
+
+  assert.equal(root.hasClass('lumen-compact'), false, 'класс сжатой шапки не ставится');
+  assert.equal(calls.stop, 0, 'трейлер не трогаем');
+  assert.deepEqual(hashes, [], 'ряд серий не перерисовывается');
+  assert.equal(scheduled, 0, 'строка «Продолжить» не возвращается');
+  assert.deepEqual(warnLog, []);
+});
+
+/* п.3. Lampa держит карточки из истории живым DOM, и возврат «назад» их НЕ
+   перестраивает. Разденем только активную — пользователь вернётся на карточку
+   с нашим шаблоном и узлами, но уже без CSS. */
+function setOf(list) {
+  const set = {
+    length: list.length,
+    eq(i) { return list[i] || EMPTY; },
+    remove() { list.forEach((el) => el.remove()); return set; },
+    removeClass(cls) { list.forEach((el) => el.removeClass(cls)); return set; }
+  };
+  list.forEach((el, i) => { set[i] = el; });
+  return set;
+}
+
+test('ревью п.3: выключение раздевает и карточку из истории, а не только активную', () => {
+  const storage = {};
+  const { LC } = initLC({ storage });
+
+  function makeCard(mark) {
+    const progress = new FakeEl(['lumen-in', 'lumen-progress']);
+    const episodes = new FakeEl(['lumen-in', 'lumen-episodes']);
+    const facts = new FakeEl(['lumen-facts']);
+    const reviews = new FakeEl(['lumen-reviews']);
+    const descr = new FakeEl(['items-line', 'lumen-descr-row', 'lumen-descr-row--reviews'], [facts, reviews]);
+    const root = new FakeEl(['full-start-new', 'lumen-card', 'lumen-continue'], [progress, episodes]);
+    root.style.setProperty('--lumen-play-label', '"Продолжить S2 E3"');
+    const layer = new FakeEl(['lumen-backdrop']);
+    const body = new FakeEl(['activity__body', mark], [root, descr, layer]);
+    return { root, descr, progress, episodes, facts, reviews, layer, body };
+  }
+  const active = makeCard('active-body');
+  const history = makeCard('history-body');
+  LC.active = { object: {}, body: active.body, data: { movie: {} } };
+
+  const cancelled = [];
+  LC.backdrops = { apply: () => null, cancel: (b) => cancelled.push(b), revive: () => null };
+
+  const map = {
+    '.lumen-progress': [active.progress, history.progress],
+    '.lumen-episodes': [active.episodes, history.episodes],
+    '.lumen-facts': [active.facts, history.facts],
+    '.lumen-reviews': [active.reviews, history.reviews],
+    '.lumen-descr-row': [active.descr, history.descr],
+    '.lumen-card': [active.root, history.root],
+    '.lumen-backdrop': [active.layer, history.layer]
+  };
+  const bodyTag = new FakeEl(['body-mock']);
+  globalThis.$ = (sel) => (sel === 'body' ? bodyTag : (map[sel] ? setOf(map[sel]) : EMPTY));
+
+  storage.lumen_enabled = 'false';
+  LC.applyEnabledPref();
+
+  [['активная', active], ['из истории', history]].forEach(([what, c]) => {
+    assert.equal(c.root._children.length, 0, what + ': узлы шапки сняты');
+    assert.equal(c.descr._children.length, 0, what + ': таблица «ПОДРОБНО» и отзывы сняты');
+    assert.equal(c.root.hasClass('lumen-continue'), false, what + ': класс подписи снят');
+    assert.equal(c.root._css['--lumen-play-label'], undefined, what + ': CSS-переменная подписи снята');
+    assert.equal(c.descr.hasClass('lumen-descr-row--reviews'), false, what + ': описание не поджато');
+    assert.equal(c.descr.hasClass('lumen-descr-row'), false, what + ': маркер ряда снят');
+  });
+  assert.equal(cancelled.length, 2, 'слой фона гасится у обеих карточек');
   assert.deepEqual(warnLog, []);
 });

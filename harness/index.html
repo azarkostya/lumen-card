@@ -170,6 +170,9 @@ body {
     <button id="btn-progress" class="on">Продолжить</button>
     <button id="btn-cast" class="on">Актёры</button>
   </div>
+  <div>
+    <button id="btn-enabled" class="on">Плагин вкл</button>
+  </div>
   <div class="hint">← / → — перемещение фокуса по кнопкам (эмуляция пульта).</div>
   <div id="checks"></div>
   <div id="errors"></div>
@@ -343,6 +346,21 @@ body {
         field: function (name) { return Storage.get(name); },
         listener: storageListener
     };
+    /* Ревью Task 10 (п.6): ключи кэша отзывов живут в origin стенда и
+       переживают перезагрузку — второй прогон рисовал бы ряд из кэша, а не из
+       мок-ответа, и проверки молча перестали бы проверять сеть. Чистим на
+       старте только своё, чужое в localStorage не трогаем. */
+    (function clearReviewCache() {
+        try {
+            var kill = [], i, k;
+            for (i = 0; i < window.localStorage.length; i++) {
+                k = window.localStorage.key(i);
+                if (k && k.indexOf('lumen_rv_') === 0) kill.push(k);
+            }
+            for (i = 0; i < kill.length; i++) window.localStorage.removeItem(kill[i]);
+        } catch (e) { }
+    })();
+
     store.language = 'ru';
     store.poster_size = 'w500';
     /* Task 9: ключ-заглушка — сеть в стенде подменена (см. Reguest ниже),
@@ -887,6 +905,9 @@ body {
     toggleBtn('#btn-fonts', 'lumen_card_fonts');
     toggleBtn('#btn-progress', 'lumen_card_progress');
     toggleBtn('#btn-cast', 'lumen_card_cast');
+    /* Task 10: главный выключатель — руками. «Выкл» возвращает штатный шаблон
+       Lampa, поэтому следующий render() рисует карточку без Lumen. */
+    toggleBtn('#btn-enabled', 'lumen_enabled');
 
     /* ------------------------ Масштаб ------------------------------- */
     function fit() {

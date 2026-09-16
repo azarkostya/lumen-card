@@ -886,3 +886,34 @@ test('load: рантайм ещё не подключил LC.applyKpRate — м�
   env.journal.calls[0].ok({ total: 1, items: [{ kinopoiskId: 301, ratingKinopoisk: 7.8 }] });
   assert.deepEqual(warnLog, []);
 });
+
+/* Ревью Task 10 (п.2): сторож alive() привязан к ПОКОЛЕНИЮ ряда той карточки,
+   которая запрос и отправила. При Activity.push A -> B Lampa для A не шлёт ни
+   destroy, ни archive (план 0.2): LC.reviews.cancel для неё не зовётся,
+   поколение ряда A не растёт — и сетевой ответ A спокойно доезжает. Раньше он
+   писал рейтинг фильма A в чип уже открытой карточки B по глобальному
+   селектору .activity--active (типовой случай, когда своего kp_rating Lampa не
+   дала). Ветка кэша синхронная и этой дырой не страдала. */
+test('ревью п.2: рейтинг КП не уезжает на чужую карточку — ответ A приходит, когда открыта B', () => {
+  const env = freshEnv({ store: { lumen_kp_key: 'KEY' } });
+  const rates = [];
+  env.LC.applyKpRate = (rate, row) => rates.push({ rate, row });
+
+  const a = makeDescrRow();
+  const b = makeDescrRow();
+  /* На экране сейчас B — та же проверка, которой пользуется сам ряд отзывов. */
+  env.LC.slideshow = { isMounted: () => true, isLayerForeground: (node) => node === b.descr };
+
+  env.LC.reviews.render(a.row, { movie: { id: 1, imdb_id: 'ttAAA' } });
+  env.LC.reviews.render(b.row, { movie: { id: 2, imdb_id: 'ttBBB' } });
+  assert.equal(env.journal.calls.length, 2, 'обе карточки отправили поиск по imdbId');
+
+  env.journal.calls[0].ok({ total: 1, items: [{ kinopoiskId: 11, ratingKinopoisk: 7.8 }] });
+  assert.deepEqual(rates, [], 'рейтинг фильма A в чип карточки B не попал');
+
+  env.journal.calls[1].ok({ total: 1, items: [{ kinopoiskId: 22, ratingKinopoisk: 6.5 }] });
+  assert.equal(rates.length, 1, 'рейтинг активной карточки поставлен');
+  assert.equal(rates[0].rate, 6.5);
+  assert.equal(rates[0].row, b.row, 'чип ищется в активности запросившей карточки');
+  assert.deepEqual(warnLog, []);
+});

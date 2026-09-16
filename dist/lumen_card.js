@@ -3200,9 +3200,15 @@ return rate > 10 ? 10 : rate;
 
 
 
-function reportRate(rate) {
+function reportRate(rate, onRate) {
 try {
-if (rate > 0 && typeof LC.applyKpRate === 'function') LC.applyKpRate(rate);
+if (!(rate > 0)) return;
+
+
+
+
+if (typeof onRate === 'function') { onRate(rate); return; }
+if (typeof LC.applyKpRate === 'function') LC.applyKpRate(rate);
 } catch (e) {
 warn('kp rate apply failed', e);
 }
@@ -3413,7 +3419,7 @@ timeout: TIMEOUT_MS
 
 
 
-function load(imdbId, key, cb, alive, at) {
+function load(imdbId, key, cb, alive, at, onRate) {
 function dead() {
 try { return typeof alive === 'function' && !alive(); } catch (e) { return false; }
 }
@@ -3425,7 +3431,7 @@ var rec = cacheRead(imdbId, at);
 if (rec) {
 
 
-reportRate(rec.rate);
+reportRate(rec.rate, onRate);
 cb(rec.list && rec.list.length ? { list: rec.list, total: rec.total || rec.list.length } : null);
 return null;
 }
@@ -3441,7 +3447,7 @@ var kp = item && item.kinopoiskId;
 
 
 var rate = kpRateOf(item);
-reportRate(rate);
+reportRate(rate, onRate);
 if (!kp) { cb(null); return; }
 request(net, BASE + '/' + kp + '/reviews?page=1&order=USER_POSITIVE_RATING_DESC', key, function (resp) {
 if (dead()) return;
@@ -3821,7 +3827,16 @@ current.painted = true;
 } catch (e) {
 warn('reviews paint failed', e);
 }
-}, function () { return stateOf(holder).gen === gen; });
+}, function () { return stateOf(holder).gen === gen; }, undefined, function (rate) {
+
+
+
+
+
+if (stateOf(holder).gen !== gen) return;
+if (!isForeground(holder)) return;
+if (typeof LC.applyKpRate === 'function') LC.applyKpRate(rate, row);
+});
 } catch (err) {
 warn('reviews render failed', err);
 }
@@ -5040,6 +5055,11 @@ var pref_handled = '';
 
 
 function applyPrefChange(name) {
+
+
+
+
+pref_handled = '';
 if (!name) return false;
 if (name === 'lumen_enabled') { LC.applyEnabledPref(); return true; }
 if (name === 'lumen_motion') { LC.applyMotionMode(); return true; }
@@ -6329,6 +6349,10 @@ if (!window.Lampa || !Lampa.Controller || !Lampa.Controller.listener) return;
 Lampa.Controller.listener.follow('toggle', function (e) {
 try {
 if (!e || !e.name) return;
+
+
+
+if (!activated) return;
 var root = activeCardRoot();
 if (!root || !root.length) return;
 if (e.name === 'full_descr' || e.name === 'items_line') root.addClass('lumen-compact');
@@ -6364,6 +6388,10 @@ try {
 if (!window.Lampa || !Lampa.Timeline || !Lampa.Timeline.listener) return;
 Lampa.Timeline.listener.follow('update', function (e) {
 try {
+
+
+
+if (!activated) return;
 if (e && e.data) LC.header.refreshEpisode(e.data.hash);
 
 
@@ -6497,6 +6525,13 @@ return LC.backdrops.revive(layer) || s;
 LC.onActivityEvent = function (e) {
 try {
 if (!e) return;
+
+
+
+
+
+
+if (!activated) return;
 
 if (LC.active && e.object === LC.active.object) {
 if (e.type === 'destroy') {
@@ -6653,11 +6688,21 @@ warn('cast pref failed', e);
 
 
 
-LC.applyKpRate = function (rate) {
+LC.applyKpRate = function (rate, row) {
 try {
 var num = parseFloat(rate);
 if (!num || num <= 0) return;
-var chip = $('.activity--active .lumen-card .rate--kp');
+var chip = null;
+
+
+
+
+
+if (row && row.length && typeof row.closest === 'function') {
+var act = row.closest('.activity');
+if (act && act.length && typeof act.find === 'function') chip = act.find('.lumen-card .rate--kp');
+}
+if (!chip || !chip.length) chip = $('.activity--active .lumen-card .rate--kp');
 if (!chip || !chip.length || !chip.hasClass('hide')) return;
 chip.children().eq(0).text(num > 10 ? 10 : num);
 chip.removeClass('hide');
@@ -6751,40 +6796,54 @@ var STRIP_NODES = ['.lumen-progress', '.lumen-episodes', '.lumen-facts', '.lumen
 
 
 
-function stripActiveCard() {
-var i;
+
+
+
+
+function stripAllCards() {
+var i, k, j;
 for (i = 0; i < STRIP_NODES.length; i++) {
 try {
-$('.activity--active ' + STRIP_NODES[i]).remove();
+$(STRIP_NODES[i]).remove();
 } catch (e) {
 warn('strip failed: ' + STRIP_NODES[i], e);
 }
 }
 try {
-var row = $('.activity--active .lumen-descr-row');
-if (row && row.length) row.removeClass('lumen-descr-row lumen-descr-row--reviews');
+$('.lumen-descr-row').removeClass('lumen-descr-row lumen-descr-row--reviews');
 } catch (e1) {
 warn('strip descr row failed', e1);
 }
 try {
-var root = $('.activity--active .lumen-card');
-if (root && root.length) {
-root.removeClass('lumen-continue');
-var node = root[0];
+var cards = $('.lumen-card');
+cards.removeClass('lumen-continue');
+for (j = 0; j < cards.length; j++) {
+var node = cards[j];
 if (node && node.style && typeof node.style.removeProperty === 'function') node.style.removeProperty('--lumen-play-label');
 }
 } catch (e2) {
 warn('strip play label failed', e2);
 }
 try {
-if (LC.active) {
 
 
-LC.backdrops.cancel(LC.active.body);
-LC.reviews.cancel(LC.active.body);
+
+
+var layers = $('.lumen-backdrop');
+for (k = 0; k < layers.length; k++) {
+try {
+LC.backdrops.cancel(layers.eq(k).parent());
+} catch (inner) {
+warn('strip backdrop failed', inner);
+}
 }
 } catch (e3) {
-warn('strip active card failed', e3);
+warn('strip backdrops failed', e3);
+}
+try {
+if (LC.active) LC.reviews.cancel(LC.active.body);
+} catch (e4) {
+warn('strip reviews failed', e4);
 }
 LC.active = null;
 }
@@ -6840,7 +6899,7 @@ if (body && body.length) body.removeClass(MOTION_CLASSES);
 } catch (e3) {
 warn('motion class off failed', e3);
 }
-stripActiveCard();
+stripAllCards();
 }
 
 LC.applyEnabledPref = function () {
