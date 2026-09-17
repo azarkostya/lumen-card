@@ -120,6 +120,11 @@
          Каждый пункт применяется на лету (src/80_settings.js,
          applyPrefChange): возврат из настроек Lampa экран не перерисовывает. */
       { name: 'lumen_group_home', type: 'title', label: 'lumen_group_home' },
+      /* Правка пользователя 2026-09-17 (п.2): размер кадра над рядами — первым
+         пунктом группы: это самое крупное решение про вид главной, и от него
+         зависит, сколько экрана достанется всему остальному. Доли экрана — в
+         HERO_SIZES (src/30_css.js). */
+      { name: 'lumen_hero_size', type: 'select', values: ['large', 'medium', 'compact', 'off'], vprefix: 'lumen_hero_size_', 'default': 'medium', label: 'lumen_hero_size_name', descr: 'lumen_hero_size_descr' },
       { name: 'lumen_moods', type: 'trigger', 'default': true, label: 'lumen_moods_name', descr: 'lumen_moods_descr' },
       { name: 'lumen_personal_rows', type: 'trigger', 'default': true, label: 'lumen_personal_rows_name', descr: 'lumen_personal_rows_descr' },
       /* Кнопка-параметр: multi-select в SettingsApi нет, поэтому состав рядов
@@ -128,6 +133,10 @@
          lumen_home_rows — его читает LC.rows.register. */
       { name: 'lumen_home_rows', type: 'button', label: 'lumen_home_rows_name', descr: 'lumen_home_rows_descr' },
       { name: 'lumen_rows_limit', type: 'select', values: ['10', '15', '25'], vsuffix: 'lumen_rows_limit_suffix', 'default': '15', label: 'lumen_rows_limit_name' },
+      /* Task 25 (фаза 3): метки на постерах рядов («Скоро», «Новинка»,
+         «Продолжить», новые серии). Место в группе — рядом с составом рядов:
+         речь о том же экране. Применение на лету — LC.applyBadgesPref. */
+      { name: 'lumen_badges', type: 'trigger', 'default': true, label: 'lumen_badges_name', descr: 'lumen_badges_descr' },
       { name: 'lumen_hide_watched', type: 'trigger', 'default': false, label: 'lumen_hide_watched_name', descr: 'lumen_hide_watched_descr' },
       /* Тип input: Lampa рисует текстовое поле (как lumen_kp_key). Пусто —
          адрес по умолчанию из LC.MANIFEST_URL (src/00_head.js). */

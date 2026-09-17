@@ -449,6 +449,18 @@
         } catch (eMoodsStart) {
           warn('moods start failed', eMoodsStart);
         }
+        /* Task 25: метки на постерах рядов. Наблюдатель живёт ровно столько
+           же, сколько герой, и по той же причине: уход с главной виден только
+           по 'start' той активности, куда ушли. detach() снимает его, если
+           корень лежит ВНЕ стартующей активности. */
+        try {
+          if (LC.badges) {
+            LC.badges.detach(startRender);
+            if (e.component === 'main' && startRender && startRender.length) LC.badges.mount(startRender);
+          }
+        } catch (eBadgesStart) {
+          warn('badges start failed', eBadgesStart);
+        }
       } else if (e.type === 'destroy') {
         /* Активность вытеснили из истории (лимит maxsave) или закрыли: если
            герой всё ещё её — он уходит вместе с DOM, а наблюдатель и
@@ -472,6 +484,13 @@
           if (LC.moods && LC.moods.active() && LC.moods.owns(deadRender)) LC.moods.unmount();
         } catch (eMoodsKill) {
           warn('moods destroy failed', eMoodsKill);
+        }
+        /* Наблюдатель меток уходит вместе со своей активностью — та же
+           проверка owns(): он мог уже переехать на другой экран. */
+        try {
+          if (LC.badges && LC.badges.active() && LC.badges.owns(deadRender)) LC.badges.unmount();
+        } catch (eBadgesKill) {
+          warn('badges destroy failed', eBadgesKill);
         }
       }
 
@@ -1072,6 +1091,13 @@
     } catch (eMoods) {
       warn('moods install failed', eMoods);
     }
+    /* Task 25: метки на постерах уже открытой главной — по той же причине,
+       что герой и чипы: возврат из настроек Lampa события 'start' не шлёт. */
+    try {
+      if (LC.badges && LC.badges.install) LC.badges.install();
+    } catch (eBadges) {
+      warn('badges install failed', eBadges);
+    }
   }
 
   function deactivate() {
@@ -1117,6 +1143,8 @@
     try { if (LC.hero && LC.hero.unmount) LC.hero.unmount(); } catch (eHeroOff) {}
     /* Task 19: снять чипы настроения и отписаться от событий Activity. */
     try { if (LC.moods && LC.moods.uninstall) LC.moods.uninstall(); } catch (eMoodsOff) {}
+    /* Task 25: снять наблюдатель меток и сами метки с открытой главной. */
+    try { if (LC.badges && LC.badges.uninstall) LC.badges.uninstall(); } catch (eBadgesOff) {}
   }
 
   /* -------------------------------------------------------------------- */
@@ -1300,6 +1328,49 @@
       }
     } catch (e) {
       warn('moods pref failed', e);
+    }
+  };
+
+  /* Правка пользователя 2026-09-17 (п.2): сменили размер кадра над рядами.
+     Пересобирать активность не нужно — высота кадра и сдвиг области рядов
+     живут в таблице стилей, её достаточно пересобрать. Узел героя — другое
+     дело: «Выключен» его снимает (заодно уходит и класс .lumen-main, то есть
+     ряды возвращаются к штатному размеру Lampa), а возврат к любому размеру
+     ставит его обратно на уже открытую главную. Чипы настроения живут внутри
+     героя, поэтому их монтирование идёт следом — тем же порядком, что на
+     событии 'start' (сначала герой, потом чипы). */
+  LC.applyHeroSizePref = function () {
+    if (!activated) return;
+    try {
+      LC.injectCss();
+      if (!LC.hero) return;
+      if (LC.pref('lumen_hero_size', 'medium') === 'off') {
+        if (LC.hero.unmount) LC.hero.unmount();
+        if (LC.moods && LC.moods.unmount) LC.moods.unmount();
+        return;
+      }
+      if (LC.hero.mountCurrent) LC.hero.mountCurrent();
+      /* Снятие перед монтированием обязательно: LC.moods.mount считает
+         работу сделанной, если корень тот же (главная не менялась), а узел
+         чипов только что уехал вместе со старым текстовым блоком героя. */
+      if (LC.moods && LC.moods.unmount) LC.moods.unmount();
+      if (LC.moods && LC.moods.mountCurrent) LC.moods.mountCurrent();
+    } catch (e) {
+      warn('hero size pref failed', e);
+    }
+  };
+
+  /* Task 25: метки на постерах включили или выключили. Пересобирать экран не
+     нужно: метки — узлы внутри уже нарисованных карточек, их можно снять
+     (uninstall) и поставить (install) прямо на живой главной. */
+  LC.applyBadgesPref = function () {
+    if (!activated) return;
+    try {
+      if (!LC.badges) return;
+      if (LC.pref('lumen_badges', true)) LC.badges.install();
+      else LC.badges.uninstall();
+    } catch (e) {
+      warn('badges pref failed', e);
     }
   };
 

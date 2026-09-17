@@ -523,8 +523,38 @@ var LAMPA_HEAD = 4;
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+var HERO_SIZES = { large: 1, medium: 1.26, compact: 1.54 };
+var HERO_DEFAULT = 'medium';
+
+function heroFactor() {
+var key = LC.pref('lumen_hero_size', HERO_DEFAULT);
+return HERO_SIZES[key] || HERO_SIZES[HERO_DEFAULT];
+}
+
+
+
+function heroCutEm(scale) {
+return round2((ROW_BLOCK_FIXED + ROW_BLOCK_EM * scale) * heroFactor());
+}
+
+
+
 function rowsAreaEm(scale) {
-return round2(LAMPA_ROW_PAD + ROW_BLOCK_FIXED + ROW_BLOCK_EM * scale);
+return round2(LAMPA_ROW_PAD + heroCutEm(scale));
 }
 
 
@@ -1541,7 +1571,7 @@ css.push('.lumen-grid .lumen-grid__hide{margin-right:.79em}');
 
 
 
-var heroCut = round2(ROW_BLOCK_FIXED + ROW_BLOCK_EM * scale);
+var heroCut = heroCutEm(scale);
 css.push('.lumen-hero{position:absolute;top:-4em;left:0;right:0;height:-webkit-calc(100vh - ' + heroCut + 'em);height:calc(100vh - ' + heroCut + 'em);overflow:hidden;pointer-events:none}');
 css.push('.lumen-hero.lumen-hero--compact{height:-webkit-calc(72vh - ' + round2(heroCut * 0.72) + 'em);height:calc(72vh - ' + round2(heroCut * 0.72) + 'em)}');
 css.push('.lumen-hero.lumen-motion-full{-webkit-transition:height .42s cubic-bezier(.2,.8,.2,1);transition:height .42s cubic-bezier(.2,.8,.2,1)}');
@@ -1656,7 +1686,35 @@ css.push('.lumen-hero.lumen-motion-off .lumen-mood-chip,.lumen-hero.lumen-motion
 
 var rowsArea = rowsAreaEm(scale);
 var rowsTop = round2(LAMPA_HEAD + rowsArea) + 'em';
-css.push('.lumen-main .scroll.layer--wheight{margin-top:-webkit-calc(100vh - ' + rowsTop + ');margin-top:calc(100vh - ' + rowsTop + ');height:' + rowsArea + 'em !important}');
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+var maskStops = 'rgba(255,255,255,0) 0,rgba(255,255,255,0) 2em,#fff 2.5em,#fff 92%,rgba(255,255,255,0) 100%';
+css.push('.lumen-main .scroll.layer--wheight{margin-top:-webkit-calc(100vh - ' + rowsTop + ');margin-top:calc(100vh - ' + rowsTop + ');height:' + rowsArea + 'em !important;overflow:hidden;' +
+'-webkit-mask-image:-webkit-linear-gradient(top,' + maskStops + ');mask-image:linear-gradient(to bottom,' + maskStops + ')}');
 
 
 
@@ -1670,7 +1728,7 @@ css.push('.lumen-main .scroll.layer--wheight{margin-top:-webkit-calc(100vh - ' +
 
 var heroMinRatio = Math.round(84.17 / (LAMPA_HEAD + rowsArea) * 100);
 css.push('@media screen and (min-aspect-ratio:' + heroMinRatio + '/100){' +
-'.lumen-main .scroll.layer--wheight{margin-top:0;height:-webkit-calc(100vh - 4em) !important;height:calc(100vh - 4em) !important}' +
+'.lumen-main .scroll.layer--wheight{margin-top:0;height:-webkit-calc(100vh - 4em) !important;height:calc(100vh - 4em) !important;overflow:hidden}' +
 '.lumen-hero{display:none}}');
 
 
@@ -1706,6 +1764,44 @@ css.push('.lumen-main .items-line__title{font-family:' + FD + ';font-weight:700;
 css.push('.lumen-main .items-line{padding-bottom:1.4em}');
 css.push('.lumen-main .items-line__head{margin-bottom:.7em}');
 css.push('.lumen-main .card.focus .card__view:after{border-width:.13em;border-color:' + AL + ';border-radius:.44em;-webkit-box-shadow:0 .7em 1.97em ' + AG + ';box-shadow:0 .7em 1.97em ' + AG + '}');
+
+
+
+
+
+
+
+
+
+css.push('.lumen-main .lumen-badge,.lumen-grid .lumen-badge{position:absolute;top:.4em;left:.4em;max-width:-webkit-calc(100% - .8em);max-width:calc(100% - .8em);font-family:' + FB + ';font-weight:600;font-size:.61em;line-height:1;letter-spacing:.02em;padding:.4em .6em;border-radius:.4em;white-space:nowrap;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis;color:' + t.onac + ';background:' + A + ';z-index:2}');
+
+
+
+css.push('.lumen-main .lumen-badge--progress,.lumen-grid .lumen-badge--progress,.lumen-main .lumen-badge--custom,.lumen-grid .lumen-badge--custom{color:' + P.text + ';background:' + P.chipBg + ';border:.04em solid ' + P.line + '}');
+css.push('.lumen-main .lumen-badge-bar{position:absolute;left:.4em;right:.4em;bottom:.4em;height:.18em;border-radius:.09em;background:rgba(' + P.textRgb + ',.2);overflow:hidden;z-index:2}');
+css.push('.lumen-main .lumen-badge-bar > div{height:100%;border-radius:.09em;background:' + A + '}');
+
+
+
+
+
+
+
+
+
+
+
+
+css.push('.lumen-skeleton{background:rgba(' + P.textRgb + ',.10);-webkit-animation:lumen-sk 1.4s ease-in-out infinite;animation:lumen-sk 1.4s ease-in-out infinite}');
+css.push('@-webkit-keyframes lumen-sk{0%,100%{opacity:.5}50%{opacity:1}}');
+css.push('@keyframes lumen-sk{0%,100%{opacity:.5}50%{opacity:1}}');
+css.push('body.lumen-motion-lite .lumen-skeleton,body.lumen-motion-off .lumen-skeleton{-webkit-animation:none;animation:none;opacity:1}');
+
+
+css.push('.lumen-descr-row .lumen-review--sk{background-image:none}');
+
+
+css.push('.lumen-hub .lumen-tile__collage.lumen-skeleton{border-radius:.53em}');
 
 
 
@@ -5502,10 +5598,27 @@ function loadCollage(item, node) {
 if (node.lumen_collage) return;
 node.lumen_collage = true;
 var captured = gen;
+
+
+
+
+
+
+function skeleton(on) {
+try {
+var box = $(node).find('.lumen-tile__collage');
+if (!box || !box.length) return;
+if (on) box.addClass('lumen-skeleton');
+else box.removeClass('lumen-skeleton');
+} catch (eSk) { }
+}
+skeleton(true);
 var handle = LC.sources.collagePaths(item, COLLAGE_SIZE, function (paths) {
+skeleton(false);
 if (gen !== captured) return;
 paintCollage(node, paths);
 }, function (err) {
+skeleton(false);
 if (gen !== captured) return;
 
 
@@ -5857,6 +5970,14 @@ break;
 warn('grid: card marks failed', e);
 }
 progressBar(node, card);
+
+
+
+try {
+if (LC.badges && LC.badges.decorate) LC.badges.decorate(node, card, { bar: false });
+} catch (eBadge) {
+warn('grid: badge failed', eBadge);
+}
 }
 
 function progressBar(node, card) {
@@ -6488,12 +6609,15 @@ var node = $('<div class="lumen-hero">' +
 '</div>');
 var text = $('<div class="lumen-hero__text">' +
 '<div class="lumen-hero__meta"></div>' +
-'<div class="lumen-hero__sk lumen-hero__sk--meta"></div>' +
+
+
+
+'<div class="lumen-hero__sk lumen-hero__sk--meta lumen-skeleton"></div>' +
 '<div class="lumen-hero__logo"></div>' +
 '<div class="lumen-hero__title"></div>' +
 '<div class="lumen-hero__descr"></div>' +
-'<div class="lumen-hero__sk lumen-hero__sk--descr"></div>' +
-'<div class="lumen-hero__sk lumen-hero__sk--short"></div>' +
+'<div class="lumen-hero__sk lumen-hero__sk--descr lumen-skeleton"></div>' +
+'<div class="lumen-hero__sk lumen-hero__sk--short lumen-skeleton"></div>' +
 '<div class="lumen-hero__chips">' +
 '<div class="lumen-hero__rate"></div>' +
 '<div class="lumen-hero__status"></div>' +
@@ -6849,9 +6973,22 @@ show(el[0].card_data);
 
 
 
+
+
+
+
+
+
+
+
+function sizeOff() {
+try { return LC.pref ? LC.pref('lumen_hero_size', 'medium') === 'off' : false; } catch (e) { return false; }
+}
+
 function mount(root, opts) {
 try {
 if (!root || !root.length) return;
+if (sizeOff()) { unmount(); return; }
 
 
 
@@ -9535,6 +9672,23 @@ bind(block, list);
 appendSelectors(block);
 }
 
+
+
+
+
+
+
+
+function paintSkeleton(holder) {
+var block = $('<div class="lumen-reviews lumen-reviews--sk"></div>');
+block.html('<div class="lumen-reviews__row">' +
+'<div class="lumen-review lumen-review--sk lumen-skeleton"></div>' +
+'<div class="lumen-review lumen-review--sk lumen-skeleton"></div>' +
+'<div class="lumen-review lumen-review--sk lumen-skeleton"></div>' +
+'</div>');
+holder.append(block);
+}
+
 function paintHint(holder) {
 if (!hintEnabled()) return;
 var block = $('<div class="lumen-reviews lumen-reviews--hint"></div>');
@@ -9631,10 +9785,15 @@ if (!on) return;
 if (!key) { paintHint(holder); state.painted = true; return; }
 if (!imdb) return;
 
+
+
+paintSkeleton(holder);
+
 state.net = load(imdb, key, function (res) {
 try {
 var current = stateOf(holder);
 if (current.gen !== gen) return;
+clearBlock(holder);
 if (!res) return;
 if (res.nokey) { paintHint(holder); current.painted = true; return; }
 paintList(holder, res.list, res.total);
@@ -9727,6 +9886,354 @@ openModal: openModal
 
 
 if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.reviews;
+
+
+/* ---- 62_badges.js ---- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+LC.badges = (function () {
+
+
+var NEW_DAYS = 30;
+
+var PROGRESS_MIN = 5;
+var PROGRESS_MAX = 95;
+
+function releaseDate(card) {
+if (!card) return '';
+return card.release_date || card.first_air_date || '';
+}
+
+
+
+
+
+
+
+
+
+function badgeFor(card, today, ctx) {
+if (!card) return null;
+ctx = ctx || {};
+var words = ctx.words || {};
+
+if (card.lumen_badge) return { kind: 'custom', text: '' + card.lumen_badge, percent: 0 };
+
+var percent = null;
+if (typeof ctx.progress === 'function') percent = Number(ctx.progress(card));
+if (percent !== null && !isNaN(percent) && percent >= PROGRESS_MIN && percent <= PROGRESS_MAX) {
+var whole = Math.round(percent);
+return { kind: 'progress', text: (words.cont || '') + ' · ' + whole + ' %', percent: whole };
+}
+
+var ymd = releaseDate(card);
+var days = LC.util.daysUntil(ymd, today);
+if (days === null) return null;
+if (days > 0) {
+var when = LC.cardinfo.shortDate(ymd, words.months);
+var soon = words.soon || '';
+return { kind: 'soon', text: when ? soon + ' · ' + when : soon, percent: 0 };
+}
+if (days >= -NEW_DAYS) return { kind: 'new', text: words.fresh || '', percent: 0 };
+return null;
+}
+
+
+
+
+
+
+function countdown(ymd, today, words) {
+if (!words) return null;
+var days = LC.util.daysUntil(ymd, today);
+if (days === null || days < 0) return null;
+if (days === 0) return words.today || null;
+var premiere = words.premiere || '';
+if (days === 1) return premiere + ' ' + (words.tomorrow || '');
+var word = words.daysWord ? words.daysWord(days) : '';
+var date = LC.cardinfo.shortDate(ymd, words.months);
+var head = premiere + ' ' + (words.inDays || '') + ' ' + days + ' ' + word;
+return date ? head + ' · ' + date : head;
+}
+
+
+
+
+
+
+var gen = 0;
+
+
+var state = null;
+
+function enabled() {
+try { return LC.pref ? !!LC.pref('lumen_badges', true) : true; } catch (e) { return true; }
+}
+
+
+
+function words() {
+return {
+soon: LC.lang('lumen_badge_soon'),
+fresh: LC.lang('lumen_badge_new'),
+cont: LC.lang('lumen_card_continue'),
+months: ('' + LC.lang('lumen_card_months_short')).split(',')
+};
+}
+
+
+
+
+function progressOf(card) {
+try {
+if (!window.Lampa || !Lampa.Timeline || typeof Lampa.Timeline.view !== 'function') return null;
+if (!Lampa.Utils || typeof Lampa.Utils.hash !== 'function') return null;
+var key = card.original_title || card.original_name || card.title || card.name || '';
+if (!key) return null;
+var view = Lampa.Timeline.view(Lampa.Utils.hash(key));
+var percent = view ? (Number(view.percent) || 0) : 0;
+return percent > 0 ? percent : null;
+} catch (e) {
+return null;
+}
+}
+
+
+
+
+
+
+function decorate(node, card, opts) {
+try {
+if (!enabled()) return;
+var el = node && node.length ? node[0] : node;
+if (!el || el.lumen_badged) return;
+var data = card || el.card_data;
+if (!data) return;
+el.lumen_badged = true;
+var badge = badgeFor(data, new Date(), { progress: progressOf, words: words() });
+if (!badge || !badge.text) return;
+var view = $(el).find('.card__view');
+if (!view || !view.length) return;
+var box = $('<div class="lumen-badge lumen-badge--' + badge.kind + '"></div>');
+box.text(badge.text);
+view.append(box);
+var wantBar = !opts || opts.bar !== false;
+if (wantBar && badge.kind === 'progress' && badge.percent > 0) {
+var bar = $('<div class="lumen-badge-bar"><div></div></div>');
+bar.find('div').css('width', badge.percent + '%');
+view.append(bar);
+}
+} catch (e) {
+warn('badges: decorate failed', e);
+}
+}
+
+
+
+function scan(root) {
+try {
+var nodes = root.find('.card');
+for (var i = 0; i < nodes.length; i++) decorate(nodes[i], null, null);
+} catch (e) {
+warn('badges: scan failed', e);
+}
+}
+
+
+function decorateAdded(el) {
+if (!el || el.nodeType !== 1) return;
+if (el.classList && el.classList.contains('card')) {
+decorate(el, null, null);
+return;
+}
+if (typeof el.querySelectorAll !== 'function') return;
+var inner = el.querySelectorAll('.card');
+for (var i = 0; i < inner.length; i++) decorate(inner[i], null, null);
+}
+
+function onMutations(records) {
+if (!state) return;
+try {
+for (var i = 0; i < records.length; i++) {
+var added = records[i] && records[i].addedNodes;
+if (!added) continue;
+for (var k = 0; k < added.length; k++) decorateAdded(added[k]);
+}
+} catch (e) {
+warn('badges: observer failed', e);
+}
+}
+
+function observe(root) {
+try {
+if (!window.MutationObserver) return;
+var obs = new MutationObserver(onMutations);
+obs.observe(root[0], { childList: true, subtree: true });
+state.observer = obs;
+} catch (e) {
+warn('badges: observe failed', e);
+}
+}
+
+
+
+function mount(root) {
+try {
+if (!root || !root.length) return;
+if (!enabled()) { unmount(); return; }
+if (state && state.root && state.root[0] === root[0]) return;
+unmount();
+gen++;
+state = { root: root, observer: null };
+scan(root);
+observe(root);
+} catch (e) {
+warn('badges: mount failed', e);
+}
+}
+
+
+
+function unmount() {
+if (!state) return;
+var s = state;
+state = null;
+gen++;
+try {
+if (s.observer) s.observer.disconnect();
+} catch (e) {
+warn('badges: disconnect failed', e);
+}
+}
+
+
+
+
+
+function strip(root) {
+try {
+if (!root || !root.length) return;
+root.find('.lumen-badge').remove();
+root.find('.lumen-badge-bar').remove();
+var nodes = root.find('.card');
+for (var i = 0; i < nodes.length; i++) nodes[i].lumen_badged = false;
+} catch (e) {
+warn('badges: strip failed', e);
+}
+}
+
+function ownedBy(render) {
+if (!state || !state.root || !state.root.length) return false;
+if (!render || !render.length) return false;
+if (state.root[0] === render[0]) return true;
+try {
+var act = state.root.closest('.activity');
+return !!(act && act.length && act[0] === render[0]);
+} catch (e) {
+return false;
+}
+}
+
+function owns(render) {
+return ownedBy(render);
+}
+
+
+
+function detach(render) {
+if (!state) return;
+if (!render || !render.length) { unmount(); return; }
+if (ownedBy(render)) return;
+unmount();
+}
+
+function active() {
+return !!state;
+}
+
+function currentMain() {
+try {
+if (!window.Lampa || !Lampa.Activity || typeof Lampa.Activity.active !== 'function') return null;
+var act = Lampa.Activity.active();
+if (!act || act.component !== 'main') return null;
+if (!act.activity || typeof act.activity.render !== 'function') return null;
+return act.activity.render();
+} catch (e) {
+return null;
+}
+}
+
+
+
+function mountCurrent() {
+var root = currentMain();
+if (root && root.length) mount(root);
+}
+
+function install() {
+mountCurrent();
+}
+
+function uninstall() {
+var root = state && state.root ? state.root : currentMain();
+unmount();
+if (root && root.length) strip(root);
+}
+
+return {
+badgeFor: badgeFor,
+countdown: countdown,
+decorate: decorate,
+mount: mount,
+mountCurrent: mountCurrent,
+unmount: unmount,
+strip: strip,
+detach: detach,
+owns: owns,
+active: active,
+install: install,
+uninstall: uninstall
+};
+})();
+
+if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.badges;
 
 
 /* ---- 64_menus.js ---- */
@@ -10975,6 +11482,43 @@ ru: 'Через',
 en: 'In',
 uk: 'Через'
 },
+
+
+
+lumen_badge_soon: { ru: 'Скоро', en: 'Soon', uk: 'Скоро' },
+lumen_badge_new: { ru: 'Новинка', en: 'New', uk: 'Новинка' },
+
+
+
+
+
+lumen_badge_premiere: { ru: 'Премьера', en: 'Premiere', uk: 'Прем\'єра' },
+lumen_badge_premiere_today: {
+ru: 'Сегодня премьера',
+en: 'Premiere today',
+uk: 'Сьогодні прем\'єра'
+},
+
+
+
+
+
+lumen_hero_size_name: { ru: 'Кадр над рядами', en: 'Hero over the rows', uk: 'Кадр над рядами' },
+lumen_hero_size_descr: {
+ru: 'Какую часть экрана занимает большой кадр с описанием. «Выключен» — ряды на весь экран, чипов настроения тогда тоже не будет. Применяется сразу.',
+en: 'How much of the screen the large hero frame takes. "Off" gives the rows the whole screen; the mood chips go with the hero. Applied immediately.',
+uk: 'Яку частину екрана займає великий кадр з описом. «Вимкнено» — ряди на весь екран, чипів настрою тоді теж не буде. Застосовується одразу.'
+},
+lumen_hero_size_large: { ru: 'Крупный', en: 'Large', uk: 'Великий' },
+lumen_hero_size_medium: { ru: 'Средний', en: 'Medium', uk: 'Середній' },
+lumen_hero_size_compact: { ru: 'Компактный', en: 'Compact', uk: 'Компактний' },
+lumen_hero_size_off: { ru: 'Выключен', en: 'Off', uk: 'Вимкнено' },
+lumen_badges_name: { ru: 'Метки на постерах', en: 'Poster badges', uk: 'Мітки на постерах' },
+lumen_badges_descr: {
+ru: '«Скоро», «Новинка», «Продолжить» и новые серии — прямо на постерах рядов главной и подборок. Применяется сразу.',
+en: '"Soon", "New", "Continue" and new episodes right on the posters of home and collection rows. Applied immediately.',
+uk: '«Скоро», «Новинка», «Продовжити» та нові серії — просто на постерах рядів головної та підбірок. Застосовується одразу.'
+},
 lumen_personal_rows_name: {
 ru: 'Персональные ряды',
 en: 'Personal rows',
@@ -11149,6 +11693,20 @@ if (name === 'lumen_reviews' || name === 'lumen_kp_key') { LC.applyReviewsPref()
 if (name === 'lumen_kp_hint') {
 LC.applyReviewsPref();
 try { if (LC.applyKpHintPref) LC.applyKpHintPref(); } catch (eHint) {}
+return true;
+}
+
+
+
+
+if (name === 'lumen_hero_size') {
+try { if (LC.applyHeroSizePref) LC.applyHeroSizePref(); } catch (eHeroSize) {}
+return true;
+}
+
+
+if (name === 'lumen_badges') {
+try { if (LC.applyBadgesPref) LC.applyBadgesPref(); } catch (eBadges) {}
 return true;
 }
 
@@ -11475,6 +12033,11 @@ var LIST = [
 
 
 { name: 'lumen_group_home', type: 'title', label: 'lumen_group_home' },
+
+
+
+
+{ name: 'lumen_hero_size', type: 'select', values: ['large', 'medium', 'compact', 'off'], vprefix: 'lumen_hero_size_', 'default': 'medium', label: 'lumen_hero_size_name', descr: 'lumen_hero_size_descr' },
 { name: 'lumen_moods', type: 'trigger', 'default': true, label: 'lumen_moods_name', descr: 'lumen_moods_descr' },
 { name: 'lumen_personal_rows', type: 'trigger', 'default': true, label: 'lumen_personal_rows_name', descr: 'lumen_personal_rows_descr' },
 
@@ -11483,6 +12046,10 @@ var LIST = [
 
 { name: 'lumen_home_rows', type: 'button', label: 'lumen_home_rows_name', descr: 'lumen_home_rows_descr' },
 { name: 'lumen_rows_limit', type: 'select', values: ['10', '15', '25'], vsuffix: 'lumen_rows_limit_suffix', 'default': '15', label: 'lumen_rows_limit_name' },
+
+
+
+{ name: 'lumen_badges', type: 'trigger', 'default': true, label: 'lumen_badges_name', descr: 'lumen_badges_descr' },
 { name: 'lumen_hide_watched', type: 'trigger', 'default': false, label: 'lumen_hide_watched_name', descr: 'lumen_hide_watched_descr' },
 
 
@@ -11932,15 +12499,48 @@ return ('' + LC.lang('lumen_card_months_short')).split(',');
 
 
 
+
+
+function countdownWords() {
+return {
+premiere: LC.lang('lumen_badge_premiere'),
+today: LC.lang('lumen_badge_premiere_today'),
+tomorrow: LC.lang('lumen_card_tomorrow'),
+inDays: LC.lang('lumen_card_in_days'),
+months: monthsShort(),
+daysWord: LC.daysWord
+};
+}
+
+
+
+
+
+
+
+
+
 function renderNextChip(root, movie) {
 var chip = root.find('.lumen-next-chip');
 if (!chip.length) return;
 chip.addClass('hide');
 root.removeClass('lumen-card--nextchip');
-if (!isSerial(movie)) return;
+
+var serial = isSerial(movie);
+var text = '';
+var when = '';
+if (serial) {
 var next = LC.cardinfo.nextEpisode(movie.next_episode_to_air, new Date(), dateWords());
 if (!next) return;
-chip.find('.lumen-next-chip__text').text(next.text);
+text = next.text;
+when = LC.cardinfo.shortDate(movie.next_episode_to_air.air_date, monthsShort());
+} else {
+var soon = LC.badges.countdown(movie.release_date, new Date(), countdownWords());
+if (!soon) return;
+text = soon;
+when = LC.cardinfo.shortDate(movie.release_date, monthsShort());
+}
+chip.find('.lumen-next-chip__text').text(text);
 
 
 
@@ -11954,14 +12554,17 @@ chip.append('<div class="lumen-next-chip__short"></div>');
 short = chip.find('.lumen-next-chip__short');
 }
 
-var date = LC.cardinfo.shortDate(movie.next_episode_to_air.air_date, monthsShort());
-short.text(date ? '· ' + date : '');
+short.text(when ? '· ' + when : '');
 
 chip.removeClass('hide');
 
 
 
 
+
+
+
+if (!serial) return;
 var status = root.find('.full-start__status');
 if (status.length && !status.hasClass('hide')) root.addClass('lumen-card--nextchip');
 }
@@ -12853,6 +13456,18 @@ if (e.component === 'main' && startRender && startRender.length) LC.moods.mount(
 } catch (eMoodsStart) {
 warn('moods start failed', eMoodsStart);
 }
+
+
+
+
+try {
+if (LC.badges) {
+LC.badges.detach(startRender);
+if (e.component === 'main' && startRender && startRender.length) LC.badges.mount(startRender);
+}
+} catch (eBadgesStart) {
+warn('badges start failed', eBadgesStart);
+}
 } else if (e.type === 'destroy') {
 
 
@@ -12876,6 +13491,13 @@ try {
 if (LC.moods && LC.moods.active() && LC.moods.owns(deadRender)) LC.moods.unmount();
 } catch (eMoodsKill) {
 warn('moods destroy failed', eMoodsKill);
+}
+
+
+try {
+if (LC.badges && LC.badges.active() && LC.badges.owns(deadRender)) LC.badges.unmount();
+} catch (eBadgesKill) {
+warn('badges destroy failed', eBadgesKill);
 }
 }
 
@@ -13476,6 +14098,13 @@ if (LC.moods && LC.moods.install) LC.moods.install();
 } catch (eMoods) {
 warn('moods install failed', eMoods);
 }
+
+
+try {
+if (LC.badges && LC.badges.install) LC.badges.install();
+} catch (eBadges) {
+warn('badges install failed', eBadges);
+}
 }
 
 function deactivate() {
@@ -13521,6 +14150,8 @@ try { if (LC.hub && LC.hub.uninstall) LC.hub.uninstall(); } catch (eHubOff) {}
 try { if (LC.hero && LC.hero.unmount) LC.hero.unmount(); } catch (eHeroOff) {}
 
 try { if (LC.moods && LC.moods.uninstall) LC.moods.uninstall(); } catch (eMoodsOff) {}
+
+try { if (LC.badges && LC.badges.uninstall) LC.badges.uninstall(); } catch (eBadgesOff) {}
 }
 
 
@@ -13704,6 +14335,49 @@ LC.moods.unmount();
 }
 } catch (e) {
 warn('moods pref failed', e);
+}
+};
+
+
+
+
+
+
+
+
+
+LC.applyHeroSizePref = function () {
+if (!activated) return;
+try {
+LC.injectCss();
+if (!LC.hero) return;
+if (LC.pref('lumen_hero_size', 'medium') === 'off') {
+if (LC.hero.unmount) LC.hero.unmount();
+if (LC.moods && LC.moods.unmount) LC.moods.unmount();
+return;
+}
+if (LC.hero.mountCurrent) LC.hero.mountCurrent();
+
+
+
+if (LC.moods && LC.moods.unmount) LC.moods.unmount();
+if (LC.moods && LC.moods.mountCurrent) LC.moods.mountCurrent();
+} catch (e) {
+warn('hero size pref failed', e);
+}
+};
+
+
+
+
+LC.applyBadgesPref = function () {
+if (!activated) return;
+try {
+if (!LC.badges) return;
+if (LC.pref('lumen_badges', true)) LC.badges.install();
+else LC.badges.uninstall();
+} catch (e) {
+warn('badges pref failed', e);
 }
 };
 

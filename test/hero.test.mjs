@@ -271,6 +271,35 @@ test('mount: герой первым ребёнком активности, кл
   assert.deepEqual(warnLog, []);
 });
 
+/* Правка пользователя 2026-09-17 (п.2): «Кадр над рядами: выключен». Героя
+   нет вовсе — ни узла, ни класса .lumen-main (а значит, и наших правил
+   размера карточек), ни наблюдателя, ни запросов деталей. */
+test('правка: размер героя «off» — герой не монтируется вовсе', () => {
+  const env = makeEnv({ pref: (name, def) => (name === 'lumen_hero_size' ? 'off' : def) });
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  assert.equal(env.hero.active(), false);
+  assert.equal(main.activity._children.filter((c) => c.hasClass('lumen-hero')).length, 0);
+  assert.equal(main.activity.hasClass('lumen-main'), false, 'без класса хоста ряды остаются штатными');
+  assert.equal(env.observers.length, 0, 'наблюдателя тоже нет');
+  assert.deepEqual(warnLog, []);
+});
+
+/* Смена размера «выключен» на любой другой возвращает героя на открытую
+   главную: гард «тот же корень» сюда не мешает — unmount обнулил состояние. */
+test('правка: «off» -> обычный размер возвращает героя на ту же активность', () => {
+  let size = 'off';
+  const env = makeEnv({ pref: (name, def) => (name === 'lumen_hero_size' ? size : def) });
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  assert.equal(env.hero.active(), false);
+  size = 'medium';
+  env.hero.mount(main.activity);
+  assert.equal(env.hero.active(), true);
+  assert.equal(main.activity.hasClass('lumen-main'), true);
+  assert.equal(env.observers.length, 1);
+});
+
 test('mount: повторный вызов на ту же активность не создаёт второго наблюдателя и второго узла', () => {
   const env = makeEnv();
   const main = makeMain();

@@ -679,6 +679,23 @@
       appendSelectors(block);
     }
 
+    /* Task 25: скелетон ряда отзывов — три плашки на месте карточек, пока
+       идёт запрос к Кинопоиску. Узел носит класс .lumen-reviews, поэтому его
+       снимает тот же clearBlock(), что и настоящий ряд: отдельной уборки нет
+       и «повиснуть» скелетону негде — cb() из load() приходит при любом
+       исходе (успех, пусто, ошибка, таймаут), пока жив сторож поколения, а
+       если сторож мёртв, ряд уже перерисован или уничтожен вместе с DOM.
+       Плашки — .lumen-skeleton, то есть в lite/off они не мерцают. */
+    function paintSkeleton(holder) {
+      var block = $('<div class="lumen-reviews lumen-reviews--sk"></div>');
+      block.html('<div class="lumen-reviews__row">' +
+        '<div class="lumen-review lumen-review--sk lumen-skeleton"></div>' +
+        '<div class="lumen-review lumen-review--sk lumen-skeleton"></div>' +
+        '<div class="lumen-review lumen-review--sk lumen-skeleton"></div>' +
+        '</div>');
+      holder.append(block);
+    }
+
     function paintHint(holder) {
       if (!hintEnabled()) return;
       var block = $('<div class="lumen-reviews lumen-reviews--hint"></div>');
@@ -775,10 +792,15 @@
         if (!key) { paintHint(holder); state.painted = true; return; }
         if (!imdb) return;
 
+        /* Task 25: плашки на месте карточек — пока идёт запрос. Снимаются
+           первой же строкой ответа, в том числе когда отзывов не нашлось. */
+        paintSkeleton(holder);
+
         state.net = load(imdb, key, function (res) {
           try {
             var current = stateOf(holder);
             if (current.gen !== gen) return;
+            clearBlock(holder);
             if (!res) return;
             if (res.nokey) { paintHint(holder); current.painted = true; return; }
             paintList(holder, res.list, res.total);

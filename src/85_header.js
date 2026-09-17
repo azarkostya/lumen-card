@@ -383,17 +383,50 @@
     return ('' + LC.lang('lumen_card_months_short')).split(',');
   }
 
+  /* Task 25 (фаза 3): строки обратного отсчёта фильма — отдельный набор от
+     dateWords(): у серии это «Следующая серия — 17 дек, через 31 день», у
+     премьеры «Премьера через 31 день · 17 дек». Месяцы короткие: чип стоит в
+     одной ленте с рейтингами, места на «17 декабря» там нет. */
+  function countdownWords() {
+    return {
+      premiere: LC.lang('lumen_badge_premiere'),
+      today: LC.lang('lumen_badge_premiere_today'),
+      tomorrow: LC.lang('lumen_card_tomorrow'),
+      inDays: LC.lang('lumen_card_in_days'),
+      months: monthsShort(),
+      daysWord: LC.daysWord
+    };
+  }
+
   /* Step 2 (design-spec §5e): «Следующая серия — 17 декабря, через 31 день»;
-     без next_episode_to_air или с датой в прошлом чип скрыт. */
+     без next_episode_to_air или с датой в прошлом чип скрыт.
+
+     Task 25 (фаза 3): тот же чип показывает обратный отсчёт до премьеры
+     ФИЛЬМА с датой в будущем. Узел один и тот же намеренно: у сериала и у
+     фильма это одно и то же место ленты, одна и та же карта с часами, и
+     одновременно они не встречаются — сериал идёт веткой серии, фильм
+     веткой премьеры. */
   function renderNextChip(root, movie) {
     var chip = root.find('.lumen-next-chip');
     if (!chip.length) return;
     chip.addClass('hide');
     root.removeClass('lumen-card--nextchip');
-    if (!isSerial(movie)) return;
-    var next = LC.cardinfo.nextEpisode(movie.next_episode_to_air, new Date(), dateWords());
-    if (!next) return;
-    chip.find('.lumen-next-chip__text').text(next.text);
+
+    var serial = isSerial(movie);
+    var text = '';
+    var when = '';
+    if (serial) {
+      var next = LC.cardinfo.nextEpisode(movie.next_episode_to_air, new Date(), dateWords());
+      if (!next) return;
+      text = next.text;
+      when = LC.cardinfo.shortDate(movie.next_episode_to_air.air_date, monthsShort());
+    } else {
+      var soon = LC.badges.countdown(movie.release_date, new Date(), countdownWords());
+      if (!soon) return;
+      text = soon;
+      when = LC.cardinfo.shortDate(movie.release_date, monthsShort());
+    }
+    chip.find('.lumen-next-chip__text').text(text);
 
     /* Task 8 (экран 06): в сжатой шапке чип сливается со статусом в одну карту
        «Выходит · 17 дек» — длинной строке там места нет. Короткая дата живёт
@@ -407,14 +440,17 @@
       short = chip.find('.lumen-next-chip__short');
     }
     /* Ревью Task 8 (п.7): нераспознанная дата дала бы голое «· ». */
-    var date = LC.cardinfo.shortDate(movie.next_episode_to_air.air_date, monthsShort());
-    short.text(date ? '· ' + date : '');
+    short.text(when ? '· ' + when : '');
 
     chip.removeClass('hide');
     /* Ревью Task 8 (п.4): класс срезает левый край чипа под карту статуса — но
        .full-start__status Lampa показывает только при непустом movie.status.
        Без статуса срезать нечего, иначе чип «· 17 дек» остался бы в сжатой
-       шапке без левой границы, скругления и точки-маркера. */
+       шапке без левой границы, скругления и точки-маркера.
+       Task 25: у ФИЛЬМА карты статуса в ленте нет вовсе — её гасит CSS
+       (.full-start__status виден только под .lumen-card--serial), поэтому
+       чипу премьеры срезать нечего и класс ему не ставится. */
+    if (!serial) return;
     var status = root.find('.full-start__status');
     if (status.length && !status.hasClass('hide')) root.addClass('lumen-card--nextchip');
   }

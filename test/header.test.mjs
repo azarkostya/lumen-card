@@ -52,7 +52,9 @@ globalThis.$ = $;
 function loadLC() {
   const LC = {};
   const module = { exports: null, lumen: false };
-  const names = ['10_util.js', '35_cardinfo.js', '50_backdrops.js', '70_progress.js', '80_settings.js', '81_prefs.js', '85_header.js'];
+  /* Task 25: 62_badges.js — от него renderNextChip берёт обратный отсчёт до
+     премьеры фильма (у сериала в том же чипе живёт следующая серия). */
+  const names = ['10_util.js', '35_cardinfo.js', '50_backdrops.js', '62_badges.js', '70_progress.js', '80_settings.js', '81_prefs.js', '85_header.js'];
   const src = names.map((n) => readFileSync(new URL(`../src/${n}`, import.meta.url), 'utf8')).join('\n');
   new Function('LC', 'module', src)(LC, module);
   return LC;

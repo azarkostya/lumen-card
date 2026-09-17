@@ -144,7 +144,11 @@ test('buildCss: .lumen-title--long содержит display:-webkit-box и -webk
    целиком построенные плагином (компоненты lumen_hub / lumen_grid). Чужой
    разметки внутри них нет, а снаружи ни одно правило не действует: корень
    ставит сам компонент. */
-const ALLOWED_ROOTS = ['.lumen-card', '.lumen-backdrop', '.lumen-descr-row', '.lumen-review-modal', '.lumen-hub', '.lumen-grid', '.lumen-menu-hub', '.lumen-hero', '.lumen-main', '.full-start__background', '.full-start-new', 'body'];
+/* Task 25: .lumen-skeleton — общая плашка загрузки. Класс ставит сам плагин
+   (герой, ряд отзывов, коллаж плитки хаба), без нашего DOM его не бывает, а
+   правило нарочно одно на все три корня: пульсация должна быть одинаковой и
+   гаситься в lite/off одним местом. */
+const ALLOWED_ROOTS = ['.lumen-card', '.lumen-backdrop', '.lumen-descr-row', '.lumen-review-modal', '.lumen-hub', '.lumen-grid', '.lumen-menu-hub', '.lumen-hero', '.lumen-main', '.lumen-skeleton', '.full-start__background', '.full-start-new', 'body'];
 
 /* Ревью Task 5a (замечание, зафиксировано в Task 5b): проверка была по
    sel.indexOf(root) === 0 без учёта границы селектора — так
@@ -158,7 +162,7 @@ const ALLOWED_ROOTS = ['.lumen-card', '.lumen-backdrop', '.lumen-descr-row', '.l
    между корнем и модификатором, но это className плагин создаёт сам (его
    не бывает без нашего DOM) — поэтому '_'/'-' сразу после корня для них
    тоже безопасная граница, в отличие от чужих классов Lampa. */
-var OWN_NAMESPACE_ROOTS = ['.lumen-card', '.lumen-backdrop', '.lumen-descr-row', '.lumen-review-modal', '.lumen-hub', '.lumen-grid', '.lumen-menu-hub', '.lumen-hero', '.lumen-main'];
+var OWN_NAMESPACE_ROOTS = ['.lumen-card', '.lumen-backdrop', '.lumen-descr-row', '.lumen-review-modal', '.lumen-hub', '.lumen-grid', '.lumen-menu-hub', '.lumen-hero', '.lumen-main', '.lumen-skeleton'];
 
 function startsWithRoot(sel, root) {
   if (sel.indexOf(root) !== 0) return false;
@@ -1371,8 +1375,11 @@ test('Task 18: герой — весь экран до первого ряда, 
   /* Фаза 3 (находка пользователя на невысоком окне): высота героя — не доля
      экрана, а «весь экран минус ряд». Отдельные 58vh при низком окне
      накрывали первый ряд, и от карточек оставались одни подписи. */
-  assert.ok(hero.indexOf('height:calc(100vh - 20.6em)') !== -1, 'кадр кончается там, где начинается ряд: ' + hero);
-  assert.ok(hero.indexOf('height:-webkit-calc(100vh - 20.6em)') !== -1, 'старым webkit-движкам нужен префиксный calc');
+  /* Правка пользователя 2026-09-17 (п.2): размер героя — настройка, по
+     умолчанию «средний» (множитель 1.26 к блоку ряда 20.6em). Крупный —
+     ровно один ряд, как было. */
+  assert.ok(hero.indexOf('height:calc(100vh - 25.96em)') !== -1, 'кадр кончается там, где начинается ряд: ' + hero);
+  assert.ok(hero.indexOf('height:-webkit-calc(100vh - 25.96em)') !== -1, 'старым webkit-движкам нужен префиксный calc');
   assert.ok(hero.indexOf('position:absolute') !== -1, 'герой не участвует в потоке рядов');
   assert.ok(hero.indexOf('top:-4em') !== -1, 'кадр доходит до верхней кромки под шапкой Lampa (4em)');
   assert.ok(hero.indexOf('pointer-events:none') !== -1, 'герой не перехватывает указатель — он не фокусируется');
@@ -1381,7 +1388,43 @@ test('Task 18: герой — весь экран до первого ряда, 
   /* Сжатый — та же доля 42/58 = .72 от полной высоты, а не фиксированные
      42vh: на низком окне они оказались бы БОЛЬШЕ полной высоты. */
   const compact = findDecl(css, (sel) => sel === '.lumen-hero.lumen-hero--compact');
-  assert.ok(compact && compact.indexOf('height:calc(72vh - 14.83em)') !== -1, 'фокус ниже первого ряда — .72 от полной: ' + compact);
+  assert.ok(compact && compact.indexOf('height:calc(72vh - 18.69em)') !== -1, 'фокус ниже первого ряда — .72 от полной: ' + compact);
+});
+
+/* Правка пользователя 2026-09-17 (п.2): четыре размера героя. Доля экрана
+   считается при 16:9 — там em Lampa (ширина / 84.17) пропорциональна высоте,
+   поэтому доля одна и та же на 1920×1080 и 1280×720. */
+test('правка: размер героя — настройка, доли экрана 56.5 / 45.2 / 33.0 %', () => {
+  const EM_AT_1920 = 1920 / 84.17;
+  const share = (value) => {
+    const built = withStorage(value ? { lumen_hero_size: value } : {}, (LC) => LC.buildCss());
+    const only = (name) => (r) => r.selectors.length === 1 && r.selectors[0] === name;
+    const hero = ruleBodies(built).find(only('.lumen-hero')).decl;
+    const cut = parseFloat(/height:calc\(100vh - ([\d.]+)em\)/.exec(hero)[1]);
+    return Math.round((1080 - cut * EM_AT_1920) / 1080 * 1000) / 10;
+  };
+  assert.equal(share('large'), 56.5);
+  assert.equal(share('medium'), 45.2);
+  assert.equal(share('compact'), 33);
+  assert.equal(share(null), 45.2, 'по умолчанию — средний');
+  assert.equal(share('мусор'), 45.2, 'незнакомое значение — значение по умолчанию, а не «выключено»');
+});
+
+/* Правка пользователя 2026-09-17 (п.1): уехавший вверх ряд не оставляет от
+   себя подписей с годом поперёк экрана. */
+test('правка: хвостов уехавшего ряда не видно — маска гасит отступ Lampa над фокусным рядом', () => {
+  const rows = findDecl(css, (sel) => sel === '.lumen-main .scroll.layer--wheight');
+  assert.ok(rows.indexOf('overflow:hidden') !== -1, 'нет обрезки области рядов: ' + rows);
+  /* Хвост лежит ВНУТРИ области — в 2.5em отступа, который Lampa держит над
+     фокусным рядом, поэтому гасит его маска, а не обрезка. Полная
+     непрозрачность обязана наступать ровно на 2.5em: раньше — срезало бы
+     фокусный ряд, позже — хвост остался бы читаемым. */
+  assert.ok(rows.indexOf('mask-image:linear-gradient(to bottom,rgba(255,255,255,0) 0,rgba(255,255,255,0) 2em,#fff 2.5em,') !== -1,
+    'нет маски верхнего отступа: ' + rows);
+  assert.ok(rows.indexOf('-webkit-mask-image:-webkit-linear-gradient(top,') !== -1, 'старым webkit-движкам нужен префиксный градиент');
+  assert.ok(rows.indexOf('#fff 92%,rgba(255,255,255,0) 100%') !== -1, 'нижнее затухание Lampa сохранено');
+  const low = css.split('\n').find((l) => l.indexOf('@media screen and (min-aspect-ratio:') === 0);
+  assert.ok(low.indexOf('overflow:hidden') !== -1, 'на низком окне область тоже обрезана: ' + low);
 });
 
 test('фаза 3: герой и ряды сходятся в одной точке при любом масштабе', () => {
@@ -1415,7 +1458,7 @@ test('фаза 3: у совсем низкого окна ряды занима�
   const line = css.split('\n').find((l) => l.indexOf('@media screen and (min-aspect-ratio:') === 0);
   assert.ok(line && line.indexOf('.lumen-hero{display:none}') !== -1, 'нет страховки для низкого окна: ' + line);
   assert.ok(line, 'страховка обязана быть медиа-запросом по отношению сторон');
-  assert.ok(line.indexOf('min-aspect-ratio:311/100') !== -1, 'порог при обычном масштабе — 3.11:1: ' + line);
+  assert.ok(line.indexOf('min-aspect-ratio:259/100') !== -1, 'порог при обычном масштабе и среднем герое — 2.59:1: ' + line);
   assert.ok(line.indexOf('margin-top:0') !== -1, 'за порогом ряды не сдвигаются');
 });
 
@@ -1472,18 +1515,25 @@ test('Task 18: сдвигается область прокрутки рядов
      фокусным рядом), а отступ сверху — остаток экрана. Долей экрана (22vh)
      высота больше не задаётся: та цифра была пределом для штатной карточки
      Lampa 290×563, а карточки рядов теперь дизайнерские 230×345. */
-  assert.ok(/margin-top:calc\(100vh - 27\.1em\)/.test(rows), 'область начинается под героем: ' + rows);
-  assert.ok(/margin-top:-webkit-calc\(100vh - 27\.1em\)/.test(rows), 'старым webkit-движкам нужен префиксный calc');
-  assert.ok(/height:23\.1em !important/.test(rows), 'высота области — ровно один ряд; height Lampa задаёт инлайном');
+  /* Правка пользователя 2026-09-17 (п.2): числа считаются от размера героя
+     по умолчанию («средний»): блок ряда 20.6em × 1.26 = 25.96em, плюс 2.5em
+     отступа Lampa над фокусным рядом = 28.46em области и 32.46em сдвига. */
+  assert.ok(/margin-top:calc\(100vh - 32\.46em\)/.test(rows), 'область начинается под героем: ' + rows);
+  assert.ok(/margin-top:-webkit-calc\(100vh - 32\.46em\)/.test(rows), 'старым webkit-движкам нужен префиксный calc');
+  assert.ok(/height:28\.46em !important/.test(rows), 'высота области — то, что не досталось герою; height Lampa задаёт инлайном');
   assert.equal(findDecl(css, (sel) => sel.indexOf('.scroll__body') !== -1 && sel.indexOf('.lumen-main') === 0), null, 'содержимое скролла отступами не двигаем');
 
   /* Под .lumen-main живут ещё правила размера карточек рядов (фаза 3) — они
      задевают ряды намеренно. Горизонтальные скроллы самих рядов
      (.scroll--horizontal) под правило области по-прежнему не попадают. */
+  /* Task 25: метки на постерах — тоже часть карточки ряда, но своим классом
+     (.lumen-badge внутри штатного .card__view), поэтому в фильтр по '.card'
+     они не попадают и перечислены отдельно. */
   const offenders = ruleSelectors(css).filter((sel) => sel.indexOf('.lumen-main') === 0 &&
     sel.indexOf('layer--wheight') === -1 &&
+    sel.indexOf('.lumen-badge') === -1 &&
     sel.indexOf('.card') === -1 && sel.indexOf('.items-line') === -1);
-  assert.deepEqual(offenders, [], 'под .lumen-main только область прокрутки, карточки рядов и сами ряды');
+  assert.deepEqual(offenders, [], 'под .lumen-main только область прокрутки, карточки рядов, метки и сами ряды');
   assert.equal(ruleSelectors(css).filter((sel) => sel.indexOf('.lumen-main .scroll--horizontal') === 0).length, 0,
     'горизонтальные скроллы рядов не трогаем');
 });
@@ -1510,7 +1560,7 @@ test('фаза 3: карточка ряда главной — дизайнер�
 test('фаза 3: область рядов и карточки масштабируются одним коэффициентом', () => {
   /* Крупнее карточка — выше ряд, и области достаётся больше экрана: иначе
      первый же ряд не поместился бы и был бы обрезан нижней кромкой. */
-  const pairs = [['small', '9.07em', '21.16em'], ['large', '11.09em', '25.04em'], ['huge', '12.1em', '26.98em']];
+  const pairs = [['small', '9.07em', '26.01em'], ['large', '11.09em', '30.9em'], ['huge', '12.1em', '33.34em']];
   for (const pair of pairs) {
     const scaled = withStorage({ lumen_scale: pair[0] }, (LC) => LC.buildCss());
     assert.equal(findDecl(scaled, (sel) => sel === '.lumen-main .card'), 'width:' + pair[1], pair[0] + ': ширина карточки ряда');
@@ -1694,5 +1744,5 @@ test('фаза 3: масштаб не трогает доли экрана и ч
      а не через кегль: ряд крупнее, значит герою остаётся меньше. */
   const heroOnly = (r) => r.selectors.length === 1 && r.selectors[0] === '.lumen-hero';
   const heroHuge = ruleBodies(scaled).find(heroOnly).decl;
-  assert.ok(heroHuge.indexOf('height:calc(100vh - 24.48em)') !== -1, 'высота героя при «ещё крупнее»: ' + heroHuge);
+  assert.ok(heroHuge.indexOf('height:calc(100vh - 30.84em)') !== -1, 'высота героя при «ещё крупнее»: ' + heroHuge);
 });

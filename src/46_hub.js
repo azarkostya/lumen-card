@@ -523,10 +523,27 @@
         if (node.lumen_collage) return;
         node.lumen_collage = true;
         var captured = gen;
+        /* Task 25: скелетон плитки. Класс .lumen-skeleton живёт ровно
+           столько, сколько идёт запрос коллажа, и снимается в ОБЕИХ ветках
+           ответа — иначе плитка пульсировала бы вечно после ошибки. Пульсируют
+           только запрошенные плитки (первые COLLAGE_EAGER и те, что получили
+           фокус); остальные стоят спокойными — на ТВ десятки анимаций разом
+           стоят дороже, чем помогают. */
+        function skeleton(on) {
+          try {
+            var box = $(node).find('.lumen-tile__collage');
+            if (!box || !box.length) return;
+            if (on) box.addClass('lumen-skeleton');
+            else box.removeClass('lumen-skeleton');
+          } catch (eSk) { }
+        }
+        skeleton(true);
         var handle = LC.sources.collagePaths(item, COLLAGE_SIZE, function (paths) {
+          skeleton(false);
           if (gen !== captured) return;
           paintCollage(node, paths);
         }, function (err) {
+          skeleton(false);
           if (gen !== captured) return;
           /* Неудача не должна оставлять плитку пустой навсегда: снимаем
              отметку, и коллаж перезапросится, когда плитка снова получит
@@ -878,6 +895,14 @@
           warn('grid: card marks failed', e);
         }
         progressBar(node, card);
+        /* Task 25: метка «Скоро»/«Новинка»/«Продолжить» — тем же модулем,
+           что на главной. bar:false — полосу прогресса здесь уже нарисовал
+           progressBar выше, вторая такая же на том же постере была бы дублем. */
+        try {
+          if (LC.badges && LC.badges.decorate) LC.badges.decorate(node, card, { bar: false });
+        } catch (eBadge) {
+          warn('grid: badge failed', eBadge);
+        }
       }
 
       function progressBar(node, card) {

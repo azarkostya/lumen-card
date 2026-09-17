@@ -109,7 +109,11 @@ test('LIST: полный набор ключей — существующие и
     /* Task 20 (фаза 2): состав рядов, чипы настроения, подсказка про ключ */
     'lumen_home_rows', 'lumen_moods', 'lumen_kp_hint',
     /* Фаза 3: тема, плотность подложек, масштаб интерфейса */
-    'lumen_theme', 'lumen_solid', 'lumen_scale'
+    'lumen_theme', 'lumen_solid', 'lumen_scale',
+    /* Task 25 (фаза 3): метки на постерах рядов */
+    'lumen_badges',
+    /* Правка пользователя 2026-09-17 (п.2): размер кадра над рядами */
+    'lumen_hero_size'
   ].sort());
 });
 
@@ -145,8 +149,12 @@ test('Task 20: настройки главной — одной группой, 
   assert.equal(LIST[at].type, 'title');
   const group = LIST.slice(at + 1).map((e) => e.name);
   assert.deepEqual(group, [
-    'lumen_moods', 'lumen_personal_rows', 'lumen_home_rows',
-    'lumen_rows_limit', 'lumen_hide_watched', 'lumen_manifest_url'
+    /* Правка пользователя 2026-09-17 (п.2): размер кадра — первым пунктом
+       группы: от него зависит, сколько экрана достанется всему остальному. */
+    'lumen_hero_size', 'lumen_moods', 'lumen_personal_rows', 'lumen_home_rows',
+    /* Task 25 (фаза 3): метки на постерах — рядом с составом рядов: речь
+       про тот же экран. */
+    'lumen_rows_limit', 'lumen_badges', 'lumen_hide_watched', 'lumen_manifest_url'
   ]);
   /* Группа — последняя в разделе: ни один пункт фазы 2 не потерялся выше. */
   for (const e of LIST.slice(at + 1)) assert.notEqual(e.type, 'title', 'внутри группы новых заголовков нет');

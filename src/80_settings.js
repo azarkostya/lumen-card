@@ -343,6 +343,43 @@
       en: 'In',
       uk: 'Через'
     },
+    /* Task 25 (фаза 3): метки на постерах рядов. «Скоро» дополняется датой
+       кодом («Скоро · 17 дек»), «Продолжить» берётся из lumen_card_continue —
+       это та же подпись, что на кнопке карточки, и второй строки ей не надо. */
+    lumen_badge_soon: { ru: 'Скоро', en: 'Soon', uk: 'Скоро' },
+    lumen_badge_new: { ru: 'Новинка', en: 'New', uk: 'Новинка' },
+    /* Task 25: обратный отсчёт в мета-строке карточки. «Премьера через 31
+       день · 17 дек» собирается из premiere + lumen_card_in_days + числа со
+       склонением (LC.daysWord) + короткой даты; «завтра» — из
+       lumen_card_tomorrow. Сегодняшняя премьера — отдельной строкой: в
+       русском порядок слов там другой. */
+    lumen_badge_premiere: { ru: 'Премьера', en: 'Premiere', uk: 'Прем\'єра' },
+    lumen_badge_premiere_today: {
+      ru: 'Сегодня премьера',
+      en: 'Premiere today',
+      uk: 'Сьогодні прем\'єра'
+    },
+    /* Правка пользователя 2026-09-17 (п.2): размер героя на главной. Доли
+       экрана при 16:9 — 56.5 / 45.2 / 33.0 % (см. HERO_SIZES в
+       src/30_css.js). «Выключен» — героя нет вовсе, ряды занимают экран
+       целиком; чипы настроения живут в блоке героя и вместе с ним не
+       показываются — об этом сказано в подсказке. */
+    lumen_hero_size_name: { ru: 'Кадр над рядами', en: 'Hero over the rows', uk: 'Кадр над рядами' },
+    lumen_hero_size_descr: {
+      ru: 'Какую часть экрана занимает большой кадр с описанием. «Выключен» — ряды на весь экран, чипов настроения тогда тоже не будет. Применяется сразу.',
+      en: 'How much of the screen the large hero frame takes. "Off" gives the rows the whole screen; the mood chips go with the hero. Applied immediately.',
+      uk: 'Яку частину екрана займає великий кадр з описом. «Вимкнено» — ряди на весь екран, чипів настрою тоді теж не буде. Застосовується одразу.'
+    },
+    lumen_hero_size_large: { ru: 'Крупный', en: 'Large', uk: 'Великий' },
+    lumen_hero_size_medium: { ru: 'Средний', en: 'Medium', uk: 'Середній' },
+    lumen_hero_size_compact: { ru: 'Компактный', en: 'Compact', uk: 'Компактний' },
+    lumen_hero_size_off: { ru: 'Выключен', en: 'Off', uk: 'Вимкнено' },
+    lumen_badges_name: { ru: 'Метки на постерах', en: 'Poster badges', uk: 'Мітки на постерах' },
+    lumen_badges_descr: {
+      ru: '«Скоро», «Новинка», «Продолжить» и новые серии — прямо на постерах рядов главной и подборок. Применяется сразу.',
+      en: '"Soon", "New", "Continue" and new episodes right on the posters of home and collection rows. Applied immediately.',
+      uk: '«Скоро», «Новинка», «Продовжити» та нові серії — просто на постерах рядів головної та підбірок. Застосовується одразу.'
+    },
     lumen_personal_rows_name: {
       ru: 'Персональные ряды',
       en: 'Personal rows',
@@ -517,6 +554,20 @@
     if (name === 'lumen_kp_hint') {
       LC.applyReviewsPref();
       try { if (LC.applyKpHintPref) LC.applyKpHintPref(); } catch (eHint) {}
+      return true;
+    }
+    /* Правка пользователя 2026-09-17 (п.2): размер кадра над рядами — это и
+       новая таблица стилей (высота кадра и сдвиг области рядов считаются из
+       одной величины), и жизнь самого узла героя: «Выключен» его снимает, а
+       любое другое значение — возвращает на открытую главную. */
+    if (name === 'lumen_hero_size') {
+      try { if (LC.applyHeroSizePref) LC.applyHeroSizePref(); } catch (eHeroSize) {}
+      return true;
+    }
+    /* Task 25 (фаза 3): метки на постерах — наблюдатель ставится и снимается
+       на лету вместе с уже нарисованными метками открытой главной. */
+    if (name === 'lumen_badges') {
+      try { if (LC.applyBadgesPref) LC.applyBadgesPref(); } catch (eBadges) {}
       return true;
     }
     /* Task 19/20: чипы профилей настроения — монтируются и снимаются на лету. */

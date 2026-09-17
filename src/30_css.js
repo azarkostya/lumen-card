@@ -203,10 +203,40 @@
   var LAMPA_ROW_PAD = 2.5;
   var LAMPA_HEAD = 4;
 
-  /* Высота области рядов главной: ровно один ряд плюс отступ, который Lampa
-     держит над фокусным рядом. Остальной экран достаётся герою. */
+  /* Правка пользователя 2026-09-17 (п.2): размер героя — настройка, а не
+     константа. Дизайнские 58 % экрана на живом телевизоре оказались велики.
+
+     Множитель применяется к ОДНОЙ величине — высоте, которую забирают ряды
+     (heroCutEm): и низ кадра героя, и верх первого ряда считаются из неё,
+     поэтому развести их нельзя по построению — зазор между кадром и рядом
+     всегда ровно ноль. Крупный герой оставляет рядам ровно один ряд (как
+     было до правки), средний и компактный отдают им больше: под первым рядом
+     начинает выглядывать следующий — обычная ТВ-раскладка.
+
+     Доля героя при 16:9 одинакова на 1920×1080 и 1280×720: em Lampa считает
+     от ШИРИНЫ, поэтому вычитаемое и высота экрана растут вместе. Замер:
+     крупный — 56.5 %, средний — 45.2 %, компактный — 33.0 %.
+     Значение 'off' сюда не попадает: при нём герой не монтируется вовсе
+     (src/48_hero.js), класса .lumen-main на активности нет, и раскладка
+     главной остаётся штатной Lampa. */
+  var HERO_SIZES = { large: 1, medium: 1.26, compact: 1.54 };
+  var HERO_DEFAULT = 'medium';
+
+  function heroFactor() {
+    var key = LC.pref('lumen_hero_size', HERO_DEFAULT);
+    return HERO_SIZES[key] || HERO_SIZES[HERO_DEFAULT];
+  }
+
+  /* Сколько высоты экрана забирают ряды: блок ряда (постер, две строки
+     подписи и зазоры) на множитель размера героя. */
+  function heroCutEm(scale) {
+    return round2((ROW_BLOCK_FIXED + ROW_BLOCK_EM * scale) * heroFactor());
+  }
+
+  /* Высота области рядов главной: то, что забирают ряды, плюс отступ, который
+     Lampa держит над фокусным рядом. Остальной экран достаётся герою. */
   function rowsAreaEm(scale) {
-    return round2(LAMPA_ROW_PAD + ROW_BLOCK_FIXED + ROW_BLOCK_EM * scale);
+    return round2(LAMPA_ROW_PAD + heroCutEm(scale));
   }
 
   /* Корни, на которые вешается коэффициент. Каждый из них — самостоятельный
@@ -1223,7 +1253,7 @@
        считается той же долей от полной высоты: 42/58 = .72. Фиксированные
        42vh здесь больше не годятся — на низком окне они оказались бы БОЛЬШЕ
        новой полной высоты, и сжатие превратилось бы в рост поверх рядов. */
-    var heroCut = round2(ROW_BLOCK_FIXED + ROW_BLOCK_EM * scale);
+    var heroCut = heroCutEm(scale);
     css.push('.lumen-hero{position:absolute;top:-4em;left:0;right:0;height:-webkit-calc(100vh - ' + heroCut + 'em);height:calc(100vh - ' + heroCut + 'em);overflow:hidden;pointer-events:none}');
     css.push('.lumen-hero.lumen-hero--compact{height:-webkit-calc(72vh - ' + round2(heroCut * 0.72) + 'em);height:calc(72vh - ' + round2(heroCut * 0.72) + 'em)}');
     css.push('.lumen-hero.lumen-motion-full{-webkit-transition:height .42s cubic-bezier(.2,.8,.2,1);transition:height .42s cubic-bezier(.2,.8,.2,1)}');
@@ -1338,7 +1368,35 @@
        попадают. height Lampa задаёт инлайном, поэтому !important. */
     var rowsArea = rowsAreaEm(scale);
     var rowsTop = round2(LAMPA_HEAD + rowsArea) + 'em';
-    css.push('.lumen-main .scroll.layer--wheight{margin-top:-webkit-calc(100vh - ' + rowsTop + ');margin-top:calc(100vh - ' + rowsTop + ');height:' + rowsArea + 'em !important}');
+    /* Правка пользователя 2026-09-17 (п.1): хвосты подписей под кадром героя.
+
+       Что это было (замер живьём, 1920×1080): Lampa держит над фокусным
+       рядом 2.5em отступа (.scroll__content{padding:57px 0}) и выравнивает
+       фокусный ряд по НЕМУ, а не по кромке области. В эти 57 пикселей и
+       попадает нижний край предыдущего ряда — строка года у каждой карточки.
+       Получалась полоса «2026 2026 2026…» поперёк экрана прямо под кадром.
+       Обрезка тут бессильна: хвост лежит ВНУТРИ области, а не над ней.
+
+       Лечится маской. Она на этом узле уже есть — Lampa вешает .scroll--mask
+       с затуханием 0→8 % сверху и 92→100 % снизу (vendor/lampa/css/app.css),
+       и на 8 % (52 px) хвост оставался читаемым. Мы подменяем ТОЛЬКО стопы:
+       до 2em маска пустая, к 2.5em (ровно отступ Lampa) выходит в полную
+       непрозрачность. Фокусный ряд при этом не теряет ни пикселя — он
+       начинается как раз на 2.5em. Нижнее затухание Lampa оставляем как есть.
+       Лишней цены для ТВ нет: композитор уже применял здесь маску, изменились
+       только точки градиента.
+
+       overflow:hidden оставлен явным, хотя Lampa на этот скролл сама вешает
+       .scroll--over: полагаться на чужой флаг (его ставит компонент, передав
+       over:true) для нашей раскладки нельзя — без обрезки нижний ряд вылезал
+       бы за кромку области.
+
+       Прокрутку и ленивую догрузку рядов это не трогает: .scroll__body
+       по-прежнему ездит transform'ом, а видимость ряда Lampa считает по
+       геометрии (offsetTop/height), а не по нарисованным пикселям. */
+    var maskStops = 'rgba(255,255,255,0) 0,rgba(255,255,255,0) 2em,#fff 2.5em,#fff 92%,rgba(255,255,255,0) 100%';
+    css.push('.lumen-main .scroll.layer--wheight{margin-top:-webkit-calc(100vh - ' + rowsTop + ');margin-top:calc(100vh - ' + rowsTop + ');height:' + rowsArea + 'em !important;overflow:hidden;' +
+      '-webkit-mask-image:-webkit-linear-gradient(top,' + maskStops + ');mask-image:linear-gradient(to bottom,' + maskStops + ')}');
 
     /* Окно настолько низкое, что под героя не остаётся ничего: ряд плюс шапка
        Lampa уже выше экрана, и вычисленный отступ ушёл бы в минус — ряды
@@ -1352,7 +1410,7 @@
        не показывает — показывать его там негде. */
     var heroMinRatio = Math.round(84.17 / (LAMPA_HEAD + rowsArea) * 100);
     css.push('@media screen and (min-aspect-ratio:' + heroMinRatio + '/100){' +
-      '.lumen-main .scroll.layer--wheight{margin-top:0;height:-webkit-calc(100vh - 4em) !important;height:calc(100vh - 4em) !important}' +
+      '.lumen-main .scroll.layer--wheight{margin-top:0;height:-webkit-calc(100vh - 4em) !important;height:calc(100vh - 4em) !important;overflow:hidden}' +
       '.lumen-hero{display:none}}');
 
     /* --- Фаза 3 (долг фазы 2): карточка ряда главной (design-spec-main §0.4) ---
@@ -1388,6 +1446,44 @@
     css.push('.lumen-main .items-line{padding-bottom:1.4em}');
     css.push('.lumen-main .items-line__head{margin-bottom:.7em}');
     css.push('.lumen-main .card.focus .card__view:after{border-width:.13em;border-color:' + AL + ';border-radius:.44em;-webkit-box-shadow:0 .7em 1.97em ' + AG + ';box-shadow:0 .7em 1.97em ' + AG + '}');
+
+    /* --- Task 25: метки на постерах рядов (главная и сетка подборки) ---
+       Метка лежит ВНУТРИ штатного .card__view, поэтому у неё собственное имя
+       (.lumen-badge) и она не спорит со штатными .card__quality/.card__type/
+       .card__marker: те висят по правому верхнему и нижнему краю, наша — по
+       левому верхнему. Узкая карточка ряда (10.08em) длинного текста не
+       вмещает, поэтому метка не переносится и обрезается многоточием.
+       Полоса прогресса — только на главной: в сетке подборки её рисует сама
+       сетка (.lumen-gcard__bar), и LC.badges зовётся там с bar:false. */
+    css.push('.lumen-main .lumen-badge,.lumen-grid .lumen-badge{position:absolute;top:.4em;left:.4em;max-width:-webkit-calc(100% - .8em);max-width:calc(100% - .8em);font-family:' + FB + ';font-weight:600;font-size:.61em;line-height:1;letter-spacing:.02em;padding:.4em .6em;border-radius:.4em;white-space:nowrap;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis;color:' + t.onac + ';background:' + A + ';z-index:2}');
+    /* «Новинка» и «Скоро» — акцентом (это приглашение), «Продолжить» и метки
+       рядов (новая серия, адвент) — плотной тёмной картой: там важнее не
+       перебить постер, по которому пользователь и так уже ходил. */
+    css.push('.lumen-main .lumen-badge--progress,.lumen-grid .lumen-badge--progress,.lumen-main .lumen-badge--custom,.lumen-grid .lumen-badge--custom{color:' + P.text + ';background:' + P.chipBg + ';border:.04em solid ' + P.line + '}');
+    css.push('.lumen-main .lumen-badge-bar{position:absolute;left:.4em;right:.4em;bottom:.4em;height:.18em;border-radius:.09em;background:rgba(' + P.textRgb + ',.2);overflow:hidden;z-index:2}');
+    css.push('.lumen-main .lumen-badge-bar > div{height:100%;border-radius:.09em;background:' + A + '}');
+
+    /* --- Task 25: скелетоны ---
+       Одно правило на все плашки плагина: описание героя до прихода деталей
+       (.lumen-hero__sk), ряд отзывов до ответа Кинопоиска (.lumen-review--sk)
+       и коллаж плитки хаба, пока идёт запрос.
+
+       Пульсация — ОДНО свойство opacity: его меняет композитор, без
+       перерисовки слоя. Именно поэтому здесь нет «бегущего блика» с
+       background-position из плана: тот заставляет ТВ перерисовывать плашку
+       каждый кадр. В lite/off анимация снимается целиком — гейт на body,
+       потому что скелетоны живут на трёх разных корнях (герой, ряд описания,
+       хаб), а класс режима на body ставит LC.applyMotionMode для всех. */
+    css.push('.lumen-skeleton{background:rgba(' + P.textRgb + ',.10);-webkit-animation:lumen-sk 1.4s ease-in-out infinite;animation:lumen-sk 1.4s ease-in-out infinite}');
+    css.push('@-webkit-keyframes lumen-sk{0%,100%{opacity:.5}50%{opacity:1}}');
+    css.push('@keyframes lumen-sk{0%,100%{opacity:.5}50%{opacity:1}}');
+    css.push('body.lumen-motion-lite .lumen-skeleton,body.lumen-motion-off .lumen-skeleton{-webkit-animation:none;animation:none;opacity:1}');
+    /* Плашка на месте карточки отзыва: геометрию даёт сам .lumen-review
+       (21.04em × 11.4em), здесь — только заливка вместо содержимого. */
+    css.push('.lumen-descr-row .lumen-review--sk{background-image:none}');
+    /* Коллаж плитки хаба: плашка занимает весь прямоугольник плитки, поэтому
+       ей достаточно скруглений её собственного контейнера. */
+    css.push('.lumen-hub .lumen-tile__collage.lumen-skeleton{border-radius:.53em}');
 
     /* Пункт меню «Подборки»: штатные иконки меню Lampa — 1.5em, а наш набор
        отдаёт svg в 1em (src/20_icons.js), и пункт выглядел мельче соседей. */

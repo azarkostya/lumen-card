@@ -85,6 +85,11 @@ function setup(opts) {
   LC.applyPersonalPref = mark('personal');
   LC.applyMoodsPref = mark('moods');
   LC.applyKpHintPref = mark('kphint');
+  /* Task 25 (фаза 3): метки на постерах — ставятся и снимаются на живом
+     экране, пересборка активности им не нужна. */
+  LC.applyBadgesPref = mark('badges');
+  /* Правка пользователя 2026-09-17 (п.2): размер кадра над рядами. */
+  LC.applyHeroSizePref = mark('herosize');
 
   return { LC, log, storage, params, components, subscribers, Storage, prependSubscriber: (cb) => subscribers.unshift(cb) };
 }
@@ -223,6 +228,12 @@ test('каждая настройка применяется ровно один
     lumen_moods: ['moods'],
     /* Task 16 (фаза 2): персональные ряды. */
     lumen_personal_rows: ['personal'],
+    /* Task 25 (фаза 3): метки на постерах — узлы внутри уже нарисованных
+       карточек, снимаются и ставятся на живом экране без его пересборки. */
+    lumen_badges: ['badges'],
+    /* Правка пользователя 2026-09-17 (п.2): размер кадра над рядами —
+       пересборка CSS и жизнь узла героя одной точкой. */
+    lumen_hero_size: ['herosize'],
     /* Фаза 3: тема, плотность подложек и масштаб живут целиком в таблице
        стилей — одной пересборки CSS достаточно, экран пересобирать не нужно. */
     lumen_theme: ['css'],

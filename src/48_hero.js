@@ -273,12 +273,15 @@
         '</div>');
       var text = $('<div class="lumen-hero__text">' +
         '<div class="lumen-hero__meta"></div>' +
-        '<div class="lumen-hero__sk lumen-hero__sk--meta"></div>' +
+        /* Task 25: общий класс .lumen-skeleton — от него плашки получают
+           пульсацию в режиме полных анимаций и остаются статичными в
+           lite/off (одно правило на все скелетоны плагина, src/30_css.js). */
+        '<div class="lumen-hero__sk lumen-hero__sk--meta lumen-skeleton"></div>' +
         '<div class="lumen-hero__logo"></div>' +
         '<div class="lumen-hero__title"></div>' +
         '<div class="lumen-hero__descr"></div>' +
-        '<div class="lumen-hero__sk lumen-hero__sk--descr"></div>' +
-        '<div class="lumen-hero__sk lumen-hero__sk--short"></div>' +
+        '<div class="lumen-hero__sk lumen-hero__sk--descr lumen-skeleton"></div>' +
+        '<div class="lumen-hero__sk lumen-hero__sk--short lumen-skeleton"></div>' +
         '<div class="lumen-hero__chips">' +
         '<div class="lumen-hero__rate"></div>' +
         '<div class="lumen-hero__status"></div>' +
@@ -634,9 +637,22 @@
          hostClass — класс корня, которым CSS сдвигает содержимое под героя
                      (по умолчанию 'lumen-main');
          compact   — герой сжат всегда и индекс ряда не смотрит. */
+    /* Правка пользователя 2026-09-17 (п.2): «Герой: выключен». Герой не
+       монтируется вовсе — ни узла, ни наблюдателя, ни запросов деталей, а
+       без класса .lumen-main на активности к рядам не применяются и наши
+       правила размера: главная выглядит штатной Lampa, ряды занимают экран
+       целиком. Последствие, о котором надо помнить: чипы профилей настроения
+       живут ВНУТРИ текстового блока героя (src/49_moods.js), поэтому с
+       выключенным героем их на экране нет — их собственная настройка при
+       этом ничего не меняет. */
+    function sizeOff() {
+      try { return LC.pref ? LC.pref('lumen_hero_size', 'medium') === 'off' : false; } catch (e) { return false; }
+    }
+
     function mount(root, opts) {
       try {
         if (!root || !root.length) return;
+        if (sizeOff()) { unmount(); return; }
         /* Тот же корень — героя не пересобираем. На пути «карточка → назад»
            этот гард НЕ срабатывает: уход вглубь виден рантайму как 'start'
            чужой активности, и detach() уже снял героя — на возврате он
