@@ -260,8 +260,15 @@ function env(opts) {
     return value;
   }
 
+  /* Общий признак «экран накрыт» (src/00_head.js): под заставкой всё, что
+     рисует ниже неё, обязано стоять — здесь он воспроизведён так же, как в
+     голове сборки. */
+  let covered = false;
+
   const { api, LC } = fresh(Object.assign({
     pref,
+    covered: () => covered,
+    setCovered: (value) => { covered = !!value; },
     enabled: () => opts.enabled !== false,
     motionMode: () => opts.motion || 'full',
     lang: (key) => key,
@@ -297,7 +304,7 @@ function env(opts) {
     return null;
   }
 
-  return { api, LC, store, body, listeners, timers, images, fire, send, layer, $, Lampa };
+  return { api, LC, store, body, listeners, timers, images, fire, send, layer, $, Lampa, covered: () => covered };
 }
 
 function sample(n) {
@@ -393,6 +400,33 @@ test('start: запрещённый момент слой не создаёт, �
     assert.equal(e.timers.length, 1, 'попытка перенесена, а не потеряна: ' + JSON.stringify(opts));
     e.api.uninstall();
   }
+});
+
+/* Ревью фазы 3 (Important 1). План Task 22 Step 3 требовал: «пока слой
+   активен, слайдшоу карточки и частицы на паузе». Заставка не знала ни про
+   то, ни про другое — под непрозрачным слоем продолжали идти кадровый цикл
+   частиц и ротация кадров карточки. Пауза — это общий признак «экран
+   накрыт» (src/00_head.js), который читают оба потребителя. */
+test('covered: показ заставки поднимает признак «экран накрыт», уход — снимает', () => {
+  const e = env();
+  e.api.install();
+  assert.equal(e.covered(), false, 'до показа под заставкой никого нет');
+  e.fire();
+  assert.ok(e.layer(), 'слой на экране');
+  assert.equal(e.covered(), true, 'всё, что рисует под слоем, встало');
+  e.send('keydown', {});
+  assert.equal(e.covered(), false, 'признак снят вместе с кадрами, а не по концу ухода слоя');
+  e.api.uninstall();
+  assert.equal(e.covered(), false);
+});
+
+test('covered: снятие слоя без анимации (выключение, uninstall) тоже снимает признак', () => {
+  const e = env();
+  e.api.install();
+  e.fire();
+  assert.equal(e.covered(), true);
+  e.api.stop();
+  assert.equal(e.covered(), false, 'иначе частицы и слайдшоу остались бы стоять навсегда');
 });
 
 test('start: пустой список кадров — ambient не показывается', () => {

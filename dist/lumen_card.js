@@ -31,6 +31,19 @@ try { if (typeof window !== 'undefined' && window.console && console.log) consol
 }
 
 
+
+
+
+
+
+
+
+
+var covered = false;
+LC.covered = function () { return covered; };
+LC.setCovered = function (value) { covered = !!value; };
+
+
 /* ---- 10_util.js ---- */
 
 
@@ -9784,6 +9797,17 @@ try { return !!(node && document.documentElement && document.documentElement.con
 
 
 
+function covered() {
+try {
+return typeof LC.covered === 'function' && LC.covered() === true;
+} catch (e) {
+return false;
+}
+}
+
+
+
+
 
 
 
@@ -9985,6 +10009,15 @@ if (!isLayerMounted()) { destroy(); return; }
 
 
 if (!isLayerForeground(layer)) return;
+
+
+
+
+
+
+
+
+if (covered()) return;
 if (offset > urls.length) return;
 var next = (idx + offset) % urls.length;
 ensureFrame(next, function (el) {
@@ -10112,6 +10145,17 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 
+
+
+
+
+
+
+
+
+
+
+
 LC.fx = (function () {
 
 
@@ -10121,6 +10165,10 @@ var DPR_MAX = 1.5;
 
 
 var DT_CAP = 50;
+
+
+
+var IDLE_MS = 500;
 var TWO_PI = Math.PI * 2;
 
 
@@ -10559,6 +10607,8 @@ return list;
 
 var instances = [];
 var frame = 0;
+
+var idle = 0;
 var last = 0;
 var stat_frames = 0;
 var stat_steps = 0;
@@ -10590,6 +10640,32 @@ function unraf(id) {
 try {
 if (id && window.cancelAnimationFrame) window.cancelAnimationFrame(id);
 } catch (e) { }
+}
+
+
+
+
+function setT(fn, ms) {
+var hook = api._timers;
+if (hook && typeof hook.set === 'function') return hook.set(fn, ms);
+try {
+return setTimeout(fn, ms);
+} catch (e) {
+return 0;
+}
+}
+
+function clearT(id) {
+if (!id) return;
+var hook = api._timers;
+if (hook && typeof hook.clear === 'function') { hook.clear(id); return; }
+try { clearTimeout(id); } catch (e) { }
+}
+
+function clearIdle() {
+if (!idle) return;
+clearT(idle);
+idle = 0;
 }
 
 function hidden() {
@@ -10650,19 +10726,40 @@ return !!inst.canvas.parentNode;
 
 
 
-function paused(inst) {
-if (hidden()) return true;
+
+function covered() {
 try {
-if (inst.paused && inst.paused()) return true;
-} catch (e) { }
+return typeof LC.covered === 'function' && LC.covered() === true;
+} catch (e) {
+return false;
+}
+}
+
+
+
+
+
+function archived(inst) {
 try {
 var node = inst.node;
 if (node && typeof node.closest === 'function') {
 var activity = node.closest('.activity');
 if (activity && activity.classList && !activity.classList.contains('activity--active')) return true;
 }
-} catch (e2) { }
+} catch (e) { }
 return false;
+}
+
+
+
+
+function paused(inst) {
+if (hidden()) return true;
+if (covered()) return true;
+try {
+if (inst.paused && inst.paused()) return true;
+} catch (e) { }
+return archived(inst);
 }
 
 function render(inst, dt) {
@@ -10690,6 +10787,10 @@ var dt = last ? time - last : 16;
 last = time;
 if (dt > DT_CAP) dt = DT_CAP;
 if (!(dt > 0)) dt = 0;
+
+
+
+var live = !hidden();
 if (dt > 0 && !hidden()) {
 var started = nowMs();
 var drawn = 0;
@@ -10700,9 +10801,13 @@ render(instances[i], dt);
 drawn++;
 } catch (e) {
 warn('fx: render failed', e);
+
+
 drop(instances[i]);
+i--;
 }
 }
+live = drawn > 0;
 if (drawn) {
 var spent = nowMs() - started;
 stat_frames++;
@@ -10710,14 +10815,37 @@ stat_total += spent;
 if (spent > stat_max) stat_max = spent;
 }
 }
+schedule(live);
+}
+
+
+
+
+
+
+
+function schedule(live) {
+if (!instances.length) { last = 0; return; }
+if (live) { frame = raf(loop); return; }
+last = 0;
+idle = setT(idleCheck, IDLE_MS);
+}
+
+function idleCheck() {
+idle = 0;
+if (!instances.length) return;
 frame = raf(loop);
 }
 
 function wake() {
 if (frame || !instances.length) return;
+clearIdle();
 last = 0;
 frame = raf(loop);
 }
+
+
+
 
 
 
@@ -10729,11 +10857,47 @@ if (inst.canvas.parentNode) inst.canvas.parentNode.removeChild(inst.canvas);
 } catch (e) {
 warn('fx: canvas remove failed', e);
 }
+try {
+inst.canvas.width = 0;
+inst.canvas.height = 0;
+} catch (e2) { }
 if (!instances.length) {
 unraf(frame);
 frame = 0;
+clearIdle();
 last = 0;
 }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+function sweep() {
+for (var i = instances.length - 1; i >= 0; i--) {
+if (archived(instances[i])) drop(instances[i]);
+}
+return instances.length;
+}
+
+
+
+
+function handle(inst) {
+return {
+node: inst.node,
+name: inst.name,
+particles: inst.particles_of,
+destroy: function () { drop(inst); }
+};
 }
 
 
@@ -10752,7 +10916,7 @@ var exist = find(node);
 
 
 
-if (exist) return exist;
+if (exist) return handle(exist);
 var d = doc();
 if (!d || typeof d.createElement !== 'function') return null;
 
@@ -10793,12 +10957,7 @@ particles: spawn(name, w, h, opts.count, Math.random)
 inst.particles_of = function () { return inst.particles; };
 instances.push(inst);
 wake();
-return {
-node: node,
-name: name,
-particles: inst.particles_of,
-destroy: function () { drop(inst); }
-};
+return handle(inst);
 } catch (e) {
 warn('fx: mount failed', e);
 return null;
@@ -10829,7 +10988,7 @@ layers: instances.length
 };
 }
 
-return {
+var api = {
 MAX: MAX,
 presets: presets,
 spawn: spawn,
@@ -10837,9 +10996,13 @@ step: step,
 mount: mount,
 unmount: unmount,
 unmountAll: unmountAll,
+sweep: sweep,
 active: function () { return instances.length; },
-stats: stats
+stats: stats,
+
+_timers: null
 };
+return api;
 })();
 
 if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.fx;
@@ -11491,6 +11654,17 @@ return 'full';
 
 
 
+
+function markCovered(value) {
+try {
+if (typeof LC.setCovered === 'function') LC.setCovered(value);
+} catch (e) { }
+}
+
+
+
+
+
 var installed = false;
 var bound = null;
 var idle_timer = 0;
@@ -11639,6 +11813,7 @@ index = -1;
 slot = 0;
 if (!build()) { schedule(); return; }
 live = true;
+markCovered(true);
 try { show(0); } catch (e2) { warn('ambient: start failed', e2); }
 slide_timer = setT(tick, SLIDE_MS);
 }
@@ -11661,6 +11836,7 @@ clearT(out_timer);
 out_timer = 0;
 killPreload();
 live = false;
+markCovered(false);
 if (node) {
 try { node.remove(); } catch (e) { warn('ambient: remove failed', e); }
 }
@@ -11681,6 +11857,10 @@ clearT(slide_timer);
 slide_timer = 0;
 killPreload();
 live = false;
+
+
+
+markCovered(false);
 var leaving = node;
 try { leaving.addClass('is-out'); } catch (e) { }
 clearT(out_timer);
@@ -13925,8 +14105,41 @@ var v = LC.pref(AUTO_KEY, false);
 return v === true || v === 'true';
 }
 
+
+
+
+
+
+
+
 function on() {
-return LC.enabled() && auto();
+if (!LC.enabled() || !auto()) return false;
+try {
+return LC.motionMode() === 'full';
+} catch (e) {
+return false;
+}
+}
+
+
+
+
+
+
+
+
+
+var QUANT = 16;
+
+function quantChannel(v) {
+var n = Math.floor(Number(v) / QUANT) * QUANT + QUANT / 2;
+if (!(n > 0)) return 0;
+return n > 255 ? 255 : n;
+}
+
+function quantize(rgb) {
+if (!rgb) return null;
+return { r: quantChannel(rgb.r), g: quantChannel(rgb.g), b: quantChannel(rgb.b) };
 }
 
 function bg() {
@@ -14003,7 +14216,10 @@ task = null;
 
 
 
-apply(rgb ? LC.color.tokens(rgb, bg()) : null, rgb || null);
+
+
+var dom = quantize(rgb);
+apply(dom ? LC.color.tokens(dom, bg()) : null, dom);
 });
 }
 
@@ -15319,9 +15535,6 @@ return date ? head + ' · ' + date : head;
 
 
 
-var gen = 0;
-
-
 var state = null;
 
 function enabled() {
@@ -15442,7 +15655,6 @@ if (!root || !root.length) return;
 if (!enabled()) { unmount(); return; }
 if (state && state.root && state.root[0] === root[0]) return;
 unmount();
-gen++;
 state = { root: root, observer: null };
 scan(root);
 observe(root);
@@ -15457,7 +15669,6 @@ function unmount() {
 if (!state) return;
 var s = state;
 state = null;
-gen++;
 try {
 if (s.observer) s.observer.disconnect();
 } catch (e) {
@@ -18240,6 +18451,8 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 
+
+
 LC.transition = (function () {
 
 
@@ -18558,6 +18771,8 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 
+
+
 LC.perf = (function () {
 
 
@@ -18753,7 +18968,13 @@ if (raw === 'full' || raw === 'lite' || raw === 'off') return false;
 if (tvPlatform()) return false;
 
 
-if (readStored().mode === 'full') return false;
+
+
+
+
+
+
+
 
 
 if (hidden()) return false;
@@ -21894,6 +22115,21 @@ warn('nav detach failed', eNavStart);
 
 
 
+
+
+
+
+try {
+if (LC.fx && LC.fx.sweep) LC.fx.sweep();
+} catch (eFxSweep) {
+warn('fx sweep failed', eFxSweep);
+}
+
+
+
+
+
+
 try {
 
 
@@ -21999,6 +22235,18 @@ try {
 LC.franchise.cancel(orphanBody);
 } catch (eFrOrphan) {
 warn('destroy orphan: franchise failed', eFrOrphan);
+}
+
+
+
+
+
+
+
+try {
+if (LC.fx) LC.fx.unmount(orphanLayer.find('.lumen-fx'));
+} catch (eFxOrphan) {
+warn('destroy orphan: fx failed', eFxOrphan);
 }
 }
 return;

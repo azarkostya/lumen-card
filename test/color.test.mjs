@@ -409,6 +409,10 @@ function accentCtx(opts) {
       return def;
     },
     enabled: function () { return options.enabled === undefined ? true : options.enabled; },
+    /* Ревью фазы 3 (Important 2): акцент от постера считается и применяется
+       только при полных анимациях — пересборка ~81 КБ стилей на каждую
+       остановку фокуса на слабом ТВ дороже самого акцента. */
+    motionMode: function () { return options.motion || 'full'; },
     tokens: function () { return { bg: options.bg || BG }; },
     injectCss: function () { state.injects++; }
   };
@@ -463,6 +467,62 @@ test('accent: пиксели закрыты — акцент из настрое
     dom.state.images[0].onload();
     assert.equal(ctx.LC.accent.current(), null);
     assert.equal(ctx.state.injects, 0, 'акцент не менялся — CSS пересобирать незачем');
+  });
+});
+
+/* Ревью фазы 3 (Important 2): у подкраски фона гейт по режиму анимаций был,
+   а у расчёта и применения самого акцента — нет, хотя стоит он дороже всего
+   остального: каждое применение пересобирает ~81 КБ стилей и заставляет
+   браузер пересчитать стили всего документа. */
+test('accent: в lite и off не считается и не применяется вовсе', () => {
+  for (const mode of ['lite', 'off']) {
+    const dom = fakeDom({});
+    withDom(dom, () => {
+      const ctx = accentCtx({ prefs: { lumen_accent_auto: 'true' }, motion: mode });
+      ctx.LC.accent.applyFor({ poster_path: '/a.jpg' });
+      assert.equal(dom.state.images.length, 0, mode + ': постер даже не грузится');
+      assert.equal(ctx.LC.accent.current(), null, mode + ': акцент из настроек');
+      assert.equal(ctx.state.injects, 0, mode + ': стили не пересобирались');
+    });
+  }
+});
+
+/* Ревью фазы 3 (Important 2): у каждой карточки своя доминанта, поэтому
+   точная проверка «изменилось ли» почти всегда отвечала «да», и проход по
+   ряду с остановками давал пересборку стилей на каждой карточке. Доминанта
+   округляется до расчёта токенов — близкие постеры дают один и тот же
+   акцент. */
+test('accent: проход по ряду близких постеров не даёт ни одной лишней пересборки', () => {
+  const opts = { data: pixels([{ r: 40, g: 90, b: 200, n: 256 }]) };
+  const dom = fakeDom(opts);
+  withDom(dom, () => {
+    const ctx = accentCtx({ prefs: { lumen_accent_auto: 'true' } });
+    ctx.LC.accent.applyFor({ poster_path: '/a.jpg' });
+    dom.state.images[0].onload();
+    assert.equal(ctx.state.injects, 1, 'первая карточка ряда акцент, конечно, ставит');
+    const first = ctx.LC.accent.current().color;
+
+    /* Ещё четыре карточки, чьи постеры отличаются на единицы уровней. */
+    const near = [
+      { r: 44, g: 94, b: 204 },
+      { r: 47, g: 88, b: 199 },
+      { r: 41, g: 95, b: 207 },
+      { r: 46, g: 91, b: 201 }
+    ];
+    for (let i = 0; i < near.length; i++) {
+      opts.data = pixels([{ r: near[i].r, g: near[i].g, b: near[i].b, n: 256 }]);
+      ctx.LC.accent.applyFor({ poster_path: '/near' + i + '.jpg' });
+      dom.state.images[dom.state.images.length - 1].onload();
+      assert.equal(ctx.LC.accent.current().color, first, 'цвет на глаз тот же');
+      assert.equal(ctx.state.injects, 1, 'пересборки ~81 КБ стилей на каждую остановку фокуса больше нет');
+    }
+
+    /* Действительно другой постер акцент по-прежнему меняет. */
+    opts.data = pixels([{ r: 200, g: 60, b: 40, n: 256 }]);
+    ctx.LC.accent.applyFor({ poster_path: '/other.jpg' });
+    dom.state.images[dom.state.images.length - 1].onload();
+    assert.notEqual(ctx.LC.accent.current().color, first);
+    assert.equal(ctx.state.injects, 2);
   });
 });
 

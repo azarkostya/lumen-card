@@ -77,6 +77,17 @@
       try { return !!(node && document.documentElement && document.documentElement.contains(node)); } catch (e) { return false; }
     }
 
+    /* Общий признак «экран накрыт» (src/00_head.js). В тестах, где
+       51_slideshow.js грузится без соседей, LC.covered может не быть вовсе —
+       тогда экран считается открытым. */
+    function covered() {
+      try {
+        return typeof LC.covered === 'function' && LC.covered() === true;
+      } catch (e) {
+        return false;
+      }
+    }
+
     /* Длительность кроссфейда — должна совпадать с opacity-transition
        .lumen-bg__img в src/30_css.js (transition:opacity 1.2s ease-in-out).
        Используется дважды (fix, Important/Minor): чтобы не гасить
@@ -281,6 +292,15 @@
            смены is-active. Таймер не трогаем — следующий тик проверит
            заново. */
         if (!isLayerForeground(layer)) return;
+        /* Экран накрыт заставкой (src/54_ambient.js): под непрозрачным слоем
+           менять кадр — это декодировать картинку, которой никто не увидит,
+           а «человек ушёл» обязан быть самым дешёвым режимом, а не самым
+           дорогим (план Task 22 Step 3). Признак общий и живёт в
+           src/00_head.js: этот модуль по-прежнему не читает ни настроек, ни
+           LC.motionMode — состояние экрана он и так спрашивает у DOM
+           строкой выше. Таймер не трогаем: заставка уйдёт, и следующий тик
+           сменит кадр сам. */
+        if (covered()) return;
         if (offset > urls.length) return;
         var next = (idx + offset) % urls.length;
         ensureFrame(next, function (el) {

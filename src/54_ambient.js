@@ -335,6 +335,17 @@
       return 'full';
     }
 
+    /* Общий признак «экран накрыт» (src/00_head.js). Заставка непрозрачна,
+       поэтому всё, что рисует под ней, обязано стоять: частицы карточки и
+       ротация её кадров читают тот же признак (план Task 22 Step 3). Пара
+       live = true/false и markCovered ходят только вместе. В тестах, где
+       54_ambient.js грузится без соседей, LC.setCovered может не быть. */
+    function markCovered(value) {
+      try {
+        if (typeof LC.setCovered === 'function') LC.setCovered(value);
+      } catch (e) { }
+    }
+
     /* ------------------------------------------------------------------ */
     /* Слой                                                                */
     /* ------------------------------------------------------------------ */
@@ -487,6 +498,7 @@
       slot = 0;
       if (!build()) { schedule(); return; }
       live = true;
+      markCovered(true);
       try { show(0); } catch (e2) { warn('ambient: start failed', e2); }
       slide_timer = setT(tick, SLIDE_MS);
     }
@@ -509,6 +521,7 @@
       out_timer = 0;
       killPreload();
       live = false;
+      markCovered(false);
       if (node) {
         try { node.remove(); } catch (e) { warn('ambient: remove failed', e); }
       }
@@ -529,6 +542,10 @@
       slide_timer = 0;
       killPreload();
       live = false;
+      /* Признак снимается вместе с кадрами, а не по концу анимации ухода:
+         уезжающий слой уже прозрачен, и держать под ним всё на паузе лишние
+         FADE_MS незачем. */
+      markCovered(false);
       var leaving = node;
       try { leaving.addClass('is-out'); } catch (e) { }
       clearT(out_timer);

@@ -280,6 +280,28 @@ test('slideshow: activity--active появляется у closest(\'.activity\')
   assert.equal(loaders.length, 1, 'вернулись на экран — тик снова предзагружает следующий кадр');
 });
 
+/* Ревью фазы 3 (Important 1), план Task 22 Step 3: «пока слой активен,
+   слайдшоу карточки и частицы на паузе». Заставка непрозрачна — смена кадра
+   под ней означает скачать и декодировать картинку, которой никто не увидит,
+   и делает режим «человек ушёл» самым дорогим из всех. */
+test('slideshow: экран накрыт заставкой -> тик пропущен целиком, таймер не тронут', () => {
+  const LC = freshLC();
+  let covered = false;
+  LC.covered = () => covered;
+  const layer = mount(makeLayer());
+  const ctrl = LC.slideshow.create(layer, urls(3), { enabled: () => true, intervalMs: () => 8000 });
+  ctrl.activate();
+
+  covered = true;
+  fireInterval(1);
+  assert.equal(loaders.length, 0, 'предзагрузка не должна была начаться');
+  assert.equal(intervals[0].cleared, false, 'таймер не трогаем — заставка уйдёт, и тик сменит кадр сам');
+
+  covered = false;
+  fireInterval(1);
+  assert.equal(loaders.length, 1, 'заставка ушла — ротация вернулась');
+});
+
 /* ====================================================================== */
 /* Task 6 (fix, Minor, п.3): память ТВ — во время кроссфейда тёплых ровно  */
 /* 2 (текущий + уходящий), после остывания — ровно 1. Обзор координатора: */

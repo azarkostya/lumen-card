@@ -26,3 +26,16 @@
   function warn(msg, err) {
     try { if (typeof window !== 'undefined' && window.console && console.log) console.log('[lumen-card] ' + msg, err || ''); } catch (e) { }
   }
+
+  /* Экран накрыт непрозрачным слоем самого плагина — сейчас это заставка
+     ambient (src/54_ambient.js), она и выставляет признак. Пока он поднят,
+     всё, что рисует ПОД слоем, обязано стоять: частицы (src/52_fx.js) и
+     ротация кадров карточки (src/51_slideshow.js) спрашивают признак и
+     пропускают работу — план Task 22 Step 3: «пока слой активен, слайдшоу
+     карточки и частицы на паузе». Признак живёт здесь, а не в самом
+     ambient, по двум причинам: потребителям незачем знать, КТО накрыл
+     экран, и в сборке 51/52 идут раньше 54 — зависимости на модуль,
+     которого в их тестах нет, не возникает. */
+  var covered = false;
+  LC.covered = function () { return covered; };
+  LC.setCovered = function (value) { covered = !!value; };

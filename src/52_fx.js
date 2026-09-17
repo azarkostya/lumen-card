@@ -8,6 +8,7 @@
   /*   step(particles, dt, w, h) — двигает и заворачивает частицы           */
   /*   mount(layer, preset, opts) → инстанс или null                        */
   /*   unmount(layer) / unmountAll() — снимают слой(и)                      */
+  /*   sweep() — снимает слои активностей, ушедших вглубь                   */
   /*   active() → сколько слоёв рисуется прямо сейчас                       */
   /*   stats() → {frames, steps, avgMs, maxMs, particles}                   */
   /*                                                                       */
@@ -29,13 +30,23 @@
   /*    вердикт через LC.motionMode(), поэтому отдельной проверки железа   */
   /*    здесь нет: «слабый» уже означает lite.                             */
   /*                                                                       */
-  /* Остановка гарантируется тремя независимыми путями, и любой из них     */
+  /* Остановка гарантируется четырьмя независимыми путями, и любой из них  */
   /* достаточен: unmount/unmountAll (уход с карточки, выключение плагина), */
+  /* sweep() (активность ушла вглубь — её слой снимается на 'activity':    */
+  /* start чужой активности, см. комментарий у самой функции),             */
   /* самопроверка в тике (канвас выпал из документа — инстанс снимается    */
   /* сам) и естественный конец цикла (инстансов не осталось — следующий    */
-  /* кадр не заказывается). Пауза — не остановка: при скрытой вкладке,     */
-  /* играющем трейлере и уходе вглубь из активности частицы не шагают, но  */
-  /* слой остаётся на месте и оживает сам.                                 */
+  /* кадр не заказывается). Снятый слой освобождает и буфер пикселей       */
+  /* канваса сразу (drop), не дожидаясь сборщика мусора: на FHD при DPR    */
+  /* 1.5 это порядка 8 МБ на слой, на 4K — вдвое с лишним больше.          */
+  /*                                                                       */
+  /* Пауза — не остановка: при скрытой вкладке, играющем трейлере, под     */
+  /* заставкой (LC.covered) и у слоя, оставшегося на неактивной активности,*/
+  /* частицы не шагают, но слой остаётся на месте и оживает сам. Пока      */
+  /* СТОЯТ ВСЕ слои, кадровый цикл не крутится вовсе: следующий кадр не    */
+  /* заказывается, а условие перепроверяется таймером раз в IDLE_MS — 60   */
+  /* пустых проходов в секунду по мёртвым карточкам не стоят ничего        */
+  /* полезного, но стоят процессорного времени ТВ.                         */
   /* -------------------------------------------------------------------- */
 
   LC.fx = (function () {
@@ -47,6 +58,10 @@
     /* Кап шага. 50 мс — это 20 кадров в секунду: всё, что медленнее, для
        глаза уже не движение, и догонять реальное время незачем. */
     var DT_CAP = 50;
+    /* Как часто перепроверять условие, когда стоят ВСЕ слои. Полсекунды —
+       задержка, которой не видно на глаз (слой оживает при возврате на
+       карточку, а не в ответ на нажатие), и в тридцать раз реже кадра. */
+    var IDLE_MS = 500;
     var TWO_PI = Math.PI * 2;
 
     /* ------------------------------------------------------------------ */
@@ -485,6 +500,8 @@
 
     var instances = [];
     var frame = 0;
+    /* Таймер перепроверки, когда все слои стоят (см. schedule ниже). */
+    var idle = 0;
     var last = 0;
     var stat_frames = 0;
     var stat_steps = 0;
@@ -516,6 +533,32 @@
       try {
         if (id && window.cancelAnimationFrame) window.cancelAnimationFrame(id);
       } catch (e) { }
+    }
+
+    /* Таймеры через хук: тесты подменяют пару set/clear целиком
+       (LC.fx._timers), рантайм работает на штатных — так же, как в
+       src/54_ambient.js. */
+    function setT(fn, ms) {
+      var hook = api._timers;
+      if (hook && typeof hook.set === 'function') return hook.set(fn, ms);
+      try {
+        return setTimeout(fn, ms);
+      } catch (e) {
+        return 0;
+      }
+    }
+
+    function clearT(id) {
+      if (!id) return;
+      var hook = api._timers;
+      if (hook && typeof hook.clear === 'function') { hook.clear(id); return; }
+      try { clearTimeout(id); } catch (e) { }
+    }
+
+    function clearIdle() {
+      if (!idle) return;
+      clearT(idle);
+      idle = 0;
     }
 
     function hidden() {
@@ -572,23 +615,44 @@
       return !!inst.canvas.parentNode;
     }
 
-    /* Слой на паузе: скрытая вкладка, собственное условие слоя (играющий
-       трейлер — src/55_trailer.js), уход вглубь из активности. Последнее
-       проверяется классом активности, а не подпиской: Lampa не шлёт события
-       покидаемой активности (план фазы 3, раздел 0). */
-    function paused(inst) {
-      if (hidden()) return true;
+    /* Экран накрыт непрозрачным слоем плагина (заставка, src/54_ambient.js):
+       под ним рисовать нечего. Признак общий и живёт в src/00_head.js —
+       этому модулю знать, КТО накрыл экран, незачем (план Task 22 Step 3:
+       «пока слой активен, слайдшоу карточки и частицы на паузе»). В тестах,
+       где 52_fx.js грузится без соседей, LC.covered может не быть вовсе. */
+    function covered() {
       try {
-        if (inst.paused && inst.paused()) return true;
-      } catch (e) { }
+        return typeof LC.covered === 'function' && LC.covered() === true;
+      } catch (e) {
+        return false;
+      }
+    }
+
+    /* Слой остался на активности, которая ушла вглубь. Проверяется классом
+       активности, а не подпиской: Lampa не шлёт события покидаемой
+       активности (план фазы 3, раздел 0). Не нашли .activity — считаем слой
+       своим (кадр главной лежит вне активности). */
+    function archived(inst) {
       try {
         var node = inst.node;
         if (node && typeof node.closest === 'function') {
           var activity = node.closest('.activity');
           if (activity && activity.classList && !activity.classList.contains('activity--active')) return true;
         }
-      } catch (e2) { }
+      } catch (e) { }
       return false;
+    }
+
+    /* Слой на паузе: скрытая вкладка, накрытый заставкой экран, собственное
+       условие слоя (играющий трейлер — src/55_trailer.js), уход вглубь из
+       активности. */
+    function paused(inst) {
+      if (hidden()) return true;
+      if (covered()) return true;
+      try {
+        if (inst.paused && inst.paused()) return true;
+      } catch (e) { }
+      return archived(inst);
     }
 
     function render(inst, dt) {
@@ -616,6 +680,10 @@
       last = time;
       if (dt > DT_CAP) dt = DT_CAP;
       if (!(dt > 0)) dt = 0;
+      /* Рисовал ли кто-нибудь в этом кадре. Нулевой dt — не кадр, а сбитые
+         часы: заключать по нему, что всё стоит, нельзя, поэтому там цикл
+         продолжается как обычно. */
+      var live = !hidden();
       if (dt > 0 && !hidden()) {
         var started = nowMs();
         var drawn = 0;
@@ -626,9 +694,13 @@
             drawn++;
           } catch (e) {
             warn('fx: render failed', e);
+            /* drop() сдвигает массив: без шага назад следующий инстанс
+               пропустил бы этот кадр. */
             drop(instances[i]);
+            i--;
           }
         }
+        live = drawn > 0;
         if (drawn) {
           var spent = nowMs() - started;
           stat_frames++;
@@ -636,17 +708,40 @@
           if (spent > stat_max) stat_max = spent;
         }
       }
+      schedule(live);
+    }
+
+    /* Следующая проверка. Пока рисует хоть один слой — обычный кадр; когда
+       стоят все (скрытая вкладка, заставка поверх экрана, трейлер, карточки
+       в глубине истории) — редкий таймер вместо цикла 60 Гц: до возвращения
+       хоть одного живого слоя каждый кадр только перебирал бы инстансы и
+       дёргал closest() по мёртвым карточкам. last сбрасывается, чтобы
+       простой не пришёл в первый же шаг длинным dt. */
+    function schedule(live) {
+      if (!instances.length) { last = 0; return; }
+      if (live) { frame = raf(loop); return; }
+      last = 0;
+      idle = setT(idleCheck, IDLE_MS);
+    }
+
+    function idleCheck() {
+      idle = 0;
+      if (!instances.length) return;
       frame = raf(loop);
     }
 
     function wake() {
       if (frame || !instances.length) return;
+      clearIdle();
       last = 0;
       frame = raf(loop);
     }
 
     /* Снятие одного инстанса: канвас из DOM, инстанс из списка. Кадр не
-       отменяем — цикл сам увидит пустой список и не закажет следующий. */
+       отменяем — цикл сам увидит пустой список и не закажет следующий.
+       Нулевой размер канваса — это освобождение буфера пикселей ПРЯМО
+       СЕЙЧАС: снятый узел держал бы его до сборки мусора, а он на FHD при
+       DPR 1.5 порядка 8 МБ (ревью фазы 3, Critical 1). */
     function drop(inst) {
       var i = instances.indexOf(inst);
       if (i !== -1) instances.splice(i, 1);
@@ -655,11 +750,47 @@
       } catch (e) {
         warn('fx: canvas remove failed', e);
       }
+      try {
+        inst.canvas.width = 0;
+        inst.canvas.height = 0;
+      } catch (e2) { }
       if (!instances.length) {
         unraf(frame);
         frame = 0;
+        clearIdle();
         last = 0;
       }
+    }
+
+    /* Слои активностей, ушедших вглубь (ревью фазы 3, Critical 1). Lampa не
+       шлёт покидаемой активности НИКАКИХ событий, а её DOM живёт в истории
+       дальше — значит канвас каждой оставленной карточки висел бы в памяти
+       до вытеснения по лимиту истории: цепочка «карточка -> актёр -> другой
+       фильм -> франшиза» набирает десятки мегабайт, а на ТВ это перезагрузка
+       Lampa, а не тормоза.
+       Зовётся на 'activity':start (src/90_runtime.js) и снимает слой у
+       каждой активности без .activity--active. Свой собственный слой снять
+       нельзя: Lampa проставляет класс стартующей активности и снимает со
+       всех остальных ДО отправки события (vendor/lampa/app.min.js, start$4),
+       поэтому классы к этому моменту уже верны.
+       Возвращает, сколько слоёв осталось. */
+    function sweep() {
+      for (var i = instances.length - 1; i >= 0; i--) {
+        if (archived(instances[i])) drop(instances[i]);
+      }
+      return instances.length;
+    }
+
+    /* Вид инстанса наружу. Одна обёртка на ВСЕ пути возврата mount() — и на
+       первый монтаж, и на повторный вызов для того же узла: вызывающему
+       нужен один и тот же объект, с destroy в том числе. */
+    function handle(inst) {
+      return {
+        node: inst.node,
+        name: inst.name,
+        particles: inst.particles_of,
+        destroy: function () { drop(inst); }
+      };
     }
 
     /* Монтирует слой частиц в узел. opts:
@@ -678,7 +809,7 @@
         /* Второй слой на тот же узел не заводим: у карточки он один, и
            повторный complite (Lampa шлёт его и после возврата) не должен
            удваивать ни канвас, ни частицы. */
-        if (exist) return exist;
+        if (exist) return handle(exist);
         var d = doc();
         if (!d || typeof d.createElement !== 'function') return null;
 
@@ -719,12 +850,7 @@
         inst.particles_of = function () { return inst.particles; };
         instances.push(inst);
         wake();
-        return {
-          node: node,
-          name: name,
-          particles: inst.particles_of,
-          destroy: function () { drop(inst); }
-        };
+        return handle(inst);
       } catch (e) {
         warn('fx: mount failed', e);
         return null;
@@ -755,7 +881,7 @@
       };
     }
 
-    return {
+    var api = {
       MAX: MAX,
       presets: presets,
       spawn: spawn,
@@ -763,9 +889,13 @@
       mount: mount,
       unmount: unmount,
       unmountAll: unmountAll,
+      sweep: sweep,
       active: function () { return instances.length; },
-      stats: stats
+      stats: stats,
+      /* Хук тестов: подменяемая пара set/clear таймера простоя. */
+      _timers: null
     };
+    return api;
   })();
 
   if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.fx;

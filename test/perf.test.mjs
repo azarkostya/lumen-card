@@ -173,11 +173,18 @@ test('track: выключенный плагин не меряет', () => {
   assert.equal(e.frames.length, 0);
 });
 
-test('track: записанный вердикт full — устройство уже показало себя, больше не меряем', () => {
+/* Ревью фазы 3 (Important 3): вердикт 'full' больше НЕ терминален. Он
+   выносится по трём первым карточкам запуска — самым холодным, — и раньше
+   один такой вердикт отменял измерение этого устройства навсегда. */
+test('track: записанный вердикт full меряем дальше — ни один вердикт не терминален', () => {
   const e = env({ store: { lumen_motion_auto: { mode: 'full', good: 0 } } });
   e.api.track();
-  assert.equal(e.frames.length, 0);
-  assert.equal(e.api.samples().length, 0);
+  assert.equal(e.frames.length, 1, 'первый кадр запрошен');
+  e.run(600);
+  e.api.track(); e.run(600);
+  e.api.track(); e.run(600);
+  assert.equal(e.api.samples().length, 3);
+  assert.equal(e.store.lumen_motion_auto.mode, 'lite', 'просевшее устройство понижается, а не остаётся full навсегда');
 });
 
 test('track: записанный вердикт lite меряем дальше — иначе из lite не выбраться', () => {

@@ -105,9 +105,6 @@
     /* Рантайм.                                                            */
     /* ------------------------------------------------------------------ */
 
-    /* Сторож поколения: поднимается при mount/unmount. */
-    var gen = 0;
-
     /* Единственный смонтированный экран: null или {root, observer}. */
     var state = null;
 
@@ -229,7 +226,6 @@
         if (!enabled()) { unmount(); return; }
         if (state && state.root && state.root[0] === root[0]) return;
         unmount();
-        gen++;
         state = { root: root, observer: null };
         scan(root);
         observe(root);
@@ -244,7 +240,6 @@
       if (!state) return;
       var s = state;
       state = null;
-      gen++;
       try {
         if (s.observer) s.observer.disconnect();
       } catch (e) {

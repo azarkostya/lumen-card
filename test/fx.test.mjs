@@ -1,6 +1,10 @@
 import test from 'node:test'; import assert from 'node:assert/strict';
 import { loadCtx } from './_load.mjs';
 
+globalThis.PLUGIN = 'lumen_card';
+const warnLog = [];
+globalThis.warn = function (msg, err) { warnLog.push({ msg: msg, err: err }); };
+
 /* Детерминированный «случайный»: движок обязан работать на любом rnd,
    а тест — давать один и тот же результат на каждом запуске. */
 function seeded(seed) {
@@ -142,6 +146,20 @@ function fakeNode(w, h) {
   return node;
 }
 
+/* Узел слоя ВНУТРИ активности: closest('.activity') — единственное, чем fx
+   отличает карточку на экране от оставшейся в глубине истории (Lampa не шлёт
+   покидаемой активности никаких событий). */
+function fakeCardNode(w, h, active) {
+  const node = fakeNode(w, h);
+  const activity = {
+    active: active !== false,
+    classList: { contains: (cls) => cls === 'activity--active' && activity.active }
+  };
+  node.closest = (sel) => (sel === '.activity' ? activity : null);
+  node.activity = activity;
+  return node;
+}
+
 /* Окружение одного рантайм-теста: document.createElement('canvas'),
    requestAnimationFrame под ручным управлением, performance.now по шагам. */
 function env(run) {
@@ -250,9 +268,31 @@ test('mount: выключенный плагин и неизвестный пр�
   });
 });
 
-test('пауза: скрытая вкладка и играющий трейлер не двигают частицы, но цикл жив', () => {
+/* Подменяемая пара таймеров простоя: возвращает хук для fx._timers и список
+   заведённых таймеров (null на месте отменённого). */
+function fakeTimers() {
+  const list = [];
+  return {
+    list,
+    hook: {
+      set: (fn, ms) => { list.push({ fn: fn, ms: ms }); return list.length; },
+      clear: (id) => { list[id - 1] = null; }
+    },
+    live: () => list.filter(Boolean),
+    fire: () => {
+      const t = list.filter(Boolean).pop();
+      assert.ok(t, 'есть таймер перепроверки');
+      list[list.indexOf(t)] = null;
+      t.fn();
+    }
+  };
+}
+
+test('пауза: скрытая вкладка и играющий трейлер не двигают частицы; слой остаётся смонтированным', () => {
   env(({ doc, tick }) => {
     const fx = freshFx();
+    const timers = fakeTimers();
+    fx._timers = timers.hook;
     const layer = fakeNode(800, 400);
     let trailer = false;
     fx.mount(layer, 'snow', { paused: () => trailer });
@@ -261,17 +301,141 @@ test('пауза: скрытая вкладка и играющий трейле
     assert.ok(moved > 0);
 
     doc.hidden = true;
-    tick(16); tick(16);
+    tick(16);
     assert.equal(fx.stats().steps, moved, 'при скрытой вкладке шагов нет');
     doc.hidden = false;
-
-    trailer = true;
-    tick(16); tick(16);
-    assert.equal(fx.stats().steps, moved, 'под трейлером шагов нет');
-    trailer = false;
+    timers.fire();
     tick(16);
-    assert.ok(fx.stats().steps > moved, 'после паузы движение вернулось');
+    assert.ok(fx.stats().steps > moved, 'вкладка вернулась — движение тоже');
+
+    const afterHidden = fx.stats().steps;
+    trailer = true;
+    tick(16);
+    assert.equal(fx.stats().steps, afterHidden, 'под трейлером шагов нет');
+    trailer = false;
+    timers.fire();
+    tick(16);
+    assert.ok(fx.stats().steps > afterHidden, 'после паузы движение вернулось');
     assert.equal(fx.active(), 1, 'слой всё ещё смонтирован');
+    fx.unmountAll();
+  });
+});
+
+/* Ревью фазы 3 (Critical 1): 60 проходов в секунду по слоям, из которых ни
+   один не рисует, — это чистая трата процессорного времени ТВ: каждый кадр
+   перебирал инстансы и дёргал closest() по карточкам в глубине истории. */
+test('цикл: пока стоят ВСЕ слои, кадры не заказываются — вместо них редкая перепроверка', () => {
+  env(({ doc, tick, pending }) => {
+    const fx = freshFx();
+    const timers = fakeTimers();
+    fx._timers = timers.hook;
+    fx.mount(fakeNode(800, 400), 'snow');
+    tick(16);
+    assert.equal(pending(), 1, 'пока слой рисует — обычный кадровый цикл');
+    assert.equal(timers.live().length, 0, 'и ни одного таймера');
+
+    doc.hidden = true;
+    tick(16);
+    assert.equal(pending(), 0, 'все слои стоят — следующий кадр не заказан');
+    assert.equal(timers.live().length, 1, 'вместо кадра — один таймер перепроверки');
+    assert.equal(timers.live()[0].ms, 500);
+
+    /* Перепроверка, пока всё ещё стоит: снова таймер, а не кадровый цикл. */
+    timers.fire();
+    tick(16);
+    assert.equal(pending(), 0);
+    assert.equal(timers.live().length, 1, 'таймер ровно один, они не накапливаются');
+
+    doc.hidden = false;
+    timers.fire();
+    tick(16);
+    assert.equal(pending(), 1, 'живой слой вернул кадровый цикл');
+    fx.unmountAll();
+    assert.equal(timers.live().length, 0, 'снятие последнего слоя гасит и таймер');
+  });
+});
+
+/* Ревью фазы 3 (Important 1), план Task 22 Step 3: «пока слой активен,
+   слайдшоу карточки и частицы на паузе». Заставка непрозрачна — всё, что
+   рисует под ней, тратится впустую. */
+test('пауза: под заставкой частицы стоят и кадровый цикл уступает таймеру', () => {
+  env(({ tick, pending }) => {
+    let covered = false;
+    const fx = freshFx({ covered: () => covered });
+    const timers = fakeTimers();
+    fx._timers = timers.hook;
+    fx.mount(fakeNode(800, 400), 'snow');
+    tick(16);
+    const moved = fx.stats().steps;
+    assert.ok(moved > 0);
+
+    covered = true;
+    tick(16);
+    assert.equal(fx.stats().steps, moved, 'под заставкой шагов нет');
+    assert.equal(pending(), 0, 'и кадров тоже');
+    assert.equal(timers.live().length, 1);
+
+    covered = false;
+    timers.fire();
+    tick(16);
+    assert.ok(fx.stats().steps > moved, 'заставка ушла — частицы пошли');
+    fx.unmountAll();
+  });
+});
+
+/* Ревью фазы 3 (Critical 1). Уход вглубь (карточка -> актёр -> другой фильм)
+   не даёт покидаемой активности ни одного события, а её DOM живёт дальше:
+   без уборки канвас каждой карточки истории оставался бы в памяти. */
+test('sweep: уход вглубь снимает слой предыдущей карточки и освобождает его буфер', () => {
+  env(({ tick, pending }) => {
+    const fx = freshFx();
+    const a = fakeCardNode(1920, 1080, true);
+    fx.mount(a, 'snow');
+    const canvasA = a.children[0];
+    assert.equal(canvasA.width, 2880, 'слой во весь экран — те самые мегабайты');
+    tick(16);
+
+    /* Lampa снимает .activity--active с покидаемой активности и ставит его
+       новой ДО того, как пошлёт 'activity':start (app.min.js, start$4). */
+    a.activity.active = false;
+    const b = fakeCardNode(1920, 1080, true);
+    fx.mount(b, 'stars');
+    assert.equal(fx.active(), 2, 'без уборки в памяти висят оба слоя');
+
+    assert.equal(fx.sweep(), 1, 'остался слой только той карточки, что на экране');
+    assert.equal(a.children.length, 0, 'канвас ушедшей карточки снят');
+    assert.equal(canvasA.width, 0, 'и буфер пикселей освобождён, а не ждёт сборщика');
+    assert.equal(canvasA.height, 0);
+    assert.equal(b.children.length, 1, 'слой активной карточки не тронут');
+
+    fx.unmountAll();
+    tick(16);
+    assert.equal(pending(), 0);
+  });
+});
+
+test('sweep: слой вне активности (кадр главной) не трогает', () => {
+  env(() => {
+    const fx = freshFx();
+    fx.mount(fakeNode(1280, 720), 'stars');
+    assert.equal(fx.sweep(), 1, 'closest не нашёл .activity — слой считается своим');
+    fx.unmountAll();
+  });
+});
+
+/* Ревью фазы 3 (Minor): drop() внутри прямого цикла сдвигает массив, и без
+   шага назад следующий слой пропускал бы кадр. */
+test('кадр: падение одного слоя не крадёт кадр у следующего', () => {
+  env(({ tick, contexts }) => {
+    const fx = freshFx();
+    const a = fakeNode(800, 400);
+    const b = fakeNode(800, 400);
+    fx.mount(a, 'snow');
+    fx.mount(b, 'stars');
+    contexts[0].clearRect = () => { throw new Error('ctx lost'); };
+    tick(16);
+    assert.equal(fx.active(), 1, 'упавший слой снят');
+    assert.equal(fx.stats().steps, 1, 'второй слой отрисован в ТОМ ЖЕ кадре');
     fx.unmountAll();
   });
 });
@@ -319,6 +483,24 @@ test('mount: повторный вызов на том же слое не пло
     assert.equal(layer.children.length, 1);
     tick(16);
     fx.unmountAll();
+  });
+});
+
+/* Ревью фазы 3 (Minor): раньше повторный mount() отдавал сырой инстанс, а
+   первый — обёртку с destroy; вызывающий не мог полагаться на вид объекта. */
+test('mount: повторный вызов отдаёт обёртку того же вида — с destroy', () => {
+  env(() => {
+    const fx = freshFx();
+    const layer = fakeNode(800, 400);
+    const first = fx.mount(layer, 'snow');
+    const again = fx.mount(layer, 'bats');
+    assert.equal(typeof again.destroy, 'function', 'вид объекта тот же, что у первого монтажа');
+    assert.equal(again.name, first.name, 'это тот же слой, а не второй пресет');
+    assert.equal(again.node, layer);
+    assert.equal(again.particles().length, first.particles().length);
+    again.destroy();
+    assert.equal(fx.active(), 0, 'destroy повторной обёртки снимает тот же слой');
+    assert.equal(layer.children.length, 0);
   });
 });
 

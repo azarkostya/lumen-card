@@ -2231,3 +2231,53 @@ test('Task 21: смена режима анимаций на открытой к
   assert.ok(log.unmount > unmountsBefore, 'прежний слой снимается на каждой смене режима');
   assert.equal(layer.hasClass('lumen-theme--christmas'), true);
 });
+
+/* ====================================================================== */
+/* Ревью фазы 3 (Critical 1): слои частиц карточек, ушедших вглубь.       */
+/* Lampa не шлёт покидаемой активности НИ ОДНОГО события, а её DOM живёт  */
+/* в истории дальше — значит канвас во весь экран (на FHD порядка 8 МБ,   */
+/* на 4K вдвое больше) висел бы в памяти у каждой карточки цепочки        */
+/* «карточка -> актёр -> другой фильм -> франшиза».                       */
+/* ====================================================================== */
+
+test('Critical 1: старт любой активности снимает слои частиц карточек, оставшихся в истории', () => {
+  const LC = freshLC();
+  let sweeps = 0;
+  LC.fx = { sweep: () => { sweeps++; }, unmount() {}, unmountAll() {} };
+
+  LC.onActivityEvent({ type: 'start', component: 'full', object: makeActivityObj('B', false, null) });
+  assert.equal(sweeps, 1, 'уход вглубь: события для покидаемой карточки нет, уборка идёт на старте новой');
+
+  LC.onActivityEvent({ type: 'start', component: 'main', object: makeActivityObj('Главная', false, null) });
+  assert.equal(sweeps, 2, 'уход с карточки на главную — тот же случай');
+  assert.deepEqual(warnLog, []);
+});
+
+test('Critical 1: уборка слоёв не роняет обработчик, если сама упала', () => {
+  const LC = freshLC();
+  LC.fx = { sweep: () => { throw new Error('bang'); }, unmount() {}, unmountAll() {} };
+  LC.onActivityEvent({ type: 'start', component: 'main', object: makeActivityObj('Главная', false, null) });
+  assert.equal(warnLog.length, 1, 'исключение записано в лог, а не всплыло наружу');
+});
+
+test('Critical 1: destroy осиротевшей карточки снимает и её слой частиц', () => {
+  const LC = freshLC();
+  const unmounted = [];
+  LC.fx = { unmount: (node) => unmounted.push(node), sweep() {}, unmountAll() {} };
+  LC.backdrops = { cancel() {} };
+  LC.reviews = { cancel() {} };
+  LC.franchise = { cancel() {} };
+
+  const fx = new FakeEl(['lumen-fx']);
+  const backdrop = new FakeEl(['lumen-backdrop'], [fx]);
+  const body = new FakeEl(['activity__body'], [backdrop]);
+  const activityEl = new FakeEl(['activity'], [body]);
+  const orphan = { title: 'A', activity: { render: () => activityEl } };
+
+  LC.active = null;
+  LC.onActivityEvent({ type: 'destroy', component: 'full', object: orphan });
+
+  assert.equal(unmounted.length, 1, 'слой частиц освобождён явно, а не ждёт самопроверки в тике');
+  assert.equal(unmounted[0], fx, 'снят именно узел .lumen-fx осиротевшей карточки');
+  assert.deepEqual(warnLog, []);
+});
