@@ -422,6 +422,24 @@
            настройку (состав рядов главной, подсказка про ключ). Замена
            откладывается на таймер — см. LC.refreshComponent. */
         try { if (LC.refreshPending) LC.refreshPending(e.component); } catch (eRefresh) {}
+        /* Task 29: переход «постер → кадр». Ставится ДО всего остального в
+           этой ветке: слой должен лечь на экран в том же кадре, в котором
+           Lampa начала строить карточку, иначе постер «догонял» бы уже
+           нарисованную карточку. Показывается только при открытии ровно той
+           карточки, что была под фокусом на главной (LC.hero.lastFocus), и
+           только в режиме полных анимаций — на слабом устройстве его
+           выключает автодетект (src/68_perf.js).
+           Уход НЕ в карточку слой снимает: перехода там не было, а если он
+           ещё бежит с прошлого открытия — доигрывать ему поверх нового
+           экрана незачем. */
+        try {
+          if (LC.transition) {
+            if (e.component === 'full') LC.transition.open(e.object);
+            else LC.transition.stop();
+          }
+        } catch (eTrans) {
+          warn('transition start failed', eTrans);
+        }
         var startRender = null;
         try {
           if (e.object && e.object.activity && typeof e.object.activity.render === 'function') startRender = e.object.activity.render();
@@ -742,6 +760,13 @@
                full_start соберёт кнопку в коллекцию сам — пересобирать её
                вручную, как у «Стоп», не нужно. */
             LC.hub.franchise(root, (e.data && e.data.movie) || {});
+            /* Task 29: замер «сколько у этого железа занимает первый кадр
+               тяжёлого экрана» — отсюда и до второго requestAnimationFrame.
+               Точка вызова последняя в обработчике намеренно: замер обязан
+               включать всю нашу работу по карточке, а не её начало. Первые
+               три карточки после старта, дальше модуль молчит; при режиме
+               анимаций, выбранном руками, не меряет вовсе (src/68_perf.js). */
+            try { if (LC.perf) LC.perf.track(); } catch (ePerf) {}
           }
         } catch (err) {
           warn('listener failed', err);
@@ -1133,6 +1158,11 @@
        (src/57_color.js), так что порядок важен только ради отмены
        незавершённого расчёта по постеру. */
     try { if (LC.accent) LC.accent.reset(); } catch (eAccentOff) {}
+    /* Task 29: выключенный плагин не имеет права держать ни отложенного
+       кадра замера, ни слоя перехода поверх экрана. Обе уборки идемпотентны
+       и при отсутствии живых ресурсов не делают ничего. */
+    try { if (LC.perf) LC.perf.stop(); } catch (ePerfOff) {}
+    try { if (LC.transition) LC.transition.stop(); } catch (eTransOff) {}
     /* Порядок обратный activate(): сперва шаблон (следующее открытие карточки
        уже штатное), затем стили и классы, последней — живая карточка. */
     restoreOriginalTemplate();

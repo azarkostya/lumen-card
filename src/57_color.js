@@ -56,6 +56,26 @@
        раз дешевле обхода оригинала (w185 — это 51 430 пикселей). */
     var SAMPLE = 16;
 
+    /* Подкраска фона (tint). Насыщенность подмешиваемого тона режется до
+       TINT_S, а его доля в фоне не превышает TINT_MIX: фон обязан остаться
+       тёмной комнатой с отсветом плаката, а не стать цветной панелью,
+       которая спорит с акцентом кнопок. TINT_STEPS — сколько раз доля
+       уменьшается, прежде чем вернуть чистый фон темы. */
+    var TINT_S = 0.28;
+    var TINT_MIX = 0.55;
+    var TINT_STEPS = 6;
+    /* Насколько подмешиваемый тон светлее фона темы. Без этого подъёма
+       подкраски не видно вовсе: фон тёплой темы — #0B0908, его светлота
+       0.037, у чёрной темы — ноль, и тон той же светлоты на глаз от фона не
+       отличается. Значение выбрано по замерам на четырёх доминантах (тёплая,
+       зелёная, синяя, розовая) в обеих темах: при 0.06 фон уходил в #0F1614
+       — различимо только рядом с эталоном, при 0.12 даёт #1E1D1B…#251B16, то
+       есть видимый отсвет плаката, оставаясь тёмной комнатой. Плата —
+       контраст самой слабой подписи (P.muted) 6.0–6.4:1 на тёплой теме и
+       7.6–7.8:1 на чёрной против 7.24 и 8.3 без подкраски; порог 4.5:1 с
+       запасом держится, и проверка ниже всё равно обязательна. */
+    var TINT_LIFT = 0.12;
+
     /* Кэш «адрес постера -> цвет»: один расчёт на фильм за сеанс. Хранится
        в памяти (не в Storage): цвет считается за миллисекунды, а место в
        localStorage нужнее кэшу отзывов. Вытеснение — FIFO по списку ключей,
@@ -65,6 +85,7 @@
     var cache = {};
     var cache_keys = [];
     var pending_count = 0;
+    var request_count = 0;
 
     function clamp(v, lo, hi) {
       if (v < lo) return lo;
@@ -234,6 +255,51 @@
       return 'rgba(' + Math.round(rgb.r) + ',' + Math.round(rgb.g) + ',' + Math.round(rgb.b) + ',0.35)';
     }
 
+    /* Линейное смешивание двух цветов в sRGB: ratio — доля второго. Для
+       подкраски фона этого достаточно: оба цвета почти одинаковой светлоты
+       (см. tint ниже), а на таких парах разница между sRGB и линейным
+       пространством меньше одного кванта байта. */
+    function mixRgb(a, b, ratio) {
+      var k = clamp(ratio, 0, 1);
+      return {
+        r: Math.round(a.r + (b.r - a.r) * k),
+        g: Math.round(a.g + (b.g - a.g) * k),
+        b: Math.round(a.b + (b.b - a.b) * k)
+      };
+    }
+
+    /* Правка пользователя 2026-09-17 (третий круг): «фон хочется чтобы был
+       больше прозрачного, а фон определялся от картинки».
+
+       Фон страницы, окрашенный доминантой постера. Берётся ОТТЕНОК плаката,
+       насыщенность режется до TINT_S (иначе фон становится цветной панелью,
+       а не тёмной комнатой с отсветом), светлота — светлота базового фона
+       темы плюс маленький подъём TINT_LIFT, и только потом получившийся тон
+       подмешивается к базовому.
+
+       Гарантия читаемости всё равно проверяется явно: guard — самый слабый
+       текст на этом фоне (подпись года под постером, P.muted), ratio — порог
+       для него. Не проходит — доля тона уменьшается шагами, и в пределе
+       возвращается чистый фон темы, а не цвет похуже.
+
+       null — красить нечем (нет доминанты или фон нечитаем). */
+    function tint(rgb, bg, guard, ratio, maxMix) {
+      if (!rgb) return null;
+      var base = toRgb(bg);
+      if (!base) return null;
+      var src = rgbToHsl(rgb);
+      var baseHsl = rgbToHsl(base);
+      var toned = hslToRgb({ h: src.h, s: Math.min(src.s, TINT_S), l: clamp(baseHsl.l + TINT_LIFT, 0, 1) });
+      var mix = typeof maxMix === 'number' ? maxMix : TINT_MIX;
+      var limit = typeof ratio === 'number' ? ratio : MIN_RATIO;
+      for (var i = 0; i < TINT_STEPS; i++) {
+        var out = mixRgb(base, toned, mix);
+        if (!guard || contrast(guard, out) >= limit) return hex(out);
+        mix *= 0.6;
+      }
+      return hex(base);
+    }
+
     /* Приводит цвет постера к рамке акцента и поднимает светлоту, пока не
        выполнятся ОБА условия читаемости: акцент на фоне страницы (он служит
        текстом — метка «КИНОПОИСК», статус героя) и тёмный текст на заливке
@@ -325,6 +391,7 @@
       var img = new Image();
       var live = true;
       pending_count++;
+      request_count++;
 
       function release() {
         live = false;
@@ -369,9 +436,16 @@
       ring: ringOf,
       glow: glow,
       tokens: tokens,
+      mixRgb: mixRgb,
+      tint: tint,
       fromImage: fromImage,
       cacheSize: function () { return cache_keys.length; },
-      pending: function () { return pending_count; }
+      pending: function () { return pending_count; },
+      /* Сколько раз за сеанс дело дошло до расчёта цвета по картинке (кэш
+         сюда не считается). Нужен живой проверке: быстрый проход по ряду
+         обязан давать ноль — акцент считается только после паузы фокуса
+         (src/48_hero.js). */
+      requests: function () { return request_count; }
     };
   })();
 
@@ -398,6 +472,10 @@
     /* Четвёрка токенов текущего фильма либо null («акцент из настроек»).
        Читается функцией theme() в src/30_css.js на каждой сборке CSS. */
     var override = null;
+    /* Доминанта постера текущего фильма — из неё красится фон страницы
+       (tint ниже). Живёт отдельно от акцента: акцент мог не собраться, а
+       фону доминанты достаточно. */
+    var source = null;
     var task = null;
 
     /* Переключатели Lampa пишут строки 'true'/'false' (план 0.2), поэтому
@@ -439,12 +517,21 @@
       }
     }
 
-    /* Единственная точка смены акцента. Пересборка CSS — только когда цвет
-       действительно другой: лишний переразбор 81 КБ стилей на ТВ заметен. */
-    function apply(next) {
-      if (!next && !override) return;
-      if (next && override && next.color === override.color) return;
+    function sameRgb(a, b) {
+      if (!a || !b) return !a && !b;
+      return a.r === b.r && a.g === b.g && a.b === b.b;
+    }
+
+    /* Единственная точка смены акцента и подкраски фона. Пересборка CSS —
+       только когда что-то действительно другое: лишний переразбор 81 КБ
+       стилей на ТВ заметен. Доминанта сравнивается отдельно от акцента: два
+       разных постера могут дать один и тот же акцент (он загнан в узкую
+       рамку светлоты и насыщенности) и при этом разный тон фона. */
+    function apply(next, rgb) {
+      var sameTokens = next && override ? next.color === override.color : (!next && !override);
+      if (sameTokens && sameRgb(source, rgb || null)) return;
       override = next || null;
+      source = rgb || null;
       /* У выключенного плагина своего <style> в head нет (LC.removeCss), и
          пересборка вернула бы его на место. Переопределение при этом уже
          снято — включат обратно, и карточка нарисуется акцентом настроек. */
@@ -458,7 +545,7 @@
 
     function reset() {
       cancel();
-      apply(null);
+      apply(null, null);
     }
 
     /* Считает и применяет акцент фильма. Пока новый цвет не посчитан,
@@ -466,19 +553,43 @@
        моргает серединным сбросом на акцент настроек. */
     function applyFor(movie) {
       cancel();
-      if (!on()) { apply(null); return; }
+      if (!on()) { apply(null, null); return; }
       var path = movie && movie.poster_path;
-      if (!path) { apply(null); return; }
+      if (!path) { apply(null, null); return; }
       var url = posterUrl(path);
-      if (!url) { apply(null); return; }
+      if (!url) { apply(null, null); return; }
       task = LC.color.fromImage(url, function (rgb) {
         task = null;
-        apply(rgb ? LC.color.tokens(rgb, bg()) : null);
+        /* Доминанта сохраняется даже тогда, когда акцент из неё собрать не
+           удалось (цвет не вытянул контраст к пределу светлоты): фону она
+           годится — он красится тоном, а не самим цветом плаката. */
+        apply(rgb ? LC.color.tokens(rgb, bg()) : null, rgb || null);
       });
+    }
+
+    /* Правка пользователя 2026-09-17 (третий круг): фон страницы получает
+       оттенок постера. Цвет — та же доминанта, что дала акцент; второго
+       расчёта нет. Зовётся из palette() (src/30_css.js) на каждой сборке
+       CSS, поэтому дешёвая: чистая арифметика по сохранённому rgb.
+
+       bg — фон темы, guard — самый слабый текст на нём (подпись года под
+       постером), ratio — порог его читаемости. В lite/off подкраски нет
+       вовсе: на слабом ТВ это лишняя работа композитора, а «фон другого
+       оттенка» там ничего не стоит показывать плавно. */
+    function tint(bg, guard, ratio) {
+      if (!source) return null;
+      try {
+        if (LC.motionMode() !== 'full') return null;
+      } catch (e) {
+        return null;
+      }
+      return LC.color.tint(source, bg, guard, ratio);
     }
 
     return {
       current: function () { return override; },
+      dominant: function () { return source; },
+      tint: tint,
       applyFor: applyFor,
       reset: reset,
       /* Уход с карточки: незавершённая картинка отменяется, акцент

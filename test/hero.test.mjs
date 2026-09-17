@@ -235,12 +235,23 @@ function makeEnv(extra) {
   return env;
 }
 
+/* Task 29: карточка ряда как в разметке Lampa — с <img class="card__img">
+   внутри и собственным прямоугольником: герой снимает с неё источник для
+   перехода «постер → кадр» (lastFocus). */
+function makeCard(id, title, opts) {
+  const img = new FakeEl(['card__img']);
+  img.attr('src', opts.poster);
+  const card = new FakeEl(['card', 'selector'], [new FakeEl(['card__view'], [img])]);
+  card.getBoundingClientRect = () => opts.rect;
+  return card;
+}
+
 /* Главная: .activity -> .activity__body -> ... -> .scroll__body -> .items-line -> .card */
 function makeMain() {
-  const card1 = new FakeEl(['card', 'selector']);
-  card1.card_data = { id: 11, title: 'Первый', backdrop_path: '/b1.jpg', overview: 'о первом', release_date: '2024-01-01', vote_average: 7.2 };
-  const card2 = new FakeEl(['card', 'selector']);
-  card2.card_data = { id: 22, title: 'Второй', backdrop_path: '/b2.jpg', overview: 'о втором', release_date: '2025-02-02', vote_average: 6.4 };
+  const card1 = makeCard(11, 'Первый', { poster: 'https://img/t/p/w300/p1.jpg', rect: { left: 100, top: 200, width: 180, height: 270 } });
+  card1.card_data = { id: 11, title: 'Первый', backdrop_path: '/b1.jpg', poster_path: '/p1.jpg', overview: 'о первом', release_date: '2024-01-01', vote_average: 7.2 };
+  const card2 = makeCard(22, 'Второй', { poster: 'https://img/t/p/w300/p2.jpg', rect: { left: 300, top: 200, width: 180, height: 270 } });
+  card2.card_data = { id: 22, title: 'Второй', backdrop_path: '/b2.jpg', poster_path: '/p2.jpg', overview: 'о втором', release_date: '2025-02-02', vote_average: 6.4 };
   const line0 = new FakeEl(['items-line'], [card1]);
   const line1 = new FakeEl(['items-line'], [card2]);
   const scrollBody = new FakeEl(['scroll__body'], [line0, line1]);
@@ -570,7 +581,10 @@ test('режим off: текст меняется без подмены и БЕ�
   assert.equal(node.find('.lumen-hero__text').hasClass('is-swapping'), false);
   assert.equal(node.find('.lumen-hero__title').text(), 'Первый');
   assert.equal(env.images.length, 0, 'ни одной предзагрузки кадра');
-  assert.equal(env.timers.filter((t) => !t.done).length, 0, 'и ни одного таймаута загрузки');
+  /* Task 29: единственный живой таймер — трёхсекундный расчёт акцента; он от
+     режима анимаций не зависит (цвет кнопок — не движение). Таймаута
+     загрузки кадра при этом нет: кадр в 'off' не запрашивается вовсе. */
+  assert.deepEqual(env.timers.filter((t) => !t.done).map((t) => t.ms), [3000], 'ни одного таймаута загрузки');
 
   /* Текст при этом живой: детали запрашиваются и дорисовываются. */
   assert.equal(env.requests.length, 1);
@@ -687,4 +701,129 @@ test('пустой ответ деталей равносилен ошибке �
   env.requests[0].ok(null);
   env.advance(200);
   assert.equal(node.hasClass('lumen-hero--pending'), false);
+});
+
+/* ====================================================================== */
+/* Task 29: источник перехода «постер → кадр» и отложенный акцент          */
+/* ====================================================================== */
+
+test('lastFocus: до фокуса источника нет', () => {
+  const env = makeEnv();
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  assert.equal(env.hero.lastFocus(), null);
+});
+
+test('lastFocus: фокус запоминает id, адрес уже отрисованного постера и прямоугольник', () => {
+  const env = makeEnv();
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  const obs = env.observers[0];
+  main.card1.addClass('focus');
+  obs.fn([{ target: main.card1 }]);
+  assert.deepEqual(env.hero.lastFocus(), {
+    id: 11,
+    poster: 'https://img/t/p/w300/p1.jpg',
+    rect: { left: 100, top: 200, width: 180, height: 270 }
+  });
+});
+
+test('lastFocus: обновляется сразу, не дожидаясь смены героя', () => {
+  const env = makeEnv();
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  const obs = env.observers[0];
+  main.card1.addClass('focus');
+  obs.fn([{ target: main.card1 }]);
+  env.advance(50);
+  main.card2.addClass('focus');
+  obs.fn([{ target: main.card2 }]);
+  assert.equal(env.hero.lastFocus().id, 22, 'до истечения 350 мс герой ещё первый, а источник — уже второй');
+  assert.equal(env.images.length, 0);
+});
+
+test('lastFocus: карточка без постера источником не становится', () => {
+  const env = makeEnv();
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  const obs = env.observers[0];
+  main.card1.addClass('focus');
+  obs.fn([{ target: main.card1 }]);
+  const bare = new FakeEl(['card', 'focus']);
+  bare.card_data = { id: 33, title: 'Голый' };
+  main.line0._children.push(bare);
+  bare._parentEl = main.line0;
+  obs.fn([{ target: bare }]);
+  assert.equal(env.hero.lastFocus(), null);
+});
+
+test('lastFocus: снятие героя обнуляет источник', () => {
+  const env = makeEnv();
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  const obs = env.observers[0];
+  main.card1.addClass('focus');
+  obs.fn([{ target: main.card1 }]);
+  env.hero.unmount();
+  assert.equal(env.hero.lastFocus(), null);
+});
+
+function accentEnv() {
+  const calls = [];
+  const env = makeEnv({ accent: { applyFor: (card) => calls.push(card && card.id) } });
+  env.calls = calls;
+  return env;
+}
+
+test('акцент: считается только после трёх секунд покоя фокуса', () => {
+  const env = accentEnv();
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  const obs = env.observers[0];
+  main.card1.addClass('focus');
+  obs.fn([{ target: main.card1 }]);
+  env.advance(2900);
+  assert.deepEqual(env.calls, [], 'до 3 с — ни одного расчёта');
+  env.advance(200);
+  assert.deepEqual(env.calls, [11]);
+});
+
+test('акцент: быстрый проход по ряду не даёт ни одного расчёта', () => {
+  const env = accentEnv();
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  const obs = env.observers[0];
+  for (let i = 0; i < 10; i++) {
+    const card = i % 2 ? main.card2 : main.card1;
+    card.addClass('focus');
+    obs.fn([{ target: card }]);
+    env.advance(200);
+  }
+  assert.deepEqual(env.calls, [], 'фокус нигде не стоял 3 с');
+});
+
+test('акцент: считается по карточке, на которой остановились, а не по покинутой', () => {
+  const env = accentEnv();
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  const obs = env.observers[0];
+  main.card1.addClass('focus');
+  obs.fn([{ target: main.card1 }]);
+  env.advance(1000);
+  main.card2.addClass('focus');
+  obs.fn([{ target: main.card2 }]);
+  env.advance(3100);
+  assert.deepEqual(env.calls, [22]);
+});
+
+test('акцент: снятие героя гасит отложенный расчёт', () => {
+  const env = accentEnv();
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  const obs = env.observers[0];
+  main.card1.addClass('focus');
+  obs.fn([{ target: main.card1 }]);
+  env.hero.unmount();
+  env.advance(5000);
+  assert.deepEqual(env.calls, []);
 });

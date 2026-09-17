@@ -29,15 +29,23 @@
     }
 
     /* stored — сырое значение параметра lumen_motion ('auto'|'full'|'lite'|'off'),
-       platform — {tizen:bool, webos:bool}. Не 'auto' -> как есть; 'auto' на
-       tizen/webos -> 'lite', иначе 'full'. Любое незнакомое значение
-       (undefined/null/''/мусор — старый профиль без ключа или битое значение в
-       Storage) считается как 'auto', а не возвращается как есть. */
-    function motionModeFor(stored, platform) {
+       platform — {tizen:bool, webos:bool}, auto — вердикт автодетекта
+       ('lite' | 'full' | null, src/68_perf.js). Не 'auto' -> как есть;
+       'auto' на tizen/webos -> 'lite', иначе решает вердикт замеров. Любое
+       незнакомое значение stored (undefined/null/''/мусор — старый профиль без
+       ключа или битое значение в Storage) считается как 'auto', а не
+       возвращается как есть.
+
+       Task 29 (фаза 3): вердикт умеет только ПОНИЖАТЬ. 'full' от автодетекта
+       означает «понижать не за что», а не «поднять выше платформенного lite»:
+       на Tizen/webOS полные анимации остаются выключенными, даже если замеры
+       там вышли быстрыми (там их и не делают — LC.perf.shouldMeasure). */
+    function motionModeFor(stored, platform, auto) {
       if (stored !== 'full' && stored !== 'lite' && stored !== 'off') stored = 'auto';
       if (stored !== 'auto') return stored;
       platform = platform || {};
       if (platform.tizen || platform.webos) return 'lite';
+      if (auto === 'lite') return 'lite';
       return 'full';
     }
 
@@ -95,6 +103,11 @@
          FONT_SETS (src/30_css.js). */
       { name: 'lumen_font', type: 'select', values: ['golos', 'onest', 'manrope', 'inter', 'plex'], vprefix: 'lumen_card_font_', 'default': 'golos', label: 'lumen_card_font_name', descr: 'lumen_card_font_descr' },
       { name: 'lumen_motion', type: 'select', values: ['auto', 'full', 'lite', 'off'], vprefix: 'lumen_card_motion_', 'default': 'auto', label: 'lumen_card_motion', descr: 'lumen_card_motion_descr' },
+      /* Task 29 (фаза 3): переход «постер → кадр» при открытии карточки.
+         Место — сразу под режимом анимаций: переход ему подчиняется (в
+         «Лёгких» и «Выкл» его нет вовсе), и выключать его отдельно имеет
+         смысл только тому, кто полные анимации оставил. */
+      { name: 'lumen_transition', type: 'trigger', 'default': true, label: 'lumen_transition_name', descr: 'lumen_transition_descr' },
 
       { name: 'lumen_group_backdrop', type: 'title', label: 'lumen_card_group_backdrop' },
       { name: 'lumen_slideshow', type: 'trigger', 'default': true, label: 'lumen_card_slideshow_name' },
@@ -193,7 +206,15 @@
         platform.webos = !!Lampa.Platform.is('webos');
       }
     } catch (e2) { }
-    return LC.prefs.motionModeFor(stored, platform);
+    /* Task 29: вердикт автодетекта слабого ТВ. Модуль 68_perf.js держит его
+       рядом с собой (Storage читается один раз за сессию), поэтому вызов на
+       каждой сборке CSS не стоит ничего. Модуля может не быть только в
+       тестах, где 81_prefs.js грузится в одиночку. */
+    var auto = null;
+    try {
+      if (LC.perf && typeof LC.perf.mode === 'function') auto = LC.perf.mode();
+    } catch (e3) { }
+    return LC.prefs.motionModeFor(stored, platform, auto);
   };
 
   /* В браузере "module" не определён — ветка не выполняется. Метка module.lumen

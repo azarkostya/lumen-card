@@ -53,9 +53,22 @@
        умолчанию — вид карточки без спроса не меняем. */
     lumen_accent_auto_name: { ru: 'Акцент от постера', en: 'Accent from poster', uk: 'Акцент від постера' },
     lumen_accent_auto_descr: {
-      ru: 'Цвет кнопок, колец фокуса и подсветок берётся из постера открытого фильма. Тёмный цвет плагин высветляет, чтобы подписи читались; если постер не отдаёт пиксели, остаётся акцент, выбранный выше.',
-      en: 'The colour of buttons, focus rings and highlights is taken from the poster of the open film. A dark colour is lightened so that labels stay readable; if the poster does not give up its pixels, the accent chosen above stays in place.',
-      uk: 'Колір кнопок, кілець фокуса та підсвічувань береться з постера відкритого фільму. Темний колір плагін висвітлює, щоб підписи читалися; якщо постер не віддає пікселі, залишається акцент, вибраний вище.'
+      ru: 'Цвет кнопок, колец фокуса и подсветок берётся из постера фильма, а фон страницы получает его оттенок. На главной цвет меняется, когда фокус постоял на карточке 3 секунды, — при быстром листании ничего не считается. Тёмный цвет плагин высветляет, чтобы подписи читались; если постер не отдаёт пиксели, остаётся акцент, выбранный выше.',
+      en: 'The colour of buttons, focus rings and highlights is taken from the film poster, and the page background picks up its tint. On the home screen the colour changes once focus has rested on a card for 3 seconds, so fast browsing computes nothing. A dark colour is lightened so that labels stay readable; if the poster does not give up its pixels, the accent chosen above stays in place.',
+      uk: 'Колір кнопок, кілець фокуса та підсвічувань береться з постера фільму, а тло сторінки отримує його відтінок. На головній колір змінюється, коли фокус постояв на картці 3 секунди, — при швидкому гортанні нічого не рахується. Темний колір плагін висвітлює, щоб підписи читалися; якщо постер не віддає пікселі, залишається акцент, вибраний вище.'
+    },
+    /* Task 29 (фаза 3): переход «постер → кадр» и уведомление автодетекта
+       слабого ТВ. */
+    lumen_transition_name: { ru: 'Переход от постера', en: 'Poster transition', uk: 'Перехід від постера' },
+    lumen_transition_descr: {
+      ru: 'При открытии карточки постер, на котором стоял фокус, разворачивается во весь экран и растворяется в кадре фильма. Работает только при полных анимациях; открытие карточки не задерживает.',
+      en: 'When a card opens, the poster that had focus expands to full screen and dissolves into the film still. Works only with full animations and never delays the card.',
+      uk: 'Під час відкриття картки постер, на якому стояв фокус, розгортається на весь екран і розчиняється в кадрі фільму. Працює лише за повних анімацій і не затримує відкриття картки.'
+    },
+    lumen_motion_auto_noty: {
+      ru: 'Lumen Card: включены лёгкие анимации — устройство не успевает рисовать полные',
+      en: 'Lumen Card: light animations enabled — this device cannot keep up with the full ones',
+      uk: 'Lumen Card: увімкнено легкі анімації — пристрій не встигає малювати повні'
     },
     /* Фаза 3: тема — цвет тёмного фона и подложек. */
     lumen_theme_name: { ru: 'Тема', en: 'Theme', uk: 'Тема' },
@@ -613,6 +626,11 @@
       try { if (LC.applyRowsPref) LC.applyRowsPref(); } catch (eUrl) {}
       return true;
     }
+    /* Task 29 (фаза 3): переход «постер → кадр» читается в момент открытия
+       карточки (src/67_transition.js), поэтому применять на лету нечего —
+       ни стилей, ни узлов он на экране не держит. Ветка нужна, чтобы имя без
+       префикса lumen_card_ не ушло дальше как чужое. */
+    if (name === 'lumen_transition') return true;
     if (name.indexOf(PLUGIN + '_') !== 0) return false;
     /* Ревью Task 8 (п.3/ревью 2 п.4): от этих двух настроек таблица стилей не
        зависит вовсе — классы, узлы и CSS-переменную подписи кнопки ставит

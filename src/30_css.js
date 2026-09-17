@@ -135,6 +135,23 @@
        «хороший» — точка статуса и отметка просмотренной серии. */
     p.good = C.good;
     p.spice = C.spice;
+    /* Правка пользователя 2026-09-17 (третий круг): «фон определялся от
+       картинки». Фон темы получает оттенок постера текущего фильма ДО того,
+       как из него посчитаны производные (bgRgb, plate, glass, badge) — тогда
+       тон подхватывают разом все подложки плагина и вуали героя, и ни одному
+       правилу ниже не нужно знать, откуда взялся цвет.
+       Сторож читаемости — P.muted, самый слабый текст на этом фоне (подпись
+       года под постером ряда): LC.accent.tint уменьшает подмешивание, пока
+       контраст не вернётся к порогу (src/57_color.js). Подкраска выключена
+       по умолчанию (lumen_accent_auto) и не работает в lite/off. */
+    try {
+      if (LC.accent && typeof LC.accent.tint === 'function') {
+        var tinted = LC.accent.tint(p.bg, p.muted, 4.5);
+        if (tinted) p.bg = tinted;
+      }
+    } catch (eTint) {
+      warn('bg tint failed', eTint);
+    }
     p.bgRgb = hexToRgb(p.bg);
     p.textRgb = hexToRgb(p.text);
     p.panelRgb = hexToRgb(p.panel);
@@ -1397,6 +1414,17 @@
        эта правка не видна вовсе. */
     var heroCut = heroCutEm(scale);
     var heroCompactCut = heroCompactCutEm(scale);
+    /* Правка пользователя 2026-09-17 (третий круг): фон под рядами — это фон
+       самой активности главной, и он тоже берёт оттенок постера (P.bg уже
+       подкрашен в palette()). Своего фона у .activity нет, за ней чёрный
+       body, поэтому цвет ставится здесь — под кадром героя (он absolute,
+       первый ребёнок того же узла) и под рядами.
+       Плавность — только в режиме полных анимаций и только у ЦВЕТА: градиенты
+       вуалей CSS-переходом не интерполируются, а background-color — да, и
+       именно он занимает всю площадь под рядами. Класс режима на body ставит
+       LC.applyMotionMode. */
+    css.push('.lumen-main{background-color:' + P.bg + '}');
+    css.push('body.lumen-motion-full .lumen-main{-webkit-transition:background-color .6s ease-in-out;transition:background-color .6s ease-in-out}');
     css.push('.lumen-hero{position:absolute;top:-4em;left:0;right:0;height:-webkit-calc(100vh - ' + round2(heroCut + HERO_AIR) + 'em);height:calc(100vh - ' + round2(heroCut + HERO_AIR) + 'em);overflow:hidden;pointer-events:none}');
     css.push('.lumen-hero.lumen-hero--compact{height:-webkit-calc(72vh - ' + round2(heroCompactCut + HERO_AIR) + 'em);height:calc(72vh - ' + round2(heroCompactCut + HERO_AIR) + 'em)}');
     css.push('.lumen-hero.lumen-motion-full{-webkit-transition:height .42s cubic-bezier(.2,.8,.2,1);transition:height .42s cubic-bezier(.2,.8,.2,1)}');
@@ -1423,7 +1451,17 @@
        высоты картинка видна на 70 % (вуаль .3), к низу — фон целиком.
        Нового слоя ради этого не заводим: стопы правятся у той же вуали,
        которую композитор уже рисует. */
-    css.push('.lumen-hero .lumen-hero__veil--b{background:-webkit-linear-gradient(bottom,' + P.bg + ' 0%,rgba(' + P.bgRgb + ',.86) 14%,rgba(' + P.bgRgb + ',.3) 50%,rgba(' + P.bgRgb + ',0) 88%);background:linear-gradient(0deg,' + P.bg + ' 0%,rgba(' + P.bgRgb + ',.86) 14%,rgba(' + P.bgRgb + ',.3) 50%,rgba(' + P.bgRgb + ',0) 88%)}');
+    /* Правка пользователя 2026-09-17 (третий круг): «фон хочется чтобы был
+       больше прозрачного». Ослаблены СРЕДНИЕ стопы: на 14 % высоты вуаль
+       .62 вместо .86, на половине — .18 вместо .3. Картинка читается заметно
+       ниже, чем раньше.
+       Нижний стоп при этом остался полностью непрозрачным, и это проверено
+       живьём (снимок главной, 2026-09-17): кадр героя обрезан по своей
+       высоте (overflow:hidden), ниже кромки картинки нет вовсе, поэтому
+       полупрозрачный нижний стоп давал на стыке с рядами видимую ступеньку —
+       7 % кадра резко обрывались в фон. Прозрачность имеет смысл там, где
+       под вуалью ещё есть что показывать, а не на самой границе. */
+    css.push('.lumen-hero .lumen-hero__veil--b{background:-webkit-linear-gradient(bottom,' + P.bg + ' 0%,rgba(' + P.bgRgb + ',.62) 14%,rgba(' + P.bgRgb + ',.18) 50%,rgba(' + P.bgRgb + ',0) 88%);background:linear-gradient(0deg,' + P.bg + ' 0%,rgba(' + P.bgRgb + ',.62) 14%,rgba(' + P.bgRgb + ',.18) 50%,rgba(' + P.bgRgb + ',0) 88%)}');
 
     /* Правка пользователя 2026-09-17 (второй круг, п.1): «а может текст вниз
        спустить, чтобы не перекрывало картинку?». Блок прижат к НИЖНЕЙ кромке
@@ -1830,6 +1868,23 @@
     /* Коллаж плитки хаба: плашка занимает весь прямоугольник плитки, поэтому
        ей достаточно скруглений её собственного контейнера. */
     css.push('.lumen-hub .lumen-tile__collage.lumen-skeleton{border-radius:.53em}');
+
+    /* --- Task 29: слой перехода «постер → кадр» ---
+       Только раскладка: длительности и конечная геометрия — инлайном из
+       src/67_transition.js (иначе одно и то же число жило бы в двух местах).
+       pointer-events:none и ни одного слушателя — слой не может ни отобрать
+       фокус, ни съесть нажатие пульта. z-index выше всего, что рисует плагин
+       на главной, но ниже модалов Lampa (у них 1000+).
+       Слой живёт максимум 700 мс и снимается таймером, поэтому «оставить
+       экран накрытым» он не может даже при ошибке перехода. */
+    css.push('.lumen-overlay{position:fixed;top:0;left:0;right:0;bottom:0;z-index:90;pointer-events:none;overflow:hidden}');
+    css.push('.lumen-overlay .lumen-overlay__img{position:absolute;-webkit-background-size:cover;background-size:cover;background-position:center;background-repeat:no-repeat;border-radius:.31em;-webkit-transform-origin:center center;transform-origin:center center;will-change:transform,opacity}');
+    /* На бегу скругление уходит: постер превращается в кадр во весь экран, а
+       у кадра углов нет. Снимается сразу, а не плавно: инлайновый transition
+       перечисляет только transform и opacity, и добавлять в него третье
+       свойство ради полутора пикселей на углу — лишняя работа композитору.
+       В первом же кадре разгона углы уезжают за пределы экрана. */
+    css.push('.lumen-overlay .lumen-overlay__img.is-run{border-radius:0}');
 
     /* Пункт меню «Подборки»: штатные иконки меню Lampa — 1.5em, а наш набор
        отдаёт svg в 1em (src/20_icons.js), и пункт выглядел мельче соседей. */

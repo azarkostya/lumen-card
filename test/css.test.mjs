@@ -152,7 +152,7 @@ test('buildCss: .lumen-title--long содержит display:-webkit-box и -webk
    в собственный узел корня активности, поэтому у них появились свои корни —
    .lumen-moods (и признак раскладки .lumen-moods-on на том же корне) и
    .lumen-mood-chip. Оба класса создаёт плагин, чужой разметки под ними нет. */
-const ALLOWED_ROOTS = ['.lumen-card', '.lumen-backdrop', '.lumen-descr-row', '.lumen-review-modal', '.lumen-hub', '.lumen-grid', '.lumen-menu-hub', '.lumen-hero', '.lumen-main', '.lumen-moods', '.lumen-mood-chip', '.lumen-skeleton', '.full-start__background', '.full-start-new', 'body'];
+const ALLOWED_ROOTS = ['.lumen-card', '.lumen-backdrop', '.lumen-descr-row', '.lumen-review-modal', '.lumen-hub', '.lumen-grid', '.lumen-menu-hub', '.lumen-hero', '.lumen-main', '.lumen-moods', '.lumen-mood-chip', '.lumen-skeleton', '.lumen-overlay', '.full-start__background', '.full-start-new', 'body'];
 
 /* Ревью Task 5a (замечание, зафиксировано в Task 5b): проверка была по
    sel.indexOf(root) === 0 без учёта границы селектора — так
@@ -166,7 +166,7 @@ const ALLOWED_ROOTS = ['.lumen-card', '.lumen-backdrop', '.lumen-descr-row', '.l
    между корнем и модификатором, но это className плагин создаёт сам (его
    не бывает без нашего DOM) — поэтому '_'/'-' сразу после корня для них
    тоже безопасная граница, в отличие от чужих классов Lampa. */
-var OWN_NAMESPACE_ROOTS = ['.lumen-card', '.lumen-backdrop', '.lumen-descr-row', '.lumen-review-modal', '.lumen-hub', '.lumen-grid', '.lumen-menu-hub', '.lumen-hero', '.lumen-main', '.lumen-moods', '.lumen-mood-chip', '.lumen-skeleton'];
+var OWN_NAMESPACE_ROOTS = ['.lumen-card', '.lumen-backdrop', '.lumen-descr-row', '.lumen-review-modal', '.lumen-hub', '.lumen-grid', '.lumen-menu-hub', '.lumen-hero', '.lumen-main', '.lumen-moods', '.lumen-mood-chip', '.lumen-skeleton', '.lumen-overlay'];
 
 function startsWithRoot(sel, root) {
   if (sel.indexOf(root) !== 0) return false;
@@ -1556,9 +1556,16 @@ test('раскладка героя: кадр, полоса чипов, текс
 
 /* Правка пользователя 2026-09-17 (второй круг, п.2): «условно с середины
    картинки сделаем полупрозрачный, в середине 70 %, до 0 % в конце». */
+/* Правка пользователя 2026-09-17 (третий круг): «фон хочется чтобы был
+   больше прозрачного» — стопы ослаблены ещё раз, и нижний перестал быть
+   сплошным. */
 test('правка: кадр героя растворяется в фон с середины, а не обрывается', () => {
   const veil = findDecl(css, (sel) => sel === '.lumen-hero .lumen-hero__veil--b');
-  assert.ok(veil.indexOf(',.3) 50%') !== -1, 'на половине высоты картинка не на 70 %: ' + veil);
+  assert.ok(veil.indexOf(',.18) 50%') !== -1, 'на половине высоты картинка не на 82 %: ' + veil);
+  assert.ok(veil.indexOf(',.62) 14%') !== -1, 'средний стоп не ослаблен: ' + veil);
+  /* Нижний стоп сплошной намеренно: ниже кромки кадра картинки нет вовсе, и
+     полупрозрачность там давала бы ступеньку на стыке с рядами. */
+  assert.ok(/linear-gradient\((bottom|0deg),#/.test(veil), 'нижний стоп обязан быть сплошным: ' + veil);
   assert.ok(veil.indexOf(',0) 88%') !== -1, 'затухание не доходит почти до верха кадра: ' + veil);
   assert.ok(veil.indexOf('-webkit-linear-gradient(bottom,') !== -1, 'старым webkit-движкам нужен префиксный градиент');
   /* Лишнего слоя ради затухания не завели: вуалей по-прежнему две. */
@@ -1861,17 +1868,34 @@ test('Task 18: сдвигается область прокрутки рядов
   /* Правка 2026-09-17 (второй круг): под .lumen-main добавилась полоса чипов
      настроения — её место зависит от размера кадра (прижата к его низу),
      поэтому правило и стоит под корнем главной. */
+  /* Правка 2026-09-17 (третий круг): у самого корня главной появился фон —
+     он подкрашивается оттенком постера (правило `.lumen-main` без потомков и
+     его переход в полном режиме анимаций). */
   const offenders = ruleSelectors(css).filter((sel) => sel.indexOf('.lumen-main') === 0 &&
+    sel !== '.lumen-main' &&
     sel.indexOf('layer--wheight') === -1 &&
     sel.indexOf('.lumen-badge') === -1 && sel.indexOf('.lumen-moods') === -1 && sel.indexOf('.lumen-mood-chip') === -1 &&
     sel.indexOf('.card') === -1 && sel.indexOf('.items-line') === -1);
-  assert.deepEqual(offenders, [], 'под .lumen-main только область прокрутки, карточки рядов, метки, чипы настроения и сами ряды');
+  assert.deepEqual(offenders, [], 'под .lumen-main только фон корня, область прокрутки, карточки рядов, метки, чипы настроения и сами ряды');
   assert.equal(ruleSelectors(css).filter((sel) => sel.indexOf('.lumen-main .scroll--horizontal') === 0).length, 0,
     'горизонтальные скроллы рядов не трогаем');
 });
 
 /* Долг фазы 2: ряды главной шли штатной карточкой Lampa 290×563, из-за чего
    герой был виден на ~36 % экрана вместо 58 % дизайна. */
+/* Правка пользователя 2026-09-17 (третий круг): «фон определялся от
+   картинки». Фон корня главной — тот же P.bg, что у всех подложек, поэтому
+   подкраска доходит до него без отдельного механизма. */
+test('правка: у корня главной есть фон, и он плавный только в полном режиме', () => {
+  const main = findDecl(css, (sel) => sel === '.lumen-main');
+  assert.equal(main, 'background-color:#0B0908', 'фон корня — цвет темы: ' + main);
+  const smooth = findDecl(css, (sel) => sel === 'body.lumen-motion-full .lumen-main');
+  assert.ok(/transition:background-color \.6s ease-in-out/.test(smooth), 'плавная смена цвета: ' + smooth);
+  assert.ok(/-webkit-transition:background-color/.test(smooth), 'старым webkit-движкам нужен префикс: ' + smooth);
+  /* В lite/off правила перехода нет вовсе — цвет меняется мгновенно. */
+  assert.equal(ruleSelectors(css).filter((sel) => /lumen-motion-(lite|off) \.lumen-main$/.test(sel)).length, 0);
+});
+
 test('фаза 3: карточка ряда главной — дизайнерские 230×345, подписи §0.4', () => {
   const card = findDecl(css, (sel) => sel === '.lumen-main .card');
   assert.equal(card, 'width:10.08em', '230 px FHD; высоту даёт штатный padding-bottom:150 % у .card__view');

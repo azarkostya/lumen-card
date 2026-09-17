@@ -453,6 +453,23 @@ if (Object.prototype.hasOwnProperty.call(base, k)) p[k] = base[k];
 
 p.good = C.good;
 p.spice = C.spice;
+
+
+
+
+
+
+
+
+
+try {
+if (LC.accent && typeof LC.accent.tint === 'function') {
+var tinted = LC.accent.tint(p.bg, p.muted, 4.5);
+if (tinted) p.bg = tinted;
+}
+} catch (eTint) {
+warn('bg tint failed', eTint);
+}
 p.bgRgb = hexToRgb(p.bg);
 p.textRgb = hexToRgb(p.text);
 p.panelRgb = hexToRgb(p.panel);
@@ -1715,6 +1732,17 @@ css.push('.lumen-grid .lumen-grid__hide{margin-right:.79em}');
 
 var heroCut = heroCutEm(scale);
 var heroCompactCut = heroCompactCutEm(scale);
+
+
+
+
+
+
+
+
+
+css.push('.lumen-main{background-color:' + P.bg + '}');
+css.push('body.lumen-motion-full .lumen-main{-webkit-transition:background-color .6s ease-in-out;transition:background-color .6s ease-in-out}');
 css.push('.lumen-hero{position:absolute;top:-4em;left:0;right:0;height:-webkit-calc(100vh - ' + round2(heroCut + HERO_AIR) + 'em);height:calc(100vh - ' + round2(heroCut + HERO_AIR) + 'em);overflow:hidden;pointer-events:none}');
 css.push('.lumen-hero.lumen-hero--compact{height:-webkit-calc(72vh - ' + round2(heroCompactCut + HERO_AIR) + 'em);height:calc(72vh - ' + round2(heroCompactCut + HERO_AIR) + 'em)}');
 css.push('.lumen-hero.lumen-motion-full{-webkit-transition:height .42s cubic-bezier(.2,.8,.2,1);transition:height .42s cubic-bezier(.2,.8,.2,1)}');
@@ -1741,7 +1769,17 @@ css.push('.lumen-hero .lumen-hero__veil--l{background:-webkit-linear-gradient(le
 
 
 
-css.push('.lumen-hero .lumen-hero__veil--b{background:-webkit-linear-gradient(bottom,' + P.bg + ' 0%,rgba(' + P.bgRgb + ',.86) 14%,rgba(' + P.bgRgb + ',.3) 50%,rgba(' + P.bgRgb + ',0) 88%);background:linear-gradient(0deg,' + P.bg + ' 0%,rgba(' + P.bgRgb + ',.86) 14%,rgba(' + P.bgRgb + ',.3) 50%,rgba(' + P.bgRgb + ',0) 88%)}');
+
+
+
+
+
+
+
+
+
+
+css.push('.lumen-hero .lumen-hero__veil--b{background:-webkit-linear-gradient(bottom,' + P.bg + ' 0%,rgba(' + P.bgRgb + ',.62) 14%,rgba(' + P.bgRgb + ',.18) 50%,rgba(' + P.bgRgb + ',0) 88%);background:linear-gradient(0deg,' + P.bg + ' 0%,rgba(' + P.bgRgb + ',.62) 14%,rgba(' + P.bgRgb + ',.18) 50%,rgba(' + P.bgRgb + ',0) 88%)}');
 
 
 
@@ -2148,6 +2186,23 @@ css.push('.lumen-descr-row .lumen-review--sk{background-image:none}');
 
 
 css.push('.lumen-hub .lumen-tile__collage.lumen-skeleton{border-radius:.53em}');
+
+
+
+
+
+
+
+
+
+css.push('.lumen-overlay{position:fixed;top:0;left:0;right:0;bottom:0;z-index:90;pointer-events:none;overflow:hidden}');
+css.push('.lumen-overlay .lumen-overlay__img{position:absolute;-webkit-background-size:cover;background-size:cover;background-position:center;background-repeat:no-repeat;border-radius:.31em;-webkit-transform-origin:center center;transform-origin:center center;will-change:transform,opacity}');
+
+
+
+
+
+css.push('.lumen-overlay .lumen-overlay__img.is-run{border-radius:0}');
 
 
 
@@ -6715,10 +6770,20 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 
+
 LC.hero = (function () {
 
 
 var DELAY = 350;
+
+
+
+
+
+
+
+
+var ACCENT_DELAY = 3000;
 
 var SWAP_MS = 180;
 
@@ -6879,6 +6944,12 @@ var state = null;
 
 
 var gen = 0;
+
+
+
+
+
+var last = null;
 
 function tmdbImageFn() {
 if (window.Lampa && Lampa.TMDB && typeof Lampa.TMDB.image === 'function') {
@@ -7259,16 +7330,62 @@ if (index < 0) return;
 setCompact(index > 0);
 }
 
+
+
+
+
+
+function rememberFocus(el, card) {
+var poster = '';
+try {
+poster = $(el).find('.card__img').attr('src') || '';
+} catch (e) { }
+var rect = null;
+try {
+if (el.getBoundingClientRect) rect = el.getBoundingClientRect();
+} catch (eR) { }
+if (!poster || !rect) { last = null; return; }
+last = { id: card.id, poster: poster, rect: { left: rect.left, top: rect.top, width: rect.width, height: rect.height } };
+}
+
+
+
+
+
+
+
+
+
+function scheduleAccent(card) {
+stopTimer('accentTimer');
+state.accentTimer = setTimeout(function () {
+if (!state) return;
+state.accentTimer = null;
+if (state.pending !== card) return;
+if (!isMounted()) return;
+try {
+if (LC.accent && typeof LC.accent.applyFor === 'function') LC.accent.applyFor(card);
+} catch (e) {
+warn('hero: accent failed', e);
+}
+}, ACCENT_DELAY);
+}
+
 function onFocus(el) {
 if (!state) return;
 var card = el.card_data;
 if (!card || card.id == null) return;
 
 updateCompact(el);
+rememberFocus(el, card);
 
 state.focusAt = Date.now();
 state.pending = card;
 stopTimer('timer');
+
+
+
+scheduleAccent(card);
 
 
 if (state.shownId === card.id) return;
@@ -7376,6 +7493,7 @@ observer: null,
 timer: null,
 swapTimer: null,
 loadTimer: null,
+accentTimer: null,
 loader: null,
 net: null,
 shownId: null,
@@ -7417,13 +7535,16 @@ function unmount() {
 if (!state) return;
 var s = state;
 state = null;
+
+
+last = null;
 gen++;
 try {
 if (s.observer) s.observer.disconnect();
 } catch (e) {
 warn('hero: disconnect failed', e);
 }
-var timers = ['timer', 'swapTimer', 'loadTimer'];
+var timers = ['timer', 'swapTimer', 'loadTimer', 'accentTimer'];
 for (var i = 0; i < timers.length; i++) {
 try { if (s[timers[i]]) clearTimeout(s[timers[i]]); } catch (eT) {}
 }
@@ -7489,7 +7610,10 @@ detach: detach,
 owns: owns,
 unmount: unmount,
 applyMotion: applyMotion,
-active: active
+active: active,
+
+
+lastFocus: function () { return last; }
 };
 })();
 
@@ -9423,10 +9547,31 @@ var SAMPLE = 16;
 
 
 
+var TINT_S = 0.28;
+var TINT_MIX = 0.55;
+var TINT_STEPS = 6;
+
+
+
+
+
+
+
+
+
+
+var TINT_LIFT = 0.12;
+
+
+
+
+
+
 var CACHE_LIMIT = 50;
 var cache = {};
 var cache_keys = [];
 var pending_count = 0;
+var request_count = 0;
 
 function clamp(v, lo, hi) {
 if (v < lo) return lo;
@@ -9600,6 +9745,51 @@ return 'rgba(' + Math.round(rgb.r) + ',' + Math.round(rgb.g) + ',' + Math.round(
 
 
 
+function mixRgb(a, b, ratio) {
+var k = clamp(ratio, 0, 1);
+return {
+r: Math.round(a.r + (b.r - a.r) * k),
+g: Math.round(a.g + (b.g - a.g) * k),
+b: Math.round(a.b + (b.b - a.b) * k)
+};
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function tint(rgb, bg, guard, ratio, maxMix) {
+if (!rgb) return null;
+var base = toRgb(bg);
+if (!base) return null;
+var src = rgbToHsl(rgb);
+var baseHsl = rgbToHsl(base);
+var toned = hslToRgb({ h: src.h, s: Math.min(src.s, TINT_S), l: clamp(baseHsl.l + TINT_LIFT, 0, 1) });
+var mix = typeof maxMix === 'number' ? maxMix : TINT_MIX;
+var limit = typeof ratio === 'number' ? ratio : MIN_RATIO;
+for (var i = 0; i < TINT_STEPS; i++) {
+var out = mixRgb(base, toned, mix);
+if (!guard || contrast(guard, out) >= limit) return hex(out);
+mix *= 0.6;
+}
+return hex(base);
+}
+
+
+
+
+
 
 function adjust(hsl, bg) {
 var h = normHue(hsl.h);
@@ -9687,6 +9877,7 @@ if (!doc || typeof Image === 'undefined') { cb(null); return null; }
 var img = new Image();
 var live = true;
 pending_count++;
+request_count++;
 
 function release() {
 live = false;
@@ -9731,9 +9922,16 @@ onAccent: onAccent,
 ring: ringOf,
 glow: glow,
 tokens: tokens,
+mixRgb: mixRgb,
+tint: tint,
 fromImage: fromImage,
 cacheSize: function () { return cache_keys.length; },
-pending: function () { return pending_count; }
+pending: function () { return pending_count; },
+
+
+
+
+requests: function () { return request_count; }
 };
 })();
 
@@ -9760,6 +9958,10 @@ var POSTER_SIZE = 't/p/w185';
 
 
 var override = null;
+
+
+
+var source = null;
 var task = null;
 
 
@@ -9801,12 +10003,21 @@ task = null;
 }
 }
 
+function sameRgb(a, b) {
+if (!a || !b) return !a && !b;
+return a.r === b.r && a.g === b.g && a.b === b.b;
+}
 
 
-function apply(next) {
-if (!next && !override) return;
-if (next && override && next.color === override.color) return;
+
+
+
+
+function apply(next, rgb) {
+var sameTokens = next && override ? next.color === override.color : (!next && !override);
+if (sameTokens && sameRgb(source, rgb || null)) return;
 override = next || null;
+source = rgb || null;
 
 
 
@@ -9820,7 +10031,7 @@ warn('accent: css inject failed', e);
 
 function reset() {
 cancel();
-apply(null);
+apply(null, null);
 }
 
 
@@ -9828,19 +10039,43 @@ apply(null);
 
 function applyFor(movie) {
 cancel();
-if (!on()) { apply(null); return; }
+if (!on()) { apply(null, null); return; }
 var path = movie && movie.poster_path;
-if (!path) { apply(null); return; }
+if (!path) { apply(null, null); return; }
 var url = posterUrl(path);
-if (!url) { apply(null); return; }
+if (!url) { apply(null, null); return; }
 task = LC.color.fromImage(url, function (rgb) {
 task = null;
-apply(rgb ? LC.color.tokens(rgb, bg()) : null);
+
+
+
+apply(rgb ? LC.color.tokens(rgb, bg()) : null, rgb || null);
 });
+}
+
+
+
+
+
+
+
+
+
+
+function tint(bg, guard, ratio) {
+if (!source) return null;
+try {
+if (LC.motionMode() !== 'full') return null;
+} catch (e) {
+return null;
+}
+return LC.color.tint(source, bg, guard, ratio);
 }
 
 return {
 current: function () { return override; },
+dominant: function () { return source; },
+tint: tint,
 applyFor: applyFor,
 reset: reset,
 
@@ -11812,6 +12047,572 @@ return { css: css, scoped: scoped, install: install, toggle: toggle };
 if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.torrents;
 
 
+/* ---- 67_transition.js ---- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+LC.transition = (function () {
+
+
+var DURATION = 480;
+
+var FADE_SHARE = 0.4;
+
+
+var LIFE = 700;
+var EASE = 'cubic-bezier(.2,.8,.2,1)';
+
+
+var state = null;
+
+
+
+
+
+
+
+
+
+
+
+function geom(rect, screen) {
+if (!rect || !screen) return null;
+var w = Number(rect.width) || 0;
+var h = Number(rect.height) || 0;
+var sw = Number(screen.width) || 0;
+var sh = Number(screen.height) || 0;
+if (w <= 0 || h <= 0 || sw <= 0 || sh <= 0) return null;
+return {
+scale: sh / h,
+tx: Math.round(sw / 2 - ((Number(rect.left) || 0) + w / 2)),
+ty: Math.round(sh / 2 - ((Number(rect.top) || 0) + h / 2))
+};
+}
+
+
+
+
+function fade(duration, share) {
+var ms = Math.round(duration * share);
+return { ms: ms, delay: duration - ms };
+}
+
+
+
+
+
+function motion() {
+try { return LC.motionMode(); } catch (e) { return 'full'; }
+}
+
+function enabled() {
+try { return LC.pref('lumen_transition', true) !== false; } catch (e) { return false; }
+}
+
+function screenBox() {
+try {
+return { width: window.innerWidth || 0, height: window.innerHeight || 0 };
+} catch (e) {
+return null;
+}
+}
+
+function raf(fn) {
+try {
+if (window.requestAnimationFrame) return window.requestAnimationFrame(fn);
+} catch (e) { }
+return 0;
+}
+
+function unraf(id) {
+try {
+if (id && window.cancelAnimationFrame) window.cancelAnimationFrame(id);
+} catch (e) { }
+}
+
+
+
+
+function idOf(object) {
+if (!object) return null;
+if (object.id != null) return object.id;
+if (object.card && object.card.id != null) return object.card.id;
+return null;
+}
+
+function sameId(a, b) {
+if (a == null || b == null) return false;
+return String(a) === String(b);
+}
+
+
+
+
+
+
+function stop() {
+if (!state) return;
+var s = state;
+state = null;
+unraf(s.frame);
+try { if (s.timer) clearTimeout(s.timer); } catch (e) { }
+try { s.node.remove(); } catch (eR) {
+warn('transition: remove failed', eR);
+}
+}
+
+function show(source) {
+var box = screenBox();
+var g = geom(source.rect, box);
+if (!g) return false;
+
+
+
+stop();
+
+var node = $('<div class="lumen-overlay"><div class="lumen-overlay__img"></div></div>');
+var img = node.find('.lumen-overlay__img');
+var f = fade(DURATION, FADE_SHARE);
+var move = DURATION + 'ms ' + EASE;
+var dim = 'opacity ' + f.ms + 'ms linear ' + f.delay + 'ms';
+
+img.css({
+left: Math.round(source.rect.left) + 'px',
+top: Math.round(source.rect.top) + 'px',
+width: Math.round(source.rect.width) + 'px',
+height: Math.round(source.rect.height) + 'px',
+'background-image': 'url("' + encodeURI(source.poster) + '")',
+'-webkit-transition': '-webkit-transform ' + move + ', ' + dim,
+transition: 'transform ' + move + ', ' + dim
+});
+
+$('body').append(node);
+state = { node: node, img: img, timer: null, frame: 0 };
+var live = state;
+
+
+
+
+
+
+
+
+
+live.frame = raf(function () {
+if (state !== live) return;
+live.frame = raf(function () {
+if (state !== live) return;
+live.frame = 0;
+var tr = 'translate(' + g.tx + 'px, ' + g.ty + 'px) scale(' + g.scale + ')';
+img.addClass('is-run').css({
+'-webkit-transform': tr,
+transform: tr,
+opacity: 0
+});
+});
+});
+
+live.timer = setTimeout(function () {
+if (state !== live) return;
+live.timer = null;
+stop();
+}, LIFE);
+
+return true;
+}
+
+
+
+function open(object) {
+try {
+if (motion() !== 'full') return false;
+if (!enabled()) return false;
+var last = null;
+if (LC.hero && typeof LC.hero.lastFocus === 'function') last = LC.hero.lastFocus();
+if (!last || !last.poster) return false;
+if (!sameId(idOf(object), last.id)) return false;
+return show(last);
+} catch (e) {
+warn('transition: open failed', e);
+return false;
+}
+}
+
+return {
+geom: geom,
+fade: fade,
+open: open,
+stop: stop,
+active: function () { return !!state; }
+};
+})();
+
+if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.transition;
+
+
+/* ---- 68_perf.js ---- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+LC.perf = (function () {
+
+
+var KEY = 'lumen_motion_auto';
+
+var NOTY_KEY = 'lumen_motion_noty';
+
+
+
+
+
+var SLOW_MS = 400;
+var FAST_MS = 250;
+
+
+
+var SAMPLES = 3;
+
+
+var GOOD_RUNS = 5;
+
+
+
+
+
+
+
+var MAX_SAMPLE = 5000;
+
+
+
+var samples = [];
+
+
+var frame = 0;
+
+
+var done = false;
+
+
+
+var cached;
+
+
+
+
+
+function median(list) {
+var sorted = list.slice().sort(function (a, b) { return a - b; });
+return sorted[Math.floor(sorted.length / 2)];
+}
+
+
+
+function decide(list) {
+if (!list || list.length < SAMPLES) return null;
+var m = median(list);
+if (m >= SLOW_MS) return 'lite';
+if (m < FAST_MS) return 'full';
+return null;
+}
+
+
+
+
+function normalize(raw) {
+var value = raw;
+if (typeof value === 'string') {
+if (value === 'lite' || value === 'full') return { mode: value, good: 0 };
+try { value = JSON.parse(value); } catch (e) { return { mode: null, good: 0 }; }
+}
+if (!value || typeof value !== 'object') return { mode: null, good: 0 };
+var mode = (value.mode === 'lite' || value.mode === 'full') ? value.mode : null;
+var good = Number(value.good);
+if (!(good > 0)) good = 0;
+return { mode: mode, good: Math.floor(good) };
+}
+
+
+
+
+function merge(stored, decision) {
+var cur = normalize(stored);
+if (decision === 'lite') return { mode: 'lite', good: 0 };
+if (decision !== 'full') return cur;
+if (cur.mode !== 'lite') return { mode: 'full', good: 0 };
+var good = cur.good + 1;
+if (good >= GOOD_RUNS) return { mode: 'full', good: 0 };
+return { mode: 'lite', good: good };
+}
+
+
+
+
+
+function storage() {
+try {
+if (window.Lampa && Lampa.Storage) return Lampa.Storage;
+} catch (e) { }
+return null;
+}
+
+function readStored() {
+if (typeof cached !== 'undefined') return cached;
+var st = storage();
+
+
+if (!st) return normalize(null);
+var value = normalize(null);
+try { value = normalize(st.get(KEY, '')); } catch (e) { warn('perf: storage read failed', e); }
+cached = value;
+return value;
+}
+
+function writeStored(value) {
+cached = value;
+var st = storage();
+if (!st) return;
+try { st.set(KEY, value); } catch (e) { warn('perf: storage write failed', e); }
+}
+
+
+function mode() {
+return readStored().mode;
+}
+
+function now() {
+try {
+if (window.performance && typeof window.performance.now === 'function') return window.performance.now();
+} catch (e) { }
+return Date.now();
+}
+
+function raf(fn) {
+try {
+if (window.requestAnimationFrame) return window.requestAnimationFrame(fn);
+} catch (e) { }
+return 0;
+}
+
+
+
+function hidden() {
+try {
+return typeof document !== 'undefined' && !!document.hidden;
+} catch (e) {
+return false;
+}
+}
+
+function unraf(id) {
+try {
+if (id && window.cancelAnimationFrame) window.cancelAnimationFrame(id);
+} catch (e) { }
+}
+
+
+
+function motionRaw() {
+try {
+var st = storage();
+if (st && typeof st.field === 'function') return st.field('lumen_motion');
+} catch (e) { }
+return 'auto';
+}
+
+function tvPlatform() {
+try {
+if (window.Lampa && Lampa.Platform && typeof Lampa.Platform.is === 'function') {
+return !!Lampa.Platform.is('tizen') || !!Lampa.Platform.is('webos');
+}
+} catch (e) { }
+return false;
+}
+
+
+
+
+
+function shouldMeasure() {
+try {
+if (!LC.enabled()) return false;
+} catch (e) {
+return false;
+}
+var raw = motionRaw();
+
+
+
+if (raw === 'full' || raw === 'lite' || raw === 'off') return false;
+
+
+if (tvPlatform()) return false;
+
+
+if (readStored().mode === 'full') return false;
+
+
+if (hidden()) return false;
+return true;
+}
+
+
+
+function notyOnce() {
+var st = storage();
+var shown = '';
+try {
+if (st) shown = st.get(NOTY_KEY, '');
+} catch (e) { }
+
+
+
+if (shown === 'true' || shown === true) return;
+try {
+if (window.Lampa && Lampa.Noty && typeof Lampa.Noty.show === 'function') {
+Lampa.Noty.show(typeof LC.lang === 'function' ? LC.lang('lumen_motion_auto_noty') : 'Lumen Card');
+}
+} catch (eN) {
+warn('perf: noty failed', eN);
+}
+
+
+try { if (st) st.set(NOTY_KEY, 'true'); } catch (eS) { }
+}
+
+function commit() {
+var prev = readStored();
+var next = merge(prev, decide(samples));
+if (next.mode === prev.mode && next.good === prev.good) return;
+writeStored(next);
+
+
+
+var was = prev.mode === 'lite';
+var is = next.mode === 'lite';
+if (was === is) return;
+if (is) notyOnce();
+try {
+if (typeof LC.applyMotionMode === 'function') LC.applyMotionMode();
+} catch (e) {
+warn('perf: apply failed', e);
+}
+}
+
+
+
+
+function track() {
+if (done || frame) return;
+
+
+
+
+
+
+if (!shouldMeasure()) return;
+var started = now();
+frame = raf(function () {
+frame = raf(function () {
+frame = 0;
+var ms = now() - started;
+
+
+
+if (ms > MAX_SAMPLE) return;
+samples.push(ms);
+if (samples.length < SAMPLES) return;
+done = true;
+try { commit(); } catch (e) { warn('perf: commit failed', e); }
+});
+});
+}
+
+
+
+function stop() {
+if (!frame) return;
+unraf(frame);
+frame = 0;
+}
+
+return {
+decide: decide,
+merge: merge,
+normalize: normalize,
+mode: mode,
+track: track,
+stop: stop,
+samples: function () { return samples.slice(); }
+};
+})();
+
+if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.perf;
+
+
 /* ---- 70_progress.js ---- */
 
 
@@ -12067,9 +12868,22 @@ lumen_card_accent_graphite: { ru: 'Графит', en: 'Graphite', uk: 'Граф�
 
 lumen_accent_auto_name: { ru: 'Акцент от постера', en: 'Accent from poster', uk: 'Акцент від постера' },
 lumen_accent_auto_descr: {
-ru: 'Цвет кнопок, колец фокуса и подсветок берётся из постера открытого фильма. Тёмный цвет плагин высветляет, чтобы подписи читались; если постер не отдаёт пиксели, остаётся акцент, выбранный выше.',
-en: 'The colour of buttons, focus rings and highlights is taken from the poster of the open film. A dark colour is lightened so that labels stay readable; if the poster does not give up its pixels, the accent chosen above stays in place.',
-uk: 'Колір кнопок, кілець фокуса та підсвічувань береться з постера відкритого фільму. Темний колір плагін висвітлює, щоб підписи читалися; якщо постер не віддає пікселі, залишається акцент, вибраний вище.'
+ru: 'Цвет кнопок, колец фокуса и подсветок берётся из постера фильма, а фон страницы получает его оттенок. На главной цвет меняется, когда фокус постоял на карточке 3 секунды, — при быстром листании ничего не считается. Тёмный цвет плагин высветляет, чтобы подписи читались; если постер не отдаёт пиксели, остаётся акцент, выбранный выше.',
+en: 'The colour of buttons, focus rings and highlights is taken from the film poster, and the page background picks up its tint. On the home screen the colour changes once focus has rested on a card for 3 seconds, so fast browsing computes nothing. A dark colour is lightened so that labels stay readable; if the poster does not give up its pixels, the accent chosen above stays in place.',
+uk: 'Колір кнопок, кілець фокуса та підсвічувань береться з постера фільму, а тло сторінки отримує його відтінок. На головній колір змінюється, коли фокус постояв на картці 3 секунди, — при швидкому гортанні нічого не рахується. Темний колір плагін висвітлює, щоб підписи читалися; якщо постер не віддає пікселі, залишається акцент, вибраний вище.'
+},
+
+
+lumen_transition_name: { ru: 'Переход от постера', en: 'Poster transition', uk: 'Перехід від постера' },
+lumen_transition_descr: {
+ru: 'При открытии карточки постер, на котором стоял фокус, разворачивается во весь экран и растворяется в кадре фильма. Работает только при полных анимациях; открытие карточки не задерживает.',
+en: 'When a card opens, the poster that had focus expands to full screen and dissolves into the film still. Works only with full animations and never delays the card.',
+uk: 'Під час відкриття картки постер, на якому стояв фокус, розгортається на весь екран і розчиняється в кадрі фільму. Працює лише за повних анімацій і не затримує відкриття картки.'
+},
+lumen_motion_auto_noty: {
+ru: 'Lumen Card: включены лёгкие анимации — устройство не успевает рисовать полные',
+en: 'Lumen Card: light animations enabled — this device cannot keep up with the full ones',
+uk: 'Lumen Card: увімкнено легкі анімації — пристрій не встигає малювати повні'
 },
 
 lumen_theme_name: { ru: 'Тема', en: 'Theme', uk: 'Тема' },
@@ -12627,6 +13441,11 @@ try { if (window.Lampa && Lampa.Storage) Lampa.Storage.set('lumen_manifest', nul
 try { if (LC.applyRowsPref) LC.applyRowsPref(); } catch (eUrl) {}
 return true;
 }
+
+
+
+
+if (name === 'lumen_transition') return true;
 if (name.indexOf(PLUGIN + '_') !== 0) return false;
 
 
@@ -12837,11 +13656,19 @@ return def;
 
 
 
-function motionModeFor(stored, platform) {
+
+
+
+
+
+
+
+function motionModeFor(stored, platform, auto) {
 if (stored !== 'full' && stored !== 'lite' && stored !== 'off') stored = 'auto';
 if (stored !== 'auto') return stored;
 platform = platform || {};
 if (platform.tizen || platform.webos) return 'lite';
+if (auto === 'lite') return 'lite';
 return 'full';
 }
 
@@ -12899,6 +13726,11 @@ var LIST = [
 
 { name: 'lumen_font', type: 'select', values: ['golos', 'onest', 'manrope', 'inter', 'plex'], vprefix: 'lumen_card_font_', 'default': 'golos', label: 'lumen_card_font_name', descr: 'lumen_card_font_descr' },
 { name: 'lumen_motion', type: 'select', values: ['auto', 'full', 'lite', 'off'], vprefix: 'lumen_card_motion_', 'default': 'auto', label: 'lumen_card_motion', descr: 'lumen_card_motion_descr' },
+
+
+
+
+{ name: 'lumen_transition', type: 'trigger', 'default': true, label: 'lumen_transition_name', descr: 'lumen_transition_descr' },
 
 { name: 'lumen_group_backdrop', type: 'title', label: 'lumen_card_group_backdrop' },
 { name: 'lumen_slideshow', type: 'trigger', 'default': true, label: 'lumen_card_slideshow_name' },
@@ -12997,7 +13829,15 @@ platform.tizen = !!Lampa.Platform.is('tizen');
 platform.webos = !!Lampa.Platform.is('webos');
 }
 } catch (e2) { }
-return LC.prefs.motionModeFor(stored, platform);
+
+
+
+
+var auto = null;
+try {
+if (LC.perf && typeof LC.perf.mode === 'function') auto = LC.perf.mode();
+} catch (e3) { }
+return LC.prefs.motionModeFor(stored, platform, auto);
 };
 
 
@@ -14325,6 +15165,24 @@ if (e.type === 'start') {
 
 
 try { if (LC.refreshPending) LC.refreshPending(e.component); } catch (eRefresh) {}
+
+
+
+
+
+
+
+
+
+
+try {
+if (LC.transition) {
+if (e.component === 'full') LC.transition.open(e.object);
+else LC.transition.stop();
+}
+} catch (eTrans) {
+warn('transition start failed', eTrans);
+}
 var startRender = null;
 try {
 if (e.object && e.object.activity && typeof e.object.activity.render === 'function') startRender = e.object.activity.render();
@@ -14645,6 +15503,13 @@ LC.active.trailer = LC.trailer.schedule(root, e.body, e.data);
 
 
 LC.hub.franchise(root, (e.data && e.data.movie) || {});
+
+
+
+
+
+
+try { if (LC.perf) LC.perf.track(); } catch (ePerf) {}
 }
 } catch (err) {
 warn('listener failed', err);
@@ -15036,6 +15901,11 @@ activated = false;
 
 
 try { if (LC.accent) LC.accent.reset(); } catch (eAccentOff) {}
+
+
+
+try { if (LC.perf) LC.perf.stop(); } catch (ePerfOff) {}
+try { if (LC.transition) LC.transition.stop(); } catch (eTransOff) {}
 
 
 restoreOriginalTemplate();

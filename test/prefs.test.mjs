@@ -35,6 +35,32 @@ test('motionModeFor: auto на прочих платформах -> full', () =>
   assert.equal(prefs.motionModeFor('auto'), 'full');
 });
 
+/* Task 29 (фаза 3): третий аргумент — вердикт автодетекта слабого ТВ
+   (src/68_perf.js). Он умеет только понижать: 'full' от замеров означает
+   «понижать не за что», а не «поднять выше платформенного lite». */
+test('motionModeFor: вердикт автодетекта lite понижает auto на обычной платформе', () => {
+  assert.equal(prefs.motionModeFor('auto', {}, 'lite'), 'lite');
+  assert.equal(prefs.motionModeFor('auto', { tizen: false }, 'lite'), 'lite');
+});
+
+test('motionModeFor: вердикт автодетекта full ничего не поднимает', () => {
+  assert.equal(prefs.motionModeFor('auto', {}, 'full'), 'full');
+  assert.equal(prefs.motionModeFor('auto', { tizen: true }, 'full'), 'lite', 'платформенный lite остаётся');
+  assert.equal(prefs.motionModeFor('auto', { webos: true }, 'full'), 'lite');
+});
+
+test('motionModeFor: ручной выбор приоритетнее вердикта автодетекта', () => {
+  assert.equal(prefs.motionModeFor('full', {}, 'lite'), 'full');
+  assert.equal(prefs.motionModeFor('off', {}, 'lite'), 'off');
+  assert.equal(prefs.motionModeFor('lite', {}, 'full'), 'lite');
+});
+
+test('motionModeFor: вердикта нет (null/undefined/мусор) -> прежнее поведение', () => {
+  assert.equal(prefs.motionModeFor('auto', {}, null), 'full');
+  assert.equal(prefs.motionModeFor('auto', {}, undefined), 'full');
+  assert.equal(prefs.motionModeFor('auto', {}, 'turbo'), 'full');
+});
+
 test('motionModeFor: незнакомое stored (undefined/null/пусто/мусор) -> как auto', () => {
   assert.equal(prefs.motionModeFor(undefined, {}), 'full');
   assert.equal(prefs.motionModeFor(null, {}), 'full');
@@ -115,7 +141,9 @@ test('LIST: полный набор ключей — существующие и
     /* Правка пользователя 2026-09-17 (п.2): размер кадра над рядами */
     'lumen_hero_size',
     /* Task 24 (фаза 3): акцент от постера открытого фильма */
-    'lumen_accent_auto'
+    'lumen_accent_auto',
+    /* Task 29 (фаза 3): переход «постер → кадр» при открытии карточки */
+    'lumen_transition'
   ].sort());
 });
 

@@ -625,3 +625,60 @@ test('color: акцент целится в 7:1 и держит его на вс
   }
   assert.equal(below, 0, 'оттенков хуже 7:1: ' + below);
 });
+
+/* ====================================================================== */
+/* Правка 2026-09-17 (третий круг): подкраска фона доминантой постера      */
+/* ====================================================================== */
+
+/* Тёплая тема плагина (THEMES.warm, src/30_css.js): фон и самый слабый
+   текст на нём — подпись года под постером ряда. */
+const WARM_BG = '#0B0908';
+const WARM_MUTED = '#A89A8A';
+
+test('tint: без доминанты красить нечем', () => {
+  assert.equal(color.tint(null, WARM_BG, WARM_MUTED, 4.5), null);
+});
+
+test('tint: фон получает ОТТЕНОК постера, оставаясь тёмным', () => {
+  const orange = color.tint({ r: 210, g: 130, b: 50 }, WARM_BG, WARM_MUTED, 4.5);
+  const hsl = color.rgbToHsl(color.parseHex(orange));
+  const src = color.rgbToHsl({ r: 210, g: 130, b: 50 });
+  assert.ok(Math.abs(hsl.h - src.h) < 6, 'оттенок плаката сохранён: ' + hsl.h + ' против ' + src.h);
+  assert.ok(hsl.l < 0.12, 'фон остался тёмным: ' + hsl.l);
+  assert.ok(hsl.s <= 0.4, 'насыщенность прижата: ' + hsl.s);
+});
+
+test('tint: подкрашенный фон заметно отличается от базового — иначе правка бессмысленна', () => {
+  const blue = color.tint({ r: 40, g: 90, b: 210 }, WARM_BG, WARM_MUTED, 4.5);
+  assert.notEqual(blue, WARM_BG);
+  const base = color.rgbToHsl(color.parseHex(WARM_BG));
+  const out = color.rgbToHsl(color.parseHex(blue));
+  assert.ok(Math.abs(out.h - base.h) > 60, 'оттенок ушёл от тёплого фона темы');
+});
+
+test('tint: подписи под постерами остаются читаемыми на любом оттенке круга', () => {
+  for (let h = 0; h < 360; h += 15) {
+    const rgb = color.hslToRgb({ h: h, s: 0.9, l: 0.55 });
+    const out = color.tint(rgb, WARM_BG, WARM_MUTED, 4.5);
+    const ratio = color.contrast(WARM_MUTED, out);
+    assert.ok(ratio >= 4.5, 'оттенок ' + h + ': контраст подписи ' + ratio.toFixed(2));
+  }
+});
+
+test('tint: недостижимый порог — возвращается чистый фон темы, а не цвет похуже', () => {
+  /* Порог 21 не берёт даже сам фон темы: подмешивание уменьшается до нуля. */
+  const out = color.tint({ r: 210, g: 130, b: 50 }, WARM_BG, WARM_MUTED, 21);
+  assert.equal(out, WARM_BG.toUpperCase());
+});
+
+test('tint: серый постер фона почти не двигает', () => {
+  const grey = color.tint({ r: 130, g: 130, b: 132 }, WARM_BG, WARM_MUTED, 4.5);
+  const out = color.rgbToHsl(color.parseHex(grey));
+  assert.ok(out.s < 0.12, 'без своего цвета плакат фон не красит: ' + out.s);
+});
+
+test('mixRgb: доля второго цвета — от нуля до единицы', () => {
+  assert.deepEqual(color.mixRgb({ r: 0, g: 0, b: 0 }, { r: 100, g: 200, b: 50 }, 0), { r: 0, g: 0, b: 0 });
+  assert.deepEqual(color.mixRgb({ r: 0, g: 0, b: 0 }, { r: 100, g: 200, b: 50 }, 1), { r: 100, g: 200, b: 50 });
+  assert.deepEqual(color.mixRgb({ r: 0, g: 0, b: 0 }, { r: 100, g: 200, b: 50 }, 0.5), { r: 50, g: 100, b: 25 });
+});

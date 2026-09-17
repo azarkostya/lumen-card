@@ -15,6 +15,7 @@
   /*   unmount() — снять целиком (узел, класс, наблюдатель, запросы)        */
   /*   applyMotion() — перечитать режим анимаций на открытом герое          */
   /*   active() → смонтирован ли герой                                      */
+  /*   lastFocus() → {id, poster, rect} последней карточки под фокусом      */
   /*                                                                       */
   /* Как работает смена героя (сториборд 23г, ограничение брифа 1):         */
   /*   - фокус карточки ловит ОДИН MutationObserver на корне активности     */
@@ -37,6 +38,15 @@
 
     /* Задержка перед сменой героя — раскадровка 23г брифа главной. */
     var DELAY = 350;
+    /* Правка пользователя 2026-09-17 (третий круг), дословно: «обязательно
+       условие, что если очень быстро меняется, то не надо, только когда на
+       карточке останавливаются больше на 3 сек, а то это будет ужас».
+       Акцент и подкраска фона (src/57_color.js) — вторая, СВОЯ задержка: у
+       кадра героя цена смены — кроссфейд уже загруженной картинки, у цвета —
+       расчёт по постеру и пересборка всей таблицы стилей. Поэтому 3 с покоя
+       фокуса, а не 350 мс: при листании стрелкой не должно уходить ни одного
+       расчёта (проверяется счётчиком LC.color.requests()). */
+    var ACCENT_DELAY = 3000;
     /* Уход старого текста перед подменой (раскадровка 23а: 180 мс). */
     var SWAP_MS = 180;
     /* Предзагрузка кадра не может висеть вечно: тот же таймаут, что у фона
@@ -197,6 +207,12 @@
 
     /* Сторож поколения: поднимается на mount, unmount и каждом show. */
     var gen = 0;
+
+    /* Task 29: последняя карточка под фокусом — {id, poster, rect}. Её читает
+       слой перехода «постер → кадр» (src/67_transition.js) в момент, когда
+       Lampa открывает полную карточку. Живёт вне state: запись обновляется
+       наблюдателем фокуса и обнуляется вместе с героем. */
+    var last = null;
 
     function tmdbImageFn() {
       if (window.Lampa && Lampa.TMDB && typeof Lampa.TMDB.image === 'function') {
@@ -577,16 +593,62 @@
       setCompact(index > 0);
     }
 
+    /* Task 29: карточка, с которой уходят в полную карточку. Прямоугольник
+       снимается прямо здесь — на момент фокуса ряд стоит там же, где будет в
+       момент нажатия OK (прокрутка ряда сама переводит фокус и обновляет эту
+       запись). Адрес постера берётся из УЖЕ отрисованного <img> карточки: он
+       лежит в кэше браузера, и слой перехода показывается без загрузки. */
+    function rememberFocus(el, card) {
+      var poster = '';
+      try {
+        poster = $(el).find('.card__img').attr('src') || '';
+      } catch (e) { }
+      var rect = null;
+      try {
+        if (el.getBoundingClientRect) rect = el.getBoundingClientRect();
+      } catch (eR) { }
+      if (!poster || !rect) { last = null; return; }
+      last = { id: card.id, poster: poster, rect: { left: rect.left, top: rect.top, width: rect.width, height: rect.height } };
+    }
+
+    /* Правка пользователя 2026-09-17 (третий круг): акцент и подкраска фона
+       берутся с карточки, на которой ОСТАНОВИЛИСЬ, — отдельным таймером на
+       ACCENT_DELAY. Сторож тот же, что у смены героя: state.pending меняется
+       на каждом фокусе, поэтому отложенный тик, доехавший после перевода
+       фокуса, выходит первой же строкой и ни одного расчёта не запускает.
+       Своего поколения (gen) здесь нет намеренно: gen поднимается на каждом
+       show(), то есть уже через 350 мс покоя, — трёхсекундный тик по нему
+       не пережил бы даже собственную карточку. */
+    function scheduleAccent(card) {
+      stopTimer('accentTimer');
+      state.accentTimer = setTimeout(function () {
+        if (!state) return;
+        state.accentTimer = null;
+        if (state.pending !== card) return;
+        if (!isMounted()) return;
+        try {
+          if (LC.accent && typeof LC.accent.applyFor === 'function') LC.accent.applyFor(card);
+        } catch (e) {
+          warn('hero: accent failed', e);
+        }
+      }, ACCENT_DELAY);
+    }
+
     function onFocus(el) {
       if (!state) return;
       var card = el.card_data;
       if (!card || card.id == null) return;
 
       updateCompact(el);
+      rememberFocus(el, card);
 
       state.focusAt = Date.now();
       state.pending = card;
       stopTimer('timer');
+      /* Акцент ждёт свои 3 с независимо от того, меняется герой или нет:
+         вернулись на ту же карточку — цвет у неё уже стоит, и applyFor на
+         том же постере возьмёт его из кэша, не пересобирая стилей. */
+      scheduleAccent(card);
       /* Тот же фильм под фокусом (возврат на ту же карточку, перерисовка
          ряда) — ни кадра, ни запроса. */
       if (state.shownId === card.id) return;
@@ -694,6 +756,7 @@
           timer: null,
           swapTimer: null,
           loadTimer: null,
+          accentTimer: null,
           loader: null,
           net: null,
           shownId: null,
@@ -735,13 +798,16 @@
       if (!state) return;
       var s = state;
       state = null;
+      /* Task 29: карточки под фокусом больше нет — переход «постер → кадр»
+         остаётся без источника и не показывается. */
+      last = null;
       gen++;
       try {
         if (s.observer) s.observer.disconnect();
       } catch (e) {
         warn('hero: disconnect failed', e);
       }
-      var timers = ['timer', 'swapTimer', 'loadTimer'];
+      var timers = ['timer', 'swapTimer', 'loadTimer', 'accentTimer'];
       for (var i = 0; i < timers.length; i++) {
         try { if (s[timers[i]]) clearTimeout(s[timers[i]]); } catch (eT) {}
       }
@@ -807,7 +873,10 @@
       owns: owns,
       unmount: unmount,
       applyMotion: applyMotion,
-      active: active
+      active: active,
+      /* Task 29: последняя карточка под фокусом для слоя перехода
+         (src/67_transition.js). null — фокуса на ряду не было или герой снят. */
+      lastFocus: function () { return last; }
     };
   })();
 
