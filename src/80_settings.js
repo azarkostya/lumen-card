@@ -416,6 +416,25 @@
       en: 'Holding OK on a poster opens the stock Lampa menu, and the plugin appends "Trailer", "Similar", "Whole franchise", the watched mark and "Hide from recommendations". A normal press still opens the card. Applied immediately.',
       uk: 'Утримання OK на постері відкриває штатне меню Lampa, а плагін дописує до нього «Трейлер», «Схожі», «Вся франшиза», позначку перегляду та «Сховати з рекомендацій». Звичайне натискання, як і раніше, відкриває картку. Застосовується одразу.'
     },
+    /* Task 27 (фаза 3): мини-карта рядов и ускорители навигации. */
+    lumen_minimap_name: { ru: 'Мини-карта рядов', en: 'Rows minimap', uk: 'Міні-карта рядів' },
+    lumen_minimap_descr: {
+      ru: 'Удержание «вверх» или «вниз» на главной показывает справа список рядов с подсветкой того, в котором вы сейчас. Нажатия не перехватывает. Применяется сразу.',
+      en: 'Holding "up" or "down" on the home screen shows a list of rows on the right with the current one highlighted. It never intercepts key presses. Applied immediately.',
+      uk: 'Утримання «вгору» або «вниз» на головній показує праворуч список рядів із підсвіткою того, у якому ви зараз. Натискання не перехоплює. Застосовується одразу.'
+    },
+    lumen_fastscroll_name: { ru: 'Быстрое листание', en: 'Fast scrolling', uk: 'Швидке гортання' },
+    lumen_fastscroll_descr: {
+      ru: 'Удержание «влево» или «вправо» разгоняет листание ряда втрое, а кнопки каналов на пульте прыгают сразу на десять карточек. Позиция в ряду показывается внизу экрана. Применяется сразу.',
+      en: 'Holding "left" or "right" scrolls a row three times faster, and the channel buttons on the remote jump ten cards at once. The position in the row is shown at the bottom. Applied immediately.',
+      uk: 'Утримання «вліво» або «вправо» пришвидшує гортання ряду втричі, а кнопки каналів на пульті стрибають одразу на десять карток. Позиція в ряду показується внизу екрана. Застосовується одразу.'
+    },
+    /* Шапка панели мини-карты: «РЯДЫ · 3 ИЗ 9» (design-spec-main §0.16). */
+    lumen_minimap_rows: { ru: 'РЯДЫ', en: 'ROWS', uk: 'РЯДИ' },
+    lumen_minimap_of: { ru: 'ИЗ', en: 'OF', uk: 'З' },
+    /* Подпись ряда, у которого в разметке Lampa нет заголовка. */
+    lumen_minimap_row: { ru: 'Ряд', en: 'Row', uk: 'Ряд' },
+
     /* Заголовок-разделитель наших пунктов внутри штатного меню. */
     lumen_menu_section: { ru: 'Lumen Card', en: 'Lumen Card', uk: 'Lumen Card' },
     lumen_menu_trailer: { ru: 'Трейлер', en: 'Trailer', uk: 'Трейлер' },
@@ -474,9 +493,18 @@
        Названия самих подборок и групп берутся из манифеста (там свой i18n),
        здесь — только строки интерфейса. */
     lumen_hub_title: { ru: 'Подборки', en: 'Collections', uk: 'Підбірки' },
-    /* Метка места под поиск в шапке хаба (design-spec-main §0.8). Узел скрыт
-       до Task 27 — верхним регистром, как остальные метки-капсы плагина. */
+    /* Подпись кнопки поиска в шапке хаба (design-spec-main §0.8) — верхним
+       регистром, как остальные метки-капсы плагина. Task 27 сделал её
+       рабочей: кнопка открывает штатную клавиатуру Lampa. */
     lumen_hub_search: { ru: 'ПОИСК ПО ПОДБОРКАМ', en: 'SEARCH COLLECTIONS', uk: 'ПОШУК ПО ПІДБІРКАХ' },
+    /* Заголовок штатной клавиатуры и списка найденного (Task 27 Step 4). */
+    lumen_hub_search_title: { ru: 'Название подборки', en: 'Collection name', uk: 'Назва підбірки' },
+    lumen_hub_search_results: { ru: 'Найденные подборки', en: 'Collections found', uk: 'Знайдені підбірки' },
+    lumen_hub_search_empty: {
+      ru: 'Подборки с таким названием нет',
+      en: 'No collection with that name',
+      uk: 'Підбірки з такою назвою немає'
+    },
     lumen_hub_empty: { ru: 'Здесь пока пусто', en: 'Nothing here yet', uk: 'Тут поки порожньо' },
     /* Плитка и сетка подборки Кинопоиска без ключа API (риск фазы 2). */
     lumen_hub_nokey: { ru: 'НУЖЕН КЛЮЧ', en: 'KEY REQUIRED', uk: 'ПОТРІБЕН КЛЮЧ' },
@@ -651,6 +679,13 @@
        ставятся и снимаются на лету; экран перерисовывать не нужно. */
     if (name === 'lumen_context_menu') {
       try { if (LC.applyCardmenuPref) LC.applyCardmenuPref(); } catch (eCardmenu) {}
+      return true;
+    }
+    /* Task 27 (фаза 3): мини-карта и ускорение листания. Обе настройки —
+       одни и те же две подписки на клавиатуру Lampa: выключили обе — подписок
+       нет вовсе, включили любую — они возвращаются (LC.applyNavPref). */
+    if (name === 'lumen_minimap' || name === 'lumen_fastscroll') {
+      try { if (LC.applyNavPref) LC.applyNavPref(); } catch (eNav) {}
       return true;
     }
     /* Task 19/20: чипы профилей настроения — монтируются и снимаются на лету. */

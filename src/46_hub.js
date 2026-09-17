@@ -415,7 +415,13 @@
        вернуть фокус при входе (возврат назад, перестройка списка); afterMove
        вызывается после каждого успешного шага вправо/вниз — сетка по нему
        догружает постеры и следующую страницу. */
-    function screenController(root, focusTarget, afterMove) {
+    /* onUp — запасной шаг вверх, когда Navigator дальше идти не может.
+       Нужен хабу: кнопка поиска стоит в правой части шапки (design-spec-main
+       §0.8), а чипы групп — слева, и SpatialNavigator её «вверх» не находит
+       (проверено живьём 2026-09-17: canmove('up') с чипа === false, фокус
+       уходил прямо в шапку Lampa). Вернул true — шаг сделан, в шапку Lampa
+       не уходим. */
+    function screenController(root, focusTarget, afterMove, onUp) {
       return {
         toggle: function () {
           Lampa.Controller.collectionSet(root[0]);
@@ -428,7 +434,9 @@
           if (navMove('right') && afterMove) afterMove();
         },
         up: function () {
-          if (!navMove('up')) Lampa.Controller.toggle('head');
+          if (navMove('up')) return;
+          if (onUp && onUp()) return;
+          Lampa.Controller.toggle('head');
         },
         down: function () {
           if (navMove('down') && afterMove) afterMove();
@@ -483,9 +491,13 @@
       }
 
       /* Узел, на который вернуть фокус при входе в экран: тот же, если он ещё
-         в нашем дереве, иначе выбор оставляем Lampa (первый .selector). */
+         в нашем дереве; иначе первый чип группы.
+         Первый .selector экрана с Task 27 — кнопка поиска в шапке, и отдай
+         мы выбор Lampa, вход в хаб начинался бы с неё. Экран же про выбор
+         подборки глазами: поиск — запасной путь, он на шаг «вверх». */
       function focusTarget() {
         if (lastFocus && root[0] && root[0].contains && root[0].contains(lastFocus)) return lastFocus;
+        if (chipNodes.length) return chipNodes[0];
         return null;
       }
 
@@ -623,16 +635,74 @@
         return node[0];
       }
 
+      /* Task 27: все подборки каталога с названиями на языке интерфейса —
+         вход для поиска. Ищет LC.nav.searchCollections (src/64_nav.js),
+         поэтому здесь только перевод названий; сама подборка едет в поле
+         source, чтобы выбранную можно было открыть тем же openCollection,
+         что и плитку. */
+      function searchItems() {
+        var list = (manifest && manifest.collections) || [];
+        var code = lang();
+        var out = [];
+        for (var i = 0; i < list.length; i++) {
+          out.push({ id: list[i].id, title: titleOf(list[i], code), source: list[i] });
+        }
+        return out;
+      }
+
+      /* Поиск по подборкам (Task 27 Step 4). Ввод и список найденного —
+         штатные Lampa.Input и Lampa.Select (см. LC.nav.openSearch); здесь
+         только данные экрана и возврат фокуса: закрывая клавиатуру, Lampa
+         переводит контроллер на 'settings_component', и вернуть его нашему
+         экрану должен тот, кто ввод открыл. */
+      function openSearch() {
+        if (!LC.nav || typeof LC.nav.openSearch !== 'function') return;
+        LC.nav.openSearch({
+          items: searchItems(),
+          words: {
+            title: LC.lang('lumen_hub_search_title'),
+            results: LC.lang('lumen_hub_search_results'),
+            empty: LC.lang('lumen_hub_search_empty')
+          },
+          onSelect: function (found) {
+            if (found && found.source) openCollection(found.source);
+          },
+          onDone: function () {
+            try { Lampa.Controller.toggle('content'); } catch (e) {
+              warn('hub: search return failed', e);
+            }
+          }
+        });
+      }
+
+      /* Шаг «вверх» с чипов — на кнопку поиска. Отдельным шагом, а не
+         Navigator: кнопка стоит в правой части шапки, чипы — слева, и
+         пространственная навигация между ними связи не видит. С самой кнопки
+         «вверх» уже уходит в шапку Lampa (false). */
+      function focusSearch() {
+        var node = head.find('.lumen-hub__search')[0];
+        if (!node) return false;
+        /* Уже на ней — дальше вверх только шапка Lampa. Сверяемся с
+           lastFocus, а не с классом .focus: его ставит Lampa, а обновляется
+           lastFocus тем же событием hover:focus, которым Lampa этот класс и
+           сопровождает. */
+        if (lastFocus === node) return false;
+        recollect(node);
+        return true;
+      }
+
       function buildHead() {
         var total = 0;
         for (var i = 0; i < groups.length; i++) total += groups[i].count;
         head.empty();
         head.append($('<div class="lumen-hub__title">' + esc(LC.lang('lumen_hub_title')) + '</div>'));
         head.append($('<div class="lumen-hub__count">' + total + ' ' + esc(LC.collectionsWord(total)) + '</div>'));
-        /* Место под поиск по подборкам (design-spec-main §0.8). Узел скрыт
-           классом .hide до Task 27 — он же держит для поиска его место в
-           шапке, чтобы раскладка не переехала при включении. */
-        head.append($('<div class="lumen-hub__search hide">' + esc(LC.lang('lumen_hub_search')) + '</div>'));
+        /* Поиск по подборкам (design-spec-main §0.8): место в шапке держалось
+           с Task 17 скрытым узлом, теперь это рабочая кнопка. */
+        var search = $('<div class="lumen-hub__search selector">' + LC.icons.get('search') + '<span>' + esc(LC.lang('lumen_hub_search')) + '</span></div>');
+        search.on('hover:focus', function () { lastFocus = search[0]; });
+        search.on('hover:enter', function () { openSearch(); });
+        head.append(search);
       }
 
       function build(m) {
@@ -681,7 +751,7 @@
         if (act && act.activity && act.activity !== this.activity) return;
         started = true;
         motionClass(root);
-        Lampa.Controller.add('content', screenController(root, focusTarget, null));
+        Lampa.Controller.add('content', screenController(root, focusTarget, null, focusSearch));
         Lampa.Controller.toggle('content');
         /* Возврат после stop(): коллажи, которые тогда погасили (или которые
            не успели прийти), запрашиваются снова — в этот момент они уже в

@@ -160,6 +160,13 @@
          Включено по умолчанию — жест штатный, меню штатное, мы лишь
          дописываем пункты. Применение на лету — LC.applyCardmenuPref. */
       { name: 'lumen_context_menu', type: 'trigger', 'default': true, label: 'lumen_context_menu_name', descr: 'lumen_context_menu_descr' },
+      /* Task 27 (фаза 3): навигационные ускорители. Обе настройки — про то
+         же движение по рядам главной и сеток, поэтому стоят здесь же.
+         Включены по умолчанию: мини-карта только показывает, ускорение
+         работает лишь при удержании, то есть обычная навигация ни на шаг не
+         меняется. Применение на лету — LC.applyNavPref. */
+      { name: 'lumen_minimap', type: 'trigger', 'default': true, label: 'lumen_minimap_name', descr: 'lumen_minimap_descr' },
+      { name: 'lumen_fastscroll', type: 'trigger', 'default': true, label: 'lumen_fastscroll_name', descr: 'lumen_fastscroll_descr' },
       { name: 'lumen_hide_watched', type: 'trigger', 'default': false, label: 'lumen_hide_watched_name', descr: 'lumen_hide_watched_descr' },
       /* Тип input: Lampa рисует текстовое поле (как lumen_kp_key). Пусто —
          адрес по умолчанию из LC.MANIFEST_URL (src/00_head.js). */

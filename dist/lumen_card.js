@@ -725,7 +725,7 @@ return round2(HERO_HEAD_SAFE + TEXT_BOTTOM_COMPACT + MOODS_GAP + MOODS_H_COMPACT
 
 
 
-var SCALE_ROOTS = '.lumen-card,.lumen-backdrop,.lumen-descr-row,.lumen-review-modal,.lumen-hero .lumen-hero__text,.lumen-hub,.lumen-grid';
+var SCALE_ROOTS = '.lumen-card,.lumen-backdrop,.lumen-descr-row,.lumen-review-modal,.lumen-hero .lumen-hero__text,.lumen-hub,.lumen-grid,.lumen-minimap,.lumen-jump';
 
 function scaleFactor() {
 return SCALES[LC.pref('lumen_scale', SCALE_DEFAULT)] || SCALES[SCALE_DEFAULT];
@@ -2217,6 +2217,40 @@ css.push('.lumen-overlay .lumen-overlay__img{position:absolute;-webkit-backgroun
 
 
 css.push('.lumen-overlay .lumen-overlay__img.is-run{border-radius:0}');
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+css.push('.lumen-minimap{position:fixed;right:2.81em;top:11.40em;width:13.15em;padding:1.05em .96em;border-radius:.53em;background:' + P.plate + ';border:.04em solid ' + P.line + ';z-index:80;pointer-events:none}');
+css.push('.lumen-minimap .lumen-minimap__head{font-family:' + FM + ';font-size:.88em;line-height:1;letter-spacing:.14em;color:' + P.smoke + ';margin-bottom:.7em}');
+css.push('.lumen-minimap .lumen-minimap__row{font-family:' + FB + ';font-weight:500;font-size:.88em;line-height:1.15;color:' + P.smoke + ';min-height:2.02em;padding:.31em .61em;border-radius:.35em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}');
+
+
+css.push('.lumen-minimap .lumen-minimap__row--on{background:rgba(' + A_RGB + ',.14);border-left:.18em solid ' + A + ';color:' + A + ';font-weight:600;padding-left:.43em}');
+
+
+
+
+
+css.push('.lumen-jump{position:fixed;left:50%;bottom:2.81em;-webkit-transform:translateX(-50%);transform:translateX(-50%);padding:.53em 1.05em;border-radius:.53em;background:' + P.plate + ';border:.04em solid ' + P.line + ';font-family:' + FM + ';font-size:.96em;line-height:1;letter-spacing:.06em;color:' + P.text + ';z-index:80;pointer-events:none;white-space:nowrap}');
+
+
+
+
+css.push('.lumen-hub .lumen-hub__search{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;height:2.46em;padding:0 1.05em;border-radius:.53em;border:.04em solid ' + P.line + ';background:' + P.buttonBg + ';-webkit-transition:background-color .2s,border-color .2s,color .2s,-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25);transition:background-color .2s,border-color .2s,color .2s,transform .28s cubic-bezier(.2,.9,.3,1.25)}');
+css.push('.lumen-hub .lumen-hub__search .lumen-ico{width:1.05em;height:1.05em;margin-right:.53em}');
+css.push('.lumen-hub .lumen-hub__search.focus{background:' + A + ';color:' + t.onac + ';border-color:' + AL + ';border-width:.11em;-webkit-transform:scale(1.06);transform:scale(1.06);-webkit-box-shadow:0 .53em 1.53em ' + AG + ';box-shadow:0 .53em 1.53em ' + AG + '}');
+css.push('.lumen-hub.lumen-motion-lite .lumen-hub__search.focus,.lumen-hub.lumen-motion-off .lumen-hub__search.focus{-webkit-transform:none;transform:none}');
 
 
 
@@ -5905,7 +5939,13 @@ return false;
 
 
 
-function screenController(root, focusTarget, afterMove) {
+
+
+
+
+
+
+function screenController(root, focusTarget, afterMove, onUp) {
 return {
 toggle: function () {
 Lampa.Controller.collectionSet(root[0]);
@@ -5918,7 +5958,9 @@ right: function () {
 if (navMove('right') && afterMove) afterMove();
 },
 up: function () {
-if (!navMove('up')) Lampa.Controller.toggle('head');
+if (navMove('up')) return;
+if (onUp && onUp()) return;
+Lampa.Controller.toggle('head');
 },
 down: function () {
 if (navMove('down') && afterMove) afterMove();
@@ -5974,8 +6016,12 @@ clearHandles();
 
 
 
+
+
+
 function focusTarget() {
 if (lastFocus && root[0] && root[0].contains && root[0].contains(lastFocus)) return lastFocus;
+if (chipNodes.length) return chipNodes[0];
 return null;
 }
 
@@ -6113,6 +6159,62 @@ recollect(node[0]);
 return node[0];
 }
 
+
+
+
+
+
+function searchItems() {
+var list = (manifest && manifest.collections) || [];
+var code = lang();
+var out = [];
+for (var i = 0; i < list.length; i++) {
+out.push({ id: list[i].id, title: titleOf(list[i], code), source: list[i] });
+}
+return out;
+}
+
+
+
+
+
+
+function openSearch() {
+if (!LC.nav || typeof LC.nav.openSearch !== 'function') return;
+LC.nav.openSearch({
+items: searchItems(),
+words: {
+title: LC.lang('lumen_hub_search_title'),
+results: LC.lang('lumen_hub_search_results'),
+empty: LC.lang('lumen_hub_search_empty')
+},
+onSelect: function (found) {
+if (found && found.source) openCollection(found.source);
+},
+onDone: function () {
+try { Lampa.Controller.toggle('content'); } catch (e) {
+warn('hub: search return failed', e);
+}
+}
+});
+}
+
+
+
+
+
+function focusSearch() {
+var node = head.find('.lumen-hub__search')[0];
+if (!node) return false;
+
+
+
+
+if (lastFocus === node) return false;
+recollect(node);
+return true;
+}
+
 function buildHead() {
 var total = 0;
 for (var i = 0; i < groups.length; i++) total += groups[i].count;
@@ -6121,8 +6223,10 @@ head.append($('<div class="lumen-hub__title">' + esc(LC.lang('lumen_hub_title'))
 head.append($('<div class="lumen-hub__count">' + total + ' ' + esc(LC.collectionsWord(total)) + '</div>'));
 
 
-
-head.append($('<div class="lumen-hub__search hide">' + esc(LC.lang('lumen_hub_search')) + '</div>'));
+var search = $('<div class="lumen-hub__search selector">' + LC.icons.get('search') + '<span>' + esc(LC.lang('lumen_hub_search')) + '</span></div>');
+search.on('hover:focus', function () { lastFocus = search[0]; });
+search.on('hover:enter', function () { openSearch(); });
+head.append(search);
 }
 
 function build(m) {
@@ -6171,7 +6275,7 @@ try { act = Lampa.Activity.active(); } catch (eAct) {}
 if (act && act.activity && act.activity !== this.activity) return;
 started = true;
 motionClass(root);
-Lampa.Controller.add('content', screenController(root, focusTarget, null));
+Lampa.Controller.add('content', screenController(root, focusTarget, null, focusSearch));
 Lampa.Controller.toggle('content');
 
 
@@ -6786,6 +6890,7 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 
+
 LC.hero = (function () {
 
 
@@ -6811,6 +6916,9 @@ var DETAILS_LIFE = 1440;
 
 
 var WIDE_PX = 1366;
+
+
+var BIG_POSTER = 500;
 
 
 
@@ -6991,6 +7099,28 @@ function shouldUpdate(prevId, nextId, elapsedMs, delay) {
 if (nextId == null) return false;
 if (prevId === nextId) return false;
 return (elapsedMs || 0) >= (delay || 0);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function bigPoster(url) {
+var src = '' + (url || '');
+var m = /\/t\/p\/w(\d+)\//.exec(src);
+if (!m) return null;
+if ((parseInt(m[1], 10) || 0) >= BIG_POSTER) return null;
+return src.replace(m[0], '/t/p/w' + BIG_POSTER + '/');
 }
 
 
@@ -7465,8 +7595,70 @@ var rect = null;
 try {
 if (el.getBoundingClientRect) rect = el.getBoundingClientRect();
 } catch (eR) { }
-if (!poster || !rect) { last = null; return; }
+if (!poster || !rect) { last = null; cancelBigPoster(); return; }
 last = { id: card.id, poster: poster, rect: { left: rect.left, top: rect.top, width: rect.width, height: rect.height } };
+scheduleBigPoster(card.id, poster);
+}
+
+
+
+
+function bigPosterWanted() {
+try {
+if (LC.motionMode && LC.motionMode() !== 'full') return false;
+return LC.pref ? LC.pref('lumen_transition', true) !== false : false;
+} catch (e) {
+return false;
+}
+}
+
+
+
+
+
+
+function cancelBigPoster() {
+if (!state) return;
+stopTimer('bigTimer');
+if (state.bigLoader) {
+state.bigLoader.onload = null;
+state.bigLoader.onerror = null;
+state.bigLoader = null;
+}
+}
+
+
+
+
+
+
+
+
+function scheduleBigPoster(id, poster) {
+cancelBigPoster();
+
+
+
+if (!bigPosterWanted()) return;
+var url = bigPoster(poster);
+if (!url) return;
+state.bigTimer = setTimeout(function () {
+if (!state) return;
+state.bigTimer = null;
+if (!last || String(last.id) !== String(id)) return;
+var img = new Image();
+state.bigLoader = img;
+img.onload = function () {
+if (!state || state.bigLoader !== img) return;
+state.bigLoader = null;
+if (last && String(last.id) === String(id)) last.big = url;
+};
+img.onerror = function () {
+if (!state || state.bigLoader !== img) return;
+state.bigLoader = null;
+};
+img.src = url;
+}, DELAY);
 }
 
 
@@ -7665,13 +7857,19 @@ if (s.observer) s.observer.disconnect();
 } catch (e) {
 warn('hero: disconnect failed', e);
 }
-var timers = ['timer', 'swapTimer', 'loadTimer', 'accentTimer'];
+var timers = ['timer', 'swapTimer', 'loadTimer', 'accentTimer', 'bigTimer'];
 for (var i = 0; i < timers.length; i++) {
 try { if (s[timers[i]]) clearTimeout(s[timers[i]]); } catch (eT) {}
 }
 if (s.loader) {
 s.loader.onload = null;
 s.loader.onerror = null;
+}
+
+
+if (s.bigLoader) {
+s.bigLoader.onload = null;
+s.bigLoader.onerror = null;
 }
 try { if (s.net && s.net.clear) s.net.clear(); } catch (eN) {}
 try { s.node.remove(); } catch (eR) {}
@@ -7719,6 +7917,7 @@ return ownedBy(render);
 
 return {
 pickLogo: pickLogo,
+bigPoster: bigPoster,
 mediaOf: mediaOf,
 heroModel: heroModel,
 shouldUpdate: shouldUpdate,
@@ -12288,6 +12487,720 @@ MARK_MODAL: MARK_MODAL
 if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.menus;
 
 
+/* ---- 64_nav.js ---- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+LC.nav = (function () {
+
+
+
+var WINDOW = 7;
+var FULL_LIST = 9;
+
+
+
+var FAST_REPEATS = 6;
+var FAST_WINDOW = 1200;
+
+
+
+
+
+var FAST_GAP = 350;
+
+var FAST_EXTRA = 2;
+
+
+var JUMP_STEPS = 10;
+
+
+var HOLD_MS = 500;
+var HIDE_MS = 800;
+
+var JUMP_LIFE = 1200;
+
+
+
+var SEARCH_LIMIT = 8;
+
+
+
+var KEY_LEFT = [37, 4];
+var KEY_RIGHT = [39, 5];
+var KEY_UP = [38, 29460];
+var KEY_DOWN = [40, 29461];
+var KEY_PAGE_UP = [33, 427];
+var KEY_PAGE_DOWN = [34, 428];
+
+function esc(text) {
+return LC.util.esc('' + (text == null ? '' : text));
+}
+
+function has(list, code) {
+for (var i = 0; i < list.length; i++) if (list[i] === code) return true;
+return false;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function holdTracker() {
+var key = 0;
+var holding = false;
+var repeats = 0;
+var since = 0;
+var last = 0;
+var fast = false;
+
+function snapshot() {
+return { key: key, holding: holding, repeats: repeats, since: since, fast: fast };
+}
+
+function reset() {
+key = 0;
+holding = false;
+repeats = 0;
+since = 0;
+last = 0;
+fast = false;
+}
+
+function start(code, t) {
+key = code;
+holding = true;
+repeats = 1;
+since = t;
+last = t;
+fast = false;
+}
+
+function feed(ev) {
+if (!ev || !ev.type) return snapshot();
+var code = Number(ev.key) || 0;
+var t = Number(ev.t) || 0;
+if (ev.type === 'up') {
+
+
+if (holding && code && code !== key) return snapshot();
+reset();
+return snapshot();
+}
+if (ev.type !== 'down') return snapshot();
+if (!holding || key !== code || (t - last) > FAST_GAP) {
+start(code, t);
+return snapshot();
+}
+repeats++;
+last = t;
+if (repeats >= FAST_REPEATS && (t - since) <= FAST_WINDOW) fast = true;
+return snapshot();
+}
+
+
+function heldFor(t) {
+if (!holding) return 0;
+return Math.max(0, (Number(t) || 0) - since);
+}
+
+return { feed: feed, state: snapshot, reset: reset, heldFor: heldFor };
+}
+
+
+
+
+
+
+
+
+
+function minimapModel(titles, activeIndex, word) {
+if (!titles || !titles.length) return null;
+var total = titles.length;
+var active = Math.floor(Number(activeIndex));
+if (!(active >= 0) || active >= total) active = -1;
+var name = word || 'Ряд';
+var from = 0;
+var to = total - 1;
+if (total > FULL_LIST) {
+var half = Math.floor(WINDOW / 2);
+var center = active < 0 ? 0 : active;
+from = Math.min(Math.max(0, center - half), total - WINDOW);
+to = from + WINDOW - 1;
+}
+var items = [];
+for (var i = from; i <= to; i++) {
+var title = ('' + (titles[i] == null ? '' : titles[i])).replace(/^\s+|\s+$/g, '');
+items.push({
+index: i,
+title: title || (name + ' ' + (i + 1)),
+active: i === active
+});
+}
+return { total: total, active: active, from: from, to: to, items: items };
+}
+
+
+
+function normalize(text) {
+return ('' + (text == null ? '' : text))
+.toLowerCase()
+.replace(/ё/g, 'е')
+.replace(/^\s+|\s+$/g, '');
+}
+
+
+
+
+
+function rankOf(title, id, query) {
+if (title) {
+var at = title.indexOf(query);
+if (at === 0) return 0;
+if (at > 0) {
+var before = title.charAt(at - 1);
+return /[0-9a-zа-я]/.test(before) ? 2 : 1;
+}
+}
+if (id && id.indexOf(query) >= 0) return 3;
+return -1;
+}
+
+
+
+
+
+function searchCollections(list, query) {
+var q = normalize(query);
+if (!list || !list.length || !q) return [];
+var found = [];
+for (var i = 0; i < list.length; i++) {
+var item = list[i];
+if (!item) continue;
+var rank = rankOf(normalize(item.title), normalize(item.id), q);
+if (rank < 0) continue;
+found.push({ item: item, rank: rank, order: i });
+}
+found.sort(function (a, b) {
+if (a.rank !== b.rank) return a.rank - b.rank;
+return a.order - b.order;
+});
+var out = [];
+for (var k = 0; k < found.length && out.length < SEARCH_LIMIT; k++) out.push(found[k].item);
+return out;
+}
+
+
+
+function jumpLabel(index, total) {
+var i = Math.floor(Number(index));
+var n = Math.floor(Number(total));
+if (!(n > 1)) return '';
+if (!(i >= 0) || i >= n) return '';
+return (i + 1) + ' / ' + n;
+}
+
+
+
+
+
+function minimapOn() {
+try { return LC.pref('lumen_minimap', true) !== false; } catch (e) { return false; }
+}
+
+function fastOn() {
+try { return LC.pref('lumen_fastscroll', true) !== false; } catch (e) { return false; }
+}
+
+function lang(key) {
+try { return LC.lang(key); } catch (e) { return ''; }
+}
+
+function keypad() {
+try {
+if (window.Lampa && Lampa.Keypad && Lampa.Keypad.listener) return Lampa.Keypad;
+} catch (e) { }
+return null;
+}
+
+
+function controllerName() {
+try {
+var c = Lampa.Controller.enabled();
+return c && c.name ? c.name : '';
+} catch (e) {
+return '';
+}
+}
+
+
+
+
+
+
+function onCards() {
+var name = controllerName();
+return name === 'content' || name === 'items_line';
+}
+
+
+function currentMain() {
+try {
+if (!window.Lampa || !Lampa.Activity || typeof Lampa.Activity.active !== 'function') return null;
+var act = Lampa.Activity.active();
+if (!act || act.component !== 'main') return null;
+if (!act.activity || typeof act.activity.render !== 'function') return null;
+return act.activity.render();
+} catch (e) {
+return null;
+}
+}
+
+function move(dir) {
+try {
+if (window.Lampa && Lampa.Controller && typeof Lampa.Controller.move === 'function') {
+Lampa.Controller.move(dir);
+return true;
+}
+} catch (e) {
+warn('nav: move failed', e);
+}
+return false;
+}
+
+function now() {
+return Date.now();
+}
+
+
+
+
+
+var tracker = holdTracker();
+var bound = null;
+var panel = null;
+var jumpNode = null;
+var showTimer = null;
+var hideTimer = null;
+var paintTimer = null;
+var jumpTimer = null;
+
+function stopTimer(id) {
+try { if (id) clearTimeout(id); } catch (e) { }
+return null;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+function readRows(root) {
+var lines = $('.items-line', root);
+var focus = $('.card.focus', root);
+var focusNode = focus && focus.length ? focus[0] : null;
+var titles = [];
+var active = -1;
+for (var i = 0; i < lines.length; i++) {
+var head = $('.items-line__title', lines[i]);
+titles.push(head && head.length ? head.eq(0).text() : '');
+if (focusNode && lines[i].contains && lines[i].contains(focusNode)) active = i;
+}
+return { titles: titles, active: active };
+}
+
+function minimapHtml(model) {
+var count = model.active >= 0
+? (model.active + 1) + ' ' + lang('lumen_minimap_of') + ' ' + model.total
+: '' + model.total;
+var html = '<div class="lumen-minimap__head">' + esc(lang('lumen_minimap_rows')) + ' · ' + esc(count) + '</div>';
+for (var i = 0; i < model.items.length; i++) {
+var item = model.items[i];
+html += '<div class="lumen-minimap__row' + (item.active ? ' lumen-minimap__row--on' : '') + '">' + esc(item.title) + '</div>';
+}
+return html;
+}
+
+
+
+
+function paintMinimap() {
+if (!panel) return;
+var root = currentMain();
+if (!root || !root.length) { hideMinimap(); return; }
+var rows = readRows(root);
+var model = minimapModel(rows.titles, rows.active, lang('lumen_minimap_row'));
+if (!model) { hideMinimap(); return; }
+panel.html(minimapHtml(model));
+}
+
+function showMinimap() {
+if (panel) { paintMinimap(); return; }
+var root = currentMain();
+if (!root || !root.length) return;
+try {
+panel = $('<div class="lumen-minimap"></div>');
+$('body').append(panel);
+} catch (e) {
+panel = null;
+warn('nav: minimap show failed', e);
+return;
+}
+paintMinimap();
+}
+
+function hideMinimap() {
+if (!panel) return;
+var node = panel;
+panel = null;
+try { node.remove(); } catch (e) {
+warn('nav: minimap remove failed', e);
+}
+}
+
+
+
+
+
+
+
+
+
+function rowPosition() {
+try {
+var focus = $('.card.focus');
+if (!focus || !focus.length) return null;
+var box = focus.closest('.items-line');
+if (!box || !box.length) box = focus.closest('.scroll__body');
+if (!box || !box.length) return null;
+var cards = $('.card', box[0]);
+for (var i = 0; i < cards.length; i++) {
+if (cards[i] === focus[0]) return { index: i, total: cards.length };
+}
+} catch (e) {
+warn('nav: position failed', e);
+}
+return null;
+}
+
+function hideJump() {
+jumpTimer = stopTimer(jumpTimer);
+if (!jumpNode) return;
+var node = jumpNode;
+jumpNode = null;
+try { node.remove(); } catch (e) {
+warn('nav: jump remove failed', e);
+}
+}
+
+
+
+function showJump() {
+var pos = rowPosition();
+var label = pos ? jumpLabel(pos.index, pos.total) : '';
+if (!label) { hideJump(); return; }
+try {
+if (!jumpNode) {
+jumpNode = $('<div class="lumen-jump"></div>');
+$('body').append(jumpNode);
+}
+jumpNode.text(label);
+} catch (e) {
+jumpNode = null;
+warn('nav: jump show failed', e);
+return;
+}
+jumpTimer = stopTimer(jumpTimer);
+jumpTimer = setTimeout(function () {
+jumpTimer = null;
+hideJump();
+}, JUMP_LIFE);
+}
+
+
+
+
+
+
+
+
+
+function schedulePaint(withJump) {
+if (paintTimer) return;
+paintTimer = setTimeout(function () {
+paintTimer = null;
+if (panel) paintMinimap();
+if (withJump) showJump();
+}, 0);
+}
+
+
+
+
+
+
+
+
+function onVertical(state) {
+if (!minimapOn()) return;
+if (!onCards()) return;
+if (!currentMain()) return;
+hideTimer = stopTimer(hideTimer);
+if (panel) { schedulePaint(false); return; }
+if (showTimer) return;
+showTimer = setTimeout(function () {
+showTimer = null;
+
+if (!tracker.state().holding) return;
+showMinimap();
+}, Math.max(0, HOLD_MS - (now() - state.since)));
+}
+
+function onHorizontal(state, dir) {
+if (!state.fast) return;
+if (!fastOn()) return;
+if (!onCards()) return;
+for (var i = 0; i < FAST_EXTRA; i++) move(dir);
+schedulePaint(true);
+}
+
+function onJump(dir) {
+if (!fastOn()) return;
+if (!onCards()) return;
+for (var i = 0; i < JUMP_STEPS; i++) move(dir);
+schedulePaint(true);
+}
+
+function handleDown(e) {
+var code = e && e.code;
+if (!code) return;
+
+
+if (e.enabled === false) return;
+var state = tracker.feed({ key: code, type: 'down', t: now() });
+if (has(KEY_UP, code) || has(KEY_DOWN, code)) { onVertical(state); return; }
+if (has(KEY_LEFT, code)) { onHorizontal(state, 'left'); return; }
+if (has(KEY_RIGHT, code)) { onHorizontal(state, 'right'); return; }
+if (has(KEY_PAGE_UP, code)) { onJump('left'); return; }
+if (has(KEY_PAGE_DOWN, code)) onJump('right');
+}
+
+function handleUp(e) {
+var code = e && e.code;
+tracker.feed({ key: code, type: 'up', t: now() });
+showTimer = stopTimer(showTimer);
+if (!panel || hideTimer) return;
+hideTimer = setTimeout(function () {
+hideTimer = null;
+hideMinimap();
+}, HIDE_MS);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function openSearch(opts) {
+var o = opts || {};
+var words = o.words || {};
+function done() {
+try { if (typeof o.onDone === 'function') o.onDone(); } catch (e) {
+warn('nav: search done failed', e);
+}
+}
+try {
+if (!window.Lampa || !Lampa.Input || typeof Lampa.Input.edit !== 'function') return false;
+Lampa.Input.edit({
+free: true,
+nosave: true,
+value: '',
+layout: 'search',
+title: words.title || ''
+}, function (query) {
+var found = searchCollections(o.items, query);
+if (!found.length) {
+if (normalize(query)) {
+try { Lampa.Noty.show(words.empty || ''); } catch (eN) { }
+}
+done();
+return;
+}
+var items = [];
+for (var i = 0; i < found.length; i++) {
+items.push({ title: found[i].title || found[i].id, lumen_item: found[i] });
+}
+Lampa.Select.show({
+title: words.results || '',
+items: items,
+onSelect: function (item) {
+try { if (typeof o.onSelect === 'function') o.onSelect(item.lumen_item); } catch (eS) {
+warn('nav: search select failed', eS);
+}
+},
+onBack: done
+});
+});
+return true;
+} catch (err) {
+warn('nav: search failed', err);
+done();
+return false;
+}
+}
+
+
+
+
+
+function install() {
+if (bound) return;
+var kp = keypad();
+if (!kp) return;
+var handlers = { down: handleDown, up: handleUp };
+try {
+kp.listener.follow('keydown', handlers.down);
+kp.listener.follow('keyup', handlers.up);
+} catch (e) {
+warn('nav: install failed', e);
+return;
+}
+bound = handlers;
+}
+
+function uninstall() {
+var kp = keypad();
+if (bound && kp) {
+try {
+kp.listener.remove('keydown', bound.down);
+kp.listener.remove('keyup', bound.up);
+} catch (e) {
+warn('nav: uninstall failed', e);
+}
+}
+bound = null;
+tracker.reset();
+showTimer = stopTimer(showTimer);
+hideTimer = stopTimer(hideTimer);
+paintTimer = stopTimer(paintTimer);
+hideJump();
+hideMinimap();
+}
+
+
+
+
+function apply() {
+if (minimapOn() || fastOn()) install();
+else uninstall();
+}
+
+return {
+holdTracker: holdTracker,
+minimapModel: minimapModel,
+searchCollections: searchCollections,
+jumpLabel: jumpLabel,
+openSearch: openSearch,
+install: install,
+uninstall: uninstall,
+apply: apply,
+active: function () { return !!panel; }
+};
+})();
+
+if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.nav;
+
+
 /* ---- 65_torrents.js ---- */
 
 
@@ -12972,6 +13885,13 @@ warn('transition: remove failed', eR);
 }
 }
 
+
+
+
+
+
+
+
 function show(source) {
 var box = screenBox();
 var g = geom(source.rect, box);
@@ -13009,7 +13929,7 @@ left: Math.round(source.rect.left) + 'px',
 top: Math.round(source.rect.top) + 'px',
 width: Math.round(source.rect.width) + 'px',
 height: Math.round(source.rect.height) + 'px',
-'background-image': 'url("' + encodeURI(source.poster) + '")',
+'background-image': 'url("' + encodeURI(source.big || source.poster) + '")',
 
 
 
@@ -14041,6 +14961,25 @@ en: 'Holding OK on a poster opens the stock Lampa menu, and the plugin appends "
 uk: 'Утримання OK на постері відкриває штатне меню Lampa, а плагін дописує до нього «Трейлер», «Схожі», «Вся франшиза», позначку перегляду та «Сховати з рекомендацій». Звичайне натискання, як і раніше, відкриває картку. Застосовується одразу.'
 },
 
+lumen_minimap_name: { ru: 'Мини-карта рядов', en: 'Rows minimap', uk: 'Міні-карта рядів' },
+lumen_minimap_descr: {
+ru: 'Удержание «вверх» или «вниз» на главной показывает справа список рядов с подсветкой того, в котором вы сейчас. Нажатия не перехватывает. Применяется сразу.',
+en: 'Holding "up" or "down" on the home screen shows a list of rows on the right with the current one highlighted. It never intercepts key presses. Applied immediately.',
+uk: 'Утримання «вгору» або «вниз» на головній показує праворуч список рядів із підсвіткою того, у якому ви зараз. Натискання не перехоплює. Застосовується одразу.'
+},
+lumen_fastscroll_name: { ru: 'Быстрое листание', en: 'Fast scrolling', uk: 'Швидке гортання' },
+lumen_fastscroll_descr: {
+ru: 'Удержание «влево» или «вправо» разгоняет листание ряда втрое, а кнопки каналов на пульте прыгают сразу на десять карточек. Позиция в ряду показывается внизу экрана. Применяется сразу.',
+en: 'Holding "left" or "right" scrolls a row three times faster, and the channel buttons on the remote jump ten cards at once. The position in the row is shown at the bottom. Applied immediately.',
+uk: 'Утримання «вліво» або «вправо» пришвидшує гортання ряду втричі, а кнопки каналів на пульті стрибають одразу на десять карток. Позиція в ряду показується внизу екрана. Застосовується одразу.'
+},
+
+lumen_minimap_rows: { ru: 'РЯДЫ', en: 'ROWS', uk: 'РЯДИ' },
+lumen_minimap_of: { ru: 'ИЗ', en: 'OF', uk: 'З' },
+
+lumen_minimap_row: { ru: 'Ряд', en: 'Row', uk: 'Ряд' },
+
+
 lumen_menu_section: { ru: 'Lumen Card', en: 'Lumen Card', uk: 'Lumen Card' },
 lumen_menu_trailer: { ru: 'Трейлер', en: 'Trailer', uk: 'Трейлер' },
 lumen_menu_franchise: { ru: 'Вся франшиза', en: 'Whole franchise', uk: 'Вся франшиза' },
@@ -14100,7 +15039,16 @@ uk: 'Немає джерела'
 lumen_hub_title: { ru: 'Подборки', en: 'Collections', uk: 'Підбірки' },
 
 
+
 lumen_hub_search: { ru: 'ПОИСК ПО ПОДБОРКАМ', en: 'SEARCH COLLECTIONS', uk: 'ПОШУК ПО ПІДБІРКАХ' },
+
+lumen_hub_search_title: { ru: 'Название подборки', en: 'Collection name', uk: 'Назва підбірки' },
+lumen_hub_search_results: { ru: 'Найденные подборки', en: 'Collections found', uk: 'Знайдені підбірки' },
+lumen_hub_search_empty: {
+ru: 'Подборки с таким названием нет',
+en: 'No collection with that name',
+uk: 'Підбірки з такою назвою немає'
+},
 lumen_hub_empty: { ru: 'Здесь пока пусто', en: 'Nothing here yet', uk: 'Тут поки порожньо' },
 
 lumen_hub_nokey: { ru: 'НУЖЕН КЛЮЧ', en: 'KEY REQUIRED', uk: 'ПОТРІБЕН КЛЮЧ' },
@@ -14275,6 +15223,13 @@ return true;
 
 if (name === 'lumen_context_menu') {
 try { if (LC.applyCardmenuPref) LC.applyCardmenuPref(); } catch (eCardmenu) {}
+return true;
+}
+
+
+
+if (name === 'lumen_minimap' || name === 'lumen_fastscroll') {
+try { if (LC.applyNavPref) LC.applyNavPref(); } catch (eNav) {}
 return true;
 }
 
@@ -14646,6 +15601,13 @@ var LIST = [
 
 
 { name: 'lumen_context_menu', type: 'trigger', 'default': true, label: 'lumen_context_menu_name', descr: 'lumen_context_menu_descr' },
+
+
+
+
+
+{ name: 'lumen_minimap', type: 'trigger', 'default': true, label: 'lumen_minimap_name', descr: 'lumen_minimap_descr' },
+{ name: 'lumen_fastscroll', type: 'trigger', 'default': true, label: 'lumen_fastscroll_name', descr: 'lumen_fastscroll_descr' },
 { name: 'lumen_hide_watched', type: 'trigger', 'default': false, label: 'lumen_hide_watched_name', descr: 'lumen_hide_watched_descr' },
 
 
@@ -16767,6 +17729,14 @@ if (LC.cardmenu && LC.cardmenu.install) LC.cardmenu.install();
 } catch (eCardmenu) {
 warn('cardmenu install failed', eCardmenu);
 }
+
+
+
+try {
+if (LC.nav && LC.nav.apply) LC.nav.apply();
+} catch (eNav) {
+warn('nav install failed', eNav);
+}
 }
 
 function deactivate() {
@@ -16827,6 +17797,9 @@ try { if (LC.badges && LC.badges.uninstall) LC.badges.uninstall(); } catch (eBad
 
 
 try { if (LC.cardmenu && LC.cardmenu.uninstall) LC.cardmenu.uninstall(); } catch (eCardmenuOff) {}
+
+
+try { if (LC.nav && LC.nav.uninstall) LC.nav.uninstall(); } catch (eNavOff) {}
 }
 
 
@@ -17065,6 +18038,18 @@ if (LC.pref('lumen_context_menu', true)) LC.cardmenu.install();
 else LC.cardmenu.uninstall();
 } catch (e) {
 warn('cardmenu pref failed', e);
+}
+};
+
+
+
+
+LC.applyNavPref = function () {
+if (!activated) return;
+try {
+if (LC.nav && LC.nav.apply) LC.nav.apply();
+} catch (e) {
+warn('nav pref failed', e);
 }
 };
 

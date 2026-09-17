@@ -153,6 +153,21 @@ test('open: рисует один слой поверх экрана с пост
   assert.equal(img.css('top'), '200px');
 });
 
+/* Task 27 (довесок): крупная версия постера, предзагруженная героем. */
+test('open: берёт крупный постер, если герой успел его загрузить', () => {
+  const e = env({ last: { id: 42, poster: 'https://img/t/p/w300/p.jpg', big: 'https://img/t/p/w500/p.jpg', rect: { left: 100, top: 200, width: 180, height: 270 } } });
+  assert.equal(e.api.open({ id: 42 }), true);
+  const img = e.overlay()[0].find('.lumen-overlay__img');
+  assert.ok(String(img.css('background-image')).indexOf('/t/p/w500/p.jpg') !== -1, 'в слой пошла крупная версия');
+});
+
+test('open: крупная версия не успела — переход идёт на постере ряда, без ожидания', () => {
+  const e = env({ last: { id: 42, poster: 'https://img/t/p/w300/p.jpg', rect: { left: 100, top: 200, width: 180, height: 270 } } });
+  assert.equal(e.api.open({ id: 42 }), true);
+  const img = e.overlay()[0].find('.lumen-overlay__img');
+  assert.ok(String(img.css('background-image')).indexOf('/t/p/w300/p.jpg') !== -1);
+});
+
 test('open: разгон задаётся через два кадра — иначе браузеру нечего анимировать', () => {
   const e = env();
   e.api.open({ id: 42 });

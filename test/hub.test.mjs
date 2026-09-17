@@ -650,15 +650,30 @@ test('lumen_hub: пульт двигает фокус штатным Navigator',
   assert.ok(s.env.log.focuses[s.env.log.focuses.length - 1].hasClass('lumen-chip'), 'вверх — обратно на чип');
 });
 
-test('lumen_hub: влево с первого элемента уводит в меню, вверх с чипов — в шапку', function () {
+/* Task 27: первым .selector экрана стала кнопка поиска в шапке, а вход
+   по-прежнему начинается с чипа группы (focusTarget). В линейной модели
+   фейкового Navigator «влево» с первого чипа ведёт на эту кнопку, и только
+   с неё экран кончается — на живом SpatialNavigator кнопка стоит справа в
+   шапке, то есть «влево» с чипа уводит в меню сразу. Проверяем контракт
+   контроллера: пока внутри экрана есть куда шагнуть, меню не трогаем. */
+test('lumen_hub: влево с края экрана уводит в меню, вверх с чипов — в шапку', function () {
   var s = openHub();
   s.comp.start();
   var ctrl = s.env.log.controllers.content;
   ctrl.toggle();
   s.env.log.toggles.length = 0;
   ctrl.left();
+  assert.deepEqual(s.env.log.toggles, [], 'шаг внутри экрана меню не открывает');
+  assert.ok(s.env.log.focuses[s.env.log.focuses.length - 1].hasClass('lumen-hub__search'), 'влево с чипа — на кнопку поиска');
+  ctrl.left();
   assert.deepEqual(s.env.log.toggles, ['menu']);
   s.env.log.toggles.length = 0;
+  ctrl.right();
+  /* Первый «вверх» с чипа — на кнопку поиска (Navigator её не находит:
+     кнопка в правой части шапки, чипы слева), второй — уже в шапку Lampa. */
+  ctrl.up();
+  assert.deepEqual(s.env.log.toggles, [], 'шаг на кнопку поиска шапку не открывает');
+  assert.ok(s.env.log.focuses[s.env.log.focuses.length - 1].hasClass('lumen-hub__search'));
   ctrl.up();
   assert.deepEqual(s.env.log.toggles, ['head']);
 });

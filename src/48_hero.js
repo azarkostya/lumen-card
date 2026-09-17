@@ -16,7 +16,8 @@
   /*   unmount() — снять целиком (узел, класс, наблюдатель, запросы)        */
   /*   applyMotion() — перечитать режим анимаций на открытом герое          */
   /*   active() → смонтирован ли герой                                      */
-  /*   lastFocus() → {id, poster, rect} последней карточки под фокусом      */
+  /*   bigPoster(url) → адрес того же постера в w500 или null               */
+  /*   lastFocus() → {id, poster, rect, big?} последней карточки под фокусом */
   /*                                                                       */
   /* Как работает смена героя (сториборд 23г, ограничение брифа 1):         */
   /*   - фокус карточки ловит ОДИН MutationObserver на корне активности     */
@@ -60,6 +61,9 @@
     /* Выше этой ширины экрана кадр берём в 'original' (тот же принцип, что
        у ambient-режима фазы 3): на FHD-панелях w1280 и так по пикселю. */
     var WIDE_PX = 1366;
+    /* Task 27 (довесок): ширина крупной версии постера, которую герой
+       предзагружает для слоя перехода (см. bigPoster). */
+    var BIG_POSTER = 500;
 
     /* Размер логотипа в кадре (правка пользователя 2026-09-17, четвёртый
        круг, дословно: «нет какого-то единого размера»).
@@ -240,6 +244,28 @@
       if (nextId == null) return false;
       if (prevId === nextId) return false;
       return (elapsedMs || 0) >= (delay || 0);
+    }
+
+    /* Task 27 (довесок): адрес того же постера покрупнее — для слоя перехода
+       «постер → кадр» (src/67_transition.js).
+
+       Ряды Lampa рисуют постеры в w300 (app.min.js ~52500), а переход
+       растягивает картинку почти на весь экран: на FHD это увеличение в
+       шесть раз по ширине, и в полноэкранном состоянии постер видно мыльным.
+       w500 — следующий размер TMDB после w300 (500×750 против 300×450 —
+       снято живьём 2026-09-17): линейного разрешения в полтора с лишним
+       раза больше, а грузится по-прежнему одна картинка на карточку, на
+       которой остановились.
+
+       Меняется ровно сегмент размера в пути TMDB (/t/p/wNNN/). Адрес не
+       оттуда (Кинопоиск, локальная картинка) или постер уже не мельче —
+       null: грузить нечего. */
+    function bigPoster(url) {
+      var src = '' + (url || '');
+      var m = /\/t\/p\/w(\d+)\//.exec(src);
+      if (!m) return null;
+      if ((parseInt(m[1], 10) || 0) >= BIG_POSTER) return null;
+      return src.replace(m[0], '/t/p/w' + BIG_POSTER + '/');
     }
 
     /* Размер кадра под экран: на FHD и ниже w1280 покрывает ширину целиком,
@@ -714,8 +740,70 @@
       try {
         if (el.getBoundingClientRect) rect = el.getBoundingClientRect();
       } catch (eR) { }
-      if (!poster || !rect) { last = null; return; }
+      if (!poster || !rect) { last = null; cancelBigPoster(); return; }
       last = { id: card.id, poster: poster, rect: { left: rect.left, top: rect.top, width: rect.width, height: rect.height } };
+      scheduleBigPoster(card.id, poster);
+    }
+
+    /* Показался бы вообще переход «постер → кадр», ради которого грузится
+       крупная версия. Обе проверки — те же, что делает сам LC.transition
+       перед показом слоя. */
+    function bigPosterWanted() {
+      try {
+        if (LC.motionMode && LC.motionMode() !== 'full') return false;
+        return LC.pref ? LC.pref('lumen_transition', true) !== false : false;
+      } catch (e) {
+        return false;
+      }
+    }
+
+    /* Гасит незавершённую предзагрузку крупного постера. Обработчики
+       снимаются — сеть в снятый или сменившийся герой не вернётся; саму
+       картинку браузер при этом спокойно дотянет в кэш, и на следующем
+       фокусе той же карточки она окажется готовой мгновенно. Тот же приём,
+       что у предзагрузки кадра (cancelPending). */
+    function cancelBigPoster() {
+      if (!state) return;
+      stopTimer('bigTimer');
+      if (state.bigLoader) {
+        state.bigLoader.onload = null;
+        state.bigLoader.onerror = null;
+        state.bigLoader = null;
+      }
+    }
+
+    /* Task 27 (довесок): крупная версия постера для слоя перехода.
+
+       Запрос откладывается на ту же задержку, что и смена героя: при быстром
+       листании ряда ни одной лишней картинки не уходит — грузится постер той
+       карточки, на которой остановились. Готовый адрес кладётся в last.big,
+       откуда его берёт LC.transition; не успела загрузиться или упала —
+       переход идёт на прежнем w300, как и раньше, и ничего не ждёт. */
+    function scheduleBigPoster(id, poster) {
+      cancelBigPoster();
+      /* Крупный постер нужен ровно одному потребителю — слою перехода. Его
+         нет (настройка выключена) или он всё равно не покажется (режим
+         анимаций не 'full', src/67_transition.js) — сеть не тратим. */
+      if (!bigPosterWanted()) return;
+      var url = bigPoster(poster);
+      if (!url) return;
+      state.bigTimer = setTimeout(function () {
+        if (!state) return;
+        state.bigTimer = null;
+        if (!last || String(last.id) !== String(id)) return;
+        var img = new Image();
+        state.bigLoader = img;
+        img.onload = function () {
+          if (!state || state.bigLoader !== img) return;
+          state.bigLoader = null;
+          if (last && String(last.id) === String(id)) last.big = url;
+        };
+        img.onerror = function () {
+          if (!state || state.bigLoader !== img) return;
+          state.bigLoader = null;
+        };
+        img.src = url;
+      }, DELAY);
     }
 
     /* Правка пользователя 2026-09-17 (третий круг): акцент и подкраска фона
@@ -914,13 +1002,19 @@
       } catch (e) {
         warn('hero: disconnect failed', e);
       }
-      var timers = ['timer', 'swapTimer', 'loadTimer', 'accentTimer'];
+      var timers = ['timer', 'swapTimer', 'loadTimer', 'accentTimer', 'bigTimer'];
       for (var i = 0; i < timers.length; i++) {
         try { if (s[timers[i]]) clearTimeout(s[timers[i]]); } catch (eT) {}
       }
       if (s.loader) {
         s.loader.onload = null;
         s.loader.onerror = null;
+      }
+      /* Task 27 (довесок): предзагрузка крупного постера — такой же
+         незавершённый запрос, как кадр героя, и снимается так же. */
+      if (s.bigLoader) {
+        s.bigLoader.onload = null;
+        s.bigLoader.onerror = null;
       }
       try { if (s.net && s.net.clear) s.net.clear(); } catch (eN) {}
       try { s.node.remove(); } catch (eR) {}
@@ -968,6 +1062,7 @@
 
     return {
       pickLogo: pickLogo,
+      bigPoster: bigPoster,
       mediaOf: mediaOf,
       heroModel: heroModel,
       shouldUpdate: shouldUpdate,

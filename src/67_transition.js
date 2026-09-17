@@ -193,6 +193,13 @@
       }
     }
 
+    /* Task 27 (довесок): картинка слоя. Ряды рисуют постеры в w300, а слой
+       растягивает их почти на весь экран — в полноэкранном состоянии такой
+       постер мыльный. Герой предзагружает ту же обложку в w500 на покое
+       фокуса и кладёт адрес в last.big (src/48_hero.js, scheduleBigPoster):
+       успела прийти — берём её, нет — идём на прежнем w300. Ждать здесь
+       нечего: обе картинки уже в кэше браузера, и переход не откладывается
+       ни на кадр. */
     function show(source) {
       var box = screenBox();
       var g = geom(source.rect, box);
@@ -230,7 +237,7 @@
         top: Math.round(source.rect.top) + 'px',
         width: Math.round(source.rect.width) + 'px',
         height: Math.round(source.rect.height) + 'px',
-        'background-image': 'url("' + encodeURI(source.poster) + '")',
+        'background-image': 'url("' + encodeURI(source.big || source.poster) + '")',
         /* Обрез идёт по высоте, и центр постера — обычно не самое важное в
            нём: композиция плаката тяготеет к верхней половине (лица,
            заголовок). Точка кадрирования поднята выше середины, чтобы в

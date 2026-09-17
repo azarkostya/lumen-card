@@ -1156,6 +1156,14 @@
     } catch (eCardmenu) {
       warn('cardmenu install failed', eCardmenu);
     }
+    /* Task 27: ускорители навигации — две подписки на клавиатуру Lampa.
+       apply() ставит их, только если включена хотя бы одна из двух настроек
+       (мини-карта, быстрое листание). */
+    try {
+      if (LC.nav && LC.nav.apply) LC.nav.apply();
+    } catch (eNav) {
+      warn('nav install failed', eNav);
+    }
   }
 
   function deactivate() {
@@ -1216,6 +1224,9 @@
     /* Task 26: снять обе подписки меню карточки — выключенный плагин своих
        пунктов в штатное меню не дописывает. */
     try { if (LC.cardmenu && LC.cardmenu.uninstall) LC.cardmenu.uninstall(); } catch (eCardmenuOff) {}
+    /* Task 27: снять подписки на клавиатуру, панель мини-карты, индикатор
+       позиции и все четыре таймера модуля. */
+    try { if (LC.nav && LC.nav.uninstall) LC.nav.uninstall(); } catch (eNavOff) {}
   }
 
   /* -------------------------------------------------------------------- */
@@ -1454,6 +1465,18 @@
       else LC.cardmenu.uninstall();
     } catch (e) {
       warn('cardmenu pref failed', e);
+    }
+  };
+
+  /* Task 27: мини-карта и ускорение листания. LC.nav.apply() сам решает,
+     нужны ли подписки на клавиатуру: обе настройки выключены — модуль
+     снимает их вместе с панелью и индикатором. */
+  LC.applyNavPref = function () {
+    if (!activated) return;
+    try {
+      if (LC.nav && LC.nav.apply) LC.nav.apply();
+    } catch (e) {
+      warn('nav pref failed', e);
     }
   };
 

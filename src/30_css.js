@@ -407,7 +407,7 @@
      «крупнее» между ними зияла полоса в 40 px). Всё, что в герое читают —
      логотип, название, мета, описание, чипы и профили настроения, — лежит
      внутри .lumen-hero__text и масштабируется вместе с ним. */
-  var SCALE_ROOTS = '.lumen-card,.lumen-backdrop,.lumen-descr-row,.lumen-review-modal,.lumen-hero .lumen-hero__text,.lumen-hub,.lumen-grid';
+  var SCALE_ROOTS = '.lumen-card,.lumen-backdrop,.lumen-descr-row,.lumen-review-modal,.lumen-hero .lumen-hero__text,.lumen-hub,.lumen-grid,.lumen-minimap,.lumen-jump';
 
   function scaleFactor() {
     return SCALES[LC.pref('lumen_scale', SCALE_DEFAULT)] || SCALES[SCALE_DEFAULT];
@@ -1899,6 +1899,40 @@
        свойство ради полутора пикселей на углу — лишняя работа композитору.
        В первом же кадре разгона углы уезжают за пределы экрана. */
     css.push('.lumen-overlay .lumen-overlay__img.is-run{border-radius:0}');
+
+    /* --- Task 27: мини-карта рядов и индикатор позиции ---
+       Панель — design-spec-main §0.16 (экран 32): right 64, top 260,
+       width 300, padding 24×22, radius 12. Подложка — общий токен плагина
+       P.plate (.85 от цвета темы, в «плотных подложках» — сплошной), а не
+       литерал rgba(11,9,8,.72) из дизайна: тёплый литерал не переживает
+       смену темы (в «глубокой чёрной» он даёт коричневый ореол на чёрном), а
+       .85 против .72 на панели поверх ярких постеров только читабельнее.
+       Размытия подложки здесь нет намеренно: панель живёт доли секунды и
+       появляется ровно в тот момент, когда ТВ занят прокруткой рядов.
+       Слой поверх рядов, но ниже слоя перехода (z-index 90) и модалов Lampa
+       (1000+). pointer-events:none и ни одного слушателя: панель только
+       показывает, где фокус, и отобрать его не может (план Task 27 Step 2 —
+       «не перехватывать сами нажатия»). */
+    css.push('.lumen-minimap{position:fixed;right:2.81em;top:11.40em;width:13.15em;padding:1.05em .96em;border-radius:.53em;background:' + P.plate + ';border:.04em solid ' + P.line + ';z-index:80;pointer-events:none}');
+    css.push('.lumen-minimap .lumen-minimap__head{font-family:' + FM + ';font-size:.88em;line-height:1;letter-spacing:.14em;color:' + P.smoke + ';margin-bottom:.7em}');
+    css.push('.lumen-minimap .lumen-minimap__row{font-family:' + FB + ';font-weight:500;font-size:.88em;line-height:1.15;color:' + P.smoke + ';min-height:2.02em;padding:.31em .61em;border-radius:.35em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}');
+    /* Активная строка — тот же паттерн, что у фокуса пункта меню (§0.13):
+       подложка приглушённым акцентом и полоса слева его же цветом. */
+    css.push('.lumen-minimap .lumen-minimap__row--on{background:rgba(' + A_RGB + ',.14);border-left:.18em solid ' + A + ';color:' + A + ';font-weight:600;padding-left:.43em}');
+
+    /* Индикатор «где я в ряду»: появляется на прыжке и на ускоренном
+       листании. Собственного образца в экранах 15–32 у него нет — взяты
+       подложка и моно-кегль панели мини-карты, место — нижний край экрана
+       по центру, чтобы не спорить с самой панелью справа. */
+    css.push('.lumen-jump{position:fixed;left:50%;bottom:2.81em;-webkit-transform:translateX(-50%);transform:translateX(-50%);padding:.53em 1.05em;border-radius:.53em;background:' + P.plate + ';border:.04em solid ' + P.line + ';font-family:' + FM + ';font-size:.96em;line-height:1;letter-spacing:.06em;color:' + P.text + ';z-index:80;pointer-events:none;white-space:nowrap}');
+
+    /* Кнопка поиска по подборкам в шапке хаба (§0.8). Место под неё
+       (.lumen-hub__search) держалось с Task 17; теперь это .selector, и у
+       него есть состояние фокуса — как у чипов групп. */
+    css.push('.lumen-hub .lumen-hub__search{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;height:2.46em;padding:0 1.05em;border-radius:.53em;border:.04em solid ' + P.line + ';background:' + P.buttonBg + ';-webkit-transition:background-color .2s,border-color .2s,color .2s,-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25);transition:background-color .2s,border-color .2s,color .2s,transform .28s cubic-bezier(.2,.9,.3,1.25)}');
+    css.push('.lumen-hub .lumen-hub__search .lumen-ico{width:1.05em;height:1.05em;margin-right:.53em}');
+    css.push('.lumen-hub .lumen-hub__search.focus{background:' + A + ';color:' + t.onac + ';border-color:' + AL + ';border-width:.11em;-webkit-transform:scale(1.06);transform:scale(1.06);-webkit-box-shadow:0 .53em 1.53em ' + AG + ';box-shadow:0 .53em 1.53em ' + AG + '}');
+    css.push('.lumen-hub.lumen-motion-lite .lumen-hub__search.focus,.lumen-hub.lumen-motion-off .lumen-hub__search.focus{-webkit-transform:none;transform:none}');
 
     /* Пункт меню «Подборки»: штатные иконки меню Lampa — 1.5em, а наш набор
        отдаёт svg в 1em (src/20_icons.js), и пункт выглядел мельче соседей. */

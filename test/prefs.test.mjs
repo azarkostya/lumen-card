@@ -145,7 +145,9 @@ test('LIST: полный набор ключей — существующие и
     /* Task 24 (фаза 3): акцент от постера открытого фильма */
     'lumen_accent_auto',
     /* Task 29 (фаза 3): переход «постер → кадр» при открытии карточки */
-    'lumen_transition'
+    'lumen_transition',
+    /* Task 27 (фаза 3): мини-карта рядов и быстрое листание */
+    'lumen_minimap', 'lumen_fastscroll'
   ].sort());
 });
 
@@ -192,7 +194,11 @@ test('Task 20: настройки главной — одной группой, 
     'lumen_rows_limit', 'lumen_badges',
     /* Task 26 (фаза 3): меню карточки по удержанию OK — там же, где метки:
        речь о тех же постерах рядов и сеток. */
-    'lumen_context_menu', 'lumen_hide_watched', 'lumen_manifest_url'
+    'lumen_context_menu',
+    /* Task 27 (фаза 3): ускорители навигации — про то же движение по рядам
+       главной и сеток, поэтому сразу за меню карточки. */
+    'lumen_minimap', 'lumen_fastscroll',
+    'lumen_hide_watched', 'lumen_manifest_url'
   ]);
   /* Группа — последняя в разделе: ни один пункт фазы 2 не потерялся выше. */
   for (const e of LIST.slice(at + 1)) assert.notEqual(e.type, 'title', 'внутри группы новых заголовков нет');

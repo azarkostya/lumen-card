@@ -895,6 +895,92 @@ test('lastFocus: карточка без постера источником н�
   assert.equal(env.hero.lastFocus(), null);
 });
 
+/* ---------------------------------------------------------------------- */
+/* Task 27 (довесок): крупная версия постера для перехода.                  */
+/* ---------------------------------------------------------------------- */
+
+test('bigPoster: адрес того же постера в w500', () => {
+  assert.equal(H.bigPoster('https://img/t/p/w300/p1.jpg'), 'https://img/t/p/w500/p1.jpg');
+  assert.equal(H.bigPoster('http://imagetmdb.com/t/p/w200/x.jpg'), 'http://imagetmdb.com/t/p/w500/x.jpg');
+});
+
+test('bigPoster: постер уже не мельче — грузить нечего', () => {
+  assert.equal(H.bigPoster('https://img/t/p/w500/p1.jpg'), null);
+  assert.equal(H.bigPoster('https://img/t/p/w780/p1.jpg'), null);
+  assert.equal(H.bigPoster('https://img/t/p/original/p1.jpg'), null);
+});
+
+test('bigPoster: чужой адрес и мусор — null', () => {
+  assert.equal(H.bigPoster('https://kinopoisk/covers/p1.jpg'), null);
+  assert.equal(H.bigPoster(''), null);
+  assert.equal(H.bigPoster(null), null);
+});
+
+/* Предзагрузка включается настройкой перехода: в остальных тестах LC.pref
+   не задан, и лишних картинок они не видят. */
+const transitionEnv = () => makeEnv({ pref: (name, def) => def });
+
+test('крупный постер грузится после покоя фокуса и попадает в источник перехода', () => {
+  const env = transitionEnv();
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  const obs = env.observers[0];
+  main.card1.addClass('focus');
+  obs.fn([{ target: main.card1 }]);
+  assert.equal(env.images.length, 0, 'до покоя фокуса ничего не грузится');
+  env.advance(350);
+  /* Первой идёт предзагрузка кадра героя, крупный постер — вторая картинка. */
+  const big = env.images.filter((i) => i.src.indexOf('/t/p/w500/p1.jpg') !== -1);
+  assert.equal(big.length, 1, 'крупный постер запрошен ровно один раз');
+  assert.equal(env.hero.lastFocus().big, undefined, 'пока не загрузился — источник прежний');
+  big[0].onload();
+  assert.equal(env.hero.lastFocus().big, 'https://img/t/p/w500/p1.jpg');
+});
+
+test('быстрое листание крупный постер не грузит', () => {
+  const env = transitionEnv();
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  const obs = env.observers[0];
+  main.card1.addClass('focus');
+  obs.fn([{ target: main.card1 }]);
+  env.advance(100);
+  main.card2.addClass('focus');
+  obs.fn([{ target: main.card2 }]);
+  env.advance(350);
+  const big = env.images.filter((i) => i.src.indexOf('/t/p/w500/') !== -1);
+  assert.equal(big.length, 1, 'грузится только постер карточки, на которой остановились');
+  assert.ok(big[0].src.indexOf('p2.jpg') !== -1);
+});
+
+test('неудача загрузки крупного постера оставляет переход на прежнем постере', () => {
+  const env = transitionEnv();
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  const obs = env.observers[0];
+  main.card1.addClass('focus');
+  obs.fn([{ target: main.card1 }]);
+  env.advance(350);
+  const big = env.images.filter((i) => i.src.indexOf('/t/p/w500/') !== -1)[0];
+  big.onerror();
+  assert.equal(env.hero.lastFocus().big, undefined);
+  assert.equal(env.hero.lastFocus().poster, 'https://img/t/p/w300/p1.jpg');
+});
+
+test('снятие героя гасит незавершённую загрузку крупного постера', () => {
+  const env = transitionEnv();
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  const obs = env.observers[0];
+  main.card1.addClass('focus');
+  obs.fn([{ target: main.card1 }]);
+  env.advance(350);
+  const big = env.images.filter((i) => i.src.indexOf('/t/p/w500/') !== -1)[0];
+  env.hero.unmount();
+  assert.equal(big.onload, null, 'обработчики сняты — сеть в снятый герой не вернётся');
+  assert.equal(big.onerror, null);
+});
+
 test('lastFocus: снятие героя обнуляет источник', () => {
   const env = makeEnv();
   const main = makeMain();
