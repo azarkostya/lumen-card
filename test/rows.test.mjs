@@ -186,9 +186,15 @@ function setupRows(opts) {
     }
   };
 
+  /* Task 21: ряд адвента спрашивает дату и раскладку у LC.themes — модуль
+     настоящий, дату подменяем хуком _now (как в живой проверке). */
+  var themes = opts.themes === null ? null : loadCtx('53_themes.js', {}).api;
+  if (themes && opts.now) themes._now = function () { return opts.now; };
   var ctx = loadCtx('44_rows.js', {
     pref: function (name, def) { return (name in prefs) ? prefs[name] : def; },
     sources: fakeSources,
+    lang: function (key) { return ({ lumen_advent_title: 'Адвент-календарь', lumen_advent_day: 'День', lumen_advent_today: 'Сегодня' })[key] || key; },
+    themes: themes || undefined,
     manifest: { get: function () { return manifest; }, load: function (cb) { cb(manifest); } }
   });
   var R = ctx.api;
@@ -430,4 +436,118 @@ test('call: bumpGen закрывает ВСЕ незавершённые ряд�
   s.addedRows[1].call({}, 'main')(function () { got.push('b'); });
   s.R.bumpGen();
   assert.deepEqual(got, ['a', 'b']);
+});
+
+/* ------------------------------------------------------------------ */
+/* Task 21 (фаза 3): адвент-календарь                                   */
+/* ------------------------------------------------------------------ */
+
+const XMAS_MANIFEST = {
+  version: 1,
+  home: ['col-a'],
+  collections: [
+    { id: 'col-a', title: 'Collection A', sources: { movie: {} } },
+    { id: 'xmas-comedy', title: 'Рождественские комедии', season: [12, 1], sources: { movie: {} } },
+    { id: 'christmas', title: 'Рождественское кино', season: [12, 1], sources: { movie: {} } }
+  ]
+};
+
+test('адвент: в декабре регистрируется первым рядом подборок, подборки сдвигаются', function () {
+  var s = setupRows({ manifest: XMAS_MANIFEST, now: new Date(2026, 11, 5) });
+  s.R.register(s.manifest);
+  assert.equal(s.addedRows[0].name, 'lumen_advent');
+  assert.equal(s.addedRows[0].index, 4, 'сразу за персональными рядами');
+  assert.equal(s.addedRows[0].title, 'Адвент-календарь · день 5');
+  assert.equal(s.addedRows[1].name, 'lumen_col-a');
+  assert.equal(s.addedRows[1].index, 5, 'подборка сдвинута адвентом');
+});
+
+test('адвент: не в декабре ряда нет вовсе — ни запроса, ни дескриптора', function () {
+  var s = setupRows({ manifest: XMAS_MANIFEST, now: new Date(2026, 10, 30) });
+  s.R.register(s.manifest);
+  assert.equal(s.addedRows.length, 1);
+  assert.equal(s.addedRows[0].name, 'lumen_col-a');
+  assert.equal(s.addedRows[0].index, 4);
+  assert.equal(s.fetchCalls.length, 0);
+});
+
+test('адвент: без LC.themes (каталог без тем, старый профиль) ряд не регистрируется', function () {
+  var s = setupRows({ manifest: XMAS_MANIFEST, themes: null, now: new Date(2026, 11, 5) });
+  s.R.register(s.manifest);
+  assert.equal(s.addedRows.length, 1);
+  assert.equal(s.addedRows[0].name, 'lumen_col-a');
+});
+
+test('адвент: без рождественских подборок в каталоге ряда нет', function () {
+  var s = setupRows({ now: new Date(2026, 11, 5) });
+  s.R.register(s.manifest);
+  assert.equal(s.addedRows.filter(function (r) { return r.name === 'lumen_advent'; }).length, 0);
+});
+
+test('адвентSpecs: две подборки по две страницы, порядок фиксирован', function () {
+  var s = setupRows({ manifest: XMAS_MANIFEST, now: new Date(2026, 11, 5) });
+  var specs = s.R.adventSpecs(XMAS_MANIFEST);
+  assert.deepEqual(specs.map(function (x) { return x.item.id + ':' + x.page; }),
+    ['xmas-comedy:1', 'xmas-comedy:2', 'christmas:1', 'christmas:2']);
+  assert.deepEqual(s.R.adventSpecs({ collections: [] }), []);
+  assert.deepEqual(s.R.adventSpecs(null), []);
+});
+
+test('adventPool: дубли между подборками снимаются, порядок — по слотам запросов', function () {
+  var s = setupRows({ now: new Date(2026, 11, 5) });
+  var pool = s.R.adventPool([[{ id: 1 }, { id: 2 }], null, [{ id: 2 }, { id: 3 }]]);
+  assert.deepEqual(pool.map(function (c) { return c.id; }), [1, 2, 3]);
+  assert.deepEqual(s.R.adventPool([]), []);
+});
+
+test('адвент: четыре запроса, один ответ Lampa, карточки с метками дней', function () {
+  var s = setupRows({ manifest: XMAS_MANIFEST, now: new Date(2026, 11, 3) });
+  s.R.register(s.manifest);
+  var advent = s.addedRows[0];
+  var got = [];
+  advent.call({}, 'main')(function (payload) { got.push(payload); });
+  assert.equal(s.fetchCalls.length, 4, 'две подборки по две страницы');
+  assert.equal(got.length, 0, 'до последнего ответа ряд молчит');
+  for (var i = 0; i < 4; i++) {
+    s.fetchCalls[i].ok({ results: [{ id: 100 + i, title: 'f' + i }, { id: 200 + i, title: 'g' + i }] });
+  }
+  assert.equal(got.length, 1, 'ровно один ответ Lampa');
+  assert.equal(got[0].results.length, 3, 'три дня декабря');
+  assert.deepEqual(got[0].results.map(function (c) { return c.day; }), [1, 2, 3]);
+  assert.equal(got[0].results[2].lumen_badge, 'Сегодня · день 3');
+  assert.equal(got[0].results[0].lumen_badge, 'День 1');
+});
+
+test('адвент: ошибки всех запросов дают пустой ряд, но ровно один call', function () {
+  var s = setupRows({ manifest: XMAS_MANIFEST, now: new Date(2026, 11, 3) });
+  s.R.register(s.manifest);
+  var got = [];
+  s.addedRows[0].call({}, 'main')(function (payload) { got.push(payload); });
+  for (var i = 0; i < 4; i++) s.fetchCalls[i].err({});
+  assert.equal(got.length, 1);
+  assert.deepEqual(got[0].results, []);
+});
+
+test('адвент: уход с главной закрывает ряд пустым результатом (контракт Lampa)', function () {
+  var s = setupRows({ manifest: XMAS_MANIFEST, now: new Date(2026, 11, 3) });
+  s.R.register(s.manifest);
+  var got = [];
+  var handle = s.addedRows[0].call({}, 'main')(function (payload) { got.push(payload); });
+  s.R.bumpGen();
+  assert.equal(got.length, 1, 'ряд закрыт немедленно');
+  assert.deepEqual(got[0].results, []);
+  /* cancel() зовёт clear() у всех четырёх ручек — фейковый fetch умеет
+     пометить только последнюю, поэтому проверяем сам факт отмены по ней. */
+  handle.cancel();
+  assert.ok(s.fetchCalls[s.fetchCalls.length - 1].cleared, 'запросы отменены');
+  for (var i = 0; i < 4; i++) s.fetchCalls[i].ok({ results: [{ id: i }] });
+  assert.equal(got.length, 1, 'второго call не случилось');
+});
+
+test('адвент: unregister снимает ряд адвента вместе с подборками', function () {
+  var s = setupRows({ manifest: XMAS_MANIFEST, now: new Date(2026, 11, 5) });
+  s.R.register(s.manifest);
+  s.R.unregister();
+  assert.equal(s.removedRows.length, s.addedRows.length);
+  assert.ok(s.removedRows.some(function (r) { return r.name === 'lumen_advent'; }));
 });

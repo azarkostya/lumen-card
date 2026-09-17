@@ -2,7 +2,9 @@ import test from 'node:test'; import assert from 'node:assert/strict';
 import { load, loadCtx } from './_load.mjs';
 
 const SOURCES = load('43_sources.js');
-const H = loadCtx('46_hub.js', { sources: SOURCES, lang: function (k) { return k; } }).api;
+/* Task 21: сезонный порядок плиток хаб берёт у LC.manifest.orderForMonth. */
+const MANIFEST_MOD = load('42_manifest.js');
+const H = loadCtx('46_hub.js', { sources: SOURCES, manifest: MANIFEST_MOD, lang: function (k) { return k; } }).api;
 
 /* Манифест для тестов хаба: 4 группы манифеста, 3 чипа хаба.
    Группа 'mood' в hubGroups не входит (профили настроения — Task 19),
@@ -1118,4 +1120,34 @@ test('франшиза: OK открывает сетку коллекции эт
   assert.equal(env.log.pushes[0].component, 'lumen_grid');
   assert.equal(env.log.pushes[0].title, 'Дюна — Коллекция');
   assert.deepEqual(env.log.pushes[0].lumen.sources, { movie: { type: 'collection', id: 726871 } });
+});
+
+/* Task 21 (фаза 3): сезонные подборки в хабе. */
+const SEASON_MANIFEST = {
+  version: 1,
+  home: [],
+  groups: [{ id: 'theme', title: 'Темы' }],
+  hubGroups: [{ id: 'themes', title: 'Темы', groups: ['theme'] }],
+  collections: [
+    { id: 'comedy', title: 'Комедии', group: 'theme', sources: { movie: {} } },
+    { id: 'xmas', title: 'Рождественские', group: 'theme', season: [12, 1], sources: { movie: {} } },
+    { id: 'hw', title: 'Хэллоуин', group: 'theme', season: [9, 10, 11], sources: { movie: {} } }
+  ]
+};
+
+test('tilesFor: без месяца порядок манифестный, с месяцем сезонные — первыми', function () {
+  assert.deepEqual(H.tilesFor(SEASON_MANIFEST, 'themes').map(c => c.id), ['comedy', 'xmas', 'hw']);
+  assert.deepEqual(H.tilesFor(SEASON_MANIFEST, 'themes', 12).map(c => c.id), ['xmas', 'comedy', 'hw']);
+  assert.deepEqual(H.tilesFor(SEASON_MANIFEST, 'themes', 10).map(c => c.id), ['hw', 'comedy', 'xmas']);
+  assert.deepEqual(H.tilesFor(SEASON_MANIFEST, 'themes', 5).map(c => c.id), ['comedy', 'xmas', 'hw']);
+});
+
+test('inSeason: подборка своего месяца получает метку «Сезон»', function () {
+  const xmas = SEASON_MANIFEST.collections[1];
+  assert.equal(H.inSeason(xmas, 12), true);
+  assert.equal(H.inSeason(xmas, 1), true);
+  assert.equal(H.inSeason(xmas, 7), false);
+  assert.equal(H.inSeason(SEASON_MANIFEST.collections[0], 12), false);
+  assert.equal(H.inSeason(null, 12), false);
+  assert.equal(H.inSeason(xmas, 0), false);
 });

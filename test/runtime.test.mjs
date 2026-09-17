@@ -2055,3 +2055,145 @@ test('Important 2: destroy активности-хозяина снимает ч
   assert.equal(moodsRoot(), null);
   assert.deepEqual(warnLog, []);
 });
+
+/* ====================================================================== */
+/* Task 21 (фаза 3): тематическая атмосфера карточки.                     */
+/* ====================================================================== */
+
+/* Тело активности со слоем фона и пустым узлом атмосферы — так его строит
+   LC.backdrops.apply (src/50_backdrops.js, ensureLayer). */
+function fxBody() {
+  const fx = new FakeEl(['lumen-fx']);
+  const layer = new FakeEl(['lumen-backdrop'], [fx]);
+  const body = new FakeEl(['activity__body'], [layer]);
+  return { body, layer, fx };
+}
+
+/* Журналирующие LC.fx/LC.themes/LC.accent: в бандле это настоящие модули,
+   здесь важно, ЧТО именно 90_runtime.js им говорит. */
+function fxStubs(LC, theme) {
+  const log = { mount: [], unmount: 0, accent: [] };
+  LC.fx = {
+    mount(node, preset, opts) { log.mount.push({ node, preset, color: opts.color, paused: opts.paused }); return { preset }; },
+    unmount() { log.unmount++; },
+    unmountAll() { log.unmount++; }
+  };
+  LC.themes = {
+    classNames: () => 'lumen-theme--christmas lumen-theme--halloween',
+    particleColor: (t) => (t.preset === 'snow' ? '#FFFFFF' : t.accent),
+    forMovie: () => theme
+  };
+  LC.accent = { setTheme: (hex) => log.accent.push(hex), applyFor() {}, destroy() {} };
+  return log;
+}
+
+test('Task 21: тема найдена — класс на слое фона, частицы смонтированы, акцент темы задан', () => {
+  const LC = freshLC();
+  const { body, layer, fx } = fxBody();
+  const log = fxStubs(LC, { id: 'christmas', preset: 'snow', accent: '#E8C170' });
+
+  LC.applyFxFor(body, { id: 771, keywords: { results: [{ name: 'christmas' }] } });
+
+  assert.equal(layer.hasClass('lumen-theme--christmas'), true);
+  assert.equal(log.mount.length, 1);
+  assert.equal(log.mount[0].preset, 'snow');
+  assert.equal(log.mount[0].color, '#FFFFFF', 'снег белый, а не золотой');
+  assert.equal(log.mount[0].node, fx, 'частицы монтируются в узел .lumen-fx');
+  assert.deepEqual(log.accent, ['#E8C170']);
+  assert.equal(log.unmount, 1, 'прежняя атмосфера снимается перед новой');
+});
+
+test('Task 21: темы нет — слой чист, частиц нет, акцент темы снят', () => {
+  const LC = freshLC();
+  const { body, layer } = fxBody();
+  layer.addClass('lumen-theme--halloween');
+  const log = fxStubs(LC, null);
+
+  assert.equal(LC.applyFxFor(body, { id: 1 }), null);
+  assert.equal(layer.hasClass('lumen-theme--halloween'), false, 'класс прошлой темы снят');
+  assert.equal(log.mount.length, 0);
+  assert.deepEqual(log.accent, [null]);
+  assert.equal(log.unmount, 1);
+});
+
+test('Task 21: цвет частиц у непрозрачных тем — акцент темы', () => {
+  const LC = freshLC();
+  const { body } = fxBody();
+  const log = fxStubs(LC, { id: 'halloween', preset: 'bats', accent: '#E07B2C' });
+  LC.applyFxFor(body, { id: 948 });
+  assert.equal(log.mount[0].color, '#E07B2C');
+});
+
+test('Task 21: пауза слоя — под играющим роликом карточки', () => {
+  const LC = freshLC();
+  const { body, layer } = fxBody();
+  const log = fxStubs(LC, { id: 'christmas', preset: 'snow', accent: '#E8C170' });
+  let live = false;
+  LC.trailer = { isLive: (node) => { assert.equal(node, layer, 'признак берётся со слоя фона'); return live; } };
+  LC.applyFxFor(body, { id: 771 });
+  const paused = log.mount[0].paused;
+  assert.equal(paused(), false);
+  live = true;
+  assert.equal(paused(), true);
+});
+
+test('Task 21: нет слоя фона — вызов ничего не делает и не роняет', () => {
+  const LC = freshLC();
+  const log = fxStubs(LC, { id: 'christmas', preset: 'snow', accent: '#E8C170' });
+  const bare = new FakeEl(['activity__body']);
+  assert.equal(LC.applyFxFor(bare, { id: 1 }), null);
+  assert.equal(LC.applyFxFor(null, { id: 1 }), null);
+  assert.equal(log.mount.length, 0);
+});
+
+test('Task 21: закрытие карточки снимает частицы вместе со слайдшоу', () => {
+  const LC = freshLC();
+  const { body } = fxBody();
+  const log = fxStubs(LC, null);
+  const ctrl = makeCtrl();
+  LC.backdrops = { cancel() {}, apply() {} };
+  LC.reviews = { cancel() {} };
+  LC.franchise = { cancel() {} };
+  LC.active = { object: {}, body, slideshow: ctrl, data: null };
+
+  LC.destroyActive();
+
+  assert.equal(log.unmount, 1, 'слой частиц снят явно, а не дожидается самопроверки');
+  assert.equal(ctrl.destroyCalls, 1);
+  assert.equal(LC.active, null);
+});
+
+test('Task 21: смена настройки на лету — карточка пересобирает слой, без карточки зовётся герой', () => {
+  const LC = freshLC();
+  const { body } = fxBody();
+  const log = fxStubs(LC, { id: 'christmas', preset: 'snow', accent: '#E8C170' });
+  LC.active = { object: {}, body, slideshow: null, data: { movie: { id: 771 } } };
+  LC.applyFxPref();
+  assert.equal(log.mount.length, 1, 'слой открытой карточки пересобран');
+
+  let heroCalls = 0;
+  LC.hero = { applyFx: () => heroCalls++ };
+  LC.active = null;
+  LC.applyFxPref();
+  assert.equal(heroCalls, 1, 'без карточки атмосферу пересобирает кадр главной');
+  assert.equal(log.mount.length, 1, 'карточки нет — второго монтирования не случилось');
+});
+
+test('Task 21: смена режима анимаций на открытой карточке снимает и возвращает слой частиц', () => {
+  const LC = freshLC();
+  const { body, layer } = fxBody();
+  const log = fxStubs(LC, { id: 'christmas', preset: 'snow', accent: '#E8C170' });
+  LC.active = { object: {}, body, slideshow: null, data: { movie: { id: 771 } } };
+  LC.hero = { applyMotion() {}, applyFx() {} };
+
+  /* Полные анимации: атмосфера монтируется. */
+  LC.applyMotionMode();
+  assert.equal(log.mount.length, 1, 'при полных анимациях слой на месте');
+
+  /* Лёгкие: LC.fx.mount сам вернул бы null, поэтому здесь проверяем, что
+     точка применения вообще доходит до слоя — снятие делает unmount. */
+  const unmountsBefore = log.unmount;
+  LC.applyMotionMode();
+  assert.ok(log.unmount > unmountsBefore, 'прежний слой снимается на каждой смене режима');
+  assert.equal(layer.hasClass('lumen-theme--christmas'), true);
+});

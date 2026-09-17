@@ -878,6 +878,43 @@ css.push('.lumen-backdrop .lumen-bg__trailer iframe{width:100%;height:100%;borde
 
 
 
+
+
+
+css.push('.lumen-backdrop .lumen-fx,.lumen-hero .lumen-fx{position:absolute;top:0;bottom:0;left:0;right:0;overflow:hidden;pointer-events:none}');
+css.push('.lumen-backdrop .lumen-fx__canvas,.lumen-hero .lumen-fx__canvas{position:absolute;top:0;left:0;width:100%;height:100%;opacity:.82}');
+
+
+
+
+
+
+
+
+
+
+var LIGHT = 'rgba(255,214,150,.42) 0%,rgba(255,182,72,.14) 45%,rgba(255,182,72,0) 72%';
+var garland = [
+'radial-gradient(circle 1.1em at 5% .59em,' + LIGHT + ')',
+'radial-gradient(circle 1.1em at 15% 1.01em,' + LIGHT + ')',
+'radial-gradient(circle 1.1em at 25% 1.33em,' + LIGHT + ')',
+'radial-gradient(circle 1.1em at 35% 1.55em,' + LIGHT + ')',
+'radial-gradient(circle 1.1em at 45% 1.65em,' + LIGHT + ')',
+'radial-gradient(circle 1.1em at 55% 1.65em,' + LIGHT + ')',
+'radial-gradient(circle 1.1em at 65% 1.55em,' + LIGHT + ')',
+'radial-gradient(circle 1.1em at 75% 1.33em,' + LIGHT + ')',
+'radial-gradient(circle 1.1em at 85% 1.01em,' + LIGHT + ')',
+'radial-gradient(circle 1.1em at 95% .59em,' + LIGHT + ')'
+].join(',');
+css.push('.lumen-backdrop.lumen-theme--christmas .lumen-fx,.lumen-hero.lumen-theme--christmas .lumen-fx{background-image:' + garland + ';background-repeat:no-repeat;background-position:top center;background-size:100% 4em}');
+
+
+css.push('.lumen-backdrop.lumen-theme--halloween .lumen-fx,.lumen-hero.lumen-theme--halloween .lumen-fx{background-image:linear-gradient(0deg,rgba(224,123,44,.20) 0%,rgba(224,123,44,.07) 14%,rgba(224,123,44,0) 34%)}');
+
+
+
+
+
 css.push('.lumen-backdrop.lumen-trailer-live .lumen-backdrop__veil{opacity:.45}');
 css.push('.lumen-backdrop__veil{position:absolute;top:0;left:0;right:0;bottom:0;-webkit-transition:opacity 1s ease;transition:opacity 1s ease}');
 css.push('.lumen-backdrop__veil--l{background:linear-gradient(90deg,rgba(' + P.bgRgb + ',0.96) 0%,rgba(' + P.bgRgb + ',0.88) 30%,rgba(' + P.bgRgb + ',0.35) 58%,rgba(' + P.bgRgb + ',0) 82%)}');
@@ -1731,6 +1768,11 @@ css.push('.lumen-hub .lumen-tile__title{font-family:' + FD + ';font-weight:700;f
 css.push('.lumen-hub .lumen-tile__sub{font-family:' + FM + ';font-size:.88em;line-height:1;color:' + P.muted + ';margin-top:.35em;overflow:hidden}');
 css.push('.lumen-hub .lumen-tile__nokey{display:none;position:absolute;top:.7em;right:.7em;font-family:' + FM + ';font-size:.7em;letter-spacing:.04em;color:' + P.text + ';background:rgba(' + P.bgRgb + ',.8);border:.05em solid rgba(' + P.textRgb + ',.3);border-radius:.2em;padding:.25em .45em}');
 css.push('.lumen-hub .lumen-tile--nokey .lumen-tile__nokey{display:block}');
+
+
+
+
+css.push('.lumen-hub .lumen-tile__season{position:absolute;top:.7em;left:.7em;font-family:' + FM + ';font-size:.7em;letter-spacing:.04em;color:' + t.onac + ';background:' + A + ';border-radius:.2em;padding:.25em .45em}');
 css.push('.lumen-hub__tiles .lumen-tile.focus{border-color:' + AL + ';border-width:.13em;-webkit-transform:scale(1.06);transform:scale(1.06);-webkit-box-shadow:0 .7em 1.97em ' + AG + ';box-shadow:0 .7em 1.97em ' + AG + '}');
 css.push('.lumen-hub.lumen-motion-lite .lumen-tile.focus,.lumen-hub.lumen-motion-off .lumen-tile.focus{-webkit-transform:none;transform:none}');
 css.push('.lumen-hub.lumen-motion-off .lumen-tile{-webkit-transition:none;transition:none}');
@@ -3362,6 +3404,14 @@ sources: { tv: { type: 'discover', params: { networks: 4330, sort_by: 'popularit
 id: 'xmas-comedy', title: 'Рождественские комедии', group: 'theme', icon: 'star', season: [12, 1],
 sources: { movie: { type: 'discover', params: { genres: 35, keywords: 207317, sort_by: 'popularity.desc' } } }
 },
+
+
+
+
+{
+id: 'christmas', title: 'Рождественское кино', group: 'theme', icon: 'star', season: [12, 1],
+sources: { movie: { type: 'discover', params: { keywords: 207317, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 50 } } } }
+},
 {
 id: 'halloween', title: 'Хэллоуин', group: 'theme', icon: 'star', season: [9, 10, 11],
 sources: { movie: { type: 'discover', params: { genres: 27, keywords: 3335, sort_by: 'popularity.desc' } } }
@@ -3761,6 +3811,37 @@ id: 'kp-oscars', title: 'КП Лауреаты Оскара', group: 'kp', badge
 sources: { movie: { type: 'kp', collection: 'OSKAR_WINNERS_2021' } }
 }
 
+],
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+themes: [
+{ id: 'halloween', preset: 'bats', accent: '#E07B2C', keywords: ['halloween', 'haunted house', 'slasher', 'witch', 'trick or treat'], genres: [27], months: [10], requireGenre: true },
+{ id: 'christmas', preset: 'snow', accent: '#E8C170', keywords: ['christmas', 'santa claus', 'new year', 'christmas eve'], months: [12, 1] },
+{ id: 'space', preset: 'stars', accent: '#8FB8D9', keywords: ['space', 'alien', 'spaceship', 'astronaut', 'outer space'] },
+{ id: 'noir', preset: 'rain', accent: '#9AA7B5', keywords: ['film noir', 'detective', 'private detective', 'neo-noir'] },
+{ id: 'desert', preset: 'sand', accent: '#E8B87A', keywords: ['desert', 'sand', 'dune'] },
+{ id: 'ocean', preset: 'bubbles', accent: '#7FB7C9', keywords: ['ocean', 'underwater', 'shark', 'submarine', 'sea'] },
+{ id: 'sakura', preset: 'petals', accent: '#E6A3B8', keywords: ['cherry blossom', 'anime', 'romance'], genres: [16], requireGenre: true },
+{ id: 'war', preset: 'embers', accent: '#C97B4A', keywords: ['war', 'world war ii', 'explosion', 'battle'] },
+{ id: 'zombie', preset: 'glitch', accent: '#9FCF8A', keywords: ['zombie', 'undead', 'zombie apocalypse'] }
 ]
 };
 
@@ -3778,6 +3859,12 @@ if (!m.version) return { ok: false, reason: 'no_version' };
 if (!Array.isArray(m.collections)) return { ok: false, reason: 'no_collections' };
 if (!Array.isArray(m.groups) || m.groups.length === 0) return { ok: false, reason: 'no_groups' };
 if (!Array.isArray(m.home)) return { ok: false, reason: 'no_home' };
+
+
+
+if (typeof m.themes !== 'undefined' && !Array.isArray(m.themes)) {
+return { ok: false, reason: 'themes_not_array' };
+}
 var seen = {};
 var i, c;
 for (i = 0; i < m.collections.length; i++) {
@@ -4818,8 +4905,169 @@ var month = new Date().getMonth() + 1;
 
 var rows = homeRows(manifest, picked, month, limitRaw);
 
+
+
+var shift = registerAdvent(manifest) ? 1 : 0;
+
 for (var i = 0; i < rows.length; i++) {
-registerRow(rows[i], i);
+registerRow(rows[i], i + shift);
+}
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+var ADVENT_IDS = ['xmas-comedy', 'christmas'];
+var ADVENT_PAGES = 2;
+
+function adventWord(key, def) {
+try {
+if (typeof LC.lang === 'function') return LC.lang(key);
+} catch (e) { }
+return def;
+}
+
+
+
+function adventToday() {
+try {
+if (LC.themes && typeof LC.themes.today === 'function') return LC.themes.today();
+} catch (e) { }
+return null;
+}
+
+
+
+function adventSpecs(manifest) {
+var out = [];
+if (!manifest || !Array.isArray(manifest.collections)) return out;
+var byId = {};
+var i;
+for (i = 0; i < manifest.collections.length; i++) byId[manifest.collections[i].id] = manifest.collections[i];
+for (var j = 0; j < ADVENT_IDS.length; j++) {
+var item = byId[ADVENT_IDS[j]];
+if (!item) continue;
+for (var page = 1; page <= ADVENT_PAGES; page++) out.push({ item: item, page: page });
+}
+return out;
+}
+
+
+
+
+
+function adventPool(slots) {
+var pool = [];
+var seen = {};
+for (var i = 0; i < slots.length; i++) {
+var list = slots[i] || [];
+for (var j = 0; j < list.length; j++) {
+var card = list[j];
+if (!card || card.id == null || seen[card.id]) continue;
+seen[card.id] = 1;
+pool.push(card);
+}
+}
+return pool;
+}
+
+function adventTitle(today) {
+var day = today.getDate();
+if (day > 24) day = 24;
+return adventWord('lumen_advent_title', 'Advent calendar') + ' · ' +
+adventWord('lumen_advent_day', 'Day').toLowerCase() + ' ' + day;
+}
+
+
+
+
+function makeAdventCall(manifest) {
+return function (params, screen) {
+return function (call) {
+var gen = _homeGen;
+function alive() { return _homeGen === gen; }
+var resolve = makeResolver(call);
+var specs = adventSpecs(manifest);
+var today = adventToday();
+if (!specs.length || !today) { resolve({ results: [] }); return { cancel: function () {} }; }
+
+var slots = [];
+var left = specs.length;
+var handles = [];
+var words = {
+day: adventWord('lumen_advent_day', 'Day'),
+today: adventWord('lumen_advent_today', 'Today')
+};
+
+function finish() {
+left--;
+if (left > 0) return;
+var days = [];
+try {
+days = LC.themes.adventDays(adventPool(slots), today, words);
+} catch (e) {
+days = [];
+}
+resolve({ results: days, title: adventTitle(today) });
+}
+
+
+
+function ask(index) {
+var spec = specs[index];
+return LC.sources['fetch'](
+spec.item,
+spec.page,
+function (json) { slots[index] = (json && json.results) || []; finish(); },
+function () { slots[index] = []; finish(); },
+alive
+);
+}
+
+for (var i = 0; i < specs.length; i++) handles.push(ask(i));
+
+return {
+cancel: function () {
+for (var k = 0; k < handles.length; k++) {
+try { if (handles[k] && handles[k].clear) handles[k].clear(); } catch (e) {}
+}
+}
+};
+};
+};
+}
+
+
+
+function registerAdvent(manifest) {
+try {
+if (!window.Lampa || !Lampa.ContentRows) return false;
+if (!LC.themes || typeof LC.themes.adventDays !== 'function') return false;
+var today = adventToday();
+if (!today || today.getMonth() !== 11) return false;
+if (!adventSpecs(manifest).length) return false;
+var descriptor = {
+name: rowName('advent'),
+title: adventTitle(today),
+screen: 'main',
+index: ROWS_OFFSET,
+call: makeAdventCall(manifest)
+};
+Lampa.ContentRows.add(descriptor);
+_addedRows.push(descriptor);
+return true;
+} catch (e) {
+return false;
 }
 }
 
@@ -4908,6 +5156,10 @@ rowChoices: rowChoices,
 storedIds: storedIds,
 viewedIds: viewedIds,
 bumpGen: bumpGen,
+
+
+adventSpecs: adventSpecs,
+adventPool: adventPool,
 register: register,
 unregister: unregister
 };
@@ -5737,13 +5989,33 @@ return out;
 }
 
 
-function tilesFor(manifest, hubGroupId) {
+
+
+
+function tilesFor(manifest, hubGroupId, month) {
 if (!manifest || !Array.isArray(manifest.hubGroups)) return [];
 for (var i = 0; i < manifest.hubGroups.length; i++) {
 var g = manifest.hubGroups[i];
-if (g && g.id === hubGroupId) return collectionsIn(manifest, g.groups);
+if (g && g.id === hubGroupId) {
+var list = collectionsIn(manifest, g.groups);
+if (month && LC.manifest && typeof LC.manifest.orderForMonth === 'function') {
+return LC.manifest.orderForMonth(list, month);
+}
+return list;
+}
 }
 return [];
+}
+
+
+
+
+function inSeason(item, month) {
+if (!item || !Array.isArray(item.season) || !month) return false;
+for (var i = 0; i < item.season.length; i++) {
+if (Number(item.season[i]) === Number(month)) return true;
+}
+return false;
 }
 
 
@@ -6179,8 +6451,18 @@ if (handle) handles.push(handle);
 
 
 
+
+
+
+function month() {
+try {
+if (LC.themes && typeof LC.themes.month === 'function') return LC.themes.month();
+} catch (e) { }
+return 0;
+}
+
 function loadVisibleCollages() {
-var list = tilesFor(manifest, activeGroup);
+var list = tilesFor(manifest, activeGroup, month());
 for (var i = 0; i < tileNodes.length && i < COLLAGE_EAGER; i++) {
 loadCollage(list[i], tileNodes[i]);
 }
@@ -6193,10 +6475,17 @@ for (i = 0; manifest && manifest.groups && i < manifest.groups.length; i++) {
 if (manifest.groups[i].id === item.group) { group = manifest.groups[i]; break; }
 }
 var sub = item.badge || titleOf(group, lang());
+
+
+
+var season = inSeason(item, month())
+? '<div class="lumen-tile__season">' + esc(LC.lang('lumen_season_badge')) + '</div>'
+: '';
 var node = $(
 '<div class="lumen-tile selector">' +
 '<div class="lumen-tile__collage"></div>' +
 '<div class="lumen-tile__scrim"></div>' +
+season +
 '<div class="lumen-tile__text">' +
 '<div class="lumen-tile__title">' + esc(item.title) + '</div>' +
 '<div class="lumen-tile__sub">' + esc(sub) + '</div>' +
@@ -6219,7 +6508,7 @@ function buildTiles(groupId) {
 
 bump();
 activeGroup = groupId;
-var list = tilesFor(manifest, groupId);
+var list = tilesFor(manifest, groupId, month());
 tilesRow.empty();
 tileNodes = [];
 for (var i = 0; i < list.length; i++) {
@@ -6919,6 +7208,7 @@ return {
 titleOf: titleOf,
 groupsWithCounts: groupsWithCounts,
 tilesFor: tilesFor,
+inSeason: inSeason,
 openTarget: openTarget,
 franchiseItem: franchiseItem,
 sortModes: sortModes,
@@ -7259,7 +7549,11 @@ return lang === 'en' ? 'en,null' : lang + ',en,null';
 function detailsRequest(media, id, lang) {
 return {
 url: media + '/' + id,
-params: { filter: { append_to_response: 'images', include_image_language: imageLanguages(lang) } },
+
+
+
+
+params: { filter: { append_to_response: 'images,keywords', include_image_language: imageLanguages(lang) } },
 life: DETAILS_LIFE
 };
 }
@@ -7365,6 +7659,11 @@ var node = $('<div class="lumen-hero">' +
 '<div class="lumen-hero__trailer"></div>' +
 '<div class="lumen-hero__veil lumen-hero__veil--l"></div>' +
 '<div class="lumen-hero__veil lumen-hero__veil--b"></div>' +
+
+
+
+
+'<div class="lumen-fx"></div>' +
 '</div>');
 var text = $('<div class="lumen-hero__text">' +
 '<div class="lumen-hero__meta"></div>' +
@@ -7476,6 +7775,64 @@ return 'on';
 
 function trailerReady() {
 return trailerAllowed(trailerPref(), motionMode(), trailerMode());
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function fxHost() {
+if (!state || !state.node) return null;
+var node = state.node.find('.lumen-fx');
+return node && node.length ? node : null;
+}
+
+
+
+function clearFx() {
+var host = fxHost();
+if (host) {
+try { if (LC.fx) LC.fx.unmount(host); } catch (e) { warn('hero: fx unmount failed', e); }
+}
+
+
+if (state && state.node && LC.themes) {
+try { state.node.removeClass(LC.themes.classNames()); } catch (e2) { warn('hero: fx class failed', e2); }
+}
+}
+
+
+
+function applyFx() {
+if (!state) return;
+clearFx();
+if (!state.details || !LC.themes || !LC.fx) return;
+var theme = null;
+try { theme = LC.themes.forMovie(state.details); } catch (e) { warn('hero: fx theme failed', e); }
+if (!theme) return;
+try { state.node.addClass('lumen-theme--' + theme.id); } catch (e2) { }
+var host = fxHost();
+if (!host) return;
+try {
+LC.fx.mount(host, theme.preset, {
+color: LC.themes.particleColor(theme),
+
+
+paused: function () { return !!(state && state.trailer); }
+});
+} catch (e3) {
+warn('hero: fx mount failed', e3);
+}
 }
 
 
@@ -7769,6 +8126,10 @@ if (!state.details) model.pending = false;
 render(model, false);
 
 
+
+applyFx();
+
+
 if (!state.frameUrl && model.backdrop) loadFrame(model, captured);
 },
 function () {
@@ -7799,6 +8160,10 @@ cancelPending();
 state.shownId = card.id;
 state.details = null;
 state.model = null;
+
+
+
+clearFx();
 var model = heroModel(card, null, words());
 render(model, true);
 loadFrame(model, captured);
@@ -8163,6 +8528,14 @@ s.bigLoader.onload = null;
 s.bigLoader.onerror = null;
 }
 try { if (s.net && s.net.clear) s.net.clear(); } catch (eN) {}
+
+
+
+
+try {
+var fxGone = s.node.find('.lumen-fx');
+if (LC.fx && fxGone && fxGone.length) LC.fx.unmount(fxGone);
+} catch (eFx) { warn('hero: fx unmount failed', eFx); }
 try { s.node.remove(); } catch (eR) {}
 
 
@@ -8222,6 +8595,10 @@ trailerAllowed: trailerAllowed,
 
 
 applyTrailer: applyTrailer,
+
+
+
+applyFx: applyFx,
 mount: mount,
 mountCurrent: mountCurrent,
 detach: detach,
@@ -8655,6 +9032,13 @@ layer = $('<div class="lumen-backdrop">' +
 '<div class="lumen-backdrop__veil lumen-backdrop__veil--l"></div>' +
 '<div class="lumen-backdrop__veil lumen-backdrop__veil--b"></div>' +
 '<div class="lumen-backdrop__veil lumen-backdrop__veil--t"></div>' +
+
+
+
+
+
+
+'<div class="lumen-fx"></div>' +
 '</div>');
 body.prepend(layer);
 }
@@ -9491,6 +9875,1084 @@ CROSSFADE_MS: CROSSFADE_MS
 
 
 if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.slideshow;
+
+
+/* ---- 52_fx.js ---- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+LC.fx = (function () {
+
+
+var MAX = 60;
+
+var DPR_MAX = 1.5;
+
+
+var DT_CAP = 50;
+var TWO_PI = Math.PI * 2;
+
+
+
+
+
+function rand(rnd, from, to) {
+return from + (to - from) * rnd();
+}
+
+
+
+
+
+
+
+
+function particle(x, y, vx, vy, size, life, rot, kind) {
+return { x: x, y: y, vx: vx, vy: vy, size: size, life: life, rot: rot, kind: kind || 0, phase: 0, preset: '' };
+}
+
+
+
+
+function wrap(p, w, h) {
+var m = p.size + 2;
+if (p.x < -m) p.x = w + m;
+else if (p.x > w + m) p.x = -m;
+if (p.y < -m) p.y = h + m;
+else if (p.y > h + m) p.y = -m;
+}
+
+
+
+
+function alpha(ctx, value) {
+ctx.globalAlpha = value < 0 ? 0 : (value > 1 ? 1 : value);
+}
+
+
+
+
+
+function dot(ctx, p, color, a) {
+alpha(ctx, a);
+ctx.fillStyle = color;
+ctx.beginPath();
+ctx.arc(p.x, p.y, p.size, 0, TWO_PI);
+ctx['fill']();
+}
+
+var presets = {
+
+
+
+bats: {
+count: 12,
+spawn: function (i, w, h, rnd) {
+var p = particle(
+rand(rnd, 0, w),
+rand(rnd, -h * 0.15, h * 0.85),
+0,
+0,
+rand(rnd, 7, 13),
+rand(rnd, 0, TWO_PI),
+0
+);
+p.phase = rand(rnd, 0, TWO_PI);
+
+
+p.freq = rand(rnd, 0.0012, 0.0026);
+p.amp = rand(rnd, 0.05, 0.11);
+return p;
+},
+step: function (p, dt) {
+p.phase += dt * p.freq;
+if (p.phase > TWO_PI * 64) p.phase -= TWO_PI * 64;
+p.vx = Math.cos(p.phase) * p.amp;
+p.vy = Math.sin(p.phase * 0.6) * p.amp * 0.35;
+p.x += p.vx * dt;
+p.y += p.vy * dt;
+p.life += dt * 0.012;
+},
+draw: function (ctx, p, w, h, color) {
+var flap = Math.sin(p.life) * 0.5 + 0.5;
+var s = p.size;
+var lift = s * (0.25 + flap * 0.45);
+alpha(ctx, 0.5);
+ctx.fillStyle = color;
+ctx.beginPath();
+ctx.moveTo(p.x, p.y);
+ctx.quadraticCurveTo(p.x - s * 0.5, p.y - lift, p.x - s, p.y);
+ctx.quadraticCurveTo(p.x - s * 0.5, p.y + s * 0.18, p.x, p.y + s * 0.12);
+ctx.quadraticCurveTo(p.x + s * 0.5, p.y + s * 0.18, p.x + s, p.y);
+ctx.quadraticCurveTo(p.x + s * 0.5, p.y - lift, p.x, p.y);
+ctx['fill']();
+}
+},
+
+
+
+
+snow: {
+count: 55,
+spawn: function (i, w, h, rnd) {
+var big = i >= 40;
+var p = particle(
+rand(rnd, 0, w),
+rand(rnd, -h * 0.2, h),
+rand(rnd, -0.004, 0.012),
+big ? rand(rnd, 0.035, 0.06) : rand(rnd, 0.015, 0.032),
+big ? rand(rnd, 2.6, 4.6) : rand(rnd, 1.1, 2.2),
+rand(rnd, 0.35, 0.8),
+0,
+big ? 1 : 0
+);
+p.phase = rand(rnd, 0, TWO_PI);
+p.freq = rand(rnd, 0.0008, 0.0018);
+p.amp = rand(rnd, 0.004, 0.014);
+return p;
+},
+step: function (p, dt) {
+p.phase += dt * p.freq;
+p.x += (p.vx + Math.sin(p.phase) * p.amp) * dt;
+p.y += p.vy * dt;
+},
+draw: function (ctx, p, w, h, color) {
+dot(ctx, p, color, p.life * (p.kind ? 0.62 : 0.4));
+}
+},
+
+
+
+stars: {
+count: 50,
+spawn: function (i, w, h, rnd) {
+var p = particle(
+rand(rnd, 0, w),
+rand(rnd, -h * 0.1, h),
+rand(rnd, -0.002, 0.002),
+rand(rnd, -0.002, 0.002),
+rand(rnd, 0.7, 1.9),
+rand(rnd, 0, TWO_PI),
+0
+);
+p.freq = rand(rnd, 0.0009, 0.0035);
+return p;
+},
+step: function (p, dt) {
+p.x += p.vx * dt;
+p.y += p.vy * dt;
+p.life += dt * p.freq;
+if (p.life > TWO_PI * 64) p.life -= TWO_PI * 64;
+},
+draw: function (ctx, p, w, h, color) {
+dot(ctx, p, color, 0.22 + 0.33 * (Math.sin(p.life) * 0.5 + 0.5));
+}
+},
+
+
+
+rain: {
+count: 48,
+spawn: function (i, w, h, rnd) {
+var drop = i >= 40;
+var p = particle(
+rand(rnd, 0, w),
+rand(rnd, -h * 0.2, h),
+drop ? rand(rnd, -0.004, 0.004) : rand(rnd, -0.22, -0.12),
+drop ? rand(rnd, 0.004, 0.012) : rand(rnd, 0.55, 0.95),
+drop ? rand(rnd, 3, 7) : rand(rnd, 10, 22),
+rand(rnd, 0.3, 0.7),
+0,
+drop ? 1 : 0
+);
+return p;
+},
+step: function (p, dt) {
+p.x += p.vx * dt;
+p.y += p.vy * dt;
+},
+draw: function (ctx, p, w, h, color) {
+if (p.kind) {
+dot(ctx, p, color, p.life * 0.3);
+return;
+}
+alpha(ctx, p.life * 0.45);
+ctx.strokeStyle = color;
+ctx.lineWidth = 1;
+ctx.beginPath();
+ctx.moveTo(p.x, p.y);
+ctx.lineTo(p.x - p.size * 0.28, p.y + p.size);
+ctx.stroke();
+}
+},
+
+
+
+
+sand: {
+count: 30,
+spawn: function (i, w, h, rnd) {
+var p = particle(
+rand(rnd, 0, w),
+rand(rnd, -h * 0.1, h),
+rand(rnd, 0.02, 0.07),
+0,
+rand(rnd, 14, 46),
+rand(rnd, 0.06, 0.16),
+0
+);
+p.phase = rand(rnd, 0, TWO_PI);
+p.freq = rand(rnd, 0.001, 0.003);
+p.amp = rand(rnd, 0.006, 0.02);
+return p;
+},
+step: function (p, dt) {
+p.phase += dt * p.freq;
+p.x += p.vx * dt;
+p.vy = Math.sin(p.phase) * p.amp;
+p.y += p.vy * dt;
+},
+draw: function (ctx, p, w, h, color) {
+dot(ctx, p, color, p.life);
+}
+},
+
+
+
+bubbles: {
+count: 23,
+spawn: function (i, w, h, rnd) {
+var ray = i >= 20;
+var p = particle(
+ray ? rand(rnd, w * 0.1, w * 0.9) : rand(rnd, 0, w),
+ray ? rand(rnd, 0, h * 0.2) : rand(rnd, 0, h),
+0,
+ray ? 0 : rand(rnd, -0.05, -0.018),
+ray ? rand(rnd, 30, 70) : rand(rnd, 2, 7),
+rand(rnd, 0.2, 0.5),
+ray ? rand(rnd, -0.5, -0.2) : 0,
+ray ? 1 : 0
+);
+p.phase = rand(rnd, 0, TWO_PI);
+p.freq = rand(rnd, 0.0006, 0.0018);
+p.amp = rand(rnd, 0.004, 0.012);
+return p;
+},
+step: function (p, dt) {
+p.phase += dt * p.freq;
+if (p.kind) return;
+p.vx = Math.sin(p.phase) * p.amp;
+p.x += p.vx * dt;
+p.y += p.vy * dt;
+},
+draw: function (ctx, p, w, h, color) {
+if (p.kind) {
+alpha(ctx, 0.06 + 0.05 * (Math.sin(p.phase) * 0.5 + 0.5));
+ctx.fillStyle = color;
+ctx.save();
+ctx.translate(p.x, p.y);
+ctx.rotate(p.rot);
+ctx.beginPath();
+ctx.moveTo(-p.size * 0.5, 0);
+ctx.lineTo(p.size * 0.5, 0);
+ctx.lineTo(p.size * 1.4, h);
+ctx.lineTo(-p.size * 1.4, h);
+ctx.closePath();
+ctx['fill']();
+ctx.restore();
+return;
+}
+alpha(ctx, p.life);
+ctx.strokeStyle = color;
+ctx.lineWidth = 1;
+ctx.beginPath();
+ctx.arc(p.x, p.y, p.size, 0, TWO_PI);
+ctx.stroke();
+}
+},
+
+
+
+petals: {
+count: 18,
+spawn: function (i, w, h, rnd) {
+var p = particle(
+rand(rnd, 0, w),
+rand(rnd, -h * 0.2, h),
+rand(rnd, -0.01, 0.02),
+rand(rnd, 0.02, 0.05),
+rand(rnd, 4, 9),
+rand(rnd, 0.35, 0.7),
+rand(rnd, 0, TWO_PI)
+);
+p.phase = rand(rnd, 0, TWO_PI);
+p.freq = rand(rnd, 0.0008, 0.002);
+p.amp = rand(rnd, 0.008, 0.022);
+p.spin = rand(rnd, 0.0008, 0.0026);
+return p;
+},
+step: function (p, dt) {
+p.phase += dt * p.freq;
+p.x += (p.vx + Math.sin(p.phase) * p.amp) * dt;
+p.y += p.vy * dt;
+p.rot += p.spin * dt;
+if (p.rot > TWO_PI * 64) p.rot -= TWO_PI * 64;
+},
+draw: function (ctx, p, w, h, color) {
+alpha(ctx, p.life * 0.62);
+ctx.fillStyle = color;
+ctx.save();
+ctx.translate(p.x, p.y);
+ctx.rotate(p.rot);
+ctx.beginPath();
+
+ctx.moveTo(0, -p.size);
+ctx.quadraticCurveTo(p.size * 0.7 * Math.cos(p.rot), 0, 0, p.size);
+ctx.quadraticCurveTo(-p.size * 0.7 * Math.cos(p.rot), 0, 0, -p.size);
+ctx['fill']();
+ctx.restore();
+}
+},
+
+
+
+
+embers: {
+count: 30,
+spawn: function (i, w, h, rnd) {
+var p = particle(
+rand(rnd, 0, w),
+rand(rnd, h * 0.4, h),
+rand(rnd, -0.008, 0.008),
+rand(rnd, -0.09, -0.03),
+rand(rnd, 1.2, 3),
+rand(rnd, 0.2, 1),
+0
+);
+p.phase = rand(rnd, 0, TWO_PI);
+p.freq = rand(rnd, 0.0012, 0.0032);
+p.fade = rand(rnd, 0.00018, 0.00045);
+return p;
+},
+step: function (p, dt, w, h) {
+p.phase += dt * p.freq;
+p.x += (p.vx + Math.sin(p.phase) * 0.01) * dt;
+p.y += p.vy * dt;
+p.life -= p.fade * dt;
+if (p.life <= 0) {
+p.life = 1;
+p.x = Math.random() * w;
+p.y = h * (0.75 + Math.random() * 0.25);
+}
+},
+draw: function (ctx, p, w, h, color) {
+dot(ctx, p, color, p.life * 0.6);
+}
+},
+
+
+
+
+
+glitch: {
+count: 2,
+spawn: function (i, w, h, rnd) {
+var p = particle(
+0,
+rand(rnd, 0, h),
+0,
+0,
+rand(rnd, 6, 26),
+rand(rnd, 600, 6000),
+0
+);
+p.amp = rand(rnd, 0.1, 0.5);
+return p;
+},
+step: function (p, dt, w, h) {
+p.life -= dt;
+if (p.life < -180) {
+p.life = 3000 + Math.random() * 3000;
+p.y = Math.random() * h;
+p.size = 6 + Math.random() * 20;
+p.amp = 0.1 + Math.random() * 0.4;
+}
+},
+draw: function (ctx, p, w, h, color) {
+if (p.life > 0) return;
+alpha(ctx, 0.05 + p.amp * 0.08);
+ctx.fillStyle = color;
+ctx.fillRect(0, p.y, w, p.size);
+}
+}
+};
+
+
+
+function spawn(name, w, h, n, rnd) {
+var preset = typeof name === 'string' ? presets[name] : name;
+if (!preset || !(w > 0) || !(h > 0)) return [];
+var count = typeof n === 'number' ? n : preset.count;
+if (count > MAX) count = MAX;
+if (!(count > 0)) return [];
+var random = typeof rnd === 'function' ? rnd : Math.random;
+var id = typeof name === 'string' ? name : '';
+var out = [];
+for (var i = 0; i < count; i++) {
+var p = preset.spawn(i, w, h, random);
+p.preset = id;
+out.push(p);
+}
+return out;
+}
+
+
+
+
+
+function step(list, dt, w, h) {
+if (!list || !list.length || !(dt > 0)) return list;
+for (var i = 0; i < list.length; i++) {
+var p = list[i];
+var preset = presets[p.preset];
+if (!preset) continue;
+preset.step(p, dt, w, h);
+wrap(p, w, h);
+}
+return list;
+}
+
+
+
+
+
+var instances = [];
+var frame = 0;
+var last = 0;
+var stat_frames = 0;
+var stat_steps = 0;
+var stat_total = 0;
+var stat_max = 0;
+
+function doc() {
+try {
+if (typeof document !== 'undefined') return document;
+} catch (e) { }
+return null;
+}
+
+function nowMs() {
+try {
+if (window.performance && typeof window.performance.now === 'function') return window.performance.now();
+} catch (e) { }
+return Date.now();
+}
+
+function raf(fn) {
+try {
+if (window.requestAnimationFrame) return window.requestAnimationFrame(fn);
+} catch (e) { }
+return 0;
+}
+
+function unraf(id) {
+try {
+if (id && window.cancelAnimationFrame) window.cancelAnimationFrame(id);
+} catch (e) { }
+}
+
+function hidden() {
+var d = doc();
+try {
+return !!(d && d.hidden);
+} catch (e) {
+return false;
+}
+}
+
+function dpr() {
+var value = 1;
+try {
+value = Number(window.devicePixelRatio) || 1;
+} catch (e) { }
+if (!(value > 0)) value = 1;
+return value > DPR_MAX ? DPR_MAX : value;
+}
+
+
+
+
+function allowedNow() {
+try {
+if (!LC.enabled()) return false;
+return LC.motionMode() === 'full';
+} catch (e) {
+return false;
+}
+}
+
+function nodeOf(layer) {
+if (!layer) return null;
+var node = layer[0] || layer;
+return node && typeof node.appendChild === 'function' ? node : null;
+}
+
+function find(node) {
+for (var i = 0; i < instances.length; i++) {
+if (instances[i].node === node) return instances[i];
+}
+return null;
+}
+
+
+
+
+function attached(inst) {
+var d = doc();
+try {
+if (d && d.body && typeof d.body.contains === 'function') return d.body.contains(inst.canvas);
+} catch (e) { }
+return !!inst.canvas.parentNode;
+}
+
+
+
+
+
+function paused(inst) {
+if (hidden()) return true;
+try {
+if (inst.paused && inst.paused()) return true;
+} catch (e) { }
+try {
+var node = inst.node;
+if (node && typeof node.closest === 'function') {
+var activity = node.closest('.activity');
+if (activity && activity.classList && !activity.classList.contains('activity--active')) return true;
+}
+} catch (e2) { }
+return false;
+}
+
+function render(inst, dt) {
+var ctx = inst.ctx;
+ctx.clearRect(0, 0, inst.w, inst.h);
+step(inst.particles, dt, inst.w, inst.h);
+stat_steps++;
+var preset = presets[inst.name];
+if (!preset) return;
+for (var i = 0; i < inst.particles.length; i++) {
+preset.draw(ctx, inst.particles[i], inst.w, inst.h, inst.color);
+}
+ctx.globalAlpha = 1;
+}
+
+function loop(ts) {
+frame = 0;
+var i;
+for (i = instances.length - 1; i >= 0; i--) {
+if (!attached(instances[i])) drop(instances[i]);
+}
+if (!instances.length) { last = 0; return; }
+var time = typeof ts === 'number' ? ts : nowMs();
+var dt = last ? time - last : 16;
+last = time;
+if (dt > DT_CAP) dt = DT_CAP;
+if (!(dt > 0)) dt = 0;
+if (dt > 0 && !hidden()) {
+var started = nowMs();
+var drawn = 0;
+for (i = 0; i < instances.length; i++) {
+if (paused(instances[i])) continue;
+try {
+render(instances[i], dt);
+drawn++;
+} catch (e) {
+warn('fx: render failed', e);
+drop(instances[i]);
+}
+}
+if (drawn) {
+var spent = nowMs() - started;
+stat_frames++;
+stat_total += spent;
+if (spent > stat_max) stat_max = spent;
+}
+}
+frame = raf(loop);
+}
+
+function wake() {
+if (frame || !instances.length) return;
+last = 0;
+frame = raf(loop);
+}
+
+
+
+function drop(inst) {
+var i = instances.indexOf(inst);
+if (i !== -1) instances.splice(i, 1);
+try {
+if (inst.canvas.parentNode) inst.canvas.parentNode.removeChild(inst.canvas);
+} catch (e) {
+warn('fx: canvas remove failed', e);
+}
+if (!instances.length) {
+unraf(frame);
+frame = 0;
+last = 0;
+}
+}
+
+
+
+
+
+
+
+function mount(layer, name, opts) {
+try {
+opts = opts || {};
+var node = nodeOf(layer);
+if (!node || !presets[name]) return null;
+if (!allowedNow()) return null;
+var exist = find(node);
+
+
+
+if (exist) return exist;
+var d = doc();
+if (!d || typeof d.createElement !== 'function') return null;
+
+var w = opts.width || node.offsetWidth || 0;
+var h = opts.height || node.offsetHeight || 0;
+if (!(w > 0) || !(h > 0)) {
+try {
+w = w || window.innerWidth || 0;
+h = h || window.innerHeight || 0;
+} catch (e) { }
+}
+if (!(w > 0) || !(h > 0)) return null;
+
+var ratio = dpr();
+var canvas = d.createElement('canvas');
+canvas.className = 'lumen-fx__canvas';
+canvas.width = Math.round(w * ratio);
+canvas.height = Math.round(h * ratio);
+var ctx = canvas.getContext ? canvas.getContext('2d') : null;
+if (!ctx) return null;
+
+if (typeof ctx.setTransform === 'function') ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+node.appendChild(canvas);
+
+var inst = {
+node: node,
+canvas: canvas,
+ctx: ctx,
+name: name,
+w: w,
+h: h,
+color: opts.color || '#FFFFFF',
+paused: typeof opts.paused === 'function' ? opts.paused : null,
+particles: spawn(name, w, h, opts.count, Math.random)
+};
+
+
+inst.particles_of = function () { return inst.particles; };
+instances.push(inst);
+wake();
+return {
+node: node,
+name: name,
+particles: inst.particles_of,
+destroy: function () { drop(inst); }
+};
+} catch (e) {
+warn('fx: mount failed', e);
+return null;
+}
+}
+
+function unmount(layer) {
+var node = nodeOf(layer);
+if (!node) return;
+var inst = find(node);
+if (inst) drop(inst);
+}
+
+function unmountAll() {
+while (instances.length) drop(instances[instances.length - 1]);
+}
+
+function stats() {
+var count = 0;
+for (var i = 0; i < instances.length; i++) count += instances[i].particles.length;
+return {
+frames: stat_frames,
+steps: stat_steps,
+avgMs: stat_frames ? stat_total / stat_frames : 0,
+maxMs: stat_max,
+particles: count,
+layers: instances.length
+};
+}
+
+return {
+MAX: MAX,
+presets: presets,
+spawn: spawn,
+step: step,
+mount: mount,
+unmount: unmount,
+unmountAll: unmountAll,
+active: function () { return instances.length; },
+stats: stats
+};
+})();
+
+if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.fx;
+
+
+/* ---- 53_themes.js ---- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+LC.themes = (function () {
+
+
+var ADVENT_LAST = 24;
+
+
+
+
+
+var ADVENT_STEP = 7919;
+
+
+
+
+
+
+
+function keywordNames(source) {
+var list = null;
+if (Array.isArray(source)) list = source;
+else if (source && Array.isArray(source.results)) list = source.results;
+else if (source && Array.isArray(source.keywords)) list = source.keywords;
+if (!list) return [];
+var out = [];
+for (var i = 0; i < list.length; i++) {
+var item = list[i];
+var name = item && typeof item === 'string' ? item : (item && item.name);
+if (name) out.push(('' + name).toLowerCase());
+}
+return out;
+}
+
+
+
+function genreIds(movie) {
+var list = (movie && movie.genres) || (movie && movie.genre_ids) || [];
+if (!Array.isArray(list)) return [];
+var out = [];
+for (var i = 0; i < list.length; i++) {
+var g = list[i];
+var id = (g && typeof g === 'object') ? g.id : g;
+if (id != null) out.push(Number(id));
+}
+return out;
+}
+
+function hasGenre(ids, want) {
+if (!want || !want.length) return true;
+for (var i = 0; i < want.length; i++) {
+for (var j = 0; j < ids.length; j++) {
+if (Number(want[i]) === ids[j]) return true;
+}
+}
+return false;
+}
+
+
+
+function hasKeyword(names, keywords) {
+if (!keywords || !keywords.length) return false;
+for (var i = 0; i < keywords.length; i++) {
+var want = ('' + keywords[i]).toLowerCase();
+if (!want) continue;
+for (var j = 0; j < names.length; j++) {
+if (names[j].indexOf(want) >= 0) return true;
+}
+}
+return false;
+}
+
+
+
+
+function matchTheme(rules, movie) {
+if (!Array.isArray(rules) || !movie) return null;
+var names = keywordNames(movie.keywords);
+if (!names.length) return null;
+var ids = genreIds(movie);
+for (var i = 0; i < rules.length; i++) {
+var rule = rules[i];
+if (!rule || !rule.preset) continue;
+if (!hasKeyword(names, rule.keywords)) continue;
+if (rule.requireGenre && !hasGenre(ids, rule.genres)) continue;
+return rule;
+}
+return null;
+}
+
+
+
+
+
+function allowed(theme, mode, month) {
+if (!theme || mode === 'off') return false;
+if (mode !== 'seasonal') return true;
+var months = theme.months;
+if (!Array.isArray(months) || !months.length) return false;
+for (var i = 0; i < months.length; i++) {
+if (Number(months[i]) === Number(month)) return true;
+}
+return false;
+}
+
+
+
+function seasonalIds(collections, month) {
+var out = [];
+if (!Array.isArray(collections) || !month) return out;
+for (var i = 0; i < collections.length; i++) {
+var c = collections[i];
+if (!c || !Array.isArray(c.season)) continue;
+for (var j = 0; j < c.season.length; j++) {
+if (Number(c.season[j]) === Number(month)) { out.push(c.id); break; }
+}
+}
+return out;
+}
+
+
+function monthOf(date) {
+if (!date || typeof date.getMonth !== 'function') return 0;
+return date.getMonth() + 1;
+}
+
+
+
+function adventCard(card, day, isToday, words) {
+var copy = {};
+for (var k in card) {
+if (Object.prototype.hasOwnProperty.call(card, k)) copy[k] = card[k];
+}
+var dayWord = (words && words.day) || 'День';
+var todayWord = (words && words.today) || 'Сегодня';
+copy.day = day;
+copy.lumen_badge = isToday
+? todayWord + ' · ' + dayWord.toLowerCase() + ' ' + day
+: dayWord + ' ' + day;
+
+
+if (day === ADVENT_LAST) copy.lumen_final = true;
+return copy;
+}
+
+
+
+
+
+
+
+
+
+function adventDays(pool, today, words) {
+var out = [];
+if (!Array.isArray(pool) || !pool.length) return out;
+if (!today || typeof today.getMonth !== 'function') return out;
+if (today.getMonth() !== 11) return out;
+var last = today.getDate();
+if (last > ADVENT_LAST) last = ADVENT_LAST;
+var used = {};
+for (var day = 1; day <= last; day++) {
+if (out.length >= pool.length) break;
+var index = (day * ADVENT_STEP) % pool.length;
+var guard = 0;
+while (used[index] && guard < pool.length) {
+index = (index + 1) % pool.length;
+guard++;
+}
+if (used[index]) break;
+used[index] = 1;
+out.push(adventCard(pool[index], day, day === today.getDate(), words));
+}
+return out;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function current() {
+try {
+var m = LC.manifest && typeof LC.manifest.get === 'function' ? LC.manifest.get() : null;
+if (m && Array.isArray(m.themes) && m.themes.length) return m.themes;
+var built = LC.manifest && LC.manifest.DEFAULT && LC.manifest.DEFAULT.themes;
+if (Array.isArray(built)) return built;
+} catch (e) {
+warn('themes: manifest failed', e);
+}
+return [];
+}
+
+
+
+
+function mode() {
+var value = 'seasonal';
+try {
+if (LC.pref) value = LC.pref('lumen_fx', 'seasonal');
+} catch (e) { }
+if (value !== 'all' && value !== 'seasonal' && value !== 'off') return 'seasonal';
+return value;
+}
+
+
+
+
+function forMovie(movie) {
+var current_mode = mode();
+if (current_mode === 'off') return null;
+var theme = matchTheme(current(), movie);
+if (!allowed(theme, current_mode, api.month())) return null;
+return theme;
+}
+
+
+
+
+var PALE = { snow: 1, stars: 1, rain: 1, bubbles: 1 };
+
+
+
+function particleColor(theme) {
+if (!theme) return '#FFFFFF';
+if (PALE[theme.preset]) return '#FFFFFF';
+return theme.accent || '#FFFFFF';
+}
+
+
+
+
+function classNames() {
+var rules = current();
+var out = [];
+for (var i = 0; i < rules.length; i++) {
+if (rules[i] && rules[i].id) out.push('lumen-theme--' + rules[i].id);
+}
+return out.join(' ');
+}
+
+
+
+
+
+function now() {
+return new Date();
+}
+
+var api = {
+matchTheme: matchTheme,
+allowed: allowed,
+seasonalIds: seasonalIds,
+adventDays: adventDays,
+monthOf: monthOf,
+month: function () { return monthOf(api._now()); },
+today: function () { return api._now(); },
+current: current,
+classNames: classNames,
+particleColor: particleColor,
+mode: mode,
+forMovie: forMovie,
+_now: now
+};
+return api;
+})();
+
+if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.themes;
 
 
 /* ---- 55_trailer.js ---- */
@@ -10588,6 +12050,11 @@ var override = null;
 
 
 
+
+var themeTokens = null;
+
+
+
 var source = null;
 var task = null;
 
@@ -10699,15 +12166,61 @@ return null;
 return LC.color.tint(source, bg, guard, ratio);
 }
 
+
+function destroy() {
+cancel();
+var had = !!(override || source || themeTokens);
+override = null;
+source = null;
+themeTokens = null;
+if (!had || !LC.enabled()) return;
+try {
+LC.injectCss();
+} catch (e) {
+warn('accent: css inject failed', e);
+}
+}
+
+
+
+
+
+function setTheme(hex) {
+var next = null;
+if (hex) {
+try {
+next = LC.color.tokens(LC.color.parseHex(hex), bg());
+} catch (e) {
+warn('accent: theme color failed', e);
+}
+}
+var same = next && themeTokens ? next.color === themeTokens.color : (!next && !themeTokens);
+if (same) return;
+themeTokens = next;
+
+
+if (override) return;
+if (!LC.enabled()) return;
+try {
+LC.injectCss();
+} catch (eCss) {
+warn('accent: css inject failed', eCss);
+}
+}
+
 return {
-current: function () { return override; },
+current: function () { return override || themeTokens; },
+theme: function () { return themeTokens; },
+setTheme: setTheme,
 dominant: function () { return source; },
 tint: tint,
 applyFor: applyFor,
 reset: reset,
 
 
-destroy: reset
+
+
+destroy: destroy
 };
 })();
 
@@ -15730,6 +17243,23 @@ ru: 'При открытии карточки постер, на котором 
 en: 'When a card opens, the poster that had focus expands to full screen and dissolves into the film still. Works only with full animations and never delays the card.',
 uk: 'Під час відкриття картки постер, на якому стояв фокус, розгортається на весь екран і розчиняється в кадрі фільму. Працює лише за повних анімацій і не затримує відкриття картки.'
 },
+
+
+
+lumen_fx_name: { ru: 'Атмосферы', en: 'Atmospheres', uk: 'Атмосфери' },
+lumen_fx_descr: {
+ru: 'Лёгкий слой поверх кадра под тему фильма: снег у рождественского кино, летучие мыши у хоррора на Хэллоуин, звёзды у фантастики, дождь у нуара. Тема определяется по ключевым словам фильма. «Только сезонные» показывает лишь праздничные темы и лишь в свой месяц. Не запускается при лёгких и выключенных анимациях, а значит и на слабых телевизорах; под играющим трейлером встаёт на паузу.',
+en: 'A light layer over the still matching the film: snow for Christmas films, bats for Halloween horror, stars for science fiction, rain for noir. The theme is chosen by the film keywords. "Seasonal only" shows holiday themes and only in their month. It never starts with light or disabled animations, and therefore not on weak TVs; it pauses while a trailer is playing.',
+uk: 'Легкий шар поверх кадру під тему фільму: сніг для різдвяного кіно, кажани для горору на Гелловін, зорі для фантастики, дощ для нуару. Тема визначається за ключовими словами фільму. «Лише сезонні» показує тільки святкові теми і лише в їхній місяць. Не запускається за легких і вимкнених анімацій, а отже й на слабких телевізорах; під час трейлера стає на паузу.'
+},
+lumen_fx_all: { ru: 'Все', en: 'All', uk: 'Усі' },
+lumen_fx_seasonal: { ru: 'Только сезонные', en: 'Seasonal only', uk: 'Лише сезонні' },
+lumen_fx_off: { ru: 'Выключены', en: 'Off', uk: 'Вимкнені' },
+
+lumen_season_badge: { ru: 'Сезон', en: 'In season', uk: 'Сезон' },
+lumen_advent_title: { ru: 'Адвент-календарь', en: 'Advent calendar', uk: 'Адвент-календар' },
+lumen_advent_day: { ru: 'День', en: 'Day', uk: 'День' },
+lumen_advent_today: { ru: 'Сегодня', en: 'Today', uk: 'Сьогодні' },
 lumen_motion_auto_noty: {
 ru: 'Lumen Card: включены лёгкие анимации — устройство не успевает рисовать полные',
 en: 'Lumen Card: light animations enabled — this device cannot keep up with the full ones',
@@ -16433,6 +17963,14 @@ return true;
 
 
 if (name === 'lumen_transition') return true;
+
+
+
+
+if (name === 'lumen_fx') {
+try { if (LC.applyFxPref) LC.applyFxPref(); } catch (eFx) {}
+return true;
+}
 if (name.indexOf(PLUGIN + '_') !== 0) return false;
 
 
@@ -16718,6 +18256,18 @@ var LIST = [
 
 
 { name: 'lumen_transition', type: 'trigger', 'default': true, label: 'lumen_transition_name', descr: 'lumen_transition_descr' },
+
+
+
+
+
+
+
+
+
+
+
+{ name: 'lumen_fx', type: 'select', values: ['all', 'seasonal', 'off'], vprefix: 'lumen_fx_', 'default': 'seasonal', label: 'lumen_fx_name', descr: 'lumen_fx_descr' },
 
 { name: 'lumen_group_backdrop', type: 'title', label: 'lumen_card_group_backdrop' },
 { name: 'lumen_slideshow', type: 'trigger', 'default': true, label: 'lumen_card_slideshow_name' },
@@ -17869,6 +19419,13 @@ try { applyMotionMode($('.activity--active .lumen-grid')); } catch (eGrid) {}
 
 
 try { if (LC.hero && LC.hero.applyMotion) LC.hero.applyMotion(); } catch (eHero) {}
+
+
+
+
+
+
+try { if (LC.applyFxPref) LC.applyFxPref(); } catch (eFx) {}
 };
 
 var toggle_followed = false;
@@ -18081,6 +19638,16 @@ LC.franchise.cancel(active.body);
 } catch (eFr) {
 warn('destroy active: franchise failed', eFr);
 }
+
+
+
+
+try {
+var fxLayer = fxLayerOf(active.body);
+if (fxLayer && LC.fx) LC.fx.unmount(fxLayer.find('.lumen-fx'));
+} catch (eFxOff) {
+warn('destroy active: fx failed', eFxOff);
+}
 try {
 if (active.slideshow && typeof active.slideshow.destroy === 'function') active.slideshow.destroy();
 } catch (e3) {
@@ -18247,7 +19814,10 @@ warn('badges start failed', eBadgesStart);
 
 
 try {
-if (LC.accent && e.component !== 'full') LC.accent.reset();
+
+
+
+if (LC.accent && e.component !== 'full') LC.accent.destroy();
 } catch (eAccentStart) {
 warn('accent start failed', eAccentStart);
 }
@@ -18493,6 +20063,10 @@ LC.active = { object: e.object, body: e.body, slideshow: slideshow, data: e.data
 
 
 try { if (LC.accent) LC.accent.applyFor((e.data && e.data.movie) || null); } catch (eAccent) {}
+
+
+
+try { LC.applyFxFor(e.body, (e.data && e.data.movie) || null); } catch (eFx) { warn('fx apply failed', eFx); }
 
 
 
@@ -18955,11 +20529,16 @@ activated = false;
 
 
 
-try { if (LC.accent) LC.accent.reset(); } catch (eAccentOff) {}
+try { if (LC.accent) LC.accent.destroy(); } catch (eAccentOff) {}
 
 
 
 try { if (LC.perf) LC.perf.stop(); } catch (ePerfOff) {}
+
+
+
+
+try { if (LC.fx) LC.fx.unmountAll(); } catch (eFxOff) {}
 try { if (LC.transition) LC.transition.stop(); } catch (eTransOff) {}
 
 
@@ -19233,6 +20812,84 @@ if (LC.pref('lumen_badges', true)) LC.badges.install();
 else LC.badges.uninstall();
 } catch (e) {
 warn('badges pref failed', e);
+}
+};
+
+
+
+
+
+
+
+
+
+
+
+
+
+function fxLayerOf(body) {
+if (!body || typeof body.children !== 'function') return null;
+var layer = body.children('.lumen-backdrop');
+if (!layer || !layer.length) return null;
+return layer;
+}
+
+
+
+
+LC.applyFxFor = function (body, movie) {
+var layer = fxLayerOf(body);
+if (!layer) return null;
+var node = layer.find('.lumen-fx');
+
+
+try { if (LC.fx) LC.fx.unmount(node); } catch (eOff) { warn('fx unmount failed', eOff); }
+
+
+if (!LC.themes || !LC.fx) return null;
+try { layer.removeClass(LC.themes.classNames()); } catch (eCls) { warn('fx class failed', eCls); }
+
+var theme = null;
+try { theme = LC.themes.forMovie(movie || null); } catch (eTheme) { warn('fx theme failed', eTheme); }
+if (!theme) {
+try { if (LC.accent) LC.accent.setTheme(null); } catch (eAcc) {}
+return null;
+}
+layer.addClass('lumen-theme--' + theme.id);
+
+
+try { if (LC.accent) LC.accent.setTheme(theme.accent); } catch (eAcc2) {}
+try {
+return LC.fx.mount(node, theme.preset, {
+color: LC.themes.particleColor(theme),
+
+
+paused: function () {
+try { return LC.trailer.isLive(layer); } catch (ePause) { return false; }
+}
+});
+} catch (eMount) {
+warn('fx mount failed', eMount);
+return null;
+}
+};
+
+
+
+
+
+LC.applyFxPref = function () {
+if (!activated) return;
+try {
+if (!LC.active) {
+
+
+if (LC.hero && typeof LC.hero.applyFx === 'function') LC.hero.applyFx();
+return;
+}
+LC.applyFxFor(LC.active.body, (LC.active.data && LC.active.data.movie) || null);
+} catch (e) {
+warn('fx pref failed', e);
 }
 };
 

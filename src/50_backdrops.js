@@ -101,6 +101,13 @@
         '<div class="lumen-backdrop__veil lumen-backdrop__veil--l"></div>' +
         '<div class="lumen-backdrop__veil lumen-backdrop__veil--b"></div>' +
         '<div class="lumen-backdrop__veil lumen-backdrop__veil--t"></div>' +
+        /* Task 21: слой тематической атмосферы — ПОСЛЕ вуалей, в отличие от
+           кадров и ролика: частицы должны быть видны поверх затемнения,
+           иначе снег под тремя вуалями превращается в серую взвесь. Текст
+           карточки они всё равно не закрывают — .lumen-backdrop лежит в теле
+           активности ниже самой карточки. Пустой, пока LC.fx не вставит в
+           него канвас; в lite/off он так и остаётся пустым. */
+        '<div class="lumen-fx"></div>' +
         '</div>');
       body.prepend(layer);
     }

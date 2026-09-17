@@ -159,3 +159,42 @@ test('Task 20: LC.MANIFEST_URL — адрес каталога на хостин
   assert.ok(m, 'в src/00_head.js нет присваивания LC.MANIFEST_URL');
   assert.equal(m[1], 'https://azarkostya.github.io/lumen-card/manifest.json');
 });
+
+/* Task 21 (фаза 3): правила тематических атмосфер в каталоге. */
+test('DEFAULT.themes: девять правил, у каждого id, preset из набора LC.fx, accent и ключевые слова', () => {
+  const presets = ['bats', 'snow', 'stars', 'rain', 'sand', 'bubbles', 'petals', 'embers', 'glitch'];
+  const themes = M.DEFAULT.themes;
+  assert.equal(themes.length, 9);
+  const ids = new Set();
+  for (const t of themes) {
+    assert.ok(!ids.has(t.id), 'дублированный id темы: ' + t.id);
+    ids.add(t.id);
+    assert.ok(presets.indexOf(t.preset) >= 0, 'неизвестный пресет ' + t.preset + ' у ' + t.id);
+    assert.match(t.accent, /^#[0-9A-F]{6}$/, 'акцент темы ' + t.id);
+    assert.ok(Array.isArray(t.keywords) && t.keywords.length > 0, 'нет ключевых слов у ' + t.id);
+    for (const k of t.keywords) assert.equal(k, k.toLowerCase(), 'ключевое слово в нижнем регистре: ' + k);
+    if (t.requireGenre) assert.ok(Array.isArray(t.genres) && t.genres.length, 'requireGenre без genres: ' + t.id);
+  }
+  /* Поправки контроллера к Task 21: акцент halloween — из экспорта дизайна. */
+  assert.equal(themes[0].id, 'halloween');
+  assert.equal(themes[0].accent, '#E07B2C');
+  /* Рождество должно побеждать «космос» и прочие общие темы — оно раньше. */
+  assert.ok(themes.findIndex(t => t.id === 'christmas') < themes.findIndex(t => t.id === 'space'));
+});
+
+test('DEFAULT: подборка christmas — пул адвент-календаря, сезон декабрь-январь', () => {
+  const c = M.DEFAULT.collections.filter(x => x.id === 'christmas')[0];
+  assert.ok(c, 'нет подборки christmas');
+  assert.deepEqual(c.season, [12, 1]);
+  assert.equal(c.sources.movie.params.keywords, 207317);
+  assert.equal(c.sources.movie.params.genres, undefined, 'жанр не ограничен — иначе пул адвента только комедийный');
+});
+
+test('validate: themes не массив — каталог отвергается, отсутствие themes допустимо', () => {
+  const base = { version: 1, groups: [{ id: 'g' }], home: [], collections: [] };
+  assert.equal(M.validate(base).ok, true);
+  assert.equal(M.validate(Object.assign({}, base, { themes: [] })).ok, true);
+  const bad = M.validate(Object.assign({}, base, { themes: { id: 'x' } }));
+  assert.equal(bad.ok, false);
+  assert.equal(bad.reason, 'themes_not_array');
+});

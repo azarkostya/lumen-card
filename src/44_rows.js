@@ -321,8 +321,169 @@
 
       var rows = homeRows(manifest, picked, month, limitRaw);
 
+      /* Task 21: ряд адвента идёт первым среди подборок — он и есть главный
+         сезонный ряд декабря; остальные сдвигаются на одну позицию. */
+      var shift = registerAdvent(manifest) ? 1 : 0;
+
       for (var i = 0; i < rows.length; i++) {
-        registerRow(rows[i], i);
+        registerRow(rows[i], i + shift);
+      }
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* Task 21 (фаза 3): адвент-календарь.                                 */
+    /*                                                                     */
+    /* В декабре над подборками встаёт ряд «Адвент-календарь · день N»: по */
+    /* одному рождественскому фильму на каждый день с 1-го по сегодняшний  */
+    /* (максимум 24). Раскладка детерминированная — 5 декабря показывает   */
+    /* один и тот же фильм и утром, и вечером (LC.themes.adventDays).      */
+    /*                                                                     */
+    /* Пул — первые две страницы подборок 'xmas-comedy' и 'christmas'.     */
+    /* Ряд не входит в лимит числа рядов: он живёт три недели в году и     */
+    /* занимает место не подборки, а праздника.                            */
+    /* ------------------------------------------------------------------ */
+
+    var ADVENT_IDS = ['xmas-comedy', 'christmas'];
+    var ADVENT_PAGES = 2;
+
+    function adventWord(key, def) {
+      try {
+        if (typeof LC.lang === 'function') return LC.lang(key);
+      } catch (e) { }
+      return def;
+    }
+
+    /* Сегодняшняя дата через LC.themes: там же живёт хук _now, которым
+       живая проверка подменяет декабрь, не трогая системные часы. */
+    function adventToday() {
+      try {
+        if (LC.themes && typeof LC.themes.today === 'function') return LC.themes.today();
+      } catch (e) { }
+      return null;
+    }
+
+    /* Пары «подборка + страница» для пула. Неизвестные id (каталог с
+       хостинга мог их не содержать) просто пропускаются. */
+    function adventSpecs(manifest) {
+      var out = [];
+      if (!manifest || !Array.isArray(manifest.collections)) return out;
+      var byId = {};
+      var i;
+      for (i = 0; i < manifest.collections.length; i++) byId[manifest.collections[i].id] = manifest.collections[i];
+      for (var j = 0; j < ADVENT_IDS.length; j++) {
+        var item = byId[ADVENT_IDS[j]];
+        if (!item) continue;
+        for (var page = 1; page <= ADVENT_PAGES; page++) out.push({ item: item, page: page });
+      }
+      return out;
+    }
+
+    /* Ответы подборок -> пул без дублей. Порядок фиксирован порядком
+       ЗАПРОСОВ, а не порядком ответов: от него зависит, какой фильм
+       достанется какому дню, и он обязан быть одинаковым при каждом
+       заходе на главную. */
+    function adventPool(slots) {
+      var pool = [];
+      var seen = {};
+      for (var i = 0; i < slots.length; i++) {
+        var list = slots[i] || [];
+        for (var j = 0; j < list.length; j++) {
+          var card = list[j];
+          if (!card || card.id == null || seen[card.id]) continue;
+          seen[card.id] = 1;
+          pool.push(card);
+        }
+      }
+      return pool;
+    }
+
+    function adventTitle(today) {
+      var day = today.getDate();
+      if (day > 24) day = 24;
+      return adventWord('lumen_advent_title', 'Advent calendar') + ' · ' +
+        adventWord('lumen_advent_day', 'Day').toLowerCase() + ' ' + day;
+    }
+
+    /* call-функция ряда: четыре запроса (две подборки по две страницы),
+       общий пул, раскладка по дням. Контракт «ровно один call при любом
+       исходе» держит makeResolver, как и у обычных рядов. */
+    function makeAdventCall(manifest) {
+      return function (params, screen) {
+        return function (call) {
+          var gen = _homeGen;
+          function alive() { return _homeGen === gen; }
+          var resolve = makeResolver(call);
+          var specs = adventSpecs(manifest);
+          var today = adventToday();
+          if (!specs.length || !today) { resolve({ results: [] }); return { cancel: function () {} }; }
+
+          var slots = [];
+          var left = specs.length;
+          var handles = [];
+          var words = {
+            day: adventWord('lumen_advent_day', 'Day'),
+            today: adventWord('lumen_advent_today', 'Today')
+          };
+
+          function finish() {
+            left--;
+            if (left > 0) return;
+            var days = [];
+            try {
+              days = LC.themes.adventDays(adventPool(slots), today, words);
+            } catch (e) {
+              days = [];
+            }
+            resolve({ results: days, title: adventTitle(today) });
+          }
+
+          /* Фабрика на итерацию: var в цикле ES5 не создаёт своей области,
+             и без неё все четыре колбэка писали бы в последний слот. */
+          function ask(index) {
+            var spec = specs[index];
+            return LC.sources['fetch'](
+              spec.item,
+              spec.page,
+              function (json) { slots[index] = (json && json.results) || []; finish(); },
+              function () { slots[index] = []; finish(); },
+              alive
+            );
+          }
+
+          for (var i = 0; i < specs.length; i++) handles.push(ask(i));
+
+          return {
+            cancel: function () {
+              for (var k = 0; k < handles.length; k++) {
+                try { if (handles[k] && handles[k].clear) handles[k].clear(); } catch (e) {}
+              }
+            }
+          };
+        };
+      };
+    }
+
+    /* Регистрирует ряд адвента, если сейчас декабрь. Возвращает true —
+       тогда подборки сдвигаются на одну позицию вниз. */
+    function registerAdvent(manifest) {
+      try {
+        if (!window.Lampa || !Lampa.ContentRows) return false;
+        if (!LC.themes || typeof LC.themes.adventDays !== 'function') return false;
+        var today = adventToday();
+        if (!today || today.getMonth() !== 11) return false;
+        if (!adventSpecs(manifest).length) return false;
+        var descriptor = {
+          name: rowName('advent'),
+          title: adventTitle(today),
+          screen: 'main',
+          index: ROWS_OFFSET,
+          call: makeAdventCall(manifest)
+        };
+        Lampa.ContentRows.add(descriptor);
+        _addedRows.push(descriptor);
+        return true;
+      } catch (e) {
+        return false;
       }
     }
 
@@ -411,6 +572,10 @@
       storedIds: storedIds,
       viewedIds: viewedIds,
       bumpGen: bumpGen,
+      /* Task 21: чистые части адвента наружу ради тестов — сам ряд
+         регистрирует register() в декабре. */
+      adventSpecs: adventSpecs,
+      adventPool: adventPool,
       register: register,
       unregister: unregister
     };

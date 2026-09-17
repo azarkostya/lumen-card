@@ -126,14 +126,34 @@
       return out;
     }
 
-    /* Подборки одного чипа хаба. */
-    function tilesFor(manifest, hubGroupId) {
+    /* Подборки одного чипа хаба. month (1..12, необязателен) поднимает
+       сезонные подборки в начало списка — Task 21: в октябре «Хэллоуин»
+       и в декабре «Рождественские комедии» должны попадаться первыми, а не
+       на третьем экране прокрутки. Без month порядок остаётся манифестным. */
+    function tilesFor(manifest, hubGroupId, month) {
       if (!manifest || !Array.isArray(manifest.hubGroups)) return [];
       for (var i = 0; i < manifest.hubGroups.length; i++) {
         var g = manifest.hubGroups[i];
-        if (g && g.id === hubGroupId) return collectionsIn(manifest, g.groups);
+        if (g && g.id === hubGroupId) {
+          var list = collectionsIn(manifest, g.groups);
+          if (month && LC.manifest && typeof LC.manifest.orderForMonth === 'function') {
+            return LC.manifest.orderForMonth(list, month);
+          }
+          return list;
+        }
       }
       return [];
+    }
+
+    /* Подборка сезонная прямо сейчас? Плитка получает по этому признаку
+       метку «Сезон» — иначе поднятая наверх подборка выглядела бы просто
+       переставленной без причины. */
+    function inSeason(item, month) {
+      if (!item || !Array.isArray(item.season) || !month) return false;
+      for (var i = 0; i < item.season.length; i++) {
+        if (Number(item.season[i]) === Number(month)) return true;
+      }
+      return false;
     }
 
     /* Медиа единственного источника подборки, если он один И это discover.
@@ -569,8 +589,18 @@
 
       /* Коллажи видимых плиток: первые COLLAGE_EAGER (два ряда по четыре —
          столько видно без прокрутки), остальные по фокусу. */
+      /* Текущий месяц для сезонного порядка и метки «Сезон» (Task 21).
+         Читается через LC.themes — там же живёт хук даты, которым живая
+         проверка подменяет декабрь, не трогая системные часы. */
+      function month() {
+        try {
+          if (LC.themes && typeof LC.themes.month === 'function') return LC.themes.month();
+        } catch (e) { }
+        return 0;
+      }
+
       function loadVisibleCollages() {
-        var list = tilesFor(manifest, activeGroup);
+        var list = tilesFor(manifest, activeGroup, month());
         for (var i = 0; i < tileNodes.length && i < COLLAGE_EAGER; i++) {
           loadCollage(list[i], tileNodes[i]);
         }
@@ -583,10 +613,17 @@
           if (manifest.groups[i].id === item.group) { group = manifest.groups[i]; break; }
         }
         var sub = item.badge || titleOf(group, lang());
+        /* Task 21: подборка своего сезона поднята наверх — метка объясняет,
+           почему она здесь. Рисуется тем же узлом, что и подсказка про ключ
+           API, поэтому разметка плитки не усложняется. */
+        var season = inSeason(item, month())
+          ? '<div class="lumen-tile__season">' + esc(LC.lang('lumen_season_badge')) + '</div>'
+          : '';
         var node = $(
           '<div class="lumen-tile selector">' +
             '<div class="lumen-tile__collage"></div>' +
             '<div class="lumen-tile__scrim"></div>' +
+            season +
             '<div class="lumen-tile__text">' +
               '<div class="lumen-tile__title">' + esc(item.title) + '</div>' +
               '<div class="lumen-tile__sub">' + esc(sub) + '</div>' +
@@ -609,7 +646,7 @@
            узлы, выброшенные из DOM (ревью Task 17, I1). */
         bump();
         activeGroup = groupId;
-        var list = tilesFor(manifest, groupId);
+        var list = tilesFor(manifest, groupId, month());
         tilesRow.empty();
         tileNodes = [];
         for (var i = 0; i < list.length; i++) {
@@ -1309,6 +1346,7 @@
       titleOf: titleOf,
       groupsWithCounts: groupsWithCounts,
       tilesFor: tilesFor,
+      inSeason: inSeason,
       openTarget: openTarget,
       franchiseItem: franchiseItem,
       sortModes: sortModes,

@@ -149,7 +149,9 @@ test('LIST: полный набор ключей — существующие и
     /* Task 27 (фаза 3): мини-карта рядов и быстрое листание */
     'lumen_minimap', 'lumen_fastscroll',
     /* Task 28 (фаза 3): режим показа отзывов и автотрейлер в кадре главной */
-    'lumen_reviews_mode', 'lumen_hero_trailer'
+    'lumen_reviews_mode', 'lumen_hero_trailer',
+    /* Task 21 (фаза 3): тематические атмосферы (слой частиц) */
+    'lumen_fx'
   ].sort());
 });
 

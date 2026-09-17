@@ -65,6 +65,23 @@
       en: 'When a card opens, the poster that had focus expands to full screen and dissolves into the film still. Works only with full animations and never delays the card.',
       uk: 'Під час відкриття картки постер, на якому стояв фокус, розгортається на весь екран і розчиняється в кадрі фільму. Працює лише за повних анімацій і не затримує відкриття картки.'
     },
+    /* Task 21 (фаза 3): тематические атмосферы. Описание честно называет
+       цену: это самая тяжёлая часть плагина, и на слабом телевизоре она не
+       включается вовсе — вместе с полными анимациями. */
+    lumen_fx_name: { ru: 'Атмосферы', en: 'Atmospheres', uk: 'Атмосфери' },
+    lumen_fx_descr: {
+      ru: 'Лёгкий слой поверх кадра под тему фильма: снег у рождественского кино, летучие мыши у хоррора на Хэллоуин, звёзды у фантастики, дождь у нуара. Тема определяется по ключевым словам фильма. «Только сезонные» показывает лишь праздничные темы и лишь в свой месяц. Не запускается при лёгких и выключенных анимациях, а значит и на слабых телевизорах; под играющим трейлером встаёт на паузу.',
+      en: 'A light layer over the still matching the film: snow for Christmas films, bats for Halloween horror, stars for science fiction, rain for noir. The theme is chosen by the film keywords. "Seasonal only" shows holiday themes and only in their month. It never starts with light or disabled animations, and therefore not on weak TVs; it pauses while a trailer is playing.',
+      uk: 'Легкий шар поверх кадру під тему фільму: сніг для різдвяного кіно, кажани для горору на Гелловін, зорі для фантастики, дощ для нуару. Тема визначається за ключовими словами фільму. «Лише сезонні» показує тільки святкові теми і лише в їхній місяць. Не запускається за легких і вимкнених анімацій, а отже й на слабких телевізорах; під час трейлера стає на паузу.'
+    },
+    lumen_fx_all: { ru: 'Все', en: 'All', uk: 'Усі' },
+    lumen_fx_seasonal: { ru: 'Только сезонные', en: 'Seasonal only', uk: 'Лише сезонні' },
+    lumen_fx_off: { ru: 'Выключены', en: 'Off', uk: 'Вимкнені' },
+    /* Task 21: метка сезонной подборки в хабе и заголовок ряда адвента. */
+    lumen_season_badge: { ru: 'Сезон', en: 'In season', uk: 'Сезон' },
+    lumen_advent_title: { ru: 'Адвент-календарь', en: 'Advent calendar', uk: 'Адвент-календар' },
+    lumen_advent_day: { ru: 'День', en: 'Day', uk: 'День' },
+    lumen_advent_today: { ru: 'Сегодня', en: 'Today', uk: 'Сьогодні' },
     lumen_motion_auto_noty: {
       ru: 'Lumen Card: включены лёгкие анимации — устройство не успевает рисовать полные',
       en: 'Lumen Card: light animations enabled — this device cannot keep up with the full ones',
@@ -768,6 +785,14 @@
        ни стилей, ни узлов он на экране не держит. Ветка нужна, чтобы имя без
        префикса lumen_card_ не ушло дальше как чужое. */
     if (name === 'lumen_transition') return true;
+    /* Task 21 (фаза 3): атмосферы — слой частиц на открытой карточке и в
+       кадре главной. Выключение снимает его немедленно (иначе он дожил бы
+       до следующего экрана), включение — пересчитывает тему по данным
+       того, что открыто сейчас. */
+    if (name === 'lumen_fx') {
+      try { if (LC.applyFxPref) LC.applyFxPref(); } catch (eFx) {}
+      return true;
+    }
     if (name.indexOf(PLUGIN + '_') !== 0) return false;
     /* Ревью Task 8 (п.3/ревью 2 п.4): от этих двух настроек таблица стилей не
        зависит вовсе — классы, узлы и CSS-переменную подписи кнопки ставит

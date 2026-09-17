@@ -108,6 +108,18 @@
          «Лёгких» и «Выкл» его нет вовсе), и выключать его отдельно имеет
          смысл только тому, кто полные анимации оставил. */
       { name: 'lumen_transition', type: 'trigger', 'default': true, label: 'lumen_transition_name', descr: 'lumen_transition_descr' },
+      /* Task 21 (фаза 3): тематические атмосферы — слой частиц над кадром
+         карточки и кадром главной. Место — сразу за переходом, в конце
+         группы «Оформление»: как и он, атмосфера подчиняется режиму
+         анимаций и в «Лёгких»/«Выкл» не запускается вовсе.
+
+         По умолчанию «Только сезонные», а не «Все»: вид карточки без спроса
+         менять нельзя, и снег на «Один дома» в декабре читается как
+         оформление, а песчаная дымка на «Дюне» в июне — как сюрприз.
+         Порядок значений — от самого скромного к самому заметному
+         наоборот: сперва «Все», потом «Только сезонные», потом «Выкл»,
+         как в плане. */
+      { name: 'lumen_fx', type: 'select', values: ['all', 'seasonal', 'off'], vprefix: 'lumen_fx_', 'default': 'seasonal', label: 'lumen_fx_name', descr: 'lumen_fx_descr' },
 
       { name: 'lumen_group_backdrop', type: 'title', label: 'lumen_card_group_backdrop' },
       { name: 'lumen_slideshow', type: 'trigger', 'default': true, label: 'lumen_card_slideshow_name' },

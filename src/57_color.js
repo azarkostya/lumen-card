@@ -472,6 +472,11 @@
     /* Четвёрка токенов текущего фильма либо null («акцент из настроек»).
        Читается функцией theme() в src/30_css.js на каждой сборке CSS. */
     var override = null;
+    /* Task 21 (фаза 3): акцент тематической атмосферы — запасной цвет на
+       случай, когда постер своего не дал. Приоритет плана: постер -> тема ->
+       настройка, поэтому тема лежит отдельным значением и уступает
+       постеру в current(), а не затирает его. */
+    var themeTokens = null;
     /* Доминанта постера текущего фильма — из неё красится фон страницы
        (tint ниже). Живёт отдельно от акцента: акцент мог не собраться, а
        фону доминанты достаточно. */
@@ -586,15 +591,61 @@
       return LC.color.tint(source, bg, guard, ratio);
     }
 
+    /* Карточка закрыта: снимаем всё, что принадлежало ей. */
+    function destroy() {
+      cancel();
+      var had = !!(override || source || themeTokens);
+      override = null;
+      source = null;
+      themeTokens = null;
+      if (!had || !LC.enabled()) return;
+      try {
+        LC.injectCss();
+      } catch (e) {
+        warn('accent: css inject failed', e);
+      }
+    }
+
+    /* Акцент темы фильма (Task 21). hex — цвет правила темы из манифеста,
+       null снимает его. Пересборка CSS — только на реальной смене цвета:
+       темы меняются раз в карточку, но зовут эту функцию и complite, и
+       возврат из истории. */
+    function setTheme(hex) {
+      var next = null;
+      if (hex) {
+        try {
+          next = LC.color.tokens(LC.color.parseHex(hex), bg());
+        } catch (e) {
+          warn('accent: theme color failed', e);
+        }
+      }
+      var same = next && themeTokens ? next.color === themeTokens.color : (!next && !themeTokens);
+      if (same) return;
+      themeTokens = next;
+      /* Постер главнее темы: пока его цвет стоит, экран не перекрашиваем —
+         current() всё равно вернёт постерный. */
+      if (override) return;
+      if (!LC.enabled()) return;
+      try {
+        LC.injectCss();
+      } catch (eCss) {
+        warn('accent: css inject failed', eCss);
+      }
+    }
+
     return {
-      current: function () { return override; },
+      current: function () { return override || themeTokens; },
+      theme: function () { return themeTokens; },
+      setTheme: setTheme,
       dominant: function () { return source; },
       tint: tint,
       applyFor: applyFor,
       reset: reset,
-      /* Уход с карточки: незавершённая картинка отменяется, акцент
-         возвращается к выбранному в настройках. */
-      destroy: reset
+      /* Уход с карточки: незавершённая картинка отменяется, оба акцента
+         карточки (постер и тема) снимаются, экран пересобирается ОДИН раз —
+         последовательные reset() + setTheme(null) стоили бы двух разборов
+         таблицы стилей на каждом уходе с карточки. */
+      destroy: destroy
     };
   })();
 

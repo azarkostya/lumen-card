@@ -330,6 +330,14 @@
           id: 'xmas-comedy', title: 'Рождественские комедии', group: 'theme', icon: 'star', season: [12, 1],
           sources: { movie: { type: 'discover', params: { genres: 35, keywords: 207317, sort_by: 'popularity.desc' } } }
         },
+        /* Task 21 (фаза 3): рождественское кино без привязки к жанру — тот
+           же keyword 207317, что у «Рождественских комедий», но без
+           genres: 35. Отдельная подборка нужна адвент-календарю: его пул
+           собирается из этих двух, и одними комедиями 24 дня не закрыть. */
+        {
+          id: 'christmas', title: 'Рождественское кино', group: 'theme', icon: 'star', season: [12, 1],
+          sources: { movie: { type: 'discover', params: { keywords: 207317, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 50 } } } }
+        },
         {
           id: 'halloween', title: 'Хэллоуин', group: 'theme', icon: 'star', season: [9, 10, 11],
           sources: { movie: { type: 'discover', params: { genres: 27, keywords: 3335, sort_by: 'popularity.desc' } } }
@@ -729,7 +737,38 @@
           sources: { movie: { type: 'kp', collection: 'OSKAR_WINNERS_2021' } }
         }
 
-      ] /* /collections */
+      ], /* /collections */
+
+      /* Task 21 (фаза 3): правила тематических атмосфер. Порядок значим —
+         побеждает ПЕРВОЕ правило, чьё ключевое слово нашлось у фильма
+         (src/53_themes.js, matchTheme), поэтому праздники стоят раньше
+         общих тем: «рождественский хоррор» получает снег, а не летучих
+         мышей. keywords сравниваются по вхождению в название ключевого
+         слова TMDB без учёта регистра.
+
+         requireGenre требует И слово, И жанр из списка genres: слово
+         «halloween» у комедии — это шутка про праздник, а не хоррор.
+         months — сезон темы: он не участвует в подборе (фильм про Рождество
+         остаётся рождественским в июле), но в режиме настройки «Только
+         сезонные» показываются лишь темы со своим месяцем и лишь в него.
+
+         accent — цвет темы, пока карточка открыта. У halloween это
+         #E07B2C по экспорту дизайна (поправки контроллера к Task 21), а не
+         #E58A2E из первой редакции плана.
+
+         Каталог с хостинга может этот список заменить целиком — правила
+         обновляются без переустановки плагина. */
+      themes: [
+        { id: 'halloween', preset: 'bats', accent: '#E07B2C', keywords: ['halloween', 'haunted house', 'slasher', 'witch', 'trick or treat'], genres: [27], months: [10], requireGenre: true },
+        { id: 'christmas', preset: 'snow', accent: '#E8C170', keywords: ['christmas', 'santa claus', 'new year', 'christmas eve'], months: [12, 1] },
+        { id: 'space', preset: 'stars', accent: '#8FB8D9', keywords: ['space', 'alien', 'spaceship', 'astronaut', 'outer space'] },
+        { id: 'noir', preset: 'rain', accent: '#9AA7B5', keywords: ['film noir', 'detective', 'private detective', 'neo-noir'] },
+        { id: 'desert', preset: 'sand', accent: '#E8B87A', keywords: ['desert', 'sand', 'dune'] },
+        { id: 'ocean', preset: 'bubbles', accent: '#7FB7C9', keywords: ['ocean', 'underwater', 'shark', 'submarine', 'sea'] },
+        { id: 'sakura', preset: 'petals', accent: '#E6A3B8', keywords: ['cherry blossom', 'anime', 'romance'], genres: [16], requireGenre: true },
+        { id: 'war', preset: 'embers', accent: '#C97B4A', keywords: ['war', 'world war ii', 'explosion', 'battle'] },
+        { id: 'zombie', preset: 'glitch', accent: '#9FCF8A', keywords: ['zombie', 'undead', 'zombie apocalypse'] }
+      ]
     };
 
     /* ---- Вспомогательные чистые функции -------------------------------- */
@@ -746,6 +785,12 @@
       if (!Array.isArray(m.collections)) return { ok: false, reason: 'no_collections' };
       if (!Array.isArray(m.groups) || m.groups.length === 0) return { ok: false, reason: 'no_groups' };
       if (!Array.isArray(m.home)) return { ok: false, reason: 'no_home' };
+      /* Task 21 (фаза 3): правила тем — необязательное поле (каталог без
+         них просто не даёт атмосфер), но если оно есть, то обязано быть
+         массивом: LC.themes.matchTheme перебирает его напрямую. */
+      if (typeof m.themes !== 'undefined' && !Array.isArray(m.themes)) {
+        return { ok: false, reason: 'themes_not_array' };
+      }
       var seen = {};
       var i, c;
       for (i = 0; i < m.collections.length; i++) {

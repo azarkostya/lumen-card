@@ -116,6 +116,13 @@
        перечитывает эта же точка (в lite/off герой обязан обходиться без
        кроссфейда кадра и подъёма текста). */
     try { if (LC.hero && LC.hero.applyMotion) LC.hero.applyMotion(); } catch (eHero) {}
+    /* Task 21 (найдено живой проверкой 2026-09-17): режим анимаций
+       переключают на ОТКРЫТОЙ карточке, и слой частиц обязан уйти вместе с
+       полными анимациями — иначе «Лёгкие» гасили бы всё, кроме самой
+       тяжёлой части плагина, до следующего открытия карточки. Обратный
+       переход на «Полные» так же возвращает атмосферу на место:
+       LC.applyFxPref пересчитывает тему по данным того, что открыто. */
+    try { if (LC.applyFxPref) LC.applyFxPref(); } catch (eFx) {}
   };
 
   var toggle_followed = false;
@@ -328,6 +335,16 @@
     } catch (eFr) {
       warn('destroy active: franchise failed', eFr);
     }
+    /* Task 21: слой частиц — такой же ресурс карточки, как слайдшоу: свой
+       кадровый цикл он держит ровно до тех пор, пока смонтирован хотя бы
+       один слой (src/52_fx.js). Снимаем явно, не дожидаясь самопроверки по
+       выпавшему из документа канвасу. */
+    try {
+      var fxLayer = fxLayerOf(active.body);
+      if (fxLayer && LC.fx) LC.fx.unmount(fxLayer.find('.lumen-fx'));
+    } catch (eFxOff) {
+      warn('destroy active: fx failed', eFxOff);
+    }
     try {
       if (active.slideshow && typeof active.slideshow.destroy === 'function') active.slideshow.destroy();
     } catch (e3) {
@@ -494,7 +511,10 @@
            неё акцент ставит 'full' complite, а для вернувшейся из истории —
            восстановление LC.active ниже. */
         try {
-          if (LC.accent && e.component !== 'full') LC.accent.reset();
+          /* Task 21: тем же вызовом уходит и акцент тематической атмосферы —
+             он принадлежит открытой карточке ровно так же, как постерный
+             (одна пересборка CSS на оба, src/57_color.js). */
+          if (LC.accent && e.component !== 'full') LC.accent.destroy();
         } catch (eAccentStart) {
           warn('accent start failed', eAccentStart);
         }
@@ -740,6 +760,10 @@
                lumen_accent_auto). Выключена — вызов ничего не делает и ни
                одной картинки не грузит (src/57_color.js). */
             try { if (LC.accent) LC.accent.applyFor((e.data && e.data.movie) || null); } catch (eAccent) {}
+            /* Task 21: тематическая атмосфера — по ключевым словам фильма.
+               В режимах анимаций lite/off и при настройке «Выключены» вызов
+               не создаёт ни канваса, ни кадрового цикла (src/52_fx.js). */
+            try { LC.applyFxFor(e.body, (e.data && e.data.movie) || null); } catch (eFx) { warn('fx apply failed', eFx); }
             /* Ревью Task 9 (Minor 10): дубль данных на слое фона — тем же
                приёмом, что контроллеры слайдшоу и трейлера. Карточка, к которой
                вернулись backward'ом, восстанавливает LC.active из слоя
@@ -1202,11 +1226,16 @@
        сброс при выключенном плагине таблицу стилей не пересобирает
        (src/57_color.js), так что порядок важен только ради отмены
        незавершённого расчёта по постеру. */
-    try { if (LC.accent) LC.accent.reset(); } catch (eAccentOff) {}
+    try { if (LC.accent) LC.accent.destroy(); } catch (eAccentOff) {}
     /* Task 29: выключенный плагин не имеет права держать ни отложенного
        кадра замера, ни слоя перехода поверх экрана. Обе уборки идемпотентны
        и при отсутствии живых ресурсов не делают ничего. */
     try { if (LC.perf) LC.perf.stop(); } catch (ePerfOff) {}
+    /* Task 21: выключенный плагин не имеет права держать ни одного
+       кадрового цикла. unmountAll снимает все слои частиц разом — и с
+       карточки, и с кадра главной, — после чего следующий кадр не
+       заказывается вовсе. */
+    try { if (LC.fx) LC.fx.unmountAll(); } catch (eFxOff) {}
     try { if (LC.transition) LC.transition.stop(); } catch (eTransOff) {}
     /* Порядок обратный activate(): сперва шаблон (следующее открытие карточки
        уже штатное), затем стили и классы, последней — живая карточка. */
@@ -1480,6 +1509,84 @@
       else LC.badges.uninstall();
     } catch (e) {
       warn('badges pref failed', e);
+    }
+  };
+
+  /* -------------------------------------------------------------------- */
+  /* Task 21 (фаза 3): тематическая атмосфера карточки.                    */
+  /*                                                                       */
+  /* Тема выбирается по ключевым словам фильма (LC.themes), класс темы      */
+  /* ставится на слой фона (.lumen-backdrop — сосед карточки, там же лежит  */
+  /* и узел .lumen-fx), частицы монтируются в этот узел.                    */
+  /*                                                                       */
+  /* Слой фона взят так же, как везде в плагине: body.children(…). Проверка */
+  /* typeof … === 'function' обязательна — у DOM-узла children это          */
+  /* HTMLCollection, и вызов её как функции бросал бы TypeError.           */
+  /* -------------------------------------------------------------------- */
+
+  function fxLayerOf(body) {
+    if (!body || typeof body.children !== 'function') return null;
+    var layer = body.children('.lumen-backdrop');
+    if (!layer || !layer.length) return null;
+    return layer;
+  }
+
+  /* Ставит (или снимает) атмосферу на слое фона карточки. Идемпотентна:
+     повторный complite и возврат из истории не удваивают ни канвас, ни
+     класс темы. movie — e.data.movie. */
+  LC.applyFxFor = function (body, movie) {
+    var layer = fxLayerOf(body);
+    if (!layer) return null;
+    var node = layer.find('.lumen-fx');
+    /* Прежняя атмосфера уходит всегда — даже если новой не будет: иначе
+       снег с «Один дома» остался бы на следующей карточке. */
+    try { if (LC.fx) LC.fx.unmount(node); } catch (eOff) { warn('fx unmount failed', eOff); }
+    /* LC.themes/LC.fx нет только в тестах, где 90_runtime.js грузится без
+       соседей: в бандле оба модуля идут раньше. */
+    if (!LC.themes || !LC.fx) return null;
+    try { layer.removeClass(LC.themes.classNames()); } catch (eCls) { warn('fx class failed', eCls); }
+
+    var theme = null;
+    try { theme = LC.themes.forMovie(movie || null); } catch (eTheme) { warn('fx theme failed', eTheme); }
+    if (!theme) {
+      try { if (LC.accent) LC.accent.setTheme(null); } catch (eAcc) {}
+      return null;
+    }
+    layer.addClass('lumen-theme--' + theme.id);
+    /* Акцент темы — запасной для акцента от постера (приоритет плана:
+       постер -> тема -> настройка разрешает src/57_color.js сам). */
+    try { if (LC.accent) LC.accent.setTheme(theme.accent); } catch (eAcc2) {}
+    try {
+      return LC.fx.mount(node, theme.preset, {
+        color: LC.themes.particleColor(theme),
+        /* Под играющим роликом частицы встают на паузу: поверх видео они и
+           не видны, и стоят дороже всего (композитор и так занят кадрами). */
+        paused: function () {
+          try { return LC.trailer.isLive(layer); } catch (ePause) { return false; }
+        }
+      });
+    } catch (eMount) {
+      warn('fx mount failed', eMount);
+      return null;
+    }
+  };
+
+  /* Настройка «Атмосферы» переключена на лету. Настройки Lampa лежат
+     активностью ПОВЕРХ карточки и при возврате не шлют ни 'full', ни
+     complite, поэтому слой пересобирается здесь: выключили — он уходит
+     сразу, включили — тема считается по данным открытой карточки. */
+  LC.applyFxPref = function () {
+    if (!activated) return;
+    try {
+      if (!LC.active) {
+        /* Карточки нет — но частицы могли остаться в кадре главной
+           (src/48_hero.js). Их пересобирает сам герой. */
+        if (LC.hero && typeof LC.hero.applyFx === 'function') LC.hero.applyFx();
+        return;
+      }
+      LC.applyFxFor(LC.active.body, (LC.active.data && LC.active.data.movie) || null);
+    } catch (e) {
+      warn('fx pref failed', e);
     }
   };
 

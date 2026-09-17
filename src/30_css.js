@@ -557,6 +557,43 @@
     css.push('.lumen-backdrop .lumen-bg__trailer{position:absolute;top:-10%;bottom:-10%;left:0;right:0;overflow:hidden;opacity:0;-webkit-transition:opacity 1s ease;transition:opacity 1s ease}');
     css.push('.lumen-backdrop .lumen-bg__trailer.is-live{opacity:1}');
     css.push('.lumen-backdrop .lumen-bg__trailer iframe{width:100%;height:100%;border:0;pointer-events:none}');
+    /* Task 21 (фаза 3): слой тематической атмосферы. В разметке он ПОСЛЕ
+       вуалей (50_backdrops.js), поэтому частицы видны поверх затемнения —
+       под вуалями снег превращался бы в серую взвесь. Клики и фокус слой не
+       перехватывает (pointer-events:none) — под ним живой экран Lampa.
+       Канвас держится на .82 прозрачности: атмосфера не должна спорить с
+       текстом карточки, который лежит выше по DOM. */
+    css.push('.lumen-backdrop .lumen-fx,.lumen-hero .lumen-fx{position:absolute;top:0;bottom:0;left:0;right:0;overflow:hidden;pointer-events:none}');
+    css.push('.lumen-backdrop .lumen-fx__canvas,.lumen-hero .lumen-fx__canvas{position:absolute;top:0;left:0;width:100%;height:100%;opacity:.82}');
+    /* Оверлеи тем — чистый CSS поверх частиц, без SVG-фильтров: на ТВ
+       фильтр стоит отдельного прохода композитора, а градиент растеризуется
+       один раз (поправки контроллера к Task 21). Класс темы ставится только
+       при полных анимациях, поэтому отдельного гейта по motion тут нет.
+
+       Гирлянда «рождества» — десять огоньков по дуге вдоль верхней кромки
+       (экран 27). Позиции по горизонтали 5…95 %, по вертикали — точки
+       квадратичной кривой (0,10)-(500,90)-(1000,10) из макета, пересчитанные
+       в em: y = (10 + 160·t·(1−t)) / 30. Так дуга провисает к середине
+       ровно как на макете, а сама гирлянда остаётся одним фоном. */
+    var LIGHT = 'rgba(255,214,150,.42) 0%,rgba(255,182,72,.14) 45%,rgba(255,182,72,0) 72%';
+    var garland = [
+      'radial-gradient(circle 1.1em at 5% .59em,' + LIGHT + ')',
+      'radial-gradient(circle 1.1em at 15% 1.01em,' + LIGHT + ')',
+      'radial-gradient(circle 1.1em at 25% 1.33em,' + LIGHT + ')',
+      'radial-gradient(circle 1.1em at 35% 1.55em,' + LIGHT + ')',
+      'radial-gradient(circle 1.1em at 45% 1.65em,' + LIGHT + ')',
+      'radial-gradient(circle 1.1em at 55% 1.65em,' + LIGHT + ')',
+      'radial-gradient(circle 1.1em at 65% 1.55em,' + LIGHT + ')',
+      'radial-gradient(circle 1.1em at 75% 1.33em,' + LIGHT + ')',
+      'radial-gradient(circle 1.1em at 85% 1.01em,' + LIGHT + ')',
+      'radial-gradient(circle 1.1em at 95% .59em,' + LIGHT + ')'
+    ].join(',');
+    css.push('.lumen-backdrop.lumen-theme--christmas .lumen-fx,.lumen-hero.lumen-theme--christmas .lumen-fx{background-image:' + garland + ';background-repeat:no-repeat;background-position:top center;background-size:100% 4em}');
+    /* «Хэллоуин» — тыквенный свет снизу (экран 27): тёплое зарево от нижней
+       кромки, гаснущее к трети высоты. */
+    css.push('.lumen-backdrop.lumen-theme--halloween .lumen-fx,.lumen-hero.lumen-theme--halloween .lumen-fx{background-image:linear-gradient(0deg,rgba(224,123,44,.20) 0%,rgba(224,123,44,.07) 14%,rgba(224,123,44,0) 34%)}');
+    /* Остальные темы обходятся частицами: у «космоса» и «нуара» градиент
+       поверх кадра спорил бы с вуалями, и в макете его нет. */
     /* Пока играет ролик, вуали приглушаются (экран 02 держит их заметно
        светлее обычных: .34/.55/.28 против .96/.98/.70) — текст остаётся
        читаемым, но кадр видно. */
@@ -1413,6 +1450,11 @@
     css.push('.lumen-hub .lumen-tile__sub{font-family:' + FM + ';font-size:.88em;line-height:1;color:' + P.muted + ';margin-top:.35em;overflow:hidden}');
     css.push('.lumen-hub .lumen-tile__nokey{display:none;position:absolute;top:.7em;right:.7em;font-family:' + FM + ';font-size:.7em;letter-spacing:.04em;color:' + P.text + ';background:rgba(' + P.bgRgb + ',.8);border:.05em solid rgba(' + P.textRgb + ',.3);border-radius:.2em;padding:.25em .45em}');
     css.push('.lumen-hub .lumen-tile--nokey .lumen-tile__nokey{display:block}');
+    /* Task 21 (фаза 3): метка сезонной подборки. Место — левый верхний угол
+       плитки: правый занят подсказкой про ключ API, и на подборках
+       Кинопоиска они могут встретиться на одной плитке. Цвет — акцент: это
+       единственная плитка в списке, на которую сейчас стоит смотреть. */
+    css.push('.lumen-hub .lumen-tile__season{position:absolute;top:.7em;left:.7em;font-family:' + FM + ';font-size:.7em;letter-spacing:.04em;color:' + t.onac + ';background:' + A + ';border-radius:.2em;padding:.25em .45em}');
     css.push('.lumen-hub__tiles .lumen-tile.focus{border-color:' + AL + ';border-width:.13em;-webkit-transform:scale(1.06);transform:scale(1.06);-webkit-box-shadow:0 .7em 1.97em ' + AG + ';box-shadow:0 .7em 1.97em ' + AG + '}');
     css.push('.lumen-hub.lumen-motion-lite .lumen-tile.focus,.lumen-hub.lumen-motion-off .lumen-tile.focus{-webkit-transform:none;transform:none}');
     css.push('.lumen-hub.lumen-motion-off .lumen-tile{-webkit-transition:none;transition:none}');

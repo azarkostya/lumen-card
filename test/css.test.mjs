@@ -2184,3 +2184,38 @@ test('Task 28: ряд «Смотреть по порядку» — целая с
   const here = findDecl(css, (s) => s === '.lumen-descr-row .lumen-fr-card__flag--current');
   assert.ok(here.indexOf('background:') !== -1, 'пометка «Вы здесь» — акцентная плашка: ' + here);
 });
+
+/* Task 21 (фаза 3): слой тематической атмосферы и оверлеи тем. */
+test('buildCss: .lumen-fx — слой частиц в карточке и в кадре главной, кликов не перехватывает, без inset', () => {
+  const rule = css.split('\n').filter((l) => l.indexOf('.lumen-backdrop .lumen-fx,') === 0)[0];
+  assert.ok(rule, 'нет базового правила слоя частиц');
+  const decl = rule.split('{')[1];
+  assert.ok(decl.indexOf('pointer-events:none') !== -1, 'слой не должен ловить фокус и клики');
+  assert.ok(decl.indexOf('position:absolute') !== -1);
+  assert.ok(decl.indexOf('overflow:hidden') !== -1, 'частицы не вылезают за кадр');
+  assert.equal(/inset\s*:/.test(decl), false, 'inset запрещён планом');
+  assert.ok(rule.indexOf('.lumen-hero .lumen-fx') !== -1, 'тот же слой в кадре главной');
+});
+
+test('buildCss: канвас частиц растянут по слою и приглушён — текст карточки важнее', () => {
+  const rule = css.split('\n').filter((l) => l.indexOf('.lumen-backdrop .lumen-fx__canvas') === 0)[0];
+  assert.ok(rule, 'нет правила канваса');
+  const decl = rule.split('{')[1];
+  assert.ok(/opacity:\.\d+/.test(decl), 'канвас полупрозрачен');
+  assert.ok(decl.indexOf('width:100%') !== -1 && decl.indexOf('height:100%') !== -1);
+});
+
+test('buildCss: гирлянда «рождества» — десять огоньков по дуге, без SVG-фильтров', () => {
+  const rule = css.split('\n').filter((l) => l.indexOf('.lumen-backdrop.lumen-theme--christmas') === 0)[0];
+  assert.ok(rule, 'нет оверлея рождества');
+  assert.equal((rule.match(/radial-gradient/g) || []).length, 10, 'десять огоньков');
+  assert.equal(rule.indexOf('filter'), -1, 'SVG-фильтры на ТВ запрещены поправками контроллера');
+  assert.ok(rule.indexOf('background-repeat:no-repeat') !== -1);
+});
+
+test('buildCss: «Хэллоуин» — тыквенное зарево снизу', () => {
+  const rule = css.split('\n').filter((l) => l.indexOf('.lumen-backdrop.lumen-theme--halloween') === 0)[0];
+  assert.ok(rule, 'нет оверлея Хэллоуина');
+  assert.ok(rule.indexOf('linear-gradient(0deg') !== -1, 'градиент снизу вверх');
+  assert.ok(rule.indexOf('224,123,44') !== -1, 'акцент темы из экспорта дизайна (#E07B2C)');
+});

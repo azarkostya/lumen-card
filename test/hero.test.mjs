@@ -213,7 +213,9 @@ test('sizeFor/logoSizeFor: ≤1366 — w1280/w500, выше — original/w780', 
 test('detailsRequest: url media/id, images с языком интерфейса, кэш сутки', () => {
   const r = H.detailsRequest('movie', 550, 'ru');
   assert.equal(r.url, 'movie/550');
-  assert.deepEqual(r.params, { filter: { append_to_response: 'images', include_image_language: 'ru,en,null' } });
+  /* Task 21 (фаза 3): к логотипам добавлены ключевые слова — по ним герой
+     выбирает тематическую атмосферу кадра, отдельного запроса на это нет. */
+  assert.deepEqual(r.params, { filter: { append_to_response: 'images,keywords', include_image_language: 'ru,en,null' } });
   assert.equal(r.life, 1440);
   assert.deepEqual(H.detailsRequest('tv', 1, 'en').params.filter.include_image_language, 'en,null');
 });

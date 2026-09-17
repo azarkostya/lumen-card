@@ -1051,6 +1051,28 @@
       }
     },
     {
+      "id": "christmas",
+      "title": "Рождественское кино",
+      "group": "theme",
+      "icon": "star",
+      "season": [
+        12,
+        1
+      ],
+      "sources": {
+        "movie": {
+          "type": "discover",
+          "params": {
+            "keywords": 207317,
+            "sort_by": "popularity.desc",
+            "filter": {
+              "vote_count.gte": 50
+            }
+          }
+        }
+      }
+    },
+    {
       "id": "halloween",
       "title": "Хэллоуин",
       "group": "theme",
@@ -2511,6 +2533,122 @@
           "collection": "OSKAR_WINNERS_2021"
         }
       }
+    }
+  ],
+  "themes": [
+    {
+      "id": "halloween",
+      "preset": "bats",
+      "accent": "#E07B2C",
+      "keywords": [
+        "halloween",
+        "haunted house",
+        "slasher",
+        "witch",
+        "trick or treat"
+      ],
+      "genres": [
+        27
+      ],
+      "months": [
+        10
+      ],
+      "requireGenre": true
+    },
+    {
+      "id": "christmas",
+      "preset": "snow",
+      "accent": "#E8C170",
+      "keywords": [
+        "christmas",
+        "santa claus",
+        "new year",
+        "christmas eve"
+      ],
+      "months": [
+        12,
+        1
+      ]
+    },
+    {
+      "id": "space",
+      "preset": "stars",
+      "accent": "#8FB8D9",
+      "keywords": [
+        "space",
+        "alien",
+        "spaceship",
+        "astronaut",
+        "outer space"
+      ]
+    },
+    {
+      "id": "noir",
+      "preset": "rain",
+      "accent": "#9AA7B5",
+      "keywords": [
+        "film noir",
+        "detective",
+        "private detective",
+        "neo-noir"
+      ]
+    },
+    {
+      "id": "desert",
+      "preset": "sand",
+      "accent": "#E8B87A",
+      "keywords": [
+        "desert",
+        "sand",
+        "dune"
+      ]
+    },
+    {
+      "id": "ocean",
+      "preset": "bubbles",
+      "accent": "#7FB7C9",
+      "keywords": [
+        "ocean",
+        "underwater",
+        "shark",
+        "submarine",
+        "sea"
+      ]
+    },
+    {
+      "id": "sakura",
+      "preset": "petals",
+      "accent": "#E6A3B8",
+      "keywords": [
+        "cherry blossom",
+        "anime",
+        "romance"
+      ],
+      "genres": [
+        16
+      ],
+      "requireGenre": true
+    },
+    {
+      "id": "war",
+      "preset": "embers",
+      "accent": "#C97B4A",
+      "keywords": [
+        "war",
+        "world war ii",
+        "explosion",
+        "battle"
+      ]
+    },
+    {
+      "id": "zombie",
+      "preset": "glitch",
+      "accent": "#9FCF8A",
+      "keywords": [
+        "zombie",
+        "undead",
+        "zombie apocalypse"
+      ]
     }
   ]
 }

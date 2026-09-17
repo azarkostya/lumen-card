@@ -318,7 +318,11 @@
     function detailsRequest(media, id, lang) {
       return {
         url: media + '/' + id,
-        params: { filter: { append_to_response: 'images', include_image_language: imageLanguages(lang) } },
+        /* Task 21 (фаза 3): к логотипам добавлены ключевые слова — по ним
+           выбирается тематическая атмосфера кадра (LC.themes.matchTheme).
+           Отдельного запроса они не стоят: append_to_response довешивает их
+           к тому же ответу, который герой и так забирает раз на карточку. */
+        params: { filter: { append_to_response: 'images,keywords', include_image_language: imageLanguages(lang) } },
         life: DETAILS_LIFE
       };
     }
@@ -424,6 +428,11 @@
         '<div class="lumen-hero__trailer"></div>' +
         '<div class="lumen-hero__veil lumen-hero__veil--l"></div>' +
         '<div class="lumen-hero__veil lumen-hero__veil--b"></div>' +
+        /* Task 21: слой тематической атмосферы — ПОСЛЕ вуалей, как в слое
+           фона карточки: частицы должны быть видны поверх затемнения.
+           Текст героя лежит в соседнем .lumen-hero__text, который идёт
+           ниже по DOM, поэтому частицы его не закрывают. */
+        '<div class="lumen-fx"></div>' +
         '</div>');
       var text = $('<div class="lumen-hero__text">' +
         '<div class="lumen-hero__meta"></div>' +
@@ -535,6 +544,64 @@
 
     function trailerReady() {
       return trailerAllowed(trailerPref(), motionMode(), trailerMode());
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* Task 21 (фаза 3): тематическая атмосфера кадра главной.             */
+    /*                                                                     */
+    /* Тема берётся по ключевым словам ДЕТАЛЕЙ фильма (они приезжают тем   */
+    /* же запросом, что логотипы), поэтому частицы появляются не раньше,   */
+    /* чем фокус постоял на карточке и детали пришли: при быстром листании */
+    /* ряда не монтируется ни одного канваса.                              */
+    /*                                                                     */
+    /* Акцент интерфейса тема здесь НЕ трогает (в отличие от карточки):    */
+    /* на главной фокус переходит с фильма на фильм каждые несколько       */
+    /* секунд, и перекрашивать весь экран под каждый — мельтешение. Цвет   */
+    /* кадра главной остаётся за акцентом от постера (Task 24).            */
+    /* ------------------------------------------------------------------ */
+
+    function fxHost() {
+      if (!state || !state.node) return null;
+      var node = state.node.find('.lumen-fx');
+      return node && node.length ? node : null;
+    }
+
+    /* Снимает частицы и класс темы. Идемпотентна: на снятом герое и на
+       слое без канваса не делает ничего. */
+    function clearFx() {
+      var host = fxHost();
+      if (host) {
+        try { if (LC.fx) LC.fx.unmount(host); } catch (e) { warn('hero: fx unmount failed', e); }
+      }
+      /* LC.themes может не быть только в тестах, где 48_hero.js грузится в
+         одиночку: в бандле 53 идёт раньше 48 и модуль есть всегда. */
+      if (state && state.node && LC.themes) {
+        try { state.node.removeClass(LC.themes.classNames()); } catch (e2) { warn('hero: fx class failed', e2); }
+      }
+    }
+
+    /* Ставит атмосферу по деталям фильма под фокусом. Зовётся после
+       загрузки деталей и при смене настройки «Атмосферы» на лету. */
+    function applyFx() {
+      if (!state) return;
+      clearFx();
+      if (!state.details || !LC.themes || !LC.fx) return;
+      var theme = null;
+      try { theme = LC.themes.forMovie(state.details); } catch (e) { warn('hero: fx theme failed', e); }
+      if (!theme) return;
+      try { state.node.addClass('lumen-theme--' + theme.id); } catch (e2) { }
+      var host = fxHost();
+      if (!host) return;
+      try {
+        LC.fx.mount(host, theme.preset, {
+          color: LC.themes.particleColor(theme),
+          /* Под играющим автотрейлером частицы стоят: ролик занимает весь
+             кадр героя, и рисовать поверх него — двойная работа впустую. */
+          paused: function () { return !!(state && state.trailer); }
+        });
+      } catch (e3) {
+        warn('hero: fx mount failed', e3);
+      }
     }
 
     /* Снимает всё, что связано с роликом: отложенный старт, незавершённый
@@ -826,6 +893,10 @@
                скелетон гасим (иначе он горел бы до следующей карточки). */
             if (!state.details) model.pending = false;
             render(model, false);
+            /* Task 21: атмосфера считается по ключевым словам из этого же
+               ответа. В lite/off и при настройке «Выключены» вызов не
+               создаёт ни канваса, ни кадрового цикла (src/52_fx.js). */
+            applyFx();
             /* Кадра не было в данных ряда, но он есть в деталях — только
                тогда грузим второй раз: лишний большой кадр на ТВ дорог. */
             if (!state.frameUrl && model.backdrop) loadFrame(model, captured);
@@ -858,6 +929,10 @@
         state.shownId = card.id;
         state.details = null;
         state.model = null;
+        /* Task 21: атмосфера прошлой карточки уходит сразу — иначе снег с
+           рождественского фильма висел бы над кадром следующего, пока не
+           придут его детали. */
+        clearFx();
         var model = heroModel(card, null, words());
         render(model, true);
         loadFrame(model, captured);
@@ -1222,6 +1297,14 @@
         s.bigLoader.onerror = null;
       }
       try { if (s.net && s.net.clear) s.net.clear(); } catch (eN) {}
+      /* Task 21: слой частиц снимается ДО удаления узла героя — свой
+         кадровый цикл движок держит, пока смонтирован хоть один слой
+         (src/52_fx.js). Самопроверка по выпавшему канвасу сняла бы его и
+         так, но лишний кадр после ухода с главной нам не нужен. */
+      try {
+        var fxGone = s.node.find('.lumen-fx');
+        if (LC.fx && fxGone && fxGone.length) LC.fx.unmount(fxGone);
+      } catch (eFx) { warn('hero: fx unmount failed', eFx); }
       try { s.node.remove(); } catch (eR) {}
       /* Класс подъёма рядов снимается вместе с хостовым: без героя область
          прокрутки обязана вернуться к штатной раскладке Lampa. */
@@ -1281,6 +1364,10 @@
       /* Настройка lumen_hero_trailer переключена на лету (src/80_settings.js,
          applyPrefChange): выключение снимает играющий ролик. */
       applyTrailer: applyTrailer,
+      /* Task 21: настройка «Атмосферы» переключена на лету (src/80_settings.js,
+         applyPrefChange -> LC.applyFxPref). Выключение снимает слой частиц с
+         кадра главной, включение считает тему по уже загруженным деталям. */
+      applyFx: applyFx,
       mount: mount,
       mountCurrent: mountCurrent,
       detach: detach,
