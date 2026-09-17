@@ -359,3 +359,144 @@ test('runtime: нет Lampa.Api → register не падает', function () {
   var s = setupRuntime({ noApi: true });
   assert.doesNotThrow(function () { s.api.register(); });
 });
+
+// --- цена первого экрана: лимит сериалов и дедлайн ряда ---
+
+/* Ручной планировщик на время вызова fn: ряды ставят таймер дедлайна через
+   setTimeout, а тест сам решает, когда он сработает. */
+function withFakeTimers(fn) {
+  const realSet = globalThis.setTimeout;
+  const realClear = globalThis.clearTimeout;
+  const timers = [];
+  globalThis.setTimeout = (cb, ms) => { timers.push({ cb, ms, cleared: false }); return timers.length; };
+  globalThis.clearTimeout = (id) => { if (timers[id - 1]) timers[id - 1].cleared = true; };
+  try {
+    return fn({ timers, fire: (i) => { const t = timers[i || 0]; if (t && !t.cleared) t.cb(); } });
+  } finally {
+    globalThis.setTimeout = realSet;
+    globalThis.clearTimeout = realClear;
+  }
+}
+
+function rowByName(s, name) {
+  for (var i = 0; i < s.addCalls.length; i++) {
+    if (s.addCalls[i].name === name) return s.addCalls[i];
+  }
+  return null;
+}
+
+/* Цена первого экрана: «Новые серии» стоят по одному запросу tv/{id} на
+   сериал и попадают в ПЕРВУЮ пачку главной, которую Lampa отдаёт целиком. */
+test('цена первого экрана: «Новые серии» берут не больше 6 сериалов', function () {
+  var shows = [];
+  for (var i = 0; i < 20; i++) shows.push({ id: 100 + i, name: 'Show ' + i, title: 'Show ' + i });
+  var s = setupRuntime({
+    getFav: function (opts) { return opts.type === 'book' ? shows : []; }
+  });
+  s.api.register();
+  var row = rowByName(s, 'lumen_new_episodes');
+  assert.ok(row, 'ряд «Новые серии» зарегистрирован');
+  row.call({}, {})(function () {});
+  var tvCalls = s.tmdbCalls.filter(function (c) { return /^tv\//.test(c.url); });
+  assert.equal(tvCalls.length, 6, 'не больше 6 запросов деталей сериалов');
+});
+
+test('дедлайн: «Новые серии» отдают то, что успело прийти', function () {
+  var shows = [];
+  for (var i = 0; i < 6; i++) shows.push({ id: 200 + i, name: 'Show ' + i, title: 'Show ' + i });
+  var s = setupRuntime({ getFav: function (opts) { return opts.type === 'book' ? shows : []; } });
+  s.api.register();
+  var row = rowByName(s, 'lumen_new_episodes');
+  var got = [];
+  withFakeTimers(function (ctl) {
+    row.call({}, {})(function (data) { got.push(data); });
+    assert.equal(s.tmdbCalls.length, 6);
+    assert.equal(ctl.timers[0].ms, 8000, 'дедлайн — страховка от неотвечающего запроса, а не обрезка медленных');
+    /* Ответил один сериал из шести — у него свежая серия. */
+    s.tmdbCalls[0].ok({ id: 200, name: 'Show 0', last_episode_to_air: { air_date: isoDaysAgo(2) } });
+    assert.equal(got.length, 0, 'пока дедлайн не истёк — ждём остальные');
+    ctl.fire(0);
+    assert.equal(got.length, 1, 'по дедлайну ряд отвечает, не дожидаясь остальных');
+    assert.equal(got[0].results.length, 1, 'в ряду то, что успело прийти');
+    /* Опоздавшие ответы второго call не дают — контракт «ровно один call». */
+    for (var i = 1; i < s.tmdbCalls.length; i++) {
+      s.tmdbCalls[i].ok({ id: 300 + i, name: 'Late', last_episode_to_air: { air_date: isoDaysAgo(1) } });
+    }
+    assert.equal(got.length, 1, 'call строго один раз');
+  });
+});
+
+/* Дата «n дней назад» в формате TMDB — для newEpisodes(), которая считает
+   свежей серию не старше RECENT_DAYS. */
+function isoDaysAgo(n) {
+  var d = new Date(Date.now() - n * 86400000);
+  return d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0') + '-' + String(d.getUTCDate()).padStart(2, '0');
+}
+
+test('дедлайн: «Потому что вы смотрели» отдаёт частичный результат', function () {
+  var s = setupRuntime({
+    getFav: function (opts) { return opts.type === 'history' ? [{ id: 1, title: 'A' }, { id: 2, title: 'B' }] : []; }
+  });
+  s.api.register();
+  var row = rowByName(s, 'lumen_because');
+  var got = [];
+  withFakeTimers(function (ctl) {
+    row.call({}, {})(function (data) { got.push(data); });
+    assert.equal(s.tmdbCalls.length, 2, 'два запроса рекомендаций');
+    s.tmdbCalls[0].ok({ results: [{ id: 11 }, { id: 12 }] });
+    assert.equal(got.length, 0);
+    ctl.fire(0);
+    assert.equal(got.length, 1, 'по дедлайну ряд отвечает');
+    assert.equal(got[0].results.length, 2, 'отданы рекомендации первого ответа');
+    s.tmdbCalls[1].ok({ results: [{ id: 13 }] });
+    assert.equal(got.length, 1, 'call строго один раз');
+  });
+});
+
+test('дедлайн: «Скоро на экранах» отдаёт частичный результат', function () {
+  var s = setupRuntime();
+  s.api.register();
+  var row = rowByName(s, 'lumen_soon');
+  var got = [];
+  withFakeTimers(function (ctl) {
+    row.call({}, {})(function (data) { got.push(data); });
+    assert.equal(s.tmdbCalls.length, 2, 'discover/movie + discover/tv');
+    s.tmdbCalls[0].ok({ results: [{ id: 5, release_date: '2026-10-01' }] });
+    ctl.fire(0);
+    assert.equal(got.length, 1);
+    assert.equal(got[0].results.length, 1);
+    s.tmdbCalls[1].ok({ results: [{ id: 6, first_air_date: '2026-10-02' }] });
+    assert.equal(got.length, 1, 'call строго один раз');
+  });
+});
+
+test('полный ответ до дедлайна: таймер снят, ряд отвечает один раз', function () {
+  var s = setupRuntime();
+  s.api.register();
+  var row = rowByName(s, 'lumen_soon');
+  var got = [];
+  withFakeTimers(function (ctl) {
+    row.call({}, {})(function (data) { got.push(data); });
+    s.tmdbCalls[0].ok({ results: [{ id: 5, release_date: '2026-10-01' }] });
+    s.tmdbCalls[1].ok({ results: [{ id: 6, first_air_date: '2026-10-02' }] });
+    assert.equal(got.length, 1, 'ответили оба — ряд закрыт сразу');
+    assert.equal(got[0].results.length, 2);
+    assert.equal(ctl.timers[0].cleared, true, 'таймер дедлайна снят');
+    ctl.fire(0);
+    assert.equal(got.length, 1);
+  });
+});
+
+test('отмена ряда снимает таймер дедлайна', function () {
+  var s = setupRuntime();
+  s.api.register();
+  var row = rowByName(s, 'lumen_soon');
+  var got = [];
+  withFakeTimers(function (ctl) {
+    var handle = row.call({}, {})(function (data) { got.push(data); });
+    handle.cancel();
+    assert.equal(ctl.timers[0].cleared, true, 'таймер снят при отмене ряда');
+    ctl.fire(0);
+    assert.equal(got.length, 0, 'отменённый ряд по дедлайну не отвечает');
+  });
+});

@@ -601,3 +601,92 @@ test('fetchAll: clear() второго подписчика не гасит за
   hB.clear();
   hA.clear();
 });
+
+/* Дедлайн подборки: movie ответил, tv молчит — по истечении FETCH_TIMEOUT
+   подписчик получает частичный результат (partial:true), а опоздавший ответ
+   второго ok не даёт. Таймеры — ручные: тест сам решает, когда дедлайн. */
+test('fetchAll: дедлайн отдаёт частичный результат, помеченный partial', function () {
+  var calls = [];
+  global.Lampa = makeFakeLampa({
+    Api: { sources: { tmdb: { get: function (url, params, ok, err) {
+      var h = { url: url, ok: ok, err: err, cleared: false };
+      h.clear = function () { h.cleared = true; };
+      calls.push(h);
+      return h;
+    } } } }
+  });
+  global.window = { localStorage: null };
+
+  var realSet = globalThis.setTimeout;
+  var realClear = globalThis.clearTimeout;
+  var timers = [];
+  globalThis.setTimeout = function (cb, ms) { timers.push({ cb: cb, ms: ms, cleared: false }); return timers.length; };
+  globalThis.clearTimeout = function (id) { if (timers[id - 1]) timers[id - 1].cleared = true; };
+
+  try {
+    var S = loadCtx('43_sources.js', { pref: function () { return ''; } }).api;
+    var item = {
+      id: 'both', title: 'Both',
+      sources: { movie: { type: 'discover', params: {} }, tv: { type: 'discover', params: {} } }
+    };
+    var got = [];
+    S['fetch'](item, 1, function (r) { got.push(r); }, function () { got.push('err'); }, null);
+    assert.equal(calls.length, 2, 'два источника — два запроса');
+    assert.equal(timers.length, 1, 'поставлен один дедлайн на всю подборку');
+    assert.equal(timers[0].ms, 15000, 'дедлайн — FETCH_TIMEOUT');
+
+    calls[0].ok({ results: [{ id: 1 }], page: 1, total_pages: 1, total_results: 1 });
+    assert.equal(got.length, 0, 'ответил один источник из двух — ещё ждём');
+
+    timers[0].cb();
+    assert.equal(got.length, 1, 'по дедлайну подписчик получил результат');
+    assert.equal(got[0].partial, true, 'результат помечен как частичный');
+    assert.equal(got[0].results.length, 1, 'в нём то, что успело прийти');
+
+    calls[1].ok({ results: [{ id: 2 }], page: 1, total_pages: 1, total_results: 1 });
+    assert.equal(got.length, 1, 'опоздавший ответ второго ok не даёт');
+  } finally {
+    globalThis.setTimeout = realSet;
+    globalThis.clearTimeout = realClear;
+  }
+});
+
+test('fetchAll: оба источника ответили до дедлайна — таймер снят, partial нет', function () {
+  var calls = [];
+  global.Lampa = makeFakeLampa({
+    Api: { sources: { tmdb: { get: function (url, params, ok, err) {
+      var h = { url: url, ok: ok, err: err, cleared: false };
+      h.clear = function () { h.cleared = true; };
+      calls.push(h);
+      return h;
+    } } } }
+  });
+  global.window = { localStorage: null };
+
+  var realSet = globalThis.setTimeout;
+  var realClear = globalThis.clearTimeout;
+  var timers = [];
+  globalThis.setTimeout = function (cb, ms) { timers.push({ cb: cb, ms: ms, cleared: false }); return timers.length; };
+  globalThis.clearTimeout = function (id) { if (timers[id - 1]) timers[id - 1].cleared = true; };
+
+  try {
+    var S = loadCtx('43_sources.js', { pref: function () { return ''; } }).api;
+    var item = {
+      id: 'both2', title: 'Both2',
+      sources: { movie: { type: 'discover', params: {} }, tv: { type: 'discover', params: {} } }
+    };
+    var got = [];
+    S['fetch'](item, 1, function (r) { got.push(r); }, function () { got.push('err'); }, null);
+    calls[0].ok({ results: [{ id: 1 }], page: 1, total_pages: 1, total_results: 1 });
+    calls[1].ok({ results: [{ id: 2 }], page: 1, total_pages: 1, total_results: 1 });
+    assert.equal(got.length, 1);
+    assert.equal(got[0].partial, undefined, 'полный результат не помечается partial');
+    assert.equal(got[0].results.length, 2);
+    assert.equal(timers[0].cleared, true, 'дедлайн снят');
+    timers[0].cb();
+    assert.equal(got.length, 1, 'снятый дедлайн второго ok не даёт');
+  } finally {
+    globalThis.setTimeout = realSet;
+    globalThis.clearTimeout = realClear;
+  }
+});

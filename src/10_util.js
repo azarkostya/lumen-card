@@ -111,6 +111,59 @@
       return null;
     }
 
+    /* Сборщик N параллельных ответов с дедлайном: finish вызывается РОВНО
+       один раз — либо когда tick() пришёл total раз (partial = false), либо
+       когда истёк timeout и пришло не всё (partial = true). Поздние tick()
+       после закрытия молчат, полный результат снимает таймер, cancel()
+       запрещает finish навсегда (и снимает таймер).
+
+       total <= 0 — finish(false) вызывается синхронно, таймер не ставится;
+       timeout <= 0 — дедлайна нет, только счётчик ответов.
+
+       cancel() возвращает true, если закрыл ещё открытый сборщик, и false,
+       если finish уже прошёл (или сборщик был отменён раньше). Это позволяет
+       вызывающему решить, отвечать ли самому: LC.sources так отдаёт свою
+       фатальную ошибку {nokey} только пока подборка никому не ответила.
+
+       Единственная в проекте механика «отдать то, что успело»: ею живут
+       дедлайн подборки в LC.sources (FETCH_TIMEOUT) и персональные ряды
+       главной в LC.personal (ROW_TIMEOUT). В обоих случаях дедлайн — это
+       страховка от запроса, который не ответит ни ok, ни err: ждущий обязан
+       получить ответ, иначе пачка рядов Lampa не завершится и главная
+       перестанет достраиваться. setTimeout читается по вызову — тесты
+       подменяют его своим планировщиком. */
+    function gate(total, timeout, finish) {
+      var left = total;
+      var closed = false;
+      var timer = null;
+
+      function close(partial) {
+        if (closed) return;
+        closed = true;
+        if (timer !== null) { clearTimeout(timer); timer = null; }
+        finish(partial);
+      }
+
+      if (total > 0 && timeout > 0) {
+        timer = setTimeout(function () { close(true); }, timeout);
+      }
+      if (total <= 0) close(false);
+
+      return {
+        tick: function () {
+          if (closed) return;
+          left--;
+          if (left <= 0) close(false);
+        },
+        cancel: function () {
+          if (closed) return false;
+          closed = true;
+          if (timer !== null) { clearTimeout(timer); timer = null; }
+          return true;
+        }
+      };
+    }
+
     return {
       esc: esc,
       pad2: pad2,
@@ -122,7 +175,8 @@
       each: each,
       map: map,
       filter: filter,
-      find: find
+      find: find,
+      gate: gate
     };
   })();
 

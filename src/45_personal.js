@@ -28,7 +28,12 @@
   /* что в LC.rows. doUnregister() вызывается из register() и unregister(). */
   /*                                                                       */
   /* Цена запросов: «Потому что вы смотрели» — не более BECAUSE_LIMIT (2)  */
-  /* исходных карточек; «Новые серии» — не более SHOWS_LIMIT (12) сериалов. */
+  /* исходных карточек; «Новые серии» — не более SHOWS_LIMIT (6) сериалов. */
+  /* Все сетевые ряды закрываются общим сборщиком LC.util.gate с дедлайном  */
+  /* ROW_TIMEOUT: не дождавшись всех ответов, ряд отдаёт то, что успело     */
+  /* прийти — страховка от запроса, который не ответит никогда. Цена        */
+  /* первого экрана держится на SHOWS_LIMIT: ряды стоят в первой пачке      */
+  /* главной, а её Lampa отдаёт целиком (parts_limit, шапка src/44_rows.js).*/
   /* Кэш рекомендаций: life 1440 мин; деталей TV: life 720 мин.            */
   /* «Скоро» — discover/movie + discover/tv: life 360 мин.                 */
   /*                                                                       */
@@ -42,8 +47,28 @@
     /* Максимум исходных карточек для «Потому что вы смотрели». */
     var BECAUSE_LIMIT = 2;
 
-    /* Максимум сериалов для «Новые серии». */
-    var SHOWS_LIMIT = 12;
+    /* Максимум сериалов для «Новые серии». Это ровно столько ПАРАЛЛЕЛЬНЫХ
+       запросов tv/{id}, и все они попадают в первую пачку главной (ряд стоит
+       на index 2, parts_limit у Lampa = 6), а пачку Lampa отдаёт целиком —
+       поэтому первый кадр ждёт их все. Шесть — это ровно те сериалы, которые
+       отбирает getShows: сперва закладки, потом история; ряду этого хватает
+       («что новенького у того, что я смотрю»), а стоит он вдвое дешевле
+       прежних двенадцати. */
+    var SHOWS_LIMIT = 6;
+
+    /* Дедлайн ряда: страховка от запроса, который не ответит никогда (ни ok,
+       ни err). Без неё такой запрос держит call ряда, а Lampa ждёт ответа
+       КАЖДОЙ части пачки — главная перестаёт достраиваться (та же беда, что
+       чинил makeResolver). По дедлайну ряд отдаёт то, что успело прийти.
+
+       Значение намеренно большое: дедлайн не должен срезать медленные, но
+       живые ответы — ряд с половиной карточек не быстрее полного, потому что
+       ждёт всё равно вся пачка. Живьём (модель канала 6 параллельных запросов
+       по 3 с) дедлайн 2 с оставлял «Скоро на экранах» пустым, не выигрывая ни
+       миллисекунды до первого кадра. Цену первого экрана снижает SHOWS_LIMIT,
+       а не этот таймер. Порядок величины тот же, что у FETCH_TIMEOUT подборок
+       (15 с), с поправкой на то, что ряды главной дешевле. */
+    var ROW_TIMEOUT = 8000;
 
     /* Окно «скоро» — 30 дней вперёд. */
     var SOON_DAYS = 30;
@@ -359,14 +384,16 @@
             resolve({ results: [] }); return { cancel: function () {} };
           }
           var results = [];
-          var pending = picked.length;
           var cancelled = false;
           var handles = [];
 
-          function done() {
+          /* Ответы собирает общий сборщик с дедлайном (LC.util.gate):
+             ряд закрывается либо когда ответили все, либо по ROW_TIMEOUT —
+             тем, что успело прийти. */
+          var gate = LC.util.gate(picked.length, ROW_TIMEOUT, function () {
             if (cancelled || !alive()) return;
             resolve({ results: results, title: rowTitle });
-          }
+          });
 
           for (var i = 0; i < picked.length; i++) {
             (function (card) {
@@ -380,19 +407,16 @@
                     if (!alive()) return;
                     var arr = (json && json.results) ? json.results : [];
                     for (var k = 0; k < arr.length; k++) results.push(arr[k]);
-                    pending--;
-                    if (pending === 0) done();
+                    gate.tick();
                   },
                   function () {
                     if (!alive()) return;
-                    pending--;
-                    if (pending === 0) done();
+                    gate.tick();
                   },
                   { life: 1440 }
                 );
               } catch (e) {
-                pending--;
-                if (pending === 0 && alive() && !cancelled) done();
+                gate.tick();
               }
               if (net) handles.push(net);
             })(picked[i]);
@@ -401,6 +425,7 @@
           return {
             cancel: function () {
               cancelled = true;
+              gate.cancel();
               for (var i = 0; i < handles.length; i++) {
                 try {
                   if (handles[i]) {
@@ -429,15 +454,16 @@
             resolve({ results: [] }); return { cancel: function () {} };
           }
           var details = [];
-          var pending = shows.length;
           var cancelled = false;
           var handles = [];
 
-          function done() {
+          /* Тот же сборщик с дедлайном, что и у остальных рядов: по истечении
+             ROW_TIMEOUT ряд строится из тех деталей, что успели прийти. */
+          var gate = LC.util.gate(shows.length, ROW_TIMEOUT, function () {
             if (cancelled || !alive()) return;
             var filtered = newEpisodes(details, null);
             resolve({ results: filtered, title: LC.lang ? LC.lang('lumen_row_new_episodes') : 'New episodes' });
-          }
+          });
 
           for (var i = 0; i < shows.length; i++) {
             (function (card) {
@@ -450,19 +476,16 @@
                   function (json) {
                     if (!alive()) return;
                     if (json && json.id != null) details.push(json);
-                    pending--;
-                    if (pending === 0) done();
+                    gate.tick();
                   },
                   function () {
                     if (!alive()) return;
-                    pending--;
-                    if (pending === 0) done();
+                    gate.tick();
                   },
                   { life: 720 }
                 );
               } catch (e) {
-                pending--;
-                if (pending === 0 && alive() && !cancelled) done();
+                gate.tick();
               }
               if (net) handles.push(net);
             })(shows[i]);
@@ -471,6 +494,7 @@
           return {
             cancel: function () {
               cancelled = true;
+              gate.cancel();
               for (var i = 0; i < handles.length; i++) {
                 try {
                   if (handles[i]) {
@@ -500,11 +524,12 @@
           var range = soonRange(null);
           var movies = [];
           var tvShows = [];
-          var pending = 2;
           var cancelled = false;
           var handles = [];
 
-          function done() {
+          /* Тот же сборщик с дедлайном: если один из двух discover молчит,
+             ряд соберётся из ответившего. */
+          var gate = LC.util.gate(2, ROW_TIMEOUT, function () {
             if (cancelled || !alive()) return;
             /* Чередуем фильмы и сериалы, сортируем по дате выхода. */
             var all = movies.concat(tvShows);
@@ -514,7 +539,7 @@
               return da < db ? -1 : da > db ? 1 : 0;
             });
             resolve({ results: all, title: LC.lang ? LC.lang('lumen_row_soon') : 'Coming soon' });
-          }
+          });
 
           function fetchDiscover(media, resultArr) {
             var filterKey = media === 'movie' ? 'primary_release_date' : 'first_air_date';
@@ -530,19 +555,16 @@
                   if (!alive()) return;
                   var arr = (json && json.results) ? json.results : [];
                   for (var k = 0; k < arr.length; k++) resultArr.push(arr[k]);
-                  pending--;
-                  if (pending === 0) done();
+                  gate.tick();
                 },
                 function () {
                   if (!alive()) return;
-                  pending--;
-                  if (pending === 0) done();
+                  gate.tick();
                 },
                 { life: 360 }
               );
             } catch (e) {
-              pending--;
-              if (pending === 0 && alive() && !cancelled) done();
+              gate.tick();
             }
             return net;
           }
@@ -553,6 +575,7 @@
           return {
             cancel: function () {
               cancelled = true;
+              gate.cancel();
               for (var i = 0; i < handles.length; i++) {
                 try {
                   if (handles[i]) {

@@ -44,3 +44,105 @@ test('daysUntil: пусто/мусор/несуществующий месяц -
   assert.equal(u.daysUntil('2026-13-01', now), null);
   assert.equal(u.daysUntil('2026-12-00', now), null);
 });
+
+/* --- gate: общий сборщик N параллельных ответов с дедлайном --- */
+
+/* Ручной планировщик: тест сам решает, когда сработает таймер дедлайна.
+   Подменяется globalThis.setTimeout, потому что util.js читает его по
+   вызову (модуль загружается через new Function, без замыкания на таймеры). */
+function withFakeTimers(fn) {
+  const realSet = globalThis.setTimeout;
+  const realClear = globalThis.clearTimeout;
+  const timers = [];
+  globalThis.setTimeout = (cb, ms) => { timers.push({ cb, ms, cleared: false }); return timers.length; };
+  globalThis.clearTimeout = (id) => { if (timers[id - 1]) timers[id - 1].cleared = true; };
+  try {
+    return fn({
+      timers,
+      fire: (i) => { const t = timers[i || 0]; if (t && !t.cleared) t.cb(); }
+    });
+  } finally {
+    globalThis.setTimeout = realSet;
+    globalThis.clearTimeout = realClear;
+  }
+}
+
+test('gate: finish(false) после total тиков, ровно один раз', () => {
+  withFakeTimers(() => {
+    const calls = [];
+    const g = u.gate(2, 1000, (partial) => calls.push(partial));
+    g.tick();
+    assert.deepEqual(calls, [], 'один ответ из двух — ещё рано');
+    g.tick();
+    assert.deepEqual(calls, [false], 'все ответы пришли — полный результат');
+    g.tick();
+    assert.deepEqual(calls, [false], 'лишний тик второго finish не даёт');
+  });
+});
+
+test('gate: дедлайн отдаёт частичный результат и гасит поздние тики', () => {
+  withFakeTimers((ctl) => {
+    const calls = [];
+    const g = u.gate(3, 1500, (partial) => calls.push(partial));
+    g.tick();
+    assert.equal(ctl.timers[0].ms, 1500, 'таймер поставлен на переданный дедлайн');
+    ctl.fire(0);
+    assert.deepEqual(calls, [true], 'дедлайн — частичный результат');
+    g.tick(); g.tick();
+    assert.deepEqual(calls, [true], 'поздние ответы второго finish не дают');
+  });
+});
+
+test('gate: полный результат снимает таймер дедлайна', () => {
+  withFakeTimers((ctl) => {
+    const calls = [];
+    const g = u.gate(1, 1000, (partial) => calls.push(partial));
+    g.tick();
+    assert.deepEqual(calls, [false]);
+    assert.equal(ctl.timers[0].cleared, true, 'таймер снят — он уже не нужен');
+    ctl.fire(0);
+    assert.deepEqual(calls, [false], 'снятый таймер finish не зовёт');
+  });
+});
+
+test('gate: cancel запрещает finish и снимает таймер', () => {
+  withFakeTimers((ctl) => {
+    const calls = [];
+    const g = u.gate(2, 1000, (partial) => calls.push(partial));
+    g.cancel();
+    assert.equal(ctl.timers[0].cleared, true);
+    g.tick(); g.tick();
+    ctl.fire(0);
+    assert.deepEqual(calls, [], 'после cancel finish не зовётся никогда');
+  });
+});
+
+test('gate: cancel сообщает, успел ли он закрыть сборщик', () => {
+  withFakeTimers(() => {
+    const g = u.gate(2, 1000, () => {});
+    assert.equal(g.cancel(), true, 'первый cancel закрыл открытый сборщик');
+    assert.equal(g.cancel(), false, 'повторный cancel закрывать уже нечего');
+    const g2 = u.gate(1, 1000, () => {});
+    g2.tick();
+    assert.equal(g2.cancel(), false, 'после finish cancel возвращает false');
+  });
+});
+
+test('gate: total <= 0 — finish(false) сразу, таймер не ставится', () => {
+  withFakeTimers((ctl) => {
+    const calls = [];
+    u.gate(0, 1000, (partial) => calls.push(partial));
+    assert.deepEqual(calls, [false]);
+    assert.equal(ctl.timers.length, 0);
+  });
+});
+
+test('gate: timeout <= 0 — без дедлайна, только по тикам', () => {
+  withFakeTimers((ctl) => {
+    const calls = [];
+    const g = u.gate(2, 0, (partial) => calls.push(partial));
+    assert.equal(ctl.timers.length, 0, 'таймер не ставится');
+    g.tick(); g.tick();
+    assert.deepEqual(calls, [false]);
+  });
+});

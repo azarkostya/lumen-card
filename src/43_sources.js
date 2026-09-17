@@ -365,7 +365,7 @@
 
     /* Подборка целиком: movie и tv (если оба есть) → один список через mergeMedia.
        alive-guard каждого подписчика: notifySubs проверяет alive перед вызовом ok/err.
-       done-latch: ok вызывается ровно один раз (I3).
+       done-latch: ok вызывается ровно один раз (I3) — защёлка внутри LC.util.gate.
        Глобальный дедлайн FETCH_TIMEOUT: при истечении — частичный результат.
        Возвращает {clear()} для принудительной отмены одной подписки. */
     function fetchAll(item, page, ok, err, alive) {
@@ -419,8 +419,6 @@
       var src = item.sources || {};
       var want = [];
       var got = {};
-      var failed = 0;
-      var done_called = false;
       var nets = [];
 
       if (src.movie) want.push('movie');
@@ -444,41 +442,34 @@
         };
       }
 
-      var deadline;
-
-      function done() {
+      /* Один сборщик на всю подборку (LC.util.gate): закрывает запрос либо
+         когда ответили ВСЕ источники, либо по FETCH_TIMEOUT — тем, что успело
+         прийти. Дедлайн — страховка от источника, который не ответит ни ok,
+         ни err: подписчик (ряд главной или сетка) обязан получить ответ. */
+      var gate = LC.util.gate(want.length, FETCH_TIMEOUT, function (partial) {
         var gotLen = Object.keys(got).length;
-        if (gotLen + failed < want.length) return;
-        if (done_called) return;
-        done_called = true;
-        clearTimeout(deadline);
-        if (!gotLen) { notifySubs('err', { all_failed: true }); return; }
-        notifySubs('ok', buildResult());
-      }
-
-      deadline = setTimeout(function () {
-        if (done_called) return;
-        done_called = true;
+        /* Ответили все и все провалились — это ошибка подборки. По дедлайну
+           отдаём что есть, даже пустой список: подписчик ждёт ответа. */
+        if (!partial && !gotLen) { notifySubs('err', { all_failed: true }); return; }
         var r = buildResult();
-        r.partial = true;
+        if (partial) r.partial = true;
         notifySubs('ok', r);
-      }, FETCH_TIMEOUT);
+      });
 
       LC.util.each(want, function (media) {
         var n = fetchOne(
           src[media], media, page,
-          function (json) { got[media] = json; done(); },
+          function (json) { got[media] = json; gate.tick(); },
           function (e) {
             /* {nokey:true} — фатальная ошибка конфигурации: ключ КП отсутствует,
-               пробовать другие медиа-типы бессмысленно. Пробрасываем напрямую. */
+               пробовать другие медиа-типы бессмысленно. Пробрасываем напрямую —
+               но только пока подборка никому не ответила: cancel() вернёт false,
+               если сборщик уже закрыт (ответом или дедлайном). */
             if (e && e.nokey) {
-              if (done_called) return;
-              done_called = true;
-              clearTimeout(deadline);
+              if (!gate.cancel()) return;
               notifySubs('err', e);
             } else {
-              failed++;
-              done();
+              gate.tick();
             }
           },
           requestAlive
@@ -488,8 +479,9 @@
 
       function cancelRequest() {
         _reqAliveGen++;
-        clearTimeout(deadline);
-        done_called = true;
+        /* Сборщик закрывается навсегда: ни поздний ответ, ни дедлайн уже
+           никому не сообщат (подписчиков не осталось). */
+        gate.cancel();
         /* Только своя запись — чужую под тем же ключом не удаляем. */
         if (inflight[inflightKey] === myEntry) delete inflight[inflightKey];
         LC.util.each(nets, function (n) {

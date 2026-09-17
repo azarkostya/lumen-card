@@ -145,6 +145,59 @@ if (fn(arr[i], i)) return arr[i];
 return null;
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function gate(total, timeout, finish) {
+var left = total;
+var closed = false;
+var timer = null;
+
+function close(partial) {
+if (closed) return;
+closed = true;
+if (timer !== null) { clearTimeout(timer); timer = null; }
+finish(partial);
+}
+
+if (total > 0 && timeout > 0) {
+timer = setTimeout(function () { close(true); }, timeout);
+}
+if (total <= 0) close(false);
+
+return {
+tick: function () {
+if (closed) return;
+left--;
+if (left <= 0) close(false);
+},
+cancel: function () {
+if (closed) return false;
+closed = true;
+if (timer !== null) { clearTimeout(timer); timer = null; }
+return true;
+}
+};
+}
+
 return {
 esc: esc,
 pad2: pad2,
@@ -156,7 +209,8 @@ daysUntil: daysUntil,
 each: each,
 map: map,
 filter: filter,
-find: find
+find: find,
+gate: gate
 };
 })();
 
@@ -3621,8 +3675,6 @@ function requestAlive() { return _reqAliveGen; }
 var src = item.sources || {};
 var want = [];
 var got = {};
-var failed = 0;
-var done_called = false;
 var nets = [];
 
 if (src.movie) want.push('movie');
@@ -3646,41 +3698,34 @@ total_results: (m.total_results || 0) + (t.total_results || 0)
 };
 }
 
-var deadline;
 
-function done() {
+
+
+
+var gate = LC.util.gate(want.length, FETCH_TIMEOUT, function (partial) {
 var gotLen = Object.keys(got).length;
-if (gotLen + failed < want.length) return;
-if (done_called) return;
-done_called = true;
-clearTimeout(deadline);
-if (!gotLen) { notifySubs('err', { all_failed: true }); return; }
-notifySubs('ok', buildResult());
-}
 
-deadline = setTimeout(function () {
-if (done_called) return;
-done_called = true;
+
+if (!partial && !gotLen) { notifySubs('err', { all_failed: true }); return; }
 var r = buildResult();
-r.partial = true;
+if (partial) r.partial = true;
 notifySubs('ok', r);
-}, FETCH_TIMEOUT);
+});
 
 LC.util.each(want, function (media) {
 var n = fetchOne(
 src[media], media, page,
-function (json) { got[media] = json; done(); },
+function (json) { got[media] = json; gate.tick(); },
 function (e) {
 
 
+
+
 if (e && e.nokey) {
-if (done_called) return;
-done_called = true;
-clearTimeout(deadline);
+if (!gate.cancel()) return;
 notifySubs('err', e);
 } else {
-failed++;
-done();
+gate.tick();
 }
 },
 requestAlive
@@ -3690,8 +3735,9 @@ if (n) nets.push(n);
 
 function cancelRequest() {
 _reqAliveGen++;
-clearTimeout(deadline);
-done_called = true;
+
+
+gate.cancel();
 
 if (inflight[inflightKey] === myEntry) delete inflight[inflightKey];
 LC.util.each(nets, function (n) {
@@ -4279,13 +4325,38 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 
+
+
+
+
+
 LC.personal = (function () {
 
 
 var BECAUSE_LIMIT = 2;
 
 
-var SHOWS_LIMIT = 12;
+
+
+
+
+
+
+var SHOWS_LIMIT = 6;
+
+
+
+
+
+
+
+
+
+
+
+
+
+var ROW_TIMEOUT = 8000;
 
 
 var SOON_DAYS = 30;
@@ -4601,14 +4672,16 @@ if (!alive() || !picked || !picked.length) {
 resolve({ results: [] }); return { cancel: function () {} };
 }
 var results = [];
-var pending = picked.length;
 var cancelled = false;
 var handles = [];
 
-function done() {
+
+
+
+var gate = LC.util.gate(picked.length, ROW_TIMEOUT, function () {
 if (cancelled || !alive()) return;
 resolve({ results: results, title: rowTitle });
-}
+});
 
 for (var i = 0; i < picked.length; i++) {
 (function (card) {
@@ -4622,19 +4695,16 @@ function (json) {
 if (!alive()) return;
 var arr = (json && json.results) ? json.results : [];
 for (var k = 0; k < arr.length; k++) results.push(arr[k]);
-pending--;
-if (pending === 0) done();
+gate.tick();
 },
 function () {
 if (!alive()) return;
-pending--;
-if (pending === 0) done();
+gate.tick();
 },
 { life: 1440 }
 );
 } catch (e) {
-pending--;
-if (pending === 0 && alive() && !cancelled) done();
+gate.tick();
 }
 if (net) handles.push(net);
 })(picked[i]);
@@ -4643,6 +4713,7 @@ if (net) handles.push(net);
 return {
 cancel: function () {
 cancelled = true;
+gate.cancel();
 for (var i = 0; i < handles.length; i++) {
 try {
 if (handles[i]) {
@@ -4671,15 +4742,16 @@ if (!alive() || !shows || !shows.length) {
 resolve({ results: [] }); return { cancel: function () {} };
 }
 var details = [];
-var pending = shows.length;
 var cancelled = false;
 var handles = [];
 
-function done() {
+
+
+var gate = LC.util.gate(shows.length, ROW_TIMEOUT, function () {
 if (cancelled || !alive()) return;
 var filtered = newEpisodes(details, null);
 resolve({ results: filtered, title: LC.lang ? LC.lang('lumen_row_new_episodes') : 'New episodes' });
-}
+});
 
 for (var i = 0; i < shows.length; i++) {
 (function (card) {
@@ -4692,19 +4764,16 @@ url,
 function (json) {
 if (!alive()) return;
 if (json && json.id != null) details.push(json);
-pending--;
-if (pending === 0) done();
+gate.tick();
 },
 function () {
 if (!alive()) return;
-pending--;
-if (pending === 0) done();
+gate.tick();
 },
 { life: 720 }
 );
 } catch (e) {
-pending--;
-if (pending === 0 && alive() && !cancelled) done();
+gate.tick();
 }
 if (net) handles.push(net);
 })(shows[i]);
@@ -4713,6 +4782,7 @@ if (net) handles.push(net);
 return {
 cancel: function () {
 cancelled = true;
+gate.cancel();
 for (var i = 0; i < handles.length; i++) {
 try {
 if (handles[i]) {
@@ -4742,11 +4812,12 @@ if (!alive()) { resolve({ results: [] }); return { cancel: function () {} }; }
 var range = soonRange(null);
 var movies = [];
 var tvShows = [];
-var pending = 2;
 var cancelled = false;
 var handles = [];
 
-function done() {
+
+
+var gate = LC.util.gate(2, ROW_TIMEOUT, function () {
 if (cancelled || !alive()) return;
 
 var all = movies.concat(tvShows);
@@ -4756,7 +4827,7 @@ var db = b.release_date || b.first_air_date || '';
 return da < db ? -1 : da > db ? 1 : 0;
 });
 resolve({ results: all, title: LC.lang ? LC.lang('lumen_row_soon') : 'Coming soon' });
-}
+});
 
 function fetchDiscover(media, resultArr) {
 var filterKey = media === 'movie' ? 'primary_release_date' : 'first_air_date';
@@ -4772,19 +4843,16 @@ function (json) {
 if (!alive()) return;
 var arr = (json && json.results) ? json.results : [];
 for (var k = 0; k < arr.length; k++) resultArr.push(arr[k]);
-pending--;
-if (pending === 0) done();
+gate.tick();
 },
 function () {
 if (!alive()) return;
-pending--;
-if (pending === 0) done();
+gate.tick();
 },
 { life: 360 }
 );
 } catch (e) {
-pending--;
-if (pending === 0 && alive() && !cancelled) done();
+gate.tick();
 }
 return net;
 }
@@ -4795,6 +4863,7 @@ handles.push(fetchDiscover('tv', tvShows));
 return {
 cancel: function () {
 cancelled = true;
+gate.cancel();
 for (var i = 0; i < handles.length; i++) {
 try {
 if (handles[i]) {
