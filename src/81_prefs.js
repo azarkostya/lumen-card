@@ -124,7 +124,7 @@
          пунктом группы: это самое крупное решение про вид главной, и от него
          зависит, сколько экрана достанется всему остальному. Доли экрана — в
          HERO_SIZES (src/30_css.js). */
-      { name: 'lumen_hero_size', type: 'select', values: ['large', 'medium', 'compact', 'off'], vprefix: 'lumen_hero_size_', 'default': 'medium', label: 'lumen_hero_size_name', descr: 'lumen_hero_size_descr' },
+      { name: 'lumen_hero_size', type: 'select', values: ['large', 'medium', 'compact', 'off'], vprefix: 'lumen_hero_size_', 'default': 'large', label: 'lumen_hero_size_name', descr: 'lumen_hero_size_descr' },
       { name: 'lumen_moods', type: 'trigger', 'default': true, label: 'lumen_moods_name', descr: 'lumen_moods_descr' },
       { name: 'lumen_personal_rows', type: 'trigger', 'default': true, label: 'lumen_personal_rows_name', descr: 'lumen_personal_rows_descr' },
       /* Кнопка-параметр: multi-select в SettingsApi нет, поэтому состав рядов

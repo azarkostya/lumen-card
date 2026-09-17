@@ -405,10 +405,29 @@ test('второй ряд в фокусе — компактный герой, �
   main.card2.addClass('focus');
   obs.fn([{ target: main.card2 }]);
   assert.equal(node.hasClass('lumen-hero--compact'), true, 'ряд с индексом 1 — герой сжат');
+  /* Правка пользователя 2026-09-17 (второй круг): вместе с кадром класс
+     получает и КОРЕНЬ активности — по нему раскладка поднимает ряды на
+     освободившуюся высоту. Без него под сжатым кадром оставалась пустая
+     полоса в половину экрана. */
+  assert.equal(main.activity.hasClass('lumen-rows-up'), true, 'ряды не подняты вслед за кадром');
 
   main.card1.addClass('focus');
   obs.fn([{ target: main.card1 }]);
   assert.equal(node.hasClass('lumen-hero--compact'), false);
+  assert.equal(main.activity.hasClass('lumen-rows-up'), false, 'вернулись на первый ряд — верхнее состояние');
+});
+
+test('unmount возвращает ряды в штатную раскладку', () => {
+  const env = makeEnv();
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  main.card2.addClass('focus');
+  env.observers[0].fn([{ target: main.card2 }]);
+  assert.equal(main.activity.hasClass('lumen-rows-up'), true);
+
+  env.hero.unmount();
+  assert.equal(main.activity.hasClass('lumen-rows-up'), false, 'без героя область прокрутки обязана быть штатной');
+  assert.equal(main.activity.hasClass('lumen-main'), false);
 });
 
 test('unmount: узел, класс хоста, наблюдатель, таймер, предзагрузка и запрос деталей снимаются', () => {
@@ -496,6 +515,7 @@ test('mount с compact/hostClass: сжат всегда, класс хоста �
   assert.equal(node.hasClass('lumen-hero'), true);
   assert.equal(node.hasClass('lumen-hero--compact'), true);
   assert.equal(grid.hasClass('lumen-grid--hero'), true);
+  assert.equal(grid.hasClass('lumen-rows-up'), true, 'сжатый всегда — значит и место отдано сразу');
 
   env.observers[0].fn([{ target: card }]);
   env.advance(400);
@@ -504,6 +524,7 @@ test('mount с compact/hostClass: сжат всегда, класс хоста �
 
   env.hero.unmount();
   assert.equal(grid.hasClass('lumen-grid--hero'), false);
+  assert.equal(grid.hasClass('lumen-rows-up'), false);
 });
 
 test('mountCurrent монтирует только главную', () => {

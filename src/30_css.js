@@ -214,13 +214,17 @@
      начинает выглядывать следующий — обычная ТВ-раскладка.
 
      Доля героя при 16:9 одинакова на 1920×1080 и 1280×720: em Lampa считает
-     от ШИРИНЫ, поэтому вычитаемое и высота экрана растут вместе. Замер:
-     крупный — 56.5 %, средний — 45.2 %, компактный — 33.0 %.
+     от ШИРИНЫ, поэтому вычитаемое и высота экрана растут вместе.
      Значение 'off' сюда не попадает: при нём герой не монтируется вовсе
      (src/48_hero.js), класса .lumen-main на активности нет, и раскладка
-     главной остаётся штатной Lampa. */
+     главной остаётся штатной Lampa.
+
+     Правка пользователя 2026-09-17 (второй круг): по умолчанию снова
+     КРУПНЫЙ — «средний» на живом экране оказался мелковат. Замер долей с
+     воздухом над заголовком ряда (HERO_AIR ниже): крупный — 51.4 %,
+     средний — 40.1 %, компактный — 27.9 % высоты экрана. */
   var HERO_SIZES = { large: 1, medium: 1.26, compact: 1.54 };
-  var HERO_DEFAULT = 'medium';
+  var HERO_DEFAULT = 'large';
 
   function heroFactor() {
     var key = LC.pref('lumen_hero_size', HERO_DEFAULT);
@@ -237,6 +241,80 @@
      Lampa держит над фокусным рядом. Остальной экран достаётся герою. */
   function rowsAreaEm(scale) {
     return round2(LAMPA_ROW_PAD + heroCutEm(scale));
+  }
+
+  /* Правка пользователя 2026-09-17 (второй круг). Четыре величины, которыми
+     связаны кадр героя, его текст, чипы настроения и ряды.
+
+     HERO_COMPACT — доля сжатого героя (§0.2: 42 % против 58 %, то есть .72
+       от полной высоты). Раньше это число стояло прямо в правиле.
+     HERO_AIR — воздух между нижней кромкой кадра и заголовком первого ряда.
+       Пользователь: «вот тут надо отступ, слишком близко к границе»; ориентир
+       — полторы-две высоты строки заголовка (1.23em × 1.3 ≈ 1.6em). Воздух
+       отнимается у КАДРА, а не добавляется рядам: сдвинь мы ряды вниз, и
+       нижний край области уехал бы за кромку экрана вместе с подписями.
+     MOODS_BAR — высота полосы чипов настроения: чип .88em × 2.46em = 2.17em
+       плюс зазоры сверху и снизу. С героем полоса стоит в воздухе над первым
+       рядом и высоты у текста не отнимает; без героя (настройка «Выключен» и
+       низкое окно) на неё опущены ряды — иначе она легла бы на первый ряд.
+     HERO_HEAD_SAFE — безопасная зона сверху. Кадр героя начинается у самой
+       кромки экрана и проходит ПОД штатной шапкой Lampa (замер живьём: .head
+       занимает 3.8em), поэтому текст, прижатый к низу, на высоком содержимом
+       упирался в заголовок активности и иконки — находка пользователя на
+       низком окне: «элементы перекрывают друг друга». Блок текста ограничен
+       этой зоной сверху и лишнее срезает сам.
+     TEXT_* — слагаемые высоты текстового блока (каждое с собственным
+       отступом сверху): мета, логотип обычный и уменьшенный, описание в две
+       строки, строка рейтинга. Из них складывается бюджет: кадр, в который
+       содержимое не помещается, описания не показывает, а кадр, в который не
+       помещается и минимум, не показывается вовсе — ряды занимают экран
+       целиком, как при «Герой: выключен». Промежуточных состояний с
+       наложениями нет по построению.
+     TEXT_ZOOM / TEXT_ZOOM_COMPACT — кегль содержимого кадра. Пользователь:
+       «больше текст на 10 % (попробуем)» для верхнего состояния и на 3-5 %
+       для сжатого. Коэффициент вешается на .lumen-hero__text, а не на сам
+       кадр: его высота считается от высоты ряда, и общий кегль корня удвоил
+       бы этот множитель в ней (см. правило героя ниже). Бюджеты умножаются
+       на тот же коэффициент — иначе пороги считали бы старый текст. */
+  var HERO_COMPACT = 0.72;
+  var HERO_AIR = 2.4;
+  var MOODS_BAR = 3.2;
+  var HERO_HEAD_SAFE = 4.4;
+  var TEXT_BOTTOM = 1.6;
+  var TEXT_META = 1.06;
+  var TEXT_LOGO = 4.8;
+  var TEXT_LOGO_SMALL = 3.6;
+  var TEXT_DESCR = 4.05;
+  var TEXT_RATE = 2.62;
+  var TEXT_ZOOM = 1.1;
+  var TEXT_ZOOM_COMPACT = 1.04;
+
+  /* Сколько высоты забирают ряды у СЖАТОГО героя и какой при этом становится
+     область прокрутки. Из этих двух величин ряды и поднимаются: область
+     расширяется вверх ровно на то, на сколько уменьшился кадр. */
+  function heroCompactCutEm(scale) {
+    return round2(heroCutEm(scale) * HERO_COMPACT);
+  }
+
+  function compactAreaEm(scale) {
+    return round2(LAMPA_ROW_PAD + heroCompactCutEm(scale));
+  }
+
+  /* Самый маленький размер кадра («компактный», 1.54 блока ряда) отдаёт
+     тексту заметно меньше высоты, поэтому там логотип мельче, а мета-строка
+     не показывается вовсе: год и хронометраж и без того написаны на карточке
+     под фокусом. */
+  function heroSmallText() {
+    return LC.pref('lumen_hero_size', HERO_DEFAULT) === 'compact';
+  }
+
+  /* Сколько высоты просит содержимое кадра. withDescr — считать ли описание
+     (две строки). Из этой величины считаются оба порога раскладки. */
+  function textNeedEm(withDescr) {
+    var small = heroSmallText();
+    var inner = TEXT_RATE + (small ? TEXT_LOGO_SMALL : TEXT_LOGO + TEXT_META);
+    if (withDescr) inner += TEXT_DESCR;
+    return round2(HERO_HEAD_SAFE + TEXT_BOTTOM + inner * TEXT_ZOOM);
   }
 
   /* Корни, на которые вешается коэффициент. Каждый из них — самостоятельный
@@ -1253,9 +1331,16 @@
        считается той же долей от полной высоты: 42/58 = .72. Фиксированные
        42vh здесь больше не годятся — на низком окне они оказались бы БОЛЬШЕ
        новой полной высоты, и сжатие превратилось бы в рост поверх рядов. */
+    /* Правка пользователя 2026-09-17 (второй круг, п.3): кадр кончается не
+       там, где начинается ряд, а на HERO_AIR выше — заголовок «Сейчас
+       смотрят» больше не лежит на кромке картинки. Верх первого ряда при
+       этом не двинулся: воздух вычтен из высоты кадра, ряды и их область
+       остались ровно там же, где были, поэтому ленивой догрузке и прокрутке
+       эта правка не видна вовсе. */
     var heroCut = heroCutEm(scale);
-    css.push('.lumen-hero{position:absolute;top:-4em;left:0;right:0;height:-webkit-calc(100vh - ' + heroCut + 'em);height:calc(100vh - ' + heroCut + 'em);overflow:hidden;pointer-events:none}');
-    css.push('.lumen-hero.lumen-hero--compact{height:-webkit-calc(72vh - ' + round2(heroCut * 0.72) + 'em);height:calc(72vh - ' + round2(heroCut * 0.72) + 'em)}');
+    var heroCompactCut = heroCompactCutEm(scale);
+    css.push('.lumen-hero{position:absolute;top:-4em;left:0;right:0;height:-webkit-calc(100vh - ' + round2(heroCut + HERO_AIR) + 'em);height:calc(100vh - ' + round2(heroCut + HERO_AIR) + 'em);overflow:hidden;pointer-events:none}');
+    css.push('.lumen-hero.lumen-hero--compact{height:-webkit-calc(72vh - ' + round2(heroCompactCut + HERO_AIR) + 'em);height:calc(72vh - ' + round2(heroCompactCut + HERO_AIR) + 'em)}');
     css.push('.lumen-hero.lumen-motion-full{-webkit-transition:height .42s cubic-bezier(.2,.8,.2,1);transition:height .42s cubic-bezier(.2,.8,.2,1)}');
 
     /* Два слоя кадра: новый проявляется поверх старого за 600 мс
@@ -1273,14 +1358,59 @@
        снизу под ряды (там фон почти чёрный). */
     css.push('.lumen-hero .lumen-hero__veil{position:absolute;top:0;left:0;right:0;bottom:0}');
     css.push('.lumen-hero .lumen-hero__veil--l{background:-webkit-linear-gradient(left,rgba(' + P.bgRgb + ',.94) 0%,rgba(' + P.bgRgb + ',.6) 38%,rgba(' + P.bgRgb + ',0) 72%);background:linear-gradient(90deg,rgba(' + P.bgRgb + ',.94) 0%,rgba(' + P.bgRgb + ',.6) 38%,rgba(' + P.bgRgb + ',0) 72%)}');
-    css.push('.lumen-hero .lumen-hero__veil--b{background:-webkit-linear-gradient(bottom,' + P.bg + ' 0%,rgba(' + P.bgRgb + ',.86) 16%,rgba(' + P.bgRgb + ',0) 62%);background:linear-gradient(0deg,' + P.bg + ' 0%,rgba(' + P.bgRgb + ',.86) 16%,rgba(' + P.bgRgb + ',0) 62%)}');
+    /* Правка пользователя 2026-09-17 (второй круг, п.2): «условно с середины
+       картинки сделаем полупрозрачный, в середине 70 %, до 0 % в конце».
+       Раньше нижняя вуаль выходила в сплошной фон за 16 % высоты — переход
+       читался как граница. Теперь кадр растворяется от середины: на половине
+       высоты картинка видна на 70 % (вуаль .3), к низу — фон целиком.
+       Нового слоя ради этого не заводим: стопы правятся у той же вуали,
+       которую композитор уже рисует. */
+    css.push('.lumen-hero .lumen-hero__veil--b{background:-webkit-linear-gradient(bottom,' + P.bg + ' 0%,rgba(' + P.bgRgb + ',.86) 14%,rgba(' + P.bgRgb + ',.3) 50%,rgba(' + P.bgRgb + ',0) 88%);background:linear-gradient(0deg,' + P.bg + ' 0%,rgba(' + P.bgRgb + ',.86) 14%,rgba(' + P.bgRgb + ',.3) 50%,rgba(' + P.bgRgb + ',0) 88%)}');
 
-    /* Текстовый блок стоит в ВЕРХНЕЙ зоне героя — ровно там, где ряды его не
-       перекроют (см. сдвиг области прокрутки ниже): 5.2em от верха экрана —
-       сразу под штатной шапкой Lampa (4em). К низу героя блок прижать
-       нельзя: кадр 58vh уходит под ряды, и текст оказался бы под ними.
-       Safe area слева — 2.81em (§0.1). */
-    css.push('.lumen-hero .lumen-hero__text{position:absolute;left:2.81em;right:2.81em;top:4.8em;max-width:46em}');
+    /* Правка пользователя 2026-09-17 (второй круг, п.1): «а может текст вниз
+       спустить, чтобы не перекрывало картинку?». Блок прижат к НИЖНЕЙ кромке
+       кадра — верх картинки (лица, центр композиции) остаётся открытым.
+
+       Прежний запрет («к низу героя блок прижать нельзя») снят той же
+       правкой, что свела кадр и ряд в одну точку: кадр больше не уходит под
+       ряды, его низ и есть граница свободного места, поэтому прижатый к нему
+       текст под ряды не попадает. Отступ снизу — TEXT_BOTTOM, а когда на
+       главной есть чипы настроения (класс .lumen-moods-on ставит LC.moods),
+       текст поднят ещё на высоту их полосы: чипы стоят под ним.
+
+       Плавность перехода в сжатое состояние отдельного правила не просит:
+       блок прижат к низу кадра, а высота кадра уже анимируется (правило
+       .lumen-hero.lumen-motion-full выше) — текст едет вместе с кромкой.
+
+       Сверху блок ограничен безопасной зоной HERO_HEAD_SAFE: кадр проходит
+       ПОД шапкой Lampa, и без этой границы высокое содержимое налезало на
+       заголовок активности и иконки (находка пользователя на низком окне).
+       Блок занимает всю зону между шапкой и своим отступом снизу, содержимое
+       прижато к нижнему краю (box-pack:end — у старых webkit это единственный
+       рабочий способ), а лишнее срезается его собственным overflow.
+       Срезаться, впрочем, нечему: ниже посчитан порог, за которым кадр с
+       таким содержимым не показывается вовсе.
+
+       Safe area слева — 2.81em (§0.1); по ней же выровнены заголовки рядов
+       (правило .lumen-main .items-line__head ниже), чтобы логотип фильма и
+       «Сейчас смотрят» стояли на одной вертикали. */
+    /* Собственные отступы блока делятся на его же кегль: em у left/top/bottom
+       считается от font-size САМОГО элемента, и без деления поднятый кегль
+       увёл бы текст вправо от safe area (замер живьём: 71 px вместо 64 px —
+       логотип переставал стоять на одной вертикали с заголовком ряда). После
+       деления обе величины дают те же 2.81em и 1.6em базового кегля, а смена
+       состояния не двигает блок вбок. */
+    function textBox(zoom) {
+      return 'left:' + round2(2.81 / zoom) + 'em;right:' + round2(2.81 / zoom) + 'em;top:' + round2(HERO_HEAD_SAFE / zoom) + 'em;bottom:' + round2(TEXT_BOTTOM / zoom) + 'em;font-size:' + zoom + 'em';
+    }
+    css.push('.lumen-hero .lumen-hero__text{position:absolute;' + textBox(TEXT_ZOOM) + ';max-width:46em;overflow:hidden;' +
+      'display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-orient:vertical;-webkit-box-direction:normal;-webkit-flex-direction:column;flex-direction:column;' +
+      '-webkit-box-pack:end;-webkit-justify-content:flex-end;justify-content:flex-end}');
+    /* В сжатом состоянии кегль почти тот же (пользователь просил 3-5 % против
+       прежнего), но анимировать его нельзя: font-size пересчитывает раскладку
+       блока каждый кадр. Смена мгновенная, а едет блок целиком — вместе с
+       нижней кромкой кадра, высота которой и анимируется. */
+    css.push('.lumen-hero.lumen-hero--compact .lumen-hero__text{' + textBox(TEXT_ZOOM_COMPACT) + '}');
     css.push('.lumen-hero .lumen-hero__meta{font-family:' + FM + ';font-weight:400;font-size:.88em;line-height:1.2;letter-spacing:.03em;color:' + P.muted + '}');
     /* Логотип фильма — фоном (contain), максимум 30.69em = 700 px FHD (§0.2).
        Отдельного <img> нет: единственный путь к картинкам — прокси TMDB. */
@@ -1309,8 +1439,26 @@
     css.push('.lumen-hero .lumen-hero__status{display:none;font-family:' + FB + ';font-weight:600;font-size:.88em;line-height:1;color:' + A + ';background:rgba(' + A_RGB + ',.1);border:.04em solid rgba(' + A_RGB + ',.4);border-radius:.53em;padding:.4em .7em}');
     css.push('.lumen-hero.lumen-hero--status .lumen-hero__status{display:block}');
 
-    /* Сжатый и мини-герой описания не показывают (§0.2, экраны 17/18/20). */
+    /* Сжатый и мини-герой описания не показывают (§0.2, экраны 17/18/20).
+       Правка 2026-09-17 (второй круг, п.1): и логотип в сжатом мельче —
+       текст прижат к низу кадра, а кадр стал ниже на ту же долю .72, и
+       полноразмерному логотипу места уже не остаётся. Высоту логотипа
+       анимируем вместе с высотой кадра (правило motion-full ниже), чтобы
+       переход между состояниями был одним движением, а не подменой.
+       Мета-строка в сжатом состоянии тоже уходит: сжатый кадр — это .72 от
+       полного, и её строка там уже не помещается (проверено живьём при всех
+       четырёх размерах), а год и хронометраж видны на карточке под фокусом.
+       Ровно тот же компактный набор — при самом маленьком размере кадра
+       («компактный»), там он нужен уже в верхнем состоянии. */
+    var smallText = heroSmallText();
+    css.push('.lumen-hero.lumen-hero--compact .lumen-hero__logo{height:3.2em}');
+    css.push('.lumen-hero.lumen-motion-full .lumen-hero__logo{-webkit-transition:height .42s cubic-bezier(.2,.8,.2,1);transition:height .42s cubic-bezier(.2,.8,.2,1)}');
+    css.push('.lumen-hero.lumen-hero--compact .lumen-hero__meta,.lumen-hero.lumen-hero--compact .lumen-hero__sk--meta{display:none}');
     css.push('.lumen-hero.lumen-hero--compact .lumen-hero__descr,.lumen-hero.lumen-hero--compact .lumen-hero__sk--descr,.lumen-hero.lumen-hero--compact .lumen-hero__sk--short{display:none}');
+    if (smallText) {
+      css.push('.lumen-hero .lumen-hero__logo{height:3.2em}');
+      css.push('.lumen-hero .lumen-hero__meta,.lumen-hero .lumen-hero__sk--meta{display:none}');
+    }
 
     /* Подмена текста (раскадровка 23а): старый уходит вниз за 180 мс, новый
        поднимается за 420 мс. В lite/off — мгновенно и без анимаций: подъём
@@ -1323,16 +1471,37 @@
     css.push('.lumen-hero.lumen-motion-lite .lumen-hero__text,.lumen-hero.lumen-motion-off .lumen-hero__text{opacity:1;-webkit-transform:none;transform:none;-webkit-transition:none;transition:none;-webkit-animation:none;animation:none}');
 
     /* --- Task 19: чипы профилей настроения (design-spec-main §Task 19) ---
-       .lumen-moods живёт ВНУТРИ .lumen-hero__text (после .lumen-hero__chips).
-       Чтобы чипы были кликабельны, перекрываем pointer-events: none героя
-       прямо на блоке (не на всём герое — тот не интерактивен намеренно).
+       Правка пользователя 2026-09-17 (второй круг): блок .lumen-moods живёт
+       СОБСТВЕННЫМ узлом в корне активности главной, а не внутри
+       .lumen-hero__text. Раньше он был частью героя и исчезал вместе с ним
+       при «Герой: выключен», а в сжатом состоянии его срезала кромка кадра
+       (у героя overflow:hidden). Теперь чипы на главной есть при любом
+       размере героя, включая выключенный. Класс .lumen-moods-on на корне
+       ставит LC.moods (src/49_moods.js) — им же раскладка узнаёт, что под
+       чипы нужно место.
+       pointer-events блоку больше не нужны: он вне героя, а тот один во всём
+       плагине отключает указатель.
        Чипы используют те же токены акцента, что хабовые .lumen-chip. */
-    css.push('.lumen-hero .lumen-moods{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;margin-top:.79em;pointer-events:auto}');
-    css.push('.lumen-hero .lumen-mood-chip{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;height:2.46em;padding:0 1.05em;margin:0 .53em .53em 0;border-radius:.53em;border:.04em solid ' + P.line + ';background:' + P.chipBg + ';font-family:' + FB + ';font-weight:600;font-size:.88em;line-height:1;color:' + P.muted + ';white-space:nowrap;cursor:default;-webkit-transition:background-color .2s,border-color .2s,color .2s;transition:background-color .2s,border-color .2s,color .2s}');
-    css.push('.lumen-hero .lumen-mood-chip.focus{background:' + A + ';color:' + t.onac + ';border-color:' + AL + ';border-width:.11em}');
-    /* Motion-off и lite: класс ставится на .lumen-hero (applyMotion), поэтому
-       правило отключения перехода вешаем на героя — не на .lumen-main. */
-    css.push('.lumen-hero.lumen-motion-off .lumen-mood-chip,.lumen-hero.lumen-motion-lite .lumen-mood-chip{-webkit-transition:none;transition:none}');
+    css.push('.lumen-moods{position:absolute;left:2.81em;right:2.81em;z-index:2;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap}');
+    /* С героем полоса стоит в воздухе над первым рядом, слегка перекрывая
+       нижнюю кромку кадра, — там картинка уже растворилась в фон. Так чипы
+       не отнимают у текста ни em высоты: кадр и без них считается впритык
+       (см. бюджет textNeedEm). При переносе строк полоса растёт вверх, на
+       ряды она не налезает. В сжатом состоянии чипы уходят: на листании они
+       не нужны, а ряды поднимаются как раз на их место. */
+    css.push('.lumen-main .lumen-moods{bottom:' + round2(heroCut + 0.4) + 'em}');
+    css.push('.lumen-main.lumen-rows-up .lumen-moods{display:none}');
+    /* Герой выключен настройкой: узла героя нет и класса .lumen-main на
+       активности нет тоже — чипы встают под штатной шапкой Lampa, а ряды
+       опускаются на высоту их полосы (иначе полоса легла бы на первый ряд). */
+    css.push('.lumen-moods-on:not(.lumen-main) .lumen-moods{top:.53em}');
+    css.push('.lumen-moods-on:not(.lumen-main) .scroll.layer--wheight{margin-top:' + MOODS_BAR + 'em;height:-webkit-calc(100vh - ' + round2(LAMPA_HEAD + MOODS_BAR) + 'em) !important;height:calc(100vh - ' + round2(LAMPA_HEAD + MOODS_BAR) + 'em) !important}');
+    css.push('.lumen-mood-chip{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;height:2.46em;padding:0 1.05em;margin:0 .53em .53em 0;border-radius:.53em;border:.04em solid ' + P.line + ';background:' + P.chipBg + ';font-family:' + FB + ';font-weight:600;font-size:.88em;line-height:1;color:' + P.muted + ';white-space:nowrap;cursor:default;-webkit-transition:background-color .2s,border-color .2s,color .2s;transition:background-color .2s,border-color .2s,color .2s}');
+    css.push('.lumen-mood-chip.focus{background:' + A + ';color:' + t.onac + ';border-color:' + AL + ';border-width:.11em}');
+    /* Режим анимаций читается с body (его держит LC.applyMotionMode, пока
+       плагин активен): чипы больше не лежат внутри героя, и его собственный
+       класс режима до них не достаёт. */
+    css.push('body.lumen-motion-off .lumen-mood-chip,body.lumen-motion-lite .lumen-mood-chip{-webkit-transition:none;transition:none}');
 
     /* Ряды живут в СВОЕЙ области — под героем. Сдвигается сама область
        прокрутки (margin-top + height), а не содержимое (padding-top).
@@ -1408,9 +1577,60 @@
        На ТВ и в обычном окне браузера (16:9, 16:10, 21:9) правило не
        срабатывает; за порогом плагин отдаёт весь экран рядам и кадр героя
        не показывает — показывать его там негде. */
-    var heroMinRatio = Math.round(84.17 / (LAMPA_HEAD + rowsArea) * 100);
+    /* Правка пользователя 2026-09-17 (второй круг, главное): «когда начинаем
+       листать список фильмов, ряды должны быть подняты».
+
+       Что было: сжатый герой (фокус ниже первого ряда) отдавал 28 % своей
+       высоты никому — область рядов оставалась на месте, и под кадром зияла
+       пустая полоса в половину экрана (замер живьём при 1920×1080 и среднем
+       герое: низ кадра 351 px, верх ряда 488 px — 137 px пустоты).
+
+       Теперь та же величина достаётся рядам: класс .lumen-rows-up на корне
+       (его ставит LC.hero там же, где .lumen-hero--compact, — второго
+       источника правды о фокусе не заводим) расширяет область вверх ровно
+       на столько, на сколько уменьшился кадр. Арифметика та же, что у
+       верхнего состояния, только высота кадра теперь 72vh − compactCut:
+         верх первого ряда = 72vh − compactCut,
+         область = 2.5em (отступ Lampa над фокусным рядом) + compactCut + 28vh,
+         отступ сверху = 100vh − 4em − область = 72vh − (4em + область).
+       Проверка смыкания — в тестах css: низ кадра обязан отставать от верха
+       ряда ровно на HERO_AIR в ОБОИХ состояниях.
+
+       Переход плавный только в режиме полных анимаций, как и высота самого
+       кадра: класс режима стоит на герое, а он — сосед .activity__body в
+       корне активности, поэтому до области прокрутки правило дотягивается
+       соседним комбинатором, не заводя второго класса. Кривая и длительность
+       те же, что у высоты кадра: обе величины линейны по vh и em, поэтому в
+       каждый момент перехода низ кадра и верх ряда сходятся, и пустой зоны
+       не возникает ни в одном промежуточном положении. */
+    var compactArea = compactAreaEm(scale);
+    var compactTop = round2(LAMPA_HEAD + compactArea);
+    css.push('.lumen-main.lumen-rows-up .scroll.layer--wheight{margin-top:-webkit-calc(72vh - ' + compactTop + 'em);margin-top:calc(72vh - ' + compactTop + 'em);height:-webkit-calc(28vh + ' + compactArea + 'em) !important;height:calc(28vh + ' + compactArea + 'em) !important}');
+    css.push('.lumen-main .lumen-hero.lumen-motion-full ~ .activity__body .scroll.layer--wheight{-webkit-transition:margin-top .42s cubic-bezier(.2,.8,.2,1),height .42s cubic-bezier(.2,.8,.2,1);transition:margin-top .42s cubic-bezier(.2,.8,.2,1),height .42s cubic-bezier(.2,.8,.2,1)}');
+
+    /* Два порога низкого окна. Оба выражены отношением сторон: em Lampa
+       считается от ШИРИНЫ (innerWidth / 84.17), поэтому «высоты в em не
+       хватает» — это ровно «экран слишком широк по отношению к высоте».
+
+       Первый: кадру не хватает высоты на описание — тогда в нём остаются
+       мета, логотип и рейтинг (текст прижат к низу, лишние строки срезало бы
+       верхней кромкой безопасной зоны).
+       Второй: не помещается и этот минимум — героя не показываем вовсе, ряды
+       занимают экран целиком, как при «Герой: выключен», а чипы настроения
+       встают полосой под шапкой (правила ниже — те же, что в режиме без
+       героя, но специфичнее, потому что класс .lumen-main здесь остаётся).
+       Промежуточных состояний между ними нет: либо содержимое помещается
+       целиком, либо кадра нет — это и есть страховка от наложений на шапку
+       Lampa и друг на друга, найденных пользователем на низком окне. */
+    var descrMinRatio = Math.round(84.17 / (heroCut + HERO_AIR + textNeedEm(true)) * 100);
+    css.push('@media screen and (min-aspect-ratio:' + descrMinRatio + '/100){' +
+      '.lumen-hero .lumen-hero__descr,.lumen-hero .lumen-hero__sk--descr,.lumen-hero .lumen-hero__sk--short{display:none}}');
+
+    var heroMinRatio = Math.round(84.17 / (heroCut + HERO_AIR + textNeedEm(false)) * 100);
     css.push('@media screen and (min-aspect-ratio:' + heroMinRatio + '/100){' +
-      '.lumen-main .scroll.layer--wheight{margin-top:0;height:-webkit-calc(100vh - 4em) !important;height:calc(100vh - 4em) !important;overflow:hidden}' +
+      '.lumen-main .scroll.layer--wheight,.lumen-main.lumen-rows-up .scroll.layer--wheight{margin-top:0;height:-webkit-calc(100vh - 4em) !important;height:calc(100vh - 4em) !important;overflow:hidden}' +
+      '.lumen-moods-on.lumen-main .lumen-moods{top:.53em;bottom:auto}' +
+      '.lumen-moods-on.lumen-main .scroll.layer--wheight,.lumen-moods-on.lumen-main.lumen-rows-up .scroll.layer--wheight{margin-top:' + MOODS_BAR + 'em;height:-webkit-calc(100vh - ' + round2(LAMPA_HEAD + MOODS_BAR) + 'em) !important;height:calc(100vh - ' + round2(LAMPA_HEAD + MOODS_BAR) + 'em) !important}' +
       '.lumen-hero{display:none}}');
 
     /* --- Фаза 3 (долг фазы 2): карточка ряда главной (design-spec-main §0.4) ---
@@ -1444,7 +1664,14 @@
     css.push('.lumen-main .card__age{font-family:' + FM + ';font-size:' + round2(.88 * scale) + 'em;line-height:1;margin-top:.25em;color:' + P.muted + '}');
     css.push('.lumen-main .items-line__title{font-family:' + FD + ';font-weight:700;font-size:' + round2(1.23 * scale) + 'em}');
     css.push('.lumen-main .items-line{padding-bottom:1.4em}');
-    css.push('.lumen-main .items-line__head{margin-bottom:.7em}');
+    /* Правка пользователя 2026-09-17 (второй круг): «левый край логотипа и
+       левый край „Сейчас смотрят“ должны стоять на одной линии». У Lampa и
+       заголовок ряда, и лента карточек отступают от кромки на 1.5em, а
+       safe area плагина — 2.81em (§0.1), по ней стоит текст героя. Двигаем
+       ряды к ней, а не героя к Lampa: 1.5em — это меньше безопасной зоны
+       телевизора, на ТВ такой отступ съедает оверскан. */
+    css.push('.lumen-main .items-line__head{margin-bottom:.7em;padding-left:2.81em}');
+    css.push('.lumen-main .items-line .scroll__content{padding-left:2.81em}');
     css.push('.lumen-main .card.focus .card__view:after{border-width:.13em;border-color:' + AL + ';border-radius:.44em;-webkit-box-shadow:0 .7em 1.97em ' + AG + ';box-shadow:0 .7em 1.97em ' + AG + '}');
 
     /* --- Task 25: метки на постерах рядов (главная и сетка подборки) ---

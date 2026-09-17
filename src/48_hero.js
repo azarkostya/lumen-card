@@ -553,13 +553,28 @@
       }
     }
 
-    /* Фокус ниже первого ряда — герой сжимается до 42 % (design-spec-main
-       §0.2, раскадровка 23б). Мини-герой сетки сжат всегда. */
+    /* Сжатое состояние: кадр уменьшается до 42 % (design-spec-main §0.2,
+       раскадровка 23б), а освободившуюся высоту забирают ряды — они
+       поднимаются под самый кадр.
+
+       Правка пользователя 2026-09-17 (второй круг): класс на корне
+       активности (.lumen-rows-up) — это и есть та передача места. Раньше
+       сжимался только кадр, и под ним оставалась пустая полоса в половину
+       экрана. Второго признака «фокус ниже первого ряда» не заводим: и кадр,
+       и ряды переключает одна эта функция, а слушателей прокрутки у нас
+       по-прежнему нет. */
+    function setCompact(on) {
+      if (!state) return;
+      state.node.toggleClass('lumen-hero--compact', on);
+      try { state.root.toggleClass('lumen-rows-up', on); } catch (e) {}
+    }
+
+    /* Фокус ниже первого ряда — герой сжат. Мини-герой сетки сжат всегда. */
     function updateCompact(el) {
       if (!state || state.fixedCompact) return;
       var index = rowIndex(el);
       if (index < 0) return;
-      state.node.toggleClass('lumen-hero--compact', index > 0);
+      setCompact(index > 0);
     }
 
     function onFocus(el) {
@@ -641,12 +656,12 @@
        монтируется вовсе — ни узла, ни наблюдателя, ни запросов деталей, а
        без класса .lumen-main на активности к рядам не применяются и наши
        правила размера: главная выглядит штатной Lampa, ряды занимают экран
-       целиком. Последствие, о котором надо помнить: чипы профилей настроения
-       живут ВНУТРИ текстового блока героя (src/49_moods.js), поэтому с
-       выключенным героем их на экране нет — их собственная настройка при
-       этом ничего не меняет. */
+       целиком. Чипы профилей настроения (src/49_moods.js) при этом остаются:
+       с правки 2026-09-17 (второй круг) они монтируются своим узлом в корень
+       активности и от героя не зависят — раскладка опускает под их полосу
+       ряды. */
     function sizeOff() {
-      try { return LC.pref ? LC.pref('lumen_hero_size', 'medium') === 'off' : false; } catch (e) { return false; }
+      try { return LC.pref ? LC.pref('lumen_hero_size', 'large') === 'off' : false; } catch (e) { return false; }
     }
 
     function mount(root, opts) {
@@ -689,7 +704,7 @@
           frameUrl: '',
           fixedCompact: !!opts.compact
         };
-        if (opts.compact) node.addClass('lumen-hero--compact');
+        if (opts.compact) setCompact(true);
         applyMotion();
         observe(root);
         showFocused(root);
@@ -736,7 +751,9 @@
       }
       try { if (s.net && s.net.clear) s.net.clear(); } catch (eN) {}
       try { s.node.remove(); } catch (eR) {}
-      try { s.root.removeClass(s.hostClass); } catch (eC) {}
+      /* Класс подъёма рядов снимается вместе с хостовым: без героя область
+         прокрутки обязана вернуться к штатной раскладке Lampa. */
+      try { s.root.removeClass(s.hostClass).removeClass('lumen-rows-up'); } catch (eC) {}
     }
 
     /* Герой принадлежит этой активности? Для главной его корень — сама
