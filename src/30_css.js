@@ -285,11 +285,22 @@
        на тот же коэффициент — иначе пороги считали бы старый текст. */
   var HERO_COMPACT = 0.72;
   var HERO_AIR = 2.4;
-  var MOODS_H = 2.63;
+  /* Чип: высота 2.46em и нижний отступ .53em в его собственном кегле (.88em
+     в верхнем состоянии, .8em в сжатом — правка третьего круга, пользователь
+     попросил те же чипы и на листании, а высоты там меньше). Отсюда высота
+     всей полосы в базовых em. */
+  var CHIP_BOX = 2.99;
+  var CHIP_ZOOM = 0.88;
+  var CHIP_ZOOM_COMPACT = 0.8;
+  var MOODS_H = round2(CHIP_BOX * CHIP_ZOOM);
+  var MOODS_H_COMPACT = round2(CHIP_BOX * CHIP_ZOOM_COMPACT);
   var MOODS_GAP = 0.8;
   var MOODS_BAR = round2(MOODS_H + MOODS_GAP);
   var HERO_HEAD_SAFE = 4.4;
   var TEXT_BOTTOM = 1.6;
+  /* В сжатом состоянии отступ снизу меньше: высоты там меньше, а полоса
+     чипов теперь занимает место и в нём (правка третьего круга). */
+  var TEXT_BOTTOM_COMPACT = 1.2;
   var TEXT_META = 1.06;
   var TEXT_LOGO = 4.8;
   var TEXT_LOGO_SMALL = 3.6;
@@ -340,10 +351,16 @@
   /* Сколько высоты просит содержимое СЖАТОГО кадра вместе с описанием в одну
      строку. Из этой величины считается порог, ниже которого на листании
      остаются только логотип и рейтинг. */
-  function compactNeedEm() {
+  /* Сколько высоты просит содержимое СЖАТОГО кадра. Приоритет при нехватке
+     (правка третьего круга, порядок задан пользователем): мета → логотип →
+     чипы → описание, поэтому бюджет считается в двух вариантах и порогов
+     тоже два: без описания мета остаётся дольше. Полоса чипов входит в оба —
+     она видна и на листании. */
+  function compactNeedEm(withDescr) {
     var small = heroSmallText();
-    var inner = TEXT_RATE + TEXT_LOGO_SMALL + TEXT_DESCR_ONE + (small ? 0 : TEXT_META);
-    return round2(HERO_HEAD_SAFE + TEXT_BOTTOM + inner * TEXT_ZOOM_COMPACT);
+    var inner = TEXT_RATE + TEXT_LOGO_SMALL + (small ? 0 : TEXT_META);
+    if (withDescr) inner += TEXT_DESCR_ONE;
+    return round2(HERO_HEAD_SAFE + TEXT_BOTTOM_COMPACT + MOODS_GAP + MOODS_H_COMPACT + inner * TEXT_ZOOM_COMPACT);
   }
 
   /* Корни, на которые вешается коэффициент. Каждый из них — самостоятельный
@@ -1447,7 +1464,7 @@
        происходит мгновенно, как и всё остальное. */
     var textBottomMoods = round2(MOODS_GAP + MOODS_H + TEXT_BOTTOM);
     css.push('.lumen-moods-on .lumen-hero .lumen-hero__text{bottom:' + round2(textBottomMoods / TEXT_ZOOM) + 'em}');
-    css.push('.lumen-moods-on.lumen-rows-up .lumen-hero .lumen-hero__text{bottom:' + round2(TEXT_BOTTOM / TEXT_ZOOM_COMPACT) + 'em}');
+    css.push('.lumen-moods-on.lumen-rows-up .lumen-hero .lumen-hero__text{bottom:' + round2((MOODS_GAP + MOODS_H_COMPACT + TEXT_BOTTOM_COMPACT) / TEXT_ZOOM_COMPACT) + 'em}');
     css.push('.lumen-hero .lumen-hero__meta{font-family:' + FM + ';font-weight:400;font-size:.88em;line-height:1.2;letter-spacing:.03em;color:' + P.muted + '}');
     /* Логотип фильма — фоном (contain), максимум 30.69em = 700 px FHD (§0.2).
        Отдельного <img> нет: единственный путь к картинкам — прокси TMDB. */
@@ -1544,7 +1561,18 @@
        растёт вверх, в кадр. В сжатом состоянии чипы уходят вместе с
        описанием: на листании они не нужны, а ряды поднимаются на их место. */
     css.push('.lumen-main .lumen-moods{bottom:' + round2(heroCut + HERO_AIR + MOODS_GAP) + 'em}');
-    css.push('.lumen-main.lumen-rows-up .lumen-moods{display:none}');
+    /* Правка пользователя 2026-09-17 (третий круг): «а добавить такие же
+       теги?» — полоса остаётся и на листании. Нижняя кромка сжатого кадра —
+       это 28vh + (compactCut + HERO_AIR)em от низа экрана, полоса встаёт над
+       ней на тот же зазор, что и в верхнем состоянии. Блок не появляется и
+       не исчезает: между состояниями меняются только его место и кегль
+       чипов, поэтому переход — одно движение (transition ниже), а не
+       подмена. Чипы в сжатом чуть мельче (.8em против .88em): без этого
+       содержимому не хватает высоты, но нажимаемыми они остаются — высота
+       чипа 1.97em, то есть 45 px при 1920×1080. */
+    css.push('.lumen-main.lumen-rows-up .lumen-moods{bottom:-webkit-calc(28vh + ' + round2(heroCompactCut + HERO_AIR + MOODS_GAP) + 'em);bottom:calc(28vh + ' + round2(heroCompactCut + HERO_AIR + MOODS_GAP) + 'em)}');
+    css.push('.lumen-main.lumen-rows-up .lumen-mood-chip{font-size:' + CHIP_ZOOM_COMPACT + 'em}');
+    css.push('body.lumen-motion-full .lumen-moods{-webkit-transition:bottom .42s cubic-bezier(.2,.8,.2,1);transition:bottom .42s cubic-bezier(.2,.8,.2,1)}');
     /* Герой выключен настройкой: узла героя нет и класса .lumen-main на
        активности нет тоже — чипы встают под штатной шапкой Lampa, а ряды
        опускаются на высоту их полосы (иначе полоса легла бы на первый ряд). */
@@ -1694,9 +1722,11 @@
        Условие то же по форме, что у порогов выше, только высота кадра здесь
        72vh − (compactCut + HERO_AIR)em, отсюда множитель .72. Ниже порога на
        листании остаются логотип и рейтинг — то, что помещается всегда. */
-    var compactTextMaxRatio = Math.round(84.17 * HERO_COMPACT / (heroCompactCut + HERO_AIR + compactNeedEm()) * 100);
-    css.push('@media screen and (max-aspect-ratio:' + compactTextMaxRatio + '/100){' +
-      '.lumen-hero.lumen-hero--compact .lumen-hero__meta{display:block}' +
+    var compactMetaMaxRatio = Math.round(84.17 * HERO_COMPACT / (heroCompactCut + HERO_AIR + compactNeedEm(false)) * 100);
+    css.push('@media screen and (max-aspect-ratio:' + compactMetaMaxRatio + '/100){' +
+      '.lumen-hero.lumen-hero--compact .lumen-hero__meta{display:block}}');
+    var compactDescrMaxRatio = Math.round(84.17 * HERO_COMPACT / (heroCompactCut + HERO_AIR + compactNeedEm(true)) * 100);
+    css.push('@media screen and (max-aspect-ratio:' + compactDescrMaxRatio + '/100){' +
       '.lumen-hero.lumen-hero--compact .lumen-hero__descr{display:-webkit-box;-webkit-line-clamp:1}}');
 
     var heroMinRatio = Math.max(HERO_MIN_RATIO, Math.round(84.17 / (heroCut + HERO_AIR + textNeedEm(false)) * 100));

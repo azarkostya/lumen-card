@@ -1473,9 +1473,17 @@ test('правка: текст героя прижат к низу кадра и
   assert.ok(content.indexOf('padding-left:2.81em') !== -1, 'лента карточек не выровнена по safe area: ' + content);
 
   /* Полоса чипов стоит внутри кадра, над его кромкой (20.6 ряда + 2.4
-     воздуха + .8 зазора), а низ текста поднят над самой полосой. */
+     воздуха + .8 зазора), а низ текста поднят над самой полосой.
+     Правка третьего круга: на листании полоса не исчезает, а переезжает к
+     кромке сжатого кадра — 28vh + (14.83 + 2.4 + .8)em. */
   assert.equal(findDecl(css, (sel) => sel === '.lumen-main .lumen-moods'), 'bottom:23.8em');
-  assert.equal(findDecl(css, (sel) => sel === '.lumen-main.lumen-rows-up .lumen-moods'), 'display:none');
+  const moodsUp = findDecl(css, (sel) => sel === '.lumen-main.lumen-rows-up .lumen-moods');
+  assert.ok(moodsUp.indexOf('bottom:calc(28vh + 18.03em)') !== -1, 'полоса чипов на листании: ' + moodsUp);
+  assert.equal(/display\s*:\s*none/.test(moodsUp), false, 'чипы обязаны оставаться видимыми на листании: ' + moodsUp);
+  /* В сжатом чипы мельче — иначе содержимому не хватает высоты, — но не
+     микроскопические: 2.46em × .8 = 1.97em, то есть 45 px при 1920×1080. */
+  assert.equal(findDecl(css, (sel) => sel === '.lumen-main.lumen-rows-up .lumen-mood-chip'), 'font-size:0.8em');
+  assert.ok(2.46 * 0.8 * 22.811 > 40, 'чип в сжатом обязан остаться нажимаемым');
 });
 
 /* Замер пользователя на живой вкладке 1153×798: чипы 474…510 при низе кадра
@@ -1524,6 +1532,24 @@ test('раскладка героя: кадр, полоса чипов, текс
       assert.ok(textBottom >= moodsTop - heroBottom, label + ': текст налезает на полосу чипов (' + textBottom + ' против ' + (moodsTop - heroBottom) + ')');
       /* И воздух между кадром и заголовком ряда остаётся тем же. */
       assert.ok(Math.abs((heroBottom - rowTop) - 2.4) < 0.01, label + ': воздух над заголовком ряда ' + (heroBottom - rowTop));
+
+      /* То же самое в СЖАТОМ состоянии (правка третьего круга: чипы видны и
+         там). Все величины здесь считаются от низа экрана как 28vh + Xem —
+         сравниваем добавки в em при одинаковой доле экрана. */
+      const heroC = parseFloat(/height:calc\(72vh - ([0-9.]+)em\)/.exec(decl('.lumen-hero.lumen-hero--compact'))[1]);
+      const rowsC = decl('.lumen-main.lumen-rows-up .scroll.layer--wheight');
+      const compactArea = parseFloat(/height:calc\(28vh \+ ([0-9.]+)em\) !important/.exec(rowsC)[1]);
+      const moodsC = parseFloat(/bottom:calc\(28vh \+ ([0-9.]+)em\)/.exec(decl('.lumen-main.lumen-rows-up .lumen-moods'))[1]);
+      const chipZoomC = num(decl('.lumen-main.lumen-rows-up .lumen-mood-chip'), 'font-size');
+      const chipHC = num(chip, 'height') * chipZoomC;
+      const chipGapC = parseFloat(/margin:0 [0-9.]+em ([0-9.]+)em/.exec(chip)[1]) * chipZoomC;
+      const textC = num(decl('.lumen-moods-on.lumen-rows-up .lumen-hero .lumen-hero__text'), 'bottom') *
+        num(decl('.lumen-hero.lumen-hero--compact .lumen-hero__text'), 'font-size');
+      /* Кромка сжатого кадра и верх сжатого ряда — обе от 28vh. */
+      const rowTopC = compactArea - 2.5;
+      assert.ok(Math.abs((heroC - rowTopC) - 2.4) < 0.01, label + ' (сжатое): воздух над заголовком ряда ' + (heroC - rowTopC));
+      assert.ok(moodsC - heroC >= 0.5, label + ' (сжатое): полоса чипов свисает с кромки кадра (' + moodsC + ' против ' + heroC + ')');
+      assert.ok(textC >= moodsC + chipHC + chipGapC - heroC, label + ' (сжатое): текст налезает на полосу чипов (' + textC + ')');
     }
   }
 });
@@ -1691,17 +1717,29 @@ test('решение «рисовать кадр»: в обычных окнах
    описания». Оно вернулось одной строкой вместе с мета-строкой — там, где
    сжатому кадру хватает высоты. */
 test('сжатое состояние: описание в одну строку возвращается, когда помещается', () => {
-  const compactMedia = (built) => built.split('\n').find((l) => l.indexOf('@media screen and (max-aspect-ratio:') === 0 && l.indexOf('lumen-hero--compact') !== -1);
-  const ratioOf = (built) => parseInt(/max-aspect-ratio:(\d+)\/100/.exec(compactMedia(built))[1], 10) / 100;
+  /* Порогов два: мета остаётся дольше описания — таков приоритет при
+     нехватке высоты (мета → логотип → чипы → описание). */
+  const mediaWith = (built, needle) => built.split('\n').find((l) => l.indexOf('@media screen and (max-aspect-ratio:') === 0 && l.indexOf(needle) !== -1);
+  const ratioOf = (built) => parseInt(/max-aspect-ratio:(\d+)\/100/.exec(mediaWith(built, 'lumen-hero__descr'))[1], 10) / 100;
+  const metaRatioOf = (built) => parseInt(/max-aspect-ratio:(\d+)\/100/.exec(mediaWith(built, 'lumen-hero__meta'))[1], 10) / 100;
 
   const large = withStorage({ lumen_hero_size: 'large' }, (LC) => LC.buildCss());
-  const line = compactMedia(large);
+  const line = mediaWith(large, 'lumen-hero__descr');
   assert.ok(line.indexOf('.lumen-hero.lumen-hero--compact .lumen-hero__descr{display:-webkit-box;-webkit-line-clamp:1}') !== -1, 'описание в сжатом обязано быть в одну строку: ' + line);
-  assert.ok(line.indexOf('.lumen-hero.lumen-hero--compact .lumen-hero__meta{display:block}') !== -1, 'мета-строка в сжатом: ' + line);
+  assert.ok(mediaWith(large, 'lumen-hero__meta').indexOf('.lumen-hero.lumen-hero--compact .lumen-hero__meta{display:block}') !== -1, 'мета-строка в сжатом');
+  assert.ok(metaRatioOf(large) > ratioOf(large), 'мета обязана переживать описание (приоритет пользователя)');
+  /* На телевизоре (16:9) мета в сжатом остаётся, а описание уступает чипам. */
+  for (const [w, h] of [[1920, 1080], [1280, 720]]) {
+    assert.ok(w / h <= metaRatioOf(large), 'на ' + w + '×' + h + ' мета в сжатом пропала');
+  }
 
-  /* Крупный кадр на телевизоре и в окне пользователя описание показывает. */
-  for (const [w, h] of [[1920, 1080], [1280, 720], [1153, 798]]) {
-    assert.ok(w / h <= ratioOf(large), 'крупный кадр ' + w + '×' + h + ': описание в сжатом пропало');
+  /* Приоритет при нехватке высоты (правка третьего круга): мета → логотип →
+     чипы → описание. Полоса чипов занимает место и в сжатом, поэтому
+     описание остаётся там, где окно выше 16:9 (окно пользователя 1153×798),
+     а на 16:9 уступает чипам первым. */
+  assert.ok(1153 / 798 <= ratioOf(large), 'окно 1153×798: описание в сжатом пропало');
+  for (const [w, h] of [[1920, 1080], [1280, 720]]) {
+    assert.ok(w / h > ratioOf(large), 'на ' + w + '×' + h + ' описание обязано уступать место чипам');
   }
   /* У мелких кадров высоты на него нет — и правило честно не срабатывает,
      вместо того чтобы срезать текст верхней кромкой. */
@@ -1825,7 +1863,7 @@ test('Task 18: сдвигается область прокрутки рядов
      поэтому правило и стоит под корнем главной. */
   const offenders = ruleSelectors(css).filter((sel) => sel.indexOf('.lumen-main') === 0 &&
     sel.indexOf('layer--wheight') === -1 &&
-    sel.indexOf('.lumen-badge') === -1 && sel.indexOf('.lumen-moods') === -1 &&
+    sel.indexOf('.lumen-badge') === -1 && sel.indexOf('.lumen-moods') === -1 && sel.indexOf('.lumen-mood-chip') === -1 &&
     sel.indexOf('.card') === -1 && sel.indexOf('.items-line') === -1);
   assert.deepEqual(offenders, [], 'под .lumen-main только область прокрутки, карточки рядов, метки, чипы настроения и сами ряды');
   assert.equal(ruleSelectors(css).filter((sel) => sel.indexOf('.lumen-main .scroll--horizontal') === 0).length, 0,
