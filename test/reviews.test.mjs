@@ -985,3 +985,188 @@ test('ревью п.2: рейтинг КП не уезжает на чужую �
   assert.equal(rates[0].row, b.row, 'чип ищется в активности запросившей карточки');
   assert.deepEqual(warnLog, []);
 });
+
+/* ====================================================================== */
+/* Task 28 (фаза 3): отзывы без спойлеров и режим заголовков.             */
+/*                                                                        */
+/* Разметки «спойлер» в ответе kinopoiskapiunofficial.tech нет: элемент    */
+/* items[] отдаёт description обычной строкой (docs/research/                */
+/* API_NOTES_2.md §4, «полная схема»), и живьём это не проверить — ключа   */
+/* у пользователя нет. Поэтому спойлеры распознаются тремя правилами, и    */
+/* все три проверены здесь на текстах, собранных по образцу отзывов        */
+/* Кинопоиска.                                                             */
+/* ====================================================================== */
+
+test('splitSpoilers: явная обёртка — скрыт только её текст, сами метки уходят', () => {
+  const segs = r.splitSpoilers('Начало обычное. [spoiler]Герой оказывается отцом злодея.[/spoiler] Снято хорошо.');
+  assert.deepEqual(segs.map((s) => s.s), [false, true, false]);
+  assert.equal(segs[1].t, 'Герой оказывается отцом злодея.');
+  assert.equal(segs[0].t.indexOf('[spoiler]'), -1, 'метки в текст не попадают');
+});
+
+test('splitSpoilers: <spoiler> и <span class="spoiler"> — те же обёртки', () => {
+  assert.deepEqual(r.splitSpoilers('А <spoiler>Б</spoiler> В').map((s) => [s.t.trim(), s.s]), [['А', false], ['Б', true], ['В', false]]);
+  assert.deepEqual(r.splitSpoilers('А <span class="spoiler">Б</span> В').map((s) => [s.t.trim(), s.s]), [['А', false], ['Б', true], ['В', false]]);
+});
+
+test('splitSpoilers: предупреждение прячет весь остаток текста', () => {
+  const segs = r.splitSpoilers('Смотреть стоит. Осторожно, спойлеры! Героиня умирает в первой трети. И дальше всё рушится.');
+  assert.equal(segs.length, 2);
+  assert.equal(segs[0].s, false);
+  assert.equal(segs[0].t.trim(), 'Смотреть стоит.');
+  assert.equal(segs[1].s, true);
+  assert.ok(segs[1].t.indexOf('И дальше всё рушится.') >= 0, 'от предупреждения и до конца — под замком');
+});
+
+test('splitSpoilers: отдельное предложение с маркером, соседние остаются открытыми', () => {
+  const segs = r.splitSpoilers('Картинка отличная. В финале героя убивают. Музыка тоже хороша.');
+  assert.deepEqual(segs.map((s) => s.s), [false, true, false]);
+  assert.equal(segs[1].t.trim(), 'В финале героя убивают.');
+});
+
+test('splitSpoilers: текст без маркеров — один открытый сегмент; пустой вход — пусто', () => {
+  assert.deepEqual(r.splitSpoilers('Хорошее кино про песок и политику.').map((s) => s.s), [false]);
+  assert.deepEqual(r.splitSpoilers(''), []);
+  assert.deepEqual(r.splitSpoilers(null), []);
+});
+
+test('normalize: спойлер вырезан из выдержки, но целиком есть в частях модала', () => {
+  const item = r.normalize({
+    items: [{
+      type: 'POSITIVE', author: 'Аня', title: 'Отлично',
+      description: 'Картинка отличная. В финале героя убивают. Музыка тоже хороша.'
+    }]
+  })[0];
+  assert.equal(item.spoiler, true);
+  assert.equal(item.excerpt.indexOf('убивают'), -1, 'в ряду спойлера нет');
+  assert.ok(item.excerpt.indexOf('Картинка отличная') >= 0);
+  assert.deepEqual(item.parts.map((p) => p.s), [false, true, false]);
+  assert.ok(item.parts[1].t.indexOf('убивают') >= 0);
+  assert.equal(item.full, '', 'со спойлерами текст хранится частями, вторым полем кэш не дублируется');
+});
+
+/* Отзыв без спойлеров частями не хранится: его текст целиком лежит в full,
+   как и до Task 28, — иначе кэш отзывов (8 фильмов × 12 отзывов × 4000
+   символов) вырос бы вдвое на ровном месте. Части появляются только там, где
+   есть что скрывать, и тогда full не пишется вовсе. */
+test('normalize: без спойлеров частей нет, текст остаётся в full и экранируется', () => {
+  const item = r.normalize({ items: [{ description: 'Текст <b>жирный</b> и «кавычки».' }] })[0];
+  assert.equal(item.spoiler, false);
+  assert.deepEqual(item.parts, []);
+  assert.ok(item.full.indexOf('&lt;b&gt;') >= 0, 'разметка автора экранируется');
+});
+
+test('normalize: заголовок со спойлером заменяется первым чистым предложением', () => {
+  const item = r.normalize({
+    items: [{ title: 'В финале героя убивают', description: 'Отличная работа оператора. А потом всё портит концовка.' }]
+  })[0];
+  assert.equal(item.title.indexOf('убивают'), -1, 'спойлерный заголовок на экран не выносим');
+  assert.ok(item.title.indexOf('Отличная работа оператора') >= 0);
+});
+
+test('normalize: весь текст под спойлером — выдержки нет, карточка остаётся с заголовком', () => {
+  const item = r.normalize({ items: [{ title: 'Мысли', description: '[spoiler]Он был мёртв всё это время.[/spoiler]' }] })[0];
+  assert.equal(item.spoiler, true);
+  assert.equal(item.excerpt, '');
+  assert.equal(item.title, 'Мысли');
+});
+
+test('render: режим заголовков (по умолчанию) — текста отзыва в ряду нет, метка спойлера есть', () => {
+  const env = freshEnv({ store: { lumen_kp_key: 'KEY' } });
+  const d = makeDescrRow();
+  env.LC.reviews.render(d.row, DUNE);
+  env.journal.calls[0].ok(SEARCH_OK);
+  env.journal.calls[1].ok({
+    total: 1,
+    items: [{ type: 'POSITIVE', author: 'Аня', title: 'Отлично', description: 'Картинка отличная. В финале героя убивают.' }]
+  });
+  const html = blocksOf(d)[0].html();
+  assert.equal(blocksOf(d)[0].hasClass('lumen-reviews--headlines'), true, 'режим — класс на блоке');
+  assert.equal(html.indexOf('Картинка отличная'), -1, 'текста в ряду нет вовсе');
+  assert.ok(html.indexOf('Отлично') >= 0, 'заголовок, автор и мета остаются');
+  assert.ok(html.indexOf('lumen-review__spoiler') >= 0, 'метка «есть спойлер»');
+  assert.deepEqual(warnLog, []);
+});
+
+test('render: режим «с текстом» показывает выдержку без спойлерных кусков', () => {
+  const env = freshEnv({ store: { lumen_kp_key: 'KEY', lumen_reviews_mode: 'full' } });
+  const d = makeDescrRow();
+  env.LC.reviews.render(d.row, DUNE);
+  env.journal.calls[0].ok(SEARCH_OK);
+  env.journal.calls[1].ok({
+    total: 1,
+    items: [{ type: 'POSITIVE', author: 'Аня', title: 'Отлично', description: 'Картинка отличная. В финале героя убивают.' }]
+  });
+  const html = blocksOf(d)[0].html();
+  assert.equal(blocksOf(d)[0].hasClass('lumen-reviews--headlines'), false);
+  assert.ok(html.indexOf('Картинка отличная') >= 0);
+  assert.equal(html.indexOf('убивают'), -1, 'спойлер не попадает в ряд и в этом режиме');
+});
+
+test('render: переключатель режима в шапке пишет настройку и возвращает фокус', () => {
+  const env = freshEnv({ store: { lumen_kp_key: 'KEY' } });
+  const d = makeDescrRow();
+  env.LC.reviews.render(d.row, DUNE);
+  env.journal.calls[0].ok(SEARCH_OK);
+  env.journal.calls[1].ok(REVIEWS_OK);
+
+  const block = blocksOf(d)[0];
+  const listener = (block._listeners || []).filter((l) => l.type === 'hover:enter')[0];
+  const toggle = new FakeEl(['lumen-reviews__mode', 'selector']);
+  toggle._parentEl = block;
+  listener.fn({ target: toggle });
+
+  assert.equal(env.store.lumen_reviews_mode, 'full', 'режим сохранён');
+  assert.deepEqual(env.toggled, ['full_descr'], 'фокус возвращён живой коллекции');
+});
+
+test('render: подпись ряда учитывает режим — смена режима перерисовывает, а не отсекается', () => {
+  const env = freshEnv({ store: { lumen_kp_key: 'KEY' } });
+  const d = makeDescrRow();
+  env.LC.reviews.render(d.row, DUNE);
+  env.journal.calls[0].ok(SEARCH_OK);
+  env.journal.calls[1].ok(REVIEWS_OK);
+  assert.equal(blocksOf(d)[0].hasClass('lumen-reviews--headlines'), true);
+
+  env.store.lumen_reviews_mode = 'full';
+  env.LC.reviews.render(d.row, DUNE);
+  assert.equal(blocksOf(d)[0].hasClass('lumen-reviews--headlines'), false, 'ряд перерисован из кэша, без похода в сеть');
+  assert.equal(env.journal.calls.length, 2, 'свежая запись кэша отдаёт отзывы без запросов');
+});
+
+test('modal: спойлер замазан, кнопка раскрытия открывает и закрывает его', () => {
+  const env = freshEnv({ store: { lumen_kp_key: 'KEY' } });
+  const item = env.LC.reviews.normalize({
+    items: [{ type: 'POSITIVE', author: 'Аня', title: 'Отлично', description: 'Картинка отличная. В финале героя убивают.' }]
+  })[0];
+  env.LC.reviews.openModal(item);
+
+  const root = env.modals[0].html;
+  const html = root.html();
+  assert.ok(html.indexOf('lumen-spoiler') >= 0, 'спойлерный кусок — в своём узле');
+  assert.ok(html.indexOf('lumen-review-modal__reveal') >= 0, 'кнопка раскрытия');
+
+  const listener = (root._listeners || []).filter((l) => l.type === 'hover:enter')[0];
+  const btn = new FakeEl(['lumen-review-modal__reveal', 'selector']);
+  btn._parentEl = root;
+  listener.fn({ target: btn });
+  assert.equal(root.hasClass('lumen-review-modal--open'), true, 'спойлеры раскрыты');
+  listener.fn({ target: btn });
+  assert.equal(root.hasClass('lumen-review-modal--open'), false, 'и закрываются обратно');
+  assert.deepEqual(warnLog, []);
+});
+
+test('modal: отзыву без спойлеров кнопка раскрытия не нужна', () => {
+  const env = freshEnv({ store: { lumen_kp_key: 'KEY' } });
+  const item = env.LC.reviews.normalize({ items: [{ description: 'Просто хорошее кино про песок.' }] })[0];
+  env.LC.reviews.openModal(item);
+  assert.equal(env.modals[0].html.html().indexOf('lumen-review-modal__reveal'), -1);
+});
+
+test('modal: запись старого формата (только full, без частей) читается как раньше', () => {
+  const env = freshEnv({ store: { lumen_kp_key: 'KEY' } });
+  env.LC.reviews.openModal({ tone: 'good', author: 'А', initials: 'А', title: 'Т', excerpt: 'э', full: 'полный текст', date: '01.01.2024', likes: 0 });
+  const html = env.modals[0].html.html();
+  assert.ok(html.indexOf('полный текст') >= 0);
+  assert.equal(html.indexOf('lumen-review-modal__reveal'), -1);
+});

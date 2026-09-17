@@ -94,6 +94,9 @@ function setup(opts) {
   LC.applyHeroSizePref = mark('herosize');
   /* Task 24 (фаза 3): акцент от постера — пересобирает CSS сам. */
   LC.applyAccentPref = mark('accent');
+  /* Task 28 (фаза 3): автотрейлер в кадре главной — выключение снимает
+     играющий ролик прямо у героя, своей точки в 90_runtime.js ему не нужно. */
+  LC.hero = { applyTrailer: mark('herotrailer') };
 
   return { LC, log, storage, params, components, subscribers, Storage, prependSubscriber: (cb) => subscribers.unshift(cb) };
 }
@@ -217,6 +220,12 @@ test('каждая настройка применяется ровно один
     lumen_font: ['fonts', 'css'],
     lumen_reviews: ['reviews'],
     lumen_kp_key: ['reviews'],
+    /* Task 28 (фаза 3): режим показа отзывов — перерисовка ряда открытой
+       карточки, та же точка, что у ключа API. */
+    lumen_reviews_mode: ['reviews'],
+    /* Task 28 (фаза 3): автотрейлер в кадре главной — снятие играющего
+       ролика у самого героя. */
+    lumen_hero_trailer: ['herotrailer'],
     lumen_menus: ['menus'],
     lumen_torrents: ['torrents'],
     /* Task 20: подсказка про ключ — перерисовка ряда отзывов карточки плюс

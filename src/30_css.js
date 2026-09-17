@@ -1131,8 +1131,77 @@
     /* Длинный отзыв прокручивается внутри модала: контроллер modal у Lampa
        двигает собственный скролл окна, а высота ограничена вьюпортом. */
     css.push('.lumen-review-modal__text{font-family:' + FB + ';font-weight:400;font-size:.96em;line-height:1.5;color:' + P.muted + ';max-height:50vh;overflow:auto}');
+    /* --- Task 28 (фаза 3): отзывы без спойлеров. --- */
+
+    /* Переключатель режима в шапке ряда: справа от счётчика отзывов, тем же
+       ростом, что метка источника. Включённое состояние — акцентом, как
+       чипы порядка ряда франшизы ниже. */
+    css.push('.lumen-descr-row .lumen-reviews__mode{margin-left:auto;padding:.35em .61em;border-radius:.44em;background:' + P.buttonBg + ';border:.04em solid ' + P.line + ';font-family:' + FB + ';font-weight:600;font-size:.70em;line-height:1.2;color:' + P.muted + '}');
+    css.push('.lumen-descr-row .lumen-reviews__mode--on{color:' + A + ';border-color:rgba(' + A_RGB + ',.5)}');
+    css.push('.lumen-descr-row .lumen-reviews__mode.focus{background:' + A + ';color:' + t.onac + ';border-color:' + AL + ';border-width:.11em}');
+    /* Метка «в отзыве есть спойлер» — внизу карточки, у самой кромки: она
+       обещает, что под OK ждёт скрытый кусок. */
+    css.push('.lumen-descr-row .lumen-review__spoiler{margin-top:auto;font-family:' + FM + ';font-weight:600;font-size:.61em;line-height:1;letter-spacing:.12em;color:' + P.spice + '}');
+    /* В режиме заголовков текста в карточке нет, и высота ей нужна меньше:
+       заголовку при этом достаётся две строки вместо одной. */
+    css.push('.lumen-descr-row .lumen-reviews--headlines .lumen-review{height:8.33em}');
+    css.push('.lumen-descr-row .lumen-reviews--headlines .lumen-review__title{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}');
+    /* Замазка спойлера в окне отзыва: текст на месте (высота окна не
+       прыгает при раскрытии), но не читается — плотная плашка цвета текста
+       поверх собственных букв. Никакого blur: на ТВ он дорог, а на движке без
+       фильтров буквы остались бы видны. */
+    css.push('.lumen-review-modal .lumen-spoiler{border-radius:.26em;background:rgba(' + P.textRgb + ',.22);color:transparent}');
+    css.push('.lumen-review-modal--open .lumen-spoiler{background:rgba(' + A_RGB + ',.14);color:' + P.text + '}');
+    css.push('body.lumen-motion-full .lumen-review-modal .lumen-spoiler{-webkit-transition:color .2s,background-color .2s;transition:color .2s,background-color .2s}');
+    /* Кнопка раскрытия — единственный .selector окна, поэтому фокус достаётся
+       ей сразу (контроллер modal собирает коллекцию из содержимого окна). */
+    css.push('.lumen-review-modal__reveal{display:inline-block;margin-top:1.05em;padding:.61em .96em;border-radius:.53em;background:' + P.buttonBg + ';border:.04em solid ' + P.line + ';font-family:' + FB + ';font-weight:600;font-size:.83em;line-height:1.3;color:' + P.text + '}');
+    css.push('.lumen-review-modal__reveal.focus{background:' + A + ';color:' + t.onac + ';border-color:' + AL + ';border-width:.11em}');
+
+    /* --- Task 28 (фаза 3): ряд «Смотреть по порядку» (src/66_franchise.js).
+       Живёт в том же .full-descr, что таблица «ПОДРОБНО» и отзывы, и занимает
+       целую строку — те же width/flex-basis, что у ряда отзывов.
+       Класс ряда — .lumen-fr; .lumen-franchise (без сокращения) — это КНОПКА
+       «Франшиза» в ряду кнопок из Task 17, другой узел. --- */
+    css.push('.lumen-descr-row .lumen-fr{width:100%;-webkit-flex-basis:100%;flex-basis:100%;margin-top:1.75em}');
+    css.push('.lumen-descr-row .lumen-fr__head{display:-webkit-inline-box;display:-webkit-inline-flex;display:inline-flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-flex-wrap:wrap;flex-wrap:wrap;-webkit-box-sizing:border-box;box-sizing:border-box;max-width:100%;margin:0 0 .79em -.7em;padding:.44em .7em;border-radius:.61em;background:' + P.plate + '}');
+    css.push('.lumen-descr-row .lumen-fr__ico{width:1.05em;height:1.05em;-webkit-flex-shrink:0;flex-shrink:0;background-color:' + P.muted + ';-webkit-mask-image:' + LC.icons.maskUrl('list') + ';mask-image:' + LC.icons.maskUrl('list') + ';-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;-webkit-mask-size:contain;mask-size:contain;margin-right:.44em}');
+    css.push('.lumen-descr-row .lumen-fr__title{font-family:' + FD + ';font-weight:700;font-size:1.40em;line-height:1;color:' + P.text + ';margin-right:.61em}');
+    css.push('.lumen-descr-row .lumen-fr__name{font-family:' + FM + ';font-weight:400;font-size:.79em;line-height:1;letter-spacing:.06em;color:' + P.muted + ';margin-right:.88em}');
+    css.push('.lumen-descr-row .lumen-fr__modes{display:-webkit-box;display:-webkit-flex;display:flex}');
+    css.push('.lumen-descr-row .lumen-fr__mode{padding:.35em .61em;margin-right:.35em;border-radius:.44em;background:' + P.buttonBg + ';border:.04em solid ' + P.line + ';font-family:' + FB + ';font-weight:600;font-size:.70em;line-height:1.2;color:' + P.muted + '}');
+    css.push('.lumen-descr-row .lumen-fr__mode--on{color:' + A + ';border-color:rgba(' + A_RGB + ',.5)}');
+    css.push('.lumen-descr-row .lumen-fr__mode.focus{background:' + A + ';color:' + t.onac + ';border-color:' + AL + ';border-width:.11em}');
+    /* Ряд частей — горизонтальный, как ряд отзывов: Lampa внутри ряда
+       описания не прокручивает (находка Task 5d), к карточке в фокусе ряд
+       подкручивается сам (scrollToCard в src/66_franchise.js нет — карточки
+       узкие, восемь частей помещаются в экран; при большем числе ряд просто
+       обрезается по overflow). */
+    css.push('.lumen-descr-row .lumen-fr__row{display:-webkit-box;display:-webkit-flex;display:flex;overflow:hidden;padding:.26em 0}');
+    css.push('.lumen-descr-row .lumen-fr-card{position:relative;-webkit-box-sizing:border-box;box-sizing:border-box;width:7.90em;-webkit-box-flex:0;-webkit-flex:none;flex:none;margin-right:.88em;color:' + P.text + '}');
+    css.push('.lumen-descr-row .lumen-fr-card__poster{position:relative;width:100%;height:11.84em;border-radius:.53em;overflow:hidden;background-color:' + P.panel + ';-webkit-background-size:cover;background-size:cover;background-position:center;background-repeat:no-repeat;border:.04em solid ' + P.line + '}');
+    /* Просмотренная часть приглушается, а поверх постера ставится галочка —
+       та же иконка, что у отмеченных пунктов меню. */
+    css.push('.lumen-descr-row .lumen-fr-card--watched .lumen-fr-card__poster{opacity:.45}');
+    css.push('.lumen-descr-row .lumen-fr-card__mark{position:absolute;top:.35em;right:.35em;width:1.32em;height:1.32em;border-radius:50%;background:' + P.bg + ';opacity:0}');
+    css.push('.lumen-descr-row .lumen-fr-card--watched .lumen-fr-card__mark{opacity:1;background-color:' + P.good + ';-webkit-mask-image:' + LC.icons.maskUrl('check') + ';mask-image:' + LC.icons.maskUrl('check') + ';-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;-webkit-mask-size:.88em}');
+    css.push('.lumen-descr-row .lumen-fr-card__num{font-family:' + FM + ';font-weight:400;font-size:.61em;line-height:1.2;letter-spacing:.06em;color:' + P.muted + ';margin-top:.53em}');
+    css.push('.lumen-descr-row .lumen-fr-card__name{font-family:' + FB + ';font-weight:600;font-size:.79em;line-height:1.2;color:' + P.text + ';margin-top:.26em;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}');
+    css.push('.lumen-descr-row .lumen-fr-card__year{font-family:' + FM + ';font-weight:400;font-size:.61em;line-height:1.2;color:' + P.smoke + ';margin-top:.18em}');
+    css.push('.lumen-descr-row .lumen-fr-card__flag{display:inline-block;margin-top:.26em;padding:.18em .44em;border-radius:.35em;font-family:' + FM + ';font-weight:600;font-size:.53em;line-height:1.3;letter-spacing:.08em;background:' + P.buttonBg + ';color:' + P.muted + '}');
+    css.push('.lumen-descr-row .lumen-fr-card__flag--current{background:' + A + ';color:' + t.onac + '}');
+    css.push('.lumen-descr-row .lumen-fr-card__flag--next{background:rgba(' + A_RGB + ',.18);color:' + A + '}');
+    css.push('.lumen-descr-row .lumen-fr-card__flag--soon{color:' + P.spice + '}');
+    css.push('.lumen-descr-row .lumen-fr-card__flag--watched{color:' + P.good + '}');
+    css.push('.lumen-descr-row .lumen-fr-card.focus .lumen-fr-card__poster{border:.13em solid ' + A + ';-webkit-box-shadow:0 .614em 1.754em ' + AG + ';box-shadow:0 .614em 1.754em ' + AG + '}');
+    css.push('.lumen-descr-row .lumen-fr-card.focus .lumen-fr-card__name{color:' + A + '}');
+    css.push('body.lumen-motion-full .lumen-descr-row .lumen-fr-card__poster{-webkit-transition:border-color .2s,-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25),-webkit-box-shadow .28s;transition:border-color .2s,transform .28s cubic-bezier(.2,.9,.3,1.25),box-shadow .28s}');
+    css.push('body.lumen-motion-full .lumen-descr-row .lumen-fr-card.focus .lumen-fr-card__poster{-webkit-transform:scale(1.04);transform:scale(1.04)}');
+    /* Скелетон ряда, пока идёт запрос коллекции: те же плашки, что у отзывов
+       (мерцают только при полных анимациях — правило .lumen-skeleton). */
+    css.push('.lumen-descr-row .lumen-fr-card--sk{height:11.84em;border-radius:.53em}');
     /* Движок без масок: пустые закрашенные квадраты вместо иконок не рисуем. */
-    css.push(LC.icons.NO_MASK + '{.lumen-descr-row .lumen-reviews__ico,.lumen-descr-row .lumen-reviews__hint-ico,.lumen-descr-row .lumen-review__likes:before,.lumen-review-modal__likes:before{display:none}}');
+    css.push(LC.icons.NO_MASK + '{.lumen-descr-row .lumen-reviews__ico,.lumen-descr-row .lumen-reviews__hint-ico,.lumen-descr-row .lumen-review__likes:before,.lumen-review-modal__likes:before,.lumen-descr-row .lumen-fr__ico,.lumen-descr-row .lumen-fr-card__mark{display:none}}');
 
     /* --- Компактная раскладка на узких экранах (страховка). Правка 2026-09-16
        (п.1): правил боковой колонки здесь больше нет, а одноколоночный поток
@@ -1447,6 +1516,23 @@
        всю площадь дорог для слабых ТВ, поэтому в lite/off его нет вовсе —
        то же решение, что у фона карточки (.lumen-bg--blur). */
     css.push('.lumen-hero.lumen-motion-full.lumen-hero--blur .lumen-hero__bg{-webkit-filter:blur(1.75em);filter:blur(1.75em);-webkit-transform:scale(1.1);transform:scale(1.1)}');
+
+    /* Task 28: слой автотрейлера — поверх кадра, но под вуалями (порядок
+       узлов задаёт buildNode в src/48_hero.js). Правила те же, что у
+       .lumen-bg__trailer в слое фона карточки: запас ±10 % по вертикали
+       прячет чёрные поля ролика 16:9 в кадре другой высоты, проявление за 1 с
+       ставит класс is-live — его вешает сам плеер (src/55_trailer.js), когда
+       ролик РЕАЛЬНО пошёл. pointer-events на iframe сняты: кликов по нему нет
+       ни на ТВ, ни мышью — герой целиком не кликается (.lumen-hero). */
+    css.push('.lumen-hero .lumen-hero__trailer{position:absolute;top:-10%;bottom:-10%;left:0;right:0;overflow:hidden;opacity:0;-webkit-transition:opacity 1s ease;transition:opacity 1s ease}');
+    css.push('.lumen-hero .lumen-hero__trailer.is-live{opacity:1}');
+    css.push('.lumen-hero .lumen-hero__trailer iframe{width:100%;height:100%;border:0;pointer-events:none}');
+    /* Пока ролик играет, кадр под ним гасится (иначе сквозь тёмные сцены
+       ролика просвечивает статичная картинка), а текст героя поджимается:
+       описание уходит, остаются логотип/заголовок и мета — экран 02 карточки
+       решает ту же задачу тем же приёмом. */
+    css.push('.lumen-hero.lumen-hero--trailer .lumen-hero__bg.is-active{opacity:.25}');
+    css.push('.lumen-hero.lumen-hero--trailer .lumen-hero__descr{display:none}');
 
     /* Вуали — градиенты, не фильтры (ограничение брифа 5): слева под текст,
        снизу под ряды (там фон почти чёрный). */

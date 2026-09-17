@@ -49,6 +49,16 @@
        фокуса, а не 350 мс: при листании стрелкой не должно уходить ни одного
        расчёта (проверяется счётчиком LC.color.requests()). */
     var ACCENT_DELAY = 3000;
+    /* Task 28: автотрейлер в герое. Восемь секунд покоя фокуса — цифра плана
+       фазы 3 (раздел 0, решения пользователя: «трейлер в герое главной
+       запускается сам через 8 с покоя фокуса»). Это ТРЕТЬЯ задержка героя, и
+       самая длинная намеренно: кадр меняется через 350 мс, акцент — через 3 с,
+       а ролик — вещь, которая начинает шуметь картинкой на весь экран, и при
+       листании рядов не должен запускаться ни разу. */
+    var TRAILER_DELAY = 8000;
+    /* Ролики фильма меняются редко — та же неделя, что у штатного
+       Lampa.Api.sources.tmdb.videos (docs/research/API_NOTES_2.md §2). */
+    var VIDEOS_LIFE = 10080;
     /* Уход старого текста перед подменой (раскадровка 23а: 180 мс). */
     var SWAP_MS = 180;
     /* Предзагрузка кадра не может висеть вечно: тот же таймаут, что у фона
@@ -260,6 +270,20 @@
        Меняется ровно сегмент размера в пути TMDB (/t/p/wNNN/). Адрес не
        оттуда (Кинопоиск, локальная картинка) или постер уже не мельче —
        null: грузить нечего. */
+    /* Task 28: можно ли сейчас заводить фоновый ролик в герое.
+         pref    — настройка lumen_hero_trailer,
+         motion  — режим анимаций (LC.motionMode),
+         trailer — режим фонового трейлера карточки (LC.trailer.mode: на
+                   Tizen/webOS 'auto' даёт 'off').
+       В lite/off ролика нет вовсе: там и кадр-то герой не обновляет (см.
+       loadFrame), а iframe YouTube поверх экрана — самая дорогая вещь,
+       которую плагин умеет включать. */
+    function trailerAllowed(pref, motion, trailer) {
+      if (pref === false) return false;
+      if (motion !== 'full') return false;
+      return trailer !== 'off';
+    }
+
     function bigPoster(url) {
       var src = '' + (url || '');
       var m = /\/t\/p\/w(\d+)\//.exec(src);
@@ -310,6 +334,13 @@
 
     /* Сторож поколения: поднимается на mount, unmount и каждом show. */
     var gen = 0;
+
+    /* Task 28: у автотрейлера сторож СВОЙ. Общий gen для него не годится:
+       он поднимается на каждом show(), то есть уже через 350 мс покоя фокуса,
+       — восьмисекундный тик по нему не пережил бы даже собственную карточку
+       (та же причина, по которой своего поколения нет у акцента). tgen растёт
+       ровно там, где ролик снимается: в cancelTrailer. */
+    var tgen = 0;
 
     /* Task 29: последняя карточка под фокусом — {id, poster, rect}. Её читает
        слой перехода «постер → кадр» (src/67_transition.js) в момент, когда
@@ -387,6 +418,10 @@
       var node = $('<div class="lumen-hero">' +
         '<div class="lumen-hero__bg lumen-hero__bg--a"></div>' +
         '<div class="lumen-hero__bg lumen-hero__bg--b"></div>' +
+        /* Task 28: слой автотрейлера — между кадром и вуалями, как
+           .lumen-bg__trailer в слое фона карточки: вуали обязаны лежать
+           поверх ролика, иначе текст героя на нём не прочитать. */
+        '<div class="lumen-hero__trailer"></div>' +
         '<div class="lumen-hero__veil lumen-hero__veil--l"></div>' +
         '<div class="lumen-hero__veil lumen-hero__veil--b"></div>' +
         '</div>');
@@ -426,6 +461,10 @@
       try {
         if (!state) return;
         state.node.removeClass(MOTION_CLASSES).addClass('lumen-motion-' + LC.motionMode());
+        /* Task 28: режим мог упасть до lite/off (настройка или автодетект
+           слабого ТВ) — играющий ролик обязан уйти вместе с полными
+           анимациями. */
+        applyTrailer();
       } catch (e) {
         warn('hero: motion failed', e);
       }
@@ -461,6 +500,153 @@
         try { if (state.net.clear) state.net.clear(); } catch (e) {}
         state.net = null;
       }
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* Task 28: автотрейлер в герое.                                       */
+    /*                                                                      */
+    /* Плеер — общий с карточкой (LC.trailer.player, src/55_trailer.js): та  */
+    /* же беззвучная вставка YouTube с таймаутом ожидания старта и          */
+    /* единственным onEnd на все исходы. Здесь — только жизненный цикл       */
+    /* вокруг него, и он весь держится на трёх точках:                       */
+    /*   - завести таймер (scheduleTrailer) может только onFocus;            */
+    /*   - снять всё (cancelTrailer) обязаны onFocus, show(), unmount(),     */
+    /*     applyMotion() и applyTrailer();                                   */
+    /*   - ничего не пережившего эти точки не остаётся: таймер, запрос       */
+    /*     роликов и сам плеер лежат в state и снимаются вместе с ним.       */
+    /*                                                                       */
+    /* Отдельного сторожа «герой ещё на экране» (как в карточке) здесь нет   */
+    /* намеренно: уход с главной Lampa сообщает событием 'activity':start    */
+    /* чужой активности, по которому рантайм зовёт LC.hero.detach ->         */
+    /* unmount (src/90_runtime.js). В карточке такого события нет вовсе —    */
+    /* оттуда и сторож.                                                       */
+    /* ------------------------------------------------------------------ */
+
+    function trailerPref() {
+      try { return LC.pref ? LC.pref('lumen_hero_trailer', true) !== false : true; } catch (e) { return true; }
+    }
+
+    function trailerMode() {
+      try {
+        if (LC.trailer && typeof LC.trailer.mode === 'function') return LC.trailer.mode();
+      } catch (e) { }
+      return 'on';
+    }
+
+    function trailerReady() {
+      return trailerAllowed(trailerPref(), motionMode(), trailerMode());
+    }
+
+    /* Снимает всё, что связано с роликом: отложенный старт, незавершённый
+       запрос роликов и сам плеер. Идемпотентна — плеер уничтожается через
+       свой destroy(), а тот всегда проходит через единственный onEnd. */
+    function cancelTrailer() {
+      if (!state) return;
+      tgen++;
+      stopTimer('trailerTimer');
+      if (state.trailerNet) {
+        try { if (state.trailerNet.clear) state.trailerNet.clear(); } catch (e) { }
+        state.trailerNet = null;
+      }
+      state.trailerCard = null;
+      if (state.trailer) {
+        var control = state.trailer;
+        state.trailer = null;
+        try { if (control.destroy) control.destroy(); } catch (e2) {
+          warn('hero: trailer destroy failed', e2);
+        }
+      }
+      try { state.node.removeClass('lumen-hero--trailer'); } catch (e3) { }
+    }
+
+    /* Запрос роликов. Языков два, как у штатной Lampa (tmdb.js videos,
+       API_NOTES_2 §2): сначала язык интерфейса, и только если на нём ничего
+       не нашлось — английский. Оба ответа кэшируются Lampa на неделю. */
+    function loadTrailer(card, captured) {
+      var media = mediaOf(card);
+      var lang = langCode();
+
+      function ask(code, next) {
+        try {
+          if (!window.Lampa || !Lampa.Api || !Lampa.Api.sources || !Lampa.Api.sources.tmdb) return;
+          state.trailerNet = Lampa.Api.sources.tmdb.get(
+            media + '/' + card.id + '/videos',
+            { langs: code },
+            function (json) {
+              if (tgen !== captured || !state || !isMounted()) return;
+              state.trailerNet = null;
+              var video = null;
+              try {
+                if (LC.trailer && typeof LC.trailer.pickTrailer === 'function') video = LC.trailer.pickTrailer(json && json.results);
+              } catch (ePick) {
+                warn('hero: trailer pick failed', ePick);
+              }
+              if (video && video.key) { startTrailer(video.key, captured); return; }
+              if (next) ask(next, '');
+            },
+            function () {
+              if (tgen !== captured || !state) return;
+              state.trailerNet = null;
+              if (next) ask(next, '');
+            },
+            { life: VIDEOS_LIFE }
+          );
+        } catch (e) {
+          warn('hero: trailer request failed', e);
+        }
+      }
+
+      ask(lang, lang === 'en' ? '' : 'en');
+    }
+
+    function startTrailer(key, captured) {
+      try {
+        if (tgen !== captured || !state || !isMounted()) return;
+        if (!trailerReady()) return;
+        if (!LC.trailer || typeof LC.trailer.player !== 'function') return;
+        var host = state.node.find('.lumen-hero__trailer');
+        if (!host || !host.length) return;
+        /* Класс ставится по ФАКТУ старта (onStart плеера), а не по его
+           созданию: ролик может не заиграть вовсе (нет сети, YouTube
+           недоступен), и тогда герой обязан остаться как был. */
+        state.trailer = LC.trailer.player(host, key, function () {
+          if (tgen !== captured || !state) return;
+          try { state.node.addClass('lumen-hero--trailer'); } catch (e) { }
+        }, function () {
+          if (tgen !== captured || !state) return;
+          state.trailer = null;
+          try { state.node.removeClass('lumen-hero--trailer'); } catch (e2) { }
+        });
+      } catch (err) {
+        warn('hero: trailer start failed', err);
+      }
+    }
+
+    /* Отложенный старт для карточки, на которой остановился фокус. Сторож
+       тот же, что у акцента: state.pending меняется на каждом фокусе, поэтому
+       тик, доехавший после перевода фокуса, выходит первой же строкой. */
+    function scheduleTrailer(card) {
+      if (!trailerReady()) return;
+      var captured = tgen;
+      state.trailerTimer = setTimeout(function () {
+        if (!state || tgen !== captured) return;
+        state.trailerTimer = null;
+        if (state.pending !== card) return;
+        if (!isMounted()) return;
+        /* Настройку и режим анимаций перечитываем в момент старта: за восемь
+           секунд их могли поменять. */
+        if (!trailerReady()) return;
+        loadTrailer(card, captured);
+      }, TRAILER_DELAY);
+    }
+
+    /* Настройка lumen_hero_trailer переключена на лету: выключение снимает
+       играющий ролик, включение ничего не запускает — ролик появится со
+       следующей остановки фокуса. Ту же функцию зовёт applyMotion. */
+    function applyTrailer() {
+      if (!state) return;
+      if (trailerReady()) return;
+      cancelTrailer();
     }
 
     /* ------------------------------------------------------------------ */
@@ -844,6 +1030,15 @@
          вернулись на ту же карточку — цвет у неё уже стоит, и applyFor на
          том же постере возьмёт его из кэша, не пересобирая стилей. */
       scheduleAccent(card);
+      /* Task 28: любой перевод фокуса снимает играющий ролик и заводит отсчёт
+         заново. Повторная мутация класса ТОЙ ЖЕ карточки (перерисовка ряда,
+         возврат фокуса на место) ничего не перезапускает — иначе идущий
+         ролик гас бы на ровном месте. */
+      if (state.trailerCard !== card) {
+        cancelTrailer();
+        state.trailerCard = card;
+        scheduleTrailer(card);
+      }
       /* Тот же фильм под фокусом (возврат на ту же карточку, перерисовка
          ряда) — ни кадра, ни запроса. */
       if (state.shownId === card.id) return;
@@ -960,6 +1155,12 @@
           pending: null,
           focusAt: 0,
           frameUrl: '',
+          /* Task 28: отложенный старт ролика, его запрос, сам плеер и
+             карточка, которой он принадлежит. */
+          trailerTimer: null,
+          trailerNet: null,
+          trailer: null,
+          trailerCard: null,
           fixedCompact: !!opts.compact
         };
         if (opts.compact) setCompact(true);
@@ -991,6 +1192,10 @@
        предзагрузка кадра и незавершённый запрос деталей. Идемпотентна. */
     function unmount() {
       if (!state) return;
+      /* Task 28: ролик снимается ПЕРВЫМ — пока state ещё жив: его плеер,
+         запрос роликов и отложенный старт живут именно там, а cancelTrailer
+         на пустом state не делает ничего. */
+      cancelTrailer();
       var s = state;
       state = null;
       /* Task 29: карточки под фокусом больше нет — переход «постер → кадр»
@@ -1002,7 +1207,7 @@
       } catch (e) {
         warn('hero: disconnect failed', e);
       }
-      var timers = ['timer', 'swapTimer', 'loadTimer', 'accentTimer', 'bigTimer'];
+      var timers = ['timer', 'swapTimer', 'loadTimer', 'accentTimer', 'bigTimer', 'trailerTimer'];
       for (var i = 0; i < timers.length; i++) {
         try { if (s[timers[i]]) clearTimeout(s[timers[i]]); } catch (eT) {}
       }
@@ -1070,6 +1275,12 @@
       logoSizeFor: logoSizeFor,
       logoBox: logoBox,
       detailsRequest: detailsRequest,
+      /* Task 28: правило «можно ли сейчас заводить фоновый ролик в герое» —
+         наружу ради теста, применяет его сам модуль (trailerReady). */
+      trailerAllowed: trailerAllowed,
+      /* Настройка lumen_hero_trailer переключена на лету (src/80_settings.js,
+         applyPrefChange): выключение снимает играющий ролик. */
+      applyTrailer: applyTrailer,
       mount: mount,
       mountCurrent: mountCurrent,
       detach: detach,

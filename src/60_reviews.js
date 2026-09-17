@@ -92,6 +92,91 @@
       return m ? m[1] : text.slice(0, 60);
     }
 
+    /* ------------------------------------------------------------------ */
+    /* Task 28: спойлеры.                                                  */
+    /*                                                                      */
+    /* Своего признака «спойлер» ответ kinopoiskapiunofficial.tech не даёт:  */
+    /* в items[] приходит только description строкой (docs/research/         */
+    /* API_NOTES_2.md §4). Проверить это живьём нельзя — ключа у             */
+    /* пользователя нет, — поэтому разбор написан так, чтобы промах был      */
+    /* безобиден: непойманный спойлер останется открытым текстом (как было   */
+    /* до Task 28), а лишнее срабатывание всего лишь спрячет предложение под */
+    /* плашку, которую открывают одним нажатием OK.                          */
+    /*                                                                       */
+    /* Три правила, от самого надёжного к самому вольному:                   */
+    /*  1) явная обёртка — [spoiler]…[/spoiler], [спойлер]…[/спойлер],       */
+    /*     <spoiler>…</spoiler> и <span class="spoiler">…</span>: так         */
+    /*     спойлеры размечают в редакторах, и если автор отзыва это сделал,  */
+    /*     догадки не нужны — скрывается ровно содержимое обёртки;           */
+    /*  2) предупреждение в тексте («осторожно, спойлер», «внимание,          */
+    /*     спойлеры», «spoiler alert») — после него автор обычно и           */
+    /*     рассказывает сюжет, поэтому скрывается ВЕСЬ остаток отзыва;       */
+    /*  3) отдельное предложение со словом-маркером («в финале», «концовка», */
+    /*     «развязка», «умирает», «погибает») — скрывается только оно.        */
+    /* ------------------------------------------------------------------ */
+
+    /* Обёртки. Глобальный флаг нужен для exec-цикла, поэтому lastIndex у
+       этого выражения сбрасывается на каждом входе в splitSpoilers. */
+    var WRAP_RE = /\[(?:spoiler|спойлер)\]([\s\S]*?)\[\/(?:spoiler|спойлер)\]|<spoiler>([\s\S]*?)<\/spoiler>|<span[^>]*spoiler[^>]*>([\s\S]*?)<\/span>/gi;
+    var ALERT_RE = /(осторожно[\s,!:-]*спойлер|внимание[\s,!:-]*спойлер|далее\s+спойлер|спойлеры?\s+ниже|содержит\s+спойлер|spoiler\s*alert)/i;
+    var MARK_RE = /(спойлер|spoiler|концовк|развязк|в финале|в конце фильма|умирает|погибает|воскреса)/i;
+
+    /* Соседние куски одного вида склеиваются: и разметке, и подсчёту «есть ли
+       спойлер» дробление ничего не даёт. */
+    function pushSeg(out, text, spoiler) {
+      if (!text) return;
+      var last = out.length ? out[out.length - 1] : null;
+      if (last && last.s === spoiler) { last.t += text; return; }
+      out.push({ t: text, s: !!spoiler });
+    }
+
+    /* Кусок текста вне явных обёрток: правила 2 и 3. */
+    function splitPlain(out, text) {
+      if (!text) return;
+      var alert = ALERT_RE.exec(text);
+      if (alert) {
+        pushSeg(out, text.slice(0, alert.index), false);
+        pushSeg(out, text.slice(alert.index), true);
+        return;
+      }
+      var sentences = text.match(/[^.!?…]*[.!?…]+\s*|[^.!?…]+$/g) || [text];
+      for (var i = 0; i < sentences.length; i++) {
+        pushSeg(out, sentences[i], MARK_RE.test(sentences[i]));
+      }
+    }
+
+    /* Текст → сегменты [{t, s}] в исходном порядке; t обёрток приходит уже
+       без самих меток. */
+    function splitSpoilers(text) {
+      var src = '' + (text || '');
+      var out = [];
+      if (!src) return out;
+      WRAP_RE.lastIndex = 0;
+      var at = 0;
+      var m;
+      while ((m = WRAP_RE.exec(src)) !== null) {
+        splitPlain(out, src.slice(at, m.index));
+        pushSeg(out, m[1] || m[2] || m[3] || '', true);
+        at = m.index + m[0].length;
+        /* Пустая обёртка совпала бы бесконечно — двигаем курсор сами. */
+        if (m[0].length === 0) WRAP_RE.lastIndex++;
+      }
+      splitPlain(out, src.slice(at));
+      return out;
+    }
+
+    function hasSpoiler(segs) {
+      for (var i = 0; i < segs.length; i++) if (segs[i].s) return true;
+      return false;
+    }
+
+    /* Текст без спойлерных кусков — он идёт в выдержку карточки ряда. */
+    function openText(segs) {
+      var out = '';
+      for (var i = 0; i < segs.length; i++) if (!segs[i].s) out += segs[i].t;
+      return trim(out.replace(/\s+/g, ' '));
+    }
+
     /* Экран 09 («Ключ Kinopoisk API — нужен для отзывов и рейтинга КП»):
        рейтинг приходит ТЕМ ЖЕ ответом films?imdbId, которым мы ищем
        kinopoiskId для отзывов, — отдельного запроса ради рейтинга не делаем.
@@ -130,8 +215,32 @@
         if (!it) return;
         var text = trim(('' + (it.description || '')).replace(/\s+/g, ' '));
         if (!text) return;
+        /* Предел длины применяется к ИСХОДНОМУ тексту, до разбора и
+           экранирования: обратный порядок рвал бы html-сущность пополам
+           (&amp; -> &am), а разбор по обрезанному тексту честнее — что не
+           показывается, то и не разбирается. */
+        var full = cut(text, MAX_FULL);
+        var segs = splitSpoilers(full);
+        var spoiler = hasSpoiler(segs);
+        /* Выдержка в ряду — только открытый текст: карточка отзыва видна с
+           экрана и спойлера содержать не может ни в каком режиме. */
+        var open = spoiler ? openText(segs) : full;
+
         var title = trim(('' + (it.title || '')).replace(/\s+/g, ' '));
-        if (!title) title = firstSentence(text);
+        /* Заголовок сам бывает спойлером («В финале героя убивают») — тогда
+           вместо него берётся первое чистое предложение отзыва; чистого нет
+           — заголовка не будет вовсе. */
+        if (title && hasSpoiler(splitSpoilers(title))) title = open ? firstSentence(open) : '';
+        if (!title) title = open ? firstSentence(open) : '';
+
+        /* Части пишутся ТОЛЬКО для отзыва со спойлерами, и тогда full не
+           пишется: иначе кэш (MAX_FILMS × MAX_ITEMS × MAX_FULL) держал бы
+           один и тот же текст дважды. */
+        var parts = [];
+        if (spoiler) {
+          for (var i = 0; i < segs.length; i++) parts.push({ t: esc(segs[i].t), s: segs[i].s });
+        }
+
         var author = trim(it.author) || anon || ANON;
         var dm = ('' + (it.date || '')).match(/^(\d{4})-(\d{2})-(\d{2})/);
         out.push({
@@ -139,8 +248,10 @@
           author: esc(author),
           initials: esc(LC.util.initials(author)),
           title: esc(title),
-          excerpt: esc(cut(text, MAX_EXCERPT)),
-          full: esc(cut(text, MAX_FULL)),
+          excerpt: esc(cut(open, MAX_EXCERPT)),
+          full: spoiler ? '' : esc(full),
+          parts: parts,
+          spoiler: spoiler,
           date: dm ? dm[3] + '.' + dm[2] + '.' + dm[1] : '',
           likes: parseInt(it.positiveRating, 10) || 0,
           dislikes: parseInt(it.negativeRating, 10) || 0
@@ -426,7 +537,18 @@
     /* Разметка (экран 07 — ряд карточек, экран 13 — подсказка).           */
     /* ------------------------------------------------------------------ */
 
-    function headHtml(total) {
+    /* Task 28: режим показа отзывов. 'headlines' (по умолчанию) — в ряду
+       только автор, дата, тон, заголовок и «полезно»: спойлер не может
+       попасться на глаза даже боковым зрением, а весь текст открывается по
+       OK в модале. 'full' — как было до Task 28, с выдержкой (уже без
+       спойлерных кусков: их вырезает normalize). */
+    function modeOf() {
+      var value = 'headlines';
+      try { if (LC.pref) value = LC.pref('lumen_reviews_mode', 'headlines'); } catch (e) { }
+      return value === 'full' ? 'full' : 'headlines';
+    }
+
+    function headHtml(total, mode) {
       return '<div class="lumen-reviews__head">' +
         '<span class="lumen-reviews__ico"></span>' +
         '<span class="lumen-reviews__title">' + esc(lang('lumen_card_reviews_title')) + '</span>' +
@@ -434,13 +556,22 @@
         /* total приходит из ответа API или из кэша — в разметку только через
            esc (ревью, Minor 9), даже после parseInt в cacheRead. */
         '<span class="lumen-reviews__total">· ' + esc(String(total)) + ' ' + esc(totalWord(total)) + '</span>' +
+        /* Переключатель режима — .selector в шапке блока: настройка того же
+           имени лежит в разделе Lumen Card, но менять её ради одного ряда,
+           уходя с карточки в настройки, никто не станет. */
+        '<div class="lumen-reviews__mode selector' + (mode === 'full' ? ' lumen-reviews__mode--on' : '') + '">' +
+        esc(lang('lumen_reviews_mode_toggle')) + '</div>' +
         '</div>';
     }
 
     /* Все поля item уже экранированы normalize() — второй раз не экранируем
        (иначе «A &amp; B» превратилось бы в «A &amp;amp; B»). */
-    function cardHtml(item, index) {
+    function cardHtml(item, index, mode) {
       var likes = item.likes ? '<span class="lumen-review__likes">' + item.likes + ' ' + esc(lang('lumen_card_review_useful')) + '</span>' : '';
+      /* Метка «в отзыве есть спойлер» — и в режиме заголовков, и с текстом:
+         в обоих случаях она обещает, что под OK ждёт скрытый кусок. */
+      var mark = item.spoiler ? '<div class="lumen-review__spoiler">' + esc(lang('lumen_reviews_spoiler')) + '</div>' : '';
+      var text = mode === 'full' ? '<div class="lumen-review__text">' + item.excerpt + '</div>' : '';
       return '<div class="lumen-review selector lumen-review--' + item.tone + '" data-lumen-review="' + index + '">' +
         '<div class="lumen-review__tone"></div>' +
         '<div class="lumen-review__body">' +
@@ -456,9 +587,35 @@
         '</div>' +
         '</div>' +
         '<div class="lumen-review__title">' + item.title + '</div>' +
-        '<div class="lumen-review__text">' + item.excerpt + '</div>' +
+        text +
+        mark +
         '</div>' +
         '</div>';
+    }
+
+    /* Полный текст отзыва для модала: части со спойлерами — каждая в своём
+       узле, спойлерные под плашкой (её снимает класс на корне модала).
+       Записи без частей (отзыв без спойлеров, а также запись кэша, сделанная
+       до Task 28) рисуются одним куском, как раньше. */
+    function textHtml(item) {
+      var parts = item && item.parts;
+      if (!parts || !parts.length) return item.full || '';
+      var out = '';
+      for (var i = 0; i < parts.length; i++) {
+        var seg = parts[i];
+        out += seg.s ? '<span class="lumen-spoiler">' + seg.t + '</span>' : seg.t;
+      }
+      return out;
+    }
+
+    function hasParts(item) {
+      return !!(item && item.parts && item.parts.length);
+    }
+
+    function spoilerInParts(item) {
+      if (!hasParts(item)) return false;
+      for (var i = 0; i < item.parts.length; i++) if (item.parts[i].s) return true;
+      return false;
     }
 
     function modalHtml(item) {
@@ -478,7 +635,8 @@
         '</div>' +
         '<div class="lumen-review-modal__line"></div>' +
         '<div class="lumen-review-modal__title">' + item.title + '</div>' +
-        '<div class="lumen-review-modal__text">' + item.full + '</div>' +
+        '<div class="lumen-review-modal__text">' + textHtml(item) + '</div>' +
+        (spoilerInParts(item) ? '<div class="lumen-review-modal__reveal selector">' + esc(lang('lumen_reviews_reveal')) + '</div>' : '') +
         '</div>';
     }
 
@@ -531,6 +689,7 @@
 
         var html = $('<div class="lumen-review-modal lumen-review-modal--' + item.tone + '"></div>');
         html.html(modalHtml(item));
+        bindReveal(html);
 
         Lampa.Modal.open({
           title: '',
@@ -548,6 +707,32 @@
         });
       } catch (err) {
         warn('reviews modal failed', err);
+      }
+    }
+
+    /* Task 28: кнопка «Показать спойлеры» внутри модала. Своего .selector'а
+       ей хватает: контроллер 'modal' Lampa собирает коллекцию из содержимого
+       окна (app.min.js, toggle модала: Controller.collectionSet(scroll.
+       render())), а так как это единственный фокусируемый узел окна, фокус
+       достаётся ему сразу. Слушаем в фазе перехвата на корне окна — события
+       Lampa не всплывают, приём тот же, что у ряда отзывов. */
+    function bindReveal(html) {
+      try {
+        var el = html && html[0];
+        if (!el || typeof el.addEventListener !== 'function') return;
+        el.addEventListener('hover:enter', function (event) {
+          try {
+            var btn = $(event.target).closest('.lumen-review-modal__reveal');
+            if (!btn || !btn.length) return;
+            var open = !html.hasClass('lumen-review-modal--open');
+            html.toggleClass('lumen-review-modal--open', open);
+            btn.text(lang(open ? 'lumen_reviews_hide' : 'lumen_reviews_reveal'));
+          } catch (e) {
+            warn('reviews reveal failed', e);
+          }
+        }, true);
+      } catch (err) {
+        warn('reviews reveal bind failed', err);
       }
     }
 
@@ -611,6 +796,24 @@
       }
     }
 
+    /* Task 28: переключение режима показа. Значение пишется обычным
+       Storage.set (с событием): его ловит LC.followStorage -> LC.
+       applyReviewsPref, и ряд перерисовывается и здесь, и на любой другой
+       открытой карточке — той же дорогой, что ключ API и сама настройка
+       «Отзывы Кинопоиска». Узел под фокусом при этом исчезает вместе со
+       старым блоком, поэтому фокус явно возвращается живой коллекции — как в
+       кнопке «Скрыть» подсказки про ключ. */
+    function switchMode() {
+      try {
+        var next = modeOf() === 'full' ? 'headlines' : 'full';
+        if (window.Lampa && Lampa.Storage && typeof Lampa.Storage.set === 'function') Lampa.Storage.set('lumen_reviews_mode', next);
+        var cur = window.Lampa && Lampa.Controller && typeof Lampa.Controller.enabled === 'function' ? Lampa.Controller.enabled() : null;
+        if (cur && cur.name && typeof Lampa.Controller.toggle === 'function') Lampa.Controller.toggle(cur.name);
+      } catch (e) {
+        warn('reviews mode switch failed', e);
+      }
+    }
+
     /* События Lampa (hover:focus/hover:enter) не всплывают — слушаем в фазе
        перехвата на корне блока, как bindEpisodes в 85_header.js и bind() в
        55_trailer.js. Один слушатель на блок, отдельной подписки на
@@ -637,6 +840,10 @@
 
         el.addEventListener('hover:enter', function (event) {
           try {
+            /* Task 28: переключатель режима в шапке блока — тот же
+               capture-слушатель, отдельной подписки ему не нужно. */
+            var toggle = $(event.target).closest('.lumen-reviews__mode');
+            if (toggle && toggle.length) { switchMode(); return; }
             var card = cardOf(event.target);
             if (!card) return;
             var index = parseInt(card.attr('data-lumen-review'), 10);
@@ -670,10 +877,11 @@
     }
 
     function paintList(holder, list, total) {
-      var block = $('<div class="lumen-reviews"></div>');
+      var mode = modeOf();
+      var block = $('<div class="lumen-reviews' + (mode === 'full' ? '' : ' lumen-reviews--headlines') + '"></div>');
       var cards = [];
-      LC.util.each(list, function (item, i) { cards.push(cardHtml(item, i)); });
-      block.html(headHtml(total) + '<div class="lumen-reviews__row">' + cards.join('') + '</div>');
+      LC.util.each(list, function (item, i) { cards.push(cardHtml(item, i, mode)); });
+      block.html(headHtml(total, mode) + '<div class="lumen-reviews__row">' + cards.join('') + '</div>');
       holder.append(block);
       bind(block, list);
       appendSelectors(block);
@@ -770,7 +978,10 @@
            есть». С флагом исправление опечатки в ключе подпись не меняло,
            рендер выходил по раннему return, и верный ключ применялся только со
            следующего открытия карточки. */
-        var sign = [on ? '1' : '0', imdb, keyStamp(key), lang('lumen_card_reviews_title'), hintEnabled() ? 'h1' : 'h0'].join('|');
+        /* Task 28: режим показа входит в подпись — иначе переключатель в
+           шапке менял бы настройку, а ряд оставался бы прежним (ранний
+           return по совпавшей подписи). */
+        var sign = [on ? '1' : '0', imdb, keyStamp(key), lang('lumen_card_reviews_title'), hintEnabled() ? 'h1' : 'h0', modeOf()].join('|');
 
         var state = stateOf(holder);
         if (state.sign === sign && (!state.painted || holder.find('.lumen-reviews').length)) return;
@@ -877,6 +1088,7 @@
       cacheKey: cacheKey,
       isFresh: isFresh,
       normalize: normalize,
+      splitSpoilers: splitSpoilers,
       kpRateOf: kpRateOf,
       cacheRead: cacheRead,
       cacheWrite: cacheWrite,

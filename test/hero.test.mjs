@@ -1051,3 +1051,238 @@ test('акцент: снятие героя гасит отложенный ра
   env.advance(5000);
   assert.deepEqual(env.calls, []);
 });
+
+/* ====================================================================== */
+/* Task 28 (фаза 3): автотрейлер в герое.                                 */
+/*                                                                        */
+/* Плеер тот же, что у карточки (LC.trailer.player, src/55_trailer.js) —   */
+/* здесь он подменяется журналом: проверяется не YouTube, а жизненный цикл */
+/* вокруг него: 8 с покоя фокуса до старта, отмена на листании, снятие     */
+/* вместе с героем и запрет в lite/off.                                    */
+/* ====================================================================== */
+
+function trailerEnv(extra, pref) {
+  const players = [];
+  const env = makeEnv(Object.assign({
+    pref: pref || ((name, def) => def),
+    trailer: {
+      mode: () => 'on',
+      pickTrailer: (list) => {
+        if (!list || !list.length) return null;
+        return list[0] && list[0].key ? list[0] : null;
+      },
+      player: (host, key, onStart, onEnd) => {
+        const p = { host: host, key: key, onStart: onStart, onEnd: onEnd, destroys: 0 };
+        players.push(p);
+        p.destroy = () => { p.destroys++; p.onEnd(); };
+        return p;
+      }
+    }
+  }, extra || {}));
+  env.players = players;
+  return env;
+}
+
+/* Ролики карточки: первый запрос идёт на языке интерфейса. */
+const VIDEOS_RU = { results: [{ key: 'ruKey', name: 'Трейлер', iso_639_1: 'ru' }] };
+
+/* Последний ушедший запрос роликов: в один тик виртуального времени вместе
+   с ним успевают уйти кадр и детали карточки. */
+function lastVideos(env) {
+  const list = env.requests.filter((r) => r.url.indexOf('/videos') >= 0);
+  return list[list.length - 1];
+}
+
+function focusOn(env, main, card) {
+  card.addClass('focus');
+  env.observers[0].fn([{ target: card }]);
+}
+
+test('трейлер героя: старт после 8 с покоя фокуса, ролик в своём слое, класс на узле', () => {
+  const env = trailerEnv();
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  const node = main.activity._children[0];
+
+  focusOn(env, main, main.card1);
+  env.advance(400);
+  /* Кадр и детали ушли сразу, ролик ждёт свои 8 с. */
+  const before = env.requests.length;
+  env.advance(7000);
+  assert.equal(env.requests.length, before, 'до восьмой секунды роликов не спрашиваем');
+
+  env.advance(1200);
+  const req = lastVideos(env);
+  assert.equal(req.url, 'movie/11/videos');
+  assert.deepEqual(req.params, { langs: 'ru' });
+  assert.equal(req.opts.life, 10080, 'ролики кэшируются на неделю');
+
+  req.ok(VIDEOS_RU);
+  assert.equal(env.players.length, 1);
+  assert.equal(env.players[0].key, 'ruKey');
+  assert.equal(env.players[0].host.hasClass('lumen-hero__trailer'), true, 'плеер живёт в своём слое героя');
+  assert.equal(node.hasClass('lumen-hero--trailer'), false, 'до фактического старта класса нет');
+
+  env.players[0].onStart();
+  assert.equal(node.hasClass('lumen-hero--trailer'), true);
+
+  env.players[0].onEnd();
+  assert.equal(node.hasClass('lumen-hero--trailer'), false, 'ролик кончился — герой вернулся к кадру');
+  assert.deepEqual(warnLog, []);
+});
+
+test('трейлер героя: при листании не стартует вовсе', () => {
+  const env = trailerEnv();
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  const start = env.requests.length;
+  for (let i = 0; i < 12; i++) {
+    const card = i % 2 ? main.card2 : main.card1;
+    focusOn(env, main, card);
+    env.advance(600);
+  }
+  const videoRequests = env.requests.slice(start).filter((r) => r.url.indexOf('/videos') >= 0);
+  assert.deepEqual(videoRequests, [], 'фокус нигде не стоял 8 с — ни одного запроса роликов');
+  assert.equal(env.players.length, 0);
+});
+
+test('трейлер героя: перевод фокуса снимает играющий ролик и его запрос', () => {
+  const env = trailerEnv();
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  const node = main.activity._children[0];
+
+  focusOn(env, main, main.card1);
+  env.advance(9000);
+  const req = lastVideos(env);
+  req.ok(VIDEOS_RU);
+  env.players[0].onStart();
+  assert.equal(node.hasClass('lumen-hero--trailer'), true);
+
+  main.card1.removeClass('focus');
+  focusOn(env, main, main.card2);
+  assert.equal(env.players[0].destroys, 1, 'ролик снят сразу, а не через задержку');
+  assert.equal(node.hasClass('lumen-hero--trailer'), false);
+});
+
+test('трейлер героя: снятие героя гасит таймер, запрос и ролик', () => {
+  const env = trailerEnv();
+  const main = makeMain();
+  env.hero.mount(main.activity);
+
+  focusOn(env, main, main.card1);
+  env.advance(9000);
+  const req = lastVideos(env);
+  req.ok(VIDEOS_RU);
+  env.players[0].onStart();
+
+  env.hero.unmount();
+  assert.equal(env.players[0].destroys, 1, 'плеер уничтожен вместе с героем');
+
+  /* Ответ, доехавший после снятия, второго плеера не создаёт. */
+  req.ok(VIDEOS_RU);
+  assert.equal(env.players.length, 1);
+
+  /* И отложенный старт после снятия тоже никуда не уходит. */
+  const env2 = trailerEnv();
+  const main2 = makeMain();
+  env2.hero.mount(main2.activity);
+  focusOn(env2, main2, main2.card1);
+  env2.hero.unmount();
+  env2.advance(9000);
+  assert.deepEqual(env2.requests.filter((r) => r.url.indexOf('/videos') >= 0), []);
+  assert.deepEqual(warnLog, []);
+});
+
+test('трейлер героя: в lite и off не стартует вовсе', () => {
+  for (const mode of ['lite', 'off']) {
+    const env = trailerEnv({ motionMode: () => mode });
+    const main = makeMain();
+    env.hero.mount(main.activity);
+    focusOn(env, main, main.card1);
+    env.advance(9000);
+    assert.deepEqual(env.requests.filter((r) => r.url.indexOf('/videos') >= 0), [], mode + ': запросов роликов нет');
+    assert.equal(env.players.length, 0);
+  }
+});
+
+test('трейлер героя: выключенная настройка — ни таймера, ни запроса; включение действует со следующего покоя', () => {
+  let on = false;
+  const env = trailerEnv({}, (name, def) => (name === 'lumen_hero_trailer' ? on : def));
+  const main = makeMain();
+  env.hero.mount(main.activity);
+
+  focusOn(env, main, main.card1);
+  env.advance(9000);
+  assert.deepEqual(env.requests.filter((r) => r.url.indexOf('/videos') >= 0), []);
+
+  on = true;
+  main.card1.removeClass('focus');
+  focusOn(env, main, main.card2);
+  env.advance(9000);
+  assert.equal(env.requests.filter((r) => r.url.indexOf('/videos') >= 0).length, 1);
+});
+
+test('трейлер героя: выключение настройки на лету снимает играющий ролик', () => {
+  let on = true;
+  const env = trailerEnv({}, (name, def) => (name === 'lumen_hero_trailer' ? on : def));
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  const node = main.activity._children[0];
+
+  focusOn(env, main, main.card1);
+  env.advance(9000);
+  lastVideos(env).ok(VIDEOS_RU);
+  env.players[0].onStart();
+
+  on = false;
+  env.hero.applyTrailer();
+  assert.equal(env.players[0].destroys, 1);
+  assert.equal(node.hasClass('lumen-hero--trailer'), false);
+});
+
+test('трейлер героя: на языке интерфейса роликов нет — запасной запрос на английском', () => {
+  const env = trailerEnv();
+  const main = makeMain();
+  env.hero.mount(main.activity);
+
+  focusOn(env, main, main.card1);
+  env.advance(9000);
+  lastVideos(env).ok({ results: [] });
+
+  const second = lastVideos(env);
+  assert.equal(second.url, 'movie/11/videos');
+  assert.deepEqual(second.params, { langs: 'en' });
+
+  second.ok({ results: [{ key: 'enKey', name: 'Trailer', iso_639_1: 'en' }] });
+  assert.equal(env.players.length, 1);
+  assert.equal(env.players[0].key, 'enKey');
+});
+
+test('трейлер героя: роликов нет совсем — тишина без третьего запроса и без плеера', () => {
+  const env = trailerEnv();
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  focusOn(env, main, main.card1);
+  env.advance(9000);
+  lastVideos(env).ok({ results: [] });
+  lastVideos(env).ok({ results: [] });
+  assert.equal(env.requests.filter((r) => r.url.indexOf('/videos') >= 0).length, 2);
+  assert.equal(env.players.length, 0);
+  assert.deepEqual(warnLog, []);
+});
+
+test('трейлер героя: режим анимаций упал до lite на лету — играющий ролик снимается', () => {
+  let motion = 'full';
+  const env = trailerEnv({ motionMode: () => motion });
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  focusOn(env, main, main.card1);
+  env.advance(9000);
+  lastVideos(env).ok(VIDEOS_RU);
+  env.players[0].onStart();
+
+  motion = 'lite';
+  env.hero.applyMotion();
+  assert.equal(env.players[0].destroys, 1);
+});

@@ -120,6 +120,11 @@
          вместе с блоком, которым он управлял, — кружки инициалов дублировали
          ряд актёров, который Lampa рисует ниже по экрану. */
       { name: 'lumen_reviews', type: 'trigger', 'default': true, label: 'lumen_card_reviews_name', descr: 'lumen_card_reviews_descr' },
+      /* Task 28 (фаза 3): текст отзыва в ряду или только заголовок. Место —
+         сразу под самим выключателем отзывов: настройка про их вид. По
+         умолчанию «Только заголовки» — так спойлер не попадётся на глаза
+         случайно, а весь текст всё равно в одном нажатии OK. */
+      { name: 'lumen_reviews_mode', type: 'select', values: ['headlines', 'full'], vprefix: 'lumen_reviews_mode_', 'default': 'headlines', label: 'lumen_reviews_mode_name', descr: 'lumen_reviews_mode_descr' },
       { name: 'lumen_kp_key', type: 'input', 'default': '', label: 'lumen_card_kp_key', descr: 'lumen_card_kp_key_descr' },
       /* Task 20 (решение координатора): подсказка «Ключ API не задан» в
          карточке и в сетке подборки Кинопоиска убирается кнопкой «Скрыть»
@@ -143,6 +148,12 @@
          зависит, сколько экрана достанется всему остальному. Доли экрана — в
          HERO_SIZES (src/30_css.js). */
       { name: 'lumen_hero_size', type: 'select', values: ['large', 'medium', 'compact', 'off'], vprefix: 'lumen_hero_size_', 'default': 'large', label: 'lumen_hero_size_name', descr: 'lumen_hero_size_descr' },
+      /* Task 28 (фаза 3): автотрейлер в кадре главной. Место — сразу под
+         размером кадра: настройка про то же самое место экрана. Включён по
+         умолчанию, но сам по себе ничего не делает, пока фокус не постоит на
+         карточке 8 секунд; в лёгких анимациях и на Tizen/webOS его нет вовсе
+         (src/48_hero.js, trailerAllowed). */
+      { name: 'lumen_hero_trailer', type: 'trigger', 'default': true, label: 'lumen_hero_trailer_name', descr: 'lumen_hero_trailer_descr' },
       { name: 'lumen_moods', type: 'trigger', 'default': true, label: 'lumen_moods_name', descr: 'lumen_moods_descr' },
       { name: 'lumen_personal_rows', type: 'trigger', 'default': true, label: 'lumen_personal_rows_name', descr: 'lumen_personal_rows_descr' },
       /* Кнопка-параметр: multi-select в SettingsApi нет, поэтому состав рядов

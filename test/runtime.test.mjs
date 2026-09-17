@@ -440,7 +440,7 @@ function initLC(opts) {
   const timelines = [];
   /* noty — что плагин показал пользователю через Lampa.Noty (единственное
      сообщение плагина: неподдерживаемая сборка Lampa, ревью фазы 1 M2). */
-  const extra = { added: [], bgCancel: [], reviewCancel: [], cast: 0, css: 0, noty: [], hubInstall: 0, hubUninstall: 0 };
+  const extra = { added: [], bgCancel: [], reviewCancel: [], franchiseCancel: [], franchiseCleared: [], cast: 0, css: 0, noty: [], hubInstall: 0, hubUninstall: 0 };
   const Lampa = {
     Template: {
       all: () => ({ full_start_new: '<div>orig</div>' }),
@@ -513,6 +513,14 @@ function initLC(opts) {
   const reviewRows = [];
   const clearedRows = [];
   LC.reviews = { render: (row) => reviewRows.push(row), clearRow: (row) => clearedRows.push(row), cancel: (body) => extra.reviewCancel.push(body) };
+  /* Task 28: ряд «Смотреть по порядку» — третий сосед в том же .full-descr,
+     заглушка такая же, как у отзывов. */
+  const franchiseRows = [];
+  LC.franchise = {
+    render: (row) => franchiseRows.push(row),
+    clearRow: (row) => { extra.franchiseCleared.push(row); },
+    cancel: (body) => extra.franchiseCancel.push(body)
+  };
 
   const calls = { bind: [], reveal: [], schedule: [], stop: 0 };
   LC.trailer = {
@@ -556,7 +564,7 @@ function initLC(opts) {
   };
 
   LC.init();
-  return { LC, calls, full, toggles, timelines, descrRows, reviewRows, clearedRows, franchiseCalls, extra, hero };
+  return { LC, calls, full, toggles, timelines, descrRows, reviewRows, clearedRows, franchiseCalls, franchiseRows, extra, hero };
 }
 
 test('Task 7: complite — bind(root) и schedule(root, body, data), контроллер попадает в LC.active.trailer', () => {
@@ -603,15 +611,18 @@ test('Task 18: complite — reveal(root, data) зовётся отдельно �
    Узел ищется ОДИН раз на оба рендера: разойдись они, класс .lumen-descr-row
    и содержимое оказались бы на разных уровнях разметки ряда. */
 test('Task 9: на build ряда описания таблица и отзывы получают один и тот же узел', () => {
-  const { full, descrRows, reviewRows } = initLC();
+  const { full, descrRows, reviewRows, franchiseRows } = initLC();
   const row = new FakeEl(['items-line'], [new FakeEl(['items-line__body'], [new FakeEl(['full-descr'])])]);
 
   full[0]({ type: 'build', name: 'description', body: EMPTY, data: { movie: { id: 1 } }, item: { render: () => row } });
 
   assert.equal(descrRows.length, 1, 'таблица «ПОДРОБНО» рисуется как раньше');
   assert.equal(reviewRows.length, 1, 'отзывы рисуются на том же событии');
+  /* Task 28: ряд «Смотреть по порядку» — третий сосед в том же .full-descr. */
+  assert.equal(franchiseRows.length, 1, 'ряд франшизы рисуется на том же событии');
   assert.equal(descrRows[0], row);
   assert.equal(reviewRows[0], row, 'оба рендера получают один узел ряда');
+  assert.equal(franchiseRows[0], row, 'и ряд франшизы — тот же узел');
   assert.deepEqual(warnLog, []);
 });
 
@@ -1124,6 +1135,10 @@ test('Task 11: LC.destroyActive снимает слой фона, запрос �
   const reviewCancels = [];
   LC.backdrops = { apply: () => null, cancel: (b) => cancels.push(b), revive: () => null };
   LC.reviews = { render: () => { }, clearRow: () => { }, cancel: (b) => reviewCancels.push(b) };
+  /* Task 28: запрос коллекции ряда «Смотреть по порядку» — такой же ресурс
+     карточки, как запрос отзывов, и снимается той же точкой. */
+  const franchiseCancels = [];
+  LC.franchise = { render: () => { }, clearRow: () => { }, cancel: (b) => franchiseCancels.push(b) };
 
   const slideshow = makeCtrl();
   let trailerDestroys = 0;
@@ -1138,6 +1153,7 @@ test('Task 11: LC.destroyActive снимает слой фона, запрос �
 
   assert.deepEqual(cancels, [body], 'слой фона (кадр, слайдшоу, трейлер, предзагрузка) снят через cancel(body)');
   assert.deepEqual(reviewCancels, [body], 'незавершённый запрос отзывов снят');
+  assert.deepEqual(franchiseCancels, [body], 'незавершённый запрос коллекции франшизы снят');
   assert.equal(slideshow.destroyCalls, 1, 'контроллер слайдшоу уничтожен и по прямой ссылке');
   assert.equal(trailerDestroys, 1);
   assert.equal(LC.active, null, 'ссылка на карточку отпущена');
@@ -1158,6 +1174,7 @@ test('Task 11: исключение в одном освобождении не 
   let trailerDestroys = 0;
   LC.backdrops = { apply: () => null, cancel: () => { throw new Error('backdrop'); }, revive: () => null };
   LC.reviews = { render: () => { }, clearRow: () => { }, cancel: (b) => reviewCancels.push(b) };
+  LC.franchise = { render: () => { }, clearRow: () => { }, cancel: () => { } };
 
   const slideshow = makeCtrl();
   slideshow.destroy = function () { throw new Error('slideshow'); };
@@ -1180,6 +1197,7 @@ test('Task 11: LC.active обнуляется ДО освобождения — 
   const seen = [];
   LC.backdrops = { apply: () => null, cancel: () => seen.push(LC.active), revive: () => null };
   LC.reviews = { render: () => { }, clearRow: () => { }, cancel: () => seen.push(LC.active) };
+  LC.franchise = { render: () => { }, clearRow: () => { }, cancel: () => { } };
   LC.active = { object: {}, body: new FakeEl(['activity__body']), slideshow: null, trailer: null, data: null };
 
   LC.destroyActive();
@@ -1296,6 +1314,7 @@ test('долг Task 11: backward A->B — start возвращаемой осв�
   const reviewCancels = [];
   LC.backdrops = { apply: () => null, cancel: (b) => cancels.push(b), revive: () => null };
   LC.reviews = { render: () => { }, clearRow: () => { }, cancel: (b) => reviewCancels.push(b) };
+  LC.franchise = { render: () => { }, clearRow: () => { }, cancel: () => { } };
 
   const ctrlA = makeCtrl();
   const objA = makeActivityObj('A', true, ctrlA);  // к ней возвращаемся
@@ -1391,6 +1410,7 @@ test('I2: destroy осиротевшей карточки снимает и сл
   const reviewCancels = [];
   LC.backdrops = { apply: () => null, cancel: (b) => cancels.push(b), revive: () => null };
   LC.reviews = { render: () => { }, clearRow: () => { }, cancel: (b) => reviewCancels.push(b) };
+  LC.franchise = { render: () => { }, clearRow: () => { }, cancel: () => { } };
 
   const objA = makeActivityObj('A', true, makeCtrl());
   const objC = makeActivityObj('C', true, makeCtrl());
@@ -1415,6 +1435,7 @@ test('I2: у осиротевшей карточки без слоя не зов
   const reviewCancels = [];
   LC.backdrops = { apply: () => null, cancel: (b) => cancels.push(b), revive: () => null };
   LC.reviews = { render: () => { }, clearRow: () => { }, cancel: (b) => reviewCancels.push(b) };
+  LC.franchise = { render: () => { }, clearRow: () => { }, cancel: () => { } };
   LC.active = { object: makeActivityObj('C', true, makeCtrl()), body: {}, slideshow: null };
 
   LC.onActivityEvent({ type: 'destroy', component: 'full', object: makeActivityObj('Other', false, null) });
@@ -1434,6 +1455,7 @@ test('I2: исключение при снятии фона не мешает с
   const reviewCancels = [];
   LC.backdrops = { apply: () => null, cancel: () => { throw new Error('backdrop'); }, revive: () => null };
   LC.reviews = { render: () => { }, clearRow: () => { }, cancel: (b) => reviewCancels.push(b) };
+  LC.franchise = { render: () => { }, clearRow: () => { }, cancel: () => { } };
 
   const objA = makeActivityObj('A', true, makeCtrl());
   const bodyA = objA.activity.render().find('.lumen-backdrop').parent();
@@ -1596,6 +1618,7 @@ test('I2: исключение при снятии запроса отзывов
   const cancels = [];
   LC.backdrops = { apply: () => null, cancel: (b) => cancels.push(b), revive: () => null };
   LC.reviews = { render: () => { }, clearRow: () => { }, cancel: () => { throw new Error('reviews'); } };
+  LC.franchise = { render: () => { }, clearRow: () => { }, cancel: () => { } };
 
   const objA = makeActivityObj('A', true, makeCtrl());
   const bodyA = objA.activity.render().find('.lumen-backdrop').parent();

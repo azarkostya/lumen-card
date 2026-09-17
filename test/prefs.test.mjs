@@ -147,7 +147,9 @@ test('LIST: полный набор ключей — существующие и
     /* Task 29 (фаза 3): переход «постер → кадр» при открытии карточки */
     'lumen_transition',
     /* Task 27 (фаза 3): мини-карта рядов и быстрое листание */
-    'lumen_minimap', 'lumen_fastscroll'
+    'lumen_minimap', 'lumen_fastscroll',
+    /* Task 28 (фаза 3): режим показа отзывов и автотрейлер в кадре главной */
+    'lumen_reviews_mode', 'lumen_hero_trailer'
   ].sort());
 });
 
@@ -188,7 +190,9 @@ test('Task 20: настройки главной — одной группой, 
   assert.deepEqual(group, [
     /* Правка пользователя 2026-09-17 (п.2): размер кадра — первым пунктом
        группы: от него зависит, сколько экрана достанется всему остальному. */
-    'lumen_hero_size', 'lumen_moods', 'lumen_personal_rows', 'lumen_home_rows',
+    /* Task 28 (фаза 3): автотрейлер в кадре — сразу за размером кадра: это
+       настройка про то же самое место экрана. */
+    'lumen_hero_size', 'lumen_hero_trailer', 'lumen_moods', 'lumen_personal_rows', 'lumen_home_rows',
     /* Task 25 (фаза 3): метки на постерах — рядом с составом рядов: речь
        про тот же экран. */
     'lumen_rows_limit', 'lumen_badges',

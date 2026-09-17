@@ -224,6 +224,25 @@
     lumen_card_review_mid: { ru: 'НЕЙТРАЛЬНЫЙ', en: 'NEUTRAL', uk: 'НЕЙТРАЛЬНИЙ' },
     lumen_card_review_bad: { ru: 'НЕГАТИВНЫЙ', en: 'NEGATIVE', uk: 'НЕГАТИВНИЙ' },
     lumen_card_review_useful: { ru: 'полезно', en: 'helpful', uk: 'корисно' },
+    /* Task 28 (фаза 3): отзывы без спойлеров. Режим показа — настройка
+       lumen_reviews_mode, переключатель того же режима стоит в шапке ряда
+       (одно значение, две точки входа). */
+    lumen_reviews_mode_name: { ru: 'Текст отзывов в ряду', en: 'Review text in the row', uk: 'Текст відгуків у ряду' },
+    lumen_reviews_mode_descr: {
+      ru: '«Только заголовки» — в ряду видны автор, оценка и заголовок, а текст открывается по OK: случайный спойлер не попадётся на глаза. «С выдержкой» показывает начало отзыва прямо в ряду. Спойлерные куски скрыты в обоих режимах и раскрываются кнопкой в окне отзыва. Применяется сразу.',
+      en: '"Headlines only" shows the author, tone and title in the row and opens the text on OK, so a stray spoiler never catches your eye. "With excerpt" shows the beginning of the review in the row. Spoiler fragments stay hidden in both modes and are revealed by a button in the review window. Applied immediately.',
+      uk: '«Лише заголовки» — у ряду видно автора, оцінку і заголовок, а текст відкривається по OK: випадковий спойлер не трапиться на очі. «З уривком» показує початок відгуку просто в ряду. Спойлерні шматки приховані в обох режимах і розкриваються кнопкою у вікні відгуку. Застосовується одразу.'
+    },
+    lumen_reviews_mode_headlines: { ru: 'Только заголовки', en: 'Headlines only', uk: 'Лише заголовки' },
+    lumen_reviews_mode_full: { ru: 'С выдержкой', en: 'With excerpt', uk: 'З уривком' },
+    /* Подпись переключателя в шапке ряда отзывов: это действие, а не
+       состояние, — «Показывать текст» с подсветкой, когда он включён. */
+    lumen_reviews_mode_toggle: { ru: 'Показывать текст', en: 'Show text', uk: 'Показувати текст' },
+    /* Метка на карточке отзыва, в котором нашёлся скрытый кусок. */
+    lumen_reviews_spoiler: { ru: 'ЕСТЬ СПОЙЛЕР', en: 'HAS SPOILER', uk: 'Є СПОЙЛЕР' },
+    /* Кнопка в окне отзыва: раскрывает замазанные куски и прячет обратно. */
+    lumen_reviews_reveal: { ru: 'Показать спойлеры', en: 'Reveal spoilers', uk: 'Показати спойлери' },
+    lumen_reviews_hide: { ru: 'Скрыть спойлеры', en: 'Hide spoilers', uk: 'Сховати спойлери' },
     lumen_card_anon: { ru: 'Аноним', en: 'Anonymous', uk: 'Анонім' },
     /* Экран 13, панель 2: ключа нет — показываем путь до настройки, а не пустоту. */
     lumen_card_reviews_nokey_title: { ru: 'Ключ API не задан', en: 'API key is not set', uk: 'Ключ API не задано' },
@@ -396,6 +415,13 @@
     lumen_hero_size_medium: { ru: 'Средний', en: 'Medium', uk: 'Середній' },
     lumen_hero_size_compact: { ru: 'Компактный', en: 'Compact', uk: 'Компактний' },
     lumen_hero_size_off: { ru: 'Выключен', en: 'Off', uk: 'Вимкнено' },
+    /* Task 28 (фаза 3): автотрейлер в кадре главной. */
+    lumen_hero_trailer_name: { ru: 'Трейлер в кадре главной', en: 'Trailer in the home hero', uk: 'Трейлер у кадрі головної' },
+    lumen_hero_trailer_descr: {
+      ru: 'Если фокус постоял на карточке 8 секунд, кадр над рядами сменяется беззвучным трейлером с YouTube. Любое движение по рядам его снимает, при листании он не запускается вовсе. Работает только при полных анимациях и там же, где включён трейлер в фоне карточки. Применяется сразу.',
+      en: 'Once focus has rested on a card for 8 seconds, the hero frame above the rows turns into a muted YouTube trailer. Any move through the rows removes it, and it never starts while you are browsing. Works only with full animations and wherever the background trailer on the card is on. Applied immediately.',
+      uk: 'Якщо фокус постояв на картці 8 секунд, кадр над рядами змінюється беззвучним трейлером з YouTube. Будь-який рух рядами його знімає, під час гортання він не запускається взагалі. Працює лише за повних анімацій і там само, де ввімкнено трейлер у фоні картки. Застосовується одразу.'
+    },
     lumen_badges_name: { ru: 'Метки на постерах', en: 'Poster badges', uk: 'Мітки на постерах' },
     lumen_badges_descr: {
       ru: '«Скоро», «Новинка», «Продолжить» и новые серии — прямо на постерах рядов главной и подборок. Применяется сразу.',
@@ -521,6 +547,17 @@
     lumen_sort_new: { ru: 'Новые', en: 'Newest', uk: 'Нові' },
     /* Подпись кнопки в карточке фильма, входящего в коллекцию TMDB. */
     lumen_card_franchise: { ru: 'Франшиза', en: 'Franchise', uk: 'Франшиза' },
+    /* Task 28 (фаза 3): ряд «Смотреть по порядку» в блоке описания карточки
+       (src/66_franchise.js). Чип порядка «По рейтингу» берётся из
+       lumen_sort_rating — той же строки, что у сортировки сетки подборки,
+       а пометка «Скоро» у невышедшей части — из lumen_badge_soon. */
+    lumen_fr_title: { ru: 'Смотреть по порядку', en: 'Watch in order', uk: 'Дивитися по порядку' },
+    lumen_fr_order_release: { ru: 'По годам', en: 'By year', uk: 'За роками' },
+    /* «№ 3 из 9» — слово между номером и общим числом частей. */
+    lumen_fr_of: { ru: 'из', en: 'of', uk: 'з' },
+    lumen_fr_here: { ru: 'Вы здесь', en: 'You are here', uk: 'Ви тут' },
+    lumen_fr_next: { ru: 'Дальше', en: 'Up next', uk: 'Далі' },
+    lumen_fr_watched: { ru: 'Просмотрено', en: 'Watched', uk: 'Переглянуто' },
     /* Task 18: статус сериала в герое — «Выходит · 17 дек» (поправка
        контроллера к экрану 19: текстом, без чипа обратного отсчёта —
        тот остаётся в карточке, фаза 1 Task 5c). Дата собирается из
@@ -652,7 +689,11 @@
       try { if (LC.applyAccentPref) LC.applyAccentPref(); } catch (eAccent) {}
       return true;
     }
-    if (name === 'lumen_reviews' || name === 'lumen_kp_key') { LC.applyReviewsPref(); return true; }
+    /* Task 28 (фаза 3): режим показа отзывов меняется и в настройках, и
+       переключателем в шапке ряда — обе точки пишут одно значение, и обе
+       приходят сюда: ряд открытой карточки перерисовывается по той же
+       дороге, что при смене ключа API. */
+    if (name === 'lumen_reviews' || name === 'lumen_kp_key' || name === 'lumen_reviews_mode') { LC.applyReviewsPref(); return true; }
     /* Task 20: подсказка «Ключ API не задан» — перерисовать ряд отзывов
        открытой карточки (там же, где её рисует LC.reviews) и снять/вернуть
        подсказку в открытой сетке подборки Кинопоиска. */
@@ -667,6 +708,13 @@
        любое другое значение — возвращает на открытую главную. */
     if (name === 'lumen_hero_size') {
       try { if (LC.applyHeroSizePref) LC.applyHeroSizePref(); } catch (eHeroSize) {}
+      return true;
+    }
+    /* Task 28 (фаза 3): автотрейлер в кадре главной. Выключение снимает
+       играющий ролик сразу; включение ничего не запускает — ролик появится со
+       следующей остановки фокуса (src/48_hero.js, applyTrailer). */
+    if (name === 'lumen_hero_trailer') {
+      try { if (LC.hero && LC.hero.applyTrailer) LC.hero.applyTrailer(); } catch (eHeroTr) {}
       return true;
     }
     /* Task 25 (фаза 3): метки на постерах — наблюдатель ставится и снимается

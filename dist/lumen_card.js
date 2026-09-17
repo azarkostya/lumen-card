@@ -1450,7 +1450,76 @@ css.push('.lumen-review-modal__title{font-family:' + FD + ';font-weight:700;font
 
 css.push('.lumen-review-modal__text{font-family:' + FB + ';font-weight:400;font-size:.96em;line-height:1.5;color:' + P.muted + ';max-height:50vh;overflow:auto}');
 
-css.push(LC.icons.NO_MASK + '{.lumen-descr-row .lumen-reviews__ico,.lumen-descr-row .lumen-reviews__hint-ico,.lumen-descr-row .lumen-review__likes:before,.lumen-review-modal__likes:before{display:none}}');
+
+
+
+
+css.push('.lumen-descr-row .lumen-reviews__mode{margin-left:auto;padding:.35em .61em;border-radius:.44em;background:' + P.buttonBg + ';border:.04em solid ' + P.line + ';font-family:' + FB + ';font-weight:600;font-size:.70em;line-height:1.2;color:' + P.muted + '}');
+css.push('.lumen-descr-row .lumen-reviews__mode--on{color:' + A + ';border-color:rgba(' + A_RGB + ',.5)}');
+css.push('.lumen-descr-row .lumen-reviews__mode.focus{background:' + A + ';color:' + t.onac + ';border-color:' + AL + ';border-width:.11em}');
+
+
+css.push('.lumen-descr-row .lumen-review__spoiler{margin-top:auto;font-family:' + FM + ';font-weight:600;font-size:.61em;line-height:1;letter-spacing:.12em;color:' + P.spice + '}');
+
+
+css.push('.lumen-descr-row .lumen-reviews--headlines .lumen-review{height:8.33em}');
+css.push('.lumen-descr-row .lumen-reviews--headlines .lumen-review__title{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}');
+
+
+
+
+css.push('.lumen-review-modal .lumen-spoiler{border-radius:.26em;background:rgba(' + P.textRgb + ',.22);color:transparent}');
+css.push('.lumen-review-modal--open .lumen-spoiler{background:rgba(' + A_RGB + ',.14);color:' + P.text + '}');
+css.push('body.lumen-motion-full .lumen-review-modal .lumen-spoiler{-webkit-transition:color .2s,background-color .2s;transition:color .2s,background-color .2s}');
+
+
+css.push('.lumen-review-modal__reveal{display:inline-block;margin-top:1.05em;padding:.61em .96em;border-radius:.53em;background:' + P.buttonBg + ';border:.04em solid ' + P.line + ';font-family:' + FB + ';font-weight:600;font-size:.83em;line-height:1.3;color:' + P.text + '}');
+css.push('.lumen-review-modal__reveal.focus{background:' + A + ';color:' + t.onac + ';border-color:' + AL + ';border-width:.11em}');
+
+
+
+
+
+
+css.push('.lumen-descr-row .lumen-fr{width:100%;-webkit-flex-basis:100%;flex-basis:100%;margin-top:1.75em}');
+css.push('.lumen-descr-row .lumen-fr__head{display:-webkit-inline-box;display:-webkit-inline-flex;display:inline-flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-flex-wrap:wrap;flex-wrap:wrap;-webkit-box-sizing:border-box;box-sizing:border-box;max-width:100%;margin:0 0 .79em -.7em;padding:.44em .7em;border-radius:.61em;background:' + P.plate + '}');
+css.push('.lumen-descr-row .lumen-fr__ico{width:1.05em;height:1.05em;-webkit-flex-shrink:0;flex-shrink:0;background-color:' + P.muted + ';-webkit-mask-image:' + LC.icons.maskUrl('list') + ';mask-image:' + LC.icons.maskUrl('list') + ';-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;-webkit-mask-size:contain;mask-size:contain;margin-right:.44em}');
+css.push('.lumen-descr-row .lumen-fr__title{font-family:' + FD + ';font-weight:700;font-size:1.40em;line-height:1;color:' + P.text + ';margin-right:.61em}');
+css.push('.lumen-descr-row .lumen-fr__name{font-family:' + FM + ';font-weight:400;font-size:.79em;line-height:1;letter-spacing:.06em;color:' + P.muted + ';margin-right:.88em}');
+css.push('.lumen-descr-row .lumen-fr__modes{display:-webkit-box;display:-webkit-flex;display:flex}');
+css.push('.lumen-descr-row .lumen-fr__mode{padding:.35em .61em;margin-right:.35em;border-radius:.44em;background:' + P.buttonBg + ';border:.04em solid ' + P.line + ';font-family:' + FB + ';font-weight:600;font-size:.70em;line-height:1.2;color:' + P.muted + '}');
+css.push('.lumen-descr-row .lumen-fr__mode--on{color:' + A + ';border-color:rgba(' + A_RGB + ',.5)}');
+css.push('.lumen-descr-row .lumen-fr__mode.focus{background:' + A + ';color:' + t.onac + ';border-color:' + AL + ';border-width:.11em}');
+
+
+
+
+
+css.push('.lumen-descr-row .lumen-fr__row{display:-webkit-box;display:-webkit-flex;display:flex;overflow:hidden;padding:.26em 0}');
+css.push('.lumen-descr-row .lumen-fr-card{position:relative;-webkit-box-sizing:border-box;box-sizing:border-box;width:7.90em;-webkit-box-flex:0;-webkit-flex:none;flex:none;margin-right:.88em;color:' + P.text + '}');
+css.push('.lumen-descr-row .lumen-fr-card__poster{position:relative;width:100%;height:11.84em;border-radius:.53em;overflow:hidden;background-color:' + P.panel + ';-webkit-background-size:cover;background-size:cover;background-position:center;background-repeat:no-repeat;border:.04em solid ' + P.line + '}');
+
+
+css.push('.lumen-descr-row .lumen-fr-card--watched .lumen-fr-card__poster{opacity:.45}');
+css.push('.lumen-descr-row .lumen-fr-card__mark{position:absolute;top:.35em;right:.35em;width:1.32em;height:1.32em;border-radius:50%;background:' + P.bg + ';opacity:0}');
+css.push('.lumen-descr-row .lumen-fr-card--watched .lumen-fr-card__mark{opacity:1;background-color:' + P.good + ';-webkit-mask-image:' + LC.icons.maskUrl('check') + ';mask-image:' + LC.icons.maskUrl('check') + ';-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;-webkit-mask-size:.88em}');
+css.push('.lumen-descr-row .lumen-fr-card__num{font-family:' + FM + ';font-weight:400;font-size:.61em;line-height:1.2;letter-spacing:.06em;color:' + P.muted + ';margin-top:.53em}');
+css.push('.lumen-descr-row .lumen-fr-card__name{font-family:' + FB + ';font-weight:600;font-size:.79em;line-height:1.2;color:' + P.text + ';margin-top:.26em;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}');
+css.push('.lumen-descr-row .lumen-fr-card__year{font-family:' + FM + ';font-weight:400;font-size:.61em;line-height:1.2;color:' + P.smoke + ';margin-top:.18em}');
+css.push('.lumen-descr-row .lumen-fr-card__flag{display:inline-block;margin-top:.26em;padding:.18em .44em;border-radius:.35em;font-family:' + FM + ';font-weight:600;font-size:.53em;line-height:1.3;letter-spacing:.08em;background:' + P.buttonBg + ';color:' + P.muted + '}');
+css.push('.lumen-descr-row .lumen-fr-card__flag--current{background:' + A + ';color:' + t.onac + '}');
+css.push('.lumen-descr-row .lumen-fr-card__flag--next{background:rgba(' + A_RGB + ',.18);color:' + A + '}');
+css.push('.lumen-descr-row .lumen-fr-card__flag--soon{color:' + P.spice + '}');
+css.push('.lumen-descr-row .lumen-fr-card__flag--watched{color:' + P.good + '}');
+css.push('.lumen-descr-row .lumen-fr-card.focus .lumen-fr-card__poster{border:.13em solid ' + A + ';-webkit-box-shadow:0 .614em 1.754em ' + AG + ';box-shadow:0 .614em 1.754em ' + AG + '}');
+css.push('.lumen-descr-row .lumen-fr-card.focus .lumen-fr-card__name{color:' + A + '}');
+css.push('body.lumen-motion-full .lumen-descr-row .lumen-fr-card__poster{-webkit-transition:border-color .2s,-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25),-webkit-box-shadow .28s;transition:border-color .2s,transform .28s cubic-bezier(.2,.9,.3,1.25),box-shadow .28s}');
+css.push('body.lumen-motion-full .lumen-descr-row .lumen-fr-card.focus .lumen-fr-card__poster{-webkit-transform:scale(1.04);transform:scale(1.04)}');
+
+
+css.push('.lumen-descr-row .lumen-fr-card--sk{height:11.84em;border-radius:.53em}');
+
+css.push(LC.icons.NO_MASK + '{.lumen-descr-row .lumen-reviews__ico,.lumen-descr-row .lumen-reviews__hint-ico,.lumen-descr-row .lumen-review__likes:before,.lumen-review-modal__likes:before,.lumen-descr-row .lumen-fr__ico,.lumen-descr-row .lumen-fr-card__mark{display:none}}');
 
 
 
@@ -1765,6 +1834,23 @@ css.push('.lumen-hero.lumen-motion-full .lumen-hero__bg{-webkit-transition:opaci
 
 
 css.push('.lumen-hero.lumen-motion-full.lumen-hero--blur .lumen-hero__bg{-webkit-filter:blur(1.75em);filter:blur(1.75em);-webkit-transform:scale(1.1);transform:scale(1.1)}');
+
+
+
+
+
+
+
+
+css.push('.lumen-hero .lumen-hero__trailer{position:absolute;top:-10%;bottom:-10%;left:0;right:0;overflow:hidden;opacity:0;-webkit-transition:opacity 1s ease;transition:opacity 1s ease}');
+css.push('.lumen-hero .lumen-hero__trailer.is-live{opacity:1}');
+css.push('.lumen-hero .lumen-hero__trailer iframe{width:100%;height:100%;border:0;pointer-events:none}');
+
+
+
+
+css.push('.lumen-hero.lumen-hero--trailer .lumen-hero__bg.is-active{opacity:.25}');
+css.push('.lumen-hero.lumen-hero--trailer .lumen-hero__descr{display:none}');
 
 
 
@@ -6905,6 +6991,16 @@ var DELAY = 350;
 
 var ACCENT_DELAY = 3000;
 
+
+
+
+
+
+var TRAILER_DELAY = 8000;
+
+
+var VIDEOS_LIFE = 10080;
+
 var SWAP_MS = 180;
 
 
@@ -7115,6 +7211,20 @@ return (elapsedMs || 0) >= (delay || 0);
 
 
 
+
+
+
+
+
+
+
+
+function trailerAllowed(pref, motion, trailer) {
+if (pref === false) return false;
+if (motion !== 'full') return false;
+return trailer !== 'off';
+}
+
 function bigPoster(url) {
 var src = '' + (url || '');
 var m = /\/t\/p\/w(\d+)\//.exec(src);
@@ -7165,6 +7275,13 @@ var state = null;
 
 
 var gen = 0;
+
+
+
+
+
+
+var tgen = 0;
 
 
 
@@ -7242,6 +7359,10 @@ function buildNode() {
 var node = $('<div class="lumen-hero">' +
 '<div class="lumen-hero__bg lumen-hero__bg--a"></div>' +
 '<div class="lumen-hero__bg lumen-hero__bg--b"></div>' +
+
+
+
+'<div class="lumen-hero__trailer"></div>' +
 '<div class="lumen-hero__veil lumen-hero__veil--l"></div>' +
 '<div class="lumen-hero__veil lumen-hero__veil--b"></div>' +
 '</div>');
@@ -7281,6 +7402,10 @@ function applyMotion() {
 try {
 if (!state) return;
 state.node.removeClass(MOTION_CLASSES).addClass('lumen-motion-' + LC.motionMode());
+
+
+
+applyTrailer();
 } catch (e) {
 warn('hero: motion failed', e);
 }
@@ -7316,6 +7441,153 @@ if (state.net) {
 try { if (state.net.clear) state.net.clear(); } catch (e) {}
 state.net = null;
 }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function trailerPref() {
+try { return LC.pref ? LC.pref('lumen_hero_trailer', true) !== false : true; } catch (e) { return true; }
+}
+
+function trailerMode() {
+try {
+if (LC.trailer && typeof LC.trailer.mode === 'function') return LC.trailer.mode();
+} catch (e) { }
+return 'on';
+}
+
+function trailerReady() {
+return trailerAllowed(trailerPref(), motionMode(), trailerMode());
+}
+
+
+
+
+function cancelTrailer() {
+if (!state) return;
+tgen++;
+stopTimer('trailerTimer');
+if (state.trailerNet) {
+try { if (state.trailerNet.clear) state.trailerNet.clear(); } catch (e) { }
+state.trailerNet = null;
+}
+state.trailerCard = null;
+if (state.trailer) {
+var control = state.trailer;
+state.trailer = null;
+try { if (control.destroy) control.destroy(); } catch (e2) {
+warn('hero: trailer destroy failed', e2);
+}
+}
+try { state.node.removeClass('lumen-hero--trailer'); } catch (e3) { }
+}
+
+
+
+
+function loadTrailer(card, captured) {
+var media = mediaOf(card);
+var lang = langCode();
+
+function ask(code, next) {
+try {
+if (!window.Lampa || !Lampa.Api || !Lampa.Api.sources || !Lampa.Api.sources.tmdb) return;
+state.trailerNet = Lampa.Api.sources.tmdb.get(
+media + '/' + card.id + '/videos',
+{ langs: code },
+function (json) {
+if (tgen !== captured || !state || !isMounted()) return;
+state.trailerNet = null;
+var video = null;
+try {
+if (LC.trailer && typeof LC.trailer.pickTrailer === 'function') video = LC.trailer.pickTrailer(json && json.results);
+} catch (ePick) {
+warn('hero: trailer pick failed', ePick);
+}
+if (video && video.key) { startTrailer(video.key, captured); return; }
+if (next) ask(next, '');
+},
+function () {
+if (tgen !== captured || !state) return;
+state.trailerNet = null;
+if (next) ask(next, '');
+},
+{ life: VIDEOS_LIFE }
+);
+} catch (e) {
+warn('hero: trailer request failed', e);
+}
+}
+
+ask(lang, lang === 'en' ? '' : 'en');
+}
+
+function startTrailer(key, captured) {
+try {
+if (tgen !== captured || !state || !isMounted()) return;
+if (!trailerReady()) return;
+if (!LC.trailer || typeof LC.trailer.player !== 'function') return;
+var host = state.node.find('.lumen-hero__trailer');
+if (!host || !host.length) return;
+
+
+
+state.trailer = LC.trailer.player(host, key, function () {
+if (tgen !== captured || !state) return;
+try { state.node.addClass('lumen-hero--trailer'); } catch (e) { }
+}, function () {
+if (tgen !== captured || !state) return;
+state.trailer = null;
+try { state.node.removeClass('lumen-hero--trailer'); } catch (e2) { }
+});
+} catch (err) {
+warn('hero: trailer start failed', err);
+}
+}
+
+
+
+
+function scheduleTrailer(card) {
+if (!trailerReady()) return;
+var captured = tgen;
+state.trailerTimer = setTimeout(function () {
+if (!state || tgen !== captured) return;
+state.trailerTimer = null;
+if (state.pending !== card) return;
+if (!isMounted()) return;
+
+
+if (!trailerReady()) return;
+loadTrailer(card, captured);
+}, TRAILER_DELAY);
+}
+
+
+
+
+function applyTrailer() {
+if (!state) return;
+if (trailerReady()) return;
+cancelTrailer();
 }
 
 
@@ -7701,6 +7973,15 @@ stopTimer('timer');
 scheduleAccent(card);
 
 
+
+
+if (state.trailerCard !== card) {
+cancelTrailer();
+state.trailerCard = card;
+scheduleTrailer(card);
+}
+
+
 if (state.shownId === card.id) return;
 
 var captured = gen;
@@ -7815,6 +8096,12 @@ model: null,
 pending: null,
 focusAt: 0,
 frameUrl: '',
+
+
+trailerTimer: null,
+trailerNet: null,
+trailer: null,
+trailerCard: null,
 fixedCompact: !!opts.compact
 };
 if (opts.compact) setCompact(true);
@@ -7846,6 +8133,10 @@ warn('hero: mountCurrent failed', e);
 
 function unmount() {
 if (!state) return;
+
+
+
+cancelTrailer();
 var s = state;
 state = null;
 
@@ -7857,7 +8148,7 @@ if (s.observer) s.observer.disconnect();
 } catch (e) {
 warn('hero: disconnect failed', e);
 }
-var timers = ['timer', 'swapTimer', 'loadTimer', 'accentTimer', 'bigTimer'];
+var timers = ['timer', 'swapTimer', 'loadTimer', 'accentTimer', 'bigTimer', 'trailerTimer'];
 for (var i = 0; i < timers.length; i++) {
 try { if (s[timers[i]]) clearTimeout(s[timers[i]]); } catch (eT) {}
 }
@@ -7925,6 +8216,12 @@ sizeFor: sizeFor,
 logoSizeFor: logoSizeFor,
 logoBox: logoBox,
 detailsRequest: detailsRequest,
+
+
+trailerAllowed: trailerAllowed,
+
+
+applyTrailer: applyTrailer,
 mount: mount,
 mountCurrent: mountCurrent,
 detach: detach,
@@ -10529,6 +10826,91 @@ return m ? m[1] : text.slice(0, 60);
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+var WRAP_RE = /\[(?:spoiler|спойлер)\]([\s\S]*?)\[\/(?:spoiler|спойлер)\]|<spoiler>([\s\S]*?)<\/spoiler>|<span[^>]*spoiler[^>]*>([\s\S]*?)<\/span>/gi;
+var ALERT_RE = /(осторожно[\s,!:-]*спойлер|внимание[\s,!:-]*спойлер|далее\s+спойлер|спойлеры?\s+ниже|содержит\s+спойлер|spoiler\s*alert)/i;
+var MARK_RE = /(спойлер|spoiler|концовк|развязк|в финале|в конце фильма|умирает|погибает|воскреса)/i;
+
+
+
+function pushSeg(out, text, spoiler) {
+if (!text) return;
+var last = out.length ? out[out.length - 1] : null;
+if (last && last.s === spoiler) { last.t += text; return; }
+out.push({ t: text, s: !!spoiler });
+}
+
+
+function splitPlain(out, text) {
+if (!text) return;
+var alert = ALERT_RE.exec(text);
+if (alert) {
+pushSeg(out, text.slice(0, alert.index), false);
+pushSeg(out, text.slice(alert.index), true);
+return;
+}
+var sentences = text.match(/[^.!?…]*[.!?…]+\s*|[^.!?…]+$/g) || [text];
+for (var i = 0; i < sentences.length; i++) {
+pushSeg(out, sentences[i], MARK_RE.test(sentences[i]));
+}
+}
+
+
+
+function splitSpoilers(text) {
+var src = '' + (text || '');
+var out = [];
+if (!src) return out;
+WRAP_RE.lastIndex = 0;
+var at = 0;
+var m;
+while ((m = WRAP_RE.exec(src)) !== null) {
+splitPlain(out, src.slice(at, m.index));
+pushSeg(out, m[1] || m[2] || m[3] || '', true);
+at = m.index + m[0].length;
+
+if (m[0].length === 0) WRAP_RE.lastIndex++;
+}
+splitPlain(out, src.slice(at));
+return out;
+}
+
+function hasSpoiler(segs) {
+for (var i = 0; i < segs.length; i++) if (segs[i].s) return true;
+return false;
+}
+
+
+function openText(segs) {
+var out = '';
+for (var i = 0; i < segs.length; i++) if (!segs[i].s) out += segs[i].t;
+return trim(out.replace(/\s+/g, ' '));
+}
+
+
+
+
+
 function kpRateOf(item) {
 var rate = parseFloat(item && item.ratingKinopoisk);
 if (!rate || rate <= 0) return 0;
@@ -10563,8 +10945,32 @@ LC.util.each(items, function (it) {
 if (!it) return;
 var text = trim(('' + (it.description || '')).replace(/\s+/g, ' '));
 if (!text) return;
+
+
+
+
+var full = cut(text, MAX_FULL);
+var segs = splitSpoilers(full);
+var spoiler = hasSpoiler(segs);
+
+
+var open = spoiler ? openText(segs) : full;
+
 var title = trim(('' + (it.title || '')).replace(/\s+/g, ' '));
-if (!title) title = firstSentence(text);
+
+
+
+if (title && hasSpoiler(splitSpoilers(title))) title = open ? firstSentence(open) : '';
+if (!title) title = open ? firstSentence(open) : '';
+
+
+
+
+var parts = [];
+if (spoiler) {
+for (var i = 0; i < segs.length; i++) parts.push({ t: esc(segs[i].t), s: segs[i].s });
+}
+
 var author = trim(it.author) || anon || ANON;
 var dm = ('' + (it.date || '')).match(/^(\d{4})-(\d{2})-(\d{2})/);
 out.push({
@@ -10572,8 +10978,10 @@ tone: it.type === 'POSITIVE' ? 'good' : (it.type === 'NEGATIVE' ? 'bad' : 'mid')
 author: esc(author),
 initials: esc(LC.util.initials(author)),
 title: esc(title),
-excerpt: esc(cut(text, MAX_EXCERPT)),
-full: esc(cut(text, MAX_FULL)),
+excerpt: esc(cut(open, MAX_EXCERPT)),
+full: spoiler ? '' : esc(full),
+parts: parts,
+spoiler: spoiler,
 date: dm ? dm[3] + '.' + dm[2] + '.' + dm[1] : '',
 likes: parseInt(it.positiveRating, 10) || 0,
 dislikes: parseInt(it.negativeRating, 10) || 0
@@ -10859,7 +11267,18 @@ return '';
 
 
 
-function headHtml(total) {
+
+
+
+
+
+function modeOf() {
+var value = 'headlines';
+try { if (LC.pref) value = LC.pref('lumen_reviews_mode', 'headlines'); } catch (e) { }
+return value === 'full' ? 'full' : 'headlines';
+}
+
+function headHtml(total, mode) {
 return '<div class="lumen-reviews__head">' +
 '<span class="lumen-reviews__ico"></span>' +
 '<span class="lumen-reviews__title">' + esc(lang('lumen_card_reviews_title')) + '</span>' +
@@ -10867,13 +11286,22 @@ return '<div class="lumen-reviews__head">' +
 
 
 '<span class="lumen-reviews__total">· ' + esc(String(total)) + ' ' + esc(totalWord(total)) + '</span>' +
+
+
+
+'<div class="lumen-reviews__mode selector' + (mode === 'full' ? ' lumen-reviews__mode--on' : '') + '">' +
+esc(lang('lumen_reviews_mode_toggle')) + '</div>' +
 '</div>';
 }
 
 
 
-function cardHtml(item, index) {
+function cardHtml(item, index, mode) {
 var likes = item.likes ? '<span class="lumen-review__likes">' + item.likes + ' ' + esc(lang('lumen_card_review_useful')) + '</span>' : '';
+
+
+var mark = item.spoiler ? '<div class="lumen-review__spoiler">' + esc(lang('lumen_reviews_spoiler')) + '</div>' : '';
+var text = mode === 'full' ? '<div class="lumen-review__text">' + item.excerpt + '</div>' : '';
 return '<div class="lumen-review selector lumen-review--' + item.tone + '" data-lumen-review="' + index + '">' +
 '<div class="lumen-review__tone"></div>' +
 '<div class="lumen-review__body">' +
@@ -10889,9 +11317,35 @@ likes +
 '</div>' +
 '</div>' +
 '<div class="lumen-review__title">' + item.title + '</div>' +
-'<div class="lumen-review__text">' + item.excerpt + '</div>' +
+text +
+mark +
 '</div>' +
 '</div>';
+}
+
+
+
+
+
+function textHtml(item) {
+var parts = item && item.parts;
+if (!parts || !parts.length) return item.full || '';
+var out = '';
+for (var i = 0; i < parts.length; i++) {
+var seg = parts[i];
+out += seg.s ? '<span class="lumen-spoiler">' + seg.t + '</span>' : seg.t;
+}
+return out;
+}
+
+function hasParts(item) {
+return !!(item && item.parts && item.parts.length);
+}
+
+function spoilerInParts(item) {
+if (!hasParts(item)) return false;
+for (var i = 0; i < item.parts.length; i++) if (item.parts[i].s) return true;
+return false;
 }
 
 function modalHtml(item) {
@@ -10911,7 +11365,8 @@ return '<div class="lumen-review-modal__tone"></div>' +
 '</div>' +
 '<div class="lumen-review-modal__line"></div>' +
 '<div class="lumen-review-modal__title">' + item.title + '</div>' +
-'<div class="lumen-review-modal__text">' + item.full + '</div>' +
+'<div class="lumen-review-modal__text">' + textHtml(item) + '</div>' +
+(spoilerInParts(item) ? '<div class="lumen-review-modal__reveal selector">' + esc(lang('lumen_reviews_reveal')) + '</div>' : '') +
 '</div>';
 }
 
@@ -10964,6 +11419,7 @@ if (enabled && enabled.name) back = enabled.name;
 
 var html = $('<div class="lumen-review-modal lumen-review-modal--' + item.tone + '"></div>');
 html.html(modalHtml(item));
+bindReveal(html);
 
 Lampa.Modal.open({
 title: '',
@@ -10981,6 +11437,32 @@ Lampa.Controller.collectionFocus(card, card.closest('.items-line'));
 });
 } catch (err) {
 warn('reviews modal failed', err);
+}
+}
+
+
+
+
+
+
+
+function bindReveal(html) {
+try {
+var el = html && html[0];
+if (!el || typeof el.addEventListener !== 'function') return;
+el.addEventListener('hover:enter', function (event) {
+try {
+var btn = $(event.target).closest('.lumen-review-modal__reveal');
+if (!btn || !btn.length) return;
+var open = !html.hasClass('lumen-review-modal--open');
+html.toggleClass('lumen-review-modal--open', open);
+btn.text(lang(open ? 'lumen_reviews_hide' : 'lumen_reviews_reveal'));
+} catch (e) {
+warn('reviews reveal failed', e);
+}
+}, true);
+} catch (err) {
+warn('reviews reveal bind failed', err);
 }
 }
 
@@ -11048,6 +11530,24 @@ warn('reviews scroll failed', err);
 
 
 
+
+
+
+function switchMode() {
+try {
+var next = modeOf() === 'full' ? 'headlines' : 'full';
+if (window.Lampa && Lampa.Storage && typeof Lampa.Storage.set === 'function') Lampa.Storage.set('lumen_reviews_mode', next);
+var cur = window.Lampa && Lampa.Controller && typeof Lampa.Controller.enabled === 'function' ? Lampa.Controller.enabled() : null;
+if (cur && cur.name && typeof Lampa.Controller.toggle === 'function') Lampa.Controller.toggle(cur.name);
+} catch (e) {
+warn('reviews mode switch failed', e);
+}
+}
+
+
+
+
+
 function bind(block, list) {
 try {
 var el = block[0];
@@ -11070,6 +11570,10 @@ if (card) scrollToCard(block, card);
 
 el.addEventListener('hover:enter', function (event) {
 try {
+
+
+var toggle = $(event.target).closest('.lumen-reviews__mode');
+if (toggle && toggle.length) { switchMode(); return; }
 var card = cardOf(event.target);
 if (!card) return;
 var index = parseInt(card.attr('data-lumen-review'), 10);
@@ -11103,10 +11607,11 @@ warn('reviews collection failed', e);
 }
 
 function paintList(holder, list, total) {
-var block = $('<div class="lumen-reviews"></div>');
+var mode = modeOf();
+var block = $('<div class="lumen-reviews' + (mode === 'full' ? '' : ' lumen-reviews--headlines') + '"></div>');
 var cards = [];
-LC.util.each(list, function (item, i) { cards.push(cardHtml(item, i)); });
-block.html(headHtml(total) + '<div class="lumen-reviews__row">' + cards.join('') + '</div>');
+LC.util.each(list, function (item, i) { cards.push(cardHtml(item, i, mode)); });
+block.html(headHtml(total, mode) + '<div class="lumen-reviews__row">' + cards.join('') + '</div>');
 holder.append(block);
 bind(block, list);
 appendSelectors(block);
@@ -11203,7 +11708,10 @@ var on = LC.pref('lumen_reviews', true);
 
 
 
-var sign = [on ? '1' : '0', imdb, keyStamp(key), lang('lumen_card_reviews_title'), hintEnabled() ? 'h1' : 'h0'].join('|');
+
+
+
+var sign = [on ? '1' : '0', imdb, keyStamp(key), lang('lumen_card_reviews_title'), hintEnabled() ? 'h1' : 'h0', modeOf()].join('|');
 
 var state = stateOf(holder);
 if (state.sign === sign && (!state.painted || holder.find('.lumen-reviews').length)) return;
@@ -11310,6 +11818,7 @@ TTL: TTL,
 cacheKey: cacheKey,
 isFresh: isFresh,
 normalize: normalize,
+splitSpoilers: splitSpoilers,
 kpRateOf: kpRateOf,
 cacheRead: cacheRead,
 cacheWrite: cacheWrite,
@@ -13689,6 +14198,618 @@ return { css: css, scoped: scoped, install: install, toggle: toggle };
 if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.torrents;
 
 
+/* ---- 66_franchise.js ---- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+LC.franchise = (function () {
+
+
+
+var LIFE = 10080;
+
+var WATCHED = 95;
+
+
+var POSTER = 'w300';
+var ORDER_KEY = 'lumen_franchise_order';
+
+var esc = LC.util.esc;
+
+
+
+
+
+function dateOf(part) {
+return '' + ((part && (part.release_date || part.first_air_date)) || '');
+}
+
+
+
+function orderFor(stored) {
+if (stored === 'rating' || stored === 'chronology') return stored;
+return 'release';
+}
+
+
+
+
+function itemOf(part, index) {
+var date = dateOf(part);
+return {
+card: part,
+index: index,
+id: part && part.id,
+title: (part && (part.title || part.name)) || '',
+original: (part && (part.original_title || part.original_name)) || '',
+date: date,
+year: date ? date.slice(0, 4) : '',
+poster: (part && part.poster_path) || '',
+rating: Number(part && part.vote_average) || 0,
+upcoming: false,
+watched: false,
+current: false,
+next: false,
+num: index + 1
+};
+}
+
+
+
+
+function sortBy(list, key) {
+list.sort(function (a, b) {
+var d = key(a, b);
+if (d) return d;
+return a.index - b.index;
+});
+return list;
+}
+
+function cmpDate(a, b) {
+
+
+var da = a.date || '9999';
+var db = b.date || '9999';
+if (da < db) return -1;
+if (da > db) return 1;
+return 0;
+}
+
+
+function orderParts(parts, mode, today) {
+var list = [];
+if (!parts || typeof parts.length !== 'number') return list;
+for (var i = 0; i < parts.length; i++) {
+if (!parts[i]) continue;
+list.push(itemOf(parts[i], list.length));
+}
+
+
+
+
+
+var stamp = stampOf(today);
+for (var u = 0; u < list.length; u++) {
+if (list[u].date && list[u].date > stamp) list[u].upcoming = true;
+}
+if (mode === 'rating') {
+sortBy(list, function (a, b) { return b.rating - a.rating; });
+} else {
+sortBy(list, cmpDate);
+if (mode !== 'chronology') {
+var out = [];
+var later = [];
+for (var k = 0; k < list.length; k++) {
+if (list[k].upcoming) later.push(list[k]);
+else out.push(list[k]);
+}
+list = out.concat(later);
+}
+}
+for (var n = 0; n < list.length; n++) list[n].num = n + 1;
+return list;
+}
+
+
+
+function stampOf(today) {
+var d = (today && today.getFullYear) ? today : new Date();
+return d.getFullYear() + '-' + LC.util.pad2(d.getMonth() + 1) + '-' + LC.util.pad2(d.getDate());
+}
+
+
+
+
+function markWatched(list, ctx) {
+if (!list || typeof list.length !== 'number') return [];
+ctx = ctx || {};
+for (var i = 0; i < list.length; i++) {
+var item = list[i];
+var percent = 0;
+if (typeof ctx.percent === 'function') {
+try { percent = Number(ctx.percent(item)) || 0; } catch (e) { percent = 0; }
+}
+item.watched = percent >= WATCHED;
+item.current = ctx.currentId != null && String(item.id) === String(ctx.currentId);
+}
+return list;
+}
+
+
+
+
+
+function nextToWatch(list) {
+if (!list || typeof list.length !== 'number') return null;
+var from = 0;
+for (var i = 0; i < list.length; i++) {
+if (list[i] && list[i].current) { from = i + 1; break; }
+}
+for (var k = from; k < list.length; k++) {
+var item = list[k];
+if (!item || item.watched || item.upcoming || item.current) continue;
+item.next = true;
+return item;
+}
+return null;
+}
+
+
+
+
+
+function lang(key) {
+try {
+if (typeof LC.lang === 'function') return LC.lang(key);
+} catch (e) { }
+return key;
+}
+
+
+
+
+
+function tmdbImageFn() {
+if (window.Lampa && Lampa.TMDB && typeof Lampa.TMDB.image === 'function') {
+return function (url) { return Lampa.TMDB.image(url); };
+}
+return null;
+}
+
+function apiImgFn() {
+if (window.Lampa && Lampa.Api && typeof Lampa.Api.img === 'function') {
+return function (path, size) { return Lampa.Api.img(path, size); };
+}
+return null;
+}
+
+function posterUrl(path) {
+try {
+return LC.cardinfo.imageUrl(path, POSTER, tmdbImageFn(), apiImgFn());
+} catch (e) {
+return '';
+}
+}
+
+function flagOf(item) {
+if (item.current) return { cls: 'current', text: lang('lumen_fr_here') };
+if (item.next) return { cls: 'next', text: lang('lumen_fr_next') };
+if (item.upcoming) return { cls: 'soon', text: lang('lumen_badge_soon') };
+if (item.watched) return { cls: 'watched', text: lang('lumen_fr_watched') };
+return null;
+}
+
+function cardHtml(item, total) {
+var url = posterUrl(item.poster);
+var flag = flagOf(item);
+var mods = '';
+if (item.current) mods += ' lumen-fr-card--current';
+if (item.watched) mods += ' lumen-fr-card--watched';
+if (item.next) mods += ' lumen-fr-card--next';
+if (item.upcoming) mods += ' lumen-fr-card--soon';
+
+
+return '<div class="lumen-fr-card selector' + mods + '" data-lumen-fr="' + item.index + '">' +
+'<div class="lumen-fr-card__poster" style="background-image:' + (url ? 'url(&quot;' + esc(encodeURI(url)) + '&quot;)' : 'none') + '">' +
+'<div class="lumen-fr-card__mark"></div>' +
+'</div>' +
+'<div class="lumen-fr-card__num">' + esc('№ ' + item.num + ' ' + lang('lumen_fr_of') + ' ' + total) + '</div>' +
+'<div class="lumen-fr-card__name">' + esc(item.title) + '</div>' +
+'<div class="lumen-fr-card__year">' + esc(item.year) + '</div>' +
+(flag ? '<div class="lumen-fr-card__flag lumen-fr-card__flag--' + flag.cls + '">' + esc(flag.text) + '</div>' : '') +
+'</div>';
+}
+
+function modeHtml(id, label, active) {
+return '<div class="lumen-fr__mode selector' + (active ? ' lumen-fr__mode--on' : '') +
+'" data-lumen-fr-order="' + id + '">' + esc(label) + '</div>';
+}
+
+function headHtml(name, order) {
+return '<div class="lumen-fr__head">' +
+'<span class="lumen-fr__ico"></span>' +
+'<span class="lumen-fr__title">' + esc(lang('lumen_fr_title')) + '</span>' +
+(name ? '<span class="lumen-fr__name">' + esc(name) + '</span>' : '') +
+'<div class="lumen-fr__modes">' +
+modeHtml('release', lang('lumen_fr_order_release'), order !== 'rating') +
+modeHtml('rating', lang('lumen_sort_rating'), order === 'rating') +
+'</div>' +
+'</div>';
+}
+
+function bodyHtml(list, name, order) {
+var cards = [];
+for (var i = 0; i < list.length; i++) cards.push(cardHtml(list[i], list.length));
+return headHtml(name, order) + '<div class="lumen-fr__row">' + cards.join('') + '</div>';
+}
+
+
+
+
+
+function holderOf(row) {
+if (!row || !row.length || typeof row.find !== 'function') return null;
+var holder = row.find('.full-descr');
+return holder && holder.length ? holder : null;
+}
+
+function stateOf(holder) {
+var node = holder[0];
+if (!node.lumenFranchise) {
+node.lumenFranchise = { sign: '', gen: 0, painted: false, net: null, parts: null, movie: null, row: null, list: null };
+}
+return node.lumenFranchise;
+}
+
+function dropNet(state) {
+if (!state) return;
+if (state.net && typeof state.net.clear === 'function') {
+try { state.net.clear(); } catch (e) { }
+}
+state.net = null;
+}
+
+function clearBlock(holder) {
+try {
+var old = holder.find('.lumen-fr');
+if (old && old.length) old.remove();
+} catch (e) { }
+}
+
+
+
+
+
+function isForeground(node) {
+try {
+if (LC.slideshow && typeof LC.slideshow.isMounted === 'function' && !LC.slideshow.isMounted(node[0])) return false;
+if (LC.slideshow && typeof LC.slideshow.isLayerForeground === 'function') return !!LC.slideshow.isLayerForeground(node);
+} catch (e) { }
+return true;
+}
+
+
+
+
+
+function hashOf(key) {
+try {
+if (!key || !window.Lampa || !Lampa.Utils || typeof Lampa.Utils.hash !== 'function') return 0;
+return Lampa.Utils.hash(key);
+} catch (e) {
+return 0;
+}
+}
+
+
+
+
+function watchKey(part) {
+try {
+if (LC.cardmenu && typeof LC.cardmenu.watchKey === 'function') return LC.cardmenu.watchKey(part);
+} catch (e) { }
+return (part && (part.original_title || part.original_name || part.title || part.name)) || '';
+}
+
+function percentOf(item) {
+try {
+var hash = hashOf(watchKey(item.card));
+if (!hash || !window.Lampa || !Lampa.Timeline || typeof Lampa.Timeline.view !== 'function') return 0;
+var view = Lampa.Timeline.view(hash);
+return Number(view && view.percent) || 0;
+} catch (e) {
+return 0;
+}
+}
+
+
+
+
+
+function storedOrder() {
+try {
+return orderFor(LC.pref ? LC.pref(ORDER_KEY, 'release') : 'release');
+} catch (e) {
+return 'release';
+}
+}
+
+function paint(holder, state) {
+var order = storedOrder();
+var list = markWatched(orderParts(state.parts, order, new Date()), {
+percent: percentOf,
+currentId: state.movie && state.movie.id
+});
+nextToWatch(list);
+state.list = list;
+
+var block = holder.find('.lumen-fr');
+if (!block || !block.length || block.hasClass('lumen-fr--sk')) {
+clearBlock(holder);
+block = $('<div class="lumen-fr"></div>');
+holder.append(block);
+bind(block, holder);
+}
+block.html(bodyHtml(list, state.name, order));
+appendSelectors(block);
+return block;
+}
+
+
+
+
+
+
+function paintSkeleton(holder) {
+var block = $('<div class="lumen-fr lumen-fr--sk"></div>');
+block.html('<div class="lumen-fr__row">' +
+'<div class="lumen-fr-card lumen-fr-card--sk lumen-skeleton"></div>' +
+'<div class="lumen-fr-card lumen-fr-card--sk lumen-skeleton"></div>' +
+'<div class="lumen-fr-card lumen-fr-card--sk lumen-skeleton"></div>' +
+'<div class="lumen-fr-card lumen-fr-card--sk lumen-skeleton"></div>' +
+'</div>');
+holder.append(block);
+}
+
+
+
+
+function appendSelectors(block) {
+try {
+if (!window.Lampa || !Lampa.Controller || typeof Lampa.Controller.collectionAppend !== 'function') return;
+var enabled = typeof Lampa.Controller.enabled === 'function' ? Lampa.Controller.enabled() : null;
+if (!enabled || enabled.name !== 'full_descr') return;
+if (!isForeground(block)) return;
+var nodes = block.find('.lumen-fr-card');
+if (nodes && nodes.length) Lampa.Controller.collectionAppend(nodes);
+} catch (e) {
+warn('franchise collection failed', e);
+}
+}
+
+function openPart(item) {
+try {
+if (!item || !item.card || !window.Lampa || !Lampa.Activity || typeof Lampa.Activity.push !== 'function') return;
+Lampa.Activity.push({
+url: '',
+title: item.title,
+component: 'full',
+id: item.id,
+method: 'movie',
+card: item.card,
+source: 'tmdb'
+});
+} catch (e) {
+warn('franchise open failed', e);
+}
+}
+
+
+
+
+function setOrder(holder, value) {
+try {
+if (window.Lampa && Lampa.Storage && typeof Lampa.Storage.set === 'function') {
+Lampa.Storage.set(ORDER_KEY, orderFor(value), true);
+}
+var state = stateOf(holder);
+if (state.parts) paint(holder, state);
+} catch (e) {
+warn('franchise order failed', e);
+}
+}
+
+
+
+
+
+function bind(block, holder) {
+try {
+var el = block[0];
+if (!el || typeof el.addEventListener !== 'function' || el.lumenFranchiseBound) return;
+el.lumenFranchiseBound = true;
+el.addEventListener('hover:enter', function (event) {
+try {
+var target = $(event.target);
+var mode = target.closest('.lumen-fr__mode');
+if (mode && mode.length) { setOrder(holder, mode.attr('data-lumen-fr-order')); return; }
+var card = target.closest('.lumen-fr-card');
+if (!card || !card.length) return;
+var index = parseInt(card.attr('data-lumen-fr'), 10);
+if (isNaN(index)) return;
+var state = stateOf(holder);
+var list = state.list || [];
+for (var i = 0; i < list.length; i++) {
+if (list[i].index === index) { openPart(list[i]); return; }
+}
+} catch (e) {
+warn('franchise enter failed', e);
+}
+}, true);
+} catch (err) {
+warn('franchise bind failed', err);
+}
+}
+
+function requestCollection(id, ok, err) {
+try {
+if (!window.Lampa || !Lampa.Api || !Lampa.Api.sources || !Lampa.Api.sources.tmdb ||
+typeof Lampa.Api.sources.tmdb.get !== 'function') return null;
+return Lampa.Api.sources.tmdb.get('collection/' + id, {}, ok, err, { life: LIFE });
+} catch (e) {
+warn('franchise request failed', e);
+return null;
+}
+}
+
+
+
+
+
+
+function render(row, data) {
+try {
+var holder = holderOf(row);
+if (!holder) return;
+row.addClass('lumen-descr-row');
+
+var movie = (data && data.movie) || {};
+var collection = movie.belongs_to_collection;
+var sign = [collection && collection.id, movie.id, lang('lumen_fr_title')].join('|');
+
+var state = stateOf(holder);
+if (state.sign === sign && (!state.painted || holder.find('.lumen-fr').length)) return;
+
+state.sign = sign;
+state.gen++;
+state.painted = false;
+var gen = state.gen;
+dropNet(state);
+clearBlock(holder);
+row.removeClass('lumen-descr-row--franchise');
+state.parts = null;
+state.list = null;
+
+if (!collection || !collection.id) return;
+state.movie = movie;
+state.name = collection.name || '';
+state.row = row;
+
+paintSkeleton(holder);
+
+state.net = requestCollection(collection.id, function (json) {
+try {
+var current = stateOf(holder);
+if (current.gen !== gen) return;
+current.net = null;
+clearBlock(holder);
+var parts = (json && json.parts) || [];
+
+
+if (parts.length < 2) return;
+current.parts = parts;
+paint(holder, current);
+row.addClass('lumen-descr-row--franchise');
+current.painted = true;
+} catch (e) {
+warn('franchise paint failed', e);
+}
+}, function () {
+try {
+var current = stateOf(holder);
+if (current.gen !== gen) return;
+current.net = null;
+clearBlock(holder);
+} catch (e) {
+warn('franchise error path failed', e);
+}
+});
+
+
+
+
+
+
+if (!state.net) clearBlock(holder);
+} catch (err) {
+warn('franchise render failed', err);
+}
+}
+
+
+function clearRow(row) {
+try {
+var holder = holderOf(row);
+if (!holder) return;
+clearBlock(holder);
+row.removeClass('lumen-descr-row--franchise');
+var state = stateOf(holder);
+state.sign = '';
+state.painted = false;
+state.parts = null;
+state.list = null;
+state.gen++;
+dropNet(state);
+} catch (e) {
+warn('franchise clear failed', e);
+}
+}
+
+
+
+function cancel(body) {
+try {
+if (!body || typeof body.find !== 'function') return;
+var holder = body.find('.full-descr');
+if (!holder || !holder.length) return;
+var node = holder[0];
+if (node && node.lumenFranchise) dropNet(node.lumenFranchise);
+} catch (e) {
+warn('franchise cancel failed', e);
+}
+}
+
+return {
+orderFor: orderFor,
+orderParts: orderParts,
+markWatched: markWatched,
+nextToWatch: nextToWatch,
+render: render,
+clearRow: clearRow,
+cancel: cancel
+};
+})();
+
+
+
+if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.franchise;
+
+
 /* ---- 67_transition.js ---- */
 
 
@@ -14768,6 +15889,25 @@ lumen_card_review_good: { ru: 'ПОЗИТИВНЫЙ', en: 'POSITIVE', uk: 'ПО�
 lumen_card_review_mid: { ru: 'НЕЙТРАЛЬНЫЙ', en: 'NEUTRAL', uk: 'НЕЙТРАЛЬНИЙ' },
 lumen_card_review_bad: { ru: 'НЕГАТИВНЫЙ', en: 'NEGATIVE', uk: 'НЕГАТИВНИЙ' },
 lumen_card_review_useful: { ru: 'полезно', en: 'helpful', uk: 'корисно' },
+
+
+
+lumen_reviews_mode_name: { ru: 'Текст отзывов в ряду', en: 'Review text in the row', uk: 'Текст відгуків у ряду' },
+lumen_reviews_mode_descr: {
+ru: '«Только заголовки» — в ряду видны автор, оценка и заголовок, а текст открывается по OK: случайный спойлер не попадётся на глаза. «С выдержкой» показывает начало отзыва прямо в ряду. Спойлерные куски скрыты в обоих режимах и раскрываются кнопкой в окне отзыва. Применяется сразу.',
+en: '"Headlines only" shows the author, tone and title in the row and opens the text on OK, so a stray spoiler never catches your eye. "With excerpt" shows the beginning of the review in the row. Spoiler fragments stay hidden in both modes and are revealed by a button in the review window. Applied immediately.',
+uk: '«Лише заголовки» — у ряду видно автора, оцінку і заголовок, а текст відкривається по OK: випадковий спойлер не трапиться на очі. «З уривком» показує початок відгуку просто в ряду. Спойлерні шматки приховані в обох режимах і розкриваються кнопкою у вікні відгуку. Застосовується одразу.'
+},
+lumen_reviews_mode_headlines: { ru: 'Только заголовки', en: 'Headlines only', uk: 'Лише заголовки' },
+lumen_reviews_mode_full: { ru: 'С выдержкой', en: 'With excerpt', uk: 'З уривком' },
+
+
+lumen_reviews_mode_toggle: { ru: 'Показывать текст', en: 'Show text', uk: 'Показувати текст' },
+
+lumen_reviews_spoiler: { ru: 'ЕСТЬ СПОЙЛЕР', en: 'HAS SPOILER', uk: 'Є СПОЙЛЕР' },
+
+lumen_reviews_reveal: { ru: 'Показать спойлеры', en: 'Reveal spoilers', uk: 'Показати спойлери' },
+lumen_reviews_hide: { ru: 'Скрыть спойлеры', en: 'Hide spoilers', uk: 'Сховати спойлери' },
 lumen_card_anon: { ru: 'Аноним', en: 'Anonymous', uk: 'Анонім' },
 
 lumen_card_reviews_nokey_title: { ru: 'Ключ API не задан', en: 'API key is not set', uk: 'Ключ API не задано' },
@@ -14940,6 +16080,13 @@ lumen_hero_size_large: { ru: 'Крупный', en: 'Large', uk: 'Великий'
 lumen_hero_size_medium: { ru: 'Средний', en: 'Medium', uk: 'Середній' },
 lumen_hero_size_compact: { ru: 'Компактный', en: 'Compact', uk: 'Компактний' },
 lumen_hero_size_off: { ru: 'Выключен', en: 'Off', uk: 'Вимкнено' },
+
+lumen_hero_trailer_name: { ru: 'Трейлер в кадре главной', en: 'Trailer in the home hero', uk: 'Трейлер у кадрі головної' },
+lumen_hero_trailer_descr: {
+ru: 'Если фокус постоял на карточке 8 секунд, кадр над рядами сменяется беззвучным трейлером с YouTube. Любое движение по рядам его снимает, при листании он не запускается вовсе. Работает только при полных анимациях и там же, где включён трейлер в фоне карточки. Применяется сразу.',
+en: 'Once focus has rested on a card for 8 seconds, the hero frame above the rows turns into a muted YouTube trailer. Any move through the rows removes it, and it never starts while you are browsing. Works only with full animations and wherever the background trailer on the card is on. Applied immediately.',
+uk: 'Якщо фокус постояв на картці 8 секунд, кадр над рядами змінюється беззвучним трейлером з YouTube. Будь-який рух рядами його знімає, під час гортання він не запускається взагалі. Працює лише за повних анімацій і там само, де ввімкнено трейлер у фоні картки. Застосовується одразу.'
+},
 lumen_badges_name: { ru: 'Метки на постерах', en: 'Poster badges', uk: 'Мітки на постерах' },
 lumen_badges_descr: {
 ru: '«Скоро», «Новинка», «Продолжить» и новые серии — прямо на постерах рядов главной и подборок. Применяется сразу.',
@@ -15065,6 +16212,17 @@ lumen_sort_rating: { ru: 'По рейтингу', en: 'By rating', uk: 'За р�
 lumen_sort_new: { ru: 'Новые', en: 'Newest', uk: 'Нові' },
 
 lumen_card_franchise: { ru: 'Франшиза', en: 'Franchise', uk: 'Франшиза' },
+
+
+
+
+lumen_fr_title: { ru: 'Смотреть по порядку', en: 'Watch in order', uk: 'Дивитися по порядку' },
+lumen_fr_order_release: { ru: 'По годам', en: 'By year', uk: 'За роками' },
+
+lumen_fr_of: { ru: 'из', en: 'of', uk: 'з' },
+lumen_fr_here: { ru: 'Вы здесь', en: 'You are here', uk: 'Ви тут' },
+lumen_fr_next: { ru: 'Дальше', en: 'Up next', uk: 'Далі' },
+lumen_fr_watched: { ru: 'Просмотрено', en: 'Watched', uk: 'Переглянуто' },
 
 
 
@@ -15196,7 +16354,11 @@ if (name === 'lumen_accent_auto') {
 try { if (LC.applyAccentPref) LC.applyAccentPref(); } catch (eAccent) {}
 return true;
 }
-if (name === 'lumen_reviews' || name === 'lumen_kp_key') { LC.applyReviewsPref(); return true; }
+
+
+
+
+if (name === 'lumen_reviews' || name === 'lumen_kp_key' || name === 'lumen_reviews_mode') { LC.applyReviewsPref(); return true; }
 
 
 
@@ -15211,6 +16373,13 @@ return true;
 
 if (name === 'lumen_hero_size') {
 try { if (LC.applyHeroSizePref) LC.applyHeroSizePref(); } catch (eHeroSize) {}
+return true;
+}
+
+
+
+if (name === 'lumen_hero_trailer') {
+try { if (LC.hero && LC.hero.applyTrailer) LC.hero.applyTrailer(); } catch (eHeroTr) {}
 return true;
 }
 
@@ -15561,6 +16730,11 @@ var LIST = [
 
 
 { name: 'lumen_reviews', type: 'trigger', 'default': true, label: 'lumen_card_reviews_name', descr: 'lumen_card_reviews_descr' },
+
+
+
+
+{ name: 'lumen_reviews_mode', type: 'select', values: ['headlines', 'full'], vprefix: 'lumen_reviews_mode_', 'default': 'headlines', label: 'lumen_reviews_mode_name', descr: 'lumen_reviews_mode_descr' },
 { name: 'lumen_kp_key', type: 'input', 'default': '', label: 'lumen_card_kp_key', descr: 'lumen_card_kp_key_descr' },
 
 
@@ -15584,6 +16758,12 @@ var LIST = [
 
 
 { name: 'lumen_hero_size', type: 'select', values: ['large', 'medium', 'compact', 'off'], vprefix: 'lumen_hero_size_', 'default': 'large', label: 'lumen_hero_size_name', descr: 'lumen_hero_size_descr' },
+
+
+
+
+
+{ name: 'lumen_hero_trailer', type: 'trigger', 'default': true, label: 'lumen_hero_trailer_name', descr: 'lumen_hero_trailer_descr' },
 { name: 'lumen_moods', type: 'trigger', 'default': true, label: 'lumen_moods_name', descr: 'lumen_moods_descr' },
 { name: 'lumen_personal_rows', type: 'trigger', 'default': true, label: 'lumen_personal_rows_name', descr: 'lumen_personal_rows_descr' },
 
@@ -16894,6 +18074,13 @@ LC.reviews.cancel(active.body);
 } catch (e2) {
 warn('destroy active: reviews failed', e2);
 }
+
+
+try {
+LC.franchise.cancel(active.body);
+} catch (eFr) {
+warn('destroy active: franchise failed', eFr);
+}
 try {
 if (active.slideshow && typeof active.slideshow.destroy === 'function') active.slideshow.destroy();
 } catch (e3) {
@@ -17157,6 +18344,11 @@ LC.reviews.cancel(orphanBody);
 } catch (eRv) {
 warn('destroy orphan: reviews failed', eRv);
 }
+try {
+LC.franchise.cancel(orphanBody);
+} catch (eFrOrphan) {
+warn('destroy orphan: franchise failed', eFrOrphan);
+}
 }
 return;
 }
@@ -17273,6 +18465,9 @@ LC.header.decorate(findRoot(e), e.data);
 var descrRow = findDescrRow(e);
 LC.header.descr(descrRow, e.data);
 LC.reviews.render(descrRow, e.data);
+
+
+LC.franchise.render(descrRow, e.data);
 } else if (e.type === 'complite') {
 var root = findRoot(e);
 LC.header.decorate(root, e.data);
@@ -17284,6 +18479,9 @@ LC.header.decorate(root, e.data);
 var doneRow = findDescrRow(e);
 LC.header.descr(doneRow, e.data);
 LC.reviews.render(doneRow, e.data);
+
+
+LC.franchise.render(doneRow, e.data);
 var slideshow = LC.backdrops.apply(root, e.body, (e.data && e.data.movie) || {});
 applyMotionMode(root);
 
@@ -17552,7 +18750,10 @@ warn('cannot restore original template', e);
 
 
 
-var STRIP_NODES = ['.lumen-progress', '.lumen-episodes', '.lumen-facts', '.lumen-reviews', '.lumen-franchise'];
+
+
+
+var STRIP_NODES = ['.lumen-progress', '.lumen-episodes', '.lumen-facts', '.lumen-reviews', '.lumen-franchise', '.lumen-fr'];
 
 
 
@@ -17597,12 +18798,20 @@ LC.reviews.clearRow(rows.eq(i));
 } catch (inner) {
 warn('strip reviews row failed', inner);
 }
+
+
+
+try {
+LC.franchise.clearRow(rows.eq(i));
+} catch (innerFr) {
+warn('strip franchise row failed', innerFr);
+}
 }
 } catch (eRv) {
 warn('strip reviews failed', eRv);
 }
 try {
-$('.lumen-descr-row').removeClass('lumen-descr-row lumen-descr-row--reviews');
+$('.lumen-descr-row').removeClass('lumen-descr-row lumen-descr-row--reviews lumen-descr-row--franchise');
 } catch (e1) {
 warn('strip descr row failed', e1);
 }

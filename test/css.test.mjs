@@ -2148,3 +2148,39 @@ test('фаза 3: масштаб не трогает доли экрана и ч
   /* 30.84em ряда плюс 2.4em воздуха над заголовком (правка второго круга). */
   assert.ok(heroHuge.indexOf('height:calc(100vh - 26.88em)') !== -1, 'высота героя при «ещё крупнее»: ' + heroHuge);
 });
+
+/* ====================================================================== */
+/* Task 28 (фаза 3): ряд франшизы, спойлеры отзывов, слой трейлера героя. */
+/* ====================================================================== */
+
+test('Task 28: слой автотрейлера героя — под вуалями, ±10% по вертикали, проявление по is-live', () => {
+  const decl = findDecl(css, (s) => s === '.lumen-hero .lumen-hero__trailer');
+  assert.ok(decl, 'правила слоя трейлера героя нет вовсе');
+  assert.ok(decl.indexOf('top:-10%') !== -1 && decl.indexOf('bottom:-10%') !== -1, 'запас прячет чёрные поля ролика: ' + decl);
+  assert.ok(decl.indexOf('opacity:0') !== -1, 'до старта ролика слой невидим');
+  assert.equal(/insets*:/.test(decl), false, 'inset запрещён планом');
+  const live = findDecl(css, (s) => s === '.lumen-hero .lumen-hero__trailer.is-live');
+  assert.ok(live.indexOf('opacity:1') !== -1);
+  const frame = findDecl(css, (s) => s === '.lumen-hero.lumen-hero--trailer .lumen-hero__bg.is-active');
+  assert.ok(frame.indexOf('opacity:.25') !== -1, 'под играющим роликом кадр гасится: ' + frame);
+});
+
+test('Task 28: спойлер замазан без blur и раскрывается классом на корне окна', () => {
+  const hidden = findDecl(css, (s) => s === '.lumen-review-modal .lumen-spoiler');
+  assert.ok(hidden, 'правила замазки нет');
+  assert.ok(hidden.indexOf('color:transparent') !== -1, 'буквы не читаются: ' + hidden);
+  assert.equal(hidden.indexOf('blur'), -1, 'blur дорог для ТВ и не работает без фильтров');
+  const open = findDecl(css, (s) => s === '.lumen-review-modal--open .lumen-spoiler');
+  assert.ok(open.indexOf('color:') !== -1 && open.indexOf('transparent') === -1, 'раскрытый спойлер читается: ' + open);
+});
+
+test('Task 28: ряд «Смотреть по порядку» — целая строка в .full-descr со своим корнем', () => {
+  const row = findDecl(css, (s) => s === '.lumen-descr-row .lumen-fr');
+  assert.ok(row.indexOf('width:100%') !== -1 && row.indexOf('flex-basis:100%') !== -1, 'блок встаёт целой строкой: ' + row);
+  const card = findDecl(css, (s) => s === '.lumen-descr-row .lumen-fr-card');
+  assert.ok(card.indexOf('flex:none') !== -1, 'карточки частей не сжимаются: ' + card);
+  const watched = findDecl(css, (s) => s === '.lumen-descr-row .lumen-fr-card--watched .lumen-fr-card__poster');
+  assert.ok(watched.indexOf('opacity:.45') !== -1, 'просмотренная часть приглушена: ' + watched);
+  const here = findDecl(css, (s) => s === '.lumen-descr-row .lumen-fr-card__flag--current');
+  assert.ok(here.indexOf('background:') !== -1, 'пометка «Вы здесь» — акцентная плашка: ' + here);
+});

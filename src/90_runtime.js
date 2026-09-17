@@ -321,6 +321,13 @@
     } catch (e2) {
       warn('destroy active: reviews failed', e2);
     }
+    /* Task 28: незавершённый запрос коллекции ряда «Смотреть по порядку» —
+       такой же ресурс карточки, как запрос отзывов, и снимается рядом с ним. */
+    try {
+      LC.franchise.cancel(active.body);
+    } catch (eFr) {
+      warn('destroy active: franchise failed', eFr);
+    }
     try {
       if (active.slideshow && typeof active.slideshow.destroy === 'function') active.slideshow.destroy();
     } catch (e3) {
@@ -584,6 +591,11 @@
           } catch (eRv) {
             warn('destroy orphan: reviews failed', eRv);
           }
+          try {
+            LC.franchise.cancel(orphanBody);
+          } catch (eFrOrphan) {
+            warn('destroy orphan: franchise failed', eFrOrphan);
+          }
         }
         return;
       }
@@ -700,6 +712,9 @@
             var descrRow = findDescrRow(e);
             LC.header.descr(descrRow, e.data);
             LC.reviews.render(descrRow, e.data);
+            /* Task 28: ряд «Смотреть по порядку» — третий сосед в том же
+               .full-descr (таблица «ПОДРОБНО», отзывы, франшиза). */
+            LC.franchise.render(descrRow, e.data);
           } else if (e.type === 'complite') {
             var root = findRoot(e);
             LC.header.decorate(root, e.data);
@@ -711,6 +726,9 @@
             var doneRow = findDescrRow(e);
             LC.header.descr(doneRow, e.data);
             LC.reviews.render(doneRow, e.data);
+            /* Task 28: та же страховочная точка, что у отзывов — рендер
+               идемпотентен по подписи, второго запроса коллекции не будет. */
+            LC.franchise.render(doneRow, e.data);
             var slideshow = LC.backdrops.apply(root, e.body, (e.data && e.data.movie) || {});
             applyMotionMode(root);
             /* Task 9: данные карточки нужны LC.applyReviewsPref — настройки
@@ -979,7 +997,10 @@
      .lumen-card, последние два — в ряду описания (он отдельный items-line вне
      карточки, план 0.2). Ищем в активной активности: карточки из истории
      Lampa держит в DOM, и чужую трогать незачем. */
-  var STRIP_NODES = ['.lumen-progress', '.lumen-episodes', '.lumen-facts', '.lumen-reviews', '.lumen-franchise'];
+  /* .lumen-franchise — КНОПКА «Франшиза» в ряду кнопок (Task 17),
+     .lumen-fr — ряд «Смотреть по порядку» в блоке описания (Task 28): разные
+     узлы, снимаются оба. */
+  var STRIP_NODES = ['.lumen-progress', '.lumen-episodes', '.lumen-facts', '.lumen-reviews', '.lumen-franchise', '.lumen-fr'];
 
   /* Плагин выключили. Сами карточки не трогаем — их перерисует Lampa при
      следующем открытии, уже штатным шаблоном; снимаем только своё:
@@ -1024,12 +1045,20 @@
         } catch (inner) {
           warn('strip reviews row failed', inner);
         }
+        /* Task 28: у ряда франшизы та же сетевая часть — снять колбэки
+           незавершённого запроса коллекции и поднять поколение, чтобы
+           доехавший ответ не вернул блок на уже раздетую карточку. */
+        try {
+          LC.franchise.clearRow(rows.eq(i));
+        } catch (innerFr) {
+          warn('strip franchise row failed', innerFr);
+        }
       }
     } catch (eRv) {
       warn('strip reviews failed', eRv);
     }
     try {
-      $('.lumen-descr-row').removeClass('lumen-descr-row lumen-descr-row--reviews');
+      $('.lumen-descr-row').removeClass('lumen-descr-row lumen-descr-row--reviews lumen-descr-row--franchise');
     } catch (e1) {
       warn('strip descr row failed', e1);
     }
