@@ -725,7 +725,7 @@ return round2(HERO_HEAD_SAFE + TEXT_BOTTOM_COMPACT + MOODS_GAP + MOODS_H_COMPACT
 
 
 
-var SCALE_ROOTS = '.lumen-card,.lumen-backdrop,.lumen-descr-row,.lumen-review-modal,.lumen-hero .lumen-hero__text,.lumen-hub,.lumen-grid,.lumen-minimap,.lumen-jump,.lumen-ambient';
+var SCALE_ROOTS = '.lumen-card,.lumen-backdrop,.lumen-descr-row,.lumen-review-modal,.lumen-hero .lumen-hero__text,.lumen-hub,.lumen-grid,.lumen-minimap,.lumen-jump,.lumen-ambient,.lumen-roulette';
 
 function scaleFactor() {
 return SCALES[LC.pref('lumen_scale', SCALE_DEFAULT)] || SCALES[SCALE_DEFAULT];
@@ -2345,6 +2345,59 @@ css.push('.lumen-overlay .lumen-overlay__img{position:absolute;-webkit-backgroun
 
 
 css.push('.lumen-overlay .lumen-overlay__img.is-run{border-radius:0}');
+
+
+
+
+
+
+
+
+
+
+
+css.push('.lumen-roulette{position:relative;min-height:100vh;padding:2.81em 2.81em 3.5em}');
+css.push('.lumen-roulette .lumen-roulette__bg{position:absolute;top:0;right:0;bottom:0;left:0;background-position:center;background-repeat:no-repeat;-webkit-background-size:cover;background-size:cover;opacity:.22;pointer-events:none}');
+css.push('body.lumen-motion-full .lumen-roulette .lumen-roulette__bg{-webkit-transition:opacity .6s ease;transition:opacity .6s ease}');
+css.push('.lumen-roulette .lumen-roulette__head{position:relative;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;margin-bottom:1.4em}');
+css.push('.lumen-roulette .lumen-roulette__title{font-family:' + FD + ';font-weight:700;font-size:2.1em;line-height:1.1;color:' + P.text + ';margin-right:1.05em}');
+css.push('.lumen-roulette .lumen-roulette__media{display:-webkit-box;display:-webkit-flex;display:flex}');
+css.push('.lumen-roulette .lumen-roulette__tab{height:2.1em;padding:0 .96em;margin-right:.53em;border-radius:.53em;border:.04em solid ' + P.line + ';background:' + P.chipBg + ';font-family:' + FB + ';font-weight:600;font-size:.96em;line-height:2.1em;color:' + P.smoke + '}');
+css.push('.lumen-roulette .lumen-roulette__tab.is-on{color:' + P.text + ';border-color:' + AL + '}');
+css.push('.lumen-roulette .lumen-roulette__tab.focus{background:' + A + ';color:' + t.onac + ';border-color:' + AL + '}');
+
+
+css.push('.lumen-roulette .lumen-roulette__chips,.lumen-roulette .lumen-roulette__filters{position:relative;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;margin-bottom:.88em}');
+
+
+
+css.push('.lumen-roulette .lumen-roulette__chip{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;height:2.1em;padding:0 .88em;margin:0 .53em .53em 0;border-radius:.53em;border:.04em solid ' + P.line + ';background:' + P.chipBg + ';font-family:' + FB + ';font-weight:500;font-size:.96em;line-height:1;color:' + P.smoke + ';white-space:nowrap}');
+css.push('.lumen-roulette .lumen-roulette__chip.lumen-chip--on{color:' + P.text + ';border-color:' + AL + ';background:rgba(' + A_RGB + ',.14)}');
+css.push('.lumen-roulette .lumen-roulette__chip.focus{background:' + A + ';color:' + t.onac + ';border-color:' + AL + ';border-width:.11em}');
+
+
+css.push('.lumen-roulette .lumen-roulette__stage{position:relative;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:end;-webkit-align-items:flex-end;align-items:flex-end;margin-top:1.05em}');
+css.push('.lumen-roulette .lumen-roulette__reel{width:9.2em;height:13.8em;border-radius:.53em;overflow:hidden;background:' + P.panel + ';border:.04em solid ' + P.line + ';-webkit-flex-shrink:0;flex-shrink:0}');
+css.push('.lumen-roulette .lumen-roulette__frame{width:100%;height:100%;background-position:center;background-repeat:no-repeat;-webkit-background-size:cover;background-size:cover}');
+css.push('body.lumen-motion-full .lumen-roulette .lumen-roulette__frame.is-step{-webkit-animation:lumen-roul-step .12s ease-out;animation:lumen-roul-step .12s ease-out}');
+css.push('@-webkit-keyframes lumen-roul-step{from{-webkit-transform:translateY(12%)}to{-webkit-transform:translateY(0)}}');
+css.push('@keyframes lumen-roul-step{from{transform:translateY(12%)}to{transform:translateY(0)}}');
+css.push('.lumen-roulette .lumen-roulette__spin{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;height:3.16em;padding:0 1.75em;margin-left:1.4em;border-radius:.79em;background:' + A + ';color:' + t.onac + ';font-family:' + FD + ';font-weight:700;font-size:1.05em;border:.04em solid transparent}');
+css.push('.lumen-roulette .lumen-roulette__spin.focus{border-color:' + AL + ';border-width:.11em;-webkit-box-shadow:0 .7em 1.97em ' + AG + ';box-shadow:0 .7em 1.97em ' + AG + '}');
+css.push('.lumen-roulette .lumen-roulette__spin.is-busy{opacity:.7}');
+css.push('.lumen-roulette .lumen-roulette__hint{position:relative;margin-left:1.4em;font-family:' + FB + ';font-size:.96em;color:' + P.smoke + '}');
+
+
+css.push('.lumen-roulette .lumen-roulette__result{position:relative;margin-left:1.4em;max-width:31.5em}');
+css.push('.lumen-roulette .lumen-roulette__rtitle{font-family:' + FD + ';font-weight:700;font-size:1.75em;line-height:1.15;color:' + P.text + '}');
+css.push('.lumen-roulette .lumen-roulette__rmeta{font-family:' + FM + ';font-size:.96em;line-height:1;margin-top:.44em;color:' + P.muted + '}');
+css.push('.lumen-roulette .lumen-roulette__actions{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;margin-top:1.05em}');
+css.push('.lumen-roulette .lumen-roulette__btn{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;height:2.45em;padding:0 1.05em;margin:0 .53em .53em 0;border-radius:.61em;border:.04em solid ' + P.line + ';background:' + P.buttonBg + ';font-family:' + FB + ';font-weight:600;font-size:.96em;color:' + P.text + '}');
+css.push('.lumen-roulette .lumen-roulette__btn.focus{background:' + A + ';color:' + t.onac + ';border-color:' + AL + ';border-width:.11em;-webkit-box-shadow:0 .53em 1.53em ' + AG + ';box-shadow:0 .53em 1.53em ' + AG + '}');
+css.push('.lumen-roulette .lumen-roulette__empty{font-family:' + FB + ';font-size:1.05em;color:' + P.smoke + '}');
+
+
+css.push('.lumen-menu-roulette .lumen-ico{width:1.5em;height:1.5em}');
 
 
 
@@ -12354,6 +12407,1031 @@ bind: bind
 if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.trailer;
 
 
+/* ---- 56_roulette.js ---- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+LC.roulette = (function () {
+
+
+
+
+var MAX_SOURCES = 5;
+
+
+var PAGES = 2;
+
+
+
+var POOL_TIMEOUT = 8000;
+
+
+var PICK_TRIES = 5;
+
+
+var REEL_SIZE = 10;
+
+
+var CHIP_LIMIT = 14;
+
+
+
+
+
+
+
+function cardMedia(card) {
+if (card && card.media_type) return card.media_type === 'tv' ? 'tv' : 'movie';
+return (card && (card.name || card.first_air_date)) ? 'tv' : 'movie';
+}
+
+function normalizeMedia(value) {
+return value === 'tv' ? 'tv' : 'movie';
+}
+
+
+
+
+function buildPool(results, media, needPoster) {
+var out = [];
+if (!results || !results.length) return out;
+var want = normalizeMedia(media);
+var seen = {};
+for (var i = 0; i < results.length; i++) {
+var card = results[i];
+if (!card || card.id == null) continue;
+if (cardMedia(card) !== want) continue;
+if (needPoster && !card.poster_path) continue;
+if (seen[card.id]) continue;
+seen[card.id] = 1;
+out.push(card);
+}
+return out;
+}
+
+
+function shortLimit(media) {
+return normalizeMedia(media) === 'tv' ? 30 : 90;
+}
+
+
+
+
+
+function applyFilters(pool, opts, ctx, media) {
+var out = [];
+if (!pool || !pool.length) return out;
+opts = opts || {};
+var limit = shortLimit(media);
+for (var i = 0; i < pool.length; i++) {
+var card = pool[i];
+if (opts.unseen && ctx && typeof ctx.isSeen === 'function' && ctx.isSeen(card.id)) continue;
+if (opts.short && ctx && typeof ctx.runtime === 'function') {
+var minutes = ctx.runtime(card.id);
+if (minutes != null && Number(minutes) > limit) continue;
+}
+out.push(card);
+}
+return out;
+}
+
+
+
+
+function fitsShort(details, media) {
+if (!details) return true;
+var limit = shortLimit(media);
+if (normalizeMedia(media) === 'tv') {
+var list = details.episode_run_time;
+if (!list || !list.length) return true;
+var min = Number(list[0]) || 0;
+for (var i = 1; i < list.length; i++) {
+var v = Number(list[i]) || 0;
+if (v && (!min || v < min)) min = v;
+}
+if (!min) return true;
+return min <= limit;
+}
+var runtime = Number(details.runtime) || 0;
+if (!runtime) return true;
+return runtime <= limit;
+}
+
+
+function pick(pool, rnd) {
+if (!pool || !pool.length) return null;
+var random = typeof rnd === 'function' ? rnd : Math.random;
+var i = Math.floor(random() * pool.length);
+if (i < 0) i = 0;
+if (i >= pool.length) i = pool.length - 1;
+return pool[i];
+}
+
+
+
+
+
+
+function spinPlan(total) {
+var plan = [];
+var n = Number(total) || 0;
+if (n <= 0) return plan;
+if (n === 1) return [{ index: 0, delay: 0 }];
+
+var FAST = 40;
+var index = 0;
+var i;
+
+var accel = [100, 90, 75, 60, 50, FAST];
+for (i = 0; i < accel.length; i++) {
+index = (index + 1) % n;
+plan.push({ index: index, delay: accel[i] });
+}
+
+var spins = Math.round(1800 / FAST);
+for (i = 0; i < spins; i++) {
+index = (index + 1) % n;
+plan.push({ index: index, delay: FAST });
+}
+
+var brake = [50, 60, 80, 100, 130, 170, 295];
+for (i = 0; i < brake.length; i++) {
+index = (index + 1) % n;
+plan.push({ index: index, delay: brake[i] });
+}
+
+
+plan[plan.length - 1].index = n - 1;
+return plan;
+}
+
+
+
+
+function collectionsFor(manifest, media) {
+var out = [];
+if (!manifest || !Array.isArray(manifest.collections)) return out;
+var want = normalizeMedia(media);
+var home = {};
+var homeList = manifest.home || [];
+var i;
+for (i = 0; i < homeList.length; i++) home[homeList[i]] = i + 1;
+var first = [];
+var rest = [];
+for (i = 0; i < manifest.collections.length; i++) {
+var c = manifest.collections[i];
+if (!c || !c.sources || !c.sources[want]) continue;
+if (home[c.id]) first.push(c);
+else rest.push(c);
+}
+first.sort(function (a, b) { return home[a.id] - home[b.id]; });
+return first.concat(rest);
+}
+
+function parseIds(text) {
+var out = [];
+if (!text) return out;
+var parts = ('' + text).split(',');
+for (var i = 0; i < parts.length; i++) {
+var id = parts[i].replace(/^\s+|\s+$/g, '');
+if (id) out.push(id);
+}
+return out;
+}
+
+function joinIds(ids) {
+return (ids && ids.length) ? ids.join(',') : '';
+}
+
+
+
+
+function sourcesFor(list, ids, manifest) {
+var out = [];
+if (!list || !list.length) return out;
+var picked = {};
+var i;
+for (i = 0; ids && i < ids.length; i++) picked[ids[i]] = 1;
+for (i = 0; i < list.length && out.length < MAX_SOURCES; i++) {
+if (picked[list[i].id]) out.push(list[i]);
+}
+if (out.length) return out;
+
+var home = (manifest && manifest.home) || [];
+var byId = {};
+for (i = 0; i < list.length; i++) byId[list[i].id] = list[i];
+for (i = 0; i < home.length && out.length < MAX_SOURCES; i++) {
+if (byId[home[i]]) out.push(byId[home[i]]);
+}
+if (out.length) return out;
+
+
+for (i = 0; i < list.length && out.length < MAX_SOURCES; i++) out.push(list[i]);
+return out;
+}
+
+function storageKey(media) {
+return 'lumen_roulette_' + normalizeMedia(media);
+}
+
+
+
+
+
+
+
+
+
+function chipList(list, chosen, limit) {
+var out = [];
+if (!list || !list.length) return out;
+var max = Number(limit) || CHIP_LIMIT;
+var picked = {};
+var i;
+for (i = 0; chosen && i < chosen.length; i++) picked[chosen[i]] = 1;
+var taken = {};
+for (i = 0; i < list.length && out.length < max; i++) {
+taken[list[i].id] = 1;
+out.push(list[i]);
+}
+
+
+for (i = 0; i < list.length; i++) {
+if (picked[list[i].id] && !taken[list[i].id]) out.push(list[i]);
+}
+return out;
+}
+
+
+
+
+
+function esc(text) {
+return LC.util.esc('' + (text == null ? '' : text));
+}
+
+function unseenDefault() {
+try {
+if (typeof LC.pref === 'function') return !!LC.pref('lumen_roulette_unseen', true);
+} catch (e) { }
+return true;
+}
+
+function storedIds(media) {
+try {
+if (window.Lampa && Lampa.Storage) return parseIds(Lampa.Storage.get(storageKey(media), ''));
+} catch (e) { }
+return [];
+}
+
+function saveIds(media, ids) {
+try {
+if (window.Lampa && Lampa.Storage) Lampa.Storage.set(storageKey(media), joinIds(ids));
+} catch (e) {
+warn('roulette: save ids failed', e);
+}
+}
+
+function lang() {
+try {
+if (typeof LC.langCode === 'function') return LC.langCode();
+} catch (e) { }
+return 'ru';
+}
+
+function titleOf(item) {
+try {
+if (LC.hub && typeof LC.hub.titleOf === 'function') return LC.hub.titleOf(item, lang());
+} catch (e) { }
+return (item && item.title) || (item && item.id) || '';
+}
+
+function imageUrl(path, size) {
+try {
+if (!path) return '';
+var tmdb = null;
+var img = null;
+if (window.Lampa && Lampa.TMDB && typeof Lampa.TMDB.image === 'function') {
+tmdb = function (url) { return Lampa.TMDB.image(url); };
+}
+if (window.Lampa && Lampa.Api && typeof Lampa.Api.img === 'function') {
+img = function (p, s) { return Lampa.Api.img(p, s); };
+}
+return LC.cardinfo.imageUrl(path, size, tmdb, img);
+} catch (e) {
+return '';
+}
+}
+
+function motionClass(node) {
+try { node.addClass('lumen-motion-' + LC.motionMode()); } catch (e) { }
+}
+
+function navMove(dir) {
+try {
+if (window.Navigator && typeof Navigator.canmove === 'function' && Navigator.canmove(dir)) {
+Navigator.move(dir);
+return true;
+}
+} catch (e) {
+warn('roulette: navigator failed', e);
+}
+return false;
+}
+
+
+function cardMeta(card) {
+var parts = [];
+var date = (card && (card.release_date || card.first_air_date)) || '';
+if (date) parts.push(('' + date).slice(0, 4));
+var vote = Number(card && card.vote_average) || 0;
+if (vote > 0) parts.push(vote.toFixed(1));
+return parts.join(' · ');
+}
+
+function cardTitle(card) {
+return (card && (card.title || card.name)) || '';
+}
+
+
+
+
+
+function RouletteComponent(object) {
+var self = this;
+var media = normalizeMedia(object && object.media);
+var scroll = new Lampa.Scroll({ mask: true, over: true, step: 250 });
+var root = $('<div class="lumen-roulette"></div>');
+var bg = $('<div class="lumen-roulette__bg"></div>');
+var head = $('<div class="lumen-roulette__head"></div>');
+var chipsRow = $('<div class="lumen-roulette__chips"></div>');
+var filtersRow = $('<div class="lumen-roulette__filters"></div>');
+var stage = $('<div class="lumen-roulette__stage"></div>');
+var reelBox = $('<div class="lumen-roulette__reel"><div class="lumen-roulette__frame"></div></div>');
+var spinBtn = $('<div class="lumen-roulette__spin selector">' + esc(LC.lang('lumen_roulette_spin')) + '</div>');
+var resultBox = $('<div class="lumen-roulette__result"></div>');
+var hint = $('<div class="lumen-roulette__hint">' + esc(LC.lang('lumen_roulette_hint')) + '</div>');
+
+var gen = 0;
+var handles = [];
+var detailsNet = null;
+var spinTimer = 0;
+var manifest = null;
+var collections = [];
+var chosen = storedIds(media);
+var pool = [];
+var poolKey = '';
+var seen = {};
+var runtimes = {};
+var reel = [];
+var spinning = false;
+var result = null;
+var lastFocus = null;
+var started = false;
+var filters = { unseen: unseenDefault(), short: false };
+
+
+if (object && object.preselect) chosen = [object.preselect];
+
+function alive(captured) {
+return function () { return gen === captured; };
+}
+
+function clearHandles() {
+for (var i = 0; i < handles.length; i++) {
+try { if (handles[i] && handles[i].clear) handles[i].clear(); } catch (e) { }
+}
+handles = [];
+try { if (detailsNet && detailsNet.clear) detailsNet.clear(); } catch (e2) { }
+detailsNet = null;
+}
+
+function stopSpin() {
+if (spinTimer) {
+clearTimeout(spinTimer);
+spinTimer = 0;
+}
+spinning = false;
+try { spinBtn.removeClass('is-busy'); } catch (e) { }
+}
+
+
+
+function bump() {
+gen++;
+clearHandles();
+stopSpin();
+}
+
+function focusTarget() {
+if (lastFocus && root[0] && root[0].contains && root[0].contains(lastFocus)) return lastFocus;
+return spinBtn[0] || null;
+}
+
+function recollect(prefer) {
+try {
+Lampa.Controller.collectionSet(root[0]);
+Lampa.Controller.collectionFocus(prefer || focusTarget() || false, root[0]);
+} catch (e) {
+warn('roulette: collection failed', e);
+}
+}
+
+function watchFocus(node) {
+node.on('hover:focus', function () { lastFocus = node[0]; });
+return node;
+}
+
+
+
+
+
+function buildHead() {
+head.empty();
+head.append($('<div class="lumen-roulette__title">' + esc(LC.lang('lumen_roulette_title')) + '</div>'));
+var tabs = $('<div class="lumen-roulette__media"></div>');
+var pairs = [['movie', 'lumen_roulette_movies'], ['tv', 'lumen_roulette_series']];
+for (var i = 0; i < pairs.length; i++) {
+(function (value, key) {
+var tab = watchFocus($('<div class="lumen-roulette__tab selector">' + esc(LC.lang(key)) + '</div>'));
+if (media === value) tab.addClass('is-on');
+tab.on('hover:enter', function () { setMedia(value, tab[0]); });
+tabs.append(tab);
+})(pairs[i][0], pairs[i][1]);
+}
+head.append(tabs);
+}
+
+
+
+
+function setMedia(value, focusNode) {
+if (media === value) return;
+bump();
+media = value;
+chosen = storedIds(media);
+filters.short = false;
+pool = [];
+poolKey = '';
+result = null;
+head.find('.lumen-roulette__tab').removeClass('is-on');
+head.find('.lumen-roulette__tab').each(function (index, node) {
+if ((index === 0 && value === 'movie') || (index === 1 && value === 'tv')) $(node).addClass('is-on');
+});
+buildChips();
+buildFilters();
+clearResult();
+recollect(focusNode || null);
+}
+
+function chipNode(text, on) {
+var node = watchFocus($('<div class="lumen-chip lumen-roulette__chip selector">' + esc(text) + '</div>'));
+if (on) node.addClass('lumen-chip--on');
+return node;
+}
+
+function buildChips() {
+chipsRow.empty();
+collections = collectionsFor(manifest, media);
+var all = chipNode(LC.lang('lumen_roulette_all'), !chosen.length);
+all.on('hover:enter', function () {
+if (!chosen.length) return;
+chosen = [];
+saveIds(media, chosen);
+poolKey = '';
+buildChips();
+recollect(chipsRow.find('.lumen-roulette__chip')[0]);
+});
+chipsRow.append(all);
+var shown = chipList(collections, chosen, CHIP_LIMIT);
+for (var i = 0; i < shown.length; i++) {
+(function (item) {
+var node = chipNode(titleOf(item), chosen.indexOf(item.id) >= 0);
+node.on('hover:enter', function () {
+var at = chosen.indexOf(item.id);
+if (at >= 0) chosen.splice(at, 1);
+else chosen.push(item.id);
+saveIds(media, chosen);
+poolKey = '';
+node.toggleClass('lumen-chip--on', at < 0);
+chipsRow.find('.lumen-roulette__chip').eq(0).toggleClass('lumen-chip--on', !chosen.length);
+});
+chipsRow.append(node);
+})(shown[i]);
+}
+}
+
+function buildFilters() {
+filtersRow.empty();
+var unseen = chipNode(LC.lang('lumen_roulette_unseen'), filters.unseen);
+unseen.on('hover:enter', function () {
+filters.unseen = !filters.unseen;
+unseen.toggleClass('lumen-chip--on', filters.unseen);
+});
+filtersRow.append(unseen);
+var shortKey = media === 'tv' ? 'lumen_roulette_short_tv' : 'lumen_roulette_short_movie';
+var short = chipNode(LC.lang(shortKey), filters.short);
+short.on('hover:enter', function () {
+filters.short = !filters.short;
+short.toggleClass('lumen-chip--on', filters.short);
+});
+filtersRow.append(short);
+}
+
+
+
+
+
+
+
+function keyOf() {
+return media + '|' + joinIds(chosen);
+}
+
+function seenIndex(cards) {
+var map = {};
+try {
+if (LC.rows && typeof LC.rows.viewedIds === 'function') {
+var ids = LC.rows.viewedIds(cards);
+for (var i = 0; i < ids.length; i++) map[ids[i]] = 1;
+}
+} catch (e) {
+warn('roulette: viewed failed', e);
+}
+return map;
+}
+
+function context() {
+return {
+isSeen: function (id) { return !!seen[id]; },
+runtime: function (id) {
+var value = runtimes[media + ':' + id];
+return value == null ? null : value;
+}
+};
+}
+
+function filtered() {
+return applyFilters(pool, filters, context(), media);
+}
+
+
+
+
+
+function loadPool(done) {
+var key = keyOf();
+if (pool.length && poolKey === key) { done(); return; }
+var list = sourcesFor(collectionsFor(manifest, media), chosen, manifest);
+if (!list.length) { pool = []; poolKey = key; done(); return; }
+
+var captured = gen;
+var cards = [];
+var gate = LC.util.gate(list.length * PAGES, POOL_TIMEOUT, function () {
+if (gen !== captured) return;
+pool = buildPool(cards, media, true);
+poolKey = key;
+seen = seenIndex(cards);
+done();
+});
+
+LC.util.each(list, function (item) {
+for (var page = 1; page <= PAGES; page++) {
+var handle = LC.sources['fetch'](item, page, function (json) {
+var results = (json && json.results) || [];
+for (var i = 0; i < results.length; i++) cards.push(results[i]);
+gate.tick();
+}, function () {
+gate.tick();
+}, alive(captured));
+if (handle) handles.push(handle);
+}
+});
+}
+
+
+
+
+
+function paintFrame(card) {
+var url = imageUrl(card && card.poster_path, 'w342');
+var frame = reelBox.find('.lumen-roulette__frame');
+if (url) frame.css('background-image', 'url("' + url + '")');
+frame.addClass('is-step');
+
+
+reelBox.addClass('is-live');
+}
+
+function clearResult() {
+resultBox.empty();
+resultBox.removeClass('is-live');
+try { bg.css('background-image', ''); } catch (e) { }
+hint.show();
+}
+
+function showEmpty() {
+resultBox.empty();
+resultBox.addClass('is-live');
+resultBox.append($('<div class="lumen-roulette__empty">' + esc(LC.lang('lumen_roulette_empty')) + '</div>'));
+hint.hide();
+recollect(spinBtn[0]);
+}
+
+function actionNode(key, handler) {
+var node = watchFocus($('<div class="lumen-roulette__btn selector">' + esc(LC.lang(key)) + '</div>'));
+node.on('hover:enter', handler);
+return node;
+}
+
+function showResult(card) {
+result = card;
+var backdrop = imageUrl(card.backdrop_path, 'w1280');
+if (backdrop) bg.css('background-image', 'url("' + backdrop + '")');
+resultBox.empty();
+resultBox.addClass('is-live');
+resultBox.append($('<div class="lumen-roulette__rtitle">' + esc(cardTitle(card)) + '</div>'));
+resultBox.append($('<div class="lumen-roulette__rmeta">' + esc(cardMeta(card)) + '</div>'));
+var actions = $('<div class="lumen-roulette__actions"></div>');
+actions.append(actionNode('lumen_roulette_watch', function () { openCard(card); }));
+actions.append(actionNode('lumen_roulette_again', function () { spin(); }));
+actions.append(actionNode('lumen_roulette_book', function () { book(card); }));
+resultBox.append(actions);
+hint.hide();
+recollect(actions.find('.lumen-roulette__btn')[0]);
+}
+
+function openCard(card) {
+try {
+Lampa.Activity.push({
+url: '',
+component: 'full',
+id: card.id,
+method: cardMedia(card),
+card: card,
+source: 'tmdb'
+});
+} catch (e) {
+warn('roulette: open card failed', e);
+}
+}
+
+function book(card) {
+try {
+Lampa.Favorite.toggle('book', card);
+if (Lampa.Noty && typeof Lampa.Noty.show === 'function') Lampa.Noty.show(LC.lang('lumen_roulette_booked'));
+} catch (e) {
+warn('roulette: book failed', e);
+}
+}
+
+
+
+
+function runReel(card, list) {
+reel = list;
+var plan = spinPlan(reel.length);
+var mode = 'full';
+try { mode = LC.motionMode(); } catch (e) { }
+if (mode !== 'full' || plan.length < 2) {
+
+
+paintFrame(card);
+stopSpin();
+showResult(card);
+return;
+}
+var captured = gen;
+var step = 0;
+function next() {
+spinTimer = 0;
+if (gen !== captured) return;
+if (step >= plan.length) {
+stopSpin();
+showResult(card);
+return;
+}
+var item = plan[step++];
+paintFrame(reel[item.index]);
+spinTimer = setTimeout(next, item.delay);
+}
+next();
+}
+
+
+
+function verify(card, tries, done) {
+if (!filters.short) { done(card); return; }
+var cached = runtimes[media + ':' + card.id];
+if (cached != null) {
+if (Number(cached) <= shortLimit(media)) { done(card); return; }
+retry(tries, done, card);
+return;
+}
+var captured = gen;
+try {
+detailsNet = Lampa.Api.sources.tmdb.get(
+media + '/' + card.id,
+{ langs: 'ru,en' },
+function (details) {
+if (gen !== captured) return;
+detailsNet = null;
+var minutes = null;
+if (details) {
+if (normalizeMedia(media) === 'tv') {
+var list = details.episode_run_time || [];
+minutes = list.length ? Number(list[0]) || null : null;
+} else {
+minutes = Number(details.runtime) || null;
+}
+}
+if (minutes != null) runtimes[media + ':' + card.id] = minutes;
+if (fitsShort(details, media)) { done(card); return; }
+retry(tries, done, card);
+},
+function () {
+if (gen !== captured) return;
+detailsNet = null;
+
+
+done(card);
+},
+{ life: 10080 }
+);
+} catch (e) {
+warn('roulette: details failed', e);
+done(card);
+}
+}
+
+
+
+function retry(tries, done, last) {
+if (tries + 1 >= PICK_TRIES) { done(last); return; }
+var list = filtered();
+var next = pick(list, Math.random);
+if (!next) { done(last); return; }
+verify(next, tries + 1, done);
+}
+
+function spin() {
+if (spinning) return;
+spinning = true;
+try { spinBtn.addClass('is-busy'); } catch (e) { }
+var captured = gen;
+try { self.activity.loader(!pool.length); } catch (e) { }
+loadPool(function () {
+if (gen !== captured) return;
+try { self.activity.loader(false); } catch (e2) { }
+var list = filtered();
+var card = pick(list, Math.random);
+if (!card) {
+stopSpin();
+showEmpty();
+return;
+}
+verify(card, 0, function (final) {
+if (gen !== captured) return;
+var strip = [];
+var i;
+for (i = 0; i < REEL_SIZE - 1; i++) {
+var random = pick(list, Math.random);
+strip.push(random || final);
+}
+strip.push(final);
+runReel(final, strip);
+});
+});
+}
+
+
+
+
+
+function build(m) {
+manifest = m;
+buildHead();
+buildChips();
+buildFilters();
+try { self.activity.loader(false); } catch (e) { }
+if (started) recollect(null);
+}
+
+this.create = function () {
+motionClass(root);
+root.append(bg);
+root.append(head);
+stage.append(reelBox);
+stage.append(spinBtn);
+stage.append(hint);
+stage.append(resultBox);
+root.append(stage);
+
+
+
+root.append(filtersRow);
+root.append(chipsRow);
+watchFocus(spinBtn);
+spinBtn.on('hover:enter', function () { spin(); });
+scroll.append(root);
+try { self.activity.loader(true); } catch (e) { }
+var captured = gen;
+LC.manifest.load(function (m) {
+if (gen !== captured) return;
+build(m);
+});
+};
+
+this.render = function (js) {
+return js ? scroll.render(true) : scroll.render();
+};
+
+this.start = function () {
+var act = null;
+try { act = Lampa.Activity.active(); } catch (eAct) { }
+if (act && act.activity && act.activity !== this.activity) return;
+started = true;
+motionClass(root);
+Lampa.Controller.add('content', {
+toggle: function () {
+Lampa.Controller.collectionSet(root[0]);
+Lampa.Controller.collectionFocus(focusTarget() || false, root[0]);
+},
+left: function () {
+if (!navMove('left')) Lampa.Controller.toggle('menu');
+},
+right: function () { navMove('right'); },
+up: function () {
+if (navMove('up')) return;
+Lampa.Controller.toggle('head');
+},
+down: function () { navMove('down'); },
+back: function () { Lampa.Activity.backward(); }
+});
+Lampa.Controller.toggle('content');
+};
+
+this.pause = function () { };
+
+
+
+
+
+this.stop = function () {
+started = false;
+bump();
+};
+
+this.destroy = function () {
+bump();
+pool = [];
+reel = [];
+result = null;
+lastFocus = null;
+try { scroll.destroy(); } catch (e) { }
+try { root.remove(); } catch (e2) { }
+};
+}
+
+
+
+
+
+var component_added = false;
+var menu_node = null;
+
+function open(media) {
+try {
+Lampa.Activity.push({
+url: '',
+title: LC.lang('lumen_roulette_title'),
+component: 'lumen_roulette',
+media: normalizeMedia(media),
+page: 1
+});
+} catch (e) {
+warn('roulette: open failed', e);
+}
+}
+
+function addComponent() {
+if (component_added) return;
+if (!window.Lampa || !Lampa.Component || typeof Lampa.Component.add !== 'function') return;
+Lampa.Component.add('lumen_roulette', RouletteComponent);
+component_added = true;
+}
+
+
+
+
+function addMenu() {
+try {
+if (menu_node && menu_node.length && menu_node.closest('body').length) return;
+if ($('.lumen-menu-roulette').length) return;
+if (!Lampa.Menu || typeof Lampa.Menu.addButton !== 'function') return;
+var node = Lampa.Menu.addButton(LC.icons.get('star'), LC.lang('lumen_roulette_title'), function () {
+open('movie');
+});
+if (node && node.addClass) node.addClass('lumen-menu-roulette');
+menu_node = node;
+} catch (e) {
+warn('roulette: menu button failed', e);
+}
+}
+
+function install() {
+try {
+addComponent();
+addMenu();
+} catch (e) {
+warn('roulette: install failed', e);
+}
+}
+
+
+
+
+function uninstall() {
+try {
+if (menu_node && menu_node.remove) menu_node.remove();
+} catch (e) {
+warn('roulette: menu remove failed', e);
+}
+menu_node = null;
+try { $('.lumen-menu-roulette').remove(); } catch (e2) { }
+}
+
+function menuNode() {
+return menu_node;
+}
+
+return {
+MAX_SOURCES: MAX_SOURCES,
+CHIP_LIMIT: CHIP_LIMIT,
+buildPool: buildPool,
+applyFilters: applyFilters,
+shortLimit: shortLimit,
+fitsShort: fitsShort,
+pick: pick,
+spinPlan: spinPlan,
+collectionsFor: collectionsFor,
+chipList: chipList,
+sourcesFor: sourcesFor,
+parseIds: parseIds,
+joinIds: joinIds,
+storageKey: storageKey,
+normalizeMedia: normalizeMedia,
+unseenDefault: unseenDefault,
+install: install,
+uninstall: uninstall,
+open: open,
+menuNode: menuNode
+};
+})();
+
+if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.roulette;
+
+
 /* ---- 57_color.js ---- */
 
 
@@ -18054,6 +19132,38 @@ lumen_ambient_source_current: { ru: 'Кадры открытого фильма'
 lumen_ambient_delay_name: { ru: 'Через сколько включать', en: 'Idle time before start', uk: 'Через скільки вмикати' },
 
 lumen_ambient_minutes: { ru: 'мин', en: 'min', uk: 'хв' },
+
+
+
+lumen_roulette_title: { ru: 'Что посмотреть', en: 'What to watch', uk: 'Що подивитися' },
+lumen_roulette_movies: { ru: 'Фильмы', en: 'Movies', uk: 'Фільми' },
+lumen_roulette_series: { ru: 'Сериалы', en: 'Series', uk: 'Серіали' },
+lumen_roulette_all: { ru: 'Все подборки', en: 'All collections', uk: 'Усі підбірки' },
+lumen_roulette_spin: { ru: 'Крутить', en: 'Spin', uk: 'Крутити' },
+lumen_roulette_again: { ru: 'Ещё раз', en: 'Again', uk: 'Ще раз' },
+lumen_roulette_watch: { ru: 'Смотреть', en: 'Watch', uk: 'Дивитися' },
+lumen_roulette_book: { ru: 'В закладки', en: 'Bookmark', uk: 'У закладки' },
+lumen_roulette_booked: { ru: 'Добавлено в закладки', en: 'Added to bookmarks', uk: 'Додано в закладки' },
+lumen_roulette_unseen: { ru: 'Не смотрел', en: 'Not watched', uk: 'Не дивився' },
+lumen_roulette_short_movie: { ru: 'Есть 90 минут', en: '90 minutes to spare', uk: 'Є 90 хвилин' },
+lumen_roulette_short_tv: { ru: 'Серия до 30 минут', en: 'Episode under 30 min', uk: 'Серія до 30 хвилин' },
+lumen_roulette_hint: {
+ru: 'Отметьте подборки и нажмите «Крутить»',
+en: 'Tick the collections and press "Spin"',
+uk: 'Позначте підбірки і натисніть «Крутити»'
+},
+lumen_roulette_empty: {
+ru: 'Под фильтры ничего не подошло',
+en: 'Nothing matches the filters',
+uk: 'Під фільтри нічого не підійшло'
+},
+
+lumen_roulette_unseen_name: { ru: 'Рулетка: только непросмотренное', en: 'Roulette: unwatched only', uk: 'Рулетка: лише непереглянуте' },
+lumen_roulette_unseen_descr: {
+ru: 'С чего начинается фильтр «Не смотрел» при входе в рулетку. Просмотренным считается то, что отмечено в Lampa или досмотрено до конца. Сам фильтр в рулетке можно снять и включить чипом.',
+en: 'The starting state of the "Not watched" filter when the roulette opens. Watched means marked in Lampa or played to the end. The filter itself can be toggled by a chip on the roulette screen.',
+uk: 'З чого починається фільтр «Не дивився» під час входу в рулетку. Переглянутим вважається те, що позначено в Lampa або додивлено до кінця. Сам фільтр у рулетці можна зняти й увімкнути чипом.'
+},
 lumen_fx_all: { ru: 'Все', en: 'All', uk: 'Усі' },
 lumen_fx_seasonal: { ru: 'Только сезонные', en: 'Seasonal only', uk: 'Лише сезонні' },
 lumen_fx_off: { ru: 'Выключены', en: 'Off', uk: 'Вимкнені' },
@@ -18769,6 +19879,11 @@ if (name === 'lumen_transition') return true;
 
 
 
+if (name === 'lumen_roulette_unseen') return true;
+
+
+
+
 if (name === 'lumen_fx') {
 try { if (LC.applyFxPref) LC.applyFxPref(); } catch (eFx) {}
 return true;
@@ -19162,6 +20277,12 @@ var LIST = [
 
 { name: 'lumen_minimap', type: 'trigger', 'default': true, label: 'lumen_minimap_name', descr: 'lumen_minimap_descr' },
 { name: 'lumen_fastscroll', type: 'trigger', 'default': true, label: 'lumen_fastscroll_name', descr: 'lumen_fastscroll_descr' },
+
+
+
+
+
+{ name: 'lumen_roulette_unseen', type: 'trigger', 'default': true, label: 'lumen_roulette_unseen_name', descr: 'lumen_roulette_unseen_descr' },
 { name: 'lumen_hide_watched', type: 'trigger', 'default': false, label: 'lumen_hide_watched_name', descr: 'lumen_hide_watched_descr' },
 
 
@@ -21348,6 +22469,14 @@ warn('nav install failed', eNav);
 
 
 try {
+if (LC.roulette && LC.roulette.install) LC.roulette.install();
+} catch (eRoulette) {
+warn('roulette install failed', eRoulette);
+}
+
+
+
+try {
 if (LC.ambient && LC.ambient.apply) LC.ambient.apply();
 } catch (eAmbient) {
 warn('ambient install failed', eAmbient);
@@ -21420,6 +22549,8 @@ try { if (LC.cardmenu && LC.cardmenu.uninstall) LC.cardmenu.uninstall(); } catch
 
 
 try { if (LC.nav && LC.nav.uninstall) LC.nav.uninstall(); } catch (eNavOff) {}
+
+try { if (LC.roulette && LC.roulette.uninstall) LC.roulette.uninstall(); } catch (eRouletteOff) {}
 
 
 

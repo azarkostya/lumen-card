@@ -279,7 +279,10 @@ test('каждая настройка применяется ровно один
        точку: она и подписки ставит, и открытый слой снимает. */
     lumen_ambient: ['ambient'],
     lumen_ambient_source: ['ambient'],
-    lumen_ambient_delay: ['ambient']
+    lumen_ambient_delay: ['ambient'],
+    /* Task 23 (фаза 3): фильтр «не смотрел» читается при входе в рулетку —
+       ветка у настройки своя, применять на живом экране нечего. */
+    lumen_roulette_unseen: []
   };
   const { LC, log, Storage, params } = setup();
   LC.addSettings();

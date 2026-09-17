@@ -94,6 +94,38 @@
     lumen_ambient_delay_name: { ru: 'Через сколько включать', en: 'Idle time before start', uk: 'Через скільки вмикати' },
     /* Суффикс значений select lumen_ambient_delay: «3 мин». */
     lumen_ambient_minutes: { ru: 'мин', en: 'min', uk: 'хв' },
+    /* Task 23 (фаза 3): рулетка «Что посмотреть» — пункт левого меню Lampa,
+       экран выбора подборок и фильтров, барабан и результат. Рулеток две
+       (фильмы и сериалы), поэтому подписи фильтра длительности разные. */
+    lumen_roulette_title: { ru: 'Что посмотреть', en: 'What to watch', uk: 'Що подивитися' },
+    lumen_roulette_movies: { ru: 'Фильмы', en: 'Movies', uk: 'Фільми' },
+    lumen_roulette_series: { ru: 'Сериалы', en: 'Series', uk: 'Серіали' },
+    lumen_roulette_all: { ru: 'Все подборки', en: 'All collections', uk: 'Усі підбірки' },
+    lumen_roulette_spin: { ru: 'Крутить', en: 'Spin', uk: 'Крутити' },
+    lumen_roulette_again: { ru: 'Ещё раз', en: 'Again', uk: 'Ще раз' },
+    lumen_roulette_watch: { ru: 'Смотреть', en: 'Watch', uk: 'Дивитися' },
+    lumen_roulette_book: { ru: 'В закладки', en: 'Bookmark', uk: 'У закладки' },
+    lumen_roulette_booked: { ru: 'Добавлено в закладки', en: 'Added to bookmarks', uk: 'Додано в закладки' },
+    lumen_roulette_unseen: { ru: 'Не смотрел', en: 'Not watched', uk: 'Не дивився' },
+    lumen_roulette_short_movie: { ru: 'Есть 90 минут', en: '90 minutes to spare', uk: 'Є 90 хвилин' },
+    lumen_roulette_short_tv: { ru: 'Серия до 30 минут', en: 'Episode under 30 min', uk: 'Серія до 30 хвилин' },
+    lumen_roulette_hint: {
+      ru: 'Отметьте подборки и нажмите «Крутить»',
+      en: 'Tick the collections and press "Spin"',
+      uk: 'Позначте підбірки і натисніть «Крутити»'
+    },
+    lumen_roulette_empty: {
+      ru: 'Под фильтры ничего не подошло',
+      en: 'Nothing matches the filters',
+      uk: 'Під фільтри нічого не підійшло'
+    },
+    /* Настройка: с чего начинается фильтр «не смотрел» в рулетке. */
+    lumen_roulette_unseen_name: { ru: 'Рулетка: только непросмотренное', en: 'Roulette: unwatched only', uk: 'Рулетка: лише непереглянуте' },
+    lumen_roulette_unseen_descr: {
+      ru: 'С чего начинается фильтр «Не смотрел» при входе в рулетку. Просмотренным считается то, что отмечено в Lampa или досмотрено до конца. Сам фильтр в рулетке можно снять и включить чипом.',
+      en: 'The starting state of the "Not watched" filter when the roulette opens. Watched means marked in Lampa or played to the end. The filter itself can be toggled by a chip on the roulette screen.',
+      uk: 'З чого починається фільтр «Не дивився» під час входу в рулетку. Переглянутим вважається те, що позначено в Lampa або додивлено до кінця. Сам фільтр у рулетці можна зняти й увімкнути чипом.'
+    },
     lumen_fx_all: { ru: 'Все', en: 'All', uk: 'Усі' },
     lumen_fx_seasonal: { ru: 'Только сезонные', en: 'Seasonal only', uk: 'Лише сезонні' },
     lumen_fx_off: { ru: 'Выключены', en: 'Off', uk: 'Вимкнені' },
@@ -805,6 +837,11 @@
        ни стилей, ни узлов он на экране не держит. Ветка нужна, чтобы имя без
        префикса lumen_card_ не ушло дальше как чужое. */
     if (name === 'lumen_transition') return true;
+    /* Task 23 (фаза 3): фильтр «не смотрел» читается при входе в рулетку
+       (src/56_roulette.js), поэтому применять на лету нечего — на открытом
+       экране его состоянием управляет чип. Ветка нужна, чтобы имя не ушло
+       дальше как чужое. */
+    if (name === 'lumen_roulette_unseen') return true;
     /* Task 21 (фаза 3): атмосферы — слой частиц на открытой карточке и в
        кадре главной. Выключение снимает его немедленно (иначе он дожил бы
        до следующего экрана), включение — пересчитывает тему по данным

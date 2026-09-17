@@ -407,7 +407,7 @@
      «крупнее» между ними зияла полоса в 40 px). Всё, что в герое читают —
      логотип, название, мета, описание, чипы и профили настроения, — лежит
      внутри .lumen-hero__text и масштабируется вместе с ним. */
-  var SCALE_ROOTS = '.lumen-card,.lumen-backdrop,.lumen-descr-row,.lumen-review-modal,.lumen-hero .lumen-hero__text,.lumen-hub,.lumen-grid,.lumen-minimap,.lumen-jump,.lumen-ambient';
+  var SCALE_ROOTS = '.lumen-card,.lumen-backdrop,.lumen-descr-row,.lumen-review-modal,.lumen-hero .lumen-hero__text,.lumen-hub,.lumen-grid,.lumen-minimap,.lumen-jump,.lumen-ambient,.lumen-roulette';
 
   function scaleFactor() {
     return SCALES[LC.pref('lumen_scale', SCALE_DEFAULT)] || SCALES[SCALE_DEFAULT];
@@ -2027,6 +2027,59 @@
        свойство ради полутора пикселей на углу — лишняя работа композитору.
        В первом же кадре разгона углы уезжают за пределы экрана. */
     css.push('.lumen-overlay .lumen-overlay__img.is-run{border-radius:0}');
+
+    /* --- Task 23: рулетка «Что посмотреть» ---
+       Экран компонента lumen_roulette: шапка с тумблером «Фильмы/Сериалы»,
+       лента чипов подборок, чипы фильтров, барабан с постером, кнопка
+       «Крутить» и карточка результата. Кадр выпавшего фильма лежит фоном
+       под всем этим (.lumen-roulette__bg) и приглушён — текст поверх него
+       обязан читаться и на светлой сцене.
+       Две размерные семьи кнопок (поправка контроллера к Task 23):
+       «Крутить» — 72 px (3.16em) с радиусом 18 px (.79em), кнопки результата
+       — 56 px (2.45em) с радиусом 14 px (.61em); это разные классы, а не
+       один .full-start__button. */
+    css.push('.lumen-roulette{position:relative;min-height:100vh;padding:2.81em 2.81em 3.5em}');
+    css.push('.lumen-roulette .lumen-roulette__bg{position:absolute;top:0;right:0;bottom:0;left:0;background-position:center;background-repeat:no-repeat;-webkit-background-size:cover;background-size:cover;opacity:.22;pointer-events:none}');
+    css.push('body.lumen-motion-full .lumen-roulette .lumen-roulette__bg{-webkit-transition:opacity .6s ease;transition:opacity .6s ease}');
+    css.push('.lumen-roulette .lumen-roulette__head{position:relative;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;margin-bottom:1.4em}');
+    css.push('.lumen-roulette .lumen-roulette__title{font-family:' + FD + ';font-weight:700;font-size:2.1em;line-height:1.1;color:' + P.text + ';margin-right:1.05em}');
+    css.push('.lumen-roulette .lumen-roulette__media{display:-webkit-box;display:-webkit-flex;display:flex}');
+    css.push('.lumen-roulette .lumen-roulette__tab{height:2.1em;padding:0 .96em;margin-right:.53em;border-radius:.53em;border:.04em solid ' + P.line + ';background:' + P.chipBg + ';font-family:' + FB + ';font-weight:600;font-size:.96em;line-height:2.1em;color:' + P.smoke + '}');
+    css.push('.lumen-roulette .lumen-roulette__tab.is-on{color:' + P.text + ';border-color:' + AL + '}');
+    css.push('.lumen-roulette .lumen-roulette__tab.focus{background:' + A + ';color:' + t.onac + ';border-color:' + AL + '}');
+    /* Лента чипов: подборки в одну строку с переносом — каталог отдаёт их
+       десятками, и вертикальный список занял бы весь экран. */
+    css.push('.lumen-roulette .lumen-roulette__chips,.lumen-roulette .lumen-roulette__filters{position:relative;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;margin-bottom:.88em}');
+    /* Чип подборки и чип фильтра: собственное оформление, а не наследство
+       от .lumen-chip хаба (тот живёт только под .lumen-hub). Отмеченный —
+       акцентной рамкой и светлым текстом, фокус — заливкой акцентом. */
+    css.push('.lumen-roulette .lumen-roulette__chip{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;height:2.1em;padding:0 .88em;margin:0 .53em .53em 0;border-radius:.53em;border:.04em solid ' + P.line + ';background:' + P.chipBg + ';font-family:' + FB + ';font-weight:500;font-size:.96em;line-height:1;color:' + P.smoke + ';white-space:nowrap}');
+    css.push('.lumen-roulette .lumen-roulette__chip.lumen-chip--on{color:' + P.text + ';border-color:' + AL + ';background:rgba(' + A_RGB + ',.14)}');
+    css.push('.lumen-roulette .lumen-roulette__chip.focus{background:' + A + ';color:' + t.onac + ';border-color:' + AL + ';border-width:.11em}');
+    /* Барабан: окно одного постера 2:3. Постер меняется на каждом шаге плана
+       (src/56_roulette.js), «щелчок» — короткая анимация того же узла. */
+    css.push('.lumen-roulette .lumen-roulette__stage{position:relative;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:end;-webkit-align-items:flex-end;align-items:flex-end;margin-top:1.05em}');
+    css.push('.lumen-roulette .lumen-roulette__reel{width:9.2em;height:13.8em;border-radius:.53em;overflow:hidden;background:' + P.panel + ';border:.04em solid ' + P.line + ';-webkit-flex-shrink:0;flex-shrink:0}');
+    css.push('.lumen-roulette .lumen-roulette__frame{width:100%;height:100%;background-position:center;background-repeat:no-repeat;-webkit-background-size:cover;background-size:cover}');
+    css.push('body.lumen-motion-full .lumen-roulette .lumen-roulette__frame.is-step{-webkit-animation:lumen-roul-step .12s ease-out;animation:lumen-roul-step .12s ease-out}');
+    css.push('@-webkit-keyframes lumen-roul-step{from{-webkit-transform:translateY(12%)}to{-webkit-transform:translateY(0)}}');
+    css.push('@keyframes lumen-roul-step{from{transform:translateY(12%)}to{transform:translateY(0)}}');
+    css.push('.lumen-roulette .lumen-roulette__spin{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;height:3.16em;padding:0 1.75em;margin-left:1.4em;border-radius:.79em;background:' + A + ';color:' + t.onac + ';font-family:' + FD + ';font-weight:700;font-size:1.05em;border:.04em solid transparent}');
+    css.push('.lumen-roulette .lumen-roulette__spin.focus{border-color:' + AL + ';border-width:.11em;-webkit-box-shadow:0 .7em 1.97em ' + AG + ';box-shadow:0 .7em 1.97em ' + AG + '}');
+    css.push('.lumen-roulette .lumen-roulette__spin.is-busy{opacity:.7}');
+    css.push('.lumen-roulette .lumen-roulette__hint{position:relative;margin-left:1.4em;font-family:' + FB + ';font-size:.96em;color:' + P.smoke + '}');
+    /* Карточка результата: название, мета и три кнопки. Появляется на месте
+       подсказки, поэтому у неё своя строка под барабаном. */
+    css.push('.lumen-roulette .lumen-roulette__result{position:relative;margin-left:1.4em;max-width:31.5em}');
+    css.push('.lumen-roulette .lumen-roulette__rtitle{font-family:' + FD + ';font-weight:700;font-size:1.75em;line-height:1.15;color:' + P.text + '}');
+    css.push('.lumen-roulette .lumen-roulette__rmeta{font-family:' + FM + ';font-size:.96em;line-height:1;margin-top:.44em;color:' + P.muted + '}');
+    css.push('.lumen-roulette .lumen-roulette__actions{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;margin-top:1.05em}');
+    css.push('.lumen-roulette .lumen-roulette__btn{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;height:2.45em;padding:0 1.05em;margin:0 .53em .53em 0;border-radius:.61em;border:.04em solid ' + P.line + ';background:' + P.buttonBg + ';font-family:' + FB + ';font-weight:600;font-size:.96em;color:' + P.text + '}');
+    css.push('.lumen-roulette .lumen-roulette__btn.focus{background:' + A + ';color:' + t.onac + ';border-color:' + AL + ';border-width:.11em;-webkit-box-shadow:0 .53em 1.53em ' + AG + ';box-shadow:0 .53em 1.53em ' + AG + '}');
+    css.push('.lumen-roulette .lumen-roulette__empty{font-family:' + FB + ';font-size:1.05em;color:' + P.smoke + '}');
+    /* Пункт меню «Что посмотреть»: иконка набора плагина — 1em, штатные
+       иконки меню Lampa — 1.5em (та же правка, что у пункта «Подборки»). */
+    css.push('.lumen-menu-roulette .lumen-ico{width:1.5em;height:1.5em}');
 
     /* --- Task 22: ambient-режим (заставка из кадров) ---
        Слой поверх всего, что рисует плагин (переход постер → кадр — 90,

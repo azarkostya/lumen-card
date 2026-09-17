@@ -204,6 +204,12 @@
          меняется. Применение на лету — LC.applyNavPref. */
       { name: 'lumen_minimap', type: 'trigger', 'default': true, label: 'lumen_minimap_name', descr: 'lumen_minimap_descr' },
       { name: 'lumen_fastscroll', type: 'trigger', 'default': true, label: 'lumen_fastscroll_name', descr: 'lumen_fastscroll_descr' },
+      /* Task 23 (фаза 3): рулетка «Что посмотреть». В разделе настроек у неё
+         один пункт — с каким фильтром она открывается; всё остальное (медиа,
+         подборки, «есть 90 минут») выбирается на самом экране рулетки и
+         хранится рядом с ним. Место — в группе главной, рядом с фильтром
+         досмотренного: оба про одно и то же — не показывать уже виденное. */
+      { name: 'lumen_roulette_unseen', type: 'trigger', 'default': true, label: 'lumen_roulette_unseen_name', descr: 'lumen_roulette_unseen_descr' },
       { name: 'lumen_hide_watched', type: 'trigger', 'default': false, label: 'lumen_hide_watched_name', descr: 'lumen_hide_watched_descr' },
       /* Тип input: Lampa рисует текстовое поле (как lumen_kp_key). Пусто —
          адрес по умолчанию из LC.MANIFEST_URL (src/00_head.js). */

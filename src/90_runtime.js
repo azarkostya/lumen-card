@@ -1217,6 +1217,14 @@
     } catch (eNav) {
       warn('nav install failed', eNav);
     }
+    /* Task 23: компонент рулетки и пункт меню «Что посмотреть». install()
+       идемпотентен: компонент регистрируется один раз, пункт меню — только
+       если его ещё нет. */
+    try {
+      if (LC.roulette && LC.roulette.install) LC.roulette.install();
+    } catch (eRoulette) {
+      warn('roulette install failed', eRoulette);
+    }
     /* Task 22: ambient-режим — три слушателя document и таймер покоя.
        apply() сам проверяет настройку: выключенная заставка не подписывается
        вовсе (src/54_ambient.js). */
@@ -1293,6 +1301,8 @@
     /* Task 27: снять подписки на клавиатуру, панель мини-карты, индикатор
        позиции и все четыре таймера модуля. */
     try { if (LC.nav && LC.nav.uninstall) LC.nav.uninstall(); } catch (eNavOff) {}
+    /* Task 23: убрать пункт меню «Что посмотреть». */
+    try { if (LC.roulette && LC.roulette.uninstall) LC.roulette.uninstall(); } catch (eRouletteOff) {}
     /* Task 22: выключенный плагин не имеет права держать ни слушателей
        document, ни таймера покоя, ни открытого слоя заставки с его
        предзагрузкой кадра. */
