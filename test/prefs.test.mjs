@@ -138,6 +138,8 @@ test('LIST: полный набор ключей — существующие и
     'lumen_theme', 'lumen_solid', 'lumen_scale',
     /* Task 25 (фаза 3): метки на постерах рядов */
     'lumen_badges',
+    /* Task 26 (фаза 3): пункты плагина в меню карточки по удержанию OK */
+    'lumen_context_menu',
     /* Правка пользователя 2026-09-17 (п.2): размер кадра над рядами */
     'lumen_hero_size',
     /* Task 24 (фаза 3): акцент от постера открытого фильма */
@@ -187,7 +189,10 @@ test('Task 20: настройки главной — одной группой, 
     'lumen_hero_size', 'lumen_moods', 'lumen_personal_rows', 'lumen_home_rows',
     /* Task 25 (фаза 3): метки на постерах — рядом с составом рядов: речь
        про тот же экран. */
-    'lumen_rows_limit', 'lumen_badges', 'lumen_hide_watched', 'lumen_manifest_url'
+    'lumen_rows_limit', 'lumen_badges',
+    /* Task 26 (фаза 3): меню карточки по удержанию OK — там же, где метки:
+       речь о тех же постерах рядов и сеток. */
+    'lumen_context_menu', 'lumen_hide_watched', 'lumen_manifest_url'
   ]);
   /* Группа — последняя в разделе: ни один пункт фазы 2 не потерялся выше. */
   for (const e of LIST.slice(at + 1)) assert.notEqual(e.type, 'title', 'внутри группы новых заголовков нет');

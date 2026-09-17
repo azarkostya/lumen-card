@@ -876,7 +876,16 @@
       active: active,
       /* Task 29: последняя карточка под фокусом для слоя перехода
          (src/67_transition.js). null — фокуса на ряду не было или герой снят. */
-      lastFocus: function () { return last; }
+      lastFocus: function () { return last; },
+      /* Task 26: детали фильма, которые герой уже загрузил для карточки под
+         фокусом (кэш Lampa на сутки). Контекстное меню берёт отсюда
+         belongs_to_collection и своего запроса ради одного пункта не делает.
+         null — герой снят, детали ещё не пришли или под фокусом другой
+         фильм. */
+      details: function (id) {
+        if (!state || !state.details) return null;
+        return state.details.id === id ? state.details : null;
+      }
     };
   })();
 

@@ -155,6 +155,11 @@
          «Продолжить», новые серии). Место в группе — рядом с составом рядов:
          речь о том же экране. Применение на лету — LC.applyBadgesPref. */
       { name: 'lumen_badges', type: 'trigger', 'default': true, label: 'lumen_badges_name', descr: 'lumen_badges_descr' },
+      /* Task 26 (фаза 3): пункты плагина в меню карточки по удержанию OK.
+         Место — рядом с метками: речь о тех же постерах рядов и сеток.
+         Включено по умолчанию — жест штатный, меню штатное, мы лишь
+         дописываем пункты. Применение на лету — LC.applyCardmenuPref. */
+      { name: 'lumen_context_menu', type: 'trigger', 'default': true, label: 'lumen_context_menu_name', descr: 'lumen_context_menu_descr' },
       { name: 'lumen_hide_watched', type: 'trigger', 'default': false, label: 'lumen_hide_watched_name', descr: 'lumen_hide_watched_descr' },
       /* Тип input: Lampa рисует текстовое поле (как lumen_kp_key). Пусто —
          адрес по умолчанию из LC.MANIFEST_URL (src/00_head.js). */

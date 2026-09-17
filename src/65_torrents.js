@@ -103,6 +103,15 @@
          scale(1.02) фокуса не упирается в край скролла, чужие блоки в теле не сдвигаются. */
       r.push(S(['.selectbox .selectbox-item']) + '{margin:0 2.805em .351em 1.403em;padding:.614em .701em;border-radius:.438em;color:' + k.text + ';-webkit-transition:background-color .2s,color .2s,-webkit-transform .2s;transition:background-color .2s,color .2s,transform .2s}');
       r.push(S(['.selectbox .selectbox-item__title']) + '{font-size:.877em;font-weight:600;line-height:1.2}');
+      /* Разделитель групп (штатный items c separator:true — Lampa рисует его
+         как .settings-param-title, app.min.js bind). Он есть и в штатном меню
+         карточки («Избранное»), и перед нашими пунктами в нём (Task 26,
+         src/63_cardmenu.js). Поля — как у пункта, чтобы подпись группы стояла
+         по одной линии со списком. */
+      r.push(S(['.selectbox .settings-param-title']) + '{margin:1.052em 2.805em .35em 1.403em;padding:0;border:0;background:none;font-family:' + k.fontDisplay + ';font-size:.745em;font-weight:700;line-height:1.2;letter-spacing:.08em;text-transform:uppercase;color:' + k.muted + '}');
+      /* Текст подписи Lampa кладёт в <span> и красит его своим правилом
+         (rgba(255,255,255,.4)) — цвет на обёртке до него не доходит. */
+      r.push(S(['.selectbox .settings-param-title > span']) + '{color:' + k.muted + '}');
       r.push(S(['.selectbox .selectbox-item__subtitle']) + '{font-size:.877em;font-weight:400;line-height:1.2;margin-top:.2em;color:' + k.muted + ';opacity:1}');
       r.push(S(['.selectbox .selectbox-item.focus']) + '{background-color:' + k.accent + ';color:' + k.onac + ';-webkit-transform:scale(1.02);transform:scale(1.02)}');
       r.push(S(['.selectbox .selectbox-item.focus .selectbox-item__subtitle']) + '{color:' + k.onac + ';opacity:.72}');

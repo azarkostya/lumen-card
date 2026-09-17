@@ -402,6 +402,54 @@
       en: '"Soon", "New", "Continue" and new episodes right on the posters of home and collection rows. Applied immediately.',
       uk: '«Скоро», «Новинка», «Продовжити» та нові серії — просто на постерах рядів головної та підбірок. Застосовується одразу.'
     },
+    /* Task 26 (фаза 3): контекстное меню карточки по удержанию OK.
+       Настройка — не про вид, а про удобство, поэтому включена по
+       умолчанию: сам факт удержания OK — штатный жест Lampa, мы лишь
+       дописываем в её меню свои пункты. */
+    lumen_context_menu_name: {
+      ru: 'Меню по удержанию OK',
+      en: 'Menu on holding OK',
+      uk: 'Меню за утриманням OK'
+    },
+    lumen_context_menu_descr: {
+      ru: 'Удержание OK на постере открывает штатное меню Lampa, а плагин дописывает в него «Трейлер», «Похожие», «Вся франшиза», отметку просмотра и «Скрыть из рекомендаций». Обычное нажатие по-прежнему открывает карточку. Применяется сразу.',
+      en: 'Holding OK on a poster opens the stock Lampa menu, and the plugin appends "Trailer", "Similar", "Whole franchise", the watched mark and "Hide from recommendations". A normal press still opens the card. Applied immediately.',
+      uk: 'Утримання OK на постері відкриває штатне меню Lampa, а плагін дописує до нього «Трейлер», «Схожі», «Вся франшиза», позначку перегляду та «Сховати з рекомендацій». Звичайне натискання, як і раніше, відкриває картку. Застосовується одразу.'
+    },
+    /* Заголовок-разделитель наших пунктов внутри штатного меню. */
+    lumen_menu_section: { ru: 'Lumen Card', en: 'Lumen Card', uk: 'Lumen Card' },
+    lumen_menu_trailer: { ru: 'Трейлер', en: 'Trailer', uk: 'Трейлер' },
+    lumen_menu_franchise: { ru: 'Вся франшиза', en: 'Whole franchise', uk: 'Вся франшиза' },
+    lumen_menu_similar: { ru: 'Похожие', en: 'Similar', uk: 'Схожі' },
+    lumen_menu_watched: { ru: 'Отметить просмотренным', en: 'Mark as watched', uk: 'Позначити переглянутим' },
+    lumen_menu_unwatched: { ru: 'Снять отметку о просмотре', en: 'Remove watched mark', uk: 'Зняти позначку перегляду' },
+    lumen_menu_hide: { ru: 'Скрыть из рекомендаций', en: 'Hide from recommendations', uk: 'Сховати з рекомендацій' },
+    lumen_menu_unhide: { ru: 'Вернуть в рекомендации', en: 'Return to recommendations', uk: 'Повернути в рекомендації' },
+    lumen_menu_no_trailer: {
+      ru: 'Трейлер не найден',
+      en: 'No trailer found',
+      uk: 'Трейлер не знайдено'
+    },
+    lumen_menu_marked: {
+      ru: 'Отмечено просмотренным',
+      en: 'Marked as watched',
+      uk: 'Позначено переглянутим'
+    },
+    lumen_menu_unmarked: {
+      ru: 'Отметка о просмотре снята',
+      en: 'Watched mark removed',
+      uk: 'Позначку перегляду знято'
+    },
+    lumen_menu_hidden: {
+      ru: 'Скрыто — исчезнет из рядов при следующем обновлении',
+      en: 'Hidden — it will leave the rows on the next refresh',
+      uk: 'Сховано — зникне з рядів при наступному оновленні'
+    },
+    lumen_menu_unhidden: {
+      ru: 'Возвращено в рекомендации',
+      en: 'Returned to recommendations',
+      uk: 'Повернено в рекомендації'
+    },
     lumen_personal_rows_name: {
       ru: 'Персональные ряды',
       en: 'Personal rows',
@@ -597,6 +645,12 @@
        на лету вместе с уже нарисованными метками открытой главной. */
     if (name === 'lumen_badges') {
       try { if (LC.applyBadgesPref) LC.applyBadgesPref(); } catch (eBadges) {}
+      return true;
+    }
+    /* Task 26 (фаза 3): пункты в меню карточки — две подписки, которые
+       ставятся и снимаются на лету; экран перерисовывать не нужно. */
+    if (name === 'lumen_context_menu') {
+      try { if (LC.applyCardmenuPref) LC.applyCardmenuPref(); } catch (eCardmenu) {}
       return true;
     }
     /* Task 19/20: чипы профилей настроения — монтируются и снимаются на лету. */

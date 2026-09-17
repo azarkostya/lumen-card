@@ -107,6 +107,9 @@ test('покрыты все экраны пути', () => {
   const classes = [
     // 33/35 Select
     '.selectbox__title', '.selectbox-item.focus', '.selectbox-item__subtitle', '.selectbox-item__checkbox', '.selectbox-item.selected',
+    /* Task 26: разделитель групп меню (штатный separator:true) — он же
+       отделяет наши пункты в меню карточки. */
+    '.selectbox .settings-param-title',
     // 34 Торренты
     '.explorer__left', '.explorer-card__title', '.explorer-card__descr', '.torrent-filter', '.filter--search', '.filter--filter > div:not(.hide)',
     '.torrent-item', '.torrent-item.focus', '.torrent-item__title', '.torrent-item__details', '.torrent-item__size', '.torrent-item__ffprobe',

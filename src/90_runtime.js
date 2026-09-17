@@ -1148,6 +1148,14 @@
     } catch (eBadges) {
       warn('badges install failed', eBadges);
     }
+    /* Task 26: пункты плагина в меню карточки по удержанию OK. Две подписки
+       (capture-слушатель 'hover:long' на document и preshow у Lampa.Select),
+       ставятся один раз на всё время работы плагина. */
+    try {
+      if (LC.cardmenu && LC.cardmenu.install) LC.cardmenu.install();
+    } catch (eCardmenu) {
+      warn('cardmenu install failed', eCardmenu);
+    }
   }
 
   function deactivate() {
@@ -1205,6 +1213,9 @@
     try { if (LC.moods && LC.moods.uninstall) LC.moods.uninstall(); } catch (eMoodsOff) {}
     /* Task 25: снять наблюдатель меток и сами метки с открытой главной. */
     try { if (LC.badges && LC.badges.uninstall) LC.badges.uninstall(); } catch (eBadgesOff) {}
+    /* Task 26: снять обе подписки меню карточки — выключенный плагин своих
+       пунктов в штатное меню не дописывает. */
+    try { if (LC.cardmenu && LC.cardmenu.uninstall) LC.cardmenu.uninstall(); } catch (eCardmenuOff) {}
   }
 
   /* -------------------------------------------------------------------- */
@@ -1429,6 +1440,20 @@
       else LC.badges.uninstall();
     } catch (e) {
       warn('badges pref failed', e);
+    }
+  };
+
+  /* Task 26: пункты плагина в меню карточки включили или выключили. Экран
+     трогать не нужно — меню собирается заново при каждом удержании OK,
+     так что достаточно поставить или снять подписки. */
+  LC.applyCardmenuPref = function () {
+    if (!activated) return;
+    try {
+      if (!LC.cardmenu) return;
+      if (LC.pref('lumen_context_menu', true)) LC.cardmenu.install();
+      else LC.cardmenu.uninstall();
+    } catch (e) {
+      warn('cardmenu pref failed', e);
     }
   };
 
