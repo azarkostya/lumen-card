@@ -12813,6 +12813,8 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 
+
+
 LC.transition = (function () {
 
 
@@ -12821,11 +12823,41 @@ var DURATION = 480;
 var FADE_SHARE = 0.4;
 
 
-var LIFE = 700;
+
+
+
+
+
+
+
+
+var LIFE = 2500;
 var EASE = 'cubic-bezier(.2,.8,.2,1)';
 
 
+
+
+
+
+var OVERSCAN = 1.04;
+
+
 var state = null;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -12845,7 +12877,7 @@ var sw = Number(screen.width) || 0;
 var sh = Number(screen.height) || 0;
 if (w <= 0 || h <= 0 || sw <= 0 || sh <= 0) return null;
 return {
-scale: sh / h,
+scale: Math.max(sw / w, sh / h) * OVERSCAN,
 tx: Math.round(sw / 2 - ((Number(rect.left) || 0) + w / 2)),
 ty: Math.round(sh / 2 - ((Number(rect.top) || 0) + h / 2))
 };
@@ -12912,6 +12944,23 @@ return String(a) === String(b);
 
 
 
+
+
+
+function listen(el, live) {
+if (!el || typeof el.addEventListener !== 'function') return;
+function done(e) {
+if (state !== live) return;
+if (e && e.propertyName && e.propertyName !== 'opacity') return;
+stop();
+}
+try {
+el.addEventListener('transitionend', done, false);
+el.addEventListener('webkitTransitionEnd', done, false);
+} catch (err) { }
+}
+
+
 function stop() {
 if (!state) return;
 var s = state;
@@ -12936,7 +12985,24 @@ var node = $('<div class="lumen-overlay"><div class="lumen-overlay__img"></div><
 var img = node.find('.lumen-overlay__img');
 var f = fade(DURATION, FADE_SHARE);
 var move = DURATION + 'ms ' + EASE;
-var dim = 'opacity ' + f.ms + 'ms linear ' + f.delay + 'ms';
+
+
+
+
+
+var dim = 'opacity ' + f.ms + 'ms ease-in ' + f.delay + 'ms';
+
+
+
+
+
+
+
+
+
+
+var webkitTrack = '-webkit-transform ' + move + ', ' + dim;
+var track = 'transform ' + move + ', ' + dim;
 
 img.css({
 left: Math.round(source.rect.left) + 'px',
@@ -12944,13 +13010,21 @@ top: Math.round(source.rect.top) + 'px',
 width: Math.round(source.rect.width) + 'px',
 height: Math.round(source.rect.height) + 'px',
 'background-image': 'url("' + encodeURI(source.poster) + '")',
-'-webkit-transition': '-webkit-transform ' + move + ', ' + dim,
-transition: 'transform ' + move + ', ' + dim
+
+
+
+
+'background-position': '50% 38%',
+'-webkit-transition': webkitTrack,
+transition: track
 });
 
 $('body').append(node);
 state = { node: node, img: img, timer: null, frame: 0 };
 var live = state;
+
+
+
 
 
 
@@ -12973,6 +13047,12 @@ opacity: 0
 });
 });
 });
+
+
+
+
+
+listen(img[0], live);
 
 live.timer = setTimeout(function () {
 if (state !== live) return;
