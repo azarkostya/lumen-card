@@ -7,6 +7,7 @@
   /*   heroModel(card, details, words) → модель героя или null              */
   /*   shouldUpdate(prevId, nextId, elapsedMs, delay) → boolean             */
   /*   sizeFor(width) / logoSizeFor(width) → размер картинки TMDB           */
+  /*   logoBox(ratio, compact) → {w, h} логотипа в em или null              */
   /*   detailsRequest(media, id, lang) → {url, params, life}                */
   /*   mount(root, opts) — вставить героя в корень экрана                   */
   /*   mountCurrent() — смонтировать, если сейчас открыта главная           */
@@ -60,6 +61,37 @@
        у ambient-режима фазы 3): на FHD-панелях w1280 и так по пикселю. */
     var WIDE_PX = 1366;
 
+    /* Размер логотипа в кадре (правка пользователя 2026-09-17, четвёртый
+       круг, дословно: «нет какого-то единого размера»).
+
+       Третий круг выровнял логотипы по ВЫСОТЕ рамки, и высота у всех стала
+       одна. Визуально это не равенство: у двухстрочного логотипа («Хитрый
+       койот», «Южный парк») на ту же высоту приходятся ДВЕ строки букв —
+       буквы вдвое мельче, чем у однострочного широкого («Одиссея»,
+       «Колония»). Равным должен быть видимый размер, а он держится на
+       ПЛОЩАДИ: то же название, разложенное в две строки, теряет вдвое по
+       ширине и приобретает вдвое по высоте, площадь у него та же.
+
+       Отсюда формула: высота h = sqrt(LOGO_AREA / пропорция), то есть
+       площадь w × h = LOGO_AREA у всех логотипов одна. Клампы по краям:
+       - LOGO_H_MAX — потолок высоты. Его задаёт бюджет раскладки: TEXT_LOGO
+         в src/30_css.js равен LOGO_H_MAX + .4em отступа, и из этого бюджета
+         считаются пороги «показывать описание» и «показывать кадр». Выше
+         поднимать нельзя — мета-строка уйдёт под верхнюю кромку блока
+         (проверяется тестом css.test.mjs «бюджет высоты под логотип»).
+       - LOGO_H_MIN — пол высоты: логотип-баннер 12:1 и длиннее по площади
+         просил бы полтора em и читался бы полоской.
+       - LOGO_W_MAX — та же рамка 37.84em (700 px FHD), что и в CSS: шире
+         текстового блока логотип не рисуем ни при каких пропорциях. Ширина
+         сильнее пола высоты: упёрлись в рамку — высоту отдаём.
+       LOGO_COMPACT — доля сжатого состояния: там всё мельче в одно и то же
+       число раз, включая бюджет (TEXT_LOGO_SMALL). */
+    var LOGO_AREA = 65;
+    var LOGO_H_MAX = 5.2;
+    var LOGO_H_MIN = 2.4;
+    var LOGO_W_MAX = 37.84;
+    var LOGO_COMPACT = 0.65;
+
     var MOTION_CLASSES = 'lumen-motion-full lumen-motion-lite lumen-motion-off';
 
     /* ------------------------------------------------------------------ */
@@ -70,7 +102,7 @@
        затем первый безъязыкий (такие логотипы обычно и есть «оригинальные»).
        Нет ни одного — null, и тогда рисуется текстовый заголовок
        (ограничение брифа 2, поправка контроллера: без панели-фолбэка). */
-    function pickLogo(logos, lang) {
+    function pickLogoItem(logos, lang) {
       lang = lang || 'ru';
       var own = null;
       var en = null;
@@ -79,11 +111,51 @@
         var item = logos[i];
         if (!item || !item.file_path) continue;
         var code = item.iso_639_1 || '';
-        if (code === lang) { if (!own) own = item.file_path; }
-        else if (code === 'en') { if (!en) en = item.file_path; }
-        else if (!code) { if (!neutral) neutral = item.file_path; }
+        if (code === lang) { if (!own) own = item; }
+        else if (code === 'en') { if (!en) en = item; }
+        else if (!code) { if (!neutral) neutral = item; }
       }
       return own || en || neutral || null;
+    }
+
+    function pickLogo(logos, lang) {
+      var item = pickLogoItem(logos, lang);
+      return item ? item.file_path : null;
+    }
+
+    /* Пропорция логотипа (ширина/высота). TMDB отдаёт её готовой в
+       aspect_ratio; width/height в том же объекте — запасной путь на случай
+       урезанного ответа прокси. 0 — пропорция неизвестна, и тогда размер
+       остаётся за рамкой по умолчанию из CSS. */
+    function logoRatioOf(item) {
+      if (!item) return 0;
+      var ratio = Number(item.aspect_ratio) || 0;
+      if (ratio > 0) return ratio;
+      var w = Number(item.width) || 0;
+      var h = Number(item.height) || 0;
+      return (w > 0 && h > 0) ? w / h : 0;
+    }
+
+    function round2(n) {
+      return Math.round(n * 100) / 100;
+    }
+
+    /* Размер логотипа под его пропорцию: равная площадь вместо равной
+       высоты (см. комментарий к LOGO_AREA выше). compact — сжатое
+       состояние кадра. Пропорции нет — null: размер отдаём CSS. */
+    function logoBox(ratio, compact) {
+      var r = Number(ratio) || 0;
+      if (!(r > 0)) return null;
+      var h = Math.sqrt(LOGO_AREA / r);
+      if (h > LOGO_H_MAX) h = LOGO_H_MAX;
+      if (h < LOGO_H_MIN) h = LOGO_H_MIN;
+      var w = h * r;
+      if (w > LOGO_W_MAX) {
+        w = LOGO_W_MAX;
+        h = w / r;
+      }
+      var k = compact ? LOGO_COMPACT : 1;
+      return { w: round2(w * k), h: round2(h * k) };
     }
 
     /* Тип карточки для запроса деталей. media_type приходит из discover с
@@ -140,6 +212,7 @@
       }
 
       var vote = Number(card.vote_average) || 0;
+      var logoItem = details ? pickLogoItem(details.images && details.images.logos, words.lang) : null;
 
       return {
         id: card.id,
@@ -147,7 +220,11 @@
         title: card.title || card.name || '',
         backdrop: (details && details.backdrop_path) || card.backdrop_path || '',
         poster: card.poster_path || (details && details.poster_path) || '',
-        logo: details ? pickLogo(details.images && details.images.logos, words.lang) : null,
+        logo: logoItem ? logoItem.file_path : null,
+        /* Пропорция нужна рантайму, чтобы дать логотипу размер по площади
+           (logoBox): двухстрочный логотип получает больше высоты, широкий
+           однострочный — больше ширины. */
+        logoRatio: logoRatioOf(logoItem),
         meta: meta,
         overview: (details && details.overview) || card.overview || '',
         rating: vote > 0 ? vote.toFixed(1) : '',
@@ -364,6 +441,32 @@
     /* Отрисовка.                                                          */
     /* ------------------------------------------------------------------ */
 
+    /* Мелкий набор текста в кадре: размер кадра «компактный». Там логотипу
+       отведён тот же бюджет, что и в сжатом состоянии (TEXT_LOGO_SMALL в
+       src/30_css.js), поэтому и размер считается как для сжатого. */
+    function smallHero() {
+      try { return LC.pref ? LC.pref('lumen_hero_size', 'large') === 'compact' : false; } catch (e) { return false; }
+    }
+
+    /* Ширина и высота логотипа под его пропорцию. Инлайном, потому что
+       пропорция приходит из ответа TMDB, а в таблице стилей её знать
+       неоткуда. Отсюда же следует, что размер надо пересчитывать при каждой
+       смене состояния кадра (setCompact): правилу .lumen-hero--compact
+       инлайн-стиль перебить нечем.
+
+       Пропорции нет — обе величины стираем, и размер остаётся за рамкой по
+       умолчанию из CSS. Пустым style="" узел при этом не становится: фоновая
+       картинка на нём есть всегда (ловушка плана 0.2). */
+    function applyLogoBox() {
+      if (!state || !state.model) return;
+      var model = state.model;
+      var compact = state.node.hasClass('lumen-hero--compact') || smallHero();
+      var box = model.logo ? logoBox(model.logoRatio, compact) : null;
+      var logo = state.node.find('.lumen-hero__logo');
+      logo.css('width', box ? box.w + 'em' : '');
+      logo.css('height', box ? box.h + 'em' : '');
+    }
+
     /* Записывает модель в узлы. swap=true — смена карточки (текст уходит и
        возвращается), иначе это дорисовка деталей той же карточки: она
        обязана быть без анимации, иначе герой дёргался бы дважды на каждую
@@ -403,6 +506,7 @@
            'none' валидно и атрибут пустым не делает. */
         logo.css('background-image', logoUrl ? 'url("' + encodeURI(logoUrl) + '")' : 'none');
         node.toggleClass('lumen-hero--logo', !!logoUrl);
+        applyLogoBox();
 
         text.removeClass('is-swapping');
         if (motionMode() === 'full') text.addClass('is-in');
@@ -582,6 +686,9 @@
     function setCompact(on) {
       if (!state) return;
       state.node.toggleClass('lumen-hero--compact', on);
+      /* Размер логотипа задан инлайном — правило сжатого состояния его не
+         перебьёт, пересчитываем сами (правка четвёртого круга). */
+      applyLogoBox();
       try { state.root.toggleClass('lumen-rows-up', on); } catch (e) {}
     }
 
@@ -866,6 +973,7 @@
       shouldUpdate: shouldUpdate,
       sizeFor: sizeFor,
       logoSizeFor: logoSizeFor,
+      logoBox: logoBox,
       detailsRequest: detailsRequest,
       mount: mount,
       mountCurrent: mountCurrent,

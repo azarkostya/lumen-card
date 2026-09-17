@@ -319,8 +319,16 @@
      чипов теперь занимает место и в нём (правка третьего круга). */
   var TEXT_BOTTOM_COMPACT = 1.2;
   var TEXT_META = 1.06;
-  var TEXT_LOGO = 4.8;
-  var TEXT_LOGO_SMALL = 3.6;
+  /* Логотип: САМЫЙ ВЫСОКИЙ из возможных плюс .4em отступа сверху. Высота
+     логотипа с правки четвёртого круга не постоянна — её считает герой по
+     пропорции (LC.hero.logoBox, src/48_hero.js: равная площадь вместо равной
+     высоты), а бюджет обязан покрывать потолок этой высоты (LOGO_H_MAX =
+     5.2em, в сжатом состоянии и при компактном размере кадра — 5.2 × 0.65 =
+     3.38em). Возьми бюджет по среднему логотипу — и высокий двухстрочный
+     выдавил бы мету под верхнюю кромку текстового блока. Связь константы с
+     логотипом проверяется тестом css.test.mjs «бюджет высоты под логотип». */
+  var TEXT_LOGO = 5.6;
+  var TEXT_LOGO_SMALL = 3.8;
   var TEXT_DESCR = 4.05;
   /* Описание в ОДНУ строку (1.05em × 1.45 плюс свой отступ сверху) — столько
      просит сжатое состояние: пользователь отметил пропажу описания на
@@ -1518,23 +1526,26 @@
     css.push('.lumen-hero .lumen-hero__meta{font-family:' + FM + ';font-weight:400;font-size:.88em;line-height:1.2;letter-spacing:.03em;color:' + P.muted + '}');
     /* Логотип фильма — фоном (contain), максимум 30.69em = 700 px FHD (§0.2).
        Отдельного <img> нет: единственный путь к картинкам — прокси TMDB. */
-    /* Правка пользователя 2026-09-17 (третий круг): «логотипы разного
-       размера». Логотипы TMDB приходят с любыми пропорциями — замер живьём
-       на одном ряду дал от 1.48:1 (название в три строки) до 8.02:1 (длинное
-       в одну). contain вписывает картинку в рамку, и пока рамка была
-       30.69 × 4.4em (6.97:1), всё, что длиннее, упиралось в ШИРИНУ и теряло
-       высоту: тот же логотип оказывался в полтора раза мельче соседнего.
-       Рамка расширена до 8.6:1 — все встреченные пропорции упираются теперь
-       в ВЫСОТУ, то есть занимают одинаковое место по вертикали; шире 8.6:1
-       логотип по-прежнему вписывается по ширине, иначе он вышел бы за
-       текстовый блок баннером во весь экран. */
+    /* Правка пользователя 2026-09-17 (четвёртый круг): «нет какого-то
+       единого размера». Третий круг выровнял логотипы по ВЫСОТЕ этой рамки,
+       и высота у всех стала одна — но двухстрочный логотип укладывает в неё
+       две строки букв и читается вдвое мельче однострочного. Размер
+       конкретного логотипа теперь считает герой по его пропорции из TMDB
+       (LC.hero.logoBox, src/48_hero.js: равная ПЛОЩАДЬ) и пишет инлайном —
+       в таблице стилей пропорцию знать неоткуда.
+
+       Правила ниже задают рамку ПО УМОЛЧАНИЮ: её получают логотипы, у
+       которых в ответе нет ни aspect_ratio, ни width/height. Она та же, что
+       была в третьем круге, — 37.84 × 4.4em, то есть 8.6:1: всё, что не
+       длиннее, упирается в высоту, а не в ширину. */
     css.push('.lumen-hero .lumen-hero__logo{display:none;width:37.84em;max-width:100%;height:4.4em;margin-top:.4em;-webkit-background-size:contain;background-size:contain;background-position:left bottom;background-repeat:no-repeat}');
     css.push('.lumen-hero.lumen-hero--logo .lumen-hero__logo{display:block}');
     /* Текстовый фолбэк названия — обычный текст без панели (поправка
        контроллера к Task 18, единообразно с экранами 16–19). */
-    /* Фолбэк без логотипа занимает ровно то же место по высоте, что и
-       логотип: две строки по 1.08 при кегле 2.04em дают те же 4.4em, и текст
-       длинного названия не разъезжает блок (правка третьего круга). */
+    /* Фолбэк без логотипа: две строки по 1.08 при кегле 2.04em дают 4.4em —
+       середину диапазона высот логотипа (2.4…5.2em, LC.hero.logoBox). По
+       весу он сопоставим с логотипами и не выпадает ни в одну сторону, а
+       фиксированная высота не даёт длинному названию разъехать блок. */
     css.push('.lumen-hero .lumen-hero__title{font-family:' + FD + ';font-weight:800;font-size:2.04em;line-height:1.08;color:' + P.text + ';margin-top:.4em;height:2.16em;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}');
     css.push('.lumen-hero.lumen-hero--compact .lumen-hero__title{height:1.57em;-webkit-line-clamp:1}');
     css.push('.lumen-hero.lumen-hero--logo .lumen-hero__title{display:none}');
@@ -1570,7 +1581,10 @@
        («компактный»), там он нужен уже в верхнем состоянии. */
     var smallText = heroSmallText();
     css.push('.lumen-hero.lumen-hero--compact .lumen-hero__logo{width:27.52em;height:3.2em}');
-    css.push('.lumen-hero.lumen-motion-full .lumen-hero__logo{-webkit-transition:height .42s cubic-bezier(.2,.8,.2,1);transition:height .42s cubic-bezier(.2,.8,.2,1)}');
+    /* Ширина едет вместе с высотой: обе задаёт инлайн-стиль от logoBox и на
+       переходе в сжатое состояние меняются разом — анимируй одну высоту, и
+       пропорция логотипа была бы порвана все 420 мс перехода. */
+    css.push('.lumen-hero.lumen-motion-full .lumen-hero__logo{-webkit-transition:height .42s cubic-bezier(.2,.8,.2,1),width .42s cubic-bezier(.2,.8,.2,1);transition:height .42s cubic-bezier(.2,.8,.2,1),width .42s cubic-bezier(.2,.8,.2,1)}');
     css.push('.lumen-hero.lumen-hero--compact .lumen-hero__meta,.lumen-hero.lumen-hero--compact .lumen-hero__sk--meta{display:none}');
     css.push('.lumen-hero.lumen-hero--compact .lumen-hero__descr,.lumen-hero.lumen-hero--compact .lumen-hero__sk--descr,.lumen-hero.lumen-hero--compact .lumen-hero__sk--short{display:none}');
     if (smallText) {

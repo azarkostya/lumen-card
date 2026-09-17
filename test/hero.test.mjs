@@ -63,6 +63,71 @@ test('pickLogo: пусто/мусор/без file_path — null', () => {
   assert.equal(H.pickLogo([{ file_path: '/x.png', iso_639_1: 'de' }], 'ru'), null);
 });
 
+/* Правка пользователя 2026-09-17 (четвёртый круг), дословно: «нет какого-то
+   единого размера». Прошлый круг выровнял логотипы по ВЫСОТЕ рамки, и высота
+   у всех стала одна — но у двухстрочного логотипа («Хитрый койот», «Южный
+   парк») на эту высоту приходятся две строки букв, то есть буквы вдвое
+   мельче, чем у однострочного широкого («Одиссея», «Колония»). Равным должен
+   быть видимый размер, а он определяется ПЛОЩАДЬЮ: одно и то же название,
+   разбитое на две строки, теряет вдвое по ширине и приобретает вдвое по
+   высоте — площадь у него та же. */
+test('logoBox: равная площадь вместо равной высоты — узкий логотип выше широкого', () => {
+  const narrow = H.logoBox(2.5, false);
+  const wide = H.logoBox(6, false);
+  assert.ok(narrow.h > wide.h, 'двухстрочный логотип обязан получить больше высоты: ' + JSON.stringify(narrow) + ' / ' + JSON.stringify(wide));
+  assert.ok(wide.w > narrow.w, 'однострочный широкий обязан получить больше ширины');
+  const areaN = narrow.w * narrow.h;
+  const areaW = wide.w * wide.h;
+  assert.ok(Math.abs(areaN - areaW) / areaN < 0.01, 'площади обязаны совпадать: ' + areaN + ' и ' + areaW);
+});
+
+test('logoBox: клампы — узкому не выше бюджета, очень длинному не шире рамки', () => {
+  /* Близкий к квадрату (1.5:1 — замер живьём на одном ряду прошлого круга)
+     по площади просил бы 6.58em и съел бы мету: выше бюджета раскладки его
+     не пускает верхний кламп. */
+  assert.deepEqual(H.logoBox(1.5, false), { w: 7.8, h: 5.2 });
+  /* Логотип-баннер 20:1 по площади получил бы 1.8em — нижний кламп поднимает
+     его до 2.4em, и тогда в бюджет уже не влезает ШИРИНА: она и решает. */
+  const banner = H.logoBox(20, false);
+  assert.equal(banner.w, 37.84, 'ширина упирается в рамку: ' + JSON.stringify(banner));
+  assert.equal(banner.h, 1.89);
+
+  for (const ratio of [0.8, 1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 12, 20]) {
+    const full = H.logoBox(ratio, false);
+    assert.ok(full.h <= 5.2, ratio + ':1 — высота ' + full.h + 'em выше бюджета TEXT_LOGO');
+    assert.ok(full.w <= 37.84, ratio + ':1 — ширина ' + full.w + 'em шире рамки');
+    const small = H.logoBox(ratio, true);
+    assert.ok(small.h <= 3.38, ratio + ':1 сжатый — высота ' + small.h + 'em выше бюджета TEXT_LOGO_SMALL');
+    assert.ok(small.w <= 24.6, ratio + ':1 сжатый — ширина ' + small.w + 'em');
+  }
+});
+
+test('logoBox: сжатое состояние — то же самое, умноженное на 0.65', () => {
+  const full = H.logoBox(6, false);
+  const small = H.logoBox(6, true);
+  assert.deepEqual(small, { w: 12.84, h: 2.14 });
+  assert.ok(Math.abs(small.h / full.h - 0.65) < 0.01, 'в сжатом всё пропорционально мельче');
+  assert.ok(Math.abs(small.w / full.w - 0.65) < 0.01);
+});
+
+test('logoBox: пропорция неизвестна — null, размер остаётся за рамкой из CSS', () => {
+  assert.equal(H.logoBox(0, false), null);
+  assert.equal(H.logoBox(null, false), null);
+  assert.equal(H.logoBox(-3, false), null);
+  assert.equal(H.logoBox('нет', false), null);
+});
+
+test('heroModel: пропорция логотипа — aspect_ratio TMDB, иначе width/height', () => {
+  const card = { id: 1, title: 'Фильм' };
+  const withRatio = H.heroModel(card, { images: { logos: [{ file_path: '/a.png', iso_639_1: 'ru', aspect_ratio: 3.21 }] } }, WORDS);
+  assert.equal(withRatio.logoRatio, 3.21);
+  const withSize = H.heroModel(card, { images: { logos: [{ file_path: '/b.png', iso_639_1: 'ru', width: 800, height: 400 }] } }, WORDS);
+  assert.equal(withSize.logoRatio, 2);
+  const bare = H.heroModel(card, { images: { logos: [{ file_path: '/c.png', iso_639_1: 'ru' }] } }, WORDS);
+  assert.equal(bare.logoRatio, 0, 'пропорции нет — рисуем рамкой по умолчанию');
+  assert.equal(H.heroModel(card, null, WORDS).logoRatio, 0);
+});
+
 test('mediaOf: media_type важнее признака name', () => {
   assert.equal(H.mediaOf({ media_type: 'tv', title: 'X' }), 'tv');
   assert.equal(H.mediaOf({ name: 'Сериал' }), 'tv');
@@ -404,6 +469,79 @@ test('загруженный кадр проявляется вторым сло
   assert.equal(node.find('.lumen-hero__descr').text(), 'полное');
   assert.equal(node.find('.lumen-hero__logo').css('background-image'), 'url("https://img/t/p/w780/l.png")');
   assert.equal(node.hasClass('lumen-hero--logo'), true, 'логотип есть — текстовый заголовок скрыт CSS');
+});
+
+/* Правка четвёртого круга: размер логотипа считается по его пропорции
+   (logoBox) и пишется инлайном — в CSS её знать неоткуда. Значит, пересчёт
+   нужен и при переходе между полным и сжатым состоянием: инлайн-стиль
+   правилу .lumen-hero--compact перебить нечем. */
+test('логотип: размер по пропорции и пересчёт при переходе в сжатое состояние', () => {
+  const env = makeEnv();
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  const obs = env.observers[0];
+  const node = main.activity._children[0];
+  const logo = node.find('.lumen-hero__logo');
+
+  main.card1.addClass('focus');
+  obs.fn([{ target: main.card1 }]);
+  env.advance(400);
+  env.advance(200);
+  env.requests[0].ok({ images: { logos: [{ file_path: '/l.png', iso_639_1: 'ru', aspect_ratio: 2.5 }] } });
+  assert.equal(node.hasClass('lumen-hero--compact'), false, 'первый ряд — полное состояние');
+  assert.equal(logo.css('width'), '12.75em');
+  assert.equal(logo.css('height'), '5.1em');
+
+  main.card1.removeClass('focus');
+  main.card2.addClass('focus');
+  obs.fn([{ target: main.card2 }]);
+  env.advance(400);
+  env.advance(200);
+  assert.equal(node.hasClass('lumen-hero--compact'), true, 'второй ряд — сжатое состояние');
+  env.requests[1].ok({ images: { logos: [{ file_path: '/l2.png', iso_639_1: 'ru', aspect_ratio: 2.5 }] } });
+  assert.equal(logo.css('width'), '8.29em', 'та же пропорция в сжатом — те же размеры × 0.65');
+  assert.equal(logo.css('height'), '3.31em');
+});
+
+/* Размер кадра «компактный» отдаёт тексту столько же высоты, сколько сжатое
+   состояние (бюджет TEXT_LOGO_SMALL в src/30_css.js один на оба случая), —
+   значит, и логотип там считается как сжатый, ещё до всякого листания. */
+test('логотип: при компактном размере кадра сразу сжатый размер', () => {
+  const env = makeEnv({ pref: (name, def) => (name === 'lumen_hero_size' ? 'compact' : def) });
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  const obs = env.observers[0];
+  const node = main.activity._children[0];
+
+  main.card1.addClass('focus');
+  obs.fn([{ target: main.card1 }]);
+  env.advance(400);
+  env.advance(200);
+  env.requests[0].ok({ images: { logos: [{ file_path: '/l.png', iso_639_1: 'ru', aspect_ratio: 2.5 }] } });
+  assert.equal(node.hasClass('lumen-hero--compact'), false, 'первый ряд — состояние всё-таки полное');
+  const logo = node.find('.lumen-hero__logo');
+  assert.equal(logo.css('width'), '8.29em');
+  assert.equal(logo.css('height'), '3.31em');
+});
+
+test('логотип без пропорции в ответе TMDB: размер отдаём CSS, style пустым не остаётся', () => {
+  const env = makeEnv();
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  const obs = env.observers[0];
+  const node = main.activity._children[0];
+
+  main.card1.addClass('focus');
+  obs.fn([{ target: main.card1 }]);
+  env.advance(400);
+  env.advance(200);
+  env.requests[0].ok({ images: { logos: [{ file_path: '/l.png', iso_639_1: 'ru' }] } });
+  const logo = node.find('.lumen-hero__logo');
+  assert.ok(!logo.css('width'), 'без пропорции инлайн-ширины быть не должно: ' + logo.css('width'));
+  assert.ok(!logo.css('height'));
+  /* Ловушка плана 0.2: пустой style="" меняет outerHTML. Фоновая картинка
+     на узле есть всегда, поэтому атрибут пустым не становится. */
+  assert.ok(logo.attr('style').indexOf('background-image') !== -1, 'style: ' + logo.attr('style'));
 });
 
 test('второй ряд в фокусе — компактный герой, возврат на первый снимает класс', () => {
