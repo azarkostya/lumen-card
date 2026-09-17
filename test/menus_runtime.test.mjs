@@ -148,7 +148,11 @@ test('долг ревью (п.2): каждая настройка раздела
     /* Task 19/20 (фаза 2): чипы настроения — applyMoodsPref, вне POINTS. */
     lumen_moods: [],
     /* Task 16 (фаза 2): персональные ряды — applyPersonalPref без точек POINTS. */
-    lumen_personal_rows: []
+    lumen_personal_rows: [],
+    /* Фаза 3: тема, плотность подложек и масштаб — только пересборка CSS. */
+    lumen_theme: ['injectCss'],
+    lumen_solid: ['injectCss'],
+    lumen_scale: ['injectCss']
   };
 
   /* В проверке обязаны быть все пункты раздела — иначе она снова отстанет от

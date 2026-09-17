@@ -107,8 +107,33 @@ test('LIST: полный набор ключей — существующие и
     /* Task 16 (фаза 2): персональные ряды */
     'lumen_personal_rows',
     /* Task 20 (фаза 2): состав рядов, чипы настроения, подсказка про ключ */
-    'lumen_home_rows', 'lumen_moods', 'lumen_kp_hint'
+    'lumen_home_rows', 'lumen_moods', 'lumen_kp_hint',
+    /* Фаза 3: тема, плотность подложек, масштаб интерфейса */
+    'lumen_theme', 'lumen_solid', 'lumen_scale'
   ].sort());
+});
+
+/* Фаза 3: тема, плотность и масштаб — в группе «Оформление», сразу за
+   акцентом: это всё про вид, и на пульте их ищут рядом. */
+test('фаза 3: тема, плотность подложек и масштаб — сразу за акцентом, до шрифтов', () => {
+  const at = names.indexOf('lumen_card_accent');
+  assert.ok(at > 0, 'пункта акцента нет в списке');
+  assert.deepEqual(names.slice(at + 1, at + 4), ['lumen_theme', 'lumen_solid', 'lumen_scale']);
+  assert.equal(names[at + 4], 'lumen_card_fonts', 'выключатель шрифтов остаётся следующим');
+});
+
+test('фаза 3: значения по умолчанию сохраняют прежний вид', () => {
+  assert.deepEqual(['select', 'warm'], [prefs.find('lumen_theme').type, prefs.find('lumen_theme')['default']]);
+  assert.deepEqual(['trigger', false], [prefs.find('lumen_solid').type, prefs.find('lumen_solid')['default']]);
+  assert.deepEqual(['select', 'normal'], [prefs.find('lumen_scale').type, prefs.find('lumen_scale')['default']]);
+  assert.ok(prefs.find('lumen_theme').descr, 'у темы обязана быть подсказка про OLED');
+  assert.ok(prefs.find('lumen_solid').descr, 'у плотных подложек обязана быть подсказка, когда включать');
+  assert.ok(prefs.find('lumen_scale').descr);
+});
+
+test('фаза 3: масштаб — четыре ступени от «мельче» до «ещё крупнее»', () => {
+  assert.deepEqual(prefs.find('lumen_scale').values, ['small', 'normal', 'large', 'huge']);
+  assert.equal(prefs.find('lumen_scale').vprefix, 'lumen_scale_');
 });
 
 /* Task 20: все настройки фазы 2, кроме подсказки про ключ (она живёт рядом с
@@ -190,7 +215,11 @@ test('LIST: у select перечислены значения, у каждого
     assert.ok(e.values && e.values.length, 'select без значений: ' + e.name);
     assert.ok(e.vprefix || e.vsuffix, 'select без правила подписи значений: ' + e.name);
   }
-  assert.deepEqual(prefs.find('lumen_card_accent').values, ['sand', 'ice', 'wine', 'mint']);
+  /* Фаза 3: девять акцентов, порядок по цветовому кругу, нейтральный графит
+     последним; «песок» остаётся первым и значением по умолчанию. */
+  assert.deepEqual(prefs.find('lumen_card_accent').values,
+    ['sand', 'copper', 'wine', 'garnet', 'mint', 'emerald', 'ice', 'lavender', 'graphite']);
+  assert.deepEqual(prefs.find('lumen_theme').values, ['warm', 'black']);
   assert.deepEqual(prefs.find('lumen_motion').values, ['auto', 'full', 'lite', 'off']);
   assert.deepEqual(prefs.find('lumen_slide_interval').values, ['8', '14', '20']);
   assert.deepEqual(prefs.find('lumen_trailer').values, ['auto', 'on', 'off']);

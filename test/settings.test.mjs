@@ -142,8 +142,15 @@ test('addSettings: подписи и описания по-русски, зна�
   assert.equal(paramOf(params, 'lumen_reviews').field.name, 'Отзывы Кинопоиска');
   assert.equal(paramOf(params, 'lumen_kp_key').field.name, 'Ключ Kinopoisk API');
 
+  /* Фаза 3: девять акцентов — четыре из экспорта дизайна и пять новых. */
   assert.deepEqual(paramOf(params, 'lumen_card_accent').param.values,
-    { sand: 'Песок', ice: 'Лёд', wine: 'Вино', mint: 'Мята' });
+    { sand: 'Песок', copper: 'Медь', wine: 'Вино', garnet: 'Гранат', mint: 'Мята',
+      emerald: 'Изумруд', ice: 'Лёд', lavender: 'Лаванда', graphite: 'Графит' });
+  assert.deepEqual(paramOf(params, 'lumen_theme').param.values,
+    { warm: 'Тёплая тёмная', black: 'Глубокая чёрная' });
+  assert.deepEqual(paramOf(params, 'lumen_scale').param.values,
+    { small: 'Мельче', normal: 'Обычный', large: 'Крупнее', huge: 'Ещё крупнее' });
+  assert.equal(paramOf(params, 'lumen_solid').field.name, 'Плотные подложки');
   assert.deepEqual(paramOf(params, 'lumen_motion').param.values,
     { auto: 'Авто', full: 'Полные', lite: 'Лёгкие', off: 'Выкл' });
   assert.deepEqual(paramOf(params, 'lumen_slide_interval').param.values,
@@ -215,7 +222,12 @@ test('каждая настройка применяется ровно один
     /* Task 19/20 (фаза 2): чипы настроения монтируются и снимаются на лету. */
     lumen_moods: ['moods'],
     /* Task 16 (фаза 2): персональные ряды. */
-    lumen_personal_rows: ['personal']
+    lumen_personal_rows: ['personal'],
+    /* Фаза 3: тема, плотность подложек и масштаб живут целиком в таблице
+       стилей — одной пересборки CSS достаточно, экран пересобирать не нужно. */
+    lumen_theme: ['css'],
+    lumen_solid: ['css'],
+    lumen_scale: ['css']
   };
   const { LC, log, Storage, params } = setup();
   LC.addSettings();

@@ -587,7 +587,10 @@ test('buildCss: штатный заголовок ряда «Подробно» 
   assert.ok(head && /display\s*:\s*none/.test(head), 'нет правила скрытия .lumen-descr-row > .items-line__head');
   assert.equal(findDecl(css, (sel) => sel === '.lumen-descr-row .items-line__head'), null,
     'потомковый селектор задел бы вложенный items_line будущего блока отзывов (Task 9)');
-  assert.equal(findDecl(css, (sel) => sel.indexOf('.items-line__title') !== -1), null,
+  /* Фаза 3 добавила кегль заголовка ряда на главной (.lumen-main
+     .items-line__title) — здесь речь про ряд описания в карточке: у него
+     __title не скрывают, иначе от __head осталась бы пустая полоса. */
+  assert.equal(findDecl(css, (sel) => sel.indexOf('.items-line__title') !== -1 && sel.indexOf('.lumen-descr-row') !== -1), null,
     'скрывать __title нельзя — у __head остаются свои отступы, получилась бы пустая полоса');
 });
 
@@ -1362,17 +1365,58 @@ test('правка 2026-09-16 (п.6): моно ушёл из мета-строк
 /* Task 18: герой главной (design-spec-main §0.2, экраны 15–19).          */
 /* -------------------------------------------------------------------- */
 
-test('Task 18: герой — 58 % экрана, сжатый 42 %', () => {
+test('Task 18: герой — весь экран до первого ряда, сжатый .72 от него', () => {
   const hero = findDecl(css, (sel) => sel === '.lumen-hero');
   assert.ok(hero, 'корень героя не найден');
-  assert.ok(hero.indexOf('height:58vh') !== -1, 'полная высота 58 % экрана: ' + hero);
+  /* Фаза 3 (находка пользователя на невысоком окне): высота героя — не доля
+     экрана, а «весь экран минус ряд». Отдельные 58vh при низком окне
+     накрывали первый ряд, и от карточек оставались одни подписи. */
+  assert.ok(hero.indexOf('height:calc(100vh - 20.6em)') !== -1, 'кадр кончается там, где начинается ряд: ' + hero);
+  assert.ok(hero.indexOf('height:-webkit-calc(100vh - 20.6em)') !== -1, 'старым webkit-движкам нужен префиксный calc');
   assert.ok(hero.indexOf('position:absolute') !== -1, 'герой не участвует в потоке рядов');
   assert.ok(hero.indexOf('top:-4em') !== -1, 'кадр доходит до верхней кромки под шапкой Lampa (4em)');
   assert.ok(hero.indexOf('pointer-events:none') !== -1, 'герой не перехватывает указатель — он не фокусируется');
   assert.equal(/inset\s*:/.test(hero), false, 'inset запрещён планом');
 
+  /* Сжатый — та же доля 42/58 = .72 от полной высоты, а не фиксированные
+     42vh: на низком окне они оказались бы БОЛЬШЕ полной высоты. */
   const compact = findDecl(css, (sel) => sel === '.lumen-hero.lumen-hero--compact');
-  assert.ok(compact && compact.indexOf('height:42vh') !== -1, 'фокус ниже первого ряда — 42 %');
+  assert.ok(compact && compact.indexOf('height:calc(72vh - 14.83em)') !== -1, 'фокус ниже первого ряда — .72 от полной: ' + compact);
+});
+
+test('фаза 3: герой и ряды сходятся в одной точке при любом масштабе', () => {
+  /* Верх первого ряда = 4em (шапка Lampa) + margin-top + 2.5em (отступ,
+     который Lampa держит над фокусным рядом). Низ героя = его height − 4em
+     (герой поднят на top:-4em). Обе величины обязаны совпасть — иначе кадр
+     либо накроет карточки, либо оставит под собой полосу пустоты. */
+  for (const value of ['small', 'normal', 'large', 'huge']) {
+    const built = withStorage({ lumen_scale: value }, (LC) => LC.buildCss());
+    /* Правило масштаба перечисляет корни списком, и .lumen-hero есть среди
+       них — здесь нужно правило, где этот корень единственный. */
+    const only = (name) => (r) => r.selectors.length === 1 && r.selectors[0] === name;
+    const hero = ruleBodies(built).find(only('.lumen-hero')).decl;
+    const rows = ruleBodies(built).filter(only('.lumen-main .scroll.layer--wheight'))[0].decl;
+    const heroCut = parseFloat(/height:calc\(100vh - ([\d.]+)em\)/.exec(hero)[1]);
+    const rowsTop = parseFloat(/margin-top:calc\(100vh - ([\d.]+)em\)/.exec(rows)[1]);
+    /* Верх героя совпадает с верхом экрана: он поднят на 4em внутри
+       активности, а сама активность начинается на 4em ниже кромки. Значит
+       низ героя = 100vh − heroCut, а верх первого ряда = 4em (активность) +
+       (100vh − rowsTop) + 2.5em. Сравниваем добавки к 100vh. */
+    const heroBottom = -heroCut;
+    const rowTop = 6.5 - rowsTop;
+    assert.ok(Math.abs(heroBottom - rowTop) < 0.01,
+      value + ': низ героя ' + heroBottom + 'em против верха ряда ' + rowTop + 'em');
+  }
+});
+
+test('фаза 3: у совсем низкого окна ряды занимают экран целиком, кадр героя не показывается', () => {
+  /* Порог — отношение сторон, при котором (4em + область рядов) равно высоте
+     экрана: дальше вычисленный отступ ушёл бы в минус. */
+  const line = css.split('\n').find((l) => l.indexOf('@media screen and (min-aspect-ratio:') === 0);
+  assert.ok(line && line.indexOf('.lumen-hero{display:none}') !== -1, 'нет страховки для низкого окна: ' + line);
+  assert.ok(line, 'страховка обязана быть медиа-запросом по отношению сторон');
+  assert.ok(line.indexOf('min-aspect-ratio:311/100') !== -1, 'порог при обычном масштабе — 3.11:1: ' + line);
+  assert.ok(line.indexOf('margin-top:0') !== -1, 'за порогом ряды не сдвигаются');
 });
 
 test('Task 18: кроссфейд кадра 600 мс только в полном режиме анимаций', () => {
@@ -1424,10 +1468,231 @@ test('Task 18: сдвигается область прокрутки рядов
      выравнивает фокусный ряд по верху области. Сдвигать надо саму область. */
   const rows = findDecl(css, (sel) => sel === '.lumen-main .scroll.layer--wheight');
   assert.ok(rows, 'правило области прокрутки главной не найдено');
-  assert.ok(rows.indexOf('margin-top:22vh') !== -1, 'область начинается под героем: ' + rows);
-  assert.ok(/height:calc\(78vh - 4em\) !important/.test(rows), 'высота области — остаток экрана; height Lampa задаёт инлайном');
+  /* Фаза 3: высота области считается от ряда (один ряд + отступ Lampa над
+     фокусным рядом), а отступ сверху — остаток экрана. Долей экрана (22vh)
+     высота больше не задаётся: та цифра была пределом для штатной карточки
+     Lampa 290×563, а карточки рядов теперь дизайнерские 230×345. */
+  assert.ok(/margin-top:calc\(100vh - 27\.1em\)/.test(rows), 'область начинается под героем: ' + rows);
+  assert.ok(/margin-top:-webkit-calc\(100vh - 27\.1em\)/.test(rows), 'старым webkit-движкам нужен префиксный calc');
+  assert.ok(/height:23\.1em !important/.test(rows), 'высота области — ровно один ряд; height Lampa задаёт инлайном');
   assert.equal(findDecl(css, (sel) => sel.indexOf('.scroll__body') !== -1 && sel.indexOf('.lumen-main') === 0), null, 'содержимое скролла отступами не двигаем');
 
-  const offenders = ruleSelectors(css).filter((sel) => sel.indexOf('.lumen-main') === 0 && sel.indexOf('layer--wheight') === -1);
-  assert.deepEqual(offenders, [], 'под .lumen-main не должно быть правил мимо главного скролла — иначе заденем горизонтальные ряды');
+  /* Под .lumen-main живут ещё правила размера карточек рядов (фаза 3) — они
+     задевают ряды намеренно. Горизонтальные скроллы самих рядов
+     (.scroll--horizontal) под правило области по-прежнему не попадают. */
+  const offenders = ruleSelectors(css).filter((sel) => sel.indexOf('.lumen-main') === 0 &&
+    sel.indexOf('layer--wheight') === -1 &&
+    sel.indexOf('.card') === -1 && sel.indexOf('.items-line') === -1);
+  assert.deepEqual(offenders, [], 'под .lumen-main только область прокрутки, карточки рядов и сами ряды');
+  assert.equal(ruleSelectors(css).filter((sel) => sel.indexOf('.lumen-main .scroll--horizontal') === 0).length, 0,
+    'горизонтальные скроллы рядов не трогаем');
+});
+
+/* Долг фазы 2: ряды главной шли штатной карточкой Lampa 290×563, из-за чего
+   герой был виден на ~36 % экрана вместо 58 % дизайна. */
+test('фаза 3: карточка ряда главной — дизайнерские 230×345, подписи §0.4', () => {
+  const card = findDecl(css, (sel) => sel === '.lumen-main .card');
+  assert.equal(card, 'width:10.08em', '230 px FHD; высоту даёт штатный padding-bottom:150 % у .card__view');
+  const title = findDecl(css, (sel) => sel === '.lumen-main .card__title');
+  assert.ok(title.indexOf('font-size:0.96em') !== -1, 'название 22 px (§0.4): ' + title);
+  assert.ok(title.indexOf('white-space:nowrap') !== -1, 'одна строка: вторая отнимает у героя столько же экрана');
+  assert.ok(findDecl(css, (sel) => sel === '.lumen-main .card__age').indexOf('font-size:0.88em') !== -1, 'мета 20 px (§0.4)');
+  assert.ok(findDecl(css, (sel) => sel === '.lumen-main .items-line__title').indexOf('font-size:1.23em') !== -1, 'заголовок ряда 28 px (§0.3)');
+
+  /* Фокус — кольцо акцентом вместо белого штатного; scale не ставим: у Lampa
+     на .card__view своя анимация фокуса. */
+  const focus = findDecl(css, (sel) => sel === '.lumen-main .card.focus .card__view:after');
+  assert.ok(focus.indexOf('border-width:.13em') !== -1, 'кольцо 3 px (§0.4): ' + focus);
+  assert.ok(focus.indexOf('#FFF2DC') !== -1, 'кольцо — светлый тон акцента');
+  assert.equal(/transform/.test(focus), false, 'своего transform на карточке ряда нет');
+});
+
+test('фаза 3: область рядов и карточки масштабируются одним коэффициентом', () => {
+  /* Крупнее карточка — выше ряд, и области достаётся больше экрана: иначе
+     первый же ряд не поместился бы и был бы обрезан нижней кромкой. */
+  const pairs = [['small', '9.07em', '21.16em'], ['large', '11.09em', '25.04em'], ['huge', '12.1em', '26.98em']];
+  for (const pair of pairs) {
+    const scaled = withStorage({ lumen_scale: pair[0] }, (LC) => LC.buildCss());
+    assert.equal(findDecl(scaled, (sel) => sel === '.lumen-main .card'), 'width:' + pair[1], pair[0] + ': ширина карточки ряда');
+    const rows = findDecl(scaled, (sel) => sel === '.lumen-main .scroll.layer--wheight');
+    assert.ok(rows.indexOf('height:' + pair[2] + ' !important') !== -1, pair[0] + ': высота области — ' + rows);
+    /* Отступ сверху = экран − шапка Lampa (4em) − область. */
+    const top = (parseFloat(pair[2]) + 4).toFixed(2).replace(/0$/, '');
+    assert.ok(rows.indexOf('margin-top:calc(100vh - ' + top + 'em)') !== -1, pair[0] + ': отступ сверху ' + top + 'em — ' + rows);
+  }
+});
+
+/* ====================================================================== */
+/* Фаза 3: расширенные настройки оформления — акценты, тема, плотность     */
+/* подложек, масштаб интерфейса.                                          */
+/* ====================================================================== */
+
+/* Контраст по WCAG 2.1: относительная яркость каналов sRGB и отношение
+   (L1 + .05) / (L2 + .05). Нужен ровно для проверки «тёмный текст на заливке
+   акцентом читается на ТВ», поэтому считается здесь, а не тянется
+   зависимостью. */
+function channel(value) {
+  const c = value / 255;
+  return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+}
+function luminance(hex) {
+  const h = hex.replace('#', '');
+  return 0.2126 * channel(parseInt(h.slice(0, 2), 16)) +
+    0.7152 * channel(parseInt(h.slice(2, 4), 16)) +
+    0.0722 * channel(parseInt(h.slice(4, 6), 16));
+}
+function contrast(a, b) {
+  const l1 = luminance(a), l2 = luminance(b);
+  return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+}
+
+test('contrast: формула совпадает с известными значениями WCAG', () => {
+  assert.equal(contrast('#FFFFFF', '#000000').toFixed(0), '21');
+  assert.equal(contrast('#777777', '#FFFFFF').toFixed(1), '4.5');
+});
+
+const ACCENT_KEYS = ['sand', 'copper', 'wine', 'garnet', 'mint', 'emerald', 'ice', 'lavender', 'graphite'];
+
+test('фаза 3: девять акцентов, у каждого своя четвёрка токенов', () => {
+  const seen = {};
+  for (const key of ACCENT_KEYS) {
+    const t = withStorage({ lumen_card_accent: key }, (LC) => LC.tokens());
+    assert.match(t.accent, /^#[0-9A-F]{6}$/, key + ': цвет акцента');
+    assert.match(t.ring, /^#[0-9A-F]{6}$/, key + ': кольцо фокуса');
+    assert.match(t.onac, /^#[0-9A-F]{6}$/, key + ': текст на акценте');
+    assert.match(t.acglow, /^rgba\(/, key + ': свечение');
+    assert.equal(seen[t.accent], undefined, 'акценты не повторяются: ' + key);
+    seen[t.accent] = key;
+  }
+  assert.equal(Object.keys(seen).length, 9);
+  /* Значение по умолчанию не менялось: без выбора — прежний «песок». */
+  assert.equal(withStorage({}, (LC) => LC.tokens()).accent, '#E8B87A');
+});
+
+test('фаза 3: текст на заливке акцентом читается — не ниже 4.5:1, у восьми из девяти выше 7:1', () => {
+  const low = [];
+  for (const key of ACCENT_KEYS) {
+    const t = withStorage({ lumen_card_accent: key }, (LC) => LC.tokens());
+    const ratio = contrast(t.onac, t.accent);
+    assert.ok(ratio >= 4.5, key + ': контраст onac/accent ' + ratio.toFixed(2) + ' ниже порога 4.5:1');
+    if (ratio < 7) low.push(key);
+    /* Акцент служит и текстом (метка «КИНОПОИСК», статус героя) на фоне
+       страницы — он обязан читаться и там. */
+    assert.ok(contrast(t.accent, t.bg) >= 4.5, key + ': акцент на фоне страницы ' + contrast(t.accent, t.bg).toFixed(2));
+  }
+  /* «Вино» — значение из экспорта дизайна (5.27): оно уже стоит в профилях
+     тех, кто его выбрал, и менять его задним числом нельзя. Остальные восемь
+     держат целевые 7:1. */
+  assert.deepEqual(low, ['wine']);
+});
+
+test('фаза 3: смена акцента меняет всю четвёрку разом, включая новые акценты', () => {
+  const emerald = withStorage({ lumen_card_accent: 'emerald' }, (LC) => LC.buildCss());
+  const focus = findDecl(emerald, (sel) => sel === '.lumen-card .full-start-new__buttons .full-start__button.focus');
+  assert.ok(focus.indexOf('#7ACCA0') !== -1, 'заливка кнопки в фокусе — цвет изумруда: ' + focus);
+  assert.ok(focus.indexOf('#E4FBEE') !== -1, 'кольцо фокуса — светлый тон изумруда');
+  assert.ok(focus.indexOf('rgba(122,204,160,0.35)') !== -1, 'свечение — тот же цвет');
+
+  /* Графит — «акцент без цвета»: свечение слабее прочих, иначе нейтральный
+     ореол читается как белая вспышка. */
+  assert.equal(withStorage({ lumen_card_accent: 'graphite' }, (LC) => LC.tokens()).acglow, 'rgba(189,184,178,0.30)');
+});
+
+test('фаза 3: тема «глубокая чёрная» — настоящий чёрный фон и нейтральные подложки', () => {
+  const t = withStorage({ lumen_theme: 'black' }, (LC) => LC.tokens());
+  assert.equal(t.bg, '#000000', 'OLED: пиксель выключен');
+  assert.equal(t.bgRgb, '0,0,0');
+  assert.notEqual(t.panel, '#1C1613');
+  assert.notEqual(t.line, '#2C231D');
+  /* Не зависят от темы: спайс, зелёный «хороший» и сам акцент. */
+  assert.equal(t.spice, '#D9622B');
+  assert.equal(t.accent, '#E8B87A');
+
+  const black = withStorage({ lumen_theme: 'black' }, (LC) => LC.buildCss());
+  for (const warm of ['#0B0908', '#1C1613', '#2C231D', '#A89A8A', '#7A6A5A', 'rgba(11,9,8', 'rgba(28,22,19']) {
+    assert.equal(black.indexOf(warm), -1, 'тёплый цвет ' + warm + ' остался в чёрной теме');
+  }
+  /* Вуали поверх кадра — того же цвета, что страница: иначе на краю виден
+     тёплый ореол поверх чёрного фона. */
+  const veil = findDecl(black, (sel) => sel === '.lumen-backdrop__veil--b');
+  assert.ok(veil.indexOf('rgba(0,0,0,0.98)') !== -1, 'нижняя вуаль собрана из цвета фона темы: ' + veil);
+});
+
+test('фаза 3: тема по умолчанию — прежний тёплый тёмный вид, до последнего литерала', () => {
+  assert.equal(withStorage({ lumen_theme: 'warm' }, (LC) => LC.buildCss()), css, 'явный «warm» = значение по умолчанию');
+  assert.equal(withStorage({ lumen_theme: 'nope' }, (LC) => LC.buildCss()), css, 'мусор в Storage — тема по умолчанию, а не пустая палитра');
+  const t = withStorage({}, (LC) => LC.tokens());
+  assert.equal(t.bg, '#0B0908');
+  assert.equal(t.panel, '#1C1613');
+});
+
+test('фаза 3: «Плотные подложки» — сплошные карты и ни одного размытия', () => {
+  const solid = withStorage({ lumen_solid: 'true' }, (LC) => LC.buildCss());
+  assert.equal(/backdrop-filter\s*:\s*blur/.test(solid), false, 'размытие подложек не выводится вовсе');
+  assert.ok(/backdrop-filter\s*:\s*blur/.test(css), 'по умолчанию размытие на месте');
+
+  for (const sel of ['.lumen-card .full-start-new__buttons .full-start__button',
+    '.lumen-card .full-start__rate',
+    '.lumen-descr-row .full-descr__text',
+    '.lumen-card .lumen-stop',
+    '.lumen-card .lumen-trailer-badge']) {
+    const decl = findDecl(solid, (s) => s === sel);
+    assert.ok(decl, 'правило не найдено: ' + sel);
+    assert.ok(/background:#[0-9A-F]{6}/.test(decl), 'заливка обязана быть сплошной: ' + sel + ' -> ' + decl);
+  }
+
+  /* Выключено — прежний вид: полупрозрачные карты .78/.82 и размытие. */
+  assert.equal(withStorage({ lumen_solid: 'false' }, (LC) => LC.buildCss()), css);
+});
+
+test('фаза 3: плотные подложки вместе с «Лёгкими» анимациями не возвращают прозрачность', () => {
+  /* В lite/off «Стоп» и метка уплотняются до .9 — с плотными подложками они
+     уже сплошные, и правило режима не должно делать их снова прозрачными. */
+  const solid = withStorage({ lumen_solid: 'true' }, (LC) => LC.buildCss());
+  const lite = findDecl(solid, (sel) => sel === '.lumen-card.lumen-motion-lite .lumen-stop');
+  assert.ok(lite && lite.indexOf('rgba(') === -1, 'подложка «Стопа» в lite осталась сплошной: ' + lite);
+  const liteDefault = findDecl(css, (sel) => sel === '.lumen-card.lumen-motion-lite .lumen-stop');
+  assert.ok(liteDefault.indexOf('rgba(11,9,8,.9)') !== -1, 'по умолчанию уплотнение до .9 на месте: ' + liteDefault);
+});
+
+/* Герой в списке представлен текстовым блоком, а не корнем: высота самого
+   .lumen-hero считается от экрана и от высоты ряда, и лишний кегль умножил бы
+   те же em второй раз (живьём: «мельче» — кадр накрывал ряд на 35 px). */
+const SCALE_ROOTS = ['.lumen-card', '.lumen-backdrop', '.lumen-descr-row', '.lumen-review-modal', '.lumen-hero .lumen-hero__text', '.lumen-hub', '.lumen-grid'];
+
+test('фаза 3: масштаб — один коэффициент на корнях плагина', () => {
+  for (const pair of [['small', '0.9'], ['large', '1.1'], ['huge', '1.2']]) {
+    const scaled = withStorage({ lumen_scale: pair[0] }, (LC) => LC.buildCss());
+    const rule = ruleBodies(scaled).find((r) => r.decl === 'font-size:' + pair[1] + 'em');
+    assert.ok(rule, pair[0] + ': правила масштаба нет');
+    assert.deepEqual(rule.selectors, SCALE_ROOTS, pair[0] + ': список корней');
+  }
+});
+
+test('фаза 3: «обычный» масштаб не добавляет ни одного правила', () => {
+  assert.equal(withStorage({ lumen_scale: 'normal' }, (LC) => LC.buildCss()), css);
+  assert.equal(withStorage({ lumen_scale: 'nope' }, (LC) => LC.buildCss()), css, 'мусор в Storage — обычный масштаб');
+  const offenders = ruleBodies(css).filter((r) => r.decl.indexOf('font-size:') === 0 && r.selectors.length === SCALE_ROOTS.length);
+  assert.deepEqual(offenders, [], 'по умолчанию правила масштаба быть не должно');
+});
+
+test('фаза 3: масштаб не трогает доли экрана и чужую разметку', () => {
+  const scaled = withStorage({ lumen_scale: 'huge' }, (LC) => LC.buildCss());
+  const rule = ruleBodies(scaled).find((r) => r.decl === 'font-size:1.2em');
+  assert.equal(rule.decl.indexOf('vh'), -1, 'высота героя и область рядов считаются от экрана, а не от кегля');
+  /* Область рядов главной и экраны пути до плеера в списке корней не
+     участвуют: там разметка Lampa, а не наша. */
+  for (const sel of rule.selectors) {
+    /* Ряды главной рисует Lampa, и общий кегль на них не вешается: их размер
+       задают отдельные правила (.lumen-main .card и соседние), иначе
+       коэффициент растянул бы заодно чужую разметку активности. */
+    assert.equal(sel.indexOf('.lumen-main'), -1, 'активность главной общим кеглем не растягиваем: ' + sel);
+    assert.equal(sel.indexOf('body'), -1, 'кегль body принадлежит Lampa: ' + sel);
+    assert.notEqual(sel, '.lumen-hero', 'кегль корня героя удвоил бы коэффициент в его собственной высоте');
+  }
+  /* Высота героя при этом всё равно зависит от масштаба — через высоту ряда,
+     а не через кегль: ряд крупнее, значит герою остаётся меньше. */
+  const heroOnly = (r) => r.selectors.length === 1 && r.selectors[0] === '.lumen-hero';
+  const heroHuge = ruleBodies(scaled).find(heroOnly).decl;
+  assert.ok(heroHuge.indexOf('height:calc(100vh - 24.48em)') !== -1, 'высота героя при «ещё крупнее»: ' + heroHuge);
 });

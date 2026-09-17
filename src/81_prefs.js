@@ -65,7 +65,23 @@
       { name: 'lumen_enabled', type: 'trigger', 'default': true, label: 'lumen_card_enabled_name', descr: 'lumen_card_enabled_descr' },
 
       { name: 'lumen_group_look', type: 'title', label: 'lumen_card_group_look' },
-      { name: 'lumen_card_accent', type: 'select', values: ['sand', 'ice', 'wine', 'mint'], vprefix: 'lumen_card_accent_', 'default': 'sand', label: 'lumen_card_accent' },
+      /* Фаза 3: девять акцентов вместо четырёх (палитра и замеры контраста —
+         ACCENTS в src/30_css.js). Порядок — по цветовому кругу: тёплые, потом
+         зелёные и холодные, нейтральный графит последним. Значение по
+         умолчанию не менялось. */
+      { name: 'lumen_card_accent', type: 'select', values: ['sand', 'copper', 'wine', 'garnet', 'mint', 'emerald', 'ice', 'lavender', 'graphite'], vprefix: 'lumen_card_accent_', 'default': 'sand', label: 'lumen_card_accent' },
+      /* Фаза 3: тема и плотность подложек — ДВА пункта, а не один список из
+         трёх вариантов. Они отвечают на разные вопросы: тема — про цвет
+         тёмного (тёплый или настоящий чёрный для OLED), плотность — про то,
+         просвечивает ли кадр сквозь карты (на части ТВ полупрозрачность мылит
+         и тормозит). Слитый список отнял бы у владельца OLED плотные подложки,
+         а у владельца слабого ТВ — чёрный фон: комбинации нужны все четыре. */
+      { name: 'lumen_theme', type: 'select', values: ['warm', 'black'], vprefix: 'lumen_theme_', 'default': 'warm', label: 'lumen_theme_name', descr: 'lumen_theme_descr' },
+      { name: 'lumen_solid', type: 'trigger', 'default': false, label: 'lumen_solid_name', descr: 'lumen_solid_descr' },
+      /* Фаза 3: масштаб интерфейса плагина — коэффициент на корнях (SCALES в
+         src/30_css.js). На ТВ с трёх метров то, что в браузере выглядит
+         нормально, часто мелко. */
+      { name: 'lumen_scale', type: 'select', values: ['small', 'normal', 'large', 'huge'], vprefix: 'lumen_scale_', 'default': 'normal', label: 'lumen_scale_name', descr: 'lumen_scale_descr' },
       { name: 'lumen_card_fonts', type: 'trigger', 'default': true, label: 'lumen_card_fonts_name', descr: 'lumen_card_fonts_descr' },
       /* Правка пользователя 2026-09-16 (п.6): выбор гарнитуры — сразу за
          выключателем шрифтов: при выключенных шрифтах он не действует, и

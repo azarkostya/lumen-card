@@ -42,6 +42,40 @@
     lumen_card_accent_ice: { ru: 'Лёд', en: 'Ice', uk: 'Лід' },
     lumen_card_accent_wine: { ru: 'Вино', en: 'Wine', uk: 'Вино' },
     lumen_card_accent_mint: { ru: 'Мята', en: 'Mint', uk: 'М\'ята' },
+    /* Фаза 3: пять новых акцентов. Названия — предметные, как у первых
+       четырёх: на пульте по ним понятно, какой будет цвет. */
+    lumen_card_accent_copper: { ru: 'Медь', en: 'Copper', uk: 'Мідь' },
+    lumen_card_accent_garnet: { ru: 'Гранат', en: 'Garnet', uk: 'Гранат' },
+    lumen_card_accent_emerald: { ru: 'Изумруд', en: 'Emerald', uk: 'Смарагд' },
+    lumen_card_accent_lavender: { ru: 'Лаванда', en: 'Lavender', uk: 'Лаванда' },
+    lumen_card_accent_graphite: { ru: 'Графит', en: 'Graphite', uk: 'Графіт' },
+    /* Фаза 3: тема — цвет тёмного фона и подложек. */
+    lumen_theme_name: { ru: 'Тема', en: 'Theme', uk: 'Тема' },
+    lumen_theme_descr: {
+      ru: 'Цвет тёмного фона. «Глубокая чёрная» — настоящий чёрный без тёплого оттенка, для OLED-экранов. Применяется сразу.',
+      en: 'The colour of the dark background. "Deep black" is true black without the warm tint, for OLED screens. Applied immediately.',
+      uk: 'Колір темного тла. «Глибока чорна» — справжній чорний без теплого відтінку, для OLED-екранів. Застосовується одразу.'
+    },
+    lumen_theme_warm: { ru: 'Тёплая тёмная', en: 'Warm dark', uk: 'Тепла темна' },
+    lumen_theme_black: { ru: 'Глубокая чёрная', en: 'Deep black', uk: 'Глибока чорна' },
+    /* Фаза 3: плотность подложек — прозрачность и размытие карт. */
+    lumen_solid_name: { ru: 'Плотные подложки', en: 'Solid panels', uk: 'Щільні підкладки' },
+    lumen_solid_descr: {
+      ru: 'Кнопки, чипы и подложки текста становятся сплошными, без просвечивающего кадра и размытия. Включите, если на телевизоре картинка мылит или подтормаживает.',
+      en: 'Buttons, chips and text panels become opaque, with no show-through backdrop and no blur. Turn on if the picture looks smeared or stutters on your TV.',
+      uk: 'Кнопки, чипи та підкладки тексту стають суцільними, без просвічування кадру і розмиття. Увімкніть, якщо на телевізорі картинка мулиться або підгальмовує.'
+    },
+    /* Фаза 3: масштаб интерфейса плагина. */
+    lumen_scale_name: { ru: 'Масштаб интерфейса', en: 'Interface scale', uk: 'Масштаб інтерфейсу' },
+    lumen_scale_descr: {
+      ru: 'Размер текста и блоков на экранах плагина: карточка, главная, подборки. Применяется сразу.',
+      en: 'The size of text and blocks on the plugin screens: card, home and collections. Applied immediately.',
+      uk: 'Розмір тексту та блоків на екранах плагіна: картка, головна, підбірки. Застосовується одразу.'
+    },
+    lumen_scale_small: { ru: 'Мельче', en: 'Smaller', uk: 'Дрібніше' },
+    lumen_scale_normal: { ru: 'Обычный', en: 'Normal', uk: 'Звичайний' },
+    lumen_scale_large: { ru: 'Крупнее', en: 'Larger', uk: 'Більше' },
+    lumen_scale_huge: { ru: 'Ещё крупнее', en: 'Largest', uk: 'Ще більше' },
     lumen_card_fonts_name: { ru: 'Фирменные шрифты', en: 'Custom fonts', uk: 'Фірмові шрифти' },
     lumen_card_fonts_descr: {
       ru: 'Шрифты с Google Fonts. Требуется интернет. Выключите, если шрифты не грузятся.',
@@ -470,6 +504,12 @@
        пересобирается CSS — стеки font-family зашиты в текст стилей. Имя без
        префикса PLUGIN, поэтому ветка стоит здесь, до проверки префикса. */
     if (name === 'lumen_font') { LC.injectFonts(); LC.injectCss(); return true; }
+    /* Фаза 3: тема, плотность подложек и масштаб живут целиком в таблице
+       стилей — ни классов, ни узлов, ни пересборки экрана им не нужно.
+       Пересборка CSS применяет их на любом открытом экране плагина сразу
+       (LC.injectCss заодно пересобирает CSS экранов пути до плеера). Имена
+       без префикса PLUGIN, поэтому ветка стоит до проверки префикса. */
+    if (name === 'lumen_theme' || name === 'lumen_solid' || name === 'lumen_scale') { LC.injectCss(); return true; }
     if (name === 'lumen_reviews' || name === 'lumen_kp_key') { LC.applyReviewsPref(); return true; }
     /* Task 20: подсказка «Ключ API не задан» — перерисовать ряд отзывов
        открытой карточки (там же, где её рисует LC.reviews) и снять/вернуть
