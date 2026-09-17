@@ -1472,10 +1472,60 @@ test('правка: текст героя прижат к низу кадра и
   const content = findDecl(css, (sel) => sel === '.lumen-main .items-line .scroll__content');
   assert.ok(content.indexOf('padding-left:2.81em') !== -1, 'лента карточек не выровнена по safe area: ' + content);
 
-  /* Чипы настроения высоты у текста не отнимают: их полоса стоит в воздухе
-     над первым рядом, слегка перекрывая нижнюю кромку кадра. */
-  assert.equal(findDecl(css, (sel) => sel === '.lumen-main .lumen-moods'), 'bottom:21em');
+  /* Полоса чипов стоит внутри кадра, над его кромкой (20.6 ряда + 2.4
+     воздуха + .8 зазора), а низ текста поднят над самой полосой. */
+  assert.equal(findDecl(css, (sel) => sel === '.lumen-main .lumen-moods'), 'bottom:23.8em');
   assert.equal(findDecl(css, (sel) => sel === '.lumen-main.lumen-rows-up .lumen-moods'), 'display:none');
+});
+
+/* Замер пользователя на живой вкладке 1153×798: чипы 474…510 при низе кадра
+   483 и верхе области рядов 482 — полоса висела ровно на стыке и заходила на
+   обе стороны («а почему это съехало???»). Теперь её высота честно участвует
+   в раскладке: полоса стоит ВНУТРИ кадра над его кромкой, текст поднят над
+   полосой, ряды под кадром. Тест считает все четыре величины в em от нижней
+   кромки экрана (чем больше — тем выше) и проверяет, что интервалы не
+   пересекаются ни при одном размере кадра и ни при одном масштабе. */
+test('раскладка героя: кадр, полоса чипов, текст и ряды не пересекаются', () => {
+  const num = (decl, name) => parseFloat(new RegExp(name + ':([0-9.]+)em').exec(decl)[1]);
+  for (const size of ['large', 'medium', 'compact']) {
+    for (const scale of ['small', 'normal', 'large', 'huge']) {
+      const built = withStorage({ lumen_hero_size: size, lumen_scale: scale }, (LC) => LC.buildCss());
+      const only = (name) => (r) => r.selectors.length === 1 && r.selectors[0] === name;
+      const decl = (name) => ruleBodies(built).find(only(name)).decl;
+      const label = size + '/' + scale;
+
+      /* Высота кадра задана как 100vh − X: X и есть его нижняя кромка,
+         считая от низа экрана. Верх первого ряда — это X минус воздух. */
+      const heroBottom = parseFloat(/height:calc\(100vh - ([0-9.]+)em\)/.exec(decl('.lumen-hero'))[1]);
+      const rowsArea = num(decl('.lumen-main .scroll.layer--wheight'), 'height');
+      const rowTop = rowsArea - 2.5;
+      /* Полоса чипов: её низ задан правилом, высота — чип с его кеглем плюс
+         собственный нижний отступ. */
+      const chip = decl('.lumen-mood-chip');
+      const chipZoom = num(chip, 'font-size');
+      const chipH = num(chip, 'height') * chipZoom;
+      const chipGap = parseFloat(/margin:0 [0-9.]+em ([0-9.]+)em/.exec(chip)[1]) * chipZoom;
+      const moodsBottom = num(decl('.lumen-main .lumen-moods'), 'bottom');
+      const moodsTop = moodsBottom + chipH + chipGap;
+      /* Низ текстового блока считается от низа КАДРА и в его собственном
+         кегле — переводим в базовые em. */
+      const textDecl = decl('.lumen-moods-on .lumen-hero .lumen-hero__text');
+      const textZoom = num(decl('.lumen-hero .lumen-hero__text'), 'font-size');
+      const textBottom = num(textDecl, 'bottom') * textZoom;
+
+      /* Порядок снизу вверх: верх первого ряда → нижняя кромка кадра → низ
+         полосы чипов → её верх. Каждая величина обязана быть строго больше
+         предыдущей (больше — значит выше), иначе блоки наложатся. */
+      assert.ok(heroBottom > rowTop, label + ': кадр заходит на область рядов (' + heroBottom + ' против ' + rowTop + ')');
+      assert.ok(moodsBottom - heroBottom >= 0.5, label + ': полоса чипов свисает с кромки кадра (' + moodsBottom + ' против ' + heroBottom + ')');
+      /* Текст обязан кончаться выше полосы: его низ считается от нижней
+         кромки кадра, поэтому сравниваем с высотой полосы над той же
+         кромкой. */
+      assert.ok(textBottom >= moodsTop - heroBottom, label + ': текст налезает на полосу чипов (' + textBottom + ' против ' + (moodsTop - heroBottom) + ')');
+      /* И воздух между кадром и заголовком ряда остаётся тем же. */
+      assert.ok(Math.abs((heroBottom - rowTop) - 2.4) < 0.01, label + ': воздух над заголовком ряда ' + (heroBottom - rowTop));
+    }
+  }
 });
 
 /* Правка пользователя 2026-09-17 (второй круг, п.2): «условно с середины
@@ -1597,7 +1647,7 @@ test('фаза 3: у совсем низкого окна ряды занима�
   /* Порог описания — отдельный и более мягкий: кадру хватает высоты на
      минимум, но не на две строки описания. */
   const descr = css.split('\n').find((l) => l.indexOf('@media screen and (min-aspect-ratio:') === 0 && l.indexOf('lumen-hero__descr') !== -1);
-  assert.ok(descr.indexOf('min-aspect-ratio:197/100') !== -1, 'порог описания: ' + descr);
+  assert.ok(descr.indexOf('min-aspect-ratio:182/100') !== -1, 'порог описания: ' + descr);
 });
 
 /* Регресс, найденный пользователем на выложенной сборке: в обычном окне
@@ -1652,6 +1702,8 @@ test('решение «показывать описание»: порог мя�
   /* Крупный кадр на 1920×1080 (1.78:1) описание показывает, мелкий — нет:
      у него на две строки высоты уже не остаётся. */
   assert.ok(1920 / 1080 < descrRatio(withStorage({ lumen_hero_size: 'large' }, (LC) => LC.buildCss())), 'крупный кадр на FHD обязан показывать описание');
+  /* И в окне пользователя (1153×798) тоже. */
+  assert.ok(1153 / 798 < descrRatio(withStorage({ lumen_hero_size: 'large' }, (LC) => LC.buildCss())), 'описание пропало в окне 1153×798');
   assert.ok(1920 / 1080 >= descrRatio(withStorage({ lumen_hero_size: 'compact' }, (LC) => LC.buildCss())), 'в компактном кадре описанию места нет');
 });
 

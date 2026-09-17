@@ -253,10 +253,17 @@
        — полторы-две высоты строки заголовка (1.23em × 1.3 ≈ 1.6em). Воздух
        отнимается у КАДРА, а не добавляется рядам: сдвинь мы ряды вниз, и
        нижний край области уехал бы за кромку экрана вместе с подписями.
-     MOODS_BAR — высота полосы чипов настроения: чип .88em × 2.46em = 2.17em
-       плюс зазоры сверху и снизу. С героем полоса стоит в воздухе над первым
-       рядом и высоты у текста не отнимает; без героя (настройка «Выключен» и
-       низкое окно) на неё опущены ряды — иначе она легла бы на первый ряд.
+     MOODS_H / MOODS_GAP — высота полосы чипов настроения (чип .88em × 2.46em
+       = 2.17em плюс собственный нижний отступ .47em) и её воздух до нижней
+       кромки кадра. Полоса живёт ВНУТРИ кадра, над этой кромкой: её высота
+       входит в высоту кадра, а низ текстового блока поднят над ней. Прежний
+       вариант — «полоса в воздухе над рядом» — дал наложение сразу на оба
+       стыка (замер пользователя, окно 1153×798: чипы 474…510 при низе кадра
+       483 и верхе области рядов 482), потому что воздуха в 2.4em на полосу
+       в 2.63em не хватает по определению.
+     MOODS_BAR — то же самое, когда кадра нет вовсе («Герой: выключен» и
+       приплюснутое окно): на эту высоту опущены ряды, иначе полоса легла бы
+       на первый из них.
      HERO_HEAD_SAFE — безопасная зона сверху. Кадр героя начинается у самой
        кромки экрана и проходит ПОД штатной шапкой Lampa (замер живьём: .head
        занимает 3.8em), поэтому текст, прижатый к низу, на высоком содержимом
@@ -278,7 +285,9 @@
        на тот же коэффициент — иначе пороги считали бы старый текст. */
   var HERO_COMPACT = 0.72;
   var HERO_AIR = 2.4;
-  var MOODS_BAR = 3.2;
+  var MOODS_H = 2.63;
+  var MOODS_GAP = 0.8;
+  var MOODS_BAR = round2(MOODS_H + MOODS_GAP);
   var HERO_HEAD_SAFE = 4.4;
   var TEXT_BOTTOM = 1.6;
   var TEXT_META = 1.06;
@@ -318,7 +327,10 @@
     var small = heroSmallText();
     var inner = TEXT_RATE + (small ? TEXT_LOGO_SMALL : TEXT_LOGO + TEXT_META);
     if (withDescr) inner += TEXT_DESCR;
-    return round2(HERO_HEAD_SAFE + TEXT_BOTTOM + inner * TEXT_ZOOM);
+    /* Полоса чипов считается всегда: настройка «Профили настроения» включена
+       по умолчанию, а пороги — одни на всю таблицу стилей. С выключенными
+       чипами кадр просто получает лишний запас. */
+    return round2(HERO_HEAD_SAFE + TEXT_BOTTOM + MOODS_GAP + MOODS_H + inner * TEXT_ZOOM);
   }
 
   /* Корни, на которые вешается коэффициент. Каждый из них — самостоятельный
@@ -1415,6 +1427,14 @@
        блока каждый кадр. Смена мгновенная, а едет блок целиком — вместе с
        нижней кромкой кадра, высота которой и анимируется. */
     css.push('.lumen-hero.lumen-hero--compact .lumen-hero__text{' + textBox(TEXT_ZOOM_COMPACT) + '}');
+    /* Полоса чипов стоит в нижней части кадра, поэтому низ текста поднят над
+       ней ровно на её высоту с воздухом. В сжатом состоянии чипов нет, и
+       текст опускается к самой кромке — это движение и есть часть перехода,
+       поэтому в полном режиме анимаций оно едет (правило ниже), а в lite/off
+       происходит мгновенно, как и всё остальное. */
+    var textBottomMoods = round2(MOODS_GAP + MOODS_H + TEXT_BOTTOM);
+    css.push('.lumen-moods-on .lumen-hero .lumen-hero__text{bottom:' + round2(textBottomMoods / TEXT_ZOOM) + 'em}');
+    css.push('.lumen-moods-on.lumen-rows-up .lumen-hero .lumen-hero__text{bottom:' + round2(TEXT_BOTTOM / TEXT_ZOOM_COMPACT) + 'em}');
     css.push('.lumen-hero .lumen-hero__meta{font-family:' + FM + ';font-weight:400;font-size:.88em;line-height:1.2;letter-spacing:.03em;color:' + P.muted + '}');
     /* Логотип фильма — фоном (contain), максимум 30.69em = 700 px FHD (§0.2).
        Отдельного <img> нет: единственный путь к картинкам — прокси TMDB. */
@@ -1467,7 +1487,10 @@
     /* Подмена текста (раскадровка 23а): старый уходит вниз за 180 мс, новый
        поднимается за 420 мс. В lite/off — мгновенно и без анимаций: подъём
        текста и плавная высота на слабых ТВ дороже, чем стоят. */
-    css.push('.lumen-hero.lumen-motion-full .lumen-hero__text{-webkit-transition:opacity .18s ease,-webkit-transform .18s ease;transition:opacity .18s ease,transform .18s ease}');
+    /* bottom в этом же списке — им текст опускается к кромке кадра, когда
+       на листании уходят чипы; время и кривая те же, что у высоты кадра,
+       поэтому текст и кромка едут одним движением. */
+    css.push('.lumen-hero.lumen-motion-full .lumen-hero__text{-webkit-transition:opacity .18s ease,-webkit-transform .18s ease,bottom .42s cubic-bezier(.2,.8,.2,1);transition:opacity .18s ease,transform .18s ease,bottom .42s cubic-bezier(.2,.8,.2,1)}');
     css.push('.lumen-hero.lumen-motion-full .lumen-hero__text.is-swapping{opacity:0;-webkit-transform:translateY(.53em);transform:translateY(.53em)}');
     css.push('.lumen-hero.lumen-motion-full .lumen-hero__text.is-in{-webkit-animation:lumen-hero-in .42s cubic-bezier(.2,.8,.2,1);animation:lumen-hero-in .42s cubic-bezier(.2,.8,.2,1)}');
     css.push('@-webkit-keyframes lumen-hero-in{from{opacity:0;-webkit-transform:translateY(.53em)}to{opacity:1;-webkit-transform:none}}');
@@ -1487,13 +1510,13 @@
        плагине отключает указатель.
        Чипы используют те же токены акцента, что хабовые .lumen-chip. */
     css.push('.lumen-moods{position:absolute;left:2.81em;right:2.81em;z-index:2;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap}');
-    /* С героем полоса стоит в воздухе над первым рядом, слегка перекрывая
-       нижнюю кромку кадра, — там картинка уже растворилась в фон. Так чипы
-       не отнимают у текста ни em высоты: кадр и без них считается впритык
-       (см. бюджет textNeedEm). При переносе строк полоса растёт вверх, на
-       ряды она не налезает. В сжатом состоянии чипы уходят: на листании они
-       не нужны, а ряды поднимаются как раз на их место. */
-    css.push('.lumen-main .lumen-moods{bottom:' + round2(heroCut + 0.4) + 'em}');
+    /* Полоса стоит ВНУТРИ кадра, над его нижней кромкой: её низ отстоит от
+       кромки на MOODS_GAP, а сама кромка — на HERO_AIR выше заголовка
+       первого ряда. Ни с кадром, ни с областью рядов полоса не пересекается,
+       а текст героя поднят над ней (правило выше). При переносе строк она
+       растёт вверх, в кадр. В сжатом состоянии чипы уходят вместе с
+       описанием: на листании они не нужны, а ряды поднимаются на их место. */
+    css.push('.lumen-main .lumen-moods{bottom:' + round2(heroCut + HERO_AIR + MOODS_GAP) + 'em}');
     css.push('.lumen-main.lumen-rows-up .lumen-moods{display:none}');
     /* Герой выключен настройкой: узла героя нет и класса .lumen-main на
        активности нет тоже — чипы встают под штатной шапкой Lampa, а ряды
