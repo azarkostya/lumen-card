@@ -563,8 +563,18 @@ function initLC(opts) {
     applyMotion: () => { hero.motion++; }
   };
 
+  /* Task 27: ускорители навигации. Здесь проверяется только СКЛЕЙКА — что
+     смена экрана снимает панель мини-карты (дефект фазы 3: панель осталась
+     поверх открытой карточки). Сам модуль проверяет test/nav.test.mjs. */
+  const nav = { applies: 0, detaches: 0, uninstalls: 0 };
+  LC.nav = {
+    apply: () => { nav.applies++; },
+    detach: () => { nav.detaches++; },
+    uninstall: () => { nav.uninstalls++; }
+  };
+
   LC.init();
-  return { LC, calls, full, toggles, timelines, descrRows, reviewRows, clearedRows, franchiseCalls, franchiseRows, extra, hero };
+  return { LC, calls, full, toggles, timelines, descrRows, reviewRows, clearedRows, franchiseCalls, franchiseRows, extra, hero, nav };
 }
 
 test('Task 7: complite — bind(root) и schedule(root, body, data), контроллер попадает в LC.active.trailer', () => {
@@ -1343,6 +1353,30 @@ test('долг Task 11: backward A->B — start возвращаемой осв�
   LC.onActivityEvent({ type: 'start', component: 'full', object: objA });
   assert.equal(cancels.length, 1, 'destroyActive второй раз не зовётся');
   assert.equal(ctrlA.resumeCalls, 2);
+  assert.deepEqual(warnLog, []);
+});
+
+/* Дефект фазы 3 (найден живьём в Task 22/23): панель мини-карты рядов
+   осталась видимой поверх открытой карточки. Панель снималась только через
+   0.8 с после отпускания клавиши, и, успей человек за это время нажать OK,
+   карточка открывалась под ней. Панель принадлежит экрану — значит снимать
+   её обязана смена экрана, а она видна ровно по 'start' той активности, куда
+   ушли (для покидаемой Lampa событий не шлёт вовсе). */
+test('Task 27 (дефект): старт любой активности снимает панель мини-карты', () => {
+  const { LC, nav } = initLC();
+  const objCard = makeActivityObj('Карточка', false, null);
+
+  LC.onActivityEvent({ type: 'start', component: 'full', object: objCard });
+  assert.equal(nav.detaches, 1, 'открытие карточки снимает панель немедленно');
+
+  LC.onActivityEvent({ type: 'start', component: 'main', object: makeActivityObj('Главная', false, null) });
+  assert.equal(nav.detaches, 2, 'и возврат на главную тоже: экран пересобран заново');
+
+  /* События, которые экран не меняют, панель не трогают: она нужна ровно
+     столько, сколько человек держит клавишу. */
+  LC.onActivityEvent({ type: 'archive', component: 'full', object: objCard });
+  LC.onActivityEvent({ type: 'destroy', component: 'full', object: objCard });
+  assert.equal(nav.detaches, 2);
   assert.deepEqual(warnLog, []);
 });
 

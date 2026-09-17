@@ -185,36 +185,82 @@ test('фаза 3: масштаб — четыре ступени от «мель
   assert.equal(prefs.find('lumen_scale').vprefix, 'lumen_scale_');
 });
 
-/* Task 20: все настройки фазы 2, кроме подсказки про ключ (она живёт рядом с
-   самим ключом), собраны в одну группу «Главная и подборки» и идут в порядке
-   экрана сверху вниз. */
-test('Task 20: настройки главной — одной группой, в порядке экрана', () => {
-  const at = LIST.map((e) => e.name).indexOf('lumen_group_home');
-  assert.ok(at >= 0, 'нет заголовка группы lumen_group_home');
-  assert.equal(LIST[at].type, 'title');
-  const group = LIST.slice(at + 1).map((e) => e.name);
-  assert.deepEqual(group, [
-    /* Правка пользователя 2026-09-17 (п.2): размер кадра — первым пунктом
-       группы: от него зависит, сколько экрана достанется всему остальному. */
-    /* Task 28 (фаза 3): автотрейлер в кадре — сразу за размером кадра: это
-       настройка про то же самое место экрана. */
-    'lumen_hero_size', 'lumen_hero_trailer', 'lumen_moods', 'lumen_personal_rows', 'lumen_home_rows',
-    /* Task 25 (фаза 3): метки на постерах — рядом с составом рядов: речь
-       про тот же экран. */
-    'lumen_rows_limit', 'lumen_badges',
-    /* Task 26 (фаза 3): меню карточки по удержанию OK — там же, где метки:
-       речь о тех же постерах рядов и сеток. */
-    'lumen_context_menu',
-    /* Task 27 (фаза 3): ускорители навигации — про то же движение по рядам
-       главной и сеток, поэтому сразу за меню карточки. */
-    'lumen_minimap', 'lumen_fastscroll',
-    /* Task 23 (фаза 3): фильтр рулетки — рядом с фильтром досмотренного:
-       оба про то, чтобы не показывать уже виденное. */
-    'lumen_roulette_unseen',
-    'lumen_hide_watched', 'lumen_manifest_url'
-  ]);
-  /* Группа — последняя в разделе: ни один пункт фазы 2 не потерялся выше. */
-  for (const e of LIST.slice(at + 1)) assert.notEqual(e.type, 'title', 'внутри группы новых заголовков нет');
+/* Task 30 (финал фазы 3): за три фазы пунктов стало 37, и раскладка по
+   группам — единственное, что делает их обозримыми с дивана. Группа
+   отвечает на вопрос «про что это»: вид · движение · фон карточки · блоки
+   карточки · главная · пульт · рулетка · заставка · путь до плеера.
+
+   Тест закрепляет и состав групп, и их порядок: перестановка пункта из
+   группы в группу — решение, а не побочный эффект правки соседней строки. */
+const GROUPS = [
+  ['lumen_group_look', [
+    /* Task 24: «Акцент от постера» — сразу за выбором акцента: тот же
+       выбор, только его делает фильм. */
+    'lumen_card_accent', 'lumen_accent_auto',
+    'lumen_theme', 'lumen_solid', 'lumen_scale',
+    'lumen_card_fonts', 'lumen_font'
+  ]],
+  /* Task 30: движение вынесено из «Оформления» в свою группу. Все три
+     пункта связаны одной зависимостью: переход и атмосферы живут только при
+     полных анимациях, и рядом с режимом анимаций это видно сразу. */
+  ['lumen_group_motion', ['lumen_motion', 'lumen_transition', 'lumen_fx']],
+  ['lumen_group_backdrop', ['lumen_slideshow', 'lumen_slide_interval', 'lumen_trailer']],
+  ['lumen_group_blocks', [
+    'lumen_card_progress', 'lumen_reviews', 'lumen_reviews_mode', 'lumen_kp_key', 'lumen_kp_hint'
+  ]],
+  ['lumen_group_home', [
+    /* Правка пользователя 2026-09-17 (п.2): размер кадра — первым пунктом:
+       от него зависит, сколько экрана достанется всему остальному. */
+    'lumen_hero_size', 'lumen_hero_trailer', 'lumen_moods', 'lumen_personal_rows',
+    'lumen_home_rows', 'lumen_rows_limit', 'lumen_badges', 'lumen_hide_watched',
+    /* Каталог — последним: настройка «на один раз», и она про источник всех
+       подборок разом. */
+    'lumen_manifest_url'
+  ]],
+  /* Task 30: всё, что меняет поведение ПУЛЬТА, — одной группой. Раньше эти
+     три пункта стояли в «Главной», хотя работают и в сетках подборок. */
+  ['lumen_group_nav', ['lumen_context_menu', 'lumen_minimap', 'lumen_fastscroll']],
+  /* Task 30: у рулетки в разделе один пункт, но без заголовка неясно, к
+     какому экрану он относится, — сама рулетка открывается из левого меню. */
+  ['lumen_group_roulette', ['lumen_roulette_unseen']],
+  ['lumen_group_ambient', ['lumen_ambient', 'lumen_ambient_source', 'lumen_ambient_delay']],
+  ['lumen_group_path', ['lumen_menus', 'lumen_torrents']]
+];
+
+test('Task 30: раздел разложен по группам — состав и порядок', () => {
+  const groups = [];
+  let current = null;
+  for (const e of LIST.slice(1)) {
+    if (e.type === 'title') {
+      current = [e.name, []];
+      groups.push(current);
+      continue;
+    }
+    assert.ok(current, 'пункт вне группы: ' + e.name);
+    current[1].push(e.name);
+  }
+  assert.deepEqual(groups, GROUPS);
+});
+
+test('Task 30: у каждой группы есть пункты, и ни одна не длиннее девяти строк', () => {
+  for (const [title, items] of GROUPS) {
+    assert.ok(items.length >= 1, 'пустая группа: ' + title);
+    /* Девять — столько строк раздела помещается на экране ТВ без прокрутки
+       (та же величина, что у мини-карты рядов, src/64_nav.js). Группа
+       длиннее превращается в сплошной список, ради которого группы и
+       заводились. */
+    assert.ok(items.length <= 9, 'группа слишком длинная: ' + title + ' (' + items.length + ')');
+  }
+});
+
+test('Task 30: у каждого пункта раздела есть и название, и описание', () => {
+  for (const e of LIST) {
+    assert.ok(e.label, 'нет подписи: ' + e.name);
+    if (e.type === 'title') continue;
+    /* Человек смотрит на раздел с дивана и с пультом: название говорит,
+       что это, описание — что случится и когда. */
+    assert.ok(e.descr, 'нет описания: ' + e.name);
+  }
 });
 
 test('Task 20: подсказка про ключ — переключатель сразу за полем ключа', () => {
@@ -325,10 +371,13 @@ function loadStrings() {
   return LC;
 }
 
-test('каждый пункт LIST имеет строки label/descr во всех трёх языках', () => {
+test('каждый пункт LIST имеет строки label/descr/placeholder во всех трёх языках', () => {
   const LC = loadStrings();
   for (const e of LC.prefs.LIST) {
-    for (const key of [e.label, e.descr]) {
+    /* placeholder есть только у текстовых полей — и обязан быть у каждого:
+       пустое поле Lampa показывает именно его (src/80_settings.js). */
+    if (e.type === 'input') assert.ok(e.placeholder, 'текстовое поле без плейсхолдера: ' + e.name);
+    for (const key of [e.label, e.descr, e.placeholder]) {
       if (!key) continue;
       const pack = LC.STRINGS[key];
       assert.ok(pack, 'нет строки в LC.STRINGS: ' + key + ' (пункт ' + e.name + ')');

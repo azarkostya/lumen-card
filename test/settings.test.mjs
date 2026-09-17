@@ -182,6 +182,27 @@ test('addSettings: подписи и описания по-русски, зна�
     { golos: 'Golos Text', onest: 'Onest', manrope: 'Manrope', inter: 'Inter', plex: 'IBM Plex Sans' });
 });
 
+/* Живая находка финала фазы 3: у пустого текстового поля Lampa показывает
+   ПЛЕЙСХОЛДЕР вместо значения (`update$3`, app.min.js: `if (!val && plr) val =
+   plr;`), а сам плейсхолдер она берёт из `param.placeholder` и вставляет в
+   разметку как есть. Мы его не передавали — и в разделе на живой Lampa 3.3.4
+   у «Ключ Kinopoisk API» и «Свой каталог подборок» значением стояло слово
+   «undefined». */
+test('addSettings: у текстовых полей есть человеческий плейсхолдер вместо «undefined»', () => {
+  const { LC, params } = setup();
+  LC.addSettings();
+  const inputs = params.filter((p) => p.param.type === 'input');
+  assert.ok(inputs.length >= 2, 'в разделе есть текстовые поля');
+  for (const p of inputs) {
+    const plr = p.param.placeholder;
+    assert.ok(plr, 'у текстового поля нет плейсхолдера: ' + p.param.name);
+    assert.notEqual(plr, 'undefined');
+    assert.ok(/^[А-ЯЁ]/.test(plr), 'плейсхолдер по-русски: ' + p.param.name + ' → ' + plr);
+  }
+  assert.equal(paramOf(params, 'lumen_kp_key').param.placeholder, 'Не задан');
+  assert.equal(paramOf(params, 'lumen_manifest_url').param.placeholder, 'Каталог плагина');
+});
+
 test('addSettings: заголовки групп — параметры type "title" без onChange и без значения', () => {
   const { LC, params } = setup();
   LC.addSettings();

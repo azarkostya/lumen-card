@@ -60,6 +60,27 @@
        addParams: <div class="settings-param-title">), он ничего не хранит и
        не имеет onChange.
 
+       Task 30 (финал фазы 3): за три фазы пунктов стало 37, и раскладка по
+       девяти группам — единственное, что делает их обозримыми с дивана.
+       Группа отвечает на вопрос «про что это»:
+         Оформление ........ как плагин выглядит (цвет, тема, размер, шрифт)
+         Движение .......... что и как двигается (анимации, переход, атмосферы)
+         Фон карточки ...... что показывает кадр за текстом карточки
+         Блоки карточки .... какие блоки в ней есть и что им нужно
+         Главная ........... состав и вид главной и подборок
+         Навигация ......... что делают кнопки пульта
+         Рулетка ........... с чем открывается экран «Что посмотреть»
+         Заставка .......... что происходит, когда пульт отложили
+         Меню и плеер ...... оформление штатных окон на пути к плееру
+       Внутри группы — не больше девяти пунктов: столько строк раздела видно
+       на экране ТВ без прокрутки. Порядок групп — от того, что меняют чаще,
+       к тому, что настраивают один раз.
+
+       У КАЖДОГО пункта есть и label, и descr: пульт в руках, экран в трёх
+       метрах, и название без пояснения оставляет человека гадать, что
+       случится (проверяется test/prefs.test.mjs). В описании — что делает
+       настройка и когда применяется.
+
        Имена ключей НЕ переименовываются (таблица плана с lumen_accent/
        lumen_fonts/lumen_cast устарела — решение контроллера): профили
        пользователей уже живут с этими именами. Отсюда и смесь префиксов:
@@ -77,7 +98,7 @@
          ACCENTS в src/30_css.js). Порядок — по цветовому кругу: тёплые, потом
          зелёные и холодные, нейтральный графит последним. Значение по
          умолчанию не менялось. */
-      { name: 'lumen_card_accent', type: 'select', values: ['sand', 'copper', 'wine', 'garnet', 'mint', 'emerald', 'ice', 'lavender', 'graphite'], vprefix: 'lumen_card_accent_', 'default': 'sand', label: 'lumen_card_accent' },
+      { name: 'lumen_card_accent', type: 'select', values: ['sand', 'copper', 'wine', 'garnet', 'mint', 'emerald', 'ice', 'lavender', 'graphite'], vprefix: 'lumen_card_accent_', 'default': 'sand', label: 'lumen_card_accent', descr: 'lumen_card_accent_descr' },
       /* Task 24 (фаза 3): акцент от постера открытого фильма — сразу под
          выбором акцента: он тот же выбор, только его делает фильм. Выключен
          по умолчанию, и при выключении карточка возвращается к цвету из
@@ -102,6 +123,13 @@
          Fonts (CSP плагина другого источника не пропустит), набор — в
          FONT_SETS (src/30_css.js). */
       { name: 'lumen_font', type: 'select', values: ['golos', 'onest', 'manrope', 'inter', 'plex'], vprefix: 'lumen_card_font_', 'default': 'golos', label: 'lumen_card_font_name', descr: 'lumen_card_font_descr' },
+
+      /* Task 30 (финал фазы 3): движение — своя группа, а не хвост
+         «Оформления». Три пункта связаны одной зависимостью: и переход, и
+         атмосферы живут ТОЛЬКО при полных анимациях, и рядом с режимом
+         анимаций это видно сразу — иначе человек выключает анимации и не
+         понимает, куда делись снег и разворот постера. */
+      { name: 'lumen_group_motion', type: 'title', label: 'lumen_group_motion' },
       { name: 'lumen_motion', type: 'select', values: ['auto', 'full', 'lite', 'off'], vprefix: 'lumen_card_motion_', 'default': 'auto', label: 'lumen_card_motion', descr: 'lumen_card_motion_descr' },
       /* Task 29 (фаза 3): переход «постер → кадр» при открытии карточки.
          Место — сразу под режимом анимаций: переход ему подчиняется (в
@@ -109,9 +137,8 @@
          смысл только тому, кто полные анимации оставил. */
       { name: 'lumen_transition', type: 'trigger', 'default': true, label: 'lumen_transition_name', descr: 'lumen_transition_descr' },
       /* Task 21 (фаза 3): тематические атмосферы — слой частиц над кадром
-         карточки и кадром главной. Место — сразу за переходом, в конце
-         группы «Оформление»: как и он, атмосфера подчиняется режиму
-         анимаций и в «Лёгких»/«Выкл» не запускается вовсе.
+         карточки и кадром главной. Место — за переходом, последним пунктом
+         группы: это самое заметное движение из трёх.
 
          По умолчанию «Только сезонные», а не «Все»: вид карточки без спроса
          менять нельзя, и снег на «Один дома» в декабре читается как
@@ -121,27 +148,13 @@
          как в плане. */
       { name: 'lumen_fx', type: 'select', values: ['all', 'seasonal', 'off'], vprefix: 'lumen_fx_', 'default': 'seasonal', label: 'lumen_fx_name', descr: 'lumen_fx_descr' },
 
-      /* Task 22 (фаза 3): ambient-режим. Своя группа, а не хвост
-         «Оформления»: заставка — не про вид карточки, а про то, что
-         происходит с экраном, когда пульт отложили.
-
-         Включена по умолчанию: на телевизоре статичный кадр висит часами, и
-         это ровно та работа, ради которой заставку и заводят. Скромность
-         здесь в другом — в источнике (отобранные кадры, а не то, что
-         осталось на экране) и в трёх минутах покоя, за которые успевает
-         закончиться любая пауза в навигации. */
-      { name: 'lumen_group_ambient', type: 'title', label: 'lumen_group_ambient' },
-      { name: 'lumen_ambient', type: 'trigger', 'default': true, label: 'lumen_ambient_name', descr: 'lumen_ambient_descr' },
-      { name: 'lumen_ambient_source', type: 'select', values: ['curated', 'current'], vprefix: 'lumen_ambient_source_', 'default': 'curated', label: 'lumen_ambient_source_name', descr: 'lumen_ambient_source_descr' },
-      { name: 'lumen_ambient_delay', type: 'select', values: ['3', '5', '10'], vsuffix: 'lumen_ambient_minutes', 'default': '3', label: 'lumen_ambient_delay_name' },
-
       { name: 'lumen_group_backdrop', type: 'title', label: 'lumen_card_group_backdrop' },
-      { name: 'lumen_slideshow', type: 'trigger', 'default': true, label: 'lumen_card_slideshow_name' },
-      { name: 'lumen_slide_interval', type: 'select', values: ['8', '14', '20'], vsuffix: 'lumen_card_seconds', 'default': '14', label: 'lumen_card_slide_interval' },
+      { name: 'lumen_slideshow', type: 'trigger', 'default': true, label: 'lumen_card_slideshow_name', descr: 'lumen_card_slideshow_descr' },
+      { name: 'lumen_slide_interval', type: 'select', values: ['8', '14', '20'], vsuffix: 'lumen_card_seconds', 'default': '14', label: 'lumen_card_slide_interval', descr: 'lumen_card_slide_interval_descr' },
       { name: 'lumen_trailer', type: 'select', values: ['auto', 'on', 'off'], vprefix: 'lumen_card_trailer_', 'default': 'auto', label: 'lumen_card_trailer', descr: 'lumen_card_trailer_descr' },
 
       { name: 'lumen_group_blocks', type: 'title', label: 'lumen_card_group_blocks' },
-      { name: 'lumen_card_progress', type: 'trigger', 'default': true, label: 'lumen_card_progress_name' },
+      { name: 'lumen_card_progress', type: 'trigger', 'default': true, label: 'lumen_card_progress_name', descr: 'lumen_card_progress_descr' },
       /* Правка пользователя 2026-09-16 (п.1): пункт «Показывать актёров» убран
          вместе с блоком, которым он управлял, — кружки инициалов дублировали
          ряд актёров, который Lampa рисует ниже по экрану. */
@@ -151,16 +164,15 @@
          умолчанию «Только заголовки» — так спойлер не попадётся на глаза
          случайно, а весь текст всё равно в одном нажатии OK. */
       { name: 'lumen_reviews_mode', type: 'select', values: ['headlines', 'full'], vprefix: 'lumen_reviews_mode_', 'default': 'headlines', label: 'lumen_reviews_mode_name', descr: 'lumen_reviews_mode_descr' },
-      { name: 'lumen_kp_key', type: 'input', 'default': '', label: 'lumen_card_kp_key', descr: 'lumen_card_kp_key_descr' },
+      /* placeholder — обязателен у type:'input': пустое поле Lampa показывает
+         им, а без него в разделе стояло слово «undefined» (см. addPrefParam в
+         src/80_settings.js). */
+      { name: 'lumen_kp_key', type: 'input', 'default': '', label: 'lumen_card_kp_key', descr: 'lumen_card_kp_key_descr', placeholder: 'lumen_pref_unset' },
       /* Task 20 (решение координатора): подсказка «Ключ API не задан» в
          карточке и в сетке подборки Кинопоиска убирается кнопкой «Скрыть»
          прямо на экране, а возвращается этим переключателем — рядом с самим
          полем ключа, где её и ищут. */
       { name: 'lumen_kp_hint', type: 'trigger', 'default': true, label: 'lumen_kp_hint_name', descr: 'lumen_kp_hint_descr' },
-
-      { name: 'lumen_group_path', type: 'title', label: 'lumen_card_group_path' },
-      { name: 'lumen_menus', type: 'select', values: ['all', 'path', 'off'], vprefix: 'lumen_card_menus_', 'default': 'all', label: 'lumen_card_menus' },
-      { name: 'lumen_torrents', type: 'trigger', 'default': true, label: 'lumen_card_torrents_name', descr: 'lumen_card_torrents_descr' },
 
       /* Task 20 (фаза 2): всё про главную и подборки — одной группой и в
          порядке экрана сверху вниз: чипы настроения и персональные ряды
@@ -187,33 +199,60 @@
          openHomeRows). Значение хранится строкой id через запятую в
          lumen_home_rows — его читает LC.rows.register. */
       { name: 'lumen_home_rows', type: 'button', label: 'lumen_home_rows_name', descr: 'lumen_home_rows_descr' },
-      { name: 'lumen_rows_limit', type: 'select', values: ['10', '15', '25'], vsuffix: 'lumen_rows_limit_suffix', 'default': '15', label: 'lumen_rows_limit_name' },
+      { name: 'lumen_rows_limit', type: 'select', values: ['10', '15', '25'], vsuffix: 'lumen_rows_limit_suffix', 'default': '15', label: 'lumen_rows_limit_name', descr: 'lumen_rows_limit_descr' },
       /* Task 25 (фаза 3): метки на постерах рядов («Скоро», «Новинка»,
          «Продолжить», новые серии). Место в группе — рядом с составом рядов:
          речь о том же экране. Применение на лету — LC.applyBadgesPref. */
       { name: 'lumen_badges', type: 'trigger', 'default': true, label: 'lumen_badges_name', descr: 'lumen_badges_descr' },
-      /* Task 26 (фаза 3): пункты плагина в меню карточки по удержанию OK.
-         Место — рядом с метками: речь о тех же постерах рядов и сеток.
-         Включено по умолчанию — жест штатный, меню штатное, мы лишь
-         дописываем пункты. Применение на лету — LC.applyCardmenuPref. */
+      { name: 'lumen_hide_watched', type: 'trigger', 'default': false, label: 'lumen_hide_watched_name', descr: 'lumen_hide_watched_descr' },
+      /* Тип input: Lampa рисует текстовое поле (как lumen_kp_key). Пусто —
+         адрес по умолчанию из LC.MANIFEST_URL (src/00_head.js). Последним в
+         группе: этот адрес задают один раз и больше к нему не возвращаются. */
+      { name: 'lumen_manifest_url', type: 'input', 'default': '', label: 'lumen_manifest_url', descr: 'lumen_manifest_url_descr', placeholder: 'lumen_pref_default_catalog' },
+
+      /* Task 30 (финал фазы 3): всё, что меняет поведение ПУЛЬТА, — своей
+         группой. До неё три пункта стояли в «Главной», хотя работают они и в
+         сетках подборок, и в поиске Lampa: удержание OK, удержание стрелок и
+         кнопки каналов — это про пульт, а не про экран.
+
+         Все три включены по умолчанию: ни один не меняет того, что делает
+         обычное нажатие. Меню по удержанию OK — штатный жест Lampa, мы лишь
+         дописываем пункты; мини-карта только показывает; ускорение работает
+         лишь при удержании. */
+      { name: 'lumen_group_nav', type: 'title', label: 'lumen_group_nav' },
       { name: 'lumen_context_menu', type: 'trigger', 'default': true, label: 'lumen_context_menu_name', descr: 'lumen_context_menu_descr' },
-      /* Task 27 (фаза 3): навигационные ускорители. Обе настройки — про то
-         же движение по рядам главной и сеток, поэтому стоят здесь же.
-         Включены по умолчанию: мини-карта только показывает, ускорение
-         работает лишь при удержании, то есть обычная навигация ни на шаг не
-         меняется. Применение на лету — LC.applyNavPref. */
       { name: 'lumen_minimap', type: 'trigger', 'default': true, label: 'lumen_minimap_name', descr: 'lumen_minimap_descr' },
       { name: 'lumen_fastscroll', type: 'trigger', 'default': true, label: 'lumen_fastscroll_name', descr: 'lumen_fastscroll_descr' },
+
       /* Task 23 (фаза 3): рулетка «Что посмотреть». В разделе настроек у неё
          один пункт — с каким фильтром она открывается; всё остальное (медиа,
          подборки, «есть 90 минут») выбирается на самом экране рулетки и
-         хранится рядом с ним. Место — в группе главной, рядом с фильтром
-         досмотренного: оба про одно и то же — не показывать уже виденное. */
+         хранится рядом с ним. Заголовок над единственным пунктом нужен:
+         рулетка открывается из ЛЕВОГО МЕНЮ Lampa, и без него непонятно, к
+         какому экрану относится «только непросмотренное». */
+      { name: 'lumen_group_roulette', type: 'title', label: 'lumen_group_roulette' },
       { name: 'lumen_roulette_unseen', type: 'trigger', 'default': true, label: 'lumen_roulette_unseen_name', descr: 'lumen_roulette_unseen_descr' },
-      { name: 'lumen_hide_watched', type: 'trigger', 'default': false, label: 'lumen_hide_watched_name', descr: 'lumen_hide_watched_descr' },
-      /* Тип input: Lampa рисует текстовое поле (как lumen_kp_key). Пусто —
-         адрес по умолчанию из LC.MANIFEST_URL (src/00_head.js). */
-      { name: 'lumen_manifest_url', type: 'input', 'default': '', label: 'lumen_manifest_url', descr: 'lumen_manifest_url_descr' }
+
+      /* Task 22 (фаза 3): ambient-режим. Своя группа: заставка — не про вид
+         карточки, а про то, что происходит с экраном, когда пульт отложили.
+         Место ближе к концу раздела: её настраивают один раз.
+
+         Включена по умолчанию: на телевизоре статичный кадр висит часами, и
+         это ровно та работа, ради которой заставку и заводят. Скромность
+         здесь в другом — в источнике (отобранные кадры, а не то, что
+         осталось на экране) и в трёх минутах покоя, за которые успевает
+         закончиться любая пауза в навигации. */
+      { name: 'lumen_group_ambient', type: 'title', label: 'lumen_group_ambient' },
+      { name: 'lumen_ambient', type: 'trigger', 'default': true, label: 'lumen_ambient_name', descr: 'lumen_ambient_descr' },
+      { name: 'lumen_ambient_source', type: 'select', values: ['curated', 'current'], vprefix: 'lumen_ambient_source_', 'default': 'curated', label: 'lumen_ambient_source_name', descr: 'lumen_ambient_source_descr' },
+      { name: 'lumen_ambient_delay', type: 'select', values: ['3', '5', '10'], vsuffix: 'lumen_ambient_minutes', 'default': '3', label: 'lumen_ambient_delay_name', descr: 'lumen_ambient_delay_descr' },
+
+      /* Оформление штатных окон Lampa на пути к плееру — последней группой:
+         это единственная часть плагина, которая живёт вне его собственных
+         экранов, и трогают её реже всего. */
+      { name: 'lumen_group_path', type: 'title', label: 'lumen_card_group_path' },
+      { name: 'lumen_menus', type: 'select', values: ['all', 'path', 'off'], vprefix: 'lumen_card_menus_', 'default': 'all', label: 'lumen_card_menus', descr: 'lumen_card_menus_descr' },
+      { name: 'lumen_torrents', type: 'trigger', 'default': true, label: 'lumen_card_torrents_name', descr: 'lumen_card_torrents_descr' }
     ];
 
     function find(name) {

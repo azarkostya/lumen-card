@@ -1,8 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { FakeEl, EMPTY, fakeQuery, toEl } from './_fakedom.mjs';
 import { load } from './_load.mjs';
 
 const M = load('64_nav.js');
+
+globalThis.PLUGIN = 'lumen_card';
+const warnLog = [];
+globalThis.warn = function (msg, err) { warnLog.push({ msg: msg, err: err }); };
+
+const SRC = readFileSync(new URL('../src/64_nav.js', import.meta.url), 'utf8');
+const UTIL = load('10_util.js');
 
 /* ---------------------------------------------------------------------- */
 /* holdTracker — автомат удержания клавиши.                                */
@@ -234,4 +243,210 @@ test('jumpLabel: без позиции или в ряду из одной кар
   assert.equal(M.jumpLabel(0, 0), '');
   assert.equal(M.jumpLabel(70, 60), '');
   assert.equal(M.jumpLabel(null, null), '');
+});
+
+/* ---------------------------------------------------------------------- */
+/* Рантайм: жизнь панели мини-карты.                                       */
+/*                                                                        */
+/* Дефект, найденный в фазе 3 (отчёт Task 22/23): панель осталась видимой  */
+/* поверх открытой карточки. Причина — она снималась только по отпусканию  */
+/* клавиши (HIDE_MS = 800 мс после keyup), и если за эти 800 мс человек    */
+/* успевал нажать OK, карточка открывалась под уже показанной панелью, а   */
+/* сама панель про смену экрана не знала вовсе.                            */
+/*                                                                        */
+/* Окружение — фейковые $, Lampa.Keypad, таймеры и часы: ровно то, что     */
+/* модуль читает из глобалов в момент вызова, а не загрузки.               */
+/* ---------------------------------------------------------------------- */
+
+/* Набор узлов по селектору вида '.card.focus' — как jQuery: length,
+   числовые индексы, eq(i). */
+function collect(root, sel) {
+  const classes = sel.split('.').filter(Boolean);
+  const out = [];
+  (function walk(node) {
+    (node._children || []).forEach((child) => {
+      if (classes.every((c) => child.hasClass(c))) out.push(child);
+      walk(child);
+    });
+  })(root);
+  const set = { length: out.length, eq: (i) => out[i] || EMPTY };
+  out.forEach((el, i) => { set[i] = el; });
+  return set;
+}
+
+/* Главная с тремя рядами: названия рядов панель берёт из .items-line__title. */
+function makeMain(titles) {
+  const lines = titles.map((title) => {
+    const head = new FakeEl(['items-line__title']);
+    head.text(title);
+    return new FakeEl(['items-line'], [head]);
+  });
+  return new FakeEl(['activity__body'], lines);
+}
+
+function makeEnv(opts) {
+  const o = opts || {};
+  const timers = [];
+  const body = new FakeEl(['body-mock']);
+  const env = {
+    now: 10000,
+    timers: timers,
+    body: body,
+    moves: [],
+    controller: 'items_line',
+    main: makeMain(o.titles || ['Новинки', 'Боевики', 'Комедии']),
+    keydown: [],
+    keyup: [],
+    advance(ms) {
+      env.now += ms;
+      for (let round = 0; round < 10; round++) {
+        const due = timers.filter((t) => !t.done && t.at <= env.now);
+        if (!due.length) return;
+        due.forEach((t) => { t.done = true; t.fn(); });
+      }
+    },
+    /* Событие клавиши в том виде, в каком его шлёт Lampa.Keypad.listener. */
+    down(code) { env.keydown.forEach((fn) => fn({ code: code, enabled: true })); },
+    up(code) { env.keyup.forEach((fn) => fn({ code: code, enabled: true })); }
+  };
+
+  globalThis.setTimeout = (fn, ms) => {
+    timers.push({ fn: fn, at: env.now + (ms || 0), done: false });
+    return timers.length;
+  };
+  globalThis.clearTimeout = (id) => { const t = timers[id - 1]; if (t) t.done = true; };
+  globalThis.Date.now = () => env.now;
+
+  const Lampa = {
+    Keypad: {
+      listener: {
+        follow(name, fn) { env[name].push(fn); },
+        remove(name, fn) {
+          const list = env[name];
+          const at = list.indexOf(fn);
+          if (at !== -1) list.splice(at, 1);
+        }
+      }
+    },
+    Activity: {
+      active: () => env.activity
+    },
+    Controller: {
+      enabled: () => ({ name: env.controller }),
+      move: (dir) => env.moves.push(dir)
+    }
+  };
+  env.activity = { component: 'main', activity: { render: () => env.main } };
+
+  globalThis.window = { Lampa: Lampa };
+  globalThis.Lampa = Lampa;
+  globalThis.$ = function (sel, ctx) {
+    if (typeof sel !== 'string') return toEl(sel);
+    if (sel.charAt(0) === '<') return fakeQuery(sel);
+    if (sel === 'body') return body;
+    return collect(ctx ? toEl(ctx) : body, sel);
+  };
+
+  const LC = { util: UTIL, pref: (name, def) => (o.prefs && name in o.prefs ? o.prefs[name] : def), lang: (key) => key };
+  const module = { exports: null, lumen: true };
+  new Function('LC', 'module', SRC)(LC, module);
+  env.nav = module.exports;
+  env.LC = LC;
+  return env;
+}
+
+/* Панель в body: она лежит там одна, других узлов тест не создаёт. */
+function panelsIn(env) {
+  return env.body._children.filter((el) => el.hasClass('lumen-minimap')).length;
+}
+
+test('мини-карта: удержание «вниз» на главной показывает панель через полсекунды', () => {
+  const env = makeEnv();
+  env.nav.install();
+  env.down(40);
+  assert.equal(env.nav.active(), false, 'сразу по нажатию панели нет — это обычный шаг по рядам');
+  env.advance(500);
+  assert.equal(env.nav.active(), true);
+  assert.equal(panelsIn(env), 1);
+  env.nav.uninstall();
+});
+
+test('мини-карта: detach снимает панель немедленно, не дожидаясь отпускания клавиши', () => {
+  const env = makeEnv();
+  env.nav.install();
+  env.down(40);
+  env.advance(500);
+  assert.equal(env.nav.active(), true);
+
+  env.nav.detach();
+
+  assert.equal(env.nav.active(), false, 'панель обязана уйти в тот же момент');
+  assert.equal(panelsIn(env), 0, 'узел панели снят из body, а не просто забыт');
+  /* Отложенные показ и скрытие сняты вместе с ней: сработав позже, они
+     воскресили бы панель уже на чужом экране. */
+  env.advance(5000);
+  assert.equal(panelsIn(env), 0);
+  env.nav.uninstall();
+});
+
+test('мини-карта: detach снимает панель, для которой скрытие уже отложено на 800 мс', () => {
+  /* Дословный сценарий дефекта: клавишу отпустили, панель живёт свои 800 мс,
+     и в этот промежуток человек нажал OK — карточка открылась бы под ней. */
+  const env = makeEnv();
+  env.nav.install();
+  env.down(40);
+  env.advance(500);
+  env.up(40);
+  env.advance(200);
+  assert.equal(env.nav.active(), true, 'до срока скрытия панель ещё на экране');
+
+  /* Активность сменилась: открылась карточка. */
+  env.activity = { component: 'full', activity: { render: () => new FakeEl(['activity__body']) } };
+  env.nav.detach();
+
+  assert.equal(panelsIn(env), 0);
+  env.advance(1000);
+  assert.equal(panelsIn(env), 0);
+  env.nav.uninstall();
+});
+
+test('мини-карта: detach подписки на клавиатуру не трогает — экран сменился, а плагин работает', () => {
+  const env = makeEnv();
+  env.nav.install();
+  env.down(40);
+  env.advance(500);
+  env.nav.detach();
+  assert.equal(env.keydown.length, 1, 'подписка на keydown осталась');
+  assert.equal(env.keyup.length, 1, 'и на keyup тоже');
+
+  /* Вернулись на главную — удержание снова показывает панель. */
+  env.down(40);
+  env.advance(500);
+  assert.equal(env.nav.active(), true);
+  env.nav.uninstall();
+  assert.equal(env.keydown.length, 0, 'а uninstall снимает уже обе подписки');
+  assert.equal(panelsIn(env), 0);
+});
+
+test('мини-карта: на чужом экране панель не показывается вовсе', () => {
+  const env = makeEnv();
+  env.nav.install();
+  env.activity = { component: 'full', activity: { render: () => new FakeEl(['activity__body']) } };
+  env.down(40);
+  env.advance(500);
+  assert.equal(env.nav.active(), false);
+  assert.equal(panelsIn(env), 0);
+  env.nav.uninstall();
+});
+
+test('мини-карта: выключенная настройка не показывает панель, а detach безопасен и без неё', () => {
+  const env = makeEnv({ prefs: { lumen_minimap: false } });
+  env.nav.install();
+  env.down(40);
+  env.advance(500);
+  assert.equal(env.nav.active(), false);
+  env.nav.detach();
+  assert.equal(panelsIn(env), 0);
+  assert.deepEqual(warnLog, []);
+  env.nav.uninstall();
 });

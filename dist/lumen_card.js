@@ -16428,6 +16428,8 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 
+
+
 LC.nav = (function () {
 
 
@@ -17040,6 +17042,26 @@ return;
 bound = handlers;
 }
 
+
+
+
+
+
+
+
+
+
+
+
+function detach() {
+tracker.reset();
+showTimer = stopTimer(showTimer);
+hideTimer = stopTimer(hideTimer);
+paintTimer = stopTimer(paintTimer);
+hideJump();
+hideMinimap();
+}
+
 function uninstall() {
 var kp = keypad();
 if (bound && kp) {
@@ -17051,12 +17073,7 @@ warn('nav: uninstall failed', e);
 }
 }
 bound = null;
-tracker.reset();
-showTimer = stopTimer(showTimer);
-hideTimer = stopTimer(hideTimer);
-paintTimer = stopTimer(paintTimer);
-hideJump();
-hideMinimap();
+detach();
 }
 
 
@@ -17075,6 +17092,7 @@ jumpLabel: jumpLabel,
 openSearch: openSearch,
 install: install,
 uninstall: uninstall,
+detach: detach,
 apply: apply,
 active: function () { return !!panel; }
 };
@@ -19071,11 +19089,25 @@ en: 'Turn off to get the stock Lampa card back. An open card is redrawn the next
 uk: 'Вимкніть — повернеться штатна картка Lampa. Відкрита картка перемалюється при наступному відкритті.'
 },
 
+
+
+
 lumen_card_group_look: { ru: 'Оформление', en: 'Appearance', uk: 'Оформлення' },
+lumen_group_motion: { ru: 'Движение и эффекты', en: 'Motion and effects', uk: 'Рух і ефекти' },
 lumen_card_group_backdrop: { ru: 'Фон карточки', en: 'Card background', uk: 'Фон картки' },
 lumen_card_group_blocks: { ru: 'Блоки карточки', en: 'Card blocks', uk: 'Блоки картки' },
+lumen_group_nav: { ru: 'Навигация и пульт', en: 'Navigation and remote', uk: 'Навігація та пульт' },
+lumen_group_roulette: { ru: 'Рулетка «Что посмотреть»', en: 'The "What to watch" roulette', uk: 'Рулетка «Що подивитися»' },
 lumen_card_group_path: { ru: 'Меню и экраны плеера', en: 'Menus and player screens', uk: 'Меню та екрани плеєра' },
 lumen_card_accent: { ru: 'Акцентный цвет', en: 'Accent color', uk: 'Акцентний колір' },
+
+
+
+lumen_card_accent_descr: {
+ru: 'Цвет кнопок, колец фокуса, полос прогресса и подсветок на экранах плагина. Применяется сразу.',
+en: 'The colour of buttons, focus rings, progress bars and highlights on the plugin screens. Applied immediately.',
+uk: 'Колір кнопок, кілець фокуса, смуг прогресу та підсвічувань на екранах плагіна. Застосовується одразу.'
+},
 lumen_card_accent_sand: { ru: 'Песок', en: 'Sand', uk: 'Пісок' },
 lumen_card_accent_ice: { ru: 'Лёд', en: 'Ice', uk: 'Лід' },
 lumen_card_accent_wine: { ru: 'Вино', en: 'Wine', uk: 'Вино' },
@@ -19130,6 +19162,11 @@ uk: '«Відомі фільми» — дібраний список кадрі�
 lumen_ambient_source_curated: { ru: 'Известные фильмы', en: 'Famous films', uk: 'Відомі фільми' },
 lumen_ambient_source_current: { ru: 'Кадры открытого фильма', en: 'Stills of the open film', uk: 'Кадри відкритого фільму' },
 lumen_ambient_delay_name: { ru: 'Через сколько включать', en: 'Idle time before start', uk: 'Через скільки вмикати' },
+lumen_ambient_delay_descr: {
+ru: 'Сколько пульт должен молчать, прежде чем включится заставка. Отсчёт начинается заново от любого нажатия. Применяется сразу.',
+en: 'How long the remote has to stay silent before the screensaver starts. Any key press restarts the countdown. Applied immediately.',
+uk: 'Скільки пульт має мовчати, перш ніж увімкнеться заставка. Відлік починається знову від будь-якого натискання. Застосовується одразу.'
+},
 
 lumen_ambient_minutes: { ru: 'мин', en: 'min', uk: 'хв' },
 
@@ -19214,6 +19251,14 @@ lumen_card_progress_name: { ru: 'Показывать «Продолжить»',
 
 
 
+lumen_card_progress_descr: {
+ru: 'Полоса с таймкодом и процентом в карточке того, что вы не досмотрели, подпись «Продолжить S2 E3» на кнопке «Смотреть» и отметки просмотра в карточках серий. Применяется сразу.',
+en: 'The bar with the timecode and percentage on a card you have not finished, the "Continue S2 E3" label on the Watch button and the watched marks on episode cards. Applied immediately.',
+uk: 'Смуга з таймкодом і відсотком у картці того, що ви не додивилися, підпис «Продовжити S2 E3» на кнопці «Дивитися» та позначки перегляду в картках серій. Застосовується одразу.'
+},
+
+
+
 lumen_card_font_name: { ru: 'Шрифт', en: 'Font', uk: 'Шрифт' },
 lumen_card_font_descr: {
 ru: 'Гарнитура текста и цифр. Действует только при включённых фирменных шрифтах. Применяется сразу.',
@@ -19280,9 +19325,28 @@ en: 'Jan,Feb,Mar,Apr,May,Jun,Jul,Aug,Sep,Oct,Nov,Dec',
 uk: 'січ,лют,бер,кві,тра,чер,лип,сер,вер,жов,лис,гру'
 },
 lumen_card_slideshow_name: { ru: 'Слайдшоу кадров', en: 'Backdrop slideshow', uk: 'Слайдшоу кадрів' },
+
+
+lumen_card_slideshow_descr: {
+ru: 'Кадры из фильма за текстом карточки сменяют друг друга. Выключите — останется один, первый кадр. Слайдшоу встаёт на паузу под трейлером и на карточке, оставленной позади. Применяется сразу.',
+en: 'The film stills behind the card text replace one another. Turn it off and only the first still stays. The slideshow pauses under a trailer and on a card left behind. Applied immediately.',
+uk: 'Кадри з фільму за текстом картки змінюють один одного. Вимкніть — залишиться один, перший кадр. Слайдшоу стає на паузу під трейлером і на картці, залишеній позаду. Застосовується одразу.'
+},
 lumen_card_slide_interval: { ru: 'Интервал смены кадров', en: 'Frame interval', uk: 'Інтервал зміни кадрів' },
+lumen_card_slide_interval_descr: {
+ru: 'Сколько секунд держится на экране один кадр фона карточки. Действует только при включённом слайдшоу. Применяется сразу.',
+en: 'How many seconds a single card background still stays on screen. Works only with the slideshow on. Applied immediately.',
+uk: 'Скільки секунд тримається на екрані один кадр тла картки. Діє лише з увімкненим слайдшоу. Застосовується одразу.'
+},
 lumen_card_seconds: { ru: 'с', en: 's', uk: 'с' },
 lumen_card_menus: { ru: 'Оформление меню и окон', en: 'Menus and dialogs style', uk: 'Оформлення меню і вікон' },
+
+
+lumen_card_menus_descr: {
+ru: '«Только путь до плеера» — окна выбора озвучки, качества, серии и раздачи. «Все меню и окна» — ещё и прочие списки и диалоги Lampa. Меняется только вид: пункты, порядок и поведение окон остаются штатными. Применяется сразу.',
+en: '"Player path only" covers the dialogs for voice-over, quality, episode and torrent choice. "All menus and dialogs" adds the rest of Lampa lists and dialogs. Only the look changes: items, order and behaviour stay stock. Applied immediately.',
+uk: '«Лише шлях до плеєра» — вікна вибору озвучення, якості, серії та роздачі. «Усі меню і вікна» — ще й інші списки та діалоги Lampa. Змінюється лише вигляд: пункти, порядок і поведінка вікон лишаються штатними. Застосовується одразу.'
+},
 lumen_card_menus_all: { ru: 'Все меню и окна', en: 'All menus and dialogs', uk: 'Усі меню і вікна' },
 lumen_card_menus_path: { ru: 'Только путь до плеера', en: 'Player path only', uk: 'Лише шлях до плеєра' },
 lumen_card_menus_off: { ru: 'Выкл', en: 'Off', uk: 'Викл' },
@@ -19318,6 +19382,12 @@ en: 'A row of viewer reviews in the description block. Requires the API key belo
 uk: 'Ряд відгуків глядачів у блоці опису. Потрібен ключ API — рядок нижче.'
 },
 lumen_card_kp_key: { ru: 'Ключ Kinopoisk API', en: 'Kinopoisk API key', uk: 'Ключ Kinopoisk API' },
+
+
+
+
+lumen_pref_unset: { ru: 'Не задан', en: 'Not set', uk: 'Не задано' },
+lumen_pref_default_catalog: { ru: 'Каталог плагина', en: 'Plugin catalog', uk: 'Каталог плагіна' },
 
 
 lumen_card_kp_key_descr: {
@@ -19447,6 +19517,13 @@ lumen_rows_limit_name: {
 ru: 'Количество рядов',
 en: 'Number of rows',
 uk: 'Кількість рядів'
+},
+
+
+lumen_rows_limit_descr: {
+ru: 'Сколько рядов подборок строится на главной. Каждый ряд — отдельный запрос к каталогу, поэтому на слабом телевизоре меньшее число заметно ускоряет появление главной. Персональные ряды в это число не входят.',
+en: 'How many collection rows the home screen builds. Each row is a separate catalog request, so on a weak TV a smaller number noticeably speeds the home screen up. Personal rows are not counted here.',
+uk: 'Скільки рядів підбірок будується на головній. Кожен ряд — окремий запит до каталогу, тому на слабкому телевізорі менше число помітно пришвидшує появу головної. Персональні ряди в це число не входять.'
 },
 
 lumen_rows_limit_suffix: {
@@ -20014,7 +20091,15 @@ return;
 }
 param['default'] = entry['default'];
 if (entry.type === 'select') param.values = valuesOf(entry);
-if (entry.type === 'input') param.values = '';
+if (entry.type === 'input') {
+param.values = '';
+
+
+
+
+
+param.placeholder = LC.lang(entry.placeholder);
+}
 Lampa.SettingsApi.addParam({ component: PLUGIN, param: param, field: field, onChange: onChangeFor(entry.name) });
 }
 
@@ -20142,6 +20227,27 @@ return 'full';
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 var LIST = [
 { name: 'lumen_enabled', type: 'trigger', 'default': true, label: 'lumen_card_enabled_name', descr: 'lumen_card_enabled_descr' },
 
@@ -20150,7 +20256,7 @@ var LIST = [
 
 
 
-{ name: 'lumen_card_accent', type: 'select', values: ['sand', 'copper', 'wine', 'garnet', 'mint', 'emerald', 'ice', 'lavender', 'graphite'], vprefix: 'lumen_card_accent_', 'default': 'sand', label: 'lumen_card_accent' },
+{ name: 'lumen_card_accent', type: 'select', values: ['sand', 'copper', 'wine', 'garnet', 'mint', 'emerald', 'ice', 'lavender', 'graphite'], vprefix: 'lumen_card_accent_', 'default': 'sand', label: 'lumen_card_accent', descr: 'lumen_card_accent_descr' },
 
 
 
@@ -20175,6 +20281,13 @@ var LIST = [
 
 
 { name: 'lumen_font', type: 'select', values: ['golos', 'onest', 'manrope', 'inter', 'plex'], vprefix: 'lumen_card_font_', 'default': 'golos', label: 'lumen_card_font_name', descr: 'lumen_card_font_descr' },
+
+
+
+
+
+
+{ name: 'lumen_group_motion', type: 'title', label: 'lumen_group_motion' },
 { name: 'lumen_motion', type: 'select', values: ['auto', 'full', 'lite', 'off'], vprefix: 'lumen_card_motion_', 'default': 'auto', label: 'lumen_card_motion', descr: 'lumen_card_motion_descr' },
 
 
@@ -20191,30 +20304,15 @@ var LIST = [
 
 
 
-
 { name: 'lumen_fx', type: 'select', values: ['all', 'seasonal', 'off'], vprefix: 'lumen_fx_', 'default': 'seasonal', label: 'lumen_fx_name', descr: 'lumen_fx_descr' },
 
-
-
-
-
-
-
-
-
-
-{ name: 'lumen_group_ambient', type: 'title', label: 'lumen_group_ambient' },
-{ name: 'lumen_ambient', type: 'trigger', 'default': true, label: 'lumen_ambient_name', descr: 'lumen_ambient_descr' },
-{ name: 'lumen_ambient_source', type: 'select', values: ['curated', 'current'], vprefix: 'lumen_ambient_source_', 'default': 'curated', label: 'lumen_ambient_source_name', descr: 'lumen_ambient_source_descr' },
-{ name: 'lumen_ambient_delay', type: 'select', values: ['3', '5', '10'], vsuffix: 'lumen_ambient_minutes', 'default': '3', label: 'lumen_ambient_delay_name' },
-
 { name: 'lumen_group_backdrop', type: 'title', label: 'lumen_card_group_backdrop' },
-{ name: 'lumen_slideshow', type: 'trigger', 'default': true, label: 'lumen_card_slideshow_name' },
-{ name: 'lumen_slide_interval', type: 'select', values: ['8', '14', '20'], vsuffix: 'lumen_card_seconds', 'default': '14', label: 'lumen_card_slide_interval' },
+{ name: 'lumen_slideshow', type: 'trigger', 'default': true, label: 'lumen_card_slideshow_name', descr: 'lumen_card_slideshow_descr' },
+{ name: 'lumen_slide_interval', type: 'select', values: ['8', '14', '20'], vsuffix: 'lumen_card_seconds', 'default': '14', label: 'lumen_card_slide_interval', descr: 'lumen_card_slide_interval_descr' },
 { name: 'lumen_trailer', type: 'select', values: ['auto', 'on', 'off'], vprefix: 'lumen_card_trailer_', 'default': 'auto', label: 'lumen_card_trailer', descr: 'lumen_card_trailer_descr' },
 
 { name: 'lumen_group_blocks', type: 'title', label: 'lumen_card_group_blocks' },
-{ name: 'lumen_card_progress', type: 'trigger', 'default': true, label: 'lumen_card_progress_name' },
+{ name: 'lumen_card_progress', type: 'trigger', 'default': true, label: 'lumen_card_progress_name', descr: 'lumen_card_progress_descr' },
 
 
 
@@ -20224,16 +20322,15 @@ var LIST = [
 
 
 { name: 'lumen_reviews_mode', type: 'select', values: ['headlines', 'full'], vprefix: 'lumen_reviews_mode_', 'default': 'headlines', label: 'lumen_reviews_mode_name', descr: 'lumen_reviews_mode_descr' },
-{ name: 'lumen_kp_key', type: 'input', 'default': '', label: 'lumen_card_kp_key', descr: 'lumen_card_kp_key_descr' },
+
+
+
+{ name: 'lumen_kp_key', type: 'input', 'default': '', label: 'lumen_card_kp_key', descr: 'lumen_card_kp_key_descr', placeholder: 'lumen_pref_unset' },
 
 
 
 
 { name: 'lumen_kp_hint', type: 'trigger', 'default': true, label: 'lumen_kp_hint_name', descr: 'lumen_kp_hint_descr' },
-
-{ name: 'lumen_group_path', type: 'title', label: 'lumen_card_group_path' },
-{ name: 'lumen_menus', type: 'select', values: ['all', 'path', 'off'], vprefix: 'lumen_card_menus_', 'default': 'all', label: 'lumen_card_menus' },
-{ name: 'lumen_torrents', type: 'trigger', 'default': true, label: 'lumen_card_torrents_name', descr: 'lumen_card_torrents_descr' },
 
 
 
@@ -20260,21 +20357,28 @@ var LIST = [
 
 
 { name: 'lumen_home_rows', type: 'button', label: 'lumen_home_rows_name', descr: 'lumen_home_rows_descr' },
-{ name: 'lumen_rows_limit', type: 'select', values: ['10', '15', '25'], vsuffix: 'lumen_rows_limit_suffix', 'default': '15', label: 'lumen_rows_limit_name' },
+{ name: 'lumen_rows_limit', type: 'select', values: ['10', '15', '25'], vsuffix: 'lumen_rows_limit_suffix', 'default': '15', label: 'lumen_rows_limit_name', descr: 'lumen_rows_limit_descr' },
 
 
 
 { name: 'lumen_badges', type: 'trigger', 'default': true, label: 'lumen_badges_name', descr: 'lumen_badges_descr' },
+{ name: 'lumen_hide_watched', type: 'trigger', 'default': false, label: 'lumen_hide_watched_name', descr: 'lumen_hide_watched_descr' },
+
+
+
+{ name: 'lumen_manifest_url', type: 'input', 'default': '', label: 'lumen_manifest_url', descr: 'lumen_manifest_url_descr', placeholder: 'lumen_pref_default_catalog' },
 
 
 
 
+
+
+
+
+
+
+{ name: 'lumen_group_nav', type: 'title', label: 'lumen_group_nav' },
 { name: 'lumen_context_menu', type: 'trigger', 'default': true, label: 'lumen_context_menu_name', descr: 'lumen_context_menu_descr' },
-
-
-
-
-
 { name: 'lumen_minimap', type: 'trigger', 'default': true, label: 'lumen_minimap_name', descr: 'lumen_minimap_descr' },
 { name: 'lumen_fastscroll', type: 'trigger', 'default': true, label: 'lumen_fastscroll_name', descr: 'lumen_fastscroll_descr' },
 
@@ -20282,11 +20386,31 @@ var LIST = [
 
 
 
+
+
+{ name: 'lumen_group_roulette', type: 'title', label: 'lumen_group_roulette' },
 { name: 'lumen_roulette_unseen', type: 'trigger', 'default': true, label: 'lumen_roulette_unseen_name', descr: 'lumen_roulette_unseen_descr' },
-{ name: 'lumen_hide_watched', type: 'trigger', 'default': false, label: 'lumen_hide_watched_name', descr: 'lumen_hide_watched_descr' },
 
 
-{ name: 'lumen_manifest_url', type: 'input', 'default': '', label: 'lumen_manifest_url', descr: 'lumen_manifest_url_descr' }
+
+
+
+
+
+
+
+
+{ name: 'lumen_group_ambient', type: 'title', label: 'lumen_group_ambient' },
+{ name: 'lumen_ambient', type: 'trigger', 'default': true, label: 'lumen_ambient_name', descr: 'lumen_ambient_descr' },
+{ name: 'lumen_ambient_source', type: 'select', values: ['curated', 'current'], vprefix: 'lumen_ambient_source_', 'default': 'curated', label: 'lumen_ambient_source_name', descr: 'lumen_ambient_source_descr' },
+{ name: 'lumen_ambient_delay', type: 'select', values: ['3', '5', '10'], vsuffix: 'lumen_ambient_minutes', 'default': '3', label: 'lumen_ambient_delay_name', descr: 'lumen_ambient_delay_descr' },
+
+
+
+
+{ name: 'lumen_group_path', type: 'title', label: 'lumen_card_group_path' },
+{ name: 'lumen_menus', type: 'select', values: ['all', 'path', 'off'], vprefix: 'lumen_card_menus_', 'default': 'all', label: 'lumen_card_menus', descr: 'lumen_card_menus_descr' },
+{ name: 'lumen_torrents', type: 'trigger', 'default': true, label: 'lumen_card_torrents_name', descr: 'lumen_card_torrents_descr' }
 ];
 
 function find(name) {
@@ -21751,6 +21875,18 @@ if (e.component === 'main' && startRender && startRender.length) LC.badges.mount
 }
 } catch (eBadgesStart) {
 warn('badges start failed', eBadgesStart);
+}
+
+
+
+
+
+
+
+try {
+if (LC.nav && LC.nav.detach) LC.nav.detach();
+} catch (eNavStart) {
+warn('nav detach failed', eNavStart);
 }
 
 

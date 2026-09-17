@@ -32,12 +32,26 @@
       en: 'Turn off to get the stock Lampa card back. An open card is redrawn the next time you open it.',
       uk: 'Вимкніть — повернеться штатна картка Lampa. Відкрита картка перемалюється при наступному відкритті.'
     },
-    /* Заголовки групп раздела (штатный параметр Lampa type:'title'). */
+    /* Заголовки групп раздела (штатный параметр Lampa type:'title').
+       Task 30 (финал фазы 3): к пяти прежним группам добавлены три —
+       движение, навигация и рулетка; раскладка целиком — в LC.prefs.LIST
+       (src/81_prefs.js). */
     lumen_card_group_look: { ru: 'Оформление', en: 'Appearance', uk: 'Оформлення' },
+    lumen_group_motion: { ru: 'Движение и эффекты', en: 'Motion and effects', uk: 'Рух і ефекти' },
     lumen_card_group_backdrop: { ru: 'Фон карточки', en: 'Card background', uk: 'Фон картки' },
     lumen_card_group_blocks: { ru: 'Блоки карточки', en: 'Card blocks', uk: 'Блоки картки' },
+    lumen_group_nav: { ru: 'Навигация и пульт', en: 'Navigation and remote', uk: 'Навігація та пульт' },
+    lumen_group_roulette: { ru: 'Рулетка «Что посмотреть»', en: 'The "What to watch" roulette', uk: 'Рулетка «Що подивитися»' },
     lumen_card_group_path: { ru: 'Меню и экраны плеера', en: 'Menus and player screens', uk: 'Меню та екрани плеєра' },
     lumen_card_accent: { ru: 'Акцентный цвет', en: 'Accent color', uk: 'Акцентний колір' },
+    /* Task 30: описание было единственным, чего не хватало самому первому
+       пункту группы. Цвет виден сразу, но не очевидно, ГДЕ именно он
+       появляется и что настройка действует на лету. */
+    lumen_card_accent_descr: {
+      ru: 'Цвет кнопок, колец фокуса, полос прогресса и подсветок на экранах плагина. Применяется сразу.',
+      en: 'The colour of buttons, focus rings, progress bars and highlights on the plugin screens. Applied immediately.',
+      uk: 'Колір кнопок, кілець фокуса, смуг прогресу та підсвічувань на екранах плагіна. Застосовується одразу.'
+    },
     lumen_card_accent_sand: { ru: 'Песок', en: 'Sand', uk: 'Пісок' },
     lumen_card_accent_ice: { ru: 'Лёд', en: 'Ice', uk: 'Лід' },
     lumen_card_accent_wine: { ru: 'Вино', en: 'Wine', uk: 'Вино' },
@@ -92,6 +106,11 @@
     lumen_ambient_source_curated: { ru: 'Известные фильмы', en: 'Famous films', uk: 'Відомі фільми' },
     lumen_ambient_source_current: { ru: 'Кадры открытого фильма', en: 'Stills of the open film', uk: 'Кадри відкритого фільму' },
     lumen_ambient_delay_name: { ru: 'Через сколько включать', en: 'Idle time before start', uk: 'Через скільки вмикати' },
+    lumen_ambient_delay_descr: {
+      ru: 'Сколько пульт должен молчать, прежде чем включится заставка. Отсчёт начинается заново от любого нажатия. Применяется сразу.',
+      en: 'How long the remote has to stay silent before the screensaver starts. Any key press restarts the countdown. Applied immediately.',
+      uk: 'Скільки пульт має мовчати, перш ніж увімкнеться заставка. Відлік починається знову від будь-якого натискання. Застосовується одразу.'
+    },
     /* Суффикс значений select lumen_ambient_delay: «3 мин». */
     lumen_ambient_minutes: { ru: 'мин', en: 'min', uk: 'хв' },
     /* Task 23 (фаза 3): рулетка «Что посмотреть» — пункт левого меню Lampa,
@@ -173,6 +192,14 @@
       uk: 'Шрифти з Google Fonts. Потрібен інтернет.'
     },
     lumen_card_progress_name: { ru: 'Показывать «Продолжить»', en: 'Show "Continue"', uk: 'Показувати «Продовжити»' },
+    /* Task 30: одним переключателем гасятся три места сразу (строка прогресса
+       в карточке, подпись кнопки «Смотреть» и надписи в карточках серий) —
+       это и сказано, иначе выключатель выглядит уже, чем он есть. */
+    lumen_card_progress_descr: {
+      ru: 'Полоса с таймкодом и процентом в карточке того, что вы не досмотрели, подпись «Продолжить S2 E3» на кнопке «Смотреть» и отметки просмотра в карточках серий. Применяется сразу.',
+      en: 'The bar with the timecode and percentage on a card you have not finished, the "Continue S2 E3" label on the Watch button and the watched marks on episode cards. Applied immediately.',
+      uk: 'Смуга з таймкодом і відсотком у картці того, що ви не додивилися, підпис «Продовжити S2 E3» на кнопці «Дивитися» та позначки перегляду в картках серій. Застосовується одразу.'
+    },
     /* Правка пользователя 2026-09-16 (п.6): выбор гарнитуры. Имена шрифтов —
        собственные, во всех трёх языках пишутся одинаково, но идут через
        LC.STRINGS, как все строки интерфейса. */
@@ -242,9 +269,28 @@
       uk: 'січ,лют,бер,кві,тра,чер,лип,сер,вер,жов,лис,гру'
     },
     lumen_card_slideshow_name: { ru: 'Слайдшоу кадров', en: 'Backdrop slideshow', uk: 'Слайдшоу кадрів' },
+    /* Task 30: описания фона карточки. Оба пункта до финала фазы 3 стояли без
+       подсказок — название говорит, что это, но не что будет, если выключить. */
+    lumen_card_slideshow_descr: {
+      ru: 'Кадры из фильма за текстом карточки сменяют друг друга. Выключите — останется один, первый кадр. Слайдшоу встаёт на паузу под трейлером и на карточке, оставленной позади. Применяется сразу.',
+      en: 'The film stills behind the card text replace one another. Turn it off and only the first still stays. The slideshow pauses under a trailer and on a card left behind. Applied immediately.',
+      uk: 'Кадри з фільму за текстом картки змінюють один одного. Вимкніть — залишиться один, перший кадр. Слайдшоу стає на паузу під трейлером і на картці, залишеній позаду. Застосовується одразу.'
+    },
     lumen_card_slide_interval: { ru: 'Интервал смены кадров', en: 'Frame interval', uk: 'Інтервал зміни кадрів' },
+    lumen_card_slide_interval_descr: {
+      ru: 'Сколько секунд держится на экране один кадр фона карточки. Действует только при включённом слайдшоу. Применяется сразу.',
+      en: 'How many seconds a single card background still stays on screen. Works only with the slideshow on. Applied immediately.',
+      uk: 'Скільки секунд тримається на екрані один кадр тла картки. Діє лише з увімкненим слайдшоу. Застосовується одразу.'
+    },
     lumen_card_seconds: { ru: 'с', en: 's', uk: 'с' },
     lumen_card_menus: { ru: 'Оформление меню и окон', en: 'Menus and dialogs style', uk: 'Оформлення меню і вікон' },
+    /* Task 30: что именно попадает под каждое из трёх значений. Разметку и
+       тексты самих окон плагин не трогает — только стиль (src/64_menus.js). */
+    lumen_card_menus_descr: {
+      ru: '«Только путь до плеера» — окна выбора озвучки, качества, серии и раздачи. «Все меню и окна» — ещё и прочие списки и диалоги Lampa. Меняется только вид: пункты, порядок и поведение окон остаются штатными. Применяется сразу.',
+      en: '"Player path only" covers the dialogs for voice-over, quality, episode and torrent choice. "All menus and dialogs" adds the rest of Lampa lists and dialogs. Only the look changes: items, order and behaviour stay stock. Applied immediately.',
+      uk: '«Лише шлях до плеєра» — вікна вибору озвучення, якості, серії та роздачі. «Усі меню і вікна» — ще й інші списки та діалоги Lampa. Змінюється лише вигляд: пункти, порядок і поведінка вікон лишаються штатними. Застосовується одразу.'
+    },
     lumen_card_menus_all: { ru: 'Все меню и окна', en: 'All menus and dialogs', uk: 'Усі меню і вікна' },
     lumen_card_menus_path: { ru: 'Только путь до плеера', en: 'Player path only', uk: 'Лише шлях до плеєра' },
     lumen_card_menus_off: { ru: 'Выкл', en: 'Off', uk: 'Викл' },
@@ -280,6 +326,12 @@
       uk: 'Ряд відгуків глядачів у блоці опису. Потрібен ключ API — рядок нижче.'
     },
     lumen_card_kp_key: { ru: 'Ключ Kinopoisk API', en: 'Kinopoisk API key', uk: 'Ключ Kinopoisk API' },
+    /* Плейсхолдеры текстовых полей: пустое поле Lampa показывает именно их
+       (см. addPrefParam ниже). «Не задан» — про ключ, «Каталог плагина» — про
+       адрес каталога: пустая строка там означает адрес по умолчанию, и так это
+       и читается в разделе. */
+    lumen_pref_unset: { ru: 'Не задан', en: 'Not set', uk: 'Не задано' },
+    lumen_pref_default_catalog: { ru: 'Каталог плагина', en: 'Plugin catalog', uk: 'Каталог плагіна' },
     /* Экран 09: «нужен для отзывов и рейтинга КП» — с ключом плагин заполняет
        ещё и чип рейтинга Кинопоиска, если Lampa его не дала (Task 10). */
     lumen_card_kp_key_descr: {
@@ -409,6 +461,13 @@
       ru: 'Количество рядов',
       en: 'Number of rows',
       uk: 'Кількість рядів'
+    },
+    /* Task 30: цена каждого ряда — отдельный запрос к TMDB при построении
+       главной, и на слабом телевизоре это заметно (src/44_rows.js). */
+    lumen_rows_limit_descr: {
+      ru: 'Сколько рядов подборок строится на главной. Каждый ряд — отдельный запрос к каталогу, поэтому на слабом телевизоре меньшее число заметно ускоряет появление главной. Персональные ряды в это число не входят.',
+      en: 'How many collection rows the home screen builds. Each row is a separate catalog request, so on a weak TV a smaller number noticeably speeds the home screen up. Personal rows are not counted here.',
+      uk: 'Скільки рядів підбірок будується на головній. Кожен ряд — окремий запит до каталогу, тому на слабкому телевізорі менше число помітно пришвидшує появу головної. Персональні ряди в це число не входять.'
     },
     /* Суффикс для значений select lumen_rows_limit: '10 рядов', '15 рядов', '25 рядов'. */
     lumen_rows_limit_suffix: {
@@ -976,7 +1035,15 @@
     }
     param['default'] = entry['default'];
     if (entry.type === 'select') param.values = valuesOf(entry);
-    if (entry.type === 'input') param.values = '';
+    if (entry.type === 'input') {
+      param.values = '';
+      /* Живая находка финала фазы 3: пустое текстовое поле Lampa показывает
+         не пустоту, а ПЛЕЙСХОЛДЕР (update$3, app.min.js: `if (!val && plr)
+         val = plr;`), и берёт его из param.placeholder, вставляя в разметку
+         как есть. Без этого поля в разделе стояло слово «undefined» —
+         буквально оно, видимое пользователю. */
+      param.placeholder = LC.lang(entry.placeholder);
+    }
     Lampa.SettingsApi.addParam({ component: PLUGIN, param: param, field: field, onChange: onChangeFor(entry.name) });
   }
 
