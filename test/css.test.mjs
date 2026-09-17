@@ -1590,11 +1590,69 @@ test('фаза 3: у совсем низкого окна ряды занима�
      под шапкой, ряды опущены на её высоту. */
   assert.ok(line.indexOf('.lumen-moods-on.lumen-main .lumen-moods{top:.53em;bottom:auto}') !== -1, 'чипы остались привязаны к исчезнувшему кадру: ' + line);
   assert.ok(line.indexOf('.lumen-moods-on.lumen-main .scroll.layer--wheight') !== -1, 'ряды не опущены под полосу чипов: ' + line);
+  /* И на листании чипы остаются: прятать их вместе с несуществующим кадром
+     незачем — место, которое они освобождали, здесь уже у рядов. */
+  assert.ok(line.indexOf('.lumen-moods-on.lumen-main.lumen-rows-up .lumen-moods{display:') !== -1, 'без кадра чипы пропадают при листании: ' + line);
 
   /* Порог описания — отдельный и более мягкий: кадру хватает высоты на
      минимум, но не на две строки описания. */
   const descr = css.split('\n').find((l) => l.indexOf('@media screen and (min-aspect-ratio:') === 0 && l.indexOf('lumen-hero__descr') !== -1);
   assert.ok(descr.indexOf('min-aspect-ratio:197/100') !== -1, 'порог описания: ' + descr);
+});
+
+/* Регресс, найденный пользователем на выложенной сборке: в обычном окне
+   1168×800 кадра не было вовсе — вместо него полоса чипов под шапкой и сразу
+   ряд. Решение «рисовать кадр или нет» ничем не было покрыто, хотя уже дважды
+   давало неожиданное поведение (сначала огрызок с наложением, потом пропажа
+   кадра). Тест закрывает само решение: для каждого размера кадра и каждого
+   масштаба интерфейса проверяем, что даёт порог на типовых и на экстремальных
+   окнах. */
+test('решение «рисовать кадр»: в обычных окнах кадр есть всегда, ветка «без кадра» — только для приплюснутых', () => {
+  const ratioOf = (built) => {
+    const line = heroOffMedia(built);
+    return parseInt(/min-aspect-ratio:(\d+)\/100/.exec(line)[1], 10) / 100;
+  };
+  /* Окна, в которых кадр обязан быть: телевизор, ноутбук и окно браузера
+     пользователя (1168×800 = 1.46:1). */
+  const normal = [[1920, 1080], [1280, 720], [1168, 800], [1440, 900], [1600, 900]];
+  /* Окна, в которых кадра быть не должно: высоты не хватает даже на минимум. */
+  const flat = [[1150, 230], [1280, 400], [1280, 480]];
+  for (const size of ['large', 'medium', 'compact', null]) {
+    for (const scale of ['small', 'normal', 'large', 'huge']) {
+      const store = { lumen_scale: scale };
+      if (size) store.lumen_hero_size = size;
+      const threshold = ratioOf(withStorage(store, (LC) => LC.buildCss()));
+      const label = (size || 'по умолчанию') + '/' + scale;
+      /* Пол порога: ниже 2.2:1 он не опускается — em Lampa считается от
+         ШИРИНЫ, и у мелкого кадра вычисленный бюджет давал 1.79, то есть
+         кадр исчезал бы в обычном окне. */
+      assert.ok(threshold >= 2.2, label + ': порог «кадра нет» опустился до ' + threshold + ':1');
+      for (const [w, h] of normal) {
+        assert.ok(w / h < threshold, label + ': кадр пропал в окне ' + w + '×' + h);
+      }
+      for (const [w, h] of flat) {
+        assert.ok(w / h >= threshold, label + ': приплюснутое окно ' + w + '×' + h + ' всё ещё рисует кадр');
+      }
+    }
+  }
+});
+
+/* Второй порог — мягкая деградация: описание уходит раньше, чем кадр, и
+   только там, где на него не хватает высоты. */
+test('решение «показывать описание»: порог мягче порога кадра и срабатывает по бюджету', () => {
+  const descrRatio = (built) => {
+    const line = built.split('\n').find((l) => l.indexOf('@media screen and (min-aspect-ratio:') === 0 && l.indexOf('lumen-hero__descr') !== -1);
+    return parseInt(/min-aspect-ratio:(\d+)\/100/.exec(line)[1], 10) / 100;
+  };
+  const heroRatio = (built) => parseInt(/min-aspect-ratio:(\d+)\/100/.exec(heroOffMedia(built))[1], 10) / 100;
+  for (const size of ['large', 'medium', 'compact']) {
+    const built = withStorage({ lumen_hero_size: size }, (LC) => LC.buildCss());
+    assert.ok(descrRatio(built) <= heroRatio(built), size + ': описание обязано уходить не позже кадра');
+  }
+  /* Крупный кадр на 1920×1080 (1.78:1) описание показывает, мелкий — нет:
+     у него на две строки высоты уже не остаётся. */
+  assert.ok(1920 / 1080 < descrRatio(withStorage({ lumen_hero_size: 'large' }, (LC) => LC.buildCss())), 'крупный кадр на FHD обязан показывать описание');
+  assert.ok(1920 / 1080 >= descrRatio(withStorage({ lumen_hero_size: 'compact' }, (LC) => LC.buildCss())), 'в компактном кадре описанию места нет');
 });
 
 test('Task 18: кроссфейд кадра 600 мс только в полном режиме анимаций', () => {

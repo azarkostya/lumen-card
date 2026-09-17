@@ -609,6 +609,10 @@ var TEXT_ZOOM_COMPACT = 1.04;
 
 
 
+var HERO_MIN_RATIO = 220;
+
+
+
 
 function heroCompactCutEm(scale) {
 return round2(heroCutEm(scale) * HERO_COMPACT);
@@ -1944,10 +1948,22 @@ var descrMinRatio = Math.round(84.17 / (heroCut + HERO_AIR + textNeedEm(true)) *
 css.push('@media screen and (min-aspect-ratio:' + descrMinRatio + '/100){' +
 '.lumen-hero .lumen-hero__descr,.lumen-hero .lumen-hero__sk--descr,.lumen-hero .lumen-hero__sk--short{display:none}}');
 
-var heroMinRatio = Math.round(84.17 / (heroCut + HERO_AIR + textNeedEm(false)) * 100);
+
+
+
+
+
+
+
+
+var heroMinRatio = Math.max(HERO_MIN_RATIO, Math.round(84.17 / (heroCut + HERO_AIR + textNeedEm(false)) * 100));
 css.push('@media screen and (min-aspect-ratio:' + heroMinRatio + '/100){' +
 '.lumen-main .scroll.layer--wheight,.lumen-main.lumen-rows-up .scroll.layer--wheight{margin-top:0;height:-webkit-calc(100vh - 4em) !important;height:calc(100vh - 4em) !important;overflow:hidden}' +
 '.lumen-moods-on.lumen-main .lumen-moods{top:.53em;bottom:auto}' +
+
+
+
+'.lumen-moods-on.lumen-main.lumen-rows-up .lumen-moods{display:-webkit-box;display:-webkit-flex;display:flex}' +
 '.lumen-moods-on.lumen-main .scroll.layer--wheight,.lumen-moods-on.lumen-main.lumen-rows-up .scroll.layer--wheight{margin-top:' + MOODS_BAR + 'em;height:-webkit-calc(100vh - ' + round2(LAMPA_HEAD + MOODS_BAR) + 'em) !important;height:calc(100vh - ' + round2(LAMPA_HEAD + MOODS_BAR) + 'em) !important}' +
 '.lumen-hero{display:none}}');
 

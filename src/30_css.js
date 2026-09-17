@@ -288,6 +288,10 @@
   var TEXT_RATE = 2.62;
   var TEXT_ZOOM = 1.1;
   var TEXT_ZOOM_COMPACT = 1.04;
+  /* Ниже этого отношения сторон кадр показывается при любом размере: 2.2:1 —
+     заведомо за пределами обычного окна и телевизора (16:9 = 1.78, 16:10 =
+     1.6, 21:9 = 2.33 уже считается приплюснутым для нашей раскладки). */
+  var HERO_MIN_RATIO = 220;
 
   /* Сколько высоты забирают ряды у СЖАТОГО героя и какой при этом становится
      область прокрутки. Из этих двух величин ряды и поднимаются: область
@@ -1626,10 +1630,22 @@
     css.push('@media screen and (min-aspect-ratio:' + descrMinRatio + '/100){' +
       '.lumen-hero .lumen-hero__descr,.lumen-hero .lumen-hero__sk--descr,.lumen-hero .lumen-hero__sk--short{display:none}}');
 
-    var heroMinRatio = Math.round(84.17 / (heroCut + HERO_AIR + textNeedEm(false)) * 100);
+    /* Пол порога. Бюджет содержимого считается в em, а em Lampa — это доля
+       ШИРИНЫ: у мелкого кадра (средний, компактный) вычисленный порог падал
+       до 1.93 и 1.79, то есть кадр исчезал бы в обычном окне (1920×950,
+       21:9-мониторы). Ниже 2.2:1 порог не опускается: в таком окне высоты на
+       содержимое хватает всегда, а если чего-то не хватит, текст ограничен
+       безопасной зоной сверху и срежет лишнее сам — это мягче, чем пропажа
+       кадра. Ветка «кадра нет» остаётся тем, чем задумана: экстремально
+       приплюснутое окно и явный выбор «Герой: выключен» в настройках. */
+    var heroMinRatio = Math.max(HERO_MIN_RATIO, Math.round(84.17 / (heroCut + HERO_AIR + textNeedEm(false)) * 100));
     css.push('@media screen and (min-aspect-ratio:' + heroMinRatio + '/100){' +
       '.lumen-main .scroll.layer--wheight,.lumen-main.lumen-rows-up .scroll.layer--wheight{margin-top:0;height:-webkit-calc(100vh - 4em) !important;height:calc(100vh - 4em) !important;overflow:hidden}' +
       '.lumen-moods-on.lumen-main .lumen-moods{top:.53em;bottom:auto}' +
+      /* Кадра нет — прятать чипы на листании незачем: их полоса стоит под
+         шапкой и рядам не мешает, а место, которое они освобождали, здесь
+         уже отдано рядам самим отсутствием кадра. */
+      '.lumen-moods-on.lumen-main.lumen-rows-up .lumen-moods{display:-webkit-box;display:-webkit-flex;display:flex}' +
       '.lumen-moods-on.lumen-main .scroll.layer--wheight,.lumen-moods-on.lumen-main.lumen-rows-up .scroll.layer--wheight{margin-top:' + MOODS_BAR + 'em;height:-webkit-calc(100vh - ' + round2(LAMPA_HEAD + MOODS_BAR) + 'em) !important;height:calc(100vh - ' + round2(LAMPA_HEAD + MOODS_BAR) + 'em) !important}' +
       '.lumen-hero{display:none}}');
 
