@@ -436,7 +436,19 @@
       '&display=swap';
   };
 
+  /* Task 24 (фаза 3): пока открыта карточка с включённой настройкой
+     «Акцент от постера», её цвет переопределяет выбранный в настройках.
+     LC.accent.current() отдаёт четвёрку той же формы, что записи ACCENTS
+     (src/57_color.js), и null, когда переопределения нет, — поэтому ни одно
+     правило ниже не знает, откуда взялся акцент. */
   function theme() {
+    var auto = null;
+    try {
+      if (LC.accent && typeof LC.accent.current === 'function') auto = LC.accent.current();
+    } catch (e) {
+      warn('accent override failed', e);
+    }
+    if (auto) return auto;
     var key = LC.pref(PLUGIN + '_accent', 'sand');
     return ACCENTS[key] || ACCENTS.sand;
   }

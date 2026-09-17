@@ -90,6 +90,8 @@ function setup(opts) {
   LC.applyBadgesPref = mark('badges');
   /* Правка пользователя 2026-09-17 (п.2): размер кадра над рядами. */
   LC.applyHeroSizePref = mark('herosize');
+  /* Task 24 (фаза 3): акцент от постера — пересобирает CSS сам. */
+  LC.applyAccentPref = mark('accent');
 
   return { LC, log, storage, params, components, subscribers, Storage, prependSubscriber: (cb) => subscribers.unshift(cb) };
 }
@@ -238,7 +240,11 @@ test('каждая настройка применяется ровно один
        стилей — одной пересборки CSS достаточно, экран пересобирать не нужно. */
     lumen_theme: ['css'],
     lumen_solid: ['css'],
-    lumen_scale: ['css']
+    lumen_scale: ['css'],
+    /* Task 24 (фаза 3): акцент от постера — своя точка применения: при
+       выключении возвращает цвет настроек, при включении считает по фильму
+       открытой карточки (пересборку CSS делает она сама). */
+    lumen_accent_auto: ['accent']
   };
   const { LC, log, Storage, params } = setup();
   LC.addSettings();

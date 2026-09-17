@@ -113,7 +113,9 @@ test('LIST: полный набор ключей — существующие и
     /* Task 25 (фаза 3): метки на постерах рядов */
     'lumen_badges',
     /* Правка пользователя 2026-09-17 (п.2): размер кадра над рядами */
-    'lumen_hero_size'
+    'lumen_hero_size',
+    /* Task 24 (фаза 3): акцент от постера открытого фильма */
+    'lumen_accent_auto'
   ].sort());
 });
 
@@ -122,8 +124,11 @@ test('LIST: полный набор ключей — существующие и
 test('фаза 3: тема, плотность подложек и масштаб — сразу за акцентом, до шрифтов', () => {
   const at = names.indexOf('lumen_card_accent');
   assert.ok(at > 0, 'пункта акцента нет в списке');
-  assert.deepEqual(names.slice(at + 1, at + 4), ['lumen_theme', 'lumen_solid', 'lumen_scale']);
-  assert.equal(names[at + 4], 'lumen_card_fonts', 'выключатель шрифтов остаётся следующим');
+  /* Task 24 (фаза 3): «Акцент от постера» вклинивается сразу за выбором
+     акцента — это тот же выбор, только его делает фильм. */
+  assert.equal(names[at + 1], 'lumen_accent_auto');
+  assert.deepEqual(names.slice(at + 2, at + 5), ['lumen_theme', 'lumen_solid', 'lumen_scale']);
+  assert.equal(names[at + 5], 'lumen_card_fonts', 'выключатель шрифтов остаётся следующим');
 });
 
 test('фаза 3: значения по умолчанию сохраняют прежний вид', () => {

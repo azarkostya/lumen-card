@@ -754,7 +754,19 @@ return 'https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800' +
 '&display=swap';
 };
 
+
+
+
+
+
 function theme() {
+var auto = null;
+try {
+if (LC.accent && typeof LC.accent.current === 'function') auto = LC.accent.current();
+} catch (e) {
+warn('accent override failed', e);
+}
+if (auto) return auto;
 var key = LC.pref(PLUGIN + '_accent', 'sand');
 return ACCENTS[key] || ACCENTS.sand;
 }
@@ -9347,6 +9359,512 @@ bind: bind
 if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.trailer;
 
 
+/* ---- 57_color.js ---- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+LC.color = (function () {
+
+
+
+
+var MIN_RATIO = 4.5;
+
+
+
+
+
+
+var GOOD_RATIO = 7;
+
+
+
+
+
+
+
+var S_MIN = 0.45;
+var S_MAX = 0.85;
+var L_MIN = 0.55;
+var L_MAX = 0.72;
+var L_LIMIT = 0.92;
+var L_STEP = 0.03;
+
+
+
+
+var SAMPLE = 16;
+
+
+
+
+
+
+var CACHE_LIMIT = 50;
+var cache = {};
+var cache_keys = [];
+var pending_count = 0;
+
+function clamp(v, lo, hi) {
+if (v < lo) return lo;
+if (v > hi) return hi;
+return v;
+}
+
+function normHue(h) {
+h = Number(h) || 0;
+h = h % 360;
+return h < 0 ? h + 360 : h;
+}
+
+function parseHex(hex) {
+var s = ('' + hex).replace('#', '');
+return {
+r: parseInt(s.substring(0, 2), 16),
+g: parseInt(s.substring(2, 4), 16),
+b: parseInt(s.substring(4, 6), 16)
+};
+}
+
+function byte(v) {
+v = Math.round(v);
+if (v < 0) v = 0;
+if (v > 255) v = 255;
+var s = v.toString(16).toUpperCase();
+return s.length < 2 ? '0' + s : s;
+}
+
+function hex(rgb) {
+return '#' + byte(rgb.r) + byte(rgb.g) + byte(rgb.b);
+}
+
+
+
+function toRgb(c) {
+if (!c) return { r: 0, g: 0, b: 0 };
+if (typeof c === 'string') return parseHex(c);
+return c;
+}
+
+function rgbToHsl(rgb) {
+var r = rgb.r / 255, g = rgb.g / 255, b = rgb.b / 255;
+var max = Math.max(r, g, b), min = Math.min(r, g, b);
+var d = max - min;
+var l = (max + min) / 2;
+var h = 0, s = 0;
+if (d) {
+s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+if (max === r) h = (g - b) / d + (g < b ? 6 : 0);
+else if (max === g) h = (b - r) / d + 2;
+else h = (r - g) / d + 4;
+h *= 60;
+}
+return { h: h, s: s, l: l };
+}
+
+function hue2rgb(p, q, t) {
+if (t < 0) t += 1;
+if (t > 1) t -= 1;
+if (t < 1 / 6) return p + (q - p) * 6 * t;
+if (t < 1 / 2) return q;
+if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+return p;
+}
+
+function hslToRgb(hsl) {
+var h = normHue(hsl.h) / 360;
+var s = clamp(Number(hsl.s) || 0, 0, 1);
+var l = clamp(Number(hsl.l) || 0, 0, 1);
+var r, g, b;
+if (!s) {
+r = g = b = l;
+} else {
+var q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+var p = 2 * l - q;
+r = hue2rgb(p, q, h + 1 / 3);
+g = hue2rgb(p, q, h);
+b = hue2rgb(p, q, h - 1 / 3);
+}
+return { r: Math.round(r * 255), g: Math.round(g * 255), b: Math.round(b * 255) };
+}
+
+
+
+
+function chan(v) {
+v = v / 255;
+return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+}
+
+function luminance(c) {
+var rgb = toRgb(c);
+return 0.2126 * chan(rgb.r) + 0.7152 * chan(rgb.g) + 0.0722 * chan(rgb.b);
+}
+
+function contrast(a, b) {
+var l1 = luminance(a);
+var l2 = luminance(b);
+var hi = Math.max(l1, l2);
+var lo = Math.min(l1, l2);
+return (hi + 0.05) / (lo + 0.05);
+}
+
+
+
+
+function usable(r, g, b, a) {
+if (a < 128) return false;
+var max = Math.max(r, g, b);
+var min = Math.min(r, g, b);
+if (max < 45) return false;
+if (min > 225) return false;
+return max - min >= 26;
+}
+
+
+
+
+
+
+
+function dominant(pixels) {
+if (!pixels || !pixels.length) return null;
+var bins = [];
+var i;
+for (i = 0; i < 12; i++) bins.push({ w: 0, r: 0, g: 0, b: 0, n: 0 });
+for (i = 0; i + 3 < pixels.length; i += 4) {
+var r = pixels[i], g = pixels[i + 1], b = pixels[i + 2], a = pixels[i + 3];
+if (!usable(r, g, b, a)) continue;
+var hsl = rgbToHsl({ r: r, g: g, b: b });
+var bin = bins[Math.floor(normHue(hsl.h) / 30) % 12];
+bin.w += hsl.s;
+bin.r += r;
+bin.g += g;
+bin.b += b;
+bin.n++;
+}
+var best = null;
+for (i = 0; i < bins.length; i++) {
+if (bins[i].n && (!best || bins[i].w > best.w)) best = bins[i];
+}
+if (!best) return null;
+return {
+r: Math.round(best.r / best.n),
+g: Math.round(best.g / best.n),
+b: Math.round(best.b / best.n)
+};
+}
+
+
+
+
+
+function onAccent(hsl) {
+return { h: normHue(hsl.h), s: clamp(hsl.s * 0.5, 0.12, 0.6), l: 0.07 };
+}
+
+
+
+function ringOf(hsl) {
+return { h: normHue(hsl.h), s: clamp(hsl.s * 0.85, 0.3, 0.9), l: 0.93 };
+}
+
+function glow(rgb) {
+return 'rgba(' + Math.round(rgb.r) + ',' + Math.round(rgb.g) + ',' + Math.round(rgb.b) + ',0.35)';
+}
+
+
+
+
+
+
+function adjust(hsl, bg) {
+var h = normHue(hsl.h);
+var s = clamp(hsl.s, S_MIN, S_MAX);
+var start = clamp(hsl.l, L_MIN, L_MAX);
+var bgRgb = toRgb(bg);
+
+
+
+function search(ratio) {
+var l = start;
+while (l <= L_LIMIT + 0.0001) {
+var cand = { h: h, s: s, l: l };
+var rgb = hslToRgb(cand);
+if (contrast(rgb, bgRgb) >= ratio &&
+contrast(hslToRgb(onAccent(cand)), rgb) >= ratio) return cand;
+l += L_STEP;
+}
+return null;
+}
+
+return search(GOOD_RATIO) || search(MIN_RATIO);
+}
+
+
+
+function tokens(rgb, bg) {
+if (!rgb) return null;
+var hsl = adjust(rgbToHsl(rgb), bg);
+if (!hsl) return null;
+var accent = hslToRgb(hsl);
+return {
+color: hex(accent),
+light: hex(hslToRgb(ringOf(hsl))),
+glow: glow(accent),
+onac: hex(hslToRgb(onAccent(hsl)))
+};
+}
+
+function cachePut(url, rgb) {
+if (!Object.prototype.hasOwnProperty.call(cache, url)) {
+cache_keys.push(url);
+while (cache_keys.length > CACHE_LIMIT) {
+var old = cache_keys.shift();
+delete cache[old];
+}
+}
+cache[url] = { rgb: rgb || null };
+}
+
+
+
+
+
+function read(img, doc) {
+if (!img.naturalWidth || !img.naturalHeight) return null;
+try {
+var canvas = doc.createElement('canvas');
+canvas.width = SAMPLE;
+canvas.height = SAMPLE;
+
+
+
+
+var ctx = canvas.getContext('2d', { willReadFrequently: true });
+if (!ctx) return null;
+ctx.drawImage(img, 0, 0, SAMPLE, SAMPLE);
+return dominant(ctx.getImageData(0, 0, SAMPLE, SAMPLE).data);
+} catch (e) {
+return null;
+}
+}
+
+
+
+
+
+
+function fromImage(url, cb) {
+if (!url) { cb(null); return null; }
+if (Object.prototype.hasOwnProperty.call(cache, url)) { cb(cache[url].rgb); return null; }
+var doc = typeof document !== 'undefined' ? document : null;
+if (!doc || typeof Image === 'undefined') { cb(null); return null; }
+
+var img = new Image();
+var live = true;
+pending_count++;
+
+function release() {
+live = false;
+pending_count--;
+img.onload = null;
+img.onerror = null;
+}
+
+function done(rgb) {
+if (!live) return;
+release();
+cachePut(url, rgb);
+cb(rgb);
+}
+
+img.onload = function () { done(read(img, doc)); };
+img.onerror = function () { done(null); };
+
+
+img.crossOrigin = 'anonymous';
+img.src = url;
+
+return {
+cancel: function () {
+if (!live) return;
+release();
+}
+};
+}
+
+return {
+MIN_RATIO: MIN_RATIO,
+rgbToHsl: rgbToHsl,
+hslToRgb: hslToRgb,
+hex: hex,
+parseHex: parseHex,
+luminance: luminance,
+contrast: contrast,
+dominant: dominant,
+adjust: adjust,
+onAccent: onAccent,
+ring: ringOf,
+glow: glow,
+tokens: tokens,
+fromImage: fromImage,
+cacheSize: function () { return cache_keys.length; },
+pending: function () { return pending_count; }
+};
+})();
+
+
+
+
+
+
+
+
+
+LC.accent = (function () {
+
+var AUTO_KEY = 'lumen_accent_auto';
+
+
+
+
+
+
+
+var POSTER_SIZE = 't/p/w185';
+
+
+
+var override = null;
+var task = null;
+
+
+
+function auto() {
+var v = LC.pref(AUTO_KEY, false);
+return v === true || v === 'true';
+}
+
+function on() {
+return LC.enabled() && auto();
+}
+
+function bg() {
+try {
+var t = LC.tokens();
+if (t && t.bg) return t.bg;
+} catch (e) {
+warn('accent: tokens failed', e);
+}
+return '#0B0908';
+}
+
+function posterUrl(path) {
+try {
+if (window.Lampa && Lampa.TMDB && typeof Lampa.TMDB.image === 'function') {
+return Lampa.TMDB.image(POSTER_SIZE + path);
+}
+} catch (e) {
+warn('accent: tmdb image failed', e);
+}
+return '';
+}
+
+function cancel() {
+if (task) {
+task.cancel();
+task = null;
+}
+}
+
+
+
+function apply(next) {
+if (!next && !override) return;
+if (next && override && next.color === override.color) return;
+override = next || null;
+
+
+
+if (!LC.enabled()) return;
+try {
+LC.injectCss();
+} catch (e) {
+warn('accent: css inject failed', e);
+}
+}
+
+function reset() {
+cancel();
+apply(null);
+}
+
+
+
+
+function applyFor(movie) {
+cancel();
+if (!on()) { apply(null); return; }
+var path = movie && movie.poster_path;
+if (!path) { apply(null); return; }
+var url = posterUrl(path);
+if (!url) { apply(null); return; }
+task = LC.color.fromImage(url, function (rgb) {
+task = null;
+apply(rgb ? LC.color.tokens(rgb, bg()) : null);
+});
+}
+
+return {
+current: function () { return override; },
+applyFor: applyFor,
+reset: reset,
+
+
+destroy: reset
+};
+})();
+
+
+
+
+
+LC.applyAccentPref = function () {
+try {
+var movie = LC.active && LC.active.data && LC.active.data.movie;
+LC.accent.applyFor(movie || null);
+} catch (e) {
+warn('accent pref failed', e);
+}
+};
+
+if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.color;
+
+
 /* ---- 60_reviews.js ---- */
 
 
@@ -11546,6 +12064,14 @@ lumen_card_accent_emerald: { ru: 'Изумруд', en: 'Emerald', uk: 'Смар�
 lumen_card_accent_lavender: { ru: 'Лаванда', en: 'Lavender', uk: 'Лаванда' },
 lumen_card_accent_graphite: { ru: 'Графит', en: 'Graphite', uk: 'Графіт' },
 
+
+lumen_accent_auto_name: { ru: 'Акцент от постера', en: 'Accent from poster', uk: 'Акцент від постера' },
+lumen_accent_auto_descr: {
+ru: 'Цвет кнопок, колец фокуса и подсветок берётся из постера открытого фильма. Тёмный цвет плагин высветляет, чтобы подписи читались; если постер не отдаёт пиксели, остаётся акцент, выбранный выше.',
+en: 'The colour of buttons, focus rings and highlights is taken from the poster of the open film. A dark colour is lightened so that labels stay readable; if the poster does not give up its pixels, the accent chosen above stays in place.',
+uk: 'Колір кнопок, кілець фокуса та підсвічувань береться з постера відкритого фільму. Темний колір плагін висвітлює, щоб підписи читалися; якщо постер не віддає пікселі, залишається акцент, вибраний вище.'
+},
+
 lumen_theme_name: { ru: 'Тема', en: 'Theme', uk: 'Тема' },
 lumen_theme_descr: {
 ru: 'Цвет тёмного фона. «Глубокая чёрная» — настоящий чёрный без тёплого оттенка, для OLED-экранов. Применяется сразу.',
@@ -12044,6 +12570,13 @@ if (name === 'lumen_font') { LC.injectFonts(); LC.injectCss(); return true; }
 
 
 if (name === 'lumen_theme' || name === 'lumen_solid' || name === 'lumen_scale') { LC.injectCss(); return true; }
+
+
+
+if (name === 'lumen_accent_auto') {
+try { if (LC.applyAccentPref) LC.applyAccentPref(); } catch (eAccent) {}
+return true;
+}
 if (name === 'lumen_reviews' || name === 'lumen_kp_key') { LC.applyReviewsPref(); return true; }
 
 
@@ -12341,6 +12874,11 @@ var LIST = [
 
 
 { name: 'lumen_card_accent', type: 'select', values: ['sand', 'copper', 'wine', 'garnet', 'mint', 'emerald', 'ice', 'lavender', 'graphite'], vprefix: 'lumen_card_accent_', 'default': 'sand', label: 'lumen_card_accent' },
+
+
+
+
+{ name: 'lumen_accent_auto', type: 'trigger', 'default': false, label: 'lumen_accent_auto_name', descr: 'lumen_accent_auto_descr' },
 
 
 
@@ -13827,6 +14365,17 @@ if (e.component === 'main' && startRender && startRender.length) LC.badges.mount
 } catch (eBadgesStart) {
 warn('badges start failed', eBadgesStart);
 }
+
+
+
+
+
+
+try {
+if (LC.accent && e.component !== 'full') LC.accent.reset();
+} catch (eAccentStart) {
+warn('accent start failed', eAccentStart);
+}
 } else if (e.type === 'destroy') {
 
 
@@ -13885,6 +14434,11 @@ if (LC.active.slideshow && !LC.trailer.isLive(ownLayer)) LC.active.slideshow.res
 
 
 if (ownLayer && ownLayer.length) LC.active.trailer = ownLayer.data('lumenTrailer') || null;
+
+
+
+
+try { if (LC.applyAccentPref) LC.applyAccentPref(); } catch (eAccentOwn) {}
 }
 return;
 }
@@ -13973,6 +14527,10 @@ LC.active = { object: e.object, body: layer.parent(), slideshow: slideshow, trai
 
 
 
+try { if (LC.applyAccentPref) LC.applyAccentPref(); } catch (eAccentBack) {}
+
+
+
 
 if (slideshow && !LC.trailer.isLive(layer)) slideshow.resume();
 }
@@ -14045,6 +14603,10 @@ applyMotionMode(root);
 
 
 LC.active = { object: e.object, body: e.body, slideshow: slideshow, data: e.data };
+
+
+
+try { if (LC.accent) LC.accent.applyFor((e.data && e.data.movie) || null); } catch (eAccent) {}
 
 
 
@@ -14469,6 +15031,11 @@ warn('badges install failed', eBadges);
 function deactivate() {
 if (!activated) return;
 activated = false;
+
+
+
+
+try { if (LC.accent) LC.accent.reset(); } catch (eAccentOff) {}
 
 
 restoreOriginalTemplate();

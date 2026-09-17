@@ -49,6 +49,14 @@
     lumen_card_accent_emerald: { ru: 'Изумруд', en: 'Emerald', uk: 'Смарагд' },
     lumen_card_accent_lavender: { ru: 'Лаванда', en: 'Lavender', uk: 'Лаванда' },
     lumen_card_accent_graphite: { ru: 'Графит', en: 'Graphite', uk: 'Графіт' },
+    /* Task 24 (фаза 3): акцент от постера открытого фильма. Выключен по
+       умолчанию — вид карточки без спроса не меняем. */
+    lumen_accent_auto_name: { ru: 'Акцент от постера', en: 'Accent from poster', uk: 'Акцент від постера' },
+    lumen_accent_auto_descr: {
+      ru: 'Цвет кнопок, колец фокуса и подсветок берётся из постера открытого фильма. Тёмный цвет плагин высветляет, чтобы подписи читались; если постер не отдаёт пиксели, остаётся акцент, выбранный выше.',
+      en: 'The colour of buttons, focus rings and highlights is taken from the poster of the open film. A dark colour is lightened so that labels stay readable; if the poster does not give up its pixels, the accent chosen above stays in place.',
+      uk: 'Колір кнопок, кілець фокуса та підсвічувань береться з постера відкритого фільму. Темний колір плагін висвітлює, щоб підписи читалися; якщо постер не віддає пікселі, залишається акцент, вибраний вище.'
+    },
     /* Фаза 3: тема — цвет тёмного фона и подложек. */
     lumen_theme_name: { ru: 'Тема', en: 'Theme', uk: 'Тема' },
     lumen_theme_descr: {
@@ -548,6 +556,13 @@
        (LC.injectCss заодно пересобирает CSS экранов пути до плеера). Имена
        без префикса PLUGIN, поэтому ветка стоит до проверки префикса. */
     if (name === 'lumen_theme' || name === 'lumen_solid' || name === 'lumen_scale') { LC.injectCss(); return true; }
+    /* Task 24 (фаза 3): акцент от постера. Выключили — цвет из настроек
+       возвращается сразу; включили — считается по фильму открытой карточки.
+       Пересобирает CSS сам, поэтому отдельного injectCss здесь нет. */
+    if (name === 'lumen_accent_auto') {
+      try { if (LC.applyAccentPref) LC.applyAccentPref(); } catch (eAccent) {}
+      return true;
+    }
     if (name === 'lumen_reviews' || name === 'lumen_kp_key') { LC.applyReviewsPref(); return true; }
     /* Task 20: подсказка «Ключ API не задан» — перерисовать ряд отзывов
        открытой карточки (там же, где её рисует LC.reviews) и снять/вернуть

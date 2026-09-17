@@ -462,6 +462,17 @@
         } catch (eBadgesStart) {
           warn('badges start failed', eBadgesStart);
         }
+        /* Task 24: акцент от постера живёт ровно столько, сколько открытая
+           карточка. Ушли с неё на главную, в сетку или в хаб — цвет из
+           настроек возвращается, а незавершённый расчёт по постеру
+           отменяется (src/57_color.js). Карточку эта ветка не трогает: для
+           неё акцент ставит 'full' complite, а для вернувшейся из истории —
+           восстановление LC.active ниже. */
+        try {
+          if (LC.accent && e.component !== 'full') LC.accent.reset();
+        } catch (eAccentStart) {
+          warn('accent start failed', eAccentStart);
+        }
       } else if (e.type === 'destroy') {
         /* Активность вытеснили из истории (лимит maxsave) или закрыли: если
            герой всё ещё её — он уходит вместе с DOM, а наблюдатель и
@@ -520,6 +531,11 @@
              после revive() трейлер уже погашен и снят со слоя, поэтому поле
              не должно продолжать указывать на мёртвый контроллер. */
           if (ownLayer && ownLayer.length) LC.active.trailer = ownLayer.data('lumenTrailer') || null;
+          /* Task 24: к этой карточке вернулись (LC.active всё это время
+             указывал на неё, поэтому ветка восстановления ниже не
+             отрабатывает) — возвращаем и акцент её фильма. Цвет уже в кэше
+             LC.color, повторного расчёта по постеру не будет. */
+          try { if (LC.applyAccentPref) LC.applyAccentPref(); } catch (eAccentOwn) {}
         }
         return;
       }
@@ -605,6 +621,10 @@
              карточке не смог бы перерисовать ряд отзывов после ввода ключа
              (complite для неё Lampa повторно не шлёт). */
           LC.active = { object: e.object, body: layer.parent(), slideshow: slideshow, trailer: layer.data('lumenTrailer') || null, data: layer.data('lumenData') || null };
+          /* Task 24: карточке, к которой вернулись, Lampa complite повторно
+             не шлёт — акцент её фильма возвращаем отсюда, по данным со слоя
+             (цвет уже в кэше LC.color, повторного расчёта не будет). */
+          try { if (LC.applyAccentPref) LC.applyAccentPref(); } catch (eAccentBack) {}
           /* Тот же гейт (Important 2): к карточке могли вернуться раньше, чем
              сторож трейлера её погасил. Если liveSlideshow() выше прошёл через
              revive(), тот уже снял и трейлер, и класс со слоя — значит isLive
@@ -680,6 +700,10 @@
                'full', ни complite, а перерисовать ряд отзывов после ввода
                ключа больше неоткуда. */
             LC.active = { object: e.object, body: e.body, slideshow: slideshow, data: e.data };
+            /* Task 24: акцент от постера этого фильма (настройка
+               lumen_accent_auto). Выключена — вызов ничего не делает и ни
+               одной картинки не грузит (src/57_color.js). */
+            try { if (LC.accent) LC.accent.applyFor((e.data && e.data.movie) || null); } catch (eAccent) {}
             /* Ревью Task 9 (Minor 10): дубль данных на слое фона — тем же
                приёмом, что контроллеры слайдшоу и трейлера. Карточка, к которой
                вернулись backward'ом, восстанавливает LC.active из слоя
@@ -1104,6 +1128,11 @@
   function deactivate() {
     if (!activated) return;
     activated = false;
+    /* Task 24: акцент от постера снимается первым — до LC.removeCss. Его
+       сброс при выключенном плагине таблицу стилей не пересобирает
+       (src/57_color.js), так что порядок важен только ради отмены
+       незавершённого расчёта по постеру. */
+    try { if (LC.accent) LC.accent.reset(); } catch (eAccentOff) {}
     /* Порядок обратный activate(): сперва шаблон (следующее открытие карточки
        уже штатное), затем стили и классы, последней — живая карточка. */
     restoreOriginalTemplate();
