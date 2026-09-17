@@ -294,6 +294,10 @@
   var TEXT_LOGO = 4.8;
   var TEXT_LOGO_SMALL = 3.6;
   var TEXT_DESCR = 4.05;
+  /* Описание в ОДНУ строку (1.05em × 1.45 плюс свой отступ сверху) — столько
+     просит сжатое состояние: пользователь отметил пропажу описания на
+     листании, а на две строки высоты сжатого кадра не хватает. */
+  var TEXT_DESCR_ONE = 2.02;
   var TEXT_RATE = 2.62;
   var TEXT_ZOOM = 1.1;
   var TEXT_ZOOM_COMPACT = 1.04;
@@ -331,6 +335,15 @@
        по умолчанию, а пороги — одни на всю таблицу стилей. С выключенными
        чипами кадр просто получает лишний запас. */
     return round2(HERO_HEAD_SAFE + TEXT_BOTTOM + MOODS_GAP + MOODS_H + inner * TEXT_ZOOM);
+  }
+
+  /* Сколько высоты просит содержимое СЖАТОГО кадра вместе с описанием в одну
+     строку. Из этой величины считается порог, ниже которого на листании
+     остаются только логотип и рейтинг. */
+  function compactNeedEm() {
+    var small = heroSmallText();
+    var inner = TEXT_RATE + TEXT_LOGO_SMALL + TEXT_DESCR_ONE + (small ? 0 : TEXT_META);
+    return round2(HERO_HEAD_SAFE + TEXT_BOTTOM + inner * TEXT_ZOOM_COMPACT);
   }
 
   /* Корни, на которые вешается коэффициент. Каждый из них — самостоятельный
@@ -1438,11 +1451,25 @@
     css.push('.lumen-hero .lumen-hero__meta{font-family:' + FM + ';font-weight:400;font-size:.88em;line-height:1.2;letter-spacing:.03em;color:' + P.muted + '}');
     /* Логотип фильма — фоном (contain), максимум 30.69em = 700 px FHD (§0.2).
        Отдельного <img> нет: единственный путь к картинкам — прокси TMDB. */
-    css.push('.lumen-hero .lumen-hero__logo{display:none;width:30.69em;max-width:100%;height:4.4em;margin-top:.4em;-webkit-background-size:contain;background-size:contain;background-position:left bottom;background-repeat:no-repeat}');
+    /* Правка пользователя 2026-09-17 (третий круг): «логотипы разного
+       размера». Логотипы TMDB приходят с любыми пропорциями — замер живьём
+       на одном ряду дал от 1.48:1 (название в три строки) до 8.02:1 (длинное
+       в одну). contain вписывает картинку в рамку, и пока рамка была
+       30.69 × 4.4em (6.97:1), всё, что длиннее, упиралось в ШИРИНУ и теряло
+       высоту: тот же логотип оказывался в полтора раза мельче соседнего.
+       Рамка расширена до 8.6:1 — все встреченные пропорции упираются теперь
+       в ВЫСОТУ, то есть занимают одинаковое место по вертикали; шире 8.6:1
+       логотип по-прежнему вписывается по ширине, иначе он вышел бы за
+       текстовый блок баннером во весь экран. */
+    css.push('.lumen-hero .lumen-hero__logo{display:none;width:37.84em;max-width:100%;height:4.4em;margin-top:.4em;-webkit-background-size:contain;background-size:contain;background-position:left bottom;background-repeat:no-repeat}');
     css.push('.lumen-hero.lumen-hero--logo .lumen-hero__logo{display:block}');
     /* Текстовый фолбэк названия — обычный текст без панели (поправка
        контроллера к Task 18, единообразно с экранами 16–19). */
-    css.push('.lumen-hero .lumen-hero__title{font-family:' + FD + ';font-weight:800;font-size:3.33em;line-height:1.02;color:' + P.text + ';margin-top:.14em;overflow:hidden}');
+    /* Фолбэк без логотипа занимает ровно то же место по высоте, что и
+       логотип: две строки по 1.08 при кегле 2.04em дают те же 4.4em, и текст
+       длинного названия не разъезжает блок (правка третьего круга). */
+    css.push('.lumen-hero .lumen-hero__title{font-family:' + FD + ';font-weight:800;font-size:2.04em;line-height:1.08;color:' + P.text + ';margin-top:.4em;height:2.16em;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}');
+    css.push('.lumen-hero.lumen-hero--compact .lumen-hero__title{height:1.57em;-webkit-line-clamp:1}');
     css.push('.lumen-hero.lumen-hero--logo .lumen-hero__title{display:none}');
     css.push('.lumen-hero .lumen-hero__descr{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;font-family:' + FB + ';font-weight:400;font-size:1.05em;line-height:1.45;color:' + P.muted + ';max-width:39.45em;margin-top:.5em}');
 
@@ -1475,7 +1502,7 @@
        Ровно тот же компактный набор — при самом маленьком размере кадра
        («компактный»), там он нужен уже в верхнем состоянии. */
     var smallText = heroSmallText();
-    css.push('.lumen-hero.lumen-hero--compact .lumen-hero__logo{height:3.2em}');
+    css.push('.lumen-hero.lumen-hero--compact .lumen-hero__logo{width:27.52em;height:3.2em}');
     css.push('.lumen-hero.lumen-motion-full .lumen-hero__logo{-webkit-transition:height .42s cubic-bezier(.2,.8,.2,1);transition:height .42s cubic-bezier(.2,.8,.2,1)}');
     css.push('.lumen-hero.lumen-hero--compact .lumen-hero__meta,.lumen-hero.lumen-hero--compact .lumen-hero__sk--meta{display:none}');
     css.push('.lumen-hero.lumen-hero--compact .lumen-hero__descr,.lumen-hero.lumen-hero--compact .lumen-hero__sk--descr,.lumen-hero.lumen-hero--compact .lumen-hero__sk--short{display:none}');
@@ -1661,6 +1688,17 @@
        безопасной зоной сверху и срежет лишнее сам — это мягче, чем пропажа
        кадра. Ветка «кадра нет» остаётся тем, чем задумана: экстремально
        приплюснутое окно и явный выбор «Герой: выключен» в настройках. */
+    /* Правка пользователя 2026-09-17 (третий круг): «в сжатом состоянии нет
+       описания». Возвращаем его — одной строкой с многоточием, вместе с
+       мета-строкой, ровно там, где сжатому кадру хватает на них высоты.
+       Условие то же по форме, что у порогов выше, только высота кадра здесь
+       72vh − (compactCut + HERO_AIR)em, отсюда множитель .72. Ниже порога на
+       листании остаются логотип и рейтинг — то, что помещается всегда. */
+    var compactTextMaxRatio = Math.round(84.17 * HERO_COMPACT / (heroCompactCut + HERO_AIR + compactNeedEm()) * 100);
+    css.push('@media screen and (max-aspect-ratio:' + compactTextMaxRatio + '/100){' +
+      '.lumen-hero.lumen-hero--compact .lumen-hero__meta{display:block}' +
+      '.lumen-hero.lumen-hero--compact .lumen-hero__descr{display:-webkit-box;-webkit-line-clamp:1}}');
+
     var heroMinRatio = Math.max(HERO_MIN_RATIO, Math.round(84.17 / (heroCut + HERO_AIR + textNeedEm(false)) * 100));
     css.push('@media screen and (min-aspect-ratio:' + heroMinRatio + '/100){' +
       '.lumen-main .scroll.layer--wheight,.lumen-main.lumen-rows-up .scroll.layer--wheight{margin-top:0;height:-webkit-calc(100vh - 4em) !important;height:calc(100vh - 4em) !important;overflow:hidden}' +

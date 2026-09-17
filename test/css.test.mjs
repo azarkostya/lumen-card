@@ -1687,6 +1687,32 @@ test('решение «рисовать кадр»: в обычных окнах
   }
 });
 
+/* Правка пользователя 2026-09-17 (третий круг): «в сжатом состоянии нет
+   описания». Оно вернулось одной строкой вместе с мета-строкой — там, где
+   сжатому кадру хватает высоты. */
+test('сжатое состояние: описание в одну строку возвращается, когда помещается', () => {
+  const compactMedia = (built) => built.split('\n').find((l) => l.indexOf('@media screen and (max-aspect-ratio:') === 0 && l.indexOf('lumen-hero--compact') !== -1);
+  const ratioOf = (built) => parseInt(/max-aspect-ratio:(\d+)\/100/.exec(compactMedia(built))[1], 10) / 100;
+
+  const large = withStorage({ lumen_hero_size: 'large' }, (LC) => LC.buildCss());
+  const line = compactMedia(large);
+  assert.ok(line.indexOf('.lumen-hero.lumen-hero--compact .lumen-hero__descr{display:-webkit-box;-webkit-line-clamp:1}') !== -1, 'описание в сжатом обязано быть в одну строку: ' + line);
+  assert.ok(line.indexOf('.lumen-hero.lumen-hero--compact .lumen-hero__meta{display:block}') !== -1, 'мета-строка в сжатом: ' + line);
+
+  /* Крупный кадр на телевизоре и в окне пользователя описание показывает. */
+  for (const [w, h] of [[1920, 1080], [1280, 720], [1153, 798]]) {
+    assert.ok(w / h <= ratioOf(large), 'крупный кадр ' + w + '×' + h + ': описание в сжатом пропало');
+  }
+  /* У мелких кадров высоты на него нет — и правило честно не срабатывает,
+     вместо того чтобы срезать текст верхней кромкой. */
+  assert.ok(1920 / 1080 > ratioOf(withStorage({ lumen_hero_size: 'medium' }, (LC) => LC.buildCss())), 'средний кадр на FHD описание в сжатом не вмещает');
+  assert.ok(1920 / 1080 > ratioOf(withStorage({ lumen_hero_size: 'compact' }, (LC) => LC.buildCss())), 'компактный кадр на FHD описание в сжатом не вмещает');
+
+  /* Базовое правило по-прежнему прячет описание в сжатом — медиазапрос
+     только возвращает его там, где место есть. */
+  assert.ok(findDecl(css, (sel) => sel === '.lumen-hero.lumen-hero--compact .lumen-hero__descr').indexOf('display:none') !== -1);
+});
+
 /* Второй порог — мягкая деградация: описание уходит раньше, чем кадр, и
    только там, где на него не хватает высоты. */
 test('решение «показывать описание»: порог мягче порога кадра и срабатывает по бюджету', () => {
@@ -1739,8 +1765,28 @@ test('Task 18: подмена текста 180/420 мс в full, в lite/off —
 
 test('Task 18: логотип фильма с текстовым фолбэком, описание в две строки, скелетон до ответа деталей', () => {
   const logo = findDecl(css, (sel) => sel === '.lumen-hero .lumen-hero__logo');
-  assert.ok(logo && logo.indexOf('width:30.69em') !== -1, 'логотип до 700 px FHD (§0.2)');
+  /* Правка третьего круга: рамка логотипа расширена до 8.6:1 (37.84 × 4.4em).
+     Логотипы TMDB приходят с любыми пропорциями — замер живьём на одном ряду
+     дал от 1.48:1 до 8.02:1, и при прежней рамке 6.97:1 длинные упирались в
+     ширину и теряли высоту, оказываясь в полтора раза мельче соседних. */
+  assert.ok(logo && logo.indexOf('width:37.84em') !== -1, 'рамка логотипа: ' + logo);
+  const frame = 37.84 / 4.4;
+  assert.ok(frame >= 8.5, 'рамка обязана быть шире самых длинных логотипов (8.02:1), иначе высота у них проседает');
+  assert.ok(logo.indexOf('background-size:contain') !== -1, 'логотип обязан вписываться с сохранением пропорций');
   assert.ok(logo.indexOf('display:none') !== -1, 'без логотипа узел скрыт');
+
+  /* Текстовый фолбэк занимает по высоте ровно место логотипа: две строки по
+     1.08 при кегле 2.04em — те же 4.4em. */
+  const title = findDecl(css, (sel) => sel === '.lumen-hero .lumen-hero__title');
+  assert.ok(Math.abs(2.04 * 1.08 * 2 - 4.4) < 0.02, 'кегль фолбэка обязан давать высоту логотипа');
+  assert.ok(title.indexOf('font-size:2.04em') !== -1 && title.indexOf('-webkit-line-clamp:2') !== -1, 'фолбэк: ' + title);
+  assert.ok(title.indexOf('height:2.16em') !== -1, 'фолбэк обязан занимать фиксированную высоту: ' + title);
+
+  /* В сжатом состоянии логотип мельче, но рамка та же 8.6:1 — высота
+     остаётся одинаковой у всех фильмов и там. */
+  const logoSmall = findDecl(css, (sel) => sel === '.lumen-hero.lumen-hero--compact .lumen-hero__logo');
+  assert.ok(logoSmall.indexOf('width:27.52em') !== -1 && logoSmall.indexOf('height:3.2em') !== -1, 'сжатый логотип: ' + logoSmall);
+  assert.ok(Math.abs(27.52 / 3.2 - frame) < 0.05, 'пропорция рамки в обоих состояниях обязана совпадать');
   assert.ok(findDecl(css, (sel) => sel === '.lumen-hero.lumen-hero--logo .lumen-hero__title').indexOf('display:none') !== -1, 'есть логотип — заголовка нет');
 
   const descr = findDecl(css, (sel) => sel === '.lumen-hero .lumen-hero__descr');
