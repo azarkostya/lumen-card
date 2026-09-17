@@ -151,7 +151,9 @@ test('LIST: полный набор ключей — существующие и
     /* Task 28 (фаза 3): режим показа отзывов и автотрейлер в кадре главной */
     'lumen_reviews_mode', 'lumen_hero_trailer',
     /* Task 21 (фаза 3): тематические атмосферы (слой частиц) */
-    'lumen_fx'
+    'lumen_fx',
+    /* Task 22 (фаза 3): заставка из кадров после покоя пульта */
+    'lumen_ambient', 'lumen_ambient_source', 'lumen_ambient_delay'
   ].sort());
 });
 

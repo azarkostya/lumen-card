@@ -121,6 +121,20 @@
          как в плане. */
       { name: 'lumen_fx', type: 'select', values: ['all', 'seasonal', 'off'], vprefix: 'lumen_fx_', 'default': 'seasonal', label: 'lumen_fx_name', descr: 'lumen_fx_descr' },
 
+      /* Task 22 (фаза 3): ambient-режим. Своя группа, а не хвост
+         «Оформления»: заставка — не про вид карточки, а про то, что
+         происходит с экраном, когда пульт отложили.
+
+         Включена по умолчанию: на телевизоре статичный кадр висит часами, и
+         это ровно та работа, ради которой заставку и заводят. Скромность
+         здесь в другом — в источнике (отобранные кадры, а не то, что
+         осталось на экране) и в трёх минутах покоя, за которые успевает
+         закончиться любая пауза в навигации. */
+      { name: 'lumen_group_ambient', type: 'title', label: 'lumen_group_ambient' },
+      { name: 'lumen_ambient', type: 'trigger', 'default': true, label: 'lumen_ambient_name', descr: 'lumen_ambient_descr' },
+      { name: 'lumen_ambient_source', type: 'select', values: ['curated', 'current'], vprefix: 'lumen_ambient_source_', 'default': 'curated', label: 'lumen_ambient_source_name', descr: 'lumen_ambient_source_descr' },
+      { name: 'lumen_ambient_delay', type: 'select', values: ['3', '5', '10'], vsuffix: 'lumen_ambient_minutes', 'default': '3', label: 'lumen_ambient_delay_name' },
+
       { name: 'lumen_group_backdrop', type: 'title', label: 'lumen_card_group_backdrop' },
       { name: 'lumen_slideshow', type: 'trigger', 'default': true, label: 'lumen_card_slideshow_name' },
       { name: 'lumen_slide_interval', type: 'select', values: ['8', '14', '20'], vsuffix: 'lumen_card_seconds', 'default': '14', label: 'lumen_card_slide_interval' },

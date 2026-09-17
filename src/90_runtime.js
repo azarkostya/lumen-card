@@ -1217,6 +1217,14 @@
     } catch (eNav) {
       warn('nav install failed', eNav);
     }
+    /* Task 22: ambient-режим — три слушателя document и таймер покоя.
+       apply() сам проверяет настройку: выключенная заставка не подписывается
+       вовсе (src/54_ambient.js). */
+    try {
+      if (LC.ambient && LC.ambient.apply) LC.ambient.apply();
+    } catch (eAmbient) {
+      warn('ambient install failed', eAmbient);
+    }
   }
 
   function deactivate() {
@@ -1285,6 +1293,10 @@
     /* Task 27: снять подписки на клавиатуру, панель мини-карты, индикатор
        позиции и все четыре таймера модуля. */
     try { if (LC.nav && LC.nav.uninstall) LC.nav.uninstall(); } catch (eNavOff) {}
+    /* Task 22: выключенный плагин не имеет права держать ни слушателей
+       document, ни таймера покоя, ни открытого слоя заставки с его
+       предзагрузкой кадра. */
+    try { if (LC.ambient && LC.ambient.uninstall) LC.ambient.uninstall(); } catch (eAmbientOff) {}
   }
 
   /* -------------------------------------------------------------------- */
@@ -1613,6 +1625,19 @@
       if (LC.nav && LC.nav.apply) LC.nav.apply();
     } catch (e) {
       warn('nav pref failed', e);
+    }
+  };
+
+  /* Task 22: заставка из кадров. LC.ambient.apply() сам решает, нужны ли
+     подписки: выключенная настройка снимает и слушателей, и таймер покоя, и
+     уже открытый слой, включённая — подписывается заново; смена задержки или
+     источника просто перезаводит ожидание покоя. */
+  LC.applyAmbientPref = function () {
+    if (!activated) return;
+    try {
+      if (LC.ambient && LC.ambient.apply) LC.ambient.apply();
+    } catch (e) {
+      warn('ambient pref failed', e);
     }
   };
 

@@ -74,6 +74,26 @@
       en: 'A light layer over the still matching the film: snow for Christmas films, bats for Halloween horror, stars for science fiction, rain for noir. The theme is chosen by the film keywords. "Seasonal only" shows holiday themes and only in their month. It never starts with light or disabled animations, and therefore not on weak TVs; it pauses while a trailer is playing.',
       uk: 'Легкий шар поверх кадру під тему фільму: сніг для різдвяного кіно, кажани для горору на Гелловін, зорі для фантастики, дощ для нуару. Тема визначається за ключовими словами фільму. «Лише сезонні» показує тільки святкові теми і лише в їхній місяць. Не запускається за легких і вимкнених анімацій, а отже й на слабких телевізорах; під час трейлера стає на паузу.'
     },
+    /* Task 22 (фаза 3): ambient-режим — кадры вместо статичного экрана
+       после нескольких минут без пульта. Заголовок группы и три пункта. */
+    lumen_group_ambient: { ru: 'Экранная заставка', en: 'Screensaver', uk: 'Екранна заставка' },
+    lumen_ambient_name: { ru: 'Заставка из кадров', en: 'Frame screensaver', uk: 'Заставка з кадрів' },
+    lumen_ambient_descr: {
+      ru: 'Если пульт молчит, экран сменяется кадрами из фильмов в полный размер, с названием и часами. Любое нажатие возвращает экран мгновенно, и первое нажатие фокус не двигает. Заставка не включается при играющем трейлере, открытом плеере, меню и в неактивной вкладке, а при выключенных анимациях не работает вовсе. Применяется сразу.',
+      en: 'When the remote falls silent, the screen turns into full-size film stills with the title and a clock. Any key brings the screen back at once, and that first press does not move focus. It never starts while a trailer is playing, while the player or a menu is open, or in a background tab, and it does not work at all with animations off. Applied immediately.',
+      uk: 'Якщо пульт мовчить, екран змінюється кадрами з фільмів на весь розмір, з назвою та годинником. Будь-яке натискання миттєво повертає екран, і перше натискання не рухає фокус. Заставка не вмикається під час трейлера, з відкритим плеєром чи меню та в неактивній вкладці, а з вимкненими анімаціями не працює зовсім. Застосовується одразу.'
+    },
+    lumen_ambient_source_name: { ru: 'Какие кадры', en: 'Which stills', uk: 'Які кадри' },
+    lumen_ambient_source_descr: {
+      ru: '«Известные фильмы» — отобранный список кадров из каталога плагина, он обновляется вместе с ним. «Кадры открытого фильма» показывает кадры той карточки, что осталась на экране, и падает на отобранный список, если карточки нет.',
+      en: '"Famous films" is a curated list of stills from the plugin catalog, updated together with it. "Stills of the open film" shows the frames of the card left on screen and falls back to the curated list when there is no card.',
+      uk: '«Відомі фільми» — дібраний список кадрів з каталогу плагіна, він оновлюється разом із ним. «Кадри відкритого фільму» показує кадри тієї картки, що лишилася на екрані, і падає на дібраний список, якщо картки немає.'
+    },
+    lumen_ambient_source_curated: { ru: 'Известные фильмы', en: 'Famous films', uk: 'Відомі фільми' },
+    lumen_ambient_source_current: { ru: 'Кадры открытого фильма', en: 'Stills of the open film', uk: 'Кадри відкритого фільму' },
+    lumen_ambient_delay_name: { ru: 'Через сколько включать', en: 'Idle time before start', uk: 'Через скільки вмикати' },
+    /* Суффикс значений select lumen_ambient_delay: «3 мин». */
+    lumen_ambient_minutes: { ru: 'мин', en: 'min', uk: 'хв' },
     lumen_fx_all: { ru: 'Все', en: 'All', uk: 'Усі' },
     lumen_fx_seasonal: { ru: 'Только сезонные', en: 'Seasonal only', uk: 'Лише сезонні' },
     lumen_fx_off: { ru: 'Выключены', en: 'Off', uk: 'Вимкнені' },
@@ -791,6 +811,14 @@
        того, что открыто сейчас. */
     if (name === 'lumen_fx') {
       try { if (LC.applyFxPref) LC.applyFxPref(); } catch (eFx) {}
+      return true;
+    }
+    /* Task 22 (фаза 3): ambient-режим. Все три пункта применяет одна точка:
+       выключение снимает подписки, таймер и открытый слой немедленно,
+       включение подписывается заново, а смена задержки и источника
+       перезаводит ожидание покоя (src/54_ambient.js, apply). */
+    if (name === 'lumen_ambient' || name === 'lumen_ambient_source' || name === 'lumen_ambient_delay') {
+      try { if (LC.applyAmbientPref) LC.applyAmbientPref(); } catch (eAmb) {}
       return true;
     }
     if (name.indexOf(PLUGIN + '_') !== 0) return false;

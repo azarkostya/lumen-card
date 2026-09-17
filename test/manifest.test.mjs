@@ -190,6 +190,35 @@ test('DEFAULT: подборка christmas — пул адвент-календа
   assert.equal(c.sources.movie.params.genres, undefined, 'жанр не ограничен — иначе пул адвента только комедийный');
 });
 
+/* Task 22 (фаза 3): курируемые кадры заставки в каталоге. */
+test('DEFAULT.ambient: кадры собраны живьём — путь, название, медиа и ширина у каждого', () => {
+  const list = M.DEFAULT.ambient;
+  assert.ok(Array.isArray(list), 'нет списка кадров');
+  assert.ok(list.length >= 60, 'кадров меньше, чем требует план (60–80): ' + list.length);
+  const paths = new Set();
+  const ids = new Set();
+  for (const f of list) {
+    assert.ok(f.media === 'movie' || f.media === 'tv', 'медиа кадра: ' + f.media);
+    assert.ok(typeof f.id === 'number' && f.id > 0, 'id кадра ' + f.title);
+    assert.ok(typeof f.title === 'string' && f.title.length, 'название кадра ' + f.path);
+    assert.match(f.path, /^\/[A-Za-z0-9]+\.jpg$/, 'путь кадра: ' + f.path);
+    assert.ok(f.width >= 1920, 'кадр мельче FHD: ' + f.path);
+    assert.ok(!paths.has(f.path), 'кадр повторяется: ' + f.path);
+    paths.add(f.path);
+    ids.add(f.id);
+  }
+  assert.ok(ids.size >= 30, 'кадры взяты слишком у немногих фильмов: ' + ids.size);
+});
+
+test('validate: ambient не массив — каталог отвергается, отсутствие ambient допустимо', () => {
+  const base = { version: 1, groups: [{ id: 'g' }], home: [], collections: [] };
+  assert.equal(M.validate(base).ok, true);
+  assert.equal(M.validate(Object.assign({}, base, { ambient: [] })).ok, true);
+  const bad = M.validate(Object.assign({}, base, { ambient: { path: '/x.jpg' } }));
+  assert.equal(bad.ok, false);
+  assert.equal(bad.reason, 'ambient_not_array');
+});
+
 test('validate: themes не массив — каталог отвергается, отсутствие themes допустимо', () => {
   const base = { version: 1, groups: [{ id: 'g' }], home: [], collections: [] };
   assert.equal(M.validate(base).ok, true);

@@ -768,6 +768,99 @@
         { id: 'sakura', preset: 'petals', accent: '#E6A3B8', keywords: ['cherry blossom', 'anime', 'romance'], genres: [16], requireGenre: true },
         { id: 'war', preset: 'embers', accent: '#C97B4A', keywords: ['war', 'world war ii', 'explosion', 'battle'] },
         { id: 'zombie', preset: 'glitch', accent: '#9FCF8A', keywords: ['zombie', 'undead', 'zombie apocalypse'] }
+      ],
+      /* Task 22 (фаза 3): курируемые кадры ambient-режима. Собраны живьём
+         запросом images к TMDB по списку из плана (41 фильм и сериал, топ-2
+         кадра без текста и логотипов на каждый — iso_639_1 === null), скрипт
+         сбора лежит в scripts/ambient-pick.mjs. Все 82 кадра — 3840 px:
+         ширины меньше 4K в отобранном списке не встретилось вовсе, поэтому
+         запасная ветка «топ-1 кадр от 1920» ни разу не сработала.
+         width здесь — для будущего пополнения списка (кадр уже /тем более/
+         годится в original), сам плагин размер выбирает по экрану
+         (LC.ambient.sizeFor). */
+      ambient: [
+        { media: 'movie', id: 438631, title: 'Дюна', path: '/zRKQW58MBEY078AxkHxEJzUskCl.jpg', width: 3840 },
+        { media: 'movie', id: 438631, title: 'Дюна', path: '/jYEW5xZkZk2WTrdbMGAPFuBqbDc.jpg', width: 3840 },
+        { media: 'movie', id: 693134, title: 'Дюна: Часть вторая', path: '/eZ239CUp1d6OryZEBPnO2n87gMG.jpg', width: 3840 },
+        { media: 'movie', id: 693134, title: 'Дюна: Часть вторая', path: '/xOMo8BRK7PfcJv9JCnx7s5hj0PX.jpg', width: 3840 },
+        { media: 'movie', id: 335984, title: 'Бегущий по лезвию 2049', path: '/gNdLJU9TxrpGx4dkZidjys3fyy0.jpg', width: 3840 },
+        { media: 'movie', id: 335984, title: 'Бегущий по лезвию 2049', path: '/mVr0UiqyltcfqxbAUcLl9zWL8ah.jpg', width: 3840 },
+        { media: 'movie', id: 157336, title: 'Интерстеллар', path: '/8sNiAPPYU14PUepFNeSNGUTiHW.jpg', width: 3840 },
+        { media: 'movie', id: 157336, title: 'Интерстеллар', path: '/vgnoBSVzWAV9sNQUORaDGvDp7wx.jpg', width: 3840 },
+        { media: 'movie', id: 872585, title: 'Оппенгеймер', path: '/7CENyUim29IEsaJhUxIGymCRvPu.jpg', width: 3840 },
+        { media: 'movie', id: 872585, title: 'Оппенгеймер', path: '/neeNHeXjMF5fXoCJRsOmkNGC7q.jpg', width: 3840 },
+        { media: 'movie', id: 76600, title: 'Аватар: Путь воды', path: '/kJsPVzdyBrYHLomuNv5SJDXUQ2f.jpg', width: 3840 },
+        { media: 'movie', id: 76600, title: 'Аватар: Путь воды', path: '/8rpDcsfLJypbO6vREc0547VKqEv.jpg', width: 3840 },
+        { media: 'tv', id: 82856, title: 'Мандалорец', path: '/9zcbqSxdsRMZWHYtyCd1nXPr2xq.jpg', width: 3840 },
+        { media: 'tv', id: 82856, title: 'Мандалорец', path: '/7dxnNNo8BI5Aguzf9N3OHRTI2g5.jpg', width: 3840 },
+        { media: 'movie', id: 120, title: 'Властелин колец: Братство Кольца', path: '/x2RS3uTcsJJ9IfjNPcgDmukoEcQ.jpg', width: 3840 },
+        { media: 'movie', id: 120, title: 'Властелин колец: Братство Кольца', path: '/ua5EHfleb44L5hfHPs2BPqRAove.jpg', width: 3840 },
+        { media: 'movie', id: 76341, title: 'Безумный Макс: Дорога ярости', path: '/gqrnQA6Xppdl8vIb2eJc58VC1tW.jpg', width: 3840 },
+        { media: 'movie', id: 76341, title: 'Безумный Макс: Дорога ярости', path: '/uT895WNwm0aIJRtGizcQhrejWUo.jpg', width: 3840 },
+        { media: 'movie', id: 27205, title: 'Начало', path: '/8ZTVqvKDQ8emSGUEMjsS4yHAwrp.jpg', width: 3840 },
+        { media: 'movie', id: 27205, title: 'Начало', path: '/28kKbSUvUz6P5RE1AuMJMO7IMfK.jpg', width: 3840 },
+        { media: 'movie', id: 49047, title: 'Гравитация', path: '/a2n6bKD7qhCPCAEALgsAhWOAQcc.jpg', width: 3840 },
+        { media: 'movie', id: 49047, title: 'Гравитация', path: '/NPQyzyVb0ezZJlrp5sN4YKkOvq.jpg', width: 3840 },
+        { media: 'movie', id: 286217, title: 'Марсианин', path: '/lzMS0CI3FLQYC5EgJoWeIaEt0lm.jpg', width: 3840 },
+        { media: 'movie', id: 286217, title: 'Марсианин', path: '/9pubUbDX3eKB6ZuKxbFgv4cBZrz.jpg', width: 3840 },
+        { media: 'movie', id: 475557, title: 'Джокер', path: '/rlay2M5QYvi6igbGcFjq8jxeusY.jpg', width: 3840 },
+        { media: 'movie', id: 475557, title: 'Джокер', path: '/hw1CwteUFGjcWXwjGhKk8UJpWeA.jpg', width: 3840 },
+        { media: 'movie', id: 530915, title: '1917', path: '/2lBOQK06tltt8SQaswgb8d657Mv.jpg', width: 3840 },
+        { media: 'movie', id: 530915, title: '1917', path: '/2WgieNR1tGHlpJUsolbVzbUbE1O.jpg', width: 3840 },
+        { media: 'movie', id: 374720, title: 'Дюнкерк', path: '/ddIkmH3TpR6XSc47jj0BrGK5Rbz.jpg', width: 3840 },
+        { media: 'movie', id: 374720, title: 'Дюнкерк', path: '/2bG3HXcUze0GyGAKnJSDF6gllzk.jpg', width: 3840 },
+        { media: 'movie', id: 603, title: 'Матрица', path: '/tlm8UkiQsitc8rSuIAscQDCnP8d.jpg', width: 3840 },
+        { media: 'movie', id: 603, title: 'Матрица', path: '/oMsxZEvz9a708d49b6UdZK1KAo5.jpg', width: 3840 },
+        { media: 'movie', id: 155, title: 'Тёмный рыцарь', path: '/9FE5eD92WfVCiivM9Pq9GVSrlWk.jpg', width: 3840 },
+        { media: 'movie', id: 155, title: 'Тёмный рыцарь', path: '/4ORaDgLekcxzHmJPeSncyOgZImR.jpg', width: 3840 },
+        { media: 'movie', id: 603692, title: 'Джон Уик 4', path: '/7I6VUdPj6tQECNHdviJkUHD2u89.jpg', width: 3840 },
+        { media: 'movie', id: 603692, title: 'Джон Уик 4', path: '/i8dshLvq4LE3s0v8PrkDdUyb1ae.jpg', width: 3840 },
+        { media: 'movie', id: 361743, title: 'Топ Ган: Мэверик', path: '/AaV1YIdWKnjAIAOe8UUKBFm327v.jpg', width: 3840 },
+        { media: 'movie', id: 361743, title: 'Топ Ган: Мэверик', path: '/5AcP07WJl1VZbnloLZrMVgYjR2s.jpg', width: 3840 },
+        { media: 'movie', id: 399055, title: 'Форма воды', path: '/abirSHwWgKajV3hXhaIR5lcCIXe.jpg', width: 3840 },
+        { media: 'movie', id: 399055, title: 'Форма воды', path: '/rgyhSn3mINvkuy9iswZK0VLqQO3.jpg', width: 3840 },
+        { media: 'movie', id: 313369, title: 'Ла-Ла Ленд', path: '/nlPCdZlHtRNcF6C9hzUH4ebmV1w.jpg', width: 3840 },
+        { media: 'movie', id: 313369, title: 'Ла-Ла Ленд', path: '/2wmDyHz4gvF6m51IQZJnJzlLsnz.jpg', width: 3840 },
+        { media: 'movie', id: 496243, title: 'Паразиты', path: '/hiKmpZMGZsrkA3cdce8a7Dpos1j.jpg', width: 3840 },
+        { media: 'movie', id: 496243, title: 'Паразиты', path: '/cI1RBfqXbWaITTjcKGYLhd9F083.jpg', width: 3840 },
+        { media: 'movie', id: 64690, title: 'Драйв', path: '/hoyAALgfmjMEK7O1wZ4r8wT91RP.jpg', width: 3840 },
+        { media: 'movie', id: 64690, title: 'Драйв', path: '/oeEiUwvqHxWT0XqD3YlViaiJOVD.jpg', width: 3840 },
+        { media: 'movie', id: 329865, title: 'Прибытие', path: '/8MUZz7oPXQftFTslZpRP3CVMOoq.jpg', width: 3840 },
+        { media: 'movie', id: 329865, title: 'Прибытие', path: '/r8FD6CC3GgjWaGVkZh00AcedfpA.jpg', width: 3840 },
+        { media: 'movie', id: 194662, title: 'Бёрдмэн', path: '/5tDErYQ8Ne1N6dNAlxg8yYNUwRA.jpg', width: 3840 },
+        { media: 'movie', id: 194662, title: 'Бёрдмэн', path: '/2y6jZRoM6arYpNXC2GZAjUV4bmW.jpg', width: 3840 },
+        { media: 'movie', id: 120467, title: 'Отель «Гранд Будапешт»', path: '/9udCLTxTFl28RxnK8Q05E154ZGa.jpg', width: 3840 },
+        { media: 'movie', id: 120467, title: 'Отель «Гранд Будапешт»', path: '/xHDynIimfsgj0ZOs0j5ma8v1vmM.jpg', width: 3840 },
+        { media: 'movie', id: 466272, title: 'Однажды в Голливуде', path: '/xwgBHC2FgoIrQitl8jZwXXdsR9u.jpg', width: 3840 },
+        { media: 'movie', id: 466272, title: 'Однажды в Голливуде', path: '/oRiUKwDpcqDdoLwPoA4FIRh3hqY.jpg', width: 3840 },
+        { media: 'movie', id: 118340, title: 'Стражи Галактики', path: '/uLtVbjvS1O7gXL8lUOwsFOH4man.jpg', width: 3840 },
+        { media: 'movie', id: 118340, title: 'Стражи Галактики', path: '/47S8qCA5EoUVyKGDwWKDTwsJFpY.jpg', width: 3840 },
+        { media: 'movie', id: 324857, title: 'Человек-паук: Через вселенные', path: '/qGQf2OHIkoh89K8XeKQzhxczf96.jpg', width: 3840 },
+        { media: 'movie', id: 324857, title: 'Человек-паук: Через вселенные', path: '/hlCq6Qh9GVtuNcGZF4mQYluaZix.jpg', width: 3840 },
+        { media: 'movie', id: 129, title: 'Унесённые призраками', path: '/6oaL4DP75yABrd5EbC4H2zq5ghc.jpg', width: 3840 },
+        { media: 'movie', id: 129, title: 'Унесённые призраками', path: '/zSWkLXXj26IQ3pFDH1rnXDQZxAu.jpg', width: 3840 },
+        { media: 'movie', id: 372058, title: 'Твоё имя', path: '/mMtUybQ6hL24FXo0F3Z4j2KG7kZ.jpg', width: 3840 },
+        { media: 'movie', id: 372058, title: 'Твоё имя', path: '/qeUIKwUfDnNWFA1WwTvTRF1FaYF.jpg', width: 3840 },
+        { media: 'movie', id: 346698, title: 'Барби', path: '/1esAE8sLJRWWFsLLeh5r3g2WanI.jpg', width: 3840 },
+        { media: 'movie', id: 346698, title: 'Барби', path: '/3N5QNUqS76GFYNoEayfkkJyAyTN.jpg', width: 3840 },
+        { media: 'movie', id: 545611, title: 'Всё везде и сразу', path: '/ss0Os3uWJfQAENILHZUdX8Tt1OC.jpg', width: 3840 },
+        { media: 'movie', id: 545611, title: 'Всё везде и сразу', path: '/tt79dbOPd9Z9ykEOpvckttgYXwH.jpg', width: 3840 },
+        { media: 'movie', id: 466420, title: 'Убийцы цветочной луны', path: '/acvE3RWjDLgvbL2RtcyzkrsAyNV.jpg', width: 3840 },
+        { media: 'movie', id: 466420, title: 'Убийцы цветочной луны', path: '/fnxQUdLAjmSRCdudbYClkSnrxVf.jpg', width: 3840 },
+        { media: 'movie', id: 792307, title: 'Бедные-несчастные', path: '/zh6IdheEYinU4TPtorWsjx6qPQE.jpg', width: 3840 },
+        { media: 'movie', id: 792307, title: 'Бедные-несчастные', path: '/h0oBqUpax591vOacpBsDJ8cynjk.jpg', width: 3840 },
+        { media: 'tv', id: 106379, title: 'Фоллаут', path: '/coaPCIqQBPUZsOnJcWZxhaORcDT.jpg', width: 3840 },
+        { media: 'tv', id: 106379, title: 'Фоллаут', path: '/cIgHBLTMbcIkS0yvIrUUVVKLdOz.jpg', width: 3840 },
+        { media: 'tv', id: 95396, title: 'Разделение', path: '/ixgFmf1X59PUZam2qbAfskx2gQr.jpg', width: 3840 },
+        { media: 'tv', id: 95396, title: 'Разделение', path: '/9xDCTGhEWpz206PCiimRGmK67rV.jpg', width: 3840 },
+        { media: 'tv', id: 83867, title: 'Андор', path: '/quCeAmVQHfsdcYkicbxZWVauCVb.jpg', width: 3840 },
+        { media: 'tv', id: 83867, title: 'Андор', path: '/AmUhBqsxcenA75T9hV49G6ouO9c.jpg', width: 3840 },
+        { media: 'tv', id: 93405, title: 'Игра в кальмара', path: '/2meX1nMdScFOoV4370rqHWKmXhY.jpg', width: 3840 },
+        { media: 'tv', id: 93405, title: 'Игра в кальмара', path: '/xYTnihl7qffiLSZ6yLMSpBkPdXC.jpg', width: 3840 },
+        { media: 'tv', id: 100088, title: 'Одни из нас', path: '/lY2DhbA7Hy44fAKddr06UrXWWaQ.jpg', width: 3840 },
+        { media: 'tv', id: 100088, title: 'Одни из нас', path: '/uDgy6hyPd82kOHh6I95FLtLnj6p.jpg', width: 3840 },
+        { media: 'movie', id: 37165, title: 'Шоу Трумана', path: '/rmiG2uwcNoGFmBKMoa1pIcf514L.jpg', width: 3840 },
+        { media: 'movie', id: 37165, title: 'Шоу Трумана', path: '/aCHn2TXYJfzPXQKA6r9mKPbMlUB.jpg', width: 3840 }
       ]
     };
 
@@ -790,6 +883,13 @@
          массивом: LC.themes.matchTheme перебирает его напрямую. */
       if (typeof m.themes !== 'undefined' && !Array.isArray(m.themes)) {
         return { ok: false, reason: 'themes_not_array' };
+      }
+      /* Task 22 (фаза 3): кадры заставки — тоже необязательное поле (каталог
+         без них означает «показывать нечего», и заставка просто не
+         запускается), но если оно есть, то обязано быть массивом:
+         LC.ambient.normalizeFrames перебирает его напрямую. */
+      if (typeof m.ambient !== 'undefined' && !Array.isArray(m.ambient)) {
+        return { ok: false, reason: 'ambient_not_array' };
       }
       var seen = {};
       var i, c;

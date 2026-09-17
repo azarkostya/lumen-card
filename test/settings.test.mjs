@@ -97,6 +97,8 @@ function setup(opts) {
   /* Task 21 (фаза 3): атмосферы — слой частиц снимается и ставится на живом
      экране, пересборка активности ему не нужна. */
   LC.applyFxPref = mark('fx');
+  /* Task 22 (фаза 3): заставка из кадров — одна точка на все три пункта. */
+  LC.applyAmbientPref = mark('ambient');
   /* Task 28 (фаза 3): автотрейлер в кадре главной — выключение снимает
      играющий ролик прямо у героя, своей точки в 90_runtime.js ему не нужно. */
   LC.hero = { applyTrailer: mark('herotrailer') };
@@ -272,7 +274,12 @@ test('каждая настройка применяется ровно один
     lumen_transition: [],
     /* Task 21 (фаза 3): атмосферы — своя точка применения: выключение
        снимает слой частиц с открытого экрана, включение считает тему заново. */
-    lumen_fx: ['fx']
+    lumen_fx: ['fx'],
+    /* Task 22 (фаза 3): заставка из кадров — все три пункта ведут в одну
+       точку: она и подписки ставит, и открытый слой снимает. */
+    lumen_ambient: ['ambient'],
+    lumen_ambient_source: ['ambient'],
+    lumen_ambient_delay: ['ambient']
   };
   const { LC, log, Storage, params } = setup();
   LC.addSettings();

@@ -407,7 +407,7 @@
      «крупнее» между ними зияла полоса в 40 px). Всё, что в герое читают —
      логотип, название, мета, описание, чипы и профили настроения, — лежит
      внутри .lumen-hero__text и масштабируется вместе с ним. */
-  var SCALE_ROOTS = '.lumen-card,.lumen-backdrop,.lumen-descr-row,.lumen-review-modal,.lumen-hero .lumen-hero__text,.lumen-hub,.lumen-grid,.lumen-minimap,.lumen-jump';
+  var SCALE_ROOTS = '.lumen-card,.lumen-backdrop,.lumen-descr-row,.lumen-review-modal,.lumen-hero .lumen-hero__text,.lumen-hub,.lumen-grid,.lumen-minimap,.lumen-jump,.lumen-ambient';
 
   function scaleFactor() {
     return SCALES[LC.pref('lumen_scale', SCALE_DEFAULT)] || SCALES[SCALE_DEFAULT];
@@ -2027,6 +2027,47 @@
        свойство ради полутора пикселей на углу — лишняя работа композитору.
        В первом же кадре разгона углы уезжают за пределы экрана. */
     css.push('.lumen-overlay .lumen-overlay__img.is-run{border-radius:0}');
+
+    /* --- Task 22: ambient-режим (заставка из кадров) ---
+       Слой поверх всего, что рисует плагин (переход постер → кадр — 90,
+       мини-карта — 80), но ниже модалов Lampa (1000+): при открытом модале
+       заставка и не стартует (canStart, src/54_ambient.js).
+       pointer-events:none и ни одного слушателя на самом слое — клавиши
+       ловит document, и ровно одно нажатие (первое) он проглатывает.
+       Фон слоя — цвет страницы: кадр 16:9 на панели 21:9 не закрывает края,
+       и просвечивать туда должен наш фон, а не кадр Lampa под ним. */
+    css.push('.lumen-ambient{position:fixed;top:0;left:0;right:0;bottom:0;z-index:95;overflow:hidden;pointer-events:none;background:' + P.bg + ';-webkit-animation:lumen-amb-in .8s ease both;animation:lumen-amb-in .8s ease both}');
+    /* Уход слоя. Длительность совпадает с FADE_MS в src/54_ambient.js: узел
+       снимается таймером ровно тогда, когда анимация закончилась. */
+    css.push('.lumen-ambient.is-out{-webkit-animation:lumen-amb-out .4s ease both;animation:lumen-amb-out .4s ease both}');
+    css.push('@-webkit-keyframes lumen-amb-in{from{opacity:0}to{opacity:1}}');
+    css.push('@keyframes lumen-amb-in{from{opacity:0}to{opacity:1}}');
+    css.push('@-webkit-keyframes lumen-amb-out{from{opacity:1}to{opacity:0}}');
+    css.push('@keyframes lumen-amb-out{from{opacity:1}to{opacity:0}}');
+    /* Два кадра, между которыми переезжает класс is-active, — тот же приём,
+       что у слайдшоу карточки: кроссфейд делает transition на opacity, и
+       композитору не нужно перерисовывать ни один пиксель. Без inset. */
+    css.push('.lumen-ambient .lumen-ambient__img{position:absolute;top:0;right:0;bottom:0;left:0;background-position:center;background-repeat:no-repeat;-webkit-background-size:cover;background-size:cover;opacity:0;-webkit-transition:opacity 2s ease-in-out;transition:opacity 2s ease-in-out}');
+    css.push('.lumen-ambient .lumen-ambient__img.is-active{opacity:1}');
+    /* Наезд 1.00 → 1.08 за 20 с (поправка контроллера к Task 22) — только
+       при полных анимациях: в «Лёгких» остаётся один кроссфейд, и заставка
+       не стоит телевизору ничего, кроме смены картинки раз в 20 секунд. */
+    css.push('body.lumen-motion-full .lumen-ambient .lumen-ambient__img.is-active{-webkit-animation:lumen-amb-zoom 20s linear both;animation:lumen-amb-zoom 20s linear both}');
+    css.push('@-webkit-keyframes lumen-amb-zoom{from{-webkit-transform:scale(1)}to{-webkit-transform:scale(1.08)}}');
+    css.push('@keyframes lumen-amb-zoom{from{transform:scale(1)}to{transform:scale(1.08)}}');
+    /* Вуаль под подписью: кадр к низу темнеет, иначе название и часы
+       пропадают на светлой сцене. */
+    css.push('.lumen-ambient .lumen-ambient__scrim{position:absolute;top:auto;right:0;bottom:0;left:0;height:40%;background:-webkit-linear-gradient(top,rgba(' + P.bgRgb + ',0) 0%,rgba(' + P.bgRgb + ',.82) 100%);background:linear-gradient(to bottom,rgba(' + P.bgRgb + ',0) 0%,rgba(' + P.bgRgb + ',.82) 100%)}');
+    css.push('.lumen-ambient .lumen-ambient__info{position:absolute;left:2.81em;bottom:2.81em;right:14em;max-width:36em}');
+    css.push('.lumen-ambient .lumen-ambient__title{font-family:' + FD + ';font-weight:700;font-size:1.75em;line-height:1.15;color:' + P.text + ';white-space:nowrap;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis}');
+    /* Точки-индикаторы: сколько кадров в ленте сеанса и который идёт
+       сейчас (REEL = 8, src/54_ambient.js). */
+    css.push('.lumen-ambient .lumen-ambient__dots{display:-webkit-box;display:-webkit-flex;display:flex;margin-top:.88em}');
+    css.push('.lumen-ambient .lumen-ambient__dot{width:.35em;height:.35em;border-radius:50%;margin-right:.44em;background:rgba(' + P.textRgb + ',.28)}');
+    css.push('.lumen-ambient .lumen-ambient__dot.is-on{background:' + A + '}');
+    /* Часы — моно-гарнитурой, как все цифры плагина. Секунд нет: они стоили
+       бы отдельного таймера (см. шапку src/54_ambient.js). */
+    css.push('.lumen-ambient .lumen-ambient__clock{position:absolute;right:2.81em;bottom:2.81em;font-family:' + FM + ';font-size:2.2em;line-height:1;letter-spacing:.04em;color:' + P.text + '}');
 
     /* --- Task 27: мини-карта рядов и индикатор позиции ---
        Панель — design-spec-main §0.16 (экран 32): right 64, top 260,

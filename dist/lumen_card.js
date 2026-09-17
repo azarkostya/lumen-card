@@ -725,7 +725,7 @@ return round2(HERO_HEAD_SAFE + TEXT_BOTTOM_COMPACT + MOODS_GAP + MOODS_H_COMPACT
 
 
 
-var SCALE_ROOTS = '.lumen-card,.lumen-backdrop,.lumen-descr-row,.lumen-review-modal,.lumen-hero .lumen-hero__text,.lumen-hub,.lumen-grid,.lumen-minimap,.lumen-jump';
+var SCALE_ROOTS = '.lumen-card,.lumen-backdrop,.lumen-descr-row,.lumen-review-modal,.lumen-hero .lumen-hero__text,.lumen-hub,.lumen-grid,.lumen-minimap,.lumen-jump,.lumen-ambient';
 
 function scaleFactor() {
 return SCALES[LC.pref('lumen_scale', SCALE_DEFAULT)] || SCALES[SCALE_DEFAULT];
@@ -2354,6 +2354,47 @@ css.push('.lumen-overlay .lumen-overlay__img.is-run{border-radius:0}');
 
 
 
+css.push('.lumen-ambient{position:fixed;top:0;left:0;right:0;bottom:0;z-index:95;overflow:hidden;pointer-events:none;background:' + P.bg + ';-webkit-animation:lumen-amb-in .8s ease both;animation:lumen-amb-in .8s ease both}');
+
+
+css.push('.lumen-ambient.is-out{-webkit-animation:lumen-amb-out .4s ease both;animation:lumen-amb-out .4s ease both}');
+css.push('@-webkit-keyframes lumen-amb-in{from{opacity:0}to{opacity:1}}');
+css.push('@keyframes lumen-amb-in{from{opacity:0}to{opacity:1}}');
+css.push('@-webkit-keyframes lumen-amb-out{from{opacity:1}to{opacity:0}}');
+css.push('@keyframes lumen-amb-out{from{opacity:1}to{opacity:0}}');
+
+
+
+css.push('.lumen-ambient .lumen-ambient__img{position:absolute;top:0;right:0;bottom:0;left:0;background-position:center;background-repeat:no-repeat;-webkit-background-size:cover;background-size:cover;opacity:0;-webkit-transition:opacity 2s ease-in-out;transition:opacity 2s ease-in-out}');
+css.push('.lumen-ambient .lumen-ambient__img.is-active{opacity:1}');
+
+
+
+css.push('body.lumen-motion-full .lumen-ambient .lumen-ambient__img.is-active{-webkit-animation:lumen-amb-zoom 20s linear both;animation:lumen-amb-zoom 20s linear both}');
+css.push('@-webkit-keyframes lumen-amb-zoom{from{-webkit-transform:scale(1)}to{-webkit-transform:scale(1.08)}}');
+css.push('@keyframes lumen-amb-zoom{from{transform:scale(1)}to{transform:scale(1.08)}}');
+
+
+css.push('.lumen-ambient .lumen-ambient__scrim{position:absolute;top:auto;right:0;bottom:0;left:0;height:40%;background:-webkit-linear-gradient(top,rgba(' + P.bgRgb + ',0) 0%,rgba(' + P.bgRgb + ',.82) 100%);background:linear-gradient(to bottom,rgba(' + P.bgRgb + ',0) 0%,rgba(' + P.bgRgb + ',.82) 100%)}');
+css.push('.lumen-ambient .lumen-ambient__info{position:absolute;left:2.81em;bottom:2.81em;right:14em;max-width:36em}');
+css.push('.lumen-ambient .lumen-ambient__title{font-family:' + FD + ';font-weight:700;font-size:1.75em;line-height:1.15;color:' + P.text + ';white-space:nowrap;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis}');
+
+
+css.push('.lumen-ambient .lumen-ambient__dots{display:-webkit-box;display:-webkit-flex;display:flex;margin-top:.88em}');
+css.push('.lumen-ambient .lumen-ambient__dot{width:.35em;height:.35em;border-radius:50%;margin-right:.44em;background:rgba(' + P.textRgb + ',.28)}');
+css.push('.lumen-ambient .lumen-ambient__dot.is-on{background:' + A + '}');
+
+
+css.push('.lumen-ambient .lumen-ambient__clock{position:absolute;right:2.81em;bottom:2.81em;font-family:' + FM + ';font-size:2.2em;line-height:1;letter-spacing:.04em;color:' + P.text + '}');
+
+
+
+
+
+
+
+
+
 
 
 
@@ -3842,6 +3883,99 @@ themes: [
 { id: 'sakura', preset: 'petals', accent: '#E6A3B8', keywords: ['cherry blossom', 'anime', 'romance'], genres: [16], requireGenre: true },
 { id: 'war', preset: 'embers', accent: '#C97B4A', keywords: ['war', 'world war ii', 'explosion', 'battle'] },
 { id: 'zombie', preset: 'glitch', accent: '#9FCF8A', keywords: ['zombie', 'undead', 'zombie apocalypse'] }
+],
+
+
+
+
+
+
+
+
+
+ambient: [
+{ media: 'movie', id: 438631, title: 'Дюна', path: '/zRKQW58MBEY078AxkHxEJzUskCl.jpg', width: 3840 },
+{ media: 'movie', id: 438631, title: 'Дюна', path: '/jYEW5xZkZk2WTrdbMGAPFuBqbDc.jpg', width: 3840 },
+{ media: 'movie', id: 693134, title: 'Дюна: Часть вторая', path: '/eZ239CUp1d6OryZEBPnO2n87gMG.jpg', width: 3840 },
+{ media: 'movie', id: 693134, title: 'Дюна: Часть вторая', path: '/xOMo8BRK7PfcJv9JCnx7s5hj0PX.jpg', width: 3840 },
+{ media: 'movie', id: 335984, title: 'Бегущий по лезвию 2049', path: '/gNdLJU9TxrpGx4dkZidjys3fyy0.jpg', width: 3840 },
+{ media: 'movie', id: 335984, title: 'Бегущий по лезвию 2049', path: '/mVr0UiqyltcfqxbAUcLl9zWL8ah.jpg', width: 3840 },
+{ media: 'movie', id: 157336, title: 'Интерстеллар', path: '/8sNiAPPYU14PUepFNeSNGUTiHW.jpg', width: 3840 },
+{ media: 'movie', id: 157336, title: 'Интерстеллар', path: '/vgnoBSVzWAV9sNQUORaDGvDp7wx.jpg', width: 3840 },
+{ media: 'movie', id: 872585, title: 'Оппенгеймер', path: '/7CENyUim29IEsaJhUxIGymCRvPu.jpg', width: 3840 },
+{ media: 'movie', id: 872585, title: 'Оппенгеймер', path: '/neeNHeXjMF5fXoCJRsOmkNGC7q.jpg', width: 3840 },
+{ media: 'movie', id: 76600, title: 'Аватар: Путь воды', path: '/kJsPVzdyBrYHLomuNv5SJDXUQ2f.jpg', width: 3840 },
+{ media: 'movie', id: 76600, title: 'Аватар: Путь воды', path: '/8rpDcsfLJypbO6vREc0547VKqEv.jpg', width: 3840 },
+{ media: 'tv', id: 82856, title: 'Мандалорец', path: '/9zcbqSxdsRMZWHYtyCd1nXPr2xq.jpg', width: 3840 },
+{ media: 'tv', id: 82856, title: 'Мандалорец', path: '/7dxnNNo8BI5Aguzf9N3OHRTI2g5.jpg', width: 3840 },
+{ media: 'movie', id: 120, title: 'Властелин колец: Братство Кольца', path: '/x2RS3uTcsJJ9IfjNPcgDmukoEcQ.jpg', width: 3840 },
+{ media: 'movie', id: 120, title: 'Властелин колец: Братство Кольца', path: '/ua5EHfleb44L5hfHPs2BPqRAove.jpg', width: 3840 },
+{ media: 'movie', id: 76341, title: 'Безумный Макс: Дорога ярости', path: '/gqrnQA6Xppdl8vIb2eJc58VC1tW.jpg', width: 3840 },
+{ media: 'movie', id: 76341, title: 'Безумный Макс: Дорога ярости', path: '/uT895WNwm0aIJRtGizcQhrejWUo.jpg', width: 3840 },
+{ media: 'movie', id: 27205, title: 'Начало', path: '/8ZTVqvKDQ8emSGUEMjsS4yHAwrp.jpg', width: 3840 },
+{ media: 'movie', id: 27205, title: 'Начало', path: '/28kKbSUvUz6P5RE1AuMJMO7IMfK.jpg', width: 3840 },
+{ media: 'movie', id: 49047, title: 'Гравитация', path: '/a2n6bKD7qhCPCAEALgsAhWOAQcc.jpg', width: 3840 },
+{ media: 'movie', id: 49047, title: 'Гравитация', path: '/NPQyzyVb0ezZJlrp5sN4YKkOvq.jpg', width: 3840 },
+{ media: 'movie', id: 286217, title: 'Марсианин', path: '/lzMS0CI3FLQYC5EgJoWeIaEt0lm.jpg', width: 3840 },
+{ media: 'movie', id: 286217, title: 'Марсианин', path: '/9pubUbDX3eKB6ZuKxbFgv4cBZrz.jpg', width: 3840 },
+{ media: 'movie', id: 475557, title: 'Джокер', path: '/rlay2M5QYvi6igbGcFjq8jxeusY.jpg', width: 3840 },
+{ media: 'movie', id: 475557, title: 'Джокер', path: '/hw1CwteUFGjcWXwjGhKk8UJpWeA.jpg', width: 3840 },
+{ media: 'movie', id: 530915, title: '1917', path: '/2lBOQK06tltt8SQaswgb8d657Mv.jpg', width: 3840 },
+{ media: 'movie', id: 530915, title: '1917', path: '/2WgieNR1tGHlpJUsolbVzbUbE1O.jpg', width: 3840 },
+{ media: 'movie', id: 374720, title: 'Дюнкерк', path: '/ddIkmH3TpR6XSc47jj0BrGK5Rbz.jpg', width: 3840 },
+{ media: 'movie', id: 374720, title: 'Дюнкерк', path: '/2bG3HXcUze0GyGAKnJSDF6gllzk.jpg', width: 3840 },
+{ media: 'movie', id: 603, title: 'Матрица', path: '/tlm8UkiQsitc8rSuIAscQDCnP8d.jpg', width: 3840 },
+{ media: 'movie', id: 603, title: 'Матрица', path: '/oMsxZEvz9a708d49b6UdZK1KAo5.jpg', width: 3840 },
+{ media: 'movie', id: 155, title: 'Тёмный рыцарь', path: '/9FE5eD92WfVCiivM9Pq9GVSrlWk.jpg', width: 3840 },
+{ media: 'movie', id: 155, title: 'Тёмный рыцарь', path: '/4ORaDgLekcxzHmJPeSncyOgZImR.jpg', width: 3840 },
+{ media: 'movie', id: 603692, title: 'Джон Уик 4', path: '/7I6VUdPj6tQECNHdviJkUHD2u89.jpg', width: 3840 },
+{ media: 'movie', id: 603692, title: 'Джон Уик 4', path: '/i8dshLvq4LE3s0v8PrkDdUyb1ae.jpg', width: 3840 },
+{ media: 'movie', id: 361743, title: 'Топ Ган: Мэверик', path: '/AaV1YIdWKnjAIAOe8UUKBFm327v.jpg', width: 3840 },
+{ media: 'movie', id: 361743, title: 'Топ Ган: Мэверик', path: '/5AcP07WJl1VZbnloLZrMVgYjR2s.jpg', width: 3840 },
+{ media: 'movie', id: 399055, title: 'Форма воды', path: '/abirSHwWgKajV3hXhaIR5lcCIXe.jpg', width: 3840 },
+{ media: 'movie', id: 399055, title: 'Форма воды', path: '/rgyhSn3mINvkuy9iswZK0VLqQO3.jpg', width: 3840 },
+{ media: 'movie', id: 313369, title: 'Ла-Ла Ленд', path: '/nlPCdZlHtRNcF6C9hzUH4ebmV1w.jpg', width: 3840 },
+{ media: 'movie', id: 313369, title: 'Ла-Ла Ленд', path: '/2wmDyHz4gvF6m51IQZJnJzlLsnz.jpg', width: 3840 },
+{ media: 'movie', id: 496243, title: 'Паразиты', path: '/hiKmpZMGZsrkA3cdce8a7Dpos1j.jpg', width: 3840 },
+{ media: 'movie', id: 496243, title: 'Паразиты', path: '/cI1RBfqXbWaITTjcKGYLhd9F083.jpg', width: 3840 },
+{ media: 'movie', id: 64690, title: 'Драйв', path: '/hoyAALgfmjMEK7O1wZ4r8wT91RP.jpg', width: 3840 },
+{ media: 'movie', id: 64690, title: 'Драйв', path: '/oeEiUwvqHxWT0XqD3YlViaiJOVD.jpg', width: 3840 },
+{ media: 'movie', id: 329865, title: 'Прибытие', path: '/8MUZz7oPXQftFTslZpRP3CVMOoq.jpg', width: 3840 },
+{ media: 'movie', id: 329865, title: 'Прибытие', path: '/r8FD6CC3GgjWaGVkZh00AcedfpA.jpg', width: 3840 },
+{ media: 'movie', id: 194662, title: 'Бёрдмэн', path: '/5tDErYQ8Ne1N6dNAlxg8yYNUwRA.jpg', width: 3840 },
+{ media: 'movie', id: 194662, title: 'Бёрдмэн', path: '/2y6jZRoM6arYpNXC2GZAjUV4bmW.jpg', width: 3840 },
+{ media: 'movie', id: 120467, title: 'Отель «Гранд Будапешт»', path: '/9udCLTxTFl28RxnK8Q05E154ZGa.jpg', width: 3840 },
+{ media: 'movie', id: 120467, title: 'Отель «Гранд Будапешт»', path: '/xHDynIimfsgj0ZOs0j5ma8v1vmM.jpg', width: 3840 },
+{ media: 'movie', id: 466272, title: 'Однажды в Голливуде', path: '/xwgBHC2FgoIrQitl8jZwXXdsR9u.jpg', width: 3840 },
+{ media: 'movie', id: 466272, title: 'Однажды в Голливуде', path: '/oRiUKwDpcqDdoLwPoA4FIRh3hqY.jpg', width: 3840 },
+{ media: 'movie', id: 118340, title: 'Стражи Галактики', path: '/uLtVbjvS1O7gXL8lUOwsFOH4man.jpg', width: 3840 },
+{ media: 'movie', id: 118340, title: 'Стражи Галактики', path: '/47S8qCA5EoUVyKGDwWKDTwsJFpY.jpg', width: 3840 },
+{ media: 'movie', id: 324857, title: 'Человек-паук: Через вселенные', path: '/qGQf2OHIkoh89K8XeKQzhxczf96.jpg', width: 3840 },
+{ media: 'movie', id: 324857, title: 'Человек-паук: Через вселенные', path: '/hlCq6Qh9GVtuNcGZF4mQYluaZix.jpg', width: 3840 },
+{ media: 'movie', id: 129, title: 'Унесённые призраками', path: '/6oaL4DP75yABrd5EbC4H2zq5ghc.jpg', width: 3840 },
+{ media: 'movie', id: 129, title: 'Унесённые призраками', path: '/zSWkLXXj26IQ3pFDH1rnXDQZxAu.jpg', width: 3840 },
+{ media: 'movie', id: 372058, title: 'Твоё имя', path: '/mMtUybQ6hL24FXo0F3Z4j2KG7kZ.jpg', width: 3840 },
+{ media: 'movie', id: 372058, title: 'Твоё имя', path: '/qeUIKwUfDnNWFA1WwTvTRF1FaYF.jpg', width: 3840 },
+{ media: 'movie', id: 346698, title: 'Барби', path: '/1esAE8sLJRWWFsLLeh5r3g2WanI.jpg', width: 3840 },
+{ media: 'movie', id: 346698, title: 'Барби', path: '/3N5QNUqS76GFYNoEayfkkJyAyTN.jpg', width: 3840 },
+{ media: 'movie', id: 545611, title: 'Всё везде и сразу', path: '/ss0Os3uWJfQAENILHZUdX8Tt1OC.jpg', width: 3840 },
+{ media: 'movie', id: 545611, title: 'Всё везде и сразу', path: '/tt79dbOPd9Z9ykEOpvckttgYXwH.jpg', width: 3840 },
+{ media: 'movie', id: 466420, title: 'Убийцы цветочной луны', path: '/acvE3RWjDLgvbL2RtcyzkrsAyNV.jpg', width: 3840 },
+{ media: 'movie', id: 466420, title: 'Убийцы цветочной луны', path: '/fnxQUdLAjmSRCdudbYClkSnrxVf.jpg', width: 3840 },
+{ media: 'movie', id: 792307, title: 'Бедные-несчастные', path: '/zh6IdheEYinU4TPtorWsjx6qPQE.jpg', width: 3840 },
+{ media: 'movie', id: 792307, title: 'Бедные-несчастные', path: '/h0oBqUpax591vOacpBsDJ8cynjk.jpg', width: 3840 },
+{ media: 'tv', id: 106379, title: 'Фоллаут', path: '/coaPCIqQBPUZsOnJcWZxhaORcDT.jpg', width: 3840 },
+{ media: 'tv', id: 106379, title: 'Фоллаут', path: '/cIgHBLTMbcIkS0yvIrUUVVKLdOz.jpg', width: 3840 },
+{ media: 'tv', id: 95396, title: 'Разделение', path: '/ixgFmf1X59PUZam2qbAfskx2gQr.jpg', width: 3840 },
+{ media: 'tv', id: 95396, title: 'Разделение', path: '/9xDCTGhEWpz206PCiimRGmK67rV.jpg', width: 3840 },
+{ media: 'tv', id: 83867, title: 'Андор', path: '/quCeAmVQHfsdcYkicbxZWVauCVb.jpg', width: 3840 },
+{ media: 'tv', id: 83867, title: 'Андор', path: '/AmUhBqsxcenA75T9hV49G6ouO9c.jpg', width: 3840 },
+{ media: 'tv', id: 93405, title: 'Игра в кальмара', path: '/2meX1nMdScFOoV4370rqHWKmXhY.jpg', width: 3840 },
+{ media: 'tv', id: 93405, title: 'Игра в кальмара', path: '/xYTnihl7qffiLSZ6yLMSpBkPdXC.jpg', width: 3840 },
+{ media: 'tv', id: 100088, title: 'Одни из нас', path: '/lY2DhbA7Hy44fAKddr06UrXWWaQ.jpg', width: 3840 },
+{ media: 'tv', id: 100088, title: 'Одни из нас', path: '/uDgy6hyPd82kOHh6I95FLtLnj6p.jpg', width: 3840 },
+{ media: 'movie', id: 37165, title: 'Шоу Трумана', path: '/rmiG2uwcNoGFmBKMoa1pIcf514L.jpg', width: 3840 },
+{ media: 'movie', id: 37165, title: 'Шоу Трумана', path: '/aCHn2TXYJfzPXQKA6r9mKPbMlUB.jpg', width: 3840 }
 ]
 };
 
@@ -3864,6 +3998,13 @@ if (!Array.isArray(m.home)) return { ok: false, reason: 'no_home' };
 
 if (typeof m.themes !== 'undefined' && !Array.isArray(m.themes)) {
 return { ok: false, reason: 'themes_not_array' };
+}
+
+
+
+
+if (typeof m.ambient !== 'undefined' && !Array.isArray(m.ambient)) {
+return { ok: false, reason: 'ambient_not_array' };
 }
 var seen = {};
 var i, c;
@@ -10955,6 +11096,647 @@ return api;
 if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.themes;
 
 
+/* ---- 54_ambient.js ---- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+LC.ambient = (function () {
+
+
+
+
+var SLIDE_MS = 20000;
+
+var FADE_MS = 400;
+
+
+
+var REEL = 8;
+
+var DEFAULT_MIN = 3;
+
+
+
+
+var CONTROLLERS = { content: 1, full_start: 1, full_descr: 1, items_line: 1 };
+
+
+
+
+
+
+
+
+function sizeFor(width) {
+var w = Number(width) || 0;
+return w > 1366 ? 'original' : 'w1280';
+}
+
+
+
+function nextIndex(index, len) {
+var n = Number(len) || 0;
+if (n <= 0) return -1;
+var i = Number(index);
+if (!(i >= 0)) return 0;
+return (i + 1) % n;
+}
+
+
+
+
+function normalizeFrames(list) {
+var out = [];
+if (!list || !list.length) return out;
+for (var i = 0; i < list.length; i++) {
+var item = list[i];
+if (!item) continue;
+var path = item.path ? ('' + item.path) : '';
+var url = item.url ? ('' + item.url) : '';
+if (!path && !url) continue;
+out.push({ title: item.title ? ('' + item.title) : '', path: path, url: url });
+}
+return out;
+}
+
+
+
+
+function playlist(frames, size, rnd) {
+var pool = [];
+var i;
+if (!frames || !frames.length) return pool;
+for (i = 0; i < frames.length; i++) pool.push(frames[i]);
+var random = typeof rnd === 'function' ? rnd : Math.random;
+for (i = pool.length - 1; i > 0; i--) {
+var j = Math.floor(random() * (i + 1));
+if (j < 0) j = 0;
+if (j > i) j = i;
+var tmp = pool[i];
+pool[i] = pool[j];
+pool[j] = tmp;
+}
+var limit = Number(size) || 0;
+if (limit > 0 && pool.length > limit) pool = pool.slice(0, limit);
+return pool;
+}
+
+
+
+
+function canStart(state) {
+if (!state) return false;
+if (!state.enabled) return false;
+
+
+
+if (state.motion === 'off') return false;
+if (state.hidden) return false;
+if (state.modal || state.player || state.trailer) return false;
+if (!state.frames) return false;
+return !!CONTROLLERS[state.controller];
+}
+
+
+function clockText(date) {
+if (!date || typeof date.getHours !== 'function') return '';
+return LC.util.pad2(date.getHours()) + ':' + LC.util.pad2(date.getMinutes());
+}
+
+
+
+
+
+function doc() {
+try { return typeof document !== 'undefined' ? document : null; } catch (e) { return null; }
+}
+
+function jq() {
+try { if (typeof $ === 'function') return $; } catch (e) { }
+return null;
+}
+
+function hidden() {
+var d = doc();
+return !!(d && d.hidden);
+}
+
+
+
+function setT(fn, ms) {
+var hook = api._timers;
+if (hook && typeof hook.set === 'function') return hook.set(fn, ms);
+return setTimeout(fn, ms);
+}
+
+function clearT(id) {
+if (!id) return;
+var hook = api._timers;
+if (hook && typeof hook.clear === 'function') { hook.clear(id); return; }
+clearTimeout(id);
+}
+
+function tmdbImageFn() {
+try {
+if (window.Lampa && Lampa.TMDB && typeof Lampa.TMDB.image === 'function') {
+return function (url) { return Lampa.TMDB.image(url); };
+}
+} catch (e) { }
+return null;
+}
+
+function apiImgFn() {
+try {
+if (window.Lampa && Lampa.Api && typeof Lampa.Api.img === 'function') {
+return function (path, size) { return Lampa.Api.img(path, size); };
+}
+} catch (e) { }
+return null;
+}
+
+
+function screenWidth() {
+var w = 0;
+try {
+w = (window.screen && window.screen.width) || window.innerWidth || 0;
+w = w * (window.devicePixelRatio || 1);
+} catch (e) { }
+return w;
+}
+
+
+
+
+function urlOf(frame, size) {
+if (!frame) return '';
+if (frame.url) return frame.url;
+if (!frame.path) return '';
+try {
+if (LC.cardinfo && typeof LC.cardinfo.imageUrl === 'function') {
+return LC.cardinfo.imageUrl(frame.path, size, tmdbImageFn(), apiImgFn());
+}
+} catch (e) { }
+try {
+var tmdb = tmdbImageFn();
+var clean = frame.path.charAt(0) === '/' ? frame.path.slice(1) : frame.path;
+if (tmdb) return tmdb('t/p/' + size + '/' + clean);
+} catch (e2) { }
+return '';
+}
+
+
+
+function curatedFrames() {
+var list = null;
+try {
+var m = LC.manifest && typeof LC.manifest.get === 'function' ? LC.manifest.get() : null;
+if (m && m.ambient && m.ambient.length) list = m.ambient;
+if (!list && LC.manifest && LC.manifest.DEFAULT) list = LC.manifest.DEFAULT.ambient;
+} catch (e) {
+warn('ambient: manifest failed', e);
+}
+return normalizeFrames(list);
+}
+
+
+
+
+function currentFrames() {
+var out = [];
+try {
+var active = LC.active;
+if (!active || !active.body || typeof active.body.children !== 'function') return out;
+var layer = active.body.children('.lumen-backdrop');
+if (!layer || !layer.length) return out;
+var urls = layer.data('lumenUrls');
+if (!urls || !urls.length) return out;
+var movie = (active.data && active.data.movie) || {};
+var title = movie.title || movie.name || '';
+for (var i = 0; i < urls.length; i++) {
+if (urls[i]) out.push({ title: title, url: '' + urls[i], path: '' });
+}
+} catch (e) {
+warn('ambient: current frames failed', e);
+}
+return normalizeFrames(out);
+}
+
+
+
+
+function frames() {
+var source = 'curated';
+try { source = LC.pref('lumen_ambient_source', 'curated'); } catch (e) { }
+if (source === 'current') {
+var own = currentFrames();
+if (own.length) return own;
+}
+return curatedFrames();
+}
+
+
+
+function delayMs() {
+var hook = Number(api._delayMs) || 0;
+if (hook > 0) return hook;
+var minutes = DEFAULT_MIN;
+try { minutes = Number(LC.pref('lumen_ambient_delay', '' + DEFAULT_MIN)) || DEFAULT_MIN; } catch (e) { }
+if (minutes <= 0) minutes = DEFAULT_MIN;
+return minutes * 60000;
+}
+
+function enabledNow() {
+try {
+if (typeof LC.enabled === 'function' && !LC.enabled()) return false;
+return !!LC.pref('lumen_ambient', true);
+} catch (e) {
+return false;
+}
+}
+
+
+
+
+function trailerLive() {
+var q = jq();
+if (!q) return false;
+try { return !!q('.lumen-trailer-live,.lumen-hero--trailer').length; } catch (e) { return false; }
+}
+
+function controllerName() {
+try {
+if (window.Lampa && Lampa.Controller && typeof Lampa.Controller.enabled === 'function') {
+var c = Lampa.Controller.enabled();
+return (c && c.name) || '';
+}
+} catch (e) { }
+return '';
+}
+
+function modalOpen() {
+try {
+if (window.Lampa && Lampa.Modal && typeof Lampa.Modal.opened === 'function') return !!Lampa.Modal.opened();
+} catch (e) { }
+return false;
+}
+
+function playerOpen() {
+try {
+if (window.Lampa && Lampa.Player && typeof Lampa.Player.opened === 'function') return !!Lampa.Player.opened();
+} catch (e) { }
+return false;
+}
+
+function motion() {
+try {
+if (typeof LC.motionMode === 'function') return LC.motionMode();
+} catch (e) { }
+return 'full';
+}
+
+
+
+
+
+var installed = false;
+var bound = null;
+var idle_timer = 0;
+var slide_timer = 0;
+var out_timer = 0;
+var node = null;
+var imgs = [];
+var dots = [];
+var reel = [];
+var index = -1;
+var slot = 0;
+var live = false;
+var preload = null;
+
+function killPreload() {
+if (!preload) return;
+try {
+preload.onload = null;
+preload.onerror = null;
+preload.src = '';
+} catch (e) { }
+preload = null;
+}
+
+
+
+function preloadNext(url) {
+killPreload();
+if (!url) return;
+var Ctor = null;
+try { Ctor = (window && typeof window.Image === 'function') ? window.Image : null; } catch (e) { }
+if (!Ctor) return;
+try {
+var img = new Ctor();
+preload = img;
+var done = function () {
+if (preload !== img) return;
+try { img.onload = null; img.onerror = null; } catch (e2) { }
+preload = null;
+};
+img.onload = done;
+img.onerror = done;
+img.src = url;
+} catch (e3) {
+warn('ambient: preload failed', e3);
+preload = null;
+}
+}
+
+function paintClock() {
+if (!node) return;
+try { node.find('.lumen-ambient__clock').text(clockText(new Date())); } catch (e) { }
+}
+
+
+
+function show(i) {
+if (!node || !reel.length) return;
+var size = sizeFor(screenWidth());
+var frame = reel[i];
+var url = urlOf(frame, size);
+if (!url) return;
+var target = imgs[slot];
+var other = imgs[slot ? 0 : 1];
+try {
+target.css('background-image', 'url("' + url + '")');
+target.addClass('is-active');
+other.removeClass('is-active');
+} catch (e) {
+warn('ambient: paint failed', e);
+return;
+}
+slot = slot ? 0 : 1;
+index = i;
+try { node.find('.lumen-ambient__title').text(frame.title || ''); } catch (e2) { }
+for (var d = 0; d < dots.length; d++) {
+try { dots[d].toggleClass('is-on', d === i); } catch (e3) { }
+}
+paintClock();
+preloadNext(urlOf(reel[nextIndex(i, reel.length)], size));
+}
+
+function tick() {
+slide_timer = 0;
+if (!live) return;
+
+
+
+if (!hidden()) {
+try { show(nextIndex(index, reel.length)); } catch (e) { warn('ambient: slide failed', e); }
+}
+slide_timer = setT(tick, SLIDE_MS);
+}
+
+function build() {
+var q = jq();
+if (!q) return false;
+var root = q(
+'<div class="lumen-ambient">' +
+'<div class="lumen-ambient__img"></div>' +
+'<div class="lumen-ambient__img"></div>' +
+'<div class="lumen-ambient__scrim"></div>' +
+'<div class="lumen-ambient__info">' +
+'<div class="lumen-ambient__title"></div>' +
+'<div class="lumen-ambient__dots"></div>' +
+'</div>' +
+'<div class="lumen-ambient__clock"></div>' +
+'</div>'
+);
+var found = root.find('.lumen-ambient__img');
+imgs = [found.eq(0), found.eq(1)];
+dots = [];
+var box = root.find('.lumen-ambient__dots');
+for (var i = 0; i < reel.length; i++) {
+var dot = q('<div class="lumen-ambient__dot"></div>');
+box.append(dot);
+dots.push(dot);
+}
+q('body').append(root);
+node = root;
+return true;
+}
+
+
+function gather(count) {
+return {
+enabled: enabledNow(),
+motion: motion(),
+hidden: hidden(),
+modal: modalOpen(),
+player: playerOpen(),
+trailer: trailerLive(),
+controller: controllerName(),
+frames: count
+};
+}
+
+function start() {
+idle_timer = 0;
+var list = [];
+try { list = frames(); } catch (e) { warn('ambient: frames failed', e); }
+if (!canStart(gather(list.length))) { schedule(); return; }
+reel = playlist(list, REEL, Math.random);
+if (!reel.length) { schedule(); return; }
+index = -1;
+slot = 0;
+if (!build()) { schedule(); return; }
+live = true;
+try { show(0); } catch (e2) { warn('ambient: start failed', e2); }
+slide_timer = setT(tick, SLIDE_MS);
+}
+
+
+
+function schedule() {
+clearT(idle_timer);
+idle_timer = 0;
+if (!installed || live) return;
+idle_timer = setT(start, delayMs());
+}
+
+
+
+function drop() {
+clearT(slide_timer);
+slide_timer = 0;
+clearT(out_timer);
+out_timer = 0;
+killPreload();
+live = false;
+if (node) {
+try { node.remove(); } catch (e) { warn('ambient: remove failed', e); }
+}
+node = null;
+imgs = [];
+dots = [];
+reel = [];
+index = -1;
+slot = 0;
+}
+
+
+
+
+function hide() {
+if (!node) { schedule(); return; }
+clearT(slide_timer);
+slide_timer = 0;
+killPreload();
+live = false;
+var leaving = node;
+try { leaving.addClass('is-out'); } catch (e) { }
+clearT(out_timer);
+out_timer = setT(function () {
+out_timer = 0;
+try { leaving.remove(); } catch (e2) { warn('ambient: remove failed', e2); }
+if (node === leaving) {
+node = null;
+imgs = [];
+dots = [];
+reel = [];
+index = -1;
+slot = 0;
+}
+}, FADE_MS);
+schedule();
+}
+
+
+
+
+function wake(event, swallow) {
+if (!live) { schedule(); return; }
+if (swallow && event) {
+try { if (typeof event.preventDefault === 'function') event.preventDefault(); } catch (e) { }
+try { if (typeof event.stopPropagation === 'function') event.stopPropagation(); } catch (e2) { }
+}
+hide();
+}
+
+
+
+
+
+function install() {
+if (installed) { schedule(); return; }
+var d = doc();
+if (!d || typeof d.addEventListener !== 'function') return;
+bound = {
+keydown: function (event) { wake(event, true); },
+mousemove: function (event) { wake(event, false); },
+touchstart: function (event) { wake(event, false); }
+};
+try {
+d.addEventListener('keydown', bound.keydown, true);
+d.addEventListener('mousemove', bound.mousemove, true);
+d.addEventListener('touchstart', bound.touchstart, true);
+} catch (e) {
+warn('ambient: listeners failed', e);
+bound = null;
+return;
+}
+installed = true;
+schedule();
+}
+
+function uninstall() {
+var d = doc();
+if (bound && d && typeof d.removeEventListener === 'function') {
+try {
+d.removeEventListener('keydown', bound.keydown, true);
+d.removeEventListener('mousemove', bound.mousemove, true);
+d.removeEventListener('touchstart', bound.touchstart, true);
+} catch (e) {
+warn('ambient: unlisten failed', e);
+}
+}
+bound = null;
+installed = false;
+clearT(idle_timer);
+idle_timer = 0;
+drop();
+}
+
+
+function apply() {
+try {
+if (!enabledNow()) { uninstall(); return; }
+if (!installed) { install(); return; }
+
+schedule();
+} catch (e) {
+warn('ambient: apply failed', e);
+}
+}
+
+var api = {
+sizeFor: sizeFor,
+nextIndex: nextIndex,
+normalizeFrames: normalizeFrames,
+playlist: playlist,
+canStart: canStart,
+clockText: clockText,
+frames: frames,
+delayMs: delayMs,
+install: install,
+uninstall: uninstall,
+apply: apply,
+stop: drop,
+active: function () { return live; },
+_delayMs: 0,
+_timers: null
+};
+return api;
+})();
+
+if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.ambient;
+
+
 /* ---- 55_trailer.js ---- */
 
 
@@ -17252,6 +18034,26 @@ ru: 'Лёгкий слой поверх кадра под тему фильма:
 en: 'A light layer over the still matching the film: snow for Christmas films, bats for Halloween horror, stars for science fiction, rain for noir. The theme is chosen by the film keywords. "Seasonal only" shows holiday themes and only in their month. It never starts with light or disabled animations, and therefore not on weak TVs; it pauses while a trailer is playing.',
 uk: 'Легкий шар поверх кадру під тему фільму: сніг для різдвяного кіно, кажани для горору на Гелловін, зорі для фантастики, дощ для нуару. Тема визначається за ключовими словами фільму. «Лише сезонні» показує тільки святкові теми і лише в їхній місяць. Не запускається за легких і вимкнених анімацій, а отже й на слабких телевізорах; під час трейлера стає на паузу.'
 },
+
+
+lumen_group_ambient: { ru: 'Экранная заставка', en: 'Screensaver', uk: 'Екранна заставка' },
+lumen_ambient_name: { ru: 'Заставка из кадров', en: 'Frame screensaver', uk: 'Заставка з кадрів' },
+lumen_ambient_descr: {
+ru: 'Если пульт молчит, экран сменяется кадрами из фильмов в полный размер, с названием и часами. Любое нажатие возвращает экран мгновенно, и первое нажатие фокус не двигает. Заставка не включается при играющем трейлере, открытом плеере, меню и в неактивной вкладке, а при выключенных анимациях не работает вовсе. Применяется сразу.',
+en: 'When the remote falls silent, the screen turns into full-size film stills with the title and a clock. Any key brings the screen back at once, and that first press does not move focus. It never starts while a trailer is playing, while the player or a menu is open, or in a background tab, and it does not work at all with animations off. Applied immediately.',
+uk: 'Якщо пульт мовчить, екран змінюється кадрами з фільмів на весь розмір, з назвою та годинником. Будь-яке натискання миттєво повертає екран, і перше натискання не рухає фокус. Заставка не вмикається під час трейлера, з відкритим плеєром чи меню та в неактивній вкладці, а з вимкненими анімаціями не працює зовсім. Застосовується одразу.'
+},
+lumen_ambient_source_name: { ru: 'Какие кадры', en: 'Which stills', uk: 'Які кадри' },
+lumen_ambient_source_descr: {
+ru: '«Известные фильмы» — отобранный список кадров из каталога плагина, он обновляется вместе с ним. «Кадры открытого фильма» показывает кадры той карточки, что осталась на экране, и падает на отобранный список, если карточки нет.',
+en: '"Famous films" is a curated list of stills from the plugin catalog, updated together with it. "Stills of the open film" shows the frames of the card left on screen and falls back to the curated list when there is no card.',
+uk: '«Відомі фільми» — дібраний список кадрів з каталогу плагіна, він оновлюється разом із ним. «Кадри відкритого фільму» показує кадри тієї картки, що лишилася на екрані, і падає на дібраний список, якщо картки немає.'
+},
+lumen_ambient_source_curated: { ru: 'Известные фильмы', en: 'Famous films', uk: 'Відомі фільми' },
+lumen_ambient_source_current: { ru: 'Кадры открытого фильма', en: 'Stills of the open film', uk: 'Кадри відкритого фільму' },
+lumen_ambient_delay_name: { ru: 'Через сколько включать', en: 'Idle time before start', uk: 'Через скільки вмикати' },
+
+lumen_ambient_minutes: { ru: 'мин', en: 'min', uk: 'хв' },
 lumen_fx_all: { ru: 'Все', en: 'All', uk: 'Усі' },
 lumen_fx_seasonal: { ru: 'Только сезонные', en: 'Seasonal only', uk: 'Лише сезонні' },
 lumen_fx_off: { ru: 'Выключены', en: 'Off', uk: 'Вимкнені' },
@@ -17971,6 +18773,14 @@ if (name === 'lumen_fx') {
 try { if (LC.applyFxPref) LC.applyFxPref(); } catch (eFx) {}
 return true;
 }
+
+
+
+
+if (name === 'lumen_ambient' || name === 'lumen_ambient_source' || name === 'lumen_ambient_delay') {
+try { if (LC.applyAmbientPref) LC.applyAmbientPref(); } catch (eAmb) {}
+return true;
+}
 if (name.indexOf(PLUGIN + '_') !== 0) return false;
 
 
@@ -18268,6 +19078,20 @@ var LIST = [
 
 
 { name: 'lumen_fx', type: 'select', values: ['all', 'seasonal', 'off'], vprefix: 'lumen_fx_', 'default': 'seasonal', label: 'lumen_fx_name', descr: 'lumen_fx_descr' },
+
+
+
+
+
+
+
+
+
+
+{ name: 'lumen_group_ambient', type: 'title', label: 'lumen_group_ambient' },
+{ name: 'lumen_ambient', type: 'trigger', 'default': true, label: 'lumen_ambient_name', descr: 'lumen_ambient_descr' },
+{ name: 'lumen_ambient_source', type: 'select', values: ['curated', 'current'], vprefix: 'lumen_ambient_source_', 'default': 'curated', label: 'lumen_ambient_source_name', descr: 'lumen_ambient_source_descr' },
+{ name: 'lumen_ambient_delay', type: 'select', values: ['3', '5', '10'], vsuffix: 'lumen_ambient_minutes', 'default': '3', label: 'lumen_ambient_delay_name' },
 
 { name: 'lumen_group_backdrop', type: 'title', label: 'lumen_card_group_backdrop' },
 { name: 'lumen_slideshow', type: 'trigger', 'default': true, label: 'lumen_card_slideshow_name' },
@@ -20520,6 +21344,14 @@ if (LC.nav && LC.nav.apply) LC.nav.apply();
 } catch (eNav) {
 warn('nav install failed', eNav);
 }
+
+
+
+try {
+if (LC.ambient && LC.ambient.apply) LC.ambient.apply();
+} catch (eAmbient) {
+warn('ambient install failed', eAmbient);
+}
 }
 
 function deactivate() {
@@ -20588,6 +21420,10 @@ try { if (LC.cardmenu && LC.cardmenu.uninstall) LC.cardmenu.uninstall(); } catch
 
 
 try { if (LC.nav && LC.nav.uninstall) LC.nav.uninstall(); } catch (eNavOff) {}
+
+
+
+try { if (LC.ambient && LC.ambient.uninstall) LC.ambient.uninstall(); } catch (eAmbientOff) {}
 }
 
 
@@ -20916,6 +21752,19 @@ try {
 if (LC.nav && LC.nav.apply) LC.nav.apply();
 } catch (e) {
 warn('nav pref failed', e);
+}
+};
+
+
+
+
+
+LC.applyAmbientPref = function () {
+if (!activated) return;
+try {
+if (LC.ambient && LC.ambient.apply) LC.ambient.apply();
+} catch (e) {
+warn('ambient pref failed', e);
 }
 };
 
