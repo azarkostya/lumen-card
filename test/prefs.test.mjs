@@ -144,6 +144,8 @@ test('LIST: полный набор ключей — существующие и
     'lumen_hero_size',
     /* Task 24 (фаза 3): акцент от постера открытого фильма */
     'lumen_accent_auto',
+    /* Task 31 (фаза 4): HUD отладки на экране ТВ */
+    'lumen_debug_hud',
     /* Task 29 (фаза 3): переход «постер → кадр» при открытии карточки */
     'lumen_transition',
     /* Task 27 (фаза 3): мини-карта рядов и быстрое листание */
@@ -203,7 +205,7 @@ const GROUPS = [
   /* Task 30: движение вынесено из «Оформления» в свою группу. Все три
      пункта связаны одной зависимостью: переход и атмосферы живут только при
      полных анимациях, и рядом с режимом анимаций это видно сразу. */
-  ['lumen_group_motion', ['lumen_motion', 'lumen_transition', 'lumen_fx']],
+  ['lumen_group_motion', ['lumen_motion', 'lumen_debug_hud', 'lumen_transition', 'lumen_fx']],
   ['lumen_group_backdrop', ['lumen_slideshow', 'lumen_slide_interval', 'lumen_trailer']],
   ['lumen_group_blocks', [
     'lumen_card_progress', 'lumen_reviews', 'lumen_reviews_mode', 'lumen_kp_key', 'lumen_kp_hint'

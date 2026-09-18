@@ -224,6 +224,16 @@
     lumen_card_motion_full: { ru: 'Полные', en: 'Full', uk: 'Повні' },
     lumen_card_motion_lite: { ru: 'Лёгкие', en: 'Light', uk: 'Легкі' },
     lumen_card_motion_off: { ru: 'Выкл', en: 'Off', uk: 'Викл' },
+    /* Task 31 (фаза 4): HUD отладки — FPS, долгие задачи, разрешение и
+       режим анимаций в углу экрана телевизора, без adb. Нужен только для
+       калибровки порогов автодетекта (LC.perf, src/68_perf.js) на реальном
+       железе, поэтому и название честно называет его «Отладкой». */
+    lumen_debug_hud_name: { ru: 'Отладка: показать FPS', en: 'Debug: show FPS', uk: 'Налагодження: показати FPS' },
+    lumen_debug_hud_descr: {
+      ru: 'Счётчик кадров, длинные задачи, разрешение и режим анимаций в углу экрана. Для проверки на телевизоре.',
+      en: 'Frame counter, long tasks, resolution and animation mode in the screen corner. For testing on a TV.',
+      uk: 'Лічильник кадрів, довгі задачі, роздільність та режим анімацій у кутку екрана. Для перевірки на телевізорі.'
+    },
     /* Task 8: строка ушла из блока прогресса на кнопку «Смотреть» —
        «Продолжить S2 E3» (экран 05). В самой строке прогресса подписи
        «ПРОДОЛЖИТЬ» больше нет: по design-spec §6 там таймкод и процент. */
@@ -795,6 +805,9 @@
     if (!name) return false;
     if (name === 'lumen_enabled') { LC.applyEnabledPref(); return true; }
     if (name === 'lumen_motion') { LC.applyMotionMode(); return true; }
+    /* Task 31 (фаза 4): HUD отладки — sync() сам решает, показать узел или
+       снять его, по свежему значению настройки. */
+    if (name === 'lumen_debug_hud') { LC.hud.sync(); return true; }
     if (name === 'lumen_slideshow' || name === 'lumen_slide_interval') { LC.applySlideshowPref(); return true; }
     if (name === 'lumen_menus') { LC.applyMenusPref(); return true; }
     if (name === 'lumen_torrents') { LC.applyTorrentsPref(); return true; }

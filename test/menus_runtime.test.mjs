@@ -71,6 +71,11 @@ function setup(opts) {
   };
   LC.reviews = { render: () => log.push('reviews-render'), clearRow: () => log.push('reviews-clear'), cancel: () => { } };
   LC.backdrops = { apply: () => null, cancel: () => log.push('bg-cancel') };
+  /* Task 31 (фаза 4): HUD отладки — applyPrefChange зовёт LC.hud.sync()
+     напрямую (без try/catch), поэтому в тестовом LC он обязан существовать;
+     сам HUD (src/69_hud.js) здесь не грузится — точка применения проверяется
+     в test/hud.test.mjs. */
+  LC.hud = { sync: () => log.push('hud-sync'), stop: () => log.push('hud-stop') };
   /* Task 32: класс режима движения на body — фейковый $('body'). */
   const body = new FakeEl(['body-mock']);
   globalThis.$ = (sel) => (sel === 'body' ? body : EMPTY);
@@ -124,6 +129,9 @@ test('долг ревью (п.2): каждая настройка раздела
     lumen_card_accent: ['injectCss'],
     lumen_card_fonts: ['injectFonts', 'injectCss'],
     lumen_motion: ['applyMotionMode'],
+    /* Task 31 (фаза 4): HUD отладки — LC.hud.sync() (вне POINTS: только
+       ставит/снимает свой узел и rAF-цикл, ни CSS, ни шаблон не трогает). */
+    lumen_debug_hud: [],
     lumen_slideshow: ['applySlideshowPref'],
     lumen_slide_interval: ['applySlideshowPref'],
     lumen_trailer: ['applyTrailerPref'],
@@ -235,7 +243,7 @@ test('Task 10: включение на лету активирует оформ�
   storage.lumen_enabled = 'true';
   storageCbs[0]({ name: 'lumen_enabled' });
 
-  assert.deepEqual(log, ['fonts', 'css', 'mode:all', 'install', 'torrents-install', 'torrents:true']);
+  assert.deepEqual(log, ['fonts', 'css', 'hud-sync', 'mode:all', 'install', 'torrents-install', 'torrents:true']);
   assert.deepEqual(added, [{ name: 'full_start_new', html: '<div class="lumen-card"></div>' }]);
 });
 
@@ -253,7 +261,7 @@ test('Task 10: выключение на лету возвращает штат�
   /* Слои фона гасятся обходом .lumen-backdrop по всему документу (ревью п.3),
      а в этом фейковом DOM слоёв нет — отсюда отсутствие bg-cancel. Сам обход
      проверяет test/runtime.test.mjs на двух карточках (активной и из истории). */
-  assert.deepEqual(log, ['css-remove', 'fonts', 'torrents:false', 'mode:off'],
+  assert.deepEqual(log, ['hud-stop', 'css-remove', 'fonts', 'torrents:false', 'mode:off'],
     'сняты: CSS карточки, <link> шрифтов, CSS и класс экранов торрентов, маркеры меню');
   assert.equal(body.hasClass('lumen-motion-full'), false, 'класс режима движения снят с body');
   assert.equal(LC.active, null, 'ссылка на открытую карточку отпущена');
@@ -337,7 +345,7 @@ test('LC.init на широкой раскладке: css -> mode(сохранё
   const { LC, log, storage } = setup({ storage: { lumen_menus: 'path' } });
   LC.init();
   const i = log.indexOf('css');
-  assert.deepEqual(log.slice(i, i + 3), ['css', 'mode:path', 'install']);
+  assert.deepEqual(log.slice(i, i + 4), ['css', 'hud-sync', 'mode:path', 'install']);
   log.length = 0;
   storage.lumen_menus = 'off';
   LC.applyMenusPref();

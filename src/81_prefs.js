@@ -131,6 +131,11 @@
          понимает, куда делись снег и разворот постера. */
       { name: 'lumen_group_motion', type: 'title', label: 'lumen_group_motion' },
       { name: 'lumen_motion', type: 'select', values: ['auto', 'full', 'lite', 'off'], vprefix: 'lumen_card_motion_', 'default': 'auto', label: 'lumen_card_motion', descr: 'lumen_card_motion_descr' },
+      /* Task 31 (фаза 4): HUD отладки (src/69_hud.js) — калибровка порогов
+         автодетекта на реальном ТВ пользователя. Место — сразу под режимом
+         анимаций, который и калибруется: выключен по умолчанию, включать
+         его имеет смысл только для настройки, а не для постоянного показа. */
+      { name: 'lumen_debug_hud', type: 'trigger', 'default': false, label: 'lumen_debug_hud_name', descr: 'lumen_debug_hud_descr' },
       /* Task 29 (фаза 3): переход «постер → кадр» при открытии карточки.
          Место — сразу под режимом анимаций: переход ему подчиняется (в
          «Лёгких» и «Выкл» его нет вовсе), и выключать его отдельно имеет

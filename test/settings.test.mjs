@@ -74,6 +74,9 @@ function setup(opts) {
   LC.injectFonts = mark('fonts');
   LC.applyEnabledPref = mark('enabled');
   LC.applyMotionMode = mark('motion');
+  /* Task 31 (фаза 4): HUD отладки — своя точка входа (LC.hud.sync), не
+     LC.apply*Pref, но тот же журнал вместо 90_runtime.js/69_hud.js. */
+  LC.hud = { sync: mark('hud') };
   LC.applySlideshowPref = mark('slideshow');
   LC.applyMenusPref = mark('menus');
   LC.applyTorrentsPref = mark('torrents');
@@ -303,7 +306,10 @@ test('каждая настройка применяется ровно один
     lumen_ambient_delay: ['ambient'],
     /* Task 23 (фаза 3): фильтр «не смотрел» читается при входе в рулетку —
        ветка у настройки своя, применять на живом экране нечего. */
-    lumen_roulette_unseen: []
+    lumen_roulette_unseen: [],
+    /* Task 31 (фаза 4): HUD отладки — sync() сам решает, показать узел или
+       снять его. */
+    lumen_debug_hud: ['hud']
   };
   const { LC, log, Storage, params } = setup();
   LC.addSettings();

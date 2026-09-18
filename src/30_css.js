@@ -2122,6 +2122,14 @@
        бы отдельного таймера (см. шапку src/54_ambient.js). */
     css.push('.lumen-ambient .lumen-ambient__clock{position:absolute;right:2.81em;bottom:2.81em;font-family:' + FM + ';font-size:2.2em;line-height:1;letter-spacing:.04em;color:' + P.text + '}');
 
+    /* Task 31 (фаза 4): HUD отладки (src/69_hud.js). Верхний левый угол —
+       не спорит ни с мини-картой (справа), ни с шапкой карточки; моно-
+       гарнитура и зелёный на чёрном — как у консольных оверлеев FPS,
+       узнаваемо и не путается с оформлением плагина. pointer-events:none и
+       крупный z-index: HUD только показывает цифры и фокус отобрать не
+       может, но обязан быть виден поверх любого слоя плагина. */
+    css.push('.lumen-hud{position:fixed;top:.3em;left:.3em;z-index:99999;padding:.2em .5em;font:.7em/1.4 Consolas,"Courier New",monospace;color:#0f0;background:rgba(0,0,0,.75);border-radius:.3em;pointer-events:none;white-space:nowrap}');
+
     /* --- Task 27: мини-карта рядов и индикатор позиции ---
        Панель — design-spec-main §0.16 (экран 32): right 64, top 260,
        width 300, padding 24×22, radius 12. Подложка — общий токен плагина
