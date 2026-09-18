@@ -1,17 +1,17 @@
   /* -------------------------------------------------------------------- */
   /* Task 31 (фаза 4): HUD отладки на экране ТВ.                           */
   /*                                                                       */
-  /* Без adb на телевизоре нет консоли, и LC.perf (src/68_perf.js) хоть и   */
-  /* меряет первый кадр карточки, но отдаёт вердикт только в Storage — на   */
-  /* экране его не видно. HUD рисует то же самое живьём, в углу экрана:    */
-  /* FPS, число долгих задач (PerformanceObserver 'longtask'), разрешение   */
-  /* и devicePixelRatio, режим анимаций (LC.motionMode) и число             */
-  /* полноэкранных слоёв плагина (герой, фон, атмосферы, заставка, переход, */
-  /* фон рулетки — ровно те классы, что ставят их модули). Назначение —    */
-  /* калибровка порогов автодетекта (SLOW_MS/FAST_MS в LC.perf) на реальном */
-  /* железе пользователя, а не постоянная индикация: пункт «Отладка:        */
-  /* показать FPS» стоит последним в группе «Движение» и выключен по        */
-  /* умолчанию.                                                             */
+  /* Без adb на телевизоре нет консоли, а LC.perf (src/68_perf.js) видно     */
+  /* только один раз — уведомлением при понижении режима (Lampa.Noty.show,  */
+  /* 68_perf.js:257-259); текущий режим и частоту кадров посмотреть негде.  */
+  /* HUD рисует это живьём, в углу экрана: FPS, число долгих задач           */
+  /* (PerformanceObserver 'longtask'), разрешение и devicePixelRatio, режим  */
+  /* анимаций (LC.motionMode) и число полноэкранных слоёв плагина (герой,   */
+  /* фон, атмосферы, заставка, переход, фон рулетки — ровно те классы, что   */
+  /* ставят их модули). Назначение — калибровка порогов автодетекта          */
+  /* (SLOW_MS/FAST_MS в LC.perf) на реальном железе пользователя, а не       */
+  /* постоянная индикация: пункт «Отладка: показать FPS» стоит сразу под     */
+  /* режимом анимаций (81_prefs.js) и выключен по умолчанию.                 */
   /*                                                                       */
   /* Выключенная настройка не создаёт НИЧЕГО: ни узла в DOM, ни кадрового    */
   /* цикла requestAnimationFrame, ни PerformanceObserver — start() зовётся   */
@@ -28,14 +28,20 @@
       return d.fps + ' fps · ' + d.w + '×' + d.h + '@' + d.dpr + ' · ' + d.mode + ' · long ' + d.long + ' · layers ' + d.layers;
     }
 
-    /* Полноэкранные слои плагина — по классам, которые реально ставят
-       модули: .lumen-hero__bg/.lumen-hero__veil--l/--b (src/48_hero.js),
-       .lumen-fx (слой атмосферы — и в кадре героя src/48_hero.js, и на
-       фоне карточки src/50_backdrops.js), .lumen-backdrop
-       (src/50_backdrops.js), .lumen-ambient (src/54_ambient.js),
-       .lumen-overlay (src/67_transition.js), .lumen-roulette__bg
-       (src/56_roulette.js). */
-    var FULL = '.lumen-hero__bg,.lumen-hero__veil--l,.lumen-hero__veil--b,.lumen-fx,.lumen-backdrop,.lumen-ambient,.lumen-overlay,.lumen-roulette__bg';
+    /* Полноэкранные РИСУЮЩИЕ слои плагина — контейнеры-обёртки, которые сами
+       ничего не рисуют (.lumen-backdrop, .lumen-overlay), в список не идут.
+       Проверено grep'ом по src/: .lumen-hero__bg/.lumen-hero__veil
+       (базовый класс обеих вуалей, в DOM "lumen-hero__veil lumen-hero__veil--l"
+       и "--b") и .lumen-hero__trailer — src/48_hero.js; .lumen-fx — и в
+       кадре героя (48_hero.js), и на фоне карточки (src/50_backdrops.js);
+       .lumen-backdrop__img, .lumen-backdrop__veil (базовый класс трёх вуалей
+       --l/--b/--t) и кадры слайдшоу .lumen-bg__img — src/50_backdrops.js/
+       src/51_slideshow.js; .lumen-ambient (сам красит фон и анимируется) и
+       .lumen-ambient__img — src/54_ambient.js; .lumen-overlay__img —
+       src/67_transition.js; .lumen-roulette__bg — src/56_roulette.js. */
+    var FULL = '.lumen-hero__bg,.lumen-hero__veil,.lumen-hero__trailer,.lumen-fx,' +
+      '.lumen-backdrop__img,.lumen-backdrop__veil,.lumen-backdrop .lumen-bg__img,' +
+      '.lumen-ambient,.lumen-ambient__img,.lumen-overlay__img,.lumen-roulette__bg';
     function layers() {
       try { return document.querySelectorAll(FULL).length; } catch (e) { return 0; }
     }
@@ -90,9 +96,9 @@
       node.className = 'lumen-hud';
       document.body.appendChild(node);
       state = { node: node, frames: 0, last: now(), long: 0, raf: 0, obs: null };
-      /* 'longtask' — не во всех WebView Android TV: supportedEntryTypes
-         решает, подписываться вообще или нет (реф. src/68_perf.js — там та
-         же проверка перед PerformanceObserver('longtask')). */
+      /* 'longtask' — не во всех WebView Android TV: подписываемся, только
+         если тип реально в supportedEntryTypes, иначе PerformanceObserver
+         бросил бы исключение при observe(). */
       try {
         if (window.PerformanceObserver && PerformanceObserver.supportedEntryTypes &&
             PerformanceObserver.supportedEntryTypes.indexOf('longtask') > -1) {
@@ -113,13 +119,22 @@
       state = null;
     }
 
-    /* Единственная точка входа наружу (src/90_runtime.js, src/80_settings.js
-       applyPrefChange): читает настройку и приводит состояние в соответствие
-       с ней. Идемпотентна в обе стороны — start()/stop() сами ничего не
-       делают, если состояние уже нужное. */
+    /* Точка входа для applyPrefChange (src/80_settings.js) и для активации
+       плагина (src/90_runtime.js): читает настройку и приводит состояние в
+       соответствие с ней. stop() наружу экспортирован отдельно — им
+       пользуется деактивация плагина (90_runtime.js), которой применять
+       настройку нечего, нужно только гарантированно снять HUD. Идемпотентна
+       в обе стороны — start()/stop() сами ничего не делают, если состояние
+       уже нужное. */
     function sync() {
       var on = false;
-      try { on = LC.pref('lumen_debug_hud', false); } catch (e) { }
+      try {
+        /* Выключенный плагин снимает свой CSS целиком (LC.removeCss,
+           90_runtime.js) — без него узел HUD оказался бы на экране
+           нестилизованным div. LC.enabled() решает, разрешено ли вообще
+           поднимать HUD; сама настройка lumen_debug_hud читается отдельно. */
+        on = LC.pref('lumen_debug_hud', false) && LC.enabled();
+      } catch (e) { on = false; }
       if (on) start(); else stop();
     }
 

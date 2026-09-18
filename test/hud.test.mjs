@@ -75,6 +75,10 @@ function env(opts) {
   };
 
   const store = Object.assign({}, opts.store || {});
+  /* Изменяемая ссылка (не снимок opts.enabled на момент env()): тест
+     «выключенный плагин» переключает её между sync(), а замыкание enabled()
+     обязано видеть текущее значение, а не то, что было при создании env(). */
+  const enabledRef = { value: opts.enabled !== false };
   const win = {
     innerWidth: opts.width || 1920,
     innerHeight: opts.height || 1080,
@@ -100,7 +104,13 @@ function env(opts) {
     return Object.prototype.hasOwnProperty.call(store, name) ? !!store[name] : def;
   }
 
-  const { api } = fresh({ pref, motionMode: () => opts.mode || 'full' });
+  const { api } = fresh({
+    pref, motionMode: () => opts.mode || 'full',
+    /* LC.enabled() — гейт «выключенный плагин снял свой CSS, HUD поднимать
+       нельзя» (sync(), src/69_hud.js). По умолчанию true, как у соседних
+       тестов (test/fx.test.mjs и т.п.). */
+    enabled: () => enabledRef.value
+  });
 
   return {
     api, store, bodyChildren, cancelled,
@@ -111,24 +121,27 @@ function env(opts) {
       frame.fn(nowMs);
       return true;
     },
-    framesLeft: () => frames.length
+    framesLeft: () => frames.length,
+    setEnabled: (v) => { enabledRef.value = v; }
   };
 }
 
-test('hud: выключен — узла нет, running() === false', () => {
+test('hud: выключен — узла нет, running() === false, ни один кадр не запрошен', () => {
   const e = env({ store: { lumen_debug_hud: false } });
   e.api.sync();
   assert.equal(e.bodyChildren.length, 0, 'узел не создан');
   assert.equal(e.api.running(), false);
+  assert.equal(e.framesLeft(), 0, 'requestAnimationFrame ни разу не вызван');
 });
 
-test('hud: включён — ровно один узел .lumen-hud, повторный sync() не плодит второй, running() === true; после выключения настройки и sync() узел снят и running() === false', () => {
+test('hud: включён — ровно один узел .lumen-hud, повторный sync() не плодит второй, running() === true; после выключения настройки и sync() узел снят, running() === false и кадр отменён', () => {
   const e = env({ store: { lumen_debug_hud: true } });
 
   e.api.sync();
   assert.equal(e.bodyChildren.length, 1, 'ровно один узел создан');
   assert.equal(e.bodyChildren[0].className, 'lumen-hud');
   assert.equal(e.api.running(), true);
+  assert.equal(e.framesLeft(), 1, 'первый кадр запрошен');
 
   e.api.sync();
   assert.equal(e.bodyChildren.length, 1, 'повторный sync() не плодит второй узел');
@@ -138,4 +151,53 @@ test('hud: включён — ровно один узел .lumen-hud, повт�
   e.api.sync();
   assert.equal(e.bodyChildren.length, 0, 'узел снят при выключении настройки');
   assert.equal(e.api.running(), false);
+  assert.ok(e.cancelled.length > 0, 'висящий кадр отменён через cancelAnimationFrame');
+});
+
+/* ====================================================================== */
+/* paint(): rAF-цикл — раз в секунду модельного времени переписывает       */
+/* textContent узла тем же форматом, что и format(). Секунда набирается    */
+/* двумя кадрами по 600мс: меньше секунды текст не трогается, после —      */
+/* обновляется.                                                            */
+/* ====================================================================== */
+
+test('hud: после кадров, набравших больше секунды модельного времени, textContent узла совпадает с format(...) при тех же данных', () => {
+  const e = env({ store: { lumen_debug_hud: true }, width: 1920, height: 1080, dpr: 2, mode: 'full' });
+
+  e.api.sync();
+  assert.equal(e.bodyChildren[0].textContent, '', 'до истечения секунды текст ещё не написан');
+
+  assert.ok(e.tick(600), 'первый кадр');
+  assert.equal(e.bodyChildren[0].textContent, '', 'меньше секунды — текст не трогаем');
+
+  assert.ok(e.tick(600), 'второй кадр — секунда истекла (600+600=1200мс)');
+  const expected = e.api.format({ fps: 2, w: 1920, h: 1080, dpr: 2, mode: 'full', long: 0, layers: e.api.layers() });
+  assert.equal(e.bodyChildren[0].textContent, expected);
+  assert.ok(e.framesLeft() >= 1, 'после отрисовки следующий кадр снова запрошен');
+});
+
+/* ====================================================================== */
+/* Гейт LC.enabled(): выключенный плагин снимает свой CSS целиком           */
+/* (LC.removeCss, src/90_runtime.js) — HUD не имеет права поднимать         */
+/* нестилизованный узел поверх штатной карточки Lampa.                     */
+/* ====================================================================== */
+
+test('hud: выключенный плагин — sync() не поднимает HUD, даже если настройка включена; включение плагина поднимает его, а выключение сразу снимает', () => {
+  const e = env({ store: { lumen_debug_hud: true }, enabled: false });
+
+  e.api.sync();
+  assert.equal(e.bodyChildren.length, 0, 'плагин выключен — узла нет, хотя настройка включена');
+  assert.equal(e.api.running(), false);
+  assert.equal(e.framesLeft(), 0);
+
+  e.setEnabled(true);
+  e.api.sync();
+  assert.equal(e.bodyChildren.length, 1, 'плагин включили — HUD поднимается');
+  assert.equal(e.api.running(), true);
+
+  e.setEnabled(false);
+  e.api.sync();
+  assert.equal(e.bodyChildren.length, 0, 'плагин выключили — HUD снят, хотя настройка осталась включённой');
+  assert.equal(e.api.running(), false);
+  assert.ok(e.cancelled.length > 0, 'rAF-цикл снят');
 });

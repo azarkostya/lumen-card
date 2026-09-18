@@ -19121,7 +19121,13 @@ return d.fps + ' fps · ' + d.w + '×' + d.h + '@' + d.dpr + ' · ' + d.mode + '
 
 
 
-var FULL = '.lumen-hero__bg,.lumen-hero__veil--l,.lumen-hero__veil--b,.lumen-fx,.lumen-backdrop,.lumen-ambient,.lumen-overlay,.lumen-roulette__bg';
+
+
+
+
+var FULL = '.lumen-hero__bg,.lumen-hero__veil,.lumen-hero__trailer,.lumen-fx,' +
+'.lumen-backdrop__img,.lumen-backdrop__veil,.lumen-backdrop .lumen-bg__img,' +
+'.lumen-ambient,.lumen-ambient__img,.lumen-overlay__img,.lumen-roulette__bg';
 function layers() {
 try { return document.querySelectorAll(FULL).length; } catch (e) { return 0; }
 }
@@ -19203,9 +19209,18 @@ state = null;
 
 
 
+
+
+
 function sync() {
 var on = false;
-try { on = LC.pref('lumen_debug_hud', false); } catch (e) { }
+try {
+
+
+
+
+on = LC.pref('lumen_debug_hud', false) && LC.enabled();
+} catch (e) { on = false; }
 if (on) start(); else stop();
 }
 
