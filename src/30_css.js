@@ -184,34 +184,46 @@
     return p;
   }
 
-  /* Task 35: три правила главной, которые видно при листании рядов и которые
-     целиком зависят от подкрашенного фона (P.bg / P.bgRgb): подложка под
-     рядами и две вуали героя. Собраны в одном месте не ради красоты, а ради
-     LC.accentCss ниже — доминанта постера меняется на каждой остановке
-     фокуса, и переписывать ради неё всю таблицу значит фризить ровно тот
-     момент, ради которого подкраска и сделана: её текст при настройках по
-     умолчанию — 103 КБ против 518 байт у этих трёх правил (замер buildCss и
-     accentCss, 2026-09-18). Текст правил один и тот же в обеих дорогах: и в полной сборке
-     (buildCss ниже вставляет их по своим местам), и в отдельном узле.
+  /* Task 35: пять правил ГЛАВНОЙ, которые меняются вместе с постером под
+     фокусом, — три от подкрашенного фона (подложка рядов и две вуали героя,
+     P.bg / P.bgRgb) и два от самого акцента (чип настроения в фокусе и кольцо
+     фокуса карточки ряда: t.color / t.light / t.glow / t.onac). Собраны в
+     одном месте ради LC.accentCss ниже: доминанта постера меняется на каждой
+     остановке фокуса, и переписывать ради неё всю таблицу значит фризить
+     ровно тот момент, ради которого подкраска и сделана — её текст при
+     настройках по умолчанию 103 КБ против 822 байт у этих пяти правил (замер
+     buildCss и accentCss, 2026-09-18).
+     Текст правил один и тот же в обеих дорогах: и в полной сборке (buildCss
+     ниже вставляет их по своим местам), и в отдельном узле.
      Нижняя вуаль тут обязательна: её нижний стоп — сплошной P.bg, и без неё
-     подкрашенная подложка встречалась бы с неподкрашенной кромкой кадра. */
-  function accentRules(P) {
+     подкрашенная подложка встречалась бы с неподкрашенной кромкой кадра.
+     Кольцо фокуса — тоже: иначе на главной ехал бы только фон, а самая
+     заметная деталь экрана стояла бы на цвете прошлой полной сборки.
+     Ещё два акцентных правила главной сюда сознательно НЕ взяты: статус
+     героя (.lumen-hero__status, строка ниже) и активная строка мини-карты
+     (.lumen-minimap__row--on). Оба мелкие и показываются не всегда, поэтому
+     их цвет догоняет остальных на ближайшей полной пересборке — при
+     открытии карточки или смене настройки. */
+  function accentRules(P, t) {
     return {
       main: '.lumen-main{background-color:' + P.bg + '}',
       veilL: '.lumen-hero .lumen-hero__veil--l{background:-webkit-linear-gradient(left,rgba(' + P.bgRgb + ',.94) 0%,rgba(' + P.bgRgb + ',.6) 38%,rgba(' + P.bgRgb + ',0) 72%);background:linear-gradient(90deg,rgba(' + P.bgRgb + ',.94) 0%,rgba(' + P.bgRgb + ',.6) 38%,rgba(' + P.bgRgb + ',0) 72%)}',
-      veilB: '.lumen-hero .lumen-hero__veil--b{background:-webkit-linear-gradient(bottom,' + P.bg + ' 0%,rgba(' + P.bgRgb + ',.62) 14%,rgba(' + P.bgRgb + ',.18) 50%,rgba(' + P.bgRgb + ',0) 88%);background:linear-gradient(0deg,' + P.bg + ' 0%,rgba(' + P.bgRgb + ',.62) 14%,rgba(' + P.bgRgb + ',.18) 50%,rgba(' + P.bgRgb + ',0) 88%)}'
+      veilB: '.lumen-hero .lumen-hero__veil--b{background:-webkit-linear-gradient(bottom,' + P.bg + ' 0%,rgba(' + P.bgRgb + ',.62) 14%,rgba(' + P.bgRgb + ',.18) 50%,rgba(' + P.bgRgb + ',0) 88%);background:linear-gradient(0deg,' + P.bg + ' 0%,rgba(' + P.bgRgb + ',.62) 14%,rgba(' + P.bgRgb + ',.18) 50%,rgba(' + P.bgRgb + ',0) 88%)}',
+      chip: '.lumen-mood-chip.focus{background:' + t.color + ';color:' + t.onac + ';border-color:' + t.light + ';border-width:.11em}',
+      cardFocus: '.lumen-main .card.focus .card__view:after{border-width:.13em;border-color:' + t.light + ';border-radius:.44em;-webkit-box-shadow:0 .7em 1.97em ' + t.glow + ';box-shadow:0 .7em 1.97em ' + t.glow + '}'
     };
   }
 
   /* Task 35: текст для отдельного узла <style id="lumen-accent">, который
-     пишет LC.accent при смене доминанты (src/57_color.js). Палитра читается
-     заново — в ней же и живёт подкраска (LC.accent.tint в palette выше),
-     поэтому аргументов у функции нет. Узел стоит ПОСЛЕ основного (порядок
-     держит LC.injectCss), значит при равной специфичности побеждают эти
-     правила, а не их копии в общей таблице. */
+     пишет LC.accent при смене доминанты (src/57_color.js). Палитра и акцент
+     читаются заново — в них и живёт цвет фильма (LC.accent.tint в palette
+     выше и LC.accent.current в theme ниже), поэтому аргументов у функции
+     нет. Узел стоит ПОСЛЕ основного (порядок держит LC.injectCss), значит
+     при равной специфичности побеждают эти правила, а не их копии в общей
+     таблице. */
   LC.accentCss = function () {
-    var R = accentRules(palette());
-    return R.main + '\n' + R.veilL + '\n' + R.veilB;
+    var R = accentRules(palette(), theme());
+    return R.main + '\n' + R.veilL + '\n' + R.veilB + '\n' + R.chip + '\n' + R.cardFocus;
   };
 
   /* Фаза 3, настройка «Масштаб интерфейса». Все размеры плагина считаются в em
@@ -1575,7 +1587,7 @@
        LC.applyMotionMode.
        Task 35: текст правила — общий с отдельным узлом подкраски (accentRules
        выше), чтобы полная сборка и быстрая перекраска не разъехались. */
-    var AR = accentRules(P);
+    var AR = accentRules(P, t);
     css.push(AR.main);
     css.push('body.lumen-motion-full .lumen-main{-webkit-transition:background-color .6s ease-in-out;transition:background-color .6s ease-in-out}');
     css.push('.lumen-hero{position:absolute;top:-4em;left:0;right:0;height:-webkit-calc(100vh - ' + round2(heroCut + HERO_AIR) + 'em);height:calc(100vh - ' + round2(heroCut + HERO_AIR) + 'em);overflow:hidden;pointer-events:none}');
@@ -1805,7 +1817,7 @@
     css.push('.lumen-moods-on:not(.lumen-main) .lumen-moods{top:.53em}');
     css.push('.lumen-moods-on:not(.lumen-main) .scroll.layer--wheight{margin-top:' + MOODS_BAR + 'em;height:-webkit-calc(100vh - ' + round2(LAMPA_HEAD + MOODS_BAR) + 'em) !important;height:calc(100vh - ' + round2(LAMPA_HEAD + MOODS_BAR) + 'em) !important}');
     css.push('.lumen-mood-chip{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;height:2.46em;padding:0 1.05em;margin:0 .53em .53em 0;border-radius:.53em;border:.04em solid ' + P.line + ';background:' + P.chipBg + ';font-family:' + FB + ';font-weight:600;font-size:.88em;line-height:1;color:' + P.muted + ';white-space:nowrap;cursor:default;-webkit-transition:background-color .2s,border-color .2s,color .2s;transition:background-color .2s,border-color .2s,color .2s}');
-    css.push('.lumen-mood-chip.focus{background:' + A + ';color:' + t.onac + ';border-color:' + AL + ';border-width:.11em}');
+    css.push(AR.chip);
     /* Режим анимаций читается с body (его держит LC.applyMotionMode, пока
        плагин активен): чипы больше не лежат внутри героя, и его собственный
        класс режима до них не достаёт. */
@@ -2005,7 +2017,7 @@
        телевизора, на ТВ такой отступ съедает оверскан. */
     css.push('.lumen-main .items-line__head{margin-bottom:.7em;padding-left:2.81em}');
     css.push('.lumen-main .items-line .scroll__content{padding-left:2.81em}');
-    css.push('.lumen-main .card.focus .card__view:after{border-width:.13em;border-color:' + AL + ';border-radius:.44em;-webkit-box-shadow:0 .7em 1.97em ' + AG + ';box-shadow:0 .7em 1.97em ' + AG + '}');
+    css.push(AR.cardFocus);
 
     /* --- Task 25: метки на постерах рядов (главная и сетка подборки) ---
        Метка лежит ВНУТРИ штатного .card__view, поэтому у неё собственное имя

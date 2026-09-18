@@ -67,9 +67,9 @@
        включён по умолчанию (значение — в src/81_prefs.js). */
     lumen_accent_auto_name: { ru: 'Акцент от постера', en: 'Accent from poster', uk: 'Акцент від постера' },
     lumen_accent_auto_descr: {
-      ru: 'Цвет кнопок, колец фокуса и подсветок берётся из постера фильма, а фон страницы получает его оттенок. На главной цвет меняется, когда фокус постоял на карточке 3 секунды, — при быстром листании ничего не считается. Тёмный цвет плагин высветляет, чтобы подписи читались; если постер не отдаёт пиксели, остаётся акцент, выбранный выше.',
-      en: 'The colour of buttons, focus rings and highlights is taken from the film poster, and the page background picks up its tint. On the home screen the colour changes once focus has rested on a card for 3 seconds, so fast browsing computes nothing. A dark colour is lightened so that labels stay readable; if the poster does not give up its pixels, the accent chosen above stays in place.',
-      uk: 'Колір кнопок, кілець фокуса та підсвічувань береться з постера фільму, а тло сторінки отримує його відтінок. На головній колір змінюється, коли фокус постояв на картці 3 секунди, — при швидкому гортанні нічого не рахується. Темний колір плагін висвітлює, щоб підписи читалися; якщо постер не віддає пікселі, залишається акцент, вибраний вище.'
+      ru: 'В открытой карточке цвет кнопок, колец фокуса и подсветок берётся из постера фильма. На главной от постера под фокусом меняются фон страницы, кольцо вокруг карточки и чипы настроения — когда фокус постоял на карточке 3 секунды; при быстром листании ничего не считается. Тёмный цвет плагин высветляет, чтобы подписи читались; если постер не отдаёт пиксели, остаётся акцент, выбранный выше.',
+      en: 'Inside an open film card the colour of buttons, focus rings and highlights is taken from the poster. On the home screen the poster under focus changes the page background, the ring around the card and the mood chips — once focus has rested on a card for 3 seconds; fast browsing computes nothing. A dark colour is lightened so that labels stay readable; if the poster does not give up its pixels, the accent chosen above stays in place.',
+      uk: 'У відкритій картці колір кнопок, кілець фокуса та підсвічувань береться з постера фільму. На головній від постера під фокусом змінюються тло сторінки, кільце навколо картки та чипи настрою — коли фокус постояв на картці 3 секунди; при швидкому гортанні нічого не рахується. Темний колір плагін висвітлює, щоб підписи читалися; якщо постер не віддає пікселі, залишається акцент, вибраний вище.'
     },
     /* Task 29 (фаза 3): переход «постер → кадр» и уведомление автодетекта
        слабого ТВ. */
@@ -804,7 +804,15 @@
     pref_handled = '';
     if (!name) return false;
     if (name === 'lumen_enabled') { LC.applyEnabledPref(); return true; }
-    if (name === 'lumen_motion') { LC.applyMotionMode(); return true; }
+    /* Task 35: подкраска фона от постера живёт в своём <style> и гаснет при
+       полностью выключенном движении. Смена режима таблицу стилей не
+       пересобирает, поэтому узел надо снять (или вернуть) отдельной строкой —
+       иначе фон остался бы подкрашенным до следующего события. */
+    if (name === 'lumen_motion') {
+      LC.applyMotionMode();
+      try { if (LC.accent && LC.accent.repaint) LC.accent.repaint(); } catch (eAccentMotion) { warn('accent repaint failed', eAccentMotion); }
+      return true;
+    }
     /* Task 31 (фаза 4): HUD отладки — sync() сам решает, показать узел или
        снять его, по свежему значению настройки. onChangeFor (ниже) зовёт
        applyPrefChange без своего try/catch — исключение ушло бы в вендора

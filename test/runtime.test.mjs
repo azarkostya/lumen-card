@@ -573,8 +573,20 @@ function initLC(opts) {
     uninstall: () => { nav.uninstalls++; }
   };
 
+  /* Task 35: акцент от постера. Здесь важен ровно один вопрос — с каким
+     вторым аргументом его зовёт карточка: 'true' означает «фильм открыт», и
+     только он заказывает полную пересборку таблицы стилей (src/57_color.js).
+     Потеря этого аргумента вернула бы открытую карточку на акцент из
+     настроек, и без журнала такая регрессия прошла бы мимо тестов. */
+  const accent = { applyFor: [], destroyed: 0 };
+  LC.accent = {
+    applyFor: (movie, deep) => accent.applyFor.push({ movie: movie, deep: deep }),
+    setTheme: () => { },
+    destroy: () => { accent.destroyed++; }
+  };
+
   LC.init();
-  return { LC, calls, full, toggles, timelines, descrRows, reviewRows, clearedRows, franchiseCalls, franchiseRows, extra, hero, nav };
+  return { LC, calls, full, toggles, timelines, descrRows, reviewRows, clearedRows, franchiseCalls, franchiseRows, extra, hero, nav, accent };
 }
 
 test('Task 7: complite — bind(root) и schedule(root, body, data), контроллер попадает в LC.active.trailer', () => {
@@ -596,6 +608,24 @@ test('Task 7: complite — bind(root) и schedule(root, body, data), контр�
   assert.equal(calls.schedule[0].body, body);
   assert.equal(calls.schedule[0].data, data, 'ролики берутся из e.data.videos — передаём всю data');
   assert.equal(LC.active.trailer, controller);
+  assert.deepEqual(warnLog, []);
+});
+
+/* Task 35: акцент фильма в ОТКРЫТОЙ карточке виден весь (кнопки, кольца
+   фокуса, подсветки — полсотни правил таблицы), поэтому здесь и только здесь
+   заказывается полная пересборка: applyFor(movie, true). На главной герой
+   зовёт applyFor(card) без второго аргумента (test/hero.test.mjs). */
+test('Task 35: complite карточки зовёт applyFor с признаком «фильм открыт»', () => {
+  const { full, accent } = initLC({});
+  const root = new FakeEl(['full-start-new', 'lumen-card']);
+  const body = new FakeEl(['activity__body']);
+  const movie = { id: 42, poster_path: '/a.jpg' };
+
+  full[0]({ type: 'complite', body: body, object: {}, data: { movie: movie }, item: { render: () => root } });
+
+  assert.equal(accent.applyFor.length, 1);
+  assert.equal(accent.applyFor[0].movie, movie);
+  assert.equal(accent.applyFor[0].deep, true, 'без этого карточка осталась бы на акценте из настроек');
   assert.deepEqual(warnLog, []);
 });
 

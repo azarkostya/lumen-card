@@ -996,8 +996,21 @@ test('lastFocus: снятие героя обнуляет источник', () 
 
 function accentEnv() {
   const calls = [];
-  const env = makeEnv({ accent: { applyFor: (card) => calls.push(card && card.id) } });
+  /* Task 35: второй аргумент applyFor («фильм открыт карточкой») герой
+     главной передавать НЕ имеет права — он и заказывает полную пересборку
+     таблицы стилей, ради снятия которой с этого пути задача и делалась
+     (src/57_color.js). Поэтому он тоже попадает в журнал. */
+  const deep = [];
+  const env = makeEnv({
+    accent: {
+      applyFor: (card, full) => {
+        calls.push(card && card.id);
+        deep.push(full);
+      }
+    }
+  });
   env.calls = calls;
+  env.deep = deep;
   return env;
 }
 
@@ -1012,6 +1025,7 @@ test('акцент: считается только после трёх секу
   assert.deepEqual(env.calls, [], 'до 3 с — ни одного расчёта');
   env.advance(200);
   assert.deepEqual(env.calls, [11]);
+  assert.deepEqual(env.deep, [undefined], 'с главной — без полной пересборки CSS');
 });
 
 test('акцент: быстрый проход по ряду не даёт ни одного расчёта', () => {

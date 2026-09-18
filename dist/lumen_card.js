@@ -526,11 +526,22 @@ return p;
 
 
 
-function accentRules(P) {
+
+
+
+
+
+
+
+
+
+function accentRules(P, t) {
 return {
 main: '.lumen-main{background-color:' + P.bg + '}',
 veilL: '.lumen-hero .lumen-hero__veil--l{background:-webkit-linear-gradient(left,rgba(' + P.bgRgb + ',.94) 0%,rgba(' + P.bgRgb + ',.6) 38%,rgba(' + P.bgRgb + ',0) 72%);background:linear-gradient(90deg,rgba(' + P.bgRgb + ',.94) 0%,rgba(' + P.bgRgb + ',.6) 38%,rgba(' + P.bgRgb + ',0) 72%)}',
-veilB: '.lumen-hero .lumen-hero__veil--b{background:-webkit-linear-gradient(bottom,' + P.bg + ' 0%,rgba(' + P.bgRgb + ',.62) 14%,rgba(' + P.bgRgb + ',.18) 50%,rgba(' + P.bgRgb + ',0) 88%);background:linear-gradient(0deg,' + P.bg + ' 0%,rgba(' + P.bgRgb + ',.62) 14%,rgba(' + P.bgRgb + ',.18) 50%,rgba(' + P.bgRgb + ',0) 88%)}'
+veilB: '.lumen-hero .lumen-hero__veil--b{background:-webkit-linear-gradient(bottom,' + P.bg + ' 0%,rgba(' + P.bgRgb + ',.62) 14%,rgba(' + P.bgRgb + ',.18) 50%,rgba(' + P.bgRgb + ',0) 88%);background:linear-gradient(0deg,' + P.bg + ' 0%,rgba(' + P.bgRgb + ',.62) 14%,rgba(' + P.bgRgb + ',.18) 50%,rgba(' + P.bgRgb + ',0) 88%)}',
+chip: '.lumen-mood-chip.focus{background:' + t.color + ';color:' + t.onac + ';border-color:' + t.light + ';border-width:.11em}',
+cardFocus: '.lumen-main .card.focus .card__view:after{border-width:.13em;border-color:' + t.light + ';border-radius:.44em;-webkit-box-shadow:0 .7em 1.97em ' + t.glow + ';box-shadow:0 .7em 1.97em ' + t.glow + '}'
 };
 }
 
@@ -540,9 +551,10 @@ veilB: '.lumen-hero .lumen-hero__veil--b{background:-webkit-linear-gradient(bott
 
 
 
+
 LC.accentCss = function () {
-var R = accentRules(palette());
-return R.main + '\n' + R.veilL + '\n' + R.veilB;
+var R = accentRules(palette(), theme());
+return R.main + '\n' + R.veilL + '\n' + R.veilB + '\n' + R.chip + '\n' + R.cardFocus;
 };
 
 
@@ -1906,7 +1918,7 @@ var heroCompactCut = heroCompactCutEm(scale);
 
 
 
-var AR = accentRules(P);
+var AR = accentRules(P, t);
 css.push(AR.main);
 css.push('body.lumen-motion-full .lumen-main{-webkit-transition:background-color .6s ease-in-out;transition:background-color .6s ease-in-out}');
 css.push('.lumen-hero{position:absolute;top:-4em;left:0;right:0;height:-webkit-calc(100vh - ' + round2(heroCut + HERO_AIR) + 'em);height:calc(100vh - ' + round2(heroCut + HERO_AIR) + 'em);overflow:hidden;pointer-events:none}');
@@ -2136,7 +2148,7 @@ css.push('body.lumen-motion-full .lumen-moods{-webkit-transition:bottom .42s cub
 css.push('.lumen-moods-on:not(.lumen-main) .lumen-moods{top:.53em}');
 css.push('.lumen-moods-on:not(.lumen-main) .scroll.layer--wheight{margin-top:' + MOODS_BAR + 'em;height:-webkit-calc(100vh - ' + round2(LAMPA_HEAD + MOODS_BAR) + 'em) !important;height:calc(100vh - ' + round2(LAMPA_HEAD + MOODS_BAR) + 'em) !important}');
 css.push('.lumen-mood-chip{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;height:2.46em;padding:0 1.05em;margin:0 .53em .53em 0;border-radius:.53em;border:.04em solid ' + P.line + ';background:' + P.chipBg + ';font-family:' + FB + ';font-weight:600;font-size:.88em;line-height:1;color:' + P.muted + ';white-space:nowrap;cursor:default;-webkit-transition:background-color .2s,border-color .2s,color .2s;transition:background-color .2s,border-color .2s,color .2s}');
-css.push('.lumen-mood-chip.focus{background:' + A + ';color:' + t.onac + ';border-color:' + AL + ';border-width:.11em}');
+css.push(AR.chip);
 
 
 
@@ -2336,7 +2348,7 @@ css.push('.lumen-main .items-line{padding-bottom:1.4em}');
 
 css.push('.lumen-main .items-line__head{margin-bottom:.7em;padding-left:2.81em}');
 css.push('.lumen-main .items-line .scroll__content{padding-left:2.81em}');
-css.push('.lumen-main .card.focus .card__view:after{border-width:.13em;border-color:' + AL + ';border-radius:.44em;-webkit-box-shadow:0 .7em 1.97em ' + AG + ';box-shadow:0 .7em 1.97em ' + AG + '}');
+css.push(AR.cardFocus);
 
 
 
@@ -13906,6 +13918,8 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 
+
+
 LC.color = (function () {
 
 
@@ -14225,7 +14239,23 @@ onac: hex(hslToRgb(onAccent(hsl)))
 };
 }
 
-function cachePut(url, rgb) {
+
+
+
+
+
+
+
+
+
+
+var FAIL_LIMIT = 3;
+
+function cacheGet(url) {
+return Object.prototype.hasOwnProperty.call(cache, url) ? cache[url] : null;
+}
+
+function cachePut(url, rgb, fails) {
 if (!Object.prototype.hasOwnProperty.call(cache, url)) {
 cache_keys.push(url);
 while (cache_keys.length > CACHE_LIMIT) {
@@ -14233,8 +14263,9 @@ var old = cache_keys.shift();
 delete cache[old];
 }
 }
-cache[url] = { rgb: rgb || null };
+cache[url] = { rgb: rgb || null, fails: fails || 0 };
 }
+
 
 
 
@@ -14279,7 +14310,11 @@ return null;
 
 function fromImage(url, cb, alt) {
 if (!url) { cb(null); return null; }
-if (Object.prototype.hasOwnProperty.call(cache, url)) { cb(cache[url].rgb); return null; }
+var seen = cacheGet(url);
+
+
+
+if (seen && (seen.rgb || seen.fails >= FAIL_LIMIT)) { cb(seen.rgb); return null; }
 var doc = typeof document !== 'undefined' ? document : null;
 if (!doc || typeof Image === 'undefined') { cb(null); return null; }
 
@@ -14310,7 +14345,11 @@ release();
 
 
 
-if (rgb) cachePut(url, rgb);
+if (rgb) cachePut(url, rgb, 0);
+else {
+var prev = cacheGet(url);
+cachePut(url, null, (prev ? prev.fails : 0) + 1);
+}
 cb(rgb);
 }
 
@@ -14434,13 +14473,18 @@ return v === true || v === 'true';
 
 
 
-function on() {
-if (!LC.enabled() || !auto()) return false;
+
+function motionOn() {
 try {
 return LC.motionMode() !== 'off';
 } catch (e) {
 return false;
 }
+}
+
+function on() {
+if (!LC.enabled() || !auto()) return false;
+return motionOn();
 }
 
 
@@ -14505,15 +14549,29 @@ return a.r === b.r && a.g === b.g && a.b === b.b;
 
 
 
+
+var accent_css_text = null;
+
 function writeAccentStyle(rules, last) {
 if (typeof document === 'undefined') return;
 try {
 var node = document.getElementById('lumen-accent');
-if (!rules) { if (node && node.parentNode) node.parentNode.removeChild(node); return; }
+if (!rules) {
+if (node && node.parentNode) node.parentNode.removeChild(node);
+accent_css_text = null;
+return;
+}
+var born = false;
 if (!node) {
 node = document.createElement('style');
 node.id = 'lumen-accent';
-document.head.appendChild(node);
+node.type = 'text/css';
+
+
+
+
+(document.head || document.getElementsByTagName('head')[0] || document.body).appendChild(node);
+born = true;
 } else if (last && node !== document.head.lastChild) {
 
 
@@ -14522,7 +14580,15 @@ document.head.appendChild(node);
 
 document.head.appendChild(node);
 }
+
+
+
+
+
+if (born || rules !== accent_css_text) {
 node.textContent = rules;
+accent_css_text = rules;
+}
 } catch (e) { warn('accent: style write failed', e); }
 }
 
@@ -14533,7 +14599,7 @@ node.textContent = rules;
 
 function paint(last) {
 var rules = '';
-if (source && LC.enabled() && typeof LC.accentCss === 'function') {
+if (source && LC.enabled() && motionOn() && typeof LC.accentCss === 'function') {
 try {
 rules = LC.accentCss();
 } catch (e) {
@@ -14562,6 +14628,20 @@ return t ? t.color : null;
 function restyle() {
 applied = tokenColor();
 paint(true);
+}
+
+
+
+
+
+
+
+
+
+
+
+function repaint() {
+paint(false);
 }
 
 function rebuild() {
@@ -14712,6 +14792,8 @@ reset: reset,
 
 
 restyle: restyle,
+
+repaint: repaint,
 
 
 
@@ -19940,9 +20022,9 @@ lumen_card_accent_graphite: { ru: 'Графит', en: 'Graphite', uk: 'Граф�
 
 lumen_accent_auto_name: { ru: 'Акцент от постера', en: 'Accent from poster', uk: 'Акцент від постера' },
 lumen_accent_auto_descr: {
-ru: 'Цвет кнопок, колец фокуса и подсветок берётся из постера фильма, а фон страницы получает его оттенок. На главной цвет меняется, когда фокус постоял на карточке 3 секунды, — при быстром листании ничего не считается. Тёмный цвет плагин высветляет, чтобы подписи читались; если постер не отдаёт пиксели, остаётся акцент, выбранный выше.',
-en: 'The colour of buttons, focus rings and highlights is taken from the film poster, and the page background picks up its tint. On the home screen the colour changes once focus has rested on a card for 3 seconds, so fast browsing computes nothing. A dark colour is lightened so that labels stay readable; if the poster does not give up its pixels, the accent chosen above stays in place.',
-uk: 'Колір кнопок, кілець фокуса та підсвічувань береться з постера фільму, а тло сторінки отримує його відтінок. На головній колір змінюється, коли фокус постояв на картці 3 секунди, — при швидкому гортанні нічого не рахується. Темний колір плагін висвітлює, щоб підписи читалися; якщо постер не віддає пікселі, залишається акцент, вибраний вище.'
+ru: 'В открытой карточке цвет кнопок, колец фокуса и подсветок берётся из постера фильма. На главной от постера под фокусом меняются фон страницы, кольцо вокруг карточки и чипы настроения — когда фокус постоял на карточке 3 секунды; при быстром листании ничего не считается. Тёмный цвет плагин высветляет, чтобы подписи читались; если постер не отдаёт пиксели, остаётся акцент, выбранный выше.',
+en: 'Inside an open film card the colour of buttons, focus rings and highlights is taken from the poster. On the home screen the poster under focus changes the page background, the ring around the card and the mood chips — once focus has rested on a card for 3 seconds; fast browsing computes nothing. A dark colour is lightened so that labels stay readable; if the poster does not give up its pixels, the accent chosen above stays in place.',
+uk: 'У відкритій картці колір кнопок, кілець фокуса та підсвічувань береться з постера фільму. На головній від постера під фокусом змінюються тло сторінки, кільце навколо картки та чипи настрою — коли фокус постояв на картці 3 секунди; при швидкому гортанні нічого не рахується. Темний колір плагін висвітлює, щоб підписи читалися; якщо постер не віддає пікселі, залишається акцент, вибраний вище.'
 },
 
 
@@ -20677,7 +20759,15 @@ function applyPrefChange(name) {
 pref_handled = '';
 if (!name) return false;
 if (name === 'lumen_enabled') { LC.applyEnabledPref(); return true; }
-if (name === 'lumen_motion') { LC.applyMotionMode(); return true; }
+
+
+
+
+if (name === 'lumen_motion') {
+LC.applyMotionMode();
+try { if (LC.accent && LC.accent.repaint) LC.accent.repaint(); } catch (eAccentMotion) { warn('accent repaint failed', eAccentMotion); }
+return true;
+}
 
 
 

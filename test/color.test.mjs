@@ -375,18 +375,65 @@ test('color: fromImage — второй запрос того же постер�
 /* Task 35: кэш помнит только удачу. Прежде в него ложился и отказ, и одна
    неудачная загрузка (сеть моргнула, прокси ответил 502) закрывала постеру
    дорогу к цвету до конца сеанса — с точки зрения пользователя навсегда. */
-test('color: провал не кэшируется — за тем же постером идём заново', () => {
+test('color: первый провал не кэшируется — за тем же постером идём заново', () => {
   const dom = fakeDom({ tainted: true });
   withDom(dom, () => {
     const api = fresh().api;
     api.fromImage('https://image.tmdb.org/t/p/w185/e.jpg', () => {});
     dom.state.images[0].onload();
-    assert.equal(api.cacheSize(), 0, 'в кэше пусто');
     let second = 'нет ответа';
     api.fromImage('https://image.tmdb.org/t/p/w185/e.jpg', (rgb) => { second = rgb; });
     assert.equal(dom.state.images.length, 2, 'вторая попытка создаёт новую картинку');
     dom.state.images[1].onload();
     assert.equal(second, null);
+  });
+});
+
+/* Task 35 (ревью): у повторов есть потолок. Без него устойчивый отказ
+   (прокси без CORS-заголовка, заблокированный TMDB, старый WebView) стоил бы
+   запроса и чтения пикселей на КАЖДОЙ остановке фокуса — ровно тот профиль
+   нагрузки, от которого уходит вся задача. */
+test('color: после трёх провалов подряд постер отвечает из кэша, без сети', () => {
+  const dom = fakeDom({ tainted: true });
+  withDom(dom, () => {
+    const api = fresh().api;
+    const url = 'https://image.tmdb.org/t/p/w185/dead.jpg';
+    for (let i = 0; i < 3; i++) {
+      api.fromImage(url, () => {});
+      assert.equal(dom.state.images.length, i + 1, 'попытка ' + (i + 1) + ' идёт в сеть');
+      dom.state.images[i].onload();
+    }
+    let answer = 'нет ответа';
+    const handle = api.fromImage(url, (rgb) => { answer = rgb; });
+    assert.equal(dom.state.images.length, 3, 'четвёртой попытки нет');
+    assert.equal(answer, null, 'ответ из кэша — синхронный');
+    assert.equal(handle, null, 'ручки отмены у кэшированного ответа не бывает');
+    warnLog = [];
+  });
+});
+
+/* Удачная попытка обнуляет счётчик: постер, который один раз не дался из-за
+   моргнувшей сети, полноправен как любой другой. */
+test('color: успех после провала сбрасывает счётчик неудач', () => {
+  const opts = { tainted: true };
+  const dom = fakeDom(opts);
+  withDom(dom, () => {
+    const api = fresh().api;
+    const url = 'https://image.tmdb.org/t/p/w185/flaky.jpg';
+    api.fromImage(url, () => {});
+    dom.state.images[0].onload();
+    opts.tainted = false;
+    let got = null;
+    api.fromImage(url, (rgb) => { got = rgb; });
+    dom.state.images[1].onload();
+    assert.ok(got, 'цвет посчитан');
+
+    /* Дальше отвечает кэш — и это ответ с цветом, а не отказ. */
+    let again = null;
+    api.fromImage(url, (rgb) => { again = rgb; });
+    assert.equal(dom.state.images.length, 2);
+    assert.deepEqual(again, got);
+    warnLog = [];
   });
 });
 
@@ -750,6 +797,73 @@ test('accent: без прокси второй попытки нет — адр�
   });
 });
 
+/* Task 35 (ревью): выключенный плагин снимает свой CSS целиком (LC.removeCss),
+   и узел подкраски обязан уйти вместе с ним — иначе подкрашенная подложка
+   пережила бы выключение. deactivate зовёт destroy() до removeCss
+   (src/90_runtime.js). */
+test('accent: выключение плагина снимает узел подкраски', () => {
+  const dom = fakeDom({});
+  withDom(dom, () => {
+    const options = { prefs: { lumen_accent_auto: 'true' }, enabled: true };
+    const ctx = accentCtx(options);
+    ctx.LC.accent.applyFor({ poster_path: '/a.jpg' });
+    dom.state.images[0].onload();
+    assert.ok(accentNode(dom), 'подкраска стоит');
+
+    options.enabled = false;
+    ctx.LC.accent.destroy();
+    assert.equal(accentNode(dom), null, 'узла нет');
+    assert.equal(ctx.state.injects, 0, 'у выключенного плагина таблицу не пересобираем');
+  });
+});
+
+/* Task 35 (ревью): смена режима движения таблицу стилей не пересобирает
+   (src/80_settings.js зовёт только applyMotionMode), поэтому узел снимает и
+   возвращает отдельная точка — repaint(). */
+test('accent: выключенное движение снимает подкраску, возврат режима — возвращает', () => {
+  const dom = fakeDom({});
+  withDom(dom, () => {
+    const options = { prefs: { lumen_accent_auto: 'true' }, motion: 'lite' };
+    const ctx = accentCtx(options);
+    ctx.LC.accent.applyFor({ poster_path: '/a.jpg' });
+    dom.state.images[0].onload();
+    assert.ok(accentNode(dom), 'в lite подкраска есть');
+
+    options.motion = 'off';
+    ctx.LC.accent.repaint();
+    assert.equal(accentNode(dom), null, 'движение выключено — подкраски нет');
+
+    options.motion = 'full';
+    ctx.LC.accent.repaint();
+    assert.ok(accentNode(dom), 'вернули движение — вернулась и подкраска');
+    assert.equal(ctx.state.injects, 0, 'и всё это без пересборки таблицы');
+  });
+});
+
+/* Task 35 (ревью): тот же текст в узел повторно не пишется — та же защита,
+   что у card_css_text в LC.injectCss. restyle() зовётся на КАЖДОЙ полной
+   пересборке (смена шрифта, плотности подложек), а фон при этом чаще всего
+   прежний. */
+test('accent: повторная пересборка с тем же цветом узел не переписывает', () => {
+  const dom = fakeDom({});
+  withDom(dom, () => {
+    const ctx = accentCtx({ prefs: { lumen_accent_auto: 'true' } });
+    ctx.LC.accent.applyFor({ poster_path: '/a.jpg' });
+    dom.state.images[0].onload();
+    const node = accentNode(dom);
+    let writes = 0;
+    const text = node.textContent;
+    Object.defineProperty(node, 'textContent', {
+      get: () => text,
+      set: () => { writes++; }
+    });
+
+    ctx.LC.accent.restyle();
+    ctx.LC.accent.restyle();
+    assert.equal(writes, 0, 'текст тот же — записи нет');
+  });
+});
+
 test('accent: destroy отменяет незавершённую картинку и снимает акцент', () => {
   const dom = fakeDom({});
   withDom(dom, () => {
@@ -914,6 +1028,27 @@ test('css: узел подкраски стоит в <head> после осно�
     ctx.LC.injectCss();
     assert.deepEqual(headIds(dom), ['lumen-card-css', 'lumen-accent'], 'порядок сохранён');
     assert.notEqual(accentNode(dom).textContent, warmRules, 'подкраска пересчитана от нового фона');
+  });
+});
+
+/* Task 35 (ревью): на главной от постера красится не только фон. Кольцо
+   фокуса вокруг карточки ряда и чип настроения в фокусе берут цвет из того
+   же акцента, и если оставить их в общей таблице, фон поедет, а самая
+   заметная деталь экрана застынет на цвете прошлой полной сборки. */
+test('css: узел подкраски несёт и кольцо фокуса карточки, и чип настроения', () => {
+  const dom = fakeDom({ data: pixels([{ r: 200, g: 120, b: 40, n: 256 }]) });
+  withDom(dom, () => {
+    const ctx = cssCtx(dom, { lumen_card_accent: 'ice', lumen_accent_auto: 'true' });
+    ctx.LC.accent.applyFor({ poster_path: '/dune.jpg' });
+    dom.state.images[0].onload();
+
+    const rules = accentNode(dom).textContent;
+    const t = ctx.LC.accent.current();
+    assert.ok(rules.indexOf('.lumen-main .card.focus .card__view:after') !== -1, 'кольцо фокуса карточки ряда');
+    assert.ok(rules.indexOf('.lumen-mood-chip.focus') !== -1, 'чип настроения в фокусе');
+    assert.ok(rules.indexOf(t.light) !== -1, 'кольцо окрашено цветом фильма, а не настроек');
+    assert.ok(rules.indexOf(t.color) !== -1, 'чип тоже');
+    assert.ok(rules.indexOf('#7FB7C9') === -1, 'акцента настроек в узле нет');
   });
 });
 
