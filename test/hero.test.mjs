@@ -536,15 +536,17 @@ test('загруженный кадр проявляется вторым сло
 /* Task 40: монтирование героя на главной — точка замера автодетекта. До
    Task 40 мерилось только открытие карточки, и до третьей открытой карточки
    главная работала в полном режиме. */
-test('Task 40: монтирование героя запускает замер автодетекта', () => {
+test('Task 40: монтирование героя запускает замер автодетекта, помеченный как main', () => {
   const tracks = [];
-  const env = makeEnv({ perf: { track: () => tracks.push(1) } });
+  const env = makeEnv({ perf: { track: (source) => tracks.push(source) } });
   const main = makeMain();
   env.hero.mount(main.activity);
-  assert.equal(tracks.length, 1, 'замер начат после того, как герой собран');
-  /* Повторный mount той же активности героя не пересобирает — и не мерит. */
+  assert.deepEqual(tracks, ['main'], 'замер начат после того, как герой собран, и помечен источником');
+  /* Повторный mount той же активности героя не пересобирает — и не мерит.
+     Источник нужен как раз здесь: главной разрешён один замер за запуск
+     (ревью Task 40, п.5), а mount() зовётся на каждом возврате из карточки. */
   env.hero.mount(main.activity);
-  assert.equal(tracks.length, 1);
+  assert.deepEqual(tracks, ['main']);
   assert.deepEqual(warnLog, []);
 });
 

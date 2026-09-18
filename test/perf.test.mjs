@@ -327,26 +327,72 @@ test('weakHardware: правило работает только на android', 
   assert.equal(env({ platform: { tizen: true }, hardware }).api.weakHardware(), false, 'Tizen и так получает lite от платформы');
 });
 
-/* Task 40: точек замера три. Сам модуль их не различает — он меряет то, что
-   происходит между вызовом track() и вторым кадром, — поэтому проверяется
-   главное: три замера подряд с любых экранов дают вердикт, а повторный
-   вызов, пока первый замер не доехал, второго кадра не заказывает. */
+/* Task 40: точек замера три — главная, хаб и карточка. */
 test('track: замеры с разных экранов копятся в один вердикт', () => {
   const e = env();
-  e.api.track();          /* главная: монтирование героя */
+  e.api.track('main');
   e.run(500);
-  e.api.track();          /* хаб: сборка экрана подборок */
+  e.api.track('hub');
   e.run(520);
-  e.api.track();          /* карточка: full:complite */
+  e.api.track('card');
   e.run(480);
   assert.deepEqual(e.api.samples(), [500, 520, 480]);
   assert.equal(e.store.lumen_motion_auto.mode, 'lite', 'медиана 500 мс — слабое устройство');
 });
 
-test('track: пока замер не доехал, второй вызов кадров не заказывает', () => {
+/* Ревью Task 40 (п.5): монтирование героя случается на каждом возврате из
+   карточки, поэтому с главной берётся ровно один замер за запуск — иначе
+   обычный обход «главная → карточка → назад → карточка → назад» дал бы два
+   замера главной из трёх, и медиана легла бы на самый лёгкий экран. */
+test('track: с главной берётся только один замер за запуск', () => {
+  const e = env();
+  e.api.track('main');
+  e.run(100);
+  assert.deepEqual(e.api.samples(), [100]);
+
+  e.api.track('main');
+  assert.equal(e.frames.length, 0, 'второй замер главной кадров не заказывает');
+  assert.deepEqual(e.api.samples(), [100], 'выборка не разбавлена');
+
+  /* Возврат на карточку и хаб по-прежнему меряется. */
+  e.api.track('card');
+  e.run(600);
+  e.api.track('hub');
+  e.run(700);
+  assert.deepEqual(e.api.samples(), [100, 600, 700]);
+  assert.equal(e.store.lumen_motion_auto.mode, 'lite', 'медиана 600 мс — слабое устройство');
+});
+
+/* Замер главной, который не засчитался (страница была в фоне — см.
+   MAX_SAMPLE), место не занимает: следующий вход на главную пробует снова. */
+test('track: отброшенный замер главной не расходует её единственную попытку', () => {
+  const e = env();
+  e.api.track('main');
+  e.run(42000);
+  assert.deepEqual(e.api.samples(), []);
+  e.api.track('main');
+  e.run(120);
+  assert.deepEqual(e.api.samples(), [120]);
+});
+
+/* Вызов без источника — это карточка: единственная точка, существовавшая до
+   Task 40 (src/90_runtime.js зовёт track('card') явно, но контракт функции
+   обязан пережить и вызов без аргумента). */
+test('track: вызов без источника считается замером карточки', () => {
   const e = env();
   e.api.track();
-  assert.equal(e.frames.length, 1);
+  e.run(100);
   e.api.track();
+  e.run(110);
+  e.api.track('main');
+  e.run(120);
+  assert.deepEqual(e.api.samples(), [100, 110, 120], 'ни один вызов без источника не съел лимит главной');
+});
+
+test('track: пока замер не доехал, второй вызов кадров не заказывает', () => {
+  const e = env();
+  e.api.track('main');
+  assert.equal(e.frames.length, 1);
+  e.api.track('card');
   assert.equal(e.frames.length, 1, 'экран сменился на середине замера — второго замера не начинаем');
 });

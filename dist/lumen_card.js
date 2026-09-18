@@ -7453,7 +7453,7 @@ if (started) recollect(null);
 
 
 
-try { if (LC.perf && LC.perf.track) LC.perf.track(); } catch (ePerf) {}
+try { if (LC.perf && LC.perf.track) LC.perf.track('hub'); } catch (ePerf) {}
 }
 
 this.create = function () {
@@ -9575,7 +9575,7 @@ showFocused(root);
 
 
 
-try { if (LC.perf && LC.perf.track) LC.perf.track(); } catch (ePerf) {}
+try { if (LC.perf && LC.perf.track) LC.perf.track('main'); } catch (ePerf) {}
 } catch (e) {
 warn('hero: mount failed', e);
 }
@@ -20211,7 +20211,26 @@ var MAX_SAMPLE = 5000;
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+var MAIN_LIMIT = 1;
+
+
+
 var samples = [];
+
+var fromMain = 0;
 
 
 var frame = 0;
@@ -20374,6 +20393,10 @@ return platformIs('tizen') || platformIs('webos');
 
 
 
+
+
+
+
 function weakHardware() {
 if (!platformIs('android')) return false;
 try {
@@ -20397,12 +20420,16 @@ return false;
 
 
 
-function shouldMeasure() {
+
+
+function shouldMeasure(source) {
 try {
 if (!LC.enabled()) return false;
 } catch (e) {
 return false;
 }
+
+if (source === 'main' && fromMain >= MAIN_LIMIT) return false;
 var raw = motionRaw();
 
 
@@ -20476,15 +20503,18 @@ warn('perf: apply failed', e);
 
 
 
-function track() {
+function track(source) {
 if (done || frame) return;
 
 
+var src = (source === 'main' || source === 'hub') ? source : 'card';
 
 
 
 
-if (!shouldMeasure()) return;
+
+
+if (!shouldMeasure(src)) return;
 var started = now();
 frame = raf(function () {
 frame = raf(function () {
@@ -20495,6 +20525,7 @@ var ms = now() - started;
 
 if (ms > MAX_SAMPLE) return;
 samples.push(ms);
+if (src === 'main') fromMain++;
 if (samples.length < SAMPLES) return;
 done = true;
 try { commit(); } catch (e) { warn('perf: commit failed', e); }
@@ -20555,7 +20586,31 @@ LC.hud = (function () {
 var state = null;
 
 function format(d) {
-return d.fps + ' fps · ' + d.w + '×' + d.h + '@' + d.dpr + ' · ' + d.mode + ' · long ' + d.long + ' · layers ' + d.layers;
+return d.fps + ' fps · ' + d.w + '×' + d.h + '@' + d.dpr + ' · ' + d.mode +
+' · long ' + d.long + ' · layers ' + d.layers + ' · hw ' + d.hw;
+}
+
+
+
+
+
+
+
+
+
+function hardware() {
+var cores = '?';
+var mem = '?';
+try {
+var nav = window.navigator;
+if (nav) {
+if (Number(nav.hardwareConcurrency) > 0) cores = Math.round(Number(nav.hardwareConcurrency));
+if (typeof nav.deviceMemory !== 'undefined' && nav.deviceMemory !== null && Number(nav.deviceMemory) > 0) {
+mem = Number(nav.deviceMemory);
+}
+}
+} catch (e) { }
+return cores + 'c/' + (mem === '?' ? '?' : mem + 'gb');
 }
 
 
@@ -20622,7 +20677,7 @@ try { mode = LC.motionMode(); } catch (e) { }
 state.node.textContent = format({
 fps: Math.round(state.frames * 1000 / elapsed), w: window.innerWidth, h: window.innerHeight,
 dpr: Math.round((window.devicePixelRatio || 1) * 100) / 100,
-mode: mode, long: state.long, layers: layers()
+mode: mode, long: state.long, layers: layers(), hw: hardware()
 });
 state.frames = 0; state.last = t;
 }
@@ -20680,7 +20735,13 @@ on = LC.pref('lumen_debug_hud', false) && LC.enabled();
 if (on) start(); else stop();
 }
 
-return { sync: sync, stop: stop, format: format, running: function () { return !!state; }, layers: layers };
+return {
+sync: sync, stop: stop, format: format, running: function () { return !!state; }, layers: layers,
+
+
+
+hardware: hardware
+};
 })();
 
 if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.hud;
@@ -24217,7 +24278,7 @@ LC.hub.franchise(root, (e.data && e.data.movie) || {});
 
 
 
-try { if (LC.perf) LC.perf.track(); } catch (ePerf) {}
+try { if (LC.perf) LC.perf.track('card'); } catch (ePerf) {}
 }
 } catch (err) {
 warn('listener failed', err);

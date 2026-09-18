@@ -25,7 +25,31 @@
     var state = null; /* { node, frames, last, long, raf, obs } */
 
     function format(d) {
-      return d.fps + ' fps · ' + d.w + '×' + d.h + '@' + d.dpr + ' · ' + d.mode + ' · long ' + d.long + ' · layers ' + d.layers;
+      return d.fps + ' fps · ' + d.w + '×' + d.h + '@' + d.dpr + ' · ' + d.mode +
+        ' · long ' + d.long + ' · layers ' + d.layers + ' · hw ' + d.hw;
+    }
+
+    /* Ревью Task 40 (п.6): железо строкой «ядра/память». По этим числам
+       LC.perf.weakHardware понижает режим до lite ещё до замеров, и решение
+       это необратимо для сессии — значит их надо видеть на самом
+       телевизоре, а не полагаться на спецификацию (в Android WebView
+       hardwareConcurrency на части прошивок отражает не физические ядра).
+       navigator.deviceMemory есть только в Chromium — где его нет, пишем «?»,
+       и это ровно тот случай, когда weakHardware память не учитывает.
+       Пример строки: «hw 4c/2gb», «hw 2c/?». */
+    function hardware() {
+      var cores = '?';
+      var mem = '?';
+      try {
+        var nav = window.navigator;
+        if (nav) {
+          if (Number(nav.hardwareConcurrency) > 0) cores = Math.round(Number(nav.hardwareConcurrency));
+          if (typeof nav.deviceMemory !== 'undefined' && nav.deviceMemory !== null && Number(nav.deviceMemory) > 0) {
+            mem = Number(nav.deviceMemory);
+          }
+        }
+      } catch (e) { }
+      return cores + 'c/' + (mem === '?' ? '?' : mem + 'gb');
     }
 
     /* Полноэкранные РИСУЮЩИЕ слои плагина — контейнеры-обёртки, которые сами
@@ -92,7 +116,7 @@
         state.node.textContent = format({
           fps: Math.round(state.frames * 1000 / elapsed), w: window.innerWidth, h: window.innerHeight,
           dpr: Math.round((window.devicePixelRatio || 1) * 100) / 100,
-          mode: mode, long: state.long, layers: layers()
+          mode: mode, long: state.long, layers: layers(), hw: hardware()
         });
         state.frames = 0; state.last = t;
       }
@@ -150,7 +174,13 @@
       if (on) start(); else stop();
     }
 
-    return { sync: sync, stop: stop, format: format, running: function () { return !!state; }, layers: layers };
+    return {
+      sync: sync, stop: stop, format: format, running: function () { return !!state; }, layers: layers,
+      /* Ревью Task 40 (п.6): наружу ради теста и ради живой проверки с
+         телевизора (window.lumen_card.hud.hardware() в консоли, если она
+         есть) — по этим числам срабатывает LC.perf.weakHardware. */
+      hardware: hardware
+    };
   })();
 
   if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.hud;

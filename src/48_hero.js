@@ -1440,7 +1440,7 @@
            решает, мерить ли (режим «Авто», не Tizen/webOS, не больше трёх
            замеров за запуск — src/68_perf.js); в тестах героя LC.perf нет
            вовсе, поэтому вызов защищён проверкой и try/catch. */
-        try { if (LC.perf && LC.perf.track) LC.perf.track(); } catch (ePerf) {}
+        try { if (LC.perf && LC.perf.track) LC.perf.track('main'); } catch (ePerf) {}
       } catch (e) {
         warn('hero: mount failed', e);
       }

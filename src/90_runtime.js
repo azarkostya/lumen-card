@@ -872,7 +872,7 @@
                включать всю нашу работу по карточке, а не её начало. Первые
                три карточки после старта, дальше модуль молчит; при режиме
                анимаций, выбранном руками, не меряет вовсе (src/68_perf.js). */
-            try { if (LC.perf) LC.perf.track(); } catch (ePerf) {}
+            try { if (LC.perf) LC.perf.track('card'); } catch (ePerf) {}
           }
         } catch (err) {
           warn('listener failed', err);

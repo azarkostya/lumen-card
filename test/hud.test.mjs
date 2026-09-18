@@ -25,14 +25,29 @@ function fresh(extra) {
 /* format: чистая функция, DOM не нужен.                                  */
 /* ====================================================================== */
 
-test('hud: format — строка содержит fps, «1920×1080@2», режим, «long 3», «layers 5»', () => {
+test('hud: format — строка содержит fps, «1920×1080@2», режим, «long 3», «layers 5», «hw»', () => {
   const { api } = fresh();
-  const line = api.format({ fps: 58, w: 1920, h: 1080, dpr: 2, mode: 'full', long: 3, layers: 5 });
+  const line = api.format({ fps: 58, w: 1920, h: 1080, dpr: 2, mode: 'full', long: 3, layers: 5, hw: '4c/2gb' });
   assert.ok(line.indexOf('58') !== -1, 'fps в строке: ' + line);
   assert.ok(line.indexOf('1920×1080@2') !== -1, 'разрешение и dpr: ' + line);
   assert.ok(line.indexOf('full') !== -1, 'режим анимаций: ' + line);
   assert.ok(line.indexOf('long 3') !== -1, 'счётчик длинных задач: ' + line);
   assert.ok(line.indexOf('layers 5') !== -1, 'число полноэкранных слоёв: ' + line);
+  assert.ok(line.indexOf('hw 4c/2gb') !== -1, 'ядра и память: ' + line);
+});
+
+/* Ревью Task 40 (п.6): эти два числа нужны, чтобы подтвердить порог
+   weakHardware на живом телевизоре — правило «два ядра» необратимо для
+   сессии, а hardwareConcurrency в Android WebView не всегда равен числу
+   физических ядер. */
+test('hud: hardware — ядра и память, неизвестное пишется «?»', () => {
+  assert.equal(env({ hardware: { hardwareConcurrency: 4, deviceMemory: 2 } }).api.hardware(), '4c/2gb');
+  assert.equal(env({ hardware: { hardwareConcurrency: 2, deviceMemory: 1 } }).api.hardware(), '2c/1gb');
+  /* deviceMemory есть только в Chromium — и это ровно тот случай, когда
+     weakHardware память не учитывает. */
+  assert.equal(env({ hardware: { hardwareConcurrency: 8, deviceMemory: undefined } }).api.hardware(), '8c/?');
+  assert.equal(env({ hardware: { hardwareConcurrency: 0, deviceMemory: 0 } }).api.hardware(), '?c/?',
+    'ноль — это «не сообщили», а не «ноль ядер»');
 });
 
 /* ====================================================================== */
@@ -97,7 +112,11 @@ function env(opts) {
     cancelAnimationFrame: (id) => {
       cancelled.push(id);
       for (let i = 0; i < frames.length; i++) if (frames[i].id === id) { frames.splice(i, 1); return; }
-    }
+    },
+    /* Ревью Task 40 (п.6): HUD показывает ядра и память — по ним срабатывает
+       LC.perf.weakHardware. opts.hardware кладётся как есть: отсутствующее
+       свойство обязано остаться отсутствующим (deviceMemory есть не везде). */
+    navigator: Object.assign({ hardwareConcurrency: 4, deviceMemory: 2 }, opts.hardware || {})
   };
 
   /* opts.longtask поднимает фейковый PerformanceObserver с нужным
@@ -211,14 +230,14 @@ test('hud: два окна подряд — fps считается по факт
   /* Литерал, а не e.api.layers(): ожидание не должно вычисляться тем же
      кодом, который проверяется (без слоёв в этом env — 0). fps = round(2
      кадра * 1000 / 1200мс) = round(1.667) = 2. */
-  const win1 = e.api.format({ fps: 2, w: 1920, h: 1080, dpr: 2, mode: 'full', long: 0, layers: 0 });
+  const win1 = e.api.format({ fps: 2, w: 1920, h: 1080, dpr: 2, mode: 'full', long: 0, layers: 0, hw: '4c/2gb' });
   assert.equal(e.bodyChildren[0].textContent, win1, 'окно 1: 2 кадра за 1200мс');
 
   assert.ok(e.tick(600), 'первый кадр окна 2 — элапсед от новой опоры 600мс < 1000');
   assert.equal(e.bodyChildren[0].textContent, win1, 'текст ещё не тронут окном 2');
 
   assert.ok(e.tick(600), 'второй кадр окна 2 — снова 1200мс от опоры');
-  const win2 = e.api.format({ fps: 2, w: 1920, h: 1080, dpr: 2, mode: 'full', long: 0, layers: 0 });
+  const win2 = e.api.format({ fps: 2, w: 1920, h: 1080, dpr: 2, mode: 'full', long: 0, layers: 0, hw: '4c/2gb' });
   assert.equal(e.bodyChildren[0].textContent, win2,
     'то же значение fps, что и в окне 1 — счётчик кадров и опорное время реально сброшены, а не растут дальше');
 });
@@ -249,7 +268,7 @@ test('hud: PerformanceObserver — накопленные longtask-записи 
   assert.ok(e.tick(600), 'элапсед 600мс — рано');
   assert.ok(e.tick(600), 'элапсед 1200мс — отрисовка');
 
-  const expected = e.api.format({ fps: 2, w: 1920, h: 1080, dpr: 2, mode: 'full', long: 3, layers: 0 });
+  const expected = e.api.format({ fps: 2, w: 1920, h: 1080, dpr: 2, mode: 'full', long: 3, layers: 0, hw: '4c/2gb' });
   assert.equal(e.bodyChildren[0].textContent, expected, 'три накопленные longtask-записи видны в строке');
 
   e.store.lumen_debug_hud = false;

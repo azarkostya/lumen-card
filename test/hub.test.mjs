@@ -997,14 +997,14 @@ test('lumen_grid: постеры грузятся окном, а не все р�
 
 /* Task 40: сборка экрана подборок — точка замера автодетекта: хаб самый
    тяжёлый экран плагина (чипы групп плюс плитки с коллажами). */
-test('Task 40: сборка хаба запускает замер автодетекта', function () {
+test('Task 40: сборка хаба запускает замер автодетекта, помеченный как hub', function () {
   var tracks = [];
   var env = setupLampa({ cols: 2 });
-  var h = loadHub({ perf: { track: function () { tracks.push(1); } } });
+  var h = loadHub({ perf: { track: function (source) { tracks.push(source); } } });
   h.api.install();
   var comp = makeComponent('lumen_hub', {}, env);
   comp.create();
-  assert.equal(tracks.length, 1, 'замер начат после того, как экран собран');
+  assert.deepEqual(tracks, ['hub'], 'замер начат после того, как экран собран, и помечен источником');
 });
 
 /* Task 39: <img> карточки сетки живёт в документе, и без decoding='async'

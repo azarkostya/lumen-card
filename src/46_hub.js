@@ -967,7 +967,7 @@
            последняя в build() намеренно: замер обязан включать всю нашу
            работу по экрану. Мерить или нет, решает сам модуль
            (src/68_perf.js); в тестах хаба LC.perf нет. */
-        try { if (LC.perf && LC.perf.track) LC.perf.track(); } catch (ePerf) {}
+        try { if (LC.perf && LC.perf.track) LC.perf.track('hub'); } catch (ePerf) {}
       }
 
       this.create = function () {
