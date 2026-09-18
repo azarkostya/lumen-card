@@ -51,6 +51,9 @@ LC.setCovered = function (value) { covered = !!value; };
 
 
 
+
+
+
 LC.util = (function () {
 function esc(str) {
 if (str === null || typeof str === 'undefined') return '';
@@ -127,6 +130,72 @@ var d = now instanceof Date ? now : new Date(typeof now === 'number' ? now : Dat
 var today = Date.UTC(d.getFullYear(), d.getMonth(), d.getDate());
 var target = Date.UTC(parseInt(m[1], 10), month - 1, day);
 return Math.round((target - today) / 86400000);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function screenPx() {
+var w = 0;
+try {
+w = Number(window.innerWidth) || 0;
+var dpr = Number(window.devicePixelRatio) || 1;
+if (!(dpr > 0)) dpr = 1;
+w = w * (dpr > 2 ? 2 : dpr);
+} catch (e) { }
+return Math.round(w);
+}
+
+
+
+
+
+
+function emPx(em) {
+return Math.round(screenPx() * (Number(em) || 0) / 84.17);
+}
+
+
+
+
+
+var POSTERS = [185, 342, 500, 780];
+
+
+
+
+
+
+function posterSize(px) {
+var need = (Number(px) || 0) * 0.85;
+for (var i = 0; i < POSTERS.length; i++) {
+if (POSTERS[i] >= need) return 'w' + POSTERS[i];
+}
+return 'w' + POSTERS[POSTERS.length - 1];
+}
+
+
+
+
+
+
+
+function frameSize(px) {
+return (Number(px) || 0) > 1920 ? 'original' : 'w1280';
 }
 
 function each(arr, fn) {
@@ -219,6 +288,10 @@ initials: initials,
 fmtTime: fmtTime,
 fmtRuntime: fmtRuntime,
 daysUntil: daysUntil,
+screenPx: screenPx,
+emPx: emPx,
+posterSize: posterSize,
+frameSize: frameSize,
 each: each,
 map: map,
 filter: filter,
@@ -3269,7 +3342,11 @@ return '' +
 '<div class="full-start-new__body">' +
 '<div class="full-start-new__left">' +
 '<div class="full-start-new__poster">' +
-'<img class="full-start-new__img full--poster" />' +
+
+
+
+
+'<img class="full-start-new__img full--poster" decoding="async" />' +
 '</div>' +
 '</div>' +
 '<div class="full-start-new__right lumen-content">' +
@@ -5055,6 +5132,23 @@ LC.rows = (function () {
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 var WATCHED = 95;
 
 
@@ -6375,6 +6469,15 @@ var COLLAGE_SIZE = 3;
 
 
 
+var COLLAGE_EM = 5.70;
+var GCARD_EM = 12.36;
+
+
+
+
+
+
+
 function titleOf(obj, lang) {
 if (!obj) return '';
 if (lang && lang !== 'ru' && obj.i18n && obj.i18n[lang]) return obj.i18n[lang];
@@ -7006,9 +7109,18 @@ function paintCollage(node, paths) {
 var box = $(node).find('.lumen-tile__collage');
 box.empty();
 var painted = 0;
+
+
+
+
+
+
+var size = LC.util.posterSize(LC.util.emPx(COLLAGE_EM));
 for (var i = 0; i < paths.length; i++) {
 var path = '' + paths[i];
-var url = path.indexOf('http') === 0 ? path : imageUrl(path, 'w342');
+
+
+var url = path.indexOf('http') === 0 ? path : imageUrl(path, size);
 if (!url) continue;
 var poster = $('<div class="lumen-tile__poster lumen-tile__poster--' + (painted + 1) + '"></div>');
 poster.css('background-image', 'url("' + url + '")');
@@ -7443,6 +7555,11 @@ bindPoster(node, img, node.lumen_poster);
 }
 
 function bindPoster(node, img, url) {
+
+
+
+
+img.decoding = 'async';
 img.onload = function () { $(node).addClass('card--loaded'); };
 img.onerror = function () { $(node).addClass('card--broken'); };
 img.src = url;
@@ -7491,7 +7608,10 @@ var quality = card.quality || card.release_quality;
 if (quality && !card.name) view.append($('<div class="card__quality"></div>').text(quality));
 
 markCard(node, card);
-el.lumen_poster = imageUrl(card.poster_path, 'w342');
+
+
+
+el.lumen_poster = imageUrl(card.poster_path, LC.util.posterSize(LC.util.emPx(GCARD_EM)));
 
 node.on('hover:focus', function () {
 keepVisible(el);
@@ -7972,10 +8092,12 @@ var LOAD_TIMEOUT = 8000;
 var DETAILS_LIFE = 1440;
 
 
-var WIDE_PX = 1366;
-
-
 var BIG_POSTER = 500;
+
+
+
+
+var LOGO_EM = 37.84;
 
 
 
@@ -8197,14 +8319,25 @@ return src.replace(m[0], '/t/p/w' + BIG_POSTER + '/');
 
 
 
+
+
+
+
 function sizeFor(width) {
-return (Number(width) || 0) > WIDE_PX ? 'original' : 'w1280';
+return LC.util.frameSize(width);
 }
 
 
 
+
+
+
+
+
 function logoSizeFor(width) {
-return (Number(width) || 0) > WIDE_PX ? 'w780' : 'w500';
+var need = (Number(width) || 0) * 0.85;
+if (need > 780) return 'original';
+return need > 500 ? 'w780' : 'w500';
 }
 
 
@@ -8279,12 +8412,10 @@ return '';
 }
 }
 
+
+
 function screenWidth() {
-try {
-return window.innerWidth || (document.documentElement && document.documentElement.clientWidth) || 0;
-} catch (e) {
-return 0;
-}
+return LC.util.screenPx();
 }
 
 function langCode() {
@@ -8684,7 +8815,7 @@ node.toggleClass('lumen-hero--pending', !!current.pending);
 
 node.toggleClass('lumen-hero--nodescr', !current.overview);
 
-var logoUrl = current.logo ? imageUrl(current.logo, logoSizeFor(screenWidth())) : '';
+var logoUrl = current.logo ? imageUrl(current.logo, logoSizeFor(LC.util.emPx(LOGO_EM))) : '';
 var logo = node.find('.lumen-hero__logo');
 
 
@@ -8759,6 +8890,12 @@ var url = imageUrl(path, blur ? 'w92' : sizeFor(screenWidth()));
 if (!url || url === state.frameUrl) return;
 
 var loader = new Image();
+
+
+
+
+
+loader.decoding = 'async';
 var done = false;
 
 function finish(ok) {
@@ -8991,6 +9128,8 @@ if (!state) return;
 state.bigTimer = null;
 if (!last || String(last.id) !== String(id)) return;
 var img = new Image();
+
+img.decoding = 'async';
 state.bigLoader = img;
 img.onload = function () {
 if (!state || state.bigLoader !== img) return;
@@ -9783,7 +9922,10 @@ function backdropUrl(movie) {
 var url = '';
 try {
 var path = LC.cardinfo.backdropPath(movie);
-if (path) url = LC.cardinfo.imageUrl(path, 'w1280', tmdbImageFn(), apiImgFn());
+
+
+
+if (path) url = LC.cardinfo.imageUrl(path, LC.util.frameSize(LC.util.screenPx()), tmdbImageFn(), apiImgFn());
 } catch (e) {
 warn('image url failed', e);
 }
@@ -9966,6 +10108,9 @@ var done = false;
 var timer = null;
 var loader = new Image();
 
+
+loader.decoding = 'async';
+
 function finish(ok) {
 if (done) return;
 done = true;
@@ -10063,7 +10208,12 @@ var gen = nextGen(layer);
 var main = LC.cardinfo.backdropPath(movie);
 var max = LC.slideshow.maxFramesFor(LC.motionMode());
 var paths = pickBackdrops(movie.images, main, max);
-var urls = LC.util.map(paths, function (p) { return LC.cardinfo.imageUrl(p, 'w1280', tmdbImageFn(), apiImgFn()); });
+
+
+
+
+var frameSize = LC.util.frameSize(LC.util.screenPx());
+var urls = LC.util.map(paths, function (p) { return LC.cardinfo.imageUrl(p, frameSize, tmdbImageFn(), apiImgFn()); });
 var slideshowOpts = { enabled: slideshowEnabled, intervalMs: slideIntervalMs };
 
 var controller = LC.slideshow.create(layer, urls, slideshowOpts);
@@ -10582,6 +10732,9 @@ return;
 var url = urls[i];
 if (!url) { frames[i] = false; cb(null); return; }
 var loader = new Image();
+
+
+loader.decoding = 'async';
 pendingLoader = loader;
 loader.onload = function () {
 if (pendingLoader !== loader) return;
@@ -11995,9 +12148,12 @@ var CONTROLLERS = { content: 1, full_start: 1, full_descr: 1, items_line: 1 };
 
 
 
+
+
+
+
 function sizeFor(width) {
-var w = Number(width) || 0;
-return w > 1366 ? 'original' : 'w1280';
+return LC.util.frameSize(width);
 }
 
 
@@ -12123,13 +12279,13 @@ return null;
 }
 
 
+
+
+
+
+
 function screenWidth() {
-var w = 0;
-try {
-w = (window.screen && window.screen.width) || window.innerWidth || 0;
-w = w * (window.devicePixelRatio || 1);
-} catch (e) { }
-return w;
+return LC.util.screenPx();
 }
 
 
@@ -13270,6 +13426,10 @@ var CHIP_LIMIT = 14;
 
 
 
+var REEL_EM = 9.2;
+
+
+
 
 
 
@@ -13889,7 +14049,11 @@ if (handle) handles.push(handle);
 
 
 function paintFrame(card) {
-var url = imageUrl(card && card.poster_path, 'w342');
+
+
+
+
+var url = imageUrl(card && card.poster_path, LC.util.posterSize(LC.util.emPx(REEL_EM)));
 var frame = reelBox.find('.lumen-roulette__frame');
 if (url) frame.css('background-image', 'url("' + url + '")');
 frame.addClass('is-step');
@@ -13957,9 +14121,15 @@ return node;
 
 
 function loadResultBg(card) {
-var backdrop = imageUrl(card.backdrop_path, 'w1280');
+
+
+
+var backdrop = imageUrl(card.backdrop_path, LC.util.frameSize(LC.util.screenPx()));
 if (!backdrop) return;
 var img = new Image();
+
+
+img.decoding = 'async';
 var captured = gen;
 var done = false;
 function finish(ok) {
@@ -14852,6 +15022,10 @@ el.onerror = function () { fail(src); };
 
 
 el.crossOrigin = 'anonymous';
+
+
+
+
 el.src = src;
 }
 
@@ -18834,7 +19008,11 @@ var LIFE = 10080;
 var WATCHED = 95;
 
 
-var POSTER = 'w300';
+
+
+
+
+var POSTER_EM = 7.90;
 var ORDER_KEY = 'lumen_franchise_order';
 
 var esc = LC.util.esc;
@@ -19009,7 +19187,7 @@ return null;
 
 function posterUrl(path) {
 try {
-return LC.cardinfo.imageUrl(path, POSTER, tmdbImageFn(), apiImgFn());
+return LC.cardinfo.imageUrl(path, LC.util.posterSize(LC.util.emPx(POSTER_EM)), tmdbImageFn(), apiImgFn());
 } catch (e) {
 return '';
 }
@@ -22382,6 +22560,22 @@ var STILL_WINDOW = 6;
 
 
 
+var EPISODE_EM = 14.9;
+
+
+
+
+
+
+
+
+
+function stillSize() {
+return LC.util.emPx(EPISODE_EM) * 0.85 > 185 ? 'w300' : 'w185';
+}
+
+
+
 
 function applyStill(node) {
 var url = node.attr('data-still');
@@ -22552,12 +22746,15 @@ var now = new Date();
 var nodes = [];
 var current = -1;
 
+
+var stillW = stillSize();
+
 for (var i = 0; i < list.length; i++) {
 var ep = list[i];
 if (!ep || !(ep.episode_number > 0)) continue;
 var hash = key && season ? '' + utilsHash([season, season > 10 ? ':' : '', ep.episode_number, key].join('')) : '';
 if (hash === '0') hash = '';
-var still = LC.cardinfo.imageUrl(ep.still_path, 'w300', tmdbImageFn(), apiImgFn());
+var still = LC.cardinfo.imageUrl(ep.still_path, stillW, tmdbImageFn(), apiImgFn());
 var node = $('<div class="lumen-episode selector"></div>');
 node.attr('data-index', i);
 if (hash) node.attr('data-hash', hash);

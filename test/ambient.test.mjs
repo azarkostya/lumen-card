@@ -30,10 +30,12 @@ const A = fresh().api;
 /* Чистые функции                                                         */
 /* ====================================================================== */
 
-test('sizeFor: узкий экран — w1280, широкий — original', () => {
-  assert.equal(A.sizeFor(1366), 'w1280', 'ровно порог — ещё узкий');
-  assert.equal(A.sizeFor(1280), 'w1280');
-  assert.equal(A.sizeFor(1920), 'original');
+/* Task 39: порог общий с кадром карточки и кадром героя (LC.util.frameSize)
+   — Full HD, а не прежние 1366. */
+test('sizeFor: до 1920 физических — w1280, шире — original', () => {
+  assert.equal(A.sizeFor(1366), 'w1280');
+  assert.equal(A.sizeFor(1920), 'w1280', 'ровно порог — ещё w1280');
+  assert.equal(A.sizeFor(1921), 'original');
   assert.equal(A.sizeFor(3840), 'original');
   assert.equal(A.sizeFor(0), 'w1280', 'размер неизвестен — дешёвый кадр');
   assert.equal(A.sizeFor(null), 'w1280');
@@ -389,6 +391,25 @@ test('start: кадры просятся в размер экрана', () => {
   narrow.fire();
   assert.ok(narrow.layer().find('.lumen-ambient__img.is-active').css('background-image').indexOf('t/p/w1280') >= 0);
   narrow.api.uninstall();
+});
+
+/* Task 39: размер считается по ФИЗИЧЕСКИМ пикселям. Android TV, который
+   отдаёт 960 CSS px при DPR 2, рисует те же 1920, что и панель с DPR 1, —
+   и кадр обоим нужен одинаковый. */
+test('start: кадр выбирается по физическим пикселям, а не по CSS-ширине', () => {
+  const dense = env({ width: 960, dpr: 2 });
+  dense.api.install();
+  dense.fire();
+  assert.ok(dense.layer().find('.lumen-ambient__img.is-active').css('background-image').indexOf('t/p/w1280') >= 0,
+    '960 CSS × DPR 2 = 1920 физических — тот же кадр, что у Full HD');
+  dense.api.uninstall();
+
+  const fourK = env({ width: 1920, dpr: 2 });
+  fourK.api.install();
+  fourK.fire();
+  assert.ok(fourK.layer().find('.lumen-ambient__img.is-active').css('background-image').indexOf('t/p/original') >= 0,
+    '1920 CSS × DPR 2 = 3840 физических — original');
+  fourK.api.uninstall();
 });
 
 test('start: запрещённый момент слой не создаёт, но следующую попытку планирует', () => {

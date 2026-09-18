@@ -463,6 +463,22 @@
      серия при отрисовке, фокусная — при листании). */
   var STILL_WINDOW = 6;
 
+  /* Task 39: ширина плитки серии в em Lampa — .lumen-card .lumen-episode
+     {width:14.9em} из src/30_css.js. */
+  var EPISODE_EM = 14.9;
+
+  /* Task 39: размер кадра серии по фактической ширине плитки. 14.9em — это
+     340 физических пикселей на экране 1920, и w300 закрывает их с апскейлом
+     меньше чем в 1.14 раза. Выше w300 не поднимаемся ни при каком DPR: у
+     кадров серий следующая ступень TMDB — сразу original, то есть полный
+     кадр (обычно 1920×1080), а still лежит фоном ПОД текстом с opacity .28
+     (.lumen-episode__still), и ряд держит в памяти окно ±2×STILL_WINDOW
+     таких плиток. На узком экране (плитка меньше ~218 физических пикселей —
+     тот же допуск 15%, что в LC.util.posterSize) берётся w185. */
+  function stillSize() {
+    return LC.util.emPx(EPISODE_EM) * 0.85 > 185 ? 'w300' : 'w185';
+  }
+
   /* Ревью п.6: кадр ставится через .css, а не в атрибут style: esc() кодирует
      апостроф как &#39;, который в атрибуте декодируется обратно и рвёт url('…').
      Внутри url("…") экранируются только " и \. */
@@ -484,7 +500,7 @@
   /* Долг ревью Task 5c (п.1): кадры только ставились и никогда не снимались —
      после прохода фокусом по сезону в памяти оказывались ВСЕ его картинки, то
      есть ровно то, ради чего окно и заводилось (у ежедневных шоу и аниме это
-     100+ кадров w300). Держим их в пределах ±2×STILL_WINDOW от точки интереса:
+     100+ кадров). Держим их в пределах ±2×STILL_WINDOW от точки интереса:
      ближнее окно (±STILL_WINDOW) нарисовано, следующее — запас на возврат
      фокуса назад без повторной загрузки. Снимаем и background-image, и флаг:
      иначе loadStills сочтёт карточку уже загруженной и кадр не вернётся.
@@ -634,13 +650,16 @@
     var now = new Date();
     var nodes = [];
     var current = -1;
+    /* Task 39: размер кадра один на весь ряд — ни ширина окна, ни DPR за
+       время отрисовки не меняются, а серий в сезоне бывает больше сотни. */
+    var stillW = stillSize();
 
     for (var i = 0; i < list.length; i++) {
       var ep = list[i];
       if (!ep || !(ep.episode_number > 0)) continue;
       var hash = key && season ? '' + utilsHash([season, season > 10 ? ':' : '', ep.episode_number, key].join('')) : '';
       if (hash === '0') hash = '';
-      var still = LC.cardinfo.imageUrl(ep.still_path, 'w300', tmdbImageFn(), apiImgFn());
+      var still = LC.cardinfo.imageUrl(ep.still_path, stillW, tmdbImageFn(), apiImgFn());
       var node = $('<div class="lumen-episode selector"></div>');
       node.attr('data-index', i);
       if (hash) node.attr('data-hash', hash);

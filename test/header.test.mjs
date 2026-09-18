@@ -275,6 +275,31 @@ test('кадры: background-image через css с url("…") и экрани�
   assert.equal(e1.html().indexOf('background-image'), -1);
 });
 
+/* Task 39: размер кадра серии — по фактической ширине плитки (14.9em).
+   На экране 1920 это 340 физических пикселей (w300); потолок w300 держится
+   и при DPR 2, потому что следующая ступень TMDB для кадров серий — сразу
+   original, то есть полный кадр 1920×1080 под текстом с opacity .28. На
+   узком экране берётся w185. */
+test('Task 39: размер кадра серии по ширине плитки, потолок w300', () => {
+  const prevW = globalThis.window.innerWidth;
+  const prevD = globalThis.window.devicePixelRatio;
+  try {
+    globalThis.window.devicePixelRatio = 2;
+    let c = makeCard();
+    LC.header.decorate(c.root, serial(1));
+    assert.equal(stillOf(c.track._children[0]), 'url("https://img.test/t/p/w300/s1.jpg")', 'DPR 2 потолок не поднимает');
+
+    globalThis.window.devicePixelRatio = 1;
+    globalThis.window.innerWidth = 1024;
+    c = makeCard();
+    LC.header.decorate(c.root, serial(1));
+    assert.equal(stillOf(c.track._children[0]), 'url("https://img.test/t/p/w185/s1.jpg")', 'узкий экран — w185');
+  } finally {
+    globalThis.window.innerWidth = prevW;
+    globalThis.window.devicePixelRatio = prevD;
+  }
+});
+
 /* ------------------------------ scrollToEpisode (п.1) ------------------------------ */
 
 test('scrollToEpisode: сдвиг к фокусной карточке, границы 0..max, возврат на E1 не оставляет style=""', () => {

@@ -32,9 +32,13 @@
     var LIFE = 10080;
     /* Граница «просмотрено» — та же, что у LC.hub, LC.cardmenu и плана. */
     var WATCHED = 95;
-    /* Постер части: ряд рисует их высотой ~9em, w300 — тот же размер, каким
-       Lampa рисует постеры своих рядов. */
-    var POSTER = 'w300';
+    /* Task 39: ширина постера части в em Lampa — .lumen-fr-card{width:7.90em}
+       из src/30_css.js (сам .lumen-fr-card__poster занимает её целиком,
+       width:100%). Это 180 физических пикселей на экране 1920 и 360 на
+       вдвое более плотном; размер файла выбирает LC.util.posterSize по этой
+       ширине, а не зашитый w300 (он был крупнее нужного на Full HD и мельче
+       нужного при DPR 2). */
+    var POSTER_EM = 7.90;
     var ORDER_KEY = 'lumen_franchise_order';
 
     var esc = LC.util.esc;
@@ -209,7 +213,7 @@
 
     function posterUrl(path) {
       try {
-        return LC.cardinfo.imageUrl(path, POSTER, tmdbImageFn(), apiImgFn());
+        return LC.cardinfo.imageUrl(path, LC.util.posterSize(LC.util.emPx(POSTER_EM)), tmdbImageFn(), apiImgFn());
       } catch (e) {
         return '';
       }

@@ -245,9 +245,27 @@ test('render: запрос коллекции с недельным кэшем, 
   const html = block.html();
   assert.ok(html.indexOf('data-lumen-fr="0"') >= 0, 'карточки частей нарисованы');
   assert.ok(html.indexOf('lumen-fr-card--current') >= 0, '«Вы здесь» на открытом фильме');
-  assert.ok(html.indexOf('https://img/t/p/w300/d1.jpg') >= 0, 'постеры через прокси TMDB Lampa');
+  /* Task 39: размер — по фактической ширине карточки части (7.90em), то есть
+     180 физических пикселей на экране 1920: w185, а не прежний зашитый w300. */
+  assert.ok(html.indexOf('https://img/t/p/w185/d1.jpg') >= 0, 'постеры через прокси TMDB Lampa');
   assert.equal(d.row.hasClass('lumen-descr-row--franchise'), true);
   assert.deepEqual(warnLog, []);
+
+});
+
+/* Task 39: на вдвое более плотном экране та же карточка части — 360
+   физических пикселей вместо 180, и постер берётся на ступень крупнее. */
+test('Task 39: постер части выбирается по физическим пикселям', () => {
+  const env = freshEnv();
+  globalThis.window.devicePixelRatio = 2;
+  try {
+    const d = makeDescrRow();
+    env.LC.franchise.render(d.row, DATA);
+    env.requests[0].ok(COLLECTION_OK);
+    assert.ok(blocksOf(d)[0].html().indexOf('https://img/t/p/w342/d1.jpg') >= 0);
+  } finally {
+    delete globalThis.window.devicePixelRatio;
+  }
 });
 
 /* Живая проверка 2026-09-17: инструментирование сломало

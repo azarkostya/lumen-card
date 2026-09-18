@@ -476,7 +476,9 @@ function restoreGlobals34() {
    единственного кандидата детерминирован независимо от Math.random).
    t — TestContext вызвавшего теста: им регистрируется восстановление
    глобалов после теста, что бы в нём ни случилось. */
-function openRoulette34(cards, t) {
+/* Task 39: dpr — третий аргумент, потому что от него зависит размер и
+   постера в барабане, и кадра под результатом. */
+function openRoulette34(cards, t, dpr) {
   resetTimers();
   createdImages.length = 0;
   poolCards34 = cards;
@@ -489,7 +491,7 @@ function openRoulette34(cards, t) {
     Controller: { add: function () { }, toggle: function () { }, collectionSet: function () { }, collectionFocus: function () { } },
     Menu: { addButton: function () { return new El([]); } }
   };
-  globalThis.window = { Lampa: Lampa };
+  globalThis.window = { Lampa: Lampa, innerWidth: 1920, devicePixelRatio: dpr || 1 };
   globalThis.Lampa = Lampa;
   globalThis.$ = make$();
   globalThis.Image = FakeImage;
@@ -662,4 +664,23 @@ test('stop() → start(): уже показанный фон повторно н
   env.comp.start();
   assert.equal(createdImages.length, 1, 'фон уже был показан (resultBgShown) — новой предзагрузки start() не запускает');
   assert.equal(env.bg.css('background-image'), 'url("' + backdropUrl(A) + '")', 'фон остался тем же');
+});
+
+/* Task 39: размеры считаются по физическим пикселям. Барабан —
+   .lumen-roulette__reel шириной 9.2em (210 px на экране 1920, 420 при
+   DPR 2), фон результата растянут на весь экран. */
+test('Task 39: постер барабана и фон результата — по физическим пикселям', (t) => {
+  const A = { id: 1, title: 'Фильм A', release_date: '2020-01-01', poster_path: '/a-p.jpg', backdrop_path: '/a-b.jpg' };
+
+  const one = openRoulette34([A], t);
+  spinAndFlush(one);
+  assert.ok(('' + one.root.find('.lumen-roulette__frame').css('background-image')).indexOf('/w185/a-p.jpg') !== -1,
+    'барабан на экране 1920 — w185');
+  assert.equal(createdImages[createdImages.length - 1].src, 'https://img/w1280/a-b.jpg', 'фон на экране 1920 — w1280');
+
+  const two = openRoulette34([A], t, 2);
+  spinAndFlush(two);
+  assert.ok(('' + two.root.find('.lumen-roulette__frame').css('background-image')).indexOf('/w500/a-p.jpg') !== -1,
+    'барабан при DPR 2 — w500');
+  assert.equal(createdImages[createdImages.length - 1].src, 'https://img/original/a-b.jpg', 'фон при DPR 2 — original');
 });

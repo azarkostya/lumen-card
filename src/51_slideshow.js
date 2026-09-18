@@ -253,6 +253,9 @@
         var url = urls[i];
         if (!url) { frames[i] = false; cb(null); return; }
         var loader = new Image();
+        /* Task 39: декодирование вне главного потока (см. src/48_hero.js,
+           loadFrame). */
+        loader.decoding = 'async';
         pendingLoader = loader;
         loader.onload = function () {
           if (pendingLoader !== loader) return;

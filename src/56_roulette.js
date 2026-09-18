@@ -65,6 +65,10 @@
     /* Чипов подборок на экране (не считая «Все подборки»). Каталог отдаёт
        их полторы сотни, и все они на экран ТВ не помещаются — см. chipList. */
     var CHIP_LIMIT = 14;
+    /* Task 39: ширина барабана в em Lampa — то же число, что у
+       .lumen-roulette__reel в src/30_css.js (width:9.2em). По ней
+       выбирается размер постера, который в барабане показан. */
+    var REEL_EM = 9.2;
 
     /* ------------------------------------------------------------------ */
     /* Чистые функции                                                      */
@@ -687,7 +691,11 @@
       /* ---------------------------------------------------------------- */
 
       function paintFrame(card) {
-        var url = imageUrl(card && card.poster_path, 'w342');
+        /* Task 39: размер — по ФАКТИЧЕСКОЙ ширине барабана, а не зашитым
+           w342. Барабан — .lumen-roulette__reel шириной REEL_EM
+           (src/30_css.js), то есть 210 физических пикселей на экране 1920 и
+           420 на вдвое более плотном; размер выбирает LC.util.posterSize. */
+        var url = imageUrl(card && card.poster_path, LC.util.posterSize(LC.util.emPx(REEL_EM)));
         var frame = reelBox.find('.lumen-roulette__frame');
         if (url) frame.css('background-image', 'url("' + url + '")');
         frame.addClass('is-step');
@@ -755,9 +763,15 @@
          экрана) — для одной карточки на весь экран это не копится, в
          отличие от героя, где кадр перезапрашивается на каждый фокус. */
       function loadResultBg(card) {
-        var backdrop = imageUrl(card.backdrop_path, 'w1280');
+        /* Task 39: фон результата — .lumen-roulette__bg, он растянут на весь
+           экран (src/30_css.js), поэтому размер тот же, что у кадра карточки
+           и заставки: по физической ширине экрана. */
+        var backdrop = imageUrl(card.backdrop_path, LC.util.frameSize(LC.util.screenPx()));
         if (!backdrop) return;
         var img = new Image();
+        /* Task 39: декодирование вне главного потока (см. src/48_hero.js,
+           loadFrame). */
+        img.decoding = 'async';
         var captured = gen;
         var done = false;
         function finish(ok) {

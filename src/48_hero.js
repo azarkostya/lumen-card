@@ -67,12 +67,14 @@
        по этим полям фильм за день не меняется, а запрос идёт через прокси
        пользователя. */
     var DETAILS_LIFE = 1440;
-    /* Выше этой ширины экрана кадр берём в 'original' (тот же принцип, что
-       у ambient-режима фазы 3): на FHD-панелях w1280 и так по пикселю. */
-    var WIDE_PX = 1366;
     /* Task 27 (довесок): ширина крупной версии постера, которую герой
        предзагружает для слоя перехода (см. bigPoster). */
     var BIG_POSTER = 500;
+    /* Task 39: рамка логотипа в em Lampa — 37.84em, ровно как width у
+       .lumen-hero__logo (src/30_css.js) и как LOGO_W_MAX ниже, дальше
+       которого logoBox ширину не пускает. По ней выбирается размер файла
+       логотипа (logoSizeFor). */
+    var LOGO_EM = 37.84;
 
     /* Размер логотипа в кадре (правка пользователя 2026-09-17, четвёртый
        круг, дословно: «нет какого-то единого размера»).
@@ -292,16 +294,27 @@
       return src.replace(m[0], '/t/p/w' + BIG_POSTER + '/');
     }
 
-    /* Размер кадра под экран: на FHD и ниже w1280 покрывает ширину целиком,
-       выше (2K/4K-панели) — original. Ширина неизвестна — берём дешёвый. */
+    /* Task 39: аргумент — ширина в ФИЗИЧЕСКИХ пикселях (LC.util.screenPx),
+       а не CSS-ширина окна. До Task 39 сюда приходил innerWidth, и на
+       Android TV, который отдаёт 960 CSS px при DPR 2, кадр героя выбирался
+       как для 960-пиксельного экрана, хотя панель рисует 1920.
+       Кадр героя занимает экран целиком, поэтому размер общий с фоном
+       карточки и заставкой — LC.util.frameSize. */
     function sizeFor(width) {
-      return (Number(width) || 0) > WIDE_PX ? 'original' : 'w1280';
+      return LC.util.frameSize(width);
     }
 
-    /* Логотип рисуется шириной до 30.69em (700 px FHD / 1400 px 4K), поэтому
-       w500/w780 — тот же порог, что у кадра. */
+    /* Аргумент — ширина САМОГО ЛОГОТИПА в физических пикселях, а не экрана:
+       логотип рисуется в рамке LOGO_EM (37.84em — 863 px на экране 1920).
+       w780 покрывает её с апскейлом меньше чем в 1.11 раза, а вот на вдвое
+       более плотном экране (1726 физических пикселей) виден бы был и он:
+       у логотипа резкие края, апскейл на них заметнее, чем на фотографии,
+       поэтому там берём original. Допуск 15% — тот же, что у постеров
+       (LC.util.posterSize). */
     function logoSizeFor(width) {
-      return (Number(width) || 0) > WIDE_PX ? 'w780' : 'w500';
+      var need = (Number(width) || 0) * 0.85;
+      if (need > 780) return 'original';
+      return need > 500 ? 'w780' : 'w500';
     }
 
     /* Языки логотипов: язык интерфейса + английский + безъязыкие. */
@@ -376,12 +389,10 @@
       }
     }
 
+    /* Task 39: ширина экрана в ФИЗИЧЕСКИХ пикселях — общий хелпер плагина
+       (он же учитывает devicePixelRatio и его потолок). */
     function screenWidth() {
-      try {
-        return window.innerWidth || (document.documentElement && document.documentElement.clientWidth) || 0;
-      } catch (e) {
-        return 0;
-      }
+      return LC.util.screenPx();
     }
 
     function langCode() {
@@ -781,7 +792,7 @@
            были бы ложным «грузится» (ограничение брифа 3). */
         node.toggleClass('lumen-hero--nodescr', !current.overview);
 
-        var logoUrl = current.logo ? imageUrl(current.logo, logoSizeFor(screenWidth())) : '';
+        var logoUrl = current.logo ? imageUrl(current.logo, logoSizeFor(LC.util.emPx(LOGO_EM))) : '';
         var logo = node.find('.lumen-hero__logo');
         /* Пустая строка в background-image оставила бы style="" на узле —
            ловушка из плана 0.2 (пустой атрибут меняет outerHTML). Значение
@@ -856,6 +867,12 @@
       if (!url || url === state.frameUrl) return;
 
       var loader = new Image();
+      /* Task 39: просим WebView не декодировать кадр синхронно на главном
+         потоке (свойство decoding, Chrome 65+; движки постарше его просто
+         игнорируют). Ставится ДО src: подсказка читается в момент, когда
+         загрузка начинается. Так же помечены все остальные предзагрузчики
+         плагина — фон карточки, слайдшоу, рулетка. */
+      loader.decoding = 'async';
       var done = false;
 
       function finish(ok) {
@@ -1088,6 +1105,8 @@
         state.bigTimer = null;
         if (!last || String(last.id) !== String(id)) return;
         var img = new Image();
+        /* Task 39: декодирование вне главного потока (см. loadFrame). */
+        img.decoding = 'async';
         state.bigLoader = img;
         img.onload = function () {
           if (!state || state.bigLoader !== img) return;

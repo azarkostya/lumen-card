@@ -511,7 +511,9 @@ function setupLampa(opts) {
     Storage: { get: function (k, d) { return d; }, set: function (k, v) { log.stored.push({ name: k, value: v }); } }
   };
 
-  globalThis.window = { Lampa: Lampa, Navigator: nav };
+  /* Task 39: innerWidth нужен LC.util.screenPx — от него зависит размер
+     постеров коллажа и карточек сетки. */
+  globalThis.window = { Lampa: Lampa, Navigator: nav, innerWidth: 1920, devicePixelRatio: opts.dpr || 1 };
   globalThis.Lampa = Lampa;
   globalThis.$ = make$(doc);
   return { log: log, doc: doc, Lampa: Lampa, nav: nav };
@@ -543,7 +545,9 @@ function loadHub(opts) {
     collectionsWord: function () { return 'подборок'; },
     motionMode: function () { return opts.motion || 'full'; },
     icons: { get: function () { return '<svg></svg>'; } },
-    cardinfo: { imageUrl: function (path) { return path ? 'https://proxy/t/p/w342' + path : ''; } },
+    /* Task 39: заглушка отдаёт ЗАПРОШЕННЫЙ размер, иначе выбор размера
+       нечем проверить. */
+    cardinfo: { imageUrl: function (path, size) { return path ? 'https://proxy/t/p/' + size + path : ''; } },
     manifest: { load: function (cb) { cb(MANIFEST); } },
     /* Task 20: настройки читает только подсказка про ключ Кинопоиска —
        по умолчанию её нет вовсе, как и в бандле до LC.init. */
@@ -671,8 +675,25 @@ test('lumen_hub: коллаж принимает и готовые URL Кино�
   var posters = tile.all('lumen-tile__poster');
   assert.equal(posters.length, 2);
   assert.ok(('' + posters[0].css('background-image')).indexOf('https://kp/a.jpg') !== -1, 'URL КП берётся как есть');
-  assert.ok(('' + posters[1].css('background-image')).indexOf('https://proxy/t/p/w342/b.jpg') !== -1, 'путь TMDB — через прокси');
+  assert.ok(('' + posters[1].css('background-image')).indexOf('https://proxy/t/p/w185/b.jpg') !== -1, 'путь TMDB — через прокси, размер по ширине постерика (5.70em)');
   assert.ok(tile.hasClass('lumen-tile--filled'));
+});
+
+/* Task 39: размер выбирается по ФАКТИЧЕСКОЙ ширине элемента в физических
+   пикселях. Постерик коллажа — 5.70em (130 px на экране 1920, 260 при
+   DPR 2), карточка сетки — 12.36em (282 и 564). */
+test('Task 39: DPR 2 поднимает размер постеров коллажа и карточек сетки', function () {
+  var s = openHub({ dpr: 2 });
+  s.h.collageCalls[0].ok(['/b.jpg']);
+  var poster = s.root.all('lumen-tile')[0].all('lumen-tile__poster')[0];
+  assert.ok(('' + poster.css('background-image')).indexOf('/t/p/w342/b.jpg') !== -1,
+    'коллаж при DPR 2 — w342 (при DPR 1 хватало w185)');
+
+  var g = openGrid(DISCOVER, { dpr: 2 });
+  g.h.fetchCalls[0].ok({ results: results(20), page: 1, total_pages: 3, total_results: 60 });
+  var img = g.root.all('lumen-gcard')[0].querySelector('.card__img');
+  assert.ok(('' + img.src).indexOf('/t/p/w500/p0.jpg') !== -1,
+    'карточка сетки при DPR 2 — w500 (при DPR 1 хватало w342)');
 });
 
 test('lumen_hub: подборка Кинопоиска без ключа помечается на плитке', function () {
@@ -969,6 +990,15 @@ test('lumen_grid: постеры грузятся окном, а не все р�
   var img = cards[0].querySelector('.card__img');
   assert.ok(('' + img.src).indexOf('https://proxy/t/p/w342/p0.jpg') !== -1);
   assert.equal(cards[cards.length - 1].querySelector('.card__img').src, undefined, 'дальней карточке постер не грузили');
+});
+
+/* Task 39: <img> карточки сетки живёт в документе, и без decoding='async'
+   каждый постер декодируется на главном потоке в момент показа. */
+test('Task 39: постеру карточки сетки ставится decoding=async', function () {
+  var g = openGrid(DISCOVER);
+  g.h.fetchCalls[0].ok({ results: results(20), page: 1, total_pages: 3, total_results: 60 });
+  var img = g.root.all('lumen-gcard')[0].querySelector('.card__img');
+  assert.equal(img.decoding, 'async');
 });
 
 test('lumen_grid: шаг фокуса догружает постеры следующих карточек (I6)', function () {

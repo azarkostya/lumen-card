@@ -137,7 +137,11 @@
         '<div class="full-start-new__body">' +
         '<div class="full-start-new__left">' +
         '<div class="full-start-new__poster">' +
-        '<img class="full-start-new__img full--poster" />' +
+        /* Task 39: decoding="async" — постер карточки заполняет сама Lampa
+           (она ставит src этому <img>), а атрибут в разметке просит WebView
+           не декодировать его синхронно на главном потоке в момент показа
+           карточки. Это единственный <img> нашего шаблона. */
+        '<img class="full-start-new__img full--poster" decoding="async" />' +
         '</div>' +
         '</div>' +
         '<div class="full-start-new__right lumen-content">' +

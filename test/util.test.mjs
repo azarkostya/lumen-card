@@ -146,3 +146,71 @@ test('gate: timeout <= 0 — без дедлайна, только по тика
     assert.deepEqual(calls, [false]);
   });
 });
+
+/* ====================================================================== */
+/* Task 39: размеры картинок TMDB по физическим пикселям.                 */
+/* ====================================================================== */
+
+/* window в этом файле не нужен ни одному другому тесту, поэтому он
+   ставится только на время вызова и снимается сразу. */
+function withScreen(props, fn) {
+  const had = Object.prototype.hasOwnProperty.call(globalThis, 'window');
+  const prev = globalThis.window;
+  globalThis.window = props;
+  try { return fn(); } finally {
+    if (had) globalThis.window = prev; else delete globalThis.window;
+  }
+}
+
+test('screenPx: ширина окна × DPR, потолок DPR — 2', () => {
+  assert.equal(withScreen({ innerWidth: 1920, devicePixelRatio: 1 }, () => u.screenPx()), 1920);
+  assert.equal(withScreen({ innerWidth: 1920, devicePixelRatio: 2 }, () => u.screenPx()), 3840);
+  assert.equal(withScreen({ innerWidth: 960, devicePixelRatio: 2 }, () => u.screenPx()), 1920,
+    'Android TV с половинной CSS-шириной даёт те же физические 1920');
+  assert.equal(withScreen({ innerWidth: 1280, devicePixelRatio: 3 }, () => u.screenPx()), 2560,
+    'DPR 3 считается как 2: выше original у TMDB ничего нет');
+});
+
+test('screenPx: нет devicePixelRatio или ширины — без падения', () => {
+  assert.equal(withScreen({ innerWidth: 1920 }, () => u.screenPx()), 1920, 'нет DPR — как DPR 1');
+  assert.equal(withScreen({ innerWidth: 1920, devicePixelRatio: 0 }, () => u.screenPx()), 1920);
+  assert.equal(withScreen({ innerWidth: 1920, devicePixelRatio: 'x' }, () => u.screenPx()), 1920);
+  assert.equal(withScreen({}, () => u.screenPx()), 0, 'ширины нет — 0');
+});
+
+test('screenPx: window вовсе нет (тестовая среда) — 0, а не исключение', () => {
+  const had = Object.prototype.hasOwnProperty.call(globalThis, 'window');
+  const prev = globalThis.window;
+  if (had) delete globalThis.window;
+  try { assert.equal(u.screenPx(), 0); } finally { if (had) globalThis.window = prev; }
+});
+
+test('emPx: доля экрана по базе em Lampa (innerWidth / 84.17)', () => {
+  /* Карточка ряда — 11.4em, то есть 260 px на экране 1920 (src/30_css.js). */
+  assert.equal(withScreen({ innerWidth: 1920, devicePixelRatio: 1 }, () => u.emPx(11.4)), 260);
+  assert.equal(withScreen({ innerWidth: 960, devicePixelRatio: 2 }, () => u.emPx(11.4)), 260,
+    'половинная CSS-ширина при DPR 2 даёт ту же физическую ширину элемента');
+  assert.equal(withScreen({ innerWidth: 1920, devicePixelRatio: 2 }, () => u.emPx(11.4)), 520);
+  assert.equal(withScreen({ innerWidth: 1920, devicePixelRatio: 1 }, () => u.emPx(0)), 0);
+});
+
+test('posterSize: наименьший размер TMDB с допуском 15%', () => {
+  assert.equal(u.posterSize(0), 'w185', 'ширина неизвестна — самый дешёвый');
+  assert.equal(u.posterSize(130), 'w185', 'постер коллажа хаба на экране 1920');
+  assert.equal(u.posterSize(180), 'w185', 'постер франшизы на экране 1920');
+  assert.equal(u.posterSize(210), 'w185', 'барабан рулетки: апскейл 1.14 — в допуске');
+  assert.equal(u.posterSize(260), 'w342', 'карточка ряда при DPR 2');
+  assert.equal(u.posterSize(282), 'w342', 'карточка сетки хаба на экране 1920');
+  assert.equal(u.posterSize(420), 'w500', 'барабан при DPR 2');
+  assert.equal(u.posterSize(564), 'w500', 'карточка сетки хаба при DPR 2');
+  assert.equal(u.posterSize(700), 'w780');
+  assert.equal(u.posterSize(5000), 'w780', 'потолок: original постера плагину не нужен');
+});
+
+test('frameSize: полноэкранный кадр — w1280 до Full HD, дальше original', () => {
+  assert.equal(u.frameSize(0), 'w1280', 'ширина неизвестна — дешёвый кадр');
+  assert.equal(u.frameSize(1280), 'w1280');
+  assert.equal(u.frameSize(1920), 'w1280', 'ровно Full HD');
+  assert.equal(u.frameSize(1921), 'original');
+  assert.equal(u.frameSize(3840), 'original');
+});

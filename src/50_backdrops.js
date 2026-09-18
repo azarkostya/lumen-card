@@ -40,7 +40,10 @@
     var url = '';
     try {
       var path = LC.cardinfo.backdropPath(movie);
-      if (path) url = LC.cardinfo.imageUrl(path, 'w1280', tmdbImageFn(), apiImgFn());
+      /* Task 39: кадр лежит на весь экран, поэтому размер выбирается по
+         ФИЗИЧЕСКОЙ ширине экрана (LC.util.screenPx учитывает DPR), а не по
+         зашитому w1280: на панели шире Full HD это original. */
+      if (path) url = LC.cardinfo.imageUrl(path, LC.util.frameSize(LC.util.screenPx()), tmdbImageFn(), apiImgFn());
     } catch (e) {
       warn('image url failed', e);
     }
@@ -222,6 +225,9 @@
     var done = false;
     var timer = null;
     var loader = new Image();
+    /* Task 39: декодирование вне главного потока (см. src/48_hero.js,
+       loadFrame). */
+    loader.decoding = 'async';
 
     function finish(ok) {
       if (done) return;
@@ -320,7 +326,12 @@
       var main = LC.cardinfo.backdropPath(movie);
       var max = LC.slideshow.maxFramesFor(LC.motionMode());
       var paths = pickBackdrops(movie.images, main, max);
-      var urls = LC.util.map(paths, function (p) { return LC.cardinfo.imageUrl(p, 'w1280', tmdbImageFn(), apiImgFn()); });
+      /* Task 39: тот же размер, что у одиночного кадра (backdropUrl) — кадры
+         слайдшоу занимают тот же слой на весь экран. Считается один раз на
+         карточку, а не на кадр: за время одной карточки ни ширина окна, ни
+         DPR не меняются. */
+      var frameSize = LC.util.frameSize(LC.util.screenPx());
+      var urls = LC.util.map(paths, function (p) { return LC.cardinfo.imageUrl(p, frameSize, tmdbImageFn(), apiImgFn()); });
       var slideshowOpts = { enabled: slideshowEnabled, intervalMs: slideIntervalMs };
 
       var controller = LC.slideshow.create(layer, urls, slideshowOpts);

@@ -82,6 +82,15 @@
     /* Сколько постеров в коллаже плитки (design-spec-main §0.8: три со сдвигом). */
     var COLLAGE_SIZE = 3;
 
+    /* Task 39: ширины в em Lampa, по которым выбирается размер картинки.
+       Оба числа взяты из src/30_css.js и меняются вместе с ним:
+       - COLLAGE_EM — .lumen-hub .lumen-tile__poster{width:5.70em};
+       - GCARD_EM — карточка сетки .lumen-gcard: calc((100% − 4.4em) / 6)
+         внутри .lumen-grid с padding 2.81em по краям, то есть
+         (84.17 − 5.62 − 4.4) / 6 = 12.36em. */
+    var COLLAGE_EM = 5.70;
+    var GCARD_EM = 12.36;
+
     /* ------------------------------------------------------------------ */
     /* Чистые функции (без Lampa, DOM и Storage).                          */
     /* ------------------------------------------------------------------ */
@@ -719,9 +728,18 @@
         var box = $(node).find('.lumen-tile__collage');
         box.empty();
         var painted = 0;
+        /* Task 39: размер — по фактической ширине постерика коллажа
+           (.lumen-hub .lumen-tile__poster, width:5.70em в src/30_css.js):
+           130 физических пикселей на экране 1920, 260 на вдвое более
+           плотном. Зашитый w342 был вдвое с лишним крупнее нужного на
+           Full HD, а плиток в группе десятки и на каждой по три таких
+           постера. Считается один раз на коллаж, а не на постер. */
+        var size = LC.util.posterSize(LC.util.emPx(COLLAGE_EM));
         for (var i = 0; i < paths.length; i++) {
           var path = '' + paths[i];
-          var url = path.indexOf('http') === 0 ? path : imageUrl(path, 'w342');
+          /* Готовый http-адрес (подборка Кинопоиска отдаёт свои картинки
+             сама) размер не выбирает — он берётся как есть. */
+          var url = path.indexOf('http') === 0 ? path : imageUrl(path, size);
           if (!url) continue;
           var poster = $('<div class="lumen-tile__poster lumen-tile__poster--' + (painted + 1) + '"></div>');
           poster.css('background-image', 'url("' + url + '")');
@@ -1156,6 +1174,11 @@
       }
 
       function bindPoster(node, img, url) {
+        /* Task 39: декодирование вне главного потока (см. src/48_hero.js,
+           loadFrame). Здесь <img> уже в документе, поэтому подсказка важнее
+           всего: без неё каждый постер декодируется на главном потоке в
+           момент показа, а сетка листается по шесть карточек за шаг. */
+        img.decoding = 'async';
         img.onload = function () { $(node).addClass('card--loaded'); };
         img.onerror = function () { $(node).addClass('card--broken'); };
         img.src = url;
@@ -1204,7 +1227,10 @@
         if (quality && !card.name) view.append($('<div class="card__quality"></div>').text(quality));
 
         markCard(node, card);
-        el.lumen_poster = imageUrl(card.poster_path, 'w342');
+        /* Task 39: постер карточки сетки — по её фактической ширине
+           (GCARD_EM): 282 физических пикселя на экране 1920 (w342) и 564 на
+           вдвое более плотном (w500). */
+        el.lumen_poster = imageUrl(card.poster_path, LC.util.posterSize(LC.util.emPx(GCARD_EM)));
 
         node.on('hover:focus', function () {
           keepVisible(el);

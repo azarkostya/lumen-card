@@ -172,6 +172,63 @@ test('apply: таймаут (8с) без onload/onerror -> .lumen-bg--blur с п
     'мягкость даёт апскейл, а не фильтр: размер обязан остаться крошечным');
 });
 
+/* Task 39: кадр карточки — полноэкранный, поэтому размер выбирается по
+   физической ширине экрана: до Full HD включительно w1280, шире — original.
+   Постер размытого фона (Task 38) от DPR не зависит вовсе. */
+test('Task 39: размер кадра по физическим пикселям, w92 размытого фона не меняется', () => {
+  const had = Object.prototype.hasOwnProperty.call(globalThis, 'innerWidth');
+  const prevW = globalThis.innerWidth;
+  const prevD = globalThis.devicePixelRatio;
+  globalThis.innerWidth = 1920;
+  globalThis.devicePixelRatio = 1;
+  try {
+    let LC = freshLC();
+    let body = fakeBody();
+    LC.backdrops.apply(null, body, { id: 1, backdrop_path: '/a.jpg', poster_path: '/poster.jpg' });
+    mount(body._children[0]);
+    assert.ok(loaders[0].src.includes('/w1280/'), '1920 физических — w1280: ' + loaders[0].src);
+
+    globalThis.devicePixelRatio = 2;
+    LC = freshLC();
+    body = fakeBody();
+    LC.backdrops.apply(null, body, { id: 2, backdrop_path: '/a.jpg', poster_path: '/poster.jpg' });
+    const layer = mount(body._children[0]);
+    assert.ok(loaders[0].src.includes('/original/'), '1920 × DPR 2 = 3840 физических — original: ' + loaders[0].src);
+
+    /* Кадр не пришёл — фон собирается из постера, и он крошечный при любом DPR. */
+    fireTimer(1);
+    assert.ok(String(layer.children('.lumen-backdrop__img')._css['background-image']).includes('/w92/poster.jpg'));
+  } finally {
+    globalThis.devicePixelRatio = prevD;
+    if (had) globalThis.innerWidth = prevW; else delete globalThis.innerWidth;
+  }
+});
+
+/* Task 39: кадры слайдшоу лежат на том же полноэкранном слое, что и первый
+   кадр, — размер у них общий. */
+test('Task 39: кадры слайдшоу просятся в тот же размер, что и первый кадр', () => {
+  const had = Object.prototype.hasOwnProperty.call(globalThis, 'innerWidth');
+  const prevW = globalThis.innerWidth;
+  const prevD = globalThis.devicePixelRatio;
+  globalThis.innerWidth = 1920;
+  globalThis.devicePixelRatio = 2;
+  try {
+    const LC = freshLC();
+    const body = fakeBody();
+    LC.backdrops.apply(null, body, {
+      id: 3, backdrop_path: '/a.jpg',
+      images: { backdrops: [mk('/a.jpg', null, 8), mk('/b.jpg', null, 7), mk('/c.jpg', null, 6)] }
+    });
+    const layer = mount(body._children[0]);
+    const urls = layer.data('lumenUrls');
+    assert.ok(urls.length > 1, 'слайдшоу собрано из нескольких кадров');
+    urls.forEach((u) => assert.ok(String(u).includes('/original/'), 'кадр слайдшоу: ' + u));
+  } finally {
+    globalThis.devicePixelRatio = prevD;
+    if (had) globalThis.innerWidth = prevW; else delete globalThis.innerWidth;
+  }
+});
+
 test('apply: таймаут при отсутствии poster_path -> процедурный градиент (постера для фолбэка нет), без исключений', () => {
   const LC = freshLC();
   const body = fakeBody();
