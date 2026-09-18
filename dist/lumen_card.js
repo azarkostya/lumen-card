@@ -13166,6 +13166,9 @@ warn('roulette: collection failed', e);
 
 
 
+
+
+
 function keepVisible(el) {
 try { scroll.update(el, true); } catch (e) { warn('roulette: scroll.update failed', e); }
 }
