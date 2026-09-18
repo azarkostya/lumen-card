@@ -847,7 +847,12 @@
       if (!path) { path = model.poster; blur = true; }
       if (!path) return;
 
-      var url = imageUrl(path, blur ? 'w500' : sizeFor(screenWidth()));
+      /* Task 38: у «размытого» варианта размер намеренно крошечный. Блюр
+         фильтром снят (src/30_css.js, .lumen-hero--blur), и мягкость теперь
+         даёт сам апскейл: w92 — 92 px по ширине, растянутые cover на весь
+         кадр героя, то есть больше чем в двадцать раз. Заодно это самый
+         дешёвый кадр, который герой вообще грузит. */
+      var url = imageUrl(path, blur ? 'w92' : sizeFor(screenWidth()));
       if (!url || url === state.frameUrl) return;
 
       var loader = new Image();

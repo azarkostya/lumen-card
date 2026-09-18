@@ -48,13 +48,18 @@
     return url;
   }
 
-  /* Task 5b Step 3: постер для размытого фона — 'w500', то же качество,
-     которое родная Poster.onCreate (app.min.js) грузит в .full--poster
-     (card.img = Api.img(poster_path, ...).replace(/\/w\d+/, '/w500')) —
-     сам постер-<img> плагин не трогает, эта функция только про фон. */
+  /* Постер для размытого фона карточки. Сам постер-<img> плагин не трогает,
+     эта функция только про фон.
+     Task 38: размер снижен с 'w500' до 'w92'. Прежде фон размывал CSS
+     (filter:blur(1.75em) у .lumen-bg--blur), и постеру нужно было разрешение
+     «как у родного». Фильтр снят — он заставлял WebView держать отдельный
+     буфер на весь экран, — и мягкость даёт теперь сам апскейл: 92 px по
+     ширине, растянутые cover на 1080p, это больше чем двадцатикратное
+     увеличение. Побочно это и самая лёгкая картинка из всех, что грузит
+     карточка. */
   function posterUrl(movie) {
     try {
-      if (movie.poster_path) return LC.cardinfo.imageUrl(movie.poster_path, 'w500', tmdbImageFn(), apiImgFn());
+      if (movie.poster_path) return LC.cardinfo.imageUrl(movie.poster_path, 'w92', tmdbImageFn(), apiImgFn());
     } catch (e) {
       warn('poster url failed', e);
     }
@@ -73,8 +78,9 @@
      (план 1.1: ALLOWED_ROOTS в css.test.mjs держит .lumen-backdrop как
      самостоятельный корень отдельно от .lumen-card). Поэтому режим
      анимаций зеркалится прямо на сам слой фона — CSS для .lumen-bg--blur
-     читает класс lumen-motion-* на .lumen-backdrop (design-spec §12/доп.
-     к Task 5b: в lite/off — без filter:blur, только затемнение). */
+     читает класс lumen-motion-* на .lumen-backdrop. Task 38: фильтра там
+     больше нет ни в одном режиме, и класс решает только судьбу наезда
+     scale(1.1) — в lite/off слой стоит неподвижно. */
   function syncMotionClass(layer) {
     try {
       layer.removeClass('lumen-motion-full lumen-motion-lite lumen-motion-off').addClass('lumen-motion-' + LC.motionMode());
@@ -172,8 +178,9 @@
 
   /* Task 5b Step 3/4: нет кадра — ни в режиме 'poster'/'procedural', ни
      когда кадр из режима 'backdrop' не загрузился/завис (design-spec §12,
-     дополнение к Task 5b: размытый постер, blur(40px)=1.75em, opacity:.8
-     поверх диагонального градиента — сам градиент в CSS у .lumen-bg--blur).
+     дополнение к Task 5b: размытый постер, opacity:.8 поверх диагонального
+     градиента — сам градиент в CSS у .lumen-bg--blur; размытие с Task 38
+     даёт апскейл w92, см. posterUrl выше).
      Постера тоже нет — старые процедурные градиенты v1, без изменений. */
   function showNoFrame(layer, movie) {
     var img = layer.find('.lumen-backdrop__img');

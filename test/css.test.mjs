@@ -294,10 +294,16 @@ test('buildCss: .lumen-card--poster .full-start-new__poster оформлен к�
   assert.ok(decl.indexOf('box-shadow') !== -1);
 });
 
-test('buildCss: .lumen-bg--blur — размытый постер (blur 1.75em = design 40px÷22.811) только в lumen-motion-full', () => {
+/* Task 38: раньше здесь проверялось наличие filter:blur(1.75em) у
+   .lumen-bg--blur в полном режиме. Фильтр снят со всех режимов сразу —
+   размытие даёт апскейл постера (w92 в src/50_backdrops.js), — поэтому тест
+   перевёрнут: правило осталось (по нему идёт scale, прячущий края), но
+   фильтра в нём быть не должно. */
+test('buildCss: .lumen-bg--blur в lumen-motion-full — scale без filter (размытие даёт сам постер)', () => {
   const decl = findDecl(css, (sel) => sel.indexOf('.lumen-backdrop') === 0 && sel.indexOf('lumen-motion-full') !== -1 && sel.indexOf('lumen-bg--blur') !== -1);
-  assert.ok(decl, 'правило блюра для lumen-motion-full не найдено');
-  assert.ok(decl.indexOf('blur(1.75em)') !== -1, 'ожидался filter:blur(1.75em) (дополнение к Task 5b: 40px÷22.811)');
+  assert.ok(decl, 'правило .lumen-bg--blur для lumen-motion-full не найдено');
+  assert.ok(decl.indexOf('scale(1.1)') !== -1, 'наезд остаётся: он прячет края растянутого постера');
+  assert.equal(decl.indexOf('filter'), -1, 'filter:blur дорог для WebView — размытие даёт апскейл w92');
 });
 
 test('buildCss: .lumen-bg--blur в lumen-motion-lite/off — без filter (дорого на ТВ, только затемнение)', () => {
@@ -1039,56 +1045,27 @@ test('buildCss: в сжатой шапке статус и чип серии —
 });
 
 /* -------------------------------------------------------------------- */
-/* Ревью фазы 1 (I1): backdrop-filter — самый дорогой эффект карточки.    */
+/* Task 38: backdrop-filter в плагине нет вовсе.                          */
 /*                                                                       */
-/* Режимы «Лёгкие»/«Выкл» гасили только transition/transform/animation, а */
-/* блюр подложки под каждой из 5-7 КНОПОК оставался — и пересобирался     */
-/* композитором ПОКАДРОВО, потому что фон под ним живой (кроссфейд 1.2 с, */
-/* Ken Burns, играющий iframe трейлера). Для кнопок это ровно те ТВ, куда */
-/* «Авто» само ставит lite (Tizen/webOS, LC.motionModeFor).               */
+/* Раньше (ревью фазы 1, I1) блюр подложек гасился только в режимах       */
+/* «Лёгкие»/«Выкл», и здесь стоял тест, требовавший от каждого правила с  */
+/* backdrop-filter:blur пары под lumen-motion-lite и lumen-motion-off.    */
+/* Теперь гасить нечего: свойство убрано из палитры целиком. Причина не в */
+/* движении, а в самом свойстве — backdrop-filter читает пиксели ПОД      */
+/* элементом и пересобирается композитором покадрово, пока фон живой      */
+/* (кроссфейд кадров 1.2 с, Ken Burns, играющий iframe трейлера), а фон   */
+/* под карточкой живой в любом режиме, кроме 'off'.                       */
 /*                                                                       */
-/* Проверка идёт от САМОГО CSS, а не от списка известных селекторов:      */
-/* любое новое правило карточки с backdrop-filter:blur обязано завести    */
-/* себе пару под lumen-motion-lite и lumen-motion-off, иначе тест упадёт. */
-/* Но снять блюр — мало. У кнопок заливка действительно плотная (C.buttonBg */
-/* .82, да ещё поверх нижней вуали .98 -> .60). А «Стоп» (.5) и метка       */
-/* (.62) ПОЛУПРОЗРАЧНЫ и показываются ТОЛЬКО при lumen-trailer-on, то есть  */
-/* всегда поверх живого кадра YouTube, где вуали слоя вдобавок приглушены   */
-/* до opacity .45 (.lumen-backdrop.lumen-trailer-live). На светлой сцене    */
-/* ролика белый текст на такой подложке теряется: замеренный контраст       */
-/* #F3EDE4 к подложке поверх белого кадра — 3.1:1 у «Стоп» и 4.8:1 у метки, */
-/* против целевых 7:1 проекта. Поэтому правило, снявшее блюр с прозрачной   */
-/* подложки, ОБЯЗАНО компенсировать это плотной заливкой.                   */
-/*                                                                         */
-/* Адресат у компенсации не тот же, что у гашения блюра на кнопках: на      */
-/* Tizen/webOS «Авто» даёт трейлеру 'off' (LC.trailer.modeFor), то есть     */
-/* «Стоп» и метки там не бывает вовсе. Эти два узла страдают в другой       */
-/* комбинации — трейлер включён ВРУЧНУЮ, а анимации стоят «Лёгкие»/«Выкл».  */
-/*                                                                         */
-/* Проверка идёт от самого CSS и по ВСЕМ нашим корням (Minor 7): блюр на    */
-/* слое фона или под body-корнем тест не должен молча пропустить.           */
+/* Компенсация читаемости, которая раньше шла в паре с гашением, стала    */
+/* постоянной: «Стоп» и метка «ТРЕЙЛЕР · БЕЗ ЗВУКА» показываются только   */
+/* при lumen-trailer-on, то есть всегда поверх живого кадра YouTube, где  */
+/* вуали слоя вдобавок приглушены до opacity .45                          */
+/* (.lumen-backdrop.lumen-trailer-live). На светлой сцене ролика белый    */
+/* текст на прозрачной подложке терялся: замеренный контраст #F3EDE4 к    */
+/* подложке поверх белого кадра был 3.1:1 у «Стоп» и 4.8:1 у метки против */
+/* целевых 7:1 проекта. Поэтому у обоих узлов заливка обязана быть        */
+/* плотной в БАЗОВОМ правиле, без оглядки на режим.                       */
 /* -------------------------------------------------------------------- */
-
-/* Один источник с проверкой скоупа выше: списки не должны разъезжаться —
-   иначе blur-правило под корнем, который есть в ALLOWED_ROOTS, но забыт
-   здесь (так было с .full-start-new и .full-start__background), тест молча
-   пропустит. */
-function rootOf(sel) {
-  for (const root of ALLOWED_ROOTS) if (startsWithRoot(sel, root)) return root;
-  return null;
-}
-
-function blurRules(cssText) {
-  const out = [];
-  for (const rule of ruleBodies(cssText)) {
-    if (rule.decl.indexOf('backdrop-filter:blur(') === -1) continue;
-    for (const sel of rule.selectors) {
-      const root = rootOf(sel);
-      if (root) out.push({ sel, root, decl: rule.decl });
-    }
-  }
-  return out;
-}
 
 /* Альфа собственной заливки правила: background:rgba(r,g,b,a) -> a. */
 function fillAlpha(decl) {
@@ -1096,34 +1073,74 @@ function fillAlpha(decl) {
   return m ? parseFloat(m[1]) : null;
 }
 
-test('I1: blur гасится в lumen-motion-lite/off, а полупрозрачная подложка при этом уплотняется', () => {
-  const blurred = blurRules(css);
-  /* Кнопки карточки, кнопка «Стоп» и метка «ТРЕЙЛЕР · БЕЗ ЗВУКА». */
-  assert.ok(blurred.length >= 3, 'ожидались правила блюра кнопок/«Стоп»/метки, найдено: ' + blurred.length);
+test('Task 38: backdrop-filter отсутствует во всех режимах и при любых настройках', () => {
+  /* Обе сборки: настройки по умолчанию и «Плотные подложки». Блюр выводился
+     именно в первой — в плотной палитра отдавала пустую строку, и тест,
+     проверяющий только её, ничего бы не поймал. */
+  const variants = [
+    ['по умолчанию', css],
+    ['плотные подложки', withStorage({ lumen_solid: true }, (LC) => LC.buildCss())]
+  ];
+  for (const [name, text] of variants) {
+    assert.equal(text.indexOf('backdrop-filter'), -1,
+      name + ': backdrop-filter читает пиксели под элементом каждый кадр — на WebView ТВ запрещён');
+  }
+});
 
-  for (const { sel, root, decl } of blurred) {
-    const base = fillAlpha(decl);
-    for (const mode of ['lite', 'off']) {
-      /* Гасящий селектор — тот же самый плюс класс режима на корне:
-         специфичность строго выше исходного правила, поэтому порядок
-         объявления в файле роли не играет и !important не нужен. */
-      const want = root + '.lumen-motion-' + mode + sel.slice(root.length);
-      const quench = findDecl(css, (s) => s === want);
-      assert.ok(quench, 'нет правила, гасящего блюр: ' + want);
-      assert.ok(/(^|;)backdrop-filter:none/.test(quench), want + ' обязан задавать backdrop-filter:none, а не «' + quench + '»');
-      assert.ok(quench.indexOf('-webkit-backdrop-filter:none') !== -1,
-        want + ': нужен и -webkit-префикс — на WebView ТВ работает именно он');
+/* -------------------------------------------------------------------- */
+/* Task 38: дорогие эффекты убраны с горячих путей. Целевое железо —      */
+/* Philips 50PUS8057 (4 ядра MediaTek, Android TV 11, WebView рисует     */
+/* 1080p); внешний ресёрч docs/research/2026-09-18-android-tv-animations */
+/* .md запрещает на нём анимированные тени, большие радиусы размытия,    */
+/* filter:blur на живых узлах и маски на движущихся слоях.               */
+/* Проверки идут по ВСЕМУ тексту таблицы, а не по списку селекторов:     */
+/* любое новое правило обязано соблюдать те же границы.                  */
+/* -------------------------------------------------------------------- */
 
-      /* Компенсация — только там, где подложка сама по себе прозрачная.
-         Кнопкам (.82 плюс вуаль) она не нужна и только утяжелила бы вид. */
-      if (base !== null && base < 0.8) {
-        const dense = fillAlpha(quench);
-        assert.ok(dense !== null,
-          want + ': исходная заливка ' + base + ' — сняв блюр, правило обязано задать свою, иначе текст поплывёт на светлом кадре');
-        assert.ok(dense >= 0.88,
-          want + ': заливка ' + dense + ' слишком прозрачна для белого текста поверх светлого кадра (нужно >= .88)');
-      }
-    }
+test('Task 38: box-shadow нигде не входит в transition', () => {
+  const offenders = css.split('\n').filter((line) => /transition[^;{}]*box-shadow/.test(line));
+  assert.deepEqual(offenders.map((l) => l.slice(0, l.indexOf('{'))), [],
+    'каждый кадр анимации тени — перерисовка растра элемента; тень должна появляться вместе с классом .focus');
+});
+
+test('Task 38: ни одного box-shadow с размытием больше .8em', () => {
+  /* Второе число тени — смещение, третье — радиус размытия: «0 .35em .7em». */
+  const offenders = [];
+  for (const m of css.matchAll(/box-shadow:\s*0\s+([\d.]+)em\s+([\d.]+)em/g)) {
+    if (parseFloat(m[2]) > 0.8) offenders.push(m[0]);
+  }
+  assert.deepEqual(offenders, [], 'радиус тени WebView считает по площади вокруг элемента, а таких элементов на экране десятки');
+  /* Заодно: другой формы записи тени в таблице быть не должно — иначе
+     проверка выше молча пропустила бы её. */
+  const shapes = [...css.matchAll(/box-shadow:[^;}]+/g)].map((m) => m[0]);
+  const unknown = shapes.filter((s) => !/^(-webkit-)?box-shadow:0 [\d.]+em [\d.]+em /.test(s) && !/^-webkit-box-shadow:0 [\d.]+em [\d.]+em /.test(s));
+  assert.deepEqual(unknown, [], 'тень записана не в форме «0 <смещение>em <радиус>em <цвет>» — проверка радиуса её не увидит');
+});
+
+test('Task 38: filter:blur отсутствует', () => {
+  /* Размытие фона и героя даёт теперь апскейл постера (w92), а не фильтр.
+     Ловится любая запись, включая одинокий -webkit-filter: на движках ТВ
+     работает как раз он, и пропустить его было бы хуже всего. */
+  const offenders = css.split('\n').filter((line) => /filter:\s*blur\(/.test(line));
+  assert.deepEqual(offenders.map((l) => l.slice(0, l.indexOf('{'))), [],
+    'filter:blur заставляет WebView держать отдельный буфер на весь слой');
+});
+
+test('Task 38: плитки хаба без теней у постеров коллажа', () => {
+  const poster = findDecl(css, (sel) => sel === '.lumen-hub .lumen-tile__poster');
+  assert.ok(poster, 'правило постера коллажа не найдено');
+  assert.equal(poster.indexOf('box-shadow'), -1,
+    'три постера на плитку под собственным rotate() — десятки размытых теней на один экран: ' + poster);
+});
+
+test('Task 38: «Стоп» и метка трейлера плотные без блюра (белый текст поверх светлой сцены ролика)', () => {
+  for (const sel of ['.lumen-card .lumen-stop', '.lumen-card .lumen-trailer-badge']) {
+    const decl = findDecl(css, (s) => s === sel);
+    assert.ok(decl, 'правило ' + sel + ' не найдено');
+    const alpha = fillAlpha(decl);
+    assert.ok(alpha !== null, sel + ': ожидалась заливка rgba() из палитры');
+    assert.ok(alpha >= 0.88,
+      sel + ': заливка ' + alpha + ' слишком прозрачна для белого текста поверх светлого кадра (нужно >= .88)');
   }
 });
 
@@ -1140,22 +1157,32 @@ function classWeight(sel) {
    у правила режима с .focus класса четыре. Поэтому сравниваем именно веса:
    перенос уплотнения на четырёхклассовый селектор или !important тест поймает
    (проверка «в объявлении есть background:#RRGGBB» этого не ловила). */
-test('I1: акцент фокуса «Стоп» держится специфичностью, а не порядком правил', () => {
-  assert.equal(classWeight('.lumen-card.lumen-motion-lite .lumen-stop.focus'), 4, 'счётчик весов сам по себе исправен');
+/* Task 38: плотная заливка «Стопа» переехала из правил режима в базовое
+   правило (палитра отдаёт .9 всегда), поэтому спорят теперь два правила —
+   базовое и фокусное, а не «уплотнение режима» и фокус. Проверка та же по
+   смыслу: акцент в фокусе обязан выигрывать весом, а не порядком строк. */
+test('Task 38: акцент фокуса «Стоп» держится специфичностью, а не порядком правил', () => {
+  assert.equal(classWeight('.lumen-card .lumen-stop.focus'), 3, 'счётчик весов сам по себе исправен');
 
+  const baseSel = '.lumen-card .lumen-stop';
+  const focusSel = baseSel + '.focus';
+  const base = findDecl(css, (s) => s === baseSel);
+  const focus = findDecl(css, (s) => s === focusSel);
+
+  assert.ok(base, 'базовое правило «Стоп» не найдено');
+  assert.ok(focus, 'правило фокуса «Стоп» не найдено');
+  assert.ok(/(^|;)background:/.test(focus), 'фокус обязан объявлять свою заливку: ' + focus);
+  assert.ok(classWeight(focusSel) > classWeight(baseSel),
+    'вес фокуса (' + classWeight(focusSel) + ') обязан быть больше веса базового правила (' + classWeight(baseSel) + ')');
+  assert.equal(/background:[^;]*!important/.test(base), false,
+    'базовая заливка с !important перебила бы акцент фокуса независимо от весов');
+
+  /* Правила режимов у «Стопа» остались только для гашения пружины — своей
+     заливки они больше не задают, и перекрашивать фокус им нечем. */
   for (const mode of ['lite', 'off']) {
-    const denseSel = '.lumen-card.lumen-motion-' + mode + ' .lumen-stop';
-    const focusSel = denseSel + '.focus';
-    const dense = findDecl(css, (s) => s === denseSel);
-    const focus = findDecl(css, (s) => s === focusSel);
-
-    assert.ok(dense, mode + ': правило уплотнения не найдено');
-    assert.ok(focus, mode + ': правило фокуса «Стоп» не найдено');
-    assert.ok(/(^|;)background:/.test(focus), mode + ': фокус обязан объявлять свою заливку: ' + focus);
-    assert.ok(classWeight(focusSel) > classWeight(denseSel),
-      mode + ': вес фокуса (' + classWeight(focusSel) + ') обязан быть больше веса уплотнения (' + classWeight(denseSel) + ')');
-    assert.equal(/background:[^;]*!important/.test(dense), false,
-      mode + ': уплотнение с !important перебило бы акцент фокуса независимо от весов');
+    const modeSel = '.lumen-card.lumen-motion-' + mode + ' .lumen-stop';
+    const decl = findDecl(css, (s) => s === modeSel);
+    assert.equal(decl, null, modeSel + ': правило уплотнения должно было уйти вместе с блюром');
   }
 });
 
@@ -1668,18 +1695,48 @@ test('Task 36: размер героя — настройка, доли экра
 });
 
 /* Правка пользователя 2026-09-17 (п.1): уехавший вверх ряд не оставляет от
-   себя подписей с годом поперёк экрана. */
-test('правка: хвостов уехавшего ряда не видно — маска гасит отступ Lampa над фокусным рядом', () => {
+   себя подписей с годом поперёк экрана.
+   Task 38: до этой задачи хвост гасила маска — наши стопы поверх штатной
+   .scroll--mask Lampa. Маску сняли целиком (внутри узла ездит .scroll__body,
+   и маска на родителе заставляет WebView пересобирать буфер на каждый кадр
+   листания), а хвост закрывает статический градиент-оверлей. Тест поэтому
+   требует ровно обратного прежнему: mask-image:none на самом узле и
+   градиент на его :after. */
+test('Task 38: маска области рядов снята, хвост уехавшего ряда закрывает статический градиент', () => {
   const rows = findDecl(css, (sel) => sel === '.lumen-main .scroll.layer--wheight');
   assert.ok(rows.indexOf('overflow:hidden') !== -1, 'нет обрезки области рядов: ' + rows);
-  /* Хвост лежит ВНУТРИ области — в 2.5em отступа, который Lampa держит над
-     фокусным рядом, поэтому гасит его маска, а не обрезка. Полная
-     непрозрачность обязана наступать ровно на 2.5em: раньше — срезало бы
-     фокусный ряд, позже — хвост остался бы читаемым. */
-  assert.ok(rows.indexOf('mask-image:linear-gradient(to bottom,rgba(255,255,255,0) 0,rgba(255,255,255,0) 2em,#fff 2.5em,') !== -1,
-    'нет маски верхнего отступа: ' + rows);
-  assert.ok(rows.indexOf('-webkit-mask-image:-webkit-linear-gradient(top,') !== -1, 'старым webkit-движкам нужен префиксный градиент');
-  assert.ok(rows.indexOf('#fff 92%,rgba(255,255,255,0) 100%') !== -1, 'нижнее затухание Lampa сохранено');
+  /* Гасится и НАША маска, и штатная Lampa: селектор специфичнее .scroll--mask,
+     иначе покадровый проход композитора остался бы с её стопами. */
+  assert.ok(rows.indexOf('-webkit-mask-image:none') !== -1, 'нужна префиксная запись — на движках ТВ работает именно она: ' + rows);
+  assert.ok(/[^-]mask-image\s*:\s*none/.test(rows), 'нужна и беспрефиксная mask-image:none: ' + rows);
+  assert.equal(/mask-image\s*:\s*(-webkit-)?linear-gradient/.test(rows), false, 'маски-градиента на движущейся области быть не должно: ' + rows);
+  assert.ok(rows.indexOf('position:relative') !== -1, 'без точки отсчёта градиент-оверлей уехал бы к чужому предку: ' + rows);
+
+  /* Оверлей: высота ровно 2.5em (отступ, который Lampa держит над фокусным
+     рядом) и полная прозрачность ровно на 2.5em — раньше срезало бы
+     фокусный ряд, позже хвост остался бы читаемым. */
+  const rulesFade = ruleBodies(css).filter((r) => r.selectors.length === 1 && r.selectors[0] === '.lumen-main .scroll.layer--wheight:after');
+  assert.equal(rulesFade.length, 2, 'ожидались два правила оверлея: геометрия и цвет из accentRules');
+  const geom = rulesFade.map((r) => r.decl).join(';');
+  assert.ok(geom.indexOf('height:2.5em') !== -1, 'высота оверлея обязана совпадать с отступом Lampa: ' + geom);
+  assert.ok(geom.indexOf('pointer-events:none') !== -1, 'оверлей не должен ловить фокус: ' + geom);
+  assert.ok(geom.indexOf('opacity:0') !== -1, 'в стартовом состоянии оверлей погашен — под ним кадр героя: ' + geom);
+  assert.ok(/background:linear-gradient\(to bottom,#[0-9A-Fa-f]{6} 0,#[0-9A-Fa-f]{6} 2em,rgba\([\d, ]+,0\) 2\.5em\)/.test(geom),
+    'нет градиента цвета страницы с полной прозрачностью на 2.5em: ' + geom);
+  assert.ok(geom.indexOf('-webkit-linear-gradient(top,') !== -1, 'старым webkit-движкам нужен префиксный градиент: ' + geom);
+
+  const up = findDecl(css, (sel) => sel === '.lumen-main.lumen-rows-up .scroll.layer--wheight:after');
+  assert.ok(up && up.indexOf('opacity:1') !== -1, 'оверлей проявляется вместе с подъёмом рядов: ' + up);
+
+  /* Нижнее затухание, которое раньше давала штатная маска Lampa (92→100 %),
+     теперь отдельный неподвижный оверлей на самой активности. */
+  const bottom = ruleBodies(css).filter((r) => r.selectors.length === 1 && r.selectors[0] === '.lumen-main:after');
+  assert.equal(bottom.length, 2, 'ожидались два правила нижнего оверлея: геометрия и цвет из accentRules');
+  const bDecl = bottom.map((r) => r.decl).join(';');
+  assert.ok(bDecl.indexOf('bottom:0') !== -1 && bDecl.indexOf('height:2.5em') !== -1, 'нижний оверлей стоит на кромке экрана: ' + bDecl);
+  assert.ok(bDecl.indexOf('pointer-events:none') !== -1, 'нижний оверлей не должен ловить фокус: ' + bDecl);
+  assert.ok(bDecl.indexOf('-webkit-linear-gradient(bottom,') !== -1, 'нужен и префиксный градиент: ' + bDecl);
+
   const low = heroOffMedia(css);
   assert.ok(low.indexOf('overflow:hidden') !== -1, 'на низком окне область тоже обрезана: ' + low);
 });
@@ -1873,11 +1930,17 @@ test('Task 36: кадр кадрируется по лицам (center 30%), а 
   assert.equal(/background-position:center top/.test(bg), false, 'старое кадрирование по верху осталось: ' + bg);
 });
 
-test('Task 18: blur размытого постера — только в полном режиме (на слабых ТВ его нет)', () => {
+/* Task 38: раньше тест требовал filter:blur(1.75em) у героя в полном режиме.
+   Фильтр снят: размытие даёт сам постер, который герой грузит в w92 и
+   растягивает cover (src/48_hero.js, loadFrame). От правила остался наезд,
+   прячущий края растянутой картинки, — и он по-прежнему только в full. */
+test('Task 38: у размытого героя остался наезд без filter, и только в полном режиме', () => {
   const blur = findDecl(css, (sel) => sel === '.lumen-hero.lumen-motion-full.lumen-hero--blur .lumen-hero__bg');
-  assert.ok(blur && blur.indexOf('filter:blur(1.75em)') !== -1, 'кадра нет — размытый постер, как на экране 22');
+  assert.ok(blur, 'правило размытого героя (экран 22) не найдено');
+  assert.ok(blur.indexOf('scale(1.1)') !== -1, 'наезд прячет края растянутого постера: ' + blur);
+  assert.equal(blur.indexOf('filter'), -1, 'filter:blur на живом слое героя запрещён: ' + blur);
   const offenders = ruleSelectors(css).filter((sel) => sel.indexOf('lumen-hero--blur') !== -1 && sel.indexOf('lumen-motion-full') === -1);
-  assert.deepEqual(offenders, [], 'blur героя вне режима full — дорогая заливка на ТВ');
+  assert.deepEqual(offenders, [], 'наезд героя вне режима full — лишнее движение на слабом ТВ');
 });
 
 test('Task 36: подмена текста — только opacity, сдвиг сжатия она не сбрасывает', () => {
@@ -2004,8 +2067,11 @@ test('Task 18: сдвигается область прокрутки рядов
   /* Правка 2026-09-17 (третий круг): у самого корня главной появился фон —
      он подкрашивается оттенком постера (правило `.lumen-main` без потомков и
      его переход в полном режиме анимаций). */
+  /* Task 38: добавился нижний градиент-оверлей на самой активности
+     (.lumen-main:after) — им заменено нижнее затухание штатной маски Lampa,
+     снятой с движущейся области рядов. */
   const offenders = ruleSelectors(css).filter((sel) => sel.indexOf('.lumen-main') === 0 &&
-    sel !== '.lumen-main' &&
+    sel !== '.lumen-main' && sel !== '.lumen-main:after' &&
     sel.indexOf('layer--wheight') === -1 &&
     sel.indexOf('.lumen-badge') === -1 && sel.indexOf('.lumen-moods') === -1 && sel.indexOf('.lumen-mood-chip') === -1 &&
     sel.indexOf('.card') === -1 && sel.indexOf('.items-line') === -1);
@@ -2169,10 +2235,11 @@ test('фаза 3: тема по умолчанию — прежний тёплы
   assert.equal(t.panel, '#1C1613');
 });
 
-test('фаза 3: «Плотные подложки» — сплошные карты и ни одного размытия', () => {
+/* Task 38: проверка «по умолчанию размытие на месте» отсюда убрана — блюра
+   подложек больше нет ни при какой настройке, его отсутствие теперь стережёт
+   отдельный тест выше. Настройка осталась про другое: плотность карт. */
+test('фаза 3: «Плотные подложки» — сплошные карты', () => {
   const solid = withStorage({ lumen_solid: 'true' }, (LC) => LC.buildCss());
-  assert.equal(/backdrop-filter\s*:\s*blur/.test(solid), false, 'размытие подложек не выводится вовсе');
-  assert.ok(/backdrop-filter\s*:\s*blur/.test(css), 'по умолчанию размытие на месте');
 
   for (const sel of ['.lumen-card .full-start-new__buttons .full-start__button',
     '.lumen-card .full-start__rate',
@@ -2188,14 +2255,18 @@ test('фаза 3: «Плотные подложки» — сплошные ка�
   assert.equal(withStorage({ lumen_solid: 'false' }, (LC) => LC.buildCss()), css);
 });
 
-test('фаза 3: плотные подложки вместе с «Лёгкими» анимациями не возвращают прозрачность', () => {
-  /* В lite/off «Стоп» и метка уплотняются до .9 — с плотными подложками они
-     уже сплошные, и правило режима не должно делать их снова прозрачными. */
+/* Task 38: прежде «Стоп» уплотнялся до .9 отдельным правилом режима, и тест
+   следил, чтобы с плотными подложками оно не возвращало прозрачность. Правил
+   режима больше нет — плотность задаёт палитра, — поэтому проверка переехала
+   на базовое правило: .9 по умолчанию и сплошной цвет при плотных подложках. */
+test('фаза 3: плотность «Стопа» задаёт палитра, и плотные подложки делают его сплошным', () => {
+  const base = findDecl(css, (sel) => sel === '.lumen-card .lumen-stop');
+  assert.ok(base.indexOf('background:rgba(11,9,8,.9)') !== -1, 'по умолчанию подложка .9: ' + base);
   const solid = withStorage({ lumen_solid: 'true' }, (LC) => LC.buildCss());
-  const lite = findDecl(solid, (sel) => sel === '.lumen-card.lumen-motion-lite .lumen-stop');
-  assert.ok(lite && lite.indexOf('rgba(') === -1, 'подложка «Стопа» в lite осталась сплошной: ' + lite);
-  const liteDefault = findDecl(css, (sel) => sel === '.lumen-card.lumen-motion-lite .lumen-stop');
-  assert.ok(liteDefault.indexOf('rgba(11,9,8,.9)') !== -1, 'по умолчанию уплотнение до .9 на месте: ' + liteDefault);
+  /* Проверяется именно заливка: бордюр у «Стопа» остаётся полупрозрачным и в
+     плотном режиме — он рисует кромку карты, а не её подложку. */
+  const dense = findDecl(solid, (sel) => sel === '.lumen-card .lumen-stop');
+  assert.ok(dense && /(^|;)background:#[0-9A-F]{6}/.test(dense), 'с плотными подложками «Стоп» сплошной: ' + dense);
 });
 
 /* Герой в списке представлен текстовым блоком, а не корнем: высота самого

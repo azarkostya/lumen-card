@@ -119,9 +119,10 @@
      подложки описания и таблицы «ПОДРОБНО», кнопка «Стоп» и метка трейлера)
      нарисованы полупрозрачными — сквозь них подтекает кадр. На части ТВ это
      мылит картинку и стоит кадров: полупрозрачность поверх живого бэкдропа
-     композитор пересобирает постоянно, а backdrop-filter — тем более. С
-     включённой настройкой те же карты становятся сплошными, а размытие
-     подложки не выводится вовсе.
+     композитор пересобирает постоянно. С включённой настройкой те же карты
+     становятся сплошными.
+     Task 38: размытия подложек (backdrop-filter) в плагине больше нет ни при
+     какой настройке — см. P.glass ниже.
      Возвращает набор цветов темы плюс производные токены; читается заново на
      каждую сборку CSS, поэтому обе настройки применяются без перезахода. */
   function palette() {
@@ -167,32 +168,30 @@
        не видно, над светлой они работают как плотная подложка. */
     p.plate = solid ? p.bg : 'rgba(' + p.bgRgb + ',.85)';
     /* Кнопка «Стоп» и метка «ТРЕЙЛЕР · БЕЗ ЗВУКА» лежат поверх играющего
-       ролика — они самые прозрачные в карточке (.5 и .62). */
-    p.glass = solid ? p.bg : 'rgba(' + p.bgRgb + ',.5)';
-    p.badge = solid ? p.bg : 'rgba(' + p.bgRgb + ',.62)';
-    /* Размытие подложки кнопок, «Стопа» и метки. В плотном режиме — пустая
-       строка: свойство не выводится вовсе, а не выводится со значением none. */
-    p.blur = solid ? '' : '-webkit-backdrop-filter:blur(.88em);backdrop-filter:blur(.88em);';
-    /* Метка «ТРЕЙЛЕР · БЕЗ ЗВУКА» размыта сильнее остальных карт (1.1em
-       против .88em) — она самая прозрачная и лежит прямо на кадре. */
-    p.blurWide = solid ? '' : '-webkit-backdrop-filter:blur(1.1em);backdrop-filter:blur(1.1em);';
-    /* «Стоп» и метка в режимах «Лёгкие»/«Выкл»: блюр там снят, и подложка
-       уплотняется до .9, иначе белый текст поверх светлой сцены ролика теряется
-       (ревью фазы 1, I1). С плотными подложками уплотнять нечего — они уже
-       сплошные. */
-    p.glassLite = solid ? p.bg : 'rgba(' + p.bgRgb + ',.9)';
+       ролика — самые прозрачные карты карточки.
+
+       Task 38: раньше их держали на .5 и .62, а читаемость добирал
+       backdrop-filter:blur — он и был причиной уплотнения до .9 в режимах
+       «Лёгкие»/«Выкл» (ревью фазы 1, I1). Блюр подложек снят во всех режимах
+       (внешний ресёрч docs/research/2026-09-18-android-tv-animations.md: на
+       WebView Android TV backdrop-filter читает пиксели под элементом каждый
+       кадр), поэтому .9 становится единственной плотностью: без размытия
+       белый текст поверх светлой сцены ролика теряется на любой прозрачности
+       ниже. С плотными подложками уплотнять нечего — они уже сплошные. */
+    p.glass = solid ? p.bg : 'rgba(' + p.bgRgb + ',.9)';
     return p;
   }
 
-  /* Task 35: пять правил ГЛАВНОЙ, которые меняются вместе с постером под
-     фокусом, — три от подкрашенного фона (подложка рядов и две вуали героя,
-     P.bg / P.bgRgb) и два от самого акцента (чип настроения в фокусе и кольцо
-     фокуса карточки ряда: t.color / t.light / t.glow / t.onac). Собраны в
+  /* Task 35: правила ГЛАВНОЙ, которые меняются вместе с постером под
+     фокусом, — от подкрашенного фона (подложка рядов, две вуали героя и,
+     с Task 38, два градиента на кромках области рядов: P.bg / P.bgRgb) и от
+     самого акцента (чип настроения в фокусе и кольцо фокуса карточки ряда:
+     t.color / t.light / t.glow / t.onac). Собраны в
      одном месте ради LC.accentCss ниже: доминанта постера меняется на каждой
      остановке фокуса, и переписывать ради неё всю таблицу значит фризить
      ровно тот момент, ради которого подкраска и сделана — её текст при
-     настройках по умолчанию 103 КБ против 822 байт у этих пяти правил (замер
-     buildCss и accentCss, 2026-09-18).
+     настройках по умолчанию около 100 КБ против килобайта у этой горстки
+     правил (замер buildCss и accentCss, 2026-09-18).
      Текст правил один и тот же в обеих дорогах: и в полной сборке (buildCss
      ниже вставляет их по своим местам), и в отдельном узле.
      Нижняя вуаль тут обязательна: её нижний стоп — сплошной P.bg, и без неё
@@ -219,8 +218,16 @@
          на стыке с подложкой рядов видимую ступеньку. */
       veilL: '.lumen-hero .lumen-hero__veil--l{background:-webkit-linear-gradient(left,rgba(' + P.bgRgb + ',.85) 0%,rgba(' + P.bgRgb + ',.45) 30%,rgba(' + P.bgRgb + ',0) 65%);background:linear-gradient(90deg,rgba(' + P.bgRgb + ',.85) 0%,rgba(' + P.bgRgb + ',.45) 30%,rgba(' + P.bgRgb + ',0) 65%)}',
       veilB: '.lumen-hero .lumen-hero__veil--b{background:-webkit-linear-gradient(bottom,' + P.bg + ' 0%,rgba(' + P.bgRgb + ',.92) 10%,rgba(' + P.bgRgb + ',.6) 24%,rgba(' + P.bgRgb + ',.25) 42%,rgba(' + P.bgRgb + ',0) 62%);background:linear-gradient(0deg,' + P.bg + ' 0%,rgba(' + P.bgRgb + ',.92) 10%,rgba(' + P.bgRgb + ',.6) 24%,rgba(' + P.bgRgb + ',.25) 42%,rgba(' + P.bgRgb + ',0) 62%)}',
+      /* Task 38: два градиента, заменившие маску области рядов (см. правила
+         .scroll.layer--wheight ниже). Они залиты цветом страницы и лежат
+         прямо на нём — разъедься их оттенок с подкрашенным фоном хоть на
+         шаг, и на экране появятся две полосы чужого тона. Геометрия обоих
+         (позиция, высота, z-index) остаётся в общей таблице: она от цвета
+         не зависит. */
+      fadeTop: '.lumen-main .scroll.layer--wheight:after{background:-webkit-linear-gradient(top,' + P.bg + ' 0,' + P.bg + ' 2em,rgba(' + P.bgRgb + ',0) 2.5em);background:linear-gradient(to bottom,' + P.bg + ' 0,' + P.bg + ' 2em,rgba(' + P.bgRgb + ',0) 2.5em)}',
+      fadeBot: '.lumen-main:after{background:-webkit-linear-gradient(bottom,' + P.bg + ' 0,rgba(' + P.bgRgb + ',0) 100%);background:linear-gradient(0deg,' + P.bg + ' 0,rgba(' + P.bgRgb + ',0) 100%)}',
       chip: '.lumen-mood-chip.focus{background:' + t.color + ';color:' + t.onac + ';border-color:' + t.light + ';border-width:.11em}',
-      cardFocus: '.lumen-main .card.focus .card__view:after{border-width:.13em;border-color:' + t.light + ';border-radius:.44em;-webkit-box-shadow:0 .7em 1.97em ' + t.glow + ';box-shadow:0 .7em 1.97em ' + t.glow + '}'
+      cardFocus: '.lumen-main .card.focus .card__view:after{border-width:.13em;border-color:' + t.light + ';border-radius:.44em;-webkit-box-shadow:0 .35em .7em ' + t.glow + ';box-shadow:0 .35em .7em ' + t.glow + '}'
     };
   }
 
@@ -233,7 +240,7 @@
      таблице. */
   LC.accentCss = function () {
     var R = accentRules(palette(), theme());
-    return R.main + '\n' + R.veilL + '\n' + R.veilB + '\n' + R.chip + '\n' + R.cardFocus;
+    return R.main + '\n' + R.veilL + '\n' + R.veilB + '\n' + R.fadeTop + '\n' + R.fadeBot + '\n' + R.chip + '\n' + R.cardFocus;
   };
 
   /* Фаза 3, настройка «Масштаб интерфейса». Все размеры плагина считаются в em
@@ -674,16 +681,26 @@
     /* Task 5b Step 3/4 (design-spec §12, дополнение к задаче): нет кадра
        (режимы 'poster'/'procedural' LC.cardinfo.bgMode, либо кадр из
        режима 'backdrop' не загрузился/завис) -> размытый постер поверх
-       диагонального градиента. blur(40px)=1.75em, opacity:.8 — числа из
-       дополнения к Task 5b (экран 13 сам даёт только уменьшенный макет,
-       числового fullscreen-примера не содержит). Блюр — только в полном
-       режиме анимаций (lumen-motion-full): в lite/off дорого для ТВ,
-       остаётся только затемнение (opacity). .lumen-backdrop — сосед
-       карточки в DOM, не потомок (см. 50_backdrops.js) — режим анимаций
-       поэтому зеркалится прямо на этот слой, а не читается через .lumen-card. */
+       диагонального градиента. opacity:.8 — число из дополнения к Task 5b
+       (экран 13 сам даёт только уменьшенный макет, числового
+       fullscreen-примера не содержит). .lumen-backdrop — сосед карточки в
+       DOM, не потомок (см. 50_backdrops.js) — режим анимаций поэтому
+       зеркалится прямо на этот слой, а не читается через .lumen-card.
+
+       Task 38: filter:blur(1.75em) отсюда убран целиком. Размытие теперь
+       ДАННЫЕ, а не эффект: src/50_backdrops.js posterUrl грузит постер в
+       TMDB-размере w92 (92 px по ширине), и background-size:cover растягивает
+       его на весь экран — апскейл больше чем в двадцать раз даёт то же мягкое
+       мыло, но силами обычной билинейной интерполяции при отрисовке картинки,
+       без фильтра поверх живого слоя. Для WebView разница принципиальная:
+       filter:blur заставляет его держать отдельный буфер и пересчитывать его
+       при каждой перерисовке слоя (ресёрч docs/research/2026-09-18-android-tv-animations.md
+       запрещает blur на живых узлах), а растянутая картинка — обычный растр.
+       scale(1.1) остаётся: он прячет края кадра и ничего не стоит сверх
+       композиции. В lite/off его нет — там слой вообще не двигается. */
     css.push('.lumen-backdrop.lumen-bg--blur{background:' + P.gradBlur + '}');
     css.push('.lumen-backdrop.lumen-bg--blur .lumen-backdrop__img{background-position:50% 50%;opacity:.8}');
-    css.push('.lumen-backdrop.lumen-motion-full.lumen-bg--blur .lumen-backdrop__img{-webkit-filter:blur(1.75em);filter:blur(1.75em);-webkit-transform:scale(1.1);transform:scale(1.1)}');
+    css.push('.lumen-backdrop.lumen-motion-full.lumen-bg--blur .lumen-backdrop__img{-webkit-transform:scale(1.1);transform:scale(1.1)}');
     css.push('.lumen-backdrop.lumen-motion-lite.lumen-bg--blur .lumen-backdrop__img,.lumen-backdrop.lumen-motion-off.lumen-bg--blur .lumen-backdrop__img{-webkit-transform:none;transform:none}');
     css.push('.full-start__background.lumen-off{display:none !important}');
 
@@ -700,7 +717,7 @@
        у правого края) и к верхнему краю (top:140px дизайна), не трогая
        .full-start-new__right — он остаётся первым и растягивается (flex-grow:1). */
     css.push('.lumen-card.lumen-card--poster .full-start-new__left{display:block !important;-webkit-box-ordinal-group:2;-webkit-order:1;order:1;-webkit-align-self:flex-start;-ms-flex-item-align:start;align-self:flex-start;-webkit-flex-shrink:0;flex-shrink:0;width:16.66em;margin:6.14em 0 0 2.63em}');
-    css.push('.lumen-card.lumen-card--poster .full-start-new__poster{border-radius:.61em;overflow:hidden;background:' + P.gradPoster + ';border:.04em solid ' + P.line + ';box-shadow:0 .88em 2.63em rgba(0,0,0,.6)}');
+    css.push('.lumen-card.lumen-card--poster .full-start-new__poster{border-radius:.61em;overflow:hidden;background:' + P.gradPoster + ';border:.04em solid ' + P.line + ';box-shadow:0 .35em .8em rgba(0,0,0,.6)}');
     css.push('.lumen-card.lumen-card--poster .full-start-new__img{border-radius:.61em}');
     css.push('.lumen-card.lumen-card--poster .lumen-poster-tmdb{position:absolute;left:0;right:0;bottom:0;padding:0 1.05em 1.05em;font-family:' + FD + ';font-weight:600;font-size:.88em;line-height:1.3;color:' + P.smoke + '}');
     css.push('.lumen-card .full-start-new__body{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:end;-webkit-align-items:flex-end;align-items:flex-end;min-height:74vh}');
@@ -809,14 +826,19 @@
     css.push('.lumen-card.lumen-continue:not(.lumen-trailer-on) .full-start-new__buttons .button--play:after{content:var(--lumen-play-label);font-size:1.05em;line-height:1;margin-left:.53em;white-space:nowrap}');
     css.push('@supports (--lumen-probe:0){.lumen-card.lumen-continue:not(.lumen-trailer-on) .full-start-new__buttons .button--play span{display:none}}');
 
-    /* --- Кнопки (design-spec §7a-c: 72px, тёмная карта, blur, раскрытие подписи в фокусе) --- */
+    /* --- Кнопки (design-spec §7a-c: 72px, тёмная карта, раскрытие подписи в фокусе) ---
+       Блюра подложки, который §7a рисовал у карты кнопки, здесь нет с Task 38:
+       backdrop-filter снят по всему плагину (см. palette() выше). */
     /* Ревью Task 5a: margin-top был остатком базы 16 (1.75em = 28/16, v1).
        Дизайн (экран 01, ряд кнопок после «Продолжить»): 32px ÷ 22.811 = 1.40em. */
     css.push('.lumen-card .full-start-new__buttons{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-flex-wrap:wrap;flex-wrap:wrap;margin-top:1.40em;overflow:visible}');
-    /* Task 4: пружина фокуса — transform на кривой с перелётом (overshoot), background/color/box-shadow отдельно. Разметка и outerHTML кнопок не менялись (хэш приоритета, см. 0.2).
-       Task 5a: ширина/паддинг/фон/бордер/blur — под дизайн; у иконочных кнопок ширина/паддинг
-       ещё и анимированы (раскрытие подписи в фокусе, §7c) — transition здесь общий для всех. */
-    css.push('.lumen-card .full-start-new__buttons .full-start__button{font-size:1em;font-weight:600;height:3.16em;min-width:3.16em;padding:0 1.32em;margin:0 .70em .6em 0;border-radius:.79em;border:.04em solid ' + P.line + ';background:' + P.buttonBg + ';' + P.blur + 'color:' + P.text + ';display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;-webkit-transition:width .2s,padding .2s,background-color .2s,border-color .2s,color .2s,-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25),-webkit-box-shadow .28s;transition:width .2s,padding .2s,background-color .2s,border-color .2s,color .2s,transform .28s cubic-bezier(.2,.9,.3,1.25),box-shadow .28s}');
+    /* Task 4: пружина фокуса — transform на кривой с перелётом (overshoot), background/color отдельно. Разметка и outerHTML кнопок не менялись (хэш приоритета, см. 0.2).
+       Task 5a: ширина/паддинг/фон/бордер — под дизайн; у иконочных кнопок ширина/паддинг
+       ещё и анимированы (раскрытие подписи в фокусе, §7c) — transition здесь общий для всех.
+       Task 38: box-shadow из списка переходов убран. Тень фокуса теперь просто
+       появляется вместе с классом .focus: каждый кадр анимации тени — это
+       перерисовка растра элемента, а кнопок в ряду 5-7. */
+    css.push('.lumen-card .full-start-new__buttons .full-start__button{font-size:1em;font-weight:600;height:3.16em;min-width:3.16em;padding:0 1.32em;margin:0 .70em .6em 0;border-radius:.79em;border:.04em solid ' + P.line + ';background:' + P.buttonBg + ';color:' + P.text + ';display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;-webkit-transition:width .2s,padding .2s,background-color .2s,border-color .2s,color .2s,-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25);transition:width .2s,padding .2s,background-color .2s,border-color .2s,color .2s,transform .28s cubic-bezier(.2,.9,.3,1.25)}');
     css.push('.lumen-card .full-start-new__buttons .full-start__button > svg{width:1.14em;height:1.14em;-webkit-flex-shrink:0;flex-shrink:0}');
     css.push('.lumen-card .full-start-new__buttons .full-start__button > svg + span{font-size:1.05em;margin:0 0 0 .53em;line-height:1}');
     css.push('.lumen-card .full-start-new__buttons .full-start__button span{display:none}');
@@ -864,10 +886,16 @@
     css.push('.lumen-card .full-start-new__buttons .button--book,.lumen-card .full-start-new__buttons .button--reaction,.lumen-card .full-start-new__buttons .button--subscribe,.lumen-card .full-start-new__buttons .button--options{padding:0;width:3.16em}');
     css.push('.lumen-card .full-start-new__buttons .button--book.focus,.lumen-card .full-start-new__buttons .button--reaction.focus,.lumen-card .full-start-new__buttons .button--subscribe.focus,.lumen-card .full-start-new__buttons .button--options.focus{width:auto;padding:0 1.05em}');
     css.push('.lumen-card .full-start-new__buttons .full-start__button.focus span{display:block}');
-    /* Ревью Task 5a: тень фокуса была остатком дефекта единиц — .875em/2.5em =
-       14/16 и 40/16 (v1 при базе 16). Дизайн 0.4: 0 14px 40px -> ÷22.811 =
-       0 .614em 1.754em. */
-    css.push('.lumen-card .full-start-new__buttons .full-start__button.focus{background:' + A + ';color:' + P.dark + ';border-color:' + AL + ';border-width:.11em;-webkit-transform:scale(1.06);transform:scale(1.06);-webkit-box-shadow:0 .614em 1.754em ' + AG + ';box-shadow:0 .614em 1.754em ' + AG + '}');
+    /* Тень фокуса. Дизайн 0.4 задавал 0 14px 40px (÷22.811 = 0 .614em 1.754em),
+       но Task 38 срезал радиус до .7em (16 px) и смещение до .35em (8 px) —
+       единая величина на все фокусные тени плагина. Причина не в рисунке:
+       размытая тень заставляет WebView считать её растр по площади
+       (радиус+смещение)² вокруг каждого элемента, а на Philips 50PUS8057
+       (4 ядра MediaTek, Android TV 11, 1080p) таких элементов на экране
+       десятки — внешний ресёрч docs/research/2026-09-18-android-tv-animations.md
+       запрещает большие радиусы прямо. Тень при этом остаётся: она отделяет
+       акцентную кнопку от подложки, просто стала короче и плотнее. */
+    css.push('.lumen-card .full-start-new__buttons .full-start__button.focus{background:' + A + ';color:' + P.dark + ';border-color:' + AL + ';border-width:.11em;-webkit-transform:scale(1.06);transform:scale(1.06);-webkit-box-shadow:0 .35em .7em ' + AG + ';box-shadow:0 .35em .7em ' + AG + '}');
     /* Нажатие — отдельный тон, без scale (design-spec §7a «НАЖАТА»); !important —
        поверх правила .focus выше и нативной анимации Lampa (план 0.2). */
     css.push('.lumen-card .full-start-new__buttons .full-start__button.focus.lumen-press{background:#C4924F !important;border-color:rgba(255,242,220,.6) !important;-webkit-transform:scale(1) !important;transform:scale(1) !important}');
@@ -878,8 +906,10 @@
        удаляет src/55_trailer.js), поэтому display по умолчанию none — на
        случай, если узел пережил остановку. Геометрия кнопки — та же, что у
        текстовых кнопок карточки (§7a, 72px/18px/30px ÷ 22.811), но тёмная
-       «стеклянная» заливка экрана 02 вместо общей P.buttonBg. */
-    css.push('.lumen-card .lumen-stop{display:none;font-family:' + FB + ';font-weight:600;font-size:1em;height:3.16em;padding:0 1.32em;margin:0 .70em .6em 0;border-radius:.79em;border:.04em solid rgba(' + P.textRgb + ',.2);background:' + P.glass + ';' + P.blur + 'color:' + P.text + ';white-space:nowrap;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;-webkit-transition:background-color .2s,border-color .2s,color .2s,-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25),-webkit-box-shadow .28s;transition:background-color .2s,border-color .2s,color .2s,transform .28s cubic-bezier(.2,.9,.3,1.25),box-shadow .28s}');
+       «стеклянная» заливка экрана 02 вместо общей P.buttonBg.
+       Task 38: у «стекла» больше нет размытия подложки — P.glass поднят до .9
+       (palette() выше), и box-shadow ушёл из списка переходов. */
+    css.push('.lumen-card .lumen-stop{display:none;font-family:' + FB + ';font-weight:600;font-size:1em;height:3.16em;padding:0 1.32em;margin:0 .70em .6em 0;border-radius:.79em;border:.04em solid rgba(' + P.textRgb + ',.2);background:' + P.glass + ';color:' + P.text + ';white-space:nowrap;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;-webkit-transition:background-color .2s,border-color .2s,color .2s,-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25);transition:background-color .2s,border-color .2s,color .2s,transform .28s cubic-bezier(.2,.9,.3,1.25)}');
     /* Выравнивание по вертикали: в flex(.lumen-actions, align-items:center)
        центр content-box = center_line + (MT−MB)/2.
        Кнопки ряда (MT=0, MB=0.6em) → offset −0.3em от центра ряда.
@@ -890,11 +920,15 @@
     css.push('.lumen-card.lumen-trailer-on .lumen-stop{display:-webkit-box;display:-webkit-flex;display:flex;margin-top:1.40em;margin-bottom:.6em}');
     css.push('.lumen-card .lumen-stop__ico{-webkit-flex-shrink:0;flex-shrink:0;width:1.14em;height:1.14em;margin-right:.53em;background-color:currentColor;-webkit-mask-image:' + LC.icons.maskUrl('stop') + ';mask-image:' + LC.icons.maskUrl('stop') + ';-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;-webkit-mask-size:contain;mask-size:contain}');
     css.push('.lumen-card .lumen-stop span{font-size:1.05em;line-height:1}');
-    css.push('.lumen-card .lumen-stop.focus{background:' + A + ';color:' + P.dark + ';border-color:' + AL + ';border-width:.11em;-webkit-transform:scale(1.06);transform:scale(1.06);-webkit-box-shadow:0 .614em 1.754em ' + AG + ';box-shadow:0 .614em 1.754em ' + AG + '}');
+    css.push('.lumen-card .lumen-stop.focus{background:' + A + ';color:' + P.dark + ';border-color:' + AL + ';border-width:.11em;-webkit-transform:scale(1.06);transform:scale(1.06);-webkit-box-shadow:0 .35em .7em ' + AG + ';box-shadow:0 .35em .7em ' + AG + '}');
     /* Метка «ТРЕЙЛЕР · БЕЗ ЗВУКА»: экран 02 — top 112px, right 64px, mono 18px,
-       радиус 30px, паддинг 10/18px; внутренние em — от кегля метки (÷18). */
+       радиус 30px, паддинг 10/18px; внутренние em — от кегля метки (÷18).
+       Task 38: заливка — тот же P.glass, что у «Стопа» (было .62 плюс более
+       широкий блюр 1.1em). Отдельная плотность держалась именно на размытии;
+       без него метка и «Стоп» лежат на одном и том же живом кадре, и разводить
+       их прозрачности не на чем. */
     /* Правка 2026-09-16, п.6: метка — текст без цифр, гарнитура основная. */
-    css.push('.lumen-card .lumen-trailer-badge{display:none;position:absolute;top:4.91em;right:2.81em;z-index:6;font-family:' + FB + ';font-size:.79em;line-height:1;letter-spacing:.06em;color:' + P.text + ';background:' + P.badge + ';border:.05em solid rgba(' + P.textRgb + ',.2);border-radius:1.67em;padding:.56em 1em;' + P.blurWide + '-webkit-box-align:center;-webkit-align-items:center;align-items:center}');
+    css.push('.lumen-card .lumen-trailer-badge{display:none;position:absolute;top:4.91em;right:2.81em;z-index:6;font-family:' + FB + ';font-size:.79em;line-height:1;letter-spacing:.06em;color:' + P.text + ';background:' + P.glass + ';border:.05em solid rgba(' + P.textRgb + ',.2);border-radius:1.67em;padding:.56em 1em;-webkit-box-align:center;-webkit-align-items:center;align-items:center}');
     css.push('.lumen-card.lumen-trailer-on .lumen-trailer-badge{display:-webkit-box;display:-webkit-flex;display:flex}');
     css.push('.lumen-card .lumen-trailer-badge:before{content:"";display:block;-webkit-flex-shrink:0;flex-shrink:0;width:1.22em;height:1.22em;margin-right:.67em;background-color:' + A + ';-webkit-mask-image:' + LC.icons.maskUrl('mute') + ';mask-image:' + LC.icons.maskUrl('mute') + ';-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;-webkit-mask-size:contain;mask-size:contain}');
     /* Компактная шапка экрана 02: заголовок 42px ÷ 22.811 = 1.84em, описание,
@@ -963,7 +997,7 @@
        своими keyframes, поэтому transform без !important. */
     /* Ревью (п.10): рамка растёт .04 -> .13em, поэтому паддинг .79 -> .70em —
        сумма .83em та же, содержимое карточки в фокусе не съезжает. */
-    css.push('.lumen-card .lumen-episode.focus{opacity:1;background:' + P.gradFocus + ';border:.13em solid ' + A + ';padding:.70em;-webkit-transform:scale(1.03);transform:scale(1.03);-webkit-box-shadow:0 .614em 1.754em ' + AG + ';box-shadow:0 .614em 1.754em ' + AG + '}');
+    css.push('.lumen-card .lumen-episode.focus{opacity:1;background:' + P.gradFocus + ';border:.13em solid ' + A + ';padding:.70em;-webkit-transform:scale(1.03);transform:scale(1.03);-webkit-box-shadow:0 .35em .7em ' + AG + ';box-shadow:0 .35em .7em ' + AG + '}');
     css.push('.lumen-card .lumen-episode.focus .lumen-episode__play{display:block}');
     css.push('.lumen-card .lumen-episode.focus .lumen-episode__check,.lumen-card .lumen-episode.focus .lumen-episode__percent{display:none}');
     css.push('.lumen-card .lumen-episode.focus .lumen-episode__name{font-weight:600}');
@@ -1184,12 +1218,12 @@
        webkit-движках ТВ; на движке без него текст просто обрежется по
        overflow:hidden внутри фиксированной высоты карточки. */
     css.push('.lumen-descr-row .lumen-review__text{font-family:' + FB + ';font-weight:400;font-size:.83em;line-height:1.45;color:' + P.muted + ';display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}');
-    css.push('.lumen-descr-row .lumen-review.focus{border:.13em solid ' + A + ';-webkit-transform:scale(1.03);transform:scale(1.03);-webkit-box-shadow:0 .614em 1.754em ' + AG + ';box-shadow:0 .614em 1.754em ' + AG + '}');
+    css.push('.lumen-descr-row .lumen-review.focus{border:.13em solid ' + A + ';-webkit-transform:scale(1.03);transform:scale(1.03);-webkit-box-shadow:0 .35em .7em ' + AG + ';box-shadow:0 .35em .7em ' + AG + '}');
     css.push('.lumen-descr-row .lumen-review.focus .lumen-review__title{white-space:normal}');
     /* Переходы — только в режиме полных анимаций (как у ряда серий Task 5c);
        в lite/off пружины нет вовсе. Класс режима стоит на body (LC.init), а не
        на ряду: ряд описания лежит вне .lumen-card. */
-    css.push('body.lumen-motion-full .lumen-descr-row .lumen-review{-webkit-transition:border-color .2s,-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25),-webkit-box-shadow .28s;transition:border-color .2s,transform .28s cubic-bezier(.2,.9,.3,1.25),box-shadow .28s}');
+    css.push('body.lumen-motion-full .lumen-descr-row .lumen-review{-webkit-transition:border-color .2s,-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25);transition:border-color .2s,transform .28s cubic-bezier(.2,.9,.3,1.25)}');
     css.push('body.lumen-motion-lite .lumen-descr-row .lumen-review.focus,body.lumen-motion-off .lumen-descr-row .lumen-review.focus{-webkit-transform:none;transform:none}');
 
     /* Экран 13, панель 2: ключа нет — вместо пустоты путь до настройки. */
@@ -1295,9 +1329,9 @@
     css.push('.lumen-descr-row .lumen-fr-card__flag--next{background:rgba(' + A_RGB + ',.18);color:' + A + '}');
     css.push('.lumen-descr-row .lumen-fr-card__flag--soon{color:' + P.spice + '}');
     css.push('.lumen-descr-row .lumen-fr-card__flag--watched{color:' + P.good + '}');
-    css.push('.lumen-descr-row .lumen-fr-card.focus .lumen-fr-card__poster{border:.13em solid ' + A + ';-webkit-box-shadow:0 .614em 1.754em ' + AG + ';box-shadow:0 .614em 1.754em ' + AG + '}');
+    css.push('.lumen-descr-row .lumen-fr-card.focus .lumen-fr-card__poster{border:.13em solid ' + A + ';-webkit-box-shadow:0 .35em .7em ' + AG + ';box-shadow:0 .35em .7em ' + AG + '}');
     css.push('.lumen-descr-row .lumen-fr-card.focus .lumen-fr-card__name{color:' + A + '}');
-    css.push('body.lumen-motion-full .lumen-descr-row .lumen-fr-card__poster{-webkit-transition:border-color .2s,-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25),-webkit-box-shadow .28s;transition:border-color .2s,transform .28s cubic-bezier(.2,.9,.3,1.25),box-shadow .28s}');
+    css.push('body.lumen-motion-full .lumen-descr-row .lumen-fr-card__poster{-webkit-transition:border-color .2s,-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25);transition:border-color .2s,transform .28s cubic-bezier(.2,.9,.3,1.25)}');
     css.push('body.lumen-motion-full .lumen-descr-row .lumen-fr-card.focus .lumen-fr-card__poster{-webkit-transform:scale(1.04);transform:scale(1.04)}');
     /* Скелетон ряда, пока идёт запрос коллекции: те же плашки, что у отзывов
        (мерцают только при полных анимациях — правило .lumen-skeleton). */
@@ -1357,53 +1391,33 @@
        full; lite/off — без scale (как у кнопок), off ещё и без переходов. */
     /* Ревью (п.10): background-color в списке был бесполезен — фон карточки
        задан градиентом (background-image), он не интерполируется. */
-    css.push('.lumen-card.lumen-motion-full .lumen-episode{-webkit-transition:border-color .2s,opacity .2s,-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25),-webkit-box-shadow .28s;transition:border-color .2s,opacity .2s,transform .28s cubic-bezier(.2,.9,.3,1.25),box-shadow .28s}');
+    css.push('.lumen-card.lumen-motion-full .lumen-episode{-webkit-transition:border-color .2s,opacity .2s,-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25);transition:border-color .2s,opacity .2s,transform .28s cubic-bezier(.2,.9,.3,1.25)}');
     css.push('.lumen-card.lumen-motion-full .lumen-episodes__track{-webkit-transition:-webkit-transform .4s cubic-bezier(.2,.8,.2,1);transition:transform .4s cubic-bezier(.2,.8,.2,1)}');
     css.push('.lumen-card.lumen-motion-lite .lumen-episode.focus,.lumen-card.lumen-motion-off .lumen-episode.focus{-webkit-transform:none;transform:none}');
     /* Task 7: кнопка «Стоп» — та же логика режимов, что у кнопок карточки
        (в lite/off пружины фокуса нет; !important — поверх нативной анимации
        Lampa, см. комментарий у .lumen-motion-lite выше). */
-    /* background здесь — не дубль v1-правила, а защита от уплотнённой подложки
-       ниже (ревью фазы 1, второй круг): у неё 3 класса специфичности, ровно как
-       у .lumen-card .lumen-stop.focus, и объявлена она ПОЗЖЕ — то есть выиграла
-       бы по порядку и перекрасила бы кнопку в фокусе из акцента в тёмный. */
-    css.push('.lumen-card.lumen-motion-lite .lumen-stop.focus,.lumen-card.lumen-motion-off .lumen-stop.focus{background:' + A + ';-webkit-transform:none !important;transform:none !important}');
-    /* Ревью фазы 1 (I1): blur подложки — самый дорогой эффект карточки, и в
-       lite/off он гасится вместе с остальным движением. Дело не в движении как
-       таковом: backdrop-filter пересобирается композитором ПОКАДРОВО, потому
-       что фон под кнопками живой (кроссфейд кадров 1.2 с, наезд Ken Burns,
-       играющий iframe трейлера). Для КНОПОК это ровно те ТВ, куда «Авто» само
-       ставит lite (Tizen/webOS, см. LC.motionModeFor). Раньше lite/off снимали
-       только transition/transform/animation, а блюр оставался под каждой из
-       5-7 кнопок сразу.
-       Но одного гашения мало, и прежнее обоснование («заливки у всех трёх
-       правил непрозрачные») было НЕВЕРНЫМ — исправлено по второму кругу ревью.
-       Плотная заливка только у кнопок: P.buttonBg .82, да ещё поверх нижней
-       вуали (.98 -> .60). А «Стоп» (.5) и метка (.62) полупрозрачны И
-       показываются ТОЛЬКО при lumen-trailer-on — то есть всегда поверх живого
-       кадра YouTube, где вуали слоя вдобавок приглушены до opacity .45 (см.
-       .lumen-backdrop.lumen-trailer-live выше). На светлой сцене ролика контраст
-       текста P.text к такой подложке поверх белого кадра — 3.1:1 у «Стоп» и
-       4.8:1 у метки, против целевых 7:1 проекта: сняв блюр и не сделав больше
-       ничего, мы бы ухудшили читаемость ровно тому пользователю слабого ТВ,
-       ради которого правка и делается.
-       Поэтому тем же правилом подложка уплотняется до .9 от P.bgRgb (цвет из
-       палитры, не литерал): поверх белого кадра это 13.5:1, а поверх тёмного —
-       визуально то же, что и было, потому что цвет тот же, что у страницы.
-       Кнопкам компенсация не нужна и только утяжелила бы их вид.
-       Адресат у компенсации при этом ДРУГОЙ, чем у гашения блюра на кнопках: на
-       Tizen/webOS «Авто» даёт трейлеру 'off' (LC.trailer.modeFor), то есть
-       «Стоп» и метки там не бывает вовсе. Эти два узла страдают в другой
-       комбинации — трейлер включён ВРУЧНУЮ, а анимации стоят «Лёгкие»/«Выкл».
-       Специфичность: тот же селектор плюс класс режима на корне карточки —
-       строго выше исходного правила, поэтому !important здесь не нужен (в
-       отличие от transform/animation выше, где спорит нативная анимация Lampa).
-       Единственное исключение — фокус «Стоп»: у него столько же классов, сколько
-       у уплотнения, поэтому акцент ему возвращает правило режима с .focus
-       (4 класса) выше по файлу. */
-    css.push('.lumen-card.lumen-motion-lite .full-start-new__buttons .full-start__button,.lumen-card.lumen-motion-off .full-start-new__buttons .full-start__button{-webkit-backdrop-filter:none;backdrop-filter:none}');
-    css.push('.lumen-card.lumen-motion-lite .lumen-stop,.lumen-card.lumen-motion-off .lumen-stop{-webkit-backdrop-filter:none;backdrop-filter:none;background:' + P.glassLite + '}');
-    css.push('.lumen-card.lumen-motion-lite .lumen-trailer-badge,.lumen-card.lumen-motion-off .lumen-trailer-badge{-webkit-backdrop-filter:none;backdrop-filter:none;background:' + P.glassLite + '}');
+    /* background здесь был защитой от уплотнённой подложки «Стопа», которую
+       правило режима объявляло ниже по файлу с той же специфичностью (ревью
+       фазы 1, второй круг). Task 38: того правила больше нет — плотность .9
+       переехала в палитру, в базовое .lumen-card .lumen-stop, а его
+       специфичность (2 класса) ниже, чем у .lumen-stop.focus. Оставлять
+       перекраску незачем, и осталось только гашение пружины. */
+    css.push('.lumen-card.lumen-motion-lite .lumen-stop.focus,.lumen-card.lumen-motion-off .lumen-stop.focus{-webkit-transform:none !important;transform:none !important}');
+    /* Task 38: три правила, гасившие backdrop-filter у кнопок, «Стопа» и
+       метки в lite/off, отсюда удалены — гасить больше нечего. Блюр подложек
+       снят во всех трёх режимах разом (palette(): P.blur/P.blurWide больше
+       нет), потому что дорог он не движением, а самой природой свойства:
+       backdrop-filter читает пиксели ПОД элементом и пересобирается
+       композитором покадрово, пока фон живой (кроссфейд кадров 1.2 с, наезд
+       Ken Burns, играющий iframe трейлера) — а фон под карточкой живой в
+       любом режиме, кроме 'off'.
+       Компенсация читаемости, которую эти правила несли вместе с гашением,
+       переехала в саму палитру: «Стоп» и метка теперь всегда .9 от P.bgRgb
+       (было .5 и .62 плюс блюр). Поверх белого кадра ролика это 13.5:1
+       против целевых 7:1 проекта, поверх тёмного — визуально то же, что и
+       было: цвет тот же, что у страницы. Кнопкам компенсация не нужна — у
+       них своя плотная заливка P.buttonBg .82 поверх нижней вуали. */
 
     /* Бэкдроп: медленный наезд (Ken Burns). Класс .lumen-bg__img подготовлен для слайдшоу кадров Task 6.
        Task 6 (исправление): корень — .lumen-backdrop, а не .lumen-card. Слой фона лежит в e.body, вне
@@ -1457,7 +1471,7 @@
        фокус — те же, что у кнопки «Стоп» режима трейлера, включая расчёт
        выравнивания по ряду кнопок (MT 1.40em / MB .6em, см. комментарий
        над .lumen-stop выше). */
-    css.push('.lumen-card .lumen-franchise{display:none;font-family:' + FB + ';font-weight:600;font-size:1em;height:3.16em;padding:0 1.32em;margin:1.40em .70em .6em 0;border-radius:.79em;border:.04em solid ' + P.line + ';background:' + P.buttonBg + ';color:' + P.text + ';white-space:nowrap;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;-webkit-transition:background-color .2s,border-color .2s,color .2s,-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25),-webkit-box-shadow .28s;transition:background-color .2s,border-color .2s,color .2s,transform .28s cubic-bezier(.2,.9,.3,1.25),box-shadow .28s}');
+    css.push('.lumen-card .lumen-franchise{display:none;font-family:' + FB + ';font-weight:600;font-size:1em;height:3.16em;padding:0 1.32em;margin:1.40em .70em .6em 0;border-radius:.79em;border:.04em solid ' + P.line + ';background:' + P.buttonBg + ';color:' + P.text + ';white-space:nowrap;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;-webkit-transition:background-color .2s,border-color .2s,color .2s,-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25);transition:background-color .2s,border-color .2s,color .2s,transform .28s cubic-bezier(.2,.9,.3,1.25)}');
     /* Класс корня ставит LC.hub.franchise только когда кнопка вставлена:
        без него ряд кнопок и наша кнопка остались бы двумя блоками друг под
        другом (.lumen-actions в обычном режиме — не flex). Реакции и ряд
@@ -1468,7 +1482,7 @@
     css.push('.lumen-card.lumen-card--franchise .full-start-new__reactions,.lumen-card.lumen-card--franchise .lumen-episodes{-webkit-flex-basis:100%;flex-basis:100%;width:100%}');
     css.push('.lumen-card .lumen-franchise__ico{-webkit-flex-shrink:0;flex-shrink:0;width:1.14em;height:1.14em;margin-right:.53em;background-color:currentColor;-webkit-mask-image:' + LC.icons.maskUrl('film') + ';mask-image:' + LC.icons.maskUrl('film') + ';-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;-webkit-mask-size:contain;mask-size:contain}');
     css.push('.lumen-card .lumen-franchise span{font-size:1.05em;line-height:1}');
-    css.push('.lumen-card .lumen-franchise.focus{background:' + A + ';color:' + P.dark + ';border-color:' + AL + ';border-width:.11em;-webkit-transform:scale(1.06);transform:scale(1.06);-webkit-box-shadow:0 .614em 1.754em ' + AG + ';box-shadow:0 .614em 1.754em ' + AG + '}');
+    css.push('.lumen-card .lumen-franchise.focus{background:' + A + ';color:' + P.dark + ';border-color:' + AL + ';border-width:.11em;-webkit-transform:scale(1.06);transform:scale(1.06);-webkit-box-shadow:0 .35em .7em ' + AG + ';box-shadow:0 .35em .7em ' + AG + '}');
     css.push('.lumen-card.lumen-motion-lite .lumen-franchise.focus,.lumen-card.lumen-motion-off .lumen-franchise.focus{background:' + A + ';-webkit-transform:none !important;transform:none !important}');
     /* Движка без CSS-масок (старые Tizen/webOS) пустой квадрат иконки не
        получает — тот же приём, что у иконок кнопок в src/20_icons.js. */
@@ -1494,18 +1508,25 @@
     /* Выбранная группа/сортировка — приглушённый акцент, чтобы её было видно
        и когда фокус ушёл на другой чип. */
     css.push('.lumen-hub .lumen-chip.lumen-chip--on,.lumen-grid .lumen-chip.lumen-chip--on{color:' + A + ';border-color:' + A + ';background:rgba(' + A_RGB + ',.14)}');
-    css.push('.lumen-hub .lumen-chip.focus,.lumen-grid .lumen-chip.focus{background:' + A + ';color:' + t.onac + ';border-color:' + AL + ';border-width:.11em;-webkit-transform:scale(1.06);transform:scale(1.06);-webkit-box-shadow:0 .53em 1.53em ' + AG + ';box-shadow:0 .53em 1.53em ' + AG + '}');
+    css.push('.lumen-hub .lumen-chip.focus,.lumen-grid .lumen-chip.focus{background:' + A + ';color:' + t.onac + ';border-color:' + AL + ';border-width:.11em;-webkit-transform:scale(1.06);transform:scale(1.06);-webkit-box-shadow:0 .35em .7em ' + AG + ';box-shadow:0 .35em .7em ' + AG + '}');
     css.push('.lumen-hub.lumen-motion-lite .lumen-chip.focus,.lumen-hub.lumen-motion-off .lumen-chip.focus,.lumen-grid.lumen-motion-lite .lumen-chip.focus,.lumen-grid.lumen-motion-off .lumen-chip.focus{-webkit-transform:none;transform:none}');
     css.push('.lumen-hub.lumen-motion-off .lumen-chip,.lumen-grid.lumen-motion-off .lumen-chip{-webkit-transition:none;transition:none}');
 
     /* Плитка 430×242 (16:9), 4 в ряд при safe area 64 с обеих сторон:
        ширина = (100% − 3 промежутка по .88em) / 4. */
-    css.push('.lumen-hub__tiles .lumen-tile{position:relative;width:-webkit-calc((100% - 2.64em) / 4);width:calc((100% - 2.64em) / 4);margin:0 .88em .88em 0;border-radius:.44em;overflow:hidden;background:' + P.panel + ';border:.04em solid ' + P.line + ';-webkit-transition:border-color .2s,-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25),-webkit-box-shadow .28s;transition:border-color .2s,transform .28s cubic-bezier(.2,.9,.3,1.25),box-shadow .28s}');
+    css.push('.lumen-hub__tiles .lumen-tile{position:relative;width:-webkit-calc((100% - 2.64em) / 4);width:calc((100% - 2.64em) / 4);margin:0 .88em .88em 0;border-radius:.44em;overflow:hidden;background:' + P.panel + ';border:.04em solid ' + P.line + ';-webkit-transition:border-color .2s,-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25);transition:border-color .2s,transform .28s cubic-bezier(.2,.9,.3,1.25)}');
     css.push('.lumen-hub__tiles .lumen-tile:nth-child(4n){margin-right:0}');
     /* Пропорция 16:9 распоркой (aspect-ratio нет на старых webOS/Tizen). */
     css.push('.lumen-hub__tiles .lumen-tile:before{content:"";display:block;padding-top:56.25%}');
     css.push('.lumen-hub .lumen-tile__collage{position:absolute;top:0;left:0;right:0;bottom:0;overflow:hidden}');
-    css.push('.lumen-hub .lumen-tile__poster{position:absolute;width:5.70em;height:8.55em;border-radius:.31em;-webkit-background-size:cover;background-size:cover;background-position:center;-webkit-box-shadow:0 .4em 1.2em rgba(0,0,0,.5);box-shadow:0 .4em 1.2em rgba(0,0,0,.5)}');
+    /* Task 38: у постеров коллажа тени нет. Их ровно три на плитку
+       (src/46_hub.js: COLLAGE_SIZE = 3, paintCollage рисует по узлу на
+       путь), плитки идут по четыре в ряд и заполняют экран целиком —
+       десятки размытых теней разом, и каждая под собственным rotate():
+       повёрнутый элемент WebView растрирует отдельно, вместе с тенью по
+       всему её радиусу. Постеры и без тени читаются как стопка — они
+       перекрывают друг друга и повёрнуты в разные стороны. */
+    css.push('.lumen-hub .lumen-tile__poster{position:absolute;width:5.70em;height:8.55em;border-radius:.31em;-webkit-background-size:cover;background-size:cover;background-position:center}');
     css.push('.lumen-hub .lumen-tile__poster--1{left:1.1em;top:-.88em;-webkit-transform:rotate(-6deg);transform:rotate(-6deg)}');
     css.push('.lumen-hub .lumen-tile__poster--2{left:6.2em;top:-.44em;-webkit-transform:rotate(2deg);transform:rotate(2deg)}');
     css.push('.lumen-hub .lumen-tile__poster--3{left:11.3em;top:-1.1em;-webkit-transform:rotate(8deg);transform:rotate(8deg)}');
@@ -1520,7 +1541,7 @@
        Кинопоиска они могут встретиться на одной плитке. Цвет — акцент: это
        единственная плитка в списке, на которую сейчас стоит смотреть. */
     css.push('.lumen-hub .lumen-tile__season{position:absolute;top:.7em;left:.7em;font-family:' + FM + ';font-size:.7em;letter-spacing:.04em;color:' + t.onac + ';background:' + A + ';border-radius:.2em;padding:.25em .45em}');
-    css.push('.lumen-hub__tiles .lumen-tile.focus{border-color:' + AL + ';border-width:.13em;-webkit-transform:scale(1.06);transform:scale(1.06);-webkit-box-shadow:0 .7em 1.97em ' + AG + ';box-shadow:0 .7em 1.97em ' + AG + '}');
+    css.push('.lumen-hub__tiles .lumen-tile.focus{border-color:' + AL + ';border-width:.13em;-webkit-transform:scale(1.06);transform:scale(1.06);-webkit-box-shadow:0 .35em .7em ' + AG + ';box-shadow:0 .35em .7em ' + AG + '}');
     css.push('.lumen-hub.lumen-motion-lite .lumen-tile.focus,.lumen-hub.lumen-motion-off .lumen-tile.focus{-webkit-transform:none;transform:none}');
     css.push('.lumen-hub.lumen-motion-off .lumen-tile{-webkit-transition:none;transition:none}');
 
@@ -1547,7 +1568,7 @@
        соседями — без z-index увеличенная карточка ныряет под соседнюю и
        тень срезается (ревью Task 17). */
     css.push('.lumen-grid__items .lumen-gcard.focus{-webkit-transform:scale(1.08);transform:scale(1.08);z-index:3}');
-    css.push('.lumen-grid .lumen-gcard.focus .card__view:after{border-width:.13em;border-color:' + AL + ';border-radius:.44em;-webkit-box-shadow:0 .7em 1.97em ' + AG + ';box-shadow:0 .7em 1.97em ' + AG + '}');
+    css.push('.lumen-grid .lumen-gcard.focus .card__view:after{border-width:.13em;border-color:' + AL + ';border-radius:.44em;-webkit-box-shadow:0 .35em .7em ' + AG + ';box-shadow:0 .35em .7em ' + AG + '}');
     css.push('.lumen-grid.lumen-motion-lite .lumen-gcard.focus,.lumen-grid.lumen-motion-off .lumen-gcard.focus{-webkit-transform:none;transform:none}');
     css.push('.lumen-grid.lumen-motion-off .lumen-gcard{-webkit-transition:none;transition:none}');
     /* Полоса продолжения просмотра (design-spec-main §0.6): данные те же,
@@ -1627,10 +1648,13 @@
     css.push('.lumen-hero .lumen-hero__bg{position:absolute;top:0;left:0;right:0;bottom:0;-webkit-background-size:cover;background-size:cover;background-position:center 30%;background-repeat:no-repeat;opacity:0}');
     css.push('.lumen-hero .lumen-hero__bg.is-active{opacity:1}');
     css.push('.lumen-hero.lumen-motion-full .lumen-hero__bg{-webkit-transition:opacity .6s ease-in-out;transition:opacity .6s ease-in-out}');
-    /* Кадра нет — герой собирается из размытого постера (экран 22). Blur на
-       всю площадь дорог для слабых ТВ, поэтому в lite/off его нет вовсе —
-       то же решение, что у фона карточки (.lumen-bg--blur). */
-    css.push('.lumen-hero.lumen-motion-full.lumen-hero--blur .lumen-hero__bg{-webkit-filter:blur(1.75em);filter:blur(1.75em);-webkit-transform:scale(1.1);transform:scale(1.1)}');
+    /* Кадра нет — герой собирается из размытого постера (экран 22).
+       Task 38: filter:blur(1.75em) снят, размытие даёт сам постер — его
+       грузят в w92 и растягивают cover (src/48_hero.js, loadFrame), то же
+       решение, что у фона карточки (.lumen-bg--blur выше). Остался scale(1.1),
+       прячущий края кадра, и только в полном режиме: в lite/off слой не
+       двигается вовсе. */
+    css.push('.lumen-hero.lumen-motion-full.lumen-hero--blur .lumen-hero__bg{-webkit-transform:scale(1.1);transform:scale(1.1)}');
 
     /* Task 28: слой автотрейлера — поверх кадра, но под вуалями (порядок
        узлов задаёт buildNode в src/48_hero.js). Правила те же, что у
@@ -1927,30 +1951,94 @@
        Получалась полоса «2026 2026 2026…» поперёк экрана прямо под кадром.
        Обрезка тут бессильна: хвост лежит ВНУТРИ области, а не над ней.
 
-       Лечится маской. Она на этом узле уже есть — Lampa вешает .scroll--mask
-       с затуханием 0→8 % сверху и 92→100 % снизу (vendor/lampa/css/app.css),
-       и на 8 % (52 px) хвост оставался читаемым. Мы подменяем ТОЛЬКО стопы:
-       до 2em маска пустая, к 2.5em (ровно отступ Lampa) выходит в полную
-       непрозрачность. Фокусный ряд при этом не теряет ни пикселя — он
-       начинается как раз на 2.5em. Нижнее затухание Lampa оставляем как есть.
-       Лишней цены для ТВ нет: композитор уже применял здесь маску, изменились
-       только точки градиента.
+       Лечилось это маской: Lampa вешает на узел .scroll--mask с затуханием
+       0→8 % сверху и 92→100 % снизу (vendor/lampa/css/app.css:2781), и на
+       8 % (52 px) хвост оставался читаемым — мы подменяли ТОЛЬКО стопы, до
+       2em пусто, к 2.5em (ровно отступ Lampa) полная непрозрачность.
+
+       Task 38: маска снята — и наша, и штатная (mask-image:none, наш
+       селектор специфичнее .scroll--mask). Прежнее «лишней цены нет,
+       композитор уже применял здесь маску» было верно про НАШУ правку и
+       неверно про сам приём: маска на этом узле стоит дорого всегда.
+       Внутри узла лежит .scroll__body, который ездит transform'ом при
+       каждом листании (app.css: у него для этого даже will-change:transform),
+       а маска на родителе заставляет WebView на каждый такой кадр заново
+       складывать содержимое в отдельный буфер и умножать его на альфу
+       градиента. Внешний ресёрч docs/research/2026-09-18-android-tv-animations.md
+       запрещает маски на движущихся слоях прямо.
+
+       Просто снять НАШЕ правило было нельзя по двум причинам сразу: осталась
+       бы штатная маска Lampa (то есть та же покадровая цена, только со
+       своими стопами) и вернулась бы полоса «2026 2026 2026…», от которой
+       правка 2026-09-17 и делалась.
+
+       Вместо маски — два статических градиента (ниже). Они ничего не
+       маскируют, а просто лежат поверх: обычные растры, которые композитор
+       рисует один раз и потом только блендит, сколько бы ни ездило
+       содержимое под ними.
 
        overflow:hidden оставлен явным, хотя Lampa на этот скролл сама вешает
        .scroll--over: полагаться на чужой флаг (его ставит компонент, передав
        over:true) для нашей раскладки нельзя — без обрезки нижний ряд вылезал
        бы за кромку области.
 
+       position:relative добавлен ради верхнего градиента: он :after этого же
+       узла, и без точки отсчёта уехал бы к ближайшему позиционированному
+       предку. На раскладку это не влияет — узел и так стоит на своём месте
+       margin'ом, а не смещением.
+
        Прокрутку и ленивую догрузку рядов это не трогает: .scroll__body
        по-прежнему ездит transform'ом, а видимость ряда Lampa считает по
        геометрии (offsetTop/height), а не по нарисованным пикселям. */
-    var maskStops = 'rgba(255,255,255,0) 0,rgba(255,255,255,0) 2em,#fff 2.5em,#fff 92%,rgba(255,255,255,0) 100%';
     var rowsMargin = rowsTopVh + 'vh - ' + rowsTop + 'em';
     var rowsHeight = round2(100 - rowsTopVh) + 'vh + ' + rowsArea + 'em';
     css.push('.lumen-main .scroll.layer--wheight{margin-top:-webkit-calc(' + rowsMargin + ');margin-top:calc(' + rowsMargin + ');' +
-      'height:-webkit-calc(' + rowsHeight + ') !important;height:calc(' + rowsHeight + ') !important;overflow:hidden;' +
+      'height:-webkit-calc(' + rowsHeight + ') !important;height:calc(' + rowsHeight + ') !important;overflow:hidden;position:relative;' +
       '-webkit-transform:translateY(' + ROWS_SHIFT_VH + 'vh);transform:translateY(' + ROWS_SHIFT_VH + 'vh);' +
-      '-webkit-mask-image:-webkit-linear-gradient(top,' + maskStops + ');mask-image:linear-gradient(to bottom,' + maskStops + ')}');
+      '-webkit-mask-image:none;mask-image:none}');
+
+    /* Верхний градиент — замена верхнему стопу маски. Лежит :after'ом внутри
+       самой области, поэтому едет вместе с ней и повторяет её геометрию в
+       любом состоянии, включая приплюснутое окно (медиазапрос ниже, где у
+       области своя высота и transform:none).
+
+       Показывается ТОЛЬКО при .lumen-rows-up, и это не экономия, а
+       необходимость. В стартовом состоянии область опущена на ROWS_SHIFT_VH
+       и её верхние 2.5em приходятся на кадр героя — залив их цветом фона,
+       мы бы закрасили полосу кадра. Маска там делала обратное (протравливала
+       дыру, сквозь которую кадр видно). Хвоста в старте при этом нет: фокус
+       стоит на первом ряду, предыдущего ряда над ним не существует.
+
+       В поднятом состоянии кромка сжатого кадра проходит по ROWS_TOP_VH, а
+       верх области — на 1em выше неё (margin-top считан от rowsTop). Этот
+       верхний em градиента ложится на самый низ кадра, но там нижняя вуаль
+       героя уже практически сплошной P.bg (её стопы в accentRules: .92 на
+       10 % высоты кадра, то есть 72 px при крупном герое), и заливка тем же
+       цветом незаметна.
+
+       Стопы зеркальны прежней маске: сплошной фон до 2em, к 2.5em — полная
+       прозрачность. Фокусный ряд не теряет ни пикселя, он начинается ровно
+       на 2.5em. */
+    css.push('.lumen-main .scroll.layer--wheight:after{content:"";position:absolute;top:0;left:0;right:0;height:2.5em;z-index:1;pointer-events:none;opacity:0}');
+    css.push(AR.fadeTop);
+    css.push('.lumen-main.lumen-rows-up .scroll.layer--wheight:after{opacity:1}');
+    css.push('body.lumen-motion-full .lumen-main .scroll.layer--wheight:after{-webkit-transition:opacity' + EASE + ';transition:opacity' + EASE + '}');
+
+    /* Нижний градиент — замена нижнему стопу маски (92→100 % у Lampa, то есть
+       примерно 44 px при крупном герое и 1080p). Без него нижний ряд резало
+       бы по кромке экрана ровной линией: область обрезана overflow:hidden.
+
+       Этот лежит не в области рядов, а :after'ом на самой активности, и это
+       осознанно: нижняя кромка экрана не двигается ни при листании, ни при
+       переходе «старт ↔ поднятые ряды», поэтому градиенту незачем ехать —
+       чем неподвижнее слой, тем он дешевле. :after (а не :before) — чтобы он
+       рисовался ПОСЛЕ детей активности: герой и .activity__body идут в DOM
+       раньше, и порядок отрисовки здесь задаёт разметка.
+       z-index:1 держит его над рядами и при этом ниже надстроек с z-index 80
+       и выше — мини-карты и подсказки прыжка (.lumen-jump стоит как раз
+       внизу экрана, на 2.81em от кромки, и перекрывать её нельзя). */
+    css.push('.lumen-main:after{content:"";position:absolute;left:0;right:0;bottom:0;height:2.5em;z-index:1;pointer-events:none}');
+    css.push(AR.fadeBot);
 
     /* Правка пользователя 2026-09-17 (второй круг, главное): «когда начинаем
        листать список фильмов, ряды должны быть подняты».
@@ -2171,7 +2259,7 @@
     css.push('@-webkit-keyframes lumen-roul-step{from{-webkit-transform:translateY(12%)}to{-webkit-transform:translateY(0)}}');
     css.push('@keyframes lumen-roul-step{from{transform:translateY(12%)}to{transform:translateY(0)}}');
     css.push('.lumen-roulette .lumen-roulette__spin{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;height:3.16em;padding:0 1.75em;margin-left:1.4em;border-radius:.79em;background:' + A + ';color:' + t.onac + ';font-family:' + FD + ';font-weight:700;font-size:1.05em;border:.04em solid transparent}');
-    css.push('.lumen-roulette .lumen-roulette__spin.focus{border-color:' + AL + ';border-width:.11em;-webkit-box-shadow:0 .7em 1.97em ' + AG + ';box-shadow:0 .7em 1.97em ' + AG + '}');
+    css.push('.lumen-roulette .lumen-roulette__spin.focus{border-color:' + AL + ';border-width:.11em;-webkit-box-shadow:0 .35em .7em ' + AG + ';box-shadow:0 .35em .7em ' + AG + '}');
     css.push('.lumen-roulette .lumen-roulette__spin.is-busy{opacity:.7}');
     css.push('.lumen-roulette .lumen-roulette__hint{position:relative;margin-left:1.4em;font-family:' + FB + ';font-size:.96em;color:' + P.smoke + '}');
     /* Карточка результата: название, мета и три кнопки. Появляется на месте
@@ -2181,7 +2269,7 @@
     css.push('.lumen-roulette .lumen-roulette__rmeta{font-family:' + FM + ';font-size:.96em;line-height:1;margin-top:.44em;color:' + P.muted + '}');
     css.push('.lumen-roulette .lumen-roulette__actions{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;margin-top:1.05em}');
     css.push('.lumen-roulette .lumen-roulette__btn{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;height:2.45em;padding:0 1.05em;margin:0 .53em .53em 0;border-radius:.61em;border:.04em solid ' + P.line + ';background:' + P.buttonBg + ';font-family:' + FB + ';font-weight:600;font-size:.96em;color:' + P.text + '}');
-    css.push('.lumen-roulette .lumen-roulette__btn.focus{background:' + A + ';color:' + t.onac + ';border-color:' + AL + ';border-width:.11em;-webkit-box-shadow:0 .53em 1.53em ' + AG + ';box-shadow:0 .53em 1.53em ' + AG + '}');
+    css.push('.lumen-roulette .lumen-roulette__btn.focus{background:' + A + ';color:' + t.onac + ';border-color:' + AL + ';border-width:.11em;-webkit-box-shadow:0 .35em .7em ' + AG + ';box-shadow:0 .35em .7em ' + AG + '}');
     css.push('.lumen-roulette .lumen-roulette__empty{font-family:' + FB + ';font-size:1.05em;color:' + P.smoke + '}');
     /* Пункт меню «Что посмотреть»: иконка набора плагина — 1em, штатные
        иконки меню Lampa — 1.5em (та же правка, что у пункта «Подборки»). */
@@ -2269,7 +2357,7 @@
        него есть состояние фокуса — как у чипов групп. */
     css.push('.lumen-hub .lumen-hub__search{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;height:2.46em;padding:0 1.05em;border-radius:.53em;border:.04em solid ' + P.line + ';background:' + P.buttonBg + ';-webkit-transition:background-color .2s,border-color .2s,color .2s,-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25);transition:background-color .2s,border-color .2s,color .2s,transform .28s cubic-bezier(.2,.9,.3,1.25)}');
     css.push('.lumen-hub .lumen-hub__search .lumen-ico{width:1.05em;height:1.05em;margin-right:.53em}');
-    css.push('.lumen-hub .lumen-hub__search.focus{background:' + A + ';color:' + t.onac + ';border-color:' + AL + ';border-width:.11em;-webkit-transform:scale(1.06);transform:scale(1.06);-webkit-box-shadow:0 .53em 1.53em ' + AG + ';box-shadow:0 .53em 1.53em ' + AG + '}');
+    css.push('.lumen-hub .lumen-hub__search.focus{background:' + A + ';color:' + t.onac + ';border-color:' + AL + ';border-width:.11em;-webkit-transform:scale(1.06);transform:scale(1.06);-webkit-box-shadow:0 .35em .7em ' + AG + ';box-shadow:0 .35em .7em ' + AG + '}');
     css.push('.lumen-hub.lumen-motion-lite .lumen-hub__search.focus,.lumen-hub.lumen-motion-off .lumen-hub__search.focus{-webkit-transform:none;transform:none}');
 
     /* Пункт меню «Подборки»: штатные иконки меню Lampa — 1.5em, а наш набор

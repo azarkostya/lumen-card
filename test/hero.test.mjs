@@ -786,7 +786,10 @@ test('режимы full и lite кадр грузят — гейт стоит т
   });
 });
 
-test('нет кадра — используется постер, слой помечается для размытия', () => {
+/* Task 38: размер постера для размытого фона снижен с w500 до w92. Блюр
+   фильтром снят (src/30_css.js, .lumen-hero--blur), и мягкость даёт теперь
+   апскейл картинки — значит и проверять надо именно крошечный размер. */
+test('нет кадра — используется постер в w92, слой помечается для размытия', () => {
   const env = makeEnv();
   const main = makeMain();
   main.card1.card_data = { id: 44, title: 'Без кадра', poster_path: '/p.jpg', release_date: '2021-01-01' };
@@ -796,7 +799,7 @@ test('нет кадра — используется постер, слой по
 
   fireFocus(main.activity, main.card1);
   env.advance(400);
-  assert.equal(env.images[0].src, 'https://img/t/p/w500/p.jpg');
+  assert.equal(env.images[0].src, 'https://img/t/p/w92/p.jpg');
   env.images[0].onload();
   assert.equal(node.hasClass('lumen-hero--blur'), true);
 });
