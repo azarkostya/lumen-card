@@ -8,7 +8,11 @@ import { readFileSync } from 'node:fs';
    Здесь — чистая часть (пул кандидатов, фильтры, выбор, план барабана,
    разбор сохранённого набора подборок и проверка длительности по деталям) и
    те куски рантайма, что можно спросить без DOM: список подборок для медиа и
-   чтение настроек. Сам компонент lumen_roulette проверяется живьём. */
+   чтение настроек. Основной сценарий (экран, фокус, прокрутка чипов)
+   проверяется живьём; Task 34 добавил в конец файла отдельный минимальный
+   стенд (фейковые $/Lampa.Scroll/Controller, ручной планировщик setTimeout,
+   заглушка Image) — только для поведения фона результата рулетки, самого
+   уязвимого места из живой жалобы пользователя. */
 
 globalThis.PLUGIN = 'lumen_card';
 globalThis.warn = function () { };
@@ -280,4 +284,289 @@ test('исходник: watchFocus рулетки подкручивает ск�
   const keep = section('function keepVisible(el) {', 'function watchFocus(node)');
   assert.ok(keep.indexOf('scroll.update(el, true)') !== -1,
     'подкрутка — штатным scroll.update, с выравниванием по центру');
+});
+
+/* ====================================================================== */
+/* Фон результата рулетки (Task 34)                                       */
+/* ====================================================================== */
+
+/* Поднимаем настоящий RouletteComponent на минимальном стенде — тот же
+   приём, что в test/hub.test.mjs (свой $/El, фейковый Lampa.Scroll и
+   Controller), плюс то, что нужно именно здесь: ручной планировщик
+   setTimeout/clearTimeout (тест сам решает, когда сработает шаг барабана —
+   приём из test/util.test.mjs, test/hero.test.mjs) и заглушка window.Image
+   (showResult предзагружает кадр через неё, Task 34). Фокус/навигация
+   (Controller.add, Navigator, this.start) не нужны: барабан запускается
+   прямым hover:enter по кнопке «Крутить», найденной в дереве, которое
+   строит this.create(). */
+
+function El(classes) {
+  this._class = classes || [];
+  this._children = [];
+  this._ev = {};
+  this._css = {};
+  this.length = 1;
+  this[0] = this;
+}
+El.prototype.addClass = function (list) {
+  var self = this;
+  ('' + list).split(/\s+/).forEach(function (c) { if (c && self._class.indexOf(c) < 0) self._class.push(c); });
+  return this;
+};
+El.prototype.removeClass = function (list) {
+  var self = this;
+  ('' + list).split(/\s+/).forEach(function (c) { var i = self._class.indexOf(c); if (i >= 0) self._class.splice(i, 1); });
+  return this;
+};
+El.prototype.hasClass = function (c) { return this._class.indexOf(c) >= 0; };
+El.prototype.append = function (child) { this._children.push(child); return this; };
+El.prototype.empty = function () { this._children = []; return this; };
+El.prototype.remove = function () { return this; };
+El.prototype.css = function (name, val) {
+  if (arguments.length < 2) return this._css[name];
+  this._css[name] = val;
+  return this;
+};
+El.prototype.on = function (name, fn) { (this._ev[name] = this._ev[name] || []).push(fn); return this; };
+El.prototype.show = function () { return this; };
+El.prototype.hide = function () { return this; };
+El.prototype.all = function (sel) {
+  var cls = sel.replace(/^\./, '');
+  var out = [];
+  (function walk(node) {
+    for (var i = 0; i < node._children.length; i++) {
+      var c = node._children[i];
+      if (c.hasClass(cls)) out.push(c);
+      walk(c);
+    }
+  })(this);
+  return out;
+};
+var EMPTY_EL = new El([]);
+EMPTY_EL.length = 0;
+El.prototype.find = function (sel) {
+  var found = this.all(sel);
+  return found.length ? found[0] : EMPTY_EL;
+};
+
+function classesOf(html) {
+  var m = /class="([^"]*)"/.exec('' + html);
+  return m ? m[1].split(/\s+/).filter(Boolean) : [];
+}
+
+function make$() {
+  return function (arg) {
+    if (arg instanceof El) return arg;
+    if (typeof arg === 'string' && arg.charAt(0) === '<') {
+      var tags = arg.match(/<div[^>]*>/g) || [];
+      var root = new El(classesOf(tags[0]));
+      for (var i = 1; i < tags.length; i++) root.append(new El(classesOf(tags[i])));
+      return root;
+    }
+    return EMPTY_EL;
+  };
+}
+
+function fire(node, name) {
+  var list = (node && node._ev && node._ev[name]) || [];
+  for (var i = 0; i < list.length; i++) list[i]();
+}
+
+function ElScroll() {
+  var body = new El([]);
+  this.append = function (el) { body.append(el); };
+  this.render = function () { return body; };
+  this.minus = function () { };
+  this.update = function () { };
+  this.destroy = function () { };
+}
+
+/* Заглушка Image: конструктор просто копится в createdImages, onload/onerror
+   зовёт тест сам — ни настоящей сети, ни настоящей декодировки картинки в
+   node нет и не будет. */
+var createdImages = [];
+function FakeImage() {
+  this.onload = null;
+  this.onerror = null;
+  this._src = '';
+  createdImages.push(this);
+}
+Object.defineProperty(FakeImage.prototype, 'src', {
+  get: function () { return this._src; },
+  set: function (v) { this._src = v; }
+});
+
+/* Ручной планировщик: setTimeout только копит колбэки, flushTimers()
+   прогоняет их по одному (в порядке постановки) — так шаги барабана
+   (spinPlan даёт от полусотни шагов) проходят без настоящей паузы в 3 с. */
+var timers = [];
+var nextTimerId = 1;
+function resetTimers() { timers = []; nextTimerId = 1; }
+function fakeSetTimeout(fn, ms) {
+  var id = nextTimerId++;
+  timers.push({ id: id, fn: fn, ms: ms, cancelled: false });
+  return id;
+}
+function fakeClearTimeout(id) {
+  for (var i = 0; i < timers.length; i++) {
+    if (timers[i].id === id) timers[i].cancelled = true;
+  }
+}
+function flushTimers() {
+  var guard = 0;
+  while (timers.length && guard < 2000) {
+    var t = timers.shift();
+    guard++;
+    if (!t.cancelled) t.fn();
+  }
+}
+
+var MANIFEST34 = {
+  version: 1,
+  home: ['col-a'],
+  collections: [
+    { id: 'col-a', title: 'Подборка', sources: { movie: { type: 'discover', params: {} } } }
+  ]
+};
+
+var poolCards34 = [];
+function fetchStub34(item, page, ok) {
+  ok({ results: page === 1 ? poolCards34 : [] });
+  return { clear: function () { } };
+}
+
+function backdropUrl(card) {
+  return 'https://img/w1280' + card.backdrop_path;
+}
+
+/* Поднимает lumen_roulette на минимальном стенде и возвращает {comp, root,
+   bg}. cards — пул кандидатов, который отдаст LC.sources.fetch (одна
+   подборка, одна страница с результатами — этого достаточно: pick() из
+   единственного кандидата детерминирован независимо от Math.random). */
+function openRoulette34(cards) {
+  resetTimers();
+  createdImages.length = 0;
+  poolCards34 = cards;
+
+  var components = {};
+  var Lampa = {
+    Scroll: ElScroll,
+    Component: { add: function (name, fn) { components[name] = fn; } },
+    Controller: { add: function () { }, toggle: function () { }, collectionSet: function () { }, collectionFocus: function () { } },
+    Menu: { addButton: function () { return new El([]); } }
+  };
+  globalThis.window = { Lampa: Lampa };
+  globalThis.Lampa = Lampa;
+  globalThis.$ = make$();
+  globalThis.Image = FakeImage;
+  globalThis.setTimeout = fakeSetTimeout;
+  globalThis.clearTimeout = fakeClearTimeout;
+
+  var built = fresh({
+    lang: function (k) { return k; },
+    langCode: function () { return 'ru'; },
+    pref: function (name, def) { return def; },
+    motionMode: function () { return 'full'; },
+    hub: { titleOf: function (item) { return (item && item.title) || ''; } },
+    cardinfo: { imageUrl: function (path, size) { return path ? 'https://img/' + size + path : ''; } },
+    rows: { viewedIds: function () { return []; } },
+    manifest: { load: function (cb) { cb(MANIFEST34); } },
+    sources: { fetch: fetchStub34 }
+  });
+  built.api.install();
+
+  var Comp = components.lumen_roulette;
+  var comp = new Comp({});
+  comp.activity = { loader: function () { } };
+  comp.create();
+  var root = comp.render();
+  return { comp: comp, root: root, bg: root.find('.lumen-roulette__bg') };
+}
+
+/* Нажимает «Крутить» и сразу прогоняет барабан до конца (все его шаги —
+   через ручной планировщик). После возврата showResult уже вызван, но
+   предзагрузка кадра (если backdrop_path есть) ещё не завершена — её
+   отдельно резолвит тест через createdImages. */
+function spinAndFlush(env) {
+  fire(env.root.find('.lumen-roulette__spin'), 'hover:enter');
+  flushTimers();
+}
+
+test('spin(): фон прошлого результата снимается до прокрутки барабана, не после', () => {
+  const A = { id: 1, title: 'Фильм A', release_date: '2020-01-01', poster_path: '/a-p.jpg', backdrop_path: '/a-b.jpg' };
+  const env = openRoulette34([A]);
+  spinAndFlush(env);
+  createdImages[createdImages.length - 1].onload();
+  assert.equal(env.bg.css('background-image'), 'url("' + backdropUrl(A) + '")', 'первый результат показал свой фон');
+
+  /* Второе «Крутить»: пул уже в кэше (loadPool отдаёт его синхронно), но
+     сама прокрутка барабана идёт через таймеры — до flushTimers() фон
+     обязан быть уже снят, а не всё ещё держать кадр фильма A. */
+  fire(env.root.find('.lumen-roulette__spin'), 'hover:enter');
+  assert.equal(env.bg.css('background-image'), '', 'фон снят сразу — до прокрутки, а не после её конца');
+  flushTimers();
+});
+
+test('showResult: карточка без backdrop_path оставляет фон пустым, а не прошлым кадром', () => {
+  const A = { id: 1, title: 'Фильм A', release_date: '2020-01-01', poster_path: '/a-p.jpg', backdrop_path: '/a-b.jpg' };
+  const B = { id: 2, title: 'Фильм B', release_date: '2020-01-01', poster_path: '/b-p.jpg', backdrop_path: '' };
+  const env = openRoulette34([A]);
+  spinAndFlush(env);
+  createdImages[createdImages.length - 1].onload();
+  assert.notEqual(env.bg.css('background-image'), '', 'подготовка: у фильма A фон есть');
+
+  poolCards34 = [B];
+  spinAndFlush(env);
+  assert.equal(env.bg.css('background-image'), '', 'у фильма B backdrop_path пуст — фон пустой, а не фон фильма A');
+});
+
+test('showResult: фон появляется только после onload картинки, до этого пусто', () => {
+  const C = { id: 3, title: 'Фильм C', release_date: '2020-01-01', poster_path: '/c-p.jpg', backdrop_path: '/c-b.jpg' };
+  const env = openRoulette34([C]);
+  spinAndFlush(env);
+  assert.equal(env.bg.css('background-image'), '', 'до onload фон ещё не поставлен');
+  assert.equal(createdImages.length, 1, 'предзагрузка кадра запущена — Image создан');
+  assert.equal(createdImages[0].src, backdropUrl(C));
+  createdImages[0].onload();
+  assert.equal(env.bg.css('background-image'), 'url("' + backdropUrl(C) + '")');
+});
+
+test('showResult: поздний onload от прошлого запроса чужой кадр не ставит', () => {
+  const A = { id: 1, title: 'Фильм A', release_date: '2020-01-01', poster_path: '/a-p.jpg', backdrop_path: '/a-b.jpg' };
+  const C = { id: 3, title: 'Фильм C', release_date: '2020-01-01', poster_path: '/c-p.jpg', backdrop_path: '/c-b.jpg' };
+  /* Оба кандидата — в одном и том же пуле с самого начала: loadPool кэширует
+     пул по ключу «медиа + набор подборок» (poolKey), и без смены чипов
+     второе «Крутить» пул НЕ перезапрашивает — оно просто выбирает случайный
+     элемент из уже загруженного. Поэтому, чтобы гарантированно получить
+     ДРУГОЙ результат вторым спином, здесь подменяется Math.random (spin()
+     зовёт pick(list, Math.random) напрямую, без инъекции rnd), а не
+     poolCards34 — со вторым отдельным кандидатом в пуле подмена
+     poolCards34 между спинами всё равно бы на выбор не повлияла. */
+  const env = openRoulette34([A, C]);
+  const realRandom = Math.random;
+  try {
+    Math.random = function () { return 0; };
+    spinAndFlush(env);
+
+    /* Колбэк первого результата — снят на будущее, ДО отмены (resultLoader.onload
+       станет null при следующем «Крутить»), поэтому вызов ниже проверяет
+       именно защитную проверку result !== card в showResult, а не то, что
+       onload вообще не будет вызван. */
+    const staleOnload = createdImages[0].onload;
+    assert.equal(typeof staleOnload, 'function');
+
+    Math.random = function () { return 0.9; };
+    spinAndFlush(env);
+    assert.equal(env.bg.css('background-image'), '', 'второй результат ещё не подгрузил свой кадр');
+    assert.equal(createdImages[0].onload, null,
+      'cancelResultLoader реально снял onload с объекта Image A — второй спин не просто выбрал другой кадр, он ещё и погасил первый');
+
+    staleOnload();
+    assert.equal(env.bg.css('background-image'), '', 'устаревший onload от фильма A результат фильма C не тронул');
+
+    createdImages[createdImages.length - 1].onload();
+    assert.equal(env.bg.css('background-image'), 'url("' + backdropUrl(C) + '")', 'актуальный onload по-прежнему работает');
+  } finally {
+    Math.random = realRandom;
+  }
 });

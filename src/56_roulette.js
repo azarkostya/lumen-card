@@ -416,6 +416,7 @@
       var reel = [];
       var spinning = false;
       var result = null;
+      var resultLoader = null;
       var lastFocus = null;
       var started = false;
       var filters = { unseen: unseenDefault(), short: false };
@@ -445,12 +446,27 @@
         try { spinBtn.removeClass('is-busy'); } catch (e) { }
       }
 
+      /* Task 34: гасит предзагрузку кадра результата — тот же приём, что у
+         героя и бэкдропов (cancelPending в src/48_hero.js, src/50_backdrops.js):
+         onload/onerror снимаются, чтобы сеть, ответившая позже, не трогала
+         уже неактуальный экран. Зовут её из clearResult() (перед новой
+         прокруткой и при смене «Фильмы/Сериалы») и из bump() — на случай
+         stop()/destroy(), где clearResult() не вызывается. */
+      function cancelResultLoader() {
+        if (resultLoader) {
+          resultLoader.onload = null;
+          resultLoader.onerror = null;
+          resultLoader = null;
+        }
+      }
+
       /* Всё, что было запрошено и запущено для прежнего состояния экрана,
          становится неактуальным разом. */
       function bump() {
         gen++;
         clearHandles();
         stopSpin();
+        cancelResultLoader();
       }
 
       function focusTarget() {
@@ -674,6 +690,11 @@
       }
 
       function clearResult() {
+        /* Task 34: гасит и предзагрузку фона прошлого результата — иначе
+           при повторном «Крутить» (gen не меняется, bump() тут не зовут)
+           долетевший onload того результата подставил бы его кадр поверх
+           только что очищенного фона, пока крутится барабан. */
+        cancelResultLoader();
         resultBox.empty();
         resultBox.removeClass('is-live');
         try { bg.css('background-image', ''); } catch (e) { }
@@ -696,8 +717,30 @@
 
       function showResult(card) {
         result = card;
+        cancelResultLoader();
+        /* Task 34: фон снимается безусловно, до попытки поставить новый —
+           у карточки без backdrop_path (или при ошибке загрузки) кадр
+           прошлого результата иначе остался бы висеть навсегда: единственный
+           путь его снять раньше был clearResult() в setMedia. */
+        try { bg.css('background-image', ''); } catch (e) { }
         var backdrop = imageUrl(card.backdrop_path, 'w1280');
-        if (backdrop) bg.css('background-image', 'url("' + backdrop + '")');
+        if (backdrop) {
+          /* Task 34: кадр ставится только загруженным. Присвоение
+             background-image сразу заставляет слабый ТВ декодировать w1280
+             уже на экране (заметный фриз), а при ошибке сети на месте
+             нового кадра остался бы прошлый. captured/result — двойная
+             проверка на устаревший колбэк: gen меняется при уходе с экрана
+             (bump из stop/destroy/setMedia), а result — при повторном
+             «Крутить» без ухода с экрана, когда gen тот же самый. */
+          var img = new Image();
+          var captured = gen;
+          img.onload = function () {
+            if (gen !== captured || result !== card) return;
+            try { bg.css('background-image', 'url("' + backdrop + '")'); } catch (e2) { }
+          };
+          img.src = backdrop;
+          resultLoader = img;
+        }
         resultBox.empty();
         resultBox.addClass('is-live');
         resultBox.append($('<div class="lumen-roulette__rtitle">' + esc(cardTitle(card)) + '</div>'));
@@ -827,6 +870,11 @@
       function spin() {
         if (spinning) return;
         spinning = true;
+        /* Task 34: прошлый результат и его фон снимаются здесь, до начала
+           прокрутки барабана — единственный вызов clearResult() раньше был
+           в setMedia (смена «Фильмы/Сериалы»), и всё время вращения ленты
+           на экране висел кадр ПРОШЛОГО результата. */
+        clearResult();
         try { spinBtn.addClass('is-busy'); } catch (e) { }
         var captured = gen;
         try { self.activity.loader(!pool.length); } catch (e) { }

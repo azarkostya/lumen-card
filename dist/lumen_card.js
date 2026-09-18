@@ -13318,6 +13318,7 @@ var runtimes = {};
 var reel = [];
 var spinning = false;
 var result = null;
+var resultLoader = null;
 var lastFocus = null;
 var started = false;
 var filters = { unseen: unseenDefault(), short: false };
@@ -13349,10 +13350,25 @@ try { spinBtn.removeClass('is-busy'); } catch (e) { }
 
 
 
+
+
+
+
+function cancelResultLoader() {
+if (resultLoader) {
+resultLoader.onload = null;
+resultLoader.onerror = null;
+resultLoader = null;
+}
+}
+
+
+
 function bump() {
 gen++;
 clearHandles();
 stopSpin();
+cancelResultLoader();
 }
 
 function focusTarget() {
@@ -13576,6 +13592,11 @@ reelBox.addClass('is-live');
 }
 
 function clearResult() {
+
+
+
+
+cancelResultLoader();
 resultBox.empty();
 resultBox.removeClass('is-live');
 try { bg.css('background-image', ''); } catch (e) { }
@@ -13598,8 +13619,30 @@ return node;
 
 function showResult(card) {
 result = card;
+cancelResultLoader();
+
+
+
+
+try { bg.css('background-image', ''); } catch (e) { }
 var backdrop = imageUrl(card.backdrop_path, 'w1280');
-if (backdrop) bg.css('background-image', 'url("' + backdrop + '")');
+if (backdrop) {
+
+
+
+
+
+
+
+var img = new Image();
+var captured = gen;
+img.onload = function () {
+if (gen !== captured || result !== card) return;
+try { bg.css('background-image', 'url("' + backdrop + '")'); } catch (e2) { }
+};
+img.src = backdrop;
+resultLoader = img;
+}
 resultBox.empty();
 resultBox.addClass('is-live');
 resultBox.append($('<div class="lumen-roulette__rtitle">' + esc(cardTitle(card)) + '</div>'));
@@ -13729,6 +13772,11 @@ verify(next, tries + 1, done);
 function spin() {
 if (spinning) return;
 spinning = true;
+
+
+
+
+clearResult();
 try { spinBtn.addClass('is-busy'); } catch (e) { }
 var captured = gen;
 try { self.activity.loader(!pool.length); } catch (e) { }
