@@ -12989,6 +12989,8 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 
+
+
 LC.roulette = (function () {
 
 
@@ -13365,6 +13367,11 @@ var reel = [];
 var spinning = false;
 var result = null;
 var resultLoader = null;
+
+
+
+
+var resultBgShown = false;
 var lastFocus = null;
 var started = false;
 var filters = { unseen: unseenDefault(), short: false };
@@ -13642,7 +13649,14 @@ function clearResult() {
 
 
 
+
+
+
+
+
 cancelResultLoader();
+result = null;
+resultBgShown = false;
 resultBox.empty();
 resultBox.removeClass('is-live');
 try { bg.css('background-image', ''); } catch (e) { }
@@ -13663,32 +13677,70 @@ node.on('hover:enter', handler);
 return node;
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function loadResultBg(card) {
+var backdrop = imageUrl(card.backdrop_path, 'w1280');
+if (!backdrop) return;
+var img = new Image();
+var captured = gen;
+var done = false;
+function finish(ok) {
+if (done) return;
+done = true;
+img.onload = null;
+img.onerror = null;
+if (resultLoader === img) resultLoader = null;
+if (!ok || gen !== captured || result !== card) return;
+try { bg.css('background-image', 'url("' + backdrop + '")'); } catch (e) { }
+resultBgShown = true;
+}
+img.onload = function () { finish(true); };
+img.onerror = function () { finish(false); };
+resultLoader = img;
+img.src = backdrop;
+}
+
 function showResult(card) {
 result = card;
 cancelResultLoader();
+resultBgShown = false;
+
+
+
+
+
+
+
 
 
 
 
 try { bg.css('background-image', ''); } catch (e) { }
-var backdrop = imageUrl(card.backdrop_path, 'w1280');
-if (backdrop) {
-
-
-
-
-
-
-
-var img = new Image();
-var captured = gen;
-img.onload = function () {
-if (gen !== captured || result !== card) return;
-try { bg.css('background-image', 'url("' + backdrop + '")'); } catch (e2) { }
-};
-img.src = backdrop;
-resultLoader = img;
-}
+loadResultBg(card);
 resultBox.empty();
 resultBox.addClass('is-live');
 resultBox.append($('<div class="lumen-roulette__rtitle">' + esc(cardTitle(card)) + '</div>'));
@@ -13905,6 +13957,15 @@ var act = null;
 try { act = Lampa.Activity.active(); } catch (eAct) { }
 if (act && act.activity && act.activity !== this.activity) return;
 started = true;
+
+
+
+
+
+
+
+
+if (result && !resultBgShown && !resultLoader) loadResultBg(result);
 motionClass(root);
 Lampa.Controller.add('content', {
 toggle: function () {

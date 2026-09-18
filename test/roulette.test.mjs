@@ -295,10 +295,18 @@ test('исходник: watchFocus рулетки подкручивает ск�
    Controller), плюс то, что нужно именно здесь: ручной планировщик
    setTimeout/clearTimeout (тест сам решает, когда сработает шаг барабана —
    приём из test/util.test.mjs, test/hero.test.mjs) и заглушка window.Image
-   (showResult предзагружает кадр через неё, Task 34). Фокус/навигация
-   (Controller.add, Navigator, this.start) не нужны: барабан запускается
-   прямым hover:enter по кнопке «Крутить», найденной в дереве, которое
-   строит this.create(). */
+   (showResult предзагружает кадр через неё, Task 34). this.start() тоже
+   нужен (перезапуск предзагрузки после stop()/start()) — Navigator и
+   Lampa.Activity не заводим: navMove() внутри this.start() не зовётся из
+   наших тестов, а Lampa.Activity.active() — в try/catch, без него просто
+   тихо не отфильтрует активность.
+
+   openRoulette34(cards, t) подменяет globalThis.window/Lampa/$/Image/
+   setTimeout/clearTimeout и возвращает их через t.after(...) — так финал
+   каждого теста восстанавливает окружение, даже если тест упал по assert
+   (в отличие от «один раз в конце файла»): без этого первый же тест,
+   дописанный в конец файла ПОСЛЕ этого блока, унаследовал бы подменённый
+   setTimeout и завис бы на реальной сети. */
 
 function El(classes) {
   this._class = classes || [];
@@ -439,14 +447,40 @@ function backdropUrl(card) {
   return 'https://img/w1280' + card.backdrop_path;
 }
 
+/* Снимок настоящих globalThis.window/Lampa/$/Image/setTimeout/clearTimeout,
+   сделанный ДО первой подмены (на момент загрузки этого файла ни один из
+   них ещё не тронут — window/Lampa/$/Image в node их просто нет, отсюда
+   undefined, и это тоже правильное значение для отката). restoreGlobals34()
+   возвращает все шесть к этому снимку; openRoulette34 регистрирует её через
+   t.after(...) на каждый тест отдельно. */
+var REAL_GLOBALS34 = {
+  window: globalThis.window,
+  Lampa: globalThis.Lampa,
+  $: globalThis.$,
+  Image: globalThis.Image,
+  setTimeout: globalThis.setTimeout,
+  clearTimeout: globalThis.clearTimeout
+};
+function restoreGlobals34() {
+  globalThis.window = REAL_GLOBALS34.window;
+  globalThis.Lampa = REAL_GLOBALS34.Lampa;
+  globalThis.$ = REAL_GLOBALS34.$;
+  globalThis.Image = REAL_GLOBALS34.Image;
+  globalThis.setTimeout = REAL_GLOBALS34.setTimeout;
+  globalThis.clearTimeout = REAL_GLOBALS34.clearTimeout;
+}
+
 /* Поднимает lumen_roulette на минимальном стенде и возвращает {comp, root,
    bg}. cards — пул кандидатов, который отдаст LC.sources.fetch (одна
    подборка, одна страница с результатами — этого достаточно: pick() из
-   единственного кандидата детерминирован независимо от Math.random). */
-function openRoulette34(cards) {
+   единственного кандидата детерминирован независимо от Math.random).
+   t — TestContext вызвавшего теста: им регистрируется восстановление
+   глобалов после теста, что бы в нём ни случилось. */
+function openRoulette34(cards, t) {
   resetTimers();
   createdImages.length = 0;
   poolCards34 = cards;
+  t.after(restoreGlobals34);
 
   var components = {};
   var Lampa = {
@@ -492,9 +526,9 @@ function spinAndFlush(env) {
   flushTimers();
 }
 
-test('spin(): фон прошлого результата снимается до прокрутки барабана, не после', () => {
+test('spin(): фон прошлого результата снимается до прокрутки барабана, не после', (t) => {
   const A = { id: 1, title: 'Фильм A', release_date: '2020-01-01', poster_path: '/a-p.jpg', backdrop_path: '/a-b.jpg' };
-  const env = openRoulette34([A]);
+  const env = openRoulette34([A], t);
   spinAndFlush(env);
   createdImages[createdImages.length - 1].onload();
   assert.equal(env.bg.css('background-image'), 'url("' + backdropUrl(A) + '")', 'первый результат показал свой фон');
@@ -507,22 +541,38 @@ test('spin(): фон прошлого результата снимается д
   flushTimers();
 });
 
-test('showResult: карточка без backdrop_path оставляет фон пустым, а не прошлым кадром', () => {
+test('showResult: карточка без backdrop_path оставляет фон пустым, а не прошлым кадром', (t) => {
   const A = { id: 1, title: 'Фильм A', release_date: '2020-01-01', poster_path: '/a-p.jpg', backdrop_path: '/a-b.jpg' };
   const B = { id: 2, title: 'Фильм B', release_date: '2020-01-01', poster_path: '/b-p.jpg', backdrop_path: '' };
-  const env = openRoulette34([A]);
-  spinAndFlush(env);
-  createdImages[createdImages.length - 1].onload();
-  assert.notEqual(env.bg.css('background-image'), '', 'подготовка: у фильма A фон есть');
+  /* Оба кандидата — в пуле с самого начала. loadPool кэширует пул по ключу
+     «медиа + набор подборок»: без смены чипов второе «Крутить» сеть не
+     перезапрашивает, оно просто выбирает элемент из уже загруженного —
+     поэтому подмена poolCards34 ПОСЛЕ первого спина на выбор второго не
+     влияет никак (ровно так уже один раз ошибочно было устроено здесь: B
+     в пул не попадал, и тест был зелёным по факту, что B вообще не
+     выбирался). Чтобы вторым спином гарантированно достался B, здесь
+     подменяется Math.random — тем же приёмом, что и в тесте про поздний
+     onload ниже. */
+  const env = openRoulette34([A, B], t);
+  const realRandom = Math.random;
+  try {
+    Math.random = function () { return 0; };
+    spinAndFlush(env);
+    createdImages[0].onload();
+    assert.notEqual(env.bg.css('background-image'), '', 'подготовка: у фильма A фон есть');
 
-  poolCards34 = [B];
-  spinAndFlush(env);
-  assert.equal(env.bg.css('background-image'), '', 'у фильма B backdrop_path пуст — фон пустой, а не фон фильма A');
+    Math.random = function () { return 0.9; };
+    spinAndFlush(env);
+    assert.equal(env.bg.css('background-image'), '', 'у фильма B backdrop_path пуст — фон пустой, а не фон фильма A');
+    assert.equal(createdImages.length, 1, 'у B нет кадра — loadResultBg на пустой backdrop_path новую предзагрузку не запускает');
+  } finally {
+    Math.random = realRandom;
+  }
 });
 
-test('showResult: фон появляется только после onload картинки, до этого пусто', () => {
+test('showResult: фон появляется только после onload картинки, до этого пусто', (t) => {
   const C = { id: 3, title: 'Фильм C', release_date: '2020-01-01', poster_path: '/c-p.jpg', backdrop_path: '/c-b.jpg' };
-  const env = openRoulette34([C]);
+  const env = openRoulette34([C], t);
   spinAndFlush(env);
   assert.equal(env.bg.css('background-image'), '', 'до onload фон ещё не поставлен');
   assert.equal(createdImages.length, 1, 'предзагрузка кадра запущена — Image создан');
@@ -531,42 +581,85 @@ test('showResult: фон появляется только после onload к�
   assert.equal(env.bg.css('background-image'), 'url("' + backdropUrl(C) + '")');
 });
 
-test('showResult: поздний onload от прошлого запроса чужой кадр не ставит', () => {
+test('showResult: поздний onload от прошлого запроса чужой кадр не ставит', (t) => {
   const A = { id: 1, title: 'Фильм A', release_date: '2020-01-01', poster_path: '/a-p.jpg', backdrop_path: '/a-b.jpg' };
   const C = { id: 3, title: 'Фильм C', release_date: '2020-01-01', poster_path: '/c-p.jpg', backdrop_path: '/c-b.jpg' };
-  /* Оба кандидата — в одном и том же пуле с самого начала: loadPool кэширует
-     пул по ключу «медиа + набор подборок» (poolKey), и без смены чипов
-     второе «Крутить» пул НЕ перезапрашивает — оно просто выбирает случайный
-     элемент из уже загруженного. Поэтому, чтобы гарантированно получить
-     ДРУГОЙ результат вторым спином, здесь подменяется Math.random (spin()
-     зовёт pick(list, Math.random) напрямую, без инъекции rnd), а не
-     poolCards34 — со вторым отдельным кандидатом в пуле подмена
-     poolCards34 между спинами всё равно бы на выбор не повлияла. */
-  const env = openRoulette34([A, C]);
+  /* Оба кандидата — в одном и том же пуле с самого начала (см. предыдущий
+     тест — почему не через смену poolCards34). Math.random подменяется,
+     чтобы первый спин детерминированно достался A, а второй — C. */
+  const env = openRoulette34([A, C], t);
   const realRandom = Math.random;
   try {
     Math.random = function () { return 0; };
     spinAndFlush(env);
-
-    /* Колбэк первого результата — снят на будущее, ДО отмены (resultLoader.onload
-       станет null при следующем «Крутить»), поэтому вызов ниже проверяет
-       именно защитную проверку result !== card в showResult, а не то, что
-       onload вообще не будет вызван. */
     const staleOnload = createdImages[0].onload;
     assert.equal(typeof staleOnload, 'function');
 
+    /* Второй спин запускается, НО НЕ прогоняется до конца — это и есть то
+       самое временнóе окно, ради которого заведён cancelResultLoader:
+       барабан ещё крутится, showResult(C) ещё не было. */
     Math.random = function () { return 0.9; };
-    spinAndFlush(env);
-    assert.equal(env.bg.css('background-image'), '', 'второй результат ещё не подгрузил свой кадр');
+    fire(env.root.find('.lumen-roulette__spin'), 'hover:enter');
+
+    /* Первая защита: cancelResultLoader() отработал СИНХРОННО, первой же
+       строкой spin() (через clearResult()), поэтому у ИСТИНСКОГО объекта
+       Image A обработчик уже снят. Ответь сеть сейчас по-настоящему — она
+       не попала бы никуда, потому что вызывать нечего. */
     assert.equal(createdImages[0].onload, null,
-      'cancelResultLoader реально снял onload с объекта Image A — второй спин не просто выбрал другой кадр, он ещё и погасил первый');
+      'onload у объекта Image A снят ДО конца прокрутки, а не только после showResult(C)');
 
+    /* Вторая, независимая защита — на случай, если бы отмена почему-то не
+       сработала: staleOnload — СОХРАНЁННАЯ ссылка на исходную функцию,
+       вызов в обход отменённого свойства img.onload. clearResult() в
+       начале spin() уже сбросила result в null (пока крутится барабан,
+       подтверждённого результата нет — см. её комментарий в
+       src/56_roulette.js), поэтому проверка result !== card внутри
+       замыкания (null !== A) блокирует запись и тут: даже синтетический
+       обход отменённого обработчика чужой кадр не ставит. */
     staleOnload();
-    assert.equal(env.bg.css('background-image'), '', 'устаревший onload от фильма A результат фильма C не тронул');
+    assert.equal(env.bg.css('background-image'), '',
+      'синтетический вызов снятого обработчика — заблокирован проверкой result !== card (result уже null)');
 
+    flushTimers();
     createdImages[createdImages.length - 1].onload();
     assert.equal(env.bg.css('background-image'), 'url("' + backdropUrl(C) + '")', 'актуальный onload по-прежнему работает');
   } finally {
     Math.random = realRandom;
   }
+});
+
+test('stop() → start(): фон, не успевший загрузиться до ухода с экрана, поднимается заново', (t) => {
+  const A = { id: 1, title: 'Фильм A', release_date: '2020-01-01', poster_path: '/a-p.jpg', backdrop_path: '/a-b.jpg' };
+  const env = openRoulette34([A], t);
+  spinAndFlush(env);
+  assert.equal(createdImages.length, 1, 'подготовка: предзагрузка кадра A запущена');
+
+  /* «Смотреть» → openCard → Lampa снимает слайд и зовёт stop(): bump()
+     поднимает gen и cancelResultLoader() гасит недогруженную картинку —
+     onload у неё пропадает, не долетев. */
+  env.comp.stop();
+  assert.equal(createdImages[0].onload, null, 'stop() погасил недогруженную предзагрузку');
+  assert.equal(env.bg.css('background-image'), '', 'фон так и остался пустым — картинка не успела');
+
+  /* «Назад»: Lampa возвращает слайд и зовёт start() — result (A) всё ещё
+     на месте (его снимает только clearResult, а не bump/stop), а фон под
+     ним не показан (resultBgShown=false) — предзагрузка перезапускается. */
+  env.comp.start();
+  assert.equal(createdImages.length, 2, 'start() запросил кадр A заново');
+  assert.equal(createdImages[1].src, backdropUrl(A));
+  createdImages[1].onload();
+  assert.equal(env.bg.css('background-image'), 'url("' + backdropUrl(A) + '")', 'фон результата восстановился после stop()/start()');
+});
+
+test('stop() → start(): уже показанный фон повторно не перезагружается', (t) => {
+  const A = { id: 1, title: 'Фильм A', release_date: '2020-01-01', poster_path: '/a-p.jpg', backdrop_path: '/a-b.jpg' };
+  const env = openRoulette34([A], t);
+  spinAndFlush(env);
+  createdImages[0].onload();
+  assert.equal(env.bg.css('background-image'), 'url("' + backdropUrl(A) + '")', 'подготовка: фон A уже показан до ухода с экрана');
+
+  env.comp.stop();
+  env.comp.start();
+  assert.equal(createdImages.length, 1, 'фон уже был показан (resultBgShown) — новой предзагрузки start() не запускает');
+  assert.equal(env.bg.css('background-image'), 'url("' + backdropUrl(A) + '")', 'фон остался тем же');
 });

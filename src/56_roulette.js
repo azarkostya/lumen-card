@@ -36,9 +36,11 @@
   /* нет и не заводится.                                                   */
   /*                                                                       */
   /* Отмена запросов: у компонента своё поколение gen (как у хаба,         */
-  /* src/46_hub.js). bump() поднимает его, гасит дескрипторы LC.sources и  */
-  /* запрос деталей, снимает таймер барабана. Зовут его смена медиа, смена */
-  /* набора чипов, stop() и destroy() — то есть каждый уход с экрана.      */
+  /* src/46_hub.js). bump() поднимает его, гасит дескрипторы LC.sources,   */
+  /* запрос деталей, таймер барабана и предзагрузку фона результата. Зовут */
+  /* его смена медиа, stop() и destroy() — то есть каждый уход с экрана.   */
+  /* Смена набора чипов bump() НЕ зовёт — только сбрасывает poolKey, чтобы */
+  /* следующий спин перезапросил пул; уже идущие запросы она не гасит.     */
   /* -------------------------------------------------------------------- */
 
   LC.roulette = (function () {
@@ -417,6 +419,11 @@
       var spinning = false;
       var result = null;
       var resultLoader = null;
+      /* Показан ли фон ТЕКУЩЕГО result — не «есть ли у карточки backdrop»,
+         а «долетела ли уже картинка». this.start() смотрит сюда, чтобы
+         решить, поднимать ли предзагрузку заново после stop()/start()
+         (Task 34). */
+      var resultBgShown = false;
       var lastFocus = null;
       var started = false;
       var filters = { unseen: unseenDefault(), short: false };
@@ -693,8 +700,15 @@
         /* Task 34: гасит и предзагрузку фона прошлого результата — иначе
            при повторном «Крутить» (gen не меняется, bump() тут не зовут)
            долетевший onload того результата подставил бы его кадр поверх
-           только что очищенного фона, пока крутится барабан. */
+           только что очищенного фона, пока крутится барабан. result тоже
+           сбрасывается: пока крутится барабан, подтверждённого результата
+           нет — это же не даёт this.start() при случайном stop()/start()
+           посреди прокрутки (пользователь ушёл с экрана, пока крутится
+           барабан) поднимать фон для карточки, которую resultBox уже не
+           показывает (см. loadResultBg и this.start ниже). */
         cancelResultLoader();
+        result = null;
+        resultBgShown = false;
         resultBox.empty();
         resultBox.removeClass('is-live');
         try { bg.css('background-image', ''); } catch (e) { }
@@ -715,32 +729,70 @@
         return node;
       }
 
+      /* Task 34: предзагрузка фона результата — тот же приём, что у героя и
+         бэкдропов (loadFrame в src/48_hero.js, src/50_backdrops.js): кадр
+         ставится только ЗАГРУЖЕННЫМ (присвоение background-image сразу
+         заставляет слабый ТВ декодировать w1280 уже на экране — заметный
+         фриз), onload и onerror гасятся сами собой через локальный guard
+         done — двойного срабатывания нет, а resultLoader освобождается сам,
+         не дожидаясь следующего cancelResultLoader(). От чужого кадра
+         защищают ДВЕ независимые вещи: cancelResultLoader() (см. bump/
+         clearResult) снимает onload/onerror СИНХРОННО, до того как
+         управление вернётся к сети — настоящий поздний ответ сети для
+         отменённой загрузки просто не попадёт никуда; а gen/result ниже —
+         вторая, отдельно работающая защита на случай вызова В ОБХОД
+         cancelResultLoader (например, руками, как в тесте): clearResult()
+         в начале spin() уже сбросила result в null (пока крутится барабан,
+         подтверждённого результата нет), а card этого замыкания никогда не
+         null — так что result !== card остаётся истиной все то время, пока
+         барабан крутится, и не только после showResult() нового результата.
+         Обе защиты проверены раздельно в test/roulette.test.mjs (тест
+         «поздний onload…»).
+
+         Таймаута на зависший запрос (как LOAD_TIMEOUT у героя/бэкдропов)
+         здесь нет: без onload/onerror resultLoader держится до следующего
+         clearResult()/bump() (следующее «Крутить», смена медиа или уход с
+         экрана) — для одной карточки на весь экран это не копится, в
+         отличие от героя, где кадр перезапрашивается на каждый фокус. */
+      function loadResultBg(card) {
+        var backdrop = imageUrl(card.backdrop_path, 'w1280');
+        if (!backdrop) return;
+        var img = new Image();
+        var captured = gen;
+        var done = false;
+        function finish(ok) {
+          if (done) return;
+          done = true;
+          img.onload = null;
+          img.onerror = null;
+          if (resultLoader === img) resultLoader = null;
+          if (!ok || gen !== captured || result !== card) return;
+          try { bg.css('background-image', 'url("' + backdrop + '")'); } catch (e) { }
+          resultBgShown = true;
+        }
+        img.onload = function () { finish(true); };
+        img.onerror = function () { finish(false); };
+        resultLoader = img;
+        img.src = backdrop;
+      }
+
       function showResult(card) {
         result = card;
         cancelResultLoader();
+        resultBgShown = false;
         /* Task 34: фон снимается безусловно, до попытки поставить новый —
-           у карточки без backdrop_path (или при ошибке загрузки) кадр
-           прошлого результата иначе остался бы висеть навсегда: единственный
-           путь его снять раньше был clearResult() в setMedia. */
+           страховка showResult() САМОЙ ЗА СЕБЯ, а не первая линия обороны.
+           При единственном сегодняшнем пути сюда (из spin()) она уже
+           избыточна: clearResult() в начале spin() и очистила фон, и
+           сбросила result в null, а cancelResultLoader() успевает снять
+           onload/onerror синхронно раньше, чем сеть вообще может ответить —
+           см. loadResultBg выше и тесты test/roulette.test.mjs («поздний
+           onload…», мутацией проверено: без этой строки все тесты файла
+           остаются зелёными). Строка остаётся ради контракта самой функции
+           — на случай будущего вызова showResult() в обход spin()/
+           clearResult(), которого сейчас в коде нет. */
         try { bg.css('background-image', ''); } catch (e) { }
-        var backdrop = imageUrl(card.backdrop_path, 'w1280');
-        if (backdrop) {
-          /* Task 34: кадр ставится только загруженным. Присвоение
-             background-image сразу заставляет слабый ТВ декодировать w1280
-             уже на экране (заметный фриз), а при ошибке сети на месте
-             нового кадра остался бы прошлый. captured/result — двойная
-             проверка на устаревший колбэк: gen меняется при уходе с экрана
-             (bump из stop/destroy/setMedia), а result — при повторном
-             «Крутить» без ухода с экрана, когда gen тот же самый. */
-          var img = new Image();
-          var captured = gen;
-          img.onload = function () {
-            if (gen !== captured || result !== card) return;
-            try { bg.css('background-image', 'url("' + backdrop + '")'); } catch (e2) { }
-          };
-          img.src = backdrop;
-          resultLoader = img;
-        }
+        loadResultBg(card);
         resultBox.empty();
         resultBox.addClass('is-live');
         resultBox.append($('<div class="lumen-roulette__rtitle">' + esc(cardTitle(card)) + '</div>'));
@@ -957,6 +1009,15 @@
         try { act = Lampa.Activity.active(); } catch (eAct) { }
         if (act && act.activity && act.activity !== this.activity) return;
         started = true;
+        /* Task 34: возврат с просмотра — this.stop() уже прошёл, bump()
+           погасил gen и недогруженную предзагрузку (resultLoader на этот
+           момент всегда null). Если результат остался (result — не спин
+           был прерван, см. clearResult), а фон под ним так и не успел
+           показаться (resultBgShown всё ещё false) — поднимаем предзагрузку
+           заново тем же loadResultBg. Если фон уже был показан, трогать
+           нечего: комментарий у this.stop про «start() вернёт его вместе с
+           выбором» держится и для фона тоже, а не только для resultBox. */
+        if (result && !resultBgShown && !resultLoader) loadResultBg(result);
         motionClass(root);
         Lampa.Controller.add('content', {
           toggle: function () {
