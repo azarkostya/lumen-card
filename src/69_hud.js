@@ -2,8 +2,8 @@
   /* Task 31 (фаза 4): HUD отладки на экране ТВ.                           */
   /*                                                                       */
   /* Без adb на телевизоре нет консоли, а LC.perf (src/68_perf.js) видно     */
-  /* только один раз — уведомлением при понижении режима (Lampa.Noty.show,  */
-  /* 68_perf.js:257-259); текущий режим и частоту кадров посмотреть негде.  */
+  /* только один раз — уведомлением при понижении режима (notyOnce() там же); */
+  /* текущий режим и частоту кадров посмотреть негде.                       */
   /* HUD рисует это живьём, в углу экрана: FPS, число долгих задач           */
   /* (PerformanceObserver 'longtask'), разрешение и devicePixelRatio, режим  */
   /* анимаций (LC.motionMode) и число полноэкранных слоёв плагина (герой,   */
@@ -46,10 +46,10 @@
       try { return document.querySelectorAll(FULL).length; } catch (e) { return 0; }
     }
 
-    /* window.requestAnimationFrame/cancelAnimationFrame/performance.now —
-       через window., как в LC.perf (src/68_perf.js, raf/unraf/now): и в
-       браузере ТВ, и в тестовом окружении window подменяется целиком, а
-       глобальные requestAnimationFrame/performance там не заведены. */
+    /* window.requestAnimationFrame/cancelAnimationFrame — через window., как
+       в LC.perf (src/68_perf.js, raf/unraf): и в браузере ТВ, и в тестовом
+       окружении window подменяется целиком, а глобальный
+       requestAnimationFrame там не заведён. */
     function raf(fn) {
       try {
         if (window.requestAnimationFrame) return window.requestAnimationFrame(fn);
@@ -63,25 +63,34 @@
       } catch (e) { }
     }
 
-    function now() {
-      try {
-        if (window.performance && typeof window.performance.now === 'function') return window.performance.now();
-      } catch (e) { }
-      return Date.now();
-    }
-
-    /* Раз в секунду переписывает строку узла и планирует следующий кадр.
-       Счётчик frames — число кадров за истекшую секунду, то есть и есть
-       FPS; between-кадры сам узел не трогают, чтобы не грузить layout
-       чаще, чем раз в секунду. */
+    /* state.last обязан жить в ТОЙ ЖЕ шкале, что и t (DOMHighResTimeStamp
+       rAF, отсчитываемый от старта документа, обычно единицы-десятки тысяч
+       мс) — раньше его заводили через performance.now()/Date.now() отдельно
+       от paint(), и на устройстве без window.performance (fallback на
+       Date.now(), ≈1.7e12) шкалы расходились на порядки: t - state.last
+       навсегда оставалось глубоко отрицательным, порог 1000 не наступал
+       никогда, и HUD молча не обновлялся вовсе. Первый кадр цикла поэтому
+       сам становится опорной точкой (state.last ещё 0 — падший, а не
+       настоящий момент времени) и в счётчик кадров не идёт. */
     function paint(t) {
       if (!state) return;
+      if (!state.last) {
+        state.last = t;
+        state.raf = raf(paint);
+        return;
+      }
       state.frames++;
-      if (t - state.last >= 1000) {
+      var elapsed = t - state.last;
+      if (elapsed >= 1000) {
         var mode = 'n/a';
         try { mode = LC.motionMode(); } catch (e) { }
+        /* fps — кадры В СЕКУНДУ, а не «кадры за истёкшее окно»: окно редко
+           ровно 1000мс (следующий rAF приходит уже ПОСЛЕ порога), и при
+           долгой задаче может растянуться до 1300+ мс — то самое искажение,
+           ради обнаружения которого HUD и нужен, иначе занизилось бы вдвое
+           реже, чем должно, и осталось незамеченным. */
         state.node.textContent = format({
-          fps: state.frames, w: window.innerWidth, h: window.innerHeight,
+          fps: Math.round(state.frames * 1000 / elapsed), w: window.innerWidth, h: window.innerHeight,
           dpr: Math.round((window.devicePixelRatio || 1) * 100) / 100,
           mode: mode, long: state.long, layers: layers()
         });
@@ -95,14 +104,17 @@
       var node = document.createElement('div');
       node.className = 'lumen-hud';
       document.body.appendChild(node);
-      state = { node: node, frames: 0, last: now(), long: 0, raf: 0, obs: null };
-      /* 'longtask' — не во всех WebView Android TV: подписываемся, только
-         если тип реально в supportedEntryTypes, иначе PerformanceObserver
-         бросил бы исключение при observe(). */
+      state = { node: node, frames: 0, last: 0, long: 0, raf: 0, obs: null };
+      /* window.PerformanceObserver — не голый PerformanceObserver: тот же
+         повод, что у raf/unraf выше (окружение подменяет window целиком, а
+         глобал — нет; в Node, например, PerformanceObserver — свой глобал
+         из perf_hooks, никак не связанный с window). 'longtask' — не во
+         всех WebView Android TV: подписываемся, только если тип реально в
+         supportedEntryTypes, иначе observe() бросил бы исключение. */
       try {
-        if (window.PerformanceObserver && PerformanceObserver.supportedEntryTypes &&
-            PerformanceObserver.supportedEntryTypes.indexOf('longtask') > -1) {
-          state.obs = new PerformanceObserver(function (list) {
+        if (window.PerformanceObserver && window.PerformanceObserver.supportedEntryTypes &&
+            window.PerformanceObserver.supportedEntryTypes.indexOf('longtask') > -1) {
+          state.obs = new window.PerformanceObserver(function (list) {
             if (state) state.long += list.getEntries().length;
           });
           state.obs.observe({ entryTypes: ['longtask'] });

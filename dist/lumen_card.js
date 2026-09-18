@@ -2459,6 +2459,8 @@ css.push('.lumen-ambient .lumen-ambient__clock{position:absolute;right:2.81em;bo
 
 
 
+
+
 css.push('.lumen-hud{position:fixed;top:.3em;left:.3em;z-index:99999;padding:.2em .5em;font:.7em/1.4 Consolas,"Courier New",monospace;color:#0f0;background:rgba(0,0,0,.75);border-radius:.3em;pointer-events:none;white-space:nowrap}');
 
 
@@ -19222,12 +19224,10 @@ if (id && window.cancelAnimationFrame) window.cancelAnimationFrame(id);
 } catch (e) { }
 }
 
-function now() {
-try {
-if (window.performance && typeof window.performance.now === 'function') return window.performance.now();
-} catch (e) { }
-return Date.now();
-}
+
+
+
+
 
 
 
@@ -19235,12 +19235,23 @@ return Date.now();
 
 function paint(t) {
 if (!state) return;
+if (!state.last) {
+state.last = t;
+state.raf = raf(paint);
+return;
+}
 state.frames++;
-if (t - state.last >= 1000) {
+var elapsed = t - state.last;
+if (elapsed >= 1000) {
 var mode = 'n/a';
 try { mode = LC.motionMode(); } catch (e) { }
+
+
+
+
+
 state.node.textContent = format({
-fps: state.frames, w: window.innerWidth, h: window.innerHeight,
+fps: Math.round(state.frames * 1000 / elapsed), w: window.innerWidth, h: window.innerHeight,
 dpr: Math.round((window.devicePixelRatio || 1) * 100) / 100,
 mode: mode, long: state.long, layers: layers()
 });
@@ -19254,14 +19265,17 @@ if (state) return;
 var node = document.createElement('div');
 node.className = 'lumen-hud';
 document.body.appendChild(node);
-state = { node: node, frames: 0, last: now(), long: 0, raf: 0, obs: null };
+state = { node: node, frames: 0, last: 0, long: 0, raf: 0, obs: null };
+
+
+
 
 
 
 try {
-if (window.PerformanceObserver && PerformanceObserver.supportedEntryTypes &&
-PerformanceObserver.supportedEntryTypes.indexOf('longtask') > -1) {
-state.obs = new PerformanceObserver(function (list) {
+if (window.PerformanceObserver && window.PerformanceObserver.supportedEntryTypes &&
+window.PerformanceObserver.supportedEntryTypes.indexOf('longtask') > -1) {
+state.obs = new window.PerformanceObserver(function (list) {
 if (state) state.long += list.getEntries().length;
 });
 state.obs.observe({ entryTypes: ['longtask'] });
@@ -20312,7 +20326,13 @@ if (name === 'lumen_enabled') { LC.applyEnabledPref(); return true; }
 if (name === 'lumen_motion') { LC.applyMotionMode(); return true; }
 
 
-if (name === 'lumen_debug_hud') { LC.hud.sync(); return true; }
+
+
+
+if (name === 'lumen_debug_hud') {
+try { if (LC.hud) LC.hud.sync(); } catch (eHud) {}
+return true;
+}
 if (name === 'lumen_slideshow' || name === 'lumen_slide_interval') { LC.applySlideshowPref(); return true; }
 if (name === 'lumen_menus') { LC.applyMenusPref(); return true; }
 if (name === 'lumen_torrents') { LC.applyTorrentsPref(); return true; }

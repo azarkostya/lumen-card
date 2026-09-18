@@ -806,8 +806,14 @@
     if (name === 'lumen_enabled') { LC.applyEnabledPref(); return true; }
     if (name === 'lumen_motion') { LC.applyMotionMode(); return true; }
     /* Task 31 (фаза 4): HUD отладки — sync() сам решает, показать узел или
-       снять его, по свежему значению настройки. */
-    if (name === 'lumen_debug_hud') { LC.hud.sync(); return true; }
+       снять его, по свежему значению настройки. onChangeFor (ниже) зовёт
+       applyPrefChange без своего try/catch — исключение ушло бы в вендора
+       Lampa, поэтому createElement/appendChild/removeChild внутри sync()
+       защищены здесь же, как и остальные ветки этой функции. */
+    if (name === 'lumen_debug_hud') {
+      try { if (LC.hud) LC.hud.sync(); } catch (eHud) {}
+      return true;
+    }
     if (name === 'lumen_slideshow' || name === 'lumen_slide_interval') { LC.applySlideshowPref(); return true; }
     if (name === 'lumen_menus') { LC.applyMenusPref(); return true; }
     if (name === 'lumen_torrents') { LC.applyTorrentsPref(); return true; }

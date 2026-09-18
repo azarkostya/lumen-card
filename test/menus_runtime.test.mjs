@@ -71,10 +71,12 @@ function setup(opts) {
   };
   LC.reviews = { render: () => log.push('reviews-render'), clearRow: () => log.push('reviews-clear'), cancel: () => { } };
   LC.backdrops = { apply: () => null, cancel: () => log.push('bg-cancel') };
-  /* Task 31 (фаза 4): HUD отладки — applyPrefChange зовёт LC.hud.sync()
-     напрямую (без try/catch), поэтому в тестовом LC он обязан существовать;
-     сам HUD (src/69_hud.js) здесь не грузится — точка применения проверяется
-     в test/hud.test.mjs. */
+  /* Task 31 (фаза 4, ревью качества): applyPrefChange зовёт LC.hud.sync() под
+     try/catch и проверкой if (LC.hud) — отсутствие LC.hud само по себе
+     ничего не сломало бы. Стаб здесь не ради защиты от падения, а чтобы
+     журналом log проверить, что для lumen_debug_hud вызов РЕАЛЬНО случился
+     (тест «долг ревью (п.2)» ниже). Сам HUD (src/69_hud.js) здесь не
+     грузится — покрытие самого модуля в test/hud.test.mjs. */
   LC.hud = { sync: () => log.push('hud-sync'), stop: () => log.push('hud-stop') };
   /* Task 32: класс режима движения на body — фейковый $('body'). */
   const body = new FakeEl(['body-mock']);

@@ -12,10 +12,6 @@ import { readFileSync } from 'node:fs';
    файла node --test завершается сам — в очереди не остаётся ни одного
    реального таймера. */
 
-globalThis.PLUGIN = 'lumen_card';
-const warnLog = [];
-globalThis.warn = function (msg, err) { warnLog.push({ msg: msg, err: err }); };
-
 const SRC = readFileSync(new URL('../src/69_hud.js', import.meta.url), 'utf8');
 
 function fresh(extra) {
@@ -66,11 +62,22 @@ function env(opts) {
         node.parentNode = null;
       }
     },
-    /* HUD запрашивает только '.lumen-hud' — простого сравнения по className
-       достаточно, полноценный движок селекторов здесь не нужен. */
+    /* Единственный querySelectorAll в модуле — внутри layers(), с составным
+       селектором FULL (11 частей через запятую, одна из них с пробелом-
+       потомком). Полноценного движка селекторов здесь нет: разбор по запятой
+       плюс сравнение по ПОСЛЕДНЕМУ классу каждой части (для «.a .b» — по
+       .b) — этого достаточно, чтобы честно посчитать плоский список узлов
+       bodyChildren по любому из классов FULL, и заодно совпадает с
+       '.lumen-hud' (одна часть без запятой и без пробела). */
     querySelectorAll: (sel) => {
-      const cls = sel.replace('.', '');
-      return bodyChildren.filter((n) => n.className === cls);
+      const parts = ('' + sel).split(',').map((p) => p.trim());
+      return bodyChildren.filter((n) => {
+        const classes = ('' + n.className).split(/\s+/).filter(Boolean);
+        return parts.some((p) => {
+          const last = p.split(/\s+/).pop();
+          return last.charAt(0) === '.' && classes.indexOf(last.slice(1)) !== -1;
+        });
+      });
     }
   };
 
@@ -83,7 +90,6 @@ function env(opts) {
     innerWidth: opts.width || 1920,
     innerHeight: opts.height || 1080,
     devicePixelRatio: opts.dpr || 2,
-    performance: { now: () => nowMs },
     /* Ручная очередь: кадр не выполняется сам, только через tick() —
        поэтому висящих реальных таймеров не остаётся и после последнего
        теста node --test завершает процесс сам. */
@@ -92,10 +98,24 @@ function env(opts) {
       cancelled.push(id);
       for (let i = 0; i < frames.length; i++) if (frames[i].id === id) { frames.splice(i, 1); return; }
     }
-    /* window.PerformanceObserver намеренно не задан — окружение теста
-       воспроизводит браузер без longtask (см. src/69_hud.js: проверка
-       supportedEntryTypes перед подпиской). */
   };
+
+  /* opts.longtask поднимает фейковый PerformanceObserver с нужным
+     supportedEntryTypes; без него window.PerformanceObserver не задан
+     вовсе — окружение воспроизводит браузер без longtask (см. src/69_hud.js:
+     проверка supportedEntryTypes перед подпиской). observers — журнал
+     observe()/disconnect() по инстансам, obsCallbacks — их колбэки, чтобы
+     дёргать longtask-записи руками. */
+  const observers = [];
+  const obsCallbacks = [];
+  if (opts.longtask) {
+    win.PerformanceObserver = function (cb) {
+      obsCallbacks.push(cb);
+      this.observe = (init) => { observers.push({ op: 'observe', init }); };
+      this.disconnect = () => { observers.push({ op: 'disconnect' }); };
+    };
+    win.PerformanceObserver.supportedEntryTypes = opts.longtaskSupported !== false ? ['longtask'] : [];
+  }
 
   globalThis.document = doc;
   globalThis.window = win;
@@ -113,7 +133,7 @@ function env(opts) {
   });
 
   return {
-    api, store, bodyChildren, cancelled,
+    api, store, bodyChildren, cancelled, observers,
     tick: (ms) => {
       const frame = frames.shift();
       if (!frame) return false;
@@ -122,7 +142,12 @@ function env(opts) {
       return true;
     },
     framesLeft: () => frames.length,
-    setEnabled: (v) => { enabledRef.value = v; }
+    setEnabled: (v) => { enabledRef.value = v; },
+    /* Кладёт узел прямо в bodyChildren, минуя api — для layers()/FULL. */
+    addLayer: (className) => { const n = makeNode('div'); n.className = className; doc.body.appendChild(n); return n; },
+    /* Имитирует одну longtask-запись PerformanceObserver — на ВСЕ подписки
+       разом, как это делает реальный браузер. */
+    fireLongtask: (entries) => { obsCallbacks.forEach((cb) => cb({ getEntries: () => entries })); }
   };
 }
 
@@ -154,26 +179,82 @@ test('hud: включён — ровно один узел .lumen-hud, повт�
   assert.ok(e.cancelled.length > 0, 'висящий кадр отменён через cancelAnimationFrame');
 });
 
+test('hud: layers() — составной селектор FULL считает узлы по любому из классов (примитивный разбор запятых в тестовой заглушке)', () => {
+  const e = env();
+  assert.equal(e.api.layers(), 0, 'без слоёв — ноль');
+  e.addLayer('lumen-fx');
+  e.addLayer('lumen-ambient');
+  assert.equal(e.api.layers(), 2, 'оба узла посчитаны через FULL');
+});
+
 /* ====================================================================== */
-/* paint(): rAF-цикл — раз в секунду модельного времени переписывает       */
-/* textContent узла тем же форматом, что и format(). Секунда набирается    */
-/* двумя кадрами по 600мс: меньше секунды текст не трогается, после —      */
-/* обновляется.                                                            */
+/* paint(): rAF-цикл. Первый кадр цикла — опорная точка (state.last ещё 0), */
+/* в счётчик не идёт. Дальше окно в 1000мс набирается несколькими кадрами:  */
+/* meньше 1000мс — текст не трогаем; наступил порог — fps = кадры * 1000 / */
+/* фактический элапсед (не «сырое число кадров» — окно почти никогда не    */
+/* ровно 1000мс). Второе окно проверяет, что счётчик кадров и опорное      */
+/* время РЕАЛЬНО сбрасываются: без сброса fps во втором окне удвоился бы    */
+/* (или собрался бы по чужой опоре) вместо повторения того же значения.    */
 /* ====================================================================== */
 
-test('hud: после кадров, набравших больше секунды модельного времени, textContent узла совпадает с format(...) при тех же данных', () => {
+test('hud: два окна подряд — fps считается по фактическому элапседу и не удваивается во втором окне', () => {
   const e = env({ store: { lumen_debug_hud: true }, width: 1920, height: 1080, dpr: 2, mode: 'full' });
-
   e.api.sync();
-  assert.equal(e.bodyChildren[0].textContent, '', 'до истечения секунды текст ещё не написан');
 
-  assert.ok(e.tick(600), 'первый кадр');
-  assert.equal(e.bodyChildren[0].textContent, '', 'меньше секунды — текст не трогаем');
+  assert.ok(e.tick(600), 'первый кадр — опорная точка, ничего не считает и не пишет');
+  assert.equal(e.bodyChildren[0].textContent, '', 'текст ещё не написан');
 
-  assert.ok(e.tick(600), 'второй кадр — секунда истекла (600+600=1200мс)');
-  const expected = e.api.format({ fps: 2, w: 1920, h: 1080, dpr: 2, mode: 'full', long: 0, layers: e.api.layers() });
-  assert.equal(e.bodyChildren[0].textContent, expected);
-  assert.ok(e.framesLeft() >= 1, 'после отрисовки следующий кадр снова запрошен');
+  assert.ok(e.tick(600), 'второй кадр окна 1 — элапсед 600мс < 1000, текст не трогаем');
+  assert.equal(e.bodyChildren[0].textContent, '');
+
+  assert.ok(e.tick(600), 'третий кадр окна 1 — элапсед от опоры 1200мс >= 1000, отрисовка');
+  /* Литерал, а не e.api.layers(): ожидание не должно вычисляться тем же
+     кодом, который проверяется (без слоёв в этом env — 0). fps = round(2
+     кадра * 1000 / 1200мс) = round(1.667) = 2. */
+  const win1 = e.api.format({ fps: 2, w: 1920, h: 1080, dpr: 2, mode: 'full', long: 0, layers: 0 });
+  assert.equal(e.bodyChildren[0].textContent, win1, 'окно 1: 2 кадра за 1200мс');
+
+  assert.ok(e.tick(600), 'первый кадр окна 2 — элапсед от новой опоры 600мс < 1000');
+  assert.equal(e.bodyChildren[0].textContent, win1, 'текст ещё не тронут окном 2');
+
+  assert.ok(e.tick(600), 'второй кадр окна 2 — снова 1200мс от опоры');
+  const win2 = e.api.format({ fps: 2, w: 1920, h: 1080, dpr: 2, mode: 'full', long: 0, layers: 0 });
+  assert.equal(e.bodyChildren[0].textContent, win2,
+    'то же значение fps, что и в окне 1 — счётчик кадров и опорное время реально сброшены, а не растут дальше');
+});
+
+/* ====================================================================== */
+/* PerformanceObserver('longtask'): подписка только при поддержке,         */
+/* накопление long по колбэку, снятие в stop().                            */
+/* ====================================================================== */
+
+test('hud: PerformanceObserver — подписывается только при supportedEntryTypes с longtask', () => {
+  const supported = env({ store: { lumen_debug_hud: true }, longtask: true, longtaskSupported: true });
+  supported.api.sync();
+  assert.ok(supported.observers.some((x) => x.op === 'observe'), 'longtask поддержан — observe() вызван');
+
+  const unsupported = env({ store: { lumen_debug_hud: true }, longtask: true, longtaskSupported: false });
+  unsupported.api.sync();
+  assert.equal(unsupported.observers.length, 0, 'longtask не в supportedEntryTypes — observe() не вызван вовсе');
+});
+
+test('hud: PerformanceObserver — накопленные longtask-записи доезжают до строки, disconnect() зовётся в stop()', () => {
+  const e = env({ store: { lumen_debug_hud: true }, longtask: true, width: 1920, height: 1080, dpr: 2, mode: 'full' });
+  e.api.sync();
+
+  e.fireLongtask([{}, {}]);
+  e.fireLongtask([{}]);
+
+  assert.ok(e.tick(600), 'опорный кадр');
+  assert.ok(e.tick(600), 'элапсед 600мс — рано');
+  assert.ok(e.tick(600), 'элапсед 1200мс — отрисовка');
+
+  const expected = e.api.format({ fps: 2, w: 1920, h: 1080, dpr: 2, mode: 'full', long: 3, layers: 0 });
+  assert.equal(e.bodyChildren[0].textContent, expected, 'три накопленные longtask-записи видны в строке');
+
+  e.store.lumen_debug_hud = false;
+  e.api.sync();
+  assert.ok(e.observers.some((x) => x.op === 'disconnect'), 'disconnect() вызван при stop()');
 });
 
 /* ====================================================================== */
