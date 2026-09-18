@@ -246,9 +246,40 @@ function fakeDom(opts) {
       set: function (v) { img._src = v; }
     });
   }
+  /* Task 35: подкраска фона пишется в свой <style id="lumen-accent">
+     (writeAccentStyle, src/57_color.js), поэтому заглушке нужен минимальный
+     <head>: создание узла, поиск по id и ПОРЯДОК детей — по нему проверяется,
+     что наш узел стоит после основной таблицы плагина. */
+  const head = {
+    childNodes: [],
+    lastChild: null,
+    appendChild: function (node) {
+      const at = head.childNodes.indexOf(node);
+      if (at !== -1) head.childNodes.splice(at, 1);
+      head.childNodes.push(node);
+      node.parentNode = head;
+      head.lastChild = node;
+      return node;
+    },
+    removeChild: function (node) {
+      const at = head.childNodes.indexOf(node);
+      if (at !== -1) head.childNodes.splice(at, 1);
+      node.parentNode = null;
+      head.lastChild = head.childNodes.length ? head.childNodes[head.childNodes.length - 1] : null;
+      return node;
+    }
+  };
+  state.head = head;
   const document = {
+    head: head,
+    getElementById: function (id) {
+      for (const node of head.childNodes) if (node.id === id) return node;
+      return null;
+    },
     createElement: function (tag) {
-      if (tag !== 'canvas') return {};
+      if (tag !== 'canvas') {
+        return { tagName: tag.toUpperCase(), id: '', type: '', textContent: '', innerHTML: '', parentNode: null };
+      }
       return {
         width: 0,
         height: 0,
@@ -270,8 +301,11 @@ function fakeDom(opts) {
     }
   };
   /* Lampa.TMDB.image — единственное, что модуль берёт у Lampa: адрес
-     маленькой копии постера (он уважает TMDB-прокси пользователя). */
-  const Lampa = { TMDB: { image: function (path) { return 'https://image.tmdb.org/' + path; } } };
+     маленькой копии постера. Task 35: свой прокси пользователя имитируется
+     опцией proxy — тогда адрес идёт не на image.tmdb.org, и у fromImage
+     появляется осмысленный запасной адрес. */
+  const host = options.proxy || 'https://image.tmdb.org/';
+  const Lampa = { TMDB: { image: function (path) { return host + path; } } };
   const window = { document: document, Lampa: Lampa };
   return { state: state, globals: { window: window, document: document, Image: FakeImage, Lampa: Lampa } };
 }
@@ -338,16 +372,42 @@ test('color: fromImage — второй запрос того же постер�
   });
 });
 
-test('color: кэш помнит и неудачу — по тому же постеру повторно не ходим', () => {
+/* Task 35: кэш помнит только удачу. Прежде в него ложился и отказ, и одна
+   неудачная загрузка (сеть моргнула, прокси ответил 502) закрывала постеру
+   дорогу к цвету до конца сеанса — с точки зрения пользователя навсегда. */
+test('color: провал не кэшируется — за тем же постером идём заново', () => {
   const dom = fakeDom({ tainted: true });
   withDom(dom, () => {
     const api = fresh().api;
     api.fromImage('https://image.tmdb.org/t/p/w185/e.jpg', () => {});
     dom.state.images[0].onload();
+    assert.equal(api.cacheSize(), 0, 'в кэше пусто');
     let second = 'нет ответа';
     api.fromImage('https://image.tmdb.org/t/p/w185/e.jpg', (rgb) => { second = rgb; });
-    assert.equal(dom.state.images.length, 1);
+    assert.equal(dom.state.images.length, 2, 'вторая попытка создаёт новую картинку');
+    dom.state.images[1].onload();
     assert.equal(second, null);
+  });
+});
+
+/* Task 35: отказ загрузки больше не молчит — иначе на устройстве нельзя
+   отличить «настройка выключена» от «CORS запретил». */
+test('color: отказ загрузки и закрытые пиксели пишут в лог адрес постера', () => {
+  const dom = fakeDom({ tainted: true });
+  withDom(dom, () => {
+    const api = fresh().api;
+    warnLog = [];
+    api.fromImage('https://image.tmdb.org/t/p/w185/log.jpg', () => {});
+    dom.state.images[0].onload();
+    assert.equal(warnLog.length, 1, 'закрытые пиксели залогированы');
+    assert.match(warnLog[0].msg, /log\.jpg/);
+
+    warnLog = [];
+    api.fromImage('https://image.tmdb.org/t/p/w185/err.jpg', () => {});
+    dom.state.images[1].onerror();
+    assert.equal(warnLog.length, 1, 'отказ загрузки залогирован');
+    assert.match(warnLog[0].msg, /err\.jpg/);
+    warnLog = [];
   });
 });
 
@@ -402,22 +462,45 @@ test('color: pending считает незавершённые картинки'
 /* LC с подменёнными зависимостями CSS-модуля и Lampa.TMDB. */
 function accentCtx(opts) {
   const options = opts || {};
-  const state = { injects: 0 };
+  const state = { injects: 0, rules: 0 };
+  let LCref = null;
   const deps = {
+    /* Task 35: правила подкраски строит src/30_css.js (LC.accentCss), здесь
+       достаточно узнаваемого текста, который зависит от доминанты, — по нему
+       видно и что узел переписан, и каким цветом. */
+    accentCss: function () {
+      state.rules++;
+      const dom = LCref.accent.dominant();
+      return '.lumen-main{background-color:' + (dom ? LCref.color.hex(dom) : '#000000') + '}';
+    },
     pref: function (name, def) {
       if (Object.prototype.hasOwnProperty.call(options.prefs || {}, name)) return options.prefs[name];
       return def;
     },
     enabled: function () { return options.enabled === undefined ? true : options.enabled; },
-    /* Ревью фазы 3 (Important 2): акцент от постера считается и применяется
-       только при полных анимациях — пересборка ~81 КБ стилей на каждую
-       остановку фокуса на слабом ТВ дороже самого акцента. */
+    /* Task 35: гейт — «движение выключено целиком» ('off'), а не «полные
+       анимации»: на ТВ автодетект держит lite, и прежний гейт гасил там
+       подкраску навсегда. */
     motionMode: function () { return options.motion || 'full'; },
     tokens: function () { return { bg: options.bg || BG }; },
-    injectCss: function () { state.injects++; }
+    /* Полная пересборка таблицы. Task 35: она сама зовёт LC.accent.restyle()
+       последней строкой (src/30_css.js), и заглушка это повторяет — иначе
+       тесты не увидели бы ни обновления узла подкраски, ни его переезда в
+       конец <head>. */
+    injectCss: function () {
+      state.injects++;
+      LCref.accent.restyle();
+    }
   };
   const ctx = fresh(deps);
+  LCref = ctx.LC;
   return { api: ctx.api, LC: ctx.LC, state: state };
+}
+
+/* Узел подкраски в <head> заглушки: null, когда его нет. */
+function accentNode(dom) {
+  for (const node of dom.state.head.childNodes) if (node.id === 'lumen-accent') return node;
+  return null;
 }
 
 test('accent: выключенная настройка не трогает акцент и не грузит картинок', () => {
@@ -431,7 +514,11 @@ test('accent: выключенная настройка не трогает ак
   });
 });
 
-test('accent: включённая настройка считает акцент по постеру и пересобирает CSS', () => {
+/* Task 35: на главной (без второго аргумента) применение — это ОДНА запись
+   в свой <style>, а не пересборка всей таблицы плагина: доминанта меняется
+   на каждой остановке фокуса, и переразбор ста килобайт стилей на слабом ТВ
+   фризит ровно момент листания ряда. */
+test('accent: на главной цвет пишется в свой <style>, а не пересобирает таблицу', () => {
   const dom = fakeDom({});
   withDom(dom, () => {
     const ctx = accentCtx({ prefs: { lumen_accent_auto: 'true' } });
@@ -442,7 +529,48 @@ test('accent: включённая настройка считает акцен�
     const t = ctx.LC.accent.current();
     assert.ok(t, 'акцент посчитан');
     assert.match(t.color, /^#[0-9A-F]{6}$/);
+    assert.equal(ctx.state.injects, 0, 'полной пересборки CSS нет');
+    const node = accentNode(dom);
+    assert.ok(node, 'узел подкраски создан');
+    assert.match(node.textContent, /^\.lumen-main\{background-color:#[0-9A-F]{6}\}$/, node.textContent);
+    assert.equal(node.tagName, 'STYLE');
+  });
+});
+
+/* Открытая карточка — другое дело: там акцент виден весь (кнопки, кольца
+   фокуса, подсветки в полусотне правил таблицы), и её собирает theme() в
+   src/30_css.js. Второй аргумент applyFor и означает «фильм открыт». */
+test('accent: в карточке акцент доезжает до всей таблицы — одна пересборка', () => {
+  const dom = fakeDom({});
+  withDom(dom, () => {
+    const ctx = accentCtx({ prefs: { lumen_accent_auto: 'true' } });
+    ctx.LC.accent.applyFor({ poster_path: '/a.jpg' }, true);
+    dom.state.images[0].onload();
+    assert.ok(ctx.LC.accent.current(), 'акцент посчитан');
     assert.equal(ctx.state.injects, 1, 'CSS пересобран один раз');
+    assert.ok(accentNode(dom), 'узел подкраски тоже на месте');
+  });
+});
+
+/* Цвет, поднятый на главной, в таблицу ещё не попал — и открытие той же
+   карточки обязано это заметить, иначе фильм открылся бы с акцентом из
+   настроек (applied в src/57_color.js). */
+test('accent: карточка с уже посчитанным на главной цветом всё равно пересобирает таблицу', () => {
+  const dom = fakeDom({});
+  withDom(dom, () => {
+    const ctx = accentCtx({ prefs: { lumen_accent_auto: 'true' } });
+    ctx.LC.accent.applyFor({ poster_path: '/a.jpg' });
+    dom.state.images[0].onload();
+    const onMain = ctx.LC.accent.current().color;
+    assert.equal(ctx.state.injects, 0);
+
+    ctx.LC.accent.applyFor({ poster_path: '/a.jpg' }, true);
+    assert.equal(dom.state.images.length, 1, 'второй картинки нет — цвет из кэша');
+    assert.equal(ctx.LC.accent.current().color, onMain, 'цвет тот же');
+    assert.equal(ctx.state.injects, 1, 'но таблица его ещё не знала');
+
+    ctx.LC.accent.applyFor({ poster_path: '/a.jpg' }, true);
+    assert.equal(ctx.state.injects, 1, 'согласованную таблицу второй раз не пересобираем');
   });
 });
 
@@ -450,12 +578,13 @@ test('accent: постера нет — переопределение сним�
   const dom = fakeDom({});
   withDom(dom, () => {
     const ctx = accentCtx({ prefs: { lumen_accent_auto: 'true' } });
-    ctx.LC.accent.applyFor({ poster_path: '/a.jpg' });
+    ctx.LC.accent.applyFor({ poster_path: '/a.jpg' }, true);
     dom.state.images[0].onload();
     assert.ok(ctx.LC.accent.current());
-    ctx.LC.accent.applyFor({ });
+    ctx.LC.accent.applyFor({ }, true);
     assert.equal(ctx.LC.accent.current(), null, 'акцент вернулся к выбранному в настройках');
     assert.equal(ctx.state.injects, 2, 'пересборка на применение и на сброс');
+    assert.equal(accentNode(dom), null, 'узел подкраски снят вместе с цветом');
   });
 });
 
@@ -470,36 +599,48 @@ test('accent: пиксели закрыты — акцент из настрое
   });
 });
 
-/* Ревью фазы 3 (Important 2): у подкраски фона гейт по режиму анимаций был,
-   а у расчёта и применения самого акцента — нет, хотя стоит он дороже всего
-   остального: каждое применение пересобирает ~81 КБ стилей и заставляет
-   браузер пересчитать стили всего документа. */
-test('accent: в lite и off не считается и не применяется вовсе', () => {
-  for (const mode of ['lite', 'off']) {
-    const dom = fakeDom({});
-    withDom(dom, () => {
-      const ctx = accentCtx({ prefs: { lumen_accent_auto: 'true' }, motion: mode });
-      ctx.LC.accent.applyFor({ poster_path: '/a.jpg' });
-      assert.equal(dom.state.images.length, 0, mode + ': постер даже не грузится');
-      assert.equal(ctx.LC.accent.current(), null, mode + ': акцент из настроек');
-      assert.equal(ctx.state.injects, 0, mode + ': стили не пересобирались');
-    });
-  }
+/* Task 35: гейт режима анимаций смягчён. Ревью фазы 3 (Important 2) ставило
+   здесь ровно 'full', потому что каждое применение пересобирало всю таблицу;
+   теперь смена доминанты — одна запись в свой <style>, а на ТВ автодетект
+   держит именно lite, и прежний гейт гасил подкраску навсегда. */
+test('accent: в lite работает, при выключенном движении — нет', () => {
+  const lite = fakeDom({});
+  withDom(lite, () => {
+    const ctx = accentCtx({ prefs: { lumen_accent_auto: 'true' }, motion: 'lite' });
+    ctx.LC.accent.applyFor({ poster_path: '/a.jpg' });
+    assert.equal(lite.state.images.length, 1, 'lite: постер считается');
+    lite.state.images[0].onload();
+    assert.ok(ctx.LC.accent.current(), 'lite: акцент посчитан');
+    assert.ok(accentNode(lite), 'lite: подкраска написана');
+    assert.equal(ctx.state.injects, 0, 'lite: таблица не пересобиралась');
+  });
+
+  const off = fakeDom({});
+  withDom(off, () => {
+    const ctx = accentCtx({ prefs: { lumen_accent_auto: 'true' }, motion: 'off' });
+    ctx.LC.accent.applyFor({ poster_path: '/a.jpg' });
+    assert.equal(off.state.images.length, 0, 'off: постер даже не грузится');
+    assert.equal(ctx.LC.accent.current(), null, 'off: акцент из настроек');
+    assert.equal(accentNode(off), null, 'off: узла подкраски нет');
+    assert.equal(ctx.state.injects, 0, 'off: стили не пересобирались');
+  });
 });
 
 /* Ревью фазы 3 (Important 2): у каждой карточки своя доминанта, поэтому
    точная проверка «изменилось ли» почти всегда отвечала «да», и проход по
-   ряду с остановками давал пересборку стилей на каждой карточке. Доминанта
+   ряду с остановками перекрашивал экран на каждой карточке. Доминанта
    округляется до расчёта токенов — близкие постеры дают один и тот же
-   акцент. */
-test('accent: проход по ряду близких постеров не даёт ни одной лишней пересборки', () => {
+   акцент и один и тот же тон фона.
+   Task 35: считаются записи в узел подкраски (state.rules), потому что
+   пересборок таблицы на главной теперь нет вовсе. */
+test('accent: проход по ряду близких постеров не даёт ни одной лишней перекраски', () => {
   const opts = { data: pixels([{ r: 40, g: 90, b: 200, n: 256 }]) };
   const dom = fakeDom(opts);
   withDom(dom, () => {
     const ctx = accentCtx({ prefs: { lumen_accent_auto: 'true' } });
     ctx.LC.accent.applyFor({ poster_path: '/a.jpg' });
     dom.state.images[0].onload();
-    assert.equal(ctx.state.injects, 1, 'первая карточка ряда акцент, конечно, ставит');
+    assert.equal(ctx.state.rules, 1, 'первая карточка ряда цвет, конечно, ставит');
     const first = ctx.LC.accent.current().color;
 
     /* Ещё четыре карточки, чьи постеры отличаются на единицы уровней. */
@@ -514,7 +655,7 @@ test('accent: проход по ряду близких постеров не д
       ctx.LC.accent.applyFor({ poster_path: '/near' + i + '.jpg' });
       dom.state.images[dom.state.images.length - 1].onload();
       assert.equal(ctx.LC.accent.current().color, first, 'цвет на глаз тот же');
-      assert.equal(ctx.state.injects, 1, 'пересборки ~81 КБ стилей на каждую остановку фокуса больше нет');
+      assert.equal(ctx.state.rules, 1, 'перекраски на каждую остановку фокуса нет');
     }
 
     /* Действительно другой постер акцент по-прежнему меняет. */
@@ -522,21 +663,90 @@ test('accent: проход по ряду близких постеров не д
     ctx.LC.accent.applyFor({ poster_path: '/other.jpg' });
     dom.state.images[dom.state.images.length - 1].onload();
     assert.notEqual(ctx.LC.accent.current().color, first);
-    assert.equal(ctx.state.injects, 2);
+    assert.equal(ctx.state.rules, 2);
+    assert.equal(ctx.state.injects, 0, 'и ни одной пересборки таблицы за весь проход по ряду');
   });
 });
 
-test('accent: reset снимает переопределение и пересобирает CSS один раз', () => {
+test('accent: reset снимает переопределение и пересобирает CSS ровно тогда, когда таблица его знала', () => {
   const dom = fakeDom({});
   withDom(dom, () => {
     const ctx = accentCtx({ prefs: { lumen_accent_auto: 'true' } });
+    /* Цвет, поднятый на главной, в таблицу не попадал — возвращать ей
+       нечего, и пересобирать её на уходе незачем. */
     ctx.LC.accent.applyFor({ poster_path: '/a.jpg' });
     dom.state.images[0].onload();
     ctx.LC.accent.reset();
     assert.equal(ctx.LC.accent.current(), null);
-    assert.equal(ctx.state.injects, 2);
+    assert.equal(ctx.state.injects, 0, 'таблица и так стоит на акценте настроек');
+    assert.equal(accentNode(dom), null, 'узел подкраски снят');
+
+    /* А цвет открытой карточки в таблице был — его надо убрать оттуда. */
+    ctx.LC.accent.applyFor({ poster_path: '/b.jpg' }, true);
+    dom.state.images[dom.state.images.length - 1].onload();
+    assert.equal(ctx.state.injects, 1);
+    ctx.LC.accent.reset();
+    assert.equal(ctx.state.injects, 2, 'сброс вернул акцент настроек во всю таблицу');
     ctx.LC.accent.reset();
     assert.equal(ctx.state.injects, 2, 'повторный сброс вхолостую CSS не трогает');
+  });
+});
+
+/* Task 35, CORS-фолбэк. Lampa.TMDB.image уважает настройку proxy_tmdb
+   пользователя (vendor/lampa/app.min.js:19314-19316), а чужой прокси не
+   обязан отдавать Access-Control-Allow-Origin — для браузера с
+   crossOrigin = 'anonymous' это ошибка загрузки, то есть у владельца прокси
+   подкраска молча не работала бы никогда. */
+test('accent: постер через прокси не загрузился — одна попытка прямым адресом TMDB', () => {
+  const dom = fakeDom({ proxy: 'https://proxy.example/' });
+  withDom(dom, () => {
+    const ctx = accentCtx({ prefs: { lumen_accent_auto: 'true' } });
+    warnLog = [];
+    ctx.LC.accent.applyFor({ poster_path: '/a.jpg' });
+    assert.equal(dom.state.images[0].src, 'https://proxy.example/t/p/w185/a.jpg', 'сначала — адрес пользователя');
+    dom.state.images[0].onerror();
+
+    assert.equal(dom.state.images.length, 2, 'вторая попытка сделана');
+    assert.equal(dom.state.images[1].src, 'https://image.tmdb.org/t/p/w185/a.jpg', 'прямой адрес TMDB');
+    assert.equal(dom.state.images[1].crossOrigin, 'anonymous', 'иначе пиксели снова были бы закрыты');
+    assert.equal(ctx.api.pending(), 1, 'заявка та же, а не вторая');
+    dom.state.images[1].onload();
+    assert.ok(ctx.LC.accent.current(), 'со второй попытки цвет посчитан');
+    assert.equal(ctx.api.pending(), 0);
+    warnLog = [];
+  });
+});
+
+test('accent: провалились обе попытки — акцент из настроек, третьей нет', () => {
+  const dom = fakeDom({ proxy: 'https://proxy.example/' });
+  withDom(dom, () => {
+    const ctx = accentCtx({ prefs: { lumen_accent_auto: 'true' } });
+    warnLog = [];
+    ctx.LC.accent.applyFor({ poster_path: '/a.jpg' });
+    dom.state.images[0].onerror();
+    dom.state.images[1].onerror();
+    assert.equal(dom.state.images.length, 2, 'третьей попытки нет');
+    assert.equal(ctx.LC.accent.current(), null, 'остался акцент настроек');
+    assert.equal(accentNode(dom), null, 'подкраски тоже нет');
+    assert.equal(warnLog.length, 2, 'оба отказа в логе');
+    assert.match(warnLog[0].msg, /proxy\.example/);
+    assert.match(warnLog[1].msg, /image\.tmdb\.org/);
+    warnLog = [];
+  });
+});
+
+/* Прокси не настроен — адрес и так ведёт на image.tmdb.org, и вторая
+   попытка запросила бы тот же самый файл. */
+test('accent: без прокси второй попытки нет — адрес и так прямой', () => {
+  const dom = fakeDom({});
+  withDom(dom, () => {
+    const ctx = accentCtx({ prefs: { lumen_accent_auto: 'true' } });
+    warnLog = [];
+    ctx.LC.accent.applyFor({ poster_path: '/a.jpg' });
+    dom.state.images[0].onerror();
+    assert.equal(dom.state.images.length, 1);
+    assert.equal(ctx.LC.accent.current(), null);
+    warnLog = [];
   });
 });
 
@@ -631,8 +841,17 @@ function cssCtx(dom, storage) {
   load('30_css.js');
   load('57_color.js');
   let injects = 0;
-  LC.injectCss = function () { injects++; };
+  /* Task 35: вставка здесь настоящая, а не заглушка-счётчик, — иначе не
+     проверить ни порядок узлов в <head>, ни свежесть узла подкраски после
+     полной пересборки. */
+  const inject = LC.injectCss;
+  LC.injectCss = function () { injects++; inject(); };
   return { LC: LC, injects: () => injects };
+}
+
+/* Идентификаторы узлов <head> заглушки по порядку. */
+function headIds(dom) {
+  return dom.state.head.childNodes.map((node) => node.id);
 }
 
 test('css: без переопределения акцент берётся из настроек', () => {
@@ -667,6 +886,49 @@ test('css: акцент фильма подменяет выбранный в н
     /* Ушли с карточки — вернулся акцент настроек. */
     ctx.LC.accent.reset();
     assert.equal(ctx.LC.tokens().accent, '#7FB7C9');
+  });
+});
+
+/* Task 35: узел подкраски создаётся раньше основной таблицы (первая
+   остановка фокуса случается до первой пересборки), а победить при равной
+   специфичности обязан он — значит после полной сборки он должен стоять
+   ПОСЛЕ основного узла и нести свежий цвет. */
+test('css: узел подкраски стоит в <head> после основной таблицы и не устаревает', () => {
+  const dom = fakeDom({ data: pixels([{ r: 200, g: 120, b: 40, n: 256 }]) });
+  withDom(dom, () => {
+    const storage = { lumen_accent_auto: 'true', lumen_theme: 'warm' };
+    const ctx = cssCtx(dom, storage);
+    ctx.LC.accent.applyFor({ poster_path: '/dune.jpg' });
+    dom.state.images[0].onload();
+    assert.deepEqual(headIds(dom), ['lumen-accent'], 'подкраска появилась первой');
+    const warmRules = accentNode(dom).textContent;
+    assert.match(warmRules, /\.lumen-main\{background-color:#[0-9A-F]{6}\}/);
+    assert.ok(warmRules.indexOf('.lumen-hero__veil--b') !== -1, 'низ вуали героя красится вместе с подложкой');
+
+    ctx.LC.injectCss();
+    assert.deepEqual(headIds(dom), ['lumen-card-css', 'lumen-accent'], 'наш узел переехал в конец');
+
+    /* Цвет подкраски считается от фона темы, поэтому смена темы обязана
+       переписать и наш узел — иначе он остался бы с цветом прежней. */
+    storage.lumen_theme = 'black';
+    ctx.LC.injectCss();
+    assert.deepEqual(headIds(dom), ['lumen-card-css', 'lumen-accent'], 'порядок сохранён');
+    assert.notEqual(accentNode(dom).textContent, warmRules, 'подкраска пересчитана от нового фона');
+  });
+});
+
+/* Правила узла — те же строки, что и в полной таблице: текст один (accentRules
+   в src/30_css.js), поэтому две дороги не могут разъехаться. */
+test('css: правила подкраски из узла есть и в полной таблице стилей', () => {
+  const dom = fakeDom({ data: pixels([{ r: 200, g: 120, b: 40, n: 256 }]) });
+  withDom(dom, () => {
+    const ctx = cssCtx(dom, { lumen_accent_auto: 'true' });
+    ctx.LC.accent.applyFor({ poster_path: '/dune.jpg' });
+    dom.state.images[0].onload();
+    const css = ctx.LC.buildCss();
+    for (const rule of accentNode(dom).textContent.split('\n')) {
+      assert.ok(css.indexOf(rule) !== -1, 'правило есть и в общей таблице: ' + rule.slice(0, 40));
+    }
   });
 });
 

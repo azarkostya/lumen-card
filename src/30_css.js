@@ -142,8 +142,9 @@
        правилу ниже не нужно знать, откуда взялся цвет.
        Сторож читаемости — P.muted, самый слабый текст на этом фоне (подпись
        года под постером ряда): LC.accent.tint уменьшает подмешивание, пока
-       контраст не вернётся к порогу (src/57_color.js). Подкраска выключена
-       по умолчанию (lumen_accent_auto) и не работает в lite/off. */
+       контраст не вернётся к порогу (src/57_color.js). Подкраску включает
+       настройка lumen_accent_auto (Task 35: по умолчанию включена), и она
+       не работает при выключенном движении ('off'). */
     try {
       if (LC.accent && typeof LC.accent.tint === 'function') {
         var tinted = LC.accent.tint(p.bg, p.muted, 4.5);
@@ -182,6 +183,36 @@
     p.glassLite = solid ? p.bg : 'rgba(' + p.bgRgb + ',.9)';
     return p;
   }
+
+  /* Task 35: три правила главной, которые видно при листании рядов и которые
+     целиком зависят от подкрашенного фона (P.bg / P.bgRgb): подложка под
+     рядами и две вуали героя. Собраны в одном месте не ради красоты, а ради
+     LC.accentCss ниже — доминанта постера меняется на каждой остановке
+     фокуса, и переписывать ради неё всю таблицу значит фризить ровно тот
+     момент, ради которого подкраска и сделана: её текст при настройках по
+     умолчанию — 103 КБ против 518 байт у этих трёх правил (замер buildCss и
+     accentCss, 2026-09-18). Текст правил один и тот же в обеих дорогах: и в полной сборке
+     (buildCss ниже вставляет их по своим местам), и в отдельном узле.
+     Нижняя вуаль тут обязательна: её нижний стоп — сплошной P.bg, и без неё
+     подкрашенная подложка встречалась бы с неподкрашенной кромкой кадра. */
+  function accentRules(P) {
+    return {
+      main: '.lumen-main{background-color:' + P.bg + '}',
+      veilL: '.lumen-hero .lumen-hero__veil--l{background:-webkit-linear-gradient(left,rgba(' + P.bgRgb + ',.94) 0%,rgba(' + P.bgRgb + ',.6) 38%,rgba(' + P.bgRgb + ',0) 72%);background:linear-gradient(90deg,rgba(' + P.bgRgb + ',.94) 0%,rgba(' + P.bgRgb + ',.6) 38%,rgba(' + P.bgRgb + ',0) 72%)}',
+      veilB: '.lumen-hero .lumen-hero__veil--b{background:-webkit-linear-gradient(bottom,' + P.bg + ' 0%,rgba(' + P.bgRgb + ',.62) 14%,rgba(' + P.bgRgb + ',.18) 50%,rgba(' + P.bgRgb + ',0) 88%);background:linear-gradient(0deg,' + P.bg + ' 0%,rgba(' + P.bgRgb + ',.62) 14%,rgba(' + P.bgRgb + ',.18) 50%,rgba(' + P.bgRgb + ',0) 88%)}'
+    };
+  }
+
+  /* Task 35: текст для отдельного узла <style id="lumen-accent">, который
+     пишет LC.accent при смене доминанты (src/57_color.js). Палитра читается
+     заново — в ней же и живёт подкраска (LC.accent.tint в palette выше),
+     поэтому аргументов у функции нет. Узел стоит ПОСЛЕ основного (порядок
+     держит LC.injectCss), значит при равной специфичности побеждают эти
+     правила, а не их копии в общей таблице. */
+  LC.accentCss = function () {
+    var R = accentRules(palette());
+    return R.main + '\n' + R.veilL + '\n' + R.veilB;
+  };
 
   /* Фаза 3, настройка «Масштаб интерфейса». Все размеры плагина считаются в em
      от базового кегля Lampa (она сама ставит его на body: innerWidth / 84.17,
@@ -1541,8 +1572,11 @@
        Плавность — только в режиме полных анимаций и только у ЦВЕТА: градиенты
        вуалей CSS-переходом не интерполируются, а background-color — да, и
        именно он занимает всю площадь под рядами. Класс режима на body ставит
-       LC.applyMotionMode. */
-    css.push('.lumen-main{background-color:' + P.bg + '}');
+       LC.applyMotionMode.
+       Task 35: текст правила — общий с отдельным узлом подкраски (accentRules
+       выше), чтобы полная сборка и быстрая перекраска не разъехались. */
+    var AR = accentRules(P);
+    css.push(AR.main);
     css.push('body.lumen-motion-full .lumen-main{-webkit-transition:background-color .6s ease-in-out;transition:background-color .6s ease-in-out}');
     css.push('.lumen-hero{position:absolute;top:-4em;left:0;right:0;height:-webkit-calc(100vh - ' + round2(heroCut + HERO_AIR) + 'em);height:calc(100vh - ' + round2(heroCut + HERO_AIR) + 'em);overflow:hidden;pointer-events:none}');
     css.push('.lumen-hero.lumen-hero--compact{height:-webkit-calc(72vh - ' + round2(heroCompactCut + HERO_AIR) + 'em);height:calc(72vh - ' + round2(heroCompactCut + HERO_AIR) + 'em)}');
@@ -1579,7 +1613,7 @@
     /* Вуали — градиенты, не фильтры (ограничение брифа 5): слева под текст,
        снизу под ряды (там фон почти чёрный). */
     css.push('.lumen-hero .lumen-hero__veil{position:absolute;top:0;left:0;right:0;bottom:0}');
-    css.push('.lumen-hero .lumen-hero__veil--l{background:-webkit-linear-gradient(left,rgba(' + P.bgRgb + ',.94) 0%,rgba(' + P.bgRgb + ',.6) 38%,rgba(' + P.bgRgb + ',0) 72%);background:linear-gradient(90deg,rgba(' + P.bgRgb + ',.94) 0%,rgba(' + P.bgRgb + ',.6) 38%,rgba(' + P.bgRgb + ',0) 72%)}');
+    css.push(AR.veilL);
     /* Правка пользователя 2026-09-17 (второй круг, п.2): «условно с середины
        картинки сделаем полупрозрачный, в середине 70 %, до 0 % в конце».
        Раньше нижняя вуаль выходила в сплошной фон за 16 % высоты — переход
@@ -1597,7 +1631,7 @@
        полупрозрачный нижний стоп давал на стыке с рядами видимую ступеньку —
        7 % кадра резко обрывались в фон. Прозрачность имеет смысл там, где
        под вуалью ещё есть что показывать, а не на самой границе. */
-    css.push('.lumen-hero .lumen-hero__veil--b{background:-webkit-linear-gradient(bottom,' + P.bg + ' 0%,rgba(' + P.bgRgb + ',.62) 14%,rgba(' + P.bgRgb + ',.18) 50%,rgba(' + P.bgRgb + ',0) 88%);background:linear-gradient(0deg,' + P.bg + ' 0%,rgba(' + P.bgRgb + ',.62) 14%,rgba(' + P.bgRgb + ',.18) 50%,rgba(' + P.bgRgb + ',0) 88%)}');
+    css.push(AR.veilB);
 
     /* Правка пользователя 2026-09-17 (второй круг, п.1): «а может текст вниз
        спустить, чтобы не перекрывало картинку?». Блок прижат к НИЖНЕЙ кромке
@@ -2178,7 +2212,8 @@
 
   /* Последний записанный текст CSS карточки: тот же текст повторно в <style>
      не пишем — смена любой настройки lumen_card_* зовёт injectCss, а
-     переразбор ~28 КБ стилей на ТВ заметен. */
+     переразбор стилей на ТВ заметен (Task 35: замер текста buildCss при
+     настройках по умолчанию — 103 КБ, 2026-09-18). */
   var card_css_text = null;
 
   LC.injectCss = function () {
@@ -2200,6 +2235,14 @@
       /* Task 32: CSS экранов пути пересобирается вместе с CSS карточки
          (смена акцента/шрифтов); сама функция уважает ui_active и lumen_torrents. */
       if (typeof LC.applyTorrentsPref === 'function') LC.applyTorrentsPref();
+      /* Task 35: узел подкраски переписывается и переезжает в конец <head>
+         последней строкой полной сборки. Без этого он, созданный раньше
+         основного (первая смена доминанты случается до первой пересборки),
+         остался бы ВЫШЕ него — и при равной специфичности победили бы
+         правила основной таблицы, а не свежая подкраска. Вторая причина —
+         устаревание: смена темы или плотности подложек меняет базовый фон,
+         из которого подкраска считается. */
+      if (LC.accent && typeof LC.accent.restyle === 'function') LC.accent.restyle();
     } catch (e) {
       warn('css inject failed', e);
     }

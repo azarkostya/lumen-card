@@ -100,10 +100,14 @@
          умолчанию не менялось. */
       { name: 'lumen_card_accent', type: 'select', values: ['sand', 'copper', 'wine', 'garnet', 'mint', 'emerald', 'ice', 'lavender', 'graphite'], vprefix: 'lumen_card_accent_', 'default': 'sand', label: 'lumen_card_accent', descr: 'lumen_card_accent_descr' },
       /* Task 24 (фаза 3): акцент от постера открытого фильма — сразу под
-         выбором акцента: он тот же выбор, только его делает фильм. Выключен
-         по умолчанию, и при выключении карточка возвращается к цвету из
-         пункта выше (src/57_color.js). */
-      { name: 'lumen_accent_auto', type: 'trigger', 'default': false, label: 'lumen_accent_auto_name', descr: 'lumen_accent_auto_descr' },
+         выбором акцента: он тот же выбор, только его делает фильм. При
+         выключении карточка возвращается к цвету из пункта выше
+         (src/57_color.js).
+         Task 35 (фаза 4): включён по умолчанию. На телевизоре это
+         единственная видимая связь подложки рядов с кадром — выключенной её
+         просто не находят, — а цена смены цвета снижена до одного маленького
+         <style id="lumen-accent"> вместо пересборки всей таблицы. */
+      { name: 'lumen_accent_auto', type: 'trigger', 'default': true, label: 'lumen_accent_auto_name', descr: 'lumen_accent_auto_descr' },
       /* Фаза 3: тема и плотность подложек — ДВА пункта, а не один список из
          трёх вариантов. Они отвечают на разные вопросы: тема — про цвет
          тёмного (тёплый или настоящий чёрный для OLED), плотность — про то,

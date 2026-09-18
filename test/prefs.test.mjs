@@ -283,6 +283,16 @@ test('Task 20: «Какие ряды показывать» — кнопка-п�
   assert.ok(entry.label && entry.descr);
 });
 
+/* Task 35 (фаза 4): «Акцент от постера» включён по умолчанию. На телевизоре
+   это единственная видимая связь подложки рядов с кадром, а выключенной
+   настройку просто не находят; цена смены цвета при этом снижена до одного
+   маленького <style id="lumen-accent"> (src/57_color.js). */
+test('Task 35: акцент от постера включён по умолчанию', () => {
+  const entry = prefs.find('lumen_accent_auto');
+  assert.equal(entry.type, 'trigger');
+  assert.equal(entry['default'], true);
+});
+
 test('Task 20: профили настроения — переключатель, по умолчанию включён', () => {
   const entry = prefs.find('lumen_moods');
   assert.equal(entry.type, 'trigger');

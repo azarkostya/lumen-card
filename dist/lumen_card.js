@@ -475,6 +475,7 @@ p.spice = C.spice;
 
 
 
+
 try {
 if (LC.accent && typeof LC.accent.tint === 'function') {
 var tinted = LC.accent.tint(p.bg, p.muted, 4.5);
@@ -513,6 +514,36 @@ p.blurWide = solid ? '' : '-webkit-backdrop-filter:blur(1.1em);backdrop-filter:b
 p.glassLite = solid ? p.bg : 'rgba(' + p.bgRgb + ',.9)';
 return p;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+function accentRules(P) {
+return {
+main: '.lumen-main{background-color:' + P.bg + '}',
+veilL: '.lumen-hero .lumen-hero__veil--l{background:-webkit-linear-gradient(left,rgba(' + P.bgRgb + ',.94) 0%,rgba(' + P.bgRgb + ',.6) 38%,rgba(' + P.bgRgb + ',0) 72%);background:linear-gradient(90deg,rgba(' + P.bgRgb + ',.94) 0%,rgba(' + P.bgRgb + ',.6) 38%,rgba(' + P.bgRgb + ',0) 72%)}',
+veilB: '.lumen-hero .lumen-hero__veil--b{background:-webkit-linear-gradient(bottom,' + P.bg + ' 0%,rgba(' + P.bgRgb + ',.62) 14%,rgba(' + P.bgRgb + ',.18) 50%,rgba(' + P.bgRgb + ',0) 88%);background:linear-gradient(0deg,' + P.bg + ' 0%,rgba(' + P.bgRgb + ',.62) 14%,rgba(' + P.bgRgb + ',.18) 50%,rgba(' + P.bgRgb + ',0) 88%)}'
+};
+}
+
+
+
+
+
+
+
+LC.accentCss = function () {
+var R = accentRules(palette());
+return R.main + '\n' + R.veilL + '\n' + R.veilB;
+};
 
 
 
@@ -1873,7 +1904,10 @@ var heroCompactCut = heroCompactCutEm(scale);
 
 
 
-css.push('.lumen-main{background-color:' + P.bg + '}');
+
+
+var AR = accentRules(P);
+css.push(AR.main);
 css.push('body.lumen-motion-full .lumen-main{-webkit-transition:background-color .6s ease-in-out;transition:background-color .6s ease-in-out}');
 css.push('.lumen-hero{position:absolute;top:-4em;left:0;right:0;height:-webkit-calc(100vh - ' + round2(heroCut + HERO_AIR) + 'em);height:calc(100vh - ' + round2(heroCut + HERO_AIR) + 'em);overflow:hidden;pointer-events:none}');
 css.push('.lumen-hero.lumen-hero--compact{height:-webkit-calc(72vh - ' + round2(heroCompactCut + HERO_AIR) + 'em);height:calc(72vh - ' + round2(heroCompactCut + HERO_AIR) + 'em)}');
@@ -1910,7 +1944,7 @@ css.push('.lumen-hero.lumen-hero--trailer .lumen-hero__descr{display:none}');
 
 
 css.push('.lumen-hero .lumen-hero__veil{position:absolute;top:0;left:0;right:0;bottom:0}');
-css.push('.lumen-hero .lumen-hero__veil--l{background:-webkit-linear-gradient(left,rgba(' + P.bgRgb + ',.94) 0%,rgba(' + P.bgRgb + ',.6) 38%,rgba(' + P.bgRgb + ',0) 72%);background:linear-gradient(90deg,rgba(' + P.bgRgb + ',.94) 0%,rgba(' + P.bgRgb + ',.6) 38%,rgba(' + P.bgRgb + ',0) 72%)}');
+css.push(AR.veilL);
 
 
 
@@ -1928,7 +1962,7 @@ css.push('.lumen-hero .lumen-hero__veil--l{background:-webkit-linear-gradient(le
 
 
 
-css.push('.lumen-hero .lumen-hero__veil--b{background:-webkit-linear-gradient(bottom,' + P.bg + ' 0%,rgba(' + P.bgRgb + ',.62) 14%,rgba(' + P.bgRgb + ',.18) 50%,rgba(' + P.bgRgb + ',0) 88%);background:linear-gradient(0deg,' + P.bg + ' 0%,rgba(' + P.bgRgb + ',.62) 14%,rgba(' + P.bgRgb + ',.18) 50%,rgba(' + P.bgRgb + ',0) 88%)}');
+css.push(AR.veilB);
 
 
 
@@ -2510,6 +2544,7 @@ return css.join('\n');
 
 
 
+
 var card_css_text = null;
 
 LC.injectCss = function () {
@@ -2531,6 +2566,14 @@ card_css_text = text;
 
 
 if (typeof LC.applyTorrentsPref === 'function') LC.applyTorrentsPref();
+
+
+
+
+
+
+
+if (LC.accent && typeof LC.accent.restyle === 'function') LC.accent.restyle();
 } catch (e) {
 warn('css inject failed', e);
 }
@@ -13722,6 +13765,14 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 
+
+
+
+
+
+
+
+
 LC.color = (function () {
 
 
@@ -14056,7 +14107,11 @@ cache[url] = { rgb: rgb || null };
 
 
 
-function read(img, doc) {
+
+
+
+
+function read(img, doc, src) {
 if (!img.naturalWidth || !img.naturalHeight) return null;
 try {
 var canvas = doc.createElement('canvas');
@@ -14071,6 +14126,7 @@ if (!ctx) return null;
 ctx.drawImage(img, 0, 0, SAMPLE, SAMPLE);
 return dominant(ctx.getImageData(0, 0, SAMPLE, SAMPLE).data);
 } catch (e) {
+warn('accent: poster pixels blocked ' + src, e);
 return null;
 }
 }
@@ -14080,37 +14136,76 @@ return null;
 
 
 
-function fromImage(url, cb) {
+
+
+
+
+
+
+
+
+function fromImage(url, cb, alt) {
 if (!url) { cb(null); return null; }
 if (Object.prototype.hasOwnProperty.call(cache, url)) { cb(cache[url].rgb); return null; }
 var doc = typeof document !== 'undefined' ? document : null;
 if (!doc || typeof Image === 'undefined') { cb(null); return null; }
 
-var img = new Image();
+var img = null;
 var live = true;
+var retry = alt && alt !== url ? alt : '';
 pending_count++;
 request_count++;
+
+function detach() {
+if (!img) return;
+img.onload = null;
+img.onerror = null;
+img = null;
+}
 
 function release() {
 live = false;
 pending_count--;
-img.onload = null;
-img.onerror = null;
+detach();
 }
 
 function done(rgb) {
 if (!live) return;
 release();
-cachePut(url, rgb);
+
+
+
+
+
+if (rgb) cachePut(url, rgb);
 cb(rgb);
 }
 
-img.onload = function () { done(read(img, doc)); };
-img.onerror = function () { done(null); };
+function fail(src) {
+if (!live) return;
+warn('accent: poster load failed ' + src);
+if (retry) {
+var next = retry;
+retry = '';
+detach();
+start(next);
+return;
+}
+done(null);
+}
+
+function start(src) {
+var el = new Image();
+img = el;
+el.onload = function () { done(read(el, doc, src)); };
+el.onerror = function () { fail(src); };
 
 
-img.crossOrigin = 'anonymous';
-img.src = url;
+el.crossOrigin = 'anonymous';
+el.src = src;
+}
+
+start(url);
 
 return {
 cancel: function () {
@@ -14169,6 +14264,13 @@ var POSTER_SIZE = 't/p/w185';
 
 
 
+
+
+var DIRECT_HOST = 'https://image.tmdb.org/';
+var DIRECT_HOST_MARK = 'image.tmdb.org/';
+
+
+
 var override = null;
 
 
@@ -14195,10 +14297,14 @@ return v === true || v === 'true';
 
 
 
+
+
+
+
 function on() {
 if (!LC.enabled() || !auto()) return false;
 try {
-return LC.motionMode() === 'full';
+return LC.motionMode() !== 'off';
 } catch (e) {
 return false;
 }
@@ -14263,14 +14369,69 @@ return a.r === b.r && a.g === b.g && a.b === b.b;
 
 
 
-function apply(next, rgb) {
-var sameTokens = next && override ? next.color === override.color : (!next && !override);
-if (sameTokens && sameRgb(source, rgb || null)) return;
-override = next || null;
-source = rgb || null;
 
 
 
+function writeAccentStyle(rules, last) {
+if (typeof document === 'undefined') return;
+try {
+var node = document.getElementById('lumen-accent');
+if (!rules) { if (node && node.parentNode) node.parentNode.removeChild(node); return; }
+if (!node) {
+node = document.createElement('style');
+node.id = 'lumen-accent';
+document.head.appendChild(node);
+} else if (last && node !== document.head.lastChild) {
+
+
+
+
+
+document.head.appendChild(node);
+}
+node.textContent = rules;
+} catch (e) { warn('accent: style write failed', e); }
+}
+
+
+
+
+
+
+function paint(last) {
+var rules = '';
+if (source && LC.enabled() && typeof LC.accentCss === 'function') {
+try {
+rules = LC.accentCss();
+} catch (e) {
+warn('accent: rules failed', e);
+rules = '';
+}
+}
+writeAccentStyle(rules, last);
+}
+
+
+
+
+
+
+var applied = null;
+
+function tokenColor() {
+var t = override || themeTokens;
+return t ? t.color : null;
+}
+
+
+
+
+function restyle() {
+applied = tokenColor();
+paint(true);
+}
+
+function rebuild() {
 if (!LC.enabled()) return;
 try {
 LC.injectCss();
@@ -14279,21 +14440,54 @@ warn('accent: css inject failed', e);
 }
 }
 
+
+
+
+
+
+
+
+
+function apply(next, rgb, deep) {
+var sameTokens = next && override ? next.color === override.color : (!next && !override);
+if (sameTokens && sameRgb(source, rgb || null) && !(deep && applied !== tokenColor())) return;
+override = next || null;
+source = rgb || null;
+
+
+
+if (!LC.enabled()) { paint(); return; }
+if (deep && applied !== tokenColor()) {
+
+
+rebuild();
+return;
+}
+paint();
+}
+
 function reset() {
 cancel();
-apply(null, null);
+apply(null, null, true);
 }
 
 
 
 
-function applyFor(movie) {
+
+function applyFor(movie, deep) {
 cancel();
-if (!on()) { apply(null, null); return; }
+if (!on()) { apply(null, null, deep); return; }
 var path = movie && movie.poster_path;
-if (!path) { apply(null, null); return; }
+if (!path) { apply(null, null, deep); return; }
 var url = posterUrl(path);
-if (!url) { apply(null, null); return; }
+if (!url) { apply(null, null, deep); return; }
+
+
+
+
+
+
 task = LC.color.fromImage(url, function (rgb) {
 task = null;
 
@@ -14302,9 +14496,12 @@ task = null;
 
 
 var dom = quantize(rgb);
-apply(dom ? LC.color.tokens(dom, bg()) : null, dom);
-});
+apply(dom ? LC.color.tokens(dom, bg()) : null, dom, deep);
+}, url.indexOf(DIRECT_HOST_MARK) === -1 ? DIRECT_HOST + POSTER_SIZE + path : '');
 }
+
+
+
 
 
 
@@ -14318,7 +14515,7 @@ apply(dom ? LC.color.tokens(dom, bg()) : null, dom);
 function tint(bg, guard, ratio) {
 if (!source) return null;
 try {
-if (LC.motionMode() !== 'full') return null;
+if (LC.motionMode() === 'off') return null;
 } catch (e) {
 return null;
 }
@@ -14332,6 +14529,10 @@ var had = !!(override || source || themeTokens);
 override = null;
 source = null;
 themeTokens = null;
+
+
+
+paint();
 if (!had || !LC.enabled()) return;
 try {
 LC.injectCss();
@@ -14377,6 +14578,9 @@ applyFor: applyFor,
 reset: reset,
 
 
+restyle: restyle,
+
+
 
 
 destroy: destroy
@@ -14390,7 +14594,10 @@ destroy: destroy
 LC.applyAccentPref = function () {
 try {
 var movie = LC.active && LC.active.data && LC.active.data.movie;
-LC.accent.applyFor(movie || null);
+
+
+
+LC.accent.applyFor(movie || null, true);
 } catch (e) {
 warn('accent pref failed', e);
 }
@@ -20743,7 +20950,11 @@ var LIST = [
 
 
 
-{ name: 'lumen_accent_auto', type: 'trigger', 'default': false, label: 'lumen_accent_auto_name', descr: 'lumen_accent_auto_descr' },
+
+
+
+
+{ name: 'lumen_accent_auto', type: 'trigger', 'default': true, label: 'lumen_accent_auto_name', descr: 'lumen_accent_auto_descr' },
 
 
 
@@ -22657,7 +22868,11 @@ LC.active = { object: e.object, body: e.body, slideshow: slideshow, data: e.data
 
 
 
-try { if (LC.accent) LC.accent.applyFor((e.data && e.data.movie) || null); } catch (eAccent) {}
+
+
+
+
+try { if (LC.accent) LC.accent.applyFor((e.data && e.data.movie) || null, true); } catch (eAccent) {}
 
 
 
