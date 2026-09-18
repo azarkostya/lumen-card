@@ -148,6 +148,12 @@ function makeMainRoot() {
     newEl._parentEl = p;
     return chipsEl;
   };
+  /* Task 36: в разметке героя есть пустой слот под чипы — последний элемент
+     текстового блока (buildNode в src/48_hero.js). Именно его ищет mount. */
+  var slotEl = new FakeEl(['lumen-hero__moods']);
+  slotEl.on = function () { return slotEl; };
+  textEl._children.push(slotEl);
+  slotEl._parentEl = textEl;
   var heroEl = new FakeEl(['lumen-hero']);
   heroEl._children = [textEl];
   textEl._parentEl = heroEl;
@@ -163,10 +169,8 @@ test('active: до mount возвращает false', function () {
   assert.equal(ctx.api.active(), false);
 });
 
-/* Правка пользователя 2026-09-17 (второй круг): блок чипов — собственный
-   узел в КОРНЕ активности, а не внутри .lumen-hero__text. Из-за прежней
-   вложенности чипы исчезали при «Герой: выключен» и срезались кромкой
-   сжатого кадра. */
+/* Своего узла .lumen-moods в корне активности мы ждём только тогда, когда
+   кадра героя нет: при живом кадре чипы живут в его слоте (Task 36). */
 function moodsNodeOf(root) {
   for (var i = 0; i < root._children.length; i++) {
     if (root._children[i].hasClass('lumen-moods')) return root._children[i];
@@ -174,26 +178,38 @@ function moodsNodeOf(root) {
   return null;
 }
 
-test('mount: после mount — active() true, чипы вставлены', function () {
+/* Узел, в котором в итоге оказались чипы, — слот героя или свой блок. */
+function chipHostOf(root) {
+  var slot = root.find('lumen-hero__moods');
+  if (slot && slot.length) return slot;
+  return moodsNodeOf(root);
+}
+
+/* Task 36: чипы переехали ВНУТРЬ текста героя — там полоса едет вместе с ним
+   на общем transform, вместо того чтобы возить собственный bottom отдельной
+   анимацией раскладки. Прежний тест требовал обратного («чипы снова внутри
+   героя — при выключенном герое они пропадут»); заботу о выключенном герое
+   взял на себя фолбэк ниже: слота нет — блок монтируется в корень. */
+test('mount: после mount — active() true, чипы вставлены в слот героя', function () {
   var ctx = freshMoods();
   var root = makeMainRoot();
   ctx.api.mount(root);
   assert.equal(ctx.api.active(), true);
-  assert.ok(moodsNodeOf(root), '.lumen-moods не вставлен в корень активности');
-  assert.equal(root.hasClass('lumen-moods-on'), true, 'раскладка не узнает, что под чипы нужно место');
-  var textEl = root.find('lumen-hero__text');
-  var insideHero = false;
-  for (var i = 0; i < textEl._children.length; i++) {
-    if (textEl._children[i].hasClass('lumen-moods')) insideHero = true;
+  assert.equal(moodsNodeOf(root), null, 'при живом кадре отдельный блок в корне не нужен');
+  assert.equal(root.hasClass('lumen-moods-on'), true, 'раскладка не узнает, что чипы на экране есть');
+  var slot = root.find('lumen-hero__moods');
+  var chips = 0;
+  for (var i = 0; i < slot._children.length; i++) {
+    if (slot._children[i].hasClass('lumen-mood-chip')) chips++;
   }
-  assert.equal(insideHero, false, 'чипы снова внутри героя — при выключенном герое они пропадут');
+  assert.ok(chips > 0, 'слот героя остался пустым');
 });
 
 test('mount: число чипов равно числу настроений в манифесте', function () {
   var ctx = freshMoods();
   var root = makeMainRoot();
   ctx.api.mount(root);
-  var moodsEl = moodsNodeOf(root);
+  var moodsEl = chipHostOf(root);
   assert.ok(moodsEl, '.lumen-moods не найден');
   var chipCount = 0;
   for (var j = 0; j < moodsEl._children.length; j++) {
@@ -207,12 +223,14 @@ test('mount: повторный mount того же root — идемпотен�
   var root = makeMainRoot();
   ctx.api.mount(root);
   ctx.api.mount(root);
-  /* Только один .lumen-moods */
-  var count = 0;
-  for (var i = 0; i < root._children.length; i++) {
-    if (root._children[i].hasClass('lumen-moods')) count++;
+  /* Task 36: слот героя один и тот же, поэтому проверяется не число блоков, а
+     число чипов в нём — повторный mount не имеет права их удвоить. */
+  var host = chipHostOf(root);
+  var chips = 0;
+  for (var i = 0; i < host._children.length; i++) {
+    if (host._children[i].hasClass('lumen-mood-chip')) chips++;
   }
-  assert.equal(count, 1);
+  assert.equal(chips, MOODS.length);
 });
 
 test('unmount: после unmount — active() false', function () {
@@ -251,13 +269,28 @@ test('mount: героя в корне нет — чипы всё равно на
   assert.equal(root.hasClass('lumen-moods-on'), true, 'без этого класса ряды не опустятся под полосу чипов');
 });
 
-test('unmount: признак раскладки уходит вместе с узлом', function () {
+test('unmount: признак раскладки уходит, слот героя только пустеет', function () {
   var ctx = freshMoods();
   var root = makeMainRoot();
   ctx.api.mount(root);
   ctx.api.unmount();
   assert.equal(root.hasClass('lumen-moods-on'), false);
-  assert.equal(moodsNodeOf(root), null);
+  assert.equal(moodsNodeOf(root), null, 'своего блока в корне и не было');
+  /* Task 36: слот — часть разметки кадра, и удалять его нельзя: он уйдёт
+     вместе с героем, а до тех пор ждёт следующего mount. */
+  var slot = root.find('lumen-hero__moods');
+  assert.ok(slot && slot.length, 'слот героя снесён вместе с чипами');
+  assert.equal(slot._children.length, 0, 'чипы остались в слоте после unmount');
+});
+
+test('unmount: своего блока в корне — снимается целиком (кадра нет)', function () {
+  var ctx = freshMoods();
+  var root = new FakeEl(['activity']);
+  root.on = function () { return root; };
+  ctx.api.mount(root);
+  assert.ok(moodsNodeOf(root), 'без кадра чипы монтируются своим блоком');
+  ctx.api.unmount();
+  assert.equal(moodsNodeOf(root), null, 'свой блок обязан уйти целиком');
 });
 
 test('detach: тот же root — не снимает', function () {
@@ -383,7 +416,7 @@ test('Task 20: названия чипов — на языке интерфей�
     var s = freshMoods(langCode ? { langCode: function () { return langCode; } } : null);
     var root = makeMainRoot();
     s.api.mount(root);
-    return moodsNodeOf(root)._children.map(function (c) { return c.text(); });
+    return chipHostOf(root)._children.map(function (c) { return c.text(); });
   }
 
   assert.deepEqual(titlesFor('ru'), ['Пятничный вечер', 'Семейный просмотр', 'Страшное на ночь', '90 минут']);
@@ -430,7 +463,7 @@ function realManifestModule(customMoods) {
 
 /* Собирает названия чипов, смонтированных в root. */
 function chipTitles(root) {
-  const moodsEl = moodsNodeOf(root);
+  const moodsEl = chipHostOf(root);
   if (!moodsEl) return [];
   const out = [];
   for (let j = 0; j < moodsEl._children.length; j++) {

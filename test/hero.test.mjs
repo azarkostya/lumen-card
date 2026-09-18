@@ -72,8 +72,8 @@ test('pickLogo: пусто/мусор/без file_path — null', () => {
    разбитое на две строки, теряет вдвое по ширине и приобретает вдвое по
    высоте — площадь у него та же. */
 test('logoBox: равная площадь вместо равной высоты — узкий логотип выше широкого', () => {
-  const narrow = H.logoBox(2.5, false);
-  const wide = H.logoBox(6, false);
+  const narrow = H.logoBox(2.5);
+  const wide = H.logoBox(6);
   assert.ok(narrow.h > wide.h, 'двухстрочный логотип обязан получить больше высоты: ' + JSON.stringify(narrow) + ' / ' + JSON.stringify(wide));
   assert.ok(wide.w > narrow.w, 'однострочный широкий обязан получить больше ширины');
   const areaN = narrow.w * narrow.h;
@@ -85,36 +85,36 @@ test('logoBox: клампы — узкому не выше бюджета, оч�
   /* Близкий к квадрату (1.5:1 — замер живьём на одном ряду прошлого круга)
      по площади просил бы 6.58em и съел бы мету: выше бюджета раскладки его
      не пускает верхний кламп. */
-  assert.deepEqual(H.logoBox(1.5, false), { w: 7.8, h: 5.2 });
+  assert.deepEqual(H.logoBox(1.5), { w: 7.8, h: 5.2 });
   /* Логотип-баннер 20:1 по площади получил бы 1.8em — нижний кламп поднимает
      его до 2.4em, и тогда в бюджет уже не влезает ШИРИНА: она и решает. */
-  const banner = H.logoBox(20, false);
+  const banner = H.logoBox(20);
   assert.equal(banner.w, 37.84, 'ширина упирается в рамку: ' + JSON.stringify(banner));
   assert.equal(banner.h, 1.89);
 
   for (const ratio of [0.8, 1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 12, 20]) {
-    const full = H.logoBox(ratio, false);
+    const full = H.logoBox(ratio);
     assert.ok(full.h <= 5.2, ratio + ':1 — высота ' + full.h + 'em выше бюджета TEXT_LOGO');
     assert.ok(full.w <= 37.84, ratio + ':1 — ширина ' + full.w + 'em шире рамки');
-    const small = H.logoBox(ratio, true);
-    assert.ok(small.h <= 3.38, ratio + ':1 сжатый — высота ' + small.h + 'em выше бюджета TEXT_LOGO_SMALL');
-    assert.ok(small.w <= 24.6, ratio + ':1 сжатый — ширина ' + small.w + 'em');
   }
 });
 
-test('logoBox: сжатое состояние — то же самое, умноженное на 0.65', () => {
-  const full = H.logoBox(6, false);
-  const small = H.logoBox(6, true);
-  assert.deepEqual(small, { w: 12.84, h: 2.14 });
-  assert.ok(Math.abs(small.h / full.h - 0.65) < 0.01, 'в сжатом всё пропорционально мельче');
-  assert.ok(Math.abs(small.w / full.w - 0.65) < 0.01);
+/* Task 36: прежний тест «сжатое состояние — то же самое, умноженное на 0.65»
+   удалён вместе со вторым аргументом logoBox. Уменьшение логотипа при
+   листании делает теперь CSS (transform: scale, правило
+   .lumen-hero--compact .lumen-hero__logo), потому что пара width/height
+   анимировалась раскладкой. Здесь проверяем контракт: размер от состояния
+   кадра не зависит вовсе. */
+test('logoBox: размер не зависит от состояния кадра — сжатие делает CSS', () => {
+  assert.deepEqual(H.logoBox(6, true), H.logoBox(6), 'второго аргумента у logoBox больше нет');
+  assert.deepEqual(H.logoBox(6), { w: 19.75, h: 3.29 });
 });
 
 test('logoBox: пропорция неизвестна — null, размер остаётся за рамкой из CSS', () => {
-  assert.equal(H.logoBox(0, false), null);
-  assert.equal(H.logoBox(null, false), null);
-  assert.equal(H.logoBox(-3, false), null);
-  assert.equal(H.logoBox('нет', false), null);
+  assert.equal(H.logoBox(0), null);
+  assert.equal(H.logoBox(null), null);
+  assert.equal(H.logoBox(-3), null);
+  assert.equal(H.logoBox('нет'), null);
 });
 
 test('heroModel: пропорция логотипа — aspect_ratio TMDB, иначе width/height', () => {
@@ -474,10 +474,12 @@ test('загруженный кадр проявляется вторым сло
 });
 
 /* Правка четвёртого круга: размер логотипа считается по его пропорции
-   (logoBox) и пишется инлайном — в CSS её знать неоткуда. Значит, пересчёт
-   нужен и при переходе между полным и сжатым состоянием: инлайн-стиль
-   правилу .lumen-hero--compact перебить нечем. */
-test('логотип: размер по пропорции и пересчёт при переходе в сжатое состояние', () => {
+   (logoBox) и пишется инлайном — в CSS её знать неоткуда.
+   Task 36: при переходе в сжатое состояние инлайн больше НЕ пересчитывается.
+   Уменьшение делает CSS масштабом, а масштаб раскладку не трогает — значит
+   и переписывать width/height при каждом setCompact незачем. Тест закрывает
+   именно это: пара чисел обязана пережить переход неизменной. */
+test('логотип: размер по пропорции и неизменность при переходе в сжатое состояние', () => {
   const env = makeEnv();
   const main = makeMain();
   env.hero.mount(main.activity);
@@ -501,30 +503,15 @@ test('логотип: размер по пропорции и пересчёт �
   env.advance(200);
   assert.equal(node.hasClass('lumen-hero--compact'), true, 'второй ряд — сжатое состояние');
   env.requests[1].ok({ images: { logos: [{ file_path: '/l2.png', iso_639_1: 'ru', aspect_ratio: 2.5 }] } });
-  assert.equal(logo.css('width'), '8.29em', 'та же пропорция в сжатом — те же размеры × 0.65');
-  assert.equal(logo.css('height'), '3.31em');
+  assert.equal(logo.css('width'), '12.75em', 'инлайн-размер переход не трогает — мельче логотип делает CSS');
+  assert.equal(logo.css('height'), '5.1em');
 });
 
-/* Размер кадра «компактный» отдаёт тексту столько же высоты, сколько сжатое
-   состояние (бюджет TEXT_LOGO_SMALL в src/30_css.js один на оба случая), —
-   значит, и логотип там считается как сжатый, ещё до всякого листания. */
-test('логотип: при компактном размере кадра сразу сжатый размер', () => {
-  const env = makeEnv({ pref: (name, def) => (name === 'lumen_hero_size' ? 'compact' : def) });
-  const main = makeMain();
-  env.hero.mount(main.activity);
-  const obs = env.observers[0];
-  const node = main.activity._children[0];
-
-  main.card1.addClass('focus');
-  obs.fn([{ target: main.card1 }]);
-  env.advance(400);
-  env.advance(200);
-  env.requests[0].ok({ images: { logos: [{ file_path: '/l.png', iso_639_1: 'ru', aspect_ratio: 2.5 }] } });
-  assert.equal(node.hasClass('lumen-hero--compact'), false, 'первый ряд — состояние всё-таки полное');
-  const logo = node.find('.lumen-hero__logo');
-  assert.equal(logo.css('width'), '8.29em');
-  assert.equal(logo.css('height'), '3.31em');
-});
+/* Task 36: тест «при компактном размере кадра сразу сжатый размер» удалён.
+   Он проверял, что герой САМ считает уменьшенный логотип, когда размер кадра
+   «компактный»; теперь это делает CSS одним правилом (масштаб в базовом
+   правиле .lumen-hero__logo при компактном кадре), и знать про размер кадра
+   в 48_hero.js больше незачем. */
 
 test('логотип без пропорции в ответе TMDB: размер отдаём CSS, style пустым не остаётся', () => {
   const env = makeEnv();
