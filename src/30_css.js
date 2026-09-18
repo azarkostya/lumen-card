@@ -2283,48 +2283,85 @@
        .card__marker, состояние карточки через ::after не показывается.
 
        scale стоит на .card__view, а не на .card: подпись под постером
-       остаётся на месте, а сам постер растёт от нижней кромки вверх — в
-       воздух между рядами (.items-line{padding-bottom:1.4em} ниже).
+       остаётся на месте (origin у нижней кромки), а сам постер растёт
+       ВВЕРХ — в зазор между лентой карточек и заголовком своего ряда
+       (.lumen-main .items-line__head{margin-bottom} ниже). Зазор поэтому и
+       равен штатным 1.4em Lampa (app.css:2824), умноженным на масштаб
+       интерфейса, а не прежним .7em: при 11.4em ширины постер высотой
+       17.1em (padding-bottom:150 %, app.css:3138) вырастает на 1.368em, и
+       .7em его не вмещали — замер на телевизоре 2026-09-18 показал, что
+       нижние 9 px строки заголовка уходили под постер. Соотношение «зазор ≥
+       высота × (ROW_FOCUS − 1)» держит тест, а не глаз: оно обязано
+       пережить смену ширины карточки.
        transform:scale(1) в базовом правиле нужен переходу: без стартового
-       значения первый фокус прыгал бы. Постоянный composited-слой карточкам
-       НЕ выдаётся (в отличие от кадра героя и области рядов, Task 46):
-       карточек на экране два десятка, а бюджет слабого ТВ по ресёрчу —
-       10-15 слоёв; Blink промоутит узел сам на время композитной анимации
-       transform.
+       значения первый фокус прыгал бы.
+
+       О слоях композитора: свой translateZ(0) карточкам мы не ставим (в
+       отличие от кадра героя и области рядов, Task 46) — но постоянный слой
+       каждой из них и так выдаёт сама Lampa через .card{will-change:
+       transform} (app.css:3095). Снимать его наш CSS не пытается: на ТВ это
+       риск вернуть шлейф при листании (та же Task 46), а проверяется такое
+       только на устройстве.
 
        Анимация фокуса Lampa (animation-card-focus, прыжок на -1em и назад,
        app.css:15779) навешена на .card__view селектором
        body.advanced--animation:not(.no--animation) .card:not(.card--wide).focus
        — он специфичнее любого нашего под .lumen-main, отсюда !important. Она
        правит тот же transform, что и наш scale, и без гашения фокус дёргался
-       бы. .card{will-change:transform} самой Lampa (app.css:3095) остаётся.
+       бы. Под то же правило попадает и вторая анимация того же узла —
+       animation-trigger-enter (отскок scale(1.2) с fade, залитый forwards,
+       app.css:15785): класс .animate-trigger-enter Lampa вешает на нажатие
+       OK и снимает через 500 мс (app.min.js:46215/46217), а нажатие приходит
+       на карточку в фокусе — значит наше правило накрывает и её. Всё это
+       время forwards-заливка держала бы transform вместо нашего scale, так
+       что гасим обе намеренно: уход с карточки показывает свой слой
+       перехода (src/67_transition.js).
 
-       Штатные плашки на постере главной сняты все три — рейтинг
-       (.card__vote, правый нижний угол), качество (.card__quality, жёлтая,
-       вылет -.8em влево) и тип (.card__type, белая «TV», вылет -.8em
-       влево): «пёстрых» плашек в дизайне главной нет, а рейтинг переехал в
-       подпись под постером (src/62_badges.js, decorate). Все три рисует
-       сама Lampa при разборе данных карточки (app.min.js: Ratting.onCreate
-       при vote > 0, Quality.onCreate при quality/release_quality и
-       включённой настройке card_quality, Icons.onCreate — «TV» КАЖДОМУ
-       сериалу, без настройки).
+       Штатные плашки на постере главной сняты — рейтинг (.card__vote,
+       правый нижний угол), качество (.card__quality, жёлтая, вылет -.8em
+       влево) и тип (.card__type, белая «TV», вылет -.8em влево): «пёстрых»
+       плашек в дизайне главной нет. Рисует все три один и тот же компонент
+       карточки, Icons.onCreate (app.min.js:20985): «TV» — КАЖДОМУ сериалу
+       без настройки, качество — только не-сериалу с quality/release_quality
+       и при включённой настройке card_quality (app.min.js:21001); рейтинг —
+       соседний Ratting.onCreate при vote > 0.
+       Рейтинг — единственная из трёх, которую прячем УСЛОВНО: его переносит
+       в подпись LC.badges.decorate (src/62_badges.js), а та работает только
+       при включённых метках на постерах. Выключены метки — плашка Lampa
+       возвращается на место, иначе рейтинга не осталось бы нигде, а
+       настройка про него ничего и не обещает. Пересобрать таблицу при смене
+       настройки — забота LC.applyBadgesPref (src/90_runtime.js).
 
        Цвет: ряд приглушён целиком (название — muted, как и мета), в фокусе
        название светлеет до text. Мету ниже muted опускать нельзя — именно
        она сторож читаемости подкрашенного фона (см. palette выше). */
+    /* Увеличение постера в фокусе. Число живёт в переменной, потому что от
+       него зависит не только правило фокуса, но и зазор под заголовком
+       ряда ниже. */
+    var ROW_FOCUS = 1.08;
     var rowCardW = round2(ROW_CARD_W * scale) + 'em';
     css.push('.lumen-main .card{width:' + rowCardW + '}');
     css.push('.lumen-main .card__view{margin-bottom:.5em;border-radius:.31em;-webkit-transform:scale(1);transform:scale(1);-webkit-transform-origin:center bottom;transform-origin:center bottom}');
     css.push('.lumen-main .card__img{border-radius:.31em}');
     css.push('.lumen-main .card.focus .card__view:after,.lumen-main .card.hover .card__view:after{display:none}');
     css.push('.lumen-main .card.focus .card__view,.lumen-main .card.hover .card__view{-webkit-animation:none !important;animation:none !important}');
-    css.push('.lumen-main .card.focus .card__view{-webkit-transform:scale(1.08);transform:scale(1.08)}');
+    css.push('.lumen-main .card.focus .card__view{-webkit-transform:scale(' + ROW_FOCUS + ');transform:scale(' + ROW_FOCUS + ')}');
+    /* Кому рисоваться поверх. Выросший постер официально заходит в зону
+       заголовка своего ряда (см. зазор ниже), а ореол фокуса (AR.cardFocus,
+       .7em размытия) выходит за кромки карточки и краем ложится на соседнюю.
+       Замер на стенде 2026-09-18: сам ПОСТЕР соседа не достаёт — между ними
+       остаётся воздух, режется только край размытия. Слой ставим на .card
+       (position:relative у Lampa, app.css:3095) тем же числом, что у плитки
+       хаба и карточки сетки подборки выше — чтобы поведение везде совпадало
+       и не зависело от порядка узлов в DOM. */
+    css.push('.lumen-main .card.focus{z-index:3}');
     /* Переход перечисляет ровно transform: тень фокуса (AR.cardFocus ниже)
        появляется вместе с классом и не анимируется — анимированный
        box-shadow заставляет ТВ перерисовывать карточку каждый кадр
        (docs/research/2026-09-18-android-tv-animations.md). */
     css.push('body.lumen-motion-full .lumen-main .card__view{-webkit-transition:-webkit-transform .18s ease-out;transition:transform .18s ease-out}');
-    css.push('.lumen-main .card__vote,.lumen-main .card__quality,.lumen-main .card__type{display:none}');
+    css.push('.lumen-main .card__quality,.lumen-main .card__type{display:none}');
+    if (LC.pref('lumen_badges', true)) css.push('.lumen-main .card__vote{display:none}');
     css.push('.lumen-main .card__title{font-family:' + FD + ';font-weight:700;font-size:' + round2(.96 * scale) + 'em;line-height:1.15;white-space:nowrap;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis;color:' + P.muted + '}');
     css.push('.lumen-main .card.focus .card__title{color:' + P.text + '}');
     css.push('.lumen-main .card__age{font-family:' + FM + ';font-size:' + round2(.88 * scale) + 'em;line-height:1;margin-top:.25em;color:' + P.muted + '}');
@@ -2336,7 +2373,7 @@
        safe area плагина — 2.81em (§0.1), по ней стоит текст героя. Двигаем
        ряды к ней, а не героя к Lampa: 1.5em — это меньше безопасной зоны
        телевизора, на ТВ такой отступ съедает оверскан. */
-    css.push('.lumen-main .items-line__head{margin-bottom:.7em;padding-left:2.81em}');
+    css.push('.lumen-main .items-line__head{margin-bottom:' + round2(1.4 * scale) + 'em;padding-left:2.81em}');
     css.push('.lumen-main .items-line .scroll__content{padding-left:2.81em}');
     css.push(AR.cardFocus);
 

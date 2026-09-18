@@ -2790,19 +2790,56 @@ css.push('@media screen and (min-aspect-ratio:' + heroMinRatio + '/100){' +
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+var ROW_FOCUS = 1.08;
 var rowCardW = round2(ROW_CARD_W * scale) + 'em';
 css.push('.lumen-main .card{width:' + rowCardW + '}');
 css.push('.lumen-main .card__view{margin-bottom:.5em;border-radius:.31em;-webkit-transform:scale(1);transform:scale(1);-webkit-transform-origin:center bottom;transform-origin:center bottom}');
 css.push('.lumen-main .card__img{border-radius:.31em}');
 css.push('.lumen-main .card.focus .card__view:after,.lumen-main .card.hover .card__view:after{display:none}');
 css.push('.lumen-main .card.focus .card__view,.lumen-main .card.hover .card__view{-webkit-animation:none !important;animation:none !important}');
-css.push('.lumen-main .card.focus .card__view{-webkit-transform:scale(1.08);transform:scale(1.08)}');
+css.push('.lumen-main .card.focus .card__view{-webkit-transform:scale(' + ROW_FOCUS + ');transform:scale(' + ROW_FOCUS + ')}');
+
+
+
+
+
+
+
+
+css.push('.lumen-main .card.focus{z-index:3}');
 
 
 
 
 css.push('body.lumen-motion-full .lumen-main .card__view{-webkit-transition:-webkit-transform .18s ease-out;transition:transform .18s ease-out}');
-css.push('.lumen-main .card__vote,.lumen-main .card__quality,.lumen-main .card__type{display:none}');
+css.push('.lumen-main .card__quality,.lumen-main .card__type{display:none}');
+if (LC.pref('lumen_badges', true)) css.push('.lumen-main .card__vote{display:none}');
 css.push('.lumen-main .card__title{font-family:' + FD + ';font-weight:700;font-size:' + round2(.96 * scale) + 'em;line-height:1.15;white-space:nowrap;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis;color:' + P.muted + '}');
 css.push('.lumen-main .card.focus .card__title{color:' + P.text + '}');
 css.push('.lumen-main .card__age{font-family:' + FM + ';font-size:' + round2(.88 * scale) + 'em;line-height:1;margin-top:.25em;color:' + P.muted + '}');
@@ -2814,7 +2851,7 @@ css.push('.lumen-main .items-line{padding-bottom:1.4em}');
 
 
 
-css.push('.lumen-main .items-line__head{margin-bottom:.7em;padding-left:2.81em}');
+css.push('.lumen-main .items-line__head{margin-bottom:' + round2(1.4 * scale) + 'em;padding-left:2.81em}');
 css.push('.lumen-main .items-line .scroll__content{padding-left:2.81em}');
 css.push(AR.cardFocus);
 
@@ -17009,6 +17046,8 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 
+
+
 LC.badges = (function () {
 
 
@@ -25227,12 +25266,19 @@ warn('hero size pref failed', e);
 
 
 
+
+
+
+
+
+
 LC.applyBadgesPref = function () {
 if (!activated) return;
 try {
 if (!LC.badges) return;
 if (LC.pref('lumen_badges', true)) LC.badges.install();
 else LC.badges.uninstall();
+LC.injectCss();
 } catch (e) {
 warn('badges pref failed', e);
 }

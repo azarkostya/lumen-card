@@ -857,6 +857,29 @@ test('Task 7: LC.applyTrailerPref — выключение снимает игр
   assert.deepEqual(warnLog, []);
 });
 
+/* Task 42: от настройки «Метки на постерах» теперь зависит и таблица стилей —
+   при выключенных метках рейтинг в подписи никто не пишет, и штатную плашку
+   .card__vote прятать нельзя (src/30_css.js, блок рядов). Значит применение
+   настройки на лету обязано пересобрать CSS, а не только снять наблюдателя. */
+test('Task 42: LC.applyBadgesPref пересобирает CSS вместе с наблюдателем меток', () => {
+  const off = initLC({ storage: { lumen_badges: false } });
+  const seen = { install: 0, uninstall: 0 };
+  off.LC.badges = { install: () => { seen.install++; }, uninstall: () => { seen.uninstall++; } };
+  const before = off.extra.css;
+  off.LC.applyBadgesPref();
+  assert.equal(seen.uninstall, 1, 'метки сняты');
+  assert.equal(off.extra.css, before + 1, 'таблица стилей пересобрана');
+
+  const on = initLC({ storage: { lumen_badges: true } });
+  const seenOn = { install: 0, uninstall: 0 };
+  on.LC.badges = { install: () => { seenOn.install++; }, uninstall: () => { seenOn.uninstall++; } };
+  const beforeOn = on.extra.css;
+  on.LC.applyBadgesPref();
+  assert.equal(seenOn.install, 1, 'метки поставлены');
+  assert.equal(on.extra.css, beforeOn + 1, 'и обратно тоже пересобрана');
+  assert.deepEqual(warnLog, []);
+});
+
 /* ====================================================================== */
 /* Task 10: главный выключатель на УЖЕ ОТКРЫТОЙ карточке.                 */
 /*                                                                        */

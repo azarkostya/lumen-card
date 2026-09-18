@@ -1605,13 +1605,20 @@
 
   /* Task 25: метки на постерах включили или выключили. Пересобирать экран не
      нужно: метки — узлы внутри уже нарисованных карточек, их можно снять
-     (uninstall) и поставить (install) прямо на живой главной. */
+     (uninstall) и поставить (install) прямо на живой главной.
+     Task 42: от этой же настройки зависит одно правило таблицы стилей —
+     скрытие штатной плашки рейтинга .card__vote на постерах главной. Пока
+     метки включены, рейтинг стоит в подписи (LC.badges.decorate); выключены
+     — писать его некому, и плашку надо вернуть. Отсюда пересборка CSS:
+     applyPrefChange для 'lumen_badges' выходит сразу после этого вызова и
+     сама LC.injectCss не зовёт (src/80_settings.js). */
   LC.applyBadgesPref = function () {
     if (!activated) return;
     try {
       if (!LC.badges) return;
       if (LC.pref('lumen_badges', true)) LC.badges.install();
       else LC.badges.uninstall();
+      LC.injectCss();
     } catch (e) {
       warn('badges pref failed', e);
     }

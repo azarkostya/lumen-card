@@ -2263,9 +2263,9 @@ test('Task 42: фокус карточки ряда — увеличение и 
   assert.equal(move, '-webkit-transition:-webkit-transform .18s ease-out;transition:transform .18s ease-out', 'переход только по transform: ' + move);
   assert.equal(ruleSelectors(css).filter((sel) => /lumen-motion-(lite|off) .*card__view/.test(sel)).length, 0, 'в lite/off перехода нет вовсе');
 
-  /* Штатные плашки на постере — прочь все три: рейтинг теперь в подписи
-     (src/62_badges.js), качества и типа дизайн главной не показывает. */
-  for (const part of ['card__vote', 'card__quality', 'card__type']) {
+  /* Качество и тип дизайн главной не показывает — всегда. Рейтинг —
+     отдельным правилом (тест ниже), он зависит от настройки меток. */
+  for (const part of ['card__quality', 'card__type']) {
     assert.equal(findDecl(css, (sel) => sel === '.lumen-main .' + part), 'display:none', part);
   }
 
@@ -2273,6 +2273,46 @@ test('Task 42: фокус карточки ряда — увеличение и 
   const title = findDecl(css, (sel) => sel === '.lumen-main .card__title');
   assert.ok(title.indexOf('color:#A89A8A') !== -1, 'название вне фокуса — muted: ' + title);
   assert.equal(findDecl(css, (sel) => sel === '.lumen-main .card.focus .card__title'), 'color:#F3EDE4');
+
+  /* Выросший постер официально заезжает в зону заголовка ряда, а его ореол —
+     под соседнюю карточку. Слой — на .card (она position:relative у Lampa,
+     app.css:3095), тем же числом, что у плитки хаба и карточки сетки. */
+  assert.equal(findDecl(css, (sel) => sel === '.lumen-main .card.focus'), 'z-index:3');
+});
+
+/* Task 42 (фикс-раунд): замер на живом телевизоре 1920×1080 показал, что
+   постер в фокусе накрывает нижние 9 px строки заголовка собственного ряда —
+   срезает низ букв. Зазор под заголовком обязан быть не меньше того, на
+   сколько постер вырастает вверх. */
+test('Task 42: зазор под заголовком ряда перекрывает рост постера на любом масштабе', () => {
+  const em = (decl, prop) => {
+    const m = new RegExp('(?:^|;)' + prop + ':([\\d.]+)em(?:;|$)').exec(decl);
+    assert.ok(m, prop + ' не найден в «' + decl + '»');
+    return parseFloat(m[1]);
+  };
+  for (const key of ['small', 'normal', 'large', 'huge']) {
+    const text = withStorage({ lumen_scale: key }, (LC) => LC.buildCss());
+    const width = em(findDecl(text, (sel) => sel === '.lumen-main .card'), 'width');
+    /* Высота постера — от его ширины: .card__view{padding-bottom:150%}
+       (app.css:3138). Рост вверх — от transform-origin:center bottom. */
+    const grow = width * 1.5 * 0.08;
+    const gap = em(findDecl(text, (sel) => sel === '.lumen-main .items-line__head'), 'margin-bottom');
+    assert.ok(gap >= grow, key + ': зазор ' + gap + 'em меньше роста постера ' + grow.toFixed(4) + 'em');
+  }
+});
+
+/* Task 42 (фикс-раунд): настройка «Метки на постерах» (lumen_badges) про
+   рейтинг ничего не обещает, а рейтинг в подпись дописывает LC.badges. Значит
+   при выключенных метках штатная плашка Lampa обязана вернуться на постер —
+   иначе рейтинга не остаётся нигде. */
+test('Task 42: штатная плашка рейтинга скрыта только вместе с метками', () => {
+  const on = withStorage({ lumen_badges: 'true' }, (LC) => LC.buildCss());
+  assert.equal(findDecl(on, (sel) => sel === '.lumen-main .card__vote'), 'display:none', 'метки включены — рейтинг в подписи');
+  const off = withStorage({ lumen_badges: 'false' }, (LC) => LC.buildCss());
+  assert.equal(findDecl(off, (sel) => sel === '.lumen-main .card__vote'), null, 'метки выключены — плашка Lampa возвращается');
+  /* Качество и тип от настройки меток не зависят. */
+  assert.equal(findDecl(off, (sel) => sel === '.lumen-main .card__quality'), 'display:none');
+  assert.equal(findDecl(off, (sel) => sel === '.lumen-main .card__type'), 'display:none');
 });
 
 /* Task 36: масштаб интерфейса по-прежнему растит карточки рядов, но область
