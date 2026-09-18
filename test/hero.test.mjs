@@ -906,6 +906,30 @@ test('lastFocus: фокус запоминает id, адрес уже отри�
    возвращает фокус на место. Источник перехода при этом обязан обновиться
    (постер мог догрузиться на смену заглушки ./img/img_load.svg), а таймеры —
    нет: их проверяют тесты акцента и трейлера ниже. */
+/* Task 37 (ревью): фокус Lampa восстанавливает синхронно внутри
+   activity.start() — ДО события 'activity':start, по которому мы монтируем
+   героя. Своего 'hover:focus' мы в этот заход не увидим, поэтому источник
+   перехода обязан завести сам mount: иначе «главная → OK → Назад → OK на той
+   же карточке» открывалось бы без перехода. */
+test('lastFocus: карточка была в фокусе ещё до монтирования — источник заведён без события', () => {
+  const env = makeEnv();
+  const main = makeMain();
+  main.card1.addClass('focus');
+
+  env.hero.mount(main.activity);
+  assert.deepEqual(env.hero.lastFocus(), {
+    id: 11,
+    poster: 'https://img/t/p/w300/p1.jpg',
+    node: main.card1
+  }, 'ни одного события фокуса не посылали');
+
+  /* Гард повторной обработки при этом не взведён: первое настоящее событие
+     обязано пройти полный путь и завести таймеры. */
+  fireFocus(main.activity, main.card1);
+  env.advance(3100);
+  assert.deepEqual(warnLog, []);
+});
+
 test('lastFocus: повторный фокус той же карточки подхватывает догруженный постер', () => {
   const env = makeEnv();
   const main = makeMain();
@@ -1258,6 +1282,39 @@ test('трейлер героя: повторное событие на той �
   fireFocus(main.activity, main.card1);
   assert.equal(env.players[0].destroys, 0, 'ролик играет дальше');
   assert.equal(node.hasClass('lumen-hero--trailer'), true);
+});
+
+/* Ряд перестроился, и та же карточка приехала НОВЫМ узлом: гард focusEl тут
+   не срабатывает (узел другой), и защищать ролик с кадром обязаны сравнения
+   по самой карточке — state.trailerCard и state.shownId. */
+test('трейлер героя: та же карточка на новом узле ролик не гасит и кадр не перезагружает', () => {
+  const env = trailerEnv();
+  const main = makeMain();
+  env.hero.mount(main.activity);
+
+  focusOn(main, main.card1);
+  env.advance(9000);
+  lastVideos(env).ok(VIDEOS_RU);
+  env.players[0].onStart();
+  const frames = env.images.filter((i) => i.src.indexOf('/t/p/original/') !== -1).length;
+  const requests = env.requests.length;
+
+  /* Перерисованный ряд отдаёт новый узел с теми же данными карточки. */
+  const again = makeCard(11, 'Первый', { poster: 'https://img/t/p/w300/p1.jpg', rect: { left: 100, top: 200, width: 180, height: 270 } });
+  again.card_data = main.card1.card_data;
+  main.line0._children.push(again);
+  again._parentEl = main.line0;
+
+  fireFocus(main.activity, again);
+  env.advance(9000);
+  assert.equal(env.players[0].destroys, 0, 'ролик играет дальше');
+  assert.equal(env.images.filter((i) => i.src.indexOf('/t/p/original/') !== -1).length, frames, 'кадр героя заново не грузится');
+  assert.equal(env.requests.length, requests, 'ни деталей, ни роликов заново не спрашиваем');
+  assert.equal(env.hero.lastFocus().node, again, 'а источник перехода переехал на новый узел');
+  /* Единственное, что действительно повторяется, — предзагрузка крупного
+     постера для перехода: она привязана к записи источника, а та переехала на
+     новый узел. Картинка та же и уже в кэше браузера, сеть не тратится. */
+  assert.equal(env.images.filter((i) => i.src.indexOf('/t/p/w500/p1.jpg') !== -1).length, 2);
 });
 
 test('трейлер героя: перевод фокуса снимает играющий ролик и его запрос', () => {

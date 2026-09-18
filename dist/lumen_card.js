@@ -8941,6 +8941,9 @@ if (!card || card.id == null) return;
 
 
 
+
+
+
 if (state.focusEl === el) { refreshFocusSource(el, card); return; }
 state.focusEl = el;
 
@@ -9020,6 +9023,12 @@ warn('hero: focus listener failed', err);
 
 
 
+
+
+
+
+
+
 function listenFocus(root) {
 try {
 var node = root && root[0];
@@ -9050,12 +9059,26 @@ s.focusHandler = null;
 
 
 
-
 function showFocused(root) {
 try {
 var el = root.find('.card.focus');
 if (el && el.length && el[0] && el[0].card_data) {
 updateCompact(el[0]);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+rememberFocus(el[0], el[0].card_data);
 show(el[0].card_data);
 }
 } catch (e) {}
