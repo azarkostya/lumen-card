@@ -287,15 +287,10 @@ test('decorate: без рейтинга подпись остаётся годо
   assert.equal(low._children[1].text(), '2017', 'рейтинг ниже 1 — это «нет оценок», а не оценка');
 });
 
-/* Сетка подборки рисует .card__vote сама (src/46_hub.js, cardNode) и зовёт
-   decorate с rating:false — иначе рейтинг стоял бы на одном постере дважды. */
-test('decorate: rating:false оставляет подпись нетронутой', () => {
-  const { api } = runtime();
-  const card = makeCard({ release_date: '2026-12-17', vote_average: 6.42 });
-  globalThis.window = { Lampa: {} };
-  try { api.decorate(card, null, { bar: false, rating: false }); } finally { delete globalThis.window; }
-  assert.equal(card._children[1].text(), '2017');
-});
+/* Task 43: флага opts.rating больше нет, и тест на него снят вместе с ним.
+   Его просила сетка подборки, пока показывала рейтинг штатной плашкой
+   .card__vote; теперь подпись там такая же, как на главной (src/46_hub.js
+   зовёт decorate только с bar:false), а плашку прячет CSS. */
 
 test('decorate: выключенная настройка не ставит ни метки, ни флага', () => {
   const { api } = runtime({ pref: function () { return false; } });

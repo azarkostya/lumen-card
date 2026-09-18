@@ -172,9 +172,9 @@
        данные (по умолчанию el.card_data, которые кладёт и Lampa, и наша
        сетка). opts.bar === false — не рисовать полосу прогресса: в сетке
        подборки она уже своя (.lumen-gcard__bar), второй такой же не нужно.
-       opts.rating === false — не трогать подпись: сетка подборки показывает
-       рейтинг штатной плашкой .card__vote (src/46_hub.js, cardNode), и в
-       подписи он был бы вторым тем же числом.
+       Task 43: флага opts.rating больше нет. Его просила сетка подборки,
+       пока показывала рейтинг штатной плашкой .card__vote; теперь подпись
+       там такая же, как на главной, и не трогать её некому.
        Повторный вызов на том же узле молчит — флаг lumen_badged. */
     function decorate(node, card, opts) {
       try {
@@ -184,7 +184,7 @@
         var data = card || el.card_data;
         if (!data) return;
         el.lumen_badged = true;
-        if (!opts || opts.rating !== false) rate(el, data);
+        rate(el, data);
         var badge = badgeFor(data, new Date(), { progress: progressOf, words: words() });
         if (!badge || !badge.text) return;
         var view = $(el).find('.card__view');

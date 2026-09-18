@@ -139,11 +139,11 @@
          нормально, часто мелко. */
       { name: 'lumen_scale', type: 'select', values: ['small', 'normal', 'large', 'huge'], vprefix: 'lumen_scale_', 'default': 'normal', label: 'lumen_scale_name', descr: 'lumen_scale_descr' },
       { name: 'lumen_card_fonts', type: 'trigger', 'default': true, label: 'lumen_card_fonts_name', descr: 'lumen_card_fonts_descr' },
-      /* Правка пользователя 2026-09-16 (п.6): выбор гарнитуры — сразу за
-         выключателем шрифтов: при выключенных шрифтах он не действует, и
-         рядом это очевиднее всего. Пять пар «текст + моно», все с Google
-         Fonts (CSP плагина другого источника не пропустит), набор — в
-         FONT_SETS (src/30_css.js). */
+      /* Выбор гарнитуры — сразу за выключателем шрифтов: при выключенных
+         шрифтах он не действует, и рядом это очевиднее всего. Пять
+         гарнитур, все с Google Fonts (CSP плагина другого источника не
+         пропустит), набор — в FONT_SETS (src/30_css.js). Task 43: за каждым
+         ключом стоит одна гарнитура, прежде была пара «текст + моно». */
       { name: 'lumen_font', type: 'select', values: ['golos', 'onest', 'manrope', 'inter', 'plex'], vprefix: 'lumen_card_font_', 'default': 'golos', label: 'lumen_card_font_name', descr: 'lumen_card_font_descr' },
 
       /* Task 30 (финал фазы 3): движение — своя группа, а не хвост

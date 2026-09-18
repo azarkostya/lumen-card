@@ -1046,11 +1046,13 @@ test('buildCss: в сжатой шапке статус и чип серии —
   assert.ok(longOff && /display\s*:\s*none/.test(longOff), 'длинная строка в сжатой шапке не помещается');
 
   const chip = findDecl(css, (sel) => sel === '.lumen-card.lumen-compact .lumen-next-chip');
-  assert.ok(chip && chip.indexOf('border-left:0') !== -1 && chip.indexOf('border-top-left-radius:0') !== -1);
+  /* Task 43: склейку держат радиусы и паддинги — рамок, края которых
+     прежде срезались, нет ни у чипа, ни у статуса. */
+  assert.ok(chip && chip.indexOf('border-top-left-radius:0') !== -1 && chip.indexOf('padding-left:0') !== -1, chip);
   const status = findDecl(css, (sel) => sel.indexOf('.lumen-card--nextchip') !== -1 && sel.indexOf('.full-start__status') !== -1);
   assert.ok(status, 'край статуса срезается только когда чип виден (класс .lumen-card--nextchip)');
   assert.ok(/margin-right\s*:\s*0\s*!important/.test(status), 'зазор .53em между картами Lampa ставит !important-ом');
-  assert.ok(status.indexOf('border-right:0') !== -1);
+  assert.ok(status.indexOf('border-top-right-radius:0') !== -1 && status.indexOf('border-bottom-right-radius:0') !== -1, status);
 });
 
 /* -------------------------------------------------------------------- */
@@ -1878,13 +1880,18 @@ test('Task 36: кромка сжатого кадра и заголовок пе
 test('фаза 3: у совсем низкого окна ряды занимают экран целиком, кадра нет', () => {
   /* Правка второго круга: порог считается не от того, влезет ли ряд, а от
      того, влезет ли СОДЕРЖИМОЕ кадра (безопасная зона под шапкой Lampa,
-     логотип, строка рейтинга, отступ снизу). Иначе герою доставался огрызок,
+     логотип, полоса статуса, отступ снизу). Иначе герою доставался огрызок,
      в котором текст налезал на шапку и сам на себя — находка пользователя.
      Task 36: доступная тексту высота выросла (две трети экрана вместо
-     «экран минус ряд»), и порог отодвинулся с 2.2:1 до 2.62:1. */
+     «экран минус ряд»), и порог отодвинулся с 2.2:1 до 2.62:1.
+     Task 43: строки рейтинга в кадре больше нет — её место заняла полоса
+     статуса, которая ниже (TEXT_STATUS 1.98 вместо TEXT_RATE 2.62). Бюджет
+     содержимого упал, и порог отодвинулся ещё: 2.58:1 -> 2.68:1, то есть
+     кадр держится в окне на 28 px ниже прежнего (716 px против 744 при
+     ширине 1920). */
   const line = heroOffMedia(css);
   assert.ok(line, 'нет страховки для низкого окна');
-  assert.ok(line.indexOf('min-aspect-ratio:258/100') !== -1, 'порог при крупном кадре — 2.58:1: ' + line);
+  assert.ok(line.indexOf('min-aspect-ratio:268/100') !== -1, 'порог при крупном кадре — 2.68:1: ' + line);
   assert.ok(line.indexOf('margin-top:0') !== -1, 'за порогом ряды не сдвигаются');
   /* Task 36: кадр за порогом не прячется целиком — чипы настроения живут
      ВНУТРИ его текстового блока, и display:none унёс бы их с экрана. Вместо
@@ -1912,9 +1919,12 @@ test('фаза 3: у совсем низкого окна ряды занима�
   const descr = css.split('\n').find((l) => l.indexOf('@media screen and (min-aspect-ratio:') === 0 && l.indexOf('lumen-hero__descr') !== -1);
   /* Task 36: тексту досталось больше высоты (две трети экрана вместо «экран
      минус ряд»), и порог описания отодвинулся с 1.79:1 до 2.08:1 — теперь
-     описание видно и на 21:9-мониторе. */
-  assert.ok(descr.indexOf('min-aspect-ratio:208/100') !== -1, 'порог описания: ' + descr);
-  assert.ok(1920 / 1080 < 2.08, 'порог описания обязан оставаться выше 16:9');
+     описание видно и на 21:9-мониторе.
+     Task 43: бюджет полосы под описанием похудел с 2.62 до 1.98em (там
+     теперь статус сериала, а не чип рейтинга), и порог отодвинулся до
+     2.14:1. */
+  assert.ok(descr.indexOf('min-aspect-ratio:214/100') !== -1, 'порог описания: ' + descr);
+  assert.ok(1920 / 1080 < 2.14, 'порог описания обязан оставаться выше 16:9');
 });
 
 /* Регресс, найденный пользователем на выложенной сборке: в обычном окне
@@ -1932,8 +1942,11 @@ test('решение «рисовать кадр»: в обычных окнах
   /* Окна, в которых кадр обязан быть: телевизор, ноутбук и окно браузера
      пользователя (1168×800 = 1.46:1). */
   const normal = [[1920, 1080], [1280, 720], [1168, 800], [1440, 900], [1600, 900]];
-  /* Окна, в которых кадра быть не должно: высоты не хватает даже на минимум. */
-  const flat = [[1150, 230], [1280, 400], [1280, 480]];
+  /* Окна, в которых кадра быть не должно: высоты не хватает даже на минимум.
+     Task 43: прежнее 1280×480 (2.67:1) отсюда убрано — бюджет содержимого
+     стал ниже на .64em (рейтинг ушёл из кадра), и в таком окне минимум
+     теперь помещается. Взято окно ещё площе. */
+  const flat = [[1150, 230], [1280, 400], [1280, 440]];
   for (const size of ['large', 'medium', 'compact', null]) {
     for (const scale of ['small', 'normal', 'large', 'huge']) {
       const store = { lumen_scale: scale };
@@ -2649,13 +2662,27 @@ test('Task 43: у чипов, рейтингов, статусов и кнопо
     '.lumen-card .full-start-new__buttons .full-start__button',
     '.lumen-hero .lumen-hero__status',
     '.lumen-roulette .lumen-roulette__chip',
-    '.lumen-roulette .lumen-roulette__tab'
+    '.lumen-roulette .lumen-roulette__tab',
+    '.lumen-card .lumen-reactions-chip',
+    '.lumen-mood-chip',
+    '.lumen-hub__search'
   ];
   for (const sel of noBorder) {
     const decl = findDecl(css, (s) => s === sel);
     assert.ok(decl, 'правило не найдено: ' + sel);
     assert.ok(!/(^|;)border:\.\d+em solid/.test(decl), sel + ' — рамка осталась: ' + decl);
   }
+
+  /* Фикс-раунд Task 43: снятая рамка оставляет за собой и объявления
+     ОТДЕЛЬНЫХ сторон. Два таких стояли в склейке «статус + чип серии»: край
+     резали у элементов, у которых рамки уже нет ни в одном состоянии, —
+     склейку держат радиусы. Обнулять сторону имеет смысл только там, где
+     рамка есть; сейчас таких мест в плагине нет вовсе. */
+  for (const r of ruleBodies(css)) {
+    const dead = /(^|;)border-(left|right|top|bottom):0/.exec(r.decl);
+    assert.equal(dead, null, r.selectors.join(',') + ' режет край рамки, которой нет: ' + r.decl);
+  }
+
   /* Снятая рамка не должна оставлять за собой border-color/border-width —
      это мёртвые объявления: красить нечего. */
   for (const sel of ['.lumen-roulette .lumen-roulette__chip.lumen-chip--on',
@@ -2678,6 +2705,20 @@ test('Task 43: фокус кнопки карточки — инверсия (т
   for (const theme of ['warm', 'black']) {
     const t = withStorage({ lumen_theme: theme }, (LC) => LC.tokens());
     assert.ok(contrast(t.text, t.bg) >= 4.5, theme + ': инверсия нечитаема');
+  }
+});
+
+/* Фикс-раунд Task 43: Lampa инвертирует свой белый loader.svg на кнопке в
+   фокусе (vendor/lampa/css/app.css:4047 — .full-start__button.loading.focus
+   :before{filter:invert(1)}). Пока фокус заливался акцентом, наш filter:none
+   держал спиннер белым; теперь фон фокуса — P.text, и белое на белом это
+   пустая кнопка на всё время ожидания. */
+test('Task 43: спиннер кнопки в фокусе не остаётся белым на светлом фоне', () => {
+  for (const r of ruleBodies(css)) {
+    if (r.selectors.some((s) => s.indexOf('.full-start__button') !== -1 && s.indexOf('loading') !== -1)) {
+      assert.equal(/filter:\s*none/.test(r.decl), false,
+        'штатная инверсия спиннера погашена: ' + r.selectors.join(',') + '{' + r.decl + '}');
+    }
   }
 });
 
@@ -2705,9 +2746,61 @@ test('Task 43: заголовки — один вес 700 и один кегль
   assert.ok(heroTitle.indexOf('font-size:3.4em') !== -1, heroTitle);
   assert.ok(heroTitle.indexOf('font-weight:700') !== -1, heroTitle);
   assert.ok(heroTitle.indexOf('-webkit-line-clamp:1') !== -1, 'одна строка: ' + heroTitle);
-  assert.ok(heroTitle.indexOf('height:1.29em') !== -1, 'коробка фолбэка — высота логотипа: ' + heroTitle);
-  assert.ok(Math.abs(3.4 * 1.29 - 4.4) < 0.03, 'высота коробки обязана совпадать с рамкой логотипа');
-  assert.ok(1.08 <= 1.29, 'строка обязана помещаться в коробку');
+  /* Числа берём из самого правила: сравнение двух литералов не заметило бы
+     правки кегля или межстрочного. */
+  const num = (decl, prop) => parseFloat(new RegExp(prop + ':([\\d.]+)em').exec(decl)[1]);
+  const size = num(heroTitle, 'font-size');
+  const lh = parseFloat(/line-height:([\d.]+)/.exec(heroTitle)[1]);
+  const box = num(heroTitle, 'height');
+  assert.ok(Math.abs(size * box - 4.4) < 0.05, 'коробка фолбэка (' + (size * box).toFixed(2) + 'em) обязана совпадать с рамкой логотипа 4.4em');
+  assert.ok(lh < box, 'строка (' + lh + 'em) обязана помещаться в коробку (' + box + 'em)');
+
+  /* Сжатое состояние: коробка равна ровно одной строке — и обязана быть
+     ВЫШЕ межстрочного, иначе overflow:hidden срежет хвосты «у», «р», «щ».
+     Межстрочное 1.08 меньше глифового бокса почти любой гарнитуры. */
+  const small = findDecl(css, (sel) => sel === '.lumen-hero.lumen-hero--compact .lumen-hero__title');
+  const smallBox = num(small, 'height');
+  assert.ok(smallBox > lh, 'сжатая коробка (' + smallBox + 'em) не выше строки (' + lh + 'em) — срежет выносные элементы');
+  assert.ok(smallBox <= box, 'сжатая коробка не должна быть выше обычной: ' + small);
+});
+
+/* Фикс-раунд Task 43: кнопка поиска в шапке хаба была описана дважды —
+   pill без рамки из Task 41 и коробка с акцентным фокусом из Task 17. Второй
+   блок выигрывал и специфичностью (.lumen-hub .lumen-hub__search), и
+   порядком, поэтому на экране жила именно коробка, а комментарий у pill'а
+   обещал «ни одной коробки». Дубля быть не должно ни одного. */
+test('Task 43: кнопка поиска хаба описана ровно одним набором правил', () => {
+  const seen = [];
+  for (const r of ruleBodies(css)) {
+    for (const sel of r.selectors) {
+      if (sel.indexOf('lumen-hub__search') !== -1) seen.push(sel);
+    }
+  }
+  assert.deepEqual(seen.slice().sort(), [
+    '.lumen-hub.lumen-motion-lite .lumen-hub__search.focus',
+    '.lumen-hub.lumen-motion-off .lumen-hub__search',
+    '.lumen-hub.lumen-motion-off .lumen-hub__search.focus',
+    '.lumen-hub__search',
+    '.lumen-hub__search .lumen-ico',
+    '.lumen-hub__search.focus'
+  ].sort(), 'лишние или пропавшие правила кнопки поиска: ' + seen.join(' | '));
+
+  const focus = findDecl(css, (sel) => sel === '.lumen-hub__search.focus');
+  assert.ok(focus.indexOf('background:#F3EDE4') !== -1 && focus.indexOf('color:#0B0908') !== -1,
+    'фокус кнопки поиска — инверсия, как у чипов: ' + focus);
+});
+
+/* Фикс-раунд Task 43: чипы настроения лежат последним элементом текстового
+   блока героя (src/48_hero.js) — на том же экране, с которого пришла
+   претензия «колхозно», под метой и статусом, у которых рамки сняты. */
+test('Task 43: чип настроения — тот же язык, что у чипов хаба', () => {
+  const chip = findDecl(css, (sel) => sel === '.lumen-mood-chip');
+  assert.ok(chip.indexOf('border-color') === -1, 'мёртвый переход рамки: ' + chip);
+
+  const focus = findDecl(css, (sel) => sel === '.lumen-mood-chip.focus');
+  assert.ok(focus.indexOf('background:#F3EDE4') !== -1 && focus.indexOf('color:#0B0908') !== -1,
+    'фокус чипа настроения — инверсия: ' + focus);
+  assert.ok(focus.indexOf('border') === -1, 'мёртвая рамка в фокусе: ' + focus);
 });
 
 /* ---------------------------------------------------------------------- */
@@ -2716,19 +2809,64 @@ test('Task 43: заголовки — один вес 700 и один кегль
 /* (Task 42). Приводим к одному языку.                                     */
 /* ---------------------------------------------------------------------- */
 
+/* Фикс-раунд Task 43: бюджет высоты текстового блока героя содержал
+   слагаемое под строку рейтинга, которой больше нет — её место занимает
+   полоса со статусом сериала. Слагаемое обязано считаться по фактической
+   геометрии .lumen-hero__status, иначе герой прячет описание и кадр раньше,
+   чем нужно (пороги медиазапросов считаются из него же). */
+test('Task 43: бюджет под полосу статуса совпадает с её геометрией', () => {
+  const status = findDecl(css, (sel) => sel === '.lumen-hero .lumen-hero__status');
+  const n = (prop) => parseFloat(new RegExp(prop + ':([\\d.]+)em').exec(status)[1]);
+  const zoom = n('font-size');
+  const padY = parseFloat(/padding:([\d.]+)em/.exec(status)[1]);
+  const line = parseFloat(/line-height:([\d.]+)/.exec(status)[1]);
+  const mt = n('margin-top');
+  /* Отступ сверху стоит на самом статусе, а не на полосе: полоса живёт в
+     разметке всегда, и её margin отодвигал бы текст от низа кадра у каждого
+     фильма без статуса. Значит и он считается в кегле статуса. */
+  const need = Math.round((line + 2 * padY + mt) * zoom * 100) / 100;
+  assert.equal(need, 1.98, 'геометрия полосы статуса разошлась с бюджетом TEXT_STATUS');
+});
+
 test('Task 43: у карточки сетки подборки нет кольца фокуса — увеличение и ореол, как на главной', () => {
   const ring = findDecl(css, (sel) => sel === '.lumen-grid .lumen-gcard.focus .card__view:after');
   assert.ok(ring, 'штатное кольцо Lampa обязано быть погашено явным правилом');
   assert.ok(ring.indexOf('display:none') !== -1, 'кольцо снимается: ' + ring);
   assert.equal(ring.indexOf('border-color'), -1, 'мёртвая рамка на погашенном псевдоэлементе: ' + ring);
 
-  const view = findDecl(css, (sel) => sel === '.lumen-grid .lumen-gcard.focus .card__view');
-  assert.ok(view && /box-shadow:0 \.35em \.7em rgba\(232,184,122,0\.35\)/.test(view),
-    'ореол переехал на сам постер тем же числом, что на главной: ' + view);
+  /* Правил на этот селектор два — ореол и гашение штатных анимаций ниже,
+     поэтому ищем по самому объявлению, а не по первому совпадению. */
+  const view = ruleBodies(css).find((r) => r.selectors.indexOf('.lumen-grid .lumen-gcard.focus .card__view') !== -1 &&
+    r.decl.indexOf('box-shadow') !== -1);
+  assert.ok(view && /box-shadow:0 \.35em \.7em rgba\(232,184,122,0\.35\)/.test(view.decl),
+    'ореол переехал на сам постер тем же числом, что на главной: ' + (view && view.decl));
 
   const focus = findDecl(css, (sel) => sel === '.lumen-grid__items .lumen-gcard.focus');
   assert.ok(focus.indexOf('scale(1.08)') !== -1, 'увеличение то же, что у карточки ряда: ' + focus);
   assert.ok(focus.indexOf('z-index:3') !== -1, 'выросшая карточка обязана лежать поверх соседей: ' + focus);
+
+  /* Фикс-раунд: карточка сетки — штатная разметка Lampa (src/46_hub.js,
+     cardNode), значит на неё действуют обе анимации .card__view, что мы
+     погасили на главной: подброс фокуса и отскок нажатия. Без гашения они
+     играют поверх нашего увеличения. */
+  const anim = ruleBodies(css).filter((r) => /animation:\s*none !important/.test(r.decl) &&
+    r.selectors.some((s) => s.indexOf('.lumen-grid') === 0));
+  assert.ok(anim.length, 'штатные анимации карточки сетки не погашены');
+  const selectors = anim.reduce((acc, r) => acc.concat(r.selectors), []);
+  for (const state of ['.lumen-gcard.focus .card__view', '.lumen-gcard.hover .card__view']) {
+    assert.ok(selectors.some((s) => s.indexOf(state) !== -1), 'не погашено состояние ' + state + ': ' + selectors.join(','));
+  }
+
+  /* Вторая половина «языка Task 42»: штатных плашек на постере нет.
+     Рейтинг при этом не пропадает — его переносит в подпись
+     LC.badges.decorate, и прячем .card__vote ровно при включённых метках. */
+  const hidden = findDecl(css, (sel) => sel === '.lumen-grid .card__quality');
+  assert.ok(hidden && hidden.indexOf('display:none') !== -1, 'плашки качества/типа на постере сетки остались');
+  assert.ok(ruleSelectors(css).indexOf('.lumen-grid .card__type') !== -1, 'плашка типа «TV» на постере сетки осталась');
+  assert.ok(ruleSelectors(css).indexOf('.lumen-grid .card__vote') !== -1, 'плашка рейтинга на постере сетки осталась');
+  const noBadges = withStorage({ lumen_badges: 'false' }, (LC) => LC.buildCss());
+  assert.equal(ruleSelectors(noBadges).indexOf('.lumen-grid .card__vote'), -1,
+    'метки выключены — подписи с рейтингом нет, плашка обязана вернуться');
 
   /* Та же арифметика, что чинили в Task 42: карточка растёт от своего
      центра, значит вверх уходит половина прироста, и зазор до предыдущего

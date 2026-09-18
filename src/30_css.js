@@ -193,8 +193,7 @@
   /* Task 35: правила ГЛАВНОЙ, которые меняются вместе с постером под
      фокусом, — от подкрашенного фона (подложка рядов, две вуали героя и,
      с Task 38, два градиента на кромках области рядов: P.bg / P.bgRgb) и от
-     самого акцента (чип настроения в фокусе и подсветка карточки ряда в
-     фокусе: t.color / t.light / t.glow / t.onac). Собраны в
+     самого акцента (подсветка карточки ряда в фокусе: t.glow). Собраны в
      одном месте ради LC.accentCss ниже: доминанта постера меняется на каждой
      остановке фокуса, и переписывать ради неё всю таблицу значит фризить
      ровно тот момент, ради которого подкраска и сделана — её текст при
@@ -207,6 +206,10 @@
      Подсветка карточки в фокусе — тоже: иначе на главной ехал бы только
      фон, а самая заметная деталь экрана стояла бы на цвете прошлой полной
      сборки.
+     Task 43 (фикс-раунд): чип настроения отсюда УШЁЛ — его фокус стал
+     инверсией P.text/P.bg и от акцента больше не зависит. Правило осталось
+     бы в узле подкраски мёртвым грузом (ровно тот дефект, который ловили в
+     Task 42 у кольца карточки).
      Ещё два акцентных правила главной сюда сознательно НЕ взяты: статус
      героя (.lumen-hero__status, строка ниже) и активная строка мини-карты
      (.lumen-minimap__row--on). Оба мелкие и показываются не всегда, поэтому
@@ -235,7 +238,6 @@
          не зависит. */
       fadeTop: '.lumen-main .scroll.layer--wheight:after{background:-webkit-linear-gradient(top,' + P.bg + ' 0,' + P.bg + ' 2em,rgba(' + P.bgRgb + ',0) 2.5em);background:linear-gradient(to bottom,' + P.bg + ' 0,' + P.bg + ' 2em,rgba(' + P.bgRgb + ',0) 2.5em)}',
       fadeBot: '.lumen-main:after{background:-webkit-linear-gradient(bottom,' + P.bg + ' 0,rgba(' + P.bgRgb + ',0) 100%);background:linear-gradient(0deg,' + P.bg + ' 0,rgba(' + P.bgRgb + ',0) 100%)}',
-      chip: '.lumen-mood-chip.focus{background:' + t.color + ';color:' + t.onac + ';border-color:' + t.light + ';border-width:.11em}',
       /* Task 42: кольцо вокруг карточки снято (штатный :after погашен, см.
          блок рядов ниже), и акцент переехал на сам постер — ореолом под
          ним. Числа те же, что были у кольца: радиус размытия в плагине
@@ -256,7 +258,7 @@
      таблице. */
   LC.accentCss = function () {
     var R = accentRules(palette(), theme());
-    return R.main + '\n' + R.veilL + '\n' + R.veilB + '\n' + R.fadeTop + '\n' + R.fadeBot + '\n' + R.chip + '\n' + R.cardFocus;
+    return R.main + '\n' + R.veilL + '\n' + R.veilB + '\n' + R.fadeTop + '\n' + R.fadeBot + '\n' + R.cardFocus;
   };
 
   /* Фаза 3, настройка «Масштаб интерфейса». Все размеры плагина считаются в em
@@ -375,7 +377,7 @@
      низком окне: «элементы перекрывают друг друга». Блок текста ограничен
      этой зоной сверху и лишнее срезает сам.
      TEXT_* — слагаемые высоты текстового блока (каждое с собственным
-     отступом сверху): мета, логотип, описание в две строки, строка рейтинга.
+     отступом сверху): мета, логотип, описание в две строки, полоса статуса.
      Из них складывается бюджет: кадр, в который содержимое не помещается,
      описания не показывает, а кадр, в который не помещается и минимум, не
      показывается вовсе.
@@ -399,7 +401,17 @@
      состояниях. */
   var TEXT_LOGO = 5.6;
   var TEXT_DESCR = 4.05;
-  var TEXT_RATE = 2.62;
+  /* Полоса чипов под описанием. Task 43 перенёс рейтинг в строку меты, и
+     единственное, что в этой полосе осталось, — статус сериала «Выходит ·
+     17 дек». Прежние 2.62em были бюджетом чипа рейтинга; считаем по
+     фактической геометрии .lumen-hero__status (правило ниже): строка 1em,
+     паддинги .4em сверху и снизу, отступ сверху .45em — всё в его
+     собственном кегле .88em, то есть (1 + .4 + .4 + .45) × .88 = 1.98.
+     Полоса считается всегда, как и чипы настроения: у фильма и у
+     досмотренного сериала статуса нет, и кадр просто получает запас.
+     Связь константы с правилом держит тест «бюджет под полосу статуса
+     совпадает с её геометрией». */
+  var TEXT_STATUS = 1.98;
   var TEXT_ZOOM = 1.1;
   /* Высота полосы чипов В БАЗОВЫХ em, когда она лежит внутри текстового
      блока. Оба слагаемых заданы в кегле блока (отступ сверху — прямо, а
@@ -463,7 +475,7 @@
      по умолчанию, а пороги — одни на всю таблицу стилей. С выключенными
      чипами кадр просто получает лишний запас. */
   function textNeedEm(withDescr) {
-    var inner = TEXT_RATE + TEXT_LOGO + (heroSmallText() ? 0 : TEXT_META);
+    var inner = TEXT_STATUS + TEXT_LOGO + (heroSmallText() ? 0 : TEXT_META);
     if (withDescr) inner += TEXT_DESCR;
     return round2(HERO_HEAD_SAFE + MOODS_IN_EM + inner * TEXT_ZOOM);
   }
@@ -814,7 +826,11 @@
     css.push('.lumen-card .full-start__rate > div:first-child{display:block;width:auto;height:auto;background:transparent;border-radius:0;font-size:1.23em;font-weight:600;line-height:1;color:' + P.text + '}');
     css.push('.lumen-card .full-start__rate > div:last-child{font-size:.61em;letter-spacing:.1em;color:' + P.smoke + ';padding:.18em 0 0}');
     /* Чип «РЕАКЦИЙ» (fire) — та же геометрия что рейтинги, акцент «спайс», design-spec §5d/5f. */
-    css.push('.lumen-card .lumen-reactions-chip{font-family:' + FB + ';background:rgba(' + SPICE_RGB + ',.12);border:.04em solid rgba(' + SPICE_RGB + ',.5);border-radius:.53em;padding:.44em .70em;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-orient:vertical;-webkit-flex-direction:column;flex-direction:column;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center}');
+    /* Task 43 (фикс-раунд): чип реакций стоит в одной ленте с
+       .full-start__rate, у которого рамку сняли, — со своей он выбивался.
+       Рамка снята, а заливка поднята с .12 до .16: она осталась
+       единственным, что отделяет чип от подложки. */
+    css.push('.lumen-card .lumen-reactions-chip{font-family:' + FB + ';background:rgba(' + SPICE_RGB + ',.16);border-radius:.53em;padding:.44em .70em;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-orient:vertical;-webkit-flex-direction:column;flex-direction:column;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center}');
     css.push('.lumen-card .lumen-reactions-chip__value{font-size:1.23em;font-weight:600;line-height:1;color:' + P.spice + '}');
     css.push('.lumen-card .lumen-reactions-chip__label{font-size:.61em;letter-spacing:.1em;opacity:.8;color:' + P.spice + ';padding:.18em 0 0}');
     /* Task 5c (design-spec §5e, экран 05): вместо штатного tag--episode (свой
@@ -952,7 +968,6 @@
        (design-spec §7a «НАЖАТА»). !important — поверх правила .focus выше и
        нативной анимации Lampa (план 0.2). */
     css.push('.lumen-card .full-start-new__buttons .full-start__button.focus.lumen-press{background:' + P.muted + ' !important;-webkit-transform:scale(1) !important;transform:scale(1) !important}');
-    css.push('.lumen-card .full-start-new__buttons .full-start__button.loading:before{filter:none}');
 
     /* --- Task 7: режим фонового трейлера (экран 02) ---
        Кнопка «Стоп» и метка появляются только на время ролика (их создаёт и
@@ -1510,16 +1525,19 @@
     /* Task 8 (экран 06): «Следующая серия — 17 декабря, через 31 день» в сжатой
        шапке не помещается — там одна карта «● Выходит · 17 дек». Статус у
        сериала уже стоит в ленте непосредственно перед чипом (renderSerialMode),
-       поэтому карты склеиваются срезкой смежных краёв: у статуса правый, у чипа
-       левый. Короткая дата — собственный узел чипа (его дописывает LC.header).
-       Срезать край статуса можно только когда чип виден — это и означает класс
+       поэтому карты склеиваются в одну: у статуса гасятся правые радиусы и
+       правый отступ, у чипа — левые радиусы, левый паддинг и значок часов.
+       Task 43 (фикс-раунд): срезки рамок тут больше нет — рамок нет ни у
+       статуса, ни у чипа, склейку держат одни радиусы.
+       Короткая дата — собственный узел чипа (его дописывает LC.header).
+       Склеивать можно только когда чип виден — это и означает класс
        .lumen-card--nextchip на корне (:has() план запрещает). */
     css.push('.lumen-card .lumen-next-chip__short{display:none}');
     css.push('.lumen-card.lumen-compact .lumen-next-chip__text{display:none}');
     css.push('.lumen-card.lumen-compact .lumen-next-chip__short{display:block}');
-    css.push('.lumen-card.lumen-compact .lumen-next-chip{border-left:0;border-top-left-radius:0;border-bottom-left-radius:0;padding-left:0}');
+    css.push('.lumen-card.lumen-compact .lumen-next-chip{border-top-left-radius:0;border-bottom-left-radius:0;padding-left:0}');
     css.push('.lumen-card.lumen-compact .lumen-next-chip:before{display:none}');
-    css.push('.lumen-card.lumen-card--nextchip.lumen-compact .full-start-new__rate-line .full-start__status{margin-right:0 !important;border-right:0;border-top-right-radius:0;border-bottom-right-radius:0;padding-right:.45em}');
+    css.push('.lumen-card.lumen-card--nextchip.lumen-compact .full-start-new__rate-line .full-start__status{margin-right:0 !important;border-top-right-radius:0;border-bottom-right-radius:0;padding-right:.45em}');
     css.push('.lumen-card.lumen-motion-lite .full-start-new__title,.lumen-card.lumen-motion-lite .full-start-new__rate-line,.lumen-card.lumen-motion-lite .full-start-new__buttons,.lumen-card.lumen-motion-off .full-start-new__title,.lumen-card.lumen-motion-off .full-start-new__rate-line,.lumen-card.lumen-motion-off .full-start-new__buttons{-webkit-transition:none;transition:none}');
 
     /* --- Task 17: кнопка «Франшиза» в карточке (design-spec-card §7a) ---
@@ -1560,7 +1578,14 @@
        (высота, отступы, радиус, инверсия в фокусе), с иконкой лупы перед
        подписью. Рамки нет: на экране не должно быть ни одной коробки.
        align-self:center — шапка выравнивает детей по базовой линии текста,
-       а у pill'а базовая линия ниже середины. */
+       а у pill'а базовая линия ниже середины.
+       Task 43 (фикс-раунд): это единственные правила кнопки. Рядом с ними
+       до сих пор жил её второй набор из Task 17 (коробка 2.46em с рамкой и
+       акцентным фокусом) под селектором .lumen-hub .lumen-hub__search — на
+       класс специфичнее, да ещё и ниже по файлу, поэтому на экране была
+       именно коробка, а обещание «ни одной коробки» было ложным (замер
+       координатора на стенде 2026-09-18: высота 51.6 px, радиус 11.1 px,
+       рамка 1 px). Второй набор снят. */
     css.push('.lumen-hub__search{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-align-self:center;align-self:center;height:2.2em;padding:0 1em;border-radius:1.1em;margin-left:auto;background:transparent;font-family:' + FB + ';font-weight:600;font-size:.92em;line-height:1;color:' + P.muted + ';white-space:nowrap;-webkit-transition:background-color .2s,color .2s,-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25);transition:background-color .2s,color .2s,transform .28s cubic-bezier(.2,.9,.3,1.25)}');
     css.push('.lumen-hub__search .lumen-ico{-webkit-flex-shrink:0;flex-shrink:0;width:1.15em;height:1.15em;margin-right:.45em}');
     css.push('.lumen-hub__search.focus{background:' + P.text + ';color:' + P.bg + ';-webkit-transform:scale(1.05);transform:scale(1.05)}');
@@ -1654,6 +1679,30 @@
     css.push('.lumen-grid .lumen-gcard .card__img{border-radius:.31em;background-color:' + P.panelLo + '}');
     css.push('.lumen-grid .lumen-gcard .card__title{font-family:' + FB + ';font-weight:700;font-size:.96em;line-height:1.15;color:' + P.text + '}');
     css.push('.lumen-grid .lumen-gcard .card__age{font-family:' + FB + ';font-size:.88em;line-height:1;margin-top:.25em;color:' + P.muted + '}');
+    /* Task 43 (фикс-раунд): карточка сетки собрана из штатного шаблона
+       'card' (src/46_hub.js, cardNode) и класса .card--wide не получает —
+       значит на неё действуют обе анимации .card__view, погашенные на
+       главной в Task 42. Подброс фокуса: animation-card-focus, translate3d
+       на -1em и обратно, селектор
+       body.advanced--animation:not(.no--animation) .card:not(.card--wide)
+       .focus .card__view (и .hover, app.css:15779-15784, кадры 15215). Он
+       специфичнее любого нашего под .lumen-grid — отсюда !important. Вторая,
+       animation-trigger-enter (scale(1.2) с заливкой forwards,
+       app.css:15785-15790, кадры 15257), висит на .animate-trigger-enter, а
+       этот класс Lampa вешает на нажатие OK по карточке, которая в фокусе, —
+       значит правило накрывает и её.
+       Обе спорят с нашим увеличением карточки: подброс двигает постер
+       внутри уже увеличенной карточки, а forwards-заливка держит на нём
+       свой transform. */
+    css.push('.lumen-grid .lumen-gcard.focus .card__view,.lumen-grid .lumen-gcard.hover .card__view{-webkit-animation:none !important;animation:none !important}');
+    /* Штатные плашки на постере — как на главной: «пёстрых» плашек в
+       дизайне нет. Рисует их здесь не Lampa, а сама сетка (cardNode), но
+       узлы и классы те же, поэтому и прячутся тем же способом.
+       Рейтинг — условно: его переносит в подпись LC.badges.decorate, а та
+       работает только при включённых метках на постерах. Выключены метки —
+       плашка возвращается, иначе оценки не осталось бы нигде. */
+    css.push('.lumen-grid .card__quality,.lumen-grid .card__type{display:none}');
+    if (LC.pref('lumen_badges', true)) css.push('.lumen-grid .card__vote{display:none}');
     /* Фокус: пружина и подъём над соседями — без z-index увеличенная
        карточка ныряет под соседнюю и тень срезается (ревью Task 17).
 
@@ -1962,9 +2011,13 @@
        строка занимает 1.08em из них и в коробку помещается с запасом.
        Длинное название обрезается многоточием — для этого и тройка
        display/box-orient/overflow (ревью Task 5a).
-       В сжатом состоянии коробка ужимается до одной строки без запаса. */
+       В сжатом состоянии коробка ужимается до одной строки. Ровно
+       межстрочным (1.08em) её задавать нельзя: line-height меньше глифового
+       бокса гарнитуры, и при overflow:hidden срезались бы хвосты «у», «р»,
+       «щ» — на кегле 3.4em это заметно. 1.2em даёт по .06em запаса сверху и
+       снизу. */
     css.push('.lumen-hero .lumen-hero__title{font-family:' + FB + ';font-weight:700;font-size:3.4em;line-height:1.08;color:' + P.text + ';margin-top:.4em;height:1.29em;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:1}');
-    css.push('.lumen-hero.lumen-hero--compact .lumen-hero__title{height:1.08em}');
+    css.push('.lumen-hero.lumen-hero--compact .lumen-hero__title{height:1.2em}');
     css.push('.lumen-hero.lumen-hero--logo .lumen-hero__title{display:none}');
     css.push('.lumen-hero .lumen-hero__descr{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;font-family:' + FB + ';font-weight:400;font-size:1.05em;line-height:1.45;color:' + P.muted + ';max-width:39.45em;margin-top:.5em}');
 
@@ -2069,8 +2122,14 @@
        опускаются на высоту их полосы (иначе полоса легла бы на первый ряд). */
     css.push('.lumen-moods-on:not(.lumen-main) .lumen-moods{top:.53em}');
     css.push('.lumen-moods-on:not(.lumen-main) .scroll.layer--wheight{margin-top:' + MOODS_BAR + 'em;height:-webkit-calc(100vh - ' + round2(LAMPA_HEAD + MOODS_BAR) + 'em) !important;height:calc(100vh - ' + round2(LAMPA_HEAD + MOODS_BAR) + 'em) !important}');
-    css.push('.lumen-mood-chip{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;height:2.46em;padding:0 1.05em;margin:0 .53em .53em 0;border-radius:.53em;border:.04em solid ' + P.line + ';background:' + P.chipBg + ';font-family:' + FB + ';font-weight:600;font-size:.88em;line-height:1;color:' + P.muted + ';white-space:nowrap;cursor:default;-webkit-transition:background-color .2s,border-color .2s,color .2s;transition:background-color .2s,border-color .2s,color .2s}');
-    css.push(AR.chip);
+    /* Task 43 (фикс-раунд): чипы лежат последним элементом текстового блока
+       героя (src/48_hero.js) — на том же экране, где у меты и статуса рамки
+       уже сняты, и ряд коробок под ними выбивался. Оформление то же, что у
+       чипов хаба (.lumen-chip выше): заливка вместо рамки, инверсия в
+       фокусе. Заливка идёт через P.chipBg, а не литералом, — иначе
+       настройка «Плотные подложки» перестала бы действовать на этот ряд. */
+    css.push('.lumen-mood-chip{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;height:2.46em;padding:0 1.05em;margin:0 .53em .53em 0;border-radius:.53em;background:' + P.chipBg + ';font-family:' + FB + ';font-weight:600;font-size:.88em;line-height:1;color:' + P.muted + ';white-space:nowrap;cursor:default;-webkit-transition:background-color .2s,color .2s;transition:background-color .2s,color .2s}');
+    css.push('.lumen-mood-chip.focus{background:' + P.text + ';color:' + P.bg + '}');
     /* Режим анимаций читается с body (его держит LC.applyMotionMode, пока
        плагин активен): чипы больше не лежат внутри героя, и его собственный
        класс режима до них не достаёт. */
@@ -2258,8 +2317,8 @@
        хватает» — это ровно «экран слишком широк по отношению к высоте».
 
        Первый: кадру не хватает высоты на описание — тогда в нём остаются
-       мета, логотип и рейтинг (текст прижат к низу, лишние строки срезало бы
-       верхней кромкой безопасной зоны).
+       мета, логотип и полоса статуса (текст прижат к низу, лишние строки
+       срезало бы верхней кромкой безопасной зоны).
        Второй: не помещается и этот минимум — кадра нет, ряды занимают экран
        целиком, как при «Герой: выключен», а чипы настроения встают полосой
        под шапкой (правила ниже).
@@ -2518,8 +2577,9 @@
        десятками, и вертикальный список занял бы весь экран. */
     css.push('.lumen-roulette .lumen-roulette__chips,.lumen-roulette .lumen-roulette__filters{position:relative;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;margin-bottom:.88em}');
     /* Чип подборки и чип фильтра: собственное оформление, а не наследство
-       от .lumen-chip хаба (тот живёт только под .lumen-hub). Отмеченный —
-       акцентной рамкой и светлым текстом, фокус — заливкой акцентом. */
+       от .lumen-chip хаба (тот живёт только под .lumen-hub). Task 43:
+       отмеченный — подложкой из акцента .14 и светлым текстом, фокус —
+       инверсией, как у остальных чипов плагина. */
     css.push('.lumen-roulette .lumen-roulette__chip{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;height:2.1em;padding:0 .88em;margin:0 .53em .53em 0;border-radius:.53em;background:' + P.chipBg + ';font-family:' + FB + ';font-weight:500;font-size:.96em;line-height:1;color:' + P.smoke + ';white-space:nowrap}');
     css.push('.lumen-roulette .lumen-roulette__chip.lumen-chip--on{color:' + P.text + ';background:rgba(' + A_RGB + ',.14)}');
     css.push('.lumen-roulette .lumen-roulette__chip.focus{background:' + P.text + ';color:' + P.bg + '}');
@@ -2630,14 +2690,6 @@
        подложка и кегль панели мини-карты, место — нижний край экрана
        по центру, чтобы не спорить с самой панелью справа. */
     css.push('.lumen-jump{position:fixed;left:50%;bottom:2.81em;-webkit-transform:translateX(-50%);transform:translateX(-50%);padding:.53em 1.05em;border-radius:.53em;background:' + P.plate + ';border:.04em solid ' + P.line + ';font-family:' + FB + ';font-size:.96em;line-height:1;letter-spacing:.06em;color:' + P.text + ';z-index:80;pointer-events:none;white-space:nowrap}');
-
-    /* Кнопка поиска по подборкам в шапке хаба (§0.8). Место под неё
-       (.lumen-hub__search) держалось с Task 17; теперь это .selector, и у
-       него есть состояние фокуса — как у чипов групп. */
-    css.push('.lumen-hub .lumen-hub__search{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;height:2.46em;padding:0 1.05em;border-radius:.53em;border:.04em solid ' + P.line + ';background:' + P.buttonBg + ';-webkit-transition:background-color .2s,border-color .2s,color .2s,-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25);transition:background-color .2s,border-color .2s,color .2s,transform .28s cubic-bezier(.2,.9,.3,1.25)}');
-    css.push('.lumen-hub .lumen-hub__search .lumen-ico{width:1.05em;height:1.05em;margin-right:.53em}');
-    css.push('.lumen-hub .lumen-hub__search.focus{background:' + A + ';color:' + t.onac + ';border-color:' + AL + ';border-width:.11em;-webkit-transform:scale(1.06);transform:scale(1.06);-webkit-box-shadow:0 .35em .7em ' + AG + ';box-shadow:0 .35em .7em ' + AG + '}');
-    css.push('.lumen-hub.lumen-motion-lite .lumen-hub__search.focus,.lumen-hub.lumen-motion-off .lumen-hub__search.focus{-webkit-transform:none;transform:none}');
 
     /* Пункт меню «Подборки»: штатные иконки меню Lampa — 1.5em, а наш набор
        отдаёт svg в 1em (src/20_icons.js), и пункт выглядел мельче соседей. */

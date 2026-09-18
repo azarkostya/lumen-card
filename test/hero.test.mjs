@@ -191,6 +191,12 @@ test('heroModel: сериал без анонса серии — статуса 
 test('heroModel: без карточки — null; нулевой рейтинг не показывается', () => {
   assert.equal(H.heroModel(null, null, WORDS), null);
   assert.equal(H.heroModel({ id: 4, title: 'X', vote_average: 0 }, null, WORDS).rating, '');
+  /* Task 43 (фикс-раунд): порог тот же, что у подписи карточки ряда
+     (src/62_badges.js, rate) — иначе в кадре стояло бы «★ 0.0», а в ряду под
+     ним ничего. Сравнение с 1 заодно отсекает NaN. */
+  assert.equal(H.heroModel({ id: 5, title: 'X', vote_average: 0.04 }, null, WORDS).rating, '');
+  assert.equal(H.heroModel({ id: 6, title: 'X', vote_average: 1 }, null, WORDS).rating, '1.0');
+  assert.equal(H.heroModel({ id: 7, title: 'X', vote_average: 'нет' }, null, WORDS).rating, '');
 });
 
 test('shouldUpdate: тот же id или не выдержана задержка — не обновляем', () => {

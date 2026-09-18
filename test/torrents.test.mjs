@@ -52,6 +52,21 @@ const ALLOWED = [
   new RegExp('^body\\.lumen-torrents-on' + MOTION + ' ')
 ];
 
+/* Task 43: гарнитура у экранов пути та же, что у карточки (LC.tokens
+   .fontBody), а набор весов грузится один на весь плагин (LC.fontsUrl).
+   Проверка весов в css.test.mjs смотрит только на LC.buildCss — эти 35
+   объявлений в неё не попадают вовсе, а недостающий вес браузер
+   синтезирует сам, и на 1080p псевдожирность выглядит грязно. */
+test('Task 43: все веса CSS экранов пути есть в наборе Google Fonts', () => {
+  const url = baseLC.fontsUrl();
+  const have = /:wght@([\d;]+)/.exec(url)[1].split(';');
+  const used = new Set((t.css().match(/font-weight:\d+/g) || []).map((m) => m.slice('font-weight:'.length)));
+  assert.ok(used.size, 'в таблице экранов пути не нашлось ни одного font-weight');
+  for (const w of used) {
+    assert.ok(have.indexOf(w) !== -1, 'вес ' + w + ' стоит в стилях, но его нет в наборе ' + have.join(';'));
+  }
+});
+
 test('scoped: два префикса из одного селектора', () => {
   assert.equal(t.scoped('.selectbox .selectbox-item.focus'), 'body.lumen-menus-all .selectbox .selectbox-item.focus,.selectbox.lumen-select .selectbox-item.focus');
   assert.equal(t.scoped('.modal .torrent-checklist'), 'body.lumen-menus-all .modal .torrent-checklist,.modal.lumen-modal .torrent-checklist');

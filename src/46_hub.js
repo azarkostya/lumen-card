@@ -1250,7 +1250,6 @@
         node.addClass('lumen-gcard');
         var el = node[0];
         el.card_data = card;
-        if (!year) node.find('.card__age').remove();
 
         var view = node.find('.card__view');
         if (card.name) {
@@ -1263,6 +1262,14 @@
         if (quality && !card.name) view.append($('<div class="card__quality"></div>').text(quality));
 
         markCard(node, card);
+        /* Пустая подпись занимала бы под постером свою строку, поэтому её
+           узел снимается. Task 43 (фикс-раунд): проверка переехала СЮДА, за
+           markCard: рейтинг сетки теперь дописывает в ту же подпись
+           LC.badges.decorate, и у фильма без года снятый заранее узел унёс
+           бы вместе с собой и оценку — штатную плашку .card__vote при
+           включённых метках прячет CSS. */
+        var age = node.find('.card__age');
+        if (age.length && !('' + age.text())) age.remove();
         /* Task 39: постер карточки сетки — по её фактической ширине
            (GCARD_EM): 282 физических пикселя на экране 1920 (w342) и 564 на
            вдвое более плотном (w500). */
@@ -1304,10 +1311,13 @@
         /* Task 25: метка «Скоро»/«Новинка»/«Продолжить» — тем же модулем,
            что на главной. bar:false — полосу прогресса здесь уже нарисовал
            progressBar выше, вторая такая же на том же постере была бы дублем.
-           Task 42: rating:false — рейтинг сетки стоит плашкой .card__vote
-           (cardNode выше), и в подписи он был бы вторым тем же числом. */
+           Task 43 (фикс-раунд): rating:false снят — рейтинг сетки переехал
+           в подпись под постером, ровно как на главной, а штатную плашку
+           .card__vote прячет CSS при включённых метках (src/30_css.js, блок
+           сетки). Вторым числом он не станет: прячется ровно то, что
+           дописывается, и по одному и тому же условию. */
         try {
-          if (LC.badges && LC.badges.decorate) LC.badges.decorate(node, card, { bar: false, rating: false });
+          if (LC.badges && LC.badges.decorate) LC.badges.decorate(node, card, { bar: false });
         } catch (eBadge) {
           warn('grid: badge failed', eBadge);
         }

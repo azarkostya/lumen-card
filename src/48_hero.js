@@ -259,7 +259,11 @@
         logoRatio: logoRatioOf(logoItem),
         meta: meta,
         overview: (details && details.overview) || card.overview || '',
-        rating: vote > 0 ? vote.toFixed(1) : '',
+        /* Порог 1, а не 0: он тот же, что у подписи карточки ряда
+           (src/62_badges.js, rate) — иначе фильм с оценкой 0.04 показывал бы
+           в кадре «★ 0.0», а в ряду под ним ничего. Сравнение с 1 заодно
+           отсекает NaN. */
+        rating: vote >= 1 ? vote.toFixed(1) : '',
         status: status,
         pending: !details
       };

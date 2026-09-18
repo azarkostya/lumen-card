@@ -1112,6 +1112,40 @@ test('lumen_grid: метка закладки и полоса продолжен
   assert.equal(root.all('lumen-gcard')[0].all('lumen-gcard__bar').length, 0, 'у карточки без прогресса полосы нет');
 });
 
+/* Task 43 (фикс-раунд): рейтинг сетки переехал в подпись под постером, а
+   штатную плашку .card__vote прячет CSS. Значит узел подписи нельзя снимать
+   ДО того, как в него допишет LC.badges: у фильма без года подпись пуста
+   ровно до этого момента, и снятый заранее узел унёс бы с собой оценку. */
+test('lumen_grid: подпись снимается только если осталась пустой после меток', function () {
+  var env = setupLampa();
+  var h = loadHub();
+  /* Заглушка меток делает то же, что настоящая: дописывает рейтинг в
+     .card__age (src/62_badges.js, rate). */
+  h.LC.badges = {
+    decorate: function (node, card) {
+      if (!(Number(card.vote_average) >= 1)) return;
+      var age = node.find('.card__age');
+      var was = '' + age.text();
+      age.text((was ? was + ' · ' : '') + '★ ' + Number(card.vote_average).toFixed(1));
+    }
+  };
+  h.api.install();
+  var comp = makeComponent('lumen_grid', { lumen: COLLECTION, title: 'x' }, env);
+  comp.create();
+  h.fetchCalls[0].ok({
+    results: [
+      { id: 1, title: 'Без года', poster_path: '/a.jpg', vote_average: 6.4 },
+      { id: 2, title: 'Без всего', poster_path: '/b.jpg', vote_average: 0 }
+    ],
+    page: 1, total_pages: 1, total_results: 2
+  });
+  var root = env.log.scrolls[0].body()._children[0];
+  var cards = root.all('lumen-gcard');
+  assert.equal(cards[0].all('card__age').length, 1, 'подпись с рейтингом снята вместе с пустым годом');
+  assert.equal(cards[0].all('card__age')[0].text(), '★ 6.4');
+  assert.equal(cards[1].all('card__age').length, 0, 'пустая подпись занимала бы строку под постером');
+});
+
 test('lumen_grid: OK на карточке открывает полную карточку', function () {
   var g = openGrid(COLLECTION);
   g.h.fetchCalls[0].ok({ results: results(2), page: 1, total_pages: 1, total_results: 2 });
