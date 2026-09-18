@@ -1515,47 +1515,69 @@
        внутри нет, поэтому ни одно правило не может протечь на её экраны. */
     css.push('.lumen-hub{padding:2.81em 2.81em 3.5em 2.81em;color:' + P.text + '}');
     css.push('.lumen-hub__head{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:baseline;-webkit-align-items:baseline;align-items:baseline;-webkit-flex-wrap:wrap;flex-wrap:wrap;margin-bottom:1.4em}');
-    css.push('.lumen-hub__title{font-family:' + FD + ';font-weight:700;font-size:2.28em;line-height:1;margin-right:.6em}');
-    css.push('.lumen-hub__count{font-family:' + FM + ';font-size:.88em;color:' + P.smoke + '}');
-    css.push('.lumen-hub__search{font-family:' + FM + ';font-size:.88em;letter-spacing:.06em;color:' + P.smoke + ';margin-left:auto}');
+    /* Task 41: заголовок экрана спокойнее (2.28em -> 2.1em), а счётчик
+       подборок рядом с ним — основной гарнитурой, а не моноширинной:
+       моноширинные цифры в шапке читались как технический вывод. */
+    css.push('.lumen-hub__title{font-family:' + FD + ';font-weight:700;font-size:2.1em;line-height:1;margin-right:.6em}');
+    css.push('.lumen-hub__count{font-family:' + FB + ';font-size:1em;color:' + P.muted + '}');
+    /* Task 41: кнопка поиска — тот же pill, что у сегмент-контрола ниже
+       (высота, отступы, радиус, инверсия в фокусе), с иконкой лупы перед
+       подписью. Рамки нет: на экране не должно быть ни одной коробки.
+       align-self:center — шапка выравнивает детей по базовой линии текста,
+       а у pill'а базовая линия ниже середины. */
+    css.push('.lumen-hub__search{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-align-self:center;align-self:center;height:2.2em;padding:0 1em;border-radius:1.1em;margin-left:auto;background:transparent;font-family:' + FB + ';font-weight:600;font-size:.92em;line-height:1;color:' + P.muted + ';white-space:nowrap;-webkit-transition:background-color .2s,color .2s,-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25);transition:background-color .2s,color .2s,transform .28s cubic-bezier(.2,.9,.3,1.25)}');
+    css.push('.lumen-hub__search .lumen-ico{-webkit-flex-shrink:0;flex-shrink:0;width:1.15em;height:1.15em;margin-right:.45em}');
+    css.push('.lumen-hub__search.focus{background:' + P.text + ';color:' + P.bg + ';-webkit-transform:scale(1.05);transform:scale(1.05)}');
     css.push('.lumen-hub__empty{font-family:' + FB + ';font-size:1.05em;color:' + P.muted + ';padding:2em 0}');
     css.push('.lumen-hub__chips{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;margin-bottom:1.4em}');
     css.push('.lumen-hub__tiles{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap}');
 
-    /* Чип (§0.7) — общий для групп хаба и сортировки сетки. Оба корня
-       перечислены явно: собственный класс без корня оставлял бы правило
-       глобальным. */
-    css.push('.lumen-hub .lumen-chip,.lumen-grid .lumen-chip{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;height:2.46em;padding:0 1.05em;margin:0 .53em .53em 0;border-radius:.53em;border:.04em solid ' + P.line + ';background:' + P.buttonBg + ';font-family:' + FB + ';font-weight:600;font-size:.92em;line-height:1;color:' + P.muted + ';white-space:nowrap;-webkit-transition:background-color .2s,border-color .2s,color .2s,-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25);transition:background-color .2s,border-color .2s,color .2s,transform .28s cubic-bezier(.2,.9,.3,1.25)}');
-    css.push('.lumen-hub .lumen-chip__count{font-family:' + FM + ';font-size:.8em;margin-left:.6em;color:' + P.smoke + '}');
-    /* Выбранная группа/сортировка — приглушённый акцент, чтобы её было видно
-       и когда фокус ушёл на другой чип. */
-    css.push('.lumen-hub .lumen-chip.lumen-chip--on,.lumen-grid .lumen-chip.lumen-chip--on{color:' + A + ';border-color:' + A + ';background:rgba(' + A_RGB + ',.14)}');
-    css.push('.lumen-hub .lumen-chip.focus,.lumen-grid .lumen-chip.focus{background:' + A + ';color:' + t.onac + ';border-color:' + AL + ';border-width:.11em;-webkit-transform:scale(1.06);transform:scale(1.06);-webkit-box-shadow:0 .35em .7em ' + AG + ';box-shadow:0 .35em .7em ' + AG + '}');
-    css.push('.lumen-hub.lumen-motion-lite .lumen-chip.focus,.lumen-hub.lumen-motion-off .lumen-chip.focus,.lumen-grid.lumen-motion-lite .lumen-chip.focus,.lumen-grid.lumen-motion-off .lumen-chip.focus{-webkit-transform:none;transform:none}');
-    css.push('.lumen-hub.lumen-motion-off .lumen-chip,.lumen-grid.lumen-motion-off .lumen-chip{-webkit-transition:none;transition:none}');
+    /* Task 41: сегмент-контрол вместо чипа с рамкой — общий для групп хаба
+       и сортировки сетки (оба корня перечислены явно: собственный класс без
+       корня оставлял бы правило глобальным). Ряд из рамок на весь экран и
+       был тем «колхозом», от которого уходим: в покое это просто ряд
+       названий, выбранное имя лежит на светлой подложке-pill, и только
+       фокус даёт инверсию. */
+    css.push('.lumen-hub .lumen-chip,.lumen-grid .lumen-chip{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;height:2.2em;padding:0 1em;margin:0 .3em .53em 0;border-radius:1.1em;background:transparent;font-family:' + FB + ';font-weight:600;font-size:.92em;line-height:1;color:' + P.muted + ';white-space:nowrap;-webkit-transition:background-color .2s,color .2s,-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25);transition:background-color .2s,color .2s,transform .28s cubic-bezier(.2,.9,.3,1.25)}');
+    /* Выбранная группа/сортировка видна и когда фокус ушёл на другой чип:
+       подложка из цвета текста с малой непрозрачностью — она не спорит с
+       акцентом, которым красится фокус. */
+    css.push('.lumen-hub .lumen-chip.lumen-chip--on,.lumen-grid .lumen-chip.lumen-chip--on{background:rgba(' + P.textRgb + ',.14);color:' + P.text + '}');
+    css.push('.lumen-hub .lumen-chip.focus,.lumen-grid .lumen-chip.focus{background:' + P.text + ';color:' + P.bg + ';-webkit-transform:scale(1.05);transform:scale(1.05)}');
+    css.push('.lumen-hub.lumen-motion-lite .lumen-chip.focus,.lumen-hub.lumen-motion-off .lumen-chip.focus,.lumen-grid.lumen-motion-lite .lumen-chip.focus,.lumen-grid.lumen-motion-off .lumen-chip.focus,.lumen-hub.lumen-motion-lite .lumen-hub__search.focus,.lumen-hub.lumen-motion-off .lumen-hub__search.focus{-webkit-transform:none;transform:none}');
+    css.push('.lumen-hub.lumen-motion-off .lumen-chip,.lumen-grid.lumen-motion-off .lumen-chip,.lumen-hub.lumen-motion-off .lumen-hub__search{-webkit-transition:none;transition:none}');
 
     /* Плитка 430×242 (16:9), 4 в ряд при safe area 64 с обеих сторон:
-       ширина = (100% − 3 промежутка по .88em) / 4. */
-    css.push('.lumen-hub__tiles .lumen-tile{position:relative;width:-webkit-calc((100% - 2.64em) / 4);width:calc((100% - 2.64em) / 4);margin:0 .88em .88em 0;border-radius:.44em;overflow:hidden;background:' + P.panel + ';border:.04em solid ' + P.line + ';-webkit-transition:border-color .2s,-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25);transition:border-color .2s,transform .28s cubic-bezier(.2,.9,.3,1.25)}');
+       ширина = (100% − 3 промежутка по .88em) / 4.
+       Task 41: рамки нет — плитку очерчивает сам кадр, а под ним ровная
+       панель. Радиус крупнее (.44em -> .6em) под кадр во всю плитку. */
+    css.push('.lumen-hub__tiles .lumen-tile{position:relative;width:-webkit-calc((100% - 2.64em) / 4);width:calc((100% - 2.64em) / 4);margin:0 .88em .88em 0;border-radius:.6em;overflow:hidden;background:' + P.panel + ';-webkit-transition:-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25);transition:transform .28s cubic-bezier(.2,.9,.3,1.25)}');
     css.push('.lumen-hub__tiles .lumen-tile:nth-child(4n){margin-right:0}');
     /* Пропорция 16:9 распоркой (aspect-ratio нет на старых webOS/Tizen). */
     css.push('.lumen-hub__tiles .lumen-tile:before{content:"";display:block;padding-top:56.25%}');
-    css.push('.lumen-hub .lumen-tile__collage{position:absolute;top:0;left:0;right:0;bottom:0;overflow:hidden}');
-    /* Task 38: у постеров коллажа тени нет. Их ровно три на плитку
-       (src/46_hub.js: COLLAGE_SIZE = 3, paintCollage рисует по узлу на
-       путь), плитки идут по четыре в ряд и заполняют экран целиком —
-       десятки размытых теней разом, и каждая под собственным rotate():
-       повёрнутый элемент WebView растрирует отдельно, вместе с тенью по
-       всему её радиусу. Постеры и без тени читаются как стопка — они
-       перекрывают друг друга и повёрнуты в разные стороны. */
-    css.push('.lumen-hub .lumen-tile__poster{position:absolute;width:5.70em;height:8.55em;border-radius:.31em;-webkit-background-size:cover;background-size:cover;background-position:center}');
-    css.push('.lumen-hub .lumen-tile__poster--1{left:1.1em;top:-.88em;-webkit-transform:rotate(-6deg);transform:rotate(-6deg)}');
-    css.push('.lumen-hub .lumen-tile__poster--2{left:6.2em;top:-.44em;-webkit-transform:rotate(2deg);transform:rotate(2deg)}');
-    css.push('.lumen-hub .lumen-tile__poster--3{left:11.3em;top:-1.1em;-webkit-transform:rotate(8deg);transform:rotate(8deg)}');
-    css.push('.lumen-hub .lumen-tile__scrim{position:absolute;top:0;left:0;right:0;bottom:0;background:-webkit-linear-gradient(bottom,rgba(' + P.bgRgb + ',.98) 0%,rgba(' + P.bgRgb + ',.7) 40%,rgba(' + P.bgRgb + ',.2) 100%);background:linear-gradient(0deg,rgba(' + P.bgRgb + ',.98) 0%,rgba(' + P.bgRgb + ',.7) 40%,rgba(' + P.bgRgb + ',.2) 100%)}');
+    /* Task 41: один кадр подборки на всю плитку вместо коллажа из трёх
+       повёрнутых постеров (Apple TV+/Netflix: баннер 16:9 с затемнением
+       снизу и названием). Картинку кладёт src/46_hub.js (paintBanner) одним
+       <img> внутрь .lumen-tile__media.
+       object-position:center 30% работает на фолбэке: кадр подборки приходит
+       горизонтальным (backdrop TMDB — те же 16:9, что и плитка, и cover его
+       не режет), но когда кадра нет ни у одной карточки страницы,
+       LC.sources.bannerPath отдаёт постер 2:3 — его обрезка по высоте плитки
+       съела бы почти всё, и лучше оставить верхнюю часть, а не низ. */
+    css.push('.lumen-hub .lumen-tile__media{position:absolute;top:0;left:0;right:0;bottom:0;overflow:hidden}');
+    css.push('.lumen-hub .lumen-tile__img{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;object-position:center 30%;opacity:0;-webkit-transition:opacity .25s;transition:opacity .25s}');
+    /* Класс плитки ставит paintBanner по событию загрузки картинки: до него
+       видна панель, а не полупрозрачный полукадр. */
+    css.push('.lumen-hub .lumen-tile--filled .lumen-tile__img{opacity:1}');
+    css.push('.lumen-hub.lumen-motion-off .lumen-tile__img{-webkit-transition:none;transition:none}');
+    /* Затемнение снизу под текст: к верху кадра сходит на нет — название
+       читается, а кадр остаётся кадром. */
+    css.push('.lumen-hub .lumen-tile__scrim{position:absolute;top:0;left:0;right:0;bottom:0;background:-webkit-linear-gradient(bottom,rgba(' + P.bgRgb + ',.9) 0%,rgba(' + P.bgRgb + ',.35) 45%,rgba(' + P.bgRgb + ',0) 100%);background:linear-gradient(0deg,rgba(' + P.bgRgb + ',.9) 0%,rgba(' + P.bgRgb + ',.35) 45%,rgba(' + P.bgRgb + ',0) 100%)}');
     css.push('.lumen-hub .lumen-tile__text{position:absolute;left:.88em;right:.88em;bottom:.7em}');
-    css.push('.lumen-hub .lumen-tile__title{font-family:' + FD + ';font-weight:700;font-size:1.27em;line-height:1.06;color:' + P.text + ';overflow:hidden}');
-    css.push('.lumen-hub .lumen-tile__sub{font-family:' + FM + ';font-size:.88em;line-height:1;color:' + P.muted + ';margin-top:.35em;overflow:hidden}');
+    /* Task 41: название — одна строка с обрезкой. Перенос («Миссия /
+       невыполнима») ломал ровный низ ряда плиток. */
+    css.push('.lumen-hub .lumen-tile__title{font-family:' + FD + ';font-weight:700;font-size:1.15em;line-height:1.2;color:' + P.text + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}');
+    css.push('.lumen-hub .lumen-tile__sub{font-family:' + FM + ';font-size:.85em;line-height:1;color:' + P.muted + ';margin-top:.35em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}');
     css.push('.lumen-hub .lumen-tile__nokey{display:none;position:absolute;top:.7em;right:.7em;font-family:' + FM + ';font-size:.7em;letter-spacing:.04em;color:' + P.text + ';background:rgba(' + P.bgRgb + ',.8);border:.05em solid rgba(' + P.textRgb + ',.3);border-radius:.2em;padding:.25em .45em}');
     css.push('.lumen-hub .lumen-tile--nokey .lumen-tile__nokey{display:block}');
     /* Task 21 (фаза 3): метка сезонной подборки. Место — левый верхний угол
@@ -1563,8 +1585,18 @@
        Кинопоиска они могут встретиться на одной плитке. Цвет — акцент: это
        единственная плитка в списке, на которую сейчас стоит смотреть. */
     css.push('.lumen-hub .lumen-tile__season{position:absolute;top:.7em;left:.7em;font-family:' + FM + ';font-size:.7em;letter-spacing:.04em;color:' + t.onac + ';background:' + A + ';border-radius:.2em;padding:.25em .45em}');
-    css.push('.lumen-hub__tiles .lumen-tile.focus{border-color:' + AL + ';border-width:.13em;-webkit-transform:scale(1.06);transform:scale(1.06);-webkit-box-shadow:0 .35em .7em ' + AG + ';box-shadow:0 .35em .7em ' + AG + '}');
-    css.push('.lumen-hub.lumen-motion-lite .lumen-tile.focus,.lumen-hub.lumen-motion-off .lumen-tile.focus{-webkit-transform:none;transform:none}');
+    /* Task 41: фокус — только увеличение и мягкая тень, без кольца: на
+       плитке с кадром рамка читается как ещё одна коробка. Тень вне
+       transition (правило Task 38): она появляется вместе с классом.
+       z-index — по той же причине, что у карточки сетки ниже: увеличенная
+       плитка иначе ныряет под следующую в ряду и тень срезается. */
+    css.push('.lumen-hub__tiles .lumen-tile.focus{-webkit-transform:scale(1.05);transform:scale(1.05);z-index:3;-webkit-box-shadow:0 .35em .7em rgba(0,0,0,.45);box-shadow:0 .35em .7em rgba(0,0,0,.45)}');
+    /* Task 41: в lite/off увеличения нет, а мягкая тень на тёмном фоне не
+       читается — фокус остался бы без единого признака (прежде его держало
+       кольцо, которое у баннера убрано). Поэтому здесь плитку очерчивает
+       акцентный контур: outline, а не border — он не занимает места в
+       раскладке и не двигает соседние плитки. */
+    css.push('.lumen-hub.lumen-motion-lite .lumen-tile.focus,.lumen-hub.lumen-motion-off .lumen-tile.focus{-webkit-transform:none;transform:none;outline:.13em solid ' + AL + ';outline-offset:-.13em}');
     css.push('.lumen-hub.lumen-motion-off .lumen-tile{-webkit-transition:none;transition:none}');
 
     /* --- Task 17: сетка подборки (design-spec-main §0.4, экран 20) ---
@@ -2216,7 +2248,7 @@
     /* --- Task 25: скелетоны ---
        Одно правило на все плашки плагина: описание героя до прихода деталей
        (.lumen-hero__sk), ряд отзывов до ответа Кинопоиска (.lumen-review--sk)
-       и коллаж плитки хаба, пока идёт запрос.
+       и кадр плитки хаба, пока идёт запрос.
 
        Пульсация — ОДНО свойство opacity: его меняет композитор, без
        перерисовки слоя. Именно поэтому здесь нет «бегущего блика» с
@@ -2231,9 +2263,9 @@
     /* Плашка на месте карточки отзыва: геометрию даёт сам .lumen-review
        (21.04em × 11.4em), здесь — только заливка вместо содержимого. */
     css.push('.lumen-descr-row .lumen-review--sk{background-image:none}');
-    /* Коллаж плитки хаба: плашка занимает весь прямоугольник плитки, поэтому
+    /* Кадр плитки хаба: плашка занимает весь прямоугольник плитки, поэтому
        ей достаточно скруглений её собственного контейнера. */
-    css.push('.lumen-hub .lumen-tile__collage.lumen-skeleton{border-radius:.53em}');
+    css.push('.lumen-hub .lumen-tile__media.lumen-skeleton{border-radius:.6em}');
 
     /* --- Task 29: слой перехода «постер → кадр» ---
        Только раскладка: длительности и конечная геометрия — инлайном из

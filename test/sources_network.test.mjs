@@ -420,9 +420,13 @@ test('fetch: та же подборка с той же сортировкой п
   assert.equal(calls.length, 1, 'второй вызов — подписчик первого');
 });
 
-/* ---- Ревью Task 17: дешёвый коллаж (C1) -------------------------------- */
+/* ---- Ревью Task 17: дешёвая картинка плитки (C1) ----------------------- */
+/* Task 41: коллаж из трёх постеров заменён одним кадром, и вместо
+   collagePaths(item, count, …) источники отдают bannerPath(item, …) — одну
+   строку. Проверки те же по смыслу: подборка Кинопоиска стоит один запрос к
+   КП и ноль к TMDB, кэш работает, отмена гасит запрос. */
 
-test('collagePaths: подборка Кинопоиска — один запрос к КП, ноль к TMDB (C1)', function (t, done) {
+test('bannerPath: подборка Кинопоиска — один запрос к КП, ноль к TMDB (C1)', function (t, done) {
   var tmdbCalls = 0;
   var kpUrls = [];
   global.Lampa = makeFakeLampa({
@@ -444,15 +448,16 @@ test('collagePaths: подборка Кинопоиска — один запр�
   var S = loadCtx('43_sources.js', { pref: function (k) { return k === 'lumen_kp_key' ? 'KEY' : ''; } }).api;
 
   var item = { id: 'kp-top250', title: 'КП', sources: { movie: { type: 'kp', collection: 'TOP_250_MOVIES' } } };
-  S.collagePaths(item, 3, function (paths) {
-    assert.deepEqual(paths, ['https://kp/1.jpg', 'https://kp/2.jpg', 'https://kp/3.jpg'], 'три готовых URL Кинопоиска');
-    assert.equal(tmdbCalls, 0, 'сопоставления с TMDB для коллажа не нужно');
+  S.bannerPath(item, function (path) {
+    /* Кадров в ответе films/collections нет — приходит первый постер КП. */
+    assert.equal(path, 'https://kp/1.jpg', 'готовый URL Кинопоиска');
+    assert.equal(tmdbCalls, 0, 'сопоставления с TMDB для плитки не нужно');
     assert.equal(kpUrls.length, 1, 'ровно один запрос к Кинопоиску');
     done();
   }, function (e) { done(new Error('err: ' + JSON.stringify(e))); }, null);
 });
 
-test('collagePaths: постеры КП кэшируются — второй коллаж в сеть не идёт (C1)', function (t, done) {
+test('bannerPath: картинка КП кэшируется — вторая плитка в сеть не идёт (C1)', function (t, done) {
   var kpCalls = 0;
   var storage = makeFakeStorage();
   global.Lampa = makeFakeLampa({
@@ -468,16 +473,16 @@ test('collagePaths: постеры КП кэшируются — второй к
   var S = loadCtx('43_sources.js', { pref: function (k) { return k === 'lumen_kp_key' ? 'KEY' : ''; } }).api;
   var item = { id: 'kp-top250', sources: { movie: { type: 'kp', collection: 'TOP_250_MOVIES' } } };
 
-  S.collagePaths(item, 3, function () {
-    S.collagePaths(item, 3, function (paths) {
+  S.bannerPath(item, function () {
+    S.bannerPath(item, function (path) {
       assert.equal(kpCalls, 1, 'второй раз — из кэша');
-      assert.deepEqual(paths, ['https://kp/a.jpg', 'https://kp/b.jpg']);
+      assert.equal(path, 'https://kp/a.jpg');
       done();
     }, function (e) { done(new Error('err: ' + JSON.stringify(e))); }, null);
   }, function (e) { done(new Error('err: ' + JSON.stringify(e))); }, null);
 });
 
-test('collagePaths: без ключа КП — err({nokey:true}) и ни одного запроса (C1)', function (t, done) {
+test('bannerPath: без ключа КП — err({nokey:true}) и ни одного запроса (C1)', function (t, done) {
   var made = 0;
   global.Lampa = makeFakeLampa({
     storage: makeFakeStorage(),
@@ -485,7 +490,7 @@ test('collagePaths: без ключа КП — err({nokey:true}) и ни одн�
   });
   global.window = { localStorage: null };
   var S = loadCtx('43_sources.js', { pref: function () { return ''; } }).api;
-  S.collagePaths({ id: 'kp', sources: { movie: { type: 'kp', collection: 'X' } } }, 3, function () {
+  S.bannerPath({ id: 'kp', sources: { movie: { type: 'kp', collection: 'X' } } }, function () {
     done(new Error('ok не должен вызываться'));
   }, function (e) {
     assert.ok(e && e.nokey);
@@ -494,22 +499,54 @@ test('collagePaths: без ключа КП — err({nokey:true}) и ни одн�
   }, null);
 });
 
-test('collagePaths: обычная подборка — первая страница, до count путей постеров', function (t, done) {
+/* Task 41: плитка показывает КАДР, а не постер — берётся backdrop_path
+   первой карточки первой страницы, у которой он есть. */
+test('bannerPath: обычная подборка — кадр первой карточки с backdrop_path', function (t, done) {
   global.Lampa = makeFakeLampa({
     Api: { sources: { tmdb: { get: function (url, params, ok) {
-      ok({ results: [{ id: 1, poster_path: '/a.jpg' }, { id: 2 }, { id: 3, poster_path: '/b.jpg' }, { id: 4, poster_path: '/c.jpg' }, { id: 5, poster_path: '/d.jpg' }], page: 1, total_pages: 2, total_results: 5 });
+      ok({ results: [{ id: 1, poster_path: '/a.jpg' }, { id: 2, poster_path: '/b.jpg', backdrop_path: '/bd2.jpg' }, { id: 3, backdrop_path: '/bd3.jpg' }], page: 1, total_pages: 2, total_results: 3 });
       return { clear: function () {} };
     } } } }
   });
   global.window = { localStorage: null };
   var S = loadCtx('43_sources.js', { pref: function () { return ''; } }).api;
-  S.collagePaths({ id: 'pixar', sources: { movie: { type: 'discover', params: {} } } }, 3, function (paths) {
-    assert.deepEqual(paths, ['/a.jpg', '/b.jpg', '/c.jpg'], 'позиции без постера пропускаются');
+  S.bannerPath({ id: 'pixar', sources: { movie: { type: 'discover', params: {} } } }, function (path) {
+    assert.equal(path, '/bd2.jpg', 'карточка без кадра пропускается, постеры не мешают');
     done();
   }, function (e) { done(new Error('err: ' + JSON.stringify(e))); }, null);
 });
 
-test('collagePaths: отмена гасит запрос Кинопоиска', function () {
+test('bannerPath: ни одного кадра на странице — фолбэк на постер', function (t, done) {
+  global.Lampa = makeFakeLampa({
+    Api: { sources: { tmdb: { get: function (url, params, ok) {
+      ok({ results: [{ id: 1 }, { id: 2, poster_path: '/p2.jpg' }, { id: 3, poster_path: '/p3.jpg' }], page: 1, total_pages: 1, total_results: 3 });
+      return { clear: function () {} };
+    } } } }
+  });
+  global.window = { localStorage: null };
+  var S = loadCtx('43_sources.js', { pref: function () { return ''; } }).api;
+  S.bannerPath({ id: 'pixar', sources: { movie: { type: 'discover', params: {} } } }, function (path) {
+    assert.equal(path, '/p2.jpg', 'первый постер страницы — плитка обрежет его по object-position');
+    done();
+  }, function (e) { done(new Error('err: ' + JSON.stringify(e))); }, null);
+});
+
+test('bannerPath: пустая страница — пустая строка, без ошибки', function (t, done) {
+  global.Lampa = makeFakeLampa({
+    Api: { sources: { tmdb: { get: function (url, params, ok) {
+      ok({ results: [], page: 1, total_pages: 1, total_results: 0 });
+      return { clear: function () {} };
+    } } } }
+  });
+  global.window = { localStorage: null };
+  var S = loadCtx('43_sources.js', { pref: function () { return ''; } }).api;
+  S.bannerPath({ id: 'pixar', sources: { movie: { type: 'discover', params: {} } } }, function (path) {
+    assert.equal(path, '');
+    done();
+  }, function (e) { done(new Error('err: ' + JSON.stringify(e))); }, null);
+});
+
+test('bannerPath: отмена гасит запрос Кинопоиска', function () {
   var cleared = 0;
   global.Lampa = makeFakeLampa({
     storage: makeFakeStorage(),
@@ -521,7 +558,7 @@ test('collagePaths: отмена гасит запрос Кинопоиска', 
   });
   global.window = { localStorage: null };
   var S = loadCtx('43_sources.js', { pref: function (k) { return k === 'lumen_kp_key' ? 'KEY' : ''; } }).api;
-  var h = S.collagePaths({ id: 'kp', sources: { movie: { type: 'kp', collection: 'X' } } }, 3, function () {}, function () {}, null);
+  var h = S.bannerPath({ id: 'kp', sources: { movie: { type: 'kp', collection: 'X' } } }, function () {}, function () {}, null);
   h.clear();
   assert.equal(cleared, 1);
 });
@@ -535,7 +572,7 @@ test('collagePaths: отмена гасит запрос Кинопоиска', 
    моменту создана НОВАЯ запись с тем же ключом, поздний clear() старого
    дескриптора удалял живого подписчика и звал старый cancelRequest с
    delete inflight[key] — новый запрос завершался в пустоту: плитка
-   навсегда без коллажа, сетка с вечным лоадером. */
+   навсегда без картинки, сетка с вечным лоадером. */
 test('fetchAll: поздний clear() завершённого дескриптора не убивает новый запрос с тем же ключом (Important 3)', function () {
   var calls = [];
   global.Lampa = makeFakeLampa({

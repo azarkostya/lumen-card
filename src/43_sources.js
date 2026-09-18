@@ -358,7 +358,7 @@
        получал id 1, и поздний clear() уже отработавшего дескриптора попадал
        в НОВУЮ запись с тем же ключом: удалял её живого подписчика и звал
        старый cancelRequest с delete inflight[key] — новый запрос завершался
-       в пустоту (плитка навсегда без коллажа, сетка с вечным лоадером).
+       в пустоту (плитка навсегда без картинки, сетка с вечным лоадером).
        Дополнительно каждый дескриптор держит ссылку на свою запись и
        сверяет её с текущей: id уникален, но запись могла смениться. */
     var _subSeq = 0;
@@ -500,10 +500,10 @@
       };
     }
 
-    /* Постеры Кинопоиска для коллажа плитки: ОДИН запрос к КП, без
+    /* Постеры Кинопоиска для картинки плитки: ОДИН запрос к КП, без
        сопоставления с TMDB (ревью Task 17, C1). Полный путь подборки КП стоит
-       1 запрос к КП + до 20 к TMDB (fetchKp выше), а коллажу нужно три
-       картинки — и они уже есть в ответе КП полем posterUrlPreview.
+       1 запрос к КП + до 20 к TMDB (fetchKp выше), а плитке нужна одна
+       картинка — и она уже есть в ответе КП полем posterUrlPreview.
        Возвращает абсолютные URL (st.kp.yandex.net), не пути TMDB.
        Кэш — свой ключ, тот же механизм и те же TTL, что у fetchKp. */
     function kpPosters(spec, limit, ok, err, alive) {
@@ -555,22 +555,31 @@
       return net;
     }
 
-    /* Картинки для коллажа плитки хаба: до count штук.
-       Для подборки Кинопоиска — дешёвый путь kpPosters (1 запрос вместо 21),
-       для остальных — обычная первая страница (её ответ всё равно нужен и
-       кэшируется на общих основаниях).
-       В ok приходит массив строк: абсолютный URL (начинается с http) — готовая
-       картинка Кинопоиска, иначе это poster_path TMDB, который вызывающий
-       превращает в URL через прокси (LC.cardinfo.imageUrl).
+    /* Task 41: одна картинка для баннера плитки хаба (плитка 16:9 показывает
+       кадр, а не коллаж постеров — см. src/46_hub.js).
+       Для подборки Кинопоиска — дешёвый путь kpPosters (1 запрос вместо 21);
+       кадров в ответе films/collections нет вовсе (там posterUrlPreview, см.
+       kpPosters выше), поэтому оттуда приходит постер, и плитка обрежет его
+       по object-position.
+       Для остальных — обычная первая страница (её ответ всё равно нужен и
+       кэшируется на общих основаниях): backdrop_path первой карточки, у
+       которой он есть, а если кадра нет ни у одной — первый poster_path
+       страницы.
+       В ok приходит строка: абсолютный URL (начинается с http) — готовая
+       картинка Кинопоиска, иначе это путь TMDB, который вызывающий
+       превращает в URL через прокси (LC.cardinfo.imageUrl). Ничего не
+       нашлось — пустая строка.
        Возвращает {clear} — как fetchAll. */
-    function collagePaths(item, count, ok, err, alive) {
+    function bannerPath(item, ok, err, alive) {
       var src = (item && item.sources) || {};
       var media = src.movie ? 'movie' : (src.tv ? 'tv' : '');
       var spec = media ? src[media] : null;
       if (!spec) { err({ no_sources: true }); return { clear: function () {} }; }
 
       if (spec.type === 'kp') {
-        var net = kpPosters(spec, count, ok, err, alive);
+        var net = kpPosters(spec, 1, function (urls) {
+          ok((urls && urls[0]) || '');
+        }, err, alive);
         return {
           clear: function () {
             try { if (net && net.clear) net.clear(); } catch (e) {}
@@ -579,11 +588,14 @@
       }
 
       return fetchAll(item, 1, function (json) {
-        var out = [];
-        LC.util.each((json && json.results) || [], function (card) {
-          if (card && card.poster_path && out.length < count) out.push(card.poster_path);
-        });
-        ok(out);
+        var cards = (json && json.results) || [];
+        var poster = '';
+        for (var i = 0; i < cards.length; i++) {
+          if (!cards[i]) continue;
+          if (cards[i].backdrop_path) { ok(cards[i].backdrop_path); return; }
+          if (!poster && cards[i].poster_path) poster = cards[i].poster_path;
+        }
+        ok(poster);
       }, err, alive);
     }
 
@@ -598,7 +610,7 @@
       sortSignature: sortSignature,
       fetchOne: fetchOne,
       kpPosters: kpPosters,
-      collagePaths: collagePaths
+      bannerPath: bannerPath
     };
     api['fetch'] = fetchAll;
     return api;

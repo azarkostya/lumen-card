@@ -145,7 +145,7 @@ test('buildCss: .lumen-title--long содержит display:-webkit-box и -webk
    разметки внутри них нет, а снаружи ни одно правило не действует: корень
    ставит сам компонент. */
 /* Task 25: .lumen-skeleton — общая плашка загрузки. Класс ставит сам плагин
-   (герой, ряд отзывов, коллаж плитки хаба), без нашего DOM его не бывает, а
+   (герой, ряд отзывов, кадр плитки хаба), без нашего DOM его не бывает, а
    правило нарочно одно на все три корня: пульсация должна быть одинаковой и
    гаситься в lite/off одним местом. */
 /* Правка 2026-09-17 (второй круг): чипы настроения переехали из блока героя
@@ -1137,11 +1137,18 @@ test('Task 38: filter:blur отсутствует', () => {
     'filter:blur заставляет WebView держать отдельный буфер на весь слой');
 });
 
-test('Task 38: плитки хаба без теней у постеров коллажа', () => {
-  const poster = findDecl(css, (sel) => sel === '.lumen-hub .lumen-tile__poster');
-  assert.ok(poster, 'правило постера коллажа не найдено');
-  assert.equal(poster.indexOf('box-shadow'), -1,
-    'три постера на плитку под собственным rotate() — десятки размытых теней на один экран: ' + poster);
+/* Task 41: коллажа из трёх повёрнутых постеров больше нет — на плитке один
+   кадр. Тень осталась только у самой плитки в фокусе (правило ниже), а
+   вращения на экране не осталось вовсе: повёрнутый элемент WebView
+   растрирует отдельно, вместе с тенью по всему её радиусу. */
+test('Task 41: внутри плитки хаба ни теней, ни поворотов', () => {
+  for (const sel of ['.lumen-hub .lumen-tile__media', '.lumen-hub .lumen-tile__img']) {
+    const decl = findDecl(css, (s2) => s2 === sel);
+    assert.ok(decl, 'правило ' + sel + ' не найдено');
+    assert.equal(decl.indexOf('box-shadow'), -1, sel + ': тень внутри плитки: ' + decl);
+  }
+  const rotated = css.split('\n').filter((line) => /^\.lumen-hub /.test(line) && /rotate\(/.test(line));
+  assert.deepEqual(rotated, [], 'в хабе не должно остаться повёрнутых элементов');
 });
 
 test('Task 38: «Стоп» и метка трейлера плотные без блюра (белый текст поверх светлой сцены ролика)', () => {
@@ -1306,20 +1313,64 @@ test('Task 17: иконка пункта меню — того же кегля, 
   assert.ok(ico.indexOf('width:1.5em') !== -1, 'штатные иконки меню Lampa — 1.5em: ' + ico);
 });
 
-test('Task 17: чип — один паттерн на хаб и сетку, выбранный виден без фокуса', () => {
+/* Task 41: чип стал сегмент-контролом — тот же паттерн на хаб и сетку, но
+   без рамки: в покое это просто ряд названий, выбранное лежит на подложке,
+   фокус даёт инверсию. */
+test('Task 41: чип — сегмент-контрол без рамки, выбранный виден без фокуса', () => {
   const chip = findDecl(css, (sel) => sel === '.lumen-hub .lumen-chip');
   assert.ok(chip, 'правило чипа не найдено');
-  assert.ok(chip.indexOf('height:2.46em') !== -1, 'высота 56px ÷ 22.811');
-  assert.ok(chip.indexOf('border-radius:.53em') !== -1, 'радиус 12px ÷ 22.811');
+  assert.equal(/(^|;)border:/.test(chip), false, 'рамки в покое быть не должно: ' + chip);
+  assert.ok(chip.indexOf('height:2.2em') !== -1, 'высота pill: ' + chip);
+  assert.ok(chip.indexOf('border-radius:1.1em') !== -1, 'радиус = половине высоты: ' + chip);
+  assert.ok(chip.indexOf('background:transparent') !== -1, 'в покое — только текст: ' + chip);
+
   const on = findDecl(css, (sel) => sel === '.lumen-hub .lumen-chip.lumen-chip--on');
-  assert.ok(on, 'правило выбранного чипа не найдено');
+  assert.ok(on && on.indexOf('background:rgba(') !== -1, 'выбранный чип — светлая подложка: ' + on);
+
   const focus = findDecl(css, (sel) => sel === '.lumen-hub .lumen-chip.focus');
-  assert.ok(focus && focus.indexOf('transform:scale(1.06)') !== -1, 'фокус чипа — семейство «чип/плитка», scale 1.06');
+  assert.ok(focus, 'правило фокуса чипа не найдено');
+  assert.ok(focus.indexOf('transform:scale(1.05)') !== -1, 'фокус — то же семейство, что у плитки: ' + focus);
+  assert.ok(focus.indexOf('background:#') !== -1 && focus.indexOf('color:#') !== -1, 'фокус — инверсия цветов: ' + focus);
+
+  /* Счётчик подборок с чипа убран вместе с узлом .lumen-chip__count. */
+  assert.equal(css.indexOf('lumen-chip__count'), -1, 'правило снятого счётчика осталось в таблице');
+});
+
+/* Task 41: плитка хаба — баннер без рамки, название в одну строку, фокус
+   только увеличением и тенью. */
+test('Task 41: плитка хаба — баннер без рамки, заголовок в одну строку', () => {
+  const tile = findDecl(css, (sel) => sel === '.lumen-hub__tiles .lumen-tile');
+  assert.ok(tile, 'правило плитки не найдено');
+  assert.equal(/(^|;)border:/.test(tile), false, 'рамки у плитки быть не должно: ' + tile);
+  assert.ok(tile.indexOf('border-radius:.6em') !== -1, 'радиус плитки: ' + tile);
+
+  const img = findDecl(css, (sel) => sel === '.lumen-hub .lumen-tile__img');
+  assert.ok(img, 'правило кадра плитки не найдено');
+  assert.ok(img.indexOf('object-fit:cover') !== -1, 'кадр обрезается по плитке: ' + img);
+  assert.ok(img.indexOf('object-position:center 30%') !== -1, 'лица выше середины кадра: ' + img);
+  assert.ok(img.indexOf('opacity:0') !== -1, 'до загрузки кадра не видно: ' + img);
+  const filled = findDecl(css, (sel) => sel === '.lumen-hub .lumen-tile--filled .lumen-tile__img');
+  assert.ok(filled && filled.indexOf('opacity:1') !== -1, 'загруженный кадр проявляется: ' + filled);
+
+  const title = findDecl(css, (sel) => sel === '.lumen-hub .lumen-tile__title');
+  assert.ok(title, 'правило заголовка плитки не найдено');
+  assert.ok(title.indexOf('white-space:nowrap') !== -1 && title.indexOf('text-overflow:ellipsis') !== -1,
+    'заголовок — одна строка с обрезкой: ' + title);
+
+  const focus = findDecl(css, (sel) => sel === '.lumen-hub__tiles .lumen-tile.focus');
+  assert.ok(focus, 'правило фокуса плитки не найдено');
+  assert.equal(/border-color:/.test(focus), false, 'кольца фокуса на баннере быть не должно: ' + focus);
+  assert.ok(focus.indexOf('transform:scale(1.05)') !== -1, 'фокус — увеличение: ' + focus);
+  assert.ok(focus.indexOf('box-shadow') !== -1, 'и мягкая тень: ' + focus);
 });
 
 test('Task 17: на слабых ТВ пружины фокуса в хабе и сетке нет', () => {
   for (const mode of ['lite', 'off']) {
-    assert.ok(findDecl(css, (sel) => sel === '.lumen-hub.lumen-motion-' + mode + ' .lumen-tile.focus'), 'нет правила плиток для ' + mode);
+    const tile = findDecl(css, (sel) => sel === '.lumen-hub.lumen-motion-' + mode + ' .lumen-tile.focus');
+    assert.ok(tile, 'нет правила плиток для ' + mode);
+    /* Task 41: без увеличения фокус на баннере держится контуром — иначе в
+       этих режимах он не виден вовсе (тень на тёмном фоне не читается). */
+    assert.ok(tile.indexOf('outline:') !== -1, mode + ': фокус плитки остался без признака: ' + tile);
     assert.ok(findDecl(css, (sel) => sel === '.lumen-grid.lumen-motion-' + mode + ' .lumen-gcard.focus'), 'нет правила карточек для ' + mode);
   }
 });

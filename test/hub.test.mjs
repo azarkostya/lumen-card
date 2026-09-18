@@ -178,14 +178,6 @@ test('needsLocalSort: true для collection/list/kp, false для чистог�
   assert.equal(H.needsLocalSort(MANIFEST.collections[0]), true, 'смешанная подборка с коллекцией');
 });
 
-// --- collage ---
-test('collage: до трёх постеров из результатов, пустые пропускаются', function () {
-  var res = [{ poster_path: '/a.jpg' }, { poster_path: null }, { poster_path: '/b.jpg' }, { poster_path: '/c.jpg' }, { poster_path: '/d.jpg' }];
-  assert.deepEqual(H.collage(res, 3), ['/a.jpg', '/b.jpg', '/c.jpg']);
-  assert.deepEqual(H.collage([], 3), []);
-  assert.deepEqual(H.collage(null, 3), []);
-});
-
 // --- cardMedia ---
 test('cardMedia: media_type приоритетнее эвристики, иначе name → tv', function () {
   assert.equal(H.cardMedia({ media_type: 'tv', title: 'X' }), 'tv');
@@ -244,7 +236,7 @@ El.prototype.removeClass = function (list) {
 El.prototype.toggleClass = function (c, on) { return on ? this.addClass(c) : this.removeClass(c); };
 El.prototype.hasClass = function (c) { return this._class.indexOf(c) >= 0; };
 El.prototype.append = function (child) {
-  var el = child instanceof El ? child : new El(classesOf(child));
+  var el = child instanceof El ? child : new El(classesOf(child), tagOf(child));
   if (el._parent) el._parent._children.splice(el._parent._children.indexOf(el), 1);
   el._parent = this;
   this._children.push(el);
@@ -295,6 +287,8 @@ El.prototype.css = function (name, val) {
 El.prototype.html = function (text) { this._html = text; return this; };
 El.prototype.text = function (t) { if (!arguments.length) return this._text || ''; this._text = '' + t; return this; };
 El.prototype.on = function (name, fn) { (this._ev[name] = this._ev[name] || []).push(fn); return this; };
+/* Task 41: атрибут узла — плитка хаба создаёт <img decoding="async">. */
+El.prototype.attr = function (name) { return this._attr ? this._attr[name] : undefined; };
 /* Селектор по классу ('.x' или 'x') либо по тегу ('span') — настоящий
    jQuery в src/46_hub.js используется и так, и так. */
 El.prototype.all = function (sel) {
@@ -326,6 +320,18 @@ function classesOf(html) {
   return m ? m[1].split(/\s+/).filter(Boolean) : [];
 }
 
+/* Task 41: атрибуты тега (кроме class) — плитка хаба создаёт <img
+   decoding="async">, и подсказка декодирования обязана быть видна тестом. */
+function attrsOf(html) {
+  var out = {};
+  var re = /([a-z-]+)="([^"]*)"/g;
+  var m;
+  while ((m = re.exec('' + html))) {
+    if (m[1] !== 'class') out[m[1]] = m[2];
+  }
+  return out;
+}
+
 function fire(node, name) {
   var el = node instanceof El ? node : node[0];
   var list = el._ev[name] || [];
@@ -336,9 +342,15 @@ function make$(doc) {
   return function (arg) {
     if (arg instanceof El) return arg;
     if (typeof arg === 'string' && arg.charAt(0) === '<') {
-      var tags = arg.match(/<div[^>]*>|<span[^>]*>/g) || [];
+      /* Task 41: <img> — кадр плитки хаба (paintBanner). */
+      var tags = arg.match(/<div[^>]*>|<span[^>]*>|<img[^>]*>/g) || [];
       var root = new El(classesOf(tags[0]), tagOf(tags[0]));
-      for (var i = 1; i < tags.length; i++) root.append(new El(classesOf(tags[i]), tagOf(tags[i])));
+      root._attr = attrsOf(tags[0]);
+      for (var i = 1; i < tags.length; i++) {
+        var child = new El(classesOf(tags[i]), tagOf(tags[i]));
+        child._attr = attrsOf(tags[i]);
+        root.append(child);
+      }
       return root;
     }
     if (typeof arg === 'string') {
@@ -512,7 +524,7 @@ function setupLampa(opts) {
   };
 
   /* Task 39: innerWidth нужен LC.util.screenPx — от него зависит размер
-     постеров коллажа и карточек сетки. */
+     кадров плиток и постеров карточек сетки. */
   globalThis.window = { Lampa: Lampa, Navigator: nav, innerWidth: 1920, devicePixelRatio: opts.dpr || 1 };
   globalThis.Lampa = Lampa;
   globalThis.$ = make$(doc);
@@ -520,12 +532,12 @@ function setupLampa(opts) {
 }
 
 /* Загружает LC.hub в чистый контекст с подставленными зависимостями.
-   fetchCalls — журнал LC.sources.fetch, collageCalls — LC.sources.collagePaths;
+   fetchCalls — журнал LC.sources.fetch, bannerCalls — LC.sources.bannerPath;
    у каждого есть ok/err, alive и cleared. */
 function loadHub(opts) {
   opts = opts || {};
   var fetchCalls = [];
-  var collageCalls = [];
+  var bannerCalls = [];
   function record(list) {
     return function (item, arg, ok, err, alive) {
       var call = { item: item, arg: arg, page: arg, ok: ok, err: err, alive: alive, cleared: false };
@@ -533,9 +545,18 @@ function loadHub(opts) {
       return { clear: function () { call.cleared = true; } };
     };
   }
+  /* Task 41: у bannerPath аргумента count нет — колбэки сдвинуты на одну
+     позицию влево относительно fetch(item, page, ok, err, alive). */
+  function recordBanner(list) {
+    return function (item, ok, err, alive) {
+      var call = { item: item, ok: ok, err: err, alive: alive, cleared: false };
+      list.push(call);
+      return { clear: function () { call.cleared = true; } };
+    };
+  }
   var sources = {
     discoverUrl: SOURCES.discoverUrl,
-    collagePaths: record(collageCalls)
+    bannerPath: recordBanner(bannerCalls)
   };
   sources['fetch'] = record(fetchCalls);
   var ctx = loadCtx('46_hub.js', {
@@ -548,7 +569,7 @@ function loadHub(opts) {
     /* Task 39: заглушка отдаёт ЗАПРОШЕННЫЙ размер, иначе выбор размера
        нечем проверить. */
     cardinfo: { imageUrl: function (path, size) { return path ? 'https://proxy/t/p/' + size + path : ''; } },
-    manifest: { load: function (cb) { cb(MANIFEST); } },
+    manifest: { load: function (cb) { cb(opts.manifest || MANIFEST); } },
     /* Task 20: настройки читает только подсказка про ключ Кинопоиска —
        по умолчанию её нет вовсе, как и в бандле до LC.init. */
     pref: opts.pref,
@@ -556,7 +577,7 @@ function loadHub(opts) {
        нет, как и в бандле до его загрузки (вызов защищён проверкой). */
     perf: opts.perf
   });
-  return { api: ctx.api, LC: ctx.LC, fetchCalls: fetchCalls, collageCalls: collageCalls };
+  return { api: ctx.api, LC: ctx.LC, fetchCalls: fetchCalls, bannerCalls: bannerCalls };
 }
 
 function fakeActivity() {
@@ -664,54 +685,96 @@ test('lumen_hub: hover:focus плитки подкручивает скролл 
   assert.equal(scroll.update_calls[0][1], true, 'ряд встаёт по центру');
 });
 
-test('lumen_hub: коллаж идёт дешёвым путём collagePaths, а не полной страницей (C1)', function () {
+test('lumen_hub: кадр плитки идёт дешёвым путём bannerPath, а не полной страницей (C1)', function () {
   var s = openHub();
-  assert.equal(s.h.fetchCalls.length, 0, 'целая страница подборки для коллажа не запрашивается');
-  assert.equal(s.h.collageCalls.length, 2, 'по одному запросу на видимую плитку');
-  assert.equal(s.h.collageCalls[0].arg, 3, 'просим ровно три картинки');
+  assert.equal(s.h.fetchCalls.length, 0, 'целая страница подборки для плитки не запрашивается');
+  assert.equal(s.h.bannerCalls.length, 2, 'по одному запросу на плитку окна');
 });
 
-test('lumen_hub: коллаж принимает и готовые URL Кинопоиска, и пути TMDB', function () {
+/* Task 41: на плитке ОДНА картинка — <img> с подсказкой декодирования,
+   вместо трёх постеров коллажа, которые рисовались фоном блоков. */
+test('lumen_hub: плитка рисует один <img decoding="async">, принимая и URL КП, и путь TMDB', function () {
   var s = openHub();
-  s.h.collageCalls[0].ok(['https://kp/a.jpg', '/b.jpg']);
+  s.h.bannerCalls[0].ok('https://kp/a.jpg');
+  s.h.bannerCalls[1].ok('/bd.jpg');
+
+  var first = s.root.all('lumen-tile')[0];
+  var imgs = first.all('lumen-tile__img');
+  assert.equal(imgs.length, 1, 'ровно одна картинка на плитку');
+  assert.equal(imgs[0]._tag, 'img', 'это <img>, а не фон блока');
+  assert.equal(imgs[0].attr('decoding'), 'async', 'декодирование вне главного потока');
+  assert.equal(imgs[0].src, 'https://kp/a.jpg', 'URL КП берётся как есть');
+
+  var second = s.root.all('lumen-tile')[1].all('lumen-tile__img')[0];
+  assert.equal(second.src, 'https://proxy/t/p/w780/bd.jpg', 'путь TMDB — через прокси, кадровой ступенью');
+});
+
+test('lumen_hub: кадр проявляется только после загрузки картинки', function () {
+  var s = openHub();
+  s.h.bannerCalls[0].ok('/bd.jpg');
   var tile = s.root.all('lumen-tile')[0];
-  var posters = tile.all('lumen-tile__poster');
-  assert.equal(posters.length, 2);
-  assert.ok(('' + posters[0].css('background-image')).indexOf('https://kp/a.jpg') !== -1, 'URL КП берётся как есть');
-  assert.ok(('' + posters[1].css('background-image')).indexOf('https://proxy/t/p/w185/b.jpg') !== -1, 'путь TMDB — через прокси, размер по ширине постерика (5.70em)');
+  assert.equal(tile.hasClass('lumen-tile--filled'), false, 'до onload плитка — ровная панель');
+  tile.all('lumen-tile__img')[0].onload();
   assert.ok(tile.hasClass('lumen-tile--filled'));
 });
 
 /* Task 39: размер выбирается по ФАКТИЧЕСКОЙ ширине элемента в физических
-   пикселях. Постерик коллажа — 5.70em (130 px на экране 1920, 260 при
-   DPR 2), карточка сетки — 12.36em (282 и 564). */
-test('Task 39: DPR 2 поднимает размер постеров коллажа и карточек сетки', function () {
+   пикселях. Плитка хаба — 18.98em (433 px на экране 1920, 866 при DPR 2:
+   обе ширины закрывает кадровая ступень w780), карточка сетки — 12.36em
+   (282 и 564). */
+test('Task 39: DPR 2 поднимает размер картинок карточек сетки', function () {
   var s = openHub({ dpr: 2 });
-  s.h.collageCalls[0].ok(['/b.jpg']);
-  var poster = s.root.all('lumen-tile')[0].all('lumen-tile__poster')[0];
-  assert.ok(('' + poster.css('background-image')).indexOf('/t/p/w342/b.jpg') !== -1,
-    'коллаж при DPR 2 — w342 (при DPR 1 хватало w185)');
+  s.h.bannerCalls[0].ok('/bd.jpg');
+  var img = s.root.all('lumen-tile')[0].all('lumen-tile__img')[0];
+  assert.equal(img.src, 'https://proxy/t/p/w780/bd.jpg',
+    'кадр плитки и при DPR 2 остаётся w780 — выше ступень только w1280');
 
   var g = openGrid(DISCOVER, { dpr: 2 });
   g.h.fetchCalls[0].ok({ results: results(20), page: 1, total_pages: 3, total_results: 60 });
-  var img = g.root.all('lumen-gcard')[0].querySelector('.card__img');
-  assert.ok(('' + img.src).indexOf('/t/p/w500/p0.jpg') !== -1,
+  var card = g.root.all('lumen-gcard')[0].querySelector('.card__img');
+  assert.ok(('' + card.src).indexOf('/t/p/w500/p0.jpg') !== -1,
     'карточка сетки при DPR 2 — w500 (при DPR 1 хватало w342)');
 });
 
 test('lumen_hub: подборка Кинопоиска без ключа помечается на плитке', function () {
   var s = openHub();
-  s.h.collageCalls[0].err({ nokey: true });
+  s.h.bannerCalls[0].err({ nokey: true });
   assert.ok(s.root.all('lumen-tile')[0].hasClass('lumen-tile--nokey'));
 });
 
-test('lumen_hub: коллаж, упавший с ошибкой, перезапрашивается при следующем фокусе', function () {
+/* Task 41: кадры грузятся окном вперёд от фокуса (BANNER_AHEAD = 8), а не
+   все разом и не по одному на фокус. Манифест на 20 подборок в одной
+   группе: тестовый MANIFEST даёт всего две плитки, на которых окно не
+   видно. */
+var BIG_MANIFEST = (function () {
+  var m = { version: 1, home: [], groups: [{ id: 'franchise', title: 'Франшизы' }], hubGroups: [{ id: 'franchises', title: 'Франшизы', groups: ['franchise'] }], collections: [] };
+  for (var i = 0; i < 20; i++) {
+    m.collections.push({ id: 'c' + i, title: 'Подборка ' + i, group: 'franchise', sources: { movie: { type: 'discover', params: {} } } });
+  }
+  return m;
+})();
+
+test('Task 41: кадры грузятся окном вперёд от фокуса, а не всей группой', function () {
+  var s = openHub({ manifest: BIG_MANIFEST, cols: 4 });
+  assert.equal(s.root.all('lumen-tile').length, 20, 'в группе 20 плиток');
+  assert.equal(s.h.bannerCalls.length, 9, 'при входе — окно от начала списка: плитки 0..8');
+
+  /* Шаг фокуса двигает окно: с девятой плитки видно до семнадцатой. */
+  fire(s.root.all('lumen-tile')[8], 'hover:focus');
+  assert.equal(s.h.bannerCalls.length, 17, 'окно доехало до 16-й плитки включительно');
+
+  /* Уже запрошенные кадры второй раз не просят. */
+  fire(s.root.all('lumen-tile')[0], 'hover:focus');
+  assert.equal(s.h.bannerCalls.length, 17, 'возврат назад ничего не перезапрашивает');
+});
+
+test('lumen_hub: кадр, упавший с ошибкой, перезапрашивается при следующем фокусе', function () {
   var s = openHub();
   var tile = s.root.all('lumen-tile')[0];
-  s.h.collageCalls[0].err({ kp_failed: true });
-  var before = s.h.collageCalls.length;
+  s.h.bannerCalls[0].err({ kp_failed: true });
+  var before = s.h.bannerCalls.length;
   fire(tile, 'hover:focus');
-  assert.equal(s.h.collageCalls.length, before + 1, 'вторая попытка есть');
+  assert.equal(s.h.bannerCalls.length, before + 1, 'вторая попытка есть');
 });
 
 test('lumen_hub: start ставит свой контроллер content и включает его', function () {
@@ -839,14 +902,14 @@ test('lumen_hub: назад возвращает на предыдущую ак�
   assert.equal(s.env.log.backward, 1);
 });
 
-test('lumen_hub: смена группы гасит коллажи снятой группы (I1)', function () {
+test('lumen_hub: смена группы гасит кадры снятой группы (I1)', function () {
   var s = openHub();
   s.comp.start();
-  var old = s.h.collageCalls.slice();
+  var old = s.h.bannerCalls.slice();
   var chips = s.root.all('lumen-chip');
   fire(chips[1], 'hover:enter');
   for (var i = 0; i < old.length; i++) {
-    assert.equal(old[i].cleared, true, 'запрос коллажа снятой группы отменён');
+    assert.equal(old[i].cleared, true, 'запрос кадра снятой группы отменён');
     assert.equal(old[i].alive(), false, 'и его сторож поколения уже ложен');
   }
   assert.equal(s.root.all('lumen-tile').length, 2, 'плитки чипа «Студии и сервисы»');
@@ -854,16 +917,16 @@ test('lumen_hub: смена группы гасит коллажи снятой 
   assert.equal(chips[0].hasClass('lumen-chip--on'), false);
 });
 
-test('lumen_hub: ответ коллажа снятой группы в новые плитки не пишет (I1)', function () {
+test('lumen_hub: ответ кадра снятой группы в новые плитки не пишет (I1)', function () {
   var s = openHub();
   s.comp.start();
-  var stale = s.h.collageCalls[0];
+  var stale = s.h.bannerCalls[0];
   fire(s.root.all('lumen-chip')[1], 'hover:enter');
   warnLog.length = 0;
-  stale.ok(['/late.jpg']);
-  var posters = 0;
-  s.root.all('lumen-tile').forEach(function (t) { posters += t.all('lumen-tile__poster').length; });
-  assert.equal(posters, 0, 'поздний ответ снятой группы не рисует');
+  stale.ok('/late.jpg');
+  var imgs = 0;
+  s.root.all('lumen-tile').forEach(function (t) { imgs += t.all('lumen-tile__img').length; });
+  assert.equal(imgs, 0, 'поздний ответ снятой группы не рисует');
   assert.deepEqual(warnLog, []);
 });
 
@@ -886,20 +949,20 @@ test('lumen_hub: плитка открывает подборку через ope
   assert.equal(s.env.log.pushes[0].lumen.id, 'star-wars');
 });
 
-test('lumen_hub: stop() гасит коллажи, start() их возобновляет (I2)', function () {
+test('lumen_hub: stop() гасит кадры, start() их возобновляет (I2)', function () {
   var s = openHub();
   s.comp.start();
-  var before = s.h.collageCalls.slice();
+  var before = s.h.bannerCalls.slice();
   s.comp.stop();
   for (var i = 0; i < before.length; i++) {
-    assert.equal(before[i].cleared, true, 'уход вглубь гасит незавершённый коллаж');
+    assert.equal(before[i].cleared, true, 'уход вглубь гасит незавершённый запрос кадра');
   }
   warnLog.length = 0;
-  before[0].ok(['/late.jpg']);
-  assert.equal(s.root.all('lumen-tile__poster').length, 0, 'ответ после stop() в снятый экран не пишет');
-  var count = s.h.collageCalls.length;
+  before[0].ok('/late.jpg');
+  assert.equal(s.root.all('lumen-tile__img').length, 0, 'ответ после stop() в снятый экран не пишет');
+  var count = s.h.bannerCalls.length;
   s.comp.start();
-  assert.ok(s.h.collageCalls.length > count, 'возврат восстанавливает коллажи видимых плиток');
+  assert.ok(s.h.bannerCalls.length > count, 'возврат восстанавливает кадры видимых плиток');
   assert.deepEqual(warnLog, []);
 });
 
@@ -907,7 +970,7 @@ test('lumen_hub: destroy гасит незавершённые запросы, �
   var s = openHub();
   s.comp.start();
   var scroll = s.env.log.scrolls[0];
-  var pending = s.h.collageCalls[0];
+  var pending = s.h.bannerCalls[0];
   s.comp.destroy();
   assert.equal(pending.cleared, true);
   assert.equal(pending.alive(), false);
@@ -996,7 +1059,7 @@ test('lumen_grid: постеры грузятся окном, а не все р�
 });
 
 /* Task 40: сборка экрана подборок — точка замера автодетекта: хаб самый
-   тяжёлый экран плагина (чипы групп плюс плитки с коллажами). */
+   тяжёлый экран плагина (чипы групп плюс плитки с кадрами подборок). */
 test('Task 40: сборка хаба запускает замер автодетекта, помеченный как hub', function () {
   var tracks = [];
   var env = setupLampa({ cols: 2 });

@@ -236,7 +236,7 @@ test('emPx: без LC.uiScale (модуль стилей не загружен) 
 
 test('posterSize: наименьший размер TMDB с допуском 15%', () => {
   assert.equal(u.posterSize(0), 'w185', 'ширина неизвестна — самый дешёвый');
-  assert.equal(u.posterSize(130), 'w185', 'постер коллажа хаба на экране 1920');
+  assert.equal(u.posterSize(130), 'w185', 'кадр серии на экране 1920');
   assert.equal(u.posterSize(180), 'w185', 'постер франшизы на экране 1920');
   assert.equal(u.posterSize(210), 'w185', 'барабан рулетки: апскейл 1.14 — в допуске');
   assert.equal(u.posterSize(260), 'w342', 'карточка ряда при DPR 2');

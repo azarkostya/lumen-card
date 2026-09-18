@@ -8,7 +8,7 @@
   /*   openTarget(item) → объект для Lampa.Activity.push                    */
   /*   franchiseItem(belongs_to_collection) → подборка для lumen_grid       */
   /*   sortModes() / applySort(item, mode) / sortLocal(results, mode)       */
-  /*   needsLocalSort(item) / collage(results, n) / cardMedia(card)         */
+  /*   needsLocalSort(item) / cardMedia(card)                              */
   /*   hasMore(json)                                                        */
   /*   install() — регистрация компонентов и пункта меню (идемпотентно)     */
   /*   uninstall() — снятие пункта меню                                     */
@@ -71,24 +71,25 @@
        него дойдёт. */
     var POSTER_AHEAD = 14;
 
-    /* Сколько плиток группы получают коллаж постеров сразу при открытии.
-       Ровно два первых ряда по четыре — столько видно без прокрутки;
-       остальным коллаж грузится при получении фокуса. Цена одной плитки —
-       один запрос: для discover это первая страница подборки (кэш 12 ч), для
-       Кинопоиска — LC.sources.collagePaths берёт постеры прямо из ответа КП,
-       не сопоставляя фильмы с TMDB (кэш 30 дней). */
-    var COLLAGE_EAGER = 8;
-
-    /* Сколько постеров в коллаже плитки (design-spec-main §0.8: три со сдвигом). */
-    var COLLAGE_SIZE = 3;
+    /* Task 41: сколько плиток ВПЕРЁД от фокуса получают кадр. Считается так
+       же, как окно постеров сетки (POSTER_AHEAD выше), но короче: плитки
+       идут по четыре в ряд, и восемь вперёд — это два ряда, тогда как у
+       сетки шесть в ряд и 14 закрывают чуть больше двух.
+       Цена одной плитки — одна картинка и один запрос: для discover это
+       первая страница подборки (кэш 12 ч), для Кинопоиска —
+       LC.sources.bannerPath берёт картинку прямо из ответа КП, не
+       сопоставляя фильмы с TMDB (кэш 30 дней). */
+    var BANNER_AHEAD = 8;
 
     /* Task 39: ширины в em Lampa, по которым выбирается размер картинки.
        Оба числа взяты из src/30_css.js и меняются вместе с ним:
-       - COLLAGE_EM — .lumen-hub .lumen-tile__poster{width:5.70em};
+       - TILE_EM — плитка хаба .lumen-tile: calc((100% − 2.64em) / 4) внутри
+         .lumen-hub с padding 2.81em по краям, то есть
+         (84.17 − 5.62 − 2.64) / 4 = 18.98em;
        - GCARD_EM — карточка сетки .lumen-gcard: calc((100% − 4.4em) / 6)
          внутри .lumen-grid с padding 2.81em по краям, то есть
          (84.17 − 5.62 − 4.4) / 6 = 12.36em. */
-    var COLLAGE_EM = 5.70;
+    var TILE_EM = 18.98;
     var GCARD_EM = 12.36;
 
     /* ------------------------------------------------------------------ */
@@ -288,16 +289,6 @@
         });
       }
       return list;
-    }
-
-    /* Пути первых n постеров (позиции без постера пропускаются). */
-    function collage(results, n) {
-      var out = [];
-      if (!results || !results.length) return out;
-      for (var i = 0; i < results.length && out.length < n; i++) {
-        if (results[i] && results[i].poster_path) out.push(results[i].poster_path);
-      }
-      return out;
     }
 
     /* Тип карточки для Activity.push({component:'full', method: …}).
@@ -720,74 +711,88 @@
         try { scroll.update(el, true); } catch (e) { warn('hub: scroll.update failed', e); }
       }
 
-      /* Коллаж плитки. Путь дешёвый: LC.sources.collagePaths просит ровно три
-         картинки и для подборки Кинопоиска берёт их прямо из ответа КП —
-         один запрос вместо «1 к КП + до 20 к TMDB», которых стоила бы целая
-         страница подборки (ревью Task 17, C1). */
-      function paintCollage(node, paths) {
-        var box = $(node).find('.lumen-tile__collage');
-        box.empty();
-        var painted = 0;
-        /* Task 39: размер — по фактической ширине постерика коллажа
-           (.lumen-hub .lumen-tile__poster, width:5.70em в src/30_css.js):
-           130 физических пикселей на экране 1920 (здесь и ниже — при обоих
-           размерах интерфейса по умолчанию, см. LC.util.emPx), 260 на вдвое более
-           плотном. Зашитый w342 был вдвое с лишним крупнее нужного на
-           Full HD, а плиток в группе десятки и на каждой по три таких
-           постера. Считается один раз на коллаж, а не на постер. */
-        var size = LC.util.posterSize(LC.util.emPx(COLLAGE_EM));
-        for (var i = 0; i < paths.length; i++) {
-          var path = '' + paths[i];
-          /* Готовый http-адрес (подборка Кинопоиска отдаёт свои картинки
-             сама) размер не выбирает — он берётся как есть. */
-          var url = path.indexOf('http') === 0 ? path : imageUrl(path, size);
-          if (!url) continue;
-          var poster = $('<div class="lumen-tile__poster lumen-tile__poster--' + (painted + 1) + '"></div>');
-          poster.css('background-image', 'url("' + url + '")');
-          box.append(poster);
-          painted++;
-        }
-        if (painted) $(node).addClass('lumen-tile--filled');
+      /* Task 41: размер кадра плитки по её фактической ширине. Ступени
+         кадров TMDB не совпадают с постерными (w185/w342/w500/w780 у
+         LC.util.posterSize): у кадров под w780 идёт w300 — из этой же пары
+         выбирает кадр серии src/85_header.js (stillSize). Плитка в 18.98em —
+         это 433 физических пикселя на экране 1920 и 866 при DPR 2 (и размер
+         интерфейса Lampa, и масштаб плагина учитывает LC.util.emPx): w780
+         закрывает первое без растяжения, второе — с растяжением в 1.11 раза,
+         то есть в пределах общего допуска плагина (LC.util.posterSize берёт
+         ступень, покрывающую 0.85 нужной ширины). Выше w780 не поднимаемся
+         ни при каком DPR: следующая ступень кадра — w1280, а плиток с
+         кадрами на экране до девяти разом (BANNER_AHEAD). w300 остаётся
+         узкому окну, где 0.85 ширины плитки в него укладываются. */
+      function bannerSize() {
+        return LC.util.emPx(TILE_EM) * 0.85 > 300 ? 'w780' : 'w300';
       }
 
-      function loadCollage(item, node) {
-        if (node.lumen_collage) return;
-        node.lumen_collage = true;
+      /* Task 41: баннер плитки — ОДИН кадр на всю плитку (16:9) вместо
+         коллажа из трёх повёрнутых постеров: на плитку приходится одна
+         картинка вместо трёх, и текст лежит на затемнении кадра, а не
+         поверх постеров.
+         Путь по-прежнему дешёвый: LC.sources.bannerPath для подборки
+         Кинопоиска берёт картинку прямо из ответа КП — один запрос вместо
+         «1 к КП + до 20 к TMDB», которых стоила бы целая страница подборки
+         (ревью Task 17, C1). */
+      function paintBanner(node, path) {
+        var box = $(node).find('.lumen-tile__media');
+        if (!box || !box.length) return;
+        box.empty();
+        path = '' + (path || '');
+        if (!path) return;
+        /* Готовый http-адрес (подборка Кинопоиска отдаёт свои картинки
+           сама) размер не выбирает — он берётся как есть. */
+        var url = path.indexOf('http') === 0 ? path : imageUrl(path, bannerSize());
+        if (!url) return;
+        /* decoding="async" — та же подсказка, что у постеров сетки
+           (bindPoster ниже): картинка уже в документе, и без неё каждый кадр
+           декодируется на главном потоке в момент показа.
+           Класс плитки ставится по событию загрузки: до него плитка стоит
+           ровным фоном панели, а кадр проявляется переходом
+           (.lumen-tile__img в src/30_css.js). */
+        var img = $('<img class="lumen-tile__img" decoding="async">');
+        img[0].onload = function () { $(node).addClass('lumen-tile--filled'); };
+        img[0].src = url;
+        box.append(img);
+      }
+
+      function loadBanner(item, node) {
+        if (node.lumen_banner) return;
+        node.lumen_banner = true;
         var captured = gen;
         /* Task 25: скелетон плитки. Класс .lumen-skeleton живёт ровно
-           столько, сколько идёт запрос коллажа, и снимается в ОБЕИХ ветках
+           столько, сколько идёт запрос кадра, и снимается в ОБЕИХ ветках
            ответа — иначе плитка пульсировала бы вечно после ошибки. Пульсируют
-           только запрошенные плитки (первые COLLAGE_EAGER и те, что получили
-           фокус); остальные стоят спокойными — на ТВ десятки анимаций разом
+           только запрошенные плитки (окно BANNER_AHEAD вокруг фокуса);
+           остальные стоят спокойными — на ТВ десятки анимаций разом
            стоят дороже, чем помогают. */
         function skeleton(on) {
           try {
-            var box = $(node).find('.lumen-tile__collage');
+            var box = $(node).find('.lumen-tile__media');
             if (!box || !box.length) return;
             if (on) box.addClass('lumen-skeleton');
             else box.removeClass('lumen-skeleton');
           } catch (eSk) { }
         }
         skeleton(true);
-        var handle = LC.sources.collagePaths(item, COLLAGE_SIZE, function (paths) {
+        var handle = LC.sources.bannerPath(item, function (path) {
           skeleton(false);
           if (gen !== captured) return;
-          paintCollage(node, paths);
+          paintBanner(node, path);
         }, function (err) {
           skeleton(false);
           if (gen !== captured) return;
           /* Неудача не должна оставлять плитку пустой навсегда: снимаем
-             отметку, и коллаж перезапросится, когда плитка снова получит
+             отметку, и кадр перезапросится, когда плитка снова получит
              фокус. Единственная ошибка, о которой стоит сказать сразу, —
              подборка Кинопоиска без ключа API. */
-          node.lumen_collage = false;
+          node.lumen_banner = false;
           if (err && err.nokey) $(node).addClass('lumen-tile--nokey');
         }, alive(captured));
         if (handle) handles.push(handle);
       }
 
-      /* Коллажи видимых плиток: первые COLLAGE_EAGER (два ряда по четыре —
-         столько видно без прокрутки), остальные по фокусу. */
       /* Текущий месяц для сезонного порядка и метки «Сезон» (Task 21).
          Читается через LC.themes — там же живёт хук даты, которым живая
          проверка подменяет декабрь, не трогая системные часы. */
@@ -798,11 +803,32 @@
         return 0;
       }
 
-      function loadVisibleCollages() {
-        var list = tilesFor(manifest, activeGroup, month());
-        for (var i = 0; i < tileNodes.length && i < COLLAGE_EAGER; i++) {
-          loadCollage(list[i], tileNodes[i]);
+      /* Позиция плитки в текущей группе или -1 (фокус на чипе или кнопке
+         поиска) — как focusedIndex у сетки. */
+      function tileIndex(node) {
+        for (var i = 0; i < tileNodes.length; i++) {
+          if (tileNodes[i] === node) return i;
         }
+        return -1;
+      }
+
+      /* Task 41: кадры грузятся окном вперёд от фокуса — тем же приёмом,
+         что постеры сетки (loadPosters ниже). В самой большой группе
+         каталога 34 плитки (manifest.json, franchises), и загружать столько
+         картинок разом на ТВ незачем: без прокрутки видно два ряда. */
+      function loadBanners(upTo) {
+        var list = tilesFor(manifest, activeGroup, month());
+        for (var i = 0; i < tileNodes.length && i <= upTo; i++) {
+          loadBanner(list[i], tileNodes[i]);
+        }
+      }
+
+      /* Окно от того места, где стоит фокус: при входе в группу это её
+         начало (фокус на чипе, tileIndex = -1), при возврате из подборки —
+         плитка, с которой ушли. */
+      function loadVisibleBanners() {
+        var from = tileIndex(lastFocus);
+        loadBanners((from < 0 ? 0 : from) + BANNER_AHEAD);
       }
 
       function tileNode(item) {
@@ -820,7 +846,7 @@
           : '';
         var node = $(
           '<div class="lumen-tile selector">' +
-            '<div class="lumen-tile__collage"></div>' +
+            '<div class="lumen-tile__media"></div>' +
             '<div class="lumen-tile__scrim"></div>' +
             season +
             '<div class="lumen-tile__text">' +
@@ -833,7 +859,7 @@
         node.on('hover:focus', function () {
           keepVisible(node[0]);
           lastFocus = node[0];
-          loadCollage(item, node[0]);
+          loadVisibleBanners();
         });
         node.on('hover:enter', function () {
           openCollection(item);
@@ -854,14 +880,17 @@
           tilesRow.append(node);
           tileNodes.push(node);
         }
-        loadVisibleCollages();
+        loadVisibleBanners();
         for (var c = 0; c < chipNodes.length; c++) {
           $(chipNodes[c]).toggleClass('lumen-chip--on', chipNodes[c].lumen_group === groupId);
         }
       }
 
       function chipNode(group) {
-        var node = $('<div class="lumen-chip selector">' + esc(group.title) + '<span class="lumen-chip__count">' + group.count + '</span></div>');
+        /* Task 41: сегмент-контрол — только название группы. Счётчик
+           подборок с чипа убран (число всех подборок каталога стоит в
+           заголовке экрана, buildHead ниже). */
+        var node = $('<div class="lumen-chip selector">' + esc(group.title) + '</div>');
         node[0].lumen_group = group.id;
         node.on('hover:focus', function () { keepVisible(node[0]); lastFocus = node[0]; });
         node.on('hover:enter', function () {
@@ -963,7 +992,7 @@
            здесь: в start() плиток ещё не было. */
         if (started) recollect(null);
         /* Task 40: замер первого кадра ХАБА — самого тяжёлого экрана
-           плагина: чипы групп плюс плитки с коллажами постеров. Точка
+           плагина: чипы групп плюс плитки с кадрами подборок. Точка
            последняя в build() намеренно: замер обязан включать всю нашу
            работу по экрану. Мерить или нет, решает сам модуль
            (src/68_perf.js); в тестах хаба LC.perf нет. */
@@ -1010,10 +1039,10 @@
         motionClass(root);
         Lampa.Controller.add('content', screenController(recollect, afterMove, focusSearch));
         Lampa.Controller.toggle('content');
-        /* Возврат после stop(): коллажи, которые тогда погасили (или которые
+        /* Возврат после stop(): кадры, которые тогда погасили (или которые
            не успели прийти), запрашиваются снова — в этот момент они уже в
            кэше TMDB/КП, поэтому возврат сетью не платит. */
-        if (manifest) loadVisibleCollages();
+        if (manifest) loadVisibleBanners();
       };
 
       this.pause = function () {};
@@ -1021,18 +1050,18 @@
       /* Lampa зовёт stop() при уходе вглубь и тут же снимает слайд из DOM
          (ActivitySlide.stop: component.stop() + slide.remove()), а destroy()
          наступает только при возврате или вытеснении по лимиту истории.
-         Поэтому запросы гасятся здесь, а не только в destroy: иначе коллажи
+         Поэтому запросы гасятся здесь, а не только в destroy: иначе кадры
          продолжали бы лететь и дорисовываться в снятый с экрана DOM ровно
          тогда, когда сеть нужна открытой карточке (ревью Task 17, I2).
-         Экран при этом остаётся целым: start() вернёт слайд и коллажи. */
+         Экран при этом остаётся целым: start() вернёт слайд и кадры. */
       this.stop = function () {
         started = false;
         bump();
-        /* Погашенные коллажи помечаем как незагруженные — чтобы start()
+        /* Погашенные кадры помечаем как незапрошенные — чтобы start()
            запросил их снова. Плитки, которые успели нарисоваться, остаются
-           как есть: у них уже есть постеры. */
+           как есть: у них уже есть картинка. */
         for (var i = 0; i < tileNodes.length; i++) {
-          if (!$(tileNodes[i]).hasClass('lumen-tile--filled')) tileNodes[i].lumen_collage = false;
+          if (!$(tileNodes[i]).hasClass('lumen-tile--filled')) tileNodes[i].lumen_banner = false;
         }
       };
 
@@ -1633,7 +1662,6 @@
       applySort: applySort,
       sortLocal: sortLocal,
       needsLocalSort: needsLocalSort,
-      collage: collage,
       cardMedia: cardMedia,
       hasMore: hasMore,
       install: install,
