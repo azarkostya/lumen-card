@@ -6,6 +6,8 @@
 
 **Architecture:** Четыре волны, каждая — рабочий плагин: (0) диагностический HUD на экране ТВ; (1) функциональные дефекты — прокрутка и навигация наших экранов, рулетка, подкраска от карточки; (2) производительность — герой и ряды на `transform`, горячий путь фокуса без `MutationObserver`/`getBoundingClientRect`, тени/маски/blur, DPR-размеры картинок, режим тяжёлых эффектов; (3) дизайн — баннерные плитки хаба, карточки без рамок, единая типографика, рулетка с переходом; (4) проверка на ТВ и калибровка.
 
+**Целевое железо (телевизор пользователя):** Philips 50PUS6704/6754 (2019, Ambilight 3) — MediaTek MT5806, 4× Cortex-A53 1.2 ГГц, 2 ГБ RAM, Android TV 9. Панель 4K, но Android TV WebView рендерит не выше 1080p (Google это подтверждает вплоть до Android 12); на части моделей WebView отдаёт `960×540 @ DPR 2`. Следствия: (а) «4K-картинок» через Lampa не будет — цель «чистый 1080p без повторного растяжения растра внутри страницы»; (б) все размеры TMDB считаются от `innerWidth × DPR`, а не от `innerWidth`; (в) это одно из самых слабых устройств, на которых запускают Lampa: тяжёлые эффекты по умолчанию выключены, автодетект на таком железе не ждёт замеров.
+
 **Tech Stack:** Lampa 3.3.4 (`vendor/lampa`), строгий ES5 IIFE `src/NN_*.js` → `dist/lumen_card.js` (`node scripts/build.mjs`), тесты `node --test "test/*.test.mjs"` (fake DOM `test/_fakedom.mjs`, загрузчик `test/_load.mjs`), `node scripts/es5check.mjs dist/lumen_card.js`. CSS генерируется строками в `src/30_css.js` (проверка корней — `test/css.test.mjs`).
 
 **Первоисточники (читать до начала):**
@@ -615,7 +617,7 @@ test('css: плитки хаба без теней у постеров', () => {
   4. `filter: blur(1.75em)` (`:621`, `:1560`) — заменить «естественным» размытием: для фона без кадра грузить постер в `w92` и растягивать `cover` (апскейл 92 → 1920 даёт мягкое мыло без фильтра). В `48_hero.js:847`: `blur ? 'w92' : sizeFor(...)`; в `50_backdrops.js:57`: `'w92'`. Класс `.lumen-bg--blur`/`.lumen-hero--blur` оставить — по нему `transform:scale(1.1)` (края) и затемнение.
   5. Маска `:1841-1842` на `.scroll.layer--wheight` — убрать; вместо неё статичный оверлей: `.lumen-main .lumen-rows-fade{position:absolute;left:0;right:0;bottom:0;height:3em;pointer-events:none;background:linear-gradient(0deg, P.bg 0%, rgba(P.bgRgb,0) 100%)}` — узел добавляет `LC.hero.mount` в корень активности. Если Lampa сама вешает маску (`app.css:2781` `.scroll--mask`) — наш `mask:true` в опциях Scroll для главной не наш (это Lampa main); тогда просто снять нашу переопределяющую маску.
   6. Тени коллажа `:1443` — удалить (плитки переделываются в Task 41; тени снять сейчас).
-  7. Ken Burns `:1348` и зум заставки `:2108` — оставить, но под гейтом `body.lumen-fx-heavy` (Task 40).
+  7. Ken Burns `:1348`, зум заставки `:2108` и кроссфейд двух кадров героя `:1556` — оставить, но под гейтом `body.lumen-fx-heavy` (Task 40): без него второй полноэкранный слой `.lumen-hero__bg` не нужен вовсе — кадр подменяется в одном слое мгновенно (проверь `48_hero.js` `loadFrame`: при выключенном `fxHeavy()` писать в один узел).
 
 - [ ] **Step 4: Тесты зелёные, живая проверка** карточки: кнопки без размытия читаются на светлом кадре (скриншот), фон-постер без кадра — мягкое мыло из `w92`.
 
@@ -632,6 +634,7 @@ test('css: плитки хаба без теней у постеров', () => {
 
 ```js
 test('util.screenPx: 1920@1 → 1920, 1920@2 → 3840, DPR 3 ограничен 2', ...);
+test('util.screenPx: 960@2 → 1920 (Android TV WebView в половинном HD) — постеры w342, кадр w1280, не w185/w780', ...);
 test('hero.sizeFor: 1920 → w1280, 3840 → original', ...);       // уже есть — проверить, что вызывается с screenPx()
 test('hub: постер карточки сетки — w342 при 1920@1, w500 при 1920@2', ...);
 test('backdrops: кадр — w1280 при ≤1920, original выше', ...);
@@ -655,7 +658,7 @@ test('backdrops: кадр — w1280 при ≤1920, original выше', ...);
 - Modify: `src/80_settings.js` — строки; `docs/tv-checklist.md` — пункт про HUD и тумблер
 - Test: `test/prefs.test.mjs`, `test/fx.test.mjs`, `test/perf.test.mjs`
 
-- [ ] **Step 1: Тесты:** default по платформе (`android/tizen/webos` → false, иначе true); `fxHeavy()` false при `lite`; частицы не стартуют при `fxHeavy() === false`; `shouldMeasure` true на android при `auto`; замер регистрируется на `activity start` компонента `main`.
+- [ ] **Step 1: Тесты:** default по платформе (`android/tizen/webos` → false, иначе true); `fxHeavy()` false при `lite`; частицы, Ken Burns (`lumen-kb`), зум заставки и кроссфейд двух полноэкранных кадров героя (`.lumen-hero__bg` `transition: opacity`) не включаются при `fxHeavy() === false` — без тумблера кадр меняется мгновенно; `shouldMeasure` true на android при `auto`; замер регистрируется на `activity start` компонента `main`; **слабое железо без замеров**: `LC.perf.weakHardware()` → `true`, если `navigator.hardwareConcurrency <= 4 && (navigator.deviceMemory || 0) <= 2` на платформе android — тогда `motionModeFor('auto', …)` даёт `lite` сразу, не дожидаясь трёх замеров (MT5806 у пользователя — ровно этот случай; `deviceMemory` в WebView 70+ есть, при `undefined` считать 0).
 
 - [ ] **Step 2-4:** реализация, тесты, коммит `feat: тумблер тяжёлых эффектов, автодетект на главной и хабе (Task 40)`.
 
