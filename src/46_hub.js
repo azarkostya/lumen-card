@@ -531,6 +531,26 @@
         }
       }
 
+      /* Task 32: подкрутка экрана к тому, что под фокусом, — вторая половина
+         штатного контракта Lampa (эталон: app.min.js:53107, card.onFocus ->
+         scroll.update). Без неё фокус уходит вниз, а экран стоит: на стенде
+         плитка четвёртого ряда оказывалась за нижней кромкой (top 1191 при
+         высоте экрана 1080).
+         tocenter = true: getElementPosition (app.min.js:32046) и с
+         центрированием берёт Math.min(0, ...), то есть верх списка никуда не
+         уезжает — центрируется только то, до чего реально докрутили. Для
+         чипов и кнопки поиска вызов тоже нужен: «вверх» с плитки возвращает
+         фокус в шапку, а прокрученный экран сам назад не поедет и шапка
+         осталась бы за верхней кромкой. Дёргать их центрированием нечем:
+         чипы одного ряда стоят на одной высоте, и пока шапка умещается в
+         верхнюю половину экрана, Math.min(0, ...) отдаёт им одну и ту же
+         позицию — начало списка.
+         Узел передаём как есть: scroll.update принимает и jQuery, и DOM
+         (app.min.js:32049), как штатный card.render(true). */
+      function keepVisible(el) {
+        try { scroll.update(el, true); } catch (e) { warn('hub: scroll.update failed', e); }
+      }
+
       /* Коллаж плитки. Путь дешёвый: LC.sources.collagePaths просит ровно три
          картинки и для подборки Кинопоиска берёт их прямо из ответа КП —
          один запрос вместо «1 к КП + до 20 к TMDB», которых стоила бы целая
@@ -632,6 +652,7 @@
           '</div>'
         );
         node.on('hover:focus', function () {
+          keepVisible(node[0]);
           lastFocus = node[0];
           loadCollage(item, node[0]);
         });
@@ -663,7 +684,7 @@
       function chipNode(group) {
         var node = $('<div class="lumen-chip selector">' + esc(group.title) + '<span class="lumen-chip__count">' + group.count + '</span></div>');
         node[0].lumen_group = group.id;
-        node.on('hover:focus', function () { lastFocus = node[0]; });
+        node.on('hover:focus', function () { keepVisible(node[0]); lastFocus = node[0]; });
         node.on('hover:enter', function () {
           if (activeGroup === group.id) return;
           buildTiles(group.id);
@@ -737,7 +758,7 @@
         /* Поиск по подборкам (design-spec-main §0.8): место в шапке держалось
            с Task 17 скрытым узлом, теперь это рабочая кнопка. */
         var search = $('<div class="lumen-hub__search selector">' + LC.icons.get('search') + '<span>' + esc(LC.lang('lumen_hub_search')) + '</span></div>');
-        search.on('hover:focus', function () { lastFocus = search[0]; });
+        search.on('hover:focus', function () { keepVisible(search[0]); lastFocus = search[0]; });
         search.on('hover:enter', function () { openSearch(); });
         head.append(search);
       }
@@ -768,6 +789,18 @@
         root.append(chipsRow);
         root.append(tilesRow);
         scroll.append(root);
+        /* Task 32: высота области прокрутки = экран − шапка Lampa. minus()
+           ставит контейнеру класс layer--wheight (app.min.js:32232), а саму
+           высоту (innerHeight − head − navi) считает Layer.update ->
+           frameUpdate (app.min.js:31684-31695); пересчёт приходит сам:
+           Controller.toggle('content') из start() зовёт Layer.update, раз у
+           нашего контроллера своего update нет (app.min.js:46309). Без
+           minus() контейнер растягивается по содержимому (замер на стенде:
+           2824 px при экране 1080), диапазон прокрутки равен нулю и «вниз»
+           не листается вовсе. Эталон — app.min.js:53170 (category_full).
+           Без аргумента: аргументом вычлась бы ещё и высота переданного
+           узла, а наша шапка едет внутри прокрутки. */
+        scroll.minus();
         try { self.activity.loader(true); } catch (e) {}
         var captured = gen;
         LC.manifest.load(function (m) {
@@ -900,6 +933,16 @@
         }
       }
 
+      /* Task 32: то же, что keepVisible хаба (см. комментарий там) — экран
+         едет за фокусом. Для сетки центрирование особенно к месту: ряд
+         карточек встаёт посередине, и следующий ряд виден заранее. Чипы
+         сортировки и кнопки пустой сетки зовут его по той же причине, что и
+         шапка хаба: вернувшись «вверх» на прокрученном экране, они иначе
+         остались бы за кромкой. */
+      function keepVisible(el) {
+        try { scroll.update(el, true); } catch (e) { warn('grid: scroll.update failed', e); }
+      }
+
       /* Индекс карточки под фокусом или -1 (фокус на чипе сортировки). */
       function focusedIndex() {
         for (var i = 0; i < cardNodes.length; i++) {
@@ -971,6 +1014,7 @@
         el.lumen_poster = imageUrl(card.poster_path, 'w342');
 
         node.on('hover:focus', function () {
+          keepVisible(el);
           lastFocus = el;
           lastCardId = card.id;
         });
@@ -1060,14 +1104,14 @@
              Запись поднимает listener 'change' → LC.applyKpHintPref
              пересобирает эту сетку уже без подсказки. */
           var hide = $('<div class="lumen-grid__back lumen-grid__hide selector">' + esc(LC.lang('lumen_kp_hint_hide')) + '</div>');
-          hide.on('hover:focus', function () { lastFocus = hide[0]; });
+          hide.on('hover:focus', function () { keepVisible(hide[0]); lastFocus = hide[0]; });
           hide.on('hover:enter', function () {
             try { Lampa.Storage.set('lumen_kp_hint', 'false'); } catch (e) {}
           });
           box.append(hide);
         }
         var back = $('<div class="lumen-grid__back selector">' + esc(LC.lang('lumen_grid_back')) + '</div>');
-        back.on('hover:focus', function () { lastFocus = back[0]; });
+        back.on('hover:focus', function () { keepVisible(back[0]); lastFocus = back[0]; });
         back.on('hover:enter', function () { Lampa.Activity.backward(); });
         box.append(back);
         itemsRow.append(box);
@@ -1146,7 +1190,7 @@
       function sortNode(mode) {
         var node = $('<div class="lumen-chip selector">' + esc(LC.lang(mode.key)) + '</div>');
         node[0].lumen_sort = mode.id;
-        node.on('hover:focus', function () { lastFocus = node[0]; });
+        node.on('hover:focus', function () { keepVisible(node[0]); lastFocus = node[0]; });
         node.on('hover:enter', function () {
           if (sortMode === mode.id) return;
           /* Первая загрузка ещё идёт, а фокус по умолчанию стоит именно на
@@ -1192,6 +1236,10 @@
         root.append(sortsRow);
         root.append(itemsRow);
         scroll.append(root);
+        /* Task 32: то же, что в HubComponent.create (см. комментарий там):
+           без minus() контейнер прокрутки растянут по содержимому и сетка
+           вообще не листается вниз. */
+        scroll.minus();
         loadPage(1, true);
       };
 

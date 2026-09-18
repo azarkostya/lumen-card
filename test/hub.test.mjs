@@ -428,7 +428,13 @@ function setupLampa(opts) {
     this.render = function () { return body; };
     this.body = function () { return body; };
     this.clear = function () { body.empty(); };
-    this.update = function () {};
+    /* Task 32: штатный контракт прокрутки Lampa — minus() задаёт области
+       высоту экрана, update(elem, tocenter) подкручивает её к элементу.
+       Считаем вызовы, чтобы тесты видели обе половины. */
+    this.minus_calls = 0;
+    this.minus = function () { self.minus_calls++; };
+    this.update_calls = [];
+    this.update = function (el, center) { self.update_calls.push([el, !!center]); };
     this.destroy = function () { self.destroyed = true; };
     log.scrolls.push(this);
   }
@@ -595,6 +601,25 @@ test('lumen_hub: create строит чипы групп и плитки пер�
   assert.equal(s.root.all('lumen-tile').length, 2, 'плитки первой группы (Франшизы)');
   assert.deepEqual(s.comp.activity.states, [true, false], 'лоадер включился и погас');
   assert.deepEqual(warnLog, []);
+});
+
+/* Task 32: на стенде хаб не листался вниз вообще — scroll создавался, но
+   ни minus(), ни update() наши компоненты не звали. Обе половины штатного
+   контракта Lampa проверяем здесь. */
+test('lumen_hub: create вызывает scroll.minus() ровно один раз', function () {
+  var s = openHub();
+  assert.equal(s.env.log.scrolls[0].minus_calls, 1);
+});
+
+test('lumen_hub: hover:focus плитки подкручивает скролл к ней', function () {
+  var s = openHub();
+  var scroll = s.env.log.scrolls[0];
+  var tile = s.root.all('lumen-tile')[1];
+  scroll.update_calls.length = 0;
+  fire(tile, 'hover:focus');
+  assert.equal(scroll.update_calls.length, 1);
+  assert.equal(scroll.update_calls[0][0], tile, 'подкрутка именно к этой плитке');
+  assert.equal(scroll.update_calls[0][1], true, 'ряд встаёт по центру');
 });
 
 test('lumen_hub: коллаж идёт дешёвым путём collagePaths, а не полной страницей (C1)', function () {
@@ -806,6 +831,23 @@ test('lumen_grid: create запрашивает первую страницу и
   assert.equal(cards[0].all('card__view').length, 1);
   assert.deepEqual(g.comp.activity.states, [true, false]);
   assert.deepEqual(warnLog, []);
+});
+
+test('lumen_grid: create вызывает scroll.minus() ровно один раз', function () {
+  var g = openGrid(COLLECTION);
+  assert.equal(g.env.log.scrolls[0].minus_calls, 1);
+});
+
+test('lumen_grid: hover:focus карточки подкручивает скролл к ней', function () {
+  var g = openGrid(COLLECTION);
+  g.h.fetchCalls[0].ok({ results: results(9), page: 1, total_pages: 1, total_results: 9 });
+  var scroll = g.env.log.scrolls[0];
+  var card = g.root.all('lumen-gcard')[4];
+  scroll.update_calls.length = 0;
+  fire(card, 'hover:focus');
+  assert.equal(scroll.update_calls.length, 1);
+  assert.equal(scroll.update_calls[0][0], card, 'подкрутка именно к этой карточке');
+  assert.equal(scroll.update_calls[0][1], true, 'ряд карточек встаёт по центру');
 });
 
 test('lumen_grid: данные карточки лежат в card_data узла', function () {

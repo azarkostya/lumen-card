@@ -467,8 +467,25 @@
         }
       }
 
+      /* Task 32: экран едет за фокусом — вторая половина штатного контракта
+         Lampa (эталон: app.min.js:53107, card.onFocus -> scroll.update).
+         Без неё фокус уходит вниз по чипам подборок, а экран стоит на месте.
+         tocenter = true: getElementPosition (app.min.js:32046) и с
+         центрированием берёт Math.min(0, ...), поэтому кнопка «Крутить» и
+         шапка у верхней кромки остаются на месте, а центрируется только то,
+         до чего реально докрутили. Узел передаём как есть: scroll.update
+         принимает и jQuery, и DOM (app.min.js:32049). */
+      function keepVisible(el) {
+        try { scroll.update(el, true); } catch (e) { warn('roulette: scroll.update failed', e); }
+      }
+
+      /* Через watchFocus проходят все .selector рулетки, поэтому подкрутка
+         к фокусу ставится здесь одной строкой. */
       function watchFocus(node) {
-        node.on('hover:focus', function () { lastFocus = node[0]; });
+        node.on('hover:focus', function () {
+          keepVisible(node[0]);
+          lastFocus = node[0];
+        });
         return node;
       }
 
@@ -864,6 +881,14 @@
         watchFocus(spinBtn);
         spinBtn.on('hover:enter', function () { spin(); });
         scroll.append(root);
+        /* Task 32: без minus() контейнер прокрутки растягивается по
+           содержимому (класс layer--wheight ставит именно он, app.min.js:
+           32232, а высоту по нему считает Layer.update -> frameUpdate,
+           app.min.js:31684-31695) — диапазон прокрутки нулевой, и чипы
+           подборок под барабаном уходят за нижнюю кромку: фокус на них
+           встаёт, а увидеть их нельзя. Подробный разбор — в
+           HubComponent.create (src/46_hub.js). */
+        scroll.minus();
         try { self.activity.loader(true); } catch (e) { }
         var captured = gen;
         LC.manifest.load(function (m) {

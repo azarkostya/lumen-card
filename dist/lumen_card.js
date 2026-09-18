@@ -6612,6 +6612,26 @@ warn('hub: collection failed', e);
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+function keepVisible(el) {
+try { scroll.update(el, true); } catch (e) { warn('hub: scroll.update failed', e); }
+}
+
+
+
+
+
 function paintCollage(node, paths) {
 var box = $(node).find('.lumen-tile__collage');
 box.empty();
@@ -6709,6 +6729,7 @@ season +
 '</div>'
 );
 node.on('hover:focus', function () {
+keepVisible(node[0]);
 lastFocus = node[0];
 loadCollage(item, node[0]);
 });
@@ -6740,7 +6761,7 @@ $(chipNodes[c]).toggleClass('lumen-chip--on', chipNodes[c].lumen_group === group
 function chipNode(group) {
 var node = $('<div class="lumen-chip selector">' + esc(group.title) + '<span class="lumen-chip__count">' + group.count + '</span></div>');
 node[0].lumen_group = group.id;
-node.on('hover:focus', function () { lastFocus = node[0]; });
+node.on('hover:focus', function () { keepVisible(node[0]); lastFocus = node[0]; });
 node.on('hover:enter', function () {
 if (activeGroup === group.id) return;
 buildTiles(group.id);
@@ -6814,7 +6835,7 @@ head.append($('<div class="lumen-hub__count">' + total + ' ' + esc(LC.collection
 
 
 var search = $('<div class="lumen-hub__search selector">' + LC.icons.get('search') + '<span>' + esc(LC.lang('lumen_hub_search')) + '</span></div>');
-search.on('hover:focus', function () { lastFocus = search[0]; });
+search.on('hover:focus', function () { keepVisible(search[0]); lastFocus = search[0]; });
 search.on('hover:enter', function () { openSearch(); });
 head.append(search);
 }
@@ -6845,6 +6866,18 @@ root.append(head);
 root.append(chipsRow);
 root.append(tilesRow);
 scroll.append(root);
+
+
+
+
+
+
+
+
+
+
+
+scroll.minus();
 try { self.activity.loader(true); } catch (e) {}
 var captured = gen;
 LC.manifest.load(function (m) {
@@ -6978,6 +7011,16 @@ warn('grid: collection failed', e);
 }
 
 
+
+
+
+
+
+function keepVisible(el) {
+try { scroll.update(el, true); } catch (e) { warn('grid: scroll.update failed', e); }
+}
+
+
 function focusedIndex() {
 for (var i = 0; i < cardNodes.length; i++) {
 if (cardNodes[i] === lastFocus) return i;
@@ -7048,6 +7091,7 @@ markCard(node, card);
 el.lumen_poster = imageUrl(card.poster_path, 'w342');
 
 node.on('hover:focus', function () {
+keepVisible(el);
 lastFocus = el;
 lastCardId = card.id;
 });
@@ -7137,14 +7181,14 @@ if (nokey) {
 
 
 var hide = $('<div class="lumen-grid__back lumen-grid__hide selector">' + esc(LC.lang('lumen_kp_hint_hide')) + '</div>');
-hide.on('hover:focus', function () { lastFocus = hide[0]; });
+hide.on('hover:focus', function () { keepVisible(hide[0]); lastFocus = hide[0]; });
 hide.on('hover:enter', function () {
 try { Lampa.Storage.set('lumen_kp_hint', 'false'); } catch (e) {}
 });
 box.append(hide);
 }
 var back = $('<div class="lumen-grid__back selector">' + esc(LC.lang('lumen_grid_back')) + '</div>');
-back.on('hover:focus', function () { lastFocus = back[0]; });
+back.on('hover:focus', function () { keepVisible(back[0]); lastFocus = back[0]; });
 back.on('hover:enter', function () { Lampa.Activity.backward(); });
 box.append(back);
 itemsRow.append(box);
@@ -7223,7 +7267,7 @@ $(sortNodes[i]).toggleClass('lumen-chip--on', sortNodes[i].lumen_sort === sortMo
 function sortNode(mode) {
 var node = $('<div class="lumen-chip selector">' + esc(LC.lang(mode.key)) + '</div>');
 node[0].lumen_sort = mode.id;
-node.on('hover:focus', function () { lastFocus = node[0]; });
+node.on('hover:focus', function () { keepVisible(node[0]); lastFocus = node[0]; });
 node.on('hover:enter', function () {
 if (sortMode === mode.id) return;
 
@@ -7269,6 +7313,10 @@ highlightSort();
 root.append(sortsRow);
 root.append(itemsRow);
 scroll.append(root);
+
+
+
+scroll.minus();
 loadPage(1, true);
 };
 
@@ -13065,8 +13113,25 @@ warn('roulette: collection failed', e);
 }
 }
 
+
+
+
+
+
+
+
+
+function keepVisible(el) {
+try { scroll.update(el, true); } catch (e) { warn('roulette: scroll.update failed', e); }
+}
+
+
+
 function watchFocus(node) {
-node.on('hover:focus', function () { lastFocus = node[0]; });
+node.on('hover:focus', function () {
+keepVisible(node[0]);
+lastFocus = node[0];
+});
 return node;
 }
 
@@ -13462,6 +13527,14 @@ root.append(chipsRow);
 watchFocus(spinBtn);
 spinBtn.on('hover:enter', function () { spin(); });
 scroll.append(root);
+
+
+
+
+
+
+
+scroll.minus();
 try { self.activity.loader(true); } catch (e) { }
 var captured = gen;
 LC.manifest.load(function (m) {

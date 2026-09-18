@@ -244,3 +244,40 @@ test('normalizeMedia: чужое значение — фильмы', () => {
   assert.equal(R.normalizeMedia('мусор'), 'movie');
   assert.equal(R.normalizeMedia(undefined), 'movie');
 });
+
+/* ====================================================================== */
+/* Прокрутка экрана (Task 32)                                             */
+/* ====================================================================== */
+
+/* ВНИМАНИЕ: это проверка ИСХОДНИКА, а не поведения. Компонент
+   lumen_roulette в этом файле не поднимается (см. шапку: здесь только
+   чистая логика, DOM-заглушек нет), а заводить ради двух вызовов целый
+   фейковый DOM с событиями и десяток заглушек Lampa дороже пользы.
+   Поэтому читаем текст src/56_roulette.js и убеждаемся, что обе половины
+   штатного контракта прокрутки на месте; как экран листается на самом
+   деле, проверяет координатор живьём на телевизоре. Поведенческие тесты
+   тех же вызовов есть у хаба и сетки (test/hub.test.mjs). */
+
+/* Кусок исходника от заголовка до строки, на которой он кончается. */
+function section(from, to) {
+  const start = SRC.indexOf(from);
+  assert.notEqual(start, -1, 'в src/56_roulette.js не найдено: ' + from);
+  const end = SRC.indexOf(to, start);
+  assert.notEqual(end, -1, 'в src/56_roulette.js не найдено: ' + to);
+  return SRC.slice(start, end);
+}
+
+test('исходник: create рулетки задаёт области прокрутки высоту экрана (scroll.minus)', () => {
+  const create = section('this.create = function () {', 'this.render = function (js)');
+  assert.ok(create.indexOf('scroll.minus();') !== -1,
+    'без minus() контейнер прокрутки растянут по содержимому и экран не листается');
+});
+
+test('исходник: watchFocus рулетки подкручивает скролл к фокусу', () => {
+  const watch = section('function watchFocus(node) {', 'Шапка, чипы, фильтры');
+  assert.ok(watch.indexOf('keepVisible(node[0]);') !== -1,
+    'через watchFocus проходят все .selector рулетки — подкрутка ставится там');
+  const keep = section('function keepVisible(el) {', 'function watchFocus(node)');
+  assert.ok(keep.indexOf('scroll.update(el, true)') !== -1,
+    'подкрутка — штатным scroll.update, с выравниванием по центру');
+});
