@@ -156,9 +156,14 @@ test('gate: timeout <= 0 — без дедлайна, только по тика
 function withScreen(props, fn) {
   const had = Object.prototype.hasOwnProperty.call(globalThis, 'window');
   const prev = globalThis.window;
+  const prevLampa = globalThis.Lampa;
   globalThis.window = props;
+  /* Модуль пишет window.Lampa && Lampa.Storage — второе обращение идёт к
+     глобали, как и во всём плагине (в браузере это один объект). */
+  if (props.Lampa) globalThis.Lampa = props.Lampa;
   try { return fn(); } finally {
     if (had) globalThis.window = prev; else delete globalThis.window;
+    if (prevLampa === undefined) delete globalThis.Lampa; else globalThis.Lampa = prevLampa;
   }
 }
 
@@ -194,6 +199,41 @@ test('emPx: доля экрана по базе em Lampa (innerWidth / 84.17)', 
   assert.equal(withScreen({ innerWidth: 1920, devicePixelRatio: 1 }, () => u.emPx(0)), 0);
 });
 
+/* Ревью Task 39 (п.3): базу em умножают ДВЕ настройки — «Размер интерфейса»
+   самой Lampa (она входит в кегль body) и масштаб интерфейса плагина
+   (lumen_scale, его таблица стилей вешает на свои корни). */
+test('baseEm/emPx: «Размер интерфейса» Lampa входит в базу em', () => {
+  const withSize = (size) => withScreen({
+    innerWidth: 1920,
+    devicePixelRatio: 1,
+    Lampa: { Storage: { field: () => size } }
+  }, () => u.baseEm());
+  assert.equal(Math.round(withSize('normal') * 100) / 100, 22.81);
+  assert.equal(Math.round(withSize('bigger') * 100) / 100, 23.95, 'крупнее: ×1.05');
+  assert.equal(Math.round(withSize('small') * 100) / 100, 20.53, 'мельче: ×0.9');
+  assert.equal(Math.round(withSize(undefined) * 100) / 100, 22.81, 'настройки нет — как normal');
+  /* Пол 10.6 px — из той же формулы Lampa. */
+  assert.equal(withScreen({ innerWidth: 200, devicePixelRatio: 1 }, () => u.baseEm()), 10.6);
+});
+
+test('emPx: масштаб интерфейса плагина умножает ширину элемента', () => {
+  const screen = { innerWidth: 1920, devicePixelRatio: 1 };
+  /* Барабан рулетки — 9.2em: 210 px при обычном масштабе и 265 при «ещё
+     крупнее» вместе с «Размер интерфейса: крупнее». */
+  assert.equal(withScreen(screen, () => u.emPx(9.2, 1)), 210);
+  assert.equal(withScreen(screen, () => u.emPx(9.2, 1.2)), 252);
+  assert.equal(withScreen({
+    innerWidth: 1920, devicePixelRatio: 1,
+    Lampa: { Storage: { field: () => 'bigger' } }
+  }, () => u.emPx(9.2, 1.2)), 264);
+  /* Явная единица перебивает LC.uiScale — это нужно логотипу героя. */
+  assert.equal(withScreen(screen, () => u.emPx(9.2, 0)), 210, 'мусор вместо масштаба — единица');
+});
+
+test('emPx: без LC.uiScale (модуль стилей не загружен) масштаб — единица', () => {
+  assert.equal(withScreen({ innerWidth: 1920, devicePixelRatio: 1 }, () => u.emPx(9.2)), 210);
+});
+
 test('posterSize: наименьший размер TMDB с допуском 15%', () => {
   assert.equal(u.posterSize(0), 'w185', 'ширина неизвестна — самый дешёвый');
   assert.equal(u.posterSize(130), 'w185', 'постер коллажа хаба на экране 1920');
@@ -207,10 +247,24 @@ test('posterSize: наименьший размер TMDB с допуском 15%
   assert.equal(u.posterSize(5000), 'w780', 'потолок: original постера плагину не нужен');
 });
 
-test('frameSize: полноэкранный кадр — w1280 до Full HD, дальше original', () => {
+/* Ревью Task 39 (п.1): у кадров тот же допуск 15%, что у постеров, — на
+   1920 физических пикселях w1280 растягивается в полтора раза, и это
+   заметно. */
+test('frameSize: кадр, который смотрят, — original уже на Full HD', () => {
   assert.equal(u.frameSize(0), 'w1280', 'ширина неизвестна — дешёвый кадр');
   assert.equal(u.frameSize(1280), 'w1280');
-  assert.equal(u.frameSize(1920), 'w1280', 'ровно Full HD');
-  assert.equal(u.frameSize(1921), 'original');
+  assert.equal(u.frameSize(1366), 'w1280', 'узкое окно ТВ-браузера — w1280 по пикселю');
+  assert.equal(u.frameSize(1505), 'w1280', 'граница допуска: 1505 × 0.85 = 1279');
+  assert.equal(u.frameSize(1506), 'original');
+  assert.equal(u.frameSize(1920), 'original', 'Full HD: полуторный апскейл виден');
   assert.equal(u.frameSize(3840), 'original');
+});
+
+/* Ревью Task 39 (п.1): кадр-подложка (фон результата рулетки, opacity .22)
+   в original не уходит никогда — его не рассматривают. */
+test('scrimSize: кадр-подложка с потолком w1280', () => {
+  assert.equal(u.scrimSize(0), 'w780', 'ширина неизвестна — дешёвый');
+  assert.equal(u.scrimSize(780), 'w780');
+  assert.equal(u.scrimSize(1920), 'w1280');
+  assert.equal(u.scrimSize(3840), 'w1280', 'потолок: original под четвертью прозрачности не нужен');
 });

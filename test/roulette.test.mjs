@@ -682,5 +682,7 @@ test('Task 39: постер барабана и фон результата — 
   spinAndFlush(two);
   assert.ok(('' + two.root.find('.lumen-roulette__frame').css('background-image')).indexOf('/w500/a-p.jpg') !== -1,
     'барабан при DPR 2 — w500');
-  assert.equal(createdImages[createdImages.length - 1].src, 'https://img/original/a-b.jpg', 'фон при DPR 2 — original');
+  /* Ревью Task 39 (п.1): фон результата — кадр-подложка (opacity .22), у
+     него потолок w1280, а не original. */
+  assert.equal(createdImages[createdImages.length - 1].src, 'https://img/w1280/a-b.jpg', 'фон при DPR 2 — по-прежнему w1280');
 });

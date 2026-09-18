@@ -189,7 +189,15 @@ test('Task 39: размер кадра по физическим пикселя�
     let body = fakeBody();
     LC.backdrops.apply(null, body, { id: 1, backdrop_path: '/a.jpg', poster_path: '/poster.jpg' });
     mount(body._children[0]);
-    assert.ok(loaders[0].src.includes('/w1280/'), '1920 физических — w1280: ' + loaders[0].src);
+    assert.ok(loaders[0].src.includes('/original/'), '1920 физических — original: ' + loaders[0].src);
+
+    globalThis.innerWidth = 1366;
+    LC = freshLC();
+    body = fakeBody();
+    LC.backdrops.apply(null, body, { id: 9, backdrop_path: '/a.jpg', poster_path: '/poster.jpg' });
+    mount(body._children[0]);
+    assert.ok(loaders[0].src.includes('/w1280/'), 'узкое окно 1366 — w1280: ' + loaders[0].src);
+    globalThis.innerWidth = 1920;
 
     globalThis.devicePixelRatio = 2;
     LC = freshLC();

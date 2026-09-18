@@ -202,20 +202,24 @@ test('shouldUpdate: тот же id или не выдержана задержк
 });
 
 /* Task 39: аргумент обеих функций — ФИЗИЧЕСКИЕ пиксели, а не CSS-ширина
-   окна. У кадра порог Full HD (общий LC.util.frameSize), у логотипа — его
-   собственная рамка 37.84em. */
-test('sizeFor: до 1920 физических — w1280, шире — original', () => {
-  assert.equal(H.sizeFor(1920), 'w1280', 'Full HD: original не даёт лишних пикселей');
-  assert.equal(H.sizeFor(1921), 'original');
+   окна. У кадра общий порог LC.util.frameSize, у логотипа — его собственная
+   рамка (LOGO_EM × TEXT_ZOOM). */
+test('sizeFor: кадр героя — original уже на Full HD', () => {
+  assert.equal(H.sizeFor(1366), 'w1280', 'узкое окно');
+  assert.equal(H.sizeFor(1920), 'original', 'Full HD: w1280 растянулся бы в полтора раза');
   assert.equal(H.sizeFor(3840), 'original');
   assert.equal(H.sizeFor(0), 'w1280', 'ширина неизвестна — дешёвый кадр');
 });
 
-test('logoSizeFor: по ширине самого логотипа, с допуском 15%', () => {
+/* Ревью Task 39 (п.2, п.4): рамка логотипа — 950 px на экране 1920 (em
+   внутри .lumen-hero__text дороже базового в 1.1 раза), а w780 — потолок:
+   следующая ступень у логотипов сразу original, то есть PNG с альфой на
+   2000+ px. */
+test('logoSizeFor: по ширине самого логотипа, потолок w780', () => {
   assert.equal(H.logoSizeFor(0), 'w500', 'ширина неизвестна — дешёвый');
   assert.equal(H.logoSizeFor(500), 'w500');
-  assert.equal(H.logoSizeFor(863), 'w780', 'рамка 37.84em на экране 1920');
-  assert.equal(H.logoSizeFor(1726), 'original', 'та же рамка при DPR 2');
+  assert.equal(H.logoSizeFor(950), 'w780', 'рамка логотипа на экране 1920');
+  assert.equal(H.logoSizeFor(1900), 'w780', 'та же рамка при DPR 2 — выше потолка не идём');
 });
 
 test('detailsRequest: url media/id, images с языком интерфейса, кэш сутки', () => {
@@ -416,7 +420,7 @@ test('фокус: ни монтирование, ни обработка фок�
   main.card1.addClass('focus');
   fireFocus(main.activity, main.card1);
   env.advance(400);
-  assert.equal(env.images[0].src, 'https://img/t/p/w1280/b1.jpg', 'фокус обработан');
+  assert.equal(env.images[0].src, 'https://img/t/p/original/b1.jpg', 'фокус обработан');
   assert.deepEqual(warnLog, []);
 });
 
@@ -475,7 +479,7 @@ test('фокус карточки: кадр грузится только пос
 
   env.advance(350);
   assert.equal(env.images.length, 1, 'ровно одна предзагрузка кадра');
-  assert.equal(env.images[0].src, 'https://img/t/p/w1280/b2.jpg', 'кадр карточки, на которой фокус остановился');
+  assert.equal(env.images[0].src, 'https://img/t/p/original/b2.jpg', 'кадр карточки, на которой фокус остановился');
   assert.equal(env.requests.length, 1);
   assert.equal(env.requests[0].url, 'movie/22');
 });
@@ -518,7 +522,7 @@ test('загруженный кадр проявляется вторым сло
   const b = node.find('.lumen-hero__bg--b');
   assert.equal(a.hasClass('is-active'), true, 'первый кадр проявлён');
   assert.equal(b.hasClass('is-active'), false);
-  assert.equal(a.css('background-image'), 'url("https://img/t/p/w1280/b1.jpg")');
+  assert.equal(a.css('background-image'), 'url("https://img/t/p/original/b1.jpg")');
 
   /* Ответ деталей дорисовывает мету, жанры и снимает скелетон. */
   env.requests[0].ok({ runtime: 100, genres: [{ name: 'драма' }], overview: 'полное', images: { logos: [{ file_path: '/l.png', iso_639_1: 'ru' }] } });
@@ -561,7 +565,7 @@ test('Task 40: без тяжёлых эффектов кадр меняется 
   env.advance(400);
   env.images[0].onload();
   assert.equal(a.hasClass('is-active'), true);
-  assert.equal(a.css('background-image'), 'url("https://img/t/p/w1280/b1.jpg")');
+  assert.equal(a.css('background-image'), 'url("https://img/t/p/original/b1.jpg")');
   assert.equal(b.hasClass('is-active'), false, 'второй слой не поднимался');
 
   /* Вторая карточка: кадр обязан приехать в ТОТ ЖЕ слой. */
@@ -570,7 +574,7 @@ test('Task 40: без тяжёлых эффектов кадр меняется 
   fireFocus(main.activity, main.card2);
   env.advance(400);
   env.images[env.images.length - 1].onload();
-  assert.equal(a.css('background-image'), 'url("https://img/t/p/w1280/b2.jpg")', 'подмена в том же слое');
+  assert.equal(a.css('background-image'), 'url("https://img/t/p/original/b2.jpg")', 'подмена в том же слое');
   assert.equal(b.hasClass('is-active'), false, 'второй слой так и не понадобился');
   assert.equal(b.css('background-image'), undefined, 'во втором слое картинки нет вовсе');
 });
@@ -753,7 +757,7 @@ test('mount с compact/hostClass: сжат всегда, класс хоста �
 
   fireFocus(grid, card);
   env.advance(400);
-  assert.equal(env.images[0].src, 'https://img/t/p/w1280/b3.jpg');
+  assert.equal(env.images[0].src, 'https://img/t/p/original/b3.jpg');
   assert.equal(node.hasClass('lumen-hero--compact'), true, 'компактный герой не разжимается по индексу ряда');
 
   env.hero.unmount();
@@ -874,7 +878,7 @@ test('Task 39: предзагрузчик кадра героя просит а�
 /* Task 39: размер кадра и логотипа считается по физическим пикселям, но
    «размытый» постер Task 38 остаётся крошечным при любом DPR — его размер
    выбран не под экран, а ради самого апскейла. */
-test('Task 39: DPR 2 поднимает кадр и логотип, w92 размытого фона не трогает', () => {
+test('Task 39: DPR 2 не поднимает логотип выше потолка, w92 размытого фона не трогает', () => {
   const env = makeEnv();
   globalThis.window.devicePixelRatio = 2;
   const main = makeMain();
@@ -888,9 +892,10 @@ test('Task 39: DPR 2 поднимает кадр и логотип, w92 разм
     '1920 CSS × DPR 2 = 3840 физических — кадр в original');
   env.images[0].onload();
 
-  /* Логотип приходит с деталями: рамка 37.84em при DPR 2 — 1726 физических. */
+  /* Логотип приходит с деталями: рамка при DPR 2 — 1900 физических пикселей,
+     но потолок логотипа w780 (ревью Task 39, п.4). */
   env.requests[0].ok({ id: 11, images: { logos: [{ file_path: '/l.png', aspect_ratio: 4, iso_639_1: 'ru' }] } });
-  assert.equal(node.find('.lumen-hero__logo').css('background-image'), 'url("https://img/t/p/original/l.png")');
+  assert.equal(node.find('.lumen-hero__logo').css('background-image'), 'url("https://img/t/p/w780/l.png")');
 
   const noFrame = makeEnv();
   globalThis.window.devicePixelRatio = 2;
@@ -1398,7 +1403,7 @@ test('трейлер героя: та же карточка на новом уз
   env.advance(9000);
   lastVideos(env).ok(VIDEOS_RU);
   env.players[0].onStart();
-  const frames = env.images.filter((i) => i.src.indexOf('/t/p/w1280/') !== -1).length;
+  const frames = env.images.filter((i) => i.src.indexOf('/t/p/original/') !== -1).length;
   const requests = env.requests.length;
 
   /* Перерисованный ряд отдаёт новый узел с теми же данными карточки. */
@@ -1410,7 +1415,7 @@ test('трейлер героя: та же карточка на новом уз
   fireFocus(main.activity, again);
   env.advance(9000);
   assert.equal(env.players[0].destroys, 0, 'ролик играет дальше');
-  assert.equal(env.images.filter((i) => i.src.indexOf('/t/p/w1280/') !== -1).length, frames, 'кадр героя заново не грузится');
+  assert.equal(env.images.filter((i) => i.src.indexOf('/t/p/original/') !== -1).length, frames, 'кадр героя заново не грузится');
   assert.equal(env.requests.length, requests, 'ни деталей, ни роликов заново не спрашиваем');
   assert.equal(env.hero.lastFocus().node, again, 'а источник перехода переехал на новый узел');
   /* Единственное, что действительно повторяется, — предзагрузка крупного

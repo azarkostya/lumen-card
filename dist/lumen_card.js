@@ -142,6 +142,26 @@ return Math.round((target - today) / 86400000);
 
 
 
+var FIT = 0.85;
+
+
+
+
+function dprCapped() {
+var dpr = 1;
+try {
+dpr = Number(window.devicePixelRatio) || 1;
+} catch (e) {
+dpr = 1;
+}
+if (!(dpr > 0)) dpr = 1;
+return dpr > 2 ? 2 : dpr;
+}
+
+
+
+
+
 
 
 
@@ -153,11 +173,52 @@ function screenPx() {
 var w = 0;
 try {
 w = Number(window.innerWidth) || 0;
-var dpr = Number(window.devicePixelRatio) || 1;
-if (!(dpr > 0)) dpr = 1;
-w = w * (dpr > 2 ? 2 : dpr);
 } catch (e) { }
-return Math.round(w);
+return Math.round(w * dprCapped());
+}
+
+
+
+
+var LAMPA_SIZES = { normal: 1, small: 0.9, bigger: 1.05 };
+
+
+
+
+
+
+
+
+
+
+
+
+
+function baseEm() {
+var w = 0;
+var k = 1;
+try {
+w = Number(window.innerWidth) || 0;
+} catch (e) { }
+try {
+if (window.Lampa && Lampa.Storage && typeof Lampa.Storage.field === 'function') {
+var size = Lampa.Storage.field('interface_size');
+if (LAMPA_SIZES[size]) k = LAMPA_SIZES[size];
+}
+} catch (e2) { }
+var px = w / 84.17 * k;
+return px > 10.6 ? px : 10.6;
+}
+
+
+
+
+
+function uiScale() {
+try {
+if (typeof LC.uiScale === 'function') return Number(LC.uiScale()) || 1;
+} catch (e) { }
+return 1;
 }
 
 
@@ -165,8 +226,12 @@ return Math.round(w);
 
 
 
-function emPx(em) {
-return Math.round(screenPx() * (Number(em) || 0) / 84.17);
+
+
+function emPx(em, scale) {
+var s = typeof scale === 'number' ? scale : uiScale();
+if (!(s > 0)) s = 1;
+return Math.round(baseEm() * (Number(em) || 0) * s * dprCapped());
 }
 
 
@@ -177,11 +242,8 @@ var POSTERS = [185, 342, 500, 780];
 
 
 
-
-
-
 function posterSize(px) {
-var need = (Number(px) || 0) * 0.85;
+var need = (Number(px) || 0) * FIT;
 for (var i = 0; i < POSTERS.length; i++) {
 if (POSTERS[i] >= need) return 'w' + POSTERS[i];
 }
@@ -195,7 +257,17 @@ return 'w' + POSTERS[POSTERS.length - 1];
 
 
 function frameSize(px) {
-return (Number(px) || 0) > 1920 ? 'original' : 'w1280';
+return (Number(px) || 0) * FIT > 1280 ? 'original' : 'w1280';
+}
+
+
+
+
+
+
+
+function scrimSize(px) {
+return (Number(px) || 0) * FIT > 780 ? 'w1280' : 'w780';
 }
 
 function each(arr, fn) {
@@ -289,9 +361,11 @@ fmtTime: fmtTime,
 fmtRuntime: fmtRuntime,
 daysUntil: daysUntil,
 screenPx: screenPx,
+baseEm: baseEm,
 emPx: emPx,
 posterSize: posterSize,
 frameSize: frameSize,
+scrimSize: scrimSize,
 each: each,
 map: map,
 filter: filter,
@@ -888,6 +962,18 @@ var SCALE_ROOTS = '.lumen-card,.lumen-backdrop,.lumen-descr-row,.lumen-review-mo
 function scaleFactor() {
 return SCALES[LC.pref('lumen_scale', SCALE_DEFAULT)] || SCALES[SCALE_DEFAULT];
 }
+
+
+
+
+
+
+
+
+
+
+
+LC.uiScale = scaleFactor;
 
 
 
@@ -2176,6 +2262,10 @@ css.push('.lumen-hero.lumen-hero--compact .lumen-hero__text{' +
 '-webkit-transform:translateY(calc(' + textShiftCalc + ')' + textScale + ';' +
 'transform:translateY(calc(' + textShiftCalc + ')' + textScale + '}');
 css.push('.lumen-hero .lumen-hero__meta{font-family:' + FM + ';font-weight:400;font-size:.88em;line-height:1.2;letter-spacing:.03em;color:' + P.muted + '}');
+
+
+
+
 
 
 
@@ -7130,6 +7220,7 @@ var painted = 0;
 
 
 
+
 var size = LC.util.posterSize(LC.util.emPx(COLLAGE_EM));
 for (var i = 0; i < paths.length; i++) {
 var path = '' + paths[i];
@@ -8118,7 +8209,23 @@ var BIG_POSTER = 500;
 
 
 
+var TEXT_ZOOM = 1.1;
+
+
+
+
+
+
+
+
+
+
+
+
 var LOGO_EM = 37.84;
+
+
+
 
 
 
@@ -8358,10 +8465,18 @@ return LC.util.frameSize(width);
 
 
 
+
+
+
+
+
+
+
+
+
+
 function logoSizeFor(width) {
-var need = (Number(width) || 0) * 0.85;
-if (need > 780) return 'original';
-return need > 500 ? 'w780' : 'w500';
+return (Number(width) || 0) * 0.85 > 500 ? 'w780' : 'w500';
 }
 
 
@@ -8849,7 +8964,9 @@ node.toggleClass('lumen-hero--pending', !!current.pending);
 
 node.toggleClass('lumen-hero--nodescr', !current.overview);
 
-var logoUrl = current.logo ? imageUrl(current.logo, logoSizeFor(LC.util.emPx(LOGO_EM))) : '';
+
+
+var logoUrl = current.logo ? imageUrl(current.logo, logoSizeFor(LC.util.emPx(LOGO_EM * TEXT_ZOOM, 1))) : '';
 var logo = node.find('.lumen-hero__logo');
 
 
@@ -14127,6 +14244,8 @@ function paintFrame(card) {
 
 
 
+
+
 var url = imageUrl(card && card.poster_path, LC.util.posterSize(LC.util.emPx(REEL_EM)));
 var frame = reelBox.find('.lumen-roulette__frame');
 if (url) frame.css('background-image', 'url("' + url + '")');
@@ -14198,7 +14317,9 @@ function loadResultBg(card) {
 
 
 
-var backdrop = imageUrl(card.backdrop_path, LC.util.frameSize(LC.util.screenPx()));
+
+
+var backdrop = imageUrl(card.backdrop_path, LC.util.scrimSize(LC.util.screenPx()));
 if (!backdrop) return;
 var img = new Image();
 
@@ -19086,6 +19207,7 @@ var WATCHED = 95;
 
 
 
+
 var POSTER_EM = 7.90;
 var ORDER_KEY = 'lumen_franchise_order';
 
@@ -22776,6 +22898,7 @@ var STILL_WINDOW = 6;
 
 
 var EPISODE_EM = 14.9;
+
 
 
 
