@@ -164,7 +164,12 @@ test('apply: таймаут (8с) без onload/onerror -> .lumen-bg--blur с п
   assert.equal(layer.hasClass('lumen-bg--blur'), true);
   assert.equal(layer.hasClass('loaded'), true);
   const img = layer.children('.lumen-backdrop__img');
-  assert.ok(String(img._css['background-image']).includes('poster.jpg'));
+  /* Task 38: размер в адресе проверяется наравне с именем файла. Блюр из CSS
+     снят, и мягкость фона держится теперь только на апскейле крошечной
+     картинки — откат к w500 не уронил бы ни один другой тест, а фон просто
+     перестал бы быть размытым. */
+  assert.ok(String(img._css['background-image']).includes('/w92/poster.jpg'),
+    'мягкость даёт апскейл, а не фильтр: размер обязан остаться крошечным');
 });
 
 test('apply: таймаут при отсутствии poster_path -> процедурный градиент (постера для фолбэка нет), без исключений', () => {

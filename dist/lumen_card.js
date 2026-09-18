@@ -1029,10 +1029,15 @@ css.push('.lumen-backdrop--proc2 .lumen-backdrop__img{background:radial-gradient
 
 
 
+
+
+
+
+
+
 css.push('.lumen-backdrop.lumen-bg--blur{background:' + P.gradBlur + '}');
 css.push('.lumen-backdrop.lumen-bg--blur .lumen-backdrop__img{background-position:50% 50%;opacity:.8}');
 css.push('.lumen-backdrop.lumen-motion-full.lumen-bg--blur .lumen-backdrop__img{-webkit-transform:scale(1.1);transform:scale(1.1)}');
-css.push('.lumen-backdrop.lumen-motion-lite.lumen-bg--blur .lumen-backdrop__img,.lumen-backdrop.lumen-motion-off.lumen-bg--blur .lumen-backdrop__img{-webkit-transform:none;transform:none}');
 css.push('.full-start__background.lumen-off{display:none !important}');
 
 

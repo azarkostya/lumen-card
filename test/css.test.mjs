@@ -306,13 +306,20 @@ test('buildCss: .lumen-bg--blur в lumen-motion-full — scale без filter (р
   assert.equal(decl.indexOf('filter'), -1, 'filter:blur дорог для WebView — размытие даёт апскейл w92');
 });
 
-test('buildCss: .lumen-bg--blur в lumen-motion-lite/off — без filter (дорого на ТВ, только затемнение)', () => {
-  const declLite = findDecl(css, (sel) => sel.indexOf('lumen-motion-lite') !== -1 && sel.indexOf('lumen-bg--blur') !== -1);
-  const declOff = findDecl(css, (sel) => sel.indexOf('lumen-motion-off') !== -1 && sel.indexOf('lumen-bg--blur') !== -1);
-  assert.ok(declLite, 'правило lumen-motion-lite для .lumen-bg--blur не найдено');
-  assert.ok(declOff, 'правило lumen-motion-off для .lumen-bg--blur не найдено');
-  assert.equal(declLite.indexOf('filter'), -1, 'lite не должен переопределять/задавать filter (блюр остаётся только в lumen-motion-full)');
-  assert.equal(declOff.indexOf('filter'), -1, 'off не должен переопределять/задавать filter (блюр остаётся только в lumen-motion-full)');
+/* Task 38: раньше здесь проверялось, что lite/off не задают filter — то есть
+   что блюр остался только в full. Блюра нет ни в одном режиме, и вместе с ним
+   ушло правило lite/off: оно гасило один лишь transform, а после снятия
+   фильтра гасить стало нечего. Тест поэтому зеркален героевскому — под
+   .lumen-bg--blur не должно остаться ни одного правила вне lumen-motion-full. */
+test('buildCss: .lumen-bg--blur — вне lumen-motion-full правил нет вовсе', () => {
+  /* Два правила без класса режима исключены намеренно: они не про движение, а
+     про сам вид фона в любом режиме — диагональный градиент подложки и
+     кадрирование с затемнением самого постера (opacity:.8). */
+  const offenders = ruleSelectors(css).filter((sel) => sel.indexOf('lumen-bg--blur') !== -1 &&
+    sel.indexOf('lumen-motion-full') === -1 && sel !== '.lumen-backdrop.lumen-bg--blur' &&
+    sel !== '.lumen-backdrop.lumen-bg--blur .lumen-backdrop__img');
+  assert.deepEqual(offenders, [],
+    'блюра нет ни в одном режиме — размытие даёт апскейл w92; правилам режима под .lumen-bg--blur гасить нечего');
 });
 
 /* -------------------------------------------------------------------- */
@@ -1111,9 +1118,11 @@ test('Task 38: ни одного box-shadow с размытием больше .
   }
   assert.deepEqual(offenders, [], 'радиус тени WebView считает по площади вокруг элемента, а таких элементов на экране десятки');
   /* Заодно: другой формы записи тени в таблице быть не должно — иначе
-     проверка выше молча пропустила бы её. */
+     проверка выше молча пропустила бы её. Форма закрыта до конца, вплоть до
+     цвета: четвёртое число (spread) растит площадь перерисовки ровно так же,
+     как радиус, а проверка выше его не видит. */
   const shapes = [...css.matchAll(/box-shadow:[^;}]+/g)].map((m) => m[0]);
-  const unknown = shapes.filter((s) => !/^(-webkit-)?box-shadow:0 [\d.]+em [\d.]+em /.test(s) && !/^-webkit-box-shadow:0 [\d.]+em [\d.]+em /.test(s));
+  const unknown = shapes.filter((s) => !/^(-webkit-)?box-shadow:0 [\d.]+em [\d.]+em (rgba?\(|#)/.test(s));
   assert.deepEqual(unknown, [], 'тень записана не в форме «0 <смещение>em <радиус>em <цвет>» — проверка радиуса её не увидит');
 });
 
