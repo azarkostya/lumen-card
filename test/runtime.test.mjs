@@ -2081,6 +2081,37 @@ function moodsLC() {
   return ctx;
 }
 
+/* Ревью Task 36, находка К1. Смена настройки «Размер кадра» на живой главной
+   перемонтирует героя, а вместе с ним — место под чипы (при живом кадре они
+   лежат в его слоте .lumen-hero__moods). Отсюда два требования к
+   LC.applyHeroSizePref, и оба про порядок, а не про поведение: чипы обязаны
+   монтироваться ПОСЛЕ работы с героем (до неё DOM ещё в старом состоянии) и в
+   ОБЕИХ ветках, включая «Выключен» (раньше она уходила в return раньше
+   монтирования, и чипы исчезали с экрана до перезахода на главную).
+
+   Проверяется по исходнику: сама функция висит на гарде activated, который в
+   этих тестах не поднят, а поднимать его значит тащить сюда Lampa.Template и
+   половину activate(). Решение «переехали чипы или нет» принимает гард в
+   LC.moods.mount — он закрыт своими тестами в test/moods.test.mjs. */
+test('К1: applyHeroSizePref монтирует чипы после героя и в обеих ветках размера', () => {
+  const src = readFileSync(new URL('../src/90_runtime.js', import.meta.url), 'utf8');
+  const body = /LC\.applyHeroSizePref = function \(\) \{([\s\S]*?)\n  \};/.exec(src);
+  assert.ok(body, 'LC.applyHeroSizePref не найдена');
+  const text = body[1];
+  const moodsAt = text.indexOf('LC.moods.mountCurrent()');
+  assert.ok(moodsAt !== -1, 'чипы не монтируются вовсе');
+  assert.ok(text.indexOf('LC.hero.unmount()') !== -1 && text.indexOf('LC.hero.unmount()') < moodsAt,
+    'ветка «Выключен» обязана снять героя ДО монтирования чипов');
+  assert.ok(text.indexOf('LC.hero.mountCurrent()') !== -1 && text.indexOf('LC.hero.mountCurrent()') < moodsAt,
+    'герой обязан встать ДО монтирования чипов');
+  /* И ни один return не должен стоять между героем и чипами — иначе ветка
+     «Выключен» снова унесёт слот, не дав чипам переехать. Гард по activated
+     в начале функции под это условие не попадает: считаем от пересборки
+     таблицы стилей, с которой начинается сама работа. */
+  const work = text.slice(text.indexOf('LC.injectCss()'), moodsAt);
+  assert.equal(/\breturn\b/.test(work), false, 'между героем и чипами остался ранний выход: ' + work);
+});
+
 test('Important 2: старт главной монтирует чипы, и строго ПОСЛЕ героя', () => {
   const { LC, hero, moodsLog, moodsRoot } = moodsLC();
   const main = makeActivityObj('main', false);

@@ -283,6 +283,63 @@ test('unmount: признак раскладки уходит, слот геро
   assert.equal(slot._children.length, 0, 'чипы остались в слоте после unmount');
 });
 
+/* Ревью Task 36, находка К1: смена настройки «Размер кадра» на ЖИВОЙ главной
+   перемонтирует героя, не трогая активность, — и место под чипы меняется под
+   нами. Корень при этом тот же самый, поэтому гард mount() сверяет не только
+   его, но и то, совпало ли фактическое место с записанным. Оба направления
+   воспроизводятся здесь руками: слот в корне то появляется (герой встал), то
+   исчезает (герой снят). */
+test('К1: герой появился на живой главной — чипы переезжают из корня в его слот', function () {
+  var ctx = freshMoods();
+  var root = new FakeEl(['activity']);
+  root.on = function () { return root; };
+  ctx.api.mount(root);
+  assert.ok(moodsNodeOf(root), 'без кадра чипы своим узлом в корне');
+
+  /* Пользователь переключил «Герой: выключен» → «Крупный»: LC.hero.mountCurrent
+     собрал узел кадра со своим пустым слотом. */
+  var slotEl = new FakeEl(['lumen-hero__moods']);
+  slotEl.on = function () { return slotEl; };
+  var textEl = new FakeEl(['lumen-hero__text']);
+  textEl._children = [slotEl];
+  slotEl._parentEl = textEl;
+  var heroEl = new FakeEl(['lumen-hero']);
+  heroEl._children = [textEl];
+  textEl._parentEl = heroEl;
+  root._children.unshift(heroEl);
+  heroEl._parentEl = root;
+
+  ctx.api.mount(root);
+  assert.equal(moodsNodeOf(root), null, 'свой узел остался в корне — он лёг бы под область рядов');
+  var chips = 0;
+  for (var i = 0; i < slotEl._children.length; i++) {
+    if (slotEl._children[i].hasClass('lumen-mood-chip')) chips++;
+  }
+  assert.equal(chips, MOODS.length, 'чипы не переехали в слот кадра');
+  assert.equal(root.hasClass('lumen-moods-on'), true, 'признак раскладки потерян');
+});
+
+test('К1: герой выключили на живой главной — чипы возвращаются своим узлом в корень', function () {
+  var ctx = freshMoods();
+  var root = makeMainRoot();
+  ctx.api.mount(root);
+  assert.equal(moodsNodeOf(root), null, 'при живом кадре чипы в его слоте');
+
+  /* Пользователь выбрал «Герой: выключен»: LC.hero.unmount() убрал узел кадра
+     из корня, унеся слот вместе с чипами. */
+  root._children = root._children.filter(function (c) { return !c.hasClass('lumen-hero'); });
+
+  ctx.api.mount(root);
+  var own = moodsNodeOf(root);
+  assert.ok(own, 'чипы исчезли с экрана вместе со слотом');
+  var chips = 0;
+  for (var j = 0; j < own._children.length; j++) {
+    if (own._children[j].hasClass('lumen-mood-chip')) chips++;
+  }
+  assert.equal(chips, MOODS.length);
+  assert.equal(root.hasClass('lumen-moods-on'), true, 'без этого класса ряды не опустятся под полосу чипов');
+});
+
 test('unmount: своего блока в корне — снимается целиком (кадра нет)', function () {
   var ctx = freshMoods();
   var root = new FakeEl(['activity']);

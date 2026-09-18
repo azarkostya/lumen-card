@@ -230,7 +230,7 @@ function ruleBodies(cssText) {
    в полосу чипов настроения под шапкой, а не пропадает вместе с ними. */
 function heroOffMedia(cssText) {
   return cssText.split('\n').find((l) => l.indexOf('@media screen and (min-aspect-ratio:') === 0 &&
-    l.indexOf('.lumen-hero .lumen-hero__text{position:static') !== -1);
+    l.indexOf('.lumen-hero__text{position:static') !== -1);
 }
 
 function findDecl(cssText, matchSelector) {
@@ -1477,9 +1477,14 @@ test('правка: текст героя прижат к низу кадра и
      заголовка первого ряда в старте (он стоит на 58vh). */
   assert.equal(num(text, 'bottom', 'vh'), 10, 'отступ текста снизу считается от верха первого ряда: ' + text);
   /* Сжатое состояние — только transform: ни кегль, ни отступы не меняются,
-     поэтому блок физически не может съехать вбок на переходе. */
+     поэтому блок физически не может съехать вбок на переходе.
+     Ревью Task 36 (В1): в сдвиг входит высота полосы чипов — она гаснет
+     через visibility и место в потоке сохраняет, так что без добавки низ
+     ВИДИМОГО содержимого встал бы на 88 px выше расчётного. */
   const small = findDecl(css, (sel) => sel === '.lumen-hero.lumen-hero--compact .lumen-hero__text');
-  assert.equal(small, '-webkit-transform:translateY(6.6vh) scale(0.95);transform:translateY(6.6vh) scale(0.95)', 'сжатие текста: ' + small);
+  assert.ok(small.indexOf('transform:translateY(calc(6.6vh + 3.88em)) scale(0.95)') !== -1, 'сжатие текста: ' + small);
+  assert.ok(small.indexOf('-webkit-transform:translateY(-webkit-calc(6.6vh + 3.88em))') !== -1, 'старым webkit-движкам нужен префиксный calc: ' + small);
+  assert.ok(small.indexOf('-webkit-transform:translateY(calc(6.6vh + 3.88em))') !== -1, 'после префиксного calc обязана идти обычная форма: ' + small);
   assert.ok(text.indexOf('transform-origin:left bottom') !== -1, 'без origin у левого нижнего угла scale увёл бы текст от safe area: ' + text);
 
   /* Та же вертикаль у заголовка ряда — пользователь сверяет их по линии. */
@@ -1509,11 +1514,15 @@ test('правка: текст героя прижат к низу кадра и
    съехало???»). С тех пор раскладка проверяется целиком, а не по правилам
    поодиночке.
 
-   Task 36: считать стало проще — все четыре величины выражены в долях экрана
-   и в em, поэтому тест переводит их в пиксели ЖИВОГО телевизора (1920×1080,
-   база кегля Lampa 1920/84.17 = 22.811) и сверяет расстояния между блоками.
-   Полоса чипов теперь лежит ВНУТРИ текстового блока, поэтому отдельной
-   величиной не считается: её низ и есть низ текста. */
+   Task 36: считать стало проще — все величины выражены в долях экрана и в em,
+   поэтому тест переводит их в пиксели ЖИВОГО телевизора (1920×1080, база
+   кегля Lampa 1920/84.17 = 22.811) и сверяет расстояния между блоками.
+
+   Полоса чипов лежит ВНУТРИ текстового блока, но её низ и низ блока — РАЗНЫЕ
+   величины в сжатом состоянии: там полоса гаснет через visibility и место в
+   потоке сохраняет (ревью Task 36, находка В1). Поэтому тест считает низ
+   ВИДИМОГО содержимого отдельно — иначе 88 px пустоты между строкой рейтинга
+   и кромкой кадра прошли бы мимо него, как прошли мимо живого замера. */
 test('раскладка героя: кадр, текст и ряды не пересекаются ни при одном размере', () => {
   const EM = 1920 / 84.17;
   const VH = 1080 / 100;
@@ -1534,7 +1543,13 @@ test('раскладка героя: кадр, текст и ряды не пе�
     const heroShift = parseFloat(/transform:translateY\(-([0-9.]+)vh\)/.exec(decl('.lumen-hero.lumen-hero--compact'))[1]) * VH;
     const textDecl = decl('.lumen-hero .lumen-hero__text');
     const textBottom = parseFloat(/bottom:([0-9.]+)vh/.exec(textDecl)[1]) * VH;
-    const textShift = parseFloat(/transform:translateY\(([0-9.]+)vh\)/.exec(decl('.lumen-hero.lumen-hero--compact .lumen-hero__text'))[1]) * VH;
+    const compactText = decl('.lumen-hero.lumen-hero--compact .lumen-hero__text');
+    const shiftParts = /[^-]transform:translateY\(calc\(([0-9.]+)vh \+ ([0-9.]+)em\)\)/.exec(compactText);
+    const textShift = parseFloat(shiftParts[1]) * VH + parseFloat(shiftParts[2]) * EM;
+    /* Высота полосы чипов — она же вторая половина сдвига: (MOODS_IN_GAP +
+       MOODS_H) × TEXT_ZOOM, и в сжатом состоянии ровно на неё низ блока ниже
+       низа видимого содержимого. */
+    const moodsBand = parseFloat(shiftParts[2]) * EM;
     const rowsDecl = decl('.lumen-main .scroll.layer--wheight');
     const rowsMargin = /margin-top:calc\(([0-9.]+)vh - ([0-9.]+)em\)/.exec(rowsDecl);
     const rowsHeight = /height:calc\(([0-9.]+)vh \+ ([0-9.]+)em\) !important/.exec(rowsDecl);
@@ -1568,10 +1583,18 @@ test('раскладка героя: кадр, текст и ряды не пе�
     assert.ok(rowHeadDown - textEdgeDown > 10, label + ': текст лип к заголовку ряда (' + (rowHeadDown - textEdgeDown) + ' px)');
     assert.ok(rowHeadDown - heroEdgeDown < AIR * EM, label + ': в старте между кромкой кадра и рядом зияет пустота (' + (rowHeadDown - heroEdgeDown) + ' px)');
 
-    /* В сжатом текст обязан остаться внутри кадра: ниже кромки его срежет
-       overflow:hidden героя. */
-    assert.ok(textEdgeUp < heroEdgeUp, label + ': текст в сжатом свисает с кромки кадра (' + textEdgeUp + ' против ' + heroEdgeUp + ')');
-    assert.ok(heroEdgeUp - textEdgeUp > 20, label + ': текст в сжатом лип к кромке (' + (heroEdgeUp - textEdgeUp) + ' px)');
+    /* В сжатом состоянии проверяется низ ВИДИМОГО содержимого, а не низ
+       блока: полоса чипов там погашена visibility и место в потоке занимает.
+       Именно этот зазор пользователь видит как «текст над кромкой кадра», и
+       он обязан быть тем же TEXT_EDGE_VH (3.4vh = 37 px при 1080), что и до
+       переезда чипов внутрь блока. */
+    const textVisibleUp = textEdgeUp - moodsBand;
+    assert.ok(textVisibleUp < heroEdgeUp, label + ': текст в сжатом свисает с кромки кадра (' + textVisibleUp + ' против ' + heroEdgeUp + ')');
+    assert.ok(Math.abs((heroEdgeUp - textVisibleUp) - 3.4 * VH) < 1,
+      label + ': зазор от видимого текста до кромки кадра ' + (heroEdgeUp - textVisibleUp) + ' px вместо 36.7');
+    /* А сам блок вместе с погашенной полосой может уходить за кромку — там
+       его срежет overflow:hidden героя, и срезать нечего: полоса невидима. */
+    assert.ok(textEdgeUp - textVisibleUp > 80, label + ': полоса чипов перестала занимать место — сдвиг больше не нужен');
 
     /* И ряд в сжатом состоянии помещается в экран целиком — вместе с
        подписями под постером. Допуск 6 px: столько остаётся от строки меты
@@ -1708,7 +1731,7 @@ test('фаза 3: у совсем низкого окна ряды занима�
      «экран минус ряд»), и порог отодвинулся с 2.2:1 до 2.62:1. */
   const line = heroOffMedia(css);
   assert.ok(line, 'нет страховки для низкого окна');
-  assert.ok(line.indexOf('min-aspect-ratio:262/100') !== -1, 'порог при крупном кадре — 2.62:1: ' + line);
+  assert.ok(line.indexOf('min-aspect-ratio:258/100') !== -1, 'порог при крупном кадре — 2.58:1: ' + line);
   assert.ok(line.indexOf('margin-top:0') !== -1, 'за порогом ряды не сдвигаются');
   /* Task 36: кадр за порогом не прячется целиком — чипы настроения живут
      ВНУТРИ его текстового блока, и display:none унёс бы их с экрана. Вместо
@@ -1720,6 +1743,12 @@ test('фаза 3: у совсем низкого окна ряды занима�
   assert.ok(line.indexOf('.lumen-moods-on.lumen-main .scroll.layer--wheight') !== -1, 'ряды не опущены под полосу чипов: ' + line);
   /* Сам кадр за порогом перестаёт быть кадром: ни высоты, ни сдвига. */
   assert.ok(line.indexOf('.lumen-main .lumen-hero,.lumen-main .lumen-hero.lumen-hero--compact{top:0;height:auto') !== -1, 'кадр за порогом сохранил высоту: ' + line);
+  /* Ревью Task 36 (В2): сжатие снимается и с текстового блока, причём
+     сжатым селектором тоже — у него на класс больше, а медиазапрос
+     специфичности не добавляет. Без этого полоса чипов под шапкой уезжала бы
+     вниз и мельчала при фокусе ниже первого ряда. */
+  assert.ok(line.indexOf('.lumen-hero .lumen-hero__text,.lumen-hero.lumen-hero--compact .lumen-hero__text{position:static') !== -1,
+    'сжатие текстового блока за порогом не снято: ' + line);
 
   /* Порог описания — отдельный и более мягкий: кадру хватает высоты на
      минимум, но не на две строки описания. Правка четвёртого круга подняла
@@ -1729,10 +1758,10 @@ test('фаза 3: у совсем низкого окна ряды занима�
      и был. */
   const descr = css.split('\n').find((l) => l.indexOf('@media screen and (min-aspect-ratio:') === 0 && l.indexOf('lumen-hero__descr') !== -1);
   /* Task 36: тексту досталось больше высоты (две трети экрана вместо «экран
-     минус ряд»), и порог описания отодвинулся с 1.79:1 до 2.1:1 — теперь
+     минус ряд»), и порог описания отодвинулся с 1.79:1 до 2.08:1 — теперь
      описание видно и на 21:9-мониторе. */
-  assert.ok(descr.indexOf('min-aspect-ratio:210/100') !== -1, 'порог описания: ' + descr);
-  assert.ok(1920 / 1080 < 2.1, 'порог описания обязан оставаться выше 16:9');
+  assert.ok(descr.indexOf('min-aspect-ratio:208/100') !== -1, 'порог описания: ' + descr);
+  assert.ok(1920 / 1080 < 2.08, 'порог описания обязан оставаться выше 16:9');
 });
 
 /* Регресс, найденный пользователем на выложенной сборке: в обычном окне
@@ -1777,11 +1806,31 @@ test('решение «рисовать кадр»: в обычных окнах
    обоих состояниях (кадр не меняет высоту, блок только едет), решать по
    высоте там нечего — мету с описанием на листании прячет базовое правило,
    по дизайну. Проверка базового правила осталась. */
-test('сжатое состояние: мета и описание уходят по дизайну, а не по высоте окна', () => {
+test('сжатое состояние: описание уходит по дизайну, мета остаётся', () => {
+  /* Описание — две строки, в сжатом кадре они читаются дольше остановки
+     фокуса; прячется базовым правилом, без порогов. */
+  const descrSelectors = ruleSelectors(css).filter((sel) => sel.indexOf('.lumen-hero--compact .lumen-hero__descr') !== -1);
+  assert.ok(descrSelectors.length, 'описание в сжатом ничем не скрыто');
   assert.ok(findDecl(css, (sel) => sel === '.lumen-hero.lumen-hero--compact .lumen-hero__descr').indexOf('display:none') !== -1);
-  assert.ok(findDecl(css, (sel) => sel === '.lumen-hero.lumen-hero--compact .lumen-hero__meta').indexOf('display:none') !== -1);
+  /* Мета-строку пользователь просил видеть при листании ещё в фазе 3. До
+     Task 36 её прятали и возвращали медиазапросом там, где хватало высоты
+     сжатого кадра; теперь блок текста одинаков в обоих состояниях, считать
+     нечего — мета просто остаётся. */
+  assert.equal(ruleSelectors(css).filter((sel) => sel === '.lumen-hero.lumen-hero--compact .lumen-hero__meta').length, 0,
+    'мета снова спрятана в сжатом — пользователь просил её видеть при листании');
   assert.equal(css.split('\n').filter((l) => l.indexOf('@media screen and (max-aspect-ratio:') === 0).length, 0,
     'порогов по max-aspect-ratio не осталось: бюджет сжатого состояния совпал с полным');
+  /* При самом маленьком размере кадра мета не показывается вовсе — и там это
+     не про состояние, а про размер: бюджета на неё нет ни в одном из двух. */
+  const compactSize = withStorage({ lumen_hero_size: 'compact' }, (LC) => LC.buildCss());
+  const metaOff = ruleBodies(compactSize).filter((r) => r.selectors.indexOf('.lumen-hero .lumen-hero__meta') !== -1 && r.decl.indexOf('display:none') !== -1);
+  assert.equal(metaOff.length, 1, 'при компактном размере кадра мета обязана уходить целиком');
+  /* И только при нём: у крупного и среднего такого правила нет. */
+  for (const size of ['large', 'medium']) {
+    const built = withStorage({ lumen_hero_size: size }, (LC) => LC.buildCss());
+    const hidden = ruleBodies(built).filter((r) => r.selectors.indexOf('.lumen-hero .lumen-hero__meta') !== -1 && r.decl.indexOf('display:none') !== -1);
+    assert.deepEqual(hidden, [], size + ': мета спрятана целиком, хотя высоты на неё хватает');
+  }
 });
 
 /* Второй порог — мягкая деградация: описание уходит раньше, чем кадр, и

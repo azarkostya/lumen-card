@@ -378,6 +378,15 @@
   var TEXT_DESCR = 4.05;
   var TEXT_RATE = 2.62;
   var TEXT_ZOOM = 1.1;
+  /* Высота полосы чипов В БАЗОВЫХ em, когда она лежит внутри текстового
+     блока. Оба слагаемых заданы в кегле блока (отступ сверху — прямо, а
+     CHIP_ZOOM у чипа считается от того же кегля), поэтому оба умножаются на
+     TEXT_ZOOM. Ревью Task 36, находка М1: множителя у MOODS_H не было, и
+     бюджет содержимого был занижен на .26em.
+     Из этой же величины считается сдвиг сжатия текста (находка В1): полоса
+     гаснет через visibility, а место в потоке сохраняет, и без добавки
+     видимый низ текста вставал бы на 88 px выше расчётного. */
+  var MOODS_IN_EM = round2((MOODS_IN_GAP + MOODS_H) * TEXT_ZOOM);
   /* Сжатый текст мельче на 5 % — и это тоже transform, а не кегль: font-size
      пересчитывает раскладку блока каждый кадр перехода. */
   var TEXT_SCALE_COMPACT = 0.95;
@@ -433,7 +442,7 @@
   function textNeedEm(withDescr) {
     var inner = TEXT_RATE + TEXT_LOGO + (heroSmallText() ? 0 : TEXT_META);
     if (withDescr) inner += TEXT_DESCR;
-    return round2(HERO_HEAD_SAFE + MOODS_IN_GAP * TEXT_ZOOM + MOODS_H + inner * TEXT_ZOOM);
+    return round2(HERO_HEAD_SAFE + MOODS_IN_EM + inner * TEXT_ZOOM);
   }
 
   /* Порог раскладки в виде min-aspect-ratio. Высота, которая достаётся
@@ -1703,8 +1712,27 @@
     /* В сжатом состоянии текст мельче на 5 % (пользователь просил 3-5 %) — и
        это scale, а не font-size: кегль пересчитывал бы раскладку блока каждый
        кадр перехода. transform-origin: left bottom держит левый край на safe
-       area и низ блока на месте, поэтому сжатие не двигает текст вбок. */
-    css.push('.lumen-hero.lumen-hero--compact .lumen-hero__text{-webkit-transform:translateY(' + textShift + 'vh) scale(' + TEXT_SCALE_COMPACT + ');transform:translateY(' + textShift + 'vh) scale(' + TEXT_SCALE_COMPACT + ')}');
+       area и низ блока на месте, поэтому сжатие не двигает текст вбок.
+
+       Ревью Task 36, находка В1: к расчётному сдвигу добавлена высота полосы
+       чипов. Полоса в сжатом гаснет через visibility, а место в потоке при
+       этом СОХРАНЯЕТ (в отличие от display:none у меты и описания), и низ
+       ВИДИМОГО содержимого оказывался на MOODS_IN_EM выше низа блока — при
+       1920×1080 это 88 px пустоты между строкой рейтинга и кромкой кадра.
+       Схлопывать саму полосу нельзя: содержимое прижато box-pack:end, и
+       высота 0 уронила бы его на те же 88 px мгновенным скачком раскладки.
+       Сдвинуть блок целиком дешевле — это тот же transform, который уже
+       анимируется.
+       calc внутри translateY: -webkit-calc остаётся движкам, которые знают
+       только его, а следующая декларация перебивает их у всех остальных.
+       Сложить эти величины заранее нельзя — vh считается от высоты экрана,
+       em от ширины. */
+    var textShiftCalc = textShift + 'vh + ' + MOODS_IN_EM + 'em';
+    var textScale = ') scale(' + TEXT_SCALE_COMPACT + ')';
+    css.push('.lumen-hero.lumen-hero--compact .lumen-hero__text{' +
+      '-webkit-transform:translateY(-webkit-calc(' + textShiftCalc + ')' + textScale + ';' +
+      '-webkit-transform:translateY(calc(' + textShiftCalc + ')' + textScale + ';' +
+      'transform:translateY(calc(' + textShiftCalc + ')' + textScale + '}');
     css.push('.lumen-hero .lumen-hero__meta{font-family:' + FM + ';font-weight:400;font-size:.88em;line-height:1.2;letter-spacing:.03em;color:' + P.muted + '}');
     /* Логотип фильма — фоном (contain), максимум 30.69em = 700 px FHD (§0.2).
        Отдельного <img> нет: единственный путь к картинкам — прокси TMDB. */
@@ -1760,17 +1788,20 @@
     css.push('.lumen-hero .lumen-hero__status{display:none;font-family:' + FB + ';font-weight:600;font-size:.88em;line-height:1;color:' + A + ';background:rgba(' + A_RGB + ',.1);border:.04em solid rgba(' + A_RGB + ',.4);border-radius:.53em;padding:.4em .7em}');
     css.push('.lumen-hero.lumen-hero--status .lumen-hero__status{display:block}');
 
-    /* Сжатый и мини-герой описания не показывают (§0.2, экраны 17/18/20).
-       Мета-строка в сжатом состоянии тоже уходит: при листании год и
-       хронометраж видны на карточке под фокусом, а текст героя должен
-       читаться одним взглядом. display не анимируется — это мгновенная
-       смена, а не переход, и в бюджет высоты она не входит: блок текста
-       одинаков в обоих состояниях.
-       Ровно тот же компактный набор — при самом маленьком размере кадра
-       («компактный»), там он нужен уже в верхнем состоянии. */
+    /* Сжатый и мини-герой описания не показывают (§0.2, экраны 17/18/20):
+       две строки в сжатом кадре читаются дольше, чем длится остановка
+       фокуса, и высоты на них там не остаётся.
+
+       Мета-строка, наоборот, ОСТАЁТСЯ (просьба пользователя из третьего
+       круга фазы 3, подтверждённая ревью Task 36). До Task 36 её прятали
+       здесь и возвращали медиазапросом там, где хватало высоты сжатого
+       кадра; теперь блок текста одинаков в обоих состояниях, и считать
+       нечего — полезная зона при крупном кадре 412 px (от кромки шапки до
+       низа блока при 1920×1080) против 316 px содержимого вместе с метой.
+       Скрывает мету только самый маленький размер кадра («компактный»,
+       ветка smallText ниже) — там бюджета действительно нет. */
     css.push('.lumen-hero.lumen-hero--compact .lumen-hero__logo{-webkit-transform:scale(' + LOGO_COMPACT + ');transform:scale(' + LOGO_COMPACT + ')}');
     css.push('.lumen-hero.lumen-motion-full .lumen-hero__logo{-webkit-transition:-webkit-transform' + EASE + ';transition:transform' + EASE + '}');
-    css.push('.lumen-hero.lumen-hero--compact .lumen-hero__meta,.lumen-hero.lumen-hero--compact .lumen-hero__sk--meta{display:none}');
     css.push('.lumen-hero.lumen-hero--compact .lumen-hero__descr,.lumen-hero.lumen-hero--compact .lumen-hero__sk--descr,.lumen-hero.lumen-hero--compact .lumen-hero__sk--short{display:none}');
     if (smallText) {
       css.push('.lumen-hero .lumen-hero__meta,.lumen-hero .lumen-hero__sk--meta{display:none}');
@@ -1819,9 +1850,11 @@
        под ними отдано ряду. visibility:hidden в паре с opacity — чтобы
        погашенный чип не остался под указателем: opacity:0 сам по себе
        элемент из hit-testing не убирает.
-       Из коллекции Navigator чипы при этом НЕ уходят: Lampa фильтрует
-       .selector по offsetParent (collectionSet в vendor/lampa/app.min.js), а
-       visibility его не обнуляет — обнулил бы только display, но он не
+       Из коллекции Navigator чипы при этом НЕ уходят, и рассчитывать на это
+       нельзя вдвойне: collectionSet в vendor/lampa/app.min.js берёт все
+       .selector подряд, а фильтр по offsetParent у неё под флагом
+       visible_only, по умолчанию выключенным. То есть даже display:none не
+       гарантировал бы исчезновения чипа из коллекции — а он к тому же не
        анимируется. Полагаемся на то же, что и до Task 36: шаг «вверх» с ряда
        до чипов не доходит, контроллер items_line отдаёт фокус шапке Lampa
        сам (замер живьём, фаза 3 — см. шапку src/49_moods.js). */
@@ -1991,7 +2024,12 @@
       '.lumen-main .scroll.layer--wheight,.lumen-main.lumen-rows-up .scroll.layer--wheight' + rowsFull +
       '.lumen-main .lumen-hero,.lumen-main .lumen-hero.lumen-hero--compact{top:0;height:auto;overflow:visible;-webkit-transform:none;transform:none}' +
       '.lumen-hero .lumen-hero__bg,.lumen-hero .lumen-hero__veil,.lumen-hero .lumen-hero__trailer,.lumen-hero .lumen-fx{display:none}' +
-      '.lumen-hero .lumen-hero__text{position:static;left:auto;right:auto;top:auto;bottom:auto;font-size:1em;max-width:none;overflow:visible;padding:.53em 2.81em 0;-webkit-transform:none;transform:none}' +
+      /* Сжатый вариант перечислен рядом не для симметрии: у него на класс
+         больше, и без него правило сжатия (.lumen-hero--compact
+         .lumen-hero__text выше) выиграло бы по специфичности — медиазапрос
+         её не добавляет. Полоса чипов под шапкой уезжала бы вниз и мельчала
+         при фокусе ниже первого ряда (ревью Task 36, находка В2). */
+      '.lumen-hero .lumen-hero__text,.lumen-hero.lumen-hero--compact .lumen-hero__text{position:static;left:auto;right:auto;top:auto;bottom:auto;font-size:1em;max-width:none;overflow:visible;padding:.53em 2.81em 0;-webkit-transform:none;transform:none}' +
       '.lumen-hero .lumen-hero__meta,.lumen-hero .lumen-hero__logo,.lumen-hero .lumen-hero__title,.lumen-hero .lumen-hero__descr,.lumen-hero .lumen-hero__sk,.lumen-hero .lumen-hero__chips{display:none}' +
       '.lumen-hero.lumen-hero--compact .lumen-hero__moods,.lumen-main .lumen-hero .lumen-hero__moods{display:-webkit-box;display:-webkit-flex;display:flex;margin-top:0;opacity:1;visibility:visible;pointer-events:auto}' +
       '.lumen-moods-on.lumen-main .scroll.layer--wheight,.lumen-moods-on.lumen-main.lumen-rows-up .scroll.layer--wheight{margin-top:' + MOODS_BAR + 'em;height:-webkit-calc(100vh - ' + round2(LAMPA_HEAD + MOODS_BAR) + 'em) !important;height:calc(100vh - ' + round2(LAMPA_HEAD + MOODS_BAR) + 'em) !important}}');
