@@ -581,11 +581,19 @@
 
     /* Гейт запуска. Выключенный плагин и режимы lite/off не получают ни
        канваса, ни кадра: на слабом ТВ (вердикт src/68_perf.js приходит сюда
-       через LC.motionMode) атмосфера обходится дороже, чем стоит. */
+       через LC.motionMode) атмосфера обходится дороже, чем стоит.
+       Task 40: и тумблер тяжёлых эффектов — частицы самые дорогие из них
+       (полноэкранный canvas со своим кадровым циклом), поэтому на
+       телевизоре их по умолчанию нет. LC.fxHeavy сам проверяет режим
+       анимаций, но условие на motionMode оставлено явным: этот модуль
+       обязан молчать в lite/off даже там, где LC.fxHeavy нет вовсе (тесты
+       грузят 52_fx.js в одиночку). */
     function allowedNow() {
       try {
         if (!LC.enabled()) return false;
-        return LC.motionMode() === 'full';
+        if (LC.motionMode() !== 'full') return false;
+        if (typeof LC.fxHeavy === 'function' && !LC.fxHeavy()) return false;
+        return true;
       } catch (e) {
         return false;
       }

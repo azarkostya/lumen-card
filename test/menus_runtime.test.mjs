@@ -200,7 +200,11 @@ test('долг ревью (п.2): каждая настройка раздела
     lumen_ambient_delay: [],
     /* Task 23 (фаза 3): фильтр рулетки читается при входе в неё — на живом
        экране применять нечего. */
-    lumen_roulette_unseen: []
+    lumen_roulette_unseen: [],
+    /* Task 40 (фаза 4): тумблер тяжёлых эффектов — класс на body, автотрейлер
+       героя и слой частиц через applyMotionMode, ротация кадров карточки
+       через applySlideshowPref. */
+    lumen_fx_heavy: ['applyMotionMode', 'applySlideshowPref']
   };
 
   /* В проверке обязаны быть все пункты раздела — иначе она снова отстанет от
@@ -327,6 +331,38 @@ test('Task 32: класс режима движения на body ставит L
   LC.applyMotionMode();
   assert.equal(body.hasClass('lumen-motion-off'), true);
   assert.equal(body.hasClass('lumen-motion-full'), false);
+});
+
+/* Task 40: класс тяжёлых эффектов живёт там же, где класс режима, — на body,
+   потому что от него зависят и наезд на кадр карточки (слой .lumen-backdrop
+   лежит вне .lumen-card), и зум заставки, и кроссфейд кадра героя. */
+test('Task 40: класс lumen-fx-heavy ставит LC.init, снимает выключение тумблера и режим lite', () => {
+  const { LC, storage, body } = setup({ storage: { lumen_motion: 'full' } });
+  assert.equal(body.hasClass('lumen-fx-heavy'), false, 'до init класса нет');
+  LC.init();
+  assert.equal(body.hasClass('lumen-fx-heavy'), true, 'вне телевизора тяжёлые эффекты включены по умолчанию');
+
+  storage.lumen_fx_heavy = 'false';
+  LC.applyMotionMode();
+  assert.equal(body.hasClass('lumen-fx-heavy'), false, 'тумблер выключен');
+
+  storage.lumen_fx_heavy = 'true';
+  storage.lumen_motion = 'lite';
+  LC.applyMotionMode();
+  assert.equal(body.hasClass('lumen-fx-heavy'), false, 'в lite тяжёлых эффектов нет и при включённом тумблере');
+
+  storage.lumen_motion = 'full';
+  LC.applyMotionMode();
+  assert.equal(body.hasClass('lumen-fx-heavy'), true, 'вернулись в full — класс вернулся');
+});
+
+test('Task 40: выключение плагина снимает с body и класс тяжёлых эффектов', () => {
+  const { LC, body, storage, storageCbs } = setup({ storage: { lumen_motion: 'full' } });
+  LC.init();
+  assert.equal(body.hasClass('lumen-fx-heavy'), true);
+  storage.lumen_enabled = 'false';
+  storageCbs[0]({ name: 'lumen_enabled' });
+  assert.equal(body.hasClass('lumen-fx-heavy'), false);
 });
 
 test('Task 32: плагин не активен (узкая раскладка) — класс движения на body не ставится', () => {

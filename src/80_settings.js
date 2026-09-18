@@ -224,6 +224,15 @@
     lumen_card_motion_full: { ru: 'Полные', en: 'Full', uk: 'Повні' },
     lumen_card_motion_lite: { ru: 'Лёгкие', en: 'Light', uk: 'Легкі' },
     lumen_card_motion_off: { ru: 'Выкл', en: 'Off', uk: 'Викл' },
+    /* Task 40 (фаза 4): тумблер тяжёлых эффектов. Название говорит, что
+       именно выключается, а описание перечисляет всё до единого — иначе с
+       дивана не понять, куда делись частицы и наезд на кадр. */
+    lumen_fx_heavy_name: { ru: 'Тяжёлые эффекты', en: 'Heavy effects', uk: 'Важкі ефекти' },
+    lumen_fx_heavy_descr: {
+      ru: 'Частицы, наезд на кадр, зум заставки, смена кадров в карточке, плавная смена кадра на главной и автотрейлер. На телевизоре выключены по умолчанию: они стоят кадров. Работают только при полных анимациях.',
+      en: 'Particles, Ken Burns zoom, screensaver zoom, backdrop slideshow, the crossfade on the home screen and the auto trailer. Off by default on a TV: they cost frames. Work only with full animations.',
+      uk: 'Частинки, наїзд на кадр, зум заставки, зміна кадрів у картці, плавна зміна кадру на головній та автотрейлер. На телевізорі вимкнені за замовчуванням: вони коштують кадрів. Працюють лише за повних анімацій.'
+    },
     /* Task 31 (фаза 4): HUD отладки — FPS, долгие задачи, разрешение и
        режим анимаций в углу экрана телевизора, без adb. Нужен только для
        калибровки порогов автодетекта (LC.perf, src/68_perf.js) на реальном
@@ -813,6 +822,17 @@
       try { if (LC.accent && LC.accent.repaint) LC.accent.repaint(); } catch (eAccentMotion) { warn('accent repaint failed', eAccentMotion); }
       return true;
     }
+    /* Task 40 (фаза 4): тумблер тяжёлых эффектов. Применяется двумя точками.
+       LC.applyMotionMode переставляет класс lumen-fx-heavy на body (от него
+       зависят Ken Burns и зум заставки), перечитывает автотрейлер героя и
+       пересчитывает слой частиц. Слайдшоу кадров карточки живёт своим
+       контроллером и класс не читает — его гасит и возвращает
+       LC.applySlideshowPref (его enabled() спрашивает LC.fxHeavy). */
+    if (name === 'lumen_fx_heavy') {
+      LC.applyMotionMode();
+      LC.applySlideshowPref();
+      return true;
+    }
     /* Task 31 (фаза 4): HUD отладки — sync() сам решает, показать узел или
        снять его, по свежему значению настройки. onChangeFor (ниже) зовёт
        applyPrefChange без своего try/catch — исключение ушло бы в вендора
@@ -1060,7 +1080,11 @@
       Lampa.SettingsApi.addParam({ component: PLUGIN, param: param, field: field, onChange: onButtonFor(entry.name) });
       return;
     }
-    param['default'] = entry['default'];
+    /* Task 40: значение по умолчанию может быть ФУНКЦИЕЙ — так у пункта
+       lumen_fx_heavy оно считается по платформе (src/81_prefs.js). Вызов
+       здесь, а не при сборке LIST: модуль настроек не имеет права трогать
+       Lampa при загрузке, а к моменту addSettings платформа уже известна. */
+    param['default'] = typeof entry['default'] === 'function' ? entry['default']() : entry['default'];
     if (entry.type === 'select') param.values = valuesOf(entry);
     if (entry.type === 'input') {
       param.values = '';

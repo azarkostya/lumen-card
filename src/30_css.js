@@ -1429,7 +1429,12 @@
        .lumen-card (сосед, не потомок — см. 50_backdrops.js/syncMotionClass) — с корнем .lumen-card этот
        потомковый селектор не находил бы .lumen-bg__img вовсе, и наезд никогда бы не включался. Режим
        анимаций на .lumen-backdrop зеркалит syncMotionClass() при каждом успешном apply(). */
-    css.push('.lumen-backdrop.lumen-motion-full .lumen-bg__img.is-active{-webkit-animation:lumen-kb 14s linear forwards;animation:lumen-kb 14s linear forwards}');
+    /* Task 40: наезд живёт только при включённых тяжёлых эффектах. Класс
+       lumen-fx-heavy ставит на body LC.applyMotionMode (src/90_runtime.js);
+       на телевизоре тумблер по умолчанию выключен, и кадр стоит неподвижно.
+       Селектор начинается с body, потому что сам слой фона (.lumen-backdrop)
+       класс тяжёлых эффектов не носит — он носит только класс режима. */
+    css.push('body.lumen-fx-heavy .lumen-backdrop.lumen-motion-full .lumen-bg__img.is-active{-webkit-animation:lumen-kb 14s linear forwards;animation:lumen-kb 14s linear forwards}');
     css.push('@-webkit-keyframes lumen-kb{from{-webkit-transform:scale(1)}to{-webkit-transform:scale(1.08)}}');
     css.push('@keyframes lumen-kb{from{transform:scale(1)}to{transform:scale(1.08)}}');
 
@@ -1652,7 +1657,11 @@
        картинки»). 30 % — линия глаз в типовой композиции кадра. */
     css.push('.lumen-hero .lumen-hero__bg{position:absolute;top:0;left:0;right:0;bottom:0;-webkit-background-size:cover;background-size:cover;background-position:center 30%;background-repeat:no-repeat;opacity:0}');
     css.push('.lumen-hero .lumen-hero__bg.is-active{opacity:1}');
-    css.push('.lumen-hero.lumen-motion-full .lumen-hero__bg{-webkit-transition:opacity .6s ease-in-out;transition:opacity .6s ease-in-out}');
+    /* Task 40: плавная смена кадра — тяжёлый эффект: все 600 мс перехода на
+       экране лежат ДВЕ полноэкранные картинки. При выключенном тумблере
+       перехода нет, и герой подменяет кадр в одном слое (src/48_hero.js,
+       swapFrame) — второй остаётся пустым. */
+    css.push('body.lumen-fx-heavy .lumen-hero.lumen-motion-full .lumen-hero__bg{-webkit-transition:opacity .6s ease-in-out;transition:opacity .6s ease-in-out}');
     /* Кадра нет — герой собирается из размытого постера (экран 22).
        Task 38: filter:blur(1.75em) снят, размытие даёт сам постер — его
        грузят в w92 и растягивают cover (src/48_hero.js, loadFrame), то же
@@ -2303,8 +2312,14 @@
     css.push('.lumen-ambient .lumen-ambient__img.is-active{opacity:1}');
     /* Наезд 1.00 → 1.08 за 20 с (поправка контроллера к Task 22) — только
        при полных анимациях: в «Лёгких» остаётся один кроссфейд, и заставка
-       не стоит телевизору ничего, кроме смены картинки раз в 20 секунд. */
-    css.push('body.lumen-motion-full .lumen-ambient .lumen-ambient__img.is-active{-webkit-animation:lumen-amb-zoom 20s linear both;animation:lumen-amb-zoom 20s linear both}');
+       не стоит телевизору ничего, кроме смены картинки раз в 20 секунд.
+       Task 40: и при включённых тяжёлых эффектах. Сама заставка тумблеру НЕ
+       подчинена — она отвечает за то, что происходит, когда пульт отложили,
+       и у неё есть свой выключатель (lumen_ambient). Дорог в ней именно
+       наезд: анимация transform на полноэкранном слое, идущая двадцать
+       секунд подряд. Кроссфейд кадров остаётся — он случается раз в
+       несколько минут. */
+    css.push('body.lumen-fx-heavy.lumen-motion-full .lumen-ambient .lumen-ambient__img.is-active{-webkit-animation:lumen-amb-zoom 20s linear both;animation:lumen-amb-zoom 20s linear both}');
     css.push('@-webkit-keyframes lumen-amb-zoom{from{-webkit-transform:scale(1)}to{-webkit-transform:scale(1.08)}}');
     css.push('@keyframes lumen-amb-zoom{from{transform:scale(1)}to{transform:scale(1.08)}}');
     /* Вуаль под подписью: кадр к низу темнеет, иначе название и часы

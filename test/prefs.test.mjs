@@ -35,6 +35,27 @@ test('motionModeFor: auto на прочих платформах -> full', () =>
   assert.equal(prefs.motionModeFor('auto'), 'full');
 });
 
+/* Task 40 (фаза 4): platform.weak — «железо заведомо слабое» без замеров
+   (LC.perf.weakHardware). Работает так же, как tizen/webos: понижает 'auto'
+   до 'lite', а выбранный руками режим не трогает. */
+test('motionModeFor: auto на заведомо слабом железе -> lite, выбранный руками режим не трогает', () => {
+  assert.equal(prefs.motionModeFor('auto', { android: true, weak: true }), 'lite');
+  assert.equal(prefs.motionModeFor('auto', { android: true, weak: true }, 'full'), 'lite',
+    'даже быстрый замер не поднимает выше платформенного вердикта');
+  assert.equal(prefs.motionModeFor('full', { android: true, weak: true }), 'full');
+  assert.equal(prefs.motionModeFor('auto', { android: true, weak: false }), 'full',
+    'четырёхъядерный ТВ под правило не попадает — решает замер');
+});
+
+/* Task 40: значение по умолчанию тумблера тяжёлых эффектов — платформенное. */
+test('fxHeavyDefault: на телевизоре выключено, в браузере включено', () => {
+  assert.equal(prefs.fxHeavyDefault({ android: true }), false);
+  assert.equal(prefs.fxHeavyDefault({ tizen: true }), false);
+  assert.equal(prefs.fxHeavyDefault({ webos: true }), false);
+  assert.equal(prefs.fxHeavyDefault({}), true);
+  assert.equal(prefs.fxHeavyDefault(), true, 'платформа неизвестна — как обычный браузер');
+});
+
 /* Task 29 (фаза 3): третий аргумент — вердикт автодетекта слабого ТВ
    (src/68_perf.js). Он умеет только понижать: 'full' от замеров означает
    «понижать не за что», а не «поднять выше платформенного lite». */
@@ -154,6 +175,8 @@ test('LIST: полный набор ключей — существующие и
     'lumen_reviews_mode', 'lumen_hero_trailer',
     /* Task 21 (фаза 3): тематические атмосферы (слой частиц) */
     'lumen_fx',
+    /* Task 40 (фаза 4): тумблер тяжёлых эффектов */
+    'lumen_fx_heavy',
     /* Task 22 (фаза 3): заставка из кадров после покоя пульта */
     'lumen_ambient', 'lumen_ambient_source', 'lumen_ambient_delay',
     /* Task 23 (фаза 3): фильтр, с которым открывается рулетка */
@@ -207,7 +230,7 @@ const GROUPS = [
      это видно сразу. Task 31 (фаза 4) добавил HUD отладки — этой зависимости
      он не подчиняется (работает при любом режиме анимаций), но место рядом с
      режимом анимаций логично и для него: сам HUD и калибрует его пороги. */
-  ['lumen_group_motion', ['lumen_motion', 'lumen_debug_hud', 'lumen_transition', 'lumen_fx']],
+  ['lumen_group_motion', ['lumen_motion', 'lumen_fx_heavy', 'lumen_debug_hud', 'lumen_transition', 'lumen_fx']],
   ['lumen_group_backdrop', ['lumen_slideshow', 'lumen_slide_interval', 'lumen_trailer']],
   ['lumen_group_blocks', [
     'lumen_card_progress', 'lumen_reviews', 'lumen_reviews_mode', 'lumen_kp_key', 'lumen_kp_hint'
@@ -444,4 +467,70 @@ test('в словаре нет пунктов-сирот: каждая стро�
     if (key.indexOf('lumen_card_group_') !== 0) continue;
     assert.ok(used[key], 'заголовок группы не используется в LIST: ' + key);
   }
+});
+
+/* ====================================================================== */
+/* Task 40: LC.fxHeavy — гейт тяжёлых эффектов.                           */
+/* ====================================================================== */
+
+/* Поднимает 81_prefs.js с минимальной Lampa: Storage.field отдаёт режим
+   анимаций, Storage.get — значения настроек, Platform.is — платформу.
+   globalThis.window ставится только на время вызова fn. */
+function withPrefs(opts, fn) {
+  const LC = {};
+  const store = opts.store || {};
+  const Lampa = {
+    Storage: {
+      field: (name) => store[name],
+      get: (name, def) => (Object.prototype.hasOwnProperty.call(store, name) ? store[name] : def)
+    },
+    Platform: { is: (name) => !!(opts.platform || {})[name] }
+  };
+  const had = Object.prototype.hasOwnProperty.call(globalThis, 'window');
+  const prev = globalThis.window;
+  globalThis.window = { Lampa };
+  globalThis.Lampa = Lampa;
+  try {
+    const src = readFileSync(new URL('../src/81_prefs.js', import.meta.url), 'utf8');
+    new Function('LC', 'module', src)(LC, { exports: null, lumen: false });
+    if (opts.perf) LC.perf = opts.perf;
+    return fn(LC);
+  } finally {
+    if (had) globalThis.window = prev; else delete globalThis.window;
+    delete globalThis.Lampa;
+  }
+}
+
+test('fxHeavy: на телевизоре выключен по умолчанию, в браузере включён', () => {
+  assert.equal(withPrefs({ platform: { android: true } }, (LC) => LC.fxHeavy()), false);
+  assert.equal(withPrefs({ platform: {} }, (LC) => LC.fxHeavy()), true);
+  /* Включённый руками тумблер действует и на телевизоре. */
+  assert.equal(withPrefs({ platform: { android: true }, store: { lumen_fx_heavy: 'true' } }, (LC) => LC.fxHeavy()), true);
+  assert.equal(withPrefs({ platform: {}, store: { lumen_fx_heavy: 'false' } }, (LC) => LC.fxHeavy()), false);
+});
+
+test('fxHeavy: в lite и off тяжёлых эффектов нет даже при включённом тумблере', () => {
+  for (const mode of ['lite', 'off']) {
+    assert.equal(withPrefs({ platform: {}, store: { lumen_motion: mode, lumen_fx_heavy: 'true' } }, (LC) => LC.fxHeavy()), false, mode);
+  }
+  assert.equal(withPrefs({ platform: {}, store: { lumen_motion: 'full', lumen_fx_heavy: 'true' } }, (LC) => LC.fxHeavy()), true);
+});
+
+/* Task 40: заведомо слабое железо понижает режим до lite ещё до замеров —
+   значит и тяжёлых эффектов там нет, как бы ни стоял тумблер. */
+test('fxHeavy: на заведомо слабом железе выключен вместе с режимом', () => {
+  const weak = { weakHardware: () => true, mode: () => null };
+  assert.equal(withPrefs({ platform: { android: true }, perf: weak, store: { lumen_fx_heavy: 'true' } }, (LC) => LC.motionMode()), 'lite');
+  assert.equal(withPrefs({ platform: { android: true }, perf: weak, store: { lumen_fx_heavy: 'true' } }, (LC) => LC.fxHeavy()), false);
+});
+
+test('platformInfo: собирает платформу и признак слабого железа одним объектом', () => {
+  const info = withPrefs({
+    platform: { android: true },
+    perf: { weakHardware: () => true, mode: () => null }
+  }, (LC) => LC.platformInfo());
+  assert.deepEqual(info, { tizen: false, webos: false, android: true, weak: true });
+  /* Без LC.perf (модуль не загружен) признак слабого железа просто ложен. */
+  assert.deepEqual(withPrefs({ platform: { tizen: true } }, (LC) => LC.platformInfo()),
+    { tizen: true, webos: false, android: false, weak: false });
 });

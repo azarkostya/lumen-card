@@ -276,13 +276,16 @@
          pref    — настройка lumen_hero_trailer,
          motion  — режим анимаций (LC.motionMode),
          trailer — режим фонового трейлера карточки (LC.trailer.mode: на
-                   Tizen/webOS 'auto' даёт 'off').
+                   Tizen/webOS 'auto' даёт 'off'),
+         heavy   — тумблер тяжёлых эффектов (LC.fxHeavy, Task 40).
        В lite/off ролика нет вовсе: там и кадр-то герой не обновляет (см.
        loadFrame), а iframe YouTube поверх экрана — самая дорогая вещь,
-       которую плагин умеет включать. */
-    function trailerAllowed(pref, motion, trailer) {
+       которую плагин умеет включать. По той же причине его нет и при
+       выключенных тяжёлых эффектах. */
+    function trailerAllowed(pref, motion, trailer, heavy) {
       if (pref === false) return false;
       if (motion !== 'full') return false;
+      if (heavy === false) return false;
       return trailer !== 'off';
     }
 
@@ -561,8 +564,18 @@
       return 'on';
     }
 
+    /* Task 40: тумблер тяжёлых эффектов. Модуля настроек может не быть
+       (тесты героя грузят 48_hero.js в одиночку) — тогда ограничения нет,
+       как и до Task 40. */
+    function fxHeavy() {
+      try {
+        if (typeof LC.fxHeavy === 'function') return LC.fxHeavy();
+      } catch (e) { }
+      return true;
+    }
+
     function trailerReady() {
-      return trailerAllowed(trailerPref(), motionMode(), trailerMode());
+      return trailerAllowed(trailerPref(), motionMode(), trailerMode(), fxHeavy());
     }
 
     /* ------------------------------------------------------------------ */
@@ -823,13 +836,31 @@
 
     /* Кроссфейд кадра: новый URL грузится в скрытый слой, и только после
        onload слои меняются местами. Пока кадр не пришёл, на экране остаётся
-       предыдущий — «фон не мигает» (ограничение брифа 1). */
+       предыдущий — «фон не мигает» (ограничение брифа 1).
+
+       Task 40: при выключенных тяжёлых эффектах второй полноэкранный слой не
+       используется вовсе — кадр подменяется в том, что уже показан. Кроссфейд
+       героя это две картинки во весь экран одновременно: пока идёт переход
+       (transition:opacity .6s у .lumen-hero__bg, src/30_css.js), композитор
+       держит оба слоя, а фокус на главной переезжает каждые несколько секунд.
+       Правило transition в таблице стилей тоже стоит под body.lumen-fx-heavy,
+       поэтому подмена здесь мгновенная, без полупрозрачности. */
     function swapFrame(url, blur) {
       if (!state) return;
       var node = state.node;
       var a = node.find('.lumen-hero__bg--a');
       var b = node.find('.lumen-hero__bg--b');
       var activeIsA = a.hasClass('is-active');
+      if (!fxHeavy()) {
+        /* Слой, который уже на экране; на первом кадре карточки активного
+           ещё нет — тогда это всегда --a, и --b остаётся пустым навсегда. */
+        var only = activeIsA ? a : (b.hasClass('is-active') ? b : a);
+        only.css('background-image', 'url("' + encodeURI(url) + '")');
+        only.addClass('is-active');
+        node.toggleClass('lumen-hero--blur', !!blur);
+        state.frameUrl = url;
+        return;
+      }
       var next = activeIsA ? b : a;
       var prev = activeIsA ? a : b;
       next.css('background-image', 'url("' + encodeURI(url) + '")');
@@ -1377,6 +1408,13 @@
         applyMotion();
         listenFocus(root);
         showFocused(root);
+        /* Task 40: замер первого кадра ГЛАВНОЙ. Точка последняя в mount()
+           намеренно — как и у карточки в src/90_runtime.js: замер обязан
+           включать всю нашу работу по экрану, а не её начало. Сам модуль
+           решает, мерить ли (режим «Авто», не Tizen/webOS, не больше трёх
+           замеров за запуск — src/68_perf.js); в тестах героя LC.perf нет
+           вовсе, поэтому вызов защищён проверкой и try/catch. */
+        try { if (LC.perf && LC.perf.track) LC.perf.track(); } catch (ePerf) {}
       } catch (e) {
         warn('hero: mount failed', e);
       }

@@ -551,7 +551,10 @@ function loadHub(opts) {
     manifest: { load: function (cb) { cb(MANIFEST); } },
     /* Task 20: настройки читает только подсказка про ключ Кинопоиска —
        по умолчанию её нет вовсе, как и в бандле до LC.init. */
-    pref: opts.pref
+    pref: opts.pref,
+    /* Task 40: замер автодетекта — модуля perf в этих тестах по умолчанию
+       нет, как и в бандле до его загрузки (вызов защищён проверкой). */
+    perf: opts.perf
   });
   return { api: ctx.api, LC: ctx.LC, fetchCalls: fetchCalls, collageCalls: collageCalls };
 }
@@ -990,6 +993,18 @@ test('lumen_grid: постеры грузятся окном, а не все р�
   var img = cards[0].querySelector('.card__img');
   assert.ok(('' + img.src).indexOf('https://proxy/t/p/w342/p0.jpg') !== -1);
   assert.equal(cards[cards.length - 1].querySelector('.card__img').src, undefined, 'дальней карточке постер не грузили');
+});
+
+/* Task 40: сборка экрана подборок — точка замера автодетекта: хаб самый
+   тяжёлый экран плагина (чипы групп плюс плитки с коллажами). */
+test('Task 40: сборка хаба запускает замер автодетекта', function () {
+  var tracks = [];
+  var env = setupLampa({ cols: 2 });
+  var h = loadHub({ perf: { track: function () { tracks.push(1); } } });
+  h.api.install();
+  var comp = makeComponent('lumen_hub', {}, env);
+  comp.create();
+  assert.equal(tracks.length, 1, 'замер начат после того, как экран собран');
 });
 
 /* Task 39: <img> карточки сетки живёт в документе, и без decoding='async'

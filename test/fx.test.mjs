@@ -257,6 +257,25 @@ test('mount: в lite и off не стартует вовсе — ни canvas, н
   });
 });
 
+/* Task 40: частицы — самое дорогое «украшение» плагина (полноэкранный canvas
+   со своим кадровым циклом), поэтому они подчинены и тумблеру тяжёлых
+   эффектов, не только режиму анимаций. */
+test('mount: при выключенных тяжёлых эффектах не стартует — ни canvas, ни кадра', () => {
+  env(({ pending }) => {
+    const fx = freshFx({ fxHeavy: () => false });
+    const layer = fakeNode(1000, 400);
+    assert.equal(fx.mount(layer, 'snow'), null);
+    assert.equal(fx.active(), 0);
+    assert.equal(layer.children.length, 0);
+    assert.equal(pending(), 0, 'кадр не заказан');
+
+    /* Включённый тумблер ничего не меняет по сравнению с прежним поведением. */
+    const on = freshFx({ fxHeavy: () => true });
+    assert.ok(on.mount(fakeNode(1000, 400), 'snow'));
+    on.unmountAll();
+  });
+});
+
 test('mount: выключенный плагин и неизвестный пресет — null', () => {
   env(() => {
     const off = freshFx({ enabled: () => false });

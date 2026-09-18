@@ -798,8 +798,10 @@ test('buildCss: наезд Ken Burns — на корне .lumen-backdrop (не .
   const offender = findDecl(css, (sel) => sel.indexOf('.lumen-card') === 0 && sel.indexOf('lumen-bg__img') !== -1);
   assert.equal(offender, null, '.lumen-bg__img не должен встречаться в правилах с корнем .lumen-card — такой потомковый селектор никогда не совпадёт с реальным DOM (.lumen-backdrop — сосед .lumen-card, не предок .lumen-bg__img)');
 
-  const decl = findDecl(css, (sel) => sel.indexOf('.lumen-backdrop') === 0 && sel.indexOf('lumen-motion-full') !== -1 && sel.indexOf('lumen-bg__img') !== -1 && sel.indexOf('is-active') !== -1);
-  assert.ok(decl, 'правило наезда (.lumen-backdrop.lumen-motion-full .lumen-bg__img.is-active) не найдено');
+  /* Task 40: селектор начинается с body.lumen-fx-heavy — наезд подчинён
+     тумблеру тяжёлых эффектов, — но корень слоя остался прежним. */
+  const decl = findDecl(css, (sel) => sel.indexOf('body.lumen-fx-heavy ') === 0 && sel.indexOf('.lumen-backdrop.lumen-motion-full') !== -1 && sel.indexOf('lumen-bg__img') !== -1 && sel.indexOf('is-active') !== -1);
+  assert.ok(decl, 'правило наезда (body.lumen-fx-heavy .lumen-backdrop.lumen-motion-full .lumen-bg__img.is-active) не найдено');
   assert.ok(decl.indexOf('lumen-kb') !== -1, 'ожидалась ссылка на @keyframes lumen-kb (14s, 1.00 -> 1.08)');
 });
 
@@ -1924,8 +1926,12 @@ test('Task 18: кроссфейд кадра 600 мс только в полно
   assert.ok(bg && bg.indexOf('opacity:0') !== -1, 'неактивный слой прозрачен');
   assert.ok(findDecl(css, (sel) => sel === '.lumen-hero .lumen-hero__bg.is-active').indexOf('opacity:1') !== -1);
 
-  const full = findDecl(css, (sel) => sel === '.lumen-hero.lumen-motion-full .lumen-hero__bg');
+  /* Task 40: кроссфейд подчинён и тумблеру тяжёлых эффектов — два
+     полноэкранных слоя одновременно на слабом ТВ стоят кадров. */
+  const full = findDecl(css, (sel) => sel === 'body.lumen-fx-heavy .lumen-hero.lumen-motion-full .lumen-hero__bg');
   assert.ok(full && full.indexOf('transition:opacity .6s ease-in-out') !== -1, 'кроссфейд 600 мс: ' + full);
+  assert.equal(findDecl(css, (sel) => sel === '.lumen-hero.lumen-motion-full .lumen-hero__bg'), null,
+    'без класса тяжёлых эффектов перехода нет вовсе');
   assert.equal(findDecl(css, (sel) => sel === '.lumen-hero.lumen-motion-lite .lumen-hero__bg'), null, 'в lite перехода нет вовсе — гасить нечего');
 });
 
@@ -2390,4 +2396,31 @@ test('buildCss: «Хэллоуин» — тыквенное зарево сни�
   assert.ok(rule, 'нет оверлея Хэллоуина');
   assert.ok(rule.indexOf('linear-gradient(0deg') !== -1, 'градиент снизу вверх');
   assert.ok(rule.indexOf('224,123,44') !== -1, 'акцент темы из экспорта дизайна (#E07B2C)');
+});
+
+/* ====================================================================== */
+/* Task 40: тяжёлые эффекты под классом body.lumen-fx-heavy.              */
+/* ====================================================================== */
+
+test('Task 40: наезд заставки идёт только при включённых тяжёлых эффектах', () => {
+  const zoom = findDecl(css, (sel) => sel === 'body.lumen-fx-heavy.lumen-motion-full .lumen-ambient .lumen-ambient__img.is-active');
+  assert.ok(zoom && zoom.indexOf('lumen-amb-zoom') !== -1, 'правило наезда заставки под body.lumen-fx-heavy не найдено');
+  /* Кроссфейд кадров заставке оставлен: он случается раз в несколько минут,
+     а сама заставка тумблеру не подчинена — у неё свой выключатель. */
+  const img = findDecl(css, (sel) => sel === '.lumen-ambient .lumen-ambient__img');
+  assert.ok(img && img.indexOf('transition:opacity 2s ease-in-out') !== -1, 'кроссфейд заставки остался: ' + img);
+});
+
+test('Task 40: ни один тяжёлый эффект не остался без класса lumen-fx-heavy', () => {
+  /* Каждое из трёх правил обязано начинаться с body.lumen-fx-heavy: наезд на
+     кадр карточки, зум заставки и кроссфейд кадра героя. */
+  for (const marker of ['lumen-kb', 'lumen-amb-zoom', 'transition:opacity .6s ease-in-out']) {
+    const rules = ruleBodies(css).filter((r) => r.decl.indexOf(marker) !== -1);
+    assert.ok(rules.length, 'правило не найдено: ' + marker);
+    for (const r of rules) {
+      for (const sel of r.selectors) {
+        assert.ok(sel.indexOf('body.lumen-fx-heavy') === 0, marker + ': селектор без класса тяжёлых эффектов — ' + sel);
+      }
+    }
+  }
 });

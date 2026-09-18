@@ -529,6 +529,52 @@ test('загруженный кадр проявляется вторым сло
   assert.equal(node.hasClass('lumen-hero--logo'), true, 'логотип есть — текстовый заголовок скрыт CSS');
 });
 
+/* Task 40: монтирование героя на главной — точка замера автодетекта. До
+   Task 40 мерилось только открытие карточки, и до третьей открытой карточки
+   главная работала в полном режиме. */
+test('Task 40: монтирование героя запускает замер автодетекта', () => {
+  const tracks = [];
+  const env = makeEnv({ perf: { track: () => tracks.push(1) } });
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  assert.equal(tracks.length, 1, 'замер начат после того, как герой собран');
+  /* Повторный mount той же активности героя не пересобирает — и не мерит. */
+  env.hero.mount(main.activity);
+  assert.equal(tracks.length, 1);
+  assert.deepEqual(warnLog, []);
+});
+
+/* Task 40: при выключенных тяжёлых эффектах кроссфейда нет — кадр
+   подменяется в одном и том же слое, а второй полноэкранный слой остаётся
+   пустым навсегда. Два таких слоя одновременно — это и есть цена плавной
+   смены кадра на главной. */
+test('Task 40: без тяжёлых эффектов кадр меняется в одном слое, второй не используется', () => {
+  const env = makeEnv({ fxHeavy: () => false });
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  const node = main.activity._children[0];
+  const a = node.find('.lumen-hero__bg--a');
+  const b = node.find('.lumen-hero__bg--b');
+
+  main.card1.addClass('focus');
+  fireFocus(main.activity, main.card1);
+  env.advance(400);
+  env.images[0].onload();
+  assert.equal(a.hasClass('is-active'), true);
+  assert.equal(a.css('background-image'), 'url("https://img/t/p/w1280/b1.jpg")');
+  assert.equal(b.hasClass('is-active'), false, 'второй слой не поднимался');
+
+  /* Вторая карточка: кадр обязан приехать в ТОТ ЖЕ слой. */
+  main.card1.removeClass('focus');
+  main.card2.addClass('focus');
+  fireFocus(main.activity, main.card2);
+  env.advance(400);
+  env.images[env.images.length - 1].onload();
+  assert.equal(a.css('background-image'), 'url("https://img/t/p/w1280/b2.jpg")', 'подмена в том же слое');
+  assert.equal(b.hasClass('is-active'), false, 'второй слой так и не понадобился');
+  assert.equal(b.css('background-image'), undefined, 'во втором слое картинки нет вовсе');
+});
+
 /* Правка четвёртого круга: размер логотипа считается по его пропорции
    (logoBox) и пишется инлайном — в CSS её знать неоткуда.
    Task 36: при переходе в сжатое состояние инлайн больше НЕ пересчитывается.
@@ -1431,6 +1477,18 @@ test('трейлер героя: в lite и off не стартует вовсе
     assert.deepEqual(env.requests.filter((r) => r.url.indexOf('/videos') >= 0), [], mode + ': запросов роликов нет');
     assert.equal(env.players.length, 0);
   }
+});
+
+/* Task 40: автотрейлер — тяжёлый эффект (iframe YouTube поверх экрана),
+   поэтому он подчинён и тумблеру, не только режиму анимаций. */
+test('трейлер героя: при выключенных тяжёлых эффектах не стартует', () => {
+  const env = trailerEnv({ fxHeavy: () => false });
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  focusOn(main, main.card1);
+  env.advance(9000);
+  assert.deepEqual(env.requests.filter((r) => r.url.indexOf('/videos') >= 0), [], 'запросов роликов нет');
+  assert.equal(env.players.length, 0);
 });
 
 test('трейлер героя: выключенная настройка — ни таймера, ни запроса; включение действует со следующего покоя', () => {

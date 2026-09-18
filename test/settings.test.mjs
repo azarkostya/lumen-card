@@ -223,7 +223,12 @@ test('addSettings: значения по умолчанию доезжают д�
   LC.addSettings();
   for (const e of LC.prefs.LIST) {
     if (e.type === 'title') continue;
-    assert.equal(paramOf(params, e.name).param['default'], e['default'], e.name);
+    /* Task 40: значение по умолчанию может быть функцией (lumen_fx_heavy —
+       оно платформенное); до Lampa обязано доехать уже её значение, а не
+       сама функция. */
+    const expected = typeof e['default'] === 'function' ? e['default']() : e['default'];
+    assert.equal(paramOf(params, e.name).param['default'], expected, e.name);
+    assert.notEqual(typeof paramOf(params, e.name).param['default'], 'function', e.name);
   }
 });
 
@@ -309,7 +314,12 @@ test('каждая настройка применяется ровно один
     lumen_roulette_unseen: [],
     /* Task 31 (фаза 4): HUD отладки — sync() сам решает, показать узел или
        снять его. */
-    lumen_debug_hud: ['hud']
+    lumen_debug_hud: ['hud'],
+    /* Task 40 (фаза 4): тумблер тяжёлых эффектов — две точки. Класс
+       lumen-fx-heavy на body, автотрейлер героя и слой частиц переставляет
+       LC.applyMotionMode; ротацию кадров карточки — LC.applySlideshowPref
+       (её контроллер класса не читает). */
+    lumen_fx_heavy: ['motion', 'slideshow']
   };
   const { LC, log, Storage, params } = setup();
   LC.addSettings();

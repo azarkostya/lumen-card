@@ -1833,7 +1833,12 @@ css.push('.lumen-card.lumen-motion-lite .lumen-stop.focus,.lumen-card.lumen-moti
 
 
 
-css.push('.lumen-backdrop.lumen-motion-full .lumen-bg__img.is-active{-webkit-animation:lumen-kb 14s linear forwards;animation:lumen-kb 14s linear forwards}');
+
+
+
+
+
+css.push('body.lumen-fx-heavy .lumen-backdrop.lumen-motion-full .lumen-bg__img.is-active{-webkit-animation:lumen-kb 14s linear forwards;animation:lumen-kb 14s linear forwards}');
 css.push('@-webkit-keyframes lumen-kb{from{-webkit-transform:scale(1)}to{-webkit-transform:scale(1.08)}}');
 css.push('@keyframes lumen-kb{from{transform:scale(1)}to{transform:scale(1.08)}}');
 
@@ -2056,7 +2061,11 @@ css.push('.lumen-hero.lumen-motion-full{-webkit-transition:-webkit-transform' + 
 
 css.push('.lumen-hero .lumen-hero__bg{position:absolute;top:0;left:0;right:0;bottom:0;-webkit-background-size:cover;background-size:cover;background-position:center 30%;background-repeat:no-repeat;opacity:0}');
 css.push('.lumen-hero .lumen-hero__bg.is-active{opacity:1}');
-css.push('.lumen-hero.lumen-motion-full .lumen-hero__bg{-webkit-transition:opacity .6s ease-in-out;transition:opacity .6s ease-in-out}');
+
+
+
+
+css.push('body.lumen-fx-heavy .lumen-hero.lumen-motion-full .lumen-hero__bg{-webkit-transition:opacity .6s ease-in-out;transition:opacity .6s ease-in-out}');
 
 
 
@@ -2708,7 +2717,13 @@ css.push('.lumen-ambient .lumen-ambient__img.is-active{opacity:1}');
 
 
 
-css.push('body.lumen-motion-full .lumen-ambient .lumen-ambient__img.is-active{-webkit-animation:lumen-amb-zoom 20s linear both;animation:lumen-amb-zoom 20s linear both}');
+
+
+
+
+
+
+css.push('body.lumen-fx-heavy.lumen-motion-full .lumen-ambient .lumen-ambient__img.is-active{-webkit-animation:lumen-amb-zoom 20s linear both;animation:lumen-amb-zoom 20s linear both}');
 css.push('@-webkit-keyframes lumen-amb-zoom{from{-webkit-transform:scale(1)}to{-webkit-transform:scale(1.08)}}');
 css.push('@keyframes lumen-amb-zoom{from{transform:scale(1)}to{transform:scale(1.08)}}');
 
@@ -7342,6 +7357,12 @@ try { self.activity.loader(false); } catch (e) {}
 
 
 if (started) recollect(null);
+
+
+
+
+
+try { if (LC.perf && LC.perf.track) LC.perf.track(); } catch (ePerf) {}
 }
 
 this.create = function () {
@@ -8303,9 +8324,12 @@ return (elapsedMs || 0) >= (delay || 0);
 
 
 
-function trailerAllowed(pref, motion, trailer) {
+
+
+function trailerAllowed(pref, motion, trailer, heavy) {
 if (pref === false) return false;
 if (motion !== 'full') return false;
+if (heavy === false) return false;
 return trailer !== 'off';
 }
 
@@ -8584,8 +8608,18 @@ if (LC.trailer && typeof LC.trailer.mode === 'function') return LC.trailer.mode(
 return 'on';
 }
 
+
+
+
+function fxHeavy() {
+try {
+if (typeof LC.fxHeavy === 'function') return LC.fxHeavy();
+} catch (e) { }
+return true;
+}
+
 function trailerReady() {
-return trailerAllowed(trailerPref(), motionMode(), trailerMode());
+return trailerAllowed(trailerPref(), motionMode(), trailerMode(), fxHeavy());
 }
 
 
@@ -8847,12 +8881,30 @@ write();
 
 
 
+
+
+
+
+
+
+
+
 function swapFrame(url, blur) {
 if (!state) return;
 var node = state.node;
 var a = node.find('.lumen-hero__bg--a');
 var b = node.find('.lumen-hero__bg--b');
 var activeIsA = a.hasClass('is-active');
+if (!fxHeavy()) {
+
+
+var only = activeIsA ? a : (b.hasClass('is-active') ? b : a);
+only.css('background-image', 'url("' + encodeURI(url) + '")');
+only.addClass('is-active');
+node.toggleClass('lumen-hero--blur', !!blur);
+state.frameUrl = url;
+return;
+}
 var next = activeIsA ? b : a;
 var prev = activeIsA ? a : b;
 next.css('background-image', 'url("' + encodeURI(url) + '")');
@@ -9400,6 +9452,13 @@ if (opts.compact) setCompact(true);
 applyMotion();
 listenFocus(root);
 showFocused(root);
+
+
+
+
+
+
+try { if (LC.perf && LC.perf.track) LC.perf.track(); } catch (ePerf) {}
 } catch (e) {
 warn('hero: mount failed', e);
 }
@@ -10283,6 +10342,13 @@ return r;
 
 
 function slideshowEnabled() {
+
+
+
+
+
+
+if (typeof LC.fxHeavy === 'function' && !LC.fxHeavy()) return false;
 return !!LC.pref('lumen_slideshow', true);
 }
 
@@ -11454,10 +11520,18 @@ return value > DPR_MAX ? DPR_MAX : value;
 
 
 
+
+
+
+
+
+
 function allowedNow() {
 try {
 if (!LC.enabled()) return false;
-return LC.motionMode() === 'full';
+if (LC.motionMode() !== 'full') return false;
+if (typeof LC.fxHeavy === 'function' && !LC.fxHeavy()) return false;
+return true;
 } catch (e) {
 return false;
 }
@@ -19973,6 +20047,17 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 
+
+
+
+
+
+
+
+
+
+
+
 LC.perf = (function () {
 
 
@@ -20139,10 +20224,48 @@ if (st && typeof st.field === 'function') return st.field('lumen_motion');
 return 'auto';
 }
 
-function tvPlatform() {
+function platformIs(name) {
 try {
-if (window.Lampa && Lampa.Platform && typeof Lampa.Platform.is === 'function') {
-return !!Lampa.Platform.is('tizen') || !!Lampa.Platform.is('webos');
+if (window.Lampa && Lampa.Platform && typeof Lampa.Platform.is === 'function') return !!Lampa.Platform.is(name);
+} catch (e) { }
+return false;
+}
+
+function tvPlatform() {
+return platformIs('tizen') || platformIs('webos');
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function weakHardware() {
+if (!platformIs('android')) return false;
+try {
+
+
+
+var nav = window.navigator;
+if (!nav) return false;
+var cores = Number(nav.hardwareConcurrency);
+if (cores > 0 && cores <= 2) return true;
+var mem = nav.deviceMemory;
+if (typeof mem !== 'undefined' && mem !== null) {
+var gb = Number(mem);
+if (gb > 0 && gb <= 1) return true;
 }
 } catch (e) { }
 return false;
@@ -20227,6 +20350,10 @@ warn('perf: apply failed', e);
 
 
 
+
+
+
+
 function track() {
 if (done || frame) return;
 
@@ -20266,6 +20393,9 @@ decide: decide,
 merge: merge,
 normalize: normalize,
 mode: mode,
+
+
+weakHardware: weakHardware,
 track: track,
 stop: stop,
 samples: function () { return samples.slice(); }
@@ -20863,6 +20993,15 @@ lumen_card_motion_off: { ru: 'Выкл', en: 'Off', uk: 'Викл' },
 
 
 
+lumen_fx_heavy_name: { ru: 'Тяжёлые эффекты', en: 'Heavy effects', uk: 'Важкі ефекти' },
+lumen_fx_heavy_descr: {
+ru: 'Частицы, наезд на кадр, зум заставки, смена кадров в карточке, плавная смена кадра на главной и автотрейлер. На телевизоре выключены по умолчанию: они стоят кадров. Работают только при полных анимациях.',
+en: 'Particles, Ken Burns zoom, screensaver zoom, backdrop slideshow, the crossfade on the home screen and the auto trailer. Off by default on a TV: they cost frames. Work only with full animations.',
+uk: 'Частинки, наїзд на кадр, зум заставки, зміна кадрів у картці, плавна зміна кадру на головній та автотрейлер. На телевізорі вимкнені за замовчуванням: вони коштують кадрів. Працюють лише за повних анімацій.'
+},
+
+
+
 
 lumen_debug_hud_name: { ru: 'Отладка: показать FPS', en: 'Debug: show FPS', uk: 'Налагодження: показати FPS' },
 lumen_debug_hud_descr: {
@@ -21454,6 +21593,17 @@ return true;
 
 
 
+
+if (name === 'lumen_fx_heavy') {
+LC.applyMotionMode();
+LC.applySlideshowPref();
+return true;
+}
+
+
+
+
+
 if (name === 'lumen_debug_hud') {
 try { if (LC.hud) LC.hud.sync(); } catch (eHud) {}
 return true;
@@ -21696,7 +21846,11 @@ if (entry.type === 'button') {
 Lampa.SettingsApi.addParam({ component: PLUGIN, param: param, field: field, onChange: onButtonFor(entry.name) });
 return;
 }
-param['default'] = entry['default'];
+
+
+
+
+param['default'] = typeof entry['default'] === 'function' ? entry['default']() : entry['default'];
 if (entry.type === 'select') param.values = valuesOf(entry);
 if (entry.type === 'input') {
 param.values = '';
@@ -21805,13 +21959,31 @@ return def;
 
 
 
+
+
+
+
+
+
 function motionModeFor(stored, platform, auto) {
 if (stored !== 'full' && stored !== 'lite' && stored !== 'off') stored = 'auto';
 if (stored !== 'auto') return stored;
 platform = platform || {};
-if (platform.tizen || platform.webos) return 'lite';
+if (platform.tizen || platform.webos || platform.weak) return 'lite';
 if (auto === 'lite') return 'lite';
 return 'full';
+}
+
+
+
+
+
+
+
+
+function fxHeavyDefault(platform) {
+platform = platform || {};
+return !(platform.android || platform.tizen || platform.webos);
 }
 
 
@@ -21900,6 +22072,13 @@ var LIST = [
 
 { name: 'lumen_group_motion', type: 'title', label: 'lumen_group_motion' },
 { name: 'lumen_motion', type: 'select', values: ['auto', 'full', 'lite', 'off'], vprefix: 'lumen_card_motion_', 'default': 'auto', label: 'lumen_card_motion', descr: 'lumen_card_motion_descr' },
+
+
+
+
+
+
+{ name: 'lumen_fx_heavy', type: 'trigger', 'default': function () { return fxHeavyDefault(LC.platformInfo()); }, label: 'lumen_fx_heavy_name', descr: 'lumen_fx_heavy_descr' },
 
 
 
@@ -22035,8 +22214,29 @@ for (var i = 0; i < LIST.length; i++) if (LIST[i].name === name) return LIST[i];
 return null;
 }
 
-return { LIST: LIST, find: find, boolOf: boolOf, motionModeFor: motionModeFor };
+return { LIST: LIST, find: find, boolOf: boolOf, motionModeFor: motionModeFor, fxHeavyDefault: fxHeavyDefault };
 })();
+
+
+
+
+
+
+
+LC.platformInfo = function () {
+var platform = { tizen: false, webos: false, android: false, weak: false };
+try {
+if (window.Lampa && Lampa.Platform && typeof Lampa.Platform.is === 'function') {
+platform.tizen = !!Lampa.Platform.is('tizen');
+platform.webos = !!Lampa.Platform.is('webos');
+platform.android = !!Lampa.Platform.is('android');
+}
+} catch (e) { }
+try {
+if (LC.perf && typeof LC.perf.weakHardware === 'function') platform.weak = !!LC.perf.weakHardware();
+} catch (e2) { }
+return platform;
+};
 
 
 LC.pref = function (name, def) {
@@ -22067,13 +22267,7 @@ var stored = 'auto';
 try {
 if (window.Lampa && Lampa.Storage && typeof Lampa.Storage.field === 'function') stored = Lampa.Storage.field('lumen_motion');
 } catch (e) { }
-var platform = { tizen: false, webos: false };
-try {
-if (window.Lampa && Lampa.Platform && typeof Lampa.Platform.is === 'function') {
-platform.tizen = !!Lampa.Platform.is('tizen');
-platform.webos = !!Lampa.Platform.is('webos');
-}
-} catch (e2) { }
+var platform = LC.platformInfo();
 
 
 
@@ -22083,6 +22277,27 @@ try {
 if (LC.perf && typeof LC.perf.mode === 'function') auto = LC.perf.mode();
 } catch (e3) { }
 return LC.prefs.motionModeFor(stored, platform, auto);
+};
+
+
+
+
+
+
+
+
+
+
+
+
+
+LC.fxHeavy = function () {
+try {
+if (LC.motionMode() !== 'full') return false;
+return !!LC.pref('lumen_fx_heavy', LC.prefs.fxHeavyDefault(LC.platformInfo()));
+} catch (e) {
+return false;
+}
 };
 
 
@@ -23109,10 +23324,31 @@ try { return $('body'); } catch (e) { return null; }
 
 
 
+
+
+
+function applyFxHeavy() {
+var body = bodyRoot();
+if (!body || !body.length) return;
+try {
+body.toggleClass('lumen-fx-heavy', !!(typeof LC.fxHeavy === 'function' && LC.fxHeavy()));
+} catch (e) {
+warn('fx heavy class failed', e);
+}
+}
+
+
+
+
 LC.applyMotionMode = function () {
 applyMotionMode(activeCardRoot());
 applyMotionMode(activeBackdropLayer());
-if (ui_active) applyMotionMode(bodyRoot());
+if (ui_active) {
+applyMotionMode(bodyRoot());
+
+
+applyFxHeavy();
+}
 
 
 
@@ -24191,6 +24427,8 @@ LC.injectCss();
 try { if (LC.hud) LC.hud.sync(); } catch (eHudOn) {}
 ui_active = true;
 applyMotionMode(bodyRoot());
+
+applyFxHeavy();
 try {
 LC.menus.mode(Lampa.Storage.field('lumen_menus'));
 LC.menus.install();
@@ -24331,7 +24569,9 @@ warn('menus off failed', e2);
 }
 try {
 var body = bodyRoot();
-if (body && body.length) body.removeClass(MOTION_CLASSES);
+
+
+if (body && body.length) body.removeClass(MOTION_CLASSES).removeClass('lumen-fx-heavy');
 } catch (e3) {
 warn('motion class off failed', e3);
 }

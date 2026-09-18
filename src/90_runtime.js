@@ -99,13 +99,34 @@
     try { return $('body'); } catch (e) { return null; }
   }
 
+  /* Task 40: тяжёлые эффекты одним классом на body. Класс именно на body, а
+     не на корнях экранов: от него зависят и наезд на кадр карточки
+     (.lumen-backdrop лежит вне .lumen-card), и зум заставки (её слой —
+     сосед всего приложения), и кроссфейд кадра героя. Ставится там же, где
+     класс режима анимаций, и теми же двумя точками: активацией плагина и
+     LC.applyMotionMode. */
+  function applyFxHeavy() {
+    var body = bodyRoot();
+    if (!body || !body.length) return;
+    try {
+      body.toggleClass('lumen-fx-heavy', !!(typeof LC.fxHeavy === 'function' && LC.fxHeavy()));
+    } catch (e) {
+      warn('fx heavy class failed', e);
+    }
+  }
+
   /* Вызывается извне (LC.followStorage / onChange параметра lumen_motion), когда режим
      меняется на уже открытой карточке — находит активный корень (и слой фона) сама.
      На body — только пока плагин активен (ui_active, см. ниже). */
   LC.applyMotionMode = function () {
     applyMotionMode(activeCardRoot());
     applyMotionMode(activeBackdropLayer());
-    if (ui_active) applyMotionMode(bodyRoot());
+    if (ui_active) {
+      applyMotionMode(bodyRoot());
+      /* Task 40: класс тяжёлых эффектов зависит и от режима анимаций
+         (LC.fxHeavy гасит их в lite/off), поэтому переставляется здесь же. */
+      applyFxHeavy();
+    }
     /* Task 17: хаб и сетка — свои активности, класс режима они ставят себе
        сами при create/start; на уже открытом экране его меняет эта же точка
        (ревью Task 17: смена режима не доезжала до открытого хаба). */
@@ -1184,6 +1205,8 @@
     try { if (LC.hud) LC.hud.sync(); } catch (eHudOn) {}
     ui_active = true;
     applyMotionMode(bodyRoot());
+    /* Task 40: класс тяжёлых эффектов — рядом с классом режима. */
+    applyFxHeavy();
     try {
       LC.menus.mode(Lampa.Storage.field('lumen_menus'));
       LC.menus.install();
@@ -1324,7 +1347,9 @@
     }
     try {
       var body = bodyRoot();
-      if (body && body.length) body.removeClass(MOTION_CLASSES);
+      /* Task 40: класс тяжёлых эффектов снимается вместе с классом режима —
+         выключенный плагин не оставляет на body ни одной своей метки. */
+      if (body && body.length) body.removeClass(MOTION_CLASSES).removeClass('lumen-fx-heavy');
     } catch (e3) {
       warn('motion class off failed', e3);
     }

@@ -29,24 +29,42 @@
     }
 
     /* stored — сырое значение параметра lumen_motion ('auto'|'full'|'lite'|'off'),
-       platform — {tizen:bool, webos:bool}, auto — вердикт автодетекта
-       ('lite' | 'full' | null, src/68_perf.js). Не 'auto' -> как есть;
-       'auto' на tizen/webos -> 'lite', иначе решает вердикт замеров. Любое
-       незнакомое значение stored (undefined/null/''/мусор — старый профиль без
-       ключа или битое значение в Storage) считается как 'auto', а не
-       возвращается как есть.
+       platform — {tizen:bool, webos:bool, android:bool, weak:bool}, auto —
+       вердикт автодетекта ('lite' | 'full' | null, src/68_perf.js). Не 'auto'
+       -> как есть; 'auto' на tizen/webos -> 'lite', иначе решает вердикт
+       замеров. Любое незнакомое значение stored (undefined/null/''/мусор —
+       старый профиль без ключа или битое значение в Storage) считается как
+       'auto', а не возвращается как есть.
 
        Task 29 (фаза 3): вердикт умеет только ПОНИЖАТЬ. 'full' от автодетекта
        означает «понижать не за что», а не «поднять выше платформенного lite»:
        на Tizen/webOS полные анимации остаются выключенными, даже если замеры
-       там вышли быстрыми (там их и не делают — LC.perf.shouldMeasure). */
+       там вышли быстрыми (там их и не делают — LC.perf.shouldMeasure).
+
+       Task 40 (фаза 4): platform.weak — «железо заведомо слабое» по числу
+       ядер и объёму памяти (LC.perf.weakHardware). Такому устройству 'auto'
+       отдаёт 'lite' сразу, не дожидаясь трёх замеров: они придут только
+       после трёх тяжёлых экранов, которые на нём и тормозят. Четырёхъядерный
+       ТВ под это правило НЕ попадает — там решает замер. */
     function motionModeFor(stored, platform, auto) {
       if (stored !== 'full' && stored !== 'lite' && stored !== 'off') stored = 'auto';
       if (stored !== 'auto') return stored;
       platform = platform || {};
-      if (platform.tizen || platform.webos) return 'lite';
+      if (platform.tizen || platform.webos || platform.weak) return 'lite';
       if (auto === 'lite') return 'lite';
       return 'full';
+    }
+
+    /* Task 40: значение по умолчанию у тумблера тяжёлых эффектов —
+       ПЛАТФОРМЕННОЕ. На телевизоре (Android TV, Tizen, webOS) частицы,
+       Ken Burns, зум заставки, слайдшоу кадров, кроссфейд двух полноэкранных
+       слоёв героя и автотрейлер стоят кадров, и включать их без спроса
+       нельзя; в браузере на компьютере они бесплатны и остаются.
+       Значение — именно default параметра, а не гейт: включив тумблер руками,
+       владелец телевизора получает всё, как и раньше. */
+    function fxHeavyDefault(platform) {
+      platform = platform || {};
+      return !(platform.android || platform.tizen || platform.webos);
     }
 
     /* Раздел «Lumen Card» целиком, в порядке экрана 09 дизайна:
@@ -135,6 +153,13 @@
          понимает, куда делись снег и разворот постера. */
       { name: 'lumen_group_motion', type: 'title', label: 'lumen_group_motion' },
       { name: 'lumen_motion', type: 'select', values: ['auto', 'full', 'lite', 'off'], vprefix: 'lumen_card_motion_', 'default': 'auto', label: 'lumen_card_motion', descr: 'lumen_card_motion_descr' },
+      /* Task 40 (фаза 4): тяжёлые «украшения» одним тумблером — сразу под
+         режимом анимаций, которому они подчинены (при lite/off их нет вовсе,
+         см. LC.fxHeavy). Значение по умолчанию считается по платформе, а не
+         зашито: 'default' здесь ФУНКЦИЯ, и addPrefParam (src/80_settings.js)
+         зовёт её в момент регистрации раздела, когда Lampa.Platform уже
+         поднята. */
+      { name: 'lumen_fx_heavy', type: 'trigger', 'default': function () { return fxHeavyDefault(LC.platformInfo()); }, label: 'lumen_fx_heavy_name', descr: 'lumen_fx_heavy_descr' },
       /* Task 31 (фаза 4): HUD отладки (src/69_hud.js) — калибровка порогов
          автодетекта на реальном ТВ пользователя. Место — сразу под режимом
          анимаций, который и калибруется: выключен по умолчанию, включать
@@ -270,8 +295,29 @@
       return null;
     }
 
-    return { LIST: LIST, find: find, boolOf: boolOf, motionModeFor: motionModeFor };
+    return { LIST: LIST, find: find, boolOf: boolOf, motionModeFor: motionModeFor, fxHeavyDefault: fxHeavyDefault };
   })();
+
+  /* Task 40: платформа одним объектом — его ждут motionModeFor (tizen/webos/
+     weak) и fxHeavyDefault (android/tizen/webos). До Task 40 tizen и webos
+     собирались прямо в LC.motionMode; теперь сборка одна, а не три копии в
+     трёх местах. Lampa.Platform.is отвечает и до init (app.min.js ставит
+     Platform одним из первых), но вне Lampa (тесты, чужая страница) функции
+     может не быть — тогда все признаки ложны, то есть «обычный браузер». */
+  LC.platformInfo = function () {
+    var platform = { tizen: false, webos: false, android: false, weak: false };
+    try {
+      if (window.Lampa && Lampa.Platform && typeof Lampa.Platform.is === 'function') {
+        platform.tizen = !!Lampa.Platform.is('tizen');
+        platform.webos = !!Lampa.Platform.is('webos');
+        platform.android = !!Lampa.Platform.is('android');
+      }
+    } catch (e) { }
+    try {
+      if (LC.perf && typeof LC.perf.weakHardware === 'function') platform.weak = !!LC.perf.weakHardware();
+    } catch (e2) { }
+    return platform;
+  };
 
   /* Читает настройку плагина из Lampa.Storage с нормализацией булевых. */
   LC.pref = function (name, def) {
@@ -302,13 +348,7 @@
     try {
       if (window.Lampa && Lampa.Storage && typeof Lampa.Storage.field === 'function') stored = Lampa.Storage.field('lumen_motion');
     } catch (e) { }
-    var platform = { tizen: false, webos: false };
-    try {
-      if (window.Lampa && Lampa.Platform && typeof Lampa.Platform.is === 'function') {
-        platform.tizen = !!Lampa.Platform.is('tizen');
-        platform.webos = !!Lampa.Platform.is('webos');
-      }
-    } catch (e2) { }
+    var platform = LC.platformInfo();
     /* Task 29: вердикт автодетекта слабого ТВ. Модуль 68_perf.js держит его
        рядом с собой (Storage читается один раз за сессию), поэтому вызов на
        каждой сборке CSS не стоит ничего. Модуля может не быть только в
@@ -318,6 +358,27 @@
       if (LC.perf && typeof LC.perf.mode === 'function') auto = LC.perf.mode();
     } catch (e3) { }
     return LC.prefs.motionModeFor(stored, platform, auto);
+  };
+
+  /* Task 40: можно ли сейчас показывать тяжёлые «украшения» — частицы,
+     Ken Burns на кадре, зум заставки, слайдшоу кадров карточки, кроссфейд
+     двух полноэкранных слоёв героя и автотрейлер.
+
+     Два условия. Режим анимаций обязан быть полным: в 'lite' и 'off'
+     украшений нет и не было, и тумблер их туда не возвращает. И сам тумблер
+     обязан быть включён — по умолчанию на телевизоре он выключен
+     (LC.prefs.fxHeavyDefault).
+
+     Читается в рантайме на каждом вызове: и режим, и тумблер меняют прямо
+     во время сеанса, а класс lumen-fx-heavy на body переставляет
+     LC.applyMotionMode (src/90_runtime.js). */
+  LC.fxHeavy = function () {
+    try {
+      if (LC.motionMode() !== 'full') return false;
+      return !!LC.pref('lumen_fx_heavy', LC.prefs.fxHeavyDefault(LC.platformInfo()));
+    } catch (e) {
+      return false;
+    }
   };
 
   /* В браузере "module" не определён — ветка не выполняется. Метка module.lumen

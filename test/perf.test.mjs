@@ -121,7 +121,11 @@ function env(opts) {
       cancelled.push(id);
       for (let i = 0; i < frames.length; i++) if (frames[i].id === id) { frames.splice(i, 1); return; }
     },
-    performance: { now: () => nowMs }
+    performance: { now: () => nowMs },
+    /* Task 40: weakHardware читает window.navigator. Кладём ровно то, что
+       описывает opts.hardware, и ничего сверх: отсутствующее свойство
+       обязано остаться отсутствующим (deviceMemory есть не у всех движков). */
+    navigator: opts.hardware ? Object.assign({}, opts.hardware) : undefined
   };
 
   const applied = [];
@@ -286,4 +290,63 @@ test('track: кадры, доехавшие после возвращения и
   e.api.track();
   e.run(120);
   assert.deepEqual(e.api.samples(), [120]);
+});
+
+/* ====================================================================== */
+/* Task 40: слабое железо без замеров                                     */
+/* ====================================================================== */
+
+test('weakHardware: на android два ядра или гигабайт памяти — слабое железо', () => {
+  const weak = (hardware) => env({ platform: { android: true }, hardware }).api.weakHardware();
+  assert.equal(weak({ hardwareConcurrency: 2 }), true);
+  assert.equal(weak({ hardwareConcurrency: 1 }), true);
+  assert.equal(weak({ hardwareConcurrency: 4, deviceMemory: 1 }), true);
+  assert.equal(weak({ hardwareConcurrency: 4, deviceMemory: 0.5 }), true);
+});
+
+/* Четырёхъядерный ТВ пользователя (Philips 50PUS8057) под правило не
+   попадает — там решает замер. */
+test('weakHardware: четыре ядра — не слабое, вердикт остаётся за замером', () => {
+  const e = env({ platform: { android: true }, hardware: { hardwareConcurrency: 4 } });
+  assert.equal(e.api.weakHardware(), false);
+  e.api.track();
+  assert.equal(e.frames.length, 1, 'замер на таком железе по-прежнему делается');
+});
+
+test('weakHardware: неизвестные значения не считаются нулём', () => {
+  const weak = (hardware) => env({ platform: { android: true }, hardware }).api.weakHardware();
+  assert.equal(weak({}), false, 'ни ядер, ни памяти — не знаем, значит не слабое');
+  assert.equal(weak({ hardwareConcurrency: 0 }), false, 'ноль ядер — это «не сообщили»');
+  assert.equal(weak({ hardwareConcurrency: 8, deviceMemory: undefined }), false);
+  assert.equal(weak({ hardwareConcurrency: 8, deviceMemory: 0 }), false, 'ноль гигабайт — тоже «не сообщили»');
+});
+
+test('weakHardware: правило работает только на android', () => {
+  const hardware = { hardwareConcurrency: 1 };
+  assert.equal(env({ platform: {}, hardware }).api.weakHardware(), false, 'браузер на компьютере');
+  assert.equal(env({ platform: { tizen: true }, hardware }).api.weakHardware(), false, 'Tizen и так получает lite от платформы');
+});
+
+/* Task 40: точек замера три. Сам модуль их не различает — он меряет то, что
+   происходит между вызовом track() и вторым кадром, — поэтому проверяется
+   главное: три замера подряд с любых экранов дают вердикт, а повторный
+   вызов, пока первый замер не доехал, второго кадра не заказывает. */
+test('track: замеры с разных экранов копятся в один вердикт', () => {
+  const e = env();
+  e.api.track();          /* главная: монтирование героя */
+  e.run(500);
+  e.api.track();          /* хаб: сборка экрана подборок */
+  e.run(520);
+  e.api.track();          /* карточка: full:complite */
+  e.run(480);
+  assert.deepEqual(e.api.samples(), [500, 520, 480]);
+  assert.equal(e.store.lumen_motion_auto.mode, 'lite', 'медиана 500 мс — слабое устройство');
+});
+
+test('track: пока замер не доехал, второй вызов кадров не заказывает', () => {
+  const e = env();
+  e.api.track();
+  assert.equal(e.frames.length, 1);
+  e.api.track();
+  assert.equal(e.frames.length, 1, 'экран сменился на середине замера — второго замера не начинаем');
 });

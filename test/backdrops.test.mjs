@@ -91,6 +91,9 @@ function freshLC(opts) {
   loadInto(LC, module, '10_util.js');
   loadInto(LC, module, '35_cardinfo.js');
   LC.motionMode = () => (opts.motion || 'full');
+  /* Task 40: тумблер тяжёлых эффектов. По умолчанию включён — так ведут
+     себя все тесты, написанные до Task 40. */
+  LC.fxHeavy = () => opts.fxHeavy !== false;
   const prefs = opts.prefs || {};
   LC.pref = function (name, def) {
     return Object.prototype.hasOwnProperty.call(prefs, name) ? prefs[name] : def;
@@ -447,6 +450,21 @@ test('pickBackdrops: нет ничего -> []', () => {
 /* это про ПРОВОДКУ 50_backdrops.js, а не про поведение самого             */
 /* контроллера. */
 /* ====================================================================== */
+
+/* Task 40: ротация кадров карточки — тяжёлый эффект: каждый кадр это новая
+   полноэкранная картинка, её загрузка, декодирование и кроссфейд. При
+   выключенном тумблере её нет, хотя сама настройка слайдшоу включена. */
+test('Task 40: при выключенных тяжёлых эффектах ротация кадров не заводится', () => {
+  const LC = freshLC({ motion: 'full', fxHeavy: false, prefs: { lumen_slideshow: true } });
+  const body = fakeBody();
+  const movie = { id: 1, backdrop_path: '/main.jpg', images: { backdrops: [mk('/main.jpg', null, 9), mk('/c.jpg', null, 7)] } };
+
+  LC.backdrops.apply(null, body, movie);
+  mount(body._children[0]);
+  loaders[0].onload();
+  assert.equal(intervals.length, 0, 'таймера ротации нет');
+  assert.equal(loaders.length, 1, 'второй кадр не грузится');
+});
 
 test('apply()/cancel(): контроллер слайдшоу создаётся, активируется при загрузке первого кадра, cancel() его останавливает', () => {
   const LC = freshLC({ motion: 'full', prefs: { lumen_slideshow: true } });
