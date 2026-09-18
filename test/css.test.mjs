@@ -2227,13 +2227,52 @@ test('Task 36: карточка ряда главной — 260×390, подпи
   assert.ok(title.indexOf('white-space:nowrap') !== -1, 'одна строка: вторая отнимает у героя столько же экрана');
   assert.ok(findDecl(css, (sel) => sel === '.lumen-main .card__age').indexOf('font-size:0.88em') !== -1, 'мета 20 px (§0.4)');
   assert.ok(findDecl(css, (sel) => sel === '.lumen-main .items-line__title').indexOf('font-size:1.23em') !== -1, 'заголовок ряда 28 px (§0.3)');
+});
 
-  /* Фокус — кольцо акцентом вместо белого штатного; scale не ставим: у Lampa
-     на .card__view своя анимация фокуса. */
-  const focus = findDecl(css, (sel) => sel === '.lumen-main .card.focus .card__view:after');
-  assert.ok(focus.indexOf('border-width:.13em') !== -1, 'кольцо 3 px (§0.4): ' + focus);
-  assert.ok(focus.indexOf('#FFF2DC') !== -1, 'кольцо — светлый тон акцента');
-  assert.equal(/transform/.test(focus), false, 'своего transform на карточке ряда нет');
+/* Task 42: карточка ряда без рамки и штатных бейджей. Фокус показывают
+   увеличение постера и тень с акцентным ореолом, а не кольцо. */
+test('Task 42: фокус карточки ряда — увеличение и тень вместо кольца', () => {
+  /* Штатное кольцо Lampa (.card.focus .card__view::after, app.css:3466 —
+     content:"" и border .3em #fff) снимается целиком, вместе с вариантом
+     для мыши. */
+  assert.equal(findDecl(css, (sel) => sel === '.lumen-main .card.focus .card__view:after'), 'display:none', 'кольцо фокуса снято');
+  assert.equal(findDecl(css, (sel) => sel === '.lumen-main .card.hover .card__view:after'), 'display:none', 'и его вариант для мыши');
+
+  /* Увеличение — на самом постере, а не на .card: подпись под ним стоит на
+     месте (transform-origin у нижней кромки). */
+  const view = findDecl(css, (sel) => sel === '.lumen-main .card__view');
+  assert.ok(view.indexOf('transform:scale(1)') !== -1, 'есть от чего стартовать переходу: ' + view);
+  assert.ok(view.indexOf('transform-origin:center bottom') !== -1, 'растёт вверх, подпись не едет: ' + view);
+  const decls = ruleBodies(css).filter((r) => r.selectors.indexOf('.lumen-main .card.focus .card__view') !== -1).map((r) => r.decl);
+  const scaled = decls.join(' ');
+  assert.ok(scaled.indexOf('transform:scale(1.08)') !== -1, 'увеличение в фокусе: ' + scaled);
+  assert.ok(scaled.indexOf('-webkit-transform:scale(1.08)') !== -1, 'старым webkit-движкам нужен префикс: ' + scaled);
+  /* Акцентный ореол — на том же узле (AR.cardFocus, src/30_css.js), кольца
+     больше нет. */
+  assert.ok(scaled.indexOf('box-shadow:0 .35em .7em rgba(232,184,122,0.35)') !== -1, 'ореол цветом акцента: ' + scaled);
+
+  /* Анимация фокуса Lampa (animation-card-focus, app.css:15779 — прыжок на
+     -1em) спорила бы с нашим scale на том же узле. */
+  assert.ok(scaled.indexOf('animation:none !important') !== -1, 'штатная анимация фокуса погашена: ' + scaled);
+  assert.ok(scaled.indexOf('-webkit-animation:none !important') !== -1, 'и в префиксном виде: ' + scaled);
+  assert.ok(findDecl(css, (sel) => sel === '.lumen-main .card.hover .card__view').indexOf('animation:none !important') !== -1, 'у мыши тоже');
+
+  /* Переход — только transform: тень статична, анимировать её ресёрч
+     запрещает (docs/research/2026-09-18-android-tv-animations.md). */
+  const move = findDecl(css, (sel) => sel === 'body.lumen-motion-full .lumen-main .card__view');
+  assert.equal(move, '-webkit-transition:-webkit-transform .18s ease-out;transition:transform .18s ease-out', 'переход только по transform: ' + move);
+  assert.equal(ruleSelectors(css).filter((sel) => /lumen-motion-(lite|off) .*card__view/.test(sel)).length, 0, 'в lite/off перехода нет вовсе');
+
+  /* Штатные плашки на постере — прочь все три: рейтинг теперь в подписи
+     (src/62_badges.js), качества и типа дизайн главной не показывает. */
+  for (const part of ['card__vote', 'card__quality', 'card__type']) {
+    assert.equal(findDecl(css, (sel) => sel === '.lumen-main .' + part), 'display:none', part);
+  }
+
+  /* Ряд приглушён целиком, в фокусе название светлеет. */
+  const title = findDecl(css, (sel) => sel === '.lumen-main .card__title');
+  assert.ok(title.indexOf('color:#A89A8A') !== -1, 'название вне фокуса — muted: ' + title);
+  assert.equal(findDecl(css, (sel) => sel === '.lumen-main .card.focus .card__title'), 'color:#F3EDE4');
 });
 
 /* Task 36: масштаб интерфейса по-прежнему растит карточки рядов, но область

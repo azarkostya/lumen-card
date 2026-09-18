@@ -185,8 +185,8 @@
   /* Task 35: правила ГЛАВНОЙ, которые меняются вместе с постером под
      фокусом, — от подкрашенного фона (подложка рядов, две вуали героя и,
      с Task 38, два градиента на кромках области рядов: P.bg / P.bgRgb) и от
-     самого акцента (чип настроения в фокусе и кольцо фокуса карточки ряда:
-     t.color / t.light / t.glow / t.onac). Собраны в
+     самого акцента (чип настроения в фокусе и подсветка карточки ряда в
+     фокусе: t.color / t.light / t.glow / t.onac). Собраны в
      одном месте ради LC.accentCss ниже: доминанта постера меняется на каждой
      остановке фокуса, и переписывать ради неё всю таблицу значит фризить
      ровно тот момент, ради которого подкраска и сделана — её текст при
@@ -196,8 +196,9 @@
      ниже вставляет их по своим местам), и в отдельном узле.
      Нижняя вуаль тут обязательна: её нижний стоп — сплошной P.bg, и без неё
      подкрашенная подложка встречалась бы с неподкрашенной кромкой кадра.
-     Кольцо фокуса — тоже: иначе на главной ехал бы только фон, а самая
-     заметная деталь экрана стояла бы на цвете прошлой полной сборки.
+     Подсветка карточки в фокусе — тоже: иначе на главной ехал бы только
+     фон, а самая заметная деталь экрана стояла бы на цвете прошлой полной
+     сборки.
      Ещё два акцентных правила главной сюда сознательно НЕ взяты: статус
      героя (.lumen-hero__status, строка ниже) и активная строка мини-карты
      (.lumen-minimap__row--on). Оба мелкие и показываются не всегда, поэтому
@@ -227,7 +228,14 @@
       fadeTop: '.lumen-main .scroll.layer--wheight:after{background:-webkit-linear-gradient(top,' + P.bg + ' 0,' + P.bg + ' 2em,rgba(' + P.bgRgb + ',0) 2.5em);background:linear-gradient(to bottom,' + P.bg + ' 0,' + P.bg + ' 2em,rgba(' + P.bgRgb + ',0) 2.5em)}',
       fadeBot: '.lumen-main:after{background:-webkit-linear-gradient(bottom,' + P.bg + ' 0,rgba(' + P.bgRgb + ',0) 100%);background:linear-gradient(0deg,' + P.bg + ' 0,rgba(' + P.bgRgb + ',0) 100%)}',
       chip: '.lumen-mood-chip.focus{background:' + t.color + ';color:' + t.onac + ';border-color:' + t.light + ';border-width:.11em}',
-      cardFocus: '.lumen-main .card.focus .card__view:after{border-width:.13em;border-color:' + t.light + ';border-radius:.44em;-webkit-box-shadow:0 .35em .7em ' + t.glow + ';box-shadow:0 .35em .7em ' + t.glow + '}'
+      /* Task 42: кольцо вокруг карточки снято (штатный :after погашен, см.
+         блок рядов ниже), и акцент переехал на сам постер — ореолом под
+         ним. Числа те же, что были у кольца: радиус размытия в плагине
+         ограничен .8em (тест «Task 38: ни одного box-shadow с размытием
+         больше .8em»), и одной тенью, а не списком, — ту же проверку формы
+         список не прошёл бы. Тень статична: появляется вместе с классом
+         .focus, а transition на .card__view перечисляет только transform. */
+      cardFocus: '.lumen-main .card.focus .card__view{-webkit-box-shadow:0 .35em .7em ' + t.glow + ';box-shadow:0 .35em .7em ' + t.glow + '}'
     };
   }
 
@@ -2264,15 +2272,61 @@
        столько же экрана, сколько сама занимает, а полное название видно в
        карточке. Заголовок ряда — 28px (1.23em, §0.3), у Lampa он 1.6em.
 
-       Фокус: кольцо акцентом вместо белого штатного и свечение (§0.4). scale
-       здесь НЕ ставим, в отличие от сетки подборки: у Lampa на .card__view
-       висит собственная анимация фокуса (animation-card-focus), и свой
-       transform на карточке спорил бы с ней в чужом горизонтальном скролле. */
+       Task 42 (пользователь на Philips 50PUS8057 2026-09-18: интерфейс
+       выглядит «колхозно»): фокус показывают увеличение постера и тень, а
+       не рамка. Штатное кольцо Lampa — .card.focus .card__view::after
+       (vendor/lampa/css/app.css:3466: content:"", border .3em #fff, вылет
+       -.5em, z-index:-1) — снимается целиком; у мыши (.card.hover) это же
+       кольцо, только полупрозрачное (там же:3480), поэтому оба в одном
+       правиле. Ничего, кроме кольца, на этом псевдоэлементе не висит:
+       «просмотрено» рисуется отдельными узлами .card-watched и
+       .card__marker, состояние карточки через ::after не показывается.
+
+       scale стоит на .card__view, а не на .card: подпись под постером
+       остаётся на месте, а сам постер растёт от нижней кромки вверх — в
+       воздух между рядами (.items-line{padding-bottom:1.4em} ниже).
+       transform:scale(1) в базовом правиле нужен переходу: без стартового
+       значения первый фокус прыгал бы. Постоянный composited-слой карточкам
+       НЕ выдаётся (в отличие от кадра героя и области рядов, Task 46):
+       карточек на экране два десятка, а бюджет слабого ТВ по ресёрчу —
+       10-15 слоёв; Blink промоутит узел сам на время композитной анимации
+       transform.
+
+       Анимация фокуса Lampa (animation-card-focus, прыжок на -1em и назад,
+       app.css:15779) навешена на .card__view селектором
+       body.advanced--animation:not(.no--animation) .card:not(.card--wide).focus
+       — он специфичнее любого нашего под .lumen-main, отсюда !important. Она
+       правит тот же transform, что и наш scale, и без гашения фокус дёргался
+       бы. .card{will-change:transform} самой Lampa (app.css:3095) остаётся.
+
+       Штатные плашки на постере главной сняты все три — рейтинг
+       (.card__vote, правый нижний угол), качество (.card__quality, жёлтая,
+       вылет -.8em влево) и тип (.card__type, белая «TV», вылет -.8em
+       влево): «пёстрых» плашек в дизайне главной нет, а рейтинг переехал в
+       подпись под постером (src/62_badges.js, decorate). Все три рисует
+       сама Lampa при разборе данных карточки (app.min.js: Ratting.onCreate
+       при vote > 0, Quality.onCreate при quality/release_quality и
+       включённой настройке card_quality, Icons.onCreate — «TV» КАЖДОМУ
+       сериалу, без настройки).
+
+       Цвет: ряд приглушён целиком (название — muted, как и мета), в фокусе
+       название светлеет до text. Мету ниже muted опускать нельзя — именно
+       она сторож читаемости подкрашенного фона (см. palette выше). */
     var rowCardW = round2(ROW_CARD_W * scale) + 'em';
     css.push('.lumen-main .card{width:' + rowCardW + '}');
-    css.push('.lumen-main .card__view{margin-bottom:.5em;border-radius:.31em}');
+    css.push('.lumen-main .card__view{margin-bottom:.5em;border-radius:.31em;-webkit-transform:scale(1);transform:scale(1);-webkit-transform-origin:center bottom;transform-origin:center bottom}');
     css.push('.lumen-main .card__img{border-radius:.31em}');
-    css.push('.lumen-main .card__title{font-family:' + FD + ';font-weight:700;font-size:' + round2(.96 * scale) + 'em;line-height:1.15;white-space:nowrap;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis;color:' + P.text + '}');
+    css.push('.lumen-main .card.focus .card__view:after,.lumen-main .card.hover .card__view:after{display:none}');
+    css.push('.lumen-main .card.focus .card__view,.lumen-main .card.hover .card__view{-webkit-animation:none !important;animation:none !important}');
+    css.push('.lumen-main .card.focus .card__view{-webkit-transform:scale(1.08);transform:scale(1.08)}');
+    /* Переход перечисляет ровно transform: тень фокуса (AR.cardFocus ниже)
+       появляется вместе с классом и не анимируется — анимированный
+       box-shadow заставляет ТВ перерисовывать карточку каждый кадр
+       (docs/research/2026-09-18-android-tv-animations.md). */
+    css.push('body.lumen-motion-full .lumen-main .card__view{-webkit-transition:-webkit-transform .18s ease-out;transition:transform .18s ease-out}');
+    css.push('.lumen-main .card__vote,.lumen-main .card__quality,.lumen-main .card__type{display:none}');
+    css.push('.lumen-main .card__title{font-family:' + FD + ';font-weight:700;font-size:' + round2(.96 * scale) + 'em;line-height:1.15;white-space:nowrap;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis;color:' + P.muted + '}');
+    css.push('.lumen-main .card.focus .card__title{color:' + P.text + '}');
     css.push('.lumen-main .card__age{font-family:' + FM + ';font-size:' + round2(.88 * scale) + 'em;line-height:1;margin-top:.25em;color:' + P.muted + '}');
     css.push('.lumen-main .items-line__title{font-family:' + FD + ';font-weight:700;font-size:' + round2(1.23 * scale) + 'em}');
     css.push('.lumen-main .items-line{padding-bottom:1.4em}');

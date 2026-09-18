@@ -163,10 +163,14 @@ test('countdown: прошлое, мусор и отсутствие слов —
 /* Рантайм: decorate / mount / unmount / strip                            */
 /* ====================================================================== */
 
-/* Фейковая карточка ряда: .card с вложенным .card__view, как в Lampa. */
-function makeCard(data) {
+/* Фейковая карточка ряда: .card с вложенными .card__view и .card__age, как в
+   шаблоне 'card' Lampa (<div class="card__age">{release_year}</div>). year —
+   текст подписи; '' моделирует карточку без года. */
+function makeCard(data, year) {
   const view = new FakeEl(['card__view']);
-  const card = new FakeEl(['card'], [view]);
+  const age = new FakeEl(['card__age']);
+  age.text(year === undefined ? '2017' : year);
+  const card = new FakeEl(['card'], [view, age]);
   card.card_data = data;
   card.nodeType = 1;
   card.classList = { contains: (c) => card._class.indexOf(c) !== -1 };
@@ -248,6 +252,49 @@ test('decorate: без метки узел не создаётся вовсе', 
   globalThis.window = { Lampa: {} };
   try { api.decorate(card, null, null); } finally { delete globalThis.window; }
   assert.equal(card._children[0]._children.length, 0);
+});
+
+/* Task 42: штатная плашка рейтинга (.card__vote) на постере ряда скрыта
+   CSS, число переезжает в подпись под постером. */
+test('decorate: рейтинг дописывается в .card__age через « · ★ »', () => {
+  const { api } = runtime();
+  const card = makeCard({ release_date: '2026-12-17', vote_average: 6.42 });
+  globalThis.window = { Lampa: {} };
+  try {
+    api.decorate(card, null, null);
+    api.decorate(card, null, null);
+  } finally {
+    delete globalThis.window;
+  }
+  assert.equal(card._children[1].text(), '2017 · ★ 6.4', 'один знак после запятой, дубля нет');
+});
+
+test('decorate: без рейтинга подпись остаётся годом, без года — только рейтинг', () => {
+  const { api } = runtime();
+  const bare = makeCard({ release_date: '2026-12-17' });
+  const noYear = makeCard({ release_date: '2026-12-17', vote_average: 8 }, '');
+  const low = makeCard({ release_date: '2026-12-17', vote_average: 0.4 });
+  globalThis.window = { Lampa: {} };
+  try {
+    api.decorate(bare, null, null);
+    api.decorate(noYear, null, null);
+    api.decorate(low, null, null);
+  } finally {
+    delete globalThis.window;
+  }
+  assert.equal(bare._children[1].text(), '2017', 'нечего дописывать');
+  assert.equal(noYear._children[1].text(), '★ 8.0', 'без года разделитель не нужен');
+  assert.equal(low._children[1].text(), '2017', 'рейтинг ниже 1 — это «нет оценок», а не оценка');
+});
+
+/* Сетка подборки рисует .card__vote сама (src/46_hub.js, cardNode) и зовёт
+   decorate с rating:false — иначе рейтинг стоял бы на одном постере дважды. */
+test('decorate: rating:false оставляет подпись нетронутой', () => {
+  const { api } = runtime();
+  const card = makeCard({ release_date: '2026-12-17', vote_average: 6.42 });
+  globalThis.window = { Lampa: {} };
+  try { api.decorate(card, null, { bar: false, rating: false }); } finally { delete globalThis.window; }
+  assert.equal(card._children[1].text(), '2017');
 });
 
 test('decorate: выключенная настройка не ставит ни метки, ни флага', () => {

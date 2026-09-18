@@ -681,6 +681,7 @@ return p;
 
 
 
+
 function accentRules(P, t) {
 return {
 main: '.lumen-main{background-color:' + P.bg + '}',
@@ -705,7 +706,14 @@ veilB: '.lumen-hero .lumen-hero__veil--b{background:-webkit-linear-gradient(bott
 fadeTop: '.lumen-main .scroll.layer--wheight:after{background:-webkit-linear-gradient(top,' + P.bg + ' 0,' + P.bg + ' 2em,rgba(' + P.bgRgb + ',0) 2.5em);background:linear-gradient(to bottom,' + P.bg + ' 0,' + P.bg + ' 2em,rgba(' + P.bgRgb + ',0) 2.5em)}',
 fadeBot: '.lumen-main:after{background:-webkit-linear-gradient(bottom,' + P.bg + ' 0,rgba(' + P.bgRgb + ',0) 100%);background:linear-gradient(0deg,' + P.bg + ' 0,rgba(' + P.bgRgb + ',0) 100%)}',
 chip: '.lumen-mood-chip.focus{background:' + t.color + ';color:' + t.onac + ';border-color:' + t.light + ';border-width:.11em}',
-cardFocus: '.lumen-main .card.focus .card__view:after{border-width:.13em;border-color:' + t.light + ';border-radius:.44em;-webkit-box-shadow:0 .35em .7em ' + t.glow + ';box-shadow:0 .35em .7em ' + t.glow + '}'
+
+
+
+
+
+
+
+cardFocus: '.lumen-main .card.focus .card__view{-webkit-box-shadow:0 .35em .7em ' + t.glow + ';box-shadow:0 .35em .7em ' + t.glow + '}'
 };
 }
 
@@ -2746,11 +2754,57 @@ css.push('@media screen and (min-aspect-ratio:' + heroMinRatio + '/100){' +
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 var rowCardW = round2(ROW_CARD_W * scale) + 'em';
 css.push('.lumen-main .card{width:' + rowCardW + '}');
-css.push('.lumen-main .card__view{margin-bottom:.5em;border-radius:.31em}');
+css.push('.lumen-main .card__view{margin-bottom:.5em;border-radius:.31em;-webkit-transform:scale(1);transform:scale(1);-webkit-transform-origin:center bottom;transform-origin:center bottom}');
 css.push('.lumen-main .card__img{border-radius:.31em}');
-css.push('.lumen-main .card__title{font-family:' + FD + ';font-weight:700;font-size:' + round2(.96 * scale) + 'em;line-height:1.15;white-space:nowrap;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis;color:' + P.text + '}');
+css.push('.lumen-main .card.focus .card__view:after,.lumen-main .card.hover .card__view:after{display:none}');
+css.push('.lumen-main .card.focus .card__view,.lumen-main .card.hover .card__view{-webkit-animation:none !important;animation:none !important}');
+css.push('.lumen-main .card.focus .card__view{-webkit-transform:scale(1.08);transform:scale(1.08)}');
+
+
+
+
+css.push('body.lumen-motion-full .lumen-main .card__view{-webkit-transition:-webkit-transform .18s ease-out;transition:transform .18s ease-out}');
+css.push('.lumen-main .card__vote,.lumen-main .card__quality,.lumen-main .card__type{display:none}');
+css.push('.lumen-main .card__title{font-family:' + FD + ';font-weight:700;font-size:' + round2(.96 * scale) + 'em;line-height:1.15;white-space:nowrap;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis;color:' + P.muted + '}');
+css.push('.lumen-main .card.focus .card__title{color:' + P.text + '}');
 css.push('.lumen-main .card__age{font-family:' + FM + ';font-size:' + round2(.88 * scale) + 'em;line-height:1;margin-top:.25em;color:' + P.muted + '}');
 css.push('.lumen-main .items-line__title{font-family:' + FD + ';font-weight:700;font-size:' + round2(1.23 * scale) + 'em}');
 css.push('.lumen-main .items-line{padding-bottom:1.4em}');
@@ -7891,8 +7945,10 @@ progressBar(node, card);
 
 
 
+
+
 try {
-if (LC.badges && LC.badges.decorate) LC.badges.decorate(node, card, { bar: false });
+if (LC.badges && LC.badges.decorate) LC.badges.decorate(node, card, { bar: false, rating: false });
 } catch (eBadge) {
 warn('grid: badge failed', eBadge);
 }
@@ -16946,6 +17002,13 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 
+
+
+
+
+
+
+
 LC.badges = (function () {
 
 
@@ -17055,6 +17118,28 @@ return null;
 
 
 
+
+
+
+
+function rate(el, data) {
+var age = $(el).find('.card__age');
+if (!age || !age.length || age[0].lumen_rated) return;
+var vote = Number(data.vote_average);
+if (!(vote >= 1)) return;
+age[0].lumen_rated = true;
+var was = '' + age.text();
+age.text((was ? was + ' · ' : '') + '★ ' + vote.toFixed(1));
+}
+
+
+
+
+
+
+
+
+
 function decorate(node, card, opts) {
 try {
 if (!enabled()) return;
@@ -17063,6 +17148,7 @@ if (!el || el.lumen_badged) return;
 var data = card || el.card_data;
 if (!data) return;
 el.lumen_badged = true;
+if (!opts || opts.rating !== false) rate(el, data);
 var badge = badgeFor(data, new Date(), { progress: progressOf, words: words() });
 if (!badge || !badge.text) return;
 var view = $(el).find('.card__view');

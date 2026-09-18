@@ -20,7 +20,14 @@
   /*   soon/new — release_date / first_air_date из самих данных карточки.   */
   /* Метки «4K» нет намеренно: качество рисует сама Lampa узлом             */
   /* .card__quality (app.min.js, Quality.onCreate), вторая такая же метка   */
-  /* была бы дублем на том же постере.                                      */
+  /* была бы дублем на том же постере. На главной этот узел с Task 42       */
+  /* скрыт правилом .lumen-main .card__quality{display:none} — качество     */
+  /* остаётся видно в сетке подборки и на штатных экранах Lampa.            */
+  /*                                                                       */
+  /* Task 42: decorate заодно дописывает рейтинг в подпись .card__age —     */
+  /* штатная плашка .card__vote на постере главной тоже скрыта. Поэтому у   */
+  /* выключенной настройки lumen_badges есть побочный эффект: вместе с      */
+  /* метками с главной пропадает и рейтинг в подписи.                       */
   /*                                                                       */
   /* Таймеров модуль не заводит ВООБЩЕ. Требование координатора «без        */
   /* таймеров на каждую карточку, один пересчёт при рендере» выполняется    */
@@ -140,10 +147,32 @@
       }
     }
 
+    /* Task 42: рейтинг в подписи под постером. Штатную плашку .card__vote на
+       постере главной прячет CSS (src/30_css.js, блок рядов), а число
+       дописывается к году в .card__age — «2017 · ★ 6.4». Порог 1 отсекает
+       разом и нулевой vote_average (карточка без оценок), и мусор: NaN
+       сравнение с 1 не проходит. Пустой год оставляет одну звезду без
+       разделителя.
+       Флаг на самом узле подписи, а не на карточке: strip() сбрасывает
+       lumen_badged, чтобы возврат настройки нарисовал метки заново, и с
+       общим флагом второй проход дописал бы рейтинг в подпись повторно. */
+    function rate(el, data) {
+      var age = $(el).find('.card__age');
+      if (!age || !age.length || age[0].lumen_rated) return;
+      var vote = Number(data.vote_average);
+      if (!(vote >= 1)) return;
+      age[0].lumen_rated = true;
+      var was = '' + age.text();
+      age.text((was ? was + ' · ' : '') + '★ ' + vote.toFixed(1));
+    }
+
     /* Одна карточка. node — jQuery-узел или DOM-элемент .card, card — его
        данные (по умолчанию el.card_data, которые кладёт и Lampa, и наша
        сетка). opts.bar === false — не рисовать полосу прогресса: в сетке
        подборки она уже своя (.lumen-gcard__bar), второй такой же не нужно.
+       opts.rating === false — не трогать подпись: сетка подборки показывает
+       рейтинг штатной плашкой .card__vote (src/46_hub.js, cardNode), и в
+       подписи он был бы вторым тем же числом.
        Повторный вызов на том же узле молчит — флаг lumen_badged. */
     function decorate(node, card, opts) {
       try {
@@ -153,6 +182,7 @@
         var data = card || el.card_data;
         if (!data) return;
         el.lumen_badged = true;
+        if (!opts || opts.rating !== false) rate(el, data);
         var badge = badgeFor(data, new Date(), { progress: progressOf, words: words() });
         if (!badge || !badge.text) return;
         var view = $(el).find('.card__view');

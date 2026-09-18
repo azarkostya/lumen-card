@@ -1303,9 +1303,11 @@
         progressBar(node, card);
         /* Task 25: метка «Скоро»/«Новинка»/«Продолжить» — тем же модулем,
            что на главной. bar:false — полосу прогресса здесь уже нарисовал
-           progressBar выше, вторая такая же на том же постере была бы дублем. */
+           progressBar выше, вторая такая же на том же постере была бы дублем.
+           Task 42: rating:false — рейтинг сетки стоит плашкой .card__vote
+           (cardNode выше), и в подписи он был бы вторым тем же числом. */
         try {
-          if (LC.badges && LC.badges.decorate) LC.badges.decorate(node, card, { bar: false });
+          if (LC.badges && LC.badges.decorate) LC.badges.decorate(node, card, { bar: false, rating: false });
         } catch (eBadge) {
           warn('grid: badge failed', eBadge);
         }
