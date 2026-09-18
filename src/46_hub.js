@@ -412,49 +412,114 @@
     /* vendor/lampa/vender/navigator/navigator.js (index.html:52,          */
     /* `var Navigator = new SpatialNavigator()`), его же зовут все          */
     /* компоненты Lampa; в объекте window.Lampa он не экспортирован.        */
-    /* canmove(dir) вернул false — двигаться внутри экрана некуда, и        */
+    /* canmove(dir) вернул пусто — двигаться внутри экрана некуда, и        */
     /* контроллер решает сам: влево — меню, вверх — шапка.                  */
-    /* Navigator.move синхронно шлёт элементу 'hover:focus' (Navigator      */
-    /* 'focus' -> Controller.focus -> Utils.trigger, app.min.js 46437),     */
-    /* поэтому сразу после move наши обработчики фокуса уже отработали.     */
+    /* Фокус синхронно шлёт элементу 'hover:focus' (Navigator шлёт своё     */
+    /* 'focus' -> Controller.focus -> Utils.trigger, app.min.js:46437),     */
+    /* поэтому сразу после шага наши обработчики фокуса уже отработали.     */
     /* ------------------------------------------------------------------ */
 
+    /* Task 33: один проход навигации на нажатие вместо двух. canmove
+       (navigator.js:762-770) не boolean — он возвращает сам найденный узел,
+       и отдать его Navigator.focus дешевле, чем звать move: move
+       (navigator.js:732-760) ищет соседа заново тем же navigate
+       (navigator.js:786), а тот берёт getBoundingClientRect у КАЖДОГО узла
+       коллекции (_getAllRects navigator.js:268 -> _getRect :217).
+       Navigator.focus (navigator.js:657-686) публичный и делает ровно то,
+       чем заканчивается move: пишет _focus и шлёт своё событие 'focus', на
+       которое подписан Lampa (app.min.js:56069) — Controller.focus шлёт узлу
+       'hover:focus', а на ТВ ещё и переносит на него класс focus
+       (app.min.js:46437-46446).
+       Ветка с move — страховка для сборок Lampa без Navigator.focus. */
     function navMove(dir) {
       try {
-        if (window.Navigator && typeof Navigator.canmove === 'function' && Navigator.canmove(dir)) {
-          Navigator.move(dir);
-          return true;
-        }
+        if (!window.Navigator || typeof Navigator.canmove !== 'function') return false;
+        var next = Navigator.canmove(dir);
+        if (!next) return false;
+        if (typeof Navigator.focus === 'function') Navigator.focus(next);
+        else Navigator.move(dir);
+        return true;
       } catch (e) {
         warn('hub: navigator failed', e);
       }
       return false;
     }
 
-    /* Контроллер экрана плагина. focusTarget() отдаёт узел, на который надо
-       вернуть фокус при входе (возврат назад, перестройка списка); afterMove
-       вызывается после каждого успешного шага вправо/вниз — сетка по нему
-       догружает постеры и следующую страницу. */
+    /* Task 33: окно коллекции Navigator — то же, что делает штатная сетка
+       category_full (app.min.js:53146-53162, метод limit): limit_view = 12
+       узлов вокруг фокуса рисуются, lilit_collection = 36 участвуют в
+       навигации.
+       Окно навигации — ради него всё: каждый лишний узел коллекции стоит
+       одного getBoundingClientRect на КАЖДОЕ нажатие (navigate
+       navigator.js:786 -> _getAllRects :268 -> _getRect :217), а в сетке
+       после нескольких догруженных страниц узлов набираются сотни.
+       Класс layer--render ставится ради того же контракта, что у штатной
+       сетки, но экономии сам по себе не даёт: во всей сборке Lampa 3.3.4
+       его упоминают только шаблоны (app.min.js:2508-2722) и та же limit
+       (app.min.js:53152-53154), а в vendor/lampa/css/app.css правил под
+       него нет — то есть это совместимость с темами, читающими класс.
+       fixed — узлы, которые в коллекции всегда (чипы, кнопки шапки): они
+       лежат вне окна карточек, но обязаны оставаться достижимыми. */
+    var VIEW_WINDOW = 12;
+    var NAV_WINDOW = 36;
+
+    function limitCollection(fixed, nodes, active) {
+      try {
+        var from = active > 0 ? active : 0;
+        var i;
+        for (i = 0; i < nodes.length; i++) {
+          /* classList.toggle со вторым аргументом старые WebView не знают —
+             только add/remove. */
+          if (i >= from - VIEW_WINDOW && i < from + VIEW_WINDOW) nodes[i].classList.add('layer--render');
+          else nodes[i].classList.remove('layer--render');
+        }
+        if (!window.Navigator || typeof Navigator.setCollection !== 'function') return;
+        var keep = typeof Navigator.getFocusedElement === 'function' ? Navigator.getFocusedElement() : null;
+        var collection = fixed.concat(nodes.slice(Math.max(0, from - NAV_WINDOW), from + NAV_WINDOW));
+        Navigator.setCollection(collection);
+        /* setCollection снимает фокус (navigator.js:568-574 -> unfocus), а
+           узел под фокусом здесь не менялся и события фокуса не нужны:
+           возвращаем _focus тем же способом, что и штатная limit, —
+           Navigator.focused (navigator.js:640-642) пишет его напрямую. */
+        if (keep && typeof Navigator.focused === 'function' && collection.indexOf(keep) >= 0) Navigator.focused(keep);
+      } catch (e) {
+        warn('hub: collection window failed', e);
+      }
+    }
+
+    /* Контроллер экрана плагина. recollect(prefer) пересобирает коллекцию
+       Navigator и ставит фокус — им же экран входит в контроллер; afterMove
+       вызывается после каждого успешного шага.
+       Task 33: после КАЖДОГО, а не только вправо/вниз, — по нему компонент
+       сдвигает окно коллекции (limitCollection), и шаг влево или вверх
+       обязан двигать окно так же, как вправо и вниз: иначе, уйдя вниз на
+       сотню карточек, обратно вверх можно было бы подняться только до
+       нижней кромки окна. Сетка на том же вызове догружает постеры и
+       следующую страницу — от лишних направлений это не страдает, оба
+       действия смотрят на позицию фокуса, а не на сторону шага. */
     /* onUp — запасной шаг вверх, когда Navigator дальше идти не может.
        Нужен хабу: кнопка поиска стоит в правой части шапки (design-spec-main
        §0.8), а чипы групп — слева, и SpatialNavigator её «вверх» не находит
        (проверено живьём 2026-09-17: canmove('up') с чипа === false, фокус
        уходил прямо в шапку Lampa). Вернул true — шаг сделан, в шапку Lampa
        не уходим. */
-    function screenController(root, focusTarget, afterMove, onUp) {
+    function screenController(recollect, afterMove, onUp) {
       return {
         toggle: function () {
-          Lampa.Controller.collectionSet(root[0]);
-          Lampa.Controller.collectionFocus(focusTarget() || false, root[0]);
+          recollect(null);
         },
         left: function () {
           if (!navMove('left')) Lampa.Controller.toggle('menu');
+          else if (afterMove) afterMove();
         },
         right: function () {
           if (navMove('right') && afterMove) afterMove();
         },
         up: function () {
-          if (navMove('up')) return;
+          if (navMove('up')) {
+            if (afterMove) afterMove();
+            return;
+          }
           if (onUp && onUp()) return;
           Lampa.Controller.toggle('head');
         },
@@ -489,6 +554,7 @@
       var activeGroup = '';
       var chipNodes = [];
       var tileNodes = [];
+      var searchNode = null;
       var lastFocus = null;
       var started = false;
 
@@ -521,14 +587,41 @@
         return null;
       }
 
+      /* Task 33: окно коллекции вокруг узла target. Кнопка поиска и чипы
+         групп идут в коллекцию всегда: они вне окна плиток, а «вверх» с
+         любой плитки обязано на них попадать.
+         В самой большой группе каталога 34 плитки (manifest.json,
+         franchises), так что окно навигации хабу сегодня почти ничего не
+         режет — отдельной ветки «хабу полную коллекцию» здесь нет потому,
+         что каталог растёт, а хаб и сетка ходят одним контроллером. */
+      function limitHub(target) {
+        var active = -1;
+        for (var i = 0; i < tileNodes.length; i++) {
+          if (tileNodes[i] === target) { active = i; break; }
+        }
+        var fixed = searchNode ? [searchNode] : [];
+        limitCollection(fixed.concat(chipNodes), tileNodes, active);
+      }
+
+      /* Коллекцию выставляем сами, а не Controller.collectionSet: тот отдал
+         бы Navigator все .selector узла разом (app.min.js:46448-46456).
+         Controller.collectionFocus поверх окна работает штатно — узлу он
+         зовёт Navigator.focus (app.min.js:46474-46491), а тот требует, чтобы
+         элемент лежал в коллекции (navigator.js:674); окно потому и
+         строится ВОКРУГ того узла, на который сейчас встанет фокус. */
       function recollect(prefer) {
         try {
-          Lampa.Controller.collectionSet(root[0]);
           var node = prefer || focusTarget();
+          limitHub(node);
           Lampa.Controller.collectionFocus(node || false, root[0]);
         } catch (e) {
           warn('hub: collection failed', e);
         }
+      }
+
+      /* Шаг фокуса внутри экрана: окно едет за ним. */
+      function afterMove() {
+        limitHub(lastFocus);
       }
 
       /* Task 32: подкрутка экрана к тому, что под фокусом, — вторая половина
@@ -761,6 +854,8 @@
         search.on('hover:focus', function () { keepVisible(search[0]); lastFocus = search[0]; });
         search.on('hover:enter', function () { openSearch(); });
         head.append(search);
+        /* Task 33: кнопка в коллекции Navigator всегда, вне окна плиток. */
+        searchNode = search[0];
       }
 
       function build(m) {
@@ -821,7 +916,7 @@
         if (act && act.activity && act.activity !== this.activity) return;
         started = true;
         motionClass(root);
-        Lampa.Controller.add('content', screenController(root, focusTarget, null, focusSearch));
+        Lampa.Controller.add('content', screenController(recollect, afterMove, focusSearch));
         Lampa.Controller.toggle('content');
         /* Возврат после stop(): коллажи, которые тогда погасили (или которые
            не успели прийти), запрашиваются снова — в этот момент они уже в
@@ -853,6 +948,7 @@
         bump();
         chipNodes = [];
         tileNodes = [];
+        searchNode = null;
         lastFocus = null;
         try { scroll.destroy(); } catch (e2) {}
         try { root.remove(); } catch (e3) {}
@@ -889,6 +985,10 @@
       var raw = [];
       var cardNodes = [];
       var sortNodes = [];
+      /* Кнопки пустой сетки («Назад», «Скрыть подсказку»). Карточками они не
+         являются, а в коллекции Navigator быть обязаны — иначе на пустой
+         сетке не останется ни одного достижимого узла (Task 33). */
+      var emptyNodes = [];
       var lastFocus = null;
       /* id карточки под фокусом: список могут пересобрать (сортировка на
          месте при догрузке страницы), и тогда прежний узел исчезает —
@@ -923,10 +1023,31 @@
         return null;
       }
 
+      /* Task 33: окно коллекции вокруг узла target. Чипы сортировки и кнопки
+         пустой сетки идут в коллекцию всегда и первыми — так они остаются
+         достижимыми «вверх» с любой строки карточек, на каком бы месте
+         списка ни стояло окно. Их единицы, на цену прохода Navigator это не
+         влияет; карточек же после нескольких страниц сотни — вот их и режем
+         окном. */
+      function limitGrid(target) {
+        var active = -1;
+        for (var i = 0; i < cardNodes.length; i++) {
+          if (cardNodes[i] === target) { active = i; break; }
+        }
+        limitCollection(sortNodes.concat(emptyNodes), cardNodes, active);
+      }
+
+      /* Коллекцию выставляем сами, а не Controller.collectionSet: тот отдал
+         бы Navigator все .selector узла разом (app.min.js:46448-46456), а их
+         здесь столько же, сколько карточек. Controller.collectionFocus
+         поверх окна работает штатно — узлу он зовёт Navigator.focus
+         (app.min.js:46474-46491), а тот требует, чтобы элемент лежал в
+         коллекции (navigator.js:674); окно потому и строится ВОКРУГ того
+         узла, на который сейчас встанет фокус. */
       function recollect(prefer) {
         try {
-          Lampa.Controller.collectionSet(root[0]);
           var node = prefer || focusTarget();
+          limitGrid(node);
           Lampa.Controller.collectionFocus(node || false, root[0]);
         } catch (e) {
           warn('grid: collection failed', e);
@@ -976,6 +1097,9 @@
          «страница пришла -> фокус -> догрузка» крутилась бы сама (живая
          проверка: сетка набирала 320 карточек за заход). */
       function afterMove() {
+        /* Task 33: окно едет за фокусом — на каждом шаге, включая шаг на
+           чип сортировки (там окно встаёт на начало списка). */
+        limitGrid(lastFocus);
         var i = focusedIndex();
         if (i < 0) return;
         loadPosters(i + POSTER_AHEAD);
@@ -1094,6 +1218,7 @@
       function showEmpty(reason) {
         itemsRow.empty();
         cardNodes = [];
+        emptyNodes = [];
         /* Task 20: подсказку про ключ Кинопоиска можно выключить — тогда
            сетка говорит просто «Здесь пока пусто», как любая другая пустая. */
         var nokey = reason === 'nokey' && kpHintEnabled();
@@ -1109,11 +1234,13 @@
             try { Lampa.Storage.set('lumen_kp_hint', 'false'); } catch (e) {}
           });
           box.append(hide);
+          emptyNodes.push(hide[0]);
         }
         var back = $('<div class="lumen-grid__back selector">' + esc(LC.lang('lumen_grid_back')) + '</div>');
         back.on('hover:focus', function () { keepVisible(back[0]); lastFocus = back[0]; });
         back.on('hover:enter', function () { Lampa.Activity.backward(); });
         box.append(back);
+        emptyNodes.push(back[0]);
         itemsRow.append(box);
       }
 
@@ -1121,6 +1248,7 @@
       function rebuild() {
         itemsRow.empty();
         cardNodes = [];
+        emptyNodes = [];
         appendCards(sortLocal(raw, sortMode));
         loadPosters(POSTER_AHEAD);
         renderSub();
@@ -1156,6 +1284,7 @@
           if (reset || localSort) {
             itemsRow.empty();
             cardNodes = [];
+            emptyNodes = [];
           }
           if (!list.length && !cardNodes.length) showEmpty('');
           else appendCards(list);
@@ -1253,7 +1382,7 @@
         if (act && act.activity && act.activity !== this.activity) return;
         started = true;
         motionClass(root);
-        Lampa.Controller.add('content', screenController(root, focusTarget, afterMove));
+        Lampa.Controller.add('content', screenController(recollect, afterMove));
         Lampa.Controller.toggle('content');
         /* Запрос, прерванный на stop(), возобновляется с той же страницы. */
         if (resumeAfterStop) {
@@ -1282,6 +1411,7 @@
         bump();
         cardNodes = [];
         sortNodes = [];
+        emptyNodes = [];
         lastFocus = null;
         resumeAfterStop = null;
         try { scroll.destroy(); } catch (e2) {}

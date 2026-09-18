@@ -347,7 +347,13 @@ function makeEnv(opts) {
     return collect(ctx ? toEl(ctx) : body, sel);
   };
 
-  const LC = { util: UTIL, pref: (name, def) => (o.prefs && name in o.prefs ? o.prefs[name] : def), lang: (key) => key };
+  const LC = {
+    util: UTIL,
+    pref: (name, def) => (o.prefs && name in o.prefs ? o.prefs[name] : def),
+    lang: (key) => key,
+    /* Task 33: режим анимаций — ускорение листания его спрашивает. */
+    motionMode: () => o.motion || 'full'
+  };
   const module = { exports: null, lumen: true };
   new Function('LC', 'module', SRC)(LC, module);
   env.nav = module.exports;
@@ -426,6 +432,48 @@ test('мини-карта: detach подписки на клавиатуру н�
   env.nav.uninstall();
   assert.equal(env.keydown.length, 0, 'а uninstall снимает уже обе подписки');
   assert.equal(panelsIn(env), 0);
+});
+
+/* ---------------------------------------------------------------------- */
+/* Task 33: ускорение листания — один добавочный шаг, а не два.            */
+/* ---------------------------------------------------------------------- */
+
+/* Шесть плотных нажатий подряд — ровно то, что holdTracker считает
+   удержанием (FAST_REPEATS в FAST_WINDOW, паузы меньше FAST_GAP). */
+function holdRight(env, times) {
+  for (let i = 0; i < times; i++) {
+    env.down(39);
+    env.now += 100;
+  }
+}
+
+test('ускорение: удержание «вправо» добавляет ровно один шаг на событие', () => {
+  const env = makeEnv();
+  env.nav.install();
+  holdRight(env, 5);
+  assert.deepEqual(env.moves, [], 'пять событий — серия ещё не признана удержанием');
+  env.down(39);
+  assert.deepEqual(env.moves, ['right'], 'шестое включает ускорение: один добавочный шаг, а не два');
+  env.now += 100;
+  env.down(39);
+  assert.deepEqual(env.moves, ['right', 'right'], 'и дальше по одному на событие');
+  env.nav.uninstall();
+});
+
+test('ускорение: режим «без анимаций» добавочных шагов не делает', () => {
+  const env = makeEnv({ motion: 'off' });
+  env.nav.install();
+  holdRight(env, 10);
+  assert.deepEqual(env.moves, [], 'человек попросил минимум движения — лишних шагов нет');
+  env.nav.uninstall();
+});
+
+test('ускорение: в режиме lite работает как обычно', () => {
+  const env = makeEnv({ motion: 'lite' });
+  env.nav.install();
+  holdRight(env, 6);
+  assert.deepEqual(env.moves, ['right'], 'lite — это про анимации, а не про листание');
+  env.nav.uninstall();
 });
 
 test('мини-карта: на чужом экране панель не показывается вовсе', () => {

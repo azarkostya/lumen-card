@@ -222,6 +222,14 @@ function El(classes, tag) {
   this._removed = false;
   this.length = 1;
   this[0] = this;
+  /* Task 33: окно коллекции ставит layer--render через нативный classList —
+     так же, как штатная сетка Lampa (app.min.js:53152-53154). */
+  var self = this;
+  this.classList = {
+    add: function (c) { self.addClass(c); },
+    remove: function (c) { self.removeClass(c); },
+    contains: function (c) { return self.hasClass(c); }
+  };
 }
 El.prototype.addClass = function (list) {
   var self = this;
@@ -374,6 +382,10 @@ function setupLampa(opts) {
     controllers: {},
     toggles: [],
     focuses: [],
+    /* Task 33: сколько раз Navigator просили найти соседа заново и какие
+       коллекции ему выставляли. */
+    moves: 0,
+    collections: [],
     menuButtons: [],
     backward: 0,
     scrolls: [],
@@ -391,7 +403,12 @@ function setupLampa(opts) {
     collection: [],
     index: -1,
     cols: opts.cols || 6,
-    canmove: function (dir) { return nav.target(dir) >= 0; },
+    /* Как настоящий SpatialNavigator: canmove отдаёт сам найденный узел,
+       а не boolean (navigator.js:762-770). */
+    canmove: function (dir) {
+      var n = nav.target(dir);
+      return n >= 0 ? nav.collection[n] : false;
+    },
     target: function (dir) {
       if (nav.index < 0) return -1;
       var n = nav.index;
@@ -403,6 +420,7 @@ function setupLampa(opts) {
       return n;
     },
     move: function (dir) {
+      log.moves++;
       var n = nav.target(dir);
       if (n < 0) return false;
       nav.focus(nav.collection[n]);
@@ -415,7 +433,18 @@ function setupLampa(opts) {
       log.focuses.push(el);
       fire(el, 'hover:focus');
       return true;
-    }
+    },
+    /* Task 33: то, чем окно коллекции пользуется напрямую — как штатная
+       limit() сетки Lampa (app.min.js:53157-53160). setCollection снимает
+       фокус (navigator.js:568-574), focused ставит его без события
+       (navigator.js:640-642). */
+    setCollection: function (list) {
+      log.collections.push(list.slice());
+      nav.collection = list.slice();
+      nav.index = -1;
+    },
+    focused: function (el) { nav.index = nav.collection.indexOf(el); },
+    getFocusedElement: function () { return nav.index >= 0 ? nav.collection[nav.index] : null; }
   };
   globalThis.Navigator = nav;
 
@@ -675,6 +704,57 @@ test('lumen_hub: пульт двигает фокус штатным Navigator',
   assert.ok(s.env.log.focuses[s.env.log.focuses.length - 1].hasClass('lumen-tile'), 'вниз — на плитку');
   ctrl.up();
   assert.ok(s.env.log.focuses[s.env.log.focuses.length - 1].hasClass('lumen-chip'), 'вверх — обратно на чип');
+});
+
+/* ---------------------------------------------------------------------- */
+/* Task 33: один проход навигации на нажатие.                              */
+/* ---------------------------------------------------------------------- */
+
+test('Task 33: шаг по экрану — один проход Navigator: canmove нашёл узел, focus его ставит', function () {
+  var s = openHub();
+  s.comp.start();
+  var ctrl = s.env.log.controllers.content;
+  ctrl.toggle();
+  var nav = s.env.nav;
+  var calls = { canmove: 0, focus: 0, move: 0 };
+  var realCanmove = nav.canmove;
+  var realFocus = nav.focus;
+  var realMove = nav.move;
+  nav.canmove = function (dir) { calls.canmove++; return realCanmove(dir); };
+  nav.focus = function (el) { calls.focus++; return realFocus(el); };
+  nav.move = function (dir) { calls.move++; return realMove(dir); };
+
+  ctrl.down();
+
+  assert.equal(calls.canmove, 1, 'соседа ищем ровно один раз');
+  assert.equal(calls.focus, 1, 'и сразу ставим фокус на найденный узел');
+  assert.equal(calls.move, 0, 'второго прохода navigate по всей коллекции нет');
+  assert.ok(s.env.log.focuses[s.env.log.focuses.length - 1].hasClass('lumen-tile'), 'фокус при этом реально переехал');
+});
+
+test('Task 33: сборка Lampa без Navigator.focus — шаг делает move (страховка)', function () {
+  var s = openHub();
+  s.comp.start();
+  var ctrl = s.env.log.controllers.content;
+  ctrl.toggle();
+  var nav = s.env.nav;
+  var realFocus = nav.focus;
+  var moves = 0;
+  /* Ровно тот случай, ради которого ветка и оставлена: canmove есть, focus
+     нет. Фокус внутри move ставим в обход подменённого свойства. */
+  nav.focus = null;
+  nav.move = function (dir) {
+    moves++;
+    var n = nav.target(dir);
+    if (n < 0) return false;
+    realFocus(nav.collection[n]);
+    return true;
+  };
+
+  ctrl.down();
+
+  assert.equal(moves, 1, 'шаг всё равно сделан');
+  assert.ok(s.env.log.focuses[s.env.log.focuses.length - 1].hasClass('lumen-tile'));
 });
 
 /* Task 27: первым .selector экрана стала кнопка поиска в шапке, а вход
@@ -1093,6 +1173,97 @@ test('Task 20: подсказка выключена — обычный пуст
   assert.equal(g.root.all('lumen-grid__empty-text').length, 1, 'экран всё равно не пустой');
   assert.equal(g.root.all('lumen-grid__hide').length, 0, 'прятать нечего — подсказки нет');
   assert.equal(g.root.all('lumen-grid__back').length, 1, '«Назад» остаётся единственным .selector');
+});
+
+/* ---------------------------------------------------------------------- */
+/* Task 33: окно коллекции в сетке.                                        */
+/* ---------------------------------------------------------------------- */
+
+/* Сетка со 120 карточками и фокусом на 80-й. */
+function openWideGrid() {
+  var g = openGrid(DISCOVER);
+  g.h.fetchCalls[0].ok({ results: results(120), page: 1, total_pages: 1, total_results: 120 });
+  g.comp.start();
+  g.cards = g.root.all('lumen-gcard');
+  g.chips = g.root.all('lumen-chip');
+  return g;
+}
+
+/* Фокус на карточке index и пересборка коллекции вокруг неё. */
+function focusCard(g, index) {
+  fire(g.cards[index], 'hover:focus');
+  g.env.log.controllers.content.toggle();
+  return g.env.log.collections[g.env.log.collections.length - 1];
+}
+
+test('Task 33: в коллекцию Navigator едет окно карточек, а не весь список', function () {
+  var g = openWideGrid();
+  assert.equal(g.cards.length, 120);
+  assert.equal(g.chips.length, 3, 'чипов сортировки три — они и есть постоянная часть коллекции');
+
+  var collection = focusCard(g, 80);
+
+  /* Границы как у штатной limit(): slice(active - 36, active + 36),
+     то есть карточки 44..115 включительно (app.min.js:53157). */
+  assert.equal(collection.length, 3 + 72, 'три чипа плюс 72 карточки окна');
+  assert.equal(collection[0], g.chips[0], 'чипы сортировки идут первыми и в коллекции всегда');
+  assert.equal(collection[3], g.cards[44], 'нижняя граница окна');
+  assert.equal(collection[collection.length - 1], g.cards[115], 'верхняя граница окна');
+  assert.equal(collection.indexOf(g.cards[43]), -1, 'карточка за нижней границей в коллекцию не попала');
+  assert.equal(collection.indexOf(g.cards[116]), -1, 'и за верхней тоже');
+});
+
+test('Task 33: окно у начала списка не уходит в минус', function () {
+  var g = openWideGrid();
+  var collection = focusCard(g, 2);
+  /* slice(Math.max(0, 2 - 36), 2 + 36) — слева обрезано нулём, справа окно
+     полное: карточки 0..37. */
+  assert.equal(collection.length, 3 + 38);
+  assert.equal(collection[3], g.cards[0]);
+  assert.equal(collection[collection.length - 1], g.cards[37]);
+});
+
+test('Task 33: карточки вне окна просмотра теряют layer--render, внутри — получают', function () {
+  var g = openWideGrid();
+  /* Штатный шаблон карточки Lampa приходит с этим классом (app.min.js:2510),
+     поэтому содержательна прежде всего потеря. */
+  assert.equal(g.cards[0].hasClass('layer--render'), true, 'до окна класс стоял у всех');
+
+  focusCard(g, 80);
+
+  assert.equal(g.cards[80].hasClass('layer--render'), true, 'сама карточка под фокусом');
+  assert.equal(g.cards[68].hasClass('layer--render'), true, 'нижняя граница окна просмотра');
+  assert.equal(g.cards[67].hasClass('layer--render'), false, 'на шаг ниже — уже нет');
+  assert.equal(g.cards[91].hasClass('layer--render'), true, 'верхняя граница окна просмотра');
+  assert.equal(g.cards[92].hasClass('layer--render'), false, 'на шаг выше — уже нет');
+  assert.equal(g.cards[0].hasClass('layer--render'), false);
+
+  focusCard(g, 0);
+  assert.equal(g.cards[0].hasClass('layer--render'), true, 'окно вернулось — класс тоже');
+  assert.equal(g.cards[80].hasClass('layer--render'), false);
+});
+
+test('Task 33: шаг вверх двигает окно назад — подняться со дна списка можно до самого верха', function () {
+  var g = openWideGrid();
+  focusCard(g, 80);
+  var ctrl = g.env.log.controllers.content;
+  /* Шесть колонок: тринадцать шагов вверх — это 78 карточек, больше окна
+     навигации. Без пересчёта окна на «вверх» фокус упёрся бы в 44-ю. */
+  for (var i = 0; i < 13; i++) ctrl.up();
+  var focused = g.env.log.focuses[g.env.log.focuses.length - 1];
+  assert.ok(focused.card_data, 'фокус всё ещё на карточке');
+  assert.equal(focused.card_data.id, 2, 'дошли до первой строки, окно ехало следом');
+});
+
+test('Task 33: на пустой сетке кнопки остаются в коллекции', function () {
+  var g = openGrid(DISCOVER);
+  g.h.fetchCalls[0].ok({ results: [], page: 1, total_pages: 1, total_results: 0 });
+  g.comp.start();
+  var ctrl = g.env.log.controllers.content;
+  ctrl.toggle();
+  var collection = g.env.log.collections[g.env.log.collections.length - 1];
+  var back = g.root.all('lumen-grid__back')[0];
+  assert.ok(collection.indexOf(back) >= 0, 'кнопка «Назад» достижима, хотя карточкой не является');
 });
 
 test('lumen_grid: destroy гасит запрос, скролл и DOM', function () {

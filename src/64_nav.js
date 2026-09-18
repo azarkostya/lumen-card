@@ -75,8 +75,13 @@
        не включается (проверено живьём 2026-09-17: четыре нажатия с паузой
        450 мс дали ровно четыре шага). */
     var FAST_GAP = 350;
-    /* Дополнительных шагов на каждое штатное событие — итого ×3. */
-    var FAST_EXTRA = 2;
+    /* Дополнительных шагов на каждое штатное событие — итого ×2.
+       Task 33: было два (×3). Каждый шаг — это полный проход Navigator по
+       коллекции экрана с getBoundingClientRect на каждом её узле
+       (vendor/lampa/vender/navigator/navigator.js:786 navigate ->
+       :268 _getAllRects -> :217 _getRect), и на слабом ТВ утроение этой
+       работы при удержании стрелки и есть то, что видно как торможение. */
+    var FAST_EXTRA = 1;
 
     /* Прыжок по CH+/CH-. */
     var JUMP_STEPS = 10;
@@ -287,6 +292,12 @@
 
     function fastOn() {
       try { return LC.pref('lumen_fastscroll', true) !== false; } catch (e) { return false; }
+    }
+
+    /* Режим анимаций (LC.motionMode, src/81_prefs.js): 'full' | 'lite' | 'off'.
+       Читаем в момент вызова — настройку меняют на ходу. */
+    function motionMode() {
+      try { return LC.motionMode(); } catch (e) { return 'full'; }
     }
 
     function lang(key) {
@@ -542,6 +553,9 @@
     function onHorizontal(state, dir) {
       if (!state.fast) return;
       if (!fastOn()) return;
+      /* Task 33: в режиме «без анимаций» пользователь прямо попросил
+         минимум движения — лишних шагов ему не добавляем. */
+      if (motionMode() === 'off') return;
       if (!onCards()) return;
       for (var i = 0; i < FAST_EXTRA; i++) move(dir);
       schedulePaint(true);
