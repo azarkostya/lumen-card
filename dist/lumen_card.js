@@ -6594,28 +6594,95 @@ return false;
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 var VIEW_WINDOW = 12;
 var NAV_WINDOW = 36;
+
+
+var lastNodes = null;
+var lastLen = -1;
+var lastViewFrom = -1;
+var lastViewTo = -1;
+var lastNavFrom = -1;
+var lastNavTo = -1;
 
 function limitCollection(fixed, nodes, active) {
 try {
 var from = active > 0 ? active : 0;
+var len = nodes.length;
+var viewFrom = Math.max(0, from - VIEW_WINDOW);
+var viewTo = Math.min(len, from + VIEW_WINDOW);
+var navFrom = Math.max(0, from - NAV_WINDOW);
+var navTo = Math.min(len, from + NAV_WINDOW);
+var known = nodes === lastNodes && len === lastLen;
 var i;
-for (i = 0; i < nodes.length; i++) {
 
 
-if (i >= from - VIEW_WINDOW && i < from + VIEW_WINDOW) nodes[i].classList.add('layer--render');
+
+
+
+
+
+if (!known) {
+for (i = 0; i < len; i++) {
+if (i >= viewFrom && i < viewTo) nodes[i].classList.add('layer--render');
 else nodes[i].classList.remove('layer--render');
 }
+} else if (viewFrom !== lastViewFrom || viewTo !== lastViewTo) {
+for (i = lastViewFrom; i < lastViewTo; i++) {
+if (i < viewFrom || i >= viewTo) nodes[i].classList.remove('layer--render');
+}
+for (i = viewFrom; i < viewTo; i++) {
+if (i < lastViewFrom || i >= lastViewTo) nodes[i].classList.add('layer--render');
+}
+}
+lastNodes = nodes;
+lastLen = len;
+lastViewFrom = viewFrom;
+lastViewTo = viewTo;
+
 if (!window.Navigator || typeof Navigator.setCollection !== 'function') return;
+
+
+
+if (known && navFrom === lastNavFrom && navTo === lastNavTo) return;
+lastNavFrom = navFrom;
+lastNavTo = navTo;
+
 var keep = typeof Navigator.getFocusedElement === 'function' ? Navigator.getFocusedElement() : null;
-var collection = fixed.concat(nodes.slice(Math.max(0, from - NAV_WINDOW), from + NAV_WINDOW));
+var collection = fixed.concat(nodes.slice(navFrom, navTo));
+
+
+
+
+
+
+
+
+if (keep && collection.indexOf(keep) < 0) collection.push(keep);
 Navigator.setCollection(collection);
 
 
 
 
-if (keep && typeof Navigator.focused === 'function' && collection.indexOf(keep) >= 0) Navigator.focused(keep);
+if (keep && typeof Navigator.focused === 'function') Navigator.focused(keep);
 } catch (e) {
 warn('hub: collection window failed', e);
 }
@@ -7119,6 +7186,8 @@ var resumeAfterStop = null;
 var raw = [];
 var cardNodes = [];
 var sortNodes = [];
+
+
 
 
 

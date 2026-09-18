@@ -457,31 +457,98 @@
        сетки, но экономии сам по себе не даёт: во всей сборке Lampa 3.3.4
        его упоминают только шаблоны (app.min.js:2508-2722) и та же limit
        (app.min.js:53152-53154), а в vendor/lampa/css/app.css правил под
-       него нет — то есть это совместимость с темами, читающими класс.
+       него нет — то есть это совместимость с темами, читающими класс. На
+       карточках сетки класс штатный, он приходит из шаблона 'card'
+       (app.min.js:2510), а на плитках хаба .lumen-tile появляется впервые:
+       разметка наша, и раньше его там не было. Вида это не меняет — правил
+       под него нет ни в нашем CSS, ни в CSS Lampa.
        fixed — узлы, которые в коллекции всегда (чипы, кнопки шапки): они
-       лежат вне окна карточек, но обязаны оставаться достижимыми. */
+       лежат вне окна карточек, но обязаны оставаться достижимыми.
+
+       Работа делается только тогда, когда окно реально сдвинулось. Штатная
+       Lampa зовёт limit() не на нажатие, а на прокрутку (app.min.js:53172,
+       scroll.onScroll = this.limit.bind(this)), у нас же вызов на каждый
+       шаг фокуса — и без этого хаб платил бы за пустую пересборку: при 34
+       плитках окно ±36 не режет ничего, а setCollection -> multiAdd -> add
+       (navigator.js:584-603) стоит indexOf по растущей коллекции на каждый
+       узел, то есть O(n²). Замер координатора: медиана нажатия в хабе
+       выросла с 1.2 до 1.6 мс.
+       Кэш держится на самих списках: везде, где список пересобирают
+       (rebuild, showEmpty, buildTiles, loadPage), заводится НОВЫЙ массив, а
+       догрузка страницы пишет в прежний, меняя длину, — поэтому сверки
+       «та же ссылка и та же длина» хватает, и отдельный сброс в каждом из
+       этих мест не нужен (тест «перестройка списка кэш не обманывает»). */
     var VIEW_WINDOW = 12;
     var NAV_WINDOW = 36;
+
+    /* Последнее выставленное окно: список, его длина и границы обоих окон. */
+    var lastNodes = null;
+    var lastLen = -1;
+    var lastViewFrom = -1;
+    var lastViewTo = -1;
+    var lastNavFrom = -1;
+    var lastNavTo = -1;
 
     function limitCollection(fixed, nodes, active) {
       try {
         var from = active > 0 ? active : 0;
+        var len = nodes.length;
+        var viewFrom = Math.max(0, from - VIEW_WINDOW);
+        var viewTo = Math.min(len, from + VIEW_WINDOW);
+        var navFrom = Math.max(0, from - NAV_WINDOW);
+        var navTo = Math.min(len, from + NAV_WINDOW);
+        var known = nodes === lastNodes && len === lastLen;
         var i;
-        for (i = 0; i < nodes.length; i++) {
-          /* classList.toggle со вторым аргументом старые WebView не знают —
-             только add/remove. */
-          if (i >= from - VIEW_WINDOW && i < from + VIEW_WINDOW) nodes[i].classList.add('layer--render');
-          else nodes[i].classList.remove('layer--render');
+
+        /* layer--render: трогаем только тех, кто вышел из окна просмотра, и
+           тех, кто в него вошёл. Проход по всему списку стоил бы на сетке
+           три сотни обращений к classList на нажатие — ради класса, который
+           сам по себе ничего не решает (см. выше).
+           classList.toggle со вторым аргументом старые WebView не знают,
+           поэтому явные add/remove. */
+        if (!known) {
+          for (i = 0; i < len; i++) {
+            if (i >= viewFrom && i < viewTo) nodes[i].classList.add('layer--render');
+            else nodes[i].classList.remove('layer--render');
+          }
+        } else if (viewFrom !== lastViewFrom || viewTo !== lastViewTo) {
+          for (i = lastViewFrom; i < lastViewTo; i++) {
+            if (i < viewFrom || i >= viewTo) nodes[i].classList.remove('layer--render');
+          }
+          for (i = viewFrom; i < viewTo; i++) {
+            if (i < lastViewFrom || i >= lastViewTo) nodes[i].classList.add('layer--render');
+          }
         }
+        lastNodes = nodes;
+        lastLen = len;
+        lastViewFrom = viewFrom;
+        lastViewTo = viewTo;
+
         if (!window.Navigator || typeof Navigator.setCollection !== 'function') return;
+        /* Окно навигации не сдвинулось — у Navigator уже ровно та коллекция,
+           которая нужна, и пересобирать нечего. Так живёт хаб: границы там
+           упираются в концы короткого списка и не меняются никогда. */
+        if (known && navFrom === lastNavFrom && navTo === lastNavTo) return;
+        lastNavFrom = navFrom;
+        lastNavTo = navTo;
+
         var keep = typeof Navigator.getFocusedElement === 'function' ? Navigator.getFocusedElement() : null;
-        var collection = fixed.concat(nodes.slice(Math.max(0, from - NAV_WINDOW), from + NAV_WINDOW));
+        var collection = fixed.concat(nodes.slice(navFrom, navTo));
+        /* Узел под фокусом возвращаем в коллекцию всегда, даже если окно до
+           него не достаёт. Иначе _focus остался бы пустым, а класс .focus на
+           узле — на месте (снимает его только clearSelects, которого мы
+           больше не зовём): экран выглядел бы живым, а пульт бы умер —
+           canmove без _focus отдаёт false (navigator.js:762-763). Второй
+           вариант, «перевести фокус на первый узел коллекции», хуже: он
+           телепортирует пользователя и шлёт узлу hover:focus, а на том висят
+           подкрутка экрана и догрузка. */
+        if (keep && collection.indexOf(keep) < 0) collection.push(keep);
         Navigator.setCollection(collection);
         /* setCollection снимает фокус (navigator.js:568-574 -> unfocus), а
            узел под фокусом здесь не менялся и события фокуса не нужны:
            возвращаем _focus тем же способом, что и штатная limit, —
            Navigator.focused (navigator.js:640-642) пишет его напрямую. */
-        if (keep && typeof Navigator.focused === 'function' && collection.indexOf(keep) >= 0) Navigator.focused(keep);
+        if (keep && typeof Navigator.focused === 'function') Navigator.focused(keep);
       } catch (e) {
         warn('hub: collection window failed', e);
       }
@@ -986,8 +1053,10 @@
       var cardNodes = [];
       var sortNodes = [];
       /* Кнопки пустой сетки («Назад», «Скрыть подсказку»). Карточками они не
-         являются, а в коллекции Navigator быть обязаны — иначе на пустой
-         сетке не останется ни одного достижимого узла (Task 33). */
+         являются, а в коллекции Navigator быть обязаны: окно строится по
+         cardNodes, и без этого списка недостижимой стала бы кнопка «Назад».
+         Чипы сортировки на пустой сетке остаются в любом случае — create()
+         заводит их до первого ответа, и в fixed они всегда. Task 33. */
       var emptyNodes = [];
       var lastFocus = null;
       /* id карточки под фокусом: список могут пересобрать (сортировка на

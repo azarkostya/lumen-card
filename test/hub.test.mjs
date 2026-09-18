@@ -382,8 +382,9 @@ function setupLampa(opts) {
     controllers: {},
     toggles: [],
     focuses: [],
-    /* Task 33: сколько раз Navigator просили найти соседа заново и какие
-       коллекции ему выставляли. */
+    /* Task 33: сколько раз звали Navigator.move — то есть второй проход
+       navigate по всей коллекции, которого после Task 33 быть не должно;
+       и какие коллекции выставляли Navigator напрямую. */
     moves: 0,
     collections: [],
     menuButtons: [],
@@ -479,7 +480,12 @@ function setupLampa(opts) {
     Controller: {
       add: function (name, ctrl) { log.controllers[name] = ctrl; },
       toggle: function (name) { log.toggles.push(name); },
-      collectionSet: function (root) { nav.collection = root.all('selector'); nav.index = -1; },
+      /* Task 33: коллекцию экраны плагина выставляют окном сами. Вызов
+         collectionSet отдал бы Navigator все .selector узла разом — это и
+         есть тот регресс, который тест обязан поймать по имени. */
+      collectionSet: function () {
+        assert.fail('collectionSet отдал бы Navigator все .selector — окно Task 33 потеряно');
+      },
       collectionFocus: function (node) {
         if (node && nav.collection.indexOf(node) >= 0) nav.focus(node);
         else if (nav.collection.length) nav.focus(nav.collection[0]);
@@ -716,20 +722,37 @@ test('Task 33: шаг по экрану — один проход Navigator: can
   var ctrl = s.env.log.controllers.content;
   ctrl.toggle();
   var nav = s.env.nav;
-  var calls = { canmove: 0, focus: 0, move: 0 };
+  var calls = { canmove: 0, focus: 0 };
   var realCanmove = nav.canmove;
   var realFocus = nav.focus;
-  var realMove = nav.move;
   nav.canmove = function (dir) { calls.canmove++; return realCanmove(dir); };
   nav.focus = function (el) { calls.focus++; return realFocus(el); };
-  nav.move = function (dir) { calls.move++; return realMove(dir); };
+  s.env.log.moves = 0;
 
   ctrl.down();
 
   assert.equal(calls.canmove, 1, 'соседа ищем ровно один раз');
   assert.equal(calls.focus, 1, 'и сразу ставим фокус на найденный узел');
-  assert.equal(calls.move, 0, 'второго прохода navigate по всей коллекции нет');
+  assert.equal(s.env.log.moves, 0, 'второго прохода navigate по всей коллекции нет');
   assert.ok(s.env.log.focuses[s.env.log.focuses.length - 1].hasClass('lumen-tile'), 'фокус при этом реально переехал');
+});
+
+test('Task 33: окно, которое ничего не режет, коллекцию не пересобирает', function () {
+  var s = openHub();
+  s.comp.start();
+  var ctrl = s.env.log.controllers.content;
+  ctrl.toggle();
+  var before = s.env.log.collections.length;
+  assert.equal(before, 1, 'вход в экран коллекцию выставил');
+
+  ctrl.down();
+  ctrl.up();
+  ctrl.right();
+
+  /* Плиток меньше окна навигации, границы упираются в концы списка и не
+     меняются — пересобирать коллекцию не за чем. Без этого каждый шаг стоил
+     бы setCollection -> multiAdd -> add с indexOf на каждый узел. */
+  assert.equal(s.env.log.collections.length, before, 'шаг фокуса лишнего setCollection не делает');
 });
 
 test('Task 33: сборка Lampa без Navigator.focus — шаг делает move (страховка)', function () {
@@ -1253,6 +1276,64 @@ test('Task 33: шаг вверх двигает окно назад — подн
   var focused = g.env.log.focuses[g.env.log.focuses.length - 1];
   assert.ok(focused.card_data, 'фокус всё ещё на карточке');
   assert.equal(focused.card_data.id, 2, 'дошли до первой строки, окно ехало следом');
+});
+
+test('Task 33: узел под фокусом попадает в коллекцию, даже когда окно до него не достаёт', function () {
+  var g = openWideGrid();
+  focusCard(g, 80);
+  assert.equal(g.env.nav.getFocusedElement(), g.cards[80], 'Navigator держит 80-ю');
+
+  /* Уводим lastFocus в начало списка, не трогая _focus самого Navigator —
+     ровно та рассинхронизация, при которой окно построится вокруг одного
+     узла, а фокус будет стоять на другом. */
+  fire(g.cards[0], 'hover:focus');
+  g.env.log.controllers.content.toggle();
+
+  var collection = g.env.log.collections[g.env.log.collections.length - 1];
+  assert.equal(collection.indexOf(g.cards[36]), -1, 'окно встало на начало списка');
+  assert.ok(collection.indexOf(g.cards[80]) >= 0, 'но узел под фокусом в коллекцию дописан');
+  assert.equal(g.env.nav.getFocusedElement(), g.cards[0], 'а фокус дальше переставил collectionFocus');
+});
+
+test('Task 33: перестройка списка кэш окна не обманывает', function () {
+  var g = openGrid(COLLECTION);
+  g.h.fetchCalls[0].ok({ results: results(120), page: 1, total_pages: 1, total_results: 120 });
+  g.comp.start();
+  g.env.log.controllers.content.toggle();
+  var oldCards = g.root.all('lumen-gcard');
+
+  /* Сортировка на месте: список пересобран целиком, узлы новые. */
+  fire(g.root.all('lumen-chip')[1], 'hover:enter');
+
+  var newCards = g.root.all('lumen-gcard');
+  var collection = g.env.log.collections[g.env.log.collections.length - 1];
+  assert.notEqual(newCards[0], oldCards[0], 'узлы действительно новые');
+  assert.ok(collection.indexOf(newCards[0]) >= 0, 'в коллекции новые узлы');
+  assert.equal(collection.indexOf(oldCards[0]), -1, 'старых в ней нет');
+});
+
+test('Task 33: догрузка страницы в тот же список окно обновляет', function () {
+  var g = openGrid(DISCOVER);
+  g.h.fetchCalls[0].ok({ results: results(12), page: 1, total_pages: 2, total_results: 24 });
+  g.comp.start();
+  var ctrl = g.env.log.controllers.content;
+  ctrl.toggle();
+  ctrl.down();
+  ctrl.down();
+  assert.equal(g.h.fetchCalls.length, 2, 'на последней строке ушла вторая страница');
+
+  /* Список тот же массив, но длиннее — кэш обязан это заметить. */
+  g.h.fetchCalls[1].ok({ results: results(12, 100), page: 2, total_pages: 2, total_results: 24 });
+
+  var cards = g.root.all('lumen-gcard');
+  assert.equal(cards.length, 24);
+  var collection = g.env.log.collections[g.env.log.collections.length - 1];
+  assert.ok(collection.indexOf(cards[23]) >= 0, 'карточка дописанной страницы в коллекции есть');
+  /* Фокус стоит на 9-й, окно просмотра — [0, 21). Карточки приходят из
+     штатного шаблона Lampa уже с layer--render, и дальние обязаны его
+     потерять: длина списка выросла, значит окно пересчитывается заново. */
+  assert.equal(cards[20].hasClass('layer--render'), true, 'у края окна класс есть');
+  assert.equal(cards[23].hasClass('layer--render'), false, 'за окном — снят');
 });
 
 test('Task 33: на пустой сетке кнопки остаются в коллекции', function () {
