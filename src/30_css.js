@@ -157,12 +157,20 @@
     p.bgRgb = hexToRgb(p.bg);
     p.textRgb = hexToRgb(p.text);
     p.panelRgb = hexToRgb(p.panel);
-    /* Тёмная карта чипов/рейтингов и заливка кнопок — те же .78/.82 от цвета
-       панели, что были литералами C.chipBg/C.buttonBg. Плотный вариант: чип
-       становится самой панелью, кнопка — приподнятой панелью, чтобы ряд
-       кнопок не слился с чипами рейтингов. */
-    p.chipBg = solid ? p.panel : 'rgba(' + p.panelRgb + ',.78)';
-    p.buttonBg = solid ? p.panelHi : 'rgba(' + p.panelRgb + ',.82)';
+    /* Заливка чипов, рейтингов и кнопок.
+
+       Task 43: прозрачный ТЕКСТ поверх фона вместо прозрачной ПАНЕЛИ (было
+       .78/.82 от цвета панели). Разница видна ровно там, ради чего снимали
+       рамки: панель тёплой темы (#1C1613) и её же страница (#0B0908)
+       расходятся на 17 единиц из 255, и без рамки чип переставал читаться
+       как отдельный элемент — отсюда рамки и брались. Светлая вуаль
+       отделяет чип сама, и работает она одинаково в обеих темах, потому
+       что считается от цвета текста самой темы.
+       Плотный вариант («Плотные подложки») остаётся сплошным: чип — сама
+       панель, кнопка — приподнятая панель, чтобы ряд кнопок не слился с
+       чипами рейтингов. */
+    p.chipBg = solid ? p.panel : 'rgba(' + p.textRgb + ',.12)';
+    p.buttonBg = solid ? p.panelHi : 'rgba(' + p.textRgb + ',.12)';
     /* Подложки блоков ряда описания (описание, «ПОДРОБНО», заголовок отзывов):
        цвет страницы с прозрачностью .85 — над тёмной областью кадра их почти
        не видно, над светлой они работают как плотная подложка. */
@@ -505,29 +513,35 @@
      (src/48_hero.js, LOGO_EM). */
   LC.uiScale = scaleFactor;
 
-  /* Правка пользователя 2026-09-16 (п.6, настройка «Шрифт»): пять пар
-     «текстовая гарнитура + моноширинная к ней». Заголовочная Unbounded общая
-     для всех пар — это фирменный знак карточки; меняется то, что читают:
-     текст и цифры. Все гарнитуры есть на Google Fonts — CSP плагина другого
-     источника не пропустит. Пара, а не одна гарнитура, потому что моно
-     остаётся на таймкодах и счётчиках, и семейство IBM Plex логично тянет за
-     собой свой же моно; остальным парам JetBrains Mono подходит нейтрально.
-     bodyW/monoW — начертания, которые реально используются в стилях
-     (400/500/600 у текста, 400/600 у моно): лишние веса — лишние килобайты
-     на ТВ. */
+  /* Настройка «Шрифт»: пять гарнитур, все с Google Fonts — CSP плагина
+     другого источника не пропустит.
+
+     Task 43 (пользователь на Philips 50PUS8057 2026-09-18: интерфейс
+     выглядит «колхозно», ориентир — Apple TV+ и Netflix): на экране живёт
+     ОДНА гарнитура. Прежде их было три разом — заголовочная Unbounded,
+     текстовая и моноширинная к ней; три рисунка букв в одном кадре и
+     читались как «собрано из чего было». Поэтому набор из пары стал одним
+     именем, а заголовки, мета, таймкоды и счётчики берут тот же стек, что
+     остальной текст.
+
+     Ключи наборов (golos/onest/...) НЕ меняются: это значения, уже
+     записанные в Storage у тех, кто менял шрифт, и настройка обязана их
+     понимать по-прежнему.
+
+     weights — начертания, которые реально стоят в стилях; лишний вес это
+     лишние килобайты на ТВ, а НЕдостающий хуже вдвойне: браузер синтезирует
+     псевдожирность, и на 1080p она выглядит грязно. Список стережёт тест
+     «все веса, что стоят в стилях». */
   var FONT_SETS = {
-    golos: { body: 'Golos Text', bodyW: '400;500;600', mono: 'JetBrains Mono', monoW: '400;600' },
-    onest: { body: 'Onest', bodyW: '400;500;600', mono: 'JetBrains Mono', monoW: '400;600' },
-    manrope: { body: 'Manrope', bodyW: '400;500;600', mono: 'JetBrains Mono', monoW: '400;600' },
-    inter: { body: 'Inter', bodyW: '400;500;600', mono: 'JetBrains Mono', monoW: '400;600' },
-    plex: { body: 'IBM Plex Sans', bodyW: '400;500;600', mono: 'IBM Plex Mono', monoW: '400;600' }
+    golos: { body: 'Golos Text', weights: '400;500;600;700' },
+    onest: { body: 'Onest', weights: '400;500;600;700' },
+    manrope: { body: 'Manrope', weights: '400;500;600;700' },
+    inter: { body: 'Inter', weights: '400;500;600;700' },
+    plex: { body: 'IBM Plex Sans', weights: '400;500;600;700' }
   };
   var FONT_DEFAULT = 'golos';
 
-  var FONT_DISPLAY_ON = '"Unbounded","Arial Black",Impact,sans-serif';
-  var FONT_DISPLAY_OFF = '"Arial Black",Impact,sans-serif';
   var FONT_BODY_OFF = 'inherit';
-  var FONT_MONO_OFF = 'Consolas,"Courier New",monospace';
 
   /* Незнакомое значение (старый профиль, битый Storage) — набор по умолчанию,
      ровно как LC.prefs.boolOf не превращает мусор в «ложь». */
@@ -539,18 +553,12 @@
     return '"' + set.body + '","Segoe UI",Roboto,Arial,sans-serif';
   }
 
-  function monoStack(set) {
-    return '"' + set.mono + '",Consolas,"Courier New",monospace';
-  }
-
-  /* Адрес <link> Google Fonts под выбранную пару: грузится ровно то, что
-     используется (Unbounded + пара), а не все пять гарнитур сразу. */
+  /* Адрес <link> Google Fonts под выбранную гарнитуру: грузится ровно она
+     одна, а не все пять сразу. */
   LC.fontsUrl = function () {
     var set = fontSet();
-    return 'https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800' +
-      '&family=' + set.body.replace(/ /g, '+') + ':wght@' + set.bodyW +
-      '&family=' + set.mono.replace(/ /g, '+') + ':wght@' + set.monoW +
-      '&display=swap';
+    return 'https://fonts.googleapis.com/css2?family=' + set.body.replace(/ /g, '+') +
+      ':wght@' + set.weights + '&display=swap';
   };
 
   /* Task 24 (фаза 3): пока открыта карточка с включённой настройкой
@@ -591,9 +599,10 @@
       spice: P.spice, dark: P.dark,
       panelHi: P.panelHi, panelLo: P.panelLo, raised: P.raised, textRgb: P.textRgb, bgRgb: P.bgRgb,
       accent: t.color, accentRgb: hexToRgb(t.color), onac: t.onac, ring: t.light, acglow: t.glow,
-      fontDisplay: fonts ? FONT_DISPLAY_ON : FONT_DISPLAY_OFF,
-      fontBody: fonts ? bodyStack(set) : FONT_BODY_OFF,
-      fontMono: fonts ? monoStack(set) : FONT_MONO_OFF
+      /* Task 43: стек ровно один. Прежние fontDisplay/fontMono сняты вместе
+         с заголовочной и моноширинной гарнитурами — экраны пути
+         (src/65_torrents.js) берут отсюда тот же fontBody, что и карточка. */
+      fontBody: fonts ? bodyStack(set) : FONT_BODY_OFF
     };
   };
 
@@ -608,9 +617,7 @@
     var A_RGB = hexToRgb(A);
     var fonts = useFonts();
     var set = fontSet();
-    var FD = fonts ? FONT_DISPLAY_ON : FONT_DISPLAY_OFF;
     var FB = fonts ? bodyStack(set) : FONT_BODY_OFF;
-    var FM = fonts ? monoStack(set) : FONT_MONO_OFF;
 
     var css = [];
 
@@ -744,7 +751,7 @@
     css.push('.lumen-card.lumen-card--poster .full-start-new__left{display:block !important;-webkit-box-ordinal-group:2;-webkit-order:1;order:1;-webkit-align-self:flex-start;-ms-flex-item-align:start;align-self:flex-start;-webkit-flex-shrink:0;flex-shrink:0;width:16.66em;margin:6.14em 0 0 2.63em}');
     css.push('.lumen-card.lumen-card--poster .full-start-new__poster{border-radius:.61em;overflow:hidden;background:' + P.gradPoster + ';border:.04em solid ' + P.line + ';box-shadow:0 .35em .8em rgba(0,0,0,.6)}');
     css.push('.lumen-card.lumen-card--poster .full-start-new__img{border-radius:.61em}');
-    css.push('.lumen-card.lumen-card--poster .lumen-poster-tmdb{position:absolute;left:0;right:0;bottom:0;padding:0 1.05em 1.05em;font-family:' + FD + ';font-weight:600;font-size:.88em;line-height:1.3;color:' + P.smoke + '}');
+    css.push('.lumen-card.lumen-card--poster .lumen-poster-tmdb{position:absolute;left:0;right:0;bottom:0;padding:0 1.05em 1.05em;font-family:' + FB + ';font-weight:600;font-size:.88em;line-height:1.3;color:' + P.smoke + '}');
     css.push('.lumen-card .full-start-new__body{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:end;-webkit-align-items:flex-end;align-items:flex-end;min-height:74vh}');
     css.push('.lumen-card .full-start-new__right{-webkit-box-flex:1;-webkit-flex-grow:1;flex-grow:1;min-width:0}');
     /* Правка пользователя 2026-09-16 (п.1): боковой колонки .lumen-side больше
@@ -775,10 +782,17 @@
     css.push('.lumen-card .lumen-meta > *{margin:0 .53em .2em 0}');
     css.push('.lumen-card .lumen-meta__sep{color:' + P.line + '}');
 
-    /* --- Заголовок (design-spec §3: 88px, line-height 1.02, letter-spacing -.015em;
-       .lumen-title--long меняет только line-clamp — кегль не уменьшается, как на
-       экране 01; заменяет разбор по нативному .twolines из v1) --- */
-    css.push('.lumen-card .full-start-new__title{font-family:' + FD + ';font-size:3.86em;font-weight:800;line-height:1.02;letter-spacing:-.015em;margin:.70em 0 0 -.02em}');
+    /* --- Заголовок (design-spec §3: line-height 1.02; .lumen-title--long
+       меняет только line-clamp — кегль не уменьшается, как на экране 01;
+       заменяет разбор по нативному .twolines из v1) ---
+       Task 43: 88px и вес 800 из §3 задавались под заголовочную гарнитуру,
+       которой в плагине больше нет (см. FONT_SETS выше) — на текстовой
+       название такого кегля перевешивало весь остальной экран. Теперь
+       73px (3.2em) и вес 700, ровно тот же, что у всех прочих заголовков.
+       Отрицательная разрядка усилена с -.015em до -.02em: она задана в em,
+       то есть растёт вместе с кеглем, и на самом крупном тексте плагина
+       просветы между буквами шире, чем везде. */
+    css.push('.lumen-card .full-start-new__title{font-family:' + FB + ';font-size:3.2em;font-weight:700;line-height:1.02;letter-spacing:-.02em;margin:.70em 0 0 -.02em}');
     /* Ревью Task 5a: line-clamp не работает без полной тройки display/box-orient/
        overflow (иначе длинный заголовок не обрезается многоточием вовсе). */
     css.push('.lumen-card .full-start-new__title.lumen-title--long{display:-webkit-box;-webkit-box-orient:vertical;overflow:hidden;-webkit-line-clamp:2;line-clamp:2}');
@@ -796,11 +810,11 @@
        start_new.scss) — обычной специфичностью её не перебить, только другим
        !important. */
     css.push('.lumen-card .full-start-new__rate-line > *{margin:0 .53em .53em 0 !important}');
-    css.push('.lumen-card .full-start__rate{font-family:' + FM + ';background:' + P.chipBg + ';border:.04em solid ' + P.line + ';border-radius:.53em;padding:.44em .70em;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-orient:vertical;-webkit-flex-direction:column;flex-direction:column;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center}');
+    css.push('.lumen-card .full-start__rate{font-family:' + FB + ';background:' + P.chipBg + ';border-radius:.53em;padding:.44em .70em;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-orient:vertical;-webkit-flex-direction:column;flex-direction:column;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center}');
     css.push('.lumen-card .full-start__rate > div:first-child{display:block;width:auto;height:auto;background:transparent;border-radius:0;font-size:1.23em;font-weight:600;line-height:1;color:' + P.text + '}');
     css.push('.lumen-card .full-start__rate > div:last-child{font-size:.61em;letter-spacing:.1em;color:' + P.smoke + ';padding:.18em 0 0}');
     /* Чип «РЕАКЦИЙ» (fire) — та же геометрия что рейтинги, акцент «спайс», design-spec §5d/5f. */
-    css.push('.lumen-card .lumen-reactions-chip{font-family:' + FM + ';background:rgba(' + SPICE_RGB + ',.12);border:.04em solid rgba(' + SPICE_RGB + ',.5);border-radius:.53em;padding:.44em .70em;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-orient:vertical;-webkit-flex-direction:column;flex-direction:column;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center}');
+    css.push('.lumen-card .lumen-reactions-chip{font-family:' + FB + ';background:rgba(' + SPICE_RGB + ',.12);border:.04em solid rgba(' + SPICE_RGB + ',.5);border-radius:.53em;padding:.44em .70em;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-orient:vertical;-webkit-flex-direction:column;flex-direction:column;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center}');
     css.push('.lumen-card .lumen-reactions-chip__value{font-size:1.23em;font-weight:600;line-height:1;color:' + P.spice + '}');
     css.push('.lumen-card .lumen-reactions-chip__label{font-size:.61em;letter-spacing:.1em;opacity:.8;color:' + P.spice + ';padding:.18em 0 0}');
     /* Task 5c (design-spec §5e, экран 05): вместо штатного tag--episode (свой
@@ -816,12 +830,12 @@
        больше, поэтому оно выигрывает независимо от порядка. Порядок всё же
        соблюдён — правило сериала объявлено следующим. */
     css.push('.lumen-card .full-start-new__rate-line .full-start__status{display:none}');
-    css.push('.lumen-card .lumen-next-chip{font-family:' + FB + ';font-weight:500;font-size:.79em;line-height:1;color:' + P.text + ';background:' + P.chipBg + ';border:.05em solid ' + P.line + ';border-radius:.67em;padding:0 .89em;white-space:nowrap;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center}');
+    css.push('.lumen-card .lumen-next-chip{font-family:' + FB + ';font-weight:500;font-size:.79em;line-height:1;color:' + P.text + ';background:' + P.chipBg + ';border-radius:.67em;padding:0 .89em;white-space:nowrap;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center}');
     css.push('.lumen-card .lumen-next-chip:before{content:"";display:block;-webkit-flex-shrink:0;flex-shrink:0;width:1.22em;height:1.22em;margin-right:.56em;background-color:' + P.muted + ';-webkit-mask-image:' + LC.icons.maskUrl('clock') + ';mask-image:' + LC.icons.maskUrl('clock') + ';-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-size:contain;mask-size:contain}');
     /* Task 5c Step 2 (design-spec §8, экран 05): у сериала статус перенесён в
        ленту рейтингов (LC.header renderSerialMode) — там он карта с точкой той
        же геометрии, что чип следующей серии, а не пилюля боковой колонки. */
-    css.push('.lumen-card.lumen-card--serial .full-start-new__rate-line .full-start__status{font-family:' + FB + ';font-weight:500;font-size:.79em;line-height:1;letter-spacing:normal;text-transform:none;color:' + P.text + ';background:' + P.chipBg + ';border:.05em solid ' + P.line + ';border-radius:.67em;padding:0 .89em;white-space:nowrap;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center}');
+    css.push('.lumen-card.lumen-card--serial .full-start-new__rate-line .full-start__status{font-family:' + FB + ';font-weight:500;font-size:.79em;line-height:1;letter-spacing:normal;text-transform:none;color:' + P.text + ';background:' + P.chipBg + ';border:0;border-radius:.67em;padding:0 .89em;white-space:nowrap;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center}');
     css.push('.lumen-card.lumen-card--serial .full-start-new__rate-line .full-start__status:before{content:"";display:block;-webkit-flex-shrink:0;flex-shrink:0;width:.56em;height:.56em;border-radius:50%;background:currentColor;margin-right:.56em}');
 
     /* --- Продолжить (design-spec §6, экраны 01/05) ---
@@ -833,7 +847,7 @@
        узел убирается :empty — иначе у фильма остался бы зазор от __time.
        Числа §6: ширина 760px = 33.32em, кегль 18px = .79em, цвет muted,
        трекинг .04em, зазор до полосы 10px = .44em, полоса 4px/2px. */
-    css.push('.lumen-card .lumen-progress{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;-webkit-box-align:center;-webkit-align-items:center;align-items:center;width:33.32em;max-width:100%;margin-top:1.05em;font-family:' + FM + ';font-size:1em;color:' + P.muted + ';letter-spacing:.04em}');
+    css.push('.lumen-card .lumen-progress{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;-webkit-box-align:center;-webkit-align-items:center;align-items:center;width:33.32em;max-width:100%;margin-top:1.05em;font-family:' + FB + ';font-size:1em;color:' + P.muted + ';letter-spacing:.04em}');
     css.push('.lumen-card .lumen-progress__label{font-size:.79em;line-height:1;color:' + P.muted + '}');
     css.push('.lumen-card .lumen-progress__time{font-size:.79em;line-height:1;color:' + P.muted + ';margin-left:.35em}');
     css.push('.lumen-card .lumen-progress__label:empty,.lumen-card .lumen-progress__time:empty{display:none}');
@@ -863,7 +877,7 @@
        Task 38: box-shadow из списка переходов убран. Тень фокуса теперь просто
        появляется вместе с классом .focus: каждый кадр анимации тени — это
        перерисовка растра элемента, а кнопок в ряду 5-7. */
-    css.push('.lumen-card .full-start-new__buttons .full-start__button{font-size:1em;font-weight:600;height:3.16em;min-width:3.16em;padding:0 1.32em;margin:0 .70em .6em 0;border-radius:.79em;border:.04em solid ' + P.line + ';background:' + P.buttonBg + ';color:' + P.text + ';display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;-webkit-transition:width .2s,padding .2s,background-color .2s,border-color .2s,color .2s,-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25);transition:width .2s,padding .2s,background-color .2s,border-color .2s,color .2s,transform .28s cubic-bezier(.2,.9,.3,1.25)}');
+    css.push('.lumen-card .full-start-new__buttons .full-start__button{font-size:1em;font-weight:600;height:3.16em;min-width:3.16em;padding:0 1.32em;margin:0 .70em .6em 0;border-radius:.79em;background:' + P.buttonBg + ';color:' + P.text + ';display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;-webkit-transition:width .2s,padding .2s,background-color .2s,color .2s,-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25);transition:width .2s,padding .2s,background-color .2s,color .2s,transform .28s cubic-bezier(.2,.9,.3,1.25)}');
     css.push('.lumen-card .full-start-new__buttons .full-start__button > svg{width:1.14em;height:1.14em;-webkit-flex-shrink:0;flex-shrink:0}');
     css.push('.lumen-card .full-start-new__buttons .full-start__button > svg + span{font-size:1.05em;margin:0 0 0 .53em;line-height:1}');
     css.push('.lumen-card .full-start-new__buttons .full-start__button span{display:none}');
@@ -905,7 +919,7 @@
        .addClass('active')). У .button--book того же нет — там только смена
        fill у <path> (Favorite.check), без класса на самой кнопке; без :has()
        поймать это чистым CSS нельзя, поэтому закладку не трогаем. */
-    css.push('.lumen-card .full-start-new__buttons .full-start__button.active{background:rgba(' + A_RGB + ',.16);border-color:' + A + ';color:' + A + '}');
+    css.push('.lumen-card .full-start-new__buttons .full-start__button.active{background:rgba(' + A_RGB + ',.16);color:' + A + '}');
     /* Иконочные кнопки — квадрат 72×72 без подписи; в фокусе ширина авто с паддингом
        под раскрытую подпись (design-spec §7b/§7c, экран 10 «ФОКУС · С ПОДПИСЬЮ»). */
     css.push('.lumen-card .full-start-new__buttons .button--book,.lumen-card .full-start-new__buttons .button--reaction,.lumen-card .full-start-new__buttons .button--subscribe,.lumen-card .full-start-new__buttons .button--options{padding:0;width:3.16em}');
@@ -919,11 +933,25 @@
        (4 ядра MediaTek, Android TV 11, 1080p) таких элементов на экране
        десятки — внешний ресёрч docs/research/2026-09-18-android-tv-animations.md
        запрещает большие радиусы прямо. Тень при этом остаётся: она отделяет
-       акцентную кнопку от подложки, просто стала короче и плотнее. */
-    css.push('.lumen-card .full-start-new__buttons .full-start__button.focus{background:' + A + ';color:' + P.dark + ';border-color:' + AL + ';border-width:.11em;-webkit-transform:scale(1.06);transform:scale(1.06);-webkit-box-shadow:0 .35em .7em ' + AG + ';box-shadow:0 .35em .7em ' + AG + '}');
-    /* Нажатие — отдельный тон, без scale (design-spec §7a «НАЖАТА»); !important —
-       поверх правила .focus выше и нативной анимации Lampa (план 0.2). */
-    css.push('.lumen-card .full-start-new__buttons .full-start__button.focus.lumen-press{background:#C4924F !important;border-color:rgba(255,242,220,.6) !important;-webkit-transform:scale(1) !important;transform:scale(1) !important}');
+       кнопку в фокусе от подложки, просто стала короче и плотнее.
+
+       Task 43: сам фокус — инверсия, цвет текста становится фоном, а фон
+       страницы подписью. Тем же приёмом показывают фокус чип хаба
+       (.lumen-chip.focus ниже, Task 41) и сама Lampa на .full-start__button
+       .focus (app.css:4024: background-color #fff, color #000) — только у
+       нас это два цвета темы, а не чужие белый с чёрным. Акцент с кнопки
+       при этом не пропал: он остался в ореоле под ней (box-shadow в самом
+       правиле), как у карточки ряда на главной (Task 42).
+       Читаемость инверсии отдельным числом не считается: пара P.text/P.bg
+       уже под охраной подкраски фона (palette выше), где tint не даёт
+       контрасту MUTED на фоне упасть ниже 4.5. P.text во всех темах светлее
+       P.muted, а фон тёмный — значит его контраст на том же фоне ещё
+       выше. */
+    css.push('.lumen-card .full-start-new__buttons .full-start__button.focus{background:' + P.text + ';color:' + P.bg + ';-webkit-transform:scale(1.06);transform:scale(1.06);-webkit-box-shadow:0 .35em .7em ' + AG + ';box-shadow:0 .35em .7em ' + AG + '}');
+    /* Нажатие — тот же светлый фон, но приглушённый до P.muted, и без scale
+       (design-spec §7a «НАЖАТА»). !important — поверх правила .focus выше и
+       нативной анимации Lampa (план 0.2). */
+    css.push('.lumen-card .full-start-new__buttons .full-start__button.focus.lumen-press{background:' + P.muted + ' !important;-webkit-transform:scale(1) !important;transform:scale(1) !important}');
     css.push('.lumen-card .full-start-new__buttons .full-start__button.loading:before{filter:none}');
 
     /* --- Task 7: режим фонового трейлера (экран 02) ---
@@ -982,31 +1010,31 @@
     css.push('.lumen-card .lumen-tags .full-start__tag{display:none !important}');
     /* Правка 2026-09-16 (п.6): «4K · HDR · BD» — метки, а не колонка цифр;
        моно здесь только добавлял карточке вид консоли. */
-    css.push('.lumen-card .lumen-quality-chip{font-family:' + FB + ';font-weight:600;font-size:.66em;letter-spacing:.08em;color:' + P.text + ';border:.04em solid rgba(' + P.textRgb + ',.24);border-radius:.31em;padding:.31em .48em;margin:0 .35em .35em 0;white-space:nowrap}');
+    css.push('.lumen-card .lumen-quality-chip{font-family:' + FB + ';font-weight:600;font-size:.66em;letter-spacing:.08em;color:' + P.text + ';background:' + P.chipBg + ';border-radius:.31em;padding:.31em .48em;margin:0 .35em .35em 0;white-space:nowrap}');
 
     /* --- Ряд серий сезона (design-spec §9, экраны 05/06; px ÷ 22.811) ---
-       Заголовок «Сезон 2» 28px Unbounded 700 + «8 СЕРИЙ» 16px mono smoke;
+       Заголовок «Сезон 2» 28px 700 + «8 СЕРИЙ» 16px smoke;
        карточка 340×150, radius 14, padding 18, зазор 16. Дорожка — absolute
        внутри viewport фиксированной высоты: длинный ряд не раздувает
        колонку (и flex-фолбэк без grid), выходит за правый край экрана и
        сдвигается transform'ом к фокусу (LC.header scrollToEpisode). */
     css.push('.lumen-card .lumen-episodes{margin-top:1.75em}');
     css.push('.lumen-card .lumen-episodes__head{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:baseline;-webkit-align-items:baseline;align-items:baseline;margin-bottom:.79em}');
-    css.push('.lumen-card .lumen-episodes__title{font-family:' + FD + ';font-weight:700;font-size:1.23em;line-height:1;color:' + P.text + ';margin-right:.5em}');
-    css.push('.lumen-card .lumen-episodes__count{font-family:' + FM + ';font-size:.70em;line-height:1;letter-spacing:.12em;text-transform:uppercase;color:' + P.smoke + '}');
+    css.push('.lumen-card .lumen-episodes__title{font-family:' + FB + ';font-weight:700;font-size:1.23em;line-height:1;color:' + P.text + ';margin-right:.5em}');
+    css.push('.lumen-card .lumen-episodes__count{font-family:' + FB + ';font-size:.70em;line-height:1;letter-spacing:.12em;text-transform:uppercase;color:' + P.smoke + '}');
     css.push('.lumen-card .lumen-episodes__viewport{position:relative;height:6.58em}');
     css.push('.lumen-card .lumen-episodes__track{position:absolute;top:0;left:0;height:100%;display:-webkit-box;display:-webkit-flex;display:flex}');
     css.push('.lumen-card .lumen-episode{position:relative;-webkit-box-sizing:border-box;box-sizing:border-box;width:14.9em;height:6.58em;margin-right:.70em;-webkit-box-flex:0;-webkit-flex:none;flex:none;border-radius:.61em;padding:.79em;overflow:hidden;background:' + P.gradSlate + ';border:.04em solid ' + P.line + ';color:' + P.text + ';display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-orient:vertical;-webkit-flex-direction:column;flex-direction:column;-webkit-box-pack:justify;-webkit-justify-content:space-between;justify-content:space-between}');
     css.push('.lumen-card .lumen-episode__still{position:absolute;top:0;right:0;bottom:0;left:0;background-position:50% 50%;background-repeat:no-repeat;-webkit-background-size:cover;background-size:cover;opacity:.28}');
     css.push('.lumen-card .lumen-episode__top{position:relative;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-pack:justify;-webkit-justify-content:space-between;justify-content:space-between;-webkit-box-align:center;-webkit-align-items:center;align-items:center;min-height:1.40em}');
-    css.push('.lumen-card .lumen-episode__num{font-family:' + FM + ';font-weight:600;font-size:.75em;line-height:1;letter-spacing:.1em;color:' + P.smoke + '}');
+    css.push('.lumen-card .lumen-episode__num{font-family:' + FB + ';font-weight:600;font-size:.75em;line-height:1;letter-spacing:.1em;color:' + P.smoke + '}');
     css.push('.lumen-card .lumen-episode__check{width:.88em;height:.88em;background-color:' + P.good + ';-webkit-mask-image:' + LC.icons.maskUrl('check') + ';mask-image:' + LC.icons.maskUrl('check') + ';-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-size:contain;mask-size:contain}');
-    css.push('.lumen-card .lumen-episode__percent{font-family:' + FM + ';font-size:.66em;line-height:1;color:' + A + '}');
+    css.push('.lumen-card .lumen-episode__percent{font-family:' + FB + ';font-size:.66em;line-height:1;color:' + A + '}');
     css.push('.lumen-card .lumen-episode__play{display:none;position:relative;width:1.40em;height:1.40em;border-radius:50%;background:' + A + '}');
     css.push('.lumen-card .lumen-episode__play:before{content:"";position:absolute;top:50%;left:50%;width:.75em;height:.75em;margin:-.375em 0 0 -.33em;background-color:' + P.dark + ';-webkit-mask-image:' + LC.icons.maskUrl('play') + ';mask-image:' + LC.icons.maskUrl('play') + ';-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-size:contain;mask-size:contain}');
     css.push('.lumen-card .lumen-episode__bottom{position:relative;min-width:0}');
     css.push('.lumen-card .lumen-episode__name{font-family:' + FB + ';font-weight:500;font-size:.96em;line-height:1.2;white-space:nowrap;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis}');
-    css.push('.lumen-card .lumen-episode__caption{font-family:' + FM + ';font-size:.70em;line-height:1;color:' + P.smoke + ';margin-top:.44em;white-space:nowrap;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis}');
+    css.push('.lumen-card .lumen-episode__caption{font-family:' + FB + ';font-size:.70em;line-height:1;color:' + P.smoke + ';margin-top:.44em;white-space:nowrap;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis}');
     css.push('.lumen-card .lumen-episode__bar{height:.18em;border-radius:.09em;background:rgba(' + P.textRgb + ',.16);margin-top:.44em;overflow:hidden}');
     css.push('.lumen-card .lumen-episode__bar > div{height:100%;border-radius:.09em;background:' + A + '}');
     /* Состояния §9: просмотрена — приглушена; смотрите — тёплый фон, номер и %
@@ -1034,8 +1062,8 @@
        по настройке lumen_card_progress — выключатель гасит и эти надписи.
        margin-right:auto прижимает «· СМОТРИТЕ» к номеру серии, оставляя кружок
        play у правого края (в .lumen-episode__top — space-between). */
-    css.push('.lumen-card .lumen-episode__state{display:none;font-family:' + FM + ';font-weight:600;font-size:.75em;line-height:1;letter-spacing:.1em;text-transform:uppercase;color:' + A + ';margin:0 auto 0 .35em}');
-    css.push('.lumen-card .lumen-episode__timecode{display:none;font-family:' + FM + ';font-size:.70em;line-height:1;color:' + P.muted + ';margin-top:.44em;white-space:nowrap;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis}');
+    css.push('.lumen-card .lumen-episode__state{display:none;font-family:' + FB + ';font-weight:600;font-size:.75em;line-height:1;letter-spacing:.1em;text-transform:uppercase;color:' + A + ';margin:0 auto 0 .35em}');
+    css.push('.lumen-card .lumen-episode__timecode{display:none;font-family:' + FB + ';font-size:.70em;line-height:1;color:' + P.muted + ';margin-top:.44em;white-space:nowrap;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis}');
     css.push('.lumen-card.lumen-progress-on.lumen-compact .lumen-episode.focus .lumen-episode__state,.lumen-card.lumen-progress-on.lumen-compact .lumen-episode.focus .lumen-episode__timecode{display:block}');
     css.push('.lumen-card.lumen-progress-on.lumen-compact .lumen-episode.focus .lumen-episode__caption{display:none}');
     /* Движок без масок: пустые закрашенные квадраты вместо иконок не рисуем. */
@@ -1202,14 +1230,14 @@
     /* Иконка «комментарий» из общего набора — маской, как у всех наших иконок
        (свой svg в разметку не вставляем: 20_icons.js, план 0.3). */
     css.push('.lumen-descr-row .lumen-reviews__ico{width:1.05em;height:1.05em;-webkit-flex-shrink:0;flex-shrink:0;background-color:' + P.muted + ';-webkit-mask-image:' + LC.icons.maskUrl('comment') + ';mask-image:' + LC.icons.maskUrl('comment') + ';-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;-webkit-mask-size:contain;mask-size:contain;margin-right:.44em;-webkit-align-self:center;align-self:center}');
-    css.push('.lumen-descr-row .lumen-reviews__title{font-family:' + FD + ';font-weight:700;font-size:1.40em;line-height:1;color:' + P.text + ';margin-right:.61em}');
+    css.push('.lumen-descr-row .lumen-reviews__title{font-family:' + FB + ';font-weight:700;font-size:1.40em;line-height:1;color:' + P.text + ';margin-right:.61em}');
     /* Правка 2026-09-16, п.6: «КИНОПОИСК» — метка источника, не колонка цифр. */
     css.push('.lumen-descr-row .lumen-reviews__src{font-family:' + FB + ';font-weight:600;font-size:.70em;line-height:1;letter-spacing:.16em;color:' + A + ';margin-right:.61em}');
     /* Ревью (п.2), та же правка читаемости, что у таблицы «ПОДРОБНО»: заголовок
        ряда лежит на вуали поверх кадра, и smoke давал там 2.9-3.8:1. Цвет
        поднят до muted (5.6:1 над светлым кадром, 7.2:1 над тёмным), кегль — до
        20px по правилу «приглушённый текст не мельче 20px». */
-    css.push('.lumen-descr-row .lumen-reviews__total{font-family:' + FM + ';font-weight:400;font-size:.88em;line-height:1;letter-spacing:.08em;color:' + P.muted + '}');
+    css.push('.lumen-descr-row .lumen-reviews__total{font-family:' + FB + ';font-weight:400;font-size:.88em;line-height:1;letter-spacing:.08em;color:' + P.muted + '}');
     /* Горизонтальный ряд: карточки не сжимаются, лишнее скрыто, к карточке в
        фокусе ряд подкручивается scrollLeft (Lampa ряды ВНУТРИ ряда описания
        не двигает — находка Task 5d). */
@@ -1231,7 +1259,7 @@
        на кадре, поэтому кегль не трогаем — карточка фиксированной высоты
        11.4em (экран 07), рост кегля её переполнит. Поднимаем только цвет:
        smoke давал 3.7:1 к фону карточки, muted даёт 7.1:1. */
-    css.push('.lumen-descr-row .lumen-review__meta{font-family:' + FM + ';font-weight:400;font-size:.66em;line-height:1.2;color:' + P.muted + '}');
+    css.push('.lumen-descr-row .lumen-review__meta{font-family:' + FB + ';font-weight:400;font-size:.66em;line-height:1.2;color:' + P.muted + '}');
     css.push('.lumen-descr-row .lumen-review__meta > span{margin-right:.66em}');
     css.push('.lumen-descr-row .lumen-review__tag{color:' + P.muted + '}');
     css.push('.lumen-descr-row .lumen-review--good .lumen-review__tag{color:' + P.good + '}');
@@ -1254,7 +1282,7 @@
     /* Экран 13, панель 2: ключа нет — вместо пустоты путь до настройки. */
     css.push('.lumen-descr-row .lumen-reviews__hint{-webkit-box-sizing:border-box;box-sizing:border-box;max-width:28.06em;border-radius:.61em;background:' + P.gradHint + ';border:.04em solid ' + P.line + ';padding:1.40em}');
     css.push('.lumen-descr-row .lumen-reviews__hint-ico{width:2.10em;height:2.10em;background-color:' + A + ';-webkit-mask-image:' + LC.icons.maskUrl('comment') + ';mask-image:' + LC.icons.maskUrl('comment') + ';-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;-webkit-mask-size:contain;mask-size:contain;margin-bottom:.70em}');
-    css.push('.lumen-descr-row .lumen-reviews__hint-title{font-family:' + FD + ';font-weight:700;font-size:1.23em;line-height:1.15;color:' + P.text + ';margin-bottom:.44em}');
+    css.push('.lumen-descr-row .lumen-reviews__hint-title{font-family:' + FB + ';font-weight:700;font-size:1.23em;line-height:1.15;color:' + P.text + ';margin-bottom:.44em}');
     css.push('.lumen-descr-row .lumen-reviews__hint-text{font-family:' + FB + ';font-weight:400;font-size:.88em;line-height:1.4;color:' + P.muted + ';margin-bottom:.70em}');
     css.push('.lumen-descr-row .lumen-reviews__hint-path{display:inline-block;padding:.61em .79em;border-radius:.53em;background:rgba(' + A_RGB + ',.1);border:.04em solid rgba(' + A_RGB + ',.4);font-family:' + FB + ';font-weight:500;font-size:.79em;line-height:1.3;color:' + A + '}');
     /* Task 20: кнопка «Скрыть» подсказки про ключ — тот же размер, что путь
@@ -1281,14 +1309,14 @@
     css.push('.lumen-review-modal__author{font-family:' + FB + ';font-weight:600;font-size:1.14em;line-height:1.1;margin-bottom:.26em}');
     /* Ревью (п.2): модал лежит на своей панели, не на кадре — но smoke давал к
        ней 3.4:1, ниже порога. Цвет поднят до muted (6.5:1). */
-    css.push('.lumen-review-modal__meta{font-family:' + FM + ';font-weight:400;font-size:.70em;line-height:1.2;color:' + P.muted + '}');
+    css.push('.lumen-review-modal__meta{font-family:' + FB + ';font-weight:400;font-size:.70em;line-height:1.2;color:' + P.muted + '}');
     css.push('.lumen-review-modal__meta > span{margin-right:.75em}');
     css.push('.lumen-review-modal--good .lumen-review-modal__tag{color:' + P.good + '}');
     css.push('.lumen-review-modal--bad .lumen-review-modal__tag{color:' + P.spice + '}');
     css.push('.lumen-review-modal__likes:before{content:"";display:inline-block;vertical-align:-.1em;width:1em;height:1em;background-color:currentColor;-webkit-mask-image:' + LC.icons.maskUrl('star') + ';mask-image:' + LC.icons.maskUrl('star') + ';-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;-webkit-mask-size:contain;mask-size:contain;margin-right:.33em}');
-    css.push('.lumen-review-modal__src{font-family:' + FM + ';font-weight:600;font-size:.70em;line-height:1;letter-spacing:.16em;color:' + P.muted + ';-webkit-box-flex:0;-webkit-flex:none;flex:none;margin-left:.88em}');
+    css.push('.lumen-review-modal__src{font-family:' + FB + ';font-weight:600;font-size:.70em;line-height:1;letter-spacing:.16em;color:' + P.muted + ';-webkit-box-flex:0;-webkit-flex:none;flex:none;margin-left:.88em}');
     css.push('.lumen-review-modal__line{height:.04em;background:' + P.line + ';margin:.88em 0}');
-    css.push('.lumen-review-modal__title{font-family:' + FD + ';font-weight:700;font-size:1.58em;line-height:1.18;margin-bottom:.88em}');
+    css.push('.lumen-review-modal__title{font-family:' + FB + ';font-weight:700;font-size:1.58em;line-height:1.18;margin-bottom:.88em}');
     /* Длинный отзыв прокручивается внутри модала: контроллер modal у Lampa
        двигает собственный скролл окна, а высота ограничена вьюпортом. */
     css.push('.lumen-review-modal__text{font-family:' + FB + ';font-weight:400;font-size:.96em;line-height:1.5;color:' + P.muted + ';max-height:50vh;overflow:auto}');
@@ -1302,7 +1330,7 @@
     css.push('.lumen-descr-row .lumen-reviews__mode.focus{background:' + A + ';color:' + t.onac + ';border-color:' + AL + ';border-width:.11em}');
     /* Метка «в отзыве есть спойлер» — внизу карточки, у самой кромки: она
        обещает, что под OK ждёт скрытый кусок. */
-    css.push('.lumen-descr-row .lumen-review__spoiler{margin-top:auto;font-family:' + FM + ';font-weight:600;font-size:.61em;line-height:1;letter-spacing:.12em;color:' + P.spice + '}');
+    css.push('.lumen-descr-row .lumen-review__spoiler{margin-top:auto;font-family:' + FB + ';font-weight:600;font-size:.61em;line-height:1;letter-spacing:.12em;color:' + P.spice + '}');
     /* В режиме заголовков текста в карточке нет, и высота ей нужна меньше:
        заголовку при этом достаётся две строки вместо одной. */
     css.push('.lumen-descr-row .lumen-reviews--headlines .lumen-review{height:8.33em}');
@@ -1327,8 +1355,8 @@
     css.push('.lumen-descr-row .lumen-fr{width:100%;-webkit-flex-basis:100%;flex-basis:100%;margin-top:1.75em}');
     css.push('.lumen-descr-row .lumen-fr__head{display:-webkit-inline-box;display:-webkit-inline-flex;display:inline-flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-flex-wrap:wrap;flex-wrap:wrap;-webkit-box-sizing:border-box;box-sizing:border-box;max-width:100%;margin:0 0 .79em -.7em;padding:.44em .7em;border-radius:.61em;background:' + P.plate + '}');
     css.push('.lumen-descr-row .lumen-fr__ico{width:1.05em;height:1.05em;-webkit-flex-shrink:0;flex-shrink:0;background-color:' + P.muted + ';-webkit-mask-image:' + LC.icons.maskUrl('list') + ';mask-image:' + LC.icons.maskUrl('list') + ';-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;-webkit-mask-size:contain;mask-size:contain;margin-right:.44em}');
-    css.push('.lumen-descr-row .lumen-fr__title{font-family:' + FD + ';font-weight:700;font-size:1.40em;line-height:1;color:' + P.text + ';margin-right:.61em}');
-    css.push('.lumen-descr-row .lumen-fr__name{font-family:' + FM + ';font-weight:400;font-size:.79em;line-height:1;letter-spacing:.06em;color:' + P.muted + ';margin-right:.88em}');
+    css.push('.lumen-descr-row .lumen-fr__title{font-family:' + FB + ';font-weight:700;font-size:1.40em;line-height:1;color:' + P.text + ';margin-right:.61em}');
+    css.push('.lumen-descr-row .lumen-fr__name{font-family:' + FB + ';font-weight:400;font-size:.79em;line-height:1;letter-spacing:.06em;color:' + P.muted + ';margin-right:.88em}');
     css.push('.lumen-descr-row .lumen-fr__modes{display:-webkit-box;display:-webkit-flex;display:flex}');
     css.push('.lumen-descr-row .lumen-fr__mode{padding:.35em .61em;margin-right:.35em;border-radius:.44em;background:' + P.buttonBg + ';border:.04em solid ' + P.line + ';font-family:' + FB + ';font-weight:600;font-size:.70em;line-height:1.2;color:' + P.muted + '}');
     css.push('.lumen-descr-row .lumen-fr__mode--on{color:' + A + ';border-color:rgba(' + A_RGB + ',.5)}');
@@ -1346,10 +1374,10 @@
     css.push('.lumen-descr-row .lumen-fr-card--watched .lumen-fr-card__poster{opacity:.45}');
     css.push('.lumen-descr-row .lumen-fr-card__mark{position:absolute;top:.35em;right:.35em;width:1.32em;height:1.32em;border-radius:50%;background:' + P.bg + ';opacity:0}');
     css.push('.lumen-descr-row .lumen-fr-card--watched .lumen-fr-card__mark{opacity:1;background-color:' + P.good + ';-webkit-mask-image:' + LC.icons.maskUrl('check') + ';mask-image:' + LC.icons.maskUrl('check') + ';-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;-webkit-mask-size:.88em}');
-    css.push('.lumen-descr-row .lumen-fr-card__num{font-family:' + FM + ';font-weight:400;font-size:.61em;line-height:1.2;letter-spacing:.06em;color:' + P.muted + ';margin-top:.53em}');
+    css.push('.lumen-descr-row .lumen-fr-card__num{font-family:' + FB + ';font-weight:400;font-size:.61em;line-height:1.2;letter-spacing:.06em;color:' + P.muted + ';margin-top:.53em}');
     css.push('.lumen-descr-row .lumen-fr-card__name{font-family:' + FB + ';font-weight:600;font-size:.79em;line-height:1.2;color:' + P.text + ';margin-top:.26em;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}');
-    css.push('.lumen-descr-row .lumen-fr-card__year{font-family:' + FM + ';font-weight:400;font-size:.61em;line-height:1.2;color:' + P.smoke + ';margin-top:.18em}');
-    css.push('.lumen-descr-row .lumen-fr-card__flag{display:inline-block;margin-top:.26em;padding:.18em .44em;border-radius:.35em;font-family:' + FM + ';font-weight:600;font-size:.53em;line-height:1.3;letter-spacing:.08em;background:' + P.buttonBg + ';color:' + P.muted + '}');
+    css.push('.lumen-descr-row .lumen-fr-card__year{font-family:' + FB + ';font-weight:400;font-size:.61em;line-height:1.2;color:' + P.smoke + ';margin-top:.18em}');
+    css.push('.lumen-descr-row .lumen-fr-card__flag{display:inline-block;margin-top:.26em;padding:.18em .44em;border-radius:.35em;font-family:' + FB + ';font-weight:600;font-size:.53em;line-height:1.3;letter-spacing:.08em;background:' + P.buttonBg + ';color:' + P.muted + '}');
     css.push('.lumen-descr-row .lumen-fr-card__flag--current{background:' + A + ';color:' + t.onac + '}');
     css.push('.lumen-descr-row .lumen-fr-card__flag--next{background:rgba(' + A_RGB + ',.18);color:' + A + '}');
     css.push('.lumen-descr-row .lumen-fr-card__flag--soon{color:' + P.spice + '}');
@@ -1526,7 +1554,7 @@
     /* Task 41: заголовок экрана спокойнее (2.28em -> 2.1em), а счётчик
        подборок рядом с ним — основной гарнитурой, а не моноширинной:
        моноширинные цифры в шапке читались как технический вывод. */
-    css.push('.lumen-hub__title{font-family:' + FD + ';font-weight:700;font-size:2.1em;line-height:1;margin-right:.6em}');
+    css.push('.lumen-hub__title{font-family:' + FB + ';font-weight:700;font-size:2.1em;line-height:1;margin-right:.6em}');
     css.push('.lumen-hub__count{font-family:' + FB + ';font-size:1em;color:' + P.muted + '}');
     /* Task 41: кнопка поиска — тот же pill, что у сегмент-контрола ниже
        (высота, отступы, радиус, инверсия в фокусе), с иконкой лупы перед
@@ -1584,15 +1612,15 @@
     css.push('.lumen-hub .lumen-tile__text{position:absolute;left:.88em;right:.88em;bottom:.7em}');
     /* Task 41: название — одна строка с обрезкой. Перенос («Миссия /
        невыполнима») ломал ровный низ ряда плиток. */
-    css.push('.lumen-hub .lumen-tile__title{font-family:' + FD + ';font-weight:700;font-size:1.15em;line-height:1.2;color:' + P.text + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}');
-    css.push('.lumen-hub .lumen-tile__sub{font-family:' + FM + ';font-size:.85em;line-height:1;color:' + P.muted + ';margin-top:.35em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}');
-    css.push('.lumen-hub .lumen-tile__nokey{display:none;position:absolute;top:.7em;right:.7em;font-family:' + FM + ';font-size:.7em;letter-spacing:.04em;color:' + P.text + ';background:rgba(' + P.bgRgb + ',.8);border:.05em solid rgba(' + P.textRgb + ',.3);border-radius:.2em;padding:.25em .45em}');
+    css.push('.lumen-hub .lumen-tile__title{font-family:' + FB + ';font-weight:700;font-size:1.15em;line-height:1.2;color:' + P.text + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}');
+    css.push('.lumen-hub .lumen-tile__sub{font-family:' + FB + ';font-size:.85em;line-height:1;color:' + P.muted + ';margin-top:.35em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}');
+    css.push('.lumen-hub .lumen-tile__nokey{display:none;position:absolute;top:.7em;right:.7em;font-family:' + FB + ';font-size:.7em;letter-spacing:.04em;color:' + P.text + ';background:rgba(' + P.bgRgb + ',.8);border:.05em solid rgba(' + P.textRgb + ',.3);border-radius:.2em;padding:.25em .45em}');
     css.push('.lumen-hub .lumen-tile--nokey .lumen-tile__nokey{display:block}');
     /* Task 21 (фаза 3): метка сезонной подборки. Место — левый верхний угол
        плитки: правый занят подсказкой про ключ API, и на подборках
        Кинопоиска они могут встретиться на одной плитке. Цвет — акцент: это
        единственная плитка в списке, на которую сейчас стоит смотреть. */
-    css.push('.lumen-hub .lumen-tile__season{position:absolute;top:.7em;left:.7em;font-family:' + FM + ';font-size:.7em;letter-spacing:.04em;color:' + t.onac + ';background:' + A + ';border-radius:.2em;padding:.25em .45em}');
+    css.push('.lumen-hub .lumen-tile__season{position:absolute;top:.7em;left:.7em;font-family:' + FB + ';font-size:.7em;letter-spacing:.04em;color:' + t.onac + ';background:' + A + ';border-radius:.2em;padding:.25em .45em}');
     /* Task 41: фокус — только увеличение и мягкая тень, без кольца: на
        плитке с кадром рамка читается как ещё одна коробка. Тень вне
        transition (правило Task 38): она появляется вместе с классом.
@@ -1612,8 +1640,8 @@
        контроллера: bleed справа на экране 20 — дефект макета). */
     css.push('.lumen-grid{padding:2.81em 2.81em 3.5em 2.81em;color:' + P.text + '}');
     css.push('.lumen-grid__head{margin-bottom:1.05em}');
-    css.push('.lumen-grid__title{font-family:' + FD + ';font-weight:700;font-size:2.10em;line-height:1}');
-    css.push('.lumen-grid__sub{font-family:' + FM + ';font-size:.88em;color:' + P.smoke + ';margin-top:.5em}');
+    css.push('.lumen-grid__title{font-family:' + FB + ';font-weight:700;font-size:2.10em;line-height:1}');
+    css.push('.lumen-grid__sub{font-family:' + FB + ';font-size:.88em;color:' + P.smoke + ';margin-top:.5em}');
     css.push('.lumen-grid__sorts{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;margin-bottom:1.4em}');
     css.push('.lumen-grid__items{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap}');
     /* Карточка сетки — штатная разметка Lampa ('card'), поэтому правила
@@ -1624,13 +1652,35 @@
     css.push('.lumen-grid__items .lumen-gcard:nth-child(6n){margin-right:0}');
     css.push('.lumen-grid .lumen-gcard .card__view{margin-bottom:.5em;border-radius:.31em;background-color:' + P.panel + '}');
     css.push('.lumen-grid .lumen-gcard .card__img{border-radius:.31em;background-color:' + P.panelLo + '}');
-    css.push('.lumen-grid .lumen-gcard .card__title{font-family:' + FD + ';font-weight:700;font-size:.96em;line-height:1.15;color:' + P.text + '}');
-    css.push('.lumen-grid .lumen-gcard .card__age{font-family:' + FM + ';font-size:.88em;line-height:1;margin-top:.25em;color:' + P.muted + '}');
-    /* Фокус: акцентное кольцо вместо белого штатного, пружина и подъём над
-       соседями — без z-index увеличенная карточка ныряет под соседнюю и
-       тень срезается (ревью Task 17). */
+    css.push('.lumen-grid .lumen-gcard .card__title{font-family:' + FB + ';font-weight:700;font-size:.96em;line-height:1.15;color:' + P.text + '}');
+    css.push('.lumen-grid .lumen-gcard .card__age{font-family:' + FB + ';font-size:.88em;line-height:1;margin-top:.25em;color:' + P.muted + '}');
+    /* Фокус: пружина и подъём над соседями — без z-index увеличенная
+       карточка ныряет под соседнюю и тень срезается (ревью Task 17).
+
+       Task 43 (замер на Philips 50PUS8057 2026-09-18): кольца больше нет —
+       на главной фокус уже показывают увеличение и ореол (Task 42), а здесь
+       оставалась белая рамка, и один и тот же жест выглядел на двух экранах
+       по-разному. Штатное кольцо Lampa — .card.focus .card__view::after
+       (app.css:3466: content:"", border .3em #fff, вылет -.5em, z-index:-1),
+       наше правило его перекрашивало; теперь оно его гасит, а акцент несёт
+       box-shadow на самом постере — тем же числом (0 .35em .7em), что у
+       карточки ряда, потому что радиус размытия в плагине ограничен .8em
+       (тест «Task 38: ни одного box-shadow с размытием больше .8em»).
+       Ничего, кроме кольца, на этом псевдоэлементе не висит: «просмотрено»
+       рисуется отдельными узлами .card-watched и .card__marker. У мыши это
+       же кольцо, только полупрозрачное (app.css:3480), поэтому .hover гасим
+       тем же правилом.
+
+       Увеличение стоит на .lumen-gcard целиком (а не на .card__view, как на
+       главной), поэтому карточка растёт от своего ЦЕНТРА — вверх уходит
+       половина прироста. При ширине карточки 13.92em (самый мелкий масштаб
+       интерфейса, где карточка в em крупнее всего: её ширина считается
+       calc от ширины ЭКРАНА, а не в em) полная высота с подписью около
+       23.6em, половина прироста — 0.94em, и зазор между рядами 1.4em её
+       вмещает. Соотношение держит тест, а не глаз. */
     css.push('.lumen-grid__items .lumen-gcard.focus{-webkit-transform:scale(1.08);transform:scale(1.08);z-index:3}');
-    css.push('.lumen-grid .lumen-gcard.focus .card__view:after{border-width:.13em;border-color:' + AL + ';border-radius:.44em;-webkit-box-shadow:0 .35em .7em ' + AG + ';box-shadow:0 .35em .7em ' + AG + '}');
+    css.push('.lumen-grid .lumen-gcard.focus .card__view:after,.lumen-grid .lumen-gcard.hover .card__view:after{display:none}');
+    css.push('.lumen-grid .lumen-gcard.focus .card__view{-webkit-box-shadow:0 .35em .7em ' + AG + ';box-shadow:0 .35em .7em ' + AG + '}');
     css.push('.lumen-grid.lumen-motion-lite .lumen-gcard.focus,.lumen-grid.lumen-motion-off .lumen-gcard.focus{-webkit-transform:none;transform:none}');
     css.push('.lumen-grid.lumen-motion-off .lumen-gcard{-webkit-transition:none;transition:none}');
     /* Полоса продолжения просмотра (design-spec-main §0.6): данные те же,
@@ -1865,7 +1915,11 @@
       '-webkit-transform:translateY(-webkit-calc(' + textShiftCalc + ')' + textScale + ';' +
       '-webkit-transform:translateY(calc(' + textShiftCalc + ')' + textScale + ';' +
       'transform:translateY(calc(' + textShiftCalc + ')' + textScale + '}');
-    css.push('.lumen-hero .lumen-hero__meta{font-family:' + FM + ';font-weight:400;font-size:.88em;line-height:1.2;letter-spacing:.03em;color:' + P.muted + '}');
+    /* Task 43: мета — основной кегль и без разрядки. Разрядка .03em стояла
+       под моноширинную гарнитуру, которой больше нет, а .88em делали её
+       строкой-подписью — теперь в ней же едет рейтинг («2026 · 1:40 ·
+       драма · ★ 8.1», src/48_hero.js), и это полноценная строка. */
+    css.push('.lumen-hero .lumen-hero__meta{font-family:' + FB + ';font-weight:400;font-size:1em;line-height:1.2;color:' + P.muted + '}');
     /* Логотип фильма — фоном (contain), максимум 37.84em своего контекста
        (ревью Task 39: прежние «30.69em = 700 px FHD» из §0.2 давно разошлись
        с кодом — в правиле ниже стоит width:37.84em, а em внутри
@@ -1898,12 +1952,19 @@
     css.push('.lumen-hero.lumen-hero--logo .lumen-hero__logo{display:block}');
     /* Текстовый фолбэк названия — обычный текст без панели (поправка
        контроллера к Task 18, единообразно с экранами 16–19). */
-    /* Фолбэк без логотипа: две строки по 1.08 при кегле 2.04em дают 4.4em —
-       середину диапазона высот логотипа (2.4…5.2em, LC.hero.logoBox). По
-       весу он сопоставим с логотипами и не выпадает ни в одну сторону, а
-       фиксированная высота не даёт длинному названию разъехать блок. */
-    css.push('.lumen-hero .lumen-hero__title{font-family:' + FD + ';font-weight:800;font-size:2.04em;line-height:1.08;color:' + P.text + ';margin-top:.4em;height:2.16em;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}');
-    css.push('.lumen-hero.lumen-hero--compact .lumen-hero__title{height:1.57em;-webkit-line-clamp:1}');
+    /* Фолбэк без логотипа занимает РОВНО место логотипа — 4.4em этого
+       контекста (середина диапазона высот LC.hero.logoBox, 2.4…5.2em):
+       фиксированная высота не даёт блоку прыгать между фильмом с логотипом
+       и фильмом без него.
+       Task 43: внутри этой коробки — одна строка крупным кеглем вместо двух
+       мелким. Высота задана в em САМОГО заголовка, поэтому при кегле 3.4em
+       коробка это 1.29em (3.4 × 1.29 = 4.39em контекста, прежние 4.4em), а
+       строка занимает 1.08em из них и в коробку помещается с запасом.
+       Длинное название обрезается многоточием — для этого и тройка
+       display/box-orient/overflow (ревью Task 5a).
+       В сжатом состоянии коробка ужимается до одной строки без запаса. */
+    css.push('.lumen-hero .lumen-hero__title{font-family:' + FB + ';font-weight:700;font-size:3.4em;line-height:1.08;color:' + P.text + ';margin-top:.4em;height:1.29em;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:1}');
+    css.push('.lumen-hero.lumen-hero--compact .lumen-hero__title{height:1.08em}');
     css.push('.lumen-hero.lumen-hero--logo .lumen-hero__title{display:none}');
     css.push('.lumen-hero .lumen-hero__descr{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;font-family:' + FB + ';font-weight:400;font-size:1.05em;line-height:1.45;color:' + P.muted + ';max-width:39.45em;margin-top:.5em}');
 
@@ -1915,13 +1976,15 @@
     css.push('.lumen-hero.lumen-hero--pending.lumen-hero--nodescr .lumen-hero__sk--descr{display:block;width:39.45em;max-width:100%;margin-top:.8em}');
     css.push('.lumen-hero.lumen-hero--pending.lumen-hero--nodescr .lumen-hero__sk--short{display:block;width:26.3em;max-width:67%;margin-top:.4em}');
 
-    /* Чип рейтинга TMDB (§0.2, тот же паттерн, что в карточке) и статус
-       сериала текстом «Выходит · 17 дек» (поправка контроллера). */
-    css.push('.lumen-hero .lumen-hero__chips{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-flex-wrap:wrap;flex-wrap:wrap;margin-top:.45em}');
-    css.push('.lumen-hero .lumen-hero__rate{display:none;font-family:' + FM + ';font-weight:600;font-size:1.05em;line-height:1;color:' + P.text + ';background:' + P.chipBg + ';border:.04em solid ' + P.line + ';border-radius:.53em;padding:.32em .7em;margin-right:.53em}');
-    css.push('.lumen-hero.lumen-hero--rated .lumen-hero__rate{display:block}');
-    css.push('.lumen-hero .lumen-hero__rate:after{content:"TMDB";font-size:.5em;letter-spacing:.1em;color:' + P.smoke + ';margin-left:.7em}');
-    css.push('.lumen-hero .lumen-hero__status{display:none;font-family:' + FB + ';font-weight:600;font-size:.88em;line-height:1;color:' + A + ';background:rgba(' + A_RGB + ',.1);border:.04em solid rgba(' + A_RGB + ',.4);border-radius:.53em;padding:.4em .7em}');
+    /* Статус сериала текстом «Выходит · 17 дек» (поправка контроллера).
+       Task 43: чипа рейтинга здесь больше нет — оценка переехала последним
+       элементом в строку меты («★ 8.1», src/48_hero.js). Отступ сверху
+       переехал с полосы на сам статус: полоса остаётся в разметке всегда
+       (в ней лежит узел статуса) и своим margin отодвигала бы текст от низа
+       кадра у каждого фильма, у которого статуса нет, — а это все фильмы и
+       все досмотренные сериалы. */
+    css.push('.lumen-hero .lumen-hero__chips{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-flex-wrap:wrap;flex-wrap:wrap}');
+    css.push('.lumen-hero .lumen-hero__status{display:none;font-family:' + FB + ';font-weight:600;font-size:.88em;line-height:1;color:' + A + ';background:rgba(' + A_RGB + ',.1);border-radius:.53em;padding:.4em .7em;margin-top:.45em}');
     css.push('.lumen-hero.lumen-hero--status .lumen-hero__status{display:block}');
 
     /* Сжатый и мини-герой описания не показывают (§0.2, экраны 17/18/20):
@@ -2362,10 +2425,10 @@
     css.push('body.lumen-motion-full .lumen-main .card__view{-webkit-transition:-webkit-transform .18s ease-out;transition:transform .18s ease-out}');
     css.push('.lumen-main .card__quality,.lumen-main .card__type{display:none}');
     if (LC.pref('lumen_badges', true)) css.push('.lumen-main .card__vote{display:none}');
-    css.push('.lumen-main .card__title{font-family:' + FD + ';font-weight:700;font-size:' + round2(.96 * scale) + 'em;line-height:1.15;white-space:nowrap;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis;color:' + P.muted + '}');
+    css.push('.lumen-main .card__title{font-family:' + FB + ';font-weight:700;font-size:' + round2(.96 * scale) + 'em;line-height:1.15;white-space:nowrap;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis;color:' + P.muted + '}');
     css.push('.lumen-main .card.focus .card__title{color:' + P.text + '}');
-    css.push('.lumen-main .card__age{font-family:' + FM + ';font-size:' + round2(.88 * scale) + 'em;line-height:1;margin-top:.25em;color:' + P.muted + '}');
-    css.push('.lumen-main .items-line__title{font-family:' + FD + ';font-weight:700;font-size:' + round2(1.23 * scale) + 'em}');
+    css.push('.lumen-main .card__age{font-family:' + FB + ';font-size:' + round2(.88 * scale) + 'em;line-height:1;margin-top:.25em;color:' + P.muted + '}');
+    css.push('.lumen-main .items-line__title{font-family:' + FB + ';font-weight:700;font-size:' + round2(1.23 * scale) + 'em}');
     css.push('.lumen-main .items-line{padding-bottom:1.4em}');
     /* Правка пользователя 2026-09-17 (второй круг): «левый край логотипа и
        левый край „Сейчас смотрят“ должны стоять на одной линии». У Lampa и
@@ -2446,20 +2509,20 @@
     css.push('.lumen-roulette .lumen-roulette__bg{position:absolute;top:0;right:0;bottom:0;left:0;background-position:center;background-repeat:no-repeat;-webkit-background-size:cover;background-size:cover;opacity:.22;pointer-events:none}');
     css.push('body.lumen-motion-full .lumen-roulette .lumen-roulette__bg{-webkit-transition:opacity .6s ease;transition:opacity .6s ease}');
     css.push('.lumen-roulette .lumen-roulette__head{position:relative;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;margin-bottom:1.4em}');
-    css.push('.lumen-roulette .lumen-roulette__title{font-family:' + FD + ';font-weight:700;font-size:2.1em;line-height:1.1;color:' + P.text + ';margin-right:1.05em}');
+    css.push('.lumen-roulette .lumen-roulette__title{font-family:' + FB + ';font-weight:700;font-size:2.1em;line-height:1.1;color:' + P.text + ';margin-right:1.05em}');
     css.push('.lumen-roulette .lumen-roulette__media{display:-webkit-box;display:-webkit-flex;display:flex}');
-    css.push('.lumen-roulette .lumen-roulette__tab{height:2.1em;padding:0 .96em;margin-right:.53em;border-radius:.53em;border:.04em solid ' + P.line + ';background:' + P.chipBg + ';font-family:' + FB + ';font-weight:600;font-size:.96em;line-height:2.1em;color:' + P.smoke + '}');
-    css.push('.lumen-roulette .lumen-roulette__tab.is-on{color:' + P.text + ';border-color:' + AL + '}');
-    css.push('.lumen-roulette .lumen-roulette__tab.focus{background:' + A + ';color:' + t.onac + ';border-color:' + AL + '}');
+    css.push('.lumen-roulette .lumen-roulette__tab{height:2.1em;padding:0 .96em;margin-right:.53em;border-radius:.53em;background:' + P.chipBg + ';font-family:' + FB + ';font-weight:600;font-size:.96em;line-height:2.1em;color:' + P.smoke + '}');
+    css.push('.lumen-roulette .lumen-roulette__tab.is-on{color:' + P.text + ';background:rgba(' + P.textRgb + ',.22)}');
+    css.push('.lumen-roulette .lumen-roulette__tab.focus{background:' + P.text + ';color:' + P.bg + '}');
     /* Лента чипов: подборки в одну строку с переносом — каталог отдаёт их
        десятками, и вертикальный список занял бы весь экран. */
     css.push('.lumen-roulette .lumen-roulette__chips,.lumen-roulette .lumen-roulette__filters{position:relative;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;margin-bottom:.88em}');
     /* Чип подборки и чип фильтра: собственное оформление, а не наследство
        от .lumen-chip хаба (тот живёт только под .lumen-hub). Отмеченный —
        акцентной рамкой и светлым текстом, фокус — заливкой акцентом. */
-    css.push('.lumen-roulette .lumen-roulette__chip{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;height:2.1em;padding:0 .88em;margin:0 .53em .53em 0;border-radius:.53em;border:.04em solid ' + P.line + ';background:' + P.chipBg + ';font-family:' + FB + ';font-weight:500;font-size:.96em;line-height:1;color:' + P.smoke + ';white-space:nowrap}');
-    css.push('.lumen-roulette .lumen-roulette__chip.lumen-chip--on{color:' + P.text + ';border-color:' + AL + ';background:rgba(' + A_RGB + ',.14)}');
-    css.push('.lumen-roulette .lumen-roulette__chip.focus{background:' + A + ';color:' + t.onac + ';border-color:' + AL + ';border-width:.11em}');
+    css.push('.lumen-roulette .lumen-roulette__chip{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;height:2.1em;padding:0 .88em;margin:0 .53em .53em 0;border-radius:.53em;background:' + P.chipBg + ';font-family:' + FB + ';font-weight:500;font-size:.96em;line-height:1;color:' + P.smoke + ';white-space:nowrap}');
+    css.push('.lumen-roulette .lumen-roulette__chip.lumen-chip--on{color:' + P.text + ';background:rgba(' + A_RGB + ',.14)}');
+    css.push('.lumen-roulette .lumen-roulette__chip.focus{background:' + P.text + ';color:' + P.bg + '}');
     /* Барабан: окно одного постера 2:3. Постер меняется на каждом шаге плана
        (src/56_roulette.js), «щелчок» — короткая анимация того же узла. */
     css.push('.lumen-roulette .lumen-roulette__stage{position:relative;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:end;-webkit-align-items:flex-end;align-items:flex-end;margin-top:1.05em}');
@@ -2468,15 +2531,15 @@
     css.push('body.lumen-motion-full .lumen-roulette .lumen-roulette__frame.is-step{-webkit-animation:lumen-roul-step .12s ease-out;animation:lumen-roul-step .12s ease-out}');
     css.push('@-webkit-keyframes lumen-roul-step{from{-webkit-transform:translateY(12%)}to{-webkit-transform:translateY(0)}}');
     css.push('@keyframes lumen-roul-step{from{transform:translateY(12%)}to{transform:translateY(0)}}');
-    css.push('.lumen-roulette .lumen-roulette__spin{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;height:3.16em;padding:0 1.75em;margin-left:1.4em;border-radius:.79em;background:' + A + ';color:' + t.onac + ';font-family:' + FD + ';font-weight:700;font-size:1.05em;border:.04em solid transparent}');
+    css.push('.lumen-roulette .lumen-roulette__spin{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;height:3.16em;padding:0 1.75em;margin-left:1.4em;border-radius:.79em;background:' + A + ';color:' + t.onac + ';font-family:' + FB + ';font-weight:700;font-size:1.05em;border:.04em solid transparent}');
     css.push('.lumen-roulette .lumen-roulette__spin.focus{border-color:' + AL + ';border-width:.11em;-webkit-box-shadow:0 .35em .7em ' + AG + ';box-shadow:0 .35em .7em ' + AG + '}');
     css.push('.lumen-roulette .lumen-roulette__spin.is-busy{opacity:.7}');
     css.push('.lumen-roulette .lumen-roulette__hint{position:relative;margin-left:1.4em;font-family:' + FB + ';font-size:.96em;color:' + P.smoke + '}');
     /* Карточка результата: название, мета и три кнопки. Появляется на месте
        подсказки, поэтому у неё своя строка под барабаном. */
     css.push('.lumen-roulette .lumen-roulette__result{position:relative;margin-left:1.4em;max-width:31.5em}');
-    css.push('.lumen-roulette .lumen-roulette__rtitle{font-family:' + FD + ';font-weight:700;font-size:1.75em;line-height:1.15;color:' + P.text + '}');
-    css.push('.lumen-roulette .lumen-roulette__rmeta{font-family:' + FM + ';font-size:.96em;line-height:1;margin-top:.44em;color:' + P.muted + '}');
+    css.push('.lumen-roulette .lumen-roulette__rtitle{font-family:' + FB + ';font-weight:700;font-size:1.75em;line-height:1.15;color:' + P.text + '}');
+    css.push('.lumen-roulette .lumen-roulette__rmeta{font-family:' + FB + ';font-size:.96em;line-height:1;margin-top:.44em;color:' + P.muted + '}');
     css.push('.lumen-roulette .lumen-roulette__actions{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;margin-top:1.05em}');
     css.push('.lumen-roulette .lumen-roulette__btn{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;height:2.45em;padding:0 1.05em;margin:0 .53em .53em 0;border-radius:.61em;border:.04em solid ' + P.line + ';background:' + P.buttonBg + ';font-family:' + FB + ';font-weight:600;font-size:.96em;color:' + P.text + '}');
     css.push('.lumen-roulette .lumen-roulette__btn.focus{background:' + A + ';color:' + t.onac + ';border-color:' + AL + ';border-width:.11em;-webkit-box-shadow:0 .35em .7em ' + AG + ';box-shadow:0 .35em .7em ' + AG + '}');
@@ -2522,15 +2585,15 @@
        пропадают на светлой сцене. */
     css.push('.lumen-ambient .lumen-ambient__scrim{position:absolute;top:auto;right:0;bottom:0;left:0;height:40%;background:-webkit-linear-gradient(top,rgba(' + P.bgRgb + ',0) 0%,rgba(' + P.bgRgb + ',.82) 100%);background:linear-gradient(to bottom,rgba(' + P.bgRgb + ',0) 0%,rgba(' + P.bgRgb + ',.82) 100%)}');
     css.push('.lumen-ambient .lumen-ambient__info{position:absolute;left:2.81em;bottom:2.81em;right:14em;max-width:36em}');
-    css.push('.lumen-ambient .lumen-ambient__title{font-family:' + FD + ';font-weight:700;font-size:1.75em;line-height:1.15;color:' + P.text + ';white-space:nowrap;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis}');
+    css.push('.lumen-ambient .lumen-ambient__title{font-family:' + FB + ';font-weight:700;font-size:1.75em;line-height:1.15;color:' + P.text + ';white-space:nowrap;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis}');
     /* Точки-индикаторы: сколько кадров в ленте сеанса и который идёт
        сейчас (REEL = 8, src/54_ambient.js). */
     css.push('.lumen-ambient .lumen-ambient__dots{display:-webkit-box;display:-webkit-flex;display:flex;margin-top:.88em}');
     css.push('.lumen-ambient .lumen-ambient__dot{width:.35em;height:.35em;border-radius:50%;margin-right:.44em;background:rgba(' + P.textRgb + ',.28)}');
     css.push('.lumen-ambient .lumen-ambient__dot.is-on{background:' + A + '}');
-    /* Часы — моно-гарнитурой, как все цифры плагина. Секунд нет: они стоили
-       бы отдельного таймера (см. шапку src/54_ambient.js). */
-    css.push('.lumen-ambient .lumen-ambient__clock{position:absolute;right:2.81em;bottom:2.81em;font-family:' + FM + ';font-size:2.2em;line-height:1;letter-spacing:.04em;color:' + P.text + '}');
+    /* Секунд нет: они стоили бы отдельного таймера (см. шапку
+       src/54_ambient.js). */
+    css.push('.lumen-ambient .lumen-ambient__clock{position:absolute;right:2.81em;bottom:2.81em;font-family:' + FB + ';font-size:2.2em;line-height:1;letter-spacing:.04em;color:' + P.text + '}');
 
     /* Task 31 (фаза 4): HUD отладки (src/69_hud.js). Верхний левый угол —
        не спорит ни с мини-картой (справа), ни с шапкой карточки; моно-
@@ -2556,7 +2619,7 @@
        показывает, где фокус, и отобрать его не может (план Task 27 Step 2 —
        «не перехватывать сами нажатия»). */
     css.push('.lumen-minimap{position:fixed;right:2.81em;top:11.40em;width:13.15em;padding:1.05em .96em;border-radius:.53em;background:' + P.plate + ';border:.04em solid ' + P.line + ';z-index:80;pointer-events:none}');
-    css.push('.lumen-minimap .lumen-minimap__head{font-family:' + FM + ';font-size:.88em;line-height:1;letter-spacing:.14em;color:' + P.smoke + ';margin-bottom:.7em}');
+    css.push('.lumen-minimap .lumen-minimap__head{font-family:' + FB + ';font-size:.88em;line-height:1;letter-spacing:.14em;color:' + P.smoke + ';margin-bottom:.7em}');
     css.push('.lumen-minimap .lumen-minimap__row{font-family:' + FB + ';font-weight:500;font-size:.88em;line-height:1.15;color:' + P.smoke + ';min-height:2.02em;padding:.31em .61em;border-radius:.35em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}');
     /* Активная строка — тот же паттерн, что у фокуса пункта меню (§0.13):
        подложка приглушённым акцентом и полоса слева его же цветом. */
@@ -2564,9 +2627,9 @@
 
     /* Индикатор «где я в ряду»: появляется на прыжке и на ускоренном
        листании. Собственного образца в экранах 15–32 у него нет — взяты
-       подложка и моно-кегль панели мини-карты, место — нижний край экрана
+       подложка и кегль панели мини-карты, место — нижний край экрана
        по центру, чтобы не спорить с самой панелью справа. */
-    css.push('.lumen-jump{position:fixed;left:50%;bottom:2.81em;-webkit-transform:translateX(-50%);transform:translateX(-50%);padding:.53em 1.05em;border-radius:.53em;background:' + P.plate + ';border:.04em solid ' + P.line + ';font-family:' + FM + ';font-size:.96em;line-height:1;letter-spacing:.06em;color:' + P.text + ';z-index:80;pointer-events:none;white-space:nowrap}');
+    css.push('.lumen-jump{position:fixed;left:50%;bottom:2.81em;-webkit-transform:translateX(-50%);transform:translateX(-50%);padding:.53em 1.05em;border-radius:.53em;background:' + P.plate + ';border:.04em solid ' + P.line + ';font-family:' + FB + ';font-size:.96em;line-height:1;letter-spacing:.06em;color:' + P.text + ';z-index:80;pointer-events:none;white-space:nowrap}');
 
     /* Кнопка поиска по подборкам в шапке хаба (§0.8). Место под неё
        (.lumen-hub__search) держалось с Task 17; теперь это .selector, и у

@@ -200,14 +200,16 @@
       en: 'The bar with the timecode and percentage on a card you have not finished, the "Continue S2 E3" label on the Watch button and the watched marks on episode cards. Applied immediately.',
       uk: 'Смуга з таймкодом і відсотком у картці того, що ви не додивилися, підпис «Продовжити S2 E3» на кнопці «Дивитися» та позначки перегляду в картках серій. Застосовується одразу.'
     },
-    /* Правка пользователя 2026-09-16 (п.6): выбор гарнитуры. Имена шрифтов —
-       собственные, во всех трёх языках пишутся одинаково, но идут через
-       LC.STRINGS, как все строки интерфейса. */
+    /* Выбор гарнитуры. Имена шрифтов — собственные, во всех трёх языках
+       пишутся одинаково, но идут через LC.STRINGS, как все строки
+       интерфейса. Task 43: гарнитура одна на весь плагин — прежде за каждым
+       из этих имён стояла ПАРА «текстовая + моноширинная», и описание
+       обещало «текст и цифры», потому что у заголовков была своя. */
     lumen_card_font_name: { ru: 'Шрифт', en: 'Font', uk: 'Шрифт' },
     lumen_card_font_descr: {
-      ru: 'Гарнитура текста и цифр. Действует только при включённых фирменных шрифтах. Применяется сразу.',
-      en: 'Typeface for text and figures. Works only with custom fonts on. Applied immediately.',
-      uk: 'Гарнітура тексту й цифр. Діє лише з увімкненими фірмовими шрифтами. Застосовується одразу.'
+      ru: 'Шрифт интерфейса: им набрано всё — заголовки, текст и цифры. Действует только при включённых фирменных шрифтах. Применяется сразу.',
+      en: 'The interface font: headings, text and figures all use it. Works only with custom fonts on. Applied immediately.',
+      uk: 'Шрифт інтерфейсу: ним набрано все — заголовки, текст і цифри. Діє лише з увімкненими фірмовими шрифтами. Застосовується одразу.'
     },
     lumen_card_font_golos: { ru: 'Golos Text', en: 'Golos Text', uk: 'Golos Text' },
     lumen_card_font_onest: { ru: 'Onest', en: 'Onest', uk: 'Onest' },

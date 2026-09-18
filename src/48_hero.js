@@ -484,7 +484,6 @@
         '<div class="lumen-hero__sk lumen-hero__sk--descr lumen-skeleton"></div>' +
         '<div class="lumen-hero__sk lumen-hero__sk--short lumen-skeleton"></div>' +
         '<div class="lumen-hero__chips">' +
-        '<div class="lumen-hero__rate"></div>' +
         '<div class="lumen-hero__status"></div>' +
         '</div>' +
         /* Task 36: место под чипы профилей настроения — последним элементом
@@ -816,12 +815,20 @@
         if (!state || !state.model) return;
         var current = state.model;
         var text = node.find('.lumen-hero__text');
-        node.find('.lumen-hero__meta').text(current.meta.join(' · '));
+        /* Task 43: рейтинг идёт последним элементом той же строки —
+           «2026 · 1:40 · драма · ★ 8.1». Отдельного чипа под него больше нет:
+           одна строка muted спокойнее, чем строка плюс плашка, и это ровно
+           та же склейка, что в подписи карточки ряда — «2017 · ★ 6.4»
+           (src/62_badges.js, decorate).
+           Склейка живёт здесь, а не в heroModel: модель собирает мету по
+           частям и дополняет её, когда приходят детали (сезоны, жанры), а
+           оценка известна сразу из карточки ряда — приклей её в модели, и
+           она оказалась бы в середине строки, между годом и жанрами. */
+        var metaLine = current.rating ? current.meta.concat(['★ ' + current.rating]) : current.meta;
+        node.find('.lumen-hero__meta').text(metaLine.join(' · '));
         node.find('.lumen-hero__title').text(current.title);
         node.find('.lumen-hero__descr').text(current.overview);
-        node.find('.lumen-hero__rate').text(current.rating);
         node.find('.lumen-hero__status').text(current.status);
-        node.toggleClass('lumen-hero--rated', !!current.rating);
         node.toggleClass('lumen-hero--status', !!current.status);
         node.toggleClass('lumen-hero--pending', !!current.pending);
         /* Скелетон описания нужен, только если описания нет вовсе: в данных

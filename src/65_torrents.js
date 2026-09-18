@@ -98,7 +98,7 @@
       r.push('/* 33 Источник · 35 Фильтр, Сортировать, Действие — панель Select (ширина штатная, 35 %) */');
       r.push(S(['.selectbox .selectbox__content']) + '{background:' + k.panel + ';border-left:.044em solid ' + k.line + ';color:' + k.text + ';font-family:' + k.fontBody + '}');
       r.push(S(['.selectbox .selectbox__head']) + '{padding:2.805em 2.805em 1.052em 1.403em}');
-      r.push(S(['.selectbox .selectbox__title']) + '{font-family:' + k.fontDisplay + ';font-weight:700;font-size:1.227em;line-height:1.1}');
+      r.push(S(['.selectbox .selectbox__title']) + '{font-family:' + k.fontBody + ';font-weight:700;font-size:1.227em;line-height:1.1}');
       /* Горизонтальный отступ панели — полями пункта, а не паддингом тела:
          scale(1.02) фокуса не упирается в край скролла, чужие блоки в теле не сдвигаются. */
       r.push(S(['.selectbox .selectbox-item']) + '{margin:0 2.805em .351em 1.403em;padding:.614em .701em;border-radius:.438em;color:' + k.text + ';-webkit-transition:background-color .2s,color .2s,-webkit-transform .2s;transition:background-color .2s,color .2s,transform .2s}');
@@ -108,7 +108,7 @@
          карточки («Избранное»), и перед нашими пунктами в нём (Task 26,
          src/63_cardmenu.js). Поля — как у пункта, чтобы подпись группы стояла
          по одной линии со списком. */
-      r.push(S(['.selectbox .settings-param-title']) + '{margin:1.052em 2.805em .35em 1.403em;padding:0;border:0;background:none;font-family:' + k.fontDisplay + ';font-size:.745em;font-weight:700;line-height:1.2;letter-spacing:.08em;text-transform:uppercase;color:' + k.muted + '}');
+      r.push(S(['.selectbox .settings-param-title']) + '{margin:1.052em 2.805em .35em 1.403em;padding:0;border:0;background:none;font-family:' + k.fontBody + ';font-size:.745em;font-weight:700;line-height:1.2;letter-spacing:.08em;text-transform:uppercase;color:' + k.muted + '}');
       /* Текст подписи Lampa кладёт в <span> и красит его своим правилом
          (rgba(255,255,255,.4)) — цвет на обёртке до него не доходит. */
       r.push(S(['.selectbox .settings-param-title > span']) + '{color:' + k.muted + '}');
@@ -162,15 +162,15 @@
       r.push(A(['.explorer-card__head-img > img']) + '{border-radius:.438em;background-color:' + k.panel + '}');
       r.push(A(['.explorer-card__head-img.focus::after']) + '{border-color:' + k.accent + ';border-width:.132em;border-radius:.7em}');
       r.push(A(['.explorer-card__head-body']) + '{padding-top:.789em;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center}');
-      r.push(A(['.explorer-card__head-create']) + '{font-family:' + k.fontMono + ';font-size:.877em;letter-spacing:.03em;color:' + k.muted + '}');
+      r.push(A(['.explorer-card__head-create']) + '{font-family:' + k.fontBody + ';font-size:.877em;letter-spacing:.03em;color:' + k.muted + '}');
       r.push(A(['.explorer-card__head-rate']) + '{margin:0 0 0 .614em;color:' + k.accent + '}');
-      r.push(A(['.explorer-card__head-rate > span']) + '{font-family:' + k.fontMono + ';font-size:.964em;font-weight:600}');
+      r.push(A(['.explorer-card__head-rate > span']) + '{font-family:' + k.fontBody + ';font-size:.964em;font-weight:600}');
       r.push(A(['.explorer-card__head-rate > svg']) + '{display:none !important}');
       r.push(A(['.explorer-card__head-rate:before']) + '{content:"";display:block;width:.964em;height:.964em;margin-right:.307em;background-color:currentColor}');
       useMask('star', A(['.explorer-card__head-rate:before']));
-      r.push(A(['.explorer-card__title']) + '{font-family:' + k.fontDisplay + ';font-weight:800;font-size:1.666em;line-height:1.06;margin-bottom:.316em}');
+      r.push(A(['.explorer-card__title']) + '{font-family:' + k.fontBody + ';font-weight:700;font-size:1.666em;line-height:1.06;margin-bottom:.316em}');
       r.push(A(['.explorer-card__title.small']) + '{font-size:1.227em}');
-      r.push(A(['.explorer-card__genres']) + '{font-family:' + k.fontMono + ';font-size:.877em;color:' + k.smoke + ';margin-bottom:.8em}');
+      r.push(A(['.explorer-card__genres']) + '{font-family:' + k.fontBody + ';font-size:.877em;color:' + k.smoke + ';margin-bottom:.8em}');
       r.push(A(['.explorer-card__descr']) + '{font-size:.877em;font-weight:400;line-height:1.45;color:' + k.muted + ';display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}');
 
       /* Чипы фильтра и кнопки пустого состояния: h56 r12 panel+line (лок. em от 20px). */
@@ -180,14 +180,14 @@
       /* Фокус — токен «Кнопка» карточки: заливка, кольцо, scale 1.06, glow.
          !important — поверх animation-button-focus Lampa. */
       r.push(A(chipsFocus) + '{background-color:' + k.accent + ';color:' + k.onac + ';border-color:' + k.ring + ';border-width:.125em;-webkit-transform:scale(1.06) !important;transform:scale(1.06) !important;-webkit-box-shadow:0 .7em 2em ' + k.acglow + ';box-shadow:0 .7em 2em ' + k.acglow + '}');
-      /* «Назад» — зеркальный chevronR; «Поиск» — search, раскрытый запрос моно. */
+      /* «Назад» — зеркальный chevronR; «Поиск» — search с раскрытым запросом. */
       r.push(A(['.torrent-filter .filter--back']) + '{width:2.8em;padding:0;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center}');
       r.push(A(['.torrent-filter .filter--back > svg', '.torrent-filter .filter--search > svg']) + '{display:none}');
       r.push(A(['.torrent-filter .filter--back:before', '.torrent-filter .filter--search:before']) + '{content:"";display:block;-webkit-flex-shrink:0;flex-shrink:0;width:1.3em;height:1.3em;background-color:currentColor}');
       r.push(A(['.torrent-filter .filter--back:before']) + '{-webkit-transform:scaleX(-1);transform:scaleX(-1)}');
       useMask('chevronR', A(['.torrent-filter .filter--back:before']));
       useMask('search', A(['.torrent-filter .filter--search:before']));
-      r.push(A(['.torrent-filter .filter--search > div', '.torrent-filter .filter--sort > div']) + '{margin-left:.6em;padding:0;border-radius:0;background:transparent;font-family:' + k.fontMono + ';font-size:1em;font-weight:400;color:' + k.smoke + '}');
+      r.push(A(['.torrent-filter .filter--search > div', '.torrent-filter .filter--sort > div']) + '{margin-left:.6em;padding:0;border-radius:0;background:transparent;font-family:' + k.fontBody + ';font-size:1em;font-weight:400;color:' + k.smoke + '}');
       r.push(A(['.torrent-filter .filter--search > div']) + '{padding-left:.6em;border-left:.05em solid ' + k.line + ';max-width:15em}');
       r.push(A(['.torrent-filter .filter--search.focus > div', '.torrent-filter .filter--sort.focus > div']) + '{color:' + k.onac + ';border-left-color:' + k.onac + '}');
       /* Индикатор «применён фильтр»: Filter.chosen() заполняет div и снимает .hide — точка accent. */
@@ -196,7 +196,7 @@
 
       /* Раздачи (.torrent-item — уникальный класс пути). */
       r.push(A(['.torrent-list']) + '{padding:0 2.805em 1.403em 1.403em}');
-      r.push(T(['.torrent-item']) + '{background-color:' + k.panel + ';border:.044em solid ' + k.line + ';border-radius:.438em;padding:.789em;line-height:1.2;color:' + k.text + ';font-family:' + k.fontMono + ';-webkit-transition:border-color .2s,background-color .2s,-webkit-box-shadow .2s;transition:border-color .2s,background-color .2s,box-shadow .2s}');
+      r.push(T(['.torrent-item']) + '{background-color:' + k.panel + ';border:.044em solid ' + k.line + ';border-radius:.438em;padding:.789em;line-height:1.2;color:' + k.text + ';font-family:' + k.fontBody + ';-webkit-transition:border-color .2s,background-color .2s,-webkit-box-shadow .2s;transition:border-color .2s,background-color .2s,box-shadow .2s}');
       r.push(T(['.torrent-item + .torrent-item']) + '{margin-top:.701em}');
       /* Фокус: рамка 3px accent + glow, без scale; паддинг -2px компенсирует рамку. */
       r.push(T(['.torrent-item.focus']) + '{background-color:' + k.panelHi + ';border-color:' + k.accent + ';border-width:.132em;padding:.701em;-webkit-box-shadow:0 .614em 1.754em ' + k.acglow + ';box-shadow:0 .614em 1.754em ' + k.acglow + '}');
@@ -210,9 +210,9 @@
       /* Размер — светлый чип справа сверху, одинаково во всех строках (лок. em от 20px). */
       r.push(T(['.torrent-item__size']) + '{position:absolute;top:.9em;right:.9em;margin:0;padding:.35em .7em;border-radius:.35em;background-color:' + k.text + ';color:' + k.dark + ';font-size:1em;font-weight:600;line-height:1}');
       r.push(T(['.torrent-item.focus .torrent-item__size']) + '{top:.8em;right:.8em}');
-      /* Медиачипы ffprobe (m-*): рамка, моно (лок. em от 20px), штатные значки Lampa остаются. */
+      /* Медиачипы ffprobe (m-*): рамка, лок. em от 20px, штатные значки Lampa остаются. */
       r.push(T(['.torrent-item__ffprobe']) + '{padding-top:.175em}');
-      r.push(T(['.torrent-item__ffprobe > div']) + '{font-size:.877em;font-family:' + k.fontMono + ';font-weight:400;letter-spacing:.06em;line-height:1;color:' + k.text + ';background:transparent;border:.05em solid rgba(' + k.textRgb + ',.24);border-radius:.35em;padding:.35em .55em;margin:.4em .4em 0 0;-webkit-box-shadow:none;box-shadow:none;outline:0}');
+      r.push(T(['.torrent-item__ffprobe > div']) + '{font-size:.877em;font-family:' + k.fontBody + ';font-weight:400;letter-spacing:.06em;line-height:1;color:' + k.text + ';background:transparent;border:.05em solid rgba(' + k.textRgb + ',.24);border-radius:.35em;padding:.35em .55em;margin:.4em .4em 0 0;-webkit-box-shadow:none;box-shadow:none;outline:0}');
       r.push(T(['.torrent-item__ffprobe > div::before']) + '{width:.9em;height:.9em;margin-right:.4em}');
       r.push(T(['.torrent-item__ffprobe > div.m-general > div:nth-child(1)', '.torrent-item__ffprobe > div.m-general > div:nth-child(2)']) + '{font-size:1em;padding:0;background:transparent;border-radius:0}');
       r.push(T(['.torrent-item__ffprobe > div.m-general > div:nth-child(2)']) + '{padding-left:.4em}');
@@ -223,7 +223,7 @@
       useMask('check', T(['.torrent-item__viewed:before']));
 
       /* «Продолжить» (штатный .watched-history). */
-      r.push(A(['.watched-history']) + '{background-color:' + k.panelLo + ';border:.044em solid ' + k.line + ';border-radius:.438em;padding:.701em .789em;margin-bottom:.701em;color:' + k.muted + ';font-family:' + k.fontMono + ';-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-transition:border-color .2s,-webkit-box-shadow .2s;transition:border-color .2s,box-shadow .2s}');
+      r.push(A(['.watched-history']) + '{background-color:' + k.panelLo + ';border:.044em solid ' + k.line + ';border-radius:.438em;padding:.701em .789em;margin-bottom:.701em;color:' + k.muted + ';font-family:' + k.fontBody + ';-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-transition:border-color .2s,-webkit-box-shadow .2s;transition:border-color .2s,box-shadow .2s}');
       r.push(A(['.watched-history__icon']) + '{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;width:1.578em;height:1.578em;border-radius:.175em;border:.044em solid ' + k.accent + ';background-color:rgba(' + k.accentRgb + ',.16);color:' + k.accent + '}');
       r.push(A(['.watched-history__icon > svg']) + '{width:.964em !important;height:.964em !important}');
       r.push(A(['.watched-history__body']) + '{padding-left:.614em;font-size:.877em;line-height:1.3}');
@@ -234,7 +234,7 @@
       /* Пусто / ошибка парсера (.empty) и «фильтр ничего не дал» (.empty-filter). */
       r.push(A(['.empty', '.empty-filter']) + '{font-family:' + k.fontBody + ';color:' + k.text + '}');
       r.push(A(['.empty__img']) + '{height:7.014em;margin-bottom:1.403em;opacity:.35}');
-      r.push(A(['.empty__title']) + '{font-family:' + k.fontDisplay + ';font-weight:700;font-size:1.227em;line-height:1.2}');
+      r.push(A(['.empty__title']) + '{font-family:' + k.fontBody + ';font-weight:700;font-size:1.227em;line-height:1.2}');
       r.push(A(['.empty__descr']) + '{font-size:.877em;line-height:1.45;margin-top:.6em;color:' + k.muted + '}');
       r.push(A(['.empty__footer']) + '{margin-top:1.2em}');
       r.push(A(['.empty-filter__title']) + '{font-size:.964em;font-weight:600;line-height:1.2;margin-bottom:.3em}');
@@ -267,19 +267,19 @@
       r.push(S(['.modal .modal__content']) + '{background-color:' + k.panel + ';border-radius:.614em;-webkit-box-shadow:0 1.315em 3.945em rgba(0,0,0,.7);box-shadow:0 1.315em 3.945em rgba(0,0,0,.7);color:' + k.text + ';font-family:' + k.fontBody + '}');
       r.push(S(['.modal .modal__head']) + '{margin-bottom:.701em;padding-bottom:.701em;border-bottom:.044em solid ' + k.line + '}');
       /* Заголовок окна и заголовок общего блока .error — один кегль (дизайн: 28px на всех окнах пути). */
-      r.push(S(['.modal .modal__title', '.modal .error__title']) + '{font-family:' + k.fontDisplay + ';font-weight:700;font-size:1.227em;line-height:1.1}');
+      r.push(S(['.modal .modal__title', '.modal .error__title']) + '{font-family:' + k.fontBody + ';font-weight:700;font-size:1.227em;line-height:1.1}');
       /* Общий блок .error — только внутри Modal: иконка close в круге spice. */
       r.push(S(['.modal .error__ico']) + '{position:relative;width:2.455em;height:2.455em;margin-right:.701em;border-radius:50%;background:' + k.spice + '}');
       r.push(S(['.modal .error__ico:before']) + '{content:"";position:absolute;top:50%;left:50%;width:1.227em;height:1.227em;margin:-.614em 0 0 -.614em;background-color:' + k.dark + '}');
       useMask('close', S(['.modal .error__ico:before']));
       r.push(S(['.modal .error__text']) + '{font-size:.964em;font-weight:400;line-height:1.4;margin-top:.35em;color:' + k.muted + '}');
-      /* Причины (torrent_nohash): code-чип моно с многоточием (лок. em от 20px). */
+      /* Причины (torrent_nohash): code-чип с многоточием (лок. em от 20px). */
       r.push(T(['.torrent-error']) + '{margin-top:1.052em;padding-top:1.052em;border-top:.044em solid ' + k.line + ';font-family:' + k.fontBody + '}');
       r.push(T(['.torrent-error > div > div']) + '{font-size:.877em;font-weight:600;line-height:1.2}');
       r.push(T(['.torrent-error > div > ul']) + '{margin-top:.4em;font-size:.877em;font-weight:400;line-height:1.3;color:' + k.muted + '}');
       r.push(T(['.torrent-error > div > ul > li + li']) + '{margin-top:.4em}');
       r.push(T(['.torrent-error > div > ul > li::before']) + '{top:.55em;background-color:' + k.smoke + '}');
-      r.push(T(['.torrent-error code']) + '{display:block;margin-top:.4em;padding:.5em .7em;border-radius:.35em;background-color:' + k.raised + ';color:' + k.text + ';font-family:' + k.fontMono + ';font-size:1em;word-break:normal;white-space:nowrap;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis}');
+      r.push(T(['.torrent-error code']) + '{display:block;margin-top:.4em;padding:.5em .7em;border-radius:.35em;background-color:' + k.raised + ';color:' + k.text + ';font-family:' + k.fontBody + ';font-size:1em;word-break:normal;white-space:nowrap;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis}');
       /* Спиннер: вместо loader.svg — маска torrent 48px на радиальном glow 100px. */
       r.push(T(['.modal-loading']) + '{position:relative;height:4.384em;background:none}');
       r.push(T(['.modal-loading:before']) + '{content:"";position:absolute;top:50%;left:50%;width:4.384em;height:4.384em;margin:-2.192em 0 0 -2.192em;border-radius:50%;background:radial-gradient(circle,' + k.acglow + ' 0%,rgba(' + k.accentRgb + ',0) 70%)}');
@@ -293,17 +293,17 @@
       r.push(T(['.torrent-install__left']) + '{width:47%;padding-right:1.754em}');
       r.push(T(['.torrent-install__details']) + '{width:53%}');
       r.push(T(['.torrent-install__left img']) + '{display:block;max-width:100%;border-radius:.438em}');
-      r.push(T(['.torrent-install__title']) + '{font-family:' + k.fontDisplay + ';font-weight:700;font-size:1.403em;line-height:1.1;margin-bottom:.563em}');
+      r.push(T(['.torrent-install__title']) + '{font-family:' + k.fontBody + ';font-weight:700;font-size:1.403em;line-height:1.1;margin-bottom:.563em}');
       r.push(T(['.torrent-install__descr']) + '{font-size:1.052em;line-height:1.45;margin-bottom:.75em;color:' + k.muted + '}');
       r.push(T(['.torrent-install__label']) + '{font-size:.877em;font-weight:600;margin-bottom:.6em}');
       r.push(T(['.torrent-install__link']) + '{margin:0 .526em .526em 0;padding:.526em .789em;border-radius:.307em;background-color:' + k.raised + ';color:' + k.text + '}');
       r.push(T(['.torrent-install__link > div:first-child']) + '{font-size:.877em;font-weight:500;margin-bottom:.2em}');
-      r.push(T(['.torrent-install__link > div:last-child']) + '{font-size:.877em;font-family:' + k.fontMono + ';color:' + k.muted + '}');
+      r.push(T(['.torrent-install__link > div:last-child']) + '{font-size:.877em;font-family:' + k.fontBody + ';color:' + k.muted + '}');
       /* Чек-лист: прогресс 4px accent; шаги — будущий smoke, текущий text 22px 600,
          пройденный (li.wait.check) muted + зачёркнут. */
       r.push(T(['.torrent-checklist']) + '{font-family:' + k.fontBody + ';color:' + k.text + '}');
       r.push(T(['.torrent-checklist__descr']) + '{font-size:.964em;line-height:1.4;margin-bottom:.5em;color:' + k.muted + '}');
-      r.push(T(['.torrent-checklist__progress-steps']) + '{font-family:' + k.fontMono + ';font-size:.877em;margin-bottom:.55em;color:' + k.text + '}');
+      r.push(T(['.torrent-checklist__progress-steps']) + '{font-family:' + k.fontBody + ';font-size:.877em;margin-bottom:.55em;color:' + k.text + '}');
       r.push(T(['.torrent-checklist__progress-bar']) + '{height:.175em;margin-bottom:1.403em;border-radius:.088em;background-color:rgba(' + k.textRgb + ',.16);overflow:hidden}');
       r.push(T(['.torrent-checklist__progress-bar > div']) + '{height:100%;border-radius:.088em;background-color:' + k.accent + '}');
       r.push(T(['.torrent-checklist__steps']) + '{width:44%;padding-right:1.403em}');
@@ -332,34 +332,34 @@
       var rows = ['.torrent-file', '.torrent-serial'];
       r.push('/* 38 Файлы — фильм · 39 Файлы — сериал (+ полоска автостарта) */');
       r.push(T(['.torrent-files .torrent-file + .torrent-file', '.torrent-files .torrent-file + .torrent-serial', '.torrent-files .torrent-serial + .torrent-file', '.torrent-files .torrent-serial + .torrent-serial']) + '{margin-top:.701em}');
-      r.push(T(['.torrnet-folder-name']) + '{font-family:' + k.fontMono + ';font-size:.877em;line-height:1.2;padding:.8em 0;color:' + k.muted + ';opacity:.5}');
+      r.push(T(['.torrnet-folder-name']) + '{font-family:' + k.fontBody + ';font-size:.877em;line-height:1.2;padding:.8em 0;color:' + k.muted + ';opacity:.5}');
       r.push(T(['.torrnet-folder-name.focus']) + '{opacity:1;color:' + k.accent + '}');
       r.push(T(rows) + '{background-color:' + k.panelLo + ';border:.044em solid ' + k.line + ';border-radius:.438em;color:' + k.text + ';font-family:' + k.fontBody + ';-webkit-transition:border-color .2s,background-color .2s,-webkit-box-shadow .2s;transition:border-color .2s,background-color .2s,box-shadow .2s}');
       r.push(T(['.torrent-file.focus', '.torrent-serial.focus']) + '{background-color:' + k.panelHi + ';border-color:' + k.accent + ';border-width:.132em;-webkit-box-shadow:0 .526em 1.534em ' + k.acglow + ';box-shadow:0 .526em 1.534em ' + k.acglow + '}');
-      /* Файл фильма: название Golos 500 22px (muted вне фокуса), .exe инлайн моно, тёмный чип размера. */
+      /* Файл фильма: название 500 22px (muted вне фокуса), .exe инлайном, тёмный чип размера. */
       r.push(T(['.torrent-file']) + '{padding:.701em .789em;overflow:hidden}');
       r.push(T(['.torrent-file.focus']) + '{padding:.614em .701em}');
       r.push(T(['.torrent-file__title']) + '{font-size:.964em;font-weight:500;line-height:1.25;padding-right:.727em;color:' + k.muted + '}');
-      r.push(T(['.torrent-file__title .exe']) + '{display:inline;margin-left:.4em;padding:0;border-radius:0;background:transparent;font-family:' + k.fontMono + ';font-size:.909em;font-weight:400;color:' + k.smoke + '}');
+      r.push(T(['.torrent-file__title .exe']) + '{display:inline;margin-left:.4em;padding:0;border-radius:0;background:transparent;font-family:' + k.fontBody + ';font-size:.909em;font-weight:400;color:' + k.smoke + '}');
       r.push(T(['.torrent-file.focus .torrent-file__title']) + '{color:' + k.text + '}');
       r.push(T(['.torrent-file.focus .torrent-file__title .exe']) + '{color:' + k.muted + '}');
-      r.push(T(['.torrent-file__size', '.torrent-serial__size']) + '{font-size:.877em;font-family:' + k.fontMono + ';font-weight:400;line-height:1;padding:.35em .7em;border-radius:.35em;border:.05em solid ' + k.line + ';background-color:' + k.panel + ';color:' + k.muted + '}');
+      r.push(T(['.torrent-file__size', '.torrent-serial__size']) + '{font-size:.877em;font-family:' + k.fontBody + ';font-weight:400;line-height:1;padding:.35em .7em;border-radius:.35em;border:.05em solid ' + k.line + ';background-color:' + k.panel + ';color:' + k.muted + '}');
       r.push(T(['.torrent-file.focus .torrent-file__size', '.torrent-serial.focus .torrent-serial__size']) + '{color:' + k.text + '}');
       /* Прогресс просмотра (.time-line — только внутри файла/серии): 4px accent. */
       r.push(T(['.torrent-file .time-line']) + '{left:0;right:0;bottom:0;margin:0;height:.175em;border-radius:0;background-color:rgba(' + k.textRgb + ',.16)}');
       r.push(T(['.torrent-serial .time-line']) + '{margin-top:.35em;height:.175em;border-radius:.088em;background-color:rgba(' + k.textRgb + ',.16);overflow:hidden}');
       r.push(T(['.torrent-file .time-line > div', '.torrent-serial .time-line > div']) + '{height:100%;border-radius:.088em;background-color:' + k.accent + '}');
-      /* Серия: превью 200×112, бейдж номера моно 17px (лок. em), мета моно muted. */
+      /* Серия: превью 200×112, бейдж номера 17px (лок. em), мета muted. */
       r.push(T(['.torrent-serial']) + '{padding:.526em}');
       r.push(T(['.torrent-serial.focus']) + '{padding:.439em}');
       r.push(T(['.torrent-serial__img']) + '{width:8.768em;height:4.932em;border-radius:.307em;-webkit-align-self:center;-ms-flex-item-align:center;align-self:center}');
       r.push(T(['.torrent-serial__content']) + '{padding:0 .175em 0 .701em}');
       r.push(T(['.torrent-serial__title']) + '{font-size:.877em;font-weight:600;line-height:1.25;margin-top:0}');
-      r.push(T(['.torrent-serial__line']) + '{font-family:' + k.fontMono + ';font-size:.877em;font-weight:400;line-height:1.2;margin-top:.35em;color:' + k.muted + '}');
+      r.push(T(['.torrent-serial__line']) + '{font-family:' + k.fontBody + ';font-size:.877em;font-weight:400;line-height:1.2;margin-top:.35em;color:' + k.muted + '}');
       r.push(T(['.torrent-serial__line b']) + '{font-weight:400}');
       r.push(T(['.torrent-serial__line span + span:before']) + '{content:"\\00B7";margin:0 .5em;color:' + k.smoke + '}');
-      r.push(T(['.torrent-serial__exe']) + '{font-family:' + k.fontMono + ';font-size:.877em;margin-top:.35em;color:' + k.smoke + '}');
-      r.push(T(['.torrent-serial__episode']) + '{top:1.176em;left:1.176em;padding:.235em .529em;border-radius:.235em;background-color:rgba(0,0,0,.7);font-family:' + k.fontMono + ';font-size:.745em;font-weight:600;line-height:1;color:' + k.text + '}');
+      r.push(T(['.torrent-serial__exe']) + '{font-family:' + k.fontBody + ';font-size:.877em;margin-top:.35em;color:' + k.smoke + '}');
+      r.push(T(['.torrent-serial__episode']) + '{top:1.176em;left:1.176em;padding:.235em .529em;border-radius:.235em;background-color:rgba(0,0,0,.7);font-family:' + k.fontBody + ';font-size:.745em;font-weight:600;line-height:1;color:' + k.text + '}');
       r.push(T(['.torrent-serial.focus .torrent-serial__episode']) + '{top:1.059em;left:1.059em}');
       /* Автостарт единственного файла: полоска 3px accent + glow, растёт снизу вверх (высоту двигает JS Lampa). */
       r.push(T(['.torrent-serial__progress']) + '{top:auto;bottom:.526em;right:.526em;width:.132em;max-height:-webkit-calc(100% - 1.052em);max-height:calc(100% - 1.052em);border-radius:.066em;background-color:' + k.accent + ';-webkit-box-shadow:0 0 .526em ' + k.acglow + ';box-shadow:0 0 .526em ' + k.acglow + ';-webkit-transform:none;transform:none}');
@@ -377,7 +377,7 @@
       r.push(T(['.media-loading__shade']) + '{background:linear-gradient(0deg,rgba(' + k.bgRgb + ',.98) 0%,rgba(' + k.bgRgb + ',.72) 34%,rgba(' + k.bgRgb + ',.3) 100%)}');
       /* Тусклая копия 12 %, яркая (ширину двигает JS Lampa по прогрессу) — акцент с glow. */
       r.push(T(['.media-loading__mark-background']) + '{opacity:.12}');
-      r.push(T(['.media-loading__title']) + '{font-family:' + k.fontDisplay + ';font-weight:800;font-size:1.403em;line-height:1.1;letter-spacing:.06em;text-transform:uppercase;color:' + k.text + ';text-shadow:none}');
+      r.push(T(['.media-loading__title']) + '{font-family:' + k.fontBody + ';font-weight:700;font-size:1.403em;line-height:1.1;letter-spacing:.06em;text-transform:uppercase;color:' + k.text + ';text-shadow:none}');
       r.push(T(['.media-loading__mark-fill .media-loading__title']) + '{color:' + k.accent + ';text-shadow:0 0 .94em ' + k.acglow + '}');
       r.push(T(['.media-loading__mark-fill .media-loading__logo']) + '{-webkit-filter:drop-shadow(0 0 .6em ' + k.acglow + ');filter:drop-shadow(0 0 .6em ' + k.acglow + ')}');
       /* Пульс 1→1.02 / 2 с вместо штатного mediaLoadingPulse — только в full; lite/off — без пульса. */
@@ -385,10 +385,10 @@
       r.push(TM('lite', markSel) + ',' + TM('off', markSel) + '{-webkit-animation:none !important;animation:none !important;-webkit-transform:none;transform:none}');
       r.push('@-webkit-keyframes lumen-tp-soft{0%,100%{-webkit-transform:scale(1)}50%{-webkit-transform:scale(1.02)}}');
       r.push('@keyframes lumen-tp-soft{0%,100%{transform:scale(1)}50%{transform:scale(1.02)}}');
-      /* Пилюля: моно 20px muted, процент 28px text, «пиры» — маска torrent в accent (лок. em от 20px).
+      /* Пилюля: 20px muted, процент 28px text, «пиры» — маска torrent в accent (лок. em от 20px).
          Фон — светлая полупрозрачная заливка с рамкой, а не rgba(bg,.62) экспорта: у нижнего
          края вуаль .98 и тёмная пилюля сливалась с фоном (живой регресс Task 33). */
-      r.push(T(['.media-loading__status']) + '{bottom:6.5em;padding:.8em 1.4em;border-radius:1.5em;border:.05em solid rgba(' + k.textRgb + ',.24);background-color:rgba(' + k.textRgb + ',.1);-webkit-box-shadow:0 .7em 2em rgba(0,0,0,.35);box-shadow:0 .7em 2em rgba(0,0,0,.35);color:' + k.muted + ';font-family:' + k.fontMono + ';font-size:.877em}');
+      r.push(T(['.media-loading__status']) + '{bottom:6.5em;padding:.8em 1.4em;border-radius:1.5em;border:.05em solid rgba(' + k.textRgb + ',.24);background-color:rgba(' + k.textRgb + ',.1);-webkit-box-shadow:0 .7em 2em rgba(0,0,0,.35);box-shadow:0 .7em 2em rgba(0,0,0,.35);color:' + k.muted + ';font-family:' + k.fontBody + ';font-size:.877em}');
       r.push(T(['.media-loading__peers-value']) + '{color:' + k.muted + '}');
       r.push(T(['.media-loading__peers-icon']) + '{display:none}');
       r.push(T(['.media-loading__peers:before']) + '{content:"";display:block;-webkit-flex-shrink:0;flex-shrink:0;width:1.3em;height:1.3em;margin-right:.5em;background-color:' + k.accent + '}');

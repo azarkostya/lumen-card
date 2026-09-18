@@ -92,16 +92,16 @@ test('LC.tokens: палитра карточки, акцент по настро
   assert.equal(t.raised, '#241C17');
   assert.equal(t.textRgb, '243,237,228');
   assert.equal(t.bgRgb, '11,9,8');
-  assert.match(t.fontDisplay, /^"Unbounded"/);
   assert.match(t.fontBody, /^"Golos Text"/);
-  assert.match(t.fontMono, /^"JetBrains Mono"/);
+  /* Task 43: гарнитура одна — прежних fontDisplay/fontMono больше нет. */
+  assert.equal('fontDisplay' in t, false);
+  assert.equal('fontMono' in t, false);
 
   const ice = tokensWith({ lumen_card_accent: 'ice', lumen_card_fonts: 'false' });
   assert.equal(ice.accent, '#7FB7C9');
   assert.equal(ice.onac, '#08171C');
   assert.equal(ice.ring, '#E9F7FB');
   assert.equal(ice.fontBody, 'inherit');
-  assert.ok(ice.fontDisplay.indexOf('Unbounded') === -1);
 
   assert.equal(tokensWith({ lumen_card_accent: 'nope' }).accent, '#E8B87A');
 });
@@ -1289,15 +1289,8 @@ test('Task 17: сетка — ровно 6 карточек в ряд на шт�
   assert.ok(view && view.indexOf('border-radius:.31em') !== -1, 'радиус постера по design-spec §0.4');
 });
 
-test('Task 17: фокус карточки сетки поднимается над соседями и красит кольцо акцентом', () => {
-  const focus = findDecl(css, (sel) => sel === '.lumen-grid__items .lumen-gcard.focus');
-  assert.ok(focus, 'правило фокуса карточки не найдено');
-  assert.ok(focus.indexOf('transform:scale(1.08)') !== -1);
-  assert.ok(/z-index:\d/.test(focus), 'без z-index увеличенная карточка ныряет под соседнюю: ' + focus);
-  const ring = findDecl(css, (sel) => sel === '.lumen-grid .lumen-gcard.focus .card__view:after');
-  assert.ok(ring, 'кольцо фокуса не перекрашено — осталось бы белым штатным');
-  assert.ok(ring.indexOf('box-shadow') !== -1);
-});
+/* Task 43: проверка фокуса карточки сетки переехала в блок Task 43 внизу —
+   кольца там больше нет, и вместе с ним ушло то, что проверял этот тест. */
 
 test('Task 17: полоса продолжения просмотра на карточке сетки', () => {
   const bar = findDecl(css, (sel) => sel === '.lumen-grid .lumen-gcard__bar');
@@ -1376,95 +1369,81 @@ test('Task 17: на слабых ТВ пружины фокуса в хабе и
 });
 
 /* ====================================================================== */
-/* Правка 2026-09-16, п.6: настройка «Шрифт».                             */
+/* Настройка «Шрифт»: пять гарнитур, все с Google Fonts (CSP плагина      */
+/* другого источника не пропустит).                                       */
 /*                                                                        */
-/* Пять пар «текстовая гарнитура + моноширинная к ней», все с Google Fonts */
-/* (CSP плагина другого источника не пропустит). Заголовочная Unbounded    */
-/* общая для всех пар — это фирменный знак карточки, а меняется именно то, */
-/* что читают: текст и цифры.                                             */
+/* Task 43: за каждым ключом стоит ОДНА гарнитура, а не пара «текстовая + */
+/* моноширинная», и заголовочной Unbounded поверх них больше нет. Ключи    */
+/* при этом прежние: они уже записаны в Storage у тех, кто менял шрифт.    */
 /* ====================================================================== */
 
-const FONT_PAIRS = {
-  golos: ['Golos Text', 'JetBrains Mono'],
-  onest: ['Onest', 'JetBrains Mono'],
-  manrope: ['Manrope', 'JetBrains Mono'],
-  inter: ['Inter', 'JetBrains Mono'],
-  plex: ['IBM Plex Sans', 'IBM Plex Mono']
+const FONT_FACES = {
+  golos: 'Golos Text',
+  onest: 'Onest',
+  manrope: 'Manrope',
+  inter: 'Inter',
+  plex: 'IBM Plex Sans'
 };
 
-test('правка 2026-09-16 (п.6): каждая пара доезжает до LC.tokens', () => {
-  for (const key of Object.keys(FONT_PAIRS)) {
+test('настройка «Шрифт»: каждая гарнитура доезжает до LC.tokens', () => {
+  for (const key of Object.keys(FONT_FACES)) {
     const t = withStorage({ lumen_font: key }, (LC) => LC.tokens());
-    assert.ok(t.fontBody.indexOf('"' + FONT_PAIRS[key][0] + '"') === 0, key + ': текстовая гарнитура первой в стеке, было ' + t.fontBody);
-    assert.ok(t.fontMono.indexOf('"' + FONT_PAIRS[key][1] + '"') === 0, key + ': моноширинная гарнитура пары, было ' + t.fontMono);
-    assert.ok(t.fontDisplay.indexOf('"Unbounded"') === 0, key + ': заголовочная гарнитура общая для всех пар');
+    assert.ok(t.fontBody.indexOf('"' + FONT_FACES[key] + '"') === 0, key + ': выбранная гарнитура первой в стеке, было ' + t.fontBody);
     assert.ok(/sans-serif$/.test(t.fontBody), key + ': у стека обязан быть системный фолбэк');
-    assert.ok(/monospace$/.test(t.fontMono), key + ': у моно-стека обязан быть системный фолбэк');
   }
 });
 
-test('правка 2026-09-16 (п.6): незнакомое значение — как Golos Text; при выключенных шрифтах настройка не действует', () => {
+test('настройка «Шрифт»: незнакомое значение — как Golos Text; при выключенных шрифтах настройка не действует', () => {
   const junk = withStorage({ lumen_font: 'nope' }, (LC) => LC.tokens());
   assert.equal(junk.fontBody, withStorage({}, (LC) => LC.tokens()).fontBody);
+  /* Ключ исчезнувшего набора из старого профиля — тот же случай: набора нет,
+     падать нельзя, берётся значение по умолчанию. */
+  assert.equal(withStorage({ lumen_font: 'mono' }, (LC) => LC.tokens()).fontBody, junk.fontBody);
 
   const off = withStorage({ lumen_font: 'inter', lumen_card_fonts: 'false' }, (LC) => LC.tokens());
   assert.equal(off.fontBody, 'inherit', 'шрифты выключены — системный стек, выбор гарнитуры не действует');
-  assert.equal(off.fontMono.indexOf('Inter'), -1);
 });
 
-test('правка 2026-09-16 (п.6): адрес <link> собирается под выбранную пару и только с Google Fonts', () => {
-  for (const key of Object.keys(FONT_PAIRS)) {
+test('настройка «Шрифт»: адрес <link> собирается под выбранную гарнитуру и только с Google Fonts', () => {
+  for (const key of Object.keys(FONT_FACES)) {
     const url = withStorage({ lumen_font: key }, (LC) => LC.fontsUrl());
     assert.ok(url.indexOf('https://fonts.googleapis.com/css2?') === 0, key + ': единственный разрешённый CSP источник, было ' + url);
-    assert.ok(url.indexOf('family=Unbounded:') !== -1, key + ': заголовочная гарнитура всегда в наборе');
-    assert.ok(url.indexOf('family=' + FONT_PAIRS[key][0].replace(/ /g, '+') + ':') !== -1, key + ': нет текстовой гарнитуры');
-    assert.ok(url.indexOf('family=' + FONT_PAIRS[key][1].replace(/ /g, '+') + ':') !== -1, key + ': нет моноширинной гарнитуры');
+    assert.ok(url.indexOf('family=' + FONT_FACES[key].replace(/ /g, '+') + ':') !== -1, key + ': нет выбранной гарнитуры');
     assert.ok(url.indexOf('display=swap') !== -1, key + ': нет display=swap');
     /* Чужие гарнитуры не грузятся — иначе каждая смена тянула бы все пять. */
-    for (const other of Object.keys(FONT_PAIRS)) {
-      if (FONT_PAIRS[other][0] === FONT_PAIRS[key][0] || FONT_PAIRS[other][0] === FONT_PAIRS[key][1]) continue;
-      assert.equal(url.indexOf('family=' + FONT_PAIRS[other][0].replace(/ /g, '+') + ':'), -1,
-        key + ': в наборе оказалась лишняя гарнитура ' + FONT_PAIRS[other][0]);
+    for (const other of Object.keys(FONT_FACES)) {
+      if (FONT_FACES[other] === FONT_FACES[key]) continue;
+      assert.equal(url.indexOf('family=' + FONT_FACES[other].replace(/ /g, '+') + ':'), -1,
+        key + ': в наборе оказалась лишняя гарнитура ' + FONT_FACES[other]);
     }
   }
 });
 
-test('правка 2026-09-16 (п.6): выбранная гарнитура попадает в текст стилей карточки', () => {
+test('настройка «Шрифт»: выбранная гарнитура попадает в текст стилей карточки', () => {
   const inter = withStorage({ lumen_font: 'inter' }, (LC) => LC.buildCss());
   const descr = findDecl(inter, (sel) => sel === '.lumen-descr-row .full-descr__text');
   assert.ok(descr.indexOf('"Inter"') !== -1, 'описание рисуется выбранной гарнитурой');
   assert.equal(inter.indexOf('Golos Text'), -1, 'прежняя гарнитура не должна оставаться в стилях');
 });
 
-/* «Моноширинный даёт ощущение консоли» — поэтому он остаётся только там, где
-   выравниваются цифры (таймкоды, проценты, счётчики), а метки и мета-строка
-   переведены на основную гарнитуру. */
-test('правка 2026-09-16 (п.6): моно ушёл из мета-строки и меток, но остался на цифрах', () => {
-  const MONO = '"JetBrains Mono"';
-  const body = [
+/* Task 43: моноширинного не осталось нигде — ни на метках, ни на цифрах.
+   Колонок, которые надо выравнивать по разряду, в плагине нет: таймкод и
+   проценты стоят в строке текста, а не друг под другом. */
+test('Task 43: и метки, и цифры набраны одной гарнитурой', () => {
+  for (const sel of [
     '.lumen-card .lumen-meta',
     '.lumen-card .lumen-quality-chip',
     '.lumen-card .lumen-trailer-badge',
     '.lumen-descr-row .lumen-facts__title',
-    '.lumen-descr-row .lumen-reviews__src'
-  ];
-  for (const sel of body) {
-    const decl = findDecl(css, (s) => s === sel);
-    assert.ok(decl, 'правило не найдено: ' + sel);
-    assert.equal(decl.indexOf(MONO), -1, sel + ' — не место моноширинному');
-    assert.ok(decl.indexOf('"Golos Text"') !== -1, sel + ' — основная гарнитура');
-  }
-
-  const digits = [
+    '.lumen-descr-row .lumen-reviews__src',
     '.lumen-card .full-start__rate',
     '.lumen-card .lumen-progress',
     '.lumen-card .lumen-episode__timecode',
     '.lumen-descr-row .lumen-reviews__total'
-  ];
-  for (const sel of digits) {
+  ]) {
     const decl = findDecl(css, (s) => s === sel);
     assert.ok(decl, 'правило не найдено: ' + sel);
-    assert.ok(decl.indexOf(MONO) !== -1, sel + ' — цифры обязаны выравниваться');
+    assert.ok(decl.indexOf('"Golos Text"') !== -1, sel + ' — основная гарнитура: ' + decl);
   }
 });
 
@@ -2108,13 +2087,11 @@ test('Task 18: логотип фильма с текстовым фолбэко�
   assert.ok(logoMotion && /transition:transform \.42s/.test(logoMotion), 'логотип едет масштабом: ' + logoMotion);
   assert.ok(logo.indexOf('transform-origin:left bottom') !== -1, 'без origin у левого нижнего угла логотип уехал бы от safe area: ' + logo);
 
-  /* Текстовый фолбэк (фильм без логотипа) — 4.4em, середина диапазона высот
-     логотипа (2.4…5.2em): по весу он сопоставим с логотипами и не выпадает
-     ни в одну сторону. */
+  /* Текстовый фолбэк (фильм без логотипа) занимает место логотипа — 4.4em,
+     середину диапазона его высот (2.4…5.2em). Кегль и число строк внутри
+     этой коробки проверяет блок Task 43 внизу. */
   const title = findDecl(css, (sel) => sel === '.lumen-hero .lumen-hero__title');
-  assert.ok(Math.abs(2.04 * 1.08 * 2 - 4.4) < 0.02, 'кегль фолбэка обязан давать 4.4em');
-  assert.ok(title.indexOf('font-size:2.04em') !== -1 && title.indexOf('-webkit-line-clamp:2') !== -1, 'фолбэк: ' + title);
-  assert.ok(title.indexOf('height:2.16em') !== -1, 'фолбэк обязан занимать фиксированную высоту: ' + title);
+  assert.ok(title.indexOf('height:1.29em') !== -1, 'фолбэк обязан занимать фиксированную высоту: ' + title);
 
   /* В сжатом состоянии логотип мельче в .65 раза — и это масштаб, а не
      вторая пара размеров: пропорция при нём совпадает всегда. */
@@ -2396,11 +2373,18 @@ test('фаза 3: текст на заливке акцентом читаетс
 });
 
 test('фаза 3: смена акцента меняет всю четвёрку разом, включая новые акценты', () => {
+  /* Task 43: кнопка в фокусе больше не заливается акцентом (там инверсия),
+     поэтому четвёрку проверяем на карточке серии: у неё в фокусе разом и
+     заливка акцентом, и рамка светлым тоном, и свечение. */
   const emerald = withStorage({ lumen_card_accent: 'emerald' }, (LC) => LC.buildCss());
+  const episode = findDecl(emerald, (sel) => sel === '.lumen-card .lumen-episode.focus');
+  assert.ok(episode.indexOf('#7ACCA0') !== -1, 'рамка карточки серии в фокусе — цвет изумруда: ' + episode);
+  assert.ok(episode.indexOf('rgba(122,204,160,0.35)') !== -1, 'свечение — тот же цвет');
+  const back = findDecl(emerald, (sel) => sel === '.lumen-grid .lumen-grid__back.focus');
+  assert.ok(back.indexOf('#7ACCA0') !== -1, 'заливка кнопки «Назад» — цвет изумруда: ' + back);
+  assert.ok(back.indexOf('#E4FBEE') !== -1, 'кольцо фокуса — светлый тон изумруда: ' + back);
   const focus = findDecl(emerald, (sel) => sel === '.lumen-card .full-start-new__buttons .full-start__button.focus');
-  assert.ok(focus.indexOf('#7ACCA0') !== -1, 'заливка кнопки в фокусе — цвет изумруда: ' + focus);
-  assert.ok(focus.indexOf('#E4FBEE') !== -1, 'кольцо фокуса — светлый тон изумруда');
-  assert.ok(focus.indexOf('rgba(122,204,160,0.35)') !== -1, 'свечение — тот же цвет');
+  assert.ok(focus.indexOf('rgba(122,204,160,0.35)') !== -1, 'ореол кнопки — тот же цвет: ' + focus);
 
   /* Графит — «акцент без цвета»: свечение слабее прочих, иначе нейтральный
      ореол читается как белая вспышка. */
@@ -2608,4 +2592,153 @@ test('Task 40: ни один тяжёлый эффект не остался б�
       }
     }
   }
+});
+
+/* ====================================================================== */
+/* Task 43: единая типографика — один шрифт, без моно и без рамок.        */
+/*                                                                        */
+/* Пользователь на Philips 50PUS8057 (2026-09-18): интерфейс выглядит     */
+/* «колхозно», ориентир — Apple TV+ и Netflix. Там на экране живёт ОДНА   */
+/* гарнитура, а элементы отделены друг от друга заливкой и воздухом, а не */
+/* тонкими рамками. Отсюда проверки ниже: гарнитура одна, рамок у чипов   */
+/* и кнопок нет, фокус показывает инверсия.                               */
+/* ====================================================================== */
+
+test('Task 43: в таблице стилей одна гарнитура — ни Unbounded, ни моноширинных', () => {
+  assert.equal(css.indexOf('Unbounded'), -1, 'заголовочная гарнитура снята');
+  assert.equal(css.indexOf('JetBrains'), -1, 'моноширинной пары больше нет');
+  assert.equal(css.indexOf('Plex Mono'), -1, 'моноширинной пары больше нет');
+  assert.equal(css.indexOf('Arial Black'), -1, 'фолбэк заголовочной гарнитуры снят вместе с ней');
+
+  /* Единственное исключение — отладочный HUD (src/69_hud.js): он показывает
+     кадры в секунду колонкой цифр, выключен по умолчанию и на ТВ его никто
+     не видит. Его моно — литерал в собственном правиле, не из набора. */
+  for (const r of ruleBodies(css).filter((x) => x.decl.indexOf('Consolas') !== -1)) {
+    for (const sel of r.selectors) {
+      assert.ok(sel.indexOf('.lumen-hud') === 0, 'моноширинный вне HUD: ' + sel);
+    }
+  }
+});
+
+test('Task 43: адрес Google Fonts — ровно одна гарнитура и все веса, что стоят в стилях', () => {
+  for (const key of ['golos', 'onest', 'manrope', 'inter', 'plex']) {
+    const url = withStorage({ lumen_font: key }, (LC) => LC.fontsUrl());
+    assert.equal(url.split('family=').length - 1, 1, key + ': в наборе больше одной гарнитуры — ' + url);
+    assert.ok(url.indexOf('https://fonts.googleapis.com/css2?') === 0, key + ': единственный разрешённый CSP источник');
+    assert.ok(url.indexOf('display=swap') !== -1, key + ': нет display=swap');
+
+    /* Вес, которого нет в наборе, браузер синтезирует сам — на ТВ такая
+       псевдожирность выглядит грязно. Поэтому набор весов обязан покрывать
+       ВСЕ font-weight собранной таблицы, а не заданный руками список. */
+    const built = withStorage({ lumen_font: key }, (LC) => LC.buildCss());
+    const have = (/:wght@([\d;]+)/.exec(url) || [null, ''])[1].split(';');
+    const used = new Set((built.match(/font-weight:\d+/g) || []).map((m) => m.slice('font-weight:'.length)));
+    for (const w of used) {
+      assert.ok(have.indexOf(w) !== -1, key + ': вес ' + w + ' стоит в стилях, но его нет в наборе ' + have.join(';'));
+    }
+  }
+});
+
+test('Task 43: у чипов, рейтингов, статусов и кнопок нет рамок', () => {
+  const noBorder = [
+    '.lumen-hub .lumen-chip',
+    '.lumen-card .full-start__rate',
+    '.lumen-card .lumen-next-chip',
+    '.lumen-card.lumen-card--serial .full-start-new__rate-line .full-start__status',
+    '.lumen-card .lumen-quality-chip',
+    '.lumen-card .full-start-new__buttons .full-start__button',
+    '.lumen-hero .lumen-hero__status',
+    '.lumen-roulette .lumen-roulette__chip',
+    '.lumen-roulette .lumen-roulette__tab'
+  ];
+  for (const sel of noBorder) {
+    const decl = findDecl(css, (s) => s === sel);
+    assert.ok(decl, 'правило не найдено: ' + sel);
+    assert.ok(!/(^|;)border:\.\d+em solid/.test(decl), sel + ' — рамка осталась: ' + decl);
+  }
+  /* Снятая рамка не должна оставлять за собой border-color/border-width —
+     это мёртвые объявления: красить нечего. */
+  for (const sel of ['.lumen-roulette .lumen-roulette__chip.lumen-chip--on',
+    '.lumen-roulette .lumen-roulette__tab.is-on',
+    '.lumen-card .full-start-new__buttons .full-start__button.active',
+    '.lumen-card .full-start-new__buttons .full-start__button.focus']) {
+    const decl = findDecl(css, (s) => s === sel);
+    assert.ok(decl, 'правило не найдено: ' + sel);
+    assert.ok(decl.indexOf('border-color') === -1 && decl.indexOf('border-width') === -1,
+      sel + ' — мёртвое объявление рамки: ' + decl);
+  }
+});
+
+test('Task 43: фокус кнопки карточки — инверсия (текст становится фоном)', () => {
+  const focus = findDecl(css, (sel) => sel === '.lumen-card .full-start-new__buttons .full-start__button.focus');
+  assert.ok(focus.indexOf('background:#F3EDE4') !== -1, 'заливка — цвет текста: ' + focus);
+  assert.ok(focus.indexOf('color:#0B0908') !== -1, 'подпись — цвет фона страницы: ' + focus);
+  /* Инверсия обязана остаться читаемой в обеих темах: это те же два цвета,
+     что несут весь текст плагина, только поменянные местами. */
+  for (const theme of ['warm', 'black']) {
+    const t = withStorage({ lumen_theme: theme }, (LC) => LC.tokens());
+    assert.ok(contrast(t.text, t.bg) >= 4.5, theme + ': инверсия нечитаема');
+  }
+});
+
+test('Task 43: рейтинг героя — в строке меты, отдельного чипа нет', () => {
+  assert.equal(css.indexOf('lumen-hero__rate'), -1, 'узел чипа рейтинга снят вместе с его правилами');
+
+  const meta = findDecl(css, (sel) => sel === '.lumen-hero .lumen-hero__meta');
+  assert.ok(meta, 'правило меты не найдено');
+  assert.equal(meta.indexOf('letter-spacing'), -1, 'разрядка была нужна моноширинному, её больше нет: ' + meta);
+  assert.ok(meta.indexOf('font-size:1em') !== -1, 'мета — основной кегль: ' + meta);
+  assert.ok(meta.indexOf('#A89A8A') !== -1, 'мета — muted: ' + meta);
+});
+
+test('Task 43: заголовки — один вес 700 и один кегль на состояние', () => {
+  assert.equal(css.indexOf('font-weight:800'), -1, 'вес 800 снят везде');
+
+  const cardTitle = findDecl(css, (sel) => sel === '.lumen-card .full-start-new__title');
+  assert.ok(cardTitle.indexOf('font-size:3.2em') !== -1, 'название карточки 73px: ' + cardTitle);
+  assert.ok(cardTitle.indexOf('font-weight:700') !== -1, cardTitle);
+  assert.ok(cardTitle.indexOf('letter-spacing:-.02em') !== -1, cardTitle);
+
+  /* Фолбэк героя занимает место логотипа (4.4em его контекста) и теперь
+     это ОДНА строка крупным кеглем, а не две мелким. */
+  const heroTitle = findDecl(css, (sel) => sel === '.lumen-hero .lumen-hero__title');
+  assert.ok(heroTitle.indexOf('font-size:3.4em') !== -1, heroTitle);
+  assert.ok(heroTitle.indexOf('font-weight:700') !== -1, heroTitle);
+  assert.ok(heroTitle.indexOf('-webkit-line-clamp:1') !== -1, 'одна строка: ' + heroTitle);
+  assert.ok(heroTitle.indexOf('height:1.29em') !== -1, 'коробка фолбэка — высота логотипа: ' + heroTitle);
+  assert.ok(Math.abs(3.4 * 1.29 - 4.4) < 0.03, 'высота коробки обязана совпадать с рамкой логотипа');
+  assert.ok(1.08 <= 1.29, 'строка обязана помещаться в коробку');
+});
+
+/* ---------------------------------------------------------------------- */
+/* Task 43 (находка на стенде): в сетке подборки фокус остался белой       */
+/* рамкой, хотя на главной он уже увеличение постера и акцентный ореол     */
+/* (Task 42). Приводим к одному языку.                                     */
+/* ---------------------------------------------------------------------- */
+
+test('Task 43: у карточки сетки подборки нет кольца фокуса — увеличение и ореол, как на главной', () => {
+  const ring = findDecl(css, (sel) => sel === '.lumen-grid .lumen-gcard.focus .card__view:after');
+  assert.ok(ring, 'штатное кольцо Lampa обязано быть погашено явным правилом');
+  assert.ok(ring.indexOf('display:none') !== -1, 'кольцо снимается: ' + ring);
+  assert.equal(ring.indexOf('border-color'), -1, 'мёртвая рамка на погашенном псевдоэлементе: ' + ring);
+
+  const view = findDecl(css, (sel) => sel === '.lumen-grid .lumen-gcard.focus .card__view');
+  assert.ok(view && /box-shadow:0 \.35em \.7em rgba\(232,184,122,0\.35\)/.test(view),
+    'ореол переехал на сам постер тем же числом, что на главной: ' + view);
+
+  const focus = findDecl(css, (sel) => sel === '.lumen-grid__items .lumen-gcard.focus');
+  assert.ok(focus.indexOf('scale(1.08)') !== -1, 'увеличение то же, что у карточки ряда: ' + focus);
+  assert.ok(focus.indexOf('z-index:3') !== -1, 'выросшая карточка обязана лежать поверх соседей: ' + focus);
+
+  /* Та же арифметика, что чинили в Task 42: карточка растёт от своего
+     центра, значит вверх уходит половина прироста, и зазор до предыдущего
+     ряда обязан его вместить. Ширина карточки считается от ШИРИНЫ ЭКРАНА
+     (calc), поэтому в em она тем больше, чем МЕЛЬЧЕ масштаб интерфейса, —
+     худший случай здесь «Мельче» (0.9). */
+  const card = findDecl(css, (sel) => sel === '.lumen-grid__items .lumen-gcard');
+  assert.ok(/margin:0 \.88em 1\.4em 0/.test(card), 'зазор между рядами сетки: ' + card);
+  const worstW = (84.17 / 0.9 - 2 * 2.81 - 4.4) / 6;   /* em ширины карточки */
+  const worstH = 1.5 * worstW + 0.5 + 0.96 * 1.15 + 0.88 + 0.25; /* постер 150 % + подпись + год */
+  assert.ok(worstH * (1.08 - 1) / 2 <= 1.4, 'выросшая карточка срежет ряд выше: нужно ' +
+    (worstH * 0.04).toFixed(2) + 'em, есть 1.4em');
 });

@@ -527,7 +527,8 @@ test('загруженный кадр проявляется вторым сло
   /* Ответ деталей дорисовывает мету, жанры и снимает скелетон. */
   env.requests[0].ok({ runtime: 100, genres: [{ name: 'драма' }], overview: 'полное', images: { logos: [{ file_path: '/l.png', iso_639_1: 'ru' }] } });
   assert.equal(node.hasClass('lumen-hero--pending'), false);
-  assert.equal(node.find('.lumen-hero__meta').text(), '2024 · 1:40 · драма');
+  /* Task 43: рейтинг — последний элемент той же строки, отдельного чипа нет. */
+  assert.equal(node.find('.lumen-hero__meta').text(), '2024 · 1:40 · драма · ★ 7.2');
   assert.equal(node.find('.lumen-hero__descr').text(), 'полное');
   assert.equal(node.find('.lumen-hero__logo').css('background-image'), 'url("https://img/t/p/w780/l.png")');
   assert.equal(node.hasClass('lumen-hero--logo'), true, 'логотип есть — текстовый заголовок скрыт CSS');
@@ -708,6 +709,26 @@ test('отложенный показ не рисует в снятого гер
   assert.deepEqual(warnLog, []);
 });
 
+/* Task 43: чипа рейтинга больше нет — оценка стоит последним элементом
+   строки меты. У фильма без оценки (vote_average 0) строка обязана
+   кончаться жанром, без висящего разделителя. */
+test('Task 43: фильм без оценки — мета без хвостового разделителя', () => {
+  const env = makeEnv();
+  const main = makeMain();
+  main.card1.card_data.vote_average = 0;
+  env.hero.mount(main.activity);
+  main.card1.addClass('focus');
+  fireFocus(main.activity, main.card1);
+  env.advance(400);
+  env.advance(200);
+  const node = main.activity._children[0];
+
+  env.requests[0].ok({ runtime: 100, genres: [{ name: 'драма' }] });
+  assert.equal(node.find('.lumen-hero__meta').text(), '2024 · 1:40 · драма');
+  assert.equal(node.find('.lumen-hero__rate').length, 0, 'узла чипа рейтинга в разметке нет');
+  assert.deepEqual(warnLog, []);
+});
+
 test('ответ деталей, доехавший после ухода с главной, ничего не рисует', () => {
   const env = makeEnv();
   const main = makeMain();
@@ -720,7 +741,7 @@ test('ответ деталей, доехавший после ухода с г�
 
   env.hero.unmount();
   env.requests[0].ok({ runtime: 100, genres: [{ name: 'драма' }] });
-  assert.equal(node.find('.lumen-hero__meta').text(), '2024', 'мета осталась той, что была до ухода');
+  assert.equal(node.find('.lumen-hero__meta').text(), '2024 · ★ 7.2', 'мета осталась той, что была до ухода');
   assert.deepEqual(warnLog, []);
 });
 
@@ -817,7 +838,8 @@ test('режим off: текст меняется без подмены и БЕ�
   /* Текст при этом живой: детали запрашиваются и дорисовываются. */
   assert.equal(env.requests.length, 1);
   env.requests[0].ok({ runtime: 100, genres: [{ name: 'драма' }], overview: 'полное' });
-  assert.equal(node.find('.lumen-hero__meta').text(), '2024 · 1:40 · драма');
+  /* Task 43: рейтинг — последний элемент той же строки, отдельного чипа нет. */
+  assert.equal(node.find('.lumen-hero__meta').text(), '2024 · 1:40 · драма · ★ 7.2');
   assert.equal(env.images.length, 0, 'ответ деталей тоже не тянет кадр');
   assert.deepEqual(warnLog, []);
 });
@@ -943,7 +965,7 @@ test('детали из кэша приходят синхронно — отл�
   assert.equal(node.hasClass('lumen-hero--pending'), false);
 
   env.advance(200);
-  assert.equal(node.find('.lumen-hero__meta').text(), '2024 · 1:40 · драма', 'подмена текста пишет последнюю модель');
+  assert.equal(node.find('.lumen-hero__meta').text(), '2024 · 1:40 · драма · ★ 7.2', 'подмена текста пишет последнюю модель');
   assert.equal(node.find('.lumen-hero__descr').text(), 'полное');
   assert.equal(node.hasClass('lumen-hero--pending'), false, 'скелетон не возвращается');
   assert.deepEqual(warnLog, []);
@@ -962,7 +984,7 @@ test('ошибка деталей гасит скелетон и пережив�
   env.advance(200);
   assert.equal(node.hasClass('lumen-hero--pending'), false, 'ждать больше нечего — скелетона нет');
   assert.equal(node.find('.lumen-hero__title').text(), 'Первый', 'остаётся то, что дала карточка ряда');
-  assert.equal(node.find('.lumen-hero__meta').text(), '2024');
+  assert.equal(node.find('.lumen-hero__meta').text(), '2024 · ★ 7.2');
   assert.deepEqual(warnLog, []);
 });
 
