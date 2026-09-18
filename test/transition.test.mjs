@@ -137,7 +137,19 @@ function env(opts) {
   return { api, body, frames, timers, cancelledFrames, cancelledTimers, frame, fire, overlay, transitionEnd };
 }
 
-const SOURCE = { id: 42, poster: 'https://img/poster.jpg', rect: { left: 100, top: 200, width: 180, height: 270 } };
+/* Task 37: герой отдаёт слою перехода УЗЕЛ карточки, а не снятый заранее
+   прямоугольник — замер раскладки ушёл с горячего пути фокуса сюда, в момент
+   открытия. Фейковый узел считает обращения: тесты ниже проверяют, что
+   getBoundingClientRect зовётся ровно один раз и ровно на open. */
+const RECT = { left: 100, top: 200, width: 180, height: 270 };
+
+function cardNode(rect) {
+  const node = { rect: rect, reads: 0 };
+  node.getBoundingClientRect = () => { node.reads++; return node.rect; };
+  return node;
+}
+
+const SOURCE = { id: 42, poster: 'https://img/poster.jpg', node: cardNode(RECT) };
 
 test('open: рисует один слой поверх экрана с постером фокусной карточки', () => {
   const e = env();
@@ -155,14 +167,14 @@ test('open: рисует один слой поверх экрана с пост
 
 /* Task 27 (довесок): крупная версия постера, предзагруженная героем. */
 test('open: берёт крупный постер, если герой успел его загрузить', () => {
-  const e = env({ last: { id: 42, poster: 'https://img/t/p/w300/p.jpg', big: 'https://img/t/p/w500/p.jpg', rect: { left: 100, top: 200, width: 180, height: 270 } } });
+  const e = env({ last: { id: 42, poster: 'https://img/t/p/w300/p.jpg', big: 'https://img/t/p/w500/p.jpg', node: cardNode(RECT) } });
   assert.equal(e.api.open({ id: 42 }), true);
   const img = e.overlay()[0].find('.lumen-overlay__img');
   assert.ok(String(img.css('background-image')).indexOf('/t/p/w500/p.jpg') !== -1, 'в слой пошла крупная версия');
 });
 
 test('open: крупная версия не успела — переход идёт на постере ряда, без ожидания', () => {
-  const e = env({ last: { id: 42, poster: 'https://img/t/p/w300/p.jpg', rect: { left: 100, top: 200, width: 180, height: 270 } } });
+  const e = env({ last: { id: 42, poster: 'https://img/t/p/w300/p.jpg', node: cardNode(RECT) } });
   assert.equal(e.api.open({ id: 42 }), true);
   const img = e.overlay()[0].find('.lumen-overlay__img');
   assert.ok(String(img.css('background-image')).indexOf('/t/p/w300/p.jpg') !== -1);
@@ -287,15 +299,56 @@ test('open: выключенная настройка lumen_transition — пе�
 });
 
 test('open: нет постера — перехода нет (растворять нечего)', () => {
-  const e = env({ last: { id: 42, poster: '', rect: SOURCE.rect } });
+  const e = env({ last: { id: 42, poster: '', node: cardNode(RECT) } });
   assert.equal(e.api.open({ id: 42 }), false);
   assert.equal(e.overlay().length, 0);
 });
 
 test('open: нулевой прямоугольник — перехода нет', () => {
-  const e = env({ last: { id: 42, poster: 'p.jpg', rect: { left: 0, top: 0, width: 0, height: 0 } } });
+  const e = env({ last: { id: 42, poster: 'p.jpg', node: cardNode({ left: 0, top: 0, width: 0, height: 0 }) } });
   assert.equal(e.api.open({ id: 42 }), false);
   assert.equal(e.overlay().length, 0);
+});
+
+/* Task 37: замер раскладки — один и ровно в момент открытия. Пока фокус
+   ходит по ряду, слой перехода узел не трогает вовсе. */
+test('open: прямоугольник снимается с узла в момент открытия, один раз', () => {
+  const node = cardNode(RECT);
+  const e = env({ last: { id: 42, poster: 'https://img/poster.jpg', node: node } });
+  assert.equal(node.reads, 0, 'до открытия раскладку не читаем');
+
+  assert.equal(e.api.open({ id: 42 }), true);
+  assert.equal(node.reads, 1);
+  const img = e.overlay()[0].find('.lumen-overlay__img');
+  assert.equal(img.css('left'), '100px');
+  assert.equal(img.css('top'), '200px');
+});
+
+/* Ряд успел прокрутиться между фокусом и нажатием OK: слой обязан встать на
+   НОВОЕ место карточки, а не на запомненное. Ради этого узел и хранится. */
+test('open: карточка переехала после фокуса — слой встаёт на её новое место', () => {
+  const node = cardNode(RECT);
+  const e = env({ last: { id: 42, poster: 'https://img/poster.jpg', node: node } });
+  node.rect = { left: 620, top: 205, width: 180, height: 270 };
+
+  assert.equal(e.api.open({ id: 42 }), true);
+  const img = e.overlay()[0].find('.lumen-overlay__img');
+  assert.equal(img.css('left'), '620px');
+  assert.equal(img.css('top'), '205px');
+});
+
+/* Ряд перестроился и узел выброшен из документа — у такого узла все размеры
+   нулевые. Отдельный случай — узла нет вовсе. */
+test('open: узла карточки больше нет — перехода нет', () => {
+  for (const last of [
+    { id: 42, poster: 'p.jpg', node: null },
+    { id: 42, poster: 'p.jpg', node: {} },
+    { id: 42, poster: 'p.jpg', node: cardNode(null) }
+  ]) {
+    const e = env({ last: last });
+    assert.equal(e.api.open({ id: 42 }), false);
+    assert.equal(e.overlay().length, 0);
+  }
 });
 
 test('stop: быстрое открытие-закрытие не оставляет ни узла, ни кадра, ни таймера', () => {

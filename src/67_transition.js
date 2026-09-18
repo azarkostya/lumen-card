@@ -2,8 +2,9 @@
   /* Task 29 (фаза 3): переход «постер ряда → кадр карточки».              */
   /*                                                                       */
   /* Что происходит. Герой главной (src/48_hero.js) на каждом фокусе       */
-  /* запоминает фокусную карточку: её прямоугольник на экране, адрес уже   */
-  /* отрисованного постера и id (LC.hero.lastFocus). Нажали OK — Lampa     */
+  /* запоминает фокусную карточку: её УЗЕЛ, адрес уже отрисованного        */
+  /* постера и id (LC.hero.lastFocus); прямоугольник узла снимает уже этот */
+  /* модуль в момент открытия (Task 37, rectOf). Нажали OK — Lampa         */
   /* шлёт 'activity':start компонента 'full', и если открывают ровно ту    */
   /* карточку, что была под фокусом, мы кладём поверх экрана слой с тем    */
   /* же постером на том же месте и за DURATION мс РАСТЯГИВАЕМ его до       */
@@ -293,6 +294,28 @@
       return true;
     }
 
+    /* Task 37: прямоугольник карточки снимается ЗДЕСЬ, в момент открытия, а
+       не на каждом переводе фокуса. getBoundingClientRect заставляет браузер
+       посчитать раскладку немедленно, и на горячем пути листания рядов это
+       было принудительное вычисление на каждое нажатие стрелки; на открытие
+       карточки оно одно и происходит в кадре, где ряды всё равно уступают
+       место полной карточке.
+
+       Узла может уже не быть в документе: ряд мог перестроиться, пока фокус
+       стоял на карточке. Оторванный узел даёт нулевые ширину и высоту, а
+       geom() на таком прямоугольнике возвращает null — переход просто не
+       показывается, как и для карточки без размеров. */
+    function rectOf(node) {
+      try {
+        if (!node || typeof node.getBoundingClientRect !== 'function') return null;
+        var r = node.getBoundingClientRect();
+        if (!r) return null;
+        return { left: r.left, top: r.top, width: r.width, height: r.height };
+      } catch (e) {
+        return null;
+      }
+    }
+
     /* Точка вызова — 'activity':start компонента 'full' (src/90_runtime.js).
        object — объект активности. true, если переход показан. */
     function open(object) {
@@ -303,7 +326,9 @@
         if (LC.hero && typeof LC.hero.lastFocus === 'function') last = LC.hero.lastFocus();
         if (!last || !last.poster) return false;
         if (!sameId(idOf(object), last.id)) return false;
-        return show(last);
+        var rect = rectOf(last.node);
+        if (!rect) return false;
+        return show({ id: last.id, poster: last.poster, big: last.big, rect: rect });
       } catch (e) {
         warn('transition: open failed', e);
         return false;

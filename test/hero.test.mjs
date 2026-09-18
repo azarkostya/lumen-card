@@ -5,8 +5,8 @@ import { load } from './_load.mjs';
 
 /* Task 18 (герой на главной). Чистые функции (pickLogo/heroModel/
    shouldUpdate/sizeFor/detailsRequest) проверяются без окружения; жизненный
-   цикл (mount/unmount/detach, наблюдатель, задержка 350 мс, отмена запроса и
-   предзагрузки кадра) — на фейковых $, MutationObserver, Image и таймерах:
+   цикл (mount/unmount/detach, слушатель фокуса, задержка 350 мс, отмена
+   запроса и предзагрузки кадра) — на фейковых $, Image и таймерах:
    ровно тех, что модуль читает из глобалов в момент вызова, а не загрузки. */
 
 globalThis.PLUGIN = 'lumen_card';
@@ -224,26 +224,21 @@ test('detailsRequest: url media/id, images с языком интерфейса,
 /* Жизненный цикл: монтирование, наблюдатель, задержка, отмена            */
 /* ====================================================================== */
 
-/* Фейковый MutationObserver: запоминает цели и считает disconnect —
-   утечка наблюдателя на subtree:true (требование задачи) обязана быть
-   видна тестом, а не только живой проверкой. */
+/* Task 37: фокус ловится нативным слушателем 'hover:focus' в фазе захвата, и
+   MutationObserver на горячем пути больше не участвует вовсе — на ТВ одно
+   нажатие стрелки давало десятки мутаций класса по всей активности. Ловушка
+   ниже роняет любой тест, который снова заведёт наблюдателя. */
 function makeEnv(extra) {
-  const observers = [];
   const timers = [];
   const images = [];
   const requests = [];
 
-  function FakeObserver(fn) {
-    this.fn = fn; this.targets = []; this.disconnects = 0;
-    observers.push(this);
-  }
-  FakeObserver.prototype.observe = function (node, opts) { this.targets.push({ node: node, opts: opts }); };
-  FakeObserver.prototype.disconnect = function () { this.disconnects++; };
+  function ForbiddenObserver() { throw new Error('MutationObserver must not be used'); }
 
   function FakeImage() { this.onload = null; this.onerror = null; this.src = ''; images.push(this); }
 
   const env = {
-    observers: observers, timers: timers, images: images, requests: requests,
+    timers: timers, images: images, requests: requests,
     now: 100000,
     /* Виртуальное время: выполняются только таймеры, чей срок наступил —
        включая поставленные из уже сработавших колбэков (подмена текста
@@ -260,7 +255,7 @@ function makeEnv(extra) {
     }
   };
 
-  globalThis.MutationObserver = FakeObserver;
+  globalThis.MutationObserver = ForbiddenObserver;
   globalThis.Image = FakeImage;
   globalThis.Date.now = () => env.now;
   globalThis.setTimeout = (fn, ms) => {
@@ -287,7 +282,7 @@ function makeEnv(extra) {
     Storage: { get: () => 'ru' },
     Activity: { active: () => env.activeActivity || null }
   };
-  globalThis.window = { Lampa: Lampa, innerWidth: 1920, MutationObserver: FakeObserver };
+  globalThis.window = { Lampa: Lampa, innerWidth: 1920, MutationObserver: ForbiddenObserver };
   globalThis.Lampa = Lampa;
   globalThis.document = { documentElement: { clientWidth: 1920 }, body: { contains: () => true } };
   globalThis.$ = function (x) { return typeof x === 'string' ? fakeQuery(x) : toEl(x); };
@@ -309,7 +304,12 @@ function makeCard(id, title, opts) {
   const img = new FakeEl(['card__img']);
   img.attr('src', opts.poster);
   const card = new FakeEl(['card', 'selector'], [new FakeEl(['card__view'], [img])]);
-  card.getBoundingClientRect = () => opts.rect;
+  /* Task 37: замер раскладки ушёл с горячего пути фокуса в момент открытия
+     карточки (LC.transition.open, src/67_transition.js). Герой не имеет права
+     звать getBoundingClientRect вовсе — здесь это ловушка; сам прямоугольник
+     лежит рядом, его читает уже слой перехода со своего фейка. */
+  card._rect = opts.rect;
+  card.getBoundingClientRect = () => { throw new Error('layout read in hot path'); };
   return card;
 }
 
@@ -337,21 +337,37 @@ Object.defineProperty(FakeEl.prototype, 'classList', {
   get() { const self = this; return { contains: (c) => self.hasClass(c) }; }
 });
 
-test('mount: герой первым ребёнком активности, класс .lumen-main, один наблюдатель на subtree', () => {
+/* Task 37: перевод фокуса. Событие 'hover:focus' у Lampa не всплывает
+   (bubbles:false), поэтому герой ловит его нативным слушателем в фазе
+   ЗАХВАТА на корне активности — тест зовёт ровно тот слушатель, что там
+   зарегистрирован, и попутно проверяет, что он ОДИН: вторая подписка на тот
+   же корень (повторный mount без снятия) сломала бы этот вызов. */
+function focusListeners(root) {
+  return (root._listeners || []).filter((l) => l.type === 'hover:focus' && l.capture);
+}
+
+function fireFocus(root, target) {
+  const list = focusListeners(root);
+  assert.equal(list.length, 1, 'на корне обязан жить ровно один capture-слушатель фокуса');
+  list[0].fn({ target: target });
+}
+
+test('mount: герой первым ребёнком активности, класс .lumen-main, один слушатель фокуса', () => {
   const env = makeEnv();
   const main = makeMain();
   env.hero.mount(main.activity);
   assert.equal(env.hero.active(), true);
   assert.equal(main.activity._children[0].hasClass('lumen-hero'), true, 'герой — первый ребёнок');
   assert.equal(main.activity.hasClass('lumen-main'), true);
-  assert.equal(env.observers.length, 1);
-  assert.deepEqual(env.observers[0].targets[0].opts, { attributes: true, attributeFilter: ['class'], subtree: true });
+  /* Task 37: подписка ровно одна и именно в фазе захвата — 'hover:focus' не
+     всплывает, на фазе всплытия его не видно вовсе. */
+  assert.equal(focusListeners(main.activity).length, 1);
   assert.deepEqual(warnLog, []);
 });
 
 /* Правка пользователя 2026-09-17 (п.2): «Кадр над рядами: выключен». Героя
    нет вовсе — ни узла, ни класса .lumen-main (а значит, и наших правил
-   размера карточек), ни наблюдателя, ни запросов деталей. */
+   размера карточек), ни слушателя фокуса, ни запросов деталей. */
 test('правка: размер героя «off» — герой не монтируется вовсе', () => {
   const env = makeEnv({ pref: (name, def) => (name === 'lumen_hero_size' ? 'off' : def) });
   const main = makeMain();
@@ -359,7 +375,7 @@ test('правка: размер героя «off» — герой не монт
   assert.equal(env.hero.active(), false);
   assert.equal(main.activity._children.filter((c) => c.hasClass('lumen-hero')).length, 0);
   assert.equal(main.activity.hasClass('lumen-main'), false, 'без класса хоста ряды остаются штатными');
-  assert.equal(env.observers.length, 0, 'наблюдателя тоже нет');
+  assert.equal(focusListeners(main.activity).length, 0, 'слушателя фокуса тоже нет');
   assert.deepEqual(warnLog, []);
 });
 
@@ -375,26 +391,61 @@ test('правка: «off» -> обычный размер возвращает 
   env.hero.mount(main.activity);
   assert.equal(env.hero.active(), true);
   assert.equal(main.activity.hasClass('lumen-main'), true);
-  assert.equal(env.observers.length, 1);
+  assert.equal(focusListeners(main.activity).length, 1);
 });
 
-test('mount: повторный вызов на ту же активность не создаёт второго наблюдателя и второго узла', () => {
+/* Task 37, суть задачи: горячий путь фокуса живёт без MutationObserver.
+   Ловушка стоит и в globalThis, и в window — герой читал его оттуда в момент
+   вызова, а не загрузки, и обе двери обязаны быть закрыты. */
+test('фокус: ни монтирование, ни обработка фокуса не трогают MutationObserver', () => {
+  const env = makeEnv();
+  const main = makeMain();
+  assert.throws(() => new globalThis.MutationObserver(() => {}), /must not be used/);
+  assert.equal(globalThis.window.MutationObserver, globalThis.MutationObserver);
+
+  env.hero.mount(main.activity);
+  assert.equal(env.hero.active(), true, 'монтирование обошлось без наблюдателя');
+  main.card1.addClass('focus');
+  fireFocus(main.activity, main.card1);
+  env.advance(400);
+  assert.equal(env.images[0].src, 'https://img/t/p/original/b1.jpg', 'фокус обработан');
+  assert.deepEqual(warnLog, []);
+});
+
+test('mount: повторный вызов на ту же активность не создаёт второго слушателя и второго узла', () => {
   const env = makeEnv();
   const main = makeMain();
   env.hero.mount(main.activity);
   env.hero.mount(main.activity);
-  assert.equal(env.observers.length, 1);
+  assert.equal(focusListeners(main.activity).length, 1);
   assert.equal(main.activity._children.filter((c) => c.hasClass('lumen-hero')).length, 1);
 });
 
-test('mount на другой корень снимает предыдущего героя целиком (наблюдатель один на плагин)', () => {
+/* Task 37: слушатель живёт на узле активности, а не на document — утечка
+   выглядела бы как вторая подписка на том же корне после повторного
+   монтирования, и именно это здесь проверяется. */
+test('mount: снятие и повторное монтирование оставляют один слушатель фокуса', () => {
+  const env = makeEnv();
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  env.hero.unmount();
+  assert.equal(focusListeners(main.activity).length, 0, 'unmount снял подписку');
+
+  env.hero.mount(main.activity);
+  assert.equal(focusListeners(main.activity).length, 1, 'после второго монтирования слушатель по-прежнему один');
+  fireFocus(main.activity, main.card1);
+  env.advance(400);
+  assert.equal(env.images.length, 1, 'и он рабочий: фокус дошёл до героя');
+});
+
+test('mount на другой корень снимает предыдущего героя целиком (слушатель один на плагин)', () => {
   const env = makeEnv();
   const a = makeMain();
   const b = makeMain();
   env.hero.mount(a.activity);
   env.hero.mount(b.activity);
-  assert.equal(env.observers.length, 2, 'у нового корня свой наблюдатель');
-  assert.equal(env.observers[0].disconnects, 1, 'старый отключён');
+  assert.equal(focusListeners(b.activity).length, 1, 'у нового корня своя подписка');
+  assert.equal(focusListeners(a.activity).length, 0, 'со старого корня слушатель снят');
   assert.equal(a.activity._children.some((c) => c.hasClass('lumen-hero')), false);
   assert.equal(a.activity.hasClass('lumen-main'), false);
 });
@@ -403,17 +454,16 @@ test('фокус карточки: кадр грузится только пос
   const env = makeEnv();
   const main = makeMain();
   env.hero.mount(main.activity);
-  const obs = env.observers[0];
 
   main.card1.addClass('focus');
-  obs.fn([{ target: main.card1 }]);
+  fireFocus(main.activity, main.card1);
   assert.equal(env.images.length, 0, 'до задержки кадр не грузится');
 
   /* Фокус ушёл на вторую карточку раньше 350 мс — первый таймер снят. */
   env.advance(100);
   main.card1.removeClass('focus');
   main.card2.addClass('focus');
-  obs.fn([{ target: main.card2 }]);
+  fireFocus(main.activity, main.card2);
 
   env.advance(350);
   assert.equal(env.images.length, 1, 'ровно одна предзагрузка кадра');
@@ -426,15 +476,14 @@ test('повторный фокус той же карточки не грузи
   const env = makeEnv();
   const main = makeMain();
   env.hero.mount(main.activity);
-  const obs = env.observers[0];
 
   main.card1.addClass('focus');
-  obs.fn([{ target: main.card1 }]);
+  fireFocus(main.activity, main.card1);
   env.advance(400);
   assert.equal(env.images.length, 1);
 
   env.advance(400);
-  obs.fn([{ target: main.card1 }]);
+  fireFocus(main.activity, main.card1);
   env.advance(400);
   assert.equal(env.images.length, 1, 'тот же id — ни кадра, ни запроса деталей');
   assert.equal(env.requests.length, 1);
@@ -444,11 +493,10 @@ test('загруженный кадр проявляется вторым сло
   const env = makeEnv();
   const main = makeMain();
   env.hero.mount(main.activity);
-  const obs = env.observers[0];
   const node = main.activity._children[0];
 
   main.card1.addClass('focus');
-  obs.fn([{ target: main.card1 }]);
+  fireFocus(main.activity, main.card1);
   env.advance(400);
   /* Текст подменяется не сразу: старый уходит за 180 мс (раскадровка 23а). */
   env.advance(200);
@@ -483,12 +531,11 @@ test('логотип: размер по пропорции и неизменно
   const env = makeEnv();
   const main = makeMain();
   env.hero.mount(main.activity);
-  const obs = env.observers[0];
   const node = main.activity._children[0];
   const logo = node.find('.lumen-hero__logo');
 
   main.card1.addClass('focus');
-  obs.fn([{ target: main.card1 }]);
+  fireFocus(main.activity, main.card1);
   env.advance(400);
   env.advance(200);
   env.requests[0].ok({ images: { logos: [{ file_path: '/l.png', iso_639_1: 'ru', aspect_ratio: 2.5 }] } });
@@ -498,7 +545,7 @@ test('логотип: размер по пропорции и неизменно
 
   main.card1.removeClass('focus');
   main.card2.addClass('focus');
-  obs.fn([{ target: main.card2 }]);
+  fireFocus(main.activity, main.card2);
   env.advance(400);
   env.advance(200);
   assert.equal(node.hasClass('lumen-hero--compact'), true, 'второй ряд — сжатое состояние');
@@ -517,11 +564,10 @@ test('логотип без пропорции в ответе TMDB: разме�
   const env = makeEnv();
   const main = makeMain();
   env.hero.mount(main.activity);
-  const obs = env.observers[0];
   const node = main.activity._children[0];
 
   main.card1.addClass('focus');
-  obs.fn([{ target: main.card1 }]);
+  fireFocus(main.activity, main.card1);
   env.advance(400);
   env.advance(200);
   env.requests[0].ok({ images: { logos: [{ file_path: '/l.png', iso_639_1: 'ru' }] } });
@@ -537,11 +583,10 @@ test('второй ряд в фокусе — компактный герой, �
   const env = makeEnv();
   const main = makeMain();
   env.hero.mount(main.activity);
-  const obs = env.observers[0];
   const node = main.activity._children[0];
 
   main.card2.addClass('focus');
-  obs.fn([{ target: main.card2 }]);
+  fireFocus(main.activity, main.card2);
   assert.equal(node.hasClass('lumen-hero--compact'), true, 'ряд с индексом 1 — герой сжат');
   /* Правка пользователя 2026-09-17 (второй круг): вместе с кадром класс
      получает и КОРЕНЬ активности — по нему раскладка поднимает ряды на
@@ -550,7 +595,7 @@ test('второй ряд в фокусе — компактный герой, �
   assert.equal(main.activity.hasClass('lumen-rows-up'), true, 'ряды не подняты вслед за кадром');
 
   main.card1.addClass('focus');
-  obs.fn([{ target: main.card1 }]);
+  fireFocus(main.activity, main.card1);
   assert.equal(node.hasClass('lumen-hero--compact'), false);
   assert.equal(main.activity.hasClass('lumen-rows-up'), false, 'вернулись на первый ряд — верхнее состояние');
 });
@@ -560,7 +605,7 @@ test('unmount возвращает ряды в штатную раскладку
   const main = makeMain();
   env.hero.mount(main.activity);
   main.card2.addClass('focus');
-  env.observers[0].fn([{ target: main.card2 }]);
+  fireFocus(main.activity, main.card2);
   assert.equal(main.activity.hasClass('lumen-rows-up'), true);
 
   env.hero.unmount();
@@ -568,21 +613,20 @@ test('unmount возвращает ряды в штатную раскладку
   assert.equal(main.activity.hasClass('lumen-main'), false);
 });
 
-test('unmount: узел, класс хоста, наблюдатель, таймер, предзагрузка и запрос деталей снимаются', () => {
+test('unmount: узел, класс хоста, слушатель, таймер, предзагрузка и запрос деталей снимаются', () => {
   const env = makeEnv();
   const main = makeMain();
   env.hero.mount(main.activity);
-  const obs = env.observers[0];
 
   main.card1.addClass('focus');
-  obs.fn([{ target: main.card1 }]);
+  fireFocus(main.activity, main.card1);
   env.advance(400);
   assert.equal(env.requests.length, 1);
 
   /* Запрос ещё летит, кадр ещё грузится — unmount обязан погасить оба. */
   env.hero.unmount();
   assert.equal(env.hero.active(), false);
-  assert.equal(obs.disconnects, 1);
+  assert.equal(focusListeners(main.activity).length, 0, 'слушатель фокуса снят');
   assert.equal(env.requests[0].cleared, 1);
   assert.equal(env.images[0].onload, null);
   assert.equal(main.activity._children.some((c) => c.hasClass('lumen-hero')), false);
@@ -594,9 +638,8 @@ test('отложенный показ не рисует в снятого гер
   const env = makeEnv();
   const main = makeMain();
   env.hero.mount(main.activity);
-  const obs = env.observers[0];
   main.card1.addClass('focus');
-  obs.fn([{ target: main.card1 }]);
+  fireFocus(main.activity, main.card1);
 
   env.hero.unmount();
   env.advance(400);
@@ -609,9 +652,8 @@ test('ответ деталей, доехавший после ухода с г�
   const env = makeEnv();
   const main = makeMain();
   env.hero.mount(main.activity);
-  const obs = env.observers[0];
   main.card1.addClass('focus');
-  obs.fn([{ target: main.card1 }]);
+  fireFocus(main.activity, main.card1);
   env.advance(400);
   env.advance(200);
   const node = main.activity._children[0];
@@ -633,7 +675,7 @@ test('detach: герой остаётся, пока активность его,
 
   env.hero.detach(other.activity);
   assert.equal(env.hero.active(), false);
-  assert.equal(env.observers[0].disconnects, 1);
+  assert.equal(focusListeners(main.activity).length, 0, 'слушатель снят вместе с героем');
 });
 
 /* opts.compact/hostClass — контракт монтирования в чужой корень (пригодится
@@ -655,7 +697,7 @@ test('mount с compact/hostClass: сжат всегда, класс хоста �
   assert.equal(grid.hasClass('lumen-grid--hero'), true);
   assert.equal(grid.hasClass('lumen-rows-up'), true, 'сжатый всегда — значит и место отдано сразу');
 
-  env.observers[0].fn([{ target: card }]);
+  fireFocus(grid, card);
   env.advance(400);
   assert.equal(env.images[0].src, 'https://img/t/p/original/b3.jpg');
   assert.equal(node.hasClass('lumen-hero--compact'), true, 'компактный герой не разжимается по индексу ряда');
@@ -699,11 +741,10 @@ test('режим off: текст меняется без подмены и БЕ�
   env.LC.motionMode = () => 'off';
   const main = makeMain();
   env.hero.mount(main.activity);
-  const obs = env.observers[0];
   const node = main.activity._children[0];
 
   main.card1.addClass('focus');
-  obs.fn([{ target: main.card1 }]);
+  fireFocus(main.activity, main.card1);
   env.advance(400);
   assert.equal(node.find('.lumen-hero__text').hasClass('is-swapping'), false);
   assert.equal(node.find('.lumen-hero__title').text(), 'Первый');
@@ -751,23 +792,26 @@ test('нет кадра — используется постер, слой по
   main.card1.card_data = { id: 44, title: 'Без кадра', poster_path: '/p.jpg', release_date: '2021-01-01' };
   main.card1.addClass('focus');
   env.hero.mount(main.activity);
-  const obs = env.observers[0];
   const node = main.activity._children[0];
 
-  obs.fn([{ target: main.card1 }]);
+  fireFocus(main.activity, main.card1);
   env.advance(400);
   assert.equal(env.images[0].src, 'https://img/t/p/w500/p.jpg');
   env.images[0].onload();
   assert.equal(node.hasClass('lumen-hero--blur'), true);
 });
 
-test('карточка без данных наблюдателя не роняет и не грузит', () => {
+/* Task 37: в корне активности фокус получают не только карточки (кнопки
+   шапки, пункты меню), и событие может прийти с целью без card_data или без
+   классов вовсе. */
+test('чужая цель события фокуса не роняет и не грузит', () => {
   const env = makeEnv();
   const main = makeMain();
   env.hero.mount(main.activity);
-  const obs = env.observers[0];
   const bare = new FakeEl(['card', 'focus']);
-  obs.fn([{ target: bare }, { target: null }, { target: main.line0 }]);
+  fireFocus(main.activity, bare);
+  fireFocus(main.activity, null);
+  fireFocus(main.activity, main.line0);
   env.advance(400);
   assert.equal(env.images.length, 0);
   assert.deepEqual(warnLog, []);
@@ -780,11 +824,10 @@ test('детали из кэша приходят синхронно — отл�
   const env = makeEnv();
   const main = makeMain();
   env.hero.mount(main.activity);
-  const obs = env.observers[0];
   const node = main.activity._children[0];
 
   main.card1.addClass('focus');
-  obs.fn([{ target: main.card1 }]);
+  fireFocus(main.activity, main.card1);
   env.advance(350);
   /* Ответ деталей доехал раньше подмены текста. */
   env.requests[0].ok({ runtime: 100, genres: [{ name: 'драма' }], overview: 'полное' });
@@ -801,11 +844,10 @@ test('ошибка деталей гасит скелетон и пережив�
   const env = makeEnv();
   const main = makeMain();
   env.hero.mount(main.activity);
-  const obs = env.observers[0];
   const node = main.activity._children[0];
 
   main.card1.addClass('focus');
-  obs.fn([{ target: main.card1 }]);
+  fireFocus(main.activity, main.card1);
   env.advance(350);
   env.requests[0].err({ code: 500 });
   env.advance(200);
@@ -819,11 +861,10 @@ test('пустой ответ деталей равносилен ошибке �
   const env = makeEnv();
   const main = makeMain();
   env.hero.mount(main.activity);
-  const obs = env.observers[0];
   const node = main.activity._children[0];
 
   main.card1.addClass('focus');
-  obs.fn([{ target: main.card1 }]);
+  fireFocus(main.activity, main.card1);
   env.advance(350);
   env.requests[0].ok(null);
   env.advance(200);
@@ -841,30 +882,53 @@ test('lastFocus: до фокуса источника нет', () => {
   assert.equal(env.hero.lastFocus(), null);
 });
 
-test('lastFocus: фокус запоминает id, адрес уже отрисованного постера и прямоугольник', () => {
+/* Task 37: запоминается УЗЕЛ карточки, а не её прямоугольник — замер
+   раскладки ушёл в момент открытия карточки (LC.transition.open). Ловушка в
+   makeCard роняет тест, если герой позовёт getBoundingClientRect: здесь она и
+   проверяет, что горячий путь фокуса раскладку не читает. */
+test('lastFocus: фокус запоминает id, адрес уже отрисованного постера и узел карточки', () => {
   const env = makeEnv();
   const main = makeMain();
   env.hero.mount(main.activity);
-  const obs = env.observers[0];
   main.card1.addClass('focus');
-  obs.fn([{ target: main.card1 }]);
+  fireFocus(main.activity, main.card1);
   assert.deepEqual(env.hero.lastFocus(), {
     id: 11,
     poster: 'https://img/t/p/w300/p1.jpg',
-    rect: { left: 100, top: 200, width: 180, height: 270 }
+    node: main.card1
   });
+  /* Прямоугольник узла умеет снять только слой перехода, и здесь это видно:
+     обращение к нему из героя уронило бы тест ещё на строке выше. */
+  assert.throws(() => main.card1.getBoundingClientRect(), /layout read in hot path/);
+});
+
+/* Повторное событие фокуса на той же карточке шлёт сама Lampa, когда
+   возвращает фокус на место. Источник перехода при этом обязан обновиться
+   (постер мог догрузиться на смену заглушки ./img/img_load.svg), а таймеры —
+   нет: их проверяют тесты акцента и трейлера ниже. */
+test('lastFocus: повторный фокус той же карточки подхватывает догруженный постер', () => {
+  const env = makeEnv();
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  main.card1.find('.card__img').attr('src', './img/img_load.svg');
+  fireFocus(main.activity, main.card1);
+  assert.equal(env.hero.lastFocus().poster, './img/img_load.svg');
+
+  main.card1.find('.card__img').attr('src', 'https://img/t/p/w300/p1.jpg');
+  fireFocus(main.activity, main.card1);
+  assert.equal(env.hero.lastFocus().poster, 'https://img/t/p/w300/p1.jpg', 'в переход пойдёт постер, а не заглушка');
+  assert.equal(env.hero.lastFocus().node, main.card1);
 });
 
 test('lastFocus: обновляется сразу, не дожидаясь смены героя', () => {
   const env = makeEnv();
   const main = makeMain();
   env.hero.mount(main.activity);
-  const obs = env.observers[0];
   main.card1.addClass('focus');
-  obs.fn([{ target: main.card1 }]);
+  fireFocus(main.activity, main.card1);
   env.advance(50);
   main.card2.addClass('focus');
-  obs.fn([{ target: main.card2 }]);
+  fireFocus(main.activity, main.card2);
   assert.equal(env.hero.lastFocus().id, 22, 'до истечения 350 мс герой ещё первый, а источник — уже второй');
   assert.equal(env.images.length, 0);
 });
@@ -873,14 +937,13 @@ test('lastFocus: карточка без постера источником н�
   const env = makeEnv();
   const main = makeMain();
   env.hero.mount(main.activity);
-  const obs = env.observers[0];
   main.card1.addClass('focus');
-  obs.fn([{ target: main.card1 }]);
+  fireFocus(main.activity, main.card1);
   const bare = new FakeEl(['card', 'focus']);
   bare.card_data = { id: 33, title: 'Голый' };
   main.line0._children.push(bare);
   bare._parentEl = main.line0;
-  obs.fn([{ target: bare }]);
+  fireFocus(main.activity, bare);
   assert.equal(env.hero.lastFocus(), null);
 });
 
@@ -913,9 +976,8 @@ test('крупный постер грузится после покоя фок�
   const env = transitionEnv();
   const main = makeMain();
   env.hero.mount(main.activity);
-  const obs = env.observers[0];
   main.card1.addClass('focus');
-  obs.fn([{ target: main.card1 }]);
+  fireFocus(main.activity, main.card1);
   assert.equal(env.images.length, 0, 'до покоя фокуса ничего не грузится');
   env.advance(350);
   /* Первой идёт предзагрузка кадра героя, крупный постер — вторая картинка. */
@@ -930,12 +992,11 @@ test('быстрое листание крупный постер не груз�
   const env = transitionEnv();
   const main = makeMain();
   env.hero.mount(main.activity);
-  const obs = env.observers[0];
   main.card1.addClass('focus');
-  obs.fn([{ target: main.card1 }]);
+  fireFocus(main.activity, main.card1);
   env.advance(100);
   main.card2.addClass('focus');
-  obs.fn([{ target: main.card2 }]);
+  fireFocus(main.activity, main.card2);
   env.advance(350);
   const big = env.images.filter((i) => i.src.indexOf('/t/p/w500/') !== -1);
   assert.equal(big.length, 1, 'грузится только постер карточки, на которой остановились');
@@ -946,9 +1007,8 @@ test('неудача загрузки крупного постера остав
   const env = transitionEnv();
   const main = makeMain();
   env.hero.mount(main.activity);
-  const obs = env.observers[0];
   main.card1.addClass('focus');
-  obs.fn([{ target: main.card1 }]);
+  fireFocus(main.activity, main.card1);
   env.advance(350);
   const big = env.images.filter((i) => i.src.indexOf('/t/p/w500/') !== -1)[0];
   big.onerror();
@@ -960,9 +1020,8 @@ test('снятие героя гасит незавершённую загруз
   const env = transitionEnv();
   const main = makeMain();
   env.hero.mount(main.activity);
-  const obs = env.observers[0];
   main.card1.addClass('focus');
-  obs.fn([{ target: main.card1 }]);
+  fireFocus(main.activity, main.card1);
   env.advance(350);
   const big = env.images.filter((i) => i.src.indexOf('/t/p/w500/') !== -1)[0];
   env.hero.unmount();
@@ -974,9 +1033,8 @@ test('lastFocus: снятие героя обнуляет источник', () 
   const env = makeEnv();
   const main = makeMain();
   env.hero.mount(main.activity);
-  const obs = env.observers[0];
   main.card1.addClass('focus');
-  obs.fn([{ target: main.card1 }]);
+  fireFocus(main.activity, main.card1);
   env.hero.unmount();
   assert.equal(env.hero.lastFocus(), null);
 });
@@ -1005,9 +1063,8 @@ test('акцент: считается только после трёх секу
   const env = accentEnv();
   const main = makeMain();
   env.hero.mount(main.activity);
-  const obs = env.observers[0];
   main.card1.addClass('focus');
-  obs.fn([{ target: main.card1 }]);
+  fireFocus(main.activity, main.card1);
   env.advance(2900);
   assert.deepEqual(env.calls, [], 'до 3 с — ни одного расчёта');
   env.advance(200);
@@ -1019,11 +1076,10 @@ test('акцент: быстрый проход по ряду не даёт ни
   const env = accentEnv();
   const main = makeMain();
   env.hero.mount(main.activity);
-  const obs = env.observers[0];
   for (let i = 0; i < 10; i++) {
     const card = i % 2 ? main.card2 : main.card1;
     card.addClass('focus');
-    obs.fn([{ target: card }]);
+    fireFocus(main.activity, card);
     env.advance(200);
   }
   assert.deepEqual(env.calls, [], 'фокус нигде не стоял 3 с');
@@ -1033,23 +1089,60 @@ test('акцент: считается по карточке, на которо�
   const env = accentEnv();
   const main = makeMain();
   env.hero.mount(main.activity);
-  const obs = env.observers[0];
   main.card1.addClass('focus');
-  obs.fn([{ target: main.card1 }]);
+  fireFocus(main.activity, main.card1);
   env.advance(1000);
   main.card2.addClass('focus');
-  obs.fn([{ target: main.card2 }]);
+  fireFocus(main.activity, main.card2);
   env.advance(3100);
   assert.deepEqual(env.calls, [22]);
+});
+
+/* Task 37: гард от повторной обработки той же карточки проверяется ПО
+   ТАЙМЕРУ, а не по числу вызовов: перезапуск отсчёта акцента сдвинул бы
+   расчёт на новые 3 с, и при потоке повторных событий (а прежний
+   MutationObserver ловил любую мутацию класса в активности, включая классы
+   самого героя) акцент не наступал бы вовсе. */
+test('акцент: повторное событие на той же карточке не перезапускает отсчёт', () => {
+  const env = accentEnv();
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  main.card1.addClass('focus');
+  fireFocus(main.activity, main.card1);
+
+  env.advance(2000);
+  fireFocus(main.activity, main.card1);
+  fireFocus(main.activity, main.card1);
+  assert.deepEqual(env.calls, [], 'три секунды ещё не прошли');
+
+  env.advance(1100);
+  assert.deepEqual(env.calls, [11], 'акцент наступил в свой срок, отсчёт не сдвинулся');
+});
+
+test('акцент: перевод фокуса на другую карточку отсчёт перезапускает', () => {
+  const env = accentEnv();
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  main.card1.addClass('focus');
+  fireFocus(main.activity, main.card1);
+
+  env.advance(2000);
+  main.card1.removeClass('focus');
+  main.card2.addClass('focus');
+  fireFocus(main.activity, main.card2);
+
+  env.advance(1100);
+  assert.deepEqual(env.calls, [], 'с момента смены карточки прошло 1,1 с — рано');
+  env.advance(1950);
+  assert.deepEqual(env.calls, [22], 'три секунды отсчитаны заново и по новой карточке');
 });
 
 test('акцент: снятие героя гасит отложенный расчёт', () => {
   const env = accentEnv();
   const main = makeMain();
   env.hero.mount(main.activity);
-  const obs = env.observers[0];
   main.card1.addClass('focus');
-  obs.fn([{ target: main.card1 }]);
+  fireFocus(main.activity, main.card1);
   env.hero.unmount();
   env.advance(5000);
   assert.deepEqual(env.calls, []);
@@ -1096,9 +1189,9 @@ function lastVideos(env) {
   return list[list.length - 1];
 }
 
-function focusOn(env, main, card) {
+function focusOn(main, card) {
   card.addClass('focus');
-  env.observers[0].fn([{ target: card }]);
+  fireFocus(main.activity, card);
 }
 
 test('трейлер героя: старт после 8 с покоя фокуса, ролик в своём слое, класс на узле', () => {
@@ -1107,7 +1200,7 @@ test('трейлер героя: старт после 8 с покоя фоку�
   env.hero.mount(main.activity);
   const node = main.activity._children[0];
 
-  focusOn(env, main, main.card1);
+  focusOn(main, main.card1);
   env.advance(400);
   /* Кадр и детали ушли сразу, ролик ждёт свои 8 с. */
   const before = env.requests.length;
@@ -1141,12 +1234,30 @@ test('трейлер героя: при листании не стартует �
   const start = env.requests.length;
   for (let i = 0; i < 12; i++) {
     const card = i % 2 ? main.card2 : main.card1;
-    focusOn(env, main, card);
+    focusOn(main, card);
     env.advance(600);
   }
   const videoRequests = env.requests.slice(start).filter((r) => r.url.indexOf('/videos') >= 0);
   assert.deepEqual(videoRequests, [], 'фокус нигде не стоял 8 с — ни одного запроса роликов');
   assert.equal(env.players.length, 0);
+});
+
+/* Task 37: возврат фокуса на ту же карточку (Lampa шлёт событие повторно,
+   когда восстанавливает фокус) идущий ролик обрывать не должен. */
+test('трейлер героя: повторное событие на той же карточке ролик не гасит', () => {
+  const env = trailerEnv();
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  const node = main.activity._children[0];
+
+  focusOn(main, main.card1);
+  env.advance(9000);
+  lastVideos(env).ok(VIDEOS_RU);
+  env.players[0].onStart();
+
+  fireFocus(main.activity, main.card1);
+  assert.equal(env.players[0].destroys, 0, 'ролик играет дальше');
+  assert.equal(node.hasClass('lumen-hero--trailer'), true);
 });
 
 test('трейлер героя: перевод фокуса снимает играющий ролик и его запрос', () => {
@@ -1155,7 +1266,7 @@ test('трейлер героя: перевод фокуса снимает иг
   env.hero.mount(main.activity);
   const node = main.activity._children[0];
 
-  focusOn(env, main, main.card1);
+  focusOn(main, main.card1);
   env.advance(9000);
   const req = lastVideos(env);
   req.ok(VIDEOS_RU);
@@ -1163,7 +1274,7 @@ test('трейлер героя: перевод фокуса снимает иг
   assert.equal(node.hasClass('lumen-hero--trailer'), true);
 
   main.card1.removeClass('focus');
-  focusOn(env, main, main.card2);
+  focusOn(main, main.card2);
   assert.equal(env.players[0].destroys, 1, 'ролик снят сразу, а не через задержку');
   assert.equal(node.hasClass('lumen-hero--trailer'), false);
 });
@@ -1173,7 +1284,7 @@ test('трейлер героя: снятие героя гасит таймер
   const main = makeMain();
   env.hero.mount(main.activity);
 
-  focusOn(env, main, main.card1);
+  focusOn(main, main.card1);
   env.advance(9000);
   const req = lastVideos(env);
   req.ok(VIDEOS_RU);
@@ -1190,7 +1301,7 @@ test('трейлер героя: снятие героя гасит таймер
   const env2 = trailerEnv();
   const main2 = makeMain();
   env2.hero.mount(main2.activity);
-  focusOn(env2, main2, main2.card1);
+  focusOn(main2, main2.card1);
   env2.hero.unmount();
   env2.advance(9000);
   assert.deepEqual(env2.requests.filter((r) => r.url.indexOf('/videos') >= 0), []);
@@ -1202,7 +1313,7 @@ test('трейлер героя: в lite и off не стартует вовсе
     const env = trailerEnv({ motionMode: () => mode });
     const main = makeMain();
     env.hero.mount(main.activity);
-    focusOn(env, main, main.card1);
+    focusOn(main, main.card1);
     env.advance(9000);
     assert.deepEqual(env.requests.filter((r) => r.url.indexOf('/videos') >= 0), [], mode + ': запросов роликов нет');
     assert.equal(env.players.length, 0);
@@ -1215,13 +1326,13 @@ test('трейлер героя: выключенная настройка — �
   const main = makeMain();
   env.hero.mount(main.activity);
 
-  focusOn(env, main, main.card1);
+  focusOn(main, main.card1);
   env.advance(9000);
   assert.deepEqual(env.requests.filter((r) => r.url.indexOf('/videos') >= 0), []);
 
   on = true;
   main.card1.removeClass('focus');
-  focusOn(env, main, main.card2);
+  focusOn(main, main.card2);
   env.advance(9000);
   assert.equal(env.requests.filter((r) => r.url.indexOf('/videos') >= 0).length, 1);
 });
@@ -1233,7 +1344,7 @@ test('трейлер героя: выключение настройки на л
   env.hero.mount(main.activity);
   const node = main.activity._children[0];
 
-  focusOn(env, main, main.card1);
+  focusOn(main, main.card1);
   env.advance(9000);
   lastVideos(env).ok(VIDEOS_RU);
   env.players[0].onStart();
@@ -1249,7 +1360,7 @@ test('трейлер героя: на языке интерфейса ролик
   const main = makeMain();
   env.hero.mount(main.activity);
 
-  focusOn(env, main, main.card1);
+  focusOn(main, main.card1);
   env.advance(9000);
   lastVideos(env).ok({ results: [] });
 
@@ -1266,7 +1377,7 @@ test('трейлер героя: роликов нет совсем — тиши
   const env = trailerEnv();
   const main = makeMain();
   env.hero.mount(main.activity);
-  focusOn(env, main, main.card1);
+  focusOn(main, main.card1);
   env.advance(9000);
   lastVideos(env).ok({ results: [] });
   lastVideos(env).ok({ results: [] });
@@ -1280,7 +1391,7 @@ test('трейлер героя: режим анимаций упал до lite 
   const env = trailerEnv({ motionMode: () => motion });
   const main = makeMain();
   env.hero.mount(main.activity);
-  focusOn(env, main, main.card1);
+  focusOn(main, main.card1);
   env.advance(9000);
   lastVideos(env).ok(VIDEOS_RU);
   env.players[0].onStart();

@@ -7845,7 +7845,6 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 
-
 LC.hero = (function () {
 
 
@@ -8806,21 +8805,45 @@ setCompact(index > 0);
 
 
 
+function posterOf(el) {
+try {
+return $(el).find('.card__img').attr('src') || '';
+} catch (e) {
+return '';
+}
+}
+
+
+
+
+
+
+
+
+
 
 
 
 function rememberFocus(el, card) {
-var poster = '';
-try {
-poster = $(el).find('.card__img').attr('src') || '';
-} catch (e) { }
-var rect = null;
-try {
-if (el.getBoundingClientRect) rect = el.getBoundingClientRect();
-} catch (eR) { }
-if (!poster || !rect) { last = null; cancelBigPoster(); return; }
-last = { id: card.id, poster: poster, rect: { left: rect.left, top: rect.top, width: rect.width, height: rect.height } };
+var poster = posterOf(el);
+if (!poster) { last = null; cancelBigPoster(); return; }
+last = { id: card.id, poster: poster, node: el };
 scheduleBigPoster(card.id, poster);
+}
+
+
+
+
+
+
+
+
+
+function refreshFocusSource(el, card) {
+var poster = posterOf(el);
+if (!poster) return;
+if (last && String(last.id) === String(card.id) && last.poster === poster) return;
+rememberFocus(el, card);
 }
 
 
@@ -8912,6 +8935,15 @@ if (!state) return;
 var card = el.card_data;
 if (!card || card.id == null) return;
 
+
+
+
+
+
+
+if (state.focusEl === el) { refreshFocusSource(el, card); return; }
+state.focusEl = el;
+
 updateCompact(el);
 rememberFocus(el, card);
 
@@ -8922,6 +8954,7 @@ stopTimer('timer');
 
 
 scheduleAccent(card);
+
 
 
 
@@ -8946,32 +8979,74 @@ show(card);
 }, DELAY);
 }
 
-function onMutations(records) {
+
+
+
+
+
+function onFocusEvent(e) {
 if (!state) return;
 try {
-for (var i = 0; i < records.length; i++) {
-var target = records[i] && records[i].target;
-if (!target || !target.classList) continue;
-if (target.classList.contains('card') && target.classList.contains('focus')) {
-onFocus(target);
-return;
-}
-}
-} catch (e) {
-warn('hero: observer failed', e);
+var el = e && e.target;
+if (!el || !el.classList || !el.classList.contains('card')) return;
+onFocus(el);
+} catch (err) {
+warn('hero: focus listener failed', err);
 }
 }
 
-function observe(root) {
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function listenFocus(root) {
 try {
-if (!window.MutationObserver) return;
-var obs = new MutationObserver(onMutations);
-obs.observe(root[0], { attributes: true, attributeFilter: ['class'], subtree: true });
-state.observer = obs;
+var node = root && root[0];
+if (!node || typeof node.addEventListener !== 'function') return;
+state.focusHandler = onFocusEvent;
+node.addEventListener('hover:focus', state.focusHandler, true);
 } catch (e) {
-warn('hero: observe failed', e);
+warn('hero: listen failed', e);
 }
 }
+
+
+
+
+function unlistenFocus(s) {
+if (!s || !s.focusHandler) return;
+try {
+var node = s.root && s.root[0];
+if (node && typeof node.removeEventListener === 'function') {
+node.removeEventListener('hover:focus', s.focusHandler, true);
+}
+} catch (e) {
+warn('hero: unlisten failed', e);
+}
+s.focusHandler = null;
+}
+
 
 
 
@@ -9037,7 +9112,10 @@ state = {
 root: root,
 node: node,
 hostClass: hostClass,
-observer: null,
+
+
+focusHandler: null,
+focusEl: null,
 timer: null,
 swapTimer: null,
 loadTimer: null,
@@ -9060,7 +9138,7 @@ fixedCompact: !!opts.compact
 };
 if (opts.compact) setCompact(true);
 applyMotion();
-observe(root);
+listenFocus(root);
 showFocused(root);
 } catch (e) {
 warn('hero: mount failed', e);
@@ -9097,11 +9175,7 @@ state = null;
 
 last = null;
 gen++;
-try {
-if (s.observer) s.observer.disconnect();
-} catch (e) {
-warn('hero: disconnect failed', e);
-}
+unlistenFocus(s);
 var timers = ['timer', 'swapTimer', 'loadTimer', 'accentTimer', 'bigTimer', 'trailerTimer'];
 for (var i = 0; i < timers.length; i++) {
 try { if (s[timers[i]]) clearTimeout(s[timers[i]]); } catch (eT) {}
@@ -19248,6 +19322,7 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 
+
 LC.transition = (function () {
 
 
@@ -19505,6 +19580,28 @@ return true;
 
 
 
+
+
+
+
+
+
+
+
+
+function rectOf(node) {
+try {
+if (!node || typeof node.getBoundingClientRect !== 'function') return null;
+var r = node.getBoundingClientRect();
+if (!r) return null;
+return { left: r.left, top: r.top, width: r.width, height: r.height };
+} catch (e) {
+return null;
+}
+}
+
+
+
 function open(object) {
 try {
 if (motion() !== 'full') return false;
@@ -19513,7 +19610,9 @@ var last = null;
 if (LC.hero && typeof LC.hero.lastFocus === 'function') last = LC.hero.lastFocus();
 if (!last || !last.poster) return false;
 if (!sameId(idOf(object), last.id)) return false;
-return show(last);
+var rect = rectOf(last.node);
+if (!rect) return false;
+return show({ id: last.id, poster: last.poster, big: last.big, rect: rect });
 } catch (e) {
 warn('transition: open failed', e);
 return false;

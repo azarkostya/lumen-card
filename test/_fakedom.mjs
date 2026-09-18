@@ -95,8 +95,9 @@ FakeEl.prototype.removeAttr = function (name) { if (this._attr) delete this._att
 /* Task 5c (src/85_header.js, ряд серий): DOM-подобные getAttribute/removeAttribute
    (узел — сам себе [0]); text/html — html разбирает div-теги плоско, как
    fakeQuery, и считает перезаписи (_htmlSets); next/before — перенос статуса в
-   ленту; eq/not/trigger — OK на «Смотреть»; addEventListener — слушатели в
-   capture на корне карточки (вызываются тестом вручную). */
+   ленту; eq/not/trigger — OK на «Смотреть»; addEventListener/
+   removeEventListener — слушатели в capture на корне карточки и на корне
+   активности (вызываются тестом вручную). */
 FakeEl.prototype.getAttribute = function (name) {
   return this._attr && Object.prototype.hasOwnProperty.call(this._attr, name) ? this._attr[name] : null;
 };
@@ -137,6 +138,16 @@ FakeEl.prototype.not = function (sel) { return matchesSelector(this, selectorCla
 FakeEl.prototype.trigger = function (name) { (this._triggered = this._triggered || []).push(name); return this; };
 FakeEl.prototype.addEventListener = function (type, fn, capture) {
   (this._listeners = this._listeners || []).push({ type: type, fn: fn, capture: !!capture });
+};
+/* Task 37: снятие слушателя — как в DOM, по тройке «тип, та же функция, та
+   же фаза». Герой главной (src/48_hero.js) ловит фокус capture-слушателем на
+   корне активности, и утечка подписки после unmount обязана быть видна
+   тестом: без removeEventListener её ничем не отличить от живой. */
+FakeEl.prototype.removeEventListener = function (type, fn, capture) {
+  const list = this._listeners || [];
+  for (let i = 0; i < list.length; i++) {
+    if (list[i].type === type && list[i].fn === fn && list[i].capture === !!capture) { list.splice(i, 1); return; }
+  }
 };
 FakeEl.prototype.append = function (child) { const el = toEl(child); el._parentEl = this; this._children.push(el); return this; };
 FakeEl.prototype.prepend = function (child) { const el = toEl(child); el._parentEl = this; this._children.unshift(el); return this; };
