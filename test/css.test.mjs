@@ -1523,7 +1523,9 @@ test('правка: сжатый герой отдаёт высоту рядам
   assert.ok(rows.indexOf('transform:translateY(8vh)') !== -1, 'в старте ряды не опущены: ' + rows);
   const up = findDecl(css, (sel) => sel === '.lumen-main.lumen-rows-up .scroll.layer--wheight');
   assert.ok(up, 'правила поднятых рядов нет');
-  assert.equal(up, '-webkit-transform:translateY(0);transform:translateY(0)', 'подъём рядов — только transform: ' + up);
+  /* Task 46: рядом с translateY стоит translateZ(0) — признак собственного
+     слоя (см. отдельный тест ниже). Свойство по-прежнему ровно одно. */
+  assert.equal(up, '-webkit-transform:translateY(0) translateZ(0);transform:translateY(0) translateZ(0)', 'подъём рядов — только transform: ' + up);
 
   /* Переход плавный только в full: класс режима стоит на герое, а он —
      сосед .activity__body, отсюда соседний комбинатор. Кривая и время те же,
@@ -1542,6 +1544,59 @@ test('правка: сжатый герой отдаёт высоту рядам
   const low = heroOffMedia(css);
   assert.ok(low.indexOf('.lumen-main .scroll.layer--wheight,.lumen-main.lumen-rows-up .scroll.layer--wheight{margin-top:0') !== -1, 'подъём не отменён на низком окне: ' + low);
   assert.ok(/\.lumen-rows-up \.scroll\.layer--wheight\{margin-top:0[^}]*transform:none/.test(low), 'стартовый сдвиг на низком окне не снят: ' + low);
+});
+
+/* Task 46. Пользователь на Philips 50PUS8057 2026-09-18: «когда листаешь,
+   остаётся шлейф некрасивый» — под нижней кромкой кадра героя оставались
+   куски того, что было на этом месте до перехода.
+
+   Движущихся элемента в переходе ровно два: кадр героя и область рядов.
+   Blink заводит им composited-слой на время анимации transform и сливает его
+   обратно по её окончании; артефакт лежит как раз в освобождённой полосе,
+   то есть похож на пропущенную инвалидацию на этой границе. Постоянный слой
+   (translateZ(0)) границу убирает.
+
+   Тест сторожит две вещи сразу: признак слоя есть у обоих элементов в обоих
+   состояниях — и НЕ появился больше нигде. Второе важнее первого: следующая
+   задача, раздав translateZ или will-change ещё паре узлов, переполнит
+   бюджет слоёв слабого ТВ (10-15 по docs/research/2026-09-18-android-tv-
+   animations.md §3, по 8 МБ GPU-памяти на полноэкранный слой). */
+test('Task 46: у обоих движущихся элементов свой слой, и больше ни у кого', () => {
+  const layered = [
+    '.lumen-hero',
+    '.lumen-hero.lumen-hero--compact',
+    '.lumen-main .scroll.layer--wheight',
+    '.lumen-main.lumen-rows-up .scroll.layer--wheight'
+  ];
+  for (const sel of layered) {
+    const decl = findDecl(css, (s) => s === sel);
+    assert.ok(decl, 'правило ' + sel + ' не найдено');
+    assert.ok(decl.indexOf('transform:translateY') !== -1, sel + ': геометрия по-прежнему translateY: ' + decl);
+    assert.ok(/[^-]transform:translateY\([^)]*\) translateZ\(0\)/.test(decl), sel + ': нет признака собственного слоя: ' + decl);
+    assert.ok(/-webkit-transform:translateY\([^)]*\) translateZ\(0\)/.test(decl), sel + ': старым webkit-движкам нужен префикс: ' + decl);
+  }
+
+  /* backface-visibility — известный приём против остаточных артефактов и
+     мерцания при 3D-трансформациях на Android WebView. Достаточно базового
+     правила каждого элемента: свойство наследуемым не является, но и не
+     сбрасывается правилом состояния, которое трогает только transform. */
+  for (const sel of ['.lumen-hero', '.lumen-main .scroll.layer--wheight']) {
+    const decl = findDecl(css, (s) => s === sel);
+    assert.ok(decl.indexOf('-webkit-backface-visibility:hidden') !== -1, sel + ': нужна префиксная запись: ' + decl);
+    assert.ok(/[^-]backface-visibility:hidden/.test(decl), sel + ': нужна и беспрефиксная: ' + decl);
+  }
+
+  /* Слоёв ровно два, а не четыре: правила состояний — те же два элемента. */
+  const withLayer = ruleBodies(css).filter((r) => /translateZ\(0\)/.test(r.decl));
+  assert.deepEqual(withLayer.map((r) => r.selectors.join(',')).sort(), layered.slice().sort(),
+    'принудительный слой появился у постороннего узла');
+
+  /* will-change остаётся там, где он был до Task 46, — на слое перехода
+     между экранами (.lumen-overlay__img). Он живёт ровно столько, сколько
+     живёт сам узел перехода, поэтому постоянным слоем не становится. */
+  const willChange = ruleBodies(css).filter((r) => /will-change/.test(r.decl));
+  assert.deepEqual(willChange.map((r) => r.selectors.join(',')), ['.lumen-overlay .lumen-overlay__img'],
+    'will-change расползся по новым правилам: ' + willChange.map((r) => r.selectors.join(',')).join(' | '));
 });
 
 /* Правка пользователя 2026-09-17 (второй круг, п.1): «а может текст вниз

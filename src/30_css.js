@@ -1686,9 +1686,51 @@
     css.push('body.lumen-motion-full .lumen-main{-webkit-transition:background-color .6s ease-in-out;transition:background-color .6s ease-in-out}');
     /* translateY(0) в базовом правиле стоит не для красоты: без начального
        значения transition не с чего стартовать, и первый переход в сжатое
-       состояние прыгал бы. */
-    css.push('.lumen-hero{position:absolute;top:-4em;left:0;right:0;height:' + heroVh + 'vh;overflow:hidden;pointer-events:none;-webkit-transform:translateY(0);transform:translateY(0)}');
-    css.push('.lumen-hero.lumen-hero--compact{-webkit-transform:translateY(-' + heroShift + 'vh);transform:translateY(-' + heroShift + 'vh)}');
+       состояние прыгал бы.
+
+       Task 46: рядом с ним — translateZ(0), и это про слой композитора, а не
+       про геометрию (по вертикали оно не сдвигает ничего). Пользователь на
+       Philips 50PUS8057 2026-09-18: «когда листаешь, остаётся шлейф
+       некрасивый» — под нижней кромкой кадра оставались куски того, что было
+       на этом месте до перехода.
+
+       Почему слой. Blink промоутит элемент в отдельный composited-слой на
+       время КОМПОЗИТНОЙ анимации transform и сливает его обратно в слой
+       родителя, когда анимация кончилась. То есть при каждом листании
+       «старт ↔ сжатое» слой у кадра заводится и уничтожается заново, и
+       освобождённую область должен заново пометить грязной уже родительский
+       слой. Артефакт выглядит ровно как пропущенная инвалидация на этой
+       границе: следы лежат в полосе, которую движущийся элемент освободил.
+       Постоянный слой убирает саму границу — промоутить и демоутить нечего.
+
+       Из этого же следует, почему здесь НЕ взят will-change, снимаемый по
+       transitionend, хотя внешний ресёрч (docs/research/2026-09-18-android-tv-
+       animations.md, §3) советует его как экономный вариант: он
+       воспроизводит тот же цикл «слой появился — слой исчез», только по
+       границам, которые ставит JS. Тот же ресёрч отмечает, что на старых
+       WebView translateZ(0) ведёт себя предсказуемее will-change.
+
+       Цена — один полноэкранный слой, 1920×1080×4 ≈ 8 МБ GPU-памяти
+       (§3 того же ресёрча). ПОСТОЯННЫХ принудительных слоёв в плагине после
+       этой правки два: этот и область рядов — второй движущийся элемент
+       перехода. Третий такой узел, .lumen-overlay__img с will-change (ниже),
+       живёт лишь пока на экране слой перехода между экранами. Бюджет слабого
+       ТВ по ресёрчу — 10-15 слоёв; счётчик в HUD (LC.hud.layers) эти два не
+       показывает — он считает полноэкранные РИСУЮЩИЕ узлы, а кадр героя и
+       область рядов — контейнеры.
+
+       Проверить всё это можно только на устройстве: ни один тест не видит
+       композитора. Отсюда и выбор в пользу варианта без JS — если шлейф
+       останется, отменяется он снятием двух translateZ, а не разбором
+       жизненного цикла will-change.
+
+       backface-visibility:hidden — известный приём против остаточных
+       артефактов и мерцания при 3D-трансформациях на Android WebView; на
+       нашем телевизоре его вклад отдельно не проверялся, он стоит здесь
+       как страховка того же класса и своего слоя не добавляет (слой уже
+       создан translateZ). */
+    css.push('.lumen-hero{position:absolute;top:-4em;left:0;right:0;height:' + heroVh + 'vh;overflow:hidden;pointer-events:none;-webkit-transform:translateY(0) translateZ(0);transform:translateY(0) translateZ(0);-webkit-backface-visibility:hidden;backface-visibility:hidden}');
+    css.push('.lumen-hero.lumen-hero--compact{-webkit-transform:translateY(-' + heroShift + 'vh) translateZ(0);transform:translateY(-' + heroShift + 'vh) translateZ(0)}');
     css.push('.lumen-hero.lumen-motion-full{-webkit-transition:-webkit-transform' + EASE + ';transition:transform' + EASE + '}');
 
     /* Два слоя кадра: новый проявляется поверх старого за 600 мс
@@ -2051,12 +2093,27 @@
 
        Прокрутку и ленивую догрузку рядов это не трогает: .scroll__body
        по-прежнему ездит transform'ом, а видимость ряда Lampa считает по
-       геометрии (offsetTop/height), а не по нарисованным пикселям. */
+       геометрии (offsetTop/height), а не по нарисованным пикселям.
+
+       Task 46: translateZ(0) и backface-visibility — второй из двух
+       принудительных слоёв перехода; разбор причины и цены — в комментарии к
+       .lumen-hero выше. Здесь у слоя есть и второй довод: внутри области
+       лежит .scroll__body, которому Lampa сама ставит will-change:transform
+       (vendor/lampa/css/app.css:2769), то есть постоянный композитный
+       потомок у области был и до нас. Пока сама область слоя не имела, этот
+       потомок висел на ближайшем composited-предке ВЫШЕ неё, и её
+       собственное движение приходилось на дерево между ними; теперь предок
+       потомка — сама область, и её сдвиг едет с ним одним слоем.
+
+       Верхний градиент-оверлей (:after ниже) отдельного слоя не получает и
+       не должен: псевдоэлемент рисуется в слое своего элемента и едет вместе
+       с ним — на постоянном слое ему уже нечего терять на промоуте. */
     var rowsMargin = rowsTopVh + 'vh - ' + rowsTop + 'em';
     var rowsHeight = round2(100 - rowsTopVh) + 'vh + ' + rowsArea + 'em';
     css.push('.lumen-main .scroll.layer--wheight{margin-top:-webkit-calc(' + rowsMargin + ');margin-top:calc(' + rowsMargin + ');' +
       'height:-webkit-calc(' + rowsHeight + ') !important;height:calc(' + rowsHeight + ') !important;overflow:hidden;position:relative;' +
-      '-webkit-transform:translateY(' + ROWS_SHIFT_VH + 'vh);transform:translateY(' + ROWS_SHIFT_VH + 'vh);' +
+      '-webkit-transform:translateY(' + ROWS_SHIFT_VH + 'vh) translateZ(0);transform:translateY(' + ROWS_SHIFT_VH + 'vh) translateZ(0);' +
+      '-webkit-backface-visibility:hidden;backface-visibility:hidden;' +
       '-webkit-mask-image:none;mask-image:none}');
 
     /* Верхний градиент — замена верхнему стопу маски. Лежит :after'ом внутри
@@ -2122,7 +2179,7 @@
        области прокрутки правило дотягивается соседним комбинатором, не
        заводя второго класса. Кривая и длительность те же, что у кадра, —
        оба едут одним движением. */
-    css.push('.lumen-main.lumen-rows-up .scroll.layer--wheight{-webkit-transform:translateY(0);transform:translateY(0)}');
+    css.push('.lumen-main.lumen-rows-up .scroll.layer--wheight{-webkit-transform:translateY(0) translateZ(0);transform:translateY(0) translateZ(0)}');
     css.push('.lumen-main .lumen-hero.lumen-motion-full ~ .activity__body .scroll.layer--wheight{-webkit-transition:-webkit-transform' + EASE + ';transition:transform' + EASE + '}');
 
     /* Два порога низкого окна. Оба выражены отношением сторон: em Lampa

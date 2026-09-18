@@ -2165,8 +2165,50 @@ css.push('body.lumen-motion-full .lumen-main{-webkit-transition:background-color
 
 
 
-css.push('.lumen-hero{position:absolute;top:-4em;left:0;right:0;height:' + heroVh + 'vh;overflow:hidden;pointer-events:none;-webkit-transform:translateY(0);transform:translateY(0)}');
-css.push('.lumen-hero.lumen-hero--compact{-webkit-transform:translateY(-' + heroShift + 'vh);transform:translateY(-' + heroShift + 'vh)}');
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+css.push('.lumen-hero{position:absolute;top:-4em;left:0;right:0;height:' + heroVh + 'vh;overflow:hidden;pointer-events:none;-webkit-transform:translateY(0) translateZ(0);transform:translateY(0) translateZ(0);-webkit-backface-visibility:hidden;backface-visibility:hidden}');
+css.push('.lumen-hero.lumen-hero--compact{-webkit-transform:translateY(-' + heroShift + 'vh) translateZ(0);transform:translateY(-' + heroShift + 'vh) translateZ(0)}');
 css.push('.lumen-hero.lumen-motion-full{-webkit-transition:-webkit-transform' + EASE + ';transition:transform' + EASE + '}');
 
 
@@ -2530,11 +2572,26 @@ var rowsArea = round2(LAMPA_ROW_PAD - ROWS_AIR);
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 var rowsMargin = rowsTopVh + 'vh - ' + rowsTop + 'em';
 var rowsHeight = round2(100 - rowsTopVh) + 'vh + ' + rowsArea + 'em';
 css.push('.lumen-main .scroll.layer--wheight{margin-top:-webkit-calc(' + rowsMargin + ');margin-top:calc(' + rowsMargin + ');' +
 'height:-webkit-calc(' + rowsHeight + ') !important;height:calc(' + rowsHeight + ') !important;overflow:hidden;position:relative;' +
-'-webkit-transform:translateY(' + ROWS_SHIFT_VH + 'vh);transform:translateY(' + ROWS_SHIFT_VH + 'vh);' +
+'-webkit-transform:translateY(' + ROWS_SHIFT_VH + 'vh) translateZ(0);transform:translateY(' + ROWS_SHIFT_VH + 'vh) translateZ(0);' +
+'-webkit-backface-visibility:hidden;backface-visibility:hidden;' +
 '-webkit-mask-image:none;mask-image:none}');
 
 
@@ -2600,7 +2657,7 @@ css.push(AR.fadeBot);
 
 
 
-css.push('.lumen-main.lumen-rows-up .scroll.layer--wheight{-webkit-transform:translateY(0);transform:translateY(0)}');
+css.push('.lumen-main.lumen-rows-up .scroll.layer--wheight{-webkit-transform:translateY(0) translateZ(0);transform:translateY(0) translateZ(0)}');
 css.push('.lumen-main .lumen-hero.lumen-motion-full ~ .activity__body .scroll.layer--wheight{-webkit-transition:-webkit-transform' + EASE + ';transition:transform' + EASE + '}');
 
 
