@@ -324,6 +324,33 @@ test('Task 53: подложки Select и Modal — без backdrop-filter, па
   }
 });
 
+/* Task 50c: та же проверка, что у таблицы карточки (test/css.test.mjs) —
+   экраны пути листаются тем же D-pad, и каждый шаг фокуса перерисовывает
+   слой по площади, расширенной радиусом размытия во все стороны. Шкала em
+   здесь местами своя: .torrent-filter .simple-button живёт на font-size
+   .877em, кнопка чек-листа — на 1.052em, поэтому смещения у них не .2em, а
+   .23em и .19em — это те же ~4.6 px, что и на главной. Проверяется только
+   нулевой радиус: он от шкалы не зависит.
+   Правила фокуса без тени (.explorer-card__head-img.focus::after — кольцо
+   постера, .torrnet-folder-name.focus — цвет подписи папки) проверке не
+   мешают: у них box-shadow нет вовсе. */
+test('Task 50c: ни одной тени с размытием ни на одном правиле фокуса экранов пути', () => {
+  const shadows = [];
+  for (const r of rules()) {
+    const parsed = parse(r);
+    if (!parsed) continue;
+    for (const p of parsed) {
+      if (!p.selectors.some((s) => /\.focus\b/.test(s))) continue;
+      for (const m of p.decl.matchAll(/box-shadow:([^;}]+)/g)) shadows.push(p.selectors.join(',') + ' -> ' + m[1]);
+    }
+  }
+  /* Пять правил с тенью — чипы фильтра, раздача, «Продолжить», кнопка
+     чек-листа, файл/серия; каждое удвоено префиксом. */
+  assert.ok(shadows.length >= 10, 'теней на правилах фокуса нашлось подозрительно мало — проверка почти пустая: ' + shadows.length);
+  assert.deepEqual(shadows.filter((s) => !/-> 0 [\d.]+em 0 /.test(s)), [],
+    'тень с ненулевым размытием на шаге фокуса');
+});
+
 test('Select: иконки чужих плагинов не трогаются — нет правил на svg внутри __icon, кроме штатного спрайта без атрибутов', () => {
   for (const r of rules()) {
     const parsed = parse(r);

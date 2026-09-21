@@ -1058,15 +1058,24 @@
     css.push('.lumen-card .full-start-new__buttons .button--book,.lumen-card .full-start-new__buttons .button--reaction,.lumen-card .full-start-new__buttons .button--subscribe,.lumen-card .full-start-new__buttons .button--options{padding:0;width:3.16em}');
     css.push('.lumen-card .full-start-new__buttons .button--book.focus,.lumen-card .full-start-new__buttons .button--reaction.focus,.lumen-card .full-start-new__buttons .button--subscribe.focus,.lumen-card .full-start-new__buttons .button--options.focus{width:auto;padding:0 1.05em}');
     css.push('.lumen-card .full-start-new__buttons .full-start__button.focus span{display:block}');
-    /* Тень фокуса. Дизайн 0.4 задавал 0 14px 40px (÷22.811 = 0 .614em 1.754em),
-       но Task 38 срезал радиус до .7em (16 px) и смещение до .35em (8 px) —
-       единая величина на все фокусные тени плагина. Причина не в рисунке:
-       размытая тень заставляет WebView считать её растр по площади
-       (радиус+смещение)² вокруг каждого элемента, а на Philips 50PUS8057
-       (4 ядра MediaTek, Android TV 11, 1080p) таких элементов на экране
-       десятки — внешний ресёрч docs/research/2026-09-18-android-tv-animations.md
-       запрещает большие радиусы прямо. Тень при этом остаётся: она отделяет
-       кнопку в фокусе от подложки, просто стала короче и плотнее.
+    /* Подложка фокуса. Дизайн 0.4 задавал тень 0 14px 40px (÷22.811 =
+       0 .614em 1.754em), Task 38 срезал её до 0 .35em .7em — единой величины
+       на все фокусные тени плагина. Причина не в рисунке: размытая тень
+       заставляет WebView считать её растр по площади (радиус+смещение)²
+       вокруг каждого элемента, а на Philips 50PUS8057 (4 ядра MediaTek,
+       Android TV 11, 1080p) таких элементов на экране десятки — внешний
+       ресёрч docs/research/2026-09-18-android-tv-animations.md запрещает
+       большие радиусы прямо.
+
+       Task 50c: радиус доведён до нуля — 0 .2em 0, как у карточки главной
+       (accentRules выше, Task 50) и у плитки хаба с карточкой сетки
+       (Task 50b). Карточку чинили по замеру 21 fps при листании главной на
+       том же Philips («Что известно точно»,
+       docs/plans/2026-09-21-lumen-phase5-tv-fix.md); здесь тот же шаг D-pad
+       по тем же кнопкам, и подложка снимается и появляется на каждом шаге
+       сразу у двух элементов — у теряющего фокус и у принимающего. Акцент
+       под нижней кромкой кнопки при этом остаётся, перерисовывается ровно
+       прямоугольник со смещением .2em.
 
        Task 43: сам фокус — инверсия, цвет текста становится фоном, а фон
        страницы подписью. Тем же приёмом показывают фокус чип хаба
@@ -1080,7 +1089,7 @@
        контрасту MUTED на фоне упасть ниже 4.5. P.text во всех темах светлее
        P.muted, а фон тёмный — значит его контраст на том же фоне ещё
        выше. */
-    css.push('.lumen-card .full-start-new__buttons .full-start__button.focus{background:' + P.text + ';color:' + P.bg + ';-webkit-transform:scale(1.06);transform:scale(1.06);-webkit-box-shadow:0 .35em .7em ' + AG + ';box-shadow:0 .35em .7em ' + AG + '}');
+    css.push('.lumen-card .full-start-new__buttons .full-start__button.focus{background:' + P.text + ';color:' + P.bg + ';-webkit-transform:scale(1.06);transform:scale(1.06);-webkit-box-shadow:0 .2em 0 ' + AG + ';box-shadow:0 .2em 0 ' + AG + '}');
     /* Нажатие — тот же светлый фон, но приглушённый до P.muted, и без scale
        (design-spec §7a «НАЖАТА»). !important — поверх правила .focus выше и
        нативной анимации Lampa (план 0.2). */
@@ -1105,7 +1114,7 @@
     css.push('.lumen-card.lumen-trailer-on .lumen-stop{display:-webkit-box;display:-webkit-flex;display:flex;margin-top:1.40em;margin-bottom:.6em}');
     css.push('.lumen-card .lumen-stop__ico{-webkit-flex-shrink:0;flex-shrink:0;width:1.14em;height:1.14em;margin-right:.53em;background-color:currentColor;-webkit-mask-image:' + LC.icons.maskUrl('stop') + ';mask-image:' + LC.icons.maskUrl('stop') + ';-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;-webkit-mask-size:contain;mask-size:contain}');
     css.push('.lumen-card .lumen-stop span{font-size:1.05em;line-height:1}');
-    css.push('.lumen-card .lumen-stop.focus{background:' + A + ';color:' + P.dark + ';border-color:' + AL + ';border-width:.11em;-webkit-transform:scale(1.06);transform:scale(1.06);-webkit-box-shadow:0 .35em .7em ' + AG + ';box-shadow:0 .35em .7em ' + AG + '}');
+    css.push('.lumen-card .lumen-stop.focus{background:' + A + ';color:' + P.dark + ';border-color:' + AL + ';border-width:.11em;-webkit-transform:scale(1.06);transform:scale(1.06);-webkit-box-shadow:0 .2em 0 ' + AG + ';box-shadow:0 .2em 0 ' + AG + '}');
     /* Метка «ТРЕЙЛЕР · БЕЗ ЗВУКА»: экран 02 — top 112px, right 64px, mono 18px,
        радиус 30px, паддинг 10/18px; внутренние em — от кегля метки (÷18).
        Task 38: заливка — тот же P.glass, что у «Стопа» (было .62 плюс более
@@ -1182,7 +1191,7 @@
        своими keyframes, поэтому transform без !important. */
     /* Ревью (п.10): рамка растёт .04 -> .13em, поэтому паддинг .79 -> .70em —
        сумма .83em та же, содержимое карточки в фокусе не съезжает. */
-    css.push('.lumen-card .lumen-episode.focus{opacity:1;background:' + P.gradFocus + ';border:.13em solid ' + A + ';padding:.70em;-webkit-transform:scale(1.03);transform:scale(1.03);-webkit-box-shadow:0 .35em .7em ' + AG + ';box-shadow:0 .35em .7em ' + AG + '}');
+    css.push('.lumen-card .lumen-episode.focus{opacity:1;background:' + P.gradFocus + ';border:.13em solid ' + A + ';padding:.70em;-webkit-transform:scale(1.03);transform:scale(1.03);-webkit-box-shadow:0 .2em 0 ' + AG + ';box-shadow:0 .2em 0 ' + AG + '}');
     css.push('.lumen-card .lumen-episode.focus .lumen-episode__play{display:block}');
     css.push('.lumen-card .lumen-episode.focus .lumen-episode__check,.lumen-card .lumen-episode.focus .lumen-episode__percent{display:none}');
     css.push('.lumen-card .lumen-episode.focus .lumen-episode__name{font-weight:600}');
@@ -1427,7 +1436,7 @@
        webkit-движках ТВ; на движке без него текст просто обрежется по
        overflow:hidden внутри фиксированной высоты карточки. */
     css.push('.lumen-descr-row .lumen-review__text{font-family:' + FB + ';font-weight:400;font-size:.83em;line-height:1.45;color:' + P.muted + ';display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}');
-    css.push('.lumen-descr-row .lumen-review.focus{border:.13em solid ' + A + ';-webkit-transform:scale(1.03);transform:scale(1.03);-webkit-box-shadow:0 .35em .7em ' + AG + ';box-shadow:0 .35em .7em ' + AG + '}');
+    css.push('.lumen-descr-row .lumen-review.focus{border:.13em solid ' + A + ';-webkit-transform:scale(1.03);transform:scale(1.03);-webkit-box-shadow:0 .2em 0 ' + AG + ';box-shadow:0 .2em 0 ' + AG + '}');
     css.push('.lumen-descr-row .lumen-review.focus .lumen-review__title{white-space:normal}');
     /* Переходы — только в режиме полных анимаций (как у ряда серий Task 5c);
        в lite/off пружины нет вовсе. Класс режима стоит на body (LC.init), а не
@@ -1546,7 +1555,7 @@
     css.push('.lumen-descr-row .lumen-fr-card__flag--next{background:rgba(' + A_RGB + ',.18);color:' + A + '}');
     css.push('.lumen-descr-row .lumen-fr-card__flag--soon{color:' + P.spice + '}');
     css.push('.lumen-descr-row .lumen-fr-card__flag--watched{color:' + P.good + '}');
-    css.push('.lumen-descr-row .lumen-fr-card.focus .lumen-fr-card__poster{border:.13em solid ' + A + ';-webkit-box-shadow:0 .35em .7em ' + AG + ';box-shadow:0 .35em .7em ' + AG + '}');
+    css.push('.lumen-descr-row .lumen-fr-card.focus .lumen-fr-card__poster{border:.13em solid ' + A + ';-webkit-box-shadow:0 .2em 0 ' + AG + ';box-shadow:0 .2em 0 ' + AG + '}');
     css.push('.lumen-descr-row .lumen-fr-card.focus .lumen-fr-card__name{color:' + A + '}');
     css.push('body.lumen-motion-full .lumen-descr-row .lumen-fr-card__poster{-webkit-transition:border-color .2s,-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25);transition:border-color .2s,transform .28s cubic-bezier(.2,.9,.3,1.25)}');
     css.push('body.lumen-motion-full .lumen-descr-row .lumen-fr-card.focus .lumen-fr-card__poster{-webkit-transform:scale(1.04);transform:scale(1.04)}');
@@ -1707,7 +1716,7 @@
     css.push('.lumen-card.lumen-card--franchise .full-start-new__reactions,.lumen-card.lumen-card--franchise .lumen-episodes{-webkit-flex-basis:100%;flex-basis:100%;width:100%}');
     css.push('.lumen-card .lumen-franchise__ico{-webkit-flex-shrink:0;flex-shrink:0;width:1.14em;height:1.14em;margin-right:.53em;background-color:currentColor;-webkit-mask-image:' + LC.icons.maskUrl('film') + ';mask-image:' + LC.icons.maskUrl('film') + ';-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;-webkit-mask-size:contain;mask-size:contain}');
     css.push('.lumen-card .lumen-franchise span{font-size:1.05em;line-height:1}');
-    css.push('.lumen-card .lumen-franchise.focus{background:' + A + ';color:' + P.dark + ';border-color:' + AL + ';border-width:.11em;-webkit-transform:scale(1.06);transform:scale(1.06);-webkit-box-shadow:0 .35em .7em ' + AG + ';box-shadow:0 .35em .7em ' + AG + '}');
+    css.push('.lumen-card .lumen-franchise.focus{background:' + A + ';color:' + P.dark + ';border-color:' + AL + ';border-width:.11em;-webkit-transform:scale(1.06);transform:scale(1.06);-webkit-box-shadow:0 .2em 0 ' + AG + ';box-shadow:0 .2em 0 ' + AG + '}');
     css.push('.lumen-card.lumen-motion-lite .lumen-franchise.focus,.lumen-card.lumen-motion-off .lumen-franchise.focus{background:' + A + ';-webkit-transform:none !important;transform:none !important}');
     /* Движка без CSS-масок (старые Tizen/webOS) пустой квадрат иконки не
        получает — тот же приём, что у иконок кнопок в src/20_icons.js. */
@@ -2880,7 +2889,7 @@
     css.push('@-webkit-keyframes lumen-roul-step{from{-webkit-transform:translateY(12%)}to{-webkit-transform:translateY(0)}}');
     css.push('@keyframes lumen-roul-step{from{transform:translateY(12%)}to{transform:translateY(0)}}');
     css.push('.lumen-roulette .lumen-roulette__spin{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;height:3.16em;padding:0 1.75em;margin-left:1.4em;border-radius:.79em;background:' + A + ';color:' + t.onac + ';font-family:' + FB + ';font-weight:700;font-size:1.05em;border:.04em solid transparent}');
-    css.push('.lumen-roulette .lumen-roulette__spin.focus{border-color:' + AL + ';border-width:.11em;-webkit-box-shadow:0 .35em .7em ' + AG + ';box-shadow:0 .35em .7em ' + AG + '}');
+    css.push('.lumen-roulette .lumen-roulette__spin.focus{border-color:' + AL + ';border-width:.11em;-webkit-box-shadow:0 .2em 0 ' + AG + ';box-shadow:0 .2em 0 ' + AG + '}');
     css.push('.lumen-roulette .lumen-roulette__spin.is-busy{opacity:.7}');
     css.push('.lumen-roulette .lumen-roulette__hint{position:relative;margin-left:1.4em;font-family:' + FB + ';font-size:.96em;color:' + P.smoke + '}');
     /* Карточка результата: название, мета и три кнопки. Появляется на месте
@@ -2890,7 +2899,7 @@
     css.push('.lumen-roulette .lumen-roulette__rmeta{font-family:' + FB + ';font-size:.96em;line-height:1;margin-top:.44em;color:' + P.muted + '}');
     css.push('.lumen-roulette .lumen-roulette__actions{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;margin-top:1.05em}');
     css.push('.lumen-roulette .lumen-roulette__btn{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;height:2.45em;padding:0 1.05em;margin:0 .53em .53em 0;border-radius:.61em;border:.04em solid ' + P.line + ';background:' + P.buttonBg + ';font-family:' + FB + ';font-weight:600;font-size:.96em;color:' + P.text + '}');
-    css.push('.lumen-roulette .lumen-roulette__btn.focus{background:' + A + ';color:' + t.onac + ';border-color:' + AL + ';border-width:.11em;-webkit-box-shadow:0 .35em .7em ' + AG + ';box-shadow:0 .35em .7em ' + AG + '}');
+    css.push('.lumen-roulette .lumen-roulette__btn.focus{background:' + A + ';color:' + t.onac + ';border-color:' + AL + ';border-width:.11em;-webkit-box-shadow:0 .2em 0 ' + AG + ';box-shadow:0 .2em 0 ' + AG + '}');
     css.push('.lumen-roulette .lumen-roulette__empty{font-family:' + FB + ';font-size:1.05em;color:' + P.smoke + '}');
     /* Пункт меню «Что посмотреть»: иконка набора плагина — 1em, штатные
        иконки меню Lampa — 1.5em (та же правка, что у пункта «Подборки»). */
