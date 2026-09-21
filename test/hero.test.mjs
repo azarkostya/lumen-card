@@ -494,15 +494,18 @@ test('mount на другой корень снимает предыдущего
 /* ====================================================================== */
 
 /* Штатный фон Lampa — .background с тремя канвасами внутри
-   (vendor/lampa/app.min.js:31225), четыре полноэкранных слоя fixed +
-   will-change:opacity (vendor/lampa/css/app.css:2320-2344). Под нашей
-   главной его не видно (кадр героя сверху, P.bg под рядами), но слои он
-   занимает, а Background.change на каждой остановке фокуса грузит кадр
-   w1280 (vendor/lampa/app.min.js:52722 зовёт change в card.onFocus,
-   cardImgBackground там же:4298-4308 отдаёт w1280) и читает его пиксели
-   канвасом (Color.get в load, там же:31496; getImageData — :5210).
-   Метка на body закрывает и то и другое: по ней гаснет CSS, по ней же
-   обёртка не пускает вызов к оригиналу. */
+   (vendor/lampa/app.min.js:31225); промоутятся по CSS все четыре узла —
+   fixed на весь экран + will-change:opacity (vendor/lampa/css/
+   app.css:2320-2344), рисуемых поверхностей три (у корня своего
+   содержимого нет). Под нашей главной фона не видно (кадр героя сверху,
+   P.bg под рядами), а Background.change на каждой остановке фокуса грузит
+   кадр (vendor/lampa/app.min.js:52722 зовёт change в card.onFocus;
+   cardImgBackground там же:4298-4308 отдаёт w1280, если включена настройка
+   «Фон», background_type равен 'poster' и окно шире 790, иначе постер
+   размером из poster_size) и читает его пиксели канвасом (Color.get в
+   load, там же:31496; getImageData — :5210). Метка на body закрывает и то
+   и другое: по ней гаснет CSS, по ней же обёртка не пускает вызов к
+   оригиналу. */
 test('Task 49: mount метит body классом lumen-main-on, unmount снимает', () => {
   const env = makeEnv();
   const main = makeMain();
@@ -512,6 +515,22 @@ test('Task 49: mount метит body классом lumen-main-on, unmount сн�
   env.hero.unmount();
   assert.equal(env.bodyClasses.indexOf('lumen-main-on'), -1, 'метка осталась на body после снятия героя');
   assert.deepEqual(warnLog, []);
+});
+
+/* Герой на ДРУГОМ экране (mount с чужим hostClass — франшиза, см.
+   комментарий к mount в src/48_hero.js). Там нет корня .lumen-main, а
+   значит и его background-color: погаси мы фон Lampa меткой на body,
+   экран остался бы на чёрном. */
+test('Task 49: на чужом hostClass метки на body нет и фон Lampa не глушится', () => {
+  const env = makeEnv();
+  const other = makeMain();
+  env.hero.mount(other.activity, { hostClass: 'lumen-franchise' });
+  assert.equal(env.hero.active(), true, 'герой смонтирован');
+  assert.equal(other.activity.hasClass('lumen-franchise'), true, 'корень получил свой класс');
+  assert.equal(env.bodyClasses.indexOf('lumen-main-on'), -1, 'метка главной поставлена на чужом экране');
+  assert.equal(env.Lampa.Background.change, env.bgOrig, 'фон чужого экрана оборачивать нельзя');
+  env.Lampa.Background.change('u');
+  assert.deepEqual(env.bgCalls, ['u'], 'вызов обязан доходить до Lampa');
 });
 
 /* Герой выключен настройкой — главная штатная, и фон Lampa обязан остаться

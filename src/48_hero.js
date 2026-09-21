@@ -1442,19 +1442,27 @@
     /* ------------------------------------------------------------------ */
 
     /* Фон Lampa — .background с тремя канвасами внутри (её разметка,
-       vendor/lampa/app.min.js:31225), четыре полноэкранных слоя fixed +
-       will-change:opacity (vendor/lampa/css/app.css:2320-2344). На нашей
-       главной их не видно — сверху кадр героя, ниже заливка P.bg, — но
-       бюджет композитора они занимают: 8.29 МБ на слой при 96 МБ на
-       устройстве с памятью меньше 2000 МиБ
-       (docs/research/2026-09-21-webview-perf.md §1.1). Метка на body гасит
-       их правилом body.lumen-main-on .background (src/30_css.js).
+       vendor/lampa/app.min.js:31225). Промоутятся по CSS все четыре узла:
+       fixed на весь экран + will-change:opacity (vendor/lampa/css/
+       app.css:2320-2344); рисуемых поверхностей при этом три — у корня
+       своего содержимого нет, это пустой div. Замер координатора на стенде
+       2026-09-21 (960×540@2): полноэкранных слоёв на главной было 9, стало
+       5. Оценка их цены — 8.29 МБ на полноэкранный слой при бюджете 96 МБ
+       на устройстве с памятью меньше 2000 МиБ
+       (docs/research/2026-09-21-webview-perf.md §1.1); это именно оценка,
+       не замер. На нашей главной фона не видно — сверху кадр героя, ниже
+       заливка P.bg. Гасит его правило body.lumen-main-on .background
+       (src/30_css.js).
 
-       Второе — загрузка. В card.onFocus каждого ряда Lampa зовёт
+       Второе, и это измеримая часть задачи, — загрузка. В card.onFocus
+       каждого ряда Lampa зовёт
        Background.change(Utils.cardImgBackground(card_data))
-       (vendor/lampa/app.min.js:52722), а cardImgBackground при
-       background_type 'poster' и окне шире 790 отдаёт кадр w1280 (там
-       же:4298-4308). Через секунду после остановки фокуса change грузит его
+       (vendor/lampa/app.min.js:52722), а cardImgBackground отдаёт кадр
+       w1280, если включена настройка «Фон», background_type равен 'poster'
+       и окно шире 790 (там же:4298-4308; иначе — постер размером из
+       настройки poster_size, по умолчанию w300 — Api.img без размера,
+       :19739-19745 и :47719 — либо пустая строка). Через секунду после
+       остановки фокуса change грузит его
        (load, :31484-31514) и читает пиксели канвасом — Color.get(img) на
        :31496, внутри getImageData (:5210) — на главном потоке. Всё это ради
        картинки, которой на экране не будет.
@@ -1463,6 +1471,9 @@
        это выбор пользователя на все остальные экраны, а мы лишь не рисуем
        фон на своём. */
     var BODY_ON = 'lumen-main-on';
+    /* Корень нашей главной. Тот же класс — значение hostClass по умолчанию в
+       mount: метка на body ставится только под ним. */
+    var MAIN_HOST = 'lumen-main';
     /* Оригинал Background.change и наша обёртка — пока она стоит. Оба
        модульные, а не в state: state обнуляется первой строкой unmount, а
        снимать обёртку надо после. */
@@ -1550,7 +1561,7 @@
 
         var node = buildNode();
         root.prepend(node);
-        var hostClass = opts.hostClass || 'lumen-main';
+        var hostClass = opts.hostClass || MAIN_HOST;
         root.addClass(hostClass);
 
         gen++;
@@ -1583,10 +1594,17 @@
           fixedCompact: !!opts.compact
         };
         if (opts.compact) setCompact(true);
-        /* Task 49: метка ставится раньше обёртки — та читает её при каждом
-           вызове, а первый может прийти уже из showFocused ниже. */
-        markBody(true);
-        guardBackground();
+        /* Task 49: метка — только под нашей главной, и это не формальность.
+           hostClass у другого экрана (франшиза, см. комментарий к mount
+           выше) означает и другой корень CSS: правило .lumen-main
+           {background-color} на него не действует, а фон Lampa мы бы уже
+           погасили — экран остался бы на чёрном.
+           Метка ставится раньше обёртки: та читает её при каждом вызове, а
+           первый может прийти уже из showFocused ниже. */
+        if (hostClass === MAIN_HOST) {
+          markBody(true);
+          guardBackground();
+        }
         applyMotion();
         listenFocus(root);
         showFocused(root);

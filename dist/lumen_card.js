@@ -738,6 +738,11 @@ fadeBot: '.lumen-main:after{background:-webkit-linear-gradient(bottom,' + P.bg +
 
 
 
+
+
+
+
+
 cardFocus: '.lumen-main .card.focus .card__view{-webkit-box-shadow:0 .2em 0 ' + t.glow + ';box-shadow:0 .2em 0 ' + t.glow + '}'
 };
 }
@@ -2284,6 +2289,22 @@ var EASE = ' .42s cubic-bezier(.2,.8,.2,1)';
 var AR = accentRules(P, t);
 css.push(AR.main);
 css.push('body.lumen-motion-full .lumen-main{-webkit-transition:background-color .6s ease-in-out;transition:background-color .6s ease-in-out}');
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -9998,7 +10019,18 @@ try { return LC.pref ? LC.pref('lumen_hero_size', 'large') === 'off' : false; } 
 
 
 
+
+
+
+
+
+
+
+
 var BODY_ON = 'lumen-main-on';
+
+
+var MAIN_HOST = 'lumen-main';
 
 
 
@@ -10086,7 +10118,7 @@ opts = opts || {};
 
 var node = buildNode();
 root.prepend(node);
-var hostClass = opts.hostClass || 'lumen-main';
+var hostClass = opts.hostClass || MAIN_HOST;
 root.addClass(hostClass);
 
 gen++;
@@ -10121,8 +10153,15 @@ fixedCompact: !!opts.compact
 if (opts.compact) setCompact(true);
 
 
+
+
+
+
+
+if (hostClass === MAIN_HOST) {
 markBody(true);
 guardBackground();
+}
 applyMotion();
 listenFocus(root);
 showFocused(root);
