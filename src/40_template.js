@@ -225,7 +225,8 @@
         '<div class="hide buttons--container">' + pool + '</div>' +
         '</div>' +
         /* Task 5c: ряд серий последнего сезона (design-spec §9, экран 05) —
-           внутри шестого .lumen-in, чтобы не сбить nth-child stagger; карточки
+           внутри последнего .lumen-in (того же, что несёт .lumen-actions),
+           чтобы не сбить nth-child stagger; карточки
            .lumen-episode.selector рисует LC.header, их собирает контроллер
            full_start вместе с кнопками. Дорожка абсолютная — длинный ряд не
            раздувает ширину колонки (flex-фолбэк без grid). */

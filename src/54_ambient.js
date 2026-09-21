@@ -354,7 +354,7 @@
     /* Task 56: включена ли ШТАТНАЯ заставка Lampa. Storage.field отдаёт
        boolean: Params.field подставляет свой default (app.min.js:47697), а
        Storage.get приводит строки 'true'/'false' тумблера к булевым
-       (app.min.js:48430). У параметра screensaver default = true
+       (app.min.js:48431). У параметра screensaver default = true
        (app.min.js:47911), так что на нетронутом профиле здесь истина.
 
        Поле прочитать не удалось (чужая сборка без Storage.field, битое

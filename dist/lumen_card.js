@@ -1820,6 +1820,8 @@ css.push('.lumen-descr-row .lumen-facts__grid{display:-webkit-box;display:-webki
 
 
 
+
+
 css.push('.lumen-descr-row .lumen-facts__label{font-family:' + FB + ';font-weight:400;font-size:.88em;line-height:1.3;color:' + P.muted + ';white-space:nowrap}');
 css.push('.lumen-descr-row .lumen-facts__value{font-family:' + FB + ';font-weight:500;font-size:.88em;line-height:1.3;color:' + P.text + ';min-width:0;word-wrap:break-word;overflow-wrap:break-word}');
 

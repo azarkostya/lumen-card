@@ -313,10 +313,12 @@
       add(words.premiere, premiere(movie.release_date || movie.first_air_date, words.months));
 
       /* Бюджет — только у фильма: в ответе TMDB по сериалу такого поля нет,
-         и Lampa его тоже спрашивает только у карточки-фильма
-         (app.min.js:38018, 38072 — при нулевом значении строку удаляет). Мы
-         её показываем вместо штатного блока подробностей, который скрыт
-         нашим CSS (src/30_css.js, .full-descr__details). */
+         оно всегда пусто. Lampa читает card.budget одинаково у фильма и у
+         сериала (Descriptiopn.create один на оба, app.min.js:38012 и 38018),
+         а пустое значение просто удаляет вместе со строкой (38072) — здесь
+         тот же исход достигается тем, что add() не пускает пустое. Строку
+         показываем вместо штатного блока подробностей, который скрыт нашим
+         CSS (src/30_css.js, .full-descr__details). */
       if (serial) add(words.creator, creator(movie));
       else add(words.budget, money(movie.budget));
 

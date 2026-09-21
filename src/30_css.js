@@ -883,14 +883,14 @@
        нет — кружки «В ролях» дублировали ряд актёров, который Lampa рисует
        ниже (и показывали инициалы вместо фотографий), а статус фильма
        («Выпущенный») пользователю не нужен. Вместе с колонкой ушла и сетка из
-       двух колонок: у .lumen-content остался один поток из шести .lumen-in,
-       поэтому здесь простой блок. Так после удаления колонки контент занимает
+       двух колонок: у .lumen-content остался один поток .lumen-in (их пять,
+       см. src/40_template.js), поэтому здесь простой блок. Так после удаления колонки контент занимает
        освободившееся место без «дыры» справа: пустая дорожка auto вместе с
        column-gap оставляла бы 60px мёртвой зоны у правого края.
        Заодно отпал и фолбэк @supports not (display:grid) — держать раскладку
        на Chromium < 57 больше нечем: блочный поток одинаков везде.
-       Stagger Task 4 (nth-child(1..6)) не затронут: .lumen-in остаются
-       прямыми соседями в том же порядке, а .lumen-side был седьмым. */
+       Stagger Task 4 (nth-child(1..5)) не затронут: .lumen-in остаются
+       прямыми соседями в том же порядке, а .lumen-side лежал за ними. */
     css.push('.lumen-card .lumen-content{display:block}');
     css.push('.lumen-card .lumen-content > .lumen-in{max-width:52em}');
 
@@ -1332,10 +1332,12 @@
        Edge/IE сложил бы все ячейки в одну клетку 1×1 — внахлёст, что заметно
        хуже честного flex-фолбэка строкой выше. */
     css.push('.lumen-descr-row .lumen-facts__grid{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;display:grid;grid-template-columns:auto 1fr;grid-row-gap:.35em;grid-column-gap:1.05em;row-gap:.35em;column-gap:1.05em}');
-    /* Колонка подписей — auto, то есть по ширине самой длинной («Режиссёр»);
+    /* Колонка подписей — auto, то есть по ширине самой длинной из тех, что
+       в таблице остались после Task 59 («Создатель», «Премьера»);
        white-space:nowrap не даёт ей ломаться и расшатывать выравнивание.
-       Значению — min-width:0 и перенос по словам: длинный список жанров
-       переносится внутри своей колонки, а не растягивает сетку «лесенкой». */
+       Значению — min-width:0 и перенос по словам: длинное оригинальное
+       название переносится внутри своей колонки, а не растягивает сетку
+       «лесенкой». */
     css.push('.lumen-descr-row .lumen-facts__label{font-family:' + FB + ';font-weight:400;font-size:.88em;line-height:1.3;color:' + P.muted + ';white-space:nowrap}');
     css.push('.lumen-descr-row .lumen-facts__value{font-family:' + FB + ';font-weight:500;font-size:.88em;line-height:1.3;color:' + P.text + ';min-width:0;word-wrap:break-word;overflow-wrap:break-word}');
     /* Без grid row-gap/column-gap не работают, а пары «лейбл/значение» не знают,
