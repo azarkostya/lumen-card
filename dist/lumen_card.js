@@ -3533,7 +3533,13 @@ css.push('.lumen-main .items-line .scroll__content{padding-left:' + EDGE + 'em}'
 
 
 
-css.push('.lumen-main .items-cards > * + *{margin-left:1.75em}');
+
+
+
+
+
+
+css.push('.lumen-main .items-line .mapping--line > * + *{margin-left:1.75em}');
 css.push(AR.cardFocus);
 
 

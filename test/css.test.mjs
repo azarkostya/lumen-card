@@ -3097,10 +3097,20 @@ test('Task 51: карточка ряда главной — 217×325 (7 коло
   assert.ok(findDecl(css, (sel) => sel === '.lumen-main .items-line__title').indexOf('font-size:1.23em') !== -1, 'заголовок ряда 28 px (§0.3)');
   /* Task 51: зазор между карточками — 40 физ. px той же сетки Apple. Штатный
      зазор Lampa вдвое уже (.mapping--line > * + *{margin-left:1em},
-     vendor/lampa/css/app.css:14603-14605), и перебить его можно, не задевая
-     чужие списки: классы .items-cards и .mapping--line Lampa вешает на ОДИН
-     узел — тело горизонтального скролла ряда (app.min.js:52663). */
-  assert.equal(findDecl(css, (sel) => sel === '.lumen-main .items-cards > * + *'), 'margin-left:1.75em', 'зазор между карточками ряда');
+     vendor/lampa/css/app.css:14603-14605).
+     Ревью Task 63: селектор был .items-cards, а этот класс вешает только
+     депрекейтед InteractionLine (app.min.js:52663); ряды главной строит
+     Base$1 (app.min.js:35220-35244) с mapping: 'line', и правило не
+     применялось вовсе — замер на стенде показывал штатный 1em. Тест теперь
+     держит и селектор, и то, что он метит в класс, который РЕАЛЬНО есть на
+     теле скролла ряда. */
+  assert.equal(findDecl(css, (sel) => sel === '.lumen-main .items-line .mapping--line > * + *'), 'margin-left:1.75em', 'зазор между карточками ряда');
+  assert.equal(css.indexOf('.items-cards'), -1, 'вернулся селектор по депрекейтед-классу InteractionLine');
+  const lampaJs = readFileSync(new URL('../vendor/lampa/app.min.js', import.meta.url), 'utf8');
+  const lineAt = lampaJs.indexOf("_this.html = Template.js('items_line'");
+  assert.notEqual(lineAt, -1, 'компонент ряда в app.min.js не найден');
+  assert.ok(/mapping: 'line'/.test(lampaJs.slice(lineAt - 1200, lineAt)),
+    'ряд главной перестал строиться с mapping: line — селектор зазора надо пересматривать');
 });
 
 /* Task 42: карточка ряда без рамки и штатных бейджей. Фокус показывают
