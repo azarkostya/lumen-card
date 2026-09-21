@@ -1490,7 +1490,7 @@
     }
 
     /* change — обычное свойство объекта-литерала Lampa.Background
-       (vendor/lampa/app.min.js:31563-31569: {render, change, update, init,
+       (vendor/lampa/app.min.js:31563-31570: {render, change, update, init,
        immediately, theme}), ни Object.freeze, ни defineProperty на нём нет
        (в app.min.js нет ни одного Object.freeze), и зовут его отовсюду
        именно через объект — значит подмена свойства перехватывает все

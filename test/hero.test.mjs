@@ -300,7 +300,7 @@ function makeEnv(extra) {
     Storage: { get: () => 'ru' },
     Activity: { active: () => env.activeActivity || null },
     /* Task 49: штатный фон Lampa. change — обычное свойство объекта-литерала
-       Lampa.Background (vendor/lampa/app.min.js:31563-31569), поэтому его и
+       Lampa.Background (vendor/lampa/app.min.js:31563-31570), поэтому его и
        можно обернуть; здесь он считает вызовы, дошедшие до оригинала. */
     Background: { change: (url) => { env.bgCalls.push(url); } }
   };
