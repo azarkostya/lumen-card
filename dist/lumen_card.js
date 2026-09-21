@@ -966,6 +966,19 @@ var HERO_MIN_RATIO = 220;
 
 
 
+
+
+
+
+
+
+
+
+
+var DESCR_MIN_RATIO = 190;
+
+
+
 function heroSizeKey() {
 var key = LC.pref('lumen_hero_size', HERO_DEFAULT);
 return HERO_VH[key] ? key : HERO_DEFAULT;
@@ -2641,6 +2654,13 @@ css.push('.lumen-hero.lumen-motion-full .lumen-hero__logo{-webkit-transition:-we
 css.push('.lumen-hero.lumen-hero--compact .lumen-hero__descr,.lumen-hero.lumen-hero--compact .lumen-hero__sk--descr,.lumen-hero.lumen-hero--compact .lumen-hero__sk--short{display:none}');
 if (smallText) {
 css.push('.lumen-hero .lumen-hero__meta,.lumen-hero .lumen-hero__sk--meta{display:none}');
+
+
+
+
+
+
+css.push('.lumen-hero .lumen-hero__descr,.lumen-hero .lumen-hero__sk--descr,.lumen-hero .lumen-hero__sk--short{display:none}');
 }
 
 
@@ -2916,8 +2936,10 @@ css.push('.lumen-main .lumen-hero.lumen-motion-full ~ .activity__body .scroll.la
 
 
 
-css.push('@media screen and (min-aspect-ratio:' + textRatio(heroSize, textNeedEm(true)) + '/100){' +
+if (!heroSmallText()) {
+css.push('@media screen and (min-aspect-ratio:' + Math.max(DESCR_MIN_RATIO, textRatio(heroSize, textNeedEm(true))) + '/100){' +
 '.lumen-hero .lumen-hero__descr,.lumen-hero .lumen-hero__sk--descr,.lumen-hero .lumen-hero__sk--short{display:none}}');
+}
 
 
 

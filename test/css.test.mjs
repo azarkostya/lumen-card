@@ -2556,21 +2556,48 @@ test('сжатое состояние: описание уходит по диз
 /* Второй порог — мягкая деградация: описание уходит раньше, чем кадр, и
    только там, где на него не хватает высоты. */
 test('решение «показывать описание»: порог мягче порога кадра и срабатывает по бюджету', () => {
-  const descrRatio = (built) => {
-    const line = built.split('\n').find((l) => l.indexOf('@media screen and (min-aspect-ratio:') === 0 && l.indexOf('lumen-hero__descr') !== -1);
-    return parseInt(/min-aspect-ratio:(\d+)\/100/.exec(line)[1], 10) / 100;
-  };
+  const descrLine = (built) => built.split('\n').find((l) => l.indexOf('@media screen and (min-aspect-ratio:') === 0 &&
+    l.indexOf('lumen-hero__descr') !== -1 && l !== heroOffMedia(built));
+  const descrRatio = (built) => parseInt(/min-aspect-ratio:(\d+)\/100/.exec(descrLine(built))[1], 10) / 100;
   const heroRatio = (built) => parseInt(/min-aspect-ratio:(\d+)\/100/.exec(heroOffMedia(built))[1], 10) / 100;
-  for (const size of ['large', 'medium', 'compact']) {
+  /* Компактный кадр в этой паре не участвует: описания в нём нет ни в каком
+     окне, и медиазапроса описания там нет вовсе (проверка ниже). */
+  for (const size of ['large', 'medium']) {
     const built = withStorage({ lumen_hero_size: size }, (LC) => LC.buildCss());
     assert.ok(descrRatio(built) <= heroRatio(built), size + ': описание обязано уходить не позже кадра');
   }
-  /* Крупный кадр на 1920×1080 (1.78:1) описание показывает, мелкий — нет:
-     у него на две строки высоты уже не остаётся. */
-  assert.ok(1920 / 1080 < descrRatio(withStorage({ lumen_hero_size: 'large' }, (LC) => LC.buildCss())), 'крупный кадр на FHD обязан показывать описание');
-  /* И в окне пользователя (1153×798) тоже. */
-  assert.ok(1153 / 798 < descrRatio(withStorage({ lumen_hero_size: 'large' }, (LC) => LC.buildCss())), 'описание пропало в окне 1153×798');
-  assert.ok(1920 / 1080 >= descrRatio(withStorage({ lumen_hero_size: 'compact' }, (LC) => LC.buildCss())), 'в компактном кадре описанию места нет');
+  /* Телевизор пользователя — 16:9. Описание в кадре обязано на нём
+     оставаться при КАЖДОМ размере кадра, где оно вообще предусмотрено, а не
+     только при крупном: порог считается из долей экрана, и любая правка
+     раскладки его двигает. Фикс-раунд Task 51: убавленный ROWS_SHIFT_VH
+     уронил порог среднего кадра с 1.84 до 1.75, то есть НИЖЕ 1.78 — описание
+     на телевизоре пропадало, и ни один тест этого не ловил, потому что
+     проверялся один размер из трёх. */
+  for (const size of ['large', 'medium']) {
+    const built = withStorage({ lumen_hero_size: size }, (LC) => LC.buildCss());
+    assert.ok(1920 / 1080 < descrRatio(built), size + ': описание пропало на телевизоре 16:9, порог ' + descrRatio(built));
+    /* И в окне пользователя (1153×798) тоже. */
+    assert.ok(1153 / 798 < descrRatio(built), size + ': описание пропало в окне 1153×798');
+  }
+  /* Пол порога — 1.90:1: ниже него он подходит к 16:9 вплотную, и описание
+     начнёт пропадать от любой мелочи в бюджете содержимого. */
+  for (const size of ['large', 'medium']) {
+    const built = withStorage({ lumen_hero_size: size }, (LC) => LC.buildCss());
+    assert.ok(descrRatio(built) >= 1.9, size + ': порог описания опустился к 16:9 — ' + descrRatio(built));
+  }
+  /* В компактном кадре описания нет вовсе — и это решает РАЗМЕР, а не окно:
+     порогом такое не выразить, у него есть пол. Гасит базовое правило, то же
+     самое, которым при компактном кадре убрана мета, — а медиазапроса
+     описания там нет вовсе, иначе он дублировал бы базовое правило. */
+  const base = (built) => ruleBodiesWithMedia(built).filter((r) => !r.media &&
+    r.selectors.indexOf('.lumen-hero .lumen-hero__descr') !== -1 && r.decl.indexOf('display:none') !== -1);
+  const compact = withStorage({ lumen_hero_size: 'compact' }, (LC) => LC.buildCss());
+  assert.equal(base(compact).length, 1, 'в компактном кадре описанию места нет — ждём базовое правило');
+  assert.equal(descrLine(compact), undefined, 'при компактном кадре медиазапрос описания дублирует базовое правило');
+  for (const size of ['large', 'medium']) {
+    const built = withStorage({ lumen_hero_size: size }, (LC) => LC.buildCss());
+    assert.deepEqual(base(built), [], size + ': описание погашено базовым правилом, хотя высоты на него хватает');
+  }
 });
 
 test('Task 18: кроссфейд кадра 600 мс только в полном режиме анимаций', () => {
