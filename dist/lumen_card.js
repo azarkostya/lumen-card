@@ -9567,16 +9567,16 @@ var prev = activeIsA ? a : b;
 next.css('background-image', 'url("' + encodeURI(url) + '")');
 next.addClass('is-active');
 prev.removeClass('is-active');
+
+
+
+
+
+
+
+
+
 next.toggleClass('lumen-hero__bg--blur', !!blur);
-
-
-
-
-
-
-
-
-prev.removeClass('lumen-hero__bg--blur');
 state.frameUrl = url;
 }
 

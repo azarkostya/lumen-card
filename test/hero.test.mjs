@@ -1067,16 +1067,21 @@ test('Task 52: метка размытия живёт на слое кадра, 
     assert.equal(a.hasClass('is-active'), true, label + ': помечен не тот слой, что на экране');
     assert.equal(node.hasClass('lumen-hero--blur'), false, label + ': метка вернулась на корень героя');
 
-    /* Настоящий кадр: метка обязана уйти — и с пришедшего слоя, и с того, на
-       котором стояла. Без этого на экране остался бы масштабированный слой,
-       а прежде класс просто снимался с корня разом для обоих. */
+    /* Настоящий кадр: на слое, который его показывает, метки быть не должно.
+       А вот с УХОДЯЩЕГО слоя её не снимают: при кроссфейде он ещё
+       непрозрачен (переход opacity .6s, src/30_css.js), а наезд снимается
+       мгновенно и без перехода — зритель увидел бы, как размытый постер
+       скачком ужался на 10 %, то есть ровно ту жалобу, которую Task 52 и
+       лечит, только на уходящем слое. Правильность от этого не страдает:
+       приходящему слою метку каждый раз выставляет toggleClass. */
     main.card1.removeClass('focus');
     main.card2.addClass('focus');
     fireFocus(main.activity, main.card2);
     env.advance(400);
     env.images[env.images.length - 1].onload();
-    assert.equal(a.hasClass('lumen-hero__bg--blur'), false, label + ': метка осталась на прежнем слое');
-    assert.equal(b.hasClass('lumen-hero__bg--blur'), false, label + ': метка перешла на слой с настоящим кадром');
+    const arrived = heavy ? b : a;
+    assert.equal(arrived.hasClass('lumen-hero__bg--blur'), false, label + ': метка осталась на слое с настоящим кадром');
+    if (heavy) assert.equal(a.hasClass('lumen-hero__bg--blur'), true, label + ': метку сняли с уходящего слоя — он ужмётся на 10 % посреди кроссфейда');
     /* И кадр действительно сменился — иначе проверка выше ничего не стоит. */
     const shown = heavy ? b : a;
     assert.equal(shown.css('background-image'), 'url("https://img/t/p/w1280/b2.jpg")', label + ': кадр второй карточки не приехал');
