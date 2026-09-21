@@ -43,9 +43,14 @@ function setupRuntime(opts) {
       }
     },
     /* Task 58: локальная история просмотра. Ключ — 'h:' + original_title,
-       как его считает фальшивый Lampa.Utils.hash ниже. */
+       как его считает фальшивый Lampa.Utils.hash ниже. Незнакомому хэшу
+       отдаём объект с нулями — ровно так ведёт себя настоящая
+       Timeline.view (app.min.js:23899-23919: road инициализируется нулями и
+       возвращается всегда, null она не отдаёт никогда). */
     Timeline: opts.noTimeline ? undefined : {
-      view: function (hash) { return (opts.timeline || {})[hash] || null; },
+      view: function (hash) {
+        return (opts.timeline || {})[hash] || { hash: hash, percent: 0, time: 0, duration: 0 };
+      },
       update: function () { timelineWrites.push(arguments[0]); }
     },
     Utils: { hash: function (s) { return 'h:' + s; } },
@@ -551,14 +556,19 @@ test('dropFinished: запись без duration решается процент
   assert.deepEqual(out, []);
 });
 
-test('dropFinished: записи в истории просмотра нет — фильм остаётся', function () {
+test('dropFinished: нулевой процент (фильм не начинали) оставляет карточку', function () {
+  /* Так отвечает рантайм: Timeline.view незнакомому хэшу отдаёт запись с
+     percent = 0, а не отсутствие записи (app.min.js:23899-23919). */
   var items = [movie(1, 'A'), movie(2, 'B')];
-  var out = P.dropFinished(items, function () { return null; });
+  var out = P.dropFinished(items, function () { return 0; });
   assert.deepEqual(out.map(function (c) { return c.id; }), [1, 2]);
 });
 
-test('dropFinished: мусор вместо процента фильм не выбрасывает', function () {
+test('dropFinished: не-число вместо процента фильм не выбрасывает (контракт функции)', function () {
+  /* От watchedPercent таких значений не приходит — проверяется сам
+     контракт чистой функции на случай другого поставщика процента. */
   var items = [movie(1, 'A')];
+  assert.equal(P.dropFinished(items, function () { return null; }).length, 1);
   assert.equal(P.dropFinished(items, function () { return NaN; }).length, 1);
   assert.equal(P.dropFinished(items, function () { return 'сто'; }).length, 1);
   assert.equal(P.dropFinished(items, function () { return undefined; }).length, 1);

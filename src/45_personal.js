@@ -191,8 +191,9 @@
 
     /* Task 58: убирает из списка «Продолжить» досмотренные ФИЛЬМЫ.
        items — карточки Lampa.Favorite.continues;
-       percentOf(card) → процент просмотра или null/NaN, если записи нет
-       (в рантайме это Lampa.Timeline.view по хэшу, см. watchedPercent).
+       percentOf(card) → процент просмотра (в рантайме это watchedPercent
+       поверх Lampa.Timeline.view; у незнакомого фильма он даёт 0, а null —
+       только если Timeline недоступен или у карточки нет имени).
        Сериалы проходят насквозь — разбор в шапке блока выше. Вход не
        мутируется, порядок сохраняется. */
     function dropFinished(items, percentOf) {
@@ -204,8 +205,10 @@
         if (!card) continue;
         if (isSeries(card)) { out.push(card); continue; }
         var percent = Number(percentOf(card));
-        /* NaN не проходит ни одного сравнения — карточка без записи и
-           карточка с мусором вместо процента остаются в ряду. */
+        /* Сравнение, а не отрицание: NaN (null, undefined, строка вместо
+           числа) его не проходит, и карточка остаётся в ряду. В рантайме
+           таких значений не бывает — это контракт чистой функции на случай
+           другого поставщика процента. */
         if (percent >= CONTINUE_DONE) continue;
         out.push(card);
       }
@@ -381,11 +384,19 @@
     /* ------------------------------------------------------------------ */
 
     /* Task 58: процент просмотра фильма из локальной истории Lampa.
-       Ключ — тот же, что у Timeline.watched для фильма (app.min.js:24000)
-       и у полосы прогресса на постере (src/62_badges.js, progressOf: для
-       фильма её цепочка original_title || original_name || title || name
-       сворачивается в ту же пару, потому что original_name бывает только у
-       сериала). null — записи нет или Timeline недоступен. */
+       Ключ — original_title, а если его нет — title. Lampa для фильма берёт
+       строго hash(card.original_title) (Timeline.watched, app.min.js:24000);
+       наш запасной title — это ровно та же цепочка, по которой считает
+       процент полоса на постере (src/62_badges.js, progressOf: её
+       original_title || original_name || title || name у фильма сводится к
+       этой паре, потому что original_name бывает только у сериала). То есть
+       с Lampa мы расходимся лишь там, где у неё ключ был бы пустым.
+
+       null — только когда Timeline или Utils недоступны либо имени нет
+       вовсе. Самого числа тут не бывает null: Timeline.view ВСЕГДА
+       возвращает объект, у которого percent инициализирован нулём
+       (app.min.js:23899-23919), поэтому незнакомому фильму соответствует 0,
+       а не отсутствие записи. */
     function watchedPercent(card) {
       try {
         if (!window.Lampa || !Lampa.Timeline || typeof Lampa.Timeline.view !== 'function') return null;

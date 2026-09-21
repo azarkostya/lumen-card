@@ -6817,6 +6817,7 @@ return !!(card && (card.number_of_seasons || card.first_air_date));
 
 
 
+
 function dropFinished(items, percentOf) {
 if (!items || !items.length) return [];
 if (typeof percentOf !== 'function') return items.slice();
@@ -6826,6 +6827,8 @@ var card = items[i];
 if (!card) continue;
 if (isSeries(card)) { out.push(card); continue; }
 var percent = Number(percentOf(card));
+
+
 
 
 if (percent >= CONTINUE_DONE) continue;
@@ -6997,6 +7000,14 @@ Lampa.ContentRows.remove(_addedRows[i]);
 }
 _addedRows = [];
 }
+
+
+
+
+
+
+
+
 
 
 
@@ -23409,6 +23420,8 @@ function fxHeavyDefault(platform) {
 platform = platform || {};
 return !(platform.android || platform.tizen || platform.webos);
 }
+
+
 
 
 
