@@ -1614,6 +1614,28 @@ test('Task 48: слои, которые Lampa выдаёт карточкам, �
     'наше правило с transform на подписи стоит ПОСЛЕ снятия слоя и перебьёт его');
 });
 
+/* Task 49. Штатный фон Lampa — один узел .background с тремя канвасами
+   внутри (vendor/lampa/app.min.js:31225: <div class="background"> с
+   .background__one/two/fade). Сам .background — position:fixed на весь
+   экран с will-change:opacity (vendor/lampa/css/app.css:2320-2331), у трёх
+   канвасов внутри то же самое (там же:2332-2344): четыре полноэкранных
+   слоя по 8.29 МБ при бюджете tile memory 96 МБ
+   (docs/research/2026-09-21-webview-perf.md §1.1). Под нашей главной их не
+   видно вовсе — верхние 2/3 экрана закрывает кадр героя, остальное залито
+   P.bg (.lumen-main{background-color}). Гасим корень: display:none на
+   предке убирает из дерева блоков и потомков, поэтому трёх отдельных
+   правил на канвасы не нужно. */
+test('Task 49: под нашей главной штатный фон Lampa не рисуется', () => {
+  const decl = findDecl(css, (sel) => sel === 'body.lumen-main-on .background');
+  assert.ok(decl, 'нет правила, гасящего фон Lampa под главной плагина');
+  assert.equal(decl, 'display:none', 'гасим целиком и ничем больше: ' + decl);
+  /* Отдельных правил на канвасы быть не должно — это мёртвые правила:
+     потомков погашенного предка браузер не рисует. */
+  const extra = ruleBodies(css).filter((r) => r.selectors.some((s) => /\.background__/.test(s)));
+  assert.deepEqual(extra.map((r) => r.selectors.join(',')), [],
+    'канвасы внутри .background гасить отдельно нечем — правило станет мёртвым');
+});
+
 /* Правка пользователя 2026-09-17 (второй круг, п.1): «а может текст вниз
    спустить, чтобы не перекрывало картинку?» */
 test('правка: текст героя прижат к низу кадра и стоит по safe area', () => {

@@ -2291,6 +2291,23 @@ css.push('body.lumen-motion-full .lumen-main{-webkit-transition:background-color
 
 
 
+css.push('body.lumen-main-on .background{display:none}');
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -9947,6 +9964,101 @@ function sizeOff() {
 try { return LC.pref ? LC.pref('lumen_hero_size', 'large') === 'off' : false; } catch (e) { return false; }
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+var BODY_ON = 'lumen-main-on';
+
+
+
+var bgOrig = null;
+var bgWrap = null;
+
+function bodyClasses() {
+try {
+var body = document && document.body;
+return body && body.classList ? body.classList : null;
+} catch (e) {
+return null;
+}
+}
+
+function markBody(on) {
+var list = bodyClasses();
+if (!list) return;
+try {
+if (on) list.add(BODY_ON);
+else list.remove(BODY_ON);
+} catch (e) {
+warn('hero: body mark failed', e);
+}
+}
+
+
+
+
+
+
+
+
+
+
+function guardBackground() {
+try {
+var B = window.Lampa && Lampa.Background;
+if (!B || typeof B.change !== 'function') return;
+if (bgWrap && B.change === bgWrap) return;
+var orig = B.change;
+bgOrig = orig;
+bgWrap = function () {
+var list = bodyClasses();
+if (list && list.contains(BODY_ON)) return;
+return orig.apply(this, arguments);
+};
+B.change = bgWrap;
+} catch (e) {
+warn('hero: background guard failed', e);
+}
+}
+
+
+
+
+
+function unguardBackground() {
+try {
+if (!bgWrap) return;
+var B = window.Lampa && Lampa.Background;
+if (B && B.change === bgWrap) B.change = bgOrig;
+} catch (e) {
+warn('hero: background unguard failed', e);
+}
+bgOrig = null;
+bgWrap = null;
+}
+
 function mount(root, opts) {
 try {
 if (!root || !root.length) return;
@@ -9998,6 +10110,10 @@ trailerCard: null,
 fixedCompact: !!opts.compact
 };
 if (opts.compact) setCompact(true);
+
+
+markBody(true);
+guardBackground();
 applyMotion();
 listenFocus(root);
 showFocused(root);
@@ -10037,6 +10153,11 @@ if (!state) return;
 
 
 cancelTrailer();
+
+
+
+markBody(false);
+unguardBackground();
 var s = state;
 state = null;
 

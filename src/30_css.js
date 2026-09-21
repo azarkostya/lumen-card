@@ -1791,6 +1791,23 @@
     var AR = accentRules(P, t);
     css.push(AR.main);
     css.push('body.lumen-motion-full .lumen-main{-webkit-transition:background-color .6s ease-in-out;transition:background-color .6s ease-in-out}');
+    /* Task 49: штатный фон Lampa под нашей главной не рисуется вовсе. Его
+       разметка — один .background с тремя канвасами внутри
+       (vendor/lampa/app.min.js:31225: <div class="background"> с
+       .background__one/two/fade), и все четыре узла — position:fixed на весь
+       экран с will-change:opacity (vendor/lampa/css/app.css:2320-2331 у
+       корня, :2332-2344 у канвасов). Это четыре полноэкранных слоя по
+       8.29 МБ при бюджете tile memory 96 МБ у Chromium на Android с памятью
+       меньше 2000 МиБ (docs/research/2026-09-21-webview-perf.md §1.1), то
+       есть треть бюджета — под тем, чего на главной не видно: верхние 2/3
+       экрана закрывает кадр героя, остальное залито P.bg (AR.main выше).
+       Гасим один корень: display:none убирает из дерева блоков всё
+       поддерево, и отдельные правила на канвасы были бы мёртвыми.
+       Метку lumen-main-on ставит на body LC.hero.mount и снимает unmount
+       (src/48_hero.js) — вне нашей главной фон Lampa работает как обычно.
+       Настройка Lampa «Фон» (Storage 'background') при этом не трогается:
+       это выбор пользователя, а мы лишь не рисуем фон на своём экране. */
+    css.push('body.lumen-main-on .background{display:none}');
     /* translateY(0) в базовом правиле стоит не для красоты: без начального
        значения transition не с чего стартовать, и первый переход в сжатое
        состояние прыгал бы.

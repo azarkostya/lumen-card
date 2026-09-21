@@ -298,11 +298,32 @@ function makeEnv(extra) {
       }
     },
     Storage: { get: () => 'ru' },
-    Activity: { active: () => env.activeActivity || null }
+    Activity: { active: () => env.activeActivity || null },
+    /* Task 49: штатный фон Lampa. change — обычное свойство объекта-литерала
+       Lampa.Background (vendor/lampa/app.min.js:31563-31569), поэтому его и
+       можно обернуть; здесь он считает вызовы, дошедшие до оригинала. */
+    Background: { change: (url) => { env.bgCalls.push(url); } }
   };
+  env.Lampa = Lampa;
+  env.bgCalls = [];
+  env.bgOrig = Lampa.Background.change;
+  /* Классы на body: герой помечает им свою главную (lumen-main-on), под этой
+     меткой CSS гасит фон Lampa, а обёртка Background.change — его загрузку. */
+  const bodyClasses = [];
+  env.bodyClasses = bodyClasses;
   globalThis.window = { Lampa: Lampa, innerWidth: 1920, MutationObserver: ForbiddenObserver };
   globalThis.Lampa = Lampa;
-  globalThis.document = { documentElement: { clientWidth: 1920 }, body: { contains: () => true } };
+  globalThis.document = {
+    documentElement: { clientWidth: 1920 },
+    body: {
+      contains: () => true,
+      classList: {
+        add: (c) => { if (bodyClasses.indexOf(c) === -1) bodyClasses.push(c); },
+        remove: (c) => { const i = bodyClasses.indexOf(c); if (i !== -1) bodyClasses.splice(i, 1); },
+        contains: (c) => bodyClasses.indexOf(c) !== -1
+      }
+    }
+  };
   globalThis.$ = function (x) { return typeof x === 'string' ? fakeQuery(x) : toEl(x); };
 
   const hero = freshHero(Object.assign({
@@ -466,6 +487,104 @@ test('mount на другой корень снимает предыдущего
   assert.equal(focusListeners(a.activity).length, 0, 'со старого корня слушатель снят');
   assert.equal(a.activity._children.some((c) => c.hasClass('lumen-hero')), false);
   assert.equal(a.activity.hasClass('lumen-main'), false);
+});
+
+/* ====================================================================== */
+/* Task 49: фон Lampa под нашей главной                                   */
+/* ====================================================================== */
+
+/* Штатный фон Lampa — .background с тремя канвасами внутри
+   (vendor/lampa/app.min.js:31225), четыре полноэкранных слоя fixed +
+   will-change:opacity (vendor/lampa/css/app.css:2320-2344). Под нашей
+   главной его не видно (кадр героя сверху, P.bg под рядами), но слои он
+   занимает, а Background.change на каждой остановке фокуса грузит кадр
+   w1280 (vendor/lampa/app.min.js:52722 зовёт change в card.onFocus,
+   cardImgBackground там же:4298-4308 отдаёт w1280) и читает его пиксели
+   канвасом (Color.get в load, там же:31496; getImageData — :5210).
+   Метка на body закрывает и то и другое: по ней гаснет CSS, по ней же
+   обёртка не пускает вызов к оригиналу. */
+test('Task 49: mount метит body классом lumen-main-on, unmount снимает', () => {
+  const env = makeEnv();
+  const main = makeMain();
+  assert.equal(env.bodyClasses.indexOf('lumen-main-on'), -1, 'до монтирования метки нет');
+  env.hero.mount(main.activity);
+  assert.ok(env.bodyClasses.indexOf('lumen-main-on') !== -1, 'метка главной не поставлена');
+  env.hero.unmount();
+  assert.equal(env.bodyClasses.indexOf('lumen-main-on'), -1, 'метка осталась на body после снятия героя');
+  assert.deepEqual(warnLog, []);
+});
+
+/* Герой выключен настройкой — главная штатная, и фон Lampa обязан остаться
+   её фоном: метки нет, оборачивать нечего. */
+test('Task 49: размер героя «off» — метки на body нет', () => {
+  const env = makeEnv({ pref: (name, def) => (name === 'lumen_hero_size' ? 'off' : def) });
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  assert.equal(env.bodyClasses.indexOf('lumen-main-on'), -1);
+  assert.equal(env.Lampa.Background.change, env.bgOrig, 'оборачивать нечего — героя нет');
+});
+
+test('Task 49: под нашей главной Background.change не доходит до оригинала', () => {
+  const env = makeEnv();
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  assert.notEqual(env.Lampa.Background.change, env.bgOrig, 'обёртка не поставлена');
+  env.Lampa.Background.change('https://img/t/p/w1280/b1.jpg');
+  assert.deepEqual(env.bgCalls, [], 'вызов дошёл до оригинала: фон будет загружен и разобран канвасом');
+});
+
+test('Task 49: после unmount оригинал восстановлен и работает', () => {
+  const env = makeEnv();
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  env.hero.unmount();
+  assert.equal(env.Lampa.Background.change, env.bgOrig, 'оригинал не вернули на место');
+  env.Lampa.Background.change('https://img/t/p/w1280/b1.jpg');
+  assert.deepEqual(env.bgCalls, ['https://img/t/p/w1280/b1.jpg'], 'фон Lampa за пределами главной обязан работать');
+});
+
+/* Кто-то переопределил change ПОСЛЕ нас (другой плагин). Вернуть туда наш
+   оригинал — значит стереть чужую работу, поэтому unmount оставляет чужое
+   значение как есть. Метка с body при этом снята, и наша обёртка — если она
+   осталась в чужой цепочке — вызовы уже пропускает. */
+test('Task 49: чужое переопределение change после нас unmount не затирает', () => {
+  const env = makeEnv();
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  const foreign = (url) => { env.bgCalls.push('foreign:' + url); };
+  env.Lampa.Background.change = foreign;
+  env.hero.unmount();
+  assert.equal(env.Lampa.Background.change, foreign, 'чужую обёртку затёрли нашим оригиналом');
+  env.Lampa.Background.change('u');
+  assert.deepEqual(env.bgCalls, ['foreign:u']);
+});
+
+/* Обёртка ставится один раз на монтирование: повторный mount того же корня
+   не имеет права обернуть уже обёрнутое — иначе каждый возврат на главную
+   наращивал бы цепочку, а восстановить оригинал стало бы нечем. */
+test('Task 49: повторное монтирование не наращивает цепочку обёрток', () => {
+  const env = makeEnv();
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  const wrap = env.Lampa.Background.change;
+  env.hero.mount(main.activity);
+  assert.equal(env.Lampa.Background.change, wrap, 'обёртка обёрнута второй раз');
+  env.hero.unmount();
+  assert.equal(env.Lampa.Background.change, env.bgOrig, 'после одного unmount оригинал обязан вернуться');
+});
+
+/* Смена корня (главная -> главная) проходит через unmount внутри mount:
+   оригинал возвращается и оборачивается заново, метка остаётся. */
+test('Task 49: mount на другой корень оставляет ровно одну обёртку и метку', () => {
+  const env = makeEnv();
+  const a = makeMain();
+  const b = makeMain();
+  env.hero.mount(a.activity);
+  env.hero.mount(b.activity);
+  assert.ok(env.bodyClasses.indexOf('lumen-main-on') !== -1, 'метка снята при переезде героя');
+  env.hero.unmount();
+  assert.equal(env.Lampa.Background.change, env.bgOrig);
+  assert.equal(env.bodyClasses.indexOf('lumen-main-on'), -1);
 });
 
 test('фокус карточки: кадр грузится только после задержки 350 мс, быстрое листание даёт одну загрузку', () => {

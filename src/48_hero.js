@@ -1437,6 +1437,101 @@
       try { return LC.pref ? LC.pref('lumen_hero_size', 'large') === 'off' : false; } catch (e) { return false; }
     }
 
+    /* ------------------------------------------------------------------ */
+    /* Task 49: штатный фон Lampa под нашей главной.                       */
+    /* ------------------------------------------------------------------ */
+
+    /* Фон Lampa — .background с тремя канвасами внутри (её разметка,
+       vendor/lampa/app.min.js:31225), четыре полноэкранных слоя fixed +
+       will-change:opacity (vendor/lampa/css/app.css:2320-2344). На нашей
+       главной их не видно — сверху кадр героя, ниже заливка P.bg, — но
+       бюджет композитора они занимают: 8.29 МБ на слой при 96 МБ на
+       устройстве с памятью меньше 2000 МиБ
+       (docs/research/2026-09-21-webview-perf.md §1.1). Метка на body гасит
+       их правилом body.lumen-main-on .background (src/30_css.js).
+
+       Второе — загрузка. В card.onFocus каждого ряда Lampa зовёт
+       Background.change(Utils.cardImgBackground(card_data))
+       (vendor/lampa/app.min.js:52722), а cardImgBackground при
+       background_type 'poster' и окне шире 790 отдаёт кадр w1280 (там
+       же:4298-4308). Через секунду после остановки фокуса change грузит его
+       (load, :31484-31514) и читает пиксели канвасом — Color.get(img) на
+       :31496, внутри getImageData (:5210) — на главном потоке. Всё это ради
+       картинки, которой на экране не будет.
+
+       Настройка Lampa «Фон» (Storage 'background') не трогается намеренно:
+       это выбор пользователя на все остальные экраны, а мы лишь не рисуем
+       фон на своём. */
+    var BODY_ON = 'lumen-main-on';
+    /* Оригинал Background.change и наша обёртка — пока она стоит. Оба
+       модульные, а не в state: state обнуляется первой строкой unmount, а
+       снимать обёртку надо после. */
+    var bgOrig = null;
+    var bgWrap = null;
+
+    function bodyClasses() {
+      try {
+        var body = document && document.body;
+        return body && body.classList ? body.classList : null;
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function markBody(on) {
+      var list = bodyClasses();
+      if (!list) return;
+      try {
+        if (on) list.add(BODY_ON);
+        else list.remove(BODY_ON);
+      } catch (e) {
+        warn('hero: body mark failed', e);
+      }
+    }
+
+    /* change — обычное свойство объекта-литерала Lampa.Background
+       (vendor/lampa/app.min.js:31563-31569: {render, change, update, init,
+       immediately, theme}), ни Object.freeze, ни defineProperty на нём нет
+       (в app.min.js нет ни одного Object.freeze), и зовут его отовсюду
+       именно через объект — значит подмена свойства перехватывает все
+       вызовы. Внутри обёртки проверяется метка на body, а не сам факт
+       монтирования: если чужой плагин переопределит change поверх нашей
+       обёртки и оставит её в своей цепочке, она обязана пропускать вызовы
+       после ухода с главной. */
+    function guardBackground() {
+      try {
+        var B = window.Lampa && Lampa.Background;
+        if (!B || typeof B.change !== 'function') return;
+        if (bgWrap && B.change === bgWrap) return;
+        var orig = B.change;
+        bgOrig = orig;
+        bgWrap = function () {
+          var list = bodyClasses();
+          if (list && list.contains(BODY_ON)) return;
+          return orig.apply(this, arguments);
+        };
+        B.change = bgWrap;
+      } catch (e) {
+        warn('hero: background guard failed', e);
+      }
+    }
+
+    /* Возвращаем оригинал ТОЛЬКО если в свойстве всё ещё наша обёртка: иначе
+       поверх нас встал кто-то ещё, и запись туда нашего оригинала стёрла бы
+       чужую работу. Ссылки обнуляем в любом случае — второй попытки не
+       будет. */
+    function unguardBackground() {
+      try {
+        if (!bgWrap) return;
+        var B = window.Lampa && Lampa.Background;
+        if (B && B.change === bgWrap) B.change = bgOrig;
+      } catch (e) {
+        warn('hero: background unguard failed', e);
+      }
+      bgOrig = null;
+      bgWrap = null;
+    }
+
     function mount(root, opts) {
       try {
         if (!root || !root.length) return;
@@ -1488,6 +1583,10 @@
           fixedCompact: !!opts.compact
         };
         if (opts.compact) setCompact(true);
+        /* Task 49: метка ставится раньше обёртки — та читает её при каждом
+           вызове, а первый может прийти уже из showFocused ниже. */
+        markBody(true);
+        guardBackground();
         applyMotion();
         listenFocus(root);
         showFocused(root);
@@ -1527,6 +1626,11 @@
          запрос роликов и отложенный старт живут именно там, а cancelTrailer
          на пустом state не делает ничего. */
       cancelTrailer();
+      /* Task 49: метка снимается ПЕРВОЙ — пока она стоит, обёртка глушит
+         Background.change, а фон за пределами главной обязан работать сразу
+         же, даже если вернуть оригинал не выйдет (чужое переопределение). */
+      markBody(false);
+      unguardBackground();
       var s = state;
       state = null;
       /* Task 29: карточки под фокусом больше нет — переход «постер → кадр»
