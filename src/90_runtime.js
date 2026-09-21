@@ -1693,12 +1693,17 @@
      отрисовки экрана рейтинг виден дважды. Отсюда пересборка CSS:
      applyPrefChange для 'lumen_badges' выходит сразу после этого вызова и
      сама LC.injectCss не зовёт (src/80_settings.js). */
+  /* Task 62a (фаза 5): видов метки стало три, и между двумя ПОКАЗАННЫМИ
+     («на постере» ↔ «в подписи») наблюдатель не меняется — меняется место
+     уже нарисованных меток. Поэтому сначала uninstall (он снимает метки с
+     живого экрана и сбрасывает флаг lumen_badged на карточках), и только
+     потом install: без этого на экране остались бы плашки прошлого вида. */
   LC.applyBadgesPref = function () {
     if (!activated) return;
     try {
       if (!LC.badges) return;
-      if (LC.pref('lumen_badges', true)) LC.badges.install();
-      else LC.badges.uninstall();
+      LC.badges.uninstall();
+      if (LC.badgesMode() !== 'off') LC.badges.install();
       LC.injectCss();
     } catch (e) {
       warn('badges pref failed', e);
@@ -1887,6 +1892,14 @@
       inited = true;
 
       try { if (Lampa.Lang && typeof Lampa.Lang.add === 'function') Lampa.Lang.add(LC.STRINGS); } catch (e) { }
+
+      /* Task 62a: перевод сохранённых значений на новые типы настроек —
+         ДО регистрации раздела и ДО подписки на Storage 'change'. До
+         регистрации: раздел рисует пункт по значению из Storage, и старое
+         'true' в списке из трёх значений не выбрало бы ни одного. До
+         подписки: запись поднимает то самое событие, и своей же миграции
+         мы бы ответили лишним применением настройки. */
+      LC.migratePrefs();
 
       LC.addSettings();
       LC.followStorage();

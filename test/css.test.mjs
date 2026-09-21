@@ -3317,6 +3317,76 @@ test('Task 42: штатная плашка рейтинга скрыта тол�
   assert.equal(findDecl(off, (sel) => sel === '.lumen-main .card__type'), 'display:none');
 });
 
+/* -------------------------------------------------------------------- */
+/* Task 62a (фаза 5): метка в подписи под постером.                      */
+/* -------------------------------------------------------------------- */
+
+test('Task 62a: caption — плашка рейтинга по-прежнему скрыта, метка подписи оформлена', () => {
+  const cap = withStorage({ lumen_badges: 'caption' }, (LC) => LC.buildCss());
+  /* Рейтинг в подписи пишет LC.badges.decorate, а он работает в обоих
+     показанных режимах — значит и плашку Lampa прячем в обоих. */
+  assert.equal(findDecl(cap, (sel) => sel === '.lumen-main .card__vote'), 'display:none');
+  const badge = findDecl(cap, (sel) => sel === '.lumen-main .card__age .lumen-badge-cap');
+  assert.ok(badge, 'правила метки в подписи нет');
+  assert.equal(/font-size/.test(badge), false, 'кегль метке не задаётся — он общий с подписью: ' + badge);
+
+  /* Старое значение переключателя читается как прежний вид: профиль, где
+     метки были включены, после смены типа настройки выглядит так же. */
+  const legacy = withStorage({ lumen_badges: 'true' }, (LC) => LC.buildCss());
+  assert.ok(ruleSelectors(legacy).indexOf('.lumen-main .lumen-badge') !== -1,
+    'сохранённое «true» обязано читаться как плашка на постере');
+});
+
+/* Подпись карточки ряда узкая (ширина карточки), и вторая её строка сдвинула
+   бы вниз весь блок ряда — то есть инвариант Task 51. Метка в подписи длиннее
+   года с рейтингом, поэтому строка обязана обрезаться многоточием. */
+test('Task 62a: подпись карточки ряда не переносится на вторую строку', () => {
+  const age = findDecl(css, (sel) => sel === '.lumen-main .card__age');
+  assert.ok(age.indexOf('white-space:nowrap') !== -1, 'подпись переносится: ' + age);
+  assert.ok(age.indexOf('overflow:hidden') !== -1, age);
+  assert.ok(age.indexOf('text-overflow:ellipsis') !== -1, age);
+  assert.ok(age.indexOf('-o-text-overflow:ellipsis') !== -1, 'старым движкам Opera/Presto нужен префикс: ' + age);
+});
+
+/* -------------------------------------------------------------------- */
+/* Task 62a (фаза 5): область подкраски от постера.                      */
+/*                                                                        */
+/* У Apple TV цвет кадра живёт только в фоне, а элементы управления        */
+/* остаются нейтральными (docs/research/2026-09-21-tv-design-specs.md §1). */
+/* Значение 'veil' снимает подложку фокуса карточки — единственное место,  */
+/* где подкраска доходит до управления, — оставляя вуали и градиенты.      */
+/* -------------------------------------------------------------------- */
+
+test('Task 62a: veil снимает подложку фокуса карточки и в таблице, и в узле подкраски', () => {
+  const veil = withStorage({ lumen_accent_scope: 'veil' }, (LC) => LC.buildCss());
+  const rule = ruleBodies(veil).find((r) => r.selectors.indexOf('.lumen-main .card.focus .card__view') !== -1
+    && r.decl.indexOf('box-shadow') !== -1);
+  assert.equal(rule, undefined, 'подложка фокуса осталась в таблице: ' + (rule && rule.decl));
+  assert.equal(withStorage({ lumen_accent_scope: 'veil' }, (LC) => LC.accentFocusCss()), '',
+    'узел подсветки обязан сниматься целиком, а не оставаться пустым');
+
+  /* Вуаль героя, фон рядов и градиенты кромок подкрашиваются по-прежнему —
+     именно в них у Apple и живёт цвет кадра. */
+  const hot = withStorage({ lumen_accent_scope: 'veil' }, (LC) => LC.accentCss());
+  assert.ok(hot.indexOf('.lumen-main{background-color:') !== -1, hot);
+  assert.ok(hot.indexOf('.lumen-hero__veil--l') !== -1, hot);
+  assert.ok(hot.indexOf('.lumen-main:after') !== -1, hot);
+});
+
+test('Task 62a: full — всё как было, включая масштаб фокуса в обоих режимах', () => {
+  const full = withStorage({ lumen_accent_scope: 'full' }, (LC) => LC.buildCss());
+  assert.ok(ruleBodies(full).some((r) => r.selectors.indexOf('.lumen-main .card.focus .card__view') !== -1
+    && r.decl.indexOf('box-shadow') !== -1), 'подложка фокуса пропала при полной подкраске');
+  /* Сам жест фокуса (увеличение постера) от области подкраски не зависит:
+     иначе в режиме veil карточка под фокусом не отличалась бы ничем. */
+  for (const scope of ['full', 'veil']) {
+    const built = withStorage({ lumen_accent_scope: scope }, (LC) => LC.buildCss());
+    const grow = ruleBodies(built).filter((r) => r.selectors.indexOf('.lumen-main .card.focus .card__view') !== -1)
+      .map((r) => r.decl).join(';');
+    assert.ok(/transform:scale\(1\.1\)/.test(grow), scope + ': масштаб фокуса потерялся — ' + grow);
+  }
+});
+
 /* Task 36: масштаб интерфейса по-прежнему растит карточки рядов, но область
    прокрутки за ними больше не тянется — её место задано долями ЭКРАНА. Это
    сознательная плата за переход без перекладки раскладки: при «крупнее» и

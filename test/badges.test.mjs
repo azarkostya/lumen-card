@@ -213,9 +213,10 @@ function makeQ() {
       return EMPTY;
     }
     const m = /class="([^"]*)"/.exec(html);
-    const el = new FakeEl(m ? m[1].split(/\s+/).filter(Boolean) : []);
-    el.text = function (t) { el._text = t; return el; };
-    return el;
+    /* text() остаётся штатным (FakeEl.prototype): Task 62a читает текст
+       собранной метки, и «сеттер, который молча работает и геттером»
+       отдавал бы на чтении сам узел. */
+    return new FakeEl(m ? m[1].split(/\s+/).filter(Boolean) : []);
   };
 }
 
@@ -223,6 +224,9 @@ function runtime(extra) {
   const q = makeQ();
   const deps = Object.assign({
     pref: function () { return true; },
+    /* Task 62a: вид меток читает одна функция на весь плагин (LC.badgesMode,
+       src/81_prefs.js) — там же, где стоит дефолт пункта настроек. */
+    badgesMode: function () { return 'poster'; },
     lang: function (key) {
       if (key === 'lumen_badge_soon') return 'Скоро';
       if (key === 'lumen_badge_new') return 'Новинка';
@@ -302,12 +306,92 @@ test('decorate: без рейтинга подпись остаётся годо
    зовёт decorate только с bar:false), а плашку прячет CSS. */
 
 test('decorate: выключенная настройка не ставит ни метки, ни флага', () => {
-  const { api } = runtime({ pref: function () { return false; } });
+  const { api } = runtime({ badgesMode: function () { return 'off'; } });
   const card = makeCard({ release_date: '2026-12-17' });
   globalThis.window = { Lampa: {} };
   try { api.decorate(card, null, null); } finally { delete globalThis.window; }
   assert.equal(card._children[0]._children.length, 0);
   assert.ok(!card.lumen_badged, 'флаг не ставится — включение настройки нарисует метку');
+});
+
+/* ====================================================================== */
+/* Task 62a (фаза 5): метка в подписи под постером.                        */
+/*                                                                         */
+/* У Apple TV на постере плашек нет вовсе: статус читается строкой под ним  */
+/* (docs/research/2026-09-21-tv-design-specs.md §1). Значение 'caption'     */
+/* переносит тот же текст в .card__age, к году и рейтингу.                  */
+/* ====================================================================== */
+
+test('Task 62a: в режиме caption метка уходит в подпись, а постер остаётся чистым', () => {
+  const { api } = runtime({ badgesMode: function () { return 'caption'; } });
+  const card = makeCard({ release_date: '2026-12-17', vote_average: 6.42 });
+  globalThis.window = { Lampa: {} };
+  try {
+    api.decorate(card, null, null);
+    api.decorate(card, null, null);
+  } finally {
+    delete globalThis.window;
+  }
+  const view = card._children[0];
+  assert.deepEqual(view._children.filter((c) => c.hasClass('lumen-badge')), [], 'плашки на постере быть не должно');
+  const age = card._children[1];
+  const caps = age._children.filter((c) => c.hasClass('lumen-badge-cap'));
+  assert.equal(caps.length, 1, 'ровно одна метка в подписи');
+  assert.ok(caps[0].hasClass('lumen-badge-cap--soon'), 'вид метки сохранён: ' + caps[0]._class.join(' '));
+  /* Метка стоит ПЕРВОЙ: подпись узкая (ширина карточки ряда) и обрезается
+     многоточием, и срезать она должна год с рейтингом, а не статус. */
+  assert.equal(age._children[0], caps[0], 'метка обязана стоять перед годом');
+  assert.equal(caps[0].text(), 'Скоро · 17 дек · ', 'разделитель — при непустой подписи');
+  assert.equal(age.text(), '2017 · ★ 6.4', 'год и рейтинг остаются на месте');
+});
+
+test('Task 62a: caption — пустая подпись обходится без висящего разделителя', () => {
+  const { api } = runtime({ badgesMode: function () { return 'caption'; } });
+  const card = makeCard({ release_date: '2026-12-17' }, '');
+  globalThis.window = { Lampa: {} };
+  try { api.decorate(card, null, null); } finally { delete globalThis.window; }
+  assert.equal(card._children[1]._children[0].text(), 'Скоро · 17 дек');
+});
+
+/* Полоса прогресса на постере остаётся в ОБОИХ режимах: это не плашка с
+   текстом, а тонкая линия у нижней кромки — ровно то, чем показывает
+   недосмотренное и сам Apple TV. */
+test('Task 62a: caption — процент уходит в подпись, полоса прогресса остаётся на постере', () => {
+  const { api } = runtime({
+    badgesMode: function () { return 'caption'; },
+    Lampa: {
+      Activity: { active: function () { return null; } },
+      Utils: { hash: function (k) { return k; } },
+      Timeline: { view: function () { return { percent: 43 }; } }
+    }
+  });
+  const card = makeCard({ release_date: '2020-01-01', original_title: 'X' });
+  globalThis.window = { Lampa: {} };
+  try { api.decorate(card, null, null); } finally { delete globalThis.window; }
+  const view = card._children[0];
+  assert.deepEqual(view._children.filter((c) => c.hasClass('lumen-badge')), []);
+  assert.equal(view._children.filter((c) => c.hasClass('lumen-badge-bar')).length, 1, 'полоса прогресса на месте');
+  assert.equal(card._children[1]._children[0].text(), '43 % · ');
+});
+
+test('Task 62a: strip снимает и метки подписи — режим можно переключить на живом экране', () => {
+  const { api } = runtime({ badgesMode: function () { return 'caption'; } });
+  const card = makeCard({ release_date: '2026-12-17' });
+  globalThis.window = { Lampa: {} };
+  try {
+    api.decorate(card, null, null);
+    const removed = [];
+    const root = makeRoot([card]);
+    const baseFind = root.find.bind(root);
+    root.find = function (sel) {
+      if (sel.indexOf('.lumen-badge') === 0) return { length: 1, remove: function () { removed.push(sel); } };
+      return baseFind(sel);
+    };
+    api.strip(root);
+    assert.ok(removed.indexOf('.lumen-badge-cap') !== -1, 'метка подписи осталась бы дублем: ' + removed.join(', '));
+  } finally {
+    delete globalThis.window;
+  }
 });
 
 test('mount/unmount: наблюдатель один, снимается и не воскресает сам', () => {
@@ -364,7 +448,7 @@ test('mount: выключенная настройка снимает уже с�
   globalThis.MutationObserver = FakeObserver;
   try {
     let on = true;
-    const { api } = runtime({ pref: function () { return on; } });
+    const { api } = runtime({ badgesMode: function () { return on ? 'poster' : 'off'; } });
     api.mount(makeRoot([]));
     assert.equal(api.active(), true);
     on = false;
@@ -387,13 +471,15 @@ test('strip: метки и флаги снимаются — настройку 
     const root = makeRoot([card]);
     const baseFind = root.find.bind(root);
     root.find = function (sel) {
-      if (sel === '.lumen-badge' || sel === '.lumen-badge-bar') {
+      if (sel.indexOf('.lumen-badge') === 0) {
         return { length: 1, remove: function () { removed.push(sel); } };
       }
       return baseFind(sel);
     };
     api.strip(root);
-    assert.deepEqual(removed, ['.lumen-badge', '.lumen-badge-bar']);
+    /* Task 62a: третьим снимается метка подписи (.lumen-badge-cap) — иначе
+       переключение режима оставило бы её дублем рядом с новой. */
+    assert.deepEqual(removed, ['.lumen-badge', '.lumen-badge-bar', '.lumen-badge-cap']);
     assert.equal(card.lumen_badged, false);
   } finally {
     delete globalThis.window;

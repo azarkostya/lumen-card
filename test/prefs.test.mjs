@@ -167,6 +167,8 @@ test('LIST: полный набор ключей — существующие и
     'lumen_hero_size',
     /* Task 24 (фаза 3): акцент от постера открытого фильма */
     'lumen_accent_auto',
+    /* Task 62a (фаза 5): область подкраски от постера */
+    'lumen_accent_scope',
     /* Task 31 (фаза 4): HUD отладки на экране ТВ */
     'lumen_debug_hud',
     /* Task 29 (фаза 3): переход «постер → кадр» при открытии карточки */
@@ -194,8 +196,11 @@ test('фаза 3: тема, плотность подложек и масшта�
   /* Task 24 (фаза 3): «Акцент от постера» вклинивается сразу за выбором
      акцента — это тот же выбор, только его делает фильм. */
   assert.equal(names[at + 1], 'lumen_accent_auto');
-  assert.deepEqual(names.slice(at + 2, at + 5), ['lumen_theme', 'lumen_solid', 'lumen_scale']);
-  assert.equal(names[at + 5], 'lumen_card_fonts', 'выключатель шрифтов остаётся следующим');
+  /* Task 62a (фаза 5): область подкраски — сразу за самой подкраской: пункт
+     отвечает на второй вопрос про неё же («докуда доходит цвет постера»). */
+  assert.equal(names[at + 2], 'lumen_accent_scope');
+  assert.deepEqual(names.slice(at + 3, at + 6), ['lumen_theme', 'lumen_solid', 'lumen_scale']);
+  assert.equal(names[at + 6], 'lumen_card_fonts', 'выключатель шрифтов остаётся следующим');
 });
 
 test('фаза 3: значения по умолчанию сохраняют прежний вид', () => {
@@ -225,6 +230,8 @@ const GROUPS = [
     /* Task 24: «Акцент от постера» — сразу за выбором акцента: тот же
        выбор, только его делает фильм. */
     'lumen_card_accent', 'lumen_accent_auto',
+    /* Task 62a (фаза 5): область подкраски от постера. */
+    'lumen_accent_scope',
     'lumen_theme', 'lumen_solid', 'lumen_scale',
     'lumen_card_fonts', 'lumen_font'
   ]],
@@ -559,10 +566,15 @@ test('в словаре нет пунктов-сирот: каждая стро�
 function withPrefs(opts, fn) {
   const LC = {};
   const store = opts.store || {};
+  const writes = opts.writes || [];
   const Lampa = {
     Storage: {
       field: (name) => store[name],
-      get: (name, def) => (Object.prototype.hasOwnProperty.call(store, name) ? store[name] : def)
+      get: (name, def) => (Object.prototype.hasOwnProperty.call(store, name) ? store[name] : def),
+      /* Task 62a: миграция значений пишет через Lampa.Storage.set — штатным
+         путём Lampa, поднимающим её же listener 'change', а не правкой
+         localStorage мимо неё. Журнал записей и проверяют тесты миграции. */
+      set: (name, value) => { store[name] = value; writes.push([name, value]); }
     },
     Platform: { is: (name) => !!(opts.platform || {})[name] }
   };
@@ -613,6 +625,85 @@ test('platformInfo: собирает платформу и признак сла
   /* Без LC.perf (модуль не загружен) признак слабого железа просто ложен. */
   assert.deepEqual(withPrefs({ platform: { tizen: true } }, (LC) => LC.platformInfo()),
     { tizen: true, webos: false, android: false, weak: false });
+});
+
+/* ====================================================================== */
+/* Task 62a (фаза 5): метки — три состояния вместо двух, и область         */
+/* подкраски от постера.                                                   */
+/*                                                                         */
+/* «Метки на постерах» были переключателем (Task 25). У Apple TV плашек на  */
+/* постере нет вовсе — статус читается в подписи под ним, — а пользователь  */
+/* про дубли на карточке говорил ровно то же (интервью 2026-09-21).         */
+/* Значит состояний три: плашка на постере · строка в подписи · нет.        */
+/* ====================================================================== */
+
+test('Task 62a: метки — select из трёх значений, по умолчанию плашка на постере', () => {
+  const entry = prefs.find('lumen_badges');
+  assert.equal(entry.type, 'select', 'переключателя мало: значений стало три');
+  assert.deepEqual(entry.values, ['poster', 'caption', 'off']);
+  assert.equal(entry['default'], 'poster', 'вид по умолчанию не меняется — это прежнее «включено»');
+  assert.equal(entry.vprefix, 'lumen_badges_');
+});
+
+/* Сохранённое значение старого переключателя — СТРОКА 'true'/'false'
+   (Lampa.Storage.set(name, false) с JS-false не сохраняется вовсе, см.
+   boolOf выше). Кто метки не трогал — ключа в Storage не имеет вовсе. */
+test('Task 62a: badgesMode переводит старое значение переключателя в новое', () => {
+  for (const yes of ['true', true, 1, '1']) assert.equal(prefs.badgesMode(yes), 'poster', String(yes));
+  for (const no of ['false', false, 0, '0']) assert.equal(prefs.badgesMode(no), 'off', String(no));
+});
+
+test('Task 62a: badgesMode — новые значения как есть, пусто и мусор -> poster', () => {
+  assert.equal(prefs.badgesMode('poster'), 'poster');
+  assert.equal(prefs.badgesMode('caption'), 'caption');
+  assert.equal(prefs.badgesMode('off'), 'off');
+  assert.equal(prefs.badgesMode(undefined), 'poster', 'ключа в Storage нет — значение по умолчанию');
+  assert.equal(prefs.badgesMode(null), 'poster');
+  assert.equal(prefs.badgesMode(''), 'poster');
+  assert.equal(prefs.badgesMode('nonsense'), 'poster');
+});
+
+/* Миграция выполняется ОДИН раз, через Lampa.Storage.set: правка
+   localStorage мимо Lampa не поднимет её listener 'change' и разойдётся с
+   её же кэшем значений. */
+test('Task 62a: migratePrefs переписывает старое значение меток ровно один раз', () => {
+  for (const [old, want] of [['true', 'poster'], ['false', 'off']]) {
+    const writes = [];
+    withPrefs({ store: { lumen_badges: old }, writes: writes }, (LC) => {
+      LC.migratePrefs();
+      LC.migratePrefs();
+    });
+    assert.deepEqual(writes, [['lumen_badges', want]], old + ' -> ' + want + ', и только первым вызовом');
+  }
+});
+
+test('Task 62a: migratePrefs молчит, когда мигрировать нечего', () => {
+  for (const store of [{}, { lumen_badges: 'caption' }, { lumen_badges: 'poster' }, { lumen_badges: 'off' }]) {
+    const writes = [];
+    withPrefs({ store: store, writes: writes }, (LC) => LC.migratePrefs());
+    assert.deepEqual(writes, [], 'лишняя запись при ' + JSON.stringify(store));
+  }
+});
+
+/* Пункт читается ровно одной функцией — иначе дефолт вызова и дефолт
+   пункта однажды разойдутся (ровно так молчала подкраска с Task 35 по
+   Task 60, см. сверку в самом низу файла). */
+test('Task 62a: LC.badgesMode читает настройку с тем же дефолтом, что стоит в LIST', () => {
+  assert.equal(withPrefs({ store: {} }, (LC) => LC.badgesMode()), prefs.find('lumen_badges')['default']);
+  assert.equal(withPrefs({ store: { lumen_badges: 'true' } }, (LC) => LC.badgesMode()), 'poster');
+  assert.equal(withPrefs({ store: { lumen_badges: 'false' } }, (LC) => LC.badgesMode()), 'off');
+  assert.equal(withPrefs({ store: { lumen_badges: 'caption' } }, (LC) => LC.badgesMode()), 'caption');
+});
+
+/* Область подкраски: у Apple TV цвет с постера живёт только в фоне, а
+   элементы управления остаются нейтральными. «Полная» — как было. */
+test('Task 62a: область подкраски — select full/veil, по умолчанию как было', () => {
+  const entry = prefs.find('lumen_accent_scope');
+  assert.equal(entry.type, 'select');
+  assert.deepEqual(entry.values, ['full', 'veil']);
+  assert.equal(entry['default'], 'full');
+  assert.equal(entry.vprefix, 'lumen_accent_scope_');
+  assert.ok(entry.descr, 'у пункта обязано быть описание — с дивана иначе не понять, что он меняет');
 });
 
 /* ====================================================================== */

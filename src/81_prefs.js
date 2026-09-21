@@ -28,6 +28,24 @@
       return def;
     }
 
+    /* Task 62a (фаза 5): вид меток на постерах. Пункт был ПЕРЕКЛЮЧАТЕЛЕМ
+       (Task 25), и сохранённое значение у тех, кто его трогал, — строка
+       'true'/'false' (то же самое, что читает boolOf выше). Значений стало
+       три, поэтому старое читается как новое:
+         'true'  -> 'poster'  — плашка на постере, прежнее «включено»;
+         'false' -> 'off'     — прежнее «выключено»;
+         ключа нет/мусор -> 'poster' — значение по умолчанию пункта.
+       Функция чистая: её же зовут и одноразовая миграция (LC.migratePrefs
+       ниже, она переписывает значение через Lampa.Storage.set), и само
+       чтение (LC.badgesMode). Один разбор на оба пути — иначе «что сейчас
+       показывать» и «что записать» однажды разойдутся. */
+    function badgesMode(value) {
+      if (value === 'poster' || value === 'caption' || value === 'off') return value;
+      if (value === 'true' || value === true || value === 1 || value === '1') return 'poster';
+      if (value === 'false' || value === false || value === 0 || value === '0') return 'off';
+      return 'poster';
+    }
+
     /* stored — сырое значение параметра lumen_motion ('auto'|'full'|'lite'|'off'),
        platform — {tizen:bool, webos:bool, android:bool, weak:bool}, auto —
        вердикт автодетекта ('lite' | 'full' | null, src/68_perf.js). Не 'auto'
@@ -128,6 +146,16 @@
          просто не находят, — а цена смены цвета снижена до одного маленького
          <style id="lumen-accent"> вместо пересборки всей таблицы. */
       { name: 'lumen_accent_auto', type: 'trigger', 'default': true, label: 'lumen_accent_auto_name', descr: 'lumen_accent_auto_descr' },
+      /* Task 62a (фаза 5): ДОКУДА доходит цвет постера. Место — сразу за
+         самой подкраской: пункт отвечает на второй вопрос про неё же, и
+         выключенной подкраске он не нужен вовсе.
+         'full' — как было: фон рядов, вуаль героя, градиенты кромок и
+         подложка карточки под фокусом. 'veil' оставляет цвет только в фоне,
+         а подложку фокуса снимает — у Apple TV цвет кадра в элементы
+         управления не заходит (docs/research/2026-09-21-tv-design-specs.md
+         §1). Жест фокуса при этом не пропадает: постер по-прежнему растёт
+         (ROW_FOCUS в src/30_css.js). */
+      { name: 'lumen_accent_scope', type: 'select', values: ['full', 'veil'], vprefix: 'lumen_accent_scope_', 'default': 'full', label: 'lumen_accent_scope_name', descr: 'lumen_accent_scope_descr' },
       /* Фаза 3: тема и плотность подложек — ДВА пункта, а не один список из
          трёх вариантов. Они отвечают на разные вопросы: тема — про цвет
          тёмного (тёплый или настоящий чёрный для OLED), плотность — про то,
@@ -261,7 +289,12 @@
       /* Task 25 (фаза 3): метки на постерах рядов («Скоро», «Новинка»,
          «Продолжить», новые серии). Место в группе — рядом с составом рядов:
          речь о том же экране. Применение на лету — LC.applyBadgesPref. */
-      { name: 'lumen_badges', type: 'trigger', 'default': true, label: 'lumen_badges_name', descr: 'lumen_badges_descr' },
+      /* Task 62a (фаза 5): видов метки стало три. На постере (как было), в
+         строке подписи под ним (так устроен Apple TV: плашек на обложке нет,
+         статус читается подписью) и «нет». Старое значение переключателя
+         читается как новое — badgesMode выше, и одноразовая миграция
+         LC.migratePrefs переписывает его в Storage. */
+      { name: 'lumen_badges', type: 'select', values: ['poster', 'caption', 'off'], vprefix: 'lumen_badges_', 'default': 'poster', label: 'lumen_badges_name', descr: 'lumen_badges_descr' },
       { name: 'lumen_hide_watched', type: 'trigger', 'default': false, label: 'lumen_hide_watched_name', descr: 'lumen_hide_watched_descr' },
       /* Тип input: Lampa рисует текстовое поле (как lumen_kp_key). Пусто —
          адрес по умолчанию из LC.MANIFEST_URL (src/00_head.js). Последним в
@@ -328,7 +361,7 @@
       return null;
     }
 
-    return { LIST: LIST, find: find, boolOf: boolOf, motionModeFor: motionModeFor, fxHeavyDefault: fxHeavyDefault };
+    return { LIST: LIST, find: find, boolOf: boolOf, badgesMode: badgesMode, motionModeFor: motionModeFor, fxHeavyDefault: fxHeavyDefault };
   })();
 
   /* Task 40: платформа одним объектом — его ждут motionModeFor (tizen/webos/
@@ -372,6 +405,46 @@
      90_runtime.js), поэтому его читают и рантайм, и генератор CSS. */
   LC.enabled = function () {
     return LC.pref('lumen_enabled', true);
+  };
+
+  /* Task 62a: вид меток — ОДНА точка чтения на весь плагин (её зовут
+     src/62_badges.js, src/30_css.js и src/90_runtime.js). Дефолт вызова стоит
+     здесь же, рядом с дефолтом пункта, — расхождение этих двух чисел и было
+     дефектом Task 60, и сверяет их тест test/prefs.test.mjs по собранному
+     файлу. */
+  LC.badgesMode = function () {
+    return LC.prefs.badgesMode(LC.pref('lumen_badges', 'poster'));
+  };
+
+  /* Task 62a: область подкраски от постера — 'full' или 'veil'. Читается при
+     сборке таблицы стилей и при записи узла подкраски (src/30_css.js). */
+  LC.accentScope = function () {
+    return LC.pref('lumen_accent_scope', 'full') === 'veil' ? 'veil' : 'full';
+  };
+
+  /* Task 62a: одноразовый перевод сохранённых значений на новые типы.
+     Пишем через Lampa.Storage.set, а не правкой localStorage: у Lampa на
+     записи висит её собственный listener 'change' (на него подписан и
+     плагин — LC.followStorage), а Storage.set вдобавок держит свой кэш
+     значений. Правка в обход обоих оставила бы Lampa с прежним значением
+     в памяти до перезапуска.
+     Зовётся из LC.init ДО подписки на 'change' — значит собственное событие
+     мы не ловим и лишнего применения настройки не делаем.
+     Идемпотентна: после первой записи значение уже новое, и badgesMode
+     отдаёт его как есть — писать нечего. */
+  LC.migratePrefs = function () {
+    try {
+      if (!window.Lampa || !Lampa.Storage || typeof Lampa.Storage.set !== 'function') return;
+      if (typeof Lampa.Storage.get !== 'function') return;
+      var badges = Lampa.Storage.get('lumen_badges', '');
+      /* Пустое значение — ключа в Storage нет вовсе (пользователь пункт не
+         трогал). Мигрировать нечего: пункт отдаст свой default. */
+      if (badges === '' || badges === null || typeof badges === 'undefined') return;
+      if (badges === 'poster' || badges === 'caption' || badges === 'off') return;
+      Lampa.Storage.set('lumen_badges', LC.prefs.badgesMode(badges));
+    } catch (e) {
+      warn('prefs migrate failed', e);
+    }
   };
 
   LC.motionModeFor = LC.prefs.motionModeFor;

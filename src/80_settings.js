@@ -71,6 +71,18 @@
       en: 'Inside an open film card the colour of buttons, focus rings and highlights is taken from the poster. On the home screen the poster under focus changes the page background, the ring around the card and the mood chips — once focus has rested on a card for 3 seconds; fast browsing computes nothing. A dark colour is lightened so that labels stay readable; if the poster does not give up its pixels, the accent chosen above stays in place.',
       uk: 'У відкритій картці колір кнопок, кілець фокуса та підсвічувань береться з постера фільму. На головній від постера під фокусом змінюються тло сторінки, кільце навколо картки та чипи настрою — коли фокус постояв на картці 3 секунди; при швидкому гортанні нічого не рахується. Темний колір плагін висвітлює, щоб підписи читалися; якщо постер не віддає пікселі, залишається акцент, вибраний вище.'
     },
+    /* Task 62a (фаза 5): докуда доходит цвет, взятый с постера. «Полная» —
+       как было с Task 35. «Только фон» снимает единственное место, где
+       подкраска заходит на управление, — подложку карточки под фокусом;
+       сам фокус при этом никуда не девается, постер по-прежнему растёт. */
+    lumen_accent_scope_name: { ru: 'Где виден цвет постера', en: 'Where the poster colour shows', uk: 'Де видно колір постера' },
+    lumen_accent_scope_descr: {
+      ru: '«Полная» — цветом постера подкрашиваются и фон с вуалью кадра, и подложка карточки под фокусом. «Только фон» оставляет цвет в фоне, а карточка под фокусом остаётся нейтральной и просто увеличивается. Действует при включённом «Акценте от постера». Применяется сразу.',
+      en: '"Everywhere" tints both the background with the hero veil and the plate under the focused card. "Background only" keeps the colour in the background, while the focused card stays neutral and simply grows. Works with "Accent from poster" on. Applied immediately.',
+      uk: '«Повна» — кольором постера підфарбовуються і тло з вуаллю кадру, і підкладка картки під фокусом. «Лише тло» лишає колір у тлі, а картка під фокусом залишається нейтральною і просто збільшується. Діє за увімкненого «Акценту від постера». Застосовується одразу.'
+    },
+    lumen_accent_scope_full: { ru: 'Полная', en: 'Everywhere', uk: 'Повна' },
+    lumen_accent_scope_veil: { ru: 'Только фон', en: 'Background only', uk: 'Лише тло' },
     /* Task 29 (фаза 3): переход «постер → кадр» и уведомление автодетекта
        слабого ТВ. */
     lumen_transition_name: { ru: 'Переход от постера', en: 'Poster transition', uk: 'Перехід від постера' },
@@ -628,12 +640,19 @@
       en: 'The hero frame above the rows turns into a muted YouTube trailer by itself once focus has rested on a card for 8 seconds. Turn it off if it gets in the way. Moving to another card removes the clip, and it never starts while you are browsing. Needs full animations, heavy effects on and "Background trailer on the card" not set to Off. Applied immediately.',
       uk: 'Кадр над рядами сам змінюється беззвучним трейлером з YouTube, якщо фокус постояв на картці 8 секунд. Вимкніть, якщо це заважає. Перехід на іншу картку ролик знімає, під час гортання він не запускається взагалі. Потрібні повні анімації, увімкнені важкі ефекти і не вимкнений «Трейлер у фоні картки». Застосовується одразу.'
     },
+    /* Task 62a (фаза 5): видов метки стало три. Название осталось прежним —
+       настройка про то же самое, — а описание теперь объясняет выбор между
+       плашкой и подписью: с дивана «На постере / В подписи» без пояснения
+       читается как загадка. */
     lumen_badges_name: { ru: 'Метки на постерах', en: 'Poster badges', uk: 'Мітки на постерах' },
     lumen_badges_descr: {
-      ru: '«Скоро», «Новинка», «Продолжить» и новые серии — прямо на постерах рядов главной и подборок. Применяется сразу.',
-      en: '"Soon", "New", "Continue" and new episodes right on the posters of home and collection rows. Applied immediately.',
-      uk: '«Скоро», «Новинка», «Продовжити» та нові серії — просто на постерах рядів головної та підбірок. Застосовується одразу.'
+      ru: '«Скоро», «Новинка», процент просмотра и новые серии в рядах главной и подборок. «На постере» — плашкой поверх обложки; «В подписи» — строкой под ней, рядом с годом и рейтингом: обложка остаётся чистой. Применяется сразу.',
+      en: '"Soon", "New", the watched percentage and new episodes in home and collection rows. "On the poster" draws a plate over the artwork; "In the caption" puts the same words under it, next to the year and the rating, leaving the artwork clean. Applied immediately.',
+      uk: '«Скоро», «Новинка», відсоток перегляду та нові серії в рядах головної та підбірок. «На постері» — плашкою поверх обкладинки; «У підписі» — рядком під нею, поряд із роком і рейтингом: обкладинка лишається чистою. Застосовується одразу.'
     },
+    lumen_badges_poster: { ru: 'На постере', en: 'On the poster', uk: 'На постері' },
+    lumen_badges_caption: { ru: 'В подписи', en: 'In the caption', uk: 'У підписі' },
+    lumen_badges_off: { ru: 'Не показывать', en: 'Do not show', uk: 'Не показувати' },
     /* Task 26 (фаза 3): контекстное меню карточки по удержанию OK.
        Настройка — не про вид, а про удобство, поэтому включена по
        умолчанию: сам факт удержания OK — штатный жест Lampa, мы лишь
@@ -915,7 +934,14 @@
        Пересборка CSS применяет их на любом открытом экране плагина сразу
        (LC.injectCss заодно пересобирает CSS экранов пути до плеера). Имена
        без префикса PLUGIN, поэтому ветка стоит до проверки префикса. */
-    if (name === 'lumen_theme' || name === 'lumen_solid' || name === 'lumen_scale') { LC.injectCss(); return true; }
+    /* Task 62a (фаза 5): область подкраски. Правило подложки фокуса либо
+       попадает в таблицу, либо нет, — значит достаточно пересобрать её.
+       Узел подкраски переписывать отдельно не нужно: последней строкой
+       LC.injectCss зовёт LC.accent.restyle(), а тот берёт текст у
+       LC.accentFocusCss — пустой в режиме 'veil', и узел снимается целиком
+       (src/57_color.js, writeAccentStyle). */
+    if (name === 'lumen_theme' || name === 'lumen_solid' || name === 'lumen_scale' ||
+        name === 'lumen_accent_scope') { LC.injectCss(); return true; }
     /* Task 24 (фаза 3): акцент от постера. Выключили — цвет из настроек
        возвращается сразу; включили — считается по фильму открытой карточки.
        Пересобирает CSS сам, поэтому отдельного injectCss здесь нет. */

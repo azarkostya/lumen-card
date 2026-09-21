@@ -802,6 +802,11 @@ return R.main + '\n' + R.veilL + '\n' + R.fadeTop + '\n' + R.fadeBot;
 
 
 LC.accentFocusCss = function () {
+
+
+
+
+if (LC.accentScope() === 'veil') return '';
 return accentRules(palette(), theme()).cardFocus;
 };
 
@@ -2576,7 +2581,10 @@ css.push('.lumen-grid__items .lumen-gcard:nth-child(6n){margin-right:0}');
 css.push('.lumen-grid .lumen-gcard .card__view{margin-bottom:.5em;border-radius:.31em;background-color:' + P.panel + '}');
 css.push('.lumen-grid .lumen-gcard .card__img{border-radius:.31em;background-color:' + P.panelLo + '}');
 css.push('.lumen-grid .lumen-gcard .card__title{font-family:' + FB + ';font-weight:700;font-size:1.01em;line-height:1.15;color:' + P.text + '}');
-css.push('.lumen-grid .lumen-gcard .card__age{font-family:' + FB + ';font-weight:500;font-size:1.01em;line-height:1;margin-top:.22em;color:' + P.muted + '}');
+
+
+
+css.push('.lumen-grid .lumen-gcard .card__age{font-family:' + FB + ';font-weight:500;font-size:1.01em;line-height:1;margin-top:.22em;white-space:nowrap;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis;color:' + P.muted + '}');
 
 
 
@@ -2600,7 +2608,7 @@ css.push('.lumen-grid .lumen-gcard.focus .card__view,.lumen-grid .lumen-gcard.ho
 
 
 css.push('.lumen-grid .card__quality,.lumen-grid .card__type{display:none}');
-if (LC.pref('lumen_badges', true)) css.push('.lumen-grid .card__vote{display:none}');
+if (LC.badgesMode() !== 'off') css.push('.lumen-grid .card__vote{display:none}');
 
 
 
@@ -3618,10 +3626,21 @@ css.push('.lumen-main .card.focus{z-index:3}');
 
 css.push('body.lumen-motion-full .lumen-main .card__view{-webkit-transition:-webkit-transform .18s ease-out;transition:transform .18s ease-out}');
 css.push('.lumen-main .card__quality,.lumen-main .card__type{display:none}');
-if (LC.pref('lumen_badges', true)) css.push('.lumen-main .card__vote{display:none}');
+
+
+
+
+
+if (LC.badgesMode() !== 'off') css.push('.lumen-main .card__vote{display:none}');
 css.push('.lumen-main .card__title{font-family:' + FB + ';font-weight:700;font-size:' + cardTitleEm + 'em;line-height:' + CARD_TITLE_LH + ';white-space:nowrap;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis;color:' + P.muted + '}');
 css.push('.lumen-main .card.focus .card__title{color:' + P.text + '}');
-css.push('.lumen-main .card__age{font-family:' + FB + ';font-size:' + cardAgeEm + 'em;line-height:1;margin-top:' + CARD_AGE_GAP + 'em;color:' + P.muted + '}');
+
+
+
+
+
+
+css.push('.lumen-main .card__age{font-family:' + FB + ';font-size:' + cardAgeEm + 'em;line-height:1;margin-top:' + CARD_AGE_GAP + 'em;white-space:nowrap;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis;color:' + P.muted + '}');
 
 
 
@@ -3702,7 +3721,11 @@ css.push('.lumen-main .items-line .scroll__content{padding-left:' + EDGE + 'em}'
 
 
 css.push('.lumen-main .items-line .mapping--line > * + *{margin-left:1.75em}');
-css.push(AR.cardFocus);
+
+
+
+
+if (LC.accentScope() !== 'veil') css.push(AR.cardFocus);
 
 
 
@@ -3732,6 +3755,15 @@ css.push('.lumen-main .lumen-badge--progress,.lumen-grid .lumen-badge--progress,
 css.push('.lumen-main .lumen-badge--custom,.lumen-grid .lumen-badge--custom{white-space:normal;line-height:1.15}');
 css.push('.lumen-main .lumen-badge-bar{position:absolute;left:.4em;right:.4em;bottom:.4em;height:.18em;border-radius:.09em;background:rgba(' + P.textRgb + ',.2);overflow:hidden;z-index:2}');
 css.push('.lumen-main .lumen-badge-bar > div{height:100%;border-radius:.09em;background:' + A + '}');
+
+
+
+
+
+
+if (LC.badgesMode() === 'caption') {
+css.push('.lumen-main .card__age .lumen-badge-cap,.lumen-grid .card__age .lumen-badge-cap{font-weight:600;color:' + A + '}');
+}
 
 
 
@@ -19601,8 +19633,18 @@ return date ? head + ' · ' + date : head;
 
 var state = null;
 
+
+
+
+
+
+
+function mode() {
+try { return LC.badgesMode ? LC.badgesMode() : 'poster'; } catch (e) { return 'poster'; }
+}
+
 function enabled() {
-try { return LC.pref ? !!LC.pref('lumen_badges', true) : true; } catch (e) { return true; }
+return mode() !== 'off';
 }
 
 
@@ -19663,6 +19705,25 @@ age.text((was ? was + ' · ' : '') + '★ ' + vote.toFixed(1));
 
 
 
+
+
+function caption(el, badge) {
+var age = $(el).find('.card__age');
+if (!age || !age.length) return;
+var was = '' + age.text();
+var box = $('<span class="lumen-badge-cap lumen-badge-cap--' + badge.kind + '"></span>');
+box.text(was ? badge.text + ' · ' : badge.text);
+age.prepend(box);
+}
+
+
+
+
+
+
+
+
+
 function decorate(node, card, opts) {
 try {
 if (!enabled()) return;
@@ -19676,9 +19737,18 @@ var badge = badgeFor(data, new Date(), { progress: progressOf, words: words() })
 if (!badge || !badge.text) return;
 var view = $(el).find('.card__view');
 if (!view || !view.length) return;
+
+
+if (mode() === 'caption') {
+caption(el, badge);
+} else {
 var box = $('<div class="lumen-badge lumen-badge--' + badge.kind + '"></div>');
 box.text(badge.text);
 view.append(box);
+}
+
+
+
 var wantBar = !opts || opts.bar !== false;
 if (wantBar && badge.kind === 'progress' && badge.percent > 0) {
 var bar = $('<div class="lumen-badge-bar"><div></div></div>');
@@ -19775,6 +19845,10 @@ try {
 if (!root || !root.length) return;
 root.find('.lumen-badge').remove();
 root.find('.lumen-badge-bar').remove();
+
+
+
+root.find('.lumen-badge-cap').remove();
 var nodes = root.find('.card');
 for (var i = 0; i < nodes.length; i++) nodes[i].lumen_badged = false;
 } catch (e) {
@@ -23969,6 +24043,18 @@ uk: 'У відкритій картці колір кнопок, кілець ф
 },
 
 
+
+
+lumen_accent_scope_name: { ru: 'Где виден цвет постера', en: 'Where the poster colour shows', uk: 'Де видно колір постера' },
+lumen_accent_scope_descr: {
+ru: '«Полная» — цветом постера подкрашиваются и фон с вуалью кадра, и подложка карточки под фокусом. «Только фон» оставляет цвет в фоне, а карточка под фокусом остаётся нейтральной и просто увеличивается. Действует при включённом «Акценте от постера». Применяется сразу.',
+en: '"Everywhere" tints both the background with the hero veil and the plate under the focused card. "Background only" keeps the colour in the background, while the focused card stays neutral and simply grows. Works with "Accent from poster" on. Applied immediately.',
+uk: '«Повна» — кольором постера підфарбовуються і тло з вуаллю кадру, і підкладка картки під фокусом. «Лише тло» лишає колір у тлі, а картка під фокусом залишається нейтральною і просто збільшується. Діє за увімкненого «Акценту від постера». Застосовується одразу.'
+},
+lumen_accent_scope_full: { ru: 'Полная', en: 'Everywhere', uk: 'Повна' },
+lumen_accent_scope_veil: { ru: 'Только фон', en: 'Background only', uk: 'Лише тло' },
+
+
 lumen_transition_name: { ru: 'Переход от постера', en: 'Poster transition', uk: 'Перехід від постера' },
 lumen_transition_descr: {
 ru: 'При открытии карточки постер, на котором стоял фокус, разворачивается во весь экран и растворяется в кадре фильма. Работает только при полных анимациях; открытие карточки не задерживает.',
@@ -24524,12 +24610,19 @@ ru: 'Кадр над рядами сам сменяется беззвучным
 en: 'The hero frame above the rows turns into a muted YouTube trailer by itself once focus has rested on a card for 8 seconds. Turn it off if it gets in the way. Moving to another card removes the clip, and it never starts while you are browsing. Needs full animations, heavy effects on and "Background trailer on the card" not set to Off. Applied immediately.',
 uk: 'Кадр над рядами сам змінюється беззвучним трейлером з YouTube, якщо фокус постояв на картці 8 секунд. Вимкніть, якщо це заважає. Перехід на іншу картку ролик знімає, під час гортання він не запускається взагалі. Потрібні повні анімації, увімкнені важкі ефекти і не вимкнений «Трейлер у фоні картки». Застосовується одразу.'
 },
+
+
+
+
 lumen_badges_name: { ru: 'Метки на постерах', en: 'Poster badges', uk: 'Мітки на постерах' },
 lumen_badges_descr: {
-ru: '«Скоро», «Новинка», «Продолжить» и новые серии — прямо на постерах рядов главной и подборок. Применяется сразу.',
-en: '"Soon", "New", "Continue" and new episodes right on the posters of home and collection rows. Applied immediately.',
-uk: '«Скоро», «Новинка», «Продовжити» та нові серії — просто на постерах рядів головної та підбірок. Застосовується одразу.'
+ru: '«Скоро», «Новинка», процент просмотра и новые серии в рядах главной и подборок. «На постере» — плашкой поверх обложки; «В подписи» — строкой под ней, рядом с годом и рейтингом: обложка остаётся чистой. Применяется сразу.',
+en: '"Soon", "New", the watched percentage and new episodes in home and collection rows. "On the poster" draws a plate over the artwork; "In the caption" puts the same words under it, next to the year and the rating, leaving the artwork clean. Applied immediately.',
+uk: '«Скоро», «Новинка», відсоток перегляду та нові серії в рядах головної та підбірок. «На постері» — плашкою поверх обкладинки; «У підписі» — рядком під нею, поряд із роком і рейтингом: обкладинка лишається чистою. Застосовується одразу.'
 },
+lumen_badges_poster: { ru: 'На постере', en: 'On the poster', uk: 'На постері' },
+lumen_badges_caption: { ru: 'В подписи', en: 'In the caption', uk: 'У підписі' },
+lumen_badges_off: { ru: 'Не показывать', en: 'Do not show', uk: 'Не показувати' },
 
 
 
@@ -24811,7 +24904,14 @@ if (name === 'lumen_font') { LC.injectFonts(); LC.injectCss(); return true; }
 
 
 
-if (name === 'lumen_theme' || name === 'lumen_solid' || name === 'lumen_scale') { LC.injectCss(); return true; }
+
+
+
+
+
+
+if (name === 'lumen_theme' || name === 'lumen_solid' || name === 'lumen_scale' ||
+name === 'lumen_accent_scope') { LC.injectCss(); return true; }
 
 
 
@@ -25149,6 +25249,24 @@ return def;
 
 
 
+function badgesMode(value) {
+if (value === 'poster' || value === 'caption' || value === 'off') return value;
+if (value === 'true' || value === true || value === 1 || value === '1') return 'poster';
+if (value === 'false' || value === false || value === 0 || value === '0') return 'off';
+return 'poster';
+}
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -25238,6 +25356,16 @@ var LIST = [
 
 
 { name: 'lumen_accent_auto', type: 'trigger', 'default': true, label: 'lumen_accent_auto_name', descr: 'lumen_accent_auto_descr' },
+
+
+
+
+
+
+
+
+
+{ name: 'lumen_accent_scope', type: 'select', values: ['full', 'veil'], vprefix: 'lumen_accent_scope_', 'default': 'full', label: 'lumen_accent_scope_name', descr: 'lumen_accent_scope_descr' },
 
 
 
@@ -25371,7 +25499,12 @@ var LIST = [
 
 
 
-{ name: 'lumen_badges', type: 'trigger', 'default': true, label: 'lumen_badges_name', descr: 'lumen_badges_descr' },
+
+
+
+
+
+{ name: 'lumen_badges', type: 'select', values: ['poster', 'caption', 'off'], vprefix: 'lumen_badges_', 'default': 'poster', label: 'lumen_badges_name', descr: 'lumen_badges_descr' },
 { name: 'lumen_hide_watched', type: 'trigger', 'default': false, label: 'lumen_hide_watched_name', descr: 'lumen_hide_watched_descr' },
 
 
@@ -25438,7 +25571,7 @@ for (var i = 0; i < LIST.length; i++) if (LIST[i].name === name) return LIST[i];
 return null;
 }
 
-return { LIST: LIST, find: find, boolOf: boolOf, motionModeFor: motionModeFor, fxHeavyDefault: fxHeavyDefault };
+return { LIST: LIST, find: find, boolOf: boolOf, badgesMode: badgesMode, motionModeFor: motionModeFor, fxHeavyDefault: fxHeavyDefault };
 })();
 
 
@@ -25482,6 +25615,46 @@ return value;
 
 LC.enabled = function () {
 return LC.pref('lumen_enabled', true);
+};
+
+
+
+
+
+
+LC.badgesMode = function () {
+return LC.prefs.badgesMode(LC.pref('lumen_badges', 'poster'));
+};
+
+
+
+LC.accentScope = function () {
+return LC.pref('lumen_accent_scope', 'full') === 'veil' ? 'veil' : 'full';
+};
+
+
+
+
+
+
+
+
+
+
+
+LC.migratePrefs = function () {
+try {
+if (!window.Lampa || !Lampa.Storage || typeof Lampa.Storage.set !== 'function') return;
+if (typeof Lampa.Storage.get !== 'function') return;
+var badges = Lampa.Storage.get('lumen_badges', '');
+
+
+if (badges === '' || badges === null || typeof badges === 'undefined') return;
+if (badges === 'poster' || badges === 'caption' || badges === 'off') return;
+Lampa.Storage.set('lumen_badges', LC.prefs.badgesMode(badges));
+} catch (e) {
+warn('prefs migrate failed', e);
+}
 };
 
 LC.motionModeFor = LC.prefs.motionModeFor;
@@ -28231,12 +28404,17 @@ warn('hero size pref failed', e);
 
 
 
+
+
+
+
+
 LC.applyBadgesPref = function () {
 if (!activated) return;
 try {
 if (!LC.badges) return;
-if (LC.pref('lumen_badges', true)) LC.badges.install();
-else LC.badges.uninstall();
+LC.badges.uninstall();
+if (LC.badgesMode() !== 'off') LC.badges.install();
 LC.injectCss();
 } catch (e) {
 warn('badges pref failed', e);
@@ -28425,6 +28603,14 @@ if (!window.Lampa || !Lampa.Template || !Lampa.Listener) return;
 inited = true;
 
 try { if (Lampa.Lang && typeof Lampa.Lang.add === 'function') Lampa.Lang.add(LC.STRINGS); } catch (e) { }
+
+
+
+
+
+
+
+LC.migratePrefs();
 
 LC.addSettings();
 LC.followStorage();

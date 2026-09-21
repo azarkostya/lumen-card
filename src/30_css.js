@@ -296,6 +296,11 @@
      Разделение оставлено потому, что убирает работу целиком, а не потому
      что замер показал выигрыш. */
   LC.accentFocusCss = function () {
+    /* Task 62a: в режиме «только фон» подложки фокуса нет вовсе — ни в
+       таблице (buildCss ниже её не выводит), ни здесь. Пустая строка
+       означает «красить нечем», и src/57_color.js снимает узел целиком, а
+       не оставляет его пустым в head. */
+    if (LC.accentScope() === 'veil') return '';
     return accentRules(palette(), theme()).cardFocus;
   };
 
@@ -2070,7 +2075,10 @@
     css.push('.lumen-grid .lumen-gcard .card__view{margin-bottom:.5em;border-radius:.31em;background-color:' + P.panel + '}');
     css.push('.lumen-grid .lumen-gcard .card__img{border-radius:.31em;background-color:' + P.panelLo + '}');
     css.push('.lumen-grid .lumen-gcard .card__title{font-family:' + FB + ';font-weight:700;font-size:1.01em;line-height:1.15;color:' + P.text + '}');
-    css.push('.lumen-grid .lumen-gcard .card__age{font-family:' + FB + ';font-weight:500;font-size:1.01em;line-height:1;margin-top:.22em;color:' + P.muted + '}');
+    /* Task 62a: обрезка многоточием — по той же причине, что у подписи ряда
+       главной: метка в подписи длиннее года с рейтингом, а вторая строка
+       развалила бы сетку (высота плитки считается от одной строки). */
+    css.push('.lumen-grid .lumen-gcard .card__age{font-family:' + FB + ';font-weight:500;font-size:1.01em;line-height:1;margin-top:.22em;white-space:nowrap;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis;color:' + P.muted + '}');
     /* Task 43 (фикс-раунд): карточка сетки собрана из штатного шаблона
        'card' (src/46_hub.js, cardNode) и класса .card--wide не получает —
        значит на неё действуют обе анимации .card__view, погашенные на
@@ -2094,7 +2102,7 @@
        работает только при включённых метках на постерах. Выключены метки —
        плашка возвращается, иначе оценки не осталось бы нигде. */
     css.push('.lumen-grid .card__quality,.lumen-grid .card__type{display:none}');
-    if (LC.pref('lumen_badges', true)) css.push('.lumen-grid .card__vote{display:none}');
+    if (LC.badgesMode() !== 'off') css.push('.lumen-grid .card__vote{display:none}');
     /* Фокус: пружина и подъём над соседями — без z-index увеличенная
        карточка ныряет под соседнюю и тень срезается (ревью Task 17).
 
@@ -3112,10 +3120,21 @@
        (docs/research/2026-09-18-android-tv-animations.md). */
     css.push('body.lumen-motion-full .lumen-main .card__view{-webkit-transition:-webkit-transform .18s ease-out;transition:transform .18s ease-out}');
     css.push('.lumen-main .card__quality,.lumen-main .card__type{display:none}');
-    if (LC.pref('lumen_badges', true)) css.push('.lumen-main .card__vote{display:none}');
+    /* Task 42/62a: штатную плашку рейтинга прячем, пока рейтинг есть кому
+       дописать в подпись (LC.badges.decorate). Он дописывает её в обоих
+       показанных видах метки — и «на постере», и «в подписи», — а при
+       выключенных метках плашка Lampa возвращается: иначе рейтинга не
+       останется нигде. */
+    if (LC.badgesMode() !== 'off') css.push('.lumen-main .card__vote{display:none}');
     css.push('.lumen-main .card__title{font-family:' + FB + ';font-weight:700;font-size:' + cardTitleEm + 'em;line-height:' + CARD_TITLE_LH + ';white-space:nowrap;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis;color:' + P.muted + '}');
     css.push('.lumen-main .card.focus .card__title{color:' + P.text + '}');
-    css.push('.lumen-main .card__age{font-family:' + FB + ';font-size:' + cardAgeEm + 'em;line-height:1;margin-top:' + CARD_AGE_GAP + 'em;color:' + P.muted + '}');
+    /* Task 62a: подпись обрезается многоточием, а не переносится. До неё в
+       строке стоял только год с рейтингом («2017 · ★ 6.4»), и в ширину
+       карточки он помещался всегда; метка в подписи («Новая серия · 12 сен»)
+       длиннее, а вторая строка сдвинула бы вниз весь блок ряда — то есть
+       инвариант Task 51 («низ подписи первого ряда ≤ 532 при 960×540»).
+       Тем же приёмом обрезается и .card__title выше. */
+    css.push('.lumen-main .card__age{font-family:' + FB + ';font-size:' + cardAgeEm + 'em;line-height:1;margin-top:' + CARD_AGE_GAP + 'em;white-space:nowrap;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis;color:' + P.muted + '}');
     /* Task 63: подпись под постером в фокусе уезжает вниз. Так же устроен
        lockup tvOS: «картинка приподнимается, подпись уезжает вниз»
        (docs/research/2026-09-21-tv-design-specs.md §1, разбор WWDC24 10207).
@@ -3196,7 +3215,11 @@
        Масштабом интерфейса зазор не растится намеренно: em и так доля ширины
        окна, а штатный зазор Lampa тоже постоянный. */
     css.push('.lumen-main .items-line .mapping--line > * + *{margin-left:1.75em}');
-    css.push(AR.cardFocus);
+    /* Task 62a: подложка фокуса — единственное место, где цвет с постера
+       заходит на управление. В режиме «только фон» правило не пишется
+       вовсе: мёртвое правило в таблице мы считаем дефектом, а карточку под
+       фокусом по-прежнему выделяет масштаб (ROW_FOCUS выше). */
+    if (LC.accentScope() !== 'veil') css.push(AR.cardFocus);
 
     /* --- Task 25: метки на постерах рядов (главная и сетка подборки) ---
        Метка лежит ВНУТРИ штатного .card__view, поэтому у неё собственное имя
@@ -3226,6 +3249,15 @@
     css.push('.lumen-main .lumen-badge--custom,.lumen-grid .lumen-badge--custom{white-space:normal;line-height:1.15}');
     css.push('.lumen-main .lumen-badge-bar{position:absolute;left:.4em;right:.4em;bottom:.4em;height:.18em;border-radius:.09em;background:rgba(' + P.textRgb + ',.2);overflow:hidden;z-index:2}');
     css.push('.lumen-main .lumen-badge-bar > div{height:100%;border-radius:.09em;background:' + A + '}');
+    /* Task 62a: та же метка, но в строке подписи под постером — вид «В
+       подписи». Правило пишется только в этом виде: в остальных оно было бы
+       мёртвым (узла .lumen-badge-cap там нет вовсе, src/62_badges.js).
+       Своего кегля метке не задаётся — он общий с подписью, то есть уже по
+       минимуму tvOS; отличают её вес и цвет акцента. Обрезку многоточием
+       делает сама подпись (правила .card__age выше), поэтому здесь её нет. */
+    if (LC.badgesMode() === 'caption') {
+      css.push('.lumen-main .card__age .lumen-badge-cap,.lumen-grid .card__age .lumen-badge-cap{font-weight:600;color:' + A + '}');
+    }
 
     /* --- Task 25: скелетоны ---
        Одно правило на все плашки плагина: описание героя до прихода деталей

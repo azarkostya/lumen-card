@@ -862,7 +862,7 @@ test('Task 7: LC.applyTrailerPref — выключение снимает игр
    .card__vote прятать нельзя (src/30_css.js, блок рядов). Значит применение
    настройки на лету обязано пересобрать CSS, а не только снять наблюдателя. */
 test('Task 42: LC.applyBadgesPref пересобирает CSS вместе с наблюдателем меток', () => {
-  const off = initLC({ storage: { lumen_badges: false } });
+  const off = initLC({ storage: { lumen_badges: 'off' } });
   const seen = { install: 0, uninstall: 0 };
   off.LC.badges = { install: () => { seen.install++; }, uninstall: () => { seen.uninstall++; } };
   const before = off.extra.css;
@@ -870,13 +870,27 @@ test('Task 42: LC.applyBadgesPref пересобирает CSS вместе с �
   assert.equal(seen.uninstall, 1, 'метки сняты');
   assert.equal(off.extra.css, before + 1, 'таблица стилей пересобрана');
 
-  const on = initLC({ storage: { lumen_badges: true } });
+  const on = initLC({ storage: { lumen_badges: 'poster' } });
   const seenOn = { install: 0, uninstall: 0 };
   on.LC.badges = { install: () => { seenOn.install++; }, uninstall: () => { seenOn.uninstall++; } };
   const beforeOn = on.extra.css;
   on.LC.applyBadgesPref();
   assert.equal(seenOn.install, 1, 'метки поставлены');
   assert.equal(on.extra.css, beforeOn + 1, 'и обратно тоже пересобрана');
+  assert.deepEqual(warnLog, []);
+});
+
+/* Task 62a (фаза 5): видов метки стало три, и переключение между ПОКАЗАННЫМИ
+   («на постере» ↔ «в подписи») — не то же самое, что включение: наблюдатель
+   и так стоит, а нарисованные метки лежат на прежних местах. Значит сначала
+   их надо снять, и только потом поставить заново — иначе на живом экране
+   остались бы плашки прошлого режима. */
+test('Task 62a: смена вида меток перерисовывает уже нарисованные метки', () => {
+  const cap = initLC({ storage: { lumen_badges: 'caption' } });
+  const seen = [];
+  cap.LC.badges = { install: () => seen.push('install'), uninstall: () => seen.push('uninstall') };
+  cap.LC.applyBadgesPref();
+  assert.deepEqual(seen, ['uninstall', 'install'], 'метки прошлого вида обязаны уйти первыми');
   assert.deepEqual(warnLog, []);
 });
 

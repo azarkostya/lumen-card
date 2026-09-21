@@ -127,8 +127,18 @@
     /* Единственный смонтированный экран: null или {root, observer}. */
     var state = null;
 
+    /* Task 62a: вид метки — 'poster' (плашка поверх обложки), 'caption'
+       (строка в подписи под ней) или 'off'. Значение читает одна функция на
+       весь плагин — LC.badgesMode (src/81_prefs.js), там же, где стоит
+       дефолт пункта настроек. Её может не быть только в тестах, где модуль
+       грузится в одиночку; в бандле 81 идёт после 62, но зовётся функция в
+       рантайме. */
+    function mode() {
+      try { return LC.badgesMode ? LC.badgesMode() : 'poster'; } catch (e) { return 'poster'; }
+    }
+
     function enabled() {
-      try { return LC.pref ? !!LC.pref('lumen_badges', true) : true; } catch (e) { return true; }
+      return mode() !== 'off';
     }
 
     /* Строки метки — из LC.STRINGS (ru/en/uk). Месяцы короткие, те же, что у
@@ -181,6 +191,25 @@
       age.text((was ? was + ' · ' : '') + '★ ' + vote.toFixed(1));
     }
 
+    /* Task 62a: метка в строке подписи под постером (вид 'caption'). Так
+       устроен Apple TV: плашек на обложке нет, статус читается подписью
+       (docs/research/2026-09-21-tv-design-specs.md §1).
+       Узел свой (.lumen-badge-cap), а не приписка к тексту: strip() должен
+       уметь снять метку с живого экрана при смене вида, не тронув год и
+       рейтинг, которые уже стоят в той же строке.
+       Метка встаёт ПЕРВОЙ: подпись шириной с карточку и обрезается
+       многоточием (правило .card__age, src/30_css.js), и срезать она должна
+       год с рейтингом, а не статус, ради которого метку и рисуют. Отсюда и
+       разделитель ХВОСТОМ — и только если в подписи уже что-то есть. */
+    function caption(el, badge) {
+      var age = $(el).find('.card__age');
+      if (!age || !age.length) return;
+      var was = '' + age.text();
+      var box = $('<span class="lumen-badge-cap lumen-badge-cap--' + badge.kind + '"></span>');
+      box.text(was ? badge.text + ' · ' : badge.text);
+      age.prepend(box);
+    }
+
     /* Одна карточка. node — jQuery-узел или DOM-элемент .card, card — его
        данные (по умолчанию el.card_data, которые кладёт и Lampa, и наша
        сетка). opts.bar === false — не рисовать полосу прогресса: в сетке
@@ -202,9 +231,18 @@
         if (!badge || !badge.text) return;
         var view = $(el).find('.card__view');
         if (!view || !view.length) return;
-        var box = $('<div class="lumen-badge lumen-badge--' + badge.kind + '"></div>');
-        box.text(badge.text);
-        view.append(box);
+        /* Task 62a: текст один и тот же, разное только место. В виде
+           'caption' плашки на обложке нет вовсе — ради этого вид и заведён. */
+        if (mode() === 'caption') {
+          caption(el, badge);
+        } else {
+          var box = $('<div class="lumen-badge lumen-badge--' + badge.kind + '"></div>');
+          box.text(badge.text);
+          view.append(box);
+        }
+        /* Полоса прогресса остаётся на постере в обоих видах: это не плашка
+           с текстом, а тонкая линия у нижней кромки — ровно то, чем показывает
+           недосмотренное и сам Apple TV. */
         var wantBar = !opts || opts.bar !== false;
         if (wantBar && badge.kind === 'progress' && badge.percent > 0) {
           var bar = $('<div class="lumen-badge-bar"><div></div></div>');
@@ -301,6 +339,10 @@
         if (!root || !root.length) return;
         root.find('.lumen-badge').remove();
         root.find('.lumen-badge-bar').remove();
+        /* Task 62a: метка в подписи снимается тем же проходом — иначе смена
+           вида на живом экране оставила бы её дублем рядом с новой. Год и
+           рейтинг в подписи при этом не страдают: метка — свой узел. */
+        root.find('.lumen-badge-cap').remove();
         var nodes = root.find('.card');
         for (var i = 0; i < nodes.length; i++) nodes[i].lumen_badged = false;
       } catch (e) {
