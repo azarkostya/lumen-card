@@ -96,12 +96,26 @@
       var check = ['.selectbox .selectbox-item--checked .selectbox-item__checkbox::after'];
       var sortCheck = ['.selectbox .selectbox-item.selected:not(.nomark)::after', '.selectbox .selectbox-item.picked::after'];
       r.push('/* 33 Источник · 35 Фильтр, Сортировать, Действие — панель Select (ширина штатная, 35 %) */');
-      r.push(S(['.selectbox .selectbox__content']) + '{background:' + k.panel + ';border-left:.044em solid ' + k.line + ';color:' + k.text + ';font-family:' + k.fontBody + '}');
+      /* Task 53: backdrop-filter снят явно. Lampa под body.glass--style вешает
+         на .selectbox__content (и на .modal__content, .settings__content и ещё
+         шесть узлов одним правилом — vendor/lampa/css/app.css:16047-16059)
+         background-color rgba(70,70,70,.3) плюс blur(1.6em). Наша панель
+         непрозрачна (k.panel), поэтому размытие под ней не видно вовсе, но
+         стоит оно дорого: backdrop-filter заставляет WebView читать пиксели
+         под элементом каждый кадр. По этой же причине размытия сняты по всему
+         плагину — src/30_css.js:124, :182, :1003. */
+      r.push(S(['.selectbox .selectbox__content']) + '{background:' + k.panel + ';border-left:.044em solid ' + k.line + ';color:' + k.text + ';font-family:' + k.fontBody + ';-webkit-backdrop-filter:none;backdrop-filter:none}');
       r.push(S(['.selectbox .selectbox__head']) + '{padding:2.805em 2.805em 1.052em 1.403em}');
       r.push(S(['.selectbox .selectbox__title']) + '{font-family:' + k.fontBody + ';font-weight:700;font-size:1.227em;line-height:1.1}');
       /* Горизонтальный отступ панели — полями пункта, а не паддингом тела:
-         scale(1.02) фокуса не упирается в край скролла, чужие блоки в теле не сдвигаются. */
-      r.push(S(['.selectbox .selectbox-item']) + '{margin:0 2.805em .351em 1.403em;padding:.614em .701em;border-radius:.438em;color:' + k.text + ';-webkit-transition:background-color .2s,color .2s,-webkit-transform .2s;transition:background-color .2s,color .2s,transform .2s}');
+         scale(1.02) фокуса не упирается в край скролла, чужие блоки в теле не сдвигаются.
+         Task 53: паддинг .7em 1.4em — текст стоит в 1.4em от кромки заливки.
+         Штатный у Lampa — 1.5em 2em (vendor/lampa/css/app.css:7151-7155).
+         will-change:auto снимает штатный will-change:transform (там же, :7154):
+         он обещает браузеру движение каждому пункту списка и поднимает их все
+         в отдельные слои композитора, а двигается у нас только один — тот, что
+         в фокусе (scale(1.02) ниже, и то лишь в режиме «Полные»). */
+      r.push(S(['.selectbox .selectbox-item']) + '{margin:0 2.805em .351em 1.403em;padding:.7em 1.4em;border-radius:.438em;color:' + k.text + ';will-change:auto;-webkit-transition:background-color .2s,color .2s,-webkit-transform .2s;transition:background-color .2s,color .2s,transform .2s}');
       r.push(S(['.selectbox .selectbox-item__title']) + '{font-size:.877em;font-weight:600;line-height:1.2}');
       /* Разделитель групп (штатный items c separator:true — Lampa рисует его
          как .settings-param-title, app.min.js bind). Он есть и в штатном меню
@@ -113,27 +127,42 @@
          (rgba(255,255,255,.4)) — цвет на обёртке до него не доходит. */
       r.push(S(['.selectbox .settings-param-title > span']) + '{color:' + k.muted + '}');
       r.push(S(['.selectbox .selectbox-item__subtitle']) + '{font-size:.877em;font-weight:400;line-height:1.2;margin-top:.2em;color:' + k.muted + ';opacity:1}');
-      r.push(S(['.selectbox .selectbox-item.focus']) + '{background-color:' + k.accent + ';color:' + k.onac + ';-webkit-transform:scale(1.02);transform:scale(1.02)}');
-      r.push(S(['.selectbox .selectbox-item.focus .selectbox-item__subtitle']) + '{color:' + k.onac + ';opacity:.72}');
+      /* Task 53: фокус пункта — инверсия (цвет текста становится заливкой, фон
+         страницы — подписью), как у кнопок карточки (src/30_css.js, правило
+         .full-start__button.focus). Так же показывает фокус и сама Lampa в
+         «стеклянной» теме: body.glass--style .selectbox-item.focus —
+         background-color #fff, color #000 (vendor/lampa/css/app.css:16067-16072),
+         только у нас это два цвета темы, а не чужие белый с чёрным.
+         Всё, что внутри фокуса стояло на k.onac, переезжает на k.bg — подпись,
+         рамка и заливка чекбокса, галочка выбранного пункта. */
+      r.push(S(['.selectbox .selectbox-item.focus']) + '{background-color:' + k.text + ';color:' + k.bg + ';-webkit-transform:scale(1.02);transform:scale(1.02)}');
+      r.push(S(['.selectbox .selectbox-item.focus .selectbox-item__subtitle']) + '{color:' + k.bg + ';opacity:.72}');
       /* Иконки: без :has() svg не выбрать по вложенному <use>, поэтому маской
          спрайт не заменить — штатный спрайт Lampa (голый <svg><use/></svg> из
          кнопок карточки) только уменьшен до 26px и красится currentColor.
          Иконки плагинов (svg с viewBox/width/class) не трогаются. */
       r.push(S(['.selectbox .selectbox-item__icon']) + '{margin-right:.701em;min-width:1.403em;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center}');
       r.push(S(['.selectbox .selectbox-item__icon > svg:not([viewBox]):not([class]):not([width])']) + '{width:1.14em;height:1.14em}');
-      /* Чекбоксы фильтра (штатные selectbox-item--checkbox / __checkbox / --checked): квадрат слева, галочка check. */
-      r.push(S(['.selectbox .selectbox-item--checkbox']) + '{padding-left:2.543em;padding-right:.701em}');
-      r.push(S(['.selectbox .selectbox-item__checkbox']) + '{top:50%;right:auto;left:.701em;width:1.227em;height:1.227em;margin-top:-.614em;border:.044em solid ' + k.line + ';border-radius:.307em;-webkit-box-sizing:border-box;box-sizing:border-box}');
+      /* Чекбоксы фильтра (штатные selectbox-item--checkbox / __checkbox / --checked): квадрат слева, галочка check.
+         Task 53: производные от базового паддинга пересчитаны под 1.4em.
+         Квадрат встаёт на ту же кромку, что и текст (left:1.4em), зазор между
+         ним и текстом прежний: 2.543 − (.701 + 1.227) = .615em, значит
+         padding-left = 1.4 + 1.227 + .615 = 3.242em. */
+      r.push(S(['.selectbox .selectbox-item--checkbox']) + '{padding-left:3.242em;padding-right:1.4em}');
+      r.push(S(['.selectbox .selectbox-item__checkbox']) + '{top:50%;right:auto;left:1.4em;width:1.227em;height:1.227em;margin-top:-.614em;border:.044em solid ' + k.line + ';border-radius:.307em;-webkit-box-sizing:border-box;box-sizing:border-box}');
       r.push(S(['.selectbox .selectbox-item--checked .selectbox-item__checkbox']) + '{border-color:' + k.accent + '}');
-      r.push(S(['.selectbox .selectbox-item.focus .selectbox-item__checkbox']) + '{border-color:' + k.onac + '}');
-      r.push(S(['.selectbox .selectbox-item--checked.focus .selectbox-item__checkbox']) + '{background-color:' + k.onac + '}');
+      r.push(S(['.selectbox .selectbox-item.focus .selectbox-item__checkbox']) + '{border-color:' + k.bg + '}');
+      r.push(S(['.selectbox .selectbox-item--checked.focus .selectbox-item__checkbox']) + '{background-color:' + k.bg + '}');
       r.push(S(check) + '{top:50%;left:50%;right:auto;width:.877em;height:.877em;margin:-.439em 0 0 -.439em;border:0;-webkit-transform:none;transform:none;color:' + k.accent + ';background-color:currentColor}');
       useMask('check', S(check));
-      /* Выбранный пункт сортировки (штатные .selected / .picked): галочка check справа, как у Lampa. */
-      r.push(S(['.selectbox .selectbox-item.selected:not(.nomark)', '.selectbox .selectbox-item.picked']) + '{padding-right:2.63em}');
-      r.push(S(sortCheck) + '{top:50%;right:.701em;width:.964em;height:.964em;margin-top:-.482em;border:0;-webkit-transform:none;transform:none;color:' + k.accent + ';background-color:currentColor}');
+      /* Выбранный пункт сортировки (штатные .selected / .picked): галочка check справа, как у Lampa.
+         Task 53: тот же пересчёт от 1.4em. Галочка встаёт на правую кромку
+         текста (right:1.4em), зазор прежний: 2.63 − (.701 + .964) = .965em,
+         значит padding-right = 1.4 + .964 + .965 = 3.329em. */
+      r.push(S(['.selectbox .selectbox-item.selected:not(.nomark)', '.selectbox .selectbox-item.picked']) + '{padding-right:3.329em}');
+      r.push(S(sortCheck) + '{top:50%;right:1.4em;width:.964em;height:.964em;margin-top:-.482em;border:0;-webkit-transform:none;transform:none;color:' + k.accent + ';background-color:currentColor}');
       useMask('check', S(sortCheck));
-      r.push(S(['.selectbox .selectbox-item.selected.focus:not(.nomark)::after', '.selectbox .selectbox-item.picked.focus::after']) + '{color:' + k.onac + '}');
+      r.push(S(['.selectbox .selectbox-item.selected.focus:not(.nomark)::after', '.selectbox .selectbox-item.picked.focus::after']) + '{color:' + k.bg + '}');
       /* Без масок — штатная галочка Lampa из рамок (цвет тот же). */
       r.push(SUPPORTS_NO_MASK + S(check.concat(sortCheck)) + '{background-color:transparent;width:.3em;height:.6em;margin:-.4em 0 0 -.15em;border-right:.15em solid currentColor;border-bottom:.15em solid currentColor;-webkit-transform:rotate(45deg);transform:rotate(45deg)}}');
       /* Движение: lite — только цвета, off — без переходов (как у карточки). */
@@ -264,7 +293,10 @@
       var btnFocus = ['.torrent-checklist__footer .simple-button.focus'];
       r.push('/* 36 Подключение · 37 Ошибки — оболочка Modal (размеры окна штатные), спиннер, install, чек-лист, nohash, таймаут */');
       r.push(S(['.modal']) + '{background-color:rgba(' + k.bgRgb + ',.7)}');
-      r.push(S(['.modal .modal__content']) + '{background-color:' + k.panel + ';border-radius:.614em;-webkit-box-shadow:0 1.315em 3.945em rgba(0,0,0,.7);box-shadow:0 1.315em 3.945em rgba(0,0,0,.7);color:' + k.text + ';font-family:' + k.fontBody + '}');
+      /* Task 53: backdrop-filter снят по той же причине, что у панели Select
+         выше — Lampa вешает blur(1.6em) на .modal__content одним правилом с
+         .selectbox__content (vendor/lampa/css/app.css:16047-16059). */
+      r.push(S(['.modal .modal__content']) + '{background-color:' + k.panel + ';border-radius:.614em;-webkit-box-shadow:0 1.315em 3.945em rgba(0,0,0,.7);box-shadow:0 1.315em 3.945em rgba(0,0,0,.7);color:' + k.text + ';font-family:' + k.fontBody + ';-webkit-backdrop-filter:none;backdrop-filter:none}');
       r.push(S(['.modal .modal__head']) + '{margin-bottom:.701em;padding-bottom:.701em;border-bottom:.044em solid ' + k.line + '}');
       /* Заголовок окна и заголовок общего блока .error — один кегль (дизайн: 28px на всех окнах пути). */
       r.push(S(['.modal .modal__title', '.modal .error__title']) + '{font-family:' + k.fontBody + ';font-weight:700;font-size:1.227em;line-height:1.1}');

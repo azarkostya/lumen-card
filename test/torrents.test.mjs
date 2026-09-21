@@ -213,6 +213,117 @@ test('внутри панели ничего не скрыто', () => {
   for (const r of rules()) if (/\.selectbox/.test(r)) assert.ok(!/display:none/.test(r), r);
 });
 
+/* -------------------------------------------------------------------- */
+/* Task 53: меню (Select/Modal) — отступы, инверсия фокуса, без размытия  */
+/* подложки.                                                             */
+/* -------------------------------------------------------------------- */
+
+/* Тело первого правила, у которого хотя бы один селектор равен sel
+   (селекторы в css() уже развёрнуты парой «режим all + маркер режима path»,
+   поэтому достаточно проверить любую половину пары). */
+function declOf(sel) {
+  for (const r of rules()) {
+    const parsed = parse(r);
+    if (!parsed) continue;
+    for (const p of parsed) if (p.selectors.indexOf(sel) !== -1) return p.decl;
+  }
+  return null;
+}
+
+test('Task 53: пункт меню — паддинг .7em 1.4em и will-change:auto', () => {
+  const decl = declOf('.selectbox.lumen-select .selectbox-item');
+  assert.ok(decl, 'правило пункта меню не найдено');
+  assert.match(decl, /(^|;)padding:\.7em 1\.4em(;|$)/, 'текст должен стоять в 1.4em от кромки: ' + decl);
+  /* Lampa обещает движение каждому пункту (will-change:transform,
+     vendor/lampa/css/app.css:7154) — у нас двигается только тот, что в
+     фокусе, и только в режиме «Полные». */
+  assert.match(decl, /(^|;)will-change:auto(;|$)/, decl);
+
+  /* Производные от базового паддинга: квадрат чекбокса и галочка выбранного
+     пункта встают на ту же кромку 1.4em, а поле под текст растёт на их
+     ширину с прежним зазором — иначе они наедут на текст. */
+  assert.match(declOf('.selectbox.lumen-select .selectbox-item--checkbox'), /padding-left:3\.242em;padding-right:1\.4em/);
+  assert.match(declOf('.selectbox.lumen-select .selectbox-item__checkbox'), /(^|;)left:1\.4em(;|$)/);
+  assert.match(declOf('.selectbox.lumen-select .selectbox-item.selected:not(.nomark)'), /(^|;)padding-right:3\.329em(;|$)/);
+  assert.match(declOf('.selectbox.lumen-select .selectbox-item.selected:not(.nomark)::after'), /(^|;)right:1\.4em(;|$)/);
+});
+
+test('Task 53: фокус пункта — инверсия, и всё внутри фокуса согласовано с ней', () => {
+  const k = baseLC.tokens();
+  assert.equal(declOf('.selectbox.lumen-select .selectbox-item.focus').indexOf('background-color:' + k.text + ';color:' + k.bg), 0,
+    'фокус обязан быть инверсией k.text/k.bg');
+  /* Подпись, рамка и заливка чекбокса, галочка выбранного пункта — всё, что
+     стояло на k.onac (тексте на акценте), переезжает на k.bg. */
+  for (const sel of [
+    '.selectbox.lumen-select .selectbox-item.focus .selectbox-item__subtitle',
+    '.selectbox.lumen-select .selectbox-item.focus .selectbox-item__checkbox',
+    '.selectbox.lumen-select .selectbox-item--checked.focus .selectbox-item__checkbox',
+    '.selectbox.lumen-select .selectbox-item.selected.focus:not(.nomark)::after'
+  ]) {
+    const decl = declOf(sel);
+    assert.ok(decl, 'правило не найдено: ' + sel);
+    assert.ok(decl.indexOf(k.bg) !== -1, sel + ': цвет не согласован с инверсией: ' + decl);
+    assert.equal(decl.indexOf(k.onac), -1, sel + ': остался цвет текста на акценте: ' + decl);
+  }
+  /* Ни одного правила фокуса в блоке selectbox, где на светлой заливке
+     остался бы акцент или цвет текста на нём. Исключение — заливка самого
+     квадрата чекбокса: она k.bg, и галочка на ней рисуется акцентом
+     (правило .selectbox-item--checked .selectbox-item__checkbox::after). */
+  for (const r of rules()) {
+    const parsed = parse(r);
+    if (!parsed) continue;
+    for (const p of parsed) {
+      const own = p.selectors.some((s) => /\.selectbox(\.lumen-select)? .*\.selectbox-item[^ ]*\.focus/.test(s));
+      if (!own) continue;
+      if (p.selectors.some((s) => s.indexOf('__checkbox::after') !== -1)) continue;
+      assert.equal(p.decl.indexOf(k.onac), -1, 'цвет текста на акценте внутри инверсии: ' + p.selectors.join(',') + ' -> ' + p.decl);
+      assert.equal(p.decl.indexOf(k.accent), -1, 'акцент внутри инверсии: ' + p.selectors.join(',') + ' -> ' + p.decl);
+    }
+  }
+});
+
+/* Замер на живой Lampa 3.3.4 (localhost:8766, 2026-09-21): заливка фокуса
+   стоит во всех трёх режимах движения и в обоих режимах меню. Тест
+   закрывает единственный способ её потерять — правило режима, которое
+   перекрыло бы background у того же элемента: правил с заливкой на
+   .selectbox-item.focus ровно одно, значит спорить с ним нечему, какой бы
+   класс lumen-motion-* ни стоял на body. */
+test('Task 53: во всех трёх режимах движения у .selectbox-item.focus есть непрозрачная заливка', () => {
+  /* Селектор действует в режиме mode, если он либо не упоминает режим вовсе,
+     либо упоминает именно этот. */
+  const appliesIn = (sel, mode) => !/lumen-motion-/.test(sel) || sel.indexOf('lumen-motion-' + mode) !== -1;
+  /* Селектор попадает в фокусный пункт меню: либо прямо .selectbox-item.focus,
+     либо базовое правило .selectbox-item (фокусный пункт — тоже пункт). */
+  const hitsFocusItem = (sel) => /\.selectbox-item(\.focus)?$/.test(sel);
+
+  for (const mode of ['full', 'lite', 'off']) {
+    const fills = [];
+    for (const r of rules()) {
+      const parsed = parse(r);
+      if (!parsed) continue;
+      for (const p of parsed) {
+        if (!p.selectors.some((s) => appliesIn(s, mode) && hitsFocusItem(s))) continue;
+        for (const m of p.decl.matchAll(/(?:^|;)background(?:-color)?:([^;]+)/g)) fills.push(m[1]);
+      }
+    }
+    assert.equal(fills.length, 1, mode + ': заливок на фокусном пункте должно быть ровно одна, нашлось ' + fills.length + ' — ' + fills.join(' | '));
+    assert.match(fills[0], /^#[0-9A-Fa-f]{6}$/, mode + ': заливка обязана быть непрозрачной: ' + fills[0]);
+  }
+});
+
+test('Task 53: подложки Select и Modal — без backdrop-filter, парой с -webkit-', () => {
+  /* Lampa под body.glass--style вешает на .selectbox__content, .modal__content
+     и ещё шесть узлов одним правилом background-color rgba(70,70,70,.3) плюс
+     blur(1.6em) — vendor/lampa/css/app.css:16047-16059. Наши панели
+     непрозрачны, размытие под ними не видно, а WebView читает ради него
+     пиксели под элементом каждый кадр. */
+  for (const sel of ['.selectbox.lumen-select .selectbox__content', '.modal.lumen-modal .modal__content']) {
+    const decl = declOf(sel);
+    assert.ok(decl, 'правило не найдено: ' + sel);
+    assert.match(decl, /-webkit-backdrop-filter:none;backdrop-filter:none/, sel + ': ' + decl);
+  }
+});
+
 test('Select: иконки чужих плагинов не трогаются — нет правил на svg внутри __icon, кроме штатного спрайта без атрибутов', () => {
   for (const r of rules()) {
     const parsed = parse(r);
