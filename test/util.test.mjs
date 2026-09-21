@@ -247,17 +247,19 @@ test('posterSize: наименьший размер TMDB с допуском 15%
   assert.equal(u.posterSize(5000), 'w780', 'потолок: original постера плагину не нужен');
 });
 
-/* Ревью Task 39 (п.1): у кадров тот же допуск 15%, что у постеров, — на
-   1920 физических пикселях w1280 растягивается в полтора раза, и это
-   заметно. */
-test('frameSize: кадр, который смотрят, — original уже на Full HD', () => {
+/* Task 47: порог кадра поднят с 1280 на 1920 физических пикселей. На 1080p
+   w1280 растягивается в полтора раза — осознанная плата за память: original
+   у TMDB обычно 3840×2160, это 31.6 МБ RGBA против 3.7 у w1280 (замер
+   координатора 2026-09-21 на Philips 50PUS8057, 960×540@2). Допуск FIT
+   прежний, 0.85. */
+test('frameSize: original — только выше 1080p', () => {
   assert.equal(u.frameSize(0), 'w1280', 'ширина неизвестна — дешёвый кадр');
   assert.equal(u.frameSize(1280), 'w1280');
-  assert.equal(u.frameSize(1366), 'w1280', 'узкое окно ТВ-браузера — w1280 по пикселю');
-  assert.equal(u.frameSize(1505), 'w1280', 'граница допуска: 1505 × 0.85 = 1279');
-  assert.equal(u.frameSize(1506), 'original');
-  assert.equal(u.frameSize(1920), 'original', 'Full HD: полуторный апскейл виден');
-  assert.equal(u.frameSize(3840), 'original');
+  assert.equal(u.frameSize(1366), 'w1280', 'узкое окно ТВ-браузера');
+  assert.equal(u.frameSize(1920), 'w1280', 'Full HD: платим апскейлом за память');
+  assert.equal(u.frameSize(2258), 'w1280', 'граница допуска: 2258 × 0.85 = 1919.3');
+  assert.equal(u.frameSize(2259), 'original', '2259 × 0.85 = 1920.15 — выше 1080p');
+  assert.equal(u.frameSize(3840), 'original', 'честное 4K-окно');
 });
 
 /* Ревью Task 39 (п.1): кадр-подложка (фон результата рулетки, opacity .22)

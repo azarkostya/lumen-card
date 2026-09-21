@@ -256,8 +256,13 @@ return 'w' + POSTERS[POSTERS.length - 1];
 
 
 
+
+
+
+
+
 function frameSize(px) {
-return (Number(px) || 0) * FIT > 1280 ? 'original' : 'w1280';
+return (Number(px) || 0) * FIT > 1920 ? 'original' : 'w1280';
 }
 
 
@@ -9425,6 +9430,9 @@ var loader = new Image();
 loader.decoding = 'async';
 var done = false;
 
+
+var decoding = typeof loader.decode === 'function';
+
 function finish(ok) {
 if (done) return;
 done = true;
@@ -9443,11 +9451,33 @@ warn('hero: frame failed', e);
 }
 }
 
-loader.onload = function () { finish(true); };
+function shown() { finish(true); }
+
+loader.onload = function () { if (!decoding) shown(); };
 loader.onerror = function () { finish(false); };
 state.loader = loader;
 state.loadTimer = setTimeout(function () { finish(false); }, LOAD_TIMEOUT);
 loader.src = url;
+
+
+
+
+
+
+
+
+
+
+if (decoding) {
+try {
+var decoded = loader.decode();
+if (decoded && typeof decoded.then === 'function') decoded.then(shown, shown);
+else decoding = false;
+} catch (e) {
+
+decoding = false;
+}
+}
 }
 
 

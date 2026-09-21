@@ -942,6 +942,9 @@
          плагина — фон карточки, слайдшоу, рулетка. */
       loader.decoding = 'async';
       var done = false;
+      /* Task 47: decode() есть с Chrome 64 (ресёрч §4); на движках постарше
+         остаётся прежний путь через onload. */
+      var decoding = typeof loader.decode === 'function';
 
       function finish(ok) {
         if (done) return;
@@ -961,11 +964,33 @@
         }
       }
 
-      loader.onload = function () { finish(true); };
+      function shown() { finish(true); }
+
+      loader.onload = function () { if (!decoding) shown(); };
       loader.onerror = function () { finish(false); };
       state.loader = loader;
       state.loadTimer = setTimeout(function () { finish(false); }, LOAD_TIMEOUT);
       loader.src = url;
+      /* Task 47: onload значит «байты пришли», а не «картинку можно
+         показать»: декодирование в этот момент ещё впереди и на слабом ТВ
+         происходит внутри растеризации, тайл за тайлом (at-raster decode,
+         ресёрч §1.4 — это и видно как чёрные полосы на кадре). decode()
+         резолвится, когда кадр уже декодирован и вставляется без
+         синхронной работы.
+         Показываем в ОБОИХ исходах: реджект — это, как правило, смена src
+         после вызова (ресёрч §4), то есть просто следующая карточка под
+         фокусом; кадр при этом загружен, а лишний показ отсекает общий
+         гард поколения (gen !== captured) внутри finish. */
+      if (decoding) {
+        try {
+          var decoded = loader.decode();
+          if (decoded && typeof decoded.then === 'function') decoded.then(shown, shown);
+          else decoding = false;
+        } catch (e) {
+          /* decode() бросил синхронно — остаёмся на onload. */
+          decoding = false;
+        }
+      }
     }
 
     /* Детали карточки: описание целиком, длительность/сезоны, жанры,

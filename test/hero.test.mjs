@@ -210,9 +210,9 @@ test('shouldUpdate: тот же id или не выдержана задержк
 /* Task 39: аргумент обеих функций — ФИЗИЧЕСКИЕ пиксели, а не CSS-ширина
    окна. У кадра общий порог LC.util.frameSize, у логотипа — его собственная
    рамка (LOGO_EM × TEXT_ZOOM). */
-test('sizeFor: кадр героя — original уже на Full HD', () => {
+test('sizeFor: кадр героя — original только выше 1080p', () => {
   assert.equal(H.sizeFor(1366), 'w1280', 'узкое окно');
-  assert.equal(H.sizeFor(1920), 'original', 'Full HD: w1280 растянулся бы в полтора раза');
+  assert.equal(H.sizeFor(1920), 'w1280', 'Task 47: на Full HD платим апскейлом за память');
   assert.equal(H.sizeFor(3840), 'original');
   assert.equal(H.sizeFor(0), 'w1280', 'ширина неизвестна — дешёвый кадр');
 });
@@ -426,7 +426,7 @@ test('фокус: ни монтирование, ни обработка фок�
   main.card1.addClass('focus');
   fireFocus(main.activity, main.card1);
   env.advance(400);
-  assert.equal(env.images[0].src, 'https://img/t/p/original/b1.jpg', 'фокус обработан');
+  assert.equal(env.images[0].src, 'https://img/t/p/w1280/b1.jpg', 'фокус обработан');
   assert.deepEqual(warnLog, []);
 });
 
@@ -485,7 +485,7 @@ test('фокус карточки: кадр грузится только пос
 
   env.advance(350);
   assert.equal(env.images.length, 1, 'ровно одна предзагрузка кадра');
-  assert.equal(env.images[0].src, 'https://img/t/p/original/b2.jpg', 'кадр карточки, на которой фокус остановился');
+  assert.equal(env.images[0].src, 'https://img/t/p/w1280/b2.jpg', 'кадр карточки, на которой фокус остановился');
   assert.equal(env.requests.length, 1);
   assert.equal(env.requests[0].url, 'movie/22');
 });
@@ -528,7 +528,7 @@ test('загруженный кадр проявляется вторым сло
   const b = node.find('.lumen-hero__bg--b');
   assert.equal(a.hasClass('is-active'), true, 'первый кадр проявлён');
   assert.equal(b.hasClass('is-active'), false);
-  assert.equal(a.css('background-image'), 'url("https://img/t/p/original/b1.jpg")');
+  assert.equal(a.css('background-image'), 'url("https://img/t/p/w1280/b1.jpg")');
 
   /* Ответ деталей дорисовывает мету, жанры и снимает скелетон. */
   env.requests[0].ok({ runtime: 100, genres: [{ name: 'драма' }], overview: 'полное', images: { logos: [{ file_path: '/l.png', iso_639_1: 'ru' }] } });
@@ -574,7 +574,7 @@ test('Task 40: без тяжёлых эффектов кадр меняется 
   env.advance(400);
   env.images[0].onload();
   assert.equal(a.hasClass('is-active'), true);
-  assert.equal(a.css('background-image'), 'url("https://img/t/p/original/b1.jpg")');
+  assert.equal(a.css('background-image'), 'url("https://img/t/p/w1280/b1.jpg")');
   assert.equal(b.hasClass('is-active'), false, 'второй слой не поднимался');
 
   /* Вторая карточка: кадр обязан приехать в ТОТ ЖЕ слой. */
@@ -583,7 +583,7 @@ test('Task 40: без тяжёлых эффектов кадр меняется 
   fireFocus(main.activity, main.card2);
   env.advance(400);
   env.images[env.images.length - 1].onload();
-  assert.equal(a.css('background-image'), 'url("https://img/t/p/original/b2.jpg")', 'подмена в том же слое');
+  assert.equal(a.css('background-image'), 'url("https://img/t/p/w1280/b2.jpg")', 'подмена в том же слое');
   assert.equal(b.hasClass('is-active'), false, 'второй слой так и не понадобился');
   assert.equal(b.css('background-image'), undefined, 'во втором слое картинки нет вовсе');
 });
@@ -786,7 +786,7 @@ test('mount с compact/hostClass: сжат всегда, класс хоста �
 
   fireFocus(grid, card);
   env.advance(400);
-  assert.equal(env.images[0].src, 'https://img/t/p/original/b3.jpg');
+  assert.equal(env.images[0].src, 'https://img/t/p/w1280/b3.jpg');
   assert.equal(node.hasClass('lumen-hero--compact'), true, 'компактный герой не разжимается по индексу ряда');
 
   env.hero.unmount();
@@ -903,6 +903,80 @@ test('Task 39: предзагрузчик кадра героя просит а�
   env.advance(400);
   assert.equal(env.images[0].decoding, 'async');
   assert.ok(env.images[0].src, 'адрес присвоен — то есть decoding стоял раньше него');
+});
+
+/* Task 47: перед показом кадра ждём img.decode() — промис резолвится, когда
+   картинку можно вставить без синхронного декодирования (Chrome 64+,
+   docs/research/2026-09-21-webview-perf.md §4). Заглушка Image с decode
+   заменяет ту, что ставит makeEnv, и складывает картинки в тот же массив. */
+function stubDecode(env) {
+  const images = env.images;
+  globalThis.Image = function () {
+    const self = this;
+    self.onload = null;
+    self.onerror = null;
+    self.src = '';
+    self.decoded = null;
+    self.decode = function () {
+      return new Promise((res, rej) => { self.decoded = { resolve: res, reject: rej }; });
+    };
+    images.push(self);
+  };
+}
+
+/* Микротаски: decode().then(...) срабатывает не в тот же тик, что resolve. */
+const tick = () => Promise.resolve().then(() => {});
+
+function focusedFrame() {
+  const env = makeEnv();
+  stubDecode(env);
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  const node = main.activity._children[0];
+  main.card1.addClass('focus');
+  fireFocus(main.activity, main.card1);
+  env.advance(400);
+  return { env: env, bg: node.find('.lumen-hero__bg--a'), img: env.images[0] };
+}
+
+test('Task 47: кадр показывается после резолва decode(), а не в onload', async () => {
+  const f = focusedFrame();
+  assert.equal(typeof f.img.decoded.resolve, 'function', 'decode() вызван сразу после src');
+  f.img.onload();
+  await tick();
+  assert.equal(f.bg.css('background-image'), undefined, 'onload кадр не показывает: он ещё не декодирован');
+
+  f.img.decoded.resolve();
+  await tick();
+  assert.equal(f.bg.css('background-image'), 'url("https://img/t/p/w1280/b1.jpg")');
+  assert.equal(f.bg.hasClass('is-active'), true);
+});
+
+/* Реджект — норма при быстром листании: decode() отвергается, если src
+   сменился после вызова (ресёрч §4). Кадр в этом случае всё равно
+   показываем — картинка загружена, потеряна только подсказка о декоде;
+   актуальность запроса закрывает общий гард по поколению (gen !== captured
+   в finish, src/48_hero.js). */
+test('Task 47: реджект decode() кадр не теряет', async () => {
+  const f = focusedFrame();
+  f.img.decoded.reject(new Error('src changed'));
+  await tick();
+  assert.equal(f.bg.css('background-image'), 'url("https://img/t/p/w1280/b1.jpg")');
+  assert.deepEqual(warnLog, []);
+});
+
+/* Движок без decode (WebView до Chrome 64) — прежний путь через onload. */
+test('Task 47: без decode() кадр показывается по onload', () => {
+  const env = makeEnv();
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  const node = main.activity._children[0];
+  main.card1.addClass('focus');
+  fireFocus(main.activity, main.card1);
+  env.advance(400);
+  assert.equal(typeof env.images[0].decode, 'undefined', 'заглушка без decode');
+  env.images[0].onload();
+  assert.equal(node.find('.lumen-hero__bg--a').css('background-image'), 'url("https://img/t/p/w1280/b1.jpg")');
 });
 
 /* Task 39: размер кадра и логотипа считается по физическим пикселям, но
@@ -1120,7 +1194,7 @@ test('bigPoster: адрес того же постера в w500', () => {
 test('bigPoster: постер уже не мельче — грузить нечего', () => {
   assert.equal(H.bigPoster('https://img/t/p/w500/p1.jpg'), null);
   assert.equal(H.bigPoster('https://img/t/p/w780/p1.jpg'), null);
-  assert.equal(H.bigPoster('https://img/t/p/original/p1.jpg'), null);
+  assert.equal(H.bigPoster('https://img/t/p/w1280/p1.jpg'), null);
 });
 
 test('bigPoster: чужой адрес и мусор — null', () => {

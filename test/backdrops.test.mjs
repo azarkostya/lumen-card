@@ -176,7 +176,8 @@ test('apply: таймаут (8с) без onload/onerror -> .lumen-bg--blur с п
 });
 
 /* Task 39: кадр карточки — полноэкранный, поэтому размер выбирается по
-   физической ширине экрана: до Full HD включительно w1280, шире — original.
+   физической ширине экрана. Task 47: порог поднят — 1080p включительно
+   w1280, original только выше (см. frameSize в src/10_util.js).
    Постер размытого фона (Task 38) от DPR не зависит вовсе. */
 test('Task 39: размер кадра по физическим пикселям, w92 размытого фона не меняется', () => {
   const had = Object.prototype.hasOwnProperty.call(globalThis, 'innerWidth');
@@ -189,7 +190,7 @@ test('Task 39: размер кадра по физическим пикселя�
     let body = fakeBody();
     LC.backdrops.apply(null, body, { id: 1, backdrop_path: '/a.jpg', poster_path: '/poster.jpg' });
     mount(body._children[0]);
-    assert.ok(loaders[0].src.includes('/original/'), '1920 физических — original: ' + loaders[0].src);
+    assert.ok(loaders[0].src.includes('/w1280/'), '1920 физических — w1280: ' + loaders[0].src);
 
     globalThis.innerWidth = 1366;
     LC = freshLC();

@@ -31,12 +31,13 @@ const A = fresh().api;
 /* ====================================================================== */
 
 /* Task 39: порог общий с кадром карточки и кадром героя (LC.util.frameSize).
-   Ревью Task 39 (п.1): у кадра, который смотрят, тот же допуск 15%, что у
-   постеров, — на Full HD это уже original. */
-test('sizeFor: кадр заставки — original уже на Full HD', () => {
+   Task 47: порог поднят до 1080p — на слабом ТВ original даёт чёрные полосы
+   (at-raster decode, см. комментарий у frameSize в src/10_util.js). */
+test('sizeFor: кадр заставки — original только выше 1080p', () => {
   assert.equal(A.sizeFor(1366), 'w1280', 'узкое окно ТВ-браузера');
-  assert.equal(A.sizeFor(1505), 'w1280', 'граница допуска');
-  assert.equal(A.sizeFor(1920), 'original');
+  assert.equal(A.sizeFor(1920), 'w1280', 'Full HD');
+  assert.equal(A.sizeFor(2258), 'w1280', 'граница допуска');
+  assert.equal(A.sizeFor(2259), 'original');
   assert.equal(A.sizeFor(3840), 'original');
   assert.equal(A.sizeFor(0), 'w1280', 'размер неизвестен — дешёвый кадр');
   assert.equal(A.sizeFor(null), 'w1280');
@@ -401,7 +402,7 @@ test('start: кадр выбирается по физическим пиксе�
   const dense = env({ width: 960, dpr: 2 });
   dense.api.install();
   dense.fire();
-  assert.ok(dense.layer().find('.lumen-ambient__img.is-active').css('background-image').indexOf('t/p/original') >= 0,
+  assert.ok(dense.layer().find('.lumen-ambient__img.is-active').css('background-image').indexOf('t/p/w1280') >= 0,
     '960 CSS × DPR 2 = 1920 физических — тот же кадр, что у Full HD');
   dense.api.uninstall();
 
