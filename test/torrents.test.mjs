@@ -153,7 +153,10 @@ test('чек-лист: три состояния шагов — будущий s
     return '';
   };
   assert.match(decl('.torrent-checklist__list > li'), new RegExp('color:' + k.smoke));
-  assert.match(decl('.torrent-checklist__list > li.wait'), new RegExp('color:' + k.text + '.*font-size:\\.964em|font-size:\\.964em.*color:' + k.text));
+  /* Ревью Task 63: обе ступени подняты до шкалы tvOS — обычный шаг Caption 2
+     (1.01em = 23 px), текущий Caption 1 (1.1em = 25 px). Разница кеглей
+     сохранена: именно она и отличает текущий шаг от остальных. */
+  assert.match(decl('.torrent-checklist__list > li.wait'), new RegExp('color:' + k.text + '.*font-size:1\\.1em|font-size:1\\.1em.*color:' + k.text));
   assert.match(decl('.torrent-checklist__list > li.wait.check'), /text-decoration:line-through/);
   assert.match(decl('.torrent-checklist__list > li.wait.check'), new RegExp('color:' + k.muted));
 });
@@ -674,4 +677,32 @@ test('маски: у каждого селектора с mask-image есть ф
     assert.ok(/(^|;)display:none/.test(decl) || /(^|;)background-color:transparent/.test(decl),
       'фолбэк не гасит закрашенный прямоугольник: ' + s + '\n  ' + decl);
   }
+});
+
+/* Ревью Task 63: задача обещала «ни один текст интерфейса не мельче 23 px», а
+   тест этого обещания читал только первую таблицу (src/30_css.js). Вторая —
+   экраны пути до плеера — и есть тот путь, которым пользователь смотрит всё:
+   выбор источника, список раздач, список файлов, чек-лист ошибок. Здесь было
+   больше тридцати объявлений ниже порога, вплоть до .745em = 17 px.
+   Порог тот же и по той же причине: Caption 2 tvOS — 23 физических px, база
+   Lampa 22.811, то есть 1.01em (docs/research/2026-09-21-tv-design-specs.md
+   §1). Единиц, кроме em, в этой таблице нет — проверяем и это. */
+test('Task 63: ни один текст экранов пути не мельче минимума tvOS', () => {
+  const TV_MIN = 1.01;
+  const small = [];
+  let checked = 0;
+  for (const rule of rules()) {
+    const parsed = parse(rule);
+    if (!parsed) continue;
+    for (const p of parsed) {
+      const found = /(?:^|;)font-size:([^;]+)/.exec(p.decl);
+      if (!found) continue;
+      const em = /^((?:\d*\.)?\d+)em$/.exec(found[1].trim());
+      assert.ok(em, 'кегль задан не в em: ' + p.selectors.join(',') + ' {' + found[1] + '}');
+      checked++;
+      if (parseFloat(em[1]) < TV_MIN - 0.005) small.push(p.selectors.join(',') + ': ' + em[1] + 'em = ' + (parseFloat(em[1]) * 22.811).toFixed(1) + ' px');
+    }
+  }
+  assert.ok(checked > 40, 'подозрительно мало кеглей проверено: ' + checked);
+  assert.deepEqual(small, [], 'текст экранов пути мельче минимума tvOS (23 px = 1.01em)');
 });
