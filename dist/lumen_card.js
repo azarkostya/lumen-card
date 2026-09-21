@@ -19717,12 +19717,35 @@ age.text((was ? was + ' · ' : '') + '★ ' + vote.toFixed(1));
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+function captionText(badge) {
+if (badge.kind !== 'custom') return badge.text;
+var cut = badge.text.indexOf(' · ');
+return cut > 0 ? badge.text.slice(0, cut) : badge.text;
+}
+
 function caption(el, badge) {
 var age = $(el).find('.card__age');
+
+
+
 if (!age || !age.length) return;
 var was = '' + age.text();
+var text = captionText(badge);
 var box = $('<span class="lumen-badge-cap lumen-badge-cap--' + badge.kind + '"></span>');
-box.text(was ? badge.text + ' · ' : badge.text);
+box.text(was ? text + ' · ' : text);
 age.prepend(box);
 }
 
@@ -19874,6 +19897,22 @@ warn('badges: strip failed', e);
 }
 }
 
+
+
+
+
+
+function redraw(root) {
+try {
+if (!root || !root.length) return;
+strip(root);
+if (mode() === 'off') return;
+scan(root);
+} catch (e) {
+warn('badges: redraw failed', e);
+}
+}
+
 function ownedBy(render) {
 if (!state || !state.root || !state.root.length) return false;
 if (!render || !render.length) return false;
@@ -19940,6 +19979,7 @@ mount: mount,
 mountCurrent: mountCurrent,
 unmount: unmount,
 strip: strip,
+redraw: redraw,
 detach: detach,
 owns: owns,
 active: active,
@@ -24029,17 +24069,22 @@ lumen_card_group_look: { ru: 'Оформление', en: 'Appearance', uk: 'Оф
 
 
 lumen_group_preset: { ru: 'Готовый стиль', en: 'Ready-made style', uk: 'Готовий стиль' },
+
+
+
+
+
 lumen_preset_appletv_name: { ru: 'Применить стиль Apple TV', en: 'Apply the Apple TV style', uk: 'Застосувати стиль Apple TV' },
 lumen_preset_appletv_descr: {
-ru: 'Нейтральный стиль вместо тёплого: глубокая чёрная тема, графитовый акцент, шрифт Inter, метки в подписи под обложкой, цвет постера только в фоне. Меняет только вид — ключ API, масштаб, анимации, заставку и состав рядов не трогает. Каждый пункт потом можно поправить по отдельности.',
-en: 'A neutral style instead of the warm one: deep black theme, graphite accent, the Inter font, badges in the caption under the artwork, poster colour in the background only. It changes the look alone — the API key, scale, animations, screensaver and row selection stay untouched. Every item can still be adjusted one by one afterwards.',
-uk: 'Нейтральний стиль замість теплого: глибока чорна тема, графітовий акцент, шрифт Inter, мітки в підписі під обкладинкою, колір постера лише у тлі. Змінює тільки вигляд — ключ API, масштаб, анімації, заставку та склад рядів не чіпає. Кожен пункт потім можна поправити окремо.'
+ru: 'Нейтральный стиль вместо тёплого. Выставляет семь пунктов «Оформления» разом: тема «Глубокая чёрная», акцент «Графит», шрифт Inter, метки «В подписи», цвет постера «Только фон», кадр над рядами «Крупный», акцент от постера включён. Последние два — значения по умолчанию плагина: если вы меняли их руками, кнопка вернёт их обратно. Ключ API, масштаб, анимации, заставку, состав рядов и настройки самой Lampa не трогает. После кнопки любой пункт правится по отдельности.',
+en: 'A neutral style instead of the warm one. It sets seven items of "Appearance" at once: the "Deep black" theme, the "Graphite" accent, the Inter font, badges "In the caption", poster colour "Background only", hero "Large", accent from poster on. The last two are the plugin defaults: if you changed them by hand, the button changes them back. The API key, scale, animations, screensaver, row selection and Lampa own settings stay untouched. After the button every item can be adjusted one by one.',
+uk: 'Нейтральний стиль замість теплого. Виставляє сім пунктів «Оформлення» разом: тема «Глибока чорна», акцент «Графіт», шрифт Inter, мітки «У підписі», колір постера «Лише тло», кадр над рядами «Великий», акцент від постера увімкнено. Останні два — значення за замовчуванням плагіна: якщо ви змінювали їх руками, кнопка поверне їх назад. Ключ API, масштаб, анімації, заставку, склад рядів і налаштування самої Lampa не чіпає. Після кнопки кожен пункт правиться окремо.'
 },
 lumen_preset_lumen_name: { ru: 'Вернуть стиль Lumen', en: 'Restore the Lumen style', uk: 'Повернути стиль Lumen' },
 lumen_preset_lumen_descr: {
-ru: 'Возвращает оформление к тому, каким плагин приходит с завода: тёплая тёмная тема, песочный акцент, шрифт Golos Text, метки на постерах, полная подкраска от постера. Настройки вне оформления остаются вашими.',
-en: 'Returns the look to the way the plugin ships: warm dark theme, sand accent, the Golos Text font, badges on the posters, full poster tinting. Everything outside the look stays yours.',
-uk: 'Повертає оформлення до того, яким плагін приходить із заводу: тепла темна тема, піщаний акцент, шрифт Golos Text, мітки на постерах, повне підфарбування від постера. Налаштування поза оформленням лишаються вашими.'
+ru: 'Возвращает те же семь пунктов к значениям по умолчанию плагина: тёплая тёмная тема, песочный акцент, шрифт Golos Text, метки «На постере», полная подкраска от постера, кадр над рядами «Крупный», акцент от постера включён. Настройки вне оформления остаются вашими.',
+en: 'Returns the same seven items to the plugin defaults: warm dark theme, sand accent, the Golos Text font, badges "On the poster", full poster tinting, hero "Large", accent from poster on. Everything outside the look stays yours.',
+uk: 'Повертає ті самі сім пунктів до значень за замовчуванням плагіна: тепла темна тема, піщаний акцент, шрифт Golos Text, мітки «На постері», повне підфарбування від постера, кадр над рядами «Великий», акцент від постера увімкнено. Налаштування поза оформленням лишаються вашими.'
 },
 
 
@@ -24076,11 +24121,16 @@ lumen_card_accent_lavender: { ru: 'Лаванда', en: 'Lavender', uk: 'Лав�
 lumen_card_accent_graphite: { ru: 'Графит', en: 'Graphite', uk: 'Графіт' },
 
 
+
+
+
+
+
 lumen_accent_auto_name: { ru: 'Акцент от постера', en: 'Accent from poster', uk: 'Акцент від постера' },
 lumen_accent_auto_descr: {
-ru: 'В открытой карточке цвет кнопок, колец фокуса и подсветок берётся из постера фильма. На главной от постера под фокусом меняются фон страницы, кольцо вокруг карточки и чипы настроения — когда фокус постоял на карточке 3 секунды; при быстром листании ничего не считается. Тёмный цвет плагин высветляет, чтобы подписи читались; если постер не отдаёт пиксели, остаётся акцент, выбранный выше.',
-en: 'Inside an open film card the colour of buttons, focus rings and highlights is taken from the poster. On the home screen the poster under focus changes the page background, the ring around the card and the mood chips — once focus has rested on a card for 3 seconds; fast browsing computes nothing. A dark colour is lightened so that labels stay readable; if the poster does not give up its pixels, the accent chosen above stays in place.',
-uk: 'У відкритій картці колір кнопок, кілець фокуса та підсвічувань береться з постера фільму. На головній від постера під фокусом змінюються тло сторінки, кільце навколо картки та чипи настрою — коли фокус постояв на картці 3 секунди; при швидкому гортанні нічого не рахується. Темний колір плагін висвітлює, щоб підписи читалися; якщо постер не віддає пікселі, залишається акцент, вибраний вище.'
+ru: 'В открытой карточке цвет кнопок, колец фокуса и подсветок берётся из постера фильма. На главной от постера под фокусом меняются фон страницы, вуаль кадра и подложка карточки под фокусом — когда фокус постоял на карточке 3 секунды; при быстром листании ничего не считается. Тёмный цвет плагин высветляет, чтобы подписи читались; если постер не отдаёт пиксели, остаётся акцент, выбранный выше.',
+en: 'Inside an open film card the colour of buttons, focus rings and highlights is taken from the poster. On the home screen the poster under focus changes the page background, the hero veil and the plate under the focused card — once focus has rested on a card for 3 seconds; fast browsing computes nothing. A dark colour is lightened so that labels stay readable; if the poster does not give up its pixels, the accent chosen above stays in place.',
+uk: 'У відкритій картці колір кнопок, кілець фокуса та підсвічувань береться з постера фільму. На головній від постера під фокусом змінюються тло сторінки, вуаль кадру та підкладка картки під фокусом — коли фокус постояв на картці 3 секунди; при швидкому гортанні нічого не рахується. Темний колір плагін висвітлює, щоб підписи читалися; якщо постер не віддає пікселі, залишається акцент, вибраний вище.'
 },
 
 
@@ -24958,6 +25008,16 @@ name === 'lumen_accent_scope') { LC.injectCss(); return true; }
 
 if (name === 'lumen_accent_auto') {
 try { if (LC.applyAccentPref) LC.applyAccentPref(); } catch (eAccent) {}
+
+
+
+
+
+
+
+
+
+if (LC.pref('lumen_accent_scope', 'full') === 'veil') LC.injectCss();
 return true;
 }
 
@@ -25041,6 +25101,9 @@ return true;
 
 
 if (name === 'lumen_transition') return true;
+
+
+
 
 
 
@@ -25173,6 +25236,14 @@ warn('home rows select failed', err);
 
 
 
+
+
+
+
+
+
+
+
 function presetCurrent(key) {
 var entry = LC.prefs.find(key);
 var def = entry ? entry['default'] : '';
@@ -25183,6 +25254,25 @@ if (typeof def === 'boolean') return LC.prefs.boolOf(raw, def);
 return raw;
 }
 
+
+
+
+
+
+
+
+
+function refreshParamRow(key) {
+try {
+if (typeof $ !== 'function') return;
+if (!Lampa.Params || typeof Lampa.Params.update !== 'function') return;
+var elem = $('.settings-param[data-name="' + key + '"]');
+if (elem && elem.length) Lampa.Params.update(elem);
+} catch (e) {
+warn('preset row refresh failed', e);
+}
+}
+
 function applyPreset(id) {
 try {
 if (!window.Lampa || !Lampa.Storage) return;
@@ -25190,15 +25280,20 @@ if (typeof Lampa.Storage.set !== 'function' || typeof Lampa.Storage.get !== 'fun
 var values = LC.prefs.presetValues(id);
 var keys = LC.prefs.PRESET_KEYS;
 var changed = [];
+var written = [];
 for (var i = 0; i < keys.length; i++) {
 var key = keys[i];
 if (!Object.prototype.hasOwnProperty.call(values, key)) continue;
 var want = values[key];
 if (presetCurrent(key) === want) continue;
-Lampa.Storage.set(key, typeof want === 'boolean' ? (want ? 'true' : 'false') : want);
+Lampa.Storage.set(key, typeof want === 'boolean' ? (want ? 'true' : 'false') : want, true);
+written.push(key);
+refreshParamRow(key);
 var entry = LC.prefs.find(key);
 if (entry) changed.push(LC.lang(entry.label));
 }
+
+if (written.length && LC.applyPresetChanges) LC.applyPresetChanges(written);
 
 
 
@@ -25709,6 +25804,17 @@ return null;
 
 
 
+
+
+
+
+
+
+
+
+
+
+
 var PRESET_KEYS = ['lumen_theme', 'lumen_card_accent', 'lumen_font', 'lumen_accent_auto',
 'lumen_accent_scope', 'lumen_hero_size', 'lumen_badges'];
 
@@ -25810,7 +25916,16 @@ return LC.prefs.badgesMode(LC.pref('lumen_badges', 'poster'));
 
 
 
+
+
+
+
+
+
+
+
 LC.accentScope = function () {
+if (!LC.pref('lumen_accent_auto', true)) return 'full';
 return LC.pref('lumen_accent_scope', 'full') === 'veil' ? 'veil' : 'full';
 };
 
@@ -28561,6 +28676,18 @@ LC.applyHeroSizePref = function () {
 if (!activated) return;
 try {
 LC.injectCss();
+remountHero();
+} catch (e) {
+warn('hero size pref failed', e);
+}
+};
+
+
+
+
+
+
+function remountHero() {
 if (LC.hero) {
 if (LC.pref('lumen_hero_size', 'large') === 'off') {
 if (LC.hero.unmount) LC.hero.unmount();
@@ -28569,10 +28696,7 @@ LC.hero.mountCurrent();
 }
 }
 if (LC.moods && LC.moods.mountCurrent) LC.moods.mountCurrent();
-} catch (e) {
-warn('hero size pref failed', e);
 }
-};
 
 
 
@@ -28594,12 +28718,78 @@ warn('hero size pref failed', e);
 LC.applyBadgesPref = function () {
 if (!activated) return;
 try {
-if (!LC.badges) return;
-LC.badges.uninstall();
-if (LC.badgesMode() !== 'off') LC.badges.install();
+remountBadges();
 LC.injectCss();
 } catch (e) {
 warn('badges pref failed', e);
+}
+};
+
+
+
+
+
+
+
+
+
+function remountBadges() {
+if (!LC.badges) return;
+LC.badges.uninstall();
+if (LC.badgesMode() !== 'off') LC.badges.install();
+redrawGridBadges();
+}
+
+function redrawGridBadges() {
+try {
+if (!LC.badges || typeof LC.badges.redraw !== 'function') return;
+if (!window.Lampa || !Lampa.Activity || typeof Lampa.Activity.active !== 'function') return;
+var act = Lampa.Activity.active();
+if (!act || act.component !== 'lumen_grid') return;
+if (!act.activity || typeof act.activity.render !== 'function') return;
+LC.badges.redraw(act.activity.render());
+} catch (e) {
+warn('badges grid redraw failed', e);
+}
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+LC.applyPresetChanges = function (keys) {
+if (!activated) return;
+try {
+if (!keys || !keys.length) return;
+var changed = {};
+for (var i = 0; i < keys.length; i++) changed[keys[i]] = true;
+if (changed.lumen_font) LC.injectFonts();
+LC.injectCss();
+if (changed.lumen_hero_size) remountHero();
+if (changed.lumen_badges) remountBadges();
+
+
+
+
+
+if (changed.lumen_accent_auto) {
+try { if (LC.applyAccentPref) LC.applyAccentPref(); } catch (eAccent) { warn('preset accent failed', eAccent); }
+}
+} catch (e) {
+warn('preset changes failed', e);
 }
 };
 

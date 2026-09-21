@@ -345,6 +345,46 @@ test('Task 62a: в режиме caption метка уходит в подпис�
   assert.equal(age.text(), '2017 · ★ 6.4', 'год и рейтинг остаются на месте');
 });
 
+/* Ревью Task 62: метка РЯДА («Новая серия · 12 сен» собирает src/45_personal.js)
+   в подписи теряет хвост с датой. Замер на стенде 960×540@2 (штатный масштаб,
+   Golos): подписи доступно 109.0 CSS px, полная метка просит 108.4 — год с
+   рейтингом (65.4) не поместились бы вовсе, а плашку .card__vote в этом виде
+   мы прячем. Без даты метка просит 66.1. */
+test('Task 62a: caption — у метки ряда остаётся повод без даты', () => {
+  const { api } = runtime({ badgesMode: function () { return 'caption'; } });
+  const card = makeCard({ release_date: '2026-12-17', lumen_badge: 'Новая серия · 12 сен' });
+  globalThis.window = { Lampa: {} };
+  try { api.decorate(card, null, null); } finally { delete globalThis.window; }
+  assert.equal(card._children[1]._children[0].text(), 'Новая серия · ');
+
+  /* Метка без хвоста остаётся целой. */
+  const plain = makeCard({ release_date: '2026-12-17', lumen_badge: 'Через 14 дней' });
+  globalThis.window = { Lampa: {} };
+  try { api.decorate(plain, null, null); } finally { delete globalThis.window; }
+  assert.equal(plain._children[1]._children[0].text(), 'Через 14 дней · ');
+});
+
+test('Task 62a: на постере метка ряда остаётся полной — там ей разрешены две строки', () => {
+  const { api } = runtime({ badgesMode: function () { return 'poster'; } });
+  const card = makeCard({ release_date: '2026-12-17', lumen_badge: 'Новая серия · 12 сен' });
+  globalThis.window = { Lampa: {} };
+  try { api.decorate(card, null, null); } finally { delete globalThis.window; }
+  const badge = card._children[0]._children.filter((c) => c.hasClass('lumen-badge'))[0];
+  assert.equal(badge.text(), 'Новая серия · 12 сен', 'дата на постере не теряется');
+});
+
+/* Сетка подборки снимает .card__age у карточки без года (src/46_hub.js) —
+   в этом виде метку тогда ставить некуда, и карточка остаётся без неё. */
+test('Task 62a: caption — подписи нет вовсе, метка просто не ставится', () => {
+  const { api } = runtime({ badgesMode: function () { return 'caption'; } });
+  const view = new FakeEl(['card__view']);
+  const card = new FakeEl(['card'], [view]);
+  card.card_data = { release_date: '2026-12-17' };
+  globalThis.window = { Lampa: {} };
+  try { api.decorate(card, null, null); } finally { delete globalThis.window; }
+  assert.deepEqual(view._children, [], 'на постер метка в этом виде не уходит');
+});
+
 test('Task 62a: caption — пустая подпись обходится без висящего разделителя', () => {
   const { api } = runtime({ badgesMode: function () { return 'caption'; } });
   const card = makeCard({ release_date: '2026-12-17' }, '');

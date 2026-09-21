@@ -41,17 +41,22 @@
        значений пунктов «Оформления». Название группы говорит именно про
        стиль целиком, чтобы не путалось с пунктами под ней. */
     lumen_group_preset: { ru: 'Готовый стиль', en: 'Ready-made style', uk: 'Готовий стиль' },
+    /* Ревью Task 62: описание перечисляет ВСЕ семь пунктов, которые кнопка
+       выставляет, включая те два, что в стиле Apple TV совпадают со
+       значениями по умолчанию (кадр над рядами и акцент от постера): они
+       тоже переписываются, и человек, поставивший «Кадр над рядами →
+       Выключен», обязан узнать об этом до нажатия, а не после. */
     lumen_preset_appletv_name: { ru: 'Применить стиль Apple TV', en: 'Apply the Apple TV style', uk: 'Застосувати стиль Apple TV' },
     lumen_preset_appletv_descr: {
-      ru: 'Нейтральный стиль вместо тёплого: глубокая чёрная тема, графитовый акцент, шрифт Inter, метки в подписи под обложкой, цвет постера только в фоне. Меняет только вид — ключ API, масштаб, анимации, заставку и состав рядов не трогает. Каждый пункт потом можно поправить по отдельности.',
-      en: 'A neutral style instead of the warm one: deep black theme, graphite accent, the Inter font, badges in the caption under the artwork, poster colour in the background only. It changes the look alone — the API key, scale, animations, screensaver and row selection stay untouched. Every item can still be adjusted one by one afterwards.',
-      uk: 'Нейтральний стиль замість теплого: глибока чорна тема, графітовий акцент, шрифт Inter, мітки в підписі під обкладинкою, колір постера лише у тлі. Змінює тільки вигляд — ключ API, масштаб, анімації, заставку та склад рядів не чіпає. Кожен пункт потім можна поправити окремо.'
+      ru: 'Нейтральный стиль вместо тёплого. Выставляет семь пунктов «Оформления» разом: тема «Глубокая чёрная», акцент «Графит», шрифт Inter, метки «В подписи», цвет постера «Только фон», кадр над рядами «Крупный», акцент от постера включён. Последние два — значения по умолчанию плагина: если вы меняли их руками, кнопка вернёт их обратно. Ключ API, масштаб, анимации, заставку, состав рядов и настройки самой Lampa не трогает. После кнопки любой пункт правится по отдельности.',
+      en: 'A neutral style instead of the warm one. It sets seven items of "Appearance" at once: the "Deep black" theme, the "Graphite" accent, the Inter font, badges "In the caption", poster colour "Background only", hero "Large", accent from poster on. The last two are the plugin defaults: if you changed them by hand, the button changes them back. The API key, scale, animations, screensaver, row selection and Lampa own settings stay untouched. After the button every item can be adjusted one by one.',
+      uk: 'Нейтральний стиль замість теплого. Виставляє сім пунктів «Оформлення» разом: тема «Глибока чорна», акцент «Графіт», шрифт Inter, мітки «У підписі», колір постера «Лише тло», кадр над рядами «Великий», акцент від постера увімкнено. Останні два — значення за замовчуванням плагіна: якщо ви змінювали їх руками, кнопка поверне їх назад. Ключ API, масштаб, анімації, заставку, склад рядів і налаштування самої Lampa не чіпає. Після кнопки кожен пункт правиться окремо.'
     },
     lumen_preset_lumen_name: { ru: 'Вернуть стиль Lumen', en: 'Restore the Lumen style', uk: 'Повернути стиль Lumen' },
     lumen_preset_lumen_descr: {
-      ru: 'Возвращает оформление к тому, каким плагин приходит с завода: тёплая тёмная тема, песочный акцент, шрифт Golos Text, метки на постерах, полная подкраска от постера. Настройки вне оформления остаются вашими.',
-      en: 'Returns the look to the way the plugin ships: warm dark theme, sand accent, the Golos Text font, badges on the posters, full poster tinting. Everything outside the look stays yours.',
-      uk: 'Повертає оформлення до того, яким плагін приходить із заводу: тепла темна тема, піщаний акцент, шрифт Golos Text, мітки на постерах, повне підфарбування від постера. Налаштування поза оформленням лишаються вашими.'
+      ru: 'Возвращает те же семь пунктов к значениям по умолчанию плагина: тёплая тёмная тема, песочный акцент, шрифт Golos Text, метки «На постере», полная подкраска от постера, кадр над рядами «Крупный», акцент от постера включён. Настройки вне оформления остаются вашими.',
+      en: 'Returns the same seven items to the plugin defaults: warm dark theme, sand accent, the Golos Text font, badges "On the poster", full poster tinting, hero "Large", accent from poster on. Everything outside the look stays yours.',
+      uk: 'Повертає ті самі сім пунктів до значень за замовчуванням плагіна: тепла темна тема, піщаний акцент, шрифт Golos Text, мітки «На постері», повне підфарбування від постера, кадр над рядами «Великий», акцент від постера увімкнено. Налаштування поза оформленням лишаються вашими.'
     },
     /* Короткие имена стилей для подтверждения Lampa.Noty: «Стиль Apple TV ·
        Тема, Акцентный цвет, Шрифт». Отдельно от подписей кнопок — те
@@ -88,11 +93,16 @@
     lumen_card_accent_graphite: { ru: 'Графит', en: 'Graphite', uk: 'Графіт' },
     /* Task 24 (фаза 3): акцент от постера открытого фильма. Task 35 (фаза 4):
        включён по умолчанию (значение — в src/81_prefs.js). */
+    /* Ревью Task 62 (М8): описание приведено к факту. Кольца вокруг карточки
+       нет с Task 42 (акцент переехал подложкой под постер, src/30_css.js,
+       AR.cardFocus), а чипы настроения от акцента не зависят с Task 43 — их
+       фокус стал инверсией P.text/P.bg. Обещать их было ложью тем заметнее,
+       что рядом встал новый пункт про ОБЛАСТЬ подкраски. */
     lumen_accent_auto_name: { ru: 'Акцент от постера', en: 'Accent from poster', uk: 'Акцент від постера' },
     lumen_accent_auto_descr: {
-      ru: 'В открытой карточке цвет кнопок, колец фокуса и подсветок берётся из постера фильма. На главной от постера под фокусом меняются фон страницы, кольцо вокруг карточки и чипы настроения — когда фокус постоял на карточке 3 секунды; при быстром листании ничего не считается. Тёмный цвет плагин высветляет, чтобы подписи читались; если постер не отдаёт пиксели, остаётся акцент, выбранный выше.',
-      en: 'Inside an open film card the colour of buttons, focus rings and highlights is taken from the poster. On the home screen the poster under focus changes the page background, the ring around the card and the mood chips — once focus has rested on a card for 3 seconds; fast browsing computes nothing. A dark colour is lightened so that labels stay readable; if the poster does not give up its pixels, the accent chosen above stays in place.',
-      uk: 'У відкритій картці колір кнопок, кілець фокуса та підсвічувань береться з постера фільму. На головній від постера під фокусом змінюються тло сторінки, кільце навколо картки та чипи настрою — коли фокус постояв на картці 3 секунди; при швидкому гортанні нічого не рахується. Темний колір плагін висвітлює, щоб підписи читалися; якщо постер не віддає пікселі, залишається акцент, вибраний вище.'
+      ru: 'В открытой карточке цвет кнопок, колец фокуса и подсветок берётся из постера фильма. На главной от постера под фокусом меняются фон страницы, вуаль кадра и подложка карточки под фокусом — когда фокус постоял на карточке 3 секунды; при быстром листании ничего не считается. Тёмный цвет плагин высветляет, чтобы подписи читались; если постер не отдаёт пиксели, остаётся акцент, выбранный выше.',
+      en: 'Inside an open film card the colour of buttons, focus rings and highlights is taken from the poster. On the home screen the poster under focus changes the page background, the hero veil and the plate under the focused card — once focus has rested on a card for 3 seconds; fast browsing computes nothing. A dark colour is lightened so that labels stay readable; if the poster does not give up its pixels, the accent chosen above stays in place.',
+      uk: 'У відкритій картці колір кнопок, кілець фокуса та підсвічувань береться з постера фільму. На головній від постера під фокусом змінюються тло сторінки, вуаль кадру та підкладка картки під фокусом — коли фокус постояв на картці 3 секунди; при швидкому гортанні нічого не рахується. Темний колір плагін висвітлює, щоб підписи читалися; якщо постер не віддає пікселі, залишається акцент, вибраний вище.'
     },
     /* Task 62a (фаза 5): докуда доходит цвет, взятый с постера. «Полная» —
        как было с Task 35. «Только фон» снимает единственное место, где
@@ -970,6 +980,16 @@
        Пересобирает CSS сам, поэтому отдельного injectCss здесь нет. */
     if (name === 'lumen_accent_auto') {
       try { if (LC.applyAccentPref) LC.applyAccentPref(); } catch (eAccent) {}
+      /* Task 62a (найдено живой проверкой фикс-раунда): при «Только фон» от
+         этой настройки зависит СОСТАВ таблицы — подложка фокуса карточки
+         есть при выключенной подкраске и снята при включённой
+         (LC.accentScope, src/81_prefs.js). LC.applyAccentPref пересобирает
+         таблицу только когда меняется ЦВЕТ, поэтому здесь её надо
+         пересобрать явно: без этого выключение и обратное включение
+         подкраски оставляли подложку в том виде, в каком она была при
+         прошлой сборке. Повторной работы это не стоит — LC.injectCss не
+         переписывает узел, если текст таблицы не изменился. */
+      if (LC.pref('lumen_accent_scope', 'full') === 'veil') LC.injectCss();
       return true;
     }
     /* Task 28 (фаза 3): режим показа отзывов меняется и в настройках, и
@@ -1054,10 +1074,13 @@
        префикса lumen_card_ не ушло дальше как чужое. */
     if (name === 'lumen_transition') return true;
     /* Task 62b (фаза 5): кнопки готового стиля своего значения не хранят, и
-       применять при записи им нечего — работу делают настройки, которые
-       кнопка пишет, каждая своей веткой выше. Ветка нужна, чтобы имя не
-       ушло дальше как чужое: общий фильтр по префиксу пересобирал бы на нём
-       всю таблицу стилей впустую. */
+       применять при записи им нечего — работу делает LC.applyPresetChanges
+       сразу после записей (applyPreset ниже). Ветка нужна ради контракта
+       «у каждого пункта раздела своя ветка» (его держит тест): до общего
+       фильтра по префиксу эти имена и так не дошли бы — PLUGIN это
+       'lumen_card', а 'lumen_preset_appletv'.indexOf('lumen_card_') !== 0,
+       то есть фильтр вернул бы false, а не пересборку CSS (поправка
+       ревью, М1). */
     if (name === 'lumen_preset_appletv' || name === 'lumen_preset_lumen') return true;
     /* Task 23 (фаза 3): фильтр «не смотрел» читается при входе в рулетку
        (src/56_roulette.js), поэтому применять на лету нечего — на открытом
@@ -1167,17 +1190,25 @@
   /* -------------------------------------------------------------------- */
   /* Task 62b (фаза 5): готовый стиль.                                     */
   /*                                                                        */
-  /* Кнопка выставляет НАБОР ЗНАЧЕНИЙ существующих пунктов — по одному,     */
-  /* через Lampa.Storage.set. Это не оптимизация наоборот, а единственный   */
-  /* рабочий путь: на записи висит listener 'change' самой Lampa, через     */
-  /* который каждая настройка и применяется на лету (LC.followStorage →     */
-  /* applyPrefChange). Пакетная запись в localStorage мимо Lampa не         */
-  /* применила бы ни одной и разошлась бы с её собственным кэшем значений.  */
+  /* Кнопка выставляет НАБОР ЗНАЧЕНИЙ существующих пунктов — каждое своим   */
+  /* Lampa.Storage.set, потому что правка localStorage мимо Lampa разошлась */
+  /* бы с её кэшем значений (readed, app.min.js:48472).                     */
+  /*                                                                        */
+  /* Ревью Task 62 (пункт 5): запись идёт с nolisten — третьим аргументом   */
+  /* Storage.set (app.min.js:48472-48504: при нём listener 'change' не      */
+  /* рассылается, а localStorage и readed обновляются как обычно). Иначе    */
+  /* каждая из записей поднимала бы своё событие и свою ветку               */
+  /* applyPrefChange, то есть до пяти полных пересборок таблицы стилей      */
+  /* подряд на одно нажатие (замер до правки, стенд 960×540@2: ровно 5      */
+  /* вызовов LC.injectCss, медиана семи прогонов 33.5 мс при разбросе       */
+  /* 23-48 мс — и это Chrome на десктопе). Применение вместо этого делает   */
+  /* LC.applyPresetChanges (src/90_runtime.js) один раз на весь набор.      */
   /*                                                                        */
   /* Пишутся только РАЗЛИЧИЯ: повторное нажатие тогда ничего не делает, а   */
   /* список изменённого есть что показать в подтверждении. Булево значение  */
   /* пишется строкой, как хранит его сама Lampa ('true'/'false'): JS-false  */
-  /* её Storage.set не сохраняет вовсе (план 0.2).                          */
+  /* она в localStorage запишет, но до конца сессии будет отдавать из       */
+  /* памяти сам JS-false, а его LC.pref не отличит от «значения нет».       */
   /* -------------------------------------------------------------------- */
 
   /* Значение пункта, как его видит плагин: сохранённое либо дефолт пункта,
@@ -1195,6 +1226,25 @@
     return raw;
   }
 
+  /* Ревью Task 62 (пункт 4): подпись пункта в ОТКРЫТОМ разделе настроек
+     после нашей записи сама не обновится — у type:'button' Lampa зовёт
+     только onChange, без update$3 (app.min.js:47543-47548). Публичный
+     Lampa.Params.update(elem) делает ровно это: перечитывает значение из
+     Storage и пишет его в .settings-param__value (app.min.js:47640-47678,
+     экспорт Params на :47957-47967 и :55954). Второй и третий аргументы
+     нужны только ветке data-children, которой у наших пунктов нет.
+     Раздел закрыт — узла не найдётся, и функция промолчит. */
+  function refreshParamRow(key) {
+    try {
+      if (typeof $ !== 'function') return;
+      if (!Lampa.Params || typeof Lampa.Params.update !== 'function') return;
+      var elem = $('.settings-param[data-name="' + key + '"]');
+      if (elem && elem.length) Lampa.Params.update(elem);
+    } catch (e) {
+      warn('preset row refresh failed', e);
+    }
+  }
+
   function applyPreset(id) {
     try {
       if (!window.Lampa || !Lampa.Storage) return;
@@ -1202,15 +1252,20 @@
       var values = LC.prefs.presetValues(id);
       var keys = LC.prefs.PRESET_KEYS;
       var changed = [];
+      var written = [];
       for (var i = 0; i < keys.length; i++) {
         var key = keys[i];
         if (!Object.prototype.hasOwnProperty.call(values, key)) continue;
         var want = values[key];
         if (presetCurrent(key) === want) continue;
-        Lampa.Storage.set(key, typeof want === 'boolean' ? (want ? 'true' : 'false') : want);
+        Lampa.Storage.set(key, typeof want === 'boolean' ? (want ? 'true' : 'false') : want, true);
+        written.push(key);
+        refreshParamRow(key);
         var entry = LC.prefs.find(key);
         if (entry) changed.push(LC.lang(entry.label));
       }
+      /* Одно применение на весь набор вместо ветки на каждую запись. */
+      if (written.length && LC.applyPresetChanges) LC.applyPresetChanges(written);
       /* Подтверждение — перечнем того, что изменилось, названиями самих
          пунктов раздела: так видно, куда идти, если что-то не понравилось.
          Показывается и когда менять было нечего: молчащая кнопка выглядит

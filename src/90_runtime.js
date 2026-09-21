@@ -1668,18 +1668,27 @@
     if (!activated) return;
     try {
       LC.injectCss();
-      if (LC.hero) {
-        if (LC.pref('lumen_hero_size', 'large') === 'off') {
-          if (LC.hero.unmount) LC.hero.unmount();
-        } else if (LC.hero.mountCurrent) {
-          LC.hero.mountCurrent();
-        }
-      }
-      if (LC.moods && LC.moods.mountCurrent) LC.moods.mountCurrent();
+      remountHero();
     } catch (e) {
       warn('hero size pref failed', e);
     }
   };
+
+  /* Ревью Task 62: тело без пересборки CSS — его зовут и смена самого
+     размера кадра (выше, сразу после своей пересборки), и применение
+     готового стиля (LC.applyPresetChanges ниже), где пересборка одна на
+     весь набор значений. Порядок внутри прежний: сперва герой, потом чипы —
+     они ищут своё место в уже обновлённом DOM (находка К1 ревью Task 36). */
+  function remountHero() {
+    if (LC.hero) {
+      if (LC.pref('lumen_hero_size', 'large') === 'off') {
+        if (LC.hero.unmount) LC.hero.unmount();
+      } else if (LC.hero.mountCurrent) {
+        LC.hero.mountCurrent();
+      }
+    }
+    if (LC.moods && LC.moods.mountCurrent) LC.moods.mountCurrent();
+  }
 
   /* Task 25: метки на постерах включили или выключили. Пересобирать экран не
      нужно: метки — узлы внутри уже нарисованных карточек, их можно снять
@@ -1701,12 +1710,78 @@
   LC.applyBadgesPref = function () {
     if (!activated) return;
     try {
-      if (!LC.badges) return;
-      LC.badges.uninstall();
-      if (LC.badgesMode() !== 'off') LC.badges.install();
+      remountBadges();
       LC.injectCss();
     } catch (e) {
       warn('badges pref failed', e);
+    }
+  };
+
+  /* Ревью Task 62: тело без пересборки CSS — по той же причине, что у
+     remountHero выше.
+     Ревью Task 62 (М4): сетка подборки метки себе ставит сама при
+     построении (src/46_hub.js зовёт LC.badges.decorate), и наблюдателя на
+     ней нет — install/uninstall до неё не достают. Пока видов было два,
+     смена настройки на открытой сетке просто оставляла метки до следующего
+     входа; с видом «в подписи» разница стала заметной (на постере плашка, в
+     подписи пусто), поэтому открытую сетку перерисовываем отдельно. */
+  function remountBadges() {
+    if (!LC.badges) return;
+    LC.badges.uninstall();
+    if (LC.badgesMode() !== 'off') LC.badges.install();
+    redrawGridBadges();
+  }
+
+  function redrawGridBadges() {
+    try {
+      if (!LC.badges || typeof LC.badges.redraw !== 'function') return;
+      if (!window.Lampa || !Lampa.Activity || typeof Lampa.Activity.active !== 'function') return;
+      var act = Lampa.Activity.active();
+      if (!act || act.component !== 'lumen_grid') return;
+      if (!act.activity || typeof act.activity.render !== 'function') return;
+      LC.badges.redraw(act.activity.render());
+    } catch (e) {
+      warn('badges grid redraw failed', e);
+    }
+  }
+
+  /* Ревью Task 62 (пункт 5): применение НАБОРА значений — одним проходом.
+     Кнопка готового стиля пишет до семи настроек разом, и если каждую
+     применять штатной веткой, таблица стилей пересобирается до пяти раз
+     подряд: замер на стенде (Chrome, 960×540@2, 2026-09-21) — 5 вызовов
+     LC.injectCss на нажатие, медиана семи прогонов 33.5 мс с форсированным
+     recalc при разбросе 23-48. Текст таблицы около 100 КБ, и на WebView
+     телевизора, где меряли 21 fps, это заметная заморозка ровно в момент
+     нажатия. Поэтому значения пишутся с nolisten (третий аргумент
+     Lampa.Storage.set, vendor/lampa/app.min.js:48472-48504 — при нём
+     listener 'change' не рассылается, а localStorage и кэш readed
+     обновляются как обычно), а применение идёт здесь, один раз.
+
+     Порядок важен: шрифт (<link>) → таблица стилей → узлы, которые от неё
+     зависят. Герой после пересборки — высоту кадра он берёт из свежих
+     правил; метки после героя — они живут внутри карточек рядов. Акцент
+     последним: LC.applyAccentPref пересобирает таблицу САМ и только когда
+     цвет действительно меняется (src/57_color.js). */
+  LC.applyPresetChanges = function (keys) {
+    if (!activated) return;
+    try {
+      if (!keys || !keys.length) return;
+      var changed = {};
+      for (var i = 0; i < keys.length; i++) changed[keys[i]] = true;
+      if (changed.lumen_font) LC.injectFonts();
+      LC.injectCss();
+      if (changed.lumen_hero_size) remountHero();
+      if (changed.lumen_badges) remountBadges();
+      /* Только сама подкраска: её включение считает цвет по фильму открытой
+         карточки, а выключение возвращает акцент из настроек. Область
+         подкраски (lumen_accent_scope) отдельной точки не просит — правило
+         подложки фокуса живёт в таблице, а узел подкраски переписала та же
+         пересборка выше (LC.injectCss зовёт LC.accent.restyle). */
+      if (changed.lumen_accent_auto) {
+        try { if (LC.applyAccentPref) LC.applyAccentPref(); } catch (eAccent) { warn('preset accent failed', eAccent); }
+      }
+    } catch (e) {
+      warn('preset changes failed', e);
     }
   };
 

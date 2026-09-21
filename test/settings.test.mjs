@@ -37,8 +37,12 @@ function setup(opts) {
   const Storage = {
     get: (name, def) => (name in storage ? storage[name] : def),
     field: (name) => storage[name],
-    set: function (name, value) {
+    /* Третий аргумент nolisten — как у вендора (app.min.js:48472-48504):
+       значение пишется, но listener 'change' не рассылается. Им пользуется
+       кнопка готового стиля (Task 62b, ревью). */
+    set: function (name, value, nolisten) {
       storage[name] = value;
+      if (nolisten) return;
       /* Subscribe.send вендора: весь цикл подписчиков в одном try/catch —
          исключение любого из них обрывает рассылку остальным. */
       try {
@@ -109,6 +113,9 @@ function setup(opts) {
   /* Task 28 (фаза 3): автотрейлер в кадре главной — выключение снимает
      играющий ролик прямо у героя, своей точки в 90_runtime.js ему не нужно. */
   LC.hero = { applyTrailer: mark('herotrailer') };
+  /* Task 62b (ревью): применение набора значений одним проходом — вместо
+     ветки на каждую запись (src/90_runtime.js). */
+  LC.applyPresetChanges = (keys) => log.push('preset:' + keys.join(','));
 
   return { LC, log, storage, params, components, subscribers, Storage, notys, prependSubscriber: (cb) => subscribers.unshift(cb) };
 }
@@ -582,11 +589,48 @@ test('Task 62b: «Apple TV» пишет весь набор оформления
   press(off, 'lumen_preset_appletv');
   assert.equal(off.storage.lumen_accent_auto, 'true');
 
-  /* И каждая настройка применилась своей штатной веткой — той же, что при
-     ручном переключении пункта, в порядке записи. «Акцент от постера» и
-     размер кадра в стиле Apple TV те же, что по умолчанию, — на чистом
-     профиле они не пишутся вовсе, поэтому их веток в журнале нет. */
-  assert.deepEqual(env.log, ['css', 'css', 'fonts', 'css', 'css', 'badges']);
+  /* Ревью Task 62 (пункт 5): применение ОДНО на весь набор, а не по ветке
+     на каждую запись — иначе таблица стилей пересобиралась бы до пяти раз
+     подряд (замер до правки: 5 вызовов injectCss, медиана 33.5 мс на
+     стенде). Значит ни одной штатной ветки в журнале быть не должно, а в
+     applyPresetChanges обязаны прийти ровно записанные ключи. «Акцент от
+     постера» и размер кадра в стиле Apple TV те же, что по умолчанию, — на
+     чистом профиле они не пишутся вовсе. */
+  assert.deepEqual(env.log, ['preset:lumen_theme,lumen_card_accent,lumen_font,lumen_accent_scope,lumen_badges']);
+});
+
+/* Найдено живой проверкой фикс-раунда: при «Только фон» состав таблицы
+   зависит и от самой подкраски (выключена — подложка фокуса возвращается),
+   а LC.applyAccentPref пересобирает таблицу только при смене ЦВЕТА. */
+test('Task 62a: при «только фон» переключение подкраски пересобирает таблицу стилей', () => {
+  const veil = setup({ storage: { lumen_accent_scope: 'veil' } });
+  veil.LC.addSettings();
+  veil.LC.followStorage();
+  veil.log.length = 0;
+  veil.Storage.set('lumen_accent_auto', 'false');
+  assert.deepEqual(veil.log, ['accent', 'css']);
+
+  /* При полной подкраске состав таблицы от неё не зависит — лишней
+     пересборки быть не должно. */
+  const full = setup();
+  full.LC.addSettings();
+  full.LC.followStorage();
+  full.log.length = 0;
+  full.Storage.set('lumen_accent_auto', 'false');
+  assert.deepEqual(full.log, ['accent']);
+});
+
+test('Task 62b: записи пресета не поднимают событие Storage — ни одной лишней пересборки', () => {
+  const env = setup();
+  env.LC.addSettings();
+  env.LC.followStorage();
+  const seen = [];
+  env.subscribers.push((e) => seen.push(e.name));
+  press(env, 'lumen_preset_appletv');
+  assert.deepEqual(seen, [], 'записи пресета обязаны идти с nolisten');
+  /* Обычная правка пункта событие по-прежнему поднимает. */
+  env.Storage.set('lumen_theme', 'warm');
+  assert.deepEqual(seen, ['lumen_theme']);
 });
 
 test('Task 62b: пресет не трогает ни ключ Кинопоиска, ни настройки Lampa, ни выбор пользователя вне оформления', () => {

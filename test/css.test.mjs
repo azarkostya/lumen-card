@@ -3373,6 +3373,24 @@ test('Task 62a: veil снимает подложку фокуса карточк
   assert.ok(hot.indexOf('.lumen-main:after') !== -1, hot);
 });
 
+/* Ревью Task 62: «Только фон» не действует при ВЫКЛЮЧЕННОЙ подкраске.
+   Пункт про то, докуда доходит цвет ПОСТЕРА, а подложка фокуса без
+   подкраски красится статическим акцентом из настроек — снимать её было бы
+   не за что, и описание пункта (все три языка) прямо обещает «Действует при
+   включённом „Акценте от постера“». */
+test('Task 62a: выключенная подкраска оставляет подложку фокуса даже при «только фон»', () => {
+  const off = withStorage({ lumen_accent_auto: 'false', lumen_accent_scope: 'veil' }, (LC) => LC.buildCss());
+  assert.ok(ruleBodies(off).some((r) => r.selectors.indexOf('.lumen-main .card.focus .card__view') !== -1
+    && r.decl.indexOf('box-shadow') !== -1), 'подложка фокуса снята без подкраски, которой её снимать');
+  assert.ok(withStorage({ lumen_accent_auto: 'false', lumen_accent_scope: 'veil' }, (LC) => LC.accentFocusCss())
+    .indexOf('.lumen-main .card.focus .card__view{') === 0);
+
+  /* А с включённой подкраской — снимается, как и задумано. */
+  const on = withStorage({ lumen_accent_auto: 'true', lumen_accent_scope: 'veil' }, (LC) => LC.buildCss());
+  assert.equal(ruleBodies(on).find((r) => r.selectors.indexOf('.lumen-main .card.focus .card__view') !== -1
+    && r.decl.indexOf('box-shadow') !== -1), undefined);
+});
+
 test('Task 62a: full — всё как было, включая масштаб фокуса в обоих режимах', () => {
   const full = withStorage({ lumen_accent_scope: 'full' }, (LC) => LC.buildCss());
   assert.ok(ruleBodies(full).some((r) => r.selectors.indexOf('.lumen-main .card.focus .card__view') !== -1

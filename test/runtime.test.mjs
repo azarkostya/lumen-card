@@ -894,6 +894,69 @@ test('Task 62a: смена вида меток перерисовывает уж
   assert.deepEqual(warnLog, []);
 });
 
+/* Ревью Task 62 (пункт 5): кнопка готового стиля пишет до семи настроек
+   разом. Если бы каждая применялась своей штатной веткой, таблица стилей
+   пересобиралась бы до пяти раз подряд (замер до правки на стенде
+   960×540@2: ровно 5 вызовов LC.injectCss, медиана 33.5 мс). Применение
+   идёт одним проходом: шрифт → таблица → узлы, которые от неё зависят. */
+function presetEnv(storage) {
+  const env = initLC({ storage: storage || {} });
+  const seen = [];
+  env.LC.injectFonts = () => seen.push('fonts');
+  const origCss = env.LC.injectCss;
+  env.LC.injectCss = () => { seen.push('css'); origCss(); };
+  env.LC.badges = { install: () => seen.push('badges:install'), uninstall: () => seen.push('badges:uninstall') };
+  env.LC.hero = { mountCurrent: () => seen.push('hero:mount'), unmount: () => seen.push('hero:unmount') };
+  env.LC.moods = { mountCurrent: () => seen.push('moods:mount') };
+  env.LC.applyAccentPref = () => seen.push('accent');
+  return { env, seen };
+}
+
+test('Task 62b: набор значений применяется одним проходом — одна пересборка CSS на всю кнопку', () => {
+  const { env, seen } = presetEnv({ lumen_badges: 'caption' });
+  env.LC.applyPresetChanges(['lumen_theme', 'lumen_card_accent', 'lumen_font', 'lumen_accent_scope', 'lumen_badges']);
+  assert.equal(seen.filter((s) => s === 'css').length, 1, 'пересборка обязана быть одна: ' + seen.join(', '));
+  assert.deepEqual(seen, ['fonts', 'css', 'badges:uninstall', 'badges:install']);
+  assert.deepEqual(warnLog, []);
+});
+
+test('Task 62b: порядок прохода — шрифт, таблица, герой, метки, акцент', () => {
+  const { env, seen } = presetEnv({ lumen_hero_size: 'large' });
+  env.LC.applyPresetChanges(['lumen_font', 'lumen_hero_size', 'lumen_badges', 'lumen_accent_auto']);
+  assert.deepEqual(seen, ['fonts', 'css', 'hero:mount', 'moods:mount', 'badges:uninstall', 'badges:install', 'accent']);
+  /* Герой монтируется ПОСЛЕ пересборки: высоту кадра он берёт из свежих
+     правил (та же причина, по которой LC.applyHeroSizePref зовёт injectCss
+     первой строкой). */
+  assert.ok(seen.indexOf('css') < seen.indexOf('hero:mount'));
+});
+
+test('Task 62b: ключей нет — применять нечего, таблица не трогается', () => {
+  const { env, seen } = presetEnv();
+  env.LC.applyPresetChanges([]);
+  env.LC.applyPresetChanges(null);
+  assert.deepEqual(seen, []);
+});
+
+/* Ревью Task 62 (М4): сетка подборки ставит метки себе сама при построении
+   (src/46_hub.js), наблюдателя на ней нет — значит смену вида на открытой
+   сетке надо перерисовывать отдельно, иначе на постере останется плашка, а
+   в подписи будет пусто. */
+test('Task 62a: открытая сетка подборки перерисовывает метки вместе с главной', () => {
+  const { env, seen } = presetEnv({ lumen_badges: 'caption' });
+  const render = new FakeEl(['lumen-grid']);
+  env.LC.badges.redraw = (root) => seen.push('grid:redraw:' + (root === render ? 'ok' : 'чужой корень'));
+  globalThis.Lampa.Activity = { active: () => ({ component: 'lumen_grid', activity: { render: () => render } }) };
+  env.LC.applyBadgesPref();
+  assert.ok(seen.indexOf('grid:redraw:ok') !== -1, 'сетка не перерисована: ' + seen.join(', '));
+
+  /* На чужом экране сетку не трогаем. */
+  seen.length = 0;
+  globalThis.Lampa.Activity = { active: () => ({ component: 'main', activity: { render: () => render } }) };
+  env.LC.applyBadgesPref();
+  assert.deepEqual(seen.filter((s) => s.indexOf('grid:') === 0), []);
+  assert.deepEqual(warnLog, []);
+});
+
 /* ====================================================================== */
 /* Task 10: главный выключатель на УЖЕ ОТКРЫТОЙ карточке.                 */
 /*                                                                        */
@@ -2132,8 +2195,17 @@ function moodsLC() {
    LC.moods.mount — он закрыт своими тестами в test/moods.test.mjs. */
 test('К1: applyHeroSizePref монтирует чипы после героя и в обеих ветках размера', () => {
   const src = readFileSync(new URL('../src/90_runtime.js', import.meta.url), 'utf8');
-  const body = /LC\.applyHeroSizePref = function \(\) \{([\s\S]*?)\n  \};/.exec(src);
-  assert.ok(body, 'LC.applyHeroSizePref не найдена');
+  /* Ревью Task 62: тело переехало в remountHero — его зовёт и смена самого
+     размера кадра, и применение готового стиля (там пересборка таблицы одна
+     на весь набор значений). Инвариант порядка от переезда не изменился,
+     проверяем его там, где он теперь живёт; а что сама настройка по-прежнему
+     сперва пересобирает таблицу, а потом монтирует, — ниже. */
+  const outer = /LC\.applyHeroSizePref = function \(\) \{([\s\S]*?)\n  \};/.exec(src);
+  assert.ok(outer, 'LC.applyHeroSizePref не найдена');
+  assert.ok(outer[1].indexOf('LC.injectCss()') < outer[1].indexOf('remountHero()'),
+    'таблица стилей обязана пересобираться ДО монтирования героя: ' + outer[1]);
+  const body = /function remountHero\(\) \{([\s\S]*?)\n  \}/.exec(src);
+  assert.ok(body, 'remountHero не найдена');
   const text = body[1];
   const moodsAt = text.indexOf('LC.moods.mountCurrent()');
   assert.ok(moodsAt !== -1, 'чипы не монтируются вовсе');
@@ -2142,11 +2214,9 @@ test('К1: applyHeroSizePref монтирует чипы после героя �
   assert.ok(text.indexOf('LC.hero.mountCurrent()') !== -1 && text.indexOf('LC.hero.mountCurrent()') < moodsAt,
     'герой обязан встать ДО монтирования чипов');
   /* И ни один return не должен стоять между героем и чипами — иначе ветка
-     «Выключен» снова унесёт слот, не дав чипам переехать. Гард по activated
-     в начале функции под это условие не попадает: считаем от пересборки
-     таблицы стилей, с которой начинается сама работа. */
-  const work = text.slice(text.indexOf('LC.injectCss()'), moodsAt);
-  assert.equal(/\breturn\b/.test(work), false, 'между героем и чипами остался ранний выход: ' + work);
+     «Выключен» снова унесёт слот, не дав чипам переехать. */
+  assert.equal(/\breturn\b/.test(text.slice(0, moodsAt)), false,
+    'между героем и чипами остался ранний выход: ' + text);
 });
 
 test('Important 2: старт главной монтирует чипы, и строго ПОСЛЕ героя', () => {

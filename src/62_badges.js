@@ -211,12 +211,35 @@
        многоточием (правило .card__age, src/30_css.js), и срезать она должна
        год с рейтингом, а не статус, ради которого метку и рисуют. Отсюда и
        разделитель ХВОСТОМ — и только если в подписи уже что-то есть. */
+    /* Ревью Task 62: у метки РЯДА (её текст собирают персональные ряды —
+       «Новая серия · 12 сен», src/45_personal.js) в подписи отбрасывается
+       хвост с датой. Замер на стенде 960×540@2, штатный масштаб, шрифт
+       Golos: подписи доступно 109.0 CSS px, «Новая серия · 12 сен» просит
+       108.4 — то есть метка занимала бы всю строку, а год с рейтингом
+       (65.4) не помещались бы вовсе, хотя штатную плашку .card__vote мы в
+       этом виде прячем. На постере у такой метки есть страховка в две
+       строки (src/30_css.js), в подписи её быть не может: nowrap там держит
+       инвариант Task 51. Без даты «Новая серия» просит 66.1 px, и год
+       остаётся виден. Дата — меньшая потеря: повод («вышла новая серия»)
+       важнее того, какого она числа, а точная дата есть в самой карточке.
+       Режется только хвост после разделителя и только у custom: у «Скоро ·
+       17 дек» (74.9 px) дата и есть вся суть метки. */
+    function captionText(badge) {
+      if (badge.kind !== 'custom') return badge.text;
+      var cut = badge.text.indexOf(' · ');
+      return cut > 0 ? badge.text.slice(0, cut) : badge.text;
+    }
+
     function caption(el, badge) {
       var age = $(el).find('.card__age');
+      /* Подписи может не быть вовсе: сетка подборки снимает .card__age у
+         карточки без года (src/46_hub.js), и тогда метку в этом виде ставить
+         некуда — карточка остаётся без неё, как и без года. */
       if (!age || !age.length) return;
       var was = '' + age.text();
+      var text = captionText(badge);
       var box = $('<span class="lumen-badge-cap lumen-badge-cap--' + badge.kind + '"></span>');
-      box.text(was ? badge.text + ' · ' : badge.text);
+      box.text(was ? text + ' · ' : text);
       age.prepend(box);
     }
 
@@ -368,6 +391,22 @@
       }
     }
 
+    /* Ревью Task 62 (М4): перерисовать метки на корне, за которым НЕ следит
+       наблюдатель, — сетке подборки: она ставит метки сама при построении
+       (src/46_hub.js), а install/uninstall работают только с главной.
+       strip снимает и метки, и флаги lumen_badged, после чего scan рисует
+       заново уже в текущем виде; вид 'off' оставляет карточки чистыми. */
+    function redraw(root) {
+      try {
+        if (!root || !root.length) return;
+        strip(root);
+        if (mode() === 'off') return;
+        scan(root);
+      } catch (e) {
+        warn('badges: redraw failed', e);
+      }
+    }
+
     function ownedBy(render) {
       if (!state || !state.root || !state.root.length) return false;
       if (!render || !render.length) return false;
@@ -434,6 +473,7 @@
       mountCurrent: mountCurrent,
       unmount: unmount,
       strip: strip,
+      redraw: redraw,
       detach: detach,
       owns: owns,
       active: active,
