@@ -96,10 +96,11 @@
        addParams: <div class="settings-param-title">), он ничего не хранит и
        не имеет onChange.
 
-       Task 30 (финал фазы 3), поправка Task 57 (фаза 5): пунктов сейчас 40
-       (плюс десять строк-заголовков), и раскладка по десяти группам —
-       единственное, что делает их обозримыми с дивана. Группа отвечает на
-       вопрос «про что это»:
+       Task 30 (финал фазы 3), поправки Task 57 и Task 62 (фаза 5): пунктов
+       сейчас 43 (плюс одиннадцать строк-заголовков), и раскладка по
+       одиннадцати группам — единственное, что делает их обозримыми с
+       дивана. Группа отвечает на вопрос «про что это»:
+         Готовый стиль ..... две кнопки, каждая выставляет набор значений
          Оформление ........ как плагин выглядит (цвет, тема, размер, шрифт)
          Движение .......... что и как двигается (анимации, переход, атмосферы)
          Фон карточки ...... что показывает кадр за текстом карточки
@@ -130,6 +131,19 @@
        (или «значение + vsuffix» у интервала: «14 с»). */
     var LIST = [
       { name: 'lumen_enabled', type: 'trigger', 'default': true, label: 'lumen_card_enabled_name', descr: 'lumen_card_enabled_descr' },
+
+      /* Task 62b (фаза 5): готовый стиль — ПЕРВОЙ группой раздела, сразу за
+         главным выключателем. Две причины. Порядок чтения: человек сперва
+         выбирает стиль целиком и только потом правит в нём отдельные пункты,
+         а не наоборот. И место: в «Оформлении» после Task 62a уже восемь
+         пунктов при пределе девять (test/prefs.test.mjs), две кнопки туда не
+         помещаются.
+         Кнопка-параметр ничего не хранит: Lampa зовёт её onChange по
+         нажатию (app.min.js ~47543), и обработчик пишет набор значений
+         (applyPreset, src/80_settings.js). */
+      { name: 'lumen_group_preset', type: 'title', label: 'lumen_group_preset' },
+      { name: 'lumen_preset_appletv', type: 'button', label: 'lumen_preset_appletv_name', descr: 'lumen_preset_appletv_descr' },
+      { name: 'lumen_preset_lumen', type: 'button', label: 'lumen_preset_lumen_name', descr: 'lumen_preset_lumen_descr' },
 
       { name: 'lumen_group_look', type: 'title', label: 'lumen_card_group_look' },
       /* Фаза 3: девять акцентов вместо четырёх (палитра и замеры контраста —
@@ -361,7 +375,67 @@
       return null;
     }
 
-    return { LIST: LIST, find: find, boolOf: boolOf, badgesMode: badgesMode, motionModeFor: motionModeFor, fxHeavyDefault: fxHeavyDefault };
+    /* Task 62b (фаза 5): готовый стиль — НАБОР ЗНАЧЕНИЙ существующих
+       пунктов, а не режим CSS (решение пользователя 2026-09-21: «сделать
+       пункт в меню „как apple tv“»). Отсюда и главное свойство: после
+       кнопки любой пункт правится по одному и правка переживает перезапуск —
+       ничего «поверх» настроек не стоит.
+
+       Какие пункты входят: только те, что отвечают за ВИД. Ключ Кинопоиска,
+       масштаб, движение, заставка, ряды и адрес каталога сюда не входят
+       по прямому запрету плана фазы 5 («Что НЕ делать») — это выбор
+       пользователя, к оформлению отношения не имеющий. Настройки самой
+       Lampa (background, glass_style, poster_size, interface_size) плагин
+       не трогает тем более: они не его.
+       «Плотные подложки» (lumen_solid) в наборе нет намеренно: пункт
+       решает не вопрос вкуса, а вопрос железа — на телевизоре, где
+       полупрозрачность мылит, его включают один раз и навсегда, и стиль
+       не вправе его переключать. */
+    var PRESET_KEYS = ['lumen_theme', 'lumen_card_accent', 'lumen_font', 'lumen_accent_auto',
+      'lumen_accent_scope', 'lumen_hero_size', 'lumen_badges'];
+
+    /* Отличия стиля Apple TV от стиля Lumen. Чего здесь нет — берётся из
+       значения по умолчанию пункта, то есть совпадает со стилем Lumen; в
+       наборе такие ключи всё равно остаются, чтобы кнопка возвращала их из
+       любого ручного значения (выключенную подкраску, компактный кадр).
+       Палитра: пользователь просил «уйти чуть в нейтральную для
+       разделения» — graphite на чёрной теме против тёплого песка Lumen. */
+    var PRESET_APPLETV = {
+      lumen_theme: 'black',
+      lumen_card_accent: 'graphite',
+      lumen_font: 'inter',
+      lumen_badges: 'caption',
+      lumen_accent_scope: 'veil'
+    };
+
+    /* Полный набор значений стиля: {ключ: значение} по PRESET_KEYS.
+       Стиль 'lumen' — ЗНАЧЕНИЯ ПО УМОЛЧАНИЮ из самой таблицы LIST, а не
+       вторая копия тех же литералов рядом: два списка одних и тех же чисел
+       однажды разойдутся, и «Вернуть стиль Lumen» перестал бы возвращать к
+       тому, что видит новый пользователь.
+       Незнакомый стиль — пустой набор: половина значений хуже, чем ничего. */
+    function presetValues(id) {
+      var out = {};
+      if (id !== 'lumen' && id !== 'appletv') return out;
+      for (var i = 0; i < PRESET_KEYS.length; i++) {
+        var key = PRESET_KEYS[i];
+        var entry = find(key);
+        if (!entry) continue;
+        var value = entry['default'];
+        /* Дефолт пункта может быть функцией (платформенный, Task 40) —
+           в наборе стиля обязано лежать уже её значение. */
+        if (typeof value === 'function') value = value();
+        if (id === 'appletv' && Object.prototype.hasOwnProperty.call(PRESET_APPLETV, key)) value = PRESET_APPLETV[key];
+        out[key] = value;
+      }
+      return out;
+    }
+
+    return {
+      LIST: LIST, find: find, boolOf: boolOf, badgesMode: badgesMode,
+      motionModeFor: motionModeFor, fxHeavyDefault: fxHeavyDefault,
+      PRESET_KEYS: PRESET_KEYS, presetValues: presetValues
+    };
   })();
 
   /* Task 40: платформа одним объектом — его ждут motionModeFor (tizen/webos/

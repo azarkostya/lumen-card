@@ -24025,6 +24025,29 @@ uk: 'Вимкніть — повернеться штатна картка Lampa
 
 
 lumen_card_group_look: { ru: 'Оформление', en: 'Appearance', uk: 'Оформлення' },
+
+
+
+lumen_group_preset: { ru: 'Готовый стиль', en: 'Ready-made style', uk: 'Готовий стиль' },
+lumen_preset_appletv_name: { ru: 'Применить стиль Apple TV', en: 'Apply the Apple TV style', uk: 'Застосувати стиль Apple TV' },
+lumen_preset_appletv_descr: {
+ru: 'Нейтральный стиль вместо тёплого: глубокая чёрная тема, графитовый акцент, шрифт Inter, метки в подписи под обложкой, цвет постера только в фоне. Меняет только вид — ключ API, масштаб, анимации, заставку и состав рядов не трогает. Каждый пункт потом можно поправить по отдельности.',
+en: 'A neutral style instead of the warm one: deep black theme, graphite accent, the Inter font, badges in the caption under the artwork, poster colour in the background only. It changes the look alone — the API key, scale, animations, screensaver and row selection stay untouched. Every item can still be adjusted one by one afterwards.',
+uk: 'Нейтральний стиль замість теплого: глибока чорна тема, графітовий акцент, шрифт Inter, мітки в підписі під обкладинкою, колір постера лише у тлі. Змінює тільки вигляд — ключ API, масштаб, анімації, заставку та склад рядів не чіпає. Кожен пункт потім можна поправити окремо.'
+},
+lumen_preset_lumen_name: { ru: 'Вернуть стиль Lumen', en: 'Restore the Lumen style', uk: 'Повернути стиль Lumen' },
+lumen_preset_lumen_descr: {
+ru: 'Возвращает оформление к тому, каким плагин приходит с завода: тёплая тёмная тема, песочный акцент, шрифт Golos Text, метки на постерах, полная подкраска от постера. Настройки вне оформления остаются вашими.',
+en: 'Returns the look to the way the plugin ships: warm dark theme, sand accent, the Golos Text font, badges on the posters, full poster tinting. Everything outside the look stays yours.',
+uk: 'Повертає оформлення до того, яким плагін приходить із заводу: тепла темна тема, піщаний акцент, шрифт Golos Text, мітки на постерах, повне підфарбування від постера. Налаштування поза оформленням лишаються вашими.'
+},
+
+
+
+
+lumen_preset_appletv_short: { ru: 'Стиль Apple TV', en: 'Apple TV style', uk: 'Стиль Apple TV' },
+lumen_preset_lumen_short: { ru: 'Стиль Lumen', en: 'Lumen style', uk: 'Стиль Lumen' },
+lumen_preset_same: { ru: 'уже применён', en: 'already applied', uk: 'вже застосовано' },
 lumen_group_motion: { ru: 'Движение и эффекты', en: 'Motion and effects', uk: 'Рух і ефекти' },
 lumen_card_group_backdrop: { ru: 'Фон карточки', en: 'Card background', uk: 'Фон картки' },
 lumen_card_group_blocks: { ru: 'Блоки карточки', en: 'Card blocks', uk: 'Блоки картки' },
@@ -25022,6 +25045,12 @@ if (name === 'lumen_transition') return true;
 
 
 
+
+if (name === 'lumen_preset_appletv' || name === 'lumen_preset_lumen') return true;
+
+
+
+
 if (name === 'lumen_roulette_unseen') return true;
 
 
@@ -25124,9 +25153,70 @@ warn('home rows select failed', err);
 }
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function presetCurrent(key) {
+var entry = LC.prefs.find(key);
+var def = entry ? entry['default'] : '';
+if (typeof def === 'function') def = def();
+var raw = Lampa.Storage.get(key, def);
+if (key === 'lumen_badges') return LC.prefs.badgesMode(raw);
+if (typeof def === 'boolean') return LC.prefs.boolOf(raw, def);
+return raw;
+}
+
+function applyPreset(id) {
+try {
+if (!window.Lampa || !Lampa.Storage) return;
+if (typeof Lampa.Storage.set !== 'function' || typeof Lampa.Storage.get !== 'function') return;
+var values = LC.prefs.presetValues(id);
+var keys = LC.prefs.PRESET_KEYS;
+var changed = [];
+for (var i = 0; i < keys.length; i++) {
+var key = keys[i];
+if (!Object.prototype.hasOwnProperty.call(values, key)) continue;
+var want = values[key];
+if (presetCurrent(key) === want) continue;
+Lampa.Storage.set(key, typeof want === 'boolean' ? (want ? 'true' : 'false') : want);
+var entry = LC.prefs.find(key);
+if (entry) changed.push(LC.lang(entry.label));
+}
+
+
+
+
+var head = LC.lang(id === 'appletv' ? 'lumen_preset_appletv_short' : 'lumen_preset_lumen_short');
+var text = head + ' · ' + (changed.length ? changed.join(', ') : LC.lang('lumen_preset_same'));
+if (Lampa.Noty && typeof Lampa.Noty.show === 'function') Lampa.Noty.show(text);
+} catch (err) {
+warn('preset failed', err);
+}
+}
+
+
 function onButtonFor(name) {
 return function () {
 if (name === 'lumen_home_rows') openHomeRows();
+else if (name === 'lumen_preset_appletv') applyPreset('appletv');
+else if (name === 'lumen_preset_lumen') applyPreset('lumen');
 };
 }
 
@@ -25356,8 +25446,22 @@ return !(platform.android || platform.tizen || platform.webos);
 
 
 
+
 var LIST = [
 { name: 'lumen_enabled', type: 'trigger', 'default': true, label: 'lumen_card_enabled_name', descr: 'lumen_card_enabled_descr' },
+
+
+
+
+
+
+
+
+
+
+{ name: 'lumen_group_preset', type: 'title', label: 'lumen_group_preset' },
+{ name: 'lumen_preset_appletv', type: 'button', label: 'lumen_preset_appletv_name', descr: 'lumen_preset_appletv_descr' },
+{ name: 'lumen_preset_lumen', type: 'button', label: 'lumen_preset_lumen_name', descr: 'lumen_preset_lumen_descr' },
 
 { name: 'lumen_group_look', type: 'title', label: 'lumen_card_group_look' },
 
@@ -25589,7 +25693,67 @@ for (var i = 0; i < LIST.length; i++) if (LIST[i].name === name) return LIST[i];
 return null;
 }
 
-return { LIST: LIST, find: find, boolOf: boolOf, badgesMode: badgesMode, motionModeFor: motionModeFor, fxHeavyDefault: fxHeavyDefault };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+var PRESET_KEYS = ['lumen_theme', 'lumen_card_accent', 'lumen_font', 'lumen_accent_auto',
+'lumen_accent_scope', 'lumen_hero_size', 'lumen_badges'];
+
+
+
+
+
+
+
+var PRESET_APPLETV = {
+lumen_theme: 'black',
+lumen_card_accent: 'graphite',
+lumen_font: 'inter',
+lumen_badges: 'caption',
+lumen_accent_scope: 'veil'
+};
+
+
+
+
+
+
+
+function presetValues(id) {
+var out = {};
+if (id !== 'lumen' && id !== 'appletv') return out;
+for (var i = 0; i < PRESET_KEYS.length; i++) {
+var key = PRESET_KEYS[i];
+var entry = find(key);
+if (!entry) continue;
+var value = entry['default'];
+
+
+if (typeof value === 'function') value = value();
+if (id === 'appletv' && Object.prototype.hasOwnProperty.call(PRESET_APPLETV, key)) value = PRESET_APPLETV[key];
+out[key] = value;
+}
+return out;
+}
+
+return {
+LIST: LIST, find: find, boolOf: boolOf, badgesMode: badgesMode,
+motionModeFor: motionModeFor, fxHeavyDefault: fxHeavyDefault,
+PRESET_KEYS: PRESET_KEYS, presetValues: presetValues
+};
 })();
 
 

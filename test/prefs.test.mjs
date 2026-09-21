@@ -184,7 +184,9 @@ test('LIST: полный набор ключей — существующие и
     /* Task 22 (фаза 3): заставка из кадров после покоя пульта */
     'lumen_ambient', 'lumen_ambient_source', 'lumen_ambient_delay',
     /* Task 23 (фаза 3): фильтр, с которым открывается рулетка */
-    'lumen_roulette_unseen'
+    'lumen_roulette_unseen',
+    /* Task 62b (фаза 5): две кнопки готового стиля */
+    'lumen_preset_appletv', 'lumen_preset_lumen'
   ].sort());
 });
 
@@ -226,6 +228,11 @@ test('фаза 3: масштаб — четыре ступени от «мель
    Тест закрепляет и состав групп, и их порядок: перестановка пункта из
    группы в группу — решение, а не побочный эффект правки соседней строки. */
 const GROUPS = [
+  /* Task 62b (фаза 5): готовый стиль — своей группой и ПЕРВОЙ из них.
+     Две кнопки не поместились бы в «Оформление» (там уже восемь пунктов при
+     пределе девять), а стоять им нужно выше тонких настроек: человек сперва
+     выбирает стиль целиком и только потом правит в нём отдельные пункты. */
+  ['lumen_group_preset', ['lumen_preset_appletv', 'lumen_preset_lumen']],
   ['lumen_group_look', [
     /* Task 24: «Акцент от постера» — сразу за выбором акцента: тот же
        выбор, только его делает фильм. */
@@ -704,6 +711,86 @@ test('Task 62a: область подкраски — select full/veil, по у�
   assert.equal(entry['default'], 'full');
   assert.equal(entry.vprefix, 'lumen_accent_scope_');
   assert.ok(entry.descr, 'у пункта обязано быть описание — с дивана иначе не понять, что он меняет');
+});
+
+/* ====================================================================== */
+/* Task 62b (фаза 5): готовый стиль — таблица значений.                    */
+/*                                                                         */
+/* Кнопка не «режим», а НАБОР ЗНАЧЕНИЙ: каждое отличие — тот же пункт       */
+/* раздела, который пользователь может потом поправить по одному и не       */
+/* потерять правку при следующем запуске.                                   */
+/* ====================================================================== */
+
+test('Task 62b: пресет трогает только оформление — и ни одной настройки вне него', () => {
+  /* Запрет из плана фазы 5 («Что НЕ делать») и прямое требование
+     пользователя: ключ Кинопоиска, масштаб, движение, заставка, ряды,
+     адрес каталога и настройки самой Lampa — выбор пользователя, к
+     оформлению отношения не имеющий. */
+  const forbidden = ['lumen_kp_key', 'lumen_scale', 'lumen_motion', 'lumen_fx', 'lumen_fx_heavy',
+    'lumen_ambient', 'lumen_ambient_source', 'lumen_ambient_delay', 'lumen_home_rows',
+    'lumen_rows_limit', 'lumen_manifest_url', 'lumen_hero_trailer', 'lumen_solid',
+    'background', 'glass_style', 'poster_size', 'interface_size'];
+  for (const key of prefs.PRESET_KEYS) {
+    assert.ok(forbidden.indexOf(key) === -1, 'пресет трогает чужую настройку: ' + key);
+    assert.ok(prefs.find(key), 'ключа пресета нет в разделе настроек: ' + key);
+  }
+  assert.deepEqual(prefs.PRESET_KEYS.slice().sort(), [
+    'lumen_accent_auto', 'lumen_accent_scope', 'lumen_badges',
+    'lumen_card_accent', 'lumen_font', 'lumen_hero_size', 'lumen_theme'
+  ].sort());
+});
+
+/* «Вернуть стиль Lumen» — это ровно значения по умолчанию плагина, и взяты
+   они из самой таблицы LIST, а не переписаны литералами рядом: два списка
+   одних и тех же чисел однажды разойдутся. */
+test('Task 62b: стиль Lumen — значения по умолчанию из LIST, без второй копии', () => {
+  const lumen = prefs.presetValues('lumen');
+  assert.deepEqual(Object.keys(lumen).sort(), prefs.PRESET_KEYS.slice().sort());
+  for (const key of prefs.PRESET_KEYS) {
+    assert.equal(lumen[key], prefs.find(key)['default'], key);
+  }
+  /* Контрольные значения — чтобы тест ловил и подмену самих дефолтов. */
+  assert.equal(lumen.lumen_theme, 'warm');
+  assert.equal(lumen.lumen_card_accent, 'sand');
+  assert.equal(lumen.lumen_font, 'golos');
+  assert.equal(lumen.lumen_badges, 'poster');
+  assert.equal(lumen.lumen_accent_scope, 'full');
+});
+
+test('Task 62b: стиль Apple TV — нейтральная палитра, метки в подписи, цвет только в фоне', () => {
+  const apple = prefs.presetValues('appletv');
+  assert.deepEqual(Object.keys(apple).sort(), prefs.PRESET_KEYS.slice().sort(),
+    'оба стиля обязаны задавать ОДИН и тот же набор ключей — иначе переключение оставит хвост');
+  assert.equal(apple.lumen_theme, 'black', 'глубокая чёрная — OLED-фон Apple TV');
+  assert.equal(apple.lumen_card_accent, 'graphite', 'нейтральный акцент против тёплого Lumen');
+  assert.equal(apple.lumen_font, 'inter');
+  assert.equal(apple.lumen_badges, 'caption', 'на обложке плашек нет — статус в подписи');
+  assert.equal(apple.lumen_accent_scope, 'veil', 'цвет кадра не заходит на управление');
+  assert.equal(apple.lumen_hero_size, 'large');
+  assert.equal(apple.lumen_accent_auto, true);
+
+  /* Каждое значение обязано быть допустимым для своего пункта — иначе
+     раздел настроек покажет пустую строку, а код получит мусор. */
+  for (const key of prefs.PRESET_KEYS) {
+    const entry = prefs.find(key);
+    if (entry.type === 'select') assert.ok(entry.values.indexOf(apple[key]) !== -1, key + ': ' + apple[key]);
+    if (entry.type === 'trigger') assert.equal(typeof apple[key], 'boolean', key);
+  }
+});
+
+test('Task 62b: неизвестный стиль — пустой набор, а не половина значений', () => {
+  assert.deepEqual(prefs.presetValues('nope'), {});
+  assert.deepEqual(prefs.presetValues(''), {});
+  assert.deepEqual(prefs.presetValues(), {});
+});
+
+test('Task 62b: кнопки стиля ничего не хранят', () => {
+  for (const name of ['lumen_preset_appletv', 'lumen_preset_lumen']) {
+    const entry = prefs.find(name);
+    assert.equal(entry.type, 'button');
+    assert.equal(typeof entry['default'], 'undefined');
+    assert.ok(entry.label && entry.descr, name + ': кнопке нужны и название, и описание');
+  }
 });
 
 /* ====================================================================== */

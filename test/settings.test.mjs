@@ -53,8 +53,12 @@ function setup(opts) {
     }
   };
 
+  /* Task 62b: кнопка готового стиля подтверждает применение через
+     Lampa.Noty — перечнем того, что изменилось. */
+  const notys = [];
   const Lampa = {
     Storage: Storage,
+    Noty: { show: (text) => notys.push(text) },
     Lang: { add: () => { }, translate: (k) => k },
     SettingsApi: {
       addComponent: (c) => components.push(c),
@@ -106,7 +110,7 @@ function setup(opts) {
      играющий ролик прямо у героя, своей точки в 90_runtime.js ему не нужно. */
   LC.hero = { applyTrailer: mark('herotrailer') };
 
-  return { LC, log, storage, params, components, subscribers, Storage, prependSubscriber: (cb) => subscribers.unshift(cb) };
+  return { LC, log, storage, params, components, subscribers, Storage, notys, prependSubscriber: (cb) => subscribers.unshift(cb) };
 }
 
 function paramOf(params, name) {
@@ -326,13 +330,22 @@ test('каждая настройка применяется ровно один
        lumen-fx-heavy на body, автотрейлер героя и слой частиц переставляет
        LC.applyMotionMode; ротацию кадров карточки — LC.applySlideshowPref
        (её контроллер класса не читает). */
-    lumen_fx_heavy: ['motion', 'slideshow']
+    lumen_fx_heavy: ['motion', 'slideshow'],
+    /* Task 62b (фаза 5): кнопки готового стиля. Своего значения у них нет, и
+       «применить» им нечего: нажатие пишет ЧУЖИЕ настройки, каждая из
+       которых применяется своей веткой выше. Ветка в applyPrefChange им всё
+       равно нужна — иначе имя ушло бы дальше как чужое и общий фильтр по
+       префиксу пересобрал бы CSS на пустом месте. Проверяются они своими
+       тестами ниже (нажатие, а не запись значения), поэтому здесь null. */
+    lumen_preset_appletv: null,
+    lumen_preset_lumen: null
   };
   const { LC, log, Storage, params } = setup();
   LC.addSettings();
   LC.followStorage();
 
   for (const name of Object.keys(expected)) {
+    if (expected[name] === null) continue;
     log.length = 0;
     Storage.set(name, paramOf(params, name).param['default']);
     assert.deepEqual(log, expected[name], name + ': применение должно быть ровно одно');
@@ -498,4 +511,163 @@ test('Task 20: без Lampa.Select нажатие ничего не ломает
   const param = env.params.filter((p) => p.param.name === 'lumen_home_rows')[0];
   param.onChange();
   assert.equal(env.shown.length, 0);
+});
+
+/* ====================================================================== */
+/* Task 62b (фаза 5): кнопки готового стиля.                              */
+/*                                                                        */
+/* Идея пользователя (2026-09-21): «а если сделать пункт в меню „как apple */
+/* tv“ условно и туда добавить твои правки по дизайну?». Кнопка — не режим */
+/* CSS, а НАБОР ЗНАЧЕНИЙ существующих пунктов: после неё любой пункт       */
+/* правится по одному и правка переживает перезапуск.                     */
+/*                                                                        */
+/* Каждое значение пишется отдельным Lampa.Storage.set — штатным путём,   */
+/* поднимающим её listener 'change', то есть каждая настройка применяется  */
+/* своей обычной веткой (пакетная запись в localStorage не применила бы   */
+/* ни одной).                                                             */
+/* ====================================================================== */
+
+function press(env, name) {
+  const param = paramOf(env.params, name);
+  assert.ok(param, 'пункт не зарегистрирован: ' + name);
+  assert.equal(param.param.type, 'button');
+  param.onChange();
+}
+
+/* Значения ВСЕХ пунктов раздела, как их видит плагин: снимок «до» и «после»
+   сравнивается поэлементно, а не на глаз. Читается именно ЭФФЕКТИВНОЕ
+   значение (с дефолтом пункта и нормализацией), а не сырой Storage: пункта,
+   которого пользователь не трогал, в Storage нет вовсе, и сравнение сырых
+   ключей путало бы «вернулось к умолчанию» с «не записано». */
+function snapshot(env) {
+  const out = {};
+  for (const e of env.LC.prefs.LIST) {
+    if (e.type === 'title' || e.type === 'button') continue;
+    const def = typeof e['default'] === 'function' ? e['default']() : e['default'];
+    let value = Object.prototype.hasOwnProperty.call(env.storage, e.name) ? env.storage[e.name] : def;
+    if (e.name === 'lumen_badges') value = env.LC.prefs.badgesMode(value);
+    else if (typeof def === 'boolean') value = env.LC.prefs.boolOf(value, def);
+    out[e.name] = value;
+  }
+  return out;
+}
+
+test('Task 62b: «Apple TV» пишет весь набор оформления — по одному значению через Storage.set', () => {
+  const env = setup();
+  env.LC.addSettings();
+  env.LC.followStorage();
+  press(env, 'lumen_preset_appletv');
+
+  assert.equal(env.storage.lumen_theme, 'black');
+  assert.equal(env.storage.lumen_card_accent, 'graphite');
+  assert.equal(env.storage.lumen_font, 'inter');
+  assert.equal(env.storage.lumen_badges, 'caption');
+  assert.equal(env.storage.lumen_accent_scope, 'veil');
+
+  /* Значения, совпавшие с текущими, не пишутся вовсе — кнопка трогает
+     только различия. На чистом профиле это размер кадра и подкраска от
+     постера: в стиле Apple TV они те же, что по умолчанию. Эффективное
+     значение при этом ровно такое, какого требует стиль. */
+  assert.equal(typeof env.storage.lumen_hero_size, 'undefined', 'совпавшее значение записано впустую');
+  assert.equal(typeof env.storage.lumen_accent_auto, 'undefined');
+  const seen = snapshot(env);
+  assert.equal(seen.lumen_hero_size, 'large');
+  assert.equal(seen.lumen_accent_auto, true);
+
+  /* Переключатель, который СТОИТ поменять, пишется строкой — как хранит его
+     сама Lampa: JS-false её Storage.set не сохраняет вовсе. */
+  const off = setup({ storage: { lumen_accent_auto: 'false' } });
+  off.LC.addSettings();
+  off.LC.followStorage();
+  press(off, 'lumen_preset_appletv');
+  assert.equal(off.storage.lumen_accent_auto, 'true');
+
+  /* И каждая настройка применилась своей штатной веткой — той же, что при
+     ручном переключении пункта, в порядке записи. «Акцент от постера» и
+     размер кадра в стиле Apple TV те же, что по умолчанию, — на чистом
+     профиле они не пишутся вовсе, поэтому их веток в журнале нет. */
+  assert.deepEqual(env.log, ['css', 'css', 'fonts', 'css', 'css', 'badges']);
+});
+
+test('Task 62b: пресет не трогает ни ключ Кинопоиска, ни настройки Lampa, ни выбор пользователя вне оформления', () => {
+  const env = setup({
+    storage: {
+      lumen_kp_key: 'СЕКРЕТ', lumen_scale: 'large', lumen_motion: 'lite', lumen_ambient: 'true',
+      lumen_rows_limit: '25', lumen_solid: 'true', lumen_manifest_url: 'https://example.invalid/x.json',
+      /* Настройки самой Lampa — запрет из плана фазы 5, раздел «Что НЕ делать». */
+      background: 'true', glass_style: 'true', poster_size: 'small', interface_size: 'big'
+    }
+  });
+  env.LC.addSettings();
+  env.LC.followStorage();
+  press(env, 'lumen_preset_appletv');
+
+  assert.equal(env.storage.lumen_kp_key, 'СЕКРЕТ');
+  assert.equal(env.storage.lumen_scale, 'large');
+  assert.equal(env.storage.lumen_motion, 'lite');
+  assert.equal(env.storage.lumen_ambient, 'true');
+  assert.equal(env.storage.lumen_rows_limit, '25');
+  assert.equal(env.storage.lumen_solid, 'true');
+  assert.equal(env.storage.lumen_manifest_url, 'https://example.invalid/x.json');
+  assert.equal(env.storage.background, 'true');
+  assert.equal(env.storage.glass_style, 'true');
+  assert.equal(env.storage.poster_size, 'small');
+  assert.equal(env.storage.interface_size, 'big');
+});
+
+test('Task 62b: «Вернуть стиль Lumen» возвращает набор значений поэлементно', () => {
+  const env = setup();
+  env.LC.addSettings();
+  env.LC.followStorage();
+  const before = snapshot(env);
+
+  press(env, 'lumen_preset_appletv');
+  assert.notDeepEqual(snapshot(env), before, 'пресет обязан что-то изменить');
+
+  press(env, 'lumen_preset_lumen');
+  assert.deepEqual(snapshot(env), before, 'возврат обязан совпасть с исходным набором поэлементно');
+});
+
+test('Task 62b: повторное нажатие ничего не пишет и не применяет', () => {
+  const env = setup();
+  env.LC.addSettings();
+  env.LC.followStorage();
+  press(env, 'lumen_preset_appletv');
+  const after = snapshot(env);
+
+  env.log.length = 0;
+  env.notys.length = 0;
+  press(env, 'lumen_preset_appletv');
+  assert.deepEqual(snapshot(env), after, 'значения не изменились');
+  assert.deepEqual(env.log, [], 'второе нажатие не обязано ничего применять заново');
+  assert.equal(env.notys.length, 1, 'но подтверждение показать надо — иначе кнопка выглядит сломанной');
+});
+
+test('Task 62b: подтверждение перечисляет изменённые пункты их же названиями из раздела', () => {
+  const env = setup();
+  env.LC.addSettings();
+  env.LC.followStorage();
+  press(env, 'lumen_preset_appletv');
+
+  assert.equal(env.notys.length, 1, 'ровно одно уведомление на нажатие');
+  const text = env.notys[0];
+  for (const key of ['lumen_theme_name', 'lumen_card_accent', 'lumen_card_font_name', 'lumen_badges_name', 'lumen_accent_scope_name']) {
+    const label = env.LC.STRINGS[key].ru;
+    assert.ok(text.indexOf(label) !== -1, 'в подтверждении нет пункта «' + label + '»: ' + text);
+  }
+  /* Ключа Кинопоиска в тексте быть не может — его пресет и не трогает. */
+  assert.equal(text.indexOf('Kinopoisk'), -1, text);
+});
+
+test('Task 62b: без Lampa.Storage.set нажатие ничего не ломает', () => {
+  const env = setup();
+  env.LC.addSettings();
+  const set = globalThis.Lampa.Storage.set;
+  delete globalThis.Lampa.Storage.set;
+  try {
+    press(env, 'lumen_preset_appletv');
+    assert.equal(typeof env.storage.lumen_theme, 'undefined');
+  } finally {
+    globalThis.Lampa.Storage.set = set;
+  }
 });

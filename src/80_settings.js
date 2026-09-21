@@ -37,6 +37,29 @@
        движение, навигация и рулетка; раскладка целиком — в LC.prefs.LIST
        (src/81_prefs.js). */
     lumen_card_group_look: { ru: 'Оформление', en: 'Appearance', uk: 'Оформлення' },
+    /* Task 62b (фаза 5): готовый стиль — две кнопки, каждая выставляет набор
+       значений пунктов «Оформления». Название группы говорит именно про
+       стиль целиком, чтобы не путалось с пунктами под ней. */
+    lumen_group_preset: { ru: 'Готовый стиль', en: 'Ready-made style', uk: 'Готовий стиль' },
+    lumen_preset_appletv_name: { ru: 'Применить стиль Apple TV', en: 'Apply the Apple TV style', uk: 'Застосувати стиль Apple TV' },
+    lumen_preset_appletv_descr: {
+      ru: 'Нейтральный стиль вместо тёплого: глубокая чёрная тема, графитовый акцент, шрифт Inter, метки в подписи под обложкой, цвет постера только в фоне. Меняет только вид — ключ API, масштаб, анимации, заставку и состав рядов не трогает. Каждый пункт потом можно поправить по отдельности.',
+      en: 'A neutral style instead of the warm one: deep black theme, graphite accent, the Inter font, badges in the caption under the artwork, poster colour in the background only. It changes the look alone — the API key, scale, animations, screensaver and row selection stay untouched. Every item can still be adjusted one by one afterwards.',
+      uk: 'Нейтральний стиль замість теплого: глибока чорна тема, графітовий акцент, шрифт Inter, мітки в підписі під обкладинкою, колір постера лише у тлі. Змінює тільки вигляд — ключ API, масштаб, анімації, заставку та склад рядів не чіпає. Кожен пункт потім можна поправити окремо.'
+    },
+    lumen_preset_lumen_name: { ru: 'Вернуть стиль Lumen', en: 'Restore the Lumen style', uk: 'Повернути стиль Lumen' },
+    lumen_preset_lumen_descr: {
+      ru: 'Возвращает оформление к тому, каким плагин приходит с завода: тёплая тёмная тема, песочный акцент, шрифт Golos Text, метки на постерах, полная подкраска от постера. Настройки вне оформления остаются вашими.',
+      en: 'Returns the look to the way the plugin ships: warm dark theme, sand accent, the Golos Text font, badges on the posters, full poster tinting. Everything outside the look stays yours.',
+      uk: 'Повертає оформлення до того, яким плагін приходить із заводу: тепла темна тема, піщаний акцент, шрифт Golos Text, мітки на постерах, повне підфарбування від постера. Налаштування поза оформленням лишаються вашими.'
+    },
+    /* Короткие имена стилей для подтверждения Lampa.Noty: «Стиль Apple TV ·
+       Тема, Акцентный цвет, Шрифт». Отдельно от подписей кнопок — те
+       написаны глаголом («Применить…»), и в уведомлении читались бы как
+       команда, а не как отчёт о сделанном. */
+    lumen_preset_appletv_short: { ru: 'Стиль Apple TV', en: 'Apple TV style', uk: 'Стиль Apple TV' },
+    lumen_preset_lumen_short: { ru: 'Стиль Lumen', en: 'Lumen style', uk: 'Стиль Lumen' },
+    lumen_preset_same: { ru: 'уже применён', en: 'already applied', uk: 'вже застосовано' },
     lumen_group_motion: { ru: 'Движение и эффекты', en: 'Motion and effects', uk: 'Рух і ефекти' },
     lumen_card_group_backdrop: { ru: 'Фон карточки', en: 'Card background', uk: 'Фон картки' },
     lumen_card_group_blocks: { ru: 'Блоки карточки', en: 'Card blocks', uk: 'Блоки картки' },
@@ -1030,6 +1053,12 @@
        ни стилей, ни узлов он на экране не держит. Ветка нужна, чтобы имя без
        префикса lumen_card_ не ушло дальше как чужое. */
     if (name === 'lumen_transition') return true;
+    /* Task 62b (фаза 5): кнопки готового стиля своего значения не хранят, и
+       применять при записи им нечего — работу делают настройки, которые
+       кнопка пишет, каждая своей веткой выше. Ветка нужна, чтобы имя не
+       ушло дальше как чужое: общий фильтр по префиксу пересобирал бы на нём
+       всю таблицу стилей впустую. */
+    if (name === 'lumen_preset_appletv' || name === 'lumen_preset_lumen') return true;
     /* Task 23 (фаза 3): фильтр «не смотрел» читается при входе в рулетку
        (src/56_roulette.js), поэтому применять на лету нечего — на открытом
        экране его состоянием управляет чип. Ветка нужна, чтобы имя не ушло
@@ -1135,10 +1164,71 @@
     }
   }
 
+  /* -------------------------------------------------------------------- */
+  /* Task 62b (фаза 5): готовый стиль.                                     */
+  /*                                                                        */
+  /* Кнопка выставляет НАБОР ЗНАЧЕНИЙ существующих пунктов — по одному,     */
+  /* через Lampa.Storage.set. Это не оптимизация наоборот, а единственный   */
+  /* рабочий путь: на записи висит listener 'change' самой Lampa, через     */
+  /* который каждая настройка и применяется на лету (LC.followStorage →     */
+  /* applyPrefChange). Пакетная запись в localStorage мимо Lampa не         */
+  /* применила бы ни одной и разошлась бы с её собственным кэшем значений.  */
+  /*                                                                        */
+  /* Пишутся только РАЗЛИЧИЯ: повторное нажатие тогда ничего не делает, а   */
+  /* список изменённого есть что показать в подтверждении. Булево значение  */
+  /* пишется строкой, как хранит его сама Lampa ('true'/'false'): JS-false  */
+  /* её Storage.set не сохраняет вовсе (план 0.2).                          */
+  /* -------------------------------------------------------------------- */
+
+  /* Значение пункта, как его видит плагин: сохранённое либо дефолт пункта,
+     с той же нормализацией, что при чтении (строки 'true'/'false' у
+     переключателей, старое значение меток). Сырой Storage тут не годится:
+     у пункта, которого не трогали, ключа нет вовсе, и «уже как надо»
+     не отличалось бы от «не записано». */
+  function presetCurrent(key) {
+    var entry = LC.prefs.find(key);
+    var def = entry ? entry['default'] : '';
+    if (typeof def === 'function') def = def();
+    var raw = Lampa.Storage.get(key, def);
+    if (key === 'lumen_badges') return LC.prefs.badgesMode(raw);
+    if (typeof def === 'boolean') return LC.prefs.boolOf(raw, def);
+    return raw;
+  }
+
+  function applyPreset(id) {
+    try {
+      if (!window.Lampa || !Lampa.Storage) return;
+      if (typeof Lampa.Storage.set !== 'function' || typeof Lampa.Storage.get !== 'function') return;
+      var values = LC.prefs.presetValues(id);
+      var keys = LC.prefs.PRESET_KEYS;
+      var changed = [];
+      for (var i = 0; i < keys.length; i++) {
+        var key = keys[i];
+        if (!Object.prototype.hasOwnProperty.call(values, key)) continue;
+        var want = values[key];
+        if (presetCurrent(key) === want) continue;
+        Lampa.Storage.set(key, typeof want === 'boolean' ? (want ? 'true' : 'false') : want);
+        var entry = LC.prefs.find(key);
+        if (entry) changed.push(LC.lang(entry.label));
+      }
+      /* Подтверждение — перечнем того, что изменилось, названиями самих
+         пунктов раздела: так видно, куда идти, если что-то не понравилось.
+         Показывается и когда менять было нечего: молчащая кнопка выглядит
+         сломанной. */
+      var head = LC.lang(id === 'appletv' ? 'lumen_preset_appletv_short' : 'lumen_preset_lumen_short');
+      var text = head + ' · ' + (changed.length ? changed.join(', ') : LC.lang('lumen_preset_same'));
+      if (Lampa.Noty && typeof Lampa.Noty.show === 'function') Lampa.Noty.show(text);
+    } catch (err) {
+      warn('preset failed', err);
+    }
+  }
+
   /* Обработчик нажатия для параметров type:'button'. */
   function onButtonFor(name) {
     return function () {
       if (name === 'lumen_home_rows') openHomeRows();
+      else if (name === 'lumen_preset_appletv') applyPreset('appletv');
+      else if (name === 'lumen_preset_lumen') applyPreset('lumen');
     };
   }
 
