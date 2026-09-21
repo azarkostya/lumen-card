@@ -7,6 +7,7 @@
   /*   pickBecause(history, n) → [{id, media, title}]                       */
   /*   newEpisodes(shows, today) → [{…show, lumen_badge}]                    */
   /*   soonRange(today) → {gte, lte}                                        */
+  /*   dropFinished(items, percentOf) → items[] — без досмотренных фильмов  */
   /*                                                                       */
   /* Публичное API (runtime, требуют Lampa):                                */
   /*   bumpGen() — поднимает поколение главной; вызвать при уходе с главной */
@@ -83,6 +84,72 @@
     /* Новая серия: следующая выйдет через не более UPCOMING_DAYS. */
     var UPCOMING_DAYS = 7;
 
+    /* ------------------------------------------------------------------ */
+    /* Task 58: досмотренный фильм уходит из «Продолжить».                 */
+    /*                                                                     */
+    /* Жалоба пользователя (docs/research/2026-09-21-user-interview.md):   */
+    /* «я посмотрел Аватара Аанга фильм и он у меня висит, вопрос зачем».  */
+    /*                                                                     */
+    /* ЧТО ДАЁТ LAMPA. Ряд «Продолжить» собирает наш makeContinueCall из   */
+    /* Lampa.Favorite.continues('movie'|'tv') (app.min.js:22612-22635).    */
+    /* continues берёт историю (Favorite type 'history') и вычитает из неё */
+    /* карточки, отмеченные 'viewed' и 'thrown' (22623-22629). Обе отметки */
+    /* ставятся ТОЛЬКО руками — через меню закладок карточки               */
+    /* (app.min.js:37608-37612, Favorite.toggle). Автоматически Lampa      */
+    /* пишет лишь в 'history', и пишет при ЗАПУСКЕ воспроизведения         */
+    /* (Favorite.add('history', movie, 100) — app.min.js:40371 и 40754).   */
+    /* Своей чистки по проценту просмотра у неё нет: ни одного вызова      */
+    /* Favorite.add/toggle с 'viewed' в app.min.js не существует. Поэтому  */
+    /* досмотренный фильм и висит в «Продолжить» вечно.                    */
+    /*                                                                     */
+    /* Процентом владеет Lampa.Timeline (app.min.js:24027): запись — это   */
+    /* {percent, time, duration, profile, updated} по хэшу файла           */
+    /* (view, app.min.js:23899-23944), хранится в Storage (update,         */
+    /* 23850-23859). Хэш фильма — Utils.hash(card.original_title), тот же, */
+    /* которым Timeline.watched считает «смотрел ли» (app.min.js:24000), и */
+    /* тот же, по которому наша полоса прогресса на постере берёт процент  */
+    /* (src/62_badges.js, progressOf).                                     */
+    /*                                                                     */
+    /* ПОРОГ. Финальные титры идут 5-10 минут, то есть 3-8 % хронометража  */
+    /* фильма на 90-180 минут: «конец фильма» приходится на 92-97 % файла, */
+    /* а ровно 100 % набирается, только если досидеть до конца титров.     */
+    /* Берём 95 — то же число, которым сама Lampa отмечает просмотр рукой  */
+    /* (кнопка отметки ставит percent = 95 и time = duration * 0.95,       */
+    /* app.min.js:21278-21279), и то же, что уже стоит порогом в трёх      */
+    /* наших местах: WATCHED в src/44_rows.js и src/70_progress.js и       */
+    /* PROGRESS_MAX в src/62_badges.js (выше 95 полоса «Продолжить · N %»  */
+    /* уже не рисуется). Четвёртое число развело бы «полоса пропала» и     */
+    /* «карточка ушла», а ошибка в меньшую сторону дороже: 92 % у фильма   */
+    /* на 2:53 — это 14 минут невидимого хвоста.                           */
+    /*                                                                     */
+    /* СЕРИАЛЫ НЕ ТРОГАЕМ, и вот почему. «Досмотрен последний доступный    */
+    /* эпизод» на наших данных не вычисляется. Favorite хранит карточку не */
+    /* целиком, а по списку полей card_fields (app.min.js:3833) через      */
+    /* Utils.clearCard (4624-4638); в списке есть number_of_seasons,       */
+    /* number_of_episodes и next_episode_to_air, но НЕТ ни                 */
+    /* last_episode_to_air, ни разбивки серий по сезонам. А хэш записи     */
+    /* серии — hash([season, season > 10 ? ':' : '', episode,              */
+    /* original_name].join('')) (watchedEpisode, app.min.js:24006-24010):  */
+    /* чтобы проверить последнюю серию, надо знать И номер последнего      */
+    /* сезона, И номер последней серии в нём. Перебором не нащупать:       */
+    /* отсутствие записи в Timeline значит «не смотрел», а не «серии       */
+    /* нет». Остаётся запрос tv/{id} — по одному на каждую карточку        */
+    /* «Продолжить» (до 19 штук, app.min.js:22635) и в первой же пачке     */
+    /* главной; ровно эту цену Task 16 уже срезал SHOWS_LIMIT'ом до шести. */
+    /* Сериалы в «Продолжить» пользователь тем же интервью назвал          */
+    /* удобными, так что платить за них первым экраном тем более незачем.  */
+    /*                                                                     */
+    /* ДАННЫЕ LAMPA НЕ ТРОГАЕМ. Это фильтр показа и только: ни Favorite,   */
+    /* ни Timeline модуль не пишет. Фильм остаётся в истории, находится    */
+    /* поиском, его позиция в Timeline на месте, а при повторном запуске   */
+    /* плеер перезапишет percent своим текущим (road.percent =             */
+    /* params.percent, app.min.js:23850) — и карточка вернётся в ряд сама. */
+    /* Настройки поэтому нет: «показывать досмотренное в Продолжить» —     */
+    /* это выключатель для состояния, которое никому не нужно, а ничего    */
+    /* необратимого фильтр не делает.                                      */
+    /* ------------------------------------------------------------------ */
+    var CONTINUE_DONE = 95;
+
     /* Поколение главной. bumpGen() поднимает его при уходе с главной. */
     var _gen = 0;
 
@@ -111,6 +178,36 @@
           media: c.name ? 'tv' : 'movie',
           title: c.title || c.name || ''
         });
+      }
+      return out;
+    }
+
+    /* Task 58: сериал или фильм. Ровно тот же признак, по которому делит
+       карточки сама Lampa в continues: number_of_seasons или first_air_date
+       (app.min.js:22631). */
+    function isSeries(card) {
+      return !!(card && (card.number_of_seasons || card.first_air_date));
+    }
+
+    /* Task 58: убирает из списка «Продолжить» досмотренные ФИЛЬМЫ.
+       items — карточки Lampa.Favorite.continues;
+       percentOf(card) → процент просмотра или null/NaN, если записи нет
+       (в рантайме это Lampa.Timeline.view по хэшу, см. watchedPercent).
+       Сериалы проходят насквозь — разбор в шапке блока выше. Вход не
+       мутируется, порядок сохраняется. */
+    function dropFinished(items, percentOf) {
+      if (!items || !items.length) return [];
+      if (typeof percentOf !== 'function') return items.slice();
+      var out = [];
+      for (var i = 0; i < items.length; i++) {
+        var card = items[i];
+        if (!card) continue;
+        if (isSeries(card)) { out.push(card); continue; }
+        var percent = Number(percentOf(card));
+        /* NaN не проходит ни одного сравнения — карточка без записи и
+           карточка с мусором вместо процента остаются в ряду. */
+        if (percent >= CONTINUE_DONE) continue;
+        out.push(card);
       }
       return out;
     }
@@ -283,7 +380,28 @@
     /* Runtime-утилиты (требуют Lampa.Favorite).                          */
     /* ------------------------------------------------------------------ */
 
-    /* Объединяет continues('movie') и continues('tv'), снимает дубли по id.
+    /* Task 58: процент просмотра фильма из локальной истории Lampa.
+       Ключ — тот же, что у Timeline.watched для фильма (app.min.js:24000)
+       и у полосы прогресса на постере (src/62_badges.js, progressOf: для
+       фильма её цепочка original_title || original_name || title || name
+       сворачивается в ту же пару, потому что original_name бывает только у
+       сериала). null — записи нет или Timeline недоступен. */
+    function watchedPercent(card) {
+      try {
+        if (!window.Lampa || !Lampa.Timeline || typeof Lampa.Timeline.view !== 'function') return null;
+        if (!Lampa.Utils || typeof Lampa.Utils.hash !== 'function') return null;
+        var key = (card && (card.original_title || card.title)) || '';
+        if (!key) return null;
+        var view = Lampa.Timeline.view(Lampa.Utils.hash(key));
+        return view ? (Number(view.percent) || 0) : null;
+      } catch (e) {
+        return null;
+      }
+    }
+
+    /* Объединяет continues('movie') и continues('tv'), снимает дубли по id,
+       убирает досмотренные фильмы (Task 58: dropFinished — фильтр ПОКАЗА,
+       данные Lampa он не трогает).
        Возвращает [] если Lampa.Favorite или continues недоступны. */
     function continuesList() {
       var out = [];
@@ -307,7 +425,7 @@
           }
         }
       } catch (e) {}
-      return out;
+      return dropFinished(out, watchedPercent);
     }
 
     /* Возвращает историю просмотров из Lampa.Favorite. */
@@ -683,6 +801,8 @@
       pickBecause: pickBecause,
       newEpisodes: newEpisodes,
       soonRange: soonRange,
+      /* Task 58: чистая часть фильтра «Продолжить» наружу ради тестов. */
+      dropFinished: dropFinished,
       bumpGen: bumpGen,
       register: register,
       unregister: unregister

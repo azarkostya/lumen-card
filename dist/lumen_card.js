@@ -6616,6 +6616,7 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 
+
 LC.personal = (function () {
 
 
@@ -6654,6 +6655,72 @@ var RECENT_DAYS = 14;
 var UPCOMING_DAYS = 7;
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+var CONTINUE_DONE = 95;
+
+
 var _gen = 0;
 
 
@@ -6681,6 +6748,36 @@ id: c.id,
 media: c.name ? 'tv' : 'movie',
 title: c.title || c.name || ''
 });
+}
+return out;
+}
+
+
+
+
+function isSeries(card) {
+return !!(card && (card.number_of_seasons || card.first_air_date));
+}
+
+
+
+
+
+
+
+function dropFinished(items, percentOf) {
+if (!items || !items.length) return [];
+if (typeof percentOf !== 'function') return items.slice();
+var out = [];
+for (var i = 0; i < items.length; i++) {
+var card = items[i];
+if (!card) continue;
+if (isSeries(card)) { out.push(card); continue; }
+var percent = Number(percentOf(card));
+
+
+if (percent >= CONTINUE_DONE) continue;
+out.push(card);
 }
 return out;
 }
@@ -6855,6 +6952,27 @@ _addedRows = [];
 
 
 
+
+
+
+
+function watchedPercent(card) {
+try {
+if (!window.Lampa || !Lampa.Timeline || typeof Lampa.Timeline.view !== 'function') return null;
+if (!Lampa.Utils || typeof Lampa.Utils.hash !== 'function') return null;
+var key = (card && (card.original_title || card.title)) || '';
+if (!key) return null;
+var view = Lampa.Timeline.view(Lampa.Utils.hash(key));
+return view ? (Number(view.percent) || 0) : null;
+} catch (e) {
+return null;
+}
+}
+
+
+
+
+
 function continuesList() {
 var out = [];
 var seen = {};
@@ -6877,7 +6995,7 @@ out.push(c);
 }
 }
 } catch (e) {}
-return out;
+return dropFinished(out, watchedPercent);
 }
 
 
@@ -7253,6 +7371,8 @@ return {
 pickBecause: pickBecause,
 newEpisodes: newEpisodes,
 soonRange: soonRange,
+
+dropFinished: dropFinished,
 bumpGen: bumpGen,
 register: register,
 unregister: unregister

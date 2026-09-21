@@ -13,6 +13,10 @@ function setupRuntime(opts) {
   var addCalls = [];
   var removeCalls = [];
   var tmdbCalls = [];
+  /* Task 58: журналы записи в данные Lampa — фильтр показа не имеет права
+     ни удалять историю, ни трогать отметки просмотра. */
+  var timelineWrites = [];
+  var favoriteWrites = [];
 
   var Lampa = {
     ContentRows: {
@@ -21,7 +25,10 @@ function setupRuntime(opts) {
     },
     Favorite: opts.noFavorite ? undefined : {
       continues: opts.continues || function () { return []; },
-      get: opts.getFav || function () { return []; }
+      get: opts.getFav || function () { return []; },
+      add: function () { favoriteWrites.push(['add'].concat([].slice.call(arguments))); },
+      remove: function () { favoriteWrites.push(['remove'].concat([].slice.call(arguments))); },
+      toggle: function () { favoriteWrites.push(['toggle'].concat([].slice.call(arguments))); }
     },
     Api: opts.noApi ? undefined : {
       sources: {
@@ -35,6 +42,13 @@ function setupRuntime(opts) {
         }
       }
     },
+    /* Task 58: локальная история просмотра. Ключ — 'h:' + original_title,
+       как его считает фальшивый Lampa.Utils.hash ниже. */
+    Timeline: opts.noTimeline ? undefined : {
+      view: function (hash) { return (opts.timeline || {})[hash] || null; },
+      update: function () { timelineWrites.push(arguments[0]); }
+    },
+    Utils: { hash: function (s) { return 'h:' + s; } },
     Storage: { field: function (k) { return opts.storage && opts.storage[k]; } }
   };
   globalThis.window = { Lampa: Lampa };
@@ -45,7 +59,10 @@ function setupRuntime(opts) {
     pref: function (k, d) { return (opts.prefs && k in opts.prefs) ? opts.prefs[k] : d; },
     daysWord: function (n) { return n + ' d'; }
   });
-  return { api: ctx.api, LC: ctx.LC, addCalls: addCalls, removeCalls: removeCalls, tmdbCalls: tmdbCalls };
+  return {
+    api: ctx.api, LC: ctx.LC, addCalls: addCalls, removeCalls: removeCalls, tmdbCalls: tmdbCalls,
+    timelineWrites: timelineWrites, favoriteWrites: favoriteWrites
+  };
 }
 
 // --- pickBecause ---
@@ -499,4 +516,151 @@ test('отмена ряда снимает таймер дедлайна', funct
     ctl.fire(0);
     assert.equal(got.length, 0, 'отменённый ряд по дедлайну не отвечает');
   });
+});
+
+/* ====================================================================== */
+/* Task 58: досмотренное не висит в «Продолжить просмотр».                */
+/* ====================================================================== */
+
+/* Карточка фильма: у фильма нет ни number_of_seasons, ни first_air_date —
+   по этим же полям отличает сериал сама Lampa (app.min.js:22632). */
+function movie(id, title) { return { id: id, title: title, original_title: title }; }
+function series(id, name) {
+  return { id: id, name: name, original_name: name, first_air_date: '2005-02-21', number_of_seasons: 3 };
+}
+/* percentOf для чистой функции: словарь «оригинальное название → процент». */
+function percents(map) {
+  return function (card) {
+    var key = card.original_title || card.title || '';
+    return key in map ? map[key] : null;
+  };
+}
+
+test('dropFinished: чуть меньше порога — фильм остаётся, чуть больше — уходит', function () {
+  var items = [movie(1, 'A'), movie(2, 'B'), movie(3, 'C')];
+  var out = P.dropFinished(items, percents({ A: 94, B: 95, C: 96 }));
+  assert.deepEqual(out.map(function (c) { return c.id; }), [1],
+    '95 — это уже «досмотрено», тем же числом отмечает просмотр и сама Lampa');
+});
+
+test('dropFinished: запись без duration решается процентом', function () {
+  var items = [movie(1, 'A')];
+  /* В записи Timeline duration может быть нулём (плеер не сообщил
+     длительность) — на решение это не влияет, считается percent. */
+  var out = P.dropFinished(items, function () { return 97; });
+  assert.deepEqual(out, []);
+});
+
+test('dropFinished: записи в истории просмотра нет — фильм остаётся', function () {
+  var items = [movie(1, 'A'), movie(2, 'B')];
+  var out = P.dropFinished(items, function () { return null; });
+  assert.deepEqual(out.map(function (c) { return c.id; }), [1, 2]);
+});
+
+test('dropFinished: мусор вместо процента фильм не выбрасывает', function () {
+  var items = [movie(1, 'A')];
+  assert.equal(P.dropFinished(items, function () { return NaN; }).length, 1);
+  assert.equal(P.dropFinished(items, function () { return 'сто'; }).length, 1);
+  assert.equal(P.dropFinished(items, function () { return undefined; }).length, 1);
+});
+
+test('dropFinished: сериал не трогаем даже при полном проценте', function () {
+  var items = [series(10, 'Show'), movie(1, 'A')];
+  var out = P.dropFinished(items, function () { return 100; });
+  assert.deepEqual(out.map(function (c) { return c.id; }), [10],
+    'сериал остаётся, фильм уходит');
+});
+
+test('dropFinished: сериал опознаётся и по одной first_air_date, и по сезонам', function () {
+  var byDate = { id: 11, name: 'S', original_name: 'S', first_air_date: '2010-01-01' };
+  var bySeasons = { id: 12, name: 'S2', original_name: 'S2', number_of_seasons: 1 };
+  var out = P.dropFinished([byDate, bySeasons], function () { return 99; });
+  assert.equal(out.length, 2);
+});
+
+test('dropFinished: порядок сохраняется, вход не мутируется', function () {
+  var items = [movie(1, 'A'), movie(2, 'B'), movie(3, 'C')];
+  var out = P.dropFinished(items, percents({ B: 99 }));
+  assert.deepEqual(out.map(function (c) { return c.id; }), [1, 3]);
+  assert.equal(items.length, 3, 'исходный массив остался прежним');
+  assert.notEqual(out, items);
+});
+
+test('dropFinished: пустой вход и отсутствие percentOf не ломают', function () {
+  assert.deepEqual(P.dropFinished([], function () { return 99; }), []);
+  assert.deepEqual(P.dropFinished(null, function () { return 99; }), []);
+  var items = [movie(1, 'A')];
+  assert.deepEqual(P.dropFinished(items, null).map(function (c) { return c.id; }), [1]);
+});
+
+/* ---------------------------------------------------------------- */
+/* Task 58, рантайм: ряд «Продолжить» и данные Lampa.                 */
+/* ---------------------------------------------------------------- */
+
+test('Продолжить: досмотренный фильм в ряд не попадает', function () {
+  var s = setupRuntime({
+    continues: function (type) { return type === 'movie' ? [movie(1, 'Аватар'), movie(2, 'Дюна')] : []; },
+    timeline: { 'h:Аватар': { percent: 98, time: 0, duration: 0 } }
+  });
+  s.api.register();
+  var cont = s.addCalls.filter(function (d) { return d.name === 'lumen_continue'; })[0];
+  var got = null;
+  cont.call({}, 'main')(function (payload) { got = payload; });
+  assert.deepEqual(got.results.map(function (c) { return c.id; }), [2]);
+});
+
+test('Продолжить: досмотрено всё — ряда нет вовсе', function () {
+  var s = setupRuntime({
+    continues: function (type) { return type === 'movie' ? [movie(1, 'Аватар')] : []; },
+    timeline: { 'h:Аватар': { percent: 96 } }
+  });
+  s.api.register();
+  assert.equal(s.addCalls.filter(function (d) { return d.name === 'lumen_continue'; }).length, 0);
+});
+
+test('Продолжить: начатый фильм остаётся на месте', function () {
+  var s = setupRuntime({
+    continues: function (type) { return type === 'movie' ? [movie(1, 'Аватар')] : []; },
+    timeline: { 'h:Аватар': { percent: 40 } }
+  });
+  s.api.register();
+  assert.equal(s.addCalls.filter(function (d) { return d.name === 'lumen_continue'; }).length, 1);
+});
+
+test('Продолжить: данные Lampa фильтр не трогает', function () {
+  var store = { 'h:Аватар': { percent: 98, time: 9000, duration: 9200 } };
+  var snapshot = JSON.stringify(store);
+  var s = setupRuntime({
+    continues: function (type) { return type === 'movie' ? [movie(1, 'Аватар'), movie(2, 'Дюна')] : []; },
+    timeline: store
+  });
+  s.api.register();
+  var cont = s.addCalls.filter(function (d) { return d.name === 'lumen_continue'; })[0];
+  cont.call({}, 'main')(function () {});
+  assert.equal(JSON.stringify(store), snapshot, 'позиция в Timeline осталась нетронутой');
+  assert.deepEqual(s.timelineWrites, [], 'ни одной записи в Timeline');
+  assert.deepEqual(s.favoriteWrites, [], 'история и отметки Lampa не тронуты');
+});
+
+test('Продолжить: без Lampa.Timeline ряд строится как раньше', function () {
+  var s = setupRuntime({
+    noTimeline: true,
+    continues: function (type) { return type === 'movie' ? [movie(1, 'Аватар')] : []; }
+  });
+  s.api.register();
+  var cont = s.addCalls.filter(function (d) { return d.name === 'lumen_continue'; })[0];
+  var got = null;
+  cont.call({}, 'main')(function (payload) { got = payload; });
+  assert.deepEqual(got.results.map(function (c) { return c.id; }), [1]);
+});
+
+test('Продолжить: ряд помечен как персональный (Task 57)', function () {
+  var s = setupRuntime({
+    continues: function (type) { return type === 'movie' ? [movie(1, 'Аватар')] : []; }
+  });
+  s.api.register();
+  var cont = s.addCalls.filter(function (d) { return d.name === 'lumen_continue'; })[0];
+  var got = null;
+  cont.call({}, 'main')(function (payload) { got = payload; });
+  assert.equal(got.lumen_personal, true);
 });
