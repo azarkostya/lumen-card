@@ -27,7 +27,13 @@
      его отступы пересчитаны от собственного кегля (помечено «лок. em»).
      Цвета — только LC.tokens() (30_css.js). Иконки — LC.icons.maskUrl():
      группа только регистрирует селектор (useMask), в конце css() на каждую
-     иконку одно правило с data-URI и одно общее — repeat/position/size. */
+     иконку одно правило с data-URI и одно общее — repeat/position/size.
+
+     Тени фокуса (Task 50c) — плоские подложки без размытия и НЕ в списке
+     transition: они появляются и снимаются вместе с классом .focus. Правило
+     то же, что у таблицы карточки (Task 38, src/30_css.js), и сторожит его
+     здесь свой тест — каждый кадр анимации тени это перерисовка растра
+     элемента, а фокус на этих экранах идёт по длинным спискам. */
 
   LC.torrents = (function () {
     var STYLE_ID = 'lumen-torrents-css';
@@ -226,7 +232,7 @@
 
       /* Чипы фильтра и кнопки пустого состояния: h56 r12 panel+line (лок. em от 20px). */
       r.push(A(['.explorer__files-head']) + '{padding:1.052em 2.805em 0 1.403em}');
-      r.push(A(chips) + '{font-size:.877em;height:2.8em;padding:0 1em;margin-right:.6em;border-radius:.6em;border:.05em solid ' + k.line + ';background-color:' + k.panel + ';color:' + k.muted + ';font-family:' + k.fontBody + ';font-weight:600;-webkit-box-sizing:border-box;box-sizing:border-box;-webkit-transition:background-color .2s,color .2s,border-color .2s,-webkit-box-shadow .28s,-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25);transition:background-color .2s,color .2s,border-color .2s,box-shadow .28s,transform .28s cubic-bezier(.2,.9,.3,1.25)}');
+      r.push(A(chips) + '{font-size:.877em;height:2.8em;padding:0 1em;margin-right:.6em;border-radius:.6em;border:.05em solid ' + k.line + ';background-color:' + k.panel + ';color:' + k.muted + ';font-family:' + k.fontBody + ';font-weight:600;-webkit-box-sizing:border-box;box-sizing:border-box;-webkit-transition:background-color .2s,color .2s,border-color .2s,-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25);transition:background-color .2s,color .2s,border-color .2s,transform .28s cubic-bezier(.2,.9,.3,1.25)}');
       r.push(A(['.torrent-filter .simple-button > span', '.empty__footer .simple-button > span']) + '{margin-top:0}');
       /* Фокус — токен «Кнопка» карточки: заливка, scale 1.06, подложка.
          !important — поверх animation-button-focus Lampa.
@@ -257,7 +263,7 @@
 
       /* Раздачи (.torrent-item — уникальный класс пути). */
       r.push(A(['.torrent-list']) + '{padding:0 2.805em 1.403em 1.403em}');
-      r.push(T(['.torrent-item']) + '{background-color:' + k.panel + ';border:.044em solid ' + k.line + ';border-radius:.438em;padding:.789em;line-height:1.2;color:' + k.text + ';font-family:' + k.fontBody + ';-webkit-transition:border-color .2s,background-color .2s,-webkit-box-shadow .2s;transition:border-color .2s,background-color .2s,box-shadow .2s}');
+      r.push(T(['.torrent-item']) + '{background-color:' + k.panel + ';border:.044em solid ' + k.line + ';border-radius:.438em;padding:.789em;line-height:1.2;color:' + k.text + ';font-family:' + k.fontBody + ';-webkit-transition:border-color .2s,background-color .2s;transition:border-color .2s,background-color .2s}');
       r.push(T(['.torrent-item + .torrent-item']) + '{margin-top:.701em}');
       /* Фокус: рамка 3px accent + плоская подложка, без scale; паддинг -2px
          компенсирует рамку. Task 50c: размытие было 1.754em (40 px) — фокус
@@ -287,7 +293,7 @@
       useMask('check', T(['.torrent-item__viewed:before']));
 
       /* «Продолжить» (штатный .watched-history). */
-      r.push(A(['.watched-history']) + '{background-color:' + k.panelLo + ';border:.044em solid ' + k.line + ';border-radius:.438em;padding:.701em .789em;margin-bottom:.701em;color:' + k.muted + ';font-family:' + k.fontBody + ';-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-transition:border-color .2s,-webkit-box-shadow .2s;transition:border-color .2s,box-shadow .2s}');
+      r.push(A(['.watched-history']) + '{background-color:' + k.panelLo + ';border:.044em solid ' + k.line + ';border-radius:.438em;padding:.701em .789em;margin-bottom:.701em;color:' + k.muted + ';font-family:' + k.fontBody + ';-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-transition:border-color .2s;transition:border-color .2s}');
       r.push(A(['.watched-history__icon']) + '{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;width:1.578em;height:1.578em;border-radius:.175em;border:.044em solid ' + k.accent + ';background-color:rgba(' + k.accentRgb + ',.16);color:' + k.accent + '}');
       r.push(A(['.watched-history__icon > svg']) + '{width:.964em !important;height:.964em !important}');
       r.push(A(['.watched-history__body']) + '{padding-left:.614em;font-size:.877em;line-height:1.3}');
@@ -386,7 +392,7 @@
          заливка фокуса — инверсия k.text/k.bg, кольцо k.ring снято. Task 50c:
          размытия нет, было 0 .583em 1.667em (14/40 px); смещение .19em — те
          же ~4.6 px, что .2em на базовой шкале. */
-      r.push(T(btn) + '{font-size:1.052em;height:3em;padding:0 1.25em;margin-right:0;border-radius:.75em;border:.042em solid ' + k.line + ';background-color:' + k.panel + ';color:' + k.text + ';font-family:' + k.fontBody + ';font-weight:600;-webkit-box-sizing:border-box;box-sizing:border-box;-webkit-transition:background-color .2s,color .2s,border-color .2s,-webkit-box-shadow .28s,-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25);transition:background-color .2s,color .2s,border-color .2s,box-shadow .28s,transform .28s cubic-bezier(.2,.9,.3,1.25)}');
+      r.push(T(btn) + '{font-size:1.052em;height:3em;padding:0 1.25em;margin-right:0;border-radius:.75em;border:.042em solid ' + k.line + ';background-color:' + k.panel + ';color:' + k.text + ';font-family:' + k.fontBody + ';font-weight:600;-webkit-box-sizing:border-box;box-sizing:border-box;-webkit-transition:background-color .2s,color .2s,border-color .2s,-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25);transition:background-color .2s,color .2s,border-color .2s,transform .28s cubic-bezier(.2,.9,.3,1.25)}');
       r.push(T(btnFocus) + '{background-color:' + k.text + ';color:' + k.bg + ';-webkit-transform:scale(1.06) !important;transform:scale(1.06) !important;-webkit-box-shadow:0 .19em 0 ' + k.acglow + ';box-shadow:0 .19em 0 ' + k.acglow + '}');
       r.push(TM('lite', btnFocus) + ',' + TM('off', btnFocus) + '{-webkit-transform:none !important;transform:none !important}');
       r.push(TM('lite', btn) + ',' + TM('off', btn) + '{-webkit-animation:none !important;animation:none !important}');
@@ -405,7 +411,7 @@
       r.push(T(['.torrent-files .torrent-file + .torrent-file', '.torrent-files .torrent-file + .torrent-serial', '.torrent-files .torrent-serial + .torrent-file', '.torrent-files .torrent-serial + .torrent-serial']) + '{margin-top:.701em}');
       r.push(T(['.torrnet-folder-name']) + '{font-family:' + k.fontBody + ';font-size:.877em;line-height:1.2;padding:.8em 0;color:' + k.muted + ';opacity:.5}');
       r.push(T(['.torrnet-folder-name.focus']) + '{opacity:1;color:' + k.accent + '}');
-      r.push(T(rows) + '{background-color:' + k.panelLo + ';border:.044em solid ' + k.line + ';border-radius:.438em;color:' + k.text + ';font-family:' + k.fontBody + ';-webkit-transition:border-color .2s,background-color .2s,-webkit-box-shadow .2s;transition:border-color .2s,background-color .2s,box-shadow .2s}');
+      r.push(T(rows) + '{background-color:' + k.panelLo + ';border:.044em solid ' + k.line + ';border-radius:.438em;color:' + k.text + ';font-family:' + k.fontBody + ';-webkit-transition:border-color .2s,background-color .2s;transition:border-color .2s,background-color .2s}');
       /* Task 50c: подложка фокуса без размытия (было 0 .526em 1.534em —
          12/35 px). Список файлов особенно длинный, фокус идёт по нему
          шагами, и каждый шаг перерисовывал сразу две строки. */

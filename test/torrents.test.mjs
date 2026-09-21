@@ -420,6 +420,19 @@ test('Task 54: фокус кнопок экранов пути — инверс�
    Правила фокуса без тени (.explorer-card__head-img.focus::after — кольцо
    постера, .torrnet-folder-name.focus — цвет подписи папки) проверке не
    мешают: у них box-shadow нет вовсе. */
+/* Ревью Task 50c: у таблицы экранов пути не было своей копии запрета
+   «box-shadow в transition» — тест в test/css.test.mjs сторожит только
+   LC.buildCss. Радиус тут теперь нулевой, но анимированная тень всё равно
+   перерисовывает прямоугольник покадрово, а фокус на этих экранах идёт по
+   длинным спискам раздач и файлов. */
+test('Ревью Task 50c: box-shadow не входит в transition ни в одном правиле экранов пути', () => {
+  const offenders = rules().filter((r) => /transition[^;{}]*box-shadow/.test(r));
+  assert.deepEqual(offenders.map((r) => r.slice(0, r.indexOf('{'))), [],
+    'тень должна появляться вместе с классом .focus, а не анимироваться');
+  /* Проверка не должна стать пустой: transition в таблице обязаны остаться. */
+  assert.ok(rules().some((r) => /(^|;)transition:/.test(r)), 'в таблице не осталось ни одного transition');
+});
+
 test('Task 50c: ни одной тени с размытием ни на одном правиле фокуса экранов пути', () => {
   const shadows = [];
   for (const r of rules()) {
