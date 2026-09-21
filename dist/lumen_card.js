@@ -2149,7 +2149,13 @@ css.push('.lumen-hub .lumen-tile__season{position:absolute;top:.7em;left:.7em;fo
 
 
 
-css.push('.lumen-hub__tiles .lumen-tile.focus{-webkit-transform:scale(1.05);transform:scale(1.05);z-index:3;-webkit-box-shadow:0 .35em .7em rgba(0,0,0,.45);box-shadow:0 .35em .7em rgba(0,0,0,.45)}');
+
+
+
+
+
+
+css.push('.lumen-hub__tiles .lumen-tile.focus{-webkit-transform:scale(1.05);transform:scale(1.05);z-index:3;-webkit-box-shadow:0 .2em 0 rgba(0,0,0,.45);box-shadow:0 .2em 0 rgba(0,0,0,.45)}');
 
 
 
@@ -2225,9 +2231,16 @@ if (LC.pref('lumen_badges', true)) css.push('.lumen-grid .card__vote{display:non
 
 
 
+
+
+
+
+
+
+
 css.push('.lumen-grid__items .lumen-gcard.focus{-webkit-transform:scale(1.08);transform:scale(1.08);z-index:3}');
 css.push('.lumen-grid .lumen-gcard.focus .card__view:after,.lumen-grid .lumen-gcard.hover .card__view:after{display:none}');
-css.push('.lumen-grid .lumen-gcard.focus .card__view{-webkit-box-shadow:0 .35em .7em ' + AG + ';box-shadow:0 .35em .7em ' + AG + '}');
+css.push('.lumen-grid .lumen-gcard.focus .card__view{-webkit-box-shadow:0 .2em 0 ' + AG + ';box-shadow:0 .2em 0 ' + AG + '}');
 css.push('.lumen-grid.lumen-motion-lite .lumen-gcard.focus,.lumen-grid.lumen-motion-off .lumen-gcard.focus{-webkit-transform:none;transform:none}');
 css.push('.lumen-grid.lumen-motion-off .lumen-gcard{-webkit-transition:none;transition:none}');
 

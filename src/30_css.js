@@ -1660,12 +1660,18 @@
        Кинопоиска они могут встретиться на одной плитке. Цвет — акцент: это
        единственная плитка в списке, на которую сейчас стоит смотреть. */
     css.push('.lumen-hub .lumen-tile__season{position:absolute;top:.7em;left:.7em;font-family:' + FB + ';font-size:.7em;letter-spacing:.04em;color:' + t.onac + ';background:' + A + ';border-radius:.2em;padding:.25em .45em}');
-    /* Task 41: фокус — только увеличение и мягкая тень, без кольца: на
-       плитке с кадром рамка читается как ещё одна коробка. Тень вне
-       transition (правило Task 38): она появляется вместе с классом.
-       z-index — по той же причине, что у карточки сетки ниже: увеличенная
-       плитка иначе ныряет под следующую в ряду и тень срезается. */
-    css.push('.lumen-hub__tiles .lumen-tile.focus{-webkit-transform:scale(1.05);transform:scale(1.05);z-index:3;-webkit-box-shadow:0 .35em .7em rgba(0,0,0,.45);box-shadow:0 .35em .7em rgba(0,0,0,.45)}');
+    /* Task 41: фокус — только увеличение и подложка, без кольца: на плитке
+       с кадром рамка читается как ещё одна коробка. Тень вне transition
+       (правило Task 38): она появляется вместе с классом. z-index — по той
+       же причине, что у карточки сетки ниже: увеличенная плитка иначе
+       ныряет под следующую в ряду и подложка срезается.
+       Task 50b: размытия у тени больше нет — было .7em, то есть 16
+       физических px по контуру плитки, и появлялась-снималась она на каждом
+       шаге фокуса сразу у двух плиток. box-shadow — свойство стадии Paint
+       (docs/research/2026-09-18-android-tv-animations.md:10). Числа те же,
+       что на главной (AR.cardFocus выше): один и тот же жест обязан
+       выглядеть одинаково на всех экранах плагина. */
+    css.push('.lumen-hub__tiles .lumen-tile.focus{-webkit-transform:scale(1.05);transform:scale(1.05);z-index:3;-webkit-box-shadow:0 .2em 0 rgba(0,0,0,.45);box-shadow:0 .2em 0 rgba(0,0,0,.45)}');
     /* Task 41: в lite/off увеличения нет, а мягкая тень на тёмном фоне не
        читается — фокус остался бы без единого признака (прежде его держало
        кольцо, которое у баннера убрано). Поэтому здесь плитку очерчивает
@@ -1726,9 +1732,16 @@
        по-разному. Штатное кольцо Lampa — .card.focus .card__view::after
        (app.css:3466: content:"", border .3em #fff, вылет -.5em, z-index:-1),
        наше правило его перекрашивало; теперь оно его гасит, а акцент несёт
-       box-shadow на самом постере — тем же числом (0 .35em .7em), что у
-       карточки ряда, потому что радиус размытия в плагине ограничен .8em
-       (тест «Task 38: ни одного box-shadow с размытием больше .8em»).
+       box-shadow на самом постере — тем же числом, что у карточки ряда
+       (AR.cardFocus выше): один и тот же жест обязан выглядеть одинаково на
+       обоих экранах.
+       Task 50b: это число теперь 0 .2em 0 — плоская подложка без размытия.
+       Прежние .7em радиуса здесь стоили дороже, чем на главной: увеличение
+       в сетке стоит на всей .lumen-gcard (правило выше), то есть слой с
+       размытым контуром перерисовывался вместе с подписью, и на каждом шаге
+       фокуса дважды — у уходящей карточки и у приходящей. box-shadow —
+       свойство стадии Paint
+       (docs/research/2026-09-18-android-tv-animations.md:10).
        Ничего, кроме кольца, на этом псевдоэлементе не висит: «просмотрено»
        рисуется отдельными узлами .card-watched и .card__marker. У мыши это
        же кольцо, только полупрозрачное (app.css:3480), поэтому .hover гасим
@@ -1743,7 +1756,7 @@
        вмещает. Соотношение держит тест, а не глаз. */
     css.push('.lumen-grid__items .lumen-gcard.focus{-webkit-transform:scale(1.08);transform:scale(1.08);z-index:3}');
     css.push('.lumen-grid .lumen-gcard.focus .card__view:after,.lumen-grid .lumen-gcard.hover .card__view:after{display:none}');
-    css.push('.lumen-grid .lumen-gcard.focus .card__view{-webkit-box-shadow:0 .35em .7em ' + AG + ';box-shadow:0 .35em .7em ' + AG + '}');
+    css.push('.lumen-grid .lumen-gcard.focus .card__view{-webkit-box-shadow:0 .2em 0 ' + AG + ';box-shadow:0 .2em 0 ' + AG + '}');
     css.push('.lumen-grid.lumen-motion-lite .lumen-gcard.focus,.lumen-grid.lumen-motion-off .lumen-gcard.focus{-webkit-transform:none;transform:none}');
     css.push('.lumen-grid.lumen-motion-off .lumen-gcard{-webkit-transition:none;transition:none}');
     /* Полоса продолжения просмотра (design-spec-main §0.6): данные те же,

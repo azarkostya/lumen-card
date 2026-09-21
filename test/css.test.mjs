@@ -1358,7 +1358,7 @@ test('Task 41: плитка хаба — баннер без рамки, заг�
   assert.ok(focus, 'правило фокуса плитки не найдено');
   assert.equal(/border-color:/.test(focus), false, 'кольца фокуса на баннере быть не должно: ' + focus);
   assert.ok(focus.indexOf('transform:scale(1.05)') !== -1, 'фокус — увеличение: ' + focus);
-  assert.ok(focus.indexOf('box-shadow') !== -1, 'и мягкая тень: ' + focus);
+  assert.ok(focus.indexOf('box-shadow') !== -1, 'и подложка (Task 50b — без размытия): ' + focus);
 });
 
 test('Task 17: на слабых ТВ пружины фокуса в хабе и сетке нет', () => {
@@ -1666,22 +1666,31 @@ test('Task 50: подложка фокуса карточки без размы�
   assert.ok(rule.decl.indexOf('box-shadow:0 .2em 0 ') !== -1, 'размытие обязано быть нулевым: ' + rule.decl);
   assert.ok(rule.decl.indexOf('-webkit-box-shadow:0 .2em 0 ') !== -1, 'старым webkit-движкам нужен префикс: ' + rule.decl);
 
-  /* Ни одной тени с размытием во ВСЕХ правилах карточки главной — иначе шаг
-     фокуса снова стоил бы двух перерисовок со всей площадью вокруг. */
-  const shadows = [];
-  for (const r of ruleBodies(css)) {
-    if (!r.selectors.some((s) => /^\.lumen-main \.card\b/.test(s))) continue;
-    for (const m of r.decl.matchAll(/box-shadow:([^;}]+)/g)) shadows.push(m[1]);
-  }
-  assert.ok(shadows.length >= 2, 'теней под .lumen-main .card не нашлось — проверка стала бы пустой: ' + shadows.length);
-  assert.deepEqual(shadows.filter((s) => !/^0 [\d.]+em 0 /.test(s)), [],
-    'тень с ненулевым размытием на карточке главной');
-
   const accentRule = withStorage({}, (LC) => LC.accentCss()).split('\n')
     .find((l) => l.indexOf('.lumen-main .card.focus .card__view{') === 0);
   assert.ok(accentRule, 'узел подкраски перестал нести правило фокуса карточки');
   assert.ok(css.split('\n').indexOf(accentRule) !== -1,
     'узел подкраски и общая таблица разошлись формой правила: ' + accentRule);
+});
+
+/* Task 50b. Тот же шаг D-pad-фокуса на двух других экранах плагина: сетка
+   подборки (.lumen-grid, увеличение там стоит на всей .lumen-gcard, то есть
+   площадь перерисовки ещё больше) и плитки хаба (.lumen-hub). Проверка
+   одна на все три корня и по ВСЕМ правилам фокуса, а не по списку
+   селекторов: новое правило с размытой тенью на шаге фокуса обязано
+   упереться в этот тест, где бы его ни написали. */
+test('Task 50b: ни одной тени с размытием на правилах фокуса главной, сетки и хаба', () => {
+  const ROOTS = ['.lumen-main', '.lumen-grid', '.lumen-hub'];
+  const shadows = [];
+  for (const r of ruleBodies(css)) {
+    const own = r.selectors.some((s) => ROOTS.some((root) => startsWithRoot(s, root)) && /\.focus\b|\.hover\b/.test(s));
+    if (!own) continue;
+    for (const m of r.decl.matchAll(/box-shadow:([^;}]+)/g)) shadows.push(r.selectors.join(',') + ' -> ' + m[1]);
+  }
+  /* Три правила с тенью — главная, сетка, плитка хаба; удвоены префиксом. */
+  assert.ok(shadows.length >= 6, 'теней на правилах фокуса не нашлось — проверка стала бы пустой: ' + shadows.length);
+  assert.deepEqual(shadows.filter((s) => !/-> 0 [\d.]+em 0 /.test(s)), [],
+    'тень с ненулевым размытием на шаге фокуса');
 });
 
 /* Правка пользователя 2026-09-17 (второй круг, п.1): «а может текст вниз
@@ -2324,8 +2333,8 @@ test('Task 36: карточка ряда главной — 260×390, подпи
 });
 
 /* Task 42: карточка ряда без рамки и штатных бейджей. Фокус показывают
-   увеличение постера и тень с акцентным ореолом, а не кольцо. */
-test('Task 42: фокус карточки ряда — увеличение и тень вместо кольца', () => {
+   увеличение постера и акцентная подложка под ним, а не кольцо. */
+test('Task 42: фокус карточки ряда — увеличение и подложка вместо кольца', () => {
   /* Штатное кольцо Lampa (.card.focus .card__view::after, app.css:3466 —
      content:"" и border .3em #fff) снимается целиком, вместе с вариантом
      для мыши. */
@@ -2369,9 +2378,10 @@ test('Task 42: фокус карточки ряда — увеличение и 
   assert.ok(title.indexOf('color:#A89A8A') !== -1, 'название вне фокуса — muted: ' + title);
   assert.equal(findDecl(css, (sel) => sel === '.lumen-main .card.focus .card__title'), 'color:#F3EDE4');
 
-  /* Выросший постер официально заезжает в зону заголовка ряда, а его ореол —
-     под соседнюю карточку. Слой — на .card (она position:relative у Lampa,
-     app.css:3095), тем же числом, что у плитки хаба и карточки сетки. */
+  /* Выросший постер официально заезжает в зону заголовка ряда, а его
+     подложка — в margin-bottom своего .card__view. Слой — на .card (она
+     position:relative у Lampa, app.css:3095), тем же числом, что у плитки
+     хаба и карточки сетки. */
   assert.equal(findDecl(css, (sel) => sel === '.lumen-main .card.focus'), 'z-index:3');
 });
 
@@ -2910,7 +2920,7 @@ test('Task 43: чип настроения — тот же язык, что у �
 
 /* ---------------------------------------------------------------------- */
 /* Task 43 (находка на стенде): в сетке подборки фокус остался белой       */
-/* рамкой, хотя на главной он уже увеличение постера и акцентный ореол     */
+/* рамкой, хотя на главной он уже увеличение постера и акцентная подложка  */
 /* (Task 42). Приводим к одному языку.                                     */
 /* ---------------------------------------------------------------------- */
 
@@ -2933,18 +2943,19 @@ test('Task 43: бюджет под полосу статуса совпадае�
   assert.equal(need, 1.98, 'геометрия полосы статуса разошлась с бюджетом TEXT_STATUS');
 });
 
-test('Task 43: у карточки сетки подборки нет кольца фокуса — увеличение и ореол, как на главной', () => {
+test('Task 43: у карточки сетки подборки нет кольца фокуса — увеличение и подложка, как на главной', () => {
   const ring = findDecl(css, (sel) => sel === '.lumen-grid .lumen-gcard.focus .card__view:after');
   assert.ok(ring, 'штатное кольцо Lampa обязано быть погашено явным правилом');
   assert.ok(ring.indexOf('display:none') !== -1, 'кольцо снимается: ' + ring);
   assert.equal(ring.indexOf('border-color'), -1, 'мёртвая рамка на погашенном псевдоэлементе: ' + ring);
 
-  /* Правил на этот селектор два — ореол и гашение штатных анимаций ниже,
-     поэтому ищем по самому объявлению, а не по первому совпадению. */
+  /* Правил на этот селектор два — подложка и гашение штатных анимаций ниже,
+     поэтому ищем по самому объявлению, а не по первому совпадению.
+     Task 50b: число то же, что на главной, и размытия у него нет. */
   const view = ruleBodies(css).find((r) => r.selectors.indexOf('.lumen-grid .lumen-gcard.focus .card__view') !== -1 &&
     r.decl.indexOf('box-shadow') !== -1);
-  assert.ok(view && /box-shadow:0 \.35em \.7em rgba\(232,184,122,0\.35\)/.test(view.decl),
-    'ореол переехал на сам постер тем же числом, что на главной: ' + (view && view.decl));
+  assert.ok(view && /box-shadow:0 \.2em 0 rgba\(232,184,122,0\.35\)/.test(view.decl),
+    'подложка переехала на сам постер тем же числом, что на главной: ' + (view && view.decl));
 
   const focus = findDecl(css, (sel) => sel === '.lumen-grid__items .lumen-gcard.focus');
   assert.ok(focus.indexOf('scale(1.08)') !== -1, 'увеличение то же, что у карточки ряда: ' + focus);
