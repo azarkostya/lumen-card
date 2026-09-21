@@ -1463,6 +1463,79 @@ test('Task 54: фокус кнопок и строк списка — инвер
   }
 });
 
+/* Ревью Task 54, находка 1. Инверсия меняет цвет карты под текстом, но
+   наследование цвета от .lumen-episode.focus проигрывает ЛЮБОМУ явному
+   объявлению у потомка, какой бы специфичности ни было правило родителя. У
+   карточки серии такие объявления есть у пяти узлов (номер, подпись,
+   «СМОТРИТЕ», таймкод и — у не вышедшей серии — само название), и стоит
+   забыть один, как он останется приглушённым на светлой заливке.
+   Проверка поэтому не по списку узлов: она находит в таблице ВСЕ правила,
+   которые красят потомка .lumen-episode вне фокуса, и требует на тот же узел
+   правило фокуса более высокой специфичности. Узлы, которые в фокусе скрыты
+   (__check, __percent), из проверки исключаются по самому CSS, а не по
+   списку. Второй половиной сверяется контраст того, что в фокусе получилось:
+   заливка фокуса — P.text, значит цвет подписи обязан читаться на ней. */
+test('Ревью Task 54: под инверсией фокуса у карточки серии не остаётся приглушённого текста', () => {
+  /* Два вида селекторов: общее правило узла (.lumen-card .lumen-episode__num)
+     и правило состояния карты (.lumen-card .lumen-episode--soon
+     .lumen-episode__name, .lumen-card .lumen-episode.focus …). Правила
+     сжатой шапки (.lumen-card.lumen-progress-on.lumen-compact …) сюда не
+     попадают намеренно: они про display, а не про цвет, и их display:none у
+     подписи действует только в сжатом состоянии. */
+  const CHILD = /^\.lumen-card (\.lumen-episode(--[\w-]+)?(\.focus)? )?\.lumen-episode__[\w-]+$/;
+  const child = (sel) => sel.slice(sel.lastIndexOf(' ') + 1);
+  const classes = (sel) => (sel.match(/\./g) || []).length;
+
+  for (const theme of ['warm', 'black']) {
+    const table = withStorage({ lumen_theme: theme }, (LC) => LC.buildCss());
+    const P = withStorage({ lumen_theme: theme }, (LC) => LC.tokens());
+    const plain = [];
+    const focused = [];
+    const hidden = new Set();
+    for (const r of ruleBodies(table)) {
+      for (const sel of r.selectors) {
+        if (!CHILD.test(sel)) continue;
+        const isFocus = sel.indexOf('.focus') !== -1;
+        if (isFocus && /(^|;)display:none/.test(r.decl)) hidden.add(child(sel));
+        const color = /(^|;)color:(#[0-9A-Fa-f]{6})/.exec(r.decl);
+        if (!color) continue;
+        (isFocus ? focused : plain).push({ child: child(sel), n: classes(sel), color: color[2], sel });
+      }
+    }
+    assert.ok(plain.length >= 4, theme + ': правил с цветом у потомков карточки серии нашлось подозрительно мало — ' + plain.length);
+    for (const p of plain) {
+      if (hidden.has(p.child)) continue;
+      assert.ok(focused.some((f) => f.child === p.child && f.n > p.n),
+        theme + ': ' + p.sel + ' красит узел вне фокуса (' + p.color + '), а правила фокуса выше специфичностью на него нет — под инверсией цвет останется прежним');
+    }
+    for (const f of focused) {
+      const ratio = contrast(f.color, P.text);
+      assert.ok(ratio >= 4.5, theme + ': ' + f.sel + ' — ' + f.color + ' на заливке фокуса ' + P.text + ' даёт ' + ratio.toFixed(2) + ':1');
+    }
+  }
+});
+
+/* Ревью Task 54, находка 2. Отметка «режим включён» у чипов стояла на
+   акценте (правило --on, два класса), а правило фокуса — на трёх, и под
+   фокусом акцентный цвет текста терялся. Волоска border-color rgba(A,.5) на
+   .04em на светлой заливке не видно: контраст самого акцента на P.text —
+   1.56. У отзывов переключатель одиночный, и «вкл/выкл» нужно читать ровно
+   под пультом, поэтому у отмеченного состояния под фокусом свой признак. */
+test('Ревью Task 54: отметка «режим включён» читается и под фокусом', () => {
+  const P = tokensWith({});
+  assert.ok(contrast(P.accent, P.text) < 3, 'акцент на заливке фокуса и правда не читается: ' + contrast(P.accent, P.text).toFixed(2));
+  for (const chip of ['.lumen-descr-row .lumen-reviews__mode', '.lumen-descr-row .lumen-fr__mode']) {
+    const decl = findDecl(css, (sel) => sel === chip + '--on.focus');
+    assert.ok(decl, chip + ': у отмеченного состояния под фокусом нет своего правила');
+    const mark = /(^|;)outline:[\d.]+em solid (#[0-9A-Fa-f]{6})/.exec(decl);
+    assert.ok(mark, chip + ': признак отметки не найден — ' + decl);
+    assert.ok(contrast(mark[2], P.text) >= 4.5, chip + ': признак ' + mark[2] + ' на заливке фокуса — ' + contrast(mark[2], P.text).toFixed(2) + ':1');
+    /* Кольцо внутрь: рамка сдвинула бы содержимое чипа, outline лежит поверх. */
+    assert.ok(/outline-offset:-[\d.]+em/.test(decl), chip + ': кольцо обязано быть внутренним — ' + decl);
+    assert.equal(decl.indexOf(P.accent), -1, chip + ': акцент на светлой заливке не читается — ' + decl);
+  }
+});
+
 test('Task 17: на слабых ТВ пружины фокуса в хабе и сетке нет', () => {
   for (const mode of ['lite', 'off']) {
     const tile = findDecl(css, (sel) => sel === '.lumen-hub.lumen-motion-' + mode + ' .lumen-tile.focus');

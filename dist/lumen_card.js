@@ -1691,7 +1691,15 @@ css.push('.lumen-card .lumen-episode--soon .lumen-episode__name{color:' + P.smok
 
 css.push('.lumen-card .lumen-episode.focus{opacity:1;background:' + P.text + ';color:' + P.bg + ';border:.13em solid ' + P.text + ';padding:.70em;-webkit-transform:scale(1.03);transform:scale(1.03);-webkit-box-shadow:0 .2em 0 ' + AG + ';box-shadow:0 .2em 0 ' + AG + '}');
 css.push('.lumen-card .lumen-episode.focus .lumen-episode__still{opacity:.12}');
-css.push('.lumen-card .lumen-episode.focus .lumen-episode__num,.lumen-card .lumen-episode.focus .lumen-episode__caption,.lumen-card .lumen-episode.focus .lumen-episode__state,.lumen-card .lumen-episode.focus .lumen-episode__timecode{color:' + P.bg + '}');
+
+
+
+
+
+
+
+
+css.push('.lumen-card .lumen-episode.focus .lumen-episode__num,.lumen-card .lumen-episode.focus .lumen-episode__name,.lumen-card .lumen-episode.focus .lumen-episode__caption,.lumen-card .lumen-episode.focus .lumen-episode__state,.lumen-card .lumen-episode.focus .lumen-episode__timecode{color:' + P.bg + '}');
 css.push('.lumen-card .lumen-episode.focus .lumen-episode__bar{background:rgba(' + P.bgRgb + ',.2)}');
 css.push('.lumen-card .lumen-episode.focus .lumen-episode__bar > div{background:' + P.bg + '}');
 css.push('.lumen-card .lumen-episode.focus .lumen-episode__play{display:block;background:' + P.bg + '}');
@@ -2007,7 +2015,21 @@ css.push('.lumen-descr-row .lumen-reviews__mode--on{color:' + A + ';border-color
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
 css.push('.lumen-descr-row .lumen-reviews__mode.focus{background:' + P.text + ';color:' + P.bg + '}');
+css.push('.lumen-descr-row .lumen-reviews__mode--on.focus{outline:.19em solid ' + P.bg + ';outline-offset:-.19em}');
 
 
 css.push('.lumen-descr-row .lumen-review__spoiler{margin-top:auto;font-family:' + FB + ';font-weight:600;font-size:.61em;line-height:1;letter-spacing:.12em;color:' + P.spice + '}');
@@ -2045,6 +2067,7 @@ css.push('.lumen-descr-row .lumen-fr__mode--on{color:' + A + ';border-color:rgba
 
 
 css.push('.lumen-descr-row .lumen-fr__mode.focus{background:' + P.text + ';color:' + P.bg + '}');
+css.push('.lumen-descr-row .lumen-fr__mode--on.focus{outline:.19em solid ' + P.bg + ';outline-offset:-.19em}');
 
 
 

@@ -1207,7 +1207,15 @@
        play — иначе они остались бы светлыми на светлом. */
     css.push('.lumen-card .lumen-episode.focus{opacity:1;background:' + P.text + ';color:' + P.bg + ';border:.13em solid ' + P.text + ';padding:.70em;-webkit-transform:scale(1.03);transform:scale(1.03);-webkit-box-shadow:0 .2em 0 ' + AG + ';box-shadow:0 .2em 0 ' + AG + '}');
     css.push('.lumen-card .lumen-episode.focus .lumen-episode__still{opacity:.12}');
-    css.push('.lumen-card .lumen-episode.focus .lumen-episode__num,.lumen-card .lumen-episode.focus .lumen-episode__caption,.lumen-card .lumen-episode.focus .lumen-episode__state,.lumen-card .lumen-episode.focus .lumen-episode__timecode{color:' + P.bg + '}');
+    /* Ревью Task 54: __name в этом списке обязателен. Своего цвета у него нет
+       — он берёт его от карты наследованием, — но у не вышедшей серии цвет
+       задан явно: .lumen-episode--soon .lumen-episode__name{color:P.smoke}
+       выше, три класса. Явное объявление бьёт наследование при любой
+       специфичности родителя, поэтому под фокусом подпись такой серии
+       оставалась smoke на светлой заливке: контраст 4.47 в тёплой теме и
+       3.81 в «Глубокой чёрной» (замер по WCAG, обе ниже порога 4.5).
+       С P.bg выходит 17.07 и 18.77. */
+    css.push('.lumen-card .lumen-episode.focus .lumen-episode__num,.lumen-card .lumen-episode.focus .lumen-episode__name,.lumen-card .lumen-episode.focus .lumen-episode__caption,.lumen-card .lumen-episode.focus .lumen-episode__state,.lumen-card .lumen-episode.focus .lumen-episode__timecode{color:' + P.bg + '}');
     css.push('.lumen-card .lumen-episode.focus .lumen-episode__bar{background:rgba(' + P.bgRgb + ',.2)}');
     css.push('.lumen-card .lumen-episode.focus .lumen-episode__bar > div{background:' + P.bg + '}');
     css.push('.lumen-card .lumen-episode.focus .lumen-episode__play{display:block;background:' + P.bg + '}');
@@ -1520,10 +1528,24 @@
        чипы порядка ряда франшизы ниже. */
     css.push('.lumen-descr-row .lumen-reviews__mode{margin-left:auto;padding:.35em .61em;border-radius:.44em;background:' + P.buttonBg + ';border:.04em solid ' + P.line + ';font-family:' + FB + ';font-weight:600;font-size:.70em;line-height:1.2;color:' + P.muted + '}');
     css.push('.lumen-descr-row .lumen-reviews__mode--on{color:' + A + ';border-color:rgba(' + A_RGB + ',.5)}');
-    /* Task 54: фокус — инверсия P.text/P.bg, как у остальных кнопок
-       плагина. Отмеченное состояние (--on) акцентом при этом осталось: это
-       другой признак, он читается и вне фокуса. */
+    /* Task 54: фокус — инверсия P.text/P.bg, как у остальных кнопок плагина.
+       Ревью: отметка --on акцентом под фокусом НЕ выживает — правило фокуса
+       (три класса) перебивает color:A у --on (два), и от акцента остаётся
+       только волосок border-color rgba(A,.5) на .04em, который на заливке
+       P.text не виден: контраст акцента на ней 1.56. А переключатель тут
+       одиночный (src/60_reviews.js), и состояние «вкл/выкл» нужно читать
+       ровно в тот момент, когда пульт стоит на нём. Поэтому отмеченному
+       состоянию под фокусом дан свой признак — внутреннее кольцо цветом
+       подписи (контраст P.bg на P.text 17.07 в тёплой теме, 18.77 в
+       «Глубокой чёрной»). Кольцо не рамкой, а outline: рамка сдвинула бы
+       содержимое чипа, outline лежит поверх и в поток не входит (тот же
+       приём, что у плитки хаба в lite — правило .lumen-hub.lumen-motion-lite
+       .lumen-tile.focus ниже). Толщина .19em — от СОБСТВЕННОГО кегля чипа
+       (.70em базового, то есть 15.97 px при 1920), это те же 3 физических
+       px, что у колец плагина на базовой шкале (.13em); на .11em кольцо
+       выходило 1.76 px и на стенде не отличалось от чипа без отметки. */
     css.push('.lumen-descr-row .lumen-reviews__mode.focus{background:' + P.text + ';color:' + P.bg + '}');
+    css.push('.lumen-descr-row .lumen-reviews__mode--on.focus{outline:.19em solid ' + P.bg + ';outline-offset:-.19em}');
     /* Метка «в отзыве есть спойлер» — внизу карточки, у самой кромки: она
        обещает, что под OK ждёт скрытый кусок. */
     css.push('.lumen-descr-row .lumen-review__spoiler{margin-top:auto;font-family:' + FB + ';font-weight:600;font-size:.61em;line-height:1;letter-spacing:.12em;color:' + P.spice + '}');
@@ -1557,10 +1579,11 @@
     css.push('.lumen-descr-row .lumen-fr__modes{display:-webkit-box;display:-webkit-flex;display:flex}');
     css.push('.lumen-descr-row .lumen-fr__mode{padding:.35em .61em;margin-right:.35em;border-radius:.44em;background:' + P.buttonBg + ';border:.04em solid ' + P.line + ';font-family:' + FB + ';font-weight:600;font-size:.70em;line-height:1.2;color:' + P.muted + '}');
     css.push('.lumen-descr-row .lumen-fr__mode--on{color:' + A + ';border-color:rgba(' + A_RGB + ',.5)}');
-    /* Task 54: фокус — инверсия P.text/P.bg, как у остальных кнопок
-       плагина. Отмеченное состояние (--on) акцентом при этом осталось: это
-       другой признак, он читается и вне фокуса. */
+    /* Task 54: фокус — инверсия P.text/P.bg. Отметка --on под фокусом — своё
+       внутреннее кольцо цветом подписи, по тем же причинам, что у
+       переключателя отзывов выше. */
     css.push('.lumen-descr-row .lumen-fr__mode.focus{background:' + P.text + ';color:' + P.bg + '}');
+    css.push('.lumen-descr-row .lumen-fr__mode--on.focus{outline:.19em solid ' + P.bg + ';outline-offset:-.19em}');
     /* Ряд частей — горизонтальный, как ряд отзывов: Lampa внутри ряда
        описания не прокручивает (находка Task 5d), к карточке в фокусе ряд
        подкручивается сам (scrollToCard в src/66_franchise.js нет — карточки
