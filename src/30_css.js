@@ -2165,10 +2165,18 @@
        именно он занимает всю площадь под рядами. Класс режима на body ставит
        LC.applyMotionMode.
        Task 35: текст правила — общий с отдельным узлом подкраски (accentRules
-       выше), чтобы полная сборка и быстрая перекраска не разъехались. */
+       выше), чтобы полная сборка и быстрая перекраска не разъехались.
+       Task 60: весь переход цвета теперь ведёт LC.accent — шестнадцать шагов
+       по 100 мс, 1.6 с на путь (src/57_color.js), и красит он все пять
+       правил подкраски разом, включая три градиентных. Этому переходу
+       осталась одна работа: сгладить ступеньку МЕЖДУ соседними шагами,
+       поэтому его длительность равна шагу, а не пути. Линейная кривая — по
+       той же причине: ease-in-out на каждом шаге дал бы шестнадцать
+       разгонов и торможений вместо ровного хода. Что число здесь и шаг в
+       57_color.js не разъехались, проверяет тест (test/color.test.mjs). */
     var AR = accentRules(P, t);
     css.push(AR.main);
-    css.push('body.lumen-motion-full .lumen-main{-webkit-transition:background-color .6s ease-in-out;transition:background-color .6s ease-in-out}');
+    css.push('body.lumen-motion-full .lumen-main{-webkit-transition:background-color .1s linear;transition:background-color .1s linear}');
     /* Task 49: штатный фон Lampa под нашей главной не рисуется вовсе. Его
        разметка — один .background с тремя канвасами внутри
        (vendor/lampa/app.min.js:31225: <div class="background"> с
@@ -3442,7 +3450,15 @@
        — поверх ВСЕГО, включая модалы Lampa (1000+) и оверлеи плеера: иначе
        открытый диалог настроек, где и включают HUD, закрывал бы собой
        цифры, которые должен был показать. */
-    css.push('.lumen-hud{position:fixed;top:.3em;left:.3em;z-index:99999;padding:.2em .5em;font:.7em/1.4 Consolas,"Courier New",monospace;color:#0f0;background:rgba(0,0,0,.75);border-radius:.3em;pointer-events:none;white-space:nowrap}');
+    /* Task 60: строка HUD перестала быть однострочной — к замерам
+       добавилось состояние подкраски с адресом постера, а адрес длинный и
+       без пробелов (image.tmdb.org/t/p/w185/vLl5tcu….jpg). С прежним
+       white-space:nowrap он уезжал за кромку экрана ровно там, где нужнее
+       всего: на телевизоре, где консоли нет. Отсюда предел ширины и
+       перенос по любому символу — адрес рвётся, а не пропадает. Предел в
+       em, как все размеры плагина: 26em при базовом кегле Lampa 22.811 px
+       — это 593 px на растре 1920, четверть экрана. */
+    css.push('.lumen-hud{position:fixed;top:.3em;left:.3em;z-index:99999;max-width:26em;padding:.2em .5em;font:.7em/1.4 Consolas,"Courier New",monospace;color:#0f0;background:rgba(0,0,0,.75);border-radius:.3em;pointer-events:none;white-space:normal;word-break:break-all}');
 
     /* --- Task 27: мини-карта рядов и индикатор позиции ---
        Панель — design-spec-main §0.16 (экран 32): right 64, top 260,

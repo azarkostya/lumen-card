@@ -1,5 +1,5 @@
 import test from 'node:test'; import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { load } from './_load.mjs';
 
 /* Task 10 (поправка контроллера): src/80_settings.js перевалил за 300 строк,
@@ -613,4 +613,84 @@ test('platformInfo: собирает платформу и признак сла
   /* Без LC.perf (модуль не загружен) признак слабого железа просто ложен. */
   assert.deepEqual(withPrefs({ platform: { tizen: true } }, (LC) => LC.platformInfo()),
     { tizen: true, webos: false, android: false, weak: false });
+});
+
+/* ====================================================================== */
+/* Task 60: дефолт вызова и дефолт пункта — одно и то же число.            */
+/* ====================================================================== */
+
+/* Lampa.Storage.get(name, empty) при отсутствующем в localStorage ключе
+   возвращает ровно empty (vendor/lampa/app.min.js, тело Storage.get:
+   `value = value || empty || ''`), а раздел настроек рисует пункт по СВОЕМУ
+   дефолту — тому, что плагин зарегистрировал через SettingsApi.addParam из
+   LC.prefs.LIST (Lampa.Params.trigger/select кладут его в defaults,
+   app.min.js:47484-47501). Значит два дефолта у одной настройки — это два
+   разных ответа на один вопрос: пользователь видит в разделе «Вкл», а код
+   ведёт себя как при «Выкл». Ровно так с Task 35 по Task 60 молчала
+   подкраска от постера (см. src/57_color.js, auto()).
+
+   Тест читает исходники и сверяет их построчно: у каждого вызова
+   LC.pref('ключ', дефолт), чей ключ есть в LIST со своим 'default',
+   дефолты обязаны совпадать. Имя ключа и дефолт разрешаются и через
+   переменную модуля (var AUTO_KEY = 'lumen_accent_auto'), потому что
+   промах Task 35 прятался именно за ней. */
+test('Task 60: у каждого вызова LC.pref дефолт совпадает с пунктом LC.prefs.LIST', () => {
+  /* Разбирается СОБРАННЫЙ файл, а не src/: сборка вычищает из него
+     комментарии (scripts/build.mjs), сохраняя нумерацию строк и маркеры
+     модулей, — иначе сверка спотыкалась бы о примеры вызовов, написанные в
+     комментариях (в src/57_color.js такой есть, и он описывает как раз
+     неправильный дефолт). Актуальность dist относительно src проверяет
+     test/build.test.mjs. */
+  const dist = readFileSync(new URL('../dist/lumen_card.js', import.meta.url), 'utf8');
+  const byName = {};
+  for (const e of LIST) if (e.type !== 'title' && typeof e['default'] !== 'undefined') byName[e.name] = e['default'];
+
+  /* Литерал ES5, который может стоять дефолтом пункта: строка, число,
+     true/false. Всё остальное (функция у lumen_fx_heavy) сверять нечем. */
+  function literal(text) {
+    const s = text.trim();
+    if (/^'[^']*'$/.test(s)) return s.slice(1, -1);
+    if (s === 'true') return true;
+    if (s === 'false') return false;
+    if (/^-?\d+(\.\d+)?$/.test(s)) return Number(s);
+    return undefined;
+  }
+  /* Константы модулей: var NAME = <литерал>; — ими записаны и ключ
+     (var AUTO_KEY = 'lumen_accent_auto'), и часть дефолтов ('large',
+     'normal'). Имена верхнего уровня в бандле уникальны — это гарантирует
+     сама сборка (scripts/build.mjs сверяет их и падает при повторе), —
+     поэтому одной таблицы на весь файл достаточно. */
+  const consts = {};
+  const cre = /\bvar\s+([A-Za-z_$][\w$]*)\s*=\s*('[^']*'|true|false|-?\d+(?:\.\d+)?)\s*;/g;
+  let c;
+  while ((c = cre.exec(dist))) consts[c[1]] = literal(c[2]);
+
+  function resolve(text) {
+    const s = text.trim();
+    const lit = literal(s);
+    if (typeof lit !== 'undefined') return { ok: true, value: lit };
+    if (Object.prototype.hasOwnProperty.call(consts, s)) return { ok: true, value: consts[s] };
+    return { ok: false };
+  }
+
+  const checked = [];
+  dist.split(/\r?\n/).forEach((line, i) => {
+    const call = /LC\.pref\(\s*([^,()]+?)\s*,\s*([^,()]+?)\s*\)/g;
+    let m;
+    while ((m = call.exec(line))) {
+      const key = resolve(m[1]);
+      const def = resolve(m[2]);
+      if (!key.ok || typeof key.value !== 'string') continue;
+      if (!Object.prototype.hasOwnProperty.call(byName, key.value)) continue;
+      if (!def.ok) continue;
+      checked.push(key.value);
+      assert.equal(def.value, byName[key.value],
+        'дефолт вызова расходится с пунктом настроек: dist:' + (i + 1) + ' ' + key.value);
+    }
+  });
+  /* Сторож самого теста: молчаливый ноль сверок означал бы, что разбор
+     перестал находить вызовы, а не что расхождений нет. */
+  assert.ok(checked.length >= 8, 'сверено подозрительно мало вызовов: ' + checked.length);
+  assert.ok(checked.indexOf('lumen_accent_auto') !== -1,
+    'вызов через переменную-ключ (57_color.js, AUTO_KEY) не попал в сверку: ' + checked.join(', '));
 });

@@ -24,9 +24,35 @@
        или stop() уже прибрал). Одно на модуль: два узла разом не нужны. */
     var state = null; /* { node, frames, last, long, raf, obs } */
 
+    /* Task 60: состояние подкраски от постера — «tint <состояние> [цвет]
+       [адрес]». Пользователь пришёл с «подкраска вообще не работает», и на
+       телевизоре отличить причину было нечем: консоли там нет. Состояния
+       считает LC.accent (src/57_color.js) по факту, а не по догадке — off
+       (выключено настройкой, выключателем плагина или режимом движения),
+       ok (с самим цветом), dim, cors, error, load, timer, idle. Адрес —
+       тот, с которого читались пиксели, без протокола и без хвоста
+       запроса: по нему на экране видно, ходил запрос через прокси
+       пользователя или прямо в TMDB. */
+    function tint(d) {
+      var t = d.tint;
+      if (!t || !t.state) return 'n/a';
+      return t.state + (t.color ? ' ' + t.color : '') + (t.url ? ' ' + t.url : '');
+    }
+
     function format(d) {
       return d.fps + ' fps · ' + d.w + '×' + d.h + '@' + d.dpr + ' · ' + d.mode +
-        ' · long ' + d.long + ' · layers ' + d.layers + ' · hw ' + d.hw;
+        ' · long ' + d.long + ' · layers ' + d.layers + ' · hw ' + d.hw +
+        ' · tint ' + tint(d);
+    }
+
+    /* Модуля подкраски может не быть (в тестах 69_hud.js грузится один), и
+       его status() ходит в настройки — исключение оттуда не имеет права
+       гасить весь HUD. */
+    function accentStatus() {
+      try {
+        if (LC.accent && typeof LC.accent.status === 'function') return LC.accent.status();
+      } catch (e) { }
+      return null;
     }
 
     /* Ревью Task 40 (п.6): железо строкой «ядра/память». По этим числам
@@ -118,7 +144,7 @@
         state.node.textContent = format({
           fps: Math.round(state.frames * 1000 / elapsed), w: window.innerWidth, h: window.innerHeight,
           dpr: Math.round((window.devicePixelRatio || 1) * 100) / 100,
-          mode: mode, long: state.long, layers: layers(), hw: hardware()
+          mode: mode, long: state.long, layers: layers(), hw: hardware(), tint: accentStatus()
         });
         state.frames = 0; state.last = t;
       }

@@ -3167,7 +3167,13 @@ test('правка: у корня главной есть фон, и он пла
   const main = findDecl(css, (sel) => sel === '.lumen-main');
   assert.equal(main, 'background-color:#0B0908', 'фон корня — цвет темы: ' + main);
   const smooth = findDecl(css, (sel) => sel === 'body.lumen-motion-full .lumen-main');
-  assert.ok(/transition:background-color \.6s ease-in-out/.test(smooth), 'плавная смена цвета: ' + smooth);
+  /* Task 60: длительность перехода — это ШАГ пути, а не весь путь. Весь
+     путь (1.6 с) ведёт LC.accent шестнадцатью перекрасками узла подкраски,
+     потому что красить надо ещё и три градиента, которых CSS-переход не
+     интерполирует; здесь остаётся сглаживание ступеньки между шагами.
+     Что .1s и шаг в src/57_color.js не разъехались, проверяет отдельный
+     тест (test/color.test.mjs). */
+  assert.ok(/transition:background-color \.1s linear/.test(smooth), 'плавная смена цвета: ' + smooth);
   assert.ok(/-webkit-transition:background-color/.test(smooth), 'старым webkit-движкам нужен префикс: ' + smooth);
   /* В lite/off правила перехода нет вовсе — цвет меняется мгновенно. */
   assert.equal(ruleSelectors(css).filter((sel) => /lumen-motion-(lite|off) \.lumen-main$/.test(sel)).length, 0);

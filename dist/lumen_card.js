@@ -2672,9 +2672,17 @@ var EASE = ' .42s cubic-bezier(.2,.8,.2,1)';
 
 
 
+
+
+
+
+
+
+
+
 var AR = accentRules(P, t);
 css.push(AR.main);
-css.push('body.lumen-motion-full .lumen-main{-webkit-transition:background-color .6s ease-in-out;transition:background-color .6s ease-in-out}');
+css.push('body.lumen-motion-full .lumen-main{-webkit-transition:background-color .1s linear;transition:background-color .1s linear}');
 
 
 
@@ -3948,7 +3956,15 @@ css.push('.lumen-ambient .lumen-ambient__clock{position:absolute;right:' + EDGE 
 
 
 
-css.push('.lumen-hud{position:fixed;top:.3em;left:.3em;z-index:99999;padding:.2em .5em;font:.7em/1.4 Consolas,"Courier New",monospace;color:#0f0;background:rgba(0,0,0,.75);border-radius:.3em;pointer-events:none;white-space:nowrap}');
+
+
+
+
+
+
+
+
+css.push('.lumen-hud{position:fixed;top:.3em;left:.3em;z-index:99999;max-width:26em;padding:.2em .5em;font:.7em/1.4 Consolas,"Courier New",monospace;color:#0f0;background:rgba(0,0,0,.75);border-radius:.3em;pointer-events:none;white-space:normal;word-break:break-all}');
 
 
 
@@ -17032,6 +17048,67 @@ var cache_keys = [];
 var pending_count = 0;
 var request_count = 0;
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+var last_state = 'idle';
+var last_url = '';
+
+
+
+
+
+
+
+var LOAD_MS = 6000;
+
+
+
+
+
+function shortUrl(u) {
+var s = '' + (u || '');
+if (!s) return '';
+var cut = s.indexOf('?');
+if (cut > -1) s = s.substring(0, cut);
+cut = s.indexOf('#');
+if (cut > -1) s = s.substring(0, cut);
+return s.replace(/^[a-z]+:\/\//i, '');
+}
+
+function mark(state, url) {
+last_state = state;
+last_url = shortUrl(url);
+}
+
 function clamp(v, lo, hi) {
 if (v < lo) return lo;
 if (v > hi) return hi;
@@ -17228,6 +17305,69 @@ b: Math.round(a.b + (b.b - a.b) * k)
 
 
 
+
+
+
+
+var HUE_FAR = 60;
+var FAR_DIP = 0.75;
+
+
+
+
+var HUE_MUTE = 0.04;
+
+function hueGap(a, b) {
+var d = Math.abs(normHue(a) - normHue(b));
+return d > 180 ? 360 - d : d;
+}
+
+
+
+function hueLerp(a, b, t) {
+var d = normHue(b) - normHue(a);
+if (d > 180) d -= 360;
+if (d < -180) d += 360;
+return normHue(normHue(a) + d * t);
+}
+
+function blend(a, b, t) {
+var from = rgbToHsl(toRgb(a));
+var to = rgbToHsl(toRgb(b));
+var k = clamp(Number(t) || 0, 0, 1);
+if (k <= 0) return toRgb(a);
+if (k >= 1) return toRgb(b);
+var h;
+if (from.s < HUE_MUTE) h = to.h;
+else if (to.s < HUE_MUTE) h = from.h;
+else h = hueLerp(from.h, to.h, k);
+var s = from.s + (to.s - from.s) * k;
+var gap = from.s < HUE_MUTE || to.s < HUE_MUTE ? 0 : hueGap(from.h, to.h);
+if (gap > HUE_FAR) {
+
+
+
+var depth = FAR_DIP * (gap - HUE_FAR) / (180 - HUE_FAR);
+s = s * (1 - depth * Math.sin(Math.PI * k));
+}
+return hslToRgb({ h: h, s: s, l: from.l + (to.l - from.l) * k });
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 function tint(rgb, bg, guard, ratio, maxMix) {
 if (!rgb) return null;
 var base = toRgb(bg);
@@ -17337,8 +17477,18 @@ canvas.height = SAMPLE;
 var ctx = canvas.getContext('2d', { willReadFrequently: true });
 if (!ctx) return null;
 ctx.drawImage(img, 0, 0, SAMPLE, SAMPLE);
-return dominant(ctx.getImageData(0, 0, SAMPLE, SAMPLE).data);
+var rgb = dominant(ctx.getImageData(0, 0, SAMPLE, SAMPLE).data);
+
+
+
+mark(rgb ? 'ok' : 'dim', src);
+return rgb;
 } catch (e) {
+
+
+
+
+mark(e && e.name === 'SecurityError' ? 'cors' : 'error', src);
 warn('accent: poster pixels blocked ' + src, e);
 return null;
 }
@@ -17370,10 +17520,21 @@ if (!doc || typeof Image === 'undefined') { cb(null); return null; }
 var img = null;
 var live = true;
 var retry = alt && alt !== url ? alt : '';
+var watchdog = 0;
 pending_count++;
 request_count++;
 
+
+
+
+function unwatch() {
+if (!watchdog) return;
+try { clearTimeout(watchdog); } catch (e) { }
+watchdog = 0;
+}
+
 function detach() {
+unwatch();
 if (!img) return;
 img.onload = null;
 img.onerror = null;
@@ -17402,9 +17563,10 @@ cachePut(url, null, (prev ? prev.fails : 0) + 1);
 cb(rgb);
 }
 
-function fail(src) {
+function fail(src, state) {
 if (!live) return;
-warn('accent: poster load failed ' + src);
+mark(state, src);
+warn('accent: poster ' + (state === 'timer' ? 'timed out ' : 'load failed ') + src);
 if (retry) {
 var next = retry;
 retry = '';
@@ -17419,7 +17581,11 @@ function start(src) {
 var el = new Image();
 img = el;
 el.onload = function () { done(read(el, doc, src)); };
-el.onerror = function () { fail(src); };
+el.onerror = function () { fail(src, 'load'); };
+watchdog = setTimeout(function () {
+watchdog = 0;
+fail(src, 'timer');
+}, LOAD_MS);
 
 
 el.crossOrigin = 'anonymous';
@@ -17455,8 +17621,13 @@ ring: ringOf,
 glow: glow,
 tokens: tokens,
 mixRgb: mixRgb,
+blend: blend,
 tint: tint,
 fromImage: fromImage,
+
+
+status: function () { return { state: last_state, url: last_url }; },
+LOAD_MS: LOAD_MS,
 cacheSize: function () { return cache_keys.length; },
 pending: function () { return pending_count; },
 
@@ -17505,13 +17676,56 @@ var themeTokens = null;
 
 
 
+
+
+
 var source = null;
+var target = null;
 var task = null;
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+var TWEEN_MS = 1600;
+var TWEEN_STEP_MS = 100;
+var tween = null;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 function auto() {
-var v = LC.pref(AUTO_KEY, false);
+var v = LC.pref(AUTO_KEY, true);
 return v === true || v === 'true';
 }
 
@@ -17586,6 +17800,54 @@ function cancel() {
 if (task) {
 task.cancel();
 task = null;
+}
+}
+
+
+
+
+
+function stopTween() {
+if (!tween) return;
+try { clearTimeout(tween.timer); } catch (e) { }
+tween = null;
+}
+
+function tweenStep() {
+if (!tween) return;
+tween.step++;
+if (tween.step >= tween.steps) {
+source = tween.to;
+tween = null;
+paint();
+return;
+}
+source = LC.color.blend(tween.from, tween.to, tween.step / tween.steps);
+paint();
+tween.timer = setTimeout(tweenStep, TWEEN_STEP_MS);
+}
+
+function startTween(from, to) {
+stopTween();
+tween = {
+from: from, to: to, step: 0,
+steps: Math.round(TWEEN_MS / TWEEN_STEP_MS), timer: 0
+};
+tween.timer = setTimeout(tweenStep, TWEEN_STEP_MS);
+}
+
+
+
+
+
+
+function tweenWanted(deep, next) {
+if (deep || !source || !next) return false;
+if (sameRgb(source, next)) return false;
+try {
+return LC.motionMode() === 'full';
+} catch (e) {
+return false;
 }
 }
 
@@ -17716,9 +17978,19 @@ warn('accent: css inject failed', e);
 
 function apply(next, rgb, deep) {
 var sameTokens = next && override ? next.color === override.color : (!next && !override);
-if (sameTokens && sameRgb(source, rgb || null) && !(deep && applied !== tokenColor())) return;
+if (sameTokens && sameRgb(target, rgb || null) && !(deep && applied !== tokenColor())) return;
+
+
+
+
+
+
+
+var tweening = tweenWanted(deep, rgb || null) && LC.enabled();
 override = next || null;
-source = rgb || null;
+target = rgb || null;
+if (tweening) startTween(source, target);
+else { stopTween(); source = target; }
 
 
 
@@ -17789,11 +18061,34 @@ return LC.color.tint(source, bg, guard, ratio);
 }
 
 
+
+
+
+
+
+function status() {
+var off = { state: 'off', url: '', color: '' };
+try {
+if (!LC.enabled() || !auto() || !motionOn()) return off;
+} catch (e) {
+return off;
+}
+var st = LC.color.status();
+return {
+state: st.state,
+url: st.url,
+color: st.state === 'ok' && source ? LC.color.hex(source) : ''
+};
+}
+
+
 function destroy() {
 cancel();
+stopTween();
 var had = !!(override || source || themeTokens);
 override = null;
 source = null;
+target = null;
 themeTokens = null;
 
 
@@ -17838,7 +18133,19 @@ return {
 current: function () { return override || themeTokens; },
 theme: function () { return themeTokens; },
 setTheme: setTheme,
+
+
+
+
 dominant: function () { return source; },
+target: function () { return target; },
+
+
+
+
+
+timing: function () { return { total: TWEEN_MS, step: TWEEN_STEP_MS }; },
+status: status,
 tint: tint,
 applyFor: applyFor,
 reset: reset,
@@ -23017,9 +23324,35 @@ LC.hud = (function () {
 
 var state = null;
 
+
+
+
+
+
+
+
+
+
+function tint(d) {
+var t = d.tint;
+if (!t || !t.state) return 'n/a';
+return t.state + (t.color ? ' ' + t.color : '') + (t.url ? ' ' + t.url : '');
+}
+
 function format(d) {
 return d.fps + ' fps · ' + d.w + '×' + d.h + '@' + d.dpr + ' · ' + d.mode +
-' · long ' + d.long + ' · layers ' + d.layers + ' · hw ' + d.hw;
+' · long ' + d.long + ' · layers ' + d.layers + ' · hw ' + d.hw +
+' · tint ' + tint(d);
+}
+
+
+
+
+function accentStatus() {
+try {
+if (LC.accent && typeof LC.accent.status === 'function') return LC.accent.status();
+} catch (e) { }
+return null;
 }
 
 
@@ -23111,7 +23444,7 @@ try { mode = LC.motionMode(); } catch (e) { }
 state.node.textContent = format({
 fps: Math.round(state.frames * 1000 / elapsed), w: window.innerWidth, h: window.innerHeight,
 dpr: Math.round((window.devicePixelRatio || 1) * 100) / 100,
-mode: mode, long: state.long, layers: layers(), hw: hardware()
+mode: mode, long: state.long, layers: layers(), hw: hardware(), tint: accentStatus()
 });
 state.frames = 0; state.last = t;
 }

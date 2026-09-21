@@ -55,6 +55,11 @@ test('hud: hardware — ядра и память, неизвестное пиш�
 /* управлением.                                                            */
 /* ====================================================================== */
 
+/* Task 60: состояние подкраски, которое отдаёт LC.accent по умолчанию в
+   этом окружении. Ожидания тестов, собирающие строку через format(), берут
+   его же — иначе они сравнивали бы строку с подкраской и строку без неё. */
+const ENV_TINT = { state: 'ok', color: '#8A4C50', url: 'image.tmdb.org/t/p/w185/a.jpg' };
+
 function env(opts) {
   opts = opts || {};
   const bodyChildren = [];
@@ -143,7 +148,14 @@ function env(opts) {
     return Object.prototype.hasOwnProperty.call(store, name) ? !!store[name] : def;
   }
 
+  /* Task 60: HUD спрашивает состояние подкраски у LC.accent (src/57_color.js).
+     opts.accent === null воспроизводит окружение, где модуля подкраски нет
+     вовсе, — в тестах 69_hud.js грузится один. */
+  const accentStatus = opts.accent === undefined
+    ? ENV_TINT
+    : opts.accent;
   const { api } = fresh({
+    accent: accentStatus ? { status: () => accentStatus } : undefined,
     pref, motionMode: () => opts.mode || 'full',
     /* LC.enabled() — гейт «выключенный плагин снял свой CSS, HUD поднимать
        нельзя» (sync(), src/69_hud.js). По умолчанию true, как у соседних
@@ -230,14 +242,14 @@ test('hud: два окна подряд — fps считается по факт
   /* Литерал, а не e.api.layers(): ожидание не должно вычисляться тем же
      кодом, который проверяется (без слоёв в этом env — 0). fps = round(2
      кадра * 1000 / 1200мс) = round(1.667) = 2. */
-  const win1 = e.api.format({ fps: 2, w: 1920, h: 1080, dpr: 2, mode: 'full', long: 0, layers: 0, hw: '4c/2gb' });
+  const win1 = e.api.format({ fps: 2, w: 1920, h: 1080, dpr: 2, mode: 'full', long: 0, layers: 0, hw: '4c/2gb', tint: ENV_TINT });
   assert.equal(e.bodyChildren[0].textContent, win1, 'окно 1: 2 кадра за 1200мс');
 
   assert.ok(e.tick(600), 'первый кадр окна 2 — элапсед от новой опоры 600мс < 1000');
   assert.equal(e.bodyChildren[0].textContent, win1, 'текст ещё не тронут окном 2');
 
   assert.ok(e.tick(600), 'второй кадр окна 2 — снова 1200мс от опоры');
-  const win2 = e.api.format({ fps: 2, w: 1920, h: 1080, dpr: 2, mode: 'full', long: 0, layers: 0, hw: '4c/2gb' });
+  const win2 = e.api.format({ fps: 2, w: 1920, h: 1080, dpr: 2, mode: 'full', long: 0, layers: 0, hw: '4c/2gb', tint: ENV_TINT });
   assert.equal(e.bodyChildren[0].textContent, win2,
     'то же значение fps, что и в окне 1 — счётчик кадров и опорное время реально сброшены, а не растут дальше');
 });
@@ -268,7 +280,7 @@ test('hud: PerformanceObserver — накопленные longtask-записи 
   assert.ok(e.tick(600), 'элапсед 600мс — рано');
   assert.ok(e.tick(600), 'элапсед 1200мс — отрисовка');
 
-  const expected = e.api.format({ fps: 2, w: 1920, h: 1080, dpr: 2, mode: 'full', long: 3, layers: 0, hw: '4c/2gb' });
+  const expected = e.api.format({ fps: 2, w: 1920, h: 1080, dpr: 2, mode: 'full', long: 3, layers: 0, hw: '4c/2gb', tint: ENV_TINT });
   assert.equal(e.bodyChildren[0].textContent, expected, 'три накопленные longtask-записи видны в строке');
 
   e.store.lumen_debug_hud = false;
@@ -300,4 +312,56 @@ test('hud: выключенный плагин — sync() не поднимае�
   assert.equal(e.bodyChildren.length, 0, 'плагин выключили — HUD снят, хотя настройка осталась включённой');
   assert.equal(e.api.running(), false);
   assert.ok(e.cancelled.length > 0, 'rAF-цикл снят');
+});
+
+/* ====================================================================== */
+/* Task 60: состояние подкраски в HUD.                                     */
+/* ====================================================================== */
+
+/* Пользователь пришёл с «подкраска вообще не работает», и на телевизоре
+   отличить причину было нечем: консоли нет. HUD показывает состояние по
+   факту и адрес, с которого читались пиксели, — по ним видно, чинить ли
+   наш код или прокси без CORS-заголовка. */
+test('hud: format — состояние подкраски с цветом и адресом', () => {
+  const { api } = fresh();
+  const base = { fps: 58, w: 1920, h: 1080, dpr: 2, mode: 'full', long: 0, layers: 5, hw: '4c/2gb' };
+  const ok = api.format(Object.assign({}, base, {
+    tint: { state: 'ok', color: '#8A4C50', url: 'image.tmdb.org/t/p/w185/a.jpg' }
+  }));
+  assert.ok(ok.indexOf('tint ok') !== -1, 'состояние: ' + ok);
+  assert.ok(ok.indexOf('#8A4C50') !== -1, 'сам цвет: ' + ok);
+  assert.ok(ok.indexOf('image.tmdb.org/t/p/w185/a.jpg') !== -1, 'адрес: ' + ok);
+
+  const cors = api.format(Object.assign({}, base, {
+    tint: { state: 'cors', color: '', url: 'proxy.example/t/p/w185/a.jpg' }
+  }));
+  assert.ok(cors.indexOf('tint cors') !== -1, cors);
+  assert.ok(cors.indexOf('proxy.example/t/p/w185/a.jpg') !== -1, cors);
+
+  const off = api.format(Object.assign({}, base, { tint: { state: 'off', color: '', url: '' } }));
+  assert.ok(off.indexOf('tint off') !== -1, off);
+  assert.ok(off.indexOf('undefined') === -1, 'пустых полей в строке нет: ' + off);
+});
+
+test('hud: состояние подкраски берётся у LC.accent и доезжает до узла', () => {
+  const e = env({
+    store: { lumen_debug_hud: true },
+    accent: { state: 'timer', color: '', url: 'image.tmdb.org/t/p/w185/b.jpg' }
+  });
+  e.api.sync();
+  e.tick(600);
+  e.tick(1800);
+  assert.ok(e.bodyChildren[0].textContent.indexOf('tint timer') !== -1, e.bodyChildren[0].textContent);
+  assert.ok(e.bodyChildren[0].textContent.indexOf('image.tmdb.org/t/p/w185/b.jpg') !== -1,
+    e.bodyChildren[0].textContent);
+});
+
+/* Модуля подкраски может не быть (69_hud.js грузится в тестах один) —
+   HUD от этого не обязан падать или молчать. */
+test('hud: без LC.accent строка всё равно собирается', () => {
+  const e = env({ store: { lumen_debug_hud: true }, accent: null });
+  e.api.sync();
+  e.tick(600);
+  e.tick(1800);
+  assert.ok(e.bodyChildren[0].textContent.indexOf('tint n/a') !== -1, e.bodyChildren[0].textContent);
 });

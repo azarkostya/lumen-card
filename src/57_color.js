@@ -99,6 +99,67 @@
     var pending_count = 0;
     var request_count = 0;
 
+    /* Task 60: чем кончилась последняя попытка получить цвет. На телевизоре
+       консоли нет (adb есть не у всех и не всегда), и «подкраска не
+       работает» до сих пор нельзя было отличить от «настройка выключена»,
+       «постер не догрузился» и «прокси отдал картинку без CORS» — с этим
+       пользователь и пришёл. Показывает состояние HUD (src/69_hud.js),
+       считает — этот модуль, каждое по своему признаку:
+         ok    — цвет посчитан;
+         dim   — пиксели прочитаны, но своего цвета у плаката нет;
+         cors  — getImageData бросил именно SecurityError, то есть canvas
+                 «испорчен» чужими пикселями;
+         error — чтение упало по другой причине (её за CORS не выдаём);
+         load  — картинка не загрузилась;
+         timer — ответа не было LOAD_MS;
+         idle  — расчёта ещё не было.
+
+       Важное про два последних состояния, замеренное на стенде
+       (localhost:8766, Lampa 3.3.4, 2026-09-21): картинка запрашивается с
+       crossOrigin = 'anonymous' (start ниже), и при таком запросе ответ
+       чужого origin БЕЗ Access-Control-Allow-Origin браузер считает
+       ошибкой ЗАГРУЗКИ, а не порчей canvas. Замер: тот же файл
+       /vendor/lampa/img/bokeh/1.png через localhost:8766 (свой origin) дал
+       'ok', через 127.0.0.1:8766 (чужой origin, тот же сервер без
+       ACAO) — 'load'. То есть прокси TMDB без CORS-заголовка на экране
+       выглядит как 'load', и состояние 'cors' ему не соответствует.
+       Остаётся 'cors' при этом достижимым: его даёт картинка, пришедшая из
+       HTTP-кэша как ответ на запрос БЕЗ CORS (поэтому подкраска и просит
+       w185 — размер, которого сама Lampa не грузит, см. POSTER_SIZE ниже),
+       и WebView, который crossOrigin не уважает. Различить «сети нет» и
+       «прокси без ACAO» помогает вторая попытка прямым адресом
+       image.tmdb.org: она в адресе и видна (HUD показывает адрес
+       последней попытки). */
+    var last_state = 'idle';
+    var last_url = '';
+
+    /* Сколько ждём ответа за картинкой. Таймаута тут не было вовсе, и
+       повисший запрос не давал НИКАКОГО ответа: колбэк не звался, pending
+       не опускался, состояние оставалось прежним навсегда. Шесть секунд —
+       заведомо больше обычной загрузки десятикилобайтной копии постера и
+       заметно меньше, чем зритель готов смотреть на неподкрашенный экран,
+       считая, что фича сломана. */
+    var LOAD_MS = 6000;
+
+    /* Адрес для показа на экране: без протокола и без хвоста запроса.
+       Lampa.TMDB.image дописывает к адресу '?email=' даже без аккаунта
+       (vendor/lampa/app.min.js:19314-19316, проверено построчно), а чужой
+       прокси вправе дописать и ключ — ни то, ни другое на экран не идёт. */
+    function shortUrl(u) {
+      var s = '' + (u || '');
+      if (!s) return '';
+      var cut = s.indexOf('?');
+      if (cut > -1) s = s.substring(0, cut);
+      cut = s.indexOf('#');
+      if (cut > -1) s = s.substring(0, cut);
+      return s.replace(/^[a-z]+:\/\//i, '');
+    }
+
+    function mark(state, url) {
+      last_state = state;
+      last_url = shortUrl(url);
+    }
+
     function clamp(v, lo, hi) {
       if (v < lo) return lo;
       if (v > hi) return hi;
@@ -280,6 +341,69 @@
       };
     }
 
+    /* Task 60: путь из одного цвета в другой. Жалоба пользователя —
+       «сделать плавным очень, без резких смен тонов», и резкость там не
+       только в длительности: соседние постеры дают доминанты в разных
+       концах круга, и прямая дорога между ними проходит через чужие цвета.
+
+       Пространство — HSL, а не OKLab. Довод не «так проще»: в sRGB линейная
+       интерполяция действительно даёт грязь на переходе тёплый -> холодный,
+       но грязь эта берётся из того, что путь проходит через малонасыщенную
+       середину НЕ ТАМ, где её ждёт глаз. Здесь оттенок ведётся отдельно от
+       насыщенности, и середина глушится намеренно (ниже), то есть ровно тот
+       дефект, от которого спасает OKLab, снимается явным правилом. Плата за
+       OKLab — матрицы и кубические корни в каждом из шестнадцати шагов на
+       WebView телевизора, при том что весь аппарат HSL в модуле уже есть и
+       им же посчитаны все девять акцентов настроек.
+
+       Ограничение скачка: Δ оттенка больше HUE_FAR — насыщенность на
+       середине пути падает (доля FAR_DIP тем больше, чем дальше концы), и
+       переход идёт через приглушённый тон вместо яркой дуги. На концах
+       глушения нет совсем — blend(a,b,0) === a и blend(a,b,1) === b. */
+    var HUE_FAR = 60;
+    var FAR_DIP = 0.75;
+    /* Ниже этой насыщенности у цвета нет собственного оттенка (тот же порог
+       смысла, что у usable выше): у серого конца берётся оттенок цветного,
+       иначе путь уезжал бы к h = 0 — к красному, которого нет ни в одном
+       из двух цветов. */
+    var HUE_MUTE = 0.04;
+
+    function hueGap(a, b) {
+      var d = Math.abs(normHue(a) - normHue(b));
+      return d > 180 ? 360 - d : d;
+    }
+
+    /* Кратчайшая дуга: разница сводится к [-180, 180], поэтому 350° -> 10°
+       идёт через ноль, а не через весь круг. */
+    function hueLerp(a, b, t) {
+      var d = normHue(b) - normHue(a);
+      if (d > 180) d -= 360;
+      if (d < -180) d += 360;
+      return normHue(normHue(a) + d * t);
+    }
+
+    function blend(a, b, t) {
+      var from = rgbToHsl(toRgb(a));
+      var to = rgbToHsl(toRgb(b));
+      var k = clamp(Number(t) || 0, 0, 1);
+      if (k <= 0) return toRgb(a);
+      if (k >= 1) return toRgb(b);
+      var h;
+      if (from.s < HUE_MUTE) h = to.h;
+      else if (to.s < HUE_MUTE) h = from.h;
+      else h = hueLerp(from.h, to.h, k);
+      var s = from.s + (to.s - from.s) * k;
+      var gap = from.s < HUE_MUTE || to.s < HUE_MUTE ? 0 : hueGap(from.h, to.h);
+      if (gap > HUE_FAR) {
+        /* Синус даёт ноль на обоих концах и максимум в середине, а глубина
+           растёт от порога к противоположной точке круга: 180° — самый
+           дальний переход, и он же самый приглушённый. */
+        var depth = FAR_DIP * (gap - HUE_FAR) / (180 - HUE_FAR);
+        s = s * (1 - depth * Math.sin(Math.PI * k));
+      }
+      return hslToRgb({ h: h, s: s, l: from.l + (to.l - from.l) * k });
+    }
+
     /* Правка пользователя 2026-09-17 (третий круг): «фон хочется чтобы был
        больше прозрачного, а фон определялся от картинки».
 
@@ -404,8 +528,18 @@
         var ctx = canvas.getContext('2d', { willReadFrequently: true });
         if (!ctx) return null;
         ctx.drawImage(img, 0, 0, SAMPLE, SAMPLE);
-        return dominant(ctx.getImageData(0, 0, SAMPLE, SAMPLE).data);
+        var rgb = dominant(ctx.getImageData(0, 0, SAMPLE, SAMPLE).data);
+        /* Task 60: пиксели прочитаны — значит CORS тут ни при чём, даже
+           если цвета в них не нашлось (весь плакат серый). Эти два случая
+           на экране телевизора и надо различать. */
+        mark(rgb ? 'ok' : 'dim', src);
+        return rgb;
       } catch (e) {
+        /* Task 60: за CORS выдаём ровно SecurityError — его бросает
+           getImageData на «испорченном» canvas. Любая другая поломка (нет
+           2d-контекста, WebView не умеет getImageData) — своё состояние:
+           лечится она не заголовком прокси. */
+        mark(e && e.name === 'SecurityError' ? 'cors' : 'error', src);
         warn('accent: poster pixels blocked ' + src, e);
         return null;
       }
@@ -437,10 +571,21 @@
       var img = null;
       var live = true;
       var retry = alt && alt !== url ? alt : '';
+      var watchdog = 0;
       pending_count++;
       request_count++;
 
+      /* Task 60: сторож ответа. Снимается вместе с картинкой — и когда она
+         ответила, и когда запрос отменили уходом с карточки, — иначе
+         поздний тик перебил бы состояние уже посчитанного цвета. */
+      function unwatch() {
+        if (!watchdog) return;
+        try { clearTimeout(watchdog); } catch (e) { }
+        watchdog = 0;
+      }
+
       function detach() {
+        unwatch();
         if (!img) return;
         img.onload = null;
         img.onerror = null;
@@ -469,9 +614,10 @@
         cb(rgb);
       }
 
-      function fail(src) {
+      function fail(src, state) {
         if (!live) return;
-        warn('accent: poster load failed ' + src);
+        mark(state, src);
+        warn('accent: poster ' + (state === 'timer' ? 'timed out ' : 'load failed ') + src);
         if (retry) {
           var next = retry;
           retry = '';
@@ -486,7 +632,11 @@
         var el = new Image();
         img = el;
         el.onload = function () { done(read(el, doc, src)); };
-        el.onerror = function () { fail(src); };
+        el.onerror = function () { fail(src, 'load'); };
+        watchdog = setTimeout(function () {
+          watchdog = 0;
+          fail(src, 'timer');
+        }, LOAD_MS);
         /* crossOrigin ставится ДО src: после присвоения адреса атрибут уже не
            влияет на запрос, и пиксели остались бы закрытыми. */
         el.crossOrigin = 'anonymous';
@@ -522,8 +672,13 @@
       glow: glow,
       tokens: tokens,
       mixRgb: mixRgb,
+      blend: blend,
       tint: tint,
       fromImage: fromImage,
+      /* Task 60: чем кончилась последняя попытка и с какого адреса читались
+         пиксели — для HUD (src/69_hud.js) и для живой проверки с пульта. */
+      status: function () { return { state: last_state, url: last_url }; },
+      LOAD_MS: LOAD_MS,
       cacheSize: function () { return cache_keys.length; },
       pending: function () { return pending_count; },
       /* Сколько раз за сеанс дело дошло до расчёта цвета по картинке (кэш
@@ -571,14 +726,57 @@
     var themeTokens = null;
     /* Доминанта постера текущего фильма — из неё красится фон страницы
        (tint ниже). Живёт отдельно от акцента: акцент мог не собраться, а
-       фону доминанты достаточно. */
+       фону доминанты достаточно.
+       Task 60: значений стало два. source — цвет, которым экран покрашен
+       СЕЙЧАС (его читают tint и правила подкраски), target — цвет постера,
+       к которому экран едет. Пока перехода нет, они равны. */
     var source = null;
+    var target = null;
     var task = null;
 
+    /* Task 60, жалоба пользователя: «надо сделать это плавным очень, без
+       резких смен тонов».
+
+       Переход ведёт setTimeout шагами по TWEEN_STEP_MS, а не один CSS-
+       переход на всю длительность, и вот почему. Подкрашенных поверхностей
+       пять (accentRules, src/30_css.js): подложка рядов — сплошной
+       background-color, а левая вуаль героя и два градиента на кромках
+       области рядов — linear-gradient. Сплошной цвет браузер
+       интерполирует, градиент в старом WebView — нет: он встаёт на новый
+       цвет сразу. Один CSS-переход поэтому дал бы не плавность, а
+       расслоение — фон едет, кромки прыгнули. Шаги красят все пять правил
+       одним и тем же промежуточным цветом, и расходиться им негде.
+       Второе, чего CSS-переход не умеет: вести цвет по выбранной дороге.
+       Соседние постеры дают доминанты в разных концах круга оттенков, и
+       переход обязан идти через приглушённый тон (LC.color.blend выше), а
+       не по яркой дуге.
+       Плата за это — перезапись узла подкраски (778 байт при настройках по
+       умолчанию, замер на стенде 2026-09-21) шестнадцать раз за переход.
+       Считать её дорогой нечем: это один маленький <style>, а не
+       стокилобайтная таблица плагина, и только в режиме полных анимаций —
+       в 'lite' (куда уводит автодетект слабого ТВ) цвет ставится сразу. */
+    var TWEEN_MS = 1600;
+    var TWEEN_STEP_MS = 100;
+    var tween = null;
+
     /* Переключатели Lampa пишут строки 'true'/'false' (план 0.2), поэтому
-       сравниваем и со строкой, и с булевым. */
+       сравниваем и со строкой, и с булевым.
+
+       Task 60: дефолт здесь обязан совпадать с дефолтом пункта в
+       LC.prefs.LIST (src/81_prefs.js) — Lampa.Storage.get при отсутствующем
+       ключе возвращает ровно то, что передал вызывающий, и второго
+       источника правды у неё нет. Пока тут стоял false, а в LIST с Task 35
+       — true, раздел настроек показывал «Вкл» (его рисует Params.field по
+       зарегистрированному дефолту), а модуль читал «Выкл»: подкраска не
+       работала ни у кого, кто не переключил тумблер руками. Замер на живой
+       Lampa 3.3.4 с чистым localStorage (2026-09-21, localhost:8766):
+       Lampa.Params.defaults['lumen_accent_auto'] === true,
+       Lampa.Params.field('lumen_accent_auto') === true,
+       localStorage.getItem('lumen_accent_auto') === null,
+       LC.pref('lumen_accent_auto', false) === false. Расхождение закрыто
+       тестом и по этому пункту, и по всем остальным (test/prefs.test.mjs). */
     function auto() {
-      var v = LC.pref(AUTO_KEY, false);
+      var v = LC.pref(AUTO_KEY, true);
       return v === true || v === 'true';
     }
 
@@ -653,6 +851,54 @@
       if (task) {
         task.cancel();
         task = null;
+      }
+    }
+
+    /* Task 60: переход обрывается там, где застал, — цвет остаётся на
+       промежуточном шаге, и следующий переход поедет уже с него. Отдельного
+       «доехать до конца» нет намеренно: доводить экран до цвета постера,
+       с которого фокус уже ушёл, незачем. */
+    function stopTween() {
+      if (!tween) return;
+      try { clearTimeout(tween.timer); } catch (e) { }
+      tween = null;
+    }
+
+    function tweenStep() {
+      if (!tween) return;
+      tween.step++;
+      if (tween.step >= tween.steps) {
+        source = tween.to;
+        tween = null;
+        paint();
+        return;
+      }
+      source = LC.color.blend(tween.from, tween.to, tween.step / tween.steps);
+      paint();
+      tween.timer = setTimeout(tweenStep, TWEEN_STEP_MS);
+    }
+
+    function startTween(from, to) {
+      stopTween();
+      tween = {
+        from: from, to: to, step: 0,
+        steps: Math.round(TWEEN_MS / TWEEN_STEP_MS), timer: 0
+      };
+      tween.timer = setTimeout(tweenStep, TWEEN_STEP_MS);
+    }
+
+    /* Плавный переход уместен ровно там, где смена цвета — это событие
+       экрана, а не смена экрана: на главной, при полных анимациях и когда
+       ехать есть откуда и куда. 'lite'/'off' — мгновенно (там анимаций нет
+       вовсе), открытая карточка (deep) — мгновенно (каждый шаг стоил бы
+       полной пересборки таблицы, а экран и так только что сменился). */
+    function tweenWanted(deep, next) {
+      if (deep || !source || !next) return false;
+      if (sameRgb(source, next)) return false;
+      try {
+        return LC.motionMode() === 'full';
+      } catch (e) {
+        return false;
       }
     }
 
@@ -783,9 +1029,19 @@
        написана в свой узел. */
     function apply(next, rgb, deep) {
       var sameTokens = next && override ? next.color === override.color : (!next && !override);
-      if (sameTokens && sameRgb(source, rgb || null) && !(deep && applied !== tokenColor())) return;
+      if (sameTokens && sameRgb(target, rgb || null) && !(deep && applied !== tokenColor())) return;
+      /* Task 60: цель меняется всегда, а нарисованный цвет — либо сразу,
+         либо шагами перехода. Сам акцент (кнопки, кольца, подсветка
+         карточки в фокусе) едет не с ним: он живёт в токенах, их считает
+         theme(), и на главной из них виден только glow подложки карточки
+         под фокусом — деталь, которая и так меняется вместе с фокусом
+         мгновенно. Вести её по тем же шестнадцати шагам значило бы считать
+         на каждом четвёрку токенов с поиском светлоты. */
+      var tweening = tweenWanted(deep, rgb || null) && LC.enabled();
       override = next || null;
-      source = rgb || null;
+      target = rgb || null;
+      if (tweening) startTween(source, target);
+      else { stopTween(); source = target; }
       /* У выключенного плагина своего <style> в head нет (LC.removeCss), и
          пересборка вернула бы его на место. Переопределение при этом уже
          снято — включат обратно, и карточка нарисуется акцентом настроек. */
@@ -855,12 +1111,35 @@
       return LC.color.tint(source, bg, guard, ratio);
     }
 
+    /* Task 60: состояние подкраски одной записью — его показывает HUD.
+       'off' отвечает по факту выключения (настройка, главный выключатель
+       плагина или режим движения 'off'), остальное берётся у LC.color,
+       который эти состояния и различает. Цвет показывается только у 'ok':
+       в остальных случаях показывать нечего, и пустое поле честнее
+       прошлого цвета, оставшегося на экране. */
+    function status() {
+      var off = { state: 'off', url: '', color: '' };
+      try {
+        if (!LC.enabled() || !auto() || !motionOn()) return off;
+      } catch (e) {
+        return off;
+      }
+      var st = LC.color.status();
+      return {
+        state: st.state,
+        url: st.url,
+        color: st.state === 'ok' && source ? LC.color.hex(source) : ''
+      };
+    }
+
     /* Карточка закрыта: снимаем всё, что принадлежало ей. */
     function destroy() {
       cancel();
+      stopTween();
       var had = !!(override || source || themeTokens);
       override = null;
       source = null;
+      target = null;
       themeTokens = null;
       /* Узел подкраски уходит и у выключенного плагина: deactivate зовёт
          destroy() ДО LC.removeCss (src/90_runtime.js), и без этой строки
@@ -905,7 +1184,19 @@
       current: function () { return override || themeTokens; },
       theme: function () { return themeTokens; },
       setTheme: setTheme,
+      /* Цвет, которым экран покрашен сейчас (во время перехода — шаг пути),
+         и цвет постера, к которому он едет. Task 60: второй нужен живой
+         проверке и тестам — по нему видно, что переход именно идёт, а не
+         прыгнул или застрял. */
       dominant: function () { return source; },
+      target: function () { return target; },
+      /* Длительность перехода и шаг, которым он идёт. Наружу — ради теста,
+         сверяющего шаг с длительностью CSS-перехода у подложки рядов
+         (правило body.lumen-motion-full .lumen-main, src/30_css.js): они
+         обязаны совпадать, иначе фон либо отстаёт от пути, либо
+         останавливается между шагами. */
+      timing: function () { return { total: TWEEN_MS, step: TWEEN_STEP_MS }; },
+      status: status,
       tint: tint,
       applyFor: applyFor,
       reset: reset,
