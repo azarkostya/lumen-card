@@ -65,13 +65,22 @@ test('badgeFor: премьера в последние 30 дней — «Нов�
   assert.equal(B.badgeFor({ release_date: '2026-08-17' }, TODAY, { words: WORDS }), null, '31 день — уже нет');
 });
 
-test('badgeFor: прогресс 5–95 — «Продолжить · 43 %» с percent', () => {
+/* Ревью Task 63: в метке прогресса остался один процент. Со слова
+   «Продолжить» строка перестала помещаться на постер, когда кегль метки
+   поднялся до минимума tvOS: замер на стенде 960×540@2 — «Продолжить · 43 %»
+   просит 118 CSS px при доступных 101, «43 %» — 35. Слово при этом никуда не
+   делось с экрана: им подписаны строка прогресса в карточке и кнопка
+   «Смотреть». */
+test('badgeFor: прогресс 5–95 — метка «43 %» с percent, без слова', () => {
   const B = fresh().api;
   const ctx = { words: WORDS, progress: function () { return 43.4; } };
   const b = B.badgeFor({ release_date: '2020-01-01' }, TODAY, ctx);
   assert.equal(b.kind, 'progress');
-  assert.equal(b.text, 'Продолжить · 43 %');
+  assert.equal(b.text, '43 %');
   assert.equal(b.percent, 43);
+  /* Слово из ctx.words метка больше не берёт — даже если рантайм его
+     передаст. */
+  assert.equal(B.badgeFor({ release_date: '2020-01-01' }, TODAY, { words: { cont: 'Продолжить' }, progress: function () { return 43.4; } }).text, '43 %');
 });
 
 test('badgeFor: прогресс вне 5–95 меткой не становится', () => {

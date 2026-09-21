@@ -607,8 +607,10 @@ test('ревью п.2: подписи блока отзывов не smoke; сч
   const ico = findDecl(css, (sel) => sel === '.lumen-descr-row .lumen-reviews__ico');
   assert.ok(ico.indexOf('background-color:#A89A8A') !== -1, 'иконка ряда отзывов — muted');
 
-  /* Мета отзыва и модала лежат на своих непрозрачных фонах: там поднят только
-     цвет, кегль оставлен (карточка фиксированной высоты 11.4em, экран 07). */
+  /* Мета отзыва и модала лежат на своих непрозрачных фонах, и правка
+     2026-09-16 поднимала там только цвет. Task 63 поднял и кегль — до
+     минимума tvOS, — а высоту карточки пересчитал под новое содержимое
+     (13.3em, замер пробником на стенде). Здесь проверяется цвет. */
   for (const sel of ['.lumen-descr-row .lumen-review__meta', '.lumen-review-modal__meta', '.lumen-review-modal__src']) {
     const decl = findDecl(css, (s) => s === sel);
     assert.ok(decl, 'правило не найдено: ' + sel);
@@ -731,11 +733,15 @@ test('buildCss: с рядом отзывов описание клампится
   assert.ok(base.indexOf('-webkit-mask-image:none') !== -1, 'без отзывов описание по-прежнему не выцветает');
 });
 
-test('buildCss: карточка отзыва 480×260 (21.04em×11.4em), flex, не сжимается', () => {
+test('buildCss: карточка отзыва 480 px шириной (21.04em), flex, не сжимается', () => {
   const decl = findDecl(css, (sel) => sel === '.lumen-descr-row .lumen-review');
   assert.ok(decl, 'правило .lumen-review не найдено');
   assert.ok(decl.indexOf('width:21.04em') !== -1, 'ширина 480px = 21.04em');
-  assert.ok(decl.indexOf('height:11.4em') !== -1, 'высота 260px = 11.4em');
+  /* Фикс-раунд Task 63: высота считается по содержимому, а не по макету
+     экрана 07 — кегли внутри поднялись до минимума tvOS. Замер пробником на
+     стенде 960×540@2: естественная высота 13.28em, при прежних 11.4em flex
+     сжимал заголовок (1.31 → 0.92em) и текст (5.0 → 3.51em). */
+  assert.ok(decl.indexOf('height:13.3em') !== -1, 'высота под содержимое = 13.3em');
   assert.ok(decl.indexOf('flex:none') !== -1, 'карточки в ряду не сжимаются');
   assert.ok(decl.indexOf('border-radius:.61em') !== -1, 'радиус 14px = .61em');
   assert.ok(decl.indexOf('box-sizing:border-box') !== -1, 'рамка в фокусе растёт внутрь — размер карточки не скачет');

@@ -60,7 +60,7 @@
 
     /* Метка одной карточки. today — Date (или мс), ctx:
          progress(card) → процент просмотра или null,
-         words → {soon, fresh, cont, months} (строки собирает рантайм из
+         words → {soon, fresh, months} (строки собирает рантайм из
                  LC.STRINGS — модуль про язык интерфейса не знает).
        Приоритет: готовая метка ряда (lumen_badge) → прогресс → «Скоро» →
        «Новинка». Прогресс выше даты намеренно: у начатого фильма подсказка
@@ -77,7 +77,17 @@
       if (typeof ctx.progress === 'function') percent = Number(ctx.progress(card));
       if (percent !== null && !isNaN(percent) && percent >= PROGRESS_MIN && percent <= PROGRESS_MAX) {
         var whole = Math.round(percent);
-        return { kind: 'progress', text: (words.cont || '') + ' · ' + whole + ' %', percent: whole };
+        /* Ревью Task 63: в метке остался только процент. Прежнее
+           «Продолжить · 43 %» перестало помещаться на постер, когда кегль
+           метки поднялся до минимума tvOS: замер на стенде 960×540@2 —
+           строке нужно 118 CSS px при доступных 101, и ellipsis съедал как
+           раз процент, ради которого метку и рисуют («43 %» просит 35).
+           Слово выбрано к удалению, а не процент: под меткой у той же
+           карточки идёт полоса прогресса (lumen-badge-bar, decorate ниже),
+           она и говорит «продолжить» без слов, а доли процента не
+           показывает. Само слово с экрана не пропало — им подписана строка
+           прогресса в карточке фильма и кнопка «Смотреть». */
+        return { kind: 'progress', text: whole + ' %', percent: whole };
       }
 
       var ymd = releaseDate(card);
@@ -122,12 +132,15 @@
     }
 
     /* Строки метки — из LC.STRINGS (ru/en/uk). Месяцы короткие, те же, что у
-       чипа серии: на постере места на «17 декабря» нет. */
+       чипа серии: на постере места на «17 декабря» нет.
+       cont здесь больше не нужен: метка прогресса это один процент (разбор
+       в badgeFor выше), но поле оставлено осознанно — badgeFor остаётся
+       чистой функцией с тем же контрактом ctx.words, и тесты зовут её и со
+       словом, и без. */
     function words() {
       return {
         soon: LC.lang('lumen_badge_soon'),
         fresh: LC.lang('lumen_badge_new'),
-        cont: LC.lang('lumen_card_continue'),
         months: ('' + LC.lang('lumen_card_months_short')).split(',')
       };
     }

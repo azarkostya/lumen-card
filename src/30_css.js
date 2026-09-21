@@ -1507,7 +1507,22 @@
        фокусе ряд подкручивается scrollLeft (Lampa ряды ВНУТРИ ряда описания
        не двигает — находка Task 5d). */
     css.push('.lumen-descr-row .lumen-reviews__row{display:-webkit-box;display:-webkit-flex;display:flex;overflow:hidden;padding:.26em 0}');
-    css.push('.lumen-descr-row .lumen-review{position:relative;-webkit-box-sizing:border-box;box-sizing:border-box;width:21.04em;height:11.4em;-webkit-box-flex:0;-webkit-flex:none;flex:none;margin-right:.88em;border-radius:.61em;overflow:hidden;background:' + P.gradSlate + ';border:.04em solid ' + P.line + ';color:' + P.text + ';display:-webkit-box;display:-webkit-flex;display:flex}');
+    /* Фикс-раунд Task 63: высота карточки 11.4em → 13.3em. Кегли внутри
+       поднялись до минимума tvOS, и содержимое в прежнюю коробку перестало
+       помещаться. Замер на стенде 960×540@2 узлом-пробником с типовым
+       отзывом: естественная высота карточки (height:auto) 13.28em, а при
+       заданных 11.4em flex сжимал содержимое — заголовок с 1.31 до 0.92em,
+       текст с 5.0 до 3.51em, то есть из четырёх строк выдержки было видно
+       неполных три, и последняя резалась по глифу.
+       Часть роста — перенос меты отзыва на вторую строку: строка
+       «12.09.2026 · НЕЙТРАЛЬНЫЙ · ★ 12 полезно» в кегле 1.01em шире колонки
+       (замер: 184 px против 184 доступных, перенос ровно на границе).
+       Запрещать перенос не стали: обрезка съела бы «полезно», а высоты в
+       ряду описания хватает — он лежит ниже шапки и прокручивается.
+       13.3em = 303 физических px; ряд отзывов вместе с заголовком остаётся
+       около 365 px, и весь ряд описания (текст 8 строк + теги + отзывы)
+       укладывается примерно в 800 px при вьюпорте 1080. */
+    css.push('.lumen-descr-row .lumen-review{position:relative;-webkit-box-sizing:border-box;box-sizing:border-box;width:21.04em;height:13.3em;-webkit-box-flex:0;-webkit-flex:none;flex:none;margin-right:.88em;border-radius:.61em;overflow:hidden;background:' + P.gradSlate + ';border:.04em solid ' + P.line + ';color:' + P.text + ';display:-webkit-box;display:-webkit-flex;display:flex}');
     /* Тон отзыва — левая полоса 4px (экран 07): позитив good, нейтраль muted,
        негатив spice. */
     css.push('.lumen-descr-row .lumen-review__tone{width:.18em;-webkit-box-flex:0;-webkit-flex:none;flex:none;background:' + P.muted + '}');
@@ -1520,10 +1535,13 @@
     css.push('.lumen-descr-row .lumen-review__ava{-webkit-box-sizing:border-box;box-sizing:border-box;width:2.08em;height:2.08em;-webkit-box-flex:0;-webkit-flex:none;flex:none;border-radius:50%;background:' + P.panel + ';font-family:' + FB + ';font-weight:500;font-size:1.01em;line-height:2.08em;text-align:center;color:' + P.muted + ';margin-right:.52em;overflow:hidden}');
     css.push('.lumen-descr-row .lumen-review__who{min-width:0}');
     css.push('.lumen-descr-row .lumen-review__author{font-family:' + FB + ';font-weight:600;font-size:1.01em;line-height:1.1;color:' + P.text + ';margin-bottom:.22em;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis;white-space:nowrap}');
-    /* Ревью (п.2): мета отзыва лежит на СВОЁМ непрозрачном фоне карточки, а не
-       на кадре, поэтому кегль не трогаем — карточка фиксированной высоты
-       11.4em (экран 07), рост кегля её переполнит. Поднимаем только цвет:
-       smoke давал 3.7:1 к фону карточки, muted даёт 7.1:1. */
+    /* Ревью 2026-09-16 (п.2) поднял мете только цвет (smoke давал 3.7:1 к
+       фону карточки, muted даёт 7.1:1) и прямо запрещал трогать кегль:
+       «карточка фиксированной высоты 11.4em, рост кегля её переполнит».
+       Task 63 кегль всё же поднял — минимум tvOS не обходится, — и запрет
+       снят не на словах: высота карточки пересчитана по фактической
+       геометрии до 13.3em (разбор и замеры — у самого правила .lumen-review
+       выше). */
     css.push('.lumen-descr-row .lumen-review__meta{font-family:' + FB + ';font-weight:500;font-size:1.01em;line-height:1.2;color:' + P.muted + '}');
     css.push('.lumen-descr-row .lumen-review__meta > span{margin-right:.43em}');
     css.push('.lumen-descr-row .lumen-review__tag{color:' + P.muted + '}');
@@ -1624,7 +1642,10 @@
     css.push('.lumen-descr-row .lumen-review__spoiler{margin-top:auto;font-family:' + FB + ';font-weight:600;font-size:1.01em;line-height:1;letter-spacing:.07em;color:' + P.spice + '}');
     /* В режиме заголовков текста в карточке нет, и высота ей нужна меньше:
        заголовку при этом достаётся две строки вместо одной. */
-    css.push('.lumen-descr-row .lumen-reviews--headlines .lumen-review{height:8.33em}');
+    /* Фикс-раунд Task 63: 8.33em → 9.6em по тому же замеру — в режиме
+       заголовков текста нет, но заголовку положены две строки, а мета
+       занимает две. Естественная высота пробника: 9.59em. */
+    css.push('.lumen-descr-row .lumen-reviews--headlines .lumen-review{height:9.6em}');
     css.push('.lumen-descr-row .lumen-reviews--headlines .lumen-review__title{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}');
     /* Замазка спойлера в окне отзыва: текст на месте (высота окна не
        прыгает при раскрытии), но не читается — плотная плашка цвета текста
@@ -3050,6 +3071,18 @@
        рядов (новая серия, адвент) — плотной тёмной картой: там важнее не
        перебить постер, по которому пользователь и так уже ходил. */
     css.push('.lumen-main .lumen-badge--progress,.lumen-grid .lumen-badge--progress,.lumen-main .lumen-badge--custom,.lumen-grid .lumen-badge--custom{color:' + P.text + ';background:' + P.chipBg + ';border:.04em solid ' + P.line + '}');
+    /* Фикс-раунд Task 63: метке РЯДА (новая серия, адвент) разрешены две
+       строки. Её текст собирает не таблица, а персональные ряды
+       (src/45_personal.js: «Новая серия · 12 сен», «Через 14 дней»), и на
+       кегле минимума tvOS он перестал помещаться в ширину карточки: замер на
+       стенде 960×540@2, самый мелкий масштаб интерфейса (карточка 97.7 CSS
+       px, метке доступно 90) — «Новая серия · 12 сен» просит 128 px,
+       «Через 14 дней» 91. Обрезать нечего: в этой метке каждое слово несёт
+       смысл, а сократить её значило бы выкинуть либо дату, либо повод.
+       Две строки по 23 px на постере высотой 325 физ. px постер не закрывают.
+       Остальные метки остаются в одну строку: «Новинка», «Скоро · 17 дек» и
+       «43 %» помещаются на всех четырёх масштабах (замер там же). */
+    css.push('.lumen-main .lumen-badge--custom,.lumen-grid .lumen-badge--custom{white-space:normal;line-height:1.15}');
     css.push('.lumen-main .lumen-badge-bar{position:absolute;left:.4em;right:.4em;bottom:.4em;height:.18em;border-radius:.09em;background:rgba(' + P.textRgb + ',.2);overflow:hidden;z-index:2}');
     css.push('.lumen-main .lumen-badge-bar > div{height:100%;border-radius:.09em;background:' + A + '}');
 

@@ -2013,7 +2013,22 @@ css.push('.lumen-descr-row .lumen-reviews__total{font-family:' + FB + ';font-wei
 
 
 css.push('.lumen-descr-row .lumen-reviews__row{display:-webkit-box;display:-webkit-flex;display:flex;overflow:hidden;padding:.26em 0}');
-css.push('.lumen-descr-row .lumen-review{position:relative;-webkit-box-sizing:border-box;box-sizing:border-box;width:21.04em;height:11.4em;-webkit-box-flex:0;-webkit-flex:none;flex:none;margin-right:.88em;border-radius:.61em;overflow:hidden;background:' + P.gradSlate + ';border:.04em solid ' + P.line + ';color:' + P.text + ';display:-webkit-box;display:-webkit-flex;display:flex}');
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+css.push('.lumen-descr-row .lumen-review{position:relative;-webkit-box-sizing:border-box;box-sizing:border-box;width:21.04em;height:13.3em;-webkit-box-flex:0;-webkit-flex:none;flex:none;margin-right:.88em;border-radius:.61em;overflow:hidden;background:' + P.gradSlate + ';border:.04em solid ' + P.line + ';color:' + P.text + ';display:-webkit-box;display:-webkit-flex;display:flex}');
 
 
 css.push('.lumen-descr-row .lumen-review__tone{width:.18em;-webkit-box-flex:0;-webkit-flex:none;flex:none;background:' + P.muted + '}');
@@ -2026,6 +2041,9 @@ css.push('.lumen-descr-row .lumen-review__top{display:-webkit-box;display:-webki
 css.push('.lumen-descr-row .lumen-review__ava{-webkit-box-sizing:border-box;box-sizing:border-box;width:2.08em;height:2.08em;-webkit-box-flex:0;-webkit-flex:none;flex:none;border-radius:50%;background:' + P.panel + ';font-family:' + FB + ';font-weight:500;font-size:1.01em;line-height:2.08em;text-align:center;color:' + P.muted + ';margin-right:.52em;overflow:hidden}');
 css.push('.lumen-descr-row .lumen-review__who{min-width:0}');
 css.push('.lumen-descr-row .lumen-review__author{font-family:' + FB + ';font-weight:600;font-size:1.01em;line-height:1.1;color:' + P.text + ';margin-bottom:.22em;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis;white-space:nowrap}');
+
+
+
 
 
 
@@ -2130,7 +2148,10 @@ css.push('.lumen-descr-row .lumen-reviews__mode--on.focus{outline:.13em solid ' 
 css.push('.lumen-descr-row .lumen-review__spoiler{margin-top:auto;font-family:' + FB + ';font-weight:600;font-size:1.01em;line-height:1;letter-spacing:.07em;color:' + P.spice + '}');
 
 
-css.push('.lumen-descr-row .lumen-reviews--headlines .lumen-review{height:8.33em}');
+
+
+
+css.push('.lumen-descr-row .lumen-reviews--headlines .lumen-review{height:9.6em}');
 css.push('.lumen-descr-row .lumen-reviews--headlines .lumen-review__title{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}');
 
 
@@ -3556,6 +3577,18 @@ css.push('.lumen-main .lumen-badge,.lumen-grid .lumen-badge{position:absolute;to
 
 
 css.push('.lumen-main .lumen-badge--progress,.lumen-grid .lumen-badge--progress,.lumen-main .lumen-badge--custom,.lumen-grid .lumen-badge--custom{color:' + P.text + ';background:' + P.chipBg + ';border:.04em solid ' + P.line + '}');
+
+
+
+
+
+
+
+
+
+
+
+css.push('.lumen-main .lumen-badge--custom,.lumen-grid .lumen-badge--custom{white-space:normal;line-height:1.15}');
 css.push('.lumen-main .lumen-badge-bar{position:absolute;left:.4em;right:.4em;bottom:.4em;height:.18em;border-radius:.09em;background:rgba(' + P.textRgb + ',.2);overflow:hidden;z-index:2}');
 css.push('.lumen-main .lumen-badge-bar > div{height:100%;border-radius:.09em;background:' + A + '}');
 
@@ -18798,7 +18831,17 @@ var percent = null;
 if (typeof ctx.progress === 'function') percent = Number(ctx.progress(card));
 if (percent !== null && !isNaN(percent) && percent >= PROGRESS_MIN && percent <= PROGRESS_MAX) {
 var whole = Math.round(percent);
-return { kind: 'progress', text: (words.cont || '') + ' · ' + whole + ' %', percent: whole };
+
+
+
+
+
+
+
+
+
+
+return { kind: 'progress', text: whole + ' %', percent: whole };
 }
 
 var ymd = releaseDate(card);
@@ -18844,11 +18887,14 @@ try { return LC.pref ? !!LC.pref('lumen_badges', true) : true; } catch (e) { ret
 
 
 
+
+
+
+
 function words() {
 return {
 soon: LC.lang('lumen_badge_soon'),
 fresh: LC.lang('lumen_badge_new'),
-cont: LC.lang('lumen_card_continue'),
 months: ('' + LC.lang('lumen_card_months_short')).split(',')
 };
 }
