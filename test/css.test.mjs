@@ -1115,7 +1115,9 @@ test('Task 38: box-shadow нигде не входит в transition', () => {
 });
 
 test('Task 38: ни одного box-shadow с размытием больше .8em', () => {
-  /* Второе число тени — смещение, третье — радиус размытия: «0 .35em .7em». */
+  /* Второе число тени — смещение, третье — радиус размытия: «0 .35em .7em».
+     Нулевой радиус пишется без единицы («0 .2em 0», Task 50) — такая запись
+     проверке радиуса не подлежит, но форму ниже проходить обязана. */
   const offenders = [];
   for (const m of css.matchAll(/box-shadow:\s*0\s+([\d.]+)em\s+([\d.]+)em/g)) {
     if (parseFloat(m[2]) > 0.8) offenders.push(m[0]);
@@ -1126,8 +1128,8 @@ test('Task 38: ни одного box-shadow с размытием больше .
      цвета: четвёртое число (spread) растит площадь перерисовки ровно так же,
      как радиус, а проверка выше его не видит. */
   const shapes = [...css.matchAll(/box-shadow:[^;}]+/g)].map((m) => m[0]);
-  const unknown = shapes.filter((s) => !/^(-webkit-)?box-shadow:0 [\d.]+em [\d.]+em (rgba?\(|#)/.test(s));
-  assert.deepEqual(unknown, [], 'тень записана не в форме «0 <смещение>em <радиус>em <цвет>» — проверка радиуса её не увидит');
+  const unknown = shapes.filter((s) => !/^(-webkit-)?box-shadow:0 [\d.]+em ([\d.]+em|0) (rgba?\(|#)/.test(s));
+  assert.deepEqual(unknown, [], 'тень записана не в форме «0 <смещение>em <радиус> <цвет>» — проверка радиуса её не увидит');
 });
 
 test('Task 38: filter:blur отсутствует', () => {
@@ -1634,6 +1636,43 @@ test('Task 49: под нашей главной штатный фон Lampa не
   const extra = ruleBodies(css).filter((r) => r.selectors.some((s) => /\.background__/.test(s)));
   assert.deepEqual(extra.map((r) => r.selectors.join(',')), [],
     'канвасы внутри .background гасить отдельно нечем — правило станет мёртвым');
+});
+
+/* Task 50. Акцент под постером в фокусе был тенью с размытием .7em — это
+   16 физических px на растре 1080p, и перерисовывать их приходилось дважды
+   на каждый шаг: у уходящей карточки и у приходящей
+   (docs/research/2026-09-21-webview-perf.md §2: тени с размытием — не на
+   шаге фокуса). Заменена плоской подложкой: смещение остаётся, радиус —
+   ноль, перерисовывается ровно прямоугольник.
+   Правило одно на два места: строку строит accentRules (src/30_css.js), а
+   берут её и общая таблица, и отдельный узел подкраски <style
+   id="lumen-accent"> (LC.accentCss, его переписывает LC.accent при смене
+   доминанты — src/57_color.js:676-722). Тест сверяет их посимвольно: узел
+   стоит ПОСЛЕ таблицы и при равной специфичности побеждает, так что
+   разъехавшаяся форма означала бы разный фокус до и после подкраски. */
+test('Task 50: подложка фокуса карточки без размытия, и узел подкраски совпадает с таблицей', () => {
+  const rule = ruleBodies(css).find((r) => r.selectors.join(',') === '.lumen-main .card.focus .card__view'
+    && r.decl.indexOf('box-shadow') !== -1);
+  assert.ok(rule, 'правило подложки фокуса не найдено');
+  assert.ok(rule.decl.indexOf('box-shadow:0 .2em 0 ') !== -1, 'размытие обязано быть нулевым: ' + rule.decl);
+  assert.ok(rule.decl.indexOf('-webkit-box-shadow:0 .2em 0 ') !== -1, 'старым webkit-движкам нужен префикс: ' + rule.decl);
+
+  /* Ни одной тени с размытием во ВСЕХ правилах карточки главной — иначе шаг
+     фокуса снова стоил бы двух перерисовок со всей площадью вокруг. */
+  const shadows = [];
+  for (const r of ruleBodies(css)) {
+    if (!r.selectors.some((s) => /^\.lumen-main \.card\b/.test(s))) continue;
+    for (const m of r.decl.matchAll(/box-shadow:([^;}]+)/g)) shadows.push(m[1]);
+  }
+  assert.ok(shadows.length >= 2, 'теней под .lumen-main .card не нашлось — проверка стала бы пустой: ' + shadows.length);
+  assert.deepEqual(shadows.filter((s) => !/^0 [\d.]+em 0 /.test(s)), [],
+    'тень с ненулевым размытием на карточке главной');
+
+  const accentRule = withStorage({}, (LC) => LC.accentCss()).split('\n')
+    .find((l) => l.indexOf('.lumen-main .card.focus .card__view{') === 0);
+  assert.ok(accentRule, 'узел подкраски перестал нести правило фокуса карточки');
+  assert.ok(css.split('\n').indexOf(accentRule) !== -1,
+    'узел подкраски и общая таблица разошлись формой правила: ' + accentRule);
 });
 
 /* Правка пользователя 2026-09-17 (второй круг, п.1): «а может текст вниз
@@ -2293,9 +2332,10 @@ test('Task 42: фокус карточки ряда — увеличение и 
   const scaled = decls.join(' ');
   assert.ok(scaled.indexOf('transform:scale(1.08)') !== -1, 'увеличение в фокусе: ' + scaled);
   assert.ok(scaled.indexOf('-webkit-transform:scale(1.08)') !== -1, 'старым webkit-движкам нужен префикс: ' + scaled);
-  /* Акцентный ореол — на том же узле (AR.cardFocus, src/30_css.js), кольца
-     больше нет. */
-  assert.ok(scaled.indexOf('box-shadow:0 .35em .7em rgba(232,184,122,0.35)') !== -1, 'ореол цветом акцента: ' + scaled);
+  /* Акцентная подложка — на том же узле (AR.cardFocus, src/30_css.js),
+     кольца больше нет. Размытия у неё нет вовсе (Task 50) — форму и
+     единственность держит отдельный тест ниже. */
+  assert.ok(scaled.indexOf('box-shadow:0 .2em 0 rgba(232,184,122,0.35)') !== -1, 'подложка цветом акцента: ' + scaled);
 
   /* Анимация фокуса Lampa (animation-card-focus, app.css:15779 — прыжок на
      -1em) спорила бы с нашим scale на том же узле. */

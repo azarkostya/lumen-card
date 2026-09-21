@@ -239,13 +239,22 @@
       fadeTop: '.lumen-main .scroll.layer--wheight:after{background:-webkit-linear-gradient(top,' + P.bg + ' 0,' + P.bg + ' 2em,rgba(' + P.bgRgb + ',0) 2.5em);background:linear-gradient(to bottom,' + P.bg + ' 0,' + P.bg + ' 2em,rgba(' + P.bgRgb + ',0) 2.5em)}',
       fadeBot: '.lumen-main:after{background:-webkit-linear-gradient(bottom,' + P.bg + ' 0,rgba(' + P.bgRgb + ',0) 100%);background:linear-gradient(0deg,' + P.bg + ' 0,rgba(' + P.bgRgb + ',0) 100%)}',
       /* Task 42: кольцо вокруг карточки снято (штатный :after погашен, см.
-         блок рядов ниже), и акцент переехал на сам постер — ореолом под
-         ним. Числа те же, что были у кольца: радиус размытия в плагине
-         ограничен .8em (тест «Task 38: ни одного box-shadow с размытием
-         больше .8em»), и одной тенью, а не списком, — ту же проверку формы
-         список не прошёл бы. Тень статична: появляется вместе с классом
-         .focus, а transition на .card__view перечисляет только transform. */
-      cardFocus: '.lumen-main .card.focus .card__view{-webkit-box-shadow:0 .35em .7em ' + t.glow + ';box-shadow:0 .35em .7em ' + t.glow + '}'
+         блок рядов ниже), и акцент переехал на сам постер — подложкой под
+         ним. Одной тенью, а не списком: проверку формы («0 <смещение>em
+         <радиус> <цвет>») список не прошёл бы. Тень статична: появляется
+         вместе с классом .focus, а transition на .card__view перечисляет
+         только transform.
+
+         Task 50: размытия у неё больше нет — было .35em смещения и .7em
+         радиуса, то есть 16 физических px вокруг всей карточки на растре
+         1080p. Размытый край перерисовывается при каждом изменении слоя, и
+         на шаге фокуса это два раза: у карточки, теряющей фокус, и у
+         принимающей его (docs/research/2026-09-21-webview-perf.md §2, замер
+         21 fps на Philips 50PUS8057 в разделе «Что известно точно»
+         docs/plans/2026-09-21-lumen-phase5-tv-fix.md). Плоская подложка
+         оставляет тот же акцент под нижней кромкой постера, но её площадь —
+         ровно прямоугольник со смещением .2em. */
+      cardFocus: '.lumen-main .card.focus .card__view{-webkit-box-shadow:0 .2em 0 ' + t.glow + ';box-shadow:0 .2em 0 ' + t.glow + '}'
     };
   }
 
@@ -2503,16 +2512,16 @@
     css.push('.lumen-main .card.focus .card__view,.lumen-main .card.hover .card__view{-webkit-animation:none !important;animation:none !important}');
     css.push('.lumen-main .card.focus .card__view{-webkit-transform:scale(' + ROW_FOCUS + ');transform:scale(' + ROW_FOCUS + ')}');
     /* Кому рисоваться поверх. Выросший постер официально заходит в зону
-       заголовка своего ряда (см. зазор ниже), а ореол фокуса (AR.cardFocus,
-       .7em размытия) выходит за кромки карточки и краем ложится на соседнюю.
-       Замер на стенде 2026-09-18: сам ПОСТЕР соседа не достаёт — между ними
-       остаётся воздух, режется только край размытия. Слой ставим на .card
+       заголовка своего ряда (см. зазор ниже) и на .5em margin-bottom своего
+       .card__view — там же лежит подложка фокуса (AR.cardFocus, смещение
+       .2em после Task 50). Замер на стенде 2026-09-18: сам ПОСТЕР соседа по
+       ряду не достаёт — между ними остаётся воздух. Слой ставим на .card
        (position:relative у Lampa, app.css:3095) тем же числом, что у плитки
        хаба и карточки сетки подборки выше — чтобы поведение везде совпадало
        и не зависело от порядка узлов в DOM. */
     css.push('.lumen-main .card.focus{z-index:3}');
-    /* Переход перечисляет ровно transform: тень фокуса (AR.cardFocus ниже)
-       появляется вместе с классом и не анимируется — анимированный
+    /* Переход перечисляет ровно transform: подложка фокуса (AR.cardFocus
+       ниже) появляется вместе с классом и не анимируется — анимированный
        box-shadow заставляет ТВ перерисовывать карточку каждый кадр
        (docs/research/2026-09-18-android-tv-animations.md). */
     css.push('body.lumen-motion-full .lumen-main .card__view{-webkit-transition:-webkit-transform .18s ease-out;transition:transform .18s ease-out}');

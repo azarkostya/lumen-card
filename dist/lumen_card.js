@@ -729,7 +729,16 @@ fadeBot: '.lumen-main:after{background:-webkit-linear-gradient(bottom,' + P.bg +
 
 
 
-cardFocus: '.lumen-main .card.focus .card__view{-webkit-box-shadow:0 .35em .7em ' + t.glow + ';box-shadow:0 .35em .7em ' + t.glow + '}'
+
+
+
+
+
+
+
+
+
+cardFocus: '.lumen-main .card.focus .card__view{-webkit-box-shadow:0 .2em 0 ' + t.glow + ';box-shadow:0 .2em 0 ' + t.glow + '}'
 };
 }
 
