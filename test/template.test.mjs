@@ -156,13 +156,14 @@ test('build(фикстура): ключевые классы v1 на месте'
   }
 });
 
-test('build(фикстура), Task 5c: чип следующей серии в ленте рейтингов, ряд серий в шестом .lumen-in после кнопок', () => {
+test('build(фикстура), Task 5c: чип следующей серии в ленте рейтингов, ряд серий в последнем .lumen-in после кнопок', () => {
   const result = template.build(fixture);
   const rate = template.innerOf(result, 'full-start-new__rate-line');
   assert.ok(rate.indexOf('lumen-next-chip') !== -1, 'чип следующей серии — внутри ленты рейтингов');
 
-  // шесть .lumen-in по-прежнему (stagger nth-child 1..6), ряд серий — не отдельный ребёнок .lumen-content
-  assert.equal((result.match(/class="lumen-in[ "]/g) || []).length, 6);
+  // Task 59: пять .lumen-in (stagger nth-child 1..5) — описание из шапки
+  // убрано; ряд серий по-прежнему не отдельный ребёнок .lumen-content
+  assert.equal((result.match(/class="lumen-in[ "]/g) || []).length, 5);
   const buttonsAt = result.indexOf('full-start-new__buttons');
   const episodesAt = result.indexOf('lumen-episodes');
   assert.ok(buttonsAt < episodesAt, 'ряд серий — после кнопок');
@@ -173,14 +174,14 @@ test('build(фикстура), Task 5c: чип следующей серии в 
 
 /* Task 7 (ревью): CSS режима трейлера и flex-фолбэк без grid держатся на
    классе .lumen-actions, а не на порядковом номере блока — закрепляем
-   контракт: класс ровно один, стоит на одном из шести .lumen-in и это
+   контракт: класс ровно один, стоит на одном из .lumen-in и это
    именно блок с рядом кнопок. */
-test('build(фикстура), Task 7: .lumen-actions — ровно один, на шестом .lumen-in, с рядом кнопок внутри', () => {
+test('build(фикстура), Task 7: .lumen-actions — ровно один, на последнем .lumen-in, с рядом кнопок внутри', () => {
   const result = template.build(fixture);
 
   assert.equal((result.match(/lumen-actions/g) || []).length, 1, 'класс должен быть ровно один');
   assert.ok(result.indexOf('class="lumen-in lumen-actions"') !== -1, '.lumen-actions — это один из .lumen-in');
-  assert.equal((result.match(/class="lumen-in[ "]/g) || []).length, 6, 'шесть .lumen-in (stagger nth-child 1..6) не меняется');
+  assert.equal((result.match(/class="lumen-in[ "]/g) || []).length, 5, 'пять .lumen-in — столько же задержек stagger (nth-child 1..5)');
 
   const actionsAt = result.indexOf('lumen-actions');
   const buttonsAt = result.indexOf('full-start-new__buttons');
@@ -220,6 +221,16 @@ test('правка 2026-09-16 (п.1): статус и чипы качества 
 test('правка 2026-09-16 (п.1): статус скрыт разметкой — показывает его Lampa, а у фильма гасит CSS', () => {
   const result = template.build(fixture);
   assert.ok(result.indexOf('<div class="full-start__status hide"></div>') !== -1);
+});
+
+/* Task 59 (фаза 5): «эти дублирования абсолютно не нужны» (интервью
+   2026-09-21). Описание в шапке было обрезано двумя строками с многоточием
+   и повторяло начало полного текста, который Lampa показывает ниже своим
+   рядом описания. Оставлен один носитель — нижний, полный. */
+test('Task 59: описания в шапке нет — оно живёт в ряду описания целиком', () => {
+  const result = template.build(fixture);
+  assert.equal(result.indexOf('lumen-descr'), -1, 'блок описания в шапке убран');
+  assert.equal(result.indexOf('{descr}'), -1, 'ключ подстановки тоже убран');
 });
 
 test('правка 2026-09-16 (п.2): оригинального названия в шапке нет', () => {

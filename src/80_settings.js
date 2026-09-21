@@ -269,16 +269,19 @@
     lumen_card_ep_soon: { ru: 'не вышла', en: 'not aired', uk: 'не вийшла' },
     /* Task 5d (design-spec §10, экран 07): подписи таблицы «ПОДРОБНО». Сам
        заголовок — уже верхним регистром, как на экране (letter-spacing .14em
-       без text-transform). «Режиссёр» здесь полным словом: сокращение «реж.»
-       (lumen_card_director) принадлежит мета-строке шапки, где место дорого. */
+       без text-transform).
+
+       Task 59 (фаза 5): подписей «Страна», «Режиссёр», «Жанр» и «Время»
+       здесь больше нет — эти четыре строки ушли из таблицы, потому что
+       слово в слово повторяли мета-строку шапки (интервью 2026-09-21).
+       «Бюджет» — новая: Lampa показывала его в своём блоке подробностей
+       (app.min.js:38018), а мы этот блок скрываем (src/30_css.js), и до
+       Task 59 бюджет не показывался нигде. */
     lumen_card_facts: { ru: 'ПОДРОБНО', en: 'DETAILS', uk: 'ДОКЛАДНО' },
     lumen_card_fact_original: { ru: 'Оригинал', en: 'Original', uk: 'Оригінал' },
     lumen_card_fact_premiere: { ru: 'Премьера', en: 'Premiere', uk: 'Прем\'єра' },
-    lumen_card_fact_country: { ru: 'Страна', en: 'Country', uk: 'Країна' },
-    lumen_card_fact_director: { ru: 'Режиссёр', en: 'Director', uk: 'Режисер' },
     lumen_card_fact_creator: { ru: 'Создатель', en: 'Creator', uk: 'Творець' },
-    lumen_card_fact_genre: { ru: 'Жанр', en: 'Genre', uk: 'Жанр' },
-    lumen_card_fact_time: { ru: 'Время', en: 'Runtime', uk: 'Час' },
+    lumen_card_fact_budget: { ru: 'Бюджет', en: 'Budget', uk: 'Бюджет' },
     /* Ревью Task 5c (п.4): строки чипа следующей серии и названия месяцев —
        здесь, а не хардкодом в LC.cardinfo (он остаётся чистым и получает их
        параметром от LC.header). Месяцы — список через запятую: родительный

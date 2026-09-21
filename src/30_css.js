@@ -925,8 +925,10 @@
        убрано вместе с узлом .lumen-original — оно дублировало строку
        «Оригинал» таблицы «ПОДРОБНО», которая и есть нужное для него место. */
 
-    /* --- Описание (design-spec §4: 24px, max-width 980px, margin-top 20px) --- */
-    css.push('.lumen-card .lumen-descr{font-size:1.05em;line-height:1.45;color:' + P.muted + ';max-width:42.96em;margin-top:.88em;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;line-clamp:2;-webkit-box-orient:vertical}');
+    /* Task 59 (фаза 5): правил описания в шапке больше нет — вместе с узлом
+       .lumen-descr убран и весь его CSS. Единственное описание карточки —
+       полный текст в ряду описания Lampa (.lumen-descr-row .full-descr__text
+       ниже в этом же файле). */
 
     /* --- Рейтинги (design-spec §5a: колонка значение/подпись, тёмная карта) --- */
     css.push('.lumen-card .full-start-new__rate-line{margin:1.05em 0 0;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:stretch;-webkit-align-items:stretch;align-items:stretch;-webkit-flex-wrap:wrap;flex-wrap:wrap}');
@@ -1112,14 +1114,14 @@
     css.push('.lumen-card .lumen-trailer-badge{display:none;position:absolute;top:4.91em;right:2.81em;z-index:6;font-family:' + FB + ';font-size:.79em;line-height:1;letter-spacing:.06em;color:' + P.text + ';background:' + P.glass + ';border:.05em solid rgba(' + P.textRgb + ',.2);border-radius:1.67em;padding:.56em 1em;-webkit-box-align:center;-webkit-align-items:center;align-items:center}');
     css.push('.lumen-card.lumen-trailer-on .lumen-trailer-badge{display:-webkit-box;display:-webkit-flex;display:flex}');
     css.push('.lumen-card .lumen-trailer-badge:before{content:"";display:block;-webkit-flex-shrink:0;flex-shrink:0;width:1.22em;height:1.22em;margin-right:.67em;background-color:' + A + ';-webkit-mask-image:' + LC.icons.maskUrl('mute') + ';mask-image:' + LC.icons.maskUrl('mute') + ';-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;-webkit-mask-size:contain;mask-size:contain}');
-    /* Компактная шапка экрана 02: заголовок 42px ÷ 22.811 = 1.84em, описание,
-       лента рейтингов, боковая колонка и ряд серий убраны — на экране их нет.
-       Шестой .lumen-in (реакции + кнопки + ряд серий) становится строкой,
-       чтобы «Стоп» встал рядом с рядом кнопок, а не под ним. */
+    /* Компактная шапка экрана 02: заголовок 42px ÷ 22.811 = 1.84em, лента
+       рейтингов и ряд серий убраны — на экране их нет. Последний .lumen-in
+       (реакции + кнопки + ряд серий) становится строкой, чтобы «Стоп» встал
+       рядом с рядом кнопок, а не под ним. */
     css.push('.lumen-card.lumen-trailer-on .full-start-new__title{font-size:1.84em;opacity:.92}');
     /* Task 8: строки «Продолжить» на экране 02 тоже нет — под роликом остаются
        только заголовок, мета-строка и ряд кнопок. */
-    css.push('.lumen-card.lumen-trailer-on .lumen-descr,.lumen-card.lumen-trailer-on .full-start-new__rate-line,.lumen-card.lumen-trailer-on .lumen-episodes,.lumen-card.lumen-trailer-on .lumen-progress{display:none !important}');
+    css.push('.lumen-card.lumen-trailer-on .full-start-new__rate-line,.lumen-card.lumen-trailer-on .lumen-episodes,.lumen-card.lumen-trailer-on .lumen-progress{display:none !important}');
     css.push('.lumen-card.lumen-trailer-on .lumen-actions{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center}');
 
     /* --- Точка статуса (design-spec §8): красится только маркер, текст всегда
@@ -1208,7 +1210,21 @@
        3.51em, панель не уже 450px = 19.73em. Штатный .full-descr__details
        (Дата выхода / Бюджет / Страны) скрыт — это ровно то, что теперь
        показывает наша таблица; .full-descr__tags (жанры, студии) остаётся:
-       там живут .selector, их убирать нельзя — сломается навигация пультом. */
+       там живут .selector, их убирать нельзя — сломается навигация пультом.
+
+       Task 59 (фаза 5): счётчики «Жанр 3 · Производство 2 · Теги 17», на
+       которые пожаловался пользователь (интервью 2026-09-21), — это и есть
+       содержимое .full-descr__tags: .tag-count.selector, по одному на группу
+       (Descriptiopn.tag, app.min.js:38124-38149). Они НЕ скрыты намеренно, и
+       это проверено по коду, а не предположено: каждый открывает Select со
+       списком, а выбор уходит в Activity.push — жанр открывает подборку по
+       жанру (app.min.js:38023-38031), «Производство» зовёт router.call
+       ('company', …) (38036-38040), «Теги» — discover с with_keywords
+       (38059-38066). Подборки по студии и по ключевому слову из интерфейса
+       больше ниоткуда не открываются, так что скрытие отняло бы у карточки
+       единственный вход в них. Дубль с мета-строкой снят иначе — из таблицы
+       «ПОДРОБНО» ушла строка «Жанр» (src/35_cardinfo.js), и слово «Жанр» на
+       экране осталось одно: на кнопке, которая ведёт в подборку. */
     /* Ревью Task 5d (п.2): штатный заголовок ряда — «Подробно» (Descriptiopn.
        create(): Template.get('items_line', {title: Lang.translate('full_detail')}),
        lang/ru.js = «Подробно»), он дублировал бы нашу метку панели из §10.
@@ -1528,15 +1544,16 @@
 
     /* Task 4: motion — анимации в духе Apple TV. */
 
-    /* Появление контента: разметку .lumen-in (6 «детей» .lumen-content) добавит Task 5a —
-       здесь только правила подъёма и раскадровка задержек с шагом 60мс. */
+    /* Появление контента: .lumen-in — пять прямых детей .lumen-content
+       (src/40_template.js); здесь только правила подъёма и раскадровка
+       задержек с шагом 60 мс. Задержек ровно столько же, сколько блоков:
+       шестая была бы мёртвым правилом. */
     css.push('.lumen-card.lumen-motion-full .lumen-in{opacity:0;-webkit-transform:translateY(1.05em);transform:translateY(1.05em);-webkit-animation:lumen-rise .7s cubic-bezier(.2,.8,.2,1) forwards;animation:lumen-rise .7s cubic-bezier(.2,.8,.2,1) forwards}');
     css.push('.lumen-card.lumen-motion-full .lumen-in:nth-child(1){-webkit-animation-delay:.05s;animation-delay:.05s}');
     css.push('.lumen-card.lumen-motion-full .lumen-in:nth-child(2){-webkit-animation-delay:.11s;animation-delay:.11s}');
     css.push('.lumen-card.lumen-motion-full .lumen-in:nth-child(3){-webkit-animation-delay:.17s;animation-delay:.17s}');
     css.push('.lumen-card.lumen-motion-full .lumen-in:nth-child(4){-webkit-animation-delay:.23s;animation-delay:.23s}');
     css.push('.lumen-card.lumen-motion-full .lumen-in:nth-child(5){-webkit-animation-delay:.29s;animation-delay:.29s}');
-    css.push('.lumen-card.lumen-motion-full .lumen-in:nth-child(6){-webkit-animation-delay:.35s;animation-delay:.35s}');
     css.push('@-webkit-keyframes lumen-rise{to{opacity:1;-webkit-transform:none}}');
     css.push('@keyframes lumen-rise{to{opacity:1;transform:none}}');
 
@@ -1632,7 +1649,6 @@
        реализован), пока для них тоже нужно выбирать «Лёгкие»/«Выкл» вручную в настройках. */
     css.push('.lumen-card .full-start-new__title,.lumen-card .full-start-new__rate-line,.lumen-card .full-start-new__buttons{-webkit-transition:font-size .28s cubic-bezier(.2,.9,.3,1.25),margin-top .28s cubic-bezier(.2,.9,.3,1.25);transition:font-size .28s cubic-bezier(.2,.9,.3,1.25),margin-top .28s cubic-bezier(.2,.9,.3,1.25)}');
     css.push('.lumen-card.lumen-compact .full-start-new__title{font-size:2.104em}');
-    css.push('.lumen-card.lumen-compact .lumen-descr{display:none}');
     css.push('.lumen-card.lumen-compact .full-start-new__rate-line{margin-top:.87em}');
     css.push('.lumen-card.lumen-compact .full-start-new__buttons{margin-top:.95em}');
     /* Task 8 (экран 06): «Следующая серия — 17 декабря, через 31 день» в сжатой

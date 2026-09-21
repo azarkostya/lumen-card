@@ -662,12 +662,14 @@ function factsOf(d) { return d.descr._children.filter((n) => n.hasClass('lumen-f
 const DUNE = {
   movie: {
     title: 'Дюна: Часть вторая', original_title: 'Dune: Part Two', release_date: '2024-02-29',
-    runtime: 166, genres: [{ name: 'фантастика' }, { name: 'приключения' }],
+    runtime: 166, budget: 190000000, genres: [{ name: 'фантастика' }, { name: 'приключения' }],
     production_countries: [{ iso_3166_1: 'US', name: 'United States of America' }]
   },
   persons: { crew: [{ job: 'Director', name: 'Дени Вильнёв' }] }
 };
 
+/* Task 59 (фаза 5): страны, режиссёра, жанра и хронометража в таблице больше
+   нет — все четыре слово в слово стоят в мета-строке шапки (renderMeta). */
 test('descr: таблица «ПОДРОБНО» дописывается в тело ряда, ряд помечен .lumen-descr-row', () => {
   const d = makeDescrRow();
   LC.header.descr(d.row, DUNE);
@@ -676,9 +678,12 @@ test('descr: таблица «ПОДРОБНО» дописывается в т�
   const facts = factsOf(d);
   assert.equal(facts.length, 1);
   const html = facts[0].html();
-  for (const part of ['ПОДРОБНО', 'Оригинал', 'Dune: Part Two', 'Премьера', '29 февраля 2024', 'Страна', 'США',
-    'Режиссёр', 'Дени Вильнёв', 'Жанр', 'Фантастика, Приключения', 'Время', '2:46']) {
+  for (const part of ['ПОДРОБНО', 'Оригинал', 'Dune: Part Two', 'Премьера', '29 февраля 2024',
+    'Бюджет', '$ 190 000 000']) {
     assert.ok(html.indexOf(part) !== -1, 'нет строки таблицы: ' + part);
+  }
+  for (const gone of ['Страна', 'США', 'Режиссёр', 'Дени Вильнёв', 'Жанр', 'Фантастика', '2:46']) {
+    assert.equal(html.indexOf(gone), -1, 'таблица повторяет мета-строку шапки: ' + gone);
   }
   assert.equal(html.indexOf('selector'), -1, 'таблица не участвует в навигации пультом');
   assert.deepEqual(warnLog, []);
@@ -719,8 +724,7 @@ test('descr: смена языка интерфейса перерисовыва
 
   const EN = {
     lumen_card_facts: 'DETAILS', lumen_card_fact_original: 'Original', lumen_card_fact_premiere: 'Premiere',
-    lumen_card_fact_country: 'Country', lumen_card_fact_director: 'Director', lumen_card_fact_creator: 'Creator',
-    lumen_card_fact_genre: 'Genre', lumen_card_fact_time: 'Runtime', lumen_card_min: 'min',
+    lumen_card_fact_creator: 'Creator', lumen_card_fact_budget: 'Budget',
     lumen_card_months_gen: 'January,February,March,April,May,June,July,August,September,October,November,December'
   };
   const original = LC.lang;
@@ -746,7 +750,7 @@ test('descr: значения экранируются — разметка из
   assert.ok(html.indexOf('&lt;b&gt;x&lt;/b&gt;') !== -1, 'ожидалось экранированное значение');
 });
 
-test('descr: сериал — создатель и «сезонов · серий»', () => {
+test('descr: сериал — создатель без повтора меты', () => {
   const d = makeDescrRow();
   LC.header.descr(d.row, {
     movie: {
@@ -757,7 +761,7 @@ test('descr: сериал — создатель и «сезонов · сери
   });
   const html = factsOf(d)[0].html();
   assert.ok(html.indexOf('Создатель') !== -1 && html.indexOf('Джонатан Нолан') !== -1);
-  assert.ok(html.indexOf('2 сезона · 16 серий') !== -1);
+  assert.equal(html.indexOf('2 сезона · 16 серий'), -1, 'сезоны и серии уже стоят в мета-строке шапки');
   assert.equal(html.indexOf('Режиссёр'), -1, 'у сериала режиссёра в таблице нет');
 });
 

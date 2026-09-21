@@ -256,22 +256,48 @@
       return day ? day + ' ' + m[1] : m[1];
     }
 
-    /* Task 5d Step 1: строки таблицы «ПОДРОБНО» — [{label, value}] в порядке
-       экрана 07: Оригинал (только если отличается от названия), Премьера,
-       Страна, Режиссёр (фильм) / Создатель (сериал), Жанр, Время (хронометраж
-       фильма или «N сезонов · M серий» сериала). Пустые значения в таблицу не
-       попадают — строки с пустым value просто нет.
+    /* Task 59 (фаза 5): сумма в таблице «ПОДРОБНО» — «$ 190 000 000».
+       Разряды разделяются пробелами вручную: toLocaleString на ТВ-движках
+       отдаёт разное (или не отдаёт ничего), а формат с $ впереди повторяет
+       тот, которым Lampa показывала бюджет в своём блоке подробностей
+       (app.min.js:38018). Не число или ноль — пустая строка: такую строку
+       add() в таблицу не пустит. */
+    function money(value) {
+      var n = Number(value);
+      if (!(n > 0)) return '';
+      var digits = '' + Math.floor(n);
+      var out = '';
+      for (var i = 0; i < digits.length; i++) {
+        if (i > 0 && (digits.length - i) % 3 === 0) out += ' ';
+        out += digits.charAt(i);
+      }
+      return '$ ' + out;
+    }
 
-       Как и nextEpisode, модуль остаётся чистым: подписи, названия месяцев,
-       склонения (seasonsWord/episodesWord) и capitalize приходят словарём
-       words — его собирает LC.header из LC.STRINGS, здесь ни Lampa, ни языка
-       интерфейса нет. Без words таблицу строить нечем -> [].
+    /* Task 5d Step 1, поправка Task 59 (фаза 5): строки таблицы «ПОДРОБНО» —
+       [{label, value}]. Оригинал (только если отличается от названия),
+       Премьера, Создатель (только сериал), Бюджет (только фильм). Пустые
+       значения в таблицу не попадают — строки с пустым value просто нет.
 
-       ВНИМАНИЕ (ревью Task 5d, M6): добавили сюда новое поле movie/persons —
+       Task 59: страна, режиссёр фильма, жанр и хронометраж отсюда убраны —
+       все четыре слово в слово стоят в мета-строке шапки (renderMeta,
+       src/85_header.js), и именно их пользователь назвал дублями (интервью
+       2026-09-21). Создатель сериала остался: в мете у сериала на его месте
+       стоит студия или сеть (network), а не человек. Премьера осталась: в
+       мете только год, здесь — полная дата.
+
+       Как и nextEpisode, модуль остаётся чистым: подписи и названия месяцев
+       приходят словарём words — его собирает LC.header из LC.STRINGS, здесь
+       ни Lampa, ни языка интерфейса нет. Без words таблицу строить нечем -> [].
+
+       Task 59: параметра persons у функции больше нет — режиссёр был
+       единственным, что она из него брала.
+
+       ВНИМАНИЕ (ревью Task 5d, M6): добавили сюда новое поле movie —
        обновите factsSign() в src/85_header.js. Она решает, пересобирать ли
        таблицу, по короткой подписи тех же данных; поле, которого в подписи
        нет, изменится молча, и таблица останется старой. */
-    function facts(movie, persons, words) {
+    function facts(movie, words) {
       var out = [];
       if (!movie || !words) return out;
 
@@ -285,24 +311,14 @@
 
       add(words.original, original && original !== title ? original : '');
       add(words.premiere, premiere(movie.release_date || movie.first_air_date, words.months));
-      /* Штатного .full-start-new__head у ряда описания нет (он в шапке), поэтому
-         страна берётся из production_countries — country() сам падает на словарь
-         ISO («США») и лишь затем на английское имя TMDB. */
-      add(words.country, country('', movie.production_countries));
 
+      /* Бюджет — только у фильма: в ответе TMDB по сериалу такого поля нет,
+         и Lampa его тоже спрашивает только у карточки-фильма
+         (app.min.js:38018, 38072 — при нулевом значении строку удаляет). Мы
+         её показываем вместо штатного блока подробностей, который скрыт
+         нашим CSS (src/30_css.js, .full-descr__details). */
       if (serial) add(words.creator, creator(movie));
-      else add(words.director, director(persons && persons.crew));
-
-      add(words.genre, genres(movie.genres, words.capitalize).join(', '));
-
-      if (serial) {
-        var counts = [];
-        if (movie.number_of_seasons > 0 && words.seasonsWord) counts.push(movie.number_of_seasons + ' ' + words.seasonsWord(movie.number_of_seasons));
-        if (movie.number_of_episodes > 0 && words.episodesWord) counts.push(movie.number_of_episodes + ' ' + words.episodesWord(movie.number_of_episodes));
-        add(words.time, counts.join(' · '));
-      } else {
-        add(words.time, LC.util.fmtRuntime(movie.runtime, words.min));
-      }
+      else add(words.budget, money(movie.budget));
 
       return out;
     }

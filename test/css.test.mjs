@@ -907,18 +907,45 @@ test('buildCss: метка «ТРЕЙЛЕР · БЕЗ ЗВУКА» — прав�
   assert.ok(ico && ico.indexOf('mask-image') !== -1, 'иконка «без звука» — маской');
 });
 
-test('buildCss: режим трейлера сжимает шапку — заголовок 42px, описание/рейтинги/колонка/серии убраны', () => {
+test('buildCss: режим трейлера сжимает шапку — заголовок 42px, рейтинги и серии убраны', () => {
   const title = findDecl(css, (sel) => sel === '.lumen-card.lumen-trailer-on .full-start-new__title');
   assert.ok(title && title.indexOf('font-size:1.84em') !== -1, 'заголовок экрана 02: 42px ÷ 22.811 = 1.84em');
   assert.ok(title.indexOf('opacity:.92') !== -1, 'на экране 02 заголовок слегка приглушён (opacity .92)');
 
-  const hidden = ruleBodies(css).find((r) => r.selectors.some((s) => s === '.lumen-card.lumen-trailer-on .lumen-descr'));
+  const hidden = ruleBodies(css).find((r) => r.selectors.some((s) => s === '.lumen-card.lumen-trailer-on .full-start-new__rate-line'));
   assert.ok(hidden, 'правило скрытия блоков в режиме трейлера не найдено');
   assert.ok(/display\s*:\s*none\s*!important/.test(hidden.decl));
-  for (const sel of ['.lumen-card.lumen-trailer-on .full-start-new__rate-line',
-    '.lumen-card.lumen-trailer-on .lumen-episodes']) {
-    assert.ok(hidden.selectors.indexOf(sel) !== -1, 'в режиме трейлера должен скрываться ' + sel);
-  }
+  assert.ok(hidden.selectors.indexOf('.lumen-card.lumen-trailer-on .lumen-episodes') !== -1,
+    'в режиме трейлера должен скрываться ряд серий');
+});
+
+/* Task 59 (фаза 5): описание из шапки убрано вместе с узлом — правил для
+   него в собранном CSS остаться не должно, иначе это мёртвые правила. */
+test('Task 59: правил описания в шапке в CSS нет — блок убран из шаблона', () => {
+  const orphans = ruleBodies(css).filter((r) => r.selectors.some((s) => /(^|[\s.])lumen-descr(?![-\w])/.test(s)));
+  assert.deepEqual(orphans.map((r) => r.selectors.join(',')), [],
+    'остались правила для убранного .lumen-descr');
+});
+
+/* Task 59: счётчики разделов («Жанр 3 · Производство 2 · Теги 17») —
+   .tag-count.selector внутри .full-descr__tags (Descriptiopn.tag,
+   app.min.js:38124-38149). Скрыть их нельзя: «Производство» зовёт
+   router.call('company', …) (38036-38040), «Теги» — discover с
+   with_keywords (38059-38066), и обе подборки из интерфейса больше ниоткуда
+   не открываются. Тест держит это решение: правило, гасящее их под нашими
+   корнями, — регрессия, а не улучшение. */
+test('Task 59: счётчики разделов Lampa не скрыты — через них открываются подборки', () => {
+  const killed = ruleBodies(css).filter((r) => r.selectors.some((s) => /tag-count|full-descr__tags/.test(s))
+    && /display\s*:\s*none|visibility\s*:\s*hidden/.test(r.decl));
+  assert.deepEqual(killed.map((r) => r.selectors.join(',')), []);
+});
+
+/* Задержек stagger ровно столько, сколько блоков .lumen-in в шаблоне
+   (src/40_template.js) — лишняя была бы правилом, которое ни к чему не
+   применяется. */
+test('Task 59: задержек появления столько же, сколько блоков шапки', () => {
+  const delays = ruleBodies(css).filter((r) => r.selectors.some((s) => /\.lumen-card\.lumen-motion-full \.lumen-in:nth-child\(\d\)/.test(s)));
+  assert.equal(delays.length, 5);
 });
 
 /* -------------------------------------------------------------------- */
@@ -1018,7 +1045,7 @@ test('buildCss: в режиме трейлера подписи на кнопк�
   assert.ok(after.selectors.every((s) => s.indexOf(':not(.lumen-trailer-on)') !== -1),
     'на экране 02 кнопка называется «Смотреть» — подпись обязана отключаться');
 
-  const hidden = ruleBodies(css).find((r) => r.selectors.some((s) => s === '.lumen-card.lumen-trailer-on .lumen-descr'));
+  const hidden = ruleBodies(css).find((r) => r.selectors.some((s) => s === '.lumen-card.lumen-trailer-on .full-start-new__rate-line'));
   assert.ok(hidden.selectors.indexOf('.lumen-card.lumen-trailer-on .lumen-progress') !== -1,
     'строки прогресса на экране 02 нет');
 });

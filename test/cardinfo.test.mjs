@@ -425,12 +425,9 @@ test('shortDate: «17 дек» для серии, которая не вышла
    подписи, названия месяцев, склонения и capitalize приходят параметром
    (в рантайме их собирает LC.header из LC.STRINGS). */
 const FACTS_RU = {
-  original: 'Оригинал', premiere: 'Премьера', country: 'Страна', director: 'Режиссёр',
-  creator: 'Создатель', genre: 'Жанр', time: 'Время', min: 'мин',
+  original: 'Оригинал', premiere: 'Премьера', creator: 'Создатель', budget: 'Бюджет',
   months: RU.months,
-  capitalize: (s) => s.charAt(0).toUpperCase() + s.slice(1),
-  seasonsWord: (n) => util.plural(n, ['сезон', 'сезона', 'сезонов']),
-  episodesWord: (n) => util.plural(n, ['серия', 'серии', 'серий'])
+  capitalize: (s) => s.charAt(0).toUpperCase() + s.slice(1)
 };
 
 const DUNE = {
@@ -438,28 +435,43 @@ const DUNE = {
   original_title: 'Dune: Part Two',
   release_date: '2024-02-29',
   runtime: 166,
+  budget: 190000000,
   genres: [{ name: 'фантастика' }, { name: 'приключения' }],
   production_countries: [{ iso_3166_1: 'US', name: 'United States of America' }]
 };
 const CREW = { crew: [{ job: 'Producer', name: 'Мэри Пэрент' }, { job: 'Director', name: 'Дени Вильнёв' }] };
 
-test('facts: фильм — шесть строк экрана 07 в порядке дизайна', () => {
-  assert.deepEqual(cardinfo.facts(DUNE, CREW, FACTS_RU), [
+/* Task 59 (фаза 5): «эти дублирования абсолютно не нужны» (интервью
+   2026-09-21). Страна, режиссёр, жанр и хронометраж слово в слово стоят в
+   мета-строке шапки (renderMeta, src/85_header.js) — из таблицы они ушли.
+   Осталось то, чего в мете нет: оригинальное название, полная дата
+   премьеры (в мете только год), создатель сериала (в мете у сериала стоит
+   студия) и бюджет фильма. */
+test('Task 59: фильм — оригинал, премьера и бюджет; мета-строка не повторяется', () => {
+  assert.deepEqual(cardinfo.facts(DUNE, FACTS_RU), [
     { label: 'Оригинал', value: 'Dune: Part Two' },
     { label: 'Премьера', value: '29 февраля 2024' },
-    { label: 'Страна', value: 'США' },
-    { label: 'Режиссёр', value: 'Дени Вильнёв' },
-    { label: 'Жанр', value: 'Фантастика, Приключения' },
-    { label: 'Время', value: '2:46' }
+    { label: 'Бюджет', value: '$ 190 000 000' }
   ]);
 });
 
 test('facts: оригинал совпадает с названием -> строки нет', () => {
-  const same = cardinfo.facts({ title: 'Аватар', original_title: 'Аватар', release_date: '2009-12-17' }, null, FACTS_RU);
+  const same = cardinfo.facts({ title: 'Аватар', original_title: 'Аватар', release_date: '2009-12-17' }, FACTS_RU);
   assert.deepEqual(same.map((f) => f.label), ['Премьера']);
 });
 
-test('facts: сериал — создатель вместо режиссёра, премьера из first_air_date, «сезонов · серий»', () => {
+/* Бюджет Lampa показывала в своём .full-descr__details (app.min.js:38018),
+   а мы этот блок скрываем (src/30_css.js) — значит строка в таблице и есть
+   его единственное место. Нулевой бюджет TMDB отдаёт у всего, чего не
+   знает, — такую строку не выводим, как и сама Lampa (app.min.js:38072). */
+test('Task 59: бюджет — только когда он есть; у сериала его не бывает', () => {
+  const noBudget = cardinfo.facts({ title: 'Фильм', release_date: '2024-01-01', budget: 0 }, FACTS_RU);
+  assert.deepEqual(noBudget.map((f) => f.label), ['Премьера']);
+  const serial = cardinfo.facts({ name: 'Шоу', first_air_date: '2024-01-01', budget: 5000000 }, FACTS_RU);
+  assert.deepEqual(serial.map((f) => f.label), ['Премьера'], 'у сериала бюджета нет — строки тоже');
+});
+
+test('Task 59: сериал — создатель остаётся (в мете у сериала студия, не он)', () => {
   const fallout = {
     name: 'Фоллаут', original_name: 'Fallout', first_air_date: '2024-04-10',
     number_of_seasons: 2, number_of_episodes: 16,
@@ -467,38 +479,28 @@ test('facts: сериал — создатель вместо режиссёра
     genres: [{ name: 'фантастика' }],
     production_countries: [{ iso_3166_1: 'US' }]
   };
-  assert.deepEqual(cardinfo.facts(fallout, CREW, FACTS_RU), [
+  assert.deepEqual(cardinfo.facts(fallout, FACTS_RU), [
     { label: 'Оригинал', value: 'Fallout' },
     { label: 'Премьера', value: '10 апреля 2024' },
-    { label: 'Страна', value: 'США' },
-    { label: 'Создатель', value: 'Джонатан Нолан' },
-    { label: 'Жанр', value: 'Фантастика' },
-    { label: 'Время', value: '2 сезона · 16 серий' }
+    { label: 'Создатель', value: 'Джонатан Нолан' }
   ]);
 });
 
-test('facts: у сериала только сезоны или только серии — выводится то, что есть', () => {
-  const onlyEpisodes = cardinfo.facts({ name: 'Шоу', first_air_date: '2024-01-01', number_of_episodes: 1 }, null, FACTS_RU);
-  assert.equal(onlyEpisodes[onlyEpisodes.length - 1].value, '1 серия');
-  const onlySeasons = cardinfo.facts({ name: 'Шоу', first_air_date: '2024-01-01', number_of_seasons: 5 }, null, FACTS_RU);
-  assert.equal(onlySeasons[onlySeasons.length - 1].value, '5 сезонов');
-});
-
 test('facts: пустые значения не выводятся; пустой movie и отсутствие words -> []', () => {
-  assert.deepEqual(cardinfo.facts({}, null, FACTS_RU), []);
-  assert.deepEqual(cardinfo.facts(null, null, FACTS_RU), []);
-  assert.deepEqual(cardinfo.facts(DUNE, CREW), []);
+  assert.deepEqual(cardinfo.facts({}, FACTS_RU), []);
+  assert.deepEqual(cardinfo.facts(null, FACTS_RU), []);
+  assert.deepEqual(cardinfo.facts(DUNE), []);
 });
 
 test('facts: дата без дня/месяца -> только год; мусор в дате -> строки нет', () => {
-  const yearOnly = cardinfo.facts({ title: 'Фильм', release_date: '2024' }, null, FACTS_RU);
+  const yearOnly = cardinfo.facts({ title: 'Фильм', release_date: '2024' }, FACTS_RU);
   assert.deepEqual(yearOnly, [{ label: 'Премьера', value: '2024' }]);
-  assert.deepEqual(cardinfo.facts({ title: 'Фильм', release_date: 'скоро' }, null, FACTS_RU), []);
-  assert.deepEqual(cardinfo.facts({ title: 'Фильм', release_date: '2024-13-01' }, null, FACTS_RU), [{ label: 'Премьера', value: '2024' }]);
+  assert.deepEqual(cardinfo.facts({ title: 'Фильм', release_date: 'скоро' }, FACTS_RU), []);
+  assert.deepEqual(cardinfo.facts({ title: 'Фильм', release_date: '2024-13-01' }, FACTS_RU), [{ label: 'Премьера', value: '2024' }]);
 });
 
 test('facts: дата у границы суток не съезжает на соседний день (без часового пояса)', () => {
-  const late = cardinfo.facts({ title: 'Фильм', release_date: '2024-01-01' }, null, FACTS_RU);
+  const late = cardinfo.facts({ title: 'Фильм', release_date: '2024-01-01' }, FACTS_RU);
   assert.equal(late[0].value, '1 января 2024');
 });
 

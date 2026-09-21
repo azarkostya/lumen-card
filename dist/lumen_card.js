@@ -1410,7 +1410,9 @@ css.push('.lumen-card .full-start-new__title.lumen-title--long{display:-webkit-b
 
 
 
-css.push('.lumen-card .lumen-descr{font-size:1.05em;line-height:1.45;color:' + P.muted + ';max-width:42.96em;margin-top:.88em;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;line-clamp:2;-webkit-box-orient:vertical}');
+
+
+
 
 
 css.push('.lumen-card .full-start-new__rate-line{margin:1.05em 0 0;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:stretch;-webkit-align-items:stretch;align-items:stretch;-webkit-flex-wrap:wrap;flex-wrap:wrap}');
@@ -1603,7 +1605,7 @@ css.push('.lumen-card .lumen-trailer-badge:before{content:"";display:block;-webk
 css.push('.lumen-card.lumen-trailer-on .full-start-new__title{font-size:1.84em;opacity:.92}');
 
 
-css.push('.lumen-card.lumen-trailer-on .lumen-descr,.lumen-card.lumen-trailer-on .full-start-new__rate-line,.lumen-card.lumen-trailer-on .lumen-episodes,.lumen-card.lumen-trailer-on .lumen-progress{display:none !important}');
+css.push('.lumen-card.lumen-trailer-on .full-start-new__rate-line,.lumen-card.lumen-trailer-on .lumen-episodes,.lumen-card.lumen-trailer-on .lumen-progress{display:none !important}');
 css.push('.lumen-card.lumen-trailer-on .lumen-actions{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center}');
 
 
@@ -1680,6 +1682,20 @@ css.push('.lumen-card.lumen-progress-on.lumen-compact .lumen-episode.focus .lume
 css.push('.lumen-card.lumen-progress-on.lumen-compact .lumen-episode.focus .lumen-episode__caption{display:none}');
 
 css.push(LC.icons.NO_MASK + '{.lumen-card .lumen-next-chip:before,.lumen-card .lumen-episode__check,.lumen-card .lumen-episode__play:before{display:none}}');
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -2014,13 +2030,14 @@ css.push('@media screen and (max-width:1000px){.lumen-card .full-start-new__titl
 
 
 
+
+
 css.push('.lumen-card.lumen-motion-full .lumen-in{opacity:0;-webkit-transform:translateY(1.05em);transform:translateY(1.05em);-webkit-animation:lumen-rise .7s cubic-bezier(.2,.8,.2,1) forwards;animation:lumen-rise .7s cubic-bezier(.2,.8,.2,1) forwards}');
 css.push('.lumen-card.lumen-motion-full .lumen-in:nth-child(1){-webkit-animation-delay:.05s;animation-delay:.05s}');
 css.push('.lumen-card.lumen-motion-full .lumen-in:nth-child(2){-webkit-animation-delay:.11s;animation-delay:.11s}');
 css.push('.lumen-card.lumen-motion-full .lumen-in:nth-child(3){-webkit-animation-delay:.17s;animation-delay:.17s}');
 css.push('.lumen-card.lumen-motion-full .lumen-in:nth-child(4){-webkit-animation-delay:.23s;animation-delay:.23s}');
 css.push('.lumen-card.lumen-motion-full .lumen-in:nth-child(5){-webkit-animation-delay:.29s;animation-delay:.29s}');
-css.push('.lumen-card.lumen-motion-full .lumen-in:nth-child(6){-webkit-animation-delay:.35s;animation-delay:.35s}');
 css.push('@-webkit-keyframes lumen-rise{to{opacity:1;-webkit-transform:none}}');
 css.push('@keyframes lumen-rise{to{opacity:1;transform:none}}');
 
@@ -2116,7 +2133,6 @@ css.push('@keyframes lumen-kb{from{transform:scale(1)}to{transform:scale(1.08)}}
 
 css.push('.lumen-card .full-start-new__title,.lumen-card .full-start-new__rate-line,.lumen-card .full-start-new__buttons{-webkit-transition:font-size .28s cubic-bezier(.2,.9,.3,1.25),margin-top .28s cubic-bezier(.2,.9,.3,1.25);transition:font-size .28s cubic-bezier(.2,.9,.3,1.25),margin-top .28s cubic-bezier(.2,.9,.3,1.25)}');
 css.push('.lumen-card.lumen-compact .full-start-new__title{font-size:2.104em}');
-css.push('.lumen-card.lumen-compact .lumen-descr{display:none}');
 css.push('.lumen-card.lumen-compact .full-start-new__rate-line{margin-top:.87em}');
 css.push('.lumen-card.lumen-compact .full-start-new__buttons{margin-top:.95em}');
 
@@ -3783,6 +3799,17 @@ return day ? day + ' ' + m[1] : m[1];
 
 
 
+function money(value) {
+var n = Number(value);
+if (!(n > 0)) return '';
+var digits = '' + Math.floor(n);
+var out = '';
+for (var i = 0; i < digits.length; i++) {
+if (i > 0 && (digits.length - i) % 3 === 0) out += ' ';
+out += digits.charAt(i);
+}
+return '$ ' + out;
+}
 
 
 
@@ -3792,7 +3819,22 @@ return day ? day + ' ' + m[1] : m[1];
 
 
 
-function facts(movie, persons, words) {
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function facts(movie, words) {
 var out = [];
 if (!movie || !words) return out;
 
@@ -3809,21 +3851,11 @@ add(words.premiere, premiere(movie.release_date || movie.first_air_date, words.m
 
 
 
-add(words.country, country('', movie.production_countries));
+
+
 
 if (serial) add(words.creator, creator(movie));
-else add(words.director, director(persons && persons.crew));
-
-add(words.genre, genres(movie.genres, words.capitalize).join(', '));
-
-if (serial) {
-var counts = [];
-if (movie.number_of_seasons > 0 && words.seasonsWord) counts.push(movie.number_of_seasons + ' ' + words.seasonsWord(movie.number_of_seasons));
-if (movie.number_of_episodes > 0 && words.episodesWord) counts.push(movie.number_of_episodes + ' ' + words.episodesWord(movie.number_of_episodes));
-add(words.time, counts.join(' · '));
-} else {
-add(words.time, LC.util.fmtRuntime(movie.runtime, words.min));
-}
+else add(words.budget, money(movie.budget));
 
 return out;
 }
@@ -3995,6 +4027,13 @@ if (buttons.indexOf('button--play') === -1) return null;
 
 
 
+
+
+
+
+
+
+
 return '' +
 '<div class="full-start-new lumen-card">' +
 '<div class="full-start-new__body">' +
@@ -4025,9 +4064,6 @@ return '' +
 '</div>' +
 
 
-'<div class="lumen-in lumen-descr">{descr}</div>' +
-
-
 
 
 
@@ -4056,6 +4092,7 @@ return '' +
 '<div class="lumen-progress__bar"><div></div></div>' +
 '<span class="lumen-progress__time"></span>' +
 '</div>' +
+
 
 
 
@@ -22512,14 +22549,17 @@ lumen_card_ep_soon: { ru: 'не вышла', en: 'not aired', uk: 'не вийш
 
 
 
+
+
+
+
+
+
 lumen_card_facts: { ru: 'ПОДРОБНО', en: 'DETAILS', uk: 'ДОКЛАДНО' },
 lumen_card_fact_original: { ru: 'Оригинал', en: 'Original', uk: 'Оригінал' },
 lumen_card_fact_premiere: { ru: 'Премьера', en: 'Premiere', uk: 'Прем\'єра' },
-lumen_card_fact_country: { ru: 'Страна', en: 'Country', uk: 'Країна' },
-lumen_card_fact_director: { ru: 'Режиссёр', en: 'Director', uk: 'Режисер' },
 lumen_card_fact_creator: { ru: 'Создатель', en: 'Creator', uk: 'Творець' },
-lumen_card_fact_genre: { ru: 'Жанр', en: 'Genre', uk: 'Жанр' },
-lumen_card_fact_time: { ru: 'Время', en: 'Runtime', uk: 'Час' },
+lumen_card_fact_budget: { ru: 'Бюджет', en: 'Budget', uk: 'Бюджет' },
 
 
 
@@ -24660,16 +24700,9 @@ function factWords() {
 return {
 original: LC.lang('lumen_card_fact_original'),
 premiere: LC.lang('lumen_card_fact_premiere'),
-country: LC.lang('lumen_card_fact_country'),
-director: LC.lang('lumen_card_fact_director'),
 creator: LC.lang('lumen_card_fact_creator'),
-genre: LC.lang('lumen_card_fact_genre'),
-time: LC.lang('lumen_card_fact_time'),
-min: LC.lang('lumen_card_min'),
-months: ('' + LC.lang('lumen_card_months_gen')).split(','),
-capitalize: capitalize,
-seasonsWord: LC.seasonsWord,
-episodesWord: LC.episodesWord
+budget: LC.lang('lumen_card_fact_budget'),
+months: ('' + LC.lang('lumen_card_months_gen')).split(',')
 };
 }
 
@@ -24682,20 +24715,13 @@ episodesWord: LC.episodesWord
 
 
 
+
 function factsSign(data, lang) {
 var movie = (data && data.movie) || {};
-var persons = (data && data.persons) || null;
-var crew = (persons && persons.crew) || null;
-var genres = movie.genres || null;
-var countries = movie.production_countries || null;
-var firstCountry = (countries && countries.length && countries[0] && (countries[0].iso_3166_1 || countries[0].name)) || '';
 return [movie.id, movie.title || movie.name, movie.original_title || movie.original_name,
-movie.release_date || movie.first_air_date, movie.runtime,
-movie.number_of_seasons, movie.number_of_episodes,
-(genres && genres.length) || 0, (genres && genres.length && genres[0] && genres[0].name) || '',
-(countries && countries.length) || 0, firstCountry,
+movie.release_date || movie.first_air_date,
 (movie.created_by && movie.created_by.length && movie.created_by[0] && movie.created_by[0].name) || '',
-(crew && crew.length) || 0, LC.cardinfo.director(crew), lang].join('|');
+movie.budget || 0, lang].join('|');
 }
 
 
@@ -24738,7 +24764,7 @@ if (previous && previous.sign === sign && (!previous.count || holder.find('.lume
 holder.find('.lumen-facts').remove();
 holder[0].lumenFacts = { sign: sign, count: 0 };
 
-var list = LC.cardinfo.facts((data && data.movie) || null, data && data.persons, factWords());
+var list = LC.cardinfo.facts((data && data.movie) || null, factWords());
 if (!list.length) return;
 holder[0].lumenFacts = { sign: sign, count: list.length };
 
