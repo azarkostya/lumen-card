@@ -1365,6 +1365,21 @@
        не пережил бы даже собственную карточку. */
     function scheduleAccent(card) {
       stopTimer('accentTimer');
+      /* Task 60 (ревью): фокус ушёл на другую карточку — идущий переход
+         цвета обрывается. Считать его дешёвым во время прокрутки нельзя:
+         шестнадцать перезаписей узла подкраски по 100 мс попали бы ровно в
+         тот момент, когда ряд едет, а это самый дорогой момент главной
+         (21 fps на Philips 50PUS8057, раздел «Что известно точно» в
+         docs/plans/2026-09-21-lumen-phase5-tv-fix.md). Цвет замирает там,
+         где его застали, а не прыгает к цели: скачок половины пути во
+         время прокрутки — ровно та «резкая смена тонов», от которой уходим.
+         Вернулись на ту же карточку — путь доигрывается с этого места
+         (apply в src/57_color.js). */
+      try {
+        if (LC.accent && typeof LC.accent.stopTween === 'function') LC.accent.stopTween();
+      } catch (eStop) {
+        warn('hero: accent stop failed', eStop);
+      }
       state.accentTimer = setTimeout(function () {
         if (!state) return;
         state.accentTimer = null;
@@ -1784,6 +1799,19 @@
       last = null;
       gen++;
       unlistenFocus(s);
+      /* Task 60 (ревью, E): переход цвета — такой же отложенный процесс
+         главной, как таймеры ниже, и уходит он вместе с ними. Отдельная
+         строка нужна потому, что живёт он не в state героя, а в LC.accent,
+         и при ОТКРЫТИИ КАРТОЧКИ никто другой его не остановит:
+         LC.accent.destroy() рантайм на 'full' не зовёт намеренно
+         (src/90_runtime.js) — он снял бы акцент самой карточки. Без этой
+         строки tweenStep тикал бы каждые 100 мс всё время, пока карточка
+         строится и играет переход «постер → кадр». */
+      try {
+        if (LC.accent && typeof LC.accent.stopTween === 'function') LC.accent.stopTween();
+      } catch (eTween) {
+        warn('hero: accent stop failed', eTween);
+      }
       var timers = ['timer', 'swapTimer', 'loadTimer', 'accentTimer', 'bigTimer', 'trailerTimer', 'lqipTimer'];
       for (var i = 0; i < timers.length; i++) {
         try { if (s[timers[i]]) clearTimeout(s[timers[i]]); } catch (eT) {}

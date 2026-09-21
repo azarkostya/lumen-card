@@ -780,7 +780,29 @@ cardFocus: '.lumen-main .card.focus .card__view{-webkit-box-shadow:0 .2em 0 ' + 
 
 LC.accentCss = function () {
 var R = accentRules(palette(), theme());
-return R.main + '\n' + R.veilL + '\n' + R.fadeTop + '\n' + R.fadeBot + '\n' + R.cardFocus;
+return R.main + '\n' + R.veilL + '\n' + R.fadeTop + '\n' + R.fadeBot;
+};
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+LC.accentFocusCss = function () {
+return accentRules(palette(), theme()).cardFocus;
 };
 
 
@@ -2680,6 +2702,8 @@ var EASE = ' .42s cubic-bezier(.2,.8,.2,1)';
 
 
 
+
+
 var AR = accentRules(P, t);
 css.push(AR.main);
 css.push('body.lumen-motion-full .lumen-main{-webkit-transition:background-color .1s linear;transition:background-color .1s linear}');
@@ -3947,6 +3971,8 @@ css.push('.lumen-ambient .lumen-ambient__dot.is-on{background:' + A + '}');
 
 
 css.push('.lumen-ambient .lumen-ambient__clock{position:absolute;right:' + EDGE + 'em;bottom:' + EDGE_Y + 'em;font-family:' + FB + ';font-size:2.2em;line-height:1;letter-spacing:.04em;color:' + P.text + '}');
+
+
 
 
 
@@ -11116,6 +11142,21 @@ img.src = url;
 
 function scheduleAccent(card) {
 stopTimer('accentTimer');
+
+
+
+
+
+
+
+
+
+
+try {
+if (LC.accent && typeof LC.accent.stopTween === 'function') LC.accent.stopTween();
+} catch (eStop) {
+warn('hero: accent stop failed', eStop);
+}
 state.accentTimer = setTimeout(function () {
 if (!state) return;
 state.accentTimer = null;
@@ -11535,6 +11576,19 @@ state = null;
 last = null;
 gen++;
 unlistenFocus(s);
+
+
+
+
+
+
+
+
+try {
+if (LC.accent && typeof LC.accent.stopTween === 'function') LC.accent.stopTween();
+} catch (eTween) {
+warn('hero: accent stop failed', eTween);
+}
 var timers = ['timer', 'swapTimer', 'loadTimer', 'accentTimer', 'bigTimer', 'trailerTimer', 'lqipTimer'];
 for (var i = 0; i < timers.length; i++) {
 try { if (s[timers[i]]) clearTimeout(s[timers[i]]); } catch (eT) {}
@@ -17079,6 +17133,7 @@ var request_count = 0;
 
 
 
+
 var last_state = 'idle';
 var last_url = '';
 
@@ -17088,7 +17143,16 @@ var last_url = '';
 
 
 
+
+
+
+
+
+
+
 var LOAD_MS = 6000;
+
+
 
 
 
@@ -17331,12 +17395,27 @@ if (d < -180) d += 360;
 return normHue(normHue(a) + d * t);
 }
 
+
+
+
+
+
+function copyRgb(c) {
+var rgb = toRgb(c);
+return { r: rgb.r, g: rgb.g, b: rgb.b };
+}
+
+
+
+
+
+
 function blend(a, b, t) {
 var from = rgbToHsl(toRgb(a));
 var to = rgbToHsl(toRgb(b));
 var k = clamp(Number(t) || 0, 0, 1);
-if (k <= 0) return toRgb(a);
-if (k >= 1) return toRgb(b);
+if (k <= 0) return copyRgb(a);
+if (k >= 1) return copyRgb(b);
 var h;
 if (from.s < HUE_MUTE) h = to.h;
 else if (to.s < HUE_MUTE) h = from.h;
@@ -17465,7 +17544,14 @@ cache[url] = { rgb: rgb || null, fails: fails || 0 };
 
 
 function read(img, doc, src) {
-if (!img.naturalWidth || !img.naturalHeight) return null;
+
+
+
+
+if (!img.naturalWidth || !img.naturalHeight) {
+mark('blank', src);
+return null;
+}
 try {
 var canvas = doc.createElement('canvas');
 canvas.width = SAMPLE;
@@ -17489,7 +17575,7 @@ return rgb;
 
 
 mark(e && e.name === 'SecurityError' ? 'cors' : 'error', src);
-warn('accent: poster pixels blocked ' + src, e);
+warn('accent: poster pixels blocked ' + shortUrl(src), e);
 return null;
 }
 }
@@ -17566,7 +17652,7 @@ cb(rgb);
 function fail(src, state) {
 if (!live) return;
 mark(state, src);
-warn('accent: poster ' + (state === 'timer' ? 'timed out ' : 'load failed ') + src);
+warn('accent: poster ' + (state === 'timer' ? 'timed out ' : 'load failed ') + shortUrl(src));
 if (retry) {
 var next = retry;
 retry = '';
@@ -17704,9 +17790,23 @@ var task = null;
 
 
 
+
+
+
+
+
+
+
+
 var TWEEN_MS = 1600;
 var TWEEN_STEP_MS = 100;
 var tween = null;
+
+
+
+
+
+
 
 
 
@@ -17728,6 +17828,9 @@ function auto() {
 var v = LC.pref(AUTO_KEY, true);
 return v === true || v === 'true';
 }
+
+
+
 
 
 
@@ -17817,7 +17920,7 @@ function tweenStep() {
 if (!tween) return;
 tween.step++;
 if (tween.step >= tween.steps) {
-source = tween.to;
+source = ownRgb(tween.to);
 tween = null;
 paint();
 return;
@@ -17860,26 +17963,50 @@ return a.r === b.r && a.g === b.g && a.b === b.b;
 
 
 
+function ownRgb(rgb) {
+return rgb ? { r: rgb.r, g: rgb.g, b: rgb.b } : null;
+}
 
 
 
 
 
-var accent_css_text = null;
 
-function writeAccentStyle(rules, last) {
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+var accent_css_text = { 'lumen-accent': null, 'lumen-accent-focus': null };
+
+function writeAccentStyle(id, rules, last) {
 if (typeof document === 'undefined') return;
 try {
-var node = document.getElementById('lumen-accent');
+var node = document.getElementById(id);
 if (!rules) {
 if (node && node.parentNode) node.parentNode.removeChild(node);
-accent_css_text = null;
+accent_css_text[id] = null;
 return;
 }
 var born = false;
 if (!node) {
 node = document.createElement('style');
-node.id = 'lumen-accent';
+node.id = id;
 node.type = 'text/css';
 
 
@@ -17900,9 +18027,9 @@ document.head.appendChild(node);
 
 
 
-if (born || rules !== accent_css_text) {
+if (born || rules !== accent_css_text[id]) {
 node.textContent = rules;
-accent_css_text = rules;
+accent_css_text[id] = rules;
 }
 } catch (e) { warn('accent: style write failed', e); }
 }
@@ -17914,15 +18041,23 @@ accent_css_text = rules;
 
 function paint(last) {
 var rules = '';
+var focus = '';
 if (source && LC.enabled() && motionOn() && typeof LC.accentCss === 'function') {
 try {
 rules = LC.accentCss();
+if (typeof LC.accentFocusCss === 'function') focus = LC.accentFocusCss();
 } catch (e) {
 warn('accent: rules failed', e);
 rules = '';
+focus = '';
 }
 }
-writeAccentStyle(rules, last);
+writeAccentStyle('lumen-accent', rules, last);
+
+
+
+
+writeAccentStyle('lumen-accent-focus', focus, last);
 }
 
 
@@ -17956,6 +18091,21 @@ paint(true);
 
 
 function repaint() {
+
+
+
+
+
+
+
+var full = false;
+try {
+full = LC.motionMode() === 'full';
+} catch (e) { }
+if (!full && tween) {
+stopTween();
+source = ownRgb(target);
+}
 paint(false);
 }
 
@@ -17977,8 +18127,29 @@ warn('accent: css inject failed', e);
 
 
 function apply(next, rgb, deep) {
+
+
+
+
+
+
+
+
+
+var stopped = false;
+if (deep && tween) {
+stopTween();
+source = ownRgb(target);
+stopped = true;
+}
 var sameTokens = next && override ? next.color === override.color : (!next && !override);
-if (sameTokens && sameRgb(target, rgb || null) && !(deep && applied !== tokenColor())) return;
+
+
+
+
+
+if (!stopped && sameTokens && sameRgb(target, rgb || null) &&
+sameRgb(source, target) && !(deep && applied !== tokenColor())) return;
 
 
 
@@ -17990,12 +18161,12 @@ var tweening = tweenWanted(deep, rgb || null) && LC.enabled();
 override = next || null;
 target = rgb || null;
 if (tweening) startTween(source, target);
-else { stopTween(); source = target; }
+else { stopTween(); source = ownRgb(target); }
 
 
 
 if (!LC.enabled()) { paint(); return; }
-if (deep && applied !== tokenColor()) {
+if (deep && (stopped || applied !== tokenColor())) {
 
 
 rebuild();
@@ -18145,6 +18316,15 @@ target: function () { return target; },
 
 
 timing: function () { return { total: TWEEN_MS, step: TWEEN_STEP_MS }; },
+
+
+
+
+
+
+
+
+stopTween: stopTween,
 status: status,
 tint: tint,
 applyFor: applyFor,

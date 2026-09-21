@@ -572,7 +572,13 @@ function accentCtx(opts) {
     /* Task 35: гейт — «движение выключено целиком» ('off'), а не «полные
        анимации»: на ТВ автодетект держит lite, и прежний гейт гасил там
        подкраску навсегда. */
-    motionMode: function () { return options.motion || 'full'; },
+    /* Task 60 (ревью, G): motionRef — изменяемая ссылка для тестов, которые
+       переключают режим ПОСЛЕ создания контекста (смена настройки на лету
+       зовёт LC.accent.repaint, src/80_settings.js). */
+    motionMode: function () {
+      if (options.motionRef) return options.motionRef.mode;
+      return options.motion || 'full';
+    },
     tokens: function () { return { bg: options.bg || BG }; },
     /* Полная пересборка таблицы. Task 35: она сама зовёт LC.accent.restyle()
        последней строкой (src/30_css.js), и заглушка это повторяет — иначе
@@ -591,6 +597,13 @@ function accentCtx(opts) {
 /* Узел подкраски в <head> заглушки: null, когда его нет. */
 function accentNode(dom) {
   for (const node of dom.state.head.childNodes) if (node.id === 'lumen-accent') return node;
+  return null;
+}
+
+/* Task 60 (ревью): второй узел — подсветка карточки под фокусом. Она живёт
+   отдельно от фона именно потому, что на шагах перехода цвета не меняется. */
+function focusNode(dom) {
+  for (const node of dom.state.head.childNodes) if (node.id === 'lumen-accent-focus') return node;
   return null;
 }
 
@@ -1058,7 +1071,7 @@ test('css: узел подкраски стоит в <head> после осно�
     const ctx = cssCtx(dom, storage);
     ctx.LC.accent.applyFor({ poster_path: '/dune.jpg' });
     dom.state.images[0].onload();
-    assert.deepEqual(headIds(dom), ['lumen-accent'], 'подкраска появилась первой');
+    assert.deepEqual(headIds(dom), ['lumen-accent', 'lumen-accent-focus'], 'подкраска появилась первой');
     const warmRules = accentNode(dom).textContent;
     assert.match(warmRules, /\.lumen-main\{background-color:#[0-9A-F]{6}\}/);
     /* Task 64: низ кадра героя больше не красится отдельным правилом — там
@@ -1069,13 +1082,13 @@ test('css: узел подкраски стоит в <head> после осно�
     assert.ok(warmRules.indexOf('.lumen-hero__veil--l') !== -1, 'левая вуаль героя красится вместе с подложкой');
 
     ctx.LC.injectCss();
-    assert.deepEqual(headIds(dom), ['lumen-card-css', 'lumen-accent'], 'наш узел переехал в конец');
+    assert.deepEqual(headIds(dom), ['lumen-card-css', 'lumen-accent', 'lumen-accent-focus'], 'наши узлы переехали в конец');
 
     /* Цвет подкраски считается от фона темы, поэтому смена темы обязана
        переписать и наш узел — иначе он остался бы с цветом прежней. */
     storage.lumen_theme = 'black';
     ctx.LC.injectCss();
-    assert.deepEqual(headIds(dom), ['lumen-card-css', 'lumen-accent'], 'порядок сохранён');
+    assert.deepEqual(headIds(dom), ['lumen-card-css', 'lumen-accent', 'lumen-accent-focus'], 'порядок сохранён');
     assert.notEqual(accentNode(dom).textContent, warmRules, 'подкраска пересчитана от нового фона');
   });
 });
@@ -1094,16 +1107,21 @@ test('css: узел подкраски несёт подсветку карто�
     dom.state.images[0].onload();
 
     const rules = accentNode(dom).textContent;
+    /* Task 60 (ревью): подсветка уехала в свой узел — в горячем её больше
+       нет, а проверка «цвет фильма, а не настроек» переехала вместе с ней. */
+    const focus = focusNode(dom).textContent;
     const t = ctx.LC.accent.current();
-    assert.ok(rules.indexOf('.lumen-main .card.focus .card__view{') !== -1, 'подсветка карточки ряда');
+    assert.ok(focus.indexOf('.lumen-main .card.focus .card__view{') === 0, 'подсветка карточки ряда: ' + focus);
+    assert.ok(rules.indexOf('.card.focus') === -1, 'в горячем узле подкраски правила фокуса нет');
     assert.ok(rules.indexOf('.card__view:after') === -1, 'кольца в узле подкраски больше нет');
     /* Task 43: чип настроения отсюда ушёл — его фокус стал инверсией
        P.text/P.bg и от доминанты постера не зависит. Держать его правило в
        узле подкраски значило бы переписывать на каждой остановке фокуса
        строку, которая от фокуса не меняется. */
     assert.ok(rules.indexOf('.lumen-mood-chip') === -1, 'чип настроения в узле подкраски больше не нужен');
-    assert.ok(rules.indexOf(t.glow) !== -1, 'ореол окрашен цветом фильма, а не настроек');
+    assert.ok(focus.indexOf(t.glow) !== -1, 'ореол окрашен цветом фильма, а не настроек');
     assert.ok(rules.indexOf('#7FB7C9') === -1, 'акцента настроек в узле нет');
+    assert.ok(focus.indexOf('#7FB7C9') === -1, 'акцента настроек нет и в узле подсветки');
     void t.color;
   });
 });
@@ -1117,9 +1135,41 @@ test('css: правила подкраски из узла есть и в пол
     ctx.LC.accent.applyFor({ poster_path: '/dune.jpg' });
     dom.state.images[0].onload();
     const css = ctx.LC.buildCss();
-    for (const rule of accentNode(dom).textContent.split('\n')) {
+    /* Task 60 (ревью): узла стало два, и сверяются оба — разъехаться с
+       таблицей одинаково нельзя ни фону, ни подсветке. */
+    const all = accentNode(dom).textContent.split('\n').concat(focusNode(dom).textContent.split('\n'));
+    for (const rule of all) {
       assert.ok(css.indexOf(rule) !== -1, 'правило есть и в общей таблице: ' + rule.slice(0, 40));
     }
+  });
+});
+
+/* Task 60 (ревью): ради чего узлы и разделили. Подсветка карточки под
+   фокусом красится токенами, а они на шагах перехода не меняются — значит
+   её узел за весь переход не переписывается ни разу. Пока правило лежало
+   вместе с фоном, каждая перезапись заставляла движок заново оценивать
+   '.lumen-main .card.focus .card__view', который из-за .card.focus трогает
+   карточки всех видимых рядов. */
+test('Task 60: за весь переход узел подсветки не переписывается ни разу', () => {
+  const dom = fakeDom({ datas: [WARM_POSTER, COLD_POSTER] });
+  withDom(dom, () => {
+    const ctx = cssCtx(dom, { lumen_accent_auto: 'true' });
+    ctx.LC.accent.applyFor({ poster_path: '/warm.jpg' });
+    dom.state.images[0].onload();
+    ctx.LC.accent.applyFor({ poster_path: '/cold.jpg' });
+    dom.state.images[1].onload();
+
+    const focus = focusNode(dom);
+    let writes = 0;
+    let text = focus.textContent;
+    Object.defineProperty(focus, 'textContent', {
+      get: () => text,
+      set: (v) => { writes++; text = v; }
+    });
+    const before = accentNode(dom).textContent;
+    dom.state.advance(1600);
+    assert.notEqual(accentNode(dom).textContent, before, 'фон за переход перекрашен');
+    assert.equal(writes, 0, 'узел подсветки за переход не тронут');
   });
 });
 
@@ -1533,5 +1583,170 @@ test('Task 60: CSS-переход подложки рядов равен шаг�
       'CSS-переход ' + rule[1] + 's против шага ' + ctx.LC.accent.timing().step + ' мс');
     /* И сам переход не короче полутора секунд — этого просил пользователь. */
     assert.ok(ctx.LC.accent.timing().total >= 1500, 'переход короче 1.5 с: ' + ctx.LC.accent.timing().total);
+  });
+});
+
+/* ====================================================================== */
+/* Task 60 (ревью): переход не имеет права пережить свой экран.            */
+/* ====================================================================== */
+
+/* E. Карточку открывают посреди перехода. LC.accent.destroy() рантайм при
+   component === 'full' не зовёт намеренно (src/90_runtime.js) — он снял бы
+   акцент самой карточки, — поэтому обрыв висит на уходе героя
+   (LC.hero.unmount) и на этой функции. Без неё tweenStep тикал бы каждые
+   100 мс, пока карточка строится: от 'start' до 'complite' на телевизоре
+   это секунда и больше. */
+test('Task 60: stopTween обрывает переход, и поздних перекрасок нет', () => {
+  const dom = fakeDom({ datas: [WARM_POSTER, COLD_POSTER] });
+  withDom(dom, () => {
+    const ctx = accentCtx({ prefs: {} });
+    twoPosters(ctx, dom);
+    dom.state.advance(300);
+    const stopped = ctx.LC.accent.dominant();
+    const rules = ctx.state.rules;
+    ctx.LC.accent.stopTween();
+    dom.state.advance(3000);
+    assert.equal(ctx.state.rules, rules, 'после обрыва узел не переписывался');
+    assert.deepEqual(ctx.LC.accent.dominant(), stopped, 'цвет остался там, где его застали');
+    assert.equal(dom.state.timers.filter((t) => !t.done).length, 0, 'висящих таймеров нет');
+  });
+});
+
+/* Оборванный переход обязан доигрываться: фокус ушёл на соседнюю карточку
+   и вернулся — цель та же, и без этого цвет застрял бы на промежуточном
+   шаге до следующей смены фильма (ранний выход в apply). */
+test('Task 60: вернувшийся на ту же карточку фокус доигрывает оборванный путь', () => {
+  const dom = fakeDom({ datas: [WARM_POSTER, COLD_POSTER] });
+  withDom(dom, () => {
+    const ctx = accentCtx({ prefs: {} });
+    twoPosters(ctx, dom);
+    dom.state.advance(300);
+    ctx.LC.accent.stopTween();
+    const stopped = ctx.LC.accent.dominant();
+    assert.notDeepEqual(stopped, ctx.LC.accent.target(), 'путь и правда оборван посередине');
+
+    ctx.LC.accent.applyFor({ poster_path: '/cold.jpg' });
+    assert.deepEqual(ctx.LC.accent.dominant(), stopped, 'в момент возврата скачка нет');
+    dom.state.advance(1600);
+    assert.equal(ctx.LC.color.hex(ctx.LC.accent.dominant()), ctx.LC.color.hex(ctx.LC.accent.target()),
+      'путь доигран с того места, где его прервали');
+  });
+});
+
+/* F. Тот же фильм открывают карточкой посреди перехода: токены и цель
+   совпадают, и до правки функция возвращалась ДО обрыва — переход шёл
+   поверх карточки, а основная таблица оставалась с промежуточным цветом
+   (p.bg = LC.accent.tint(source), palette() в src/30_css.js). */
+test('Task 60: открытие карточки посреди перехода обрывает его и пересобирает таблицу', () => {
+  const dom = fakeDom({ datas: [WARM_POSTER, COLD_POSTER] });
+  withDom(dom, () => {
+    const ctx = accentCtx({ prefs: {} });
+    twoPosters(ctx, dom);
+    dom.state.advance(300);
+    assert.notDeepEqual(ctx.LC.accent.dominant(), ctx.LC.accent.target(), 'переход идёт');
+    const injects = ctx.state.injects;
+
+    /* Тот же постер, что был под фокусом, — цвет придёт из кэша синхронно. */
+    ctx.LC.accent.applyFor({ poster_path: '/cold.jpg' }, true);
+    assert.deepEqual(ctx.LC.accent.dominant(), ctx.LC.accent.target(), 'цвет доведён до цели сразу');
+    assert.equal(ctx.state.injects, injects + 1, 'таблица пересобрана — в ней мог остаться цвет середины пути');
+    const rules = ctx.state.rules;
+    dom.state.advance(3000);
+    assert.equal(ctx.state.rules, rules, 'на открытой карточке переход больше не тикает');
+  });
+});
+
+/* Смена режима движения на 'off' — тот же случай: подкраски там нет вовсе,
+   и доигрывать её переходу незачем (src/80_settings.js зовёт repaint). */
+test('Task 60: перевод движения в off гасит переход, а не оставляет его тикать', () => {
+  const dom = fakeDom({ datas: [WARM_POSTER, COLD_POSTER] });
+  withDom(dom, () => {
+    const motion = { mode: 'full' };
+    const ctx = accentCtx({ prefs: {}, motionRef: motion });
+    twoPosters(ctx, dom);
+    dom.state.advance(300);
+    motion.mode = 'off';
+    ctx.LC.accent.repaint();
+    const rules = ctx.state.rules;
+    dom.state.advance(3000);
+    assert.equal(ctx.state.rules, rules, 'после выключения движения узел не переписывался');
+    assert.equal(dom.state.timers.filter((t) => !t.done).length, 0, 'висящих таймеров нет');
+  });
+});
+
+/* Ревью B: антиподы — единственный случай, где короткой дуги нет вовсе
+   (обе половины круга ровно по 180°). Ни одна из двух поправок не
+   срабатывает: разница остаётся ±180 со СВОИМ знаком, поэтому путь туда и
+   обратно проходит по одной и той же половине круга, и середина у них
+   одна. То есть выбор стороны здесь детерминирован и симметричен —
+   blend(a,b,t) === blend(b,a,1-t) по оттенку; зафиксировано тестом, чтобы
+   следующая правка дуги не сломала это молча. */
+test('blend: ровно 180° — сторона круга выбрана устойчиво и одинаково в обе стороны', () => {
+  const a = color.hslToRgb({ h: 30, s: 0.8, l: 0.5 });
+  const b = color.hslToRgb({ h: 210, s: 0.8, l: 0.5 });
+  const mid = color.rgbToHsl(color.blend(a, b, 0.5));
+  assert.ok(Math.abs(mid.h - 120) < 2, 'середина между 30 и 210: ' + mid.h);
+  const back = color.rgbToHsl(color.blend(b, a, 0.5));
+  assert.ok(Math.abs(back.h - mid.h) < 2, 'обратный путь идёт той же половиной круга: ' + back.h);
+  /* На четверти пути — тоже зеркало: 30 + 45 против 210 - 45. */
+  assert.ok(Math.abs(color.rgbToHsl(color.blend(a, b, 0.25)).h - 75) < 2);
+  assert.ok(Math.abs(color.rgbToHsl(color.blend(b, a, 0.75)).h - 75) < 2);
+  /* Концы при этом остаются концами в обе стороны. */
+  assert.deepEqual(color.blend(a, b, 0), a);
+  assert.deepEqual(color.blend(b, a, 0), b);
+});
+
+/* Ревью C: оба конца без своего оттенка. Тянуть оттенок неоткуда, и путь
+   обязан остаться серым, а не заехать в красный (h = 0). */
+test('blend: два серых конца — путь остаётся серым', () => {
+  const dark = { r: 60, g: 60, b: 60 };
+  const light = { r: 180, g: 180, b: 180 };
+  const mid = color.blend(dark, light, 0.5);
+  assert.ok(Math.abs(mid.r - mid.g) <= 1 && Math.abs(mid.g - mid.b) <= 1, 'середина серая: ' + JSON.stringify(mid));
+  assert.ok(mid.r > 60 && mid.r < 180, 'светлота посередине: ' + mid.r);
+});
+
+/* Ревью D: шаг пути обязан быть СВОИМ объектом. Прежде blend на концах
+   отдавал тот же объект, что ему передали, и после конца перехода
+   нарисованный цвет и цель оказывались одной ссылкой. */
+test('blend: концы отрезка — копии, а не те же объекты', () => {
+  const a = { r: 210, g: 130, b: 50 };
+  const b = { r: 40, g: 90, b: 210 };
+  assert.notEqual(color.blend(a, b, 0), a, 'начало — копия');
+  assert.notEqual(color.blend(a, b, 1), b, 'конец — копия');
+  assert.deepEqual(color.blend(a, b, 0), a);
+});
+
+test('Task 60: после перехода нарисованный цвет и цель — разные объекты', () => {
+  const dom = fakeDom({ datas: [WARM_POSTER, COLD_POSTER] });
+  withDom(dom, () => {
+    const ctx = accentCtx({ prefs: {} });
+    twoPosters(ctx, dom);
+    dom.state.advance(1600);
+    assert.deepEqual(ctx.LC.accent.dominant(), ctx.LC.accent.target());
+    assert.notEqual(ctx.LC.accent.dominant(), ctx.LC.accent.target(), 'одна ссылка на два значения — хрупкий инвариант');
+  });
+});
+
+/* Ревью J: картинка ответила, но размеров у неё нет (битый файл, WebView
+   отдал пустой кадр). Прежде выход был молчаливым, и HUD показывал бы
+   состояние ПРЕДЫДУЩЕГО фильма — ровно та догадка вместо факта, против
+   которой диагностика и сделана. */
+test('status: пустая картинка — своё состояние, а не состояние прошлого фильма', () => {
+  const dom = fakeDom({});
+  withDom(dom, () => {
+    const api = fresh().api;
+    api.fromImage('https://image.tmdb.org/t/p/w185/good.jpg', () => { });
+    dom.state.images[0].onload();
+    assert.equal(api.status().state, 'ok');
+
+    dom.state.images[1] = null;
+    api.fromImage('https://image.tmdb.org/t/p/w185/blank.jpg', () => { });
+    const img = dom.state.images[dom.state.images.length - 1];
+    img.naturalWidth = 0;
+    img.naturalHeight = 0;
+    img.onload();
+    assert.equal(api.status().state, 'blank');
+    assert.equal(api.status().url, 'image.tmdb.org/t/p/w185/blank.jpg');
   });
 });

@@ -670,6 +670,15 @@ test('Task 60: у каждого вызова LC.pref дефолт совпад�
     const lit = literal(s);
     if (typeof lit !== 'undefined') return { ok: true, value: lit };
     if (Object.prototype.hasOwnProperty.call(consts, s)) return { ok: true, value: consts[s] };
+    /* Ключ, склеенный с префиксом плагина: LC.pref(PLUGIN + '_accent',
+       'sand') в src/30_css.js и LC.pref(PLUGIN + '_progress', true) в
+       src/85_header.js. Без разбора конкатенации три ключа молча выпадали
+       из сверки — ровно те, у которых имя пишется не литералом. */
+    const glue = /^([A-Za-z_$][\w$]*)\s*\+\s*('[^']*')$/.exec(s);
+    if (glue && Object.prototype.hasOwnProperty.call(consts, glue[1])) {
+      const head = consts[glue[1]];
+      if (typeof head === 'string') return { ok: true, value: head + literal(glue[2]) };
+    }
     return { ok: false };
   }
 
@@ -691,6 +700,16 @@ test('Task 60: у каждого вызова LC.pref дефолт совпад�
   /* Сторож самого теста: молчаливый ноль сверок означал бы, что разбор
      перестал находить вызовы, а не что расхождений нет. */
   assert.ok(checked.length >= 8, 'сверено подозрительно мало вызовов: ' + checked.length);
-  assert.ok(checked.indexOf('lumen_accent_auto') !== -1,
-    'вызов через переменную-ключ (57_color.js, AUTO_KEY) не попал в сверку: ' + checked.join(', '));
+  for (const key of ['lumen_accent_auto', 'lumen_card_accent', 'lumen_card_fonts', 'lumen_card_progress']) {
+    assert.ok(checked.indexOf(key) !== -1,
+      'ключ, записанный не литералом, выпал из сверки: ' + key + ' (сверено: ' + checked.join(', ') + ')');
+  }
+
+  /* Чтения через Lampa.Storage.field сверять не нужно, и это не пробел, а
+     свойство самой Lampa: field(name) — это Params.field(name), то есть
+     Storage.get(name, defaults[name] + '') (app.min.js:48540-48542 и
+     :47697-47699). Дефолт там берётся из ТОЙ ЖЕ таблицы, которую заполняет
+     регистрация раздела, поэтому разойтись с пунктом он не может по
+     построению — в отличие от LC.pref, где дефолт передаёт вызывающий. */
+  assert.match(String(load('81_prefs.js').boolOf), /function/, 'модуль настроек загрузился');
 });

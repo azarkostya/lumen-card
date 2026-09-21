@@ -1884,9 +1884,16 @@ test('Task 50: подложка фокуса карточки без размы�
   assert.ok(rule.decl.indexOf('box-shadow:0 .2em 0 ') !== -1, 'размытие обязано быть нулевым: ' + rule.decl);
   assert.ok(rule.decl.indexOf('-webkit-box-shadow:0 .2em 0 ') !== -1, 'старым webkit-движкам нужен префикс: ' + rule.decl);
 
-  const accentRule = withStorage({}, (LC) => LC.accentCss()).split('\n')
-    .find((l) => l.indexOf('.lumen-main .card.focus .card__view{') === 0);
-  assert.ok(accentRule, 'узел подкраски перестал нести правило фокуса карточки');
+  /* Task 60 (ревью): правило фокуса переехало из горячего узла подкраски в
+     свой, 'lumen-accent-focus' — на шагах перехода цвета оно не меняется, и
+     переписывать его шестнадцать раз значило бы каждый раз заставлять
+     движок заново оценивать самый дорогой селектор набора. Сверка с общей
+     таблицей от этого не меняется: текст по-прежнему один (accentRules). */
+  const accentRule = withStorage({}, (LC) => LC.accentFocusCss());
+  assert.ok(accentRule.indexOf('.lumen-main .card.focus .card__view{') === 0,
+    'узел подсветки перестал нести правило фокуса карточки: ' + accentRule);
+  assert.ok(withStorage({}, (LC) => LC.accentCss()).indexOf('.card.focus') === -1,
+    'правило фокуса осталось в горячем узле подкраски');
   assert.ok(css.split('\n').indexOf(accentRule) !== -1,
     'узел подкраски и общая таблица разошлись формой правила: ' + accentRule);
 });
