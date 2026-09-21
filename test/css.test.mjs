@@ -1503,7 +1503,10 @@ test('правка: сжатый герой отдаёт высоту рядам
      сдвига. Раскладка области при этом не меняется вовсе — margin-top и
      height живут только в базовом правиле. */
   const rows = findDecl(css, (sel) => sel === '.lumen-main .scroll.layer--wheight');
-  assert.ok(rows.indexOf('transform:translateY(8vh)') !== -1, 'в старте ряды не опущены: ' + rows);
+  /* Task 51: сдвиг старта убавлен с 8vh до 5.5vh — в старте подпись первого
+     ряда уходила за кромку экрана на 46 px, теперь стоит ровно на ней
+     (замеры — в тесте «Task 51: подпись первого ряда…» ниже). */
+  assert.ok(rows.indexOf('transform:translateY(5.5vh)') !== -1, 'в старте ряды не опущены: ' + rows);
   const up = findDecl(css, (sel) => sel === '.lumen-main.lumen-rows-up .scroll.layer--wheight');
   assert.ok(up, 'правила поднятых рядов нет');
   /* Task 46: рядом с translateY стоит translateZ(0) — признак собственного
@@ -1711,18 +1714,27 @@ test('правка: текст героя прижат к низу кадра и
   /* Сверху — безопасная зона под шапкой Lampa: без неё высокое содержимое
      налезало на заголовок активности и иконки (находка пользователя). */
   assert.ok(Math.abs(num(text, 'top', 'em') * zoom - 4.4) < 0.02, 'нет безопасной зоны под шапкой Lampa: ' + text);
-  /* Крупный кадр: низ текста на 66.67 − 10 = 56.67vh, то есть на 1.33vh выше
-     заголовка первого ряда в старте (он стоит на 58vh). */
-  assert.equal(num(text, 'bottom', 'vh'), 10, 'отступ текста снизу считается от верха первого ряда: ' + text);
+  /* Крупный кадр: низ текста на 66.67 − 12.5 = 54.17vh, то есть на 1.33vh
+     выше заголовка первого ряда в старте (он стоит на 55.5vh).
+     Task 51: было 10vh при сдвиге рядов 8vh — отступ считается ОТ ВЕРХА
+     ПЕРВОГО РЯДА (textBottomVh в src/30_css.js), и убавленный на 2.5vh сдвиг
+     ровно на столько же поднял текст. Зазор между ними — прежние 1.33vh. */
+  assert.equal(num(text, 'bottom', 'vh'), 12.5, 'отступ текста снизу считается от верха первого ряда: ' + text);
   /* Сжатое состояние — только transform: ни кегль, ни отступы не меняются,
      поэтому блок физически не может съехать вбок на переходе.
      Ревью Task 36 (В1): в сдвиг входит высота полосы чипов — она гаснет
      через visibility и место в потоке сохраняет, так что без добавки низ
      ВИДИМОГО содержимого встал бы на 88 px выше расчётного. */
+  /* Task 51: сдвиг сжатия вырос с 6.6 до 9.1vh ровно на те же 2.5vh, на
+     которые убавлен ROWS_SHIFT_VH, — и это не совпадение, а тождество:
+     textShiftVh = heroShiftVh − ROWS_SHIFT_VH + TEXT_AIR_VH − TEXT_EDGE_VH
+     (src/30_css.js). Низ текста в СЖАТОМ состоянии остался ровно там же, где
+     был (46.6vh от верха экрана при крупном кадре): подняв текст в старте,
+     правка на столько же удлинила его путь вниз. */
   const small = findDecl(css, (sel) => sel === '.lumen-hero.lumen-hero--compact .lumen-hero__text');
-  assert.ok(small.indexOf('transform:translateY(calc(6.6vh + 3.88em)) scale(0.95)') !== -1, 'сжатие текста: ' + small);
-  assert.ok(small.indexOf('-webkit-transform:translateY(-webkit-calc(6.6vh + 3.88em))') !== -1, 'старым webkit-движкам нужен префиксный calc: ' + small);
-  assert.ok(small.indexOf('-webkit-transform:translateY(calc(6.6vh + 3.88em))') !== -1, 'после префиксного calc обязана идти обычная форма: ' + small);
+  assert.ok(small.indexOf('transform:translateY(calc(9.1vh + 3.88em)) scale(0.95)') !== -1, 'сжатие текста: ' + small);
+  assert.ok(small.indexOf('-webkit-transform:translateY(-webkit-calc(9.1vh + 3.88em))') !== -1, 'старым webkit-движкам нужен префиксный calc: ' + small);
+  assert.ok(small.indexOf('-webkit-transform:translateY(calc(9.1vh + 3.88em))') !== -1, 'после префиксного calc обязана идти обычная форма: ' + small);
   assert.ok(text.indexOf('transform-origin:left bottom') !== -1, 'без origin у левого нижнего угла scale увёл бы текст от safe area: ' + text);
 
   /* Та же вертикаль у заголовка ряда — пользователь сверяет их по линии. */
@@ -1844,6 +1856,190 @@ test('раскладка героя: кадр, текст и ряды не пе�
       label + ': ряд в сжатом не помещается, срез ' + (rowHeadUp + ROW_BLOCK - 1080) + ' px');
   }
 });
+/* --- Task 51: подписи рядов обязаны остаться на экране телевизора ---
+
+   Пользователь на Philips 50PUS8057 (2026-09-21): «на главной названия
+   фильмов не видны вообще». Замер координатора на стенде в режиме WebView
+   960×540@2 подтвердил: в ПОДНЯТОМ состоянии (фокус стоит в ряду, область
+   рядов не сдвинута) низ подписи приходился на 543 CSS px при кромке 540.
+
+   Тест повторяет всю цепочку высот от верха экрана до низа подписи, и каждое
+   её слагаемое берёт ИЗ РАЗОБРАННОГО CSS — нашего собранного и штатного
+   vendor/lampa/css/app.css, — а не из литералов. Литералами остаются только
+   размеры стенда (960×540) и две кромки, ради которых тест и написан. Иначе
+   он проверял бы не раскладку, а собственную копию её чисел: ровно так мимо
+   прежнего теста «раскладка героя» (выше) прошли и 543 px, и зазор
+   заголовка, выросший с .7em до 1.4em.
+
+   Два состояния и два разных требования к ним:
+   • ПОДНЯТОЕ (.lumen-rows-up, translateY(0)) — фокус в ряду, карточка
+     увеличена, и подпись под ней пользователь читает. Здесь на экране
+     обязана быть вся подпись целиком.
+   • СТАРТОВОЕ (область опущена на ROWS_SHIFT_VH) — фокус на герое, ряд
+     «выглядывает» снизу постерами. Подписи там намеренно уходят за кромку
+     (Apple HIG Layout: «allow offscreen content to peek in from the edge»,
+     docs/research/2026-09-21-tv-design-specs.md §1), и требование мягче:
+     целиком виден ПОСТЕР. Пытаться уместить в старте и подписи значило бы
+     отнять высоту у кадра героя, а его пропорцию 2/3 пользователь задал
+     явно («половина экрана, если не больше»). */
+function lampaCss() {
+  return readFileSync(new URL('../vendor/lampa/css/app.css', import.meta.url), 'utf8');
+}
+
+/* Число из объявления внутри правила штатной таблицы Lampa: сначала тело
+   правила по его селектору, потом свойство внутри тела. Так номер строки в
+   комментарии остаётся проверяемым, а тест не ломается от переносов. */
+function lampaDecl(cssText, selector, prop) {
+  const at = cssText.indexOf('\n' + selector + ' {');
+  assert.notEqual(at, -1, 'правило ' + selector + ' в vendor/lampa/css/app.css не найдено');
+  const body = cssText.slice(at, cssText.indexOf('}', at));
+  const found = new RegExp('\\n\\s*' + prop + ':\\s*([0-9.]+)').exec(body);
+  assert.ok(found, prop + ' у ' + selector + ' не найден: ' + body);
+  return parseFloat(found[1]);
+}
+
+function decl(cssText, selector) {
+  const value = findDecl(cssText, (sel) => sel === selector);
+  assert.ok(value !== null, 'правило ' + selector + ' в собранном CSS не найдено');
+  return value;
+}
+
+/* Все правила с таким селектором, склеенные в одно тело: ширину карточки и
+   снятие её слоя buildCss пишет двумя отдельными правилами (.lumen-main
+   .card{width} и .lumen-main .card{will-change:auto}). */
+function declAll(cssText, selector) {
+  return ruleBodies(cssText).filter((r) => r.selectors.some((sel) => sel === selector)).map((r) => r.decl).join(';');
+}
+
+function num(body, prop) {
+  const found = new RegExp('(?:^|;)' + prop + ':([0-9.]+)').exec(body);
+  assert.ok(found, prop + ' не найден в «' + body + '»');
+  return parseFloat(found[1]);
+}
+
+/* Низ подписи и низ постера первого ряда в обоих состояниях, CSS px. */
+function rowLayout(built, screenW, screenH) {
+  const lampa = lampaCss();
+  /* База кегля Lampa: font-size корня = ширина окна / 84.17 (правило единиц
+     плагина, src/30_css.js). На стенде 960 px это 11.41 CSS px. */
+  const EM = screenW / 84.17;
+  const VH = screenH / 100;
+
+  /* Шапка Lampa (.activitys начинается на столько ниже верха экрана) —
+     LAMPA_HEAD. В CSS она стоит ровно в одном месте: высота области рядов за
+     порогом низкого окна, height:calc(100vh - <LAMPA_HEAD>em). */
+  const head = parseFloat(/height:calc\(100vh - ([0-9.]+)em\) !important/.exec(heroOffMedia(built))[1]);
+
+  const rows = decl(built, '.lumen-main .scroll.layer--wheight');
+  const margin = /margin-top:calc\(([0-9.]+)vh - ([0-9.]+)em\)/.exec(rows);
+  const shiftVh = parseFloat(/[^-]transform:translateY\(([0-9.]+)vh\)/.exec(rows)[1]);
+  const areaTop = head * EM + parseFloat(margin[1]) * VH - parseFloat(margin[2]) * EM;
+
+  /* Отступ, который Lampa держит над фокусным рядом сама. Маску мы с области
+     сняли (mask-image:none), но класс .scroll--mask на ней остался, и padding
+     вместе с ним — заголовок первого ряда стоит на эту величину ниже верха
+     области (vendor/lampa/css/app.css:2787). */
+  const rowTopUp = areaTop + lampaDecl(lampa, '.scroll--mask .scroll__content', 'padding') * EM;
+  const rowTopDown = rowTopUp + shiftVh * VH;
+
+  /* Заголовок ряда: своей line-height у него нет ни у Lampa
+     (.items-line__title, app.css:2841 — только font-size и font-weight), ни у
+     нас, значит работает межстрочный body (app.css:208, line-height:1). */
+  const lineH = lampaDecl(lampa, 'body', 'line-height');
+  const headH = num(decl(built, '.lumen-main .items-line__title'), 'font-size') * lineH * EM;
+  /* Зазор под заголовком. margin-bottom стоит на .items-line__head, у него
+     собственный кегль 1em, поэтому em здесь базовые. */
+  const gap = num(decl(built, '.lumen-main .items-line__head'), 'margin-bottom') * EM;
+
+  /* Постер: ширину задаём мы, высоту — штатный padding-bottom:150 % у
+     .card__view (app.css:3135), то есть 3:2 от ШИРИНЫ карточки. */
+  const cardW = num(declAll(built, '.lumen-main .card'), 'width');
+  const posterH = cardW * (lampaDecl(lampa, '.card__view', 'padding-bottom') / 100) * EM;
+  const posterTopUp = rowTopUp + headH + gap;
+  const posterBottomUp = posterTopUp + posterH;
+  const posterBottomDown = posterBottomUp + shiftVh * VH;
+
+  /* Подпись. margin-bottom у .card__view базовый (кегль .card — 1em), а вот
+     margin-top у .card__age считается от ЕГО собственного кегля, который мы
+     уменьшили до .88em, — em здесь дороже не базового, а меньше его. */
+  const viewGap = num(declAll(built, '.lumen-main .card__view'), 'margin-bottom') * EM;
+  const titleBody = decl(built, '.lumen-main .card__title');
+  const titleH = num(titleBody, 'font-size') * num(titleBody, 'line-height') * EM;
+  const ageBody = decl(built, '.lumen-main .card__age');
+  const ageFont = num(ageBody, 'font-size');
+  const ageGap = num(ageBody, 'margin-top') * ageFont * EM;
+  const ageH = ageFont * num(ageBody, 'line-height') * EM;
+
+  const textBottomUp = posterBottomUp + viewGap + titleH + ageGap + ageH;
+  return {
+    textBottomUp: textBottomUp,
+    textBottomDown: textBottomUp + shiftVh * VH,
+    posterBottomUp: posterBottomUp,
+    posterBottomDown: posterBottomDown
+  };
+}
+
+test('Task 51: подпись первого ряда помещается в экран телевизора при любом масштабе', () => {
+  /* Стенд координатора: Philips 50PUS8057/60 отдаёт WebView 960×540 при
+     devicePixelRatio 2 (растр 1920×1080). Раскладка считается в CSS px этого
+     окна — именно в них сделан замер «543 при кромке 540». */
+  const W = 960;
+  const H = 540;
+  /* Запас 8 px: подпись стоит на дробных координатах (кегли получаются
+     умножением на масштаб интерфейса и округляются до сотых), и у ТВ свой
+     оверскан. Ровно 540 значило бы «последняя строка касается кромки». */
+  const TEXT_LIMIT = 532;
+
+  /* Предел для каждого масштаба интерфейса — и почему он такой.
+
+     Блок ряда целиком растёт вместе с настройкой «масштаб интерфейса»
+     (кегли и ширина карточки умножаются на неё в buildCss), а место под
+     ряд — нет: оно задано долями ЭКРАНА, и это сознательная плата за переход
+     «старт ↔ листание» без перекладки раскладки (комментарий к HERO_VH в
+     src/30_css.js, тест «Task 36: масштаб растит карточки рядов, но не
+     область прокрутки» ниже). Бюджет от заголовка ряда до предела — 245 px
+     на стенде, а блок ряда занимает scale × 19.2em + .5em; сходится это до
+     scale ≈ 1.09, то есть на «мельче» и «обычном» — с запасом, а на
+     «крупнее» и «огромном» — нет ни при какой ширине карточки из сетки
+     Apple (7 колонок дают 534 и 556 px).
+
+     План Task 51 этого не учитывал: вся его таблица цепочки высот посчитана
+     при масштабе 1. Поэтому для двух крупных масштабов тест держит не
+     инвариант, а ХРАПОВИК — «не хуже замера 2026-09-21 после правки»:
+     подпись там по-прежнему подрезается, но подрезается меньше прежнего
+     (было 568 и 593), и любое ухудшение тест поймает. Убрать храповик и
+     распространить инвариант на все четыре масштаба можно только решением
+     координатора: либо карточка уходит на 8-ю колонку сетки (8.07em — тогда
+     сходятся все четыре), либо блок ряда перестаёт расти вместе с масштабом
+     интерфейса. */
+  const limit = { small: TEXT_LIMIT, normal: TEXT_LIMIT, large: 534, huge: 556 };
+  /* Постер в СТАРТОВОМ состоянии — та же история: при «огромном» он уходит
+     за кромку на 10 px. */
+  const posterLimit = { small: H, normal: H, large: H, huge: 550 };
+
+  for (const scale of ['small', 'normal', 'large', 'huge']) {
+    const built = withStorage({ lumen_scale: scale }, (LC) => LC.buildCss());
+    const box = rowLayout(built, W, H);
+    assert.ok(box.textBottomUp <= limit[scale],
+      scale + ': низ подписи в поднятом состоянии ' + box.textBottomUp.toFixed(1) + ' px при пределе ' + limit[scale]);
+    /* В старте подпись за кромкой — так задумано, а вот постер обязан быть
+       виден целиком: обрезанный по горизонтали постер выглядит поломкой, а
+       не «подглядыванием» следующего ряда. */
+    assert.ok(box.posterBottomDown <= posterLimit[scale],
+      scale + ': в стартовом состоянии постер срезан кромкой — низ ' + box.posterBottomDown.toFixed(1) + ' px');
+  }
+
+  /* Отдельно — тот единственный замер, ради которого задача и заведена:
+     стенд в штатном масштабе, поднятое состояние. Было 543 при кромке 540,
+     стало 512. Число пинится точно (с допуском на округление), чтобы
+     следующая правка раскладки не съела запас молча. */
+  const normal = rowLayout(withStorage({ lumen_scale: 'normal' }, (LC) => LC.buildCss()), W, H);
+  assert.ok(Math.abs(normal.textBottomUp - 512) < 1,
+    'низ подписи на стенде в поднятом состоянии ' + normal.textBottomUp.toFixed(1) + ' вместо 512');
+  assert.ok(Math.abs(normal.posterBottomDown - 511) < 1,
+    'низ постера на стенде в стартовом состоянии ' + normal.posterBottomDown.toFixed(1) + ' вместо 511');
+});
+
 
 /* Правка пользователя 2026-09-17 (второй круг, п.2): «условно с середины
    картинки сделаем полупрозрачный, в середине 70 %, до 0 % в конце». */
@@ -2001,10 +2197,16 @@ test('фаза 3: у совсем низкого окна ряды занима�
      статуса, которая ниже (TEXT_STATUS 1.98 вместо TEXT_RATE 2.62). Бюджет
      содержимого упал, и порог отодвинулся ещё: 2.58:1 -> 2.68:1, то есть
      кадр держится в окне на 28 px ниже прежнего (716 px против 744 при
-     ширине 1920). */
+     ширине 1920).
+     Task 51: высота, которая достаётся тексту, — это ROWS_TOP_VH +
+     ROWS_SHIFT_VH − TEXT_AIR_VH (textRatio в src/30_css.js), и убавленный
+     сдвиг рядов (8 → 5.5vh) уменьшил её с 56.67 до 54.17vh. Бюджет
+     содержимого при этом не менялся, поэтому порог поехал ровно в той же
+     пропорции: 2.68:1 -> 2.56:1. Порог стал МЯГЧЕ — кадр держится в окне до
+     750 px высоты при ширине 1920 (было 716) и пропадает позже. */
   const line = heroOffMedia(css);
   assert.ok(line, 'нет страховки для низкого окна');
-  assert.ok(line.indexOf('min-aspect-ratio:268/100') !== -1, 'порог при крупном кадре — 2.68:1: ' + line);
+  assert.ok(line.indexOf('min-aspect-ratio:256/100') !== -1, 'порог при крупном кадре — 2.56:1: ' + line);
   assert.ok(line.indexOf('margin-top:0') !== -1, 'за порогом ряды не сдвигаются');
   /* Task 36: кадр за порогом не прячется целиком — чипы настроения живут
      ВНУТРИ его текстового блока, и display:none унёс бы их с экрана. Вместо
@@ -2035,9 +2237,16 @@ test('фаза 3: у совсем низкого окна ряды занима�
      описание видно и на 21:9-мониторе.
      Task 43: бюджет полосы под описанием похудел с 2.62 до 1.98em (там
      теперь статус сериала, а не чип рейтинга), и порог отодвинулся до
-     2.14:1. */
-  assert.ok(descr.indexOf('min-aspect-ratio:214/100') !== -1, 'порог описания: ' + descr);
-  assert.ok(1920 / 1080 < 2.14, 'порог описания обязан оставаться выше 16:9');
+     2.14:1.
+     Task 51: та же пропорция 54.17/56.67, что и у порога кадра выше:
+     2.14:1 -> 2.05:1. Это самый низкий из двух порогов, и приближается он к
+     16:9 телевизора (1.78:1) — поэтому здесь же стоит и нижняя граница, о
+     которой договорились до правки: ниже 1.90:1 порог показа описания
+     опускаться не должен, иначе описание в кадре начнёт пропадать от любой
+     мелочи в бюджете содержимого. */
+  assert.ok(descr.indexOf('min-aspect-ratio:205/100') !== -1, 'порог описания: ' + descr);
+  assert.ok(1920 / 1080 < 2.05, 'порог описания обязан оставаться выше 16:9');
+  assert.ok(parseInt(/min-aspect-ratio:(\d+)\/100/.exec(descr)[1], 10) >= 190, 'порог описания опустился к 16:9: ' + descr);
 });
 
 /* Регресс, найденный пользователем на выложенной сборке: в обычном окне
@@ -2298,7 +2507,7 @@ test('Task 18: сдвигается область прокрутки рядов
     sel !== '.lumen-main' && sel !== '.lumen-main:after' &&
     sel.indexOf('layer--wheight') === -1 &&
     sel.indexOf('.lumen-badge') === -1 && sel.indexOf('.lumen-moods') === -1 && sel.indexOf('.lumen-mood-chip') === -1 &&
-    sel.indexOf('.card') === -1 && sel.indexOf('.items-line') === -1);
+    sel.indexOf('.card') === -1 && sel.indexOf('.items-line') === -1 && sel.indexOf('.items-cards') === -1);
   assert.deepEqual(offenders, [], 'под .lumen-main только фон корня, область прокрутки, карточки рядов, метки, чипы настроения и сами ряды');
   assert.equal(ruleSelectors(css).filter((sel) => sel.indexOf('.lumen-main .scroll--horizontal') === 0).length, 0,
     'горизонтальные скроллы рядов не трогаем');
@@ -2319,17 +2528,29 @@ test('правка: у корня главной есть фон, и он пла
   assert.equal(ruleSelectors(css).filter((sel) => /lumen-motion-(lite|off) \.lumen-main$/.test(sel)).length, 0);
 });
 
-test('Task 36: карточка ряда главной — 260×390, подписи §0.4', () => {
+test('Task 51: карточка ряда главной — 217×325 (7 колонок tvOS), подписи §0.4', () => {
   /* Пользователь на живом телевизоре 2026-09-18: «картинка очень маленькая».
-     Прежние дизайнерские 230×345 выросли до 260×390 — место под них дал
-     отказ от требования «ряд помещается в экран целиком». */
+     Прежние дизайнерские 230×345 выросли до 260×390 (Task 36) — место под них
+     дал отказ от требования «ряд помещается в экран целиком».
+     Task 51: 217×325. Обе ширины — колонки одной и той же сетки Apple
+     (HIG Layout → Grids: 6 колонок по 260 px, 7 по 217 при зазоре 40 px,
+     docs/research/2026-09-21-tv-design-specs.md §1), и выбор между ними
+     сделала арифметика, а не вкус: при 260 px подпись под постером не
+     помещалась в экран даже в поднятом состоянии (замер координатора на
+     стенде 960×540: низ подписи 543 при кромке 540). */
   const card = findDecl(css, (sel) => sel === '.lumen-main .card');
-  assert.equal(card, 'width:11.4em', '260 px FHD; высоту даёт штатный padding-bottom:150 % у .card__view');
+  assert.equal(card, 'width:9.52em', '217 px FHD; высоту даёт штатный padding-bottom:150 % у .card__view');
   const title = findDecl(css, (sel) => sel === '.lumen-main .card__title');
   assert.ok(title.indexOf('font-size:0.96em') !== -1, 'название 22 px (§0.4): ' + title);
   assert.ok(title.indexOf('white-space:nowrap') !== -1, 'одна строка: вторая отнимает у героя столько же экрана');
   assert.ok(findDecl(css, (sel) => sel === '.lumen-main .card__age').indexOf('font-size:0.88em') !== -1, 'мета 20 px (§0.4)');
   assert.ok(findDecl(css, (sel) => sel === '.lumen-main .items-line__title').indexOf('font-size:1.23em') !== -1, 'заголовок ряда 28 px (§0.3)');
+  /* Task 51: зазор между карточками — 40 физ. px той же сетки Apple. Штатный
+     зазор Lampa вдвое уже (.mapping--line > * + *{margin-left:1em},
+     vendor/lampa/css/app.css:14603-14605), и перебить его можно, не задевая
+     чужие списки: классы .items-cards и .mapping--line Lampa вешает на ОДИН
+     узел — тело горизонтального скролла ряда (app.min.js:52663). */
+  assert.equal(findDecl(css, (sel) => sel === '.lumen-main .items-cards > * + *'), 'margin-left:1.75em', 'зазор между карточками ряда');
 });
 
 /* Task 42: карточка ряда без рамки и штатных бейджей. Фокус показывают
@@ -2348,8 +2569,8 @@ test('Task 42: фокус карточки ряда — увеличение и 
   assert.ok(view.indexOf('transform-origin:center bottom') !== -1, 'растёт вверх, подпись не едет: ' + view);
   const decls = ruleBodies(css).filter((r) => r.selectors.indexOf('.lumen-main .card.focus .card__view') !== -1).map((r) => r.decl);
   const scaled = decls.join(' ');
-  assert.ok(scaled.indexOf('transform:scale(1.08)') !== -1, 'увеличение в фокусе: ' + scaled);
-  assert.ok(scaled.indexOf('-webkit-transform:scale(1.08)') !== -1, 'старым webkit-движкам нужен префикс: ' + scaled);
+  assert.ok(scaled.indexOf('transform:scale(1.1)') !== -1, 'увеличение в фокусе: ' + scaled);
+  assert.ok(scaled.indexOf('-webkit-transform:scale(1.1)') !== -1, 'старым webkit-движкам нужен префикс: ' + scaled);
   /* Акцентная подложка — на том же узле (AR.cardFocus, src/30_css.js),
      кольца больше нет. Размытия у неё нет вовсе (Task 50) — форму и
      единственность держит отдельный тест ниже. */
@@ -2426,7 +2647,7 @@ test('Task 42: штатная плашка рейтинга скрыта тол�
    «огромном» ряд подрезается снизу сильнее (см. комментарий к HERO_VH в
    src/30_css.js). Тест закрывает обе половины этого решения. */
 test('Task 36: масштаб растит карточки рядов, но не область прокрутки', () => {
-  const pairs = [['small', '10.26em'], ['normal', '11.4em'], ['large', '12.54em'], ['huge', '13.68em']];
+  const pairs = [['small', '8.57em'], ['normal', '9.52em'], ['large', '10.47em'], ['huge', '11.42em']];
   for (const pair of pairs) {
     const scaled = withStorage({ lumen_scale: pair[0] }, (LC) => LC.buildCss());
     assert.equal(findDecl(scaled, (sel) => sel === '.lumen-main .card'), 'width:' + pair[1], pair[0] + ': ширина карточки ряда');

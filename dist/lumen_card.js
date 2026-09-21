@@ -798,7 +798,21 @@ return Math.round(value * 100) / 100;
 
 
 
-var ROW_CARD_W = 11.4;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+var ROW_CARD_W = 9.52;
 var LAMPA_ROW_PAD = 2.5;
 var LAMPA_HEAD = 4;
 
@@ -836,7 +850,22 @@ var HERO_DEFAULT = 'large';
 
 
 
-var ROWS_SHIFT_VH = 8;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+var ROWS_SHIFT_VH = 5.5;
 
 
 
@@ -3017,7 +3046,19 @@ css.push('@media screen and (min-aspect-ratio:' + heroMinRatio + '/100){' +
 
 
 
-var ROW_FOCUS = 1.08;
+
+
+
+
+
+
+
+
+
+
+
+
+var ROW_FOCUS = 1.10;
 var rowCardW = round2(ROW_CARD_W * scale) + 'em';
 css.push('.lumen-main .card{width:' + rowCardW + '}');
 
@@ -3061,9 +3102,24 @@ css.push('.lumen-main .items-line{padding-bottom:1.4em}');
 
 
 
-css.push('.lumen-main .items-line__head{margin-bottom:' + round2(1.4 * scale) + 'em;padding-left:2.81em}');
+css.push('.lumen-main .items-line__head{margin-bottom:' + round2(1.5 * scale) + 'em;padding-left:2.81em}');
 css.push('.lumen-main .items-line .scroll__content{padding-left:2.81em}');
+
+
+
+
+
+
+
+
+
+
+
+
+
+css.push('.lumen-main .items-cards > * + *{margin-left:1.75em}');
 css.push(AR.cardFocus);
+
 
 
 
@@ -5627,6 +5683,7 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 LC.rows = (function () {
+
 
 
 
