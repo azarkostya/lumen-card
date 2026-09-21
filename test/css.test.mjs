@@ -377,7 +377,7 @@ test('buildCss: штатный tag--episode скрыт, вместо него .l
   assert.ok(tag && /display\s*:\s*none\s*!important/.test(tag), 'tag--episode должен быть скрыт');
   const chip = findDecl(css, (sel) => sel === '.lumen-card .lumen-next-chip');
   assert.ok(chip, 'правило .lumen-next-chip не найдено');
-  assert.ok(chip.indexOf('font-size:.79em') !== -1, 'текст чипа 18px = .79em');
+  assert.ok(chip.indexOf('font-size:1.01em') !== -1, 'Task 63: текст чипа — минимум tvOS, 23 px = 1.01em');
   const icon = findDecl(css, (sel) => sel === '.lumen-card .lumen-next-chip:before');
   assert.ok(icon && icon.indexOf('mask-image') !== -1, 'иконка часов — маской');
 });
@@ -385,7 +385,7 @@ test('buildCss: штатный tag--episode скрыт, вместо него .l
 test('buildCss: у сериала статус — карта в ленте рейтингов', () => {
   const status = findDecl(css, (sel) => sel === '.lumen-card.lumen-card--serial .full-start-new__rate-line .full-start__status');
   assert.ok(status, 'правило статуса в ленте для .lumen-card--serial не найдено');
-  assert.ok(status.indexOf('border-radius:.67em') !== -1, 'радиус карты 12px, не пилюля');
+  assert.ok(status.indexOf('border-radius:.52em') !== -1, 'радиус карты 12px (.52em в кегле 1.01em после Task 63), не пилюля');
   assert.ok(status.indexOf('display:flex') !== -1, 'у сериала статус виден');
 });
 
@@ -425,7 +425,7 @@ test('правка 2026-09-16 (п.1): чипы качества — в лент�
   assert.ok(tags.indexOf('align-items:center') !== -1, 'лента тянет детей по высоте — чипы центрируются');
   const chip = findDecl(css, (sel) => sel === '.lumen-card .lumen-quality-chip');
   assert.ok(chip, 'правило чипа качества не найдено');
-  assert.ok(chip.indexOf('margin:0 .35em .35em 0') !== -1, 'зазор чипа — справа, а не слева');
+  assert.ok(chip.indexOf('margin:0 .23em .23em 0') !== -1, 'зазор чипа — справа, а не слева (8 px в кегле 1.01em после Task 63)');
 });
 
 test('buildCss: карточка серии 340×150 (14.9em×6.58em), flex без grid, дорожка absolute', () => {
@@ -505,11 +505,13 @@ test('правка 2026-09-16: лейбл и значение таблицы —
   assert.ok(value.indexOf('#F3EDE4') !== -1, 'значение — text');
 });
 
-test('правка 2026-09-16: заголовок «ПОДРОБНО» — mono, letter-spacing .14em, muted, не мельче 18px', () => {
+test('правка 2026-09-16: заголовок «ПОДРОБНО» — разрядка, muted, не мельче минимума tvOS', () => {
   const title = findDecl(css, (sel) => sel === '.lumen-descr-row .lumen-facts__title');
   assert.ok(title, 'правило заголовка таблицы не найдено');
-  assert.ok(parseFloat(/font-size:([\d.]+)em/.exec(title)[1]) >= 0.79, 'заголовок не мельче 18px = .79em');
-  assert.ok(title.indexOf('letter-spacing:.14em') !== -1);
+  assert.ok(parseFloat(/font-size:([\d.]+)em/.exec(title)[1]) >= 1.01, 'Task 63: заголовок не мельче 23 px = 1.01em');
+  /* Разрядка ужата в той же пропорции, в какой вырос кегль (.14 × .79 / 1.01):
+     на экране это те же 2.5 физических px между буквами. */
+  assert.ok(title.indexOf('letter-spacing:.11em') !== -1);
   assert.ok(title.indexOf('#7A6A5A') === -1, 'заголовок больше не smoke');
   assert.ok(title.indexOf('#A89A8A') !== -1, 'заголовок — muted');
 });
@@ -550,7 +552,7 @@ test('правка 2026-09-16 (п.3): подложка описания — по
   assert.ok(/background:rgba\(11,9,8,\.85\)/.test(text), 'у текста описания должна быть своя подложка цвета страницы');
   /* Радиус считается в em СОБСТВЕННОГО кегля узла (1.05em базового), поэтому
      число другое, а размер тот же ~14px, что у .lumen-facts. */
-  assert.ok(text.indexOf('border-radius:.58em') !== -1, 'радиус как у таблицы «ПОДРОБНО»');
+  assert.ok(text.indexOf('border-radius:.48em') !== -1, 'радиус как у таблицы «ПОДРОБНО» (.48em в кегле 1.27em после Task 63)');
   assert.ok(/(^|;)padding:/.test(text), 'без внутренних отступов текст упрётся в край подложки');
   assert.ok(text.indexOf('box-sizing:border-box') !== -1, 'паддинг не должен раздувать колонку описания');
   assert.equal(/linear-gradient/.test(text), false, 'никаких градиентных кромок — именно они читались полосой');
@@ -570,11 +572,11 @@ test('правка 2026-09-16 (п.3): заголовок ряда отзывов
 
 test('правка 2026-09-16 (п.5): боковой отступ ряда описания равен отступу шапки', () => {
   const card = findDecl(css, (sel) => sel === '.full-start-new.lumen-card');
-  assert.ok(card && card.indexOf('padding:0 2.81em 2.81em') !== -1, 'safe area шапки — 64px = 2.81em');
+  assert.ok(card && card.indexOf('padding:0 3.51em 2.63em') !== -1, 'Task 63: safe area шапки — 80 px по бокам (3.51em) и 60 снизу (2.63em)');
   const descr = findDecl(css, (sel) => sel === '.lumen-descr-row .full-descr');
   assert.ok(descr, 'правило .full-descr не найдено');
-  assert.ok(descr.indexOf('padding-left:2.81em') !== -1, 'левый край ряда не совпадает с шапкой');
-  assert.ok(descr.indexOf('padding-right:2.81em') !== -1, 'правый край ряда не совпадает с шапкой');
+  assert.ok(descr.indexOf('padding-left:3.51em') !== -1, 'левый край ряда не совпадает с шапкой');
+  assert.ok(descr.indexOf('padding-right:3.51em') !== -1, 'правый край ряда не совпадает с шапкой');
 });
 
 test('правка 2026-09-16 (п.4): колонка описания 980px, таблица занимает остаток справа, верх — по одной линии', () => {
@@ -615,12 +617,15 @@ test('ревью п.2: подписи блока отзывов не smoke; сч
   }
 });
 
-test('buildCss: полное описание в ряду — 24px/1.45 (1.05em), колонка 980px (42.96em), таблица справа', () => {
+test('buildCss: полное описание в ряду — Body tvOS 29px/1.24 (1.27em), колонка 980px, таблица справа', () => {
   const text = findDecl(css, (sel) => sel === '.lumen-descr-row .full-descr__text');
   assert.ok(text, 'правило .full-descr__text не найдено');
-  assert.ok(text.indexOf('font-size:1.05em') !== -1, 'описание 24px = 1.05em');
-  assert.ok(text.indexOf('line-height:1.45') !== -1);
-  assert.ok(text.indexOf('max-width:42.96em') !== -1, 'колонка описания 980px = 42.96em');
+  assert.ok(text.indexOf('font-size:1.27em') !== -1, 'Task 63: описание — Body tvOS, 29 px = 1.27em');
+  assert.ok(text.indexOf('line-height:1.24') !== -1, 'Task 63: межстрочный Body tvOS — 36/29 = 1.24');
+  /* Колонка те же 980 px, но em здесь СОБСТВЕННОГО кегля узла: 42.96 × 1.05
+     базовых при прежнем кегле и 35.56 × 1.27 при нынешнем — 45.1 базовых в
+     обоих случаях. */
+  assert.ok(text.indexOf('max-width:35.56em') !== -1, 'колонка описания 980px в кегле 1.27em = 35.56em');
 
   const wrap = findDecl(css, (sel) => sel === '.lumen-descr-row .full-descr');
   assert.ok(wrap && wrap.indexOf('display:flex') !== -1, 'ряд описания — flex (описание слева, таблица справа)');
@@ -747,12 +752,12 @@ test('buildCss: тон отзыва — полоса 4px цветами токе
   assert.ok(bad && bad.indexOf('#D9622B') !== -1, 'негативный — spice');
 });
 
-test('buildCss: текст отзыва — ровно 4 строки клампом, 19px (.83em) muted', () => {
+test('buildCss: текст отзыва — ровно 4 строки клампом, минимум tvOS (1.01em) muted', () => {
   const decl = findDecl(css, (sel) => sel === '.lumen-descr-row .lumen-review__text');
   assert.ok(decl, 'правило текста отзыва не найдено');
   assert.ok(decl.indexOf('-webkit-line-clamp:4') !== -1, 'экран 07: четыре строки');
   assert.ok(decl.indexOf('display:-webkit-box') !== -1 && decl.indexOf('-webkit-box-orient:vertical') !== -1, 'кламп без этих двух свойств не работает');
-  assert.ok(decl.indexOf('font-size:.83em') !== -1, 'текст 19px = .83em');
+  assert.ok(decl.indexOf('font-size:1.01em') !== -1, 'Task 63: текст отзыва — 23 px = 1.01em');
   assert.ok(decl.indexOf('#A89A8A') !== -1);
 });
 
@@ -775,12 +780,12 @@ test('buildCss: фокус карточки отзыва — рамка accent �
   }
 });
 
-test('buildCss: заголовок ряда — название 32px (1.40em) Unbounded, «КИНОПОИСК» акцентом mono .70em', () => {
+test('buildCss: заголовок ряда — название 32px (1.40em), «КИНОПОИСК» акцентом 1.01em', () => {
   const title = findDecl(css, (sel) => sel === '.lumen-descr-row .lumen-reviews__title');
   assert.ok(title && title.indexOf('font-size:1.40em') !== -1, 'название 32px = 1.40em');
   const src = findDecl(css, (sel) => sel === '.lumen-descr-row .lumen-reviews__src');
   assert.ok(src, 'правило метки источника не найдено');
-  assert.ok(src.indexOf('font-size:.70em') !== -1 && src.indexOf('letter-spacing:.16em') !== -1);
+  assert.ok(src.indexOf('font-size:1.01em') !== -1 && src.indexOf('letter-spacing:.11em') !== -1);
   assert.ok(src.indexOf('#E8B87A') !== -1, 'метка источника — акцентом (экран 07)');
   const total = findDecl(css, (sel) => sel === '.lumen-descr-row .lumen-reviews__total');
   /* Цвет и кегль счётчика подняты правкой читаемости 2026-09-16 (заголовок ряда
@@ -793,7 +798,7 @@ test('buildCss: подсказка без ключа (экран 13) — пла�
   assert.ok(path, 'правило плашки пути не найдено');
   assert.ok(path.indexOf('rgba(232,184,122,.1)') !== -1, 'фон — акцент 10 %');
   assert.ok(path.indexOf('rgba(232,184,122,.4)') !== -1, 'рамка — акцент 40 %');
-  assert.ok(path.indexOf('font-size:.79em') !== -1, 'текст 18px = .79em');
+  assert.ok(path.indexOf('font-size:1.01em') !== -1, 'Task 63: текст плашки — 23 px = 1.01em');
   const hint = findDecl(css, (sel) => sel === '.lumen-descr-row .lumen-reviews__hint');
   assert.ok(hint && hint.indexOf('border-radius:.61em') !== -1);
 });
@@ -807,7 +812,7 @@ test('buildCss: модал отзыва (экран 08) — свой корен�
   assert.ok(tone && tone.indexOf('#D9622B') !== -1, 'тон модала — те же токены, что у карточки');
   const text = findDecl(css, (sel) => sel === '.lumen-review-modal__text');
   assert.ok(text, 'правило текста модала не найдено');
-  assert.ok(text.indexOf('font-size:.96em') !== -1, 'текст 22px = .96em');
+  assert.ok(text.indexOf('font-size:1.01em') !== -1, 'Task 63: текст окна — 23 px = 1.01em');
   assert.ok(text.indexOf('overflow:auto') !== -1 && text.indexOf('max-height:50vh') !== -1, 'длинный отзыв прокручивается внутри окна');
   const title = findDecl(css, (sel) => sel === '.lumen-review-modal__title');
   assert.ok(title && title.indexOf('font-size:1.58em') !== -1, 'заголовок 36px = 1.58em');
@@ -924,7 +929,7 @@ test('buildCss: метка «ТРЕЙЛЕР · БЕЗ ЗВУКА» — прав�
   assert.ok(badge, 'правило метки не найдено');
   assert.ok(/display\s*:\s*none/.test(badge), 'вне режима трейлера метки нет');
   assert.ok(badge.indexOf('position:absolute') !== -1);
-  assert.ok(badge.indexOf('right:2.81em') !== -1, 'right 64px = 2.81em (safe area экрана 02)');
+  assert.ok(badge.indexOf('right:3.51em') !== -1, 'Task 63: right по safe area tvOS — 80 px = 3.51em');
   assert.ok(badge.indexOf('top:4.91em') !== -1, 'top 112px = 4.91em');
 
   const on = findDecl(css, (sel) => sel === '.lumen-card.lumen-trailer-on .lumen-trailer-badge');
@@ -968,7 +973,7 @@ test('Фикс Task 59: подсказка про полный текст вид
 
 test('Фикс Task 59: у окна полного описания свой корень и кегль текста описания', () => {
   const text = findDecl(css, (sel) => sel === '.lumen-descr-modal__text');
-  assert.ok(text && text.indexOf('font-size:1.05em') !== -1, 'кегль тот же, что у описания в ряду');
+  assert.ok(text && text.indexOf('font-size:1.27em') !== -1, 'кегль тот же, что у описания в ряду (Body tvOS после Task 63)');
   /* Прокрутку длинного текста берёт на себя Scroll модала Lampa — своей
      высоты и overflow окну не задаём, иначе внутри него появился бы второй
      скролл, которым пульт не управляет. */
@@ -1015,12 +1020,12 @@ test('buildCss: строка прогресса — одна подпись на
   assert.ok(bar.indexOf('margin:.44em 0 0') !== -1, 'зазор до полосы 10px = .44em');
 });
 
-test('buildCss: подпись и таймкод — 18px (.79em) muted, пустой узел убран :empty', () => {
+test('buildCss: подпись и таймкод — минимум tvOS (1.01em) muted, пустой узел убран :empty', () => {
   const label = findDecl(css, (sel) => sel === '.lumen-card .lumen-progress__label');
   const time = findDecl(css, (sel) => sel === '.lumen-card .lumen-progress__time');
   assert.ok(label && time, 'правила подписи/таймкода не найдены');
   for (const decl of [label, time]) {
-    assert.ok(decl.indexOf('font-size:.79em') !== -1, '§6: 18px = .79em');
+    assert.ok(decl.indexOf('font-size:1.01em') !== -1, 'Task 63: 23 px = 1.01em');
     assert.ok(decl.indexOf('#A89A8A') !== -1, '§6: цвет muted, а не text');
   }
   const empty = findDecl(css, (sel) => sel === '.lumen-card .lumen-progress__label:empty');
@@ -1346,10 +1351,10 @@ test('Task 17: фокус кнопки «Франшиза» — инверсия
   assert.equal(/(^|;)background(-color)?:/.test(lite), false, 'правило режима не должно трогать заливку: ' + lite);
 });
 
-test('Task 17: хаб — safe area 2.81em с обеих сторон, плитки по 4 в ряд', () => {
+test('Task 17: хаб — safe area tvOS с обеих сторон, плитки по 4 в ряд', () => {
   const root = findDecl(css, (sel) => sel === '.lumen-hub');
   assert.ok(root, 'корень хаба не найден');
-  assert.ok(/padding:2\.81em 2\.81em/.test(root), 'safe area 64px ÷ 22.811 = 2.81em: ' + root);
+  assert.ok(/padding:2\.63em 3\.51em/.test(root), 'Task 63: safe area tvOS — 60 px сверху (2.63em) и 80 по бокам (3.51em): ' + root);
   const tile = findDecl(css, (sel) => sel === '.lumen-hub__tiles .lumen-tile');
   assert.ok(tile, 'правило плитки не найдено');
   assert.ok(tile.indexOf('width:calc((100% - 2.64em) / 4)') !== -1, 'ширина = (100% − 3×.88em) / 4: ' + tile);
@@ -1360,7 +1365,7 @@ test('Task 17: хаб — safe area 2.81em с обеих сторон, плит�
 
 test('Task 17: сетка — ровно 6 карточек в ряд на штатной карточке Lampa', () => {
   const grid = findDecl(css, (sel) => sel === '.lumen-grid');
-  assert.ok(grid && /padding:2\.81em 2\.81em/.test(grid), 'safe area с обеих сторон');
+  assert.ok(grid && /padding:2\.63em 3\.51em/.test(grid), 'safe area tvOS: 60 px сверху, 80 по бокам');
   const card = findDecl(css, (sel) => sel === '.lumen-grid__items .lumen-gcard');
   assert.ok(card, 'правило карточки сетки не найдено');
   assert.ok(card.indexOf('width:calc((100% - 4.4em) / 6)') !== -1, 'ширина = (100% − 5×.88em) / 6: ' + card);
@@ -1395,8 +1400,11 @@ test('Task 41: чип — сегмент-контрол без рамки, вы�
   const chip = findDecl(css, (sel) => sel === '.lumen-hub .lumen-chip');
   assert.ok(chip, 'правило чипа не найдено');
   assert.equal(/(^|;)border:/.test(chip), false, 'рамки в покое быть не должно: ' + chip);
-  assert.ok(chip.indexOf('height:2.2em') !== -1, 'высота pill: ' + chip);
-  assert.ok(chip.indexOf('border-radius:1.1em') !== -1, 'радиус = половине высоты: ' + chip);
+  /* Task 63: кегль чипа поднят до минимума tvOS, а коробка ужата в той же
+     пропорции — высота pill'а на экране осталась прежней (2.2 × .92 = 2.02
+     базовых em и 2.0 × 1.01 = 2.02). */
+  assert.ok(chip.indexOf('height:2.0em') !== -1, 'высота pill: ' + chip);
+  assert.ok(chip.indexOf('border-radius:1em') !== -1, 'радиус = половине высоты: ' + chip);
   assert.ok(chip.indexOf('background:transparent') !== -1, 'в покое — только текст: ' + chip);
 
   const on = findDecl(css, (sel) => sel === '.lumen-hub .lumen-chip.lumen-chip--on');
@@ -1916,7 +1924,7 @@ test('правка: текст героя прижат к низу кадра и
   const num = (decl, name, unit) => parseFloat(new RegExp(name + ':([0-9.]+)' + unit).exec(decl)[1]);
   const zoom = num(text, 'font-size', 'em');
   assert.equal(zoom, 1.1, 'кегль текста героя не поднят: ' + text);
-  assert.ok(Math.abs(num(text, 'left', 'em') * zoom - 2.81) < 0.02, 'safe area слева (§0.1): ' + text);
+  assert.ok(Math.abs(num(text, 'left', 'em') * zoom - 3.51) < 0.02, 'Task 63: safe area слева — 80 px tvOS = 3.51em: ' + text);
   /* Сверху — безопасная зона под шапкой Lampa: без неё высокое содержимое
      налезало на заголовок активности и иконки (находка пользователя). */
   assert.ok(Math.abs(num(text, 'top', 'em') * zoom - 4.4) < 0.02, 'нет безопасной зоны под шапкой Lampa: ' + text);
@@ -1945,9 +1953,9 @@ test('правка: текст героя прижат к низу кадра и
 
   /* Та же вертикаль у заголовка ряда — пользователь сверяет их по линии. */
   const head = findDecl(css, (sel) => sel === '.lumen-main .items-line__head');
-  assert.ok(head.indexOf('padding-left:2.81em') !== -1, 'заголовок ряда не выровнен по safe area: ' + head);
+  assert.ok(head.indexOf('padding-left:3.51em') !== -1, 'заголовок ряда не выровнен по safe area: ' + head);
   const content = findDecl(css, (sel) => sel === '.lumen-main .items-line .scroll__content');
-  assert.ok(content.indexOf('padding-left:2.81em') !== -1, 'лента карточек не выровнена по safe area: ' + content);
+  assert.ok(content.indexOf('padding-left:3.51em') !== -1, 'лента карточек не выровнена по safe area: ' + content);
 
   /* Task 36: полоса чипов лежит ВНУТРИ текстового блока, последним его
      элементом, и своего absolute-места над кромкой кадра у неё больше нет —
@@ -2092,6 +2100,10 @@ test('раскладка героя: кадр, текст и ряды не пе�
    раскладки делать ТОЛЬКО после getAnimations().forEach((a) => a.finish()).
    Контрольный замер координатора после finish(): верх области 259, шапка
    ряда 287, низ подписи 518 при кромке 540 — модель даёт 518.5.
+   Task 63: кегли подписей подняты до минимума tvOS, и у карточки под
+   фокусом подпись уезжает вниз — замер того же ряда после правки: низ
+   подписи 520.8 у карточки без фокуса и 524.8 у фокусной (сдвиг .35em
+   кегля подписи = 4.0 CSS px), модель даёт 525.0.
 
    Два состояния и два разных требования к ним:
    • ПОДНЯТОЕ (.lumen-rows-up, translateY(0)) — фокус в ряду, карточка
@@ -2355,20 +2367,37 @@ function rowLayout(built, screenW, screenH, opts) {
   const posterBottomDown = rowTopDown + headH + gap + posterH;
 
   /* Подпись. margin-bottom у .card__view базовый (кегль .card — 1em), а вот
-     margin-top у .card__age считается от ЕГО собственного кегля, который мы
-     уменьшили до .88em, — em здесь дешевле базового, а не дороже. */
+     margin-top у .card__age считается от ЕГО собственного кегля — em здесь
+     дешевле базового, а не дороже.
+     Task 63: кегли подписей берутся КАСКАДОМ, а не первым правилом с таким
+     селектором: за порогом узкой колонки у обеих подписей есть второе
+     правило внутри медиазапроса (там они возвращаются к минимуму tvOS без
+     масштаба интерфейса), и «первое правило» означало бы считать раскладку
+     не по тому кеглю, который получит экран. */
   const viewGap = num(declAll(built, '.lumen-main .card__view'), 'margin-bottom') * EM;
-  const titleBody = decl(built, '.lumen-main .card__title');
-  const cardTitleH = num(titleBody, 'font-size') * num(titleBody, 'line-height') * EM;
-  const ageBody = decl(built, '.lumen-main .card__age');
-  const ageFont = num(ageBody, 'font-size');
-  const ageGap = num(ageBody, 'margin-top') * ageFont * EM;
-  const ageH = ageFont * num(ageBody, 'line-height') * EM;
-  const tail = viewGap + cardTitleH + ageGap + ageH;
+  const titleRules = matchingRules(built, ['lumen-main'], ['card__title'], screenW, screenH);
+  const ageRules = matchingRules(built, ['lumen-main'], ['card__age'], screenW, screenH);
+  const titleFont = parseFloat(cascade(titleRules, 'font-size').value);
+  const cardTitleH = titleFont * parseFloat(cascade(titleRules, 'line-height').value) * EM;
+  const ageFont = parseFloat(cascade(ageRules, 'font-size').value);
+  const ageGap = parseFloat(cascade(ageRules, 'margin-top').value) * ageFont * EM;
+  const ageH = ageFont * parseFloat(cascade(ageRules, 'line-height').value) * EM;
+  /* Task 63: у карточки ПОД ФОКУСОМ подпись уезжает вниз, и читают её именно
+     там — значит низ подписи меряется вместе с этим сдвигом. Правило живёт
+     под body.lumen-motion-full (класс режима движения стоит на body), то
+     есть в модель входит худший случай — полные анимации. transform стоит на
+     самой подписи, поэтому его em считаются в её кегле. */
+  const focusRule = findDecl(built, (sel) => sel === 'body.lumen-motion-full .lumen-main .card.focus .card__age');
+  assert.ok(focusRule, 'нет правила сдвига подписи под фокусом');
+  const focusShift = parseFloat(/[^-]transform:translateY\(([0-9.]+)em\)/.exec(focusRule)[1]) * ageFont * EM;
+  const tail = viewGap + cardTitleH + ageGap + ageH + focusShift;
 
   return {
     rowTopUp: rowTopUp,
     cardW: cardW / EM,
+    /* Низ подписи В ПОТОКЕ — без сдвига фокуса: transform раскладку не
+       меняет, и следующий ряд встаёт именно от этой линии. */
+    flowBottomUp: posterBottomUp + tail - focusShift,
     textBottomUp: posterBottomUp + tail,
     textBottomDown: posterBottomDown + tail,
     posterBottomUp: posterBottomUp,
@@ -2428,11 +2457,12 @@ test('Task 51: подпись первого ряда помещается в э
 
   /* Контрольный замер координатора на стенде (после
      getAnimations().forEach((a) => a.finish()), см. шапку выше): штатный
-     масштаб, ряд с кнопкой «Ещё», поднятое состояние — 518 при кромке 540.
+     масштаб, ряд с кнопкой «Ещё», поднятое состояние — 524.8 при кромке
+     540 (замер 2026-09-21 после Task 63; до него было 518).
      Число пинится точно, чтобы следующая правка раскладки не съела запас
      молча; до Task 51 тот же ряд без кнопки давал 543. */
-  assert.ok(Math.abs(box('normal', true).textBottomUp - 518.5) < 1,
-    'штатный масштаб с кнопкой «Ещё»: ' + box('normal', true).textBottomUp.toFixed(1) + ' вместо замеренных 518');
+  assert.ok(Math.abs(box('normal', true).textBottomUp - 524.8) < 1,
+    'штатный масштаб с кнопкой «Ещё»: ' + box('normal', true).textBottomUp.toFixed(1) + ' вместо замеренных 524.8');
   assert.ok(Math.abs(box('normal', true).rowTopUp - 287) < 1,
     'верх шапки первого ряда: ' + box('normal', true).rowTopUp.toFixed(1) + ' вместо замеренных 287');
 });
@@ -2479,7 +2509,7 @@ test('Task 51: узкая колонка включается порогом и�
   }
 
   /* На штатном масштабе телевизор 16:9 порога не достигает — там широкая
-     карточка помещается сама (518.5 при пределе 532), и сужать её значило бы
+     карточка помещается сама (525.0 при пределе 532), и сужать её значило бы
      отобрать у постера 25 px без причины. */
   const normal = withStorage({ lumen_scale: 'normal' }, (LC) => LC.buildCss());
   const media = ruleBodiesWithMedia(normal).find((r) => r.media &&
@@ -2672,7 +2702,11 @@ test('фаза 3: у совсем низкого окна ряды занима�
      750 px высоты при ширине 1920 (было 716) и пропадает позже. */
   const line = heroOffMedia(css);
   assert.ok(line, 'нет страховки для низкого окна');
-  assert.ok(line.indexOf('min-aspect-ratio:256/100') !== -1, 'порог при крупном кадре — 2.56:1: ' + line);
+  /* Task 63: бюджет содержимого кадра вырос вместе с кеглями меты и полосы
+     статуса (TEXT_META 1.06 → 1.43, TEXT_STATUS 1.98 → 2.07), и порог поехал
+     в той же пропорции: 2.56:1 → 2.49:1. Порог стал СТРОЖЕ ровно настолько,
+     насколько крупнее стал текст. */
+  assert.ok(line.indexOf('min-aspect-ratio:249/100') !== -1, 'порог при крупном кадре — 2.49:1: ' + line);
   assert.ok(line.indexOf('margin-top:0') !== -1, 'за порогом ряды не сдвигаются');
   /* Task 36: кадр за порогом не прячется целиком — чипы настроения живут
      ВНУТРИ его текстового блока, и display:none унёс бы их с экрана. Вместо
@@ -2709,9 +2743,12 @@ test('фаза 3: у совсем низкого окна ряды занима�
      16:9 телевизора (1.78:1) — поэтому здесь же стоит и нижняя граница, о
      которой договорились до правки: ниже 1.90:1 порог показа описания
      опускаться не должен, иначе описание в кадре начнёт пропадать от любой
-     мелочи в бюджете содержимого. */
-  assert.ok(descr.indexOf('min-aspect-ratio:205/100') !== -1, 'порог описания: ' + descr);
-  assert.ok(1920 / 1080 < 2.05, 'порог описания обязан оставаться выше 16:9');
+     мелочи в бюджете содержимого.
+     Task 63: кегли меты и полосы статуса подняты до tvOS (бюджеты 1.06 →
+     1.43 и 1.98 → 2.07), бюджет вырос на .48em — порог сдвинулся с 2.05:1
+     до 2.00:1 и остался выше и 16:9, и собственного пола 1.90. */
+  assert.ok(descr.indexOf('min-aspect-ratio:200/100') !== -1, 'порог описания: ' + descr);
+  assert.ok(1920 / 1080 < 2.00, 'порог описания обязан оставаться выше 16:9');
   assert.ok(parseInt(/min-aspect-ratio:(\d+)\/100/.exec(descr)[1], 10) >= 190, 'порог описания опустился к 16:9: ' + descr);
 });
 
@@ -2946,7 +2983,10 @@ test('Task 18: логотип фильма с текстовым фолбэко�
 
   const descr = findDecl(css, (sel) => sel === '.lumen-hero .lumen-hero__descr');
   assert.ok(descr && descr.indexOf('-webkit-line-clamp:2') !== -1, 'описание — две строки (§0.2)');
-  assert.ok(descr.indexOf('max-width:39.45em') !== -1, '900 px FHD');
+  /* Те же 900 px, но в СОБСТВЕННОМ кегле узла: 39.45 × 1.05 и 36.02 × 1.15 —
+     41.4em контекста блока в обоих случаях (Task 63 поднял кегль описания
+     до Body tvOS). */
+  assert.ok(descr.indexOf('max-width:36.02em') !== -1, '900 px FHD');
 
   assert.ok(findDecl(css, (sel) => sel === '.lumen-hero.lumen-hero--pending .lumen-hero__sk--meta'), 'скелетон меты, пока грузятся детали');
   assert.ok(findDecl(css, (sel) => sel === '.lumen-hero.lumen-hero--pending.lumen-hero--nodescr .lumen-hero__sk--descr'), 'скелетон описания — только когда описания нет вовсе');
@@ -3051,9 +3091,9 @@ test('Task 51: карточка ряда главной — 217×325 (7 коло
   const card = findDecl(css, (sel) => sel === '.lumen-main .card');
   assert.equal(card, 'width:9.52em', '217 px FHD; высоту даёт штатный padding-bottom:150 % у .card__view');
   const title = findDecl(css, (sel) => sel === '.lumen-main .card__title');
-  assert.ok(title.indexOf('font-size:0.96em') !== -1, 'название 22 px (§0.4): ' + title);
+  assert.ok(title.indexOf('font-size:1.01em') !== -1, 'Task 63: название — минимум tvOS, 23 px: ' + title);
   assert.ok(title.indexOf('white-space:nowrap') !== -1, 'одна строка: вторая отнимает у героя столько же экрана');
-  assert.ok(findDecl(css, (sel) => sel === '.lumen-main .card__age').indexOf('font-size:0.88em') !== -1, 'мета 20 px (§0.4)');
+  assert.ok(findDecl(css, (sel) => sel === '.lumen-main .card__age').indexOf('font-size:1.01em') !== -1, 'Task 63: мета — минимум tvOS, 23 px');
   assert.ok(findDecl(css, (sel) => sel === '.lumen-main .items-line__title').indexOf('font-size:1.23em') !== -1, 'заголовок ряда 28 px (§0.3)');
   /* Task 51: зазор между карточками — 40 физ. px той же сетки Apple. Штатный
      зазор Lampa вдвое уже (.mapping--line > * + *{margin-left:1em},
@@ -3583,7 +3623,7 @@ test('Task 43: рейтинг героя — в строке меты, отде�
   const meta = findDecl(css, (sel) => sel === '.lumen-hero .lumen-hero__meta');
   assert.ok(meta, 'правило меты не найдено');
   assert.equal(meta.indexOf('letter-spacing'), -1, 'разрядка была нужна моноширинному, её больше нет: ' + meta);
-  assert.ok(meta.indexOf('font-size:1em') !== -1, 'мета — основной кегль: ' + meta);
+  assert.ok(meta.indexOf('font-size:1.15em') !== -1, 'Task 63: мета — Body tvOS, 1.15em своего контекста = 1.27em базовых = 29 px: ' + meta);
   assert.ok(meta.indexOf('#A89A8A') !== -1, 'мета — muted: ' + meta);
 });
 
@@ -3591,9 +3631,14 @@ test('Task 43: заголовки — один вес 700 и один кегль
   assert.equal(css.indexOf('font-weight:800'), -1, 'вес 800 снят везде');
 
   const cardTitle = findDecl(css, (sel) => sel === '.lumen-card .full-start-new__title');
-  assert.ok(cardTitle.indexOf('font-size:3.2em') !== -1, 'название карточки 73px: ' + cardTitle);
+  /* Task 63: Title 1 tvOS — 76 px (3.33em) при межстрочном 96/76 = 1.26 и
+     нулевом трекинге: у Apple трекинг на ТВ положительный или нулевой, и
+     прежние −.02em шли против системной шкалы (docs/research/
+     2026-09-21-tv-design-specs.md §1). */
+  assert.ok(cardTitle.indexOf('font-size:3.33em') !== -1, 'название карточки — Title 1 tvOS, 76px: ' + cardTitle);
   assert.ok(cardTitle.indexOf('font-weight:700') !== -1, cardTitle);
-  assert.ok(cardTitle.indexOf('letter-spacing:-.02em') !== -1, cardTitle);
+  assert.ok(cardTitle.indexOf('line-height:1.26') !== -1, cardTitle);
+  assert.ok(cardTitle.indexOf('letter-spacing:0') !== -1, cardTitle);
 
   /* Фолбэк героя занимает место логотипа (4.4em его контекста) и теперь
      это ОДНА строка крупным кеглем, а не две мелким. */
@@ -3680,7 +3725,7 @@ test('Task 43: бюджет под полосу статуса совпадае�
      разметке всегда, и её margin отодвигал бы текст от низа кадра у каждого
      фильма без статуса. Значит и он считается в кегле статуса. */
   const need = Math.round((line + 2 * padY + mt) * zoom * 100) / 100;
-  assert.equal(need, 1.98, 'геометрия полосы статуса разошлась с бюджетом TEXT_STATUS');
+  assert.equal(need, 2.07, 'геометрия полосы статуса разошлась с бюджетом TEXT_STATUS');
 });
 
 test('Task 43: у карточки сетки подборки нет кольца фокуса — увеличение и подложка, как на главной', () => {
@@ -3816,7 +3861,7 @@ test('Task 44: чипы подборок — одна строка без пер
   assert.ok(chips.indexOf('-webkit-flex-wrap:nowrap') !== -1, 'нет префиксной пары: ' + chips);
   const chip = findDecl(css, (sel) => sel === '.lumen-roulette .lumen-roulette__chip');
   assert.ok(chip.indexOf('flex-shrink:0') !== -1, 'чип ужимается в ленте: ' + chip);
-  assert.ok(/(^|;)margin:0 \.53em 0 0/.test(chip), 'у чипа осталось нижнее поле от переноса: ' + chip);
+  assert.ok(/(^|;)margin:0 \.50em 0 0/.test(chip), 'у чипа осталось нижнее поле от переноса: ' + chip);
   assert.ok(findDecl(css, (sel) => sel === '.lumen-roulette .lumen-roulette__chipbox'),
     'обёртки горизонтальной прокрутки нет');
 });
@@ -3873,7 +3918,7 @@ test('Task 44: карточка результата — в потоке без 
   assert.ok(live && live.indexOf('display:block') !== -1, live);
   const kadr = findDecl(css, (sel) => sel === '.lumen-roulette-screen.is-kadr .lumen-roulette__result');
   assert.ok(kadr, 'правила карточки поверх кадра нет');
-  assert.ok(kadr.indexOf('position:absolute') !== -1 && /(^|;)left:2\.81em/.test(kadr) && /(^|;)bottom:/.test(kadr),
+  assert.ok(kadr.indexOf('position:absolute') !== -1 && /(^|;)left:3\.51em/.test(kadr) && /(^|;)bottom:/.test(kadr),
     'карточка не прижата вниз слева: ' + kadr);
   /* Корень в режиме кадра обязан кончаться там же, где область прокрутки, —
      иначе «внизу» окажется ниже кромки экрана. */
@@ -3919,4 +3964,204 @@ test('Task 44: корень рулетки без собственного фо�
   assert.equal(parts.length, 2, 'третье значение padding — это поле снизу: ' + pad[2]);
   assert.equal(parts[0], '0', 'сверху поле даёт маска прокрутки, своё было бы вторым: ' + pad[2]);
   assert.equal(/padding-bottom/.test(root), false, 'нижнее поле вернулось отдельным объявлением: ' + root);
+});
+
+/* -------------------------------------------------------------------- */
+/* Task 63: типографика и поля по tvOS.                                  */
+/*                                                                        */
+/* Apple HIG Typography: шкала tvOS начинается с Caption 2 — 23 px при    */
+/* «дефолте 29 и минимуме 23»; Amazon требует 28 px телу текста,          */
+/* Microsoft — 30 основному и 24 второстепенному                          */
+/* (docs/research/2026-09-21-tv-design-specs.md §1 и §2). 23 px — это     */
+/* ФИЗИЧЕСКИЕ пиксели растра 1920×1080: на телевизоре пользователя        */
+/* (Philips 50PUS8057, Android TV 11) WebView отдаёт CSS-окно 960×540     */
+/* при devicePixelRatio 2. База Lampa (innerWidth / 84.17) на этом растре */
+/* 22.811 px, значит порог в наших единицах — 1.01em.                     */
+/* -------------------------------------------------------------------- */
+
+const TV_MIN_EM = 1.01;
+
+/* Узлы, которые лежат ВНУТРИ .lumen-hero__text (разметка buildNode,
+   src/48_hero.js:479-500), — у их em свой множитель: у блока кегль
+   TEXT_ZOOM, и .88em внутри него это .97em базовых, а не .88. Список
+   явный, потому что по селектору вложенность не видна. */
+const HERO_TEXT_KIDS = ['lumen-hero__meta', 'lumen-hero__logo', 'lumen-hero__title',
+  'lumen-hero__descr', 'lumen-hero__sk', 'lumen-hero__chips', 'lumen-hero__status', 'lumen-hero__moods'];
+
+/* Узлы, которым кегль задан, но СВОЕГО текста у них нет: всё, что читают,
+   лежит в детях со своим font-size. Проверено по разметке:
+   .lumen-progress — три узла .lumen-progress__label/__time/__bar
+   (src/40_template.js:196-198), подписи 1.01em;
+   .full-start__button — штатная кнопка Lampa: <svg> плюс <span>, которому
+   наше правило даёт 1.05em (подпись «Продолжить S2 E3» — :after с тем же
+   1.05em);
+   .lumen-stop и .lumen-franchise — собственная иконка плюс <span>
+   (src/55_trailer.js:349-352, src/46_hub.js:1650-1652), у span 1.05em;
+   .lumen-hero__text — блок-контейнер, его font-size это множитель
+   содержимого (TEXT_ZOOM), а в ветке «кадра нет» он сброшен в 1em, и из
+   всего блока там виден только ряд чипов настроения с кеглем 1.01em. */
+const TEXT_LESS_BOXES = ['.lumen-card .lumen-progress',
+  '.lumen-card .full-start-new__buttons .full-start__button',
+  '.lumen-card .lumen-stop', '.lumen-card .lumen-franchise',
+  '.lumen-hero .lumen-hero__text', '.lumen-hero.lumen-hero--compact .lumen-hero__text'];
+
+test('Task 63: ни один текст интерфейса не мельче минимума tvOS', () => {
+  const zoom = parseFloat(/font-size:([\d.]+)em/.exec(decl(css, '.lumen-hero .lumen-hero__text'))[1]);
+  assert.equal(zoom, 1.1, 'множитель блока героя изменился — пересчитать эффективные кегли');
+
+  const small = [];
+  let checked = 0;
+  for (const rule of ruleBodiesWithMedia(css)) {
+    const value = declProp(rule.decl, 'font-size');
+    if (value === null) continue;
+    for (const sel of rule.selectors) {
+      /* HUD — служебный оверлей отладки (src/69_hud.js), его цифры читает
+         не зритель с дивана, а разработчик вплотную к экрану; кегль ему
+         задан сокращением font:, а не font-size, поэтому сюда он и не
+         попадает — проверяем явно, чтобы исключение осталось осознанным. */
+      if (sel.indexOf('lumen-hud') !== -1) continue;
+      if (TEXT_LESS_BOXES.indexOf(sel) !== -1) continue;
+      const found = /^([\d.]+)em$/.exec(value.trim());
+      assert.ok(found, 'кегль задан не в em, и минимум по нему не посчитать: ' + sel + ' {' + value + '}');
+      const inHero = HERO_TEXT_KIDS.some((cls) => sel.indexOf(cls) !== -1);
+      const effective = parseFloat(found[1]) * (inHero ? zoom : 1);
+      checked++;
+      if (effective < TV_MIN_EM - 0.005) small.push(sel + ': ' + effective.toFixed(3) + 'em = ' + (effective * 22.811).toFixed(1) + ' px');
+    }
+  }
+  assert.ok(checked > 80, 'подозрительно мало кеглей проверено: ' + checked);
+  assert.deepEqual(small, [], 'текст мельче минимума tvOS (23 px = 1.01em)');
+});
+
+test('Task 63: HUD — единственное исключение, и он служебный', () => {
+  const hud = findDecl(css, (sel) => sel === '.lumen-hud');
+  assert.ok(hud, 'правило HUD не найдено');
+  assert.ok(/font:\.7em\//.test(hud), 'кегль HUD задан сокращением font: — ' + hud);
+});
+
+test('Task 63: safe area — одна величина на всех экранах плагина', () => {
+  /* 80 px по бокам и 60 сверху/снизу — Apple HIG Layout (pt = px на
+     1920×1080), то есть 3.51em и 2.63em при базе 22.811. Прежние 2.81em
+     (64 px) были нашим числом из design-spec §1. */
+  assert.equal(css.indexOf('2.81em'), -1, 'в таблице остался прежний отступ 2.81em');
+
+  const edges = [
+    ['.full-start-new.lumen-card', 'padding:0 3.51em 2.63em'],
+    ['.lumen-descr-row .full-descr', 'padding-left:3.51em'],
+    ['.lumen-hub', 'padding:2.63em 3.51em'],
+    ['.lumen-grid', 'padding:2.63em 3.51em'],
+    ['.lumen-main .items-line__head', 'padding-left:3.51em'],
+    ['.lumen-main .items-line .scroll__content', 'padding-left:3.51em'],
+    ['.lumen-moods', 'left:3.51em'],
+    ['.lumen-roulette', 'padding:0 3.51em'],
+    ['.lumen-ambient .lumen-ambient__info', 'left:3.51em'],
+    ['.lumen-minimap', 'right:3.51em'],
+    ['.lumen-jump', 'bottom:2.63em']
+  ];
+  for (const [sel, want] of edges) {
+    const body = findDecl(css, (s) => s === sel);
+    assert.ok(body, 'правило не найдено: ' + sel);
+    assert.ok(body.indexOf(want) !== -1, sel + ' стоит не по safe area: ' + body);
+  }
+
+  /* У текста героя отступ делится на его собственный кегль: em у left/right
+     считается от font-size самого узла (TEXT_ZOOM), и без деления логотип
+     не стоял бы на одной вертикали с заголовком ряда. */
+  const hero = decl(css, '.lumen-hero .lumen-hero__text');
+  const zoom = parseFloat(/font-size:([\d.]+)em/.exec(hero)[1]);
+  assert.ok(Math.abs(parseFloat(/(^|;)left:([\d.]+)em/.exec(hero)[2]) * zoom - 3.51) < 0.02,
+    'текст героя стоит не по safe area: ' + hero);
+});
+
+test('Task 63: подпись карточки под фокусом уезжает вниз — только в motion-full', () => {
+  const rules = ruleBodies(css).filter((r) => r.selectors.some((s) => /card\.focus \.card__(title|age)$/.test(s)));
+  const shift = rules.find((r) => /translateY/.test(r.decl));
+  assert.ok(shift, 'правила сдвига подписи под фокусом нет');
+  assert.ok(shift.selectors.every((s) => s.indexOf('body.lumen-motion-full ') === 0),
+    'сдвиг обязан жить только в режиме полных анимаций: ' + shift.selectors.join(','));
+  assert.ok(shift.decl.indexOf('-webkit-transform:translateY') !== -1, 'старым webkit-движкам нужен префикс: ' + shift.decl);
+  const em = parseFloat(/[^-]transform:translateY\(([\d.]+)em\)/.exec(shift.decl)[1]);
+  assert.ok(em > 0 && em <= 0.4, 'сдвиг вне разумного (8 физ. px при .35em): ' + em);
+
+  /* Сдвиг едет тем же переходом, что и постер: жест обязан быть один. */
+  const move = findDecl(css, (sel) => sel === 'body.lumen-motion-full .lumen-main .card__title');
+  const poster = findDecl(css, (sel) => sel === 'body.lumen-motion-full .lumen-main .card__view');
+  assert.ok(move && /transition:transform \.18s ease-out/.test(move), 'подпись едет без перехода: ' + move);
+  assert.ok(poster && /transition:transform \.18s ease-out/.test(poster), 'постер сменил переход: ' + poster);
+
+  /* box-shadow в списке переходов запрещён по всему плагину (Task 38). */
+  assert.equal(/box-shadow/.test(move), false, 'тень в списке переходов подписи: ' + move);
+});
+
+/* Зазор между рядами. HIG Layout → Grids просит ≥ 100 px (4.39em), и Task 63
+   его НЕ ставит — бюджет высоты экрана кончается раньше. Тест держит не
+   красивое число, а сам размен: от следующего ряда обязано быть что-то
+   видно, а зазор HIG обязан этого лишать — иначе отступление перестало бы
+   иметь основание и его надо было бы снять. */
+test('Task 63: зазор между рядами — тот, что влез в бюджет высоты, а не 100 px HIG', () => {
+  const W = 960;
+  const H = 540;
+  const EM = W / 84.17;
+  const gap = num(decl(css, '.lumen-main .items-line'), 'padding-bottom') * EM;
+  const box = rowLayout(css, W, H, { more: true });
+  /* Верх заголовка следующего ряда: низ подписи предыдущего в потоке плюс
+     зазор. Живой замер на стенде 960×540@2 (2026-09-21, после
+     getAnimations().finish()): 520.8 + 15.97 = 536.8, и замеренный
+     .items-line__head второго ряда стоял ровно на 536.8. */
+  const next = box.flowBottomUp + gap;
+  assert.ok(Math.abs(next - 536.8) < 1, 'верх второго ряда ' + next.toFixed(1) + ' вместо замеренных 536.8');
+  assert.ok(next < H, 'следующий ряд не выглядывает вовсе — ряд «обрезан встык», а это дефект по ресёрчу §3');
+  const hig = box.flowBottomUp + 4.39 * EM;
+  assert.ok(hig > H, 'зазор HIG (100 px) помещается в экран — значит его и надо ставить: ' + hig.toFixed(1));
+});
+
+/* Обрезка ряда. Пятый пункт Task 63 просил overflow:visible у контейнера
+   ряда, чтобы выросший постер и подложка фокуса не резались. Проверка на
+   стенде показала, что вешать нечего: Lampa строит горизонтальный скролл
+   ряда без over/mask (new Scroll({horizontal:true, step}) в
+   vendor/lampa/app.min.js:52616-52619, а классы scroll--over/scroll--mask
+   ставятся только по params.over/params.mask, там же:31858-31859), и у всей
+   цепочки .items-line → .items-line__body → .scroll--horizontal →
+   .scroll__content → .scroll__body computed overflow: visible. Единственный
+   обрезающий предок — НАША область рядов, и её overflow:hidden держит
+   раскладку главной: без него ряды вылезли бы на кадр героя и за кромку
+   экрана. Поэтому правило overflow здесь не появляется ни одно. */
+test('Task 63: обрезку задаёт только область рядов — контейнерам ряда overflow не трогаем', () => {
+  const ours = ruleBodies(css).filter((r) => /(^|;)overflow/.test(r.decl) &&
+    r.selectors.some((s) => /items-line|items-cards|scroll--horizontal/.test(s)));
+  assert.deepEqual(ours.map((r) => r.selectors.join(',')), [],
+    'правило overflow на контейнере ряда — оно сломает горизонтальную прокрутку Lampa');
+
+  const area = findDecl(css, (sel) => sel === '.lumen-main .scroll.layer--wheight');
+  assert.ok(area && area.indexOf('overflow:hidden') !== -1, 'область рядов обязана обрезать ряды: ' + area);
+
+  /* И в самой Lampa у ряда своего overflow нет — иначе наш «ничего не
+     трогаем» опирался бы на догадку. */
+  const lampa = lampaCss();
+  for (const sel of ['.items-line', '.items-line__head']) {
+    const at = lampa.indexOf('\n' + sel + ' {');
+    assert.notEqual(at, -1, 'правило ' + sel + ' в app.css не найдено');
+    assert.equal(/overflow/.test(lampa.slice(at, lampa.indexOf('}', at))), false, sel + ': у Lampa появился свой overflow');
+  }
+});
+
+/* Шкала заголовка карточки — ступени tvOS, а не произвольные числа:
+   Title 1 76 px (3.33em) в базовом правиле, Title 2 57 px (2.5em) на
+   экране уже 1000 CSS px и Title 3 48 px (2.11em) в сжатой шапке
+   (docs/research/2026-09-21-tv-design-specs.md §1). На телевизоре
+   пользователя (WebView 960 CSS px при devicePixelRatio 2) работает
+   средняя ступень — это проверено живым замером на стенде, и потому тест
+   держит все три разом, а не одно базовое правило. */
+test('Task 63: заголовок карточки — три ступени шкалы tvOS', () => {
+  const base = decl(css, '.lumen-card .full-start-new__title');
+  assert.ok(base.indexOf('font-size:3.33em') !== -1, 'базовый — Title 1, 76 px: ' + base);
+  assert.ok(base.indexOf('line-height:1.26') !== -1, 'межстрочный Title 1 — 96/76: ' + base);
+  assert.ok(base.indexOf('letter-spacing:0') !== -1, 'трекинг на ТВ — нулевой или положительный: ' + base);
+
+  const narrow = ruleBodiesWithMedia(css).find((r) => r.media && /max-width:1000px/.test(r.media) &&
+    r.selectors.some((s) => s === '.lumen-card .full-start-new__title'));
+  assert.ok(narrow && narrow.decl.indexOf('font-size:2.5em') !== -1, 'узкий экран — Title 2, 57 px: ' + (narrow && narrow.decl));
+
+  const compact = decl(css, '.lumen-card.lumen-compact .full-start-new__title');
+  assert.ok(compact.indexOf('font-size:2.11em') !== -1, 'сжатая шапка — Title 3, 48 px: ' + compact);
 });
