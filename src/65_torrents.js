@@ -120,9 +120,20 @@
       /* Разделитель групп (штатный items c separator:true — Lampa рисует его
          как .settings-param-title, app.min.js bind). Он есть и в штатном меню
          карточки («Избранное»), и перед нашими пунктами в нём (Task 26,
-         src/63_cardmenu.js). Поля — как у пункта, чтобы подпись группы стояла
-         по одной линии со списком. */
-      r.push(S(['.selectbox .settings-param-title']) + '{margin:1.052em 2.805em .35em 1.403em;padding:0;border:0;background:none;font-family:' + k.fontBody + ';font-size:.745em;font-weight:700;line-height:1.2;letter-spacing:.08em;text-transform:uppercase;color:' + k.muted + '}');
+         src/63_cardmenu.js:411, :483). Подпись группы обязана стоять по одной
+         линии со списком — так её держит и сама Lampa: у пункта и у подписи
+         один и тот же padding 1.5em 2em (vendor/lampa/css/app.css:7151-7155 и
+         :2546-2548).
+         Ревью Task 53: горизонтальные поля считаются в СОБСТВЕННОМ кегле
+         подписи (.745em базового, то есть 16.99 px при 1920), а у пункта — в
+         базовом. Прежние 1.403em/2.805em брались у ПОЛЕЙ пункта как есть и
+         линию не давали никогда: текст пункта стоял в 48.0 px от кромки
+         панели, подпись — в 23.8 px. Task 53 поднял паддинг пункта с .701 до
+         1.4em и развёл их до 40.1 px. Теперь пересчитано честно: текст пункта
+         — 1.403 + 1.4 = 2.803em базовых, это 2.803 / .745 = 3.763em местных;
+         справа 2.805 + 1.4 = 4.205em базовых = 5.644em местных. Вертикальные
+         поля местные и были — они про ритм, а не про линию. */
+      r.push(S(['.selectbox .settings-param-title']) + '{margin:1.052em 5.644em .35em 3.763em;padding:0;border:0;background:none;font-family:' + k.fontBody + ';font-size:.745em;font-weight:700;line-height:1.2;letter-spacing:.08em;text-transform:uppercase;color:' + k.muted + '}');
       /* Текст подписи Lampa кладёт в <span> и красит его своим правилом
          (rgba(255,255,255,.4)) — цвет на обёртке до него не доходит. */
       r.push(S(['.selectbox .settings-param-title > span']) + '{color:' + k.muted + '}');
@@ -151,7 +162,18 @@
       r.push(S(['.selectbox .selectbox-item--checkbox']) + '{padding-left:3.242em;padding-right:1.4em}');
       r.push(S(['.selectbox .selectbox-item__checkbox']) + '{top:50%;right:auto;left:1.4em;width:1.227em;height:1.227em;margin-top:-.614em;border:.044em solid ' + k.line + ';border-radius:.307em;-webkit-box-sizing:border-box;box-sizing:border-box}');
       r.push(S(['.selectbox .selectbox-item--checked .selectbox-item__checkbox']) + '{border-color:' + k.accent + '}');
-      r.push(S(['.selectbox .selectbox-item.focus .selectbox-item__checkbox']) + '{border-color:' + k.bg + '}');
+      /* Ревью Task 53: filter:none обязателен. Lampa под body.glass--style
+         вешает на квадрат чекбокса в фокусе filter:invert(1)
+         (vendor/lampa/css/app.css:16073-16081) — под свой белый фокус, где
+         инверсия и задумана. Свойство filter мы не задавали, значит правило
+         действовало и у нас: с Task 54 квадрат стал цветом k.bg, инверсия
+         превращала его в почти-белый поверх почти-белой заливки, и чекбокс
+         пропадал. Раньше инвертировался k.onac на акцентной заливке — тоже
+         не задумано, но хотя бы видно. Бьёт только тех, кто сам включил
+         «Стеклянный стиль»: на ТВ он выключен по умолчанию
+         (app.min.js:47432 — trigger('glass_style', Platform.screen('mobile')),
+         и :47923 — trigger('glass_style', false)). */
+      r.push(S(['.selectbox .selectbox-item.focus .selectbox-item__checkbox']) + '{border-color:' + k.bg + ';-webkit-filter:none;filter:none}');
       r.push(S(['.selectbox .selectbox-item--checked.focus .selectbox-item__checkbox']) + '{background-color:' + k.bg + '}');
       r.push(S(check) + '{top:50%;left:50%;right:auto;width:.877em;height:.877em;margin:-.439em 0 0 -.439em;border:0;-webkit-transform:none;transform:none;color:' + k.accent + ';background-color:currentColor}');
       useMask('check', S(check));

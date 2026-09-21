@@ -246,6 +246,49 @@ test('Task 53: пункт меню — паддинг .7em 1.4em и will-change:
   assert.match(declOf('.selectbox.lumen-select .selectbox-item__checkbox'), /(^|;)left:1\.4em(;|$)/);
   assert.match(declOf('.selectbox.lumen-select .selectbox-item.selected:not(.nomark)'), /(^|;)padding-right:3\.329em(;|$)/);
   assert.match(declOf('.selectbox.lumen-select .selectbox-item.selected:not(.nomark)::after'), /(^|;)right:1\.4em(;|$)/);
+
+  /* Ревью Task 53: подпись группы (штатный separator:true, у нас — меню по
+     удержанию OK, src/63_cardmenu.js:411, :483) стоит по одной линии с
+     текстом пунктов. Считать приходится в разных кеглях: у пункта em базовый,
+     у подписи — свой, .745 базового, поэтому одно и то же расстояние
+     записывается разными числами. Lampa обе величины держит равными
+     (padding 1.5em 2em у пункта и у подписи — app.css:7151-7155 и :2546-2548). */
+  const item = declOf('.selectbox.lumen-select .selectbox-item');
+  const title = declOf('.selectbox.lumen-select .settings-param-title');
+  assert.ok(title, 'правило подписи группы не найдено');
+  /* Сокращённая запись в четыре значения; «0» без единицы тоже считается. */
+  const sides = (prop, decl) => {
+    const m = new RegExp('(?:^|;)' + prop + ':([^;}]+)').exec(decl);
+    assert.ok(m, prop + ' не найден в ' + decl);
+    const v = m[1].trim().split(/\s+/).map(parseFloat);
+    assert.equal(v.length, 4, prop + ' записан не четырьмя значениями: ' + m[1]);
+    return { top: v[0], right: v[1], bottom: v[2], left: v[3] };
+  };
+  const pad = (decl) => {
+    const m = /(?:^|;)padding:([^;}]+)/.exec(decl);
+    const v = m[1].trim().split(/\s+/).map(parseFloat);
+    return { y: v[0], x: v.length > 1 ? v[1] : v[0] };
+  };
+  const TITLE_EM = parseFloat(/font-size:([\d.]+)em/.exec(title)[1]);
+  const itemLeft = sides('margin', item).left + pad(item).x;
+  const titleLeft = sides('margin', title).left * TITLE_EM;
+  assert.ok(Math.abs(itemLeft - titleLeft) < 0.01,
+    'подпись группы разъехалась со списком: текст пункта в ' + itemLeft.toFixed(3) + 'em от кромки, подпись — в ' + titleLeft.toFixed(3) + 'em');
+  const itemRight = sides('margin', item).right + pad(item).x;
+  const titleRight = sides('margin', title).right * TITLE_EM;
+  assert.ok(Math.abs(itemRight - titleRight) < 0.01,
+    'правая кромка подписи разъехалась: пункт ' + itemRight.toFixed(3) + 'em, подпись ' + titleRight.toFixed(3) + 'em');
+});
+
+/* Ревью Task 53. Lampa под body.glass--style вешает filter:invert(1) на
+   квадрат чекбокса в фокусе (vendor/lampa/css/app.css:16073-16081) — под
+   свой белый фокус, где инверсия и задумана. У нас заливка фокуса тоже
+   светлая, и инвертированный тёмный квадрат на ней пропадает: filter мы не
+   объявляли, а значит правило Lampa действовало беспрепятственно. */
+test('Ревью Task 53: filter Lampa не съедает чекбокс на инверсии фокуса', () => {
+  const decl = declOf('.selectbox.lumen-select .selectbox-item.focus .selectbox-item__checkbox');
+  assert.ok(decl, 'правило чекбокса в фокусе не найдено');
+  assert.match(decl, /-webkit-filter:none;filter:none/, 'filter:none парой с префиксом: ' + decl);
 });
 
 test('Task 53: фокус пункта — инверсия, и всё внутри фокуса согласовано с ней', () => {

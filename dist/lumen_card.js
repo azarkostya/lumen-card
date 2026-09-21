@@ -20229,7 +20229,18 @@ r.push(S(['.selectbox .selectbox-item__title']) + '{font-size:.877em;font-weight
 
 
 
-r.push(S(['.selectbox .settings-param-title']) + '{margin:1.052em 2.805em .35em 1.403em;padding:0;border:0;background:none;font-family:' + k.fontBody + ';font-size:.745em;font-weight:700;line-height:1.2;letter-spacing:.08em;text-transform:uppercase;color:' + k.muted + '}');
+
+
+
+
+
+
+
+
+
+
+
+r.push(S(['.selectbox .settings-param-title']) + '{margin:1.052em 5.644em .35em 3.763em;padding:0;border:0;background:none;font-family:' + k.fontBody + ';font-size:.745em;font-weight:700;line-height:1.2;letter-spacing:.08em;text-transform:uppercase;color:' + k.muted + '}');
 
 
 r.push(S(['.selectbox .settings-param-title > span']) + '{color:' + k.muted + '}');
@@ -20258,7 +20269,18 @@ r.push(S(['.selectbox .selectbox-item__icon > svg:not([viewBox]):not([class]):no
 r.push(S(['.selectbox .selectbox-item--checkbox']) + '{padding-left:3.242em;padding-right:1.4em}');
 r.push(S(['.selectbox .selectbox-item__checkbox']) + '{top:50%;right:auto;left:1.4em;width:1.227em;height:1.227em;margin-top:-.614em;border:.044em solid ' + k.line + ';border-radius:.307em;-webkit-box-sizing:border-box;box-sizing:border-box}');
 r.push(S(['.selectbox .selectbox-item--checked .selectbox-item__checkbox']) + '{border-color:' + k.accent + '}');
-r.push(S(['.selectbox .selectbox-item.focus .selectbox-item__checkbox']) + '{border-color:' + k.bg + '}');
+
+
+
+
+
+
+
+
+
+
+
+r.push(S(['.selectbox .selectbox-item.focus .selectbox-item__checkbox']) + '{border-color:' + k.bg + ';-webkit-filter:none;filter:none}');
 r.push(S(['.selectbox .selectbox-item--checked.focus .selectbox-item__checkbox']) + '{background-color:' + k.bg + '}');
 r.push(S(check) + '{top:50%;left:50%;right:auto;width:.877em;height:.877em;margin:-.439em 0 0 -.439em;border:0;-webkit-transform:none;transform:none;color:' + k.accent + ';background-color:currentColor}');
 useMask('check', S(check));
