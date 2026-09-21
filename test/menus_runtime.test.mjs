@@ -604,3 +604,104 @@ test('Task 20: несколько настроек подряд дают одн�
   await tick();
   assert.equal(env.replaced(), 1);
 });
+
+/* ====================================================================== */
+/* Гонка первого экрана: главная построилась раньше, чем приехал плагин.   */
+/*                                                                        */
+/* Главную Lampa поднимает по setTimeout(last, 500) из Activity.init       */
+/* (app.min.js:45641, last — 46039), а плагин грузится по сети. Проиграли  */
+/* гонку — первый экран без наших рядов подборок и без персональных.       */
+/* Чиним один раз за активацию и только по факту: главная на экране И ни   */
+/* одна наша call-функция ещё не вызывалась (LC.rows.served()).            */
+/* ====================================================================== */
+
+function setupHomeRace(opts) {
+  opts = opts || {};
+  const env = setup();
+  let replaced = 0;
+  let current = opts.active || null;
+  let served = !!opts.served;
+  env.LC.manifest = { load: (cb) => cb({ collections: [], home: [] }) };
+  env.LC.rows = {
+    register: () => { },
+    unregister: () => { },
+    installDedupe: () => { },
+    uninstallDedupe: () => { },
+    served: () => served
+  };
+  globalThis.Lampa.Activity = {
+    active: () => (current ? { component: current } : null),
+    replace: () => { replaced++; }
+  };
+  return Object.assign({
+    replaced: () => replaced,
+    setActive: (name) => { current = name; },
+    setServed: (value) => { served = value; }
+  }, env);
+}
+
+test('гонку выиграли: главной на экране ещё нет — пересборки нет', async () => {
+  const env = setupHomeRace({ active: null, served: false });
+  env.LC.init();
+  await tick();
+  assert.equal(env.replaced(), 0, 'следующая главная и так построится с нашими рядами');
+});
+
+test('гонку выиграли: главная уже построена с нашими рядами — пересборки нет', async () => {
+  /* Ложное срабатывание, от которого спасает served(): Lampa успела
+     построить главную между нашей регистрацией и проверкой. */
+  const env = setupHomeRace({ active: 'main', served: true });
+  env.LC.init();
+  await tick();
+  assert.equal(env.replaced(), 0);
+});
+
+test('гонку проиграли: главная на экране без наших рядов — ровно одна пересборка', async () => {
+  const env = setupHomeRace({ active: 'main', served: false });
+  env.LC.init();
+  await tick();
+  assert.equal(env.replaced(), 1);
+});
+
+test('гонку проиграли: повторная активация второй пересборки не даёт', async () => {
+  const env = setupHomeRace({ active: 'main', served: false });
+  env.LC.init();
+  await tick();
+  assert.equal(env.replaced(), 1);
+
+  /* Выключение и включение плагина из настроек — активация вторая, но
+     главная уже пересобрана с нашими рядами. */
+  env.setServed(true);
+  env.log.length = 0;
+  env.storage.lumen_enabled = 'false';
+  env.LC.applyEnabledPref();
+  env.storage.lumen_enabled = 'true';
+  env.LC.applyEnabledPref();
+  assert.ok(env.log.indexOf('css-remove') !== -1 && env.log.indexOf('css') !== -1,
+    'плагин действительно выключился и включился заново');
+  await tick();
+  assert.equal(env.replaced(), 1, 'повторных пересборок быть не должно');
+});
+
+test('гонку проиграли, но открыт слой настроек — экран под руками не дёргаем', async () => {
+  const env = setupHomeRace({ active: 'main', served: false });
+  env.body.addClass('settings--open');
+  env.LC.init();
+  await tick();
+  assert.equal(env.replaced(), 0, 'пересборка под открытым слоем закрыла бы раздел и увела фокус');
+});
+
+test('гонку проиграли, но фокус в меню Lampa — ждём, а не вырываем фокус', async () => {
+  const env = setupHomeRace({ active: 'main', served: false });
+  globalThis.Lampa.Controller.enabled = () => ({ name: 'menu' });
+  env.LC.init();
+  await tick();
+  assert.equal(env.replaced(), 0);
+});
+
+test('на чужом экране пересборки нет', async () => {
+  const env = setupHomeRace({ active: 'full', served: false });
+  env.LC.init();
+  await tick();
+  assert.equal(env.replaced(), 0);
+});

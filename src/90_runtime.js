@@ -1226,7 +1226,11 @@
     try {
       if (LC.rows && LC.rows.register && LC.manifest && LC.manifest.load) {
         LC.manifest.load(function (m) {
-          if (activated && LC.rows && LC.rows.register) LC.rows.register(m);
+          if (!activated || !LC.rows || !LC.rows.register) return;
+          LC.rows.register(m);
+          /* Ряды зарегистрированы — здесь и только здесь видно, успели мы к
+             первому экрану или он построился без нас (см. repairHomeRows). */
+          repairHomeRows();
         });
       }
     } catch (eRows2) {
@@ -1370,6 +1374,9 @@
     /* Task 57: выключенный плагин не имеет права держать свою обёртку над
        Lampa.Api.main — главная должна строиться ровно как без плагина. */
     try { if (LC.rows && LC.rows.uninstallDedupe) LC.rows.uninstallDedupe(); } catch (eDedupeOff) {}
+    /* Одна попытка достройки главной на активацию: следующее включение
+       плагина получит свою (см. repairHomeRows). */
+    home_repaired = false;
     /* Task 16: снять персональные ряды. */
     try { if (LC.personal && LC.personal.unregister) LC.personal.unregister(); } catch (ePersonalOff) {}
     /* Task 17: убрать пункт меню «Подборки». */
@@ -1489,7 +1496,22 @@
       var modal = $('.modal');
       if (modal && modal.length) return true;
     } catch (eModal) {}
+    if (menuFocused()) return true;
     return settingsOpen();
+  }
+
+  /* Фокус в левом меню Lampa. Слоя над активностью меню не создаёт — это
+     сайдбар, — но пересборка под ним всё равно выдёргивает фокус: внутри
+     ActivitySlide.start() Lampa зовёт Controller.toggle('content'), и пульт
+     уходит из меню на ряды. Для пользователя это то же самое, что дёрнуть
+     экран под руками, поэтому меню считается слоем наравне с настройками. */
+  function menuFocused() {
+    try {
+      var cur = window.Lampa && Lampa.Controller && typeof Lampa.Controller.enabled === 'function' ? Lampa.Controller.enabled() : null;
+      return !!(cur && cur.name === 'menu');
+    } catch (e) {
+      return false;
+    }
   }
 
   /* Слой настроек закрылся — Lampa шлёт своё событие 'close' (app.min.js
@@ -1533,6 +1555,50 @@
     }
     pending_refresh = component;
   };
+
+  /* -------------------------------------------------------------------- */
+  /* Гонка первого экрана с загрузкой плагина.                             */
+  /*                                                                       */
+  /* Главную Lampa поднимает по setTimeout(last, 500) из Activity.init     */
+  /* (app.min.js:45641; last — 46039), а плагин приезжает по сети с        */
+  /* хостинга: кто успел, тот и решает, попадут ли НАШИ ряды в первый      */
+  /* экран. Проигрыш стоит дорого — человек видит главную вообще без рядов */
+  /* подборок и без персональных рядов, и так до следующего захода на неё. */
+  /* Беда не новая (она с Task 15, когда ряды впервые появились), Task 57  */
+  /* её только обнажил: у рядов, в отличие от героя, чипов и меток, нет    */
+  /* доклейки к уже нарисованному экрану — ContentRows меняет только то,   */
+  /* что Lampa построит В СЛЕДУЮЩИЙ раз.                                   */
+  /*                                                                       */
+  /* Чиним ОДИН раз за активацию и только по подтверждённому факту, а не   */
+  /* по подозрению: главная сейчас на экране И ни одна наша call-функция   */
+  /* ещё не вызывалась (LC.rows.served(), см. src/44_rows.js). Второе      */
+  /* условие и снимает ложное срабатывание: если Lampa успела построить    */
+  /* главную между нашей регистрацией и этой проверкой, served() уже true. */
+  /* Главной на экране нет — чинить нечего, следующая построится с нами.   */
+  /*                                                                       */
+  /* Пересборка идёт через LC.refreshComponent: там и откладывание на      */
+  /* открытый слой (настройки, селектбокс, модалка, фокус в меню), и       */
+  /* проверка, что компонент всё ещё тот самый, и таймер, чтобы не звать   */
+  /* Activity.replace() из обработчика события Lampa.                      */
+  /* -------------------------------------------------------------------- */
+
+  var home_repaired = false;
+
+  function repairHomeRows() {
+    if (home_repaired) return;
+    /* Флаг поднимается ДО проверок: одна попытка на активацию, чем бы она
+       ни кончилась. deactivate() его сбрасывает — выключенный и снова
+       включённый плагин имеет право на свою попытку, но и она будет одна. */
+    home_repaired = true;
+    try {
+      if (!LC.rows || typeof LC.rows.served !== 'function') return;
+      if (LC.rows.served()) return;
+      if (activeComponentName() !== 'main') return;
+      LC.refreshComponent('main');
+    } catch (e) {
+      warn('home repair failed', e);
+    }
+  }
 
   /* Вызывается из LC.onActivityEvent на 'start': вернулись на экран, который
      ждал пересборки. */

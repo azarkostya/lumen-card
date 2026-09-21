@@ -5798,6 +5798,7 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 
+
 LC.rows = (function () {
 
 
@@ -5831,6 +5832,20 @@ var _homeGen = 0;
 
 
 var _addedRows = [];
+
+
+
+
+
+
+
+
+
+
+
+
+
+var _served = false;
 
 
 
@@ -6224,6 +6239,11 @@ flushWaiting();
 }
 
 
+function served() {
+return _served;
+}
+
+
 
 
 
@@ -6432,6 +6452,7 @@ adventWord('lumen_advent_day', 'Day').toLowerCase() + ' ' + day;
 
 function makeAdventCall(manifest) {
 return function (params, screen) {
+_served = true;
 return function (call) {
 var gen = _homeGen;
 function alive() { return _homeGen === gen; }
@@ -6548,6 +6569,7 @@ _addedRows.push(descriptor);
 
 function makeCall(item, pinned) {
 return function (params, screen) {
+_served = true;
 return function (call) {
 
 
@@ -6607,6 +6629,9 @@ bumpGen: bumpGen,
 dedupeAcross: dedupeAcross,
 installDedupe: installDedupe,
 uninstallDedupe: uninstallDedupe,
+
+
+served: served,
 
 
 adventSpecs: adventSpecs,
@@ -25901,7 +25926,11 @@ LC.applyTorrentsPref();
 try {
 if (LC.rows && LC.rows.register && LC.manifest && LC.manifest.load) {
 LC.manifest.load(function (m) {
-if (activated && LC.rows && LC.rows.register) LC.rows.register(m);
+if (!activated || !LC.rows || !LC.rows.register) return;
+LC.rows.register(m);
+
+
+repairHomeRows();
 });
 }
 } catch (eRows2) {
@@ -26046,6 +26075,9 @@ try { if (LC.rows && LC.rows.unregister) LC.rows.unregister(); } catch (eRows) {
 
 try { if (LC.rows && LC.rows.uninstallDedupe) LC.rows.uninstallDedupe(); } catch (eDedupeOff) {}
 
+
+home_repaired = false;
+
 try { if (LC.personal && LC.personal.unregister) LC.personal.unregister(); } catch (ePersonalOff) {}
 
 try { if (LC.hub && LC.hub.uninstall) LC.hub.uninstall(); } catch (eHubOff) {}
@@ -26164,7 +26196,22 @@ try {
 var modal = $('.modal');
 if (modal && modal.length) return true;
 } catch (eModal) {}
+if (menuFocused()) return true;
 return settingsOpen();
+}
+
+
+
+
+
+
+function menuFocused() {
+try {
+var cur = window.Lampa && Lampa.Controller && typeof Lampa.Controller.enabled === 'function' ? Lampa.Controller.enabled() : null;
+return !!(cur && cur.name === 'menu');
+} catch (e) {
+return false;
+}
 }
 
 
@@ -26208,6 +26255,50 @@ return;
 }
 pending_refresh = component;
 };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+var home_repaired = false;
+
+function repairHomeRows() {
+if (home_repaired) return;
+
+
+
+home_repaired = true;
+try {
+if (!LC.rows || typeof LC.rows.served !== 'function') return;
+if (LC.rows.served()) return;
+if (activeComponentName() !== 'main') return;
+LC.refreshComponent('main');
+} catch (e) {
+warn('home repair failed', e);
+}
+}
 
 
 

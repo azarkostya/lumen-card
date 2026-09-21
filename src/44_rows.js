@@ -11,6 +11,7 @@
   /*   viewedIds(results?) → number[]                                        */
   /*   bumpGen() — runtime: поднимает поколение главной                     */
   /*   installDedupe() / uninstallDedupe() — обёртка над Lampa.Api.main     */
+  /*   served() → строилась ли главная с нашими рядами хоть раз             */
   /*   register(manifest) — runtime: регистрирует ряды через ContentRows    */
   /*   unregister() — runtime: снимает ряды через ContentRows.remove        */
   /*                                                                       */
@@ -75,6 +76,20 @@
     /* Дескрипторы, переданные в ContentRows.add при последней регистрации.
        doUnregister() снимает их через ContentRows.remove и очищает массив. */
     var _addedRows = [];
+
+    /* Участвовали ли НАШИ ряды хоть раз в построении главной. Флаг поднимает
+       фабрика call-функции ряда: Lampa зовёт её из ContentRows.call('main',
+       params, parts_data) (app.min.js:19877 у TMDB, 33962 у CUB) синхронно в
+       начале Api.main, то есть ровно тогда, когда ряд попал в СОСТАВ
+       строящегося экрана — раньше любых сетевых ответов.
+
+       Отвечает на вопрос «была ли главная хоть раз построена с нами», а не
+       «с нами ли текущая регистрация», поэтому register() его НЕ сбрасывает:
+       по нему src/90_runtime.js решает, проиграли ли мы гонку с первым
+       экраном (главную Lampa поднимает по setTimeout(last, 500) из
+       Activity.init, app.min.js:45641). Сброс сделал бы «ряды только что
+       перерегистрированы» неотличимым от «главная построена без нас». */
+    var _served = false;
 
     /* Ещё не ответившие call-функции рядов. Держит контракт «ровно один
        call при любом исходе»: makeResolver кладёт сюда резолвер, первый же
@@ -467,6 +482,11 @@
       flushWaiting();
     }
 
+    /* Строилась ли главная с нашими рядами хоть раз за эту сессию Lampa. */
+    function served() {
+      return _served;
+    }
+
     /* ------------------------------------------------------------------ */
     /* Task 57, рантайм: обёртка над Lampa.Api.main.                       */
     /* ------------------------------------------------------------------ */
@@ -676,6 +696,7 @@
        исходе» держит makeResolver, как и у обычных рядов. */
     function makeAdventCall(manifest) {
       return function (params, screen) {
+        _served = true;
         return function (call) {
           var gen = _homeGen;
           function alive() { return _homeGen === gen; }
@@ -792,6 +813,7 @@
        не вызовет колбэки результата. */
     function makeCall(item, pinned) {
       return function (params, screen) {
+        _served = true;
         return function (call) {
           /* Захватываем поколение в момент начала загрузки ряда.
              bumpGen() при archive/destroy component='main' поднимет _homeGen,
@@ -851,6 +873,9 @@
       dedupeAcross: dedupeAcross,
       installDedupe: installDedupe,
       uninstallDedupe: uninstallDedupe,
+      /* Гонка первого экрана: по этому признаку 90_runtime.js решает,
+         строилась ли видимая сейчас главная с нашими рядами. */
+      served: served,
       /* Task 21: чистые части адвента наружу ради тестов — сам ряд
          регистрирует register() в декабре. */
       adventSpecs: adventSpecs,
