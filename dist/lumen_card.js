@@ -719,6 +719,10 @@ return p;
 
 
 
+
+
+
+
 function accentRules(P, t) {
 return {
 main: '.lumen-main{background-color:' + P.bg + '}',
@@ -932,6 +936,11 @@ var TV_MIN = 1.01;
 var HERO_VH = { large: 66.67, medium: 56, compact: 45 };
 var ROWS_TOP_VH = { large: 50, medium: 42, compact: 34 };
 var HERO_DEFAULT = 'large';
+
+
+
+
+
 
 
 
@@ -10689,6 +10698,12 @@ state.frameUrl = url;
 
 
 
+
+
+
+
+
+
 var LQIP_FREE = 900;
 function releaseLqip() {
 if (!state || !state.lqipUrl) return;
@@ -10732,6 +10747,15 @@ if (!path) return;
 
 var url = imageUrl(path, blur ? 'w92' : sizeFor(screenWidth()));
 if (!url || url === state.frameUrl) return;
+
+
+
+
+
+
+
+
+
 
 
 
@@ -16907,6 +16931,8 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 /* ---- 57_color.js ---- */
+
+
 
 
 
