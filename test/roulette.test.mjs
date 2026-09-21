@@ -357,6 +357,13 @@ El.prototype.all = function (sel) {
   })(this);
   return out;
 };
+/* Обход коллекции. ВАЖНО: find() этой заглушки отдаёт ОДИН узел (первый
+   совпавший), поэтому each() пробегает ровно по нему. Для путей, которые
+   проходят здешние тесты, этого хватает — setMedia дальше только метит
+   вкладку классом is-on, а проверяют тесты не его. Полноценная коллекция
+   потребовала бы переписать find(), и делать это ради одной метки дороже,
+   чем польза. */
+El.prototype.each = function (fn) { fn.call(this, 0, this); return this; };
 var EMPTY_EL = new El([]);
 EMPTY_EL.length = 0;
 El.prototype.find = function (sel) {
@@ -497,6 +504,9 @@ function restoreGlobals34() {
    старые тесты фона от этого не зависят вовсе. Тест, которому нужен сам
    переход, ставит transitionStub.on = true и зовёт fireReveal(). */
 var transitionStub = null;
+var collected = [];
+var focused = [];
+function resetCollection() { collected = []; focused = []; }
 function resetTransition() {
   transitionStub = {
     on: false,
@@ -517,9 +527,10 @@ function fireReveal() {
   last.opts.then();
 }
 
-function openRoulette34(cards, t, dpr) {
+function openRoulette34(cards, t, dpr, motion) {
   resetTimers();
   resetTransition();
+  resetCollection();
   createdImages.length = 0;
   scrolls.length = 0;
   poolCards34 = cards;
@@ -529,7 +540,15 @@ function openRoulette34(cards, t, dpr) {
   var Lampa = {
     Scroll: ElScroll,
     Component: { add: function (name, fn) { components[name] = fn; } },
-    Controller: { add: function () { }, toggle: function () { }, collectionSet: function () { }, collectionFocus: function () { } },
+    /* Ревью Task 44 (п.1, п.6): область обхода фокуса — это то, что
+       последним ушло в collectionSet. Заглушка ведёт журнал, иначе промах
+       «флаг сменили, коллекцию не переустановили» тестом не виден. */
+    Controller: {
+      add: function () { },
+      toggle: function () { },
+      collectionSet: function (node) { collected.push(node); },
+      collectionFocus: function (node, box) { focused.push({ node: node, box: box }); }
+    },
     Menu: { addButton: function () { return new El([]); } }
   };
   /* Task 44: высота окна нужна так же, как ширина, — барабан задан в vh. */
@@ -544,7 +563,7 @@ function openRoulette34(cards, t, dpr) {
     lang: function (k) { return k; },
     langCode: function () { return 'ru'; },
     pref: function (name, def) { return def; },
-    motionMode: function () { return 'full'; },
+    motionMode: function () { return motion || 'full'; },
     hub: { titleOf: function (item) { return (item && item.title) || ''; } },
     cardinfo: { imageUrl: function (path, size) { return path ? 'https://img/' + size + path : ''; } },
     rows: { viewedIds: function () { return []; } },
@@ -565,6 +584,10 @@ function openRoulette34(cards, t, dpr) {
   return {
     comp: comp,
     screen: screen,
+    /* Последняя установленная область обхода фокуса и последний фокус. */
+    lastCollection: function () { return collected[collected.length - 1]; },
+    lastFocus: function () { return focused[focused.length - 1]; },
+    resultNode: function () { return screen.find('.lumen-roulette__result')[0]; },
     root: screen.find('.lumen-roulette'),
     reel: reel,
     bg: screen.find('.lumen-roulette__bg'),
@@ -908,4 +931,96 @@ test('Task 44: destroy снимает удержанный слой перехо
   const before = env.transition.stops;
   env.comp.destroy();
   assert.equal(env.transition.stops, before + 1);
+});
+
+/* ====================================================================== */
+/* Фикс-раунд Task 44 по ревью                                            */
+/* ====================================================================== */
+
+/* П.1. Сужение области обхода фокуса (scope) применяется только в момент
+   recollect(), поэтому смены флага kadr мало. Проверяется именно ОБЛАСТЬ —
+   последний аргумент collectionSet, — а не флаг: промах был ровно в том,
+   что флаг менялся, а коллекция оставалась прежней.
+   В «Лёгких» этот путь — единственный: барабан там не крутится (runReel),
+   showResult отрабатывает синхронно сразу за prepareFrame, и кадр приходит
+   ПОСЛЕ результата всегда. */
+test('Ревью Task 44: кадр долетел позже результата — коллекция сужается до карточки', (t) => {
+  const env = openRoulette34([R44], t, 1, 'lite');
+  env.transition.on = true;
+  spinAndFlush(env);
+  assert.equal(env.transition.reveals.length, 0, 'в «Лёгких» кадр к остановке барабана прийти не успевает');
+  assert.equal(env.root.find('.lumen-roulette__result').hasClass('is-live'), true, 'результат показан сразу');
+  assert.equal(env.lastCollection(), env.root[0], 'пока кадра нет, обход идёт по всему спокойному экрану');
+
+  createdImages[0].onload();
+  assert.equal(env.screen.hasClass('is-kadr'), true, 'кадр долетел — экран перешёл в режим кадра');
+  assert.equal(env.lastCollection(), env.resultNode(),
+    'область обхода осталась на спокойном экране: «вверх» уведёт фокус на невидимый барабан');
+});
+
+/* Тот же промах на обычном пути (кадр успел к остановке барабана) не
+   воспроизводится, но область обхода обязана быть сужена и там. */
+test('Ревью Task 44: обычный путь через переход тоже оставляет обход на карточке', (t) => {
+  const env = openRoulette34([R44], t);
+  env.transition.on = true;
+  fire(env.root.find('.lumen-roulette__spin'), 'hover:enter');
+  createdImages[0].onload();
+  flushTimers();
+  fireReveal();
+  assert.equal(env.lastCollection(), env.resultNode());
+});
+
+/* П.6. «Ещё раз» нажимают с кнопки, которую clearResult() тут же удаляет
+   вместе со всем resultBox. Коллекция обязана вернуться на спокойный экран
+   СРАЗУ, а не через три секунды барабана. */
+test('Ревью Task 44: «Ещё раз» сразу возвращает обход на спокойный экран', (t) => {
+  const env = openRoulette34([R44], t);
+  env.transition.on = true;
+  fire(env.root.find('.lumen-roulette__spin'), 'hover:enter');
+  createdImages[0].onload();
+  flushTimers();
+  fireReveal();
+  assert.equal(env.lastCollection(), env.resultNode(), 'подготовка: обход на карточке результата');
+
+  fire(env.root.all('.lumen-roulette__btn')[1], 'hover:enter');
+  assert.equal(env.lastCollection(), env.root[0], 'обход остался на опустевшей карточке результата');
+  assert.equal(env.lastFocus().node, env.root.find('.lumen-roulette__spin')[0], 'фокус не переехал на «Крутить»');
+  flushTimers();
+});
+
+/* П.2. Удержанный слой снимает не только наш колбэк: старт любой не-full
+   активности зовёт LC.transition.stop() (src/90_runtime.js). Колбэк тогда
+   не придёт никогда, а result уже выставлен — экран возвращался с кадром во
+   весь экран и ПУСТОЙ карточкой результата, то есть без единого узла в
+   обходе фокуса. */
+test('Ревью Task 44: слой сняли снаружи — возврат на экран дорисовывает результат', (t) => {
+  const env = openRoulette34([R44], t);
+  env.transition.on = true;
+  fire(env.root.find('.lumen-roulette__spin'), 'hover:enter');
+  createdImages[0].onload();
+  flushTimers();
+  assert.equal(env.transition.reveals.length, 1, 'подготовка: переход пошёл');
+  assert.equal(env.root.find('.lumen-roulette__result').hasClass('is-live'), false,
+    'подготовка: карточку рисует колбэк, он ещё не пришёл');
+
+  /* Ушли в левое меню: слой снят снаружи, колбэк не придёт. */
+  env.comp.stop();
+  assert.equal(env.screen.hasClass('is-kadr'), false, 'режима кадра без карточки быть не должно');
+
+  env.comp.start();
+  assert.equal(env.root.find('.lumen-roulette__result').hasClass('is-live'), true,
+    'результат остался невидимым — выбранный фильм потерян');
+  assert.equal(createdImages.length, 2, 'кадр перезапрошен');
+  createdImages[1].onload();
+  assert.equal(env.screen.hasClass('is-kadr'), true);
+  assert.equal(env.lastCollection(), env.resultNode(), 'на экране нет ни одного узла для фокуса');
+});
+
+/* П.7. Набор чипов сменился — лента обязана вернуться в начало. */
+test('Ревью Task 44: смена «Фильмы/Сериалы» отматывает ленту чипов в начало', (t) => {
+  const env = openRoulette34([R44], t);
+  const rail = scrolls.filter((s) => s.params.horizontal)[0];
+  const before = rail.resets;
+  fire(env.root.all('.lumen-roulette__tab')[1], 'hover:enter');
+  assert.ok(rail.resets > before, 'лента осталась сдвинутой от прошлого набора подборок');
 });

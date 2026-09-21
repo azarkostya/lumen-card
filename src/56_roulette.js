@@ -642,6 +642,12 @@
 
       function buildChips() {
         chipsRow.empty();
+        /* Ревью Task 44 (п.7): набор чипов меняется — лента обязана вернуться
+           в начало. Сдвиг остаётся на .scroll__body от прошлого набора, а он
+           мог быть длиннее: после смены «Фильмы/Сериалы» слева осталась бы
+           пустота до первого касания чипа (смена медиа возвращает фокус на
+           таб, значит railChip не сработает). */
+        try { chipsScroll.reset(); } catch (eR) { warn('roulette: chips reset failed', eR); }
         collections = collectionsFor(manifest, media);
         var all = chipNode(LC.lang('lumen_roulette_all'), !chosen.length);
         all.on('hover:enter', function () {
@@ -788,14 +794,33 @@
         return imageUrl(card && card.backdrop_path, LC.util.scrimSize(LC.util.screenPx()));
       }
 
-      /* Ставит кадр фоном и переводит экран в режим кадра. Зовут её из двух
-         мест: из колбэка перехода (кадр уже накрыл экран удержанным слоем) и
-         из предзагрузки, если та ответила ПОЗЖЕ показа результата, — во
-         втором случае перехода уже не будет, момент для него прошёл. */
+      /* Нарисована ли карточка результата. Ревью Task 44 (п.2): режим кадра
+         без неё — это экран, на котором нет ни одного узла в обходе фокуса
+         (scope() сужается до пустого resultBox), и выйти с него можно только
+         «назад». Поэтому кадр и режим кадра разведены: фон ставится всегда,
+         режим — только когда карточке есть что показать. */
+      function resultShown() {
+        return resultBox.hasClass('is-live');
+      }
+
+      /* Ставит кадр фоном и, если карточка результата уже нарисована,
+         переводит экран в режим кадра. Зовут её из двух мест: из колбэка
+         перехода (кадр уже накрыл экран удержанным слоем) и из
+         предзагрузки, если та ответила ПОЗЖЕ показа результата, — во втором
+         случае перехода уже не будет, момент для него прошёл.
+
+         Ревью Task 44 (п.2): бывает и третий заход — this.start() поднимает
+         предзагрузку заново после ухода с экрана. Удержанный слой в этот
+         момент мог быть снят снаружи (src/90_runtime.js:480-484: старт любой
+         не-full активности зовёт LC.transition.stop()), и тогда колбэк,
+         который рисует карточку, не придёт уже никогда: call() внутри
+         reveal сверяет state !== live. Экран оставался бы с полноэкранным
+         кадром и пустой карточкой. Карточку в этом случае дорисовывает сам
+         this.start(); проверка resultShown() — вторая страховка. */
       function showKadr(url) {
         try { bg.css('background-image', 'url("' + url + '")'); } catch (e) { }
         resultBgShown = true;
-        enterKadr();
+        if (resultShown()) enterKadr();
       }
 
       function enterKadr() {
@@ -806,6 +831,18 @@
            спокойного экрана, увела бы её вниз вместе с ним. */
         try { scroll.reset(); } catch (e) { }
         screen.addClass('is-kadr');
+        /* Ревью Task 44 (п.1): сужение области обхода (scope) применяется
+           только в момент recollect(), поэтому смены флага мало. На пути
+           «кадр долетел ПОЗЖЕ результата» карточка собрала коллекцию ещё
+           при kadr === false, то есть со всем спокойным экраном внутри, и
+           переустановить её больше некому. Путь этот не краевой: в «Лёгких»
+           барабан не крутится (runReel), showResult отрабатывает синхронно
+           сразу за prepareFrame, и кадр там опаздывает ВСЕГДА.
+           На обычном пути коллекция ставится дважды подряд — сперва из
+           paintResult, потом отсюда. Это осознанно: развилка «звать или не
+           звать» обошлась бы дороже одного лишнего collectionSet на нажатие
+           пульта. */
+        recollect(null);
       }
 
       function leaveKadr() {
@@ -967,27 +1004,34 @@
         var live = frame && frame.card === card && frame.ready ? frame : null;
         var rect = live ? reelRect() : null;
         if (live) {
-          var started = false;
+          /* Имя не started: компонентный started (жив ли экран) объявлен
+             выше и читается build()/this.start()/this.stop() — тень над ним
+             была бы миной для следующей правки (ревью Task 44, п.8). */
+          var revealed = false;
           try {
-            started = !!(rect && LC.transition && typeof LC.transition.reveal === 'function' && LC.transition.reveal({
+            revealed = !!(rect && LC.transition && typeof LC.transition.reveal === 'function' && LC.transition.reveal({
               rect: rect,
               poster: imageUrl(card.poster_path, LC.util.posterSize(LC.util.vhPx(REEL_VH))),
               big: live.url
             }, {
+              /* Карточка рисуется ДО кадра, а не после: режим кадра теперь
+                 включается только при нарисованной карточке (см. showKadr).
+                 Оба вызова синхронны и идут в одном кадре отрисовки, так
+                 что порядок виден только коду. */
               then: function () {
                 if (gen !== captured || result !== card) return;
-                showKadr(live.url);
                 paintResult(card);
+                showKadr(live.url);
                 try { LC.transition.stop(); } catch (eStop) { }
               }
             }));
           } catch (e) {
             warn('roulette: reveal failed', e);
           }
-          if (started) return;
-          showKadr(live.url);
+          if (revealed) return;
         }
         paintResult(card);
+        if (live) showKadr(live.url);
       }
       function openCard(card) {
         try {
@@ -1110,6 +1154,13 @@
            в setMedia (смена «Фильмы/Сериалы»), и всё время вращения ленты
            на экране висел кадр ПРОШЛОГО результата. */
         clearResult();
+        /* Ревью Task 44 (п.6): «Ещё раз» нажимают С КНОПКИ карточки
+           результата, а clearResult() только что опустошил resultBox вместе
+           с ней — коллекция Lampa указывала бы на пустой узел, а
+           Navigator.focused на снятый с DOM элемент, и все три секунды
+           барабана «вправо», «вниз» и OK были бы мертвы. Возвращаем обход на
+           спокойный экран сразу, а фокус — на «Крутить». */
+        recollect(spinBtn[0]);
         try { spinBtn.addClass('is-busy'); } catch (e) { }
         var captured = gen;
         try { self.activity.loader(!pool.length); } catch (e) { }
@@ -1220,7 +1271,17 @@
            выбором» держится и для кадра тоже, а не только для resultBox.
            Task 44: перехода при этом не будет — он показывает выпадение
            фильма, а тут пользователь возвращается к уже выпавшему; кадр
-           просто встаёт фоном, как только долетит (см. prepareFrame). */
+           просто встаёт фоном, как только долетит (см. prepareFrame).
+
+           Ревью Task 44 (п.2): результат мог остаться НЕнарисованным. Слой
+           перехода держится до своего колбэка, а снаружи его снимает старт
+           любой не-full активности (src/90_runtime.js:480-484) — ушли в
+           левое меню в те 960 мс, что слой разгоняется, и колбэк не придёт
+           уже никогда (call() внутри reveal сверяет state !== live). result
+           при этом выставлен с самого начала showResult. Дорисовываем
+           карточку здесь: иначе экран вернулся бы с выбранным фильмом,
+           которого не видно. */
+        if (result && !resultShown()) paintResult(result);
         if (result && !resultBgShown && !resultLoader) prepareFrame(result);
         motionClass(root);
         Lampa.Controller.add('content', {

@@ -3455,6 +3455,7 @@ css.push('.lumen-overlay .lumen-overlay__img.is-run{border-radius:0}');
 
 
 
+
 css.push('.lumen-roulette-screen{position:relative;height:100%;overflow:hidden}');
 
 
@@ -3474,7 +3475,14 @@ css.push('.lumen-roulette-screen .lumen-roulette__veil{position:absolute;top:-4e
 css.push('.lumen-roulette-screen .lumen-roulette__veil--l{background:-webkit-linear-gradient(left,rgba(' + P.bgRgb + ',.85) 0%,rgba(' + P.bgRgb + ',.45) 30%,rgba(' + P.bgRgb + ',0) 65%);background:linear-gradient(90deg,rgba(' + P.bgRgb + ',.85) 0%,rgba(' + P.bgRgb + ',.45) 30%,rgba(' + P.bgRgb + ',0) 65%)}');
 css.push('.lumen-roulette-screen .lumen-roulette__veil--b{background:-webkit-linear-gradient(bottom,' + P.bg + ' 0%,rgba(' + P.bgRgb + ',.92) 10%,rgba(' + P.bgRgb + ',.6) 24%,rgba(' + P.bgRgb + ',.25) 42%,rgba(' + P.bgRgb + ',0) 62%);background:linear-gradient(0deg,' + P.bg + ' 0%,rgba(' + P.bgRgb + ',.92) 10%,rgba(' + P.bgRgb + ',.6) 24%,rgba(' + P.bgRgb + ',.25) 42%,rgba(' + P.bgRgb + ',0) 62%)}');
 css.push('.lumen-roulette-screen.is-kadr .lumen-roulette__bg,.lumen-roulette-screen.is-kadr .lumen-roulette__veil{opacity:1}');
-css.push('.lumen-roulette{position:relative;min-height:100%;padding:0 2.81em 2.81em}');
+
+
+
+
+
+
+
+css.push('.lumen-roulette{position:relative;min-height:100%;padding:0 2.81em}');
 
 
 
@@ -3508,6 +3516,8 @@ css.push('.lumen-roulette .lumen-roulette__chip.lumen-chip--on{color:' + P.text 
 css.push('.lumen-roulette .lumen-roulette__chip.focus{background:' + P.text + ';color:' + P.bg + '}');
 
 css.push('.lumen-roulette .lumen-roulette__stage{position:relative;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-orient:vertical;-webkit-box-direction:normal;-webkit-flex-direction:column;flex-direction:column;-webkit-box-align:center;-webkit-align-items:center;align-items:center;margin-top:.88em}');
+
+
 
 
 
@@ -15685,6 +15695,12 @@ return node;
 
 function buildChips() {
 chipsRow.empty();
+
+
+
+
+
+try { chipsScroll.reset(); } catch (eR) { warn('roulette: chips reset failed', eR); }
 collections = collectionsFor(manifest, media);
 var all = chipNode(LC.lang('lumen_roulette_all'), !chosen.length);
 all.on('hover:enter', function () {
@@ -15835,10 +15851,29 @@ return imageUrl(card && card.backdrop_path, LC.util.scrimSize(LC.util.screenPx()
 
 
 
+
+function resultShown() {
+return resultBox.hasClass('is-live');
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 function showKadr(url) {
 try { bg.css('background-image', 'url("' + url + '")'); } catch (e) { }
 resultBgShown = true;
-enterKadr();
+if (resultShown()) enterKadr();
 }
 
 function enterKadr() {
@@ -15849,6 +15884,18 @@ kadr = true;
 
 try { scroll.reset(); } catch (e) { }
 screen.addClass('is-kadr');
+
+
+
+
+
+
+
+
+
+
+
+recollect(null);
 }
 
 function leaveKadr() {
@@ -16010,27 +16057,34 @@ result = card;
 var live = frame && frame.card === card && frame.ready ? frame : null;
 var rect = live ? reelRect() : null;
 if (live) {
-var started = false;
+
+
+
+var revealed = false;
 try {
-started = !!(rect && LC.transition && typeof LC.transition.reveal === 'function' && LC.transition.reveal({
+revealed = !!(rect && LC.transition && typeof LC.transition.reveal === 'function' && LC.transition.reveal({
 rect: rect,
 poster: imageUrl(card.poster_path, LC.util.posterSize(LC.util.vhPx(REEL_VH))),
 big: live.url
 }, {
+
+
+
+
 then: function () {
 if (gen !== captured || result !== card) return;
-showKadr(live.url);
 paintResult(card);
+showKadr(live.url);
 try { LC.transition.stop(); } catch (eStop) { }
 }
 }));
 } catch (e) {
 warn('roulette: reveal failed', e);
 }
-if (started) return;
-showKadr(live.url);
+if (revealed) return;
 }
 paintResult(card);
+if (live) showKadr(live.url);
 }
 function openCard(card) {
 try {
@@ -16153,6 +16207,13 @@ spinning = true;
 
 
 clearResult();
+
+
+
+
+
+
+recollect(spinBtn[0]);
 try { spinBtn.addClass('is-busy'); } catch (e) { }
 var captured = gen;
 try { self.activity.loader(!pool.length); } catch (e) { }
@@ -16264,6 +16325,16 @@ started = true;
 
 
 
+
+
+
+
+
+
+
+
+
+if (result && !resultShown()) paintResult(result);
 if (result && !resultBgShown && !resultLoader) prepareFrame(result);
 motionClass(root);
 Lampa.Controller.add('content', {
