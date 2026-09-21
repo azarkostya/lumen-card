@@ -374,6 +374,43 @@ test('Task 62a: caption — процент уходит в подпись, по�
   assert.equal(card._children[1]._children[0].text(), '43 % · ');
 });
 
+/* Найдено живьём на стенде 2026-09-21: вид меток сменили из настроек,
+   лежащих ПОВЕРХ карточки, а главная осталась в истории с нарисованными
+   плашками и флагом lumen_badged на карточках — возврат на неё показывал
+   метки прошлого вида. LC.applyBadgesPref до чужого экрана не достаёт
+   (он работает с ОТКРЫТОЙ главной), значит сверять вид обязано само
+   монтирование. */
+test('Task 62a: вид сменился, пока экран лежал в истории — возврат перерисовывает метки', () => {
+  class FakeObserver { constructor() {} observe() {} disconnect() {} }
+  globalThis.window = { Lampa: {}, MutationObserver: FakeObserver };
+  globalThis.MutationObserver = FakeObserver;
+  try {
+    let view = 'poster';
+    const { api } = runtime({ badgesMode: function () { return view; } });
+    const card = makeCard({ release_date: '2026-12-17' });
+    const root = makeRoot([card]);
+    api.mount(root);
+    assert.equal(card._children[0]._children.length, 1, 'плашка на постере нарисована');
+
+    view = 'caption';
+    api.mount(root);
+    assert.equal(card._children[0]._children.filter((c) => c.hasClass('lumen-badge')).length, 0,
+      'плашка прошлого вида осталась на постере');
+    assert.equal(card._children[1]._children.filter((c) => c.hasClass('lumen-badge-cap')).length, 1,
+      'метка нового вида не нарисована');
+
+    /* Тот же вид второй раз экран не перерисовывает: это обычный возврат на
+       главную, и лишний проход по всем карточкам ряда стоит кадров. */
+    const before = card.lumen_badged;
+    api.mount(root);
+    assert.equal(card.lumen_badged, before);
+    assert.equal(card._children[1]._children.filter((c) => c.hasClass('lumen-badge-cap')).length, 1);
+  } finally {
+    delete globalThis.window;
+    delete globalThis.MutationObserver;
+  }
+});
+
 test('Task 62a: strip снимает и метки подписи — режим можно переключить на живом экране', () => {
   const { api } = runtime({ badgesMode: function () { return 'caption'; } });
   const card = makeCard({ release_date: '2026-12-17' });

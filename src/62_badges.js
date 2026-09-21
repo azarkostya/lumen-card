@@ -127,6 +127,16 @@
     /* Единственный смонтированный экран: null или {root, observer}. */
     var state = null;
 
+    /* Task 62a: вид меток, которым нарисован экран. Настройки Lampa лежат
+       активностью ПОВЕРХ экрана, и смена вида в них до главной, оставшейся
+       в истории, не достаёт: LC.applyBadgesPref работает только с ОТКРЫТОЙ
+       главной (mountCurrent), а у карточек той, что лежит ниже, остаются и
+       метки прошлого вида, и флаг lumen_badged, из-за которого scan их не
+       перерисует. Отсюда и сверка при монтировании (найдено живьём на
+       стенде 2026-09-21: пресет из карточки менял вид меток, возврат на
+       главную показывал прежние плашки). */
+    var mounted_mode = null;
+
     /* Task 62a: вид метки — 'poster' (плашка поверх обложки), 'caption'
        (строка в подписи под ней) или 'off'. Значение читает одна функция на
        весь плагин — LC.badgesMode (src/81_prefs.js), там же, где стоит
@@ -306,9 +316,17 @@
     function mount(root) {
       try {
         if (!root || !root.length) return;
-        if (!enabled()) { unmount(); return; }
-        if (state && state.root && state.root[0] === root[0]) return;
+        var want = mode();
+        /* Тот же корень И тот же вид меток — повторное событие 'start' при
+           возврате на главную: всё уже нарисовано как надо. */
+        if (state && state.root && state.root[0] === root[0] && mounted_mode === want) return;
         unmount();
+        /* Вид сменился, пока экран лежал в истории (разбор — у mounted_mode
+           выше): снимаем метки прошлого вида вместе с флагами, иначе scan
+           обойдёт карточки молча. */
+        if (mounted_mode !== null && mounted_mode !== want) strip(root);
+        mounted_mode = want;
+        if (want === 'off') return;
         state = { root: root, observer: null };
         scan(root);
         observe(root);

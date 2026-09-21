@@ -19639,6 +19639,16 @@ var state = null;
 
 
 
+
+
+var mounted_mode = null;
+
+
+
+
+
+
+
 function mode() {
 try { return LC.badgesMode ? LC.badgesMode() : 'poster'; } catch (e) { return 'poster'; }
 }
@@ -19812,9 +19822,17 @@ warn('badges: observe failed', e);
 function mount(root) {
 try {
 if (!root || !root.length) return;
-if (!enabled()) { unmount(); return; }
-if (state && state.root && state.root[0] === root[0]) return;
+var want = mode();
+
+
+if (state && state.root && state.root[0] === root[0] && mounted_mode === want) return;
 unmount();
+
+
+
+if (mounted_mode !== null && mounted_mode !== want) strip(root);
+mounted_mode = want;
+if (want === 'off') return;
 state = { root: root, observer: null };
 scan(root);
 observe(root);
