@@ -98,7 +98,6 @@
       gradHint: 'linear-gradient(180deg,#120E0B,#0B0908)',
       gradSlate: 'linear-gradient(180deg,#0C0D0F,#161825)',
       gradWatching: 'linear-gradient(180deg,#171310,#221A13)',
-      gradFocus: 'linear-gradient(180deg,#221A13,#2C2318)',
       gradBlur: 'linear-gradient(160deg,#2A1B10 0%,#1A110B 38%,#0B0908 72%)'
     },
     black: {
@@ -110,7 +109,6 @@
       gradHint: 'linear-gradient(180deg,#0E0E10,#000000)',
       gradSlate: 'linear-gradient(180deg,#0A0A0C,#151519)',
       gradWatching: 'linear-gradient(180deg,#121216,#1C1C21)',
-      gradFocus: 'linear-gradient(180deg,#1A1A1F,#232329)',
       gradBlur: 'linear-gradient(160deg,#17171B 0%,#0B0B0D 38%,#000000 72%)'
     }
   };
@@ -1114,7 +1112,12 @@
     css.push('.lumen-card.lumen-trailer-on .lumen-stop{display:-webkit-box;display:-webkit-flex;display:flex;margin-top:1.40em;margin-bottom:.6em}');
     css.push('.lumen-card .lumen-stop__ico{-webkit-flex-shrink:0;flex-shrink:0;width:1.14em;height:1.14em;margin-right:.53em;background-color:currentColor;-webkit-mask-image:' + LC.icons.maskUrl('stop') + ';mask-image:' + LC.icons.maskUrl('stop') + ';-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;-webkit-mask-size:contain;mask-size:contain}');
     css.push('.lumen-card .lumen-stop span{font-size:1.05em;line-height:1}');
-    css.push('.lumen-card .lumen-stop.focus{background:' + A + ';color:' + P.dark + ';border-color:' + AL + ';border-width:.11em;-webkit-transform:scale(1.06);transform:scale(1.06);-webkit-box-shadow:0 .2em 0 ' + AG + ';box-shadow:0 .2em 0 ' + AG + '}');
+    /* Task 54: фокус — инверсия P.text/P.bg, как у кнопок карточки выше
+       (Task 43). Прежние акцентная заливка и кольцо AL сняты совсем: пока
+       заливка была акцентной, кольцо отделяло её от подложки, а на светлой
+       карте отделять нечего. Акцент у кнопки остался в подложке под ней
+       (box-shadow в самом правиле). */
+    css.push('.lumen-card .lumen-stop.focus{background:' + P.text + ';color:' + P.bg + ';-webkit-transform:scale(1.06);transform:scale(1.06);-webkit-box-shadow:0 .2em 0 ' + AG + ';box-shadow:0 .2em 0 ' + AG + '}');
     /* Метка «ТРЕЙЛЕР · БЕЗ ЗВУКА»: экран 02 — top 112px, right 64px, mono 18px,
        радиус 30px, паддинг 10/18px; внутренние em — от кегля метки (÷18).
        Task 38: заливка — тот же P.glass, что у «Стопа» (было .62 плюс более
@@ -1186,13 +1189,29 @@
     css.push('.lumen-card .lumen-episode--watching .lumen-episode__caption{color:' + P.muted + '}');
     css.push('.lumen-card .lumen-episode--soon{background:rgba(' + P.panelRgb + ',.35);border:.07em dashed ' + P.line + '}');
     css.push('.lumen-card .lumen-episode--soon .lumen-episode__name{color:' + P.smoke + '}');
-    /* Фокус (экран 06): обводка 3px акцентом, тёплый фон, свечение, scale 1.03;
-       бейдж уступает место кружку play. Lampa не анимирует .lumen-episode
-       своими keyframes, поэтому transform без !important. */
+    /* Фокус (экран 06): scale 1.03, бейдж уступает место кружку play. Lampa
+       не анимирует .lumen-episode своими keyframes, поэтому transform без
+       !important. */
     /* Ревью (п.10): рамка растёт .04 -> .13em, поэтому паддинг .79 -> .70em —
        сумма .83em та же, содержимое карточки в фокусе не съезжает. */
-    css.push('.lumen-card .lumen-episode.focus{opacity:1;background:' + P.gradFocus + ';border:.13em solid ' + A + ';padding:.70em;-webkit-transform:scale(1.03);transform:scale(1.03);-webkit-box-shadow:0 .2em 0 ' + AG + ';box-shadow:0 .2em 0 ' + AG + '}');
-    css.push('.lumen-card .lumen-episode.focus .lumen-episode__play{display:block}');
+    /* Task 54: прежние обводка акцентом и тёплый фон (P.gradFocus, снят из
+       палитры вместе с этим правилом — больше его никто не читал) заменены
+       инверсией — тем же признаком фокуса, что у кнопок карточки выше. Рамка
+       остаётся, но цвета заливки: её ширина держит геометрию (см. ревью п.10),
+       а видимой границы у сплошной карты быть не должно.
+       Кадр серии под заливкой приглушается с .28 до .12: он рисуется ПОВЕРХ
+       фона карты (absolute, inset 0), и на своей обычной плотности съел бы
+       светлую заливку вместе с контрастом подписи. Всё, что внутри карты
+       стояло на акценте или на приглушённых цветах тёмной темы, переезжает на
+       P.bg: номер, подпись, «СМОТРИТЕ», таймкод, полоса прогресса и кружок
+       play — иначе они остались бы светлыми на светлом. */
+    css.push('.lumen-card .lumen-episode.focus{opacity:1;background:' + P.text + ';color:' + P.bg + ';border:.13em solid ' + P.text + ';padding:.70em;-webkit-transform:scale(1.03);transform:scale(1.03);-webkit-box-shadow:0 .2em 0 ' + AG + ';box-shadow:0 .2em 0 ' + AG + '}');
+    css.push('.lumen-card .lumen-episode.focus .lumen-episode__still{opacity:.12}');
+    css.push('.lumen-card .lumen-episode.focus .lumen-episode__num,.lumen-card .lumen-episode.focus .lumen-episode__caption,.lumen-card .lumen-episode.focus .lumen-episode__state,.lumen-card .lumen-episode.focus .lumen-episode__timecode{color:' + P.bg + '}');
+    css.push('.lumen-card .lumen-episode.focus .lumen-episode__bar{background:rgba(' + P.bgRgb + ',.2)}');
+    css.push('.lumen-card .lumen-episode.focus .lumen-episode__bar > div{background:' + P.bg + '}');
+    css.push('.lumen-card .lumen-episode.focus .lumen-episode__play{display:block;background:' + P.bg + '}');
+    css.push('.lumen-card .lumen-episode.focus .lumen-episode__play:before{background-color:' + P.text + '}');
     css.push('.lumen-card .lumen-episode.focus .lumen-episode__check,.lumen-card .lumen-episode.focus .lumen-episode__percent{display:none}');
     css.push('.lumen-card .lumen-episode.focus .lumen-episode__name{font-weight:600}');
     /* Task 8 (экран 06): в сжатой шапке фокусная серия подписана иначе —
@@ -1455,7 +1474,8 @@
        действие. Фокусируется пультом (.selector), поэтому обязана иметь
        заметное состояние .focus, как остальные кнопки плагина. */
     css.push('.lumen-descr-row .lumen-reviews__hint-hide{display:inline-block;margin-left:.53em;padding:.61em .79em;border-radius:.53em;background:' + P.buttonBg + ';border:.04em solid ' + P.line + ';font-family:' + FB + ';font-weight:600;font-size:.79em;line-height:1.3;color:' + P.text + '}');
-    css.push('.lumen-descr-row .lumen-reviews__hint-hide.focus{background:' + A + ';color:' + t.onac + ';border-color:' + AL + ';border-width:.11em}');
+    /* Task 54: фокус — инверсия P.text/P.bg, как у остальных кнопок плагина. */
+    css.push('.lumen-descr-row .lumen-reviews__hint-hide.focus{background:' + P.text + ';color:' + P.bg + '}');
 
     /* Экран 08: модал отзыва. Живёт в .modal Lampa (вне карточки и вне ряда),
        поэтому корень правил — собственный класс .lumen-review-modal, который
@@ -1500,7 +1520,10 @@
        чипы порядка ряда франшизы ниже. */
     css.push('.lumen-descr-row .lumen-reviews__mode{margin-left:auto;padding:.35em .61em;border-radius:.44em;background:' + P.buttonBg + ';border:.04em solid ' + P.line + ';font-family:' + FB + ';font-weight:600;font-size:.70em;line-height:1.2;color:' + P.muted + '}');
     css.push('.lumen-descr-row .lumen-reviews__mode--on{color:' + A + ';border-color:rgba(' + A_RGB + ',.5)}');
-    css.push('.lumen-descr-row .lumen-reviews__mode.focus{background:' + A + ';color:' + t.onac + ';border-color:' + AL + ';border-width:.11em}');
+    /* Task 54: фокус — инверсия P.text/P.bg, как у остальных кнопок
+       плагина. Отмеченное состояние (--on) акцентом при этом осталось: это
+       другой признак, он читается и вне фокуса. */
+    css.push('.lumen-descr-row .lumen-reviews__mode.focus{background:' + P.text + ';color:' + P.bg + '}');
     /* Метка «в отзыве есть спойлер» — внизу карточки, у самой кромки: она
        обещает, что под OK ждёт скрытый кусок. */
     css.push('.lumen-descr-row .lumen-review__spoiler{margin-top:auto;font-family:' + FB + ';font-weight:600;font-size:.61em;line-height:1;letter-spacing:.12em;color:' + P.spice + '}');
@@ -1518,7 +1541,8 @@
     /* Кнопка раскрытия — единственный .selector окна, поэтому фокус достаётся
        ей сразу (контроллер modal собирает коллекцию из содержимого окна). */
     css.push('.lumen-review-modal__reveal{display:inline-block;margin-top:1.05em;padding:.61em .96em;border-radius:.53em;background:' + P.buttonBg + ';border:.04em solid ' + P.line + ';font-family:' + FB + ';font-weight:600;font-size:.83em;line-height:1.3;color:' + P.text + '}');
-    css.push('.lumen-review-modal__reveal.focus{background:' + A + ';color:' + t.onac + ';border-color:' + AL + ';border-width:.11em}');
+    /* Task 54: фокус — инверсия P.text/P.bg, как у остальных кнопок плагина. */
+    css.push('.lumen-review-modal__reveal.focus{background:' + P.text + ';color:' + P.bg + '}');
 
     /* --- Task 28 (фаза 3): ряд «Смотреть по порядку» (src/66_franchise.js).
        Живёт в том же .full-descr, что таблица «ПОДРОБНО» и отзывы, и занимает
@@ -1533,7 +1557,10 @@
     css.push('.lumen-descr-row .lumen-fr__modes{display:-webkit-box;display:-webkit-flex;display:flex}');
     css.push('.lumen-descr-row .lumen-fr__mode{padding:.35em .61em;margin-right:.35em;border-radius:.44em;background:' + P.buttonBg + ';border:.04em solid ' + P.line + ';font-family:' + FB + ';font-weight:600;font-size:.70em;line-height:1.2;color:' + P.muted + '}');
     css.push('.lumen-descr-row .lumen-fr__mode--on{color:' + A + ';border-color:rgba(' + A_RGB + ',.5)}');
-    css.push('.lumen-descr-row .lumen-fr__mode.focus{background:' + A + ';color:' + t.onac + ';border-color:' + AL + ';border-width:.11em}');
+    /* Task 54: фокус — инверсия P.text/P.bg, как у остальных кнопок
+       плагина. Отмеченное состояние (--on) акцентом при этом осталось: это
+       другой признак, он читается и вне фокуса. */
+    css.push('.lumen-descr-row .lumen-fr__mode.focus{background:' + P.text + ';color:' + P.bg + '}');
     /* Ряд частей — горизонтальный, как ряд отзывов: Lampa внутри ряда
        описания не прокручивает (находка Task 5d), к карточке в фокусе ряд
        подкручивается сам (scrollToCard в src/66_franchise.js нет — карточки
@@ -1716,8 +1743,17 @@
     css.push('.lumen-card.lumen-card--franchise .full-start-new__reactions,.lumen-card.lumen-card--franchise .lumen-episodes{-webkit-flex-basis:100%;flex-basis:100%;width:100%}');
     css.push('.lumen-card .lumen-franchise__ico{-webkit-flex-shrink:0;flex-shrink:0;width:1.14em;height:1.14em;margin-right:.53em;background-color:currentColor;-webkit-mask-image:' + LC.icons.maskUrl('film') + ';mask-image:' + LC.icons.maskUrl('film') + ';-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;-webkit-mask-size:contain;mask-size:contain}');
     css.push('.lumen-card .lumen-franchise span{font-size:1.05em;line-height:1}');
-    css.push('.lumen-card .lumen-franchise.focus{background:' + A + ';color:' + P.dark + ';border-color:' + AL + ';border-width:.11em;-webkit-transform:scale(1.06);transform:scale(1.06);-webkit-box-shadow:0 .2em 0 ' + AG + ';box-shadow:0 .2em 0 ' + AG + '}');
-    css.push('.lumen-card.lumen-motion-lite .lumen-franchise.focus,.lumen-card.lumen-motion-off .lumen-franchise.focus{background:' + A + ';-webkit-transform:none !important;transform:none !important}');
+    /* Task 54: фокус — инверсия P.text/P.bg, как у кнопок карточки выше
+       (Task 43). Прежние акцентная заливка и кольцо AL сняты совсем: пока
+       заливка была акцентной, кольцо отделяло её от подложки, а на светлой
+       карте отделять нечего. Акцент у кнопки остался в подложке под ней
+       (box-shadow в самом правиле). */
+    css.push('.lumen-card .lumen-franchise.focus{background:' + P.text + ';color:' + P.bg + ';-webkit-transform:scale(1.06);transform:scale(1.06);-webkit-box-shadow:0 .2em 0 ' + AG + ';box-shadow:0 .2em 0 ' + AG + '}');
+    /* Task 54: background:A отсюда снят. Правило режима идёт ПОСЛЕ правила
+       фокуса и специфичностью выше, так что акцентная заливка в «Лёгких» и
+       «Выкл» перекрыла бы инверсию — фокус выглядел бы по-разному в разных
+       режимах движения. Осталось гашение пружины. */
+    css.push('.lumen-card.lumen-motion-lite .lumen-franchise.focus,.lumen-card.lumen-motion-off .lumen-franchise.focus{-webkit-transform:none !important;transform:none !important}');
     /* Движка без CSS-масок (старые Tizen/webOS) пустой квадрат иконки не
        получает — тот же приём, что у иконок кнопок в src/20_icons.js. */
     css.push(LC.icons.NO_MASK + '{.lumen-card .lumen-franchise__ico{display:none}}');
@@ -1910,7 +1946,8 @@
     css.push('.lumen-grid__empty{padding:2em 0}');
     css.push('.lumen-grid .lumen-grid__empty-text{font-family:' + FB + ';font-size:1.05em;color:' + P.muted + ';margin-bottom:1.05em;max-width:42.96em}');
     css.push('.lumen-grid .lumen-grid__back{display:-webkit-inline-box;display:-webkit-inline-flex;display:inline-flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;height:3.16em;padding:0 1.32em;border-radius:.79em;border:.04em solid ' + P.line + ';background:' + P.buttonBg + ';font-family:' + FB + ';font-weight:600;font-size:1em;color:' + P.text + '}');
-    css.push('.lumen-grid .lumen-grid__back.focus{background:' + A + ';color:' + t.onac + ';border-color:' + AL + ';border-width:.11em}');
+    /* Task 54: фокус — инверсия P.text/P.bg, как у остальных кнопок плагина. */
+    css.push('.lumen-grid .lumen-grid__back.focus{background:' + P.text + ';color:' + P.bg + '}');
     /* Task 20: «Скрыть» стоит слева от «Назад» и отделено от неё зазором. */
     css.push('.lumen-grid .lumen-grid__hide{margin-right:.79em}');
 
@@ -2899,7 +2936,12 @@
     css.push('.lumen-roulette .lumen-roulette__rmeta{font-family:' + FB + ';font-size:.96em;line-height:1;margin-top:.44em;color:' + P.muted + '}');
     css.push('.lumen-roulette .lumen-roulette__actions{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;margin-top:1.05em}');
     css.push('.lumen-roulette .lumen-roulette__btn{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;height:2.45em;padding:0 1.05em;margin:0 .53em .53em 0;border-radius:.61em;border:.04em solid ' + P.line + ';background:' + P.buttonBg + ';font-family:' + FB + ';font-weight:600;font-size:.96em;color:' + P.text + '}');
-    css.push('.lumen-roulette .lumen-roulette__btn.focus{background:' + A + ';color:' + t.onac + ';border-color:' + AL + ';border-width:.11em;-webkit-box-shadow:0 .2em 0 ' + AG + ';box-shadow:0 .2em 0 ' + AG + '}');
+    /* Task 54: фокус — инверсия P.text/P.bg, как у кнопок карточки выше
+       (Task 43). Прежние акцентная заливка и кольцо AL сняты совсем: пока
+       заливка была акцентной, кольцо отделяло её от подложки, а на светлой
+       карте отделять нечего. Акцент у кнопки остался в подложке под ней
+       (box-shadow в самом правиле). */
+    css.push('.lumen-roulette .lumen-roulette__btn.focus{background:' + P.text + ';color:' + P.bg + ';-webkit-box-shadow:0 .2em 0 ' + AG + ';box-shadow:0 .2em 0 ' + AG + '}');
     css.push('.lumen-roulette .lumen-roulette__empty{font-family:' + FB + ';font-size:1.05em;color:' + P.smoke + '}');
     /* Пункт меню «Что посмотреть»: иконка набора плагина — 1em, штатные
        иконки меню Lampa — 1.5em (та же правка, что у пункта «Подборки»). */

@@ -1307,14 +1307,17 @@ test('Task 17: иконка кнопки «Франшиза» — CSS-маска
     'без поддержки масок пустой квадрат не рисуем');
 });
 
-test('Task 17: фокус кнопки «Франшиза» — акцент; в lite/off пружины нет', () => {
+test('Task 17: фокус кнопки «Франшиза» — инверсия; в lite/off пружины нет и заливку никто не перекрашивает', () => {
   const focus = findDecl(css, (sel) => sel === '.lumen-card .lumen-franchise.focus');
   assert.ok(focus, 'правило фокуса не найдено');
   assert.ok(focus.indexOf('transform:scale(1.06)') !== -1);
   const lite = findDecl(css, (sel) => sel === '.lumen-card.lumen-motion-lite .lumen-franchise.focus');
   assert.ok(lite, 'правило lite не найдено');
   assert.ok(/transform:none !important/.test(lite), 'нативная анимация Lampa перебивается только !important');
-  assert.ok(/(^|;)background:/.test(lite), 'lite обязан вернуть акцентную заливку (как у «Стоп»)');
+  /* Task 54: заливка отсюда ушла. Правило режима идёт после правила фокуса и
+     специфичностью выше — любое background здесь перекрыло бы инверсию, и
+     фокус выглядел бы по-разному в разных режимах движения. */
+  assert.equal(/(^|;)background(-color)?:/.test(lite), false, 'правило режима не должно трогать заливку: ' + lite);
 });
 
 test('Task 17: хаб — safe area 2.81em с обеих сторон, плитки по 4 в ряд', () => {
@@ -1408,6 +1411,56 @@ test('Task 41: плитка хаба — баннер без рамки, заг�
   assert.equal(/border-color:/.test(focus), false, 'кольца фокуса на баннере быть не должно: ' + focus);
   assert.ok(focus.indexOf('transform:scale(1.05)') !== -1, 'фокус — увеличение: ' + focus);
   assert.ok(focus.indexOf('box-shadow') !== -1, 'и подложка (Task 50b — без размытия): ' + focus);
+});
+
+/* Task 54. Фокус кнопки или строки списка — инверсия: цвет текста темы
+   становится заливкой, фон страницы — подписью. Так уже показывают фокус
+   кнопки карточки (Task 43), чипы хаба, сетки, настроения и рулетки; теперь
+   так же — все остальные кнопки плагина. Карточки с постером или превью
+   (.lumen-fr-card, .lumen-review, .lumen-gcard, .lumen-tile) в список не
+   входят: сплошная светлая заливка под картинкой ничего не покажет, у них
+   фокус держится рамкой, увеличением и подложкой.
+   Вторая половина проверки — про мёртвые правила: если фокус больше не
+   красится акцентом, ни одного правила с акцентной заливкой или акцентной
+   рамкой на том же селекторе остаться не должно (ошибка, которую ловили в
+   Task 42/43 у кольца карточки и у чипа настроения). */
+test('Task 54: фокус кнопок и строк списка — инверсия, и ни одного акцентного правила на тех же селекторах', () => {
+  const k = tokensWith({});
+  const INVERTED = [
+    /* карточка фильма */
+    '.lumen-card .full-start-new__buttons .full-start__button.focus',
+    '.lumen-card .lumen-stop.focus',
+    '.lumen-card .lumen-episode.focus',
+    '.lumen-card .lumen-franchise.focus',
+    /* ряд описания: отзывы и «Смотреть по порядку» */
+    '.lumen-descr-row .lumen-reviews__hint-hide.focus',
+    '.lumen-descr-row .lumen-reviews__mode.focus',
+    '.lumen-review-modal__reveal.focus',
+    '.lumen-descr-row .lumen-fr__mode.focus',
+    /* хаб, сетка, чипы настроения */
+    '.lumen-hub__search.focus',
+    '.lumen-hub .lumen-chip.focus',
+    '.lumen-grid .lumen-chip.focus',
+    '.lumen-grid .lumen-grid__back.focus',
+    '.lumen-mood-chip.focus',
+    /* рулетка */
+    '.lumen-roulette .lumen-roulette__tab.focus',
+    '.lumen-roulette .lumen-roulette__chip.focus',
+    '.lumen-roulette .lumen-roulette__btn.focus'
+  ];
+  const bodies = ruleBodies(css);
+  for (const sel of INVERTED) {
+    const own = bodies.filter((r) => r.selectors.indexOf(sel) !== -1);
+    assert.ok(own.length, 'правил на ' + sel + ' не нашлось вовсе');
+    assert.ok(own.some((r) => r.decl.indexOf('background:' + k.text + ';color:' + k.bg) !== -1),
+      sel + ': фокус не инверсия — ' + own.map((r) => r.decl).join(' || '));
+    for (const r of own) {
+      assert.equal(new RegExp('background(-color)?:' + k.accent).test(r.decl), false,
+        sel + ': мёртвая акцентная заливка — ' + r.decl);
+      assert.equal(new RegExp('border-color:(' + k.accent + '|' + k.ring + ')').test(r.decl), false,
+        sel + ': мёртвая акцентная рамка — ' + r.decl);
+    }
+  }
 });
 
 test('Task 17: на слабых ТВ пружины фокуса в хабе и сетке нет', () => {
@@ -3081,16 +3134,17 @@ test('фаза 3: текст на заливке акцентом читаетс
 });
 
 test('фаза 3: смена акцента меняет всю четвёрку разом, включая новые акценты', () => {
-  /* Task 43: кнопка в фокусе больше не заливается акцентом (там инверсия),
-     поэтому четвёрку проверяем на карточке серии: у неё в фокусе разом и
-     заливка акцентом, и рамка светлым тоном, и свечение. */
+  /* Task 43 снял акцент с фокуса кнопок карточки, Task 54 — с фокуса
+     остальных кнопок и строк списка (везде инверсия). Последний узел, где
+     четвёрка стоит вся разом, — «Крутить» в рулетке: заливка и текст на ней
+     в базовом правиле, светлое кольцо и свечение — в правиле фокуса. */
   const emerald = withStorage({ lumen_card_accent: 'emerald' }, (LC) => LC.buildCss());
-  const episode = findDecl(emerald, (sel) => sel === '.lumen-card .lumen-episode.focus');
-  assert.ok(episode.indexOf('#7ACCA0') !== -1, 'рамка карточки серии в фокусе — цвет изумруда: ' + episode);
-  assert.ok(episode.indexOf('rgba(122,204,160,0.35)') !== -1, 'свечение — тот же цвет');
-  const back = findDecl(emerald, (sel) => sel === '.lumen-grid .lumen-grid__back.focus');
-  assert.ok(back.indexOf('#7ACCA0') !== -1, 'заливка кнопки «Назад» — цвет изумруда: ' + back);
-  assert.ok(back.indexOf('#E4FBEE') !== -1, 'кольцо фокуса — светлый тон изумруда: ' + back);
+  const spin = findDecl(emerald, (sel) => sel === '.lumen-roulette .lumen-roulette__spin');
+  assert.ok(spin.indexOf('background:#7ACCA0') !== -1, 'заливка «Крутить» — цвет изумруда: ' + spin);
+  assert.ok(spin.indexOf('color:#06170F') !== -1, 'текст на заливке — тёмный тон изумруда: ' + spin);
+  const spinFocus = findDecl(emerald, (sel) => sel === '.lumen-roulette .lumen-roulette__spin.focus');
+  assert.ok(spinFocus.indexOf('border-color:#E4FBEE') !== -1, 'кольцо фокуса — светлый тон изумруда: ' + spinFocus);
+  assert.ok(spinFocus.indexOf('rgba(122,204,160,0.35)') !== -1, 'свечение — тот же цвет: ' + spinFocus);
   const focus = findDecl(emerald, (sel) => sel === '.lumen-card .full-start-new__buttons .full-start__button.focus');
   assert.ok(focus.indexOf('rgba(122,204,160,0.35)') !== -1, 'ореол кнопки — тот же цвет: ' + focus);
 

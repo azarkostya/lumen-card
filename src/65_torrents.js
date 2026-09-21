@@ -103,7 +103,7 @@
          непрозрачна (k.panel), поэтому размытие под ней не видно вовсе, но
          стоит оно дорого: backdrop-filter заставляет WebView читать пиксели
          под элементом каждый кадр. По этой же причине размытия сняты по всему
-         плагину — src/30_css.js:124, :182, :1003. */
+         плагину — src/30_css.js:122, :180, :1001. */
       r.push(S(['.selectbox .selectbox__content']) + '{background:' + k.panel + ';border-left:.044em solid ' + k.line + ';color:' + k.text + ';font-family:' + k.fontBody + ';-webkit-backdrop-filter:none;backdrop-filter:none}');
       r.push(S(['.selectbox .selectbox__head']) + '{padding:2.805em 2.805em 1.052em 1.403em}');
       r.push(S(['.selectbox .selectbox__title']) + '{font-family:' + k.fontBody + ';font-weight:700;font-size:1.227em;line-height:1.1}');
@@ -206,13 +206,18 @@
       r.push(A(['.explorer__files-head']) + '{padding:1.052em 2.805em 0 1.403em}');
       r.push(A(chips) + '{font-size:.877em;height:2.8em;padding:0 1em;margin-right:.6em;border-radius:.6em;border:.05em solid ' + k.line + ';background-color:' + k.panel + ';color:' + k.muted + ';font-family:' + k.fontBody + ';font-weight:600;-webkit-box-sizing:border-box;box-sizing:border-box;-webkit-transition:background-color .2s,color .2s,border-color .2s,-webkit-box-shadow .28s,-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25);transition:background-color .2s,color .2s,border-color .2s,box-shadow .28s,transform .28s cubic-bezier(.2,.9,.3,1.25)}');
       r.push(A(['.torrent-filter .simple-button > span', '.empty__footer .simple-button > span']) + '{margin-top:0}');
-      /* Фокус — токен «Кнопка» карточки: заливка, кольцо, scale 1.06, подложка.
+      /* Фокус — токен «Кнопка» карточки: заливка, scale 1.06, подложка.
          !important — поверх animation-button-focus Lampa.
+         Task 54: заливка — инверсия k.text/k.bg, как у кнопок карточки
+         (src/30_css.js). Кольцо k.ring снято вместе с акцентной заливкой: оно
+         отделяло акцент от подложки, а светлую карту отделять не от чего.
+         Подписи внутри чипа («Поиск: …», «Сортировать: …») и точка «фильтр
+         применён» переехали с k.onac на k.bg — правила ниже.
          Task 50c: у подложки больше нет размытия — было 0 .7em 2em, то есть
          40 px радиуса по контуру каждого чипа (em тут свой, от font-size
          .877em — 20 px при базе 22.811). Смещение .23em даёт те же ~4.6 px,
          что .2em на главной (src/30_css.js, accentRules). */
-      r.push(A(chipsFocus) + '{background-color:' + k.accent + ';color:' + k.onac + ';border-color:' + k.ring + ';border-width:.125em;-webkit-transform:scale(1.06) !important;transform:scale(1.06) !important;-webkit-box-shadow:0 .23em 0 ' + k.acglow + ';box-shadow:0 .23em 0 ' + k.acglow + '}');
+      r.push(A(chipsFocus) + '{background-color:' + k.text + ';color:' + k.bg + ';-webkit-transform:scale(1.06) !important;transform:scale(1.06) !important;-webkit-box-shadow:0 .23em 0 ' + k.acglow + ';box-shadow:0 .23em 0 ' + k.acglow + '}');
       /* «Назад» — зеркальный chevronR; «Поиск» — search с раскрытым запросом. */
       r.push(A(['.torrent-filter .filter--back']) + '{width:2.8em;padding:0;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center}');
       r.push(A(['.torrent-filter .filter--back > svg', '.torrent-filter .filter--search > svg']) + '{display:none}');
@@ -222,10 +227,11 @@
       useMask('search', A(['.torrent-filter .filter--search:before']));
       r.push(A(['.torrent-filter .filter--search > div', '.torrent-filter .filter--sort > div']) + '{margin-left:.6em;padding:0;border-radius:0;background:transparent;font-family:' + k.fontBody + ';font-size:1em;font-weight:400;color:' + k.smoke + '}');
       r.push(A(['.torrent-filter .filter--search > div']) + '{padding-left:.6em;border-left:.05em solid ' + k.line + ';max-width:15em}');
-      r.push(A(['.torrent-filter .filter--search.focus > div', '.torrent-filter .filter--sort.focus > div']) + '{color:' + k.onac + ';border-left-color:' + k.onac + '}');
-      /* Индикатор «применён фильтр»: Filter.chosen() заполняет div и снимает .hide — точка accent. */
+      r.push(A(['.torrent-filter .filter--search.focus > div', '.torrent-filter .filter--sort.focus > div']) + '{color:' + k.bg + ';border-left-color:' + k.bg + '}');
+      /* Индикатор «применён фильтр»: Filter.chosen() заполняет div и снимает
+         .hide — точка accent, а на инверсии фокуса — k.bg. */
       r.push(A(['.torrent-filter .filter--filter > div:not(.hide)']) + '{display:block;-webkit-flex-shrink:0;flex-shrink:0;font-size:1em;width:.5em;height:.5em;margin-left:.5em;padding:0;border-radius:50%;background-color:' + k.accent + ';overflow:hidden;white-space:nowrap;text-indent:2em;color:transparent}');
-      r.push(A(['.torrent-filter .filter--filter.focus > div:not(.hide)']) + '{background-color:' + k.onac + '}');
+      r.push(A(['.torrent-filter .filter--filter.focus > div:not(.hide)']) + '{background-color:' + k.bg + '}');
 
       /* Раздачи (.torrent-item — уникальный класс пути). */
       r.push(A(['.torrent-list']) + '{padding:0 2.805em 1.403em 1.403em}');
@@ -353,12 +359,13 @@
       r.push(T(['.torrent-checklist__info > div']) + '{font-size:.877em;line-height:1.45;color:' + k.muted + '}');
       r.push(T(['.torrent-checklist__footer']) + '{margin-top:1.052em;-webkit-box-pack:end;-webkit-justify-content:flex-end;justify-content:flex-end}');
       r.push(T(['.torrent-checklist__next-step']) + '{margin-left:1.05em;font-size:.877em;color:' + k.muted + '}');
-      /* «Далее» — токен «Кнопка» карточки: h72 r18, фокус scale 1.06 + кольцо +
-         подложка (лок. em от 24px: font-size кнопки 1.052em). Task 50c:
+      /* «Далее» — токен «Кнопка» карточки: h72 r18, фокус scale 1.06 +
+         подложка (лок. em от 24px: font-size кнопки 1.052em). Task 54:
+         заливка фокуса — инверсия k.text/k.bg, кольцо k.ring снято. Task 50c:
          размытия нет, было 0 .583em 1.667em (14/40 px); смещение .19em — те
          же ~4.6 px, что .2em на базовой шкале. */
       r.push(T(btn) + '{font-size:1.052em;height:3em;padding:0 1.25em;margin-right:0;border-radius:.75em;border:.042em solid ' + k.line + ';background-color:' + k.panel + ';color:' + k.text + ';font-family:' + k.fontBody + ';font-weight:600;-webkit-box-sizing:border-box;box-sizing:border-box;-webkit-transition:background-color .2s,color .2s,border-color .2s,-webkit-box-shadow .28s,-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25);transition:background-color .2s,color .2s,border-color .2s,box-shadow .28s,transform .28s cubic-bezier(.2,.9,.3,1.25)}');
-      r.push(T(btnFocus) + '{background-color:' + k.accent + ';color:' + k.onac + ';border-color:' + k.ring + ';border-width:.104em;-webkit-transform:scale(1.06) !important;transform:scale(1.06) !important;-webkit-box-shadow:0 .19em 0 ' + k.acglow + ';box-shadow:0 .19em 0 ' + k.acglow + '}');
+      r.push(T(btnFocus) + '{background-color:' + k.text + ';color:' + k.bg + ';-webkit-transform:scale(1.06) !important;transform:scale(1.06) !important;-webkit-box-shadow:0 .19em 0 ' + k.acglow + ';box-shadow:0 .19em 0 ' + k.acglow + '}');
       r.push(TM('lite', btnFocus) + ',' + TM('off', btnFocus) + '{-webkit-transform:none !important;transform:none !important}');
       r.push(TM('lite', btn) + ',' + TM('off', btn) + '{-webkit-animation:none !important;animation:none !important}');
       r.push(TM('lite', btn) + '{-webkit-transition:background-color .2s,color .2s,border-color .2s;transition:background-color .2s,color .2s,border-color .2s}');

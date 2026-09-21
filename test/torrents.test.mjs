@@ -324,6 +324,49 @@ test('Task 53: подложки Select и Modal — без backdrop-filter, па
   }
 });
 
+/* Task 54: фокус кнопок пути — та же инверсия, что у кнопок карточки
+   (k.text заливкой, k.bg подписью). Раздача, файл и серия сюда НЕ входят:
+   у раздачи под текстом идёт своя тёмная карта с медиачипами, у серии —
+   превью 200×112, и сплошная светлая заливка их перекрыла бы. У них фокус
+   держится рамкой, подложкой и цветом текста. */
+test('Task 54: фокус кнопок экранов пути — инверсия, без акцентной заливки и рамки', () => {
+  const k = baseLC.tokens();
+  const BTN = [
+    'body.lumen-torrents-on .lumen-torrents .torrent-filter .simple-button.focus',
+    'body.lumen-torrents-on .lumen-torrents .empty__footer .simple-button.focus',
+    'body.lumen-torrents-on .lumen-torrents .empty-filter__buttons .simple-button.focus',
+    'body.lumen-torrents-on .torrent-checklist__footer .simple-button.focus'
+  ];
+  for (const sel of BTN) {
+    const own = [];
+    for (const r of rules()) {
+      const parsed = parse(r);
+      if (!parsed) continue;
+      for (const p of parsed) if (p.selectors.indexOf(sel) !== -1) own.push(p.decl);
+    }
+    assert.ok(own.length, 'правил на ' + sel + ' не нашлось вовсе');
+    assert.ok(own.some((d) => d.indexOf('background-color:' + k.text + ';color:' + k.bg) !== -1),
+      sel + ': фокус не инверсия — ' + own.join(' || '));
+    for (const d of own) {
+      assert.equal(new RegExp('background(-color)?:' + k.accent).test(d), false, sel + ': мёртвая акцентная заливка — ' + d);
+      assert.equal(new RegExp('border-color:(' + k.accent + '|' + k.ring + ')').test(d), false, sel + ': мёртвая акцентная рамка — ' + d);
+    }
+  }
+  /* Подписи внутри чипа («Поиск: …», «Сортировать: …», точка «фильтр
+     применён») красились цветом текста на акценте — на светлой заливке его
+     не видно, поэтому они переезжают на k.bg вместе с самой заливкой. */
+  for (const sel of [
+    'body.lumen-torrents-on .lumen-torrents .torrent-filter .filter--search.focus > div',
+    'body.lumen-torrents-on .lumen-torrents .torrent-filter .filter--sort.focus > div',
+    'body.lumen-torrents-on .lumen-torrents .torrent-filter .filter--filter.focus > div:not(.hide)'
+  ]) {
+    const decl = declOf(sel);
+    assert.ok(decl, 'правило не найдено: ' + sel);
+    assert.ok(decl.indexOf(k.bg) !== -1, sel + ': цвет не согласован с инверсией: ' + decl);
+    assert.equal(decl.indexOf(k.onac), -1, sel + ': остался цвет текста на акценте: ' + decl);
+  }
+});
+
 /* Task 50c: та же проверка, что у таблицы карточки (test/css.test.mjs) —
    экраны пути листаются тем же D-pad, и каждый шаг фокуса перерисовывает
    слой по площади, расширенной радиусом размытия во все стороны. Шкала em
