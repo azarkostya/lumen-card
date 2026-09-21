@@ -107,10 +107,18 @@ function env(opts) {
     if (t) t.done = true;
   };
 
+  /* Task 44: reveal() обязан обходиться БЕЗ героя — источник ему передают
+     явно. Счётчик обращений к LC.hero.lastFocus проверяет это прямо. */
+  const heroReads = { count: 0 };
   const { api } = build({
     motionMode: () => opts.motion || 'full',
     pref: (name, def) => (Object.prototype.hasOwnProperty.call(opts.prefs || {}, name) ? opts.prefs[name] : def),
-    hero: { lastFocus: () => (opts.last === undefined ? SOURCE : opts.last) }
+    hero: {
+      lastFocus: () => {
+        heroReads.count++;
+        return opts.last === undefined ? SOURCE : opts.last;
+      }
+    }
   });
 
   function frame() {
@@ -134,7 +142,7 @@ function env(opts) {
     return list.length;
   }
 
-  return { api, body, frames, timers, cancelledFrames, cancelledTimers, frame, fire, overlay, transitionEnd };
+  return { api, body, frames, timers, cancelledFrames, cancelledTimers, frame, fire, overlay, transitionEnd, heroReads };
 }
 
 /* Task 37: герой отдаёт слою перехода УЗЕЛ карточки, а не снятый заранее
@@ -378,4 +386,170 @@ test('open: второй переход подряд снимает первый
   assert.equal(e.overlay().length, 1);
   e.api.stop();
   assert.equal(e.overlay().length, 0);
+});
+
+/* ====================================================================== */
+/* Task 44: reveal — тот же слой по ЯВНОМУ источнику и без автоснятия      */
+/* ====================================================================== */
+
+/* Рулетка показывает выпавший фильм тем же приёмом, что и переход из ряда:
+   прямоугольник барабана разворачивается в полноэкранный кадр. Отличий от
+   open() ровно три, и каждое проверяется ниже:
+     - источник приходит аргументом, героя reveal не спрашивает вовсе;
+     - слой не растворяется и не снимается ни концом перехода, ни таймером —
+       только stop() (его же зовёт следующий open());
+     - конец разгона отдаётся наружу колбэком opts.then, ровно один раз. */
+
+const REEL = { left: 396, top: 120, width: 166, height: 249 };
+const KADR = { rect: REEL, poster: 'https://img/t/p/w342/p.jpg', big: 'https://img/t/p/w1280/b.jpg' };
+
+test('reveal: слой встаёт по переданному прямоугольнику, героя не спрашивает', () => {
+  const e = env();
+  assert.equal(e.api.reveal(KADR, {}), true);
+  assert.equal(e.heroReads.count, 0, 'reveal обошёлся без LC.hero.lastFocus');
+  const layers = e.overlay();
+  assert.equal(layers.length, 1);
+  const img = layers[0].find('.lumen-overlay__img');
+  assert.equal(img.css('left'), '396px');
+  assert.equal(img.css('top'), '120px');
+  assert.equal(img.css('width'), '166px');
+  assert.equal(img.css('height'), '249px');
+  assert.ok(String(img.css('background-image')).indexOf('/t/p/w1280/b.jpg') !== -1,
+    'в слой идёт кадр w1280, а не постер барабана: ' + img.css('background-image'));
+});
+
+/* Главное отличие от open(): слой обязан ОСТАТЬСЯ на экране. Растворение в
+   его переходе не участвует вовсе — иначе «держится до stop()» означало бы
+   «держится невидимым». */
+test('reveal: растворения в переходе нет, opacity остаётся непрозрачной', () => {
+  const e = env();
+  e.api.reveal(KADR, {});
+  const img = e.overlay()[0].find('.lumen-overlay__img');
+  for (const track of [String(img.css('transition')), String(img.css('-webkit-transition'))]) {
+    assert.ok(track.indexOf('transform 480ms cubic-bezier(.2,.8,.2,1)') !== -1, track);
+    assert.equal(track.indexOf('opacity'), -1, 'opacity в списке перехода — слой погаснет: ' + track);
+  }
+  e.frame();
+  e.frame();
+  assert.equal(img.hasClass('is-run'), true);
+  assert.equal(img.css('opacity'), undefined, 'разгон не трогает прозрачность слоя');
+});
+
+test('reveal: ни конец перехода, ни часы слой не снимают — только stop()', () => {
+  const e = env();
+  e.api.reveal(KADR, {});
+  e.frame();
+  e.frame();
+  e.transitionEnd('transform');
+  assert.equal(e.overlay().length, 1, 'конец разгона слой не снимает');
+  e.transitionEnd('opacity');
+  assert.equal(e.overlay().length, 1, 'растворения у этого слоя нет вовсе');
+  e.fire();
+  assert.equal(e.overlay().length, 1, 'страховочного снятия по часам у reveal нет');
+  assert.equal(e.api.active(), true);
+  e.api.stop();
+  assert.equal(e.overlay().length, 0);
+  assert.equal(e.api.active(), false);
+});
+
+test('reveal: opts.then зовётся по концу разгона, ровно один раз', () => {
+  const e = env();
+  let calls = 0;
+  e.api.reveal(KADR, { then: () => { calls++; } });
+  e.frame();
+  e.frame();
+  assert.equal(calls, 0, 'до конца разгона результат не показывают');
+  e.transitionEnd('transform');
+  assert.equal(calls, 1);
+  e.transitionEnd('transform');
+  assert.equal(calls, 1, 'второе событие того же перехода — не второй результат');
+  e.fire();
+  assert.equal(calls, 1, 'страховочный таймер после события молчит');
+});
+
+/* На слабом ТВ (и на любом стенде, где переходы не проигрываются) события
+   может не быть вовсе. Без страховки экран остался бы на барабане навсегда:
+   результат показывает именно then. */
+test('reveal: события не было — then зовёт страховочный таймер', () => {
+  const e = env();
+  let calls = 0;
+  e.api.reveal(KADR, { then: () => { calls++; } });
+  assert.equal(e.timers.length, 1, 'страховка одна');
+  assert.equal(e.timers[0].ms, 960, 'вдвое к длительности разгона: ' + e.timers[0].ms);
+  e.fire();
+  assert.equal(calls, 1);
+  assert.equal(e.overlay().length, 1, 'таймер отдаёт результат, но слой не снимает');
+  e.transitionEnd('transform');
+  assert.equal(calls, 1, 'опоздавшее событие второй раз результат не показывает');
+});
+
+test('reveal: слой снят до конца разгона — then не зовётся вовсе', () => {
+  const e = env();
+  let calls = 0;
+  e.api.reveal(KADR, { then: () => { calls++; } });
+  e.api.stop();
+  e.transitionEnd('transform');
+  e.fire();
+  assert.equal(calls, 0, 'экрана уже нет — показывать результат некуда');
+});
+
+test('reveal: конец перехода чужого свойства результат не показывает', () => {
+  const e = env();
+  let calls = 0;
+  e.api.reveal(KADR, { then: () => { calls++; } });
+  e.transitionEnd('border-radius');
+  assert.equal(calls, 0);
+});
+
+test('reveal: без rect и без картинки — false, слоя нет', () => {
+  for (const source of [null, {}, { rect: REEL }, { poster: 'p.jpg' },
+    { rect: { left: 0, top: 0, width: 0, height: 0 }, big: 'b.jpg' }]) {
+    const e = env();
+    assert.equal(e.api.reveal(source, {}), false, JSON.stringify(source));
+    assert.equal(e.overlay().length, 0);
+  }
+});
+
+test('reveal: только постер, без кадра — слой идёт на постере', () => {
+  const e = env();
+  assert.equal(e.api.reveal({ rect: REEL, poster: 'https://img/t/p/w342/p.jpg' }, {}), true);
+  const img = e.overlay()[0].find('.lumen-overlay__img');
+  assert.ok(String(img.css('background-image')).indexOf('/t/p/w342/p.jpg') !== -1);
+});
+
+/* Настройка «Переход от постера» описывает ровно открытие карточки из ряда
+   (src/80_settings.js, lumen_transition_descr). Выключив её, пользователь не
+   просил ломать экран результата рулетки — там слой не украшение, а способ
+   показать кадр, и подменять его нечем. */
+test('reveal: настройка lumen_transition его не гасит — она про открытие карточки', () => {
+  const e = env({ prefs: { lumen_transition: false } });
+  assert.equal(e.api.reveal(KADR, {}), true);
+  assert.equal(e.api.stop(), undefined);
+  assert.equal(e.api.open({ id: 42 }), false, 'а открытие карточки она по-прежнему гасит');
+});
+
+test('reveal: в режиме «Движение: выкл» — false, кадр покажут без перехода', () => {
+  const e = env({ motion: 'off' });
+  assert.equal(e.api.reveal(KADR, {}), false);
+  assert.equal(e.overlay().length, 0);
+  assert.equal(e.frames.length, 0);
+  assert.equal(e.timers.length, 0);
+});
+
+/* В «Лёгких» барабан не крутится (src/56_roulette.js, runReel), но один
+   композиторный слой с transform — не та цена, ради которой стоит лишать
+   экран результата его главного приёма. */
+test('reveal: в «Лёгких» работает — это один слой и только transform', () => {
+  const e = env({ motion: 'lite' });
+  assert.equal(e.api.reveal(KADR, {}), true);
+  assert.equal(e.overlay().length, 1);
+});
+
+test('reveal: открытие карточки снимает удержанный слой своим stop()', () => {
+  const e = env();
+  e.api.reveal(KADR, {});
+  assert.equal(e.api.open({ id: 42 }), true, 'open идёт обычным путём');
+  assert.equal(e.overlay().length, 1, 'на экране по-прежнему один слой — новый');
+  const img = e.overlay()[0].find('.lumen-overlay__img');
+  assert.ok(String(img.css('background-image')).indexOf('poster.jpg') !== -1, 'слой уже от open');
 });

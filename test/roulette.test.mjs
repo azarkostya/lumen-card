@@ -327,6 +327,13 @@ El.prototype.removeClass = function (list) {
   return this;
 };
 El.prototype.hasClass = function (c) { return this._class.indexOf(c) >= 0; };
+/* Task 44: показ результата снимает прямоугольник барабана
+   (getBoundingClientRect) — узлом служит сам El, потому что конструктор
+   ставит this[0] = this. По умолчанию прямоугольник нулевой: переход на
+   таком не начинается, и тесты, которым он не нужен, ничего не настраивают. */
+El.prototype.getBoundingClientRect = function () {
+  return this._rect || { left: 0, top: 0, width: 0, height: 0 };
+};
 El.prototype.append = function (child) { this._children.push(child); return this; };
 El.prototype.empty = function () { this._children = []; return this; };
 El.prototype.remove = function () { return this; };
@@ -380,13 +387,19 @@ function fire(node, name) {
   for (var i = 0; i < list.length; i++) list[i]();
 }
 
-function ElScroll() {
+var scrolls = [];
+function ElScroll(params) {
   var body = new El([]);
+  this.params = params || {};
+  this.updates = [];
+  this.resets = 0;
   this.append = function (el) { body.append(el); };
   this.render = function () { return body; };
   this.minus = function () { };
-  this.update = function () { };
+  this.update = function (el) { this.updates.push(el); };
+  this.reset = function () { this.resets++; };
   this.destroy = function () { };
+  scrolls.push(this);
 }
 
 /* Заглушка Image: конструктор просто копится в createdImages, onload/onerror
@@ -478,9 +491,37 @@ function restoreGlobals34() {
    глобалов после теста, что бы в нём ни случилось. */
 /* Task 39: dpr — третий аргумент, потому что от него зависит размер и
    постера в барабане, и кадра под результатом. */
+/* Task 44: слой перехода — заглушка с журналом. По умолчанию reveal
+   отвечает false («переход не пошёл, рисуй сразу»): так ведут себя и режим
+   «Движение: выкл», и любой стенд, где переходы не проигрываются, — и
+   старые тесты фона от этого не зависят вовсе. Тест, которому нужен сам
+   переход, ставит transitionStub.on = true и зовёт fireReveal(). */
+var transitionStub = null;
+function resetTransition() {
+  transitionStub = {
+    on: false,
+    reveals: [],
+    stops: 0,
+    api: {
+      reveal: function (source, opts) {
+        transitionStub.reveals.push({ source: source, opts: opts });
+        return transitionStub.on;
+      },
+      stop: function () { transitionStub.stops++; }
+    }
+  };
+}
+/* Конец разгона удержанного слоя: рулетка отдала колбэк, зовём его сами. */
+function fireReveal() {
+  var last = transitionStub.reveals[transitionStub.reveals.length - 1];
+  last.opts.then();
+}
+
 function openRoulette34(cards, t, dpr) {
   resetTimers();
+  resetTransition();
   createdImages.length = 0;
+  scrolls.length = 0;
   poolCards34 = cards;
   t.after(restoreGlobals34);
 
@@ -491,7 +532,8 @@ function openRoulette34(cards, t, dpr) {
     Controller: { add: function () { }, toggle: function () { }, collectionSet: function () { }, collectionFocus: function () { } },
     Menu: { addButton: function () { return new El([]); } }
   };
-  globalThis.window = { Lampa: Lampa, innerWidth: 1920, devicePixelRatio: dpr || 1 };
+  /* Task 44: высота окна нужна так же, как ширина, — барабан задан в vh. */
+  globalThis.window = { Lampa: Lampa, innerWidth: 1920, innerHeight: 1080, devicePixelRatio: dpr || 1 };
   globalThis.Lampa = Lampa;
   globalThis.$ = make$();
   globalThis.Image = FakeImage;
@@ -507,7 +549,8 @@ function openRoulette34(cards, t, dpr) {
     cardinfo: { imageUrl: function (path, size) { return path ? 'https://img/' + size + path : ''; } },
     rows: { viewedIds: function () { return []; } },
     manifest: { load: function (cb) { cb(MANIFEST34); } },
-    sources: { fetch: fetchStub34 }
+    sources: { fetch: fetchStub34 },
+    transition: transitionStub.api
   });
   built.api.install();
 
@@ -515,8 +558,18 @@ function openRoulette34(cards, t, dpr) {
   var comp = new Comp({});
   comp.activity = { loader: function () { } };
   comp.create();
-  var root = comp.render();
-  return { comp: comp, root: root, bg: root.find('.lumen-roulette__bg') };
+  var screen = comp.render();
+  var reel = screen.find('.lumen-roulette__reel');
+  /* Барабан на экране 1920×1080: 28.67vh — это 310 × 464 px. */
+  reel._rect = { left: 805, top: 250, width: 310, height: 464 };
+  return {
+    comp: comp,
+    screen: screen,
+    root: screen.find('.lumen-roulette'),
+    reel: reel,
+    bg: screen.find('.lumen-roulette__bg'),
+    transition: transitionStub
+  };
 }
 
 /* Нажимает «Крутить» и сразу прогоняет барабан до конца (все его шаги —
@@ -566,7 +619,7 @@ test('showResult: карточка без backdrop_path оставляет фо�
     Math.random = function () { return 0.9; };
     spinAndFlush(env);
     assert.equal(env.bg.css('background-image'), '', 'у фильма B backdrop_path пуст — фон пустой, а не фон фильма A');
-    assert.equal(createdImages.length, 1, 'у B нет кадра — loadResultBg на пустой backdrop_path новую предзагрузку не запускает');
+    assert.equal(createdImages.length, 1, 'у B нет кадра — prepareFrame на пустой backdrop_path новую предзагрузку не запускает');
   } finally {
     Math.random = realRandom;
   }
@@ -666,23 +719,193 @@ test('stop() → start(): уже показанный фон повторно н
   assert.equal(env.bg.css('background-image'), 'url("' + backdropUrl(A) + '")', 'фон остался тем же');
 });
 
-/* Task 39: размеры считаются по физическим пикселям. Барабан —
-   .lumen-roulette__reel шириной 9.2em (210 px на экране 1920, 420 при
-   DPR 2), фон результата растянут на весь экран. */
-test('Task 39: постер барабана и фон результата — по физическим пикселям', (t) => {
+/* Task 39/44: размеры считаются по физическим пикселям. Барабан —
+   .lumen-roulette__reel шириной 28.67vh (310 px на экране высотой 1080, 620
+   при DPR 2), кадр результата растянут на весь экран. */
+test('Task 39: постер барабана и кадр результата — по физическим пикселям', (t) => {
   const A = { id: 1, title: 'Фильм A', release_date: '2020-01-01', poster_path: '/a-p.jpg', backdrop_path: '/a-b.jpg' };
 
   const one = openRoulette34([A], t);
   spinAndFlush(one);
-  assert.ok(('' + one.root.find('.lumen-roulette__frame').css('background-image')).indexOf('/w185/a-p.jpg') !== -1,
-    'барабан на экране 1920 — w185');
-  assert.equal(createdImages[createdImages.length - 1].src, 'https://img/w1280/a-b.jpg', 'фон на экране 1920 — w1280');
+  assert.ok(('' + one.root.find('.lumen-roulette__frame').css('background-image')).indexOf('/w342/a-p.jpg') !== -1,
+    'барабан на экране высотой 1080 — w342');
+  assert.equal(createdImages[createdImages.length - 1].src, 'https://img/w1280/a-b.jpg', 'кадр на экране 1920 — w1280');
 
   const two = openRoulette34([A], t, 2);
   spinAndFlush(two);
-  assert.ok(('' + two.root.find('.lumen-roulette__frame').css('background-image')).indexOf('/w500/a-p.jpg') !== -1,
-    'барабан при DPR 2 — w500');
-  /* Ревью Task 39 (п.1): фон результата — кадр-подложка (opacity .22), у
-     него потолок w1280, а не original. */
-  assert.equal(createdImages[createdImages.length - 1].src, 'https://img/w1280/a-b.jpg', 'фон при DPR 2 — по-прежнему w1280');
+  assert.ok(('' + two.root.find('.lumen-roulette__frame').css('background-image')).indexOf('/w780/a-p.jpg') !== -1,
+    'барабан при DPR 2 — w780');
+  /* Ревью Task 39 (п.1) и бэклог с ТВ (п. Б1): у кадра результата потолок
+     w1280, а не original — original у TMDB обычно 3840×2160, то есть 31.6 МБ
+     распакованного растра на слой, который висит до «Ещё раз». */
+  assert.equal(createdImages[createdImages.length - 1].src, 'https://img/w1280/a-b.jpg', 'кадр при DPR 2 — по-прежнему w1280');
+});
+
+/* ====================================================================== */
+/* Task 44: спокойный экран и переход в кадр                              */
+/* ====================================================================== */
+
+const R44 = { id: 5, title: 'Фильм Р', release_date: '2021-01-01', poster_path: '/r-p.jpg', backdrop_path: '/r-b.jpg' };
+const NOFRAME44 = { id: 6, title: 'Фильм Б', release_date: '2021-01-01', poster_path: '/b-p.jpg', backdrop_path: '' };
+
+/* Лента подборок — одна строка с собственной ГОРИЗОНТАЛЬНОЙ прокруткой
+   Lampa, а не «куча в несколько рядов» переносом. */
+test('Task 44: чипы подборок живут в горизонтальной прокрутке', (t) => {
+  const env = openRoulette34([R44], t);
+  const horiz = scrolls.filter((s) => s.params.horizontal);
+  assert.equal(horiz.length, 1, 'горизонтальная прокрутка ровно одна');
+  assert.equal(horiz[0].params.over, true, 'без over лента не обрезается и вылезает за экран');
+  assert.equal(horiz[0].params.nopadding, true, 'штатные поля ленты добавились бы к полям корня');
+  assert.ok(env.root.find('.lumen-roulette__chipbox').length, 'обёртки ленты нет в разметке');
+  /* Именно из ленты: чипы фильтров носят тот же класс, но живут в шапке. */
+  const chips = env.root.find('.lumen-roulette__chipbox').all('.lumen-roulette__chip');
+  assert.ok(chips.length > 1, 'чипов подборок не нашлось: ' + chips.length);
+
+  /* Фокус на чипе подводит ленту по горизонтали — иначе чип остаётся за
+     обрезанной кромкой и на экране не появляется вовсе. */
+  fire(chips[1], 'hover:focus');
+  assert.equal(horiz[0].updates.length, 1, 'лента за фокусом чипа не поехала');
+  assert.equal(horiz[0].updates[0], chips[1][0]);
+});
+
+/* Спокойный экран: до результата кадра нет ни в фоне, ни в режиме. */
+test('Task 44: до «Крутить» экран спокойный — ни кадра, ни карточки результата', (t) => {
+  const env = openRoulette34([R44], t);
+  assert.equal(env.bg.css('background-image'), undefined, 'кадр стоит ещё до результата');
+  assert.equal(env.screen.hasClass('is-kadr'), false);
+  assert.equal(env.root.find('.lumen-roulette__result').hasClass('is-live'), false);
+  assert.equal(env.transition.reveals.length, 0, 'перехода до «Крутить» быть не может');
+});
+
+/* Кадр запрашивается, ПОКА КРУТИТСЯ БАРАБАН, а не после его остановки:
+   spinPlan даёт около трёх секунд, и к остановке w1280 обычно уже в кэше. */
+test('Task 44: кадр предзагружается ещё до остановки барабана', (t) => {
+  const env = openRoulette34([R44], t);
+  fire(env.root.find('.lumen-roulette__spin'), 'hover:enter');
+  assert.equal(createdImages.length, 1, 'предзагрузка кадра не стартовала вместе с барабаном');
+  assert.equal(createdImages[0].src, 'https://img/w1280/r-b.jpg');
+  assert.equal(env.transition.reveals.length, 0, 'перехода на крутящемся барабане быть не должно');
+  flushTimers();
+});
+
+test('Task 44: результат открывается кадром — reveal по прямоугольнику барабана', (t) => {
+  const env = openRoulette34([R44], t);
+  env.transition.on = true;
+  fire(env.root.find('.lumen-roulette__spin'), 'hover:enter');
+  createdImages[0].onload();
+  flushTimers();
+
+  assert.equal(env.transition.reveals.length, 1, 'перехода не было');
+  const source = env.transition.reveals[0].source;
+  assert.deepEqual(source.rect, { left: 805, top: 250, width: 310, height: 464 },
+    'источник перехода — не прямоугольник барабана');
+  assert.equal(source.big, 'https://img/w1280/r-b.jpg', 'разворачивается кадр w1280');
+  assert.ok(('' + source.poster).indexOf('/w342/r-p.jpg') !== -1, 'постер барабана — запасная картинка: ' + source.poster);
+
+  /* Пока слой разгоняется, экран ещё спокойный: результат покажет колбэк. */
+  assert.equal(env.screen.hasClass('is-kadr'), false, 'кадр отдан фону раньше времени');
+  assert.equal(env.root.find('.lumen-roulette__result').hasClass('is-live'), false);
+
+  fireReveal();
+  assert.equal(env.bg.css('background-image'), 'url("https://img/w1280/r-b.jpg")');
+  assert.equal(env.screen.hasClass('is-kadr'), true, 'экран не перешёл в режим кадра');
+  assert.equal(env.root.find('.lumen-roulette__result').hasClass('is-live'), true);
+  assert.ok(env.root.all('.lumen-roulette__btn').length === 3, 'на карточке результата не три кнопки');
+  /* Карточка результата лежит ВНУТРИ прокрутки, у .scroll__body Lampa свой
+     контекст наложения — поверх удержанного слоя её не показать. Поэтому
+     кадр передан фону, а слой снят: обе вещи в одном кадре отрисовки. */
+  /* Одно снятие — от clearResult в начале спина (он снимает и режим кадра,
+     и слой, если тот остался), второе — вот это. */
+  assert.equal(env.transition.stops, 2, 'удержанный слой не снят — карточка осталась под ним');
+});
+
+test('Task 44: «Ещё раз» снимает кадр и возвращает спокойный экран', (t) => {
+  const env = openRoulette34([R44], t);
+  env.transition.on = true;
+  fire(env.root.find('.lumen-roulette__spin'), 'hover:enter');
+  createdImages[0].onload();
+  flushTimers();
+  fireReveal();
+  assert.equal(env.screen.hasClass('is-kadr'), true, 'подготовка: экран в режиме кадра');
+
+  const again = env.root.all('.lumen-roulette__btn')[1];
+  fire(again, 'hover:enter');
+  assert.equal(env.screen.hasClass('is-kadr'), false, 'режим кадра не снят');
+  assert.equal(env.bg.css('background-image'), '', 'кадр остался фоном');
+  assert.equal(env.transition.stops, 3, '«Ещё раз» обязано снимать слой и тогда, когда он ещё разгоняется');
+  flushTimers();
+});
+
+/* Переход не пошёл (кадр не успел загрузиться, «Движение: выкл», барабана
+   нет на экране) — результат рисуется сразу, без него. */
+test('Task 44: перехода нет — результат всё равно показан', (t) => {
+  const env = openRoulette34([R44], t);
+  env.transition.on = false;
+  fire(env.root.find('.lumen-roulette__spin'), 'hover:enter');
+  createdImages[0].onload();
+  flushTimers();
+  assert.equal(env.transition.reveals.length, 1, 'попытка перехода была');
+  assert.equal(env.root.find('.lumen-roulette__result').hasClass('is-live'), true, 'результат не показан');
+  assert.equal(env.screen.hasClass('is-kadr'), true, 'кадр есть — экран обязан быть в режиме кадра');
+  assert.equal(env.bg.css('background-image'), 'url("https://img/w1280/r-b.jpg")');
+});
+
+test('Task 44: кадр не успел загрузиться — перехода нет, результат в потоке', (t) => {
+  const env = openRoulette34([R44], t);
+  env.transition.on = true;
+  spinAndFlush(env);
+  assert.equal(env.transition.reveals.length, 0, 'на недогруженной картинке переход показал бы пустой прямоугольник');
+  assert.equal(env.root.find('.lumen-roulette__result').hasClass('is-live'), true, 'результат ждать сеть не должен');
+  assert.equal(env.screen.hasClass('is-kadr'), false);
+
+  /* Долетел позже — кадр встаёт фоном без перехода: момент для него прошёл. */
+  createdImages[0].onload();
+  assert.equal(env.bg.css('background-image'), 'url("https://img/w1280/r-b.jpg")');
+  assert.equal(env.screen.hasClass('is-kadr'), true);
+  assert.equal(env.transition.reveals.length, 0, 'опоздавший кадр перехода не запускает');
+});
+
+test('Task 44: у фильма нет кадра вовсе — ни перехода, ни режима кадра', (t) => {
+  const env = openRoulette34([NOFRAME44], t);
+  env.transition.on = true;
+  spinAndFlush(env);
+  assert.equal(createdImages.length, 0, 'предзагружать нечего');
+  assert.equal(env.transition.reveals.length, 0);
+  assert.equal(env.screen.hasClass('is-kadr'), false);
+  assert.equal(env.root.find('.lumen-roulette__result').hasClass('is-live'), true, 'результат обязан быть показан');
+});
+
+/* Барабана может не быть на экране вовсе (ушли с активности) — источник
+   перехода тогда нулевой, и переход просто не заводится. */
+test('Task 44: нулевой прямоугольник барабана — перехода нет', (t) => {
+  const env = openRoulette34([R44], t);
+  env.transition.on = true;
+  env.reel._rect = { left: 0, top: 0, width: 0, height: 0 };
+  fire(env.root.find('.lumen-roulette__spin'), 'hover:enter');
+  createdImages[0].onload();
+  flushTimers();
+  assert.equal(env.transition.reveals.length, 0, 'на нулевом прямоугольнике переход не заводится');
+  assert.equal(env.root.find('.lumen-roulette__result').hasClass('is-live'), true);
+  assert.equal(env.screen.hasClass('is-kadr'), true, 'кадр есть — он и должен встать фоном');
+});
+
+/* Под фильтры ничего не подошло: режим кадра НЕ включается — менять чипы
+   придётся на спокойном экране. */
+test('Task 44: пустой результат оставляет спокойный экран', (t) => {
+  const env = openRoulette34([], t);
+  spinAndFlush(env);
+  assert.equal(env.screen.hasClass('is-kadr'), false);
+  assert.ok(env.root.all('.lumen-roulette__empty').length, 'сообщения о пустом результате нет');
+});
+
+/* Уход с экрана, пока слой ещё разгоняется: снять его больше некому. */
+test('Task 44: destroy снимает удержанный слой перехода', (t) => {
+  const env = openRoulette34([R44], t);
+  env.transition.on = true;
+  fire(env.root.find('.lumen-roulette__spin'), 'hover:enter');
+  createdImages[0].onload();
+  flushTimers();
+  const before = env.transition.stops;
+  env.comp.destroy();
+  assert.equal(env.transition.stops, before + 1);
 });

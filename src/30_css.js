@@ -2900,8 +2900,10 @@
        pointer-events:none и ни одного слушателя — слой не может ни отобрать
        фокус, ни съесть нажатие пульта. z-index выше всего, что рисует плагин
        на главной, но ниже модалов Lampa (у них 1000+).
-       Слой живёт максимум 700 мс и снимается таймером, поэтому «оставить
-       экран накрытым» он не может даже при ошибке перехода. */
+       Кто и когда слой снимает — целиком дело src/67_transition.js: на пути
+       open() это конец растворения плюс страховочный таймер, на пути
+       reveal() (Task 44) — только stop() вызывающего. Здесь про снятие нет
+       ни одного правила, и знать о нём таблице нечего. */
     css.push('.lumen-overlay{position:fixed;top:0;left:0;right:0;bottom:0;z-index:90;pointer-events:none;overflow:hidden}');
     css.push('.lumen-overlay .lumen-overlay__img{position:absolute;-webkit-background-size:cover;background-size:cover;background-position:center;background-repeat:no-repeat;border-radius:.31em;-webkit-transform-origin:center center;transform-origin:center center;will-change:transform,opacity}');
     /* На бегу скругление уходит: постер превращается в кадр во весь экран, а
@@ -2911,54 +2913,133 @@
        В первом же кадре разгона углы уезжают за пределы экрана. */
     css.push('.lumen-overlay .lumen-overlay__img.is-run{border-radius:0}');
 
-    /* --- Task 23: рулетка «Что посмотреть» ---
-       Экран компонента lumen_roulette: шапка с тумблером «Фильмы/Сериалы»,
-       лента чипов подборок, чипы фильтров, барабан с постером, кнопка
-       «Крутить» и карточка результата. Кадр выпавшего фильма лежит фоном
-       под всем этим (.lumen-roulette__bg) и приглушён — текст поверх него
-       обязан читаться и на светлой сцене.
+    /* --- Task 23/44: рулетка «Что посмотреть» ---
+       У экрана компонента lumen_roulette два состояния, и они разные.
+
+       ДО РЕЗУЛЬТАТА — спокойный экран (Task 44). Фона нет вовсе; в одну
+       строку шапка (заголовок, сегмент «Фильмы/Сериалы» и сегмент фильтров,
+       прижатый вправо), под ней ОДНА горизонтальная лента чипов подборок, а
+       дальше по центру барабан, кнопка «Крутить» под ним и приглушённая
+       подсказка. До Task 44 чипы стояли в несколько рядов переносом, барабан
+       с кнопкой — строкой слева, а кадр прошлого результата лежал фоном под
+       всем этим на opacity .22.
+
+       ПОСЛЕ РЕЗУЛЬТАТА — кадр: класс is-kadr на .lumen-roulette-screen даёт
+       кадр выпавшего фильма во весь экран, вуаль теми же двумя градиентами,
+       что у героя главной, и карточку результата внизу слева. Спокойный
+       экран гасится прозрачностью, а не display:none: место в потоке он
+       сохраняет, и «Ещё раз» возвращает его без пересчёта раскладки.
+
+       Почему обёртка .lumen-roulette-screen. Кадр обязан лечь на ВЕСЬ экран,
+       а .lumen-roulette лежит внутри прокрутки и начинается заметно ниже
+       верхней кромки: шапка Lampa (.wrap__content{padding-top:4em},
+       vendor/lampa/css/app.css:1037) плюс поле маски прокрутки
+       (.scroll--mask .scroll__content{padding:2.5em 0}, там же:2786-2788).
+       Обёртка — прямой ребёнок .activity__body, и над ней остаётся ровно
+       шапка; -4em её и снимает. Число точное, а не подогнанное: em обёртки —
+       кегль body, тот же самый, в котором Lampa задала своё поле (масштаб
+       интерфейса плагина живёт ниже, на .lumen-roulette, обёртки он не
+       касается).
+
+       Переходов у смены состояния нет ни одного, намеренно. Кадр обязан
+       появиться В ТОМ ЖЕ кадре отрисовки, в котором снимается удержанный
+       слой перехода (src/67_transition.js, reveal): проявляйся он плавно —
+       между снятием слоя и приходом кадра мигнул бы спокойный экран.
+
        Две размерные семьи кнопок (поправка контроллера к Task 23):
-       «Крутить» — 72 px (3.16em) с радиусом 18 px (.79em), кнопки результата
-       — 56 px (2.45em) с радиусом 14 px (.61em); это разные классы, а не
-       один .full-start__button. */
-    css.push('.lumen-roulette{position:relative;min-height:100vh;padding:2.81em 2.81em 3.5em}');
-    css.push('.lumen-roulette .lumen-roulette__bg{position:absolute;top:0;right:0;bottom:0;left:0;background-position:center;background-repeat:no-repeat;-webkit-background-size:cover;background-size:cover;opacity:.22;pointer-events:none}');
-    css.push('body.lumen-motion-full .lumen-roulette .lumen-roulette__bg{-webkit-transition:opacity .6s ease;transition:opacity .6s ease}');
-    css.push('.lumen-roulette .lumen-roulette__head{position:relative;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;margin-bottom:1.4em}');
+       «Крутить» — 3.16em с радиусом .79em, кнопки результата — 2.45em с
+       радиусом .61em; это разные классы, а не один .full-start__button. */
+    css.push('.lumen-roulette-screen{position:relative;height:100%;overflow:hidden}');
+    /* Прокрутка идёт ПОСЛЕ кадра и вуали в разметке, но сама не
+       спозиционирована — а позиционированный сосед рисуется поверх любого
+       потокового. Без position:relative кадр накрыл бы собой весь спокойный
+       экран. */
+    css.push('.lumen-roulette-screen>.scroll{position:relative}');
+    /* Маска прокрутки размывает нижние 8 % области (app.css:2781-2785) —
+       ровно там, где в режиме кадра стоит карточка результата. Снимаем её
+       на это время: листать в режиме кадра всё равно нечего. */
+    css.push('.lumen-roulette-screen.is-kadr>.scroll{-webkit-mask-image:none;mask-image:none}');
+    css.push('.lumen-roulette-screen .lumen-roulette__bg{position:absolute;top:-4em;right:0;bottom:0;left:0;background-position:center;background-repeat:no-repeat;-webkit-background-size:cover;background-size:cover;opacity:0;pointer-events:none}');
+    /* Вуали — те же два градиента, что у героя (см. AR.veilL/AR.veilB выше):
+       слева под текст, снизу под карточку результата. Здесь они собственные,
+       а не из accentRules: подкраска по постеру доходит до главной и
+       карточки, а рулетку не трогает, и перекрашивать тут нечего. */
+    css.push('.lumen-roulette-screen .lumen-roulette__veil{position:absolute;top:-4em;right:0;bottom:0;left:0;opacity:0;pointer-events:none}');
+    css.push('.lumen-roulette-screen .lumen-roulette__veil--l{background:-webkit-linear-gradient(left,rgba(' + P.bgRgb + ',.85) 0%,rgba(' + P.bgRgb + ',.45) 30%,rgba(' + P.bgRgb + ',0) 65%);background:linear-gradient(90deg,rgba(' + P.bgRgb + ',.85) 0%,rgba(' + P.bgRgb + ',.45) 30%,rgba(' + P.bgRgb + ',0) 65%)}');
+    css.push('.lumen-roulette-screen .lumen-roulette__veil--b{background:-webkit-linear-gradient(bottom,' + P.bg + ' 0%,rgba(' + P.bgRgb + ',.92) 10%,rgba(' + P.bgRgb + ',.6) 24%,rgba(' + P.bgRgb + ',.25) 42%,rgba(' + P.bgRgb + ',0) 62%);background:linear-gradient(0deg,' + P.bg + ' 0%,rgba(' + P.bgRgb + ',.92) 10%,rgba(' + P.bgRgb + ',.6) 24%,rgba(' + P.bgRgb + ',.25) 42%,rgba(' + P.bgRgb + ',0) 62%)}');
+    css.push('.lumen-roulette-screen.is-kadr .lumen-roulette__bg,.lumen-roulette-screen.is-kadr .lumen-roulette__veil{opacity:1}');
+    css.push('.lumen-roulette{position:relative;min-height:100%;padding:0 2.81em 2.81em}');
+    /* В режиме кадра высота корня — ровно область прокрутки: карточка
+       результата стоит от его нижней кромки, и «внизу слева» обязано
+       означать низ ЭКРАНА, а не низ содержимого спокойного экрана. */
+    css.push('.lumen-roulette-screen.is-kadr .lumen-roulette{height:100%;overflow:hidden}');
+    css.push('.lumen-roulette-screen.is-kadr .lumen-roulette__head,.lumen-roulette-screen.is-kadr .lumen-roulette__chipbox,.lumen-roulette-screen.is-kadr .lumen-roulette__stage{opacity:0}');
+    /* Шапка: заголовок, сегмент медиа и сегмент фильтров одной строкой.
+       Фильтры прижаты вправо автополем — на отдельную строку они не
+       выделяются: каждая лишняя строка сверху отбирается у барабана. */
+    css.push('.lumen-roulette .lumen-roulette__head{position:relative;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;padding-top:1.05em;margin-bottom:.88em}');
     css.push('.lumen-roulette .lumen-roulette__title{font-family:' + FB + ';font-weight:700;font-size:2.1em;line-height:1.1;color:' + P.text + ';margin-right:1.05em}');
     css.push('.lumen-roulette .lumen-roulette__media{display:-webkit-box;display:-webkit-flex;display:flex}');
     css.push('.lumen-roulette .lumen-roulette__tab{height:2.1em;padding:0 .96em;margin-right:.53em;border-radius:.53em;background:' + P.chipBg + ';font-family:' + FB + ';font-weight:600;font-size:.96em;line-height:2.1em;color:' + P.smoke + '}');
     css.push('.lumen-roulette .lumen-roulette__tab.is-on{color:' + P.text + ';background:rgba(' + P.textRgb + ',.22)}');
     css.push('.lumen-roulette .lumen-roulette__tab.focus{background:' + P.text + ';color:' + P.bg + '}');
-    /* Лента чипов: подборки в одну строку с переносом — каталог отдаёт их
-       десятками, и вертикальный список занял бы весь экран. */
-    css.push('.lumen-roulette .lumen-roulette__chips,.lumen-roulette .lumen-roulette__filters{position:relative;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;margin-bottom:.88em}');
+    css.push('.lumen-roulette .lumen-roulette__filters{position:relative;display:-webkit-box;display:-webkit-flex;display:flex;margin-left:auto}');
+    /* Лента чипов подборок: ОДНА строка с прокруткой (Task 44). Каталог
+       отдаёт подборки десятками, и переносом они занимали три ряда — всё
+       место, которое должно принадлежать барабану. Едет лента штатным
+       Lampa.Scroll({horizontal:true}) (src/56_roulette.js): он двигает
+       .scroll__body своим transform (app.min.js:32003) и обрезает лишнее
+       классом scroll--over, поэтому обрезка и прокрутка тут не наши. */
+    css.push('.lumen-roulette .lumen-roulette__chipbox{position:relative;margin-bottom:.88em}');
+    css.push('.lumen-roulette .lumen-roulette__chips{position:relative;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:nowrap;flex-wrap:nowrap}');
     /* Чип подборки и чип фильтра: собственное оформление, а не наследство
        от .lumen-chip хаба (тот живёт только под .lumen-hub). Task 43:
        отмеченный — подложкой из акцента .14 и светлым текстом, фокус —
-       инверсией, как у остальных чипов плагина. */
-    css.push('.lumen-roulette .lumen-roulette__chip{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;height:2.1em;padding:0 .88em;margin:0 .53em .53em 0;border-radius:.53em;background:' + P.chipBg + ';font-family:' + FB + ';font-weight:500;font-size:.96em;line-height:1;color:' + P.smoke + ';white-space:nowrap}');
+       инверсией, как у остальных чипов плагина. flex-shrink:0 — чтобы в
+       ленте чипы держали свою ширину, а не ужимались до нечитаемого. */
+    css.push('.lumen-roulette .lumen-roulette__chip{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;height:2.1em;padding:0 .88em;margin:0 .53em 0 0;border-radius:.53em;background:' + P.chipBg + ';font-family:' + FB + ';font-weight:500;font-size:.96em;line-height:1;color:' + P.smoke + ';white-space:nowrap;-webkit-flex-shrink:0;flex-shrink:0}');
     css.push('.lumen-roulette .lumen-roulette__chip.lumen-chip--on{color:' + P.text + ';background:rgba(' + A_RGB + ',.14)}');
     css.push('.lumen-roulette .lumen-roulette__chip.focus{background:' + P.text + ';color:' + P.bg + '}');
-    /* Барабан: окно одного постера 2:3. Постер меняется на каждом шаге плана
-       (src/56_roulette.js), «щелчок» — короткая анимация того же узла. */
-    css.push('.lumen-roulette .lumen-roulette__stage{position:relative;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:end;-webkit-align-items:flex-end;align-items:flex-end;margin-top:1.05em}');
-    css.push('.lumen-roulette .lumen-roulette__reel{width:9.2em;height:13.8em;border-radius:.53em;overflow:hidden;background:' + P.panel + ';border:.04em solid ' + P.line + ';-webkit-flex-shrink:0;flex-shrink:0}');
+    /* Барабан, кнопка и подсказка — столбиком по центру (Task 44). */
+    css.push('.lumen-roulette .lumen-roulette__stage{position:relative;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-orient:vertical;-webkit-box-direction:normal;-webkit-flex-direction:column;flex-direction:column;-webkit-box-align:center;-webkit-align-items:center;align-items:center;margin-top:.88em}');
+    /* Окно одного постера 2:3. Размер — в долях ВЫСОТЫ экрана, а не в em:
+       спокойный экран обязан помещаться целиком, а em умножают и «Размер
+       интерфейса» Lampa (до ×1.05), и масштаб интерфейса плагина (до ×1.2),
+       то есть вместе до ×1.26 — барабан в em на «огромном» уезжал бы за
+       кромку.
+       Сколько места есть на самом деле (замер на стенде 960×540): область
+       прокрутки .scroll (layer--wheight) — 497 px, её Lampa считает как
+       innerHeight минус высота шапки (app.min.js:31686), плюс поля маски
+       .scroll__content по 28.5 px сверху и снизу — корню рулетки остаётся
+       440 px из 540, то есть 81.5 % высоты экрана.
+       Всё, кроме барабана, стоит 13.97em: 1.05 поле шапки + 2.31 сама шапка
+       + .88 её поле + 2.1 лента чипов + .88 её поле + .88 отступ сцены + .88
+       отступ кнопки + 3.32 кнопка + .53 отступ подсказки + 1.14 подсказка.
+       Это 159 px при обычных настройках и 201 при самых крупных; 43vh
+       барабана (232 px) помещаются рядом и там, и там (391 и 433 из 440).
+       Плановые 18em × 27em в эту область не влезали: 27em — это 308 px, и
+       вместе с обвязкой выходило 467 px против 440.
+       Постер под этот размер выбирает LC.util.vhPx (src/56_roulette.js). */
+    css.push('.lumen-roulette .lumen-roulette__reel{width:28.67vh;height:43vh;border-radius:.53em;overflow:hidden;background:' + P.panel + ';border:.04em solid ' + P.line + ';-webkit-flex-shrink:0;flex-shrink:0}');
     css.push('.lumen-roulette .lumen-roulette__frame{width:100%;height:100%;background-position:center;background-repeat:no-repeat;-webkit-background-size:cover;background-size:cover}');
     css.push('body.lumen-motion-full .lumen-roulette .lumen-roulette__frame.is-step{-webkit-animation:lumen-roul-step .12s ease-out;animation:lumen-roul-step .12s ease-out}');
     css.push('@-webkit-keyframes lumen-roul-step{from{-webkit-transform:translateY(12%)}to{-webkit-transform:translateY(0)}}');
     css.push('@keyframes lumen-roul-step{from{transform:translateY(12%)}to{transform:translateY(0)}}');
-    css.push('.lumen-roulette .lumen-roulette__spin{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;height:3.16em;padding:0 1.75em;margin-left:1.4em;border-radius:.79em;background:' + A + ';color:' + t.onac + ';font-family:' + FB + ';font-weight:700;font-size:1.05em;border:.04em solid transparent}');
+    css.push('.lumen-roulette .lumen-roulette__spin{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;height:3.16em;padding:0 1.75em;margin:.88em 0 0;border-radius:1.58em;background:' + A + ';color:' + t.onac + ';font-family:' + FB + ';font-weight:700;font-size:1.05em;border:.04em solid transparent}');
     css.push('.lumen-roulette .lumen-roulette__spin.focus{border-color:' + AL + ';border-width:.11em;-webkit-box-shadow:0 .2em 0 ' + AG + ';box-shadow:0 .2em 0 ' + AG + '}');
     css.push('.lumen-roulette .lumen-roulette__spin.is-busy{opacity:.7}');
-    css.push('.lumen-roulette .lumen-roulette__hint{position:relative;margin-left:1.4em;font-family:' + FB + ';font-size:.96em;color:' + P.smoke + '}');
-    /* Карточка результата: название, мета и три кнопки. Появляется на месте
-       подсказки, поэтому у неё своя строка под барабаном. */
-    css.push('.lumen-roulette .lumen-roulette__result{position:relative;margin-left:1.4em;max-width:31.5em}');
-    css.push('.lumen-roulette .lumen-roulette__rtitle{font-family:' + FB + ';font-weight:700;font-size:1.75em;line-height:1.15;color:' + P.text + '}');
+    css.push('.lumen-roulette .lumen-roulette__hint{position:relative;margin:.53em 0 0;font-family:' + FB + ';font-size:.96em;color:' + P.muted + ';text-align:center}');
+    /* Карточка результата. Пока кадра нет (под фильтры ничего не подошло,
+       кадра у фильма нет вовсе) она стоит в потоке под барабаном — так же,
+       как стояла до Task 44. В режиме кадра переезжает вниз слева, как текст
+       героя, и читается поверх вуали. */
+    css.push('.lumen-roulette .lumen-roulette__result{position:relative;display:none;margin-top:1.05em;max-width:34em}');
+    css.push('.lumen-roulette .lumen-roulette__result.is-live{display:block}');
+    css.push('.lumen-roulette-screen.is-kadr .lumen-roulette__result{position:absolute;left:2.81em;bottom:1.4em;margin-top:0}');
+    css.push('.lumen-roulette .lumen-roulette__rtitle{font-family:' + FB + ';font-weight:700;font-size:2.4em;line-height:1.15;color:' + P.text + '}');
     css.push('.lumen-roulette .lumen-roulette__rmeta{font-family:' + FB + ';font-size:.96em;line-height:1;margin-top:.44em;color:' + P.muted + '}');
     css.push('.lumen-roulette .lumen-roulette__actions{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;margin-top:1.05em}');
-    css.push('.lumen-roulette .lumen-roulette__btn{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;height:2.45em;padding:0 1.05em;margin:0 .53em .53em 0;border-radius:.61em;border:.04em solid ' + P.line + ';background:' + P.buttonBg + ';font-family:' + FB + ';font-weight:600;font-size:.96em;color:' + P.text + '}');
+    css.push('.lumen-roulette .lumen-roulette__btn{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;height:2.45em;padding:0 1.05em;margin:0 .53em .53em 0;border-radius:1.23em;background:' + P.buttonBg + ';font-family:' + FB + ';font-weight:600;font-size:.96em;color:' + P.text + '}');
     /* Task 54: фокус — инверсия P.text/P.bg, как у кнопок карточки выше
        (Task 43). Прежние акцентная заливка и кольцо AL сняты совсем: пока
        заливка была акцентной, кольцо отделяло её от подложки, а на светлой

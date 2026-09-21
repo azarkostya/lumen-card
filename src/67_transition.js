@@ -34,6 +34,12 @@
   /* предсказать — снимать обязан сам конец анимации; таймер остаётся      */
   /* страховкой на случай, когда события не будет вовсе.                   */
   /*                                                                       */
+  /* Task 44 добавил второй вход в тот же слой — reveal(source, opts). Он   */
+  /* берёт источник аргументом (герой ему не нужен), НЕ растворяет слой и   */
+  /* не снимает его ни концом перехода, ни таймером: снимает только stop(). */
+  /* Всё, что сказано ниже про автоснятие и про растворение, относится к    */
+  /* пути open(); подробности удержания — в комментарии самого reveal.      */
+  /*                                                                       */
   /* Длительности живут ЗДЕСЬ и ставятся инлайном: CSS-файл (src/30_css.js)*/
   /* даёт слою только раскладку. Иначе одно и то же число пришлось бы      */
   /* держать в двух местах — в правиле transition и в таймере снятия.      */
@@ -56,6 +62,14 @@
        случай, когда события не будет: переход прерван, вкладка ушла в фон,
        движок события не шлёт. */
     var LIFE = 2500;
+    /* Task 44: сколько reveal() ждёт конца разгона, если события о нём не
+       будет вовсе. Вдвое к длительности самого разгона: событие — основной
+       путь (переход идёт на композиторе и заканчивается сам), а таймер
+       нужен ровно на случай, когда перехода не случилось, — иначе экран
+       рулетки остался бы на барабане навсегда, потому что результат
+       показывает именно колбэк. Снимать слой таймеру нечем: удержанный
+       слой снимает только stop(). */
+    var HOLD_WAIT = 960;
     var EASE = 'cubic-bezier(.2,.8,.2,1)';
     /* Запас к масштабу покрытия. Кривая разгона тормозит у самого конца, и
        без запаса последние проценты ширины добираются дольше, чем идёт
@@ -65,7 +79,11 @@
        перехода. */
     var OVERSCAN = 1.04;
 
-    /* Единственный живой слой: {node, img, timer, frame}. */
+    /* Единственный живой слой: {node, img, timer, frame, hold, done}.
+       hold (Task 44) — слой удержан вызывающим: он не растворяется, не
+       слушает конец растворения и не снимается страховочным таймером;
+       снять его может только stop() (его же зовёт следующий show()).
+       done — колбэк reveal уже отдан, второй раз его не зовут. */
     var state = null;
 
     /* ------------------------------------------------------------------ */
@@ -203,7 +221,18 @@
        успела прийти — берём её, нет — идём на прежнем w300. Ждать здесь
        нечего: обе картинки уже в кэше браузера, и переход не откладывается
        ни на кадр. */
-    function show(source) {
+    /* Task 44: hold — слой удерживается вызывающим (reveal). Он меняет ровно
+       три вещи, и все три обязательны вместе:
+        - opacity выпадает из списка перехода, и разгон её не трогает: слой,
+          который «держится до stop()», обязан остаться ВИДИМЫМ, иначе он
+          держится невидимым и смысла в удержании нет;
+        - слушателя конца растворения нет — растворения нет и самого;
+        - страховочный таймер LIFE не ставится: он снял бы удержанный слой
+          через 2.5 с сам, без всякого stop().
+       Флаг приходит аргументом, а не выставляется после show(): таймер и
+       слушатель планируются ВНУТРИ, и узнать о нём после возврата было бы
+       уже поздно. */
+    function show(source, hold) {
       var box = screenBox();
       var g = geom(source.rect, box);
       if (!g) return false;
@@ -232,8 +261,12 @@
          список «-webkit-transform …, transform …» дважды называет одно и то
          же свойство. Живьём (2026-09-17) это давало залипший переход: слой
          делал один шаг (230 -> 467 px) и замирал до самого снятия. */
-      var webkitTrack = '-webkit-transform ' + move + ', ' + dim;
-      var track = 'transform ' + move + ', ' + dim;
+      var webkitTrack = '-webkit-transform ' + move;
+      var track = 'transform ' + move;
+      if (!hold) {
+        webkitTrack += ', ' + dim;
+        track += ', ' + dim;
+      }
 
       img.css({
         left: Math.round(source.rect.left) + 'px',
@@ -251,7 +284,7 @@
       });
 
       $('body').append(node);
-      state = { node: node, img: img, timer: null, frame: 0 };
+      state = { node: node, img: img, timer: null, frame: 0, hold: !!hold, done: false };
       var live = state;
 
       /* Разгон задаётся через ДВА отложенных кадра. Один не годится: колбэк
@@ -271,11 +304,9 @@
           if (state !== live) return;
           live.frame = 0;
           var tr = 'translate(' + g.tx + 'px, ' + g.ty + 'px) scale(' + g.scale + ')';
-          img.addClass('is-run').css({
-            '-webkit-transform': tr,
-            transform: tr,
-            opacity: 0
-          });
+          var run = { '-webkit-transform': tr, transform: tr };
+          if (!live.hold) run.opacity = 0;
+          img.addClass('is-run').css(run);
         });
       });
 
@@ -283,13 +314,14 @@
          transform и opacity кончаются одновременно, но постер к этому
          моменту уже невидим, и лишний кадр с ним на экране никому не
          виден. Слушатель уходит вместе с узлом. */
-      listen(img[0], live);
-
-      live.timer = setTimeout(function () {
-        if (state !== live) return;
-        live.timer = null;
-        stop();
-      }, LIFE);
+      if (!live.hold) {
+        listen(img[0], live);
+        live.timer = setTimeout(function () {
+          if (state !== live) return;
+          live.timer = null;
+          stop();
+        }, LIFE);
+      }
 
       return true;
     }
@@ -335,10 +367,74 @@
       }
     }
 
+    /* Task 44: конец РАЗГОНА удержанного слоя. Растворения у него нет, так
+       что transitionend приходит ровно от transform; имя свойства у
+       префиксного события движок пишет по-своему (transform или
+       -webkit-transform), поэтому сверяется вхождение, а не равенство.
+       Событие может не прийти вовсе — на этот случай в reveal стоит
+       страховочный таймер, а сам колбэк защищён от второго вызова. */
+    function held(el, call) {
+      if (!el || typeof el.addEventListener !== 'function') return;
+      function done(e) {
+        if (e && e.propertyName && ('' + e.propertyName).indexOf('transform') === -1) return;
+        call();
+      }
+      try {
+        el.addEventListener('transitionend', done, false);
+        el.addEventListener('webkitTransitionEnd', done, false);
+      } catch (err) { }
+    }
+
+    /* Task 44: тот же слой, что у перехода «постер → кадр», но по ЯВНОМУ
+       источнику и без автоснятия. Рулетка (src/56_roulette.js) разворачивает
+       им прямоугольник барабана в полноэкранный кадр выпавшего фильма и
+       держит его, пока экран не покажет результат.
+
+       source = { rect, poster, big } — прямоугольник в координатах окна и
+       картинка (big сильнее poster, как и у open). opts.then — колбэк конца
+       разгона: слой к этому моменту уже накрыл экран целиком, и под ним
+       можно менять что угодно. Зовётся он РОВНО ОДИН РАЗ, чем бы ни
+       кончилось дело — событием или страховочным таймером.
+
+       Чего reveal НЕ делает:
+        - не спрашивает LC.hero: источник ему передали;
+        - не гасит слой и не снимает его — ни концом перехода, ни часами.
+          Снимает только stop(); его же первой строкой зовёт следующий
+          show(), поэтому открытие карточки с удержанного экрана убирает
+          слой само;
+        - не смотрит на настройку lumen_transition: она описывает открытие
+          карточки из ряда (src/80_settings.js), а здесь слой — единственный
+          способ показать кадр, и подменять его нечем.
+       Режим «Движение: выкл» reveal всё же уважает: там вызывающий рисует
+       результат сразу, без перехода (false — это сигнал «рисуй сам»). */
+    function reveal(source, opts) {
+      try {
+        if (motion() === 'off') return false;
+        if (!source || !source.rect) return false;
+        if (!source.big && !source.poster) return false;
+        if (!show(source, true)) return false;
+        var live = state;
+        if (opts && typeof opts.then === 'function') {
+          var call = function () {
+            if (state !== live || live.done) return;
+            live.done = true;
+            opts.then();
+          };
+          held(live.img[0], call);
+          live.timer = setTimeout(call, HOLD_WAIT);
+        }
+        return true;
+      } catch (e) {
+        warn('transition: reveal failed', e);
+        return false;
+      }
+    }
+
     return {
       geom: geom,
       fade: fade,
       open: open,
+      reveal: reveal,
       stop: stop,
       active: function () { return !!state; }
     };

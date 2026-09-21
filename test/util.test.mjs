@@ -218,8 +218,8 @@ test('baseEm/emPx: «Размер интерфейса» Lampa входит в �
 
 test('emPx: масштаб интерфейса плагина умножает ширину элемента', () => {
   const screen = { innerWidth: 1920, devicePixelRatio: 1 };
-  /* Барабан рулетки — 9.2em: 210 px при обычном масштабе и 265 при «ещё
-     крупнее» вместе с «Размер интерфейса: крупнее». */
+  /* 9.2em: 210 px при обычном масштабе и 264 при «огромном» вместе с
+     «Размер интерфейса: крупнее». */
   assert.equal(withScreen(screen, () => u.emPx(9.2, 1)), 210);
   assert.equal(withScreen(screen, () => u.emPx(9.2, 1.2)), 252);
   assert.equal(withScreen({
@@ -232,6 +232,30 @@ test('emPx: масштаб интерфейса плагина умножает 
 
 test('emPx: без LC.uiScale (модуль стилей не загружен) масштаб — единица', () => {
   assert.equal(withScreen({ innerWidth: 1920, devicePixelRatio: 1 }, () => u.emPx(9.2)), 210);
+});
+
+/* Task 44: барабан рулетки задан долей ВЫСОТЫ окна (.lumen-roulette__reel,
+   src/30_css.js) — так он помещается на экране при любом «Размере
+   интерфейса» и любом масштабе плагина, которые оба умножают em. */
+test('vhPx: доля высоты окна × DPR, ни «Размер интерфейса», ни масштаб в неё не входят', () => {
+  assert.equal(withScreen({ innerHeight: 1080, devicePixelRatio: 1 }, () => u.vhPx(28.67)), 310);
+  assert.equal(withScreen({ innerHeight: 540, devicePixelRatio: 2 }, () => u.vhPx(28.67)), 310,
+    'половинная CSS-высота при DPR 2 даёт ту же физическую ширину барабана');
+  assert.equal(withScreen({ innerHeight: 1080, devicePixelRatio: 3 }, () => u.vhPx(28.67)), 619,
+    'потолок DPR тот же, что у screenPx/emPx');
+  assert.equal(withScreen({
+    innerHeight: 1080, devicePixelRatio: 1,
+    Lampa: { Storage: { field: () => 'bigger' } }
+  }, () => u.vhPx(28.67)), 310, '«Размер интерфейса» Lampa долю экрана не двигает');
+  assert.equal(withScreen({ innerHeight: 1080, devicePixelRatio: 1 }, () => u.vhPx(0)), 0);
+  assert.equal(withScreen({ devicePixelRatio: 1 }, () => u.vhPx(28.67)), 0, 'высоты нет — 0');
+});
+
+test('vhPx: window вовсе нет (тестовая среда) — 0, а не исключение', () => {
+  const had = Object.prototype.hasOwnProperty.call(globalThis, 'window');
+  const prev = globalThis.window;
+  if (had) delete globalThis.window;
+  try { assert.equal(u.vhPx(28.67), 0); } finally { if (had) globalThis.window = prev; }
 });
 
 test('posterSize: наименьший размер TMDB с допуском 15%', () => {
@@ -264,9 +288,9 @@ test('frameSize: original — только выше 1080p', () => {
 
 /* Ревью Task 39 (п.1): кадр-подложка (фон результата рулетки, opacity .22)
    в original не уходит никогда — его не рассматривают. */
-test('scrimSize: кадр-подложка с потолком w1280', () => {
+test('scrimSize: кадр с потолком w1280 вместо original', () => {
   assert.equal(u.scrimSize(0), 'w780', 'ширина неизвестна — дешёвый');
   assert.equal(u.scrimSize(780), 'w780');
   assert.equal(u.scrimSize(1920), 'w1280');
-  assert.equal(u.scrimSize(3840), 'w1280', 'потолок: original под четвертью прозрачности не нужен');
+  assert.equal(u.scrimSize(3840), 'w1280', 'потолок: original TMDB — 31.6 МБ растра на слой, на 2 ГБ памяти это не окупается');
 });

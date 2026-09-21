@@ -22,6 +22,16 @@
   /* сохранённый набор чипов (storageKey). Экран при этом один: тумблер в  */
   /* шапке переключает медиа, не перезагружая активность.                  */
   /*                                                                       */
+  /* Task 44: у экрана два состояния. ДО РЕЗУЛЬТАТА он спокойный — шапка,  */
+  /* одна горизонтальная лента чипов подборок (своя Lampa.Scroll), барабан */
+  /* по центру, кнопка «Крутить» под ним и подсказка; фона нет вовсе.      */
+  /* ПОСЛЕ РЕЗУЛЬТАТА экран переходит в режим кадра: прямоугольник         */
+  /* барабана разворачивается в полноэкранный кадр выпавшего фильма        */
+  /* (LC.transition.reveal), кадр остаётся фоном, спокойный экран гаснет,  */
+  /* а карточка результата встаёт внизу слева под вуалью. «Ещё раз»        */
+  /* возвращает спокойный экран (clearResult → leaveKadr) и крутит снова.  */
+  /* Кадр предзагружается заранее — в spin(), пока крутится барабан.       */
+  /*                                                                       */
   /* Данные — только уже готовые LC.manifest и LC.sources.fetch: рулетка   */
   /* не знает ни про TMDB, ни про Кинопоиск и не заводит своего кэша.      */
   /* Единственный собственный запрос — детали ВЫБРАННОГО фильма, и только  */
@@ -65,10 +75,15 @@
     /* Чипов подборок на экране (не считая «Все подборки»). Каталог отдаёт
        их полторы сотни, и все они на экран ТВ не помещаются — см. chipList. */
     var CHIP_LIMIT = 14;
-    /* Task 39: ширина барабана в em Lampa — то же число, что у
-       .lumen-roulette__reel в src/30_css.js (width:9.2em). По ней
-       выбирается размер постера, который в барабане показан. */
-    var REEL_EM = 9.2;
+    /* Ширина барабана в долях ВЫСОТЫ экрана — то же число, что у
+       .lumen-roulette__reel в src/30_css.js (width:28.67vh). По ней
+       выбирается размер постера, который в барабане показан.
+       Task 44: было 9.2em. Барабан переехал с em на vh, потому что em
+       умножают две настройки разом («Размер интерфейса» Lampa и масштаб
+       интерфейса плагина, вместе до ×1.26), и на крупных он переставал
+       помещаться на экране; разбор арифметики — в комментарии к самому
+       правилу. */
+    var REEL_VH = 28.67;
 
     /* ------------------------------------------------------------------ */
     /* Чистые функции                                                      */
@@ -397,9 +412,25 @@
       var self = this;
       var media = normalizeMedia(object && object.media);
       var scroll = new Lampa.Scroll({ mask: true, over: true, step: 250 });
+      /* Task 44: лента чипов подборок — ОДНА строка с собственной
+         горизонтальной прокруткой. Штатный Scroll Lampa двигает её своим
+         transform (app.min.js:32003) и обрезает лишнее классом scroll--over,
+         поэтому ни обрезка, ни инерция тут не наши. nopadding — потому что
+         поля ленты задаёт корень рулетки, а штатные 1.5em
+         (.scroll--horizontal .scroll__content, app.css:2795-2797) добавили бы
+         к ним вторые. */
+      var chipsScroll = new Lampa.Scroll({ horizontal: true, over: true, nopadding: true, step: 250 });
+      /* Обёртка вокруг всей активности: кадр результата обязан лечь на весь
+         экран, а корень рулетки лежит внутри прокрутки и начинается ниже
+         шапки Lampa — дотянуться до верхней кромки оттуда нечем. Разбор — в
+         комментарии блока .lumen-roulette-screen (src/30_css.js). */
+      var screen = $('<div class="lumen-roulette-screen"></div>');
       var root = $('<div class="lumen-roulette"></div>');
       var bg = $('<div class="lumen-roulette__bg"></div>');
+      var veilL = $('<div class="lumen-roulette__veil lumen-roulette__veil--l"></div>');
+      var veilB = $('<div class="lumen-roulette__veil lumen-roulette__veil--b"></div>');
       var head = $('<div class="lumen-roulette__head"></div>');
+      var chipsBox = $('<div class="lumen-roulette__chipbox"></div>');
       var chipsRow = $('<div class="lumen-roulette__chips"></div>');
       var filtersRow = $('<div class="lumen-roulette__filters"></div>');
       var stage = $('<div class="lumen-roulette__stage"></div>');
@@ -428,6 +459,15 @@
          решить, поднимать ли предзагрузку заново после stop()/start()
          (Task 34). */
       var resultBgShown = false;
+      /* Task 44: кадр выпавшего фильма — адрес и состояние предзагрузки
+         {card, url, ready}. Заводится в spin(), когда карточка уже выбрана,
+         а барабан ещё крутится (spinPlan даёт около 3100 мс): к его
+         остановке w1280 обычно уже в кэше браузера, и переход
+         «барабан → кадр» стартует, не дожидаясь сети. */
+      var frame = null;
+      /* Экран в режиме кадра: спокойный экран погашен, карточка результата
+         стоит внизу слева, обход фокуса сведён к её кнопкам. */
+      var kadr = false;
       var lastFocus = null;
       var started = false;
       var filters = { unseen: unseenDefault(), short: false };
@@ -461,8 +501,9 @@
          героя и бэкдропов (cancelPending в src/48_hero.js, src/50_backdrops.js):
          onload/onerror снимаются, чтобы сеть, ответившая позже, не трогала
          уже неактуальный экран. Зовут её из clearResult() (перед новой
-         прокруткой и при смене «Фильмы/Сериалы») и из bump() — на случай
-         stop()/destroy(), где clearResult() не вызывается. */
+         прокруткой и при смене «Фильмы/Сериалы»), из bump() — на случай
+         stop()/destroy(), где clearResult() не вызывается, — и из
+         prepareFrame(), которая заводит следующую предзагрузку. */
       function cancelResultLoader() {
         if (resultLoader) {
           resultLoader.onload = null;
@@ -480,15 +521,30 @@
         cancelResultLoader();
       }
 
+      /* Task 44: в режиме кадра обход фокуса сведён к карточке результата.
+         Спокойный экран под кадром погашен прозрачностью, но место в потоке
+         он сохраняет, а Navigator ходит по прямоугольникам узлов .selector и
+         на прозрачность не смотрит — без сужения области стрелка вверх
+         уводила бы фокус на невидимый чип подборки. Сужается именно область
+         коллекции, а не класс selector у каждого узла: класс пришлось бы
+         снимать и возвращать у узлов, которые перестраиваются сами
+         (buildChips), и рассинхрон был бы вопросом времени. */
+      function scope() {
+        return (kadr ? resultBox[0] : root[0]) || null;
+      }
+
       function focusTarget() {
-        if (lastFocus && root[0] && root[0].contains && root[0].contains(lastFocus)) return lastFocus;
+        var box = scope();
+        if (lastFocus && box && box.contains && box.contains(lastFocus)) return lastFocus;
+        if (kadr) return resultBox.find('.lumen-roulette__btn')[0] || null;
         return spinBtn[0] || null;
       }
 
       function recollect(prefer) {
         try {
-          Lampa.Controller.collectionSet(root[0]);
-          Lampa.Controller.collectionFocus(prefer || focusTarget() || false, root[0]);
+          var box = scope();
+          Lampa.Controller.collectionSet(box);
+          Lampa.Controller.collectionFocus(prefer || focusTarget() || false, box);
         } catch (e) {
           warn('roulette: collection failed', e);
         }
@@ -496,15 +552,14 @@
 
       /* Task 32: экран едет за фокусом — вторая половина штатного контракта
          Lampa (эталон: app.min.js:53107, card.onFocus -> scroll.update).
-         Без неё фокус уходит вниз по чипам подборок, а экран стоит на месте.
-         tocenter = true: getElementPosition (app.min.js:32046) и с
+         tocenter = true: getElementPosition (app.min.js:32047) и с
          центрированием берёт Math.min(0, ...), поэтому всё, что умещается в
-         верхнюю половину области, встаёт в начало списка. Кнопка «Крутить»
-         лежит ниже этой границы (её верх ≈ 469 px при области 993 px —
-         барабан 13.8em, src/30_css.js), и возврат на неё подтягивает экран
-         примерно на 70 px: иначе с чипов подборок, стоящих ниже, экран
-         наверх сам бы не поехал. Узел передаём как есть: scroll.update
-         принимает и jQuery, и DOM (app.min.js:32049). */
+         верхнюю половину области, встаёт в начало списка. Узел передаём как
+         есть: scroll.update принимает и jQuery, и DOM (app.min.js:32049).
+         Task 44: спокойный экран теперь помещается целиком (барабан считан
+         от высоты экрана, см. REEL_VH), так что прокручивать обычно нечего —
+         вызов остаётся ради крупных настроек кегля, где содержимое всё же
+         перерастает область. */
       function keepVisible(el) {
         try { scroll.update(el, true); } catch (e) { warn('roulette: scroll.update failed', e); }
       }
@@ -515,6 +570,18 @@
         node.on('hover:focus', function () {
           keepVisible(node[0]);
           lastFocus = node[0];
+        });
+        return node;
+      }
+
+      /* Task 44: чип подборки живёт в собственной горизонтальной прокрутке,
+         и подвести к нему надо ещё и её — иначе фокус уходит за обрезанную
+         кромку ленты и чип на экране не появляется вовсе. Отдельным
+         обработчиком, а не внутри watchFocus: через него проходят и чипы
+         фильтров, и кнопки, а они в ленте не лежат. */
+      function railChip(node) {
+        node.on('hover:focus', function () {
+          try { chipsScroll.update(node[0], true); } catch (e) { warn('roulette: chips scroll failed', e); }
         });
         return node;
       }
@@ -537,6 +604,12 @@
           })(pairs[i][0], pairs[i][1]);
         }
         head.append(tabs);
+        /* Task 44: сегмент фильтров — в той же строке, прижатый вправо
+           (margin-left:auto, src/30_css.js). Отдельной строкой он отбирал у
+           барабана 2.98em высоты, а барабан на экране 540 px и без того
+           помещается впритык. Узел кладётся сюда, а наполняет его
+           buildFilters — её зовут и без перестройки шапки (смена медиа). */
+        head.append(filtersRow);
       }
 
       /* Смена медиа без перезагрузки активности (план Task 23 Step 2):
@@ -579,11 +652,11 @@
           buildChips();
           recollect(chipsRow.find('.lumen-roulette__chip')[0]);
         });
-        chipsRow.append(all);
+        chipsRow.append(railChip(all));
         var shown = chipList(collections, chosen, CHIP_LIMIT);
         for (var i = 0; i < shown.length; i++) {
           (function (item) {
-            var node = chipNode(titleOf(item), chosen.indexOf(item.id) >= 0);
+            var node = railChip(chipNode(titleOf(item), chosen.indexOf(item.id) >= 0));
             node.on('hover:enter', function () {
               var at = chosen.indexOf(item.id);
               if (at >= 0) chosen.splice(at, 1);
@@ -691,19 +764,112 @@
       /* ---------------------------------------------------------------- */
 
       function paintFrame(card) {
-        /* Task 39: размер — по ФАКТИЧЕСКОЙ ширине барабана, а не зашитым
-           w342. Барабан — .lumen-roulette__reel шириной REEL_EM
-           (src/30_css.js), то есть 210 физических пикселей на экране 1920 при
-           размерах интерфейса по умолчанию (оба множителя учитывает
-           LC.util.emPx) и
-           420 на вдвое более плотном; размер выбирает LC.util.posterSize. */
-        var url = imageUrl(card && card.poster_path, LC.util.posterSize(LC.util.emPx(REEL_EM)));
-        var frame = reelBox.find('.lumen-roulette__frame');
-        if (url) frame.css('background-image', 'url("' + url + '")');
-        frame.addClass('is-step');
+        /* Task 39/44: размер — по ФАКТИЧЕСКОЙ ширине барабана, а не зашитым
+           w342. Барабан — .lumen-roulette__reel шириной REEL_VH процентов
+           высоты экрана (src/30_css.js), то есть 310 физических пикселей и
+           на 1920×1080 при DPR 1, и на 960×540 при DPR 2 (оба множителя
+           учитывает LC.util.vhPx); размер выбирает LC.util.posterSize. */
+        var url = imageUrl(card && card.poster_path, LC.util.posterSize(LC.util.vhPx(REEL_VH)));
+        var frameNode = reelBox.find('.lumen-roulette__frame');
+        if (url) frameNode.css('background-image', 'url("' + url + '")');
+        frameNode.addClass('is-step');
         /* Класс снимается на следующем шаге — своего таймера «щелчку»
            барабана не нужно. */
         reelBox.addClass('is-live');
+      }
+
+      /* Task 44: адрес кадра результата. Потолок w1280 (scrimSize), а не
+         frameSize: на 1080p frameSize уходит в original, а это у TMDB
+         обычно 3840×2160 — 31.6 МБ распакованного растра против 3.7 у
+         w1280. Кадр висит на экране до «Ещё раз», то есть дольше любого
+         другого полноэкранного слоя плагина, и платить за него памятью
+         столько нельзя (бэклог с телевизора, п. Б1). */
+      function frameUrl(card) {
+        return imageUrl(card && card.backdrop_path, LC.util.scrimSize(LC.util.screenPx()));
+      }
+
+      /* Ставит кадр фоном и переводит экран в режим кадра. Зовут её из двух
+         мест: из колбэка перехода (кадр уже накрыл экран удержанным слоем) и
+         из предзагрузки, если та ответила ПОЗЖЕ показа результата, — во
+         втором случае перехода уже не будет, момент для него прошёл. */
+      function showKadr(url) {
+        try { bg.css('background-image', 'url("' + url + '")'); } catch (e) { }
+        resultBgShown = true;
+        enterKadr();
+      }
+
+      function enterKadr() {
+        if (kadr) return;
+        kadr = true;
+        /* Экран в режиме кадра не листается, а карточка результата стоит
+           абсолютом от нижней кромки корня — прокрутка, оставшаяся с
+           спокойного экрана, увела бы её вниз вместе с ним. */
+        try { scroll.reset(); } catch (e) { }
+        screen.addClass('is-kadr');
+      }
+
+      function leaveKadr() {
+        kadr = false;
+        screen.removeClass('is-kadr');
+        /* Удержанный слой перехода снимает только stop() (src/67_transition.js).
+           Здесь он в норме уже снят — его снимает сам колбэк, отдав кадр
+           фону, — но «Ещё раз» обязано работать и когда до колбэка дело не
+           дошло: пользователь успел нажать, пока слой ещё разгонялся. */
+        try { if (LC.transition && LC.transition.stop) LC.transition.stop(); } catch (e) { }
+      }
+
+      /* Task 44: предзагрузка кадра. Приём тот же, что у героя и бэкдропов
+         (loadFrame в src/48_hero.js, src/50_backdrops.js): кадр ставится
+         только ЗАГРУЖЕННЫМ — присвоение background-image сразу заставляет
+         слабый ТВ декодировать w1280 уже на экране (заметный фриз), а
+         переход «барабан → кадр» на недогруженной картинке показал бы пустой
+         прямоугольник. onload и onerror гасятся сами собой через локальный
+         guard done — двойного срабатывания нет, а resultLoader освобождается
+         сам, не дожидаясь следующего cancelResultLoader().
+
+         От чужого кадра защищают ДВЕ независимые вещи: cancelResultLoader()
+         (см. bump/clearResult) снимает onload/onerror СИНХРОННО, до того как
+         управление вернётся к сети — настоящий поздний ответ для отменённой
+         загрузки просто не попадёт никуда; а сверка frame !== live ниже —
+         вторая, отдельно работающая защита на случай вызова В ОБХОД
+         cancelResultLoader (например, руками, как в тесте): clearResult() в
+         начале spin() уже завела новый frame (или сбросила его в null),
+         поэтому ссылка замыкания перестаёт быть текущей сразу, а не только
+         после показа нового результата.
+
+         Таймаута на зависший запрос (как LOAD_TIMEOUT у героя/бэкдропов)
+         здесь нет: без onload/onerror resultLoader держится до следующего
+         clearResult()/bump() (следующее «Крутить», смена медиа или уход с
+         экрана) — для одной карточки на весь экран это не копится, в
+         отличие от героя, где кадр перезапрашивается на каждый фокус. */
+      function prepareFrame(card) {
+        cancelResultLoader();
+        frame = { card: card, url: frameUrl(card), ready: false };
+        if (!frame.url) return;
+        var live = frame;
+        var captured = gen;
+        var img = new Image();
+        /* Task 39: декодирование вне главного потока (см. src/48_hero.js,
+           loadFrame). */
+        img.decoding = 'async';
+        var done = false;
+        function finish(ok) {
+          if (done) return;
+          done = true;
+          img.onload = null;
+          img.onerror = null;
+          if (resultLoader === img) resultLoader = null;
+          if (!ok || gen !== captured || frame !== live) return;
+          live.ready = true;
+          /* Кадр долетел уже после того, как результат показан без него
+             (медленная сеть, барабан кончился раньше) — ставим фоном сразу,
+             без перехода. */
+          if (result === live.card) showKadr(live.url);
+        }
+        img.onload = function () { finish(true); };
+        img.onerror = function () { finish(false); };
+        resultLoader = img;
+        img.src = frame.url;
       }
 
       function clearResult() {
@@ -715,16 +881,21 @@
            нет — это же не даёт this.start() при случайном stop()/start()
            посреди прокрутки (пользователь ушёл с экрана, пока крутится
            барабан) поднимать фон для карточки, которую resultBox уже не
-           показывает (см. loadResultBg и this.start ниже). */
+           показывает (см. prepareFrame и this.start ниже). */
         cancelResultLoader();
+        frame = null;
         result = null;
         resultBgShown = false;
         resultBox.empty();
         resultBox.removeClass('is-live');
+        leaveKadr();
         try { bg.css('background-image', ''); } catch (e) { }
         hint.show();
       }
 
+      /* Под фильтры ничего не подошло. В режим кадра экран при этом НЕ
+         переводится: менять чипы придётся на спокойном экране, и прятать его
+         тут нечего. */
       function showEmpty() {
         resultBox.empty();
         resultBox.addClass('is-live');
@@ -739,81 +910,27 @@
         return node;
       }
 
-      /* Task 34: предзагрузка фона результата — тот же приём, что у героя и
-         бэкдропов (loadFrame в src/48_hero.js, src/50_backdrops.js): кадр
-         ставится только ЗАГРУЖЕННЫМ (присвоение background-image сразу
-         заставляет слабый ТВ декодировать w1280 уже на экране — заметный
-         фриз), onload и onerror гасятся сами собой через локальный guard
-         done — двойного срабатывания нет, а resultLoader освобождается сам,
-         не дожидаясь следующего cancelResultLoader(). От чужого кадра
-         защищают ДВЕ независимые вещи: cancelResultLoader() (см. bump/
-         clearResult) снимает onload/onerror СИНХРОННО, до того как
-         управление вернётся к сети — настоящий поздний ответ сети для
-         отменённой загрузки просто не попадёт никуда; а gen/result ниже —
-         вторая, отдельно работающая защита на случай вызова В ОБХОД
-         cancelResultLoader (например, руками, как в тесте): clearResult()
-         в начале spin() уже сбросила result в null (пока крутится барабан,
-         подтверждённого результата нет), а card этого замыкания никогда не
-         null — так что result !== card остаётся истиной все то время, пока
-         барабан крутится, и не только после showResult() нового результата.
-         Обе защиты проверены раздельно в test/roulette.test.mjs (тест
-         «поздний onload…»).
-
-         Таймаута на зависший запрос (как LOAD_TIMEOUT у героя/бэкдропов)
-         здесь нет: без onload/onerror resultLoader держится до следующего
-         clearResult()/bump() (следующее «Крутить», смена медиа или уход с
-         экрана) — для одной карточки на весь экран это не копится, в
-         отличие от героя, где кадр перезапрашивается на каждый фокус. */
-      function loadResultBg(card) {
-        /* Task 39: фон результата — .lumen-roulette__bg, он растянут на весь
-           экран, но лежит ПОД содержимым с opacity .22 (src/30_css.js).
-           Ревью Task 39 (п.1): это кадр-подложка, а не кадр, который
-           смотрят, — размер ему считает LC.util.scrimSize с потолком w1280,
-           а не frameSize. Task 47: на 1080p frameSize тоже отдаёт w1280, так
-           что различие остаётся только на растре от 2259 физических
-           пикселей, где frameSize уходит в original, а потолок подложки —
-           нет. */
-        var backdrop = imageUrl(card.backdrop_path, LC.util.scrimSize(LC.util.screenPx()));
-        if (!backdrop) return;
-        var img = new Image();
-        /* Task 39: декодирование вне главного потока (см. src/48_hero.js,
-           loadFrame). */
-        img.decoding = 'async';
-        var captured = gen;
-        var done = false;
-        function finish(ok) {
-          if (done) return;
-          done = true;
-          img.onload = null;
-          img.onerror = null;
-          if (resultLoader === img) resultLoader = null;
-          if (!ok || gen !== captured || result !== card) return;
-          try { bg.css('background-image', 'url("' + backdrop + '")'); } catch (e) { }
-          resultBgShown = true;
+      /* Прямоугольник барабана в координатах окна — источник перехода.
+         Снимается ровно один раз, на показ результата: getBoundingClientRect
+         заставляет браузер посчитать раскладку немедленно, и на шагах
+         барабана такому замеру делать нечего. Узла может не быть в
+         документе вовсе (ушли с экрана) — тогда null, и перехода не будет. */
+      function reelRect() {
+        try {
+          var node = reelBox[0];
+          if (!node || typeof node.getBoundingClientRect !== 'function') return null;
+          var r = node.getBoundingClientRect();
+          if (!r || !(r.width > 0) || !(r.height > 0)) return null;
+          return { left: r.left, top: r.top, width: r.width, height: r.height };
+        } catch (e) {
+          return null;
         }
-        img.onload = function () { finish(true); };
-        img.onerror = function () { finish(false); };
-        resultLoader = img;
-        img.src = backdrop;
       }
 
-      function showResult(card) {
-        result = card;
-        cancelResultLoader();
-        resultBgShown = false;
-        /* Task 34: фон снимается безусловно, до попытки поставить новый —
-           страховка showResult() САМОЙ ЗА СЕБЯ, а не первая линия обороны.
-           При единственном сегодняшнем пути сюда (из spin()) она уже
-           избыточна: clearResult() в начале spin() и очистила фон, и
-           сбросила result в null, а cancelResultLoader() успевает снять
-           onload/onerror синхронно раньше, чем сеть вообще может ответить —
-           см. loadResultBg выше и тесты test/roulette.test.mjs («поздний
-           onload…», мутацией проверено: без этой строки все тесты файла
-           остаются зелёными). Строка остаётся ради контракта самой функции
-           — на случай будущего вызова showResult() в обход spin()/
-           clearResult(), которого сейчас в коде нет. */
-        try { bg.css('background-image', ''); } catch (e) { }
-        loadResultBg(card);
+      /* Содержимое карточки результата. Отдельно от showResult, потому что
+         зовут её из двух мест: сразу (перехода нет или он не начался) и из
+         колбэка перехода, когда слой уже накрыл экран. */
+      function paintResult(card) {
         resultBox.empty();
         resultBox.addClass('is-live');
         resultBox.append($('<div class="lumen-roulette__rtitle">' + esc(cardTitle(card)) + '</div>'));
@@ -827,6 +944,51 @@
         recollect(actions.find('.lumen-roulette__btn')[0]);
       }
 
+      /* Task 44: результат открывается КАДРОМ. Прямоугольник барабана
+         разворачивается в полноэкранный кадр выпавшего фильма тем же слоем,
+         которым открывается карточка из ряда (LC.transition.reveal), и слой
+         держится, пока мы не отдадим кадр фону под ним.
+
+         Почему слой снимается прямо в колбэке, а не живёт до «Ещё раз», как
+         предполагал план: карточка результата лежит внутри прокрутки Lampa,
+         у .scroll__body стоит will-change:transform (app.css:2762-2769) —
+         это собственный контекст наложения, и ни один z-index изнутри не
+         поднимется выше слоя в <body> (у него z-index 90). Показать карточку
+         ПОВЕРХ удержанного слоя нельзя в принципе. Поэтому кадр передаётся
+         фону экрана (та же картинка, уже в кэше браузера), карточка рисуется
+         под ним, и слой снимается — всё тремя вызовами в одном кадре
+         отрисовки, так что на экране ничего не меняется.
+
+         Перехода нет (кадр не успел загрузиться, «Движение: выкл», барабана
+         нет на экране) — результат просто рисуется сразу. */
+      function showResult(card) {
+        var captured = gen;
+        result = card;
+        var live = frame && frame.card === card && frame.ready ? frame : null;
+        var rect = live ? reelRect() : null;
+        if (live) {
+          var started = false;
+          try {
+            started = !!(rect && LC.transition && typeof LC.transition.reveal === 'function' && LC.transition.reveal({
+              rect: rect,
+              poster: imageUrl(card.poster_path, LC.util.posterSize(LC.util.vhPx(REEL_VH))),
+              big: live.url
+            }, {
+              then: function () {
+                if (gen !== captured || result !== card) return;
+                showKadr(live.url);
+                paintResult(card);
+                try { LC.transition.stop(); } catch (eStop) { }
+              }
+            }));
+          } catch (e) {
+            warn('roulette: reveal failed', e);
+          }
+          if (started) return;
+          showKadr(live.url);
+        }
+        paintResult(card);
+      }
       function openCard(card) {
         try {
           Lampa.Activity.push({
@@ -963,6 +1125,11 @@
           }
           verify(card, 0, function (final) {
             if (gen !== captured) return;
+            /* Task 44: кадр запрашивается ЗДЕСЬ, а не в showResult — фильм
+               уже выбран, а барабан ещё не начал крутиться и подарит сети
+               около трёх секунд (spinPlan). К его остановке w1280 обычно
+               в кэше, и переход «барабан → кадр» стартует без паузы. */
+            prepareFrame(final);
             var strip = [];
             var i;
             for (i = 0; i < REEL_SIZE - 1; i++) {
@@ -990,18 +1157,22 @@
 
       this.create = function () {
         motionClass(root);
-        root.append(bg);
+        /* Task 44: порядок сверху вниз — шапка (заголовок, медиа, фильтры),
+           лента подборок, сцена с барабаном. Барабан стоит ПОД лентой, а не
+           над ней, как было до Task 44: спокойный экран помещается целиком
+           (см. REEL_VH), докручиваться до кнопки больше не нужно, а лента
+           над барабаном читается как «чем крутим» перед «крутить». */
         root.append(head);
+        chipsScroll.append(chipsRow);
+        chipsBox.append(chipsScroll.render());
+        root.append(chipsBox);
         stage.append(reelBox);
         stage.append(spinBtn);
         stage.append(hint);
-        stage.append(resultBox);
         root.append(stage);
-        /* Барабан и кнопка «Крутить» — выше чипов: это главное на экране, и
-           докручиваться до них через ленту подборок никто не должен (живая
-           проверка 2026-09-17: при чипах сверху кнопка уезжала за кромку). */
-        root.append(filtersRow);
-        root.append(chipsRow);
+        /* Карточка результата — ребёнок корня, а не сцены: в режиме кадра она
+           встаёт абсолютом от его нижней кромки (src/30_css.js). */
+        root.append(resultBox);
         watchFocus(spinBtn);
         spinBtn.on('hover:enter', function () { spin(); });
         scroll.append(root);
@@ -1013,6 +1184,15 @@
            встаёт, а увидеть их нельзя. Подробный разбор — в
            HubComponent.create (src/46_hub.js). */
         scroll.minus();
+        /* Кадр и вуали — вне прокрутки, прямыми детьми обёртки: у
+           .scroll__body Lampa стоит will-change:transform (app.css:2762-2769),
+           то есть он создаёт свой контекст наложения, и всё, что лежит
+           внутри прокрутки, начинается ниже шапки Lampa. Разметка идёт в том
+           же порядке, в каком рисуется: кадр, вуали, содержимое. */
+        screen.append(bg);
+        screen.append(veilL);
+        screen.append(veilB);
+        screen.append(scroll.render());
         try { self.activity.loader(true); } catch (e) { }
         var captured = gen;
         LC.manifest.load(function (m) {
@@ -1022,7 +1202,7 @@
       };
 
       this.render = function (js) {
-        return js ? scroll.render(true) : scroll.render();
+        return js ? screen[0] : screen;
       };
 
       this.start = function () {
@@ -1033,17 +1213,21 @@
         /* Task 34: возврат с просмотра — this.stop() уже прошёл, bump()
            погасил gen и недогруженную предзагрузку (resultLoader на этот
            момент всегда null). Если результат остался (result — не спин
-           был прерван, см. clearResult), а фон под ним так и не успел
+           был прерван, см. clearResult), а кадр под ним так и не успел
            показаться (resultBgShown всё ещё false) — поднимаем предзагрузку
-           заново тем же loadResultBg. Если фон уже был показан, трогать
+           заново тем же prepareFrame. Если кадр уже был показан, трогать
            нечего: комментарий у this.stop про «start() вернёт его вместе с
-           выбором» держится и для фона тоже, а не только для resultBox. */
-        if (result && !resultBgShown && !resultLoader) loadResultBg(result);
+           выбором» держится и для кадра тоже, а не только для resultBox.
+           Task 44: перехода при этом не будет — он показывает выпадение
+           фильма, а тут пользователь возвращается к уже выпавшему; кадр
+           просто встаёт фоном, как только долетит (см. prepareFrame). */
+        if (result && !resultBgShown && !resultLoader) prepareFrame(result);
         motionClass(root);
         Lampa.Controller.add('content', {
           toggle: function () {
-            Lampa.Controller.collectionSet(root[0]);
-            Lampa.Controller.collectionFocus(focusTarget() || false, root[0]);
+            var box = scope();
+            Lampa.Controller.collectionSet(box);
+            Lampa.Controller.collectionFocus(focusTarget() || false, box);
           },
           left: function () {
             if (!navMove('left')) Lampa.Controller.toggle('menu');
@@ -1075,9 +1259,16 @@
         pool = [];
         reel = [];
         result = null;
+        frame = null;
         lastFocus = null;
+        /* Task 44: удержанный слой перехода снимает только stop(), и если
+           уходят с экрана, пока он разгоняется (нажали «назад» сразу после
+           «Крутить»), убрать его больше некому. Внутри leaveKadr — там же,
+           где снимается сам режим кадра. */
+        leaveKadr();
+        try { chipsScroll.destroy(); } catch (eC) { }
         try { scroll.destroy(); } catch (e) { }
-        try { root.remove(); } catch (e2) { }
+        try { screen.remove(); } catch (e2) { }
       };
     }
 

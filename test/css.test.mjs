@@ -3736,3 +3736,174 @@ test('Task 43: у карточки сетки подборки нет кольц
   assert.ok(worstH * (1.08 - 1) / 2 <= 1.4, 'выросшая карточка срежет ряд выше: нужно ' +
     (worstH * 0.04).toFixed(2) + 'em, есть 1.4em');
 });
+
+/* ====================================================================== */
+/* Task 44: рулетка — спокойный экран и переход в кадр                     */
+/* ====================================================================== */
+
+/* Барабан обязан помещаться на экране ЦЕЛИКОМ. Область, которая ему
+   остаётся, — не весь экран: сверху шапка Lampa (.wrap__content
+   {padding-top:4em}, vendor/lampa/css/app.css:1037) и поле маски прокрутки
+   (.scroll--mask .scroll__content{padding:2.5em 0}, там же:2786-2788), снизу
+   ещё одно такое же поле. На стенде 960×540 замер даёт 465 px из 540
+   (.scroll: y=46, h=497; .scroll__content: поле 28.5 px).
+   Поэтому размер барабана задан долей ВЫСОТЫ экрана: em умножают и «Размер
+   интерфейса» Lampa (до ×1.05), и масштаб интерфейса плагина (до ×1.2), а
+   доля экрана не зависит ни от того, ни от другого. */
+test('Task 44: барабан — доля высоты экрана в пропорции постера 2:3', () => {
+  const reel = findDecl(css, (sel) => sel === '.lumen-roulette .lumen-roulette__reel');
+  assert.ok(reel, 'правило барабана не найдено');
+  const h = parseFloat(/(^|;)height:([\d.]+)vh/.exec(reel)[2]);
+  const w = parseFloat(/(^|;)width:([\d.]+)vh/.exec(reel)[2]);
+  assert.ok(Math.abs(w / h - 2 / 3) < 0.005, 'барабан не в пропорции постера: ' + w + '×' + h);
+  /* Всё, кроме барабана, стоит 13.97em: поле шапки 1.05 + шапка 2.31 + её
+     поле .88 + лента чипов 2.1 + её поле .88 + отступ сцены .88 + отступ
+     кнопки .88 + кнопка 3.32 (3.16em своего кегля 1.05em) + отступ
+     подсказки .53 + подсказка 1.14 (см. правила ниже в этом же файле). */
+  const chromeEm = 13.97;
+  /* Сколько высоты остаётся корню рулетки — замер на стенде 960×540:
+     .scroll (layer--wheight) 497 px (Lampa считает её как innerHeight минус
+     высота шапки, app.min.js:31686) минус два поля маски .scroll__content
+     по 28.5 px = 440 px из 540. */
+  const areaVh = 440 / 540 * 100;
+  /* 1em в vh на экране 16:9: кегль body — ширина / 84.17, высота экрана —
+     84.17 / (16/9) = 47.35 em. Доля не зависит от растра. */
+  const emInVh = 100 / (84.17 / (16 / 9));
+  /* Помещаться обязано и при обычных настройках, и при самых крупных:
+     «Размер интерфейса: крупнее» (×1.05) вместе с масштабом плагина
+     «огромный» (×1.2). */
+  for (const k of [1, 1.05 * 1.2]) {
+    const need = h + chromeEm * k * emInVh;
+    assert.ok(need <= areaVh, 'при множителе кегля ' + k.toFixed(2) + ' экран не вмещает барабан: '
+      + need.toFixed(1) + 'vh против ' + areaVh.toFixed(1) + 'vh');
+  }
+  /* Плановые 27em высоты в эту область не влезали — проверка, что доля
+     экрана выбрана не «на глаз», а по той же арифметике. */
+  assert.ok((27 + chromeEm) * emInVh > areaVh, 'план 27em внезапно помещается — арифметика разъехалась');
+});
+
+test('Task 44: барабан, кнопка и подсказка — столбиком по центру', () => {
+  const stage = findDecl(css, (sel) => sel === '.lumen-roulette .lumen-roulette__stage');
+  assert.ok(stage.indexOf('flex-direction:column') !== -1, 'сцена не столбик: ' + stage);
+  assert.ok(stage.indexOf('-webkit-box-orient:vertical') !== -1, 'нет префиксной пары к flex-direction: ' + stage);
+  assert.ok(stage.indexOf('align-items:center') !== -1, 'содержимое не по центру: ' + stage);
+
+  const spin = findDecl(css, (sel) => sel === '.lumen-roulette .lumen-roulette__spin');
+  assert.ok(/(^|;)margin:\.88em 0 0/.test(spin), '«Крутить» не под барабаном, а сбоку от него: ' + spin);
+  const spinH = parseFloat(/height:([\d.]+)em/.exec(spin)[1]);
+  const spinR = parseFloat(/border-radius:([\d.]+)em/.exec(spin)[1]);
+  assert.ok(Math.abs(spinR - spinH / 2) < 0.01, 'кнопка не пилюля: радиус ' + spinR + ' при высоте ' + spinH);
+
+  const hint = findDecl(css, (sel) => sel === '.lumen-roulette .lumen-roulette__hint');
+  const k = tokensWith({});
+  assert.ok(hint.indexOf('color:' + k.muted) !== -1, 'подсказка не приглушена: ' + hint);
+  assert.ok(hint.indexOf('text-align:center') !== -1, hint);
+
+  for (const sel of ['.lumen-roulette .lumen-roulette__btn']) {
+    const btn = findDecl(css, (s) => s === sel);
+    const bh = parseFloat(/height:([\d.]+)em/.exec(btn)[1]);
+    const br = parseFloat(/border-radius:([\d.]+)em/.exec(btn)[1]);
+    assert.ok(Math.abs(br - bh / 2) < 0.01, sel + ': кнопка результата не пилюля: ' + btn);
+  }
+});
+
+test('Task 44: чипы подборок — одна строка без переноса', () => {
+  const chips = findDecl(css, (sel) => sel === '.lumen-roulette .lumen-roulette__chips');
+  assert.ok(chips, 'правило ленты чипов не найдено');
+  assert.ok(chips.indexOf('flex-wrap:nowrap') !== -1, 'лента переносится на второй ряд: ' + chips);
+  assert.ok(chips.indexOf('-webkit-flex-wrap:nowrap') !== -1, 'нет префиксной пары: ' + chips);
+  const chip = findDecl(css, (sel) => sel === '.lumen-roulette .lumen-roulette__chip');
+  assert.ok(chip.indexOf('flex-shrink:0') !== -1, 'чип ужимается в ленте: ' + chip);
+  assert.ok(/(^|;)margin:0 \.53em 0 0/.test(chip), 'у чипа осталось нижнее поле от переноса: ' + chip);
+  assert.ok(findDecl(css, (sel) => sel === '.lumen-roulette .lumen-roulette__chipbox'),
+    'обёртки горизонтальной прокрутки нет');
+});
+
+/* До результата экран спокойный: кадра нет вовсе. Раньше кадр прошлого
+   результата лежал под всем содержимым на opacity .22. */
+test('Task 44: до результата кадра на экране нет', () => {
+  const bg = findDecl(css, (sel) => sel === '.lumen-roulette-screen .lumen-roulette__bg');
+  assert.ok(bg, 'правило кадра не найдено');
+  assert.ok(/(^|;)opacity:0(;|$)/.test(bg), 'кадр виден до результата: ' + bg);
+  const on = findDecl(css, (sel) => sel === '.lumen-roulette-screen.is-kadr .lumen-roulette__bg');
+  assert.ok(on && on.indexOf('opacity:1') !== -1, 'в режиме кадра он не проявляется: ' + on);
+  /* Прежнего правила «кадр-подложка .22» не должно остаться нигде. */
+  for (const r of ruleBodies(css)) {
+    if (r.selectors.some((s) => s.indexOf('lumen-roulette__bg') !== -1)) {
+      assert.equal(/opacity:\.22/.test(r.decl), false, 'кадр всё ещё подложка: ' + r.decl);
+    }
+  }
+});
+
+/* Кадр берётся из обёртки, а не из .lumen-roulette: корень рулетки лежит
+   внутри прокрутки и начинается ниже шапки Lampa, до верхней кромки экрана
+   ему не дотянуться. -4em — ровно поле .wrap__content (app.css:1037), и em
+   тут кегль body: обёртка не входит в корни масштаба плагина. */
+test('Task 44: кадр и вуаль накрывают и полосу шапки Lampa', () => {
+  for (const sel of ['.lumen-roulette-screen .lumen-roulette__bg', '.lumen-roulette-screen .lumen-roulette__veil']) {
+    const decl = findDecl(css, (s) => s === sel);
+    assert.ok(decl, 'правило не найдено: ' + sel);
+    assert.ok(decl.indexOf('top:-4em') !== -1, sel + ': кадр начинается под шапкой Lampa: ' + decl);
+    assert.ok(decl.indexOf('position:absolute') !== -1, sel + ': ' + decl);
+    assert.ok(decl.indexOf('pointer-events:none') !== -1, sel + ': слой ловит нажатия: ' + decl);
+  }
+  const scaled = withStorage({ lumen_scale: 'huge' }, (LC) => LC.buildCss());
+  const rule = ruleBodies(scaled).find((r) => r.decl === 'font-size:1.2em');
+  assert.equal(rule.selectors.indexOf('.lumen-roulette-screen'), -1,
+    'обёртке нельзя давать масштаб плагина: -4em перестанет совпадать с полем шапки');
+  const screen = findDecl(css, (sel) => sel === '.lumen-roulette-screen');
+  assert.ok(screen.indexOf('height:100%') !== -1 && screen.indexOf('overflow:hidden') !== -1, screen);
+});
+
+test('Task 44: вуаль результата — те же два градиента, что у героя', () => {
+  const heroL = findDecl(css, (sel) => sel === '.lumen-hero .lumen-hero__veil--l');
+  const heroB = findDecl(css, (sel) => sel === '.lumen-hero .lumen-hero__veil--b');
+  const roulL = findDecl(css, (sel) => sel === '.lumen-roulette-screen .lumen-roulette__veil--l');
+  const roulB = findDecl(css, (sel) => sel === '.lumen-roulette-screen .lumen-roulette__veil--b');
+  assert.equal(roulL, heroL, 'левая вуаль разошлась с геройской');
+  assert.equal(roulB, heroB, 'нижняя вуаль разошлась с геройской');
+});
+
+test('Task 44: карточка результата — в потоке без кадра, внизу слева с кадром', () => {
+  const base = findDecl(css, (sel) => sel === '.lumen-roulette .lumen-roulette__result');
+  assert.ok(/(^|;)display:none/.test(base), 'пустая карточка результата занимает место: ' + base);
+  const live = findDecl(css, (sel) => sel === '.lumen-roulette .lumen-roulette__result.is-live');
+  assert.ok(live && live.indexOf('display:block') !== -1, live);
+  const kadr = findDecl(css, (sel) => sel === '.lumen-roulette-screen.is-kadr .lumen-roulette__result');
+  assert.ok(kadr, 'правила карточки поверх кадра нет');
+  assert.ok(kadr.indexOf('position:absolute') !== -1 && /(^|;)left:2\.81em/.test(kadr) && /(^|;)bottom:/.test(kadr),
+    'карточка не прижата вниз слева: ' + kadr);
+  /* Корень в режиме кадра обязан кончаться там же, где область прокрутки, —
+     иначе «внизу» окажется ниже кромки экрана. */
+  const root = findDecl(css, (sel) => sel === '.lumen-roulette-screen.is-kadr .lumen-roulette');
+  assert.ok(root && root.indexOf('height:100%') !== -1 && root.indexOf('overflow:hidden') !== -1, root);
+  const calm = findDecl(css, (sel) => sel === '.lumen-roulette-screen.is-kadr .lumen-roulette__head');
+  assert.ok(calm && calm.indexOf('opacity:0') !== -1, 'спокойный экран не гасится под кадром: ' + calm);
+  /* Гасится прозрачностью, а не display:none: место в потоке сохраняется, и
+     возврат по «Ещё раз» не пересчитывает раскладку. */
+  assert.equal(/display:none/.test(calm), false, calm);
+});
+
+/* Кадр обязан появиться В ТОМ ЖЕ кадре отрисовки, в котором снимается
+   удержанный слой перехода (src/67_transition.js, reveal): проявляйся он
+   плавно — между снятием слоя и приходом кадра мигнул бы спокойный экран. */
+test('Task 44: смена состояния рулетки без переходов', () => {
+  const offenders = [];
+  for (const r of ruleBodies(css)) {
+    if (!r.selectors.some((s) => s.indexOf('lumen-roulette-screen') !== -1)) continue;
+    if (/transition/.test(r.decl)) offenders.push(r.selectors.join(',') + ' -> ' + r.decl);
+  }
+  assert.deepEqual(offenders, []);
+  /* Прежний кроссфейд кадра-подложки снят вместе с самой подложкой. */
+  const old = ruleBodies(css).filter((r) => r.selectors.some((s) => s.indexOf('lumen-roulette__bg') !== -1)
+    && /transition/.test(r.decl));
+  assert.deepEqual(old.map((r) => r.decl), []);
+});
+
+test('Task 44: корень рулетки без собственного фона и без 100vh', () => {
+  const root = findDecl(css, (sel) => sel === '.lumen-roulette');
+  assert.ok(root, 'правило корня не найдено');
+  assert.equal(/min-height:100vh/.test(root), false,
+    'корень выше области прокрутки — низ экрана уезжает за кромку: ' + root);
+  assert.ok(root.indexOf('min-height:100%') !== -1, root);
+});
