@@ -226,7 +226,14 @@
          размером кадра: настройка про то же самое место экрана. Включён по
          умолчанию, но сам по себе ничего не делает, пока фокус не постоит на
          карточке 8 секунд; в лёгких анимациях и на Tizen/webOS его нет вовсе
-         (src/48_hero.js, trailerAllowed). */
+         (src/48_hero.js, trailerAllowed).
+
+         Task 61 (фаза 5): пункт остаётся вторым в группе — выше него только
+         размер кадра, то есть это самая заметная строка после заголовка
+         «Главная», и обе настройки про одну и ту же часть экрана. Менялись
+         не место, а название и описание (src/80_settings.js): выключатель
+         искали и не нашли, потому что «Трейлер в кадре главной» с трёх
+         метров не отличался от «Трейлера в фоне» из группы выше. */
       { name: 'lumen_hero_trailer', type: 'trigger', 'default': true, label: 'lumen_hero_trailer_name', descr: 'lumen_hero_trailer_descr' },
       { name: 'lumen_moods', type: 'trigger', 'default': true, label: 'lumen_moods_name', descr: 'lumen_moods_descr' },
       { name: 'lumen_personal_rows', type: 'trigger', 'default': true, label: 'lumen_personal_rows_name', descr: 'lumen_personal_rows_descr' },

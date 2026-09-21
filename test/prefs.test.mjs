@@ -468,6 +468,53 @@ test('M2: строки вне раздела настроек переведен
   }
 });
 
+/* ====================================================================== */
+/* Task 61 (фаза 5): автотрейлер в кадре главной — обнаружимость.         */
+/*                                                                        */
+/* Жалоба пользователя (интервью 2026-09-21): «Трейлер в герое через 8 с —  */
+/* заебись, но надо отключаемым в настройках». Настройка есть с Task 28,   */
+/* значит её не нашли. В разделе ДВА пункта со словом «трейлер»:           */
+/* lumen_trailer (фон карточки фильма, группа «Фон карточки») и            */
+/* lumen_hero_trailer (кадр главной, группа «Главная»); первый по списку   */
+/* идёт раньше, и человек, дойдя до него, дальше не ищет.                  */
+/* ====================================================================== */
+
+test('Task 61: два пункта про трейлер названы по-разному и каждый называет своё место', () => {
+  const LC = loadStrings();
+  const hero = LC.STRINGS[prefs.find('lumen_hero_trailer').label];
+  const card = LC.STRINGS[prefs.find('lumen_trailer').label];
+  for (const lang of LANGS) {
+    assert.notEqual(hero[lang], card[lang], 'названия совпадают в ' + lang);
+    /* Ни одно название не должно быть префиксом другого: на экране ТВ
+       «Трейлер в фоне» и «Трейлер в фоне карточки» с трёх метров читаются
+       как один и тот же пункт. */
+    assert.ok(hero[lang].indexOf(card[lang]) === -1 && card[lang].indexOf(hero[lang]) === -1,
+      'одно название содержит другое целиком в ' + lang + ': ' + hero[lang] + ' / ' + card[lang]);
+  }
+  /* Название говорит, что он запускается САМ: это и есть то, что человек
+     хочет выключить, — не «трейлер», а «трейлер без спроса». */
+  assert.ok(/^Автотрейлер/.test(hero.ru), 'ru: ' + hero.ru);
+  assert.ok(/^Auto-trailer/.test(hero.en), 'en: ' + hero.en);
+  assert.ok(/^Автотрейлер/.test(hero.uk), 'uk: ' + hero.uk);
+});
+
+test('Task 61: описание автотрейлера называет ту же задержку, что стоит в коде героя', () => {
+  const LC = loadStrings();
+  const hero = readFileSync(new URL('../src/48_hero.js', import.meta.url), 'utf8');
+  const m = /var TRAILER_DELAY = (\d+);/.exec(hero);
+  assert.ok(m, 'в src/48_hero.js не нашлась константа TRAILER_DELAY');
+  const seconds = String(parseInt(m[1], 10) / 1000);
+
+  const descr = LC.STRINGS[prefs.find('lumen_hero_trailer').descr];
+  for (const lang of LANGS) {
+    /* Число в описании — единственное, по чему человек узнаёт свой случай
+       («через 8 секунд сам включается»). Разойдётся с кодом — описание
+       станет ложным. */
+    assert.ok(new RegExp('(^|[^\\d])' + seconds + '([^\\d]|$)').test(descr[lang]),
+      'в описании (' + lang + ') нет задержки ' + seconds + ' с: ' + descr[lang]);
+  }
+});
+
 test('в словаре нет пунктов-сирот: каждая строка lumen_card_group_* принадлежит заголовку из LIST', () => {
   const LC = loadStrings();
   const used = {};

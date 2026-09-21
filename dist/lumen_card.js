@@ -22527,7 +22527,12 @@ uk: 'Список роздач, вікна підключення та поми�
 
 
 
-lumen_card_trailer: { ru: 'Трейлер в фоне', en: 'Background trailer', uk: 'Трейлер у фоні' },
+
+
+
+
+
+lumen_card_trailer: { ru: 'Трейлер в фоне карточки', en: 'Background trailer on the card', uk: 'Трейлер у фоні картки' },
 lumen_card_trailer_descr: {
 ru: 'Трейлер с YouTube без звука через 3 с после открытия карточки. «Авто» — выключено на Tizen/webOS.',
 en: 'Muted YouTube trailer 3 s after the card opens. "Auto" is off on Tizen/webOS.',
@@ -22787,11 +22792,29 @@ lumen_hero_size_medium: { ru: 'Средний', en: 'Medium', uk: 'Середн�
 lumen_hero_size_compact: { ru: 'Компактный', en: 'Compact', uk: 'Компактний' },
 lumen_hero_size_off: { ru: 'Выключен', en: 'Off', uk: 'Вимкнено' },
 
-lumen_hero_trailer_name: { ru: 'Трейлер в кадре главной', en: 'Trailer in the home hero', uk: 'Трейлер у кадрі головної' },
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+lumen_hero_trailer_name: { ru: 'Автотрейлер в кадре главной', en: 'Auto-trailer in the home hero', uk: 'Автотрейлер у кадрі головної' },
 lumen_hero_trailer_descr: {
-ru: 'Если фокус постоял на карточке 8 секунд, кадр над рядами сменяется беззвучным трейлером с YouTube. Любое движение по рядам его снимает, при листании он не запускается вовсе. Работает только при полных анимациях и там же, где включён трейлер в фоне карточки. Применяется сразу.',
-en: 'Once focus has rested on a card for 8 seconds, the hero frame above the rows turns into a muted YouTube trailer. Any move through the rows removes it, and it never starts while you are browsing. Works only with full animations and wherever the background trailer on the card is on. Applied immediately.',
-uk: 'Якщо фокус постояв на картці 8 секунд, кадр над рядами змінюється беззвучним трейлером з YouTube. Будь-який рух рядами його знімає, під час гортання він не запускається взагалі. Працює лише за повних анімацій і там само, де ввімкнено трейлер у фоні картки. Застосовується одразу.'
+ru: 'Кадр над рядами сам сменяется беззвучным трейлером с YouTube, если фокус постоял на карточке 8 секунд. Выключите, если это мешает. Переход на другую карточку ролик снимает, при листании он не запускается вовсе. Нужны полные анимации, включённые тяжёлые эффекты и не выключенный «Трейлер в фоне карточки». Применяется сразу.',
+en: 'The hero frame above the rows turns into a muted YouTube trailer by itself once focus has rested on a card for 8 seconds. Turn it off if it gets in the way. Moving to another card removes the clip, and it never starts while you are browsing. Needs full animations, heavy effects on and "Background trailer on the card" not set to Off. Applied immediately.',
+uk: 'Кадр над рядами сам змінюється беззвучним трейлером з YouTube, якщо фокус постояв на картці 8 секунд. Вимкніть, якщо це заважає. Перехід на іншу картку ролик знімає, під час гортання він не запускається взагалі. Потрібні повні анімації, увімкнені важкі ефекти і не вимкнений «Трейлер у фоні картки». Застосовується одразу.'
 },
 lumen_badges_name: { ru: 'Метки на постерах', en: 'Poster badges', uk: 'Мітки на постерах' },
 lumen_badges_descr: {
@@ -23601,6 +23624,13 @@ var LIST = [
 
 
 { name: 'lumen_hero_size', type: 'select', values: ['large', 'medium', 'compact', 'off'], vprefix: 'lumen_hero_size_', 'default': 'large', label: 'lumen_hero_size_name', descr: 'lumen_hero_size_descr' },
+
+
+
+
+
+
+
 
 
 
