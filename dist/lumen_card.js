@@ -865,6 +865,8 @@ var HERO_DEFAULT = 'large';
 
 
 
+
+
 var ROWS_SHIFT_VH = 5.5;
 
 
@@ -960,6 +962,7 @@ var LOGO_COMPACT = 0.65;
 
 
 var HERO_MIN_RATIO = 220;
+
 
 
 
@@ -2951,6 +2954,10 @@ css.push('@media screen and (min-aspect-ratio:' + heroMinRatio + '/100){' +
 '.lumen-hero .lumen-hero__meta,.lumen-hero .lumen-hero__logo,.lumen-hero .lumen-hero__title,.lumen-hero .lumen-hero__descr,.lumen-hero .lumen-hero__sk,.lumen-hero .lumen-hero__chips{display:none}' +
 '.lumen-hero.lumen-hero--compact .lumen-hero__moods,.lumen-main .lumen-hero .lumen-hero__moods{display:-webkit-box;display:-webkit-flex;display:flex;margin-top:0;opacity:1;visibility:visible;pointer-events:auto}' +
 '.lumen-moods-on.lumen-main .scroll.layer--wheight,.lumen-moods-on.lumen-main.lumen-rows-up .scroll.layer--wheight{margin-top:' + MOODS_BAR + 'em;height:-webkit-calc(100vh - ' + round2(LAMPA_HEAD + MOODS_BAR) + 'em) !important;height:calc(100vh - ' + round2(LAMPA_HEAD + MOODS_BAR) + 'em) !important}}');
+
+
+
+
 
 
 
