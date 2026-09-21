@@ -375,6 +375,21 @@
   var EDGE = 3.51;
   var EDGE_Y = 2.63;
 
+  /* Граница «узкого экрана» в физических пикселях и её перевод в CSS-ширину
+     для медиазапроса компактной ветки (см. правило у заголовка карточки).
+     devicePixelRatio читается защищённо: в тестах buildCss зовётся без
+     window вовсе, и там порог остаётся прежним 1000. */
+  var NARROW_PHYS = 1000;
+  function narrowWindowPx() {
+    var dpr = 1;
+    try {
+      if (typeof window !== 'undefined' && window.devicePixelRatio > 0) dpr = window.devicePixelRatio;
+    } catch (e) {
+      dpr = 1;
+    }
+    return Math.round(NARROW_PHYS / dpr);
+  }
+
   /* Минимальный кегль текста интерфейса. Apple HIG Typography: самый мелкий
      стиль tvOS — Caption 2, 23 px, и «дефолт 29 px, минимум 23»; Amazon даёт
      28 px телу текста, Microsoft — 30 основному и 24 второстепенному
@@ -1677,14 +1692,38 @@
        (п.1): правил боковой колонки здесь больше нет, а одноколоночный поток
        .lumen-content теперь и так базовый — остаются только кегль заголовка и
        снятая минимальная высота шапки. --- */
-    /* Task 63: 2.43em было нашим числом, теперь это ступень шкалы tvOS —
-       Title 2, 57 px = 2.50em (docs/research/2026-09-21-tv-design-specs.md
-       §1). Важно, где эта ветка включается: телевизор пользователя отдаёт
-       WebView окно 960 CSS px при devicePixelRatio 2, то есть по CSS-ширине
-       он «узкий экран» и Title 1 из базового правила на нём НЕ действует —
-       заголовок карточки там Title 2. Проверено живьём на стенде 960×540@2
-       (замер 2026-09-21: 55.4 физических px до правки). */
-    css.push('@media screen and (max-width:1000px){.lumen-card .full-start-new__title{font-size:2.5em}.lumen-card .full-start-new__body{min-height:0}}');
+    /* Компактная ветка включается по ФИЗИЧЕСКОМУ растру, а не по CSS-ширине.
+       Фикс-раунд Task 63: прежнее условие (max-width:1000px) на телевизоре
+       пользователя срабатывало всегда — WebView отдаёт окно 960 CSS px при
+       devicePixelRatio 2, то есть 1920 физических пикселей, экран не узкий
+       ничем, кроме единиц измерения. Цена была не в кегле заголовка:
+       вторым правилом ветка обнуляет min-height:74vh у тела карточки, и
+       шапка переставала быть прижатой к низу кадра. Замер на стенде
+       960×540@2 до правки: min-height 0px, тело карточки 74…296 при высоте
+       окна 540 — заголовок и кнопки стояли вверху экрана, а не над нижней
+       кромкой, как задумано.
+       Порог 1000 был нашим собственным числом (у Lampa брейкпойнты
+       400/480/580/767/991 — vendor/lampa/css/app.css), поэтому он и остаётся
+       нашим, но считается теперь в ФИЗИЧЕСКИХ пикселях: порог CSS-ширины =
+       1000 / devicePixelRatio, то есть 1000 px при DPR 1 и 500 при DPR 2.
+       Почему делим в JS, а не пишем условие по разрешению прямо в
+       медиазапросе: медиазапрос читает НАСТОЯЩИЙ devicePixelRatio панели, и
+       проверить такую ветку на стенде нечем — подмена devicePixelRatio
+       через defineProperty видна толькоJS-коду (замер 2026-09-21: при
+       подменённом DPR 2 запрос -webkit-max-device-pixel-ratio:1.5
+       по-прежнему совпадал). Делённый порог, наоборот, проверяется в обоих
+       режимах, а сам медиазапрос остаётся живым: окно меняют — ветка
+       включается и выключается без пересборки таблицы.
+       Чего эта схема не умеет: DPR читается в момент сборки CSS. Устройство
+       своего DPR не меняет, но если окно браузера перетащить на монитор с
+       другой плотностью, порог обновится только со следующей пересборкой
+       таблицы (смена любой настройки плагина).
+       Кегли — ступени шкалы tvOS: Title 2 57 px = 2.5em здесь и Title 1
+       3.33em в базовом правиле (docs/research/2026-09-21-tv-design-specs.md
+       §1); межстрочный Title 2 — 66/57 = 1.16. */
+    css.push('@media screen and (max-width:' + narrowWindowPx() + 'px){' +
+      '.lumen-card .full-start-new__title{font-size:2.5em;line-height:1.16}' +
+      '.lumen-card .full-start-new__body{min-height:0}}');
 
     /* Task 4: motion — анимации в духе Apple TV. */
 
@@ -1795,7 +1834,11 @@
        в lite уже на Tizen/webOS (LC.motionModeFor); автодетект слабых Android — фаза 3 Task 29 (ещё не
        реализован), пока для них тоже нужно выбирать «Лёгкие»/«Выкл» вручную в настройках. */
     css.push('.lumen-card .full-start-new__title,.lumen-card .full-start-new__rate-line,.lumen-card .full-start-new__buttons{-webkit-transition:font-size .28s cubic-bezier(.2,.9,.3,1.25),margin-top .28s cubic-bezier(.2,.9,.3,1.25);transition:font-size .28s cubic-bezier(.2,.9,.3,1.25),margin-top .28s cubic-bezier(.2,.9,.3,1.25)}');
-    css.push('.lumen-card.lumen-compact .full-start-new__title{font-size:2.11em}');
+    /* Фикс-раунд Task 63: вместе с кеглем ступени берётся и её межстрочный —
+       Title 3 это 48/56, то есть 1.17 (у Title 1 в базовом правиле 1.26).
+       Без этого сжатая шапка получала межстрочный крупной ступени и была
+       выше, чем задумано. */
+    css.push('.lumen-card.lumen-compact .full-start-new__title{font-size:2.11em;line-height:1.17}');
     css.push('.lumen-card.lumen-compact .full-start-new__rate-line{margin-top:.87em}');
     css.push('.lumen-card.lumen-compact .full-start-new__buttons{margin-top:.95em}');
     /* Task 8 (экран 06): «Следующая серия — 17 декабря, через 31 день» в сжатой

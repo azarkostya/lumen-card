@@ -885,6 +885,21 @@ var EDGE_Y = 2.63;
 
 
 
+var NARROW_PHYS = 1000;
+function narrowWindowPx() {
+var dpr = 1;
+try {
+if (typeof window !== 'undefined' && window.devicePixelRatio > 0) dpr = window.devicePixelRatio;
+} catch (e) {
+dpr = 1;
+}
+return Math.round(NARROW_PHYS / dpr);
+}
+
+
+
+
+
 
 
 
@@ -2190,7 +2205,31 @@ css.push(LC.icons.NO_MASK + '{.lumen-descr-row .lumen-reviews__ico,.lumen-descr-
 
 
 
-css.push('@media screen and (max-width:1000px){.lumen-card .full-start-new__title{font-size:2.5em}.lumen-card .full-start-new__body{min-height:0}}');
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+css.push('@media screen and (max-width:' + narrowWindowPx() + 'px){' +
+'.lumen-card .full-start-new__title{font-size:2.5em;line-height:1.16}' +
+'.lumen-card .full-start-new__body{min-height:0}}');
 
 
 
@@ -2301,7 +2340,11 @@ css.push('@keyframes lumen-kb{from{transform:scale(1)}to{transform:scale(1.08)}}
 
 
 css.push('.lumen-card .full-start-new__title,.lumen-card .full-start-new__rate-line,.lumen-card .full-start-new__buttons{-webkit-transition:font-size .28s cubic-bezier(.2,.9,.3,1.25),margin-top .28s cubic-bezier(.2,.9,.3,1.25);transition:font-size .28s cubic-bezier(.2,.9,.3,1.25),margin-top .28s cubic-bezier(.2,.9,.3,1.25)}');
-css.push('.lumen-card.lumen-compact .full-start-new__title{font-size:2.11em}');
+
+
+
+
+css.push('.lumen-card.lumen-compact .full-start-new__title{font-size:2.11em;line-height:1.17}');
 css.push('.lumen-card.lumen-compact .full-start-new__rate-line{margin-top:.87em}');
 css.push('.lumen-card.lumen-compact .full-start-new__buttons{margin-top:.95em}');
 

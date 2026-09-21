@@ -4161,7 +4161,44 @@ test('Task 63: заголовок карточки — три ступени ш�
   const narrow = ruleBodiesWithMedia(css).find((r) => r.media && /max-width:1000px/.test(r.media) &&
     r.selectors.some((s) => s === '.lumen-card .full-start-new__title'));
   assert.ok(narrow && narrow.decl.indexOf('font-size:2.5em') !== -1, 'узкий экран — Title 2, 57 px: ' + (narrow && narrow.decl));
+  /* Фикс-раунд Task 63: со ступенью берётся и её межстрочный — Title 2 это
+     66/57 = 1.16, Title 3 — 56/48 = 1.17; без этого обе мелкие ступени
+     получали межстрочный Title 1 (1.26) и шапка была выше расчётной. */
+  assert.ok(narrow.decl.indexOf('line-height:1.16') !== -1, 'межстрочный Title 2 — 66/57: ' + narrow.decl);
 
   const compact = decl(css, '.lumen-card.lumen-compact .full-start-new__title');
   assert.ok(compact.indexOf('font-size:2.11em') !== -1, 'сжатая шапка — Title 3, 48 px: ' + compact);
+  assert.ok(compact.indexOf('line-height:1.17') !== -1, 'межстрочный Title 3 — 56/48: ' + compact);
+});
+
+/* Компактная ветка вёрстки включается по ФИЗИЧЕСКОМУ растру. Прежнее условие
+   (max-width:1000px по CSS-ширине) срабатывало на телевизоре пользователя:
+   WebView отдаёт 960 CSS px при devicePixelRatio 2, то есть 1920 физических.
+   Цена была не в кегле заголовка — вторым правилом ветка обнуляет
+   min-height:74vh у тела карточки, и шапка переставала быть прижатой к низу
+   кадра (замер на стенде 960×540@2 до правки: min-height 0px, тело карточки
+   74…296 при окне 540; после — 399.6px и 74…474). */
+test('Task 63: порог компактной ветки делится на devicePixelRatio', () => {
+  const threshold = (built) => parseInt(/@media screen and \(max-width:(\d+)px\)/.exec(built)[1], 10);
+  /* В node window нет вовсе — это и есть «DPR 1» по умолчанию. */
+  assert.equal(threshold(css), 1000, 'без window порог обязан остаться прежним');
+
+  for (const [dpr, want] of [[1, 1000], [1.5, 667], [2, 500], [3, 333]]) {
+    const built = withStorage({}, (LC) => {
+      globalThis.window.devicePixelRatio = dpr;
+      return LC.buildCss();
+    });
+    assert.equal(threshold(built), want, 'DPR ' + dpr + ': порог ' + threshold(built) + ' вместо ' + want);
+  }
+
+  /* Телевизор пользователя: 960 CSS px при DPR 2 — порог 500, ветка
+     выключена, значит min-height:74vh у тела карточки действует. */
+  const tv = withStorage({}, (LC) => {
+    globalThis.window.devicePixelRatio = 2;
+    return LC.buildCss();
+  });
+  assert.ok(960 > threshold(tv), 'на 960 CSS px при DPR 2 компактная ветка обязана быть выключена');
+  const body = ruleBodiesWithMedia(tv).filter((r) => r.selectors.some((s) => s === '.lumen-card .full-start-new__body'));
+  assert.ok(body.some((r) => !r.media && /min-height:74vh/.test(r.decl)), 'базовое правило тела карточки потеряло min-height');
+  assert.ok(body.some((r) => r.media && /min-height:0/.test(r.decl)), 'компактная ветка перестала обнулять min-height');
 });
