@@ -329,6 +329,33 @@
      550 px, 7 колонок — 512. Цепочку целиком держит тест «Task 51: подпись
      первого ряда помещается в экран телевизора» (test/css.test.mjs). */
   var ROW_CARD_W = 9.52;
+  /* Восьмая колонка той же сетки Apple (184 px при зазоре 40). На неё
+     карточка уходит медиазапросом, когда блок ряда перестаёт помещаться в
+     отведённые ему доли экрана, — см. rowNarrowRatio ниже. */
+  var ROW_CARD_NARROW = 8.07;
+  /* Пропорция постера: её задаёт штатный .card__view{padding-bottom:150%}
+     (vendor/lampa/css/app.css:3135-3139), мы её только считаем. */
+  var POSTER_RATIO = 1.5;
+  /* Остальные слагаемые блока ряда — в одном месте, потому что по ним
+     считается и CSS, и порог узкой колонки. ROW_HEAD_GAP — зазор под шапкой
+     ряда (он же должен вмещать рост постера в фокусе, разбор у ROW_FOCUS);
+     CARD_VIEW_GAP, CARD_TITLE_LH, CARD_AGE_GAP — отступ под постером,
+     межстрочный названия и отступ над мета-строкой.
+     LAMPA_MORE_EM — высота штатной кнопки «Ещё» в шапке ряда: padding .4em
+     сверху и снизу плюс строка при line-height:1 (app.css:2859-2866 и
+     :207-208). Lampa дописывает её при results.length >= 20 || data.more
+     (app.min.js:52696-52702), то есть на рядах TMDB — всегда, и шапка ряда
+     меряется по ней, а не по заголовку. */
+  var ROW_HEAD_GAP = 1.5;
+  var CARD_VIEW_GAP = 0.5;
+  var CARD_TITLE_LH = 1.15;
+  var CARD_AGE_GAP = 0.25;
+  var LAMPA_MORE_EM = 1.8;
+  /* Запас между низом подписи и кромкой экрана, от которого считается порог
+     узкой колонки. В em, а не в px: подписи стоят на дробных координатах
+     (кегли умножаются на масштаб интерфейса и округляются до сотых), и запас
+     обязан расти вместе с ними. .7em — 8 px на стенде 960×540. */
+  var ROW_EDGE_AIR = 0.7;
   var LAMPA_ROW_PAD = 2.5;
   var LAMPA_HEAD = 4;
 
@@ -545,6 +572,33 @@
      хватает» выражается одним отношением сторон: W/H > 84.17 × доля / бюджет. */
   function textRatio(key, needEm) {
     return Math.round(84.17 * (HERO_VH[key] - textBottomVh(key)) / needEm);
+  }
+
+  /* Высота блока первого ряда в базовых em: шапка (заголовок или кнопка
+     «Ещё», что выше), зазор под ней, постер, отступ под постером, название и
+     мета-строка со своим отступом. margin-top у .card__age считается от ЕГО
+     собственного кегля — отсюда произведение, а не сумма. */
+  function rowBlockEm(cardW, titleEm, gapEm, cardTitleEm, cardAgeEm) {
+    return Math.max(titleEm, LAMPA_MORE_EM) + gapEm + cardW * POSTER_RATIO +
+      CARD_VIEW_GAP + cardTitleEm * CARD_TITLE_LH + CARD_AGE_GAP * cardAgeEm + cardAgeEm;
+  }
+
+  /* Порог узкой колонки — того же вида, что textRatio выше и HERO_MIN_RATIO:
+     место под ряды задано долями ЭКРАНА, а блок ряда — em, то есть доля
+     ШИРИНЫ, и «ряд не помещается» выражается одним отношением сторон.
+
+     Цепочка от верха экрана до низа подписи в ПОДНЯТОМ состоянии: шапка
+     ряда стоит на ROWS_TOP_VH экрана плюс ROWS_AIR (margin-top области
+     считан от rowsTop, а он и есть LAMPA_HEAD + LAMPA_ROW_PAD − ROWS_AIR),
+     дальше идёт блок ряда. Подпись помещается, пока
+     ROWS_TOP_VH·H/100 + (ROWS_AIR + block + ROW_EDGE_AIR)·W/84.17 ≤ H,
+     то есть пока W/H ≤ 84.17·(100 − ROWS_TOP_VH) / (ROWS_AIR + block +
+     ROW_EDGE_AIR) / 100. Шире этого отношения подпись срезается кромкой, и
+     карточка уходит на восьмую колонку сетки.
+     Округление ВНИЗ: правило обязано включиться не позже, чем кончился
+     запас, — лишний десяток сотых порога дешевле срезанной подписи. */
+  function rowNarrowRatio(key, blockEm) {
+    return Math.floor(84.17 * (100 - ROWS_TOP_VH[key]) / (ROWS_AIR + blockEm + ROW_EDGE_AIR));
   }
 
   /* Корни, на которые вешается коэффициент. Каждый из них — самостоятельный
@@ -2612,13 +2666,36 @@
        Apple, и системное значение Android TV, на котором живёт телевизор
        пользователя. */
     var ROW_FOCUS = 1.10;
-    var rowCardW = round2(ROW_CARD_W * scale) + 'em';
-    css.push('.lumen-main .card{width:' + rowCardW + '}');
+    /* Слагаемые блока ряда живут в переменных, а не литералами в строках:
+       из них же считается порог узкой колонки ниже, и разойтись они не
+       имеют права (ревью фикс-раунда Task 51: прежний тест зазора сторожил
+       масштаб фокуса собственной копией числа и пропустил его повышение). */
+    var cardWEm = round2(ROW_CARD_W * scale);
+    var cardTitleEm = round2(.96 * scale);
+    var cardAgeEm = round2(.88 * scale);
+    var rowTitleEm = round2(1.23 * scale);
+    var rowHeadGapEm = round2(ROW_HEAD_GAP * scale);
+    css.push('.lumen-main .card{width:' + cardWEm + 'em}');
+    /* Узкая колонка для низкого окна. Блок ряда растёт вместе с масштабом
+       интерфейса, а место под него — нет (комментарий к HERO_VH выше), и на
+       «крупнее»/«огромном» подпись уходила за кромку даже на телевизоре 16:9
+       (замеры фикс-раунда Task 51: 539 и 559 при кромке 540). Порог считает
+       rowNarrowRatio по той же цепочке высот; на штатном масштабе он выше
+       16:9, и там карточка остаётся семиколоночной.
+       Правило не пишется, если порог оказался выше HERO_MIN_RATIO: за ним
+       кадра нет вовсе, ряды занимают экран целиком, и сужать карточку было
+       бы нечем оправдать — а мёртвое правило в таблице стилей мы считаем
+       дефектом. */
+    var narrowRatio = rowNarrowRatio(heroSize, rowBlockEm(cardWEm, rowTitleEm, rowHeadGapEm, cardTitleEm, cardAgeEm));
+    if (narrowRatio < Math.max(HERO_MIN_RATIO, textRatio(heroSize, textNeedEm(false)))) {
+      css.push('@media screen and (min-aspect-ratio:' + narrowRatio + '/100){' +
+        '.lumen-main .card{width:' + round2(ROW_CARD_NARROW * scale) + 'em}}');
+    }
     /* Снятие слоя, который Lampa выдаёт каждой карточке (разбор — в
        комментарии выше). Отдельным правилом, а не приписью к ширине:
        ширину карточки сторожат свои тесты точным сравнением. */
     css.push('.lumen-main .card{will-change:auto}');
-    css.push('.lumen-main .card__view{margin-bottom:.5em;border-radius:.31em;-webkit-transform:scale(1);transform:scale(1);-webkit-transform-origin:center bottom;transform-origin:center bottom}');
+    css.push('.lumen-main .card__view{margin-bottom:' + CARD_VIEW_GAP + 'em;border-radius:.31em;-webkit-transform:scale(1);transform:scale(1);-webkit-transform-origin:center bottom;transform-origin:center bottom}');
     css.push('.lumen-main .card__img{border-radius:.31em}');
     css.push('.lumen-main .card.focus .card__view:after,.lumen-main .card.hover .card__view:after{display:none}');
     css.push('.lumen-main .card.focus .card__view,.lumen-main .card.hover .card__view{-webkit-animation:none !important;animation:none !important}');
@@ -2639,15 +2716,15 @@
     css.push('body.lumen-motion-full .lumen-main .card__view{-webkit-transition:-webkit-transform .18s ease-out;transition:transform .18s ease-out}');
     css.push('.lumen-main .card__quality,.lumen-main .card__type{display:none}');
     if (LC.pref('lumen_badges', true)) css.push('.lumen-main .card__vote{display:none}');
-    css.push('.lumen-main .card__title{font-family:' + FB + ';font-weight:700;font-size:' + round2(.96 * scale) + 'em;line-height:1.15;white-space:nowrap;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis;color:' + P.muted + '}');
+    css.push('.lumen-main .card__title{font-family:' + FB + ';font-weight:700;font-size:' + cardTitleEm + 'em;line-height:' + CARD_TITLE_LH + ';white-space:nowrap;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis;color:' + P.muted + '}');
     css.push('.lumen-main .card.focus .card__title{color:' + P.text + '}');
-    css.push('.lumen-main .card__age{font-family:' + FB + ';font-size:' + round2(.88 * scale) + 'em;line-height:1;margin-top:.25em;color:' + P.muted + '}');
+    css.push('.lumen-main .card__age{font-family:' + FB + ';font-size:' + cardAgeEm + 'em;line-height:1;margin-top:' + CARD_AGE_GAP + 'em;color:' + P.muted + '}');
     /* Снятие двух слоёв из трёх (разбор — в комментарии выше). Правило стоит
        ПОСЛЕ наших правил на те же узлы: специфичность у них одинаковая,
        решает порядок. Своего transform у подписей нет — увеличение в фокусе
        стоит на .card__view, подпись при этом остаётся на месте. */
     css.push('.lumen-main .card__title,.lumen-main .card__age{-webkit-transform:none;transform:none}');
-    css.push('.lumen-main .items-line__title{font-family:' + FB + ';font-weight:700;font-size:' + round2(1.23 * scale) + 'em}');
+    css.push('.lumen-main .items-line__title{font-family:' + FB + ';font-weight:700;font-size:' + rowTitleEm + 'em}');
     css.push('.lumen-main .items-line{padding-bottom:1.4em}');
     /* Правка пользователя 2026-09-17 (второй круг): «левый край логотипа и
        левый край „Сейчас смотрят“ должны стоять на одной линии». У Lampa и
@@ -2655,7 +2732,7 @@
        safe area плагина — 2.81em (§0.1), по ней стоит текст героя. Двигаем
        ряды к ней, а не героя к Lampa: 1.5em — это меньше безопасной зоны
        телевизора, на ТВ такой отступ съедает оверскан. */
-    css.push('.lumen-main .items-line__head{margin-bottom:' + round2(1.5 * scale) + 'em;padding-left:2.81em}');
+    css.push('.lumen-main .items-line__head{margin-bottom:' + rowHeadGapEm + 'em;padding-left:2.81em}');
     css.push('.lumen-main .items-line .scroll__content{padding-left:2.81em}');
     /* Task 51: зазор между карточками ряда — 1.75em (40 физ. px), тот же, что
        у сетки Apple, из которой взята и ширина карточки (HIG Layout → Grids:

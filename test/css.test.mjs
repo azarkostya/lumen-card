@@ -1875,13 +1875,17 @@ test('раскладка героя: кадр, текст и ряды не пе�
    прежнего теста «раскладка героя» (выше) прошли и 543 px, и зазор
    заголовка, выросший с .7em до 1.4em.
 
-   Одно слагаемое цепочки взято не из CSS, а из живого замера: полоса чипов
-   профиля настроения опускает область рядов на MOODS_BAR, и узел, который
-   это делает, в таблице стилей не опознан. Оно помечено как замер и в
-   модели (rowLayout), и отдельным тестом «полоса чипов опускает ряды»
-   ниже — там же разбор, почему это не правило раскладки. После этой
-   поправки модель воспроизводит замер координатора 2026-09-21 построчно:
-   шапка ряда 326, постер 364…527, название 533…545, мета 548…558.
+   ВАЖНО ПРО ЖИВЫЕ ЗАМЕРЫ. На стенде координатора анимации не
+   проигрываются (скрытая панель браузера: playState у анимации «running»,
+   но кадры не идут). Штатная анимация входа Lampa animation-activity
+   держит .activity__body на первом своём кадре — translate3d(0, 14%, 0), —
+   и вся область рядов оказывается на 14 % своей высоты ниже расчётного
+   места: 39 px при высоте 281. Два круга фикс-раунда 2026-09-21 ушли на
+   то, чтобы опознать эти 39 px, тем более что они почти совпали с
+   MOODS_BAR (3.43em ≈ 39.1) и увели разбор в чипы настроения. Живой замер
+   раскладки делать ТОЛЬКО после getAnimations().forEach((a) => a.finish()).
+   Контрольный замер координатора после finish(): верх области 259, шапка
+   ряда 287, низ подписи 518 при кромке 540 — модель даёт 518.5.
 
    Два состояния и два разных требования к ним:
    • ПОДНЯТОЕ (.lumen-rows-up, translateY(0)) — фокус в ряду, карточка
@@ -2101,34 +2105,10 @@ function rowLayout(built, screenW, screenH, opts) {
      порогом низкого окна, height:calc(100vh - <LAMPA_HEAD>em). */
   const head = parseFloat(/height:calc\(100vh - ([0-9.]+)em\) !important/.exec(heroOffMedia(built))[1]);
 
-  /* Полоса чипов профиля настроения над областью рядов.
-
-     Это ЗАМЕР, а не вывод из таблицы стилей, и так и должно читаться.
-     Диагностика координатора на стенде 2026-09-21 (960×540@2, классы
-     активности lumen-main lumen-rows-up lumen-moods-on) показала: .activity
-     стоит на 46 px (шапка Lampa, 4em — сходится), margin-top области —
-     базовые 212.973 px, высота — базовые 281.391, а верх области при этом
-     298, то есть на 39 px ниже суммы этих двух. Столько же занимает полоса
-     чипов вместе со своим отступом; узел, который её туда ставит, по
-     таблице стилей не опознан (слот .lumen-hero__moods лежит внутри
-     .lumen-hero__text, а .lumen-hero — position:absolute, то есть из потока
-     он выйти должен, см. buildNode в src/48_hero.js), поэтому поправка
-     внесена по замеру и помечена как замер.
-
-     Величина берётся из CSS: это тот же MOODS_BAR, которым раскладка
-     опускает ряды под полосу чипов при выключенном герое
-     (.lumen-moods-on:not(.lumen-main) .scroll.layer--wheight). Совпадение с
-     замером — до 0.1 px, и вся цепочка после поправки сходится с замером
-     координатора построчно (заголовок 326, постер 364…527, название 533…545,
-     мета 548…558). */
-  const moodsBar = options.moods
-    ? parseFloat(/(?:^|;)margin-top:([0-9.]+)em/.exec(decl(built, '.lumen-moods-on:not(.lumen-main) .scroll.layer--wheight'))[1]) * EM
-    : 0;
-
-  const areaTopUp = head * EM + moodsBar + lengthPx(cascade(upRules, 'margin-top').value, EM, VH);
+  const areaTopUp = head * EM + lengthPx(cascade(upRules, 'margin-top').value, EM, VH);
   const shiftUp = lengthPx(/translateY\(([^)]*)\)/.exec(cascade(upRules, 'transform').value)[1], EM, VH);
   const shiftDown = lengthPx(/translateY\(([^)]*)\)/.exec(cascade(downRules, 'transform').value)[1], EM, VH);
-  const areaTopDown = head * EM + moodsBar + lengthPx(cascade(downRules, 'margin-top').value, EM, VH);
+  const areaTopDown = head * EM + lengthPx(cascade(downRules, 'margin-top').value, EM, VH);
 
   /* Отступ, который Lampa держит над фокусным рядом сама. Маску мы с области
      сняли (mask-image:none), но класс .scroll--mask на ней остался, и padding
@@ -2193,7 +2173,7 @@ function rowLayout(built, screenW, screenH, opts) {
 test('Task 51: подпись первого ряда помещается в экран телевизора при любом масштабе', () => {
   /* Стенд координатора: Philips 50PUS8057/60 отдаёт WebView 960×540 при
      devicePixelRatio 2 (растр 1920×1080). Раскладка считается в CSS px этого
-     окна — именно в них сделаны оба замера, 543 до Task 51 и 558 после. */
+     окна — именно в них сделан замер «543 при кромке 540» до Task 51. */
   const W = 960;
   const H = 540;
   /* Запас 8 px: подпись стоит на дробных координатах (кегли получаются
@@ -2205,130 +2185,119 @@ test('Task 51: подпись первого ряда помещается в э
      её при results.length >= 20 || data.more (vendor/lampa/app.min.js:
      52696-52702), а страница выдачи TMDB — ровно 20 карточек. Она выше
      заголовка (padding .4em сверху и снизу плюс строка — 1.8em против 1.23em
-     у заголовка, app.css:2859-2866), и шапка ряда меряется по ней.
-     «Профили настроения» включены по умолчанию, и их полоса опускает ряды
-     ещё на MOODS_BAR (замер, разбор — в комментарии к rowLayout выше).
-     Значит обычный экран пользователя — это чипы ВКЛЮЧЕНЫ и кнопка ЕСТЬ, и
-     пределы стоят на нём. */
-  const box = (scale, opts) => rowLayout(
-    withStorage({ lumen_scale: scale }, (LC) => LC.buildCss()), W, H, opts);
+     у заголовка, app.css:2859-2866), и шапка ряда меряется по ней. Худший
+     случай — ряд С кнопкой, но инвариант обязан держаться в обоих. */
+  const box = (scale, more, size) => rowLayout(
+    withStorage(size ? { lumen_scale: scale, lumen_hero_size: size } : { lumen_scale: scale }, (LC) => LC.buildCss()), W, H, { more: more });
 
-  /* ЗАМЕР 2026-09-21 (фикс-раунд), а не инвариант: на обычном экране
-     пользователя подпись за кромкой при ЛЮБОМ масштабе интерфейса, и Task 51
-     эту задачу не решил.
-
-     Складывается перебор из трёх слагаемых, и ни одно не лечится сменой
-     ширины карточки в одиночку: полоса чипов над рядами (39.1 px), кнопка
-     «Ещё» в шапке ряда (6.5 px) и то, что блок ряда растёт вместе с
-     масштабом интерфейса, а место под него задано долями ЭКРАНА
-     (комментарий к HERO_VH в src/30_css.js). Расчёт по этой же модели:
-     снять полосу чипов — хватает на «мельче» и «обычном» (497.9 и 518.5);
-     для «крупнее» и «огромного» нужна вдобавок 8-я колонка сетки Apple
-     (8.07em: 511.8 и 529.6). Одна 8-я колонка без снятия полосы не спасает
-     даже штатный масштаб — 532.8 при пределе 532.
-
-     Числа ниже — ровно то, что модель даёт сейчас; тест держит их как
-     ХРАПОВИК, «не хуже замера». Решение, чем именно платить за эти 39 px,
-     за координатором: узел, который их даёт, по таблице стилей не опознан
-     (разбор — в тесте «полоса чипов опускает ряды» ниже). */
-  const limit = {
-    'small/чипы/ещё': 537.1, 'normal/чипы/ещё': 557.7, 'large/чипы/ещё': 578.2, 'huge/чипы/ещё': 598.7,
-    'small/чипы': 529.2, 'normal/чипы': 551.2, 'large/чипы': 573.1, 'huge/чипы': 595.0,
-    'small/ещё': TEXT_LIMIT, 'normal/ещё': TEXT_LIMIT, 'large/ещё': 539.1, 'huge/ещё': 559.5,
-    small: TEXT_LIMIT, normal: TEXT_LIMIT, large: 534.0, huge: 555.9
-  };
-
-  for (const scale of ['small', 'normal', 'large', 'huge']) {
-    for (const moods of [true, false]) {
+  /* Размер кадра героя двигает всю цепочку: от него зависит ROWS_TOP_VH, то
+     есть сколько экрана достаётся рядам. Инвариант обязан держаться на всех
+     трёх размерах, а не только на крупном по умолчанию. */
+  for (const size of ['large', 'medium', 'compact']) {
+    for (const scale of ['small', 'normal', 'large', 'huge']) {
       for (const more of [true, false]) {
-        const key = scale + (moods ? '/чипы' : '') + (more ? '/ещё' : '');
-        const got = box(scale, { moods: moods, more: more });
-        assert.ok(got.textBottomUp <= limit[key],
-          key + ': низ подписи в поднятом состоянии ' + got.textBottomUp.toFixed(1) + ' px при пределе ' + limit[key]);
+        const got = box(scale, more, size);
+        const label = size + '/' + scale + (more ? ' с кнопкой «Ещё»' : '');
+        assert.ok(got.textBottomUp <= TEXT_LIMIT,
+          label + ': низ подписи в поднятом состоянии ' + got.textBottomUp.toFixed(1) + ' px при пределе ' + TEXT_LIMIT);
       }
     }
-    /* Ряд без кнопки «Ещё» обязан быть не ниже ряда с ней, а без чипов — не
-       ниже, чем с ними: если это перестанет выполняться, значит модель стала
-       мерить не те слагаемые. */
-    assert.ok(box(scale, { moods: true, more: false }).textBottomUp < box(scale, { moods: true, more: true }).textBottomUp,
-      scale + ': кнопка «Ещё» перестала добавлять высоту');
-    assert.ok(box(scale, { moods: false, more: true }).textBottomUp < box(scale, { moods: true, more: true }).textBottomUp,
-      scale + ': полоса чипов перестала опускать ряды');
   }
 
-  /* Постер в СТАРТОВОМ состоянии: там подписи за кромкой по замыслу (кадр
-     героя занимает две трети экрана по требованию пользователя), но сам
-     постер обязан быть виден целиком — обрезанный по горизонтали постер
-     выглядит поломкой. С выключенными чипами это выполняется везде, кроме
-     «огромного»; с включёнными — нигде, и это часть той же задачи. */
-  for (const scale of ['small', 'normal', 'large']) {
-    assert.ok(box(scale, { moods: false, more: true }).posterBottomDown <= H,
-      scale + ': постер в стартовом состоянии срезан кромкой');
+  for (const scale of ['small', 'normal', 'large', 'huge']) {
+    for (const more of [true, false]) {
+      const got = box(scale, more);
+      const label = scale + (more ? ' с кнопкой «Ещё»' : '');
+      assert.ok(got.textBottomUp <= TEXT_LIMIT,
+        label + ': низ подписи в поднятом состоянии ' + got.textBottomUp.toFixed(1) + ' px при пределе ' + TEXT_LIMIT);
+      /* В старте подпись за кромкой — это размен: кадр героя занимает две
+         трети экрана по требованию пользователя. А вот постер обязан быть
+         виден целиком: обрезанный по горизонтали постер выглядит поломкой. */
+      assert.ok(got.posterBottomDown <= H,
+        label + ': в стартовом состоянии постер срезан кромкой — низ ' + got.posterBottomDown.toFixed(1) + ' px');
+    }
+    assert.ok(box(scale, false).textBottomUp < box(scale, true).textBottomUp,
+      scale + ': кнопка «Ещё» перестала добавлять высоту — шапку ряда меряет не тот элемент');
   }
 
-  /* Оба замера координатора, ради которых задача и заведена, — на штатном
-     масштабе, поднятое состояние. Числа пинятся точно, чтобы следующая
-     правка раскладки не съела запас молча. */
-  assert.ok(Math.abs(box('normal', { moods: true, more: true }).textBottomUp - 558) < 1,
-    'обычный экран пользователя: ' + box('normal', { moods: true, more: true }).textBottomUp.toFixed(1) + ' вместо замеренных 558');
-  assert.ok(Math.abs(box('normal', { moods: true, more: true }).rowTopUp - 326) < 1,
-    'верх шапки первого ряда: ' + box('normal', { moods: true, more: true }).rowTopUp.toFixed(1) + ' вместо замеренных 326');
-  assert.ok(Math.abs(box('normal', { moods: false, more: false }).textBottomUp - 512) < 1,
-    'без чипов и без кнопки: ' + box('normal', { moods: false, more: false }).textBottomUp.toFixed(1) + ' вместо 512');
+  /* Контрольный замер координатора на стенде (после
+     getAnimations().forEach((a) => a.finish()), см. шапку выше): штатный
+     масштаб, ряд с кнопкой «Ещё», поднятое состояние — 518 при кромке 540.
+     Число пинится точно, чтобы следующая правка раскладки не съела запас
+     молча; до Task 51 тот же ряд без кнопки давал 543. */
+  assert.ok(Math.abs(box('normal', true).textBottomUp - 518.5) < 1,
+    'штатный масштаб с кнопкой «Ещё»: ' + box('normal', true).textBottomUp.toFixed(1) + ' вместо замеренных 518');
+  assert.ok(Math.abs(box('normal', true).rowTopUp - 287) < 1,
+    'верх шапки первого ряда: ' + box('normal', true).rowTopUp.toFixed(1) + ' вместо замеренных 287');
 });
 
-/* Фикс-раунд Task 51: откуда берутся 39 px над рядами.
+/* «Крупнее» и «огромный» сами по себе в экран не помещаются: блок ряда
+   растёт вместе с масштабом интерфейса, а место под него задано долями
+   ЭКРАНА (комментарий к HERO_VH в src/30_css.js). Лечит это медиазапрос,
+   переводящий карточку на 8-ю колонку сетки Apple (8.07em против 9.52em у
+   седьмой, docs/research/2026-09-21-tv-design-specs.md §1); порог считается
+   из той же цепочки высот, по которой считает весь тест выше. */
+test('Task 51: узкая колонка включается порогом из цепочки высот, а не на глаз', () => {
+  const W = 960;
+  for (const scale of ['small', 'normal', 'large', 'huge']) {
+    const built = withStorage({ lumen_scale: scale }, (LC) => LC.buildCss());
+    const narrowRules = ruleBodiesWithMedia(built).filter((r) => r.media &&
+      r.selectors.some((sel) => sel === '.lumen-main .card') && /(?:^|;)width:/.test(r.decl));
+    assert.equal(narrowRules.length, 1, scale + ': медиазапрос узкой колонки обязан быть ровно один');
 
-   Диагностика координатора на стенде 2026-09-21 (960×540@2, классы
-   активности lumen-main lumen-rows-up lumen-moods-on): .activity стоит на
-   46 px (шапка Lampa 4em — сходится), margin-top области рядов — базовые
-   212.973 px, высота — базовые 281.391, а верх области при этом 298, то
-   есть на 39 px ниже суммы. Столько же занимает полоса чипов профиля
-   настроения вместе с отступом (MOODS_BAR).
+    /* Ширина за порогом — восьмая колонка той же сетки: отношение к базовой
+       обязано быть 8.07/9.52 при любом масштабе интерфейса. */
+    const narrow = parseFloat(/(?:^|;)width:([0-9.]+)em/.exec(narrowRules[0].decl)[1]);
+    const wide = lengthPx(cascade(matchingRules(built, ['lumen-main'], ['card'], 100, 100), 'width').value, 1, 0);
+    assert.ok(narrow < wide, scale + ': за порогом карточка обязана быть УЖЕ базовой (' + narrow + ' против ' + wide + ')');
+    assert.ok(Math.abs(narrow / wide - 8.07 / 9.52) < 0.005,
+      scale + ': за порогом не восьмая колонка сетки — ' + narrow + 'em при базовых ' + wide + 'em');
 
-   Правилом это НЕ объясняется, и тест держит обе половины разбора:
-   • .lumen-moods-on.lumen-main .scroll.layer--wheight в таблице одно и
-     лежит внутри медиазапроса min-aspect-ratio (ветка «окно приплюснуто,
-     кадра нет»); телевизор даёт 1.78 — правило не действует. Второе
-     правило с этим классом, .lumen-moods-on:not(.lumen-main), исключает
-     главную именем, и координатор подтвердил, что lumen-moods-on стоит на
-     том же узле, что lumen-main.
-   • Значит сдвиг приходит из ПОТОКА документа. Какой именно узел его даёт —
-     по исходникам не опознано: слот .lumen-hero__moods лежит внутри
-     .lumen-hero__text, а корень героя .lumen-hero — position:absolute с
-     overflow:hidden (src/30_css.js, buildNode в src/48_hero.js:463-503),
-     то есть места в потоке занимать не должен вовсе.
+    /* Порог согласован с раскладкой: ЧУТЬ ВЫШЕ него (окно ещё не такое
+       приплюснутое, правило не сработало) широкая карточка обязана
+       помещаться, но уже впритык — низ подписи не дальше 1.5em от кромки.
+       Это и значит «порог посчитан из цепочки, а не назначен». */
+    const ratio = parseInt(/min-aspect-ratio:(\d+)\/100/.exec(narrowRules[0].media)[1], 10) / 100;
+    const at = (aspect) => {
+      const height = Math.round(W / aspect);
+      return { height: height, box: rowLayout(built, W, height, { more: true }) };
+    };
+    const before = at(ratio - 0.01);
+    const slack = before.height - before.box.textBottomUp;
+    assert.ok(slack >= 0, scale + ': до порога ' + ratio + ' широкая карточка уже не помещается (срез ' + (-slack).toFixed(1) + ' px)');
+    assert.ok(slack <= 1.5 * (W / 84.17), scale + ': порог ' + ratio + ' запаздывает — до него ещё ' + slack.toFixed(1) + ' px запаса');
+    /* А за порогом помещается узкая — иначе правило меняло бы ширину впустую. */
+    const after = at(ratio + 0.02);
+    assert.ok(after.height - after.box.textBottomUp >= 0,
+      scale + ': за порогом ' + ratio + ' узкая колонка тоже не помещается');
+  }
 
-   Пока узел не назван, чинить сдвиг нечем: компенсация margin-top у области
-   вернула бы ряды на расчётное место в ПОДНЯТОМ состоянии (там полоса
-   погашена через visibility и невидима), но в стартовом, где она видна,
-   заголовок первого ряда уехал бы ей под ноги. */
-test('Task 51: полоса чипов опускает ряды на MOODS_BAR — и не правилом раскладки', () => {
+  /* На штатном масштабе телевизор 16:9 порога не достигает — там широкая
+     карточка помещается сама (518.5 при пределе 532), и сужать её значило бы
+     отобрать у постера 25 px без причины. */
+  const normal = withStorage({ lumen_scale: 'normal' }, (LC) => LC.buildCss());
+  const media = ruleBodiesWithMedia(normal).find((r) => r.media &&
+    r.selectors.some((sel) => sel === '.lumen-main .card') && /(?:^|;)width:/.test(r.decl));
+  assert.ok(1920 / 1080 < parseInt(/min-aspect-ratio:(\d+)\/100/.exec(media.media)[1], 10) / 100,
+    'на штатном масштабе узкая колонка не должна включаться на 16:9: ' + media.media);
+});
+
+/* Правило, которым раскладка опускает ряды под полосу чипов настроения,
+   живёт ТОЛЬКО внутри медиазапроса min-aspect-ratio (ветка «окно
+   приплюснуто, кадра нет»). Вне его чипы раскладку рядов не трогают вовсе:
+   на главной они лежат в слоте .lumen-hero__moods внутри .lumen-hero__text,
+   а сам .lumen-hero — position:absolute с overflow:hidden (buildNode в
+   src/48_hero.js, правило .lumen-hero в src/30_css.js), то есть места в
+   потоке не занимают. Если правило однажды выедет из медиазапроса,
+   раскладка главной поедет вниз на MOODS_BAR — тест это поймает. */
+test('Task 51: правило чипов для главной живёт только за порогом отношения сторон', () => {
   const built = withStorage({ lumen_scale: 'normal' }, (LC) => LC.buildCss());
-  const EM = 960 / 84.17;
-
-  /* Величина сдвига — ровно MOODS_BAR, то же число, которым раскладка
-     опускает ряды под полосу чипов при выключенном герое. */
-  const bar = parseFloat(/(?:^|;)margin-top:([0-9.]+)em/.exec(
-    decl(built, '.lumen-moods-on:not(.lumen-main) .scroll.layer--wheight'))[1]);
-  const on = rowLayout(built, 960, 540, { moods: true, more: true });
-  const off = rowLayout(built, 960, 540, { moods: false, more: true });
-  assert.ok(Math.abs((on.rowTopUp - off.rowTopUp) - bar * EM) < 0.01,
-    'сдвиг ' + (on.rowTopUp - off.rowTopUp).toFixed(2) + ' px вместо MOODS_BAR ' + (bar * EM).toFixed(2));
-  assert.ok(Math.abs(on.rowTopUp - 326) < 1, 'верх шапки ряда на обычном экране ' + on.rowTopUp.toFixed(1) + ' вместо замеренных 326');
-
-  /* И правило, которое могло бы дать тот же сдвиг, по-прежнему живёт только
-     за порогом отношения сторон: если оно однажды выедет наружу, раскладка
-     главной поедет ВТОРОЙ раз на те же 39 px. */
   const outside = ruleBodiesWithMedia(built).filter((r) => !r.media &&
     r.selectors.some((sel) => sel.indexOf('.lumen-moods-on.lumen-main') === 0));
   assert.deepEqual(outside, [], 'правило чипов для главной вышло из медиазапроса');
-  /* Полоса чипов гаснет при сжатии кадра через visibility, а место в потоке
-     сохраняет — потому сдвиг и есть в ПОДНЯТОМ состоянии, где самой полосы
-     на экране не видно. Правило, на котором это держится: */
-  const compact = decl(built, '.lumen-hero.lumen-hero--compact .lumen-hero__moods');
-  assert.ok(compact.indexOf('visibility:hidden') !== -1 && compact.indexOf('display:none') === -1,
-    'полоса чипов на листании обязана гаснуть, сохраняя место: ' + compact);
+  const hero = decl(built, '.lumen-hero');
+  assert.ok(hero.indexOf('position:absolute') !== -1 && hero.indexOf('overflow:hidden') !== -1,
+    'кадр героя обязан оставаться вне потока — иначе его содержимое начнёт двигать ряды: ' + hero);
 });
 
 
