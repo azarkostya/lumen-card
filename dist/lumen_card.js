@@ -878,6 +878,10 @@ var LAMPA_HEAD = 4;
 
 
 
+
+
+
+
 var EDGE = 3.51;
 var EDGE_Y = 2.63;
 
@@ -3511,6 +3515,8 @@ css.push('body.lumen-motion-full .lumen-main .card.focus .card__title,body.lumen
 
 
 
+
+
 css.push('.lumen-main .card__title,.lumen-main .card__age{-webkit-transform:none;transform:none}');
 
 
@@ -3518,6 +3524,8 @@ css.push('.lumen-main .card__title,.lumen-main .card__age{-webkit-transform:none
 
 if (narrowCss) css.push(narrowCss);
 css.push('.lumen-main .items-line__title{font-family:' + FB + ';font-weight:700;font-size:' + rowTitleEm + 'em}');
+
+
 
 
 

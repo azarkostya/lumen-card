@@ -2180,16 +2180,22 @@ function ruleBodiesWithMedia(cssText) {
   return out;
 }
 
-/* Действует ли медиазапрос на окне screenW×screenH. Условий в таблице
-   ровно одно семейство — min-aspect-ratio (тест «порогов по
-   max-aspect-ratio не осталось» ниже держит это числом), поэтому любое
-   другое условие здесь — повод упасть, а не тихо посчитать правило
-   применимым. */
+/* Действует ли медиазапрос на окне screenW×screenH. Семейств условий в
+   таблице два: min-aspect-ratio (пороги низкого окна и узкой колонки) и
+   max-width (компактная ветка вёрстки — её порог делится на
+   devicePixelRatio, см. правило заголовка карточки в src/30_css.js). Оба
+   разбираются здесь, любое третье — повод упасть, а не тихо посчитать
+   правило применимым; что семейств по-прежнему два, держит тест
+   «медиазапросы таблицы — из известного набора» ниже.
+   Ревью Task 63: до фикс-раунда здесь стояло «ровно одно семейство», и это
+   было неправдой — max-width жил в таблице с самого начала. */
 function mediaApplies(media, screenW, screenH) {
   if (!media) return true;
-  const found = /\(min-aspect-ratio:(\d+)\/(\d+)\)/.exec(media);
-  assert.ok(found, 'незнакомое условие медиазапроса в раскладке: ' + media);
-  return screenW / screenH >= parseInt(found[1], 10) / parseInt(found[2], 10);
+  const ratio = /\(min-aspect-ratio:(\d+)\/(\d+)\)/.exec(media);
+  if (ratio) return screenW / screenH >= parseInt(ratio[1], 10) / parseInt(ratio[2], 10);
+  const width = /\(max-width:(\d+)px\)/.exec(media);
+  if (width) return screenW <= parseInt(width[1], 10);
+  assert.fail('незнакомое условие медиазапроса в раскладке: ' + media);
 }
 
 /* Компаунд селектора — набор классов, которые узел обязан иметь, и набор,
@@ -4217,4 +4223,20 @@ test('Task 63: порог компактной ветки делится на de
   const body = ruleBodiesWithMedia(tv).filter((r) => r.selectors.some((s) => s === '.lumen-card .full-start-new__body'));
   assert.ok(body.some((r) => !r.media && /min-height:74vh/.test(r.decl)), 'базовое правило тела карточки потеряло min-height');
   assert.ok(body.some((r) => r.media && /min-height:0/.test(r.decl)), 'компактная ветка перестала обнулять min-height');
+});
+
+/* Ревью Task 63: модель раскладки (mediaApplies выше) разбирает ровно два
+   семейства медиаусловий, и это обязано оставаться правдой — иначе она молча
+   посчитает раскладку не по тем правилам. Прежний страж ловил только
+   max-aspect-ratio и мимо max-width прошёл. */
+test('Task 63: медиазапросы таблицы — из известного набора', () => {
+  const seen = new Set();
+  for (const line of css.split('\n')) {
+    if (line.indexOf('@media') !== 0) continue;
+    const cond = line.slice(0, line.indexOf('{'));
+    for (const feature of cond.match(/\(([a-z-]+):/g) || []) seen.add(feature.slice(1, -1));
+    assert.ok(/^@media screen and \((min-aspect-ratio|max-width)/.test(cond), 'незнакомый медиазапрос: ' + cond);
+  }
+  assert.deepEqual([...seen].sort(), ['max-width', 'min-aspect-ratio'],
+    'набор медиаусловий таблицы изменился — проверить mediaApplies в этом файле');
 });
