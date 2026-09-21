@@ -2943,9 +2943,23 @@ css.push('@media screen and (min-aspect-ratio:' + heroMinRatio + '/100){' +
 
 
 
+
+
+
+
+
+
+
+
+
+
 var ROW_FOCUS = 1.08;
 var rowCardW = round2(ROW_CARD_W * scale) + 'em';
 css.push('.lumen-main .card{width:' + rowCardW + '}');
+
+
+
+css.push('.lumen-main .card{will-change:auto}');
 css.push('.lumen-main .card__view{margin-bottom:.5em;border-radius:.31em;-webkit-transform:scale(1);transform:scale(1);-webkit-transform-origin:center bottom;transform-origin:center bottom}');
 css.push('.lumen-main .card__img{border-radius:.31em}');
 css.push('.lumen-main .card.focus .card__view:after,.lumen-main .card.hover .card__view:after{display:none}');
@@ -2970,6 +2984,11 @@ if (LC.pref('lumen_badges', true)) css.push('.lumen-main .card__vote{display:non
 css.push('.lumen-main .card__title{font-family:' + FB + ';font-weight:700;font-size:' + round2(.96 * scale) + 'em;line-height:1.15;white-space:nowrap;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis;color:' + P.muted + '}');
 css.push('.lumen-main .card.focus .card__title{color:' + P.text + '}');
 css.push('.lumen-main .card__age{font-family:' + FB + ';font-size:' + round2(.88 * scale) + 'em;line-height:1;margin-top:.25em;color:' + P.muted + '}');
+
+
+
+
+css.push('.lumen-main .card__title,.lumen-main .card__age{-webkit-transform:none;transform:none}');
 css.push('.lumen-main .items-line__title{font-family:' + FB + ';font-weight:700;font-size:' + round2(1.23 * scale) + 'em}');
 css.push('.lumen-main .items-line{padding-bottom:1.4em}');
 

@@ -1572,12 +1572,44 @@ test('Task 46: у обоих движущихся элементов свой с
   assert.deepEqual(withLayer.map((r) => r.selectors.join(',')).sort(), layered.slice().sort(),
     'принудительный слой появился у постороннего узла');
 
-  /* will-change остаётся там, где он был до Task 46, — на слое перехода
-     между экранами (.lumen-overlay__img). Он живёт ровно столько, сколько
-     живёт сам узел перехода, поэтому постоянным слоем не становится. */
+  /* will-change ВЫДАЁТ слой ровно в одном месте — на слое перехода между
+     экранами (.lumen-overlay__img): он живёт столько же, сколько сам узел
+     перехода, и постоянным слоем не становится. Второе правило (Task 48)
+     слой, наоборот, СНИМАЕТ — will-change:auto поверх .card Lampa. */
   const willChange = ruleBodies(css).filter((r) => /will-change/.test(r.decl));
-  assert.deepEqual(willChange.map((r) => r.selectors.join(',')), ['.lumen-overlay .lumen-overlay__img'],
+  assert.deepEqual(willChange.map((r) => r.selectors.join(',')), ['.lumen-main .card', '.lumen-overlay .lumen-overlay__img'],
     'will-change расползся по новым правилам: ' + willChange.map((r) => r.selectors.join(',')).join(' | '));
+  assert.ok(willChange.every((r) => r.selectors[0] === '.lumen-overlay .lumen-overlay__img' || /will-change:auto/.test(r.decl)),
+    'кроме слоя перехода, will-change разрешён только со значением auto');
+});
+
+/* Task 48. Три composited-слоя на КАЖДУЮ карточку выдаёт сама Lampa:
+   .card{will-change:transform} (vendor/lampa/css/app.css:3095-3101),
+   .card__title{transform:translateZ(0)} (там же:3155-3168) и
+   .card__age{transform:translateZ(0)} (там же:3170-3176). Замер
+   координатора на главной 2026-09-21: 28 карточек в кадре × 3 = 84 слоя
+   сверх наших двух. Бюджет tile memory Chromium на Android с памятью
+   меньше 2000 МиБ — 96 МБ (docs/research/2026-09-21-webview-perf.md §1.1),
+   и слои считаются байтами, а не штуками (§2.1). */
+test('Task 48: слои, которые Lampa выдаёт карточкам, на главной сняты', () => {
+  const rules = ruleBodies(css);
+  const cards = rules.filter((r) => r.selectors.join(',') === '.lumen-main .card');
+  assert.ok(cards.some((r) => r.decl.indexOf('will-change:auto') !== -1),
+    'слой карточки не снят: ' + cards.map((r) => r.decl).join(' | '));
+
+  const labelsAt = rules.findIndex((r) => r.selectors.join(',') === '.lumen-main .card__title,.lumen-main .card__age');
+  assert.ok(labelsAt !== -1, 'нет правила, снимающего translateZ(0) с подписей карточки');
+  const labels = rules[labelsAt].decl;
+  assert.ok(/[^-]transform:none/.test(labels), 'нужна беспрефиксная запись: ' + labels);
+  assert.ok(labels.indexOf('-webkit-transform:none') !== -1, 'старым webkit-движкам нужен префикс: ' + labels);
+
+  /* Правило обязано стоять ПОСЛЕ любого нашего правила с transform на тех же
+     узлах: специфичность у них одинаковая, решает порядок. */
+  const before = rules.filter((r, i) => i > labelsAt
+    && /transform:/.test(r.decl)
+    && r.selectors.some((s) => /card__title|card__age/.test(s)));
+  assert.deepEqual(before.map((r) => r.selectors.join(',')), [],
+    'наше правило с transform на подписи стоит ПОСЛЕ снятия слоя и перебьёт его');
 });
 
 /* Правка пользователя 2026-09-17 (второй круг, п.1): «а может текст вниз

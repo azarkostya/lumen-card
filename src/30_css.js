@@ -2419,11 +2419,21 @@
        значения первый фокус прыгал бы.
 
        О слоях композитора: свой translateZ(0) карточкам мы не ставим (в
-       отличие от кадра героя и области рядов, Task 46) — но постоянный слой
-       каждой из них и так выдаёт сама Lampa через .card{will-change:
-       transform} (app.css:3095). Снимать его наш CSS не пытается: на ТВ это
-       риск вернуть шлейф при листании (та же Task 46), а проверяется такое
-       только на устройстве.
+       отличие от кадра героя и области рядов, Task 46).
+       Task 48: наоборот, снимаем три слоя, которые каждой карточке выдаёт
+       сама Lampa, — .card{will-change:transform} (app.css:3095-3101),
+       .card__title и .card__age {transform:translateZ(0)} (там же:3155-3168
+       и 3170-3176). Замер координатора 2026-09-21: на главной 28 карточек в
+       кадре, то есть 84 постоянных слоя. Бюджет tile memory у Chromium на
+       Android с физической памятью меньше 2000 МиБ — 96 МБ, и считается он
+       байтами, а не числом слоёв (docs/research/2026-09-21-webview-perf.md
+       §1.1 и §2.1); при переполнении тайлы просто не растеризуются, и в
+       активном дереве остаются дыры — те самые чёрные полосы (§1.2).
+       Шлейф Task 46 это не возвращает: движущихся элемента в переходе два,
+       кадр героя и область рядов, и постоянные слои обоих остаются на месте
+       (правила .lumen-hero и .lumen-main .scroll.layer--wheight выше по
+       файлу). Карточка внутри ряда сама по себе не едет — её сдвиг едет
+       слоем области; свой слой на время scale в фокусе Blink выдаст сам.
 
        Анимация фокуса Lampa (animation-card-focus, прыжок на -1em и назад,
        app.css:15779) навешена на .card__view селектором
@@ -2463,6 +2473,10 @@
     var ROW_FOCUS = 1.08;
     var rowCardW = round2(ROW_CARD_W * scale) + 'em';
     css.push('.lumen-main .card{width:' + rowCardW + '}');
+    /* Снятие слоя, который Lampa выдаёт каждой карточке (разбор — в
+       комментарии выше). Отдельным правилом, а не приписью к ширине:
+       ширину карточки сторожат свои тесты точным сравнением. */
+    css.push('.lumen-main .card{will-change:auto}');
     css.push('.lumen-main .card__view{margin-bottom:.5em;border-radius:.31em;-webkit-transform:scale(1);transform:scale(1);-webkit-transform-origin:center bottom;transform-origin:center bottom}');
     css.push('.lumen-main .card__img{border-radius:.31em}');
     css.push('.lumen-main .card.focus .card__view:after,.lumen-main .card.hover .card__view:after{display:none}');
@@ -2487,6 +2501,11 @@
     css.push('.lumen-main .card__title{font-family:' + FB + ';font-weight:700;font-size:' + round2(.96 * scale) + 'em;line-height:1.15;white-space:nowrap;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis;color:' + P.muted + '}');
     css.push('.lumen-main .card.focus .card__title{color:' + P.text + '}');
     css.push('.lumen-main .card__age{font-family:' + FB + ';font-size:' + round2(.88 * scale) + 'em;line-height:1;margin-top:.25em;color:' + P.muted + '}');
+    /* Снятие двух слоёв из трёх (разбор — в комментарии выше). Правило стоит
+       ПОСЛЕ наших правил на те же узлы: специфичность у них одинаковая,
+       решает порядок. Своего transform у подписей нет — увеличение в фокусе
+       стоит на .card__view, подпись при этом остаётся на месте. */
+    css.push('.lumen-main .card__title,.lumen-main .card__age{-webkit-transform:none;transform:none}');
     css.push('.lumen-main .items-line__title{font-family:' + FB + ';font-weight:700;font-size:' + round2(1.23 * scale) + 'em}');
     css.push('.lumen-main .items-line{padding-bottom:1.4em}');
     /* Правка пользователя 2026-09-17 (второй круг): «левый край логотипа и
