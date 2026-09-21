@@ -2964,6 +2964,14 @@ test('Task 64: при уходе фокуса в ряды кадр гаснет 
   assert.equal(veil, 'opacity:0', 'вуаль без кадра остаётся видимой заливкой: ' + veil);
   const veilTrans = findDecl(css, (sel) => sel === '.lumen-hero.lumen-motion-full .lumen-hero__veil');
   assert.ok(veilTrans && veilTrans.indexOf('transition:opacity .35s ease') !== -1, 'вуаль обязана гаснуть плавно: ' + veilTrans);
+  /* Ревью Task 64: слой атмосферы гаснет вместе с кадром — иначе почти всё
+     время листания на пустом фоне висели бы канвас частиц (opacity .82),
+     гирлянда рождественской темы и градиент хэллоуина. Сам кадровый цикл
+     останавливает предикат paused в src/48_hero.js. */
+  const fx = findDecl(css, (sel) => sel === '.lumen-hero.lumen-hero--compact .lumen-fx');
+  assert.equal(fx, 'opacity:0', 'слой атмосферы остаётся видимым над погашенным кадром: ' + fx);
+  const fxTrans = ruleBodies(css).find((r) => r.selectors.indexOf('.lumen-hero.lumen-motion-full .lumen-fx') !== -1);
+  assert.ok(fxTrans && fxTrans.decl.indexOf('transition:opacity .35s ease') !== -1, 'слой атмосферы обязан гаснуть плавно');
   /* Текст героя в сжатом состоянии не гасится — он только поджимается. */
   const text = findDecl(css, (sel) => sel === '.lumen-hero.lumen-hero--compact .lumen-hero__text');
   assert.ok(text && text.indexOf('opacity:0') === -1, 'текст героя гаснуть не должен: ' + text);

@@ -680,7 +680,14 @@
           color: LC.themes.particleColor(theme),
           /* Под играющим автотрейлером частицы стоят: ролик занимает весь
              кадр героя, и рисовать поверх него — двойная работа впустую. */
-          paused: function () { return !!(state && state.trailer); }
+          /* Ревью Task 64: то же в сжатом состоянии. С Task 64 кадр при
+             уходе фокуса в ряды гаснет полностью, слой атмосферы гаснет
+             вместе с ним (src/30_css.js), и рисовать в невидимый канвас
+             незачем — а это ровно момент шага фокуса по рядам, самый
+             занятый на слабом ТВ. Предикат зовётся каждый кадр цикла, и
+             когда все слои на паузе, цикл уходит с rAF на таймер раз в
+             500 мс (src/52_fx.js, schedule/IDLE_MS). */
+          paused: function () { return !!(state && (state.trailer || state.compact)); }
         });
       } catch (e3) {
         warn('hero: fx mount failed', e3);
@@ -1212,6 +1219,9 @@
        opacity (чипы настроения), без единого свойства раскладки. */
     function setCompact(on) {
       if (!state) return;
+      /* Ревью Task 64: то же состояние нужно и слою атмосферы — читать класс
+         с узла на каждом кадре цикла частиц дороже, чем держать флаг. */
+      state.compact = !!on;
       state.node.toggleClass('lumen-hero--compact', on);
       try { state.root.toggleClass('lumen-rows-up', on); } catch (e) {}
     }
@@ -1691,7 +1701,10 @@
           trailerNet: null,
           trailer: null,
           trailerCard: null,
-          fixedCompact: !!opts.compact
+          fixedCompact: !!opts.compact,
+          /* Ревью Task 64: сжат ли герой сейчас — для предиката паузы
+             частиц (см. applyFx). Мини-герой сетки сжат с самого начала. */
+          compact: !!opts.compact
         };
         if (opts.compact) setCompact(true);
         /* Task 49: метка — только под нашей главной, и это не формальность.

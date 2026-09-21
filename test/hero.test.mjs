@@ -1362,6 +1362,66 @@ test('Task 64: со второй карточки подложка больше 
   assert.equal(f.node.find('.lumen-hero__bg--b').attr('src'), 'https://img/t/p/w1280/b2.jpg', 'второй кадр не приехал — проверять нечего');
 });
 
+/* Ревью Task 64: с гашением кадра в сжатом состоянии слой атмосферы стал
+   невидимым (правило .lumen-hero--compact .lumen-fx в src/30_css.js), и
+   рисовать в него незачем. Предикат paused, который герой отдаёт LC.fx,
+   обязан это учитывать: когда все слои на паузе, цикл частиц уходит с rAF на
+   таймер раз в 500 мс (src/52_fx.js, schedule/IDLE_MS). Момент важный — это
+   ровно шаг фокуса по рядам. */
+test('Task 64 (ревью): в сжатом состоянии частицы на паузе, возврат их будит', () => {
+  const mounts = [];
+  const env = makeEnv({
+    themes: {
+      forMovie: () => ({ id: 'snow', preset: 'snow' }),
+      particleColor: () => '#FFFFFF',
+      classNames: () => 'lumen-theme--snow'
+    },
+    fx: { mount: (host, preset, opts) => { mounts.push(opts); return { destroy() {} }; }, unmount() {} }
+  });
+  const main = makeMain();
+  env.hero.mount(main.activity);
+
+  main.card1.addClass('focus');
+  fireFocus(main.activity, main.card1);
+  env.advance(400);
+  env.requests[0].ok({ overview: 'о первом' });
+  assert.equal(mounts.length, 1, 'слой атмосферы не смонтирован — проверять нечего');
+  const paused = mounts[0].paused;
+  assert.equal(paused(), false, 'первый ряд: кадр на экране, частицы обязаны идти');
+
+  main.card1.removeClass('focus');
+  main.card2.addClass('focus');
+  fireFocus(main.activity, main.card2);
+  assert.equal(paused(), true, 'фокус во втором ряду: кадр погашен, а частицы всё ещё рисуются');
+
+  main.card2.removeClass('focus');
+  main.card1.addClass('focus');
+  fireFocus(main.activity, main.card1);
+  assert.equal(paused(), false, 'возврат в первый ряд частицы не разбудил');
+});
+
+/* Мини-герой сетки сжат с самого начала — там частицы стоят сразу. */
+test('Task 64 (ревью): у всегда сжатого героя частицы стоят с монтирования', () => {
+  const mounts = [];
+  const env = makeEnv({
+    themes: {
+      forMovie: () => ({ id: 'snow', preset: 'snow' }),
+      particleColor: () => '#FFFFFF',
+      classNames: () => 'lumen-theme--snow'
+    },
+    fx: { mount: (host, preset, opts) => { mounts.push(opts); return { destroy() {} }; }, unmount() {} }
+  });
+  const main = makeMain();
+  const grid = new FakeEl(['lumen-grid'], [new FakeEl(['activity__body'])]);
+  env.hero.mount(grid, { hostClass: 'lumen-grid--hero', compact: true });
+  main.card1.addClass('focus');
+  fireFocus(grid, main.card1);
+  env.advance(400);
+  env.requests[0].ok({ overview: 'о первом' });
+  assert.equal(mounts.length, 1);
+  assert.equal(mounts[0].paused(), true, 'у постоянно сжатого героя частицы обязаны стоять');
+});
+
 /* Кадр не приехал вовсе — подложка обязана остаться: пустой герой хуже
    размытого. */
 test('Task 64: неудачная загрузка кадра подложку не снимает', () => {

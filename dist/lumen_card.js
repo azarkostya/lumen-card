@@ -2848,7 +2848,18 @@ css.push('.lumen-hero.lumen-hero--compact .lumen-hero__trailer.is-live{opacity:0
 
 
 css.push('.lumen-hero.lumen-hero--compact .lumen-hero__veil{opacity:0}');
-css.push('.lumen-hero.lumen-motion-full .lumen-hero__veil{-webkit-transition:opacity .35s ease;transition:opacity .35s ease}');
+
+
+
+
+
+
+
+
+
+
+css.push('.lumen-hero.lumen-hero--compact .lumen-fx{opacity:0}');
+css.push('.lumen-hero.lumen-motion-full .lumen-hero__veil,.lumen-hero.lumen-motion-full .lumen-fx{-webkit-transition:opacity .35s ease;transition:opacity .35s ease}');
 
 
 
@@ -10395,7 +10406,14 @@ LC.fx.mount(host, theme.preset, {
 color: LC.themes.particleColor(theme),
 
 
-paused: function () { return !!(state && state.trailer); }
+
+
+
+
+
+
+
+paused: function () { return !!(state && (state.trailer || state.compact)); }
 });
 } catch (e3) {
 warn('hero: fx mount failed', e3);
@@ -10927,6 +10945,9 @@ return -1;
 
 function setCompact(on) {
 if (!state) return;
+
+
+state.compact = !!on;
 state.node.toggleClass('lumen-hero--compact', on);
 try { state.root.toggleClass('lumen-rows-up', on); } catch (e) {}
 }
@@ -11406,7 +11427,10 @@ trailerTimer: null,
 trailerNet: null,
 trailer: null,
 trailerCard: null,
-fixedCompact: !!opts.compact
+fixedCompact: !!opts.compact,
+
+
+compact: !!opts.compact
 };
 if (opts.compact) setCompact(true);
 

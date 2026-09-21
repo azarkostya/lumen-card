@@ -2342,7 +2342,18 @@
        поднят на 4em выше корня .lumen-main (правило .lumen-hero выше) и
        верхней своей частью лежит на фоне Lampa, а не на нашем P.bg. */
     css.push('.lumen-hero.lumen-hero--compact .lumen-hero__veil{opacity:0}');
-    css.push('.lumen-hero.lumen-motion-full .lumen-hero__veil{-webkit-transition:opacity .35s ease;transition:opacity .35s ease}');
+    /* Ревью Task 64: слой атмосферы гаснет вместе с кадром — иначе почти всё
+       время листания (фокус в любом ряду, кроме первого) на пустом фоне
+       P.bg висели бы канвас частиц (.lumen-fx__canvas, opacity .82 выше по
+       файлу), гирлянда рождественской темы и градиент хэллоуина. До Task 64
+       кадр в сжатом состоянии оставался на экране, и частицы поверх него
+       были уместны.
+       Гашения мало: невидимый канвас продолжал бы перерисовываться. Сам
+       кадровый цикл останавливает src/48_hero.js — он отдаёт LC.fx
+       предикат paused, и тот на паузе уводит цикл с rAF на редкий таймер
+       (src/52_fx.js, schedule/IDLE_MS). */
+    css.push('.lumen-hero.lumen-hero--compact .lumen-fx{opacity:0}');
+    css.push('.lumen-hero.lumen-motion-full .lumen-hero__veil,.lumen-hero.lumen-motion-full .lumen-fx{-webkit-transition:opacity .35s ease;transition:opacity .35s ease}');
 
     /* Левая вуаль — градиент, не фильтр (ограничение брифа 5): под текстом.
        Нижней вуали-плашки здесь больше нет, см. маску кадра ниже. */
