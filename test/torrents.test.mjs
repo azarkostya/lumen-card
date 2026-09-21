@@ -335,9 +335,18 @@ test('Task 53: во всех трёх режимах движения у .select
   /* Селектор действует в режиме mode, если он либо не упоминает режим вовсе,
      либо упоминает именно этот. */
   const appliesIn = (sel, mode) => !/lumen-motion-/.test(sel) || sel.indexOf('lumen-motion-' + mode) !== -1;
-  /* Селектор попадает в фокусный пункт меню: либо прямо .selectbox-item.focus,
-     либо базовое правило .selectbox-item (фокусный пункт — тоже пункт). */
-  const hitsFocusItem = (sel) => /\.selectbox-item(\.focus)?$/.test(sel);
+  /* Селектор попадает в фокусный пункт меню, если правило действует на сам
+     узел пункта. Смотрим последний компаунд селектора — то, на что правило и
+     наводится. Ревью 2026-09-21: прежнее условие требовало, чтобы селектор
+     кончался ровно на '.selectbox-item' или '.selectbox-item.focus', и
+     правило на модификаторе (--checkbox, --checked) или на другом состоянии
+     (.selected, .picked) проверку обходило — а заливку оно перекрыло бы
+     наравне с остальными. Исключаются только то, что рисуется НЕ на пункте:
+     дочерние узлы (__title, __checkbox) и псевдоэлементы. */
+  const hitsFocusItem = (sel) => {
+    const last = sel.split(/[\s>]+/).pop();
+    return /\.selectbox-item(?![\w-]*__)/.test(last) && last.indexOf('::') === -1;
+  };
 
   for (const mode of ['full', 'lite', 'off']) {
     const fills = [];

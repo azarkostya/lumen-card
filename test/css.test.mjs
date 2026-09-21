@@ -201,6 +201,13 @@ function ruleSelectors(cssText) {
    (после разбивки запятой через .some()), а не регуляркой по точному тексту
    всей строки (порядок lumen-motion-lite/off, пробелы между селекторами —
    деталь реализации, не часть контракта). */
+/* Ревью 2026-09-21: раньше от строки @media/@supports бралось всё между
+   ПЕРВОЙ '{' и ПОСЛЕДНЕЙ '}', поэтому из блока с несколькими правилами
+   подряд учитывался селектор только первого, а объявления всех правил
+   склеивались в одну строку. Проверки, которые обещают «любое правило, где
+   бы его ни написали», для второго и дальше правила не работали. Разбор
+   теперь такой же, как у таблицы экранов пути (test/torrents.test.mjs):
+   блок режется по закрывающей скобке каждого правила. */
 function ruleBodies(cssText) {
   const out = [];
   const lines = cssText.split('\n');
@@ -208,18 +215,37 @@ function ruleBodies(cssText) {
     if (!line) continue;
     if (/^@-?(webkit-)?keyframes/.test(line)) continue;
     let body = line;
-    if (/^@(media|supports)/.test(line)) {
-      const firstBrace = line.indexOf('{');
-      body = line.slice(firstBrace + 1);
+    if (/^@(media|supports)/.test(line)) body = line.slice(line.indexOf('{') + 1, line.lastIndexOf('}'));
+    for (const piece of body.split('}')) {
+      const open = piece.indexOf('{');
+      if (open === -1) continue;
+      const selectors = piece.slice(0, open).split(',').map((s) => s.trim()).filter(Boolean);
+      if (!selectors.length) continue;
+      out.push({ selectors, decl: piece.slice(open + 1) });
     }
-    const open = body.indexOf('{');
-    const close = body.lastIndexOf('}');
-    if (open === -1 || close <= open) continue;
-    const selectors = body.slice(0, open).split(',').map((s) => s.trim()).filter(Boolean);
-    out.push({ selectors, decl: body.slice(open + 1, close) });
   }
   return out;
 }
+
+/* Разбор обязан видеть КАЖДОЕ правило внутри at-rule, а не только первое —
+   иначе проверки ниже тихо теряют часть таблицы. Сверяется с прямым счётом
+   открывающих скобок: у каждого правила ровно одна, у @media/@supports —
+   своя лишняя, у @keyframes разбор не идёт вовсе. */
+test('ruleBodies: внутри @media/@supports разбирается каждое правило, а не первое', () => {
+  const demo = '@supports (x:1){.a{color:red}.b,.c{color:blue}}';
+  assert.deepEqual(ruleBodies(demo), [
+    { selectors: ['.a'], decl: 'color:red' },
+    { selectors: ['.b', '.c'], decl: 'color:blue' }
+  ]);
+
+  let expected = 0;
+  for (const line of css.split('\n')) {
+    if (!line || /^@-?(webkit-)?keyframes/.test(line)) continue;
+    const braces = (line.match(/\{/g) || []).length;
+    expected += /^@(media|supports)/.test(line) ? braces - 1 : braces;
+  }
+  assert.equal(ruleBodies(css).length, expected, 'часть правил таблицы не попала в разбор');
+});
 
 /* Тело первого правила, у которого ХОТЯ БЫ ОДИН селектор (после разбивки
    запятой) проходит matchSelector — или null, если такого правила нет. */
@@ -2750,13 +2776,20 @@ test('сжатое состояние: описание уходит по диз
     'порогов по max-aspect-ratio не осталось: бюджет сжатого состояния совпал с полным');
   /* При самом маленьком размере кадра мета не показывается вовсе — и там это
      не про состояние, а про размер: бюджета на неё нет ни в одном из двух. */
+  /* Считаются только верхнеуровневые правила. Ревью 2026-09-21 починило
+     разбор at-rule (ruleBodies выше), и стало видно ещё одно правило с той
+     же метой — в @media (min-aspect-ratio:220/100), где на сверхшироком окне
+     уходит ВЕСЬ текст кадра (логотип, заголовок, описание, мета, чипы). Оно
+     есть при любом размере кадра и к этой настройке отношения не имеет: там
+     решает пропорция окна, а не выбранная высота героя. */
+  const topLevel = (table) => ruleBodies(table.split('\n').filter((l) => l.indexOf('@') !== 0).join('\n'));
   const compactSize = withStorage({ lumen_hero_size: 'compact' }, (LC) => LC.buildCss());
-  const metaOff = ruleBodies(compactSize).filter((r) => r.selectors.indexOf('.lumen-hero .lumen-hero__meta') !== -1 && r.decl.indexOf('display:none') !== -1);
+  const metaOff = topLevel(compactSize).filter((r) => r.selectors.indexOf('.lumen-hero .lumen-hero__meta') !== -1 && r.decl.indexOf('display:none') !== -1);
   assert.equal(metaOff.length, 1, 'при компактном размере кадра мета обязана уходить целиком');
   /* И только при нём: у крупного и среднего такого правила нет. */
   for (const size of ['large', 'medium']) {
     const built = withStorage({ lumen_hero_size: size }, (LC) => LC.buildCss());
-    const hidden = ruleBodies(built).filter((r) => r.selectors.indexOf('.lumen-hero .lumen-hero__meta') !== -1 && r.decl.indexOf('display:none') !== -1);
+    const hidden = topLevel(built).filter((r) => r.selectors.indexOf('.lumen-hero .lumen-hero__meta') !== -1 && r.decl.indexOf('display:none') !== -1);
     assert.deepEqual(hidden, [], size + ': мета спрятана целиком, хотя высоты на неё хватает');
   }
 });
