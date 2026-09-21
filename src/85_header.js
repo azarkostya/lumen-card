@@ -832,12 +832,117 @@
      удаляет его (LC.injectCss) — сценария «CSS снят, а .lumen-facts остался
      нестилизованным» на карточке не существует. Отдельный toggle(false) есть
      только у экранов торрентов, и у них свой <style>. */
+  /* Фикс-раунд Task 59: полный текст описания по OK.
+
+     Task 59 убрал описание из шапки, оставив «полное внизу». Но полным оно
+     остаётся не всегда: как только нарисованы отзывы Кинопоиска, ряд
+     получает класс .lumen-descr-row--reviews (src/60_reviews.js), а CSS
+     поджимает текст до восьми строк с маской низа (src/30_css.js) — иначе
+     карточки отзывов уезжают за нижний край экрана, потому что ВНУТРИ ряда
+     описания Lampa не прокручивает (Descriptiopn.toggle делает только
+     Navigator.move, app.min.js:38154-38160). Без раскрытия конец описания в
+     этом случае недостижим вовсе.
+
+     Раскрытие сделано модалом, а не снятием clamp'а при фокусе: выросший на
+     70vh блок сдвинул бы вниз и теги, и карточки отзывов — ровно та беда,
+     ради которой clamp и вводили.
+
+     Узел .full-descr__text уже .selector — его делает сама Lampa
+     (шаблон full_descr, app.min.js:2520), так что новых фокусируемых узлов
+     не появляется и навигация пультом не меняется. Внутри модала .selector
+     нет ни одного, и тогда стрелки листают его содержимое штатным Scroll
+     (roll(), app.min.js:32485-32495) — длинный текст дочитывается целиком.
+
+     Слушатель — в фазе перехвата на .full-descr: события Lampa идут через
+     Utils.trigger с bubbles:false и делегированием их не поймать
+     (API_NOTES_4 A2); тот же приём, что у ряда серий (bindEpisodes) и у
+     кнопки раскрытия спойлеров (src/60_reviews.js). Вешается один раз на
+     узел (флаг — свойство DOM-узла) и уходит вместе с рядом. */
+  function openDescrModal(text, title, node) {
+    try {
+      if (!text || !window.Lampa || !Lampa.Modal || typeof Lampa.Modal.open !== 'function') return;
+      /* Имя контроллера снимается ПЕРЕД открытием и возвращается на закрытии
+         вместе с фокусом на сам текст — иначе Controller.toggle('full_descr')
+         пересобирает коллекцию ряда и ставит фокус на свой последний элемент
+         (находка Task 9, src/60_reviews.js openModal). */
+      var back = 'full_descr';
+      try {
+        var enabled = Lampa.Controller && typeof Lampa.Controller.enabled === 'function' ? Lampa.Controller.enabled() : null;
+        if (enabled && enabled.name) back = enabled.name;
+      } catch (e) { }
+
+      var html = $('<div class="lumen-descr-modal"></div>');
+      html.html('<div class="lumen-descr-modal__text">' + LC.util.esc(text) + '</div>');
+
+      Lampa.Modal.open({
+        title: title || '',
+        html: html,
+        size: 'medium',
+        onBack: function () {
+          try { Lampa.Modal.close(); } catch (e2) { }
+          try { Lampa.Controller.toggle(back); } catch (e3) { }
+          try {
+            if (node && node.length && typeof Lampa.Controller.collectionFocus === 'function') {
+              Lampa.Controller.collectionFocus(node, node.closest('.items-line'));
+            }
+          } catch (e4) { }
+        }
+      });
+    } catch (err) {
+      warn('descr modal failed', err);
+    }
+  }
+
+  function bindDescrText(holder, movie) {
+    var el = holder[0];
+    if (!el || typeof el.addEventListener !== 'function') return;
+    /* Текст и название перечитываются на каждой отрисовке ряда: узел
+       .full-descr переживает смену карточки только в истории Lampa, но
+       подписка должна остаться одна. */
+    el.lumenDescrText = movie || null;
+    if (el.lumenDescrBound) return;
+    el.lumenDescrBound = true;
+
+    el.addEventListener('hover:enter', function (event) {
+      try {
+        var node = $(event.target).closest('.full-descr__text', el);
+        if (!node || !node.length) return;
+        var card = el.lumenDescrText || {};
+        openDescrModal(card.overview, card.title || card.name || '', node);
+      } catch (err) {
+        warn('descr enter failed', err);
+      }
+    }, true);
+  }
+
+  /* Подсказка «OK — весь текст» рядом с описанием. Свой узел, а не
+     псевдоэлемент: строка пользовательская и обязана идти через LC.STRINGS
+     во всех трёх языках. .selector ему не дают — фокусируемым остаётся сам
+     текст, и число шагов пульта по ряду не меняется. Показывает подсказку
+     CSS и только там, где текст действительно поджат
+     (.lumen-descr-row--reviews). */
+  function ensureDescrHint(holder, movie) {
+    var left = holder.find('.full-descr__left');
+    if (!left.length) return;
+    var existing = left.find('.lumen-descr-more');
+    if (!(movie && movie.overview)) {
+      if (existing.length) existing.remove();
+      return;
+    }
+    if (existing.length) return;
+    left.append($('<div class="lumen-descr-more">' + LC.util.esc(LC.lang('lumen_card_descr_more')) + '</div>'));
+  }
+
   function renderDescrRow(row, data) {
     if (!row || !row.length) return;
     var holder = row.find('.full-descr');
     if (!holder.length) return;
 
     row.addClass('lumen-descr-row');
+
+    var card = (data && data.movie) || null;
+    try { bindDescrText(holder, card); } catch (eBind) { warn('descr bind failed', eBind); }
+    try { ensureDescrHint(holder, card); } catch (eHint) { warn('descr hint failed', eHint); }
 
     /* Ревью Task 5d (Minor 4): decorate ряда приходит дважды на открытие
        (build description и страховочный complite) с одним и тем же e.data —

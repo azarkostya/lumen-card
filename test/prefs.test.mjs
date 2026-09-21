@@ -457,7 +457,7 @@ test('каждое значение select имеет подпись во все
    русской строки в en/uk, от которого и защищаемся. */
 test('M2: строки вне раздела настроек переведены на все три языка и не совпадают дословно', () => {
   const LC = loadStrings();
-  for (const key of ['lumen_card_unsupported', 'lumen_card_anon']) {
+  for (const key of ['lumen_card_unsupported', 'lumen_card_anon', 'lumen_card_descr_more']) {
     const pack = LC.STRINGS[key];
     assert.ok(pack, 'нет строки в LC.STRINGS: ' + key);
     for (const lang of LANGS) {

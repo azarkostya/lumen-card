@@ -278,6 +278,10 @@
        (app.min.js:38018), а мы этот блок скрываем (src/30_css.js), и до
        Task 59 бюджет не показывался нигде. */
     lumen_card_facts: { ru: 'ПОДРОБНО', en: 'DETAILS', uk: 'ДОКЛАДНО' },
+    /* Фикс-раунд Task 59: подсказка под поджатым описанием. Видна только
+       там, где текст действительно обрезан — при нарисованных отзывах
+       (.lumen-descr-row--reviews, src/30_css.js). */
+    lumen_card_descr_more: { ru: 'OK — весь текст', en: 'OK — full text', uk: 'OK — увесь текст' },
     lumen_card_fact_original: { ru: 'Оригинал', en: 'Original', uk: 'Оригінал' },
     lumen_card_fact_premiere: { ru: 'Премьера', en: 'Premiere', uk: 'Прем\'єра' },
     lumen_card_fact_creator: { ru: 'Создатель', en: 'Creator', uk: 'Творець' },

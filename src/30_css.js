@@ -620,7 +620,7 @@
      «крупнее» между ними зияла полоса в 40 px). Всё, что в герое читают —
      логотип, название, мета, описание, чипы и профили настроения, — лежит
      внутри .lumen-hero__text и масштабируется вместе с ним. */
-  var SCALE_ROOTS = '.lumen-card,.lumen-backdrop,.lumen-descr-row,.lumen-review-modal,.lumen-hero .lumen-hero__text,.lumen-hub,.lumen-grid,.lumen-minimap,.lumen-jump,.lumen-ambient,.lumen-roulette';
+  var SCALE_ROOTS = '.lumen-card,.lumen-backdrop,.lumen-descr-row,.lumen-review-modal,.lumen-descr-modal,.lumen-hero .lumen-hero__text,.lumen-hub,.lumen-grid,.lumen-minimap,.lumen-jump,.lumen-ambient,.lumen-roulette';
 
   function scaleFactor() {
     return SCALES[LC.pref('lumen_scale', SCALE_DEFAULT)] || SCALES[SCALE_DEFAULT];
@@ -926,9 +926,11 @@
        «Оригинал» таблицы «ПОДРОБНО», которая и есть нужное для него место. */
 
     /* Task 59 (фаза 5): правил описания в шапке больше нет — вместе с узлом
-       .lumen-descr убран и весь его CSS. Единственное описание карточки —
-       полный текст в ряду описания Lampa (.lumen-descr-row .full-descr__text
-       ниже в этом же файле). */
+       .lumen-descr убран и весь его CSS. Единственное описание карточки — то,
+       что Lampa рисует своим рядом описания (.lumen-descr-row
+       .full-descr__text ниже в этом же файле). Целиком оно там видно не
+       всегда: при нарисованных отзывах текст поджат восемью строками, — но
+       полный открывается по OK окном (LC.header.descr, src/85_header.js). */
 
     /* --- Рейтинги (design-spec §5a: колонка значение/подпись, тёмная карта) --- */
     css.push('.lumen-card .full-start-new__rate-line{margin:1.05em 0 0;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:stretch;-webkit-align-items:stretch;align-items:stretch;-webkit-flex-wrap:wrap;flex-wrap:wrap}');
@@ -1364,6 +1366,14 @@
        движков без -webkit-line-clamp, а мягкая маска низа возвращается ТОЛЬКО
        здесь: в ряду без отзывов описание по-прежнему не выцветает. */
     css.push('.lumen-descr-row.lumen-descr-row--reviews .full-descr__text{display:-webkit-box;-webkit-line-clamp:8;-webkit-box-orient:vertical;overflow:hidden;max-height:70vh;-webkit-mask-image:-webkit-linear-gradient(top,#000 86%,rgba(0,0,0,0) 100%);-webkit-mask-image:linear-gradient(180deg,#000 86%,rgba(0,0,0,0) 100%);mask-image:linear-gradient(180deg,#000 86%,rgba(0,0,0,0) 100%)}');
+    /* Фикс-раунд Task 59: подсказка «OK — весь текст» под описанием. Узел
+       вставляет LC.header.descr всегда, когда у карточки есть описание, а
+       показываем его ТОЛЬКО здесь — в ряду без отзывов текст не поджат, и
+       звать в окно незачем (модал по OK работает в обоих случаях). Узел не
+       .selector: фокусируемым остаётся сам текст, шагов пульта по ряду не
+       прибавляется. */
+    css.push('.lumen-descr-row .lumen-descr-more{display:none}');
+    css.push('.lumen-descr-row.lumen-descr-row--reviews .lumen-descr-more{display:block;font-family:' + FB + ';font-weight:500;font-size:.88em;line-height:1.3;color:' + P.muted + ';margin:.44em 0 0 1em}');
     /* Правка 2026-09-16, п.3: заголовок ряда отзывов лежит прямо на кадре —
        вуали ряда, которая раньше его прикрывала, больше нет. Даём ему такую же
        локальную подложку, как у описания и таблицы, но по СОДЕРЖИМОМУ:
@@ -1464,6 +1474,14 @@
     /* Длинный отзыв прокручивается внутри модала: контроллер modal у Lampa
        двигает собственный скролл окна, а высота ограничена вьюпортом. */
     css.push('.lumen-review-modal__text{font-family:' + FB + ';font-weight:400;font-size:.96em;line-height:1.5;color:' + P.muted + ';max-height:50vh;overflow:auto}');
+    /* Фикс-раунд Task 59: окно полного описания по OK. Своих размеров и
+       прокрутки ему не нужно: .selector внутри окна нет ни одного, и тогда
+       стрелки листают его штатным Scroll модала (roll(), app.min.js:
+       32485-32495). Кегль и цвет — как у текста описания в ряду, чтобы
+       раскрытие читалось продолжением, а не другим экраном. */
+    css.push('.lumen-descr-modal{-webkit-box-sizing:border-box;box-sizing:border-box;padding:1.75em;border-radius:.61em;background:' + P.gradPanel + ';border:.04em solid ' + P.line + ';color:' + P.text + '}');
+    css.push('.lumen-descr-modal__text{font-family:' + FB + ';font-weight:400;font-size:1.05em;line-height:1.45;color:' + P.text + '}');
+
     /* --- Task 28 (фаза 3): отзывы без спойлеров. --- */
 
     /* Переключатель режима в шапке ряда: справа от счётчика отзывов, тем же

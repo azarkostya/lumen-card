@@ -777,6 +777,84 @@ test('descr: нечего показать или чужая разметка р
   assert.deepEqual(warnLog, []);
 });
 
+/* Фикс-раунд Task 59: описание внизу — единственное, но при включённых
+   отзывах CSS поджимает его до восьми строк (.lumen-descr-row--reviews,
+   src/30_css.js), а прокрутки внутри ряда у Lampa нет. Значит полный текст
+   обязан открываться по OK — как карточка отзыва открывает свой модал. */
+function modalLog() {
+  const opened = [];
+  const prevModal = Lampa.Modal;
+  const prevController = Lampa.Controller;
+  Lampa.Modal = { open: (params) => opened.push(params), close: () => { } };
+  Lampa.Controller = { enabled: () => ({ name: 'full_descr' }), toggle: () => { }, collectionFocus: () => { } };
+  return {
+    opened,
+    restore() { Lampa.Modal = prevModal; Lampa.Controller = prevController; }
+  };
+}
+
+const OVERVIEW = { movie: Object.assign({}, DUNE.movie, { overview: 'Пол Атрейдес объединяется с Чани и фрименами.' }) };
+
+test('Фикс Task 59: OK на описании открывает модал с полным текстом', () => {
+  const d = makeDescrRow();
+  const log = modalLog();
+  try {
+    LC.header.descr(d.row, OVERVIEW);
+    fire(d.descr, 'hover:enter', d.text);
+    assert.equal(log.opened.length, 1, 'модал не открылся');
+    assert.equal(log.opened[0].title, 'Дюна: Часть вторая', 'в шапке окна — название фильма');
+    assert.ok(log.opened[0].html.html().indexOf('фрименами') !== -1, 'в окне — полный текст описания');
+  } finally {
+    log.restore();
+  }
+});
+
+test('Фикс Task 59: слушатель один на узел, OK мимо описания модала не открывает', () => {
+  const d = makeDescrRow();
+  const log = modalLog();
+  try {
+    LC.header.descr(d.row, OVERVIEW);
+    LC.header.descr(d.row, OVERVIEW);
+    LC.header.descr(d.row, { movie: Object.assign({}, OVERVIEW.movie, { id: 7 }) });
+    assert.equal((d.descr._listeners || []).filter((l) => l.type === 'hover:enter').length, 1);
+    assert.ok((d.descr._listeners || []).every((l) => l.capture), 'события Lampa не всплывают — только перехват');
+
+    fire(d.descr, 'hover:enter', d.left);
+    assert.equal(log.opened.length, 0, 'OK не на описании модала открывать не должен');
+  } finally {
+    log.restore();
+  }
+});
+
+test('Фикс Task 59: без описания модала нет, подсказка не показывается', () => {
+  const d = makeDescrRow();
+  const log = modalLog();
+  try {
+    LC.header.descr(d.row, DUNE);
+    fire(d.descr, 'hover:enter', d.text);
+    assert.equal(log.opened.length, 0);
+    assert.deepEqual(warnLog, []);
+  } finally {
+    log.restore();
+  }
+});
+
+/* Подсказка — отдельный узел БЕЗ .selector: контроллер full_descr собирает
+   .selector внутри ряда, и лишний фокусируемый узел изменил бы навигацию
+   пультом (тот же инвариант, что у таблицы «ПОДРОБНО»). */
+test('Фикс Task 59: подсказка «весь текст» — один узел рядом с описанием, вне навигации', () => {
+  const d = makeDescrRow();
+  LC.header.descr(d.row, OVERVIEW);
+  LC.header.descr(d.row, OVERVIEW);
+  const hints = d.left._children.filter((n) => n.hasClass('lumen-descr-more'));
+  assert.equal(hints.length, 1);
+  assert.equal(hints[0].hasClass('selector'), false, 'подсказка не участвует в навигации пультом');
+
+  /* Карточка без описания — подсказки быть не должно: открывать нечего. */
+  LC.header.descr(d.row, { movie: { id: 9, title: 'Без текста', release_date: '2024-01-01' } });
+  assert.equal(d.left._children.filter((n) => n.hasClass('lumen-descr-more')).length, 0);
+});
+
 /* ------------------------------ refreshEpisode (п.2, п.8) ------------------------------ */
 
 test('refreshEpisode: перерисовывает только серию с этим хэшем и только при изменении состояния; кадр сохраняется', () => {

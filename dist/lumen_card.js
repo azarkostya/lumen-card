@@ -1104,7 +1104,7 @@ return Math.floor(84.17 * (100 - ROWS_TOP_VH[key]) / (ROWS_AIR + blockEm + ROW_E
 
 
 
-var SCALE_ROOTS = '.lumen-card,.lumen-backdrop,.lumen-descr-row,.lumen-review-modal,.lumen-hero .lumen-hero__text,.lumen-hub,.lumen-grid,.lumen-minimap,.lumen-jump,.lumen-ambient,.lumen-roulette';
+var SCALE_ROOTS = '.lumen-card,.lumen-backdrop,.lumen-descr-row,.lumen-review-modal,.lumen-descr-modal,.lumen-hero .lumen-hero__text,.lumen-hub,.lumen-grid,.lumen-minimap,.lumen-jump,.lumen-ambient,.lumen-roulette';
 
 function scaleFactor() {
 return SCALES[LC.pref('lumen_scale', SCALE_DEFAULT)] || SCALES[SCALE_DEFAULT];
@@ -1405,6 +1405,8 @@ css.push('.lumen-card .full-start-new__title{font-family:' + FB + ';font-size:3.
 
 
 css.push('.lumen-card .full-start-new__title.lumen-title--long{display:-webkit-box;-webkit-box-orient:vertical;overflow:hidden;-webkit-line-clamp:2;line-clamp:2}');
+
+
 
 
 
@@ -1854,6 +1856,14 @@ css.push('.lumen-descr-row.lumen-descr-row--reviews .full-descr__text{display:-w
 
 
 
+css.push('.lumen-descr-row .lumen-descr-more{display:none}');
+css.push('.lumen-descr-row.lumen-descr-row--reviews .lumen-descr-more{display:block;font-family:' + FB + ';font-weight:500;font-size:.88em;line-height:1.3;color:' + P.muted + ';margin:.44em 0 0 1em}');
+
+
+
+
+
+
 css.push('.lumen-descr-row .lumen-reviews__head{display:-webkit-inline-box;display:-webkit-inline-flex;display:inline-flex;-webkit-box-align:baseline;-webkit-align-items:baseline;align-items:baseline;-webkit-flex-wrap:wrap;flex-wrap:wrap;-webkit-box-sizing:border-box;box-sizing:border-box;max-width:100%;margin:0 0 .79em -.7em;padding:.44em .7em;border-radius:.61em;background:' + P.plate + '}');
 
 
@@ -1948,6 +1958,14 @@ css.push('.lumen-review-modal__title{font-family:' + FB + ';font-weight:700;font
 
 
 css.push('.lumen-review-modal__text{font-family:' + FB + ';font-weight:400;font-size:.96em;line-height:1.5;color:' + P.muted + ';max-height:50vh;overflow:auto}');
+
+
+
+
+
+css.push('.lumen-descr-modal{-webkit-box-sizing:border-box;box-sizing:border-box;padding:1.75em;border-radius:.61em;background:' + P.gradPanel + ';border:.04em solid ' + P.line + ';color:' + P.text + '}');
+css.push('.lumen-descr-modal__text{font-family:' + FB + ';font-weight:400;font-size:1.05em;line-height:1.45;color:' + P.text + '}');
+
 
 
 
@@ -3854,6 +3872,8 @@ add(words.premiere, premiere(movie.release_date || movie.first_air_date, words.m
 
 
 
+
+
 if (serial) add(words.creator, creator(movie));
 else add(words.budget, money(movie.budget));
 
@@ -4119,6 +4139,7 @@ return '' +
 
 '<div class="hide buttons--container">' + pool + '</div>' +
 '</div>' +
+
 
 
 
@@ -22556,6 +22577,10 @@ lumen_card_ep_soon: { ru: 'не вышла', en: 'not aired', uk: 'не вийш
 
 
 lumen_card_facts: { ru: 'ПОДРОБНО', en: 'DETAILS', uk: 'ДОКЛАДНО' },
+
+
+
+lumen_card_descr_more: { ru: 'OK — весь текст', en: 'OK — full text', uk: 'OK — увесь текст' },
 lumen_card_fact_original: { ru: 'Оригинал', en: 'Original', uk: 'Оригінал' },
 lumen_card_fact_premiere: { ru: 'Премьера', en: 'Premiere', uk: 'Прем\'єра' },
 lumen_card_fact_creator: { ru: 'Создатель', en: 'Creator', uk: 'Творець' },
@@ -24744,12 +24769,117 @@ movie.budget || 0, lang].join('|');
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function openDescrModal(text, title, node) {
+try {
+if (!text || !window.Lampa || !Lampa.Modal || typeof Lampa.Modal.open !== 'function') return;
+
+
+
+
+var back = 'full_descr';
+try {
+var enabled = Lampa.Controller && typeof Lampa.Controller.enabled === 'function' ? Lampa.Controller.enabled() : null;
+if (enabled && enabled.name) back = enabled.name;
+} catch (e) { }
+
+var html = $('<div class="lumen-descr-modal"></div>');
+html.html('<div class="lumen-descr-modal__text">' + LC.util.esc(text) + '</div>');
+
+Lampa.Modal.open({
+title: title || '',
+html: html,
+size: 'medium',
+onBack: function () {
+try { Lampa.Modal.close(); } catch (e2) { }
+try { Lampa.Controller.toggle(back); } catch (e3) { }
+try {
+if (node && node.length && typeof Lampa.Controller.collectionFocus === 'function') {
+Lampa.Controller.collectionFocus(node, node.closest('.items-line'));
+}
+} catch (e4) { }
+}
+});
+} catch (err) {
+warn('descr modal failed', err);
+}
+}
+
+function bindDescrText(holder, movie) {
+var el = holder[0];
+if (!el || typeof el.addEventListener !== 'function') return;
+
+
+
+el.lumenDescrText = movie || null;
+if (el.lumenDescrBound) return;
+el.lumenDescrBound = true;
+
+el.addEventListener('hover:enter', function (event) {
+try {
+var node = $(event.target).closest('.full-descr__text', el);
+if (!node || !node.length) return;
+var card = el.lumenDescrText || {};
+openDescrModal(card.overview, card.title || card.name || '', node);
+} catch (err) {
+warn('descr enter failed', err);
+}
+}, true);
+}
+
+
+
+
+
+
+
+function ensureDescrHint(holder, movie) {
+var left = holder.find('.full-descr__left');
+if (!left.length) return;
+var existing = left.find('.lumen-descr-more');
+if (!(movie && movie.overview)) {
+if (existing.length) existing.remove();
+return;
+}
+if (existing.length) return;
+left.append($('<div class="lumen-descr-more">' + LC.util.esc(LC.lang('lumen_card_descr_more')) + '</div>'));
+}
+
 function renderDescrRow(row, data) {
 if (!row || !row.length) return;
 var holder = row.find('.full-descr');
 if (!holder.length) return;
 
 row.addClass('lumen-descr-row');
+
+var card = (data && data.movie) || null;
+try { bindDescrText(holder, card); } catch (eBind) { warn('descr bind failed', eBind); }
+try { ensureDescrHint(holder, card); } catch (eHint) { warn('descr hint failed', eHint); }
 
 
 

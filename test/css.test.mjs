@@ -152,7 +152,7 @@ test('buildCss: .lumen-title--long содержит display:-webkit-box и -webk
    в собственный узел корня активности, поэтому у них появились свои корни —
    .lumen-moods (и признак раскладки .lumen-moods-on на том же корне) и
    .lumen-mood-chip. Оба класса создаёт плагин, чужой разметки под ними нет. */
-const ALLOWED_ROOTS = ['.lumen-card', '.lumen-backdrop', '.lumen-descr-row', '.lumen-review-modal', '.lumen-hub', '.lumen-grid', '.lumen-menu-hub', '.lumen-hero', '.lumen-main', '.lumen-moods', '.lumen-mood-chip', '.lumen-skeleton', '.lumen-overlay', '.lumen-minimap', '.lumen-jump', '.lumen-ambient', '.lumen-roulette', '.lumen-menu-roulette', '.lumen-hud', '.full-start__background', '.full-start-new', 'body'];
+const ALLOWED_ROOTS = ['.lumen-card', '.lumen-backdrop', '.lumen-descr-row', '.lumen-review-modal', '.lumen-descr-modal', '.lumen-hub', '.lumen-grid', '.lumen-menu-hub', '.lumen-hero', '.lumen-main', '.lumen-moods', '.lumen-mood-chip', '.lumen-skeleton', '.lumen-overlay', '.lumen-minimap', '.lumen-jump', '.lumen-ambient', '.lumen-roulette', '.lumen-menu-roulette', '.lumen-hud', '.full-start__background', '.full-start-new', 'body'];
 
 /* Ревью Task 5a (замечание, зафиксировано в Task 5b): проверка была по
    sel.indexOf(root) === 0 без учёта границы селектора — так
@@ -166,7 +166,7 @@ const ALLOWED_ROOTS = ['.lumen-card', '.lumen-backdrop', '.lumen-descr-row', '.l
    между корнем и модификатором, но это className плагин создаёт сам (его
    не бывает без нашего DOM) — поэтому '_'/'-' сразу после корня для них
    тоже безопасная граница, в отличие от чужих классов Lampa. */
-var OWN_NAMESPACE_ROOTS = ['.lumen-card', '.lumen-backdrop', '.lumen-descr-row', '.lumen-review-modal', '.lumen-hub', '.lumen-grid', '.lumen-menu-hub', '.lumen-hero', '.lumen-main', '.lumen-moods', '.lumen-mood-chip', '.lumen-skeleton', '.lumen-overlay', '.lumen-minimap', '.lumen-jump', '.lumen-ambient', '.lumen-roulette', '.lumen-menu-roulette'];
+var OWN_NAMESPACE_ROOTS = ['.lumen-card', '.lumen-backdrop', '.lumen-descr-row', '.lumen-review-modal', '.lumen-descr-modal', '.lumen-hub', '.lumen-grid', '.lumen-menu-hub', '.lumen-hero', '.lumen-main', '.lumen-moods', '.lumen-mood-chip', '.lumen-skeleton', '.lumen-overlay', '.lumen-minimap', '.lumen-jump', '.lumen-ambient', '.lumen-roulette', '.lumen-menu-roulette'];
 
 function startsWithRoot(sel, root) {
   if (sel.indexOf(root) !== 0) return false;
@@ -925,6 +925,28 @@ test('Task 59: правил описания в шапке в CSS нет — б�
   const orphans = ruleBodies(css).filter((r) => r.selectors.some((s) => /(^|[\s.])lumen-descr(?![-\w])/.test(s)));
   assert.deepEqual(orphans.map((r) => r.selectors.join(',')), [],
     'остались правила для убранного .lumen-descr');
+});
+
+/* Фикс-раунд Task 59: при нарисованных отзывах описание поджато восемью
+   строками, а прокрутки внутри ряда у Lampa нет — значит подсказка про
+   раскрытие обязана быть видна ровно в этом состоянии и нигде больше. */
+test('Фикс Task 59: подсказка про полный текст видна только там, где описание поджато', () => {
+  const base = findDecl(css, (sel) => sel === '.lumen-descr-row .lumen-descr-more');
+  assert.ok(base && /display\s*:\s*none/.test(base), 'в ряду без отзывов подсказки быть не должно');
+  const withReviews = findDecl(css, (sel) => sel === '.lumen-descr-row.lumen-descr-row--reviews .lumen-descr-more');
+  assert.ok(withReviews && /display\s*:\s*block/.test(withReviews), 'при отзывах подсказка обязана показываться');
+  const clamp = findDecl(css, (sel) => sel === '.lumen-descr-row.lumen-descr-row--reviews .full-descr__text');
+  assert.ok(clamp && clamp.indexOf('-webkit-line-clamp:8') !== -1,
+    'подсказка привязана к тому же состоянию, что и обрезка текста');
+});
+
+test('Фикс Task 59: у окна полного описания свой корень и кегль текста описания', () => {
+  const text = findDecl(css, (sel) => sel === '.lumen-descr-modal__text');
+  assert.ok(text && text.indexOf('font-size:1.05em') !== -1, 'кегль тот же, что у описания в ряду');
+  /* Прокрутку длинного текста берёт на себя Scroll модала Lampa — своей
+     высоты и overflow окну не задаём, иначе внутри него появился бы второй
+     скролл, которым пульт не управляет. */
+  assert.equal(/max-height|overflow/.test(text), false, text);
 });
 
 /* Task 59: счётчики разделов («Жанр 3 · Производство 2 · Теги 17») —
@@ -3137,7 +3159,7 @@ test('фаза 3: плотность «Стопа» задаёт палитра,
 /* Герой в списке представлен текстовым блоком, а не корнем: высота самого
    .lumen-hero считается от экрана и от высоты ряда, и лишний кегль умножил бы
    те же em второй раз (живьём: «мельче» — кадр накрывал ряд на 35 px). */
-const SCALE_ROOTS = ['.lumen-card', '.lumen-backdrop', '.lumen-descr-row', '.lumen-review-modal', '.lumen-hero .lumen-hero__text', '.lumen-hub', '.lumen-grid', '.lumen-minimap', '.lumen-jump', '.lumen-ambient', '.lumen-roulette'];
+const SCALE_ROOTS = ['.lumen-card', '.lumen-backdrop', '.lumen-descr-row', '.lumen-review-modal', '.lumen-descr-modal', '.lumen-hero .lumen-hero__text', '.lumen-hub', '.lumen-grid', '.lumen-minimap', '.lumen-jump', '.lumen-ambient', '.lumen-roulette'];
 
 test('фаза 3: масштаб — один коэффициент на корнях плагина', () => {
   for (const pair of [['small', '0.9'], ['large', '1.1'], ['huge', '1.2']]) {
