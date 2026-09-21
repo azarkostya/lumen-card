@@ -297,3 +297,12 @@
 
 ## Приложение Б — как гонять стенд в режиме ТВ
 `resize_window` 960×540; до инжекта плагина: `Object.defineProperty(window,'devicePixelRatio',{get:function(){return 2},configurable:true})`; затем инжект `dist/lumen_card.js`. Клавиши — `keydown` на `document` с `keyCode` через `defineProperty`; если фокус не двигается — `Lampa.Controller.enabled().name` и `Lampa.Controller.toggle('content')` (открытый Select перехватывает контроллер). rAF на стенде не тикает — fps только с ТВ.
+
+### Task 50c: подложка фокуса без размытия на остальных экранах
+Замер координатора на стенде после Task 50b (`960×540@2`, разбор собранного CSS): на главной, в сетке и хабе размытых теней на фокусе не осталось, но в других корнях их **13**:
+- карточка фильма — `.full-start__button.focus`, `.lumen-stop.focus`, `.lumen-episode.focus`, `.lumen-review.focus`, `.lumen-fr-card.focus`, `.lumen-franchise.focus` (все `0 .35em .7em`);
+- рулетка — `.lumen-roulette__spin.focus`, `.lumen-roulette__btn.focus`;
+- путь TorrServer — `.torrent-item.focus` и `.torrent-file.focus` (`0 .614em 1.754em` и `0 .526em 1.534em`), `.lumen-torrents .torrent-fi…` (**`0 .7em 2em`** = 45 физ. px размытия), `watched-hi…`, `torrent-checklist__footer`.
+Экраны листаются тем же D-pad, шаг фокуса перерисовывает слой с размытием — та же причина, по которой чинили главную. Список файлов торрента особенно: там фокус идёт по длинному списку.
+- [ ] Привести все к `0 .2em 0` (в торрентах — сверить с их собственной шкалой), расширить тест `test/css.test.mjs` с трёх корней на все наши корни, проверить отсутствие мёртвых правил в `accentRules`/`LC.accentCss`.
+- [ ] Делать вместе с Task 54 (инверсия фокуса на остальных экранах) — те же селекторы, один проход.
