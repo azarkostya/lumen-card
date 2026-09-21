@@ -25,6 +25,24 @@ export function classList(tagHtml) {
   return m ? m[1].split(/\s+/).filter(Boolean) : [];
 }
 
+/* Task 64: слои кадра героя стали <img> с атрибутами (decoding,
+   fetchpriority), поэтому разбор разметки перестал быть «только про div» и
+   про один только class. TAG_RE и attrsOf — общие для обоих мест, где
+   строка HTML превращается в узлы (html() и fakeQuery). */
+export const TAG_RE = /<(?:div|img)[^>]*>/g;
+export function attrsOf(tagHtml) {
+  const out = {};
+  const re = /([a-zA-Z-]+)="([^"]*)"/g;
+  let m;
+  while ((m = re.exec(tagHtml || ''))) out[m[1]] = m[2];
+  return out;
+}
+function elFromTag(tag) {
+  const el = new FakeEl(classList(tag));
+  el._attr = attrsOf(tag);
+  return el;
+}
+
 export function FakeEl(classes, children) {
   this._class = classes || [];
   this._children = children || [];
@@ -112,8 +130,8 @@ FakeEl.prototype.html = function (s) {
   const self = this;
   this._html = '' + s;
   this._htmlSets = (this._htmlSets || 0) + 1;
-  this._children = (this._html.match(/<div[^>]*>/g) || []).map((tag) => {
-    const c = new FakeEl(classList(tag));
+  this._children = (this._html.match(TAG_RE) || []).map((tag) => {
+    const c = elFromTag(tag);
     c._parentEl = self;
     return c;
   });
@@ -227,7 +245,7 @@ export const EMPTY = {
      text(), а не сам набор: иначе чтение html() пустого узла давало объект,
      и проверка вида html().indexOf(...) молча шла не по той ветке. */
   text() { return ''; }, html() { return ''; }, next() { return EMPTY; }, before() { return this; },
-  eq() { return EMPTY; }, not() { return EMPTY; }, trigger() { return this; }, attr() { }
+  eq() { return EMPTY; }, not() { return EMPTY; }, trigger() { return this; }, attr() { }, removeAttr() { return this; }
 };
 
 export function toEl(x) {
@@ -235,15 +253,16 @@ export function toEl(x) {
   return new FakeEl(classList(String(x)));
 }
 
-/* Плоский разбор: первый <div> — корень, остальные — его ПРЯМЫЕ дети (в
+/* Плоский разбор: первый тег — корень, остальные — его ПРЯМЫЕ дети (в
    порядке появления). Вложенность в самой HTML-строке не моделируется —
    этого достаточно для разметки, которую строит ensureLayer() в
-   src/50_backdrops.js ($('<div class="lumen-backdrop">...</div>')). */
+   src/50_backdrops.js ($('<div class="lumen-backdrop">...</div>')).
+   Task 64: кроме <div> разбираются и <img> — слои кадра героя. */
 export function fakeQuery(html) {
-  const tags = String(html).match(/<div[^>]*>/g) || [];
-  const root = new FakeEl(classList(tags[0]));
+  const tags = String(html).match(TAG_RE) || [];
+  const root = elFromTag(tags[0]);
   for (let i = 1; i < tags.length; i++) {
-    const child = new FakeEl(classList(tags[i]));
+    const child = elFromTag(tags[i]);
     child._parentEl = root;
     root._children.push(child);
   }

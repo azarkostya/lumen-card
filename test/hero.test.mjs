@@ -666,7 +666,7 @@ test('загруженный кадр проявляется вторым сло
   const b = node.find('.lumen-hero__bg--b');
   assert.equal(a.hasClass('is-active'), true, 'первый кадр проявлён');
   assert.equal(b.hasClass('is-active'), false);
-  assert.equal(a.css('background-image'), 'url("https://img/t/p/w1280/b1.jpg")');
+  assert.equal(a.attr('src'), 'https://img/t/p/w1280/b1.jpg');
 
   /* Ответ деталей дорисовывает мету, жанры и снимает скелетон. */
   env.requests[0].ok({ runtime: 100, genres: [{ name: 'драма' }], overview: 'полное', images: { logos: [{ file_path: '/l.png', iso_639_1: 'ru' }] } });
@@ -712,7 +712,7 @@ test('Task 40: без тяжёлых эффектов кадр меняется 
   env.advance(400);
   env.images[0].onload();
   assert.equal(a.hasClass('is-active'), true);
-  assert.equal(a.css('background-image'), 'url("https://img/t/p/w1280/b1.jpg")');
+  assert.equal(a.attr('src'), 'https://img/t/p/w1280/b1.jpg');
   assert.equal(b.hasClass('is-active'), false, 'второй слой не поднимался');
 
   /* Вторая карточка: кадр обязан приехать в ТОТ ЖЕ слой. */
@@ -721,9 +721,9 @@ test('Task 40: без тяжёлых эффектов кадр меняется 
   fireFocus(main.activity, main.card2);
   env.advance(400);
   env.images[env.images.length - 1].onload();
-  assert.equal(a.css('background-image'), 'url("https://img/t/p/w1280/b2.jpg")', 'подмена в том же слое');
+  assert.equal(a.attr('src'), 'https://img/t/p/w1280/b2.jpg', 'подмена в том же слое');
   assert.equal(b.hasClass('is-active'), false, 'второй слой так и не понадобился');
-  assert.equal(b.css('background-image'), undefined, 'во втором слое картинки нет вовсе');
+  assert.equal(b.attr('src'), undefined, 'во втором слое картинки нет вовсе');
 });
 
 /* Правка четвёртого круга: размер логотипа считается по его пропорции
@@ -1084,7 +1084,7 @@ test('Task 52: метка размытия живёт на слое кадра, 
     if (heavy) assert.equal(a.hasClass('lumen-hero__bg--blur'), true, label + ': метку сняли с уходящего слоя — он ужмётся на 10 % посреди кроссфейда');
     /* И кадр действительно сменился — иначе проверка выше ничего не стоит. */
     const shown = heavy ? b : a;
-    assert.equal(shown.css('background-image'), 'url("https://img/t/p/w1280/b2.jpg")', label + ': кадр второй карточки не приехал');
+    assert.equal(shown.attr('src'), 'https://img/t/p/w1280/b2.jpg', label + ': кадр второй карточки не приехал');
   }
 });
 
@@ -1162,11 +1162,11 @@ test('Task 47: кадр показывается после резолва decod
   arrive(f.img);
   f.img.onload();
   await tick();
-  assert.equal(f.bg.css('background-image'), undefined, 'onload кадр не показывает: он ещё не декодирован');
+  assert.equal(f.bg.attr('src'), undefined, 'onload кадр не показывает: он ещё не декодирован');
 
   f.img.decoded.resolve();
   await tick();
-  assert.equal(f.bg.css('background-image'), 'url("https://img/t/p/w1280/b1.jpg")');
+  assert.equal(f.bg.attr('src'), 'https://img/t/p/w1280/b1.jpg');
   assert.equal(f.bg.hasClass('is-active'), true);
 });
 
@@ -1180,7 +1180,7 @@ test('Task 47: реджект decode() с загруженными байтам�
   arrive(f.img);
   f.img.decoded.reject(new Error('decode failed'));
   await tick();
-  assert.equal(f.bg.css('background-image'), 'url("https://img/t/p/w1280/b1.jpg")');
+  assert.equal(f.bg.attr('src'), 'https://img/t/p/w1280/b1.jpg');
   assert.deepEqual(warnLog, []);
 });
 
@@ -1189,14 +1189,14 @@ test('Task 47: реджект decode() без байт оставляет пре
   arrive(f.img);
   f.img.decoded.resolve();
   await tick();
-  assert.equal(f.bg.css('background-image'), 'url("https://img/t/p/w1280/b1.jpg")', 'первый кадр на экране');
+  assert.equal(f.bg.attr('src'), 'https://img/t/p/w1280/b1.jpg', 'первый кадр на экране');
 
   const second = focusSecond(f);
   second.decoded.reject(new Error('broken image'));
   await tick();
-  assert.equal(f.bg.css('background-image'), 'url("https://img/t/p/w1280/b1.jpg")', 'старый кадр не затёрт пустым');
+  assert.equal(f.bg.attr('src'), 'https://img/t/p/w1280/b1.jpg', 'старый кадр не затёрт пустым');
   assert.equal(f.bg.hasClass('is-active'), true);
-  assert.equal(f.node.find('.lumen-hero__bg--b').css('background-image'), undefined, 'второй слой не поднимали');
+  assert.equal(f.node.find('.lumen-hero__bg--b').attr('src'), undefined, 'второй слой не поднимали');
   assert.deepEqual(warnLog, []);
 });
 
@@ -1210,14 +1210,14 @@ test('Task 47: повисший decode() — кадр показывает ст�
   const f = focusedFrame();
   arrive(f.img);
   f.env.advance(8000);
-  assert.equal(f.bg.css('background-image'), 'url("https://img/t/p/w1280/b1.jpg")');
+  assert.equal(f.bg.attr('src'), 'https://img/t/p/w1280/b1.jpg');
   assert.deepEqual(warnLog, []);
 });
 
 test('Task 47: таймаут без байт кадр не показывает', () => {
   const f = focusedFrame();
   f.env.advance(8000);
-  assert.equal(f.bg.css('background-image'), undefined);
+  assert.equal(f.bg.attr('src'), undefined);
 });
 
 /* Фикс-раунд Task 47. Промис decode() отменить нечем: он доезжает до
@@ -1232,11 +1232,11 @@ test('Task 47: устаревший decode() не показывает свой 
 
   f.img.decoded.resolve();
   await tick();
-  assert.equal(f.bg.css('background-image'), undefined, 'кадр карточки, с которой фокус уже ушёл, не показан');
+  assert.equal(f.bg.attr('src'), undefined, 'кадр карточки, с которой фокус уже ушёл, не показан');
 
   /* Страховочный таймаут второй карточки обязан пережить чужой finish. */
   f.env.advance(8000);
-  assert.equal(f.bg.css('background-image'), 'url("https://img/t/p/w1280/b2.jpg")', 'таймер актуального кадра снесён устаревшим вызовом');
+  assert.equal(f.bg.attr('src'), 'https://img/t/p/w1280/b2.jpg', 'таймер актуального кадра снесён устаревшим вызовом');
   assert.deepEqual(warnLog, []);
 });
 
@@ -1246,7 +1246,7 @@ test('Task 47: синхронный бросок decode() откатывает �
   const f = focusedFrame({ throws: true });
   arrive(f.img);
   f.img.onload();
-  assert.equal(f.bg.css('background-image'), 'url("https://img/t/p/w1280/b1.jpg")');
+  assert.equal(f.bg.attr('src'), 'https://img/t/p/w1280/b1.jpg');
   assert.deepEqual(warnLog, []);
 });
 
@@ -1254,7 +1254,7 @@ test('Task 47: decode() вернул не промис — показ по onloa
   const f = focusedFrame({ notPromise: true });
   arrive(f.img);
   f.img.onload();
-  assert.equal(f.bg.css('background-image'), 'url("https://img/t/p/w1280/b1.jpg")');
+  assert.equal(f.bg.attr('src'), 'https://img/t/p/w1280/b1.jpg');
   assert.deepEqual(warnLog, []);
 });
 
@@ -1269,7 +1269,171 @@ test('Task 47: без decode() кадр показывается по onload', (
   env.advance(400);
   assert.equal(typeof env.images[0].decode, 'undefined', 'заглушка без decode');
   env.images[0].onload();
-  assert.equal(node.find('.lumen-hero__bg--a').css('background-image'), 'url("https://img/t/p/w1280/b1.jpg")');
+  assert.equal(node.find('.lumen-hero__bg--a').attr('src'), 'https://img/t/p/w1280/b1.jpg');
+});
+
+/* ====================================================================== */
+/* Task 64: <img> с приоритетом, подложка LQIP                            */
+/* ====================================================================== */
+
+/* Слои кадра стали <img>: у фона нет ни decoding, ни fetchpriority, ни
+   decode(), ни load/error, и запрос за картинкой уходит только после
+   раскладки (docs/research/2026-09-21-webview-perf.md §4, «Герой — только
+   <img>»). */
+test('Task 64: слои кадра — img с decoding=async и высоким приоритетом', () => {
+  const env = makeEnv();
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  const node = main.activity._children[0];
+  for (const cls of ['.lumen-hero__bg--a', '.lumen-hero__bg--b']) {
+    const layer = node.find(cls);
+    assert.equal(layer.attr('decoding'), 'async', cls + ': нет подсказки на асинхронное декодирование');
+    assert.equal(layer.attr('fetchpriority'), 'high', cls + ': кадр героя — самая крупная картинка экрана, приоритет обязан быть высоким');
+  }
+  const lqip = node.find('.lumen-hero__lqip');
+  assert.equal(lqip.attr('decoding'), 'async', 'подложка LQIP декодируется асинхронно');
+  /* Приоритета у подложки нет намеренно: высокий приоритет у двух картинок
+     разом отнял бы его у той, ради которой он и заведён. */
+  assert.equal(lqip.attr('fetchpriority'), undefined);
+  /* Нижней вуали-плашки в разметке больше нет — её заменила маска кадра. */
+  assert.equal(node.find('.lumen-hero__veil--b'), EMPTY, 'нижняя вуаль осталась отдельным узлом');
+  assert.equal(node.find('.lumen-hero__veil--l').hasClass('lumen-hero__veil'), true, 'левая вуаль на месте');
+});
+
+test('Task 64: предзагрузчик кадра просит высокий приоритет — запрос делает он', () => {
+  const env = makeEnv();
+  const main = makeMain();
+  main.card1.addClass('focus');
+  env.hero.mount(main.activity);
+  fireFocus(main.activity, main.card1);
+  env.advance(400);
+  assert.equal(env.images[0].fetchPriority, 'high');
+});
+
+/* Подложка LQIP: тот же backdrop в w300 (0.05 Мпикс против 0.92 у w1280,
+   ресёрч §1.5/§4). Показывается СРАЗУ, не дожидаясь ни байтов, ни decode()
+   основного кадра, — в этом весь её смысл. */
+test('Task 64: подложка w300 встаёт сразу, до байтов и decode() основного кадра', () => {
+  const f = focusedFrame();
+  const lqip = f.node.find('.lumen-hero__lqip');
+  assert.equal(lqip.attr('src'), 'https://img/t/p/w300/b1.jpg', 'подложка не того размера или не поставлена');
+  assert.equal(lqip.hasClass('is-active'), true, 'подложка обязана быть видна сразу');
+  assert.equal(f.bg.attr('src'), undefined, 'основной кадр ещё не показан — тем ценнее подложка');
+});
+
+/* Подложка держится ровно до первого показанного кадра: дальше она лежит под
+   непрозрачной картинкой и стоит только памяти — 202 800 байт растра
+   (300 × 169 × 4). Освобождение отложено на 900 мс: кадр проявляется
+   переходом opacity до 600 мс, и снять подложку в тот же миг значило бы
+   показать сквозь полупрозрачный кадр голый фон. */
+test('Task 64: показанный кадр освобождает подложку — но не раньше конца кроссфейда', async () => {
+  const f = focusedFrame();
+  const lqip = f.node.find('.lumen-hero__lqip');
+  arrive(f.img);
+  f.img.onload();
+  f.img.decoded.resolve();
+  await tick();
+  assert.equal(f.bg.attr('src'), 'https://img/t/p/w1280/b1.jpg', 'кадр не показан — проверять нечего');
+  f.env.advance(600);
+  assert.equal(lqip.hasClass('is-active'), true, 'подложку сняли посреди кроссфейда — сквозь кадр будет видно фон');
+  f.env.advance(400);
+  assert.equal(lqip.hasClass('is-active'), false, 'подложка осталась висеть после показа кадра');
+  assert.equal(lqip.attr('src'), undefined, 'растр подложки продолжает держаться за элемент');
+});
+
+/* Следующая карточка подложку не заводит заново: под приходящим кадром лежит
+   непрозрачный предыдущий, и подложку из-под него всё равно не видно —
+   тянуть и декодировать w300 на каждый шаг фокуса незачем. */
+test('Task 64: со второй карточки подложка больше не грузится', async () => {
+  const f = focusedFrame();
+  const lqip = f.node.find('.lumen-hero__lqip');
+  arrive(f.img);
+  f.img.onload();
+  f.img.decoded.resolve();
+  await tick();
+  f.env.advance(1000);
+  const img2 = focusSecond(f);
+  arrive(img2);
+  img2.onload();
+  img2.decoded.resolve();
+  await tick();
+  assert.equal(lqip.attr('src'), undefined, 'подложку подняли на второй карточке');
+  assert.equal(lqip.hasClass('is-active'), false);
+  assert.equal(f.node.find('.lumen-hero__bg--b').attr('src'), 'https://img/t/p/w1280/b2.jpg', 'второй кадр не приехал — проверять нечего');
+});
+
+/* Кадр не приехал вовсе — подложка обязана остаться: пустой герой хуже
+   размытого. */
+test('Task 64: неудачная загрузка кадра подложку не снимает', () => {
+  const f = focusedFrame();
+  const lqip = f.node.find('.lumen-hero__lqip');
+  f.img.onerror();
+  f.env.advance(2000);
+  assert.equal(lqip.hasClass('is-active'), true, 'подложка снята, а показывать вместо неё нечего');
+  assert.equal(lqip.attr('src'), 'https://img/t/p/w300/b1.jpg');
+});
+
+/* Снятие героя обязано погасить и этот таймер — живых подписок после
+   unmount у героя не остаётся. */
+test('Task 64: unmount снимает отложенное освобождение подложки', async () => {
+  const f = focusedFrame();
+  arrive(f.img);
+  f.img.onload();
+  f.img.decoded.resolve();
+  await tick();
+  f.env.hero.unmount();
+  assert.equal(f.env.timers.every((t) => t.done), true, 'после снятия героя остался живой таймер');
+  f.env.advance(2000);
+  assert.deepEqual(warnLog, []);
+});
+
+/* Кадра у фильма нет — герой собирает его из постера в w92 (Task 38). Это
+   мельче w300, и отдельная подложка там только держала бы лишний растр. */
+test('Task 64: у фильма без кадра подложки нет — постер и так грузится в w92', () => {
+  const env = makeEnv();
+  const main = makeMain();
+  main.card1.card_data = { id: 44, title: 'Без кадра', poster_path: '/p.jpg', release_date: '2021-01-01' };
+  main.card1.addClass('focus');
+  env.hero.mount(main.activity);
+  const node = main.activity._children[0];
+  fireFocus(main.activity, main.card1);
+  env.advance(400);
+  const lqip = node.find('.lumen-hero__lqip');
+  assert.equal(lqip.attr('src'), undefined, 'подложка для постера не нужна');
+  assert.equal(lqip.hasClass('is-active'), false);
+  assert.equal(env.images[0].src, 'https://img/t/p/w92/p.jpg');
+});
+
+/* Один и тот же кадр подложку второй раз не ставит: смена src у <img>
+   заставила бы браузер заново проверять ресурс на ровном месте. Случай не
+   выдуманный — соседние карточки ряда сериала и его же фильма нередко
+   приходят с одним backdrop. */
+test('Task 64: другой фильм с тем же backdrop подложку не переставляет', () => {
+  const env = makeEnv();
+  const main = makeMain();
+  /* Разные id (иначе герой не стал бы обновляться вовсе), один кадр. */
+  main.card2.card_data.backdrop_path = '/b1.jpg';
+  env.hero.mount(main.activity);
+  const node = main.activity._children[0];
+  const lqip = node.find('.lumen-hero__lqip');
+  main.card1.addClass('focus');
+  fireFocus(main.activity, main.card1);
+  env.advance(400);
+  env.images[0].onload();
+  assert.equal(lqip.attr('src'), 'https://img/t/p/w300/b1.jpg');
+  const sets = [];
+  const origAttr = lqip.attr;
+  lqip.attr = function (name, val) {
+    if (arguments.length === 2) sets.push(name + '=' + val);
+    return origAttr.apply(this, arguments);
+  };
+  main.card1.removeClass('focus');
+  main.card2.addClass('focus');
+  fireFocus(main.activity, main.card2);
+  env.advance(400);
+  assert.equal(env.images.length, 1, 'и сам кадр второй раз не грузится — адрес тот же');
+  assert.deepEqual(sets, [], 'подложку переставили тем же адресом: ' + sets.join(','));
+  assert.equal(lqip.hasClass('is-active'), true, 'подложка осталась на экране');
 });
 
 /* Task 39: размер кадра и логотипа считается по физическим пикселям, но

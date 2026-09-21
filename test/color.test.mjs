@@ -1017,7 +1017,12 @@ test('css: узел подкраски стоит в <head> после осно�
     assert.deepEqual(headIds(dom), ['lumen-accent'], 'подкраска появилась первой');
     const warmRules = accentNode(dom).textContent;
     assert.match(warmRules, /\.lumen-main\{background-color:#[0-9A-F]{6}\}/);
-    assert.ok(warmRules.indexOf('.lumen-hero__veil--b') !== -1, 'низ вуали героя красится вместе с подложкой');
+    /* Task 64: низ кадра героя больше не красится отдельным правилом — там
+       градиент-МАСКА, то есть кадр растворяется в фоне .lumen-main, который
+       этот же узел и красит первой строкой. Дублировать цвет негде, значит и
+       разъехаться ему не с чем. */
+    assert.ok(warmRules.indexOf('.lumen-hero__veil--b') === -1, 'низ кадра героя — маска, отдельного крашеного правила у него нет');
+    assert.ok(warmRules.indexOf('.lumen-hero__veil--l') !== -1, 'левая вуаль героя красится вместе с подложкой');
 
     ctx.LC.injectCss();
     assert.deepEqual(headIds(dom), ['lumen-card-css', 'lumen-accent'], 'наш узел переехал в конец');

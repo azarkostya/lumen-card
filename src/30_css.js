@@ -216,18 +216,18 @@
   function accentRules(P, t) {
     return {
       main: '.lumen-main{background-color:' + P.bg + '}',
-      /* Task 36: длинные многостоповые градиенты. Двух-трёх стопов не
+      /* Task 36: длинный многостоповый градиент. Двух-трёх стопов не
          хватало — глаз находил место, где вуаль кончается, и читал его как
          кромку кадра (пользователь 2026-09-18: «переход на фон подложки
-         карточек более плавный»). Пять стопов у нижней и три у левой дают
-         затухание без видимой границы, а стоить композитору они ровно
-         столько же: градиент рисуется один раз в слой и при сжатии только
-         едет вместе с кадром.
-         Нижний стоп сплошной намеренно: ниже кромки кадра картинки нет
-         вовсе (overflow:hidden у героя), и полупрозрачность там давала бы
-         на стыке с подложкой рядов видимую ступеньку. */
+         карточек более плавный»). Три стопа у левой вуали дают затухание без
+         видимой границы, а стоить композитору они ровно столько же: градиент
+         рисуется один раз в слой и при сжатии только едет вместе с кадром.
+         Task 64: нижней вуали в этом наборе больше нет — её пять стопов
+         переехали в градиент-МАСКУ самих слоёв кадра (правило ниже по
+         файлу). Маска не красит, а стирает, поэтому цвета в ней нет и
+         перекрашивать при смене темы нечего: под кадром лежит тот же
+         .lumen-main, который красит правило main выше. */
       veilL: '.lumen-hero .lumen-hero__veil--l{background:-webkit-linear-gradient(left,rgba(' + P.bgRgb + ',.85) 0%,rgba(' + P.bgRgb + ',.45) 30%,rgba(' + P.bgRgb + ',0) 65%);background:linear-gradient(90deg,rgba(' + P.bgRgb + ',.85) 0%,rgba(' + P.bgRgb + ',.45) 30%,rgba(' + P.bgRgb + ',0) 65%)}',
-      veilB: '.lumen-hero .lumen-hero__veil--b{background:-webkit-linear-gradient(bottom,' + P.bg + ' 0%,rgba(' + P.bgRgb + ',.92) 10%,rgba(' + P.bgRgb + ',.6) 24%,rgba(' + P.bgRgb + ',.25) 42%,rgba(' + P.bgRgb + ',0) 62%);background:linear-gradient(0deg,' + P.bg + ' 0%,rgba(' + P.bgRgb + ',.92) 10%,rgba(' + P.bgRgb + ',.6) 24%,rgba(' + P.bgRgb + ',.25) 42%,rgba(' + P.bgRgb + ',0) 62%)}',
       /* Task 38: два градиента, заменившие маску области рядов (см. правила
          .scroll.layer--wheight ниже). Они залиты цветом страницы и лежат
          прямо на нём — разъедься их оттенок с подкрашенным фоном хоть на
@@ -270,7 +270,7 @@
      таблице. */
   LC.accentCss = function () {
     var R = accentRules(palette(), theme());
-    return R.main + '\n' + R.veilL + '\n' + R.veilB + '\n' + R.fadeTop + '\n' + R.fadeBot + '\n' + R.cardFocus;
+    return R.main + '\n' + R.veilL + '\n' + R.fadeTop + '\n' + R.fadeBot + '\n' + R.cardFocus;
   };
 
   /* Фаза 3, настройка «Масштаб интерфейса». Все размеры плагина считаются в em
@@ -439,9 +439,11 @@
      размера кадр кончается на 66.67vh, а заголовок ряда стоит на 55.5vh плюс
      воздух (2.5em штатного padding Lampa и 1em, на который поднят отступ
      области), то есть 58.67vh — примерно в 12 % высоты кадра от его низа.
-     Это задумано и безопасно: на такой высоте нижняя вуаль держит около .87
-     (стопы .92 на 10 % и .6 на 24 % — veilB в accentRules выше), и картинки
-     под заголовком ряда практически не видно.
+     Это задумано и безопасно: на такой высоте от кадра остаётся около .13
+     (стопы маски .08 на 10 % и .4 на 24 % — Task 64, правило маски кадра
+     ниже по файлу; до Task 64 те же числа лежали в нижней вуали-плашке как
+     .92 и .6 непрозрачности фона), и картинки под заголовком ряда
+     практически не видно.
 
      Task 51: было 8vh. Сдвиг двигает ряд только в СТАРТОВОМ состоянии (при
      .lumen-rows-up он равен нулю), поэтому подпись в поднятом состоянии от
@@ -2248,12 +2250,41 @@
        при cover с center top в высокий блок героя попадало именно оно
        (пользователь 2026-09-18: «лица на постере не видны, просто края
        картинки»). 30 % — линия глаз в типовой композиции кадра. */
-    css.push('.lumen-hero .lumen-hero__bg{position:absolute;top:0;left:0;right:0;bottom:0;-webkit-background-size:cover;background-size:cover;background-position:center 30%;background-repeat:no-repeat;opacity:0}');
-    css.push('.lumen-hero .lumen-hero__bg.is-active{opacity:1}');
+    /* Task 64: слои кадра — <img> (src/48_hero.js, buildNode), поэтому
+       кадрирование задаётся object-fit/object-position, а не background-size/
+       background-position. Значения те же, что были у фона: cover и
+       center 30 %.
+       Цена совместимости, о которой надо знать: object-fit появился в
+       Chrome 32 и в Android WebView 4.4.3, а README обещает работу на
+       webview Android 4.1. Там свойство неизвестно, и картинка растянется по
+       боксу с искажением пропорций вместо обрезки. Размен сознательный: у
+       background-image нет ни decoding, ни fetchpriority, ни decode(), ни
+       load/error, а запрос за кадром уходит только после раскладки
+       (docs/research/2026-09-21-webview-perf.md §4).
+       width/height заданы явно: у заменяемого элемента четырёх смещений
+       мало, чтобы он растянулся по контейнеру. */
+    css.push('.lumen-hero .lumen-hero__bg,.lumen-hero .lumen-hero__lqip{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;object-position:center 30%;opacity:0}');
+    css.push('.lumen-hero .lumen-hero__bg.is-active,.lumen-hero .lumen-hero__lqip.is-active{opacity:1}');
+    /* Порядок слоёв держит порядок узлов в разметке (buildNode): подложка
+       LQIP стоит первой и потому лежит ниже обоих кадров, а те — ниже
+       ролика. z-index никому из них не задан намеренно: он поднял бы кадр
+       над слоем трейлера, который идёт следом. */
+    /* Task 64: переход opacity в полном режиме есть и без тяжёлых эффектов —
+       но проиграться ему там почти негде, и двух полноэкранных картинок
+       разом он не даёт. Смена кадра при выключенном тумблере идёт в ОДНОМ
+       слое (src/48_hero.js, swapFrame): его opacity остаётся единицей, а
+       transition срабатывает только на смене значения. Остаются ровно два
+       случая: самое первое появление кадра (0 → 1, одна картинка) и гашение
+       кадра при уходе фокуса в ряды (правило .lumen-hero--compact ниже) —
+       ради второго правило и заведено, иначе кадр на телевизоре, где тяжёлые
+       эффекты выключены по умолчанию, пропадал бы рывком на каждом шаге
+       фокуса вниз. */
+    css.push('.lumen-hero.lumen-motion-full .lumen-hero__bg,.lumen-hero.lumen-motion-full .lumen-hero__lqip{-webkit-transition:opacity .35s ease;transition:opacity .35s ease}');
     /* Task 40: плавная смена кадра — тяжёлый эффект: все 600 мс перехода на
        экране лежат ДВЕ полноэкранные картинки. При выключенном тумблере
        перехода нет, и герой подменяет кадр в одном слое (src/48_hero.js,
-       swapFrame) — второй остаётся пустым. */
+       swapFrame) — второй остаётся пустым. Правило перебивает общий переход
+       выше: у него на один класс больше. */
     css.push('body.lumen-fx-heavy .lumen-hero.lumen-motion-full .lumen-hero__bg{-webkit-transition:opacity .6s ease-in-out;transition:opacity .6s ease-in-out}');
     /* Кадра нет — герой собирается из размытого постера (экран 22).
        Task 38: filter:blur(1.75em) снят, размытие даёт сам постер — его
@@ -2285,31 +2316,81 @@
        ролика просвечивает статичная картинка), а текст героя поджимается:
        описание уходит, остаются логотип/заголовок и мета — экран 02 карточки
        решает ту же задачу тем же приёмом. */
-    css.push('.lumen-hero.lumen-hero--trailer .lumen-hero__bg.is-active{opacity:.25}');
+    css.push('.lumen-hero.lumen-hero--trailer .lumen-hero__bg.is-active,.lumen-hero.lumen-hero--trailer .lumen-hero__lqip.is-active{opacity:.25}');
     css.push('.lumen-hero.lumen-hero--trailer .lumen-hero__descr{display:none}');
 
-    /* Вуали — градиенты, не фильтры (ограничение брифа 5): слева под текст,
-       снизу под ряды (там фон почти чёрный). */
+    /* Task 64, п.4 плана: фокус ушёл в ряды — кадр гаснет ПОЛНОСТЬЮ, а не
+       только уезжает вверх. Так же ведёт себя Top Shelf tvOS: «при уходе
+       фокуса вниз фон убирается полностью»
+       (docs/research/2026-09-21-tv-design-specs.md §1, «Герой / Top Shelf»).
+       Гаснут именно слои КАДРА — текст героя остаётся: описание в кадре
+       пользователь решил оставить, и сжатое состояние по-прежнему только
+       поджимает текстовый блок (правила .lumen-hero--compact ниже).
+       Ролик гасится вместе с кадром: он лежит на месте кадра, и оставить его
+       одного значило бы «кадр гаснет наполовину». Проигрываться он при этом
+       не перестаёт — этим заведует src/55_trailer.js.
+       Специфичность у первых двух селекторов ровно та же, что у правила
+       трейлера выше (четыре класса), поэтому они стоят НИЖЕ него и
+       выигрывают: погашенный кадр важнее приглушённого. */
+    css.push('.lumen-hero.lumen-hero--compact .lumen-hero__bg.is-active,.lumen-hero.lumen-hero--compact .lumen-hero__lqip.is-active{opacity:0}');
+    css.push('.lumen-hero.lumen-hero--compact .lumen-hero__trailer.is-live{opacity:0}');
+    /* Левая вуаль уходит вместе с кадром — она нужна только для читаемости
+       текста НА картинке. Замер на стенде 2026-09-21 (960×540@2, снимок
+       главной с фокусом во втором ряду): без этого правила погашенный кадр
+       оставлял на экране саму вуаль — полупрозрачную заливку P.bg с
+       собственной кромкой на 65 % ширины. Разницу видно потому, что герой
+       поднят на 4em выше корня .lumen-main (правило .lumen-hero выше) и
+       верхней своей частью лежит на фоне Lampa, а не на нашем P.bg. */
+    css.push('.lumen-hero.lumen-hero--compact .lumen-hero__veil{opacity:0}');
+    css.push('.lumen-hero.lumen-motion-full .lumen-hero__veil{-webkit-transition:opacity .35s ease;transition:opacity .35s ease}');
+
+    /* Левая вуаль — градиент, не фильтр (ограничение брифа 5): под текстом.
+       Нижней вуали-плашки здесь больше нет, см. маску кадра ниже. */
     css.push('.lumen-hero .lumen-hero__veil{position:absolute;top:0;left:0;right:0;bottom:0}');
     css.push(AR.veilL);
-    /* Нижняя вуаль. Два круга правок 2026-09-17 просили одного и того же:
-       «с середины картинки сделаем полупрозрачный» и «фон хочется чтобы был
-       больше прозрачного» — раньше вуаль выходила в сплошной фон за 16 %
-       высоты, и переход читался как граница.
-       Действующие стопы задаёт accentRules (Task 36 пересобрал их пятью
-       точками ради плавности): сплошной P.bg у самой кромки, .92 на 10 %
-       высоты кадра, .6 на 24 %, .25 на 42 %, ноль на 62 %. Числа прежних
-       кругов («.62 на 14 %», «.18 на половине») из этого комментария убраны:
-       они описывали трёхстоповую вуаль, которой здесь давно нет.
-       Нового слоя ради этого не заводим: стопы правятся у той же вуали,
-       которую композитор уже рисует.
-       Нижний стоп при этом остался полностью непрозрачным, и это проверено
-       живьём (снимок главной, 2026-09-17): кадр героя обрезан по своей
-       высоте (overflow:hidden), ниже кромки картинки нет вовсе, поэтому
-       полупрозрачный нижний стоп давал на стыке с рядами видимую ступеньку —
-       7 % кадра резко обрывались в фон. Прозрачность имеет смысл там, где
-       под вуалью ещё есть что показывать, а не на самой границе. */
-    css.push(AR.veilB);
+
+    /* Task 64, п.3 плана: нижняя вуаль — линейный градиент-МАСКА по самому
+       изображению, а не плашка поверх него (tv-design-specs §1, «Герой /
+       Top Shelf»: «вуаль — линейный градиент-маска по изображению»; §3:
+       «у Apple градиент — маска изображения»).
+
+       Стопы — ровно те же пять, что были у плашки, только в обратную
+       сторону: где вуаль держала P.bg на .92, маска оставляет .08 кадра.
+       Цвет, в который кадр растворяется, теперь не дублируется в вуали —
+       под слоями кадра лежит фон главной .lumen-main{background-color:P.bg}
+       (правило AR.main). Поэтому и в узле подкраски (LC.accentCss) нижней
+       вуали больше нет: при смене темы и при подкраске от постера
+       перекрашивается один фон, и разъехаться им негде.
+       Результат на экране прежний: src-over с тем же цветом даёт ту же
+       смесь, в каком бы порядке ни накладывались левая вуаль и нижнее
+       затухание.
+
+       Что это меняет по слоям: полноэкранный рисующий узел .lumen-hero__veil
+       --b снят совсем, композитных слоёв маска не добавляет — маску несут
+       те же узлы кадра и ролика, новых элементов нет. Проверка на
+       устройстве всё равно нужна: ни один тест и ни один стенд композитора
+       не видит.
+       Совместимость: -webkit-mask-image поддерживается движками WebKit/Blink
+       с давних версий, стандартное mask-image — с Chrome 120; пара пишется
+       обе, как и остальные префиксные свойства плагина. Движок, не знающий
+       ни того ни другого, покажет кадр без нижнего затухания — с резкой
+       кромкой у рядов; на легаси-WebView Philips (ресёрч §0) это не
+       проверено. */
+    var heroMask = 'rgba(0,0,0,0) 0%,rgba(0,0,0,.08) 10%,rgba(0,0,0,.4) 24%,rgba(0,0,0,.75) 42%,#000 62%';
+    css.push('.lumen-hero .lumen-hero__bg,.lumen-hero .lumen-hero__lqip,.lumen-hero .lumen-hero__trailer{' +
+      '-webkit-mask-image:-webkit-linear-gradient(bottom,' + heroMask + ');mask-image:linear-gradient(0deg,' + heroMask + ');' +
+      '-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat}');
+    /* У слоя ролика бокс выше кадра на 20 % (top:-10%;bottom:-10% в правиле
+       выше), и маска по умолчанию растянулась бы на него целиком — стопы
+       разъехались бы с кадром на пару процентов высоты, а у самой кромки
+       героя ролик остался бы видимым на 7 % вместо нуля. Поэтому маске
+       ролика задан размер ровно в высоту кадра (100 / 120 = 83.33 %) и
+       положение по центру бокса: свободных 16.67 % делятся поровну, то есть
+       маска начинается на 8.33 % — там же, где верхняя кромка кадра.
+       Выходящие за маску полоски ролика при mask-repeat:no-repeat
+       прозрачны, и это ничего не отнимает: они и так лежат за кромкой героя
+       (overflow:hidden). */
+    css.push('.lumen-hero .lumen-hero__trailer{-webkit-mask-size:100% 83.33%;mask-size:100% 83.33%;-webkit-mask-position:0 50%;mask-position:0 50%}');
 
     /* Правка пользователя 2026-09-17 (второй круг, п.1): «а может текст вниз
        спустить, чтобы не перекрывало картинку?». Блок прижат к НИЖНЕЙ кромке
@@ -2777,7 +2858,7 @@
     css.push('@media screen and (min-aspect-ratio:' + heroMinRatio + '/100){' +
       '.lumen-main .scroll.layer--wheight,.lumen-main.lumen-rows-up .scroll.layer--wheight' + rowsFull +
       '.lumen-main .lumen-hero,.lumen-main .lumen-hero.lumen-hero--compact{top:0;height:auto;overflow:visible;-webkit-transform:none;transform:none}' +
-      '.lumen-hero .lumen-hero__bg,.lumen-hero .lumen-hero__veil,.lumen-hero .lumen-hero__trailer,.lumen-hero .lumen-fx{display:none}' +
+      '.lumen-hero .lumen-hero__bg,.lumen-hero .lumen-hero__lqip,.lumen-hero .lumen-hero__veil,.lumen-hero .lumen-hero__trailer,.lumen-hero .lumen-fx{display:none}' +
       /* Сжатый вариант перечислен рядом не для симметрии: у него на класс
          больше, и без него правило сжатия (.lumen-hero--compact
          .lumen-hero__text выше) выиграло бы по специфичности — медиазапрос
@@ -3183,10 +3264,13 @@
        на это время: листать в режиме кадра всё равно нечего. */
     css.push('.lumen-roulette-screen.is-kadr>.scroll{-webkit-mask-image:none;mask-image:none}');
     css.push('.lumen-roulette-screen .lumen-roulette__bg{position:absolute;top:-4em;right:0;bottom:0;left:0;background-position:center;background-repeat:no-repeat;-webkit-background-size:cover;background-size:cover;opacity:0;pointer-events:none}');
-    /* Вуали — те же два градиента, что у героя (см. AR.veilL/AR.veilB выше):
-       слева под текст, снизу под карточку результата. Здесь они собственные,
-       а не из accentRules: подкраска по постеру доходит до главной и
-       карточки, а рулетку не трогает, и перекрашивать тут нечего. */
+    /* Вуали — те же два градиента, что были у героя до Task 64 (левый живёт
+       в AR.veilL выше, нижний у героя стал маской кадра): слева под текст,
+       снизу под карточку результата. Здесь они собственные, а не из
+       accentRules: подкраска по постеру доходит до главной и карточки, а
+       рулетку не трогает, и перекрашивать тут нечего. Кадр рулетки остался
+       фоном div (.lumen-roulette__bg выше) — на <img> его переводит не эта
+       задача. */
     css.push('.lumen-roulette-screen .lumen-roulette__veil{position:absolute;top:-4em;right:0;bottom:0;left:0;opacity:0;pointer-events:none}');
     css.push('.lumen-roulette-screen .lumen-roulette__veil--l{background:-webkit-linear-gradient(left,rgba(' + P.bgRgb + ',.85) 0%,rgba(' + P.bgRgb + ',.45) 30%,rgba(' + P.bgRgb + ',0) 65%);background:linear-gradient(90deg,rgba(' + P.bgRgb + ',.85) 0%,rgba(' + P.bgRgb + ',.45) 30%,rgba(' + P.bgRgb + ',0) 65%)}');
     css.push('.lumen-roulette-screen .lumen-roulette__veil--b{background:-webkit-linear-gradient(bottom,' + P.bg + ' 0%,rgba(' + P.bgRgb + ',.92) 10%,rgba(' + P.bgRgb + ',.6) 24%,rgba(' + P.bgRgb + ',.25) 42%,rgba(' + P.bgRgb + ',0) 62%);background:linear-gradient(0deg,' + P.bg + ' 0%,rgba(' + P.bgRgb + ',.92) 10%,rgba(' + P.bgRgb + ',.6) 24%,rgba(' + P.bgRgb + ',.25) 42%,rgba(' + P.bgRgb + ',0) 62%)}');

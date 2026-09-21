@@ -454,22 +454,46 @@
       };
     }
 
-    /* Разметка героя. Все узлы — div: логотип рисуется фоном (background-
-       image, contain), поэтому отдельного <img> нет, а значит нет и второго
-       пути загрузки картинок мимо прокси TMDB.
+    /* Разметка героя. Логотип рисуется фоном (background-image, contain) —
+       у него нет ни приоритета загрузки, ни decode(), и он мелкий.
        Два слоя кадра с разными модификаторами (--a/--b) вместо двух
        одинаковых классов: кроссфейд обращается к конкретному слою, а не к
-       набору из двух узлов. */
+       набору из двух узлов.
+
+       Task 64: слои кадра — <img>, а не div с background-image. У фона нет
+       ни decoding, ни fetchpriority, ни load/error, ни decode(), и запрос
+       уходит позже — после раскладки (docs/research/2026-09-21-webview-perf.md
+       §4, «Герой — только <img>»). Кадрирование, которое до Task 64 давали
+       background-size:cover и background-position:center 30 %, теперь на
+       object-fit/object-position в src/30_css.js — те же значения.
+       fetchpriority высокий: кадр героя — самая крупная картинка экрана и
+       единственная, которую видно сразу. Атрибут появился в Chrome 101 и на
+       движках постарше просто игнорируется (ресёрч §0: у легаси-WebView
+       Philips его может не быть).
+
+       .lumen-hero__lqip — тот же backdrop в w300 (0.05 Мпикс), слой под
+       обоими кадрами: он приезжает первым и закрывает пустоту, пока грузится
+       w1280 (ресёрч §4, LQIP). filter:blur на нём не используется — размытие
+       фильтром на этом железе дорого (§«Что НЕ делать»), мягкость даёт сам
+       апскейл w300 на весь кадр, как у постера в w92 выше.
+
+       Нижней вуали-плашки (.lumen-hero__veil--b) здесь больше нет: её
+       заменила градиентная МАСКА самих слоёв кадра (src/30_css.js), то есть
+       кадр растворяется в фоне страницы вместо того, чтобы закрашиваться
+       отдельным полноэкранным узлом. Левая вуаль осталась плашкой: двух
+       масок разных направлений на одном элементе без mask-composite не
+       собрать, а mask-composite в WebView телевизора не проверен. */
     function buildNode() {
       var node = $('<div class="lumen-hero">' +
-        '<div class="lumen-hero__bg lumen-hero__bg--a"></div>' +
-        '<div class="lumen-hero__bg lumen-hero__bg--b"></div>' +
-        /* Task 28: слой автотрейлера — между кадром и вуалями, как
-           .lumen-bg__trailer в слое фона карточки: вуали обязаны лежать
-           поверх ролика, иначе текст героя на нём не прочитать. */
+        '<img class="lumen-hero__lqip" decoding="async" alt="">' +
+        '<img class="lumen-hero__bg lumen-hero__bg--a" decoding="async" fetchpriority="high" alt="">' +
+        '<img class="lumen-hero__bg lumen-hero__bg--b" decoding="async" fetchpriority="high" alt="">' +
+        /* Task 28: слой автотрейлера — между кадром и вуалью, как
+           .lumen-bg__trailer в слое фона карточки: вуаль обязана лежать
+           поверх ролика, иначе текст героя на нём не прочитать. Нижнюю
+           границу ролика Task 64 растворяет той же маской, что и кадр. */
         '<div class="lumen-hero__trailer"></div>' +
         '<div class="lumen-hero__veil lumen-hero__veil--l"></div>' +
-        '<div class="lumen-hero__veil lumen-hero__veil--b"></div>' +
         /* Task 21: слой тематической атмосферы — ПОСЛЕ вуалей, как в слое
            фона карточки: частицы должны быть видны поверх затемнения.
            Текст героя лежит в соседнем .lumen-hero__text, который идёт
@@ -881,7 +905,15 @@
        (transition:opacity .6s у .lumen-hero__bg, src/30_css.js), композитор
        держит оба слоя, а фокус на главной переезжает каждые несколько секунд.
        Правило transition в таблице стилей тоже стоит под body.lumen-fx-heavy,
-       поэтому подмена здесь мгновенная, без полупрозрачности. */
+       поэтому подмена здесь мгновенная, без полупрозрачности.
+
+       Task 64: слой — <img>, поэтому кадр ставится атрибутом src, а не
+       background-image. Второго сетевого запроса это не добавляет: тот же
+       адрес только что дотянул предзагрузчик из loadFrame, и <img> берёт его
+       из кэша ресурсов. Порядок тот же, что и был: src ставится ТОЛЬКО
+       здесь, то есть уже после того, как байты доехали (а при живом decode()
+       — и после декодирования), поэтому смена src не показывает пустой
+       слой. */
     function swapFrame(url, blur) {
       if (!state) return;
       var node = state.node;
@@ -892,7 +924,7 @@
         /* Слой, который уже на экране; на первом кадре карточки активного
            ещё нет — тогда это всегда --a, и --b остаётся пустым навсегда. */
         var only = activeIsA ? a : (b.hasClass('is-active') ? b : a);
-        only.css('background-image', 'url("' + encodeURI(url) + '")');
+        only.attr('src', url);
         only.addClass('is-active');
         only.toggleClass('lumen-hero__bg--blur', !!blur);
         state.frameUrl = url;
@@ -900,7 +932,7 @@
       }
       var next = activeIsA ? b : a;
       var prev = activeIsA ? a : b;
-      next.css('background-image', 'url("' + encodeURI(url) + '")');
+      next.attr('src', url);
       next.addClass('is-active');
       prev.removeClass('is-active');
       /* Метку получает ТОЛЬКО приходящий слой, и только он. С уходящего её
@@ -914,6 +946,31 @@
          ему метку заново — по его собственному кадру. */
       next.toggleClass('lumen-hero__bg--blur', !!blur);
       state.frameUrl = url;
+    }
+
+    /* Task 64: подложку LQIP держат ровно до первого показанного кадра —
+       дальше она лежит под непрозрачной картинкой и стоит только памяти.
+       Освобождение отложено: кадр проявляется переходом opacity (до 600 мс у
+       кроссфейда с тяжёлыми эффектами), и снять подложку в тот же миг
+       значило бы показать сквозь полупрозрачный кадр голый фон. 900 мс —
+       этот максимум плюс запас.
+       removeAttr, а не src = '': пустой src в старых движках это запрос к
+       адресу самой страницы. */
+    var LQIP_FREE = 900;
+    function releaseLqip() {
+      if (!state || !state.lqipUrl) return;
+      var captured = gen;
+      stopTimer('lqipTimer');
+      state.lqipTimer = setTimeout(function () {
+        if (gen !== captured || !state) return;
+        state.lqipTimer = null;
+        state.lqipUrl = '';
+        try {
+          var lqip = state.node.find('.lumen-hero__lqip');
+          lqip.removeClass('is-active');
+          lqip.removeAttr('src');
+        } catch (e) {}
+      }, LQIP_FREE);
     }
 
     /* Предзагрузка кадра фокусной карточки. Кадра нет — берём постер и
@@ -943,6 +1000,28 @@
       var url = imageUrl(path, blur ? 'w92' : sizeFor(screenWidth()));
       if (!url || url === state.frameUrl) return;
 
+      /* Task 64: LQIP — тот же backdrop в w300. Слой под кадрами, показ без
+         ожидания: 300 × 169 это 0.05 Мпикс и 0.2 МБ растра (замер на стенде
+         2026-09-21: naturalWidth × naturalHeight × 4 = 202 800 байт), он
+         доезжает и декодируется заметно раньше w1280 — 1280 × 720, те же
+         3 686 400 байт.
+         Ставится он ровно один раз — пока не показан НИ ОДИН кадр. Дальше,
+         при листании, под приходящим кадром лежит непрозрачный предыдущий
+         (фон при смене карточки не мигает — ограничение брифа 1), и подложка
+         из-под него не видна: обновлять её на каждой карточке значило бы
+         тянуть и декодировать картинку, которой никто не увидит.
+         Варианту «кадра нет, собираем из постера» подложка не нужна вовсе:
+         постер и так берётся в w92, что мельче w300. */
+      if (!blur && !state.frameUrl) {
+        var small = imageUrl(path, 'w300');
+        if (small) {
+          var lqip = state.node.find('.lumen-hero__lqip');
+          lqip.attr('src', small);
+          lqip.addClass('is-active');
+          state.lqipUrl = small;
+        }
+      }
+
       var loader = new Image();
       /* Task 39: просим WebView не декодировать кадр синхронно на главном
          потоке (свойство decoding, Chrome 65+; движки постарше его просто
@@ -950,6 +1029,12 @@
          загрузка начинается. Так же помечены все остальные предзагрузчики
          плагина — фон карточки, слайдшоу, рулетка. */
       loader.decoding = 'async';
+      /* Task 64: тот же высокий приоритет, что и у слоя кадра в разметке —
+         запрос делает именно этот предзагрузчик, поэтому подсказка нужна
+         здесь. Свойство fetchPriority есть с Chrome 101; на движках постарше
+         присваивание просто создаёт неиспользуемое поле объекта и ничего не
+         меняет. */
+      loader.fetchPriority = 'high';
       var done = false;
       /* Task 47: decode() есть с Chrome 64 (ресёрч §4); на движках постарше
          остаётся прежний путь через onload. */
@@ -984,6 +1069,7 @@
         } catch (e) {
           warn('hero: frame failed', e);
         }
+        releaseLqip();
       }
 
       function shown() { finish(true); }
@@ -1594,6 +1680,11 @@
           pending: null,
           focusAt: 0,
           frameUrl: '',
+          /* Task 64: адрес кадра-подложки (w300), чтобы тот же не ставился
+             дважды. */
+          lqipUrl: '',
+          /* Task 64: отложенное освобождение подложки, см. releaseLqip. */
+          lqipTimer: null,
           /* Task 28: отложенный старт ролика, его запрос, сам плеер и
              карточка, которой он принадлежит. */
           trailerTimer: null,
@@ -1665,7 +1756,7 @@
       last = null;
       gen++;
       unlistenFocus(s);
-      var timers = ['timer', 'swapTimer', 'loadTimer', 'accentTimer', 'bigTimer', 'trailerTimer'];
+      var timers = ['timer', 'swapTimer', 'loadTimer', 'accentTimer', 'bigTimer', 'trailerTimer', 'lqipTimer'];
       for (var i = 0; i < timers.length; i++) {
         try { if (s[timers[i]]) clearTimeout(s[timers[i]]); } catch (eT) {}
       }

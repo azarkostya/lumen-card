@@ -54,16 +54,18 @@
 
     /* Полноэкранные РИСУЮЩИЕ слои плагина — контейнеры-обёртки, которые сами
        ничего не рисуют (.lumen-backdrop, .lumen-overlay), в список не идут.
-       Проверено grep'ом по src/: .lumen-hero__bg/.lumen-hero__veil
-       (базовый класс обеих вуалей, в DOM "lumen-hero__veil lumen-hero__veil--l"
-       и "--b") и .lumen-hero__trailer — src/48_hero.js; .lumen-fx — и в
+       Проверено grep'ом по src/: .lumen-hero__bg, .lumen-hero__lqip
+       (подложка LQIP, Task 64), .lumen-hero__veil (в DOM
+       "lumen-hero__veil lumen-hero__veil--l"; нижней вуали с Task 64 нет —
+       её заменила маска самих слоёв кадра, отдельного узла у неё не
+       осталось) и .lumen-hero__trailer — src/48_hero.js; .lumen-fx — и в
        кадре героя (48_hero.js), и на фоне карточки (src/50_backdrops.js);
        .lumen-backdrop__img, .lumen-backdrop__veil (базовый класс трёх вуалей
        --l/--b/--t) и кадры слайдшоу .lumen-bg__img — src/50_backdrops.js/
        src/51_slideshow.js; .lumen-ambient (сам красит фон и анимируется) и
        .lumen-ambient__img — src/54_ambient.js; .lumen-overlay__img —
        src/67_transition.js; .lumen-roulette__bg — src/56_roulette.js. */
-    var FULL = '.lumen-hero__bg,.lumen-hero__veil,.lumen-hero__trailer,.lumen-fx,' +
+    var FULL = '.lumen-hero__bg,.lumen-hero__lqip,.lumen-hero__veil,.lumen-hero__trailer,.lumen-fx,' +
       '.lumen-backdrop__img,.lumen-backdrop__veil,.lumen-backdrop .lumen-bg__img,' +
       '.lumen-ambient,.lumen-ambient__img,.lumen-overlay__img,.lumen-roulette__bg';
     function layers() {
