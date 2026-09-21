@@ -434,11 +434,19 @@
       uk: 'Сховати'
     },
 
-    /* Task 15/20 (фаза 2): группа настроек главной и подборок. */
+    /* Task 15/20 (фаза 2): группа настроек главной. Task 57 (фаза 5)
+       разделил её надвое: всё про ряды подборок ушло в lumen_group_rows —
+       десятым пунктом группа перестала помещаться на экран ТВ целиком
+       (предел в девять строк держит тест в test/prefs.test.mjs). */
     lumen_group_home: {
-      ru: 'Главная и подборки',
-      en: 'Home screen and collections',
-      uk: 'Головна та підбірки'
+      ru: 'Главная',
+      en: 'Home screen',
+      uk: 'Головна'
+    },
+    lumen_group_rows: {
+      ru: 'Ряды подборок',
+      en: 'Collection rows',
+      uk: 'Ряди підбірок'
     },
     /* Task 19/20: чипы профилей настроения под текстом героя на главной. */
     lumen_moods_name: {
@@ -495,6 +503,17 @@
       ru: 'рядов',
       en: 'rows',
       uk: 'рядів'
+    },
+    /* Task 57 (фаза 5): дедупликация фильмов между рядами главной. */
+    lumen_rows_dedupe_name: {
+      ru: 'Не повторять фильмы в рядах',
+      en: 'No repeats across rows',
+      uk: 'Не повторювати фільми в рядах'
+    },
+    lumen_rows_dedupe_descr: {
+      ru: 'Фильм показывается в первом ряду, где встретился, а из рядов ниже выпадает — чтобы одна и та же новинка не стояла и в «Сейчас смотрят», и в «В тренде». Ряд, от которого после этого осталась пара карточек, не показывается вовсе; ряды, выбранные вами вручную, и личные ряды остаются на месте.',
+      en: 'A movie is shown in the first row it appears in and drops out of the rows below, so the same new release does not sit in "Now playing" and "Trending" at once. A row left with just a couple of cards is hidden; rows you picked yourself and personal rows always stay.',
+      uk: 'Фільм показується в першому ряду, де трапився, а з рядів нижче зникає — щоб та сама новинка не стояла і в «Зараз дивляться», і в «У тренді». Ряд, від якого лишилася пара карток, не показується зовсім; ряди, обрані вами вручну, і особисті ряди лишаються на місці.'
     },
 
     /* Task 16 (фаза 2): персональные ряды на главной. */
@@ -918,11 +937,13 @@
       try { if (LC.applyMoodsPref) LC.applyMoodsPref(); } catch (eMoods) {}
       return true;
     }
-    /* Task 15/20 (фаза 2): состав, число и фильтр рядов главной. Все три
-       меняют НАБОР карточек в рядах, поэтому применяются одинаково:
+    /* Task 15/20 (фаза 2), Task 57 (фаза 5): состав, число, фильтр рядов
+       главной и дедупликация между рядами. Все меняют НАБОР карточек в
+       рядах, поэтому применяются одинаково:
        ряды перерегистрируются, открытая главная пересобирается
        (LC.applyRowsPref, src/90_runtime.js). */
-    if (name === 'lumen_hide_watched' || name === 'lumen_rows_limit' || name === 'lumen_home_rows') {
+    if (name === 'lumen_hide_watched' || name === 'lumen_rows_limit' || name === 'lumen_home_rows' ||
+        name === 'lumen_rows_dedupe') {
       try { if (LC.applyRowsPref) LC.applyRowsPref(); } catch (eRows) {}
       return true;
     }

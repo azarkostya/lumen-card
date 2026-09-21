@@ -5796,6 +5796,8 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 
+
+
 LC.rows = (function () {
 
 
@@ -5887,6 +5889,137 @@ for (i = 0; i < results.length; i++) {
 if (!seen[results[i].id]) out.push(results[i]);
 }
 return out;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+var DEDUPE_MIN = 4;
+
+
+
+
+
+
+
+
+
+
+
+
+function cardKey(card) {
+if (!card || card.id === null || card.id === undefined || card.id === '') return null;
+return (card.source ? '' + card.source : 'tmdb') + ':' + card.id;
+}
+
+
+
+
+
+
+
+function copyRow(row, results) {
+var copy = {};
+for (var k in row) {
+if (Object.prototype.hasOwnProperty.call(row, k)) copy[k] = row[k];
+}
+copy.results = results;
+return copy;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function dedupeAcross(rows, seen, min) {
+if (!rows || !rows.length) return [];
+seen = seen || {};
+if (typeof min !== 'number') min = DEDUPE_MIN;
+
+var kept = [];
+var i, j;
+for (i = 0; i < rows.length; i++) {
+var row = rows[i];
+if (!row || !row.results || !row.results.length) continue;
+var personal = !!row.lumen_personal;
+var out = [];
+for (j = 0; j < row.results.length; j++) {
+var card = row.results[j];
+var key = cardKey(card);
+if (key && seen[key] && !personal) continue;
+out.push(card);
+if (key) seen[key] = 1;
+}
+if (out.length) kept.push(copyRow(row, out));
+}
+
+
+var full = [];
+for (i = 0; i < kept.length; i++) {
+var r = kept[i];
+if (r.lumen_personal || r.lumen_keep || r.results.length >= min) full.push(r);
+}
+
+
+
+
+return full.length ? full : kept;
 }
 
 
@@ -6059,6 +6192,62 @@ flushWaiting();
 
 
 
+var _mainOriginal = null;
+var _mainWrapped = null;
+
+function dedupeEnabled() {
+try { return LC.pref ? !!LC.pref('lumen_rows_dedupe', true) : true; } catch (e) { return true; }
+}
+
+
+
+
+
+
+
+
+function installDedupe() {
+if (_mainWrapped) return;
+try {
+if (!window.Lampa || !Lampa.Api || typeof Lampa.Api.main !== 'function') return;
+} catch (e) { return; }
+_mainOriginal = Lampa.Api.main;
+_mainWrapped = function (params, oncomplite, onerror) {
+if (!dedupeEnabled()) return _mainOriginal(params, oncomplite, onerror);
+var seen = {};
+var next = _mainOriginal(params, function (data) {
+oncomplite(dedupeAcross(data, seen, DEDUPE_MIN));
+}, onerror);
+if (typeof next !== 'function') return next;
+return function (resolve, reject) {
+return next(function (more) {
+resolve(dedupeAcross(more, seen, DEDUPE_MIN));
+}, reject);
+};
+};
+try { Lampa.Api.main = _mainWrapped; } catch (eSet) { _mainWrapped = null; _mainOriginal = null; }
+}
+
+
+
+
+function uninstallDedupe() {
+if (!_mainWrapped) return;
+try {
+if (window.Lampa && Lampa.Api && Lampa.Api.main === _mainWrapped) {
+Lampa.Api.main = _mainOriginal;
+}
+} catch (e) {}
+_mainWrapped = null;
+_mainOriginal = null;
+}
+
+
+
+
+
+
+
 function doUnregister() {
 if (!_addedRows.length) return;
 for (var i = 0; i < _addedRows.length; i++) {
@@ -6097,10 +6286,18 @@ var rows = homeRows(manifest, picked, month, limitRaw);
 
 
 
+
+
+
+
+var pinned = !!(picked && picked.length);
+
+
+
 var shift = registerAdvent(manifest) ? 1 : 0;
 
 for (var i = 0; i < rows.length; i++) {
-registerRow(rows[i], i + shift);
+registerRow(rows[i], i + shift, pinned);
 }
 }
 
@@ -6208,7 +6405,10 @@ days = LC.themes.adventDays(adventPool(slots), today, words);
 } catch (e) {
 days = [];
 }
-resolve({ results: days, title: adventTitle(today) });
+
+
+
+resolve({ results: days, title: adventTitle(today), lumen_keep: true });
 }
 
 
@@ -6268,7 +6468,7 @@ return false;
 
 
 var ROWS_OFFSET = 4;
-function registerRow(item, index) {
+function registerRow(item, index, pinned) {
 try {
 if (!window.Lampa || !Lampa.ContentRows) return;
 
@@ -6281,7 +6481,7 @@ name: rowName(item.id),
 title: rowTitle,
 screen: 'main',
 index: index + ROWS_OFFSET,
-call: makeCall(item)
+call: makeCall(item, pinned)
 };
 Lampa.ContentRows.add(descriptor);
 _addedRows.push(descriptor);
@@ -6294,7 +6494,7 @@ _addedRows.push(descriptor);
 
 
 
-function makeCall(item) {
+function makeCall(item, pinned) {
 return function (params, screen) {
 return function (call) {
 
@@ -6314,7 +6514,11 @@ function (json) {
 var hide = false;
 try { hide = LC.pref ? !!LC.pref('lumen_hide_watched', false) : false; } catch (eIgnore) {}
 var filtered = filterWatched(json.results, viewedIds(json.results), hide);
-resolve({ results: filtered, title: item.title });
+var payload = { results: filtered, title: item.title };
+
+
+if (pinned) payload.lumen_keep = true;
+resolve(payload);
 },
 function () {
 
@@ -6348,6 +6552,11 @@ viewedIds: viewedIds,
 bumpGen: bumpGen,
 
 
+dedupeAcross: dedupeAcross,
+installDedupe: installDedupe,
+uninstallDedupe: uninstallDedupe,
+
+
 adventSpecs: adventSpecs,
 adventPool: adventPool,
 register: register,
@@ -6359,6 +6568,10 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 /* ---- 45_personal.js ---- */
+
+
+
+
 
 
 
@@ -6725,7 +6938,7 @@ var resolve = makeResolver(call);
 if (!alive()) { resolve({ results: [] }); return { cancel: function () {} }; }
 var items = continuesList();
 if (!alive()) { resolve({ results: [] }); return { cancel: function () {} }; }
-resolve({ results: items, title: LC.lang ? LC.lang('lumen_row_continue') : 'Continue watching' });
+resolve({ results: items, title: LC.lang ? LC.lang('lumen_row_continue') : 'Continue watching', lumen_personal: true });
 return { cancel: function () {} };
 };
 };
@@ -6753,7 +6966,7 @@ var handles = [];
 
 var gate = LC.util.gate(picked.length, ROW_TIMEOUT, function () {
 if (cancelled || !alive()) return;
-resolve({ results: results, title: rowTitle });
+resolve({ results: results, title: rowTitle, lumen_personal: true });
 });
 
 for (var i = 0; i < picked.length; i++) {
@@ -6823,7 +7036,7 @@ var handles = [];
 var gate = LC.util.gate(shows.length, ROW_TIMEOUT, function () {
 if (cancelled || !alive()) return;
 var filtered = newEpisodes(details, null);
-resolve({ results: filtered, title: LC.lang ? LC.lang('lumen_row_new_episodes') : 'New episodes' });
+resolve({ results: filtered, title: LC.lang ? LC.lang('lumen_row_new_episodes') : 'New episodes', lumen_personal: true });
 });
 
 for (var i = 0; i < shows.length; i++) {
@@ -6899,7 +7112,7 @@ var da = a.release_date || a.first_air_date || '';
 var db = b.release_date || b.first_air_date || '';
 return da < db ? -1 : da > db ? 1 : 0;
 });
-resolve({ results: all, title: LC.lang ? LC.lang('lumen_row_soon') : 'Coming soon' });
+resolve({ results: all, title: LC.lang ? LC.lang('lumen_row_soon') : 'Coming soon', lumen_personal: true });
 });
 
 function fetchDiscover(media, resultArr) {
@@ -22217,10 +22430,18 @@ uk: 'Сховати'
 },
 
 
+
+
+
 lumen_group_home: {
-ru: 'Главная и подборки',
-en: 'Home screen and collections',
-uk: 'Головна та підбірки'
+ru: 'Главная',
+en: 'Home screen',
+uk: 'Головна'
+},
+lumen_group_rows: {
+ru: 'Ряды подборок',
+en: 'Collection rows',
+uk: 'Ряди підбірок'
 },
 
 lumen_moods_name: {
@@ -22277,6 +22498,17 @@ lumen_rows_limit_suffix: {
 ru: 'рядов',
 en: 'rows',
 uk: 'рядів'
+},
+
+lumen_rows_dedupe_name: {
+ru: 'Не повторять фильмы в рядах',
+en: 'No repeats across rows',
+uk: 'Не повторювати фільми в рядах'
+},
+lumen_rows_dedupe_descr: {
+ru: 'Фильм показывается в первом ряду, где встретился, а из рядов ниже выпадает — чтобы одна и та же новинка не стояла и в «Сейчас смотрят», и в «В тренде». Ряд, от которого после этого осталась пара карточек, не показывается вовсе; ряды, выбранные вами вручную, и личные ряды остаются на месте.',
+en: 'A movie is shown in the first row it appears in and drops out of the rows below, so the same new release does not sit in "Now playing" and "Trending" at once. A row left with just a couple of cards is hidden; rows you picked yourself and personal rows always stay.',
+uk: 'Фільм показується в першому ряду, де трапився, а з рядів нижче зникає — щоб та сама новинка не стояла і в «Зараз дивляться», і в «У тренді». Ряд, від якого лишилася пара карток, не показується зовсім; ряди, обрані вами вручну, і особисті ряди лишаються на місці.'
 },
 
 
@@ -22704,7 +22936,9 @@ return true;
 
 
 
-if (name === 'lumen_hide_watched' || name === 'lumen_rows_limit' || name === 'lumen_home_rows') {
+
+if (name === 'lumen_hide_watched' || name === 'lumen_rows_limit' || name === 'lumen_home_rows' ||
+name === 'lumen_rows_dedupe') {
 try { if (LC.applyRowsPref) LC.applyRowsPref(); } catch (eRows) {}
 return true;
 }
@@ -23169,8 +23403,23 @@ var LIST = [
 
 
 
+
+
+
+{ name: 'lumen_group_rows', type: 'title', label: 'lumen_group_rows' },
+
+
+
+
 { name: 'lumen_home_rows', type: 'button', label: 'lumen_home_rows_name', descr: 'lumen_home_rows_descr' },
 { name: 'lumen_rows_limit', type: 'select', values: ['10', '15', '25'], vsuffix: 'lumen_rows_limit_suffix', 'default': '15', label: 'lumen_rows_limit_name', descr: 'lumen_rows_limit_descr' },
+
+
+
+
+
+
+{ name: 'lumen_rows_dedupe', type: 'trigger', 'default': true, label: 'lumen_rows_dedupe_name', descr: 'lumen_rows_dedupe_descr' },
 
 
 
@@ -25475,6 +25724,15 @@ warn('rows register failed', eRows2);
 }
 
 
+
+
+try {
+if (LC.rows && LC.rows.installDedupe) LC.rows.installDedupe();
+} catch (eDedupe) {
+warn('rows dedupe install failed', eDedupe);
+}
+
+
 try {
 if (LC.personal && LC.personal.register) LC.personal.register();
 } catch (ePersonal) {
@@ -25599,6 +25857,9 @@ stripAllCards();
 
 
 try { if (LC.rows && LC.rows.unregister) LC.rows.unregister(); } catch (eRows) {}
+
+
+try { if (LC.rows && LC.rows.uninstallDedupe) LC.rows.uninstallDedupe(); } catch (eDedupeOff) {}
 
 try { if (LC.personal && LC.personal.unregister) LC.personal.unregister(); } catch (ePersonalOff) {}
 

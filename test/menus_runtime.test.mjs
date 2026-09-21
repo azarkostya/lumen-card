@@ -155,6 +155,8 @@ test('долг ревью (п.2): каждая настройка раздела
     lumen_hide_watched: [],
     lumen_rows_limit: [],
     lumen_home_rows: [],
+    /* Task 57 (фаза 5): дедупликация между рядами — тот же applyRowsPref. */
+    lumen_rows_dedupe: [],
     /* Task 19/20 (фаза 2): чипы настроения — applyMoodsPref, вне POINTS. */
     lumen_moods: [],
     /* Task 16 (фаза 2): персональные ряды — applyPersonalPref без точек POINTS. */

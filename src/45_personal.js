@@ -40,6 +40,10 @@
   /* Безопасность при отсутствии данных: каждый ряд проверяет наличие      */
   /* источника (Favorite, история) и не регистрируется, если данных нет.   */
   /* «Скоро» регистрируется всегда — данные пользователя не нужны.         */
+  /*                                                                       */
+  /* Task 57: каждый ряд помечает свой ответ полем lumen_personal. Для     */
+  /* дедупликации рядов главной (LC.rows.dedupeAcross) это значит «состав  */
+  /* не трогать, но карточки в окно положить» — разбор там же.             */
   /* -------------------------------------------------------------------- */
 
   LC.personal = (function () {
@@ -364,7 +368,7 @@
           if (!alive()) { resolve({ results: [] }); return { cancel: function () {} }; }
           var items = continuesList();
           if (!alive()) { resolve({ results: [] }); return { cancel: function () {} }; }
-          resolve({ results: items, title: LC.lang ? LC.lang('lumen_row_continue') : 'Continue watching' });
+          resolve({ results: items, title: LC.lang ? LC.lang('lumen_row_continue') : 'Continue watching', lumen_personal: true });
           return { cancel: function () {} };
         };
       };
@@ -392,7 +396,7 @@
              тем, что успело прийти. */
           var gate = LC.util.gate(picked.length, ROW_TIMEOUT, function () {
             if (cancelled || !alive()) return;
-            resolve({ results: results, title: rowTitle });
+            resolve({ results: results, title: rowTitle, lumen_personal: true });
           });
 
           for (var i = 0; i < picked.length; i++) {
@@ -462,7 +466,7 @@
           var gate = LC.util.gate(shows.length, ROW_TIMEOUT, function () {
             if (cancelled || !alive()) return;
             var filtered = newEpisodes(details, null);
-            resolve({ results: filtered, title: LC.lang ? LC.lang('lumen_row_new_episodes') : 'New episodes' });
+            resolve({ results: filtered, title: LC.lang ? LC.lang('lumen_row_new_episodes') : 'New episodes', lumen_personal: true });
           });
 
           for (var i = 0; i < shows.length; i++) {
@@ -538,7 +542,7 @@
               var db = b.release_date || b.first_air_date || '';
               return da < db ? -1 : da > db ? 1 : 0;
             });
-            resolve({ results: all, title: LC.lang ? LC.lang('lumen_row_soon') : 'Coming soon' });
+            resolve({ results: all, title: LC.lang ? LC.lang('lumen_row_soon') : 'Coming soon', lumen_personal: true });
           });
 
           function fetchDiscover(media, resultArr) {

@@ -551,3 +551,259 @@ test('адвент: unregister снимает ряд адвента вместе
   assert.equal(s.removedRows.length, s.addedRows.length);
   assert.ok(s.removedRows.some(function (r) { return r.name === 'lumen_advent'; }));
 });
+
+/* ====================================================================== */
+/* Task 57: фильм не повторяется в рядах ниже по главной.                 */
+/* ====================================================================== */
+
+/* Ряд в том виде, в каком его отдаёт Lampa компоненту главной:
+   {title, results:[карточка, …]} плюс наши флаги. */
+function mkRow(title, ids, extra) {
+  var r = { title: title, results: [] };
+  for (var i = 0; i < ids.length; i++) {
+    r.results.push(typeof ids[i] === 'object' ? ids[i] : { id: ids[i], source: 'tmdb' });
+  }
+  if (extra) for (var k in extra) r[k] = extra[k];
+  return r;
+}
+function idsOf(row) { return row.results.map(function (c) { return c.id; }); }
+
+test('dedupeAcross: во втором ряду дубли первого исчезают, порядок сохранён', function () {
+  var rows = [
+    mkRow('В тренде', [1, 2, 3, 4, 5]),
+    mkRow('Сейчас смотрят', [9, 2, 8, 1, 7, 6])
+  ];
+  var out = R.dedupeAcross(rows, {}, 1);
+  assert.equal(out.length, 2);
+  assert.deepEqual(idsOf(out[0]), [1, 2, 3, 4, 5]);
+  assert.deepEqual(idsOf(out[1]), [9, 8, 7, 6], 'дубли ушли, оставшиеся в прежнем порядке');
+});
+
+test('dedupeAcross: порядок рядов не меняется', function () {
+  var rows = [mkRow('A', [1, 2, 3, 4]), mkRow('B', [5, 6, 7, 8]), mkRow('C', [9, 10, 11, 12])];
+  var out = R.dedupeAcross(rows, {}, 1);
+  assert.deepEqual(out.map(function (r) { return r.title; }), ['A', 'B', 'C']);
+});
+
+test('dedupeAcross: ряд короче порога не показывается вовсе', function () {
+  var rows = [
+    mkRow('A', [1, 2, 3, 4, 5, 6]),
+    mkRow('B', [1, 2, 3, 4, 7, 8]),
+    mkRow('C', [20, 21, 22, 23])
+  ];
+  var out = R.dedupeAcross(rows, {}, 4);
+  assert.deepEqual(out.map(function (r) { return r.title; }), ['A', 'C'],
+    'у B после окна осталось две карточки — огрызок, его не показываем');
+});
+
+test('dedupeAcross: карточки выброшенного ряда всё равно попали в окно', function () {
+  var rows = [
+    mkRow('A', [1, 2, 3, 4]),
+    mkRow('B', [1, 2, 3, 50]),
+    mkRow('C', [50, 60, 61, 62, 63])
+  ];
+  var out = R.dedupeAcross(rows, {}, 4);
+  assert.deepEqual(out.map(function (r) { return r.title; }), ['A', 'C']);
+  assert.deepEqual(idsOf(out[1]), [60, 61, 62, 63], 'карточка 50 уже была в выброшенном ряду');
+});
+
+test('dedupeAcross: ряд с lumen_keep не выбрасывается, даже став коротким', function () {
+  var rows = [
+    mkRow('A', [1, 2, 3, 4, 5]),
+    mkRow('Мой выбор', [1, 2, 3, 99], { lumen_keep: true })
+  ];
+  var out = R.dedupeAcross(rows, {}, 4);
+  assert.deepEqual(out.map(function (r) { return r.title; }), ['A', 'Мой выбор']);
+  assert.deepEqual(idsOf(out[1]), [99]);
+});
+
+test('dedupeAcross: персональный ряд состава не теряет, но в окно попадает', function () {
+  var rows = [
+    mkRow('Продолжить', [1, 2], { lumen_personal: true }),
+    mkRow('Ещё личный', [1, 2, 3], { lumen_personal: true }),
+    mkRow('В тренде', [1, 2, 3, 4, 5, 6, 7])
+  ];
+  var out = R.dedupeAcross(rows, {}, 4);
+  assert.deepEqual(idsOf(out[0]), [1, 2], 'персональный ряд не трогаем');
+  assert.deepEqual(idsOf(out[1]), [1, 2, 3], 'и второй тоже');
+  assert.deepEqual(idsOf(out[2]), [4, 5, 6, 7], 'а подборке личные карточки уже показаны');
+});
+
+test('dedupeAcross: ключ — пара «источник + id»', function () {
+  var rows = [
+    mkRow('A', [{ id: 7, source: 'tmdb' }]),
+    mkRow('B', [{ id: 7, source: 'cub' }, { id: 7, source: 'tmdb' }])
+  ];
+  var out = R.dedupeAcross(rows, {}, 1);
+  assert.deepEqual(out[1].results, [{ id: 7, source: 'cub' }],
+    'разные источники — разные пространства id, дублем это не считается');
+});
+
+test('dedupeAcross: карточка без source считается tmdb (наш путь Кинопоиска)', function () {
+  var rows = [
+    mkRow('A', [{ id: 7, source: 'tmdb' }]),
+    mkRow('B', [{ id: 7 }, { id: 8 }])
+  ];
+  var out = R.dedupeAcross(rows, {}, 1);
+  assert.deepEqual(idsOf(out[1]), [8]);
+});
+
+test('dedupeAcross: карточка без id не ломает проход и не съедает соседей', function () {
+  var rows = [
+    mkRow('A', [1]),
+    mkRow('B', [{ id: null }, { id: undefined }, { id: 2 }])
+  ];
+  var out = R.dedupeAcross(rows, {}, 1);
+  assert.equal(out[1].results.length, 3, 'безымянные карточки остаются на месте');
+});
+
+test('dedupeAcross: входные ряды не мутируются', function () {
+  var rows = [mkRow('A', [1, 2]), mkRow('B', [1, 2, 3])];
+  var before = idsOf(rows[1]);
+  var out = R.dedupeAcross(rows, {}, 1);
+  assert.deepEqual(idsOf(rows[1]), before, 'исходный объект ряда остался прежним');
+  assert.notEqual(out[1], rows[1]);
+});
+
+test('dedupeAcross: окно общее на несколько пачек', function () {
+  var seen = {};
+  var first = R.dedupeAcross([mkRow('A', [1, 2, 3, 4])], seen, 1);
+  var second = R.dedupeAcross([mkRow('B', [3, 4, 5, 6])], seen, 1);
+  assert.deepEqual(idsOf(first[0]), [1, 2, 3, 4]);
+  assert.deepEqual(idsOf(second[0]), [5, 6], 'пачка помнит, что показала предыдущая');
+});
+
+test('dedupeAcross: пустая пачка не может получиться из непустой', function () {
+  /* Порог съел бы обе строки: в A три карточки, в B после окна одна. */
+  var rows = [mkRow('A', [1, 2, 3]), mkRow('B', [1, 2, 3, 4])];
+  var out = R.dedupeAcross(rows, {}, 4);
+  assert.equal(out.length, 2, 'лучше короткий ряд, чем пустая главная');
+  assert.deepEqual(idsOf(out[0]), [1, 2, 3]);
+  assert.deepEqual(idsOf(out[1]), [4]);
+});
+
+test('dedupeAcross: пустые и битые ряды пропускаются', function () {
+  var out = R.dedupeAcross([null, { title: 'X' }, mkRow('Y', []), mkRow('Z', [1])], {}, 1);
+  assert.deepEqual(out.map(function (r) { return r.title; }), ['Z']);
+  assert.deepEqual(R.dedupeAcross(null, {}, 4), []);
+  assert.deepEqual(R.dedupeAcross([], {}, 4), []);
+});
+
+/* ---------------------------------------------------------------- */
+/* Task 57, рантайм: обёртка над Lampa.Api.main.                      */
+/* ---------------------------------------------------------------- */
+
+/* Поддельный Lampa.Api.main: отдаёт batches[0] в oncomplite и возвращает
+   функцию next, которая отдаёт следующую пачку — ровно тот контракт,
+   которым пользуется компонент главной (app.min.js:37070). */
+function setupDedupeRuntime(opts) {
+  opts = opts || {};
+  var batches = opts.batches || [];
+  var mainCalls = [];
+  var Lampa = {
+    ContentRows: { add: function () {}, remove: function () {} },
+    Api: {
+      main: function (params, oncomplite, onerror) {
+        mainCalls.push(params);
+        oncomplite(batches[0] || []);
+        var i = 1;
+        return function (resolve, reject) {
+          if (i < batches.length) resolve(batches[i++]); else reject();
+        };
+      }
+    }
+  };
+  globalThis.window = { Lampa: Lampa, innerWidth: 1920 };
+  globalThis.Lampa = Lampa;
+  var prefs = Object.assign({ lumen_rows_dedupe: true }, opts.prefs || {});
+  var ctx = loadCtx('44_rows.js', {
+    pref: function (name, def) { return (name in prefs) ? prefs[name] : def; },
+    sources: { fetch: function () { return { clear: function () {} }; } },
+    lang: function (k) { return k; }
+  });
+  return { R: ctx.api, Lampa: Lampa, mainCalls: mainCalls };
+}
+
+test('installDedupe: обёртка чистит вторую пачку тем, что показала первая', function () {
+  var s = setupDedupeRuntime({
+    batches: [
+      [mkRow('A', [1, 2, 3, 4, 5])],
+      [mkRow('B', [1, 2, 6, 7, 8, 9])]
+    ]
+  });
+  s.R.installDedupe();
+  var got = [];
+  var next = s.Lampa.Api.main({}, function (data) { got.push(data); }, function () {});
+  next(function (data) { got.push(data); }, function () {});
+  assert.deepEqual(idsOf(got[0][0]), [1, 2, 3, 4, 5]);
+  assert.deepEqual(idsOf(got[1][0]), [6, 7, 8, 9], 'окно живёт весь экран, а не одну пачку');
+});
+
+test('installDedupe: новый заход на главную начинает окно заново', function () {
+  var s = setupDedupeRuntime({ batches: [[mkRow('A', [1, 2, 3, 4])]] });
+  s.R.installDedupe();
+  var got = [];
+  s.Lampa.Api.main({}, function (d) { got.push(d); }, function () {});
+  s.Lampa.Api.main({}, function (d) { got.push(d); }, function () {});
+  assert.deepEqual(idsOf(got[1][0]), [1, 2, 3, 4], 'второй заход показывает тот же ряд целиком');
+});
+
+test('installDedupe: настройка выключена — данные проходят как есть', function () {
+  var s = setupDedupeRuntime({
+    prefs: { lumen_rows_dedupe: false },
+    batches: [[mkRow('A', [1, 2, 3, 4]), mkRow('B', [1, 2, 3, 4])]]
+  });
+  s.R.installDedupe();
+  var got = null;
+  s.Lampa.Api.main({}, function (d) { got = d; }, function () {});
+  assert.equal(got.length, 2);
+  assert.deepEqual(idsOf(got[1]), [1, 2, 3, 4]);
+});
+
+test('installDedupe: идемпотентна, uninstallDedupe возвращает штатный Api.main', function () {
+  var s = setupDedupeRuntime({ batches: [[mkRow('A', [1])]] });
+  var original = s.Lampa.Api.main;
+  s.R.installDedupe();
+  s.R.installDedupe();
+  assert.notEqual(s.Lampa.Api.main, original);
+  s.R.uninstallDedupe();
+  assert.equal(s.Lampa.Api.main, original, 'выключенный плагин не оставляет своей обёртки');
+  s.R.uninstallDedupe();
+  assert.equal(s.Lampa.Api.main, original);
+});
+
+test('uninstallDedupe: чужую обёртку поверх нашей не срывает', function () {
+  var s = setupDedupeRuntime({ batches: [[mkRow('A', [1])]] });
+  s.R.installDedupe();
+  var foreign = function () {};
+  s.Lampa.Api.main = foreign;
+  s.R.uninstallDedupe();
+  assert.equal(s.Lampa.Api.main, foreign, 'поверх нас встал чужой плагин — не трогаем');
+});
+
+test('installDedupe: ошибка загрузки главной проходит насквозь', function () {
+  var s = setupDedupeRuntime({ batches: [] });
+  s.Lampa.Api.main = function (params, oncomplite, onerror) { onerror('boom'); };
+  s.R.installDedupe();
+  var err = null;
+  s.Lampa.Api.main({}, function () {}, function (e) { err = e; });
+  assert.equal(err, 'boom');
+});
+
+test('register: явно выбранный пользователем состав помечает ряды как несносимые', function () {
+  var s = setupRows({ prefs: { lumen_home_rows: 'col-a,col-b' } });
+  s.R.register(s.manifest);
+  var got = [];
+  s.addedRows[0].call({}, 'main')(function (payload) { got.push(payload); });
+  s.fetchCalls[0].ok({ results: [{ id: 1 }] });
+  assert.equal(got[0].lumen_keep, true);
+});
+
+test('register: набор по умолчанию метки не получает', function () {
+  var s = setupRows();
+  s.R.register(s.manifest);
+  var got = [];
+  s.addedRows[0].call({}, 'main')(function (payload) { got.push(payload); });
+  s.fetchCalls[0].ok({ results: [{ id: 1 }] });
+  assert.ok(!got[0].lumen_keep);
+});

@@ -1232,6 +1232,15 @@
     } catch (eRows2) {
       warn('rows register failed', eRows2);
     }
+    /* Task 57: дедупликация фильмов между рядами главной. Подменяет
+       Lampa.Api.main — ставить её надо один раз на активацию, а не на
+       каждую перерегистрацию рядов: свою настройку обёртка читает сама в
+       момент построения главной (src/44_rows.js, installDedupe). */
+    try {
+      if (LC.rows && LC.rows.installDedupe) LC.rows.installDedupe();
+    } catch (eDedupe) {
+      warn('rows dedupe install failed', eDedupe);
+    }
     /* Task 16: персональные ряды регистрируются синхронно — данные берутся
        из Lampa.Favorite (локально) без async-загрузки манифеста. */
     try {
@@ -1358,6 +1367,9 @@
        зарегистрирует ряды через LC.rows.register (может понадобиться, если
        плагин выключили и снова включили). */
     try { if (LC.rows && LC.rows.unregister) LC.rows.unregister(); } catch (eRows) {}
+    /* Task 57: выключенный плагин не имеет права держать свою обёртку над
+       Lampa.Api.main — главная должна строиться ровно как без плагина. */
+    try { if (LC.rows && LC.rows.uninstallDedupe) LC.rows.uninstallDedupe(); } catch (eDedupeOff) {}
     /* Task 16: снять персональные ряды. */
     try { if (LC.personal && LC.personal.unregister) LC.personal.unregister(); } catch (ePersonalOff) {}
     /* Task 17: убрать пункт меню «Подборки». */

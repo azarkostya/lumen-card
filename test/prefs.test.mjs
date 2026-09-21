@@ -151,6 +151,8 @@ test('LIST: полный набор ключей — существующие и
     'lumen_slide_interval', 'lumen_slideshow', 'lumen_torrents', 'lumen_trailer',
     /* Task 15 (фаза 2): ряды подборок на главной */
     'lumen_hide_watched', 'lumen_rows_limit',
+    /* Task 57 (фаза 5): фильм не повторяется в рядах ниже */
+    'lumen_rows_dedupe',
     /* Task 16 (фаза 2): персональные ряды */
     'lumen_personal_rows',
     /* Task 20 (фаза 2): состав рядов, чипы настроения, подсказка про ключ */
@@ -238,8 +240,12 @@ const GROUPS = [
   ['lumen_group_home', [
     /* Правка пользователя 2026-09-17 (п.2): размер кадра — первым пунктом:
        от него зависит, сколько экрана достанется всему остальному. */
-    'lumen_hero_size', 'lumen_hero_trailer', 'lumen_moods', 'lumen_personal_rows',
-    'lumen_home_rows', 'lumen_rows_limit', 'lumen_badges', 'lumen_hide_watched',
+    'lumen_hero_size', 'lumen_hero_trailer', 'lumen_moods', 'lumen_personal_rows'
+  ]],
+  /* Task 57 (фаза 5): ряды подборок отделены от «Главной» — с настройкой
+     дедупликации прежняя группа выросла бы до десяти строк. */
+  ['lumen_group_rows', [
+    'lumen_home_rows', 'lumen_rows_limit', 'lumen_rows_dedupe', 'lumen_badges', 'lumen_hide_watched',
     /* Каталог — последним: настройка «на один раз», и она про источник всех
        подборок разом. */
     'lumen_manifest_url'

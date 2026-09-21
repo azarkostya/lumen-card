@@ -6,9 +6,11 @@
   /*   filterWatched(results, viewedIds, hide) → results[]                  */
   /*   homeRows(manifest, storedIds, month, limit) → collection[]           */
   /*   rowChoices(manifest, pickedIds) → [{id, title, group, checked}]       */
+  /*   dedupeAcross(rows, seen, min) → rows[] — окно «уже показанного»      */
   /*   storedIds() → runtime: сохранённый состав рядов или null             */
   /*   viewedIds(results?) → number[]                                        */
   /*   bumpGen() — runtime: поднимает поколение главной                     */
+  /*   installDedupe() / uninstallDedupe() — обёртка над Lampa.Api.main     */
   /*   register(manifest) — runtime: регистрирует ряды через ContentRows    */
   /*   unregister() — runtime: снимает ряды через ContentRows.remove        */
   /*                                                                       */
@@ -131,6 +133,137 @@
         if (!seen[results[i].id]) out.push(results[i]);
       }
       return out;
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* Task 57: фильм не повторяется в рядах ниже по главной.              */
+    /*                                                                     */
+    /* Жалоба пользователя (docs/research/2026-09-21-user-interview.md):   */
+    /* одни и те же фильмы в «В тренде» и «Сейчас смотрят».                */
+    /*                                                                     */
+    /* ГДЕ ПЕРЕХВАТЫВАЕМ. Ряды главной строит не плагин. Компонент главной */
+    /* зовёт Api.main(object, build, empty) (app.min.js:37070), внутри —   */
+    /* main() активного источника (app.min.js:34595 → main$2 у TMDB,       */
+    /* app.min.js:19793). Там и штатные ряды Lampa («Сейчас смотрят»       */
+    /* 19799, «В тренде за день» 19806, «за неделю» 19813), и наши:        */
+    /* ContentRows.call('main', params, parts_data) вставляет call-функции */
+    /* зарегистрированных рядов в тот же массив parts_data по их index     */
+    /* (app.min.js:19877 у TMDB и 33962 у CUB; сама вставка — call$1,      */
+    /* app.min.js:18083-18108, через Arrays.insert, app.min.js:2362).      */
+    /* Дальше Api.partNext (app.min.js:34962) исполняет части пачками по   */
+    /* parts_limit=6 через Progress, который складывает ответы ПО ИНДЕКСУ  */
+    /* задачи (result[i] = data, app.min.js:33801), отбрасывает пустые     */
+    /* ряды (app.min.js:34971-34973) и отдаёт массив в partLoaded, то есть */
+    /* в build(data); build раскладывает его в том же порядке              */
+    /* (data.forEach(createAndAppend), app.min.js:35211).                  */
+    /*                                                                     */
+    /* Значит Api.main — единственная точка, где ВСЕ ряды главной лежат    */
+    /* списком карточек в порядке экрана и ещё не отрисованы. Чистить      */
+    /* только свои ряды (ContentRows) жалобу не закрывает: «Сейчас         */
+    /* смотрят» и «В тренде» — ряды самой Lampa. Поэтому installDedupe()   */
+    /* подменяет Lampa.Api.main обёрткой: компонент читает .main с того же */
+    /* объекта, что экспортирован как Lampa.Api (app.min.js:55986), и      */
+    /* делает это в момент вызова — подмена действует без правки Lampa.    */
+    /*                                                                     */
+    /* ОКНО ДО ОБРЕЗКИ. Окно применяется к полному results ряда: то, что   */
+    /* видно на экране, Lampa нарезает позже и уже из нашего списка        */
+    /* (Items.onCreate: results.slice(0, view), app.min.js:19028). Порог   */
+    /* длины ряда проверяется ПОСЛЕ окна, отдельным проходом, — иначе ряд  */
+    /* схлопнулся бы до пары карточек незаметно для проверки.              */
+    /* ------------------------------------------------------------------ */
+
+    /* Ряд короче DEDUPE_MIN карточек не показывается вовсе: на экране
+       телевизора помещается 7 постеров (ROW_CARD_W = 9.52em, седьмая
+       колонка сетки Apple — src/30_css.js:331), и ряд, не занимающий даже
+       половины ширины, читается как остаток, а не как подборка. Половина
+       от семи — 3.5, вверх — 4. */
+    var DEDUPE_MIN = 4;
+
+    /* Ключ карточки для окна: пара «источник + id».
+       У карточек TMDB source проставляет сама Lampa — get$c пишет
+       json.source и зовёт Utils.addSource(json, 'tmdb') на results
+       (app.min.js:19703, 19730; addSource — 4787-4791, source$2 = 'tmdb'
+       на 19455). У CUB то же самое со строкой 'cub' (source$1 — 33816).
+       Пустой source считаем 'tmdb': так приходят карточки НАШИХ подборок
+       Кинопоиска — LC.sources.fetchKp берёт их из ответа find/{imdb_id}
+       (src/43_sources.js), у которого нет поля results, поэтому addSource
+       их не трогает, а id в них всё равно TMDB-шный (карточку вернул
+       TMDB). Разные источники — разные пространства id, и склеивать их в
+       один ключ нельзя. */
+    function cardKey(card) {
+      if (!card || card.id === null || card.id === undefined || card.id === '') return null;
+      return (card.source ? '' + card.source : 'tmdb') + ':' + card.id;
+    }
+
+    /* Поверхностная копия ряда с новым составом. Ряд правится копией, а не
+       на месте: объект ответа нам не принадлежит — чужой ряд это разобранный
+       ответ сети, который Lampa тем же объектом кладёт в свой кэш запросов
+       (cacheSet(params, send_data), app.min.js:33615 → Cache.rewriteData,
+       33545), наш — объект, собранный LC.rows/LC.personal. Копия стоит один
+       проход по массиву ссылок и снимает вопрос целиком. */
+    function copyRow(row, results) {
+      var copy = {};
+      for (var k in row) {
+        if (Object.prototype.hasOwnProperty.call(row, k)) copy[k] = row[k];
+      }
+      copy.results = results;
+      return copy;
+    }
+
+    /* Сквозной проход по рядам одной пачки, сверху вниз.
+       rows — ответы рядов [{results, title, …}] в порядке экрана;
+       seen — окно «уже показанного», общее на весь заход на главную
+              (мутируется: пачек у главной несколько, см. installDedupe);
+       min  — порог длины ряда (DEDUPE_MIN в рантайме).
+       Возвращает НОВЫЙ массив рядов; входные объекты не меняются.
+
+       Два наших флага на ряду:
+         lumen_personal — состав не трогаем вовсе, но карточки в окно
+           кладём. Персональные ряды (src/45_personal.js) — «Продолжить»,
+           «Потому что вы смотрели», «Новые серии», «Скоро на экранах» —
+           собраны не из каталога, а из того, что человек уже смотрит; ради
+           них и сделана дедупликация («уже начал — хватит показывать его в
+           тренде»), поэтому источником окна они быть обязаны. Получателем —
+           нет: выбросить сериал из «Новых серий» значило бы потерять метку
+           «Новая серия · 12 сен», которой больше негде взяться.
+         lumen_keep — состав чистим, но ряд не выбрасываем по порогу длины.
+           Стоит на рядах, состав которых пользователь выбрал сам
+           (настройка lumen_home_rows, см. register), и на ряде адвента:
+           в первых числах декабря в нём меньше четырёх карточек по самому
+           его устройству. */
+    function dedupeAcross(rows, seen, min) {
+      if (!rows || !rows.length) return [];
+      seen = seen || {};
+      if (typeof min !== 'number') min = DEDUPE_MIN;
+
+      var kept = [];
+      var i, j;
+      for (i = 0; i < rows.length; i++) {
+        var row = rows[i];
+        if (!row || !row.results || !row.results.length) continue;
+        var personal = !!row.lumen_personal;
+        var out = [];
+        for (j = 0; j < row.results.length; j++) {
+          var card = row.results[j];
+          var key = cardKey(card);
+          if (key && seen[key] && !personal) continue;
+          out.push(card);
+          if (key) seen[key] = 1;
+        }
+        if (out.length) kept.push(copyRow(row, out));
+      }
+
+      /* Порог длины — отдельным проходом, после окна. */
+      var full = [];
+      for (i = 0; i < kept.length; i++) {
+        var r = kept[i];
+        if (r.lumen_personal || r.lumen_keep || r.results.length >= min) full.push(r);
+      }
+      /* Если порог съел пачку целиком — отдаём её как есть: пустой массив
+         означал бы для Lampa главную без единого ряда (build([]) строит
+         пустой экран и больше ничего не спрашивает), а это хуже коротких
+         рядов, ради которых порог и заводился. */
+      return full.length ? full : kept;
     }
 
     /* Формирует упорядоченный список объектов подборок для главной.
@@ -298,6 +431,62 @@
     }
 
     /* ------------------------------------------------------------------ */
+    /* Task 57, рантайм: обёртка над Lampa.Api.main.                       */
+    /* ------------------------------------------------------------------ */
+
+    /* Штатный Lampa.Api.main, снятый при установке обёртки, и сама обёртка
+       (нужна, чтобы при снятии не сорвать чужую, вставшую поверх нашей). */
+    var _mainOriginal = null;
+    var _mainWrapped = null;
+
+    function dedupeEnabled() {
+      try { return LC.pref ? !!LC.pref('lumen_rows_dedupe', true) : true; } catch (e) { return true; }
+    }
+
+    /* Подменяет Lampa.Api.main обёрткой, которая пропускает ряды главной
+       через dedupeAcross. Окно заводится на каждый вызов Api.main, то есть
+       на каждый заход на главную, и живёт до конца экрана: следующие пачки
+       приходят через функцию, которую Api.main вернул (её компонент держит
+       как next и зовёт по докрутке — app.min.js:37070-37077).
+       Настройка читается в момент вызова: выключил — следующая же главная
+       строится штатно, перерегистрация не нужна. Идемпотентна. */
+    function installDedupe() {
+      if (_mainWrapped) return;
+      try {
+        if (!window.Lampa || !Lampa.Api || typeof Lampa.Api.main !== 'function') return;
+      } catch (e) { return; }
+      _mainOriginal = Lampa.Api.main;
+      _mainWrapped = function (params, oncomplite, onerror) {
+        if (!dedupeEnabled()) return _mainOriginal(params, oncomplite, onerror);
+        var seen = {};
+        var next = _mainOriginal(params, function (data) {
+          oncomplite(dedupeAcross(data, seen, DEDUPE_MIN));
+        }, onerror);
+        if (typeof next !== 'function') return next;
+        return function (resolve, reject) {
+          return next(function (more) {
+            resolve(dedupeAcross(more, seen, DEDUPE_MIN));
+          }, reject);
+        };
+      };
+      try { Lampa.Api.main = _mainWrapped; } catch (eSet) { _mainWrapped = null; _mainOriginal = null; }
+    }
+
+    /* Возвращает штатный Api.main. Если поверх нашей обёртки встал кто-то
+       ещё, не трогаем его вовсе: сорвать чужую подмену хуже, чем оставить
+       свою — наша при выключенной настройке ничего не делает. */
+    function uninstallDedupe() {
+      if (!_mainWrapped) return;
+      try {
+        if (window.Lampa && Lampa.Api && Lampa.Api.main === _mainWrapped) {
+          Lampa.Api.main = _mainOriginal;
+        }
+      } catch (e) {}
+      _mainWrapped = null;
+      _mainOriginal = null;
+    }
+
+    /* ------------------------------------------------------------------ */
     /* Снятие зарегистрированных рядов (C2-fix: ContentRows.remove).        */
     /* ------------------------------------------------------------------ */
 
@@ -339,12 +528,20 @@
 
       var rows = homeRows(manifest, picked, month, limitRaw);
 
+      /* Task 57: явный признак «этот ряд выбрал пользователь» — непустая
+         настройка lumen_home_rows. Такие ряды дедупликация чистит, но не
+         выбрасывает, даже если после чистки они стали короткими: человек
+         отметил их сам, и решать за него, что подборка «схлопнулась», мы
+         не вправе. Набор по умолчанию (manifest.home) под правило не
+         попадает — его никто не выбирал. */
+      var pinned = !!(picked && picked.length);
+
       /* Task 21: ряд адвента идёт первым среди подборок — он и есть главный
          сезонный ряд декабря; остальные сдвигаются на одну позицию. */
       var shift = registerAdvent(manifest) ? 1 : 0;
 
       for (var i = 0; i < rows.length; i++) {
-        registerRow(rows[i], i + shift);
+        registerRow(rows[i], i + shift, pinned);
       }
     }
 
@@ -452,7 +649,10 @@
             } catch (e) {
               days = [];
             }
-            resolve({ results: days, title: adventTitle(today) });
+            /* Task 57: ряд адвента короче порога по самому своему
+               устройству — 5 декабря в нём ровно пять карточек, — поэтому
+               из-под порога длины он выведен флагом. */
+            resolve({ results: days, title: adventTitle(today), lumen_keep: true });
           }
 
           /* Фабрика на итерацию: var в цикле ES5 не создаёт своей области,
@@ -512,7 +712,7 @@
        call-функция возвращается фабрикой makeCall — item захватывается замыканием
        правильно в ES5 (var в цикле не создаёт отдельного scope). */
     var ROWS_OFFSET = 4;
-    function registerRow(item, index) {
+    function registerRow(item, index, pinned) {
       try {
         if (!window.Lampa || !Lampa.ContentRows) return;
 
@@ -525,7 +725,7 @@
           title: rowTitle,
           screen: 'main',
           index: index + ROWS_OFFSET,
-          call: makeCall(item)
+          call: makeCall(item, pinned)
         };
         Lampa.ContentRows.add(descriptor);
         _addedRows.push(descriptor);
@@ -538,7 +738,7 @@
        alive() сравнивает захваченный gen с текущим _homeGen: если bumpGen()
        был вызван при уходе с главной, alive() вернёт false и LC.sources.fetch
        не вызовет колбэки результата. */
-    function makeCall(item) {
+    function makeCall(item, pinned) {
       return function (params, screen) {
         return function (call) {
           /* Захватываем поколение в момент начала загрузки ряда.
@@ -558,7 +758,11 @@
               var hide = false;
               try { hide = LC.pref ? !!LC.pref('lumen_hide_watched', false) : false; } catch (eIgnore) {}
               var filtered = filterWatched(json.results, viewedIds(json.results), hide);
-              resolve({ results: filtered, title: item.title });
+              var payload = { results: filtered, title: item.title };
+              /* Task 57: ряд из состава, выбранного пользователем вручную,
+                 дедупликация не выбрасывает по длине (см. register). */
+              if (pinned) payload.lumen_keep = true;
+              resolve(payload);
             },
             function () {
               /* Ошибка загрузки: пустой ряд */
@@ -590,6 +794,11 @@
       storedIds: storedIds,
       viewedIds: viewedIds,
       bumpGen: bumpGen,
+      /* Task 57: чистая часть наружу ради тестов, обёртка — ради
+         activate/deactivate в src/90_runtime.js. */
+      dedupeAcross: dedupeAcross,
+      installDedupe: installDedupe,
+      uninstallDedupe: uninstallDedupe,
       /* Task 21: чистые части адвента наружу ради тестов — сам ряд
          регистрирует register() в декабре. */
       adventSpecs: adventSpecs,

@@ -228,12 +228,27 @@
       { name: 'lumen_hero_trailer', type: 'trigger', 'default': true, label: 'lumen_hero_trailer_name', descr: 'lumen_hero_trailer_descr' },
       { name: 'lumen_moods', type: 'trigger', 'default': true, label: 'lumen_moods_name', descr: 'lumen_moods_descr' },
       { name: 'lumen_personal_rows', type: 'trigger', 'default': true, label: 'lumen_personal_rows_name', descr: 'lumen_personal_rows_descr' },
+
+      /* Task 57 (фаза 5): всё про ряды подборок — своим заголовком. До него
+         эти пункты стояли в «Главной», и с новой настройкой дедупликации
+         группа выросла бы до десяти строк, то есть перестала бы помещаться
+         на экран ТВ целиком (предел девяти строк — test/prefs.test.mjs).
+         Порядок внутри прежний: состав → число → дедупликация → метки →
+         фильтр досмотренного → адрес каталога. */
+      { name: 'lumen_group_rows', type: 'title', label: 'lumen_group_rows' },
       /* Кнопка-параметр: multi-select в SettingsApi нет, поэтому состав рядов
          выбирается на экране Lampa.Select с чекбоксами (src/80_settings.js,
          openHomeRows). Значение хранится строкой id через запятую в
          lumen_home_rows — его читает LC.rows.register. */
       { name: 'lumen_home_rows', type: 'button', label: 'lumen_home_rows_name', descr: 'lumen_home_rows_descr' },
       { name: 'lumen_rows_limit', type: 'select', values: ['10', '15', '25'], vsuffix: 'lumen_rows_limit_suffix', 'default': '15', label: 'lumen_rows_limit_name', descr: 'lumen_rows_limit_descr' },
+      /* Task 57 (фаза 5): фильм, показанный в ряду выше, из нижних рядов
+         выпадает. Место — сразу под числом рядов: обе настройки про то,
+         сколько всего окажется на главной. Включено по умолчанию — это
+         прямая жалоба пользователя (интервью 2026-09-21), а выключатель
+         нужен тому, кто хочет видеть ряды ровно такими, какими их отдаёт
+         каталог. */
+      { name: 'lumen_rows_dedupe', type: 'trigger', 'default': true, label: 'lumen_rows_dedupe_name', descr: 'lumen_rows_dedupe_descr' },
       /* Task 25 (фаза 3): метки на постерах рядов («Скоро», «Новинка»,
          «Продолжить», новые серии). Место в группе — рядом с составом рядов:
          речь о том же экране. Применение на лету — LC.applyBadgesPref. */
