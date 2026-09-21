@@ -155,9 +155,14 @@
       r.push(S(['.selectbox .selectbox-item.focus']) + '{background-color:' + k.text + ';color:' + k.bg + ';-webkit-transform:scale(1.02);transform:scale(1.02)}');
       r.push(S(['.selectbox .selectbox-item.focus .selectbox-item__subtitle']) + '{color:' + k.bg + ';opacity:.72}');
       /* Иконки: без :has() svg не выбрать по вложенному <use>, поэтому маской
-         спрайт не заменить — штатный спрайт Lampa (голый <svg><use/></svg> из
-         кнопок карточки) только уменьшен до 26px и красится currentColor.
-         Иконки плагинов (svg с viewBox/width/class) не трогаются. */
+         спрайт не заменить — голый <svg><use/></svg> без атрибутов только
+         уменьшен до 26px. Цвет ему не задаётся ВООБЩЕ: как он покрасится,
+         решает его собственная разметка (Lampa подставляет в шаблон пункта
+         готовый {icon} целиком — app.min.js:2544, и что там за svg, зависит
+         от того, кто открыл меню). Иконки плагинов (svg с viewBox/width/class)
+         не трогаются тем более. Отсюда следствие Task 54: с инверсией фокуса
+         заливка светлая, и белый логотип стороннего балансёра на ней
+         пропадает — README, «Путь до плеера». */
       r.push(S(['.selectbox .selectbox-item__icon']) + '{margin-right:.701em;min-width:1.403em;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center}');
       r.push(S(['.selectbox .selectbox-item__icon > svg:not([viewBox]):not([class]):not([width])']) + '{width:1.14em;height:1.14em}');
       /* Чекбоксы фильтра (штатные selectbox-item--checkbox / __checkbox / --checked): квадрат слева, галочка check.
