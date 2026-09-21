@@ -295,13 +295,22 @@
          карточки, а про то, что происходит с экраном, когда пульт отложили.
          Место ближе к концу раздела: её настраивают один раз.
 
-         Включена по умолчанию: на телевизоре статичный кадр висит часами, и
-         это ровно та работа, ради которой заставку и заводят. Скромность
-         здесь в другом — в источнике (отобранные кадры, а не то, что
-         осталось на экране) и в трёх минутах покоя, за которые успевает
-         закончиться любая пауза в навигации. */
+         Task 56 (фаза 5): ВЫКЛЮЧЕНА по умолчанию. Заставка у Lampa своя, она
+         включена (trigger('screensaver', true), app.min.js:47911) и по
+         умолчанию показывает видео Aerial (select('screensaver_type', …,
+         'aerial'), app.min.js:47440) через 5 минут (select('screensaver_time',
+         …, '5'), app.min.js:47771-47775). Наши 3 минуты её просто опережали, и
+         пользователь, ничего не менявший, потерял видео и не понял почему
+         (интервью 2026-09-21). Своей заставкой мы штатную ЗАМЕНЯЕМ, а такое
+         решение человек принимает сам: с этой правкой включённый пункт —
+         осознанный выбор, а не поведение по умолчанию.
+
+         Кто пункт трогал руками, изменения default не заметит: тумблер
+         пишет в Storage строку 'true'/'false' (bind, app.min.js:47516-47526),
+         а LC.pref отдаёт default только при пустом значении. Выключавшие
+         остаются выключенными, включавшие — включёнными. */
       { name: 'lumen_group_ambient', type: 'title', label: 'lumen_group_ambient' },
-      { name: 'lumen_ambient', type: 'trigger', 'default': true, label: 'lumen_ambient_name', descr: 'lumen_ambient_descr' },
+      { name: 'lumen_ambient', type: 'trigger', 'default': false, label: 'lumen_ambient_name', descr: 'lumen_ambient_descr' },
       { name: 'lumen_ambient_source', type: 'select', values: ['curated', 'current'], vprefix: 'lumen_ambient_source_', 'default': 'curated', label: 'lumen_ambient_source_name', descr: 'lumen_ambient_source_descr' },
       { name: 'lumen_ambient_delay', type: 'select', values: ['3', '5', '10'], vsuffix: 'lumen_ambient_minutes', 'default': '3', label: 'lumen_ambient_delay_name', descr: 'lumen_ambient_delay_descr' },
 

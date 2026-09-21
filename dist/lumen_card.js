@@ -13624,6 +13624,22 @@ if (!state.enabled) return false;
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+if (state.native) return false;
+
+
+
 if (state.motion === 'off') return false;
 if (state.hidden) return false;
 if (state.modal || state.player || state.trailer) return false;
@@ -13782,7 +13798,9 @@ return minutes * 60000;
 function enabledNow() {
 try {
 if (typeof LC.enabled === 'function' && !LC.enabled()) return false;
-return !!LC.pref('lumen_ambient', true);
+
+
+return !!LC.pref('lumen_ambient', false);
 } catch (e) {
 return false;
 }
@@ -13817,6 +13835,25 @@ return false;
 function playerOpen() {
 try {
 if (window.Lampa && Lampa.Player && typeof Lampa.Player.opened === 'function') return !!Lampa.Player.opened();
+} catch (e) { }
+return false;
+}
+
+
+
+
+
+
+
+
+
+
+
+function nativeSaver() {
+try {
+if (window.Lampa && Lampa.Storage && typeof Lampa.Storage.field === 'function') {
+return Lampa.Storage.field('screensaver') === true;
+}
 } catch (e) { }
 return false;
 }
@@ -13975,6 +14012,7 @@ hidden: hidden(),
 modal: modalOpen(),
 player: playerOpen(),
 trailer: trailerLive(),
+native: nativeSaver(),
 controller: controllerName(),
 frames: count
 };
@@ -22294,11 +22332,19 @@ uk: 'Легкий шар поверх кадру під тему фільму: �
 
 
 lumen_group_ambient: { ru: 'Экранная заставка', en: 'Screensaver', uk: 'Екранна заставка' },
+
+
+
+
+
+
+
+
 lumen_ambient_name: { ru: 'Заставка из кадров', en: 'Frame screensaver', uk: 'Заставка з кадрів' },
 lumen_ambient_descr: {
-ru: 'Если пульт молчит, экран сменяется кадрами из фильмов в полный размер, с названием и часами. Любое нажатие возвращает экран мгновенно, и первое нажатие фокус не двигает. Заставка не включается при играющем трейлере, открытом плеере, меню и в неактивной вкладке, а при выключенных анимациях не работает вовсе. Применяется сразу.',
-en: 'When the remote falls silent, the screen turns into full-size film stills with the title and a clock. Any key brings the screen back at once, and that first press does not move focus. It never starts while a trailer is playing, while the player or a menu is open, or in a background tab, and it does not work at all with animations off. Applied immediately.',
-uk: 'Якщо пульт мовчить, екран змінюється кадрами з фільмів на весь розмір, з назвою та годинником. Будь-яке натискання миттєво повертає екран, і перше натискання не рухає фокус. Заставка не вмикається під час трейлера, з відкритим плеєром чи меню та в неактивній вкладці, а з вимкненими анімаціями не працює зовсім. Застосовується одразу.'
+ru: 'Заменяет заставку Lampa: вместо её видео экран сменяется кадрами из фильмов в полный размер, с названием и часами. Работает, только когда собственная заставка Lampa выключена в её настройках — двух заставок разом не бывает. Любое нажатие возвращает экран мгновенно, и первое нажатие фокус не двигает. Не включается при играющем трейлере, открытом плеере, меню и в неактивной вкладке, а при выключенных анимациях не работает вовсе. Применяется сразу.',
+en: 'Replaces the Lampa screensaver: instead of its video the screen turns into full-size film stills with the title and a clock. Works only while the Lampa screensaver itself is off in its own settings — there are never two screensavers at once. Any key brings the screen back at once, and that first press does not move focus. It never starts while a trailer is playing, while the player or a menu is open, or in a background tab, and it does not work at all with animations off. Applied immediately.',
+uk: 'Замінює заставку Lampa: замість її відео екран змінюється кадрами з фільмів на весь розмір, з назвою та годинником. Працює, лише коли власну заставку Lampa вимкнено в її налаштуваннях — двох заставок водночас не буває. Будь-яке натискання миттєво повертає екран, і перше натискання не рухає фокус. Не вмикається під час трейлера, з відкритим плеєром чи меню та в неактивній вкладці, а з вимкненими анімаціями не працює зовсім. Застосовується одразу.'
 },
 lumen_ambient_source_name: { ru: 'Какие кадры', en: 'Which stills', uk: 'Які кадри' },
 lumen_ambient_source_descr: {
@@ -23702,8 +23748,17 @@ var LIST = [
 
 
 
+
+
+
+
+
+
+
+
+
 { name: 'lumen_group_ambient', type: 'title', label: 'lumen_group_ambient' },
-{ name: 'lumen_ambient', type: 'trigger', 'default': true, label: 'lumen_ambient_name', descr: 'lumen_ambient_descr' },
+{ name: 'lumen_ambient', type: 'trigger', 'default': false, label: 'lumen_ambient_name', descr: 'lumen_ambient_descr' },
 { name: 'lumen_ambient_source', type: 'select', values: ['curated', 'current'], vprefix: 'lumen_ambient_source_', 'default': 'curated', label: 'lumen_ambient_source_name', descr: 'lumen_ambient_source_descr' },
 { name: 'lumen_ambient_delay', type: 'select', values: ['3', '5', '10'], vsuffix: 'lumen_ambient_minutes', 'default': '3', label: 'lumen_ambient_delay_name', descr: 'lumen_ambient_delay_descr' },
 

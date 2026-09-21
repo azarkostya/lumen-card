@@ -119,6 +119,21 @@ test('canStart: без кадров показывать нечего', () => {
   assert.equal(A.canStart(null), false);
 });
 
+/* Task 56 (фаза 5): заставок на экране одна.
+
+   Жалоба пользователя (интервью 2026-09-21): «почему мы ушли на экране сна
+   от видео с крутыми картинками к постерам фильмов». Он ничего не выключал —
+   наша заставка просто опережала штатную: 3 минуты против пяти
+   (screensaver_time по умолчанию '5', app.min.js:47771-47775).
+
+   Условие отказа — ровно то, по которому Lampa заводит свой таймер:
+   Storage.field('screensaver') (app.min.js:17144). Включена штатная —
+   показывает она, наша молчит. */
+test('Task 56: штатная заставка Lampa включена — наша не запускается', () => {
+  assert.equal(A.canStart(Object.assign({}, OK_STATE, { native: true })), false);
+  assert.equal(A.canStart(Object.assign({}, OK_STATE, { native: false })), true);
+});
+
 test('clockText: часы и минуты с ведущим нулём', () => {
   assert.equal(A.clockText(new Date(2026, 8, 17, 9, 5)), '09:05');
   assert.equal(A.clockText(new Date(2026, 8, 17, 23, 40)), '23:40');
@@ -194,7 +209,12 @@ function env(opts) {
   const store = Object.assign({
     lumen_ambient: 'true',
     lumen_ambient_source: 'curated',
-    lumen_ambient_delay: '3'
+    lumen_ambient_delay: '3',
+    /* Task 56: штатная заставка Lampa выключена — единственное состояние, в
+       котором наша вообще работает. В живой Lampa это поле есть всегда
+       (Params.field подставляет свой default, app.min.js:47697), поэтому в
+       тестовом store оно тоже задано явно. */
+    screensaver: false
   }, opts.store || {});
 
   const body = new Node('body');
@@ -423,6 +443,40 @@ test('start: запрещённый момент слой не создаёт, �
     assert.equal(e.timers.length, 1, 'попытка перенесена, а не потеряна: ' + JSON.stringify(opts));
     e.api.uninstall();
   }
+});
+
+/* Task 56 (фаза 5): штатная заставка Lampa первична. */
+test('Task 56: при включённой штатной заставке слой не появляется, попытка переносится', () => {
+  const e = env({ store: { screensaver: true } });
+  e.api.install();
+  e.fire();
+  assert.equal(e.layer(), null, 'двух заставок на экране быть не может');
+  assert.equal(e.timers.length, 1, 'проверка повторится — штатную могли выключить');
+  e.api.uninstall();
+});
+
+/* Выключение штатной заставки в настройках Lampa наша подхватывает со
+   следующей попытки: состояние читается в момент старта, а не при install.
+   Перезапуск приложения для этого не нужен. */
+test('Task 56: штатную выключили — наша заводится со следующей попытки, без переустановки', () => {
+  const e = env({ store: { screensaver: true } });
+  e.api.install();
+  e.fire();
+  assert.equal(e.layer(), null);
+  e.store.screensaver = false;
+  e.fire();
+  assert.ok(e.layer(), 'кадры пошли без повторного install');
+  e.api.uninstall();
+});
+
+/* Обратная сторона того же решения: раз мы не стартуем при включённой
+   штатной, трогать её синглтон незачем. Выключение штатной на время
+   нашего показа вернуло бы её пользователю только при нашем же hide(); не
+   доживи модуль до него (выгрузка плагина, исключение, уход страницы) —
+   штатная заставка молча пропала бы до перезапуска приложения. */
+test('Task 56: штатный синглтон заставки Lampa модуль не трогает вовсе', () => {
+  assert.equal(/Lampa\s*\.\s*Screensaver/.test(SRC), false,
+    'в src/54_ambient.js появилось обращение к штатному скринсейверу — его состояние мы только читаем через Storage');
 });
 
 /* Ревью фазы 3 (Important 1). План Task 22 Step 3 требовал: «пока слой

@@ -133,6 +133,22 @@
     function canStart(state) {
       if (!state) return false;
       if (!state.enabled) return false;
+      /* Task 56 (фаза 5): заставка на экране одна, и первична штатная.
+         state.native — включённый тумблер Lampa «Показывать заставку при
+         бездействии»; ровно по нему Lampa заводит свой таймер (app.min.js
+         17144: `if (!Storage.field('screensaver') || !this.enabled ||
+         this.worked) return;`). Пока он стоит, кадры не показываем: иначе
+         через нашу задержку человек получает наш слой, а через штатную —
+         ещё и чужой поверх него (жалоба пользователя 2026-09-21: видео
+         Lampa пропало, хотя он ничего не выключал — наши 3 минуты просто
+         опережали штатные 5).
+
+         Второй путь — гасить штатную на время показа — отвергнут: вернуть
+         её мы смогли бы только своим же hide(), а не доживи модуль до него
+         (выгрузка плагина, исключение, уход страницы), заставка Lampa
+         исчезла бы у человека до перезапуска приложения. Здесь мы её
+         состояние только читаем и ничего чужого не переключаем. */
+      if (state.native) return false;
       /* Выключенные анимации — это «ничего не должно двигаться само»:
          кадры с наездом под это описание не подходят. Лёгкие анимации
          кадрам не мешают — там CSS снимает наезд, а не сам показ. */
@@ -294,7 +310,9 @@
     function enabledNow() {
       try {
         if (typeof LC.enabled === 'function' && !LC.enabled()) return false;
-        return !!LC.pref('lumen_ambient', true);
+        /* Task 56: default здесь тот же, что в таблице пунктов
+           (src/81_prefs.js) — выключено. */
+        return !!LC.pref('lumen_ambient', false);
       } catch (e) {
         return false;
       }
@@ -329,6 +347,25 @@
     function playerOpen() {
       try {
         if (window.Lampa && Lampa.Player && typeof Lampa.Player.opened === 'function') return !!Lampa.Player.opened();
+      } catch (e) { }
+      return false;
+    }
+
+    /* Task 56: включена ли ШТАТНАЯ заставка Lampa. Storage.field отдаёт
+       boolean: Params.field подставляет свой default (app.min.js:47697), а
+       Storage.get приводит строки 'true'/'false' тумблера к булевым
+       (app.min.js:48430). У параметра screensaver default = true
+       (app.min.js:47911), так что на нетронутом профиле здесь истина.
+
+       Поле прочитать не удалось (чужая сборка без Storage.field, битое
+       значение) — считаем, что штатной нет: наша заставка выключена по
+       умолчанию, и человек, который её включил руками, не должен остаться
+       вообще без заставки из-за неудачного чтения чужого параметра. */
+    function nativeSaver() {
+      try {
+        if (window.Lampa && Lampa.Storage && typeof Lampa.Storage.field === 'function') {
+          return Lampa.Storage.field('screensaver') === true;
+        }
       } catch (e) { }
       return false;
     }
@@ -487,6 +524,7 @@
         modal: modalOpen(),
         player: playerOpen(),
         trailer: trailerLive(),
+        native: nativeSaver(),
         controller: controllerName(),
         frames: count
       };
