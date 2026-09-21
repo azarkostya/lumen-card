@@ -1013,8 +1013,9 @@ test('режимы full и lite кадр грузят — гейт стоит т
 });
 
 /* Task 38: размер постера для размытого фона снижен с w500 до w92. Блюр
-   фильтром снят (src/30_css.js, .lumen-hero--blur), и мягкость даёт теперь
-   апскейл картинки — значит и проверять надо именно крошечный размер. */
+   фильтром снят (src/30_css.js, .lumen-hero__bg--blur), и мягкость даёт
+   теперь апскейл картинки — значит и проверять надо именно крошечный
+   размер. */
 test('нет кадра — используется постер в w92, слой помечается для размытия', () => {
   const env = makeEnv();
   const main = makeMain();
@@ -1027,7 +1028,59 @@ test('нет кадра — используется постер в w92, сло
   env.advance(400);
   assert.equal(env.images[0].src, 'https://img/t/p/w92/p.jpg');
   env.images[0].onload();
-  assert.equal(node.hasClass('lumen-hero--blur'), true);
+  /* Task 52: метка стоит на СЛОЕ, который этот постер и показывает, а не на
+     корне героя. */
+  assert.equal(node.find('.lumen-hero__bg--a').hasClass('lumen-hero__bg--blur'), true);
+  assert.equal(node.hasClass('lumen-hero--blur'), false, 'метка на корне героя больше не ставится');
+});
+
+/* Task 52. Пользователь на Philips 50PUS8057 (2026-09-21): «при листании
+   картинка сначала нормально центрировалась, а потом съехала».
+
+   Разбор: наезд scale(1.1), которым герой прячет края растянутого из w92
+   постера, стоял правилом по КОРНЮ героя (.lumen-hero--blur) и доставался
+   ОБОИМ слоям кадра сразу. На переходе «фильм без backdrop → фильм с
+   backdrop» класс снимался с корня в тот же миг, когда новый кадр вставал в
+   свой слой, — и настоящая картинка появлялась уже уменьшенной на 10 %
+   относительно того, что было на экране мгновение назад.
+
+   Тест закрывает обе ветки swapFrame: с кроссфейдом (кадр приезжает в
+   ДРУГОЙ слой) и без него (кадр подменяется в том же самом). */
+test('Task 52: метка размытия живёт на слое кадра, а не на корне героя', () => {
+  for (const heavy of [true, false]) {
+    const env = makeEnv({ fxHeavy: () => heavy });
+    const main = makeMain();
+    /* Первая карточка — без backdrop: герой соберёт кадр из постера и
+       пометит слой для наезда. Вторая — с настоящим кадром. */
+    main.card1.card_data = { id: 44, title: 'Без кадра', poster_path: '/p.jpg', release_date: '2021-01-01' };
+    env.hero.mount(main.activity);
+    const node = main.activity._children[0];
+    const a = node.find('.lumen-hero__bg--a');
+    const b = node.find('.lumen-hero__bg--b');
+    const label = heavy ? 'с кроссфейдом' : 'без кроссфейда';
+
+    main.card1.addClass('focus');
+    fireFocus(main.activity, main.card1);
+    env.advance(400);
+    env.images[env.images.length - 1].onload();
+    assert.equal(a.hasClass('lumen-hero__bg--blur'), true, label + ': слой с постером не помечен');
+    assert.equal(a.hasClass('is-active'), true, label + ': помечен не тот слой, что на экране');
+    assert.equal(node.hasClass('lumen-hero--blur'), false, label + ': метка вернулась на корень героя');
+
+    /* Настоящий кадр: метка обязана уйти — и с пришедшего слоя, и с того, на
+       котором стояла. Без этого на экране остался бы масштабированный слой,
+       а прежде класс просто снимался с корня разом для обоих. */
+    main.card1.removeClass('focus');
+    main.card2.addClass('focus');
+    fireFocus(main.activity, main.card2);
+    env.advance(400);
+    env.images[env.images.length - 1].onload();
+    assert.equal(a.hasClass('lumen-hero__bg--blur'), false, label + ': метка осталась на прежнем слое');
+    assert.equal(b.hasClass('lumen-hero__bg--blur'), false, label + ': метка перешла на слой с настоящим кадром');
+    /* И кадр действительно сменился — иначе проверка выше ничего не стоит. */
+    const shown = heavy ? b : a;
+    assert.equal(shown.css('background-image'), 'url("https://img/t/p/w1280/b2.jpg")', label + ': кадр второй карточки не приехал');
+  }
 });
 
 /* Task 39: предзагрузчик кадра помечается decoding='async' — декодирование

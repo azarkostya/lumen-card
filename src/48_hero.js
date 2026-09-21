@@ -894,7 +894,7 @@
         var only = activeIsA ? a : (b.hasClass('is-active') ? b : a);
         only.css('background-image', 'url("' + encodeURI(url) + '")');
         only.addClass('is-active');
-        node.toggleClass('lumen-hero--blur', !!blur);
+        only.toggleClass('lumen-hero__bg--blur', !!blur);
         state.frameUrl = url;
         return;
       }
@@ -903,7 +903,16 @@
       next.css('background-image', 'url("' + encodeURI(url) + '")');
       next.addClass('is-active');
       prev.removeClass('is-active');
-      node.toggleClass('lumen-hero--blur', !!blur);
+      next.toggleClass('lumen-hero__bg--blur', !!blur);
+      /* Метка снимается и с уходящего слоя: она описывает ВИДИМЫЙ кадр, и
+         держать её на том, который сейчас растворится, незачем — иначе
+         невидимый слой оставался бы масштабированным у композитора до
+         следующей смены кадра. Правильность от этой строки не зависит
+         (приходящему слою метку каждый раз выставляет toggleClass выше), это
+         именно уборка. Цена — уходящий постер на время затухания теряет
+         наезд и показывает свои края: он к этому моменту уже полупрозрачен,
+         и это дешевле, чем держать лишний трансформированный слой. */
+      prev.removeClass('lumen-hero__bg--blur');
       state.frameUrl = url;
     }
 
@@ -927,7 +936,7 @@
       if (!path) return;
 
       /* Task 38: у «размытого» варианта размер намеренно крошечный. Блюр
-         фильтром снят (src/30_css.js, .lumen-hero--blur), и мягкость теперь
+         фильтром снят (src/30_css.js, .lumen-hero__bg--blur), и мягкость теперь
          даёт сам апскейл: w92 — 92 px по ширине, растянутые cover на весь
          кадр героя, то есть больше чем в двадцать раз. Заодно это самый
          дешёвый кадр, который герой вообще грузит. */

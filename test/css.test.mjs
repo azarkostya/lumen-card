@@ -2368,13 +2368,23 @@ test('Task 36: кадр кадрируется по лицам (center 30%), а 
 /* Task 38: раньше тест требовал filter:blur(1.75em) у героя в полном режиме.
    Фильтр снят: размытие даёт сам постер, который герой грузит в w92 и
    растягивает cover (src/48_hero.js, loadFrame). От правила остался наезд,
-   прячущий края растянутой картинки, — и он по-прежнему только в full. */
-test('Task 38: у размытого героя остался наезд без filter, и только в полном режиме', () => {
-  const blur = findDecl(css, (sel) => sel === '.lumen-hero.lumen-motion-full.lumen-hero--blur .lumen-hero__bg');
-  assert.ok(blur, 'правило размытого героя (экран 22) не найдено');
+   прячущий края растянутой картинки, — и он по-прежнему только в full.
+   Task 52: наезд переехал с КОРНЯ героя на сам слой кадра. Слоёв два, и
+   правило по корню давало scale(1.1) обоим сразу; на переходе «фильм без
+   backdrop (размытый постер) → фильм с кадром» класс снимался мгновенно, и
+   приехавшая картинка скачком уменьшалась на 10 % (пользователь 2026-09-21:
+   «при листании картинка сначала нормально центрировалась, а потом
+   съехала»). */
+test('Task 52: наезд размытого кадра — на слое кадра, а не на корне героя', () => {
+  const blur = findDecl(css, (sel) => sel === '.lumen-hero.lumen-motion-full .lumen-hero__bg--blur');
+  assert.ok(blur, 'правило размытого слоя (экран 22) не найдено');
   assert.ok(blur.indexOf('scale(1.1)') !== -1, 'наезд прячет края растянутого постера: ' + blur);
   assert.equal(blur.indexOf('filter'), -1, 'filter:blur на живом слое героя запрещён: ' + blur);
-  const offenders = ruleSelectors(css).filter((sel) => sel.indexOf('lumen-hero--blur') !== -1 && sel.indexOf('lumen-motion-full') === -1);
+  /* Старого селектора по корню не осталось вовсе — мёртвое правило здесь
+     было бы ровно тем дефектом, который Task 52 и чинит. */
+  assert.deepEqual(ruleSelectors(css).filter((sel) => sel.indexOf('lumen-hero--blur') !== -1), [],
+    'правило по корню героя осталось в таблице стилей');
+  const offenders = ruleSelectors(css).filter((sel) => sel.indexOf('lumen-hero__bg--blur') !== -1 && sel.indexOf('lumen-motion-full') === -1);
   assert.deepEqual(offenders, [], 'наезд героя вне режима full — лишнее движение на слабом ТВ');
 });
 

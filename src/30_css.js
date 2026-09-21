@@ -785,7 +785,7 @@
        .lumen-backdrop__img задаёт только строка выше, а Ken Burns ниже —
        тоже лишь под full), а инлайн-transform слайдшоу оно всё равно не
        перебивало, потому что шло без !important. Та же симметрия, что у
-       героя (.lumen-hero--blur ниже). */
+       героя (.lumen-hero__bg--blur ниже). */
     css.push('.lumen-backdrop.lumen-bg--blur{background:' + P.gradBlur + '}');
     css.push('.lumen-backdrop.lumen-bg--blur .lumen-backdrop__img{background-position:50% 50%;opacity:.8}');
     css.push('.lumen-backdrop.lumen-motion-full.lumen-bg--blur .lumen-backdrop__img{-webkit-transform:scale(1.1);transform:scale(1.1)}');
@@ -1949,8 +1949,16 @@
        грузят в w92 и растягивают cover (src/48_hero.js, loadFrame), то же
        решение, что у фона карточки (.lumen-bg--blur выше). Остался scale(1.1),
        прячущий края кадра, и только в полном режиме: в lite/off слой не
-       двигается вовсе. */
-    css.push('.lumen-hero.lumen-motion-full.lumen-hero--blur .lumen-hero__bg{-webkit-transform:scale(1.1);transform:scale(1.1)}');
+       двигается вовсе.
+
+       Task 52: метка переехала с КОРНЯ героя (.lumen-hero--blur) на сам
+       СЛОЙ. Слоёв кадра два, и наезд по корню доставался обоим сразу, а
+       класс снимался мгновенно — на переходе «фильм без backdrop (размытый
+       постер) → фильм с кадром» приехавшая картинка скачком уменьшалась на
+       10 %. Пользователь 2026-09-21: «при листании картинка сначала
+       нормально центрировалась, а потом съехала». Теперь наезд живёт ровно
+       на том слое, который его заслужил, и уезжает вместе с ним. */
+    css.push('.lumen-hero.lumen-motion-full .lumen-hero__bg--blur{-webkit-transform:scale(1.1);transform:scale(1.1)}');
 
     /* Task 28: слой автотрейлера — поверх кадра, но под вуалями (порядок
        узлов задаёт buildNode в src/48_hero.js). Правила те же, что у

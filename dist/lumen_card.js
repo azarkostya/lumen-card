@@ -2434,7 +2434,15 @@ css.push('body.lumen-fx-heavy .lumen-hero.lumen-motion-full .lumen-hero__bg{-web
 
 
 
-css.push('.lumen-hero.lumen-motion-full.lumen-hero--blur .lumen-hero__bg{-webkit-transform:scale(1.1);transform:scale(1.1)}');
+
+
+
+
+
+
+
+
+css.push('.lumen-hero.lumen-motion-full .lumen-hero__bg--blur{-webkit-transform:scale(1.1);transform:scale(1.1)}');
 
 
 
@@ -9521,7 +9529,7 @@ if (!fxHeavy()) {
 var only = activeIsA ? a : (b.hasClass('is-active') ? b : a);
 only.css('background-image', 'url("' + encodeURI(url) + '")');
 only.addClass('is-active');
-node.toggleClass('lumen-hero--blur', !!blur);
+only.toggleClass('lumen-hero__bg--blur', !!blur);
 state.frameUrl = url;
 return;
 }
@@ -9530,7 +9538,16 @@ var prev = activeIsA ? a : b;
 next.css('background-image', 'url("' + encodeURI(url) + '")');
 next.addClass('is-active');
 prev.removeClass('is-active');
-node.toggleClass('lumen-hero--blur', !!blur);
+next.toggleClass('lumen-hero__bg--blur', !!blur);
+
+
+
+
+
+
+
+
+prev.removeClass('lumen-hero__bg--blur');
 state.frameUrl = url;
 }
 
