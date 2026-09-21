@@ -629,14 +629,24 @@ test('dedupeAcross: персональный ряд состава не теря
   assert.deepEqual(idsOf(out[2]), [4, 5, 6, 7], 'а подборке личные карточки уже показаны');
 });
 
-test('dedupeAcross: ключ — пара «источник + id»', function () {
+test('dedupeAcross: cub и tmdb — одно пространство id (CUB проксирует TMDB)', function () {
   var rows = [
-    mkRow('A', [{ id: 7, source: 'tmdb' }]),
-    mkRow('B', [{ id: 7, source: 'cub' }, { id: 7, source: 'tmdb' }])
+    mkRow('A', [{ id: 7, source: 'cub' }, { id: 8, source: 'cub' }]),
+    mkRow('B', [{ id: 7, source: 'tmdb' }, { id: 9, source: 'tmdb' }])
   ];
   var out = R.dedupeAcross(rows, {}, 1);
-  assert.deepEqual(out[1].results, [{ id: 7, source: 'cub' }],
-    'разные источники — разные пространства id, дублем это не считается');
+  assert.deepEqual(idsOf(out[1]), [9],
+    'та же «Одиссея» под cub:7 и tmdb:7 — один фильм, а не два');
+});
+
+test('dedupeAcross: чужой источник живёт в своём пространстве id', function () {
+  var rows = [
+    mkRow('A', [{ id: 7, source: 'tmdb' }]),
+    mkRow('B', [{ id: 7, source: 'filmix' }, { id: 7, source: 'tmdb' }])
+  ];
+  var out = R.dedupeAcross(rows, {}, 1);
+  assert.deepEqual(out[1].results, [{ id: 7, source: 'filmix' }],
+    'у источника, который не проксирует TMDB, id свои — склеивать нельзя');
 });
 
 test('dedupeAcross: карточка без source считается tmdb (наш путь Кинопоиска)', function () {
@@ -673,13 +683,30 @@ test('dedupeAcross: окно общее на несколько пачек', fun
   assert.deepEqual(idsOf(second[0]), [5, 6], 'пачка помнит, что показала предыдущая');
 });
 
-test('dedupeAcross: пустая пачка не может получиться из непустой', function () {
-  /* Порог съел бы обе строки: в A три карточки, в B после окна одна. */
-  var rows = [mkRow('A', [1, 2, 3]), mkRow('B', [1, 2, 3, 4])];
+test('dedupeAcross: порог применяется ТОЛЬКО к рядам, из которых окно что-то убрало', function () {
+  /* Первый ряд короткий сам по себе — так приходят наши подборки
+     Кинопоиска и ряды при включённом «Скрывать досмотренное». Окно его не
+     трогало, значит и порог к нему не относится. Второй ряд стал коротким
+     именно от окна — вот он и есть огрызок. */
+  var rows = [
+    mkRow('Редкое кино', [1, 2]),
+    mkRow('В тренде', [10, 11, 12, 13, 14]),
+    mkRow('Сейчас смотрят', [10, 11, 12, 13, 20])
+  ];
   var out = R.dedupeAcross(rows, {}, 4);
+  assert.deepEqual(out.map(function (r) { return r.title; }), ['Редкое кино', 'В тренде'],
+    'нетронутый короткий ряд остаётся, продедуплицированный огрызок уходит');
+  assert.deepEqual(idsOf(out[0]), [1, 2]);
+});
+
+test('dedupeAcross: пустая пачка не может получиться из непустой', function () {
+  /* Окно уже показало 1 и 4 в предыдущей пачке — оба ряда становятся
+     огрызками, и порог съел бы всю пачку. */
+  var rows = [mkRow('A', [1, 2, 3]), mkRow('B', [4, 5, 6])];
+  var out = R.dedupeAcross(rows, { 'tmdb:1': 1, 'tmdb:4': 1 }, 4);
   assert.equal(out.length, 2, 'лучше короткий ряд, чем пустая главная');
-  assert.deepEqual(idsOf(out[0]), [1, 2, 3]);
-  assert.deepEqual(idsOf(out[1]), [4]);
+  assert.deepEqual(idsOf(out[0]), [2, 3]);
+  assert.deepEqual(idsOf(out[1]), [5, 6]);
 });
 
 test('dedupeAcross: пустые и битые ряды пропускаются', function () {
@@ -779,6 +806,37 @@ test('uninstallDedupe: чужую обёртку поверх нашей не с
   s.Lampa.Api.main = foreign;
   s.R.uninstallDedupe();
   assert.equal(s.Lampa.Api.main, foreign, 'поверх нас встал чужой плагин — не трогаем');
+});
+
+test('uninstallDedupe: осиротевшая под чужой обёрткой наша обёртка становится сквозной', function () {
+  var s = setupDedupeRuntime({
+    batches: [[mkRow('A', [1, 2, 3, 4]), mkRow('B', [1, 2, 3, 4])]]
+  });
+  s.R.installDedupe();
+  var ours = s.Lampa.Api.main;
+  /* Чужой плагин обернул нас — снять свою подмену мы уже не можем. */
+  s.Lampa.Api.main = function () { return ours.apply(null, arguments); };
+  s.R.uninstallDedupe();
+  var got = null;
+  s.Lampa.Api.main({}, function (d) { got = d; }, function () {});
+  assert.equal(got.length, 2, 'выключенный плагин не чистит ряды');
+  assert.deepEqual(idsOf(got[1]), [1, 2, 3, 4]);
+});
+
+test('installDedupe: повторная активация под чужой обёрткой не заводит второго окна', function () {
+  var s = setupDedupeRuntime({
+    batches: [[mkRow('A', [1, 2, 3, 4]), mkRow('B', [1, 2, 3, 4, 5, 6, 7, 8])]]
+  });
+  s.R.installDedupe();
+  var ours = s.Lampa.Api.main;
+  var foreign = function () { return ours.apply(null, arguments); };
+  s.Lampa.Api.main = foreign;
+  s.R.uninstallDedupe();
+  s.R.installDedupe();
+  assert.equal(s.Lampa.Api.main, foreign, 'чужую обёртку не подменяем и второй своей не накрываем');
+  var got = null;
+  s.Lampa.Api.main({}, function (d) { got = d; }, function () {});
+  assert.deepEqual(idsOf(got[1]), [5, 6, 7, 8], 'фильтрует ровно один раз');
 });
 
 test('installDedupe: ошибка загрузки главной проходит насквозь', function () {

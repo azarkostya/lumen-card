@@ -5946,9 +5946,28 @@ var DEDUPE_MIN = 4;
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 function cardKey(card) {
 if (!card || card.id === null || card.id === undefined || card.id === '') return null;
-return (card.source ? '' + card.source : 'tmdb') + ':' + card.id;
+var ns = (!card.source || card.source === 'cub') ? 'tmdb' : '' + card.source;
+return ns + ':' + card.id;
 }
 
 
@@ -5987,12 +6006,19 @@ return copy;
 
 
 
+
+
+
 function dedupeAcross(rows, seen, min) {
 if (!rows || !rows.length) return [];
 seen = seen || {};
 if (typeof min !== 'number') min = DEDUPE_MIN;
 
 var kept = [];
+
+
+
+var trimmed = [];
 var i, j;
 for (i = 0; i < rows.length; i++) {
 var row = rows[i];
@@ -6006,14 +6032,25 @@ if (key && seen[key] && !personal) continue;
 out.push(card);
 if (key) seen[key] = 1;
 }
-if (out.length) kept.push(copyRow(row, out));
+if (!out.length) continue;
+kept.push(copyRow(row, out));
+trimmed.push(out.length < row.results.length);
 }
+
+
+
+
+
+
+
+
+
 
 
 var full = [];
 for (i = 0; i < kept.length; i++) {
 var r = kept[i];
-if (r.lumen_personal || r.lumen_keep || r.results.length >= min) full.push(r);
+if (!trimmed[i] || r.lumen_keep || r.results.length >= min) full.push(r);
 }
 
 
@@ -6195,7 +6232,14 @@ flushWaiting();
 var _mainOriginal = null;
 var _mainWrapped = null;
 
+
+
+
+
+var _dedupeActive = false;
+
 function dedupeEnabled() {
+if (!_dedupeActive) return false;
 try { return LC.pref ? !!LC.pref('lumen_rows_dedupe', true) : true; } catch (e) { return true; }
 }
 
@@ -6206,7 +6250,10 @@ try { return LC.pref ? !!LC.pref('lumen_rows_dedupe', true) : true; } catch (e) 
 
 
 
+
+
 function installDedupe() {
+_dedupeActive = true;
 if (_mainWrapped) return;
 try {
 if (!window.Lampa || !Lampa.Api || typeof Lampa.Api.main !== 'function') return;
@@ -6231,15 +6278,20 @@ try { Lampa.Api.main = _mainWrapped; } catch (eSet) { _mainWrapped = null; _main
 
 
 
+
+
+
+
 function uninstallDedupe() {
+_dedupeActive = false;
 if (!_mainWrapped) return;
 try {
 if (window.Lampa && Lampa.Api && Lampa.Api.main === _mainWrapped) {
 Lampa.Api.main = _mainOriginal;
-}
-} catch (e) {}
 _mainWrapped = null;
 _mainOriginal = null;
+}
+} catch (e) {}
 }
 
 
