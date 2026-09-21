@@ -769,7 +769,10 @@
            экран, но лежит ПОД содержимым с opacity .22 (src/30_css.js).
            Ревью Task 39 (п.1): это кадр-подложка, а не кадр, который
            смотрят, — размер ему считает LC.util.scrimSize с потолком w1280,
-           а не frameSize, уходящий в original. */
+           а не frameSize. Task 47: на 1080p frameSize тоже отдаёт w1280, так
+           что различие остаётся только на растре от 2259 физических
+           пикселей, где frameSize уходит в original, а потолок подложки —
+           нет. */
         var backdrop = imageUrl(card.backdrop_path, LC.util.scrimSize(LC.util.screenPx()));
         if (!backdrop) return;
         var img = new Image();

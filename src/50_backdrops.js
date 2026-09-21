@@ -42,7 +42,9 @@
       var path = LC.cardinfo.backdropPath(movie);
       /* Task 39: кадр лежит на весь экран, поэтому размер выбирается по
          ФИЗИЧЕСКОЙ ширине экрана (LC.util.screenPx учитывает DPR), а не по
-         зашитому w1280: на панели шире Full HD это original. */
+         зашитому w1280. Task 47: порог frameSize — растр выше 1080p с
+         допуском FIT, то есть от 2259 физических пикселей; Full HD и
+         панель 2048 получают w1280, original остаётся 4K-растру. */
       if (path) url = LC.cardinfo.imageUrl(path, LC.util.frameSize(LC.util.screenPx()), tmdbImageFn(), apiImgFn());
     } catch (e) {
       warn('image url failed', e);

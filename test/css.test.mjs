@@ -1586,11 +1586,13 @@ test('Task 46: у обоих движущихся элементов свой с
 /* Task 48. Три composited-слоя на КАЖДУЮ карточку выдаёт сама Lampa:
    .card{will-change:transform} (vendor/lampa/css/app.css:3095-3101),
    .card__title{transform:translateZ(0)} (там же:3155-3168) и
-   .card__age{transform:translateZ(0)} (там же:3170-3176). Замер
-   координатора на главной 2026-09-21: 28 карточек в кадре × 3 = 84 слоя
-   сверх наших двух. Бюджет tile memory Chromium на Android с памятью
-   меньше 2000 МиБ — 96 МБ (docs/research/2026-09-21-webview-perf.md §1.1),
-   и слои считаются байтами, а не штуками (§2.1). */
+   .card__age{transform:translateZ(0)} (там же:3170-3176). Замеры
+   координатора на стенде 2026-09-21 (960×540@2, раздел «Что известно
+   точно» в docs/plans/2026-09-21-lumen-phase5-tv-fix.md): до правки — 138
+   узлов-кандидатов в слои, после — 53. Бюджет tile memory Chromium на
+   Android с памятью меньше 2000 МиБ — 96 МБ
+   (docs/research/2026-09-21-webview-perf.md §1.1), и слои считаются
+   байтами, а не штуками (§2.1). */
 test('Task 48: слои, которые Lampa выдаёт карточкам, на главной сняты', () => {
   const rules = ruleBodies(css);
   const cards = rules.filter((r) => r.selectors.join(',') === '.lumen-main .card');

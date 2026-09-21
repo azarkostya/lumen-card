@@ -909,15 +909,22 @@ test('Task 39: предзагрузчик кадра героя просит а�
    картинку можно вставить без синхронного декодирования (Chrome 64+,
    docs/research/2026-09-21-webview-perf.md §4). Заглушка Image с decode
    заменяет ту, что ставит makeEnv, и складывает картинки в тот же массив. */
-function stubDecode(env) {
+function stubDecode(env, opts) {
   const images = env.images;
+  const mode = opts || {};
   globalThis.Image = function () {
     const self = this;
     self.onload = null;
     self.onerror = null;
     self.src = '';
+    /* Признак «байты пришли» — тот же, что читает loadFrame. У свежей
+       картинки его нет: complete у HTMLImageElement без src тоже false. */
+    self.complete = false;
+    self.naturalWidth = 0;
     self.decoded = null;
     self.decode = function () {
+      if (mode.throws) throw new Error('decode not supported');
+      if (mode.notPromise) return undefined;
       return new Promise((res, rej) => { self.decoded = { resolve: res, reject: rej }; });
     };
     images.push(self);
@@ -927,21 +934,36 @@ function stubDecode(env) {
 /* Микротаски: decode().then(...) срабатывает не в тот же тик, что resolve. */
 const tick = () => Promise.resolve().then(() => {});
 
-function focusedFrame() {
+/* Байты кадра доехали: ровно то состояние, в котором браузер зовёт onload. */
+function arrive(img) { img.complete = true; img.naturalWidth = 1280; }
+
+function focusedFrame(opts) {
   const env = makeEnv();
-  stubDecode(env);
+  stubDecode(env, opts);
   const main = makeMain();
   env.hero.mount(main.activity);
   const node = main.activity._children[0];
   main.card1.addClass('focus');
   fireFocus(main.activity, main.card1);
   env.advance(400);
-  return { env: env, bg: node.find('.lumen-hero__bg--a'), img: env.images[0] };
+  return { env: env, main: main, node: node, bg: node.find('.lumen-hero__bg--a'), img: env.images[0] };
+}
+
+/* Перевести фокус на вторую карточку и дождаться её показа: новый show()
+   поднимает поколение, снимает предзагрузку прежней карточки и заводит
+   свой Image. Возвращается этот новый Image. */
+function focusSecond(f) {
+  f.main.card1.removeClass('focus');
+  f.main.card2.addClass('focus');
+  fireFocus(f.main.activity, f.main.card2);
+  f.env.advance(400);
+  return f.env.images[f.env.images.length - 1];
 }
 
 test('Task 47: кадр показывается после резолва decode(), а не в onload', async () => {
   const f = focusedFrame();
   assert.equal(typeof f.img.decoded.resolve, 'function', 'decode() вызван сразу после src');
+  arrive(f.img);
   f.img.onload();
   await tick();
   assert.equal(f.bg.css('background-image'), undefined, 'onload кадр не показывает: он ещё не декодирован');
@@ -952,15 +974,90 @@ test('Task 47: кадр показывается после резолва decod
   assert.equal(f.bg.hasClass('is-active'), true);
 });
 
-/* Реджект — норма при быстром листании: decode() отвергается, если src
-   сменился после вызова (ресёрч §4). Кадр в этом случае всё равно
-   показываем — картинка загружена, потеряна только подсказка о декоде;
-   актуальность запроса закрывает общий гард по поколению (gen !== captured
-   в finish, src/48_hero.js). */
-test('Task 47: реджект decode() кадр не теряет', async () => {
+/* Фикс-раунд Task 47. Реджект decode() здесь НЕ означает смену src: у
+   каждого вызова loadFrame свой new Image и src присваивается один раз.
+   Значит реджект — это битые данные, упавший запрос или движок, который
+   отвергает decode() без причины. Что делать, решает единственный
+   проверяемый признак: доехали ли байты (complete && naturalWidth). */
+test('Task 47: реджект decode() с загруженными байтами кадр показывает', async () => {
   const f = focusedFrame();
-  f.img.decoded.reject(new Error('src changed'));
+  arrive(f.img);
+  f.img.decoded.reject(new Error('decode failed'));
   await tick();
+  assert.equal(f.bg.css('background-image'), 'url("https://img/t/p/w1280/b1.jpg")');
+  assert.deepEqual(warnLog, []);
+});
+
+test('Task 47: реджект decode() без байт оставляет предыдущий кадр, а не пустоту', async () => {
+  const f = focusedFrame();
+  arrive(f.img);
+  f.img.decoded.resolve();
+  await tick();
+  assert.equal(f.bg.css('background-image'), 'url("https://img/t/p/w1280/b1.jpg")', 'первый кадр на экране');
+
+  const second = focusSecond(f);
+  second.decoded.reject(new Error('broken image'));
+  await tick();
+  assert.equal(f.bg.css('background-image'), 'url("https://img/t/p/w1280/b1.jpg")', 'старый кадр не затёрт пустым');
+  assert.equal(f.bg.hasClass('is-active'), true);
+  assert.equal(f.node.find('.lumen-hero__bg--b').css('background-image'), undefined, 'второй слой не поднимали');
+  assert.deepEqual(warnLog, []);
+});
+
+/* Замер координатора на стенде 2026-09-21: в скрытой вкладке
+   (document.visibilityState === 'hidden') decode() не резолвится и не
+   реджектится вовсе — Chromium не растеризует картинки, пока их некуда
+   рисовать, а WebView телевизора уходит в hidden на скринсейвере и при
+   переключении приложения. Страховка — тот же страховочный таймаут
+   предзагрузки: байты есть — показываем, декодирует браузер при отрисовке. */
+test('Task 47: повисший decode() — кадр показывает страховочный таймаут по байтам', () => {
+  const f = focusedFrame();
+  arrive(f.img);
+  f.env.advance(8000);
+  assert.equal(f.bg.css('background-image'), 'url("https://img/t/p/w1280/b1.jpg")');
+  assert.deepEqual(warnLog, []);
+});
+
+test('Task 47: таймаут без байт кадр не показывает', () => {
+  const f = focusedFrame();
+  f.env.advance(8000);
+  assert.equal(f.bg.css('background-image'), undefined);
+});
+
+/* Фикс-раунд Task 47. Промис decode() отменить нечем: он доезжает до
+   finish() уже после show() следующей карточки. Гард поколения не пускает
+   его к чужому кадру — а уборка (снятие страховочного таймера) обязана
+   стоять ЗА гардом, иначе устаревший вызов гасит таймер актуального. */
+test('Task 47: устаревший decode() не показывает свой кадр и не гасит таймер актуального', async () => {
+  const f = focusedFrame();
+  arrive(f.img);
+  const second = focusSecond(f);
+  arrive(second);
+
+  f.img.decoded.resolve();
+  await tick();
+  assert.equal(f.bg.css('background-image'), undefined, 'кадр карточки, с которой фокус уже ушёл, не показан');
+
+  /* Страховочный таймаут второй карточки обязан пережить чужой finish. */
+  f.env.advance(8000);
+  assert.equal(f.bg.css('background-image'), 'url("https://img/t/p/w1280/b2.jpg")', 'таймер актуального кадра снесён устаревшим вызовом');
+  assert.deepEqual(warnLog, []);
+});
+
+/* decode() на некоторых движках существует, но бросает синхронно или
+   возвращает не промис — тогда путь прежний, через onload. */
+test('Task 47: синхронный бросок decode() откатывает показ на onload', () => {
+  const f = focusedFrame({ throws: true });
+  arrive(f.img);
+  f.img.onload();
+  assert.equal(f.bg.css('background-image'), 'url("https://img/t/p/w1280/b1.jpg")');
+  assert.deepEqual(warnLog, []);
+});
+
+test('Task 47: decode() вернул не промис — показ по onload', () => {
+  const f = focusedFrame({ notPromise: true });
+  arrive(f.img);
+  f.img.onload();
   assert.equal(f.bg.css('background-image'), 'url("https://img/t/p/w1280/b1.jpg")');
   assert.deepEqual(warnLog, []);
 });

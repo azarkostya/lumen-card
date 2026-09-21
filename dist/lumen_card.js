@@ -261,6 +261,7 @@ return 'w' + POSTERS[POSTERS.length - 1];
 
 
 
+
 function frameSize(px) {
 return (Number(px) || 0) * FIT > 1920 ? 'original' : 'w1280';
 }
@@ -2853,6 +2854,9 @@ css.push('@media screen and (min-aspect-ratio:' + heroMinRatio + '/100){' +
 '.lumen-hero .lumen-hero__meta,.lumen-hero .lumen-hero__logo,.lumen-hero .lumen-hero__title,.lumen-hero .lumen-hero__descr,.lumen-hero .lumen-hero__sk,.lumen-hero .lumen-hero__chips{display:none}' +
 '.lumen-hero.lumen-hero--compact .lumen-hero__moods,.lumen-main .lumen-hero .lumen-hero__moods{display:-webkit-box;display:-webkit-flex;display:flex;margin-top:0;opacity:1;visibility:visible;pointer-events:auto}' +
 '.lumen-moods-on.lumen-main .scroll.layer--wheight,.lumen-moods-on.lumen-main.lumen-rows-up .scroll.layer--wheight{margin-top:' + MOODS_BAR + 'em;height:-webkit-calc(100vh - ' + round2(LAMPA_HEAD + MOODS_BAR) + 'em) !important;height:calc(100vh - ' + round2(LAMPA_HEAD + MOODS_BAR) + 'em) !important}}');
+
+
+
 
 
 
@@ -9452,13 +9456,26 @@ var done = false;
 
 var decoding = typeof loader.decode === 'function';
 
+
+
+
+
+function loaded() {
+return !!(loader.complete && loader.naturalWidth);
+}
+
+
+
+
+
+
 function finish(ok) {
 if (done) return;
 done = true;
-stopTimer('loadTimer');
 loader.onload = null;
 loader.onerror = null;
 if (gen !== captured || !state || !isMounted()) return;
+stopTimer('loadTimer');
 state.loader = null;
 
 
@@ -9475,8 +9492,16 @@ function shown() { finish(true); }
 loader.onload = function () { if (!decoding) shown(); };
 loader.onerror = function () { finish(false); };
 state.loader = loader;
-state.loadTimer = setTimeout(function () { finish(false); }, LOAD_TIMEOUT);
+
+
+
+
+
+
+
+state.loadTimer = setTimeout(function () { finish(loaded()); }, LOAD_TIMEOUT);
 loader.src = url;
+
 
 
 
@@ -9490,7 +9515,7 @@ loader.src = url;
 if (decoding) {
 try {
 var decoded = loader.decode();
-if (decoded && typeof decoded.then === 'function') decoded.then(shown, shown);
+if (decoded && typeof decoded.then === 'function') decoded.then(shown, function () { finish(loaded()); });
 else decoding = false;
 } catch (e) {
 
@@ -10505,6 +10530,8 @@ function backdropUrl(movie) {
 var url = '';
 try {
 var path = LC.cardinfo.backdropPath(movie);
+
+
 
 
 
@@ -12750,6 +12777,8 @@ var CONTROLLERS = { content: 1, full_start: 1, full_descr: 1, items_line: 1 };
 
 
 
+
+
 function sizeFor(width) {
 return LC.util.frameSize(width);
 }
@@ -14721,6 +14750,9 @@ return node;
 
 
 function loadResultBg(card) {
+
+
+
 
 
 

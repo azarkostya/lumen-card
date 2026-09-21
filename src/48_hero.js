@@ -946,13 +946,26 @@
          остаётся прежний путь через onload. */
       var decoding = typeof loader.decode === 'function';
 
+      /* Байты кадра доехали? Единственный признак, которому можно верить,
+         когда decode() отвергнут или не доехал вовсе: complete значит
+         «загрузка завершилась», naturalWidth > 0 — «завершилась картинкой,
+         а не ошибкой». */
+      function loaded() {
+        return !!(loader.complete && loader.naturalWidth);
+      }
+
+      /* Уборка стоит ЗА гардом поколения намеренно: stopTimer работает по
+         текущему state, а промис decode() отменить нечем — он доезжает сюда
+         уже после show() следующей карточки, и снятый здесь loadTimer был бы
+         таймером её кадра, а не нашего. Свой таймер устаревшего вызова к
+         этому моменту уже снят cancelPending() из show(). */
       function finish(ok) {
         if (done) return;
         done = true;
-        stopTimer('loadTimer');
         loader.onload = null;
         loader.onerror = null;
         if (gen !== captured || !state || !isMounted()) return;
+        stopTimer('loadTimer');
         state.loader = null;
         /* Кадр не пришёл — на экране остаётся предыдущий: пустой герой
            хуже устаревшего кадра, а следующий фокус всё равно его сменит. */
@@ -969,7 +982,14 @@
       loader.onload = function () { if (!decoding) shown(); };
       loader.onerror = function () { finish(false); };
       state.loader = loader;
-      state.loadTimer = setTimeout(function () { finish(false); }, LOAD_TIMEOUT);
+      /* Страховочный таймаут. Решает по тому же признаку, что и неудачный
+         decode(): байты есть — показываем (декодирует браузер при
+         отрисовке), нет — оставляем предыдущий кадр. Через него же
+         показывается кадр, когда decode() не резолвится вовсе: в скрытой
+         вкладке Chromium картинки не растеризует, и промис висит без
+         исхода (замер координатора на стенде 2026-09-21; WebView телевизора
+         уходит в hidden на скринсейвере и при переключении приложения). */
+      state.loadTimer = setTimeout(function () { finish(loaded()); }, LOAD_TIMEOUT);
       loader.src = url;
       /* Task 47: onload значит «байты пришли», а не «картинку можно
          показать»: декодирование в этот момент ещё впереди и на слабом ТВ
@@ -977,14 +997,15 @@
          ресёрч §1.4 — это и видно как чёрные полосы на кадре). decode()
          резолвится, когда кадр уже декодирован и вставляется без
          синхронной работы.
-         Показываем в ОБОИХ исходах: реджект — это, как правило, смена src
-         после вызова (ресёрч §4), то есть просто следующая карточка под
-         фокусом; кадр при этом загружен, а лишний показ отсекает общий
-         гард поколения (gen !== captured) внутри finish. */
+         Реджект здесь НЕ бывает сменой src (частый случай в каруселях,
+         ресёрч §4): у каждого вызова свой new Image, а src присваивается
+         ровно один раз, выше. Значит остаются битые данные, упавший запрос
+         и движок, отвергающий decode() без причины, — и решает единственный
+         проверяемый признак, доехали ли байты. */
       if (decoding) {
         try {
           var decoded = loader.decode();
-          if (decoded && typeof decoded.then === 'function') decoded.then(shown, shown);
+          if (decoded && typeof decoded.then === 'function') decoded.then(shown, function () { finish(loaded()); });
           else decoding = false;
         } catch (e) {
           /* decode() бросил синхронно — остаёмся на onload. */
