@@ -3562,6 +3562,118 @@
        отдаёт svg в 1em (src/20_icons.js), и пункт выглядел мельче соседей. */
     css.push('.lumen-menu-hub .lumen-ico{width:1.5em;height:1.5em}');
 
+    /* --- Task 73 (фаза 6): плоский вид («Как Apple TV» на остальные экраны) ---
+       Отзыв пользователя 2026-09-21 (п.3): «„Как в Apple TV“ выглядит
+       хорошо, но менялся только дизайн стартовой». Настройка lumen_flat
+       (src/81_prefs.js) выключена по умолчанию и включена в пресете Apple TV.
+
+       Блок стоит ПОСЛЕДНИМ в сборке намеренно: все правила ниже повторяют
+       селекторы, уже объявленные выше, и берут верх порядком, а не
+       специфичностью — так видно одним куском, что именно меняет плоский
+       вид, и ни одно базовое правило не приходится переписывать под
+       условие.
+
+       Ориентир — docs/research/2026-09-21-tv-design-specs.md §1: у Apple
+       содержимое лежит на фоне, а не в коробках. Чего здесь НЕТ намеренно:
+       фокуса (инверсия и подложка — Task 53/54, работают в обоих видах),
+       кеглей (порог TV_MIN держат тесты), геометрии рядов главной. */
+    if (LC.pref('lumen_flat', false)) {
+      /* Панель «Подробно» — строкой фактов под описанием. flex-basis:100%
+         в .full-descr (flex-wrap:wrap) переносит её на свою строку под
+         колонку описания; подложка и рамка снимаются, паддинги обнуляются,
+         чтобы строка встала по левому краю описания. Сетка «ярлык/значение»
+         разворачивается в строку: display:block на контейнере, inline на
+         ячейках, разделитель «·» перед каждым ярлыком, КРОМЕ первого
+         (соседний комбинатор: первому ярлыку значение не предшествует). */
+      css.push('.lumen-descr-row .lumen-facts{-webkit-flex-basis:100%;flex-basis:100%;max-width:100%;min-width:0;margin-top:.79em;padding:0;border-radius:0;background:none;border-color:transparent}');
+      css.push('.lumen-descr-row .lumen-facts__title{display:none}');
+      css.push('.lumen-descr-row .lumen-facts__grid{display:block}');
+      css.push('.lumen-descr-row .lumen-facts__label{display:inline;margin-right:.3em}');
+      css.push('.lumen-descr-row .lumen-facts__value{display:inline}');
+      css.push('.lumen-descr-row .lumen-facts__value + .lumen-facts__label:before{content:"\\00B7";margin-right:.3em;color:' + P.smoke + '}');
+
+      /* Счётчики разделов («Жанр 5 · Производство 2 · Теги 14») — штатные
+         .tag-count Lampa: подложка rgba(0,0,0,.3) и белый чип числа
+         (vendor/lampa/css/app.css:2936-2972). В плоском виде плашек нет, но
+         ТОЛЬКО вне фокуса: .tag-count.focus (app.css:2973-2976) — белая
+         заливка с чёрным текстом, то есть та же инверсия, что у остальных
+         элементов плагина, и трогать её нельзя. Наша таблица подключается
+         после app.css, поэтому без :not(.focus) правило перебило бы фокус
+         при равной специфичности. */
+      css.push('.lumen-descr-row .tag-count:not(.focus){background-color:transparent;padding-left:0;padding-right:0}');
+      css.push('.lumen-descr-row .tag-count:not(.focus) .tag-count__count{background-color:transparent;color:' + P.muted + ';padding-left:.3em;padding-right:0}');
+
+      /* Плитки серий: кадр сверху, подпись под ним. Высота ряда не
+         меняется (6.58em, .lumen-episodes__viewport выше) — полный кадр
+         16:9 при ширине плитки 14.9em занял бы 8.38em, и ряд пришлось бы
+         растить, а вместе с ним двигать всю карточку. Поэтому кадр —
+         полоса 3.95em с обрезкой по cover (background-size:cover в базовом
+         правиле), под ней 2.02em на название и подпись.
+         Подложка кадра (linear-gradient размером 100%×3.95em) рисуется
+         ФОНОМ САМОЙ ПЛИТКИ, то есть под .lumen-episode__still: у сериалов
+         без кадров и у плиток, чья картинка ещё не доехала, место кадра
+         остаётся местом кадра, а не пустотой над подписью.
+         Паддинг плитки уходит только сверху и с боков — кадр обязан
+         касаться краёв; нижние .61em держат зазор между подписью и
+         следующей строкой. Тот же паддинг повторён для .focus: инверсия
+         Task 54 берёт своё из базового правила фокуса, а её padding:.70em
+         сдвинул бы содержимое плитки в момент фокуса. */
+      css.push('.lumen-card .lumen-episode{padding:0 0 .61em;border-radius:.3em;background:-webkit-linear-gradient(rgba(' + P.textRgb + ',.08),rgba(' + P.textRgb + ',.08));background:linear-gradient(rgba(' + P.textRgb + ',.08),rgba(' + P.textRgb + ',.08));background-repeat:no-repeat;-webkit-background-size:100% 3.95em;background-size:100% 3.95em;border-color:transparent;-webkit-box-pack:start;-webkit-justify-content:flex-start;justify-content:flex-start}');
+      css.push('.lumen-card .lumen-episode.focus{padding:0 0 .61em}');
+      css.push('.lumen-card .lumen-episode__still{bottom:auto;height:3.95em;opacity:1;border-radius:.3em}');
+      /* В фокусе кадр не приглушается: приглушение .12 (Task 54) написано
+         под заливку ПОД текстом, а здесь текста поверх кадра нет — гасить
+         его значило бы гасить сам кадр. Белая заливка фокуса остаётся видна
+         ровно там, где лежит подпись. */
+      css.push('.lumen-card .lumen-episode.focus .lumen-episode__still{opacity:1}');
+      /* Верхняя строка плитки (номер серии, метка «СМОТРИТЕ», отметка
+         просмотра, кружок play) в плоском виде лежит ПОВЕРХ кадра, а не
+         поверх заливки карты, поэтому ей нужны затемнение и светлый текст —
+         тот же приём, что у подписи на плитке хаба (.lumen-tile__scrim
+         выше). Замер на стенде 960×540@2 по кадру «Дораэмона» (светлый
+         рисунок), по самому светлому и самому тёмному пикселю области
+         номера: в плоском виде с этим затемнением и цветом text — 5.4:1 и
+         8.1:1. Для сравнения, в обычном виде номер цветом smoke поверх
+         кадра на .28 даёт 1.9:1 и 2.6:1 — то есть плоский вид тут не
+         ухудшение, а исправление. Градиент сходит на нет к низу кадра:
+         подписи под кадром он не касается. */
+      css.push('.lumen-card .lumen-episode__top{height:3.95em;-webkit-box-sizing:border-box;box-sizing:border-box;padding:.35em .44em;-webkit-box-align:start;-webkit-align-items:flex-start;align-items:flex-start;background:-webkit-linear-gradient(top,rgba(' + P.bgRgb + ',.72) 0%,rgba(' + P.bgRgb + ',.28) 55%,rgba(' + P.bgRgb + ',0) 100%);background:linear-gradient(180deg,rgba(' + P.bgRgb + ',.72) 0%,rgba(' + P.bgRgb + ',.28) 55%,rgba(' + P.bgRgb + ',0) 100%)}');
+      /* Цвет текста НАД кадром — и в покое, и в фокусе. В фокусе инверсия
+         Task 54 красит номер и метку в P.bg под светлую заливку карты, но в
+         плоском виде под ними кадр, а не заливка: на тёмном кадре тёмный
+         номер исчезал бы. Всё, что НИЖЕ кадра (название, подпись, таймкод,
+         полоса прогресса), инверсию сохраняет — там заливка есть. */
+      css.push('.lumen-card .lumen-episode__top .lumen-episode__num,.lumen-card .lumen-episode__top .lumen-episode__state{color:' + P.text + '}');
+      /* Отдельным правилом для фокуса: у инверсии Task 54 селектор
+         .lumen-card .lumen-episode.focus .lumen-episode__num — это четыре
+         класса против трёх, порядком её не перебить (замерено на стенде:
+         номер в фокусе оставался тёмным, rgb(21,29,32)). */
+      css.push('.lumen-card .lumen-episode.focus .lumen-episode__top .lumen-episode__num,.lumen-card .lumen-episode.focus .lumen-episode__top .lumen-episode__state{color:' + P.text + '}');
+      /* «Смотрите» по-прежнему помечается акцентным номером — признак
+         состояния из §9 плоский вид не отменяет. */
+      css.push('.lumen-card .lumen-episode--watching .lumen-episode__top .lumen-episode__num{color:' + A + '}');
+      css.push('.lumen-card .lumen-episode__bottom{padding-top:.35em}');
+      /* Отдельных правил для состояний плитки здесь нет намеренно: у
+         .lumen-episode--watching и --soon селекторы той же специфичности,
+         что у базового правила плитки выше, и оно стоит ПОЗЖЕ — заливка и
+         рамка состояний снимаются им же. Сами состояния остаются
+         различимы: «смотрите» — акцентный номер и полоса прогресса,
+         «не вышла» — приглушённое название, «просмотрена» — opacity .6. */
+
+      /* Отзывы — плоский список: подложка и рамка снимаются, полоса тона
+         слева остаётся единственным цветным признаком. */
+      css.push('.lumen-descr-row .lumen-review{background:none;border-color:transparent;border-radius:0}');
+      css.push('.lumen-descr-row .lumen-reviews__head{background:none;padding-left:0;padding-right:0;margin-left:0}');
+
+      /* Сетка подборки и хаб: подложки под плитками. Подпись в сетке уже
+         под постером (.card__title ниже .card__view), в хабе — на кадре
+         плитки: в разметку хаба плоский вид не лезет, он снимает только
+         панель под кадром. */
+      css.push('.lumen-grid .lumen-gcard .card__view{background-color:transparent}');
+      css.push('.lumen-grid .lumen-gcard .card__img{background-color:transparent}');
+      css.push('.lumen-hub__tiles .lumen-tile{background:none}');
+    }
+
     /* --- Иконки кнопок (единый набор через CSS-маску, см. src/20_icons.js) --- */
     css.push(LC.icons.css());
 

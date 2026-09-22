@@ -484,10 +484,38 @@
       return r;
     }
 
+    /* ---------------- Task 73: плоский вид пути TorrServer ---------------- */
+    /* Настройка lumen_flat (src/81_prefs.js) выключена по умолчанию и
+       включена в пресете «Как Apple TV». Отзыв пользователя 2026-09-21
+       (п.3): стиль менял только главную — на пути до плеера раскладка
+       оставалась прежней, список карточек-коробок с рамками.
+       Плоский вид снимает у раздач и файлов заливку, рамку и радиус, а
+       строки разделяет тонкой линией: рамка остаётся в раскладке (цвет
+       прозрачный, ширина та же .044em), поэтому ни одна строка не съезжает,
+       а верхняя кромка соседней строки получает цвет k.line и становится
+       разделителем.
+       Фокус не трогается ни одной строкой: правила .torrent-item.focus,
+       .torrent-file.focus и .torrent-serial.focus специфичнее базовых
+       (лишний класс), поэтому и заливка, и акцентная рамка фокуса остаются
+       ровно такими же, как в обычном виде. */
+    function flatRules(k) {
+      var r = [];
+      var rows = ['.torrent-file', '.torrent-serial'];
+      var next = ['.torrent-files .torrent-file + .torrent-file', '.torrent-files .torrent-file + .torrent-serial',
+        '.torrent-files .torrent-serial + .torrent-file', '.torrent-files .torrent-serial + .torrent-serial'];
+      r.push('/* 41 Плоский вид (lumen_flat): раздачи и файлы без карточек */');
+      r.push(T(['.torrent-item']) + '{background-color:transparent;border-color:transparent;border-radius:0}');
+      r.push(T(['.torrent-item + .torrent-item']) + '{margin-top:0;border-top-color:' + k.line + '}');
+      r.push(T(rows) + '{background-color:transparent;border-color:transparent;border-radius:0}');
+      r.push(T(next) + '{margin-top:0;border-top-color:' + k.line + '}');
+      return r;
+    }
+
     function css() {
       var k = LC.tokens();
       maskUse = { order: [], by: {} };
-      return [].concat(selectRules(k), explorerRules(k), modalRules(k), filesRules(k), mediaRules(k), maskRules()).join('\n');
+      var flat = LC.pref('lumen_flat', false) ? flatRules(k) : [];
+      return [].concat(selectRules(k), explorerRules(k), modalRules(k), filesRules(k), mediaRules(k), flat, maskRules()).join('\n');
     }
 
     /* ---------------- DOM ---------------- */

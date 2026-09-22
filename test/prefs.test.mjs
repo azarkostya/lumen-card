@@ -158,7 +158,8 @@ test('LIST: полный набор ключей — существующие и
     /* Task 20 (фаза 2): состав рядов, чипы настроения, подсказка про ключ */
     'lumen_home_rows', 'lumen_moods', 'lumen_kp_hint',
     /* Фаза 3: тема, плотность подложек, масштаб интерфейса */
-    'lumen_theme', 'lumen_solid', 'lumen_scale',
+    /* Task 73 (фаза 6): плоский вид — между плотными подложками и масштабом */
+    'lumen_theme', 'lumen_solid', 'lumen_flat', 'lumen_scale',
     /* Task 25 (фаза 3): метки на постерах рядов */
     'lumen_badges',
     /* Task 26 (фаза 3): пункты плагина в меню карточки по удержанию OK */
@@ -203,8 +204,10 @@ test('фаза 3: тема, плотность подложек и масшта�
   /* Task 62a (фаза 5): область подкраски — сразу за самой подкраской: пункт
      отвечает на второй вопрос про неё же («докуда доходит цвет постера»). */
   assert.equal(names[at + 2], 'lumen_accent_scope');
-  assert.deepEqual(names.slice(at + 3, at + 6), ['lumen_theme', 'lumen_solid', 'lumen_scale']);
-  assert.equal(names[at + 6], 'lumen_card_fonts', 'выключатель шрифтов остаётся следующим');
+  /* Task 73 (фаза 6): «Плоский вид» встал сразу за «Плотными подложками» —
+     оба пункта про то, на чём лежит содержимое. */
+  assert.deepEqual(names.slice(at + 3, at + 7), ['lumen_theme', 'lumen_solid', 'lumen_flat', 'lumen_scale']);
+  assert.equal(names[at + 7], 'lumen_card_fonts', 'выключатель шрифтов остаётся следующим');
 });
 
 test('фаза 3: значения по умолчанию сохраняют прежний вид', () => {
@@ -241,7 +244,10 @@ const GROUPS = [
     'lumen_card_accent', 'lumen_accent_auto',
     /* Task 62a (фаза 5): область подкраски от постера. */
     'lumen_accent_scope',
-    'lumen_theme', 'lumen_solid', 'lumen_scale',
+    'lumen_theme', 'lumen_solid',
+    /* Task 73 (фаза 6): плоский вид — восьмой пункт «Оформления» и восьмой
+       ключ готового стиля. */
+    'lumen_flat', 'lumen_scale',
     'lumen_card_fonts', 'lumen_font'
   ]],
   /* Task 30: движение вынесено из «Оформления» в свою группу. Переход и
@@ -590,6 +596,29 @@ test('Task 62b: строки уведомления о готовом стиле
     'переводы lumen_preset_same не должны совпадать дословно: ' + LANGS.map((l) => same[l]).join(' / '));
 });
 
+/* Task 73 (фаза 6): описания ОБЕИХ кнопок обязаны называть все пункты,
+   которые кнопка переписывает, — иначе человек узнаёт о правке своей
+   настройки уже после нажатия. Пунктов стало восемь; сторож сверяет и
+   число словом, и упоминание нового пункта, во всех трёх языках. */
+test('Task 73: описания кнопок стиля называют все восемь пунктов, включая плоский вид', () => {
+  const LC = loadStrings();
+  assert.equal(prefs.PRESET_KEYS.length, 8, 'набор стиля изменился — поправить описания кнопок');
+  const count = { ru: 'восемь', en: 'eight', uk: 'вісім' };
+  const flat = { ru: 'плоский вид', en: 'flat look', uk: 'плаский вигляд' };
+  for (const key of ['lumen_preset_appletv_descr', 'lumen_preset_lumen_descr']) {
+    const pack = LC.STRINGS[key];
+    for (const lang of LANGS) {
+      const text = ('' + pack[lang]).toLowerCase();
+      assert.ok(text.indexOf(count[lang]) !== -1, key + ' (' + lang + '): нет числа пунктов «' + count[lang] + '»');
+      assert.ok(text.indexOf(flat[lang]) !== -1, key + ' (' + lang + '): не назван плоский вид');
+      /* «восемь» само оканчивается на «семь», поэтому прежнее число ищется
+         с границей слова, а не подстрокой. */
+      const stale = { ru: /(^|[^а-яё])семь пунктов/, en: /(^|[^a-z])seven items/, uk: /(^|[^а-яїієґ])сім пунктів/ };
+      assert.equal(stale[lang].test(text), false, key + ' (' + lang + '): в описании осталось прежнее число пунктов');
+    }
+  }
+});
+
 test('в словаре нет пунктов-сирот: каждая строка lumen_card_group_* принадлежит заголовку из LIST', () => {
   const LC = loadStrings();
   const used = {};
@@ -773,7 +802,7 @@ test('Task 62b: пресет трогает только оформление �
   }
   assert.deepEqual(prefs.PRESET_KEYS.slice().sort(), [
     'lumen_accent_auto', 'lumen_accent_scope', 'lumen_badges',
-    'lumen_card_accent', 'lumen_font', 'lumen_hero_size', 'lumen_theme'
+    'lumen_card_accent', 'lumen_flat', 'lumen_font', 'lumen_hero_size', 'lumen_theme'
   ].sort());
 });
 
@@ -792,6 +821,8 @@ test('Task 62b: стиль Lumen — значения по умолчанию и
   assert.equal(lumen.lumen_font, 'golos');
   assert.equal(lumen.lumen_badges, 'poster');
   assert.equal(lumen.lumen_accent_scope, 'full');
+  /* Task 73: плоский вид — это стиль Apple TV, в Lumen коробки остаются. */
+  assert.equal(lumen.lumen_flat, false);
 });
 
 test('Task 62b: стиль Apple TV — нейтральная палитра, метки в подписи, цвет только в фоне', () => {
@@ -805,6 +836,10 @@ test('Task 62b: стиль Apple TV — нейтральная палитра, �
   assert.equal(apple.lumen_accent_scope, 'veil', 'цвет кадра не заходит на управление');
   assert.equal(apple.lumen_hero_size, 'large');
   assert.equal(apple.lumen_accent_auto, true);
+  /* Task 73: отзыв пользователя 2026-09-21 (п.3) — «менялся только дизайн
+     стартовой». Плоский вид и есть то, чем стиль доходит до карточки,
+     сетки, хаба и пути TorrServer. */
+  assert.equal(apple.lumen_flat, true, 'плоский вид обязан входить в стиль Apple TV');
 
   /* Каждое значение обязано быть допустимым для своего пункта — иначе
      раздел настроек покажет пустую строку, а код получит мусор. */

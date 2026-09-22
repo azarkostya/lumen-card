@@ -41,22 +41,25 @@
        значений пунктов «Оформления». Название группы говорит именно про
        стиль целиком, чтобы не путалось с пунктами под ней. */
     lumen_group_preset: { ru: 'Готовый стиль', en: 'Ready-made style', uk: 'Готовий стиль' },
-    /* Ревью Task 62: описание перечисляет ВСЕ семь пунктов, которые кнопка
+    /* Ревью Task 62: описание перечисляет ВСЕ пункты, которые кнопка
        выставляет, включая те два, что в стиле Apple TV совпадают со
        значениями по умолчанию (кадр над рядами и акцент от постера): они
        тоже переписываются, и человек, поставивший «Кадр над рядами →
-       Выключен», обязан узнать об этом до нажатия, а не после. */
+       Выключен», обязан узнать об этом до нажатия, а не после.
+       Task 73: пунктов стало восемь — добавился «Плоский вид», которым
+       стиль доходит до карточки, сетки и пути TorrServer. Число в тексте
+       обоих описаний и длину PRESET_KEYS сверяет test/prefs.test.mjs. */
     lumen_preset_appletv_name: { ru: 'Применить стиль Apple TV', en: 'Apply the Apple TV style', uk: 'Застосувати стиль Apple TV' },
     lumen_preset_appletv_descr: {
-      ru: 'Нейтральный стиль вместо тёплого. Выставляет семь пунктов «Оформления» разом: тема «Глубокая чёрная», акцент «Графит», шрифт Inter, метки «В подписи», цвет постера «Только фон», кадр над рядами «Крупный», акцент от постера включён. Последние два — значения по умолчанию плагина: если вы меняли их руками, кнопка вернёт их обратно. Ключ API, масштаб, анимации, заставку, состав рядов и настройки самой Lampa не трогает. После кнопки любой пункт правится по отдельности.',
-      en: 'A neutral style instead of the warm one. It sets seven items of "Appearance" at once: the "Deep black" theme, the "Graphite" accent, the Inter font, badges "In the caption", poster colour "Background only", hero "Large", accent from poster on. The last two are the plugin defaults: if you changed them by hand, the button changes them back. The API key, scale, animations, screensaver, row selection and Lampa own settings stay untouched. After the button every item can be adjusted one by one.',
-      uk: 'Нейтральний стиль замість теплого. Виставляє сім пунктів «Оформлення» разом: тема «Глибока чорна», акцент «Графіт», шрифт Inter, мітки «У підписі», колір постера «Лише тло», кадр над рядами «Великий», акцент від постера увімкнено. Останні два — значення за замовчуванням плагіна: якщо ви змінювали їх руками, кнопка поверне їх назад. Ключ API, масштаб, анімації, заставку, склад рядів і налаштування самої Lampa не чіпає. Після кнопки кожен пункт правиться окремо.'
+      ru: 'Нейтральный стиль вместо тёплого. Выставляет восемь пунктов «Оформления» разом: тема «Глубокая чёрная», акцент «Графит», шрифт Inter, метки «В подписи», цвет постера «Только фон», плоский вид включён, кадр над рядами «Крупный», акцент от постера включён. Последние два — значения по умолчанию плагина: если вы меняли их руками, кнопка вернёт их обратно. Ключ API, масштаб, анимации, заставку, состав рядов и настройки самой Lampa не трогает. После кнопки любой пункт правится по отдельности.',
+      en: 'A neutral style instead of the warm one. It sets eight items of "Appearance" at once: the "Deep black" theme, the "Graphite" accent, the Inter font, badges "In the caption", poster colour "Background only", flat look on, hero "Large", accent from poster on. The last two are the plugin defaults: if you changed them by hand, the button changes them back. The API key, scale, animations, screensaver, row selection and Lampa own settings stay untouched. After the button every item can be adjusted one by one.',
+      uk: 'Нейтральний стиль замість теплого. Виставляє вісім пунктів «Оформлення» разом: тема «Глибока чорна», акцент «Графіт», шрифт Inter, мітки «У підписі», колір постера «Лише тло», плаский вигляд увімкнено, кадр над рядами «Великий», акцент від постера увімкнено. Останні два — значення за замовчуванням плагіна: якщо ви змінювали їх руками, кнопка поверне їх назад. Ключ API, масштаб, анімації, заставку, склад рядів і налаштування самої Lampa не чіпає. Після кнопки кожен пункт правиться окремо.'
     },
     lumen_preset_lumen_name: { ru: 'Вернуть стиль Lumen', en: 'Restore the Lumen style', uk: 'Повернути стиль Lumen' },
     lumen_preset_lumen_descr: {
-      ru: 'Возвращает те же семь пунктов к значениям по умолчанию плагина: тёплая тёмная тема, песочный акцент, шрифт Golos Text, метки «На постере», полная подкраска от постера, кадр над рядами «Крупный», акцент от постера включён. Настройки вне оформления остаются вашими.',
-      en: 'Returns the same seven items to the plugin defaults: warm dark theme, sand accent, the Golos Text font, badges "On the poster", full poster tinting, hero "Large", accent from poster on. Everything outside the look stays yours.',
-      uk: 'Повертає ті самі сім пунктів до значень за замовчуванням плагіна: тепла темна тема, піщаний акцент, шрифт Golos Text, мітки «На постері», повне підфарбування від постера, кадр над рядами «Великий», акцент від постера увімкнено. Налаштування поза оформленням лишаються вашими.'
+      ru: 'Возвращает те же восемь пунктов к значениям по умолчанию плагина: тёплая тёмная тема, песочный акцент, шрифт Golos Text, метки «На постере», полная подкраска от постера, плоский вид выключен, кадр над рядами «Крупный», акцент от постера включён. Настройки вне оформления остаются вашими.',
+      en: 'Returns the same eight items to the plugin defaults: warm dark theme, sand accent, the Golos Text font, badges "On the poster", full poster tinting, flat look off, hero "Large", accent from poster on. Everything outside the look stays yours.',
+      uk: 'Повертає ті самі вісім пунктів до значень за замовчуванням плагіна: тепла темна тема, піщаний акцент, шрифт Golos Text, мітки «На постері», повне підфарбування від постера, плаский вигляд вимкнено, кадр над рядами «Великий», акцент від постера увімкнено. Налаштування поза оформленням лишаються вашими.'
     },
     /* Короткие имена стилей для подтверждения Lampa.Noty: «Стиль Apple TV ·
        Тема, Акцентный цвет, Шрифт». Отдельно от подписей кнопок — те
@@ -226,6 +229,16 @@
       ru: 'Кнопки, чипы и подложки текста становятся сплошными, без просвечивающего кадра и размытия. Включите, если на телевизоре картинка мылит или подтормаживает.',
       en: 'Buttons, chips and text panels become opaque, with no show-through backdrop and no blur. Turn on if the picture looks smeared or stutters on your TV.',
       uk: 'Кнопки, чипи та підкладки тексту стають суцільними, без просвічування кадру і розмиття. Увімкніть, якщо на телевізорі картинка мулиться або підгальмовує.'
+    },
+    /* Task 73 (фаза 6): плоский вид. Описание перечисляет ровно те экраны,
+       где вид меняется, — карточка, сетка подборки, хаб и путь TorrServer:
+       на главной раскладка та же в обоих видах, и обещать там перемену
+       нельзя. */
+    lumen_flat_name: { ru: 'Плоский вид', en: 'Flat look', uk: 'Плаский вигляд' },
+    lumen_flat_descr: {
+      ru: 'Содержимое лежит прямо на фоне, а не в коробках: в карточке панель «Подробно» становится строкой фактов под описанием, счётчики разделов теряют плашки, плитки серий и отзывы — рамки и подложки; в сетке подборки и в хабе подложки под плитками снимаются; на пути TorrServer раздачи и файлы разделяются тонкими линиями вместо карточек. Фокус и размер текста не меняются. Применяется сразу.',
+      en: 'Content sits on the background instead of inside boxes: on the card the "Details" panel becomes a line of facts under the description, section counters lose their plates, episode tiles and reviews lose frames and panels; in the collection grid and the hub the plates under tiles are removed; on the TorrServer path releases and files are separated by thin lines instead of cards. Focus and text size stay as they are. Applied immediately.',
+      uk: 'Вміст лежить прямо на тлі, а не в коробках: у картці панель «Докладно» стає рядком фактів під описом, лічильники розділів втрачають плашки, плитки серій та відгуки — рамки й підкладки; у сітці підбірки та в хабі підкладки під плитками знімаються; на шляху TorrServer роздачі та файли розділяються тонкими лініями замість карток. Фокус і розмір тексту не змінюються. Застосовується одразу.'
     },
     /* Фаза 3: масштаб интерфейса плагина. */
     lumen_scale_name: { ru: 'Масштаб интерфейса', en: 'Interface scale', uk: 'Масштаб інтерфейсу' },
@@ -985,8 +998,10 @@
        LC.injectCss зовёт LC.accent.restyle(), а тот берёт текст у
        LC.accentFocusCss — пустой в режиме 'veil', и узел снимается целиком
        (src/57_color.js, writeAccentStyle). */
+    /* Task 73 (фаза 6): плоский вид — тоже целиком таблица стилей, и
+       карточки, и экранов пути до плеера (LC.injectCss пересобирает обе). */
     if (name === 'lumen_theme' || name === 'lumen_solid' || name === 'lumen_scale' ||
-        name === 'lumen_accent_scope') { LC.injectCss(); return true; }
+        name === 'lumen_accent_scope' || name === 'lumen_flat') { LC.injectCss(); return true; }
     /* Task 24 (фаза 3): акцент от постера. Выключили — цвет из настроек
        возвращается сразу; включили — считается по фильму открытой карточки.
        Пересобирает CSS сам, поэтому отдельного injectCss здесь нет. */

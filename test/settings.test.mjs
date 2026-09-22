@@ -310,6 +310,9 @@ test('каждая настройка применяется ровно один
        стилей — одной пересборки CSS достаточно, экран пересобирать не нужно. */
     lumen_theme: ['css'],
     lumen_solid: ['css'],
+    /* Task 73 (фаза 6): плоский вид — тоже целиком таблица стилей, и
+       карточки, и экранов пути до плеера (их пересобирает та же LC.injectCss). */
+    lumen_flat: ['css'],
     lumen_scale: ['css'],
     /* Task 24 (фаза 3): акцент от постера — своя точка применения: при
        выключении возвращает цвет настроек, при включении считает по фильму
@@ -600,7 +603,7 @@ test('Task 62b: «Apple TV» пишет весь набор оформления
      applyPresetChanges обязаны прийти ровно записанные ключи. «Акцент от
      постера» и размер кадра в стиле Apple TV те же, что по умолчанию, — на
      чистом профиле они не пишутся вовсе. */
-  assert.deepEqual(env.log, ['preset:lumen_theme,lumen_card_accent,lumen_font,lumen_accent_scope,lumen_badges']);
+  assert.deepEqual(env.log, ['preset:lumen_theme,lumen_card_accent,lumen_font,lumen_accent_scope,lumen_badges,lumen_flat']);
 });
 
 /* Найдено живой проверкой фикс-раунда: при «Только фон» состав таблицы

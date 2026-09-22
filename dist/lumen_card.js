@@ -4069,6 +4069,118 @@ css.push('.lumen-jump{position:fixed;left:50%;bottom:' + EDGE_Y + 'em;-webkit-tr
 css.push('.lumen-menu-hub .lumen-ico{width:1.5em;height:1.5em}');
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+if (LC.pref('lumen_flat', false)) {
+
+
+
+
+
+
+
+css.push('.lumen-descr-row .lumen-facts{-webkit-flex-basis:100%;flex-basis:100%;max-width:100%;min-width:0;margin-top:.79em;padding:0;border-radius:0;background:none;border-color:transparent}');
+css.push('.lumen-descr-row .lumen-facts__title{display:none}');
+css.push('.lumen-descr-row .lumen-facts__grid{display:block}');
+css.push('.lumen-descr-row .lumen-facts__label{display:inline;margin-right:.3em}');
+css.push('.lumen-descr-row .lumen-facts__value{display:inline}');
+css.push('.lumen-descr-row .lumen-facts__value + .lumen-facts__label:before{content:"\\00B7";margin-right:.3em;color:' + P.smoke + '}');
+
+
+
+
+
+
+
+
+
+css.push('.lumen-descr-row .tag-count:not(.focus){background-color:transparent;padding-left:0;padding-right:0}');
+css.push('.lumen-descr-row .tag-count:not(.focus) .tag-count__count{background-color:transparent;color:' + P.muted + ';padding-left:.3em;padding-right:0}');
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+css.push('.lumen-card .lumen-episode{padding:0 0 .61em;border-radius:.3em;background:-webkit-linear-gradient(rgba(' + P.textRgb + ',.08),rgba(' + P.textRgb + ',.08));background:linear-gradient(rgba(' + P.textRgb + ',.08),rgba(' + P.textRgb + ',.08));background-repeat:no-repeat;-webkit-background-size:100% 3.95em;background-size:100% 3.95em;border-color:transparent;-webkit-box-pack:start;-webkit-justify-content:flex-start;justify-content:flex-start}');
+css.push('.lumen-card .lumen-episode.focus{padding:0 0 .61em}');
+css.push('.lumen-card .lumen-episode__still{bottom:auto;height:3.95em;opacity:1;border-radius:.3em}');
+
+
+
+
+css.push('.lumen-card .lumen-episode.focus .lumen-episode__still{opacity:1}');
+
+
+
+
+
+
+
+
+
+
+
+css.push('.lumen-card .lumen-episode__top{height:3.95em;-webkit-box-sizing:border-box;box-sizing:border-box;padding:.35em .44em;-webkit-box-align:start;-webkit-align-items:flex-start;align-items:flex-start;background:-webkit-linear-gradient(top,rgba(' + P.bgRgb + ',.72) 0%,rgba(' + P.bgRgb + ',.28) 55%,rgba(' + P.bgRgb + ',0) 100%);background:linear-gradient(180deg,rgba(' + P.bgRgb + ',.72) 0%,rgba(' + P.bgRgb + ',.28) 55%,rgba(' + P.bgRgb + ',0) 100%)}');
+
+
+
+
+
+css.push('.lumen-card .lumen-episode__top .lumen-episode__num,.lumen-card .lumen-episode__top .lumen-episode__state{color:' + P.text + '}');
+
+
+
+
+css.push('.lumen-card .lumen-episode.focus .lumen-episode__top .lumen-episode__num,.lumen-card .lumen-episode.focus .lumen-episode__top .lumen-episode__state{color:' + P.text + '}');
+
+
+css.push('.lumen-card .lumen-episode--watching .lumen-episode__top .lumen-episode__num{color:' + A + '}');
+css.push('.lumen-card .lumen-episode__bottom{padding-top:.35em}');
+
+
+
+
+
+
+
+
+
+css.push('.lumen-descr-row .lumen-review{background:none;border-color:transparent;border-radius:0}');
+css.push('.lumen-descr-row .lumen-reviews__head{background:none;padding-left:0;padding-right:0;margin-left:0}');
+
+
+
+
+
+css.push('.lumen-grid .lumen-gcard .card__view{background-color:transparent}');
+css.push('.lumen-grid .lumen-gcard .card__img{background-color:transparent}');
+css.push('.lumen-hub__tiles .lumen-tile{background:none}');
+}
+
+
 css.push(LC.icons.css());
 
 return css.join('\n');
@@ -22237,10 +22349,38 @@ r.push(SUPPORTS_NO_MASK + T(['.media-loading__peers-icon']) + '{display:block !i
 return r;
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function flatRules(k) {
+var r = [];
+var rows = ['.torrent-file', '.torrent-serial'];
+var next = ['.torrent-files .torrent-file + .torrent-file', '.torrent-files .torrent-file + .torrent-serial',
+'.torrent-files .torrent-serial + .torrent-file', '.torrent-files .torrent-serial + .torrent-serial'];
+r.push('/* 41 Плоский вид (lumen_flat): раздачи и файлы без карточек */');
+r.push(T(['.torrent-item']) + '{background-color:transparent;border-color:transparent;border-radius:0}');
+r.push(T(['.torrent-item + .torrent-item']) + '{margin-top:0;border-top-color:' + k.line + '}');
+r.push(T(rows) + '{background-color:transparent;border-color:transparent;border-radius:0}');
+r.push(T(next) + '{margin-top:0;border-top-color:' + k.line + '}');
+return r;
+}
+
 function css() {
 var k = LC.tokens();
 maskUse = { order: [], by: {} };
-return [].concat(selectRules(k), explorerRules(k), modalRules(k), filesRules(k), mediaRules(k), maskRules()).join('\n');
+var flat = LC.pref('lumen_flat', false) ? flatRules(k) : [];
+return [].concat(selectRules(k), explorerRules(k), modalRules(k), filesRules(k), mediaRules(k), flat, maskRules()).join('\n');
 }
 
 
@@ -24405,17 +24545,20 @@ lumen_group_preset: { ru: 'Готовый стиль', en: 'Ready-made style', u
 
 
 
+
+
+
 lumen_preset_appletv_name: { ru: 'Применить стиль Apple TV', en: 'Apply the Apple TV style', uk: 'Застосувати стиль Apple TV' },
 lumen_preset_appletv_descr: {
-ru: 'Нейтральный стиль вместо тёплого. Выставляет семь пунктов «Оформления» разом: тема «Глубокая чёрная», акцент «Графит», шрифт Inter, метки «В подписи», цвет постера «Только фон», кадр над рядами «Крупный», акцент от постера включён. Последние два — значения по умолчанию плагина: если вы меняли их руками, кнопка вернёт их обратно. Ключ API, масштаб, анимации, заставку, состав рядов и настройки самой Lampa не трогает. После кнопки любой пункт правится по отдельности.',
-en: 'A neutral style instead of the warm one. It sets seven items of "Appearance" at once: the "Deep black" theme, the "Graphite" accent, the Inter font, badges "In the caption", poster colour "Background only", hero "Large", accent from poster on. The last two are the plugin defaults: if you changed them by hand, the button changes them back. The API key, scale, animations, screensaver, row selection and Lampa own settings stay untouched. After the button every item can be adjusted one by one.',
-uk: 'Нейтральний стиль замість теплого. Виставляє сім пунктів «Оформлення» разом: тема «Глибока чорна», акцент «Графіт», шрифт Inter, мітки «У підписі», колір постера «Лише тло», кадр над рядами «Великий», акцент від постера увімкнено. Останні два — значення за замовчуванням плагіна: якщо ви змінювали їх руками, кнопка поверне їх назад. Ключ API, масштаб, анімації, заставку, склад рядів і налаштування самої Lampa не чіпає. Після кнопки кожен пункт правиться окремо.'
+ru: 'Нейтральный стиль вместо тёплого. Выставляет восемь пунктов «Оформления» разом: тема «Глубокая чёрная», акцент «Графит», шрифт Inter, метки «В подписи», цвет постера «Только фон», плоский вид включён, кадр над рядами «Крупный», акцент от постера включён. Последние два — значения по умолчанию плагина: если вы меняли их руками, кнопка вернёт их обратно. Ключ API, масштаб, анимации, заставку, состав рядов и настройки самой Lampa не трогает. После кнопки любой пункт правится по отдельности.',
+en: 'A neutral style instead of the warm one. It sets eight items of "Appearance" at once: the "Deep black" theme, the "Graphite" accent, the Inter font, badges "In the caption", poster colour "Background only", flat look on, hero "Large", accent from poster on. The last two are the plugin defaults: if you changed them by hand, the button changes them back. The API key, scale, animations, screensaver, row selection and Lampa own settings stay untouched. After the button every item can be adjusted one by one.',
+uk: 'Нейтральний стиль замість теплого. Виставляє вісім пунктів «Оформлення» разом: тема «Глибока чорна», акцент «Графіт», шрифт Inter, мітки «У підписі», колір постера «Лише тло», плаский вигляд увімкнено, кадр над рядами «Великий», акцент від постера увімкнено. Останні два — значення за замовчуванням плагіна: якщо ви змінювали їх руками, кнопка поверне їх назад. Ключ API, масштаб, анімації, заставку, склад рядів і налаштування самої Lampa не чіпає. Після кнопки кожен пункт правиться окремо.'
 },
 lumen_preset_lumen_name: { ru: 'Вернуть стиль Lumen', en: 'Restore the Lumen style', uk: 'Повернути стиль Lumen' },
 lumen_preset_lumen_descr: {
-ru: 'Возвращает те же семь пунктов к значениям по умолчанию плагина: тёплая тёмная тема, песочный акцент, шрифт Golos Text, метки «На постере», полная подкраска от постера, кадр над рядами «Крупный», акцент от постера включён. Настройки вне оформления остаются вашими.',
-en: 'Returns the same seven items to the plugin defaults: warm dark theme, sand accent, the Golos Text font, badges "On the poster", full poster tinting, hero "Large", accent from poster on. Everything outside the look stays yours.',
-uk: 'Повертає ті самі сім пунктів до значень за замовчуванням плагіна: тепла темна тема, піщаний акцент, шрифт Golos Text, мітки «На постері», повне підфарбування від постера, кадр над рядами «Великий», акцент від постера увімкнено. Налаштування поза оформленням лишаються вашими.'
+ru: 'Возвращает те же восемь пунктов к значениям по умолчанию плагина: тёплая тёмная тема, песочный акцент, шрифт Golos Text, метки «На постере», полная подкраска от постера, плоский вид выключен, кадр над рядами «Крупный», акцент от постера включён. Настройки вне оформления остаются вашими.',
+en: 'Returns the same eight items to the plugin defaults: warm dark theme, sand accent, the Golos Text font, badges "On the poster", full poster tinting, flat look off, hero "Large", accent from poster on. Everything outside the look stays yours.',
+uk: 'Повертає ті самі вісім пунктів до значень за замовчуванням плагіна: тепла темна тема, піщаний акцент, шрифт Golos Text, мітки «На постері», повне підфарбування від постера, плаский вигляд вимкнено, кадр над рядами «Великий», акцент від постера увімкнено. Налаштування поза оформленням лишаються вашими.'
 },
 
 
@@ -24585,6 +24728,16 @@ lumen_solid_descr: {
 ru: 'Кнопки, чипы и подложки текста становятся сплошными, без просвечивающего кадра и размытия. Включите, если на телевизоре картинка мылит или подтормаживает.',
 en: 'Buttons, chips and text panels become opaque, with no show-through backdrop and no blur. Turn on if the picture looks smeared or stutters on your TV.',
 uk: 'Кнопки, чипи та підкладки тексту стають суцільними, без просвічування кадру і розмиття. Увімкніть, якщо на телевізорі картинка мулиться або підгальмовує.'
+},
+
+
+
+
+lumen_flat_name: { ru: 'Плоский вид', en: 'Flat look', uk: 'Плаский вигляд' },
+lumen_flat_descr: {
+ru: 'Содержимое лежит прямо на фоне, а не в коробках: в карточке панель «Подробно» становится строкой фактов под описанием, счётчики разделов теряют плашки, плитки серий и отзывы — рамки и подложки; в сетке подборки и в хабе подложки под плитками снимаются; на пути TorrServer раздачи и файлы разделяются тонкими линиями вместо карточек. Фокус и размер текста не меняются. Применяется сразу.',
+en: 'Content sits on the background instead of inside boxes: on the card the "Details" panel becomes a line of facts under the description, section counters lose their plates, episode tiles and reviews lose frames and panels; in the collection grid and the hub the plates under tiles are removed; on the TorrServer path releases and files are separated by thin lines instead of cards. Focus and text size stay as they are. Applied immediately.',
+uk: 'Вміст лежить прямо на тлі, а не в коробках: у картці панель «Докладно» стає рядком фактів під описом, лічильники розділів втрачають плашки, плитки серій та відгуки — рамки й підкладки; у сітці підбірки та в хабі підкладки під плитками знімаються; на шляху TorrServer роздачі та файли розділяються тонкими лініями замість карток. Фокус і розмір тексту не змінюються. Застосовується одразу.'
 },
 
 lumen_scale_name: { ru: 'Масштаб интерфейса', en: 'Interface scale', uk: 'Масштаб інтерфейсу' },
@@ -25344,8 +25497,10 @@ if (name === 'lumen_font') { LC.injectFonts(); LC.injectCss(); return true; }
 
 
 
+
+
 if (name === 'lumen_theme' || name === 'lumen_solid' || name === 'lumen_scale' ||
-name === 'lumen_accent_scope') { LC.injectCss(); return true; }
+name === 'lumen_accent_scope' || name === 'lumen_flat') { LC.injectCss(); return true; }
 
 
 
@@ -25945,6 +26100,22 @@ var LIST = [
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+{ name: 'lumen_flat', type: 'trigger', 'default': false, label: 'lumen_flat_name', descr: 'lumen_flat_descr' },
+
+
+
 { name: 'lumen_scale', type: 'select', values: ['small', 'normal', 'large', 'huge'], vprefix: 'lumen_scale_', 'default': 'normal', label: 'lumen_scale_name', descr: 'lumen_scale_descr' },
 { name: 'lumen_card_fonts', type: 'trigger', 'default': true, label: 'lumen_card_fonts_name', descr: 'lumen_card_fonts_descr' },
 
@@ -26174,7 +26345,7 @@ return null;
 
 
 var PRESET_KEYS = ['lumen_theme', 'lumen_card_accent', 'lumen_font', 'lumen_accent_auto',
-'lumen_accent_scope', 'lumen_hero_size', 'lumen_badges'];
+'lumen_accent_scope', 'lumen_hero_size', 'lumen_badges', 'lumen_flat'];
 
 
 
@@ -26187,7 +26358,13 @@ lumen_theme: 'black',
 lumen_card_accent: 'graphite',
 lumen_font: 'inter',
 lumen_badges: 'caption',
-lumen_accent_scope: 'veil'
+lumen_accent_scope: 'veil',
+
+
+
+
+
+lumen_flat: true
 };
 
 

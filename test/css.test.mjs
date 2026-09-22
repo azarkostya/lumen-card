@@ -4456,3 +4456,144 @@ test('Task 63: медиазапросы таблицы — из известно
   assert.deepEqual([...seen].sort(), ['max-width', 'min-aspect-ratio'],
     'набор медиаусловий таблицы изменился — проверить mediaApplies в этом файле');
 });
+
+/* ====================================================================== */
+/* Task 73 (фаза 6): плоский вид — пресет «Как Apple TV» на остальные      */
+/* экраны. Отзыв пользователя 2026-09-21 (п.3): «„Как в Apple TV“          */
+/* выглядит хорошо, но менялся только дизайн стартовой».                   */
+/* ====================================================================== */
+
+const flatCss = withStorage({ lumen_flat: 'true' }, (LC) => LC.buildCss());
+
+/* Последнее правило для данного селектора: плоский вид стоит в конце сборки
+   и берёт верх порядком, а не специфичностью, — значит проверять надо
+   именно последнее вхождение, а не первое (findDecl выше отдаёт первое). */
+function lastDecl(cssText, sel) {
+  const rules = ruleBodies(cssText).filter((r) => r.selectors.some((s) => s === sel));
+  return rules.length ? rules[rules.length - 1].decl : null;
+}
+
+test('Task 73: выключенный плоский вид не добавляет в таблицу ни одного правила', () => {
+  assert.equal(css.indexOf('lumen-facts__value + .lumen-facts__label'), -1, 'строка фактов появилась без настройки');
+  assert.equal(css.indexOf('tag-count'), -1, 'счётчики разделов тронуты без настройки');
+  /* Базовая панель «Подробно» на месте: подложка и рамка. */
+  const facts = lastDecl(css, '.lumen-descr-row .lumen-facts');
+  assert.ok(/background:#/.test(facts) || /background:rgba/.test(facts), 'подложка панели пропала в обычном виде: ' + facts);
+  assert.ok(/border:\.04em solid/.test(facts), 'рамка панели пропала в обычном виде: ' + facts);
+});
+
+test('Task 73: карточка — панель «Подробно» становится строкой фактов под описанием', () => {
+  const facts = lastDecl(flatCss, '.lumen-descr-row .lumen-facts');
+  assert.ok(/background:none/.test(facts), 'подложка осталась: ' + facts);
+  assert.ok(/border-color:transparent/.test(facts), 'рамка осталась: ' + facts);
+  assert.ok(/flex-basis:100%/.test(facts), 'панель не встала своей строкой под описанием: ' + facts);
+  /* Сетка «ярлык/значение» разворачивается в строку с разделителем «·»
+     перед каждым ярлыком, кроме первого. */
+  assert.ok(/display:block/.test(lastDecl(flatCss, '.lumen-descr-row .lumen-facts__grid')));
+  assert.ok(/display:inline/.test(lastDecl(flatCss, '.lumen-descr-row .lumen-facts__label')));
+  assert.ok(/display:inline/.test(lastDecl(flatCss, '.lumen-descr-row .lumen-facts__value')));
+  const sep = lastDecl(flatCss, '.lumen-descr-row .lumen-facts__value + .lumen-facts__label:before');
+  assert.ok(sep && sep.indexOf(String.raw`content:"\00B7"`) === 0, 'разделителя фактов нет: ' + sep);
+});
+
+/* Счётчики разделов («Жанр 5 · Производство 2 · Теги 14») — штатные
+   .tag-count Lampa (vendor/lampa/css/app.css:2936). Их белая инверсия в
+   фокусе (app.css:2973) обязана уцелеть: наша таблица подключается после
+   app.css, и правило без :not(.focus) перебило бы её при равной
+   специфичности. */
+test('Task 73: счётчики разделов теряют плашки только вне фокуса', () => {
+  for (const sel of ruleSelectors(flatCss).filter((s) => s.indexOf('tag-count') !== -1)) {
+    assert.ok(sel.indexOf(':not(.focus)') !== -1, 'правило счётчика задевает фокус: ' + sel);
+  }
+  const chip = lastDecl(flatCss, '.lumen-descr-row .tag-count:not(.focus)');
+  assert.ok(/background-color:transparent/.test(chip), 'плашка счётчика осталась: ' + chip);
+  const count = lastDecl(flatCss, '.lumen-descr-row .tag-count:not(.focus) .tag-count__count');
+  assert.ok(/background-color:transparent/.test(count), 'белый чип числа остался: ' + count);
+});
+
+test('Task 73: плитка серии — кадр сверху, подпись под ним, рамки нет', () => {
+  const tile = lastDecl(flatCss, '.lumen-card .lumen-episode');
+  assert.ok(/border-color:transparent/.test(tile), 'рамка плитки осталась: ' + tile);
+  assert.ok(/background-size:100% 3\.95em/.test(tile), 'подложка места кадра не ограничена его полосой: ' + tile);
+  const still = lastDecl(flatCss, '.lumen-card .lumen-episode__still');
+  assert.ok(/height:3\.95em/.test(still) && /bottom:auto/.test(still), 'кадр не стал полосой сверху: ' + still);
+  assert.ok(/opacity:1/.test(still), 'кадр остался приглушённым: ' + still);
+  /* Высота ряда серий не меняется: полный кадр 16:9 при ширине плитки
+     14.9em занял бы 8.38em, и ряд пришлось бы растить вместе со всей
+     карточкой. */
+  assert.equal(lastDecl(flatCss, '.lumen-card .lumen-episodes__viewport'), lastDecl(css, '.lumen-card .lumen-episodes__viewport'));
+  assert.equal(lastDecl(flatCss, '.lumen-card .lumen-episode').indexOf('height:'), -1, 'плитке задана новая высота: ' + tile);
+});
+
+/* Верхняя строка плитки в плоском виде лежит ПОВЕРХ кадра, а не поверх
+   заливки карты. Замер на стенде 960×540@2 по кадру «Дораэмона», по самому
+   светлому и самому тёмному пикселю области номера: затемнение плюс цвет
+   text дают 5.4:1 и 8.1:1 против 1.9:1 и 2.6:1 у номера цветом smoke поверх
+   кадра на .28 в обычном виде. */
+test('Task 73: номер серии над кадром — затемнение и светлый текст, «смотрите» остаётся акцентным', () => {
+  const top = lastDecl(flatCss, '.lumen-card .lumen-episode__top');
+  assert.ok(/linear-gradient\(180deg,rgba\(/.test(top), 'затемнения верхней строки нет: ' + top);
+  assert.ok(/-webkit-linear-gradient\(top,rgba\(/.test(top), 'у градиента нет префиксной пары: ' + top);
+  const num = lastDecl(flatCss, '.lumen-card .lumen-episode__top .lumen-episode__num');
+  assert.ok(num && /color:#F3EDE4/.test(num), 'номер над кадром не светлый: ' + num);
+  /* В фокусе номер обязан остаться светлым: под ним кадр, а не светлая
+     заливка инверсии. Порядком это не решается — у правила Task 54
+     (.lumen-card .lumen-episode.focus .lumen-episode__num) четыре класса
+     против трёх, и на стенде номер в фокусе оставался тёмным
+     rgb(21,29,32). Значит нужен свой селектор с .focus. */
+  const numFocus = lastDecl(flatCss, '.lumen-card .lumen-episode.focus .lumen-episode__top .lumen-episode__num');
+  assert.ok(numFocus && /color:#F3EDE4/.test(numFocus), 'в фокусе номер над кадром не светлый: ' + numFocus);
+  const watching = lastDecl(flatCss, '.lumen-card .lumen-episode--watching .lumen-episode__top .lumen-episode__num');
+  assert.ok(watching && /color:#/.test(watching), 'акцентный номер «смотрите» потерян: ' + watching);
+});
+
+/* Фокус — инверсия Task 54 — обязан работать в обоих видах: плоский вид
+   правит у него только паддинг (у плитки его больше нет, и .70em сдвинул бы
+   содержимое в момент фокуса) и плотность кадра (гасить его нечем — текста
+   поверх кадра в плоском виде нет). */
+test('Task 73: инверсия фокуса плитки серии не тронута', () => {
+  const focus = ruleBodies(flatCss).filter((r) => r.selectors.some((s) => s === '.lumen-card .lumen-episode.focus'));
+  assert.ok(focus.length >= 2, 'правил фокуса плитки стало меньше двух');
+  const base = focus[0].decl;
+  assert.equal(base, findDecl(css, (s) => s === '.lumen-card .lumen-episode.focus'), 'базовое правило фокуса изменилось');
+  assert.ok(/background:#/.test(base), 'заливка инверсии пропала: ' + base);
+  assert.equal(focus[focus.length - 1].decl, 'padding:0 0 .61em', 'плоский вид правит у фокуса не только паддинг');
+});
+
+test('Task 73: отзывы — плоский список без карточек-подложек', () => {
+  const review = lastDecl(flatCss, '.lumen-descr-row .lumen-review');
+  assert.ok(/background:none/.test(review) && /border-color:transparent/.test(review), review);
+  /* Полоса тона слева — единственный цветной признак — остаётся. */
+  assert.equal(lastDecl(flatCss, '.lumen-descr-row .lumen-review__tone'), lastDecl(css, '.lumen-descr-row .lumen-review__tone'));
+});
+
+test('Task 73: сетка подборки и хаб — плитки без подложек', () => {
+  assert.ok(/background-color:transparent/.test(lastDecl(flatCss, '.lumen-grid .lumen-gcard .card__view')));
+  assert.ok(/background-color:transparent/.test(lastDecl(flatCss, '.lumen-grid .lumen-gcard .card__img')));
+  assert.ok(/background:none/.test(lastDecl(flatCss, '.lumen-hub__tiles .lumen-tile')));
+  /* Фокус обоих экранов не тронут: увеличение и подложка на месте. */
+  assert.equal(lastDecl(flatCss, '.lumen-grid__items .lumen-gcard.focus'), lastDecl(css, '.lumen-grid__items .lumen-gcard.focus'));
+  assert.equal(lastDecl(flatCss, '.lumen-hub__tiles .lumen-tile.focus'), lastDecl(css, '.lumen-hub__tiles .lumen-tile.focus'));
+});
+
+/* Плоский вид обязан быть ДОБАВКОЙ в конце таблицы: ни одно прежнее правило
+   не исчезает и не переписывается на месте, а всё новое живёт в четырёх
+   известных корнях. Рядов главной среди них нет — инвариант раскладки
+   («низ подписи первого ряда ≤ 532») считается по тем же правилам, что и
+   без настройки. */
+test('Task 73: плоский вид только дописывает правила — и только карточке, сетке и хабу', () => {
+  const key = (r) => r.selectors.join(',') + '{' + r.decl + '}';
+  const base = ruleBodies(css).map(key);
+  const flat = ruleBodies(flatCss).map(key);
+  for (const rule of base) {
+    assert.ok(flat.indexOf(rule) !== -1, 'правило обычного вида пропало при плоском: ' + rule.slice(0, 120));
+  }
+  const ROOTS = ['.lumen-descr-row ', '.lumen-card .lumen-episode', '.lumen-grid ', '.lumen-hub__tiles '];
+  const added = ruleBodies(flatCss).filter((r) => base.indexOf(key(r)) === -1);
+  assert.ok(added.length > 10, 'подозрительно мало правил у плоского вида: ' + added.length);
+  for (const rule of added) {
+    for (const sel of rule.selectors) {
+      assert.ok(ROOTS.some((root) => sel.indexOf(root) === 0), 'плоский вид трогает чужой корень: ' + sel);
+    }
+  }
+});

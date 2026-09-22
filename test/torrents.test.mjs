@@ -706,3 +706,86 @@ test('Task 63: ни один текст экранов пути не мельч�
   assert.ok(checked > 40, 'подозрительно мало кеглей проверено: ' + checked);
   assert.deepEqual(small, [], 'текст экранов пути мельче минимума tvOS (23 px = 1.01em)');
 });
+
+/* ====================================================================== */
+/* Task 73 (фаза 6): плоский вид пути TorrServer. Отзыв пользователя       */
+/* 2026-09-21 (п.3): стиль «Как Apple TV» менял только главную — на пути   */
+/* до плеера оставался прежний список карточек-коробок.                    */
+/* ====================================================================== */
+
+/* css() читает настройку через LC.pref, а тот ходит в Lampa.Storage —
+   подменяем его на время вызова тем же приёмом, что в test/css.test.mjs. */
+function cssWith(storage) {
+  const Lampa = { Storage: { get: (name, def) => (name in storage ? storage[name] : def) } };
+  const had = globalThis.window;
+  globalThis.window = Object.assign({}, had, { Lampa: Lampa });
+  globalThis.Lampa = Lampa;
+  try {
+    return t.css();
+  } finally {
+    if (had === undefined) delete globalThis.window; else globalThis.window = had;
+    delete globalThis.Lampa;
+  }
+}
+
+/* Все правила для селектора, в порядке сборки. */
+function allFor(cssText, sel) {
+  const out = [];
+  for (const rule of cssText.split('\n').filter(Boolean)) {
+    const parsed = parse(rule);
+    if (!parsed) continue;
+    for (const p of parsed) if (p.selectors.some((s) => s.trim() === sel)) out.push(p.decl);
+  }
+  return out;
+}
+
+/* Последнее правило для селектора: плоский вид идёт в конце сборки и берёт
+   верх порядком, а не специфичностью. */
+function lastFor(cssText, sel) {
+  let found = null;
+  for (const rule of cssText.split('\n').filter(Boolean)) {
+    const parsed = parse(rule);
+    if (!parsed) continue;
+    for (const p of parsed) if (p.selectors.some((s) => s.trim() === sel)) found = p.decl;
+  }
+  return found;
+}
+
+test('Task 73: выключенный плоский вид не добавляет правил экранам пути', () => {
+  const off = cssWith({});
+  assert.equal(off, t.css(), 'таблица без настройки обязана совпадать с прежней');
+  const item = lastFor(off, 'body.lumen-torrents-on .torrent-item');
+  assert.ok(/background-color:#/.test(item), 'заливка раздачи пропала в обычном виде: ' + item);
+  assert.ok(/border:\.044em solid/.test(item), 'рамка раздачи пропала в обычном виде: ' + item);
+});
+
+test('Task 73: плоский вид — раздачи и файлы без карточек, разделители линиями', () => {
+  const on = cssWith({ lumen_flat: 'true' });
+  const item = lastFor(on, 'body.lumen-torrents-on .torrent-item');
+  assert.ok(/background-color:transparent/.test(item), 'заливка раздачи осталась: ' + item);
+  assert.ok(/border-color:transparent/.test(item), 'рамка раздачи осталась: ' + item);
+  const next = lastFor(on, 'body.lumen-torrents-on .torrent-item + .torrent-item');
+  assert.ok(/margin-top:0/.test(next) && /border-top-color:#/.test(next), 'разделителя между раздачами нет: ' + next);
+
+  for (const row of ['.torrent-file', '.torrent-serial']) {
+    const decl = lastFor(on, 'body.lumen-torrents-on ' + row);
+    assert.ok(/background-color:transparent/.test(decl), row + ': заливка осталась: ' + decl);
+    assert.ok(/border-color:transparent/.test(decl), row + ': рамка осталась: ' + decl);
+  }
+  const files = lastFor(on, 'body.lumen-torrents-on .torrent-files .torrent-file + .torrent-file');
+  assert.ok(/margin-top:0/.test(files) && /border-top-color:#/.test(files), 'разделителя между файлами нет: ' + files);
+});
+
+/* Фокус пути (Task 53/54) обязан работать в обоих видах: его правила
+   специфичнее базовых на класс, и плоский вид их не переписывает. */
+test('Task 73: фокус раздачи и файла в плоском виде не тронут', () => {
+  const on = cssWith({ lumen_flat: 'true' });
+  const off = cssWith({});
+  for (const sel of ['body.lumen-torrents-on .torrent-item.focus', 'body.lumen-torrents-on .torrent-file.focus']) {
+    /* У обоих селекторов правил больше одного (заливка с рамкой и отдельно
+       паддинг), поэтому сверяется ВЕСЬ их список, а не последнее. */
+    const flat = allFor(on, sel);
+    assert.deepEqual(flat, allFor(off, sel), 'правила фокуса изменились: ' + sel);
+    assert.ok(flat.some((d) => /border-color:#/.test(d)), 'акцентная рамка фокуса пропала: ' + sel);
+  }
+});

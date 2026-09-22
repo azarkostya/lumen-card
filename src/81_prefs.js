@@ -178,6 +178,22 @@
          а у владельца слабого ТВ — чёрный фон: комбинации нужны все четыре. */
       { name: 'lumen_theme', type: 'select', values: ['warm', 'black'], vprefix: 'lumen_theme_', 'default': 'warm', label: 'lumen_theme_name', descr: 'lumen_theme_descr' },
       { name: 'lumen_solid', type: 'trigger', 'default': false, label: 'lumen_solid_name', descr: 'lumen_solid_descr' },
+      /* Task 73 (фаза 6): плоский вид — содержимое лежит на фоне, а не в
+         коробках. Отзыв пользователя 2026-09-21 (п.3): «„Как в Apple TV“
+         выглядит хорошо, но менялся только дизайн стартовой». Тема и шрифт
+         пресета действуют везде, но заметная разница была только на главной:
+         на карточке, в сетке и на пути TorrServer раскладка оставалась
+         прежней — карточки-коробки с рамками и подложками.
+         ОДНА настройка на все экраны, а не по одной на экран: меньше
+         поверхности для рассинхрона дефолтов и понятнее в разделе.
+         Место — сразу за «Плотными подложками»: оба пункта про то, на чём
+         лежит содержимое, и читаются подряд. По умолчанию выключен — это
+         текущий вид; в пресете Apple TV включён (PRESET_APPLETV ниже).
+         Живёт целиком в таблице стилей (src/30_css.js, flatRules; экраны
+         пути — src/65_torrents.js), поэтому применяется пересборкой CSS
+         (src/80_settings.js, applyPrefChange). Дефолт здесь и дефолт в
+         местах чтения сверяет test/prefs.test.mjs. */
+      { name: 'lumen_flat', type: 'trigger', 'default': false, label: 'lumen_flat_name', descr: 'lumen_flat_descr' },
       /* Фаза 3: масштаб интерфейса плагина — коэффициент на корнях (SCALES в
          src/30_css.js). На ТВ с трёх метров то, что в браузере выглядит
          нормально, часто мелко. */
@@ -410,7 +426,7 @@
        исполнение; цена — описания кнопок обязаны называть оба, и они
        называют (src/80_settings.js). */
     var PRESET_KEYS = ['lumen_theme', 'lumen_card_accent', 'lumen_font', 'lumen_accent_auto',
-      'lumen_accent_scope', 'lumen_hero_size', 'lumen_badges'];
+      'lumen_accent_scope', 'lumen_hero_size', 'lumen_badges', 'lumen_flat'];
 
     /* Отличия стиля Apple TV от стиля Lumen. Чего здесь нет — берётся из
        значения по умолчанию пункта, то есть совпадает со стилем Lumen; в
@@ -423,7 +439,13 @@
       lumen_card_accent: 'graphite',
       lumen_font: 'inter',
       lumen_badges: 'caption',
-      lumen_accent_scope: 'veil'
+      lumen_accent_scope: 'veil',
+      /* Task 73: до него стиль менял только палитру, шрифт и место меток —
+         то есть на всех экранах, кроме главной, пользователь видел прежнюю
+         раскладку и написал «менялся только дизайн стартовой». Плоский вид
+         — ровно то, чем карточка Apple TV отличается от нашей: содержимое
+         лежит на фоне, а не в коробках. */
+      lumen_flat: true
     };
 
     /* Полный набор значений стиля: {ключ: значение} по PRESET_KEYS.
