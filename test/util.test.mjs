@@ -1,5 +1,5 @@
 import test from 'node:test'; import assert from 'node:assert/strict';
-import { load } from './_load.mjs';
+import { load, loadCtx } from './_load.mjs';
 const u = load('10_util.js');
 test('fmtTime: часы → HH:MM, иначе MM:SS', () => {
   assert.equal(u.fmtTime(4320), '01:12');
@@ -249,6 +249,36 @@ test('vhPx: доля высоты окна × DPR, ни «Размер инте�
   }, () => u.vhPx(28.67)), 310, '«Размер интерфейса» Lampa долю экрана не двигает');
   assert.equal(withScreen({ innerHeight: 1080, devicePixelRatio: 1 }, () => u.vhPx(0)), 0);
   assert.equal(withScreen({ devicePixelRatio: 1 }, () => u.vhPx(28.67)), 0, 'высоты нет — 0');
+});
+
+/* Task 68: emScreen — ширина экрана в em корня плагина, то есть в тех же
+   единицах, которыми написаны ширины хаба и сетки подборки. Прежде на их
+   месте стоял литерал 84.17, верный ровно при «обычном» размере интерфейса
+   Lampa и масштабе плагина 1; из-за него плитка хаба считалась неверно от
+   −19.4 % до +32.9 % (замер 2026-09-22, см. tileEm в src/46_hub.js). */
+test('Task 68: emScreen учитывает размер интерфейса Lampa, пол кегля и масштаб плагина', () => {
+  const em = (props, scale) => {
+    const mod = loadCtx('10_util.js', { uiScale: () => scale }).api;
+    return +withScreen(props, () => mod.emScreen()).toFixed(2);
+  };
+  const size = (v) => ({ Lampa: { Storage: { field: (n) => (n === 'interface_size' ? v : '') } } });
+  const at = (w, v) => Object.assign({ innerWidth: w, devicePixelRatio: 1 }, size(v));
+
+  assert.equal(em(at(1920, 'normal'), 1), 84.17, 'литерал Lampa верен ровно здесь');
+  assert.equal(em(at(960, 'normal'), 1), 84.17, 'ширина окна сокращается — экран всегда 84.17 базовых em');
+  assert.equal(em(at(1920, 'bigger'), 1), 80.16, '84.17 / 1.05');
+  assert.equal(em(at(1920, 'small'), 1), 93.52, '84.17 / 0.9');
+  assert.equal(em(at(960, 'small'), 1), 90.57,
+    'пол кегля Lampa 10.6 px: 960 / 84.17 × 0.9 = 10.26 поднимается до 10.6, и в экран входит 90.57 em, а не 93.52');
+
+  assert.equal(em(at(1920, 'normal'), 1.2), 70.14,
+    'масштаб плагина делает em дороже — их в экране становится МЕНЬШЕ (прежняя формула ошибалась знаком)');
+  assert.equal(em(at(1920, 'normal'), 0.9), 93.52);
+  assert.equal(em(at(1920, 'bigger'), 1.2), 66.8, 'оба множителя разом');
+});
+
+test('emScreen: ширины окна нет — 0, а не исключение', () => {
+  assert.equal(withScreen({ devicePixelRatio: 1 }, () => u.emScreen()), 0);
 });
 
 test('vhPx: window вовсе нет (тестовая среда) — 0, а не исключение', () => {

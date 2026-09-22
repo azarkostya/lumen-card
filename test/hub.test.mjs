@@ -1,10 +1,19 @@
 import test from 'node:test'; import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { load, loadCtx } from './_load.mjs';
 
 const SOURCES = load('43_sources.js');
 /* Task 21: сезонный порядок плиток хаб берёт у LC.manifest.orderForMonth. */
 const MANIFEST_MOD = load('42_manifest.js');
-const H = loadCtx('46_hub.js', { sources: SOURCES, manifest: MANIFEST_MOD, lang: function (k) { return k; } }).api;
+
+/* Task 68: метрику колонок хабу отдаёт src/30_css.js (LC.hubEm). Поднять
+   здесь весь 30_css.js нельзя — ему нужна цепочка из четырёх модулей и
+   заглушки Storage (см. test/css.test.mjs), поэтому в тест кладётся копия,
+   а её совпадение с оригиналом сторожит отдельный тест ниже. */
+const HUB_EM = { edge: 3.51, gap: 0.88, tileCols: 4, gcardCols: 6 };
+const H = loadCtx('46_hub.js', {
+  sources: SOURCES, manifest: MANIFEST_MOD, hubEm: HUB_EM, lang: function (k) { return k; }
+}).api;
 
 /* Манифест для тестов хаба: 4 группы манифеста, 3 чипа хаба.
    Группа 'mood' в hubGroups не входит (профили настроения — Task 19),
@@ -33,6 +42,130 @@ var MANIFEST = {
     { id: 'mood-x', title: 'Настроенческая', group: 'mood', sources: { movie: { type: 'discover', params: {} } } }
   ]
 };
+
+/* ====================================================================== */
+/* Task 68: ширина плитки хаба и карточки сетки подборки.                  */
+/* ====================================================================== */
+
+/* Хаб со своим масштабом интерфейса плагина. Общий загрузчик test/_load.mjs
+   кладёт хабу свежий LC.util, у которого LC.uiScale нет вовсе (то есть
+   масштаб всегда 1), а вся суть Task 68 — что масштаб в расчёт ширины
+   входит. Поэтому оба модуля поднимаются здесь вручную, в один LC. */
+function hubWithScale(scale) {
+  const utilLC = { uiScale: function () { return scale; } };
+  const utilMod = { exports: null, lumen: true };
+  new Function('LC', 'module', readFileSync(new URL('../src/10_util.js', import.meta.url), 'utf8'))(utilLC, utilMod);
+  const LC = {
+    util: utilMod.exports, focus: load('11_focus.js'), uiScale: utilLC.uiScale,
+    sources: SOURCES, manifest: MANIFEST_MOD, hubEm: HUB_EM, lang: function (k) { return k; }
+  };
+  const mod = { exports: null, lumen: true };
+  new Function('LC', 'module', readFileSync(new URL('../src/46_hub.js', import.meta.url), 'utf8'))(LC, mod);
+  return { hub: mod.exports, util: utilMod.exports };
+}
+
+function onScreen(width, dpr, ifaceSize, fn) {
+  const had = Object.prototype.hasOwnProperty.call(globalThis, 'window');
+  const prevWin = globalThis.window;
+  const prevLampa = globalThis.Lampa;
+  const Lampa = { Storage: { field: function (n) { return n === 'interface_size' ? ifaceSize : ''; } } };
+  globalThis.window = { innerWidth: width, devicePixelRatio: dpr, Lampa: Lampa };
+  globalThis.Lampa = Lampa;
+  try { return fn(); } finally {
+    if (had) globalThis.window = prevWin; else delete globalThis.window;
+    if (prevLampa === undefined) delete globalThis.Lampa; else globalThis.Lampa = prevLampa;
+  }
+}
+
+/* Замер 2026-09-22 на живом стенде: физическая ширина .lumen-tile и
+   .lumen-gcard по getBoundingClientRect при 1920 CSS px и DPR 1, все 12
+   клеток (3 размера интерфейса Lampa × 4 масштаба плагина). Расхождение
+   формулы с DOM — не больше 1 px в каждой клетке, поэтому числа записаны
+   как есть. Экран 960 CSS px при DPR 2 даёт те же произведения, кроме
+   размера интерфейса «мельче»: там включается пол кегля Lampa 10.6 px.
+   Порядок масштабов — small, normal, large, huge. */
+const TILE_PX = {
+  '1920x1': { small: [435, 430, 425, 421], normal: [430, 425, 419, 414], bigger: [428, 422, 416, 411] },
+  '960x2': { small: [434, 429, 424, 419], normal: [430, 425, 419, 414], bigger: [428, 422, 416, 411] }
+};
+const GCARD_PX = {
+  '1920x1': { small: [285, 281, 277, 273], normal: [281, 277, 272, 268], bigger: [277, 272, 267, 262] },
+  '960x2': { small: [284, 280, 276, 272], normal: [281, 277, 272, 268], bigger: [277, 272, 267, 262] }
+};
+const SCALES = { small: 0.9, normal: 1, large: 1.1, huge: 1.2 };
+const SCREENS = [{ key: '1920x1', w: 1920, dpr: 1 }, { key: '960x2', w: 960, dpr: 2 }];
+
+test('Task 68: ширина плитки хаба совпадает с раскладкой во всех 24 клетках', function () {
+  SCREENS.forEach(function (sc) {
+    ['small', 'normal', 'bigger'].forEach(function (iface) {
+      ['small', 'normal', 'large', 'huge'].forEach(function (sk, i) {
+        const env = hubWithScale(SCALES[sk]);
+        const got = onScreen(sc.w, sc.dpr, iface, function () {
+          return env.util.emPx(env.hub.tileEm());
+        });
+        assert.equal(got, TILE_PX[sc.key][iface][i],
+          'плитка при ' + sc.key + ' / интерфейс ' + iface + ' / масштаб ' + sk);
+      });
+    });
+  });
+});
+
+test('Task 68: ширина карточки сетки подборки совпадает с раскладкой во всех 24 клетках', function () {
+  SCREENS.forEach(function (sc) {
+    ['small', 'normal', 'bigger'].forEach(function (iface) {
+      ['small', 'normal', 'large', 'huge'].forEach(function (sk, i) {
+        const env = hubWithScale(SCALES[sk]);
+        const got = onScreen(sc.w, sc.dpr, iface, function () {
+          return env.util.emPx(env.hub.gcardEm());
+        });
+        assert.equal(got, GCARD_PX[sc.key][iface][i],
+          'карточка сетки при ' + sc.key + ' / интерфейс ' + iface + ' / масштаб ' + sk);
+      });
+    });
+  });
+});
+
+/* Сторож возврата к прибитым числам. Обе прежние константы считались от
+   литерала 84.17 и от устаревшего поля 2.81em, поэтому у них нет ни одной
+   верной клетки за пределами «обычный интерфейс + масштаб 1» — да и там
+   они мимо на те самые 1.9 %, которые дал переход поля на EDGE = 3.51em. */
+test('Task 68: прежние TILE_EM = 18.98 и GCARD_EM = 12.36 не совпадают с раскладкой нигде', function () {
+  const env = hubWithScale(1);
+  onScreen(1920, 1, 'normal', function () {
+    assert.equal(env.util.emPx(18.98), 433, 'прежняя плитка на штатном экране');
+    assert.equal(env.util.emPx(env.hub.tileEm()), 425, 'фактическая — на 1.9 % уже');
+    assert.equal(env.util.emPx(12.36), 282, 'прежняя карточка сетки');
+    assert.equal(env.util.emPx(env.hub.gcardEm()), 277);
+  });
+  const huge = hubWithScale(1.2);
+  onScreen(1920, 1, 'bigger', function () {
+    assert.equal(huge.util.emPx(18.98), 546,
+      'худшая клетка: прежняя формула считала плитку на 32.9 % шире фактических 411 px');
+    assert.equal(huge.util.emPx(huge.hub.tileEm()), 411);
+  });
+  const small = hubWithScale(0.9);
+  onScreen(1920, 1, 'small', function () {
+    /* Клетка, в которой ошибка давала видимое мыло: плитке шириной 435 px
+       доставался кадр w300, то есть растяжение в 1.45 раза. */
+    assert.equal(small.util.emPx(18.98), 351, 'прежняя формула: 351 × 0.85 = 298 — ниже порога w780');
+    assert.equal(small.util.emPx(small.hub.tileEm()), 435, 'фактическая ширина: 435 × 0.85 = 370 — это w780');
+  });
+});
+
+/* Метрика колонок живёт в src/30_css.js: там же, где правила .lumen-tile и
+   .lumen-gcard, из которых она и вычитается. Копия в этом файле обязана
+   совпадать с оригиналом — иначе тест ширины сторожил бы не тот расчёт. */
+test('Task 68: копия метрики колонок в тесте совпадает с src/30_css.js', function () {
+  const src = readFileSync(new URL('../src/30_css.js', import.meta.url), 'utf8');
+  assert.ok(src.indexOf('var EDGE = ' + HUB_EM.edge + ';') !== -1, 'EDGE');
+  assert.ok(src.indexOf('var GRID_GAP = ' + HUB_EM.gap + ';') !== -1, 'GRID_GAP');
+  assert.ok(src.indexOf('var TILE_COLS = ' + HUB_EM.tileCols + ';') !== -1, 'TILE_COLS');
+  assert.ok(src.indexOf('var GCARD_COLS = ' + HUB_EM.gcardCols + ';') !== -1, 'GCARD_COLS');
+  assert.ok(
+    src.indexOf('LC.hubEm = { edge: EDGE, gap: GRID_GAP, tileCols: TILE_COLS, gcardCols: GCARD_COLS };') !== -1,
+    'наружу отдаются ровно эти четыре числа'
+  );
+});
 
 // --- titleOf ---
 test('titleOf: русский title по умолчанию, i18n по коду языка', function () {
@@ -561,6 +694,7 @@ function loadHub(opts) {
   sources['fetch'] = record(fetchCalls);
   var ctx = loadCtx('46_hub.js', {
     sources: sources,
+    hubEm: HUB_EM,
     lang: function (k) { return k; },
     langCode: function () { return 'ru'; },
     collectionsWord: function () { return 'подборок'; },

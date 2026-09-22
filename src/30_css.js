@@ -323,6 +323,14 @@
     return Math.round(value * 100) / 100;
   }
 
+  /* Task 68: число в em для CSS — без ведущего нуля (.88em, а не 0.88em).
+     Так написан весь остальной файл, и на эту форму опираются точные
+     сравнения в test/css.test.mjs; появилась функция там, где размер
+     перестал быть литералом и начал считаться (метрика колонок ниже). */
+  function emCss(value) {
+    return ('' + round2(value)).replace(/^0\./, '.') + 'em';
+  }
+
   /* Раскладка главной (design-spec-main §0.3/§0.4).
 
      Task 36 (фаза 4): высота героя и место рядов — ДОЛИ ЭКРАНА (vh), а не
@@ -870,6 +878,25 @@
      один — здесь, а 85_header.js читает LC.episodeEm. */
   var EPISODE_EM = { width: 14.9, gap: 0.70 };
   LC.episodeEm = EPISODE_EM;
+
+  /* Task 68: метрика колонок хаба и сетки подборки. Ширина плитки и карточки
+     задана процентами контейнера (calc((100% − N em) / cols) в правилах
+     ниже), поэтому в физических пикселях её нельзя записать константой —
+     она зависит и от ширины окна, и от «Размера интерфейса» Lampa, и от
+     масштаба плагина. До Task 68 src/46_hub.js держал два прибитых числа
+     (TILE_EM = 18.98, GCARD_EM = 12.36), посчитанных от литерала 84.17 и от
+     устаревшего поля 2.81em; замер 2026-09-22 на живом стенде показал
+     расхождение с DOM от −19.4 % до +32.9 %, и в клетке «1920 CSS px,
+     DPR 1, интерфейс „мельче“, масштаб „мельче“» плитка шириной 435 px
+     получала с TMDB w300 — растяжение в 1.45 раза.
+     Теперь числа живут здесь, ровно в том виде, в каком их читает
+     раскладка, а ширину по ним считает LC.hub (tileEm / gcardEm).
+     GAP повторяет margin-right плитки и карточки, а вычитаемое в calc —
+     это GAP × (cols − 1): зазоров между cols колонками на один меньше. */
+  var GRID_GAP = 0.88;
+  var TILE_COLS = 4;
+  var GCARD_COLS = 6;
+  LC.hubEm = { edge: EDGE, gap: GRID_GAP, tileCols: TILE_COLS, gcardCols: GCARD_COLS };
 
   /* Настройка «Шрифт»: пять гарнитур, все с Google Fonts — CSP плагина
      другого источника не пропустит.
@@ -2144,7 +2171,7 @@
        ширина = (100% − 3 промежутка по .88em) / 4.
        Task 41: рамки нет — плитку очерчивает сам кадр, а под ним ровная
        панель. Радиус крупнее (.44em -> .6em) под кадр во всю плитку. */
-    css.push('.lumen-hub__tiles .lumen-tile{position:relative;width:-webkit-calc((100% - 2.64em) / 4);width:calc((100% - 2.64em) / 4);margin:0 .88em .88em 0;border-radius:.6em;overflow:hidden;background:' + P.panel + ';-webkit-transition:-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25);transition:transform .28s cubic-bezier(.2,.9,.3,1.25)}');
+    css.push('.lumen-hub__tiles .lumen-tile{position:relative;width:-webkit-calc((100% - ' + emCss(GRID_GAP * (TILE_COLS - 1)) + ') / ' + TILE_COLS + ');width:calc((100% - ' + emCss(GRID_GAP * (TILE_COLS - 1)) + ') / ' + TILE_COLS + ');margin:0 ' + emCss(GRID_GAP) + ' ' + emCss(GRID_GAP) + ' 0;border-radius:.6em;overflow:hidden;background:' + P.panel + ';-webkit-transition:-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25);transition:transform .28s cubic-bezier(.2,.9,.3,1.25)}');
     css.push('.lumen-hub__tiles .lumen-tile:nth-child(4n){margin-right:0}');
     /* Пропорция 16:9 распоркой (aspect-ratio нет на старых webOS/Tizen). */
     css.push('.lumen-hub__tiles .lumen-tile:before{content:"";display:block;padding-top:56.25%}');
@@ -2211,7 +2238,7 @@
        навешиваются на её классы; наш корень .lumen-grid держит их в скоупе.
        Ширина считается под 6 в ряд: (100% − 5 промежутков по .88em) / 6 —
        штатные 12.75em переопределяются двумя классами. */
-    css.push('.lumen-grid__items .lumen-gcard{-webkit-flex-shrink:0;flex-shrink:0;width:-webkit-calc((100% - 4.4em) / 6);width:calc((100% - 4.4em) / 6);margin:0 .88em 1.4em 0;position:relative;-webkit-transition:-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25);transition:transform .28s cubic-bezier(.2,.9,.3,1.25)}');
+    css.push('.lumen-grid__items .lumen-gcard{-webkit-flex-shrink:0;flex-shrink:0;width:-webkit-calc((100% - ' + emCss(GRID_GAP * (GCARD_COLS - 1)) + ') / ' + GCARD_COLS + ');width:calc((100% - ' + emCss(GRID_GAP * (GCARD_COLS - 1)) + ') / ' + GCARD_COLS + ');margin:0 ' + emCss(GRID_GAP) + ' 1.4em 0;position:relative;-webkit-transition:-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25);transition:transform .28s cubic-bezier(.2,.9,.3,1.25)}');
     css.push('.lumen-grid__items .lumen-gcard:nth-child(6n){margin-right:0}');
     css.push('.lumen-grid .lumen-gcard .card__view{margin-bottom:.5em;border-radius:.31em;background-color:' + P.panel + '}');
     css.push('.lumen-grid .lumen-gcard .card__img{border-radius:.31em;background-color:' + P.panelLo + '}');

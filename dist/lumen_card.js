@@ -277,6 +277,30 @@ return Math.round(baseEm() * (Number(em) || 0) * s * dprCapped());
 
 
 
+
+
+
+
+
+
+
+function emScreen() {
+var w = 0;
+try {
+w = Number(window.innerWidth) || 0;
+} catch (e) { }
+var one = baseEm() * uiScale();
+return one > 0 ? w / one : 0;
+}
+
+
+
+
+
+
+
+
+
 function vhPx(vh) {
 var h = 0;
 try {
@@ -427,6 +451,7 @@ lampaSizeK: lampaSizeK,
 lampaCardK: lampaCardK,
 baseEm: baseEm,
 emPx: emPx,
+emScreen: emScreen,
 vhPx: vhPx,
 posterSize: posterSize,
 frameSize: frameSize,
@@ -958,6 +983,14 @@ var SCALE_DEFAULT = 'normal';
 
 function round2(value) {
 return Math.round(value * 100) / 100;
+}
+
+
+
+
+
+function emCss(value) {
+return ('' + round2(value)).replace(/^0\./, '.') + 'em';
 }
 
 
@@ -1507,6 +1540,25 @@ LC.uiScale = scaleFactor;
 
 var EPISODE_EM = { width: 14.9, gap: 0.70 };
 LC.episodeEm = EPISODE_EM;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+var GRID_GAP = 0.88;
+var TILE_COLS = 4;
+var GCARD_COLS = 6;
+LC.hubEm = { edge: EDGE, gap: GRID_GAP, tileCols: TILE_COLS, gcardCols: GCARD_COLS };
 
 
 
@@ -2781,7 +2833,7 @@ css.push('.lumen-hub.lumen-motion-off .lumen-chip,.lumen-grid.lumen-motion-off .
 
 
 
-css.push('.lumen-hub__tiles .lumen-tile{position:relative;width:-webkit-calc((100% - 2.64em) / 4);width:calc((100% - 2.64em) / 4);margin:0 .88em .88em 0;border-radius:.6em;overflow:hidden;background:' + P.panel + ';-webkit-transition:-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25);transition:transform .28s cubic-bezier(.2,.9,.3,1.25)}');
+css.push('.lumen-hub__tiles .lumen-tile{position:relative;width:-webkit-calc((100% - ' + emCss(GRID_GAP * (TILE_COLS - 1)) + ') / ' + TILE_COLS + ');width:calc((100% - ' + emCss(GRID_GAP * (TILE_COLS - 1)) + ') / ' + TILE_COLS + ');margin:0 ' + emCss(GRID_GAP) + ' ' + emCss(GRID_GAP) + ' 0;border-radius:.6em;overflow:hidden;background:' + P.panel + ';-webkit-transition:-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25);transition:transform .28s cubic-bezier(.2,.9,.3,1.25)}');
 css.push('.lumen-hub__tiles .lumen-tile:nth-child(4n){margin-right:0}');
 
 css.push('.lumen-hub__tiles .lumen-tile:before{content:"";display:block;padding-top:56.25%}');
@@ -2848,7 +2900,7 @@ css.push('.lumen-grid__items{display:-webkit-box;display:-webkit-flex;display:fl
 
 
 
-css.push('.lumen-grid__items .lumen-gcard{-webkit-flex-shrink:0;flex-shrink:0;width:-webkit-calc((100% - 4.4em) / 6);width:calc((100% - 4.4em) / 6);margin:0 .88em 1.4em 0;position:relative;-webkit-transition:-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25);transition:transform .28s cubic-bezier(.2,.9,.3,1.25)}');
+css.push('.lumen-grid__items .lumen-gcard{-webkit-flex-shrink:0;flex-shrink:0;width:-webkit-calc((100% - ' + emCss(GRID_GAP * (GCARD_COLS - 1)) + ') / ' + GCARD_COLS + ');width:calc((100% - ' + emCss(GRID_GAP * (GCARD_COLS - 1)) + ') / ' + GCARD_COLS + ');margin:0 ' + emCss(GRID_GAP) + ' 1.4em 0;position:relative;-webkit-transition:-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25);transition:transform .28s cubic-bezier(.2,.9,.3,1.25)}');
 css.push('.lumen-grid__items .lumen-gcard:nth-child(6n){margin-right:0}');
 css.push('.lumen-grid .lumen-gcard .card__view{margin-bottom:.5em;border-radius:.31em;background-color:' + P.panel + '}');
 css.push('.lumen-grid .lumen-gcard .card__img{border-radius:.31em;background-color:' + P.panelLo + '}');
@@ -8738,8 +8790,42 @@ var BANNER_AHEAD = 8;
 
 
 
-var TILE_EM = 18.98;
-var GCARD_EM = 12.36;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function tileEm() {
+var m = LC.hubEm;
+return (LC.util.emScreen() - 2 * m.edge - m.gap * (m.tileCols - 1)) / m.tileCols;
+}
+
+function gcardEm() {
+var m = LC.hubEm;
+var gap = m.gap * (m.gcardCols - 1) * LC.util.lampaCardK();
+return (LC.util.emScreen() - 2 * m.edge - gap) / m.gcardCols;
+}
 
 
 
@@ -9372,8 +9458,9 @@ try { scroll.update(el, true); } catch (e) { warn('hub: scroll.update failed', e
 
 
 
+
 function bannerSize() {
-return LC.util.emPx(TILE_EM) * 0.85 > 300 ? 'w780' : 'w300';
+return LC.util.emPx(tileEm()) * 0.85 > 300 ? 'w780' : 'w300';
 }
 
 
@@ -9928,7 +10015,8 @@ if (age.length && !('' + age.text())) age.remove();
 
 
 
-el.lumen_poster = imageUrl(card.poster_path, LC.util.posterSize(LC.util.emPx(GCARD_EM)));
+
+el.lumen_poster = imageUrl(card.poster_path, LC.util.posterSize(LC.util.emPx(gcardEm())));
 
 LC.focus.on(node, function () {
 keepVisible(el);
@@ -10326,6 +10414,8 @@ warn('hub: franchise button failed', e);
 
 return {
 titleOf: titleOf,
+tileEm: tileEm,
+gcardEm: gcardEm,
 groupsWithCounts: groupsWithCounts,
 tilesFor: tilesFor,
 inSeason: inSeason,
