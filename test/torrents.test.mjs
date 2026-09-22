@@ -765,7 +765,11 @@ test('Task 73: плоский вид — раздачи и файлы без к�
   assert.ok(/background-color:transparent/.test(item), 'заливка раздачи осталась: ' + item);
   assert.ok(/border-color:transparent/.test(item), 'рамка раздачи осталась: ' + item);
   const next = lastFor(on, 'body.lumen-torrents-on .torrent-item + .torrent-item');
-  assert.ok(/margin-top:0/.test(next) && /border-top-color:#/.test(next), 'разделителя между раздачами нет: ' + next);
+  assert.ok(/margin-top:0/.test(next), 'зазор между раздачами остался: ' + next);
+  /* Сам разделитель — отдельным правилом с :not(.focus), см. ревью п.3
+     ниже: в общем правиле он перебивал акцентную рамку фокуса. */
+  const line = lastFor(on, 'body.lumen-torrents-on .torrent-item + .torrent-item:not(.focus)');
+  assert.ok(line && /border-top-color:#/.test(line), 'разделителя между раздачами нет: ' + line);
 
   for (const row of ['.torrent-file', '.torrent-serial']) {
     const decl = lastFor(on, 'body.lumen-torrents-on ' + row);
@@ -773,7 +777,119 @@ test('Task 73: плоский вид — раздачи и файлы без к�
     assert.ok(/border-color:transparent/.test(decl), row + ': рамка осталась: ' + decl);
   }
   const files = lastFor(on, 'body.lumen-torrents-on .torrent-files .torrent-file + .torrent-file');
-  assert.ok(/margin-top:0/.test(files) && /border-top-color:#/.test(files), 'разделителя между файлами нет: ' + files);
+  assert.ok(/margin-top:0/.test(files), 'зазор между файлами остался: ' + files);
+  const filesLine = lastFor(on, 'body.lumen-torrents-on .torrent-files .torrent-file + .torrent-file:not(.focus)');
+  assert.ok(filesLine && /border-top-color:#/.test(filesLine), 'разделителя между файлами нет: ' + filesLine);
+});
+
+/* Ревью 2026-09-22 (п.3): сравнения правил .focus между видами мало —
+   разделитель строк перебивал верхнюю грань акцентной рамки не своим
+   текстом, а КАСКАДОМ: у раздач при равной специфичности он стоял позже,
+   у файлов был ещё и специфичнее. Поэтому здесь мини-модель каскада: она
+   отвечает, какое значение свойства получит ОДИН конкретный элемент из
+   всей таблицы. Поддержаны ровно те селекторы, что есть на этих экранах —
+   потомок, соседний «+», классы и :not(.класс). */
+function simpleMatches(sel, classes) {
+  const nots = [];
+  const bare = sel.replace(/:not\(\.([\w-]+)\)/g, (all, c) => { nots.push(c); return ''; });
+  const m = /^([a-z]*)((?:\.[\w-]+)*)$/.exec(bare);
+  if (!m) return null;
+  if (m[1] && classes.indexOf(m[1]) === -1) return false;
+  for (const c of (m[2] ? m[2].slice(1).split('.') : [])) if (classes.indexOf(c) === -1) return false;
+  for (const c of nots) if (classes.indexOf(c) !== -1) return false;
+  return true;
+}
+
+function specificity(sel) {
+  const classes = (sel.match(/\.[\w-]+/g) || []).length;
+  const tags = (sel.match(/(^|[\s+])[a-z]+/g) || []).length;
+  return classes * 100 + tags;
+}
+
+function selectorMatches(sel, el) {
+  /* Псевдоэлементы красят не сам элемент, а его дорисовку (на этих экранах
+     это .focus::after — снятая обводка Lampa), и в модель не идут. */
+  if (/::|:(before|after)\b/.test(sel)) return false;
+  const parts = sel.trim().split(/\s+/);
+  let rest = parts.slice(0, -1);
+  const hit = simpleMatches(parts[parts.length - 1], el.classes);
+  assert.notEqual(hit, null, 'модель каскада не понимает селектор: ' + sel);
+  if (!hit) return false;
+  if (rest[rest.length - 1] === '+') {
+    if (!el.prev || !simpleMatches(rest[rest.length - 2], el.prev)) return false;
+    rest = rest.slice(0, -2);
+  }
+  const chain = el.ancestors.slice();
+  for (let i = rest.length - 1; i >= 0; i--) {
+    assert.notEqual(rest[i], '+', 'модель каскада не понимает селектор: ' + sel);
+    let ok = false;
+    while (chain.length) { if (simpleMatches(rest[i], chain.shift())) { ok = true; break; } }
+    if (!ok) return false;
+  }
+  return true;
+}
+
+/* Значение border-top-color, которое задаёт декларация: шорткаты border и
+   border-color считаются наравне с самим border-top-color, побеждает
+   последнее объявление внутри правила. */
+function topColorOf(decl) {
+  let value = null;
+  for (const one of decl.split(';')) {
+    let m = /^border:[^;]*\ssolid\s+(\S+)$/.exec(one);
+    if (m) { value = m[1]; continue; }
+    m = /^border-(?:top-)?color:(\S+)$/.exec(one);
+    if (m) value = m[1];
+  }
+  return value;
+}
+
+function topColorFor(cssText, el) {
+  let best = null;
+  let order = 0;
+  for (const rule of cssText.split('\n').filter(Boolean)) {
+    const parsed = parse(rule);
+    if (!parsed) continue;
+    for (const p of parsed) {
+      order++;
+      const value = topColorOf(p.decl);
+      if (value === null) continue;
+      for (const sel of p.selectors) {
+        if (!selectorMatches(sel, el)) continue;
+        const spec = specificity(sel.trim());
+        if (!best || spec > best.spec || (spec === best.spec && order >= best.order)) best = { spec, order, value };
+      }
+    }
+  }
+  return best ? best.value : null;
+}
+
+const BODY = ['body', 'lumen-torrents-on'];
+
+test('Task 73 (ревью п.3): разделитель строк не перебивает рамку фокуса', () => {
+  const on = cssWith({ lumen_flat: 'true' });
+  const off = cssWith({});
+  const cases = [
+    { name: 'раздача', row: 'torrent-item', ancestors: [['torrent-list'], BODY] },
+    { name: 'файл', row: 'torrent-file', ancestors: [['torrent-files'], BODY] },
+    { name: 'серия', row: 'torrent-serial', ancestors: [['torrent-files'], BODY] }
+  ];
+  for (const c of cases) {
+    /* Строка в фокусе — вторая и дальше: ровно там разделитель и живёт. */
+    const focused = { classes: [c.row, 'focus', 'selector'], prev: [c.row], ancestors: c.ancestors };
+    const accent = topColorFor(off, focused);
+    assert.ok(/^#[0-9A-Fa-f]{6}$/.test(accent), c.name + ': в обычном виде у фокуса не цвет рамки: ' + accent);
+    assert.equal(topColorFor(on, focused), accent,
+      c.name + ': верхняя грань рамки фокуса в плоском виде потеряла акцент');
+    /* Первая строка в фокусе — тот же акцент (соседа нет вовсе). */
+    assert.equal(topColorFor(on, { classes: [c.row, 'focus', 'selector'], prev: null, ancestors: c.ancestors }), accent,
+      c.name + ': первая строка в фокусе осталась без акцента');
+    /* А вне фокуса разделитель обязан быть: иначе плоский вид не плоский. */
+    const plain = { classes: [c.row, 'selector'], prev: [c.row], ancestors: c.ancestors };
+    const line = topColorFor(on, plain);
+    assert.ok(/^#[0-9A-Fa-f]{6}$/.test(line) && line !== accent, c.name + ': разделителя между строками нет: ' + line);
+    assert.equal(topColorFor(on, { classes: [c.row, 'selector'], prev: null, ancestors: c.ancestors }), 'transparent',
+      c.name + ': у первой строки появился разделитель сверху');
+  }
 });
 
 /* Фокус пути (Task 53/54) обязан работать в обоих видах: его правила

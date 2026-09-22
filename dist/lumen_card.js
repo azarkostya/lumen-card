@@ -22414,16 +22414,34 @@ return r;
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 function flatRules(k) {
 var r = [];
 var rows = ['.torrent-file', '.torrent-serial'];
 var next = ['.torrent-files .torrent-file + .torrent-file', '.torrent-files .torrent-file + .torrent-serial',
 '.torrent-files .torrent-serial + .torrent-file', '.torrent-files .torrent-serial + .torrent-serial'];
+var nextLine = [];
+for (var i = 0; i < next.length; i++) nextLine.push(next[i] + ':not(.focus)');
 r.push('/* 41 Плоский вид (lumen_flat): раздачи и файлы без карточек */');
 r.push(T(['.torrent-item']) + '{background-color:transparent;border-color:transparent;border-radius:0}');
-r.push(T(['.torrent-item + .torrent-item']) + '{margin-top:0;border-top-color:' + k.line + '}');
+r.push(T(['.torrent-item + .torrent-item']) + '{margin-top:0}');
+r.push(T(['.torrent-item + .torrent-item:not(.focus)']) + '{border-top-color:' + k.line + '}');
 r.push(T(rows) + '{background-color:transparent;border-color:transparent;border-radius:0}');
-r.push(T(next) + '{margin-top:0;border-top-color:' + k.line + '}');
+r.push(T(next) + '{margin-top:0}');
+r.push(T(nextLine) + '{border-top-color:' + k.line + '}');
 return r;
 }
 

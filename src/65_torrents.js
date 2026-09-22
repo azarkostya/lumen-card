@@ -494,20 +494,38 @@
        прозрачный, ширина та же .044em), поэтому ни одна строка не съезжает,
        а верхняя кромка соседней строки получает цвет k.line и становится
        разделителем.
-       Фокус не трогается ни одной строкой: правила .torrent-item.focus,
+       Заливка и рамка фокуса не трогаются: правила .torrent-item.focus,
        .torrent-file.focus и .torrent-serial.focus специфичнее базовых
-       (лишний класс), поэтому и заливка, и акцентная рамка фокуса остаются
-       ровно такими же, как в обычном виде. */
+       (лишний класс) и остаются ровно такими же, как в обычном виде.
+       А вот РАЗДЕЛИТЕЛЬ фокус перебивал (ревью 2026-09-22, п.3), и ему
+       нужен :not(.focus) на самой строке. Специфичность считается так:
+       body.lumen-torrents-on .torrent-item + .torrent-item — три класса и
+       один элемент, ровно как у body.lumen-torrents-on .torrent-item.focus,
+       но flatRules добавляется в css() последним, и border-top-color:line
+       брал верх порядком; у файлов правило ещё и длиннее на .torrent-files,
+       то есть четыре класса против трёх, — там акцент перебивался всегда.
+       Итог был виден на любой строке, кроме первой: верхняя грань акцентной
+       рамки фокуса — серая. Отсечка через :not(.focus) решает это не
+       порядком и не весом, а тем, что правило перестаёт подходить фокусной
+       строке вовсе (тот же приём, что у .tag-count:not(.focus) в
+       src/30_css.js).
+       margin-top:0 остаётся общим: строку в фокусе плоский вид обязан
+       ставить туда же, куда и остальные, иначе список дёргался бы на
+       каждом шаге пульта. */
     function flatRules(k) {
       var r = [];
       var rows = ['.torrent-file', '.torrent-serial'];
       var next = ['.torrent-files .torrent-file + .torrent-file', '.torrent-files .torrent-file + .torrent-serial',
         '.torrent-files .torrent-serial + .torrent-file', '.torrent-files .torrent-serial + .torrent-serial'];
+      var nextLine = [];
+      for (var i = 0; i < next.length; i++) nextLine.push(next[i] + ':not(.focus)');
       r.push('/* 41 Плоский вид (lumen_flat): раздачи и файлы без карточек */');
       r.push(T(['.torrent-item']) + '{background-color:transparent;border-color:transparent;border-radius:0}');
-      r.push(T(['.torrent-item + .torrent-item']) + '{margin-top:0;border-top-color:' + k.line + '}');
+      r.push(T(['.torrent-item + .torrent-item']) + '{margin-top:0}');
+      r.push(T(['.torrent-item + .torrent-item:not(.focus)']) + '{border-top-color:' + k.line + '}');
       r.push(T(rows) + '{background-color:transparent;border-color:transparent;border-radius:0}');
-      r.push(T(next) + '{margin-top:0;border-top-color:' + k.line + '}');
+      r.push(T(next) + '{margin-top:0}');
+      r.push(T(nextLine) + '{border-top-color:' + k.line + '}');
       return r;
     }
 
