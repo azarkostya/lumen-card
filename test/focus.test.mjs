@@ -10,6 +10,25 @@ test('LC.focus.EVENTS: оба события фокуса Lampa, пульт и �
   assert.deepEqual(F.EVENTS, ['hover:focus', 'hover:hover']);
 });
 
+/* Ревью волны A (М1). У штатной карточки Lampa имён ТРИ: к 'hover:focus' и
+   'hover:hover' добавлен 'hover:touch', и watched() зовут все три
+   (app.min.js:52323-52337). Третьего имени у нас нет сознательно — разбор
+   в шапке src/11_focus.js. Сторож держит обе половины решения: имя в EVENTS
+   не появляется молча, а первоисточник у Lampa остаётся тем же, каким его
+   прочли. */
+test('М1: у Lampa три имени, у нас два — решение про hover:touch зафиксировано', () => {
+  const lampa = readFileSync(new URL('../vendor/lampa/app.min.js', import.meta.url), 'utf8');
+  const at = lampa.indexOf("this.card.addEventListener('hover:focus'");
+  assert.notEqual(at, -1, 'создание карточки Lampa не найдено');
+  const block = lampa.slice(at, at + 700);
+  const names = (block.match(/addEventListener\('(hover:[a-z]+)'/g) || [])
+    .map((m) => /'(hover:[a-z]+)'/.exec(m)[1]);
+  assert.deepEqual(names.slice(0, 4), ['hover:focus', 'hover:touch', 'hover:hover', 'hover:enter'],
+    'набор слушателей карточки Lampa изменился — комментарий в src/11_focus.js обязан измениться вместе с ним');
+  assert.equal(F.EVENTS.indexOf('hover:touch'), -1,
+    'hover:touch попал в EVENTS — это снятие ограничения, и оно требует живой проверки на тач-устройстве');
+});
+
 /* --------------------------------- on ------------------------------------ */
 
 function jqNode() {
