@@ -213,8 +213,8 @@
 
   /* Task 5c: одна подписка на Lampa.Timeline за всё время жизни плагина —
      запись просмотра серии обновилась (плеер, синхронизация CUB) ->
-     перерисовать карточку этой серии (LC.header.refreshEpisode ищет узлы по
-     data-hash в DOM: без таймеров и без ссылок на карточки). */
+     перерисовать карточку этой серии (LC.header.refreshEpisode обходит ряды
+     серий, которые сейчас есть в DOM: без таймеров и без ссылок на карточки). */
   LC.followTimeline = function () {
     if (timeline_followed) return;
     timeline_followed = true;

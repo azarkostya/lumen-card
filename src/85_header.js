@@ -464,8 +464,44 @@
   var STILL_WINDOW = 6;
 
   /* Task 39: ширина плитки серии в em Lampa — .lumen-card .lumen-episode
-     {width:14.9em} из src/30_css.js. */
-  var EPISODE_EM = 14.9;
+     {width:…em} из src/30_css.js.
+     Task 67: число больше не дублируется здесь литералом — и ширина, и
+     правый зазор приходят из LC.episodeEm, единственного их источника. */
+  function episodeEm() {
+    return LC.episodeEm;
+  }
+
+  /* Task 67: шаг плитки в ряду — ширина плюс зазор. По нему считается и
+     размер окна узлов, и распорка дорожки на месте снятых плиток. */
+  function episodeStepEm() {
+    var m = episodeEm();
+    return m.width + m.gap;
+  }
+
+  /* Task 67: половина окна узлов ряда серий, в плитках. Строить ряд целиком
+     нельзя: у «Дораэмона» (TMDB 65733) Lampa отдаёт 132 серии одного сезона,
+     и сборка 132 плиток внутри full:complite на стенде 960×540@2 занимает
+     11.1 мс (медиана пяти прогонов, замер координатора 2026-09-22), а на
+     синтетическом сезоне из 1464 серий — 123 мс; на 4×A55 телевизора это и
+     есть провал до 2 fps из раздела 0 плана фазы 6.
+
+     Размер окна — плиток в ширину экрана плюс запас в окно кадров
+     (STILL_WINDOW) с каждой стороны. Запас нужен затем же, зачем он у
+     кадров: окно едет за фокусом не на каждый шаг, а когда до его края
+     остаётся меньше STILL_WINDOW плиток, — значит за видимой частью ряда
+     всегда лежит ещё не меньше экрана готовых плиток, и пустоты у края
+     пользователь не увидит.
+
+     Обе мерки в физических пикселях (LC.util): emPx и screenPx считают DPR
+     одним и тем же способом, поэтому их отношение — это честное число
+     плиток в ширину экрана. Ряд начинается не от левого края экрана, а с
+     отступом карточки, так что счёт получается с запасом в свою сторону. */
+  function episodeHalf() {
+    var step = LC.util.emPx(episodeStepEm());
+    var visible = step > 0 ? Math.ceil(LC.util.screenPx() / step) : 0;
+    if (!(visible > 0)) visible = 1;
+    return visible + STILL_WINDOW;
+  }
 
   /* Task 39: размер кадра серии по фактической ширине плитки. 14.9em — это
      340 физических пикселей на экране 1920 при размерах интерфейса по
@@ -477,7 +513,7 @@
      таких плиток. На узком экране (плитка меньше ~218 физических пикселей —
      тот же допуск 15%, что в LC.util.posterSize) берётся w185. */
   function stillSize() {
-    return LC.util.emPx(EPISODE_EM) * 0.85 > 185 ? 'w300' : 'w185';
+    return LC.util.emPx(episodeEm().width) * 0.85 > 185 ? 'w300' : 'w185';
   }
 
   /* Ревью п.6: кадр ставится через .css, а не в атрибут style: esc() кодирует
@@ -490,11 +526,14 @@
     node.find('.lumen-episode__still').css('background-image', 'url("' + ('' + url).replace(/["\\]/g, '\\$&') + '")');
   }
 
+  /* Task 67: nodes — места сезона, а не список узлов: за окном стоит null,
+     и кадр там ставить некуда. Когда плитка попадёт в окно, кадр ей поставит
+     mountWindow тем же applyStill. */
   function loadStills(nodes, center) {
     var from = Math.max(0, center - STILL_WINDOW);
     var to = Math.min(nodes.length - 1, center + STILL_WINDOW);
     for (var i = from; i <= to; i++) {
-      if (!nodes[i][0].lumenStill) applyStill(nodes[i]);
+      if (nodes[i] && !nodes[i][0].lumenStill) applyStill(nodes[i]);
     }
   }
 
@@ -505,12 +544,16 @@
      ближнее окно (±STILL_WINDOW) нарисовано, следующее — запас на возврат
      фокуса назад без повторной загрузки. Снимаем и background-image, и флаг:
      иначе loadStills сочтёт карточку уже загруженной и кадр не вернётся.
-     Пустой атрибут style="" убираем тем же приёмом, что у дорожки (setShift). */
-  function dropStills(nodes, center) {
+     Пустой атрибут style="" убираем тем же приёмом, что у дорожки (setShift).
+     Task 67: обходим только окно узлов (scan*): за его краем nodes[i] — null,
+     и обход всего сезона (у «Дораэмона» 132 места, у длинного аниме — за
+     тысячу) на каждый шаг фокуса был бы работой вхолостую. */
+  function dropStills(nodes, center, scanFrom, scanTo) {
     var from = center - STILL_WINDOW * 2;
     var to = center + STILL_WINDOW * 2;
-    for (var i = 0; i < nodes.length; i++) {
-      if ((i >= from && i <= to) || !nodes[i][0].lumenStill) continue;
+    var last = scanTo < nodes.length - 1 ? scanTo : nodes.length - 1;
+    for (var i = scanFrom > 0 ? scanFrom : 0; i <= last; i++) {
+      if ((i >= from && i <= to) || !nodes[i] || !nodes[i][0].lumenStill) continue;
       nodes[i][0].lumenStill = false;
       var still = nodes[i].find('.lumen-episode__still');
       still.css('background-image', '');
@@ -604,8 +647,9 @@
   /* Step 3: ряд серий последнего сезона из e.data.episodes.episodes[] (Lampa
      кладёт туда весь последний сезон, включая не вышедшие серии). Нет
      episodes или это фильм — ряд скрыт. Хэш серии для Lampa.Timeline —
-     формула плана 0.2 (как у Timeline.watchedEpisode и online_mod); он же
-     пишется в data-hash, по нему refreshEpisode находит карточку.
+     формула плана 0.2 (как у Timeline.watchedEpisode и online_mod); он
+     считается один раз на серию и хранится в описании её места в сезоне
+     (info.eps), откуда его берут и paintEpisode, и refreshEpisode.
      Ревью п.7: decorate зовётся дважды (build и complite) с одним и тем же
      e.data — повторную сборку того же списка пропускаем. */
   /* Долг ревью Task 5c (п.2): «тот же список» — это та же ссылка И та же
@@ -627,6 +671,132 @@
     return [list.length, first.season_number, first.episode_number, last.episode_number, last.air_date].join('|');
   }
 
+  /* Task 67: одна плитка ряда. Всё, что нужно для её сборки, лежит в eps[pos]
+     (серия, её место в исходном массиве Lampa и хэш Timeline) — узел можно
+     построить и при первой отрисовке, и позже, когда серия въедет в окно.
+     Атрибутов data-hash/data-index на плитке больше нет: они были мостом от
+     узла к данным для refreshEpisode, а тот теперь ходит по местам сезона
+     (info.eps) и в DOM за ними не лазает. В разметке остаётся только
+     data-still — его читает applyStill. */
+  function makeEpisode(info, pos, now, months) {
+    var item = info.eps[pos];
+    var node = $('<div class="lumen-episode selector"></div>');
+    if (item.still) node.attr('data-still', item.still);
+    node[0].lumenPos = pos;
+    paintEpisode(node, item.ep, item.hash, now, months);
+    return node;
+  }
+
+  /* Task 67: распорка дорожки — место снятых плиток слева и справа от окна,
+     в шагах плитки (ширина + зазор из LC.episodeEm). Без неё ряд, собранный
+     окном, был бы короче сезона: сдвиг к фокусной плитке (scrollToEpisode
+     считает его по offsetLeft и scrollWidth дорожки) и её положение на
+     экране поехали бы, как только окно уедет от начала.
+     Padding, а не пустые узлы-распорки: два числа на самой дорожке дешевле
+     двух лишних элементов, а offsetLeft плиток padding-left учитывает —
+     дорожка и есть их offsetParent (position:absolute, src/30_css.js). */
+  function setSpacer(track, before, after) {
+    if (!track.length) return;
+    var step = episodeStepEm();
+    track.css({
+      'padding-left': before > 0 ? (Math.round(before * step * 100) / 100) + 'em' : '',
+      'padding-right': after > 0 ? (Math.round(after * step * 100) / 100) + 'em' : ''
+    });
+    clearInlineStyleIfEmpty(track);
+  }
+
+  /* Task 67: привести окно узлов к [from..to]. Плитки вне нового окна
+     снимаются, недостающие достраиваются: справа append, слева prepend в
+     обратном порядке — в дорожке они всегда лежат по возрастанию места в
+     сезоне, иначе Navigator (он ходит по геометрии) пошёл бы не туда.
+     Возвращает true, если DOM ряда изменился. */
+  function mountWindow(info, from, to) {
+    var nodes = info.nodes;
+    var now = new Date();
+    var months = monthsShort();
+    var changed = false;
+    var i;
+
+    for (i = info.from; i <= info.to; i++) {
+      if (i >= from && i <= to) continue;
+      if (!nodes[i]) continue;
+      nodes[i].remove();
+      nodes[i] = null;
+      changed = true;
+    }
+    for (i = from > info.to + 1 ? from : info.to + 1; i <= to; i++) {
+      if (nodes[i]) continue;
+      nodes[i] = makeEpisode(info, i, now, months);
+      info.track.append(nodes[i]);
+      changed = true;
+    }
+    for (i = to < info.from - 1 ? to : info.from - 1; i >= from; i--) {
+      if (nodes[i]) continue;
+      nodes[i] = makeEpisode(info, i, now, months);
+      info.track.prepend(nodes[i]);
+      changed = true;
+    }
+
+    info.from = from;
+    info.to = to;
+    setSpacer(info.track, from, info.eps.length - 1 - to);
+    return changed;
+  }
+
+  /* Task 67: окно едет за фокусом. Не на каждый шаг: пока до края окна
+     остаётся не меньше STILL_WINDOW плиток, трогать DOM незачем — за видимой
+     частью ряда и так лежит готовый запас. Когда запас кончается, окно
+     перестраивается вокруг фокуса и упирается в границы сезона. */
+  function slideWindow(info, center) {
+    var last = info.eps.length - 1;
+    var half = info.half;
+    var needLeft = info.from > 0 && center - info.from < STILL_WINDOW;
+    var needRight = info.to < last && info.to - center < STILL_WINDOW;
+    if (!needLeft && !needRight) return false;
+
+    var from = center - half;
+    var to = center + half;
+    if (to > last) to = last;
+    from = to - half * 2;
+    if (from < 0) from = 0;
+    to = from + half * 2;
+    if (to > last) to = last;
+    if (from === info.from && to === info.to) return false;
+    return mountWindow(info, from, to);
+  }
+
+  /* Task 67: Navigator ходит по СНИМКУ .selector'ов — Controller.collectionSet
+     отдаёт ему Array.from(html.querySelectorAll('.selector'))
+     (vendor/lampa/app.min.js:46448-46466), а Navigator.setCollection этот
+     список запоминает (vendor/lampa/vender/navigator/navigator.js:568-573).
+     Значит после сдвига окна снимок обязан быть пересобран: досозданные
+     плитки в него сами не попадут, а снятые остались бы в нём мёртвыми
+     (снятие поштучно недоступно — Navigator в window.Lampa не экспортирован,
+     vendor/lampa/app.min.js:55947-56010). Тот же урок, что у рулетки после
+     Task 44 (src/56_roulette.js, recollect).
+
+     Фокус возвращается явно: collectionSet зовёт clearSelects(), то есть
+     снимает класс focus со всей прежней коллекции (app.min.js:46395-46398,
+     46462), а Navigator.setCollection — unfocus(). Проверки перед пересбором
+     те же, что у кнопки «Стоп» трейлера (src/55_trailer.js, recollect):
+     имени контроллера мало — карточка, оставленная в истории Lampa, остаётся
+     живым DOM, и collectionSet по ней увёл бы навигацию с видимого экрана. */
+  function recollectEpisodes(root, focused) {
+    try {
+      if (!window.Lampa || !Lampa.Controller) return;
+      if (typeof Lampa.Controller.collectionSet !== 'function') return;
+      if (LC.slideshow && typeof LC.slideshow.isLayerForeground === 'function' && !LC.slideshow.isLayerForeground(root)) return;
+      var enabled = typeof Lampa.Controller.enabled === 'function' ? Lampa.Controller.enabled() : null;
+      if (!enabled || enabled.name !== 'full_start') return;
+      Lampa.Controller.collectionSet(root);
+      if (typeof Lampa.Controller.collectionFocus === 'function') {
+        Lampa.Controller.collectionFocus(focused || false, root);
+      }
+    } catch (e) {
+      warn('episodes collection failed', e);
+    }
+  }
+
   function renderEpisodes(root, data) {
     var row = root.find('.lumen-episodes');
     if (!row.length) return;
@@ -641,45 +811,56 @@
     row.addClass('hide');
     track.empty();
     setShift(track, 0);
+    setSpacer(track, 0, 0);
     row[0].lumenEpisodes = null;
 
     if (!isSerial(movie) || !list || !list.length) return;
 
     var season = parseInt(data.episodes.season_number, 10) || parseInt(list[0] && list[0].season_number, 10) || 0;
     var key = movie.original_name || movie.original_title || '';
-    var months = monthsShort();
-    var now = new Date();
-    var nodes = [];
-    var current = -1;
     /* Task 39: размер кадра один на весь ряд — ни ширина окна, ни DPR за
        время отрисовки не меняются, а серий в сезоне бывает больше сотни. */
     var stillW = stillSize();
+    var eps = [];
 
+    /* Task 67: сперва — только описания плиток (серия, её место в массиве
+       Lampa, хэш Timeline, адрес кадра). Это весь сезон, но без DOM: узлы
+       строит уже mountWindow, и только для окна. */
     for (var i = 0; i < list.length; i++) {
       var ep = list[i];
       if (!ep || !(ep.episode_number > 0)) continue;
       var hash = key && season ? '' + utilsHash([season, season > 10 ? ':' : '', ep.episode_number, key].join('')) : '';
       if (hash === '0') hash = '';
-      var still = LC.cardinfo.imageUrl(ep.still_path, stillW, tmdbImageFn(), apiImgFn());
-      var node = $('<div class="lumen-episode selector"></div>');
-      node.attr('data-index', i);
-      if (hash) node.attr('data-hash', hash);
-      if (still) node.attr('data-still', still);
-      node[0].lumenPos = nodes.length;
-      var st = paintEpisode(node, ep, hash, now, months);
-      if (current < 0 && st.state === 'watching') current = nodes.length;
-      track.append(node);
-      nodes.push(node);
+      eps.push({
+        ep: ep,
+        index: i,
+        hash: hash,
+        still: LC.cardinfo.imageUrl(ep.still_path, stillW, tmdbImageFn(), apiImgFn())
+      });
     }
-    if (!nodes.length) return;
+    if (!eps.length) return;
 
-    row[0].lumenEpisodes = { list: list, nodes: nodes, sign: sign };
-    /* Видно с самого начала ряда; если сериал уже смотрят — ещё и вокруг той серии. */
+    var nodes = [];
+    for (i = 0; i < eps.length; i++) nodes.push(null);
+
+    /* Ряд объявляется построенным только после того, как окно собрано:
+       упади сборка на полпути, повторный decorate с тем же списком обязан
+       собрать ряд заново, а не вернуться по сигнатуре к скрытому ряду. */
+    var info = { list: list, eps: eps, nodes: nodes, sign: sign, track: track, half: episodeHalf(), from: 0, to: -1 };
+    mountWindow(info, 0, Math.min(eps.length - 1, info.half * 2));
+    row[0].lumenEpisodes = info;
+
+    /* Видно с самого начала ряда; если сериал уже смотрят — ещё и вокруг той
+       серии. Task 67: «ту серию» ищем среди построенных: за окном кадры всё
+       равно некуда ставить, а перебор Timeline по всему сезону стоил бы
+       ровно того времени, ради которого окно и заведено. */
     loadStills(nodes, 0);
-    if (current > 0) loadStills(nodes, current);
+    for (i = info.from; i <= info.to; i++) {
+      if (nodes[i] && nodes[i].hasClass('lumen-episode--watching')) { loadStills(nodes, i); break; }
+    }
 
     row.find('.lumen-episodes__title').text(season ? LC.lang('lumen_card_season') + ' ' + season : (data.episodes.name || ''));
-    row.find('.lumen-episodes__count').text(nodes.length + ' ' + LC.episodesWord(nodes.length));
+    row.find('.lumen-episodes__count').text(eps.length + ' ' + LC.episodesWord(eps.length));
     row.removeClass('hide');
   }
 
@@ -696,8 +877,13 @@
 
     var info = row.length ? row[0].lumenEpisodes : null;
     if (info && typeof node.lumenPos === 'number') {
+      /* Task 67: сперва узлы (окно едет за фокусом и пересобирает снимок
+         Navigator), потом кадры — иначе кадр ставить было бы некуда, — и
+         только потом геометрия: offsetLeft плитки читается уже с новой
+         распоркой дорожки. */
+      if (slideWindow(info, node.lumenPos)) recollectEpisodes(root, node);
       loadStills(info.nodes, node.lumenPos);
-      dropStills(info.nodes, node.lumenPos);
+      dropStills(info.nodes, node.lumenPos, info.from, info.to);
     }
 
     var screen = window.innerWidth || (document.documentElement && document.documentElement.clientWidth) || 0;
@@ -735,7 +921,22 @@
         var node = $(e.target).closest('.lumen-episode', el);
         if (node.length) {
           root.addClass('lumen-compact');
-          scrollToEpisode(root, node[0]);
+          /* Task 67: защёлка от самовызова. Пересбор коллекции после сдвига
+             окна возвращает фокус через Controller.collectionFocus, а тот
+             шлёт узлу тот же hover:focus (Navigator.follow('focus') ->
+             Controller.focus -> Utils.trigger, vendor/lampa/app.min.js:56069
+             и 46434-46446) — то есть приходит обратно сюда. Бесконечным
+             такой заход не был бы (окно уже на месте, второй раз оно не
+             поедет), но весь путь прошёл бы заново, а в нём — чтение
+             getBoundingClientRect и offsetLeft, то есть лишний пересчёт
+             раскладки на каждом сдвиге окна. */
+          if (el.lumenEpisodesBusy) return;
+          el.lumenEpisodesBusy = true;
+          try {
+            scrollToEpisode(root, node[0]);
+          } finally {
+            el.lumenEpisodesBusy = false;
+          }
         } else if ($(e.target).closest('.full-start-new__buttons', el).length) {
           root.removeClass('lumen-compact');
         }
@@ -759,7 +960,11 @@
 
   /* Запись Lampa.Timeline обновилась (плеер, синхронизация) — перерисовать
      карточку серии с этим хэшем во всех карточках в DOM (история Lampa держит
-     и прошлые). Подписка — в 90_runtime.js, одна на всё время жизни плагина. */
+     и прошлые). Подписка — в 90_runtime.js, одна на всё время жизни плагина.
+     Task 67: узлы есть только в окне, поэтому и обход идёт по окну. Серию за
+     его краем перерисовывать нечего и не на чем — своё состояние она получит
+     в тот момент, когда окно до неё доедет: mountWindow строит плитку через
+     paintEpisode, а тот читает Lampa.Timeline заново. */
   function refreshEpisode(hash) {
     hash = '' + (hash || '');
     if (!/^\d+$/.test(hash)) return;
@@ -768,11 +973,10 @@
     $('.lumen-card .lumen-episodes').each(function () {
       var info = this.lumenEpisodes;
       if (!info) return;
-      for (var i = 0; i < info.nodes.length; i++) {
+      for (var i = info.from; i <= info.to; i++) {
         var node = info.nodes[i];
-        if (node.attr('data-hash') !== hash) continue;
-        var ep = info.list[parseInt(node.attr('data-index'), 10)];
-        if (ep) paintEpisode(node, ep, hash, now, months);
+        if (!node || info.eps[i].hash !== hash) continue;
+        paintEpisode(node, info.eps[i].ep, hash, now, months);
       }
     });
   }

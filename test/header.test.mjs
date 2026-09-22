@@ -54,7 +54,11 @@ function loadLC() {
   const module = { exports: null, lumen: false };
   /* Task 25: 62_badges.js — от него renderNextChip берёт обратный отсчёт до
      премьеры фильма (у сериала в том же чипе живёт следующая серия). */
-  const names = ['10_util.js', '35_cardinfo.js', '50_backdrops.js', '62_badges.js', '70_progress.js', '80_settings.js', '81_prefs.js', '85_header.js'];
+  /* Task 67: 30_css.js — источник метрики плитки ряда серий (LC.episodeEm);
+     по ней 85_header.js считает окно узлов и распорку дорожки. На верхнем
+     уровне модуль только объявляет функции и константы (ни Lampa, ни $ он
+     при загрузке не трогает), поэтому грузится рядом с остальными. */
+  const names = ['10_util.js', '30_css.js', '35_cardinfo.js', '50_backdrops.js', '62_badges.js', '70_progress.js', '80_settings.js', '81_prefs.js', '85_header.js'];
   const src = names.map((n) => readFileSync(new URL(`../src/${n}`, import.meta.url), 'utf8')).join('\n');
   new Function('LC', 'module', src)(LC, module);
   return LC;
@@ -103,7 +107,7 @@ function makeCard() {
   const row = new FakeEl(['lumen-episodes', 'hide'], [head, viewport]);
   const root = new FakeEl(['full-start-new', 'lumen-card'], [rateLine, progress, buttons, row]);
   docRoots.push(root);
-  return { root, chip, text, rateLine, status, play, book, buttons, row, track, title, count, progress, pLabel, pTime };
+  return { root, chip, text, rateLine, status, play, book, buttons, row, track, viewport, title, count, progress, pLabel, pTime };
 }
 
 function serial(n) {
@@ -114,10 +118,43 @@ function serial(n) {
   return { movie: { name: 'Фоллаут', original_name: 'Fallout', number_of_seasons: 2 }, episodes: { season_number: 2, episodes: episodes } };
 }
 
-/* Геометрия дорожки: карточка 340 + зазор 16, viewport с x = 64, экран 1920. */
-function layout(track) {
-  track._children.forEach((n, i) => { n.offsetLeft = i * 356; n.offsetWidth = 340; });
-  track.scrollWidth = track._children.length * 356 - 16;
+/* Геометрия дорожки: карточка 340 + зазор 16, viewport с x = 64, экран 1920.
+   Task 67: позиция плитки считается от её МЕСТА В СЕЗОНЕ (lumenPos), а не от
+   номера в дорожке — за краем окна узлов нет, и их место держит распорка.
+   total — длина всего сезона: ширина дорожки не зависит от размера окна. */
+function layout(track, total) {
+  track._children.forEach((n, i) => {
+    const pos = typeof n.lumenPos === 'number' ? n.lumenPos : i;
+    n.offsetLeft = pos * 356;
+    n.offsetWidth = 340;
+  });
+  track.scrollWidth = (total || track._children.length) * 356 - 16;
+}
+
+/* Task 67: узел серии по её месту в сезоне — или null, если он сейчас за
+   окном. Пульт ходит по тому, что есть в DOM, поэтому «дыра» в проходе по
+   сезону — это как раз null там, где фокус обязан был найти соседа. */
+function nodeAt(c, pos) {
+  return c.track._children.filter((n) => n.lumenPos === pos)[0] || null;
+}
+
+/* Шаг пульта вправо: пересчитать геометрию (новые узлы её не имеют) и отдать
+   плитке фокус так же, как это делает Lampa — hover:focus в фазе перехвата. */
+function stepTo(c, pos, total) {
+  const node = nodeAt(c, pos);
+  if (!node) return null;
+  layout(c.track, total);
+  fire(c.root, 'hover:focus', node);
+  return node;
+}
+
+/* Половина окна узлов — та же формула, что в src/85_header.js (episodeHalf):
+   плиток в ширину экрана плюс запас в окно кадров с каждой стороны. Тест
+   повторяет её сознательно: он сторожит РАЗМЕР окна, и расхождение формулы
+   с этим ожиданием должно быть видно. */
+function halfWindow() {
+  const step = LC.util.emPx(LC.episodeEm.width + LC.episodeEm.gap);
+  return Math.ceil(LC.util.screenPx() / step) + STILL_WINDOW;
 }
 
 function fire(root, type, target) {
@@ -128,17 +165,23 @@ function stillOf(node) { return node.find('.lumen-episode__still').css('backgrou
 
 /* ------------------------------ renderEpisodes ------------------------------ */
 
-test('renderEpisodes: data-hash по формуле плана 0.2, data-index — индекс в episodes[], заголовок и число серий', () => {
+/* Task 67: хэш и место серии в массиве Lampa живут в описании её места в
+   сезоне (lumenEpisodes.eps), а не в атрибутах узла — узла за окном может и
+   не быть. Формула хэша (план 0.2) сверяется с живым значением S2E3
+   «Fallout» = 908552078 по-прежнему. */
+test('renderEpisodes: хэш по формуле плана 0.2, index — место в episodes[], заголовок и число серий', () => {
   const c = makeCard();
   const data = serial(8);
   data.episodes.episodes.splice(3, 0, { season_number: 2, name: 'без номера' });
   LC.header.decorate(c.root, data);
 
+  const eps = c.row.lumenEpisodes.eps;
   assert.equal(c.row.hasClass('hide'), false);
   assert.equal(c.track._children.length, 8, 'серия без episode_number пропущена');
-  assert.equal(c.track._children[2].attr('data-hash'), '908552078');
-  assert.equal(c.track._children[2].attr('data-index'), '2');
-  assert.equal(c.track._children[3].attr('data-index'), '4', 'после пропуска индекс указывает в исходный массив');
+  assert.equal(eps[2].hash, '908552078');
+  assert.equal(eps[2].index, 2);
+  assert.equal(eps[3].index, 4, 'после пропуска индекс указывает в исходный массив');
+  assert.equal(c.track._children[2].getAttribute('data-hash'), null, 'в разметке плитки хэша нет');
   assert.ok(c.track._children[0].hasClass('selector'));
   assert.equal(c.title.text(), 'Сезон 2');
   assert.equal(c.count.text(), '8 серий');
@@ -227,6 +270,10 @@ test('renderEpisodes: состояния и подписи — просмотр�
 
 const range = (a, b) => Array.from({ length: b - a + 1 }, (_, i) => a + i);
 
+/* Task 67: номера серий, у которых сейчас стоит кадр — по месту в сезоне
+   (lumenPos), а не по номеру в дорожке: за окном узлов нет вовсе. */
+const loadedPos = (c) => c.track._children.filter((n) => stillOf(n)).map((n) => n.lumenPos).sort((a, b) => a - b);
+
 test('кадры: при отрисовке — только окно ±STILL_WINDOW от первой и от текущей серии, по фокусу — окно вокруг неё', () => {
   const c = makeCard();
   const data = serial(30);
@@ -237,31 +284,36 @@ test('кадры: при отрисовке — только окно ±STILL_WI
     delete views[hashOf(2, 20)];
   }
   const W = STILL_WINDOW;
-  const loaded = () => c.track._children.map((n, i) => (stillOf(n) ? i : -1)).filter((i) => i >= 0);
-  assert.deepEqual(loaded(), range(0, W).concat(range(19 - W, 19 + W)));
+  /* Task 67: «смотрят» — 20-я серия (место 19); она попала в первое окно
+     узлов, поэтому кадры вокруг неё ставятся. Справа окно кадров упирается
+     в край окна узлов: дальше плиток ещё нет. */
+  const to = c.row.lumenEpisodes.to;
+  assert.deepEqual(loadedPos(c), range(0, W).concat(range(19 - W, Math.min(19 + W, to))));
   assert.ok(c.track._children.every((n) => n.attr('data-still')), 'URL есть у всех карточек в data-still');
 
   /* Долг ревью Task 5c (п.1): по фокусу кадры не только добавляются — всё, что
      дальше ±2×STILL_WINDOW от фокуса, снимается (окно 0..W от отрисовки уходит). */
-  layout(c.track);
-  fire(c.root, 'hover:focus', c.track._children[28]);
-  assert.deepEqual(loaded(), range(28 - 2 * W, 29));
+  for (let pos = 0; pos <= 28; pos++) assert.ok(stepTo(c, pos, 30), 'дыра на пути к серии ' + (pos + 1));
+  const loaded = loadedPos(c);
+  assert.ok(loaded.indexOf(28) !== -1 && loaded.indexOf(22) !== -1, 'кадры вокруг фокуса стоят');
+  assert.equal(loaded.indexOf(0), -1, 'кадр начала сезона снят вместе с уехавшим окном');
+  assert.ok(loaded[0] >= 28 - 2 * W, 'ничего дальше ±2×STILL_WINDOW от фокуса не осталось');
 });
 
 test('кадры: проход фокусом по всему сезону не копит кадры — держится окно ±2×STILL_WINDOW', () => {
   const c = makeCard();
-  LC.header.decorate(c.root, serial(30));
-  layout(c.track);
+  const total = 60;
+  LC.header.decorate(c.root, serial(total));
 
   const count = () => c.track._children.filter((n) => stillOf(n)).length;
   const ceiling = 4 * STILL_WINDOW + 1;
   let peak = 0;
-  for (let i = 0; i < 30; i++) {
-    fire(c.root, 'hover:focus', c.track._children[i]);
+  for (let pos = 0; pos < total; pos++) {
+    assert.ok(stepTo(c, pos, total), 'дыра на пути к серии ' + (pos + 1));
     peak = Math.max(peak, count());
   }
   assert.ok(peak <= ceiling, 'одновременно загруженных кадров ' + peak + ', потолок ' + ceiling);
-  assert.ok(count() < 30, 'после прохода по сезону кадры остались у всех серий');
+  assert.ok(count() < total, 'после прохода по сезону кадры остались у всех серий');
   assert.deepEqual(warnLog, []);
 });
 
@@ -297,6 +349,186 @@ test('Task 39: размер кадра серии по ширине плитки
   } finally {
     globalThis.window.innerWidth = prevW;
     globalThis.window.devicePixelRatio = prevD;
+  }
+});
+
+/* ------------------------------ окно узлов (Task 67) ------------------------------ */
+
+test('Task 67: длинный сезон строится окном — узлов не больше 2×окна+1, остальное держит распорка', () => {
+  const c = makeCard();
+  LC.header.decorate(c.root, serial(300));
+  const W = halfWindow();
+
+  assert.equal(c.track._children.length, W * 2 + 1, 'построено ровно окно вокруг начала ряда');
+  assert.equal(nodeAt(c, 0) !== null, true, 'первая серия в DOM — ряд показывается с начала');
+  assert.equal(c.track._children[c.track._children.length - 1].lumenPos, W * 2, 'окно кончается на 2×окна');
+  assert.equal(nodeAt(c, W * 2 + 1), null, 'за краем окна узлов нет');
+  assert.equal(c.count.text(), '300 серий', 'счётчик показывает весь сезон, а не размер окна');
+
+  /* Распорка справа — место снятых плиток: (300 − 1 − to) шагов по (ширина +
+     зазор) em. Слева окно начинается с нуля, поэтому левой распорки нет. */
+  const step = LC.episodeEm.width + LC.episodeEm.gap;
+  assert.equal(c.track.css('padding-left'), '', 'окно от начала списка — левой распорки нет');
+  assert.equal(c.track.css('padding-right'), Math.round((300 - 1 - W * 2) * step * 100) / 100 + 'em');
+  assert.deepEqual(warnLog, []);
+});
+
+test('Task 67: сезон короче окна строится целиком и без распорки', () => {
+  const c = makeCard();
+  LC.header.decorate(c.root, serial(8));
+  assert.equal(c.track._children.length, 8);
+  assert.equal(c.track.getAttribute('style'), null, 'ни сдвига, ни распорки — атрибута style нет');
+});
+
+test('Task 67: проход пультом по всему сезону — без «дыр», окно едет за фокусом, узлы не копятся', () => {
+  const c = makeCard();
+  const total = 300;
+  LC.header.decorate(c.root, serial(total));
+  const W = halfWindow();
+  const ceiling = W * 2 + 1;
+  let peak = 0;
+
+  for (let pos = 0; pos < total; pos++) {
+    const node = stepTo(c, pos, total);
+    assert.ok(node, 'серия ' + (pos + 1) + ' не найдена в DOM — «дыра» на пути пульта');
+    peak = Math.max(peak, c.track._children.length);
+  }
+  assert.ok(peak <= ceiling, 'узлов одновременно ' + peak + ', потолок ' + ceiling);
+  assert.equal(nodeAt(c, total - 1) !== null, true, 'последняя серия сезона доступна');
+  assert.equal(nodeAt(c, 0), null, 'начало сезона снято — окно уехало');
+
+  /* Порядок в дорожке — по местам в сезоне: prepend слева, append справа. */
+  const order = c.track._children.map((n) => n.lumenPos);
+  assert.deepEqual(order, order.slice().sort((a, b) => a - b), 'плитки лежат по возрастанию номера');
+
+  /* У правого края окно упирается в конец сезона: правой распорки больше нет,
+     а левая держит место всех снятых плиток. */
+  const step = LC.episodeEm.width + LC.episodeEm.gap;
+  const info = c.row.lumenEpisodes;
+  assert.equal(c.track.css('padding-right'), '');
+  assert.equal(c.track.css('padding-left'), Math.round(info.from * step * 100) / 100 + 'em');
+  assert.equal(info.to, total - 1);
+
+  /* И обратный путь — до первой серии. */
+  for (let pos = total - 1; pos >= 0; pos--) {
+    assert.ok(stepTo(c, pos, total), 'серия ' + (pos + 1) + ' не найдена на обратном пути');
+  }
+  assert.equal(c.track.css('padding-left'), '', 'вернулись к началу — левой распорки нет');
+  assert.deepEqual(warnLog, []);
+});
+
+/* Navigator ходит по СНИМКУ .selector'ов (Controller.collectionSet ->
+   Navigator.setCollection, vendor/lampa/app.min.js:46448-46466), поэтому
+   досозданные за краем окна плитки в него сами не попадут, а снятые
+   останутся в нём мёртвыми. */
+test('Task 67: сдвиг окна пересобирает коллекцию Navigator и возвращает фокус на ту же плитку', () => {
+  const c = makeCard();
+  const total = 300;
+  LC.header.decorate(c.root, serial(total));
+  const calls = [];
+  const prev = Lampa.Controller;
+  Lampa.Controller = {
+    enabled: () => ({ name: 'full_start' }),
+    collectionSet: (html) => calls.push(['set', html]),
+    collectionFocus: (target, html) => calls.push(['focus', target, html])
+  };
+  try {
+    stepTo(c, 1, total);
+    assert.deepEqual(calls, [], 'окно не двигалось — коллекцию не трогаем');
+
+    const W = halfWindow();
+    const node = stepTo(c, W * 2 - STILL_WINDOW + 1, total);
+    assert.equal(calls.length, 2, 'окно сдвинулось — пересбор и возврат фокуса');
+    assert.equal(calls[0][0], 'set');
+    assert.equal(calls[0][1], c.root, 'коллекция собирается по корню карточки');
+    assert.equal(calls[1][0], 'focus');
+    assert.equal(calls[1][1], node, 'фокус возвращается на ту же плитку');
+  } finally {
+    Lampa.Controller = prev;
+  }
+  assert.deepEqual(warnLog, []);
+});
+
+/* Карточка, оставленная в истории Lampa, остаётся живым DOM, и пересбор по
+   ней увёл бы навигацию с видимого экрана (тот же урок, что у кнопки «Стоп»
+   трейлера). Имени контроллера для различения не хватает: у обеих карточек
+   он full_start. */
+test('Task 67: коллекцию не пересобираем с чужого экрана и из-под чужого контроллера', () => {
+  const c = makeCard();
+  const total = 300;
+  LC.header.decorate(c.root, serial(total));
+  const W = halfWindow();
+  const calls = [];
+  const prev = Lampa.Controller;
+  const prevSlideshow = LC.slideshow;
+  Lampa.Controller = {
+    enabled: () => ({ name: 'full_start' }),
+    collectionSet: () => calls.push('set'),
+    collectionFocus: () => calls.push('focus')
+  };
+  try {
+    LC.slideshow = { isLayerForeground: () => false };
+    stepTo(c, W * 2 - STILL_WINDOW + 1, total);
+    assert.deepEqual(calls, [], 'карточка не на экране — навигацию не трогаем');
+    assert.equal(c.row.lumenEpisodes.to > W * 2, true, 'окно при этом всё равно доехало');
+
+    LC.slideshow = prevSlideshow;
+    Lampa.Controller.enabled = () => ({ name: 'full_descr' });
+    stepTo(c, c.row.lumenEpisodes.to - STILL_WINDOW + 1, total);
+    assert.deepEqual(calls, [], 'фокус в другом контроллере — коллекция не наша');
+  } finally {
+    Lampa.Controller = prev;
+    LC.slideshow = prevSlideshow;
+  }
+  assert.deepEqual(warnLog, []);
+});
+
+/* Controller.collectionFocus -> Navigator.focus -> Controller.focus шлёт узлу
+   тот же hover:focus (vendor/lampa/app.min.js:56069, 46434-46446), то есть
+   обработчик получает своё же событие. Бесконечным заход не будет (окно уже
+   на месте), но без защёлки весь путь прошёл бы заново — вместе с чтением
+   геометрии ряда. Его и считаем: getBoundingClientRect на viewport зовёт
+   ровно scrollToEpisode. */
+test('Task 67: повторный hover:focus от Navigator не гоняет обработчик по второму кругу', () => {
+  const c = makeCard();
+  const total = 300;
+  LC.header.decorate(c.root, serial(total));
+  let geom = 0;
+  c.viewport.getBoundingClientRect = () => { geom++; return { left: 64 }; };
+  const prev = Lampa.Controller;
+  Lampa.Controller = {
+    enabled: () => ({ name: 'full_start' }),
+    collectionSet: () => { },
+    collectionFocus: (target) => { if (target) fire(c.root, 'hover:focus', target); }
+  };
+  try {
+    const W = halfWindow();
+    stepTo(c, W * 2 - STILL_WINDOW + 1, total);
+    assert.equal(geom, 1, 'раскладка ряда пересчитана один раз, а не дважды');
+  } finally {
+    Lampa.Controller = prev;
+  }
+  assert.deepEqual(warnLog, []);
+});
+
+test('Task 67: refreshEpisode серии за окном ничего не ломает, а в окне она встаёт с актуальным Timeline', () => {
+  const c = makeCard();
+  const total = 300;
+  LC.header.decorate(c.root, serial(total));
+  const far = 150;
+  assert.equal(nodeAt(c, far), null, 'серия за окном — узла нет');
+
+  views[hashOf(2, far + 1)] = { percent: 40, time: 1200, duration: 3000 };
+  try {
+    LC.header.refreshEpisode(hashOf(2, far + 1));
+    assert.deepEqual(warnLog, [], 'обновление Timeline за окном проходит тихо');
+
+    for (let pos = 0; pos <= far; pos++) assert.ok(stepTo(c, pos, total), 'дыра на пути к серии ' + (pos + 1));
+    const node = nodeAt(c, far);
+    assert.ok(node.hasClass('lumen-episode--watching'), 'встала в окно уже с актуальным состоянием');
+    assert.ok(node.html().indexOf('40 %') !== -1);
+  } finally {
+    delete views[hashOf(2, far + 1)];
   }
 });
 

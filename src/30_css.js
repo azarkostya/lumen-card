@@ -749,6 +749,17 @@
      (src/48_hero.js, LOGO_EM). */
   LC.uiScale = scaleFactor;
 
+  /* Task 67: метрика плитки ряда серий — ширина и правый зазор в em. Раньше
+     оба числа стояли литералами в правиле .lumen-episode ниже, а ширину
+     вторым литералом повторял src/85_header.js (выбор размера кадра серии).
+     Теперь ряд серий строится окном вокруг фокуса, и недостающую длину
+     дорожки заменяет распорка (padding дорожки = число снятых плиток × шаг),
+     то есть по этим же числам считается и геометрия ряда. Два источника
+     правды разъехались бы на первой же правке вёрстки, поэтому источник
+     один — здесь, а 85_header.js читает LC.episodeEm. */
+  var EPISODE_EM = { width: 14.9, gap: 0.70 };
+  LC.episodeEm = EPISODE_EM;
+
   /* Настройка «Шрифт»: пять гарнитур, все с Google Fonts — CSP плагина
      другого источника не пропустит.
 
@@ -1283,7 +1294,7 @@
     css.push('.lumen-card .lumen-episodes__count{font-family:' + FB + ';font-size:1.01em;line-height:1;letter-spacing:.08em;text-transform:uppercase;color:' + P.smoke + '}');
     css.push('.lumen-card .lumen-episodes__viewport{position:relative;height:6.58em}');
     css.push('.lumen-card .lumen-episodes__track{position:absolute;top:0;left:0;height:100%;display:-webkit-box;display:-webkit-flex;display:flex}');
-    css.push('.lumen-card .lumen-episode{position:relative;-webkit-box-sizing:border-box;box-sizing:border-box;width:14.9em;height:6.58em;margin-right:.70em;-webkit-box-flex:0;-webkit-flex:none;flex:none;border-radius:.61em;padding:.79em;overflow:hidden;background:' + P.gradSlate + ';border:.04em solid ' + P.line + ';color:' + P.text + ';display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-orient:vertical;-webkit-flex-direction:column;flex-direction:column;-webkit-box-pack:justify;-webkit-justify-content:space-between;justify-content:space-between}');
+    css.push('.lumen-card .lumen-episode{position:relative;-webkit-box-sizing:border-box;box-sizing:border-box;width:' + EPISODE_EM.width + 'em;height:6.58em;margin-right:' + EPISODE_EM.gap + 'em;-webkit-box-flex:0;-webkit-flex:none;flex:none;border-radius:.61em;padding:.79em;overflow:hidden;background:' + P.gradSlate + ';border:.04em solid ' + P.line + ';color:' + P.text + ';display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-orient:vertical;-webkit-flex-direction:column;flex-direction:column;-webkit-box-pack:justify;-webkit-justify-content:space-between;justify-content:space-between}');
     css.push('.lumen-card .lumen-episode__still{position:absolute;top:0;right:0;bottom:0;left:0;background-position:50% 50%;background-repeat:no-repeat;-webkit-background-size:cover;background-size:cover;opacity:.28}');
     css.push('.lumen-card .lumen-episode__top{position:relative;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-pack:justify;-webkit-justify-content:space-between;justify-content:space-between;-webkit-box-align:center;-webkit-align-items:center;align-items:center;min-height:1.40em}');
     css.push('.lumen-card .lumen-episode__num{font-family:' + FB + ';font-weight:600;font-size:1.01em;line-height:1;letter-spacing:.07em;color:' + P.smoke + '}');
