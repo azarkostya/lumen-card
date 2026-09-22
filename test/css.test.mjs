@@ -53,11 +53,21 @@ function tokensWith(storage) {
 }
 
 /* Правка 2026-09-16 (п.6): CSS и адрес <link> шрифтов зависят от настройки
-   lumen_font — собираем их с подменённым Storage тем же приёмом, что tokens. */
+   lumen_font — собираем их с подменённым Storage тем же приёмом, что tokens.
+
+   Storage.field, а не только get: настройки самой Lampa плагин читает именно
+   им (Storage.field отдаёт значение из кэша в памяти), и от одной из них —
+   'interface_size' — зависят оба порога раскладки (screenEm, src/30_css.js).
+   Ключ тот же самый, поэтому вторая заглушка смотрит в тот же объект. */
 function withStorage(storage, fn) {
   const LC = {};
   const module = { exports: null, lumen: true };
-  const Lampa = { Storage: { get: (name, def) => (name in storage ? storage[name] : def) } };
+  const Lampa = {
+    Storage: {
+      get: (name, def) => (name in storage ? storage[name] : def),
+      field: (name) => storage[name]
+    }
+  };
   globalThis.window = { Lampa: Lampa };
   globalThis.Lampa = Lampa;
   try {
@@ -2287,6 +2297,63 @@ function cascade(rules, prop) {
   return best;
 }
 
+/* Множители кегля настройки Lampa «Размер интерфейса» — те же, что в
+   src/10_util.js (LAMPA_SIZES) и в app.min.js:31630-31634. Тест держит свою
+   копию намеренно: он проверяет плагин по первоисточнику, а не по тому же
+   объекту, из которого плагин считает. Расхождение ловит отдельный сторож
+   ниже («таблица множителей — та же, что у Lampa»). */
+const LAMPA_SIZES = { small: 0.9, normal: 1, bigger: 1.05 };
+
+/* Второй множитель того же «Размера интерфейса», и он бьёт только по .card:
+   app.css:3525-3528 поднимает ей кегль ещё на 14 % на «крупнее». Разбор и
+   первоисточник — у LAMPA_CARD_SIZES в src/10_util.js. */
+const LAMPA_CARD_SIZES = { small: 1, normal: 1, bigger: 1.14 };
+
+test('таблица множителей — та же, что у Lampa', () => {
+  /* Три копии одного факта: у самой Lampa (первоисточник), у плагина
+     (LC.util.lampaSizeK, из неё считаются оба порога раскладки) и у модели
+     инварианта выше. Сторож сверяет все три разом: разойдись плагин с
+     Lampa — пороги включались бы не там, где кончается место (ревью волны
+     A, важное 1); разойдись модель с плагином — она перестала бы ловить
+     это расхождение. */
+  const lampa = readFileSync(new URL('../vendor/lampa/app.min.js', import.meta.url), 'utf8');
+  const sz = /function size\(\)[\s\S]{0,400}?var sz = \{([\s\S]*?)\};/.exec(lampa);
+  assert.ok(sz, 'таблица sz в функции size() у Lampa не найдена');
+  const parse = (body) => {
+    const out = {};
+    const re = /([a-z]+)\s*:\s*([0-9.]+)/g;
+    let m;
+    while ((m = re.exec(body))) out[m[1]] = parseFloat(m[2]);
+    return out;
+  };
+  assert.deepEqual(parse(sz[1]), LAMPA_SIZES, 'у Lampa другие множители, чем у модели');
+
+  const util = readFileSync(new URL('../src/10_util.js', import.meta.url), 'utf8');
+  const ours = /var LAMPA_SIZES = \{([^}]*)\}/.exec(util);
+  assert.ok(ours, 'таблица LAMPA_SIZES в src/10_util.js не найдена');
+  assert.deepEqual(parse(ours[1]), LAMPA_SIZES, 'у плагина другие множители, чем у Lampa');
+
+  /* Второй множитель — кегль .card на «крупнее». Первоисточник здесь не
+     app.min.js, а штатная таблица стилей, и сторож читает её по тому же
+     правилу: селектор, потом свойство внутри правила. */
+  const lampaStyles = readFileSync(new URL('../vendor/lampa/css/app.css', import.meta.url), 'utf8');
+  const cardSize = /body\.size--bigger \.card \{\s*font-size:\s*([0-9.]+)em/.exec(lampaStyles);
+  assert.ok(cardSize, 'правило body.size--bigger .card в app.css не найдено');
+  assert.equal(parseFloat(cardSize[1]), LAMPA_CARD_SIZES.bigger, 'у Lampa другой кегль карточки на «крупнее»');
+  assert.ok(!/body\.size--(small|normal) \.card \{/.test(lampaStyles),
+    'у Lampa завелось такое же правило для других размеров — таблица обязана вырасти');
+  const oursCard = /var LAMPA_CARD_SIZES = \{([^}]*)\}/.exec(util);
+  assert.ok(oursCard, 'таблица LAMPA_CARD_SIZES в src/10_util.js не найдена');
+  assert.deepEqual(parse(oursCard[1]), { bigger: LAMPA_CARD_SIZES.bigger },
+    'у плагина другой кегль карточки на «крупнее», чем у Lampa');
+
+  /* И второй копии таблицы в плагине нет: пороги обязаны считать через
+     LC.util.lampaSizeK, а не через собственные литералы. */
+  const cssSrc = readFileSync(new URL('../src/30_css.js', import.meta.url), 'utf8');
+  assert.ok(!/bigger\s*:\s*1\.05/.test(cssSrc), 'в src/30_css.js завелась вторая копия таблицы множителей');
+  assert.ok(/lampaSizeK/.test(cssSrc), 'src/30_css.js перестал спрашивать множитель у LC.util');
+});
+
 /* Длина в CSS px: '0', '3.43em', 'calc(50vh - 5em)', 'calc(50vh + 1em)'. */
 function lengthPx(value, EM, VH) {
   assert.ok(value !== null && value !== undefined, 'длины нет вовсе');
@@ -2323,9 +2390,19 @@ function lengthPx(value, EM, VH) {
 function rowLayout(built, screenW, screenH, opts) {
   const options = opts || {};
   const lampa = lampaCss();
-  /* База кегля Lampa: font-size корня = ширина окна / 84.17 (правило единиц
-     плагина, src/30_css.js). На стенде 960 px это 11.41 CSS px. */
-  const EM = screenW / 84.17;
+  /* База кегля Lampa: font-size корня = ширина окна / 84.17 × k, где k —
+     множитель настройки «Размер интерфейса» (app.min.js:31629-31639,
+     таблица — LC.util.lampaSizeK). На стенде 960 px это 11.41 CSS px при
+     «обычном», 10.27 при «мельче» и 11.98 при «крупнее».
+     Ревью волны A (важное 1): множителя здесь не было вовсе, и модель
+     считала «крупнее» по кеглю «обычного» — низ подписи выходил на 5 %
+     меньше фактического, а тест при этом оставался зелёным. */
+  const EM = screenW / 84.17 * LAMPA_SIZES[options.interface || 'normal'];
+  /* Кегль ВНУТРИ .card. Lampa поднимает его ещё на 14 % на «крупнее» и
+     только там (app.css:3525-3528, @media min-width:767px — ширина окна в
+     CSS px, на стенде 960). Шапка ряда и зазор под ней лежат снаружи
+     карточки и считаются базовым EM; всё, что ниже постера, — этим. */
+  const CARD_EM = EM * LAMPA_CARD_SIZES[options.interface || 'normal'];
   const VH = screenH / 100;
 
   const rootUp = ['lumen-main', 'lumen-rows-up'];
@@ -2380,7 +2457,7 @@ function rowLayout(built, screenW, screenH, opts) {
 
   /* Постер: ширину задаём мы, высоту — штатный padding-bottom:150 % у
      .card__view (app.css:3135-3139), то есть 3:2 от ШИРИНЫ карточки. */
-  const cardW = lengthPx(cascade(matchingRules(built, ['lumen-main'], ['card'], screenW, screenH), 'width').value, EM, 0);
+  const cardW = lengthPx(cascade(matchingRules(built, ['lumen-main'], ['card'], screenW, screenH), 'width').value, CARD_EM, 0);
   const posterH = cardW * (lampaDecl(lampa, '.card__view', 'padding-bottom') / 100);
   const posterBottomUp = rowTopUp + headH + gap + posterH;
   const posterBottomDown = rowTopDown + headH + gap + posterH;
@@ -2393,14 +2470,14 @@ function rowLayout(built, screenW, screenH, opts) {
      правило внутри медиазапроса (там они возвращаются к минимуму tvOS без
      масштаба интерфейса), и «первое правило» означало бы считать раскладку
      не по тому кеглю, который получит экран. */
-  const viewGap = num(declAll(built, '.lumen-main .card__view'), 'margin-bottom') * EM;
+  const viewGap = num(declAll(built, '.lumen-main .card__view'), 'margin-bottom') * CARD_EM;
   const titleRules = matchingRules(built, ['lumen-main'], ['card__title'], screenW, screenH);
   const ageRules = matchingRules(built, ['lumen-main'], ['card__age'], screenW, screenH);
   const titleFont = parseFloat(cascade(titleRules, 'font-size').value);
-  const cardTitleH = titleFont * parseFloat(cascade(titleRules, 'line-height').value) * EM;
+  const cardTitleH = titleFont * parseFloat(cascade(titleRules, 'line-height').value) * CARD_EM;
   const ageFont = parseFloat(cascade(ageRules, 'font-size').value);
-  const ageGap = parseFloat(cascade(ageRules, 'margin-top').value) * ageFont * EM;
-  const ageH = ageFont * parseFloat(cascade(ageRules, 'line-height').value) * EM;
+  const ageGap = parseFloat(cascade(ageRules, 'margin-top').value) * ageFont * CARD_EM;
+  const ageH = ageFont * parseFloat(cascade(ageRules, 'line-height').value) * CARD_EM;
   /* Task 63: у карточки ПОД ФОКУСОМ подпись уезжает вниз, и читают её именно
      там — значит низ подписи меряется вместе с этим сдвигом. Правило живёт
      под body.lumen-motion-full (класс режима движения стоит на body), то
@@ -2408,12 +2485,12 @@ function rowLayout(built, screenW, screenH, opts) {
      самой подписи, поэтому его em считаются в её кегле. */
   const focusRule = findDecl(built, (sel) => sel === 'body.lumen-motion-full .lumen-main .card.focus .card__age');
   assert.ok(focusRule, 'нет правила сдвига подписи под фокусом');
-  const focusShift = parseFloat(/[^-]transform:translateY\(([0-9.]+)em\)/.exec(focusRule)[1]) * ageFont * EM;
+  const focusShift = parseFloat(/[^-]transform:translateY\(([0-9.]+)em\)/.exec(focusRule)[1]) * ageFont * CARD_EM;
   const tail = viewGap + cardTitleH + ageGap + ageH + focusShift;
 
   return {
     rowTopUp: rowTopUp,
-    cardW: cardW / EM,
+    cardW: cardW / CARD_EM,
     /* Низ подписи В ПОТОКЕ — без сдвига фокуса: transform раскладку не
        меняет, и следующий ряд встаёт именно от этой линии. */
     flowBottomUp: posterBottomUp + tail - focusShift,
@@ -2441,22 +2518,77 @@ test('Task 51: подпись первого ряда помещается в э
      заголовка (padding .4em сверху и снизу плюс строка — 1.8em против 1.23em
      у заголовка, app.css:2859-2866), и шапка ряда меряется по ней. Худший
      случай — ряд С кнопкой, но инвариант обязан держаться в обоих. */
-  const box = (scale, more, size) => rowLayout(
-    withStorage(size ? { lumen_scale: scale, lumen_hero_size: size } : { lumen_scale: scale }, (LC) => LC.buildCss()), W, H, { more: more });
+  const box = (scale, more, size, iface) => {
+    const storage = { lumen_scale: scale };
+    if (size) storage.lumen_hero_size = size;
+    if (iface) storage.interface_size = iface;
+    return rowLayout(withStorage(storage, (LC) => LC.buildCss()), W, H,
+      { more: more, interface: iface });
+  };
 
   /* Размер кадра героя двигает всю цепочку: от него зависит ROWS_TOP_VH, то
      есть сколько экрана достаётся рядам. Инвариант обязан держаться на всех
-     трёх размерах, а не только на крупном по умолчанию. */
-  for (const size of ['large', 'medium', 'compact']) {
-    for (const scale of ['small', 'normal', 'large', 'huge']) {
-      for (const more of [true, false]) {
-        const got = box(scale, more, size);
-        const label = size + '/' + scale + (more ? ' с кнопкой «Ещё»' : '');
-        assert.ok(got.textBottomUp <= TEXT_LIMIT,
-          label + ': низ подписи в поднятом состоянии ' + got.textBottomUp.toFixed(1) + ' px при пределе ' + TEXT_LIMIT);
+     трёх размерах, а не только на крупном по умолчанию.
+     Ревью волны A (важное 1): третьим измерением добавлен «Размер
+     интерфейса» самой Lampa. Множителей у него ДВА: кегль body (×1.05 на
+     «крупнее») и кегль .card поверх него (ещё ×1.14, app.css:3525-3528), и
+     до правки модель не знала ни про один. Живая сверка на стенде
+     960×540@2 после getAnimations().finish(): «крупнее», штатный масштаб,
+     крупный кадр, поднятое состояние — низ подписи 525.75 px, расчёт
+     525.87; «обычный» при тех же прочих — 514.38 против расчётных 514.5. */
+
+  /* Три клетки, которые в предел НЕ укладываются, — все на «крупнее» с
+     крупным кадром. Узкая колонка там уже включена (пороги 157, 145 и
+     134/100 — ниже 16:9, карточка 8.07-й колонки вместо 9.52-й) и кегли
+     подписей уже сброшены к TV_MIN без масштаба; другого запаса в цепочке
+     нет. Дефицит против предела 532: 5.5, 23.9 и 42.1 px с кнопкой «Ещё».
+     Числа пинятся, а не подгоняются: размен — отобрать карточке ещё ширины,
+     убавить зазор ряда или не применять к ней масштаб интерфейса на
+     «крупнее» — это решение координатора, а тест обязан показать его цену и
+     не дать дефициту вырасти молча (отчёт фикс-раунда волны A, важное 1). */
+  const KNOWN_OVER = {
+    'bigger/large/normal': { more: 537.5, plain: 530.7 },
+    'bigger/large/large': { more: 555.9, plain: 550.5 },
+    'bigger/large/huge': { more: 574.1, plain: 570.2 }
+  };
+
+  for (const iface of ['small', 'normal', 'bigger']) {
+    for (const size of ['large', 'medium', 'compact']) {
+      for (const scale of ['small', 'normal', 'large', 'huge']) {
+        for (const more of [true, false]) {
+          const got = box(scale, more, size, iface);
+          const label = iface + '/' + size + '/' + scale + (more ? ' с кнопкой «Ещё»' : '');
+          const known = KNOWN_OVER[iface + '/' + size + '/' + scale];
+          if (known) {
+            const want = more ? known.more : known.plain;
+            assert.ok(Math.abs(got.textBottomUp - want) < 1,
+              label + ': известный дефицит сдвинулся — ' + got.textBottomUp.toFixed(1) + ' вместо ' + want);
+            continue;
+          }
+          assert.ok(got.textBottomUp <= TEXT_LIMIT,
+            label + ': низ подписи в поднятом состоянии ' + got.textBottomUp.toFixed(1) + ' px при пределе ' + TEXT_LIMIT);
+        }
       }
     }
   }
+
+  /* Список известных дефицитов не вправе расти молча в обе стороны: каждая
+     клетка в нём обязана И ПРАВДА не помещаться (иначе это уже не долг, а
+     запись, которую забыли снять), а самих клеток — ровно столько, сколько
+     названо в комментарии выше. */
+  assert.equal(Object.keys(KNOWN_OVER).length, 3, 'список известных дефицитов изменился — комментарий выше обязан измениться вместе с ним');
+  for (const key of Object.keys(KNOWN_OVER)) {
+    assert.ok(KNOWN_OVER[key].more > TEXT_LIMIT, key + ': клетка помещается в предел — её место не в списке долгов');
+  }
+
+  /* Соседи по обеим осям в предел укладываются — значит дефицит даёт именно
+     «крупнее» вместе с крупным кадром, а не «всё крупное сломано». */
+  assert.ok(box('huge', true, 'large', 'normal').textBottomUp <= TEXT_LIMIT,
+    'normal/large/huge перестал помещаться — дефицит расползается по размерам интерфейса');
+  assert.ok(box('huge', true, 'medium', 'bigger').textBottomUp <= TEXT_LIMIT,
+    'bigger/medium/huge перестал помещаться — дефицит расползается по размерам кадра');
+  assert.ok(box('small', true, 'large', 'bigger').textBottomUp <= TEXT_LIMIT,
+    'bigger/large/small перестал помещаться — дефицит расползается по масштабам');
 
   for (const scale of ['small', 'normal', 'large', 'huge']) {
     for (const more of [true, false]) {
@@ -2494,37 +2626,47 @@ test('Task 51: подпись первого ряда помещается в э
    из той же цепочки высот, по которой считает весь тест выше. */
 test('Task 51: узкая колонка включается порогом из цепочки высот, а не на глаз', () => {
   const W = 960;
-  for (const scale of ['small', 'normal', 'large', 'huge']) {
-    const built = withStorage({ lumen_scale: scale }, (LC) => LC.buildCss());
-    const narrowRules = ruleBodiesWithMedia(built).filter((r) => r.media &&
-      r.selectors.some((sel) => sel === '.lumen-main .card') && /(?:^|;)width:/.test(r.decl));
-    assert.equal(narrowRules.length, 1, scale + ': медиазапрос узкой колонки обязан быть ровно один');
+  /* Ревью волны A (важное 1): порог считается из ширины экрана в em, а её
+     задаёт не только окно, но и «Размер интерфейса» Lampa — 93.52em на
+     «мельче», 84.17 на «обычном», 80.16 на «крупнее» (screenEm,
+     src/30_css.js). Поэтому проверка гоняется по обеим осям сразу: до
+     правки порог был один и тот же на все три размера, то есть на двух из
+     них включался не там, где кончается место. */
+  for (const iface of ['small', 'normal', 'bigger']) {
+    for (const scale of ['small', 'normal', 'large', 'huge']) {
+      const built = withStorage({ lumen_scale: scale, interface_size: iface }, (LC) => LC.buildCss());
+      const label = iface + '/' + scale;
+      const EM = W / 84.17 * LAMPA_SIZES[iface];
+      const narrowRules = ruleBodiesWithMedia(built).filter((r) => r.media &&
+        r.selectors.some((sel) => sel === '.lumen-main .card') && /(?:^|;)width:/.test(r.decl));
+      assert.equal(narrowRules.length, 1, label + ': медиазапрос узкой колонки обязан быть ровно один');
 
-    /* Ширина за порогом — восьмая колонка той же сетки: отношение к базовой
-       обязано быть 8.07/9.52 при любом масштабе интерфейса. */
-    const narrow = parseFloat(/(?:^|;)width:([0-9.]+)em/.exec(narrowRules[0].decl)[1]);
-    const wide = lengthPx(cascade(matchingRules(built, ['lumen-main'], ['card'], 100, 100), 'width').value, 1, 0);
-    assert.ok(narrow < wide, scale + ': за порогом карточка обязана быть УЖЕ базовой (' + narrow + ' против ' + wide + ')');
-    assert.ok(Math.abs(narrow / wide - 8.07 / 9.52) < 0.005,
-      scale + ': за порогом не восьмая колонка сетки — ' + narrow + 'em при базовых ' + wide + 'em');
+      /* Ширина за порогом — восьмая колонка той же сетки: отношение к базовой
+         обязано быть 8.07/9.52 при любом масштабе интерфейса. */
+      const narrow = parseFloat(/(?:^|;)width:([0-9.]+)em/.exec(narrowRules[0].decl)[1]);
+      const wide = lengthPx(cascade(matchingRules(built, ['lumen-main'], ['card'], 100, 100), 'width').value, 1, 0);
+      assert.ok(narrow < wide, label + ': за порогом карточка обязана быть УЖЕ базовой (' + narrow + ' против ' + wide + ')');
+      assert.ok(Math.abs(narrow / wide - 8.07 / 9.52) < 0.005,
+        label + ': за порогом не восьмая колонка сетки — ' + narrow + 'em при базовых ' + wide + 'em');
 
-    /* Порог согласован с раскладкой: ЧУТЬ ВЫШЕ него (окно ещё не такое
-       приплюснутое, правило не сработало) широкая карточка обязана
-       помещаться, но уже впритык — низ подписи не дальше 1.5em от кромки.
-       Это и значит «порог посчитан из цепочки, а не назначен». */
-    const ratio = parseInt(/min-aspect-ratio:(\d+)\/100/.exec(narrowRules[0].media)[1], 10) / 100;
-    const at = (aspect) => {
-      const height = Math.round(W / aspect);
-      return { height: height, box: rowLayout(built, W, height, { more: true }) };
-    };
-    const before = at(ratio - 0.01);
-    const slack = before.height - before.box.textBottomUp;
-    assert.ok(slack >= 0, scale + ': до порога ' + ratio + ' широкая карточка уже не помещается (срез ' + (-slack).toFixed(1) + ' px)');
-    assert.ok(slack <= 1.5 * (W / 84.17), scale + ': порог ' + ratio + ' запаздывает — до него ещё ' + slack.toFixed(1) + ' px запаса');
-    /* А за порогом помещается узкая — иначе правило меняло бы ширину впустую. */
-    const after = at(ratio + 0.02);
-    assert.ok(after.height - after.box.textBottomUp >= 0,
-      scale + ': за порогом ' + ratio + ' узкая колонка тоже не помещается');
+      /* Порог согласован с раскладкой: ЧУТЬ ВЫШЕ него (окно ещё не такое
+         приплюснутое, правило не сработало) широкая карточка обязана
+         помещаться, но уже впритык — низ подписи не дальше 1.5em от кромки.
+         Это и значит «порог посчитан из цепочки, а не назначен». */
+      const ratio = parseInt(/min-aspect-ratio:(\d+)\/100/.exec(narrowRules[0].media)[1], 10) / 100;
+      const at = (aspect) => {
+        const height = Math.round(W / aspect);
+        return { height: height, box: rowLayout(built, W, height, { more: true, interface: iface }) };
+      };
+      const before = at(ratio - 0.01);
+      const slack = before.height - before.box.textBottomUp;
+      assert.ok(slack >= 0, label + ': до порога ' + ratio + ' широкая карточка уже не помещается (срез ' + (-slack).toFixed(1) + ' px)');
+      assert.ok(slack <= 1.5 * EM, label + ': порог ' + ratio + ' запаздывает — до него ещё ' + slack.toFixed(1) + ' px запаса');
+      /* А за порогом помещается узкая — иначе правило меняло бы ширину впустую. */
+      const after = at(ratio + 0.02);
+      assert.ok(after.height - after.box.textBottomUp >= 0,
+        label + ': за порогом ' + ratio + ' узкая колонка тоже не помещается');
+    }
   }
 
   /* На штатном масштабе телевизор 16:9 порога не достигает — там широкая
@@ -4733,3 +4875,6 @@ test('A5: в сетке и хабе плоский вид снимает ров�
     '.lumen-hub__tiles .lumen-tile{background:none}'
   ], 'набор правил сетки и хаба изменился — описание настройки обязано измениться вместе с ним');
 });
+
+
+

@@ -189,6 +189,48 @@ var LAMPA_SIZES = { normal: 1, small: 0.9, bigger: 1.05 };
 
 
 
+function lampaSize() {
+try {
+if (window.Lampa && Lampa.Storage && typeof Lampa.Storage.field === 'function') {
+var size = Lampa.Storage.field('interface_size');
+if (LAMPA_SIZES[size]) return size;
+}
+} catch (e) { }
+return 'normal';
+}
+
+function lampaSizeK() {
+return LAMPA_SIZES[lampaSize()];
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+var LAMPA_CARD_SIZES = { bigger: 1.14 };
+
+function lampaCardK() {
+return LAMPA_CARD_SIZES[lampaSize()] || 1;
+}
+
+
+
+
+
+
+
+
 
 
 
@@ -196,17 +238,10 @@ var LAMPA_SIZES = { normal: 1, small: 0.9, bigger: 1.05 };
 
 function baseEm() {
 var w = 0;
-var k = 1;
 try {
 w = Number(window.innerWidth) || 0;
 } catch (e) { }
-try {
-if (window.Lampa && Lampa.Storage && typeof Lampa.Storage.field === 'function') {
-var size = Lampa.Storage.field('interface_size');
-if (LAMPA_SIZES[size]) k = LAMPA_SIZES[size];
-}
-} catch (e2) { }
-var px = w / 84.17 * k;
+var px = w / 84.17 * lampaSizeK();
 return px > 10.6 ? px : 10.6;
 }
 
@@ -388,6 +423,8 @@ fmtTime: fmtTime,
 fmtRuntime: fmtRuntime,
 daysUntil: daysUntil,
 screenPx: screenPx,
+lampaSizeK: lampaSizeK,
+lampaCardK: lampaCardK,
 baseEm: baseEm,
 emPx: emPx,
 vhPx: vhPx,
@@ -410,6 +447,19 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 /* ---- 11_focus.js ---- */
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -1261,16 +1311,49 @@ return round2(HERO_HEAD_SAFE + MOODS_IN_EM + inner * TEXT_ZOOM);
 
 
 
-function textRatio(key, needEm) {
-return Math.round(84.17 * (HERO_VH[key] - textBottomVh(key)) / needEm);
+
+
+
+
+
+
+
+
+function screenEm() {
+var k = 1;
+try {
+if (LC.util && typeof LC.util.lampaSizeK === 'function') k = LC.util.lampaSizeK() || 1;
+} catch (e) { }
+return 84.17 / k;
 }
 
 
 
 
 
+function textRatio(key, needEm) {
+return Math.round(screenEm() * (HERO_VH[key] - textBottomVh(key)) / needEm);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 function rowBlockEm(cardW, titleEm, gapEm, cardTitleEm, cardAgeEm) {
-return Math.max(titleEm, LAMPA_MORE_EM) + gapEm + cardW * POSTER_RATIO +
+var k = 1;
+try {
+if (LC.util && typeof LC.util.lampaCardK === 'function') k = LC.util.lampaCardK() || 1;
+} catch (e) { }
+return Math.max(titleEm, LAMPA_MORE_EM) + gapEm + k * (cardW * POSTER_RATIO +
 CARD_VIEW_GAP + cardTitleEm * CARD_TITLE_LH + CARD_AGE_GAP * cardAgeEm + cardAgeEm +
 
 
@@ -1278,7 +1361,7 @@ CARD_VIEW_GAP + cardTitleEm * CARD_TITLE_LH + CARD_AGE_GAP * cardAgeEm + cardAge
 
 
 
-CARD_FOCUS_SHIFT * cardAgeEm;
+CARD_FOCUS_SHIFT * cardAgeEm);
 }
 
 
@@ -1296,7 +1379,7 @@ CARD_FOCUS_SHIFT * cardAgeEm;
 
 
 function rowNarrowRatio(key, blockEm) {
-return Math.floor(84.17 * (100 - ROWS_TOP_VH[key]) / (ROWS_AIR + blockEm + ROW_EDGE_AIR));
+return Math.floor(screenEm() * (100 - ROWS_TOP_VH[key]) / (ROWS_AIR + blockEm + ROW_EDGE_AIR));
 }
 
 
@@ -7709,6 +7792,7 @@ var RECENT_DAYS = 14;
 
 
 var UPCOMING_DAYS = 7;
+
 
 
 
@@ -26028,6 +26112,16 @@ if (name === 'lumen_ambient' || name === 'lumen_ambient_source' || name === 'lum
 try { if (LC.applyAmbientPref) LC.applyAmbientPref(); } catch (eAmb) {}
 return true;
 }
+
+
+
+
+
+
+
+
+
+if (name === 'interface_size') { LC.injectCss(); return false; }
 if (name.indexOf(PLUGIN + '_') !== 0) return false;
 
 
@@ -26577,6 +26671,21 @@ var LIST = [
 
 
 { name: 'lumen_kp_hint', type: 'trigger', 'default': true, label: 'lumen_kp_hint_name', descr: 'lumen_kp_hint_descr' },
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

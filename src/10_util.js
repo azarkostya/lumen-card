@@ -135,6 +135,48 @@
        пустое значение считается за 'normal'. */
     var LAMPA_SIZES = { normal: 1, small: 0.9, bigger: 1.05 };
 
+    /* Текущий множитель. Отдан наружу (lampaSizeK), потому что от него
+       зависят не только замеры картинок здесь, но и пороги раскладки в
+       таблице стилей: em Lampa = innerWidth / 84.17 × k, значит «экран
+       шириной 84.17em» верно только при k = 1, а на «крупнее» экран —
+       80.16em (ревью волны A, важное 1). Второй копии таблицы заводить
+       нельзя: разойдись эти две — и порог включался бы не там, где модель
+       его считает. */
+    function lampaSize() {
+      try {
+        if (window.Lampa && Lampa.Storage && typeof Lampa.Storage.field === 'function') {
+          var size = Lampa.Storage.field('interface_size');
+          if (LAMPA_SIZES[size]) return size;
+        }
+      } catch (e) { }
+      return 'normal';
+    }
+
+    function lampaSizeK() {
+      return LAMPA_SIZES[lampaSize()];
+    }
+
+    /* ВТОРОЙ множитель того же «Размера интерфейса», и он бьёт только по
+       КАРТОЧКЕ: vendor/lampa/css/app.css:3525-3528 —
+       @media screen and (min-width:767px){body.size--bigger .card{font-size:1.14em}}.
+       То есть на «крупнее» внутри .card em стоит 1.05 × 1.14 = 1.197 против
+       обычного, а снаружи карточки — только 1.05. У 'small' и 'normal' таких
+       правил в app.css нет вовсе (поиск по size--small/size--normal), поэтому
+       в таблице одна строка.
+       Порог 767 px — ШИРИНА ОКНА в CSS-пикселях, а не физический растр: на
+       целевом телевизоре окно 960 px, то есть правило там действует (живая
+       проверка фикс-раунда волны A на стенде 960×540@2: кегль .card
+       13.6524 px при кегле body 11.9758).
+       Ради этого множителя функция и заведена: без него порог узкой колонки
+       (rowNarrowRatio, src/30_css.js) считал блок ряда на 14 % короче
+       фактического — это и есть те ~13 px, которых ревью волны A не смогло
+       объяснить одним лишь lampaSizeK. */
+    var LAMPA_CARD_SIZES = { bigger: 1.14 };
+
+    function lampaCardK() {
+      return LAMPA_CARD_SIZES[lampaSize()] || 1;
+    }
+
     /* Кегль <body> в CSS-пикселях — база всех em в вёрстке плагина.
        Формула ровно та же, которой его ставит сама Lampa (app.min.js:
        31629-31639): Math.max(innerWidth / 84.17 * sz[interface_size], 10.6).
@@ -149,17 +191,10 @@
        значение из своего кэша в памяти и раскладку не трогает. */
     function baseEm() {
       var w = 0;
-      var k = 1;
       try {
         w = Number(window.innerWidth) || 0;
       } catch (e) { }
-      try {
-        if (window.Lampa && Lampa.Storage && typeof Lampa.Storage.field === 'function') {
-          var size = Lampa.Storage.field('interface_size');
-          if (LAMPA_SIZES[size]) k = LAMPA_SIZES[size];
-        }
-      } catch (e2) { }
-      var px = w / 84.17 * k;
+      var px = w / 84.17 * lampaSizeK();
       return px > 10.6 ? px : 10.6;
     }
 
@@ -341,6 +376,8 @@
       fmtRuntime: fmtRuntime,
       daysUntil: daysUntil,
       screenPx: screenPx,
+      lampaSizeK: lampaSizeK,
+      lampaCardK: lampaCardK,
       baseEm: baseEm,
       emPx: emPx,
       vhPx: vhPx,

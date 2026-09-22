@@ -670,20 +670,53 @@
     return round2(HERO_HEAD_SAFE + MOODS_IN_EM + inner * TEXT_ZOOM);
   }
 
+  /* Ширина экрана В БАЗОВЫХ em — общий множитель обоих порогов ниже.
+     Lampa ставит кегль body = innerWidth / 84.17 × k, где k — множитель
+     настройки «Размер интерфейса» (LC.util.lampaSizeK, таблица там же —
+     копия sz из app.min.js:31630-31634). Значит экран шириной W содержит
+     W / (W / 84.17 × k) = 84.17 / k базовых em: 84.17 при «обычном», 93.52
+     при «мельче» и 80.16 при «крупнее».
+     Ревью волны A (важное 1): до этой правки оба порога считали 84.17
+     безусловно, и на «крупнее» бюджет em переоценивался на 5 % — правило
+     включалось позже, чем кончалось место, а низ подписи первого ряда на
+     стенде 960×540 уезжал на 537.7 px при кромке 540.
+     Пересобирать таблицу при смене настройки — забота applyPrefChange
+     (src/80_settings.js): имя чужое, но от него зависит текст правил. */
+  function screenEm() {
+    var k = 1;
+    try {
+      if (LC.util && typeof LC.util.lampaSizeK === 'function') k = LC.util.lampaSizeK() || 1;
+    } catch (e) { }
+    return 84.17 / k;
+  }
+
   /* Порог раскладки в виде min-aspect-ratio. Высота, которая достаётся
      тексту, — доля экрана (HERO_VH − отступ снизу), а его бюджет — em, то
-     есть доля ШИРИНЫ (em Lampa = innerWidth / 84.17). Значит «высоты не
-     хватает» выражается одним отношением сторон: W/H > 84.17 × доля / бюджет. */
+     есть доля ШИРИНЫ. Значит «высоты не хватает» выражается одним
+     отношением сторон: W/H > screenEm() × доля / бюджет. */
   function textRatio(key, needEm) {
-    return Math.round(84.17 * (HERO_VH[key] - textBottomVh(key)) / needEm);
+    return Math.round(screenEm() * (HERO_VH[key] - textBottomVh(key)) / needEm);
   }
 
   /* Высота блока первого ряда в базовых em: шапка (заголовок или кнопка
      «Ещё», что выше), зазор под ней, постер, отступ под постером, название и
      мета-строка со своим отступом. margin-top у .card__age считается от ЕГО
-     собственного кегля — отсюда произведение, а не сумма. */
+     собственного кегля — отсюда произведение, а не сумма.
+
+     Слагаемые разнесены на две группы по тому, ЧЕЙ кегль их считает. Шапка
+     ряда и зазор под ней лежат в .items-line__head — там em базовый. Всё
+     остальное лежит внутри .card, а ей Lampa на «крупнее» поднимает кегль
+     ещё на 14 % поверх общего множителя (LC.util.lampaCardK, первоисточник
+     — app.css:3525-3528). Живой замер фикс-раунда волны A на стенде
+     960×540@2, «крупнее», узкая колонка: блок от верха шапки до низа
+     подписи 237.81 px, расчёт по этой формуле — 237.87. Без множителя
+     выходило 212.6, и именно эти ~25 px ревью объяснить не смогло. */
   function rowBlockEm(cardW, titleEm, gapEm, cardTitleEm, cardAgeEm) {
-    return Math.max(titleEm, LAMPA_MORE_EM) + gapEm + cardW * POSTER_RATIO +
+    var k = 1;
+    try {
+      if (LC.util && typeof LC.util.lampaCardK === 'function') k = LC.util.lampaCardK() || 1;
+    } catch (e) { }
+    return Math.max(titleEm, LAMPA_MORE_EM) + gapEm + k * (cardW * POSTER_RATIO +
       CARD_VIEW_GAP + cardTitleEm * CARD_TITLE_LH + CARD_AGE_GAP * cardAgeEm + cardAgeEm +
       /* Task 63: подпись карточки под фокусом уезжает вниз на
          CARD_FOCUS_SHIFT, и читают её именно там. Значит и порог узкой
@@ -691,7 +724,7 @@
          правило включалось бы позже, чем нужно. Сдвиг задан в кегле самой
          подписи (transform стоит на .card__title/.card__age), поэтому в
          базовые em он переводится умножением на этот кегль. */
-      CARD_FOCUS_SHIFT * cardAgeEm;
+      CARD_FOCUS_SHIFT * cardAgeEm);
   }
 
   /* Порог узкой колонки — того же вида, что textRatio выше и HERO_MIN_RATIO:
@@ -702,14 +735,14 @@
      ряда стоит на ROWS_TOP_VH экрана плюс ROWS_AIR (margin-top области
      считан от rowsTop, а он и есть LAMPA_HEAD + LAMPA_ROW_PAD − ROWS_AIR),
      дальше идёт блок ряда. Подпись помещается, пока
-     ROWS_TOP_VH·H/100 + (ROWS_AIR + block + ROW_EDGE_AIR)·W/84.17 ≤ H,
-     то есть пока W/H ≤ 84.17·(100 − ROWS_TOP_VH) / (ROWS_AIR + block +
+     ROWS_TOP_VH·H/100 + (ROWS_AIR + block + ROW_EDGE_AIR)·W/screenEm() ≤ H,
+     то есть пока W/H ≤ screenEm()·(100 − ROWS_TOP_VH) / (ROWS_AIR + block +
      ROW_EDGE_AIR) / 100. Шире этого отношения подпись срезается кромкой, и
      карточка уходит на восьмую колонку сетки.
      Округление ВНИЗ: правило обязано включиться не позже, чем кончился
      запас, — лишний десяток сотых порога дешевле срезанной подписи. */
   function rowNarrowRatio(key, blockEm) {
-    return Math.floor(84.17 * (100 - ROWS_TOP_VH[key]) / (ROWS_AIR + blockEm + ROW_EDGE_AIR));
+    return Math.floor(screenEm() * (100 - ROWS_TOP_VH[key]) / (ROWS_AIR + blockEm + ROW_EDGE_AIR));
   }
 
   /* Корни, на которые вешается коэффициент. Каждый из них — самостоятельный
