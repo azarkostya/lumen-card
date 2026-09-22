@@ -3519,7 +3519,18 @@
        (font:.7em), а не от базового: 26 × 0.7 × 22.811 ≈ 415 px на растре
        1920 — меньше четверти экрана. По той же причине top/left:.3em — это
        4.8 px, а не 6.8. */
-    css.push('.lumen-hud{position:fixed;top:.3em;left:.3em;z-index:99999;max-width:26em;padding:.2em .5em;font:.7em/1.4 Consolas,"Courier New",monospace;color:#0f0;background:rgba(0,0,0,.75);border-radius:.3em;pointer-events:none;white-space:normal;word-break:break-all}');
+    /* Task 68: строка выросла (длинные задачи за окно и всего, гистограмма
+       rAF, размер ряда серий, мажор браузера), и прежняя пара 26em +
+       word-break:break-all резала ПО СИМВОЛУ, в том числе сами числа.
+       Замер на стенде 960×540@2 (переносы посчитаны по Range.getClientRects
+       для каждого символа): при 26em/break-all величина «hw 12c/32gb»
+       ложилась как «12c/» + «32gb» на разных строках — на фото с
+       телевизора такое число не прочитать. overflow-wrap:break-word рвёт
+       только то слово, которое само не помещается (адрес постера в конце
+       строки), а 34em убирают лишний перенос: 3 строки высотой 34 px
+       вместо 4 строк высотой 45 px. word-wrap — та же величина под старым
+       именем, WebView Chrome/77 на телевизоре понимает оба. */
+    css.push('.lumen-hud{position:fixed;top:.3em;left:.3em;z-index:99999;max-width:34em;padding:.2em .5em;font:.7em/1.4 Consolas,"Courier New",monospace;color:#0f0;background:rgba(0,0,0,.75);border-radius:.3em;pointer-events:none;white-space:normal;word-wrap:break-word;overflow-wrap:break-word}');
 
     /* --- Task 27: мини-карта рядов и индикатор позиции ---
        Панель — design-spec-main §0.16 (экран 32): right 64, top 260,

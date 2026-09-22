@@ -25,29 +25,66 @@ function fresh(extra) {
 /* format: чистая функция, DOM не нужен.                                  */
 /* ====================================================================== */
 
-test('hud: format — строка содержит fps, «1920×1080@2», режим, «long 3», «layers 5», «hw»', () => {
+/* Task 68 (фаза 6): базовый набор полей строки. Все величины подаются
+   готовыми — format() ничего не измеряет сам. */
+const BASE = { fps: 58, w: 1920, h: 1080, dpr: 2, cr: '77', mode: 'full', long: { win: 3, total: 212 }, raf: [48, 3, 1, 0], eps: 25, layers: 5, hw: '4c/2gb' };
+
+test('hud: format — строка содержит fps, «1920×1080@2», режим, «long 3/212», «layers 5», «hw»', () => {
   const { api } = fresh();
-  const line = api.format({ fps: 58, w: 1920, h: 1080, dpr: 2, mode: 'full', long: 3, layers: 5, hw: '4c/2gb' });
+  const line = api.format(BASE);
   assert.ok(line.indexOf('58') !== -1, 'fps в строке: ' + line);
   assert.ok(line.indexOf('1920×1080@2') !== -1, 'разрешение и dpr: ' + line);
   assert.ok(line.indexOf('full') !== -1, 'режим анимаций: ' + line);
-  assert.ok(line.indexOf('long 3') !== -1, 'счётчик длинных задач: ' + line);
+  assert.ok(line.indexOf('long 3/212') !== -1, 'длинные задачи за окно и всего: ' + line);
   assert.ok(line.indexOf('layers 5') !== -1, 'число полноэкранных слоёв: ' + line);
   assert.ok(line.indexOf('hw 4c/2gb') !== -1, 'ядра и память: ' + line);
+});
+
+/* Task 68: десять фото HUD с телевизора (2026-09-21) пришлось читать
+   серией, вычитая нарастающий long между снимками. Величины обязаны
+   читаться с ОДНОГО кадра: длинные задачи за последнее скользящее окно и
+   всего, гистограмма rAF-дельт, размер ряда серий, мажор Chromium. */
+test('hud: format — long за окно и всего, гистограмма rAF, eps, cr', () => {
+  const { api } = fresh();
+  const line = api.format(BASE);
+  assert.ok(line.indexOf('raf 48/3/1/0') !== -1, 'гистограмма по четырём корзинам: ' + line);
+  assert.ok(line.indexOf('eps 25') !== -1, 'число плиток серий: ' + line);
+  assert.ok(line.indexOf('cr 77') !== -1, 'мажор Chromium: ' + line);
+});
+
+/* Отсутствие longtask обязано читаться как «нечем мерить», а не как
+   «длинных задач нет»: в строке с нулём эти два случая неразличимы, и
+   именно на этом сгорела серия снимков — счётчик стоял бы на нуле молча. */
+test('hud: format — без поддержки longtask пишется «long n/a», а не ноль', () => {
+  const { api } = fresh();
+  const line = api.format(Object.assign({}, BASE, { long: null }));
+  assert.ok(line.indexOf('long n/a') !== -1, 'нечем мерить: ' + line);
+  assert.ok(line.indexOf('long 0') === -1, 'ноль не имеет права появиться: ' + line);
 });
 
 /* Ревью Task 40 (п.6): эти два числа нужны, чтобы подтвердить порог
    weakHardware на живом телевизоре — правило «два ядра» необратимо для
    сессии, а hardwareConcurrency в Android WebView не всегда равен числу
    физических ядер. */
-test('hud: hardware — ядра и память, неизвестное пишется «?»', () => {
+test('hud: hardware — ядра и память, несообщённое пишется «n/a»', () => {
   assert.equal(env({ hardware: { hardwareConcurrency: 4, deviceMemory: 2 } }).api.hardware(), '4c/2gb');
   assert.equal(env({ hardware: { hardwareConcurrency: 2, deviceMemory: 1 } }).api.hardware(), '2c/1gb');
-  /* deviceMemory есть только в Chromium — и это ровно тот случай, когда
-     weakHardware память не учитывает. */
-  assert.equal(env({ hardware: { hardwareConcurrency: 8, deviceMemory: undefined } }).api.hardware(), '8c/?');
-  assert.equal(env({ hardware: { hardwareConcurrency: 0, deviceMemory: 0 } }).api.hardware(), '?c/?',
+  /* Task 68: на телевизоре пользователя deviceMemory не отдан — в строке
+     стояло «hw 4c/?», и «?» ничем не отличался от «поле сломалось». Теперь
+     это то же «n/a», что у long: браузер не сообщил величину. */
+  assert.equal(env({ hardware: { hardwareConcurrency: 8, deviceMemory: undefined } }).api.hardware(), '8c/n/a');
+  assert.equal(env({ hardware: { hardwareConcurrency: 0, deviceMemory: 0 } }).api.hardware(), 'n/a/n/a',
     'ноль — это «не сообщили», а не «ноль ядер»');
+});
+
+/* Task 68: мажор Chromium — одно число вместо строки userAgent в полэкрана.
+   По нему видно, какие API на устройстве вообще существуют (на 77-м нет ни
+   long-animation-frame, ни content-visibility). */
+test('hud: chrome — мажор из userAgent, без него «n/a»', () => {
+  assert.equal(env({ hardware: { userAgent: 'Mozilla/5.0 (Linux; Android 9; PHILIPS) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/77.0.3865.90 Safari/537.36' } }).api.chrome(), '77');
+  assert.equal(env({ hardware: { userAgent: 'Mozilla/5.0 (X11; CrOS) AppleWebKit/537.36 Chromium/112.0.0.0 Safari/537.36' } }).api.chrome(), '112',
+    'Chromium без бренда Chrome тоже считается');
+  assert.equal(env({ hardware: { userAgent: 'Mozilla/5.0 (Macintosh) AppleWebKit/605.1.15 Version/16.0 Safari/605.1.15' } }).api.chrome(), 'n/a');
 });
 
 /* ====================================================================== */
@@ -63,6 +100,10 @@ const ENV_TINT = { state: 'ok', color: '#8A4C50', url: 'image.tmdb.org/t/p/w185/
 function env(opts) {
   opts = opts || {};
   const bodyChildren = [];
+  /* Селекторы, с которыми модуль ходил в querySelectorAll: разбор по
+     последнему классу части (ниже) скоуп не различает, а Task 68 требует
+     именно его — плитки считаются в АКТИВНОЙ активности. */
+  const asked = [];
   const frames = [];
   let nextRaf = 1;
   const cancelled = [];
@@ -90,6 +131,7 @@ function env(opts) {
        bodyChildren по любому из классов FULL, и заодно совпадает с
        '.lumen-hud' (одна часть без запятой и без пробела). */
     querySelectorAll: (sel) => {
+      asked.push('' + sel);
       const parts = ('' + sel).split(',').map((p) => p.trim());
       return bodyChildren.filter((n) => {
         const classes = ('' + n.className).split(/\s+/).filter(Boolean);
@@ -121,7 +163,12 @@ function env(opts) {
     /* Ревью Task 40 (п.6): HUD показывает ядра и память — по ним срабатывает
        LC.perf.weakHardware. opts.hardware кладётся как есть: отсутствующее
        свойство обязано остаться отсутствующим (deviceMemory есть не везде). */
-    navigator: Object.assign({ hardwareConcurrency: 4, deviceMemory: 2 }, opts.hardware || {})
+    /* Task 68: userAgent по образцу телевизора пользователя (Philips
+       50PUS8057, WebView Chrome/77) — из него HUD берёт поле «cr 77». */
+    navigator: Object.assign({
+      hardwareConcurrency: 4, deviceMemory: 2,
+      userAgent: 'Mozilla/5.0 (Linux; Android 9) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/77.0.3865.90 Safari/537.36'
+    }, opts.hardware || {})
   };
 
   /* opts.longtask поднимает фейковый PerformanceObserver с нужным
@@ -164,7 +211,7 @@ function env(opts) {
   });
 
   return {
-    api, store, bodyChildren, cancelled, observers,
+    api, store, bodyChildren, cancelled, observers, asked,
     tick: (ms) => {
       const frame = frames.shift();
       if (!frame) return false;
@@ -241,17 +288,91 @@ test('hud: два окна подряд — fps считается по факт
   assert.ok(e.tick(600), 'третий кадр окна 1 — элапсед от опоры 1200мс >= 1000, отрисовка');
   /* Литерал, а не e.api.layers(): ожидание не должно вычисляться тем же
      кодом, который проверяется (без слоёв в этом env — 0). fps = round(2
-     кадра * 1000 / 1200мс) = round(1.667) = 2. */
-  const win1 = e.api.format({ fps: 2, w: 1920, h: 1080, dpr: 2, mode: 'full', long: 0, layers: 0, hw: '4c/2gb', tint: ENV_TINT });
+     кадра * 1000 / 1200мс) = round(1.667) = 2. long — null: в этом env
+     PerformanceObserver не заведён вовсе, мерить длинные задачи нечем.
+     Гистограмма: обе дельты по 600мс, то есть обе в корзине «>50». */
+  const win1 = e.api.format({ fps: 2, w: 1920, h: 1080, dpr: 2, cr: '77', mode: 'full', long: null, raf: [0, 0, 0, 2], eps: 0, layers: 0, hw: '4c/2gb', tint: ENV_TINT });
   assert.equal(e.bodyChildren[0].textContent, win1, 'окно 1: 2 кадра за 1200мс');
 
   assert.ok(e.tick(600), 'первый кадр окна 2 — элапсед от новой опоры 600мс < 1000');
   assert.equal(e.bodyChildren[0].textContent, win1, 'текст ещё не тронут окном 2');
 
   assert.ok(e.tick(600), 'второй кадр окна 2 — снова 1200мс от опоры');
-  const win2 = e.api.format({ fps: 2, w: 1920, h: 1080, dpr: 2, mode: 'full', long: 0, layers: 0, hw: '4c/2gb', tint: ENV_TINT });
+  /* Те же 2 кадра в fps, но гистограмма — за ПЯТЬ последних интервалов
+     обновления, поэтому в ней уже 4 дельты: две из окна 1 плюс две свои. */
+  const win2 = e.api.format({ fps: 2, w: 1920, h: 1080, dpr: 2, cr: '77', mode: 'full', long: null, raf: [0, 0, 0, 4], eps: 0, layers: 0, hw: '4c/2gb', tint: ENV_TINT });
   assert.equal(e.bodyChildren[0].textContent, win2,
     'то же значение fps, что и в окне 1 — счётчик кадров и опорное время реально сброшены, а не растут дальше');
+});
+
+/* ====================================================================== */
+/* Task 68: гистограмма rAF-дельт по корзинам ≤16 / ≤33 / ≤50 / >50 мс.    */
+/* На устройстве rAF тикает (иначе HUD не обновлялся бы вовсе и серии фото */
+/* с меняющимся fps не получилось бы), и именно по этим четырём числам с   */
+/* одного снимка видно, редкие ли это провалы или ровная просадка.         */
+/* ====================================================================== */
+
+test('hud: гистограмма rAF — каждая дельта попадает в свою корзину, границы 16/33/50 включительно', () => {
+  const e = env({ store: { lumen_debug_hud: true }, width: 1920, height: 1080, dpr: 2, mode: 'lite' });
+  e.api.sync();
+
+  e.tick(100);              /* опорный кадр: дельты ещё нет */
+  [16, 10, 33, 50, 51, 200].forEach((ms) => e.tick(ms));
+  /* Сумма дельт после опорного — 360мс, порога 1000 ещё нет. */
+  assert.equal(e.bodyChildren[0].textContent, '', 'окно ещё не закрыто');
+  e.tick(1000);             /* седьмая дельта, корзина «>50», и закрытие окна */
+
+  const expected = e.api.format({
+    fps: Math.round(7 * 1000 / 1360), w: 1920, h: 1080, dpr: 2, cr: '77', mode: 'lite',
+    long: null, raf: [2, 1, 1, 3], eps: 0, layers: 0, hw: '4c/2gb', tint: ENV_TINT
+  });
+  assert.equal(e.bodyChildren[0].textContent, expected,
+    '16 и 10 — в «≤16», 33 — в «≤33», 50 — в «≤50», 51/200/1000 — в «>50»');
+});
+
+/* ====================================================================== */
+/* Task 68: число плиток ряда серий. После Task 67 ряд строится окном, и   */
+/* это ключевая величина: на телевизоре число плиток неизвестно, HUD его   */
+/* не показывал. На главной карточки нет — поле обязано быть нулём.        */
+/* ====================================================================== */
+
+test('hud: eps() — считает узлы .lumen-episode активной карточки, на главной ноль', () => {
+  const e = env();
+  assert.equal(e.api.eps(), 0, 'карточки нет — ноль');
+  e.addLayer('lumen-episode selector');
+  e.addLayer('lumen-episode selector');
+  e.addLayer('lumen-fx');
+  assert.equal(e.api.eps(), 2, 'посчитаны только плитки серий');
+  assert.equal(e.api.layers(), 1, 'плитки серий не попали в полноэкранные слои');
+  /* Lampa держит предыдущие активности смонтированными и переносит класс
+     .activity--active на текущую (vendor/lampa/app.min.js:46024-46026).
+     Без скоупа счёт складывал бы ряды двух карточек: замер на стенде
+     960×540@2 — переход «Дюна» → «Дораэмон» дал 50 плиток вместо 25. */
+  assert.ok(e.asked.some((sel) => sel === '.activity--active .lumen-episode'),
+    'запрос без скоупа активной активности: ' + e.asked.join(' | '));
+});
+
+/* ====================================================================== */
+/* Task 68: строка перерисовывается не чаще раза в секунду — HUD не имеет  */
+/* права сам стоить кадров на устройстве, где мы ловим просадки.           */
+/* ====================================================================== */
+
+test('hud: за окно в 1000мс textContent пишется ровно один раз, сколько бы кадров ни пришло', () => {
+  const e = env({ store: { lumen_debug_hud: true } });
+  e.api.sync();
+
+  const node = e.bodyChildren[0];
+  let writes = 0;
+  let text = '';
+  Object.defineProperty(node, 'textContent', {
+    get: () => text,
+    set: (v) => { writes++; text = v; }
+  });
+
+  /* Первый кадр — опорный (t = 100мс), дальше кадры каждые 100мс: окна
+     закрываются на 1100мс и 2100мс. */
+  for (let i = 0; i < 21; i++) e.tick(100);
+  assert.equal(writes, 2, 'два закрытых окна — ровно две записи, а не двадцать одна');
 });
 
 /* ====================================================================== */
@@ -280,12 +401,60 @@ test('hud: PerformanceObserver — накопленные longtask-записи 
   assert.ok(e.tick(600), 'элапсед 600мс — рано');
   assert.ok(e.tick(600), 'элапсед 1200мс — отрисовка');
 
-  const expected = e.api.format({ fps: 2, w: 1920, h: 1080, dpr: 2, mode: 'full', long: 3, layers: 0, hw: '4c/2gb', tint: ENV_TINT });
+  const expected = e.api.format({ fps: 2, w: 1920, h: 1080, dpr: 2, cr: '77', mode: 'full', long: { win: 3, total: 3 }, raf: [0, 0, 0, 2], eps: 0, layers: 0, hw: '4c/2gb', tint: ENV_TINT });
   assert.equal(e.bodyChildren[0].textContent, expected, 'три накопленные longtask-записи видны в строке');
 
   e.store.lumen_debug_hud = false;
   e.api.sync();
   assert.ok(e.observers.some((x) => x.op === 'disconnect'), 'disconnect() вызван при stop()');
+});
+
+/* Task 68: десять фото с телевизора читались вычитанием нарастающего long
+   между снимками — по одному снимку нельзя было сказать, сколько длинных
+   задач было ПРЯМО СЕЙЧАС. Окно — пять последних закрытых интервалов
+   строки, каждый не короче 1000мс; «всего» продолжает расти с момента
+   включения HUD, как раньше. */
+test('hud: long — окно из пяти интервалов уезжает, «всего» продолжает расти', () => {
+  const e = env({ store: { lumen_debug_hud: true }, longtask: true, width: 1920, height: 1080, dpr: 2, mode: 'lite' });
+  e.api.sync();
+  e.tick(100);                       /* опорный кадр */
+
+  e.fireLongtask([{}, {}]);          /* две задачи в интервале 1 */
+  e.tick(1000);                      /* интервал 1 закрыт */
+  assert.ok(e.bodyChildren[0].textContent.indexOf('long 2/2') !== -1, e.bodyChildren[0].textContent);
+
+  e.fireLongtask([{}]);              /* одна задача в интервале 2 */
+  e.tick(1000);
+  assert.ok(e.bodyChildren[0].textContent.indexOf('long 3/3') !== -1,
+    'окно ещё держит обе старые: ' + e.bodyChildren[0].textContent);
+
+  /* Три пустых интервала: окно длиной пять держит интервалы 1–5, обе
+     старые задачи ещё в нём. */
+  e.tick(1000); e.tick(1000); e.tick(1000);
+  assert.ok(e.bodyChildren[0].textContent.indexOf('long 3/3') !== -1,
+    'пять интервалов окна ещё накрывают первый: ' + e.bodyChildren[0].textContent);
+
+  /* Шестой интервал вытесняет первый — вместе с его двумя задачами. */
+  e.tick(1000);
+  assert.ok(e.bodyChildren[0].textContent.indexOf('long 1/3') !== -1,
+    'из окна ушёл интервал 1: ' + e.bodyChildren[0].textContent);
+
+  e.tick(1000);
+  assert.ok(e.bodyChildren[0].textContent.indexOf('long 0/3') !== -1,
+    'окно пустое, «всего» не обнулилось: ' + e.bodyChildren[0].textContent);
+});
+
+/* Без PerformanceObserver (или без 'longtask' в supportedEntryTypes)
+   счётчик стоял бы на нуле и был неотличим от «всё хорошо» — на
+   устройстве, где консоли нет, это тихая ложь. */
+test('hud: без поддержки longtask в строке «long n/a», а не «long 0»', () => {
+  const e = env({ store: { lumen_debug_hud: true }, longtask: true, longtaskSupported: false });
+  e.api.sync();
+  e.tick(600);
+  e.tick(1800);
+  const line = e.bodyChildren[0].textContent;
+  assert.ok(line.indexOf('long n/a') !== -1, line);
+  assert.ok(line.indexOf('long 0') === -1, 'ноль не имеет права появиться: ' + line);
 });
 
 /* ====================================================================== */
@@ -324,7 +493,7 @@ test('hud: выключенный плагин — sync() не поднимае�
    наш код или прокси без CORS-заголовка. */
 test('hud: format — состояние подкраски с цветом и адресом', () => {
   const { api } = fresh();
-  const base = { fps: 58, w: 1920, h: 1080, dpr: 2, mode: 'full', long: 0, layers: 5, hw: '4c/2gb' };
+  const base = BASE;
   const ok = api.format(Object.assign({}, base, {
     tint: { state: 'ok', color: '#8A4C50', url: 'image.tmdb.org/t/p/w185/a.jpg' }
   }));

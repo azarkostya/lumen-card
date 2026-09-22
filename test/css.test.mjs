@@ -4264,6 +4264,19 @@ test('Task 63: HUD — единственное исключение, и он с
   assert.ok(/font:\.7em\//.test(hud), 'кегль HUD задан сокращением font: — ' + hud);
 });
 
+/* Task 68: строку HUD читают с фотографии экрана телевизора, поэтому
+   перенос не имеет права резать числа. Замер на стенде 960×540@2 (переносы
+   по Range.getClientRects посимвольно): при word-break:break-all величина
+   «hw 12c/32gb» ложилась как «12c/» и «32gb» на разных строках. */
+test('Task 68: HUD переносится по словам, а не по символам', () => {
+  const hud = findDecl(css, (sel) => sel === '.lumen-hud');
+  assert.ok(hud, 'правило HUD не найдено');
+  assert.equal(hud.indexOf('word-break:break-all'), -1, 'посимвольный перенос вернулся — ' + hud);
+  assert.ok(/overflow-wrap:break-word/.test(hud), 'рвётся только не помещающееся слово — ' + hud);
+  assert.ok(/word-wrap:break-word/.test(hud), 'старое имя свойства для WebView Chrome/77 — ' + hud);
+  assert.ok(/max-width:34em/.test(hud), 'ширина под выросшую строку — ' + hud);
+});
+
 test('Task 63: safe area — одна величина на всех экранах плагина', () => {
   /* 80 px по бокам и 60 сверху/снизу — Apple HIG Layout (pt = px на
      1920×1080), то есть 3.51em и 2.63em при базе 22.811. Прежние 2.81em

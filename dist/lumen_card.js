@@ -4025,7 +4025,18 @@ css.push('.lumen-ambient .lumen-ambient__clock{position:absolute;right:' + EDGE 
 
 
 
-css.push('.lumen-hud{position:fixed;top:.3em;left:.3em;z-index:99999;max-width:26em;padding:.2em .5em;font:.7em/1.4 Consolas,"Courier New",monospace;color:#0f0;background:rgba(0,0,0,.75);border-radius:.3em;pointer-events:none;white-space:normal;word-break:break-all}');
+
+
+
+
+
+
+
+
+
+
+
+css.push('.lumen-hud{position:fixed;top:.3em;left:.3em;z-index:99999;max-width:34em;padding:.2em .5em;font:.7em/1.4 Consolas,"Courier New",monospace;color:#0f0;background:rgba(0,0,0,.75);border-radius:.3em;pointer-events:none;white-space:normal;word-wrap:break-word;overflow-wrap:break-word}');
 
 
 
@@ -23836,16 +23847,81 @@ var state = null;
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+var SLOTS = 5;
+
+function newSlot() { return { long: 0, b: [0, 0, 0, 0] }; }
+
+
+
+
+
+
+function bucket(ms) {
+if (ms <= 16) return 0;
+if (ms <= 33) return 1;
+if (ms <= 50) return 2;
+return 3;
+}
+
+
+function totals() {
+var out = { long: 0, b: [0, 0, 0, 0] };
+for (var i = 0; i < state.slots.length; i++) {
+var slot = state.slots[i];
+out.long += slot.long;
+for (var j = 0; j < 4; j++) out.b[j] += slot.b[j];
+}
+return out;
+}
+
+
+
+
+
+
+
+
+function longText(l) {
+if (!l) return 'n/a';
+return l.win + '/' + l.total;
+}
+
+
+
+
+
+
+
+
+
+
 function tint(d) {
 var t = d.tint;
 if (!t || !t.state) return 'n/a';
 return t.state + (t.color ? ' ' + t.color : '') + (t.url ? ' ' + t.url : '');
 }
 
+
+
+
+
 function format(d) {
-return d.fps + ' fps · ' + d.w + '×' + d.h + '@' + d.dpr + ' · ' + d.mode +
-' · long ' + d.long + ' · layers ' + d.layers + ' · hw ' + d.hw +
-' · tint ' + tint(d);
+return d.fps + ' fps · long ' + longText(d.long) + ' · raf ' + d.raf.join('/') +
+' · eps ' + d.eps + ' · layers ' + d.layers +
+' · ' + d.w + '×' + d.h + '@' + d.dpr + ' · cr ' + d.cr + ' · ' + d.mode +
+' · hw ' + d.hw + ' · tint ' + tint(d);
 }
 
 
@@ -23866,19 +23942,34 @@ return null;
 
 
 
+
+
 function hardware() {
-var cores = '?';
-var mem = '?';
+var cores = 'n/a';
+var mem = 'n/a';
 try {
 var nav = window.navigator;
 if (nav) {
-if (Number(nav.hardwareConcurrency) > 0) cores = Math.round(Number(nav.hardwareConcurrency));
+if (Number(nav.hardwareConcurrency) > 0) cores = Math.round(Number(nav.hardwareConcurrency)) + 'c';
 if (typeof nav.deviceMemory !== 'undefined' && nav.deviceMemory !== null && Number(nav.deviceMemory) > 0) {
-mem = Number(nav.deviceMemory);
+mem = Number(nav.deviceMemory) + 'gb';
 }
 }
 } catch (e) { }
-return cores + 'c/' + (mem === '?' ? '?' : mem + 'gb');
+return cores + '/' + mem;
+}
+
+
+
+
+
+function chrome() {
+try {
+var nav = window.navigator;
+var m = nav && nav.userAgent ? ('' + nav.userAgent).match(/Chrom(?:e|ium)\/(\d+)/) : null;
+if (m) return m[1];
+} catch (e) { }
+return 'n/a';
 }
 
 
@@ -23899,6 +23990,23 @@ var FULL = '.lumen-hero__bg,.lumen-hero__lqip,.lumen-hero__veil,.lumen-hero__tra
 '.lumen-ambient,.lumen-ambient__img,.lumen-overlay__img,.lumen-roulette__bg';
 function layers() {
 try { return document.querySelectorAll(FULL).length; } catch (e) { return 0; }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function eps() {
+try { return document.querySelectorAll('.activity--active .lumen-episode').length; } catch (e) { return 0; }
 }
 
 
@@ -23931,10 +24039,21 @@ function paint(t) {
 if (!state) return;
 if (!state.last) {
 state.last = t;
+
+
+state.prev = t;
 state.raf = raf(paint);
 return;
 }
 state.frames++;
+
+
+
+
+
+
+state.slots[state.at].b[bucket(t - state.prev)]++;
+state.prev = t;
 var elapsed = t - state.last;
 if (elapsed >= 1000) {
 var mode = 'n/a';
@@ -23944,12 +24063,20 @@ try { mode = LC.motionMode(); } catch (e) { }
 
 
 
+var sums = totals();
 state.node.textContent = format({
 fps: Math.round(state.frames * 1000 / elapsed), w: window.innerWidth, h: window.innerHeight,
 dpr: Math.round((window.devicePixelRatio || 1) * 100) / 100,
-mode: mode, long: state.long, layers: layers(), hw: hardware(), tint: accentStatus()
+cr: chrome(), mode: mode,
+long: state.longSup ? { win: sums.long, total: state.longTotal } : null,
+raf: sums.b, eps: eps(), layers: layers(), hw: hardware(), tint: accentStatus()
 });
 state.frames = 0; state.last = t;
+
+
+
+state.at = (state.at + 1) % SLOTS;
+state.slots[state.at] = newSlot();
 }
 state.raf = raf(paint);
 }
@@ -23959,7 +24086,10 @@ if (state) return;
 var node = document.createElement('div');
 node.className = 'lumen-hud';
 document.body.appendChild(node);
-state = { node: node, frames: 0, last: 0, long: 0, raf: 0, obs: null };
+var slots = [];
+for (var i = 0; i < SLOTS; i++) slots.push(newSlot());
+state = { node: node, frames: 0, last: 0, prev: 0, longTotal: 0, longSup: false,
+slots: slots, at: 0, raf: 0, obs: null };
 
 
 
@@ -23970,9 +24100,16 @@ try {
 if (window.PerformanceObserver && window.PerformanceObserver.supportedEntryTypes &&
 window.PerformanceObserver.supportedEntryTypes.indexOf('longtask') > -1) {
 state.obs = new window.PerformanceObserver(function (list) {
-if (state) state.long += list.getEntries().length;
+if (!state) return;
+var n = list.getEntries().length;
+state.longTotal += n;
+state.slots[state.at].long += n;
 });
 state.obs.observe({ entryTypes: ['longtask'] });
+
+
+
+state.longSup = true;
 }
 } catch (e) { }
 state.raf = raf(paint);
@@ -24007,6 +24144,9 @@ if (on) start(); else stop();
 
 return {
 sync: sync, stop: stop, format: format, running: function () { return !!state; }, layers: layers,
+
+
+eps: eps, chrome: chrome,
 
 
 
