@@ -342,7 +342,81 @@ test('Task 62a: в режиме caption метка уходит в подпис�
      многоточием, и срезать она должна год с рейтингом, а не статус. */
   assert.equal(age._children[0], caps[0], 'метка обязана стоять перед годом');
   assert.equal(caps[0].text(), 'Скоро · 17 дек · ', 'разделитель — при непустой подписи');
-  assert.equal(age.text(), '2017 · ★ 6.4', 'год и рейтинг остаются на месте');
+  /* A2: рейтинг в подпись с меткой больше не дописывается — разбор и замеры
+     в тесте «A2» ниже. */
+  assert.equal(age.text(), '2017', 'год остаётся на месте');
+});
+
+/* ====================================================================== */
+/* A2 (волна A финального плана): метка в подписи съедала год и рейтинг.    */
+/*                                                                         */
+/* Замер на стенде 960×540@2, оба шрифта раздела (Golos Text и Inter), все  */
+/* четыре масштаба интерфейса. Доступная ширина подписи: 98 px на «мелком», */
+/* 109 на «штатном», 101 на «крупном», 110 на «огромном» (на трёх последних */
+/* работает правило узкой колонки, src/30_css.js).                          */
+/*   «Новинка · 2026 · ★ 7.3» — 112.8…125.1 px: не влезает ни на одном      */
+/*      масштабе, ellipsis съедает год и рейтинг целиком;                   */
+/*   «Новинка · 2026»          —  77.7…87.3 px: влезает на всех четырёх;    */
+/*   «49 % · 2026»             —  53.9…67.4 px: влезает на всех четырёх.    */
+/* Выброшен рейтинг, а не год: штатную плашку .card__vote на главной мы и   */
+/* так прячем (src/30_css.js), то есть рейтинг в подписи дублирует оценку   */
+/* из кадра героя, а год в кадре не повторяется нигде.                      */
+/* ====================================================================== */
+
+test('A2: caption — у карточки с меткой рейтинга в подписи нет, остаётся «метка · год»', () => {
+  const { api } = runtime({ badgesMode: function () { return 'caption'; } });
+  const card = makeCard({ release_date: '2026-09-01', vote_average: 7.3 });
+  globalThis.window = { Lampa: {} };
+  try { api.decorate(card, null, null); } finally { delete globalThis.window; }
+  const age = card._children[1];
+  assert.equal(age._children[0].text(), 'Новинка · ', 'метка на месте');
+  assert.equal(age.text(), '2017', 'рейтинг в подпись с меткой не дописывается');
+  assert.ok(!age[0].lumen_rated, 'флага рейтинга быть не должно');
+});
+
+test('A2: caption — карточка БЕЗ метки рейтинг в подписи сохраняет', () => {
+  const { api } = runtime({ badgesMode: function () { return 'caption'; } });
+  /* Дата далеко в прошлом: ни «Скоро», ни «Новинка», прогресса нет — метки
+     не будет вовсе, и подписи ничего не мешает. */
+  const card = makeCard({ release_date: '2000-01-01', vote_average: 7.3 });
+  globalThis.window = { Lampa: {} };
+  try { api.decorate(card, null, null); } finally { delete globalThis.window; }
+  const age = card._children[1];
+  assert.deepEqual(age._children.filter((c) => c.hasClass('lumen-badge-cap')), [], 'метки нет');
+  assert.equal(age.text(), '2017 · ★ 7.3', 'рейтинг остаётся');
+});
+
+test('A2: poster — рейтинг в подписи остаётся и у карточки с меткой', () => {
+  const { api } = runtime({ badgesMode: function () { return 'poster'; } });
+  const card = makeCard({ release_date: '2026-09-01', vote_average: 7.3 });
+  globalThis.window = { Lampa: {} };
+  try { api.decorate(card, null, null); } finally { delete globalThis.window; }
+  assert.equal(card._children[1].text(), '2017 · ★ 7.3', 'метка на обложке строке не мешает');
+});
+
+/* Смена вида меток на ЖИВОМ экране (пресет из карточки, настройка из меню):
+   strip() снимает метку подписи, а рейтинг дописан прямо в текст узла, своего
+   узла у него нет. Без восстановления прежнего текста возврат вида 'caption'
+   собрал бы ровно ту строку, ради которой A2 и делался. */
+test('A2: strip возвращает подписи год без рейтинга — вид меток переключаем на живом экране', () => {
+  const { api } = runtime({ badgesMode: function () { return 'poster'; } });
+  const card = makeCard({ release_date: '2026-09-01', vote_average: 7.3 });
+  globalThis.window = { Lampa: {} };
+  try {
+    api.decorate(card, null, null);
+    assert.equal(card._children[1].text(), '2017 · ★ 7.3');
+    const root = makeRoot([card]);
+    const baseFind = root.find.bind(root);
+    root.find = function (sel) {
+      if (sel.indexOf('.lumen-badge') === 0) return { length: 0, remove: function () { return this; } };
+      return baseFind(sel);
+    };
+    api.strip(root);
+    assert.equal(card._children[1].text(), '2017', 'рейтинг снят вместе с меткой');
+    assert.ok(!card._children[1][0].lumen_rated, 'флаг сброшен — второй проход перепишет подпись заново');
+  } finally {
+    delete globalThis.window;
+  }
 });
 
 /* Ревью Task 62: метка РЯДА («Новая серия · 12 сен» собирает src/45_personal.js)

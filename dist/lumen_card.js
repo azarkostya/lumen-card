@@ -3727,6 +3727,10 @@ css.push('.lumen-main .card__quality,.lumen-main .card__type{display:none}');
 
 
 
+
+
+
+
 if (LC.badgesMode() !== 'off') css.push('.lumen-main .card__vote{display:none}');
 css.push('.lumen-main .card__title{font-family:' + FB + ';font-weight:700;font-size:' + cardTitleEm + 'em;line-height:' + CARD_TITLE_LH + ';white-space:nowrap;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis;color:' + P.muted + '}');
 css.push('.lumen-main .card.focus .card__title{color:' + P.text + '}');
@@ -20064,6 +20068,8 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 
+
+
 LC.badges = (function () {
 
 
@@ -20210,14 +20216,31 @@ return null;
 
 
 
+
+
+
+
+
 function rate(el, data) {
 var age = $(el).find('.card__age');
 if (!age || !age.length || age[0].lumen_rated) return;
 var vote = Number(data.vote_average);
 if (!(vote >= 1)) return;
-age[0].lumen_rated = true;
 var was = '' + age.text();
+age[0].lumen_rated = true;
+age[0].lumen_age_was = was;
 age.text((was ? was + ' · ' : '') + '★ ' + vote.toFixed(1));
+}
+
+
+
+
+function unrate(el) {
+var age = $(el).find('.card__age');
+if (!age || !age.length || !age[0].lumen_rated) return;
+age.text('' + (age[0].lumen_age_was || ''));
+age[0].lumen_rated = false;
+age[0].lumen_age_was = '';
 }
 
 
@@ -20249,17 +20272,20 @@ var cut = badge.text.indexOf(' · ');
 return cut > 0 ? badge.text.slice(0, cut) : badge.text;
 }
 
+
+
 function caption(el, badge) {
 var age = $(el).find('.card__age');
 
 
 
-if (!age || !age.length) return;
+if (!age || !age.length) return false;
 var was = '' + age.text();
 var text = captionText(badge);
 var box = $('<span class="lumen-badge-cap lumen-badge-cap--' + badge.kind + '"></span>');
 box.text(was ? text + ' · ' : text);
 age.prepend(box);
+return true;
 }
 
 
@@ -20278,16 +20304,34 @@ if (!el || el.lumen_badged) return;
 var data = card || el.card_data;
 if (!data) return;
 el.lumen_badged = true;
-rate(el, data);
 var badge = badgeFor(data, new Date(), { progress: progressOf, words: words() });
-if (!badge || !badge.text) return;
 var view = $(el).find('.card__view');
-if (!view || !view.length) return;
+var hasBadge = !!(badge && badge.text && view && view.length);
+var view_mode = mode();
 
 
-if (mode() === 'caption') {
-caption(el, badge);
-} else {
+var inCaption = hasBadge && view_mode === 'caption' && caption(el, badge);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+if (!inCaption) rate(el, data);
+if (!hasBadge) return;
+if (!inCaption && view_mode !== 'caption') {
 var box = $('<div class="lumen-badge lumen-badge--' + badge.kind + '"></div>');
 box.text(badge.text);
 view.append(box);
@@ -20404,7 +20448,15 @@ root.find('.lumen-badge-bar').remove();
 
 root.find('.lumen-badge-cap').remove();
 var nodes = root.find('.card');
-for (var i = 0; i < nodes.length; i++) nodes[i].lumen_badged = false;
+for (var i = 0; i < nodes.length; i++) {
+nodes[i].lumen_badged = false;
+
+
+
+
+
+unrate(nodes[i]);
+}
 } catch (e) {
 warn('badges: strip failed', e);
 }

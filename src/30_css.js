@@ -3136,10 +3136,14 @@
     css.push('body.lumen-motion-full .lumen-main .card__view{-webkit-transition:-webkit-transform .18s ease-out;transition:transform .18s ease-out}');
     css.push('.lumen-main .card__quality,.lumen-main .card__type{display:none}');
     /* Task 42/62a: штатную плашку рейтинга прячем, пока рейтинг есть кому
-       дописать в подпись (LC.badges.decorate). Он дописывает её в обоих
-       показанных видах метки — и «на постере», и «в подписи», — а при
-       выключенных метках плашка Lampa возвращается: иначе рейтинга не
-       останется нигде. */
+       дописать в подпись (LC.badges.decorate), а при выключенных метках
+       плашка Lampa возвращается: иначе рейтинга не осталось бы нигде.
+       A2: в виде «в подписи» рейтинг дописывается только карточке БЕЗ метки —
+       иначе строка «Новинка · 2026 · ★ 7.3» просит 112.8…125.1 CSS px при
+       доступных 98…110 и ellipsis съедает год с рейтингом (замер на стенде
+       960×540@2, оба шрифта раздела, все четыре масштаба; разбор — в
+       src/62_badges.js, decorate). Плашку это не возвращает: карточка с
+       меткой показывает статус, а не оценку. */
     if (LC.badgesMode() !== 'off') css.push('.lumen-main .card__vote{display:none}');
     css.push('.lumen-main .card__title{font-family:' + FB + ';font-weight:700;font-size:' + cardTitleEm + 'em;line-height:' + CARD_TITLE_LH + ';white-space:nowrap;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis;color:' + P.muted + '}');
     css.push('.lumen-main .card.focus .card__title{color:' + P.text + '}');

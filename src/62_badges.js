@@ -26,7 +26,9 @@
   /* .lumen-main .card__quality{display:none} — качество остаётся видно в   */
   /* сетке подборки и на штатных экранах Lampa.                             */
   /*                                                                       */
-  /* Task 42: decorate заодно дописывает рейтинг в подпись .card__age.      */
+  /* Task 42: decorate заодно дописывает рейтинг в подпись .card__age —      */
+  /* A2: всем карточкам в виде 'poster' и только карточкам БЕЗ метки в      */
+  /* виде 'caption' (замеры ширины — у самой decorate).                     */
   /* Штатную плашку .card__vote на постере главной прячет CSS, но ТОЛЬКО    */
   /* пока метки включены (src/30_css.js, блок рядов): выключил метки —      */
   /* рейтинг некому дописать, и плашка Lampa возвращается на постер.        */
@@ -190,15 +192,32 @@
        разделителя.
        Флаг на самом узле подписи, а не на карточке: strip() сбрасывает
        lumen_badged, чтобы возврат настройки нарисовал метки заново, и с
-       общим флагом второй проход дописал бы рейтинг в подпись повторно. */
+       общим флагом второй проход дописал бы рейтинг в подпись повторно.
+       A2: рядом с флагом сохраняется и ПРЕЖНИЙ текст подписи. Рейтинг
+       дописан прямо в текст узла, своего узла у него нет, и без этой копии
+       unrate() ниже было бы нечего восстанавливать — смена вида меток на
+       живом экране (poster → caption) оставила бы рейтинг в строке, а
+       вместе с ним и переполнение, ради которого A2 и делался. */
     function rate(el, data) {
       var age = $(el).find('.card__age');
       if (!age || !age.length || age[0].lumen_rated) return;
       var vote = Number(data.vote_average);
       if (!(vote >= 1)) return;
-      age[0].lumen_rated = true;
       var was = '' + age.text();
+      age[0].lumen_rated = true;
+      age[0].lumen_age_was = was;
       age.text((was ? was + ' · ' : '') + '★ ' + vote.toFixed(1));
+    }
+
+    /* A2: снять рейтинг, дописанный rate(), вернув подписи прежний текст.
+       Зовётся только из strip() — то есть при выключении меток и при смене
+       их вида на живом экране. Идемпотентна: без флага делать нечего. */
+    function unrate(el) {
+      var age = $(el).find('.card__age');
+      if (!age || !age.length || !age[0].lumen_rated) return;
+      age.text('' + (age[0].lumen_age_was || ''));
+      age[0].lumen_rated = false;
+      age[0].lumen_age_was = '';
     }
 
     /* Task 62a: метка в строке подписи под постером (вид 'caption'). Так
@@ -230,17 +249,20 @@
       return cut > 0 ? badge.text.slice(0, cut) : badge.text;
     }
 
+    /* Возвращает true, если метка встала в подпись: от этого зависит, дописывать
+       ли туда же рейтинг (A2, разбор в decorate ниже). */
     function caption(el, badge) {
       var age = $(el).find('.card__age');
       /* Подписи может не быть вовсе: сетка подборки снимает .card__age у
          карточки без года (src/46_hub.js), и тогда метку в этом виде ставить
          некуда — карточка остаётся без неё, как и без года. */
-      if (!age || !age.length) return;
+      if (!age || !age.length) return false;
       var was = '' + age.text();
       var text = captionText(badge);
       var box = $('<span class="lumen-badge-cap lumen-badge-cap--' + badge.kind + '"></span>');
       box.text(was ? text + ' · ' : text);
       age.prepend(box);
+      return true;
     }
 
     /* Одна карточка. node — jQuery-узел или DOM-элемент .card, card — его
@@ -259,16 +281,34 @@
         var data = card || el.card_data;
         if (!data) return;
         el.lumen_badged = true;
-        rate(el, data);
         var badge = badgeFor(data, new Date(), { progress: progressOf, words: words() });
-        if (!badge || !badge.text) return;
         var view = $(el).find('.card__view');
-        if (!view || !view.length) return;
+        var hasBadge = !!(badge && badge.text && view && view.length);
+        var view_mode = mode();
         /* Task 62a: текст один и тот же, разное только место. В виде
            'caption' плашки на обложке нет вовсе — ради этого вид и заведён. */
-        if (mode() === 'caption') {
-          caption(el, badge);
-        } else {
+        var inCaption = hasBadge && view_mode === 'caption' && caption(el, badge);
+        /* A2: рейтинг в подписи — ТОЛЬКО когда метки в ней нет.
+           Замер на стенде 960×540@2, оба шрифта раздела, все четыре масштаба
+           интерфейса (доступная ширина подписи: 98 px на «мелком», 109 на
+           «штатном», 101 на «крупном», 110 на «огромном» — на трёх последних
+           работает правило узкой колонки, src/30_css.js):
+             «Новинка · 2026 · ★ 7.3» — 112.8…125.1 px, не влезает НИ НА ОДНОМ
+             масштабе, и ellipsis съедает год и рейтинг целиком;
+             «Новинка · 2026» — 77.7…87.3 px, влезает на всех четырёх;
+             «49 % · 2026» — 53.9…67.4 px, влезает на всех четырёх.
+           Выброшен рейтинг, а не год: на главной штатную плашку .card__vote мы
+           и так прячем (src/30_css.js), то есть рейтинг в подписи дублирует
+           оценку из кадра героя над рядами, а год в кадре не повторяется
+           нигде. В виде 'poster' рейтинг в подписи остаётся: метка там на
+           обложке, и строке ничего не мешает.
+           Две метки длиннее прочих год всё же срезают и без рейтинга:
+           «Скоро · 17 дек · 2026» просит 105.2…118.3 px, «Новая серия · 2026» —
+           98.4…110.5 px. Сама метка при этом цела (72.1…80.4 и 65.2…72.6 px),
+           а режется хвост — порядок узлов в caption() выбран именно так. */
+        if (!inCaption) rate(el, data);
+        if (!hasBadge) return;
+        if (!inCaption && view_mode !== 'caption') {
           var box = $('<div class="lumen-badge lumen-badge--' + badge.kind + '"></div>');
           box.text(badge.text);
           view.append(box);
@@ -381,11 +421,19 @@
         root.find('.lumen-badge').remove();
         root.find('.lumen-badge-bar').remove();
         /* Task 62a: метка в подписи снимается тем же проходом — иначе смена
-           вида на живом экране оставила бы её дублем рядом с новой. Год и
-           рейтинг в подписи при этом не страдают: метка — свой узел. */
+           вида на живом экране оставила бы её дублем рядом с новой. Год при
+           этом не страдает: метка — свой узел. */
         root.find('.lumen-badge-cap').remove();
         var nodes = root.find('.card');
-        for (var i = 0; i < nodes.length; i++) nodes[i].lumen_badged = false;
+        for (var i = 0; i < nodes.length; i++) {
+          nodes[i].lumen_badged = false;
+          /* A2: рейтинг снимается вместе с меткой. Своего узла у него нет — он
+             дописан в текст подписи, — поэтому подписи возвращается копия,
+             снятая в rate(). Без этого смена вида poster → caption на живом
+             экране давала бы «Новинка · 2026 · ★ 7.3»: метку рисует уже новый
+             вид, а рейтинг остался бы от прошлого. */
+          unrate(nodes[i]);
+        }
       } catch (e) {
         warn('badges: strip failed', e);
       }
