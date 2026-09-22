@@ -1444,6 +1444,14 @@ round2(ROW_HEAD_GAP * scale), TV_MIN, TV_MIN);
 
 
 
+
+
+
+
+
+
+
+
 function rowScaleCap(key) {
 var availEm = screenEm() * (100 - ROWS_TOP_VH[key]) / TV_RATIO - ROWS_AIR - ROW_EDGE_AIR;
 var floor = SCALES.small;
@@ -20553,6 +20561,10 @@ return true;
 
 
 
+
+
+
+
 function decorate(node, card, opts) {
 try {
 if (!enabled()) return;
@@ -25352,11 +25364,19 @@ uk: 'Вміст лежить прямо на тлі, а не в коробках
 
 
 
+
+
+
+
+
+
+
+
 lumen_scale_name: { ru: 'Масштаб интерфейса', en: 'Interface scale', uk: 'Масштаб інтерфейсу' },
 lumen_scale_descr: {
-ru: 'Размер текста и блоков на экранах плагина: карточка, главная, подборки. Применяется сразу. Одно исключение: если в самой Lampa выбран «Размер интерфейса: крупнее», она уже увеличила карточки рядов главной, и при крупном кадре заставки наш масштаб там упирается в высоту экрана — «Обычный», «Крупнее» и «Ещё крупнее» дают одинаковые ряды, иначе подпись первого ряда не поместилась бы. При меньшем кадре и на других размерах интерфейса ограничения нет, и на остальных экранах плагина масштаб действует целиком.',
-en: 'The size of text and blocks on the plugin screens: card, home and collections. Applied immediately. One exception: if Lampa\'s own "Interface size" is set to larger, it has already enlarged the home row cards, and with a large backdrop our scale there runs into the screen height — "Normal", "Larger" and "Largest" give identical rows, otherwise the first row caption would not fit. With a smaller backdrop and on the other interface sizes there is no cap, and on the other plugin screens the scale applies in full.',
-uk: 'Розмір тексту та блоків на екранах плагіна: картка, головна, підбірки. Застосовується одразу. Один виняток: якщо в самій Lampa вибрано «Розмір інтерфейсу: більше», вона вже збільшила картки рядів головної, і з великим кадром заставки наш масштаб там упирається у висоту екрана — «Звичайний», «Більше» і «Ще більше» дають однакові ряди, інакше підпис першого ряду не помістився б. З меншим кадром і на інших розмірах інтерфейсу обмеження немає, а на решті екранів плагіна масштаб діє повністю.'
+ru: 'Размер текста и блоков на экранах плагина: карточка, главная, подборки. Применяется сразу. Одно исключение: если в самой Lampa выбран «Размер интерфейса: крупнее», она уже увеличила карточки рядов главной, и при настройке «Кадр над рядами» в значении «Крупный» наш масштаб там упирается в высоту экрана — «Обычный», «Крупнее» и «Ещё крупнее» дают одинаковые ряды, иначе подпись первого ряда не поместилась бы. При меньшем кадре и на других размерах интерфейса ограничения нет, и на остальных экранах плагина масштаб действует целиком.',
+en: 'The size of text and blocks on the plugin screens: card, home and collections. Applied immediately. One exception: if Lampa\'s own "Interface size" is set to larger, it has already enlarged the home row cards, and with "Hero over the rows" set to "Large" our scale there runs into the screen height — "Normal", "Larger" and "Largest" give identical rows, otherwise the first row caption would not fit. With a smaller frame and on the other interface sizes there is no cap, and on the other plugin screens the scale applies in full.',
+uk: 'Розмір тексту та блоків на екранах плагіна: картка, головна, підбірки. Застосовується одразу. Один виняток: якщо в самій Lampa вибрано «Розмір інтерфейсу: більше», вона вже збільшила картки рядів головної, і з налаштуванням «Кадр над рядами» у значенні «Великий» наш масштаб там упирається у висоту екрана — «Звичайний», «Більше» і «Ще більше» дають однакові ряди, інакше підпис першого ряду не помістився б. З меншим кадром і на інших розмірах інтерфейсу обмеження немає, а на решті екранів плагіна масштаб діє повністю.'
 },
 lumen_scale_small: { ru: 'Мельче', en: 'Smaller', uk: 'Дрібніше' },
 lumen_scale_normal: { ru: 'Обычный', en: 'Normal', uk: 'Звичайний' },
@@ -25781,6 +25801,8 @@ ru: 'Сегодня премьера',
 en: 'Premiere today',
 uk: 'Сьогодні прем\'єра'
 },
+
+
 
 
 
