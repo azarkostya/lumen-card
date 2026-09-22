@@ -4518,11 +4518,84 @@ test('Task 73: плитка серии — кадр сверху, подпись
   const still = lastDecl(flatCss, '.lumen-card .lumen-episode__still');
   assert.ok(/height:3\.95em/.test(still) && /bottom:auto/.test(still), 'кадр не стал полосой сверху: ' + still);
   assert.ok(/opacity:1/.test(still), 'кадр остался приглушённым: ' + still);
-  /* Высота ряда серий не меняется: полный кадр 16:9 при ширине плитки
-     14.9em занял бы 8.38em, и ряд пришлось бы растить вместе со всей
-     карточкой. */
-  assert.equal(lastDecl(flatCss, '.lumen-card .lumen-episodes__viewport'), lastDecl(css, '.lumen-card .lumen-episodes__viewport'));
-  assert.equal(lastDecl(flatCss, '.lumen-card .lumen-episode').indexOf('height:'), -1, 'плитке задана новая высота: ' + tile);
+  /* Ревью 2026-09-22 (п.1): ряд в плоском виде ВЫШЕ обычного, и плитка с
+     ним заодно — иначе подпись не помещается под кадром (арифметика в
+     следующем тесте). Обе высоты обязаны совпадать: дорожка растянута по
+     высоте viewport (height:100%), и разъехавшись, плитки вылезли бы за
+     него. */
+  const vp = lastDecl(flatCss, '.lumen-card .lumen-episodes__viewport');
+  assert.ok(/height:8\.15em/.test(vp), 'viewport ряда не подрос под подпись: ' + vp);
+  assert.ok(/height:8\.15em/.test(tile), 'плитка не подросла под подпись: ' + tile);
+});
+
+/* Ревью 2026-09-22 (п.1): подпись не помещалась под кадром и лезла на него.
+   Сторож считает ту же арифметику, что и раньше считалась на глаз, — и
+   считает её ИЗ САМОЙ ТАБЛИЦЫ, а не по литералам рядом: поменяется любая
+   из высот — сойдётся или не сойдётся сумма.
+   На прежнем правиле (высота 6.58em) тест падает: доступно 5.89em при
+   нужных 7.452em. */
+test('Task 73 (ревью п.1): подпись плитки помещается под кадром — в любом состоянии', () => {
+  const num = (decl, prop) => {
+    const m = new RegExp('(?:^|;)' + prop + ':([0-9.]+)em').exec(decl);
+    assert.ok(m, 'в правиле нет «' + prop + '»: ' + decl);
+    return parseFloat(m[1]);
+  };
+  const tile = lastDecl(flatCss, '.lumen-card .lumen-episode');
+  const base = findDecl(css, (s) => s === '.lumen-card .lumen-episode');
+  /* border-box: рамка и нижний паддинг съедают высоту у содержимого.
+     Своей высоты у плоского правила может и не быть — тогда в силе
+     высота обычного вида, и считать надо именно её. */
+  const height = /(?:^|;)height:/.test(tile) ? num(tile, 'height') : num(base, 'height');
+  const border = num(base, 'border');
+  const padBottom = parseFloat(/padding:0 0 ([0-9.]+)em/.exec(tile)[1]);
+  const inner = height - border * 2 - padBottom;
+
+  const frame = num(lastDecl(flatCss, '.lumen-card .lumen-episode__top'), 'height');
+  const padTop = num(lastDecl(flatCss, '.lumen-card .lumen-episode__bottom'), 'padding-top');
+  const nameDecl = findDecl(css, (s) => s === '.lumen-card .lumen-episode__name');
+  const name = num(nameDecl, 'font-size') * parseFloat(/line-height:([0-9.]+)/.exec(nameDecl)[1]);
+  const capDecl = findDecl(css, (s) => s === '.lumen-card .lumen-episode__caption');
+  const caption = num(capDecl, 'margin-top') + num(capDecl, 'font-size') * parseFloat(/line-height:([0-9.]+)/.exec(capDecl)[1]);
+  const barDecl = findDecl(css, (s) => s === '.lumen-card .lumen-episode__bar');
+  const bar = num(barDecl, 'margin-top') + num(barDecl, 'height');
+
+  const need = frame + padTop + name + caption + bar;
+  assert.ok(need <= inner + 1e-9,
+    'подпись не помещается под кадром: нужно ' + need.toFixed(3) + 'em, доступно ' + inner.toFixed(3) + 'em');
+  /* И не с запасом в целую строку: лишняя высота ряда — это сдвинутая вниз
+     карточка, за который никто не платил. */
+  assert.ok(inner - need < name, 'у плитки лишняя высота: ' + (inner - need).toFixed(3) + 'em');
+  /* Кадр не сжимается: .__still и подложка под ним заданы в 3.95em
+     жёстко, а flex-контейнер ужал бы именно .__top — он единственный со
+     своим min-height (базовое правило). */
+  const top = lastDecl(flatCss, '.lumen-card .lumen-episode__top');
+  assert.ok(/flex:none/.test(top) && /-webkit-flex:none/.test(top), 'кадру можно сжаться: ' + top);
+});
+
+/* Ревью 2026-09-22 (п.2): под подписью у плитки не было фона вовсе —
+   подложка ограничена полосой кадра, — и сквозь неё просвечивал бэкдроп
+   карточки под вуалью. Контраст подписи зависел от кадра фильма. */
+test('Task 73 (ревью п.2): под подписью — непрозрачный фон плитки и цвет muted', () => {
+  const tile = lastDecl(flatCss, '.lumen-card .lumen-episode');
+  assert.ok(/background-size:100% 3\.95em/.test(tile), 'подложка места кадра перестала быть полосой: ' + tile);
+  const bg = /background-color:(#[0-9A-Fa-f]{6})/.exec(tile);
+  assert.ok(bg, 'у плитки нет непрозрачного фона под подписью: ' + tile);
+  assert.equal(bg[1], '#1C1613', 'фон плитки не P.panel: ' + bg[1]);
+  /* background-color обязан стоять ПОСЛЕ шортката background, иначе тот
+     его же и сбросит. */
+  assert.ok(tile.indexOf('background-color:') > tile.lastIndexOf('background:'), 'background-color сброшен шорткатом: ' + tile);
+  for (const one of ['.lumen-episode__caption', '.lumen-episode__timecode']) {
+    const cap = lastDecl(flatCss, '.lumen-card .lumen-episode:not(.focus) ' + one);
+    assert.ok(cap && /color:#A89A8A/.test(cap), one + ' под кадром не стал muted: ' + cap);
+  }
+  /* Фокус не тронут: инверсия Task 54 красит подпись в P.bg на светлой
+     заливке, и правило подписи обязано её пропускать. */
+  const plain = ruleSelectors(css);
+  for (const sel of ruleSelectors(flatCss)) {
+    if (plain.indexOf(sel) !== -1) continue;
+    if (sel.indexOf('.lumen-episode__caption') === -1 && sel.indexOf('.lumen-episode__timecode') === -1) continue;
+    assert.ok(sel.indexOf(':not(.focus)') !== -1, 'правило подписи задевает фокус: ' + sel);
+  }
 });
 
 /* Верхняя строка плитки в плоском виде лежит ПОВЕРХ кадра, а не поверх

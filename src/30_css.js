@@ -3603,22 +3603,61 @@
       css.push('.lumen-descr-row .tag-count:not(.focus){background-color:transparent;padding-left:0;padding-right:0}');
       css.push('.lumen-descr-row .tag-count:not(.focus) .tag-count__count{background-color:transparent;color:' + P.muted + ';padding-left:.3em;padding-right:0}');
 
-      /* Плитки серий: кадр сверху, подпись под ним. Высота ряда не
-         меняется (6.58em, .lumen-episodes__viewport выше) — полный кадр
-         16:9 при ширине плитки 14.9em занял бы 8.38em, и ряд пришлось бы
-         растить, а вместе с ним двигать всю карточку. Поэтому кадр —
-         полоса 3.95em с обрезкой по cover (background-size:cover в базовом
-         правиле), под ней 2.02em на название и подпись.
-         Подложка кадра (linear-gradient размером 100%×3.95em) рисуется
-         ФОНОМ САМОЙ ПЛИТКИ, то есть под .lumen-episode__still: у сериалов
-         без кадров и у плиток, чья картинка ещё не доехала, место кадра
-         остаётся местом кадра, а не пустотой над подписью.
+      /* Плитки серий: кадр сверху, подпись под ним. Кадр — полоса 3.95em с
+         обрезкой по cover (background-size:cover в базовом правиле): полный
+         кадр 16:9 при ширине плитки 14.9em занял бы 8.38em.
+         Ревью 2026-09-22 (п.1): высота 6.58em обычного вида под эту
+         раскладку не подходит — арифметика не сходилась, и подпись лезла на
+         кадр. Считаем в em плитки (box-sizing:border-box, рамка .04em с
+         каждой стороны, нижний паддинг .61em): контенту доступно
+         6.58 − .08 − .61 = 5.89em, а нужно 3.95em кадра плюс подпись —
+         .35em её верхнего паддинга, 1.212em названия (1.01em × line-height
+         1.2), .31em отступа и 1.01em самой подписи, то есть 2.882em, а у
+         «смотрите» ещё полоса прогресса (.44em отступа и .18em высоты) —
+         3.502em. Итого 7.452em против 5.89em. Ни один из двух flex-детей
+         сжаться на эту разницу не мог: у .lumen-episode__bottom нет своего
+         min-height, значит min-height:auto, — сжимался кадр, а .__still
+         (absolute, height:3.95em) и подложка под ним оставались на 3.95em.
+         Замер на стенде 960×540@2 до правки, «Ранчо Даттонов», серия без
+         прогресса: .__top 35.58px вместо заданных 48.05px, название лежало
+         на кадре 8.22px из своих 14.73px — и лежало НИЖЕ градиента верхней
+         строки, то есть без всякого затемнения.
+         Поэтому в плоском виде ряд выше обычного: .08 + 3.95 + 3.502 + .61
+         = 8.142em, округлено до 8.15em (и та же высота у viewport ряда).
+         Цена — 1.57em высоты карточки в плоском виде, платится один раз и
+         только при включённой настройке.
+         Кадру (.__top) задан flex:none: полоса кадра, градиент верхней
+         строки и .__still обязаны совпадать по высоте всегда, а не только
+         пока арифметика сходится.
+         Подложка МЕСТА КАДРА (linear-gradient размером 100%×3.95em)
+         рисуется ФОНОМ САМОЙ ПЛИТКИ, то есть под .lumen-episode__still: у
+         сериалов без кадров и у плиток, чья картинка ещё не доехала, место
+         кадра остаётся местом кадра, а не пустотой над подписью.
+         Ревью 2026-09-22 (п.2): под этой подложкой плитке нужен свой
+         НЕПРОЗРАЧНЫЙ цвет. Полоса 3.95em накрывала только кадр, под
+         подписью фона у плитки не было вовсе, и там просвечивал бэкдроп
+         карточки под вуалью — фон подписи менялся от фильма к фильму и от
+         плитки к плитке (вуаль слабеет к правому краю: .96 → .35 по
+         ширине экрана, src/50_backdrops.js). Замер WCAG 2.1 по токенам:
+         подпись smoke на чистом P.bg — 3.82:1 в тёплой теме и 4.92:1 в
+         «Глубокой чёрной», а на светлом кадре под вуалью плотностью .76 —
+         1.54:1. Именно поэтому цвета тут мало: непрозрачный P.panel даёт
+         подписи детерминированные 3.44:1 и 4.45:1, а вместе со сменой
+         цвета на muted (ниже) — 6.52:1 и 7.84:1. Название (P.text) на том
+         же фоне — 15.38:1 и 16.99:1.
+         Цвет подложки — P.panel, а не P.panelLo: он ближе всего к цвету
+         вуали карточки (rgba(33,24,20) в тёплой теме), и плашка плитки не
+         читается на фоне отдельным прямоугольником.
+         В фокусе ни подложка, ни цвет подписи не участвуют: инверсия
+         Task 54 (.lumen-card .lumen-episode.focus) специфичнее и её
+         background-шорткат сбрасывает и картинку, и цвет.
          Паддинг плитки уходит только сверху и с боков — кадр обязан
          касаться краёв; нижние .61em держат зазор между подписью и
          следующей строкой. Тот же паддинг повторён для .focus: инверсия
          Task 54 берёт своё из базового правила фокуса, а её padding:.70em
          сдвинул бы содержимое плитки в момент фокуса. */
-      css.push('.lumen-card .lumen-episode{padding:0 0 .61em;border-radius:.3em;background:-webkit-linear-gradient(rgba(' + P.textRgb + ',.08),rgba(' + P.textRgb + ',.08));background:linear-gradient(rgba(' + P.textRgb + ',.08),rgba(' + P.textRgb + ',.08));background-repeat:no-repeat;-webkit-background-size:100% 3.95em;background-size:100% 3.95em;border-color:transparent;-webkit-box-pack:start;-webkit-justify-content:flex-start;justify-content:flex-start}');
+      css.push('.lumen-card .lumen-episodes__viewport{height:8.15em}');
+      css.push('.lumen-card .lumen-episode{height:8.15em;padding:0 0 .61em;border-radius:.3em;background:-webkit-linear-gradient(rgba(' + P.textRgb + ',.08),rgba(' + P.textRgb + ',.08));background:linear-gradient(rgba(' + P.textRgb + ',.08),rgba(' + P.textRgb + ',.08));background-repeat:no-repeat;-webkit-background-size:100% 3.95em;background-size:100% 3.95em;background-color:' + P.panel + ';border-color:transparent;-webkit-box-pack:start;-webkit-justify-content:flex-start;justify-content:flex-start}');
       css.push('.lumen-card .lumen-episode.focus{padding:0 0 .61em}');
       css.push('.lumen-card .lumen-episode__still{bottom:auto;height:3.95em;opacity:1;border-radius:.3em}');
       /* В фокусе кадр не приглушается: приглушение .12 (Task 54) написано
@@ -3637,7 +3676,7 @@
          кадра на .28 даёт 1.9:1 и 2.6:1 — то есть плоский вид тут не
          ухудшение, а исправление. Градиент сходит на нет к низу кадра:
          подписи под кадром он не касается. */
-      css.push('.lumen-card .lumen-episode__top{height:3.95em;-webkit-box-sizing:border-box;box-sizing:border-box;padding:.35em .44em;-webkit-box-align:start;-webkit-align-items:flex-start;align-items:flex-start;background:-webkit-linear-gradient(top,rgba(' + P.bgRgb + ',.72) 0%,rgba(' + P.bgRgb + ',.28) 55%,rgba(' + P.bgRgb + ',0) 100%);background:linear-gradient(180deg,rgba(' + P.bgRgb + ',.72) 0%,rgba(' + P.bgRgb + ',.28) 55%,rgba(' + P.bgRgb + ',0) 100%)}');
+      css.push('.lumen-card .lumen-episode__top{height:3.95em;-webkit-box-flex:0;-webkit-flex:none;flex:none;-webkit-box-sizing:border-box;box-sizing:border-box;padding:.35em .44em;-webkit-box-align:start;-webkit-align-items:flex-start;align-items:flex-start;background:-webkit-linear-gradient(top,rgba(' + P.bgRgb + ',.72) 0%,rgba(' + P.bgRgb + ',.28) 55%,rgba(' + P.bgRgb + ',0) 100%);background:linear-gradient(180deg,rgba(' + P.bgRgb + ',.72) 0%,rgba(' + P.bgRgb + ',.28) 55%,rgba(' + P.bgRgb + ',0) 100%)}');
       /* Цвет текста НАД кадром — и в покое, и в фокусе. В фокусе инверсия
          Task 54 красит номер и метку в P.bg под светлую заливку карты, но в
          плоском виде под ними кадр, а не заливка: на тёмном кадре тёмный
@@ -3653,6 +3692,18 @@
          состояния из §9 плоский вид не отменяет. */
       css.push('.lumen-card .lumen-episode--watching .lumen-episode__top .lumen-episode__num{color:' + A + '}');
       css.push('.lumen-card .lumen-episode__bottom{padding-top:.35em}');
+      /* Подпись и таймкод под кадром — muted вместо smoke. Под кадром у
+         плитки нет ни рамки, ни отдельной карты, на которых держалась бы
+         иерархия «название ярче подписи», а smoke на подложке плитки даёт
+         3.44:1 в тёплой теме — ниже порога WCAG 4.5:1 (кегль 1.01em ≈ 11.5
+         CSS px при 960×540, это не «крупный текст»). С muted — 6.52:1 и
+         7.84:1 в «Глубокой чёрной». Название остаётся ярче подписи и так:
+         P.text против P.muted.
+         :not(.focus) обязателен: у инверсии Task 54 селектор
+         .lumen-card .lumen-episode.focus .lumen-episode__caption — те же
+         четыре класса, и правило без отсечки перебило бы её порядком,
+         вернув светлую подпись на светлую заливку фокуса. */
+      css.push('.lumen-card .lumen-episode:not(.focus) .lumen-episode__caption,.lumen-card .lumen-episode:not(.focus) .lumen-episode__timecode{color:' + P.muted + '}');
       /* Отдельных правил для состояний плитки здесь нет намеренно: у
          .lumen-episode--watching и --soon селекторы той же специфичности,
          что у базового правила плитки выше, и оно стоит ПОЗЖЕ — заливка и
