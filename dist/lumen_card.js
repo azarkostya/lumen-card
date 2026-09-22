@@ -3731,6 +3731,49 @@ css.push('.lumen-main .card__quality,.lumen-main .card__type{display:none}');
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+css.push('.lumen-main .card.focus .card-watched{display:none}');
+
+
+
+
+
+
+
+
+
 if (LC.badgesMode() !== 'off') css.push('.lumen-main .card__vote{display:none}');
 css.push('.lumen-main .card__title{font-family:' + FB + ';font-weight:700;font-size:' + cardTitleEm + 'em;line-height:' + CARD_TITLE_LH + ';white-space:nowrap;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis;color:' + P.muted + '}');
 css.push('.lumen-main .card.focus .card__title{color:' + P.text + '}');
