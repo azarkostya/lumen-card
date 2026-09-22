@@ -2282,7 +2282,12 @@ test('Task 71: детали приехали позже отсрочки — с�
   assert.equal(node.find('.lumen-hero__logo').css('background-image'), 'url("' + LOGO_URL + '")');
 });
 
-test('Task 71: логотип не загрузился — остаётся текст, и второй раз его не просят', () => {
+/* Ревью 2026-09-22 (М5): неудача запоминается в два шага. Первый провал —
+   в том числе по страховочному таймауту, а его даёт и живое, но медленное
+   соединение — больше не хоронит логотип фильма до перезахода: за ним
+   сходят ещё раз. Второй провал окончателен, бесконечных попыток на
+   каждый фокус как не было, так и нет. */
+test('Task 71: логотип не загрузился — остаётся текст, повтор ровно один', () => {
   const { env, main, node } = heroIn('lite');
   env.advance(200);
   env.requests[0].ok(LOGO_RU);
@@ -2290,15 +2295,58 @@ test('Task 71: логотип не загрузился — остаётся т�
   assert.equal(node.hasClass('lumen-hero--logo'), false, 'битый логотип не имеет права прятать заголовок');
   assert.equal(node.find('.lumen-hero__title').text(), 'Первый');
 
-  /* Та же картинка у следующей карточки: повторной попытки в сессии нет. */
+  /* Та же картинка у следующей карточки: одна повторная попытка. */
   main.card1.removeClass('focus');
   main.card2.addClass('focus');
   fireFocus(main.activity, main.card2);
   env.advance(350);
   env.advance(200);
   env.requests[1].ok(LOGO_RU);
-  assert.equal(logoLoads(env).length, 1, 'за логотипом ушёл второй запрос — кэш неудач не работает');
+  assert.equal(logoLoads(env).length, 2, 'повторной попытки за логотипом не было');
+  logoLoader(env).onerror();
   assert.equal(node.hasClass('lumen-hero--logo'), false);
+
+  /* А третьей попытки нет: после второго провала картинка помечена
+     окончательно. */
+  main.card2.removeClass('focus');
+  main.card1.addClass('focus');
+  fireFocus(main.activity, main.card1);
+  env.advance(350);
+  env.advance(200);
+  env.requests[2].ok(LOGO_RU);
+  assert.equal(logoLoads(env).length, 2, 'за логотипом ушёл третий запрос — кэш неудач не работает');
+  assert.equal(node.hasClass('lumen-hero--logo'), false);
+  assert.deepEqual(warnLog, []);
+});
+
+/* Повтор — ровно повтор, а не «пока не выйдет»: удачная вторая попытка
+   ставит логотип и снимает пометку, третьего запроса за той же картинкой
+   уже не будет. */
+test('Task 71 (ревью М5): вторая попытка удалась — логотип встал, дальше он известен', () => {
+  const { env, main, node } = heroIn('lite');
+  env.advance(200);
+  env.requests[0].ok(LOGO_RU);
+  logoLoader(env).onerror();
+  assert.equal(node.hasClass('lumen-hero--logo'), false);
+
+  main.card1.removeClass('focus');
+  main.card2.addClass('focus');
+  fireFocus(main.activity, main.card2);
+  env.advance(350);
+  env.advance(200);
+  env.requests[1].ok(LOGO_RU);
+  assert.equal(logoLoads(env).length, 2, 'повторной попытки за логотипом не было');
+  logoLoader(env).onload();
+  assert.equal(node.hasClass('lumen-hero--logo'), true, 'удачный повтор обязан поставить логотип');
+
+  main.card2.removeClass('focus');
+  main.card1.addClass('focus');
+  fireFocus(main.activity, main.card1);
+  env.advance(350);
+  env.requests[2].ok(LOGO_RU);
+  env.advance(200);
+  assert.equal(logoLoads(env).length, 2, 'лишняя предзагрузка: логотип уже известен');
+  assert.equal(node.hasClass('lumen-hero--logo'), true);
   assert.deepEqual(warnLog, []);
 });
 

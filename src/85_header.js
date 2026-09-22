@@ -797,15 +797,39 @@
     }
   }
 
+  /* Ревью 2026-09-22 (М3): пересборка ряда снимает из DOM все прежние
+     плитки, а снимок .selector'ов у Navigator их помнит (см. комментарий
+     recollectEpisodes выше) — пульт ходил бы по мёртвым узлам ровно так
+     же, как ходил бы после сдвига окна без пересбора. Дефект жил здесь со
+     времён Task 5, но функция пересбора появилась только в Task 67.
+     Зовём её ТОЛЬКО если ряд уже был построен: на первой сборке карточки
+     (decorate приходит дважды — на 'build' и на 'complite') коллекцию
+     собирает сама Lampa, и лезть в неё раньше неё незачем.
+     Фокус сохраняем, если он был ВНЕ ряда серий: его узел пересборку
+     пережил. Если фокус стоял на плитке серии, узла больше нет, и
+     collectionFocus(false) уводит на первый .selector карточки — это
+     всё равно лучше, чем фокус на узле вне документа. */
   function renderEpisodes(root, data) {
     var row = root.find('.lumen-episodes');
-    if (!row.length) return;
+    var had = row.length ? !!row[0].lumenEpisodes : false;
+    var keep = null;
+    if (had) {
+      var cur = root.find('.selector.focus');
+      if (cur.length && !cur.hasClass('lumen-episode')) keep = cur[0];
+    }
+    if (buildEpisodes(root, data) && had) recollectEpisodes(root, keep);
+  }
+
+  /* Возвращает true, если DOM ряда тронут (ряд пересобран или опустошён). */
+  function buildEpisodes(root, data) {
+    var row = root.find('.lumen-episodes');
+    if (!row.length) return false;
 
     var movie = (data && data.movie) || {};
     var list = data && data.episodes && data.episodes.episodes;
     var sign = episodesSign(list);
     var previous = row[0].lumenEpisodes;
-    if (previous && list && previous.list === list && previous.sign === sign) return;
+    if (previous && list && previous.list === list && previous.sign === sign) return false;
 
     var track = row.find('.lumen-episodes__track');
     row.addClass('hide');
@@ -814,7 +838,7 @@
     setSpacer(track, 0, 0);
     row[0].lumenEpisodes = null;
 
-    if (!isSerial(movie) || !list || !list.length) return;
+    if (!isSerial(movie) || !list || !list.length) return true;
 
     var season = parseInt(data.episodes.season_number, 10) || parseInt(list[0] && list[0].season_number, 10) || 0;
     var key = movie.original_name || movie.original_title || '';
@@ -838,7 +862,7 @@
         still: LC.cardinfo.imageUrl(ep.still_path, stillW, tmdbImageFn(), apiImgFn())
       });
     }
-    if (!eps.length) return;
+    if (!eps.length) return true;
 
     var nodes = [];
     for (i = 0; i < eps.length; i++) nodes.push(null);
@@ -862,6 +886,7 @@
     row.find('.lumen-episodes__title').text(season ? LC.lang('lumen_card_season') + ' ' + season : (data.episodes.name || ''));
     row.find('.lumen-episodes__count').text(eps.length + ' ' + LC.episodesWord(eps.length));
     row.removeClass('hide');
+    return true;
   }
 
   /* Step 3: длинный ряд — сдвиг дорожки к фокусной карточке. Контроллер Lampa

@@ -1287,7 +1287,19 @@
        карточка 340×150, radius 14, padding 18, зазор 16. Дорожка — absolute
        внутри viewport фиксированной высоты: длинный ряд не раздувает
        колонку (и flex-фолбэк без grid), выходит за правый край экрана и
-       сдвигается transform'ом к фокусу (LC.header scrollToEpisode). */
+       сдвигается transform'ом к фокусу (LC.header scrollToEpisode).
+       contain:layout paint на плитке (Step 3 плана Task 67) НЕ ставится —
+       замерено, а не пропущено. Стенд 960×540@2, «Дораэмон», окно из 25
+       плиток; один замер — полный сдвиг окна (снять 10 узлов слева,
+       добавить 10 справа, сменить распорку и прочитать scrollWidth с
+       offsetLeft), медиана двенадцати: 1.6 мс с contain и 1.6 мс без
+       (первый прогон каждой серии — 2.4 и 2.0 мс, это прогрев). Выигрыша
+       нет и быть не может: плитка — flex:none с заданными шириной и
+       высотой, её раскладка на соседей не влияет и без contain, а при
+       сдвиге окна дорожка всё равно перерисовывается целиком. К тому же
+       contain:paint завёл бы плитке новый containing block — лишний риск
+       ради нуля. Замер исполнителя Task 67 (5.6–5.7 мс против 5.3 мс на
+       его прогоне) дал тот же вывод. */
     css.push('.lumen-card .lumen-episodes{margin-top:1.75em}');
     css.push('.lumen-card .lumen-episodes__head{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:baseline;-webkit-align-items:baseline;align-items:baseline;margin-bottom:.79em}');
     css.push('.lumen-card .lumen-episodes__title{font-family:' + FB + ';font-weight:700;font-size:1.23em;line-height:1;color:' + P.text + ';margin-right:.5em}');

@@ -121,14 +121,23 @@ function serial(n) {
 /* Геометрия дорожки: карточка 340 + зазор 16, viewport с x = 64, экран 1920.
    Task 67: позиция плитки считается от её МЕСТА В СЕЗОНЕ (lumenPos), а не от
    номера в дорожке — за краем окна узлов нет, и их место держит распорка.
-   total — длина всего сезона: ширина дорожки не зависит от размера окна. */
+   total — длина всего сезона: ширина дорожки не зависит от размера окна.
+   Ревью 2026-09-22 (М2): последний зазор из scrollWidth больше не
+   вычитается. Замер на стенде 960×540@2: у короткого сезона (9 плиток,
+   распорок нет) scrollWidth дорожки равен offsetLeft последней плитки
+   плюс её ширина И её margin-right — 1601 px при 1423 + 170 + 7.98, — а
+   у «Дораэмона» (окно 25 плиток, padding-right 19038 px) scrollWidth
+   равен clientWidth, то есть распорка в него тоже входит. Дорожка —
+   absolute с overflow:visible, её ширина shrink-to-fit и считается по
+   содержимому вместе с паддингом, поэтому модель здесь — ровно
+   total × шаг. */
 function layout(track, total) {
   track._children.forEach((n, i) => {
     const pos = typeof n.lumenPos === 'number' ? n.lumenPos : i;
     n.offsetLeft = pos * 356;
     n.offsetWidth = 340;
   });
-  track.scrollWidth = (total || track._children.length) * 356 - 16;
+  track.scrollWidth = (total || track._children.length) * 356;
 }
 
 /* Task 67: узел серии по её месту в сезоне — или null, если он сейчас за
@@ -449,6 +458,57 @@ test('Task 67: сдвиг окна пересобирает коллекцию N
   assert.deepEqual(warnLog, []);
 });
 
+/* Ревью 2026-09-22 (М3): ряд пересобирают не только сдвигом окна. Смена
+   сигнатуры списка (другой сезон, догрузка серий) сносит ВСЕ плитки
+   разом — и без пересбора снимок Navigator остаётся с мёртвыми узлами.
+   На первой сборке карточки коллекцию собирает сама Lampa, и лезть
+   раньше неё незачем. */
+test('Task 67 (ревью М3): пересборка ряда другим списком тоже пересобирает коллекцию', () => {
+  const c = makeCard();
+  const calls = [];
+  const prev = Lampa.Controller;
+  Lampa.Controller = {
+    enabled: () => ({ name: 'full_start' }),
+    collectionSet: (html) => calls.push(['set', html]),
+    collectionFocus: (target, html) => calls.push(['focus', target, html])
+  };
+  try {
+    LC.header.decorate(c.root, serial(8));
+    assert.deepEqual(calls, [], 'первая сборка ряда коллекцию Lampa не трогает');
+
+    /* Фокус вне ряда серий — на кнопке карточки: её узел пересборку
+       переживает, и возвращать надо именно его. */
+    const button = c.play;
+    button.addClass('focus');
+    LC.header.decorate(c.root, serial(5));
+    assert.equal(calls.length, 2, 'ряд пересобран, а коллекция — нет: ' + calls.map((one) => one[0]).join(','));
+    assert.equal(calls[0][0], 'set');
+    assert.equal(calls[0][1], c.root, 'коллекция собирается по корню карточки');
+    assert.equal(calls[1][1], button, 'фокус вне ряда обязан вернуться на свой узел');
+
+    /* Тот же список второй раз — ряд не трогается, значит и коллекция. */
+    calls.length = 0;
+    const same = serial(5);
+    LC.header.decorate(c.root, same);
+    calls.length = 0;
+    LC.header.decorate(c.root, same);
+    assert.deepEqual(calls, [], 'ряд не пересобирался — коллекцию трогать не за что');
+
+    /* Фокус стоял на плитке серии: её узла больше нет, и вернуть его
+       нельзя — уходим на первый .selector карточки (collectionFocus
+       с false). */
+    calls.length = 0;
+    button.removeClass('focus');
+    c.track._children[0].addClass('focus');
+    LC.header.decorate(c.root, serial(9));
+    assert.equal(calls.length, 2, 'ряд пересобран, а коллекция — нет');
+    assert.equal(calls[1][1], false, 'мёртвый узел плитки не имеет права остаться фокусом');
+  } finally {
+    Lampa.Controller = prev;
+  }
+  assert.deepEqual(warnLog, []);
+});
+
 /* Карточка, оставленная в истории Lampa, остаётся живым DOM, и пересбор по
    ней увёл бы навигацию с видимого экрана (тот же урок, что у кнопки «Стоп»
    трейлера). Имени контроллера для различения не хватает: у обеих карточек
@@ -548,7 +608,13 @@ test('scrollToEpisode: сдвиг к фокусной карточке, гран
   assert.equal(c.track.css('transform'), 'translate3d(-78px,0,0)');
 
   fire(c.root, 'hover:focus', c.track._children[7]);
-  assert.equal(c.track.lumenShift, 976, 'сдвиг не больше ширины дорожки минус видимая часть');
+  /* Потолок — ширина дорожки минус видимая часть: 8 × 356 − 1856 = 992.
+     Ревью 2026-09-22 (М2): до правки модели здесь стояло 976 — на один
+     зазор меньше, потому что зазор вычитался из scrollWidth, чего Blink
+     не делает (замер у layout выше). Последняя плитка у упора отстоит от
+     правого края экрана ровно на свой margin-right, а не прижимается к
+     нему вплотную. */
+  assert.equal(c.track.lumenShift, 992, 'сдвиг не больше ширины дорожки минус видимая часть');
 
   fire(c.root, 'hover:focus', c.track._children[0]);
   assert.equal(c.track.lumenShift, 0);

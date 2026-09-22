@@ -1794,6 +1794,18 @@ css.push('.lumen-card .lumen-quality-chip{font-family:' + FB + ';font-weight:600
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
 css.push('.lumen-card .lumen-episodes{margin-top:1.75em}');
 css.push('.lumen-card .lumen-episodes__head{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:baseline;-webkit-align-items:baseline;align-items:baseline;margin-bottom:.79em}');
 css.push('.lumen-card .lumen-episodes__title{font-family:' + FB + ';font-weight:700;font-size:1.23em;line-height:1;color:' + P.text + ';margin-right:.5em}');
@@ -10692,6 +10704,14 @@ color: LC.themes.particleColor(theme),
 
 
 
+
+
+
+
+
+
+
+
 paused: function () { return !!(state && (state.trailer || state.compact)); }
 });
 } catch (e3) {
@@ -10888,7 +10908,17 @@ loader.onload = null;
 loader.onerror = null;
 
 
-logoSeen[path] = ok ? 'ok' : 'fail';
+
+
+
+
+
+
+
+
+
+
+logoSeen[path] = ok ? 'ok' : (logoSeen[path] === 'retry' ? 'fail' : 'retry');
 if (gen !== captured || !state || !isMounted()) return;
 stopTimer('logoTimer');
 state.logoLoader = null;
@@ -10910,6 +10940,7 @@ finish(!!(loader.complete && loader.naturalWidth));
 }, LOAD_TIMEOUT);
 loader.src = url;
 }
+
 
 
 
@@ -16130,6 +16161,26 @@ var LITE_DELAYS = [120, 140, 170, 210, 260, 330, 420, 550];
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+function land(plan, n) {
+if (!plan.length) return plan;
+var shift = (n - 1 - plan[plan.length - 1].index % n + n) % n;
+if (shift) {
+for (var i = 0; i < plan.length; i++) plan[i].index = (plan[i].index + shift) % n;
+}
+return plan;
+}
+
 function spinPlan(total, mode) {
 var plan = [];
 var n = Number(total) || 0;
@@ -16149,8 +16200,7 @@ for (i = 0; i < delays.length; i++) {
 index = (index + 1) % n;
 plan.push({ index: index, delay: delays[i] });
 }
-plan[plan.length - 1].index = n - 1;
-return plan;
+return land(plan, n);
 }
 
 var FAST = 40;
@@ -16174,8 +16224,7 @@ plan.push({ index: index, delay: brake[i] });
 }
 
 
-plan[plan.length - 1].index = n - 1;
-return plan;
+return land(plan, n);
 }
 
 
@@ -27412,15 +27461,39 @@ warn('episodes collection failed', e);
 }
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
 function renderEpisodes(root, data) {
 var row = root.find('.lumen-episodes');
-if (!row.length) return;
+var had = row.length ? !!row[0].lumenEpisodes : false;
+var keep = null;
+if (had) {
+var cur = root.find('.selector.focus');
+if (cur.length && !cur.hasClass('lumen-episode')) keep = cur[0];
+}
+if (buildEpisodes(root, data) && had) recollectEpisodes(root, keep);
+}
+
+
+function buildEpisodes(root, data) {
+var row = root.find('.lumen-episodes');
+if (!row.length) return false;
 
 var movie = (data && data.movie) || {};
 var list = data && data.episodes && data.episodes.episodes;
 var sign = episodesSign(list);
 var previous = row[0].lumenEpisodes;
-if (previous && list && previous.list === list && previous.sign === sign) return;
+if (previous && list && previous.list === list && previous.sign === sign) return false;
 
 var track = row.find('.lumen-episodes__track');
 row.addClass('hide');
@@ -27429,7 +27502,7 @@ setShift(track, 0);
 setSpacer(track, 0, 0);
 row[0].lumenEpisodes = null;
 
-if (!isSerial(movie) || !list || !list.length) return;
+if (!isSerial(movie) || !list || !list.length) return true;
 
 var season = parseInt(data.episodes.season_number, 10) || parseInt(list[0] && list[0].season_number, 10) || 0;
 var key = movie.original_name || movie.original_title || '';
@@ -27453,7 +27526,7 @@ hash: hash,
 still: LC.cardinfo.imageUrl(ep.still_path, stillW, tmdbImageFn(), apiImgFn())
 });
 }
-if (!eps.length) return;
+if (!eps.length) return true;
 
 var nodes = [];
 for (i = 0; i < eps.length; i++) nodes.push(null);
@@ -27477,6 +27550,7 @@ if (nodes[i] && nodes[i].hasClass('lumen-episode--watching')) { loadStills(nodes
 row.find('.lumen-episodes__title').text(season ? LC.lang('lumen_card_season') + ' ' + season : (data.episodes.name || ''));
 row.find('.lumen-episodes__count').text(eps.length + ' ' + LC.episodesWord(eps.length));
 row.removeClass('hide');
+return true;
 }
 
 
