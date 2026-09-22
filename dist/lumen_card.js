@@ -24617,17 +24617,20 @@ lumen_group_preset: { ru: 'Готовый стиль', en: 'Ready-made style', u
 
 
 
+
+
+
 lumen_preset_appletv_name: { ru: 'Применить стиль Apple TV', en: 'Apply the Apple TV style', uk: 'Застосувати стиль Apple TV' },
 lumen_preset_appletv_descr: {
-ru: 'Нейтральный стиль вместо тёплого. Выставляет восемь пунктов «Оформления» разом: тема «Глубокая чёрная», акцент «Графит», шрифт Inter, метки «В подписи», цвет постера «Только фон», плоский вид включён, кадр над рядами «Крупный», акцент от постера включён. Последние два — значения по умолчанию плагина: если вы меняли их руками, кнопка вернёт их обратно. Ключ API, масштаб, анимации, заставку, состав рядов и настройки самой Lampa не трогает. После кнопки любой пункт правится по отдельности.',
-en: 'A neutral style instead of the warm one. It sets eight items of "Appearance" at once: the "Deep black" theme, the "Graphite" accent, the Inter font, badges "In the caption", poster colour "Background only", flat look on, hero "Large", accent from poster on. The last two are the plugin defaults: if you changed them by hand, the button changes them back. The API key, scale, animations, screensaver, row selection and Lampa own settings stay untouched. After the button every item can be adjusted one by one.',
-uk: 'Нейтральний стиль замість теплого. Виставляє вісім пунктів «Оформлення» разом: тема «Глибока чорна», акцент «Графіт», шрифт Inter, мітки «У підписі», колір постера «Лише тло», плаский вигляд увімкнено, кадр над рядами «Великий», акцент від постера увімкнено. Останні два — значення за замовчуванням плагіна: якщо ви змінювали їх руками, кнопка поверне їх назад. Ключ API, масштаб, анімації, заставку, склад рядів і налаштування самої Lampa не чіпає. Після кнопки кожен пункт правиться окремо.'
+ru: 'Нейтральный стиль вместо тёплого. Выставляет девять пунктов «Оформления» разом: тема «Глубокая чёрная», акцент «Графит», шрифт Inter, метки «В подписи», цвет постера «Только фон», плоский вид включён, кадр над рядами «Крупный», логотип названия в кадре включён, акцент от постера включён. Последние три — значения по умолчанию плагина: если вы меняли их руками, кнопка вернёт их обратно. Ключ API, масштаб, анимации, заставку, состав рядов и настройки самой Lampa не трогает. После кнопки любой пункт правится по отдельности.',
+en: 'A neutral style instead of the warm one. It sets nine items of "Appearance" at once: the "Deep black" theme, the "Graphite" accent, the Inter font, badges "In the caption", poster colour "Background only", flat look on, hero "Large", the title logo in the hero on, accent from poster on. The last three are the plugin defaults: if you changed them by hand, the button changes them back. The API key, scale, animations, screensaver, row selection and Lampa own settings stay untouched. After the button every item can be adjusted one by one.',
+uk: 'Нейтральний стиль замість теплого. Виставляє дев’ять пунктів «Оформлення» разом: тема «Глибока чорна», акцент «Графіт», шрифт Inter, мітки «У підписі», колір постера «Лише тло», плаский вигляд увімкнено, кадр над рядами «Великий», логотип назви в кадрі увімкнено, акцент від постера увімкнено. Останні три — значення за замовчуванням плагіна: якщо ви змінювали їх руками, кнопка поверне їх назад. Ключ API, масштаб, анімації, заставку, склад рядів і налаштування самої Lampa не чіпає. Після кнопки кожен пункт правиться окремо.'
 },
 lumen_preset_lumen_name: { ru: 'Вернуть стиль Lumen', en: 'Restore the Lumen style', uk: 'Повернути стиль Lumen' },
 lumen_preset_lumen_descr: {
-ru: 'Возвращает те же восемь пунктов к значениям по умолчанию плагина: тёплая тёмная тема, песочный акцент, шрифт Golos Text, метки «На постере», полная подкраска от постера, плоский вид выключен, кадр над рядами «Крупный», акцент от постера включён. Настройки вне оформления остаются вашими.',
-en: 'Returns the same eight items to the plugin defaults: warm dark theme, sand accent, the Golos Text font, badges "On the poster", full poster tinting, flat look off, hero "Large", accent from poster on. Everything outside the look stays yours.',
-uk: 'Повертає ті самі вісім пунктів до значень за замовчуванням плагіна: тепла темна тема, піщаний акцент, шрифт Golos Text, мітки «На постері», повне підфарбування від постера, плаский вигляд вимкнено, кадр над рядами «Великий», акцент від постера увімкнено. Налаштування поза оформленням лишаються вашими.'
+ru: 'Возвращает те же девять пунктов к значениям по умолчанию плагина: тёплая тёмная тема, песочный акцент, шрифт Golos Text, метки «На постере», полная подкраска от постера, плоский вид выключен, кадр над рядами «Крупный», логотип названия в кадре включён, акцент от постера включён. Настройки вне оформления остаются вашими.',
+en: 'Returns the same nine items to the plugin defaults: warm dark theme, sand accent, the Golos Text font, badges "On the poster", full poster tinting, flat look off, hero "Large", the title logo in the hero on, accent from poster on. Everything outside the look stays yours.',
+uk: 'Повертає ті самі дев’ять пунктів до значень за замовчуванням плагіна: тепла темна тема, піщаний акцент, шрифт Golos Text, мітки «На постері», повне підфарбування від постера, плаский вигляд вимкнено, кадр над рядами «Великий», логотип назви в кадрі увімкнено, акцент від постера увімкнено. Налаштування поза оформленням лишаються вашими.'
 },
 
 
@@ -26413,8 +26416,12 @@ return null;
 
 
 
+
+
+
+
 var PRESET_KEYS = ['lumen_theme', 'lumen_card_accent', 'lumen_font', 'lumen_accent_auto',
-'lumen_accent_scope', 'lumen_hero_size', 'lumen_badges', 'lumen_flat'];
+'lumen_accent_scope', 'lumen_hero_size', 'lumen_hero_logo', 'lumen_badges', 'lumen_flat'];
 
 
 

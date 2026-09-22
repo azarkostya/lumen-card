@@ -598,22 +598,34 @@ test('Task 62b: строки уведомления о готовом стиле
 
 /* Task 73 (фаза 6): описания ОБЕИХ кнопок обязаны называть все пункты,
    которые кнопка переписывает, — иначе человек узнаёт о правке своей
-   настройки уже после нажатия. Пунктов стало восемь; сторож сверяет и
-   число словом, и упоминание нового пункта, во всех трёх языках. */
-test('Task 73: описания кнопок стиля называют все восемь пунктов, включая плоский вид', () => {
+   настройки уже после нажатия. Ревью 2026-09-22 (п.4): пунктов девять —
+   к восьми добавился логотип названия, выпавший из набора при сборке
+   Task 73. Сторож сверяет и число словом, и упоминание обоих поздних
+   пунктов, во всех трёх языках. */
+test('Task 73: описания кнопок стиля называют все девять пунктов, включая плоский вид и логотип', () => {
   const LC = loadStrings();
-  assert.equal(prefs.PRESET_KEYS.length, 8, 'набор стиля изменился — поправить описания кнопок');
-  const count = { ru: 'восемь', en: 'eight', uk: 'вісім' };
-  const flat = { ru: 'плоский вид', en: 'flat look', uk: 'плаский вигляд' };
+  assert.equal(prefs.PRESET_KEYS.length, 9, 'набор стиля изменился — поправить описания кнопок');
+  const count = { ru: 'девять', en: 'nine', uk: 'дев’ять' };
+  const named = {
+    ru: ['плоский вид', 'логотип названия'],
+    en: ['flat look', 'title logo'],
+    uk: ['плаский вигляд', 'логотип назви']
+  };
   for (const key of ['lumen_preset_appletv_descr', 'lumen_preset_lumen_descr']) {
     const pack = LC.STRINGS[key];
     for (const lang of LANGS) {
       const text = ('' + pack[lang]).toLowerCase();
       assert.ok(text.indexOf(count[lang]) !== -1, key + ' (' + lang + '): нет числа пунктов «' + count[lang] + '»');
-      assert.ok(text.indexOf(flat[lang]) !== -1, key + ' (' + lang + '): не назван плоский вид');
-      /* «восемь» само оканчивается на «семь», поэтому прежнее число ищется
+      for (const one of named[lang]) {
+        assert.ok(text.indexOf(one) !== -1, key + ' (' + lang + '): не назван пункт «' + one + '»');
+      }
+      /* «восемь» само оканчивается на «семь», поэтому прежние числа ищутся
          с границей слова, а не подстрокой. */
-      const stale = { ru: /(^|[^а-яё])семь пунктов/, en: /(^|[^a-z])seven items/, uk: /(^|[^а-яїієґ])сім пунктів/ };
+      const stale = {
+        ru: /(^|[^а-яё])(семь|восемь) пунктов/,
+        en: /(^|[^a-z])(seven|eight) items/,
+        uk: /(^|[^а-яїієґ])(сім|вісім) пунктів/
+      };
       assert.equal(stale[lang].test(text), false, key + ' (' + lang + '): в описании осталось прежнее число пунктов');
     }
   }
@@ -800,9 +812,14 @@ test('Task 62b: пресет трогает только оформление �
     assert.ok(forbidden.indexOf(key) === -1, 'пресет трогает чужую настройку: ' + key);
     assert.ok(prefs.find(key), 'ключа пресета нет в разделе настроек: ' + key);
   }
+  /* Ревью 2026-09-22 (п.4): lumen_hero_logo в наборе обязателен — стиль
+     обязан быть полным состоянием вида, а не разницей, и план фазы 6
+     оговаривал логотип прямо («в обоих стилях включён»). Без него
+     «Применить стиль Apple TV» давал Apple TV без title treatment, а
+     «Вернуть стиль Lumen» логотип не возвращал. */
   assert.deepEqual(prefs.PRESET_KEYS.slice().sort(), [
-    'lumen_accent_auto', 'lumen_accent_scope', 'lumen_badges',
-    'lumen_card_accent', 'lumen_flat', 'lumen_font', 'lumen_hero_size', 'lumen_theme'
+    'lumen_accent_auto', 'lumen_accent_scope', 'lumen_badges', 'lumen_card_accent',
+    'lumen_flat', 'lumen_font', 'lumen_hero_logo', 'lumen_hero_size', 'lumen_theme'
   ].sort());
 });
 
