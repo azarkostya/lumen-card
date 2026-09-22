@@ -10413,6 +10413,9 @@ var VIDEOS_LIFE = 10080;
 var SWAP_MS = 180;
 
 
+var TITLE_WAIT = 600;
+
+
 var LOAD_TIMEOUT = 8000;
 
 
@@ -10936,6 +10939,8 @@ stopTimer('swapTimer');
 
 
 stopTimer('logoTimer');
+
+stopTimer('titleTimer');
 if (state.logoLoader) {
 state.logoLoader.onload = null;
 state.logoLoader.onerror = null;
@@ -11275,7 +11280,15 @@ logoSeen[path] = ok ? 'ok' : (logoSeen[path] === 'retry' ? 'fail' : 'retry');
 if (gen !== captured || !state || !isMounted()) return;
 stopTimer('logoTimer');
 state.logoLoader = null;
-if (!ok) return;
+
+
+
+
+if (!ok) {
+if (state.model && state.model.logo === path) forceTitleText();
+return;
+}
+stopTimer('titleTimer');
 
 
 
@@ -11298,6 +11311,13 @@ loader.src = url;
 
 
 
+
+
+
+
+
+
+
 function applyLogo(node, model) {
 var path = logoAllowed() ? model.logo : null;
 
@@ -11311,10 +11331,86 @@ state.logoLoader = null;
 
 
 var url = path ? imageUrl(path, logoSizeFor(LC.util.emPx(LOGO_EM * TEXT_ZOOM, 1))) : '';
-if (!url || logoSeen[path] === 'fail') { hideLogo(node); return; }
-if (logoSeen[path] === 'ok') { showLogo(node, url); return; }
+if (!url || logoSeen[path] === 'fail') { hideLogo(node); return 'none'; }
+if (logoSeen[path] === 'ok') { showLogo(node, url); return 'logo'; }
 hideLogo(node);
 loadLogo(path, url);
+return 'wait';
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function writeTitle(model, logoState) {
+
+
+
+var waiting = logoState === 'wait' || (logoState === 'none' && model.pending && logoAllowed());
+if (waiting && !state.titleForced) {
+state.node.find('.lumen-hero__title').text('');
+startTitleTimer();
+return;
+}
+stopTimer('titleTimer');
+
+
+
+state.node.find('.lumen-hero__title').text(logoState === 'logo' ? '' : model.title);
+}
+
+
+
+function startTitleTimer() {
+if (state.titleTimer) return;
+var captured = gen;
+state.titleTimer = setTimeout(function () {
+if (gen !== captured || !state) return;
+state.titleTimer = null;
+forceTitleText();
+}, TITLE_WAIT);
+}
+
+
+
+
+
+function forceTitleText() {
+if (!state) return;
+stopTimer('titleTimer');
+state.titleForced = true;
+if (state.model) state.node.find('.lumen-hero__title').text(state.model.title);
 }
 
 
@@ -11360,7 +11456,6 @@ var text = node.find('.lumen-hero__text');
 
 var metaLine = current.rating ? current.meta.concat(['★ ' + current.rating]) : current.meta;
 node.find('.lumen-hero__meta').text(metaLine.join(' · '));
-node.find('.lumen-hero__title').text(current.title);
 node.find('.lumen-hero__descr').text(current.overview);
 node.find('.lumen-hero__status').text(current.status);
 node.toggleClass('lumen-hero--status', !!current.status);
@@ -11374,8 +11469,11 @@ node.toggleClass('lumen-hero--nodescr', !current.overview);
 
 
 
-applyLogo(node, current);
+var logoState = applyLogo(node, current);
 applyLogoBox();
+
+
+writeTitle(current, logoState);
 
 text.removeClass('is-swapping');
 if (motionMode() === 'full') text.addClass('is-in');
@@ -11683,6 +11781,10 @@ cancelPending();
 state.shownId = card.id;
 state.details = null;
 state.model = null;
+
+
+
+state.titleForced = false;
 
 
 
@@ -12220,6 +12322,11 @@ loader: null,
 
 logoLoader: null,
 logoTimer: null,
+
+
+
+titleTimer: null,
+titleForced: false,
 net: null,
 shownId: null,
 details: null,
@@ -12319,7 +12426,7 @@ if (LC.accent && typeof LC.accent.stopTween === 'function') LC.accent.stopTween(
 } catch (eTween) {
 warn('hero: accent stop failed', eTween);
 }
-var timers = ['timer', 'swapTimer', 'loadTimer', 'accentTimer', 'bigTimer', 'trailerTimer', 'lqipTimer', 'logoTimer'];
+var timers = ['timer', 'swapTimer', 'loadTimer', 'accentTimer', 'bigTimer', 'trailerTimer', 'lqipTimer', 'logoTimer', 'titleTimer'];
 for (var i = 0; i < timers.length; i++) {
 try { if (s[timers[i]]) clearTimeout(s[timers[i]]); } catch (eT) {}
 }

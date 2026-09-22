@@ -751,7 +751,10 @@ test('загруженный кадр проявляется вторым сло
   /* Текст подменяется не сразу: старый уходит за 180 мс (раскадровка 23а). */
   env.advance(200);
 
-  assert.equal(node.find('.lumen-hero__title').text(), 'Первый');
+  /* Правка 2026-09-22: место названия пустует, пока не известен исход
+     логотипа — деталей ещё нет, а логотип приходит только с ними. Всё
+     остальное содержимое кадра при этом уже на экране. */
+  assert.equal(node.find('.lumen-hero__title').text(), '');
   assert.equal(node.find('.lumen-hero__descr').text(), 'о первом');
   assert.equal(node.hasClass('lumen-hero--pending'), true, 'скелетон меты до ответа деталей');
 
@@ -769,13 +772,17 @@ test('загруженный кадр проявляется вторым сло
   assert.equal(node.find('.lumen-hero__meta').text(), '2024 · 1:40 · драма · ★ 7.2');
   assert.equal(node.find('.lumen-hero__descr').text(), 'полное');
   /* Task 71: логотип встаёт не по ответу деталей, а по загрузке своей
-     картинки — до этого на экране текстовый заголовок. */
+     картинки. Правка 2026-09-22: пока она едет, место названия пустое —
+     текстового заголовка, который потом подменяется логотипом, на экране
+     не бывает. */
   assert.equal(node.hasClass('lumen-hero--logo'), false, 'класс обязан ждать картинку логотипа');
+  assert.equal(node.find('.lumen-hero__title').text(), '', 'текст названия не имеет права мелькнуть до логотипа');
   const logoPreload = env.images[env.images.length - 1];
   assert.equal(logoPreload.src, 'https://img/t/p/w780/l.png');
   logoPreload.onload();
   assert.equal(node.find('.lumen-hero__logo').css('background-image'), 'url("https://img/t/p/w780/l.png")');
   assert.equal(node.hasClass('lumen-hero--logo'), true, 'логотип есть — текстовый заголовок скрыт CSS');
+  assert.equal(node.find('.lumen-hero__title').text(), '');
 });
 
 /* Task 40: монтирование героя на главной — точка замера автодетекта. До
@@ -1075,16 +1082,20 @@ test('режим off: текст меняется без подмены и БЕ�
      текста здесь по-прежнему нет, только отсрочка. */
   assert.equal(node.find('.lumen-hero__text').hasClass('is-swapping'), false);
   env.advance(200);
-  assert.equal(node.find('.lumen-hero__title').text(), 'Первый');
+  /* Правка 2026-09-22: название ждёт исхода логотипа — деталей ещё нет. */
+  assert.equal(node.find('.lumen-hero__title').text(), '');
   assert.equal(env.images.length, 0, 'ни одной предзагрузки кадра');
-  /* Task 29: единственный живой таймер — трёхсекундный расчёт акцента; он от
-     режима анимаций не зависит (цвет кнопок — не движение). Таймаута
-     загрузки кадра при этом нет: кадр в 'off' не запрашивается вовсе. */
-  assert.deepEqual(env.timers.filter((t) => !t.done).map((t) => t.ms), [3000], 'ни одного таймаута загрузки');
+  /* Task 29: живой таймер расчёта акцента — трёхсекундный; он от режима
+     анимаций не зависит (цвет кнопок — не движение). Таймаута загрузки кадра
+     при этом нет: кадр в 'off' не запрашивается вовсе. Правка 2026-09-22:
+     рядом с ним ждёт потолок вывода названия (600 мс). */
+  assert.deepEqual(env.timers.filter((t) => !t.done).map((t) => t.ms), [3000, 600], 'ни одного таймаута загрузки');
 
   /* Текст при этом живой: детали запрашиваются и дорисовываются. */
   assert.equal(env.requests.length, 1);
   env.requests[0].ok({ runtime: 100, genres: [{ name: 'драма' }], overview: 'полное' });
+  /* Логотипа у фильма нет — ждать нечего, название встаёт тем же ответом. */
+  assert.equal(node.find('.lumen-hero__title').text(), 'Первый');
   /* Task 43: рейтинг — последний элемент той же строки, отдельного чипа нет. */
   assert.equal(node.find('.lumen-hero__meta').text(), '2024 · 1:40 · драма · ★ 7.2');
   assert.equal(env.images.length, 0, 'ответ деталей тоже не тянет кадр');
@@ -2362,17 +2373,21 @@ test('Task 71: в «Лёгких» детали из кэша успевают �
   assert.deepEqual(warnLog, []);
 });
 
-test('Task 71: детали приехали позже отсрочки — сперва текст, логотип после загрузки', () => {
+/* Правка 2026-09-22: до неё этот тест и описывал сам дефект — «сперва
+   текст, логотип после загрузки». Теперь вывод один: пока детали и картинка
+   логотипа в пути, место названия пустое, и текстом оно не мелькает. */
+test('Task 71 (правка 2026-09-22): детали приехали позже отсрочки — название ждёт логотип', () => {
   const { env, node } = heroIn('lite');
   env.advance(200);
-  assert.equal(node.find('.lumen-hero__title').text(), 'Первый', 'текст карточки ряда обязан показаться');
+  assert.equal(node.find('.lumen-hero__title').text(), '', 'деталей нет — исход логотипа неизвестен, текст не выводим');
   assert.equal(node.hasClass('lumen-hero--logo'), false);
 
   env.requests[0].ok(LOGO_RU);
   assert.equal(node.hasClass('lumen-hero--logo'), false, 'класс обязан ждать саму картинку логотипа');
-  assert.equal(node.find('.lumen-hero__title').text(), 'Первый', 'пока логотипа нет, виден текстовый заголовок');
+  assert.equal(node.find('.lumen-hero__title').text(), '', 'картинка ещё едет — текста быть не должно');
   logoLoader(env).onload();
   assert.equal(node.hasClass('lumen-hero--logo'), true);
+  assert.equal(node.find('.lumen-hero__title').text(), '', 'единственный вывод названия — логотипом');
   assert.equal(node.find('.lumen-hero__logo').css('background-image'), 'url("' + LOGO_URL + '")');
 });
 
@@ -2475,7 +2490,10 @@ test('Task 71: карточка сменилась до прихода лого�
   fireFocus(main.activity, main.card2);
   env.advance(350);
   env.advance(200);
-  assert.equal(node.find('.lumen-hero__title').text(), 'Второй', 'подготовка: на экране уже другая карточка');
+  /* Правка 2026-09-22: название второй карточки тоже ждёт своего логотипа,
+     поэтому «уже другая карточка» проверяется по мете и описанию. */
+  assert.equal(node.find('.lumen-hero__descr').text(), 'о втором', 'подготовка: на экране уже другая карточка');
+  assert.equal(node.find('.lumen-hero__title').text(), '');
   assert.equal(stale.onload, null, 'предзагрузка ушедшей карточки обязана быть отвязана');
 
   staleOnload();
@@ -2501,6 +2519,9 @@ test('Task 71: настройка выключена — логотип не з�
   fireFocus(main.activity, main.card1);
   env.advance(350);
   env.advance(200);
+  /* Правка 2026-09-22: при выключенной настройке ждать нечего — название
+     выводится текстом сразу, ещё до ответа деталей. */
+  assert.equal(node.find('.lumen-hero__title').text(), 'Первый', 'выключенный логотип не имеет права задерживать название');
   env.requests[0].ok(LOGO_RU);
   assert.equal(logoLoads(env).length, 0, 'за выключенным логотипом ушёл запрос');
   assert.equal(node.hasClass('lumen-hero--logo'), false);
@@ -2522,8 +2543,113 @@ test('Task 71: в полном режиме отсрочка та же, и те�
   assert.equal(node.find('.lumen-hero__title').text(), '');
   env.requests[0].ok(LOGO_RU);
   env.advance(200);
-  assert.equal(node.find('.lumen-hero__title').text(), 'Первый');
+  /* Правка 2026-09-22: логотип известен из деталей, но ещё едет — название
+     пустует, а кадр появления текстового блока идёт как прежде. */
+  assert.equal(node.find('.lumen-hero__title').text(), '');
   assert.equal(node.find('.lumen-hero__text').hasClass('is-in'), true);
   logoLoader(env).onload();
   assert.equal(node.hasClass('lumen-hero--logo'), true);
+  assert.equal(node.find('.lumen-hero__title').text(), '');
+});
+
+/* ====================================================================== */
+/* Правка 2026-09-22: вывод названия один — текстом ИЛИ логотипом          */
+/*                                                                        */
+/* Отзыв пользователя: «все равно переключение названий есть, выглядит не  */
+/* оч». Замер на живой Lampa до правки — текст был виден 45-110 мс в       */
+/* полном режиме движения и 45-374 мс в лёгком, ровно столько, сколько     */
+/* ехала картинка логотипа. Ожидание ограничено потолком TITLE_WAIT.       */
+/* ====================================================================== */
+
+test('Название: логотипа у фильма нет — текст выводится сразу, ожидания не остаётся', () => {
+  const { env, node } = heroIn('lite');
+  env.advance(200);
+  assert.equal(node.find('.lumen-hero__title').text(), '', 'деталей нет — исход логотипа неизвестен');
+
+  /* Детали без images.logos: ждать больше нечего. */
+  env.requests[0].ok({ runtime: 100, overview: 'полное' });
+  assert.equal(node.find('.lumen-hero__title').text(), 'Первый');
+  assert.deepEqual(env.timers.filter((t) => !t.done && t.ms === 600).map((t) => t.ms), [], 'потолок ожидания обязан быть снят');
+  assert.deepEqual(warnLog, []);
+});
+
+test('Название: логотип доехал раньше потолка — текста на экране не было ни разу', () => {
+  const { env, node } = heroIn('lite');
+  env.advance(200);
+  env.requests[0].ok(LOGO_RU);
+  assert.equal(node.find('.lumen-hero__title').text(), '');
+
+  /* 500 мс — меньше потолка 600: логотип успел. */
+  env.advance(500);
+  assert.equal(node.find('.lumen-hero__title').text(), '', 'потолок сработал раньше времени');
+  logoLoader(env).onload();
+  assert.equal(node.hasClass('lumen-hero--logo'), true);
+
+  /* И потолок, снятый удачей логотипа, текст уже не выведет. */
+  env.advance(600);
+  assert.equal(node.find('.lumen-hero__title').text(), '', 'потолок после удачи логотипа дописал текст под логотип');
+  assert.deepEqual(warnLog, []);
+});
+
+test('Название: логотип не доехал за потолок — выводится текст', () => {
+  const { env, node } = heroIn('lite');
+  env.advance(200);
+  env.requests[0].ok(LOGO_RU);
+  assert.equal(node.find('.lumen-hero__title').text(), '');
+
+  env.advance(600);
+  assert.equal(node.find('.lumen-hero__title').text(), 'Первый', 'дольше потолка название пустым не держим');
+  assert.equal(node.hasClass('lumen-hero--logo'), false);
+
+  /* Опоздавший логотип всё-таки встаёт — текст под ним прячет CSS. */
+  logoLoader(env).onload();
+  assert.equal(node.hasClass('lumen-hero--logo'), true);
+  assert.deepEqual(warnLog, []);
+});
+
+test('Название: логотип не загрузился — текст выводится сразу, не дожидаясь потолка', () => {
+  const { env, node } = heroIn('lite');
+  env.advance(200);
+  env.requests[0].ok(LOGO_RU);
+  logoLoader(env).onerror();
+  assert.equal(node.find('.lumen-hero__title').text(), 'Первый', 'исход известен — ждать потолка незачем');
+  assert.equal(node.hasClass('lumen-hero--logo'), false);
+  assert.deepEqual(warnLog, []);
+});
+
+test('Название: фокус ушёл во время ожидания — потолок прошлой карточки ничего не выводит', () => {
+  const { env, main, node } = heroIn('lite');
+  env.advance(200);
+  env.requests[0].ok(LOGO_RU);
+  assert.equal(node.find('.lumen-hero__title').text(), '');
+
+  main.card1.removeClass('focus');
+  main.card2.addClass('focus');
+  fireFocus(main.activity, main.card2);
+  env.advance(350);
+  /* 400 мс: потолок ПЕРВОЙ карточки (заведён на 200-й мс) свой срок прошёл,
+     потолок второй (заведён на 550-й) — ещё нет. */
+  env.advance(400);
+  assert.equal(node.find('.lumen-hero__descr').text(), 'о втором', 'подготовка: на экране вторая карточка');
+  assert.equal(node.find('.lumen-hero__title').text(), '', 'название ушедшей карточки вывелось поверх новой');
+  assert.deepEqual(warnLog, []);
+});
+
+test('Название: знакомый фильм показывается мгновенно — ожидания нет', () => {
+  const { env, main, node } = heroIn('lite');
+  env.advance(200);
+  env.requests[0].ok(LOGO_RU);
+  logoLoader(env).onload();
+  assert.equal(node.hasClass('lumen-hero--logo'), true);
+
+  /* Вторая карточка с тем же логотипом: исход уже известен (logoSeen). */
+  main.card1.removeClass('focus');
+  main.card2.addClass('focus');
+  fireFocus(main.activity, main.card2);
+  env.advance(350);
+  env.requests[1].ok(LOGO_RU);
+  env.advance(200);
+  assert.equal(node.hasClass('lumen-hero--logo'), true, 'известный логотип обязан встать сразу');
+  assert.deepEqual(env.timers.filter((t) => !t.done && t.ms === 600).map((t) => t.ms), [], 'знакомому логотипу ожидание не нужно');
+  assert.deepEqual(warnLog, []);
 });

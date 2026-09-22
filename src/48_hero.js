@@ -61,6 +61,9 @@
     var VIDEOS_LIFE = 10080;
     /* Уход старого текста перед подменой (раскадровка 23а: 180 мс). */
     var SWAP_MS = 180;
+    /* Потолок ожидания логотипа перед выводом ТЕКСТОВОГО заголовка —
+       подробности и замеры у writeTitle. */
+    var TITLE_WAIT = 600;
     /* Предзагрузка кадра не может висеть вечно: тот же таймаут, что у фона
        карточки (src/50_backdrops.js). */
     var LOAD_TIMEOUT = 8000;
@@ -586,6 +589,8 @@
       /* Task 71: предзагрузка логотипа — такой же незавершённый запрос
          прошлой карточки, как кадр. */
       stopTimer('logoTimer');
+      /* Правка 2026-09-22: ожидание логотипа прошлой карточки — тоже. */
+      stopTimer('titleTimer');
       if (state.logoLoader) {
         state.logoLoader.onload = null;
         state.logoLoader.onerror = null;
@@ -925,7 +930,15 @@
         if (gen !== captured || !state || !isMounted()) return;
         stopTimer('logoTimer');
         state.logoLoader = null;
-        if (!ok) return;
+        /* Правка 2026-09-22: ожидание заголовка кончилось — исход логотипа
+           известен. Неудача выводит текст немедленно, не дожидаясь потолка
+           TITLE_WAIT (см. writeTitle); удача снимает потолок, потому что
+           показывать текст уже незачем — его прячет .lumen-hero--logo. */
+        if (!ok) {
+          if (state.model && state.model.logo === path) forceTitleText();
+          return;
+        }
+        stopTimer('titleTimer');
         /* Пока картинка ехала, модель могла смениться дорисовкой деталей
            той же карточки (render(model, false)) — логотип ставим только
            тому названию, которое его и просило. */
@@ -947,7 +960,14 @@
     /* Ставит логотип текущей модели: известный — сразу, неизвестный (и
        неудавшийся один раз, см. 'retry' выше) — после предзагрузки,
        отсутствующий, выключенный настройкой и дважды неудавшийся —
-       никогда. Зовётся из write(), то есть на каждой перерисовке героя. */
+       никогда. Зовётся из write(), то есть на каждой перерисовке героя.
+
+       Правка 2026-09-22: возвращает исход, по которому write() решает, что
+       делать с текстовым заголовком:
+         'logo' — логотип уже на экране, текст не нужен вовсе;
+         'none' — логотипа не будет (нет в модели, выключен настройкой,
+                  дважды не доехал) — текст;
+         'wait' — картинка поехала, исход будет позже. */
     function applyLogo(node, model) {
       var path = logoAllowed() ? model.logo : null;
       /* Предыдущая предзагрузка больше не нужна: её исход относится к
@@ -961,10 +981,86 @@
       /* Второй аргумент emPx — масштаб интерфейса плагина. Здесь он ровно
          1: lumen_scale до текста героя не доходит (см. LOGO_EM выше). */
       var url = path ? imageUrl(path, logoSizeFor(LC.util.emPx(LOGO_EM * TEXT_ZOOM, 1))) : '';
-      if (!url || logoSeen[path] === 'fail') { hideLogo(node); return; }
-      if (logoSeen[path] === 'ok') { showLogo(node, url); return; }
+      if (!url || logoSeen[path] === 'fail') { hideLogo(node); return 'none'; }
+      if (logoSeen[path] === 'ok') { showLogo(node, url); return 'logo'; }
       hideLogo(node);
       loadLogo(path, url);
+      return 'wait';
+    }
+
+    /* Правка 2026-09-22 по отзыву пользователя («все равно переключение
+       названий есть, выглядит не оч»): вывод заголовка ОДИН — либо текст,
+       либо логотип, без видимой подмены первого вторым.
+
+       Что было на экране до правки. write() писала текст всегда, а логотип
+       вставал позже — по onload своей картинки (applyLogo → loadLogo).
+       Замер на живой Lampa (стенд localhost:8766, главная, шесть карточек
+       ряда подряд, кэш картинок сброшен cache-busting'ом) — сколько
+       миллисекунд текстовый заголовок был виден до подмены на логотип:
+       полный режим движения 108, 110, 54, 54, 46, 73 мс; лёгкий — 61, 67,
+       52, 58, 45, 374 мс. SWAP_MS этого не лечил: он откладывает весь вывод
+       разом, а не ждёт логотип.
+
+       Теперь место заголовка остаётся ПУСТЫМ, пока исход логотипа неизвестен:
+         - деталей ещё нет (model.pending) — логотип приходит только с ними,
+           и до ответа неизвестно даже, есть ли он у фильма;
+         - картинка логотипа едет ('wait' от applyLogo).
+       Мета и описание при этом выводятся как обычно — пустует только строка
+       названия. Скачка раскладки от этого нет: высота .lumen-hero__title
+       фиксированная (height:1.29em, src/30_css.js), пустой он занимает ровно
+       столько же места.
+
+       Потолок ожидания TITLE_WAIT = 600 мс. Дольше держать название пустым
+       нельзя: на медленной сети логотип может не доехать вовсе, а пустое
+       место вместо имени фильма хуже подмены. 600 мс с запасом покрывают и
+       самый долгий логотип из замеров выше (374 мс), и путь «ответ деталей
+       плюс логотип» (ответы деталей на том же стенде — 41, 47, 49, 51, 148,
+       157, 247 мс).
+
+       Отдельного сторожа у ожидания нет намеренно: отмену при быстром
+       листании делает тот же gen, что у отсрочки swapTimer, — фокус ушёл,
+       gen вырос, отложенный вывод чужого названия отброшен.
+
+       Настройка «Логотип названия» выключена — ждать нечего: logoAllowed()
+       ложно, applyLogo возвращает 'none', текст выводится сразу. */
+    function writeTitle(model, logoState) {
+      /* Ждём, пока логотип едет, и пока не пришли детали, которые только и
+         могут его принести. Второе — лишь при включённой настройке: иначе
+         логотипа не будет в любом случае. */
+      var waiting = logoState === 'wait' || (logoState === 'none' && model.pending && logoAllowed());
+      if (waiting && !state.titleForced) {
+        state.node.find('.lumen-hero__title').text('');
+        startTitleTimer();
+        return;
+      }
+      stopTimer('titleTimer');
+      /* Логотип на экране — текст под ним не пишем вовсе: .lumen-hero--logo
+         его и так прячет, но пустой узел честнее показывает, что видимого
+         вывода названия текстом не было. */
+      state.node.find('.lumen-hero__title').text(logoState === 'logo' ? '' : model.title);
+    }
+
+    /* Потолок ожидания. Сторож — gen: ушедший дальше фокус поднимает его в
+       show(), и вывод названия прошлой карточки не случится. */
+    function startTitleTimer() {
+      if (state.titleTimer) return;
+      var captured = gen;
+      state.titleTimer = setTimeout(function () {
+        if (gen !== captured || !state) return;
+        state.titleTimer = null;
+        forceTitleText();
+      }, TITLE_WAIT);
+    }
+
+    /* Ждать больше нечего (потолок истёк или логотип не доехал): выводим
+       текст и запоминаем это решение до следующей карточки — иначе
+       дорисовка деталей той же карточки (render(model, false)) снова увела
+       бы название в пустоту. */
+    function forceTitleText() {
+      if (!state) return;
+      stopTimer('titleTimer');
+      state.titleForced = true;
+      if (state.model) state.node.find('.lumen-hero__title').text(state.model.title);
     }
 
     /* Записывает модель в узлы. swap=true — смена карточки, иначе это
@@ -1010,7 +1106,6 @@
            она оказалась бы в середине строки, между годом и жанрами. */
         var metaLine = current.rating ? current.meta.concat(['★ ' + current.rating]) : current.meta;
         node.find('.lumen-hero__meta').text(metaLine.join(' · '));
-        node.find('.lumen-hero__title').text(current.title);
         node.find('.lumen-hero__descr').text(current.overview);
         node.find('.lumen-hero__status').text(current.status);
         node.toggleClass('lumen-hero--status', !!current.status);
@@ -1024,8 +1119,11 @@
            доехала (applyLogo → loadLogo). Размер при этом задаётся сразу по
            пропорции из модели: узел до показа скрыт (display:none у
            .lumen-hero__logo), и раскладку эти две величины не двигают. */
-        applyLogo(node, current);
+        var logoState = applyLogo(node, current);
         applyLogoBox();
+        /* Правка 2026-09-22: заголовок пишется ПОСЛЕ логотипа — его вывод
+           зависит от исхода логотипа (writeTitle). */
+        writeTitle(current, logoState);
 
         text.removeClass('is-swapping');
         if (motionMode() === 'full') text.addClass('is-in');
@@ -1333,6 +1431,10 @@
         state.shownId = card.id;
         state.details = null;
         state.model = null;
+        /* Правка 2026-09-22: новая карточка — новое ожидание логотипа
+           (writeTitle). Решение «ждать больше нечего», принятое для
+           предыдущей, на неё не распространяется. */
+        state.titleForced = false;
         /* Task 21: атмосфера прошлой карточки уходит сразу — иначе снег с
            рождественского фильма висел бы над кадром следующего, пока не
            придут его детали. */
@@ -1870,6 +1972,11 @@
              таймаут. */
           logoLoader: null,
           logoTimer: null,
+          /* Правка 2026-09-22: потолок ожидания логотипа перед выводом
+             текстового заголовка и отметка «ждать больше не нужно»
+             (writeTitle). */
+          titleTimer: null,
+          titleForced: false,
           net: null,
           shownId: null,
           details: null,
@@ -1969,7 +2076,7 @@
       } catch (eTween) {
         warn('hero: accent stop failed', eTween);
       }
-      var timers = ['timer', 'swapTimer', 'loadTimer', 'accentTimer', 'bigTimer', 'trailerTimer', 'lqipTimer', 'logoTimer'];
+      var timers = ['timer', 'swapTimer', 'loadTimer', 'accentTimer', 'bigTimer', 'trailerTimer', 'lqipTimer', 'logoTimer', 'titleTimer'];
       for (var i = 0; i < timers.length; i++) {
         try { if (s[timers[i]]) clearTimeout(s[timers[i]]); } catch (eT) {}
       }
