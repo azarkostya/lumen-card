@@ -46,6 +46,76 @@
     return null;
   }
 
+  /* A6 (волна A финального плана): ряды анализа Lampa на карточке фильма —
+     «Метаданные» (Темп, Страх, Экшн…) и «Настроения» (проценты). Это ряды
+     САМОЙ Lampa: компонент карточки кладёт их в this.rows именами
+     'metadata_chart' и 'metadata_tags' (vendor/lampa/app.min.js:38843 и
+     :38849), а собирают их MetadataChart (:38200) и MetadataTags (:38272)
+     из data.metadata, которую приносит Api.sources.cub.metadataGet — только
+     для фильма (`params.method == 'movie'`, :20160-20166). «Метаданные»
+     появляются при data.metadata.status == 'completed' (:38842),
+     «Настроения» ещё и только при языке интерфейса ru/uk/be (:38848).
+     Пункта настроек у Lampa для них нет; есть только флаг сборки
+     lampa_settings.disable_features.metadata (:34364), который трогать
+     нельзя — это настройка самой Lampa, а не наша.
+
+     Поэтому ряды не прячутся и не снимаются со сцены, а НЕ СОЗДАЮТСЯ: на
+     событии 'full' типа 'start' (:38833-38840 — оно уходит РОВНО перед
+     проверкой на :38842) мы убираем data.metadata, и Lampa просто не кладёт
+     эти два ряда в свой список. Для неё это штатное состояние: ровно так
+     выглядит любой сериал, не-русский язык интерфейса и не досчитанный
+     анализ.
+
+     Два других пути отвергнуты живой проверкой на стенде 960×540@2
+     («Начало», ru, анализ completed):
+       - правило display:none на узле ряда: шаг «вниз» уводил фокус ВНУТРЬ
+         скрытого ряда (сфокусированная плитка «Темп 4.8/10», rect 0×0,
+         offsetParent null), и дальше навигация вставала. Controller.
+         collectionSet отбирает узлы по offsetParent только при третьем
+         аргументе visible_only (:46453-46456), а карточка зовёт его одним
+         (:39126);
+       - снятие узла на 'build': ряд уходил с экрана, но оставался в
+         this.items, и шаг «вниз» отдавал управление его компоненту —
+         контроллер становился 'items_line' при пустом наборе, и фокус
+         пропадал совсем (замер: ни одного узла с классом focus).
+
+     Данные Lampa не остаются изменёнными: снятое возвращается на
+     'complite' (:38965) — он уходит из того же синхронного блока сразу
+     после build (:38961), то есть после единственного чтения на :38842.
+     Гейт `watch` у обоих событий один и тот же (:38822), так что пары
+     «сняли — вернули» без половины не бывает.
+
+     Цена — настройка действует со СЛЕДУЮЩЕГО открытия карточки (так и
+     сказано в её описании): на уже построенную карточку 'full' второй раз
+     не приходит, а настройки Lampa лежат активностью ПОВЕРХ неё и при
+     возврате не шлют ни 'full', ни complite (находка ревью Task 8 фазы 1). */
+  var META_STASH = 'lumen_metadata';
+
+  function dropMetaData(e) {
+    try {
+      if (!LC.pref('lumen_hide_meta', false)) return false;
+      if (!e || !e.data || !e.data.metadata) return false;
+      e.data[META_STASH] = e.data.metadata;
+      e.data.metadata = null;
+      return true;
+    } catch (err) {
+      warn('meta drop failed', err);
+      return false;
+    }
+  }
+
+  function restoreMetaData(e) {
+    try {
+      if (!e || !e.data || !e.data[META_STASH]) return false;
+      e.data.metadata = e.data[META_STASH];
+      e.data[META_STASH] = null;
+      return true;
+    } catch (err) {
+      warn('meta restore failed', err);
+      return false;
+    }
+  }
+
   /* -------------------------------------------------------------------- */
   /* Раскладка.                                                            */
   /* -------------------------------------------------------------------- */
@@ -782,7 +852,12 @@
       Lampa.Listener.follow('full', function (e) {
         try {
           if (!e || !activated) return;
-          if (e.type === 'build' && e.name === 'start') {
+          if (e.type === 'start') {
+            /* A6: ряды анализа Lampa не создаются вовсе — разбор, замеры и
+               отвергнутые пути у dropMetaData выше. Событие уходит РОВНО
+               перед проверкой data.metadata (app.min.js:38833-38842). */
+            dropMetaData(e);
+          } else if (e.type === 'build' && e.name === 'start') {
             LC.header.decorate(findRoot(e), e.data);
           } else if (e.type === 'build' && e.name === 'description') {
             /* Task 5d: таблица «ПОДРОБНО» в теле ряда описания (design-spec §10).
@@ -796,6 +871,9 @@
                .full-descr (таблица «ПОДРОБНО», отзывы, франшиза). */
             LC.franchise.render(descrRow, e.data);
           } else if (e.type === 'complite') {
+            /* A6: данные Lampa не остаются изменёнными — снятое возвращается
+               здесь же, после единственного чтения на app.min.js:38842. */
+            restoreMetaData(e);
             var root = findRoot(e);
             LC.header.decorate(root, e.data);
             /* Вторая, страховочная точка: вставка идемпотентна (старый блок

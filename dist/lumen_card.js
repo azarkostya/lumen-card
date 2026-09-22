@@ -2020,6 +2020,13 @@ css.push('.lumen-descr-row > .items-line__head{display:none}');
 
 
 
+
+
+
+
+
+
+
 css.push('.lumen-descr-row .full-descr{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:start;-webkit-align-items:flex-start;align-items:flex-start;-webkit-flex-wrap:wrap;flex-wrap:wrap;padding-left:' + EDGE + 'em;padding-right:' + EDGE + 'em}');
 
 
@@ -24875,17 +24882,21 @@ lumen_group_preset: { ru: 'Готовый стиль', en: 'Ready-made style', u
 
 
 
+
+
+
+
 lumen_preset_appletv_name: { ru: 'Применить стиль Apple TV', en: 'Apply the Apple TV style', uk: 'Застосувати стиль Apple TV' },
 lumen_preset_appletv_descr: {
-ru: 'Нейтральный стиль вместо тёплого. Выставляет девять пунктов «Оформления» разом: тема «Глубокая чёрная», акцент «Графит», шрифт Inter, метки «В подписи», цвет постера «Только фон», плоский вид включён, кадр над рядами «Крупный», логотип названия в кадре включён, акцент от постера включён. Последние три — значения по умолчанию плагина: если вы меняли их руками, кнопка вернёт их обратно. Ключ API, масштаб, анимации, заставку, состав рядов и настройки самой Lampa не трогает. После кнопки любой пункт правится по отдельности.',
-en: 'A neutral style instead of the warm one. It sets nine items of "Appearance" at once: the "Deep black" theme, the "Graphite" accent, the Inter font, badges "In the caption", poster colour "Background only", flat look on, hero "Large", the title logo in the hero on, accent from poster on. The last three are the plugin defaults: if you changed them by hand, the button changes them back. The API key, scale, animations, screensaver, row selection and Lampa own settings stay untouched. After the button every item can be adjusted one by one.',
-uk: 'Нейтральний стиль замість теплого. Виставляє дев’ять пунктів «Оформлення» разом: тема «Глибока чорна», акцент «Графіт», шрифт Inter, мітки «У підписі», колір постера «Лише тло», плаский вигляд увімкнено, кадр над рядами «Великий», логотип назви в кадрі увімкнено, акцент від постера увімкнено. Останні три — значення за замовчуванням плагіна: якщо ви змінювали їх руками, кнопка поверне їх назад. Ключ API, масштаб, анімації, заставку, склад рядів і налаштування самої Lampa не чіпає. Після кнопки кожен пункт правиться окремо.'
+ru: 'Нейтральный стиль вместо тёплого. Выставляет десять пунктов «Оформления» разом: тема «Глубокая чёрная», акцент «Графит», шрифт Inter, метки «В подписи», цвет постера «Только фон», плоский вид включён, блоки анализа Lampa скрыты, кадр над рядами «Крупный», логотип названия в кадре включён, акцент от постера включён. Последние три — значения по умолчанию плагина: если вы меняли их руками, кнопка вернёт их обратно. Ключ API, масштаб, анимации, заставку, состав рядов и настройки самой Lampa не трогает. После кнопки любой пункт правится по отдельности.',
+en: 'A neutral style instead of the warm one. It sets ten items of "Appearance" at once: the "Deep black" theme, the "Graphite" accent, the Inter font, badges "In the caption", poster colour "Background only", flat look on, the Lampa analysis blocks hidden, hero "Large", the title logo in the hero on, accent from poster on. The last three are the plugin defaults: if you changed them by hand, the button changes them back. The API key, scale, animations, screensaver, row selection and Lampa own settings stay untouched. After the button every item can be adjusted one by one.',
+uk: 'Нейтральний стиль замість теплого. Виставляє десять пунктів «Оформлення» разом: тема «Глибока чорна», акцент «Графіт», шрифт Inter, мітки «У підписі», колір постера «Лише тло», плаский вигляд увімкнено, блоки аналізу Lampa сховано, кадр над рядами «Великий», логотип назви в кадрі увімкнено, акцент від постера увімкнено. Останні три — значення за замовчуванням плагіна: якщо ви змінювали їх руками, кнопка поверне їх назад. Ключ API, масштаб, анімації, заставку, склад рядів і налаштування самої Lampa не чіпає. Після кнопки кожен пункт правиться окремо.'
 },
 lumen_preset_lumen_name: { ru: 'Вернуть стиль Lumen', en: 'Restore the Lumen style', uk: 'Повернути стиль Lumen' },
 lumen_preset_lumen_descr: {
-ru: 'Возвращает те же девять пунктов к значениям по умолчанию плагина: тёплая тёмная тема, песочный акцент, шрифт Golos Text, метки «На постере», полная подкраска от постера, плоский вид выключен, кадр над рядами «Крупный», логотип названия в кадре включён, акцент от постера включён. Настройки вне оформления остаются вашими.',
-en: 'Returns the same nine items to the plugin defaults: warm dark theme, sand accent, the Golos Text font, badges "On the poster", full poster tinting, flat look off, hero "Large", the title logo in the hero on, accent from poster on. Everything outside the look stays yours.',
-uk: 'Повертає ті самі дев’ять пунктів до значень за замовчуванням плагіна: тепла темна тема, піщаний акцент, шрифт Golos Text, мітки «На постері», повне підфарбування від постера, плаский вигляд вимкнено, кадр над рядами «Великий», логотип назви в кадрі увімкнено, акцент від постера увімкнено. Налаштування поза оформленням лишаються вашими.'
+ru: 'Возвращает те же десять пунктов к значениям по умолчанию плагина: тёплая тёмная тема, песочный акцент, шрифт Golos Text, метки «На постере», полная подкраска от постера, плоский вид выключен, блоки анализа Lampa показаны, кадр над рядами «Крупный», логотип названия в кадре включён, акцент от постера включён. Настройки вне оформления остаются вашими.',
+en: 'Returns the same ten items to the plugin defaults: warm dark theme, sand accent, the Golos Text font, badges "On the poster", full poster tinting, flat look off, the Lampa analysis blocks shown, hero "Large", the title logo in the hero on, accent from poster on. Everything outside the look stays yours.',
+uk: 'Повертає ті самі десять пунктів до значень за замовчуванням плагіна: тепла темна тема, піщаний акцент, шрифт Golos Text, мітки «На постері», повне підфарбування від постера, плаский вигляд вимкнено, блоки аналізу Lampa показано, кадр над рядами «Великий», логотип назви в кадрі увімкнено, акцент від постера увімкнено. Налаштування поза оформленням лишаються вашими.'
 },
 
 
@@ -25348,6 +25359,31 @@ lumen_kp_hint_hide: {
 ru: 'Скрыть',
 en: 'Hide',
 uk: 'Сховати'
+},
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+lumen_hide_meta_name: {
+ru: 'Скрывать блоки анализа Lampa',
+en: 'Hide the Lampa analysis blocks',
+uk: 'Ховати блоки аналізу Lampa'
+},
+lumen_hide_meta_descr: {
+ru: 'Убирает с карточки ряды «Метаданные» (Темп, Страх, Экшн…) и «Настроения» (проценты). Это блоки самой Lampa, не плагина: данные для них приходят от аккаунта CUB и только для фильмов, «Настроения» — ещё и только при языке интерфейса ru/uk/be. Ничего не удаляется: ряд просто не строится на экране, выключите — вернётся. Применяется при следующем открытии карточки.',
+en: 'Removes the "Metadata" (Pace, Fear, Action…) and "Moods" (percentages) rows from the card. These are Lampa own blocks, not the plugin: their data comes from the CUB account and only for movies, and "Moods" only with the ru/uk/be interface language. Nothing is deleted: the row simply is not put on screen, turn it off and it comes back. Applied the next time you open a card.',
+uk: 'Прибирає з картки ряди «Метадані» (Темп, Страх, Екшн…) і «Настрої» (відсотки). Це блоки самої Lampa, а не плагіна: дані для них приходять від акаунта CUB і лише для фільмів, «Настрої» — ще й лише за мови інтерфейсу ru/uk/be. Нічого не видаляється: ряд просто не будується на екрані, вимкніть — повернеться. Застосовується при наступному відкритті картки.'
 },
 
 
@@ -25840,6 +25876,14 @@ if (name === 'lumen_font') { LC.injectFonts(); LC.injectCss(); return true; }
 
 if (name === 'lumen_theme' || name === 'lumen_solid' || name === 'lumen_scale' ||
 name === 'lumen_accent_scope' || name === 'lumen_flat') { LC.injectCss(); return true; }
+
+
+
+
+
+
+
+if (name === 'lumen_hide_meta') return true;
 
 
 
@@ -26532,6 +26576,26 @@ var LIST = [
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+{ name: 'lumen_hide_meta', type: 'trigger', 'default': false, label: 'lumen_hide_meta_name', descr: 'lumen_hide_meta_descr' },
+
+
+
+
+
+
+
 { name: 'lumen_group_home', type: 'title', label: 'lumen_group_home' },
 
 
@@ -26687,8 +26751,12 @@ return null;
 
 
 
+
+
+
 var PRESET_KEYS = ['lumen_theme', 'lumen_card_accent', 'lumen_font', 'lumen_accent_auto',
-'lumen_accent_scope', 'lumen_hero_size', 'lumen_hero_logo', 'lumen_badges', 'lumen_flat'];
+'lumen_accent_scope', 'lumen_hero_size', 'lumen_hero_logo', 'lumen_badges', 'lumen_flat',
+'lumen_hide_meta'];
 
 
 
@@ -26707,7 +26775,11 @@ lumen_accent_scope: 'veil',
 
 
 
-lumen_flat: true
+lumen_flat: true,
+
+
+
+lumen_hide_meta: true
 };
 
 
@@ -28170,6 +28242,76 @@ return null;
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+var META_STASH = 'lumen_metadata';
+
+function dropMetaData(e) {
+try {
+if (!LC.pref('lumen_hide_meta', false)) return false;
+if (!e || !e.data || !e.data.metadata) return false;
+e.data[META_STASH] = e.data.metadata;
+e.data.metadata = null;
+return true;
+} catch (err) {
+warn('meta drop failed', err);
+return false;
+}
+}
+
+function restoreMetaData(e) {
+try {
+if (!e || !e.data || !e.data[META_STASH]) return false;
+e.data.metadata = e.data[META_STASH];
+e.data[META_STASH] = null;
+return true;
+} catch (err) {
+warn('meta restore failed', err);
+return false;
+}
+}
+
+
+
+
+
 function isWideLayout() {
 var width = window.innerWidth || (document.documentElement && document.documentElement.clientWidth) || 0;
 if (width && width <= 480) return false;
@@ -28902,7 +29044,12 @@ if (!window.Lampa || !Lampa.Listener) return;
 Lampa.Listener.follow('full', function (e) {
 try {
 if (!e || !activated) return;
-if (e.type === 'build' && e.name === 'start') {
+if (e.type === 'start') {
+
+
+
+dropMetaData(e);
+} else if (e.type === 'build' && e.name === 'start') {
 LC.header.decorate(findRoot(e), e.data);
 } else if (e.type === 'build' && e.name === 'description') {
 
@@ -28916,6 +29063,9 @@ LC.reviews.render(descrRow, e.data);
 
 LC.franchise.render(descrRow, e.data);
 } else if (e.type === 'complite') {
+
+
+restoreMetaData(e);
 var root = findRoot(e);
 LC.header.decorate(root, e.data);
 

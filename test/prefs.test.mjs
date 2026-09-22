@@ -157,6 +157,8 @@ test('LIST: полный набор ключей — существующие и
     'lumen_personal_rows',
     /* Task 20 (фаза 2): состав рядов, чипы настроения, подсказка про ключ */
     'lumen_home_rows', 'lumen_moods', 'lumen_kp_hint',
+    /* A6 (волна A): скрывать чужие блоки анализа на карточке фильма */
+    'lumen_hide_meta',
     /* Фаза 3: тема, плотность подложек, масштаб интерфейса */
     /* Task 73 (фаза 6): плоский вид — между плотными подложками и масштабом */
     'lumen_theme', 'lumen_solid', 'lumen_flat', 'lumen_scale',
@@ -257,8 +259,12 @@ const GROUPS = [
      режимом анимаций логично и для него: сам HUD и калибрует его пороги. */
   ['lumen_group_motion', ['lumen_motion', 'lumen_fx_heavy', 'lumen_debug_hud', 'lumen_transition', 'lumen_fx']],
   ['lumen_group_backdrop', ['lumen_slideshow', 'lumen_slide_interval', 'lumen_trailer']],
+  /* A6 (волна A): «Скрывать блоки анализа Lampa» — последним в группе.
+     Группа про то, что показано на карточке, и этот пункт единственный
+     говорит про ЧУЖИЕ блоки; свои читаются раньше. */
   ['lumen_group_blocks', [
-    'lumen_card_progress', 'lumen_reviews', 'lumen_reviews_mode', 'lumen_kp_key', 'lumen_kp_hint'
+    'lumen_card_progress', 'lumen_reviews', 'lumen_reviews_mode', 'lumen_kp_key', 'lumen_kp_hint',
+    'lumen_hide_meta'
   ]],
   ['lumen_group_home', [
     /* Правка пользователя 2026-09-17 (п.2): размер кадра — первым пунктом:
@@ -600,16 +606,17 @@ test('Task 62b: строки уведомления о готовом стиле
    которые кнопка переписывает, — иначе человек узнаёт о правке своей
    настройки уже после нажатия. Ревью 2026-09-22 (п.4): пунктов девять —
    к восьми добавился логотип названия, выпавший из набора при сборке
-   Task 73. Сторож сверяет и число словом, и упоминание обоих поздних
-   пунктов, во всех трёх языках. */
-test('Task 73: описания кнопок стиля называют все девять пунктов, включая плоский вид и логотип', () => {
+   Task 73. A6 (волна A): десять — добавились блоки анализа Lampa. Сторож
+   сверяет и число словом, и упоминание поздних пунктов, во всех трёх
+   языках. */
+test('Task 73/A6: описания кнопок стиля называют все десять пунктов, включая плоский вид, логотип и блоки анализа', () => {
   const LC = loadStrings();
-  assert.equal(prefs.PRESET_KEYS.length, 9, 'набор стиля изменился — поправить описания кнопок');
-  const count = { ru: 'девять', en: 'nine', uk: 'дев’ять' };
+  assert.equal(prefs.PRESET_KEYS.length, 10, 'набор стиля изменился — поправить описания кнопок');
+  const count = { ru: 'десять', en: 'ten', uk: 'десять' };
   const named = {
-    ru: ['плоский вид', 'логотип названия'],
-    en: ['flat look', 'title logo'],
-    uk: ['плаский вигляд', 'логотип назви']
+    ru: ['плоский вид', 'логотип названия', 'блоки анализа lampa'],
+    en: ['flat look', 'title logo', 'lampa analysis blocks'],
+    uk: ['плаский вигляд', 'логотип назви', 'блоки аналізу lampa']
   };
   for (const key of ['lumen_preset_appletv_descr', 'lumen_preset_lumen_descr']) {
     const pack = LC.STRINGS[key];
@@ -622,9 +629,9 @@ test('Task 73: описания кнопок стиля называют все 
       /* «восемь» само оканчивается на «семь», поэтому прежние числа ищутся
          с границей слова, а не подстрокой. */
       const stale = {
-        ru: /(^|[^а-яё])(семь|восемь) пунктов/,
-        en: /(^|[^a-z])(seven|eight) items/,
-        uk: /(^|[^а-яїієґ])(сім|вісім) пунктів/
+        ru: /(^|[^а-яё])(семь|восемь|девять) пунктов/,
+        en: /(^|[^a-z])(seven|eight|nine) items/,
+        uk: /(^|[^а-яїієґ])(сім|вісім|дев’ять) пунктів/
       };
       assert.equal(stale[lang].test(text), false, key + ' (' + lang + '): в описании осталось прежнее число пунктов');
     }
@@ -816,10 +823,14 @@ test('Task 62b: пресет трогает только оформление �
      обязан быть полным состоянием вида, а не разницей, и план фазы 6
      оговаривал логотип прямо («в обоих стилях включён»). Без него
      «Применить стиль Apple TV» давал Apple TV без title treatment, а
-     «Вернуть стиль Lumen» логотип не возвращал. */
+     «Вернуть стиль Lumen» логотип не возвращал.
+     A6: десятым в наборе — lumen_hide_meta: курс стиля Apple TV на «ничего
+     лишнего» доходит и до чужих блоков анализа на карточке, а стиль Lumen
+     возвращает их значением по умолчанию пункта (выключено). */
   assert.deepEqual(prefs.PRESET_KEYS.slice().sort(), [
     'lumen_accent_auto', 'lumen_accent_scope', 'lumen_badges', 'lumen_card_accent',
-    'lumen_flat', 'lumen_font', 'lumen_hero_logo', 'lumen_hero_size', 'lumen_theme'
+    'lumen_flat', 'lumen_font', 'lumen_hero_logo', 'lumen_hero_size', 'lumen_theme',
+    'lumen_hide_meta'
   ].sort());
 });
 

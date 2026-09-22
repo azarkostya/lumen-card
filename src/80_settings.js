@@ -50,19 +50,23 @@
        стиль доходит до карточки, сетки и пути TorrServer.
        Ревью 2026-09-22 (п.4): девять — при сборке Task 73 из набора выпал
        «Логотип названия в кадре», хотя план фазы 6 оговаривал его прямо
-       (в обоих стилях логотип включён). Число в тексте обоих описаний и
-       длину PRESET_KEYS сверяет test/prefs.test.mjs. */
+       (в обоих стилях логотип включён).
+       A6: десять — добавился пункт «Скрывать блоки анализа Lampa»: курс
+       стиля Apple TV на «ничего лишнего» доходит и до чужих блоков на
+       карточке, а стиль Lumen возвращает их выключенным пунктом. Число в
+       тексте обоих описаний и длину PRESET_KEYS сверяет
+       test/prefs.test.mjs. */
     lumen_preset_appletv_name: { ru: 'Применить стиль Apple TV', en: 'Apply the Apple TV style', uk: 'Застосувати стиль Apple TV' },
     lumen_preset_appletv_descr: {
-      ru: 'Нейтральный стиль вместо тёплого. Выставляет девять пунктов «Оформления» разом: тема «Глубокая чёрная», акцент «Графит», шрифт Inter, метки «В подписи», цвет постера «Только фон», плоский вид включён, кадр над рядами «Крупный», логотип названия в кадре включён, акцент от постера включён. Последние три — значения по умолчанию плагина: если вы меняли их руками, кнопка вернёт их обратно. Ключ API, масштаб, анимации, заставку, состав рядов и настройки самой Lampa не трогает. После кнопки любой пункт правится по отдельности.',
-      en: 'A neutral style instead of the warm one. It sets nine items of "Appearance" at once: the "Deep black" theme, the "Graphite" accent, the Inter font, badges "In the caption", poster colour "Background only", flat look on, hero "Large", the title logo in the hero on, accent from poster on. The last three are the plugin defaults: if you changed them by hand, the button changes them back. The API key, scale, animations, screensaver, row selection and Lampa own settings stay untouched. After the button every item can be adjusted one by one.',
-      uk: 'Нейтральний стиль замість теплого. Виставляє дев’ять пунктів «Оформлення» разом: тема «Глибока чорна», акцент «Графіт», шрифт Inter, мітки «У підписі», колір постера «Лише тло», плаский вигляд увімкнено, кадр над рядами «Великий», логотип назви в кадрі увімкнено, акцент від постера увімкнено. Останні три — значення за замовчуванням плагіна: якщо ви змінювали їх руками, кнопка поверне їх назад. Ключ API, масштаб, анімації, заставку, склад рядів і налаштування самої Lampa не чіпає. Після кнопки кожен пункт правиться окремо.'
+      ru: 'Нейтральный стиль вместо тёплого. Выставляет десять пунктов «Оформления» разом: тема «Глубокая чёрная», акцент «Графит», шрифт Inter, метки «В подписи», цвет постера «Только фон», плоский вид включён, блоки анализа Lampa скрыты, кадр над рядами «Крупный», логотип названия в кадре включён, акцент от постера включён. Последние три — значения по умолчанию плагина: если вы меняли их руками, кнопка вернёт их обратно. Ключ API, масштаб, анимации, заставку, состав рядов и настройки самой Lampa не трогает. После кнопки любой пункт правится по отдельности.',
+      en: 'A neutral style instead of the warm one. It sets ten items of "Appearance" at once: the "Deep black" theme, the "Graphite" accent, the Inter font, badges "In the caption", poster colour "Background only", flat look on, the Lampa analysis blocks hidden, hero "Large", the title logo in the hero on, accent from poster on. The last three are the plugin defaults: if you changed them by hand, the button changes them back. The API key, scale, animations, screensaver, row selection and Lampa own settings stay untouched. After the button every item can be adjusted one by one.',
+      uk: 'Нейтральний стиль замість теплого. Виставляє десять пунктів «Оформлення» разом: тема «Глибока чорна», акцент «Графіт», шрифт Inter, мітки «У підписі», колір постера «Лише тло», плаский вигляд увімкнено, блоки аналізу Lampa сховано, кадр над рядами «Великий», логотип назви в кадрі увімкнено, акцент від постера увімкнено. Останні три — значення за замовчуванням плагіна: якщо ви змінювали їх руками, кнопка поверне їх назад. Ключ API, масштаб, анімації, заставку, склад рядів і налаштування самої Lampa не чіпає. Після кнопки кожен пункт правиться окремо.'
     },
     lumen_preset_lumen_name: { ru: 'Вернуть стиль Lumen', en: 'Restore the Lumen style', uk: 'Повернути стиль Lumen' },
     lumen_preset_lumen_descr: {
-      ru: 'Возвращает те же девять пунктов к значениям по умолчанию плагина: тёплая тёмная тема, песочный акцент, шрифт Golos Text, метки «На постере», полная подкраска от постера, плоский вид выключен, кадр над рядами «Крупный», логотип названия в кадре включён, акцент от постера включён. Настройки вне оформления остаются вашими.',
-      en: 'Returns the same nine items to the plugin defaults: warm dark theme, sand accent, the Golos Text font, badges "On the poster", full poster tinting, flat look off, hero "Large", the title logo in the hero on, accent from poster on. Everything outside the look stays yours.',
-      uk: 'Повертає ті самі дев’ять пунктів до значень за замовчуванням плагіна: тепла темна тема, піщаний акцент, шрифт Golos Text, мітки «На постері», повне підфарбування від постера, плаский вигляд вимкнено, кадр над рядами «Великий», логотип назви в кадрі увімкнено, акцент від постера увімкнено. Налаштування поза оформленням лишаються вашими.'
+      ru: 'Возвращает те же десять пунктов к значениям по умолчанию плагина: тёплая тёмная тема, песочный акцент, шрифт Golos Text, метки «На постере», полная подкраска от постера, плоский вид выключен, блоки анализа Lampa показаны, кадр над рядами «Крупный», логотип названия в кадре включён, акцент от постера включён. Настройки вне оформления остаются вашими.',
+      en: 'Returns the same ten items to the plugin defaults: warm dark theme, sand accent, the Golos Text font, badges "On the poster", full poster tinting, flat look off, the Lampa analysis blocks shown, hero "Large", the title logo in the hero on, accent from poster on. Everything outside the look stays yours.',
+      uk: 'Повертає ті самі десять пунктів до значень за замовчуванням плагіна: тепла темна тема, піщаний акцент, шрифт Golos Text, мітки «На постері», повне підфарбування від постера, плаский вигляд вимкнено, блоки аналізу Lampa показано, кадр над рядами «Великий», логотип назви в кадрі увімкнено, акцент від постера увімкнено. Налаштування поза оформленням лишаються вашими.'
     },
     /* Короткие имена стилей для подтверждения Lampa.Noty: «Стиль Apple TV ·
        Тема, Акцентный цвет, Шрифт». Отдельно от подписей кнопок — те
@@ -525,6 +529,31 @@
       ru: 'Скрыть',
       en: 'Hide',
       uk: 'Сховати'
+    },
+
+    /* A6 (волна A финального плана): «Метаданные» (Темп, Страх, Экшн…) и
+       «Настроения» (проценты) на карточке фильма — блоки САМОЙ Lampa. Мы
+       их не рисуем и не можем починить: строки title_metadata/title_moods/
+       title_meta_* лежат в vendor/lampa/app.min.js:49246-49258, рендер —
+       MetadataChart (:38200) и MetadataTags (:38272), данные приходит взять
+       Api.sources.cub.metadataGet и только для фильма
+       (`params.method == 'movie'`, :20160-20166). «Метаданные» появляются
+       при data.metadata.status == 'completed' (:38842), «Настроения» — ещё
+       и только при языке интерфейса ru/uk/be (:38848). Штатного выключателя
+       у Lampa нет, поэтому пункт наш.
+       Описание обязано сказать ровно это: блоки чужие и данные приходят от
+       аккаунта CUB. Иначе выключатель читается как «выключить нашу
+       функцию», и человек будет искать, почему она не вернулась на
+       сериале или на английском языке — там её и не было. */
+    lumen_hide_meta_name: {
+      ru: 'Скрывать блоки анализа Lampa',
+      en: 'Hide the Lampa analysis blocks',
+      uk: 'Ховати блоки аналізу Lampa'
+    },
+    lumen_hide_meta_descr: {
+      ru: 'Убирает с карточки ряды «Метаданные» (Темп, Страх, Экшн…) и «Настроения» (проценты). Это блоки самой Lampa, не плагина: данные для них приходят от аккаунта CUB и только для фильмов, «Настроения» — ещё и только при языке интерфейса ru/uk/be. Ничего не удаляется: ряд просто не строится на экране, выключите — вернётся. Применяется при следующем открытии карточки.',
+      en: 'Removes the "Metadata" (Pace, Fear, Action…) and "Moods" (percentages) rows from the card. These are Lampa own blocks, not the plugin: their data comes from the CUB account and only for movies, and "Moods" only with the ru/uk/be interface language. Nothing is deleted: the row simply is not put on screen, turn it off and it comes back. Applied the next time you open a card.',
+      uk: 'Прибирає з картки ряди «Метадані» (Темп, Страх, Екшн…) і «Настрої» (відсотки). Це блоки самої Lampa, а не плагіна: дані для них приходять від акаунта CUB і лише для фільмів, «Настрої» — ще й лише за мови інтерфейсу ru/uk/be. Нічого не видаляється: ряд просто не будується на екрані, вимкніть — повернеться. Застосовується при наступному відкритті картки.'
     },
 
     /* Task 15/20 (фаза 2): группа настроек главной. Task 57 (фаза 5)
@@ -1017,6 +1046,14 @@
        карточки, и экранов пути до плеера (LC.injectCss пересобирает обе). */
     if (name === 'lumen_theme' || name === 'lumen_solid' || name === 'lumen_scale' ||
         name === 'lumen_accent_scope' || name === 'lumen_flat') { LC.injectCss(); return true; }
+    /* A6: «Скрывать блоки анализа Lampa» читается в момент ПОСТРОЕНИЯ
+       карточки: ряды Lampa не создаются вовсе (src/90_runtime.js,
+       dropMetaData). Ни прятать их правилом, ни снимать узел со сцены
+       нельзя — оба пути ломают навигацию, разбор и замеры там же. На уже
+       открытом экране применять нечего, поэтому ветка пустая; своя она
+       потому, что иначе имя ушло бы дальше как чужое (как у
+       lumen_transition). */
+    if (name === 'lumen_hide_meta') return true;
     /* Task 24 (фаза 3): акцент от постера. Выключили — цвет из настроек
        возвращается сразу; включили — считается по фильму открытой карточки.
        Пересобирает CSS сам, поэтому отдельного injectCss здесь нет. */

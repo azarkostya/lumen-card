@@ -313,6 +313,10 @@ test('каждая настройка применяется ровно один
     /* Task 73 (фаза 6): плоский вид — тоже целиком таблица стилей, и
        карточки, и экранов пути до плеера (их пересобирает та же LC.injectCss). */
     lumen_flat: ['css'],
+    /* A6 (волна A): «Скрывать блоки анализа Lampa» читается в момент
+       ПОСТРОЕНИЯ карточки (src/90_runtime.js, dropMetaRow) — на живом экране
+       применять нечего, поэтому список пуст, но ветка у настройки своя. */
+    lumen_hide_meta: [],
     lumen_scale: ['css'],
     /* Task 24 (фаза 3): акцент от постера — своя точка применения: при
        выключении возвращает цвет настроек, при включении считает по фильму
@@ -603,7 +607,7 @@ test('Task 62b: «Apple TV» пишет весь набор оформления
      applyPresetChanges обязаны прийти ровно записанные ключи. «Акцент от
      постера» и размер кадра в стиле Apple TV те же, что по умолчанию, — на
      чистом профиле они не пишутся вовсе. */
-  assert.deepEqual(env.log, ['preset:lumen_theme,lumen_card_accent,lumen_font,lumen_accent_scope,lumen_badges,lumen_flat']);
+  assert.deepEqual(env.log, ['preset:lumen_theme,lumen_card_accent,lumen_font,lumen_accent_scope,lumen_badges,lumen_flat,lumen_hide_meta']);
 });
 
 /* Найдено живой проверкой фикс-раунда: при «Только фон» состав таблицы
@@ -754,4 +758,45 @@ test('A5: описание плоского вида говорит про се�
     }
     assert.equal(text.indexOf(overpromise[lang]), -1, lang + ': вернулось обещание больше факта: ' + text);
   }
+});
+
+/* ====================================================================== */
+/* A6 (волна A финального плана): блоки анализа Lampa — своя настройка.    */
+/*                                                                         */
+/* Пункт выключает ЧУЖИЕ блоки, и описание обязано это сказать: иначе      */
+/* выключатель читается как «выключить нашу функцию», и человек будет      */
+/* искать, почему она не вернулась на сериале или на английском языке —    */
+/* там её и не было (данные приходят от аккаунта CUB и только для фильма,  */
+/* vendor/lampa/app.min.js:20160-20166; «Настроения» — ещё и только при    */
+/* языке ru/uk/be, :38848).                                                */
+/* ====================================================================== */
+
+test('A6: описание настройки честно называет блоки чужими и источник — аккаунтом CUB', () => {
+  const env = setup();
+  const descr = env.LC.STRINGS.lumen_hide_meta_descr;
+  const name = env.LC.STRINGS.lumen_hide_meta_name;
+  const must = {
+    ru: ['самой Lampa', 'аккаунта CUB', 'только для фильмов', 'ru/uk/be', 'при следующем открытии карточки'],
+    en: ['Lampa own blocks', 'CUB account', 'only for movies', 'ru/uk/be', 'the next time you open a card'],
+    uk: ['самої Lampa', 'акаунта CUB', 'лише для фільмів', 'ru/uk/be', 'при наступному відкритті картки']
+  };
+  for (const lang of ['ru', 'en', 'uk']) {
+    assert.ok(name[lang], lang + ': названия нет');
+    const text = descr[lang];
+    assert.ok(text, lang + ': описания нет');
+    for (const part of must[lang]) {
+      assert.ok(text.indexOf(part) !== -1, lang + ': в описании нет «' + part + '»: ' + text);
+    }
+  }
+});
+
+test('A6: настройка зарегистрирована переключателем с дефолтом «выключено»', () => {
+  const env = setup();
+  env.LC.addSettings();
+  const param = env.params.filter((p) => p.param.name === 'lumen_hide_meta')[0];
+  assert.ok(param, 'пункта нет в разделе');
+  assert.equal(param.param.type, 'trigger');
+  /* Чужие данные молча не прячем — по умолчанию выключено. */
+  assert.equal(param.param['default'], false);
+  assert.equal(param.component, 'lumen_card');
 });

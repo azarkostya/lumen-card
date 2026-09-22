@@ -4699,6 +4699,23 @@ test('Task 73: плоский вид только дописывает прав�
   }
 });
 
+/* A6 (волна A финального плана): «Метаданные» и «Настроения» на карточке
+   фильма — ряды САМОЙ Lampa (MetadataChart, vendor/lampa/app.min.js:38200 и
+   MetadataTags, :38272; данные — Api.sources.cub.metadataGet, только для
+   фильма, :20160-20166). Прятать их ПРАВИЛОМ нельзя: скрытый display:none
+   ряд остаётся в наборе Navigator — Controller.collectionSet отбирает по
+   offsetParent только при третьем аргументе visible_only (:46453-46456), а
+   карточка зовёт его одним (:39126). Ряды вообще не создаются
+   (src/90_runtime.js, dropMetaData), и правила в таблице стилей быть не
+   должно — ни при какой настройке. */
+test('A6: чужие блоки анализа не прячутся таблицей стилей — их снимает рантайм', () => {
+  for (const value of [null, 'false', 'true']) {
+    const text = value === null ? css : withStorage({ lumen_hide_meta: value }, (LC) => LC.buildCss());
+    assert.equal(ruleSelectors(text).filter((s) => s.indexOf('lumen-lampa-meta') !== -1).length, 0,
+      'правило скрытия вернулось в таблицу (lumen_hide_meta=' + value + ') — скрытый ряд ловит фокус');
+  }
+});
+
 /* A5 (волна A финального плана): описание настройки обещало сетке и хабу
    перемену наравне с карточкой и путём TorrServer, а плоский вид снимает там
    ровно три подложки — и все три лежат ПОД картинкой, то есть видны только

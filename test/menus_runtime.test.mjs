@@ -168,6 +168,11 @@ test('долг ревью (п.2): каждая настройка раздела
        экранов пути до плеера переписывает она же (LC.injectCss зовёт
        LC.applyTorrentsPref). */
     lumen_flat: ['injectCss'],
+    /* A6 (волна A): «Скрывать блоки анализа Lampa» читается в момент
+       ПОСТРОЕНИЯ карточки (src/90_runtime.js, dropMetaRow) — на живом экране
+       применять нечего, но ветка у настройки своя, иначе имя ушло бы дальше
+       как чужое. */
+    lumen_hide_meta: [],
     lumen_scale: ['injectCss'],
     /* Task 25 (фаза 3): метки на постерах — applyBadgesPref: наблюдатель и
        метки на живом экране (вне POINTS) плюс пересборка таблицы, от вида
@@ -731,4 +736,80 @@ test('на чужом экране пересборки нет', async () => {
   env.LC.init();
   await tick();
   assert.equal(env.replaced(), 0);
+});
+
+/* ====================================================================== */
+/* A6 (волна A финального плана): блоки анализа Lampa на карточке.        */
+/*                                                                         */
+/* «Метаданные» (Темп/Страх/Экшн…) и «Настроения» (проценты) — ряды САМОЙ  */
+/* Lampa: компонент карточки кладёт их в rows именами 'metadata_chart' и   */
+/* 'metadata_tags' (vendor/lampa/app.min.js:38843 и :38849), собирают их   */
+/* MetadataChart (:38200) и MetadataTags (:38272) из data.metadata, а её   */
+/* приносит Api.sources.cub.metadataGet — только для фильма                */
+/* (`params.method == 'movie'`, :20160-20166). Штатного выключателя нет,   */
+/* поэтому узел ряда мы помечаем своим классом, а показывать его или нет   */
+/* решает одно правило таблицы стилей.                                     */
+/* ====================================================================== */
+
+/* Данные карточки в том виде, в каком их отдаёт Api.full: анализ CUB лежит
+   в data.metadata и читается Lampa ровно один раз — на app.min.js:38842,
+   сразу ПОСЛЕ события 'full' типа 'start' (:38833-38840). */
+function fullData() {
+  return { movie: { id: 1, title: 'X' }, metadata: { status: 'completed', review: [{ name: 'pace' }], moods: [{ name: 'тревога', percent: 40 }] } };
+}
+
+/* Ряды не прячутся и не снимаются со сцены, а НЕ СОЗДАЮТСЯ: оба других пути
+   проверены живьём на стенде и ломают навигацию — скрытый display:none ряд
+   остаётся в наборе Navigator (Controller.collectionSet отбирает по
+   offsetParent только при visible_only, app.min.js:46453-46456, а карточка
+   зовёт его одним аргументом, :39126), а снятый со сцены узел остаётся в
+   this.items, и шаг «вниз» отдаёт управление его компоненту с пустым
+   набором — фокус пропадает совсем. */
+test('A6: при включённой настройке Lampa не получает данных для рядов анализа', () => {
+  const { LC, fulls } = setup({ storage: { lumen_hide_meta: 'true' } });
+  LC.init();
+  assert.equal(fulls.length, 1, 'подписка на full должна быть ровно одна');
+  const data = fullData();
+  fulls[0]({ type: 'start', body: EMPTY, data: data });
+  /* Ровно то состояние, при котором Lampa не кладёт ни metadata_chart, ни
+     metadata_tags: проверка на :38842 не проходит. */
+  assert.equal(data.metadata, null, 'Lampa всё ещё построит ряды анализа');
+});
+
+test('A6: настройка выключена — данные Lampa не трогаем вовсе', () => {
+  for (const storage of [{}, { lumen_hide_meta: 'false' }]) {
+    const { LC, fulls } = setup({ storage: storage });
+    LC.init();
+    const data = fullData();
+    const meta = data.metadata;
+    fulls[0]({ type: 'start', body: EMPTY, data: data });
+    assert.equal(data.metadata, meta, 'чужие данные молча не прячем: ' + JSON.stringify(storage));
+    assert.ok(!data.lumen_metadata, 'лишнего поля в данных Lampa быть не должно');
+  }
+});
+
+/* «Мы не трогаем её данные»: снятое возвращается на 'complite' — он уходит
+   из того же синхронного блока сразу после build (app.min.js:38961-38972),
+   то есть после единственного чтения на :38842. */
+test('A6: данные Lampa не остаются изменёнными — complite возвращает анализ на место', () => {
+  const { LC, fulls } = setup({ storage: { lumen_hide_meta: 'true' } });
+  LC.init();
+  const data = fullData();
+  const meta = data.metadata;
+  fulls[0]({ type: 'start', body: EMPTY, data: data });
+  assert.equal(data.metadata, null);
+  fulls[0]({ type: 'complite', body: EMPTY, object: {}, data: data });
+  assert.equal(data.metadata, meta, 'анализ не вернулся в данные карточки');
+  assert.ok(!data.lumen_metadata, 'след от подмены остался в данных Lampa');
+});
+
+test('A6: карточка без анализа (сериал, не-русский язык, анализ не готов) ничего не ломает', () => {
+  const { LC, fulls } = setup({ storage: { lumen_hide_meta: 'true' } });
+  LC.init();
+  for (const data of [{ movie: {} }, { movie: {}, metadata: null }, {}]) {
+    fulls[0]({ type: 'start', body: EMPTY, data: data });
+    fulls[0]({ type: 'complite', body: EMPTY, object: {}, data: data });
+    assert.ok(!data.metadata, JSON.stringify(data));
+  }
+  fulls[0]({ type: 'start', body: EMPTY });
 });
