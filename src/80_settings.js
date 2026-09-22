@@ -259,12 +259,28 @@
       en: 'Content sits on the background instead of inside boxes: on the card the "Details" panel becomes a line of facts under the description, section counters lose their plates, reviews lose frames and panels, and on episode tiles the still moves to the top across the full width with the name and caption below it (which makes the episode row a little taller); on the TorrServer path releases and files are separated by thin lines instead of cards. In the collection grid and the hub little changes: only the plate under a tile is removed, and it is visible only until the poster or still arrives, and on items without an image. Focus and text size stay as they are. Applied immediately.',
       uk: 'Вміст лежить прямо на тлі, а не в коробках: у картці панель «Докладно» стає рядком фактів під описом, лічильники розділів втрачають плашки, відгуки — рамки й підкладки, а в плиток серій кадр стає зверху на всю ширину, назва та підпис ідуть під нього (через це ряд серій трохи вищий); на шляху TorrServer роздачі та файли розділяються тонкими лініями замість карток. У сітці підбірки та в хабі змінюється небагато: знімається лише підкладка під плиткою, а її видно, доки не прийшов постер або кадр, і в карток без зображення. Фокус і розмір тексту не змінюються. Застосовується одразу.'
     },
-    /* Фаза 3: масштаб интерфейса плагина. */
+    /* Фаза 3: масштаб интерфейса плагина.
+
+       Оговорка про потолок. При «Размере интерфейса: крупнее» Lampa
+       увеличивает карточку ряда дважды — кегль body ×1.05
+       (vendor/lampa/app.min.js:31630-31634) и правило
+       body.size--bigger .card{font-size:1.14em} поверх него
+       (vendor/lampa/css/app.css:3525-3528), итого ×1.197 внутри карточки.
+       Наш масштаб умножается на это сверху, и с крупным кадром заставки
+       произведение перестаёт помещаться в высоту экрана: подпись первого
+       ряда уезжает за кромку. Поэтому масштаб карточек рядов главной
+       ограничен сверху бюджетом высоты (rowScaleCap в src/30_css.js), и на
+       этой одной комбинации «Обычный», «Крупнее» и «Ещё крупнее» дают одну
+       и ту же карточку — потолок .96 (замеры и все 36 клеток — в тесте
+       «потолок масштаба карточки ряда» в test/css.test.mjs). Остальные
+       экраны плагина потолка не знают, и описание про это говорит ровно то
+       же самое: молчать о том, что настройка местами упёрлась в потолок,
+       значит выдавать ограничение за поломку. */
     lumen_scale_name: { ru: 'Масштаб интерфейса', en: 'Interface scale', uk: 'Масштаб інтерфейсу' },
     lumen_scale_descr: {
-      ru: 'Размер текста и блоков на экранах плагина: карточка, главная, подборки. Применяется сразу.',
-      en: 'The size of text and blocks on the plugin screens: card, home and collections. Applied immediately.',
-      uk: 'Розмір тексту та блоків на екранах плагіна: картка, головна, підбірки. Застосовується одразу.'
+      ru: 'Размер текста и блоков на экранах плагина: карточка, главная, подборки. Применяется сразу. Одно исключение: если в самой Lampa выбран «Размер интерфейса: крупнее», она уже увеличила карточки рядов главной, и при крупном кадре заставки наш масштаб там упирается в высоту экрана — «Обычный», «Крупнее» и «Ещё крупнее» дают одинаковые ряды, иначе подпись первого ряда не поместилась бы. При меньшем кадре и на других размерах интерфейса ограничения нет, и на остальных экранах плагина масштаб действует целиком.',
+      en: 'The size of text and blocks on the plugin screens: card, home and collections. Applied immediately. One exception: if Lampa\'s own "Interface size" is set to larger, it has already enlarged the home row cards, and with a large backdrop our scale there runs into the screen height — "Normal", "Larger" and "Largest" give identical rows, otherwise the first row caption would not fit. With a smaller backdrop and on the other interface sizes there is no cap, and on the other plugin screens the scale applies in full.',
+      uk: 'Розмір тексту та блоків на екранах плагіна: картка, головна, підбірки. Застосовується одразу. Один виняток: якщо в самій Lampa вибрано «Розмір інтерфейсу: більше», вона вже збільшила картки рядів головної, і з великим кадром заставки наш масштаб там упирається у висоту екрана — «Звичайний», «Більше» і «Ще більше» дають однакові ряди, інакше підпис першого ряду не помістився б. З меншим кадром і на інших розмірах інтерфейсу обмеження немає, а на решті екранів плагіна масштаб діє повністю.'
     },
     lumen_scale_small: { ru: 'Мельче', en: 'Smaller', uk: 'Дрібніше' },
     lumen_scale_normal: { ru: 'Обычный', en: 'Normal', uk: 'Звичайний' },

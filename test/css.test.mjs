@@ -2537,34 +2537,21 @@ test('Task 51: подпись первого ряда помещается в э
      крупный кадр, поднятое состояние — низ подписи 525.75 px, расчёт
      525.87; «обычный» при тех же прочих — 514.38 против расчётных 514.5. */
 
-  /* Три клетки, которые в предел НЕ укладываются, — все на «крупнее» с
-     крупным кадром. Узкая колонка там уже включена (пороги 157, 145 и
-     134/100 — ниже 16:9, карточка 8.07-й колонки вместо 9.52-й) и кегли
-     подписей уже сброшены к TV_MIN без масштаба; другого запаса в цепочке
-     нет. Дефицит против предела 532: 5.5, 23.9 и 42.1 px с кнопкой «Ещё».
-     Числа пинятся, а не подгоняются: размен — отобрать карточке ещё ширины,
-     убавить зазор ряда или не применять к ней масштаб интерфейса на
-     «крупнее» — это решение координатора, а тест обязан показать его цену и
-     не дать дефициту вырасти молча (отчёт фикс-раунда волны A, важное 1). */
-  const KNOWN_OVER = {
-    'bigger/large/normal': { more: 537.5, plain: 530.7 },
-    'bigger/large/large': { more: 555.9, plain: 550.5 },
-    'bigger/large/huge': { more: 574.1, plain: 570.2 }
-  };
-
+  /* Исключений в таблице больше нет: все 72 клетки обязаны уложиться.
+     Раньше их было три — «крупнее» с крупным кадром при масштабе от
+     штатного и выше (537.5, 555.9 и 574.1 px при пределе 532). Узкая
+     колонка там была уже включена, кегли подписей уже сброшены к TV_MIN, и
+     другого запаса в цепочке не оставалось. Закрыл их потолок масштаба
+     карточки ряда (rowScaleCap в src/30_css.js): выбранный масштаб
+     ограничивается сверху тем же бюджетом высоты, из которого считается
+     порог узкой колонки. Цена ограничения — отдельным тестом ниже
+     («потолок масштаба карточки ряда»). */
   for (const iface of ['small', 'normal', 'bigger']) {
     for (const size of ['large', 'medium', 'compact']) {
       for (const scale of ['small', 'normal', 'large', 'huge']) {
         for (const more of [true, false]) {
           const got = box(scale, more, size, iface);
           const label = iface + '/' + size + '/' + scale + (more ? ' с кнопкой «Ещё»' : '');
-          const known = KNOWN_OVER[iface + '/' + size + '/' + scale];
-          if (known) {
-            const want = more ? known.more : known.plain;
-            assert.ok(Math.abs(got.textBottomUp - want) < 1,
-              label + ': известный дефицит сдвинулся — ' + got.textBottomUp.toFixed(1) + ' вместо ' + want);
-            continue;
-          }
           assert.ok(got.textBottomUp <= TEXT_LIMIT,
             label + ': низ подписи в поднятом состоянии ' + got.textBottomUp.toFixed(1) + ' px при пределе ' + TEXT_LIMIT);
         }
@@ -2572,17 +2559,19 @@ test('Task 51: подпись первого ряда помещается в э
     }
   }
 
-  /* Список известных дефицитов не вправе расти молча в обе стороны: каждая
-     клетка в нём обязана И ПРАВДА не помещаться (иначе это уже не долг, а
-     запись, которую забыли снять), а самих клеток — ровно столько, сколько
-     названо в комментарии выше. */
-  assert.equal(Object.keys(KNOWN_OVER).length, 3, 'список известных дефицитов изменился — комментарий выше обязан измениться вместе с ним');
-  for (const key of Object.keys(KNOWN_OVER)) {
-    assert.ok(KNOWN_OVER[key].more > TEXT_LIMIT, key + ': клетка помещается в предел — её место не в списке долгов');
-  }
+  /* Три клетки, которые дефицит давали раньше, называются поимённо: если
+     потолок однажды перестанет их закрывать, падать должен тест с понятным
+     именем клетки, а не безымянная ячейка общего прогона выше. */
+  assert.ok(box('normal', true, 'large', 'bigger').textBottomUp <= TEXT_LIMIT,
+    'bigger/large/normal снова за пределом');
+  assert.ok(box('large', true, 'large', 'bigger').textBottomUp <= TEXT_LIMIT,
+    'bigger/large/large снова за пределом');
+  assert.ok(box('huge', true, 'large', 'bigger').textBottomUp <= TEXT_LIMIT,
+    'bigger/large/huge снова за пределом');
 
-  /* Соседи по обеим осям в предел укладываются — значит дефицит даёт именно
-     «крупнее» вместе с крупным кадром, а не «всё крупное сломано». */
+  /* Соседи по обеим осям — те клетки, которые до потолка помещались впритык
+     (531.2, 530.9 и 530.8 при пределе 532): именно им ограничение не имело
+     права ничего испортить. */
   assert.ok(box('huge', true, 'large', 'normal').textBottomUp <= TEXT_LIMIT,
     'normal/large/huge перестал помещаться — дефицит расползается по размерам интерфейса');
   assert.ok(box('huge', true, 'medium', 'bigger').textBottomUp <= TEXT_LIMIT,
@@ -2616,6 +2605,96 @@ test('Task 51: подпись первого ряда помещается в э
     'штатный масштаб с кнопкой «Ещё»: ' + box('normal', true).textBottomUp.toFixed(1) + ' вместо замеренных 524.8');
   assert.ok(Math.abs(box('normal', true).rowTopUp - 287) < 1,
     'верх шапки первого ряда: ' + box('normal', true).rowTopUp.toFixed(1) + ' вместо замеренных 287');
+});
+
+/* Потолок масштаба карточки ряда (rowScaleCap в src/30_css.js). «Размер
+   интерфейса: крупнее» у самой Lampa увеличивает карточку ДВАЖДЫ — кегль
+   body ×1.05 (vendor/lampa/app.min.js:31630-31634) и правило
+   body.size--bigger .card{font-size:1.14em} поверх него
+   (vendor/lampa/css/app.css:3525-3528), — и наш масштаб умножается на это
+   сверху. С крупным кадром произведение в высоту экрана не помещается, и
+   потолок его режет. Тест сторожит обе половины решения: режет ТОЛЬКО вниз
+   и ТОЛЬКО там, где место кончилось.
+
+   Эффективный масштаб читается из базового правила ширины карточки:
+   buildCss пишет туда round2(9.52 × rowScale), то есть деление на ширину
+   седьмой колонки возвращает сам масштаб с точностью округления. */
+test('Фикс-раунд волны A: потолок масштаба карточки ряда режет только вниз и только по нужде', () => {
+  const W = 960;
+  const H = 540;
+  const TEXT_LIMIT = 532;
+  const WIDE_EM = 9.52;
+  /* Своя копия таблицы масштабов — как и LAMPA_SIZES выше: тест проверяет
+     плагин по внешнему числу, а не по тому же объекту, из которого плагин
+     считает. */
+  const SCALE_OF = { small: 0.9, normal: 1, large: 1.1, huge: 1.2 };
+  const built = (scale, size, iface) => withStorage(
+    { lumen_scale: scale, lumen_hero_size: size, interface_size: iface }, (LC) => LC.buildCss());
+  const rowScale = (scale, size, iface) =>
+    parseFloat(/(?:^|;)width:([0-9.]+)em/.exec(findDecl(built(scale, size, iface), (sel) => sel === '.lumen-main .card'))[1]) / WIDE_EM;
+  const bottom = (scale, size, iface) =>
+    rowLayout(built(scale, size, iface), W, H, { more: true, interface: iface }).textBottomUp;
+
+  /* Цена одной сотой масштаба В ПИКСЕЛЯХ — замером по двум настоящим
+     сборкам, а не формулой: «крупнее» со средним кадром, узкая колонка на
+     обоих концах (8.88em и 9.68em), разница масштаба ровно .1. */
+  const step = (bottom('huge', 'medium', 'bigger') - bottom('large', 'medium', 'bigger')) / 10;
+  assert.ok(step > 1 && step < 3, 'цена сотой масштаба ' + step.toFixed(2) + ' px — замер перестал быть похож на правду');
+
+  for (const iface of ['small', 'normal', 'bigger']) {
+    for (const size of ['large', 'medium', 'compact']) {
+      for (const scale of ['small', 'normal', 'large', 'huge']) {
+        const label = iface + '/' + size + '/' + scale;
+        const got = rowScale(scale, size, iface);
+        const want = SCALE_OF[scale];
+
+        /* Только вниз: потолок не вправе выдать больше выбранного. */
+        assert.ok(got <= want + 0.001, label + ': масштаб карточки ' + got.toFixed(3) + ' БОЛЬШЕ выбранного ' + want);
+        /* И не ниже самого мелкого значения самой настройки — подменять
+           выбор пользователя тем, чего в списке нет, потолку не разрешено. */
+        assert.ok(got >= SCALE_OF.small - 0.001, label + ': масштаб карточки ' + got.toFixed(3) + ' ниже самого мелкого в настройке');
+
+        if (got > want - 0.001) continue;
+
+        /* Раз потолок сработал — он обязан оправдаться бюджетом: на этой
+           клетке подпись стоит почти у предела, то есть следующая сотая
+           масштаба туда уже не влезала. Допуск — ДВЕ сотых, а не одна:
+           предел этого теста (532 px) и кромка минус запас ROW_EDGE_AIR,
+           из которой считает сам потолок (531.6 px), — разные числа, и
+           разницу между ними записывать потолку в «лишнее» нечестно. */
+        const slack = TEXT_LIMIT - bottom(scale, size, iface);
+        assert.ok(slack >= 0, label + ': потолок сработал, а подпись всё равно за пределом');
+        assert.ok(slack < 2 * step, label + ': потолок отобрал лишнего — под подписью осталось ' +
+          slack.toFixed(1) + ' px при цене сотой ' + step.toFixed(2) + ' px');
+      }
+    }
+  }
+
+  /* Где потолок НЕ нужен — там его и нет: два размера интерфейса из трёх
+     целиком, а на «крупнее» — оба кадра мельче крупного. 33 клетки из 36
+     обязаны отдать ровно выбранный масштаб. */
+  let capped = 0;
+  for (const iface of ['small', 'normal', 'bigger']) {
+    for (const size of ['large', 'medium', 'compact']) {
+      for (const scale of ['small', 'normal', 'large', 'huge']) {
+        if (rowScale(scale, size, iface) < SCALE_OF[scale] - 0.001) capped++;
+        else assert.ok(Math.abs(rowScale(scale, size, iface) - SCALE_OF[scale]) < 0.001,
+          iface + '/' + size + '/' + scale + ': масштаб карточки разошёлся с выбранным без ограничения');
+      }
+    }
+  }
+  assert.equal(capped, 3, 'ограничено клеток: ' + capped + ' — раньше их было ровно три (крупный кадр на «крупнее», масштаб от штатного и выше)');
+
+  /* Цена ограничения названа числом, а не «где-то около»: на всех трёх
+     клетках потолок один и тот же — .96, и «огромный» там даёт ту же
+     карточку, что «штатный». Это и есть то, что пользователю сказано в
+     описании настройки (src/80_settings.js). */
+  for (const scale of ['normal', 'large', 'huge']) {
+    assert.ok(Math.abs(rowScale(scale, 'large', 'bigger') - 0.96) < 0.001,
+      'bigger/large/' + scale + ': потолок ' + rowScale(scale, 'large', 'bigger').toFixed(3) + ' вместо .96');
+  }
+  assert.ok(Math.abs(rowScale('small', 'large', 'bigger') - 0.9) < 0.001,
+    'bigger/large/small: мелкий масштаб ниже потолка и обязан остаться нетронутым');
 });
 
 /* «Крупнее» и «огромный» сами по себе в экран не помещаются: блок ряда
