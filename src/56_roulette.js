@@ -624,12 +624,14 @@
 
       /* Через watchFocus проходят все .selector рулетки, поэтому подкрутка
          к фокусу ставится здесь одной строкой. */
+      /* Task 68: подписка — общий LC.focus.on (src/11_focus.js): пульт шлёт
+         'hover:focus', мышь — 'hover:hover' (vendor/lampa/app.min.js:46360-
+         46364), а подкрутка к фокусу нужна в обоих режимах одинаково. */
       function watchFocus(node) {
-        node.on('hover:focus', function () {
+        return LC.focus.on(node, function () {
           keepVisible(node[0]);
           lastFocus = node[0];
         });
-        return node;
       }
 
       /* Task 44: чип подборки живёт в собственной горизонтальной прокрутке,
@@ -638,10 +640,9 @@
          обработчиком, а не внутри watchFocus: через него проходят и чипы
          фильтров, и кнопки, а они в ленте не лежат. */
       function railChip(node) {
-        node.on('hover:focus', function () {
+        return LC.focus.on(node, function () {
           try { chipsScroll.update(node[0], true); } catch (e) { warn('roulette: chips scroll failed', e); }
         });
-        return node;
       }
 
       /* ---------------------------------------------------------------- */

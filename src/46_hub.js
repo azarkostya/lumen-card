@@ -856,7 +856,12 @@
             '<div class="lumen-tile__nokey">' + esc(LC.lang('lumen_hub_nokey')) + '</div>' +
           '</div>'
         );
-        node.on('hover:focus', function () {
+        /* Task 68: LC.focus.on — подписка на фокус и пультом, и мышью
+           (src/11_focus.js). Мышиное наведение шлёт 'hover:hover', не
+           'hover:focus' (vendor/lampa/app.min.js:46360-46364), а подкрутка
+           экрана и догрузка кадров нужны одинаково в обоих режимах: без них
+           мышью уезжаешь за кромку списка к плиткам без кадров. */
+        LC.focus.on(node, function () {
           keepVisible(node[0]);
           lastFocus = node[0];
           loadVisibleBanners();
@@ -892,7 +897,7 @@
            заголовке экрана, buildHead ниже). */
         var node = $('<div class="lumen-chip selector">' + esc(group.title) + '</div>');
         node[0].lumen_group = group.id;
-        node.on('hover:focus', function () { keepVisible(node[0]); lastFocus = node[0]; });
+        LC.focus.on(node, function () { keepVisible(node[0]); lastFocus = node[0]; });
         node.on('hover:enter', function () {
           if (activeGroup === group.id) return;
           buildTiles(group.id);
@@ -949,9 +954,10 @@
         var node = head.find('.lumen-hub__search')[0];
         if (!node) return false;
         /* Уже на ней — дальше вверх только шапка Lampa. Сверяемся с
-           lastFocus, а не с классом .focus: его ставит Lampa, а обновляется
-           lastFocus тем же событием hover:focus, которым Lampa этот класс и
-           сопровождает. */
+           lastFocus, а не с классом .focus: его ставит Lampa, а lastFocus
+           обновляется тем самым событием, которым Lampa этот класс и
+           сопровождает — на обоих путях сразу, потому что подписка идёт
+           через LC.focus (пульт и мышь, src/11_focus.js). */
         if (lastFocus === node) return false;
         recollect(node);
         return true;
@@ -966,7 +972,7 @@
         /* Поиск по подборкам (design-spec-main §0.8): место в шапке держалось
            с Task 17 скрытым узлом, теперь это рабочая кнопка. */
         var search = $('<div class="lumen-hub__search selector">' + LC.icons.get('search') + '<span>' + esc(LC.lang('lumen_hub_search')) + '</span></div>');
-        search.on('hover:focus', function () { keepVisible(search[0]); lastFocus = search[0]; });
+        LC.focus.on(search, function () { keepVisible(search[0]); lastFocus = search[0]; });
         search.on('hover:enter', function () { openSearch(); });
         head.append(search);
         /* Task 33: кнопка в коллекции Navigator всегда, вне окна плиток. */
@@ -1275,7 +1281,7 @@
            вдвое более плотном (w500). */
         el.lumen_poster = imageUrl(card.poster_path, LC.util.posterSize(LC.util.emPx(GCARD_EM)));
 
-        node.on('hover:focus', function () {
+        LC.focus.on(node, function () {
           keepVisible(el);
           lastFocus = el;
           lastCardId = card.id;
@@ -1372,7 +1378,7 @@
              Запись поднимает listener 'change' → LC.applyKpHintPref
              пересобирает эту сетку уже без подсказки. */
           var hide = $('<div class="lumen-grid__back lumen-grid__hide selector">' + esc(LC.lang('lumen_kp_hint_hide')) + '</div>');
-          hide.on('hover:focus', function () { keepVisible(hide[0]); lastFocus = hide[0]; });
+          LC.focus.on(hide, function () { keepVisible(hide[0]); lastFocus = hide[0]; });
           hide.on('hover:enter', function () {
             try { Lampa.Storage.set('lumen_kp_hint', 'false'); } catch (e) {}
           });
@@ -1380,7 +1386,7 @@
           emptyNodes.push(hide[0]);
         }
         var back = $('<div class="lumen-grid__back selector">' + esc(LC.lang('lumen_grid_back')) + '</div>');
-        back.on('hover:focus', function () { keepVisible(back[0]); lastFocus = back[0]; });
+        LC.focus.on(back, function () { keepVisible(back[0]); lastFocus = back[0]; });
         back.on('hover:enter', function () { Lampa.Activity.backward(); });
         box.append(back);
         emptyNodes.push(back[0]);
@@ -1462,7 +1468,7 @@
       function sortNode(mode) {
         var node = $('<div class="lumen-chip selector">' + esc(LC.lang(mode.key)) + '</div>');
         node[0].lumen_sort = mode.id;
-        node.on('hover:focus', function () { keepVisible(node[0]); lastFocus = node[0]; });
+        LC.focus.on(node, function () { keepVisible(node[0]); lastFocus = node[0]; });
         node.on('hover:enter', function () {
           if (sortMode === mode.id) return;
           /* Первая загрузка ещё идёт, а фокус по умолчанию стоит именно на

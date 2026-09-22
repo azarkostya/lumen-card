@@ -16,6 +16,10 @@ globalThis.warn = function (msg, err) { warnLog.push({ msg: msg, err: err }); };
 const SRC = readFileSync(new URL('../src/48_hero.js', import.meta.url), 'utf8');
 const UTIL = load('10_util.js');
 const CARDINFO = load('35_cardinfo.js');
+/* Task 68: LC.focus — общий механизм подписки на фокус (src/11_focus.js):
+   герой вешает свой обработчик и на 'hover:focus' (пульт), и на
+   'hover:hover' (мышь). */
+const FOCUS = load('11_focus.js');
 
 /* Слова героя в тестах — латиницей, чтобы проверять состав меты, а не
    перевод: сами строки живут в LC.STRINGS (src/80_settings.js). */
@@ -29,7 +33,7 @@ const WORDS = {
 };
 
 function freshHero(extra) {
-  const LC = Object.assign({ util: UTIL, cardinfo: CARDINFO, motionMode: function () { return 'full'; } }, extra || {});
+  const LC = Object.assign({ util: UTIL, focus: FOCUS, cardinfo: CARDINFO, motionMode: function () { return 'full'; } }, extra || {});
   const module = { exports: null, lumen: true };
   new Function('LC', 'module', SRC)(LC, module);
   return { api: module.exports, LC: LC };
@@ -385,9 +389,23 @@ function focusListeners(root) {
   return (root._listeners || []).filter((l) => l.type === 'hover:focus' && l.capture);
 }
 
+/* Task 68: тот же слушатель, но по мышиному событию — Lampa в режиме
+   navigation_type == 'mouse' шлёт наведённому элементу 'hover:hover', а не
+   'hover:focus' (vendor/lampa/app.min.js:46360-46364, слушатели mouseenter/
+   mouseleave вешаются на :46374-46381). */
+function hoverListeners(root) {
+  return (root._listeners || []).filter((l) => l.type === 'hover:hover' && l.capture);
+}
+
 function fireFocus(root, target) {
   const list = focusListeners(root);
   assert.equal(list.length, 1, 'на корне обязан жить ровно один capture-слушатель фокуса');
+  list[0].fn({ target: target });
+}
+
+function fireHover(root, target) {
+  const list = hoverListeners(root);
+  assert.equal(list.length, 1, 'на корне обязан жить ровно один capture-слушатель мышиного фокуса');
   list[0].fn({ target: target });
 }
 
@@ -475,6 +493,82 @@ test('mount: снятие и повторное монтирование ост�
   fireFocus(main.activity, main.card1);
   env.advance(400);
   assert.equal(env.images.length, 1, 'и он рабочий: фокус дошёл до героя');
+});
+
+/* ====================================================================== */
+/* Task 68: герой отзывается и на мышь                                    */
+/* ====================================================================== */
+
+/* Живая жалоба: «картинки всё ещё меняются только на первый фильм в
+   подборке». Причина — Lampa в мышином режиме шлёт наведённой карточке
+   'hover:hover' и только ставит ей класс focus (vendor/lampa/
+   app.min.js:46360-46364), а герой слушал одно 'hover:focus'. Теперь
+   подписку ставит LC.focus.capture, и оба события ведут в один обработчик. */
+test('Task 68: на корне живут ОБА capture-слушателя фокуса, и это один обработчик', () => {
+  const env = makeEnv();
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  assert.equal(focusListeners(main.activity).length, 1, 'пультовое событие');
+  assert.equal(hoverListeners(main.activity).length, 1, 'мышиное событие');
+  assert.equal(focusListeners(main.activity)[0].fn, hoverListeners(main.activity)[0].fn,
+    'обработчик один — гарды DELAY/pending/gen у обеих веток общие');
+});
+
+test('Task 68: наведение мышью меняет кадр героя так же, как шаг пультом', () => {
+  const env = makeEnv();
+  const main = makeMain();
+  env.hero.mount(main.activity);
+
+  fireHover(main.activity, main.card1);
+  env.advance(400);
+  assert.equal(env.images[0].src, 'https://img/t/p/w1280/b1.jpg', 'первая карточка — её кадр');
+
+  fireHover(main.activity, main.card2);
+  env.advance(400);
+  assert.equal(env.images[1].src, 'https://img/t/p/w1280/b2.jpg', 'мышь на второй — кадр сменился');
+  assert.deepEqual(warnLog, []);
+});
+
+/* Пультом и мышью — одинаковые гарды. DELAY: кадр не грузится раньше 350 мс;
+   повтор на том же узле не заводит ни второго кадра, ни второго запроса. */
+test('Task 68: мышиная ветка держит те же гарды — задержка и повтор на том же узле', () => {
+  const env = makeEnv();
+  const main = makeMain();
+  env.hero.mount(main.activity);
+
+  fireHover(main.activity, main.card1);
+  env.advance(100);
+  assert.equal(env.images.length, 0, 'до DELAY кадра нет');
+  env.advance(400);
+  assert.equal(env.images.length, 1);
+
+  fireHover(main.activity, main.card1);
+  env.advance(400);
+  assert.equal(env.images.length, 1, 'тот же узел — ни второго кадра, ни перезапуска');
+});
+
+/* Задвоения быть не может: одно действие пользователя даёт ровно одно из
+   двух событий. Но даже если бы оба пришли подряд (возврат фокуса Lampa
+   поверх наведения), гард state.focusEl не даёт второго кадра. */
+test('Task 68: пультовое и мышиное событие на одном узле не задваивают показ', () => {
+  const env = makeEnv();
+  const main = makeMain();
+  env.hero.mount(main.activity);
+
+  fireFocus(main.activity, main.card1);
+  fireHover(main.activity, main.card1);
+  env.advance(400);
+  assert.equal(env.images.length, 1, 'кадр ровно один');
+});
+
+test('Task 68: unmount снимает ОБА слушателя — мышиный не остаётся висеть', () => {
+  const env = makeEnv();
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  env.hero.unmount();
+  assert.equal(focusListeners(main.activity).length, 0);
+  assert.equal(hoverListeners(main.activity).length, 0, 'мышиная подписка тоже снята');
+  assert.deepEqual(main.activity._listeners, [], 'на корне не осталось ни одной нашей подписки');
 });
 
 test('mount на другой корень снимает предыдущего героя целиком (слушатель один на плагин)', () => {

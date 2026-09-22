@@ -685,6 +685,53 @@ test('lumen_hub: hover:focus плитки подкручивает скролл 
   assert.equal(scroll.update_calls[0][1], true, 'ряд встаёт по центру');
 });
 
+/* Task 68: мышь шлёт наведённому узлу 'hover:hover', а не 'hover:focus'
+   (vendor/lampa/app.min.js:46360-46364) — подписку на оба события ставит
+   общий LC.focus.on (src/11_focus.js). Проверяется каждое место хаба: плитка,
+   чип, кнопка поиска (и ниже, в сетке, — карточка, «Назад» и чип сортировки).
+   Без мышиной ветки экран за фокусом не едет, а lastFocus не обновляется —
+   «вверх» с чипа на поиск ломается. */
+test('Task 68: hover:hover плитки (мышь) делает ровно то же, что hover:focus', function () {
+  var s = openHub();
+  var scroll = s.env.log.scrolls[0];
+  var tile = s.root.all('lumen-tile')[1];
+  scroll.update_calls.length = 0;
+  fire(tile, 'hover:hover');
+  assert.equal(scroll.update_calls.length, 1, 'мышью экран тоже едет за фокусом');
+  assert.equal(scroll.update_calls[0][0], tile);
+  assert.equal(scroll.update_calls[0][1], true);
+});
+
+test('Task 68: hover:hover чипа и кнопки поиска ведут себя как пультовые', function () {
+  var s = openHub();
+  var scroll = s.env.log.scrolls[0];
+  var chip = s.root.all('lumen-chip')[1];
+  scroll.update_calls.length = 0;
+  fire(chip, 'hover:hover');
+  assert.equal(scroll.update_calls.length, 1, 'чип: подкрутка есть');
+  assert.equal(scroll.update_calls[0][0], chip);
+
+  var search = s.root.all('lumen-hub__search')[0];
+  scroll.update_calls.length = 0;
+  fire(search, 'hover:hover');
+  assert.equal(scroll.update_calls.length, 1, 'кнопка поиска: подкрутка есть');
+  assert.equal(scroll.update_calls[0][0], search);
+});
+
+/* Одно наведение — один проход: обработчик у обоих событий общий, а сами
+   события на одно действие приходят поодиночке. */
+test('Task 68: hover:focus и hover:hover — это ОДИН обработчик на каждое событие', function () {
+  var s = openHub();
+  var scroll = s.env.log.scrolls[0];
+  var tile = s.root.all('lumen-tile')[1];
+  scroll.update_calls.length = 0;
+  fire(tile, 'hover:focus');
+  assert.equal(scroll.update_calls.length, 1, 'пультовое событие — один вызов');
+  scroll.update_calls.length = 0;
+  fire(tile, 'hover:hover');
+  assert.equal(scroll.update_calls.length, 1, 'мышиное событие — тоже ровно один');
+});
+
 test('lumen_hub: кадр плитки идёт дешёвым путём bannerPath, а не полной страницей (C1)', function () {
   var s = openHub();
   assert.equal(s.h.fetchCalls.length, 0, 'целая страница подборки для плитки не запрашивается');
@@ -766,6 +813,15 @@ test('Task 41: кадры грузятся окном вперёд от фоку
   /* Уже запрошенные кадры второй раз не просят. */
   fire(s.root.all('lumen-tile')[0], 'hover:focus');
   assert.equal(s.h.bannerCalls.length, 17, 'возврат назад ничего не перезапрашивает');
+});
+
+/* Окно кадров едет и мышью: иначе наведение на дальнюю плитку показывало бы
+   пустые прямоугольники. */
+test('Task 68: окно кадров плиток двигается и мышью', function () {
+  var s = openHub({ manifest: BIG_MANIFEST, cols: 4 });
+  assert.equal(s.h.bannerCalls.length, 9);
+  fire(s.root.all('lumen-tile')[8], 'hover:hover');
+  assert.equal(s.h.bannerCalls.length, 17, 'мышью окно доехало так же, как пультом');
 });
 
 test('lumen_hub: кадр, упавший с ошибкой, перезапрашивается при следующем фокусе', function () {
@@ -1038,6 +1094,42 @@ test('lumen_grid: hover:focus карточки подкручивает скро
   assert.equal(scroll.update_calls.length, 1);
   assert.equal(scroll.update_calls[0][0], card, 'подкрутка именно к этой карточке');
   assert.equal(scroll.update_calls[0][1], true, 'ряд карточек встаёт по центру');
+});
+
+/* Task 68: те же три места сетки — карточка, чип сортировки и «Назад» —
+   обязаны отзываться и на мышиное 'hover:hover' (vendor/lampa/
+   app.min.js:46360-46364). Иначе мышью список не подкручивается, а lastFocus
+   остаётся от прошлого узла и возврат фокуса после догрузки бьёт мимо. */
+test('Task 68: hover:hover карточки сетки подкручивает список так же, как пультовый', function () {
+  var g = openGrid(COLLECTION);
+  g.h.fetchCalls[0].ok({ results: results(9), page: 1, total_pages: 1, total_results: 9 });
+  var scroll = g.env.log.scrolls[0];
+  var card = g.root.all('lumen-gcard')[4];
+  scroll.update_calls.length = 0;
+  fire(card, 'hover:hover');
+  assert.equal(scroll.update_calls.length, 1);
+  assert.equal(scroll.update_calls[0][0], card);
+  assert.equal(scroll.update_calls[0][1], true);
+});
+
+test('Task 68: hover:hover чипа сортировки и кнопки «Назад» работают', function () {
+  var g = openGrid(COLLECTION);
+  g.h.fetchCalls[0].ok({ results: results(3), page: 1, total_pages: 1, total_results: 3 });
+  var scroll = g.env.log.scrolls[0];
+  var chip = g.root.all('lumen-chip')[1];
+  scroll.update_calls.length = 0;
+  fire(chip, 'hover:hover');
+  assert.equal(scroll.update_calls.length, 1, 'чип сортировки: подкрутка есть');
+  assert.equal(scroll.update_calls[0][0], chip);
+
+  var e = openGrid(COLLECTION);
+  e.h.fetchCalls[0].ok({ results: [], page: 1, total_pages: 1, total_results: 0 });
+  var eScroll = e.env.log.scrolls[0];
+  var back = e.root.all('lumen-grid__back')[0];
+  eScroll.update_calls.length = 0;
+  fire(back, 'hover:hover');
+  assert.equal(eScroll.update_calls.length, 1, '«Назад»: подкрутка есть');
+  assert.equal(eScroll.update_calls[0][0], back);
 });
 
 test('lumen_grid: данные карточки лежат в card_data узла', function () {

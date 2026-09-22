@@ -814,7 +814,7 @@
       }
     }
 
-    /* События Lampa (hover:focus/hover:enter) не всплывают — слушаем в фазе
+    /* События Lampa (фокус/hover:enter) не всплывают — слушаем в фазе
        перехвата на корне блока, как bindEpisodes в 85_header.js и bind() в
        55_trailer.js. Один слушатель на блок, отдельной подписки на
        Controller.listener не заводим. */
@@ -831,12 +831,17 @@
           } catch (e) { return null; }
         }
 
-        el.addEventListener('hover:focus', function (event) {
+        /* Task 68: LC.focus.capture вешает обработчик на ОБА события фокуса
+           (src/11_focus.js) — мышь шлёт 'hover:hover', а не 'hover:focus'
+           (vendor/lampa/app.min.js:46360-46364). Подкрутка ленты к рецензии
+           под фокусом нужна в обоих режимах: без неё мышью карточка уезжает
+           за кромку блока. */
+        LC.focus.capture(el, function (event) {
           try {
             var card = cardOf(event.target);
             if (card) scrollToCard(block, card);
           } catch (e) { warn('reviews focus failed', e); }
-        }, true);
+        });
 
         el.addEventListener('hover:enter', function (event) {
           try {

@@ -19,11 +19,15 @@ globalThis.warn = function () { };
 
 const SRC = readFileSync(new URL('../src/56_roulette.js', import.meta.url), 'utf8');
 const UTIL = readFileSync(new URL('../src/10_util.js', import.meta.url), 'utf8');
+/* Task 68: LC.focus — общий механизм подписки на фокус (src/11_focus.js):
+   watchFocus/railChip слушают и пульт, и мышь. */
+const FOCUS = readFileSync(new URL('../src/11_focus.js', import.meta.url), 'utf8');
 
 function fresh(extra) {
   const LC = Object.assign({}, extra || {});
   const module = { exports: null, lumen: true };
   new Function('LC', 'module', UTIL)(LC, module);
+  new Function('LC', 'module', FOCUS)(LC, module);
   new Function('LC', 'module', SRC)(LC, module);
   return { api: module.exports, LC };
 }
@@ -863,6 +867,36 @@ test('Task 44: чипы подборок живут в горизонтальн�
   fire(chips[1], 'hover:focus');
   assert.equal(horiz[0].updates.length, 1, 'лента за фокусом чипа не поехала');
   assert.equal(horiz[0].updates[0], chips[1][0]);
+});
+
+/* Task 68: мышь шлёт наведённому узлу 'hover:hover', а не 'hover:focus'
+   (vendor/lampa/app.min.js:46360-46364) — подписку на оба ставит общий
+   LC.focus.on (src/11_focus.js). У рулетки через него идут оба места:
+   watchFocus (вертикальная прокрутка экрана и lastFocus) и railChip
+   (горизонтальная лента чипов подборок). */
+test('Task 68: мышиный hover:hover ведёт ленту чипов так же, как пультовый', (t) => {
+  const env = openRoulette34([R44], t);
+  const horiz = scrolls.filter((s) => s.params.horizontal);
+  const chips = env.root.find('.lumen-roulette__chipbox').all('.lumen-roulette__chip');
+  fire(chips[1], 'hover:hover');
+  assert.equal(horiz[0].updates.length, 1, 'мышью лента чипов тоже едет');
+  assert.equal(horiz[0].updates[0], chips[1][0]);
+});
+
+test('Task 68: мышиный hover:hover подкручивает и сам экран рулетки (watchFocus)', (t) => {
+  const env = openRoulette34([R44], t);
+  const vert = scrolls.filter((s) => !s.params.horizontal);
+  assert.equal(vert.length, 1, 'вертикальная прокрутка ровно одна');
+  const spin = env.root.find('.lumen-roulette__spin');
+  vert[0].updates.length = 0;
+  fire(spin, 'hover:hover');
+  assert.equal(vert[0].updates.length, 1, 'мышью экран за фокусом тоже едет');
+  assert.equal(vert[0].updates[0], spin[0]);
+
+  /* Одно действие — один проход: обработчик у обоих событий общий. */
+  vert[0].updates.length = 0;
+  fire(spin, 'hover:focus');
+  assert.equal(vert[0].updates.length, 1, 'пультом — ровно один вызов, не два');
 });
 
 /* Спокойный экран: до результата кадра нет ни в фоне, ни в режиме. */

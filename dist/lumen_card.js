@@ -409,6 +409,87 @@ gate: gate
 if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.util;
 
 
+/* ---- 11_focus.js ---- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+LC.focus = (function () {
+var EVENTS = ['hover:focus', 'hover:hover'];
+
+function on(node, handler) {
+if (!node || typeof node.on !== 'function') return node;
+for (var i = 0; i < EVENTS.length; i++) node.on(EVENTS[i], handler);
+return node;
+}
+
+function capture(el, handler) {
+if (!el || typeof el.addEventListener !== 'function') return false;
+for (var i = 0; i < EVENTS.length; i++) el.addEventListener(EVENTS[i], handler, true);
+return true;
+}
+
+function release(el, handler) {
+if (!el || typeof el.removeEventListener !== 'function') return false;
+for (var i = 0; i < EVENTS.length; i++) el.removeEventListener(EVENTS[i], handler, true);
+return true;
+}
+
+return {
+EVENTS: EVENTS,
+on: on,
+capture: capture,
+release: release
+};
+})();
+
+
+
+
+
+if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.focus;
+
+
 /* ---- 20_icons.js ---- */
 
 
@@ -9165,7 +9246,12 @@ season +
 '<div class="lumen-tile__nokey">' + esc(LC.lang('lumen_hub_nokey')) + '</div>' +
 '</div>'
 );
-node.on('hover:focus', function () {
+
+
+
+
+
+LC.focus.on(node, function () {
 keepVisible(node[0]);
 lastFocus = node[0];
 loadVisibleBanners();
@@ -9201,7 +9287,7 @@ function chipNode(group) {
 
 var node = $('<div class="lumen-chip selector">' + esc(group.title) + '</div>');
 node[0].lumen_group = group.id;
-node.on('hover:focus', function () { keepVisible(node[0]); lastFocus = node[0]; });
+LC.focus.on(node, function () { keepVisible(node[0]); lastFocus = node[0]; });
 node.on('hover:enter', function () {
 if (activeGroup === group.id) return;
 buildTiles(group.id);
@@ -9261,6 +9347,7 @@ if (!node) return false;
 
 
 
+
 if (lastFocus === node) return false;
 recollect(node);
 return true;
@@ -9275,7 +9362,7 @@ head.append($('<div class="lumen-hub__count">' + total + ' ' + esc(LC.collection
 
 
 var search = $('<div class="lumen-hub__search selector">' + LC.icons.get('search') + '<span>' + esc(LC.lang('lumen_hub_search')) + '</span></div>');
-search.on('hover:focus', function () { keepVisible(search[0]); lastFocus = search[0]; });
+LC.focus.on(search, function () { keepVisible(search[0]); lastFocus = search[0]; });
 search.on('hover:enter', function () { openSearch(); });
 head.append(search);
 
@@ -9584,7 +9671,7 @@ if (age.length && !('' + age.text())) age.remove();
 
 el.lumen_poster = imageUrl(card.poster_path, LC.util.posterSize(LC.util.emPx(GCARD_EM)));
 
-node.on('hover:focus', function () {
+LC.focus.on(node, function () {
 keepVisible(el);
 lastFocus = el;
 lastCardId = card.id;
@@ -9681,7 +9768,7 @@ if (nokey) {
 
 
 var hide = $('<div class="lumen-grid__back lumen-grid__hide selector">' + esc(LC.lang('lumen_kp_hint_hide')) + '</div>');
-hide.on('hover:focus', function () { keepVisible(hide[0]); lastFocus = hide[0]; });
+LC.focus.on(hide, function () { keepVisible(hide[0]); lastFocus = hide[0]; });
 hide.on('hover:enter', function () {
 try { Lampa.Storage.set('lumen_kp_hint', 'false'); } catch (e) {}
 });
@@ -9689,7 +9776,7 @@ box.append(hide);
 emptyNodes.push(hide[0]);
 }
 var back = $('<div class="lumen-grid__back selector">' + esc(LC.lang('lumen_grid_back')) + '</div>');
-back.on('hover:focus', function () { keepVisible(back[0]); lastFocus = back[0]; });
+LC.focus.on(back, function () { keepVisible(back[0]); lastFocus = back[0]; });
 back.on('hover:enter', function () { Lampa.Activity.backward(); });
 box.append(back);
 emptyNodes.push(back[0]);
@@ -9771,7 +9858,7 @@ $(sortNodes[i]).toggleClass('lumen-chip--on', sortNodes[i].lumen_sort === sortMo
 function sortNode(mode) {
 var node = $('<div class="lumen-chip selector">' + esc(LC.lang(mode.key)) + '</div>');
 node[0].lumen_sort = mode.id;
-node.on('hover:focus', function () { keepVisible(node[0]); lastFocus = node[0]; });
+LC.focus.on(node, function () { keepVisible(node[0]); lastFocus = node[0]; });
 node.on('hover:enter', function () {
 if (sortMode === mode.id) return;
 
@@ -9996,6 +10083,7 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 /* ---- 48_hero.js ---- */
+
 
 
 
@@ -11595,6 +11683,7 @@ show(card);
 
 
 
+
 function onFocusEvent(e) {
 if (!state) return;
 try {
@@ -11637,12 +11726,19 @@ warn('hero: focus listener failed', err);
 
 
 
+
+
+
+
+
+
+
 function listenFocus(root) {
 try {
 var node = root && root[0];
-if (!node || typeof node.addEventListener !== 'function') return;
+if (!node) return;
 state.focusHandler = onFocusEvent;
-node.addEventListener('hover:focus', state.focusHandler, true);
+if (!LC.focus.capture(node, state.focusHandler)) state.focusHandler = null;
 } catch (e) {
 warn('hero: listen failed', e);
 }
@@ -11654,10 +11750,7 @@ warn('hero: listen failed', e);
 function unlistenFocus(s) {
 if (!s || !s.focusHandler) return;
 try {
-var node = s.root && s.root[0];
-if (node && typeof node.removeEventListener === 'function') {
-node.removeEventListener('hover:focus', s.focusHandler, true);
-}
+LC.focus.release(s.root && s.root[0], s.focusHandler);
 } catch (e) {
 warn('hero: unlisten failed', e);
 }
@@ -16578,12 +16671,14 @@ try { scroll.update(el, true); } catch (e) { warn('roulette: scroll.update faile
 
 
 
+
+
+
 function watchFocus(node) {
-node.on('hover:focus', function () {
+return LC.focus.on(node, function () {
 keepVisible(node[0]);
 lastFocus = node[0];
 });
-return node;
 }
 
 
@@ -16592,10 +16687,9 @@ return node;
 
 
 function railChip(node) {
-node.on('hover:focus', function () {
+return LC.focus.on(node, function () {
 try { chipsScroll.update(node[0], true); } catch (e) { warn('roulette: chips scroll failed', e); }
 });
-return node;
 }
 
 
@@ -19641,12 +19735,17 @@ return $card && $card.length ? $card : null;
 } catch (e) { return null; }
 }
 
-el.addEventListener('hover:focus', function (event) {
+
+
+
+
+
+LC.focus.capture(el, function (event) {
 try {
 var card = cardOf(event.target);
 if (card) scrollToCard(block, card);
 } catch (e) { warn('reviews focus failed', e); }
-}, true);
+});
 
 el.addEventListener('hover:enter', function (event) {
 try {
@@ -27605,7 +27704,12 @@ var el = root[0];
 if (!el || typeof el.addEventListener !== 'function' || el.lumenEpisodesBound) return;
 el.lumenEpisodesBound = true;
 
-el.addEventListener('hover:focus', function (e) {
+
+
+
+
+
+LC.focus.capture(el, function (e) {
 try {
 var node = $(e.target).closest('.lumen-episode', el);
 if (node.length) {
@@ -27632,7 +27736,7 @@ root.removeClass('lumen-compact');
 } catch (err) {
 warn('episode focus failed', err);
 }
-}, true);
+});
 
 
 

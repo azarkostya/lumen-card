@@ -58,7 +58,9 @@ function loadLC() {
      по ней 85_header.js считает окно узлов и распорку дорожки. На верхнем
      уровне модуль только объявляет функции и константы (ни Lampa, ни $ он
      при загрузке не трогает), поэтому грузится рядом с остальными. */
-  const names = ['10_util.js', '30_css.js', '35_cardinfo.js', '50_backdrops.js', '62_badges.js', '70_progress.js', '80_settings.js', '81_prefs.js', '85_header.js'];
+  /* Task 68: 11_focus.js — общий механизм подписки на фокус (LC.focus),
+     им bindEpisodes вешает обработчик на оба события Lampa. */
+  const names = ['10_util.js', '11_focus.js', '30_css.js', '35_cardinfo.js', '50_backdrops.js', '62_badges.js', '70_progress.js', '80_settings.js', '81_prefs.js', '85_header.js'];
   const src = names.map((n) => readFileSync(new URL(`../src/${n}`, import.meta.url), 'utf8')).join('\n');
   new Function('LC', 'module', src)(LC, module);
   return LC;
@@ -628,13 +630,50 @@ test('bindEpisodes: повторный decorate не удваивает слуш
   const data = serial(3);
   LC.header.decorate(c.root, data);
   LC.header.decorate(c.root, data);
-  assert.equal(c.root._listeners.length, 2);
+  /* Task 68: подписок три — фокус пультом ('hover:focus'), фокус мышью
+     ('hover:hover', vendor/lampa/app.min.js:46360-46364) и OK
+     ('hover:enter'). Первые две ставит LC.focus.capture одним обработчиком. */
+  assert.deepEqual(
+    c.root._listeners.map((l) => l.type).sort(),
+    ['hover:enter', 'hover:focus', 'hover:hover'],
+    'повторный decorate слушатели не удваивает'
+  );
   assert.ok(c.root._listeners.every((l) => l.capture), 'слушатели в фазе перехвата');
 
   fire(c.root, 'hover:focus', c.track._children[1]);
   assert.ok(c.root.hasClass('lumen-compact'));
   fire(c.root, 'hover:focus', c.book);
   assert.equal(c.root.hasClass('lumen-compact'), false);
+});
+
+/* Task 68: мышиный режим Lampa шлёт плитке 'hover:hover', а не 'hover:focus'
+   (vendor/lampa/app.min.js:46360-46364) — до общего LC.focus ряд серий мышью
+   не отзывался вовсе. Проверяется та же пара переходов, что и пультом. */
+test('bindEpisodes: мышиный hover:hover работает так же, как пультовый hover:focus', () => {
+  const c = makeCard();
+  LC.header.decorate(c.root, serial(3));
+
+  fire(c.root, 'hover:hover', c.track._children[1]);
+  assert.ok(c.root.hasClass('lumen-compact'), 'фокус мышью на серии сжимает шапку');
+  fire(c.root, 'hover:hover', c.book);
+  assert.equal(c.root.hasClass('lumen-compact'), false, 'фокус мышью на кнопке снимает компакт');
+});
+
+/* Task 68: обработчик один на оба события — значит одно наведение мышью даёт
+   ровно один проход, а не два. Считаем по сдвигу дорожки: мышиное событие
+   двигает её так же и ровно столько же раз, сколько пультовое. */
+test('bindEpisodes: одно событие — один проход, пульт и мышь не задваиваются', () => {
+  const c = makeCard();
+  LC.header.decorate(c.root, serial(8));
+  layout(c.track);
+  fire(c.root, 'hover:focus', c.track._children[4]);
+  assert.equal(c.track.lumenShift, 78, 'пультом — тот же сдвиг, что в тесте scrollToEpisode');
+
+  const m = makeCard();
+  LC.header.decorate(m.root, serial(8));
+  layout(m.track);
+  fire(m.root, 'hover:hover', m.track._children[4]);
+  assert.equal(m.track.lumenShift, 78, 'мышью — ровно тот же сдвиг, не удвоенный');
 });
 
 test('bindEpisodes: OK -> «Смотреть» только с карточки серии и только если «Смотреть» не скрыта', () => {

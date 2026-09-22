@@ -20,8 +20,9 @@
   /*   lastFocus() → {id, poster, node, big?} последней карточки под фокусом */
   /*                                                                       */
   /* Как работает смена героя (сториборд 23г, ограничение брифа 1):         */
-  /*   - фокус карточки ловит ОДИН нативный слушатель 'hover:focus' в фазе  */
-  /*     ЗАХВАТА на корне активности (Task 37, подробности у listenFocus);  */
+  /*   - фокус карточки ловит ОДИН обработчик в фазе ЗАХВАТА на корне       */
+  /*     активности — его на оба события фокуса (пульт и мышь) вешает       */
+  /*     LC.focus.capture (Task 37/68, подробности у listenFocus);          */
   /*     данные карточки лежат в нативном свойстве узла el.card_data;       */
   /*   - показ откладывается на DELAY (350 мс) и отменяется, если фокус     */
   /*     ушёл раньше: при быстром листании грузится ровно один кадр;        */
@@ -1593,10 +1594,11 @@
     }
 
     /* Цель события — сама карточка, поэтому проверяем её собственные классы,
-       а не ищем карточку среди предков: 'hover:focus' Lampa шлёт ровно на тот
-       элемент, на который переводит фокус (Utils.trigger(target,
-       'hover:focus'), app.min.js:46438). В корне активности фокус получают и
-       не-карточки (кнопки шапки, пункты меню) — они отсеиваются здесь. */
+       а не ищем карточку среди предков: оба события фокуса Lampa шлёт ровно
+       на тот элемент, который получает фокус (Utils.trigger(target, …) —
+       пульт на app.min.js:46438, мышь на :46363). В корне активности фокус
+       получают и не-карточки (кнопки шапки, пункты меню) — они отсеиваются
+       здесь. */
     function onFocusEvent(e) {
       if (!state) return;
       try {
@@ -1611,15 +1613,22 @@
     /* Task 37: фокус ловится нативным слушателем в фазе ЗАХВАТА на корне
        активности.
 
-       Почему захват. Событие 'hover:focus' создаётся Lampa как
+       Task 68: подписку ставит общий LC.focus.capture (src/11_focus.js) —
+       он вешает ОБА события фокуса, 'hover:focus' (пульт) и 'hover:hover'
+       (мышь, app.min.js:46360-46364). До этого герой слушал только первое и
+       на мышь не отзывался вовсе: класс focus переезжал на карточку под
+       курсором, а кадр и мета оставались от той, где стоял фокус пульта.
+
+       Почему захват. Событие фокуса создаётся Lampa как
        initEvent(name, false, true) (Utils.trigger, app.min.js:4497-4500),
        второй аргумент — bubbles, то есть событие НЕ всплывает:
-       ни $(root).on('hover:focus', '.card', …), ни слушатель на фазе
+       ни делегированное $(root).on(…, '.card', …), ни слушатель на фазе
        всплытия его не увидят — замер на живой Lampa 2026-09-18 дал ноль
        срабатываний у делегированного jQuery-обработчика и срабатывание у
        нативного в захвате. Вниз по дереву, к цели, событие проходит всегда.
        Тот же приём и по той же причине — у меню карточки ('hover:long',
-       src/63_cardmenu.js).
+       src/63_cardmenu.js). Мышиное 'hover:hover' идёт тем же Utils.trigger
+       (app.min.js:46363), то есть про всплытие верно и для него.
 
        Почему не MutationObserver, как было раньше. Наблюдатель стоял на
        attributeFilter ['class'] + subtree, то есть на КАЖДУЮ мутацию класса
@@ -1642,9 +1651,9 @@
     function listenFocus(root) {
       try {
         var node = root && root[0];
-        if (!node || typeof node.addEventListener !== 'function') return;
+        if (!node) return;
         state.focusHandler = onFocusEvent;
-        node.addEventListener('hover:focus', state.focusHandler, true);
+        if (!LC.focus.capture(node, state.focusHandler)) state.focusHandler = null;
       } catch (e) {
         warn('hero: listen failed', e);
       }
@@ -1656,10 +1665,7 @@
     function unlistenFocus(s) {
       if (!s || !s.focusHandler) return;
       try {
-        var node = s.root && s.root[0];
-        if (node && typeof node.removeEventListener === 'function') {
-          node.removeEventListener('hover:focus', s.focusHandler, true);
-        }
+        LC.focus.release(s.root && s.root[0], s.focusHandler);
       } catch (e) {
         warn('hero: unlisten failed', e);
       }

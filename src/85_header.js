@@ -928,8 +928,8 @@
     if (shift !== current) setShift(track, shift);
   }
 
-  /* Step 4: фокус и OK на карточках серий. Lampa шлёт hover:focus/hover:enter
-     через Utils.trigger — Event с bubbles:false, поэтому jQuery-делегирование
+  /* Step 4: фокус и OK на карточках серий. Lampa шлёт события фокуса и
+     hover:enter через Utils.trigger — Event с bubbles:false, поэтому jQuery-делегирование
      .on(event, selector) их не видит (API_NOTES_4 A2). Не всплывающее событие
      всё равно проходит фазу перехвата от document до цели: слушатель в capture
      на корне карточки ловит фокус и серий, и кнопок, не трогая сами кнопки
@@ -941,14 +941,19 @@
     if (!el || typeof el.addEventListener !== 'function' || el.lumenEpisodesBound) return;
     el.lumenEpisodesBound = true;
 
-    el.addEventListener('hover:focus', function (e) {
+    /* Task 68: LC.focus.capture — обработчик на ОБА события фокуса
+       (src/11_focus.js). Мышь шлёт 'hover:hover', не 'hover:focus'
+       (vendor/lampa/app.min.js:46360-46364), а на фокусе плитки висят и
+       окно ряда (slideWindow), и догрузка кадров: мышью без этого ряд не
+       едет и дальше окна серий просто нет. */
+    LC.focus.capture(el, function (e) {
       try {
         var node = $(e.target).closest('.lumen-episode', el);
         if (node.length) {
           root.addClass('lumen-compact');
           /* Task 67: защёлка от самовызова. Пересбор коллекции после сдвига
              окна возвращает фокус через Controller.collectionFocus, а тот
-             шлёт узлу тот же hover:focus (Navigator.follow('focus') ->
+             шлёт узлу то же событие фокуса (Navigator.follow('focus') ->
              Controller.focus -> Utils.trigger, vendor/lampa/app.min.js:56069
              и 46434-46446) — то есть приходит обратно сюда. Бесконечным
              такой заход не был бы (окно уже на месте, второй раз оно не
@@ -968,7 +973,7 @@
       } catch (err) {
         warn('episode focus failed', err);
       }
-    }, true);
+    });
 
     /* OK на серии -> выбор источника той же кнопкой «Смотреть» (серию
        пользователь выбирает уже в TorrServer). */

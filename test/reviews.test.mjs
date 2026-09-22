@@ -209,6 +209,8 @@ function freshEnv(opts) {
   const LC = {};
   const module = { exports: null, lumen: false };
   loadInto(LC, module, '10_util.js');
+  /* Task 68: LC.focus — подписка на оба события фокуса (src/11_focus.js). */
+  loadInto(LC, module, '11_focus.js');
   loadInto(LC, module, '80_settings.js');
   loadInto(LC, module, '81_prefs.js');
   loadInto(LC, module, '60_reviews.js');
@@ -486,6 +488,56 @@ test('render: блок отзывов — сосед .lumen-facts в теле р
   assert.ok(html.indexOf('lumen-review--good') !== -1 && html.indexOf('lumen-review--bad') !== -1);
   assert.ok(html.indexOf('lumen-review selector') !== -1, 'карточка отзыва — .selector (навигация пультом)');
   assert.ok(d.row.hasClass('lumen-descr-row--reviews'), 'с рядом отзывов описание поджимается (иначе карточки уходят за нижний край)');
+  assert.deepEqual(warnLog, []);
+});
+
+/* Task 68: фокус ловится в фазе перехвата на корне блока, и подписку ставит
+   общий LC.focus.capture (src/11_focus.js) — сразу на оба события Lampa.
+   Мышью приходит 'hover:hover' (vendor/lampa/app.min.js:46360-46364), и без
+   этой ветки лента отзывов за курсором не ехала: карточка уезжала за кромку
+   блока. */
+function reviewsFocusEnv() {
+  const env = freshEnv({ store: { lumen_kp_key: 'KEY' } });
+  const d = makeDescrRow();
+  env.LC.reviews.render(d.row, DUNE);
+  env.journal.calls[0].ok(SEARCH_OK);
+  env.journal.calls[1].ok(REVIEWS_OK);
+  const block = blocksOf(d)[0];
+  const row = block.find('.lumen-reviews__row');
+  const card = block.find('.lumen-review');
+  /* Геометрия ленты: карточка шириной 400 на позиции 900, видимая часть 1000,
+     вся лента 2400. Центрирование даёт 900 − (1000 − 400) / 2 = 600. */
+  row.clientWidth = 1000;
+  row.scrollWidth = 2400;
+  row.scrollLeft = 0;
+  card.offsetLeft = 900;
+  card.offsetWidth = 400;
+  return { env, block, row, card };
+}
+
+test('Task 68: на корне блока отзывов ОБА события фокуса, и это один обработчик', () => {
+  const f = reviewsFocusEnv();
+  const caps = (f.block._listeners || []).filter((l) => l.capture);
+  assert.deepEqual(
+    caps.map((l) => l.type).sort(),
+    ['hover:enter', 'hover:focus', 'hover:hover'],
+    'подписки: OK, фокус пультом, фокус мышью'
+  );
+  const focus = caps.filter((l) => l.type === 'hover:focus')[0];
+  const hover = caps.filter((l) => l.type === 'hover:hover')[0];
+  assert.equal(focus.fn, hover.fn, 'обработчик у обеих веток один');
+});
+
+test('Task 68: мышиный hover:hover подкручивает ленту отзывов так же, как пультовый', () => {
+  const remote = reviewsFocusEnv();
+  (remote.block._listeners || []).filter((l) => l.type === 'hover:focus')[0]
+    .fn({ type: 'hover:focus', target: remote.card });
+  assert.equal(remote.row.scrollLeft, 600, 'пультом лента встала по центру карточки');
+
+  const mouse = reviewsFocusEnv();
+  (mouse.block._listeners || []).filter((l) => l.type === 'hover:hover')[0]
+    .fn({ type: 'hover:hover', target: mouse.card });
+  assert.equal(mouse.row.scrollLeft, 600, 'мышью — ровно та же позиция');
   assert.deepEqual(warnLog, []);
 });
 
