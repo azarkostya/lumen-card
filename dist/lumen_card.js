@@ -142,6 +142,18 @@ return Math.round((target - today) / 86400000);
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
 var FIT = 0.85;
 
 
@@ -317,8 +329,51 @@ var POSTERS = [185, 342, 500, 780];
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+var FIT_POSTER = 0.9;
+
+
+
 function posterSize(px) {
-var need = (Number(px) || 0) * FIT;
+var need = (Number(px) || 0) * FIT_POSTER;
 for (var i = 0; i < POSTERS.length; i++) {
 if (POSTERS[i] >= need) return 'w' + POSTERS[i];
 }
@@ -10770,6 +10825,13 @@ return src.replace(m[0], '/t/p/w' + BIG_POSTER + '/');
 function sizeFor(width) {
 return LC.util.frameSize(width);
 }
+
+
+
+
+
+
+
 
 
 
@@ -23291,6 +23353,11 @@ var WATCHED = 95;
 
 
 
+
+
+
+
+
 var POSTER_EM = 7.90;
 var ORDER_KEY = 'lumen_franchise_order';
 
@@ -27962,6 +28029,17 @@ var visible = step > 0 ? Math.ceil(LC.util.screenPx() / step) : 0;
 if (!(visible > 0)) visible = 1;
 return visible + STILL_WINDOW;
 }
+
+
+
+
+
+
+
+
+
+
+
 
 
 
