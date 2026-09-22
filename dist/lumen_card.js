@@ -15788,15 +15788,54 @@ return pool[i];
 
 
 
-function spinPlan(total) {
+
+var LITE_DELAYS = [120, 140, 170, 210, 260, 330, 420, 550];
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function spinPlan(total, mode) {
 var plan = [];
 var n = Number(total) || 0;
+if (mode === 'off') return plan;
 if (n <= 0) return plan;
 if (n === 1) return [{ index: 0, delay: 0 }];
 
-var FAST = 40;
 var index = 0;
 var i;
+if (mode === 'lite') {
+
+
+
+
+var delays = n < LITE_DELAYS.length ? LITE_DELAYS.slice(LITE_DELAYS.length - n) : LITE_DELAYS;
+for (i = 0; i < delays.length; i++) {
+index = (index + 1) % n;
+plan.push({ index: index, delay: delays[i] });
+}
+plan[plan.length - 1].index = n - 1;
+return plan;
+}
+
+var FAST = 40;
 
 var accel = [100, 90, 75, 60, 50, FAST];
 for (i = 0; i < accel.length; i++) {
@@ -16064,6 +16103,7 @@ var resultLoader = null;
 
 
 var resultBgShown = false;
+
 
 
 
@@ -16447,6 +16487,7 @@ screen.addClass('is-kadr');
 
 
 
+
 recollect(null);
 }
 
@@ -16667,10 +16708,10 @@ warn('roulette: book failed', e);
 
 function runReel(card, list) {
 reel = list;
-var plan = spinPlan(reel.length);
 var mode = 'full';
 try { mode = LC.motionMode(); } catch (e) { }
-if (mode !== 'full' || plan.length < 2) {
+var plan = spinPlan(reel.length, mode);
+if (plan.length < 2) {
 
 
 paintFrame(card);
@@ -16781,6 +16822,7 @@ return;
 }
 verify(card, 0, function (final) {
 if (gen !== captured) return;
+
 
 
 
