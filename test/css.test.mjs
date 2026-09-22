@@ -2942,46 +2942,59 @@ test('Task 18: кроссфейд кадра 600 мс только в полно
   /* Task 64: переход в full-режиме без тяжёлых эффектов появился, но двух
      полноэкранных картинок разом он не даёт. Смена кадра при выключенном
      тумблере идёт в одном слое (src/48_hero.js, swapFrame), его opacity не
-     меняется, и transition там не проигрывается вовсе; остаются первое
-     появление кадра и гашение при уходе фокуса в ряды. */
+     меняется, и transition там не проигрывается вовсе.
+     Task 70: гашение кадра в сжатом состоянии отменено решением
+     пользователя, и этот переход остался при двух случаях — первое
+     появление кадра (0 → 1) и приглушение до .25 под играющим роликом
+     (.lumen-hero--trailer выше). */
   const soft = findDecl(css, (sel) => sel === '.lumen-hero.lumen-motion-full .lumen-hero__bg');
   assert.ok(soft && soft.indexOf('transition:opacity .35s ease') !== -1,
-    'гашение кадра без тяжёлых эффектов обязано быть плавным: ' + soft);
+    'появление кадра без тяжёлых эффектов обязано быть плавным: ' + soft);
   assert.equal(findDecl(css, (sel) => sel === '.lumen-hero.lumen-motion-lite .lumen-hero__bg'), null, 'в lite перехода нет вовсе — гасить нечего');
 });
 
-/* Task 64, п.4 плана: фокус ушёл в ряды — кадр гаснет полностью, а не только
-   уезжает вверх (tv-design-specs §1: «при уходе фокуса вниз фон убирается
-   полностью»). Гаснет именно кадр: текст героя пользователь решил оставить. */
-test('Task 64: при уходе фокуса в ряды кадр гаснет полностью, текст остаётся', () => {
-  const dim = findDecl(css, (sel) => sel === '.lumen-hero.lumen-hero--compact .lumen-hero__bg.is-active');
-  assert.equal(dim, 'opacity:0', 'кадр в сжатом состоянии обязан гаснуть: ' + dim);
-  const lq = ruleBodies(css).find((r) => r.selectors.indexOf('.lumen-hero.lumen-hero--compact .lumen-hero__lqip.is-active') !== -1);
-  assert.ok(lq && lq.decl === 'opacity:0', 'подложка LQIP обязана гаснуть вместе с кадром');
-  const tr = findDecl(css, (sel) => sel === '.lumen-hero.lumen-hero--compact .lumen-hero__trailer.is-live');
-  assert.equal(tr, 'opacity:0', 'ролик лежит на месте кадра и обязан гаснуть вместе с ним: ' + tr);
-  /* Правило кадра стоит НИЖЕ правила трейлера с той же специфичностью —
-     иначе приглушение .25 под роликом перебило бы полное гашение. */
-  const order = ruleSelectors(css);
-  assert.ok(order.indexOf('.lumen-hero.lumen-hero--compact .lumen-hero__bg.is-active')
-    > order.indexOf('.lumen-hero.lumen-hero--trailer .lumen-hero__bg.is-active'),
-    'гашение кадра обязано стоять после приглушения под роликом');
-  /* Левая вуаль уходит вместе с кадром: она нужна для читаемости текста НА
-     картинке, а без картинки остаётся на экране собственной заливкой с
-     кромкой на 65 % ширины (замер на стенде 2026-09-21, снимок главной с
-     фокусом во втором ряду). */
-  const veil = findDecl(css, (sel) => sel === '.lumen-hero.lumen-hero--compact .lumen-hero__veil');
-  assert.equal(veil, 'opacity:0', 'вуаль без кадра остаётся видимой заливкой: ' + veil);
-  const veilTrans = findDecl(css, (sel) => sel === '.lumen-hero.lumen-motion-full .lumen-hero__veil');
-  assert.ok(veilTrans && veilTrans.indexOf('transition:opacity .35s ease') !== -1, 'вуаль обязана гаснуть плавно: ' + veilTrans);
-  /* Ревью Task 64: слой атмосферы гаснет вместе с кадром — иначе почти всё
-     время листания на пустом фоне висели бы канвас частиц (opacity .82),
-     гирлянда рождественской темы и градиент хэллоуина. Сам кадровый цикл
+/* Task 70. Отзыв пользователя 2026-09-21, п.1: «всё, что ниже первой ленты,
+   не загружает постер с героем». Кадр загружался и там — его гасило правило
+   Task 64 (tv-design-specs §1, «при уходе фокуса вниз фон убирается
+   полностью»). Решение пользователя 2026-09-21 — вернуть поведение до
+   Task 64: кадр в сжатом состоянии остаётся видимым и только уезжает вверх
+   (translateY у .lumen-hero--compact). Вуаль возвращается вместе с ним: её
+   гашение было нужно только потому, что гас кадр.
+
+   Слой атмосферы — исключение, и оно измерено: частицы над сжатым кадром
+   стоили 120 из 120 кадров за 2 секунды шага фокуса (замер Task 64),
+   поэтому .lumen-fx в сжатом состоянии по-прежнему гаснет и встаёт на
+   паузу. */
+test('Task 70: фокус ушёл в ряды — кадр и вуаль остаются видимыми, гаснут только частицы', () => {
+  for (const sel of [
+    '.lumen-hero.lumen-hero--compact .lumen-hero__bg.is-active',
+    '.lumen-hero.lumen-hero--compact .lumen-hero__lqip.is-active',
+    '.lumen-hero.lumen-hero--compact .lumen-hero__trailer.is-live',
+    '.lumen-hero.lumen-hero--compact .lumen-hero__veil'
+  ]) {
+    assert.equal(ruleBodies(css).filter((r) => r.selectors.indexOf(sel) !== -1).length, 0,
+      'кадр, подложка, ролик и вуаль в сжатом состоянии больше не гасятся: ' + sel);
+  }
+  /* Сжатое состояние по-прежнему только сдвигает кадр — и ни одного
+     свойства раскладки (сторож у правила .lumen-hero--compact выше). */
+  const compact = findDecl(css, (sel) => sel === '.lumen-hero.lumen-hero--compact');
+  assert.equal(/opacity/.test(compact), false, 'сам кадр в сжатом состоянии не гасится: ' + compact);
+  /* Приглушение кадра под играющим роликом (Task 28) правилом Task 64 не
+     перебивалось и остаётся ровно таким, каким было. */
+  const underTrailer = findDecl(css, (sel) => sel === '.lumen-hero.lumen-hero--trailer .lumen-hero__bg.is-active');
+  assert.ok(underTrailer && underTrailer.indexOf('opacity:.25') !== -1, 'кадр под роликом: ' + underTrailer);
+  /* Слой атмосферы гаснет и на паузе: цена частиц на шаге фокуса измерена
+     (120 → 0 кадров за 2 с), возвращать их не за что. Сам кадровый цикл
      останавливает предикат paused в src/48_hero.js. */
   const fx = findDecl(css, (sel) => sel === '.lumen-hero.lumen-hero--compact .lumen-fx');
-  assert.equal(fx, 'opacity:0', 'слой атмосферы остаётся видимым над погашенным кадром: ' + fx);
+  assert.equal(fx, 'opacity:0', 'частицы над сжатым кадром обязаны гаснуть: ' + fx);
   const fxTrans = ruleBodies(css).find((r) => r.selectors.indexOf('.lumen-hero.lumen-motion-full .lumen-fx') !== -1);
   assert.ok(fxTrans && fxTrans.decl.indexOf('transition:opacity .35s ease') !== -1, 'слой атмосферы обязан гаснуть плавно');
+  /* Переход вуали вместе с её гашением стал мёртвым правилом: opacity у
+     .lumen-hero__veil больше не меняет никто. */
+  const veilTrans = ruleBodies(css).filter((r) => r.selectors.some((sel) => sel.indexOf('.lumen-hero__veil') !== -1) && /transition/.test(r.decl));
+  assert.deepEqual(veilTrans.map((r) => r.selectors.join(',')), [],
+    'у вуали остался переход opacity, которому нечего проигрывать');
   /* Текст героя в сжатом состоянии не гасится — он только поджимается. */
   const text = findDecl(css, (sel) => sel === '.lumen-hero.lumen-hero--compact .lumen-hero__text');
   assert.ok(text && text.indexOf('opacity:0') === -1, 'текст героя гаснуть не должен: ' + text);

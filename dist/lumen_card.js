@@ -2844,7 +2844,6 @@ css.push('.lumen-hero .lumen-hero__bg.is-active,.lumen-hero .lumen-hero__lqip.is
 
 
 
-
 css.push('.lumen-hero.lumen-motion-full .lumen-hero__bg,.lumen-hero.lumen-motion-full .lumen-hero__lqip{-webkit-transition:opacity .35s ease;transition:opacity .35s ease}');
 
 
@@ -2898,16 +2897,7 @@ css.push('.lumen-hero.lumen-hero--trailer .lumen-hero__descr{display:none}');
 
 
 
-css.push('.lumen-hero.lumen-hero--compact .lumen-hero__bg.is-active,.lumen-hero.lumen-hero--compact .lumen-hero__lqip.is-active{opacity:0}');
-css.push('.lumen-hero.lumen-hero--compact .lumen-hero__trailer.is-live{opacity:0}');
 
-
-
-
-
-
-
-css.push('.lumen-hero.lumen-hero--compact .lumen-hero__veil{opacity:0}');
 
 
 
@@ -2919,7 +2909,9 @@ css.push('.lumen-hero.lumen-hero--compact .lumen-hero__veil{opacity:0}');
 
 
 css.push('.lumen-hero.lumen-hero--compact .lumen-fx{opacity:0}');
-css.push('.lumen-hero.lumen-motion-full .lumen-hero__veil,.lumen-hero.lumen-motion-full .lumen-fx{-webkit-transition:opacity .35s ease;transition:opacity .35s ease}');
+
+
+css.push('.lumen-hero.lumen-motion-full .lumen-fx{-webkit-transition:opacity .35s ease;transition:opacity .35s ease}');
 
 
 
@@ -10498,6 +10490,8 @@ if (!host) return;
 try {
 LC.fx.mount(host, theme.preset, {
 color: LC.themes.particleColor(theme),
+
+
 
 
 
