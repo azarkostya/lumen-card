@@ -177,6 +177,8 @@ test('LIST: полный набор ключей — существующие и
     'lumen_minimap', 'lumen_fastscroll',
     /* Task 28 (фаза 3): режим показа отзывов и автотрейлер в кадре главной */
     'lumen_reviews_mode', 'lumen_hero_trailer',
+    /* Task 71 (фаза 6): логотип названия в кадре главной */
+    'lumen_hero_logo',
     /* Task 21 (фаза 3): тематические атмосферы (слой частиц) */
     'lumen_fx',
     /* Task 40 (фаза 4): тумблер тяжёлых эффектов */
@@ -255,7 +257,9 @@ const GROUPS = [
   ['lumen_group_home', [
     /* Правка пользователя 2026-09-17 (п.2): размер кадра — первым пунктом:
        от него зависит, сколько экрана достанется всему остальному. */
-    'lumen_hero_size', 'lumen_hero_trailer', 'lumen_moods', 'lumen_personal_rows'
+    /* Task 71 (фаза 6): логотип названия — третьим: размер кадра,
+       автотрейлер и логотип про одну и ту же часть экрана. */
+    'lumen_hero_size', 'lumen_hero_trailer', 'lumen_hero_logo', 'lumen_moods', 'lumen_personal_rows'
   ]],
   /* Task 57 (фаза 5): ряды подборок отделены от «Главной» — с настройкой
      дедупликации прежняя группа выросла бы до десяти строк. */
@@ -335,6 +339,19 @@ test('Task 35: акцент от постера включён по умолча
   const entry = prefs.find('lumen_accent_auto');
   assert.equal(entry.type, 'trigger');
   assert.equal(entry['default'], true);
+});
+
+/* Task 71 (фаза 6): логотип названия в кадре главной. Включён по умолчанию —
+   это текущий вид, и менять его настройка не должна: она заведена, чтобы
+   название МОЖНО было вернуть в текст, а не чтобы логотип включать. */
+test('Task 71: логотип названия — переключатель, по умолчанию включён', () => {
+  const entry = prefs.find('lumen_hero_logo');
+  assert.equal(entry.type, 'trigger');
+  assert.equal(entry['default'], true);
+  assert.ok(entry.descr, 'с дивана без описания не понять, что пункт меняет');
+  /* Место: третьим в группе «Главная», сразу за автотрейлером. */
+  const names = LIST.map((e) => e.name);
+  assert.equal(names[names.indexOf('lumen_hero_trailer') + 1], 'lumen_hero_logo');
 });
 
 test('Task 20: профили настроения — переключатель, по умолчанию включён', () => {
@@ -903,7 +920,7 @@ test('Task 60: у каждого вызова LC.pref дефолт совпад�
      стоит завтра записать чтение через переменную или конкатенацию — и они
      выпадут молча, ровно как выпадали ключи с PLUGIN + '…'. */
   for (const key of ['lumen_accent_auto', 'lumen_card_accent', 'lumen_card_fonts', 'lumen_card_progress',
-    'lumen_badges', 'lumen_accent_scope']) {
+    'lumen_badges', 'lumen_accent_scope', 'lumen_hero_logo']) {
     assert.ok(checked.indexOf(key) !== -1,
       'ключ, записанный не литералом, выпал из сверки: ' + key + ' (сверено: ' + checked.join(', ') + ')');
   }

@@ -396,6 +396,15 @@
        на каждом переводе фокуса и обнуляется вместе с героем. */
     var last = null;
 
+    /* Task 71: что известно про логотипы за эту сессию — file_path в 'ok'
+       или 'fail'. Живёт вне state намеренно: возврат на уже виденную
+       карточку обязан показывать логотип сразу, без второго ожидания, а
+       битый или не доехавший логотип — не просить второй раз вовсе (на
+       каждом шаге фокуса по рядам это был бы запрос в никуда). Таблица
+       растёт только на число разных логотипов, которые фокус успел
+       посетить, и умирает вместе со страницей. */
+    var logoSeen = {};
+
     function tmdbImageFn() {
       if (window.Lampa && Lampa.TMDB && typeof Lampa.TMDB.image === 'function') {
         return function (url) { return Lampa.TMDB.image(url); };
@@ -573,6 +582,14 @@
       if (!state) return;
       stopTimer('loadTimer');
       stopTimer('swapTimer');
+      /* Task 71: предзагрузка логотипа — такой же незавершённый запрос
+         прошлой карточки, как кадр. */
+      stopTimer('logoTimer');
+      if (state.logoLoader) {
+        state.logoLoader.onload = null;
+        state.logoLoader.onerror = null;
+        state.logoLoader = null;
+      }
       if (state.loader) {
         state.loader.onload = null;
         state.loader.onerror = null;
@@ -833,16 +850,123 @@
       logo.css('height', box ? box.h + 'em' : '');
     }
 
-    /* Записывает модель в узлы. swap=true — смена карточки (текст уходит и
-       возвращается), иначе это дорисовка деталей той же карточки: она
-       обязана быть без анимации, иначе герой дёргался бы дважды на каждую
-       карточку. В режимах lite/off подмена мгновенная в обоих случаях.
+    /* Task 71: настройка «Логотип названия». Дефолт тот же, что в
+       LC.prefs.LIST (сторож сверки — test/prefs.test.mjs). */
+    function logoAllowed() {
+      try { return LC.pref ? LC.pref('lumen_hero_logo', true) !== false : true; } catch (e) { return true; }
+    }
+
+    /* Показывает логотип: картинка уже в кэше ресурсов браузера, поэтому
+       фон и класс ставятся одной парой. Класс прячет текстовый заголовок
+       (.lumen-hero--logo, src/30_css.js) — ставить его раньше картинки
+       значило бы показать пустое место вместо названия. */
+    function showLogo(node, url) {
+      node.find('.lumen-hero__logo').css('background-image', 'url("' + encodeURI(url) + '")');
+      node.addClass('lumen-hero--logo');
+    }
+
+    /* Логотипа нет, он выключен настройкой или не доехал — на экране
+       текстовый заголовок. Пустая строка в background-image оставила бы
+       style="" на узле (ловушка плана 0.2), поэтому 'none'. */
+    function hideLogo(node) {
+      node.find('.lumen-hero__logo').css('background-image', 'none');
+      node.removeClass('lumen-hero--logo');
+    }
+
+    /* Task 71: предзагрузка логотипа. Отзыв пользователя 2026-09-21, п.2:
+       «названия подгружают на ходу „постеры“ названия». Логотип ставился
+       фоном сразу, как только приходили детали, и класс прятал заголовок
+       ещё до того, как картинка доезжала, — на экране название сначала
+       пропадало, а потом появлялось картинкой.
+
+       Критерий «байты доехали» тот же, что у кадра: onload, а на таймауте
+       — complete && naturalWidth. decode() здесь НЕ ждём намеренно: в
+       скрытой вкладке Chromium картинки не растеризует и промис не
+       резолвится вовсе (замер координатора на стенде 2026-09-21, тот же
+       урок, что у кадра в loadFrame), а логотип — мелкая картинка, ради
+       которой заводить вторую страховку незачем.
+
+       Приоритета у запроса нет намеренно: высокий стоит у кадра героя
+       (fetchPriority = 'high' в loadFrame), и логотип обязан ехать после
+       него — кадр занимает весь экран, логотип помещается в строку. */
+    function loadLogo(path, url) {
+      var captured = gen;
+      var loader = new Image();
+      loader.decoding = 'async';
+      var done = false;
+
+      function finish(ok) {
+        if (done) return;
+        done = true;
+        loader.onload = null;
+        loader.onerror = null;
+        /* Исход запоминается ДО сторожа поколения: это знание о картинке, а
+           не о карточке под фокусом, и оно верно даже если фокус уже ушёл. */
+        logoSeen[path] = ok ? 'ok' : 'fail';
+        if (gen !== captured || !state || !isMounted()) return;
+        stopTimer('logoTimer');
+        state.logoLoader = null;
+        if (!ok) return;
+        /* Пока картинка ехала, модель могла смениться дорисовкой деталей
+           той же карточки (render(model, false)) — логотип ставим только
+           тому названию, которое его и просило. */
+        if (!state.model || state.model.logo !== path) return;
+        showLogo(state.node, url);
+      }
+
+      loader.onload = function () { finish(true); };
+      loader.onerror = function () { finish(false); };
+      state.logoLoader = loader;
+      /* Страховочный таймаут — как у кадра: висящий запрос не должен
+         держать логотип в «ещё грузится» до конца сессии. */
+      state.logoTimer = setTimeout(function () {
+        finish(!!(loader.complete && loader.naturalWidth));
+      }, LOAD_TIMEOUT);
+      loader.src = url;
+    }
+
+    /* Ставит логотип текущей модели: известный — сразу, неизвестный — после
+       предзагрузки, отсутствующий, выключенный настройкой и неудачный —
+       никогда. Зовётся из write(), то есть на каждой перерисовке героя. */
+    function applyLogo(node, model) {
+      var path = logoAllowed() ? model.logo : null;
+      /* Предыдущая предзагрузка больше не нужна: её исход относится к
+         другому названию, а сторож поколения её колбэк уже не пустит. */
+      stopTimer('logoTimer');
+      if (state.logoLoader) {
+        state.logoLoader.onload = null;
+        state.logoLoader.onerror = null;
+        state.logoLoader = null;
+      }
+      /* Второй аргумент emPx — масштаб интерфейса плагина. Здесь он ровно
+         1: lumen_scale до текста героя не доходит (см. LOGO_EM выше). */
+      var url = path ? imageUrl(path, logoSizeFor(LC.util.emPx(LOGO_EM * TEXT_ZOOM, 1))) : '';
+      if (!url || logoSeen[path] === 'fail') { hideLogo(node); return; }
+      if (logoSeen[path] === 'ok') { showLogo(node, url); return; }
+      hideLogo(node);
+      loadLogo(path, url);
+    }
+
+    /* Записывает модель в узлы. swap=true — смена карточки, иначе это
+       дорисовка деталей той же карточки: она обязана быть без анимации,
+       иначе герой дёргался бы дважды на каждую карточку.
 
        Найдено живьём (первый круг Task 18): write() обязана брать модель из
        state.model, а не из замыкания. Ответ деталей из кэша Lampa приходит
        СИНХРОННО, ещё до того как сработает отложенная на 180 мс подмена
        текста, — и та возвращала на экран модель без деталей: мета съезжала
-       обратно на голый год, а скелетон загорался навсегда. */
+       обратно на голый год, а скелетон загорался навсегда.
+
+       Task 71: смена карточки откладывает вывод на SWAP_MS во ВСЕХ режимах,
+       а не только в full. В full отсрочка была всегда — под анимацию ухода
+       текста, — и ровно из-за неё «первая версия работала идеально»: детали
+       уже виденной карточки Lampa отдаёт из кэша синхронно, отложенный
+       write() берёт модель уже с логотипом, и видимый вывод один. В lite
+       write() был мгновенным, и выводов было два: сначала текст, потом
+       логотип — отзыв пользователя 2026-09-21, п.2 («названия подгружают на
+       ходу „постеры“ названия»). Цена — те же 180 мс задержки текста при
+       листании, которые в full и так есть; анимации ухода текста в lite/off
+       по-прежнему нет, только отсрочка. */
     function render(model, swap) {
       if (!state || !model) return;
       var node = state.node;
@@ -850,6 +974,9 @@
 
       function write() {
         if (!state || !state.model) return;
+        /* Отложенный вывод, если он ещё не сработал, больше не нужен: эта
+           запись новее, а второй проход по тем же узлам ничего не добавит. */
+        stopTimer('swapTimer');
         var current = state.model;
         var text = node.find('.lumen-hero__text');
         /* Task 43: рейтинг идёт последним элементом той же строки —
@@ -873,28 +1000,27 @@
            были бы ложным «грузится» (ограничение брифа 3). */
         node.toggleClass('lumen-hero--nodescr', !current.overview);
 
-        /* Второй аргумент emPx — масштаб интерфейса плагина. Здесь он ровно
-           1: lumen_scale до текста героя не доходит (см. LOGO_EM выше). */
-        var logoUrl = current.logo ? imageUrl(current.logo, logoSizeFor(LC.util.emPx(LOGO_EM * TEXT_ZOOM, 1))) : '';
-        var logo = node.find('.lumen-hero__logo');
-        /* Пустая строка в background-image оставила бы style="" на узле —
-           ловушка из плана 0.2 (пустой атрибут меняет outerHTML). Значение
-           'none' валидно и атрибут пустым не делает. */
-        logo.css('background-image', logoUrl ? 'url("' + encodeURI(logoUrl) + '")' : 'none');
-        node.toggleClass('lumen-hero--logo', !!logoUrl);
+        /* Task 71: логотип ставится не здесь, а после того как его картинка
+           доехала (applyLogo → loadLogo). Размер при этом задаётся сразу по
+           пропорции из модели: узел до показа скрыт (display:none у
+           .lumen-hero__logo), и раскладку эти две величины не двигают. */
+        applyLogo(node, current);
         applyLogoBox();
 
         text.removeClass('is-swapping');
         if (motionMode() === 'full') text.addClass('is-in');
       }
 
-      if (!swap || motionMode() !== 'full') {
+      if (!swap) {
         write();
         return;
       }
 
-      var text = node.find('.lumen-hero__text');
-      text.removeClass('is-in').addClass('is-swapping');
+      /* Анимация ухода текста — только в полном режиме: правила .is-swapping
+         (opacity:0) и .is-in (кадр появления) заведены под .lumen-motion-full
+         (src/30_css.js, блок текста героя), и в lite/off тот же класс
+         означал бы мгновенно спрятанный и мгновенно показанный текст. */
+      if (motionMode() === 'full') node.find('.lumen-hero__text').removeClass('is-in').addClass('is-swapping');
       var captured = gen;
       stopTimer('swapTimer');
       state.swapTimer = setTimeout(function () {
@@ -1715,6 +1841,10 @@
           loadTimer: null,
           accentTimer: null,
           loader: null,
+          /* Task 71: предзагрузка логотипа названия и её страховочный
+             таймаут. */
+          logoLoader: null,
+          logoTimer: null,
           net: null,
           shownId: null,
           details: null,
@@ -1814,13 +1944,19 @@
       } catch (eTween) {
         warn('hero: accent stop failed', eTween);
       }
-      var timers = ['timer', 'swapTimer', 'loadTimer', 'accentTimer', 'bigTimer', 'trailerTimer', 'lqipTimer'];
+      var timers = ['timer', 'swapTimer', 'loadTimer', 'accentTimer', 'bigTimer', 'trailerTimer', 'lqipTimer', 'logoTimer'];
       for (var i = 0; i < timers.length; i++) {
         try { if (s[timers[i]]) clearTimeout(s[timers[i]]); } catch (eT) {}
       }
       if (s.loader) {
         s.loader.onload = null;
         s.loader.onerror = null;
+      }
+      /* Task 71: предзагрузка логотипа названия — такой же незавершённый
+         запрос, как кадр героя, и снимается так же. */
+      if (s.logoLoader) {
+        s.logoLoader.onload = null;
+        s.logoLoader.onerror = null;
       }
       /* Task 27 (довесок): предзагрузка крупного постера — такой же
          незавершённый запрос, как кадр героя, и снимается так же. */
@@ -1896,6 +2032,14 @@
       /* Настройка lumen_hero_trailer переключена на лету (src/80_settings.js,
          applyPrefChange): выключение снимает играющий ролик. */
       applyTrailer: applyTrailer,
+      /* Task 71: настройка «Логотип названия» переключена на лету
+         (src/80_settings.js, applyPrefChange). Перерисовываем героя той же
+         моделью: write() спросит настройку заново и либо покажет логотип,
+         либо вернёт текстовый заголовок. Без этого выключение было бы видно
+         только со следующей карточки под фокусом. */
+      applyLogoPref: function () {
+        try { if (state && state.model) render(state.model, false); } catch (e) { warn('hero: logo pref failed', e); }
+      },
       /* Task 21: настройка «Атмосферы» переключена на лету (src/80_settings.js,
          applyPrefChange -> LC.applyFxPref). Выключение снимает слой частиц с
          кадра главной, включение считает тему по уже загруженным деталям. */

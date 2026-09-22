@@ -277,6 +277,13 @@
          искали и не нашли, потому что «Трейлер в кадре главной» с трёх
          метров не отличался от «Трейлера в фоне» из группы выше. */
       { name: 'lumen_hero_trailer', type: 'trigger', 'default': true, label: 'lumen_hero_trailer_name', descr: 'lumen_hero_trailer_descr' },
+      /* Task 71 (фаза 6): логотип названия в кадре главной. Место — третьим
+         в группе, сразу за размером кадра и автотрейлером: все три про одну
+         и ту же часть экрана. Включён по умолчанию — это текущий вид, и
+         Apple TV точно так же показывает title treatment вместо набранного
+         заголовка. Дефолт здесь и дефолт в месте чтения (logoAllowed,
+         src/48_hero.js) сверяет test/prefs.test.mjs. */
+      { name: 'lumen_hero_logo', type: 'trigger', 'default': true, label: 'lumen_hero_logo_name', descr: 'lumen_hero_logo_descr' },
       { name: 'lumen_moods', type: 'trigger', 'default': true, label: 'lumen_moods_name', descr: 'lumen_moods_descr' },
       { name: 'lumen_personal_rows', type: 'trigger', 'default': true, label: 'lumen_personal_rows_name', descr: 'lumen_personal_rows_descr' },
 

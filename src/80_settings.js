@@ -673,6 +673,18 @@
       en: 'The hero frame above the rows turns into a muted YouTube trailer by itself once focus has rested on a card for 8 seconds. Turn it off if it gets in the way. Moving to another card removes the clip, and it never starts while you are browsing. Needs full animations, heavy effects on and "Background trailer on the card" not set to Off. Applied immediately.',
       uk: 'Кадр над рядами сам змінюється беззвучним трейлером з YouTube, якщо фокус постояв на картці 8 секунд. Вимкніть, якщо це заважає. Перехід на іншу картку ролик знімає, під час гортання він не запускається взагалі. Потрібні повні анімації, увімкнені важкі ефекти і не вимкнений «Трейлер у фоні картки». Застосовується одразу.'
     },
+    /* Task 71 (фаза 6): логотип названия в кадре главной. Название пункта
+       не «логотип фильма», а «логотип названия»: с дивана человек видит
+       именно надпись — фирменно набранное название вместо обычного
+       заголовка. Описание говорит, что бывает, когда логотипа нет или он не
+       загрузился (остаётся обычный заголовок), — иначе пункт выглядел бы
+       сломанным на половине фильмов. */
+    lumen_hero_logo_name: { ru: 'Логотип названия в кадре', en: 'Title logo in the hero', uk: 'Логотип назви в кадрі' },
+    lumen_hero_logo_descr: {
+      ru: 'Название фильма в кадре над рядами показывается его фирменной надписью с TMDB, а не обычным заголовком. Надпись появляется, только когда картинка загрузилась: пока её нет — и если её нет вовсе — стоит обычный заголовок. Выключите, чтобы название всегда было набрано текстом. Применяется сразу.',
+      en: 'The title in the hero above the rows is shown as the film’s own logo from TMDB instead of plain text. The logo appears only once its image has loaded: until then — and if there is none — the plain title stays. Turn it off to always keep the title as text. Applied immediately.',
+      uk: 'Назва фільму в кадрі над рядами показується його фірмовим написом з TMDB, а не звичайним заголовком. Напис з’являється лише тоді, коли картинка завантажилась: доки її немає — і якщо її немає взагалі — лишається звичайний заголовок. Вимкніть, щоб назва завжди була набрана текстом. Застосовується одразу.'
+    },
     /* Task 62a (фаза 5): видов метки стало три. Название осталось прежним —
        настройка про то же самое, — а описание теперь объясняет выбор между
        плашкой и подписью: с дивана «На постере / В подписи» без пояснения
@@ -1018,6 +1030,14 @@
        следующей остановки фокуса (src/48_hero.js, applyTrailer). */
     if (name === 'lumen_hero_trailer') {
       try { if (LC.hero && LC.hero.applyTrailer) LC.hero.applyTrailer(); } catch (eHeroTr) {}
+      return true;
+    }
+    /* Task 71 (фаза 6): логотип названия в кадре главной. Перерисовка героя
+       той же моделью: выключение возвращает текстовый заголовок на открытой
+       главной сразу, включение показывает логотип, как только его картинка
+       доедет (src/48_hero.js, applyLogoPref). */
+    if (name === 'lumen_hero_logo') {
+      try { if (LC.hero && LC.hero.applyLogoPref) LC.hero.applyLogoPref(); } catch (eHeroLogo) {}
       return true;
     }
     /* Task 25 (фаза 3): метки на постерах — наблюдатель ставится и снимается

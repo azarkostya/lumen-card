@@ -112,7 +112,8 @@ function setup(opts) {
   LC.applyAmbientPref = mark('ambient');
   /* Task 28 (фаза 3): автотрейлер в кадре главной — выключение снимает
      играющий ролик прямо у героя, своей точки в 90_runtime.js ему не нужно. */
-  LC.hero = { applyTrailer: mark('herotrailer') };
+  /* Task 71 (фаза 6): логотип названия — перерисовка героя той же моделью. */
+  LC.hero = { applyTrailer: mark('herotrailer'), applyLogoPref: mark('herologo') };
   /* Task 62b (ревью): применение набора значений одним проходом — вместо
      ветки на каждую запись (src/90_runtime.js). */
   LC.applyPresetChanges = (keys) => log.push('preset:' + keys.join(','));
@@ -271,6 +272,9 @@ test('каждая настройка применяется ровно один
     /* Task 28 (фаза 3): автотрейлер в кадре главной — снятие играющего
        ролика у самого героя. */
     lumen_hero_trailer: ['herotrailer'],
+    /* Task 71 (фаза 6): логотип названия в кадре главной — перерисовка
+       героя: выключение возвращает текстовый заголовок сразу. */
+    lumen_hero_logo: ['herologo'],
     lumen_menus: ['menus'],
     lumen_torrents: ['torrents'],
     /* Task 20: подсказка про ключ — перерисовка ряда отзывов карточки плюс

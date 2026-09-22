@@ -674,6 +674,12 @@ test('загруженный кадр проявляется вторым сло
   /* Task 43: рейтинг — последний элемент той же строки, отдельного чипа нет. */
   assert.equal(node.find('.lumen-hero__meta').text(), '2024 · 1:40 · драма · ★ 7.2');
   assert.equal(node.find('.lumen-hero__descr').text(), 'полное');
+  /* Task 71: логотип встаёт не по ответу деталей, а по загрузке своей
+     картинки — до этого на экране текстовый заголовок. */
+  assert.equal(node.hasClass('lumen-hero--logo'), false, 'класс обязан ждать картинку логотипа');
+  const logoPreload = env.images[env.images.length - 1];
+  assert.equal(logoPreload.src, 'https://img/t/p/w780/l.png');
+  logoPreload.onload();
   assert.equal(node.find('.lumen-hero__logo').css('background-image'), 'url("https://img/t/p/w780/l.png")');
   assert.equal(node.hasClass('lumen-hero--logo'), true, 'логотип есть — текстовый заголовок скрыт CSS');
 });
@@ -971,7 +977,10 @@ test('режим off: текст меняется без подмены и БЕ�
   main.card1.addClass('focus');
   fireFocus(main.activity, main.card1);
   env.advance(400);
+  /* Task 71: вывод текста отложен на SWAP_MS и в 'off' — но анимации ухода
+     текста здесь по-прежнему нет, только отсрочка. */
   assert.equal(node.find('.lumen-hero__text').hasClass('is-swapping'), false);
+  env.advance(200);
   assert.equal(node.find('.lumen-hero__title').text(), 'Первый');
   assert.equal(env.images.length, 0, 'ни одной предзагрузки кадра');
   /* Task 29: единственный живой таймер — трёхсекундный расчёт акцента; он от
@@ -1514,8 +1523,13 @@ test('Task 39: DPR 2 не поднимает логотип выше потол�
   env.images[0].onload();
 
   /* Логотип приходит с деталями: рамка при DPR 2 — 1900 физических пикселей,
-     но потолок логотипа w780 (ревью Task 39, п.4). */
+     но потолок логотипа w780 (ревью Task 39, п.4).
+     Task 71: адрес у него запрашивает предзагрузчик, и фоном он встаёт
+     после того, как картинка доехала. */
   env.requests[0].ok({ id: 11, images: { logos: [{ file_path: '/l.png', aspect_ratio: 4, iso_639_1: 'ru' }] } });
+  const preload = env.images[env.images.length - 1];
+  assert.equal(preload.src, 'https://img/t/p/w780/l.png');
+  preload.onload();
   assert.equal(node.find('.lumen-hero__logo').css('background-image'), 'url("https://img/t/p/w780/l.png")');
 
   const noFrame = makeEnv();
@@ -2196,4 +2210,178 @@ test('трейлер героя: режим анимаций упал до lite 
   motion = 'lite';
   env.hero.applyMotion();
   assert.equal(env.players[0].destroys, 1);
+});
+
+/* ====================================================================== */
+/* Task 71: логотип названия — без подмены на ходу                        */
+/*                                                                        */
+/* Отзыв пользователя 2026-09-21, п.2: «названия подгружают на ходу       */
+/* „постеры“ названия», и уточнение — «в самой первой версии всё работало  */
+/* идеально». Механика показа логотипа не менялась ни разу (сверка по      */
+/* истории cfe0047 → HEAD): изменился РЕЖИМ движения. В full первый       */
+/* write() откладывается на SWAP_MS под анимацию ухода текста, и детали из */
+/* кэша Lampa успевают приехать — видимый вывод один, сразу с логотипом.   */
+/* В lite write() был мгновенным: сперва текст, потом второй write() с     */
+/* логотипом. Это и есть «на ходу».                                        */
+/* ====================================================================== */
+
+/* Карточка под фокусом в заданном режиме движения: показ запущен, кадр
+   запрошен, текст (теперь во всех режимах отложенный на SWAP_MS) ещё не
+   записан. */
+function heroIn(mode) {
+  const env = makeEnv();
+  env.LC.motionMode = () => mode;
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  main.card1.addClass('focus');
+  fireFocus(main.activity, main.card1);
+  env.advance(350);
+  return { env: env, main: main, node: main.activity._children[0] };
+}
+
+const LOGO_RU = { images: { logos: [{ file_path: '/l.png', iso_639_1: 'ru' }] } };
+const LOGO_URL = 'https://img/t/p/w780/l.png';
+/* Предзагрузчики логотипа среди всех созданных Image: по адресу, а не по
+   порядку — кадр героя запрашивается и до логотипа (в момент показа
+   карточки), и после него (второй заход loadFrame, когда backdrop пришёл в
+   деталях), так что «последний Image» логотипом не является. */
+const logoLoads = (env) => env.images.filter((i) => i.src === LOGO_URL);
+const logoLoader = (env) => logoLoads(env)[logoLoads(env).length - 1];
+
+test('Task 71: в «Лёгких» детали из кэша успевают к первому выводу — текста без логотипа не видно', () => {
+  const { env, node } = heroIn('lite');
+  /* До Task 71 write() в lite отрабатывал мгновенно, и здесь уже стоял бы
+     заголовок без логотипа — тот самый «постер названия на ходу». */
+  assert.equal(node.find('.lumen-hero__title').text(), '', 'вывод текста обязан быть отложен на SWAP_MS');
+  /* Ответ деталей из кэша Lampa приходит синхронно, до конца отсрочки, и
+     выводит уже полную модель — это и есть единственный видимый вывод. */
+  env.requests[0].ok(Object.assign({ runtime: 100, genres: [{ name: 'драма' }], overview: 'полное' }, LOGO_RU));
+  assert.equal(node.find('.lumen-hero__meta').text(), '2024 · 1:40 · драма · ★ 7.2');
+  /* Отложенный вывод снят самой записью: второго прохода по узлам нет, и
+     модель без деталей на экран уже не попадёт. */
+  env.advance(200);
+  assert.equal(node.find('.lumen-hero__meta').text(), '2024 · 1:40 · драма · ★ 7.2', 'отложенный вывод вернул модель без деталей');
+  assert.equal(node.find('.lumen-hero__descr').text(), 'полное');
+  assert.equal(logoLoader(env).src, LOGO_URL, 'логотип не запрошен');
+  logoLoader(env).onload();
+  assert.equal(node.hasClass('lumen-hero--logo'), true, 'логотип пришёл — текстовый заголовок прячет CSS');
+  assert.deepEqual(warnLog, []);
+});
+
+test('Task 71: детали приехали позже отсрочки — сперва текст, логотип после загрузки', () => {
+  const { env, node } = heroIn('lite');
+  env.advance(200);
+  assert.equal(node.find('.lumen-hero__title').text(), 'Первый', 'текст карточки ряда обязан показаться');
+  assert.equal(node.hasClass('lumen-hero--logo'), false);
+
+  env.requests[0].ok(LOGO_RU);
+  assert.equal(node.hasClass('lumen-hero--logo'), false, 'класс обязан ждать саму картинку логотипа');
+  assert.equal(node.find('.lumen-hero__title').text(), 'Первый', 'пока логотипа нет, виден текстовый заголовок');
+  logoLoader(env).onload();
+  assert.equal(node.hasClass('lumen-hero--logo'), true);
+  assert.equal(node.find('.lumen-hero__logo').css('background-image'), 'url("' + LOGO_URL + '")');
+});
+
+test('Task 71: логотип не загрузился — остаётся текст, и второй раз его не просят', () => {
+  const { env, main, node } = heroIn('lite');
+  env.advance(200);
+  env.requests[0].ok(LOGO_RU);
+  logoLoader(env).onerror();
+  assert.equal(node.hasClass('lumen-hero--logo'), false, 'битый логотип не имеет права прятать заголовок');
+  assert.equal(node.find('.lumen-hero__title').text(), 'Первый');
+
+  /* Та же картинка у следующей карточки: повторной попытки в сессии нет. */
+  main.card1.removeClass('focus');
+  main.card2.addClass('focus');
+  fireFocus(main.activity, main.card2);
+  env.advance(350);
+  env.advance(200);
+  env.requests[1].ok(LOGO_RU);
+  assert.equal(logoLoads(env).length, 1, 'за логотипом ушёл второй запрос — кэш неудач не работает');
+  assert.equal(node.hasClass('lumen-hero--logo'), false);
+  assert.deepEqual(warnLog, []);
+});
+
+test('Task 71: уже загруженный логотип ставится сразу, без второй предзагрузки', () => {
+  const { env, main, node } = heroIn('lite');
+  env.advance(200);
+  env.requests[0].ok(LOGO_RU);
+  logoLoader(env).onload();
+  assert.equal(node.hasClass('lumen-hero--logo'), true);
+
+  main.card1.removeClass('focus');
+  main.card2.addClass('focus');
+  fireFocus(main.activity, main.card2);
+  env.advance(350);
+  env.requests[1].ok(LOGO_RU);
+  env.advance(200);
+  assert.equal(node.hasClass('lumen-hero--logo'), true, 'известный логотип обязан встать сразу');
+  assert.equal(logoLoads(env).length, 1, 'лишняя предзагрузка: логотип уже известен');
+});
+
+test('Task 71: карточка сменилась до прихода логотипа — старый load ничего не рисует', () => {
+  const { env, main, node } = heroIn('lite');
+  env.advance(200);
+  env.requests[0].ok(LOGO_RU);
+  const stale = logoLoader(env);
+  /* Колбэк, который движок уже держит в очереди: снять обработчик с самого
+     загрузчика мало, поэтому проверяем обе страховки сразу. */
+  const staleOnload = stale.onload;
+
+  main.card1.removeClass('focus');
+  main.card2.addClass('focus');
+  fireFocus(main.activity, main.card2);
+  env.advance(350);
+  env.advance(200);
+  assert.equal(node.find('.lumen-hero__title').text(), 'Второй', 'подготовка: на экране уже другая карточка');
+  assert.equal(stale.onload, null, 'предзагрузка ушедшей карточки обязана быть отвязана');
+
+  staleOnload();
+  assert.equal(node.hasClass('lumen-hero--logo'), false, 'логотип ушедшей карточки встал поверх новой');
+});
+
+test('Task 71: таймаут загрузки без байтов логотип не показывает', () => {
+  const { env, node } = heroIn('lite');
+  env.advance(200);
+  env.requests[0].ok(LOGO_RU);
+  env.advance(8000);
+  assert.equal(node.hasClass('lumen-hero--logo'), false, 'логотип, который не доехал, прятать заголовок не имеет права');
+  assert.equal(node.find('.lumen-hero__title').text(), 'Первый');
+});
+
+test('Task 71: настройка выключена — логотип не запрашивается вовсе', () => {
+  const env = makeEnv({ pref: (name, def) => (name === 'lumen_hero_logo' ? false : def) });
+  env.LC.motionMode = () => 'lite';
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  const node = main.activity._children[0];
+  main.card1.addClass('focus');
+  fireFocus(main.activity, main.card1);
+  env.advance(350);
+  env.advance(200);
+  env.requests[0].ok(LOGO_RU);
+  assert.equal(logoLoads(env).length, 0, 'за выключенным логотипом ушёл запрос');
+  assert.equal(node.hasClass('lumen-hero--logo'), false);
+  assert.equal(node.find('.lumen-hero__title').text(), 'Первый', 'без логотипа обязан остаться текстовый заголовок');
+});
+
+test('Task 71: у предзагрузчика логотипа приоритет ниже кадра', () => {
+  const { env } = heroIn('lite');
+  env.advance(200);
+  env.requests[0].ok(LOGO_RU);
+  assert.equal(env.images[0].fetchPriority, 'high', 'кадр героя грузится первым по приоритету');
+  assert.equal(logoLoader(env).fetchPriority, undefined, 'логотипу высокий приоритет не положен');
+  assert.equal(logoLoader(env).decoding, 'async');
+});
+
+test('Task 71: в полном режиме отсрочка та же, и текст по-прежнему уходит анимацией', () => {
+  const { env, node } = heroIn('full');
+  assert.equal(node.find('.lumen-hero__text').hasClass('is-swapping'), true, 'в full текст обязан уходить анимацией');
+  assert.equal(node.find('.lumen-hero__title').text(), '');
+  env.requests[0].ok(LOGO_RU);
+  env.advance(200);
+  assert.equal(node.find('.lumen-hero__title').text(), 'Первый');
+  assert.equal(node.find('.lumen-hero__text').hasClass('is-in'), true);
+  logoLoader(env).onload();
+  assert.equal(node.hasClass('lumen-hero--logo'), true);
 });

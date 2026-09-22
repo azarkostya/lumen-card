@@ -10208,6 +10208,15 @@ var tgen = 0;
 
 var last = null;
 
+
+
+
+
+
+
+
+var logoSeen = {};
+
 function tmdbImageFn() {
 if (window.Lampa && Lampa.TMDB && typeof Lampa.TMDB.image === 'function') {
 return function (url) { return Lampa.TMDB.image(url); };
@@ -10385,6 +10394,14 @@ function cancelPending() {
 if (!state) return;
 stopTimer('loadTimer');
 stopTimer('swapTimer');
+
+
+stopTimer('logoTimer');
+if (state.logoLoader) {
+state.logoLoader.onload = null;
+state.logoLoader.onerror = null;
+state.logoLoader = null;
+}
 if (state.loader) {
 state.loader.onload = null;
 state.loader.onerror = null;
@@ -10647,6 +10664,113 @@ logo.css('height', box ? box.h + 'em' : '');
 
 
 
+function logoAllowed() {
+try { return LC.pref ? LC.pref('lumen_hero_logo', true) !== false : true; } catch (e) { return true; }
+}
+
+
+
+
+
+function showLogo(node, url) {
+node.find('.lumen-hero__logo').css('background-image', 'url("' + encodeURI(url) + '")');
+node.addClass('lumen-hero--logo');
+}
+
+
+
+
+function hideLogo(node) {
+node.find('.lumen-hero__logo').css('background-image', 'none');
+node.removeClass('lumen-hero--logo');
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function loadLogo(path, url) {
+var captured = gen;
+var loader = new Image();
+loader.decoding = 'async';
+var done = false;
+
+function finish(ok) {
+if (done) return;
+done = true;
+loader.onload = null;
+loader.onerror = null;
+
+
+logoSeen[path] = ok ? 'ok' : 'fail';
+if (gen !== captured || !state || !isMounted()) return;
+stopTimer('logoTimer');
+state.logoLoader = null;
+if (!ok) return;
+
+
+
+if (!state.model || state.model.logo !== path) return;
+showLogo(state.node, url);
+}
+
+loader.onload = function () { finish(true); };
+loader.onerror = function () { finish(false); };
+state.logoLoader = loader;
+
+
+state.logoTimer = setTimeout(function () {
+finish(!!(loader.complete && loader.naturalWidth));
+}, LOAD_TIMEOUT);
+loader.src = url;
+}
+
+
+
+
+function applyLogo(node, model) {
+var path = logoAllowed() ? model.logo : null;
+
+
+stopTimer('logoTimer');
+if (state.logoLoader) {
+state.logoLoader.onload = null;
+state.logoLoader.onerror = null;
+state.logoLoader = null;
+}
+
+
+var url = path ? imageUrl(path, logoSizeFor(LC.util.emPx(LOGO_EM * TEXT_ZOOM, 1))) : '';
+if (!url || logoSeen[path] === 'fail') { hideLogo(node); return; }
+if (logoSeen[path] === 'ok') { showLogo(node, url); return; }
+hideLogo(node);
+loadLogo(path, url);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -10662,6 +10786,9 @@ state.model = model;
 
 function write() {
 if (!state || !state.model) return;
+
+
+stopTimer('swapTimer');
 var current = state.model;
 var text = node.find('.lumen-hero__text');
 
@@ -10687,26 +10814,25 @@ node.toggleClass('lumen-hero--nodescr', !current.overview);
 
 
 
-var logoUrl = current.logo ? imageUrl(current.logo, logoSizeFor(LC.util.emPx(LOGO_EM * TEXT_ZOOM, 1))) : '';
-var logo = node.find('.lumen-hero__logo');
 
 
-
-logo.css('background-image', logoUrl ? 'url("' + encodeURI(logoUrl) + '")' : 'none');
-node.toggleClass('lumen-hero--logo', !!logoUrl);
+applyLogo(node, current);
 applyLogoBox();
 
 text.removeClass('is-swapping');
 if (motionMode() === 'full') text.addClass('is-in');
 }
 
-if (!swap || motionMode() !== 'full') {
+if (!swap) {
 write();
 return;
 }
 
-var text = node.find('.lumen-hero__text');
-text.removeClass('is-in').addClass('is-swapping');
+
+
+
+
+if (motionMode() === 'full') node.find('.lumen-hero__text').removeClass('is-in').addClass('is-swapping');
 var captured = gen;
 stopTimer('swapTimer');
 state.swapTimer = setTimeout(function () {
@@ -11527,6 +11653,10 @@ swapTimer: null,
 loadTimer: null,
 accentTimer: null,
 loader: null,
+
+
+logoLoader: null,
+logoTimer: null,
 net: null,
 shownId: null,
 details: null,
@@ -11626,13 +11756,19 @@ if (LC.accent && typeof LC.accent.stopTween === 'function') LC.accent.stopTween(
 } catch (eTween) {
 warn('hero: accent stop failed', eTween);
 }
-var timers = ['timer', 'swapTimer', 'loadTimer', 'accentTimer', 'bigTimer', 'trailerTimer', 'lqipTimer'];
+var timers = ['timer', 'swapTimer', 'loadTimer', 'accentTimer', 'bigTimer', 'trailerTimer', 'lqipTimer', 'logoTimer'];
 for (var i = 0; i < timers.length; i++) {
 try { if (s[timers[i]]) clearTimeout(s[timers[i]]); } catch (eT) {}
 }
 if (s.loader) {
 s.loader.onload = null;
 s.loader.onerror = null;
+}
+
+
+if (s.logoLoader) {
+s.logoLoader.onload = null;
+s.logoLoader.onerror = null;
 }
 
 
@@ -11708,6 +11844,14 @@ trailerAllowed: trailerAllowed,
 
 
 applyTrailer: applyTrailer,
+
+
+
+
+
+applyLogoPref: function () {
+try { if (state && state.model) render(state.model, false); } catch (e) { warn('hero: logo pref failed', e); }
+},
 
 
 
@@ -24752,6 +24896,18 @@ uk: 'Кадр над рядами сам змінюється беззвучни
 
 
 
+
+
+lumen_hero_logo_name: { ru: 'Логотип названия в кадре', en: 'Title logo in the hero', uk: 'Логотип назви в кадрі' },
+lumen_hero_logo_descr: {
+ru: 'Название фильма в кадре над рядами показывается его фирменной надписью с TMDB, а не обычным заголовком. Надпись появляется, только когда картинка загрузилась: пока её нет — и если её нет вовсе — стоит обычный заголовок. Выключите, чтобы название всегда было набрано текстом. Применяется сразу.',
+en: 'The title in the hero above the rows is shown as the film’s own logo from TMDB instead of plain text. The logo appears only once its image has loaded: until then — and if there is none — the plain title stays. Turn it off to always keep the title as text. Applied immediately.',
+uk: 'Назва фільму в кадрі над рядами показується його фірмовим написом з TMDB, а не звичайним заголовком. Напис з’являється лише тоді, коли картинка завантажилась: доки її немає — і якщо її немає взагалі — лишається звичайний заголовок. Вимкніть, щоб назва завжди була набрана текстом. Застосовується одразу.'
+},
+
+
+
+
 lumen_badges_name: { ru: 'Метки на постерах', en: 'Poster badges', uk: 'Мітки на постерах' },
 lumen_badges_descr: {
 ru: '«Скоро», «Новинка», процент просмотра и новые серии в рядах главной и подборок. «На постере» — плашкой поверх обложки; «В подписи» — строкой под ней, рядом с годом и рейтингом: обложка остаётся чистой. Применяется сразу.',
@@ -25093,6 +25249,14 @@ return true;
 
 if (name === 'lumen_hero_trailer') {
 try { if (LC.hero && LC.hero.applyTrailer) LC.hero.applyTrailer(); } catch (eHeroTr) {}
+return true;
+}
+
+
+
+
+if (name === 'lumen_hero_logo') {
+try { if (LC.hero && LC.hero.applyLogoPref) LC.hero.applyLogoPref(); } catch (eHeroLogo) {}
 return true;
 }
 
@@ -25737,6 +25901,13 @@ var LIST = [
 
 
 { name: 'lumen_hero_trailer', type: 'trigger', 'default': true, label: 'lumen_hero_trailer_name', descr: 'lumen_hero_trailer_descr' },
+
+
+
+
+
+
+{ name: 'lumen_hero_logo', type: 'trigger', 'default': true, label: 'lumen_hero_logo_name', descr: 'lumen_hero_logo_descr' },
 { name: 'lumen_moods', type: 'trigger', 'default': true, label: 'lumen_moods_name', descr: 'lumen_moods_descr' },
 { name: 'lumen_personal_rows', type: 'trigger', 'default': true, label: 'lumen_personal_rows_name', descr: 'lumen_personal_rows_descr' },
 
