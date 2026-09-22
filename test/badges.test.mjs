@@ -657,3 +657,60 @@ test('detach: чужая активность снимает наблюдате�
     delete globalThis.MutationObserver;
   }
 });
+
+/* ====================================================================== */
+/* Ревью волны A (важное 2): opts.wide — подпись сетки и хаба.             */
+/*                                                                        */
+/* Правило A2 заведено под карточку ГЛАВНОЙ. Карточка сетки подборки шире, */
+/* и там та же строка теряет не год, а хвост рейтинга; замеры по каждому   */
+/* масштабу — у самого правила в src/62_badges.js. Без флага карточка      */
+/* сетки с меткой оставалась без оценки вовсе: штатную плашку .card__vote  */
+/* прячет CSS, а в подпись рейтинг не дописывался.                         */
+/* ====================================================================== */
+
+test('важное 2: wide — у карточки с меткой рейтинг в подписи остаётся', () => {
+  const { api } = runtime({ badgesMode: function () { return 'caption'; } });
+  const card = makeCard({ release_date: '2026-09-01', vote_average: 7.3 });
+  globalThis.window = { Lampa: {} };
+  try { api.decorate(card, null, { bar: false, wide: true }); } finally { delete globalThis.window; }
+  const age = card._children[1];
+  assert.equal(age.text(), '2017 · ★ 7.3', 'рейтинг обязан быть дописан к году');
+  /* Узел метки цел: rate() пишет подпись целиком через text(), и порядок
+     «сначала рейтинг, потом метка» — единственный, при котором метка
+     переживает запись. */
+  assert.equal(age._children[0].text(), 'Новинка · ', 'метка на месте и первой');
+  assert.ok(age._children[0].hasClass('lumen-badge-cap'), 'метка осталась своим узлом, а не плоским текстом');
+  assert.ok(age._children[0].hasClass('lumen-badge-cap--new'), 'вид метки сохранён: ' + age._children[0]._class.join(' '));
+});
+
+test('важное 2: wide не трогает главную — там правило A2 прежнее', () => {
+  const { api } = runtime({ badgesMode: function () { return 'caption'; } });
+  const plain = makeCard({ release_date: '2026-09-01', vote_average: 7.3 });
+  const bar = makeCard({ release_date: '2026-09-01', vote_average: 7.3 });
+  globalThis.window = { Lampa: {} };
+  try {
+    api.decorate(plain, null, null);
+    api.decorate(bar, null, { bar: false });
+  } finally {
+    delete globalThis.window;
+  }
+  assert.equal(plain._children[1].text(), '2017', 'без opts рейтинга в подписи с меткой нет');
+  assert.equal(bar._children[1].text(), '2017', 'bar:false сам по себе рейтинга не возвращает');
+});
+
+test('важное 2: wide — strip возвращает подписи чистый год', () => {
+  const { api } = runtime({ badgesMode: function () { return 'caption'; } });
+  const card = makeCard({ release_date: '2026-09-01', vote_average: 7.3 });
+  const root = makeRoot([card]);
+  globalThis.window = { Lampa: {} };
+  try {
+    api.decorate(card, null, { bar: false, wide: true });
+    api.strip(root);
+  } finally {
+    delete globalThis.window;
+  }
+  const age = card._children[1];
+  assert.equal(age.text(), '2017', 'после strip в подписи остаётся только год');
+  assert.equal(age._children.filter((c) => c.hasClass('lumen-badge-cap')).length, 0, 'узел метки снят');
+  assert.equal(card.lumen_badged, false, 'флаг снят — вид можно нарисовать заново');
+});

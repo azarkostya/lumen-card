@@ -2801,6 +2801,12 @@ css.push('.lumen-grid .lumen-gcard.focus .card__view,.lumen-grid .lumen-gcard.ho
 
 
 
+
+
+
+
+
+
 css.push('.lumen-grid .card__quality,.lumen-grid .card__type{display:none}');
 if (LC.badgesMode() !== 'off') css.push('.lumen-grid .card__vote{display:none}');
 
@@ -3739,6 +3745,12 @@ css.push('@media screen and (min-aspect-ratio:' + heroMinRatio + '/100){' +
 
 
 
+
+
+
+
+
+
 var ROW_FOCUS = 1.10;
 
 
@@ -3863,6 +3875,9 @@ css.push('.lumen-main .card__quality,.lumen-main .card__type{display:none}');
 
 
 css.push('.lumen-main .card.focus .card-watched{display:none}');
+
+
+
 
 
 
@@ -9870,8 +9885,14 @@ progressBar(node, card);
 
 
 
+
+
+
+
+
+
 try {
-if (LC.badges && LC.badges.decorate) LC.badges.decorate(node, card, { bar: false });
+if (LC.badges && LC.badges.decorate) LC.badges.decorate(node, card, { bar: false, wide: true });
 } catch (eBadge) {
 warn('grid: badge failed', eBadge);
 }
@@ -20450,6 +20471,10 @@ return true;
 
 
 
+
+
+
+
 function decorate(node, card, opts) {
 try {
 if (!enabled()) return;
@@ -20464,7 +20489,7 @@ var hasBadge = !!(badge && badge.text && view && view.length);
 var view_mode = mode();
 
 
-var inCaption = hasBadge && view_mode === 'caption' && caption(el, badge);
+var wantCaption = hasBadge && view_mode === 'caption';
 
 
 
@@ -20483,7 +20508,58 @@ var inCaption = hasBadge && view_mode === 'caption' && caption(el, badge);
 
 
 
-if (!inCaption) rate(el, data);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+if (!wantCaption || (opts && opts.wide)) rate(el, data);
+var inCaption = wantCaption && caption(el, badge);
 if (!hasBadge) return;
 if (!inCaption && view_mode !== 'caption') {
 var box = $('<div class="lumen-badge lumen-badge--' + badge.kind + '"></div>');
