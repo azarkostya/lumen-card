@@ -4698,3 +4698,21 @@ test('Task 73: плоский вид только дописывает прав�
     }
   }
 });
+
+/* A5 (волна A финального плана): описание настройки обещало сетке и хабу
+   перемену наравне с карточкой и путём TorrServer, а плоский вид снимает там
+   ровно три подложки — и все три лежат ПОД картинкой, то есть видны только
+   пока постер или кадр не пришёл. Описание приведено к факту
+   (src/80_settings.js, lumen_flat_descr), и этот сторож держит факт: вырастет
+   набор — тест упадёт, и описание придётся переписать вместе с ним. */
+test('A5: в сетке и хабе плоский вид снимает ровно три подложки — и ничего больше', () => {
+  const key = (r) => r.selectors.join(',') + '{' + r.decl + '}';
+  const base = ruleBodies(css).map(key);
+  const added = ruleBodies(flatCss).filter((r) => base.indexOf(key(r)) === -1);
+  const outer = added.filter((r) => r.selectors.some((sel) => sel.indexOf('.lumen-grid ') === 0 || sel.indexOf('.lumen-hub__tiles ') === 0));
+  assert.deepEqual(outer.map(key).sort(), [
+    '.lumen-grid .lumen-gcard .card__img{background-color:transparent}',
+    '.lumen-grid .lumen-gcard .card__view{background-color:transparent}',
+    '.lumen-hub__tiles .lumen-tile{background:none}'
+  ], 'набор правил сетки и хаба изменился — описание настройки обязано измениться вместе с ним');
+});

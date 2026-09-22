@@ -236,12 +236,24 @@
     /* Task 73 (фаза 6): плоский вид. Описание перечисляет ровно те экраны,
        где вид меняется, — карточка, сетка подборки, хаб и путь TorrServer:
        на главной раскладка та же в обоих видах, и обещать там перемену
-       нельзя. */
+       нельзя.
+       A5 (волна A финального плана): в сетке и хабе обещание было больше
+       факта. Плоский вид добавляет там ровно три правила (src/30_css.js,
+       конец блока flat): .lumen-grid .lumen-gcard .card__view и .card__img
+       теряют background-color, .lumen-hub__tiles .lumen-tile — свой фон. Все
+       три лежат ПОД картинкой: постер сетки (.card__img, absolute на весь
+       .card__view) и кадр плитки хаба (.lumen-tile__img, object-fit:cover,
+       opacity 0 до класса --filled) закрывают их целиком. Замер на стенде
+       960×540@2, хаб «Подборки»: у плитки фон rgb(16,16,18) в обычном виде и
+       rgba(0,0,0,0) в плоском — и это единственное отличие, видимое только у
+       плиток без пришедшего кадра (в момент замера 25 из 34). Поэтому
+       описание теперь говорит про подложку, а не про «вид», — обещать
+       перемену раскладки там нечем. */
     lumen_flat_name: { ru: 'Плоский вид', en: 'Flat look', uk: 'Плаский вигляд' },
     lumen_flat_descr: {
-      ru: 'Содержимое лежит прямо на фоне, а не в коробках: в карточке панель «Подробно» становится строкой фактов под описанием, счётчики разделов теряют плашки, отзывы — рамки и подложки, а у плиток серий кадр встаёт сверху во всю ширину, название и подпись уходят под него (ряд серий из-за этого чуть выше); в сетке подборки и в хабе подложки под плитками снимаются; на пути TorrServer раздачи и файлы разделяются тонкими линиями вместо карточек. Фокус и размер текста не меняются. Применяется сразу.',
-      en: 'Content sits on the background instead of inside boxes: on the card the "Details" panel becomes a line of facts under the description, section counters lose their plates, reviews lose frames and panels, and on episode tiles the still moves to the top across the full width with the name and caption below it (which makes the episode row a little taller); in the collection grid and the hub the plates under tiles are removed; on the TorrServer path releases and files are separated by thin lines instead of cards. Focus and text size stay as they are. Applied immediately.',
-      uk: 'Вміст лежить прямо на тлі, а не в коробках: у картці панель «Докладно» стає рядком фактів під описом, лічильники розділів втрачають плашки, відгуки — рамки й підкладки, а в плиток серій кадр стає зверху на всю ширину, назва та підпис ідуть під нього (через це ряд серій трохи вищий); у сітці підбірки та в хабі підкладки під плитками знімаються; на шляху TorrServer роздачі та файли розділяються тонкими лініями замість карток. Фокус і розмір тексту не змінюються. Застосовується одразу.'
+      ru: 'Содержимое лежит прямо на фоне, а не в коробках: в карточке панель «Подробно» становится строкой фактов под описанием, счётчики разделов теряют плашки, отзывы — рамки и подложки, а у плиток серий кадр встаёт сверху во всю ширину, название и подпись уходят под него (ряд серий из-за этого чуть выше); на пути TorrServer раздачи и файлы разделяются тонкими линиями вместо карточек. В сетке подборки и в хабе меняется немногое: снимается только подложка под плиткой, а её видно, пока не пришёл постер или кадр, и у карточек без картинки. Фокус и размер текста не меняются. Применяется сразу.',
+      en: 'Content sits on the background instead of inside boxes: on the card the "Details" panel becomes a line of facts under the description, section counters lose their plates, reviews lose frames and panels, and on episode tiles the still moves to the top across the full width with the name and caption below it (which makes the episode row a little taller); on the TorrServer path releases and files are separated by thin lines instead of cards. In the collection grid and the hub little changes: only the plate under a tile is removed, and it is visible only until the poster or still arrives, and on items without an image. Focus and text size stay as they are. Applied immediately.',
+      uk: 'Вміст лежить прямо на тлі, а не в коробках: у картці панель «Докладно» стає рядком фактів під описом, лічильники розділів втрачають плашки, відгуки — рамки й підкладки, а в плиток серій кадр стає зверху на всю ширину, назва та підпис ідуть під нього (через це ряд серій трохи вищий); на шляху TorrServer роздачі та файли розділяються тонкими лініями замість карток. У сітці підбірки та в хабі змінюється небагато: знімається лише підкладка під плиткою, а її видно, доки не прийшов постер або кадр, і в карток без зображення. Фокус і розмір тексту не змінюються. Застосовується одразу.'
     },
     /* Фаза 3: масштаб интерфейса плагина. */
     lumen_scale_name: { ru: 'Масштаб интерфейса', en: 'Interface scale', uk: 'Масштаб інтерфейсу' },
