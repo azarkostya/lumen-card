@@ -3771,6 +3771,14 @@ css.push('.lumen-main .card__quality,.lumen-main .card__type{display:none}');
 
 
 
+
+
+
+
+
+
+
+
 css.push('.lumen-main .card.focus .card-watched{display:none}');
 
 
