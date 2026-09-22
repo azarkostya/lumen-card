@@ -1,4 +1,5 @@
 import test from 'node:test'; import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { load, loadCtx } from './_load.mjs';
 const P = load('45_personal.js');
 
@@ -541,11 +542,40 @@ function percents(map) {
   };
 }
 
+/* A4 (волна A финального плана): порог опущен с 95 до 90. Пользователь
+   дважды жаловался, что досмотренное висит в ряду («Аватар», «Моана» 85 %):
+   последние проценты плеер добирает только если досидеть титры. 85 не берём —
+   на таком проценте фильм может быть реально не досмотрен. */
 test('dropFinished: чуть меньше порога — фильм остаётся, чуть больше — уходит', function () {
   var items = [movie(1, 'A'), movie(2, 'B'), movie(3, 'C')];
-  var out = P.dropFinished(items, percents({ A: 94, B: 95, C: 96 }));
+  var out = P.dropFinished(items, percents({ A: 89, B: 90, C: 91 }));
   assert.deepEqual(out.map(function (c) { return c.id; }), [1],
-    '95 — это уже «досмотрено», тем же числом отмечает просмотр и сама Lampa');
+    '90 — это уже «досмотрено»');
+});
+
+/* Сторож A4: опускать порог ряда «Досмотреть» можно, а отметку «просмотрено»
+   нельзя — это число Lampa (кнопка отметки ставит percent = 95,
+   app.min.js:21274-21279), и три наших места обязаны остаться на 95. */
+test('A4: порог ряда — своя константа; отметка «просмотрено» осталась 95', function () {
+  const read = (name) => readFileSync(new URL('../src/' + name, import.meta.url), 'utf8');
+  assert.match(read('70_progress.js'), /var WATCHED = 95;/, 'src/70_progress.js');
+  assert.match(read('44_rows.js'), /var WATCHED = 95;/, 'src/44_rows.js');
+  assert.match(read('62_badges.js'), /var PROGRESS_MAX = 95;/, 'src/62_badges.js');
+  const personal = read('45_personal.js');
+  assert.match(personal, /var CONTINUE_DONE = 90;/, 'порог ряда опущен до 90');
+  assert.equal((personal.match(/CONTINUE_DONE/g) || []).length, 2,
+    'порог живёт в одной константе и одном сравнении');
+});
+
+test('A4: 85 % остаётся в ряду, 95 % уходит — граница ровно на 90', function () {
+  var items = [movie(1, 'Моана'), movie(2, 'Аватар')];
+  /* 85 % — жалоба пользователя, но и настоящий недосмотр: фильм остаётся. */
+  assert.deepEqual(P.dropFinished(items, function () { return 85; }).map(function (c) { return c.id; }), [1, 2]);
+  /* 93 % — тот самый случай, ради которого порог и опускали: до Task A4
+     карточка висела бы в ряду, потому что 93 < 95. */
+  assert.deepEqual(P.dropFinished(items, function () { return 93; }), []);
+  /* И прежняя отметка Lampa «просмотрено» (ровно 95) продолжает работать. */
+  assert.deepEqual(P.dropFinished(items, function () { return 95; }), []);
 });
 
 test('dropFinished: запись без duration решается процентом', function () {
