@@ -1343,6 +1343,32 @@
        всегда: при нарисованных отзывах текст поджат восемью строками, — но
        полный открывается по OK окном (LC.header.descr, src/85_header.js). */
 
+    /* Правка 2026-09-23 (добор к разбору, п.2.3): чипы первого экрана лежат
+       ПРЯМО НА КАДРЕ, и их подложка — светлая плёнка rgba(text,.12): на
+       тёмном кадре она читается картой, на светлом исчезает вместе со
+       светлым текстом на ней. Затемнение содержимого (правка 7e56855) сюда
+       не доходит и доходить не должно — оно начинается ниже кадра героя.
+       Поэтому у чипов ленты рейтингов под плёнкой появляется СВОЙ тёмный
+       слой rgba(bg,.96). Плотность подобрана по САМОМУ СЛАБОМУ тексту на
+       чипе — не по самому крупному: расчёт по WCAG 2.1 для белого кадра
+       даёт под слоем .96 и плёнкой .12 фон #262626, и на нём подпись
+       (muted) читается 5.47:1, число оценки (spice) — 4.06:1 при пороге
+       3:1 для крупного, значения (text) — 12.6:1. При .78 фон выходил
+       #4E4E4E, и подпись давала 1.45:1 — то есть половинчатое затемнение
+       эту задачу не решало вовсе.
+       Цена: на тёмном кадре чип теперь почти не пропускает картинку —
+       фон под ним и так был фоном карточки, разница незаметна, но «кадр
+       сквозь чип» больше не читается ни на каком тайтле.
+       При включённых «Плотных подложках» чип и так непрозрачен (P.chipBg
+       становится P.panel) — там ничего не меняется.
+       Приём тот же, что у плитки серии в плоском виде: плёнка объявляется
+       градиентом, тёмный слой — background-color под ним, потому что
+       шорткат background второй раз сбросил бы первый. */
+    var CHIP_FILM = 'rgba(' + P.textRgb + ',.12)';
+    var CARD_CHIP = P.chipBg.charAt(0) === '#'
+      ? 'background:' + P.chipBg
+      : 'background:-webkit-linear-gradient(' + CHIP_FILM + ',' + CHIP_FILM + ');background:linear-gradient(' + CHIP_FILM + ',' + CHIP_FILM + ');background-color:rgba(' + P.bgRgb + ',.96)';
+
     /* --- Рейтинги (design-spec §5a: колонка значение/подпись, тёмная карта) --- */
     css.push('.lumen-card .full-start-new__rate-line{margin:1.05em 0 0;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:stretch;-webkit-align-items:stretch;align-items:stretch;-webkit-flex-wrap:wrap;flex-wrap:wrap}');
     /* !important обязателен: у Lampa в native-scss .full-start-new__rate-line > *
@@ -1350,17 +1376,39 @@
        start_new.scss) — обычной специфичностью её не перебить, только другим
        !important. */
     css.push('.lumen-card .full-start-new__rate-line > *{margin:0 .53em .53em 0 !important}');
-    css.push('.lumen-card .full-start__rate{font-family:' + FB + ';background:' + P.chipBg + ';border-radius:.53em;padding:.44em .70em;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-orient:vertical;-webkit-flex-direction:column;flex-direction:column;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center}');
-    css.push('.lumen-card .full-start__rate > div:first-child{display:block;width:auto;height:auto;background:transparent;border-radius:0;font-size:1.23em;font-weight:600;line-height:1;color:' + P.text + '}');
-    css.push('.lumen-card .full-start__rate > div:last-child{font-size:1.01em;letter-spacing:.06em;color:' + P.smoke + ';padding:.11em 0 0}');
-    /* Чип «РЕАКЦИЙ» (fire) — та же геометрия что рейтинги, акцент «спайс», design-spec §5d/5f. */
-    /* Task 43 (фикс-раунд): чип реакций стоит в одной ленте с
-       .full-start__rate, у которого рамку сняли, — со своей он выбивался.
-       Рамка снята, а заливка поднята с .12 до .16: она осталась
-       единственным, что отделяет чип от подложки. */
-    css.push('.lumen-card .lumen-reactions-chip{font-family:' + FB + ';background:rgba(' + SPICE_RGB + ',.16);border-radius:.53em;padding:.44em .70em;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-orient:vertical;-webkit-flex-direction:column;flex-direction:column;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center}');
-    css.push('.lumen-card .lumen-reactions-chip__value{font-size:1.23em;font-weight:600;line-height:1;color:' + P.spice + '}');
-    css.push('.lumen-card .lumen-reactions-chip__label{font-size:1.01em;letter-spacing:.06em;opacity:.8;color:' + P.spice + ';padding:.11em 0 0}');
+    css.push('.lumen-card .full-start__rate{font-family:' + FB + ';' + CARD_CHIP + ';border-radius:.53em;padding:.44em .70em;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-orient:vertical;-webkit-flex-direction:column;flex-direction:column;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center}');
+    /* Правка 2026-09-23 (разбор композиции, п.2.3, решение координатора):
+       оранжевое пятно переезжает с числа реакций на ЧИСЛО ОЦЕНКИ. Оценка —
+       то, по чему человек решает, смотреть ли; реакции — справочная
+       величина, и до правки кричала именно она.
+       Контраст считан по WCAG 2.1 для тёмной темы: spice #D9622B на
+       подложке чипа даёт 4.29:1 при пороге 3:1 для КРУПНОГО текста (этот
+       кегль 1.23em ≈ 28 CSS px полужирным — крупный по определению WCAG).
+       Мелкой подписи оранжевый поэтому и не достался: у реакций он стоял
+       и на подписи 1.01em, где порог 4.5:1, и не дотягивал. */
+    css.push('.lumen-card .full-start__rate > div:first-child{display:block;width:auto;height:auto;background:transparent;border-radius:0;font-size:1.23em;font-weight:600;line-height:1;color:' + P.spice + '}');
+    /* Подпись чипа — muted, а не smoke: на белом кадре под затемнением
+       (#262626 по расчёту выше) smoke даёт 2.84:1 при пороге 4.5:1 для
+       текста этого кегля, muted — 5.47:1. */
+    css.push('.lumen-card .full-start__rate > div:last-child{font-size:1.01em;letter-spacing:.06em;color:' + P.muted + ';padding:.11em 0 0}');
+    /* Чип «РЕАКЦИЙ» (fire) — та же геометрия, что у рейтингов, design-spec
+       §5d/5f.
+       Правка 2026-09-23 (разбор композиции, п.2.3, решение координатора):
+       оранжевая заливка снята, чип сведён к той же серой подложке и тем же
+       цветам, что у рейтинга. Причина не только в иерархии («справочное
+       кричало громче решающего»), но и в читаемости, с которой пришёл
+       отдельный пункт задания: подпись «РЕАКЦИЙ» стояла цветом spice на
+       .8 прозрачности, то есть 3.53:1 по WCAG 2.1 при пороге 4.5:1 для
+       текста этого кегля (1.01em ≈ 23 CSS px — по WCAG мелкий). Само число
+       давало 4.29:1 — проходной порог только для крупного. Теперь число
+       стоит цветом text (15.02:1), подпись — smoke (4.91:1).
+       Заливка rgba(spice,.16) уходит туда же: она была единственным, что
+       отделяло чип от подложки, но на светлом кадре оранжевая плёнка и
+       оранжевый текст сливались друг с другом. Серый chipBg отделяет чип
+       ровно так же, как у рейтинга рядом. */
+    css.push('.lumen-card .lumen-reactions-chip{font-family:' + FB + ';' + CARD_CHIP + ';border-radius:.53em;padding:.44em .70em;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-orient:vertical;-webkit-flex-direction:column;flex-direction:column;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center}');
+    css.push('.lumen-card .lumen-reactions-chip__value{font-size:1.23em;font-weight:600;line-height:1;color:' + P.text + '}');
+    css.push('.lumen-card .lumen-reactions-chip__label{font-size:1.01em;letter-spacing:.06em;color:' + P.muted + ';padding:.11em 0 0}');
     /* Task 5c (design-spec §5e, экран 05): вместо штатного tag--episode (свой
        формат строки Lampa «Следующая серия: … / Осталось дней: …») — чип
        .lumen-next-chip: тёмная карта как у рейтингов, часы 22px маской, текст
@@ -1374,13 +1422,30 @@
        больше, поэтому оно выигрывает независимо от порядка. Порядок всё же
        соблюдён — правило сериала объявлено следующим. */
     css.push('.lumen-card .full-start-new__rate-line .full-start__status{display:none}');
-    css.push('.lumen-card .lumen-next-chip{font-family:' + FB + ';font-weight:500;font-size:1.01em;line-height:1;color:' + P.text + ';background:' + P.chipBg + ';border-radius:.52em;padding:0 .70em;white-space:nowrap;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center}');
+    css.push('.lumen-card .lumen-next-chip{font-family:' + FB + ';font-weight:500;font-size:1.01em;line-height:1;color:' + P.text + ';' + CARD_CHIP + ';border-radius:.53em;padding:0 .70em;white-space:nowrap;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center}');
     css.push('.lumen-card .lumen-next-chip:before{content:"";display:block;-webkit-flex-shrink:0;flex-shrink:0;width:.95em;height:.95em;margin-right:.44em;background-color:' + P.muted + ';-webkit-mask-image:' + LC.icons.maskUrl('clock') + ';mask-image:' + LC.icons.maskUrl('clock') + ';-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-size:contain;mask-size:contain}');
     /* Task 5c Step 2 (design-spec §8, экран 05): у сериала статус перенесён в
        ленту рейтингов (LC.header renderSerialMode) — там он карта с точкой той
        же геометрии, что чип следующей серии, а не пилюля боковой колонки. */
-    css.push('.lumen-card.lumen-card--serial .full-start-new__rate-line .full-start__status{font-family:' + FB + ';font-weight:500;font-size:1.01em;line-height:1;letter-spacing:normal;text-transform:none;color:' + P.text + ';background:' + P.chipBg + ';border:0;border-radius:.52em;padding:0 .70em;white-space:nowrap;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center}');
-    css.push('.lumen-card.lumen-card--serial .full-start-new__rate-line .full-start__status:before{content:"";display:block;-webkit-flex-shrink:0;flex-shrink:0;width:.44em;height:.44em;border-radius:50%;background:currentColor;margin-right:.44em}');
+    /* Правка 2026-09-23 (разбор композиции, п.2.3, решение координатора):
+       чип статуса был единственным одноуровневым в ленте — «при одинаковой
+       высоте оптическая плотность у них разная, ряд выглядит несобранным».
+       Теперь у него та же схема, что у рейтинга и реакций: ведущее
+       значение крупно, приглушённая подпись под ним, те же внутренние
+       отступы (.44em .70em) и тот же радиус (.53em).
+       Подпись — строка следующей серии, которая до правки стояла рядом
+       ОТДЕЛЬНЫМ чипом и склеивалась со статусом радиусами только в сжатой
+       шапке. Разметку строит LC.header (statusLevels), там же разбор.
+       Точка-маркер состояния переехала с самого чипа на его значение: у
+       колонки она стояла бы напротив обеих строк сразу. */
+    css.push('.lumen-card.lumen-card--serial .full-start-new__rate-line .full-start__status{font-family:' + FB + ';font-weight:500;letter-spacing:normal;text-transform:none;color:' + P.text + ';' + CARD_CHIP + ';border:0;border-radius:.53em;padding:.44em .70em;white-space:nowrap;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-orient:vertical;-webkit-flex-direction:column;flex-direction:column;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center}');
+    css.push('.lumen-card .lumen-status__value{font-size:1.23em;font-weight:600;line-height:1;color:' + P.text + ';display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center}');
+    css.push('.lumen-card .lumen-status__value:before{content:"";display:block;-webkit-flex-shrink:0;flex-shrink:0;width:.44em;height:.44em;border-radius:50%;background:currentColor;margin-right:.44em}');
+    css.push('.lumen-card .lumen-status__label,.lumen-card .lumen-status__short{font-size:1.01em;letter-spacing:.06em;line-height:1;color:' + P.muted + ';padding:.11em 0 0}');
+    /* Сериал без следующей серии: подписи нет, и пустой узел не имеет права
+       добавлять чипу высоту. */
+    css.push('.lumen-card .lumen-status__label:empty,.lumen-card .lumen-status__short:empty{display:none}');
+    css.push('.lumen-card .lumen-status__short{display:none}');
 
     /* --- Продолжить (design-spec §6, экраны 01/05) ---
        Task 8: подпись — ОДНА строка над полосой («01:12 / 02:46 · 43 %» у
@@ -2414,12 +2479,19 @@
        Короткая дата — собственный узел чипа (его дописывает LC.header).
        Склеивать можно только когда чип виден — это и означает класс
        .lumen-card--nextchip на корне (:has() план запрещает). */
+    /* Правка 2026-09-23 (п.2.3): склеивать статус с чипом следующей серии
+       больше нечего — у сериала это один двухуровневый чип, и в сжатой
+       шапке меняется только подпись: полная строка уступает место короткой
+       дате («8 окт»). Вместе со склейкой ушёл и класс .lumen-card--nextchip:
+       он существовал ровно ради срезки радиусов.
+       У ФИЛЬМА чип остаётся отдельным — там он несёт обратный отсчёт до
+       премьеры, а карты статуса в ленте нет вовсе, — и его сжатая форма
+       прежняя. */
     css.push('.lumen-card .lumen-next-chip__short{display:none}');
     css.push('.lumen-card.lumen-compact .lumen-next-chip__text{display:none}');
     css.push('.lumen-card.lumen-compact .lumen-next-chip__short{display:block}');
-    css.push('.lumen-card.lumen-compact .lumen-next-chip{border-top-left-radius:0;border-bottom-left-radius:0;padding-left:0}');
-    css.push('.lumen-card.lumen-compact .lumen-next-chip:before{display:none}');
-    css.push('.lumen-card.lumen-card--nextchip.lumen-compact .full-start-new__rate-line .full-start__status{margin-right:0 !important;border-top-right-radius:0;border-bottom-right-radius:0;padding-right:.45em}');
+    css.push('.lumen-card.lumen-compact .lumen-status__label{display:none}');
+    css.push('.lumen-card.lumen-compact .lumen-status__short:not(:empty){display:block}');
     css.push('.lumen-card.lumen-motion-lite .full-start-new__title,.lumen-card.lumen-motion-lite .full-start-new__rate-line,.lumen-card.lumen-motion-lite .full-start-new__buttons,.lumen-card.lumen-motion-off .full-start-new__title,.lumen-card.lumen-motion-off .full-start-new__rate-line,.lumen-card.lumen-motion-off .full-start-new__buttons{-webkit-transition:none;transition:none}');
 
     /* --- Task 17: кнопка «Франшиза» в карточке (design-spec-card §7a) ---

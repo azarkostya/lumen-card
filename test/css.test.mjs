@@ -431,8 +431,26 @@ test('buildCss: штатный tag--episode скрыт, вместо него .l
 test('buildCss: у сериала статус — карта в ленте рейтингов', () => {
   const status = findDecl(css, (sel) => sel === '.lumen-card.lumen-card--serial .full-start-new__rate-line .full-start__status');
   assert.ok(status, 'правило статуса в ленте для .lumen-card--serial не найдено');
-  assert.ok(status.indexOf('border-radius:.52em') !== -1, 'радиус карты 12px (.52em в кегле 1.01em после Task 63), не пилюля');
   assert.ok(status.indexOf('display:flex') !== -1, 'у сериала статус виден');
+  /* Правка 2026-09-23 (разбор композиции, п.2.3): чип статуса приведён к
+     той же схеме и той же геометрии, что рейтинг и реакции — иначе ряд
+     чипов «выглядит несобранным». Сторож сверяет их прямо между собой. */
+  const rate = findDecl(css, (sel) => sel === '.lumen-card .full-start__rate');
+  for (const prop of ['border-radius', 'padding', 'background']) {
+    const one = new RegExp('(?:^|;)' + prop + ':([^;]+)');
+    assert.equal(one.exec(status)[1], one.exec(rate)[1], prop + ' у статуса и рейтинга разный');
+  }
+  assert.ok(/flex-direction:column/.test(status), 'статус остался одноуровневым: ' + status);
+  const value = findDecl(css, (sel) => sel === '.lumen-card .lumen-status__value');
+  const rateValue = findDecl(css, (sel) => sel === '.lumen-card .full-start__rate > div:first-child');
+  assert.equal(/font-size:([\d.]+em)/.exec(value)[1], /font-size:([\d.]+em)/.exec(rateValue)[1], 'ведущее значение статуса другого кегля');
+  const label = findDecl(css, (sel) => sel === '.lumen-card .lumen-status__label');
+  const rateLabel = findDecl(css, (sel) => sel === '.lumen-card .full-start__rate > div:last-child');
+  assert.equal(/font-size:([\d.]+em)/.exec(label)[1], /font-size:([\d.]+em)/.exec(rateLabel)[1], 'подпись статуса другого кегля');
+  /* Пустая подпись (сериал без следующей серии) не имеет права добавлять
+     чипу высоту. */
+  const empty = findDecl(css, (sel) => sel === '.lumen-card .lumen-status__label:empty');
+  assert.ok(empty && /display:none/.test(empty), 'пустая подпись статуса не скрыта');
 });
 
 /* -------------------------------------------------------------------- */
@@ -1385,14 +1403,15 @@ test('buildCss: в сжатой шапке статус и чип серии —
   assert.ok(shortOn && shortOn.indexOf('display:block') !== -1);
   assert.ok(longOff && /display\s*:\s*none/.test(longOff), 'длинная строка в сжатой шапке не помещается');
 
-  const chip = findDecl(css, (sel) => sel === '.lumen-card.lumen-compact .lumen-next-chip');
-  /* Task 43: склейку держат радиусы и паддинги — рамок, края которых
-     прежде срезались, нет ни у чипа, ни у статуса. */
-  assert.ok(chip && chip.indexOf('border-top-left-radius:0') !== -1 && chip.indexOf('padding-left:0') !== -1, chip);
-  const status = findDecl(css, (sel) => sel.indexOf('.lumen-card--nextchip') !== -1 && sel.indexOf('.full-start__status') !== -1);
-  assert.ok(status, 'край статуса срезается только когда чип виден (класс .lumen-card--nextchip)');
-  assert.ok(/margin-right\s*:\s*0\s*!important/.test(status), 'зазор .53em между картами Lampa ставит !important-ом');
-  assert.ok(status.indexOf('border-top-right-radius:0') !== -1 && status.indexOf('border-bottom-right-radius:0') !== -1, status);
+  /* Правка 2026-09-23 (п.2.3): склеивать нечего — у сериала статус и
+     следующая серия это ОДИН двухуровневый чип, и в сжатой шапке меняется
+     только подпись. Вместе со склейкой ушёл класс .lumen-card--nextchip:
+     он существовал ровно ради срезки радиусов. */
+  assert.equal(css.indexOf('lumen-card--nextchip'), -1, 'класс склейки остался в таблице');
+  const labelOff = findDecl(css, (sel) => sel === '.lumen-card.lumen-compact .lumen-status__label');
+  const shortStatus = findDecl(css, (sel) => sel === '.lumen-card.lumen-compact .lumen-status__short:not(:empty)');
+  assert.ok(labelOff && /display:none/.test(labelOff), 'полная подпись в сжатой шапке не помещается');
+  assert.ok(shortStatus && /display:block/.test(shortStatus), 'короткая дата в сжатой шапке не показывается');
 });
 
 /* -------------------------------------------------------------------- */
@@ -4151,6 +4170,54 @@ function contrast(a, b) {
 test('contrast: формула совпадает с известными значениями WCAG', () => {
   assert.equal(contrast('#FFFFFF', '#000000').toFixed(0), '21');
   assert.equal(contrast('#777777', '#FFFFFF').toFixed(1), '4.5');
+});
+
+/* Правка 2026-09-23 (разбор композиции, п.2.3, решение координатора, плюс
+   добор по читаемости плитки реакций). Три проверки в одной: оранжевое
+   пятно стоит на числе ОЦЕНКИ, чип реакций сведён к той же серой схеме, и
+   всё, что лежит на кадре, читается по WCAG 2.1 даже на белом кадре. */
+test('правка 2026-09-23: оранжевое — у оценки, реакции серые, чипы читаются на светлом кадре', () => {
+  const P = tokensWith({});
+  const rateValue = findDecl(css, (sel) => sel === '.lumen-card .full-start__rate > div:first-child');
+  const rateLabel = findDecl(css, (sel) => sel === '.lumen-card .full-start__rate > div:last-child');
+  const reactValue = findDecl(css, (sel) => sel === '.lumen-card .lumen-reactions-chip__value');
+  const reactLabel = findDecl(css, (sel) => sel === '.lumen-card .lumen-reactions-chip__label');
+  assert.ok(new RegExp('color:' + P.spice + '($|;)').test(rateValue), 'число оценки не акцентное: ' + rateValue);
+  assert.ok(new RegExp('color:' + P.text + '($|;)').test(reactValue), 'число реакций осталось акцентным: ' + reactValue);
+  assert.ok(new RegExp('color:' + P.muted + '($|;)').test(reactLabel), 'подпись реакций осталась акцентной: ' + reactLabel);
+  assert.equal(/opacity:/.test(reactLabel), false, 'подпись реакций гасится прозрачностью — контраст так не считается: ' + reactLabel);
+  /* Реакции и рейтинг — один чип по подложке и по цветам подписи. */
+  const chip = findDecl(css, (sel) => sel === '.lumen-card .lumen-reactions-chip');
+  const rate = findDecl(css, (sel) => sel === '.lumen-card .full-start__rate');
+  for (const prop of ['background', 'background-color', 'border-radius', 'padding']) {
+    const one = new RegExp('(?:^|;)' + prop + ':([^;]+)');
+    const a = one.exec(chip), b = one.exec(rate);
+    assert.equal(a && a[1], b && b[1], prop + ' у реакций и рейтинга разный');
+  }
+  assert.equal(/(?:^|;)background[^;]*SPICE|D9622B/.test(chip), false, 'оранжевая заливка у реакций осталась: ' + chip);
+  assert.equal(/font-size:([\d.]+)em/.exec(reactLabel)[1], /font-size:([\d.]+)em/.exec(rateLabel)[1], 'подписи чипов разного кегля');
+
+  /* Чипы лежат на кадре: под светлой плёнкой обязан быть свой тёмный слой,
+     иначе на белом кадре и подложка, и светлый текст на ней исчезают. */
+  const under = /background-color:rgba\((\d+),\s*(\d+),\s*(\d+),\s*\.(\d+)\)/.exec(rate);
+  assert.ok(under, 'у чипа нет тёмного слоя под плёнкой: ' + rate);
+  const alpha = parseFloat('0.' + under[4]);
+  const over = (top, a, bottom) => top.map((v, i) => Math.round(v * a + bottom[i] * (1 - a)));
+  const hex = (rgb) => '#' + rgb.map((v) => ('0' + v.toString(16)).slice(-2).toUpperCase()).join('');
+  const bg = [parseInt(under[1], 10), parseInt(under[2], 10), parseInt(under[3], 10)];
+  const film = [243, 237, 228];
+  /* Худший случай — белый кадр: сперва тёмный слой, потом плёнка .12. */
+  const onWhite = hex(over(film, 0.12, over(bg, alpha, [255, 255, 255])));
+  assert.ok(contrast(P.text, onWhite) >= 4.5, 'на белом кадре текст чипа даёт ' + contrast(P.text, onWhite).toFixed(2) + ':1');
+  assert.ok(contrast(P.muted, onWhite) >= 4.5, 'на белом кадре подпись чипа даёт ' + contrast(P.muted, onWhite).toFixed(2) + ':1');
+  assert.ok(contrast(P.spice, onWhite) >= 3, 'на белом кадре число оценки даёт ' + contrast(P.spice, onWhite).toFixed(2) + ':1');
+  /* И на тёмном кадре подписи по-прежнему хватает порога мелкого текста. */
+  const onDark = hex(over(film, 0.12, over(bg, alpha, [11, 9, 8])));
+  assert.ok(contrast(P.muted, onDark) >= 4.5, 'на тёмном кадре подпись чипа даёт ' + contrast(P.muted, onDark).toFixed(2) + ':1');
+  /* Акцентное число — крупный текст, его порог 3:1 (кегль 1.23em ≈ 28 CSS
+     px полужирным). Мелкой подписи оранжевый поэтому и не достался. */
+  assert.ok(contrast(P.spice, onDark) >= 3, 'число оценки на чипе даёт ' + contrast(P.spice, onDark).toFixed(2) + ':1');
+  assert.ok(contrast(P.spice, onDark) < 4.5, 'оранжевый вдруг проходит порог мелкого текста — разбор причины устарел');
 });
 
 const ACCENT_KEYS = ['sand', 'copper', 'wine', 'garnet', 'mint', 'emerald', 'ice', 'lavender', 'graphite'];

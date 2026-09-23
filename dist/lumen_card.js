@@ -2061,23 +2061,71 @@ css.push('.lumen-card .lumen-title__sub{display:-webkit-box;-webkit-box-orient:v
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+var CHIP_FILM = 'rgba(' + P.textRgb + ',.12)';
+var CARD_CHIP = P.chipBg.charAt(0) === '#'
+? 'background:' + P.chipBg
+: 'background:-webkit-linear-gradient(' + CHIP_FILM + ',' + CHIP_FILM + ');background:linear-gradient(' + CHIP_FILM + ',' + CHIP_FILM + ');background-color:rgba(' + P.bgRgb + ',.96)';
+
+
 css.push('.lumen-card .full-start-new__rate-line{margin:1.05em 0 0;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:stretch;-webkit-align-items:stretch;align-items:stretch;-webkit-flex-wrap:wrap;flex-wrap:wrap}');
 
 
 
 
 css.push('.lumen-card .full-start-new__rate-line > *{margin:0 .53em .53em 0 !important}');
-css.push('.lumen-card .full-start__rate{font-family:' + FB + ';background:' + P.chipBg + ';border-radius:.53em;padding:.44em .70em;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-orient:vertical;-webkit-flex-direction:column;flex-direction:column;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center}');
-css.push('.lumen-card .full-start__rate > div:first-child{display:block;width:auto;height:auto;background:transparent;border-radius:0;font-size:1.23em;font-weight:600;line-height:1;color:' + P.text + '}');
-css.push('.lumen-card .full-start__rate > div:last-child{font-size:1.01em;letter-spacing:.06em;color:' + P.smoke + ';padding:.11em 0 0}');
+css.push('.lumen-card .full-start__rate{font-family:' + FB + ';' + CARD_CHIP + ';border-radius:.53em;padding:.44em .70em;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-orient:vertical;-webkit-flex-direction:column;flex-direction:column;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center}');
 
 
 
 
 
-css.push('.lumen-card .lumen-reactions-chip{font-family:' + FB + ';background:rgba(' + SPICE_RGB + ',.16);border-radius:.53em;padding:.44em .70em;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-orient:vertical;-webkit-flex-direction:column;flex-direction:column;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center}');
-css.push('.lumen-card .lumen-reactions-chip__value{font-size:1.23em;font-weight:600;line-height:1;color:' + P.spice + '}');
-css.push('.lumen-card .lumen-reactions-chip__label{font-size:1.01em;letter-spacing:.06em;opacity:.8;color:' + P.spice + ';padding:.11em 0 0}');
+
+
+
+
+css.push('.lumen-card .full-start__rate > div:first-child{display:block;width:auto;height:auto;background:transparent;border-radius:0;font-size:1.23em;font-weight:600;line-height:1;color:' + P.spice + '}');
+
+
+
+css.push('.lumen-card .full-start__rate > div:last-child{font-size:1.01em;letter-spacing:.06em;color:' + P.muted + ';padding:.11em 0 0}');
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+css.push('.lumen-card .lumen-reactions-chip{font-family:' + FB + ';' + CARD_CHIP + ';border-radius:.53em;padding:.44em .70em;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-orient:vertical;-webkit-flex-direction:column;flex-direction:column;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center}');
+css.push('.lumen-card .lumen-reactions-chip__value{font-size:1.23em;font-weight:600;line-height:1;color:' + P.text + '}');
+css.push('.lumen-card .lumen-reactions-chip__label{font-size:1.01em;letter-spacing:.06em;color:' + P.muted + ';padding:.11em 0 0}');
 
 
 
@@ -2091,13 +2139,30 @@ css.push('.lumen-card .full-start-new__rate-line .tag--episode{display:none !imp
 
 
 css.push('.lumen-card .full-start-new__rate-line .full-start__status{display:none}');
-css.push('.lumen-card .lumen-next-chip{font-family:' + FB + ';font-weight:500;font-size:1.01em;line-height:1;color:' + P.text + ';background:' + P.chipBg + ';border-radius:.52em;padding:0 .70em;white-space:nowrap;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center}');
+css.push('.lumen-card .lumen-next-chip{font-family:' + FB + ';font-weight:500;font-size:1.01em;line-height:1;color:' + P.text + ';' + CARD_CHIP + ';border-radius:.53em;padding:0 .70em;white-space:nowrap;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center}');
 css.push('.lumen-card .lumen-next-chip:before{content:"";display:block;-webkit-flex-shrink:0;flex-shrink:0;width:.95em;height:.95em;margin-right:.44em;background-color:' + P.muted + ';-webkit-mask-image:' + LC.icons.maskUrl('clock') + ';mask-image:' + LC.icons.maskUrl('clock') + ';-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-size:contain;mask-size:contain}');
 
 
 
-css.push('.lumen-card.lumen-card--serial .full-start-new__rate-line .full-start__status{font-family:' + FB + ';font-weight:500;font-size:1.01em;line-height:1;letter-spacing:normal;text-transform:none;color:' + P.text + ';background:' + P.chipBg + ';border:0;border-radius:.52em;padding:0 .70em;white-space:nowrap;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center}');
-css.push('.lumen-card.lumen-card--serial .full-start-new__rate-line .full-start__status:before{content:"";display:block;-webkit-flex-shrink:0;flex-shrink:0;width:.44em;height:.44em;border-radius:50%;background:currentColor;margin-right:.44em}');
+
+
+
+
+
+
+
+
+
+
+
+css.push('.lumen-card.lumen-card--serial .full-start-new__rate-line .full-start__status{font-family:' + FB + ';font-weight:500;letter-spacing:normal;text-transform:none;color:' + P.text + ';' + CARD_CHIP + ';border:0;border-radius:.53em;padding:.44em .70em;white-space:nowrap;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-orient:vertical;-webkit-flex-direction:column;flex-direction:column;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center}');
+css.push('.lumen-card .lumen-status__value{font-size:1.23em;font-weight:600;line-height:1;color:' + P.text + ';display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center}');
+css.push('.lumen-card .lumen-status__value:before{content:"";display:block;-webkit-flex-shrink:0;flex-shrink:0;width:.44em;height:.44em;border-radius:50%;background:currentColor;margin-right:.44em}');
+css.push('.lumen-card .lumen-status__label,.lumen-card .lumen-status__short{font-size:1.01em;letter-spacing:.06em;line-height:1;color:' + P.muted + ';padding:.11em 0 0}');
+
+
+css.push('.lumen-card .lumen-status__label:empty,.lumen-card .lumen-status__short:empty{display:none}');
+css.push('.lumen-card .lumen-status__short{display:none}');
 
 
 
@@ -3131,12 +3196,19 @@ css.push('.lumen-card.lumen-compact .full-start-new__buttons{margin-top:.95em}')
 
 
 
+
+
+
+
+
+
+
+
 css.push('.lumen-card .lumen-next-chip__short{display:none}');
 css.push('.lumen-card.lumen-compact .lumen-next-chip__text{display:none}');
 css.push('.lumen-card.lumen-compact .lumen-next-chip__short{display:block}');
-css.push('.lumen-card.lumen-compact .lumen-next-chip{border-top-left-radius:0;border-bottom-left-radius:0;padding-left:0}');
-css.push('.lumen-card.lumen-compact .lumen-next-chip:before{display:none}');
-css.push('.lumen-card.lumen-card--nextchip.lumen-compact .full-start-new__rate-line .full-start__status{margin-right:0 !important;border-top-right-radius:0;border-bottom-right-radius:0;padding-right:.45em}');
+css.push('.lumen-card.lumen-compact .lumen-status__label{display:none}');
+css.push('.lumen-card.lumen-compact .lumen-status__short:not(:empty){display:block}');
 css.push('.lumen-card.lumen-motion-lite .full-start-new__title,.lumen-card.lumen-motion-lite .full-start-new__rate-line,.lumen-card.lumen-motion-lite .full-start-new__buttons,.lumen-card.lumen-motion-off .full-start-new__title,.lumen-card.lumen-motion-off .full-start-new__rate-line,.lumen-card.lumen-motion-off .full-start-new__buttons{-webkit-transition:none;transition:none}');
 
 
@@ -5424,7 +5496,12 @@ var when;
 if (days === 0) when = words.today;
 else if (days === 1) when = words.tomorrow;
 else when = date + ', ' + words.inDays + ' ' + days + ' ' + (words.daysWord ? words.daysWord(days) : '');
-return { date: date, days: days, text: words.next + ' — ' + when };
+
+
+
+
+
+return { date: date, days: days, when: when, text: words.next + ' — ' + when };
 }
 
 
@@ -28865,6 +28942,35 @@ if (!serial) return;
 var status = root.find('.full-start__status');
 var chip = root.find('.lumen-next-chip');
 if (status.length && chip.length && status.next()[0] !== chip[0]) chip.before(status);
+if (status.length) statusLevels(status);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function statusLevels(status) {
+var value = status.find('.lumen-status__value');
+if (value.length) return value;
+var current = status.text();
+status.html(
+'<div class="lumen-status__value"></div>' +
+'<div class="lumen-status__label"></div>' +
+'<div class="lumen-status__short"></div>'
+);
+value = status.find('.lumen-status__value');
+value.text(current);
+return value;
 }
 
 
@@ -28912,20 +29018,22 @@ function renderNextChip(root, movie) {
 var chip = root.find('.lumen-next-chip');
 if (!chip.length) return;
 chip.addClass('hide');
-root.removeClass('lumen-card--nextchip');
 
 var serial = isSerial(movie);
 var text = '';
 var when = '';
+var label = '';
 if (serial) {
 var next = LC.cardinfo.nextEpisode(movie.next_episode_to_air, new Date(), dateWords());
 if (!next) return;
 text = next.text;
+label = next.when || next.text;
 when = LC.cardinfo.shortDate(movie.next_episode_to_air.air_date, monthsShort());
 } else {
 var soon = LC.badges.countdown(movie.release_date, new Date(), countdownWords());
 if (!soon) return;
 text = soon;
+label = soon;
 when = LC.cardinfo.shortDate(movie.release_date, monthsShort());
 }
 chip.find('.lumen-next-chip__text').text(text);
@@ -28953,8 +29061,20 @@ chip.removeClass('hide');
 
 
 if (!serial) return;
+
+
+
+
+
+
+
+
 var status = root.find('.full-start__status');
-if (status.length && !status.hasClass('hide')) root.addClass('lumen-card--nextchip');
+if (!status.length || status.hasClass('hide')) return;
+statusLevels(status);
+status.find('.lumen-status__label').text(label);
+status.find('.lumen-status__short').text(when || '');
+chip.addClass('hide');
 }
 
 var EPISODE_STATES = 'lumen-episode--watched lumen-episode--watching lumen-episode--aired lumen-episode--soon';

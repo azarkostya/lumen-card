@@ -392,6 +392,35 @@
     var status = root.find('.full-start__status');
     var chip = root.find('.lumen-next-chip');
     if (status.length && chip.length && status.next()[0] !== chip[0]) chip.before(status);
+    if (status.length) statusLevels(status);
+  }
+
+  /* Правка 2026-09-23 (разбор композиции, п.2.3, решение координатора):
+     чип статуса приводится к той же внутренней схеме, что рейтинг и
+     реакции, — ведущее значение крупно, приглушённая подпись под ним.
+     Текст статуса Lampa кладёт в узел ПРОСТЫМ ТЕКСТОМ, поэтому разметку
+     строим здесь: сам текст переезжает в .lumen-status__value, а под ним
+     появляются два пустых узла подписи. Заполняет их renderNextChip —
+     полную строку («Следующая серия — 8 октября, через 15 дней») в
+     __label и короткую дату («8 окт») в __short для сжатой шапки; пустые
+     узлы скрыты CSS, и у сериала без следующей серии чип остаётся
+     одноуровневым.
+     Разметка строится заново, если её нет: renderStatus выше пишет в тот
+     же узел text() (подпись «Анонс» у запланированного сериала) и наши
+     узлы этим затирает. Порядок вызовов в decorate — renderStatus,
+     renderSerialMode, renderNextChip — и он тут единственная зависимость. */
+  function statusLevels(status) {
+    var value = status.find('.lumen-status__value');
+    if (value.length) return value;
+    var current = status.text();
+    status.html(
+      '<div class="lumen-status__value"></div>' +
+      '<div class="lumen-status__label"></div>' +
+      '<div class="lumen-status__short"></div>'
+    );
+    value = status.find('.lumen-status__value');
+    value.text(current);
+    return value;
   }
 
   /* Строки дат — из LC.STRINGS (ru/en/uk), склонение дней — LC.daysWord:
@@ -439,20 +468,22 @@
     var chip = root.find('.lumen-next-chip');
     if (!chip.length) return;
     chip.addClass('hide');
-    root.removeClass('lumen-card--nextchip');
 
     var serial = isSerial(movie);
     var text = '';
     var when = '';
+    var label = '';
     if (serial) {
       var next = LC.cardinfo.nextEpisode(movie.next_episode_to_air, new Date(), dateWords());
       if (!next) return;
       text = next.text;
+      label = next.when || next.text;
       when = LC.cardinfo.shortDate(movie.next_episode_to_air.air_date, monthsShort());
     } else {
       var soon = LC.badges.countdown(movie.release_date, new Date(), countdownWords());
       if (!soon) return;
       text = soon;
+      label = soon;
       when = LC.cardinfo.shortDate(movie.release_date, monthsShort());
     }
     chip.find('.lumen-next-chip__text').text(text);
@@ -480,8 +511,20 @@
        (.full-start__status виден только под .lumen-card--serial), поэтому
        чипу премьеры срезать нечего и класс ему не ставится. */
     if (!serial) return;
+    /* Правка 2026-09-23 (п.2.3): у сериала строка следующей серии — это
+       ПОДПИСЬ чипа статуса, а не отдельный чип. Прежде они стояли рядом
+       двумя картами и склеивались радиусами только в сжатой шапке
+       («Выходит · 17 дек»); теперь это один двухуровневый чип, как рейтинг
+       и реакции. Замер на стенде 960×540@2 («Закон и порядок»,
+       интерфейс «обычный»): статус 73.3 px и чип 291.6 px стояли рядом,
+       занимая 372.9 px строки с зазором.
+       Полный текст никуда не девается — он и есть подпись. */
     var status = root.find('.full-start__status');
-    if (status.length && !status.hasClass('hide')) root.addClass('lumen-card--nextchip');
+    if (!status.length || status.hasClass('hide')) return;
+    statusLevels(status);
+    status.find('.lumen-status__label').text(label);
+    status.find('.lumen-status__short').text(when || '');
+    chip.addClass('hide');
   }
 
   var EPISODE_STATES = 'lumen-episode--watched lumen-episode--watching lumen-episode--aired lumen-episode--soon';

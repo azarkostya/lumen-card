@@ -915,9 +915,16 @@ test('renderNextChip: текст из LC.STRINGS со склонением; ск
   const data = serial(1);
   const next = dateIn(31);
   data.movie.next_episode_to_air = { air_date: ymd(next) };
+  /* Текст статуса в узел кладёт сама Lampa — здесь он проставлен руками,
+     чтобы проверить, что разметка чипа его сохраняет. */
+  c.status.text('Онгоинг');
   LC.header.decorate(c.root, data);
-  assert.equal(c.chip.hasClass('hide'), false);
-  assert.equal(c.text.text(), 'Следующая серия — ' + next.getDate() + ' ' + RU_GEN[next.getMonth()] + ', через 31 день');
+  /* Правка 2026-09-23 (разбор композиции, п.2.3): у сериала строка
+     следующей серии стала ПОДПИСЬЮ двухуровневого чипа статуса, а
+     отдельный чип прячется — на экране одна карта вместо двух. */
+  assert.ok(c.chip.hasClass('hide'), 'отдельный чип у сериала остался виден');
+  assert.equal(c.status.find('.lumen-status__label').text(), next.getDate() + ' ' + RU_GEN[next.getMonth()] + ', через 31 день');
+  assert.equal(c.status.find('.lumen-status__value').text(), 'Онгоинг', 'значение чипа — сам статус');
 
   const none = makeCard();
   LC.header.decorate(none.root, serial(1));
@@ -1056,15 +1063,19 @@ test('renderNextChip: короткая дата «· 17 дек» для сжат
   data.movie.next_episode_to_air = { air_date: ymd(next) };
   LC.header.decorate(c.root, data);
 
-  assert.equal(c.chip.find('.lumen-next-chip__short').text(), '· ' + next.getDate() + ' ' + RU_SHORT[next.getMonth()]);
-  assert.ok(c.root.hasClass('lumen-card--nextchip'));
+  /* Короткая дата у сериала живёт подписью статуса — её показывает сжатая
+     шапка вместо полной строки. Разделителя «· » у неё больше нет: она
+     стоит не встык к статусу, а под ним. */
+  assert.equal(c.status.find('.lumen-status__short').text(), next.getDate() + ' ' + RU_SHORT[next.getMonth()]);
+  assert.equal(c.chip.find('.lumen-next-chip__short').text(), '· ' + next.getDate() + ' ' + RU_SHORT[next.getMonth()], 'узел чипа заполняется по-прежнему — он нужен фильму');
 
   LC.header.decorate(c.root, data);
-  assert.equal(c.chip._children.filter((n) => n.hasClass('lumen-next-chip__short')).length, 1, 'узел не дублируется');
+  assert.equal(c.status._children.filter((n) => n.hasClass('lumen-status__short')).length, 1, 'узел подписи не дублируется');
 
+  /* У фильма карты статуса в ленте нет вовсе, и чип остаётся отдельным. */
   const film = makeCard();
   LC.header.decorate(film.root, { movie: FILM });
-  assert.equal(film.root.hasClass('lumen-card--nextchip'), false, 'у фильма чипа нет — статус остаётся целой картой');
+  assert.equal(film.status.find('.lumen-status__value').length, 0, 'фильму разметку статуса строить незачем');
   assert.deepEqual(warnLog, []);
 });
 
@@ -1140,8 +1151,10 @@ test('renderNextChip: без видимого статуса класс скле
   data.movie.next_episode_to_air = { air_date: ymd(dateIn(31)) };
   LC.header.decorate(c.root, data);
 
+  /* Статуса на экране нет — подпись вешать некуда, и чип остаётся
+     отдельной картой со своей полной строкой. */
   assert.equal(c.chip.hasClass('hide'), false, 'сам чип показывается как обычно');
-  assert.equal(c.root.hasClass('lumen-card--nextchip'), false, 'срезать край нечего — карты статуса на экране нет');
+  assert.equal(c.text.text().indexOf('Следующая серия') === 0, true, 'полная строка осталась в самом чипе');
 });
 
 /* Ревью Task 8 (п.7): нераспознанная дата не должна оставлять голое «· ». */

@@ -273,7 +273,12 @@
       if (days === 0) when = words.today;
       else if (days === 1) when = words.tomorrow;
       else when = date + ', ' + words.inDays + ' ' + days + ' ' + (words.daysWord ? words.daysWord(days) : '');
-      return { date: date, days: days, text: words.next + ' — ' + when };
+      /* when — та же строка без ведущего «Следующая серия — »: в чипе
+         статуса (правка 2026-09-23, п.2.3) она стоит ПОДПИСЬЮ под словом
+         «Онгоинг», и повторять там «следующая серия» незачем — про серии
+         говорит сам чип. Полный text по-прежнему нужен фильму, у которого
+         своя отдельная карта. */
+      return { date: date, days: days, when: when, text: words.next + ' — ' + when };
     }
 
     /* Task 5d Step 1 (design-spec §10, экран 07): «Премьера» — «29 февраля
