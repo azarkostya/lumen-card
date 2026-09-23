@@ -804,3 +804,22 @@ test('A6: настройка зарегистрирована переключа
   assert.equal(param.param['default'], false);
   assert.equal(param.component, 'lumen_card');
 });
+
+/* Долг Minor фикс-раунда фазы 3 (docs/plans/2026-09-15-lumen-phase3-features.md:251):
+   «Кадр над рядами: выключен» молча гасил и переход «постер → кадр» —
+   прямоугольник и постер слою перехода даёт герой (LC.hero.lastFocus). Описание
+   обязано это назвать, причём ИМЕНЕМ самого перехода из словаря: переименуют
+   пункт — тест упадёт вместе с разошедшимся описанием. */
+test('«Кадр над рядами»: описание называет «Переход от постера», который гаснет вместе с кадром', () => {
+  const env = setup();
+  const S = env.LC.STRINGS;
+  const quote = { ru: ['«', '»'], uk: ['«', '»'], en: ['"', '"'] };
+  for (const lang of ['ru', 'en', 'uk']) {
+    const text = S.lumen_hero_size_descr[lang];
+    assert.ok(text, lang + ': описания нет');
+    const name = quote[lang][0] + S.lumen_transition_name[lang] + quote[lang][1];
+    assert.ok(text.indexOf(name) !== -1, lang + ': в описании нет ' + name + ': ' + text);
+    const off = quote[lang][0] + S.lumen_hero_size_off[lang] + quote[lang][1];
+    assert.ok(text.indexOf(off) !== -1, lang + ': в описании нет значения ' + off + ': ' + text);
+  }
+});

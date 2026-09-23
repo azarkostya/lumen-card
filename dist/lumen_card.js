@@ -27227,11 +27227,19 @@ uk: 'Сьогодні прем\'єра'
 
 
 
+
+
+
+
+
+
+
+
 lumen_hero_size_name: { ru: 'Кадр над рядами', en: 'Hero over the rows', uk: 'Кадр над рядами' },
 lumen_hero_size_descr: {
-ru: 'Какую часть экрана занимает большой кадр с описанием. «Выключен» — ряды на весь экран, чипы настроения остаются. Применяется сразу.',
-en: 'How much of the screen the large hero frame takes. "Off" gives the rows the whole screen; the mood chips stay. Applied immediately.',
-uk: 'Яку частину екрана займає великий кадр з описом. «Вимкнено» — ряди на весь екран, чипи настрою залишаються. Застосовується одразу.'
+ru: 'Какую часть экрана занимает большой кадр с описанием. «Выключен» — ряды на весь экран, чипы настроения остаются, но вместе с кадром отключается и «Переход от постера»: без кадра ему неоткуда взять постер. Применяется сразу.',
+en: 'How much of the screen the large hero frame takes. "Off" gives the rows the whole screen and keeps the mood chips, but also turns off "Poster transition": without the hero it has no poster to start from. Applied immediately.',
+uk: 'Яку частину екрана займає великий кадр з описом. «Вимкнено» — ряди на весь екран, чипи настрою залишаються, але разом із кадром вимикається і «Перехід від постера»: без кадру йому нізвідки взяти постер. Застосовується одразу.'
 },
 lumen_hero_size_large: { ru: 'Крупный', en: 'Large', uk: 'Великий' },
 lumen_hero_size_medium: { ru: 'Средний', en: 'Medium', uk: 'Середній' },
