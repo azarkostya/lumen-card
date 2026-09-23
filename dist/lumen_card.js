@@ -9512,13 +9512,31 @@ return { cancel: function () {} };
 
 
 
-function makeBecauseCall(picked, rowTitle) {
+
+
+function becauseTitle(picked) {
+var title = LC.lang ? LC.lang('lumen_row_because') : 'Because you watched';
+if (picked && picked[0] && picked[0].title) title += ': «' + picked[0].title + '»';
+return title;
+}
+
+
+
+
+
+
+
+
+
+function makeBecauseCall() {
 return function (params, screen) {
 return function (call) {
 var gen = _gen;
 function alive() { return _gen === gen; }
 
 var resolve = makeResolver(call);
+var picked = alive() ? pickBecause(getHistory(), BECAUSE_LIMIT) : null;
+var rowTitle = becauseTitle(picked);
 if (!alive() || !picked || !picked.length) {
 resolve({ results: [] }); return { cancel: function () {} };
 }
@@ -9582,13 +9600,15 @@ else if (typeof handles[i].abort === 'function') handles[i].abort();
 
 
 
-function makeNewEpisodesCall(shows) {
+
+function makeNewEpisodesCall() {
 return function (params, screen) {
 return function (call) {
 var gen = _gen;
 function alive() { return _gen === gen; }
 
 var resolve = makeResolver(call);
+var shows = alive() ? getShows(SHOWS_LIMIT) : null;
 if (!alive() || !shows || !shows.length) {
 resolve({ results: [] }); return { cancel: function () {} };
 }
@@ -9762,22 +9782,15 @@ call: makeContinueCall()
 
 
 
-
-
 try {
-var history = getHistory();
-var picked = pickBecause(history, BECAUSE_LIMIT);
+var picked = pickBecause(getHistory(), BECAUSE_LIMIT);
 if (picked && picked.length) {
-var becauseTitle = LC.lang ? LC.lang('lumen_row_because') : 'Because you watched';
-if (picked[0] && picked[0].title) {
-becauseTitle += ': «' + picked[0].title + '»';
-}
 addRow({
 name: 'lumen_because',
-title: becauseTitle,
+title: becauseTitle(picked),
 screen: 'main',
 index: 1,
-call: makeBecauseCall(picked, becauseTitle)
+call: makeBecauseCall()
 });
 }
 } catch (e) {}
@@ -9792,7 +9805,7 @@ name: 'lumen_new_episodes',
 title: LC.lang ? LC.lang('lumen_row_new_episodes') : 'New episodes of your shows',
 screen: 'main',
 index: 2,
-call: makeNewEpisodesCall(shows)
+call: makeNewEpisodesCall()
 });
 }
 } catch (e) {}

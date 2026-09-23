@@ -704,3 +704,46 @@ test('Продолжить: ряд помечен как персональны�
   cont.call({}, 'main')(function (payload) { got = payload; });
   assert.equal(got.lumen_personal, true);
 });
+
+/* Долг фазы 2 (docs/plans/2026-09-15-lumen-phase2-main.md:373): выборка
+   «Потому что вы смотрели» и список сериалов «Новых серий» захватывались при
+   register(), то есть раз за активацию, и до конца сессии ряд показывал
+   фильм, с которого она началась. Lampa зовёт call при каждой сборке
+   главной — значит каждая сборка обязана читать историю заново. */
+test('«Потому что вы смотрели» и «Новые серии» читают историю на каждой сборке главной', function () {
+  var history = [{ id: 1, title: 'Первый' }];
+  var books = [{ id: 100, name: 'Сериал А' }];
+  var s = setupRuntime({
+    getFav: function (opts) {
+      if (opts.type === 'history') return history;
+      if (opts.type === 'book') return books;
+      return [];
+    }
+  });
+  s.api.register();
+  var because = rowByName(s, 'lumen_because');
+  var episodes = rowByName(s, 'lumen_new_episodes');
+  assert.ok(because && episodes, 'оба ряда заведены');
+
+  var got = [];
+  because.call({}, {})(function (data) { got.push(data); });
+  assert.equal(s.tmdbCalls[0].url, 'movie/1/recommendations');
+  s.tmdbCalls[0].ok({ results: [{ id: 11 }] });
+  assert.equal(got[0].title, 'lumen_row_because: «Первый»');
+
+  /* Пользователь посмотрел другой фильм и вернулся на новую главную. */
+  history = [{ id: 1, title: 'Первый' }, { id: 2, title: 'Второй' }];
+  books = [{ id: 200, name: 'Сериал Б' }];
+  s.tmdbCalls.length = 0;
+  because.call({}, {})(function (data) { got.push(data); });
+  var urls = s.tmdbCalls.map(function (c) { return c.url; }).sort();
+  assert.deepEqual(urls, ['movie/1/recommendations', 'movie/2/recommendations'],
+    'вторая сборка обязана взять свежую историю');
+  s.tmdbCalls.forEach(function (c) { c.ok({ results: [] }); });
+  assert.equal(got[1].title, 'lumen_row_because: «Второй»', 'заголовок — по последнему просмотру');
+
+  s.tmdbCalls.length = 0;
+  episodes.call({}, {})(function () {});
+  assert.deepEqual(s.tmdbCalls.map(function (c) { return c.url; }), ['tv/200'],
+    '«Новые серии» — по текущим закладкам, а не по снимку при register()');
+});

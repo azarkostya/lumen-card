@@ -516,16 +516,34 @@
       };
     }
 
+    /* Заголовок ряда «Потому что вы смотрели: «X»» по первой карточке
+       выборки. Двоеточие избавляет от необходимости склонять произвольное
+       название фильма, что нереализуемо без словаря (например,
+       «Оппенгеймер» → родительный «Оппенгеймера» неоднозначен для
+       автоматики без морфологического анализатора). */
+    function becauseTitle(picked) {
+      var title = LC.lang ? LC.lang('lumen_row_because') : 'Because you watched';
+      if (picked && picked[0] && picked[0].title) title += ': «' + picked[0].title + '»';
+      return title;
+    }
+
     /* «Потому что вы смотрели «X»»:
        для каждой карточки из picked запрашивает recommendations через Lampa.
-       picked захвачен при register() — это последние BECAUSE_LIMIT карточек истории. */
-    function makeBecauseCall(picked, rowTitle) {
+       Долг фазы 2 (docs/plans/2026-09-15-lumen-phase2-main.md:373): picked
+       захватывался при register(), то есть раз за активацию плагина, и ряд
+       до конца сессии показывал фильм, с которого она началась. Теперь
+       история читается на каждом вызове — Lampa зовёт call при каждой
+       сборке главной, и новая главная видит последний просмотр. Заголовок
+       приходит в ответе (title), поэтому меняется вместе с выборкой. */
+    function makeBecauseCall() {
       return function (params, screen) {
         return function (call) {
           var gen = _gen;
           function alive() { return _gen === gen; }
           /* Ровно один ответ Lampa при любом исходе — см. шапку модуля. */
           var resolve = makeResolver(call);
+          var picked = alive() ? pickBecause(getHistory(), BECAUSE_LIMIT) : null;
+          var rowTitle = becauseTitle(picked);
           if (!alive() || !picked || !picked.length) {
             resolve({ results: [] }); return { cancel: function () {} };
           }
@@ -588,14 +606,16 @@
 
     /* «Новые серии ваших сериалов»:
        для каждого сериала из shows запрашивает детали tv/{id} через Lampa,
-       затем фильтрует через newEpisodes(). */
-    function makeNewEpisodesCall(shows) {
+       затем фильтрует через newEpisodes(). Список сериалов читается на
+       каждом вызове — тот же долг фазы 2, что у makeBecauseCall. */
+    function makeNewEpisodesCall() {
       return function (params, screen) {
         return function (call) {
           var gen = _gen;
           function alive() { return _gen === gen; }
           /* Ровно один ответ Lampa при любом исходе — см. шапку модуля. */
           var resolve = makeResolver(call);
+          var shows = alive() ? getShows(SHOWS_LIMIT) : null;
           if (!alive() || !shows || !shows.length) {
             resolve({ results: [] }); return { cancel: function () {} };
           }
@@ -766,25 +786,18 @@
         }
       } catch (e) {}
 
-      /* «Потому что вы смотрели: «X»» (index 1): только если в истории ≥1 карточки.
-         Заголовок строится как «<строка>: «<название>»». Двоеточие избавляет от
-         необходимости склонять произвольное название фильма, что нереализуемо без
-         словаря (например, «Оппенгеймер» → родительный «Оппенгеймера» неоднозначен
-         для автоматики без морфологического анализатора). */
+      /* «Потому что вы смотрели: «X»» (index 1): только если в истории ≥1
+         карточки. Сама выборка и заголовок пересчитываются на каждом вызове
+         (makeBecauseCall); здесь — только решение, заводить ли ряд. */
       try {
-        var history = getHistory();
-        var picked = pickBecause(history, BECAUSE_LIMIT);
+        var picked = pickBecause(getHistory(), BECAUSE_LIMIT);
         if (picked && picked.length) {
-          var becauseTitle = LC.lang ? LC.lang('lumen_row_because') : 'Because you watched';
-          if (picked[0] && picked[0].title) {
-            becauseTitle += ': «' + picked[0].title + '»';
-          }
           addRow({
             name: 'lumen_because',
-            title: becauseTitle,
+            title: becauseTitle(picked),
             screen: 'main',
             index: 1,
-            call: makeBecauseCall(picked, becauseTitle)
+            call: makeBecauseCall()
           });
         }
       } catch (e) {}
@@ -799,7 +812,7 @@
             title: LC.lang ? LC.lang('lumen_row_new_episodes') : 'New episodes of your shows',
             screen: 'main',
             index: 2,
-            call: makeNewEpisodesCall(shows)
+            call: makeNewEpisodesCall()
           });
         }
       } catch (e) {}
