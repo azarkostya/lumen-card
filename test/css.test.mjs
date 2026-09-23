@@ -442,10 +442,10 @@ test('правка 2026-09-16 (п.1): чипы качества — в лент�
   assert.ok(chip.indexOf('margin:0 .23em .23em 0') !== -1, 'зазор чипа — справа, а не слева (8 px в кегле 1.01em после Task 63)');
 });
 
-test('buildCss: карточка серии 340×150 (14.9em×6.58em), flex без grid, дорожка absolute', () => {
+test('buildCss: карточка серии 14.9em×8.38em (кадр 16:9), flex без grid, дорожка absolute', () => {
   const card = findDecl(css, (sel) => sel === '.lumen-card .lumen-episode');
   assert.ok(card, 'правило .lumen-episode не найдено');
-  assert.ok(card.indexOf('width:14.9em') !== -1 && card.indexOf('height:6.58em') !== -1);
+  assert.ok(card.indexOf('width:14.9em') !== -1 && card.indexOf('height:8.38em') !== -1);
   assert.ok(card.indexOf('display:flex') !== -1);
   const track = findDecl(css, (sel) => sel === '.lumen-card .lumen-episodes__track');
   assert.ok(track && track.indexOf('position:absolute') !== -1, 'дорожка должна быть absolute (не раздувает колонку)');
@@ -454,16 +454,91 @@ test('buildCss: карточка серии 340×150 (14.9em×6.58em), flex бе
   assert.equal(rules.filter((r) => /display\s*:\s*(-ms-)?grid/.test(r.decl)).length, 0, 'у ряда серий нет grid');
 });
 
+/* Правка 2026-09-23 (разбор композиции, п.3.1): плитка серии — это КАДР, и
+   его пропорция считается из ширины, а не пишется на глаз. Сторож меряет
+   обе стороны прямо в таблице: разъедется любая — сойдётся или не сойдётся
+   отношение. Допуск полпроцента — плата за округление высоты до сотых
+   (14.9 ÷ (16/9) = 8.3812…). */
+test('правка 2026-09-23: кадр серии — 16:9, и в обоих видах один', () => {
+  const num = (decl, prop) => {
+    const m = new RegExp('(?:^|;)' + prop + ':([0-9.]+)em').exec(decl);
+    assert.ok(m, 'в правиле нет «' + prop + '»: ' + decl);
+    return parseFloat(m[1]);
+  };
+  const tile = findDecl(css, (sel) => sel === '.lumen-card .lumen-episode');
+  const ratio = num(tile, 'width') / num(tile, 'height');
+  assert.ok(Math.abs(ratio - 16 / 9) < 16 / 9 * 0.005, 'плитка серии не 16:9: ' + ratio.toFixed(3));
+  /* Дорожка ряда растянута по высоте viewport (height:100%) — их высоты
+     обязаны совпадать, иначе плитки вылезут за него. */
+  assert.equal(num(findDecl(css, (sel) => sel === '.lumen-card .lumen-episodes__viewport'), 'height'), num(tile, 'height'));
+  /* Кадр занимает плитку целиком и не приглушён: на opacity .28 он был
+     фактурой под текстом, а не кадром. */
+  const still = findDecl(css, (sel) => sel === '.lumen-card .lumen-episode__still');
+  assert.ok(/top:0/.test(still) && /right:0/.test(still) && /bottom:0/.test(still) && /left:0/.test(still), 'кадр не во всю плитку: ' + still);
+  assert.ok(/(^|;)opacity:1/.test(still), 'кадр остался приглушённым: ' + still);
+  /* Плоский вид больше не разводит кадр и подпись по вертикали: у него нет
+     ни своей высоты плитки, ни своей высоты кадра. */
+  for (const sel of ['.lumen-card .lumen-episode', '.lumen-card .lumen-episodes__viewport', '.lumen-card .lumen-episode__still', '.lumen-card .lumen-episode__top']) {
+    const own = ruleBodies(flatCss).filter((r) => r.selectors.some((s) => s === sel)).slice(1);
+    for (const r of own) assert.ok(!/(^|;)height:/.test(r.decl), 'плоский вид задаёт свою высоту у «' + sel + '»: ' + r.decl);
+  }
+});
+
+/* Подпись и номер лежат ПОВЕРХ кадра, и их полосы затемнения не имеют
+   права сойтись: между ними обязан остаться виден сам кадр. Сторож считает
+   высоты полос из таблицы — так же, как прежний сторож Task 73 считал
+   высоту подписи под кадром. */
+test('правка 2026-09-23: затемнения верхней строки и подписи не съедают кадр целиком', () => {
+  const num = (decl, prop, fallback) => {
+    const m = new RegExp('(?:^|;)' + prop + ':([0-9.]+)em').exec(decl);
+    if (!m && fallback !== undefined) return fallback;
+    assert.ok(m, 'в правиле нет «' + prop + '»: ' + decl);
+    return parseFloat(m[1]);
+  };
+  const pad = (decl) => {
+    const m = /(?:^|;)padding:([0-9.]+)em [0-9.]+em(?: ([0-9.]+)em)?/.exec(decl);
+    assert.ok(m, 'в правиле нет паддинга: ' + decl);
+    return parseFloat(m[1]) + parseFloat(m[2] === undefined ? m[1] : m[2]);
+  };
+  const tile = findDecl(css, (sel) => sel === '.lumen-card .lumen-episode');
+  const height = num(tile, 'height') - num(tile, 'border') * 2;
+
+  const top = findDecl(css, (sel) => sel === '.lumen-card .lumen-episode__top');
+  const topBand = pad(top) + num(top, 'min-height');
+
+  const bottom = findDecl(css, (sel) => sel === '.lumen-card .lumen-episode__bottom');
+  const nameDecl = findDecl(css, (sel) => sel === '.lumen-card .lumen-episode__name');
+  const name = num(nameDecl, 'font-size') * parseFloat(/line-height:([0-9.]+)/.exec(nameDecl)[1]);
+  const capDecl = findDecl(css, (sel) => sel === '.lumen-card .lumen-episode__caption');
+  const caption = num(capDecl, 'margin-top') + num(capDecl, 'font-size') * parseFloat(/line-height:([0-9.]+)/.exec(capDecl)[1]);
+  const barDecl = findDecl(css, (sel) => sel === '.lumen-card .lumen-episode__bar');
+  const bar = num(barDecl, 'margin-top') + num(barDecl, 'height');
+  const bottomBand = pad(bottom) + name + caption + bar;
+
+  assert.ok(topBand + bottomBand < height, 'затемнения сошлись: ' + (topBand + bottomBand).toFixed(3) + 'em при высоте ' + height.toFixed(3) + 'em');
+  /* И не впритык: полоса чистого кадра меньше строки подписи означала бы,
+     что кадр виден формально. */
+  assert.ok(height - topBand - bottomBand > name, 'чистого кадра осталось меньше строки: ' + (height - topBand - bottomBand).toFixed(3) + 'em');
+  /* Оба затемнения — линейные градиенты с префиксной парой, без blur. */
+  for (const decl of [top, bottom]) {
+    assert.ok(/(^|;)background:-webkit-linear-gradient\(/.test(decl) && /;background:linear-gradient\(/.test(decl), 'затемнение не линейным градиентом или без префиксной пары: ' + decl);
+    assert.ok(!/blur/.test(decl), 'в затемнении размытие: ' + decl);
+  }
+});
+
 test('buildCss: все четыре состояния серии и фокус со scale 1.03 оформлены', () => {
   for (const state of ['watched', 'watching', 'soon']) {
     assert.ok(findDecl(css, (sel) => sel === '.lumen-card .lumen-episode--' + state), 'нет правила состояния ' + state);
   }
   const focus = findDecl(css, (sel) => sel === '.lumen-card .lumen-episode.focus');
   assert.ok(focus && focus.indexOf('scale(1.03)') !== -1);
-  // ревью п.10: рамка .04 -> .13em, паддинг .79 -> .70em — сумма .83em сохранена, содержимое не сдвигается
+  /* Правка 2026-09-23 (п.3.1): паддинга у плитки больше нет — кадр обязан
+     касаться краёв, отступы текста живут в .__top/.__bottom. Рамка осталась
+     признаком фокуса: .04 -> .13em. */
   const base = findDecl(css, (sel) => sel === '.lumen-card .lumen-episode');
-  assert.ok(base.indexOf('padding:.79em') !== -1 && base.indexOf('border:.04em') !== -1);
-  assert.ok(focus.indexOf('padding:.70em') !== -1 && focus.indexOf('border:.13em') !== -1);
+  assert.ok(base.indexOf('padding:') === -1, 'у плитки снова появился паддинг — кадр не дойдёт до краёв: ' + base);
+  assert.ok(base.indexOf('border:.04em') !== -1);
+  assert.ok(focus.indexOf('padding:') === -1 && focus.indexOf('border:.13em') !== -1);
 });
 
 test('buildCss: переходы ряда серий — только в lumen-motion-full, в lite/off фокус без transform', () => {
@@ -1056,7 +1131,9 @@ test('правка 2026-09-23: правая кромка приходится н
 test('правка 2026-09-23: у сериала описание поджато сильнее — ряд серий выше него', () => {
   const serial = findDecl(css, (sel) => sel === '.lumen-card--serial ~ .lumen-descr-row .full-descr__text');
   assert.ok(serial, 'правила описания для сериала нет');
-  assert.ok(serial.indexOf('-webkit-line-clamp:4') !== -1, 'у сериала ожидался кламп на 4 строки: ' + serial);
+  /* Правка 2026-09-23 (п.3.1): ряд серий вырос под кадр 16:9, и четвёртая
+     строка описания ушла — замеры у самого правила. */
+  assert.ok(serial.indexOf('-webkit-line-clamp:3') !== -1, 'у сериала ожидался кламп на 3 строки: ' + serial);
   /* Правило обязано стоять ПОСЛЕ базового: специфичность у них разная, но
      полагаться на неё, когда числа в одном свойстве, — лишний риск. */
   const base = css.indexOf('.lumen-descr-row .full-descr__text{');
@@ -1663,12 +1740,27 @@ test('Ревью Task 54: под инверсией фокуса у карточ
       }
     }
     assert.ok(plain.length >= 4, theme + ': правил с цветом у потомков карточки серии нашлось подозрительно мало — ' + plain.length);
+    /* Правка 2026-09-23 (п.3.1): номер серии и метка «СМОТРИТЕ» лежат на
+       КАДРЕ, а не на заливке инверсии — кадр в фокусе больше не гаснет.
+       Инверсия их не касается намеренно: тёмный текст на тёмном кадре
+       исчез бы. Взамен сторож требует, чтобы вне фокуса они были светлыми
+       (P.text) или акцентными — приглушённого текста на кадре быть не
+       должно так же, как и на заливке. Всё остальное (название, подпись,
+       таймкод) лежит на .__bottom, которому фокус подменяет градиент
+       сплошным P.text, и там инверсия обязательна. */
+    const OVER_STILL = ['.lumen-episode__num', '.lumen-episode__state'];
     for (const p of plain) {
       if (hidden.has(p.child)) continue;
+      if (OVER_STILL.indexOf(p.child) !== -1) {
+        assert.ok(p.color === P.text || p.color === P.accent,
+          theme + ': ' + p.sel + ' красит узел над кадром приглушённым ' + p.color);
+        continue;
+      }
       assert.ok(focused.some((f) => f.child === p.child && f.n > p.n),
         theme + ': ' + p.sel + ' красит узел вне фокуса (' + p.color + '), а правила фокуса выше специфичностью на него нет — под инверсией цвет останется прежним');
     }
     for (const f of focused) {
+      if (OVER_STILL.indexOf(f.child) !== -1) continue;
       const ratio = contrast(f.color, P.text);
       assert.ok(ratio >= 4.5, theme + ': ' + f.sel + ' — ' + f.color + ' на заливке фокуса ' + P.text + ' даёт ' + ratio.toFixed(2) + ':1');
     }
@@ -5083,126 +5175,45 @@ test('Task 73: счётчики разделов теряют плашки то�
   assert.ok(/background-color:transparent/.test(count), 'белый чип числа остался: ' + count);
 });
 
-test('Task 73: плитка серии — кадр сверху, подпись под ним, рамки нет', () => {
-  const tile = lastDecl(flatCss, '.lumen-card .lumen-episode');
-  assert.ok(/border-color:transparent/.test(tile), 'рамка плитки осталась: ' + tile);
-  assert.ok(/background-size:100% 3\.95em/.test(tile), 'подложка места кадра не ограничена его полосой: ' + tile);
-  const still = lastDecl(flatCss, '.lumen-card .lumen-episode__still');
-  assert.ok(/height:3\.95em/.test(still) && /bottom:auto/.test(still), 'кадр не стал полосой сверху: ' + still);
-  assert.ok(/opacity:1/.test(still), 'кадр остался приглушённым: ' + still);
-  /* Ревью 2026-09-22 (п.1): ряд в плоском виде ВЫШЕ обычного, и плитка с
-     ним заодно — иначе подпись не помещается под кадром (арифметика в
-     следующем тесте). Обе высоты обязаны совпадать: дорожка растянута по
-     высоте viewport (height:100%), и разъехавшись, плитки вылезли бы за
-     него. */
-  const vp = lastDecl(flatCss, '.lumen-card .lumen-episodes__viewport');
-  assert.ok(/height:8\.15em/.test(vp), 'viewport ряда не подрос под подпись: ' + vp);
-  assert.ok(/height:8\.15em/.test(tile), 'плитка не подросла под подпись: ' + tile);
-});
-
-/* Ревью 2026-09-22 (п.1): подпись не помещалась под кадром и лезла на него.
-   Сторож считает ту же арифметику, что и раньше считалась на глаз, — и
-   считает её ИЗ САМОЙ ТАБЛИЦЫ, а не по литералам рядом: поменяется любая
-   из высот — сойдётся или не сойдётся сумма.
-   На прежнем правиле (высота 6.58em) тест падает: доступно 5.89em при
-   нужных 7.452em. */
-test('Task 73 (ревью п.1): подпись плитки помещается под кадром — в любом состоянии', () => {
-  const num = (decl, prop) => {
-    const m = new RegExp('(?:^|;)' + prop + ':([0-9.]+)em').exec(decl);
-    assert.ok(m, 'в правиле нет «' + prop + '»: ' + decl);
-    return parseFloat(m[1]);
-  };
-  const tile = lastDecl(flatCss, '.lumen-card .lumen-episode');
-  const base = findDecl(css, (s) => s === '.lumen-card .lumen-episode');
-  /* border-box: рамка и нижний паддинг съедают высоту у содержимого.
-     Своей высоты у плоского правила может и не быть — тогда в силе
-     высота обычного вида, и считать надо именно её. */
-  const height = /(?:^|;)height:/.test(tile) ? num(tile, 'height') : num(base, 'height');
-  const border = num(base, 'border');
-  const padBottom = parseFloat(/padding:0 0 ([0-9.]+)em/.exec(tile)[1]);
-  const inner = height - border * 2 - padBottom;
-
-  const frame = num(lastDecl(flatCss, '.lumen-card .lumen-episode__top'), 'height');
-  const padTop = num(lastDecl(flatCss, '.lumen-card .lumen-episode__bottom'), 'padding-top');
-  const nameDecl = findDecl(css, (s) => s === '.lumen-card .lumen-episode__name');
-  const name = num(nameDecl, 'font-size') * parseFloat(/line-height:([0-9.]+)/.exec(nameDecl)[1]);
-  const capDecl = findDecl(css, (s) => s === '.lumen-card .lumen-episode__caption');
-  const caption = num(capDecl, 'margin-top') + num(capDecl, 'font-size') * parseFloat(/line-height:([0-9.]+)/.exec(capDecl)[1]);
-  const barDecl = findDecl(css, (s) => s === '.lumen-card .lumen-episode__bar');
-  const bar = num(barDecl, 'margin-top') + num(barDecl, 'height');
-
-  const need = frame + padTop + name + caption + bar;
-  assert.ok(need <= inner + 1e-9,
-    'подпись не помещается под кадром: нужно ' + need.toFixed(3) + 'em, доступно ' + inner.toFixed(3) + 'em');
-  /* И не с запасом в целую строку: лишняя высота ряда — это сдвинутая вниз
-     карточка, за который никто не платил. */
-  assert.ok(inner - need < name, 'у плитки лишняя высота: ' + (inner - need).toFixed(3) + 'em');
-  /* Кадр не сжимается: .__still и подложка под ним заданы в 3.95em
-     жёстко, а flex-контейнер ужал бы именно .__top — он единственный со
-     своим min-height (базовое правило). */
-  const top = lastDecl(flatCss, '.lumen-card .lumen-episode__top');
-  assert.ok(/flex:none/.test(top) && /-webkit-flex:none/.test(top), 'кадру можно сжаться: ' + top);
-});
-
-/* Ревью 2026-09-22 (п.2): под подписью у плитки не было фона вовсе —
-   подложка ограничена полосой кадра, — и сквозь неё просвечивал бэкдроп
-   карточки под вуалью. Контраст подписи зависел от кадра фильма. */
-test('Task 73 (ревью п.2): под подписью — непрозрачный фон плитки и цвет muted', () => {
-  const tile = lastDecl(flatCss, '.lumen-card .lumen-episode');
-  assert.ok(/background-size:100% 3\.95em/.test(tile), 'подложка места кадра перестала быть полосой: ' + tile);
-  const bg = /background-color:(#[0-9A-Fa-f]{6})/.exec(tile);
-  assert.ok(bg, 'у плитки нет непрозрачного фона под подписью: ' + tile);
-  assert.equal(bg[1], '#1C1613', 'фон плитки не P.panel: ' + bg[1]);
-  /* background-color обязан стоять ПОСЛЕ шортката background, иначе тот
-     его же и сбросит. */
-  assert.ok(tile.indexOf('background-color:') > tile.lastIndexOf('background:'), 'background-color сброшен шорткатом: ' + tile);
-  for (const one of ['.lumen-episode__caption', '.lumen-episode__timecode']) {
-    const cap = lastDecl(flatCss, '.lumen-card .lumen-episode:not(.focus) ' + one);
-    assert.ok(cap && /color:#A89A8A/.test(cap), one + ' под кадром не стал muted: ' + cap);
-  }
-  /* Фокус не тронут: инверсия Task 54 красит подпись в P.bg на светлой
-     заливке, и правило подписи обязано её пропускать. */
+/* Правка 2026-09-23 (разбор композиции, п.3.1). Прежде плоский вид держал у
+   плитки серии СВОЮ раскладку — кадр полосой 3.95em сверху, подпись под ним,
+   своя высота плитки 8.15em, свои цвета над кадром и под ним, свой паддинг у
+   фокуса. Она и была источником «полоски 4:1» из разбора. Теперь раскладка
+   одна на оба вида (кадр 16:9 во всю плитку, подпись поверх него на
+   градиенте — сторожа у базовых правил выше), и плоскому виду осталось
+   ровно то, чем он и является: нет рамки, меньше радиус, непрозрачный фон
+   под плиткой без кадра. Сторож следит, чтобы раскладка не разъехалась
+   обратно: у плитки серии и её потомков плоский вид не имеет права задавать
+   ни геометрию, ни цвета текста. */
+test('Task 73 + правка 2026-09-23: плоский вид правит у плитки серии только фон и рамку', () => {
+  const GEOMETRY = /(?:^|;)(height|width|padding|margin|top|bottom|left|right|flex|-webkit-box-pack|-webkit-justify-content|justify-content|background-size|-webkit-background-size|color)\s*:/;
   const plain = ruleSelectors(css);
-  for (const sel of ruleSelectors(flatCss)) {
-    if (plain.indexOf(sel) !== -1) continue;
-    if (sel.indexOf('.lumen-episode__caption') === -1 && sel.indexOf('.lumen-episode__timecode') === -1) continue;
-    assert.ok(sel.indexOf(':not(.focus)') !== -1, 'правило подписи задевает фокус: ' + sel);
+  let own = 0;
+  for (const r of ruleBodies(flatCss)) {
+    for (const sel of r.selectors) {
+      if (sel.indexOf('lumen-episode') === -1) continue;
+      /* Правила, которые есть и в обычной таблице, — общие; плоский вид
+         дописывает свои в конец (сторож этого — отдельным тестом ниже). */
+      if (plain.indexOf(sel) !== -1 && ruleBodies(css).some((p) => p.selectors.indexOf(sel) !== -1 && p.decl === r.decl)) continue;
+      own++;
+      assert.equal(sel, '.lumen-card .lumen-episode', 'плоский вид завёл своё правило у потомка плитки серии: ' + sel + '{' + r.decl + '}');
+      assert.ok(!GEOMETRY.test(r.decl), 'плоский вид правит у плитки геометрию или цвет текста: ' + r.decl);
+      assert.ok(/border-color:transparent/.test(r.decl), 'рамка плитки осталась: ' + r.decl);
+      assert.ok(/border-radius:\.3em/.test(r.decl), 'радиус плоского вида потерян: ' + r.decl);
+      /* Ревью 2026-09-22 (п.2): у серий без кадра сквозь плитку просвечивал
+         бэкдроп карточки под вуалью, и контраст подписи менялся от фильма к
+         фильму. Непрозрачный P.panel это закрывает. */
+      const bg = /background-color:(#[0-9A-Fa-f]{6})/.exec(r.decl);
+      assert.ok(bg, 'у плитки нет непрозрачного фона: ' + r.decl);
+      assert.equal(bg[1], '#1C1613', 'фон плитки не P.panel: ' + bg[1]);
+      /* background-color обязан стоять ПОСЛЕ шортката background, иначе тот
+         его же и сбросит; а сам шорткат обязан быть — у базового правила фон
+         задан градиентом (background-image), одним цветом он не снимается. */
+      assert.ok(/(^|;)background:none/.test(r.decl), 'градиент базового правила не снят: ' + r.decl);
+      assert.ok(r.decl.indexOf('background-color:') > r.decl.lastIndexOf('background:'), 'background-color сброшен шорткатом: ' + r.decl);
+    }
   }
-});
-
-/* Верхняя строка плитки в плоском виде лежит ПОВЕРХ кадра, а не поверх
-   заливки карты. Замер на стенде 960×540@2 по кадру «Дораэмона», по самому
-   светлому и самому тёмному пикселю области номера: затемнение плюс цвет
-   text дают 5.4:1 и 8.1:1 против 1.9:1 и 2.6:1 у номера цветом smoke поверх
-   кадра на .28 в обычном виде. */
-test('Task 73: номер серии над кадром — затемнение и светлый текст, «смотрите» остаётся акцентным', () => {
-  const top = lastDecl(flatCss, '.lumen-card .lumen-episode__top');
-  assert.ok(/linear-gradient\(180deg,rgba\(/.test(top), 'затемнения верхней строки нет: ' + top);
-  assert.ok(/-webkit-linear-gradient\(top,rgba\(/.test(top), 'у градиента нет префиксной пары: ' + top);
-  const num = lastDecl(flatCss, '.lumen-card .lumen-episode__top .lumen-episode__num');
-  assert.ok(num && /color:#F3EDE4/.test(num), 'номер над кадром не светлый: ' + num);
-  /* В фокусе номер обязан остаться светлым: под ним кадр, а не светлая
-     заливка инверсии. Порядком это не решается — у правила Task 54
-     (.lumen-card .lumen-episode.focus .lumen-episode__num) четыре класса
-     против трёх, и на стенде номер в фокусе оставался тёмным
-     rgb(21,29,32). Значит нужен свой селектор с .focus. */
-  const numFocus = lastDecl(flatCss, '.lumen-card .lumen-episode.focus .lumen-episode__top .lumen-episode__num');
-  assert.ok(numFocus && /color:#F3EDE4/.test(numFocus), 'в фокусе номер над кадром не светлый: ' + numFocus);
-  const watching = lastDecl(flatCss, '.lumen-card .lumen-episode--watching .lumen-episode__top .lumen-episode__num');
-  assert.ok(watching && /color:#/.test(watching), 'акцентный номер «смотрите» потерян: ' + watching);
-});
-
-/* Фокус — инверсия Task 54 — обязан работать в обоих видах: плоский вид
-   правит у него только паддинг (у плитки его больше нет, и .70em сдвинул бы
-   содержимое в момент фокуса) и плотность кадра (гасить его нечем — текста
-   поверх кадра в плоском виде нет). */
-test('Task 73: инверсия фокуса плитки серии не тронута', () => {
-  const focus = ruleBodies(flatCss).filter((r) => r.selectors.some((s) => s === '.lumen-card .lumen-episode.focus'));
-  assert.ok(focus.length >= 2, 'правил фокуса плитки стало меньше двух');
-  const base = focus[0].decl;
-  assert.equal(base, findDecl(css, (s) => s === '.lumen-card .lumen-episode.focus'), 'базовое правило фокуса изменилось');
-  assert.ok(/background:#/.test(base), 'заливка инверсии пропала: ' + base);
-  assert.equal(focus[focus.length - 1].decl, 'padding:0 0 .61em', 'плоский вид правит у фокуса не только паддинг');
+  assert.equal(own, 1, 'своих правил у ряда серий в плоском виде стало ' + own + ' вместо одного');
 });
 
 test('Task 73: отзывы — плоский список без карточек-подложек', () => {
