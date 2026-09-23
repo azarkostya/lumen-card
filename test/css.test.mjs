@@ -5550,29 +5550,48 @@ test('Task 44: барабан — доля высоты экрана в проп
   const h = parseFloat(/(^|;)height:([\d.]+)vh/.exec(reel)[2]);
   const w = parseFloat(/(^|;)width:([\d.]+)vh/.exec(reel)[2]);
   assert.ok(Math.abs(w / h - 2 / 3) < 0.005, 'барабан не в пропорции постера: ' + w + '×' + h);
-  /* Замеры на экране 540 px: область корня — 450 px при «мельче», 440 при
-     «обычном», 434 при «крупнее»; содержимое от верха корня до низа
-     подсказки — 351 / 379 / 417 px (последнее — «крупнее» + «огромный»).
-     Барабан в этих числах уже сидит: 43vh = 232 px. */
+  /* Ревью фикс-раунда (п.5): прежняя таблица (351 / 379 / 417 px) была
+     снята до счётчика выборки под барабаном (44a079a, +2.14em) и мерила
+     экран, которого уже не было. Переснято на стенде 960×540@2 со стопкой и
+     счётчиком — от верха корня до низа кнопки «Крутить», при барабане 43vh
+     (232.2 px) — по всем двенадцати сочетаниям размера интерфейса Lampa и
+     масштаба плагина. area — область корня (высота .scroll минус два поля
+     маски), content — содержимое. До правки «крупнее» + «огромный» давал
+     448.1 при области 434.6.
+     Высота барабана теперь — min(43vh, потолок из правила); обвязка =
+     замер минус 232.2 px и от высоты барабана не зависит. */
   const SCREEN = 540;
-  const REEL_PX = 43 / 100 * SCREEN;
-  const MEASURED = [
-    { name: 'мельче + мельче', area: 450, content: 351 },
-    { name: 'обычные', area: 440, content: 379 },
-    { name: 'крупнее + огромный', area: 434, content: 417 }
-  ];
-  for (const m of MEASURED) {
-    /* Обвязка = замер минус барабан. Она одна и та же при любой высоте
-       барабана, поэтому по ней и проверяется его потолок. */
-    const chrome = m.content - REEL_PX;
-    const need = chrome + h / 100 * SCREEN;
-    assert.ok(need <= m.area, m.name + ': экран не вмещает барабан — ' + Math.round(need) + ' px против ' + m.area);
+  const REEL_PX = 232.2;
+  const AREA = { small: 446.7, normal: 439.7, bigger: 434.6 };
+  const MEASURED = {
+    small: { small: 375.5, normal: 391.4, large: 407.4, huge: 423.3 },
+    normal: { small: 386.4, normal: 403.5, large: 420.7, huge: 437.8 },
+    bigger: { small: 394.2, normal: 412.2, large: 430.2, huge: 448.1 }
+  };
+  const SCALE = { small: 0.9, normal: 1, large: 1.1, huge: 1.2 };
+  let clamped = 0;
+  for (const iface of ['small', 'normal', 'bigger']) {
+    for (const scale of ['small', 'normal', 'large', 'huge']) {
+      const built = withStorage({ lumen_scale: scale, interface_size: iface }, (LC) => LC.buildCss());
+      const body = findDecl(built, (sel) => sel === '.lumen-roulette .lumen-roulette__reel');
+      const cap = /[^-]max-height:calc\(100vh - ([\d.]+)em\)/.exec(body);
+      assert.ok(cap, iface + '/' + scale + ': у барабана нет потолка высоты: ' + body);
+      const capW = /[^-]max-width:calc\(66\.67vh - ([\d.]+)em\)/.exec(body);
+      assert.ok(capW && Math.abs(parseFloat(capW[1]) - parseFloat(cap[1]) * 2 / 3) < 0.01, iface + '/' + scale + ': потолок ширины не держит 2:3: ' + body);
+      const em = lampaEm(960, iface) * SCALE[scale];
+      const reelH = Math.min(h / 100 * SCREEN, SCREEN - parseFloat(cap[1]) * em);
+      if (reelH < h / 100 * SCREEN) clamped++;
+      const need = MEASURED[iface][scale] - REEL_PX + reelH;
+      assert.ok(need <= AREA[iface] + 0.5, iface + '/' + scale + ': экран не вмещает барабан — ' + need.toFixed(1) + ' px против ' + AREA[iface]);
+      assert.ok(reelH >= 0.38 * SCREEN, iface + '/' + scale + ': потолок срезал барабан до ' + reelH.toFixed(1) + ' px');
+    }
   }
+  /* Потолок режет ровно там, где не помещалось, — а не везде. */
+  assert.ok(clamped >= 1 && clamped <= 3, 'потолок барабана сработал в ' + clamped + ' сочетаниях из 12');
   assert.ok(h >= 40, 'барабан мельче 40vh — на трёх метрах постер перестаёт читаться: ' + h);
   /* Плановые 27em высоты (308 px при обычном кегле) в область не влезали —
      проверка, что доля экрана выбрана не «на глаз». */
-  const worst = MEASURED[1];
-  assert.ok(worst.content - REEL_PX + 308 > worst.area,
+  assert.ok(MEASURED.normal.normal - REEL_PX + 308 > AREA.normal,
     'план 27em внезапно помещается — числа замера разъехались');
 });
 

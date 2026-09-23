@@ -1353,6 +1353,17 @@ var TV_MIN = 1.01;
 
 
 
+var ROUL_REST_EM = round2(1.05 + Math.max(2.1 * 1.1, 2 * 1.01) + 0.88 + 2 * 1.01 + 0.88 +
+0.70 + 1.58 * 1.1 + 1.01 * 1.2 + 0.88 + 3.16 * 1.05);
+
+
+
+
+
+
+
+
+
 
 
 
@@ -5508,7 +5519,30 @@ css.push('.lumen-roulette .lumen-roulette__stage{position:relative;display:-webk
 
 
 
-css.push('.lumen-roulette .lumen-roulette__reel{width:28.67vh;height:43vh;border-radius:.53em;overflow:hidden;background:' + P.panel + ';border:.04em solid ' + P.line + ';-webkit-flex-shrink:0;flex-shrink:0}');
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+var roulRest = round2((LAMPA_HEAD + 2 * LAMPA_ROW_PAD) / scale + ROUL_REST_EM);
+var reelMaxH = '100vh - ' + roulRest + 'em';
+var reelMaxW = '66.67vh - ' + round2(roulRest * 2 / 3) + 'em';
+var reelMax = 'max-height:-webkit-calc(' + reelMaxH + ');max-height:calc(' + reelMaxH + ');max-width:-webkit-calc(' + reelMaxW + ');max-width:calc(' + reelMaxW + ')';
+css.push('.lumen-roulette .lumen-roulette__reel{width:28.67vh;height:43vh;' + reelMax + ';border-radius:.53em;overflow:hidden;background:' + P.panel + ';border:.04em solid ' + P.line + ';-webkit-flex-shrink:0;flex-shrink:0}');
 css.push('.lumen-roulette .lumen-roulette__frame{width:100%;height:100%;background-position:center;background-repeat:no-repeat;-webkit-background-size:cover;background-size:cover}');
 
 
@@ -5528,7 +5562,7 @@ css.push('.lumen-roulette .lumen-roulette__frame{width:100%;height:100%;backgrou
 
 
 css.push('.lumen-roulette .lumen-roulette__reel{position:relative;z-index:1}');
-css.push('.lumen-roulette .lumen-roulette__peek{display:none;position:absolute;top:0;left:50%;width:28.67vh;height:43vh;border-radius:.53em;background-position:center;background-repeat:no-repeat;-webkit-background-size:cover;background-size:cover;background-color:' + P.panel + '}');
+css.push('.lumen-roulette .lumen-roulette__peek{display:none;position:absolute;top:0;left:50%;width:28.67vh;height:43vh;' + reelMax + ';border-radius:.53em;background-position:center;background-repeat:no-repeat;-webkit-background-size:cover;background-size:cover;background-color:' + P.panel + '}');
 css.push('.lumen-roulette .lumen-roulette__stage.is-stack .lumen-roulette__peek{display:block}');
 
 
