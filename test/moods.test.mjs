@@ -180,7 +180,7 @@ function moodsNodeOf(root) {
 
 /* Узел, в котором в итоге оказались чипы, — слот героя или свой блок. */
 function chipHostOf(root) {
-  var slot = root.find('lumen-hero__moods');
+  var slot = root.find('.lumen-hero__moods');
   if (slot && slot.length) return slot;
   return moodsNodeOf(root);
 }
@@ -197,7 +197,7 @@ test('mount: после mount — active() true, чипы вставлены в 
   assert.equal(ctx.api.active(), true);
   assert.equal(moodsNodeOf(root), null, 'при живом кадре отдельный блок в корне не нужен');
   assert.equal(root.hasClass('lumen-moods-on'), true, 'раскладка не узнает, что чипы на экране есть');
-  var slot = root.find('lumen-hero__moods');
+  var slot = root.find('.lumen-hero__moods');
   var chips = 0;
   for (var i = 0; i < slot._children.length; i++) {
     if (slot._children[i].hasClass('lumen-mood-chip')) chips++;
@@ -278,7 +278,7 @@ test('unmount: признак раскладки уходит, слот геро
   assert.equal(moodsNodeOf(root), null, 'своего блока в корне и не было');
   /* Task 36: слот — часть разметки кадра, и удалять его нельзя: он уйдёт
      вместе с героем, а до тех пор ждёт следующего mount. */
-  var slot = root.find('lumen-hero__moods');
+  var slot = root.find('.lumen-hero__moods');
   assert.ok(slot && slot.length, 'слот героя снесён вместе с чипами');
   assert.equal(slot._children.length, 0, 'чипы остались в слоте после unmount');
 });

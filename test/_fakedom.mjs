@@ -9,7 +9,8 @@
    51_slideshow.js и src/90_runtime.js на своих layer/body/activity-
    объектах: addClass/removeClass/toggleClass/hasClass, css (get при 1
    аргументе, set при 2), data (get/set)/removeData, append/prepend/empty,
-   children(sel) — первый ПРЯМОЙ ребёнок с классом (или EMPTY, как
+   children(sel) — первый ПРЯМОЙ ребёнок по селектору (классы, тег и
+   дочерний комбинатор «>» — разбор у parseSelector; или EMPTY, как
    настоящий jQuery для непустого набора), find(sel) — первый найденный на
    ЛЮБОЙ глубине (или EMPTY) — глубже, чем строго нужно текущим тестам с
    плоской разметкой, но так вернее совпадает с настоящим jQuery.find() и
@@ -38,13 +39,25 @@ export function attrsOf(tagHtml) {
   return out;
 }
 function elFromTag(tag) {
-  const el = new FakeEl(classList(tag));
+  const el = new FakeEl(classList(tag), null, tagName(tag));
   el._attr = attrsOf(tag);
   return el;
 }
 
-export function FakeEl(classes, children) {
+/* Имя тега из строки разметки ('<div class="x">' → 'div') или null. Нужно
+   селекторам по голому тегу ('div') и с дочерним комбинатором
+   ('.lumen-progress__bar > div', src/85_header.js) — см. parseSelector. */
+function tagName(tagHtml) {
+  const m = /^\s*<([a-zA-Z][a-zA-Z0-9-]*)/.exec(tagHtml || '');
+  return m ? m[1].toLowerCase() : null;
+}
+
+/* Третий аргумент — имя тега ('div', 'img'): узлы из разметки получают его
+   сами (elFromTag), собранные тестом вручную — только если тест его назвал.
+   Узел без тега селектору по тегу не отвечает. */
+export function FakeEl(classes, children, tag) {
   this._class = classes || [];
+  this._tag = tag ? String(tag).toLowerCase() : null;
   this._children = children || [];
   this._data = {};
   this._css = {};
@@ -152,7 +165,7 @@ FakeEl.prototype.before = function (child) {
   return this;
 };
 FakeEl.prototype.eq = function (i) { return i === 0 ? this : EMPTY; };
-FakeEl.prototype.not = function (sel) { return matchesSelector(this, selectorClasses(sel)) ? EMPTY : this; };
+FakeEl.prototype.not = function (sel) { return matchesSelector(this, parseSelector(sel)) ? EMPTY : this; };
 FakeEl.prototype.trigger = function (name) { (this._triggered = this._triggered || []).push(name); return this; };
 FakeEl.prototype.addEventListener = function (type, fn, capture) {
   (this._listeners = this._listeners || []).push({ type: type, fn: fn, capture: !!capture });
@@ -193,8 +206,8 @@ FakeEl.prototype.closest = function (sel) {
      которые её строят. */
   if (sel === '.activity' && this._closestActivity) return this._closestActivity;
   /* Task 5c: остальные селекторы — настоящий обход себя и предков. */
-  const classes = selectorClasses(sel);
-  for (let el = this; el; el = el._parentEl) if (matchesSelector(el, classes)) return el;
+  const steps = parseSelector(sel);
+  for (let el = this; el; el = el._parentEl) if (matchesSelector(el, steps)) return el;
   return EMPTY;
 };
 /* Ревью (fix, Important 3): составной селектор вида '.lumen-bg__img.is-active'
@@ -203,30 +216,58 @@ FakeEl.prototype.closest = function (sel) {
    ("lumen-bg__img.is-active" целиком) никогда не совпадал ни с одним
    hasClass() — составные селекторы в 50_backdrops.js (LC.backdrops.revive)
    тихо никогда не находили ничего, тесты на этом молча шли по запасной
-   (пустой) ветке. selectorClasses разбивает ЛЮБОЕ число точек на список
-   классов, matchesSelector требует совпадения всех. */
+   (пустой) ветке. Разбор компаунда (сейчас — parseCompound ниже) берёт
+   ЛЮБОЕ число точек как список классов, и совпасть обязаны все. */
 /* Task 10: селектор может отсутствовать вовсе — jQuery .children() без
    аргумента отдаёт ВСЕХ прямых детей (наш фейк, как и с селектором, отдаёт
    первого: этого хватает связке .children().eq(0), которой src/90_runtime.js
    пишет число в чип рейтинга КП, не трогая разметку кнопок). */
-function selectorClasses(sel) {
-  return String(sel == null ? '' : sel).split('.').filter(Boolean);
+/* Долг плана lumen-final (раздел D, 2026-09-23): селектор с дочерним
+   комбинатором и голое имя тега. src/85_header.js ставит ширину полосы
+   «Продолжить» через row.find('.lumen-progress__bar > div'), а прежний
+   разбор резал селектор по точкам и искал класс «lumen-progress__bar > div»
+   — find отдавал пустой набор, и ширину полосы не проверял ни один тест.
+   Разбор минимальный, не CSS целиком: цепочка компаундов через «>», каждый
+   компаунд — необязательный тег и классы через точку. Пробел-потомок,
+   атрибуты и псевдоклассы не моделируются; такой селектор, как и прежде,
+   ничего не находит. Левые шаги цепочки проверяются по родителям узла без
+   ограничения корнем поиска — как у jQuery, где селектор find сверяется с
+   документом целиком. */
+function parseCompound(text) {
+  const m = /^([a-zA-Z][a-zA-Z0-9-]*)?((?:\.[A-Za-z0-9_-]+)*)$/.exec(text);
+  if (!m) return { tag: null, classes: [text], bad: true };
+  return { tag: m[1] ? m[1].toLowerCase() : null, classes: m[2].split('.').filter(Boolean) };
 }
-function matchesSelector(el, classes) {
-  for (let i = 0; i < classes.length; i++) if (!el.hasClass(classes[i])) return false;
+function parseSelector(sel) {
+  const text = String(sel == null ? '' : sel).trim();
+  if (!text) return [{ tag: null, classes: [] }];
+  return text.split(/\s*>\s*/).map(parseCompound);
+}
+function matchesCompound(el, c) {
+  if (c.bad) return false;
+  if (c.tag && el._tag !== c.tag) return false;
+  for (let i = 0; i < c.classes.length; i++) if (!el.hasClass(c.classes[i])) return false;
+  return true;
+}
+function matchesSelector(el, steps) {
+  let node = el;
+  for (let i = steps.length - 1; i >= 0; i--) {
+    if (!node || !matchesCompound(node, steps[i])) return false;
+    node = node._parentEl;
+  }
   return true;
 }
 FakeEl.prototype.children = function (sel) {
-  const classes = selectorClasses(sel);
-  for (let i = 0; i < this._children.length; i++) if (matchesSelector(this._children[i], classes)) return this._children[i];
+  const steps = parseSelector(sel);
+  for (let i = 0; i < this._children.length; i++) if (matchesSelector(this._children[i], steps)) return this._children[i];
   return EMPTY;
 };
 FakeEl.prototype.find = function (sel) {
-  const classes = selectorClasses(sel);
+  const steps = parseSelector(sel);
   function search(node) {
     for (let i = 0; i < node._children.length; i++) {
       const c = node._children[i];
-      if (matchesSelector(c, classes)) return c;
+      if (matchesSelector(c, steps)) return c;
       const found = search(c);
       if (found) return found;
     }
@@ -250,7 +291,7 @@ export const EMPTY = {
 
 export function toEl(x) {
   if (x instanceof FakeEl) return x;
-  return new FakeEl(classList(String(x)));
+  return new FakeEl(classList(String(x)), null, tagName(String(x)));
 }
 
 /* Плоский разбор: первый тег — корень, остальные — его ПРЯМЫЕ дети (в

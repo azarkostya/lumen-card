@@ -99,7 +99,10 @@ function makeCard() {
   const buttons = new FakeEl(['full-start-new__buttons'], [play, book]);
   /* Task 8: блок «Продолжить» из шаблона — подпись, полоса, таймкод. */
   const pLabel = new FakeEl(['lumen-progress__label']);
-  const pFill = new FakeEl([]);
+  /* Узел заливки — голый <div> без класса: так он стоит в шаблоне
+     (src/40_template.js), и src/85_header.js ищет его селектором
+     '.lumen-progress__bar > div'. Тег назван, чтобы фейковый DOM его нашёл. */
+  const pFill = new FakeEl([], null, 'div');
   const pBar = new FakeEl(['lumen-progress__bar'], [pFill]);
   const pTime = new FakeEl(['lumen-progress__time']);
   const progress = new FakeEl(['lumen-in', 'lumen-progress', 'hide'], [pLabel, pBar, pTime]);
@@ -119,7 +122,7 @@ function makeCard() {
   const meta = new FakeEl(['lumen-meta']);
   const root = new FakeEl(['full-start-new', 'lumen-card'], [cardTitle, meta, rateLine, progress, buttons, row]);
   docRoots.push(root);
-  return { root, chip, text, rateLine, status, play, book, buttons, row, track, viewport, title, count, progress, pLabel, pTime, cardTitle, meta };
+  return { root, chip, text, rateLine, status, play, book, buttons, row, track, viewport, title, count, progress, pLabel, pTime, pFill, cardTitle, meta };
 }
 
 function serial(n) {
@@ -1121,6 +1124,31 @@ test('progress: фильм — одна строка «01:12 / 02:46 · 43 %», 
   assert.equal(c.pTime.text(), '01:12 / 02:46 · 43 %');
   assert.equal(c.root.hasClass('lumen-continue'), false, 'на экране 01 кнопка фильма — «Смотреть»');
   assert.deepEqual(warnLog, []);
+});
+
+/* Долг плана lumen-final (раздел D, 2026-09-23): ширину заливки полосы
+   «Продолжить» не проверял ни один тест — фейковый DOM не понимал селектор
+   '.lumen-progress__bar > div', и css('width', …) уходил в пустой набор.
+   Проверено, что тест ловит поломку: с шириной '50%' вместо percent + '%'
+   в src/85_header.js он падает на первом же сравнении. */
+test('progress: полоса «Продолжить» — ширина заливки равна проценту просмотра', () => {
+  const film = makeCard();
+  withViews({ [lampaHash('Dune: Part Two')]: { percent: 43, time: 4320, duration: 9960 } }, () => {
+    LC.header.decorate(film.root, { movie: FILM });
+  });
+  assert.equal(film.root.find('.lumen-progress__bar > div'), film.pFill, 'селектор полосы не находит узел заливки');
+  assert.equal(film.pFill.css('width'), '43%', 'фильм, 43 %');
+  const show = makeCard();
+  withViews({ [hashOf(2, 3)]: { percent: 31.6, time: 1120, duration: 3492, updated: 5 } }, () => {
+    LC.header.decorate(show.root, serial(8));
+  });
+  assert.equal(show.pFill.css('width'), '32%', 'сериал, 31.6 % — округление до целого, как в подписи');
+  /* Перерисовка той же карточки с новым процентом (событие Timeline после
+     плеера) — ширина следует за ним, а не остаётся от первой отрисовки. */
+  withViews({ [lampaHash('Dune: Part Two')]: { percent: 60, time: 5976, duration: 9960 } }, () => {
+    LC.header.decorate(film.root, { movie: FILM });
+  });
+  assert.equal(film.pFill.css('width'), '60%', 'фильм после перерисовки, 60 %');
 });
 
 test('progress: досмотренный фильм (97 %) строки не показывает', () => {
