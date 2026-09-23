@@ -30666,6 +30666,85 @@ warn('episode enter failed', err);
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function upTarget(root) {
+var nav = window.Navigator;
+if (!nav || typeof nav.getFocusedElement !== 'function' || typeof nav.canmove !== 'function') return null;
+var from = nav.getFocusedElement();
+if (!from || !$(from).hasClass('lumen-episode')) return null;
+if ($(from).closest('.full-start-new')[0] !== root[0]) return null;
+if (nav.canmove('up')) return null;
+
+var box = root.find('.full-start-new__buttons')[0];
+if (!box || typeof box.querySelectorAll !== 'function') return null;
+var list = box.querySelectorAll('.selector');
+var src = from.getBoundingClientRect();
+var mid = src.left + src.width / 2;
+var best = null;
+var bestGap = 0;
+for (var i = 0; i < list.length; i++) {
+var el = list[i];
+if ($(el).hasClass('hide') || !el.offsetParent) continue;
+var r = el.getBoundingClientRect();
+if (!(r.width > 0)) continue;
+var gap = mid < r.left ? r.left - mid : (mid > r.left + r.width ? mid - r.left - r.width : 0);
+if (!best || gap < bestGap) {
+best = el;
+bestGap = gap;
+}
+}
+return best;
+}
+
+function bindStart(item, root) {
+if (!item || typeof item.use !== 'function' || !root || !root.length || item.lumenUpBound) return;
+item.lumenUpBound = true;
+item.use({
+onController: function (controller) {
+var up = controller && controller.up;
+if (typeof up !== 'function') return;
+controller.up = function () {
+try {
+var target = upTarget(root);
+if (target && window.Lampa && Lampa.Controller && typeof Lampa.Controller.collectionFocus === 'function') {
+Lampa.Controller.collectionFocus(target, root);
+if (window.Navigator.getFocusedElement() === target) return;
+}
+} catch (e) {
+warn('episode up failed', e);
+}
+return up.apply(this, arguments);
+};
+}
+});
+}
+
+
+
+
+
+
+
+
 function refreshEpisode(hash) {
 hash = '' + (hash || '');
 if (!/^\d+$/.test(hash)) return;
@@ -31028,6 +31107,7 @@ installPeople: installPeople,
 uninstallPeople: uninstallPeople,
 descr: renderDescrRow,
 refreshEpisode: refreshEpisode,
+bindStart: bindStart,
 refreshProgress: refreshProgress,
 scheduleProgressRefresh: scheduleProgressRefresh
 };
@@ -31894,7 +31974,12 @@ if (e.type === 'start') {
 
 dropMetaData(e);
 } else if (e.type === 'build' && e.name === 'start') {
-LC.header.decorate(findRoot(e), e.data);
+var startRoot = findRoot(e);
+LC.header.decorate(startRoot, e.data);
+
+
+
+LC.header.bindStart(e.item, startRoot);
 } else if (e.type === 'build' && e.name === 'description') {
 
 

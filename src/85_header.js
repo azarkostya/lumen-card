@@ -1287,6 +1287,85 @@
     }, true);
   }
 
+  /* ↑ с плитки серии правее кнопок (долг фазы 1, план фазы 1 Task 12,
+     п.2; замер 2026-09-23 на стенде 960×540@2, «Дораэмон» 65733). Navigator
+     Lampa берёт цель «вверх» только из прямой полосы над плиткой:
+     straightOnly = true выбрасывает косые направления, а в прямую полосу
+     узел попадает, если его центр лежит над плиткой или он перекрывает
+     её левую половину (vendor/lampa/vender/navigator/navigator.js:65, 338-
+     392, 948-951). Кнопки карточки кончаются на x = 449, а плитки идут
+     шагом 178 px от x = 40 — у четвёртой плитки (x 574…744) и дальше над
+     ней нет ни одной кнопки. canmove('up') отдаёт false, контроллер
+     full_start шлёт 'up' (app.min.js:37937-37939), список модулей карточки
+     на первом модуле уводит фокус в шапку Lampa (app.min.js:35157-35165) —
+     туда пульт и попадал. Окно Task 67 здесь ни при чём: мешает не число
+     плиток, а то, что ряд шире ряда кнопок.
+
+     Кнопки двигать нельзя (их outerHTML — хэш приоритета, план 0.2), и
+     цель, которой Navigator не видит, даёт только сам контроллер. Его
+     объект Start собирает заново на каждом toggle и перед Controller.add
+     отдаёт модулям событием 'controller' (app.min.js:37918-37943) — это
+     штатная точка расширения Emit, ею же пользуется, например, модуль
+     Explorer (app.min.js:39610-39616). Обёртка трогает только ↑ и только
+     когда фокус на плитке серии ЭТОЙ карточки, а Navigator наверх идти не
+     может; иначе работает прежний up Lampa без изменений. Цель — кнопка,
+     ближайшая к плитке по горизонтали (для плитки правее всех кнопок это
+     последняя видимая), при равенстве — первая по порядку. Фокус ставится
+     тем же Controller.collectionFocus, которым Lampa входит в коллекцию:
+     узлу приходит обычный hover:focus, Start запоминает его как last, а
+     capture-слушатель bindEpisodes снимает сжатие шапки. */
+  function upTarget(root) {
+    var nav = window.Navigator;
+    if (!nav || typeof nav.getFocusedElement !== 'function' || typeof nav.canmove !== 'function') return null;
+    var from = nav.getFocusedElement();
+    if (!from || !$(from).hasClass('lumen-episode')) return null;
+    if ($(from).closest('.full-start-new')[0] !== root[0]) return null;
+    if (nav.canmove('up')) return null;
+
+    var box = root.find('.full-start-new__buttons')[0];
+    if (!box || typeof box.querySelectorAll !== 'function') return null;
+    var list = box.querySelectorAll('.selector');
+    var src = from.getBoundingClientRect();
+    var mid = src.left + src.width / 2;
+    var best = null;
+    var bestGap = 0;
+    for (var i = 0; i < list.length; i++) {
+      var el = list[i];
+      if ($(el).hasClass('hide') || !el.offsetParent) continue;
+      var r = el.getBoundingClientRect();
+      if (!(r.width > 0)) continue;
+      var gap = mid < r.left ? r.left - mid : (mid > r.left + r.width ? mid - r.left - r.width : 0);
+      if (!best || gap < bestGap) {
+        best = el;
+        bestGap = gap;
+      }
+    }
+    return best;
+  }
+
+  function bindStart(item, root) {
+    if (!item || typeof item.use !== 'function' || !root || !root.length || item.lumenUpBound) return;
+    item.lumenUpBound = true;
+    item.use({
+      onController: function (controller) {
+        var up = controller && controller.up;
+        if (typeof up !== 'function') return;
+        controller.up = function () {
+          try {
+            var target = upTarget(root);
+            if (target && window.Lampa && Lampa.Controller && typeof Lampa.Controller.collectionFocus === 'function') {
+              Lampa.Controller.collectionFocus(target, root);
+              if (window.Navigator.getFocusedElement() === target) return;
+            }
+          } catch (e) {
+            warn('episode up failed', e);
+          }
+          return up.apply(this, arguments);
+        };
+      }
+    });
+  }
+
   /* Запись Lampa.Timeline обновилась (плеер, синхронизация) — перерисовать
      карточку серии с этим хэшем во всех карточках в DOM (история Lampa держит
      и прошлые). Подписка — в 90_runtime.js, одна на всё время жизни плагина.
@@ -1656,6 +1735,7 @@
     uninstallPeople: uninstallPeople,
     descr: renderDescrRow,
     refreshEpisode: refreshEpisode,
+    bindStart: bindStart,
     refreshProgress: refreshProgress,
     scheduleProgressRefresh: scheduleProgressRefresh
   };

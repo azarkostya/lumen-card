@@ -858,7 +858,12 @@
                перед проверкой data.metadata (app.min.js:38833-38842). */
             dropMetaData(e);
           } else if (e.type === 'build' && e.name === 'start') {
-            LC.header.decorate(findRoot(e), e.data);
+            var startRoot = findRoot(e);
+            LC.header.decorate(startRoot, e.data);
+            /* ↑ с дальней плитки серии — на кнопки, а не в шапку Lampa
+               (разбор у bindStart, src/85_header.js). e.item — сам модуль
+               Start: только здесь он и приходит, у complite его нет. */
+            LC.header.bindStart(e.item, startRoot);
           } else if (e.type === 'build' && e.name === 'description') {
             /* Task 5d: таблица «ПОДРОБНО» в теле ряда описания (design-spec §10).
                Task 9: ряд отзывов Кинопоиска — сосед таблицы в том же

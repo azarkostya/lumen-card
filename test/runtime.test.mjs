@@ -646,6 +646,27 @@ test('Task 18: complite — reveal(root, data) зовётся отдельно �
   assert.deepEqual(warnLog, []);
 });
 
+/* ↑ с дальней плитки серии (src/85_header.js, bindStart): обёртке нужен сам
+   модуль Start — он приходит только на build с name 'start' (e.item), у
+   complite его нет. Склейка: тот же e.item и тот же корень, что у decorate. */
+test('build start: bindStart получает модуль Start и корень карточки', () => {
+  const { LC, full } = initLC();
+  const root = new FakeEl(['full-start-new', 'lumen-card']);
+  const item = { render: () => root };
+  const seen = { decorate: [], bind: [] };
+  LC.header.decorate = (r) => seen.decorate.push(r);
+  LC.header.bindStart = (it, r) => seen.bind.push([it, r]);
+
+  full[0]({ type: 'build', name: 'start', body: EMPTY, data: { movie: { id: 1 } }, item: item });
+
+  assert.equal(seen.decorate.length, 1);
+  assert.equal(seen.bind.length, 1);
+  assert.equal(seen.bind[0][0], item, 'обёртка ставится на сам модуль Start');
+  assert.equal(seen.bind[0][1], root, 'и знает корень той же карточки, что decorate');
+  assert.equal(seen.decorate[0], root);
+  assert.deepEqual(warnLog, []);
+});
+
 /* Task 9: блок отзывов встраивается в тот же узел ряда описания, что и
    таблица «ПОДРОБНО» (в Lampa нельзя завести свой тип ряда — план 0.2).
    Узел ищется ОДИН раз на оба рендера: разойдись они, класс .lumen-descr-row

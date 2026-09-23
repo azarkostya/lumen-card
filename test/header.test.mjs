@@ -583,6 +583,166 @@ test('Task 67: повторный hover:focus от Navigator не гоняет �
   assert.deepEqual(warnLog, []);
 });
 
+/* ↑ с плитки серии правее кнопок (долг фазы 1, план фазы 1 Task 12, п.2).
+   Navigator Lampa с прямой полосой (straightOnly) не находит кнопок над
+   дальней плиткой, и штатный up контроллера full_start уводит фокус в
+   шапку Lampa. bindStart оборачивает up того контроллера, который Start
+   отдаёт модулям событием 'controller' (vendor/lampa/app.min.js:37918-37943). */
+function startItem() {
+  const comps = [];
+  return {
+    comps,
+    use(m) { comps.push(m); },
+    controller() {
+      const calls = [];
+      const ctrl = { up: function () { calls.push('lampa-up'); } };
+      comps.forEach((m) => { if (m.onController) m.onController(ctrl); });
+      return { ctrl, calls };
+    }
+  };
+}
+
+function upCard() {
+  const c = makeCard();
+  const opts = new FakeEl(['full-start__button', 'selector', 'button--options']);
+  const hidden = new FakeEl(['full-start__button', 'selector', 'button--trailer']);
+  c.buttons.append(opts);
+  c.buttons.append(hidden);
+  /* Геометрия стенда 960×540@2 («Дораэмон»): кнопки 40…152, 281…317,
+     413…449; скрытая кнопка трейлера — вне раскладки (offsetParent null). */
+  const box = (el, left, width, parent) => {
+    el.getBoundingClientRect = () => ({ left: left, width: width, top: 292, height: 36 });
+    el.offsetParent = parent;
+  };
+  box(c.play, 40, 112, c.buttons);
+  box(c.book, 281, 36, c.buttons);
+  box(opts, 413, 36, c.buttons);
+  box(hidden, 460, 36, null);
+  c.buttons.querySelectorAll = () => [c.play, c.book, opts, hidden];
+  c.opts = opts;
+  c.hidden = hidden;
+  return c;
+}
+
+function withNavigator(focused, canUp, fn) {
+  const prevNav = window.Navigator;
+  const prevCtl = Lampa.Controller;
+  const nav = {
+    focus: focused,
+    getFocusedElement() { return nav.focus; },
+    canmove(dir) { return dir === 'up' && canUp ? {} : false; }
+  };
+  const focusCalls = [];
+  window.Navigator = nav;
+  Lampa.Controller = {
+    collectionFocus(target, html) { focusCalls.push([target, html]); nav.focus = target; }
+  };
+  try {
+    fn(nav, focusCalls);
+  } finally {
+    window.Navigator = prevNav;
+    Lampa.Controller = prevCtl;
+  }
+}
+
+test('↑ с дальней плитки серии: на ближайшую по горизонтали кнопку, а не в шапку Lampa', () => {
+  const c = upCard();
+  LC.header.decorate(c.root, serial(60));
+  const item = startItem();
+  LC.header.bindStart(item, c.root);
+  const tile = nodeAt(c, 3);
+  tile.getBoundingClientRect = () => ({ left: 574, width: 170, top: 378, height: 96 });
+  withNavigator(tile, false, (nav, focusCalls) => {
+    const { ctrl, calls } = item.controller();
+    ctrl.up();
+    assert.deepEqual(calls, [], 'штатный up (он уводит в шапку) не зовётся');
+    assert.equal(focusCalls.length, 1);
+    assert.equal(focusCalls[0][0], c.opts, 'ближайшая видимая кнопка — последняя в ряду');
+    assert.equal(focusCalls[0][1], c.root, 'фокус ставится в коллекции этой карточки');
+  });
+  assert.deepEqual(warnLog, []);
+});
+
+test('↑ с плитки серии: если Navigator сам находит цель — работает штатный up', () => {
+  const c = upCard();
+  LC.header.decorate(c.root, serial(60));
+  const item = startItem();
+  LC.header.bindStart(item, c.root);
+  const tile = nodeAt(c, 0);
+  tile.getBoundingClientRect = () => ({ left: 40, width: 170, top: 378, height: 96 });
+  withNavigator(tile, true, (nav, focusCalls) => {
+    const { ctrl, calls } = item.controller();
+    ctrl.up();
+    assert.deepEqual(calls, ['lampa-up']);
+    assert.deepEqual(focusCalls, []);
+  });
+  assert.deepEqual(warnLog, []);
+});
+
+test('↑ не с плитки серии и не из этой карточки — штатный up без изменений', () => {
+  const c = upCard();
+  const other = upCard();
+  LC.header.decorate(c.root, serial(60));
+  LC.header.decorate(other.root, serial(60));
+  const item = startItem();
+  LC.header.bindStart(item, c.root);
+  /* Фокус на кнопке: с верхнего ряда карточки ↑ по-прежнему в шапку. */
+  withNavigator(c.opts, false, (nav, focusCalls) => {
+    const { ctrl, calls } = item.controller();
+    ctrl.up();
+    assert.deepEqual(calls, ['lampa-up']);
+    assert.deepEqual(focusCalls, []);
+  });
+  /* Плитка чужой карточки (история Lampa держит прежние в DOM). */
+  const foreign = nodeAt(other, 5);
+  foreign.getBoundingClientRect = () => ({ left: 705, width: 170, top: 378, height: 96 });
+  withNavigator(foreign, false, (nav, focusCalls) => {
+    const { ctrl, calls } = item.controller();
+    ctrl.up();
+    assert.deepEqual(calls, ['lampa-up']);
+    assert.deepEqual(focusCalls, []);
+  });
+  assert.deepEqual(warnLog, []);
+});
+
+test('↑ с плитки: при равном расстоянии — первая кнопка; фокус не встал — штатный up', () => {
+  const c = upCard();
+  LC.header.decorate(c.root, serial(60));
+  const item = startItem();
+  LC.header.bindStart(item, c.root);
+  /* Плитка под «Смотреть»: центр 125 лежит внутри 40…152 и внутри
+     подставленной второй кнопки на тех же координатах — побеждает первая. */
+  c.book.getBoundingClientRect = () => ({ left: 40, width: 112, top: 292, height: 36 });
+  const tile = nodeAt(c, 0);
+  tile.getBoundingClientRect = () => ({ left: 40, width: 170, top: 378, height: 96 });
+  withNavigator(tile, false, (nav, focusCalls) => {
+    const { ctrl, calls } = item.controller();
+    ctrl.up();
+    assert.equal(focusCalls[0][0], c.play);
+    assert.deepEqual(calls, []);
+  });
+  /* collectionFocus не смог (узла нет в коллекции Navigator) — не
+     оставляем пульт без ответа, отдаём нажатие Lampa. */
+  withNavigator(tile, false, (nav) => {
+    Lampa.Controller.collectionFocus = () => { };
+    const { ctrl, calls } = item.controller();
+    ctrl.up();
+    assert.deepEqual(calls, ['lampa-up']);
+  });
+  assert.deepEqual(warnLog, []);
+});
+
+test('bindStart: без Emit.use или повторно — ничего не делает', () => {
+  const c = upCard();
+  LC.header.bindStart(null, c.root);
+  LC.header.bindStart({}, c.root);
+  const item = startItem();
+  LC.header.bindStart(item, c.root);
+  LC.header.bindStart(item, c.root);
+  assert.equal(item.comps.length, 1, 'обёртка ставится один раз на модуль');
+  assert.deepEqual(warnLog, []);
+});
+
 test('Task 67: refreshEpisode серии за окном ничего не ломает, а в окне она встаёт с актуальным Timeline', () => {
   const c = makeCard();
   const total = 300;
