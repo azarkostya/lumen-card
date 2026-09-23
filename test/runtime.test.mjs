@@ -505,7 +505,7 @@ function initLC(opts) {
   LC.menus = { mode: () => { }, install: () => { } };
   LC.torrents = { install: () => { }, toggle: () => { } };
   const descrRows = [];
-  LC.header = { decorate: () => { }, descr: (row) => descrRows.push(row), refreshCast: () => { extra.cast++; } };
+  LC.header = { decorate: () => { }, descr: (row) => descrRows.push(row), refreshCast: () => { extra.cast++; }, bindDescr: () => { } };
   LC.backdrops = { apply: () => null, cancel: (body) => extra.bgCancel.push(body) };
   /* Task 9: ряд отзывов рисует свой модуль — здесь он такая же заглушка, как
      header/backdrops/trailer; вызовы пишем в журнал (проверка ниже: и таблица
@@ -664,6 +664,27 @@ test('build start: bindStart получает модуль Start и корень
   assert.equal(seen.bind[0][0], item, 'обёртка ставится на сам модуль Start');
   assert.equal(seen.bind[0][1], root, 'и знает корень той же карточки, что decorate');
   assert.equal(seen.decorate[0], root);
+  assert.deepEqual(warnLog, []);
+});
+
+/* Второй экран карточки страницами (src/85_header.js, bindDescr): модулю
+   ряда описания и Scroll карточки нужны e.item и e.link — они приходят
+   только на build с name 'description'. Узел ряда — тот же, что у таблицы
+   «ПОДРОБНО» и отзывов. */
+test('build description: bindDescr получает модуль ряда, его узел и компонент карточки', () => {
+  const { LC, full, descrRows } = initLC();
+  const row = new FakeEl(['items-line'], [new FakeEl(['items-line__body'], [new FakeEl(['full-descr'])])]);
+  const item = { render: () => row };
+  const link = { scroll: {} };
+  const seen = [];
+  LC.header.bindDescr = (it, r, l) => seen.push([it, r, l]);
+
+  full[0]({ type: 'build', name: 'description', body: EMPTY, data: { movie: { id: 1 } }, item: item, link: link });
+
+  assert.equal(seen.length, 1);
+  assert.equal(seen[0][0], item, 'обёртка контроллера ставится на сам модуль ряда');
+  assert.equal(seen[0][1], descrRows[0], 'узел ряда тот же, что у таблицы «ПОДРОБНО»');
+  assert.equal(seen[0][2], link, 'Scroll колеса — у компонента карточки');
   assert.deepEqual(warnLog, []);
 });
 

@@ -1586,6 +1586,244 @@
     holder.append(block);
   }
 
+  /* Правило кромки для второго экрана карточки (фокус на ряду описания).
+
+     Первый экран закрыт правкой 657ffa8: шапка карточки занимает его
+     целиком. Во втором экране Lampa ставит ряд описания к верху области
+     (6.5em: шапка Lampa 4em + паддинг прокрутки 2.5em) и дальше НЕ
+     прокручивает: внутри ряда контроллер full_descr делает только
+     Navigator.move (vendor/lampa/app.min.js:38152-38181). А ряд описания
+     выше экрана: описание, счётчики разделов Lampa, «ПОДРОБНО», блок отзывов
+     (подсказка про ключ или карточки) и «Смотреть по порядку». Замер на
+     стенде 960×540@2, плоский вид, «крупнее» (кегль 11.9758): у сериала
+     «Одни из нас» (100088) ряд 77.8…602.4, и кромка режет кнопку «Скрыть»
+     (526.2…541.2); у фильма «Империя наносит ответный удар» (1891) пульт
+     уводил фокус на карточку франшизы 651.6…878.5 — целиком за кромкой.
+     Что оказывалось под кромкой, решал случай: у того же фильма в размере
+     «обычный» «Скрыть» кончалась на 539.8 при кромке 540.
+
+     Клампом это не лечится: блоки ряда разной высоты, число их разное, и
+     вместе они выше экрана при любом размере интерфейса. Поэтому ряд
+     показывается СТРАНИЦАМИ: основная (описание, счётчики, «ПОДРОБНО») и по
+     странице на блок отзывов и на «Смотреть по порядку» — на те, где есть
+     куда поставить фокус. Видна одна страница — та, где фокус. Ряд при
+     этом занимает ровно остаток экрана (min-height в src/30_css.js, сторож
+     в test/css.test.mjs), так что следующий ряд Lampa кромкой не режется и
+     снизу не выглядывает — то же решение, что у шапки карточки и у главной.
+
+     Остаётся одно допущение: каждая страница по отдельности ниже экрана.
+     Оно держится на запасе, а не на совпадении: описание поджато клампом в
+     девять строк, карточки отзывов и франшизы — фиксированной высоты в em.
+     Замер на стенде 960×540@2, 3 размера × обычный/плоский вид × фильм
+     1891/сериал 100088: самая длинная страница кончается на 373.4 (основная,
+     «крупнее», плоский вид, фильм — «ПОДРОБНО» переносится под описание),
+     до кромки 166 px. Ряд карточек отзывов (с ключом Кинопоиска) живьём не
+     проверен — ключа на стенде нет.
+
+     Переход между страницами — там, где Navigator дальше идти не может: ↓ с
+     нижнего края страницы открывает следующую, ↑ с верхнего — предыдущую; с
+     первой и последней страницы пульт уходит из ряда, как и раньше. Точка
+     вмешательства та же, что у ↑ с дальней серии (bindStart выше): объект
+     контроллера, который модуль ряда отдаёт событием 'controller'
+     (app.min.js:38179-38180). Колесо мыши листает те же страницы: у Lampa
+     колесо над карточкой шагает рядами (app.min.js:35201-35203), и без этого
+     мышью страниц было бы не открыть.
+
+     Страница следует за фокусом, а не наоборот: capture-слушатель фокуса на
+     .full-descr показывает страницу того узла, который фокус получил. Так
+     любой путь возврата — модал отзыва, Select счётчиков, «Скрыть»,
+     переключатель режима отзывов, Controller.toggle с запасным первым узлом —
+     приводит к правильной странице без отдельной обработки. */
+  var DESCR_PAGES = ['lumen-reviews', 'lumen-fr'];
+  var DESCR_SUB = 'lumen-descr-row--sub';
+  var DESCR_ON = 'lumen-descr-page--on';
+
+  function isDescrPage(el) {
+    if (!el || !el.classList) return false;
+    for (var i = 0; i < DESCR_PAGES.length; i++) if (el.classList.contains(DESCR_PAGES[i])) return true;
+    return false;
+  }
+
+  function descrHolder(rowEl) {
+    var list = rowEl && typeof rowEl.querySelectorAll === 'function' ? rowEl.querySelectorAll('.full-descr') : null;
+    return list && list.length ? list[0] : null;
+  }
+
+  /* Страница узла: блок-страница или null (основная); undefined — узел не
+     в этом ряду. */
+  function descrPageOf(holder, node) {
+    for (var el = node; el; el = el.parentNode) {
+      if (el === holder) return null;
+      if (el.parentNode === holder) return isDescrPage(el) ? el : null;
+    }
+    return undefined;
+  }
+
+  function descrSelectors(holder, page) {
+    var all = holder.querySelectorAll('.selector');
+    var out = [];
+    for (var i = 0; i < all.length; i++) {
+      if (all[i].classList.contains('hide')) continue;
+      if (descrPageOf(holder, all[i]) === page) out.push(all[i]);
+    }
+    return out;
+  }
+
+  function descrPages(holder) {
+    var pages = [null];
+    var kids = holder.children;
+    for (var i = 0; i < kids.length; i++) {
+      if (isDescrPage(kids[i]) && descrSelectors(holder, kids[i]).length) pages.push(kids[i]);
+    }
+    return pages;
+  }
+
+  function showDescrPage(rowEl, holder, page) {
+    var kids = holder.children;
+    for (var i = 0; i < kids.length; i++) {
+      if (!isDescrPage(kids[i])) continue;
+      if (kids[i] === page) kids[i].classList.add(DESCR_ON);
+      else kids[i].classList.remove(DESCR_ON);
+    }
+    if (page) rowEl.classList.add(DESCR_SUB);
+    else rowEl.classList.remove(DESCR_SUB);
+  }
+
+  /* Цель на новой странице — как выбрал бы Navigator, будь страница видна:
+     ближайший по вертикали узел (↓ — верхний, ↑ — нижний), при равенстве —
+     ближайший по горизонтали к узлу, с которого ушли. */
+  function descrTarget(list, dir, mid) {
+    var best = null;
+    var bestV = 0;
+    var bestH = 0;
+    for (var i = 0; i < list.length; i++) {
+      var r = list[i].getBoundingClientRect();
+      var v = dir === 'down' ? r.top : -(r.top + r.height);
+      var h = mid < r.left ? r.left - mid : (mid > r.left + r.width ? mid - r.left - r.width : 0);
+      if (!best || v < bestV - 0.5 || (Math.abs(v - bestV) <= 0.5 && h < bestH)) {
+        best = list[i];
+        bestV = v;
+        bestH = h;
+      }
+    }
+    return best;
+  }
+
+  /* Шаг страницы. from — узел под фокусом (пульт) или null (колесо: фокус
+     мыши Navigator не двигает, шагаем от видимой страницы). true — шаг
+     сделан, нажатие обработано. */
+  function stepDescrPage(rowEl, dir, from) {
+    var holder = descrHolder(rowEl);
+    var nav = window.Navigator;
+    if (!holder || !nav || typeof nav.getFocusedElement !== 'function') return false;
+    if (!window.Lampa || !Lampa.Controller || typeof Lampa.Controller.collectionFocus !== 'function') return false;
+
+    var cur = null;
+    var i;
+    if (from) {
+      cur = descrPageOf(holder, from);
+    } else {
+      for (i = 0; i < holder.children.length; i++) if (holder.children[i].classList.contains(DESCR_ON)) cur = holder.children[i];
+    }
+    if (cur === undefined) return false;
+
+    var pages = descrPages(holder);
+    var at = -1;
+    for (i = 0; i < pages.length; i++) if (pages[i] === cur) at = i;
+    if (at < 0) return false;
+    var next = pages[at + (dir === 'down' ? 1 : -1)];
+    if (next === undefined) return false;
+
+    var mid = 0;
+    if (from) {
+      var fr = from.getBoundingClientRect();
+      mid = fr.left + fr.width / 2;
+    }
+    showDescrPage(rowEl, holder, next);
+    var target = descrTarget(descrSelectors(holder, next), dir, mid);
+    if (target) {
+      Lampa.Controller.collectionFocus(target, rowEl);
+      if (nav.getFocusedElement() === target) return true;
+    }
+    showDescrPage(rowEl, holder, cur);
+    return false;
+  }
+
+  function bindDescr(item, row, link) {
+    var rowEl = row && row[0];
+    if (!rowEl || typeof rowEl.querySelectorAll !== 'function') return;
+    var holder = descrHolder(rowEl);
+
+    /* Модуль ряда помнит последний узел под фокусом (last) и возвращает
+       на него фокус, когда пульт приходит в ряд снова (Controller.toggle,
+       app.min.js:38158-38161). Но слушатель, который пишет last, Lampa
+       вешает только на свои узлы и только при создании ряда
+       (app.min.js:38074-38076) — отзывы и «Смотреть по порядку» дорисованы
+       позже. Без них ↑ со следующего ряда возвращала бы на узел скрытой
+       страницы; collectionFocus такой узел не примет (offsetParent null) и
+       уведёт на описание, в начало ряда. Здесь last пишется для любого узла
+       ряда — ровно тем же присваиванием, что у самой Lampa. */
+    if (holder && !holder.lumenPagesBound) {
+      holder.lumenPagesBound = true;
+      LC.focus.capture(holder, function (e) {
+        try {
+          var page = descrPageOf(holder, e.target);
+          if (page === undefined) return;
+          showDescrPage(rowEl, holder, page);
+          if (item && e.target && e.target.classList && e.target.classList.contains('selector')) item.last = e.target;
+        } catch (err) {
+          warn('descr page focus failed', err);
+        }
+      });
+    }
+
+    if (item && typeof item.use === 'function' && !item.lumenPagesBound) {
+      item.lumenPagesBound = true;
+      item.use({
+        onController: function (controller) {
+          if (!controller) return;
+          wrapDescrMove(controller, rowEl, 'down');
+          wrapDescrMove(controller, rowEl, 'up');
+        }
+      });
+    }
+
+    /* Колесо: у карточки Lampa один Scroll на все ряды, и обработчик колеса
+       список рядов ставит (Items.onCreate) раньше первого 'build'. Обёртка
+       одна на Scroll и листает страницы, только пока активен контроллер
+       ИМЕННО этого ряда описания (controller.link — сам модуль ряда). */
+    var scroll = link && link.scroll;
+    if (item && scroll && typeof scroll.onWheel === 'function' && !scroll.lumenPagesWheel) {
+      scroll.lumenPagesWheel = true;
+      var wheel = scroll.onWheel;
+      scroll.onWheel = function (step) {
+        try {
+          var enabled = Lampa.Controller && typeof Lampa.Controller.enabled === 'function' ? Lampa.Controller.enabled() : null;
+          if (enabled && enabled.name === 'full_descr' && enabled.controller && enabled.controller.link === item &&
+            stepDescrPage(rowEl, step > 0 ? 'down' : 'up', null)) return;
+        } catch (e) {
+          warn('descr page wheel failed', e);
+        }
+        return wheel.apply(this, arguments);
+      };
+    }
+  }
+
+  function wrapDescrMove(controller, rowEl, dir) {
+    var orig = controller[dir];
+    if (typeof orig !== 'function') return;
+    controller[dir] = function () {
+      try {
+        var nav = window.Navigator;
+        var from = nav && typeof nav.getFocusedElement === 'function' ? nav.getFocusedElement() : null;
+        if (from && typeof nav.canmove === 'function' && !nav.canmove(dir) && stepDescrPage(rowEl, dir, from)) return;
+      } catch (e) {
+        warn('descr page step failed', e);
+      }
+      return orig.apply(this, arguments);
+    };
+  }
+
   function decorate(root, data) {
     if (!root || !root.length) return;
     if (!root.hasClass('lumen-card')) return;
@@ -1736,6 +1974,7 @@
     descr: renderDescrRow,
     refreshEpisode: refreshEpisode,
     bindStart: bindStart,
+    bindDescr: bindDescr,
     refreshProgress: refreshProgress,
     scheduleProgressRefresh: scheduleProgressRefresh
   };

@@ -875,6 +875,10 @@
             /* Task 28: ряд «Смотреть по порядку» — третий сосед в том же
                .full-descr (таблица «ПОДРОБНО», отзывы, франшиза). */
             LC.franchise.render(descrRow, e.data);
+            /* Второй экран карточки страницами (разбор у bindDescr,
+               src/85_header.js): модуль ряда и Scroll карточки приходят
+               только здесь — e.item и e.link, у complite их нет. */
+            LC.header.bindDescr(e.item, descrRow, e.link);
           } else if (e.type === 'complite') {
             /* A6: данные Lampa не остаются изменёнными — снятое возвращается
                здесь же, после единственного чтения на app.min.js:38842. */
@@ -1229,7 +1233,7 @@
       warn('strip reviews failed', eRv);
     }
     try {
-      $('.lumen-descr-row').removeClass('lumen-descr-row lumen-descr-row--reviews lumen-descr-row--franchise');
+      $('.lumen-descr-row').removeClass('lumen-descr-row lumen-descr-row--reviews lumen-descr-row--franchise lumen-descr-row--sub');
     } catch (e1) {
       warn('strip descr row failed', e1);
     }
