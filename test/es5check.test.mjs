@@ -79,6 +79,7 @@ var FORBIDDEN = [
   ['.findLast(', 'arr.findLast(fn);'],
   ['.findLastIndex(', 'arr.findLastIndex(fn);'],
   ['.copyWithin(', 'arr.copyWithin(0, 1);'],
+  ['.finally(', 'p.then(a).finally(fn);'],
   ['Array.prototype.find', 'arr.find(function (x) { return x; });']
 ];
 
@@ -109,7 +110,8 @@ var ALLOWED = [
   ['Array.isArray — не в списке запрещённых', 'Array.isArray(a);'],
   ['String.prototype.trim — ES5', "' x '.trim();"],
   ['jQuery .find с селектором-строкой', "$(el).find('.a');"],
-  ['висящая запятая в объекте (валидна с ES5)', 'var o2 = { a: 1, };']
+  ['висящая запятая в объекте (валидна с ES5)', 'var o2 = { a: 1, };'],
+  ['try … finally — ES3, не метод', 'try { f(); } finally { g(); }']
 ];
 
 ALLOWED.forEach(function (item) {

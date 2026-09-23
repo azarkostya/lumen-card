@@ -48,7 +48,7 @@ var SEQ_RULES = [
   { seq: [eq('Math'), eq('.'), oneOf(['trunc', 'sign', 'log2', 'log10', 'hypot', 'cbrt'])], format: dotJoin },
   { seq: [eq('Array'), eq('.'), oneOf(['from', 'of'])], format: dotJoin },
   { seq: [eq('new'), oneOf(['Map', 'Set', 'WeakMap', 'WeakSet', 'Proxy', 'URL', 'URLSearchParams'])], format: spaceJoin },
-  { seq: [eq('.'), oneOf(['includes', 'startsWith', 'endsWith', 'repeat', 'padStart', 'padEnd', 'replaceAll', 'trimStart', 'trimEnd', 'fill', 'flat', 'flatMap', 'at', 'findIndex', 'findLast', 'findLastIndex', 'copyWithin']), eq('(')], format: dotJoin },
+  { seq: [eq('.'), oneOf(['includes', 'startsWith', 'endsWith', 'repeat', 'padStart', 'padEnd', 'replaceAll', 'trimStart', 'trimEnd', 'fill', 'flat', 'flatMap', 'at', 'findIndex', 'findLast', 'findLastIndex', 'copyWithin', 'finally']), eq('(')], format: dotJoin },
   { seq: [eq('.'), eq('find'), eq('('), eq('function')], format: dotJoin }
 ];
 
