@@ -317,10 +317,14 @@ function makeEnv(extra) {
       img: (p, s) => 'https://img/t/p/' + s + p,
       sources: {
         tmdb: {
+          /* Ревью фикс-раунда, Ф2 п.2: как настоящая Lampa — get$c ничего
+             не возвращает (vendor/lampa/app.min.js:19693-19737, экспорт
+             :20860), то есть запрос деталей отменить нечем. Прежняя заглушка
+             отдавала { clear }, и тесты парковки проходили на поведении,
+             которого у Lampa нет. */
           get(url, params, ok, err, opts) {
-            const req = { url: url, params: params, ok: ok, err: err, opts: opts, cleared: 0 };
+            const req = { url: url, params: params, ok: ok, err: err, opts: opts };
             requests.push(req);
-            return { clear() { req.cleared++; } };
           }
         }
       }
@@ -949,7 +953,7 @@ test('unmount возвращает ряды в штатную раскладку
   assert.equal(main.activity.hasClass('lumen-main'), false);
 });
 
-test('unmount: узел, класс хоста, слушатель, таймер, предзагрузка и запрос деталей снимаются', () => {
+test('unmount: узел, класс хоста, слушатель, таймер и предзагрузка снимаются, ответ деталей отсекается', () => {
   const env = makeEnv();
   const main = makeMain();
   env.hero.mount(main.activity);
@@ -959,11 +963,15 @@ test('unmount: узел, класс хоста, слушатель, таймер
   env.advance(400);
   assert.equal(env.requests.length, 1);
 
-  /* Запрос ещё летит, кадр ещё грузится — unmount обязан погасить оба. */
+  /* Запрос ещё летит, кадр ещё грузится. Предзагрузку кадра unmount гасит;
+     запрос деталей отменить нечем (Lampa get ничего не возвращает) — его
+     ответ обязан пройти мимо снятого героя без следа. */
   env.hero.unmount();
   assert.equal(env.hero.active(), false);
   assert.equal(focusListeners(main.activity).length, 0, 'слушатель фокуса снят');
-  assert.equal(env.requests[0].cleared, 1);
+  env.requests[0].ok({ runtime: 100, backdrop_path: '/late.jpg' });
+  assert.equal(env.images.length, 1, 'поздний ответ деталей завёл загрузку кадра в снятом герое');
+  assert.deepEqual(warnLog, []);
   assert.equal(env.images[0].onload, null);
   assert.equal(main.activity._children.some((c) => c.hasClass('lumen-hero')), false);
   assert.equal(main.activity.hasClass('lumen-main'), false);
@@ -1110,6 +1118,89 @@ test('возврат из карточки: оборванная сменой э
   env.hero.mount(main.activity);
   assert.equal(main.activity._children[0], node, 'узлы те же');
   assert.equal(env.requests.filter((r) => r.url === 'movie/22').length, 1, 'на возврате — детали карточки под фокусом');
+  assert.deepEqual(warnLog, []);
+});
+
+/* Ревью фикс-раунда, Ф2 п.2. Тот же сценарий, но оборван именно запрос
+   деталей: он дольше потолка ожидания логотипа (600 мс), кадр уже на экране,
+   таймер фокуса давно отработал — других следов загрузки в state нет.
+   Ушли на два уровня (карточка → другая карточка): Lampa сняла слайд
+   главной из DOM, и ответ, доехавший в это время, isMounted() отбросил бы
+   молча. Прежняя заглушка get отдавала { clear }, и state.net был не пуст —
+   у настоящей Lampa он всегда undefined, и этот путь не ловился. */
+test('Ф2 п.2: оборванный запрос деталей на возврате доводится заново, а не оставляет скелетон', () => {
+  const env = makeEnv();
+  const main = makeMain();
+  const card = makeMain();
+  env.hero.mount(main.activity);
+  const node = main.activity._children[0];
+  focusOn(main, main.card1);
+  env.advance(400);
+  env.images[0].onload();
+  /* Подмена текста (180 мс), за ней потолок ожидания логотипа (600 мс) —
+     оба отработали: деталей всё ещё нет. */
+  env.advance(200);
+  env.advance(700);
+  /* Живы только отсчёты акцента (3 с) и автотрейлера (8 с) от фокуса —
+     park гасит их сам, и stale они не ставят. Ни таймера фокуса, ни
+     предзагрузки кадра, ни потолка логотипа: в пути только детали. */
+  assert.deepEqual(env.timers.filter((t) => !t.done).map((t) => t.ms).sort(), [3000, 8000], 'предусловие: кроме запроса деталей, в пути ничего');
+  assert.equal(node.hasClass('lumen-hero--pending'), true, 'предусловие: деталей ещё нет');
+  assert.equal(env.requests.filter((r) => r.url === 'movie/11').length, 1);
+
+  env.hero.detach(card.activity);
+  globalThis.document.body.contains = () => false;
+  env.requests[0].ok({ id: 11, runtime: 100, genres: [{ name: 'драма' }] });
+  globalThis.document.body.contains = () => true;
+
+  env.hero.mount(main.activity);
+  const again = env.requests.filter((r) => r.url === 'movie/11');
+  assert.equal(again.length, 2, 'на возврате детали не запрошены заново — скелетон описания так и горит');
+  again[1].ok({ id: 11, runtime: 100, genres: [{ name: 'драма' }] });
+  env.advance(400);
+  assert.equal(node.hasClass('lumen-hero--pending'), false, 'скелетон не снят');
+  assert.equal(node.find('.lumen-hero__meta').text(), '2024 · 1:40 · драма · ★ 7.2');
+  assert.deepEqual(warnLog, []);
+});
+
+/* Ф2 п.2, первое следствие: ушли на один уровень — слайд главной в DOM, и
+   ответ деталей, доехавший под карточку, прежде отрабатывал в скрытом
+   герое: перерисовка, атмосфера (канвас после уборки LC.fx.sweep()), догрузка
+   кадра w1280. Теперь он только помечает героя, а показ — на возврате. */
+test('Ф2 п.2: ответ деталей, доехавший в запаркованного героя, в скрытом экране не отрабатывает', () => {
+  const mounts = [];
+  const env = makeEnv({
+    themes: {
+      forMovie: () => ({ id: 'snow', preset: 'snow' }),
+      particleColor: () => '#FFFFFF',
+      classNames: () => 'lumen-theme--snow'
+    },
+    fx: { mount: (host, preset, opts) => { mounts.push(opts); return { destroy() {} }; }, unmount() {} }
+  });
+  const main = makeMain();
+  const card = makeMain();
+  /* Кадра в данных ряда нет — его даст ответ деталей (второй loadFrame). */
+  main.card1.card_data = { id: 11, title: 'Первый', poster_path: '/p1.jpg', release_date: '2024-01-01', vote_average: 7.2 };
+  env.hero.mount(main.activity);
+  const node = main.activity._children[0];
+  focusOn(main, main.card1);
+  env.advance(400);
+  env.images[0].onload();
+  env.advance(200);
+  env.advance(700);
+  const images = env.images.length;
+
+  env.hero.detach(card.activity);
+  env.requests[0].ok({ id: 11, runtime: 100, genres: [{ name: 'драма' }], backdrop_path: '/b1.jpg' });
+  assert.equal(mounts.length, 0, 'под карточкой смонтирован слой атмосферы');
+  assert.equal(env.images.length, images, 'под карточкой герой тянет кадр из деталей');
+  assert.equal(node.hasClass('lumen-hero--pending'), true, 'скрытый герой перерисован');
+
+  env.hero.mount(main.activity);
+  const again = env.requests.filter((r) => r.url === 'movie/11');
+  assert.equal(again.length, 2, 'на возврате — детали заново (из кэша Lampa)');
+  again[1].ok({ id: 11, runtime: 100, genres: [{ name: 'драма' }], backdrop_path: '/b1.jpg' });
+  assert.equal(mounts.length, 1, 'на возврате атмосфера поставлена');
   assert.deepEqual(warnLog, []);
 });
 

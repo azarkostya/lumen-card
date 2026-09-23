@@ -803,9 +803,14 @@
       state[name] = null;
     }
 
-    /* Гасит предзагрузку кадра и запрос деталей текущего показа. Обработчики
-       снимаются (onload/onerror = null) — сеть их больше не вызовет; gen
-       остаётся запасной сетью на случай, если колбэк уже в очереди. */
+    /* Гасит предзагрузку кадра текущего показа. Обработчики снимаются
+       (onload/onerror = null) — сеть их больше не вызовет; gen остаётся
+       запасной сетью на случай, если колбэк уже в очереди.
+       Запрос деталей отменить нечем: Lampa.Api.sources.tmdb.get ничего не
+       возвращает (get$c, vendor/lampa/app.min.js:19693-19737; экспорт —
+       :20860). Его ответ отсекают сторожа в колбэках loadDetails: gen (показ
+       сменился, герой снят) и state.parked (главная ушла под другой экран).
+       Здесь только снимается отметка «детали в пути». */
     function cancelPending() {
       if (!state) return;
       stopTimer('loadTimer');
@@ -824,10 +829,7 @@
         state.loader.onerror = null;
         state.loader = null;
       }
-      if (state.net) {
-        try { if (state.net.clear) state.net.clear(); } catch (e) {}
-        state.net = null;
-      }
+      state.detailsWait = false;
     }
 
     /* ------------------------------------------------------------------ */
@@ -1721,12 +1723,27 @@
       try {
         if (!window.Lampa || !Lampa.Api || !Lampa.Api.sources || !Lampa.Api.sources.tmdb) return;
         var req = detailsRequest(mediaOf(card), card.id, langCode());
-        state.net = Lampa.Api.sources.tmdb.get(
+        /* Ревью фикс-раунда, Ф2 п.2: get ничего не возвращает (см.
+           cancelPending), поэтому «детали в пути» — своя отметка, а не
+           дескриптор запроса. Её читает park: оборванная загрузка на
+           возврате доводится заново (state.stale). */
+        state.detailsWait = true;
+        Lampa.Api.sources.tmdb.get(
           req.url,
           req.params,
           function (json) {
-            if (gen !== captured || !state || !isMounted()) return;
-            state.net = null;
+            if (gen !== captured || !state) return;
+            state.detailsWait = false;
+            /* Ответ доехал в запаркованного героя: главная под другим
+               экраном. Отрабатывать его здесь — значит поставить канвас
+               атмосферы после уборки LC.fx.sweep() и тянуть кадр w1280,
+               пока строится карточка; а если слайд главной Lampa уже снял
+               из DOM (уход на два уровня, stop() у Activity), isMounted()
+               ниже отбросил бы ответ молча, и скелетон описания горел бы
+               на возврате. Поэтому — только пометка: resume покажет
+               карточку заново, детали придут из кэша Lampa (life). */
+            if (state.parked) { state.stale = true; return; }
+            if (!isMounted()) return;
             state.details = json || null;
             var model = heroModel(card, state.details, words());
             /* Пустой ответ — тот же исход, что и ошибка: ждать больше нечего,
@@ -1744,8 +1761,10 @@
             startSlides(model, captured);
           },
           function () {
-            if (gen !== captured || !state || !isMounted()) return;
-            state.net = null;
+            if (gen !== captured || !state) return;
+            state.detailsWait = false;
+            if (state.parked) { state.stale = true; return; }
+            if (!isMounted()) return;
             /* Деталей не будет — снимаем скелетон, оставляя то, что дала
                карточка ряда (заголовок, год, краткое описание). Флаг гасим в
                самой модели, а не классом на узле: отложенная подмена текста
@@ -2327,7 +2346,9 @@
              (writeTitle). */
           titleTimer: null,
           titleForced: false,
-          net: null,
+          /* Запрос деталей в пути (loadDetails). Флаг, а не дескриптор:
+             Lampa.Api.sources.tmdb.get ничего не возвращает. */
+          detailsWait: false,
           shownId: null,
           details: null,
           model: null,
@@ -2398,7 +2419,8 @@
     }
 
     /* Снять героя целиком: узел, класс корня, слушатель фокуса, все таймеры,
-       предзагрузка кадра и незавершённый запрос деталей. Идемпотентна. */
+       предзагрузка кадра. Запрос деталей отменить нечем (см. cancelPending) —
+       его ответ отсекают state = null и gen++ ниже. Идемпотентна. */
     function unmount() {
       if (!state) return;
       /* Task 28: ролик снимается ПЕРВЫМ — пока state ещё жив: его плеер,
@@ -2449,7 +2471,6 @@
         s.bigLoader.onload = null;
         s.bigLoader.onerror = null;
       }
-      try { if (s.net && s.net.clear) s.net.clear(); } catch (eN) {}
       /* Task 21: слой частиц снимается ДО удаления узла героя — свой
          кадровый цикл движок держит, пока смонтирован хоть один слой
          (src/52_fx.js). Самопроверка по выпавшему канвасу сняла бы его и
@@ -2495,12 +2516,18 @@
 
        Что останавливается:
        - ролик (cancelTrailer) — он играл бы за чужим экраном;
-       - отложенная смена героя, догрузка кадра и деталей прошлого фокуса,
-         ожидание логотипа (cancelPending и таймер фокуса) — на слабом ТВ
-         это декодирование w1280 в момент, когда строится карточка; если
-         что-то из этого было в пути, state.stale велит resume показать
-         карточку заново (кадр уже на экране повторно не грузится:
-         loadFrame выходит на том же адресе);
+       - отложенная смена героя, догрузка кадра, ожидание логотипа
+         (cancelPending и таймер фокуса) — на слабом ТВ это декодирование
+         w1280 в момент, когда строится карточка;
+       - запрос деталей НЕ останавливается — отменить его нечем
+         (Lampa.Api.sources.tmdb.get ничего не возвращает, см.
+         cancelPending). Его ответ, доехавший в запаркованного героя,
+         отсекает сторож state.parked в колбэках loadDetails и лишь ставит
+         state.stale;
+       если что-то из этого было в пути (или ответ деталей доехал уже во
+       время парковки), state.stale велит resume показать карточку заново
+       (кадр уже на экране повторно не грузится: loadFrame выходит на том же
+       адресе);
        - акцент и его переход (как в unmount: LC.accent.stopTween — при
          открытии карточки его никто другой не остановит), крупный постер
          перехода;
@@ -2519,7 +2546,7 @@
        грузит его заново. */
     function park() {
       if (!state || state.parked) return;
-      if (state.timer || state.net || state.loader || state.logoLoader || state.swapTimer || state.loadTimer || state.titleTimer) {
+      if (state.timer || state.detailsWait || state.loader || state.logoLoader || state.swapTimer || state.loadTimer || state.titleTimer) {
         state.stale = true;
       }
       state.parked = true;

@@ -13198,6 +13198,11 @@ state[name] = null;
 
 
 
+
+
+
+
+
 function cancelPending() {
 if (!state) return;
 stopTimer('loadTimer');
@@ -13216,10 +13221,7 @@ state.loader.onload = null;
 state.loader.onerror = null;
 state.loader = null;
 }
-if (state.net) {
-try { if (state.net.clear) state.net.clear(); } catch (e) {}
-state.net = null;
-}
+state.detailsWait = false;
 }
 
 
@@ -14113,12 +14115,27 @@ function loadDetails(card, captured) {
 try {
 if (!window.Lampa || !Lampa.Api || !Lampa.Api.sources || !Lampa.Api.sources.tmdb) return;
 var req = detailsRequest(mediaOf(card), card.id, langCode());
-state.net = Lampa.Api.sources.tmdb.get(
+
+
+
+
+state.detailsWait = true;
+Lampa.Api.sources.tmdb.get(
 req.url,
 req.params,
 function (json) {
-if (gen !== captured || !state || !isMounted()) return;
-state.net = null;
+if (gen !== captured || !state) return;
+state.detailsWait = false;
+
+
+
+
+
+
+
+
+if (state.parked) { state.stale = true; return; }
+if (!isMounted()) return;
 state.details = json || null;
 var model = heroModel(card, state.details, words());
 
@@ -14136,8 +14153,10 @@ if (!state.frameUrl && model.backdrop) loadFrame(model, captured);
 startSlides(model, captured);
 },
 function () {
-if (gen !== captured || !state || !isMounted()) return;
-state.net = null;
+if (gen !== captured || !state) return;
+state.detailsWait = false;
+if (state.parked) { state.stale = true; return; }
+if (!isMounted()) return;
 
 
 
@@ -14719,7 +14738,9 @@ logoLoader: null,
 
 titleTimer: null,
 titleForced: false,
-net: null,
+
+
+detailsWait: false,
 shownId: null,
 details: null,
 model: null,
@@ -14791,6 +14812,7 @@ warn('hero: mountCurrent failed', e);
 
 
 
+
 function unmount() {
 if (!state) return;
 
@@ -14841,7 +14863,6 @@ if (s.bigLoader) {
 s.bigLoader.onload = null;
 s.bigLoader.onerror = null;
 }
-try { if (s.net && s.net.clear) s.net.clear(); } catch (eN) {}
 
 
 
@@ -14909,9 +14930,15 @@ return false;
 
 
 
+
+
+
+
+
+
 function park() {
 if (!state || state.parked) return;
-if (state.timer || state.net || state.loader || state.logoLoader || state.swapTimer || state.loadTimer || state.titleTimer) {
+if (state.timer || state.detailsWait || state.loader || state.logoLoader || state.swapTimer || state.loadTimer || state.titleTimer) {
 state.stale = true;
 }
 state.parked = true;
