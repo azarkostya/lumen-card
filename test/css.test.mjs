@@ -729,18 +729,29 @@ test('buildCss: блок отзывов занимает всю ширину р�
 /* Ревью Task 9: обрезка по строкам, а не по пикселям — max-height резал
    последнюю строку пополам и без многоточия (Task 5d такую обрезку снимал
    намеренно). Маска низа возвращается ТОЛЬКО когда ряд отзывов нарисован. */
-test('buildCss: с рядом отзывов описание клампится восемью строками и получает мягкую маску низа', () => {
+test('buildCss: описание клампится девятью строками, а ряд отзывов добавляет мягкую маску низа', () => {
   const decl = findDecl(css, (sel) => sel === '.lumen-descr-row.lumen-descr-row--reviews .full-descr__text');
   assert.ok(decl, 'правило обрезки описания при отзывах не найдено');
-  assert.ok(decl.indexOf('-webkit-line-clamp:8') !== -1, 'ожидался кламп на 8 строк');
-  assert.ok(decl.indexOf('display:-webkit-box') !== -1 && decl.indexOf('-webkit-box-orient:vertical') !== -1, 'без этих двух свойств кламп не работает');
-  assert.ok(/max-height\s*:\s*70vh/.test(decl), 'страховка для движков без клампа');
   assert.ok(/mask-image\s*:\s*linear-gradient/.test(decl), 'мягкий низ вместо резаной строки');
   assert.ok(decl.indexOf('-webkit-mask-image') !== -1, 'нужна и префиксная запись — на движках ТВ работает она');
 
+  /* Правка 2026-09-23 (правило кромки): сам кламп переехал в БАЗОВОЕ правило
+     описания — кромка резала последнюю строку и в ряду без отзывов тоже
+     (замер на стенде 960×540@2: блок 339.2…572.6 при кромке 540). Здесь
+     осталась только мягкая маска низа. */
   const base = findDecl(css, (sel) => sel === '.lumen-descr-row .full-descr__text');
+  assert.ok(base.indexOf('-webkit-line-clamp:9') !== -1, 'ожидался кламп на 9 строк у всякого описания');
+  assert.ok(base.indexOf('display:-webkit-box') !== -1 && base.indexOf('-webkit-box-orient:vertical') !== -1, 'без этих двух свойств кламп не работает');
   assert.ok(/max-height\s*:\s*70vh/.test(base), 'базовый предел Task 5d не тронут');
   assert.ok(base.indexOf('-webkit-mask-image:none') !== -1, 'без отзывов описание по-прежнему не выцветает');
+  assert.equal(decl.indexOf('-webkit-line-clamp'), -1, 'кламп не должен дублироваться в ветке с отзывами');
+  /* Правка 2026-09-23: нижний отступ плашки — прозрачная РАМКА, а не
+     padding-bottom. overflow:hidden режет по padding-box, и в нижний паддинг
+     просачивалась строка, следующая за клампом (замер: 8.9 px читаемого
+     текста под многоточием). Рамка лежит снаружи padding-box, и обрезка
+     проходит ровно по последней строке. */
+  assert.ok(/border-bottom:\.62em solid transparent/.test(base), 'нижний отступ описания обязан быть рамкой: ' + base);
+  assert.ok(/padding:\.62em \.83em 0/.test(base), 'padding-bottom обязан быть нулевым — иначе в него просочится строка: ' + base);
 });
 
 test('buildCss: карточка отзыва 480 px шириной (21.04em), flex, не сжимается', () => {
@@ -977,14 +988,76 @@ test('Task 59: правил описания в шапке в CSS нет — б�
 /* Фикс-раунд Task 59: при нарисованных отзывах описание поджато восемью
    строками, а прокрутки внутри ряда у Lampa нет — значит подсказка про
    раскрытие обязана быть видна ровно в этом состоянии и нигде больше. */
-test('Фикс Task 59: подсказка про полный текст видна только там, где описание поджато', () => {
+test('Фикс Task 59: подсказка про полный текст видна там, где описание поджато', () => {
+  /* Правка 2026-09-23 (правило кромки): описание клампится всегда, поэтому и
+     подсказка стоит в базовом правиле. Отдельной ветки для отзывов больше
+     нет — она означала бы, что в ряду без отзывов про обрезанный хвост
+     человеку сказать нечем. */
   const base = findDecl(css, (sel) => sel === '.lumen-descr-row .lumen-descr-more');
-  assert.ok(base && /display\s*:\s*none/.test(base), 'в ряду без отзывов подсказки быть не должно');
-  const withReviews = findDecl(css, (sel) => sel === '.lumen-descr-row.lumen-descr-row--reviews .lumen-descr-more');
-  assert.ok(withReviews && /display\s*:\s*block/.test(withReviews), 'при отзывах подсказка обязана показываться');
-  const clamp = findDecl(css, (sel) => sel === '.lumen-descr-row.lumen-descr-row--reviews .full-descr__text');
-  assert.ok(clamp && clamp.indexOf('-webkit-line-clamp:8') !== -1,
+  assert.ok(base && /display\s*:\s*block/.test(base), 'подсказка обязана показываться у всякого описания');
+  assert.equal(findDecl(css, (sel) => sel === '.lumen-descr-row.lumen-descr-row--reviews .lumen-descr-more'), null,
+    'ветка подсказки для отзывов больше не нужна — базовая её покрывает');
+  const clamp = findDecl(css, (sel) => sel === '.lumen-descr-row .full-descr__text');
+  assert.ok(clamp && clamp.indexOf('-webkit-line-clamp:9') !== -1,
     'подсказка привязана к тому же состоянию, что и обрезка текста');
+});
+
+/* Правка 2026-09-23 (разбор композиции, пп.4.3 и 6): шаг ленты людей
+   фиксирован так, чтобы правая кромка экрана приходилась на ПОРТРЕТ
+   карточки, а не на имя. Тест считает геометрию ленты по тем же числам
+   Lampa, что и правило, и требует, чтобы кромка попала в портрет при всех
+   трёх размерах интерфейса. */
+test('правка 2026-09-23: правая кромка приходится на портрет, а не на имя актёра', () => {
+  const W = 960;
+  /* Из vendor/lampa/css/app.css, сверено построчно: отступ ленты
+     (.scroll--horizontal .scroll__content, 2795-2797), зазор между
+     карточками (.mapping--line > * + *, 14603-14605), кегль карточки и
+     портрет (.full-person / .full-person__photo, 4650-4697). */
+  const ZOOM = 1.1;
+  const LEFT = 1.5;
+  const GAP = 1 * ZOOM;
+  const PHOTO = 7 * ZOOM;
+  for (const iface of ['small', 'normal', 'bigger']) {
+    const built = withStorage({ interface_size: iface }, (LC) => LC.buildCss());
+    const rule = findDecl(built, (sel) => sel === 'body .items-line .full-person');
+    assert.ok(rule, iface + ': правила ширины карточки человека нет');
+    /* Ширина задана в кегле самой карточки — переводим в базовые em. */
+    const widthEm = parseFloat(/width:([0-9.]+)em/.exec(rule)[1]) * ZOOM;
+    const EM = W / 84.17 * LAMPA_SIZES[iface];
+    const step = (widthEm + GAP) * EM;
+    const left = LEFT * EM;
+    /* Сколько карточек влезает целиком и где начинается следующая. */
+    const n = Math.floor((W - left) / step);
+    const nextLeft = left + n * step;
+    assert.ok(nextLeft <= W, iface + ': за кромкой не остаётся ни одной карточки — подглядывать нечем');
+    assert.ok(W <= nextLeft + PHOTO * EM,
+      iface + ': кромка ' + W + ' приходится не на портрет (он ' + nextLeft.toFixed(1) +
+      '…' + (nextLeft + PHOTO * EM).toFixed(1) + '), а значит на текст');
+    /* И сама карточка не должна выродиться: имени нужно место. */
+    assert.ok(widthEm > PHOTO + GAP + 6, iface + ': карточка ' + widthEm.toFixed(2) + 'em — имени не останется места');
+  }
+
+  /* Имя и роль обрезаются по СВОЕМУ правилу — многоточием, а не кромкой. */
+  const name = findDecl(css, (sel) => sel === 'body .items-line .full-person__name' ||
+    sel === 'body .items-line .full-person__role');
+  assert.ok(name && /text-overflow:ellipsis/.test(name), 'имя обязано обрезаться многоточием: ' + name);
+  assert.ok(/white-space:nowrap/.test(name), 'без nowrap многоточия не будет: ' + name);
+  const body = findDecl(css, (sel) => sel === 'body .items-line .full-person__body');
+  assert.ok(body && /min-width:0/.test(body), 'без min-width:0 flex-элемент не даст себя сжать: ' + body);
+});
+
+/* Правка 2026-09-23 (правило кромки), сериал: между карточкой и описанием
+   стоит ряд серий, описание начинается на 100 CSS px ниже, и девять строк
+   до кромки не доходят. Замеры и разбор размена — у самого правила. */
+test('правка 2026-09-23: у сериала описание поджато сильнее — ряд серий выше него', () => {
+  const serial = findDecl(css, (sel) => sel === '.lumen-card--serial ~ .lumen-descr-row .full-descr__text');
+  assert.ok(serial, 'правила описания для сериала нет');
+  assert.ok(serial.indexOf('-webkit-line-clamp:4') !== -1, 'у сериала ожидался кламп на 4 строки: ' + serial);
+  /* Правило обязано стоять ПОСЛЕ базового: специфичность у них разная, но
+     полагаться на неё, когда числа в одном свойстве, — лишний риск. */
+  const base = css.indexOf('.lumen-descr-row .full-descr__text{');
+  const own = css.indexOf('.lumen-card--serial ~ .lumen-descr-row .full-descr__text{');
+  assert.ok(base !== -1 && own > base, 'правило сериала обязано идти после базового');
 });
 
 test('Фикс Task 59: у окна полного описания свой корень и кегль текста описания', () => {
@@ -2208,11 +2281,29 @@ function ruleBodiesWithMedia(cssText) {
    было неправдой — max-width жил в таблице с самого начала. */
 function mediaApplies(media, screenW, screenH) {
   if (!media) return true;
-  const ratio = /\(min-aspect-ratio:(\d+)\/(\d+)\)/.exec(media);
-  if (ratio) return screenW / screenH >= parseInt(ratio[1], 10) / parseInt(ratio[2], 10);
+  /* Правка 2026-09-23 (правило кромки): у правила зазора между рядами
+     условий ДВА — интервал отношений сторон. Разбираем оба и требуем, чтобы
+     подошли все: «первое совпавшее» здесь дало бы правилу действовать за
+     верхней границей интервала, и модель посчитала бы зазор расчётным там,
+     где браузер оставит штатный. */
+  let known = false;
+  const min = /\(min-aspect-ratio:(\d+)\/(\d+)\)/.exec(media);
+  if (min) {
+    known = true;
+    if (!(screenW / screenH >= parseInt(min[1], 10) / parseInt(min[2], 10))) return false;
+  }
+  const max = /\(max-aspect-ratio:(\d+)\/(\d+)\)/.exec(media);
+  if (max) {
+    known = true;
+    if (!(screenW / screenH <= parseInt(max[1], 10) / parseInt(max[2], 10))) return false;
+  }
   const width = /\(max-width:(\d+)px\)/.exec(media);
-  if (width) return screenW <= parseInt(width[1], 10);
-  assert.fail('незнакомое условие медиазапроса в раскладке: ' + media);
+  if (width) {
+    known = true;
+    if (!(screenW <= parseInt(width[1], 10))) return false;
+  }
+  if (!known) assert.fail('незнакомое условие медиазапроса в раскладке: ' + media);
+  return true;
 }
 
 /* Компаунд селектора — набор классов, которые узел обязан иметь, и набор,
@@ -2488,8 +2579,21 @@ function rowLayout(built, screenW, screenH, opts) {
   const focusShift = parseFloat(/[^-]transform:translateY\(([0-9.]+)em\)/.exec(focusRule)[1]) * ageFont * CARD_EM;
   const tail = viewGap + cardTitleH + ageGap + ageH + focusShift;
 
+  /* Правка 2026-09-23 (правило кромки): зазор между рядами берётся
+     КАСКАДОМ по фактическому экрану — внутри интервала отношений сторон,
+     где заголовок следующего ряда попадал на кромку, он подменяется
+     расчётным (src/30_css.js, правило .lumen-main .items-line). Высота
+     шапки того ряда — та же, что у первого. */
+  const rowGap = lengthPx(cascade(matchingRules(built, ['lumen-main'], ['items-line'], screenW, screenH), 'padding-bottom').value, EM, VH);
+  const rowBottomUp = posterBottomUp + tail - focusShift + rowGap;
+
   return {
     rowTopUp: rowTopUp,
+    rowGap: rowGap,
+    /* Низ ряда в потоке и низ шапки СЛЕДУЮЩЕГО ряда — из них и считается,
+       режет ли его кромка экрана. */
+    rowBottomUp: rowBottomUp,
+    nextHeadBottomUp: rowBottomUp + headH,
     cardW: cardW / CARD_EM,
     /* Низ подписи В ПОТОКЕ — без сдвига фокуса: transform раскладку не
        меняет, и следующий ряд встаёт именно от этой линии. */
@@ -2619,6 +2723,77 @@ test('Task 51: подпись первого ряда помещается в э
    Эффективный масштаб читается из базового правила ширины карточки:
    buildCss пишет туда round2(9.52 × rowScale), то есть деление на ширину
    седьмой колонки возвращает сам масштаб с точностью округления. */
+/* Правка 2026-09-23 (разбор композиции, п.6): кромка экрана имеет право
+   резать изображение и не имеет права резать текст. На главной резался
+   заголовок СЛЕДУЮЩЕГО ряда — от него была видна верхушка глифов.
+
+   Тест меряет ровно это по всем 72 клеткам: заголовок следующего ряда
+   обязан либо помещаться целиком, либо начинаться за кромкой. До правки
+   17 клеток из 72 давали срез (перебор той же модели: низ ряда от 405 до
+   543 CSS px при кромке 540, и в этой полосе шириной в одну строку он и
+   попадал на заголовок). */
+test('правка 2026-09-23: кромка не режет заголовок следующего ряда ни в одной клетке', () => {
+  const W = 960;
+  const H = 540;
+  const cut = [];
+  for (const iface of ['small', 'normal', 'bigger']) {
+    for (const size of ['large', 'medium', 'compact']) {
+      for (const scale of ['small', 'normal', 'large', 'huge']) {
+        for (const more of [true, false]) {
+          const built = withStorage(
+            { lumen_scale: scale, lumen_hero_size: size, interface_size: iface }, (LC) => LC.buildCss());
+          const got = rowLayout(built, W, H, { more: more, interface: iface });
+          const label = iface + '/' + size + '/' + scale + (more ? '/more' : '');
+          /* Зазор не имеет права стать МЕНЬШЕ штатного: расчётный вариант
+             включается только там, где он заведомо больше (вывод интервала
+             — в комментарии к правилу). */
+          assert.ok(got.rowGap >= 1.4 * (W / 84.17 * LAMPA_SIZES[iface]) - 0.01,
+            label + ': зазор между рядами ' + got.rowGap.toFixed(1) + ' px меньше штатных 1.4em');
+          /* Допуск полпикселя: зазор считается в em с округлением до
+             сотых (round2), и на краю это даёт десятые доли пикселя. */
+          if (got.rowBottomUp < H - 0.5 && got.nextHeadBottomUp > H + 0.5) {
+            cut.push(label + ': низ ряда ' + got.rowBottomUp.toFixed(1) +
+              ', низ заголовка следующего ' + got.nextHeadBottomUp.toFixed(1) + ' при кромке ' + H);
+          }
+        }
+      }
+    }
+  }
+  assert.deepEqual(cut, [], 'кромка режет заголовок следующего ряда');
+});
+
+/* Та же правка, но со стороны цены: расчётный зазор пишется НЕ везде, а
+   только в интервале отношений сторон, где срез возможен. Мёртвых правил в
+   таблице мы не держим, а лишний зазор в клетках, где резать нечего, — это
+   отданная высота. */
+test('правка 2026-09-23: расчётный зазор рядов пишется только там, где нужен', () => {
+  const W = 960;
+  const H = 540;
+  const built = withStorage({ lumen_scale: 'normal', lumen_hero_size: 'large', interface_size: 'normal' },
+    (LC) => LC.buildCss());
+  const rule = built.split(String.fromCharCode(10)).find((l) => l.indexOf('max-aspect-ratio') !== -1 && l.indexOf('.lumen-main .items-line{padding-bottom') !== -1);
+  assert.ok(rule, 'правила кромки для штатной раскладки нет');
+  const lo = parseInt(/min-aspect-ratio:(\d+)\/100/.exec(rule)[1], 10);
+  const hi = parseInt(/max-aspect-ratio:(\d+)\/100/.exec(rule)[1], 10);
+  assert.ok(lo < 178 && hi > 178, 'телевизор 16:9 обязан попадать в интервал: ' + lo + '…' + hi);
+  /* Замер на стенде 960×540@2 (2026-09-23, после getAnimations().finish()):
+     низ подписи первого ряда в потоке 520.5 CSS px, прежний зазор 15.97
+     давал низ ряда 536.5 и заголовок следующего ряда на 539.8…553.8.
+     Расчётный зазор ставит низ ряда БЕЗ кнопки «Ещё» ровно на кромку, а ряд
+     С кнопкой — на её высоту ниже (зазор один на все ряды, а кнопка есть не
+     у каждого: считать надо по короткому, разбор — у самого правила). */
+  const plain = rowLayout(built, W, H, { more: false, interface: 'normal' });
+  assert.ok(Math.abs(plain.rowBottomUp - H) < 1,
+    'ряд без кнопки «Ещё» кончается на ' + plain.rowBottomUp.toFixed(1) + ' вместо кромки ' + H);
+  const more = rowLayout(built, W, H, { more: true, interface: 'normal' });
+  assert.ok(more.rowBottomUp >= H,
+    'ряд с кнопкой «Ещё» кончается на ' + more.rowBottomUp.toFixed(1) + ' — выше кромки ' + H);
+  assert.ok(Math.abs(plain.rowGap - 26) < 1,
+    'зазор ' + plain.rowGap.toFixed(1) + ' вместо расчётных 26 px');
+  /* И вне интервала правила нет вовсе — узкое окно 2.5:1 сюда не попадает. */
+  assert.ok(hi < 250, 'интервал разъехался на всю шкалу: ' + lo + '…' + hi);
+});
+
 test('Фикс-раунд волны A: потолок масштаба карточки ряда режет только вниз и только по нужде', () => {
   const W = 960;
   const H = 540;
@@ -4718,8 +4893,13 @@ test('Task 63: зазор между рядами — тот, что влез в
    раскладку главной: без него ряды вылезли бы на кадр героя и за кромку
    экрана. Поэтому правило overflow здесь не появляется ни одно. */
 test('Task 63: обрезку задаёт только область рядов — контейнерам ряда overflow не трогаем', () => {
+  /* Правка 2026-09-23: проверяется КОНЕЦ селектора, а не вхождение в него.
+     Запрет касается самого контейнера ряда; у правила кромки для ленты людей
+     (body .items-line .full-person__body) overflow стоит на внутреннем узле
+     карточки, и горизонтальной прокрутке ряда он не мешает — она живёт
+     выше, на .scroll__body. */
   const ours = ruleBodies(css).filter((r) => /(^|;)overflow/.test(r.decl) &&
-    r.selectors.some((s) => /items-line|items-cards|scroll--horizontal/.test(s)));
+    r.selectors.some((s) => /(items-line|items-cards|scroll--horizontal)[\w-]*$/.test(s.trim())));
   assert.deepEqual(ours.map((r) => r.selectors.join(',')), [],
     'правило overflow на контейнере ряда — оно сломает горизонтальную прокрутку Lampa');
 
@@ -4806,7 +4986,9 @@ test('Task 63: медиазапросы таблицы — из известно
     for (const feature of cond.match(/\(([a-z-]+):/g) || []) seen.add(feature.slice(1, -1));
     assert.ok(/^@media screen and \((min-aspect-ratio|max-width)/.test(cond), 'незнакомый медиазапрос: ' + cond);
   }
-  assert.deepEqual([...seen].sort(), ['max-width', 'min-aspect-ratio'],
+  /* Правка 2026-09-23: к набору добавился max-aspect-ratio — верхняя граница
+     интервала, в котором зазор между рядами считается по кромке. */
+  assert.deepEqual([...seen].sort(), ['max-aspect-ratio', 'max-width', 'min-aspect-ratio'],
     'набор медиаусловий таблицы изменился — проверить mediaApplies в этом файле');
 });
 

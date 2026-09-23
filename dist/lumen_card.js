@@ -1122,6 +1122,22 @@ var LAMPA_MORE_EM = 1.8;
 
 
 var ROW_EDGE_AIR = 0.7;
+
+
+
+
+var ROW_GAP = 1.4;
+
+
+
+
+
+
+var PERSON_ZOOM = 1.1;
+var PERSON_LEFT = 1.5;
+var PERSON_GAP = round2(1 * PERSON_ZOOM);
+var PERSON_PEEK = round2(7 * PERSON_ZOOM / 2);
+var PERSON_TARGET = 23;
 var LAMPA_ROW_PAD = 2.5;
 var LAMPA_HEAD = 4;
 
@@ -1467,7 +1483,13 @@ return Math.round(screenEm() * (HERO_VH[key] - textBottomVh(key)) / needEm);
 
 
 
-function rowBlockEm(cardW, titleEm, gapEm, cardTitleEm, cardAgeEm) {
+
+
+
+
+
+
+function rowBlockEm(cardW, titleEm, gapEm, cardTitleEm, cardAgeEm, flow) {
 var k = 1;
 try {
 if (LC.util && typeof LC.util.lampaCardK === 'function') k = LC.util.lampaCardK() || 1;
@@ -1480,7 +1502,7 @@ CARD_VIEW_GAP + cardTitleEm * CARD_TITLE_LH + CARD_AGE_GAP * cardAgeEm + cardAge
 
 
 
-CARD_FOCUS_SHIFT * cardAgeEm);
+(flow ? 0 : CARD_FOCUS_SHIFT * cardAgeEm));
 }
 
 
@@ -2353,7 +2375,42 @@ css.push('.lumen-descr-row .full-descr__left{-webkit-box-flex:1;-webkit-flex:1 1
 
 
 
-css.push('.lumen-descr-row .full-descr__text{-webkit-box-sizing:border-box;box-sizing:border-box;font-family:' + FB + ';font-weight:500;font-size:1.27em;line-height:1.24;color:' + P.text + ';max-width:35.56em;width:auto;max-height:70vh;padding:.62em .83em;border-radius:.48em;background:' + P.plate + ';-webkit-mask-image:none;mask-image:none}');
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+css.push('.lumen-descr-row .full-descr__text{-webkit-box-sizing:border-box;box-sizing:border-box;font-family:' + FB + ';font-weight:500;font-size:1.27em;line-height:1.24;color:' + P.text + ';max-width:35.56em;width:auto;display:-webkit-box;-webkit-line-clamp:9;-webkit-box-orient:vertical;overflow:hidden;max-height:70vh;padding:.62em .83em 0;border-bottom:.62em solid transparent;border-radius:.48em;background:' + P.plate + ';-webkit-mask-image:none;mask-image:none}');
 css.push('.lumen-descr-row .full-descr__details{display:none}');
 
 
@@ -2427,15 +2484,80 @@ css.push('.lumen-descr-row .lumen-reviews{width:100%;-webkit-flex-basis:100%;fle
 
 
 
-css.push('.lumen-descr-row.lumen-descr-row--reviews .full-descr__text{display:-webkit-box;-webkit-line-clamp:8;-webkit-box-orient:vertical;overflow:hidden;max-height:70vh;-webkit-mask-image:-webkit-linear-gradient(top,#000 86%,rgba(0,0,0,0) 100%);-webkit-mask-image:linear-gradient(180deg,#000 86%,rgba(0,0,0,0) 100%);mask-image:linear-gradient(180deg,#000 86%,rgba(0,0,0,0) 100%)}');
+
+
+
+css.push('.lumen-descr-row.lumen-descr-row--reviews .full-descr__text{-webkit-mask-image:-webkit-linear-gradient(top,#000 86%,rgba(0,0,0,0) 100%);-webkit-mask-image:linear-gradient(180deg,#000 86%,rgba(0,0,0,0) 100%);mask-image:linear-gradient(180deg,#000 86%,rgba(0,0,0,0) 100%)}');
 
 
 
 
 
 
-css.push('.lumen-descr-row .lumen-descr-more{display:none}');
-css.push('.lumen-descr-row.lumen-descr-row--reviews .lumen-descr-more{display:block;font-family:' + FB + ';font-weight:500;font-size:1.01em;line-height:1.3;color:' + P.muted + ';margin:.38em 0 0 .83em}');
+
+
+
+
+
+
+
+
+
+css.push('.lumen-card--serial ~ .lumen-descr-row .full-descr__text{-webkit-line-clamp:4}');
+
+
+
+
+
+
+
+
+
+
+
+
+css.push('.lumen-descr-row .lumen-descr-more{display:block;font-family:' + FB + ';font-weight:500;font-size:1.01em;line-height:1.3;color:' + P.muted + ';margin:.38em 0 0 .83em}');
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+var personStepEm = (screenEm() - PERSON_LEFT - PERSON_PEEK) /
+Math.max(1, Math.round((screenEm() - PERSON_LEFT - PERSON_PEEK) / (PERSON_TARGET + PERSON_GAP)));
+css.push('body .items-line .full-person{width:' + round2((personStepEm - PERSON_GAP) / PERSON_ZOOM) + 'em}');
+
+
+
+css.push('body .items-line .full-person__body{-webkit-box-flex:1;-webkit-flex:1 1 auto;flex:1 1 auto;min-width:0;overflow:hidden}');
+css.push('body .items-line .full-person__name,body .items-line .full-person__role{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}');
 
 
 
@@ -4170,7 +4292,93 @@ css.push('.lumen-main .items-line__title{font-family:' + FB + ';font-weight:700;
 
 
 
-css.push('.lumen-main .items-line{padding-bottom:1.4em}');
+css.push('.lumen-main .items-line{padding-bottom:' + ROW_GAP + 'em}');
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+var rowTailVh = round2(100 - ROWS_TOP_VH[heroSize]);
+var rowHeadEm = Math.max(rowTitleEm, LAMPA_MORE_EM);
+var rowEdgeC = rowHeadEm / screenEm();
+
+
+
+var rowEdgeMedia = function (blockEm, lo, hi) {
+var tailEm = round2(ROWS_AIR + blockEm - (rowHeadEm - rowTitleEm));
+var b = (tailEm + ROW_GAP) / screenEm();
+var from = Math.max(lo, Math.floor(rowTailVh / (b + rowEdgeC)));
+var to = Math.min(hi, Math.ceil(rowTailVh / b));
+if (to <= from) return '';
+var pad = rowTailVh + 'vh - ' + tailEm + 'em';
+return '@media screen and (min-aspect-ratio:' + from + '/100) and (max-aspect-ratio:' + to + '/100){' +
+'.lumen-main .items-line{padding-bottom:-webkit-calc(' + pad + ');padding-bottom:calc(' + pad + ')}}';
+};
+
+
+
+
+
+
+
+
+
+var rowEdgeWide = rowEdgeMedia(
+rowBlockEm(cardWEm, rowTitleEm, rowHeadGapEm, cardTitleEm, cardAgeEm, true), 0, narrowRatio);
+var rowEdgeNarrow = narrowCss
+? rowEdgeMedia(rowBlockEm(round2(ROW_CARD_NARROW * rowScale), rowTitleEm, rowHeadGapEm,
+TV_MIN, TV_MIN, true), narrowRatio, 1000)
+: '';
+if (rowEdgeWide) css.push(rowEdgeWide);
+if (rowEdgeNarrow) css.push(rowEdgeNarrow);
 
 
 
