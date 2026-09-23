@@ -392,6 +392,43 @@
      получит экран. */
   var ROW_TITLE_EM = 1.23;
   var CARD_VIEW_GAP = 0.5;
+
+  /* Task 74: точка привязки постера в ячейке карточки.
+
+     Кадрирует постер не плагин, а Lampa, и делает это ОБЩИМ правилом
+     img{object-fit:cover} (vendor/lampa/css/app.css:239-243): своего
+     правила у .card__img нет — в app.css:3103-3113 только скругление,
+     absolute, 100%×100% и серый фон. Слова object-position в app.css нет
+     ни разу (сверено grep по всему файлу), то есть точка привязки —
+     браузерная 50% 50%, и лишнее срезается поровну сверху и снизу.
+     Ячейка ровно 2:3: .card__view{padding-bottom:150%} (app.css:3135-3139).
+     Живая сверка на стенде 960×540: getComputedStyle(.lumen-main .card__img)
+     отдаёт object-fit:cover и object-position:50% 50%, коробка 119.44×179.15
+     (0.66670).
+
+     Требование пользователя — «не обрезана голова, лучше туловище, но не
+     голова». Постер ВЫШЕ 2:3 (aspect_ratio < 0.667) в ячейке 2:3 режется по
+     вертикали, и при центре половина среза уходит с макушки. center top
+     означает «сверху не срезается ничего»: весь срез уходит вниз, в ноги.
+     Постер ШИРЕ 2:3 режется по горизонтали, вертикального избытка у него
+     нет — на него правило не действует вовсе.
+
+     Цена для того, кто настройку источника постера не трогал: замер на
+     живых данных TMDB (160 фильмов из восьми разнородных рядов) — у 16
+     штатных постеров ряда из 159 пропорция не 2:3, но ниже 2:3 только
+     четыре, и самый вытянутый из них 0.663, то есть срез 0.6 % высоты —
+     1 px на карточке высотой 179 px. Поэтому правило не привязано к режиму
+     источника: разница в дефолте меньше пикселя.
+
+     Широкая (card--wide, .card__view{padding-bottom:56%}, app.css:3493-3498)
+     и коллекционная (card--collection, 60%, app.css:3517-3523) карточки
+     Lampa исключены: там в ячейку 16:9 кладётся вертикальный постер, срез по
+     высоте огромный и осмысленного верха у него нет. Наши ряды таких
+     карточек не заводят (класс ставится только по params.card_wide /
+     card_collection, app.min.js:51952-51963), но на главной живут и ряды
+     самой Lampa, а .lumen-main — это вся активность целиком. */
+  var POSTER_ANCHOR = 'center top';
+  var CARD_NOT_WIDE = ':not(.card--wide):not(.card--collection)';
   var CARD_TITLE_LH = 1.15;
   var CARD_AGE_GAP = 0.25;
   /* Task 63: на столько уезжает вниз подпись карточки под фокусом (правило
@@ -2429,6 +2466,13 @@
     css.push('.lumen-grid__items .lumen-gcard:nth-child(6n){margin-right:0}');
     css.push('.lumen-grid .lumen-gcard .card__view{margin-bottom:.5em;border-radius:.31em;background-color:' + P.panel + '}');
     css.push('.lumen-grid .lumen-gcard .card__img{border-radius:.31em;background-color:' + P.panelLo + '}');
+    /* Task 74: постер сетки кадрируется по тем же правилам, что постер ряда
+       (разбор и замеры — у POSTER_ANCHOR в начале модуля). Карточка сетки
+       собрана из штатного шаблона 'card' и ни card--wide, ни card--collection
+       не получает (см. комментарий ниже), но селектор берётся общий —
+       чтобы поведение главной и сетки задавала одна строка, а не две
+       разошедшиеся. */
+    css.push('.lumen-grid .lumen-gcard' + CARD_NOT_WIDE + ' .card__img{object-position:' + POSTER_ANCHOR + '}');
     css.push('.lumen-grid .lumen-gcard .card__title{font-family:' + FB + ';font-weight:700;font-size:1.01em;line-height:1.15;color:' + P.text + '}');
     /* Task 62a: обрезка многоточием — по той же причине, что у подписи ряда
        главной: метка в подписи длиннее года с рейтингом, а вторая строка
@@ -3474,6 +3518,7 @@
     css.push('.lumen-main .card{will-change:auto}');
     css.push('.lumen-main .card__view{margin-bottom:' + CARD_VIEW_GAP + 'em;border-radius:.31em;-webkit-transform:scale(1);transform:scale(1);-webkit-transform-origin:center bottom;transform-origin:center bottom}');
     css.push('.lumen-main .card__img{border-radius:.31em}');
+    css.push('.lumen-main .card' + CARD_NOT_WIDE + ' .card__img{object-position:' + POSTER_ANCHOR + '}');
     css.push('.lumen-main .card.focus .card__view:after,.lumen-main .card.hover .card__view:after{display:none}');
     css.push('.lumen-main .card.focus .card__view,.lumen-main .card.hover .card__view{-webkit-animation:none !important;animation:none !important}');
     css.push('.lumen-main .card.focus .card__view{-webkit-transform:scale(' + ROW_FOCUS + ');transform:scale(' + ROW_FOCUS + ')}');

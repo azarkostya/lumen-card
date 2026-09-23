@@ -5280,3 +5280,47 @@ test('A5: в сетке и хабе плоский вид снимает ров�
 
 
 
+
+/* Task 74: кадрирование постера карточки.
+
+   Кадрирует постер сама Lampa — общим правилом img{object-fit:cover}
+   (vendor/lampa/css/app.css:239-243); своего правила у .card__img нет
+   (app.css:3103-3113), object-position в app.css не встречается ни разу,
+   то есть точка привязки браузерная (50% 50%) и лишнее срезается поровну
+   сверху и снизу. Ячейка ровно 2:3 — .card__view{padding-bottom:150%}
+   (app.css:3135-3139). Требование пользователя — «не обрезана голова,
+   лучше туловище, но не голова», и выполняет его center top: сверху не
+   срезается ничего, весь срез уходит вниз.
+
+   Замер на живых данных TMDB (160 фильмов, восемь разнородных рядов):
+   постер ВЫШЕ 2:3 встречается у штатных постеров ряда 4 раза из 159, и
+   самый вытянутый из них 0.663 — срез 0.6 % высоты, 1 px на карточке
+   179 px. Поэтому правило действует всегда, а не только в режимах подмены
+   постера: в дефолте оно двигает картинку меньше чем на пиксель. */
+test('Task 74: постер ряда и сетки прижат к верху ячейки, широкие карточки Lampa исключены', () => {
+  for (const root of ['.lumen-main .card', '.lumen-grid .lumen-gcard']) {
+    const sel = root + ':not(.card--wide):not(.card--collection) .card__img';
+    assert.equal(decl(css, sel), 'object-position:center top',
+      'нет правила привязки постера к верху: ' + sel);
+  }
+  /* Без :not() правило накрыло бы и широкую карточку Lampa
+     (.card--wide .card__view{padding-bottom:56%}, app.css:3493-3498):
+     там в ячейку 16:9 кладётся вертикальный постер, срез по высоте огромный,
+     и «верх» у него не значит ничего. */
+  for (const r of ruleBodies(css)) {
+    if (r.decl.indexOf('object-position') === -1) continue;
+    for (const sel of r.selectors) {
+      if (sel.indexOf('.card__img') === -1) continue;
+      assert.ok(sel.indexOf(':not(.card--wide)') !== -1 && sel.indexOf(':not(.card--collection)') !== -1,
+        'правило привязки постера не исключает широкую карточку Lampa: ' + sel);
+    }
+  }
+});
+
+/* Точка привязки одна на оба экрана: разойдясь, главная и сетка начали бы
+   резать постер по-разному, а человек видит их подряд. */
+test('Task 74: у постера ряда и постера сетки одна и та же точка привязки', () => {
+  const main = decl(css, '.lumen-main .card:not(.card--wide):not(.card--collection) .card__img');
+  const grid = decl(css, '.lumen-grid .lumen-gcard:not(.card--wide):not(.card--collection) .card__img');
+  assert.equal(main, grid);
+});
