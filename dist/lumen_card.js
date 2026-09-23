@@ -20632,6 +20632,12 @@ started = true;
 
 if (result && !resultShown()) paintResult(result);
 if (result && !resultBgShown && !resultLoader) prepareFrame(result);
+
+
+
+
+
+if (manifest && !result && !stage.hasClass('is-stack')) schedulePreview();
 motionClass(root);
 Lampa.Controller.add('content', {
 toggle: function () {

@@ -1501,6 +1501,12 @@
            которого не видно. */
         if (result && !resultShown()) paintResult(result);
         if (result && !resultBgShown && !resultLoader) prepareFrame(result);
+        /* Ф2 п.5: pause()/stop() гасят и отложенный показ выборки. Ушли
+           раньше, чем он успел (PREVIEW_DELAY), — на возврате барабан
+           был бы пустой коробкой до первого действия. Поднимаем показ
+           заново, если выборка ещё не на экране и результата нет; до
+           прихода манифеста это сделает сам build(). */
+        if (manifest && !result && !stage.hasClass('is-stack')) schedulePreview();
         motionClass(root);
         Lampa.Controller.add('content', {
           toggle: function () {
