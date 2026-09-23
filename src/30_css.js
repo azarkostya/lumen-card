@@ -4114,15 +4114,33 @@
     css.push('.lumen-roulette-screen.is-kadr .lumen-roulette{height:100%;overflow:hidden}');
     css.push('.lumen-roulette-screen.is-kadr .lumen-roulette__head,.lumen-roulette-screen.is-kadr .lumen-roulette__chipbox,.lumen-roulette-screen.is-kadr .lumen-roulette__stage{opacity:0}');
     /* Шапка: заголовок, сегмент медиа и сегмент фильтров одной строкой.
-       Фильтры прижаты вправо автополем — на отдельную строку они не
-       выделяются: каждая лишняя строка сверху отбирается у барабана. */
+       Правка 2026-09-23 (разбор композиции, п.5.2): фильтры больше НЕ
+       прижаты к правому краю. Замер на стенде 960×540@2 до правки: от
+       центра «Сериалы» до центра «Не смотрел» фокус проходил 401.4 CSS px
+       (пустоты между сегментами — 317), то есть треть экрана без единой
+       промежуточной остановки. Теперь фильтры стоят встык к переключателю,
+       и то же движение — это шаг по соседнему элементу.
+
+       Разбор предлагал другое — развести заголовок, переключатель и
+       фильтры по трём строкам, забрав у барабана 90 px (44 % высоты
+       экрана → 34 %). От этого отказано СОЗНАТЕЛЬНО: барабан в 44a079a
+       только что получил стопку постеров и счётчик выборки, то есть
+       перестал быть пустым прямоугольником, ради которого его и не жалко
+       было резать. Замер на стенде: барабан 154.8×232.2 px, под ним
+       счётчик, и уменьшение на четверть вернуло бы кульминации экрана вид
+       миниатюры. Прыжок фокуса при этом лечится одним автополем, а не
+       двумя лишними строками: цена решения разбора не соответствует
+       выигрышу.
+       Заголовок остаётся на той же строке — он не фокусируемый, шага
+       пульта не стоит, а собственная строка для него это те же 45 px из
+       барабана. */
     css.push('.lumen-roulette .lumen-roulette__head{position:relative;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;padding-top:1.05em;margin-bottom:.88em}');
     css.push('.lumen-roulette .lumen-roulette__title{font-family:' + FB + ';font-weight:700;font-size:2.1em;line-height:1.1;color:' + P.text + ';margin-right:1.05em}');
     css.push('.lumen-roulette .lumen-roulette__media{display:-webkit-box;display:-webkit-flex;display:flex}');
     css.push('.lumen-roulette .lumen-roulette__tab{height:2em;padding:0 .91em;margin-right:.50em;border-radius:.50em;background:' + P.chipBg + ';font-family:' + FB + ';font-weight:600;font-size:1.01em;line-height:2em;color:' + P.smoke + '}');
     css.push('.lumen-roulette .lumen-roulette__tab.is-on{color:' + P.text + ';background:rgba(' + P.textRgb + ',.22)}');
     css.push('.lumen-roulette .lumen-roulette__tab.focus{background:' + P.text + ';color:' + P.bg + '}');
-    css.push('.lumen-roulette .lumen-roulette__filters{position:relative;display:-webkit-box;display:-webkit-flex;display:flex;margin-left:auto}');
+    css.push('.lumen-roulette .lumen-roulette__filters{position:relative;display:-webkit-box;display:-webkit-flex;display:flex;margin-left:1.05em}');
     /* Лента чипов подборок: ОДНА строка с прокруткой (Task 44). Каталог
        отдаёт подборки десятками, и переносом они занимали три ряда — всё
        место, которое должно принадлежать барабану. Едет лента штатным

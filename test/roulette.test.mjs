@@ -615,6 +615,7 @@ function openRoulette34(cards, t, dpr, motion) {
   t.after(restoreGlobals34);
 
   var components = {};
+  var controllers = {};
   var Lampa = {
     Scroll: ElScroll,
     Component: { add: function (name, fn) { components[name] = fn; } },
@@ -622,7 +623,9 @@ function openRoulette34(cards, t, dpr, motion) {
        последним ушло в collectionSet. Заглушка ведёт журнал, иначе промах
        «флаг сменили, коллекцию не переустановили» тестом не виден. */
     Controller: {
-      add: function () { },
+      /* Правка 2026-09-23 (п.5.2): обработчики контроллера теперь
+         проверяются — вниз с ленты подборок обязан доводить до «Крутить». */
+      add: function (name, handlers) { controllers[name] = handlers; },
       toggle: function () { },
       collectionSet: function (node) { collected.push(node); },
       collectionFocus: function (node, box) { focused.push({ node: node, box: box }); }
@@ -667,6 +670,7 @@ function openRoulette34(cards, t, dpr, motion) {
     lastFocus: function () { return focused[focused.length - 1]; },
     resultNode: function () { return screen.find('.lumen-roulette__result')[0]; },
     root: screen.find('.lumen-roulette'),
+    controller: function () { return controllers.content; },
     reel: reel,
     bg: screen.find('.lumen-roulette__bg'),
     transition: transitionStub
@@ -897,6 +901,32 @@ test('Task 68: мышиный hover:hover подкручивает и сам э�
   vert[0].updates.length = 0;
   fire(spin, 'hover:focus');
   assert.equal(vert[0].updates.length, 1, 'пультом — ровно один вызов, не два');
+});
+
+/* Правка 2026-09-23 (разбор композиции, п.5.2). Вниз с ленты подборок фокус
+   не уходил никуда: между чипами и «Крутить» лежит барабан, и по геометрии
+   кнопка соседом не считается (замер на стенде 960×540@2 — 300 px пустоты,
+   Navigator.canmove('down') отвечает false). Экран читался тупиком: подборки
+   отмечены, а до единственного действия добраться нечем, кроме «назад». */
+test('правка 2026-09-23: вниз с подборок фокус доводится до «Крутить»', (t) => {
+  const env = openRoulette34([R44], t);
+  /* Контроллер регистрируется на старте экрана, а не при сборке разметки. */
+  env.comp.start();
+  const ctrl = env.controller();
+  assert.ok(ctrl && typeof ctrl.down === 'function', 'контроллер экрана не зарегистрирован');
+
+  /* Navigator в этом окружении нет вовсе — ровно тот случай, когда
+     штатное движение вниз невозможно. */
+  ctrl.down();
+  const last = env.lastFocus();
+  assert.ok(last && last.node === env.root.find('.lumen-roulette__spin')[0], 'фокус не дошёл до кнопки');
+
+  /* Стоя уже на кнопке, вниз не делает ничего — иначе каждое нажатие
+     пересобирало бы коллекцию на пустом месте. */
+  env.root.find('.lumen-roulette__spin').addClass('focus');
+  const before = env.lastFocus();
+  ctrl.down();
+  assert.equal(env.lastFocus(), before, 'на кнопке вниз пересобирает коллекцию впустую');
 });
 
 /* Спокойный экран: до результата кадра нет ни в фоне, ни в режиме. */

@@ -4220,6 +4220,26 @@ test('правка 2026-09-23: оранжевое — у оценки, реак�
   assert.ok(contrast(P.spice, onDark) < 4.5, 'оранжевый вдруг проходит порог мелкого текста — разбор причины устарел');
 });
 
+/* Правка 2026-09-23 (разбор композиции, п.5.2): фильтры рулетки больше не
+   прижаты к правому краю. Замер на стенде 960×540@2: от центра «Сериалы» до
+   центра «Не смотрел» фокус проходил 401.4 CSS px (пустоты между сегментами
+   317), после правки — 96.3 (пустоты 17.7). Барабан при этом не тронут:
+   разбор предлагал забрать у него 90 px под три строки управления, но он в
+   44a079a только что получил стопку постеров и счётчик. */
+test('правка 2026-09-23: управление рулетки собрано слева, барабан не тронут', () => {
+  const filters = findDecl(css, (sel) => sel === '.lumen-roulette .lumen-roulette__filters');
+  assert.ok(filters, 'правила сегмента фильтров нет');
+  assert.equal(/margin-left:auto/.test(filters), false, 'фильтры по-прежнему прижаты вправо: ' + filters);
+  assert.ok(/margin-left:[\d.]+em/.test(filters), 'между сегментами нет собственного зазора: ' + filters);
+  /* Шапка осталась ОДНОЙ строкой: лишняя строка сверху — это высота,
+     отнятая у барабана. */
+  const head = findDecl(css, (sel) => sel === '.lumen-roulette .lumen-roulette__head');
+  assert.ok(/display:flex/.test(head), head);
+  assert.equal(/flex-wrap:wrap/.test(head), false, 'шапка получила право переноса — строк станет больше: ' + head);
+  const reel = findDecl(css, (sel) => sel === '.lumen-roulette .lumen-roulette__reel');
+  assert.ok(/height:43vh/.test(reel), 'барабан изменил высоту: ' + reel);
+});
+
 const ACCENT_KEYS = ['sand', 'copper', 'wine', 'garnet', 'mint', 'emerald', 'ice', 'lavender', 'graphite'];
 
 test('фаза 3: девять акцентов, у каждого своя четвёрка токенов', () => {

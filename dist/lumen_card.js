@@ -4833,13 +4833,31 @@ css.push('.lumen-roulette-screen.is-kadr .lumen-roulette__head,.lumen-roulette-s
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 css.push('.lumen-roulette .lumen-roulette__head{position:relative;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;padding-top:1.05em;margin-bottom:.88em}');
 css.push('.lumen-roulette .lumen-roulette__title{font-family:' + FB + ';font-weight:700;font-size:2.1em;line-height:1.1;color:' + P.text + ';margin-right:1.05em}');
 css.push('.lumen-roulette .lumen-roulette__media{display:-webkit-box;display:-webkit-flex;display:flex}');
 css.push('.lumen-roulette .lumen-roulette__tab{height:2em;padding:0 .91em;margin-right:.50em;border-radius:.50em;background:' + P.chipBg + ';font-family:' + FB + ';font-weight:600;font-size:1.01em;line-height:2em;color:' + P.smoke + '}');
 css.push('.lumen-roulette .lumen-roulette__tab.is-on{color:' + P.text + ';background:rgba(' + P.textRgb + ',.22)}');
 css.push('.lumen-roulette .lumen-roulette__tab.focus{background:' + P.text + ';color:' + P.bg + '}');
-css.push('.lumen-roulette .lumen-roulette__filters{position:relative;display:-webkit-box;display:-webkit-flex;display:flex;margin-left:auto}');
+css.push('.lumen-roulette .lumen-roulette__filters{position:relative;display:-webkit-box;display:-webkit-flex;display:flex;margin-left:1.05em}');
 
 
 
@@ -18904,7 +18922,24 @@ up: function () {
 if (navMove('up')) return;
 Lampa.Controller.toggle('head');
 },
-down: function () { navMove('down'); },
+
+
+
+
+
+
+
+
+
+
+
+
+
+down: function () {
+if (navMove('down')) return;
+if (kadr || !spinBtn.length || spinBtn.hasClass('focus')) return;
+recollect(spinBtn[0]);
+},
 back: function () { Lampa.Activity.backward(); }
 });
 Lampa.Controller.toggle('content');
