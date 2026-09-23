@@ -471,7 +471,63 @@
       };
     }
 
+    /* Долг фазы 1, п.4 (docs/plans/2026-09-15-lumen-card.md:1123), правка
+       2026-09-23: «наша карточка на экране» — ОДИН ответ на весь плагин.
+
+       Правило. Lampa держит в DOM все активности истории (до maxsave) и
+       помечает показанную классом activity--active: снимает его с прошлой и
+       ставит на render() новой (vendor/lampa/app.min.js:46024-46026).
+       Скрытая активность убрана прозрачностью, а не display
+       (.activity{opacity:0}), поэтому ни offsetParent, ни размеры узла на
+       вопрос не отвечают — только класс ближайшей .activity. Узел вне
+       всякой активности (кадр главной, ещё не вставленный в экран) считается
+       показанным: не нашли, кому он принадлежит, — не блокируем.
+
+       До правки ответов было пять, по-разному записанных: глобальный
+       селектор .activity--active в src/90_runtime.js и src/69_hud.js,
+       LC.slideshow.isLayerForeground (трейлер, ряд серий, тик слайдшоу),
+       его же копии isForeground в src/60_reviews.js и src/66_franchise.js,
+       склеенные с проверкой «в документе», и отдельная запись на голом DOM
+       в src/52_fx.js (archived). Теперь все они спрашивают onScreen, а
+       селекторы собираются из ON_SCREEN_SEL — это то же правило, записанное
+       для поиска: $(ON_SCREEN_SEL + ' .lumen-card') находит ровно те
+       карточки в документе, для которых onScreen ответил бы «да».
+
+       Чем onScreen НЕ является — это два других вопроса, у них свои
+       ответы. «Узел ещё в документе» (LC.slideshow.isMounted): карточку,
+       вытесненную из истории, Lampa выбрасывает из DOM, и там вопрос — не
+       «на экране», а «существует ли». И LC.active (src/90_runtime.js) — не
+       ответ про экран, а реестр ресурсов последней открытой карточки
+       (слайдшоу, трейлер, данные): при уходе с неё вглубь он остаётся
+       прежним, пока карточка жива в истории.
+
+       Принимает и набор jQuery (или FakeEl тестов), и голый DOM-узел:
+       closest у набора отдаёт набор (решают length и hasClass), у узла —
+       элемент (решает classList). Ошибка чтения — «на экране», как было у
+       всех пяти. */
+    var ON_SCREEN = 'activity--active';
+
+    function activityOnScreen(activity) {
+      if (!activity) return true;
+      if (typeof activity.length === 'number') {
+        if (!activity.length) return true;
+        return !!activity.hasClass(ON_SCREEN);
+      }
+      return !activity.classList || !!activity.classList.contains(ON_SCREEN);
+    }
+
+    function onScreen(node) {
+      try {
+        return activityOnScreen(node.closest('.activity'));
+      } catch (e) {
+        return true;
+      }
+    }
+
     return {
+      ON_SCREEN_SEL: '.' + ON_SCREEN,
+      onScreen: onScreen,
+      activityOnScreen: activityOnScreen,
       esc: esc,
       pad2: pad2,
       plural: plural,

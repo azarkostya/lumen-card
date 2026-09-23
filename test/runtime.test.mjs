@@ -468,6 +468,10 @@ function initLC(opts) {
 
   const LC = {};
   const module = { exports: null, lumen: true };
+  /* 10_util.js — общее правило «карточка на экране» (LC.util.onScreen и
+     его селектор, долг фазы 1, п.4): рантайм собирает из него селекторы
+     активной карточки. В бандле модуль идёт первым. */
+  loadInto(LC, module, '10_util.js');
   loadInto(LC, module, '80_settings.js');
   loadInto(LC, module, '81_prefs.js');
   loadInto(LC, module, '90_runtime.js');

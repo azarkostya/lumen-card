@@ -13,9 +13,13 @@ import { readFileSync } from 'node:fs';
    реального таймера. */
 
 const SRC = readFileSync(new URL('../src/69_hud.js', import.meta.url), 'utf8');
+/* LC.util — селектор общего правила «карточка на экране» (долг фазы 1,
+   п.4), по нему eps() считает плитки активной карточки. */
+const UTIL_SRC = readFileSync(new URL('../src/10_util.js', import.meta.url), 'utf8');
 
 function fresh(extra) {
   const LC = Object.assign({}, extra || {});
+  new Function('LC', 'module', UTIL_SRC)(LC, { exports: null, lumen: true });
   const module = { exports: null, lumen: true };
   new Function('LC', 'module', SRC)(LC, module);
   return { api: module.exports, LC };

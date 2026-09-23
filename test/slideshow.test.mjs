@@ -78,6 +78,9 @@ function freshLC() {
 
   const LC = {};
   const module = { exports: null, lumen: true };
+  /* 10_util.js — общее правило «на экране» (LC.util.onScreen, долг фазы 1,
+     п.4): тик слайдшоу спрашивает его. В бандле модуль идёт первым. */
+  loadInto(LC, module, '10_util.js');
   loadInto(LC, module, '51_slideshow.js');
   return LC;
 }

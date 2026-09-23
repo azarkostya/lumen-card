@@ -1001,7 +1001,7 @@
     try {
       if (!window.Lampa || !Lampa.Controller) return;
       if (typeof Lampa.Controller.collectionSet !== 'function') return;
-      if (LC.slideshow && typeof LC.slideshow.isLayerForeground === 'function' && !LC.slideshow.isLayerForeground(root)) return;
+      if (!LC.util.onScreen(root)) return;
       var enabled = typeof Lampa.Controller.enabled === 'function' ? Lampa.Controller.enabled() : null;
       if (!enabled || enabled.name !== 'full_start') return;
       Lampa.Controller.collectionSet(root);

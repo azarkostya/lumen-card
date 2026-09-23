@@ -43,18 +43,13 @@
        сама. isActivityForeground — чистая часть (только .length/
        .hasClass, без .closest()) — тестируется заглушками отдельно от
        DOM-обхода. */
-    function isActivityForeground(activityEl) {
-      if (!activityEl || !activityEl.length) return true; // не нашли контейнер — не блокируем (безопасный дефолт)
-      return !!activityEl.hasClass('activity--active');
-    }
-
-    function isLayerForeground(layer) {
-      try {
-        return isActivityForeground(layer.closest('.activity'));
-      } catch (e) {
-        return true;
-      }
-    }
+    /* Долг фазы 1, п.4 (правка 2026-09-23): правило «на экране» живёт в
+       одном месте — LC.util.onScreen (src/10_util.js, разбор там же).
+       Прежние имена оставлены ссылками на него: их спрашивают
+       test/onscreen.test.mjs и test/slideshow.test.mjs, написанные до
+       переноса. */
+    var isActivityForeground = LC.util.activityOnScreen;
+    var isLayerForeground = LC.util.onScreen;
 
     /* Максимум кадров по режиму анимаций (план: full 8, lite 4, off 1 без
        смены) — off даёт вызывающей стороне max=1, т.е. только главный
@@ -308,7 +303,7 @@
            — пропускаем тик целиком: ни Image() для следующего кадра, ни
            смены is-active. Таймер не трогаем — следующий тик проверит
            заново. */
-        if (!isLayerForeground(layer)) return;
+        if (!LC.util.onScreen(layer)) return;
         /* Экран накрыт заставкой (src/54_ambient.js): под непрозрачным слоем
            менять кадр — это декодировать картинку, которой никто не увидит,
            а «человек ушёл» обязан быть самым дешёвым режимом, а не самым

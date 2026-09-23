@@ -150,9 +150,12 @@
       try {
         if (!window.Lampa || !Lampa.Controller) return;
         if (typeof Lampa.Controller.collectionSet !== 'function') return;
-        /* Проверяем что root виден: он должен лежать внутри .activity--active. */
-        var inActive = root.closest('.activity--active').length > 0;
-        if (!inActive) return;
+        /* Проверяем что root виден — общим правилом «на экране»
+           (LC.util.onScreen, src/10_util.js). root здесь — сама активность
+           главной (e.object.activity.render(), у неё класс activity), поэтому
+           closest('.activity') находит её же, и ответ прежний: «на экране»,
+           только если на ней стоит activity--active. */
+        if (!LC.util.onScreen(root)) return;
         var focused = root.find('.focus');
         Lampa.Controller.collectionSet(root[0]);
         if (typeof Lampa.Controller.collectionFocus === 'function') {

@@ -205,6 +205,30 @@ test('mount: после mount — active() true, чипы вставлены в 
   assert.ok(chips > 0, 'слот героя остался пустым');
 });
 
+/* Долг фазы 1, п.4 (2026-09-23): «корень на экране» перед пересбором
+   коллекции Navigator — общее правило (LC.util.onScreen). Тест написан до
+   перевода recollect на него и проходит в обеих редакциях: корень главной —
+   сама активность, и решает только её класс activity--active. */
+test('mount: коллекция Navigator пересобирается, только когда главная на экране', function () {
+  for (const active of [true, false]) {
+    var ctx = freshMoods({ util: load('10_util.js') });
+    var sets = [];
+    ctx.fakeLampa.Controller.collectionSet = function (node) { sets.push(node); };
+    var root = makeMainRoot();
+    if (active) root.addClass('activity--active');
+    /* recollect спрашивает window.Lampa — модуль получает Lampa параметром,
+       но наличие контроллера проверяет у глобального окна. */
+    var prevWindow = globalThis.window;
+    globalThis.window = { Lampa: ctx.fakeLampa };
+    try {
+      ctx.api.mount(root);
+    } finally {
+      if (prevWindow === undefined) delete globalThis.window; else globalThis.window = prevWindow;
+    }
+    assert.equal(sets.length, active ? 1 : 0, active ? 'главная на экране — чипы входят в коллекцию' : 'главная в истории — коллекцию не трогаем');
+  }
+});
+
 test('mount: число чипов равно числу настроений в манифесте', function () {
   var ctx = freshMoods();
   var root = makeMainRoot();

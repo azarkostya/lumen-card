@@ -518,7 +518,63 @@ return true;
 };
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+var ON_SCREEN = 'activity--active';
+
+function activityOnScreen(activity) {
+if (!activity) return true;
+if (typeof activity.length === 'number') {
+if (!activity.length) return true;
+return !!activity.hasClass(ON_SCREEN);
+}
+return !activity.classList || !!activity.classList.contains(ON_SCREEN);
+}
+
+function onScreen(node) {
+try {
+return activityOnScreen(node.closest('.activity'));
+} catch (e) {
+return true;
+}
+}
+
 return {
+ON_SCREEN_SEL: '.' + ON_SCREEN,
+onScreen: onScreen,
+activityOnScreen: activityOnScreen,
 esc: esc,
 pad2: pad2,
 plural: plural,
@@ -14716,8 +14772,11 @@ try {
 if (!window.Lampa || !Lampa.Controller) return;
 if (typeof Lampa.Controller.collectionSet !== 'function') return;
 
-var inActive = root.closest('.activity--active').length > 0;
-if (!inActive) return;
+
+
+
+
+if (!LC.util.onScreen(root)) return;
 var focused = root.find('.focus');
 Lampa.Controller.collectionSet(root[0]);
 if (typeof Lampa.Controller.collectionFocus === 'function') {
@@ -15574,18 +15633,13 @@ LC.slideshow = (function () {
 
 
 
-function isActivityForeground(activityEl) {
-if (!activityEl || !activityEl.length) return true;
-return !!activityEl.hasClass('activity--active');
-}
 
-function isLayerForeground(layer) {
-try {
-return isActivityForeground(layer.closest('.activity'));
-} catch (e) {
-return true;
-}
-}
+
+
+
+
+var isActivityForeground = LC.util.activityOnScreen;
+var isLayerForeground = LC.util.onScreen;
 
 
 
@@ -15839,7 +15893,7 @@ if (!isLayerMounted()) { destroy(); return; }
 
 
 
-if (!isLayerForeground(layer)) return;
+if (!LC.util.onScreen(layer)) return;
 
 
 
@@ -16598,13 +16652,12 @@ return false;
 
 
 
+
+
 function archived(inst) {
 try {
 var node = inst.node;
-if (node && typeof node.closest === 'function') {
-var activity = node.closest('.activity');
-if (activity && activity.classList && !activity.classList.contains('activity--active')) return true;
-}
+if (node && typeof node.closest === 'function') return !LC.util.onScreen(node);
 } catch (e) { }
 return false;
 }
@@ -18282,7 +18335,7 @@ try { var s = slideshowOf(layer); if (s) s.resume(); } catch (e) { }
 
 function recollect(root, target) {
 try {
-if (!LC.slideshow.isLayerForeground(root)) return;
+if (!LC.util.onScreen(root)) return;
 if (!window.Lampa || !Lampa.Controller) return;
 if (typeof Lampa.Controller.collectionSet !== 'function') return;
 var enabled = typeof Lampa.Controller.enabled === 'function' ? Lampa.Controller.enabled() : null;
@@ -18438,7 +18491,7 @@ function startWatchdog() {
 if (watchdog) return;
 watchdog = setInterval(function () {
 try {
-if (!LC.slideshow.isMounted(layer[0]) || !LC.slideshow.isLayerForeground(layer)) destroy();
+if (!LC.slideshow.isMounted(layer[0]) || !LC.util.onScreen(layer)) destroy();
 } catch (e) { }
 }, WATCH_MS);
 }
@@ -18461,7 +18514,7 @@ if (!alive) return;
 
 
 if (!LC.slideshow.isMounted(layer[0])) { alive = false; return; }
-if (!LC.slideshow.isLayerForeground(layer)) { alive = false; return; }
+if (!LC.util.onScreen(layer)) { alive = false; return; }
 
 control = player(ensureHost(layer), video.key, function () {
 if (!alive) return;
@@ -22370,12 +22423,13 @@ return node.lumenReviews;
 
 
 
+
+
 function isForeground(node) {
 try {
 if (LC.slideshow && typeof LC.slideshow.isMounted === 'function' && !LC.slideshow.isMounted(node[0])) return false;
-if (LC.slideshow && typeof LC.slideshow.isLayerForeground === 'function') return !!LC.slideshow.isLayerForeground(node);
 } catch (e) { }
-return true;
+return LC.util.onScreen(node);
 }
 
 function clearBlock(holder) {
@@ -25850,12 +25904,12 @@ if (old && old.length) old.remove();
 
 
 
+
 function isForeground(node) {
 try {
 if (LC.slideshow && typeof LC.slideshow.isMounted === 'function' && !LC.slideshow.isMounted(node[0])) return false;
-if (LC.slideshow && typeof LC.slideshow.isLayerForeground === 'function') return !!LC.slideshow.isLayerForeground(node);
 } catch (e) { }
-return true;
+return LC.util.onScreen(node);
 }
 
 
@@ -27230,7 +27284,7 @@ try { return document.querySelectorAll(FULL).length; } catch (e) { return 0; }
 
 
 function eps() {
-try { return document.querySelectorAll('.activity--active .lumen-episode').length; } catch (e) { return 0; }
+try { return document.querySelectorAll(LC.util.ON_SCREEN_SEL + ' .lumen-episode').length; } catch (e) { return 0; }
 }
 
 
@@ -30877,7 +30931,7 @@ function recollectEpisodes(root, focused) {
 try {
 if (!window.Lampa || !Lampa.Controller) return;
 if (typeof Lampa.Controller.collectionSet !== 'function') return;
-if (LC.slideshow && typeof LC.slideshow.isLayerForeground === 'function' && !LC.slideshow.isLayerForeground(root)) return;
+if (!LC.util.onScreen(root)) return;
 var enabled = typeof Lampa.Controller.enabled === 'function' ? Lampa.Controller.enabled() : null;
 if (!enabled || enabled.name !== 'full_start') return;
 Lampa.Controller.collectionSet(root);
@@ -31998,8 +32052,10 @@ return tv || width > 480;
 
 var MOTION_CLASSES = 'lumen-motion-full lumen-motion-lite lumen-motion-off';
 
+
+
 function activeCardRoot() {
-try { return $('.activity--active .lumen-card'); } catch (e) { return null; }
+try { return $(LC.util.ON_SCREEN_SEL + ' .lumen-card'); } catch (e) { return null; }
 }
 
 
@@ -32013,7 +32069,7 @@ try { return $('.activity--active .lumen-card'); } catch (e) { return null; }
 
 
 function activeBackdropLayer() {
-try { return $('.activity--active .lumen-backdrop'); } catch (e) { return null; }
+try { return $(LC.util.ON_SCREEN_SEL + ' .lumen-backdrop'); } catch (e) { return null; }
 }
 
 function applyMotionMode(root) {
@@ -32062,8 +32118,8 @@ applyFxHeavy();
 
 
 
-try { applyMotionMode($('.activity--active .lumen-hub')); } catch (eHub) {}
-try { applyMotionMode($('.activity--active .lumen-grid')); } catch (eGrid) {}
+try { applyMotionMode($(LC.util.ON_SCREEN_SEL + ' .lumen-hub')); } catch (eHub) {}
+try { applyMotionMode($(LC.util.ON_SCREEN_SEL + ' .lumen-grid')); } catch (eGrid) {}
 
 
 
@@ -32908,7 +32964,7 @@ warn('progress pref failed', e);
 
 LC.applyReviewsPref = function () {
 try {
-var row = $('.activity--active .lumen-descr-row');
+var row = $(LC.util.ON_SCREEN_SEL + ' .lumen-descr-row');
 if (!row || !row.length) return;
 if (!LC.pref('lumen_reviews', true)) { LC.reviews.clearRow(row); return; }
 if (LC.active && LC.active.data) LC.reviews.render(row, LC.active.data);
@@ -32947,7 +33003,7 @@ if (act && act.length && typeof act.find === 'function') chip = act.find('.lumen
 
 
 
-if (!chip && !row) chip = $('.activity--active .lumen-card .rate--kp');
+if (!chip && !row) chip = $(LC.util.ON_SCREEN_SEL + ' .lumen-card .rate--kp');
 if (!chip || !chip.length || !chip.hasClass('hide')) return;
 chip.children().eq(0).text(num > 10 ? 10 : num);
 chip.removeClass('hide');

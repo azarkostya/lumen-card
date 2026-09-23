@@ -136,8 +136,10 @@
 
   var MOTION_CLASSES = 'lumen-motion-full lumen-motion-lite lumen-motion-off';
 
+  /* «Карточка на экране» — общее правило LC.util.onScreen (src/10_util.js),
+     здесь в виде селектора того же правила. */
   function activeCardRoot() {
-    try { return $('.activity--active .lumen-card'); } catch (e) { return null; }
+    try { return $(LC.util.ON_SCREEN_SEL + ' .lumen-card'); } catch (e) { return null; }
   }
 
   /* Task 6 (fix, обзор координатора п.2, корень проблемы): .lumen-backdrop
@@ -151,7 +153,7 @@
      бы до следующего apply() (то есть до закрытия и повторного открытия
      карточки). */
   function activeBackdropLayer() {
-    try { return $('.activity--active .lumen-backdrop'); } catch (e) { return null; }
+    try { return $(LC.util.ON_SCREEN_SEL + ' .lumen-backdrop'); } catch (e) { return null; }
   }
 
   function applyMotionMode(root) {
@@ -200,8 +202,8 @@
     /* Task 17: хаб и сетка — свои активности, класс режима они ставят себе
        сами при create/start; на уже открытом экране его меняет эта же точка
        (ревью Task 17: смена режима не доезжала до открытого хаба). */
-    try { applyMotionMode($('.activity--active .lumen-hub')); } catch (eHub) {}
-    try { applyMotionMode($('.activity--active .lumen-grid')); } catch (eGrid) {}
+    try { applyMotionMode($(LC.util.ON_SCREEN_SEL + ' .lumen-hub')); } catch (eHub) {}
+    try { applyMotionMode($(LC.util.ON_SCREEN_SEL + ' .lumen-grid')); } catch (eGrid) {}
     /* Task 18: герой главной — свой узел вне .lumen-card; класс режима ему
        ставит сам LC.hero при монтировании, на уже открытом экране его
        перечитывает эта же точка (в lite/off герой обязан обходиться без
@@ -1046,7 +1048,7 @@
      открытия, как включение трейлера. */
   LC.applyReviewsPref = function () {
     try {
-      var row = $('.activity--active .lumen-descr-row');
+      var row = $(LC.util.ON_SCREEN_SEL + ' .lumen-descr-row');
       if (!row || !row.length) return;
       if (!LC.pref('lumen_reviews', true)) { LC.reviews.clearRow(row); return; }
       if (LC.active && LC.active.data) LC.reviews.render(row, LC.active.data);
@@ -1085,7 +1087,7 @@
          вызов LC.applyKpRate). Если row есть, а чипа в его активности нет,
          значит карточка уже перестроена или ушла: писать в чужую активность
          нельзя — именно от этого и защищались в п.2. */
-      if (!chip && !row) chip = $('.activity--active .lumen-card .rate--kp');
+      if (!chip && !row) chip = $(LC.util.ON_SCREEN_SEL + ' .lumen-card .rate--kp');
       if (!chip || !chip.length || !chip.hasClass('hide')) return;
       chip.children().eq(0).text(num > 10 ? 10 : num);
       chip.removeClass('hide');

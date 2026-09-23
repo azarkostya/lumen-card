@@ -201,7 +201,7 @@
        величина: раньше число плиток на устройстве было неизвестно вовсе
        (на стенде «Дораэмон» давал 132 плитки до Task 67). */
     function eps() {
-      try { return document.querySelectorAll('.activity--active .lumen-episode').length; } catch (e) { return 0; }
+      try { return document.querySelectorAll(LC.util.ON_SCREEN_SEL + ' .lumen-episode').length; } catch (e) { return 0; }
     }
 
     /* window.requestAnimationFrame/cancelAnimationFrame — через window., как

@@ -313,13 +313,13 @@
     /* Узел ещё в документе и его активность сейчас на экране — та же
        проверка, что у отзывов и кнопки «Стоп» трейлера: карточка, оставленная
        в истории Lampa, остаётся живым DOM, и её .selector отдавать в
-       навигацию нельзя. */
+       навигацию нельзя. «На экране» — общее правило LC.util.onScreen
+       (src/10_util.js). */
     function isForeground(node) {
       try {
         if (LC.slideshow && typeof LC.slideshow.isMounted === 'function' && !LC.slideshow.isMounted(node[0])) return false;
-        if (LC.slideshow && typeof LC.slideshow.isLayerForeground === 'function') return !!LC.slideshow.isLayerForeground(node);
       } catch (e) { }
-      return true;
+      return LC.util.onScreen(node);
     }
 
     /* ------------------------------------------------------------------ */

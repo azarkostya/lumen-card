@@ -327,7 +327,7 @@
        сторож: корень должен лежать в .activity--active. */
     function recollect(root, target) {
       try {
-        if (!LC.slideshow.isLayerForeground(root)) return;
+        if (!LC.util.onScreen(root)) return;
         if (!window.Lampa || !Lampa.Controller) return;
         if (typeof Lampa.Controller.collectionSet !== 'function') return;
         var enabled = typeof Lampa.Controller.enabled === 'function' ? Lampa.Controller.enabled() : null;
@@ -483,7 +483,7 @@
           if (watchdog) return;
           watchdog = setInterval(function () {
             try {
-              if (!LC.slideshow.isMounted(layer[0]) || !LC.slideshow.isLayerForeground(layer)) destroy();
+              if (!LC.slideshow.isMounted(layer[0]) || !LC.util.onScreen(layer)) destroy();
             } catch (e) { }
           }, WATCH_MS);
         }
@@ -506,7 +506,7 @@
           /* Слой уже не в документе (карточку закрыли) или карточка ушла в
              фон под другую активность — трейлер не начинаем. */
           if (!LC.slideshow.isMounted(layer[0])) { alive = false; return; }
-          if (!LC.slideshow.isLayerForeground(layer)) { alive = false; return; }
+          if (!LC.util.onScreen(layer)) { alive = false; return; }
 
           control = player(ensureHost(layer), video.key, function () {
             if (!alive) return;

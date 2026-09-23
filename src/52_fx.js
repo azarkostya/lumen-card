@@ -640,13 +640,12 @@
        активности, а не подпиской: Lampa не шлёт события покидаемой
        активности (план фазы 3, раздел 0). Не нашли .activity — считаем слой
        своим (кадр главной лежит вне активности). */
+    /* Правило «на экране» — общее, LC.util.onScreen (src/10_util.js): узел
+       здесь голый DOM, и она решает по classList активности. */
     function archived(inst) {
       try {
         var node = inst.node;
-        if (node && typeof node.closest === 'function') {
-          var activity = node.closest('.activity');
-          if (activity && activity.classList && !activity.classList.contains('activity--active')) return true;
-        }
+        if (node && typeof node.closest === 'function') return !LC.util.onScreen(node);
       } catch (e) { }
       return false;
     }

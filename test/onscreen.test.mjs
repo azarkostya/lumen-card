@@ -83,3 +83,34 @@ test('в документе: отвечает documentElement.contains, без �
     if (prev === undefined) delete globalThis.document; else globalThis.document = prev;
   }
 });
+
+/* ---------------------------------------------------------------------- */
+/* После сведения (правка 2026-09-23): правило одно, и его не обойти.      */
+/* ---------------------------------------------------------------------- */
+
+test('одна функция: прежние имена LC.slideshow — ссылки на LC.util.onScreen', () => {
+  const LC = freshLC();
+  assert.equal(LC.slideshow.isLayerForeground, LC.util.onScreen);
+  assert.equal(LC.slideshow.isActivityForeground, LC.util.activityOnScreen);
+  assert.equal(LC.util.ON_SCREEN_SEL, '.activity--active', 'селектор того же правила');
+});
+
+/* Голый DOM-узел (слой частиц, src/52_fx.js): closest отдаёт элемент, а не
+   набор, и решает classList. Ответы — те же, что давала прежняя archived()
+   в 52_fx.js: активности нет или у неё нет classList — «на экране». */
+test('голый DOM-узел: решает classList ближайшей активности', () => {
+  const LC = freshLC();
+  const nodeIn = (activity) => ({ closest: (sel) => (sel === '.activity' ? activity : null) });
+  const classes = (list) => ({ classList: { contains: (c) => list.indexOf(c) !== -1 } });
+  assert.equal(LC.util.onScreen(nodeIn(classes(['activity', 'activity--active']))), true);
+  assert.equal(LC.util.onScreen(nodeIn(classes(['activity']))), false);
+  assert.equal(LC.util.onScreen(nodeIn(null)), true, 'вне активности');
+  assert.equal(LC.util.onScreen(nodeIn({})), true, 'у найденного узла нет classList');
+});
+
+test('в собранном плагине класс активной активности назван ровно в одном месте', () => {
+  const dist = readFileSync(new URL('../dist/lumen_card.js', import.meta.url), 'utf8');
+  const hits = dist.split(/\r?\n/).filter((l) => l.indexOf('activity--active') !== -1);
+  assert.deepEqual(hits.map((l) => l.trim()), ["var ON_SCREEN = 'activity--active';"],
+    'проверка «на экране» записана в обход LC.util.onScreen');
+});

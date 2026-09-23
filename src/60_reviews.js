@@ -756,14 +756,15 @@
        оставленная в истории Lampa, остаётся живым DOM (ревью, Important 3):
        её .selector нельзя отдавать в навигацию — пользователь в это время
        может стоять в ряду описания ДРУГОЙ карточки, и имени контроллера
-       (full_descr у обеих) для различения не хватает. Проверка — штатная
-       LC.slideshow.isLayerForeground, та же, что у кнопки «Стоп» трейлера. */
+       (full_descr у обеих) для различения не хватает. Два вопроса: жив ли
+       узел (LC.slideshow.isMounted) и на экране ли его карточка — общим
+       правилом LC.util.onScreen (src/10_util.js), тем же, что у кнопки
+       «Стоп» трейлера. */
     function isForeground(node) {
       try {
         if (LC.slideshow && typeof LC.slideshow.isMounted === 'function' && !LC.slideshow.isMounted(node[0])) return false;
-        if (LC.slideshow && typeof LC.slideshow.isLayerForeground === 'function') return !!LC.slideshow.isLayerForeground(node);
       } catch (e) { }
-      return true;
+      return LC.util.onScreen(node);
     }
 
     function clearBlock(holder) {
