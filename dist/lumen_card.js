@@ -1138,6 +1138,13 @@ var PERSON_LEFT = 1.5;
 var PERSON_GAP = round2(1 * PERSON_ZOOM);
 var PERSON_PEEK = round2(7 * PERSON_ZOOM / 2);
 var PERSON_TARGET = 23;
+
+
+
+
+var SCRIM_FROM = 74;
+var SCRIM_TO = 92;
+var SCRIM_MAX = 0.8;
 var LAMPA_ROW_PAD = 2.5;
 var LAMPA_HEAD = 4;
 
@@ -1849,6 +1856,40 @@ css.push('.lumen-backdrop__veil{position:absolute;top:0;left:0;right:0;bottom:0;
 css.push('.lumen-backdrop__veil--l{background:linear-gradient(90deg,rgba(' + P.bgRgb + ',0.96) 0%,rgba(' + P.bgRgb + ',0.88) 30%,rgba(' + P.bgRgb + ',0.35) 58%,rgba(' + P.bgRgb + ',0) 82%)}');
 css.push('.lumen-backdrop__veil--b{background:linear-gradient(0deg,rgba(' + P.bgRgb + ',0.98) 0%,rgba(' + P.bgRgb + ',0.60) 28%,rgba(' + P.bgRgb + ',0) 60%)}');
 css.push('.lumen-backdrop__veil--t{background:linear-gradient(180deg,rgba(' + P.bgRgb + ',0.70) 0%,rgba(' + P.bgRgb + ',0) 22%)}');
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+var scrim = 'rgba(' + P.bgRgb + ',0) 0,rgba(' + P.bgRgb + ',0) ' + SCRIM_FROM + 'vh,rgba(' +
+P.bgRgb + ',' + SCRIM_MAX + ') ' + SCRIM_TO + 'vh,rgba(' + P.bgRgb + ',' + SCRIM_MAX + ') 100%';
+css.push('.lumen-scrim{background-image:-webkit-linear-gradient(top,' + scrim + ');background-image:linear-gradient(180deg,' + scrim + ')}');
 
 css.push('.lumen-backdrop--proc0 .lumen-backdrop__img{background:radial-gradient(ellipse 56% 57% at 72% 58%,rgba(255,214,150,0.85) 0%,rgba(232,150,80,0.40) 28%,rgba(232,150,80,0) 70%),linear-gradient(180deg,#1A0D08 0%,#7A2E12 42%,#D9622B 60%,#E8B87A 78%,#3A2418 100%)}');
 css.push('.lumen-backdrop--proc1 .lumen-backdrop__img{background:radial-gradient(ellipse 52% 52% at 74% 52%,rgba(238,214,120,0.78) 0%,rgba(200,170,70,0.35) 30%,rgba(200,170,70,0) 70%),linear-gradient(180deg,#0F1210 0%,#3A3E22 45%,#B99A3A 66%,#6E5A24 82%,#17140E 100%)}');
@@ -13628,6 +13669,32 @@ if (mode === 'poster') ensurePosterLabel(root);
 
 
 body.find('.full-start__background').addClass('lumen-off');
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+try {
+body.find('.scroll__body').eq(0).addClass('lumen-scrim');
+} catch (e) {
+warn('scrim mark failed', e);
+}
 
 var layer = ensureLayer(body);
 
