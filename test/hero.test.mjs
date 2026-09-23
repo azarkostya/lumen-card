@@ -1020,7 +1020,10 @@ test('ответ деталей, доехавший после ухода с г�
   assert.deepEqual(warnLog, []);
 });
 
-test('detach: герой остаётся, пока активность его, и снимается при уходе в чужую', () => {
+/* Правка 2026-09-23 (долг фазы 2, п.4): уход в чужую активность героя не
+   снимает, а паркует — узлы и кадр остаются до возврата. Снимает его
+   unmount (на 'destroy' своей активности, смене настройки, выключении). */
+test('detach: герой остаётся, пока активность его, и паркуется при уходе в чужую', () => {
   const env = makeEnv();
   const main = makeMain();
   const other = makeMain();
@@ -1028,10 +1031,86 @@ test('detach: герой остаётся, пока активность его,
 
   env.hero.detach(main.activity);
   assert.equal(env.hero.active(), true, 'та же активность — герой на месте');
+  assert.equal(env.hero.parked(), false);
 
   env.hero.detach(other.activity);
+  assert.equal(env.hero.active(), true, 'уход вглубь героя не снимает');
+  assert.equal(env.hero.parked(), true);
+  assert.equal(env.hero.owns(main.activity), true, 'снять его на destroy главной по-прежнему можно');
+
+  env.hero.unmount();
   assert.equal(env.hero.active(), false);
   assert.equal(focusListeners(main.activity).length, 0, 'слушатель снят вместе с героем');
+});
+
+/* Долг фазы 2, п.4 (docs/plans/2026-09-15-lumen-phase2-main.md:372): «герой
+   пересобирается на каждом возврате из карточки». Путь «главная → OK на
+   карточке → Назад» рантайм видит как detach(корень карточки) и затем
+   mount(тот же корень главной) — src/90_runtime.js, ветка 'start'. */
+test('возврат из карточки: тот же узел героя, ни нового запроса деталей, ни новой загрузки кадра', () => {
+  const env = makeEnv();
+  const main = makeMain();
+  const card = makeMain();
+  env.hero.mount(main.activity);
+  const node = main.activity._children[0];
+  focusOn(main, main.card1);
+  env.advance(400);
+  env.images[0].onload();
+  env.requests[0].ok({ id: 11, runtime: 100, genres: [{ name: 'драма' }] });
+  const shownSrc = node.find('.lumen-hero__bg--a').attr('src');
+  assert.ok(shownSrc, 'предусловие: кадр показан');
+  const images = env.images.length;
+  const requests = env.requests.length;
+
+  env.hero.detach(card.activity);
+  assert.equal(env.hero.parked(), true);
+  assert.equal(env.bodyClasses.indexOf('lumen-main-on'), -1, 'под карточкой штатный фон Lampa снова работает');
+  assert.equal(env.Lampa.Background.change, env.bgOrig, 'обёртка Background.change снята');
+  env.advance(20000);
+  assert.equal(env.images.length, images, 'пока открыта карточка, герой ничего не грузит');
+  assert.equal(env.requests.length, requests);
+
+  /* Назад: Lampa вернула фокус на ту же карточку сама (класс focus стоит) и
+     шлёт 'start' главной с тем же render(). */
+  env.hero.mount(main.activity);
+  assert.equal(env.hero.parked(), false);
+  assert.equal(main.activity._children[0], node, 'узел героя тот же — не пересобран');
+  assert.equal(main.activity._children.filter((c) => c.hasClass('lumen-hero')).length, 1, 'второго героя не появилось');
+  assert.equal(node.find('.lumen-hero__bg--a').attr('src'), shownSrc, 'кадр на месте');
+  env.advance(1000);
+  assert.equal(env.images.length, images, 'кадр заново не грузится');
+  assert.equal(env.requests.length, requests, 'детали заново не спрашиваются');
+  assert.ok(env.bodyClasses.indexOf('lumen-main-on') !== -1, 'метка главной вернулась');
+  assert.equal(focusListeners(main.activity).length, 1, 'слушатель фокуса один, как и был');
+  assert.equal(env.hero.lastFocus().id, 11, 'источник перехода «постер → кадр» снова заведён');
+  assert.deepEqual(warnLog, []);
+});
+
+/* OK нажали раньше, чем герой успел сменить карточку (350 мс) или дождаться
+   деталей: park обрывает загрузку, и на возврате герой показывает то, что в
+   фокусе, — в те же узлы. */
+test('возврат из карточки: оборванная сменой экрана загрузка доводится заново', () => {
+  const env = makeEnv();
+  const main = makeMain();
+  const card = makeMain();
+  env.hero.mount(main.activity);
+  const node = main.activity._children[0];
+  focusOn(main, main.card1);
+  env.advance(400);
+  env.images[0].onload();
+  env.requests[0].ok({ id: 11 });
+
+  main.card1.removeClass('focus');
+  focusOn(main, main.card2);
+  env.advance(100);
+  env.hero.detach(card.activity);
+  env.advance(1000);
+  assert.equal(env.requests.filter((r) => r.url === 'movie/22').length, 0, 'под карточкой смена героя не доезжает');
+
+  env.hero.mount(main.activity);
+  assert.equal(main.activity._children[0], node, 'узлы те же');
+  assert.equal(env.requests.filter((r) => r.url === 'movie/22').length, 1, 'на возврате — детали карточки под фокусом');
+  assert.deepEqual(warnLog, []);
 });
 
 /* opts.compact/hostClass — контракт монтирования в чужой корень (пригодится
@@ -2137,6 +2216,29 @@ test('трейлер героя: при листании не стартует �
   assert.equal(env.players.length, 0);
 });
 
+/* Правка 2026-09-23: уход в карточку снимает играющий ролик героя, возврат
+   заводит отсчёт автотрейлера заново — как новая остановка фокуса. */
+test('трейлер героя: уход в карточку гасит ролик, возврат заводит отсчёт заново', () => {
+  const env = trailerEnv();
+  const main = makeMain();
+  const card = makeMain();
+  env.hero.mount(main.activity);
+  focusOn(main, main.card1);
+  env.advance(9000);
+  lastVideos(env).ok(VIDEOS_RU);
+  env.players[0].onStart();
+
+  env.hero.detach(card.activity);
+  assert.equal(env.players[0].destroys, 1, 'ролик не играет под карточкой');
+  const videos = env.requests.filter((r) => r.url.indexOf('/videos') >= 0).length;
+  env.advance(20000);
+  assert.equal(env.requests.filter((r) => r.url.indexOf('/videos') >= 0).length, videos, 'и не заводится снова, пока карточка открыта');
+
+  env.hero.mount(main.activity);
+  env.advance(9000);
+  assert.equal(env.requests.filter((r) => r.url.indexOf('/videos') >= 0).length, videos + 1, 'на главной — отсчёт заново');
+});
+
 /* Task 37: возврат фокуса на ту же карточку (Lampa шлёт событие повторно,
    когда восстанавливает фокус) идущий ролик обрывать не должен. */
 test('трейлер героя: повторное событие на той же карточке ролик не гасит', () => {
@@ -2928,6 +3030,39 @@ test('«Несколько кадров»: фокус в рядах — пауз
 
     env.hero.unmount();
     assert.equal(env.live().length, 0, 'уход с главной снимает смену кадров');
+  } finally { env.restore(); }
+});
+
+/* Долг фазы 2, п.4 вместе с настройкой «Несколько кадров» (cca3dec): после
+   возврата из карточки смена кадров продолжается с того кадра, на котором
+   ушли, а не начинается с главного. */
+test('«Несколько кадров»: уход в карточку ставит смену на паузу, возврат продолжает её', () => {
+  const env = slidesEnv();
+  try {
+    const main = makeMain();
+    const card = makeMain();
+    env.hero.mount(main.activity);
+    const node = main.activity._children[0];
+    focusOn(main, main.card1);
+    env.advance(400);
+    env.images[0].onload();
+    detailsOf(env, 11).ok(FRAMES(11, '/b1.jpg'));
+    env.live()[0].fn();
+    env.images[env.images.length - 1].onload();
+    const a = node.find('.lumen-hero__bg--a');
+    assert.equal(a.attr('src'), 'https://img/t/p/w1280/f2.jpg', 'предусловие: показан второй кадр');
+
+    env.hero.detach(card.activity);
+    assert.equal(env.live().length, 0, 'под карточкой таймер смены кадров снят');
+
+    env.hero.mount(main.activity);
+    assert.equal(env.live().length, 1, 'на возврате смена продолжается');
+    assert.equal(a.attr('src'), 'https://img/t/p/w1280/f2.jpg', 'кадр тот же, на котором ушли');
+    const before = env.images.length;
+    env.live()[0].fn();
+    assert.equal(env.images[before].src, 'https://img/t/p/w1280/f3.jpg', 'следующий — третий кадр, а не снова второй');
+    assert.equal(env.requests.filter((r) => r.url === 'movie/11').length, 1, 'детали заново не спрашивались');
+    assert.deepEqual(warnLog, []);
   } finally { env.restore(); }
 });
 

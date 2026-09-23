@@ -13005,7 +13005,7 @@ color: LC.themes.particleColor(theme),
 
 
 
-paused: function () { return !!(state && (state.trailer || state.compact)); }
+paused: function () { return !!(state && (state.trailer || state.compact || state.parked)); }
 });
 } catch (e3) {
 warn('hero: fx mount failed', e3);
@@ -13162,6 +13162,7 @@ cancelTrailer();
 
 
 
+
 var SLIDE_FREE = 700;
 
 function slidesAllowed() {
@@ -13204,7 +13205,10 @@ if (!layers[i].hasClass('is-active')) layers[i].removeAttr('src');
 }
 
 function startSlides(model, captured) {
-if (!state || state.slides || gen !== captured) return;
+
+
+
+if (!state || state.slides || gen !== captured || state.parked) return;
 if (!slidesAllowed() || !state.details || !model || !model.backdrop) return;
 if (!LC.slideshow || !LC.backdrops) return;
 try {
@@ -14097,7 +14101,10 @@ show(card);
 
 
 function onFocusEvent(e) {
-if (!state) return;
+
+
+
+if (!state || state.parked) return;
 try {
 var el = e && e.target;
 if (!el || !el.classList || !el.classList.contains('card')) return;
@@ -14340,7 +14347,8 @@ if (sizeOff()) { unmount(); return; }
 
 
 
-if (state && state.root && state.root[0] === root[0]) return;
+
+if (state && state.root && state.root[0] === root[0]) { resume(); return; }
 unmount();
 opts = opts || {};
 
@@ -14528,14 +14536,130 @@ return false;
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function park() {
+if (!state || state.parked) return;
+if (state.timer || state.net || state.loader || state.logoLoader || state.swapTimer || state.loadTimer || state.titleTimer) {
+state.stale = true;
+}
+state.parked = true;
+cancelTrailer();
+stopTimer('timer');
+cancelPending();
+stopTimer('accentTimer');
+cancelBigPoster();
+if (state.slides) {
+try { state.slides.pause(); } catch (eSl) { warn('hero: slides pause failed', eSl); }
+}
+try {
+if (LC.accent && typeof LC.accent.stopTween === 'function') LC.accent.stopTween();
+} catch (eTween) {
+warn('hero: accent stop failed', eTween);
+}
+if (state.hostClass === MAIN_HOST) {
+markBody(false);
+unguardBackground();
+}
+last = null;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function resume() {
+if (!state || !state.parked) return;
+state.parked = false;
+if (state.hostClass === MAIN_HOST) {
+markBody(true);
+guardBackground();
+}
+applyMotion();
+if (state.slides && !state.compact) {
+try { state.slides.resume(); } catch (eSl) { warn('hero: slides resume failed', eSl); }
+}
+try {
+var el = state.root.find('.card.focus');
+var node = el && el.length ? el[0] : null;
+var card = node && node.card_data;
+if (!card || card.id == null) return;
+updateCompact(node);
+rememberFocus(node, card);
+state.pending = card;
+state.focusEl = node;
+if (trailerReady()) {
+state.trailerCard = card;
+scheduleTrailer(card);
+}
+if (state.stale || String(state.shownId) !== String(card.id)) {
+state.stale = false;
+show(card);
+}
+} catch (e) {
+warn('hero: resume failed', e);
+}
+}
+
+
+
+
+
+
 function detach(render) {
 if (!state) return;
 if (ownedBy(render)) return;
-unmount();
+park();
 }
 
 function active() {
 return !!state;
+}
+
+
+function parked() {
+return !!(state && state.parked);
 }
 
 
@@ -14596,6 +14720,7 @@ applyFx: applyFx,
 mount: mount,
 mountCurrent: mountCurrent,
 detach: detach,
+parked: parked,
 owns: owns,
 unmount: unmount,
 applyMotion: applyMotion,
@@ -32442,6 +32567,8 @@ try { if (LC.rows && LC.rows.bumpGen) LC.rows.bumpGen(); } catch (eBump) {}
 
 try { if (LC.personal && LC.personal.bumpGen) LC.personal.bumpGen(); } catch (eBumpP) {}
 }
+
+
 
 
 

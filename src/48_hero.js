@@ -835,9 +835,9 @@
     /*                                                                       */
     /* Отдельного сторожа «герой ещё на экране» (как в карточке) здесь нет   */
     /* намеренно: уход с главной Lampa сообщает событием 'activity':start    */
-    /* чужой активности, по которому рантайм зовёт LC.hero.detach ->         */
-    /* unmount (src/90_runtime.js). В карточке такого события нет вовсе —    */
-    /* оттуда и сторож.                                                       */
+    /* чужой активности, по которому рантайм зовёт LC.hero.detach -> park   */
+    /* (src/90_runtime.js; park гасит ролик). В карточке такого события нет  */
+    /* вовсе — оттуда и сторож.                                              */
     /* ------------------------------------------------------------------ */
 
     function trailerPref() {
@@ -943,7 +943,7 @@
              Предикат зовётся каждый кадр, и когда все слои на паузе, цикл
              уходит с rAF на таймер раз в 500 мс (src/52_fx.js,
              schedule/IDLE_MS). */
-          paused: function () { return !!(state && (state.trailer || state.compact)); }
+          paused: function () { return !!(state && (state.trailer || state.compact || state.parked)); }
         });
       } catch (e3) {
         warn('hero: fx mount failed', e3);
@@ -1094,7 +1094,8 @@
     /* кадра проходят круг за минуту, а не мелькают.                        */
     /*                                                                     */
     /* Пауза: фокус в рядах ниже первого (setCompact) — как частицы; уход с */
-    /* главной снимает героя целиком (unmount); экран, накрытый заставкой,  */
+    /* главной вглубь паркует героя (park: pause, номер кадра сохраняется), */
+    /* снятие героя (unmount) уничтожает слайдшоу; экран, накрытый заставкой,*/
     /* и главная под открытой карточкой — тиков не делают (проверки самого  */
     /* контроллера). Смена карточки уничтожает слайдшоу в show() до того,   */
     /* как поднимется gen, — от прошлой карточки не остаётся ни таймера.    */
@@ -1142,7 +1143,10 @@
     }
 
     function startSlides(model, captured) {
-      if (!state || state.slides || gen !== captured) return;
+      /* Запаркованный герой (уход вглубь, park ниже) слайдшоу не заводит:
+         настройку могли переключить из карточки, и тогда смена кадров
+         стартует на возврате — resume зовёт applyMotion. */
+      if (!state || state.slides || gen !== captured || state.parked) return;
       if (!slidesAllowed() || !state.details || !model || !model.backdrop) return;
       if (!LC.slideshow || !LC.backdrops) return;
       try {
@@ -2035,7 +2039,10 @@
        получают и не-карточки (кнопки шапки, пункты меню) — они отсеиваются
        здесь. */
     function onFocusEvent(e) {
-      if (!state) return;
+      /* Запаркованный герой (главная под открытой карточкой) на фокус не
+         отвечает: события на скрытой главной не ждём, но если оно придёт,
+         заводить таймеры и запросы под чужим экраном незачем. */
+      if (!state || state.parked) return;
       try {
         var el = e && e.target;
         if (!el || !el.classList || !el.classList.contains('card')) return;
@@ -2270,15 +2277,16 @@
       try {
         if (!root || !root.length) return;
         if (sizeOff()) { unmount(); return; }
-        /* Тот же корень — героя не пересобираем. На пути «карточка → назад»
-           этот гард НЕ срабатывает: уход вглубь виден рантайму как 'start'
-           чужой активности, и detach() уже снял героя — на возврате он
-           строится заново (кадр при этом моргает; вынесено долгом фазы 3).
-           Гард закрывает другое: повторный mount() того же корня без
-           промежуточного detach — activate() -> mountCurrent() и следом
-           событие 'start' той же главной, либо два 'start' подряд. Без него
-           на один экран вешался бы второй слушатель фокуса. */
-        if (state && state.root && state.root[0] === root[0]) return;
+        /* Тот же корень — героя не пересобираем. Два пути сюда:
+           - возврат «карточка → назад»: уход вглубь рантайм видит как
+             'start' чужой активности, и detach() героя ЗАПАРКОВАЛ (park
+             ниже), а не снял; здесь он просыпается (resume) с теми же
+             узлами, кадром и слайдшоу — правка 2026-09-23, долг фазы 2, п.4;
+           - повторный mount() без промежуточного detach — activate() ->
+             mountCurrent() и следом 'start' той же главной, либо два 'start'
+             подряд: resume тогда ничего не делает. Без гарда на один экран
+             вешался бы второй слушатель фокуса. */
+        if (state && state.root && state.root[0] === root[0]) { resume(); return; }
         unmount();
         opts = opts || {};
 
@@ -2461,19 +2469,135 @@
       }
     }
 
+    /* Правка 2026-09-23 (долг фазы 2, п.4: «герой пересобирается на каждом
+       возврате из карточки»). Уход с главной вглубь больше не снимает героя,
+       а паркует: узлы, кадр в <img>, детали, модель и слайдшоу остаются, а
+       всё, что работает во времени или трогает чужой экран, останавливается.
+
+       Почему можно держать узлы. Главная при уходе вглубь остаётся в DOM
+       Lampa (скрыта прозрачностью, .activity{opacity:0}), и на возврате
+       backward() отдаёт ТОТ ЖЕ render(): рантайм зовёт mount() с тем же
+       корнем, и гард в mount будит героя (resume). Если главную за это
+       время уничтожили (Activity.replace, вытеснение из истории), рантайм
+       получает 'destroy' и снимает героя через owns() -> unmount(), как и
+       раньше; если открыта новая главная, mount() с другим корнем снимет
+       старого героя сам.
+
+       Что останавливается:
+       - ролик (cancelTrailer) — он играл бы за чужим экраном;
+       - отложенная смена героя, догрузка кадра и деталей прошлого фокуса,
+         ожидание логотипа (cancelPending и таймер фокуса) — на слабом ТВ
+         это декодирование w1280 в момент, когда строится карточка; если
+         что-то из этого было в пути, state.stale велит resume показать
+         карточку заново (кадр уже на экране повторно не грузится:
+         loadFrame выходит на том же адресе);
+       - акцент и его переход (как в unmount: LC.accent.stopTween — при
+         открытии карточки его никто другой не остановит), крупный постер
+         перехода;
+       - слайдшоу «Несколько кадров» — pause(), не destroy(): номер кадра
+         остаётся, и на возврате смена продолжается с него, а не с начала;
+       - частицы — предикат паузы учитывает state.parked;
+       - метка body.lumen-main-on и обёртка Background.change (Task 49):
+         на других экранах штатный фон Lampa обязан работать.
+       last (источник перехода «постер → кадр») обнуляется, как это делал
+       unmount: узел карточки на скрытой главной не должен стать источником
+       перехода для карточки, открытой уже из другой карточки.
+
+       Цена: пока открыта карточка, в памяти остаётся показанный кадр героя
+       (w1280 — 3 686 400 байт растра, с тяжёлыми эффектами и
+       «Несколькими кадрами» до двух) — тот, ради которого возврат и не
+       грузит его заново. */
+    function park() {
+      if (!state || state.parked) return;
+      if (state.timer || state.net || state.loader || state.logoLoader || state.swapTimer || state.loadTimer || state.titleTimer) {
+        state.stale = true;
+      }
+      state.parked = true;
+      cancelTrailer();
+      stopTimer('timer');
+      cancelPending();
+      stopTimer('accentTimer');
+      cancelBigPoster();
+      if (state.slides) {
+        try { state.slides.pause(); } catch (eSl) { warn('hero: slides pause failed', eSl); }
+      }
+      try {
+        if (LC.accent && typeof LC.accent.stopTween === 'function') LC.accent.stopTween();
+      } catch (eTween) {
+        warn('hero: accent stop failed', eTween);
+      }
+      if (state.hostClass === MAIN_HOST) {
+        markBody(false);
+        unguardBackground();
+      }
+      last = null;
+    }
+
+    /* Возврат на главную с тем же корнем. Всё, что park остановил, заводится
+       тем же путём, каким заводится на первом монтировании, но без
+       пересборки узлов:
+       - метка body и обёртка фона;
+       - applyMotion: режим анимаций, автотрейлер и «Что показывает кадр»
+         могли поменять, пока открыта карточка; там же слайдшоу заводится
+         заново, если его не было и оно теперь разрешено;
+       - слайдшоу — resume(), если фокус не в рядах (в сжатом состоянии оно
+         стоит на паузе, как и до ухода);
+       - карточка под фокусом: Lampa возвращает фокус сама, до события
+         'start' (разбор у showFocused), — отсюда сжатие, источник перехода,
+         отсчёт автотрейлера заново. Тот же фильм и ничего не оборвано —
+         кадр, логотип и текст остаются как были; другой фильм или
+         оборванная загрузка (state.stale) — show() в те же узлы. */
+    function resume() {
+      if (!state || !state.parked) return;
+      state.parked = false;
+      if (state.hostClass === MAIN_HOST) {
+        markBody(true);
+        guardBackground();
+      }
+      applyMotion();
+      if (state.slides && !state.compact) {
+        try { state.slides.resume(); } catch (eSl) { warn('hero: slides resume failed', eSl); }
+      }
+      try {
+        var el = state.root.find('.card.focus');
+        var node = el && el.length ? el[0] : null;
+        var card = node && node.card_data;
+        if (!card || card.id == null) return;
+        updateCompact(node);
+        rememberFocus(node, card);
+        state.pending = card;
+        state.focusEl = node;
+        if (trailerReady()) {
+          state.trailerCard = card;
+          scheduleTrailer(card);
+        }
+        if (state.stale || String(state.shownId) !== String(card.id)) {
+          state.stale = false;
+          show(card);
+        }
+      } catch (e) {
+        warn('hero: resume failed', e);
+      }
+    }
+
     /* Вызывается на 'activity':start ЛЮБОЙ активности. Ушли с экрана, где
-       живёт герой (вглубь в карточку, в меню, в другой компонент) — снимаем
-       его вместе со слушателем: Lampa для покидаемой активности событий не
-       шлёт вовсе (раздел 0 плана), и это единственный момент, когда об уходе
+       живёт герой (вглубь в карточку, в меню, в другой компонент), — герой
+       паркуется (park выше): Lampa для покидаемой активности событий не шлёт
+       вовсе (раздел 0 плана), и это единственный момент, когда об уходе
        можно узнать. */
     function detach(render) {
       if (!state) return;
       if (ownedBy(render)) return;
-      unmount();
+      park();
     }
 
     function active() {
       return !!state;
+    }
+
+    /* Герой смонтирован, но его главная сейчас не на экране (park). */
+    function parked() {
+      return !!(state && state.parked);
     }
 
     /* Публичная проверка принадлежности: рантайму она нужна на 'destroy',
@@ -2534,6 +2658,7 @@
       mount: mount,
       mountCurrent: mountCurrent,
       detach: detach,
+      parked: parked,
       owns: owns,
       unmount: unmount,
       applyMotion: applyMotion,
