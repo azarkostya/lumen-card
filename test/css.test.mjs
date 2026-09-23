@@ -59,7 +59,7 @@ function tokensWith(storage) {
    им (Storage.field отдаёт значение из кэша в памяти), и от одной из них —
    'interface_size' — зависят оба порога раскладки (screenEm, src/30_css.js).
    Ключ тот же самый, поэтому вторая заглушка смотрит в тот же объект. */
-function withStorage(storage, fn) {
+function withStorage(storage, fn, innerWidth) {
   const LC = {};
   const module = { exports: null, lumen: true };
   const Lampa = {
@@ -73,8 +73,10 @@ function withStorage(storage, fn) {
      кегля Lampa 10.6 px: на «мельче» при 960 px он включается, и таблица
      стилей считает пороги по 90.57 em экрана, а не по 93.52 (screenEm,
      src/30_css.js). Модель обязана видеть ту же ширину, иначе она проверяла
-     бы таблицу, собранную для другого окна. */
-  globalThis.window = { Lampa: Lampa, innerWidth: 960 };
+     бы таблицу, собранную для другого окна.
+     Третий аргумент — другая ширина окна: правило кромки главной
+     проверяется и на окнах браузера ПК (1280…2560 CSS px). */
+  globalThis.window = { Lampa: Lampa, innerWidth: innerWidth || 960 };
   globalThis.Lampa = Lampa;
   try {
     loadInto(LC, module, '10_util.js');
@@ -2519,8 +2521,12 @@ test('раскладка героя: кадр, текст и ряды не пе�
      занимает две трети экрана по прямому требованию пользователя
      («половина экрана, если не больше»), и на подписи в старте высоты
      экрана после этого не хватает. */
+/* Файл читается один раз: модель раскладки зовёт его на каждую клетку, а
+   клеток у правила кромки — тысяча с лишним. */
+let lampaCssText = null;
 function lampaCss() {
-  return readFileSync(new URL('../vendor/lampa/css/app.css', import.meta.url), 'utf8');
+  if (lampaCssText === null) lampaCssText = readFileSync(new URL('../vendor/lampa/css/app.css', import.meta.url), 'utf8');
+  return lampaCssText;
 }
 
 /* Число из объявления внутри правила штатной таблицы Lampa: сначала тело
@@ -2559,8 +2565,13 @@ function num(body, prop) {
    для раскладки не годится ни то, ни другое: часть правил области рядов
    живёт только за порогом отношения сторон, а в одной строке медиаблока их
    несколько. */
+/* Последний разбор запоминается: модель раскладки спрашивает одну и ту же
+   таблицу по нескольку раз на клетку. Результат только читают. */
+let rulesCache = { text: null, out: null };
 function ruleBodiesWithMedia(cssText) {
+  if (rulesCache.text === cssText) return rulesCache.out;
   const out = [];
+  rulesCache = { text: cssText, out: out };
   for (const line of cssText.split('\n')) {
     if (!line || /^@-?(webkit-)?keyframes/.test(line)) continue;
     let media = null;
@@ -2831,8 +2842,16 @@ function rowLayout(built, screenW, screenH, opts) {
   const head = parseFloat(/height:calc\(100vh - ([0-9.]+)em\) !important/.exec(heroOffMedia(built))[1]);
 
   const areaTopUp = head * EM + lengthPx(cascade(upRules, 'margin-top').value, EM, VH);
-  const shiftUp = lengthPx(/translateY\(([^)]*)\)/.exec(cascade(upRules, 'transform').value)[1], EM, VH);
-  const shiftDown = lengthPx(/translateY\(([^)]*)\)/.exec(cascade(downRules, 'transform').value)[1], EM, VH);
+  /* За порогом, где кадра героя нет (heroOffMedia), у области transform:none
+     в обоих состояниях — сдвига нет. Правка 2026-09-23 (правило кромки на
+     ПК): модель гоняется и на таких окнах. */
+  const shiftOf = (rules) => {
+    const value = cascade(rules, 'transform').value;
+    if (value === 'none') return 0;
+    return lengthPx(/translateY\(([^)]*)\)/.exec(value)[1], EM, VH);
+  };
+  const shiftUp = shiftOf(upRules);
+  const shiftDown = shiftOf(downRules);
   const areaTopDown = head * EM + lengthPx(cascade(downRules, 'margin-top').value, EM, VH);
 
   /* Отступ, который Lampa держит над фокусным рядом сама. Маску мы с области
@@ -2912,12 +2931,16 @@ function rowLayout(built, screenW, screenH, opts) {
      где заголовок следующего ряда попадал на кромку, он подменяется
      расчётным (src/30_css.js, правило .lumen-main .items-line). Высота
      шапки того ряда — та же, что у первого. */
-  const rowGap = lengthPx(cascade(matchingRules(built, ['lumen-main'], ['items-line'], screenW, screenH), 'padding-bottom').value, EM, VH);
+  const rowGap = lengthPx(cascade(matchingRules(built, rootUp, ['items-line'], screenW, screenH), 'padding-bottom').value, EM, VH);
   const rowBottomUp = posterBottomUp + tail - focusShift + rowGap;
 
   return {
     rowTopUp: rowTopUp,
     rowGap: rowGap,
+    /* Отступ Lampa над фокусным рядом в px: подписи ПРЕДЫДУЩЕГО ряда стоят
+       на (lampaPad − rowGap) ниже верха области, то есть внутри неё, если
+       зазор меньше отступа. */
+    lampaPad: lampaPad,
     /* Низ ряда в потоке и низ шапки СЛЕДУЮЩЕГО ряда — из них и считается,
        режет ли его кромка экрана. */
     rowBottomUp: rowBottomUp,
@@ -3169,75 +3192,128 @@ test('уточнение 2026-09-23: модель раскладки сходи�
    Эффективный масштаб читается из базового правила ширины карточки:
    buildCss пишет туда round2(9.52 × rowScale), то есть деление на ширину
    седьмой колонки возвращает сам масштаб с точностью округления. */
-/* Правка 2026-09-23 (разбор композиции, п.6): кромка экрана имеет право
-   резать изображение и не имеет права резать текст. На главной резался
-   заголовок СЛЕДУЮЩЕГО ряда — от него была видна верхушка глифов.
+/* Правило кромки главной (src/30_css.js, правило .lumen-main .items-line).
 
-   Тест меряет ровно это по всем 72 клеткам: заголовок следующего ряда
-   обязан либо помещаться целиком, либо начинаться за кромкой. До правки
-   17 клеток из 72 давали срез (перебор той же модели: низ ряда от 405 до
-   543 CSS px при кромке 540, и в этой полосе шириной в одну строку он и
-   попадал на заголовок). */
-test('правка 2026-09-23: кромка не режет заголовок следующего ряда ни в одной клетке', () => {
-  const W = 960;
-  const H = 540;
-  const cut = [];
+   Решение пользователя 2026-09-23: «мне не нравится, когда есть этот
+   выступ, все знают, что внизу есть что-то» — от следующего ряда в сжатом
+   состоянии не видно ничего. Первая редакция правила (5601edb) требовала
+   меньшего — «заголовок следующего ряда либо целиком на экране, либо за
+   кромкой» — и была откалибрована под телевизор: на стенде 1840×960, DPR 1
+   заголовок следующего ряда стоял целиком над кромкой (931.3…958.2).
+
+   Здесь проверяются обе кромки области рядов в СЖАТОМ состоянии:
+   - снизу: следующий ряд начинается не выше кромки экрана (низ фокусного
+     ряда вместе с зазором ≥ H);
+   - сверху: подписи ПРЕДЫДУЩЕГО ряда не заходят в область. Lampa ставит
+     фокусный ряд на свой отступ (2.5em) ниже верха области, и подписи
+     предыдущего стоят на (отступ − зазор) внутри неё. Замер на стенде
+     1600×900, DPR 1 до правки: зазор 42.6 px при отступе 47.5 — подписи
+     предыдущего ряда 417.2…436.4 при верхе области 431.0, то есть 5.4 px
+     внутри.
+
+   Окна: телевизор пользователя (960×540 CSS px при DPR 2) и окна браузера
+   ПК — 16:9 и 16:10 от 1280 до 2560 CSS px (DPR на главной не влияет:
+   ни одно правило главной не зависит от него, порог по DPR есть только у
+   компактной ветки карточки — narrowWindowPx), окно пользователя 1840×960
+   и окна 21:9, где кадра героя нет вовсе (своя ветка правила). В каждом —
+   72 клетки: 3 размера интерфейса Lampa × 3 размера кадра × 4 масштаба ×
+   профили настроения вкл/выкл (от них зависит верх области за порогом
+   «кадра нет»). */
+const EDGE_WINDOWS = [
+  [960, 540],
+  [1280, 720], [1366, 768], [1600, 900], [1920, 1080], [2560, 1440],
+  [1280, 800], [1440, 900], [1680, 1050], [1920, 1200], [2560, 1600],
+  [1840, 960], [1920, 969],
+  [2560, 1080], [3440, 1440]
+];
+
+function edgeViolations(W, H) {
+  const bad = [];
   for (const iface of ['small', 'normal', 'bigger']) {
     for (const size of ['large', 'medium', 'compact']) {
       for (const scale of ['small', 'normal', 'large', 'huge']) {
-        for (const more of [true, false]) {
-          const built = withStorage(
-            { lumen_scale: scale, lumen_hero_size: size, interface_size: iface }, (LC) => LC.buildCss());
-          const got = rowLayout(built, W, H, { more: more, interface: iface });
-          const label = iface + '/' + size + '/' + scale + (more ? '/more' : '');
-          /* Зазор не имеет права стать МЕНЬШЕ штатного: расчётный вариант
-             включается только там, где он заведомо больше (вывод интервала
-             — в комментарии к правилу). */
-          assert.ok(got.rowGap >= 1.4 * lampaEm(W, iface) - 0.01,
-            label + ': зазор между рядами ' + got.rowGap.toFixed(1) + ' px меньше штатных 1.4em');
-          /* Допуск полпикселя: зазор считается в em с округлением до
-             сотых (round2), и на краю это даёт десятые доли пикселя. */
-          if (got.rowBottomUp < H - 0.5 && got.nextHeadBottomUp > H + 0.5) {
-            cut.push(label + ': низ ряда ' + got.rowBottomUp.toFixed(1) +
-              ', низ заголовка следующего ' + got.nextHeadBottomUp.toFixed(1) + ' при кромке ' + H);
+        const built = withStorage(
+          { lumen_scale: scale, lumen_hero_size: size, interface_size: iface }, (LC) => LC.buildCss(), W);
+        for (const moods of [true, false]) {
+          const got = rowLayout(built, W, H, { interface: iface, moods: moods });
+          const label = W + '×' + H + ' ' + iface + '/' + size + '/' + scale + (moods ? '/чипы' : '');
+          /* Допуск полпикселя: границы интервалов пишутся в тысячных
+             отношения сторон, зазор — в em с округлением до сотых. */
+          if (got.rowBottomUp < H - 0.5) {
+            bad.push(label + ': следующий ряд начинается на ' + got.rowBottomUp.toFixed(1) + ' при кромке ' + H);
+          }
+          if (got.rowGap < got.lampaPad - 0.5) {
+            bad.push(label + ': подписи предыдущего ряда на ' + (got.lampaPad - got.rowGap).toFixed(1) +
+              ' px внутри области (зазор ' + got.rowGap.toFixed(1) + ', отступ Lampa ' + got.lampaPad.toFixed(1) + ')');
           }
         }
       }
     }
   }
-  assert.deepEqual(cut, [], 'кромка режет заголовок следующего ряда');
+  return bad;
+}
+
+test('правило кромки: на телевизоре от следующего ряда в сжатом состоянии не видно ничего (72 клетки)', () => {
+  assert.deepEqual(edgeViolations(960, 540), []);
 });
 
-/* Та же правка, но со стороны цены: расчётный зазор пишется НЕ везде, а
-   только в интервале отношений сторон, где срез возможен. Мёртвых правил в
-   таблице мы не держим, а лишний зазор в клетках, где резать нечего, — это
-   отданная высота. */
-test('правка 2026-09-23: расчётный зазор рядов пишется только там, где нужен', () => {
-  const W = 960;
-  const H = 540;
+test('правило кромки: то же на окнах браузера ПК — 16:9, 16:10, окно пользователя и 21:9', () => {
+  const bad = [];
+  for (const [W, H] of EDGE_WINDOWS.slice(1)) bad.push(...edgeViolations(W, H));
+  assert.deepEqual(bad, []);
+});
+
+/* Та же правка со стороны цены и формы: расчётный зазор пишется там, где
+   ряд короче места под ним, и нигде больше. */
+test('правило кромки: расчётный зазор — ровно до границы, где он опускается до штатного', () => {
+  const built = withStorage({ lumen_scale: 'normal', lumen_hero_size: 'large', interface_size: 'normal' },
+    (LC) => LC.buildCss(), 1840);
+  const lines = built.split(String.fromCharCode(10)).filter((l) =>
+    l.indexOf('@media') === 0 && l.indexOf('.lumen-main .items-line{padding-bottom') !== -1);
+  const heroOff = parseInt(/min-aspect-ratio:(\d+)\/100/.exec(heroOffMedia(built))[1], 10) / 100;
+  const wide = lines.find((l) => l.indexOf('min-aspect-ratio') === -1);
+  assert.ok(wide, 'у широкой раскладки правило кромки обязано быть без нижней границы: ' + lines.join(' | '));
+  /* Все границы интервалов — не дальше порога, за которым кадра нет: там у
+     области другая геометрия, и формулу героя ставить туда нельзя (до
+     правки 2026-09-23 интервал компактного кадра доходил до 2.72:1 при
+     пороге 2.20). */
+  for (const l of lines) {
+    const min = /min-aspect-ratio:(\d+)\/100/.exec(l);
+    const max = /max-aspect-ratio:(\d+)\/1000/.exec(l);
+    assert.ok(max, 'граница правила кромки — в тысячных: ' + l);
+    const lo = min ? parseInt(min[1], 10) / 100 : 0;
+    const hi = parseInt(max[1], 10) / 1000;
+    const heroFormula = l.indexOf('100vh') === -1;
+    assert.ok(heroFormula ? hi <= heroOff + 1e-9 : lo >= heroOff - 1e-9,
+      'правило кромки заходит не в свою раскладку (порог «кадра нет» ' + heroOff + '): ' + l);
+    /* На самой границе расчётный зазор равен штатному (ROW_GAP = отступ
+       Lampa, 2.5em) с точностью до шага в тысячную отношения сторон. */
+    const H = Math.round(1840 / hi);
+    const at = rowLayout(built, 1840, H, { interface: 'normal', moods: !heroFormula && l.indexOf('lumen-moods-on') !== -1 });
+    assert.ok(Math.abs(at.rowGap - 2.5 * lampaEm(1840, 'normal')) < 1,
+      'на границе ' + hi + ' зазор ' + at.rowGap.toFixed(1) + ' px вместо штатных 2.5em: ' + l);
+  }
+  /* И сама граница: у окна пользователя (1840×960, 1.917:1) расчётный зазор
+     включён — именно там выглядывал заголовок следующего ряда. */
+  const user = rowLayout(built, 1840, 960, { interface: 'normal' });
+  assert.ok(Math.abs(user.rowBottomUp - 960) < 1,
+    '1840×960: фокусный ряд кончается на ' + user.rowBottomUp.toFixed(1) + ' вместо кромки 960');
+});
+
+/* Телевизор: что поменялось на нём. Клетка пользователя (крупный кадр,
+   штатный масштаб, «обычный» размер) лежит ЗА границей расчётного зазора —
+   ряд там длиннее места под ним, — и зазор равен штатному ROW_GAP: 28.5 px
+   (2.5em при кегле 11.4055) вместо прежних расчётных 26. Следующий ряд
+   начинается на 543.0 вместо 540.0, то есть уже за кромкой, а не на ней;
+   низ подписи фокусного ряда (инвариант Task 51) от зазора не зависит. */
+test('правило кромки: клетка телевизора пользователя — следующий ряд за кромкой, подпись на месте', () => {
   const built = withStorage({ lumen_scale: 'normal', lumen_hero_size: 'large', interface_size: 'normal' },
     (LC) => LC.buildCss());
-  const rule = built.split(String.fromCharCode(10)).find((l) => l.indexOf('max-aspect-ratio') !== -1 && l.indexOf('.lumen-main .items-line{padding-bottom') !== -1);
-  assert.ok(rule, 'правила кромки для штатной раскладки нет');
-  const lo = parseInt(/min-aspect-ratio:(\d+)\/100/.exec(rule)[1], 10);
-  const hi = parseInt(/max-aspect-ratio:(\d+)\/100/.exec(rule)[1], 10);
-  assert.ok(lo < 178 && hi > 178, 'телевизор 16:9 обязан попадать в интервал: ' + lo + '…' + hi);
-  /* Замер на стенде 960×540@2 (2026-09-23, после getAnimations().finish()):
-     низ подписи первого ряда в потоке 520.5 CSS px, прежний зазор 15.97
-     давал низ ряда 536.5 и заголовок следующего ряда на 539.8…553.8.
-     Расчётный зазор ставит низ ряда БЕЗ кнопки «Ещё» ровно на кромку, а ряд
-     С кнопкой — на её высоту ниже (зазор один на все ряды, а кнопка есть не
-     у каждого: считать надо по короткому, разбор — у самого правила). */
-  const plain = rowLayout(built, W, H, { more: false, interface: 'normal' });
-  assert.ok(Math.abs(plain.rowBottomUp - H) < 1,
-    'ряд без кнопки «Ещё» кончается на ' + plain.rowBottomUp.toFixed(1) + ' вместо кромки ' + H);
-  const more = rowLayout(built, W, H, { more: true, interface: 'normal' });
-  assert.ok(more.rowBottomUp >= H,
-    'ряд с кнопкой «Ещё» кончается на ' + more.rowBottomUp.toFixed(1) + ' — выше кромки ' + H);
-  assert.ok(Math.abs(plain.rowGap - 26) < 1,
-    'зазор ' + plain.rowGap.toFixed(1) + ' вместо расчётных 26 px');
-  /* И вне интервала правила нет вовсе — узкое окно 2.5:1 сюда не попадает. */
-  assert.ok(hi < 250, 'интервал разъехался на всю шкалу: ' + lo + '…' + hi);
+  const got = rowLayout(built, 960, 540, { interface: 'normal' });
+  assert.ok(Math.abs(got.rowGap - 2.5 * lampaEm(960, 'normal')) < 0.1,
+    'зазор ' + got.rowGap.toFixed(1) + ' вместо штатных 2.5em');
+  assert.ok(Math.abs(got.rowBottomUp - 543.0) < 1, 'следующий ряд начинается на ' + got.rowBottomUp.toFixed(1));
+  assert.ok(Math.abs(got.flowBottomUp - 514.5) < 1, 'низ подписи в потоке ' + got.flowBottomUp.toFixed(1));
 });
 
 test('Фикс-раунд волны A: потолок масштаба карточки ряда режет только вниз и только по нужде', () => {
@@ -3808,7 +3884,12 @@ test('сжатое состояние: описание уходит по диз
      нечего — мета просто остаётся. */
   assert.equal(ruleSelectors(css).filter((sel) => sel === '.lumen-hero.lumen-hero--compact .lumen-hero__meta').length, 0,
     'мета снова спрятана в сжатом — пользователь просил её видеть при листании');
-  assert.equal(css.split('\n').filter((l) => l.indexOf('@media screen and (max-aspect-ratio:') === 0).length, 0,
+  /* Правка 2026-09-23 (правило кромки на ПК): с max-aspect-ratio теперь
+     начинается правило зазора между рядами — у широкого интервала нижней
+     границы нет. К бюджету кадра оно отношения не имеет и отсюда
+     исключается по своему телу. */
+  assert.equal(css.split('\n').filter((l) => l.indexOf('@media screen and (max-aspect-ratio:') === 0 &&
+    l.indexOf('{.lumen-main .items-line{padding-bottom:') === -1).length, 0,
     'порогов по max-aspect-ratio не осталось: бюджет сжатого состояния совпал с полным');
   /* При самом маленьком размере кадра мета не показывается вовсе — и там это
      не про состояние, а про размер: бюджета на неё нет ни в одном из двух. */
@@ -5586,26 +5667,25 @@ test('правка 2026-09-23: кнопка «Ещё» убрана из шап�
     'низ подписи в сжатом состоянии ' + withMore.textBottomUp.toFixed(1) + ' вместо расчётных 518.5');
 });
 
-test('Task 63: зазор между рядами — тот, что влез в бюджет высоты, а не 100 px HIG', () => {
+test('Task 63: зазор между рядами — нижняя граница равна отступу Lampa над фокусным рядом', () => {
   const W = 960;
   const H = 540;
   const EM = W / 84.17;
-  const gap = num(decl(css, '.lumen-main .items-line'), 'padding-bottom') * EM;
+  const gap = num(decl(css, '.lumen-main .items-line'), 'padding-bottom');
+  /* Прежняя редакция этого теста требовала обратного — чтобы от следующего
+     ряда «что-то было видно» (ресёрч §3, «ряд обрезан встык — дефект»), и
+     держала зазор 1.4em. Решение пользователя 2026-09-23 это отменило:
+     «мне не нравится, когда есть этот выступ» (запись в
+     docs/plans/2026-09-22-lumen-final.md, раздел «Решения пользователя»).
+     Теперь базовый зазор — ровно отступ Lampa над фокусным рядом
+     (.scroll--mask .scroll__content{padding:2.5em 0}, app.css), чтобы
+     подписи уехавшего вверх ряда кончались не ниже верха области. */
+  const lampa = lampaCss();
+  assert.equal(gap, lampaDecl(lampa, '.scroll--mask .scroll__content', 'padding'),
+    'базовый зазор между рядами разошёлся с отступом Lampa над фокусным рядом');
   const box = rowLayout(css, W, H, { more: true });
-  /* Верх заголовка следующего ряда: низ подписи предыдущего в потоке плюс
-     зазор. Живой замер на стенде 960×540@2 (2026-09-21, после
-     getAnimations().finish()): 520.8 + 15.97 = 536.8, и замеренный
-     .items-line__head второго ряда стоял ровно на 536.8.
-     Правка 2026-09-23 (разбор композиции, п.1.5): кнопка «Ещё» ушла из
-     шапки ряда, шапка каждого ряда стала ниже на 6.5 CSS px, и вся цепочка
-     поднялась на столько же — 514.5 + 15.97 = 530.4. Размен при этом не
-     изменился: от следующего ряда по-прежнему что-то видно, а зазор HIG
-     по-прежнему не помещается. */
-  const next = box.flowBottomUp + gap;
-  assert.ok(Math.abs(next - 530.4) < 1, 'верх второго ряда ' + next.toFixed(1) + ' вместо расчётных 530.4');
-  assert.ok(next < H, 'следующий ряд не выглядывает вовсе — ряд «обрезан встык», а это дефект по ресёрчу §3');
-  const hig = box.flowBottomUp + 4.39 * EM;
-  assert.ok(hig > H, 'зазор HIG (100 px) помещается в экран — значит его и надо ставить: ' + hig.toFixed(1));
+  assert.ok(box.flowBottomUp + gap * EM >= H, 'следующий ряд выглядывает снизу: начинается на ' +
+    (box.flowBottomUp + gap * EM).toFixed(1));
 });
 
 /* Обрезка ряда. Пятый пункт Task 63 просил overflow:visible у контейнера
@@ -5711,10 +5791,11 @@ test('Task 63: медиазапросы таблицы — из известно
     if (line.indexOf('@media') !== 0) continue;
     const cond = line.slice(0, line.indexOf('{'));
     for (const feature of cond.match(/\(([a-z-]+):/g) || []) seen.add(feature.slice(1, -1));
-    assert.ok(/^@media screen and \((min-aspect-ratio|max-width)/.test(cond), 'незнакомый медиазапрос: ' + cond);
+    assert.ok(/^@media screen and \((min-aspect-ratio|max-aspect-ratio|max-width)/.test(cond), 'незнакомый медиазапрос: ' + cond);
   }
   /* Правка 2026-09-23: к набору добавился max-aspect-ratio — верхняя граница
-     интервала, в котором зазор между рядами считается по кромке. */
+     интервала, в котором зазор между рядами считается по кромке; у
+     широкого интервала она единственное условие, отсюда и начало строки. */
   assert.deepEqual([...seen].sort(), ['max-aspect-ratio', 'max-width', 'min-aspect-ratio'],
     'набор медиаусловий таблицы изменился — проверить mediaApplies в этом файле');
 });

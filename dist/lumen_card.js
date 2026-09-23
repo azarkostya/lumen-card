@@ -1202,11 +1202,6 @@ var ROW_EDGE_AIR = 0.7;
 
 
 
-var ROW_GAP = 1.4;
-
-
-
-
 
 
 var PERSON_ZOOM = 1.1;
@@ -1223,6 +1218,26 @@ var SCRIM_TO = 92;
 var SCRIM_MAX = 0.8;
 var LAMPA_ROW_PAD = 2.5;
 var LAMPA_HEAD = 4;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+var ROW_GAP = LAMPA_ROW_PAD;
 
 
 
@@ -4390,6 +4405,10 @@ var rowsArea = round2(LAMPA_ROW_PAD - ROWS_AIR);
 
 
 
+
+
+
+
 var rowsMargin = rowsTopVh + 'vh - ' + rowsTop + 'em';
 var rowsHeight = round2(100 - rowsTopVh) + 'vh + ' + rowsArea + 'em';
 css.push('.lumen-main .scroll.layer--wheight{margin-top:-webkit-calc(' + rowsMargin + ');margin-top:calc(' + rowsMargin + ');' +
@@ -4847,14 +4866,6 @@ css.push('.lumen-main .items-line__title{font-family:' + FB + ';font-weight:700;
 
 
 
-
-
-
-
-
-
-
-
 css.push('.lumen-main .items-line{padding-bottom:' + ROW_GAP + 'em}');
 
 
@@ -4905,29 +4916,58 @@ css.push('.lumen-main .items-line{padding-bottom:' + ROW_GAP + 'em}');
 
 
 
-var rowTailVh = round2(100 - ROWS_TOP_VH[heroSize]);
-var rowEdgeC = rowTitleEm / screenEm();
 
+
+
+
+
+
+
+
+
+var rowTailVh = round2(100 - ROWS_TOP_VH[heroSize]);
 
 
 var rowEdgeMedia = function (blockEm, lo, hi) {
 var tailEm = round2(ROWS_AIR + blockEm);
 var b = (tailEm + ROW_GAP) / screenEm();
-var from = Math.max(lo, Math.floor(rowTailVh / (b + rowEdgeC)));
-var to = Math.min(hi, Math.ceil(rowTailVh / b));
-if (to <= from) return '';
+var to = Math.min(hi * 10, Math.ceil(rowTailVh * 10 / b));
+if (to <= lo * 10) return '';
 var pad = rowTailVh + 'vh - ' + tailEm + 'em';
-return '@media screen and (min-aspect-ratio:' + from + '/100) and (max-aspect-ratio:' + to + '/100){' +
+return '@media screen and ' + (lo > 0 ? '(min-aspect-ratio:' + lo + '/100) and ' : '') +
+'(max-aspect-ratio:' + to + '/1000){' +
 '.lumen-main .items-line{padding-bottom:-webkit-calc(' + pad + ');padding-bottom:calc(' + pad + ')}}';
 };
-var rowEdgeWide = rowEdgeMedia(
-rowBlockEm(cardWEm, rowTitleEm, rowHeadGapEm, cardTitleEm, cardAgeEm, true), 0, narrowRatio);
-var rowEdgeNarrow = narrowCss
-? rowEdgeMedia(rowBlockEm(round2(ROW_CARD_NARROW * rowScale), rowTitleEm, rowHeadGapEm,
-TV_MIN, TV_MIN, true), narrowRatio, 1000)
-: '';
+var rowFlowWide = rowBlockEm(cardWEm, rowTitleEm, rowHeadGapEm, cardTitleEm, cardAgeEm, true);
+var rowFlowNarrow = rowBlockEm(round2(ROW_CARD_NARROW * rowScale), rowTitleEm, rowHeadGapEm,
+TV_MIN, TV_MIN, true);
+var rowEdgeWide = rowEdgeMedia(rowFlowWide, 0, narrowCss ? narrowRatio : heroMinRatio);
+var rowEdgeNarrow = narrowCss ? rowEdgeMedia(rowFlowNarrow, narrowRatio, heroMinRatio) : '';
 if (rowEdgeWide) css.push(rowEdgeWide);
 if (rowEdgeNarrow) css.push(rowEdgeNarrow);
+
+
+
+
+
+
+
+
+
+
+var rowOffBlock = round2(narrowCss ? rowFlowNarrow : rowFlowWide);
+var rowEdgeOff = function (sel, topEm) {
+var headEm = round2(topEm + LAMPA_ROW_PAD + rowOffBlock);
+var to = Math.ceil(screenEm() * 1000 / (headEm + ROW_GAP));
+if (to <= heroMinRatio * 10) return '';
+var pad = '100vh - ' + headEm + 'em';
+return '@media screen and (min-aspect-ratio:' + heroMinRatio + '/100) and (max-aspect-ratio:' + to + '/1000){' +
+sel + '{padding-bottom:-webkit-calc(' + pad + ');padding-bottom:calc(' + pad + ')}}';
+};
+var rowEdgeOffPlain = rowEdgeOff('.lumen-main .items-line', LAMPA_HEAD);
+var rowEdgeOffMoods = rowEdgeOff('.lumen-moods-on.lumen-main .items-line', round2(LAMPA_HEAD + MOODS_BAR));
+if (rowEdgeOffPlain) css.push(rowEdgeOffPlain);
+if (rowEdgeOffMoods) css.push(rowEdgeOffMoods);
 
 
 
