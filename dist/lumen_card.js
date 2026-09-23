@@ -5057,6 +5057,64 @@ css.push('.lumen-main .card__title,.lumen-main .card__age{-webkit-transform:none
 
 
 if (narrowCss) css.push(narrowCss);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+var fitW = narrowCss ? narrowWEm : cardWEm;
+var fitGap = narrowCss ? narrowGapEm : rowHeadGapEm;
+var fitCap = narrowCss ? TV_MIN : cardTitleEm;
+var fitBlock = rowBlockEm(fitW, rowTitleEm, fitGap, fitCap, fitCap);
+var fitCaptions = CARD_VIEW_GAP + fitCap * CARD_TITLE_LH + CARD_AGE_GAP * fitCap + fitCap + CARD_FOCUS_SHIFT * fitCap;
+var rowFitCss = function (sel, lo, hi, tailVh, topEm) {
+var x = Math.floor(tailVh / POSTER_RATIO * 100) / 100;
+var y = Math.ceil(((topEm + rowTitleEm + fitGap + ROW_EDGE_AIR) / (POSTER_RATIO * cardK()) + fitCaptions / POSTER_RATIO) * 100) / 100;
+var w = x + 'vh - ' + y + 'em';
+return '@media screen and (min-aspect-ratio:' + lo + '/1000)' + (hi ? ' and (max-aspect-ratio:' + hi + '/1000)' : '') + '{' +
+sel + ' .card{width:-webkit-calc(' + w + ');width:calc(' + w + ')}}';
+};
+var fitHeroFrom = Math.floor(screenEm() * (100 - rowsTopVh) * 10 / (ROWS_AIR + fitBlock + ROW_EDGE_AIR));
+if (fitHeroFrom < heroMinRatio * 10) {
+css.push(rowFitCss('.lumen-main', fitHeroFrom, heroMinRatio * 10, 100 - rowsTopVh, ROWS_AIR));
+}
+var fitOff = function (sel, topEm) {
+var from = Math.max(heroMinRatio * 10, Math.floor(screenEm() * 1000 / (topEm + fitBlock + ROW_EDGE_AIR)));
+css.push(rowFitCss(sel, from, 0, 100, topEm));
+};
+fitOff('.lumen-main', LAMPA_HEAD + LAMPA_ROW_PAD);
+fitOff('.lumen-moods-on.lumen-main', round2(LAMPA_HEAD + MOODS_BAR + LAMPA_ROW_PAD));
 css.push('.lumen-main .items-line__title{font-family:' + FB + ';font-weight:700;font-size:' + rowTitleEm + 'em}');
 
 

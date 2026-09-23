@@ -4258,6 +4258,64 @@
        попадает: правило не пишется вовсе, когда порог выше того, за которым
        кадра нет и сужать карточку нечем оправдать. */
     if (narrowCss) css.push(narrowCss);
+    /* Ревью фикс-раунда (п.4): подпись первого ряда в сжатом состоянии —
+       на экране при ЛЮБОМ отношении сторон, а не только у телевизора.
+
+       Что было. Потолок масштаба (rowScaleCap) считается при одном
+       отношении сторон — TV_RATIO, 16:9. Шире 16:9 порог узкой колонки
+       отдаёт экрану восьмую колонку, но и её блок помещается лишь до своего
+       отношения сторон, а дальше, до порога «кадра нет», и за ним — ничем
+       не ограничен. Модель раскладки (test/css.test.mjs, rowLayout) на
+       пятнадцати окнах правила кромки: 1840×960 — 10 клеток из 72 за
+       пределом, до +35.7 px; 1920×969 — 16, до +55.2; 2560×1080 и
+       3440×1440 (кадр ещё есть: на «мельче» порог «кадра нет» — 2.56) —
+       по 8, до +97 и +136 px, там срезан уже и постер. На телевизоре и
+       других окнах 16:9 и 16:10 — ни одной.
+
+       Что стало. За тем отношением сторон, где блок ряда перестаёт
+       помещаться, ширина карточки задаётся долей ВЫСОТЫ экрана за вычетом
+       всего остального в em — ровно столько, чтобы низ подписи (вместе со
+       сдвигом под фокусом, CARD_FOCUS_SHIFT) встал на ROW_EDGE_AIR выше
+       кромки. Цепочка та же, что у rowNarrowRatio, только решённая
+       относительно ширины карточки w (в её кегле, k — кегль карточки):
+         верх ряда + (заголовок + зазор + край)·em + k·em·подписи + 1.5·w·k·em = H,
+       откуда w = (100 − верх)/1.5 vh − ((верх в em + заголовок + зазор +
+       край)/(1.5·k) + подписи/1.5) em. Это и есть потолок масштаба,
+       посчитанный от ФАКТИЧЕСКОГО отношения сторон: браузер вычисляет его
+       сам на любом окне и после любого изменения размера, таблицу стилей
+       пересобирать не нужно. Округление — в безопасную сторону (vh вниз,
+       em вверх).
+       Полос две. С кадром героя верх ряда — ROWS_TOP_VH и ROWS_AIR, полоса
+       начинается там, где кончается место у текущей колонки, и кончается
+       порогом «кадра нет». Без кадра верх ряда — шапка Lampa, отступ Lampa
+       над фокусным рядом и, если включены профили настроения, их полоса;
+       поэтому и правил два, второе — под .lumen-moods-on (оно на класс
+       специфичнее). Ниже порогов не меняется ничего: на телевизоре 16:9
+       полоса начинается дальше 1.78, и его 72 клетки остаются прежними.
+       Кегли подписей и заголовка ряда полоса не трогает — только ширину
+       (а с ней постер): подписи и так стоят на минимуме tvOS. */
+    var fitW = narrowCss ? narrowWEm : cardWEm;
+    var fitGap = narrowCss ? narrowGapEm : rowHeadGapEm;
+    var fitCap = narrowCss ? TV_MIN : cardTitleEm;
+    var fitBlock = rowBlockEm(fitW, rowTitleEm, fitGap, fitCap, fitCap);
+    var fitCaptions = CARD_VIEW_GAP + fitCap * CARD_TITLE_LH + CARD_AGE_GAP * fitCap + fitCap + CARD_FOCUS_SHIFT * fitCap;
+    var rowFitCss = function (sel, lo, hi, tailVh, topEm) {
+      var x = Math.floor(tailVh / POSTER_RATIO * 100) / 100;
+      var y = Math.ceil(((topEm + rowTitleEm + fitGap + ROW_EDGE_AIR) / (POSTER_RATIO * cardK()) + fitCaptions / POSTER_RATIO) * 100) / 100;
+      var w = x + 'vh - ' + y + 'em';
+      return '@media screen and (min-aspect-ratio:' + lo + '/1000)' + (hi ? ' and (max-aspect-ratio:' + hi + '/1000)' : '') + '{' +
+        sel + ' .card{width:-webkit-calc(' + w + ');width:calc(' + w + ')}}';
+    };
+    var fitHeroFrom = Math.floor(screenEm() * (100 - rowsTopVh) * 10 / (ROWS_AIR + fitBlock + ROW_EDGE_AIR));
+    if (fitHeroFrom < heroMinRatio * 10) {
+      css.push(rowFitCss('.lumen-main', fitHeroFrom, heroMinRatio * 10, 100 - rowsTopVh, ROWS_AIR));
+    }
+    var fitOff = function (sel, topEm) {
+      var from = Math.max(heroMinRatio * 10, Math.floor(screenEm() * 1000 / (topEm + fitBlock + ROW_EDGE_AIR)));
+      css.push(rowFitCss(sel, from, 0, 100, topEm));
+    };
+    fitOff('.lumen-main', LAMPA_HEAD + LAMPA_ROW_PAD);
+    fitOff('.lumen-moods-on.lumen-main', round2(LAMPA_HEAD + MOODS_BAR + LAMPA_ROW_PAD));
     css.push('.lumen-main .items-line__title{font-family:' + FB + ';font-weight:700;font-size:' + rowTitleEm + 'em}');
     /* Вертикальный зазор между рядами — его НИЖНЯЯ граница, ROW_GAP
        (= LAMPA_ROW_PAD, разбор у константы). Apple HIG Layout → Grids просит

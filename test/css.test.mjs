@@ -2943,7 +2943,11 @@ function rowLayout(built, screenW, screenH, opts) {
 
   /* Постер: ширину задаём мы, высоту — штатный padding-bottom:150 % у
      .card__view (app.css:3135-3139), то есть 3:2 от ШИРИНЫ карточки. */
-  const cardW = lengthPx(cascade(matchingRules(built, ['lumen-main'], ['card'], screenW, screenH), 'width').value, CARD_EM, 0);
+  /* Ревью фикс-раунда (п.4): за порогом, где блок ряда перестаёт
+     помещаться, ширина карточки — calc(Nvh − Mem), и у варианта с
+     профилями настроения правило своё (.lumen-moods-on.lumen-main). Поэтому
+     корень — фактический набор классов, а длина считается с vh окна. */
+  const cardW = lengthPx(cascade(matchingRules(built, rootUp, ['card'], screenW, screenH), 'width').value, CARD_EM, VH);
   const posterH = cardW * (lampaDecl(lampa, '.card__view', 'padding-bottom') / 100);
   const posterBottomUp = rowTopUp + headH + gap + posterH;
   const posterBottomDown = rowTopDown + headH + gap + posterH;
@@ -3290,6 +3294,15 @@ function edgeViolations(W, H) {
           if (got.rowBottomUp < H - 0.5) {
             bad.push(label + ': следующий ряд начинается на ' + got.rowBottomUp.toFixed(1) + ' при кромке ' + H);
           }
+          /* Ревью фикс-раунда (п.4): и подпись ФОКУСНОГО ряда — целиком на
+             экране, с воздухом ROW_EDGE_AIR (.7em) до кромки. Прежняя редакция
+             проверяла только следующий ряд, и на окнах шире 16:9 подпись
+             уходила за кромку при зелёном тесте. textBottomUp — худший случай,
+             полные анимации со сдвигом подписи под фокусом. */
+          const limit = H - 0.7 * lampaEm(W, iface);
+          if (got.textBottomUp > limit + 0.5) {
+            bad.push(label + ': низ подписи фокусного ряда ' + got.textBottomUp.toFixed(1) + ' при пределе ' + limit.toFixed(1));
+          }
           if (got.rowGap < got.lampaPad - 0.5) {
             bad.push(label + ': подписи предыдущего ряда на ' + (got.lampaPad - got.rowGap).toFixed(1) +
               ' px внутри области (зазор ' + got.rowGap.toFixed(1) + ', отступ Lampa ' + got.lampaPad.toFixed(1) + ')');
@@ -3528,8 +3541,10 @@ test('Task 51: узкая колонка включается порогом и�
       const built = withStorage({ lumen_scale: scale, interface_size: iface }, (LC) => LC.buildCss());
       const label = iface + '/' + scale;
       const EM = lampaEm(W, iface);
+      /* Узкая колонка — ширина в em; полосы подгонки под окно (ревью
+         фикс-раунда, п.4) — calc с vh, их сторожит проход ниже. */
       const narrowRules = ruleBodiesWithMedia(built).filter((r) => r.media &&
-        r.selectors.some((sel) => sel === '.lumen-main .card') && /(?:^|;)width:/.test(r.decl));
+        r.selectors.some((sel) => sel === '.lumen-main .card') && /(?:^|;)width:[0-9.]+em/.test(r.decl));
       assert.equal(narrowRules.length, 1, label + ': медиазапрос узкой колонки обязан быть ровно один');
 
       /* Ширина за порогом — восьмая колонка той же сетки: отношение к базовой
@@ -3557,6 +3572,21 @@ test('Task 51: узкая колонка включается порогом и�
       const after = at(ratio + 0.02);
       assert.ok(after.height - after.box.textBottomUp >= 0,
         label + ': за порогом ' + ratio + ' узкая колонка тоже не помещается');
+      /* Ревью фикс-раунда (п.4): «+0.02 за порогом» — это одна точка. Подпись
+         обязана держаться на ВСЁМ диапазоне дальше — через порог «кадра нет»
+         и за ним, с профилями настроения и без, — с воздухом ROW_EDGE_AIR до
+         кромки. Шаг .01 отношения сторон, до 3.6 (32:9). */
+      for (let aspect = ratio + 0.01; aspect <= 3.6; aspect += 0.01) {
+        const height = Math.round(W / aspect);
+        for (const moods of [false, true]) {
+          const box = rowLayout(built, W, height, { interface: iface, moods: moods });
+          assert.ok(box.textBottomUp <= height - 0.7 * EM + 0.5, label + (moods ? '/чипы' : '') + ': при ' + aspect.toFixed(2) +
+            ':1 низ подписи ' + box.textBottomUp.toFixed(1) + ' при пределе ' + (height - 0.7 * EM).toFixed(1));
+          /* Подгонка только режет: карточка не шире выбранной колонки. */
+          assert.ok(box.cardW <= narrow + 0.02, label + ': при ' + aspect.toFixed(2) + ':1 карточка ' + box.cardW.toFixed(2) +
+            'em шире узкой колонки ' + narrow + 'em');
+        }
+      }
     }
   }
 
@@ -3565,7 +3595,7 @@ test('Task 51: узкая колонка включается порогом и�
      отобрать у постера 25 px без причины. */
   const normal = withStorage({ lumen_scale: 'normal' }, (LC) => LC.buildCss());
   const media = ruleBodiesWithMedia(normal).find((r) => r.media &&
-    r.selectors.some((sel) => sel === '.lumen-main .card') && /(?:^|;)width:/.test(r.decl));
+    r.selectors.some((sel) => sel === '.lumen-main .card') && /(?:^|;)width:[0-9.]+em/.test(r.decl));
   assert.ok(1920 / 1080 < parseInt(/min-aspect-ratio:(\d+)\/100/.exec(media.media)[1], 10) / 100,
     'на штатном масштабе узкая колонка не должна включаться на 16:9: ' + media.media);
 });
