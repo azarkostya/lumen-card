@@ -153,6 +153,8 @@ test('LIST: полный набор ключей — существующие и
     'lumen_hide_watched', 'lumen_rows_limit',
     /* Task 57 (фаза 5): фильм не повторяется в рядах ниже */
     'lumen_rows_dedupe',
+    /* Task 74: откуда берётся обложка карточки */
+    'lumen_posters',
     /* Task 16 (фаза 2): персональные ряды */
     'lumen_personal_rows',
     /* Task 20 (фаза 2): состав рядов, чипы настроения, подсказка про ключ */
@@ -276,7 +278,10 @@ const GROUPS = [
   /* Task 57 (фаза 5): ряды подборок отделены от «Главной» — с настройкой
      дедупликации прежняя группа выросла бы до десяти строк. */
   ['lumen_group_rows', [
-    'lumen_home_rows', 'lumen_rows_limit', 'lumen_rows_dedupe', 'lumen_badges', 'lumen_hide_watched',
+    'lumen_home_rows', 'lumen_rows_limit', 'lumen_rows_dedupe',
+    /* Task 74: источник обложки — перед метками: метка рисуется ПОВЕРХ
+       постера, значит сперва «какая обложка», потом «что на ней подписать». */
+    'lumen_posters', 'lumen_badges', 'lumen_hide_watched',
     /* Каталог — последним: настройка «на один раз», и она про источник всех
        подборок разом. */
     'lumen_manifest_url'
@@ -785,6 +790,49 @@ test('Task 62a: LC.badgesMode читает настройку с тем же д�
   assert.equal(withPrefs({ store: { lumen_badges: 'true' } }, (LC) => LC.badgesMode()), 'poster');
   assert.equal(withPrefs({ store: { lumen_badges: 'false' } }, (LC) => LC.badgesMode()), 'off');
   assert.equal(withPrefs({ store: { lumen_badges: 'caption' } }, (LC) => LC.badgesMode()), 'caption');
+});
+
+/* Task 74: источник постера — та же сверка двух дефолтов. Расхождение
+   «дефолт вызова» и «дефолт пункта» и было дефектом Task 60: настройка
+   молча работала не так, как её показывает раздел. */
+test('Task 74: LC.postersMode читает настройку с тем же дефолтом, что стоит в LIST', () => {
+  assert.equal(withPrefs({ store: {} }, (LC) => LC.postersMode()), prefs.find('lumen_posters')['default']);
+  assert.equal(withPrefs({ store: {} }, (LC) => LC.postersMode()), 'lampa');
+  assert.equal(withPrefs({ store: { lumen_posters: 'original' } }, (LC) => LC.postersMode()), 'original');
+  assert.equal(withPrefs({ store: { lumen_posters: 'clean' } }, (LC) => LC.postersMode()), 'clean');
+  /* Незнакомое значение — режим без единого лишнего запроса, самый
+     безопасный из трёх. */
+  for (const bad of ['', 'true', 'nope', '1']) {
+    assert.equal(withPrefs({ store: { lumen_posters: bad } }, (LC) => LC.postersMode()), 'lampa',
+      'битое значение ' + JSON.stringify(bad) + ' обязано читаться как lampa');
+  }
+});
+
+test('Task 74: источник постера — select из трёх положений, по умолчанию «как в Lampa»', () => {
+  const entry = prefs.find('lumen_posters');
+  assert.equal(entry.type, 'select');
+  assert.deepEqual(entry.values, ['lampa', 'original', 'clean']);
+  assert.equal(entry['default'], 'lampa', 'у того, кто пункт не трогал, не должно меняться ничего');
+  assert.equal(entry.vprefix, 'lumen_posters_');
+  assert.ok(entry.descr, 'у пункта обязано быть описание — цену режимов надо назвать до нажатия');
+});
+
+/* Цена режима «без надписей» — двадцать запросов на ряд против нынешнего
+   одного, и человеку с телевизором это важнее красоты формулировки.
+   Сторож держит два обещания описания: что цена названа числом и что
+   названа компенсация — кэш. */
+test('Task 74: описание настройки называет цену режима «без надписей» и кэш', () => {
+  const LC = loadStrings();
+  const pack = LC.STRINGS.lumen_posters_descr;
+  const numbers = { ru: ['двадцат', 'двухсот'], en: ['twenty', 'two hundred'], uk: ['двадцят', 'двохсот'] };
+  const cache = { ru: 'кэш', en: 'cache', uk: 'кеш' };
+  for (const lang of LANGS) {
+    const text = ('' + pack[lang]).toLowerCase();
+    for (const one of numbers[lang]) {
+      assert.ok(text.indexOf(one) !== -1, lang + ': в описании не названа цена «' + one + '»');
+    }
+    assert.ok(text.indexOf(cache[lang]) !== -1, lang + ': в описании не сказано про кэш');
+  }
 });
 
 /* Область подкраски: у Apple TV цвет с постера живёт только в фоне, а

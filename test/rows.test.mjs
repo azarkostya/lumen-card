@@ -179,11 +179,16 @@ function setupRows(opts) {
   };
 
   var prefs = Object.assign({ lumen_rows_limit: '15', lumen_home_rows: '', lumen_hide_watched: false }, opts.prefs || {});
+  var postersCalls = [];
   var fakeSources = {
     fetch: function (item, page, ok, err, alive) {
       fetchCalls.push({ item: item, page: page, ok: ok, err: err, alive: alive });
       return { clear: function () { fetchCalls[fetchCalls.length - 1].cleared = true; } };
-    }
+    },
+    /* Task 74: подмена постеров — отдельный шаг между ответом подборки и
+       ответом Lampa. Заглушка повторяет контракт настоящей: done ровно один
+       раз, синхронно (так она и ведёт себя в режиме по умолчанию). */
+    posters: function (item, cards, done) { postersCalls.push({ item: item, cards: cards }); done(0); }
   };
 
   /* Task 21: ряд адвента спрашивает дату и раскладку у LC.themes — модуль
@@ -199,7 +204,7 @@ function setupRows(opts) {
   });
   var R = ctx.api;
 
-  return { R: R, addedRows: addedRows, removedRows: removedRows, fetchCalls: fetchCalls, Lampa: Lampa, manifest: manifest, prefs: prefs, LC: ctx.LC };
+  return { R: R, addedRows: addedRows, removedRows: removedRows, fetchCalls: fetchCalls, postersCalls: postersCalls, Lampa: Lampa, manifest: manifest, prefs: prefs, LC: ctx.LC };
 }
 
 // --- bumpGen ---
@@ -415,6 +420,39 @@ test('call: успешный ответ — ровно один call, повто
   /* И bumpGen после завершения второй раз ряд не зовёт. */
   s.R.bumpGen();
   assert.equal(got.length, 1);
+});
+
+/* Task 74: подмена постеров стоит МЕЖДУ ответом подборки и ответом Lampa —
+   постер карточки ряда ставит сама Lampa по poster_path, и правка обязана
+   успеть до этого (разбор — в шапке src/44_rows.js). */
+test('Task 74: ряд отдаёт карточки Lampa только после подмены постеров', function () {
+  var s = setupRows();
+  s.R.register(s.manifest);
+  var got = [];
+  s.addedRows[0].call({}, 'main')(function (data) { got.push(data); });
+  s.fetchCalls[0].ok({ results: [{ id: 1 }, { id: 2 }] });
+  assert.equal(s.postersCalls.length, 1, 'подмена постеров обязана быть позвана ровно один раз');
+  assert.equal(s.postersCalls[0].item.id, 'col-a', 'ей передаётся сама подборка — из неё берётся английский список');
+  assert.equal(s.postersCalls[0].cards, got[0].results,
+    'подменяются РОВНО те карточки, что уйдут в Lampa: фильтр досмотренного уже прошёл');
+});
+
+/* Подмена не отвечает — ряд молчит, и пачка Lampa не завершится никогда.
+   Контракт «ровно один call при любом исходе» держит резолвер, а закрывает
+   молчащий ряд bumpGen (шапка src/44_rows.js). */
+test('Task 74: подмена постеров молчит — ряд закрывается уходом с главной, и ровно один раз', function () {
+  var s = setupRows();
+  var held = [];
+  s.LC.sources.posters = function (item, cards, done) { held.push(done); };
+  s.R.register(s.manifest);
+  var got = [];
+  s.addedRows[0].call({}, 'main')(function (data) { got.push(data); });
+  s.fetchCalls[0].ok({ results: [{ id: 1 }] });
+  assert.equal(got.length, 0, 'пока постеры не подменены — ряд не отвечает');
+  s.R.bumpGen();
+  assert.equal(got.length, 1, 'уход с главной закрыл ряд пустым результатом');
+  held[0](0);
+  assert.equal(got.length, 1, 'поздний ответ подмены второго call не даёт');
 });
 
 test('call: ошибка источника — ровно один call с пустым результатом', function () {
@@ -745,7 +783,7 @@ function setupDedupeRuntime(opts) {
   var prefs = Object.assign({ lumen_rows_dedupe: true }, opts.prefs || {});
   var ctx = loadCtx('44_rows.js', {
     pref: function (name, def) { return (name in prefs) ? prefs[name] : def; },
-    sources: { fetch: function () { return { clear: function () {} }; } },
+    sources: { fetch: function () { return { clear: function () {} }; }, posters: function (item, cards, done) { done(0); } },
     lang: function (k) { return k; }
   });
   return { R: ctx.api, Lampa: Lampa, mainCalls: mainCalls };

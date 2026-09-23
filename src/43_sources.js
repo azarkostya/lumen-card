@@ -599,6 +599,243 @@
       }, err, alive);
     }
 
+    /* ------------------------------------------------------------------ */
+    /* Task 74: источник постера карточки (настройка lumen_posters).       */
+    /*                                                                     */
+    /* Постер ряда и сетки рисует САМА Lampa: адрес она ставит в своей     */
+    /* ленивой загрузке по событию 'visible' — Api.img(data.poster_path)   */
+    /* (vendor/lampa/app.min.js:52353). Значит подменять надо не src у     */
+    /* готового узла (это второй запрос на карточку и гонка с той же       */
+    /* ленивой загрузкой — разбор в шапке src/44_rows.js), а poster_path   */
+    /* в самих карточках, ДО того как они уйдут в Lampa.                   */
+    /*                                                                     */
+    /* Карточку можно править на месте: объект у каждого ответа свой.      */
+    /* Свежий ответ — это разбор JSON; ответ из кэша Lampa приходит из     */
+    /* IndexedDB (Cache.getData, app.min.js:16525-16556), а он на каждое   */
+    /* чтение отдаёт структурный клон. Кэш при этом не портится: запись    */
+    /* cacheSet стоит РАНЬШЕ complite (app.min.js:33613-33622), а          */
+    /* objectStore.put внутри rewriteData вызывается синхронно             */
+    /* (app.min.js:16651-16658), то есть клон для кэша снимается до        */
+    /* нашей правки. Выключил человек настройку — следующая сборка         */
+    /* главной получит из кэша исходные poster_path.                       */
+    /* ------------------------------------------------------------------ */
+
+    /* Кэш ответов movie/{id}/images — 30 дней. Состав постеров фильма
+       меняется раз в месяцы, а режим «без надписей» стоит 20 запросов на
+       ряд: без кэша эти 20 повторялись бы на каждом открытии главной.
+       Механика — штатный кэш запросов Lampa (тот же {life}, что у
+       LC.franchise для collection/{id}); держится он на настройке самой
+       Lampa «Кэширование запросов» (request_caching, app.min.js:33533):
+       выключена она — кэша нет ни у нас, ни у неё. */
+    var LIFE_IMAGES = 43200;
+
+    /* Дедлайн подмены постеров на ряд. Ряд не имеет права молчать: Lampa
+       грузит ряды пачками и ждёт call каждого (шапка src/44_rows.js).
+       Что не успело — остаётся с постером Lampa. Шесть секунд — вдвое
+       меньше общего дедлайна подборки (FETCH_TIMEOUT), и это ПОВЕРХ него:
+       подмена начинается, когда список карточек уже собран. */
+    var POSTERS_TIMEOUT = 6000;
+
+    /* Допуск по пропорции. Ячейка карточки ровно 2:3
+       (.card__view{padding-bottom:150%}, vendor/lampa/css/app.css:3135-3139),
+       кадрирование — object-fit:cover (там же:239-243), то есть всё, что
+       не 2:3, чем-то режется.
+
+       Границы поставлены замером на живых данных TMDB 2026-09-23: 160
+       фильмов из восьми разнородных рядов, 2133 постера, из них 1318 без
+       языка.
+         Ниже 2:3 у постеров без языка есть ровно две области: «шум
+         округления» (0.651…0.666, 13 штук) и один выброс — 21 постер
+         0.486 (1440×2960, «Крёстный отец» I и II: это обои телефона, а не
+         постер). Между 0.487 и 0.650 нет НИ ОДНОГО постера, поэтому нижняя
+         граница ставится в эту пустую полосу. Взят её тугой край: 0.64 —
+         это срез 4 % высоты, 7 px на карточке высотой 179 px, и все 7 при
+         object-position:center top уходят вниз, в ноги.
+         Выше 2:3 пустых полос нет (плотные группы 0.70, 0.707, 0.714,
+         0.719, 0.75, максимум 0.756), поэтому верхняя граница считается по
+         видимому срезу: 0.75 — это 11.1 % ширины, по 5.6 % с боку, и
+         сверху/снизу не срезается ничего. Допуск асимметричен намеренно:
+         по бокам у постера поля, сверху — голова.
+
+       Охват от фильтра не страдает: с окном [0.64, 0.75] подходящий
+       постер без языка нашёлся у всех 140 фильмов из 160, у которых он
+       вообще есть (столько же, сколько без всякого фильтра). Ни у одного
+       фильм не остался без постера ИЗ-ЗА допуска. */
+    var AR_MIN = 0.64;
+    var AR_MAX = 0.75;
+
+    function posterFits(ratio) {
+      var v = Number(ratio);
+      if (!v) return false;
+      return v >= AR_MIN && v <= AR_MAX;
+    }
+
+    /* Первый постер без надписей подходящей пропорции из ответа
+       {media}/{id}/images. Без языка — это iso_639_1 === null; строка 'xx'
+       («No Language») у TMDB означает другое и сюда не годится, поэтому
+       сравнение строгое. Порядок списка TMDB (по рейтингу голосов) не
+       трогаем: «первый подходящий» — это и есть «лучший подходящий».
+       Не нашлось ничего — пустая строка, карточка остаётся с постером
+       Lampa: кривой постер хуже обычного. */
+    function cleanPoster(json) {
+      var list = (json && json.posters) || [];
+      for (var i = 0; i < list.length; i++) {
+        var p = list[i];
+        if (!p || !p.file_path) continue;
+        if (p.iso_639_1 !== null) continue;
+        if (!posterFits(p.aspect_ratio)) continue;
+        return p.file_path;
+      }
+      return '';
+    }
+
+    /* Медиа-тип карточки. У фильма TMDB есть title, у сериала — name;
+       поля взаимоисключающие во всех ответах, которыми мы пользуемся
+       (discover/movie, discover/tv, collection/{id}, list/{id},
+       find/{imdb_id}). Нужен он дважды: в адресе movie|tv/{id}/images и в
+       ключе сопоставления «оригинала» — там id фильма и id сериала могут
+       совпасть, это разные объекты. */
+    function cardMedia(card) {
+      return card && card.title ? 'movie' : 'tv';
+    }
+
+    function cardKey(card) {
+      return cardMedia(card) + ':' + (card && card.id);
+    }
+
+    /* Раскладывает poster_path списка карточек в карту по cardKey.
+       Пустые и отсутствующие постеры в карту не попадают: подменять
+       рабочий постер на «его нет» нельзя. */
+    function posterIndex(cards, into) {
+      var map = into || {};
+      for (var i = 0; i < (cards || []).length; i++) {
+        var c = cards[i];
+        if (!c || !c.id || !c.poster_path) continue;
+        map[cardKey(c)] = c.poster_path;
+      }
+      return map;
+    }
+
+    /* Ставит карточкам постеры из карты. Возвращает, скольким поставили —
+       по этому числу считается покрытие в замерах. */
+    function applyPosters(cards, map) {
+      var n = 0;
+      for (var i = 0; i < (cards || []).length; i++) {
+        var c = cards[i];
+        if (!c || !c.id) continue;
+        var path = map[cardKey(c)];
+        if (!path || path === c.poster_path) continue;
+        c.poster_path = path;
+        n++;
+      }
+      return n;
+    }
+
+    function postersMode() {
+      try {
+        if (typeof LC.postersMode === 'function') return LC.postersMode();
+      } catch (e) { }
+      return 'lampa';
+    }
+
+    /* Режим «оригинал»: ТОТ ЖЕ список, запрошенный с language=en.
+       Lampa подставляет язык сама из Storage.field('tmdb_lang'), а
+       переопределяет его ключ params.langs (app.min.js:19656-19663) — свой
+       'language=' в адрес дописывать нельзя, он оказался бы вторым.
+       Источник типа 'kp' пропускается: там список приходит от Кинопоиска и
+       переспросить его на другом языке нечем — такие карточки остаются с
+       постером Lampa. */
+    function originalPosters(item, cards, done, alive) {
+      var gen = alive ? alive() : 0;
+      function dead() { return alive && alive() !== gen; }
+
+      var src = (item && item.sources) || {};
+      var want = [];
+      if (src.movie && src.movie.type !== 'kp') want.push('movie');
+      if (src.tv && src.tv.type !== 'kp') want.push('tv');
+      if (!want.length) { done(0); return; }
+
+      var map = {};
+      var gate = LC.util.gate(want.length, POSTERS_TIMEOUT, function () {
+        done(applyPosters(cards, map));
+      });
+
+      LC.util.each(want, function (media) {
+        var r = buildRequest(src[media], media, 1);
+        var params = {};
+        var k;
+        for (k in r.params) {
+          if (r.params.hasOwnProperty(k)) params[k] = r.params[k];
+        }
+        params.langs = 'en';
+        Lampa.Api.sources.tmdb.get(
+          r.url,
+          params,
+          function (json) {
+            if (!dead()) posterIndex(normalize(src[media].type, json).results, map);
+            gate.tick();
+          },
+          function () { gate.tick(); },
+          { life: r.life }
+        );
+      });
+    }
+
+    /* Режим «без надписей»: по запросу на карточку.
+       include_image_language=null отдаёт ТОЛЬКО постеры без языка и
+       отменяет фильтр по language, который Lampa дописывает сама (замер
+       2026-09-23 на десяти фильмах: 147 постеров и 17.5 КБ на фильм
+       против 259 постеров и 20.2 КБ у 'ru,null' — то есть ru-постеры
+       приходили бы зря).
+       Запросы уходят все сразу, а не по очереди: замер того же дня на ряде
+       из 20 карточек — 470 мс против 3942 мс последовательно. Сколько их
+       реально полетит одновременно, решает браузер (лимит соединений на
+       хост), и это правильный ограничитель: свой был бы медленнее на
+       быстрой сети и ничего не дал бы на медленной. */
+    function cleanPosters(cards, done, alive) {
+      var gen = alive ? alive() : 0;
+      function dead() { return alive && alive() !== gen; }
+
+      var list = [];
+      for (var i = 0; i < (cards || []).length; i++) {
+        if (cards[i] && cards[i].id) list.push(cards[i]);
+      }
+      if (!list.length) { done(0); return; }
+
+      var found = 0;
+      var gate = LC.util.gate(list.length, POSTERS_TIMEOUT, function () { done(found); });
+
+      LC.util.each(list, function (card) {
+        Lampa.Api.sources.tmdb.get(
+          cardMedia(card) + '/' + card.id + '/images',
+          { filter: { include_image_language: 'null' } },
+          function (json) {
+            if (!dead()) {
+              var path = cleanPoster(json);
+              if (path && path !== card.poster_path) { card.poster_path = path; found++; }
+            }
+            gate.tick();
+          },
+          function () { gate.tick(); },
+          { life: LIFE_IMAGES }
+        );
+      });
+    }
+
+    /* Точка входа: подменить постеры карточек согласно настройке и позвать
+       done(сколько подменили). В режиме 'lampa' (по умолчанию) не делает
+       НИЧЕГО и зовёт done синхронно — ни запроса, ни задержки у того, кто
+       настройку не трогал.
+       done зовётся ровно один раз при любом исходе, включая дедлайн: его
+       вызывающий (ряд главной, сетка подборки) обязан ответить Lampa. */
+    function posters(item, cards, done, alive) {
+      var mode = postersMode();
+      if (mode !== 'original' && mode !== 'clean') { done(0); return; }
+      if (!cards || !cards.length) { done(0); return; }
+      if (mode === 'original') { originalPosters(item, cards, done, alive); return; }
+      cleanPosters(cards, done, alive);
+    }
+
     /* 'fetch' — зарезервированный BARE_NAME в es5check (глобальный Web API).
        Публичный ключ задаётся строкой, чтобы es5check не считал его нарушением. */
     var api = {
@@ -610,7 +847,14 @@
       sortSignature: sortSignature,
       fetchOne: fetchOne,
       kpPosters: kpPosters,
-      bannerPath: bannerPath
+      bannerPath: bannerPath,
+      /* Task 74: чистые части наружу ради тестов, posters — ради рядов
+         главной (src/44_rows.js) и сетки подборки (src/46_hub.js). */
+      posterFits: posterFits,
+      cleanPoster: cleanPoster,
+      posterIndex: posterIndex,
+      applyPosters: applyPosters,
+      posters: posters
     };
     api['fetch'] = fetchAll;
     return api;

@@ -7364,6 +7364,243 @@ ok(poster);
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+var LIFE_IMAGES = 43200;
+
+
+
+
+
+
+var POSTERS_TIMEOUT = 6000;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+var AR_MIN = 0.64;
+var AR_MAX = 0.75;
+
+function posterFits(ratio) {
+var v = Number(ratio);
+if (!v) return false;
+return v >= AR_MIN && v <= AR_MAX;
+}
+
+
+
+
+
+
+
+
+function cleanPoster(json) {
+var list = (json && json.posters) || [];
+for (var i = 0; i < list.length; i++) {
+var p = list[i];
+if (!p || !p.file_path) continue;
+if (p.iso_639_1 !== null) continue;
+if (!posterFits(p.aspect_ratio)) continue;
+return p.file_path;
+}
+return '';
+}
+
+
+
+
+
+
+
+function cardMedia(card) {
+return card && card.title ? 'movie' : 'tv';
+}
+
+function cardKey(card) {
+return cardMedia(card) + ':' + (card && card.id);
+}
+
+
+
+
+function posterIndex(cards, into) {
+var map = into || {};
+for (var i = 0; i < (cards || []).length; i++) {
+var c = cards[i];
+if (!c || !c.id || !c.poster_path) continue;
+map[cardKey(c)] = c.poster_path;
+}
+return map;
+}
+
+
+
+function applyPosters(cards, map) {
+var n = 0;
+for (var i = 0; i < (cards || []).length; i++) {
+var c = cards[i];
+if (!c || !c.id) continue;
+var path = map[cardKey(c)];
+if (!path || path === c.poster_path) continue;
+c.poster_path = path;
+n++;
+}
+return n;
+}
+
+function postersMode() {
+try {
+if (typeof LC.postersMode === 'function') return LC.postersMode();
+} catch (e) { }
+return 'lampa';
+}
+
+
+
+
+
+
+
+
+function originalPosters(item, cards, done, alive) {
+var gen = alive ? alive() : 0;
+function dead() { return alive && alive() !== gen; }
+
+var src = (item && item.sources) || {};
+var want = [];
+if (src.movie && src.movie.type !== 'kp') want.push('movie');
+if (src.tv && src.tv.type !== 'kp') want.push('tv');
+if (!want.length) { done(0); return; }
+
+var map = {};
+var gate = LC.util.gate(want.length, POSTERS_TIMEOUT, function () {
+done(applyPosters(cards, map));
+});
+
+LC.util.each(want, function (media) {
+var r = buildRequest(src[media], media, 1);
+var params = {};
+var k;
+for (k in r.params) {
+if (r.params.hasOwnProperty(k)) params[k] = r.params[k];
+}
+params.langs = 'en';
+Lampa.Api.sources.tmdb.get(
+r.url,
+params,
+function (json) {
+if (!dead()) posterIndex(normalize(src[media].type, json).results, map);
+gate.tick();
+},
+function () { gate.tick(); },
+{ life: r.life }
+);
+});
+}
+
+
+
+
+
+
+
+
+
+
+
+
+function cleanPosters(cards, done, alive) {
+var gen = alive ? alive() : 0;
+function dead() { return alive && alive() !== gen; }
+
+var list = [];
+for (var i = 0; i < (cards || []).length; i++) {
+if (cards[i] && cards[i].id) list.push(cards[i]);
+}
+if (!list.length) { done(0); return; }
+
+var found = 0;
+var gate = LC.util.gate(list.length, POSTERS_TIMEOUT, function () { done(found); });
+
+LC.util.each(list, function (card) {
+Lampa.Api.sources.tmdb.get(
+cardMedia(card) + '/' + card.id + '/images',
+{ filter: { include_image_language: 'null' } },
+function (json) {
+if (!dead()) {
+var path = cleanPoster(json);
+if (path && path !== card.poster_path) { card.poster_path = path; found++; }
+}
+gate.tick();
+},
+function () { gate.tick(); },
+{ life: LIFE_IMAGES }
+);
+});
+}
+
+
+
+
+
+
+
+function posters(item, cards, done, alive) {
+var mode = postersMode();
+if (mode !== 'original' && mode !== 'clean') { done(0); return; }
+if (!cards || !cards.length) { done(0); return; }
+if (mode === 'original') { originalPosters(item, cards, done, alive); return; }
+cleanPosters(cards, done, alive);
+}
+
+
+
 var api = {
 buildRequest: buildRequest,
 normalize: normalize,
@@ -7373,7 +7610,14 @@ mergeMedia: mergeMedia,
 sortSignature: sortSignature,
 fetchOne: fetchOne,
 kpPosters: kpPosters,
-bannerPath: bannerPath
+bannerPath: bannerPath,
+
+
+posterFits: posterFits,
+cleanPoster: cleanPoster,
+posterIndex: posterIndex,
+applyPosters: applyPosters,
+posters: posters
 };
 api['fetch'] = fetchAll;
 return api;
@@ -7429,6 +7673,12 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 LC.rows = (function () {
+
+
+
+
+
+
 
 
 
@@ -8110,7 +8360,15 @@ days = [];
 
 
 
-resolve({ results: days, title: adventTitle(today), lumen_keep: true });
+var payload = { results: days, title: adventTitle(today), lumen_keep: true };
+
+
+
+
+
+
+
+LC.sources.posters(null, days, function () { resolve(payload); }, alive);
 }
 
 
@@ -8221,7 +8479,15 @@ var payload = { results: filtered, title: item.title };
 
 
 if (pinned) payload.lumen_keep = true;
-resolve(payload);
+
+
+
+
+
+
+
+
+LC.sources.posters(item, filtered, function () { resolve(payload); }, alive);
 },
 function () {
 
@@ -10570,8 +10836,11 @@ pending = { page: nextPage, reset: reset };
 try { self.activity.loader(true); } catch (e) {}
 var captured = gen;
 var request = needsLocalSort(item) ? item : applySort(item, sortMode);
-var handle = LC.sources['fetch'](request, nextPage, function (json) {
-if (gen !== captured) return;
+
+
+
+
+function fill(json) {
 loading = false;
 pending = null;
 try { self.activity.loader(false); } catch (e2) {}
@@ -10598,6 +10867,22 @@ var from = focusedIndex();
 loadPosters((from < 0 ? 0 : from) + POSTER_AHEAD);
 renderSub();
 if (started) recollect(null);
+}
+
+var handle = LC.sources['fetch'](request, nextPage, function (json) {
+if (gen !== captured) return;
+
+
+
+
+
+
+
+
+LC.sources.posters(request, json.results || [], function () {
+if (gen !== captured) return;
+fill(json);
+}, alive(captured));
 }, function (err) {
 if (gen !== captured) return;
 loading = false;
@@ -26697,6 +26982,20 @@ ru: '«Скоро», «Новинка», процент просмотра и н
 en: '"Soon", "New", the watched percentage and new episodes in home and collection rows. "On the poster" draws a plate over the artwork; "In the caption" puts the same words under it, next to the year and the rating, leaving the artwork clean. Applied immediately.',
 uk: '«Скоро», «Новинка», відсоток перегляду та нові серії в рядах головної та підбірок. «На постері» — плашкою поверх обкладинки; «У підписі» — рядком під нею, поряд із роком і рейтингом: обкладинка лишається чистою. Застосовується одразу.'
 },
+
+
+
+
+
+lumen_posters_name: { ru: 'Постеры карточек', en: 'Card posters', uk: 'Постери карток' },
+lumen_posters_descr: {
+ru: 'Откуда берётся обложка в рядах главной и в сетках подборок. «Как в Lampa» — та, что приходит с карточкой: ни одного лишнего запроса. «Оригинал» — тот же список, запрошенный на английском: обложка чаще без русской надписи, цена — один запрос на ряд. «Без надписей» — постер, у которого нет текста ни на каком языке: по запросу на каждую карточку, то есть около двадцати на ряд и двухсот на экран главной вместо нынешних десяти; ответы кладутся в кэш на месяц, поэтому платят за них только первое открытие и новые фильмы. Обложка непривычной пропорции не подставляется — остаётся та, что в Lampa. Применяется сразу: главная собирается заново.',
+en: 'Where the artwork in home rows and collection grids comes from. "As in Lampa" is the one that arrives with the card: not a single extra request. "Original" is the same list requested in English: the artwork more often carries no localized lettering, at the cost of one request per row. "No lettering" is a poster with no text in any language: one request per card, that is about twenty per row and two hundred per home screen instead of the current ten; the answers are cached for a month, so only the first opening and new films pay for them. Artwork with an unusual aspect ratio is not substituted — the Lampa one stays. Applied immediately: the home screen is rebuilt.',
+uk: 'Звідки береться обкладинка в рядах головної та в сітках підбірок. «Як у Lampa» — та, що приходить із карткою: жодного зайвого запиту. «Оригінал» — той самий список, запитаний англійською: обкладинка частіше без локалізованого напису, ціна — один запит на ряд. «Без написів» — постер, на якому немає тексту жодною мовою: по запиту на кожну картку, тобто близько двадцяти на ряд і двохсот на екран головної замість нинішніх десяти; відповіді кладуться в кеш на місяць, тому платять за них лише перше відкриття та нові фільми. Обкладинка незвичної пропорції не підставляється — лишається та, що в Lampa. Застосовується одразу: головна збирається наново.'
+},
+lumen_posters_lampa: { ru: 'Как в Lampa', en: 'As in Lampa', uk: 'Як у Lampa' },
+lumen_posters_original: { ru: 'Оригинал', en: 'Original', uk: 'Оригінал' },
+lumen_posters_clean: { ru: 'Без надписей', en: 'No lettering', uk: 'Без написів' },
 lumen_badges_poster: { ru: 'На постере', en: 'On the poster', uk: 'На постері' },
 lumen_badges_caption: { ru: 'В подписи', en: 'In the caption', uk: 'У підписі' },
 lumen_badges_off: { ru: 'Не показывать', en: 'Do not show', uk: 'Не показувати' },
@@ -27081,8 +27380,13 @@ return true;
 
 
 
+
+
+
+
+
 if (name === 'lumen_hide_watched' || name === 'lumen_rows_limit' || name === 'lumen_home_rows' ||
-name === 'lumen_rows_dedupe') {
+name === 'lumen_rows_dedupe' || name === 'lumen_posters') {
 try { if (LC.applyRowsPref) LC.applyRowsPref(); } catch (eRows) {}
 return true;
 }
@@ -27792,6 +28096,14 @@ var LIST = [
 
 
 
+{ name: 'lumen_posters', type: 'select', values: ['lampa', 'original', 'clean'], vprefix: 'lumen_posters_', 'default': 'lampa', label: 'lumen_posters_name', descr: 'lumen_posters_descr' },
+
+
+
+
+
+
+
 
 { name: 'lumen_badges', type: 'select', values: ['poster', 'caption', 'off'], vprefix: 'lumen_badges_', 'default': 'poster', label: 'lumen_badges_name', descr: 'lumen_badges_descr' },
 { name: 'lumen_hide_watched', type: 'trigger', 'default': false, label: 'lumen_hide_watched_name', descr: 'lumen_hide_watched_descr' },
@@ -28002,6 +28314,17 @@ return LC.pref('lumen_enabled', true);
 
 LC.badgesMode = function () {
 return LC.prefs.badgesMode(LC.pref('lumen_badges', 'poster'));
+};
+
+
+
+
+
+
+
+LC.postersMode = function () {
+var value = LC.pref('lumen_posters', 'lampa');
+return value === 'original' || value === 'clean' ? value : 'lampa';
 };
 
 

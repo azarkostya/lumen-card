@@ -1455,8 +1455,11 @@
         try { self.activity.loader(true); } catch (e) {}
         var captured = gen;
         var request = needsLocalSort(item) ? item : applySort(item, sortMode);
-        var handle = LC.sources['fetch'](request, nextPage, function (json) {
-          if (gen !== captured) return;
+
+        /* Task 74: сборка страницы вынесена в функцию — между ответом
+           подборки и ней встала подмена постеров (см. ниже). Тело не
+           менялось. */
+        function fill(json) {
           loading = false;
           pending = null;
           try { self.activity.loader(false); } catch (e2) {}
@@ -1483,6 +1486,22 @@
           loadPosters((from < 0 ? 0 : from) + POSTER_AHEAD);
           renderSub();
           if (started) recollect(null);
+        }
+
+        var handle = LC.sources['fetch'](request, nextPage, function (json) {
+          if (gen !== captured) return;
+          /* Task 74: постер сетки собирает не Lampa, а сама сетка (cardNode
+             выше: el.lumen_poster из card.poster_path), и собирает его ОДИН
+             раз при создании узла. Значит подмена обязана пройти до
+             appendCards — иначе первая страница осталась бы с постерами
+             Lampa, а следующие пришли бы с подменёнными, и одна сетка
+             показывала бы два разных набора обложек.
+             Лоадер активности на это время остаётся поднятым: он снимается
+             внутри fill. */
+          LC.sources.posters(request, json.results || [], function () {
+            if (gen !== captured) return;
+            fill(json);
+          }, alive(captured));
         }, function (err) {
           if (gen !== captured) return;
           loading = false;

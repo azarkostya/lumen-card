@@ -671,6 +671,7 @@ function loadHub(opts) {
   opts = opts || {};
   var fetchCalls = [];
   var bannerCalls = [];
+  var postersCalls = [];
   function record(list) {
     return function (item, arg, ok, err, alive) {
       var call = { item: item, arg: arg, page: arg, ok: ok, err: err, alive: alive, cleared: false };
@@ -689,7 +690,12 @@ function loadHub(opts) {
   }
   var sources = {
     discoverUrl: SOURCES.discoverUrl,
-    bannerPath: recordBanner(bannerCalls)
+    bannerPath: recordBanner(bannerCalls),
+    /* Task 74: подмена постеров страницы — шаг между ответом подборки и
+       сборкой узлов. Заглушка держит тот же контракт, что настоящая:
+       done ровно один раз, синхронно (так она и ведёт себя в режиме по
+       умолчанию, когда подменять нечего). */
+    posters: function (item, cards, done) { postersCalls.push({ item: item, cards: cards }); done(0); }
   };
   sources['fetch'] = record(fetchCalls);
   var ctx = loadCtx('46_hub.js', {
@@ -711,7 +717,7 @@ function loadHub(opts) {
        нет, как и в бандле до его загрузки (вызов защищён проверкой). */
     perf: opts.perf
   });
-  return { api: ctx.api, LC: ctx.LC, fetchCalls: fetchCalls, bannerCalls: bannerCalls };
+  return { api: ctx.api, LC: ctx.LC, fetchCalls: fetchCalls, bannerCalls: bannerCalls, postersCalls: postersCalls };
 }
 
 function fakeActivity() {
@@ -1211,6 +1217,39 @@ test('lumen_grid: create запрашивает первую страницу и
   assert.equal(cards[0].all('card__view').length, 1);
   assert.deepEqual(g.comp.activity.states, [true, false]);
   assert.deepEqual(warnLog, []);
+});
+
+/* Task 74: постер сетки собирает не Lampa, а сама сетка — один раз, при
+   создании узла (cardNode: el.lumen_poster из card.poster_path). Значит
+   подмена обязана пройти ДО appendCards, иначе первая страница осталась бы
+   с постерами Lampa, а следующие пришли бы с подменёнными. */
+test('Task 74: сетка собирает карточки только после подмены постеров', function () {
+  var g = openGrid(COLLECTION);
+  var held = null;
+  g.h.LC.sources.posters = function (item, cards, done) { held = { cards: cards, done: done }; };
+  g.h.fetchCalls[0].ok({ results: results(3), page: 1, total_pages: 1, total_results: 3 });
+  assert.ok(held, 'подмена постеров обязана быть позвана');
+  assert.equal(held.cards.length, 3, 'ей передаются карточки пришедшей страницы');
+  assert.equal(g.root.all('lumen-gcard').length, 0, 'до ответа подмены узлов ещё нет');
+  assert.deepEqual(g.comp.activity.states, [true], 'лоадер всё это время поднят');
+  held.done(0);
+  assert.equal(g.root.all('lumen-gcard').length, 3);
+  assert.deepEqual(g.comp.activity.states, [true, false], 'лоадер снимает сборка страницы');
+});
+
+test('Task 74: подмена постеров зовётся и на догруженной странице', function () {
+  var g = openGrid(DISCOVER);
+  g.h.fetchCalls[0].ok({ results: results(12), page: 1, total_pages: 3, total_results: 60 });
+  assert.equal(g.h.postersCalls.length, 1);
+  g.comp.start();
+  var ctrl = g.env.log.controllers.content;
+  ctrl.toggle();
+  ctrl.down();
+  ctrl.down();
+  assert.equal(g.h.fetchCalls.length, 2, 'дошли до последней строки — грузим следующую страницу');
+  g.h.fetchCalls[1].ok({ results: results(12, 100), page: 2, total_pages: 3, total_results: 60 });
+  assert.equal(g.h.postersCalls.length, 2, 'вторая страница обязана пройти подмену так же, как первая');
+  assert.equal(g.h.postersCalls[1].cards.length, 12, 'подменяются карточки ТОЛЬКО новой страницы');
 });
 
 test('lumen_grid: create вызывает scroll.minus() ровно один раз', function () {

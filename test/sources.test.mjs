@@ -116,3 +116,126 @@ test('mergeMedia: длинный список movies и короткий tv', ()
   const m = S.mergeMedia([{ id: 1 }, { id: 2 }, { id: 3 }], [{ id: 4 }]);
   assert.deepEqual(m.map(function(x) { return x.id; }), [1, 4, 2, 3]);
 });
+
+/* ====================================================================== */
+/* Task 74: источник постера карточки — чистая часть.                     */
+/* ====================================================================== */
+
+/* Допуск по пропорции. Границы поставлены замером на живых данных TMDB
+   2026-09-23 (160 фильмов из восьми разнородных рядов, 2133 постера, из
+   них 1318 без языка), и числа в тесте — те самые, что в замере.
+   Ниже 2:3 у постеров без языка ровно две области: шум округления
+   (0.651…0.666) и один выброс — 21 постер 0.486 (1440×2960, «Крёстный
+   отец» I и II). Между 0.487 и 0.650 нет ни одного постера, поэтому
+   нижняя граница стоит в этой пустой полосе, у её тугого края. */
+test('Task 74: допуск пропорции — 0.64…0.75, выброс 0.486 отсекается', () => {
+  assert.equal(S.posterFits(2 / 3), true, 'штатные 2:3 обязаны проходить');
+  assert.equal(S.posterFits(0.64), true, 'нижняя граница включительно');
+  assert.equal(S.posterFits(0.75), true, 'верхняя граница включительно (3:4)');
+  /* Реальные значения из замера, которые обязаны проходить. */
+  for (const ar of [0.666, 0.667, 0.68, 0.696, 0.701, 0.707, 0.714, 0.719, 0.736]) {
+    assert.equal(S.posterFits(ar), true, 'отсечена живая пропорция ' + ar);
+  }
+  /* Выброс «обои телефона» и всё, что шире 3:4. */
+  for (const ar of [0.486, 0.5, 0.6, 0.639, 0.751, 0.754, 0.756, 1.78]) {
+    assert.equal(S.posterFits(ar), false, 'пропущена негодная пропорция ' + ar);
+  }
+  /* Пропорции нет вовсе — постер не берём: проверить нечем. */
+  for (const bad of [undefined, null, 0, '', 'abc', NaN]) {
+    assert.equal(S.posterFits(bad), false, 'пропущен постер без пропорции: ' + bad);
+  }
+});
+
+/* Срез, который допуск разрешает, — в тех же числах, что и его границы.
+   Ячейка ровно 2:3 (vendor/lampa/css/app.css:3135-3139), кадрирование
+   cover: постер ВЫШЕ 2:3 теряет (1 − ar/(2/3)) высоты, ШИРЕ — (1 − (2/3)/ar)
+   ширины. Допуск асимметричен намеренно: по бокам у постера поля, сверху
+   голова. */
+test('Task 74: границы допуска — это 4 % высоты и 11.1 % ширины', () => {
+  const box = 2 / 3;
+  const cutV = (ar) => 1 - ar / box;
+  const cutH = (ar) => 1 - box / ar;
+  assert.ok(Math.abs(cutV(0.64) - 0.04) < 0.001, 'нижняя граница не равна срезу 4 % высоты: ' + cutV(0.64));
+  assert.ok(Math.abs(cutH(0.75) - 0.1111) < 0.001, 'верхняя граница не равна срезу 11.1 % ширины: ' + cutH(0.75));
+  /* Первый же шаг за границу срез только увеличивает — знак допуска не
+     перепутан. */
+  assert.ok(cutV(0.639) > 0.04);
+  assert.ok(cutH(0.751) > 0.1111);
+});
+
+/* cleanPoster — выбор постера «без надписей» из ответа {media}/{id}/images. */
+test('Task 74: берётся первый постер без языка подходящей пропорции', () => {
+  const json = {
+    posters: [
+      { file_path: '/ru.jpg', iso_639_1: 'ru', aspect_ratio: 0.667 },
+      { file_path: '/wide.jpg', iso_639_1: null, aspect_ratio: 0.486 },
+      { file_path: '/good.jpg', iso_639_1: null, aspect_ratio: 0.701 },
+      { file_path: '/later.jpg', iso_639_1: null, aspect_ratio: 0.667 }
+    ]
+  };
+  assert.equal(S.cleanPoster(json), '/good.jpg', 'порядок TMDB (по голосам) обязан сохраняться');
+});
+
+test('Task 74: «без языка» — это строго null, а не «xx» и не пустая строка', () => {
+  /* У TMDB 'xx' означает «No Language» и стоит на изображениях, где текст
+     ЕСТЬ, но язык не определён, — такой постер режиму не годится. */
+  for (const lang of ['xx', '', 'en', 'ru']) {
+    assert.equal(S.cleanPoster({ posters: [{ file_path: '/x.jpg', iso_639_1: lang, aspect_ratio: 0.667 }] }), '',
+      'постер с iso_639_1=' + JSON.stringify(lang) + ' принят за «без языка»');
+  }
+  assert.equal(S.cleanPoster({ posters: [{ file_path: '/x.jpg', iso_639_1: null, aspect_ratio: 0.667 }] }), '/x.jpg');
+});
+
+test('Task 74: подходящего постера нет — пустая строка, карточка остаётся с постером Lampa', () => {
+  assert.equal(S.cleanPoster(null), '');
+  assert.equal(S.cleanPoster({}), '');
+  assert.equal(S.cleanPoster({ posters: [] }), '');
+  assert.equal(S.cleanPoster({ posters: [{ file_path: '/a.jpg', iso_639_1: null, aspect_ratio: 0.486 }] }), '',
+    'кривой постер хуже обычного — подставлять его нельзя');
+  assert.equal(S.cleanPoster({ posters: [{ iso_639_1: null, aspect_ratio: 0.667 }] }), '',
+    'постер без file_path подставлять нечем');
+});
+
+/* posterIndex / applyPosters — сопоставление списков в режиме «оригинал». */
+test('Task 74: сопоставление по id учитывает медиа — фильм и сериал с одним id не путаются', () => {
+  const map = S.posterIndex([
+    { id: 5, title: 'Фильм', poster_path: '/movie.jpg' },
+    { id: 5, name: 'Сериал', poster_path: '/tv.jpg' }
+  ]);
+  assert.deepEqual(map, { 'movie:5': '/movie.jpg', 'tv:5': '/tv.jpg' });
+
+  const cards = [{ id: 5, title: 'Фильм', poster_path: '/ru-movie.jpg' }, { id: 5, name: 'Сериал', poster_path: '/ru-tv.jpg' }];
+  assert.equal(S.applyPosters(cards, map), 2);
+  assert.equal(cards[0].poster_path, '/movie.jpg');
+  assert.equal(cards[1].poster_path, '/tv.jpg');
+});
+
+test('Task 74: постера в карте нет — карточка остаётся со своим', () => {
+  const map = S.posterIndex([
+    { id: 1, title: 'Есть', poster_path: '/en.jpg' },
+    { id: 2, title: 'Пусто', poster_path: null },
+    { id: 3, title: 'Нет поля' }
+  ]);
+  assert.deepEqual(map, { 'movie:1': '/en.jpg' });
+
+  const cards = [
+    { id: 1, title: 'Есть', poster_path: '/ru.jpg' },
+    { id: 2, title: 'Пусто', poster_path: '/ru2.jpg' },
+    { id: 3, title: 'Нет поля', poster_path: '/ru3.jpg' }
+  ];
+  assert.equal(S.applyPosters(cards, map), 1, 'подменена ровно одна карточка');
+  assert.equal(cards[1].poster_path, '/ru2.jpg');
+  assert.equal(cards[2].poster_path, '/ru3.jpg');
+});
+
+test('Task 74: тот же самый постер за подмену не считается', () => {
+  const cards = [{ id: 1, title: 'A', poster_path: '/same.jpg' }];
+  assert.equal(S.applyPosters(cards, { 'movie:1': '/same.jpg' }), 0);
+});
+
+test('Task 74: дырки в списке карточек ничего не роняют', () => {
+  assert.equal(S.applyPosters(null, {}), 0);
+  assert.equal(S.applyPosters([null, undefined, {}, { title: 'без id' }], { 'movie:1': '/a.jpg' }), 0);
+  assert.deepEqual(S.posterIndex(null), {});
+  assert.deepEqual(S.posterIndex([null, {}, { id: 0, poster_path: '/a.jpg' }]), {});
+});

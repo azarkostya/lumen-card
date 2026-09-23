@@ -727,3 +727,190 @@ test('fetchAll: оба источника ответили до дедлайна
     globalThis.clearTimeout = realClear;
   }
 });
+
+/* ====================================================================== */
+/* Task 74: источник постера карточки — сетевые пути.                     */
+/* ====================================================================== */
+
+/* Поднимает LC.sources с записывающей заглушкой Lampa.Api.sources.tmdb.get
+   и заданным режимом настройки. Таймеры подменены: дедлайн подмены — 6 с,
+   и без подмены каждый такой тест держал бы прогон шесть секунд. */
+function setupPosters(mode) {
+  var calls = [];
+  global.Lampa = makeFakeLampa({
+    Api: { sources: { tmdb: { get: function (url, params, ok, err, cache) {
+      calls.push({ url: url, params: params, ok: ok, err: err, cache: cache });
+    } } } }
+  });
+  global.window = { localStorage: null };
+  var realSet = globalThis.setTimeout;
+  var realClear = globalThis.clearTimeout;
+  var timers = [];
+  globalThis.setTimeout = function (cb, ms) { timers.push({ cb: cb, ms: ms, cleared: false }); return timers.length; };
+  globalThis.clearTimeout = function (id) { if (timers[id - 1]) timers[id - 1].cleared = true; };
+  var S = loadCtx('43_sources.js', {
+    pref: function () { return ''; },
+    postersMode: function () { return mode; }
+  }).api;
+  return {
+    S: S, calls: calls, timers: timers,
+    restore: function () { globalThis.setTimeout = realSet; globalThis.clearTimeout = realClear; }
+  };
+}
+
+var ITEM_MOVIE = { id: 'row', title: 'Ряд', sources: { movie: { type: 'discover', params: { genres: 35 } } } };
+
+test('Task 74: режим по умолчанию — ни одного запроса, ответ синхронный', function () {
+  var s = setupPosters('lampa');
+  try {
+    var cards = [{ id: 1, title: 'A', poster_path: '/a.jpg' }];
+    var done = [];
+    s.S.posters(ITEM_MOVIE, cards, function (n) { done.push(n); }, null);
+    assert.deepEqual(done, [0], 'done обязан быть позван ровно один раз и синхронно');
+    assert.equal(s.calls.length, 0, 'режим по умолчанию не стоит ни одного запроса');
+    assert.equal(s.timers.length, 0, 'и ни одного таймера');
+    assert.equal(cards[0].poster_path, '/a.jpg');
+  } finally { s.restore(); }
+});
+
+test('Task 74: пустой список карточек — запросов нет ни в одном режиме', function () {
+  for (var i = 0; i < 2; i++) {
+    var s = setupPosters(i ? 'clean' : 'original');
+    try {
+      var done = [];
+      s.S.posters(ITEM_MOVIE, [], function (n) { done.push(n); }, null);
+      assert.deepEqual(done, [0]);
+      assert.equal(s.calls.length, 0);
+    } finally { s.restore(); }
+  }
+});
+
+test('Task 74: «оригинал» — один запрос на медиа, язык через langs, сопоставление по id', function () {
+  var s = setupPosters('original');
+  try {
+    var cards = [
+      { id: 1, title: 'A', poster_path: '/ru1.jpg' },
+      { id: 2, title: 'B', poster_path: '/ru2.jpg' }
+    ];
+    var done = [];
+    s.S.posters(ITEM_MOVIE, cards, function (n) { done.push(n); }, null);
+
+    assert.equal(s.calls.length, 1, 'у подборки одно медиа — один запрос');
+    assert.equal(s.calls[0].url, 'discover/movie');
+    /* Язык Lampa подставляет сама из Storage, а переопределяет его ключ
+       langs (app.min.js:19656-19663). Свой language в адресе оказался бы
+       вторым, поэтому его тут быть не должно. */
+    assert.equal(s.calls[0].params.langs, 'en');
+    assert.equal(s.calls[0].params.genres, 35, 'параметры подборки сохранены');
+    assert.equal(s.calls[0].params.page, 1);
+    assert.equal(s.calls[0].url.indexOf('language'), -1);
+    assert.equal(s.calls[0].cache.life, 720, 'кэш тот же, что у самой подборки');
+
+    s.calls[0].ok({ results: [{ id: 1, title: 'A', poster_path: '/en1.jpg' }, { id: 3, title: 'C', poster_path: '/en3.jpg' }] });
+    assert.deepEqual(done, [1], 'подменена одна карточка — та, что нашлась в английском списке');
+    assert.equal(cards[0].poster_path, '/en1.jpg');
+    assert.equal(cards[1].poster_path, '/ru2.jpg', 'карточки без пары остаются с постером Lampa');
+  } finally { s.restore(); }
+});
+
+test('Task 74: «оригинал» — источник Кинопоиска пропускается, списка на другом языке у него нет', function () {
+  var s = setupPosters('original');
+  try {
+    var kp = { id: 'kp', title: 'КП', sources: { movie: { type: 'kp', collection: 'TOP_250_MOVIES' } } };
+    var done = [];
+    s.S.posters(kp, [{ id: 1, title: 'A', poster_path: '/ru.jpg' }], function (n) { done.push(n); }, null);
+    assert.deepEqual(done, [0]);
+    assert.equal(s.calls.length, 0);
+  } finally { s.restore(); }
+});
+
+test('Task 74: «оригинал» у ряда без подборки (адвент) — запросов нет, ответ один', function () {
+  var s = setupPosters('original');
+  try {
+    var done = [];
+    s.S.posters(null, [{ id: 1, title: 'A', poster_path: '/ru.jpg' }], function (n) { done.push(n); }, null);
+    assert.deepEqual(done, [0]);
+    assert.equal(s.calls.length, 0);
+  } finally { s.restore(); }
+});
+
+test('Task 74: «без надписей» — запрос на карточку, только постеры без языка, кэш 30 дней', function () {
+  var s = setupPosters('clean');
+  try {
+    var cards = [
+      { id: 7, title: 'Фильм', poster_path: '/ru.jpg' },
+      { id: 8, name: 'Сериал', poster_path: '/ru-tv.jpg' }
+    ];
+    var done = [];
+    s.S.posters(ITEM_MOVIE, cards, function (n) { done.push(n); }, null);
+
+    assert.equal(s.calls.length, 2, 'по запросу на карточку');
+    assert.equal(s.calls[0].url, 'movie/7/images');
+    assert.equal(s.calls[1].url, 'tv/8/images', 'медиа-тип берётся из самой карточки');
+    /* include_image_language=null отдаёт ТОЛЬКО постеры без языка и
+       отменяет фильтр по языку, который Lampa дописывает сама (замер
+       2026-09-23: 147 постеров и 17.5 КБ на фильм против 259 и 20.2 КБ у
+       набора ru,null). Параметр уходит через filter — так Lampa кладёт в
+       адрес произвольные ключи (app.min.js:19675-19678). */
+    assert.deepEqual(s.calls[0].params, { filter: { include_image_language: 'null' } });
+    assert.equal(s.calls[0].cache.life, 43200, 'кэш на 30 дней: состав постеров меняется раз в месяцы');
+
+    s.calls[0].ok({ posters: [{ file_path: '/clean.jpg', iso_639_1: null, aspect_ratio: 0.667 }] });
+    assert.deepEqual(done, [], 'пока не ответили все — ряд не отпускаем');
+    s.calls[1].ok({ posters: [{ file_path: '/bad.jpg', iso_639_1: null, aspect_ratio: 0.486 }] });
+
+    assert.deepEqual(done, [1]);
+    assert.equal(cards[0].poster_path, '/clean.jpg');
+    assert.equal(cards[1].poster_path, '/ru-tv.jpg', 'постер негодной пропорции не подставляется');
+    assert.equal(s.timers[0].cleared, true, 'все ответили — дедлайн снят');
+  } finally { s.restore(); }
+});
+
+test('Task 74: «без надписей» — ошибки запросов ряд не задерживают', function () {
+  var s = setupPosters('clean');
+  try {
+    var cards = [{ id: 1, title: 'A', poster_path: '/a.jpg' }, { id: 2, title: 'B', poster_path: '/b.jpg' }];
+    var done = [];
+    s.S.posters(ITEM_MOVIE, cards, function (n) { done.push(n); }, null);
+    s.calls[0].err({ status: 404 });
+    s.calls[1].ok({ posters: [{ file_path: '/c.jpg', iso_639_1: null, aspect_ratio: 0.667 }] });
+    assert.deepEqual(done, [1]);
+    assert.equal(cards[0].poster_path, '/a.jpg');
+    assert.equal(cards[1].poster_path, '/c.jpg');
+  } finally { s.restore(); }
+});
+
+/* Контракт ряда: ровно ОДИН ответ при любом исходе (шапка src/44_rows.js).
+   Молчащий запрос закрывает дедлайн, и то, что не успело, остаётся с
+   постером Lampa; поздний ответ второго ничего не добавляет. */
+test('Task 74: молчащий запрос закрывает дедлайн, done зовётся ровно один раз', function () {
+  var s = setupPosters('clean');
+  try {
+    var cards = [{ id: 1, title: 'A', poster_path: '/a.jpg' }, { id: 2, title: 'B', poster_path: '/b.jpg' }];
+    var done = [];
+    s.S.posters(ITEM_MOVIE, cards, function (n) { done.push(n); }, null);
+    s.calls[0].ok({ posters: [{ file_path: '/c.jpg', iso_639_1: null, aspect_ratio: 0.667 }] });
+    assert.deepEqual(done, [], 'второй ещё молчит');
+    assert.equal(s.timers[0].ms, 6000, 'дедлайн подмены — 6 секунд');
+    s.timers[0].cb();
+    assert.deepEqual(done, [1], 'дедлайн отпустил ряд с тем, что успело прийти');
+    s.calls[1].ok({ posters: [{ file_path: '/late.jpg', iso_639_1: null, aspect_ratio: 0.667 }] });
+    assert.deepEqual(done, [1], 'поздний ответ второго done не дублирует');
+  } finally { s.restore(); }
+});
+
+/* alive-guard: поколение сменилось (ушли с главной) — поздний ответ уже
+   ничего не пишет в карточки. */
+test('Task 74: сменилось поколение — поздний ответ карточку не трогает', function () {
+  var s = setupPosters('clean');
+  try {
+    var gen = 0;
+    var cards = [{ id: 1, title: 'A', poster_path: '/a.jpg' }];
+    var done = [];
+    s.S.posters(ITEM_MOVIE, cards, function (n) { done.push(n); }, function () { return gen; });
+    gen++;
+    s.calls[0].ok({ posters: [{ file_path: '/c.jpg', iso_639_1: null, aspect_ratio: 0.667 }] });
+    assert.equal(cards[0].poster_path, '/a.jpg');
+    assert.deepEqual(done, [0], 'ответ Lampa всё равно один — контракт ряда важнее');
+  } finally { s.restore(); }
+});

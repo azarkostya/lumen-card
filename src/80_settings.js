@@ -790,6 +790,20 @@
       en: '"Soon", "New", the watched percentage and new episodes in home and collection rows. "On the poster" draws a plate over the artwork; "In the caption" puts the same words under it, next to the year and the rating, leaving the artwork clean. Applied immediately.',
       uk: '«Скоро», «Новинка», відсоток перегляду та нові серії в рядах головної та підбірок. «На постері» — плашкою поверх обкладинки; «У підписі» — рядком під нею, поряд із роком і рейтингом: обкладинка лишається чистою. Застосовується одразу.'
     },
+    /* Task 74: источник постера. Описание обязано назвать цену прямо —
+       режим «без надписей» стоит двадцати запросов на ряд, то есть двухсот
+       с лишним на экран главной против нынешних десяти, и человеку с
+       телевизором это важнее, чем красота формулировки. Про кэш сказано
+       там же: повторные открытия платят только за новые фильмы. */
+    lumen_posters_name: { ru: 'Постеры карточек', en: 'Card posters', uk: 'Постери карток' },
+    lumen_posters_descr: {
+      ru: 'Откуда берётся обложка в рядах главной и в сетках подборок. «Как в Lampa» — та, что приходит с карточкой: ни одного лишнего запроса. «Оригинал» — тот же список, запрошенный на английском: обложка чаще без русской надписи, цена — один запрос на ряд. «Без надписей» — постер, у которого нет текста ни на каком языке: по запросу на каждую карточку, то есть около двадцати на ряд и двухсот на экран главной вместо нынешних десяти; ответы кладутся в кэш на месяц, поэтому платят за них только первое открытие и новые фильмы. Обложка непривычной пропорции не подставляется — остаётся та, что в Lampa. Применяется сразу: главная собирается заново.',
+      en: 'Where the artwork in home rows and collection grids comes from. "As in Lampa" is the one that arrives with the card: not a single extra request. "Original" is the same list requested in English: the artwork more often carries no localized lettering, at the cost of one request per row. "No lettering" is a poster with no text in any language: one request per card, that is about twenty per row and two hundred per home screen instead of the current ten; the answers are cached for a month, so only the first opening and new films pay for them. Artwork with an unusual aspect ratio is not substituted — the Lampa one stays. Applied immediately: the home screen is rebuilt.',
+      uk: 'Звідки береться обкладинка в рядах головної та в сітках підбірок. «Як у Lampa» — та, що приходить із карткою: жодного зайвого запиту. «Оригінал» — той самий список, запитаний англійською: обкладинка частіше без локалізованого напису, ціна — один запит на ряд. «Без написів» — постер, на якому немає тексту жодною мовою: по запиту на кожну картку, тобто близько двадцяти на ряд і двохсот на екран головної замість нинішніх десяти; відповіді кладуться в кеш на місяць, тому платять за них лише перше відкриття та нові фільми. Обкладинка незвичної пропорції не підставляється — лишається та, що в Lampa. Застосовується одразу: головна збирається наново.'
+    },
+    lumen_posters_lampa: { ru: 'Как в Lampa', en: 'As in Lampa', uk: 'Як у Lampa' },
+    lumen_posters_original: { ru: 'Оригинал', en: 'Original', uk: 'Оригінал' },
+    lumen_posters_clean: { ru: 'Без надписей', en: 'No lettering', uk: 'Без написів' },
     lumen_badges_poster: { ru: 'На постере', en: 'On the poster', uk: 'На постері' },
     lumen_badges_caption: { ru: 'В подписи', en: 'In the caption', uk: 'У підписі' },
     lumen_badges_off: { ru: 'Не показывать', en: 'Do not show', uk: 'Не показувати' },
@@ -1174,8 +1188,13 @@
        рядах, поэтому применяются одинаково:
        ряды перерегистрируются, открытая главная пересобирается
        (LC.applyRowsPref, src/90_runtime.js). */
+    /* Task 74: источник постера меняет не набор карточек, а их обложки, но
+       применяется тем же способом — ряды собираются заново. Иначе человек,
+       который выбирает режим ради сравнения на своём экране, увидел бы
+       разницу только после выхода с главной и возврата, то есть сравнивал
+       бы по памяти. */
     if (name === 'lumen_hide_watched' || name === 'lumen_rows_limit' || name === 'lumen_home_rows' ||
-        name === 'lumen_rows_dedupe') {
+        name === 'lumen_rows_dedupe' || name === 'lumen_posters') {
       try { if (LC.applyRowsPref) LC.applyRowsPref(); } catch (eRows) {}
       return true;
     }
