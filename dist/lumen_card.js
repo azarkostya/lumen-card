@@ -1991,7 +1991,38 @@ css.push('.full-start__background.lumen-off{display:none !important}');
 
 
 
-css.push('.full-start-new.lumen-card{position:relative;padding:0 ' + EDGE + 'em ' + EDGE_Y + 'em;color:' + P.text + ';font-family:' + FB + '}');
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+css.push('.full-start-new.lumen-card{position:relative;min-height:100vh;padding:0 ' + EDGE + 'em ' + EDGE_Y + 'em;color:' + P.text + ';font-family:' + FB + '}');
 css.push('.lumen-card .full-start-new__left{display:none !important}');
 
 
@@ -2005,6 +2036,8 @@ css.push('.lumen-card.lumen-card--poster .full-start-new__left{display:block !im
 css.push('.lumen-card.lumen-card--poster .full-start-new__poster{border-radius:.61em;overflow:hidden;background:' + P.gradPoster + ';border:.04em solid ' + P.line + ';box-shadow:0 .35em .8em rgba(0,0,0,.6)}');
 css.push('.lumen-card.lumen-card--poster .full-start-new__img{border-radius:.61em}');
 css.push('.lumen-card.lumen-card--poster .lumen-poster-tmdb{position:absolute;left:0;right:0;bottom:0;padding:0 1.05em 1.05em;font-family:' + FB + ';font-weight:600;font-size:1.01em;line-height:1.3;color:' + P.smoke + '}');
+
+
 
 
 
@@ -2464,6 +2497,8 @@ css.push('.lumen-card .lumen-episodes__count{font-family:' + FB + ';font-size:1.
 
 
 
+
+
 css.push('.lumen-card .lumen-episodes__viewport{position:relative;height:8.38em}');
 css.push('.lumen-card .lumen-episodes__track{position:absolute;top:0;left:0;height:100%;display:-webkit-box;display:-webkit-flex;display:flex}');
 
@@ -2714,6 +2749,15 @@ css.push('.lumen-descr-row .full-descr__left{-webkit-box-flex:1;-webkit-flex:1 1
 
 
 
+
+
+
+
+
+
+
+
+
 css.push('.lumen-descr-row .full-descr__text{-webkit-box-sizing:border-box;box-sizing:border-box;font-family:' + FB + ';font-weight:500;font-size:1.27em;line-height:1.24;color:' + P.text + ';max-width:35.56em;width:auto;display:-webkit-box;-webkit-line-clamp:9;-webkit-box-orient:vertical;overflow:hidden;max-height:70vh;padding:.62em .83em 0;border-bottom:.62em solid transparent;border-radius:.48em;background:' + P.plate + ';-webkit-mask-image:none;mask-image:none}');
 css.push('.lumen-descr-row .full-descr__details{display:none}');
 
@@ -2803,21 +2847,6 @@ css.push('.lumen-descr-row.lumen-descr-row--reviews .full-descr__text{-webkit-ma
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-css.push('.lumen-card--serial ~ .lumen-descr-row .full-descr__text{-webkit-line-clamp:3}');
 
 
 

@@ -1221,20 +1221,96 @@ test('правка 2026-09-23: правая кромка приходится н
   assert.ok(body && /min-width:0/.test(body), 'без min-width:0 flex-элемент не даст себя сжать: ' + body);
 });
 
-/* Правка 2026-09-23 (правило кромки), сериал: между карточкой и описанием
-   стоит ряд серий, описание начинается на 100 CSS px ниже, и девять строк
-   до кромки не доходят. Замеры и разбор размена — у самого правила. */
-test('правка 2026-09-23: у сериала описание поджато сильнее — ряд серий выше него', () => {
-  const serial = findDecl(css, (sel) => sel === '.lumen-card--serial ~ .lumen-descr-row .full-descr__text');
-  assert.ok(serial, 'правила описания для сериала нет');
-  /* Правка 2026-09-23 (п.3.1): ряд серий вырос под кадр 16:9, и четвёртая
-     строка описания ушла — замеры у самого правила. */
-  assert.ok(serial.indexOf('-webkit-line-clamp:3') !== -1, 'у сериала ожидался кламп на 3 строки: ' + serial);
-  /* Правило обязано стоять ПОСЛЕ базового: специфичность у них разная, но
-     полагаться на неё, когда числа в одном свойстве, — лишний риск. */
-  const base = css.indexOf('.lumen-descr-row .full-descr__text{');
-  const own = css.indexOf('.lumen-card--serial ~ .lumen-descr-row .full-descr__text{');
-  assert.ok(base !== -1 && own > base, 'правило сериала обязано идти после базового');
+/* Правило кромки на карточке (правка 2026-09-23): «текст либо целиком, либо
+   не показан» обязано держаться при ЛЮБОЙ высоте шапки. Прежние девять
+   строк описания (и три у сериала) были подобраны под один замер старта
+   описания и держались на совпадении высот: двухуровневое название
+   (4d090c2) подняло старт на 12 px, и под кромку въехали счётчики разделов
+   Lampa; на телевизоре (DPR 2, шапка 74vh) кромка резала вторую строку
+   описания при любом клампе. Теперь шапка занимает весь первый экран, и
+   ряд описания начинается не выше кромки.
+
+   Сторож проверяет устойчивость, а не одно число: для каждой конфигурации
+   (три размера интерфейса × обычный и плоский вид × DPR 1 и 2, то есть
+   компактная ветка и ветка телевизора × фильм и сериал) он собирает
+   таблицу, находит по каскаду min-height и нижний паддинг корня карточки
+   и min-height тела шапки и прогоняет НАБОР высот содержимого шапки — от
+   пустой до выше экрана, включая замеренные на стенде. Для каждой высоты
+   верх ряда описания обязан быть не выше кромки. Вернись правило
+   к подобранному числу — какая-то из высот его обойдёт. */
+function cardRootRules(built, classes, screenW, screenH) {
+  const out = [];
+  const all = ruleBodiesWithMedia(built);
+  for (let i = 0; i < all.length; i++) {
+    const rule = all[i];
+    for (const sel of rule.selectors) {
+      if (/\s/.test(sel)) continue;
+      const c = compound(sel);
+      if (!c || !compoundMatches(c, classes) || c.need.indexOf('lumen-card') === -1) continue;
+      if (!mediaApplies(rule.media, screenW, screenH)) continue;
+      out.push({ order: i, spec: classCount(sel), decl: rule.decl, sel: sel });
+      break;
+    }
+  }
+  return out;
+}
+
+test('правило кромки: ряд описания не выше кромки при любой высоте шапки карточки', () => {
+  const W = 960;
+  const H = 540;
+  const lampa = lampaCss();
+  /* Верх карточки в первом экране: шапка Lampa (.wrap__content padding-top,
+     app.css:1033-1037) плюс паддинг прокрутки (.scroll--mask
+     .scroll__content, app.css:2787-2789). */
+  const topEm = lampaDecl(lampa, '.wrap__content', 'padding-top') +
+    lampaDecl(lampa, '.scroll--mask .scroll__content', 'padding');
+  /* Высоты содержимого шапки, CSS px. Замеренные на стенде 960×540
+     (2026-09-23): 221.1 — фильм с логотипом при DPR 1 (старт описания 325.2,
+     счётчики под кромкой); 223 — тот же фильм с двухуровневым названием;
+     235.1 — он же до 4d090c2 (название двумя строками, старт 339.2);
+     381.9 — сериал с логотипом при DPR 1 (кромка резала описание);
+     427.1 — сериал с логотипом на «крупнее» при DPR 2: шапка переросла
+     74vh. Остальные — сетка от пустой шапки до шапки выше экрана. */
+  const heads = [0, 120, 221.1, 223, 235.1, 300, 381.9, 399.6, 427.1, 470, 540, 720];
+  const VH = H / 100;
+  let checked = 0;
+  for (const iface of ['small', 'normal', 'bigger']) {
+    const EM = W / 84.17 * LAMPA_SIZES[iface];
+    for (const flat of [false, true]) {
+      for (const dpr of [1, 2]) {
+        const built = withStorage({ interface_size: iface, lumen_flat: flat }, (LC) => {
+          window.devicePixelRatio = dpr;
+          return LC.buildCss();
+        });
+        for (const serial of [false, true]) {
+          const classes = ['full-start-new', 'lumen-card'].concat(serial ? ['lumen-card--serial'] : []);
+          const label = iface + (flat ? '/плоский' : '') + '/DPR ' + dpr + (serial ? '/сериал' : '/фильм');
+          const root = cardRootRules(built, classes, W, H);
+          const minH = cascade(root, 'min-height');
+          assert.ok(minH, label + ': у корня карточки нет min-height — ряд описания пойдёт сразу за шапкой');
+          const cardMin = lengthPx(minH.value, EM, VH);
+          const pad = cascade(root, 'padding');
+          const padBottom = lengthPx(pad.value.split(/\s+/)[2] || pad.value.split(/\s+/)[0], EM, VH);
+          const body = cascade(matchingRules(built, classes, ['full-start-new__body'], W, H), 'min-height');
+          const bodyMin = body ? lengthPx(body.value, EM, VH) : 0;
+          for (const head of heads) {
+            const cardH = Math.max(cardMin, Math.max(bodyMin, head) + padBottom);
+            const descrTop = topEm * EM + cardH;
+            assert.ok(descrTop >= H - 0.5,
+              label + ', шапка ' + head + ' px: ряд описания начинается на ' + descrTop.toFixed(1) +
+              ' при кромке ' + H + ' — кромка режет его текст');
+            checked++;
+          }
+        }
+      }
+    }
+  }
+  assert.equal(checked, 3 * 2 * 2 * 2 * heads.length);
+
+  /* Сериал больше не получает своего клампа: размен «синопсис против ряда
+     серий» жил только в первом экране, а описание туда не входит. */
+  assert.equal(findDecl(css, (sel) => sel === '.lumen-card--serial ~ .lumen-descr-row .full-descr__text'), null,
+    'у сериала снова свой кламп — он был подобран под высоту шапки');
 });
 
 /* Правка 2026-09-23 (разбор композиции, п.5.1): стопка постеров и счётчик
