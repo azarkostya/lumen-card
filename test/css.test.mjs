@@ -2365,9 +2365,9 @@ test('правка: текст героя прижат к низу кадра и
      был (46.6vh от верха экрана при крупном кадре): подняв текст в старте,
      правка на столько же удлинила его путь вниз. */
   const small = findDecl(css, (sel) => sel === '.lumen-hero.lumen-hero--compact .lumen-hero__text');
-  assert.ok(small.indexOf('transform:translateY(calc(9.1vh + 3.88em)) scale(0.95)') !== -1, 'сжатие текста: ' + small);
-  assert.ok(small.indexOf('-webkit-transform:translateY(-webkit-calc(9.1vh + 3.88em))') !== -1, 'старым webkit-движкам нужен префиксный calc: ' + small);
-  assert.ok(small.indexOf('-webkit-transform:translateY(calc(9.1vh + 3.88em))') !== -1, 'после префиксного calc обязана идти обычная форма: ' + small);
+  assert.ok(small.indexOf('transform:translateY(calc(9.1vh + 3.35em)) scale(0.95)') !== -1, 'сжатие текста: ' + small);
+  assert.ok(small.indexOf('-webkit-transform:translateY(-webkit-calc(9.1vh + 3.35em))') !== -1, 'старым webkit-движкам нужен префиксный calc: ' + small);
+  assert.ok(small.indexOf('-webkit-transform:translateY(calc(9.1vh + 3.35em))') !== -1, 'после префиксного calc обязана идти обычная форма: ' + small);
   /* Точка масштаба — левый нижний угол СОДЕРЖИМОГО: от рамки это
      padding-left вправо и padding-bottom вверх. */
   assert.ok(text.indexOf('transform-origin:' + padL + 'em calc(100% - 12.5vh)') !== -1,
@@ -2429,12 +2429,24 @@ test('раскладка героя: кадр, текст и ряды не пе�
        до низа кадра (в ней лежит подушка-вуаль, ревью фикс-раунда п.3). */
     const textBottom = parseFloat(/(^|;)padding:0 0 ([0-9.]+)vh/.exec(textDecl)[2]) * VH;
     const compactText = decl('.lumen-hero.lumen-hero--compact .lumen-hero__text');
-    const shiftParts = /[^-]transform:translateY\(calc\(([0-9.]+)vh \+ ([0-9.]+)em\)\)/.exec(compactText);
-    const textShift = parseFloat(shiftParts[1]) * VH + parseFloat(shiftParts[2]) * EM;
-    /* Высота полосы чипов — она же вторая половина сдвига: (MOODS_IN_GAP +
-       MOODS_H) × TEXT_ZOOM, и в сжатом состоянии ровно на неё низ блока ниже
-       низа видимого содержимого. */
-    const moodsBand = parseFloat(shiftParts[2]) * EM;
+    const shiftParts = /[^-]transform:translateY\(calc\(([0-9.]+)vh \+ ([0-9.]+)em\)\) scale\(([0-9.]+)\)/.exec(compactText);
+    /* em в transform — кегль САМОГО блока (font-size:1.1em), а не базовый.
+       Ревью фикс-раунда (п.6): прежняя редакция теста множила их на базовый
+       кегль и брала высоту полосы из того же числа, что и сдвиг, — то есть
+       сверяла число с самим собой и не видела двойного TEXT_ZOOM. */
+    const TE = parseFloat(/(?:^|;)font-size:([0-9.]+)em/.exec(textDecl)[1]) * EM;
+    const scale = parseFloat(shiftParts[3]);
+    const textShift = parseFloat(shiftParts[1]) * VH + parseFloat(shiftParts[2]) * TE;
+    /* Высота полосы чипов — НЕЗАВИСИМО от сдвига, из правил самой полосы:
+       отступ сверху плюс чип (высота и нижний отступ в его собственном
+       кегле, правило .lumen-mood-chip). В сжатом состоянии полоса после
+       масштаба занимает scale своей высоты и лежит у точки масштаба — на
+       столько низ блока ниже низа видимого содержимого. */
+    const moodsGap = parseFloat(/margin-top:([0-9.]+)em/.exec(decl('.lumen-hero .lumen-hero__moods'))[1]);
+    const chip = decl('.lumen-mood-chip');
+    const chipBox = (parseFloat(/(?:^|;)height:([0-9.]+)em/.exec(chip)[1]) + parseFloat(/(?:^|;)margin:0 [0-9.]+em ([0-9.]+)em/.exec(chip)[1])) *
+      parseFloat(/(?:^|;)font-size:([0-9.]+)em/.exec(chip)[1]);
+    const moodsBand = (moodsGap + chipBox) * TE * scale;
     const rowsDecl = decl('.lumen-main .scroll.layer--wheight');
     const rowsMargin = /margin-top:calc\(([0-9.]+)vh - ([0-9.]+)em\)/.exec(rowsDecl);
     const rowsHeight = /height:calc\(([0-9.]+)vh \+ ([0-9.]+)em\) !important/.exec(rowsDecl);
@@ -2475,7 +2487,7 @@ test('раскладка героя: кадр, текст и ряды не пе�
        переезда чипов внутрь блока. */
     const textVisibleUp = textEdgeUp - moodsBand;
     assert.ok(textVisibleUp < heroEdgeUp, label + ': текст в сжатом свисает с кромки кадра (' + textVisibleUp + ' против ' + heroEdgeUp + ')');
-    assert.ok(Math.abs((heroEdgeUp - textVisibleUp) - 3.4 * VH) < 1,
+    assert.ok(Math.abs((heroEdgeUp - textVisibleUp) - 3.4 * VH) < 0.5,
       label + ': зазор от видимого текста до кромки кадра ' + (heroEdgeUp - textVisibleUp) + ' px вместо 36.7');
     /* А сам блок вместе с погашенной полосой может уходить за кромку — там
        его срежет overflow:hidden героя, и срезать нечего: полоса невидима. */

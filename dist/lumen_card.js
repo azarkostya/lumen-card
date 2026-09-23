@@ -1540,7 +1540,15 @@ var TEXT_MAX_W = 46;
 
 
 
-var MOODS_IN_EM = round2((MOODS_IN_GAP + MOODS_H) * TEXT_ZOOM);
+
+
+
+
+
+
+
+var MOODS_IN_TEXT = round2(MOODS_IN_GAP + MOODS_H);
+var MOODS_IN_EM = round2(MOODS_IN_TEXT * TEXT_ZOOM);
 
 
 var TEXT_SCALE_COMPACT = 0.95;
@@ -3790,7 +3798,7 @@ var textShift = textShiftVh(heroSize);
 
 
 
-var textShiftCalc = textShift + 'vh + ' + MOODS_IN_EM + 'em';
+var textShiftCalc = textShift + 'vh + ' + round2(MOODS_IN_TEXT * TEXT_SCALE_COMPACT) + 'em';
 
 
 var textPadL = round2(EDGE / TEXT_ZOOM + VEIL_BLEED);
@@ -4224,6 +4232,14 @@ css.push('.lumen-hero .lumen-hero__text{position:absolute;left:-' + VEIL_BLEED +
 '-webkit-box-pack:end;-webkit-justify-content:flex-end;justify-content:flex-end;' +
 '-webkit-transform-origin:' + textPadL + 'em -webkit-calc(100% - ' + textBottom + 'vh);-webkit-transform-origin:' + textOrigin + ';transform-origin:' + textOrigin + ';' +
 '-webkit-transform:translateY(0);transform:translateY(0)}');
+
+
+
+
+
+
+
+
 
 
 
