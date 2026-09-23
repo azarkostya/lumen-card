@@ -1114,6 +1114,11 @@ var POSTER_RATIO = 1.5;
 
 
 
+
+
+
+
+
 var ROW_HEAD_GAP = 1.5;
 
 
@@ -1552,7 +1557,13 @@ var k = 1;
 try {
 if (LC.util && typeof LC.util.lampaCardK === 'function') k = LC.util.lampaCardK() || 1;
 } catch (e) { }
-return Math.max(titleEm, LAMPA_MORE_EM) + gapEm + k * (cardW * POSTER_RATIO +
+
+
+
+
+
+
+return titleEm + gapEm + k * (cardW * POSTER_RATIO +
 CARD_VIEW_GAP + cardTitleEm * CARD_TITLE_LH + CARD_AGE_GAP * cardAgeEm + cardAgeEm +
 
 
@@ -4710,18 +4721,13 @@ css.push('.lumen-main .items-line{padding-bottom:' + ROW_GAP + 'em}');
 
 
 
-
-
-
-
 var rowTailVh = round2(100 - ROWS_TOP_VH[heroSize]);
-var rowHeadEm = Math.max(rowTitleEm, LAMPA_MORE_EM);
-var rowEdgeC = rowHeadEm / screenEm();
+var rowEdgeC = rowTitleEm / screenEm();
 
 
 
 var rowEdgeMedia = function (blockEm, lo, hi) {
-var tailEm = round2(ROWS_AIR + blockEm - (rowHeadEm - rowTitleEm));
+var tailEm = round2(ROWS_AIR + blockEm);
 var b = (tailEm + ROW_GAP) / screenEm();
 var from = Math.max(lo, Math.floor(rowTailVh / (b + rowEdgeC)));
 var to = Math.min(hi, Math.ceil(rowTailVh / b));
@@ -4730,15 +4736,6 @@ var pad = rowTailVh + 'vh - ' + tailEm + 'em';
 return '@media screen and (min-aspect-ratio:' + from + '/100) and (max-aspect-ratio:' + to + '/100){' +
 '.lumen-main .items-line{padding-bottom:-webkit-calc(' + pad + ');padding-bottom:calc(' + pad + ')}}';
 };
-
-
-
-
-
-
-
-
-
 var rowEdgeWide = rowEdgeMedia(
 rowBlockEm(cardWEm, rowTitleEm, rowHeadGapEm, cardTitleEm, cardAgeEm, true), 0, narrowRatio);
 var rowEdgeNarrow = narrowCss
@@ -4754,6 +4751,28 @@ if (rowEdgeNarrow) css.push(rowEdgeNarrow);
 
 
 css.push('.lumen-main .items-line__head{margin-bottom:' + rowHeadGapEm + 'em;padding-left:' + EDGE + 'em}');
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+css.push('.lumen-main .items-line__more{display:none}');
 css.push('.lumen-main .items-line .scroll__content{padding-left:' + EDGE + 'em}');
 
 
@@ -26742,6 +26761,9 @@ ru: 'Содержимое лежит прямо на фоне, а не в кор
 en: 'Content sits on the background instead of inside boxes: on the card the "Details" panel becomes a line of facts under the description, section counters lose their plates, reviews lose frames and panels, and on episode tiles the still moves to the top across the full width with the name and caption below it (which makes the episode row a little taller); on the TorrServer path releases and files are separated by thin lines instead of cards. In the collection grid and the hub little changes: only the plate under a tile is removed, and it is visible only until the poster or still arrives, and on items without an image. Focus and text size stay as they are. Applied immediately.',
 uk: 'Вміст лежить прямо на тлі, а не в коробках: у картці панель «Докладно» стає рядком фактів під описом, лічильники розділів втрачають плашки, відгуки — рамки й підкладки, а в плиток серій кадр стає зверху на всю ширину, назва та підпис ідуть під нього (через це ряд серій трохи вищий); на шляху TorrServer роздачі та файли розділяються тонкими лініями замість карток. У сітці підбірки та в хабі змінюється небагато: знімається лише підкладка під плиткою, а її видно, доки не прийшов постер або кадр, і в карток без зображення. Фокус і розмір тексту не змінюються. Застосовується одразу.'
 },
+
+
+
 
 
 
