@@ -170,10 +170,19 @@
        --l/--b/--t) и кадры слайдшоу .lumen-bg__img — src/50_backdrops.js/
        src/51_slideshow.js; .lumen-ambient (сам красит фон и анимируется) и
        .lumen-ambient__img — src/54_ambient.js; .lumen-overlay__img —
-       src/67_transition.js; .lumen-roulette__bg — src/56_roulette.js. */
+       src/67_transition.js; .lumen-roulette__bg — src/56_roulette.js.
+       Долг фазы 4 (docs/plans/2026-09-18-lumen-phase4-tv.md:919): два
+       ПОСТОЯННЫХ принудительных слоя Task 46 — корень героя .lumen-hero и
+       область рядов главной (.lumen-main .scroll.layer--wheight), оба с
+       translateZ(0) (src/30_css.js, разбор цены там же: ≈ 8 МБ каждый) —
+       в счёт не шли, потому что это контейнеры, а не рисующие узлы. Но
+       свой буфер у них есть: всё, что внутри без собственного слоя
+       (текст героя, карточки рядов), рисуется в него. Без них цифра в HUD
+       была занижена на 2. */
     var FULL = '.lumen-hero__bg,.lumen-hero__lqip,.lumen-hero__veil,.lumen-hero__trailer,.lumen-fx,' +
       '.lumen-backdrop__img,.lumen-backdrop__veil,.lumen-backdrop .lumen-bg__img,' +
-      '.lumen-ambient,.lumen-ambient__img,.lumen-overlay__img,.lumen-roulette__bg';
+      '.lumen-ambient,.lumen-ambient__img,.lumen-overlay__img,.lumen-roulette__bg,' +
+      '.lumen-hero,.lumen-main .scroll.layer--wheight';
     function layers() {
       try { return document.querySelectorAll(FULL).length; } catch (e) { return 0; }
     }

@@ -265,6 +265,27 @@ test('hud: layers() — составной селектор FULL считает 
   assert.equal(e.api.layers(), 2, 'оба узла посчитаны через FULL');
 });
 
+/* Долг фазы 4: постоянные слои Task 46 (корень героя и область рядов
+   главной, translateZ(0) в src/30_css.js) — тоже полноэкранные буферы, и
+   счёт без них занижал цифру HUD на 2. */
+test('hud: layers() считает и два постоянных слоя Task 46 — корень героя и область рядов', () => {
+  const e = env();
+  e.addLayer('lumen-hero lumen-hero--compact');
+  assert.equal(e.api.layers(), 1, 'корень героя посчитан');
+  const full = e.asked[e.asked.length - 1].split(',').map((p) => p.trim());
+  assert.ok(full.indexOf('.lumen-hero') !== -1, 'корня героя нет в FULL: ' + full.join(','));
+  assert.ok(full.indexOf('.lumen-main .scroll.layer--wheight') !== -1, 'области рядов нет в FULL: ' + full.join(','));
+  /* Оба селектора — ровно те узлы, которым таблица стилей ставит translateZ(0). */
+  const cssSrc = readFileSync(new URL('../src/30_css.js', import.meta.url), 'utf8');
+  const ruleOf = (sel) => {
+    const at = cssSrc.indexOf("css.push('" + sel + '{');
+    return at === -1 ? '' : cssSrc.slice(at, cssSrc.indexOf('\n    css.push(', at + 1));
+  };
+  assert.ok(/translateZ\(0\)/.test(ruleOf('.lumen-hero')), 'у .lumen-hero больше нет translateZ(0) — пересмотреть FULL');
+  assert.ok(/translateZ\(0\)/.test(ruleOf('.lumen-main .scroll.layer--wheight')),
+    'у области рядов больше нет translateZ(0) — пересмотреть FULL');
+});
+
 /* ====================================================================== */
 /* paint(): rAF-цикл. Первый кадр цикла — опорная точка (state.last ещё 0), */
 /* в счётчик не идёт. Дальше окно в 1000мс набирается несколькими кадрами:  */

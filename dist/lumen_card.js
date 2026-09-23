@@ -26610,9 +26610,18 @@ return 'n/a';
 
 
 
+
+
+
+
+
+
+
+
 var FULL = '.lumen-hero__bg,.lumen-hero__lqip,.lumen-hero__veil,.lumen-hero__trailer,.lumen-fx,' +
 '.lumen-backdrop__img,.lumen-backdrop__veil,.lumen-backdrop .lumen-bg__img,' +
-'.lumen-ambient,.lumen-ambient__img,.lumen-overlay__img,.lumen-roulette__bg';
+'.lumen-ambient,.lumen-ambient__img,.lumen-overlay__img,.lumen-roulette__bg,' +
+'.lumen-hero,.lumen-main .scroll.layer--wheight';
 function layers() {
 try { return document.querySelectorAll(FULL).length; } catch (e) { return 0; }
 }
