@@ -42,6 +42,9 @@
   /* Task 5a Step 4: чип «РЕАКЦИЙ» показывается, только если пользователь не
      выключил блок реакций Lampa (та же настройка, что скрывает штатный
      .full-start-new__reactions/.button--reaction — 0.2 «Реакции CUB»). */
+  /* Storage.field, а не LC.pref: card_interfice_reactions — тумблер самой
+     Lampa с дефолтом true (app.min.js:47927); сама она читает его так же
+     (app.min.js:37402). В LC.prefs.LIST этого ключа нет. */
   function reactionsEnabled() {
     try {
       if (window.Lampa && Lampa.Storage && typeof Lampa.Storage.field === 'function') {

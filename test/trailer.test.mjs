@@ -1,6 +1,6 @@
 import test from 'node:test'; import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { load } from './_load.mjs';
+import { loadCtx } from './_load.mjs';
 import { FakeEl, fakeQuery } from './_fakedom.mjs';
 
 /* Task 7: фоновый трейлер YouTube (экран 02 дизайна).
@@ -18,7 +18,17 @@ globalThis.PLUGIN = 'lumen_card';
 var warnLog = [];
 globalThis.warn = function (msg, err) { warnLog.push({ msg: msg, err: err }); };
 
-const t = load('55_trailer.js');
+/* Правка 2026-09-23 (долг фазы 1, п.5): режим трейлера читается общим
+   LC.pref, как все наши настройки, а не Lampa.Storage.field. Модулю даётся
+   НАСТОЯЩИЙ LC.pref из src/81_prefs.js — подмена копией проверяла бы копию.
+   Storage в тестах отвечает через get(name, def), как у Lampa. */
+function realPref() {
+  const P = {};
+  new Function('LC', 'module', readFileSync(new URL('../src/81_prefs.js', import.meta.url), 'utf8'))(P, { exports: null, lumen: true });
+  return P.pref;
+}
+
+const t = loadCtx('55_trailer.js', { pref: realPref() }).api;
 
 /* Списки ожидания API (pending) и признак «глобальный хук уже поставлен»
    (hooked) — состояние УРОВНЯ МОДУЛЯ. Тесты плеера и schedule поэтому
@@ -31,7 +41,7 @@ function loadInto(LC, module, name) {
 }
 
 function freshModule() {
-  const LC = {};
+  const LC = { pref: realPref() };
   const module = { exports: null, lumen: true };
   loadInto(LC, module, '10_util.js');
   loadInto(LC, module, '55_trailer.js');
@@ -442,7 +452,7 @@ function scheduleEnv(opts) {
      «не перекладывать коллекцию на невидимую карточку» не проверить. */
   const controllerCalls = { set: [], focus: [] };
   const Lampa = {
-    Storage: { field: () => (opts.stored || 'auto') },
+    Storage: { get: (name, def) => (name === 'lumen_trailer' ? (opts.stored || 'auto') : def) },
     Platform: { is: () => false },
     Controller: {
       enabled: () => ({ name: opts.controllerName || 'full_start' }),
@@ -761,10 +771,10 @@ test('reveal: класс СНИМАЕТСЯ на карточке без рол�
 
 test('reveal: настройка lumen_trailer не спрашивается — кнопка есть и при off', () => {
   /* Storage подменяется так же, как в scheduleEnv: mode() читает
-     Lampa.Storage.field('lumen_trailer'). Если бы reveal её спрашивал, при
+     LC.pref('lumen_trailer', 'auto'). Если бы reveal её спрашивал, при
      'off' класс бы не появился, и полноценный просмотр стал бы недоступен. */
   const prevWindow = globalThis.window, prevLampa = globalThis.Lampa;
-  const Lampa = { Storage: { field: () => 'off' }, Platform: { is: () => false } };
+  const Lampa = { Storage: { get: (name, def) => (name === 'lumen_trailer' ? 'off' : def) }, Platform: { is: () => false } };
   globalThis.Lampa = Lampa;
   globalThis.window = { Lampa: Lampa };
   try {

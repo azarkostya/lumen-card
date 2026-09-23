@@ -201,6 +201,12 @@ var LAMPA_SIZES = { normal: 1, small: 0.9, bigger: 1.05 };
 
 
 
+
+
+
+
+
+
 function lampaSize() {
 try {
 if (window.Lampa && Lampa.Storage && typeof Lampa.Storage.field === 'function') {
@@ -17535,6 +17541,8 @@ return false;
 
 
 
+
+
 function nativeSaver() {
 try {
 if (window.Lampa && Lampa.Storage && typeof Lampa.Storage.field === 'function') {
@@ -18060,10 +18068,13 @@ if (platform.tizen || platform.webos) return 'off';
 return 'on';
 }
 
+
+
+
 function mode() {
 var stored = 'auto';
 try {
-if (window.Lampa && Lampa.Storage && typeof Lampa.Storage.field === 'function') stored = Lampa.Storage.field('lumen_trailer');
+stored = LC.pref('lumen_trailer', 'auto');
 } catch (e) { }
 var platform = { tizen: false, webos: false };
 try {
@@ -23595,6 +23606,9 @@ youtube: true
 var android = false;
 try { android = !!(window.Lampa && Lampa.Platform && Lampa.Platform.is('android')); } catch (ePlat) {}
 var launch = '';
+
+
+
 try { launch = (window.Lampa && Lampa.Storage && Lampa.Storage.field('player_launch_trailers')) || ''; } catch (eSt) {}
 if (android && launch === 'youtube' && Lampa.Android && typeof Lampa.Android.openYoutube === 'function') {
 Lampa.Android.openYoutube(item.id);
@@ -26811,10 +26825,10 @@ if (id && window.cancelAnimationFrame) window.cancelAnimationFrame(id);
 
 
 
+
 function motionRaw() {
 try {
-var st = storage();
-if (st && typeof st.field === 'function') return st.field('lumen_motion');
+return LC.pref('lumen_motion', 'auto');
 } catch (e) { }
 return 'auto';
 }
@@ -29815,11 +29829,10 @@ warn('prefs migrate failed', e);
 
 LC.motionModeFor = LC.prefs.motionModeFor;
 
+
+
 LC.motionMode = function () {
-var stored = 'auto';
-try {
-if (window.Lampa && Lampa.Storage && typeof Lampa.Storage.field === 'function') stored = Lampa.Storage.field('lumen_motion');
-} catch (e) { }
+var stored = LC.pref('lumen_motion', 'auto');
 var platform = LC.platformInfo();
 
 
@@ -29901,6 +29914,9 @@ if (node.length) domText = node.text();
 }
 return LC.cardinfo.pgText(parsed, domText);
 }
+
+
+
 
 
 
@@ -32948,7 +32964,7 @@ var ui_active = false;
 LC.applyMenusPref = function () {
 if (!ui_active) return;
 try {
-LC.menus.mode(Lampa.Storage.field('lumen_menus'));
+LC.menus.mode(LC.pref('lumen_menus', 'all'));
 } catch (e) {
 warn('menus pref failed', e);
 }
@@ -33141,7 +33157,7 @@ applyMotionMode(bodyRoot());
 
 applyFxHeavy();
 try {
-LC.menus.mode(Lampa.Storage.field('lumen_menus'));
+LC.menus.mode(LC.pref('lumen_menus', 'all'));
 LC.menus.install();
 } catch (e4) {
 warn('menus init failed', e4);

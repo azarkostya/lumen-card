@@ -1102,7 +1102,7 @@
   LC.applyMenusPref = function () {
     if (!ui_active) return;
     try {
-      LC.menus.mode(Lampa.Storage.field('lumen_menus'));
+      LC.menus.mode(LC.pref('lumen_menus', 'all'));
     } catch (e) {
       warn('menus pref failed', e);
     }
@@ -1295,7 +1295,7 @@
     /* Task 40: класс тяжёлых эффектов — рядом с классом режима. */
     applyFxHeavy();
     try {
-      LC.menus.mode(Lampa.Storage.field('lumen_menus'));
+      LC.menus.mode(LC.pref('lumen_menus', 'all'));
       LC.menus.install();
     } catch (e4) {
       warn('menus init failed', e4);

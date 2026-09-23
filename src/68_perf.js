@@ -220,11 +220,11 @@
     }
 
     /* Сырое значение пункта «Анимации»: выбранное руками измерение не
-       трогает. Читается через Storage.field — как в LC.motionMode. */
+       трогает. Читается общим LC.pref с дефолтом пункта, как и в
+       LC.motionMode (правка 2026-09-23: здесь стоял Storage.field). */
     function motionRaw() {
       try {
-        var st = storage();
-        if (st && typeof st.field === 'function') return st.field('lumen_motion');
+        return LC.pref('lumen_motion', 'auto');
       } catch (e) { }
       return 'auto';
     }

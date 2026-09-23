@@ -367,6 +367,8 @@
        значение) — считаем, что штатной нет: наша заставка выключена по
        умолчанию, и человек, который её включил руками, не должен остаться
        вообще без заставки из-за неудачного чтения чужого параметра. */
+    /* Storage.field, а не LC.pref: screensaver — тумблер самой Lampa с её
+       дефолтом (разбор выше); в LC.prefs.LIST его нет. */
     function nativeSaver() {
       try {
         if (window.Lampa && Lampa.Storage && typeof Lampa.Storage.field === 'function') {

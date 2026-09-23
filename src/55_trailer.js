@@ -113,10 +113,13 @@
       return 'on';
     }
 
+    /* Настройка своя — читается общим LC.pref с дефолтом пункта из
+       LC.prefs.LIST (сверку дефолтов держит test/prefs.test.mjs). До правки
+       2026-09-23 здесь стоял Lampa.Storage.field — долг фазы 1, п.5. */
     function mode() {
       var stored = 'auto';
       try {
-        if (window.Lampa && Lampa.Storage && typeof Lampa.Storage.field === 'function') stored = Lampa.Storage.field('lumen_trailer');
+        stored = LC.pref('lumen_trailer', 'auto');
       } catch (e) { }
       var platform = { tizen: false, webos: false };
       try {

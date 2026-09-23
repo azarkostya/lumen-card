@@ -1040,16 +1040,33 @@ test('Task 60: у каждого вызова LC.pref дефолт совпад�
      стоит завтра записать чтение через переменную или конкатенацию — и они
      выпадут молча, ровно как выпадали ключи с PLUGIN + '…'. */
   for (const key of ['lumen_accent_auto', 'lumen_card_accent', 'lumen_card_fonts', 'lumen_card_progress',
-    'lumen_badges', 'lumen_accent_scope', 'lumen_hero_logo']) {
+    'lumen_badges', 'lumen_accent_scope', 'lumen_hero_logo',
+    /* Правка 2026-09-23 (долг фазы 1, п.5): эти три читались через
+       Lampa.Storage.field и в сверку не попадали вовсе. */
+    'lumen_motion', 'lumen_trailer', 'lumen_menus']) {
     assert.ok(checked.indexOf(key) !== -1,
       'ключ, записанный не литералом, выпал из сверки: ' + key + ' (сверено: ' + checked.join(', ') + ')');
   }
 
-  /* Чтения через Lampa.Storage.field сверять не нужно, и это не пробел, а
-     свойство самой Lampa: field(name) — это Params.field(name), то есть
-     Storage.get(name, defaults[name] + '') (app.min.js:48540-48542 и
-     :47697-47699). Дефолт там берётся из ТОЙ ЖЕ таблицы, которую заполняет
-     регистрация раздела, поэтому разойтись с пунктом он не может по
-     построению — в отличие от LC.pref, где дефолт передаёт вызывающий. */
+  /* Чтения через Lampa.Storage.field сверять не нужно: field(name) — это
+     Params.field(name), то есть Storage.get(name, defaults[name] + '')
+     (app.min.js:48540-48542 и :47697-47699), и дефолт там из той таблицы,
+     которую заполняет регистрация раздела.
+     Правка 2026-09-23 (долг фазы 1, п.5): но для НАШИХ ключей механизм один —
+     LC.pref с дефолтом пункта, и сторож ниже держит это правило: field в
+     плагине читает только настройки самой Lampa (interface_size,
+     screensaver, player_launch_trailers, card_interfice_reactions), у
+     которых дефолт свой и в LIST их нет. */
+  const fieldReads = [];
+  const fre = /\.field\(\s*([^)]*?)\s*\)/g;
+  let fm;
+  while ((fm = fre.exec(dist))) fieldReads.push(fm[1]);
+  assert.ok(fieldReads.length >= 4, 'чтений field подозрительно мало — разбор сломан: ' + fieldReads.join(', '));
+  for (const arg of fieldReads) {
+    const key = resolve(arg);
+    assert.ok(key.ok && typeof key.value === 'string', 'ключ field не литерал — сверить нечем: ' + arg);
+    assert.ok(!Object.prototype.hasOwnProperty.call(byName, key.value) && key.value.indexOf('lumen_') !== 0,
+      'своя настройка читается мимо LC.pref: field(' + arg + ')');
+  }
   assert.match(String(load('81_prefs.js').boolOf), /function/, 'модуль настроек загрузился');
 });

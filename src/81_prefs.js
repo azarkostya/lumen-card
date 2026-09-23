@@ -656,11 +656,10 @@
 
   LC.motionModeFor = LC.prefs.motionModeFor;
 
+  /* Настройка своя — LC.pref с дефолтом пункта из LIST (правка 2026-09-23,
+     долг фазы 1, п.5: здесь стоял Lampa.Storage.field). */
   LC.motionMode = function () {
-    var stored = 'auto';
-    try {
-      if (window.Lampa && Lampa.Storage && typeof Lampa.Storage.field === 'function') stored = Lampa.Storage.field('lumen_motion');
-    } catch (e) { }
+    var stored = LC.pref('lumen_motion', 'auto');
     var platform = LC.platformInfo();
     /* Task 29: вердикт автодетекта слабого ТВ. Модуль 68_perf.js держит его
        рядом с собой (Storage читается один раз за сессию), поэтому вызов на

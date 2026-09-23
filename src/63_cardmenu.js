@@ -271,6 +271,9 @@
           var android = false;
           try { android = !!(window.Lampa && Lampa.Platform && Lampa.Platform.is('android')); } catch (ePlat) {}
           var launch = '';
+          /* Storage.field, а не LC.pref: player_launch_trailers — настройка
+             самой Lampa с её дефолтом 'inner' (app.min.js:47883-47886), и
+             читает её сама Lampa так же (app.min.js:37262). */
           try { launch = (window.Lampa && Lampa.Storage && Lampa.Storage.field('player_launch_trailers')) || ''; } catch (eSt) {}
           if (android && launch === 'youtube' && Lampa.Android && typeof Lampa.Android.openYoutube === 'function') {
             Lampa.Android.openYoutube(item.id);

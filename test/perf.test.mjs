@@ -15,8 +15,16 @@ globalThis.warn = function (msg) { warnLog.push(msg); };
 
 const SRC = readFileSync(new URL('../src/68_perf.js', import.meta.url), 'utf8');
 
+/* Правка 2026-09-23 (долг фазы 1, п.5): сырое значение «Анимаций» модуль
+   читает общим LC.pref — даём ему настоящий из src/81_prefs.js. */
+function realPref() {
+  const P = {};
+  new Function('LC', 'module', readFileSync(new URL('../src/81_prefs.js', import.meta.url), 'utf8'))(P, { exports: null, lumen: true });
+  return P.pref;
+}
+
 function fresh(extra) {
-  const LC = Object.assign({ enabled: () => true }, extra || {});
+  const LC = Object.assign({ enabled: () => true, pref: realPref() }, extra || {});
   const module = { exports: null, lumen: true };
   new Function('LC', 'module', SRC)(LC, module);
   return { api: module.exports, LC };
@@ -105,8 +113,7 @@ function env(opts) {
   const Lampa = {
     Storage: {
       get: (name, def) => (Object.prototype.hasOwnProperty.call(store, name) ? store[name] : def),
-      set: (name, value) => { store[name] = value; },
-      field: (name) => store[name]
+      set: (name, value) => { store[name] = value; }
     },
     Noty: { show: (text) => noty.push(text) },
     Platform: { is: (name) => !!(opts.platform && opts.platform[name]) }

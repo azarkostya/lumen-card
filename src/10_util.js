@@ -154,6 +154,12 @@
        80.16em (ревью волны A, важное 1). Второй копии таблицы заводить
        нельзя: разойдись эти две — и порог включался бы не там, где модель
        его считает. */
+    /* Storage.field, а не LC.pref: interface_size — настройка САМОЙ Lampa,
+       её пункт и дефолт ('normal') регистрирует Lampa
+       (vendor/lampa/app.min.js:47705-47709), а field отдаёт значение с этим
+       дефолтом (Params.field — Storage.get(name, defaults[name] + ''),
+       app.min.js:47697-47699). В LC.prefs.LIST такого ключа нет, и дефолт
+       для LC.pref пришлось бы дублировать. */
     function lampaSize() {
       try {
         if (window.Lampa && Lampa.Storage && typeof Lampa.Storage.field === 'function') {
