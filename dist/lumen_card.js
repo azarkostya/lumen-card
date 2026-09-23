@@ -8205,6 +8205,8 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 
+
+
 LC.rows = (function () {
 
 
@@ -8361,6 +8363,96 @@ return out;
 
 
 var DEDUPE_MIN = 4;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+var LAMPA_VIEW = 7;
+
+
+
+function fitCount(viewRight, firstLeft, pitch) {
+if (!(pitch > 0) || !(viewRight > firstLeft)) return 0;
+return Math.ceil((viewRight - firstLeft) / pitch);
+}
+
+
+
+
+
+function measureFit() {
+var root = null;
+try {
+var doc = window.document;
+root = doc.createElement('div');
+root.className = 'lumen-main';
+root.style.cssText = 'position:absolute;left:0;top:0;width:100%;height:0;overflow:hidden;visibility:hidden;pointer-events:none';
+root.innerHTML = '<div class="items-line"><div class="items-line__body"><div class="scroll scroll--horizontal">' +
+'<div class="scroll__content"><div class="scroll__body mapping--line"><div class="card"></div><div class="card"></div></div></div></div></div></div>';
+doc.body.appendChild(root);
+var cards = root.getElementsByClassName('card');
+var view = root.getElementsByClassName('scroll')[0].getBoundingClientRect();
+var a = cards[0].getBoundingClientRect();
+var b = cards[1].getBoundingClientRect();
+return fitCount(view.right, a.left, b.left - a.left);
+} catch (e) {
+return 0;
+} finally {
+try { if (root && root.parentNode) root.parentNode.removeChild(root); } catch (e2) {}
+}
+}
+
+
+
+
+
+function withView(rows, fit) {
+if (!rows || !rows.length || !(fit > 0)) return rows;
+var out = [];
+for (var i = 0; i < rows.length; i++) {
+var row = rows[i];
+var p = row && row.params;
+var own = p && p.items && typeof p.items.view === 'number' ? p.items.view : LAMPA_VIEW;
+if (!row || !row.results || row.results.length <= own || own >= fit) {
+out.push(row);
+continue;
+}
+var params = {};
+var items = {};
+var k;
+if (p) for (k in p) if (Object.prototype.hasOwnProperty.call(p, k)) params[k] = p[k];
+if (p && p.items) for (k in p.items) if (Object.prototype.hasOwnProperty.call(p.items, k)) items[k] = p.items[k];
+items.view = fit;
+params.items = items;
+var copy = copyRow(row, row.results);
+copy.params = params;
+out.push(copy);
+}
+return out;
+}
 
 
 
@@ -8692,15 +8784,22 @@ if (!window.Lampa || !Lampa.Api || typeof Lampa.Api.main !== 'function') return;
 } catch (e) { return; }
 _mainOriginal = Lampa.Api.main;
 _mainWrapped = function (params, oncomplite, onerror) {
-if (!dedupeEnabled()) return _mainOriginal(params, oncomplite, onerror);
+if (!_dedupeActive) return _mainOriginal(params, oncomplite, onerror);
+var dedupe = dedupeEnabled();
+
+
+var fit = measureFit();
 var seen = {};
+var pass = function (rows) {
+return withView(dedupe ? dedupeAcross(rows, seen, DEDUPE_MIN) : rows, fit);
+};
 var next = _mainOriginal(params, function (data) {
-oncomplite(dedupeAcross(data, seen, DEDUPE_MIN));
+oncomplite(pass(data));
 }, onerror);
 if (typeof next !== 'function') return next;
 return function (resolve, reject) {
 return next(function (more) {
-resolve(dedupeAcross(more, seen, DEDUPE_MIN));
+resolve(pass(more));
 }, reject);
 };
 };
@@ -9055,6 +9154,9 @@ bumpGen: bumpGen,
 
 
 dedupeAcross: dedupeAcross,
+
+fitCount: fitCount,
+withView: withView,
 installDedupe: installDedupe,
 uninstallDedupe: uninstallDedupe,
 

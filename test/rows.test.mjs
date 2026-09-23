@@ -903,3 +903,70 @@ test('register: набор по умолчанию метки не получа�
   s.fetchCalls[0].ok({ results: [{ id: 1 }] });
   assert.ok(!got[0].lumen_keep);
 });
+
+/* ---------------------------------------------------------------- */
+/* Ряд заполнен до правой кромки сразу (дефект 2026-09-23).          */
+/* ---------------------------------------------------------------- */
+
+function range(a, b) { var out = []; for (var i = a; i <= b; i++) out.push(i); return out; }
+
+test('fitCount: неполная карточка у правой кромки тоже считается', function () {
+  /* Стенд 960×540@2: ряд с 40 px, шаг 128.6 — семь целых и восьмая частично. */
+  assert.equal(R.fitCount(960, 40, 128.6), 8);
+  /* Ровно по кромке — следующей не видно. */
+  assert.equal(R.fitCount(1000, 0, 100), 10);
+  assert.equal(R.fitCount(960, 40, 0), 0, 'пробник не намерил шаг — ничего не меняем');
+  assert.equal(R.fitCount(10, 40, 100), 0);
+});
+
+test('withView: первая порция ряда поднимается до числа видимых карточек', function () {
+  var rows = [mkRow('A', range(1, 20)), mkRow('B', range(21, 25))];
+  var out = R.withView(rows, 9);
+  assert.equal(out[0].params.items.view, 9);
+  assert.deepEqual(idsOf(out[0]), range(1, 20), 'состав ряда не меняется');
+  assert.equal(out[1], rows[1], 'ряд, который и так строится целиком, не копируется');
+  assert.equal(rows[0].params, undefined, 'входной ряд не мутируется — он лежит в кэше Lampa');
+});
+
+test('withView: своя порция ряда сохраняет остальные параметры и не уменьшается', function () {
+  var wide = mkRow('Скоро', range(1, 20));
+  wide.params = { items: { view: 3, mapping: 'line' }, style: 'x' };
+  var big = mkRow('Big', range(1, 20));
+  big.params = { items: { view: 12 } };
+  var out = R.withView([wide, big], 8);
+  assert.deepEqual(out[0].params.items, { view: 8, mapping: 'line' });
+  assert.equal(out[0].params.style, 'x');
+  assert.equal(wide.params.items.view, 3, 'объект параметров Lampa не тронут');
+  assert.equal(out[1], big, 'порция больше видимой не уменьшается');
+  assert.equal(R.withView(null, 8), null);
+  var same = [mkRow('A', range(1, 20))];
+  assert.equal(R.withView(same, 0), same, 'без замера ряды проходят как есть');
+});
+
+test('installDedupe: обёртка отдаёт ряды с порцией по замеру пробника', function () {
+  var s = setupDedupeRuntime({ batches: [[mkRow('A', range(1, 20))], [mkRow('B', range(21, 40))]] });
+  /* Поддельный DOM: пробник — это .scroll шириной до 960 и две карточки с
+     шагом 128.6 от 40 px, ровно как на стенде 960×540@2. */
+  var appended = [];
+  var rect = { scroll: { right: 960 }, card0: { left: 40 }, card1: { left: 168.6 } };
+  var root = {
+    style: {},
+    set innerHTML(v) { this._html = v; },
+    getElementsByClassName: function (cls) {
+      if (cls === 'card') return [{ getBoundingClientRect: function () { return rect.card0; } }, { getBoundingClientRect: function () { return rect.card1; } }];
+      return [{ getBoundingClientRect: function () { return rect.scroll; } }];
+    }
+  };
+  globalThis.window.document = {
+    createElement: function () { return root; },
+    body: { appendChild: function (n) { appended.push(n); n.parentNode = this; }, removeChild: function (n) { appended.splice(appended.indexOf(n), 1); n.parentNode = null; } }
+  };
+  s.R.installDedupe();
+  var got = [];
+  var next = s.Lampa.Api.main({}, function (d) { got.push(d); }, function () {});
+  next(function (d) { got.push(d); }, function () {});
+  assert.equal(got[0][0].params.items.view, 8);
+  assert.equal(got[1][0].params.items.view, 8, 'следующие пачки — с тем же замером');
+  assert.equal(appended.length, 0, 'пробник снят');
+  assert.equal(root.className, 'lumen-main', 'пробник обязан пройти правила ряда главной');
+});

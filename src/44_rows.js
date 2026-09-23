@@ -7,6 +7,8 @@
   /*   homeRows(manifest, storedIds, month, limit) → collection[]           */
   /*   rowChoices(manifest, pickedIds) → [{id, title, group, checked}]       */
   /*   dedupeAcross(rows, seen, min) → rows[] — окно «уже показанного»      */
+  /*   withView(rows, fit) → rows[] — первая порция ряда до правой кромки   */
+  /*   fitCount(right, left, pitch) → сколько карточек видно в ряду        */
   /*   storedIds() → runtime: сохранённый состав рядов или null             */
   /*   viewedIds(results?) → number[]                                        */
   /*   bumpGen() — runtime: поднимает поколение главной                     */
@@ -199,6 +201,96 @@
        половины ширины, читается как остаток, а не как подборка. Половина
        от семи — 3.5, вверх — 4. */
     var DEDUPE_MIN = 4;
+
+    /* ------------------------------------------------------------------ */
+    /* Ряд заполнен до правой кромки сразу, а не по докрутке.             */
+    /*                                                                     */
+    /* Дефект с экрана пользователя 2026-09-23: «не все фильмы есть, они   */
+    /* появляются только когда доходишь до предпоследнего». Lampa строит   */
+    /* ряд лениво: первая порция — params.items.view карточек              */
+    /* (Items.onCreate: results.slice(0, this.view), app.min.js:19029),    */
+    /* остальное дописывает onScroll (19031-19037) — то есть только когда  */
+    /* ряд уже листают. view по умолчанию — 7 (Base у рядов, app.min.js:   */
+    /* 35233-35240), ряду «Скоро» Lampa ставит 3 (19987-19991). Число      */
+    /* подобрано под ЕЁ карточку, а наша уже (.lumen-main .card, 9.52em    */
+    /* или узкая колонка 8.07em, src/30_css.js), и с шириной окна он не    */
+    /* связан вовсе: на 960×540@2 в ряд входит 8 карточек (восьмая —       */
+    /* частично), на ПК пользователя — девять, а строилось семь.           */
+    /*                                                                     */
+    /* Поэтому view поднимается до числа карточек, которые ряд реально     */
+    /* показывает, считая неполную у правой кромки. Число меряется, а не   */
+    /* выводится из констант: ширину карточки дают масштаб, размер         */
+    /* интерфейса Lampa (у «крупнее» свой множитель внутри .card,          */
+    /* app.css:3525-3528), узкая колонка по отношению сторон и пол кегля   */
+    /* 10.6 px — пробник из тех же классов проходит все эти правила сам.   */
+    /* Ширина у всех карточек главной одна: .lumen-main .card перебивает и */
+    /* .card--wide (34.3em), и .card--collection (25 %) специфичностью.    */
+    /* ------------------------------------------------------------------ */
+
+    /* Первая порция ряда у Lampa, если ряд не задал своей. */
+    var LAMPA_VIEW = 7;
+
+    /* Сколько карточек видно: все, чей левый край левее правой кромки
+       ряда. pitch — шаг карточки (ширина + зазор). */
+    function fitCount(viewRight, firstLeft, pitch) {
+      if (!(pitch > 0) || !(viewRight > firstLeft)) return 0;
+      return Math.ceil((viewRight - firstLeft) / pitch);
+    }
+
+    /* Пробник ряда главной: те же классы, что у настоящего, — ширину
+       карточки и отступ слева даёт та же таблица стилей. Живёт одну
+       синхронную раскладку и снимается раньше, чем кто-то успеет его
+       увидеть; visibility:hidden — на случай, если снять не удалось. */
+    function measureFit() {
+      var root = null;
+      try {
+        var doc = window.document;
+        root = doc.createElement('div');
+        root.className = 'lumen-main';
+        root.style.cssText = 'position:absolute;left:0;top:0;width:100%;height:0;overflow:hidden;visibility:hidden;pointer-events:none';
+        root.innerHTML = '<div class="items-line"><div class="items-line__body"><div class="scroll scroll--horizontal">' +
+          '<div class="scroll__content"><div class="scroll__body mapping--line"><div class="card"></div><div class="card"></div></div></div></div></div></div>';
+        doc.body.appendChild(root);
+        var cards = root.getElementsByClassName('card');
+        var view = root.getElementsByClassName('scroll')[0].getBoundingClientRect();
+        var a = cards[0].getBoundingClientRect();
+        var b = cards[1].getBoundingClientRect();
+        return fitCount(view.right, a.left, b.left - a.left);
+      } catch (e) {
+        return 0;
+      } finally {
+        try { if (root && root.parentNode) root.parentNode.removeChild(root); } catch (e2) {}
+      }
+    }
+
+    /* Ряды с первой порцией не меньше fit. Ряд правится копией (copyRow ниже),
+       params и params.items — тоже копиями: объект ответа принадлежит кэшу
+       запросов Lampa. Ряд, который и так строится целиком (карточек не
+       больше его порции), не копируется. */
+    function withView(rows, fit) {
+      if (!rows || !rows.length || !(fit > 0)) return rows;
+      var out = [];
+      for (var i = 0; i < rows.length; i++) {
+        var row = rows[i];
+        var p = row && row.params;
+        var own = p && p.items && typeof p.items.view === 'number' ? p.items.view : LAMPA_VIEW;
+        if (!row || !row.results || row.results.length <= own || own >= fit) {
+          out.push(row);
+          continue;
+        }
+        var params = {};
+        var items = {};
+        var k;
+        if (p) for (k in p) if (Object.prototype.hasOwnProperty.call(p, k)) params[k] = p[k];
+        if (p && p.items) for (k in p.items) if (Object.prototype.hasOwnProperty.call(p.items, k)) items[k] = p.items[k];
+        items.view = fit;
+        params.items = items;
+        var copy = copyRow(row, row.results);
+        copy.params = params;
+        out.push(copy);
+      }
+      return out;
+    }
 
     /* Ключ карточки для окна: пара «пространство id + id». Пространство —
        это source карточки, но с одним исключением: 'cub' и 'tmdb' — ОДНО
@@ -530,15 +622,22 @@
       } catch (e) { return; }
       _mainOriginal = Lampa.Api.main;
       _mainWrapped = function (params, oncomplite, onerror) {
-        if (!dedupeEnabled()) return _mainOriginal(params, oncomplite, onerror);
+        if (!_dedupeActive) return _mainOriginal(params, oncomplite, onerror);
+        var dedupe = dedupeEnabled();
+        /* Ширина ряда меряется один раз на заход на главную: окно за время
+           её достройки не меняется, а пробник — это синхронная раскладка. */
+        var fit = measureFit();
         var seen = {};
+        var pass = function (rows) {
+          return withView(dedupe ? dedupeAcross(rows, seen, DEDUPE_MIN) : rows, fit);
+        };
         var next = _mainOriginal(params, function (data) {
-          oncomplite(dedupeAcross(data, seen, DEDUPE_MIN));
+          oncomplite(pass(data));
         }, onerror);
         if (typeof next !== 'function') return next;
         return function (resolve, reject) {
           return next(function (more) {
-            resolve(dedupeAcross(more, seen, DEDUPE_MIN));
+            resolve(pass(more));
           }, reject);
         };
       };
@@ -893,6 +992,9 @@
       /* Task 57: чистая часть наружу ради тестов, обёртка — ради
          activate/deactivate в src/90_runtime.js. */
       dedupeAcross: dedupeAcross,
+      /* Ряд до правой кромки: чистые части наружу ради тестов. */
+      fitCount: fitCount,
+      withView: withView,
       installDedupe: installDedupe,
       uninstallDedupe: uninstallDedupe,
       /* Гонка первого экрана: по этому признаку 90_runtime.js решает,
