@@ -8887,12 +8887,22 @@ return Math.ceil((viewRight - firstLeft) / pitch);
 
 
 
+
+
+
+
+
+
+function heroOff() {
+try { return LC.pref ? LC.pref('lumen_hero_size', 'large') === 'off' : false; } catch (e) { return false; }
+}
+
 function measureFit() {
 var root = null;
 try {
 var doc = window.document;
 root = doc.createElement('div');
-root.className = 'lumen-main';
+root.className = heroOff() ? '' : 'lumen-main';
 root.style.cssText = 'position:absolute;left:0;top:0;width:100%;height:0;overflow:hidden;visibility:hidden;pointer-events:none';
 root.innerHTML = '<div class="items-line"><div class="items-line__body"><div class="scroll scroll--horizontal">' +
 '<div class="scroll__content"><div class="scroll__body mapping--line"><div class="card"></div><div class="card"></div></div></div></div></div></div>';

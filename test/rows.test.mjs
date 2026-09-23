@@ -971,6 +971,54 @@ test('installDedupe: обёртка отдаёт ряды с порцией по
   assert.equal(root.className, 'lumen-main', 'пробник обязан пройти правила ряда главной');
 });
 
+/* Ревью фикс-раунда, Ф2 п.4. «Кадр над рядами: выключен» — героя нет, класса
+   .lumen-main на главной нет (src/48_hero.js, sizeOff), карточки штатной
+   ширины Lampa. Пробник с .lumen-main мерил бы нашу, более узкую карточку,
+   завышал бы число видимых, и правило «огрызка» выбрасывало бы ряды,
+   которые на самом деле заполняют экран. */
+test('Ф2 п.4: при выключенном кадре пробник мерит штатный ряд Lampa, без .lumen-main', function () {
+  function probeDoc(log) {
+    var root = {
+      style: {},
+      getElementsByClassName: function (cls) {
+        /* Шаг карточки зависит от класса пробника: наша 128.6, штатная 240. */
+        var pitch = /(^|\s)lumen-main(\s|$)/.test(root.className || '') ? 128.6 : 240;
+        if (cls === 'card') return [{ getBoundingClientRect: function () { return { left: 40 }; } }, { getBoundingClientRect: function () { return { left: 40 + pitch }; } }];
+        return [{ getBoundingClientRect: function () { return { right: 960 }; } }];
+      }
+    };
+    globalThis.window.document = {
+      createElement: function () { log.push(root); return root; },
+      body: { appendChild: function (n) { n.parentNode = this; }, removeChild: function (n) { n.parentNode = null; } }
+    };
+  }
+  /* «Неделя»: 4 из 20 после окна. Штатно в ряд входит 4 карточки
+     (ceil((960-40)/240)), и такой ряд экран заполняет — выбрасывать его нельзя. */
+  var rows = function () { return [mkRow('Сегодня', range(1, 16)), mkRow('Неделя', range(1, 20))]; };
+
+  var off = setupDedupeRuntime({ batches: [rows()], prefs: { lumen_hero_size: 'off' } });
+  var probesOff = [];
+  probeDoc(probesOff);
+  off.R.installDedupe();
+  var gotOff = null;
+  off.Lampa.Api.main({}, function (d) { gotOff = d; }, function () {});
+  assert.equal(probesOff.length, 1);
+  assert.equal(/lumen-main/.test(probesOff[0].className || ''), false, 'пробник при выключенном кадре взял правила нашей главной');
+  assert.deepEqual(gotOff.map(function (r) { return r.title; }), ['Сегодня', 'Неделя'],
+    'ряд, заполняющий штатную ширину, выброшен как огрызок');
+
+  /* Контроль: с кадром тот же набор — «Неделя» огрызок (4 при месте на 8). */
+  var on = setupDedupeRuntime({ batches: [rows()], prefs: { lumen_hero_size: 'large' } });
+  var probesOn = [];
+  probeDoc(probesOn);
+  on.R.installDedupe();
+  var gotOn = null;
+  on.Lampa.Api.main({}, function (d) { gotOn = d; }, function () {});
+  assert.equal(probesOn[0].className, 'lumen-main');
+  assert.deepEqual(gotOn.map(function (r) { return r.title; }), ['Сегодня']);
+  delete globalThis.window.document;
+});
+
 test('installDedupe: ряд, обрезанный окном короче видимой ширины, не показывается', function () {
   /* «В тренде за неделю»: 16 из 20 уже выше, оставалось 4 при месте на 8. */
   var s = setupDedupeRuntime({ batches: [[
