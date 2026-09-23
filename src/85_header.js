@@ -1352,8 +1352,133 @@
     try { bindEpisodes(root); } catch (e) { warn('episodes bind failed', e); }
   }
 
+  /* -------------------------------------------------------------------- */
+  /* Одна лента людей вместо двух секций (разбор композиции, п.4.2).        */
+  /* -------------------------------------------------------------------- */
+
+  /* Lampa строит карточку из двух рядов-«persons»: сперва режиссёры
+     (crew, отфильтрованные по job === 'Director', заголовок title_producer),
+     следом актёры (cast, заголовок title_actors) —
+     vendor/lampa/app.min.js:1419112-1419230. Обе секции рисуют одно и то же:
+     портрет, имя, подпись роли (Line$2: role = character || job ||
+     title_actor, app.min.js у шаблона full_person). Разница только в том,
+     что в первой секции карточка одна: замер на стенде 960×540@2
+     («Звёздные войны: Эпизод 5», интерфейс «обычный») — секция 156 CSS px
+     высотой при ширине карточки 262, то есть 72.7 % строки пусто.
+
+     Правка сводит их в одну ленту: режиссёры уходят в начало cast, и
+     Lampa строит один ряд вместо двух. Ряд «Режиссер» не скрывается
+     стилями и не разбирается в DOM — он просто не создаётся, потому что
+     crew после правки не содержит ни одного Director.
+
+     Точка вмешательства — обёртка над Lampa.Api.full, тот же приём, что у
+     дедупликации рядов главной (src/44_rows.js, installDedupe). Раньше
+     нельзя: rows компонент собирает прямо в колбэке Api.full. Позже тоже:
+     событие 'complite' Lampa шлёт уже после build первых рядов
+     (app.min.js:1422663-1422700), и ряд режиссёра к тому моменту построен.
+
+     Подпись роли берётся из словаря самой Lampa (title_producer —
+     «Режиссер»/«Producer»), своих строк правка не заводит: роль
+     одного-двух человек в ленте не стоит третьего словаря. Запись crew
+     копируется, а не правится на месте: тот же объект Lampa отдаёт экрану
+     персоны по OK (router.call('actor', item)).
+
+     Цена названа разбором: режиссёр перестаёт выделяться. Частично
+     компенсируется тем, что он стоит первым и подпись у него смысловая, а
+     не имя персонажа. У фильма с несколькими режиссёрами в начале ленты
+     будет две-три карточки подряд с одинаковой подписью — это и есть тот
+     случай, о котором разбор предупреждает. */
+  var _fullOriginal = null;
+  var _fullWrapped = null;
+  var _peopleActive = false;
+
+  function mergePeople(data) {
+    if (!data || !data.persons) return data;
+    var persons = data.persons;
+    var cast = persons.cast;
+    var crew = persons.crew;
+    /* Нет актёров — сливать не с чем, и отдельная секция режиссёра
+       остаётся единственным местом, где он вообще виден. */
+    if (!cast || !cast.length || !crew || !crew.length) return data;
+
+    var role = '';
+    try {
+      if (window.Lampa && Lampa.Lang && typeof Lampa.Lang.translate === 'function') role = Lampa.Lang.translate('title_producer');
+    } catch (e) { }
+
+    var directors = [];
+    var rest = [];
+    for (var i = 0; i < crew.length; i++) {
+      var member = crew[i];
+      if (member && member.job === 'Director') directors.push(member);
+      else rest.push(member);
+    }
+    if (!directors.length) return data;
+
+    var head = [];
+    for (var j = 0; j < directors.length; j++) {
+      var one = directors[j];
+      var copy = {};
+      for (var key in one) {
+        if (Object.prototype.hasOwnProperty.call(one, key)) copy[key] = one[key];
+      }
+      copy.character = role || copy.job || '';
+      head.push(copy);
+    }
+
+    persons.crew = rest;
+    persons.cast = head.concat(cast);
+    return data;
+  }
+
+  /* Идемпотентна в обе стороны: второй вызов ничего не переносит (в crew
+     больше нет Director), а повторная установка не оборачивает саму себя. */
+  function installPeople() {
+    _peopleActive = true;
+    if (_fullWrapped) return;
+    try {
+      if (!window.Lampa || !Lampa.Api || typeof Lampa.Api.full !== 'function') return;
+    } catch (e) { return; }
+    _fullOriginal = Lampa.Api.full;
+    _fullWrapped = function (object, oncomplite, onerror) {
+      if (!_peopleActive) return _fullOriginal(object, oncomplite, onerror);
+      return _fullOriginal(object, function (data) {
+        try {
+          mergePeople(data);
+        } catch (e) {
+          warn('people merge failed', e);
+        }
+        oncomplite(data);
+      }, onerror);
+    };
+    try {
+      Lampa.Api.full = _fullWrapped;
+    } catch (eSet) {
+      _fullWrapped = null;
+      _fullOriginal = null;
+    }
+  }
+
+  /* Снятие — как у обёртки главной: чужую подмену поверх нашей не срываем,
+     свою гасим флагом, ссылки сохраняем (разбор — в src/44_rows.js,
+     uninstallDedupe). */
+  function uninstallPeople() {
+    _peopleActive = false;
+    if (!_fullWrapped) return;
+    try {
+      if (window.Lampa && Lampa.Api && Lampa.Api.full === _fullWrapped) {
+        Lampa.Api.full = _fullOriginal;
+        _fullWrapped = null;
+        _fullOriginal = null;
+      }
+    } catch (e) { }
+  }
+
   LC.header = {
     decorate: decorate,
+    mergePeople: mergePeople,
+    installPeople: installPeople,
+    uninstallPeople: uninstallPeople,
     descr: renderDescrRow,
     refreshEpisode: refreshEpisode,
     refreshProgress: refreshProgress,

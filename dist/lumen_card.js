@@ -29825,8 +29825,133 @@ try { renderEpisodes(root, data); } catch (e) { warn('episodes failed', e); }
 try { bindEpisodes(root); } catch (e) { warn('episodes bind failed', e); }
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+var _fullOriginal = null;
+var _fullWrapped = null;
+var _peopleActive = false;
+
+function mergePeople(data) {
+if (!data || !data.persons) return data;
+var persons = data.persons;
+var cast = persons.cast;
+var crew = persons.crew;
+
+
+if (!cast || !cast.length || !crew || !crew.length) return data;
+
+var role = '';
+try {
+if (window.Lampa && Lampa.Lang && typeof Lampa.Lang.translate === 'function') role = Lampa.Lang.translate('title_producer');
+} catch (e) { }
+
+var directors = [];
+var rest = [];
+for (var i = 0; i < crew.length; i++) {
+var member = crew[i];
+if (member && member.job === 'Director') directors.push(member);
+else rest.push(member);
+}
+if (!directors.length) return data;
+
+var head = [];
+for (var j = 0; j < directors.length; j++) {
+var one = directors[j];
+var copy = {};
+for (var key in one) {
+if (Object.prototype.hasOwnProperty.call(one, key)) copy[key] = one[key];
+}
+copy.character = role || copy.job || '';
+head.push(copy);
+}
+
+persons.crew = rest;
+persons.cast = head.concat(cast);
+return data;
+}
+
+
+
+function installPeople() {
+_peopleActive = true;
+if (_fullWrapped) return;
+try {
+if (!window.Lampa || !Lampa.Api || typeof Lampa.Api.full !== 'function') return;
+} catch (e) { return; }
+_fullOriginal = Lampa.Api.full;
+_fullWrapped = function (object, oncomplite, onerror) {
+if (!_peopleActive) return _fullOriginal(object, oncomplite, onerror);
+return _fullOriginal(object, function (data) {
+try {
+mergePeople(data);
+} catch (e) {
+warn('people merge failed', e);
+}
+oncomplite(data);
+}, onerror);
+};
+try {
+Lampa.Api.full = _fullWrapped;
+} catch (eSet) {
+_fullWrapped = null;
+_fullOriginal = null;
+}
+}
+
+
+
+
+function uninstallPeople() {
+_peopleActive = false;
+if (!_fullWrapped) return;
+try {
+if (window.Lampa && Lampa.Api && Lampa.Api.full === _fullWrapped) {
+Lampa.Api.full = _fullOriginal;
+_fullWrapped = null;
+_fullOriginal = null;
+}
+} catch (e) { }
+}
+
 LC.header = {
 decorate: decorate,
+mergePeople: mergePeople,
+installPeople: installPeople,
+uninstallPeople: uninstallPeople,
 descr: renderDescrRow,
 refreshEpisode: refreshEpisode,
 refreshProgress: refreshProgress,
@@ -31162,6 +31287,14 @@ warn('rows dedupe install failed', eDedupe);
 }
 
 
+
+try {
+if (LC.header && LC.header.installPeople) LC.header.installPeople();
+} catch (ePeople) {
+warn('people merge install failed', ePeople);
+}
+
+
 try {
 if (LC.personal && LC.personal.register) LC.personal.register();
 } catch (ePersonal) {
@@ -31289,6 +31422,9 @@ try { if (LC.rows && LC.rows.unregister) LC.rows.unregister(); } catch (eRows) {
 
 
 try { if (LC.rows && LC.rows.uninstallDedupe) LC.rows.uninstallDedupe(); } catch (eDedupeOff) {}
+
+
+try { if (LC.header && LC.header.uninstallPeople) LC.header.uninstallPeople(); } catch (ePeopleOff) {}
 
 
 home_repaired = false;

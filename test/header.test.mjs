@@ -42,6 +42,9 @@ function $(x) {
 const Lampa = {
   Storage: { get: (name, def) => def },
   Utils: { hash: lampaHash },
+  /* Словарь самой Lampa: подпись роли режиссёра в объединённой ленте людей
+     берётся оттуда (title_producer), своих строк правка не заводит. */
+  Lang: { translate: (key) => (key === 'title_producer' ? 'Режиссер' : key) },
   Timeline: { view: (h) => views[h] || { percent: 0, time: 0, duration: 0 } },
   TMDB: { image: (url) => 'https://img.test/' + url }
 };
@@ -628,6 +631,85 @@ test('scrollToEpisode: сдвиг к фокусной карточке, гран
   fire(c.root, 'hover:focus', c.track._children[0]);
   assert.equal(c.track.lumenShift, 0);
   assert.equal(c.track.getAttribute('style'), null, 'пустой style="" снят');
+});
+
+/* Правка 2026-09-23 (разбор композиции, п.4.2): «Режиссер» и «Актеры» — одна
+   сущность, свёрстанная двумя рядами. Lampa строит их из data.persons.crew
+   (фильтр по job === 'Director') и data.persons.cast; правка переносит
+   режиссёров в начало cast, и второй ряд просто не создаётся. */
+test('одна лента людей: режиссёры уходят в начало актёров, ряд режиссёра не создаётся', () => {
+  const data = {
+    persons: {
+      cast: [{ id: 2, name: 'Марк Хэмилл', character: 'Люк' }],
+      crew: [
+        { id: 1, name: 'Ирвин Кершнер', job: 'Director', profile_path: '/k.jpg' },
+        { id: 3, name: 'Лоуренс Кэздан', job: 'Writer' }
+      ]
+    }
+  };
+  LC.header.mergePeople(data);
+  assert.equal(data.persons.cast.length, 2);
+  assert.equal(data.persons.cast[0].name, 'Ирвин Кершнер', 'режиссёр не встал первым');
+  assert.equal(data.persons.cast[0].character, 'Режиссер', 'подпись роли не взята из словаря Lampa');
+  assert.equal(data.persons.cast[0].profile_path, '/k.jpg', 'портрет режиссёра потерян');
+  assert.equal(data.persons.cast[1].name, 'Марк Хэмилл', 'порядок актёров нарушен');
+  /* Именно это и убирает второй ряд: Lampa фильтрует crew по job. */
+  assert.deepEqual(data.persons.crew.map((m) => m.job), ['Writer'], 'режиссёр остался в crew — Lampa построит второй ряд');
+  /* Запись crew копируется, а не правится на месте: тот же объект Lampa
+     отдаёт экрану персоны по OK. */
+  assert.equal(data.persons.cast[0] === data.persons.crew[0], false);
+
+  /* Идемпотентность: второй проход (карточка открыта повторно) ничего не
+     дублирует. */
+  LC.header.mergePeople(data);
+  assert.equal(data.persons.cast.length, 2);
+});
+
+test('одна лента людей: без актёров или без режиссёров данные не трогаются', () => {
+  const onlyCrew = { persons: { cast: [], crew: [{ name: 'Ирвин Кершнер', job: 'Director' }] } };
+  LC.header.mergePeople(onlyCrew);
+  assert.equal(onlyCrew.persons.cast.length, 0, 'без актёров секция режиссёра — единственное место, где он виден');
+  assert.equal(onlyCrew.persons.crew.length, 1);
+
+  const noDirector = { persons: { cast: [{ name: 'Марк Хэмилл' }], crew: [{ name: 'Кэздан', job: 'Writer' }] } };
+  LC.header.mergePeople(noDirector);
+  assert.deepEqual(noDirector.persons.cast.map((p) => p.name), ['Марк Хэмилл']);
+  assert.deepEqual(noDirector.persons.crew.map((p) => p.job), ['Writer']);
+
+  /* Пустые и битые данные проходят насквозь. */
+  assert.doesNotThrow(() => LC.header.mergePeople(null));
+  assert.doesNotThrow(() => LC.header.mergePeople({}));
+});
+
+/* Обёртка над Lampa.Api.full — единственная точка, где данные ещё можно
+   тронуть: rows компонент собирает прямо в её колбэке. */
+test('одна лента людей: обёртка Api.full ставится и снимается, чужую поверх не срывает', () => {
+  const original = (object, oncomplite) => oncomplite({ persons: { cast: [{ name: 'А' }], crew: [{ name: 'Р', job: 'Director' }] } });
+  Lampa.Api = { full: original };
+  try {
+    LC.header.installPeople();
+    assert.notEqual(Lampa.Api.full, original, 'обёртка не встала');
+    const wrapped = Lampa.Api.full;
+    LC.header.installPeople();
+    assert.equal(Lampa.Api.full, wrapped, 'повторная установка обернула саму себя');
+
+    let got = null;
+    Lampa.Api.full({}, (data) => { got = data; });
+    assert.equal(got.persons.cast[0].name, 'Р', 'обёртка не слила ленты');
+
+    /* Чужая обёртка поверх нашей: свою гасим флагом, чужую не срываем. */
+    const foreign = Lampa.Api.full;
+    Lampa.Api.full = (o, c, e) => foreign(o, c, e);
+    const after = Lampa.Api.full;
+    LC.header.uninstallPeople();
+    assert.equal(Lampa.Api.full, after, 'чужая обёртка сорвана');
+    got = null;
+    Lampa.Api.full({}, (data) => { got = data; });
+    assert.equal(got.persons.cast[0].name, 'А', 'снятая обёртка продолжает сливать ленты');
+  } finally {
+    delete Lampa.Api;
+  }
+  assert.deepEqual(warnLog, []);
 });
 
 /* Решение координатора по п.2.2 разбора: режиссёр ушёл из мета-строки — он

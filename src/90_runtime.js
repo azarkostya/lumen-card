@@ -1323,6 +1323,14 @@
     } catch (eDedupe) {
       warn('rows dedupe install failed', eDedupe);
     }
+    /* Правка 2026-09-23 (разбор композиции, п.4.2): «Режиссер» и «Актеры» —
+       одна лента. Подменяет Lampa.Api.full, поэтому ставится один раз на
+       активацию, рядом с обёрткой главной (src/85_header.js, installPeople). */
+    try {
+      if (LC.header && LC.header.installPeople) LC.header.installPeople();
+    } catch (ePeople) {
+      warn('people merge install failed', ePeople);
+    }
     /* Task 16: персональные ряды регистрируются синхронно — данные берутся
        из Lampa.Favorite (локально) без async-загрузки манифеста. */
     try {
@@ -1452,6 +1460,9 @@
     /* Task 57: выключенный плагин не имеет права держать свою обёртку над
        Lampa.Api.main — главная должна строиться ровно как без плагина. */
     try { if (LC.rows && LC.rows.uninstallDedupe) LC.rows.uninstallDedupe(); } catch (eDedupeOff) {}
+    /* Выключенный плагин не имеет права держать свою обёртку над
+       Lampa.Api.full — карточка строится ровно как без плагина. */
+    try { if (LC.header && LC.header.uninstallPeople) LC.header.uninstallPeople(); } catch (ePeopleOff) {}
     /* Одна попытка достройки главной на активацию: следующее включение
        плагина получит свою (см. repairHomeRows). */
     home_repaired = false;
