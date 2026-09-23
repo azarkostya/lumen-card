@@ -5121,7 +5121,7 @@ test('Task 44: барабан — доля высоты экрана в проп
     'план 27em внезапно помещается — числа замера разъехались');
 });
 
-test('Task 44: барабан, кнопка и подсказка — столбиком по центру', () => {
+test('Task 44: барабан и кнопка — столбиком по центру', () => {
   const stage = findDecl(css, (sel) => sel === '.lumen-roulette .lumen-roulette__stage');
   assert.ok(stage.indexOf('flex-direction:column') !== -1, 'сцена не столбик: ' + stage);
   assert.ok(stage.indexOf('-webkit-box-orient:vertical') !== -1, 'нет префиксной пары к flex-direction: ' + stage);
@@ -5133,10 +5133,9 @@ test('Task 44: барабан, кнопка и подсказка — столб
   const spinR = parseFloat(/border-radius:([\d.]+)em/.exec(spin)[1]);
   assert.ok(Math.abs(spinR - spinH / 2) < 0.01, 'кнопка не пилюля: радиус ' + spinR + ' при высоте ' + spinH);
 
-  const hint = findDecl(css, (sel) => sel === '.lumen-roulette .lumen-roulette__hint');
-  const k = tokensWith({});
-  assert.ok(hint.indexOf('color:' + k.muted) !== -1, 'подсказка не приглушена: ' + hint);
-  assert.ok(hint.indexOf('text-align:center') !== -1, hint);
+  /* Правка 2026-09-23 (разбор композиции, п.5.3): подсказки под кнопкой
+     нет — ни правила, ни узла (test/roulette.test.mjs). */
+  assert.equal(css.indexOf('lumen-roulette__hint'), -1, 'правило подсказки под «Крутить» вернулось');
 
   for (const sel of ['.lumen-roulette .lumen-roulette__btn']) {
     const btn = findDecl(css, (s) => s === sel);

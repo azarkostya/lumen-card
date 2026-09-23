@@ -1278,3 +1278,20 @@ test('правка 2026-09-23: подпись счётчика выборки е
   assert.equal(/фильм|film|movie/i.test(pack.ru + pack.en + pack.uk), false,
     'в подписи появилось счётное слово — вернётся вопрос о склонении: ' + JSON.stringify(pack));
 });
+
+/* Правка 2026-09-23 (разбор композиции, п.5.3): подсказки под «Крутить» нет —
+   ни на спокойном экране, ни после результата. Разбор разрешил её убрать,
+   когда управление собрано слева (п.5.2) и барабан показывает выборку со
+   счётчиком (п.5.1); обоснование — у бывшего правила в src/30_css.js. */
+test('правка 2026-09-23: подсказки под «Крутить» нет ни до вращения, ни после', (t) => {
+  const env = openRoulette34([R44], t, 1, 'lite');
+  assert.equal(env.root.find('.lumen-roulette__hint').length, 0, 'узел подсказки снова в разметке');
+  fire(env.root.find('.lumen-roulette__spin'), 'hover:enter');
+  drainDelays();
+  assert.equal(env.root.find('.lumen-roulette__result').hasClass('is-live'), true, 'результат так и не показан');
+  assert.equal(env.root.find('.lumen-roulette__hint').length, 0, 'подсказка появилась после результата');
+  const settings = readFileSync(new URL('../src/80_settings.js', import.meta.url), 'utf8');
+  const LC = {};
+  new Function('LC', 'module', settings)(LC, { exports: null, lumen: true });
+  assert.equal(LC.STRINGS.lumen_roulette_hint, undefined, 'строка подсказки осталась в словаре без узла');
+});

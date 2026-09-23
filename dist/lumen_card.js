@@ -5019,6 +5019,7 @@ css.push('.lumen-roulette .lumen-roulette__stage{position:relative;display:-webk
 
 
 
+
 css.push('.lumen-roulette .lumen-roulette__reel{width:28.67vh;height:43vh;border-radius:.53em;overflow:hidden;background:' + P.panel + ';border:.04em solid ' + P.line + ';-webkit-flex-shrink:0;flex-shrink:0}');
 css.push('.lumen-roulette .lumen-roulette__frame{width:100%;height:100%;background-position:center;background-repeat:no-repeat;-webkit-background-size:cover;background-size:cover}');
 
@@ -5063,7 +5064,28 @@ css.push('@keyframes lumen-roul-step{from{transform:translateY(12%)}to{transform
 css.push('.lumen-roulette .lumen-roulette__spin{position:relative;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;height:3.16em;padding:0 1.75em;margin:.88em 0 0;border-radius:1.58em;background:' + A + ';color:' + t.onac + ';font-family:' + FB + ';font-weight:700;font-size:1.05em;border:.04em solid transparent}');
 css.push('.lumen-roulette .lumen-roulette__spin.focus{border-color:' + AL + ';border-width:.11em;-webkit-box-shadow:0 .2em 0 ' + AG + ';box-shadow:0 .2em 0 ' + AG + '}');
 css.push('.lumen-roulette .lumen-roulette__spin.is-busy{opacity:.7}');
-css.push('.lumen-roulette .lumen-roulette__hint{position:relative;margin:.50em 0 0;font-family:' + FB + ';font-weight:500;font-size:1.01em;color:' + P.muted + ';text-align:center}');
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -18084,7 +18106,6 @@ var countBox = $('<div class="lumen-roulette__count">' +
 '</div>');
 var spinBtn = $('<div class="lumen-roulette__spin selector">' + esc(LC.lang('lumen_roulette_spin')) + '</div>');
 var resultBox = $('<div class="lumen-roulette__result"></div>');
-var hint = $('<div class="lumen-roulette__hint">' + esc(LC.lang('lumen_roulette_hint')) + '</div>');
 
 var gen = 0;
 var handles = [];
@@ -18664,7 +18685,6 @@ resultBox.empty();
 resultBox.removeClass('is-live');
 leaveKadr();
 try { bg.css('background-image', ''); } catch (e) { }
-hint.show();
 
 
 
@@ -18678,7 +18698,6 @@ function showEmpty() {
 resultBox.empty();
 resultBox.addClass('is-live');
 resultBox.append($('<div class="lumen-roulette__empty">' + esc(LC.lang('lumen_roulette_empty')) + '</div>'));
-hint.hide();
 recollect(spinBtn[0]);
 }
 
@@ -18718,7 +18737,6 @@ actions.append(actionNode('lumen_roulette_watch', function () { openCard(card); 
 actions.append(actionNode('lumen_roulette_again', function () { spin(); }));
 actions.append(actionNode('lumen_roulette_book', function () { book(card); }));
 resultBox.append(actions);
-hint.hide();
 recollect(actions.find('.lumen-roulette__btn')[0]);
 }
 
@@ -18974,7 +18992,10 @@ stage.append(peek1);
 stage.append(reelBox);
 stage.append(countBox);
 stage.append(spinBtn);
-stage.append(hint);
+
+
+
+
 root.append(stage);
 
 
@@ -26683,11 +26704,6 @@ lumen_roulette_booked: { ru: 'Добавлено в закладки', en: 'Adde
 lumen_roulette_unseen: { ru: 'Не смотрел', en: 'Not watched', uk: 'Не дивився' },
 lumen_roulette_short_movie: { ru: 'Есть 90 минут', en: '90 minutes to spare', uk: 'Є 90 хвилин' },
 lumen_roulette_short_tv: { ru: 'Серия до 30 минут', en: 'Episode under 30 min', uk: 'Серія до 30 хвилин' },
-lumen_roulette_hint: {
-ru: 'Отметьте подборки и нажмите «Крутить»',
-en: 'Tick the collections and press "Spin"',
-uk: 'Позначте підбірки і натисніть «Крутити»'
-},
 
 
 

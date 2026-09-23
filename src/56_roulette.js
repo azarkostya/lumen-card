@@ -522,7 +522,6 @@
         '</div>');
       var spinBtn = $('<div class="lumen-roulette__spin selector">' + esc(LC.lang('lumen_roulette_spin')) + '</div>');
       var resultBox = $('<div class="lumen-roulette__result"></div>');
-      var hint = $('<div class="lumen-roulette__hint">' + esc(LC.lang('lumen_roulette_hint')) + '</div>');
 
       var gen = 0;
       var handles = [];
@@ -1102,7 +1101,6 @@
         resultBox.removeClass('is-live');
         leaveKadr();
         try { bg.css('background-image', ''); } catch (e) { }
-        hint.show();
         /* «Ещё раз» и возврат с карточки результата возвращают спокойный
            экран — значит и выборку в барабане. Пул к этому моменту уже
            собран, loadPool отдаст его по кешу без сети. */
@@ -1116,7 +1114,6 @@
         resultBox.empty();
         resultBox.addClass('is-live');
         resultBox.append($('<div class="lumen-roulette__empty">' + esc(LC.lang('lumen_roulette_empty')) + '</div>'));
-        hint.hide();
         recollect(spinBtn[0]);
       }
 
@@ -1156,7 +1153,6 @@
         actions.append(actionNode('lumen_roulette_again', function () { spin(); }));
         actions.append(actionNode('lumen_roulette_book', function () { book(card); }));
         resultBox.append(actions);
-        hint.hide();
         recollect(actions.find('.lumen-roulette__btn')[0]);
       }
 
@@ -1412,7 +1408,10 @@
         stage.append(reelBox);
         stage.append(countBox);
         stage.append(spinBtn);
-        stage.append(hint);
+        /* Правка 2026-09-23 (разбор композиции, п.5.3): подсказки «Отметьте
+           подборки и нажмите «Крутить»» под кнопкой больше нет — разбор и
+           обоснование у бывшего правила .lumen-roulette__hint в
+           src/30_css.js. */
         root.append(stage);
         /* Карточка результата — ребёнок корня, а не сцены: в режиме кадра она
            встаёт абсолютом от его нижней кромки (src/30_css.js). */
