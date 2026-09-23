@@ -8968,6 +8968,7 @@ return out;
 
 
 
+
 var DEDUPE_MIN = 4;
 
 
@@ -9176,7 +9177,6 @@ kept.push(copyRow(row, out));
 trimmed.push(out.length < row.results.length);
 before.push(row.results.length);
 }
-
 
 
 
@@ -28975,9 +28975,9 @@ en: 'No repeats across rows',
 uk: 'Не повторювати фільми в рядах'
 },
 lumen_rows_dedupe_descr: {
-ru: 'Фильм показывается в первом ряду, где встретился, а из рядов ниже выпадает — чтобы одна и та же новинка не стояла и в «Сейчас смотрят», и в «В тренде». Ряд, от которого после этого осталось меньше половины карточек и они не заполняют ширину экрана, не показывается вовсе; ряды, выбранные вами вручную, и личные ряды остаются на месте.',
-en: 'A movie is shown in the first row it appears in and drops out of the rows below, so the same new release does not sit in "Now playing" and "Trending" at once. A row left with less than half of its movies and not enough to fill the screen is hidden; rows you picked yourself and personal rows always stay.',
-uk: 'Фільм показується в першому ряду, де трапився, а з рядів нижче зникає — щоб та сама новинка не стояла і в «Зараз дивляться», і в «У тренді». Ряд, від якого після цього лишилося менше половини карток і вони не заповнюють ширину екрана, не показується зовсім; ряди, обрані вами вручну, і особисті ряди лишаються на місці.'
+ru: 'Фильм показывается в первом ряду, где встретился, а из рядов ниже выпадает — чтобы одна и та же новинка не стояла и в «Сейчас смотрят», и в «В тренде». Ряд, который от этого укоротился и в котором осталось меньше четырёх карточек — или меньше половины прежнего, и они не заполняют ширину экрана, — не показывается вовсе; ряды, выбранные вами вручную, и личные ряды остаются на месте.',
+en: 'A movie is shown in the first row it appears in and drops out of the rows below, so the same new release does not sit in "Now playing" and "Trending" at once. A row this shortens is hidden if it is left with fewer than four movies — or with less than half of them and not enough to fill the screen; rows you picked yourself and personal rows always stay.',
+uk: 'Фільм показується в першому ряду, де трапився, а з рядів нижче зникає — щоб та сама новинка не стояла і в «Зараз дивляться», і в «У тренді». Ряд, який від цього вкоротився і в якому лишилося менше чотирьох карток — або менше половини колишніх, і вони не заповнюють ширину екрана, — не показується зовсім; ряди, обрані вами вручну, і особисті ряди лишаються на місці.'
 },
 
 
@@ -29123,14 +29123,25 @@ uk: '«Скоро», «Новинка», відсоток перегляду т�
 
 
 
+
+
+
+
+
+
+
+
+
+
+
 lumen_posters_name: { ru: 'Постеры карточек', en: 'Card posters', uk: 'Постери карток' },
 lumen_posters_descr: {
-ru: 'Откуда берётся обложка в рядах главной и в сетках подборок. «Как в Lampa» — та, что приходит с карточкой: ни одного лишнего запроса. «Оригинал» — тот же список, запрошенный на английском: обложка чаще без русской надписи, цена — один запрос на ряд. «Без надписей» — постер, у которого нет текста ни на каком языке: по запросу на каждую карточку, то есть около двадцати на ряд и двухсот на экран главной вместо нынешних десяти; ответы кладутся в кэш на месяц, поэтому платят за них только первое открытие и новые фильмы. Обложка непривычной пропорции не подставляется — остаётся та, что в Lampa. Применяется сразу: главная собирается заново.',
-en: 'Where the artwork in home rows and collection grids comes from. "As in Lampa" is the one that arrives with the card: not a single extra request. "Original" is the same list requested in English: the artwork more often carries no localized lettering, at the cost of one request per row. "No lettering" is a poster with no text in any language: one request per card, that is about twenty per row and two hundred per home screen instead of the current ten; the answers are cached for a month, so only the first opening and new films pay for them. Artwork with an unusual aspect ratio is not substituted — the Lampa one stays. Applied immediately: the home screen is rebuilt.',
-uk: 'Звідки береться обкладинка в рядах головної та в сітках підбірок. «Як у Lampa» — та, що приходить із карткою: жодного зайвого запиту. «Оригінал» — той самий список, запитаний англійською: обкладинка частіше без локалізованого напису, ціна — один запит на ряд. «Без написів» — постер, на якому немає тексту жодною мовою: по запиту на кожну картку, тобто близько двадцяти на ряд і двохсот на екран головної замість нинішніх десяти; відповіді кладуться в кеш на місяць, тому платять за них лише перше відкриття та нові фільми. Обкладинка незвичної пропорції не підставляється — лишається та, що в Lampa. Застосовується одразу: головна збирається наново.'
+ru: 'Откуда берётся обложка в рядах главной и в сетках подборок. «Как в Lampa» — та, что приходит с карточкой: ни одного лишнего запроса. «Английские» — тот же список, запрошенный на английском: это английская обложка, а не обложка на языке оригинала — у аниме и дорам тоже английская, если она есть на TMDB; цена — запрос на каждую половину подборки, фильмы и сериалы отдельно, то есть один-два на ряд и на страницу сетки; подборки Кинопоиска остаются с обложками Lampa. «Без надписей» — постер, на котором нет текста ни на каком языке: по запросу на каждую карточку — двадцать на ряд из одного списка, до сорока у рядов с фильмами и сериалами, около 150 на набор главной по умолчанию. Эти ответы кладутся в кэш на месяц, если в настройках Lampa (раздел «Остальное») включено «Кэширование запросов»: тогда платят только первое открытие и новые фильмы, а выключено — платит каждое открытие. Обложка непривычной пропорции не подставляется — остаётся та, что в Lampa. Применяется сразу: главная собирается заново.',
+en: 'Where the artwork in home rows and collection grids comes from. "As in Lampa" is the one that arrives with the card: not a single extra request. "English" is the same list requested in English: an English poster, not one in the original language — anime and K-dramas get the English one too, when TMDB has it; the cost is one request per half of a collection, movies and series separately, that is one or two per row and per grid page; Kinopoisk collections keep the Lampa artwork. "No lettering" is a poster with no text in any language: one request per card — twenty per single-list row, up to forty for rows with both movies and series, about 150 for the default home set. These answers are cached for a month if "Request Caching" is on in Lampa settings (the "Other" section): then only the first opening and new films pay; if it is off, every opening pays. Artwork with an unusual aspect ratio is not substituted — the Lampa one stays. Applied immediately: the home screen is rebuilt.',
+uk: 'Звідки береться обкладинка в рядах головної та в сітках підбірок. «Як у Lampa» — та, що приходить із карткою: жодного зайвого запиту. «Англійські» — той самий список, запитаний англійською: це англійська обкладинка, а не обкладинка мовою оригіналу — в аніме й дорам теж англійська, якщо вона є на TMDB; ціна — запит на кожну половину підбірки, фільми й серіали окремо, тобто один-два на ряд і на сторінку сітки; підбірки Кінопошуку лишаються з обкладинками Lampa. «Без написів» — постер, на якому немає тексту жодною мовою: по запиту на кожну картку — двадцять на ряд з одного списку, до сорока в рядах із фільмами й серіалами, близько 150 на набір головної за замовчуванням. Ці відповіді кладуться в кеш на місяць, якщо в налаштуваннях Lampa (розділ «Інше») увімкнено «Кешування запитів»: тоді платять лише перше відкриття та нові фільми, а вимкнено — платить кожне відкриття. Обкладинка незвичної пропорції не підставляється — лишається та, що в Lampa. Застосовується одразу: головна збирається наново.'
 },
 lumen_posters_lampa: { ru: 'Как в Lampa', en: 'As in Lampa', uk: 'Як у Lampa' },
-lumen_posters_original: { ru: 'Оригинал', en: 'Original', uk: 'Оригінал' },
+lumen_posters_original: { ru: 'Английские', en: 'English', uk: 'Англійські' },
 lumen_posters_clean: { ru: 'Без надписей', en: 'No lettering', uk: 'Без написів' },
 lumen_badges_poster: { ru: 'На постере', en: 'On the poster', uk: 'На постері' },
 lumen_badges_caption: { ru: 'В подписи', en: 'In the caption', uk: 'У підписі' },

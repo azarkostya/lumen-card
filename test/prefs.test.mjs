@@ -826,21 +826,43 @@ test('Task 74: источник постера — select из трёх поло
   assert.ok(entry.descr, 'у пункта обязано быть описание — цену режимов надо назвать до нажатия');
 });
 
-/* Цена режима «без надписей» — двадцать запросов на ряд против нынешнего
-   одного, и человеку с телевизором это важнее красоты формулировки.
-   Сторож держит два обещания описания: что цена названа числом и что
-   названа компенсация — кэш. */
-test('Task 74: описание настройки называет цену режима «без надписей» и кэш', () => {
+/* Цена режима «без надписей» — запрос на карточку, и человеку с
+   телевизором это важнее красоты формулировки. Сторож держит обещания
+   описания: цена названа числами (ряд из одного списка, смешанный ряд,
+   набор главной — Ф3 п.4 ревью фикс-раундов: прежнее «около двадцати на
+   ряд» занижало смешанные ряды), названа компенсация — кэш, и сказано, на
+   чём он держится — на настройке Lampa «Кэширование запросов». */
+test('Постеры: описание называет цену «без надписей», кэш и настройку Lampa, на которой он держится', () => {
   const LC = loadStrings();
   const pack = LC.STRINGS.lumen_posters_descr;
-  const numbers = { ru: ['двадцат', 'двухсот'], en: ['twenty', 'two hundred'], uk: ['двадцят', 'двохсот'] };
+  const numbers = { ru: ['двадцат', 'сорок', '150'], en: ['twenty', 'forty', '150'], uk: ['двадцят', 'сорок', '150'] };
   const cache = { ru: 'кэш', en: 'cache', uk: 'кеш' };
+  /* Подписи самой Lampa: vendor/lampa/app.min.js:48930 и :51226,
+     vendor/lampa/lang/uk.js:1246. */
+  const lampaCaching = { ru: 'кэширование запросов', en: 'request caching', uk: 'кешування запитів' };
   for (const lang of LANGS) {
     const text = ('' + pack[lang]).toLowerCase();
     for (const one of numbers[lang]) {
       assert.ok(text.indexOf(one) !== -1, lang + ': в описании не названа цена «' + one + '»');
     }
     assert.ok(text.indexOf(cache[lang]) !== -1, lang + ': в описании не сказано про кэш');
+    assert.ok(text.indexOf(lampaCaching[lang]) !== -1, lang + ': не сказано, что кэш держится на настройке Lampa');
+  }
+});
+
+/* Ф3 (решение координатора): режим 'original' даёт английскую обложку, а
+   не обложку на языке оригинала — подпись это и говорит. Ключ значения
+   прежний: он уже сохранён у пользователя. */
+test('Постеры: режим original подписан «Английские» на трёх языках, ключ значения прежний', () => {
+  const LC = loadStrings();
+  assert.deepEqual(LC.STRINGS.lumen_posters_original, { ru: 'Английские', en: 'English', uk: 'Англійські' });
+  assert.deepEqual(prefs.find('lumen_posters').values, ['lampa', 'original', 'clean']);
+  const said = { ru: '«английские»', en: '"english"', uk: '«англійські»' };
+  const old = { ru: '«оригинал»', en: '"original"', uk: '«оригінал»' };
+  for (const lang of LANGS) {
+    const text = ('' + LC.STRINGS.lumen_posters_descr[lang]).toLowerCase();
+    assert.ok(text.indexOf(said[lang]) !== -1, lang + ': описание зовёт режим новой подписью');
+    assert.equal(text.indexOf(old[lang]), -1, lang + ': старой подписи в описании нет');
   }
 });
 
@@ -1043,7 +1065,9 @@ test('Task 60: у каждого вызова LC.pref дефолт совпад�
     'lumen_badges', 'lumen_accent_scope', 'lumen_hero_logo',
     /* Правка 2026-09-23 (долг фазы 1, п.5): эти три читались через
        Lampa.Storage.field и в сверку не попадали вовсе. */
-    'lumen_motion', 'lumen_trailer', 'lumen_menus']) {
+    'lumen_motion', 'lumen_trailer', 'lumen_menus',
+    /* Ф3 п.11 (ревью фикс-раундов): ключи последней волны — тем же списком. */
+    'lumen_posters', 'lumen_hero_media', 'lumen_card_logo']) {
     assert.ok(checked.indexOf(key) !== -1,
       'ключ, записанный не литералом, выпал из сверки: ' + key + ' (сверено: ' + checked.join(', ') + ')');
   }
