@@ -1572,6 +1572,38 @@ test('Task 38: backdrop-filter отсутствует во всех режима
 /* любое новое правило обязано соблюдать те же границы.                  */
 /* -------------------------------------------------------------------- */
 
+/* Ревью фикс-раунда (находка без номера): у гирлянды темы и у постера в
+   режиме «Постер» стояли background-size и box-shadow без -webkit- пары,
+   хотя весь остальной файл пишет их парами. Сторож — по всей таблице, кроме
+   кадров @keyframes (у них своя копия @-webkit-keyframes). */
+test('префиксные пары: background-size, box-shadow, transform, transition, mask-image — везде с -webkit-', () => {
+  const bad = [];
+  for (const line of css.split('\n')) {
+    if (/keyframes/.test(line)) continue;
+    const re = /([^{}]+)\{([^{}]*)\}/g;
+    let m;
+    while ((m = re.exec(line))) {
+      for (const p of ['background-size', 'box-shadow', 'transform', 'transition', 'mask-image']) {
+        if (new RegExp('(^|;)' + p + ':').test(m[2]) && !new RegExp('-webkit-' + p + ':').test(m[2])) bad.push(p + ' @ ' + m[1].trim());
+      }
+    }
+  }
+  assert.deepEqual(bad, []);
+});
+
+/* Ревью фикс-раунда (п.8): затемнение под содержимым карточки начинается
+   там, где кончается кадр её шапки, — число одно, и в таблице оно обязано
+   совпасть в обоих местах. */
+test('ревью п.8: затемнение карточки стартует на высоте кадра её шапки', () => {
+  const body = decl(css, '.lumen-card .full-start-new__body');
+  const scrim = decl(css, '.lumen-scrim');
+  const bodyVh = parseFloat(/(?:^|;)min-height:([\d.]+)vh/.exec(body)[1]);
+  const from = parseFloat(/[^-]background-image:linear-gradient\(180deg,rgba\([^)]*\) 0,rgba\([^)]*\) ([\d.]+)vh/.exec(scrim)[1]);
+  assert.equal(from, bodyVh, 'затемнение и кадр шапки разъехались: ' + from + 'vh против ' + bodyVh + 'vh');
+  const src = readFileSync(new URL('../src/30_css.js', import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.equal(/\b74vh\b/.test(src), false, 'литерал 74vh снова в коде таблицы — второй источник правды');
+});
+
 test('Task 38: box-shadow нигде не входит в transition', () => {
   const offenders = css.split('\n').filter((line) => /transition[^;{}]*box-shadow/.test(line));
   assert.deepEqual(offenders.map((l) => l.slice(0, l.indexOf('{'))), [],

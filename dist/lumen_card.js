@@ -1281,7 +1281,13 @@ var PERSON_TARGET = 23;
 
 
 
-var SCRIM_FROM = 74;
+
+
+
+
+
+var CARD_BODY_VH = 74;
+var SCRIM_FROM = CARD_BODY_VH;
 var SCRIM_TO = 92;
 var SCRIM_MAX = 0.8;
 var LAMPA_ROW_PAD = 2.5;
@@ -1382,6 +1388,7 @@ var ROUL_REST_EM = round2(1.05 + Math.max(2.1 * 1.1, 2 * 1.01) + 0.88 + 2 * 1.01
 var HERO_VH = { large: 66.67, medium: 56, compact: 45 };
 var ROWS_TOP_VH = { large: 50, medium: 42, compact: 34 };
 var HERO_DEFAULT = 'large';
+
 
 
 
@@ -1759,6 +1766,7 @@ return Math.floor(screenEm() * (100 - ROWS_TOP_VH[key]) / (ROWS_AIR + blockEm + 
 
 
 
+
 var TV_RATIO = 178;
 
 
@@ -1770,6 +1778,10 @@ function rowNarrowBlockEm(scale) {
 var w = round2(ROW_CARD_NARROW * scale);
 return rowBlockEm(w, round2(ROW_TITLE_EM * scale), rowHeadGap(scale, w), TV_MIN, TV_MIN);
 }
+
+
+
+
 
 
 
@@ -2064,7 +2076,7 @@ var garland = [
 'radial-gradient(circle 1.1em at 85% 1.01em,' + LIGHT + ')',
 'radial-gradient(circle 1.1em at 95% .59em,' + LIGHT + ')'
 ].join(',');
-css.push('.lumen-backdrop.lumen-theme--christmas .lumen-fx,.lumen-hero.lumen-theme--christmas .lumen-fx{background-image:' + garland + ';background-repeat:no-repeat;background-position:top center;background-size:100% 4em}');
+css.push('.lumen-backdrop.lumen-theme--christmas .lumen-fx,.lumen-hero.lumen-theme--christmas .lumen-fx{background-image:' + garland + ';background-repeat:no-repeat;background-position:top center;-webkit-background-size:100% 4em;background-size:100% 4em}');
 
 
 css.push('.lumen-backdrop.lumen-theme--halloween .lumen-fx,.lumen-hero.lumen-theme--halloween .lumen-fx{background-image:linear-gradient(0deg,rgba(224,123,44,.20) 0%,rgba(224,123,44,.07) 14%,rgba(224,123,44,0) 34%)}');
@@ -2193,7 +2205,7 @@ css.push('.lumen-card .full-start-new__left{display:none !important}');
 
 
 css.push('.lumen-card.lumen-card--poster .full-start-new__left{display:block !important;-webkit-box-ordinal-group:2;-webkit-order:1;order:1;-webkit-align-self:flex-start;-ms-flex-item-align:start;align-self:flex-start;-webkit-flex-shrink:0;flex-shrink:0;width:16.66em;margin:6.14em 0 0 2.63em}');
-css.push('.lumen-card.lumen-card--poster .full-start-new__poster{border-radius:.61em;overflow:hidden;background:' + P.gradPoster + ';border:.04em solid ' + P.line + ';box-shadow:0 .35em .8em rgba(0,0,0,.6)}');
+css.push('.lumen-card.lumen-card--poster .full-start-new__poster{border-radius:.61em;overflow:hidden;background:' + P.gradPoster + ';border:.04em solid ' + P.line + ';-webkit-box-shadow:0 .35em .8em rgba(0,0,0,.6);box-shadow:0 .35em .8em rgba(0,0,0,.6)}');
 css.push('.lumen-card.lumen-card--poster .full-start-new__img{border-radius:.61em}');
 css.push('.lumen-card.lumen-card--poster .lumen-poster-tmdb{position:absolute;left:0;right:0;bottom:0;padding:0 1.05em 1.05em;font-family:' + FB + ';font-weight:600;font-size:1.01em;line-height:1.3;color:' + P.smoke + '}');
 
@@ -2226,7 +2238,7 @@ css.push('.lumen-card.lumen-card--poster .lumen-poster-tmdb{position:absolute;le
 
 
 
-css.push('.lumen-card .full-start-new__body{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:end;-webkit-align-items:flex-end;align-items:flex-end;min-height:74vh}');
+css.push('.lumen-card .full-start-new__body{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:end;-webkit-align-items:flex-end;align-items:flex-end;min-height:' + CARD_BODY_VH + 'vh}');
 css.push('.lumen-card .full-start-new__right{-webkit-box-flex:1;-webkit-flex-grow:1;flex-grow:1;min-width:0}');
 
 
@@ -2278,6 +2290,8 @@ css.push('.lumen-card .full-start-new__title{font-family:' + FB + ';font-size:3.
 
 
 css.push('.lumen-card .full-start-new__title.lumen-title--long{display:-webkit-box;-webkit-box-orient:vertical;overflow:hidden;-webkit-line-clamp:2;line-clamp:2;font-size:2.5em;line-height:1.16}');
+
+
 
 
 
@@ -4627,6 +4641,10 @@ css.push('.lumen-main .scroll.layer--wheight{margin-top:-webkit-calc(' + rowsMar
 '-webkit-transform:translateY(' + ROWS_SHIFT_VH + 'vh) translateZ(0);transform:translateY(' + ROWS_SHIFT_VH + 'vh) translateZ(0);' +
 '-webkit-backface-visibility:hidden;backface-visibility:hidden;' +
 '-webkit-mask-image:none;mask-image:none}');
+
+
+
+
 
 
 
