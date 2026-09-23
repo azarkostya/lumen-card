@@ -165,6 +165,11 @@
            таблицы «ПОДРОБНО», которая и есть нужное для него место. */
         '<div class="lumen-in">' +
         '<div class="full-start-new__title">{title}</div>' +
+        /* Правка 2026-09-23: логотип названия (LC.header, renderLogo в
+           src/85_header.js). Узел свой и стоит рядом с заголовком, а не
+           вместо него: текст заголовка остаётся в DOM — его пишет Lampa, и
+           он же выводится, когда логотипа нет или он не доехал. */
+        '<div class="lumen-logo"></div>' +
         '<div class="full-start-new__tagline full--tagline">{tagline}</div>' +
         '</div>' +
 

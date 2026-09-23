@@ -248,6 +248,17 @@
       { name: 'lumen_trailer', type: 'select', values: ['auto', 'on', 'off'], vprefix: 'lumen_card_trailer_', 'default': 'auto', label: 'lumen_card_trailer', descr: 'lumen_card_trailer_descr' },
 
       { name: 'lumen_group_blocks', type: 'title', label: 'lumen_card_group_blocks' },
+      /* Правка 2026-09-23 (долг Task 24 — «lumen_logo on/off default on»
+         из плана фазы 3): логотип названия в шапке карточки. Первым в
+         группе — заголовок и есть верхний блок карточки. Своя настройка, а
+         не общая с «Логотипом названия в кадре» главной: у логотипа в
+         карточке есть цена, которой у героя нет, — английский логотип
+         прячет русское название там, где его читают (разбор — renderLogo,
+         src/85_header.js), и выключить её человек должен иметь возможность
+         отдельно. Включён по умолчанию — как у героя и как в плане. Дефолт
+         здесь и в месте чтения (cardLogoAllowed) сверяет
+         test/prefs.test.mjs. */
+      { name: 'lumen_card_logo', type: 'trigger', 'default': true, label: 'lumen_card_logo_name', descr: 'lumen_card_logo_descr' },
       { name: 'lumen_card_progress', type: 'trigger', 'default': true, label: 'lumen_card_progress_name', descr: 'lumen_card_progress_descr' },
       /* Правка пользователя 2026-09-16 (п.1): пункт «Показывать актёров» убран
          вместе с блоком, которым он управлял, — кружки инициалов дублировали

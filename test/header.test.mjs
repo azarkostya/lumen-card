@@ -1447,3 +1447,151 @@ test('правка 2026-09-16 (пп. 1-2): рендеров каста и ори
   assert.equal(/renderCast|lumen-cast/.test(src), false, 'в 85_header.js не осталось кода блока актёров');
   assert.equal(/renderOriginal|lumen-original/.test(src), false, 'в 85_header.js не осталось кода оригинального названия');
 });
+
+/* ====================================================================== */
+/* Правка 2026-09-23: логотип названия в карточке (renderLogo). Механика    */
+/* ожидания — общая с героем (LC.hero.waitLogo, её тесты — в hero.test);   */
+/* здесь — связка карточки: какие классы, когда и что с текстом.           */
+/* ====================================================================== */
+
+function logoCard() {
+  const c = makeCard();
+  const logo = new FakeEl(['lumen-logo']);
+  c.root._children.splice(1, 0, logo);
+  logo.parent = c.root;
+  c.logo = logo;
+  return c;
+}
+
+/* Заглушка героя: решение логотипа отдаётся тестом вручную (decide). */
+function stubHero() {
+  const calls = [];
+  const hero = {
+    calls: calls,
+    CARD_TITLE_EM: 3.33,
+    pickLogoItem: (logos, lang) => {
+      calls.push(['pick', lang]);
+      return (logos && logos[0]) || null;
+    },
+    logoRatioOf: (item) => Number(item.aspect_ratio) || 0,
+    cardLogoBox: (r) => (r > 0 ? { w: 4.6, h: 1.55 } : null),
+    logoUrl: (path) => 'https://img.test/t/p/w500' + path,
+    waitLogo: (path, url, decide) => {
+      const h = { path: path, url: url, decide: decide, cancelled: 0, cancel() { h.cancelled++; } };
+      calls.push(['wait', path]);
+      hero.last = h;
+      if (hero.known !== undefined) decide(hero.known);
+      return h;
+    }
+  };
+  return hero;
+}
+
+function withHero(hero, fn) {
+  const prev = LC.hero;
+  LC.hero = hero;
+  try { return fn(); } finally { LC.hero = prev; }
+}
+
+const LOGO_MOVIE = () => ({
+  movie: { title: 'Звёздные войны: Эпизод 5 - Империя наносит ответный удар', images: { logos: [{ file_path: '/sw.png', iso_639_1: 'ru', aspect_ratio: 3.3 }] } }
+});
+
+test('логотип в карточке: пока исход неизвестен — рамка стоит, заголовок скрыт; доехал — логотип', () => {
+  warnLog.length = 0;
+  const c = logoCard();
+  const hero = stubHero();
+  withHero(hero, () => LC.header.decorate(c.root, LOGO_MOVIE()));
+  assert.ok(c.root.hasClass('lumen-logo-wait'), 'ожидание не включено — заголовок был бы виден до логотипа');
+  assert.equal(c.root.hasClass('lumen-logo-on'), false);
+  assert.equal(c.logo.css('width'), '4.6em', 'место под логотип не зарезервировано по пропорции');
+  assert.equal(c.logo.css('height'), '1.55em');
+  /* Текст заголовка остаётся в DOM (его пишет Lampa) — двухуровневым. */
+  assert.ok(c.cardTitle.hasClass('lumen-title--split'));
+  hero.last.decide(true);
+  assert.ok(c.root.hasClass('lumen-logo-on'));
+  assert.equal(c.root.hasClass('lumen-logo-wait'), false);
+  assert.ok(String(c.logo.css('background-image')).indexOf('/sw.png') !== -1, 'картинка не поставлена');
+  assert.deepEqual(warnLog, []);
+});
+
+test('логотип в карточке: не доехал — текст, и классов логотипа нет', () => {
+  const c = logoCard();
+  const hero = stubHero();
+  withHero(hero, () => LC.header.decorate(c.root, LOGO_MOVIE()));
+  hero.last.decide(false);
+  assert.equal(c.root.hasClass('lumen-logo-wait'), false);
+  assert.equal(c.root.hasClass('lumen-logo-on'), false);
+  assert.equal(c.logo.css('background-image'), 'none');
+});
+
+test('логотип в карточке: build и complite — одно ожидание, второй decorate ничего не перезапускает', () => {
+  const c = logoCard();
+  const hero = stubHero();
+  const data = LOGO_MOVIE();
+  withHero(hero, () => {
+    LC.header.decorate(c.root, data);
+    LC.header.decorate(c.root, data);
+  });
+  assert.equal(hero.calls.filter((x) => x[0] === 'wait').length, 1, 'второй decorate завёл второе ожидание');
+  assert.equal(hero.last.cancelled, 0);
+});
+
+test('логотип в карточке: известный исход решается сразу, без видимого ожидания', () => {
+  const c = logoCard();
+  const hero = stubHero();
+  hero.known = true;
+  withHero(hero, () => LC.header.decorate(c.root, LOGO_MOVIE()));
+  assert.ok(c.root.hasClass('lumen-logo-on'));
+  assert.equal(c.root.hasClass('lumen-logo-wait'), false);
+});
+
+test('логотип в карточке: нет логотипа — текст сразу, ожидания нет', () => {
+  const c = logoCard();
+  const hero = stubHero();
+  withHero(hero, () => LC.header.decorate(c.root, { movie: { title: 'Без логотипа', images: { logos: [] } } }));
+  assert.equal(hero.calls.filter((x) => x[0] === 'wait').length, 0);
+  assert.equal(c.root.hasClass('lumen-logo-wait'), false);
+  assert.equal(c.root.hasClass('lumen-logo-on'), false);
+});
+
+test('логотип в карточке: другой фильм в том же узле отменяет прошлое ожидание', () => {
+  const c = logoCard();
+  const hero = stubHero();
+  withHero(hero, () => {
+    LC.header.decorate(c.root, LOGO_MOVIE());
+    const first = hero.last;
+    LC.header.decorate(c.root, { movie: { title: 'Другой', images: { logos: [{ file_path: '/other.png', aspect_ratio: 4 }] } } });
+    assert.equal(first.cancelled, 1, 'ожидание прошлого фильма не отменено');
+    /* Позднее решение прошлого фильма узел уже не трогает. */
+    first.decide(true);
+    assert.ok(c.root.hasClass('lumen-logo-wait'), 'чужое решение сняло ожидание текущего');
+  });
+});
+
+test('логотип в карточке: настройка выключена — всегда текст; включили на лету — логотип', () => {
+  const c = logoCard();
+  const hero = stubHero();
+  const realGet = Lampa.Storage.get;
+  Lampa.Storage.get = (name, def) => (name === 'lumen_card_logo' ? 'false' : def);
+  try {
+    withHero(hero, () => LC.header.decorate(c.root, LOGO_MOVIE()));
+    assert.equal(hero.calls.filter((x) => x[0] === 'wait').length, 0, 'выключенная настройка всё равно ждёт логотип');
+    assert.equal(c.root.hasClass('lumen-logo-wait') || c.root.hasClass('lumen-logo-on'), false);
+  } finally {
+    Lampa.Storage.get = realGet;
+  }
+  hero.known = true;
+  withHero(hero, () => LC.header.applyLogoPref());
+  assert.ok(c.root.hasClass('lumen-logo-on'), 'включение на открытой карточке логотип не поставило');
+});
+
+test('логотип в карточке: чужой шаблон без узла логотипа — текст, без ошибок', () => {
+  warnLog.length = 0;
+  const c = makeCard();
+  const hero = stubHero();
+  withHero(hero, () => LC.header.decorate(c.root, LOGO_MOVIE()));
+  assert.equal(hero.calls.filter((x) => x[0] === 'wait').length, 0);
+  assert.equal(c.root.hasClass('lumen-logo-wait'), false);
+  assert.deepEqual(warnLog, []);
+});

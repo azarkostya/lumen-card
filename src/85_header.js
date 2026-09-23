@@ -182,6 +182,135 @@
     if (cls) node.addClass(cls);
   }
 
+  /* -------------------------------------------------------------------- */
+  /* Логотип названия в карточке (правка 2026-09-23; долг Task 24,          */
+  /* docs/plans/2026-09-15-lumen-phase3-features.md:159 — «логотип в самой  */
+  /* карточке не сделан вовсе»; идея — docs/design/ux-ideas.md:40).         */
+  /* -------------------------------------------------------------------- */
+
+  /* Когда логотип, а когда двухуровневый текст (4d090c2). Это
+     альтернативы, и выбор один: ЕСТЬ логотип — логотип, НЕТ — текст (с
+     двумя уровнями, если у названия есть свой разделитель, иначе фолбэк
+     кеглем ниже). Логотип выбирается тем же правилом, что в кадре главной
+     (LC.hero.pickLogoItem: язык интерфейса, затем английский, затем
+     безъязыкий):
+       - название фильма на главной и в карточке, открытой с неё, обязано
+         быть ОДНИМ И ТЕМ ЖЕ: переход «постер → кадр» ведёт взгляд прямо с
+         героя в шапку карточки, и смена логотипа на текст по дороге
+         читалась бы как два разных фильма;
+       - логотип — это название в том виде, в каком его нарисовала студия;
+         двухуровневый текст придуман ровно для случая, когда рисованного
+         названия нет, а набранное длинное (п.2.1 разбора композиции).
+     Цена, названная честно: у фильма, чей логотип только английский,
+     русского названия в шапке не видно. Для того, кому это важно, —
+     настройка «Логотип названия в карточке» (lumen_card_logo): выключена —
+     всегда текст.
+
+     Название выводится ОДИН раз (правило Task 71 и 375c38c): пока исход
+     логотипа неизвестен, заголовок скрыт, а место под логотип уже занято
+     рамкой по его пропорции (LC.hero.cardLogoBox, как applyLogoBox у
+     героя) — картинка встаёт в готовую рамку без сдвига соседей. Ожидание
+     и потолок — общие с героем: LC.hero.waitLogo (TITLE_WAIT = 600 мс,
+     кэш исходов logoSeen, одна и та же предзагрузка). Не доехал за
+     потолок — текст, и до конца показа этой карточки он не подменяется.
+
+     Данные: images.logos уже лежат в ответе Api.full — Lampa просит
+     images вместе с деталями (vendor/lampa/app.min.js:20071, языки
+     include_image_language = язык TMDB, en, null). Своего запроса к TMDB
+     логотип не добавляет, только загрузку самой картинки.
+
+     Таймеры: потолок (600 мс) и страховка загрузки (8 с) живут внутри
+     waitLogo и кончаются сами; отменяются на перерисовке карточки под
+     другой логотип и при смене настройки. Сторож el.lumen_logo !== st не
+     даёт позднему решению тронуть узел, который уже показывает другое. */
+  function cardLogoAllowed() {
+    try { return LC.pref ? LC.pref('lumen_card_logo', true) !== false : true; } catch (e) { return true; }
+  }
+
+  function logoLang() {
+    try {
+      if (typeof LC.langCode === 'function') return LC.langCode();
+    } catch (e) { }
+    return 'ru';
+  }
+
+  function setTitleMode(root, mode) {
+    root.removeClass('lumen-logo-wait lumen-logo-on');
+    if (mode === 'wait') root.addClass('lumen-logo-wait');
+    else if (mode === 'logo') root.addClass('lumen-logo-on');
+  }
+
+  function renderLogo(root, movie) {
+    var el = root[0];
+    if (!el) return;
+    var title = root.find('.full-start-new__title');
+    if (!title.length) return;
+    /* Узел логотипа — из нашего шаблона (src/40_template.js). Нет его —
+       шаблон чужой, и название остаётся текстом, как было. */
+    var holder = root.find('.lumen-logo');
+    if (!holder.length) return;
+    /* Данные запоминаются на узле: смена настройки перерисовывает уже
+       открытые карточки (applyLogoPref), а decorate к ним второй раз не
+       придёт. */
+    el.lumen_logo_movie = movie;
+
+    var hero = LC.hero;
+    var item = null;
+    if (cardLogoAllowed() && hero && typeof hero.pickLogoItem === 'function') {
+      item = hero.pickLogoItem(movie && movie.images && movie.images.logos, logoLang());
+    }
+    var path = item ? item.file_path : '';
+    var prev = el.lumen_logo;
+    /* decorate приходит дважды — на build и на complite — с одними и теми же
+       данными: второй проход не должен ни перезапускать ожидание, ни
+       мигать заголовком. */
+    if (prev && prev.path === path) return;
+    if (prev && prev.handle) prev.handle.cancel();
+    var st = { path: path, handle: null };
+    el.lumen_logo = st;
+
+    if (!path) {
+      holder.css('background-image', 'none');
+      setTitleMode(root, 'text');
+      return;
+    }
+    var box = hero.cardLogoBox(hero.logoRatioOf(item));
+    holder.css('width', box ? box.w + 'em' : '');
+    holder.css('height', box ? box.h + 'em' : '');
+    /* Адрес — тот же, что у героя (LC.hero.logoUrl, разбор там): логотип,
+       уже виденный на главной, встаёт из кэша браузера без второй
+       загрузки. */
+    var url = hero.logoUrl(path);
+    setTitleMode(root, 'wait');
+    var handle = hero.waitLogo(path, url, function (show) {
+      if (el.lumen_logo !== st) return;
+      st.handle = null;
+      if (show) {
+        holder.css('background-image', 'url("' + encodeURI(url) + '")');
+        setTitleMode(root, 'logo');
+      } else {
+        holder.css('background-image', 'none');
+        setTitleMode(root, 'text');
+      }
+    });
+    /* Известный исход решается синхронно — тогда держать handle незачем. */
+    if (el.lumen_logo === st && root.hasClass('lumen-logo-wait')) st.handle = handle;
+  }
+
+  /* Настройку «Логотип названия в карточке» переключили: уже открытые
+     карточки перерисовываются сразу — выключение возвращает текст,
+     включение ставит логотип (из кэша сразу, иначе после его загрузки с
+     тем же потолком). */
+  function applyLogoPref() {
+    $('.lumen-card').each(function () {
+      var el = this;
+      if (!el.lumen_logo_movie) return;
+      if (el.lumen_logo && el.lumen_logo.handle) el.lumen_logo.handle.cancel();
+      el.lumen_logo = null;
+      try { renderLogo($(el), el.lumen_logo_movie); } catch (e) { warn('logo pref failed', e); }
+    });
+  }
+
   /* Task 5a Step 3: статус -> точка/подпись (кегль дизайна, только точка
      красится — текст всегда нейтральный, кроме 'soon', где подписи Lampa
      нет вовсе и мы её подставляем сами: «Анонс»). */
@@ -1384,6 +1513,7 @@
     var movie = (data && data.movie) || {};
 
     try { renderTitleClass(root, movie); } catch (e) { warn('title failed', e); }
+    try { renderLogo(root, movie); } catch (e) { warn('logo failed', e); }
     try { renderMeta(root, movie); } catch (e) { warn('meta failed', e); }
     try { renderStatus(root, movie); } catch (e) { warn('status failed', e); }
     try { renderSerialMode(root, movie); } catch (e) { warn('serial mode failed', e); }
@@ -1519,6 +1649,7 @@
 
   LC.header = {
     decorate: decorate,
+    applyLogoPref: applyLogoPref,
     mergePeople: mergePeople,
     installPeople: installPeople,
     uninstallPeople: uninstallPeople,

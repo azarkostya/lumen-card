@@ -277,3 +277,17 @@ test('assert: языковой ключ оригинала отсутствуе�
   assert.equal(result.ok, false);
   assert.ok(result.missingInOurs.indexOf('#{title_watch}') !== -1);
 });
+
+/* Правка 2026-09-23: узел логотипа названия — сразу за заголовком, внутри
+   того же блока .lumen-in, и вне обоих контейнеров кнопок: Lampa хэширует
+   outerHTML кнопок, и узел рядом с ними сбил бы приоритетную кнопку. */
+test('build(фикстура): узел логотипа сразу за заголовком и вне кнопок', () => {
+  const result = template.build(fixture);
+  const at = result.indexOf('<div class="lumen-logo"></div>');
+  assert.ok(at !== -1, 'узла логотипа нет в шаблоне');
+  assert.equal(result.indexOf('<div class="full-start-new__title">{title}</div><div class="lumen-logo"></div>') !== -1, true,
+    'логотип стоит не сразу за заголовком');
+  const buttons = template.innerOf(result, 'full-start-new__buttons');
+  assert.equal(buttons.indexOf('lumen-logo'), -1, 'узел логотипа попал в ряд кнопок');
+  assert.equal(template.innerOf(result, 'buttons--container').indexOf('lumen-logo'), -1);
+});

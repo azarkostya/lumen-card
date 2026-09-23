@@ -5809,3 +5809,37 @@ test('Task 74: у постера ряда и постера сетки одна 
   const grid = decl(css, '.lumen-grid .lumen-gcard:not(.card--wide):not(.card--collection) .card__img');
   assert.equal(main, grid);
 });
+
+/* Правка 2026-09-23: логотип названия в карточке сжимается вместе с
+   заголовком — его рамка задана в em узла, а кегль узла в каждой ветке тот
+   же, что у заголовка (разбор — CARD_TITLE_EM в src/48_hero.js). Разойдутся
+   кегли — логотип в сжатой шапке или на узком окне останется крупным. */
+test('логотип карточки: кегль узла совпадает с кеглем заголовка во всех ветках', () => {
+  const fs = (decl) => (/(?:^|;)font-size:([\d.]+)em/.exec(decl || '') || [])[1];
+  const pairs = [
+    ['.lumen-card .full-start-new__title', '.lumen-card .lumen-logo'],
+    ['.lumen-card.lumen-compact .full-start-new__title', '.lumen-card.lumen-compact .lumen-logo'],
+    ['.lumen-card.lumen-trailer-on .full-start-new__title', '.lumen-card.lumen-trailer-on .lumen-logo']
+  ];
+  for (const [t, l] of pairs) {
+    const title = fs(findDecl(css, (s) => s === t));
+    const logo = fs(findDecl(css, (s) => s === l));
+    assert.ok(title, 'нет кегля у ' + t);
+    assert.equal(logo, title, l + ': кегль ' + logo + ' против ' + title + ' у заголовка');
+  }
+  const hero = readFileSync(new URL('../src/48_hero.js', import.meta.url), 'utf8');
+  assert.equal(/var CARD_TITLE_EM = ([\d.]+);/.exec(hero)[1], fs(findDecl(css, (s) => s === '.lumen-card .full-start-new__title')),
+    'копия кегля заголовка в src/48_hero.js разошлась с таблицей стилей');
+  /* Узкое окно: правило внутри медиазапроса. */
+  const narrow = css.split('\n').find((l) => l.indexOf('@media screen and (max-width:') === 0 && l.indexOf('.lumen-card .full-start-new__title{font-size:') !== -1);
+  assert.ok(narrow, 'ветки узкого окна нет');
+  const nt = /\.lumen-card \.full-start-new__title\{font-size:([\d.]+)em/.exec(narrow)[1];
+  const nl = /\.lumen-card \.lumen-logo\{font-size:([\d.]+)em/.exec(narrow);
+  assert.ok(nl, 'логотип не сжимается на узком окне');
+  assert.equal(nl[1], nt);
+  /* Пока исход неизвестен и когда логотип показан, заголовок скрыт; иначе
+     узла логотипа не видно вовсе. */
+  assert.ok(/display:none/.test(findDecl(css, (s) => s === '.lumen-card .lumen-logo')));
+  assert.ok(/display:none/.test(findDecl(css, (s) => s === '.lumen-card.lumen-logo-wait .full-start-new__title')));
+  assert.ok(/display:block/.test(findDecl(css, (s) => s === '.lumen-card.lumen-logo-on .lumen-logo')));
+});

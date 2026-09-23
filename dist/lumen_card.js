@@ -2115,6 +2115,22 @@ css.push('.lumen-card .lumen-title__sub{display:-webkit-box;-webkit-box-orient:v
 
 
 
+css.push('.lumen-card .lumen-logo{display:none;font-size:3.33em;width:7.13em;height:1.55em;margin:.67em 0 0;background-repeat:no-repeat;background-position:0 50%;-webkit-background-size:contain;background-size:contain}');
+css.push('.lumen-card.lumen-logo-wait .full-start-new__title,.lumen-card.lumen-logo-on .full-start-new__title{display:none}');
+css.push('.lumen-card.lumen-logo-wait .lumen-logo,.lumen-card.lumen-logo-on .lumen-logo{display:block}');
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -2381,6 +2397,7 @@ css.push('.lumen-card .lumen-trailer-badge:before{content:"";display:block;-webk
 
 
 css.push('.lumen-card.lumen-trailer-on .full-start-new__title{font-size:1.84em;opacity:.92}');
+css.push('.lumen-card.lumen-trailer-on .lumen-logo{font-size:1.84em;opacity:.92}');
 
 
 css.push('.lumen-card.lumen-trailer-on .full-start-new__rate-line,.lumen-card.lumen-trailer-on .lumen-episodes,.lumen-card.lumen-trailer-on .lumen-progress{display:none !important}');
@@ -3138,6 +3155,7 @@ css.push(LC.icons.NO_MASK + '{.lumen-descr-row .lumen-reviews__ico,.lumen-descr-
 css.push('@media screen and (max-width:' + narrowWindowPx() + 'px){' +
 '.lumen-card .full-start-new__title{font-size:2.5em;line-height:1.16}' +
 '.lumen-card .full-start-new__title.lumen-title--long{font-size:2.11em;line-height:1.17}' +
+'.lumen-card .lumen-logo{font-size:2.5em}' +
 '.lumen-card .full-start-new__body{min-height:0}}');
 
 
@@ -3248,12 +3266,13 @@ css.push('@keyframes lumen-kb{from{transform:scale(1)}to{transform:scale(1.08)}}
 
 
 
-css.push('.lumen-card .full-start-new__title,.lumen-card .full-start-new__rate-line,.lumen-card .full-start-new__buttons{-webkit-transition:font-size .28s cubic-bezier(.2,.9,.3,1.25),margin-top .28s cubic-bezier(.2,.9,.3,1.25);transition:font-size .28s cubic-bezier(.2,.9,.3,1.25),margin-top .28s cubic-bezier(.2,.9,.3,1.25)}');
+css.push('.lumen-card .full-start-new__title,.lumen-card .lumen-logo,.lumen-card .full-start-new__rate-line,.lumen-card .full-start-new__buttons{-webkit-transition:font-size .28s cubic-bezier(.2,.9,.3,1.25),margin-top .28s cubic-bezier(.2,.9,.3,1.25);transition:font-size .28s cubic-bezier(.2,.9,.3,1.25),margin-top .28s cubic-bezier(.2,.9,.3,1.25)}');
 
 
 
 
 css.push('.lumen-card.lumen-compact .full-start-new__title{font-size:2.11em;line-height:1.17}');
+css.push('.lumen-card.lumen-compact .lumen-logo{font-size:2.11em}');
 css.push('.lumen-card.lumen-compact .full-start-new__rate-line{margin-top:.87em}');
 css.push('.lumen-card.lumen-compact .full-start-new__buttons{margin-top:.95em}');
 
@@ -3279,7 +3298,7 @@ css.push('.lumen-card.lumen-compact .lumen-next-chip__text{display:none}');
 css.push('.lumen-card.lumen-compact .lumen-next-chip__short{display:block}');
 css.push('.lumen-card.lumen-compact .lumen-status__label{display:none}');
 css.push('.lumen-card.lumen-compact .lumen-status__short:not(:empty){display:block}');
-css.push('.lumen-card.lumen-motion-lite .full-start-new__title,.lumen-card.lumen-motion-lite .full-start-new__rate-line,.lumen-card.lumen-motion-lite .full-start-new__buttons,.lumen-card.lumen-motion-off .full-start-new__title,.lumen-card.lumen-motion-off .full-start-new__rate-line,.lumen-card.lumen-motion-off .full-start-new__buttons{-webkit-transition:none;transition:none}');
+css.push('.lumen-card.lumen-motion-lite .full-start-new__title,.lumen-card.lumen-motion-lite .lumen-logo,.lumen-card.lumen-motion-off .lumen-logo,.lumen-card.lumen-motion-lite .full-start-new__rate-line,.lumen-card.lumen-motion-lite .full-start-new__buttons,.lumen-card.lumen-motion-off .full-start-new__title,.lumen-card.lumen-motion-off .full-start-new__rate-line,.lumen-card.lumen-motion-off .full-start-new__buttons{-webkit-transition:none;transition:none}');
 
 
 
@@ -5993,6 +6012,11 @@ return '' +
 
 '<div class="lumen-in">' +
 '<div class="full-start-new__title">{title}</div>' +
+
+
+
+
+'<div class="lumen-logo"></div>' +
 '<div class="full-start-new__tagline full--tagline">{tagline}</div>' +
 '</div>' +
 
@@ -11768,6 +11792,36 @@ var LOGO_H_MAX = 6.5;
 var LOGO_H_MIN = 3;
 var LOGO_W_MAX = 37.84;
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+var CARD_TITLE_EM = 3.33;
+var CARD_LOGO_H_MAX = 2;
+
 var MOTION_CLASSES = 'lumen-motion-full lumen-motion-lite lumen-motion-off';
 
 
@@ -11830,6 +11884,29 @@ var w = h * r;
 if (w > LOGO_W_MAX) {
 w = LOGO_W_MAX;
 h = w / r;
+}
+return { w: round2(w), h: round2(h) };
+}
+
+
+
+
+
+
+
+
+
+
+function cardLogoBox(ratio) {
+var box = logoBox(ratio);
+if (!box) return null;
+var r = Number(ratio);
+var k = TEXT_ZOOM / CARD_TITLE_EM;
+var h = box.h * k;
+var w = box.w * k;
+if (h > CARD_LOGO_H_MAX) {
+h = CARD_LOGO_H_MAX;
+w = h * r;
 }
 return { w: round2(w), h: round2(h) };
 }
@@ -12056,6 +12133,112 @@ var last = null;
 
 var logoSeen = {};
 
+
+
+
+
+
+
+
+
+
+
+
+
+function preloadLogo(path, url, done) {
+var loader = new Image();
+loader.decoding = 'async';
+var over = false;
+var timer = null;
+
+function stop() {
+over = true;
+loader.onload = null;
+loader.onerror = null;
+if (timer) {
+clearTimeout(timer);
+timer = null;
+}
+}
+
+function finish(ok) {
+if (over) return;
+stop();
+logoSeen[path] = ok ? 'ok' : (logoSeen[path] === 'retry' ? 'fail' : 'retry');
+if (done) done(ok);
+}
+
+loader.onload = function () { finish(true); };
+loader.onerror = function () { finish(false); };
+timer = setTimeout(function () {
+finish(!!(loader.complete && loader.naturalWidth));
+}, LOAD_TIMEOUT);
+loader.src = url;
+return { cancel: stop };
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function waitLogo(path, url, decide) {
+if (!path || !url || logoSeen[path] === 'fail') {
+decide(false);
+return { cancel: function () {} };
+}
+if (logoSeen[path] === 'ok') {
+decide(true);
+return { cancel: function () {} };
+}
+var decided = false;
+var ceiling = null;
+function once(show) {
+if (decided) return;
+decided = true;
+if (ceiling) {
+clearTimeout(ceiling);
+ceiling = null;
+}
+decide(show);
+}
+var load = preloadLogo(path, url, function (ok) { once(ok); });
+ceiling = setTimeout(function () {
+ceiling = null;
+once(false);
+}, TITLE_WAIT);
+return {
+cancel: function () {
+decided = true;
+if (ceiling) {
+clearTimeout(ceiling);
+ceiling = null;
+}
+
+
+
+load.cancel();
+}
+};
+}
+
 function tmdbImageFn() {
 if (window.Lampa && Lampa.TMDB && typeof Lampa.TMDB.image === 'function') {
 return function (url) { return Lampa.TMDB.image(url); };
@@ -12256,13 +12439,12 @@ if (!state) return;
 stopTimer('loadTimer');
 stopTimer('swapTimer');
 
-
-stopTimer('logoTimer');
-
 stopTimer('titleTimer');
+
+
+
 if (state.logoLoader) {
-state.logoLoader.onload = null;
-state.logoLoader.onerror = null;
+state.logoLoader.cancel();
 state.logoLoader = null;
 }
 if (state.loader) {
@@ -12574,30 +12756,8 @@ node.removeClass('lumen-hero--logo');
 
 function loadLogo(path, url) {
 var captured = gen;
-var loader = new Image();
-loader.decoding = 'async';
-var done = false;
-
-function finish(ok) {
-if (done) return;
-done = true;
-loader.onload = null;
-loader.onerror = null;
-
-
-
-
-
-
-
-
-
-
-
-
-logoSeen[path] = ok ? 'ok' : (logoSeen[path] === 'retry' ? 'fail' : 'retry');
+state.logoLoader = preloadLogo(path, url, function (ok) {
 if (gen !== captured || !state || !isMounted()) return;
-stopTimer('logoTimer');
 state.logoLoader = null;
 
 
@@ -12613,17 +12773,23 @@ stopTimer('titleTimer');
 
 if (!state.model || state.model.logo !== path) return;
 showLogo(state.node, url);
+});
 }
 
-loader.onload = function () { finish(true); };
-loader.onerror = function () { finish(false); };
-state.logoLoader = loader;
 
 
-state.logoTimer = setTimeout(function () {
-finish(!!(loader.complete && loader.naturalWidth));
-}, LOAD_TIMEOUT);
-loader.src = url;
+
+
+
+
+
+
+
+
+
+
+function logoUrl(path) {
+return path ? imageUrl(path, logoSizeFor(LC.util.emPx(LOGO_EM * TEXT_ZOOM, 1))) : '';
 }
 
 
@@ -12641,15 +12807,11 @@ function applyLogo(node, model) {
 var path = logoAllowed() ? model.logo : null;
 
 
-stopTimer('logoTimer');
 if (state.logoLoader) {
-state.logoLoader.onload = null;
-state.logoLoader.onerror = null;
+state.logoLoader.cancel();
 state.logoLoader = null;
 }
-
-
-var url = path ? imageUrl(path, logoSizeFor(LC.util.emPx(LOGO_EM * TEXT_ZOOM, 1))) : '';
+var url = logoUrl(path);
 if (!url || logoSeen[path] === 'fail') { hideLogo(node); return 'none'; }
 if (logoSeen[path] === 'ok') { showLogo(node, url); return 'logo'; }
 hideLogo(node);
@@ -13640,7 +13802,6 @@ loader: null,
 
 
 logoLoader: null,
-logoTimer: null,
 
 
 
@@ -13745,7 +13906,7 @@ if (LC.accent && typeof LC.accent.stopTween === 'function') LC.accent.stopTween(
 } catch (eTween) {
 warn('hero: accent stop failed', eTween);
 }
-var timers = ['timer', 'swapTimer', 'loadTimer', 'accentTimer', 'bigTimer', 'trailerTimer', 'lqipTimer', 'logoTimer', 'titleTimer'];
+var timers = ['timer', 'swapTimer', 'loadTimer', 'accentTimer', 'bigTimer', 'trailerTimer', 'lqipTimer', 'titleTimer'];
 for (var i = 0; i < timers.length; i++) {
 try { if (s[timers[i]]) clearTimeout(s[timers[i]]); } catch (eT) {}
 }
@@ -13755,10 +13916,7 @@ s.loader.onerror = null;
 }
 
 
-if (s.logoLoader) {
-s.logoLoader.onload = null;
-s.logoLoader.onerror = null;
-}
+if (s.logoLoader) s.logoLoader.cancel();
 
 
 if (s.bigLoader) {
@@ -13819,6 +13977,17 @@ return ownedBy(render);
 
 return {
 pickLogo: pickLogo,
+
+
+
+
+pickLogoItem: pickLogoItem,
+logoRatioOf: logoRatioOf,
+cardLogoBox: cardLogoBox,
+logoUrl: logoUrl,
+waitLogo: waitLogo,
+TITLE_WAIT: TITLE_WAIT,
+CARD_TITLE_EM: CARD_TITLE_EM,
 bigPoster: bigPoster,
 mediaOf: mediaOf,
 heroModel: heroModel,
@@ -27035,6 +27204,16 @@ ru: 'Шрифты с Google Fonts. Требуется интернет. Выкл
 en: 'Fonts from Google Fonts. Requires internet access.',
 uk: 'Шрифти з Google Fonts. Потрібен інтернет.'
 },
+
+
+
+
+lumen_card_logo_name: { ru: 'Логотип названия в карточке', en: 'Title logo on the card', uk: 'Логотип назви в картці' },
+lumen_card_logo_descr: {
+ru: 'Вместо набранного названия — логотип фильма, как в кадре главной. Если логотипа на языке интерфейса нет, берётся английский. Выключите, чтобы в карточке всегда было название текстом. Применяется сразу.',
+en: 'The film logo instead of the typed title, as in the home hero. If there is no logo in the interface language, the English one is used. Turn off to always see the title as text on the card. Applied immediately.',
+uk: 'Замість набраної назви — логотип фільму, як у кадрі головної. Якщо логотипа мовою інтерфейсу немає, береться англійський. Вимкніть, щоб у картці завжди була назва текстом. Застосовується одразу.'
+},
 lumen_card_progress_name: { ru: 'Показывать «Продолжить»', en: 'Show "Continue"', uk: 'Показувати «Продовжити»' },
 
 
@@ -27846,6 +28025,14 @@ if (name === 'lumen_hide_meta') return true;
 
 
 
+
+if (name === 'lumen_card_logo') {
+try { if (LC.header && LC.header.applyLogoPref) LC.header.applyLogoPref(); } catch (eCardLogo) {}
+return true;
+}
+
+
+
 if (name === 'lumen_accent_auto') {
 try { if (LC.applyAccentPref) LC.applyAccentPref(); } catch (eAccent) {}
 
@@ -28524,6 +28711,17 @@ var LIST = [
 { name: 'lumen_trailer', type: 'select', values: ['auto', 'on', 'off'], vprefix: 'lumen_card_trailer_', 'default': 'auto', label: 'lumen_card_trailer', descr: 'lumen_card_trailer_descr' },
 
 { name: 'lumen_group_blocks', type: 'title', label: 'lumen_card_group_blocks' },
+
+
+
+
+
+
+
+
+
+
+{ name: 'lumen_card_logo', type: 'trigger', 'default': true, label: 'lumen_card_logo_name', descr: 'lumen_card_logo_descr' },
 { name: 'lumen_card_progress', type: 'trigger', 'default': true, label: 'lumen_card_progress_name', descr: 'lumen_card_progress_descr' },
 
 
@@ -29142,6 +29340,135 @@ if (node.find('.lumen-title__lead').length) node.text(title);
 
 var cls = LC.cardinfo.titleClass(title);
 if (cls) node.addClass(cls);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function cardLogoAllowed() {
+try { return LC.pref ? LC.pref('lumen_card_logo', true) !== false : true; } catch (e) { return true; }
+}
+
+function logoLang() {
+try {
+if (typeof LC.langCode === 'function') return LC.langCode();
+} catch (e) { }
+return 'ru';
+}
+
+function setTitleMode(root, mode) {
+root.removeClass('lumen-logo-wait lumen-logo-on');
+if (mode === 'wait') root.addClass('lumen-logo-wait');
+else if (mode === 'logo') root.addClass('lumen-logo-on');
+}
+
+function renderLogo(root, movie) {
+var el = root[0];
+if (!el) return;
+var title = root.find('.full-start-new__title');
+if (!title.length) return;
+
+
+var holder = root.find('.lumen-logo');
+if (!holder.length) return;
+
+
+
+el.lumen_logo_movie = movie;
+
+var hero = LC.hero;
+var item = null;
+if (cardLogoAllowed() && hero && typeof hero.pickLogoItem === 'function') {
+item = hero.pickLogoItem(movie && movie.images && movie.images.logos, logoLang());
+}
+var path = item ? item.file_path : '';
+var prev = el.lumen_logo;
+
+
+
+if (prev && prev.path === path) return;
+if (prev && prev.handle) prev.handle.cancel();
+var st = { path: path, handle: null };
+el.lumen_logo = st;
+
+if (!path) {
+holder.css('background-image', 'none');
+setTitleMode(root, 'text');
+return;
+}
+var box = hero.cardLogoBox(hero.logoRatioOf(item));
+holder.css('width', box ? box.w + 'em' : '');
+holder.css('height', box ? box.h + 'em' : '');
+
+
+
+var url = hero.logoUrl(path);
+setTitleMode(root, 'wait');
+var handle = hero.waitLogo(path, url, function (show) {
+if (el.lumen_logo !== st) return;
+st.handle = null;
+if (show) {
+holder.css('background-image', 'url("' + encodeURI(url) + '")');
+setTitleMode(root, 'logo');
+} else {
+holder.css('background-image', 'none');
+setTitleMode(root, 'text');
+}
+});
+
+if (el.lumen_logo === st && root.hasClass('lumen-logo-wait')) st.handle = handle;
+}
+
+
+
+
+
+function applyLogoPref() {
+$('.lumen-card').each(function () {
+var el = this;
+if (!el.lumen_logo_movie) return;
+if (el.lumen_logo && el.lumen_logo.handle) el.lumen_logo.handle.cancel();
+el.lumen_logo = null;
+try { renderLogo($(el), el.lumen_logo_movie); } catch (e) { warn('logo pref failed', e); }
+});
 }
 
 
@@ -30346,6 +30673,7 @@ if (!root.hasClass('lumen-card')) return;
 var movie = (data && data.movie) || {};
 
 try { renderTitleClass(root, movie); } catch (e) { warn('title failed', e); }
+try { renderLogo(root, movie); } catch (e) { warn('logo failed', e); }
 try { renderMeta(root, movie); } catch (e) { warn('meta failed', e); }
 try { renderStatus(root, movie); } catch (e) { warn('status failed', e); }
 try { renderSerialMode(root, movie); } catch (e) { warn('serial mode failed', e); }
@@ -30481,6 +30809,7 @@ _fullOriginal = null;
 
 LC.header = {
 decorate: decorate,
+applyLogoPref: applyLogoPref,
 mergePeople: mergePeople,
 installPeople: installPeople,
 uninstallPeople: uninstallPeople,

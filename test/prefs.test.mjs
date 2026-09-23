@@ -144,6 +144,8 @@ test('LIST: «Включить Lumen Card» — первый пункт разд
 test('LIST: полный набор ключей — существующие имена не переименованы', () => {
   assert.deepEqual(names.slice().sort(), [
     'lumen_card_accent', 'lumen_card_fonts', 'lumen_card_progress',
+    /* Правка 2026-09-23: логотип названия в шапке карточки */
+    'lumen_card_logo',
     'lumen_font', /* Правка 2026-09-16 (п.6): выбор гарнитуры */
     'lumen_enabled', 'lumen_kp_key',
     'lumen_manifest_url', /* Task 14 (фаза 2): адрес каталога подборок */
@@ -264,8 +266,10 @@ const GROUPS = [
   /* A6 (волна A): «Скрывать блоки анализа Lampa» — последним в группе.
      Группа про то, что показано на карточке, и этот пункт единственный
      говорит про ЧУЖИЕ блоки; свои читаются раньше. */
+  /* Правка 2026-09-23: логотип названия — первым: заголовок и есть верхний
+     блок карточки. */
   ['lumen_group_blocks', [
-    'lumen_card_progress', 'lumen_reviews', 'lumen_reviews_mode', 'lumen_kp_key', 'lumen_kp_hint',
+    'lumen_card_logo', 'lumen_card_progress', 'lumen_reviews', 'lumen_reviews_mode', 'lumen_kp_key', 'lumen_kp_hint',
     'lumen_hide_meta'
   ]],
   ['lumen_group_home', [

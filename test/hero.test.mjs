@@ -2677,3 +2677,125 @@ test('Название: знакомый фильм показывается м�
   assert.deepEqual(env.timers.filter((t) => !t.done && t.ms === 600).map((t) => t.ms), [], 'знакомому логотипу ожидание не нужно');
   assert.deepEqual(warnLog, []);
 });
+
+/* ====================================================================== */
+/* Правка 2026-09-23: логотип названия в карточке фильма берёт у героя    */
+/* рамку (cardLogoBox) и ожидание с потолком (waitLogo).                   */
+/* ====================================================================== */
+
+test('cardLogoBox: тот же видимый размер, что у героя, в em заголовка карточки', () => {
+  /* Рамка героя в em его текста (×1.1 к базовому), рамка карточки — в em
+     заголовка (3.33 базовых): один и тот же логотип обязан выйти одного
+     размера в пикселях на обоих экранах. */
+  for (const r of [3.3, 4.59, 7.96]) {
+    const hero = H.logoBox(r);
+    const card = H.cardLogoBox(r);
+    assert.ok(Math.abs(card.h * 3.33 - hero.h * 1.1) < 0.02, r + ': высота разошлась — ' + JSON.stringify([hero, card]));
+    assert.ok(Math.abs(card.w * 3.33 - hero.w * 1.1) < 0.05, r + ': ширина разошлась');
+  }
+});
+
+test('cardLogoBox: потолок — высота двухуровневого названия, пропорция при упоре сохраняется', () => {
+  /* Двухуровневое название: ведущая строка 1.26 + вторая .63 × 1.17. */
+  const TWO_LEVEL = 1.26 + 0.63 * 1.17;
+  for (const r of [1, 1.46, 2.12, 2.7]) {
+    const b = H.cardLogoBox(r);
+    assert.ok(b.h <= 2 + 1e-9, r + ': логотип выше потолка — ' + b.h);
+    assert.ok(Math.abs(b.w / b.h - r) < 0.02, r + ': рамка не по пропорции — ' + JSON.stringify(b));
+  }
+  assert.equal(H.cardLogoBox(1).h, 2);
+  assert.ok(Math.abs(2 - TWO_LEVEL) < 0.01, 'потолок разошёлся с высотой двухуровневого названия');
+  assert.equal(H.cardLogoBox(0), null, 'пропорции нет — размер отдаётся CSS');
+  assert.equal(H.cardLogoBox(NaN), null);
+});
+
+test('waitLogo: логотип доехал раньше потолка — решение «логотип», одно', () => {
+  const env = makeEnv();
+  const got = [];
+  env.hero.waitLogo('/w1.png', 'https://img/w1.png', (show) => got.push(show));
+  assert.deepEqual(got, [], 'до загрузки решения нет');
+  const img = env.images[env.images.length - 1];
+  assert.equal(img.src, 'https://img/w1.png');
+  env.advance(200);
+  img.onload();
+  env.advance(1000);
+  assert.deepEqual(got, [true], 'решение одно и это логотип');
+});
+
+test('waitLogo: потолок TITLE_WAIT — текст, поздний логотип решения не меняет, но запоминается', () => {
+  const env = makeEnv();
+  const got = [];
+  env.hero.waitLogo('/w2.png', 'https://img/w2.png', (show) => got.push(show));
+  const img = env.images[env.images.length - 1];
+  env.advance(env.hero.TITLE_WAIT - 1);
+  assert.deepEqual(got, []);
+  env.advance(1);
+  assert.deepEqual(got, [false], 'потолок истёк — текст');
+  img.onload();
+  assert.deepEqual(got, [false], 'поздний логотип подменил текст');
+  /* Исход записан: следующее открытие решается сразу, без загрузки. */
+  const again = [];
+  const before = env.images.length;
+  env.hero.waitLogo('/w2.png', 'https://img/w2.png', (show) => again.push(show));
+  assert.deepEqual(again, [true], 'известный логотип не решён синхронно');
+  assert.equal(env.images.length, before, 'известный логотип загружается второй раз');
+});
+
+test('waitLogo: ошибка — текст сразу, не дожидаясь потолка; вторая ошибка — больше не просим', () => {
+  const env = makeEnv();
+  const got = [];
+  env.hero.waitLogo('/w3.png', 'https://img/w3.png', (show) => got.push(show));
+  env.images[env.images.length - 1].onerror();
+  assert.deepEqual(got, [false]);
+  /* Первая неудача — 'retry' (ревью 2026-09-22, М5): вторая попытка идёт. */
+  const second = [];
+  env.hero.waitLogo('/w3.png', 'https://img/w3.png', (show) => second.push(show));
+  env.images[env.images.length - 1].onerror();
+  assert.deepEqual(second, [false]);
+  const before = env.images.length;
+  const third = [];
+  env.hero.waitLogo('/w3.png', 'https://img/w3.png', (show) => third.push(show));
+  assert.deepEqual(third, [false], 'дважды неудавшийся логотип не решён синхронно');
+  assert.equal(env.images.length, before, 'дважды неудавшийся логотип запрошен снова');
+});
+
+test('waitLogo: cancel снимает и потолок, и загрузку — решения не будет вовсе', () => {
+  const env = makeEnv();
+  const got = [];
+  const h = env.hero.waitLogo('/w4.png', 'https://img/w4.png', (show) => got.push(show));
+  const img = env.images[env.images.length - 1];
+  h.cancel();
+  env.advance(10000);
+  assert.equal(img.onload, null, 'обработчик загрузки остался');
+  assert.deepEqual(got, []);
+});
+
+test('waitLogo: нет адреса или пути — текст синхронно, без загрузки', () => {
+  const env = makeEnv();
+  const got = [];
+  const before = env.images.length;
+  env.hero.waitLogo('', 'https://img/x.png', (show) => got.push(show));
+  env.hero.waitLogo('/x.png', '', (show) => got.push(show));
+  assert.deepEqual(got, [false, false]);
+  assert.equal(env.images.length, before);
+});
+
+/* Правка 2026-09-23: адрес логотипа у карточки и у героя — один. Исход
+   загрузки кэшируется по ПУТИ, и «уже доехал» обязано значить «лежит в кэше
+   браузера ровно по этому адресу» — иначе известный логотип ставился бы в
+   рамку карточки картинкой, которой в кэше ещё нет. */
+test('logoUrl: карточка получает ровно тот адрес, который грузит герой', () => {
+  const f = heroIn('full');
+  f.env.requests[f.env.requests.length - 1].ok(Object.assign({ id: 1 }, LOGO_RU));
+  f.env.advance(200);
+  assert.ok(logoLoads(f.env).length >= 1, 'герой логотип не запросил');
+  assert.equal(f.env.hero.logoUrl('/l.png'), LOGO_URL);
+  assert.equal(f.env.hero.logoUrl(''), '');
+  /* Герой логотип загрузил — у карточки решение синхронное и без загрузки. */
+  logoLoader(f.env).onload();
+  const before = f.env.images.length;
+  const got = [];
+  f.env.hero.waitLogo('/l.png', f.env.hero.logoUrl('/l.png'), (show) => got.push(show));
+  assert.deepEqual(got, [true]);
+  assert.equal(f.env.images.length, before, 'логотип, виденный в герое, грузится второй раз');
+});

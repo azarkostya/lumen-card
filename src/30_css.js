@@ -1385,6 +1385,22 @@
     css.push('.lumen-card .full-start-new__title.lumen-title--split{display:block;overflow:visible}');
     css.push('.lumen-card .lumen-title__lead{display:-webkit-box;-webkit-box-orient:vertical;overflow:hidden;-webkit-line-clamp:2;line-clamp:2}');
     css.push('.lumen-card .lumen-title__sub{display:-webkit-box;-webkit-box-orient:vertical;overflow:hidden;-webkit-line-clamp:2;line-clamp:2;font-size:.63em;line-height:1.17;font-weight:600;color:' + P.muted + '}');
+    /* Правка 2026-09-23: логотип названия (renderLogo, src/85_header.js).
+       Кегль узла — ровно кегль заголовка (3.33em), поэтому рамка, которую
+       рантайм ставит инлайном в em (LC.hero.cardLogoBox), сжимается вместе
+       с заголовком во всех ветках ниже: узкое окно, сжатая шапка, играющий
+       трейлер. Поле сверху — то же .67em, что у заголовка, в тех же
+       единицах: логотип встаёт на место названия, а не рядом с ним.
+       Картинка — фоном по contain, прижатая влево по центру рамки: рамка
+       и так по пропорции логотипа, contain лишь страхует от округления.
+       Размер по умолчанию (пропорции в ответе TMDB нет) — типичная
+       пропорция логотипа 4.6:1 на высоте 1.55em.
+       Пока исход неизвестен (.lumen-logo-wait), заголовок скрыт, а рамка
+       уже стоит пустой — место занято, и логотип встаёт без сдвига
+       соседей; решено «текст» — классов нет, и всё как было. */
+    css.push('.lumen-card .lumen-logo{display:none;font-size:3.33em;width:7.13em;height:1.55em;margin:.67em 0 0;background-repeat:no-repeat;background-position:0 50%;-webkit-background-size:contain;background-size:contain}');
+    css.push('.lumen-card.lumen-logo-wait .full-start-new__title,.lumen-card.lumen-logo-on .full-start-new__title{display:none}');
+    css.push('.lumen-card.lumen-logo-wait .lumen-logo,.lumen-card.lumen-logo-on .lumen-logo{display:block}');
     /* Правка пользователя 2026-09-16 (п.2): оригинальное название из шапки
        убрано вместе с узлом .lumen-original — оно дублировало строку
        «Оригинал» таблицы «ПОДРОБНО», которая и есть нужное для него место. */
@@ -1664,6 +1680,7 @@
        (реакции + кнопки + ряд серий) становится строкой, чтобы «Стоп» встал
        рядом с рядом кнопок, а не под ним. */
     css.push('.lumen-card.lumen-trailer-on .full-start-new__title{font-size:1.84em;opacity:.92}');
+    css.push('.lumen-card.lumen-trailer-on .lumen-logo{font-size:1.84em;opacity:.92}');
     /* Task 8: строки «Продолжить» на экране 02 тоже нет — под роликом остаются
        только заголовок, мета-строка и ряд кнопок. */
     css.push('.lumen-card.lumen-trailer-on .full-start-new__rate-line,.lumen-card.lumen-trailer-on .lumen-episodes,.lumen-card.lumen-trailer-on .lumen-progress{display:none !important}');
@@ -2421,6 +2438,7 @@
     css.push('@media screen and (max-width:' + narrowWindowPx() + 'px){' +
       '.lumen-card .full-start-new__title{font-size:2.5em;line-height:1.16}' +
       '.lumen-card .full-start-new__title.lumen-title--long{font-size:2.11em;line-height:1.17}' +
+      '.lumen-card .lumen-logo{font-size:2.5em}' +
       '.lumen-card .full-start-new__body{min-height:0}}');
 
     /* Task 4: motion — анимации в духе Apple TV. */
@@ -2531,12 +2549,13 @@
        На слабых ТВ transition для этих трёх свойств отключён ниже в .lumen-motion-lite/-off — auto уходит
        в lite уже на Tizen/webOS (LC.motionModeFor); автодетект слабых Android — фаза 3 Task 29 (ещё не
        реализован), пока для них тоже нужно выбирать «Лёгкие»/«Выкл» вручную в настройках. */
-    css.push('.lumen-card .full-start-new__title,.lumen-card .full-start-new__rate-line,.lumen-card .full-start-new__buttons{-webkit-transition:font-size .28s cubic-bezier(.2,.9,.3,1.25),margin-top .28s cubic-bezier(.2,.9,.3,1.25);transition:font-size .28s cubic-bezier(.2,.9,.3,1.25),margin-top .28s cubic-bezier(.2,.9,.3,1.25)}');
+    css.push('.lumen-card .full-start-new__title,.lumen-card .lumen-logo,.lumen-card .full-start-new__rate-line,.lumen-card .full-start-new__buttons{-webkit-transition:font-size .28s cubic-bezier(.2,.9,.3,1.25),margin-top .28s cubic-bezier(.2,.9,.3,1.25);transition:font-size .28s cubic-bezier(.2,.9,.3,1.25),margin-top .28s cubic-bezier(.2,.9,.3,1.25)}');
     /* Фикс-раунд Task 63: вместе с кеглем ступени берётся и её межстрочный —
        Title 3 это 48/56, то есть 1.17 (у Title 1 в базовом правиле 1.26).
        Без этого сжатая шапка получала межстрочный крупной ступени и была
        выше, чем задумано. */
     css.push('.lumen-card.lumen-compact .full-start-new__title{font-size:2.11em;line-height:1.17}');
+    css.push('.lumen-card.lumen-compact .lumen-logo{font-size:2.11em}');
     css.push('.lumen-card.lumen-compact .full-start-new__rate-line{margin-top:.87em}');
     css.push('.lumen-card.lumen-compact .full-start-new__buttons{margin-top:.95em}');
     /* Task 8 (экран 06): «Следующая серия — 17 декабря, через 31 день» в сжатой
@@ -2562,7 +2581,7 @@
     css.push('.lumen-card.lumen-compact .lumen-next-chip__short{display:block}');
     css.push('.lumen-card.lumen-compact .lumen-status__label{display:none}');
     css.push('.lumen-card.lumen-compact .lumen-status__short:not(:empty){display:block}');
-    css.push('.lumen-card.lumen-motion-lite .full-start-new__title,.lumen-card.lumen-motion-lite .full-start-new__rate-line,.lumen-card.lumen-motion-lite .full-start-new__buttons,.lumen-card.lumen-motion-off .full-start-new__title,.lumen-card.lumen-motion-off .full-start-new__rate-line,.lumen-card.lumen-motion-off .full-start-new__buttons{-webkit-transition:none;transition:none}');
+    css.push('.lumen-card.lumen-motion-lite .full-start-new__title,.lumen-card.lumen-motion-lite .lumen-logo,.lumen-card.lumen-motion-off .lumen-logo,.lumen-card.lumen-motion-lite .full-start-new__rate-line,.lumen-card.lumen-motion-lite .full-start-new__buttons,.lumen-card.lumen-motion-off .full-start-new__title,.lumen-card.lumen-motion-off .full-start-new__rate-line,.lumen-card.lumen-motion-off .full-start-new__buttons{-webkit-transition:none;transition:none}');
 
     /* --- Task 17: кнопка «Франшиза» в карточке (design-spec-card §7a) ---
        Собственный .selector рядом с рядом кнопок, НЕ внутри него: Lampa

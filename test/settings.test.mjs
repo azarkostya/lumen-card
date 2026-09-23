@@ -114,6 +114,9 @@ function setup(opts) {
      играющий ролик прямо у героя, своей точки в 90_runtime.js ему не нужно. */
   /* Task 71 (фаза 6): логотип названия — перерисовка героя той же моделью. */
   LC.hero = { applyTrailer: mark('herotrailer'), applyLogoPref: mark('herologo') };
+  /* Правка 2026-09-23: логотип названия в карточке — перерисовка узла
+     названия уже открытых карточек (LC.header.applyLogoPref). */
+  LC.header = { applyLogoPref: mark('cardlogo') };
   /* Task 62b (ревью): применение набора значений одним проходом — вместо
      ветки на каждую запись (src/90_runtime.js). */
   LC.applyPresetChanges = (keys) => log.push('preset:' + keys.join(','));
@@ -275,6 +278,7 @@ test('каждая настройка применяется ровно один
     /* Task 71 (фаза 6): логотип названия в кадре главной — перерисовка
        героя: выключение возвращает текстовый заголовок сразу. */
     lumen_hero_logo: ['herologo'],
+    lumen_card_logo: ['cardlogo'],
     lumen_menus: ['menus'],
     lumen_torrents: ['torrents'],
     /* Task 20: подсказка про ключ — перерисовка ряда отзывов карточки плюс

@@ -152,6 +152,36 @@
     var LOGO_H_MIN = 3;
     var LOGO_W_MAX = 37.84;
 
+    /* Правка 2026-09-23: логотип названия в карточке фильма
+       (src/85_header.js). Его рамка задаётся в em СОБСТВЕННОГО узла, а кегль
+       узла равен кеглю заголовка карточки — 3.33em базовых
+       (.lumen-card .full-start-new__title, src/30_css.js; копия литералом по
+       той же причине, что TEXT_ZOOM). Поэтому логотип сжимается вместе с
+       заголовком в каждой ветке, где сжимается заголовок: узкое окно
+       (2.5em), сжатая шапка (2.11em), играющий трейлер (1.84em), — правило
+       кегля для узла логотипа в этих ветках то же, что у заголовка.
+       CARD_LOGO_H_MAX — потолок высоты в тех же единицах: высота
+       двухуровневого названия, то есть самого высокого варианта
+       текстового заголовка, под который раскладка карточки уже
+       рассчитана: ведущая строка 1.26 плюс вторая .63 × 1.17 = .737, итого
+       1.997 ≈ 2. Выше логотип не поднимается ни при какой пропорции:
+       шапка прижата к низу кадра (min-height:74vh), и лишняя высота
+       заголовка у сериала, где над рядом серий запас меньше всего, толкала
+       бы тело карточки вниз вместе с описанием под ним. Потолок взят не «на
+       глаз», а по тексту: логотип никогда не выше того, что карточка и без
+       него уже показывает у названий с разделителем.
+       Замер на стенде 960×540@2 (2026-09-23, плоский вид), сериал «Спецназ:
+       Львица» — логотип 2.12:1 упирается в потолок, 75.9 CSS px против
+       47.8 у текста в одну строку: при «обычных» размерах мета поднимается
+       со 111.5 до 83.4 при верхе тела 74.1, тело (74.1…473.7) и старт
+       описания (503.7) не двигаются. При «Размере интерфейса: крупнее»
+       тело вырастает на 9.7 px (описание 508.9 → 518.6), при масштабе
+       плагина «Ещё крупнее» шапка сериала переполняет 74vh уже с текстом
+       (тело до 508.2), и логотип добавляет к этому 33.7 px — ровно столько
+       же, сколько добавило бы двухуровневое название. */
+    var CARD_TITLE_EM = 3.33;
+    var CARD_LOGO_H_MAX = 2;
+
     var MOTION_CLASSES = 'lumen-motion-full lumen-motion-lite lumen-motion-off';
 
     /* ------------------------------------------------------------------ */
@@ -214,6 +244,29 @@
       if (w > LOGO_W_MAX) {
         w = LOGO_W_MAX;
         h = w / r;
+      }
+      return { w: round2(w), h: round2(h) };
+    }
+
+    /* Правка 2026-09-23: рамка логотипа в карточке фильма, в em узла
+       логотипа (его кегль — кегль заголовка, CARD_TITLE_EM). Формула та же,
+       что у героя, — равная площадь (logoBox), — и тот же ВИДИМЫЙ размер:
+       при переходе «кадр главной → карточка» логотип остаётся тем же
+       логотипом, а не другим его размером. Отличие одно — потолок высоты
+       CARD_LOGO_H_MAX (разбор у константы): у героя под логотип отдана
+       своя полоса, у карточки место жёсткое. Упёрлись — высоту режем,
+       ширину пересчитываем из пропорции, чтобы рамка оставалась ровно по
+       картинке (contain без пустых полей). */
+    function cardLogoBox(ratio) {
+      var box = logoBox(ratio);
+      if (!box) return null;
+      var r = Number(ratio);
+      var k = TEXT_ZOOM / CARD_TITLE_EM;
+      var h = box.h * k;
+      var w = box.w * k;
+      if (h > CARD_LOGO_H_MAX) {
+        h = CARD_LOGO_H_MAX;
+        w = h * r;
       }
       return { w: round2(w), h: round2(h) };
     }
@@ -440,6 +493,112 @@
        посетить, и умирает вместе со страницей. */
     var logoSeen = {};
 
+    /* Предзагрузка логотипа — одна на героя и карточку (правка 2026-09-23:
+       логотип фильма появился и в самой карточке, src/85_header.js).
+       Разбор критерия «байты доехали», отказа от decode() и отсутствия
+       приоритета — у loadLogo ниже; здесь только механика, общая для
+       обоих мест:
+         - исход пишется в logoSeen ДО любого сторожа вызывающего: это
+           знание о картинке, а не о том, кто её просил (ревью 2026-09-22,
+           М5: первая неудача — 'retry', вторая — 'fail');
+         - страховочный таймаут LOAD_TIMEOUT — внутри, как у кадра;
+         - done(ok) зовётся ровно один раз, cancel() его отменяет без
+           записи исхода (отменённая загрузка о картинке ничего не узнала).
+       Возвращает {cancel}. */
+    function preloadLogo(path, url, done) {
+      var loader = new Image();
+      loader.decoding = 'async';
+      var over = false;
+      var timer = null;
+
+      function stop() {
+        over = true;
+        loader.onload = null;
+        loader.onerror = null;
+        if (timer) {
+          clearTimeout(timer);
+          timer = null;
+        }
+      }
+
+      function finish(ok) {
+        if (over) return;
+        stop();
+        logoSeen[path] = ok ? 'ok' : (logoSeen[path] === 'retry' ? 'fail' : 'retry');
+        if (done) done(ok);
+      }
+
+      loader.onload = function () { finish(true); };
+      loader.onerror = function () { finish(false); };
+      timer = setTimeout(function () {
+        finish(!!(loader.complete && loader.naturalWidth));
+      }, LOAD_TIMEOUT);
+      loader.src = url;
+      return { cancel: stop };
+    }
+
+    /* Ожидание логотипа с потолком TITLE_WAIT — правило «название выводится
+       ОДИН раз: либо логотипом, либо текстом, без видимой подмены» (Task 71,
+       правка 2026-09-22; разбор и замеры — у writeTitle), вынесенное для
+       карточки фильма (src/85_header.js). Герой пользуется теми же тремя
+       частями — logoSeen, preloadLogo и TITLE_WAIT, — но потолок у него
+       свой таймер: там он покрывает ещё и ожидание ДЕТАЛЕЙ (логотип
+       приходит только с ними), а у карточки данные с логотипами уже есть к
+       моменту постройки (Lampa.Api.full просит images вместе с деталями,
+       vendor/lampa/app.min.js:20071).
+
+       decide(show) зовётся РОВНО один раз:
+         true  — логотип уже в кэше ресурсов браузера, его можно ставить;
+         false — выводить текст: логотипа нет в кэше и он не доехал за
+                 TITLE_WAIT, не доехал вовсе или дважды не доезжал раньше.
+       Известный исход ('ok'/'fail') решается синхронно, без таймера.
+       Логотип, доехавший ПОСЛЕ потолка, на экран уже не ставится — текст
+       остаётся до следующего открытия (в отличие от героя, который меняет
+       карточку каждые несколько секунд, карточка фильма открыта надолго, и
+       подмена текста логотипом посреди чтения была бы ровно той подменой,
+       которую правило запрещает); исход при этом всё равно записан, и в
+       следующий раз логотип встанет сразу.
+       Возвращает {cancel} — снять и загрузку, и потолок. */
+    function waitLogo(path, url, decide) {
+      if (!path || !url || logoSeen[path] === 'fail') {
+        decide(false);
+        return { cancel: function () {} };
+      }
+      if (logoSeen[path] === 'ok') {
+        decide(true);
+        return { cancel: function () {} };
+      }
+      var decided = false;
+      var ceiling = null;
+      function once(show) {
+        if (decided) return;
+        decided = true;
+        if (ceiling) {
+          clearTimeout(ceiling);
+          ceiling = null;
+        }
+        decide(show);
+      }
+      var load = preloadLogo(path, url, function (ok) { once(ok); });
+      ceiling = setTimeout(function () {
+        ceiling = null;
+        once(false);
+      }, TITLE_WAIT);
+      return {
+        cancel: function () {
+          decided = true;
+          if (ceiling) {
+            clearTimeout(ceiling);
+            ceiling = null;
+          }
+          /* После решения «текст» загрузка до этой отмены продолжается —
+             её исход пригодится следующему открытию. Отмена (карточку
+             закрыли или перерисовали под другой логотип) снимает и её. */
+          load.cancel();
+        }
+      };
+    }
+
     function tmdbImageFn() {
       if (window.Lampa && Lampa.TMDB && typeof Lampa.TMDB.image === 'function') {
         return function (url) { return Lampa.TMDB.image(url); };
@@ -639,14 +798,13 @@
       if (!state) return;
       stopTimer('loadTimer');
       stopTimer('swapTimer');
-      /* Task 71: предзагрузка логотипа — такой же незавершённый запрос
-         прошлой карточки, как кадр. */
-      stopTimer('logoTimer');
       /* Правка 2026-09-22: ожидание логотипа прошлой карточки — тоже. */
       stopTimer('titleTimer');
+      /* Task 71: предзагрузка логотипа — такой же незавершённый запрос
+         прошлой карточки, как кадр. Её страховочный таймаут живёт внутри
+         preloadLogo и снимается вместе с ней. */
       if (state.logoLoader) {
-        state.logoLoader.onload = null;
-        state.logoLoader.onerror = null;
+        state.logoLoader.cancel();
         state.logoLoader = null;
       }
       if (state.loader) {
@@ -958,30 +1116,8 @@
        него — кадр занимает весь экран, логотип помещается в строку. */
     function loadLogo(path, url) {
       var captured = gen;
-      var loader = new Image();
-      loader.decoding = 'async';
-      var done = false;
-
-      function finish(ok) {
-        if (done) return;
-        done = true;
-        loader.onload = null;
-        loader.onerror = null;
-        /* Исход запоминается ДО сторожа поколения: это знание о картинке, а
-           не о карточке под фокусом, и оно верно даже если фокус уже ушёл.
-           Ревью 2026-09-22 (М5): неудача запоминается в ДВА шага. Раньше
-           первый же провал — в том числе по страховочному таймауту, а он
-           срабатывает и на живом, но медленном соединении, — хоронил
-           логотип фильма до перезахода в приложение. Теперь первая неудача
-           помечает картинку как 'retry': при следующем заходе на ту же
-           карточку за ней сходят ещё раз, и только второй провал даёт
-           'fail'. Кэш неудач из плана Task 71 (Step 1: «повторных попыток
-           для того же file_path в сессии нет») остаётся на месте по сути —
-           бесконечных попыток на каждый фокус как не было, так и нет, —
-           но разовый сетевой провал больше не окончателен. */
-        logoSeen[path] = ok ? 'ok' : (logoSeen[path] === 'retry' ? 'fail' : 'retry');
+      state.logoLoader = preloadLogo(path, url, function (ok) {
         if (gen !== captured || !state || !isMounted()) return;
-        stopTimer('logoTimer');
         state.logoLoader = null;
         /* Правка 2026-09-22: ожидание заголовка кончилось — исход логотипа
            известен. Неудача выводит текст немедленно, не дожидаясь потолка
@@ -997,17 +1133,23 @@
            тому названию, которое его и просило. */
         if (!state.model || state.model.logo !== path) return;
         showLogo(state.node, url);
-      }
+      });
+    }
 
-      loader.onload = function () { finish(true); };
-      loader.onerror = function () { finish(false); };
-      state.logoLoader = loader;
-      /* Страховочный таймаут — как у кадра: висящий запрос не должен
-         держать логотип в «ещё грузится» до конца сессии. */
-      state.logoTimer = setTimeout(function () {
-        finish(!!(loader.complete && loader.naturalWidth));
-      }, LOAD_TIMEOUT);
-      loader.src = url;
+    /* Адрес логотипа — ОДИН на героя и карточку фильма (правка 2026-09-23).
+       Размер выбирается по рамке героя (41.62 em Lampa — самая широкая
+       рамка, в которой логотип вообще рисуется; у карточки она не шире,
+       см. cardLogoBox), и карточка берёт тот же адрес намеренно: исход
+       загрузки кэшируется по пути (logoSeen), и «уже доехал» обязано
+       значить «лежит в кэше браузера ровно по этому адресу». Живая проверка
+       первого варианта с собственным размером карточки (w500 против w780 у
+       героя на 960×540@2) показала оба дефекта разом: логотип, уже
+       виденный в герое, качался второй раз, а известный исход ставил в
+       рамку картинку, которой в кэше ещё не было, — рамка на миг пустела.
+       Второй аргумент emPx — масштаб интерфейса плагина. Здесь он ровно 1:
+       lumen_scale до текста героя не доходит (см. LOGO_EM выше). */
+    function logoUrl(path) {
+      return path ? imageUrl(path, logoSizeFor(LC.util.emPx(LOGO_EM * TEXT_ZOOM, 1))) : '';
     }
 
     /* Ставит логотип текущей модели: известный — сразу, неизвестный (и
@@ -1025,15 +1167,11 @@
       var path = logoAllowed() ? model.logo : null;
       /* Предыдущая предзагрузка больше не нужна: её исход относится к
          другому названию, а сторож поколения её колбэк уже не пустит. */
-      stopTimer('logoTimer');
       if (state.logoLoader) {
-        state.logoLoader.onload = null;
-        state.logoLoader.onerror = null;
+        state.logoLoader.cancel();
         state.logoLoader = null;
       }
-      /* Второй аргумент emPx — масштаб интерфейса плагина. Здесь он ровно
-         1: lumen_scale до текста героя не доходит (см. LOGO_EM выше). */
-      var url = path ? imageUrl(path, logoSizeFor(LC.util.emPx(LOGO_EM * TEXT_ZOOM, 1))) : '';
+      var url = logoUrl(path);
       if (!url || logoSeen[path] === 'fail') { hideLogo(node); return 'none'; }
       if (logoSeen[path] === 'ok') { showLogo(node, url); return 'logo'; }
       hideLogo(node);
@@ -2021,10 +2159,9 @@
           loadTimer: null,
           accentTimer: null,
           loader: null,
-          /* Task 71: предзагрузка логотипа названия и её страховочный
-             таймаут. */
+          /* Task 71: предзагрузка логотипа названия — дескриптор
+             preloadLogo (её страховочный таймаут живёт внутри). */
           logoLoader: null,
-          logoTimer: null,
           /* Правка 2026-09-22: потолок ожидания логотипа перед выводом
              текстового заголовка и отметка «ждать больше не нужно»
              (writeTitle). */
@@ -2129,7 +2266,7 @@
       } catch (eTween) {
         warn('hero: accent stop failed', eTween);
       }
-      var timers = ['timer', 'swapTimer', 'loadTimer', 'accentTimer', 'bigTimer', 'trailerTimer', 'lqipTimer', 'logoTimer', 'titleTimer'];
+      var timers = ['timer', 'swapTimer', 'loadTimer', 'accentTimer', 'bigTimer', 'trailerTimer', 'lqipTimer', 'titleTimer'];
       for (var i = 0; i < timers.length; i++) {
         try { if (s[timers[i]]) clearTimeout(s[timers[i]]); } catch (eT) {}
       }
@@ -2139,10 +2276,7 @@
       }
       /* Task 71: предзагрузка логотипа названия — такой же незавершённый
          запрос, как кадр героя, и снимается так же. */
-      if (s.logoLoader) {
-        s.logoLoader.onload = null;
-        s.logoLoader.onerror = null;
-      }
+      if (s.logoLoader) s.logoLoader.cancel();
       /* Task 27 (довесок): предзагрузка крупного постера — такой же
          незавершённый запрос, как кадр героя, и снимается так же. */
       if (s.bigLoader) {
@@ -2203,6 +2337,17 @@
 
     return {
       pickLogo: pickLogo,
+      /* Правка 2026-09-23: логотип в карточке фильма (src/85_header.js)
+         берёт у героя всё, что у них общее: выбор логотипа по языку, его
+         пропорцию, рамку, размер картинки TMDB, адрес через прокси и
+         ожидание с потолком. */
+      pickLogoItem: pickLogoItem,
+      logoRatioOf: logoRatioOf,
+      cardLogoBox: cardLogoBox,
+      logoUrl: logoUrl,
+      waitLogo: waitLogo,
+      TITLE_WAIT: TITLE_WAIT,
+      CARD_TITLE_EM: CARD_TITLE_EM,
       bigPoster: bigPoster,
       mediaOf: mediaOf,
       heroModel: heroModel,
