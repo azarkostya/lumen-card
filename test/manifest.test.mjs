@@ -227,3 +227,39 @@ test('validate: themes не массив — каталог отвергаетс
   assert.equal(bad.ok, false);
   assert.equal(bad.reason, 'themes_not_array');
 });
+
+/* Сезонные подборки к 9 мая и 14 февраля (docs/design/ux-ideas.md:34). */
+test('DEFAULT: «Кино о войне» — сезон май, только художественное, название нейтральное', () => {
+  const c = M.DEFAULT.collections.filter(x => x.id === 'war-may')[0];
+  assert.ok(c, 'нет подборки war-may');
+  assert.deepEqual(c.season, [5]);
+  assert.equal(c.group, 'theme');
+  const p = c.sources.movie.params;
+  assert.equal(c.sources.movie.type, 'discover');
+  assert.equal(p.genres, 10752, 'не жанр «военный» — в подборку поедет то, что помечено темой мимо');
+  assert.equal(p.keywords, 1956);
+  assert.ok(('' + p.filter.without_genres).split(',').indexOf('99') !== -1, 'документальное не исключено');
+  assert.equal(c.sources.tv, undefined);
+  /* Название — только о содержимом: никаких оценочных и праздничных слов. */
+  assert.equal(c.title, 'Кино о войне');
+  assert.deepEqual(c.i18n, { en: 'War Films', uk: 'Кіно про війну' });
+  assert.equal(/побед|подвиг|геро|слав|памят|victory|hero|glory/i.test(c.title + c.i18n.en + c.i18n.uk), false);
+});
+
+test('DEFAULT: «Кино о любви» — сезон февраль, романтика и драма без анимации и ужасов', () => {
+  const c = M.DEFAULT.collections.filter(x => x.id === 'love-feb')[0];
+  assert.ok(c, 'нет подборки love-feb');
+  assert.deepEqual(c.season, [2]);
+  assert.equal(c.group, 'theme');
+  const p = c.sources.movie.params;
+  assert.equal(p.genres, '10749,18', 'романтика И драма: запятая, а не черта');
+  const without = ('' + p.filter.without_genres).split(',');
+  for (const g of ['99', '16', '27']) assert.ok(without.indexOf(g) !== -1, 'жанр ' + g + ' не исключён');
+  assert.equal(c.title, 'Кино о любви');
+  assert.ok(c.i18n && c.i18n.en && c.i18n.uk, 'нет перевода названия');
+  /* В своём месяце подборка поднимается наверх, вне его — нет. */
+  const theme = M.DEFAULT.collections.filter(x => x.group === 'theme');
+  assert.equal(M.orderForMonth(theme, 2)[0].id, 'love-feb');
+  assert.equal(M.orderForMonth(theme, 5)[0].id, 'war-may');
+  assert.notEqual(M.orderForMonth(theme, 3)[0].id, 'love-feb');
+});
