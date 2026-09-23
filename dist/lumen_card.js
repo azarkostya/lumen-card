@@ -8621,7 +8621,12 @@ return 'lampa';
 
 
 
-function originalPosters(item, cards, done, alive) {
+
+
+
+
+
+function originalPosters(item, cards, done, alive, page) {
 var gen = alive ? alive() : 0;
 function dead() { return alive && alive() !== gen; }
 
@@ -8637,7 +8642,7 @@ done(applyPosters(cards, map));
 });
 
 LC.util.each(want, function (media) {
-var r = buildRequest(src[media], media, 1);
+var r = buildRequest(src[media], media, page || 1);
 var params = {};
 var k;
 for (k in r.params) {
@@ -8704,11 +8709,13 @@ function () { gate.tick(); },
 
 
 
-function posters(item, cards, done, alive) {
+
+
+function posters(item, cards, done, alive, page) {
 var mode = postersMode();
 if (mode !== 'original' && mode !== 'clean') { done(0); return; }
 if (!cards || !cards.length) { done(0); return; }
-if (mode === 'original') { originalPosters(item, cards, done, alive); return; }
+if (mode === 'original') { originalPosters(item, cards, done, alive, page); return; }
 cleanPosters(cards, done, alive);
 }
 
@@ -12223,10 +12230,12 @@ if (gen !== captured) return;
 
 
 
+
+
 LC.sources.posters(request, json.results || [], function () {
 if (gen !== captured) return;
 fill(json);
-}, alive(captured));
+}, alive(captured), nextPage);
 }, function (err) {
 if (gen !== captured) return;
 loading = false;

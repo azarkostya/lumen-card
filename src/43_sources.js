@@ -829,8 +829,13 @@
        'language=' в адрес дописывать нельзя, он оказался бы вторым.
        Источник типа 'kp' пропускается: там список приходит от Кинопоиска и
        переспросить его на другом языке нечем — такие карточки остаются с
-       постером Lampa. */
-    function originalPosters(item, cards, done, alive) {
+       постером Lampa.
+       page — страница, с которой пришли карточки (Ф3 п.1 ревью фикс-раундов):
+       сетка подборки зовёт подмену на каждой догруженной странице, и
+       английский список обязан быть той же страницей — иначе со второй
+       страницы сопоставлять не с чем. У коллекции и списка страница одна,
+       buildRequest её не передаёт. */
+    function originalPosters(item, cards, done, alive, page) {
       var gen = alive ? alive() : 0;
       function dead() { return alive && alive() !== gen; }
 
@@ -846,7 +851,7 @@
       });
 
       LC.util.each(want, function (media) {
-        var r = buildRequest(src[media], media, 1);
+        var r = buildRequest(src[media], media, page || 1);
         var params = {};
         var k;
         for (k in r.params) {
@@ -912,12 +917,14 @@
        НИЧЕГО и зовёт done синхронно — ни запроса, ни задержки у того, кто
        настройку не трогал.
        done зовётся ровно один раз при любом исходе, включая дедлайн: его
-       вызывающий (ряд главной, сетка подборки) обязан ответить Lampa. */
-    function posters(item, cards, done, alive) {
+       вызывающий (ряд главной, сетка подборки) обязан ответить Lampa.
+       page — номер страницы подборки, с которой пришли карточки; ряд
+       главной его не передаёт (у ряда страница всегда первая). */
+    function posters(item, cards, done, alive, page) {
       var mode = postersMode();
       if (mode !== 'original' && mode !== 'clean') { done(0); return; }
       if (!cards || !cards.length) { done(0); return; }
-      if (mode === 'original') { originalPosters(item, cards, done, alive); return; }
+      if (mode === 'original') { originalPosters(item, cards, done, alive, page); return; }
       cleanPosters(cards, done, alive);
     }
 

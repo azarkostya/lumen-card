@@ -1584,11 +1584,13 @@
              Lampa, а следующие пришли бы с подменёнными, и одна сетка
              показывала бы два разных набора обложек.
              Лоадер активности на это время остаётся поднятым: он снимается
-             внутри fill. */
+             внутри fill.
+             Номер страницы — для «Английских»: они переспрашивают ту же
+             страницу подборки на другом языке (Ф3 п.1 ревью фикс-раундов). */
           LC.sources.posters(request, json.results || [], function () {
             if (gen !== captured) return;
             fill(json);
-          }, alive(captured));
+          }, alive(captured), nextPage);
         }, function (err) {
           if (gen !== captured) return;
           loading = false;

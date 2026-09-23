@@ -697,7 +697,7 @@ function loadHub(opts) {
        сборкой узлов. Заглушка держит тот же контракт, что настоящая:
        done ровно один раз, синхронно (так она и ведёт себя в режиме по
        умолчанию, когда подменять нечего). */
-    posters: function (item, cards, done) { postersCalls.push({ item: item, cards: cards }); done(0); }
+    posters: function (item, cards, done, alive, page) { postersCalls.push({ item: item, cards: cards, page: page }); done(0); }
   };
   sources['fetch'] = record(fetchCalls);
   var ctx = loadCtx('46_hub.js', {
@@ -1256,6 +1256,11 @@ test('Task 74: подмена постеров зовётся и на догру
   g.h.fetchCalls[1].ok({ results: results(12, 100), page: 2, total_pages: 3, total_results: 60 });
   assert.equal(g.h.postersCalls.length, 2, 'вторая страница обязана пройти подмену так же, как первая');
   assert.equal(g.h.postersCalls[1].cards.length, 12, 'подменяются карточки ТОЛЬКО новой страницы');
+  /* Ф3 п.1 (ревью фикс-раундов): «Английские» переспрашивают тот же список
+     на другом языке — и обязаны спросить ту же страницу, иначе со второй
+     страницы сопоставлять не с чем. */
+  assert.equal(g.h.postersCalls[0].page, 1);
+  assert.equal(g.h.postersCalls[1].page, 2, 'подмене передаётся номер догруженной страницы');
 });
 
 test('lumen_grid: create вызывает scroll.minus() ровно один раз', function () {

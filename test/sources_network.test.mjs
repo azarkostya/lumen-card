@@ -813,6 +813,31 @@ test('Task 74: «оригинал» — один запрос на медиа, �
   } finally { s.restore(); }
 });
 
+/* Ф3 п.1 (ревью фикс-раундов): сетка подборки зовёт подмену на каждой
+   странице, а английский список всегда просился первой — со второй
+   страницы сопоставлять было не с чем, и одна сетка показывала два набора
+   обложек. */
+test('Постеры: «английские» на странице 2 спрашивают страницу 2', function () {
+  var s = setupPosters('original');
+  try {
+    var item = { id: 'mix', title: 'Смесь', sources: {
+      movie: { type: 'discover', params: { genres: 35 } },
+      tv: { type: 'discover', params: { networks: 213 } }
+    } };
+    var cards = [{ id: 21, title: 'A', poster_path: '/ru21.jpg' }, { id: 22, name: 'B', poster_path: '/ru22.jpg' }];
+    var done = [];
+    s.S.posters(item, cards, function (n) { done.push(n); }, null, 2);
+    assert.equal(s.calls.length, 2);
+    assert.equal(s.calls[0].params.page, 2, 'фильмы — та же страница, что пришла в сетку');
+    assert.equal(s.calls[1].params.page, 2, 'сериалы — тоже');
+    s.calls[0].ok({ results: [{ id: 21, title: 'A', poster_path: '/en21.jpg' }] });
+    s.calls[1].ok({ results: [{ id: 22, name: 'B', poster_path: '/en22.jpg' }] });
+    assert.deepEqual(done, [2]);
+    assert.equal(cards[0].poster_path, '/en21.jpg');
+    assert.equal(cards[1].poster_path, '/en22.jpg');
+  } finally { s.restore(); }
+});
+
 test('Task 74: «оригинал» — источник Кинопоиска пропускается, списка на другом языке у него нет', function () {
   var s = setupPosters('original');
   try {
