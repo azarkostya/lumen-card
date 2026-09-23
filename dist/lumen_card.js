@@ -32994,6 +32994,19 @@ return LC.backdrops.revive(layer) || s;
 
 
 
+
+
+
+
+
+function reapplyFx(active) {
+try {
+if (active) LC.applyFxFor(active.body, (active.data && active.data.movie) || null);
+} catch (eFx) {
+warn('fx reapply failed', eFx);
+}
+}
+
 LC.destroyActive = function () {
 var active = LC.active;
 if (!active) return;
@@ -33208,6 +33221,9 @@ warn('nav detach failed', eNavStart);
 
 
 
+
+
+
 try {
 if (LC.fx && LC.fx.sweep) LC.fx.sweep();
 } catch (eFxSweep) {
@@ -33290,6 +33306,12 @@ if (ownLayer && ownLayer.length) LC.active.trailer = ownLayer.data('lumenTrailer
 
 
 try { if (LC.applyAccentPref) LC.applyAccentPref(); } catch (eAccentOwn) {}
+
+
+
+
+
+if (e.type === 'start') reapplyFx(LC.active);
 }
 return;
 }
@@ -33396,6 +33418,10 @@ LC.active = { object: e.object, body: layer.parent(), slideshow: slideshow, trai
 
 
 try { if (LC.applyAccentPref) LC.applyAccentPref(); } catch (eAccentBack) {}
+
+
+
+reapplyFx(LC.active);
 
 
 

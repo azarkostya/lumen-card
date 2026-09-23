@@ -2467,6 +2467,57 @@ test('Critical 1: старт любой активности снимает сл
   assert.deepEqual(warnLog, []);
 });
 
+/* Ф3, довесок Д1 (ревью фикс-раундов): тот же механизм, что у героя главной
+   (593a479). Уборка выше снимает канвас атмосферы у карточки, ушедшей под
+   другую активность, а при возврате к ней Lampa complite повторно не шлёт —
+   ставить атмосферу заново, кроме как на её 'start', некому. */
+function fxCard(title) {
+  const fx = new FakeEl(['lumen-fx']);
+  const layer = new FakeEl(['lumen-backdrop'], [fx]);
+  layer.data('lumenData', { movie: { id: title } });
+  const body = new FakeEl(['activity__body'], [layer]);
+  const el = new FakeEl(['activity'], [body]);
+  return { obj: { title: title, activity: { render: () => el } }, fx, layer, body };
+}
+
+function fxReturnEnv() {
+  const LC = freshLC();
+  const log = fxStubs(LC, { id: 'christmas', preset: 'snow', accent: '#E8C170' });
+  LC.fx.sweep = () => {};
+  LC.backdrops = { cancel() {}, revive() { return null; } };
+  LC.reviews = { cancel() {} };
+  LC.franchise = { cancel() {} };
+  return { LC, log };
+}
+
+test('Д1: карточка A → карточка B → «Назад» — атмосфера A ставится заново', () => {
+  const { LC, log } = fxReturnEnv();
+  const A = fxCard('A');
+  const B = fxCard('B');
+  LC.active = { object: B.obj, body: B.body, slideshow: null, data: { movie: { id: 'B' } } };
+
+  LC.onActivityEvent({ type: 'start', component: 'full', object: A.obj });
+
+  assert.equal(LC.active.object, A.obj);
+  assert.equal(log.mount.length, 1, 'канвас A снят уборкой на старте B — на возврате слой ставится заново');
+  assert.equal(log.mount[0].node, A.fx, 'в узел .lumen-fx вернувшейся карточки');
+  assert.deepEqual(warnLog, []);
+});
+
+test('Д1: карточка A → не-карточка (актёр) → «Назад» — атмосфера A ставится заново, archive её не трогает', () => {
+  const { LC, log } = fxReturnEnv();
+  const A = fxCard('A');
+  LC.active = { object: A.obj, body: A.body, slideshow: null, data: { movie: { id: 'A' } } };
+
+  LC.onActivityEvent({ type: 'start', component: 'full', object: A.obj });
+  assert.equal(log.mount.length, 1);
+  assert.equal(log.mount[0].node, A.fx);
+
+  LC.onActivityEvent({ type: 'archive', component: 'full', object: A.obj });
+  assert.equal(log.mount.length, 1, 'archive — не возврат: уборка слоя A не трогала');
+  assert.deepEqual(warnLog, []);
+});
+
 test('Critical 1: уборка слоёв не роняет обработчик, если сама упала', () => {
   const LC = freshLC();
   LC.fx = { sweep: () => { throw new Error('bang'); }, unmount() {}, unmountAll() {} };
