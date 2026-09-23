@@ -6749,10 +6749,31 @@ collections: [
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 {
 id: 'star-wars', title: 'Звёздные войны', group: 'franchise', icon: 'film',
 sources: {
-movie: { type: 'collection', id: 10 },
+movie: { type: 'discover',   params: { companies: 1, genres: 878, sort_by: 'primary_release_date.asc', filter: { without_genres: '99,10770,35,10751', 'vote_count.gte': 200 } } },
 tv:    { type: 'discover',   params: { companies: 1, genres: '10765|16', sort_by: 'popularity.desc', filter: { without_keywords: '211227,215470' } } }
 }
 },
@@ -7150,6 +7171,14 @@ sources: { movie: { type: 'discover', params: { keywords: 252123, sort_by: 'popu
 id: 'war-movies', title: 'Военные фильмы', group: 'theme',
 sources: { movie: { type: 'discover', params: { genres: 10752, sort_by: 'vote_average.desc', filter: { 'vote_count.gte': 200 } } } }
 },
+
+
+
+
+
+
+
+
 
 
 
@@ -7856,7 +7885,21 @@ try { store.set(key, value, { nolisten: true }); } catch (e3) {}
 
 
 
+
+
+
+
+
+
+
+
+
+
+
 var TV_WITHOUT = '10767';
+var GENRE_TALK = 10767;
+var GENRE_REALITY = 10764;
+
 
 
 
@@ -7870,6 +7913,28 @@ if (filter.hasOwnProperty(k)) out[k] = filter[k];
 var own = out.without_genres ? String(out.without_genres) : '';
 if ((',' + own + ',').indexOf(',' + TV_WITHOUT + ',') === -1) out.without_genres = own ? own + ',' + TV_WITHOUT : TV_WITHOUT;
 return out;
+}
+
+
+function talkOnly(card) {
+var g = (card && card.genre_ids) || [];
+var talk = false;
+for (var i = 0; i < g.length; i++) {
+if (Number(g[i]) === GENRE_REALITY) return false;
+if (Number(g[i]) === GENRE_TALK) talk = true;
+}
+return talk;
+}
+
+
+
+function dropTalk(data) {
+var kept = [];
+for (var i = 0; i < data.results.length; i++) {
+if (!talkOnly(data.results[i])) kept.push(data.results[i]);
+}
+data.results = kept;
+return data;
 }
 
 
@@ -7890,7 +7955,6 @@ params[k] = spec.params[k];
 }
 }
 params.page = page || 1;
-if (media === 'tv') params.filter = tvFilter(params.filter || {});
 return { url: 'discover/' + media, params: params, life: LIFE_DISCOVER };
 }
 
@@ -8086,7 +8150,14 @@ var r = buildRequest(spec, media, page);
 var net = Lampa.Api.sources.tmdb.get(
 r.url,
 r.params,
-function (json) { if (!dead()) ok(normalize(spec.type, json)); },
+function (json) {
+if (dead()) return;
+var data = normalize(spec.type, json);
+
+
+
+ok(spec.type === 'discover' && media === 'tv' ? dropTalk(data) : data);
+},
 function (e) { if (!dead()) err(e); },
 { life: r.life }
 );

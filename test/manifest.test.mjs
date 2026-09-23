@@ -275,7 +275,11 @@ test('франшизы: сериалы по студиям — «Звёздны�
   for (const c of M.DEFAULT.collections) byId[c.id] = c;
 
   const sw = byId['star-wars'].sources;
-  assert.deepEqual(sw.movie, { type: 'collection', id: 10 }, 'фильмы — прежняя коллекция TMDB');
+  /* Ф3, решение координатора: «Изгой-один» и «Хан Соло» в коллекцию TMDB 10
+     не входят — фильмы идут запросом по студии (разбор в манифесте). */
+  assert.deepEqual(sw.movie, { type: 'discover', params: { companies: 1, genres: 878, sort_by: 'primary_release_date.asc',
+    filter: { without_genres: '99,10770,35,10751', 'vote_count.gte': 200 } } },
+    'Lucasfilm И фантастика, без документального, телефильмов, комедий и семейного, от 200 голосов');
   assert.equal(sw.tv.type, 'discover');
   assert.equal(sw.tv.params.companies, 1, 'Lucasfilm');
   assert.equal(sw.tv.params.keywords, undefined, 'ключевое слово «star wars» отдавало два сериала из тридцати');

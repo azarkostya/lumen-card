@@ -268,8 +268,16 @@
       "icon": "film",
       "sources": {
         "movie": {
-          "type": "collection",
-          "id": 10
+          "type": "discover",
+          "params": {
+            "companies": 1,
+            "genres": 878,
+            "sort_by": "primary_release_date.asc",
+            "filter": {
+              "without_genres": "99,10770,35,10751",
+              "vote_count.gte": 200
+            }
+          }
         },
         "tv": {
           "type": "discover",

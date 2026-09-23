@@ -23,20 +23,44 @@ test('buildRequest discover tv', () => {
   assert.equal(r.params.page, 3);
 });
 /* Находка 2026-09-23: подкаст «The Escape Pod» в «Звёздных войнах». Жанр
-   10767 (Talk) отделяет ток-шоу и подкасты от сериалов — разбор данных у
-   TV_WITHOUT в src/43_sources.js. */
-test('buildRequest discover tv: ток-шоу и подкасты (жанр 10767) запрещены на стороне TMDB', () => {
+   10767 (Talk) отделяет ток-шоу и подкасты от сериалов; Ф3 п.5 — кроме
+   реалити, у которых рядом стоит 10764. Разбор данных — у talkOnly в
+   src/43_sources.js. */
+test('buildRequest discover tv: запрета 10767 в запросе нет — реалити с 10767 доходят до ответа', () => {
   const r = S.buildRequest({ type: 'discover', params: { keywords: 379196 } }, 'tv', 1);
-  assert.equal(r.params.filter.without_genres, '10767');
+  assert.equal(r.params.filter, undefined);
   const spec = { type: 'discover', params: { genres: 18, filter: { without_genres: '99', 'vote_count.gte': 50 } } };
   const own = S.buildRequest(spec, 'tv', 1);
-  assert.deepEqual(own.params.filter, { without_genres: '99,10767', 'vote_count.gte': 50 }, 'свой запрет источника сохранён');
-  assert.equal(spec.params.filter.without_genres, '99', 'манифест не мутируется');
-  assert.equal(S.buildRequest({ type: 'discover', params: { filter: { without_genres: '10767' } } }, 'tv').params.filter.without_genres, '10767', 'без дубля');
+  assert.deepEqual(own.params.filter, { without_genres: '99', 'vote_count.gte': 50 }, 'свой запрет источника сохранён как есть');
   const movie = S.buildRequest({ type: 'discover', params: { genres: 35 } }, 'movie', 1);
-  assert.equal(movie.params.filter, undefined, 'у фильмов жанра Talk не бывает — запрос не меняется');
-  assert.equal(S.discoverUrl({ type: 'discover', params: { keywords: 379196 } }, 'tv'), 'discover/tv?with_keywords=379196&without_genres=10767',
-    'полный список подборки (category_full) — с тем же запретом');
+  assert.equal(movie.params.filter, undefined);
+});
+test('discoverUrl tv: штатной сетке Lampa фильтровать ответ нечем — запрет 10767 остаётся на стороне TMDB', () => {
+  assert.equal(S.discoverUrl({ type: 'discover', params: { keywords: 379196 } }, 'tv'), 'discover/tv?with_keywords=379196&without_genres=10767');
+  const spec = { type: 'discover', params: { genres: 18, filter: { without_genres: '99' } } };
+  assert.equal(S.discoverUrl(spec, 'tv'), 'discover/tv?with_genres=18&without_genres=99%2C10767');
+  assert.equal(spec.params.filter.without_genres, '99', 'манифест не мутируется');
+  assert.equal(S.discoverUrl({ type: 'discover', params: { filter: { without_genres: '10767' } } }, 'tv'), 'discover/tv?without_genres=10767', 'без дубля');
+});
+test('fetchOne discover tv: ток-шоу и подкасты отсекаются, реалити с 10767 остаются (жанры — живые, TMDB 2026-09-23)', () => {
+  const prev = globalThis.Lampa;
+  const sent = [];
+  globalThis.Lampa = { Api: { sources: { tmdb: { get(url, params, ok) { sent.push(params); ok({ page: 1, total_pages: 1, total_results: 5, results: [
+    { id: 328941, name: 'The Escape Pod Podcast', genre_ids: [35, 10767] },
+    { id: 45, name: 'Top Gear', genre_ids: [10764, 10767] },
+    { id: 67557, name: 'The Grand Tour', genre_ids: [10764, 35, 10767] },
+    { id: 139798, name: "Single's Inferno", genre_ids: [10764, 35, 10767] },
+    { id: 289324, name: 'Видения', genre_ids: [16, 10765, 10759] }
+  ] }); } } } } };
+  try {
+    let got = null;
+    S.fetchOne({ type: 'discover', params: { keywords: 379196 } }, 'tv', 1, (j) => { got = j; }, () => {}, null);
+    assert.deepEqual(got.results.map((c) => c.id), [45, 67557, 139798, 289324]);
+    /* У фильмов жанра Talk не бывает, коллекции — ручной отбор: там ответ не трогаем. */
+    got = null;
+    S.fetchOne({ type: 'discover', params: {} }, 'movie', 1, (j) => { got = j; }, () => {}, null);
+    assert.equal(got.results.length, 5);
+  } finally { globalThis.Lampa = prev; }
 });
 
 // --- normalize ---
