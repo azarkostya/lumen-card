@@ -3938,10 +3938,46 @@
        Постер под этот размер выбирает LC.util.vhPx (src/56_roulette.js). */
     css.push('.lumen-roulette .lumen-roulette__reel{width:28.67vh;height:43vh;border-radius:.53em;overflow:hidden;background:' + P.panel + ';border:.04em solid ' + P.line + ';-webkit-flex-shrink:0;flex-shrink:0}');
     css.push('.lumen-roulette .lumen-roulette__frame{width:100%;height:100%;background-position:center;background-repeat:no-repeat;-webkit-background-size:cover;background-size:cover}');
+    /* Правка 2026-09-23 (разбор композиции, п.5.1): до нажатия «Крутить»
+       барабан был пустым чёрным прямоугольником на 43 % высоты экрана, и
+       переключение подборок не меняло центр экрана вообще — отклика на
+       самое частое действие этого экрана не было.
+
+       Стопка: два задних постера выглядывают из-под переднего вправо и
+       вниз. Смещение .8em и .5em (9 и 6 CSS px на стенде 960×540) — половина
+       того, что просил разбор: он мерил по скриншоту браузера 1920, где на
+       CSS-пиксель приходится два его. Задние приглушены, чтобы стопка
+       читалась как глубина, а не как три равных постера.
+
+       Узлы лежат в .lumen-roulette__stage, а не внутри барабана: у того
+       overflow:hidden, и выглядывать из-под него было бы нечему. Отсюда и
+       позиционирование от центра сцены — left:50 % плюс сдвиг в transform.
+       Барабану поэтому нужен свой слой (position:relative, z-index:1),
+       иначе задние постеры, стоящие в разметке раньше, всё равно оказались
+       бы под ним только по порядку, а не по намерению. */
+    css.push('.lumen-roulette .lumen-roulette__reel{position:relative;z-index:1}');
+    css.push('.lumen-roulette .lumen-roulette__peek{display:none;position:absolute;top:0;left:50%;width:28.67vh;height:43vh;border-radius:.53em;background-position:center;background-repeat:no-repeat;-webkit-background-size:cover;background-size:cover;background-color:' + P.panel + '}');
+    css.push('.lumen-roulette .lumen-roulette__stage.is-stack .lumen-roulette__peek{display:block}');
+    /* Выборка короче трёх: лишний задний постер гасится поимённо, а не
+       общим классом сцены — стопка из одного и из двух постеров одинаково
+       законна (подборка может отдать и три карточки). */
+    css.push('.lumen-roulette .lumen-roulette__stage.is-stack .lumen-roulette__peek.is-off{display:none}');
+    css.push('.lumen-roulette .lumen-roulette__peek--1{opacity:.72;-webkit-transform:translate(-webkit-calc(-50% + .8em),.5em);-webkit-transform:translate(calc(-50% + .8em),.5em);transform:translate(calc(-50% + .8em),.5em)}');
+    css.push('.lumen-roulette .lumen-roulette__peek--2{opacity:.45;-webkit-transform:translate(-webkit-calc(-50% + 1.6em),1em);-webkit-transform:translate(calc(-50% + 1.6em),1em);transform:translate(calc(-50% + 1.6em),1em)}');
+    /* Счётчик выборки под барабаном: крупное число и приглушённая подпись
+       под ним — та же схема, что у чипов карточки. Место берётся из зазора
+       между барабаном и кнопкой «Крутить»: у кнопки margin-top .88em, у
+       счётчика — .70em, и вместе они те же полтора em, что были у одного
+       зазора. Ни число, ни подпись не .selector — фокус по-прежнему на
+       кнопке (требование разбора: «фокус не меняется»). */
+    css.push('.lumen-roulette .lumen-roulette__count{display:none;margin:.70em 0 0;text-align:center}');
+    css.push('.lumen-roulette .lumen-roulette__stage.is-stack .lumen-roulette__count{display:block}');
+    css.push('.lumen-roulette .lumen-roulette__count-value{font-family:' + FB + ';font-weight:700;font-size:1.58em;line-height:1.1;color:' + P.text + '}');
+    css.push('.lumen-roulette .lumen-roulette__count-label{font-family:' + FB + ';font-weight:500;font-size:1.01em;line-height:1.2;color:' + P.muted + '}');
     css.push('body.lumen-motion-full .lumen-roulette .lumen-roulette__frame.is-step{-webkit-animation:lumen-roul-step .12s ease-out;animation:lumen-roul-step .12s ease-out}');
     css.push('@-webkit-keyframes lumen-roul-step{from{-webkit-transform:translateY(12%)}to{-webkit-transform:translateY(0)}}');
     css.push('@keyframes lumen-roul-step{from{transform:translateY(12%)}to{transform:translateY(0)}}');
-    css.push('.lumen-roulette .lumen-roulette__spin{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;height:3.16em;padding:0 1.75em;margin:.88em 0 0;border-radius:1.58em;background:' + A + ';color:' + t.onac + ';font-family:' + FB + ';font-weight:700;font-size:1.05em;border:.04em solid transparent}');
+    css.push('.lumen-roulette .lumen-roulette__spin{position:relative;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;height:3.16em;padding:0 1.75em;margin:.88em 0 0;border-radius:1.58em;background:' + A + ';color:' + t.onac + ';font-family:' + FB + ';font-weight:700;font-size:1.05em;border:.04em solid transparent}');
     css.push('.lumen-roulette .lumen-roulette__spin.focus{border-color:' + AL + ';border-width:.11em;-webkit-box-shadow:0 .2em 0 ' + AG + ';box-shadow:0 .2em 0 ' + AG + '}');
     css.push('.lumen-roulette .lumen-roulette__spin.is-busy{opacity:.7}');
     css.push('.lumen-roulette .lumen-roulette__hint{position:relative;margin:.50em 0 0;font-family:' + FB + ';font-weight:500;font-size:1.01em;color:' + P.muted + ';text-align:center}');

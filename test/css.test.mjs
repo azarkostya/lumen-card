@@ -1064,6 +1064,39 @@ test('правка 2026-09-23: у сериала описание поджато
   assert.ok(base !== -1 && own > base, 'правило сериала обязано идти после базового');
 });
 
+/* Правка 2026-09-23 (разбор композиции, п.5.1): стопка постеров и счётчик
+   выборки в барабане рулетки. До неё центр экрана был пустой чёрной
+   коробкой на 43 % высоты, и переключение подборок не меняло его вовсе. */
+test('правка 2026-09-23: стопка и счётчик выборки рулетки показываются одним классом сцены', () => {
+  const peek = findDecl(css, (sel) => sel === '.lumen-roulette .lumen-roulette__peek');
+  assert.ok(peek, 'правила задних постеров стопки нет');
+  assert.ok(/display:none/.test(peek), 'задние постеры обязаны быть скрыты по умолчанию: ' + peek);
+  /* Коробка у задних та же, что у барабана, — стопка это один постер,
+     сдвинутый трижды, а не три разных размера. */
+  /* У барабана правил два — коробка и свой слой; берём оба. */
+  const reel = declAll(css, '.lumen-roulette .lumen-roulette__reel');
+  const reelW = /width:([0-9.]+)vh/.exec(reel);
+  assert.ok(reelW, 'у барабана пропала ширина: ' + reel);
+  assert.ok(peek.indexOf('width:' + reelW[1] + 'vh') !== -1, 'задние постеры разъехались с барабаном по ширине: ' + peek);
+
+  /* Барабану нужен свой слой, иначе порядок документа — единственное, что
+     держит задние постеры под ним. */
+  assert.ok(/z-index:1/.test(reel), 'барабан обязан лежать поверх стопки своим слоем: ' + reel);
+
+  /* Показывает стопку и счётчик один класс сцены — чтобы «есть выборка» и
+     «есть счётчик» не могли разойтись. */
+  const on = findDecl(css, (sel) => sel === '.lumen-roulette .lumen-roulette__stage.is-stack .lumen-roulette__peek');
+  assert.ok(on && /display:block/.test(on), 'класс сцены не показывает задние постеры');
+  const count = findDecl(css, (sel) => sel === '.lumen-roulette .lumen-roulette__stage.is-stack .lumen-roulette__count');
+  assert.ok(count && /display:block/.test(count), 'класс сцены не показывает счётчик');
+
+  /* Число крупнее подписи — «ведущее значение плюс приглушённая подпись»,
+     та же схема, что у чипов карточки. */
+  const value = parseFloat(/font-size:([0-9.]+)em/.exec(decl(css, '.lumen-roulette .lumen-roulette__count-value'))[1]);
+  const label = parseFloat(/font-size:([0-9.]+)em/.exec(decl(css, '.lumen-roulette .lumen-roulette__count-label'))[1]);
+  assert.ok(value > label * 1.3, 'число счётчика ' + value + 'em не ведёт над подписью ' + label + 'em');
+});
+
 test('Фикс Task 59: у окна полного описания свой корень и кегль текста описания', () => {
   const text = findDecl(css, (sel) => sel === '.lumen-descr-modal__text');
   assert.ok(text && text.indexOf('font-size:1.27em') !== -1, 'кегль тот же, что у описания в ряду (Body tvOS после Task 63)');

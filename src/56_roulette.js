@@ -75,6 +75,24 @@
     /* Чипов подборок на экране (не считая «Все подборки»). Каталог отдаёт
        их полторы сотни, и все они на экран ТВ не помещаются — см. chipList. */
     var CHIP_LIMIT = 14;
+    /* Правка 2026-09-23 (разбор композиции, п.5.1): пауза перед тем, как
+       показать выборку в барабане. Это ТА ЖЕ мысль, что у задержки смены
+       героя на главной (DELAY в src/48_hero.js): отмечая подборки, человек
+       щёлкает чипы подряд, и запрашивать пул на каждое нажатие значит
+       выбросить в сеть до десяти запросов на каждый промежуточный набор.
+       700 мс — вдвое больше героевых 350: там ждала одна картинка, здесь —
+       до пяти подборок по две страницы. Промежуточные наборы гасятся
+       таймером, до сети доходит только тот, на котором человек остановился.
+       Постеры выборки, о которых спрашивал разбор, в памяти НЕ лежат:
+       манифест хранит у подборки только id, title, icon и источник, а
+       карточки приходят из LC.sources. Зато этот же пул нужен «Крутить», и
+       loadPool кеширует его по poolKey — то есть запрос не добавляется, а
+       переезжает раньше, и вращение после него стартует уже без сети. */
+    var PREVIEW_DELAY = 700;
+    /* Постеров в стопке барабана: передний плюс два выглядывающих. Разбор
+       просил «3–4»; четвёртый в коробку 2:3 уже не выглядывает — его край
+       закрывает третий. */
+    var STACK_SIZE = 3;
     /* Ширина барабана в долях ВЫСОТЫ экрана — то же число, что у
        .lumen-roulette__reel в src/30_css.js (width:28.67vh). По ней
        выбирается размер постера, который в барабане показан.
@@ -492,6 +510,16 @@
       var filtersRow = $('<div class="lumen-roulette__filters"></div>');
       var stage = $('<div class="lumen-roulette__stage"></div>');
       var reelBox = $('<div class="lumen-roulette__reel"><div class="lumen-roulette__frame"></div></div>');
+      /* Задние постеры стопки и счётчик выборки (правка 2026-09-23, п.5.1).
+         Оба узла заводятся всегда, показывает их класс is-stack на сцене —
+         так в разметке не появляется и не исчезает ничего, что пришлось бы
+         пересобирать при каждой смене подборок. */
+      var peek1 = $('<div class="lumen-roulette__peek lumen-roulette__peek--1"></div>');
+      var peek2 = $('<div class="lumen-roulette__peek lumen-roulette__peek--2"></div>');
+      var countBox = $('<div class="lumen-roulette__count">' +
+        '<div class="lumen-roulette__count-value"></div>' +
+        '<div class="lumen-roulette__count-label"></div>' +
+        '</div>');
       var spinBtn = $('<div class="lumen-roulette__spin selector">' + esc(LC.lang('lumen_roulette_spin')) + '</div>');
       var resultBox = $('<div class="lumen-roulette__result"></div>');
       var hint = $('<div class="lumen-roulette__hint">' + esc(LC.lang('lumen_roulette_hint')) + '</div>');
@@ -500,6 +528,7 @@
       var handles = [];
       var detailsNet = null;
       var spinTimer = 0;
+      var previewTimer = 0;
       var manifest = null;
       var collections = [];
       var chosen = storedIds(media);
@@ -577,6 +606,9 @@
         clearHandles();
         stopSpin();
         cancelResultLoader();
+        /* Правка 2026-09-23: отложенный показ выборки — такой же
+           отменяемый хвост, как запросы и таймер барабана. */
+        clearPreviewTimer();
       }
 
       /* Task 44: в режиме кадра обход фокуса сведён к карточке результата.
@@ -690,6 +722,8 @@
         buildChips();
         buildFilters();
         clearResult();
+        clearPreview();
+        schedulePreview();
         recollect(focusNode || null);
       }
 
@@ -715,6 +749,7 @@
           saveIds(media, chosen);
           poolKey = '';
           buildChips();
+          schedulePreview();
           recollect(chipsRow.find('.lumen-roulette__chip')[0]);
         });
         chipsRow.append(railChip(all));
@@ -730,6 +765,7 @@
               poolKey = '';
               node.toggleClass('lumen-chip--on', at < 0);
               chipsRow.find('.lumen-roulette__chip').eq(0).toggleClass('lumen-chip--on', !chosen.length);
+              schedulePreview();
             });
             chipsRow.append(node);
           })(shown[i]);
@@ -742,6 +778,7 @@
         unseen.on('hover:enter', function () {
           filters.unseen = !filters.unseen;
           unseen.toggleClass('lumen-chip--on', filters.unseen);
+          schedulePreview();
         });
         filtersRow.append(unseen);
         var shortKey = media === 'tv' ? 'lumen_roulette_short_tv' : 'lumen_roulette_short_movie';
@@ -749,6 +786,7 @@
         short.on('hover:enter', function () {
           filters.short = !filters.short;
           short.toggleClass('lumen-chip--on', filters.short);
+          schedulePreview();
         });
         filtersRow.append(short);
       }
@@ -822,6 +860,83 @@
             if (handle) handles.push(handle);
           }
         });
+      }
+
+      /* ---------------------------------------------------------------- */
+      /* Выборка в барабане до вращения (правка 2026-09-23, п.5.1)          */
+      /* ---------------------------------------------------------------- */
+
+      function clearPreviewTimer() {
+        if (previewTimer) {
+          clearTimeout(previewTimer);
+          previewTimer = 0;
+        }
+      }
+
+      /* Снять стопку и счётчик: барабан возвращается к пустой коробке. */
+      function clearPreview() {
+        clearPreviewTimer();
+        try {
+          stage.removeClass('is-stack');
+          peek1.addClass('is-off');
+          peek2.addClass('is-off');
+        } catch (e) {
+          warn('roulette: preview clear failed', e);
+        }
+      }
+
+      /* Один постер стопки. Размер — по фактической ширине барабана, тем же
+         путём, что paintFrame: оба слоя показывают одну и ту же коробку. */
+      function paintPeek(node, card) {
+        var url = card ? imageUrl(card.poster_path, LC.util.posterSize(LC.util.vhPx(REEL_VH))) : '';
+        if (!url) {
+          node.addClass('is-off');
+          return;
+        }
+        node.css('background-image', 'url("' + url + '")');
+        node.removeClass('is-off');
+      }
+
+      /* Показать выборку: передний постер в самом барабане, два задних — по
+         сторонам, число под ними. Пустая выборка тоже показывается — нулём:
+         «0 в выборке» отвечает на вопрос «почему не крутится» лучше, чем
+         пустая коробка. */
+      function paintPreview() {
+        var list = filtered();
+        try {
+          countBox.find('.lumen-roulette__count-value').text(String(list.length));
+          countBox.find('.lumen-roulette__count-label').text(LC.lang('lumen_roulette_pick'));
+          var head0 = list[0] || null;
+          var url = head0 ? imageUrl(head0.poster_path, LC.util.posterSize(LC.util.vhPx(REEL_VH))) : '';
+          var frameNode = reelBox.find('.lumen-roulette__frame');
+          if (url) frameNode.css('background-image', 'url("' + url + '")');
+          else frameNode.css('background-image', 'none');
+          paintPeek(peek1, list[1] || null);
+          paintPeek(peek2, list[2] || null);
+          stage.addClass('is-stack');
+        } catch (e) {
+          warn('roulette: preview paint failed', e);
+        }
+      }
+
+      /* Отложенный показ выборки. Зовётся отовсюду, где выборка меняется:
+         из build (первый заход), смены «Фильмы/Сериалы», чипов подборок,
+         фильтров и возврата с карточки результата. Фильтры сети не просят
+         вовсе — loadPool отдаёт уже собранный пул по кешу, и отклик там
+         мгновенный. Во время вращения превью не поднимается: барабан занят,
+         и подменять его кадры нечем. */
+      function schedulePreview() {
+        clearPreviewTimer();
+        if (spinning || kadr) return;
+        var captured = gen;
+        previewTimer = setTimeout(function () {
+          previewTimer = 0;
+          if (gen !== captured || spinning || kadr) return;
+          loadPool(function () {
+            if (gen !== captured || spinning || kadr) return;
+            paintPreview();
+          });
+        }, PREVIEW_DELAY);
       }
 
       /* ---------------------------------------------------------------- */
@@ -988,6 +1103,10 @@
         leaveKadr();
         try { bg.css('background-image', ''); } catch (e) { }
         hint.show();
+        /* «Ещё раз» и возврат с карточки результата возвращают спокойный
+           экран — значит и выборку в барабане. Пул к этому моменту уже
+           собран, loadPool отдаст его по кешу без сети. */
+        schedulePreview();
       }
 
       /* Под фильтры ничего не подошло. В режим кадра экран при этом НЕ
@@ -1221,6 +1340,9 @@
            барабана «вправо», «вниз» и OK были бы мертвы. Возвращаем обход на
            спокойный экран сразу, а фокус — на «Крутить». */
         recollect(spinBtn[0]);
+        /* Барабан занят — стопка и счётчик уходят: их место занимают кадры
+           вращения (правка 2026-09-23, п.5.1). */
+        clearPreview();
         try { spinBtn.addClass('is-busy'); } catch (e) { }
         var captured = gen;
         try { self.activity.loader(!pool.length); } catch (e) { }
@@ -1264,6 +1386,10 @@
         buildChips();
         buildFilters();
         try { self.activity.loader(false); } catch (e) { }
+        /* Правка 2026-09-23 (п.5.1): выборка показывается сразу при заходе,
+           а не только после первого касания чипа — иначе центр экрана до
+           первого действия по-прежнему пустая коробка. */
+        schedulePreview();
         if (started) recollect(null);
       }
 
@@ -1278,7 +1404,13 @@
         chipsScroll.append(chipsRow);
         chipsBox.append(chipsScroll.render());
         root.append(chipsBox);
+        /* Задние постеры стопки идут в разметке ПЕРЕД барабаном: они лежат
+           под ним, и порядок документа — вторая половина решения вместе с
+           z-index самого барабана (правка 2026-09-23, п.5.1). */
+        stage.append(peek2);
+        stage.append(peek1);
         stage.append(reelBox);
+        stage.append(countBox);
         stage.append(spinBtn);
         stage.append(hint);
         root.append(stage);
