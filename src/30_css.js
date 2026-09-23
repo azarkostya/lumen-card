@@ -2955,6 +2955,9 @@
     var heroShift = heroShiftVh(heroSize);
     var textBottom = textBottomVh(heroSize);
     var textShift = textShiftVh(heroSize);
+    /* Сдвиг текста в сжатом состоянии целиком (разбор — у правила
+       .lumen-hero--compact .lumen-hero__text ниже); им же едет левая вуаль. */
+    var textShiftCalc = textShift + 'vh + ' + MOODS_IN_EM + 'em';
     var smallText = heroSmallText();
     var EASE = ' .42s cubic-bezier(.2,.8,.2,1)';
     /* Правка пользователя 2026-09-17 (третий круг): фон под рядами — это фон
@@ -3197,6 +3200,29 @@
     css.push('.lumen-hero .lumen-hero__veil--l{' +
       '-webkit-mask-image:-webkit-linear-gradient(bottom,' + veilMask + ');mask-image:linear-gradient(0deg,' + veilMask + ');' +
       '-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat}');
+    /* Дефект с экрана пользователя 2026-09-23: «какой-то прямоугольник
+       чёрный». Маска выше отмерена от низа КАДРА, а кадр в сжатом состоянии
+       уезжает вверх на heroShift, тогда как текст едет ему навстречу — вниз
+       на textShiftCalc (правило .lumen-hero--compact .lumen-hero__text ниже).
+       Подушка оставалась там, где текст стоял в покое, и над логотипом
+       висела пустая плотная полоса: замер на стенде 1600×900@1, «лёгкий» —
+       вуаль .97 от 150 до 450 px экрана при верхе логотипа на 340, то есть
+       190 px сплошного тёмного поверх кадра, 64 % ширины, с кромкой по
+       затуханию маски.
+       Лечение — та же поправка, что у текста: вуаль едет вниз вместе с ним,
+       и в сжатом состоянии подушка снова лежит под логотипом и метой, как в
+       покое. Бокс вуали при этом выходит за низ кадра, но его режет
+       overflow:hidden героя, а под кромкой и так начинаются ряды. Масштаб
+       текста (.95) вуаль не повторяет: он сжимает текст к его же левому
+       нижнему углу, и подушка под ним остаётся с запасом.
+       transform, а не top/маска: переход только композитный, в полном
+       режиме — той же кривой, что у текста, иначе вуаль и текст разъехались
+       бы на время перехода. В «лёгком» перехода нет — сдвиг мгновенный. */
+    css.push('.lumen-hero.lumen-hero--compact .lumen-hero__veil--l{' +
+      '-webkit-transform:translateY(-webkit-calc(' + textShiftCalc + '));' +
+      '-webkit-transform:translateY(calc(' + textShiftCalc + '));' +
+      'transform:translateY(calc(' + textShiftCalc + '))}');
+    css.push('.lumen-hero.lumen-motion-full .lumen-hero__veil--l{-webkit-transition:-webkit-transform' + EASE + ';transition:transform' + EASE + '}');
     /* Правка 2026-09-23 (разбор композиции, п.1.4, вторая половина): верхняя
        вуаль под штатной шапкой Lampa. Часы, иконки и заголовок активности
        там белые и лежат прямо на кадре: на светлом кадре их контраст равен
@@ -3329,7 +3355,6 @@
        только его, а следующая декларация перебивает их у всех остальных.
        Сложить эти величины заранее нельзя — vh считается от высоты экрана,
        em от ширины. */
-    var textShiftCalc = textShift + 'vh + ' + MOODS_IN_EM + 'em';
     var textScale = ') scale(' + TEXT_SCALE_COMPACT + ')';
     css.push('.lumen-hero.lumen-hero--compact .lumen-hero__text{' +
       '-webkit-transform:translateY(-webkit-calc(' + textShiftCalc + ')' + textScale + ';' +

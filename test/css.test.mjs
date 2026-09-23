@@ -3941,13 +3941,38 @@ test('Task 70: фокус ушёл в ряды — кадр и вуаль ост
   const fxTrans = ruleBodies(css).find((r) => r.selectors.indexOf('.lumen-hero.lumen-motion-full .lumen-fx') !== -1);
   assert.ok(fxTrans && fxTrans.decl.indexOf('transition:opacity .35s ease') !== -1, 'слой атмосферы обязан гаснуть плавно');
   /* Переход вуали вместе с её гашением стал мёртвым правилом: opacity у
-     .lumen-hero__veil больше не меняет никто. */
-  const veilTrans = ruleBodies(css).filter((r) => r.selectors.some((sel) => sel.indexOf('.lumen-hero__veil') !== -1) && /transition/.test(r.decl));
+     .lumen-hero__veil больше не меняет никто. Переход transform у левой
+     вуали — другое дело: она едет вместе с текстом (дефект «чёрный
+     прямоугольник», тест ниже). */
+  const veilTrans = ruleBodies(css).filter((r) => r.selectors.some((sel) => sel.indexOf('.lumen-hero__veil') !== -1) && /transition[^;]*opacity/.test(r.decl));
   assert.deepEqual(veilTrans.map((r) => r.selectors.join(',')), [],
     'у вуали остался переход opacity, которому нечего проигрывать');
   /* Текст героя в сжатом состоянии не гасится — он только поджимается. */
   const text = findDecl(css, (sel) => sel === '.lumen-hero.lumen-hero--compact .lumen-hero__text');
   assert.ok(text && text.indexOf('opacity:0') === -1, 'текст героя гаснуть не должен: ' + text);
+});
+
+/* Дефект с экрана пользователя 2026-09-23: «какой-то прямоугольник чёрный».
+   Маска левой вуали отмерена от низа кадра, кадр в сжатом состоянии едет
+   вверх, а текст — вниз: подушка .97 оставалась там, где текст стоял в
+   покое, и над логотипом висела пустая тёмная полоса (стенд 1600×900@1:
+   190 px, 64 % ширины). Вуаль обязана ехать ровно на тот же сдвиг, что и
+   текст, и той же кривой — иначе они разъедутся на время перехода. */
+test('сжатый герой: левая вуаль едет вместе с текстом, а не остаётся на месте покоя', () => {
+  const veil = findDecl(css, (sel) => sel === '.lumen-hero.lumen-hero--compact .lumen-hero__veil--l');
+  const text = findDecl(css, (sel) => sel === '.lumen-hero.lumen-hero--compact .lumen-hero__text');
+  assert.ok(veil, 'у левой вуали нет правила сжатого состояния — подушка остаётся над логотипом');
+  const shift = (decl) => /[^-]transform:translateY\(calc\(([^)]*)\)/.exec(decl);
+  assert.ok(shift(veil) && shift(text), veil + ' / ' + text);
+  assert.equal(shift(veil)[1], shift(text)[1], 'вуаль и текст сдвигаются на разное расстояние');
+  assert.ok(veil.indexOf('-webkit-transform:translateY(-webkit-calc(') !== -1, 'префиксная пара потеряна: ' + veil);
+  assert.equal(/opacity/.test(veil), false, 'вуаль под сжатым кадром не гаснет (Task 70): ' + veil);
+  const trans = (sel) => ruleBodies(css).find((r) => r.selectors.indexOf(sel) !== -1 && /transition/.test(r.decl));
+  const vt = trans('.lumen-hero.lumen-motion-full .lumen-hero__veil--l');
+  const tt = trans('.lumen-hero.lumen-motion-full .lumen-hero__text');
+  assert.ok(vt, 'в полном режиме вуаль прыгала бы, пока текст едет');
+  const curve = (decl) => /[^-]transition:[^;]*transform( [^;]*)/.exec(decl)[1];
+  assert.equal(curve(vt.decl), curve(tt.decl), 'кривые вуали и текста разошлись');
 });
 
 test('Task 36/64: кадр кадрируется по лицам (center 30%), а не по самому верху', () => {

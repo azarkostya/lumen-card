@@ -3692,6 +3692,9 @@ var rowsTopVh = ROWS_TOP_VH[heroSize];
 var heroShift = heroShiftVh(heroSize);
 var textBottom = textBottomVh(heroSize);
 var textShift = textShiftVh(heroSize);
+
+
+var textShiftCalc = textShift + 'vh + ' + MOODS_IN_EM + 'em';
 var smallText = heroSmallText();
 var EASE = ' .42s cubic-bezier(.2,.8,.2,1)';
 
@@ -3948,6 +3951,29 @@ css.push('.lumen-hero .lumen-hero__veil--l{' +
 
 
 
+
+
+
+
+css.push('.lumen-hero.lumen-hero--compact .lumen-hero__veil--l{' +
+'-webkit-transform:translateY(-webkit-calc(' + textShiftCalc + '));' +
+'-webkit-transform:translateY(calc(' + textShiftCalc + '));' +
+'transform:translateY(calc(' + textShiftCalc + '))}');
+css.push('.lumen-hero.lumen-motion-full .lumen-hero__veil--l{-webkit-transition:-webkit-transform' + EASE + ';transition:transform' + EASE + '}');
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 css.push('.lumen-hero .lumen-hero__veil--t{bottom:auto;height:' + round2(LAMPA_HEAD * 2.25) + 'em}');
 css.push(AR.veilT);
 
@@ -4066,7 +4092,6 @@ css.push('.lumen-hero .lumen-hero__text{position:absolute;left:' + round2(EDGE /
 
 
 
-var textShiftCalc = textShift + 'vh + ' + MOODS_IN_EM + 'em';
 var textScale = ') scale(' + TEXT_SCALE_COMPACT + ')';
 css.push('.lumen-hero.lumen-hero--compact .lumen-hero__text{' +
 '-webkit-transform:translateY(-webkit-calc(' + textShiftCalc + ')' + textScale + ';' +
