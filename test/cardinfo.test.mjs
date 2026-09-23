@@ -75,23 +75,8 @@ test('country: ни head, ни countries -> пустая строка', () => {
 });
 
 /* -------------------------------------------------------------------- */
-/* director / creator                                                    */
+/* creator                                                               */
 /* -------------------------------------------------------------------- */
-
-test('director: первый Director из crew', () => {
-  const crew = [
-    { job: 'Writer', name: 'Джон Спейтс' },
-    { job: 'Director', name: 'Дени Вильнёв' },
-    { job: 'Director', name: 'Второй режиссёр' }
-  ];
-  assert.equal(cardinfo.director(crew), 'Дени Вильнёв');
-});
-
-test('director: нет Director в crew -> пусто', () => {
-  assert.equal(cardinfo.director([{ job: 'Writer', name: 'X' }]), '');
-  assert.equal(cardinfo.director([]), '');
-  assert.equal(cardinfo.director(null), '');
-});
 
 test('creator: created_by[0].name', () => {
   assert.equal(cardinfo.creator({ created_by: [{ name: 'Джонатан Нолан' }, { name: 'Другой' }] }), 'Джонатан Нолан');

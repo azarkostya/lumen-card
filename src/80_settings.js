@@ -372,7 +372,6 @@
     lumen_card_continue: { ru: 'Продолжить', en: 'Continue', uk: 'Продовжити' },
     lumen_card_serial: { ru: 'СЕРИАЛ', en: 'SERIES', uk: 'СЕРІАЛ' },
     lumen_card_min: { ru: 'мин', en: 'min', uk: 'хв' },
-    lumen_card_director: { ru: 'реж.', en: 'dir.', uk: 'реж.' },
     lumen_card_status_soon: { ru: 'Анонс', en: 'Announced', uk: 'Анонс' },
     lumen_card_reactions: { ru: 'РЕАКЦИЙ', en: 'REACTIONS', uk: 'РЕАКЦІЙ' },
     lumen_card_season: { ru: 'Сезон', en: 'Season', uk: 'Сезон' },

@@ -111,9 +111,12 @@ function makeCard() {
      (src/40_template.js), текст в него кладёт Lampa, а плагин переписывает
      его двумя уровнями, когда в названии есть разделитель. */
   const cardTitle = new FakeEl(['full-start-new__title']);
-  const root = new FakeEl(['full-start-new', 'lumen-card'], [cardTitle, rateLine, progress, buttons, row]);
+  /* Мета-строка карточки: узел из шаблона (src/40_template.js), содержимое
+     собирает renderMeta. */
+  const meta = new FakeEl(['lumen-meta']);
+  const root = new FakeEl(['full-start-new', 'lumen-card'], [cardTitle, meta, rateLine, progress, buttons, row]);
   docRoots.push(root);
-  return { root, chip, text, rateLine, status, play, book, buttons, row, track, viewport, title, count, progress, pLabel, pTime, cardTitle };
+  return { root, chip, text, rateLine, status, play, book, buttons, row, track, viewport, title, count, progress, pLabel, pTime, cardTitle, meta };
 }
 
 function serial(n) {
@@ -625,6 +628,30 @@ test('scrollToEpisode: сдвиг к фокусной карточке, гран
   fire(c.root, 'hover:focus', c.track._children[0]);
   assert.equal(c.track.lumenShift, 0);
   assert.equal(c.track.getAttribute('style'), null, 'пустой style="" снят');
+});
+
+/* Решение координатора по п.2.2 разбора: режиссёр ушёл из мета-строки — он
+   дублировался лентой людей ниже по странице, где у него есть портрет.
+   Остальные поля строки не тронуты. */
+test('мета-строка: режиссёра нет у фильма, студия у сериала осталась', () => {
+  const c = makeCard();
+  LC.header.decorate(c.root, {
+    movie: {
+      title: 'Дюна', release_date: '1980-05-20', runtime: 124,
+      genres: [{ name: 'фантастика' }],
+      production_countries: [{ iso_3166_1: 'US', name: 'United States of America' }]
+    },
+    persons: { crew: [{ job: 'Director', name: 'Ирвин Кершнер' }] }
+  });
+  const html = c.meta.html();
+  assert.ok(html.indexOf('1980') !== -1 && html.indexOf('США') !== -1, 'год и страна пропали: ' + html);
+  assert.ok(html.indexOf('Фантастика') !== -1, 'жанры пропали: ' + html);
+  assert.equal(html.indexOf('Кершнер'), -1, 'режиссёр остался в мета-строке: ' + html);
+
+  const serialData = serial(3);
+  serialData.movie.networks = [{ name: 'HBO' }];
+  LC.header.decorate(c.root, serialData);
+  assert.ok(c.meta.html().indexOf('HBO') !== -1, 'у сериала пропала студия: ' + c.meta.html());
 });
 
 /* Правка 2026-09-23 (разбор композиции, п.2.1): длинное название режется по

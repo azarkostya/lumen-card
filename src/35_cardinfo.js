@@ -45,15 +45,6 @@
       return '';
     }
 
-    /* Первый член съёмочной группы с job === 'Director'. */
-    function director(crew) {
-      if (!crew || !crew.length) return '';
-      for (var i = 0; i < crew.length; i++) {
-        if (crew[i] && crew[i].job === 'Director') return crew[i].name || '';
-      }
-      return '';
-    }
-
     /* Автор сериала: created_by[0].name. */
     function creator(movie) {
       if (movie && movie.created_by && movie.created_by.length && movie.created_by[0]) {
@@ -376,7 +367,6 @@
 
     return {
       country: country,
-      director: director,
       creator: creator,
       network: network,
       facts: facts,

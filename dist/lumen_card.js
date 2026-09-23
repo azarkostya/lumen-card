@@ -5197,15 +5197,6 @@ return '';
 }
 
 
-function director(crew) {
-if (!crew || !crew.length) return '';
-for (var i = 0; i < crew.length; i++) {
-if (crew[i] && crew[i].job === 'Director') return crew[i].name || '';
-}
-return '';
-}
-
-
 function creator(movie) {
 if (movie && movie.created_by && movie.created_by.length && movie.created_by[0]) {
 return movie.created_by[0].name || '';
@@ -5527,7 +5518,6 @@ return (list && list.length && list[0] && list[0].name) || '';
 
 return {
 country: country,
-director: director,
 creator: creator,
 network: network,
 facts: facts,
@@ -26631,7 +26621,6 @@ uk: 'Лічильник кадрів, довгі задачі, роздільн�
 lumen_card_continue: { ru: 'Продолжить', en: 'Continue', uk: 'Продовжити' },
 lumen_card_serial: { ru: 'СЕРИАЛ', en: 'SERIES', uk: 'СЕРІАЛ' },
 lumen_card_min: { ru: 'мин', en: 'min', uk: 'хв' },
-lumen_card_director: { ru: 'реж.', en: 'dir.', uk: 'реж.' },
 lumen_card_status_soon: { ru: 'Анонс', en: 'Announced', uk: 'Анонс' },
 lumen_card_reactions: { ru: 'РЕАКЦИЙ', en: 'REACTIONS', uk: 'РЕАКЦІЙ' },
 lumen_card_season: { ru: 'Сезон', en: 'Season', uk: 'Сезон' },
@@ -28571,7 +28560,8 @@ return 0;
 
 
 
-function renderMeta(root, movie, data) {
+
+function renderMeta(root, movie) {
 var parts = [];
 var serial = isSerial(movie);
 
@@ -28603,12 +28593,19 @@ if (pg) parts.push('<span>' + LC.util.esc(pg) + '</span>');
 
 
 
+
+
+
+
+
+
+
+
+
+
 if (serial) {
 var studio = LC.cardinfo.network(movie);
 if (studio) parts.push('<span>' + LC.util.esc(studio) + '</span>');
-} else {
-var director = LC.cardinfo.director(data && data.persons && data.persons.crew);
-if (director) parts.push('<span>' + LC.util.esc(LC.lang('lumen_card_director')) + ' ' + LC.util.esc(director) + '</span>');
 }
 
 var html = [];
@@ -29817,7 +29814,7 @@ if (!root.hasClass('lumen-card')) return;
 var movie = (data && data.movie) || {};
 
 try { renderTitleClass(root, movie); } catch (e) { warn('title failed', e); }
-try { renderMeta(root, movie, data); } catch (e) { warn('meta failed', e); }
+try { renderMeta(root, movie); } catch (e) { warn('meta failed', e); }
 try { renderStatus(root, movie); } catch (e) { warn('status failed', e); }
 try { renderSerialMode(root, movie); } catch (e) { warn('serial mode failed', e); }
 try { renderNextChip(root, movie); } catch (e) { warn('next episode chip failed', e); }

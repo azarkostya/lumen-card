@@ -82,12 +82,13 @@
   /* -------------------------------------------------------------------- */
 
   /* Task 5a Step 3b.2/3b.4: мета-строка — год · страна · хронометраж/сезоны ·
-     жанры · 18+ · «реж. Имя» (у сериала режиссёр не показывается — вместо него
-     в конце строки студия/сеть, а создателя показывает таблица «ПОДРОБНО»).
+     жанры · 18+ (у сериала в конце строки студия/сеть, а создателя показывает
+     таблица «ПОДРОБНО»). Правка 2026-09-23: режиссёра в строке больше нет,
+     разбор — у самого места, где он стоял.
      Инлайн-чип качества/«СЕРИАЛ» из v1 убран — лишний узел, дизайну не
      соответствует (design-spec-card.md §2); раздельные чипы качества теперь
      в ленте рейтингов (renderQualityChips). */
-  function renderMeta(root, movie, data) {
+  function renderMeta(root, movie) {
     var parts = [];
     var serial = isSerial(movie);
 
@@ -118,13 +119,20 @@
     if (pg) parts.push('<span>' + LC.util.esc(pg) + '</span>');
 
     /* Task 5c Step 2: у сериала в конце строки — студия/сеть («· Amazon Prime»,
-       экран 05), у фильма — режиссёр. */
+       экран 05).
+       Правка 2026-09-23 (решение координатора по п.2.2 разбора): у фильма
+       здесь стоял режиссёр — «· реж. Ирвин Кершнер», — и он же дублировался
+       ниже по странице отдельной карточкой с портретом (лента людей Lampa).
+       Мета-строка отвечает на «что это»; всё, у чего есть свой блок с
+       портретом, живёт там. Замер на стенде 960×540@2 («Звёздные войны:
+       Эпизод 5», интерфейс «обычный»): строка была 510.3 CSS px из 960
+       (53.2 % ширины), стала 369.7 (38.5 %) — минус 140.6 px, и заголовок
+       больше не делит горизонталь со служебной строкой.
+       Цена названа разбором и принята: режиссёр перестаёт быть виден без
+       прокрутки. */
     if (serial) {
       var studio = LC.cardinfo.network(movie);
       if (studio) parts.push('<span>' + LC.util.esc(studio) + '</span>');
-    } else {
-      var director = LC.cardinfo.director(data && data.persons && data.persons.crew);
-      if (director) parts.push('<span>' + LC.util.esc(LC.lang('lumen_card_director')) + ' ' + LC.util.esc(director) + '</span>');
     }
 
     var html = [];
@@ -1333,7 +1341,7 @@
     var movie = (data && data.movie) || {};
 
     try { renderTitleClass(root, movie); } catch (e) { warn('title failed', e); }
-    try { renderMeta(root, movie, data); } catch (e) { warn('meta failed', e); }
+    try { renderMeta(root, movie); } catch (e) { warn('meta failed', e); }
     try { renderStatus(root, movie); } catch (e) { warn('status failed', e); }
     try { renderSerialMode(root, movie); } catch (e) { warn('serial mode failed', e); }
     try { renderNextChip(root, movie); } catch (e) { warn('next episode chip failed', e); }
