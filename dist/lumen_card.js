@@ -2005,6 +2005,34 @@ css.push('.lumen-card.lumen-card--poster .full-start-new__left{display:block !im
 css.push('.lumen-card.lumen-card--poster .full-start-new__poster{border-radius:.61em;overflow:hidden;background:' + P.gradPoster + ';border:.04em solid ' + P.line + ';box-shadow:0 .35em .8em rgba(0,0,0,.6)}');
 css.push('.lumen-card.lumen-card--poster .full-start-new__img{border-radius:.61em}');
 css.push('.lumen-card.lumen-card--poster .lumen-poster-tmdb{position:absolute;left:0;right:0;bottom:0;padding:0 1.05em 1.05em;font-family:' + FB + ';font-weight:600;font-size:1.01em;line-height:1.3;color:' + P.smoke + '}');
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 css.push('.lumen-card .full-start-new__body{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:end;-webkit-align-items:flex-end;align-items:flex-end;min-height:74vh}');
 css.push('.lumen-card .full-start-new__right{-webkit-box-flex:1;-webkit-flex-grow:1;flex-grow:1;min-width:0}');
 
