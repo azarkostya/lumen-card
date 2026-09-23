@@ -7,6 +7,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { loadCtx } from './_load.mjs';
 
+/* Заглушки Lampa.Api.sources.tmdb.get здесь ничего не возвращают — как
+   настоящая Lampa (get$c, vendor/lampa/app.min.js:19693-19737). Ф3,
+   довесок Д2 (ревью фикс-раундов): прежние отдавали { clear }, то есть
+   отмену, которой у Lampa нет; отменяемый дескриптор есть только у
+   Lampa.Reguest (Кинопоиск). */
+
 /* ---- Утилиты ----------------------------------------------------------- */
 
 function makeFakeStorage() {
@@ -116,7 +122,6 @@ test('fetchAll + alive: после clear() ok не вызывается (C1, I10
             tmdbCalls++;
             // Задерживаем ответ
             setTimeout(function () { ok({ results: [{ id: 1 }], total_pages: 1, total_results: 1, page: 1 }); }, 50);
-            return { clear: function () {} };
           }
         }
       }
@@ -230,7 +235,6 @@ test('fetchAll: ok вызывается ровно один раз (done-latch, 
         tmdb: {
           get: function (url, params, ok, err, opts) {
             setTimeout(function () { ok({ results: [{ id: 1 }], total_pages: 1, total_results: 1, page: 1 }); }, 10);
-            return { clear: function () {} };
           }
         }
       }
@@ -339,7 +343,6 @@ test('fetchKp: clear() посреди цепочки find/ останавлив�
             setTimeout(function () {
               okCb({ movie_results: [{ id: tmdbFindCalls * 100 }], tv_results: [] });
             }, 15);
-            return { clear: function () {} };
           }
         }
       }
@@ -390,7 +393,7 @@ test('sortSignature: коллекция, список и КП подписи н�
 test('fetch: та же подборка с другой сортировкой не подписывается на летящий запрос (I5)', function () {
   var calls = [];
   global.Lampa = makeFakeLampa({
-    Api: { sources: { tmdb: { get: function (url, params, ok, err) { calls.push({ url: url, params: params, ok: ok }); return { clear: function () {} }; } } } }
+    Api: { sources: { tmdb: { get: function (url, params, ok, err) { calls.push({ url: url, params: params, ok: ok }); } } } }
   });
   global.window = { localStorage: null };
   var S = loadCtx('43_sources.js', { pref: function () { return ''; } }).api;
@@ -410,7 +413,7 @@ test('fetch: та же подборка с другой сортировкой �
 test('fetch: та же подборка с той же сортировкой по-прежнему дедуплицируется', function () {
   var calls = [];
   global.Lampa = makeFakeLampa({
-    Api: { sources: { tmdb: { get: function (url, params, ok) { calls.push({ ok: ok }); return { clear: function () {} }; } } } }
+    Api: { sources: { tmdb: { get: function (url, params, ok) { calls.push({ ok: ok }); } } } }
   });
   global.window = { localStorage: null };
   var S = loadCtx('43_sources.js', { pref: function () { return ''; } }).api;
@@ -442,7 +445,7 @@ test('bannerPath: подборка Кинопоиска — один запро�
         ], totalPages: 5, total: 100 });
       });
     },
-    Api: { sources: { tmdb: { get: function () { tmdbCalls++; return { clear: function () {} }; } } } }
+    Api: { sources: { tmdb: { get: function () { tmdbCalls++; } } } }
   });
   global.window = { localStorage: null };
   var S = loadCtx('43_sources.js', { pref: function (k) { return k === 'lumen_kp_key' ? 'KEY' : ''; } }).api;
@@ -505,7 +508,6 @@ test('bannerPath: обычная подборка — кадр первой ка
   global.Lampa = makeFakeLampa({
     Api: { sources: { tmdb: { get: function (url, params, ok) {
       ok({ results: [{ id: 1, poster_path: '/a.jpg' }, { id: 2, poster_path: '/b.jpg', backdrop_path: '/bd2.jpg' }, { id: 3, backdrop_path: '/bd3.jpg' }], page: 1, total_pages: 2, total_results: 3 });
-      return { clear: function () {} };
     } } } }
   });
   global.window = { localStorage: null };
@@ -520,7 +522,6 @@ test('bannerPath: ни одного кадра на странице — фол�
   global.Lampa = makeFakeLampa({
     Api: { sources: { tmdb: { get: function (url, params, ok) {
       ok({ results: [{ id: 1 }, { id: 2, poster_path: '/p2.jpg' }, { id: 3, poster_path: '/p3.jpg' }], page: 1, total_pages: 1, total_results: 3 });
-      return { clear: function () {} };
     } } } }
   });
   global.window = { localStorage: null };
@@ -535,7 +536,6 @@ test('bannerPath: пустая страница — пустая строка, �
   global.Lampa = makeFakeLampa({
     Api: { sources: { tmdb: { get: function (url, params, ok) {
       ok({ results: [], page: 1, total_pages: 1, total_results: 0 });
-      return { clear: function () {} };
     } } } }
   });
   global.window = { localStorage: null };

@@ -545,7 +545,6 @@
 
       var gen = 0;
       var handles = [];
-      var detailsNet = null;
       var spinTimer = 0;
       var previewTimer = 0;
       var manifest = null;
@@ -594,8 +593,6 @@
           try { if (handles[i] && handles[i].clear) handles[i].clear(); } catch (e) { }
         }
         handles = [];
-        try { if (detailsNet && detailsNet.clear) detailsNet.clear(); } catch (e2) { }
-        detailsNet = null;
       }
 
       function stopSpin() {
@@ -1291,7 +1288,11 @@
       }
 
       /* Детали выбранного — единственный собственный запрос рулетки, и он
-         идёт только при включённом фильтре длительности. */
+         идёт только при включённом фильтре длительности. Отменить его
+         нечем: Lampa.Api.sources.tmdb.get ничего не возвращает (get$c,
+         vendor/lampa/app.min.js:19693-19737). Поздний ответ отсекает gen —
+         его поднимает bump() — на pause(), stop(), destroy() и смене
+         «Фильмы/Сериалы» (setMedia). */
       function verify(card, tries, done) {
         if (!filters.short) { done(card); return; }
         var cached = runtimes[media + ':' + card.id];
@@ -1302,12 +1303,11 @@
         }
         var captured = gen;
         try {
-          detailsNet = Lampa.Api.sources.tmdb.get(
+          Lampa.Api.sources.tmdb.get(
             media + '/' + card.id,
             { langs: 'ru,en' },
             function (details) {
               if (gen !== captured) return;
-              detailsNet = null;
               var minutes = null;
               if (details) {
                 if (normalizeMedia(media) === 'tv') {
@@ -1323,7 +1323,6 @@
             },
             function () {
               if (gen !== captured) return;
-              detailsNet = null;
               /* Детали не пришли — кандидат остаётся: отказывать из-за сети
                  нечестно, а рулетка обязана чем-то ответить. */
               done(card);

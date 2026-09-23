@@ -171,10 +171,13 @@ function freshEnv(opts) {
       img: (path, size) => 'https://img/t/p/' + size + path,
       sources: {
         tmdb: {
+          /* Ф3, довесок Д2 (ревью фикс-раундов): как настоящая Lampa —
+             get$c ничего не возвращает (vendor/lampa/app.min.js:19693-19737).
+             Прежняя заглушка отдавала { clear }, и тесты проверяли отмену,
+             которой у Lampa нет; а с ней прятался дефект — проверка «запрос
+             ушёл» по возвращённому значению снимала скелетон сразу. */
           get(url, params, ok, err, o) {
-            const req = { url: url, params: params, ok: ok, err: err, opts: o, cleared: 0 };
-            requests.push(req);
-            return { clear() { req.cleared++; } };
+            requests.push({ url: url, params: params, ok: ok, err: err, opts: o });
           }
         }
       }
@@ -349,21 +352,27 @@ test('render: новые .selector отдаются контроллеру, то
   assert.equal(env2.collected.length, 1);
 });
 
-test('clearRow и cancel снимают блок и незавершённый запрос', () => {
+test('clearRow и cancel снимают блок, а поздний ответ после них не рисуется', () => {
   const env = freshEnv();
   const d = makeDescrRow();
   env.LC.franchise.render(d.row, DATA);
   env.LC.franchise.clearRow(d.row);
-  assert.equal(env.requests[0].cleared, 1, 'запрос снят');
   assert.equal(blocksOf(d).length, 0);
   assert.equal(d.row.hasClass('lumen-descr-row--franchise'), false);
+  /* Запрос отменить нечем — ответ доезжает. */
+  env.requests[0].ok(COLLECTION_OK);
+  assert.equal(blocksOf(d).length, 0, 'после clearRow ответ не рисуется');
 
+  /* Карточку закрыли (LC.destroyActive → cancel): ответ, доехавший
+     после, не рисует ряд в снятый экран и не отдаёт его узлы навигации. */
   const env2 = freshEnv();
   const d2 = makeDescrRow();
   env2.LC.franchise.render(d2.row, DATA);
   const body = new FakeEl(['activity__body'], [d2.descr]);
   env2.LC.franchise.cancel(body);
-  assert.equal(env2.requests[0].cleared, 1);
+  env2.requests[0].ok(COLLECTION_OK);
+  assert.equal(d2.row.hasClass('lumen-descr-row--franchise'), false, 'после cancel ответ не рисуется');
+  assert.equal(env2.collected.length, 0);
 });
 
 test('cancel: карточка без нашего рендера — тихо, без warn и без состояния', () => {

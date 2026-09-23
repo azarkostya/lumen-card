@@ -8179,12 +8179,17 @@ return net;
 
 
 
+
+
+
+
+
 function fetchOne(spec, media, page, ok, err, alive) {
 if (spec.type === 'kp') { return fetchKp(spec, page, ok, err, alive); }
 var gen = alive ? alive() : 0;
 function dead() { return alive && alive() !== gen; }
 var r = buildRequest(spec, media, page);
-var net = Lampa.Api.sources.tmdb.get(
+Lampa.Api.sources.tmdb.get(
 r.url,
 r.params,
 function (json) {
@@ -8198,7 +8203,7 @@ ok(spec.type === 'discover' && media === 'tv' ? dropTalk(data) : data);
 function (e) { if (!dead()) err(e); },
 { life: r.life }
 );
-return net;
+return null;
 }
 
 
@@ -8295,6 +8300,8 @@ function requestAlive() { return _reqAliveGen; }
 var src = item.sources || {};
 var want = [];
 var got = {};
+
+
 var nets = [];
 
 if (src.movie) want.push('movie');
@@ -9840,6 +9847,10 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 
+
+
+
+
 LC.personal = (function () {
 
 
@@ -10342,7 +10353,6 @@ resolve({ results: [] }); return { cancel: function () {} };
 }
 var results = [];
 var cancelled = false;
-var handles = [];
 
 
 
@@ -10355,9 +10365,8 @@ resolve({ results: results, title: rowTitle, lumen_personal: true });
 for (var i = 0; i < picked.length; i++) {
 (function (card) {
 var url = card.media + '/' + card.id + '/recommendations';
-var net = null;
 try {
-net = Lampa.Api.sources.tmdb.get(
+Lampa.Api.sources.tmdb.get(
 url,
 { filter: { page: 1 } },
 function (json) {
@@ -10375,22 +10384,16 @@ gate.tick();
 } catch (e) {
 gate.tick();
 }
-if (net) handles.push(net);
 })(picked[i]);
 }
+
+
+
 
 return {
 cancel: function () {
 cancelled = true;
 gate.cancel();
-for (var i = 0; i < handles.length; i++) {
-try {
-if (handles[i]) {
-if (typeof handles[i].clear === 'function') handles[i].clear();
-else if (typeof handles[i].abort === 'function') handles[i].abort();
-}
-} catch (e) {}
-}
 }
 };
 };
@@ -10414,7 +10417,6 @@ resolve({ results: [] }); return { cancel: function () {} };
 }
 var details = [];
 var cancelled = false;
-var handles = [];
 
 
 
@@ -10427,9 +10429,8 @@ resolve({ results: filtered, title: LC.lang ? LC.lang('lumen_row_new_episodes') 
 for (var i = 0; i < shows.length; i++) {
 (function (card) {
 var url = 'tv/' + card.id;
-var net = null;
 try {
-net = Lampa.Api.sources.tmdb.get(
+Lampa.Api.sources.tmdb.get(
 url,
 {},
 function (json) {
@@ -10446,22 +10447,16 @@ gate.tick();
 } catch (e) {
 gate.tick();
 }
-if (net) handles.push(net);
 })(shows[i]);
 }
+
+
+
 
 return {
 cancel: function () {
 cancelled = true;
 gate.cancel();
-for (var i = 0; i < handles.length; i++) {
-try {
-if (handles[i]) {
-if (typeof handles[i].clear === 'function') handles[i].clear();
-else if (typeof handles[i].abort === 'function') handles[i].abort();
-}
-} catch (e) {}
-}
 }
 };
 };
@@ -10484,7 +10479,6 @@ var range = soonRange(null);
 var movies = [];
 var tvShows = [];
 var cancelled = false;
-var handles = [];
 
 
 
@@ -10505,9 +10499,8 @@ var filterKey = media === 'movie' ? 'primary_release_date' : 'first_air_date';
 var f = {};
 f[filterKey + '.gte'] = range.gte;
 f[filterKey + '.lte'] = range.lte;
-var net = null;
 try {
-net = Lampa.Api.sources.tmdb.get(
+Lampa.Api.sources.tmdb.get(
 'discover/' + media,
 { filter: f, sort_by: 'popularity.desc' },
 function (json) {
@@ -10525,24 +10518,18 @@ gate.tick();
 } catch (e) {
 gate.tick();
 }
-return net;
 }
 
-handles.push(fetchDiscover('movie', movies));
-handles.push(fetchDiscover('tv', tvShows));
+fetchDiscover('movie', movies);
+fetchDiscover('tv', tvShows);
+
+
+
 
 return {
 cancel: function () {
 cancelled = true;
 gate.cancel();
-for (var i = 0; i < handles.length; i++) {
-try {
-if (handles[i]) {
-if (typeof handles[i].clear === 'function') handles[i].clear();
-else if (typeof handles[i].abort === 'function') handles[i].abort();
-}
-} catch (e) {}
-}
 }
 };
 };
@@ -13474,14 +13461,12 @@ warn('hero: fx mount failed', e3);
 
 
 
+
+
 function cancelTrailer() {
 if (!state) return;
 tgen++;
 stopTimer('trailerTimer');
-if (state.trailerNet) {
-try { if (state.trailerNet.clear) state.trailerNet.clear(); } catch (e) { }
-state.trailerNet = null;
-}
 state.trailerCard = null;
 if (state.trailer) {
 var control = state.trailer;
@@ -13496,6 +13481,12 @@ try { state.node.removeClass('lumen-hero--trailer'); } catch (e3) { }
 
 
 
+
+
+
+
+
+
 function loadTrailer(card, captured) {
 var media = mediaOf(card);
 var lang = langCode();
@@ -13503,12 +13494,11 @@ var lang = langCode();
 function ask(code, next) {
 try {
 if (!window.Lampa || !Lampa.Api || !Lampa.Api.sources || !Lampa.Api.sources.tmdb) return;
-state.trailerNet = Lampa.Api.sources.tmdb.get(
+Lampa.Api.sources.tmdb.get(
 media + '/' + card.id + '/videos',
 { langs: code },
 function (json) {
 if (tgen !== captured || !state || !isMounted()) return;
-state.trailerNet = null;
 var video = null;
 try {
 if (LC.trailer && typeof LC.trailer.pickTrailer === 'function') video = LC.trailer.pickTrailer(json && json.results);
@@ -13520,7 +13510,6 @@ if (next) ask(next, '');
 },
 function () {
 if (tgen !== captured || !state) return;
-state.trailerNet = null;
 if (next) ask(next, '');
 },
 { life: VIDEOS_LIFE }
@@ -14871,8 +14860,8 @@ lqipUrl: '',
 lqipTimer: null,
 
 
+
 trailerTimer: null,
-trailerNet: null,
 trailer: null,
 trailerCard: null,
 
@@ -19793,7 +19782,6 @@ var resultBox = $('<div class="lumen-roulette__result"></div>');
 
 var gen = 0;
 var handles = [];
-var detailsNet = null;
 var spinTimer = 0;
 var previewTimer = 0;
 var manifest = null;
@@ -19842,8 +19830,6 @@ for (var i = 0; i < handles.length; i++) {
 try { if (handles[i] && handles[i].clear) handles[i].clear(); } catch (e) { }
 }
 handles = [];
-try { if (detailsNet && detailsNet.clear) detailsNet.clear(); } catch (e2) { }
-detailsNet = null;
 }
 
 function stopSpin() {
@@ -20540,6 +20526,10 @@ next();
 
 
 
+
+
+
+
 function verify(card, tries, done) {
 if (!filters.short) { done(card); return; }
 var cached = runtimes[media + ':' + card.id];
@@ -20550,12 +20540,11 @@ return;
 }
 var captured = gen;
 try {
-detailsNet = Lampa.Api.sources.tmdb.get(
+Lampa.Api.sources.tmdb.get(
 media + '/' + card.id,
 { langs: 'ru,en' },
 function (details) {
 if (gen !== captured) return;
-detailsNet = null;
 var minutes = null;
 if (details) {
 if (normalizeMedia(media) === 'tv') {
@@ -20571,7 +20560,6 @@ retry(tries, done, card);
 },
 function () {
 if (gen !== captured) return;
-detailsNet = null;
 
 
 done(card);
@@ -26254,6 +26242,9 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 
+
+
+
 LC.franchise = (function () {
 
 
@@ -26519,17 +26510,9 @@ return holder && holder.length ? holder : null;
 function stateOf(holder) {
 var node = holder[0];
 if (!node.lumenFranchise) {
-node.lumenFranchise = { sign: '', gen: 0, painted: false, net: null, parts: null, movie: null, row: null, list: null };
+node.lumenFranchise = { sign: '', gen: 0, painted: false, parts: null, movie: null, row: null, list: null };
 }
 return node.lumenFranchise;
-}
-
-function dropNet(state) {
-if (!state) return;
-if (state.net && typeof state.net.clear === 'function') {
-try { state.net.clear(); } catch (e) { }
-}
-state.net = null;
 }
 
 function clearBlock(holder) {
@@ -26714,14 +26697,20 @@ warn('franchise bind failed', err);
 }
 }
 
+
+
+
+
+
 function requestCollection(id, ok, err) {
 try {
 if (!window.Lampa || !Lampa.Api || !Lampa.Api.sources || !Lampa.Api.sources.tmdb ||
-typeof Lampa.Api.sources.tmdb.get !== 'function') return null;
-return Lampa.Api.sources.tmdb.get('collection/' + id, {}, ok, err, { life: LIFE });
+typeof Lampa.Api.sources.tmdb.get !== 'function') return false;
+Lampa.Api.sources.tmdb.get('collection/' + id, {}, ok, err, { life: LIFE });
+return true;
 } catch (e) {
 warn('franchise request failed', e);
-return null;
+return false;
 }
 }
 
@@ -26747,7 +26736,6 @@ state.sign = sign;
 state.gen++;
 state.painted = false;
 var gen = state.gen;
-dropNet(state);
 clearBlock(holder);
 row.removeClass('lumen-descr-row--franchise');
 state.parts = null;
@@ -26760,11 +26748,10 @@ state.row = row;
 
 paintSkeleton(holder);
 
-state.net = requestCollection(collection.id, function (json) {
+var sent = requestCollection(collection.id, function (json) {
 try {
 var current = stateOf(holder);
 if (current.gen !== gen) return;
-current.net = null;
 clearBlock(holder);
 var parts = (json && json.parts) || [];
 
@@ -26781,7 +26768,6 @@ warn('franchise paint failed', e);
 try {
 var current = stateOf(holder);
 if (current.gen !== gen) return;
-current.net = null;
 clearBlock(holder);
 } catch (e) {
 warn('franchise error path failed', e);
@@ -26793,7 +26779,7 @@ warn('franchise error path failed', e);
 
 
 
-if (!state.net) clearBlock(holder);
+if (!sent) clearBlock(holder);
 } catch (err) {
 warn('franchise render failed', err);
 }
@@ -26812,11 +26798,13 @@ state.painted = false;
 state.parts = null;
 state.list = null;
 state.gen++;
-dropNet(state);
 } catch (e) {
 warn('franchise clear failed', e);
 }
 }
+
+
+
 
 
 
@@ -26826,7 +26814,10 @@ if (!body || typeof body.find !== 'function') return;
 var holder = body.find('.full-descr');
 if (!holder || !holder.length) return;
 var node = holder[0];
-if (node && node.lumenFranchise) dropNet(node.lumenFranchise);
+if (node && node.lumenFranchise) {
+node.lumenFranchise.gen++;
+node.lumenFranchise.sign = '';
+}
 } catch (e) {
 warn('franchise cancel failed', e);
 }

@@ -7,8 +7,11 @@ const P = load('45_personal.js');
 
 /* Строит поддельную Lampa и загружает LC.personal в чистый контекст.
    Возвращает {api, LC, addCalls, removeCalls, tmdbCalls}.
-   tmdbCalls — массив объектов {url, params, ok, err, clear, cleared}:
-   колбэки ok/err вызываются вручную в тесте для симуляции сетевого ответа. */
+   tmdbCalls — массив объектов {url, params, ok, err}:
+   колбэки ok/err вызываются вручную в тесте для симуляции сетевого ответа.
+   Ф3, довесок Д2 (ревью фикс-раундов): get ничего не возвращает — как
+   настоящая Lampa (get$c, vendor/lampa/app.min.js:19693-19737). Прежняя
+   заглушка отдавала { clear }, то есть отмену, которой у Lampa нет. */
 function setupRuntime(opts) {
   opts = opts || {};
   var addCalls = [];
@@ -35,10 +38,7 @@ function setupRuntime(opts) {
       sources: {
         tmdb: {
           get: function (url, params, ok, err) {
-            var h = { url: url, params: params, ok: ok, err: err, cleared: false };
-            h.clear = function () { h.cleared = true; };
-            tmdbCalls.push(h);
-            return h;
+            tmdbCalls.push({ url: url, params: params, ok: ok, err: err });
           }
         }
       }
@@ -521,6 +521,11 @@ test('отмена ряда снимает таймер дедлайна', funct
     assert.equal(ctl.timers[0].cleared, true, 'таймер снят при отмене ряда');
     ctl.fire(0);
     assert.equal(got.length, 0, 'отменённый ряд по дедлайну не отвечает');
+    /* Запросы отменить нечем — ответы доезжают после отмены. Ряд Lampa
+       обязан их не увидеть. */
+    s.tmdbCalls[0].ok({ results: [{ id: 5, release_date: '2026-10-01' }] });
+    s.tmdbCalls[1].ok({ results: [{ id: 6, first_air_date: '2026-10-02' }] });
+    assert.equal(got.length, 0, 'поздние ответы отменённого ряда до Lampa не доходят');
   });
 });
 

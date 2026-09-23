@@ -962,17 +962,15 @@
       }
     }
 
-    /* Снимает всё, что связано с роликом: отложенный старт, незавершённый
-       запрос роликов и сам плеер. Идемпотентна — плеер уничтожается через
-       свой destroy(), а тот всегда проходит через единственный onEnd. */
+    /* Снимает всё, что связано с роликом: отложенный старт, ответ
+       незавершённого запроса роликов и сам плеер. Идемпотентна — плеер
+       уничтожается через свой destroy(), а тот всегда проходит через
+       единственный onEnd. Сам запрос роликов не отменяется — нечем
+       (loadTrailer); его ответ отсекает поднятый здесь tgen. */
     function cancelTrailer() {
       if (!state) return;
       tgen++;
       stopTimer('trailerTimer');
-      if (state.trailerNet) {
-        try { if (state.trailerNet.clear) state.trailerNet.clear(); } catch (e) { }
-        state.trailerNet = null;
-      }
       state.trailerCard = null;
       if (state.trailer) {
         var control = state.trailer;
@@ -986,7 +984,13 @@
 
     /* Запрос роликов. Языков два, как у штатной Lampa (tmdb.js videos,
        API_NOTES_2 §2): сначала язык интерфейса, и только если на нём ничего
-       не нашлось — английский. Оба ответа кэшируются Lampa на неделю. */
+       не нашлось — английский. Оба ответа кэшируются Lampa на неделю.
+       Отменить запрос нечем: Lampa.Api.sources.tmdb.get ничего не
+       возвращает (get$c, vendor/lampa/app.min.js:19693-19737). Поздний ответ
+       отсекает tgen — его поднимает cancelTrailer(), а её зовут смена
+       карточки в фокусе (onFocus), смена настройки автотрейлера
+       (applyTrailer), park() и unmount(); ответ, доехавший до снятого
+       героя, отсекает ещё и isMounted(). */
     function loadTrailer(card, captured) {
       var media = mediaOf(card);
       var lang = langCode();
@@ -994,12 +998,11 @@
       function ask(code, next) {
         try {
           if (!window.Lampa || !Lampa.Api || !Lampa.Api.sources || !Lampa.Api.sources.tmdb) return;
-          state.trailerNet = Lampa.Api.sources.tmdb.get(
+          Lampa.Api.sources.tmdb.get(
             media + '/' + card.id + '/videos',
             { langs: code },
             function (json) {
               if (tgen !== captured || !state || !isMounted()) return;
-              state.trailerNet = null;
               var video = null;
               try {
                 if (LC.trailer && typeof LC.trailer.pickTrailer === 'function') video = LC.trailer.pickTrailer(json && json.results);
@@ -1011,7 +1014,6 @@
             },
             function () {
               if (tgen !== captured || !state) return;
-              state.trailerNet = null;
               if (next) ask(next, '');
             },
             { life: VIDEOS_LIFE }
@@ -2360,10 +2362,10 @@
           lqipUrl: '',
           /* Task 64: отложенное освобождение подложки, см. releaseLqip. */
           lqipTimer: null,
-          /* Task 28: отложенный старт ролика, его запрос, сам плеер и
-             карточка, которой он принадлежит. */
+          /* Task 28: отложенный старт ролика, сам плеер и карточка, которой
+             он принадлежит. Запроса роликов здесь нет: отменить его нечем
+             (см. loadTrailer). */
           trailerTimer: null,
-          trailerNet: null,
           trailer: null,
           trailerCard: null,
           /* «Несколько кадров»: контроллер слайдшоу текущей карточки

@@ -18,6 +18,10 @@
   /* LC.rows. bumpGen() поднимает _gen, когда главную ВЫБРОСИЛИ (событие   */
   /* 'activity':{type:'destroy', component:'main'}); каждый in-flight      */
   /* колбэк проверяет alive() перед обновлением UI.                        */
+  /* Сами запросы не отменяются: Lampa.Api.sources.tmdb.get ничего не      */
+  /* возвращает (get$c, vendor/lampa/app.min.js:19693-19737). cancel() ряда */
+  /* закрывает только сборщик LC.util.gate — поздний ответ пишет в         */
+  /* локальный массив и тикает закрытый сборщик, до Lampa он не доходит.   */
   /*                                                                       */
   /* Контракт call-функции ряда: ровно ОДИН вызов call(...) при любом      */
   /* исходе — тот же, что в LC.rows, и по той же причине (Lampa ждёт       */
@@ -549,7 +553,6 @@
           }
           var results = [];
           var cancelled = false;
-          var handles = [];
 
           /* Ответы собирает общий сборщик с дедлайном (LC.util.gate):
              ряд закрывается либо когда ответили все, либо по ROW_TIMEOUT —
@@ -562,9 +565,8 @@
           for (var i = 0; i < picked.length; i++) {
             (function (card) {
               var url = card.media + '/' + card.id + '/recommendations';
-              var net = null;
               try {
-                net = Lampa.Api.sources.tmdb.get(
+                Lampa.Api.sources.tmdb.get(
                   url,
                   { filter: { page: 1 } },
                   function (json) {
@@ -582,22 +584,16 @@
               } catch (e) {
                 gate.tick();
               }
-              if (net) handles.push(net);
             })(picked[i]);
           }
 
+          /* Отмена — только сборщик: запросов отменить нечем (шапка
+             модуля, «Отмена запросов»). Поздний ответ дописывает в локальный массив
+             и тикает закрытый сборщик — ряд Lampa уже не получит ничего. */
           return {
             cancel: function () {
               cancelled = true;
               gate.cancel();
-              for (var i = 0; i < handles.length; i++) {
-                try {
-                  if (handles[i]) {
-                    if (typeof handles[i].clear === 'function') handles[i].clear();
-                    else if (typeof handles[i].abort === 'function') handles[i].abort();
-                  }
-                } catch (e) {}
-              }
             }
           };
         };
@@ -621,7 +617,6 @@
           }
           var details = [];
           var cancelled = false;
-          var handles = [];
 
           /* Тот же сборщик с дедлайном, что и у остальных рядов: по истечении
              ROW_TIMEOUT ряд строится из тех деталей, что успели прийти. */
@@ -634,9 +629,8 @@
           for (var i = 0; i < shows.length; i++) {
             (function (card) {
               var url = 'tv/' + card.id;
-              var net = null;
               try {
-                net = Lampa.Api.sources.tmdb.get(
+                Lampa.Api.sources.tmdb.get(
                   url,
                   {},
                   function (json) {
@@ -653,22 +647,16 @@
               } catch (e) {
                 gate.tick();
               }
-              if (net) handles.push(net);
             })(shows[i]);
           }
 
+          /* Отмена — только сборщик: запросов отменить нечем (шапка
+             модуля, «Отмена запросов»). Поздний ответ дописывает в локальный массив
+             и тикает закрытый сборщик — ряд Lampa уже не получит ничего. */
           return {
             cancel: function () {
               cancelled = true;
               gate.cancel();
-              for (var i = 0; i < handles.length; i++) {
-                try {
-                  if (handles[i]) {
-                    if (typeof handles[i].clear === 'function') handles[i].clear();
-                    else if (typeof handles[i].abort === 'function') handles[i].abort();
-                  }
-                } catch (e) {}
-              }
             }
           };
         };
@@ -691,7 +679,6 @@
           var movies = [];
           var tvShows = [];
           var cancelled = false;
-          var handles = [];
 
           /* Тот же сборщик с дедлайном: если один из двух discover молчит,
              ряд соберётся из ответившего. */
@@ -712,9 +699,8 @@
             var f = {};
             f[filterKey + '.gte'] = range.gte;
             f[filterKey + '.lte'] = range.lte;
-            var net = null;
             try {
-              net = Lampa.Api.sources.tmdb.get(
+              Lampa.Api.sources.tmdb.get(
                 'discover/' + media,
                 { filter: f, sort_by: 'popularity.desc' },
                 function (json) {
@@ -732,24 +718,18 @@
             } catch (e) {
               gate.tick();
             }
-            return net;
           }
 
-          handles.push(fetchDiscover('movie', movies));
-          handles.push(fetchDiscover('tv', tvShows));
+          fetchDiscover('movie', movies);
+          fetchDiscover('tv', tvShows);
 
+          /* Отмена — только сборщик: запросов отменить нечем (шапка
+             модуля, «Отмена запросов»). Поздний ответ дописывает в локальный массив
+             и тикает закрытый сборщик — ряд Lampa уже не получит ничего. */
           return {
             cancel: function () {
               cancelled = true;
               gate.cancel();
-              for (var i = 0; i < handles.length; i++) {
-                try {
-                  if (handles[i]) {
-                    if (typeof handles[i].clear === 'function') handles[i].clear();
-                    else if (typeof handles[i].abort === 'function') handles[i].abort();
-                  }
-                } catch (e) {}
-              }
             }
           };
         };

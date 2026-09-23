@@ -6,10 +6,13 @@
   /* нельзя (план 0.2), а контроллер full_descr собирает .selector внутри    */
   /* всего ряда описания — поэтому блок встраивается в .full-descr соседом   */
   /* таблицы «ПОДРОБНО» и ряда отзывов. Отсюда же и весь жизненный цикл,     */
-  /* один в один с src/60_reviews.js: подпись + поколение на узле ряда,      */
-  /* снятие незавершённого запроса при смене карточки (clearRow) и при её    */
-  /* закрытии (cancel из LC.destroyActive), проверка «карточка всё ещё на    */
-  /* экране» перед отдачей .selector в навигацию.                            */
+  /* как у src/60_reviews.js: подпись + поколение на узле ряда, подъём      */
+  /* поколения при смене карточки (clearRow) и при её закрытии (cancel из   */
+  /* LC.destroyActive), проверка «карточка всё ещё на экране» перед отдачей */
+  /* .selector в навигацию. В отличие от отзывов (там Lampa.Reguest с       */
+  /* clear()), сам запрос коллекции не отменяется: Lampa.Api.sources.tmdb.  */
+  /* get ничего не возвращает (get$c, vendor/lampa/app.min.js:19693-19737), */
+  /* и поздний ответ отсекает только поколение.                             */
   /*                                                                        */
   /* Данные — штатный запрос TMDB collection/{id} через Lampa.Api.sources.    */
   /* tmdb.get с кэшем на неделю: состав коллекции меняется от силы раз в     */
@@ -290,17 +293,9 @@
     function stateOf(holder) {
       var node = holder[0];
       if (!node.lumenFranchise) {
-        node.lumenFranchise = { sign: '', gen: 0, painted: false, net: null, parts: null, movie: null, row: null, list: null };
+        node.lumenFranchise = { sign: '', gen: 0, painted: false, parts: null, movie: null, row: null, list: null };
       }
       return node.lumenFranchise;
-    }
-
-    function dropNet(state) {
-      if (!state) return;
-      if (state.net && typeof state.net.clear === 'function') {
-        try { state.net.clear(); } catch (e) { }
-      }
-      state.net = null;
     }
 
     function clearBlock(holder) {
@@ -485,14 +480,20 @@
       }
     }
 
+    /* true — запрос ушёл и колбэк придёт; false — запроса не случилось.
+       Ф3, довесок Д2 (ревью фикс-раундов): прежде функция возвращала
+       результат tmdb.get, а он всегда undefined (get$c ничего не
+       возвращает) — и render() по нему снимал скелетон сразу после
+       отправки: на живой Lampa скелетона ряда не было видно никогда. */
     function requestCollection(id, ok, err) {
       try {
         if (!window.Lampa || !Lampa.Api || !Lampa.Api.sources || !Lampa.Api.sources.tmdb ||
-            typeof Lampa.Api.sources.tmdb.get !== 'function') return null;
-        return Lampa.Api.sources.tmdb.get('collection/' + id, {}, ok, err, { life: LIFE });
+            typeof Lampa.Api.sources.tmdb.get !== 'function') return false;
+        Lampa.Api.sources.tmdb.get('collection/' + id, {}, ok, err, { life: LIFE });
+        return true;
       } catch (e) {
         warn('franchise request failed', e);
-        return null;
+        return false;
       }
     }
 
@@ -518,7 +519,6 @@
         state.gen++;
         state.painted = false;
         var gen = state.gen;
-        dropNet(state);
         clearBlock(holder);
         row.removeClass('lumen-descr-row--franchise');
         state.parts = null;
@@ -531,11 +531,10 @@
 
         paintSkeleton(holder);
 
-        state.net = requestCollection(collection.id, function (json) {
+        var sent = requestCollection(collection.id, function (json) {
           try {
             var current = stateOf(holder);
             if (current.gen !== gen) return;
-            current.net = null;
             clearBlock(holder);
             var parts = (json && json.parts) || [];
             /* Одна часть — это не франшиза: смотреть по порядку нечего, а
@@ -552,7 +551,6 @@
           try {
             var current = stateOf(holder);
             if (current.gen !== gen) return;
-            current.net = null;
             clearBlock(holder);
           } catch (e) {
             warn('franchise error path failed', e);
@@ -564,7 +562,7 @@
            скелетон остался бы на карточке навсегда. Найдено живьём
            2026-09-17, когда инструментирование проверки сломало
            Lampa.Api.sources.tmdb.get: плашки висели до ухода с карточки. */
-        if (!state.net) clearBlock(holder);
+        if (!sent) clearBlock(holder);
       } catch (err) {
         warn('franchise render failed', err);
       }
@@ -583,21 +581,26 @@
         state.parts = null;
         state.list = null;
         state.gen++;
-        dropNet(state);
       } catch (e) {
         warn('franchise clear failed', e);
       }
     }
 
     /* Карточку закрыли: LC.destroyActive зовёт это вместе с LC.reviews.cancel.
-       Состояние НЕ создаём, если рендера на этом узле ещё не было. */
+       Состояние НЕ создаём, если рендера на этом узле ещё не было.
+       Запрос не отменить (шапка модуля) — поднимаем поколение, и ответ,
+       доехавший после закрытия, в снятый экран не рисуется. Подпись
+       сбрасывается: повторный render на том же узле пошлёт запрос заново. */
     function cancel(body) {
       try {
         if (!body || typeof body.find !== 'function') return;
         var holder = body.find('.full-descr');
         if (!holder || !holder.length) return;
         var node = holder[0];
-        if (node && node.lumenFranchise) dropNet(node.lumenFranchise);
+        if (node && node.lumenFranchise) {
+          node.lumenFranchise.gen++;
+          node.lumenFranchise.sign = '';
+        }
       } catch (e) {
         warn('franchise cancel failed', e);
       }

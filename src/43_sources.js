@@ -386,14 +386,19 @@
       return net;
     }
 
-    /* Один источник одного медиа. Для kp — fetchKp.
-       alive передаётся дальше; возвращает net или null. */
+    /* Один источник одного медиа. Для kp — fetchKp: он возвращает
+       Lampa.Reguest, который clear() действительно отменяет (или null, если
+       ответ взят из кэша). Для TMDB возвращать нечего: Lampa.Api.sources.
+       tmdb.get ничего не возвращает (get$c, vendor/lampa/app.min.js:
+       19693-19737), и запрос не отменяется — поздний ответ отсекает сторож
+       dead() по alive (fetchAll отдаёт сюда requestAlive, который гаснет с
+       последним подписчиком). */
     function fetchOne(spec, media, page, ok, err, alive) {
       if (spec.type === 'kp') { return fetchKp(spec, page, ok, err, alive); }
       var gen = alive ? alive() : 0;
       function dead() { return alive && alive() !== gen; }
       var r = buildRequest(spec, media, page);
-      var net = Lampa.Api.sources.tmdb.get(
+      Lampa.Api.sources.tmdb.get(
         r.url,
         r.params,
         function (json) {
@@ -407,7 +412,7 @@
         function (e) { if (!dead()) err(e); },
         { life: r.life }
       );
-      return net;
+      return null;
     }
 
     /* Подпись сортировки подборки — часть ключа дедупликации (ревью Task 17,
@@ -504,6 +509,8 @@
       var src = item.sources || {};
       var want = [];
       var got = {};
+      /* Отменяемые запросы — только Кинопоиска (Lampa.Reguest); у TMDB
+         дескриптора нет (fetchOne), его ответ глушит requestAlive. */
       var nets = [];
 
       if (src.movie) want.push('movie');
