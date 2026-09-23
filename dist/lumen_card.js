@@ -6444,20 +6444,71 @@ collections: [
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 {
 id: 'star-wars', title: 'Звёздные войны', group: 'franchise', icon: 'film',
 sources: {
 movie: { type: 'collection', id: 10 },
-tv:    { type: 'discover',   params: { keywords: 379196, sort_by: 'popularity.desc' } }
+tv:    { type: 'discover',   params: { companies: 1, genres: '10765|16', sort_by: 'popularity.desc', filter: { without_keywords: '211227,215470' } } }
 }
 },
 {
 id: 'harry-potter', title: 'Гарри Поттер', group: 'franchise', icon: 'film',
-sources: { movie: { type: 'collection', id: 1241 } }
+sources: {
+movie: { type: 'collection', id: 1241 },
+tv:    { type: 'discover',   params: { companies: '437,3268', sort_by: 'popularity.desc' } }
+}
 },
 {
 id: 'lotr', title: 'Властелин колец', group: 'franchise', icon: 'film',
-sources: { movie: { type: 'collection', id: 119 } }
+sources: {
+movie: { type: 'collection', id: 119 },
+tv:    { type: 'discover',   params: { companies: '12,20580', sort_by: 'popularity.desc' } }
+}
 },
 {
 id: 'hobbit', title: 'Хоббит', group: 'franchise', icon: 'film',
@@ -6599,7 +6650,16 @@ sources: { movie: { type: 'discover', params: { companies: 10342, sort_by: 'popu
 },
 {
 id: 'marvel', title: 'Marvel Studios', group: 'studio',
-sources: { movie: { type: 'discover', params: { companies: 420, sort_by: 'popularity.desc' } } }
+
+
+
+
+
+
+sources: {
+movie: { type: 'discover', params: { companies: 420, sort_by: 'popularity.desc' } },
+tv:    { type: 'discover', params: { companies: 420, sort_by: 'popularity.desc', filter: { without_genres: '99' } } }
+}
 },
 {
 id: 'a24', title: 'A24', group: 'studio',

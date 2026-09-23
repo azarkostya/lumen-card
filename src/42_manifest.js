@@ -70,20 +70,71 @@
         /* === FRANCHISE (34 подборки) === */
 
         /* Существующие (8) */
+        /* Сериальная половина франшиз — по СТУДИЯМ, а не по ключевому слову
+           (правка 2026-09-23; данные TMDB сняты со стенда в тот же день).
+
+           «Звёздные войны». Прежний источник — discover/tv по ключевому слову
+           «star wars» (379196) — отдавал два сериала: «Видения. Девятый
+           джедай» и подкаст (его убрал 8c60da8). Остальные сериалы этим
+           словом не помечены, и общего ключевого слова у них нет вовсе:
+           по ключевым словам 27 сериалов франшизы «space opera» (161176)
+           стоит у 10, «star wars» — у одного; у «Оби-Вана Кеноби», «Бракованной
+           партии», «Книги Бобы Фетта» и «Сказаний» нет ни того, ни другого.
+           Общее у всех одно — студия Lucasfilm (company 1): discover/tv по
+           ней отдаёт 45 позиций, и среди них все сериалы франшизы, включая
+           ещё не вышедшие («Мол. Повелитель теней», 2026) — то есть новые
+           сериалы попадут в подборку сами.
+           Лишнее у Lucasfilm трёх видов, и каждое снято признаком из данных:
+           - «Maniac Mansion» (1990, комедия) и документальные / новостные
+             выпуски о франшизе (Disney Gallery ×2, LIGHT & MAGIC, This Week!
+             in Star Wars, Science of Star Wars, Making Star Wars, The
+             Mandalorian and Grogu | A Special Look) — условие жанра
+             10765|16 («фантастика и фэнтези» ИЛИ «анимация»): у всех
+             сериалов франшизы есть хотя бы один из двух (у «Приключений
+             юных джедаев» — только анимация), у этих — ни одного;
+           - «Уиллоу» (2022) — Lucasfilm без соавторов и с жанром 10765; снят
+             ключевым словом «high fantasy» (211227), которого нет ни у
+             одного сериала франшизы;
+           - «Хроники молодого Индианы Джонса» (1992) — ключевым словом
+             «treasure hunter» (215470), тоже не встречающимся у них.
+           Итог запроса (стенд, 2026-09-23): 35 позиций, все — «Звёздные
+           войны». Цена: если TMDB однажды пометит новый сериал франшизы
+           словом «high fantasy» или «treasure hunter», он из подборки
+           выпадет; если Lucasfilm снимет не-франшизный сериал с жанром
+           фантастики, он в неё попадёт. Ручной список id такой цены не
+           имеет, зато устаревает с каждым новым сериалом — выбран запрос.
+
+           «Гарри Поттер» и «Властелин колец». Та же дыра — сериалов не было
+           вовсе. Ключевых слов франшизы у сериалов нет (у «Гарри Поттера»
+           HBO и у «Колец власти» из общих слов только «based on novel or
+           book»), а по одной студии в выдачу идёт чужое (Heyday Films —
+           «Паддингтон» и «Захват», New Line — «Сумеречная зона» и «Тёмные
+           начала»). Точный запрос — ПЕРЕСЕЧЕНИЕ двух студий (запятая в
+           with_companies у TMDB — «и»): Heyday Films (437, продюсер всех
+           фильмов) и HBO (3268) — ровно «Гарри Поттер» (224377, 2026);
+           New Line Cinema (12, студия трилогии) и Amazon Studios (20580) —
+           ровно «Кольца власти» (84773). Новые сезоны живут под тем же id,
+           новый сериал тех же двух студий попадёт сам. */
         {
           id: 'star-wars', title: 'Звёздные войны', group: 'franchise', icon: 'film',
           sources: {
             movie: { type: 'collection', id: 10 },
-            tv:    { type: 'discover',   params: { keywords: 379196, sort_by: 'popularity.desc' } }
+            tv:    { type: 'discover',   params: { companies: 1, genres: '10765|16', sort_by: 'popularity.desc', filter: { without_keywords: '211227,215470' } } }
           }
         },
         {
           id: 'harry-potter', title: 'Гарри Поттер', group: 'franchise', icon: 'film',
-          sources: { movie: { type: 'collection', id: 1241 } }
+          sources: {
+            movie: { type: 'collection', id: 1241 },
+            tv:    { type: 'discover',   params: { companies: '437,3268', sort_by: 'popularity.desc' } }
+          }
         },
         {
           id: 'lotr', title: 'Властелин колец', group: 'franchise', icon: 'film',
-          sources: { movie: { type: 'collection', id: 119 } }
+          sources: {
+            movie: { type: 'collection', id: 119 },
+            tv:    { type: 'discover',   params: { companies: '12,20580', sort_by: 'popularity.desc' } }
+          }
         },
         {
           id: 'hobbit', title: 'Хоббит', group: 'franchise', icon: 'film',
@@ -225,7 +276,16 @@
         },
         {
           id: 'marvel', title: 'Marvel Studios', group: 'studio',
-          sources: { movie: { type: 'discover', params: { companies: 420, sort_by: 'popularity.desc' } } }
+          /* Правка 2026-09-23: сериалов у подборки не было вовсе, хотя
+             студия та же — discover/tv по Marvel Studios (420) отдаёт 35
+             позиций: «Локи», «Ванда/Вижн», «Сорвиголова: Рождённый заново»,
+             «Люди Икс '97» и т. д. Документальные выпуски о студии
+             (Marvel Studios Legends, Assembled, Voices Rising) сняты жанром
+             99 — у игровых и мультсериалов его нет (стенд, данные TMDB). */
+          sources: {
+            movie: { type: 'discover', params: { companies: 420, sort_by: 'popularity.desc' } },
+            tv:    { type: 'discover', params: { companies: 420, sort_by: 'popularity.desc', filter: { without_genres: '99' } } }
+          }
         },
         {
           id: 'a24', title: 'A24', group: 'studio',

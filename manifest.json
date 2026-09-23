@@ -274,8 +274,12 @@
         "tv": {
           "type": "discover",
           "params": {
-            "keywords": 379196,
-            "sort_by": "popularity.desc"
+            "companies": 1,
+            "genres": "10765|16",
+            "sort_by": "popularity.desc",
+            "filter": {
+              "without_keywords": "211227,215470"
+            }
           }
         }
       }
@@ -289,6 +293,13 @@
         "movie": {
           "type": "collection",
           "id": 1241
+        },
+        "tv": {
+          "type": "discover",
+          "params": {
+            "companies": "437,3268",
+            "sort_by": "popularity.desc"
+          }
         }
       }
     },
@@ -301,6 +312,13 @@
         "movie": {
           "type": "collection",
           "id": 119
+        },
+        "tv": {
+          "type": "discover",
+          "params": {
+            "companies": "12,20580",
+            "sort_by": "popularity.desc"
+          }
         }
       }
     },
@@ -714,6 +732,16 @@
           "params": {
             "companies": 420,
             "sort_by": "popularity.desc"
+          }
+        },
+        "tv": {
+          "type": "discover",
+          "params": {
+            "companies": 420,
+            "sort_by": "popularity.desc",
+            "filter": {
+              "without_genres": "99"
+            }
           }
         }
       }

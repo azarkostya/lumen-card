@@ -263,3 +263,34 @@ test('DEFAULT: «Кино о любви» — сезон февраль, ром�
   assert.equal(M.orderForMonth(theme, 5)[0].id, 'war-may');
   assert.notEqual(M.orderForMonth(theme, 3)[0].id, 'love-feb');
 });
+
+/* Правка 2026-09-23: сериальная половина франшиз — по студиям (разбор и
+   данные TMDB — в комментарии к подборкам в src/42_manifest.js). Прежний
+   источник «Звёздных войн» — ключевое слово 379196 — давал два сериала; у
+   «Гарри Поттера», «Властелина колец» и Marvel Studios сериалов не было
+   вовсе. Сторож держит форму запросов: вернуть ключевое слово или потерять
+   исключения — значит снова получить пустую или чужую половину. */
+test('франшизы: сериалы по студиям — «Звёздные войны», «Гарри Поттер», «Властелин колец», Marvel Studios', () => {
+  const byId = {};
+  for (const c of M.DEFAULT.collections) byId[c.id] = c;
+
+  const sw = byId['star-wars'].sources;
+  assert.deepEqual(sw.movie, { type: 'collection', id: 10 }, 'фильмы — прежняя коллекция TMDB');
+  assert.equal(sw.tv.type, 'discover');
+  assert.equal(sw.tv.params.companies, 1, 'Lucasfilm');
+  assert.equal(sw.tv.params.keywords, undefined, 'ключевое слово «star wars» отдавало два сериала из тридцати');
+  assert.equal(sw.tv.params.genres, '10765|16', 'фантастика ИЛИ анимация — снимает комедию и документалки о франшизе');
+  assert.deepEqual(sw.tv.params.filter.without_keywords.split(',').sort(), ['211227', '215470'],
+    '«Уиллоу» (high fantasy) и «Хроники молодого Индианы Джонса» (treasure hunter)');
+
+  assert.deepEqual(byId['harry-potter'].sources.tv, { type: 'discover', params: { companies: '437,3268', sort_by: 'popularity.desc' } },
+    'Heyday Films И HBO — сериал HBO 2026');
+  assert.deepEqual(byId['lotr'].sources.tv, { type: 'discover', params: { companies: '12,20580', sort_by: 'popularity.desc' } },
+    'New Line Cinema И Amazon Studios — «Кольца власти»');
+  assert.equal(byId['harry-potter'].sources.movie.id, 1241);
+  assert.equal(byId['lotr'].sources.movie.id, 119);
+
+  const marvel = byId['marvel'].sources;
+  assert.equal(marvel.tv.params.companies, 420, 'сериалы той же студии');
+  assert.equal(marvel.tv.params.filter.without_genres, '99', 'без документальных выпусков о студии');
+});
