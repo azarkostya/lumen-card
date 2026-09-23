@@ -416,6 +416,27 @@ test('мини-карта: detach снимает панель, для котор
   env.nav.uninstall();
 });
 
+/* Мелочь ревью фазы 3 (docs/plans/2026-09-15-lumen-phase3-features.md:251):
+   у панели не было предельного времени жизни — потерянный keyup оставлял
+   её на экране до смены активности. */
+test('мини-карта: без keyup панель уходит сама после двух секунд без нажатий, автоповтор её продлевает', () => {
+  const env = makeEnv();
+  env.nav.install();
+  env.down(40);
+  env.advance(500);
+  assert.equal(env.nav.active(), true, 'удержание показало панель');
+  /* Клавишу держат: автоповтор keydown каждые 300 мс в течение трёх секунд. */
+  for (let i = 0; i < 10; i++) { env.down(40); env.advance(300); }
+  assert.equal(env.nav.active(), true, 'пока идут нажатия, панель живёт дольше STALE_MS');
+  /* keyup потерялся — нажатий больше нет. С последнего прошло 300 мс. */
+  env.advance(1600);
+  assert.equal(env.nav.active(), true, 'до срока панель на месте');
+  env.advance(200);
+  assert.equal(env.nav.active(), false, 'через две секунды тишины панель снята');
+  assert.equal(panelsIn(env), 0, 'и узел ушёл из body');
+  env.nav.uninstall();
+});
+
 test('мини-карта: detach подписки на клавиатуру не трогает — экран сменился, а плагин работает', () => {
   const env = makeEnv();
   env.nav.install();

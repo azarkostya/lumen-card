@@ -16764,6 +16764,12 @@ var DEFAULT_MIN = 3;
 
 
 
+
+var POKE_MS = 1000;
+
+
+
+
 var CONTROLLERS = { content: 1, full_start: 1, full_descr: 1, items_line: 1 };
 
 
@@ -17111,6 +17117,21 @@ var slot = 0;
 var live = false;
 var preload = null;
 
+
+var watch = null;
+var bad = {};
+var last_poke = 0;
+
+function killWatch() {
+if (!watch) return;
+try {
+watch.onload = null;
+watch.onerror = null;
+watch.src = '';
+} catch (e) { }
+watch = null;
+}
+
 function killPreload() {
 if (!preload) return;
 try {
@@ -17146,6 +17167,49 @@ preload = null;
 }
 }
 
+
+
+
+
+
+function watchFrame(url, i) {
+killWatch();
+var Ctor = null;
+try { Ctor = (window && typeof window.Image === 'function') ? window.Image : null; } catch (e) { }
+if (!Ctor) return;
+try {
+var img = new Ctor();
+watch = img;
+img.onload = function () {
+if (watch === img) killWatch();
+};
+img.onerror = function () {
+if (watch !== img) return;
+killWatch();
+bad[url] = true;
+if (!live || index !== i) return;
+clearT(slide_timer);
+slide_timer = 0;
+tick();
+};
+img.src = url;
+} catch (e2) {
+warn('ambient: watch failed', e2);
+watch = null;
+}
+}
+
+
+function nextGood(from, size) {
+var i = from;
+for (var n = 0; n < reel.length; n++) {
+i = nextIndex(i, reel.length);
+if (i < 0) return -1;
+if (!bad[urlOf(reel[i], size)]) return i;
+}
+return -1;
+}
+
 function paintClock() {
 if (!node) return;
 try { node.find('.lumen-ambient__clock').text(clockText(new Date())); } catch (e) { }
@@ -17176,7 +17240,9 @@ for (var d = 0; d < dots.length; d++) {
 try { dots[d].toggleClass('is-on', d === i); } catch (e3) { }
 }
 paintClock();
-preloadNext(urlOf(reel[nextIndex(i, reel.length)], size));
+watchFrame(url, i);
+var next = nextGood(i, size);
+preloadNext(next >= 0 && next !== i ? urlOf(reel[next], size) : '');
 }
 
 function tick() {
@@ -17186,7 +17252,10 @@ if (!live) return;
 
 
 if (!hidden()) {
-try { show(nextIndex(index, reel.length)); } catch (e) { warn('ambient: slide failed', e); }
+try {
+var next = nextGood(index, sizeFor(screenWidth()));
+if (next >= 0) show(next);
+} catch (e) { warn('ambient: slide failed', e); }
 }
 slide_timer = setT(tick, SLIDE_MS);
 }
@@ -17242,6 +17311,7 @@ try { list = frames(); } catch (e) { warn('ambient: frames failed', e); }
 if (!canStart(gather(list.length))) { schedule(); return; }
 reel = playlist(list, REEL, Math.random);
 if (!reel.length) { schedule(); return; }
+bad = {};
 index = -1;
 slot = 0;
 if (!build()) { schedule(); return; }
@@ -17268,6 +17338,7 @@ slide_timer = 0;
 clearT(out_timer);
 out_timer = 0;
 killPreload();
+killWatch();
 live = false;
 markCovered(false);
 if (node) {
@@ -17289,6 +17360,7 @@ if (!node) { schedule(); return; }
 clearT(slide_timer);
 slide_timer = 0;
 killPreload();
+killWatch();
 live = false;
 
 
@@ -17316,7 +17388,13 @@ schedule();
 
 
 function wake(event, swallow) {
-if (!live) { schedule(); return; }
+if (!live) {
+var t = Date.now();
+if (t - last_poke < POKE_MS && idle_timer) return;
+last_poke = t;
+schedule();
+return;
+}
 if (swallow && event) {
 try { if (typeof event.preventDefault === 'function') event.preventDefault(); } catch (e) { }
 try { if (typeof event.stopPropagation === 'function') event.stopPropagation(); } catch (e2) { }
@@ -22345,6 +22423,15 @@ months: ('' + LC.lang('lumen_card_months_short')).split(',')
 
 
 
+
+
+function batch() {
+return { today: new Date(), words: words() };
+}
+
+
+
+
 function progressOf(card) {
 try {
 if (!window.Lampa || !Lampa.Timeline || typeof Lampa.Timeline.view !== 'function') return null;
@@ -22456,7 +22543,7 @@ return true;
 
 
 
-function decorate(node, card, opts) {
+function decorate(node, card, opts, shared) {
 try {
 if (!enabled()) return;
 var el = node && node.length ? node[0] : node;
@@ -22464,7 +22551,8 @@ if (!el || el.lumen_badged) return;
 var data = card || el.card_data;
 if (!data) return;
 el.lumen_badged = true;
-var badge = badgeFor(data, new Date(), { progress: progressOf, words: words() });
+var ctx = shared || batch();
+var badge = badgeFor(data, ctx.today, { progress: progressOf, words: ctx.words });
 var view = $(el).find('.card__view');
 var hasBadge = !!(badge && badge.text && view && view.length);
 var view_mode = mode();
@@ -22566,31 +22654,34 @@ warn('badges: decorate failed', e);
 function scan(root) {
 try {
 var nodes = root.find('.card');
-for (var i = 0; i < nodes.length; i++) decorate(nodes[i], null, null);
+var shared = nodes.length ? batch() : null;
+for (var i = 0; i < nodes.length; i++) decorate(nodes[i], null, null, shared);
 } catch (e) {
 warn('badges: scan failed', e);
 }
 }
 
 
-function decorateAdded(el) {
+function decorateAdded(el, shared) {
 if (!el || el.nodeType !== 1) return;
 if (el.classList && el.classList.contains('card')) {
-decorate(el, null, null);
+decorate(el, null, null, shared);
 return;
 }
 if (typeof el.querySelectorAll !== 'function') return;
 var inner = el.querySelectorAll('.card');
-for (var i = 0; i < inner.length; i++) decorate(inner[i], null, null);
+for (var i = 0; i < inner.length; i++) decorate(inner[i], null, null, shared);
 }
 
 function onMutations(records) {
 if (!state) return;
 try {
+var shared = null;
 for (var i = 0; i < records.length; i++) {
 var added = records[i] && records[i].addedNodes;
-if (!added) continue;
-for (var k = 0; k < added.length; k++) decorateAdded(added[k]);
+if (!added || !added.length) continue;
+if (!shared) shared = batch();
+for (var k = 0; k < added.length; k++) decorateAdded(added[k], shared);
 }
 } catch (e) {
 warn('badges: observer failed', e);
@@ -23671,6 +23762,14 @@ var JUMP_STEPS = 10;
 var HOLD_MS = 500;
 var HIDE_MS = 800;
 
+
+
+
+
+
+
+var STALE_MS = 2000;
+
 var JUMP_LIFE = 1200;
 
 
@@ -23951,6 +24050,7 @@ var panel = null;
 var jumpNode = null;
 var showTimer = null;
 var hideTimer = null;
+var staleTimer = null;
 var paintTimer = null;
 var jumpTimer = null;
 
@@ -24009,6 +24109,17 @@ if (!model) { hideMinimap(); return; }
 panel.html(minimapHtml(model));
 }
 
+
+
+function touchMinimap() {
+staleTimer = stopTimer(staleTimer);
+if (!panel) return;
+staleTimer = setTimeout(function () {
+staleTimer = null;
+hideMinimap();
+}, STALE_MS);
+}
+
 function showMinimap() {
 if (panel) { paintMinimap(); return; }
 var root = currentMain();
@@ -24022,9 +24133,11 @@ warn('nav: minimap show failed', e);
 return;
 }
 paintMinimap();
+touchMinimap();
 }
 
 function hideMinimap() {
+staleTimer = stopTimer(staleTimer);
 if (!panel) return;
 var node = panel;
 panel = null;
@@ -24121,7 +24234,7 @@ if (!minimapOn()) return;
 if (!onCards()) return;
 if (!currentMain()) return;
 hideTimer = stopTimer(hideTimer);
-if (panel) { schedulePaint(false); return; }
+if (panel) { touchMinimap(); schedulePaint(false); return; }
 if (showTimer) return;
 showTimer = setTimeout(function () {
 showTimer = null;

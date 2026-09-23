@@ -714,3 +714,37 @@ test('важное 2: wide — strip возвращает подписи чис�
   assert.equal(age._children.filter((c) => c.hasClass('lumen-badge-cap')).length, 0, 'узел метки снят');
   assert.equal(card.lumen_badged, false, 'флаг снят — вид можно нарисовать заново');
 });
+
+/* Мелочь ревью фазы 3 (docs/plans/2026-09-15-lumen-phase3-features.md:251):
+   строки метки и дата считались заново на каждую карточку ряда. Проход по
+   экрану считает их один раз — и метки при этом те же. */
+test('scan: строки метки берутся один раз на проход, а не на каждую карточку', () => {
+  class FakeObserver { constructor() {} observe() {} disconnect() {} }
+  globalThis.window = { Lampa: {}, MutationObserver: FakeObserver };
+  globalThis.MutationObserver = FakeObserver;
+  try {
+    const asked = [];
+    const { api } = runtime({
+      lang: function (key) {
+        asked.push(key);
+        if (key === 'lumen_badge_soon') return 'Скоро';
+        if (key === 'lumen_badge_new') return 'Новинка';
+        if (key === 'lumen_card_months_short') return MONTHS.join(',');
+        return key;
+      }
+    });
+    const cards = [];
+    for (let i = 0; i < 12; i++) cards.push(makeCard({ release_date: '2026-12-17' }));
+    api.mount(makeRoot(cards));
+    const months = asked.filter((k) => k === 'lumen_card_months_short').length;
+    assert.equal(months, 1, 'месяцы разобраны ' + months + ' раз на 12 карточек');
+    for (const card of cards) {
+      const badge = card._children[0]._children.filter((c) => c.hasClass('lumen-badge'));
+      assert.equal(badge.length, 1, 'у каждой карточки своя метка');
+      assert.ok(badge[0].hasClass('lumen-badge--soon'));
+    }
+  } finally {
+    delete globalThis.window;
+    delete globalThis.MutationObserver;
+  }
+});

@@ -374,6 +374,28 @@ test('schedule: любая активность сбрасывает тайме�
   e.api.uninstall();
 });
 
+/* Мелочь ревью фазы 3 (там же): mousemove пересоздавал таймер покоя на
+   каждое событие. Теперь не чаще раза в секунду. */
+test('schedule: поток mousemove переставляет таймер покоя не чаще раза в секунду', () => {
+  const e = env();
+  e.api.install();
+  e.send('keydown', { keyCode: 40 });
+  const id = e.timers[0].id;
+  for (let i = 0; i < 50; i++) e.send('mousemove', {});
+  assert.equal(e.timers.length, 1);
+  assert.equal(e.timers[0].id, id, 'полсотни событий подряд не пересоздали таймер');
+  const realNow = Date.now;
+  try {
+    const later = realNow() + 1500;
+    Date.now = () => later;
+    e.send('mousemove', {});
+    assert.notEqual(e.timers[0].id, id, 'через секунду движение снова откладывает заставку');
+  } finally {
+    Date.now = realNow;
+  }
+  e.api.uninstall();
+});
+
 test('delay: настройка задаёт задержку, живой хук _delayMs её перебивает', () => {
   const e = env({ store: { lumen_ambient_delay: '10' } });
   e.api.install();
@@ -522,12 +544,41 @@ test('слайд: через 20 с активен второй кадр, сле�
   const first = node.find('.lumen-ambient__img').all[0];
   const second = node.find('.lumen-ambient__img').all[1];
   assert.equal(first.hasClass('is-active'), true);
-  assert.equal(e.images.length, 1, 'следующий кадр предзагружается сразу');
+  /* Две картинки на кадр: сторож текущего (битый кадр сменяется сразу) и
+     предзагрузка следующего. */
+  assert.equal(e.images.length, 2, 'следующий кадр предзагружается сразу');
+  assert.ok(first.css('background-image').indexOf(e.images[0].src) !== -1, 'сторож смотрит на кадр, что на экране');
   e.fire(20000);
   assert.equal(second.hasClass('is-active'), true);
   assert.equal(first.hasClass('is-active'), false);
-  assert.equal(e.images.length, 2);
+  assert.equal(e.images.length, 4);
   assert.equal(e.timers.length, 1, 'висит ровно один таймер смены кадра');
+  e.api.uninstall();
+});
+
+/* Мелочь ревью фазы 3 (docs/plans/2026-09-15-lumen-phase3-features.md:251):
+   битый кадр висел до следующего тика — до 20 с чёрного экрана. */
+test('слайд: битый кадр сменяется сразу, а по кругу больше не показывается', () => {
+  const e = env();
+  e.api.install();
+  e.fire();
+  const node = e.layer();
+  const dots = () => e.layer().find('.lumen-ambient__dot').all;
+  const total = dots().length;
+  assert.ok(total > 2, 'для проверки круга нужно больше двух кадров');
+  assert.equal(dots()[0].hasClass('is-on'), true);
+  /* Первый кадр не загрузился. */
+  e.images[0].onerror();
+  assert.equal(dots()[1].hasClass('is-on'), true, 'лента ушла на следующий кадр, не дожидаясь 20 с');
+  assert.equal(node.find('.lumen-ambient__img').all[1].hasClass('is-active'), true);
+  assert.equal(e.timers.filter((t) => t.ms === 20000).length, 1, 'таймер смены один и отсчитывается заново');
+  /* Полный круг: битый кадр пропускается. */
+  for (let i = 0; i < total; i++) {
+    e.fire(20000);
+    assert.equal(dots()[0].hasClass('is-on'), false, 'битый кадр снова на экране (шаг ' + i + ')');
+  }
+  /* Сторож сменённого кадра снят: его поздний onerror ленту не двинет. */
+  assert.equal(e.images[2].onerror, null, 'сторож прошлого кадра остался подписан');
   e.api.uninstall();
 });
 

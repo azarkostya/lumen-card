@@ -55,6 +55,12 @@
     var REEL = 8;
     /* Задержка по умолчанию, минут (решение пользователя — 3 минуты). */
     var DEFAULT_MIN = 3;
+    /* Мелочь ревью фазы 3 (docs/plans/2026-09-15-lumen-phase3-features.md:
+       251): mousemove пересоздавал таймер покоя на КАЖДОЕ событие. Пока
+       заставки нет, будильник переставляется не чаще раза в секунду:
+       задержка измеряется минутами, и заставка, пришедшая на секунду
+       раньше, не отличима от вовремя. */
+    var POKE_MS = 1000;
 
     /* Контроллеры, при которых экран считается «спокойным». Всё остальное
        (select, modal, player, ввод текста) означает, что пользователь ждёт
@@ -405,6 +411,21 @@
     var slot = 0;
     var live = false;
     var preload = null;
+    /* Кадр на экране: картинка-сторож, по onerror которой битый кадр
+       сменяется сразу, и адреса, уже оказавшиеся битыми в этом сеансе. */
+    var watch = null;
+    var bad = {};
+    var last_poke = 0;
+
+    function killWatch() {
+      if (!watch) return;
+      try {
+        watch.onload = null;
+        watch.onerror = null;
+        watch.src = '';
+      } catch (e) { }
+      watch = null;
+    }
 
     function killPreload() {
       if (!preload) return;
@@ -441,6 +462,49 @@
       }
     }
 
+    /* Мелочь ревью фазы 3 (там же): битый кадр висел на экране до
+       следующего тика, то есть до 20 с чёрного экрана, — фон задаётся через
+       background-image, и о провале загрузки CSS не сообщает. Сторож —
+       картинка с тем же адресом (после предзагрузки она из кэша): не
+       загрузилась — адрес помечается битым, и лента сразу идёт дальше. */
+    function watchFrame(url, i) {
+      killWatch();
+      var Ctor = null;
+      try { Ctor = (window && typeof window.Image === 'function') ? window.Image : null; } catch (e) { }
+      if (!Ctor) return;
+      try {
+        var img = new Ctor();
+        watch = img;
+        img.onload = function () {
+          if (watch === img) killWatch();
+        };
+        img.onerror = function () {
+          if (watch !== img) return;
+          killWatch();
+          bad[url] = true;
+          if (!live || index !== i) return;
+          clearT(slide_timer);
+          slide_timer = 0;
+          tick();
+        };
+        img.src = url;
+      } catch (e2) {
+        warn('ambient: watch failed', e2);
+        watch = null;
+      }
+    }
+
+    /* Следующий кадр ленты, минуя битые. -1 — битые все. */
+    function nextGood(from, size) {
+      var i = from;
+      for (var n = 0; n < reel.length; n++) {
+        i = nextIndex(i, reel.length);
+        if (i < 0) return -1;
+        if (!bad[urlOf(reel[i], size)]) return i;
+      }
+      return -1;
+    }
+
     function paintClock() {
       if (!node) return;
       try { node.find('.lumen-ambient__clock').text(clockText(new Date())); } catch (e) { }
@@ -471,7 +535,9 @@
         try { dots[d].toggleClass('is-on', d === i); } catch (e3) { }
       }
       paintClock();
-      preloadNext(urlOf(reel[nextIndex(i, reel.length)], size));
+      watchFrame(url, i);
+      var next = nextGood(i, size);
+      preloadNext(next >= 0 && next !== i ? urlOf(reel[next], size) : '');
     }
 
     function tick() {
@@ -481,7 +547,10 @@
          всё равно не покажет, а трафик и память потратит. Таймер при этом
          живёт — вкладка вернётся, и ротация продолжится со следующего. */
       if (!hidden()) {
-        try { show(nextIndex(index, reel.length)); } catch (e) { warn('ambient: slide failed', e); }
+        try {
+          var next = nextGood(index, sizeFor(screenWidth()));
+          if (next >= 0) show(next);
+        } catch (e) { warn('ambient: slide failed', e); }
       }
       slide_timer = setT(tick, SLIDE_MS);
     }
@@ -537,6 +606,7 @@
       if (!canStart(gather(list.length))) { schedule(); return; }
       reel = playlist(list, REEL, Math.random);
       if (!reel.length) { schedule(); return; }
+      bad = {};
       index = -1;
       slot = 0;
       if (!build()) { schedule(); return; }
@@ -563,6 +633,7 @@
       clearT(out_timer);
       out_timer = 0;
       killPreload();
+      killWatch();
       live = false;
       markCovered(false);
       if (node) {
@@ -584,6 +655,7 @@
       clearT(slide_timer);
       slide_timer = 0;
       killPreload();
+      killWatch();
       live = false;
       /* Признак снимается вместе с кадрами, а не по концу анимации ухода:
          уезжающий слой уже прозрачен, и держать под ним всё на паузе лишние
@@ -611,7 +683,13 @@
        которым разбудили экран, до Lampa не доходит (иначе оно заодно
        сдвинуло бы фокус под слоем). */
     function wake(event, swallow) {
-      if (!live) { schedule(); return; }
+      if (!live) {
+        var t = Date.now();
+        if (t - last_poke < POKE_MS && idle_timer) return;
+        last_poke = t;
+        schedule();
+        return;
+      }
       if (swallow && event) {
         try { if (typeof event.preventDefault === 'function') event.preventDefault(); } catch (e) { }
         try { if (typeof event.stopPropagation === 'function') event.stopPropagation(); } catch (e2) { }

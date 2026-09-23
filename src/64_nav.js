@@ -89,6 +89,14 @@
     /* Удержание ↑/↓ до показа мини-карты и её жизнь после отпускания. */
     var HOLD_MS = 500;
     var HIDE_MS = 800;
+    /* Предельное время жизни панели без нажатий. Мелочь ревью фазы 3
+       (docs/plans/2026-09-15-lumen-phase3-features.md:251): панель
+       снималась только по keyup и на смене экрана, и потерянный keyup (у
+       пультов ТВ он теряется) оставлял её висеть до смены экрана. Пока
+       клавишу держат, keydown приходит автоповтором — каждые десятки или
+       сотни миллисекунд, — и каждый продлевает жизнь; две секунды тишины
+       значат, что клавишу уже отпустили. */
+    var STALE_MS = 2000;
     /* Сколько на экране держится индикатор позиции в ряду. */
     var JUMP_LIFE = 1200;
 
@@ -370,6 +378,7 @@
     var jumpNode = null;
     var showTimer = null;
     var hideTimer = null;
+    var staleTimer = null;
     var paintTimer = null;
     var jumpTimer = null;
 
@@ -428,6 +437,17 @@
       panel.html(minimapHtml(model));
     }
 
+    /* Продлить жизнь панели ещё на STALE_MS: зовётся на показе и на
+       каждом нажатии ↑/↓, пока панель на экране. */
+    function touchMinimap() {
+      staleTimer = stopTimer(staleTimer);
+      if (!panel) return;
+      staleTimer = setTimeout(function () {
+        staleTimer = null;
+        hideMinimap();
+      }, STALE_MS);
+    }
+
     function showMinimap() {
       if (panel) { paintMinimap(); return; }
       var root = currentMain();
@@ -441,9 +461,11 @@
         return;
       }
       paintMinimap();
+      touchMinimap();
     }
 
     function hideMinimap() {
+      staleTimer = stopTimer(staleTimer);
       if (!panel) return;
       var node = panel;
       panel = null;
@@ -540,7 +562,7 @@
       if (!onCards()) return;
       if (!currentMain()) return;
       hideTimer = stopTimer(hideTimer);
-      if (panel) { schedulePaint(false); return; }
+      if (panel) { touchMinimap(); schedulePaint(false); return; }
       if (showTimer) return;
       showTimer = setTimeout(function () {
         showTimer = null;

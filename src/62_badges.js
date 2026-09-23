@@ -167,6 +167,15 @@
       };
     }
 
+    /* Общее на пачку карточек: дата и строки метки. Мелочь ревью фазы 3
+       (docs/plans/2026-09-15-lumen-phase3-features.md:251): words() и
+       new Date() считались заново на каждую карточку ряда — три обращения
+       к словарю и разбор строки месяцев на постер. Проход по экрану (scan)
+       и одна пачка мутаций теперь считают их один раз. */
+    function batch() {
+      return { today: new Date(), words: words() };
+    }
+
     /* Процент просмотра из локальной истории Lampa — тем же ключом, что
        считает полосу сетки подборки (src/46_hub.js, progressBar). Сети это
        не стоит ничего: Timeline держит историю в Storage. */
@@ -281,7 +290,7 @@
        ни .card__age, ни .card__vote, ни card_data — свои узлы __title и
        __sub, и decorate для них не зовётся.
        Повторный вызов на том же узле молчит — флаг lumen_badged. */
-    function decorate(node, card, opts) {
+    function decorate(node, card, opts, shared) {
       try {
         if (!enabled()) return;
         var el = node && node.length ? node[0] : node;
@@ -289,7 +298,8 @@
         var data = card || el.card_data;
         if (!data) return;
         el.lumen_badged = true;
-        var badge = badgeFor(data, new Date(), { progress: progressOf, words: words() });
+        var ctx = shared || batch();
+        var badge = badgeFor(data, ctx.today, { progress: progressOf, words: ctx.words });
         var view = $(el).find('.card__view');
         var hasBadge = !!(badge && badge.text && view && view.length);
         var view_mode = mode();
@@ -391,31 +401,34 @@
     function scan(root) {
       try {
         var nodes = root.find('.card');
-        for (var i = 0; i < nodes.length; i++) decorate(nodes[i], null, null);
+        var shared = nodes.length ? batch() : null;
+        for (var i = 0; i < nodes.length; i++) decorate(nodes[i], null, null, shared);
       } catch (e) {
         warn('badges: scan failed', e);
       }
     }
 
     /* Добавленный узел: сам .card или контейнер ряда с карточками внутри. */
-    function decorateAdded(el) {
+    function decorateAdded(el, shared) {
       if (!el || el.nodeType !== 1) return;
       if (el.classList && el.classList.contains('card')) {
-        decorate(el, null, null);
+        decorate(el, null, null, shared);
         return;
       }
       if (typeof el.querySelectorAll !== 'function') return;
       var inner = el.querySelectorAll('.card');
-      for (var i = 0; i < inner.length; i++) decorate(inner[i], null, null);
+      for (var i = 0; i < inner.length; i++) decorate(inner[i], null, null, shared);
     }
 
     function onMutations(records) {
       if (!state) return;
       try {
+        var shared = null;
         for (var i = 0; i < records.length; i++) {
           var added = records[i] && records[i].addedNodes;
-          if (!added) continue;
-          for (var k = 0; k < added.length; k++) decorateAdded(added[k]);
+          if (!added || !added.length) continue;
+          if (!shared) shared = batch();
+          for (var k = 0; k < added.length; k++) decorateAdded(added[k], shared);
         }
       } catch (e) {
         warn('badges: observer failed', e);
