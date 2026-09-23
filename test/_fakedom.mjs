@@ -9,13 +9,10 @@
    51_slideshow.js и src/90_runtime.js на своих layer/body/activity-
    объектах: addClass/removeClass/toggleClass/hasClass, css (get при 1
    аргументе, set при 2), data (get/set)/removeData, append/prepend/empty,
-   children(sel) — первый ПРЯМОЙ ребёнок по селектору (классы, тег и
-   дочерний комбинатор «>» — разбор у parseSelector; или EMPTY, как
-   настоящий jQuery для непустого набора), find(sel) — первый найденный на
-   ЛЮБОЙ глубине (или EMPTY) — глубже, чем строго нужно текущим тестам с
-   плоской разметкой, но так вернее совпадает с настоящим jQuery.find() и
-   заодно годится для вложенной .activity -> .activity__body ->
-   .lumen-backdrop из runtime.test.mjs. parent() — реальный родитель (или
+   children(sel) — ПРЯМЫЕ дети по селектору (классы, тег и дочерний
+   комбинатор «>» — разбор у parseSelector), find(sel) — совпадения на
+   ЛЮБОЙ глубине; оба отдают все совпадения, как jQuery (EMPTY, сам узел или
+   FakeSet — разбор у setOf ниже; до правки 2026-09-23 — только первое). parent() — реальный родитель (или
    EMPTY), проставляется конструктором/append/prepend. closest(sel) —
    ЗАГЛУШКА через el._closestActivity, а не обход parent(): тестам
    достаточно смоделировать «слой внутри активной/архивной .activity», не
@@ -219,9 +216,9 @@ FakeEl.prototype.closest = function (sel) {
    (пустой) ветке. Разбор компаунда (сейчас — parseCompound ниже) берёт
    ЛЮБОЕ число точек как список классов, и совпасть обязаны все. */
 /* Task 10: селектор может отсутствовать вовсе — jQuery .children() без
-   аргумента отдаёт ВСЕХ прямых детей (наш фейк, как и с селектором, отдаёт
-   первого: этого хватает связке .children().eq(0), которой src/90_runtime.js
-   пишет число в чип рейтинга КП, не трогая разметку кнопок). */
+   аргумента отдаёт ВСЕХ прямых детей — так же и фейк (с правки 2026-09-23;
+   до неё он отдавал первого). Связка .children().eq(0), которой
+   src/90_runtime.js пишет число в чип рейтинга КП, берёт из набора первый. */
 /* Долг плана lumen-final (раздел D, 2026-09-23): селектор с дочерним
    комбинатором и голое имя тега. src/85_header.js ставит ширину полосы
    «Продолжить» через row.find('.lumen-progress__bar > div'), а прежний
@@ -257,24 +254,82 @@ function matchesSelector(el, steps) {
   }
   return true;
 }
+/* Долг фазы 1, п.6 (docs/plans/2026-09-15-lumen-card.md:1123), правка
+   2026-09-23: find() и children() отдают ВСЕ совпадения, как jQuery, а не
+   первое. Раньше фейк останавливался на первом найденном, и код, который
+   проходит по набору (stripAllCards, refreshProgress, refreshEpisode, снятие
+   меток), в тестах видел один элемент из многих.
+   Форма ответа: ни одного совпадения — EMPTY, одно — сам узел (FakeEl: у
+   него есть и методы набора, и _children, на которые опираются тесты), два и
+   больше — FakeSet. Методы набора — как у jQuery: изменяющие применяются ко
+   всем элементам, читающие (css/attr/text/html/data с одним аргументом,
+   closest, parent, children) — к первому, hasClass — «есть ли у любого». */
+function setOf(list) {
+  if (!list.length) return EMPTY;
+  if (list.length === 1) return list[0];
+  return new FakeSet(list);
+}
 FakeEl.prototype.children = function (sel) {
   const steps = parseSelector(sel);
-  for (let i = 0; i < this._children.length; i++) if (matchesSelector(this._children[i], steps)) return this._children[i];
-  return EMPTY;
+  return setOf(this._children.filter(function (c) { return matchesSelector(c, steps); }));
 };
 FakeEl.prototype.find = function (sel) {
   const steps = parseSelector(sel);
-  function search(node) {
+  const all = [];
+  (function walk(node) {
     for (let i = 0; i < node._children.length; i++) {
       const c = node._children[i];
-      if (matchesSelector(c, steps)) return c;
-      const found = search(c);
-      if (found) return found;
+      if (matchesSelector(c, steps)) all.push(c);
+      walk(c);
     }
-    return null;
-  }
-  return search(this) || EMPTY;
+  })(this);
+  return setOf(all);
 };
+/* Для FakeEl each — проход по «набору из одного»; нужен коду, который зовёт
+   each на результате find, когда совпадение оказалось единственным. */
+FakeEl.prototype.each = function (fn) { fn.call(this, 0, this); return this; };
+
+export function FakeSet(list) {
+  this._list = list;
+  this.length = list.length;
+  for (let i = 0; i < list.length; i++) this[i] = list[i];
+}
+['addClass', 'removeClass', 'toggleClass', 'remove', 'empty', 'removeData', 'removeAttr', 'trigger'].forEach(function (m) {
+  FakeSet.prototype[m] = function () {
+    const args = arguments;
+    this._list.forEach(function (el) { el[m].apply(el, args); });
+    return this;
+  };
+});
+/* Читают с первого, пишут во все: text()/html() без аргумента и
+   css/attr/data с одним строковым аргументом — чтение. */
+['css', 'attr', 'text', 'html', 'data'].forEach(function (m) {
+  const readArity = m === 'text' || m === 'html' ? 0 : 1;
+  FakeSet.prototype[m] = function () {
+    const objectForm = m === 'css' && arguments[0] && typeof arguments[0] === 'object';
+    if (arguments.length <= readArity && !objectForm) return this._list[0][m].apply(this._list[0], arguments);
+    const args = arguments;
+    this._list.forEach(function (el) { el[m].apply(el, args); });
+    return this;
+  };
+});
+FakeSet.prototype.hasClass = function (c) { return this._list.some(function (el) { return el.hasClass(c); }); };
+FakeSet.prototype.eq = function (i) { return this._list[i] || EMPTY; };
+FakeSet.prototype.each = function (fn) { this._list.forEach(function (el, i) { fn.call(el, i, el); }); return this; };
+FakeSet.prototype.find = function (sel) {
+  const out = [];
+  this._list.forEach(function (el) {
+    const r = el.find(sel);
+    for (let i = 0; i < r.length; i++) if (out.indexOf(r[i]) === -1) out.push(r[i]);
+  });
+  return setOf(out);
+};
+FakeSet.prototype.not = function (sel) {
+  return setOf(this._list.filter(function (el) { return el.not(sel) === el; }));
+};
+FakeSet.prototype.closest = function (sel) { return this._list[0].closest(sel); };
+FakeSet.prototype.parent = function () { return this._list[0].parent(); };
+FakeSet.prototype.children = function (sel) { return this._list[0].children(sel); };
 
 export const EMPTY = {
   length: 0,

@@ -187,20 +187,11 @@ function makeCard(data, year) {
   return card;
 }
 
-/* Корень активности с набором карточек. find(sel) фейкового DOM отдаёт
-   ПЕРВЫЙ найденный узел, а сканеру нужен весь список — поэтому корень
-   отвечает на '.card' собственным массивом. */
+/* Корень активности с набором карточек. find('.card') отдаёт весь набор —
+   фейковый DOM с правки 2026-09-23 отвечает на find всеми совпадениями, как
+   jQuery (долг фазы 1, п.6); прежде здесь стояла подмена find под массив. */
 function makeRoot(cards) {
   const root = new FakeEl(['activity'], cards);
-  const baseFind = root.find.bind(root);
-  root.find = function (sel) {
-    if (sel === '.card') {
-      const list = cards.slice();
-      list.length = cards.length;
-      return list;
-    }
-    return baseFind(sel);
-  };
   root.closest = () => EMPTY;
   return root;
 }
@@ -522,6 +513,33 @@ test('Task 62a: вид сменился, пока экран лежал в ис�
   } finally {
     delete globalThis.window;
     delete globalThis.MutationObserver;
+  }
+});
+
+/* Долг фазы 1, п.6 (2026-09-23): фейковый DOM отдаёт на find все
+   совпадения, и strip проверяется на нескольких карточках, а не на первой.
+   На прежнем фейке (find — первый найденный) тест падает: метка второй и
+   третьей карточки оставалась на месте. */
+test('strip: снимает метки и рейтинг со ВСЕХ карточек экрана, а не с первой', () => {
+  const { api } = runtime();
+  const cards = [
+    makeCard({ release_date: '2026-12-17', vote_average: 6.4 }),
+    makeCard({ release_date: '2026-12-18', vote_average: 7.1 }),
+    makeCard({ release_date: '2026-12-19', vote_average: 8.3 })
+  ];
+  globalThis.window = { Lampa: {} };
+  try {
+    cards.forEach((c) => api.decorate(c, null, null));
+    const root = makeRoot(cards);
+    assert.equal(root.find('.lumen-badge').length, 3, 'предусловие: метка у каждой карточки');
+    api.strip(root);
+    assert.equal(root.find('.lumen-badge').length, 0, 'метки сняты у всех трёх');
+    cards.forEach((c, i) => {
+      assert.equal(c.lumen_badged, false, 'карточка ' + i + ': флаг снят — метку можно нарисовать заново');
+      assert.equal(c._children[1].text(), '2017', 'карточка ' + i + ': рейтинг ушёл из подписи');
+    });
+  } finally {
+    delete globalThis.window;
   }
 });
 

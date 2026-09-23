@@ -513,7 +513,8 @@ function reviewsFocusEnv() {
   env.journal.calls[1].ok(REVIEWS_OK);
   const block = blocksOf(d)[0];
   const row = block.find('.lumen-reviews__row');
-  const card = block.find('.lumen-review');
+  /* find отдаёт набор всех карточек отзывов (как jQuery) — берём первую. */
+  const card = block.find('.lumen-review').eq(0);
   /* Геометрия ленты: карточка шириной 400 на позиции 900, видимая часть 1000,
      вся лента 2400. Центрирование даёт 900 − (1000 − 400) / 2 = 600. */
   row.clientWidth = 1000;
