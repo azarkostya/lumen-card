@@ -231,6 +231,15 @@ function makeDescrRow(withFacts) {
   return { row, descr, left };
 }
 
+/* Долг фазы 1, п.4 (2026-09-23): «на экране ли карточка» решает настоящая
+   проверка (src/51_slideshow.js), а тест задаёт состояние DOM — активность
+   вокруг ряда (FakeEl с классом activity и, если на экране,
+   activity--active) и «в документе» для всех узлов. */
+function onScreenEnv(env) {
+  loadInto(env.LC, { exports: null, lumen: true }, '51_slideshow.js');
+  globalThis.document = { documentElement: { contains: () => true } };
+}
+
 function blocksOf(d) { return d.descr._children.filter((n) => n.hasClass('lumen-reviews')); }
 
 /* ====================================================================== */
@@ -779,7 +788,8 @@ test('render: исправленный ключ применяется сраз�
 test('render: ответ карточки из истории не попадает в навигацию текущей карточки', () => {
   const env = freshEnv({ store: { lumen_kp_key: 'KEY' } });
   const d = makeDescrRow();
-  env.LC.slideshow = { isMounted: () => true, isLayerForeground: () => false };
+  onScreenEnv(env);
+  new FakeEl(['activity'], [d.row]);
 
   env.LC.reviews.render(d.row, DUNE);
   env.journal.calls[0].ok(SEARCH_OK);
@@ -789,8 +799,9 @@ test('render: ответ карточки из истории не попада�
   assert.equal(env.collected.length, 0, 'но коллекцию активного контроллера не трогает');
 
   const visible = freshEnv({ store: { lumen_kp_key: 'KEY' } });
-  visible.LC.slideshow = { isMounted: () => true, isLayerForeground: () => true };
+  onScreenEnv(visible);
   const d2 = makeDescrRow();
+  new FakeEl(['activity', 'activity--active'], [d2.row]);
   visible.LC.reviews.render(d2.row, DUNE);
   visible.journal.calls[0].ok(SEARCH_OK);
   visible.journal.calls[1].ok(REVIEWS_OK);
@@ -1022,7 +1033,9 @@ test('ревью п.2: рейтинг КП не уезжает на чужую �
   const a = makeDescrRow();
   const b = makeDescrRow();
   /* На экране сейчас B — та же проверка, которой пользуется сам ряд отзывов. */
-  env.LC.slideshow = { isMounted: () => true, isLayerForeground: (node) => node === b.descr };
+  onScreenEnv(env);
+  new FakeEl(['activity'], [a.row]);
+  new FakeEl(['activity', 'activity--active'], [b.row]);
 
   env.LC.reviews.render(a.row, { movie: { id: 1, imdb_id: 'ttAAA' } });
   env.LC.reviews.render(b.row, { movie: { id: 2, imdb_id: 'ttBBB' } });

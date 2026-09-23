@@ -1,7 +1,7 @@
 import test from 'node:test'; import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { loadCtx } from './_load.mjs';
-import { FakeEl, fakeQuery } from './_fakedom.mjs';
+import { FakeEl, fakeQuery, inActivity } from './_fakedom.mjs';
 
 /* Task 7: фоновый трейлер YouTube (экран 02 дизайна).
 
@@ -440,7 +440,12 @@ function scheduleEnv(opts) {
   const intervals = [];
   globalThis.setInterval = (fn, ms) => { intervals.push({ fn, ms, cleared: false }); return intervals.length; };
   globalThis.clearInterval = (id) => { const x = intervals[id - 1]; if (x) x.cleared = true; };
-  globalThis.document = { head: { appendChild() { } }, getElementById: () => null, createElement: () => ({}) };
+  /* «В документе» ли слой — отвечает настоящий LC.slideshow.isMounted по
+     documentElement.contains; здесь его ответ задаёт сценарий. */
+  globalThis.document = {
+    head: { appendChild() { } }, getElementById: () => null, createElement: () => ({}),
+    documentElement: { contains: () => (opts.mountedFn ? opts.mountedFn() : opts.mounted !== false) }
+  };
 
   const cfgs = [];
   function FakePlayer(id, cfg) { this.id = id; this.cfg = cfg; cfgs.push(cfg); }
@@ -486,10 +491,11 @@ function scheduleEnv(opts) {
   LC.motionMode = () => opts.motion || 'full';
   LC.lang = (key) => key;
   LC.active = { slideshow: slideshow };
-  LC.slideshow = {
-    isMounted: () => (opts.mountedFn ? opts.mountedFn() : opts.mounted !== false),
-    isLayerForeground: () => (opts.foregroundFn ? opts.foregroundFn() : opts.foreground !== false)
-  };
+  /* Долг фазы 1, п.4: проверки «в документе» и «на экране» — настоящие
+     (src/51_slideshow.js), сценарий задаёт только состояние: активна ли
+     активность, в которой лежат слой и корень карточки. */
+  loadInto(LC, { exports: null, lumen: true }, '51_slideshow.js');
+  inActivity([root, layer], () => (opts.foregroundFn ? opts.foregroundFn() : opts.foreground !== false));
 
   const data = opts.data !== undefined ? opts.data : {
     videos: { results: [{ key: 'K1', name: 'Official Trailer', iso_639_1: 'ru', official: true }] }

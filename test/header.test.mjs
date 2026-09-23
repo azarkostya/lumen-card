@@ -63,7 +63,10 @@ function loadLC() {
      при загрузке не трогает), поэтому грузится рядом с остальными. */
   /* Task 68: 11_focus.js — общий механизм подписки на фокус (LC.focus),
      им bindEpisodes вешает обработчик на оба события Lampa. */
-  const names = ['10_util.js', '11_focus.js', '30_css.js', '35_cardinfo.js', '50_backdrops.js', '62_badges.js', '70_progress.js', '80_settings.js', '81_prefs.js', '85_header.js'];
+  /* Долг фазы 1, п.4 (2026-09-23): 51_slideshow.js — настоящая проверка
+     «карточка на экране» для пересбора коллекции ряда серий; тест задаёт
+     состояние (активность вокруг корня), а не ответ функции. */
+  const names = ['10_util.js', '11_focus.js', '30_css.js', '35_cardinfo.js', '50_backdrops.js', '51_slideshow.js', '62_badges.js', '70_progress.js', '80_settings.js', '81_prefs.js', '85_header.js'];
   const src = names.map((n) => readFileSync(new URL(`../src/${n}`, import.meta.url), 'utf8')).join('\n');
   new Function('LC', 'module', src)(LC, module);
   return LC;
@@ -535,25 +538,25 @@ test('Task 67: коллекцию не пересобираем с чужого 
   const W = halfWindow();
   const calls = [];
   const prev = Lampa.Controller;
-  const prevSlideshow = LC.slideshow;
   Lampa.Controller = {
     enabled: () => ({ name: 'full_start' }),
     collectionSet: () => calls.push('set'),
     collectionFocus: () => calls.push('focus')
   };
   try {
-    LC.slideshow = { isLayerForeground: () => false };
+    /* Карточка ушла в историю: её активность без activity--active. */
+    const archived = new FakeEl(['activity'], [c.root]);
     stepTo(c, W * 2 - STILL_WINDOW + 1, total);
     assert.deepEqual(calls, [], 'карточка не на экране — навигацию не трогаем');
     assert.equal(c.row.lumenEpisodes.to > W * 2, true, 'окно при этом всё равно доехало');
 
-    LC.slideshow = prevSlideshow;
+    archived.addClass('activity--active');
     Lampa.Controller.enabled = () => ({ name: 'full_descr' });
     stepTo(c, c.row.lumenEpisodes.to - STILL_WINDOW + 1, total);
     assert.deepEqual(calls, [], 'фокус в другом контроллере — коллекция не наша');
   } finally {
     Lampa.Controller = prev;
-    LC.slideshow = prevSlideshow;
+    c.root._parentEl = null;
   }
   assert.deepEqual(warnLog, []);
 });

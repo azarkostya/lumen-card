@@ -311,4 +311,17 @@ export function fakeQuery(html) {
 }
 
 export function fakeBody() { return new FakeEl(['body-mock']); }
+
+/* Долг фазы 1, п.4 (2026-09-23): тесты вопроса «наша ли карточка на экране»
+   задают не ответ проверяющей функции (прежние заглушки LC.slideshow.*), а
+   СОСТОЯНИЕ, по которому отвечает настоящая функция: активность Lampa вокруг
+   узла и её класс activity--active. activeFn читается на каждый вопрос —
+   тест может «уйти вглубь» посреди сценария. Узлам ставится _closestActivity
+   (FakeEl.closest('.activity') отдаёт его), сама активность — объект с тем
+   же интерфейсом, что набор jQuery (length, hasClass). */
+export function inActivity(nodes, activeFn) {
+  const activity = { length: 1, hasClass: (c) => c === 'activity--active' && !!activeFn() };
+  nodes.forEach((n) => { n._closestActivity = activity; });
+  return activity;
+}
 export function mount(el) { el._mounted = true; return el; }

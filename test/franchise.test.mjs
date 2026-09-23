@@ -199,10 +199,11 @@ function freshEnv(opts) {
   loadInto(LC, module, '80_settings.js');
   loadInto(LC, module, '81_prefs.js');
   loadInto(LC, module, '66_franchise.js');
-  LC.slideshow = {
-    isMounted: () => (opts.mounted === false ? false : true),
-    isLayerForeground: () => (opts.foreground === false ? false : true)
-  };
+  /* Долг фазы 1, п.4: проверки «в документе» и «на экране» — настоящие
+     (src/51_slideshow.js). Узел в документе, пока сценарий не сказал
+     обратного; активность вокруг ряда — по месту (activityOf ниже). */
+  loadInto(LC, module, '51_slideshow.js');
+  globalThis.document = { documentElement: { contains: () => opts.mounted !== false } };
   return { LC, store, requests, pushed, collected, Lampa };
 }
 
@@ -325,8 +326,10 @@ test('render: ответ, догнавший уже смененную карт�
 });
 
 test('render: ответ карточки из истории не уходит в навигацию текущей', () => {
-  const env = freshEnv({ foreground: false });
+  const env = freshEnv();
   const d = makeDescrRow();
+  /* Карточка осталась в истории: её активность без activity--active. */
+  new FakeEl(['activity'], [d.row]);
   env.LC.franchise.render(d.row, DATA);
   env.requests[0].ok(COLLECTION_OK);
   assert.equal(env.collected.length, 0, 'collectionAppend для фоновой карточки не зовётся');
