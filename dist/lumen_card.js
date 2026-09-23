@@ -948,7 +948,21 @@ main: '.lumen-main{background-color:' + P.bg + '}',
 
 
 
-veilL: '.lumen-hero .lumen-hero__veil--l{background:-webkit-linear-gradient(left,rgba(' + P.bgRgb + ',.85) 0%,rgba(' + P.bgRgb + ',.45) 30%,rgba(' + P.bgRgb + ',0) 65%);background:linear-gradient(90deg,rgba(' + P.bgRgb + ',.85) 0%,rgba(' + P.bgRgb + ',.45) 30%,rgba(' + P.bgRgb + ',0) 65%)}',
+
+
+
+
+
+
+
+
+
+
+veilL: '.lumen-hero .lumen-hero__veil--l{background:-webkit-linear-gradient(left,rgba(' + P.bgRgb + ',.97) 0%,rgba(' + P.bgRgb + ',.94) 64%,rgba(' + P.bgRgb + ',0) 78%);background:linear-gradient(90deg,rgba(' + P.bgRgb + ',.97) 0%,rgba(' + P.bgRgb + ',.94) 64%,rgba(' + P.bgRgb + ',0) 78%)}',
+
+
+
+veilT: '.lumen-hero .lumen-hero__veil--t{background:-webkit-linear-gradient(top,rgba(' + P.bgRgb + ',.5) 0%,rgba(' + P.bgRgb + ',.5) 44%,rgba(' + P.bgRgb + ',0) 100%);background:linear-gradient(180deg,rgba(' + P.bgRgb + ',.5) 0%,rgba(' + P.bgRgb + ',.5) 44%,rgba(' + P.bgRgb + ',0) 100%)}',
 
 
 
@@ -991,7 +1005,7 @@ cardFocus: '.lumen-main .card.focus .card__view{-webkit-box-shadow:0 .2em 0 ' + 
 
 LC.accentCss = function () {
 var R = accentRules(palette(), theme());
-return R.main + '\n' + R.veilL + '\n' + R.fadeTop + '\n' + R.fadeBot;
+return R.main + '\n' + R.veilL + '\n' + R.veilT + '\n' + R.fadeTop + '\n' + R.fadeBot;
 };
 
 
@@ -3723,6 +3737,10 @@ css.push(AR.veilL);
 
 
 
+var veilMask = '#000 0%,#000 50%,rgba(0,0,0,0) 70%';
+css.push('.lumen-hero .lumen-hero__veil--l{' +
+'-webkit-mask-image:-webkit-linear-gradient(bottom,' + veilMask + ');mask-image:linear-gradient(0deg,' + veilMask + ');' +
+'-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat}');
 
 
 
@@ -3730,7 +3748,61 @@ css.push(AR.veilL);
 
 
 
-var heroMask = 'rgba(0,0,0,0) 0%,rgba(0,0,0,.08) 10%,rgba(0,0,0,.4) 24%,rgba(0,0,0,.75) 42%,#000 62%';
+
+
+
+
+
+
+
+css.push('.lumen-hero .lumen-hero__veil--t{bottom:auto;height:' + round2(LAMPA_HEAD * 2.25) + 'em}');
+css.push(AR.veilT);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+var heroMask = 'rgba(0,0,0,0) 0%,rgba(0,0,0,.10) 6%,rgba(0,0,0,.42) 16%,rgba(0,0,0,.78) 28%,#000 40%';
 css.push('.lumen-hero .lumen-hero__bg,.lumen-hero .lumen-hero__lqip,.lumen-hero .lumen-hero__trailer{' +
 '-webkit-mask-image:-webkit-linear-gradient(bottom,' + heroMask + ');mask-image:linear-gradient(0deg,' + heroMask + ');' +
 '-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat}');
@@ -11829,6 +11901,14 @@ var node = $('<div class="lumen-hero">' +
 
 '<div class="lumen-hero__trailer"></div>' +
 '<div class="lumen-hero__veil lumen-hero__veil--l"></div>' +
+
+
+
+
+
+
+
+'<div class="lumen-hero__veil lumen-hero__veil--t"></div>' +
 
 
 
