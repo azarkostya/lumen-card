@@ -1625,6 +1625,18 @@
     css.push('.lumen-card .lumen-episode__name{font-family:' + FB + ';font-weight:500;font-size:1.01em;line-height:1.2;white-space:nowrap;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis}');
     css.push('.lumen-card .lumen-episode__caption{font-family:' + FB + ';font-size:1.01em;line-height:1;color:' + P.muted + ';margin-top:.31em;white-space:nowrap;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis}');
     css.push('.lumen-card .lumen-episode__bar{height:.18em;border-radius:.09em;background:rgba(' + P.textRgb + ',.16);margin-top:.44em;overflow:hidden}');
+    /* Правило кромки (разбор композиции, п.6): плитка, которую режет правая
+       кромка экрана, показывает только КАДР — ни номера, ни названия, ни
+       подписи. Класс ставит LC.header (markClipped, src/85_header.js), там
+       же замеры и разбор, почему это не лечится шагом плитки.
+       Скрыты дети .__top/.__bottom, а не сами блоки: у блоков лежат
+       градиенты затемнения, и без текста они бы затемняли кадр ни за чем —
+       поэтому фон у них снимается отдельной декларацией. Срезанная плитка
+       остаётся .selector: дойдя до неё фокусом, ряд сдвигается
+       (scrollToEpisode держит запас в полплитки), она становится видна
+       целиком и подпись возвращается. */
+    css.push('.lumen-card .lumen-episode--cut .lumen-episode__top,.lumen-card .lumen-episode--cut .lumen-episode__bottom{background:none}');
+    css.push('.lumen-card .lumen-episode--cut .lumen-episode__top > *,.lumen-card .lumen-episode--cut .lumen-episode__bottom > *{display:none}');
     css.push('.lumen-card .lumen-episode__bar > div{height:100%;border-radius:.09em;background:' + A + '}');
     /* Состояния §9: просмотрена — приглушена; смотрите — тёплый фон, номер и %
        акцентом; не вышла — полупрозрачная карта с пунктиром, текст smoke. */

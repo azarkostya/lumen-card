@@ -623,6 +623,61 @@ test('scrollToEpisode: сдвиг к фокусной карточке, гран
   assert.equal(c.track.getAttribute('style'), null, 'пустой style="" снят');
 });
 
+/* Правило кромки (разбор композиции 2026-09-22, п.6). Ряд серий уходит за
+   правый край экрана по замыслу, и кромка резала плитку вместе с названием
+   серии («Железный трон» → «Же»). Модель здесь та же, что у scrollToEpisode
+   выше: плитка 340, шаг 356, viewport с x = 64 при экране 1920, то есть
+   видно 1856 px. Плитки 0…4 кончаются на 1764 и помещаются целиком, плитка
+   5 занимает 1780…2120 — её и режет кромка. */
+test('правило кромки: срезанную плитку помечает класс, а сдвиг ряда его переставляет', () => {
+  const c = makeCard();
+  LC.header.decorate(c.root, serial(8));
+  layout(c.track);
+
+  const cut = () => c.track._children.map((n) => n.hasClass('lumen-episode--cut'));
+  fire(c.root, 'hover:focus', c.track._children[0]);
+  assert.deepEqual(cut(), [false, false, false, false, false, true, true, true], 'помечены не те плитки, что режет кромка');
+
+  /* Дойдя фокусом до срезанной плитки, ряд сдвигается, и подпись
+     возвращается: срезанной становится соседняя, а не фокусная. */
+  fire(c.root, 'hover:focus', c.track._children[5]);
+  assert.equal(c.track.lumenShift, 434, 'сдвиг к шестой плитке');
+  assert.equal(c.track._children[5].hasClass('lumen-episode--cut'), false, 'фокусная плитка осталась срезанной');
+  assert.equal(c.track._children[0].hasClass('lumen-episode--cut'), true, 'плитка, ушедшая за левый край, не помечена');
+
+  /* Возврат в начало ряда возвращает и метки. */
+  fire(c.root, 'hover:focus', c.track._children[0]);
+  assert.deepEqual(cut(), [false, false, false, false, false, true, true, true], 'метки не вернулись вместе со сдвигом');
+});
+
+/* Первая сборка карточки идёт до вставки узла в документ — там у плиток
+   offsetLeft нулевой, и мерить нечего. Ждать первого нажатия нельзя: ряд
+   виден с самого начала, и именно этот кадр и пришёл в разбор скриншотом.
+   Поэтому пометка повторяется следующей задачей таймера. */
+test('правило кромки: пометка повторяется после вставки карточки в документ', () => {
+  const c = makeCard();
+  const timers = [];
+  const realSetTimeout = globalThis.setTimeout;
+  globalThis.setTimeout = (fn, ms) => { timers.push({ fn, ms }); return timers.length; };
+  try {
+    /* Раскладки ещё нет — ровно как у карточки вне документа. */
+    LC.header.decorate(c.root, serial(8));
+    assert.equal(c.track._children.some((n) => n.hasClass('lumen-episode--cut')), false, 'без раскладки помечать нечего');
+    assert.ok(timers.length >= 1, 'отложенной пометки нет вовсе');
+
+    layout(c.track);
+    timers.forEach((t) => t.fn());
+    assert.deepEqual(
+      c.track._children.map((n) => n.hasClass('lumen-episode--cut')),
+      [false, false, false, false, false, true, true, true],
+      'после вставки в документ срезанные плитки не помечены'
+    );
+  } finally {
+    globalThis.setTimeout = realSetTimeout;
+  }
+  assert.deepEqual(warnLog, []);
+});
+
 /* ------------------------------ bindEpisodes (п.2, п.5) ------------------------------ */
 
 test('bindEpisodes: повторный decorate не удваивает слушатели; фокус на серии — компакт, на кнопке — снят', () => {

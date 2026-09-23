@@ -484,6 +484,31 @@ test('правка 2026-09-23: кадр серии — 16:9, и в обоих в
   }
 });
 
+/* Правило кромки (разбор композиции, п.6): плитку, которую режет правая
+   кромка экрана, кромка имеет право резать как ИЗОБРАЖЕНИЕ — но ни одной
+   буквы в ней остаться не должно. Класс ставит LC.header (markClipped), а
+   таблица прячет весь текст и снимает затемнения: без текста они темнили бы
+   кадр ни за чем. */
+test('правка 2026-09-23: срезанная кромкой плитка серии показывает только кадр', () => {
+  const bands = findDecl(css, (sel) => sel === '.lumen-card .lumen-episode--cut .lumen-episode__top' || sel === '.lumen-card .lumen-episode--cut .lumen-episode__bottom');
+  assert.ok(bands && /background:none/.test(bands), 'у срезанной плитки остались затемнения: ' + bands);
+  const kids = findDecl(css, (sel) => sel === '.lumen-card .lumen-episode--cut .lumen-episode__top > *' || sel === '.lumen-card .lumen-episode--cut .lumen-episode__bottom > *');
+  assert.ok(kids && /display:none/.test(kids), 'текст срезанной плитки не скрыт: ' + kids);
+  /* Правило обязано стоять ПОСЛЕ правил самих строк: у .__top/.__bottom
+     затемнения объявлены шорткатом background, и порядком они снимаются. */
+  const top = css.indexOf('.lumen-card .lumen-episode__top{');
+  const bottom = css.indexOf('.lumen-card .lumen-episode__bottom{');
+  const own = css.indexOf('.lumen-card .lumen-episode--cut .lumen-episode__top');
+  assert.ok(own > top && own > bottom, 'правило срезанной плитки идёт раньше правил строк');
+  /* Сам кадр не трогается: срезанная плитка — это именно кадр. */
+  for (const r of ruleBodies(css)) {
+    for (const sel of r.selectors) {
+      if (sel.indexOf('--cut') === -1) continue;
+      assert.equal(sel.indexOf('__still'), -1, 'правило срезанной плитки трогает кадр: ' + sel);
+    }
+  }
+});
+
 /* Подпись и номер лежат ПОВЕРХ кадра, и их полосы затемнения не имеют
    права сойтись: между ними обязан остаться виден сам кадр. Сторож считает
    высоты полос из таблицы — так же, как прежний сторож Task 73 считал

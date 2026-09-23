@@ -897,7 +897,90 @@
     row.find('.lumen-episodes__title').text(season ? LC.lang('lumen_card_season') + ' ' + season : (data.episodes.name || ''));
     row.find('.lumen-episodes__count').text(eps.length + ' ' + LC.episodesWord(eps.length));
     row.removeClass('hide');
+    /* Правило кромки — сразу на первой отрисовке: до первого шага фокуса ряд
+       стоит на сдвиге 0, и правая кромка режет плитку уже тогда. Зовётся
+       ПОСЛЕ removeClass('hide'): у скрытого ряда offsetLeft плиток нулевой,
+       и срезанной оказалась бы каждая. */
+    markClipped(info, track, viewWidth(row.find('.lumen-episodes__viewport')[0]));
+    scheduleClip(root);
     return true;
+  }
+
+  /* Правило кромки (разбор композиции 2026-09-22, п.6; находка волны A —
+     «Железный трон» у правой кромки превращался в «Же»). Ряд серий уходит
+     за правый край экрана по замыслу, и кромка режет плитку посередине — а
+     вместе с плиткой и название серии.
+
+     Замер на стенде 960×540@2 («Игра престолов», интерфейс «обычный»):
+     видимая часть ряда 593.1 px, шаг плитки 178 px (169.9 ширины + 8.1
+     зазора), четвёртая плитка видна на 59.1 px из 169.9, и в этих 59
+     пикселях лежало начало названия.
+
+     Подогнать шаг под ширину, как это сделано у ленты людей, здесь нельзя:
+     там шаг подбирался так, чтобы кромка приходилась на портрет следующей
+     карточки, а тут «портрет» и есть вся плитка — текст лежит на кадре. И
+     сама ширина не постоянна: она зависит от размера интерфейса Lampa, от
+     масштаба плагина и от ширины окна, а плиток в ряду целое число.
+     Поэтому правило применяется прямо: срезанная плитка показывает только
+     КАДР, весь её текст скрыт (CSS .lumen-episode--cut, src/30_css.js).
+     Кромка режет изображение — это читается как «листай дальше», — и не
+     режет ни одной буквы.
+
+     Все чтения раскладки идут подряд, до единой записи классов: правка
+     класса между двумя offsetLeft заставила бы движок пересчитывать
+     раскладку на каждой плитке окна. Видимую ширину ряда функция не
+     считает сама, а получает готовой: у scrollToEpisode она уже есть, и
+     второй getBoundingClientRect на том же шаге фокуса был бы лишним
+     пересчётом раскладки (сторож этого — тест Task 67 про повторный
+     hover:focus). */
+  function viewWidth(viewport) {
+    if (!viewport) return 0;
+    var screen = window.innerWidth || (document.documentElement && document.documentElement.clientWidth) || 0;
+    return screen - viewport.getBoundingClientRect().left;
+  }
+
+  function markRow(root) {
+    var row = root.find('.lumen-episodes');
+    if (!row.length || !row[0].lumenEpisodes) return;
+    markClipped(row[0].lumenEpisodes, row.find('.lumen-episodes__track'), viewWidth(row.find('.lumen-episodes__viewport')[0]));
+  }
+
+  /* Первая сборка карточки идёт ДО вставки её узла в документ: замер на
+     стенде 960×540@2 — offsetLeft у всех плиток 0 и left у viewport 0, то
+     есть мерить нечего и срезанной не оказывается ни одна. Поэтому пометка
+     ставится дважды: сразу (карточка, пересобранная на живом экране, уже в
+     документе) и следующей задачей таймера, когда узел вставлен. Ждать
+     фокуса нельзя: до первого нажатия ряд уже виден, и именно этот кадр
+     пользователь и снимал на скриншот. */
+  function scheduleClip(root) {
+    setTimeout(function () {
+      try {
+        markRow(root);
+      } catch (e) {
+        warn('episodes clip failed', e);
+      }
+    }, 0);
+  }
+
+  function markClipped(info, track, view) {
+    if (!info || !track.length || !(view > 0)) return;
+
+    var shift = track[0].lumenShift || 0;
+    var nodes = info.nodes;
+    var marks = [];
+    var i;
+    for (i = info.from; i <= info.to; i++) {
+      var node = nodes[i];
+      if (!node || !node.length) continue;
+      var left = node[0].offsetLeft;
+      /* Полпикселя допуска: ширина и зазор заданы в em, и на дробном кегле
+         правый край плитки садится на кромку с ошибкой округления. */
+      marks.push([node, left < shift - 0.5 || left + node[0].offsetWidth > shift + view + 0.5]);
+    }
+    for (i = 0; i < marks.length; i++) {
+      if (marks[i][1]) marks[i][0].addClass('lumen-episode--cut');
+      else marks[i][0].removeClass('lumen-episode--cut');
+    }
   }
 
   /* Step 3: длинный ряд — сдвиг дорожки к фокусной карточке. Контроллер Lampa
@@ -922,8 +1005,7 @@
       dropStills(info.nodes, node.lumenPos, info.from, info.to);
     }
 
-    var screen = window.innerWidth || (document.documentElement && document.documentElement.clientWidth) || 0;
-    var view = screen - viewport.getBoundingClientRect().left;
+    var view = viewWidth(viewport);
     if (view <= 0) return;
 
     var current = track[0].lumenShift || 0;
@@ -937,6 +1019,10 @@
     shift = Math.max(0, Math.min(shift, track[0].scrollWidth - view));
 
     if (shift !== current) setShift(track, shift);
+    /* Правило кромки: после сдвига срезанные плитки — другие. Зовём и когда
+       сдвиг не изменился: окно могло переехать выше по этой же функции, и
+       в ряду появились новые узлы. */
+    markClipped(info, track, view);
   }
 
   /* Step 4: фокус и OK на карточках серий. Lampa шлёт события фокуса и

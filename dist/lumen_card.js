@@ -2342,6 +2342,18 @@ css.push('.lumen-card .lumen-episode__bottom{position:relative;min-width:0;-webk
 css.push('.lumen-card .lumen-episode__name{font-family:' + FB + ';font-weight:500;font-size:1.01em;line-height:1.2;white-space:nowrap;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis}');
 css.push('.lumen-card .lumen-episode__caption{font-family:' + FB + ';font-size:1.01em;line-height:1;color:' + P.muted + ';margin-top:.31em;white-space:nowrap;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis}');
 css.push('.lumen-card .lumen-episode__bar{height:.18em;border-radius:.09em;background:rgba(' + P.textRgb + ',.16);margin-top:.44em;overflow:hidden}');
+
+
+
+
+
+
+
+
+
+
+css.push('.lumen-card .lumen-episode--cut .lumen-episode__top,.lumen-card .lumen-episode--cut .lumen-episode__bottom{background:none}');
+css.push('.lumen-card .lumen-episode--cut .lumen-episode__top > *,.lumen-card .lumen-episode--cut .lumen-episode__bottom > *{display:none}');
 css.push('.lumen-card .lumen-episode__bar > div{height:100%;border-radius:.09em;background:' + A + '}');
 
 
@@ -29295,7 +29307,90 @@ if (nodes[i] && nodes[i].hasClass('lumen-episode--watching')) { loadStills(nodes
 row.find('.lumen-episodes__title').text(season ? LC.lang('lumen_card_season') + ' ' + season : (data.episodes.name || ''));
 row.find('.lumen-episodes__count').text(eps.length + ' ' + LC.episodesWord(eps.length));
 row.removeClass('hide');
+
+
+
+
+markClipped(info, track, viewWidth(row.find('.lumen-episodes__viewport')[0]));
+scheduleClip(root);
 return true;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function viewWidth(viewport) {
+if (!viewport) return 0;
+var screen = window.innerWidth || (document.documentElement && document.documentElement.clientWidth) || 0;
+return screen - viewport.getBoundingClientRect().left;
+}
+
+function markRow(root) {
+var row = root.find('.lumen-episodes');
+if (!row.length || !row[0].lumenEpisodes) return;
+markClipped(row[0].lumenEpisodes, row.find('.lumen-episodes__track'), viewWidth(row.find('.lumen-episodes__viewport')[0]));
+}
+
+
+
+
+
+
+
+
+function scheduleClip(root) {
+setTimeout(function () {
+try {
+markRow(root);
+} catch (e) {
+warn('episodes clip failed', e);
+}
+}, 0);
+}
+
+function markClipped(info, track, view) {
+if (!info || !track.length || !(view > 0)) return;
+
+var shift = track[0].lumenShift || 0;
+var nodes = info.nodes;
+var marks = [];
+var i;
+for (i = info.from; i <= info.to; i++) {
+var node = nodes[i];
+if (!node || !node.length) continue;
+var left = node[0].offsetLeft;
+
+
+marks.push([node, left < shift - 0.5 || left + node[0].offsetWidth > shift + view + 0.5]);
+}
+for (i = 0; i < marks.length; i++) {
+if (marks[i][1]) marks[i][0].addClass('lumen-episode--cut');
+else marks[i][0].removeClass('lumen-episode--cut');
+}
 }
 
 
@@ -29320,8 +29415,7 @@ loadStills(info.nodes, node.lumenPos);
 dropStills(info.nodes, node.lumenPos, info.from, info.to);
 }
 
-var screen = window.innerWidth || (document.documentElement && document.documentElement.clientWidth) || 0;
-var view = screen - viewport.getBoundingClientRect().left;
+var view = viewWidth(viewport);
 if (view <= 0) return;
 
 var current = track[0].lumenShift || 0;
@@ -29335,6 +29429,10 @@ else if (left + width + reserve > shift + view) shift = left + width + reserve -
 shift = Math.max(0, Math.min(shift, track[0].scrollWidth - view));
 
 if (shift !== current) setShift(track, shift);
+
+
+
+markClipped(info, track, view);
 }
 
 
