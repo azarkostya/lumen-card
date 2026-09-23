@@ -1285,7 +1285,6 @@ var HERO_HEAD_SAFE = 4.4;
 
 
 
-var TEXT_META = 1.43;
 
 
 
@@ -1297,7 +1296,32 @@ var TEXT_META = 1.43;
 
 
 
-var TEXT_LOGO = 5.6;
+
+
+
+var TEXT_META = 1.48;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+var TEXT_LOGO = 6.9;
 
 
 
@@ -3400,7 +3424,12 @@ css.push('.lumen-hero.lumen-hero--compact .lumen-hero__text{' +
 
 
 
-css.push('.lumen-hero .lumen-hero__meta{font-family:' + FB + ';font-weight:500;font-size:1.15em;line-height:1.24;color:' + P.muted + '}');
+
+
+
+
+
+css.push('.lumen-hero .lumen-hero__meta{font-family:' + FB + ';font-weight:500;font-size:.96em;line-height:1.24;color:' + P.muted + ';margin-top:.3em}');
 
 
 
@@ -10618,9 +10647,33 @@ var LOGO_EM = 37.84;
 
 
 
-var LOGO_AREA = 65;
-var LOGO_H_MAX = 5.2;
-var LOGO_H_MIN = 2.4;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+var LOGO_AREA = 101.56;
+var LOGO_H_MAX = 6.5;
+var LOGO_H_MIN = 3;
 var LOGO_W_MAX = 37.84;
 
 var MOTION_CLASSES = 'lumen-motion-full lumen-motion-lite lumen-motion-off';
@@ -11015,14 +11068,28 @@ var node = $('<div class="lumen-hero">' +
 
 '<div class="lumen-fx"></div>' +
 '</div>');
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 var text = $('<div class="lumen-hero__text">' +
+'<div class="lumen-hero__logo"></div>' +
+'<div class="lumen-hero__title"></div>' +
 '<div class="lumen-hero__meta"></div>' +
 
 
 
 '<div class="lumen-hero__sk lumen-hero__sk--meta lumen-skeleton"></div>' +
-'<div class="lumen-hero__logo"></div>' +
-'<div class="lumen-hero__title"></div>' +
 '<div class="lumen-hero__descr"></div>' +
 '<div class="lumen-hero__sk lumen-hero__sk--descr lumen-skeleton"></div>' +
 '<div class="lumen-hero__sk lumen-hero__sk--short lumen-skeleton"></div>' +

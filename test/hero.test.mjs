@@ -87,20 +87,44 @@ test('logoBox: равная площадь вместо равной высот�
 
 test('logoBox: клампы — узкому не выше бюджета, очень длинному не шире рамки', () => {
   /* Близкий к квадрату (1.5:1 — замер живьём на одном ряду прошлого круга)
-     по площади просил бы 6.58em и съел бы мету: выше бюджета раскладки его
+     по площади просил бы 8.23em и съел бы мету: выше бюджета раскладки его
      не пускает верхний кламп. */
-  assert.deepEqual(H.logoBox(1.5), { w: 7.8, h: 5.2 });
-  /* Логотип-баннер 20:1 по площади получил бы 1.8em — нижний кламп поднимает
-     его до 2.4em, и тогда в бюджет уже не влезает ШИРИНА: она и решает. */
+  assert.deepEqual(H.logoBox(1.5), { w: 9.75, h: 6.5 });
+  /* Логотип-баннер 20:1 по площади получил бы 2.25em — нижний кламп поднимает
+     его до 3.0em, и тогда в бюджет уже не влезает ШИРИНА: она и решает. */
   const banner = H.logoBox(20);
   assert.equal(banner.w, 37.84, 'ширина упирается в рамку: ' + JSON.stringify(banner));
   assert.equal(banner.h, 1.89);
 
   for (const ratio of [0.8, 1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 12, 20]) {
     const full = H.logoBox(ratio);
-    assert.ok(full.h <= 5.2, ratio + ':1 — высота ' + full.h + 'em выше бюджета TEXT_LOGO');
+    assert.ok(full.h <= 6.5, ratio + ':1 — высота ' + full.h + 'em выше бюджета TEXT_LOGO');
     assert.ok(full.w <= 37.84, ratio + ':1 — ширина ' + full.w + 'em шире рамки');
   }
+});
+
+/* Правка 2026-09-23 (разбор композиции, п.1.2): логотип увеличен в 1.25
+   раза по линейному размеру. Тест сторожит не сам множитель, а то, ради
+   чего он выбран единым для площади и обоих клампов: диапазон пропорций,
+   в котором работает равная площадь, обязан остаться прежним. Границы
+   диапазона — LOGO_AREA/LOGO_H_MAX² и LOGO_AREA/LOGO_H_MIN²; до правки это
+   было 2.40:1 и 11.28:1. */
+test('правка 2026-09-23: рост логотипа не сузил диапазон равной площади', () => {
+  /* Внутри диапазона площадь одна у всех — берём оба его края с запасом
+     внутрь и середину. */
+  const areas = [2.45, 4, 6, 11].map((r) => {
+    const b = H.logoBox(r);
+    return b.w * b.h;
+  });
+  for (const area of areas) {
+    assert.ok(Math.abs(area - areas[0]) / areas[0] < 0.01,
+      'площади внутри диапазона разошлись: ' + JSON.stringify(areas));
+  }
+  /* И сам рост — ровно 1.25 по линейному размеру, а не «примерно». Считаем
+     по логотипу из середины диапазона: до правки 6:1 давал 19.75 × 3.29. */
+  const wide = H.logoBox(6);
+  assert.ok(Math.abs(wide.h / 3.29 - 1.25) < 0.01, 'рост по высоте ' + (wide.h / 3.29).toFixed(3) + ' вместо 1.25');
+  assert.ok(Math.abs(wide.w / 19.75 - 1.25) < 0.01, 'рост по ширине ' + (wide.w / 19.75).toFixed(3) + ' вместо 1.25');
 });
 
 /* Task 36: прежний тест «сжатое состояние — то же самое, умноженное на 0.65»
@@ -111,7 +135,7 @@ test('logoBox: клампы — узкому не выше бюджета, оч�
    кадра не зависит вовсе. */
 test('logoBox: размер не зависит от состояния кадра — сжатие делает CSS', () => {
   assert.deepEqual(H.logoBox(6, true), H.logoBox(6), 'второго аргумента у logoBox больше нет');
-  assert.deepEqual(H.logoBox(6), { w: 19.75, h: 3.29 });
+  assert.deepEqual(H.logoBox(6), { w: 24.69, h: 4.11 });
 });
 
 test('logoBox: пропорция неизвестна — null, размер остаётся за рамкой из CSS', () => {
@@ -852,8 +876,8 @@ test('логотип: размер по пропорции и неизменно
   env.advance(200);
   env.requests[0].ok({ images: { logos: [{ file_path: '/l.png', iso_639_1: 'ru', aspect_ratio: 2.5 }] } });
   assert.equal(node.hasClass('lumen-hero--compact'), false, 'первый ряд — полное состояние');
-  assert.equal(logo.css('width'), '12.75em');
-  assert.equal(logo.css('height'), '5.1em');
+  assert.equal(logo.css('width'), '15.93em');
+  assert.equal(logo.css('height'), '6.37em');
 
   main.card1.removeClass('focus');
   main.card2.addClass('focus');
@@ -862,8 +886,8 @@ test('логотип: размер по пропорции и неизменно
   env.advance(200);
   assert.equal(node.hasClass('lumen-hero--compact'), true, 'второй ряд — сжатое состояние');
   env.requests[1].ok({ images: { logos: [{ file_path: '/l2.png', iso_639_1: 'ru', aspect_ratio: 2.5 }] } });
-  assert.equal(logo.css('width'), '12.75em', 'инлайн-размер переход не трогает — мельче логотип делает CSS');
-  assert.equal(logo.css('height'), '5.1em');
+  assert.equal(logo.css('width'), '15.93em', 'инлайн-размер переход не трогает — мельче логотип делает CSS');
+  assert.equal(logo.css('height'), '6.37em');
 });
 
 /* Task 36: тест «при компактном размере кадра сразу сжатый размер» удалён.
