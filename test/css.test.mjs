@@ -2330,7 +2330,20 @@ test('правка: текст героя прижат к низу кадра и
   const num = (decl, name, unit) => parseFloat(new RegExp(name + ':([0-9.]+)' + unit).exec(decl)[1]);
   const zoom = num(text, 'font-size', 'em');
   assert.equal(zoom, 1.1, 'кегль текста героя не поднят: ' + text);
-  assert.ok(Math.abs(num(text, 'left', 'em') * zoom - 3.51) < 0.02, 'Task 63: safe area слева — 80 px tvOS = 3.51em: ' + text);
+  /* Ревью фикс-раунда (п.3): рамка блока — это зона подушки-вуали внутри
+     него (от левой кромки кадра с запасом до правой, от безопасной зоны до
+     низа кадра), а содержимое стоит на отступах. Safe area слева — сумма
+     left (отрицательный запас) и padding-left; отступ снизу — padding-bottom
+     в vh, сама рамка доходит до низа кадра. */
+  const bleed = parseFloat(/(^|;)left:-([0-9.]+)em/.exec(text)[2]);
+  const padL = parseFloat(/(^|;)padding:0 0 [0-9.]+vh ([0-9.]+)em/.exec(text)[2]);
+  assert.ok(bleed > 0, 'рамка блока обязана заходить за кромку кадра: ' + text);
+  assert.ok(Math.abs((padL - bleed) * zoom - 3.51) < 0.02, 'Task 63: safe area слева — 80 px tvOS = 3.51em: ' + text);
+  assert.ok(/(^|;)right:0;/.test(text) && /(^|;)bottom:0;/.test(text), 'рамка блока обязана доходить до правой и нижней кромки кадра: ' + text);
+  /* Ширина содержимого — прежние 46em своего кегля: справа отступ «кадр
+     минус левый отступ без запаса минус 46em». */
+  const padR = parseFloat(/[^-]padding-right:calc\(100% - ([0-9.]+)em\)/.exec(text)[1]);
+  assert.ok(Math.abs(padR - (padL - bleed + 46)) < 0.01, 'ширина содержимого текста героя уехала от 46em: ' + text);
   /* Сверху — безопасная зона под шапкой Lampa: без неё высокое содержимое
      налезало на заголовок активности и иконки (находка пользователя). */
   assert.ok(Math.abs(num(text, 'top', 'em') * zoom - 4.4) < 0.02, 'нет безопасной зоны под шапкой Lampa: ' + text);
@@ -2339,7 +2352,7 @@ test('правка: текст героя прижат к низу кадра и
      Task 51: было 10vh при сдвиге рядов 8vh — отступ считается ОТ ВЕРХА
      ПЕРВОГО РЯДА (textBottomVh в src/30_css.js), и убавленный на 2.5vh сдвиг
      ровно на столько же поднял текст. Зазор между ними — прежние 1.33vh. */
-  assert.equal(num(text, 'bottom', 'vh'), 12.5, 'отступ текста снизу считается от верха первого ряда: ' + text);
+  assert.equal(parseFloat(/(^|;)padding:0 0 ([0-9.]+)vh/.exec(text)[2]), 12.5, 'отступ текста снизу считается от верха первого ряда: ' + text);
   /* Сжатое состояние — только transform: ни кегль, ни отступы не меняются,
      поэтому блок физически не может съехать вбок на переходе.
      Ревью Task 36 (В1): в сдвиг входит высота полосы чипов — она гаснет
@@ -2355,7 +2368,11 @@ test('правка: текст героя прижат к низу кадра и
   assert.ok(small.indexOf('transform:translateY(calc(9.1vh + 3.88em)) scale(0.95)') !== -1, 'сжатие текста: ' + small);
   assert.ok(small.indexOf('-webkit-transform:translateY(-webkit-calc(9.1vh + 3.88em))') !== -1, 'старым webkit-движкам нужен префиксный calc: ' + small);
   assert.ok(small.indexOf('-webkit-transform:translateY(calc(9.1vh + 3.88em))') !== -1, 'после префиксного calc обязана идти обычная форма: ' + small);
-  assert.ok(text.indexOf('transform-origin:left bottom') !== -1, 'без origin у левого нижнего угла scale увёл бы текст от safe area: ' + text);
+  /* Точка масштаба — левый нижний угол СОДЕРЖИМОГО: от рамки это
+     padding-left вправо и padding-bottom вверх. */
+  assert.ok(text.indexOf('transform-origin:' + padL + 'em calc(100% - 12.5vh)') !== -1,
+    'без origin у левого нижнего угла содержимого scale увёл бы текст от safe area: ' + text);
+  assert.ok(text.indexOf('-webkit-transform-origin:' + padL + 'em -webkit-calc(100% - 12.5vh)') !== -1, 'префиксная пара origin: ' + text);
 
   /* Та же вертикаль у заголовка ряда — пользователь сверяет их по линии. */
   const head = findDecl(css, (sel) => sel === '.lumen-main .items-line__head');
@@ -2408,7 +2425,9 @@ test('раскладка героя: кадр, текст и ряды не пе�
     const heroH = parseFloat(/height:([0-9.]+)vh/.exec(decl('.lumen-hero'))[1]) * VH;
     const heroShift = parseFloat(/transform:translateY\(-([0-9.]+)vh\)/.exec(decl('.lumen-hero.lumen-hero--compact'))[1]) * VH;
     const textDecl = decl('.lumen-hero .lumen-hero__text');
-    const textBottom = parseFloat(/bottom:([0-9.]+)vh/.exec(textDecl)[1]) * VH;
+    /* Отступ содержимого снизу — padding-bottom рамки блока: рамка доходит
+       до низа кадра (в ней лежит подушка-вуаль, ревью фикс-раунда п.3). */
+    const textBottom = parseFloat(/(^|;)padding:0 0 ([0-9.]+)vh/.exec(textDecl)[2]) * VH;
     const compactText = decl('.lumen-hero.lumen-hero--compact .lumen-hero__text');
     const shiftParts = /[^-]transform:translateY\(calc\(([0-9.]+)vh \+ ([0-9.]+)em\)\)/.exec(compactText);
     const textShift = parseFloat(shiftParts[1]) * VH + parseFloat(shiftParts[2]) * EM;
@@ -3591,14 +3610,18 @@ test('Task 36/64: кадр героя растворяется длинной г
   /* Правка 2026-09-23 (п.1.4): у левой вуали появилась СВОЯ маска — по
      вертикали. Двух направлений на одном элементе без mask-composite не
      собрать, и его тут нет: одно направление несёт background (плотность по
-     ширине), другое — маска (докуда вуаль доходит по высоте). */
+     ширине), другое — маска (докуда вуаль доходит по высоте).
+     Ревью фикс-раунда (п.3): маска отмеряется не от низа кадра процентами,
+     а от ВЕРХА самой вуали в em: вуаль стоит в потоке текста под названием,
+     сверху у неё затухание, дальше — полная плотность до низа. Геометрию
+     держит тест «ревью п.3» ниже. */
   const leftMaskRule = ruleBodies(css).find((r) => r.selectors.length === 1
     && r.selectors[0] === '.lumen-hero .lumen-hero__veil--l' && r.decl.indexOf('mask-image') !== -1);
   assert.ok(leftMaskRule, 'у левой вуали нет вертикальной маски');
-  assert.ok(leftMaskRule.decl.indexOf('mask-image:linear-gradient(0deg,#000 0%,#000 50%,rgba(0,0,0,0) 70%)') !== -1,
-    'маска левой вуали отмеряется от НИЗА кадра: до 50 % полная, к 70 % сходит на нет: ' + leftMaskRule.decl);
-  assert.ok(leftMaskRule.decl.indexOf('-webkit-mask-image:-webkit-linear-gradient(bottom,') !== -1,
-    'старым webkit-движкам нужна префиксная маска (без неё вуаль просто останется на всю высоту, как была): ' + leftMaskRule.decl);
+  assert.ok(/[^-]mask-image:linear-gradient\(180deg,rgba\(0,0,0,0\) 0,#000 [0-9.]+em\)/.test(leftMaskRule.decl),
+    'маска левой вуали: затухание сверху в em, дальше сплошь: ' + leftMaskRule.decl);
+  assert.ok(leftMaskRule.decl.indexOf('-webkit-mask-image:-webkit-linear-gradient(top,') !== -1,
+    'старым webkit-движкам нужна префиксная маска (без неё вуаль останется сплошной от названия вниз): ' + leftMaskRule.decl);
   assert.equal(/mask-composite/.test(leftMaskRule.decl), false, 'mask-composite в WebView телевизора не проверен: ' + leftMaskRule.decl);
   /* Полноэкранных узлов-вуалей теперь два: левая (подушка под текстом) и
      верхняя (под шапкой Lampa, п.1.4). Нижней плашки по-прежнему нет — она
@@ -4022,10 +4045,12 @@ test('Task 70: фокус ушёл в ряды — кадр и вуаль ост
   const fxTrans = ruleBodies(css).find((r) => r.selectors.indexOf('.lumen-hero.lumen-motion-full .lumen-fx') !== -1);
   assert.ok(fxTrans && fxTrans.decl.indexOf('transition:opacity .35s ease') !== -1, 'слой атмосферы обязан гаснуть плавно');
   /* Переход вуали вместе с её гашением стал мёртвым правилом: opacity у
-     .lumen-hero__veil больше не меняет никто. Переход transform у левой
-     вуали — другое дело: она едет вместе с текстом (дефект «чёрный
-     прямоугольник», тест ниже). */
-  const veilTrans = ruleBodies(css).filter((r) => r.selectors.some((sel) => sel.indexOf('.lumen-hero__veil') !== -1) && /transition[^;]*opacity/.test(r.decl));
+     .lumen-hero__veil больше не меняет никто. Левая вуаль едет вместе с
+     текстом, внутри его блока (тест ниже); у верхней свой переход transform
+     (ревью фикс-раунда, п.1). Правила подмены текста гасят детей блока
+     «кроме вуали» — :not(.lumen-hero__veil) в их селекторе вуали не
+     касается. */
+  const veilTrans = ruleBodies(css).filter((r) => r.selectors.some((sel) => sel.indexOf('.lumen-hero__veil') !== -1 && sel.indexOf(':not(.lumen-hero__veil)') === -1) && /transition[^;]*opacity/.test(r.decl));
   assert.deepEqual(veilTrans.map((r) => r.selectors.join(',')), [],
     'у вуали остался переход opacity, которому нечего проигрывать');
   /* Текст героя в сжатом состоянии не гасится — он только поджимается. */
@@ -4034,26 +4059,119 @@ test('Task 70: фокус ушёл в ряды — кадр и вуаль ост
 });
 
 /* Дефект с экрана пользователя 2026-09-23: «какой-то прямоугольник чёрный».
-   Маска левой вуали отмерена от низа кадра, кадр в сжатом состоянии едет
-   вверх, а текст — вниз: подушка .97 оставалась там, где текст стоял в
-   покое, и над логотипом висела пустая тёмная полоса (стенд 1600×900@1:
-   190 px, 64 % ширины). Вуаль обязана ехать ровно на тот же сдвиг, что и
-   текст, и той же кривой — иначе они разъедутся на время перехода. */
+   Тогда вуаль была отдельным узлом на весь кадр, и её маска, отмеренная от
+   низа кадра, оставалась там, где текст стоял в покое (стенд 1600×900@1:
+   190 px плотной полосы над логотипом). Ревью фикс-раунда (п.3) убрало саму
+   причину: вуаль лежит ВНУТРИ текстового блока и едет его transform, так
+   что отстать от текста ей нечем. Сторожим именно это: узел в разметке
+   блока и ни одного собственного правила сдвига или перехода. */
 test('сжатый герой: левая вуаль едет вместе с текстом, а не остаётся на месте покоя', () => {
-  const veil = findDecl(css, (sel) => sel === '.lumen-hero.lumen-hero--compact .lumen-hero__veil--l');
-  const text = findDecl(css, (sel) => sel === '.lumen-hero.lumen-hero--compact .lumen-hero__text');
-  assert.ok(veil, 'у левой вуали нет правила сжатого состояния — подушка остаётся над логотипом');
-  const shift = (decl) => /[^-]transform:translateY\(calc\(([^)]*)\)/.exec(decl);
-  assert.ok(shift(veil) && shift(text), veil + ' / ' + text);
-  assert.equal(shift(veil)[1], shift(text)[1], 'вуаль и текст сдвигаются на разное расстояние');
-  assert.ok(veil.indexOf('-webkit-transform:translateY(-webkit-calc(') !== -1, 'префиксная пара потеряна: ' + veil);
-  assert.equal(/opacity/.test(veil), false, 'вуаль под сжатым кадром не гаснет (Task 70): ' + veil);
-  const trans = (sel) => ruleBodies(css).find((r) => r.selectors.indexOf(sel) !== -1 && /transition/.test(r.decl));
-  const vt = trans('.lumen-hero.lumen-motion-full .lumen-hero__veil--l');
-  const tt = trans('.lumen-hero.lumen-motion-full .lumen-hero__text');
-  assert.ok(vt, 'в полном режиме вуаль прыгала бы, пока текст едет');
-  const curve = (decl) => /[^-]transition:[^;]*transform( [^;]*)/.exec(decl)[1];
-  assert.equal(curve(vt.decl), curve(tt.decl), 'кривые вуали и текста разошлись');
+  const src = readFileSync(new URL('../src/48_hero.js', import.meta.url), 'utf8');
+  const textAt = src.indexOf('<div class="lumen-hero__text">');
+  const veilAt = src.indexOf('<div class="lumen-hero__veil lumen-hero__veil--l">');
+  const logoAt = src.indexOf('<div class="lumen-hero__logo">');
+  assert.ok(textAt > 0 && veilAt > textAt && veilAt < logoAt, 'левая вуаль обязана лежать в разметке текстового блока');
+  assert.equal(findDecl(css, (sel) => sel === '.lumen-hero.lumen-hero--compact .lumen-hero__veil--l'), null,
+    'собственный сдвиг вуали — второй источник правды о сжатии текста');
+  assert.equal(ruleBodies(css).filter((r) => r.selectors.some((sel) => /__veil--l$/.test(sel)) && /transition/.test(r.decl)).length, 0,
+    'у вуали свой переход — она разъедется с текстом на время перехода');
+});
+
+/* Ревью фикс-раунда (п.3): подушка под текстом героя подбиралась под один
+   замер — полная плотность до 50 % высоты кадра от его низа, затухание к
+   70 %. У фильма на крупном кадре мета стояла на 42.8…46.9 %, у сериала со
+   статусом и описанием — на 50.0…54.2 % (замер на стенде 960×540@2, кегль
+   11.4055), то есть в затухании. Теперь вуаль стоит в потоке текстового
+   блока сразу под названием. Тест собирает блок снизу вверх по правилам
+   таблицы для разных высот содержимого — фильм и сериал, описание в одну и
+   две строки, перенос чипов во вторую строку, компактный кадр без меты — при
+   трёх размерах кадра и проверяет: каждая строка текста ниже полосы полной
+   плотности, вуаль дотягивается до низа кадра, и у левой кромки кадра не
+   открывается полоса ни в покое, ни в сжатом состоянии. */
+test('ревью п.3: подушка под текстом героя стоит под названием при любой высоте блока', () => {
+  const H = 540;
+  const EM = 960 / 84.17;
+  const VH = H / 100;
+  const pick = (built, sel, re) => {
+    const body = ruleBodies(built).filter((r) => r.selectors.indexOf(sel) !== -1).map((r) => r.decl).join(';');
+    const m = re.exec(body);
+    assert.ok(m, sel + ': не разобрать ' + re + ' в «' + body + '»');
+    return parseFloat(m[1]);
+  };
+  for (const size of ['large', 'medium', 'compact']) {
+    const built = withStorage({ lumen_hero_size: size }, (LC) => LC.buildCss());
+    const heroH = pick(built, '.lumen-hero', /(?:^|;)height:([0-9.]+)vh/) * VH;
+    const T = '.lumen-hero .lumen-hero__text';
+    const TE = pick(built, T, /(?:^|;)font-size:([0-9.]+)em/) * EM;
+    const padBottom = pick(built, T, /(?:^|;)padding:0 0 ([0-9.]+)vh/) * VH;
+    const padLeft = pick(built, T, /(?:^|;)padding:0 0 [0-9.]+vh ([0-9.]+)em/) * TE;
+    const bleed = pick(built, T, /(?:^|;)left:-([0-9.]+)em/) * TE;
+    const V = '.lumen-hero .lumen-hero__veil--l';
+    const veilUp = pick(built, V, /(?:^|;)top:-([0-9.]+)em/) * TE;
+    const fade = pick(built, V, /[^-]mask-image:linear-gradient\(180deg,rgba\(0,0,0,0\) 0,#000 ([0-9.]+)em\)/) * TE;
+    const veilLeft = pick(built, V, /(?:^|;)margin:0 0 -100vh -([0-9.]+)em/) * TE;
+    /* Нулевая высота в потоке и место между названием и остальным. */
+    const veilBody = ruleBodies(built).filter((r) => r.selectors.indexOf(V) !== -1).map((r) => r.decl).join(';');
+    assert.ok(/(?:^|;)height:100vh/.test(veilBody) && /margin:0 0 -100vh /.test(veilBody), size + ': высота вуали в потоке не нулевая: ' + veilBody);
+    assert.ok(/(?:^|;)order:1/.test(veilBody) && /(?:^|;)flex:none/.test(veilBody), size + ': вуаль не на своём месте в потоке: ' + veilBody);
+    for (const cls of ['meta', 'sk', 'descr', 'chips', 'moods']) {
+      assert.equal(pick(built, '.lumen-hero__text > .lumen-hero__' + cls, /(?:^|;)order:([0-9]+)/), 2, size + ': ' + cls + ' обязан идти после вуали');
+    }
+    const small = size === 'compact';
+    /* Высоты строк — из правил таблицы, в кегле блока. */
+    const M = '.lumen-hero .lumen-hero__meta';
+    const metaFont = pick(built, M, /(?:^|;)font-size:([0-9.]+)em/);
+    const meta = metaFont * (pick(built, M, /line-height:([0-9.]+)/) + pick(built, M, /margin-top:([0-9.]+)em/)) * TE;
+    const D = '.lumen-hero .lumen-hero__descr';
+    const dFont = pick(built, D, /(?:^|;)font-size:([0-9.]+)em/);
+    const dLine = dFont * pick(built, D, /line-height:([0-9.]+)/) * TE;
+    const dGap = dFont * pick(built, D, /margin-top:([0-9.]+)em/) * TE;
+    /* Полоса статуса — бюджет TEXT_STATUS, его сверку с правилом держит тест
+       «Task 43: бюджет под полосу статуса совпадает с её геометрией». */
+    const status = 2.07 * TE;
+    const moodsGap = pick(built, '.lumen-hero .lumen-hero__moods', /margin-top:([0-9.]+)em/) * TE;
+    const chipRow = 2.60 * 1.01 * TE;
+    const variants = [
+      { name: 'фильм', descr: 2, status: false, moods: 1 },
+      { name: 'сериал со статусом', descr: 2, status: true, moods: 1 },
+      { name: 'сериал, описание в строку', descr: 1, status: true, moods: 1 },
+      { name: 'сериал, чипы в две строки', descr: 2, status: true, moods: 2 },
+      { name: 'без чипов и описания', descr: 0, status: true, moods: 0 }
+    ];
+    for (const v of variants) {
+      /* y — высота над низом кадра в покое. Снизу вверх: чипы, статус,
+         описание, мета; выше — низ названия, он же место вуали. */
+      const lines = [];
+      let y = padBottom;
+      if (v.moods) y += moodsGap + v.moods * chipRow;
+      if (v.status) { y += status; lines.push(['статус', y]); }
+      if (v.descr && !small) { y += dGap + v.descr * dLine; lines.push(['описание', y]); }
+      if (!small) { y += meta; lines.push(['мета', y]); }
+      const veilTop = y + veilUp;
+      const fullFrom = veilTop - fade;
+      const label = size + ', ' + v.name;
+      for (const [what, top] of lines) {
+        assert.ok(top <= fullFrom, label + ': верх строки «' + what + '» (' + top.toFixed(1) +
+          ' px над низом кадра) выше полосы полной плотности (' + fullFrom.toFixed(1) + ')');
+      }
+      /* Полная плотность начинается не выше, чем на 1em кегля блока над
+         верхней строкой: подушка идёт за текстом, а не висит над ним. */
+      if (lines.length) {
+        const top = lines[lines.length - 1][1];
+        assert.ok(fullFrom - top <= TE, label + ': полная плотность на ' + (fullFrom - top).toFixed(1) + ' px выше текста');
+      }
+      /* Вниз вуаль тянется на 100vh от своего верха — до низа кадра всегда. */
+      assert.ok(veilTop - 100 * VH <= 0, label + ': вуаль не дотягивается до низа кадра');
+      assert.ok(veilTop <= heroH, label + ': верх вуали выше кадра');
+    }
+    /* Слева вуаль доходит до кромки рамки блока, а та заходит за кромку
+       кадра; в сжатом состоянии масштаб с точкой в левом нижнем углу
+       содержимого стягивает её вправо — запаса обязано хватать. */
+    assert.ok(Math.abs(veilLeft - padLeft) < 0.01, size + ': вуаль не доходит до левой кромки рамки блока');
+    const scale = parseFloat(/scale\(([0-9.]+)\)/.exec(findDecl(built, (sel) => sel === '.lumen-hero.lumen-hero--compact .lumen-hero__text'))[1]);
+    assert.ok(-bleed + (1 - scale) * padLeft <= 0,
+      size + ': в сжатом состоянии у левой кромки кадра открылось ' + (-bleed + (1 - scale) * padLeft).toFixed(1) + ' px');
+  }
 });
 
 test('Task 36/64: кадр кадрируется по лицам (center 30%), а не по самому верху', () => {
@@ -4100,10 +4218,19 @@ test('Task 36: подмена текста — только opacity, сдвиг 
   /* До Task 36 подмена двигала блок на .53em своим transform. Теперь на том
      же свойстве живёт сжатие (translateY + scale), и подмена обязана его не
      трогать: иначе текст прыгал бы к низу кадра на каждой карточке. */
-  const swap = findDecl(css, (sel) => sel === '.lumen-hero.lumen-motion-full .lumen-hero__text.is-swapping');
+  /* Ревью фикс-раунда (п.3): гаснут дети блока, кроме подушки-вуали — она
+     лежит внутри блока, и opacity самого блока гасила бы кадр под текстом
+     на каждой смене карточки. У самого блока opacity не меняется вовсе. */
+  const swap = findDecl(css, (sel) => sel === '.lumen-hero.lumen-motion-full .lumen-hero__text.is-swapping > :not(.lumen-hero__veil)');
   assert.equal(swap, 'opacity:0', 'старый текст обязан только гаснуть: ' + swap);
-  const inCls = findDecl(css, (sel) => sel === '.lumen-hero.lumen-motion-full .lumen-hero__text.is-in');
+  assert.equal(findDecl(css, (sel) => sel === '.lumen-hero.lumen-motion-full .lumen-hero__text.is-swapping'), null,
+    'гаснет весь блок — вместе с ним гаснет подушка под текстом');
+  const inCls = findDecl(css, (sel) => sel === '.lumen-hero.lumen-motion-full .lumen-hero__text.is-in > :not(.lumen-hero__veil)');
   assert.ok(inCls && inCls.indexOf('lumen-hero-in .42s') !== -1, 'новый проявляется 420 мс');
+  const block = findDecl(css, (sel) => sel === '.lumen-hero.lumen-motion-full .lumen-hero__text');
+  assert.equal(/opacity/.test(block), false, 'переход opacity у самого блока: ' + block);
+  const kids = findDecl(css, (sel) => sel === '.lumen-hero.lumen-motion-full .lumen-hero__text > :not(.lumen-hero__veil)');
+  assert.ok(kids && /[^-]transition:opacity \.18s ease/.test(kids), 'дети блока гаснут за 180 мс: ' + kids);
   const frames = css.split('\n').filter((l) => l.indexOf('keyframes lumen-hero-in') !== -1);
   assert.equal(frames.length, 2, 'кадры подмены и их webkit-копия');
   for (const line of frames) assert.equal(/transform/.test(line), false, 'в кадрах подмены остался transform: ' + line);
@@ -4136,8 +4263,8 @@ test('Task 18: логотип фильма с текстовым фолбэко�
   /* Task 36: логотип едет масштабом, а не парой width/height — пропорция при
      этом не может порваться по построению, а раскладка блока не меняется ни
      на одном кадре перехода. */
-  const logoMotion = findDecl(css, (sel) => sel === '.lumen-hero.lumen-motion-full .lumen-hero__logo');
-  assert.ok(logoMotion && /transition:transform \.42s/.test(logoMotion), 'логотип едет масштабом: ' + logoMotion);
+  const logoMotion = findDecl(css, (sel) => sel === '.lumen-hero.lumen-motion-full .lumen-hero__text > .lumen-hero__logo');
+  assert.ok(logoMotion && /[^-]transition:opacity \.18s ease,transform \.42s/.test(logoMotion), 'логотип едет масштабом: ' + logoMotion);
   assert.ok(logo.indexOf('transform-origin:left bottom') !== -1, 'без origin у левого нижнего угла логотип уехал бы от safe area: ' + logo);
 
   /* Текстовый фолбэк (фильм без логотипа) занимает место логотипа — 4.4em,
@@ -4645,8 +4772,12 @@ test('правка 2026-09-23: мета и топбар героя читают�
   const maskRule = ruleBodies(css).find((r) => r.decl.indexOf('mask-image:linear-gradient') !== -1
     && r.selectors.indexOf('.lumen-hero .lumen-hero__bg') !== -1);
   const veilRule = findDecl(css, (sel) => sel === '.lumen-hero .lumen-hero__veil--l');
-  const veilMaskRule = ruleBodies(css).find((r) => r.selectors.length === 1
-    && r.selectors[0] === '.lumen-hero .lumen-hero__veil--l' && r.decl.indexOf('mask-image') !== -1);
+  /* Ревью фикс-раунда (п.3): вертикальная граница подушки больше не
+     проценты кадра — вуаль стоит в потоке текста под названием, и вся
+     строка меты, описание, статус и заголовок первого ряда лежат ниже её
+     полосы полной плотности при ЛЮБОЙ высоте блока (это доказывает тест
+     «ревью п.3» ниже). Поэтому здесь плотность вуали по вертикали для этих
+     точек — единица, а работает только её горизонтальный фон. */
   /* У верхней вуали два правила: геометрия — в общей таблице, цвет — в
      наборе подкраски (AR.veilT), который buildCss выводит туда же, а
      LC.accentCss потом переписывает при подкраске от постера. */
@@ -4659,16 +4790,15 @@ test('правка 2026-09-23: мета и топбар героя читают�
 
   const FILM = stops(maskRule.decl, /[^-]mask-image:linear-gradient\(0deg,([^)]*\)[^;]*)/);
   const VEIL = stops(veilRule, /[^-]background:linear-gradient\(90deg,(.*)\)$/);
-  const VEIL_MASK = stops(veilMaskRule.decl, /[^-]mask-image:linear-gradient\(0deg,([^;]*)/);
   const TOP = stops(topRule, /[^-]background:linear-gradient\(180deg,(.*)\)$/);
   /* Верхняя вуаль отмеряется от ВЕРХА своего бокса, остальные — от низа
      кадра. Высота бокса — в том же правиле, в em; кадр на стенде 360 px,
      база кегля 11.4055. */
   const topH = parseFloat(/height:([0-9.]+)em/.exec(topBox.decl)[1]) * 11.4055;
 
-  const onFilm = (yUpPct, xPct) => {
+  const onFilm = (yUpPct, xPct, veilA) => {
     const film = over([255, 255, 255], at(FILM, yUpPct), bg);
-    const veiled = over(bg, at(VEIL, xPct) * at(VEIL_MASK, yUpPct), film);
+    const veiled = over(bg, at(VEIL, xPct) * veilA, film);
     const fromTop = (100 - yUpPct) / 100 * 360;
     return hex(over(bg, fromTop <= topH ? at(TOP, fromTop / topH * 100) : 0, veiled));
   };
@@ -4677,23 +4807,23 @@ test('правка 2026-09-23: мета и топбар героя читают�
      точка давала 1.18:1 (x = 40 % ширины: там кончалась прежняя вуаль, а
      маска кадра ещё пропускала .79 картинки). */
   for (const x of [4.2, 20, 40, 55, 64.3]) {
-    const got = contrast(P.muted, onFilm(46.9, x));
+    const got = contrast(P.muted, onFilm(46.9, x, 1));
     assert.ok(got >= 4.5, 'мета героя на белом кадре при x=' + x + ' %: ' + got.toFixed(2) + ':1');
   }
   /* Заголовок первого ряда лежит на кадре в состоянии покоя — он тоже под
      вуалью и от сжатия маски не пострадал. */
   for (const y of [6.4, 12]) {
-    const got = contrast(P.text, onFilm(y, 16));
+    const got = contrast(P.text, onFilm(y, 16, 1));
     assert.ok(got >= 4.5, 'заголовок первого ряда на белом кадре при y=' + y + ' %: ' + got.toFixed(2) + ':1');
   }
   /* Часы и иконки шапки Lampa — белые. Часы набраны 22.8 CSS px полужирным,
      это крупный текст по WCAG (порог 3), иконки — графика (тот же порог). */
   for (const x of [56, 90, 98]) {
-    const got = contrast('#FFFFFF', onFilm(91.4, x));
+    const got = contrast('#FFFFFF', onFilm(91.4, x, 0));
     assert.ok(got >= 3, 'часы шапки на белом кадре при x=' + x + ' %: ' + got.toFixed(2) + ':1');
   }
   /* И на тёмном кадре ничего не переосветлили: те же точки на чёрном. */
-  const dark = contrast(P.muted, hex(over(bg, at(VEIL, 40) * at(VEIL_MASK, 46.9), over([11, 9, 8], at(FILM, 46.9), bg))));
+  const dark = contrast(P.muted, hex(over(bg, at(VEIL, 40), over([11, 9, 8], at(FILM, 46.9), bg))));
   assert.ok(dark >= 4.5, 'мета на тёмном кадре: ' + dark.toFixed(2) + ':1');
 });
 
@@ -5662,10 +5792,15 @@ test('Task 63: safe area — одна величина на всех экран�
 
   /* У текста героя отступ делится на его собственный кегль: em у left/right
      считается от font-size самого узла (TEXT_ZOOM), и без деления логотип
-     не стоял бы на одной вертикали с заголовком ряда. */
+     не стоял бы на одной вертикали с заголовком ряда.
+     Ревью фикс-раунда (п.3): рамка блока заходит за левую кромку кадра на
+     запас подушки (left:-X em), и содержимое стоит на padding-left — safe
+     area это их сумма. */
   const hero = decl(css, '.lumen-hero .lumen-hero__text');
   const zoom = parseFloat(/font-size:([\d.]+)em/.exec(hero)[1]);
-  assert.ok(Math.abs(parseFloat(/(^|;)left:([\d.]+)em/.exec(hero)[2]) * zoom - 3.51) < 0.02,
+  const heroLeft = parseFloat(/(^|;)left:(-?[\d.]+)em/.exec(hero)[2]);
+  const heroPad = parseFloat(/(^|;)padding:0 0 [\d.]+vh ([\d.]+)em/.exec(hero)[2]);
+  assert.ok(Math.abs((heroLeft + heroPad) * zoom - 3.51) < 0.02,
     'текст героя стоит не по safe area: ' + hero);
 });
 

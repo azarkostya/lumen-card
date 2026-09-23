@@ -1527,6 +1527,17 @@ var TEXT_ZOOM = 1.1;
 
 
 
+var VEIL_RISE = 0.6;
+var VEIL_FADE = 5.7;
+var VEIL_BLEED = 1;
+
+var TEXT_MAX_W = 46;
+
+
+
+
+
+
 
 
 var MOODS_IN_EM = round2((MOODS_IN_GAP + MOODS_H) * TEXT_ZOOM);
@@ -3778,7 +3789,11 @@ var textBottom = textBottomVh(heroSize);
 var textShift = textShiftVh(heroSize);
 
 
+
 var textShiftCalc = textShift + 'vh + ' + MOODS_IN_EM + 'em';
+
+
+var textPadL = round2(EDGE / TEXT_ZOOM + VEIL_BLEED);
 var smallText = heroSmallText();
 var EASE = ' .42s cubic-bezier(.2,.8,.2,1)';
 
@@ -3994,56 +4009,66 @@ css.push('.lumen-hero.lumen-motion-full .lumen-fx{-webkit-transition:opacity .35
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 css.push('.lumen-hero .lumen-hero__veil{position:absolute;top:0;left:0;right:0;bottom:0}');
 css.push(AR.veilL);
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-var veilMask = '#000 0%,#000 50%,rgba(0,0,0,0) 70%';
-css.push('.lumen-hero .lumen-hero__veil--l{' +
-'-webkit-mask-image:-webkit-linear-gradient(bottom,' + veilMask + ');mask-image:linear-gradient(0deg,' + veilMask + ');' +
+var veilUp = round2(VEIL_RISE + VEIL_FADE);
+var veilMask = 'rgba(0,0,0,0) 0,#000 ' + VEIL_FADE + 'em';
+css.push('.lumen-hero .lumen-hero__veil--l{position:relative;top:-' + veilUp + 'em;left:auto;right:auto;bottom:auto;z-index:-1;' +
+'-webkit-box-ordinal-group:2;-webkit-order:1;order:1;' +
+'-webkit-box-flex:0;-webkit-flex:none;flex:none;-webkit-align-self:flex-start;align-self:flex-start;' +
+'width:-webkit-calc(100vw + ' + VEIL_BLEED + 'em);width:calc(100vw + ' + VEIL_BLEED + 'em);height:100vh;' +
+'margin:0 0 -100vh -' + textPadL + 'em;' +
+'-webkit-mask-image:-webkit-linear-gradient(top,' + veilMask + ');mask-image:linear-gradient(180deg,' + veilMask + ');' +
 '-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat}');
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-css.push('.lumen-hero.lumen-hero--compact .lumen-hero__veil--l{' +
-'-webkit-transform:translateY(-webkit-calc(' + textShiftCalc + '));' +
-'-webkit-transform:translateY(calc(' + textShiftCalc + '));' +
-'transform:translateY(calc(' + textShiftCalc + '))}');
-css.push('.lumen-hero.lumen-motion-full .lumen-hero__veil--l{-webkit-transition:-webkit-transform' + EASE + ';transition:transform' + EASE + '}');
+css.push('.lumen-hero__text > .lumen-hero__meta,.lumen-hero__text > .lumen-hero__sk,.lumen-hero__text > .lumen-hero__descr,.lumen-hero__text > .lumen-hero__chips,.lumen-hero__text > .lumen-hero__moods{-webkit-box-ordinal-group:3;-webkit-order:2;order:2}');
 
 
 
@@ -4172,10 +4197,33 @@ css.push('.lumen-hero .lumen-hero__trailer{-webkit-mask-size:100% 83.33%;mask-si
 
 
 
-css.push('.lumen-hero .lumen-hero__text{position:absolute;left:' + round2(EDGE / TEXT_ZOOM) + 'em;right:' + round2(EDGE / TEXT_ZOOM) + 'em;top:' + round2(HERO_HEAD_SAFE / TEXT_ZOOM) + 'em;bottom:' + textBottom + 'vh;font-size:' + TEXT_ZOOM + 'em;max-width:46em;overflow:hidden;' +
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+var textPadR = round2(textPadL - VEIL_BLEED + TEXT_MAX_W);
+var textOrigin = textPadL + 'em calc(100% - ' + textBottom + 'vh)';
+css.push('.lumen-hero .lumen-hero__text{position:absolute;left:-' + VEIL_BLEED + 'em;right:0;top:' + round2(HERO_HEAD_SAFE / TEXT_ZOOM) + 'em;bottom:0;' +
+'padding:0 0 ' + textBottom + 'vh ' + textPadL + 'em;padding-right:-webkit-calc(100% - ' + textPadR + 'em);padding-right:calc(100% - ' + textPadR + 'em);' +
+'font-size:' + TEXT_ZOOM + 'em;overflow:hidden;' +
 'display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-orient:vertical;-webkit-box-direction:normal;-webkit-flex-direction:column;flex-direction:column;' +
 '-webkit-box-pack:end;-webkit-justify-content:flex-end;justify-content:flex-end;' +
-'-webkit-transform-origin:left bottom;transform-origin:left bottom;-webkit-transform:translateY(0);transform:translateY(0)}');
+'-webkit-transform-origin:' + textPadL + 'em -webkit-calc(100% - ' + textBottom + 'vh);-webkit-transform-origin:' + textOrigin + ';transform-origin:' + textOrigin + ';' +
+'-webkit-transform:translateY(0);transform:translateY(0)}');
 
 
 
@@ -4293,7 +4341,8 @@ css.push('.lumen-hero.lumen-hero--status .lumen-hero__status{display:block}');
 
 
 css.push('.lumen-hero.lumen-hero--compact .lumen-hero__logo{-webkit-transform:scale(' + LOGO_COMPACT + ');transform:scale(' + LOGO_COMPACT + ')}');
-css.push('.lumen-hero.lumen-motion-full .lumen-hero__logo{-webkit-transition:-webkit-transform' + EASE + ';transition:transform' + EASE + '}');
+
+
 css.push('.lumen-hero.lumen-hero--compact .lumen-hero__descr,.lumen-hero.lumen-hero--compact .lumen-hero__sk--descr,.lumen-hero.lumen-hero--compact .lumen-hero__sk--short{display:none}');
 if (smallText) {
 css.push('.lumen-hero .lumen-hero__meta,.lumen-hero .lumen-hero__sk--meta{display:none}');
@@ -4316,9 +4365,21 @@ css.push('.lumen-hero .lumen-hero__descr,.lumen-hero .lumen-hero__sk--descr,.lum
 
 
 
-css.push('.lumen-hero.lumen-motion-full .lumen-hero__text{-webkit-transition:opacity .18s ease,-webkit-transform' + EASE + ';transition:opacity .18s ease,transform' + EASE + '}');
-css.push('.lumen-hero.lumen-motion-full .lumen-hero__text.is-swapping{opacity:0}');
-css.push('.lumen-hero.lumen-motion-full .lumen-hero__text.is-in{-webkit-animation:lumen-hero-in' + EASE + ';animation:lumen-hero-in' + EASE + '}');
+
+
+
+
+
+
+
+
+
+
+css.push('.lumen-hero.lumen-motion-full .lumen-hero__text{-webkit-transition:-webkit-transform' + EASE + ';transition:transform' + EASE + '}');
+css.push('.lumen-hero.lumen-motion-full .lumen-hero__text > :not(.lumen-hero__veil){-webkit-transition:opacity .18s ease;transition:opacity .18s ease}');
+css.push('.lumen-hero.lumen-motion-full .lumen-hero__text > .lumen-hero__logo{-webkit-transition:opacity .18s ease,-webkit-transform' + EASE + ';transition:opacity .18s ease,transform' + EASE + '}');
+css.push('.lumen-hero.lumen-motion-full .lumen-hero__text.is-swapping > :not(.lumen-hero__veil){opacity:0}');
+css.push('.lumen-hero.lumen-motion-full .lumen-hero__text.is-in > :not(.lumen-hero__veil){-webkit-animation:lumen-hero-in' + EASE + ';animation:lumen-hero-in' + EASE + '}');
 css.push('@-webkit-keyframes lumen-hero-in{from{opacity:0}to{opacity:1}}');
 css.push('@keyframes lumen-hero-in{from{opacity:0}to{opacity:1}}');
 css.push('.lumen-hero.lumen-motion-lite .lumen-hero__text,.lumen-hero.lumen-motion-off .lumen-hero__text{opacity:1;-webkit-transition:none;transition:none;-webkit-animation:none;animation:none}');
@@ -4363,7 +4424,8 @@ css.push('.lumen-hero .lumen-hero__moods{display:-webkit-box;display:-webkit-fle
 
 css.push('.lumen-hero .lumen-hero__moods:empty{display:none}');
 css.push('.lumen-hero.lumen-hero--compact .lumen-hero__moods{opacity:0;visibility:hidden;pointer-events:none}');
-css.push('.lumen-hero.lumen-motion-full .lumen-hero__moods{-webkit-transition:opacity .18s ease;transition:opacity .18s ease}');
+
+
 
 
 
@@ -12826,6 +12888,8 @@ lang: langCode()
 
 
 
+
+
 function buildNode() {
 var node = $('<div class="lumen-hero">' +
 '<img class="lumen-hero__lqip" decoding="async" alt="">' +
@@ -12836,7 +12900,6 @@ var node = $('<div class="lumen-hero">' +
 
 
 '<div class="lumen-hero__trailer"></div>' +
-'<div class="lumen-hero__veil lumen-hero__veil--l"></div>' +
 
 
 
@@ -12866,6 +12929,15 @@ var node = $('<div class="lumen-hero">' +
 
 
 var text = $('<div class="lumen-hero__text">' +
+
+
+
+
+
+
+
+
+'<div class="lumen-hero__veil lumen-hero__veil--l"></div>' +
 '<div class="lumen-hero__logo"></div>' +
 '<div class="lumen-hero__title"></div>' +
 '<div class="lumen-hero__meta"></div>' +

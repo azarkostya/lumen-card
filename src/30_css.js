@@ -722,6 +722,17 @@
      совпадает с её геометрией». */
   var TEXT_STATUS = 2.07;
   var TEXT_ZOOM = 1.1;
+  /* Подушка под текстом героя (левая вуаль, разбор — у её правила). Все три
+     величины — в кегле текстового блока: вуаль лежит в нём самом.
+     VEIL_RISE — полная плотность над низом названия, VEIL_FADE — затухание
+     над ней, VEIL_BLEED — на столько блок и вуаль заходят за левую кромку
+     кадра (без запаса масштаб сжатого текста .95 открыл бы у кромки полоску
+     кадра). */
+  var VEIL_RISE = 0.6;
+  var VEIL_FADE = 5.7;
+  var VEIL_BLEED = 1;
+  /* Ширина содержимого текстового блока, в его же кегле. */
+  var TEXT_MAX_W = 46;
   /* Высота полосы чипов В БАЗОВЫХ em, когда она лежит внутри текстового
      блока. Оба слагаемых заданы в кегле блока (отступ сверху — прямо, а
      CHIP_ZOOM у чипа считается от того же кегля), поэтому оба умножаются на
@@ -2978,8 +2989,12 @@
     var textBottom = textBottomVh(heroSize);
     var textShift = textShiftVh(heroSize);
     /* Сдвиг текста в сжатом состоянии целиком (разбор — у правила
-       .lumen-hero--compact .lumen-hero__text ниже); им же едет левая вуаль. */
+       .lumen-hero--compact .lumen-hero__text ниже); левая вуаль лежит внутри
+       блока и едет вместе с ним. */
     var textShiftCalc = textShift + 'vh + ' + MOODS_IN_EM + 'em';
+    /* Левый отступ содержимого в текстовом блоке: safe area плюс запас
+       подушки (разбор — у правил .lumen-hero__veil--l и .lumen-hero__text). */
+    var textPadL = round2(EDGE / TEXT_ZOOM + VEIL_BLEED);
     var smallText = heroSmallText();
     var EASE = ' .42s cubic-bezier(.2,.8,.2,1)';
     /* Правка пользователя 2026-09-17 (третий круг): фон под рядами — это фон
@@ -3193,58 +3208,68 @@
        никто, и держать ей transition значило бы держать мёртвое правило. */
     css.push('.lumen-hero.lumen-motion-full .lumen-fx{-webkit-transition:opacity .35s ease;transition:opacity .35s ease}');
 
-    /* Левая вуаль — градиент, не фильтр (ограничение брифа 5): под текстом.
-       Нижней вуали-плашки здесь больше нет, см. маску кадра ниже. */
+    /* Левая вуаль — подушка под текстом героя: градиент, не фильтр
+       (ограничение брифа 5). Плотность по горизонтали задаёт её фон
+       (AR.veilL), по вертикали — её собственная маска ниже.
+
+       Ревью фикс-раунда (п.3): до этой правки вуаль лежала отдельным узлом
+       на весь кадр, и её маска была отмерена от НИЗА КАДРА процентами — до
+       50 % полная плотность, к 70 % затухание. Числа подобрали под один
+       замер (фильм, крупный кадр: мета 42.8…46.9 % высоты кадра), а блок
+       текста прижат к низу и растёт вверх вместе с содержимым. У сериала со
+       статусом «Выходит · …» и описанием мета поднималась в затухание: замер
+       на стенде 960×540@2, крупный кадр, «лёгкий», кегль 11.4055 — мета
+       165.0…180.0 px при кадре 360, то есть 50.0…54.2 % его высоты; у
+       среднего кадра ревьюер насчитал 54.8…59.8 % и контраст 1.24:1 на
+       белом кадре при пороге 4.5:1.
+
+       Теперь вуаль — ребёнок самого текстового блока (разметка —
+       src/48_hero.js, buildNode) и стоит в его потоке МЕЖДУ названием и
+       остальным содержимым: порядок задаёт order (у названия — 0, у вуали —
+       1, у меты, скелетонов, описания, статуса и чипов — 2). Высота в потоке
+       у неё нулевая — height и равный ему отрицательный margin-bottom, — то
+       есть раскладку блока она не меняет, а её верх всегда стоит ровно под
+       названием, какой бы высоты ни было то, что ниже: описание в одну или
+       две строки, статус, перенос чипов во вторую строку, скрытая мета у
+       компактного кадра. Вниз бокс тянется на 100vh — до низа блока, где его
+       срезает overflow:hidden блока (блок для этого доходит до низа кадра,
+       разбор — у правила .lumen-hero__text ниже).
+
+       Над названием вуаль поднимается на VEIL_RISE полной плотности и ещё
+       на VEIL_FADE затухания (сдвиг top у position:relative — он раскладку
+       не трогает). Логотипу контраст по WCAG не требуется вовсе (2.1, 1.4.11,
+       исключение Logotypes), и затухание ложится на него, как и прежде:
+       на стенде 960×540 это 11 px полной плотности над верхом меты (подъём
+       .6em плюс её собственный отступ сверху) и 71.5 px затухания — ровно
+       то, что давали проценты у фильма на крупном кадре (11.2 и 72 px),
+       только теперь при любом блоке.
+
+       В сжатом состоянии вуаль едет вместе с текстом — тем же transform
+       блока, и отдельного правила сдвига ей больше не нужно (прежнее
+       правило «прямоугольник чёрный», 2026-09-23, снято: подушка не может
+       отстать от текста, раз она внутри него). Масштаб .95 сжимает её к
+       левому нижнему углу текста; отсюда запас VEIL_BLEED слева — без него
+       у левой кромки экрана открылась бы полоска кадра в 2 px.
+
+       Слои: вуаль рисуется в контексте наложения текстового блока (у него
+       transform) с z-index:-1 — под всем текстом, включая логотип, но уже
+       НАД слоем атмосферы .lumen-fx, который идёт в разметке раньше блока.
+       Частицы в зоне подушки поэтому приглушены, как и сам кадр.
+
+       Движок без масок покажет вуаль сплошной от названия вниз — фолбэк
+       безопасный: текст на ней читается. */
     css.push('.lumen-hero .lumen-hero__veil{position:absolute;top:0;left:0;right:0;bottom:0}');
     css.push(AR.veilL);
-    /* Правка 2026-09-23 (разбор композиции, п.1.4): левая вуаль работает
-       только в НИЖНЕЙ части кадра — там, где лежит текст героя. Плотность по
-       горизонтали задаёт её фон (AR.veilL), по вертикали — эта маска; двух
-       направлений сразу требовал бы mask-composite, здесь же маска ОДНА, а
-       второе направление несёт background, и никакого composite не нужно.
-
-       Что это даёт: верх кадра (лица, центр композиции) перестаёт быть
-       затемнённым слева на .85 — там вуали теперь нет вовсе, а под текстом
-       её плотность поднята до .97, потому что на белом кадре мета в прежнем
-       виде давала 1.18:1 при норме WCAG 4.5 (замер — в комментарии к
-       AR.veilL и в тесте «мета и топбар героя читаются на белом кадре»).
-
-       Стопы отмерены от НИЗА кадра, как и маска самого кадра ниже: 50 % —
-       выше низа мета-строки в состоянии покоя (замер на стенде 960×540@2,
-       крупный кадр: мета 191.0…205.9 px при низе кадра 360, то есть
-       42.8…46.9 % высоты кадра), 70 % — конец затухания, логотип попадает в
-       него частично. Логотипу контраст по WCAG не требуется вовсе (2.1,
-       1.4.11, исключение Logotypes), и вуаль под него не растягивается.
-
-       Движок без масок покажет вуаль на всю высоту кадра — ровно то, что
-       было до правки, то есть фолбэк безопасный. */
-    var veilMask = '#000 0%,#000 50%,rgba(0,0,0,0) 70%';
-    css.push('.lumen-hero .lumen-hero__veil--l{' +
-      '-webkit-mask-image:-webkit-linear-gradient(bottom,' + veilMask + ');mask-image:linear-gradient(0deg,' + veilMask + ');' +
+    var veilUp = round2(VEIL_RISE + VEIL_FADE);
+    var veilMask = 'rgba(0,0,0,0) 0,#000 ' + VEIL_FADE + 'em';
+    css.push('.lumen-hero .lumen-hero__veil--l{position:relative;top:-' + veilUp + 'em;left:auto;right:auto;bottom:auto;z-index:-1;' +
+      '-webkit-box-ordinal-group:2;-webkit-order:1;order:1;' +
+      '-webkit-box-flex:0;-webkit-flex:none;flex:none;-webkit-align-self:flex-start;align-self:flex-start;' +
+      'width:-webkit-calc(100vw + ' + VEIL_BLEED + 'em);width:calc(100vw + ' + VEIL_BLEED + 'em);height:100vh;' +
+      'margin:0 0 -100vh -' + textPadL + 'em;' +
+      '-webkit-mask-image:-webkit-linear-gradient(top,' + veilMask + ');mask-image:linear-gradient(180deg,' + veilMask + ');' +
       '-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat}');
-    /* Дефект с экрана пользователя 2026-09-23: «какой-то прямоугольник
-       чёрный». Маска выше отмерена от низа КАДРА, а кадр в сжатом состоянии
-       уезжает вверх на heroShift, тогда как текст едет ему навстречу — вниз
-       на textShiftCalc (правило .lumen-hero--compact .lumen-hero__text ниже).
-       Подушка оставалась там, где текст стоял в покое, и над логотипом
-       висела пустая плотная полоса: замер на стенде 1600×900@1, «лёгкий» —
-       вуаль .97 от 150 до 450 px экрана при верхе логотипа на 340, то есть
-       190 px сплошного тёмного поверх кадра, 64 % ширины, с кромкой по
-       затуханию маски.
-       Лечение — та же поправка, что у текста: вуаль едет вниз вместе с ним,
-       и в сжатом состоянии подушка снова лежит под логотипом и метой, как в
-       покое. Бокс вуали при этом выходит за низ кадра, но его режет
-       overflow:hidden героя, а под кромкой и так начинаются ряды. Масштаб
-       текста (.95) вуаль не повторяет: он сжимает текст к его же левому
-       нижнему углу, и подушка под ним остаётся с запасом.
-       transform, а не top/маска: переход только композитный, в полном
-       режиме — той же кривой, что у текста, иначе вуаль и текст разъехались
-       бы на время перехода. В «лёгком» перехода нет — сдвиг мгновенный. */
-    css.push('.lumen-hero.lumen-hero--compact .lumen-hero__veil--l{' +
-      '-webkit-transform:translateY(-webkit-calc(' + textShiftCalc + '));' +
-      '-webkit-transform:translateY(calc(' + textShiftCalc + '));' +
-      'transform:translateY(calc(' + textShiftCalc + '))}');
-    css.push('.lumen-hero.lumen-motion-full .lumen-hero__veil--l{-webkit-transition:-webkit-transform' + EASE + ';transition:transform' + EASE + '}');
+    css.push('.lumen-hero__text > .lumen-hero__meta,.lumen-hero__text > .lumen-hero__sk,.lumen-hero__text > .lumen-hero__descr,.lumen-hero__text > .lumen-hero__chips,.lumen-hero__text > .lumen-hero__moods{-webkit-box-ordinal-group:3;-webkit-order:2;order:2}');
     /* Правка 2026-09-23 (разбор композиции, п.1.4, вторая половина): верхняя
        вуаль под штатной шапкой Lampa. Часы, иконки и заголовок активности
        там белые и лежат прямо на кадре: на светлом кадре их контраст равен
@@ -3372,11 +3397,34 @@
     /* Собственные отступы блока в em делятся на его же кегль: em у left/right/
        top считается от font-size САМОГО элемента, и без деления поднятый кегль
        увёл бы текст вправо от safe area (замер живьём: 71 px вместо 64 px —
-       логотип переставал стоять на одной вертикали с заголовком ряда). */
-    css.push('.lumen-hero .lumen-hero__text{position:absolute;left:' + round2(EDGE / TEXT_ZOOM) + 'em;right:' + round2(EDGE / TEXT_ZOOM) + 'em;top:' + round2(HERO_HEAD_SAFE / TEXT_ZOOM) + 'em;bottom:' + textBottom + 'vh;font-size:' + TEXT_ZOOM + 'em;max-width:46em;overflow:hidden;' +
+       логотип переставал стоять на одной вертикали с заголовком ряда).
+
+       Ревью фикс-раунда (п.3): у блока внутри теперь лежит подушка-вуаль
+       (правило .lumen-hero__veil--l выше), а overflow:hidden блока режет
+       всё, что выходит за его рамку отступов. Поэтому рамка блока совпадает
+       с зоной подушки — от левой кромки кадра (с запасом VEIL_BLEED) до
+       правой и от безопасной зоны сверху до НИЗА кадра, — а содержимое
+       стоит там же, где стояло, на отступах:
+         - слева — safe area (EDGE) плюс запас: padding-left = textPadL;
+         - снизу — прежний отступ от верха первого ряда, textBottom (vh);
+         - справа — столько, чтобы содержимому осталось ровно TEXT_MAX_W
+           (прежний max-width): calc(100% − (EDGE + TEXT_MAX_W)). Проценты
+           отступа считаются от ширины кадра, отрицательный calc движок
+           прижимает к нулю, но на экранах шире 49.19em кегля блока (любое
+           окно: экран — это 84.17 / k базовых em) до этого не доходит.
+       Срез сверху прежний: верх рамки — HERO_HEAD_SAFE, лишнее содержимое
+       режется там же, где резалось.
+       Точка масштаба сжатого состояния — левый нижний угол СОДЕРЖИМОГО, как
+       и прежде: от рамки это textPadL вправо и textBottom вверх. */
+    var textPadR = round2(textPadL - VEIL_BLEED + TEXT_MAX_W);
+    var textOrigin = textPadL + 'em calc(100% - ' + textBottom + 'vh)';
+    css.push('.lumen-hero .lumen-hero__text{position:absolute;left:-' + VEIL_BLEED + 'em;right:0;top:' + round2(HERO_HEAD_SAFE / TEXT_ZOOM) + 'em;bottom:0;' +
+      'padding:0 0 ' + textBottom + 'vh ' + textPadL + 'em;padding-right:-webkit-calc(100% - ' + textPadR + 'em);padding-right:calc(100% - ' + textPadR + 'em);' +
+      'font-size:' + TEXT_ZOOM + 'em;overflow:hidden;' +
       'display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-orient:vertical;-webkit-box-direction:normal;-webkit-flex-direction:column;flex-direction:column;' +
       '-webkit-box-pack:end;-webkit-justify-content:flex-end;justify-content:flex-end;' +
-      '-webkit-transform-origin:left bottom;transform-origin:left bottom;-webkit-transform:translateY(0);transform:translateY(0)}');
+      '-webkit-transform-origin:' + textPadL + 'em -webkit-calc(100% - ' + textBottom + 'vh);-webkit-transform-origin:' + textOrigin + ';transform-origin:' + textOrigin + ';' +
+      '-webkit-transform:translateY(0);transform:translateY(0)}');
     /* В сжатом состоянии текст мельче на 5 % (пользователь просил 3-5 %) — и
        это scale, а не font-size: кегль пересчитывал бы раскладку блока каждый
        кадр перехода. transform-origin: left bottom держит левый край на safe
@@ -3494,7 +3542,8 @@
        Скрывает мету только самый маленький размер кадра («компактный»,
        ветка smallText ниже) — там бюджета действительно нет. */
     css.push('.lumen-hero.lumen-hero--compact .lumen-hero__logo{-webkit-transform:scale(' + LOGO_COMPACT + ');transform:scale(' + LOGO_COMPACT + ')}');
-    css.push('.lumen-hero.lumen-motion-full .lumen-hero__logo{-webkit-transition:-webkit-transform' + EASE + ';transition:transform' + EASE + '}');
+    /* Плавность сжатия логотипа — в правиле подмены текста ниже (.lumen-hero__text
+       > .lumen-hero__logo): там у логотипа один переход на opacity и transform. */
     css.push('.lumen-hero.lumen-hero--compact .lumen-hero__descr,.lumen-hero.lumen-hero--compact .lumen-hero__sk--descr,.lumen-hero.lumen-hero--compact .lumen-hero__sk--short{display:none}');
     if (smallText) {
       css.push('.lumen-hero .lumen-hero__meta,.lumen-hero .lumen-hero__sk--meta{display:none}');
@@ -3516,10 +3565,22 @@
        подъёма отдельный внутренний узел дороже, чем он стоит, — на ТВ
        лишний композитный слой заметнее, чем пропавшие 12 px движения.
        В lite/off подмена мгновенная, но сдвиг сжатия остаётся: transform у
-       этих правил не сбрасывается, снимается только его плавность. */
-    css.push('.lumen-hero.lumen-motion-full .lumen-hero__text{-webkit-transition:opacity .18s ease,-webkit-transform' + EASE + ';transition:opacity .18s ease,transform' + EASE + '}');
-    css.push('.lumen-hero.lumen-motion-full .lumen-hero__text.is-swapping{opacity:0}');
-    css.push('.lumen-hero.lumen-motion-full .lumen-hero__text.is-in{-webkit-animation:lumen-hero-in' + EASE + ';animation:lumen-hero-in' + EASE + '}');
+       этих правил не сбрасывается, снимается только его плавность.
+
+       Ревью фикс-раунда (п.3): гаснет не сам блок, а его дети — все, кроме
+       подушки-вуали. Вуаль теперь лежит внутри блока, и opacity блока
+       гасила бы её вместе с текстом: на каждой смене карточки кадр под
+       текстом вспыхивал бы на 180 мс гашения и 420 мс проявления. Подушка
+       на подмене стоит на месте и лишь встаёт под новое название, когда
+       приходит новое содержимое. :not() с одним классом — CSS3, старым
+       WebView он известен. Логотипу переход собран в одно правило с его
+       transform (сжатие, правило выше): у правила детей специфичность выше,
+       и без этого оно сняло бы логотипу плавность сжатия. */
+    css.push('.lumen-hero.lumen-motion-full .lumen-hero__text{-webkit-transition:-webkit-transform' + EASE + ';transition:transform' + EASE + '}');
+    css.push('.lumen-hero.lumen-motion-full .lumen-hero__text > :not(.lumen-hero__veil){-webkit-transition:opacity .18s ease;transition:opacity .18s ease}');
+    css.push('.lumen-hero.lumen-motion-full .lumen-hero__text > .lumen-hero__logo{-webkit-transition:opacity .18s ease,-webkit-transform' + EASE + ';transition:opacity .18s ease,transform' + EASE + '}');
+    css.push('.lumen-hero.lumen-motion-full .lumen-hero__text.is-swapping > :not(.lumen-hero__veil){opacity:0}');
+    css.push('.lumen-hero.lumen-motion-full .lumen-hero__text.is-in > :not(.lumen-hero__veil){-webkit-animation:lumen-hero-in' + EASE + ';animation:lumen-hero-in' + EASE + '}');
     css.push('@-webkit-keyframes lumen-hero-in{from{opacity:0}to{opacity:1}}');
     css.push('@keyframes lumen-hero-in{from{opacity:0}to{opacity:1}}');
     css.push('.lumen-hero.lumen-motion-lite .lumen-hero__text,.lumen-hero.lumen-motion-off .lumen-hero__text{opacity:1;-webkit-transition:none;transition:none;-webkit-animation:none;animation:none}');
@@ -3564,7 +3625,8 @@
        ровном месте. :empty снимает и отступ, и сам блок. */
     css.push('.lumen-hero .lumen-hero__moods:empty{display:none}');
     css.push('.lumen-hero.lumen-hero--compact .lumen-hero__moods{opacity:0;visibility:hidden;pointer-events:none}');
-    css.push('.lumen-hero.lumen-motion-full .lumen-hero__moods{-webkit-transition:opacity .18s ease;transition:opacity .18s ease}');
+    /* Плавность гашения полосы — общий переход opacity у детей текстового
+       блока (правило подмены текста выше). */
     /* Герой выключен настройкой: узла героя нет и класса .lumen-main на
        активности нет тоже — чипы встают под штатной шапкой Lampa, а ряды
        опускаются на высоту их полосы (иначе полоса легла бы на первый ряд). */
