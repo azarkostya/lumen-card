@@ -12689,6 +12689,8 @@ state.node.removeClass(MOTION_CLASSES).addClass('lumen-motion-' + LC.motionMode(
 
 
 applyTrailer();
+
+applySlides();
 } catch (e) {
 warn('hero: motion failed', e);
 }
@@ -12776,7 +12778,17 @@ if (typeof LC.fxHeavy === 'function') return LC.fxHeavy();
 return true;
 }
 
+
+
+
+
+
+function heroMedia() {
+try { return LC.pref ? LC.pref('lumen_hero_media', 'trailer') : 'trailer'; } catch (e) { return 'trailer'; }
+}
+
 function trailerReady() {
+if (heroMedia() === 'frames') return false;
 return trailerAllowed(trailerPref(), motionMode(), trailerMode(), fxHeavy());
 }
 
@@ -12965,6 +12977,121 @@ function applyTrailer() {
 if (!state) return;
 if (trailerReady()) return;
 cancelTrailer();
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+var SLIDE_FREE = 700;
+
+function slidesAllowed() {
+return heroMedia() === 'frames' && motionMode() !== 'off';
+}
+
+function slideInterval() {
+try {
+if (LC.backdrops && typeof LC.backdrops.intervalMs === 'function') return LC.backdrops.intervalMs();
+} catch (e) { }
+return 14000;
+}
+
+function cancelSlides() {
+if (!state) return;
+stopTimer('slideFree');
+if (state.slides) {
+var s = state.slides;
+state.slides = null;
+try { s.destroy(); } catch (e) { warn('hero: slides destroy failed', e); }
+}
+}
+
+
+
+
+function freeHidden(captured) {
+if (!state || !fxHeavy()) return;
+stopTimer('slideFree');
+state.slideFree = setTimeout(function () {
+if (gen !== captured || !state) return;
+state.slideFree = null;
+try {
+var layers = [state.node.find('.lumen-hero__bg--a'), state.node.find('.lumen-hero__bg--b')];
+for (var i = 0; i < layers.length; i++) {
+if (!layers[i].hasClass('is-active')) layers[i].removeAttr('src');
+}
+} catch (e) { }
+}, SLIDE_FREE);
+}
+
+function startSlides(model, captured) {
+if (!state || state.slides || gen !== captured) return;
+if (!slidesAllowed() || !state.details || !model || !model.backdrop) return;
+if (!LC.slideshow || !LC.backdrops) return;
+try {
+var paths = LC.backdrops.pickBackdrops(state.details.images, model.backdrop, LC.slideshow.maxFramesFor(motionMode()));
+if (!paths || paths.length <= 1) return;
+state.slides = LC.slideshow.create(state.node, paths, {
+enabled: slidesAllowed,
+intervalMs: slideInterval,
+show: function (path, done) {
+
+
+if (gen !== captured || !state || state.loader) return;
+loadFrame({ backdrop: path }, captured, function (ok) {
+if (ok) freeHidden(captured);
+done(ok);
+});
+}
+});
+if (state.compact) state.slides.pause();
+state.slides.activate();
+} catch (e) {
+warn('hero: slides failed', e);
+}
+}
+
+
+
+
+function applySlides() {
+if (!state) return;
+if (!slidesAllowed()) { cancelSlides(); return; }
+if (!state.slides && state.model && state.details) startSlides(state.model, gen);
 }
 
 
@@ -13351,7 +13478,10 @@ lqip.removeAttr('src');
 
 
 
-function loadFrame(model, captured) {
+
+
+
+function loadFrame(model, captured, done) {
 if (!state) return;
 if (motionMode() === 'off') return;
 var blur = false;
@@ -13365,6 +13495,7 @@ if (!path) return;
 
 
 var url = imageUrl(path, blur ? 'w92' : sizeFor(screenWidth()));
+if (url && url === state.frameUrl && done) { done(true); return; }
 if (!url || url === state.frameUrl) return;
 
 
@@ -13398,6 +13529,7 @@ state.lqipUrl = small;
 }
 }
 
+var report = typeof done === 'function' ? done : function () {};
 var loader = new Image();
 
 
@@ -13439,13 +13571,14 @@ stopTimer('loadTimer');
 state.loader = null;
 
 
-if (!ok) return;
+if (!ok) { report(false); return; }
 try {
 swapFrame(url, blur);
 } catch (e) {
 warn('hero: frame failed', e);
 }
 releaseLqip();
+report(true);
 }
 
 function shown() { finish(true); }
@@ -13510,6 +13643,8 @@ applyFx();
 
 
 if (!state.frameUrl && model.backdrop) loadFrame(model, captured);
+
+startSlides(model, captured);
 },
 function () {
 if (gen !== captured || !state || !isMounted()) return;
@@ -13536,6 +13671,8 @@ if (!state || !card) return;
 try {
 var captured = ++gen;
 cancelPending();
+
+cancelSlides();
 state.shownId = card.id;
 state.details = null;
 state.model = null;
@@ -13595,6 +13732,11 @@ if (!state) return;
 
 
 state.compact = !!on;
+
+
+if (state.slides) {
+try { if (on) state.slides.pause(); else state.slides.resume(); } catch (eSl) { }
+}
 state.node.toggleClass('lumen-hero--compact', on);
 try { state.root.toggleClass('lumen-rows-up', on); } catch (e) {}
 }
@@ -14102,6 +14244,10 @@ trailerTimer: null,
 trailerNet: null,
 trailer: null,
 trailerCard: null,
+
+
+slides: null,
+slideFree: null,
 fixedCompact: !!opts.compact,
 
 
@@ -14158,6 +14304,8 @@ if (!state) return;
 
 
 cancelTrailer();
+
+cancelSlides();
 
 
 
@@ -14279,6 +14427,15 @@ trailerAllowed: trailerAllowed,
 
 
 applyTrailer: applyTrailer,
+
+
+
+
+
+applyMedia: function () {
+applyTrailer();
+applySlides();
+},
 
 
 
@@ -15270,7 +15427,9 @@ return null;
 }
 }
 
-LC.backdrops = { apply: apply, cancel: cancel, pickBackdrops: pickBackdrops, revive: revive };
+
+
+LC.backdrops = { apply: apply, cancel: cancel, pickBackdrops: pickBackdrops, revive: revive, intervalMs: slideIntervalMs };
 
 
 
@@ -15426,10 +15585,24 @@ var CROSSFADE_MS = 1200;
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
 function create(layer, urls, opts) {
 opts = opts || {};
 var enabledFn = typeof opts.enabled === 'function' ? opts.enabled : function () { return true; };
 var intervalFn = typeof opts.intervalMs === 'function' ? opts.intervalMs : function () { return 14000; };
+var show = typeof opts.show === 'function' ? opts.show : null;
 
 var alive = true;
 var paused = false;
@@ -15589,6 +15762,19 @@ if (!isLayerForeground(layer)) return;
 if (covered()) return;
 if (offset > urls.length) return;
 var next = (idx + offset) % urls.length;
+if (show) {
+if (frames[next] === false) { tryFrom(offset + 1); return; }
+show(urls[next], function (ok) {
+if (!alive || !frames) return;
+if (!ok) {
+frames[next] = false;
+if (!paused) tryFrom(offset + 1);
+return;
+}
+idx = next;
+});
+return;
+}
 ensureFrame(next, function (el) {
 if (!alive || paused || !frames) return;
 if (!isLayerMounted()) { destroy(); return; }
@@ -15607,6 +15793,13 @@ timer = setInterval(advance, intervalFn());
 
 function activate() {
 if (!alive || frames) return;
+if (show) {
+frames = [];
+idx = 0;
+activeIdx = 0;
+if (enabledFn() && !paused) startTimer();
+return;
+}
 try {
 frames = [];
 warm = [];
@@ -27727,9 +27920,9 @@ uk: 'Кадри з фільму за текстом картки змінюют�
 },
 lumen_card_slide_interval: { ru: 'Интервал смены кадров', en: 'Frame interval', uk: 'Інтервал зміни кадрів' },
 lumen_card_slide_interval_descr: {
-ru: 'Сколько секунд держится на экране один кадр фона карточки. Действует только при включённом слайдшоу. Применяется сразу.',
-en: 'How many seconds a single card background still stays on screen. Works only with the slideshow on. Applied immediately.',
-uk: 'Скільки секунд тримається на екрані один кадр тла картки. Діє лише з увімкненим слайдшоу. Застосовується одразу.'
+ru: 'Сколько секунд держится на экране один кадр фона карточки — и кадр главной, если там выбрано «Несколько кадров». В карточке действует только при включённом слайдшоу. Применяется сразу.',
+en: 'How many seconds a single card background still stays on screen — and the home hero still when it is set to "Several frames". On the card it works only with the slideshow on. Applied immediately.',
+uk: 'Скільки секунд тримається на екрані один кадр тла картки — і кадр головної, якщо там обрано «Кілька кадрів». У картці діє лише з увімкненим слайдшоу. Застосовується одразу.'
 },
 lumen_card_seconds: { ru: 'с', en: 's', uk: 'с' },
 lumen_card_menus: { ru: 'Оформление меню и окон', en: 'Menus and dialogs style', uk: 'Оформлення меню і вікон' },
@@ -28070,6 +28263,20 @@ lumen_hero_size_off: { ru: 'Выключен', en: 'Off', uk: 'Вимкнено'
 
 
 
+
+
+
+
+
+
+lumen_hero_media_name: { ru: 'Что показывает кадр главной', en: 'What the home hero shows', uk: 'Що показує кадр головної' },
+lumen_hero_media_trailer: { ru: 'Кадр и трейлер', en: 'Frame and trailer', uk: 'Кадр і трейлер' },
+lumen_hero_media_frames: { ru: 'Несколько кадров', en: 'Several frames', uk: 'Кілька кадрів' },
+lumen_hero_media_descr: {
+ru: '«Кадр и трейлер» — один кадр фильма; если фокус постоял на карточке, его сменяет беззвучный трейлер (пункт «Автотрейлер в кадре главной»). «Несколько кадров» — кадры фильма сменяют друг друга, как в карточке, с тем же «Интервалом смены кадров»; трейлер не запускается. Пока фокус в рядах ниже первого, кадры не меняются; с выключенными анимациями кадр один. Применяется сразу.',
+en: '"Frame and trailer" shows one still of the film; if focus rests on a card, a muted trailer replaces it (see "Auto-trailer in the home hero"). "Several frames" cycles through the film’s stills like the card does, at the same "Frame interval"; no trailer is started. While focus is in the rows below the first one the stills do not change; with animations off there is a single still. Applied immediately.',
+uk: '«Кадр і трейлер» — один кадр фільму; якщо фокус постояв на картці, його змінює беззвучний трейлер (пункт «Автотрейлер у кадрі головної»). «Кілька кадрів» — кадри фільму змінюють один одного, як у картці, з тим самим «Інтервалом зміни кадрів»; трейлер не запускається. Поки фокус у рядах нижче першого, кадри не змінюються; з вимкненими анімаціями кадр один. Застосовується одразу.'
+},
 lumen_hero_trailer_name: { ru: 'Автотрейлер в кадре главной', en: 'Auto-trailer in the home hero', uk: 'Автотрейлер у кадрі головної' },
 lumen_hero_trailer_descr: {
 ru: 'Кадр над рядами сам сменяется беззвучным трейлером с YouTube, если фокус постоял на карточке 8 секунд. Выключите, если это мешает. Переход на другую карточку ролик снимает, при листании он не запускается вовсе. Нужны полные анимации, включённые тяжёлые эффекты и не выключенный «Трейлер в фоне карточки». Применяется сразу.',
@@ -28472,6 +28679,13 @@ return true;
 
 if (name === 'lumen_hero_trailer') {
 try { if (LC.hero && LC.hero.applyTrailer) LC.hero.applyTrailer(); } catch (eHeroTr) {}
+return true;
+}
+
+
+
+if (name === 'lumen_hero_media') {
+try { if (LC.hero && LC.hero.applyMedia) LC.hero.applyMedia(); } catch (eHeroMedia) {}
 return true;
 }
 
@@ -29200,6 +29414,13 @@ var LIST = [
 
 
 
+
+
+
+
+
+
+{ name: 'lumen_hero_media', type: 'select', values: ['trailer', 'frames'], vprefix: 'lumen_hero_media_', 'default': 'trailer', label: 'lumen_hero_media_name', descr: 'lumen_hero_media_descr' },
 { name: 'lumen_hero_trailer', type: 'trigger', 'default': true, label: 'lumen_hero_trailer_name', descr: 'lumen_hero_trailer_descr' },
 
 

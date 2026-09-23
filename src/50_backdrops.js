@@ -619,7 +619,9 @@
     }
   }
 
-  LC.backdrops = { apply: apply, cancel: cancel, pickBackdrops: pickBackdrops, revive: revive };
+  /* intervalMs — наружу для героя главной (src/48_hero.js, «Несколько кадров»):
+     интервал смены кадров в плагине один, ручка — «Интервал смены кадров». */
+  LC.backdrops = { apply: apply, cancel: cancel, pickBackdrops: pickBackdrops, revive: revive, intervalMs: slideIntervalMs };
 
   /* В браузере "module" не определён — ветка не выполняется. Экспорт нужен
      только test/backdrops.test.mjs (Step 1, TDD pickBackdrops) через общий

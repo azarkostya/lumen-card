@@ -434,9 +434,9 @@
     },
     lumen_card_slide_interval: { ru: 'Интервал смены кадров', en: 'Frame interval', uk: 'Інтервал зміни кадрів' },
     lumen_card_slide_interval_descr: {
-      ru: 'Сколько секунд держится на экране один кадр фона карточки. Действует только при включённом слайдшоу. Применяется сразу.',
-      en: 'How many seconds a single card background still stays on screen. Works only with the slideshow on. Applied immediately.',
-      uk: 'Скільки секунд тримається на екрані один кадр тла картки. Діє лише з увімкненим слайдшоу. Застосовується одразу.'
+      ru: 'Сколько секунд держится на экране один кадр фона карточки — и кадр главной, если там выбрано «Несколько кадров». В карточке действует только при включённом слайдшоу. Применяется сразу.',
+      en: 'How many seconds a single card background still stays on screen — and the home hero still when it is set to "Several frames". On the card it works only with the slideshow on. Applied immediately.',
+      uk: 'Скільки секунд тримається на екрані один кадр тла картки — і кадр головної, якщо там обрано «Кілька кадрів». У картці діє лише з увімкненим слайдшоу. Застосовується одразу.'
     },
     lumen_card_seconds: { ru: 'с', en: 's', uk: 'с' },
     lumen_card_menus: { ru: 'Оформление меню и окон', en: 'Menus and dialogs style', uk: 'Оформлення меню і вікон' },
@@ -777,6 +777,20 @@
        (fxHeavyDefault, src/81_prefs.js). «Переход на другую карточку», а не
        «любое движение»: возврат фокуса на ту же карточку ролик не снимает —
        гард state.trailerCard !== card (src/48_hero.js:1302). */
+    /* Правка 2026-09-23, просьба пользователя: «постеры меняются в карточке,
+       но не на главной, там всегда статика… может сделай тумблер, типо либо
+       несколько постеров или постер и трейлер». Название — вопрос, на
+       который отвечают значения: с дивана «Кадр и трейлер / Несколько
+       кадров» читается без описания. Описание говорит, чем отличается каждый
+       вариант и когда смены нет (фокус в рядах, анимации выключены). */
+    lumen_hero_media_name: { ru: 'Что показывает кадр главной', en: 'What the home hero shows', uk: 'Що показує кадр головної' },
+    lumen_hero_media_trailer: { ru: 'Кадр и трейлер', en: 'Frame and trailer', uk: 'Кадр і трейлер' },
+    lumen_hero_media_frames: { ru: 'Несколько кадров', en: 'Several frames', uk: 'Кілька кадрів' },
+    lumen_hero_media_descr: {
+      ru: '«Кадр и трейлер» — один кадр фильма; если фокус постоял на карточке, его сменяет беззвучный трейлер (пункт «Автотрейлер в кадре главной»). «Несколько кадров» — кадры фильма сменяют друг друга, как в карточке, с тем же «Интервалом смены кадров»; трейлер не запускается. Пока фокус в рядах ниже первого, кадры не меняются; с выключенными анимациями кадр один. Применяется сразу.',
+      en: '"Frame and trailer" shows one still of the film; if focus rests on a card, a muted trailer replaces it (see "Auto-trailer in the home hero"). "Several frames" cycles through the film’s stills like the card does, at the same "Frame interval"; no trailer is started. While focus is in the rows below the first one the stills do not change; with animations off there is a single still. Applied immediately.',
+      uk: '«Кадр і трейлер» — один кадр фільму; якщо фокус постояв на картці, його змінює беззвучний трейлер (пункт «Автотрейлер у кадрі головної»). «Кілька кадрів» — кадри фільму змінюють один одного, як у картці, з тим самим «Інтервалом зміни кадрів»; трейлер не запускається. Поки фокус у рядах нижче першого, кадри не змінюються; з вимкненими анімаціями кадр один. Застосовується одразу.'
+    },
     lumen_hero_trailer_name: { ru: 'Автотрейлер в кадре главной', en: 'Auto-trailer in the home hero', uk: 'Автотрейлер у кадрі головної' },
     lumen_hero_trailer_descr: {
       ru: 'Кадр над рядами сам сменяется беззвучным трейлером с YouTube, если фокус постоял на карточке 8 секунд. Выключите, если это мешает. Переход на другую карточку ролик снимает, при листании он не запускается вовсе. Нужны полные анимации, включённые тяжёлые эффекты и не выключенный «Трейлер в фоне карточки». Применяется сразу.',
@@ -1179,6 +1193,13 @@
        следующей остановки фокуса (src/48_hero.js, applyTrailer). */
     if (name === 'lumen_hero_trailer') {
       try { if (LC.hero && LC.hero.applyTrailer) LC.hero.applyTrailer(); } catch (eHeroTr) {}
+      return true;
+    }
+    /* Правка 2026-09-23: что показывает кадр главной. «Несколько кадров»
+       снимает ролик и сразу заводит смену кадров по уже загруженным деталям,
+       «Кадр и трейлер» снимает смену кадров (src/48_hero.js, applyMedia). */
+    if (name === 'lumen_hero_media') {
+      try { if (LC.hero && LC.hero.applyMedia) LC.hero.applyMedia(); } catch (eHeroMedia) {}
       return true;
     }
     /* Task 71 (фаза 6): логотип названия в кадре главной. Перерисовка героя

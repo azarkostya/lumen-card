@@ -113,7 +113,7 @@ function setup(opts) {
   /* Task 28 (фаза 3): автотрейлер в кадре главной — выключение снимает
      играющий ролик прямо у героя, своей точки в 90_runtime.js ему не нужно. */
   /* Task 71 (фаза 6): логотип названия — перерисовка героя той же моделью. */
-  LC.hero = { applyTrailer: mark('herotrailer'), applyLogoPref: mark('herologo') };
+  LC.hero = { applyTrailer: mark('herotrailer'), applyLogoPref: mark('herologo'), applyMedia: mark('heromedia') };
   /* Правка 2026-09-23: логотип названия в карточке — перерисовка узла
      названия уже открытых карточек (LC.header.applyLogoPref). */
   LC.header = { applyLogoPref: mark('cardlogo') };
@@ -275,6 +275,9 @@ test('каждая настройка применяется ровно один
     /* Task 28 (фаза 3): автотрейлер в кадре главной — снятие играющего
        ролика у самого героя. */
     lumen_hero_trailer: ['herotrailer'],
+    /* Правка 2026-09-23: что показывает кадр главной — снятие ролика или
+       смены кадров у самого героя. */
+    lumen_hero_media: ['heromedia'],
     /* Task 71 (фаза 6): логотип названия в кадре главной — перерисовка
        героя: выключение возвращает текстовый заголовок сразу. */
     lumen_hero_logo: ['herologo'],

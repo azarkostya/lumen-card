@@ -143,10 +143,24 @@
        напрямую (opts уже несёт всё, что нужно про enabled/interval), а
        синхронизация lumen-motion-* классов на слое — забота
        syncMotionClass()/LC.applyMotionMode() в других модулях. */
+    /* Правка 2026-09-23 (настройка «Что показывает кадр главной»): третий
+       необязательный ключ opts.show(url, done) — ротация БЕЗ собственного
+       DOM. Кадр героя главной показывает сам герой (src/48_hero.js,
+       loadFrame/swapFrame: два <img>, decode(), подложка LQIP, сторож
+       поколения), и заводить ему вторые слои с background-image значило бы
+       держать в памяти кадры дважды. С opts.show контроллер отвечает ровно
+       за ритм — таймер, паузу, «не на экране», «экран накрыт», пропуск
+       битых кадров и очередь по кругу, — а показ отдаёт вызывающей стороне:
+       show(url, done) обязан позвать done(true), когда кадр на экране, и
+       done(false), если он не пришёл (кадр помечается битым и больше не
+       предлагается). Не позвал вовсе — очередь стоит на месте, и следующий
+       тик предложит тот же кадр снова. activate() в этом режиме DOM не
+       трогает: первый кадр уже показан вызывающей стороной. */
     function create(layer, urls, opts) {
       opts = opts || {};
       var enabledFn = typeof opts.enabled === 'function' ? opts.enabled : function () { return true; };
       var intervalFn = typeof opts.intervalMs === 'function' ? opts.intervalMs : function () { return 14000; };
+      var show = typeof opts.show === 'function' ? opts.show : null;
 
       var alive = true;
       var paused = false;
@@ -306,6 +320,19 @@
         if (covered()) return;
         if (offset > urls.length) return;
         var next = (idx + offset) % urls.length;
+        if (show) {
+          if (frames[next] === false) { tryFrom(offset + 1); return; }
+          show(urls[next], function (ok) {
+            if (!alive || !frames) return;
+            if (!ok) {
+              frames[next] = false;
+              if (!paused) tryFrom(offset + 1);
+              return;
+            }
+            idx = next;
+          });
+          return;
+        }
         ensureFrame(next, function (el) {
           if (!alive || paused || !frames) return;
           if (!isLayerMounted()) { destroy(); return; }
@@ -324,6 +351,13 @@
 
       function activate() {
         if (!alive || frames) return; // уже активирован
+        if (show) {
+          frames = [];
+          idx = 0;
+          activeIdx = 0;
+          if (enabledFn() && !paused) startTimer();
+          return;
+        }
         try {
           frames = [];
           warm = [];

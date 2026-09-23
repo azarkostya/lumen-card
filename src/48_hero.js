@@ -772,6 +772,8 @@
            слабого ТВ) — играющий ролик обязан уйти вместе с полными
            анимациями. */
         applyTrailer();
+        /* «Несколько кадров»: в 'off' ротации нет. */
+        applySlides();
       } catch (e) {
         warn('hero: motion failed', e);
       }
@@ -859,7 +861,17 @@
       return true;
     }
 
+    /* Настройка «Что показывает кадр главной» (lumen_hero_media, правка
+       2026-09-23 по просьбе пользователя): 'trailer' — кадр и автотрейлер,
+       как было всегда (дефолт — у тех, кто не трогал, ничего не меняется);
+       'frames' — кадры фильма сменяют друг друга, трейлер не запускается.
+       Дефолт здесь и в LC.prefs.LIST сверяет test/prefs.test.mjs. */
+    function heroMedia() {
+      try { return LC.pref ? LC.pref('lumen_hero_media', 'trailer') : 'trailer'; } catch (e) { return 'trailer'; }
+    }
+
     function trailerReady() {
+      if (heroMedia() === 'frames') return false;
       return trailerAllowed(trailerPref(), motionMode(), trailerMode(), fxHeavy());
     }
 
@@ -1048,6 +1060,121 @@
       if (!state) return;
       if (trailerReady()) return;
       cancelTrailer();
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* «Несколько кадров»: кадры фильма в герое сменяют друг друга.        */
+    /*                                                                     */
+    /* Механика слайдшоу — общая с карточкой: отбор кадров                  */
+    /* LC.backdrops.pickBackdrops (без текста на кадре, широкие вперёд,     */
+    /* главный первым, не больше LC.slideshow.maxFramesFor(режим): lite 4,  */
+    /* full 8, off 1 — то есть в 'off' ротации нет вовсе), ритм и пауза —   */
+    /* LC.slideshow.create в режиме opts.show (src/51_slideshow.js). Показ  */
+    /* остаётся за героем: тот же loadFrame/swapFrame, что у смены          */
+    /* карточки, — decode() до показа, сторож поколения, в лёгком режиме и  */
+    /* без тяжёлых эффектов смена в одном слое, мгновенно, без кроссфейда.  */
+    /*                                                                     */
+    /* Данные — из деталей, которые герой и так берёт на каждую карточку:   */
+    /* append_to_response=images (detailsRequest) приносит images.backdrops */
+    /* тем же ответом, что и логотипы; лишнего запроса нет.                 */
+    /*                                                                     */
+    /* Память. Кадр w1280 — 3 686 400 байт растра. Одновременно живут не   */
+    /* больше двух: показанный и следующий, который предзагрузчик           */
+    /* loadFrame тянет только в момент тика (заранее не держим ничего).     */
+    /* С тяжёлыми эффектами кадр сменяется кроссфейдом двух слоёв, и        */
+    /* ушедший слой держал бы свой кадр до следующей смены — поэтому после  */
+    /* кроссфейда его src снимается (freeHidden).                           */
+    /*                                                                     */
+    /* Интервал — общий с карточкой, «Интервал смены кадров» (LC.backdrops. */
+    /* intervalMs, по умолчанию 14 с): одна ручка на «как часто меняются    */
+    /* кадры» во всём плагине. 14 с пользователь уже видит в карточке и не  */
+    /* жаловался; это больше задержки автотрейлера (8 с), то есть первая    */
+    /* смена случается, когда человек заведомо уже прочёл название и мету,  */
+    /* и в лёгком режиме, где смена — резкий срез без перехода, четыре      */
+    /* кадра проходят круг за минуту, а не мелькают.                        */
+    /*                                                                     */
+    /* Пауза: фокус в рядах ниже первого (setCompact) — как частицы; уход с */
+    /* главной снимает героя целиком (unmount); экран, накрытый заставкой,  */
+    /* и главная под открытой карточкой — тиков не делают (проверки самого  */
+    /* контроллера). Смена карточки уничтожает слайдшоу в show() до того,   */
+    /* как поднимется gen, — от прошлой карточки не остаётся ни таймера.    */
+    /* ------------------------------------------------------------------ */
+
+    var SLIDE_FREE = 700;
+
+    function slidesAllowed() {
+      return heroMedia() === 'frames' && motionMode() !== 'off';
+    }
+
+    function slideInterval() {
+      try {
+        if (LC.backdrops && typeof LC.backdrops.intervalMs === 'function') return LC.backdrops.intervalMs();
+      } catch (e) { }
+      return 14000;
+    }
+
+    function cancelSlides() {
+      if (!state) return;
+      stopTimer('slideFree');
+      if (state.slides) {
+        var s = state.slides;
+        state.slides = null;
+        try { s.destroy(); } catch (e) { warn('hero: slides destroy failed', e); }
+      }
+    }
+
+    /* Кроссфейд с тяжёлыми эффектами идёт двумя слоями (swapFrame), и
+       ушедший слой, погаснув, держит свой кадр до следующей смены. Здесь он
+       его отпускает — после перехода (.6s в src/30_css.js, с запасом). */
+    function freeHidden(captured) {
+      if (!state || !fxHeavy()) return;
+      stopTimer('slideFree');
+      state.slideFree = setTimeout(function () {
+        if (gen !== captured || !state) return;
+        state.slideFree = null;
+        try {
+          var layers = [state.node.find('.lumen-hero__bg--a'), state.node.find('.lumen-hero__bg--b')];
+          for (var i = 0; i < layers.length; i++) {
+            if (!layers[i].hasClass('is-active')) layers[i].removeAttr('src');
+          }
+        } catch (e) { }
+      }, SLIDE_FREE);
+    }
+
+    function startSlides(model, captured) {
+      if (!state || state.slides || gen !== captured) return;
+      if (!slidesAllowed() || !state.details || !model || !model.backdrop) return;
+      if (!LC.slideshow || !LC.backdrops) return;
+      try {
+        var paths = LC.backdrops.pickBackdrops(state.details.images, model.backdrop, LC.slideshow.maxFramesFor(motionMode()));
+        if (!paths || paths.length <= 1) return;
+        state.slides = LC.slideshow.create(state.node, paths, {
+          enabled: slidesAllowed,
+          intervalMs: slideInterval,
+          show: function (path, done) {
+            /* Прошлый кадр ещё едет (медленная сеть) — тик пропускаем, не
+               заводя второго предзагрузчика: кадров в памяти не больше двух. */
+            if (gen !== captured || !state || state.loader) return;
+            loadFrame({ backdrop: path }, captured, function (ok) {
+              if (ok) freeHidden(captured);
+              done(ok);
+            });
+          }
+        });
+        if (state.compact) state.slides.pause();
+        state.slides.activate();
+      } catch (e) {
+        warn('hero: slides failed', e);
+      }
+    }
+
+    /* Настройка или режим анимаций сменились на лету. Запрещено — слайдшоу
+       снимается сразу; разрешено — заводится по уже загруженным деталям
+       карточки под фокусом, без нового запроса. */
+    function applySlides() {
+      if (!state) return;
+      if (!slidesAllowed()) { cancelSlides(); return; }
+      if (!state.slides && state.model && state.details) startSlides(state.model, gen);
     }
 
     /* ------------------------------------------------------------------ */
@@ -1434,7 +1561,10 @@
        w1280/original на каждую остановку фокуса, поверх кадра, который
        параллельно тянет сама Lampa через Background.change. Пользователь
        слабого ТВ выбирает 'off' именно ради этого. */
-    function loadFrame(model, captured) {
+    /* done(ok) — необязательный: его передаёт слайдшоу «Несколько кадров»
+       (startSlides), чтобы знать, показан ли кадр. Зовётся только для живого
+       поколения; кадр, уже стоящий на экране, считается показанным. */
+    function loadFrame(model, captured, done) {
       if (!state) return;
       if (motionMode() === 'off') return;
       var blur = false;
@@ -1448,6 +1578,7 @@
          кадр героя, то есть больше чем в двадцать раз. Заодно это самый
          дешёвый кадр, который герой вообще грузит. */
       var url = imageUrl(path, blur ? 'w92' : sizeFor(screenWidth()));
+      if (url && url === state.frameUrl && done) { done(true); return; }
       if (!url || url === state.frameUrl) return;
 
       /* Task 64: LQIP — тот же backdrop в w300. Слой под кадрами, показ без
@@ -1481,6 +1612,7 @@
         }
       }
 
+      var report = typeof done === 'function' ? done : function () {};
       var loader = new Image();
       /* Task 39: просим WebView не декодировать кадр синхронно на главном
          потоке (свойство decoding, Chrome 65+; движки постарше его просто
@@ -1522,13 +1654,14 @@
         state.loader = null;
         /* Кадр не пришёл — на экране остаётся предыдущий: пустой герой
            хуже устаревшего кадра, а следующий фокус всё равно его сменит. */
-        if (!ok) return;
+        if (!ok) { report(false); return; }
         try {
           swapFrame(url, blur);
         } catch (e) {
           warn('hero: frame failed', e);
         }
         releaseLqip();
+        report(true);
       }
 
       function shown() { finish(true); }
@@ -1593,6 +1726,8 @@
             /* Кадра не было в данных ряда, но он есть в деталях — только
                тогда грузим второй раз: лишний большой кадр на ТВ дорог. */
             if (!state.frameUrl && model.backdrop) loadFrame(model, captured);
+            /* «Несколько кадров»: кадры фильма — из этого же ответа. */
+            startSlides(model, captured);
           },
           function () {
             if (gen !== captured || !state || !isMounted()) return;
@@ -1619,6 +1754,8 @@
       try {
         var captured = ++gen;
         cancelPending();
+        /* Слайдшоу прошлой карточки — вместе с её таймером. */
+        cancelSlides();
         state.shownId = card.id;
         state.details = null;
         state.model = null;
@@ -1678,6 +1815,11 @@
       /* Ревью Task 64: то же состояние нужно и слою атмосферы — читать класс
          с узла на каждом кадре цикла частиц дороже, чем держать флаг. */
       state.compact = !!on;
+      /* «Несколько кадров»: фокус ушёл в ряды — кадры не меняются, как не
+         рисуются и частицы; вернулся на первый ряд — смена продолжается. */
+      if (state.slides) {
+        try { if (on) state.slides.pause(); else state.slides.resume(); } catch (eSl) { }
+      }
       state.node.toggleClass('lumen-hero--compact', on);
       try { state.root.toggleClass('lumen-rows-up', on); } catch (e) {}
     }
@@ -2185,6 +2327,10 @@
           trailerNet: null,
           trailer: null,
           trailerCard: null,
+          /* «Несколько кадров»: контроллер слайдшоу текущей карточки
+             (LC.slideshow) и отложенное освобождение ушедшего слоя. */
+          slides: null,
+          slideFree: null,
           fixedCompact: !!opts.compact,
           /* Ревью Task 64: сжат ли герой сейчас — для предиката паузы
              частиц (см. applyFx). Мини-герой сетки сжат с самого начала. */
@@ -2241,6 +2387,8 @@
          запрос роликов и отложенный старт живут именно там, а cancelTrailer
          на пустом state не делает ничего. */
       cancelTrailer();
+      /* «Несколько кадров» — по той же причине до обнуления state. */
+      cancelSlides();
       /* Task 49: метка снимается ПЕРВОЙ — пока она стоит, обёртка глушит
          Background.change, а фон за пределами главной обязан работать сразу
          же, даже если вернуть оригинал не выйдет (чужое переопределение). */
@@ -2362,6 +2510,15 @@
       /* Настройка lumen_hero_trailer переключена на лету (src/80_settings.js,
          applyPrefChange): выключение снимает играющий ролик. */
       applyTrailer: applyTrailer,
+      /* Настройка «Что показывает кадр главной» переключена на лету
+         (src/80_settings.js, applyPrefChange): «Несколько кадров» снимает
+         ролик и заводит смену кадров по уже загруженным деталям, «Кадр и
+         трейлер» снимает смену кадров — ролик появится со следующей
+         остановки фокуса, как и при включении автотрейлера. */
+      applyMedia: function () {
+        applyTrailer();
+        applySlides();
+      },
       /* Task 71: настройка «Логотип названия» переключена на лету
          (src/80_settings.js, applyPrefChange). Перерисовываем героя той же
          моделью: write() спросит настройку заново и либо покажет логотип,

@@ -475,3 +475,45 @@ test('isAlive(): true сразу после create() и после activate(), f
   assert.doesNotThrow(() => ctrl.destroy()); // повторный destroy идемпотентен, isAlive остаётся false
   assert.equal(ctrl.isAlive(), false);
 });
+
+/* ====================================================================== */
+/* Правка 2026-09-23: режим opts.show — ротация без собственного DOM.      */
+/* Им пользуется герой главной («Несколько кадров», src/48_hero.js).       */
+/* ====================================================================== */
+
+test('slideshow opts.show: ритм и очередь — контроллера, показ — вызывающей стороны', () => {
+  const LC = freshLC();
+  const layer = mount(makeLayer());
+  const shown = [];
+  let pending = null;
+  const ctrl = LC.slideshow.create(layer, ['/a', '/b', '/c'], {
+    enabled: () => true,
+    intervalMs: () => 14000,
+    show: (url, done) => { shown.push(url); pending = done; }
+  });
+  ctrl.activate();
+  assert.equal(layer.children('.lumen-backdrop__img').hasClass('is-active'), false, 'в режиме show DOM слоя не трогается');
+  assert.equal(intervals.length, 1);
+
+  fireInterval(1);
+  assert.deepEqual(shown, ['/b']);
+  /* Кадр ещё едет — следующий тик предлагает его же, очередь стоит. */
+  fireInterval(1);
+  assert.deepEqual(shown, ['/b', '/b']);
+  pending(true);
+  fireInterval(1);
+  assert.deepEqual(shown, ['/b', '/b', '/c']);
+  /* Битый кадр помечается и больше не предлагается: сразу следующий. */
+  pending(false);
+  assert.deepEqual(shown, ['/b', '/b', '/c', '/a']);
+  pending(true);
+  fireInterval(1);
+  assert.deepEqual(shown.slice(-1), ['/b'], '/c битый — после /a идёт /b');
+  assert.equal(loaders.length, 0, 'своих предзагрузчиков контроллер не заводит');
+
+  ctrl.pause();
+  assert.equal(intervals[0].cleared, true, 'пауза снимает таймер');
+  ctrl.resume();
+  ctrl.destroy();
+  assert.equal(intervals[intervals.length - 1].cleared, true, 'destroy снимает таймер');
+});

@@ -2799,3 +2799,192 @@ test('logoUrl: карточка получает ровно тот адрес, �
   assert.deepEqual(got, [true]);
   assert.equal(f.env.images.length, before, 'логотип, виденный в герое, грузится второй раз');
 });
+
+/* ====================================================================== */
+/* Правка 2026-09-23: «Что показывает кадр главной» — «Несколько кадров». */
+/* Механика слайдшоу общая с карточкой: LC.backdrops.pickBackdrops +       */
+/* LC.slideshow.create в режиме opts.show; показ — loadFrame героя.        */
+/* ====================================================================== */
+
+const SLIDESHOW = load('51_slideshow.js');
+const BACKDROPS_REAL = load('50_backdrops.js');
+
+function slidesEnv(opts) {
+  opts = opts || {};
+  const media = { value: opts.media || 'frames' };
+  const intervals = [];
+  const origSet = globalThis.setInterval;
+  const origClear = globalThis.clearInterval;
+  globalThis.setInterval = (fn, ms) => { intervals.push({ fn: fn, ms: ms, cleared: false }); return intervals.length; };
+  globalThis.clearInterval = (id) => { const t = intervals[id - 1]; if (t) t.cleared = true; };
+  const env = trailerEnv({
+    slideshow: SLIDESHOW,
+    backdrops: { pickBackdrops: BACKDROPS_REAL.pickBackdrops, intervalMs: () => 14000 },
+    motionMode: () => opts.motion || 'lite',
+    fxHeavy: () => !!opts.heavy
+  }, (name, def) => (name === 'lumen_hero_media' ? media.value : def));
+  /* Контроллер слайдшоу спрашивает «слой ещё в документе». */
+  globalThis.document.documentElement.contains = () => true;
+  env.media = media;
+  env.intervals = intervals;
+  env.live = () => intervals.filter((t) => !t.cleared);
+  env.restore = () => { globalThis.setInterval = origSet; globalThis.clearInterval = origClear; };
+  return env;
+}
+
+const FRAMES = (id, main) => ({
+  id: id,
+  backdrop_path: main,
+  images: {
+    logos: [],
+    backdrops: [
+      { file_path: main, iso_639_1: null, width: 1920 },
+      { file_path: '/f2.jpg', iso_639_1: null, width: 1920 },
+      { file_path: '/f3.jpg', iso_639_1: null, width: 1920 },
+      { file_path: '/text.jpg', iso_639_1: 'en', width: 1920 }
+    ]
+  }
+});
+
+/* Предзагрузчик кадра по адресу: рядом с ним в полном режиме живёт и
+   предзагрузка крупного постера (слой перехода), и порядок не гарантирован. */
+function frameImg(env, path) {
+  const list = env.images.filter((i) => i.src === 'https://img/t/p/w1280' + path);
+  return list[list.length - 1];
+}
+
+function detailsOf(env, id) {
+  const list = env.requests.filter((r) => r.url === 'movie/' + id);
+  return list[list.length - 1];
+}
+
+test('«Несколько кадров»: кадры фильма сменяются по интервалу, мгновенно, трейлер не запускается', () => {
+  const env = slidesEnv();
+  try {
+    const main = makeMain();
+    env.hero.mount(main.activity);
+    const node = main.activity._children[0];
+    focusOn(main, main.card1);
+    env.advance(400);
+    env.images[0].onload();
+    assert.equal(node.find('.lumen-hero__bg--a').attr('src'), 'https://img/t/p/w1280/b1.jpg');
+    detailsOf(env, 11).ok(FRAMES(11, '/b1.jpg'));
+    assert.equal(env.live().length, 1, 'смена кадров заведена по деталям, без лишнего запроса');
+    assert.equal(env.live()[0].ms, 14000);
+
+    const before = env.images.length;
+    env.live()[0].fn();
+    assert.equal(env.images.length, before + 1, 'предзагружается только следующий кадр');
+    assert.equal(env.images[before].src, 'https://img/t/p/w1280/f2.jpg');
+    env.images[before].onload();
+    const a = node.find('.lumen-hero__bg--a');
+    const b = node.find('.lumen-hero__bg--b');
+    assert.equal(a.attr('src'), 'https://img/t/p/w1280/f2.jpg', 'без тяжёлых эффектов — один слой, смена без кроссфейда');
+    assert.equal(b.attr('src'), undefined, 'второй слой пуст: в памяти не больше двух кадров');
+
+    env.live()[0].fn();
+    env.images[env.images.length - 1].onload();
+    env.live()[0].fn();
+    env.images[env.images.length - 1].onload();
+    assert.equal(a.attr('src'), 'https://img/t/p/w1280/b1.jpg', 'кадр с текстом пропущен, круг замкнулся');
+
+    env.advance(20000);
+    assert.equal(env.requests.filter((r) => r.url.indexOf('/videos') >= 0).length, 0, 'трейлер в этом режиме не спрашивается');
+    assert.equal(env.players.length, 0);
+    assert.deepEqual(warnLog, []);
+  } finally { env.restore(); }
+});
+
+test('«Несколько кадров»: фокус в рядах — пауза, смена карточки снимает таймер прошлой', () => {
+  const env = slidesEnv();
+  try {
+    const main = makeMain();
+    env.hero.mount(main.activity);
+    const node = main.activity._children[0];
+    focusOn(main, main.card1);
+    env.advance(400);
+    env.images[0].onload();
+    detailsOf(env, 11).ok(FRAMES(11, '/b1.jpg'));
+    const first = env.live()[0];
+
+    /* Вторая карточка — во втором ряду: герой сжат. */
+    main.card1.removeClass('focus');
+    focusOn(main, main.card2);
+    assert.equal(node.hasClass('lumen-hero--compact'), true);
+    assert.equal(first.cleared, true, 'сжатие ставит паузу сразу');
+    env.advance(400);
+    detailsOf(env, 22).ok(FRAMES(22, '/b2.jpg'));
+    assert.equal(env.live().length, 0, 'слайдшоу новой карточки заводится на паузе');
+
+    /* Назад в первый ряд: пауза снята, кадры — уже этой карточки. */
+    main.card2.removeClass('focus');
+    focusOn(main, main.card1);
+    assert.equal(node.hasClass('lumen-hero--compact'), false);
+    env.advance(400);
+    /* Кадр второй карточки так и не доехал — на экране всё ещё /b1.jpg, и
+       нового запроса кадра нет. */
+    detailsOf(env, 11).ok(FRAMES(11, '/b1.jpg'));
+    assert.equal(env.live().length, 1, 'ровно один таймер — висящих от прошлых карточек нет');
+
+    env.hero.unmount();
+    assert.equal(env.live().length, 0, 'уход с главной снимает смену кадров');
+  } finally { env.restore(); }
+});
+
+test('«Кадр и трейлер» (по умолчанию): смены кадров нет, трейлер как прежде', () => {
+  const env = slidesEnv({ media: 'trailer', motion: 'full', heavy: true });
+  try {
+    const main = makeMain();
+    env.hero.mount(main.activity);
+    focusOn(main, main.card1);
+    env.advance(400);
+    frameImg(env, '/b1.jpg').onload();
+    detailsOf(env, 11).ok(FRAMES(11, '/b1.jpg'));
+    assert.equal(env.intervals.length, 0);
+    env.advance(8200);
+    assert.ok(lastVideos(env), 'трейлер по-прежнему спрашивается через 8 с');
+  } finally { env.restore(); }
+});
+
+test('«Несколько кадров» с тяжёлыми эффектами: ушедший слой отпускает кадр после кроссфейда', () => {
+  const env = slidesEnv({ motion: 'full', heavy: true });
+  try {
+    const main = makeMain();
+    env.hero.mount(main.activity);
+    const node = main.activity._children[0];
+    focusOn(main, main.card1);
+    env.advance(400);
+    frameImg(env, '/b1.jpg').onload();
+    detailsOf(env, 11).ok(FRAMES(11, '/b1.jpg'));
+    env.live()[0].fn();
+    frameImg(env, '/f2.jpg').onload();
+    const a = node.find('.lumen-hero__bg--a');
+    const b = node.find('.lumen-hero__bg--b');
+    assert.equal(b.attr('src'), 'https://img/t/p/w1280/f2.jpg');
+    assert.equal(a.attr('src'), 'https://img/t/p/w1280/b1.jpg', 'на время кроссфейда оба слоя с кадром');
+    env.advance(700);
+    assert.equal(a.attr('src'), undefined, 'после кроссфейда ушедший слой пуст');
+    assert.equal(b.hasClass('is-active'), true);
+  } finally { env.restore(); }
+});
+
+test('«Что показывает кадр главной» на лету: кадры заводятся по загруженным деталям и снимаются', () => {
+  const env = slidesEnv({ media: 'trailer' });
+  try {
+    const main = makeMain();
+    env.hero.mount(main.activity);
+    focusOn(main, main.card1);
+    env.advance(400);
+    env.images[0].onload();
+    detailsOf(env, 11).ok(FRAMES(11, '/b1.jpg'));
+    assert.equal(env.live().length, 0);
+    const requests = env.requests.length;
+    env.media.value = 'frames';
+    env.hero.applyMedia();
+    assert.equal(env.live().length, 1, 'включили — смена кадров пошла сразу');
+    assert.equal(env.requests.length, requests, 'без нового запроса деталей');
+    env.media.value = 'trailer';
+    env.hero.applyMedia();
+    assert.equal(env.live().length, 0, 'выключили — таймер снят');
+  } finally { env.restore(); }
+});
