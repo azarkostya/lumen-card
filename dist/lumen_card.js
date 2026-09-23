@@ -4058,8 +4058,26 @@ css.push('.lumen-hero.lumen-motion-full .lumen-hero__veil--l{-webkit-transition:
 
 
 
+
+
 css.push('.lumen-hero .lumen-hero__veil--t{bottom:auto;height:' + round2(LAMPA_HEAD * 2.25) + 'em}');
 css.push(AR.veilT);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+css.push('.lumen-hero.lumen-hero--compact .lumen-hero__veil--t{-webkit-transform:translateY(' + heroShift + 'vh);transform:translateY(' + heroShift + 'vh)}');
+css.push('.lumen-hero.lumen-motion-full .lumen-hero__veil--t{-webkit-transition:-webkit-transform' + EASE + ';transition:transform' + EASE + '}');
 
 
 

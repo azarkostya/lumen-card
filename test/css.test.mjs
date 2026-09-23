@@ -4697,6 +4697,59 @@ test('правка 2026-09-23: мета и топбар героя читают�
   assert.ok(dark >= 4.5, 'мета на тёмном кадре: ' + dark.toFixed(2) + ':1');
 });
 
+/* Ревью фикс-раунда (п.1): в сжатом состоянии кадр уезжает вверх на
+   heroShift, и верхняя вуаль уезжала вместе с ним — полоса полной плотности
+   оказывалась над кромкой экрана, часы шапки Lampa ложились на голый кадр
+   (стенд 960×540@2, крупный кадр: вуаль −90…12.6 px, часы 10.3…30.8 px).
+   Тест прошлой редакции проверял только покой и только крупный кадр.
+   Здесь — сжатое состояние при всех трёх размерах кадра: вуаль обязана
+   стоять у верхней кромки ЭКРАНА, и часы (низ глифов на 2.7em) обязаны
+   читаться на белом кадре с порогом 3:1. */
+test('ревью п.1: верхняя вуаль держится под шапкой Lampa и в сжатом состоянии, при любом размере кадра', () => {
+  const H = 540;
+  const EM = 11.4055;
+  const P = tokensWith({});
+  const bg = [1, 3, 5].map((i) => parseInt(P.bg.slice(i, i + 2), 16));
+  const over = (top, a, bottom) => top.map((v, i) => v * a + bottom[i] * (1 - a));
+  const hex = (rgb) => '#' + rgb.map((v) => ('0' + Math.round(v).toString(16)).slice(-2).toUpperCase()).join('');
+  for (const size of ['large', 'medium', 'compact']) {
+    const built = withStorage({ lumen_hero_size: size }, (LC) => LC.buildCss());
+    const shiftOf = (sel) => {
+      const d = findDecl(built, (s) => s === sel);
+      assert.ok(d, size + ': правило ' + sel + ' не найдено');
+      const m = /[^-]transform:translateY\((-?[0-9.]+)vh\)/.exec(d);
+      assert.ok(m, size + ': сдвиг не разобрать: ' + d);
+      return parseFloat(m[1]) * H / 100;
+    };
+    const hero = shiftOf('.lumen-hero.lumen-hero--compact');
+    const veil = shiftOf('.lumen-hero.lumen-hero--compact .lumen-hero__veil--t');
+    assert.ok(hero < 0, size + ': сжатый кадр уезжает вверх');
+    /* Верх вуали на экране в сжатом состоянии: кадр начинается у кромки
+       (top:-4em от .activitys, которая сама на 4em ниже верха), вуаль — у
+       верха кадра, и оба сдвига складываются. */
+    const top = hero + veil;
+    assert.ok(Math.abs(top) < 0.5, size + ': верх вуали в сжатом состоянии на ' + top.toFixed(1) + ' px вместо кромки экрана');
+    const box = ruleBodies(built).find((r) => r.selectors.length === 1 &&
+      r.selectors[0] === '.lumen-hero .lumen-hero__veil--t' && r.decl.indexOf('height:') !== -1);
+    const color = ruleBodies(built).find((r) => r.selectors.length === 1 &&
+      r.selectors[0] === '.lumen-hero .lumen-hero__veil--t' && r.decl.indexOf('background:') !== -1);
+    const boxH = parseFloat(/height:([0-9.]+)em/.exec(box.decl)[1]) * EM;
+    const full = /[^-]background:linear-gradient\(180deg,rgba\([^)]*,\s*([0-9.]+)\) 0%,rgba\([^)]*\) ([0-9.]+)%/.exec(color.decl);
+    assert.ok(full, 'стопы верхней вуали не разобрать: ' + color.decl);
+    const clock = 2.7 * EM;
+    assert.ok(top + boxH * parseFloat(full[2]) / 100 >= clock,
+      size + ': низ часов (' + clock.toFixed(1) + ' px) ниже полосы полной плотности в сжатом состоянии');
+    const got = contrast('#FFFFFF', hex(over(bg, parseFloat(full[1]), [255, 255, 255])));
+    assert.ok(got >= 3, size + ': часы на белом кадре в сжатом состоянии ' + got.toFixed(2) + ':1');
+    /* Переход — той же кривой, что у кадра: иначе вуаль отставала бы от шапки. */
+    const trans = (sel) => ruleBodies(built).find((r) => r.selectors.indexOf(sel) !== -1 && /transition/.test(r.decl));
+    const curve = (decl) => /[^-]transition:[^;]*transform( [^;]*)/.exec(decl)[1];
+    const vt = trans('.lumen-hero.lumen-motion-full .lumen-hero__veil--t');
+    assert.ok(vt, size + ': в полном режиме вуаль прыгала бы, пока кадр едет');
+    assert.equal(curve(vt.decl), curve(trans('.lumen-hero.lumen-motion-full').decl), size + ': кривые вуали и кадра разошлись');
+  }
+});
+
 /* Правка 2026-09-23 (разбор композиции, п.5.2): фильтры рулетки больше не
    прижаты к правому краю. Замер на стенде 960×540@2: от центра «Сериалы» до
    центра «Не смотрел» фокус проходил 401.4 CSS px (пустоты между сегментами
