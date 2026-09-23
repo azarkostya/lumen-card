@@ -134,6 +134,38 @@ test('buildCss: .lumen-title--long содержит display:-webkit-box и -webk
   assert.ok(m[1].indexOf('display:-webkit-box') !== -1, 'нет display:-webkit-box');
   assert.ok(m[1].indexOf('-webkit-box-orient:vertical') !== -1, 'нет -webkit-box-orient:vertical');
   assert.ok(m[1].indexOf('overflow:hidden') !== -1, 'нет overflow:hidden');
+  /* Правка 2026-09-23 (разбор композиции, п.2.1): фолбэк для названий без
+     разделителя — кегль на ступень ниже (Title 1 76 px -> Title 2 57 px),
+     чтобы две строки дочитывались, а не обрывались многоточием. */
+  assert.ok(m[1].indexOf('font-size:2.5em') !== -1, 'фолбэк не опустил кегль на ступень: ' + m[1]);
+  assert.ok(m[1].indexOf('line-height:1.16') !== -1, 'со ступенью не взят её межстрочный: ' + m[1]);
+  /* «На ступень ниже ТЕКУЩЕЙ»: в узкой ветке текущая уже Title 2, и фолбэк
+     обязан брать Title 3 — иначе на целевом экране 960×540@2 он не делает
+     ничего (замер: обе ветки давали 2.5em и 66.2 px на две строки). */
+  const narrowLong = ruleBodiesWithMedia(css).find((r) => r.media && /max-width:\d+px/.test(r.media) &&
+    r.selectors.some((s) => s === '.lumen-card .full-start-new__title.lumen-title--long'));
+  assert.ok(narrowLong && narrowLong.decl.indexOf('font-size:2.11em') !== -1, 'в узкой ветке фолбэк не опустил кегль: ' + (narrowLong && narrowLong.decl));
+  assert.ok(narrowLong.decl.indexOf('line-height:1.17') !== -1, 'со ступенью не взят её межстрочный: ' + narrowLong.decl);
+});
+
+/* Правка 2026-09-23 (разбор композиции, п.2.1): название с разделителем —
+   два уровня вместо двух строк с обрезкой. */
+test('правка 2026-09-23: двухуровневое название — свой кегль у второго уровня, кламп у каждого', () => {
+  const split = findDecl(css, (sel) => sel === '.lumen-card .full-start-new__title.lumen-title--split');
+  assert.ok(split && /display:block/.test(split), 'контейнер остался -webkit-box — кламп Lampa схлопнет уровни: ' + split);
+  const lead = findDecl(css, (sel) => sel === '.lumen-card .lumen-title__lead');
+  const sub = findDecl(css, (sel) => sel === '.lumen-card .lumen-title__sub');
+  for (const [name, decl] of [['ведущий', lead], ['второй', sub]]) {
+    assert.ok(decl, 'правила «' + name + ' уровень» нет');
+    assert.ok(/display:-webkit-box/.test(decl) && /-webkit-box-orient:vertical/.test(decl) && /overflow:hidden/.test(decl) && /-webkit-line-clamp:2/.test(decl),
+      name + ' уровень обрезается не своим многоточием: ' + decl);
+  }
+  /* Второй уровень мельче и приглушён — иначе это не второй уровень. */
+  const size = /(?:^|;)font-size:([\d.]+)em/.exec(sub);
+  assert.ok(size && parseFloat(size[1]) < 1, 'второй уровень не мельче ведущего: ' + sub);
+  assert.equal(/(?:^|;)font-size:/.test(lead), false, 'ведущему уровню задан свой кегль — он обязан брать его у заголовка: ' + lead);
+  const P = tokensWith({});
+  assert.ok(new RegExp('color:' + P.muted + '($|;)').test(sub), 'второй уровень не приглушён: ' + sub);
 });
 
 /* Допустимые корни селекторов в шапке карточки: .lumen-card (и составной
@@ -4916,6 +4948,17 @@ test('Task 63: ни один текст интерфейса не мельче �
   const zoom = parseFloat(/font-size:([\d.]+)em/.exec(decl(css, '.lumen-hero .lumen-hero__text'))[1]);
   assert.equal(zoom, 1.1, 'множитель блока героя изменился — пересчитать эффективные кегли');
 
+  /* Самая мелкая ступень заголовка карточки — множитель для его уровней
+     (.lumen-title__lead/__sub, у которых кегль задан долей). Берётся из
+     таблицы, а не числом рядом: появится четвёртая ступень — сторож
+     посчитает по ней. */
+  const titleMin = Math.min.apply(null, ruleBodiesWithMedia(css)
+    .filter((r) => r.selectors.some((s) => /full-start-new__title($|[.:])/.test(s)))
+    .map((r) => declProp(r.decl, 'font-size'))
+    .filter((v) => v !== null && /^[\d.]+em$/.test(v.trim()))
+    .map((v) => parseFloat(v)));
+  assert.ok(titleMin > 1 && titleMin < 4, 'ступени заголовка карточки не найдены: ' + titleMin);
+
   const small = [];
   let checked = 0;
   for (const rule of ruleBodiesWithMedia(css)) {
@@ -4931,7 +4974,12 @@ test('Task 63: ни один текст интерфейса не мельче �
       const found = /^([\d.]+)em$/.exec(value.trim());
       assert.ok(found, 'кегль задан не в em, и минимум по нему не посчитать: ' + sel + ' {' + value + '}');
       const inHero = HERO_TEXT_KIDS.some((cls) => sel.indexOf(cls) !== -1);
-      const effective = parseFloat(found[1]) * (inHero ? zoom : 1);
+      /* Правка 2026-09-23 (п.2.1): второй уровень названия задан ОТНОСИТЕЛЬНО
+         заголовка карточки — у того три ступени (обычная, узкий экран,
+         сжатая шапка), и абсолютное число пришлось бы повторять в каждой.
+         Считаем по САМОЙ МЕЛКОЙ ступени: она и даёт худший случай. */
+      const inTitle = sel.indexOf('lumen-title__') !== -1;
+      const effective = parseFloat(found[1]) * (inHero ? zoom : 1) * (inTitle ? titleMin : 1);
       checked++;
       if (effective < TV_MIN_EM - 0.005) small.push(sel + ': ' + effective.toFixed(3) + 'em = ' + (effective * 22.811).toFixed(1) + ' px');
     }

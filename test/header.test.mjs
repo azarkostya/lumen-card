@@ -107,9 +107,13 @@ function makeCard() {
   const viewport = new FakeEl(['lumen-episodes__viewport'], [track]);
   viewport.getBoundingClientRect = () => ({ left: 64 });
   const row = new FakeEl(['lumen-episodes', 'hide'], [head, viewport]);
-  const root = new FakeEl(['full-start-new', 'lumen-card'], [rateLine, progress, buttons, row]);
+  /* Правка 2026-09-23 (п.2.1): заголовок карточки — узел из шаблона
+     (src/40_template.js), текст в него кладёт Lampa, а плагин переписывает
+     его двумя уровнями, когда в названии есть разделитель. */
+  const cardTitle = new FakeEl(['full-start-new__title']);
+  const root = new FakeEl(['full-start-new', 'lumen-card'], [cardTitle, rateLine, progress, buttons, row]);
   docRoots.push(root);
-  return { root, chip, text, rateLine, status, play, book, buttons, row, track, viewport, title, count, progress, pLabel, pTime };
+  return { root, chip, text, rateLine, status, play, book, buttons, row, track, viewport, title, count, progress, pLabel, pTime, cardTitle };
 }
 
 function serial(n) {
@@ -621,6 +625,36 @@ test('scrollToEpisode: сдвиг к фокусной карточке, гран
   fire(c.root, 'hover:focus', c.track._children[0]);
   assert.equal(c.track.lumenShift, 0);
   assert.equal(c.track.getAttribute('style'), null, 'пустой style="" снят');
+});
+
+/* Правка 2026-09-23 (разбор композиции, п.2.1): длинное название режется по
+   своему разделителю, а не по ширине колонки. Доля названий с разделителем
+   и разбор правила — у LC.cardinfo.titleParts. */
+test('заголовок карточки: с разделителем — два уровня, без него — прежний класс переноса', () => {
+  const c = makeCard();
+  const data = serial(3);
+  data.movie.name = 'Звёздные войны: Эпизод 5 - Империя наносит ответный удар';
+  LC.header.decorate(c.root, data);
+  assert.ok(c.cardTitle.hasClass('lumen-title--split'), 'двухуровневый заголовок не помечен');
+  assert.equal(c.cardTitle.hasClass('lumen-title--long'), false, 'вместе со split остался класс переноса');
+  assert.ok(c.cardTitle.html().indexOf('<div class="lumen-title__lead">Звёздные войны</div>') !== -1, c.cardTitle.html());
+  assert.ok(c.cardTitle.html().indexOf('Эпизод 5 - Империя наносит ответный удар</div>') !== -1, c.cardTitle.html());
+
+  /* Название без разделителя — прежний фолбэк, и разметка прошлого тайтла
+     из узла уходит: узел карточки Lampa переживает смену тайтла в истории. */
+  const plain = serial(3);
+  plain.movie.name = 'Закон и порядок. Специальный корпус';
+  LC.header.decorate(c.root, plain);
+  assert.equal(c.cardTitle.hasClass('lumen-title--split'), false, 'класс двух уровней не снят');
+  assert.ok(c.cardTitle.hasClass('lumen-title--long'), 'длинное название осталось без класса переноса');
+  assert.equal(c.cardTitle.text(), 'Закон и порядок. Специальный корпус', 'текст не вернулся на место');
+
+  /* Экранирование: текст заголовка приходит из TMDB и попадает в разметку. */
+  const risky = serial(3);
+  risky.movie.name = 'Кавычки и <тег>: часть вторая';
+  LC.header.decorate(c.root, risky);
+  assert.equal(risky.movie.name.indexOf('<тег>') !== -1, true);
+  assert.equal(c.cardTitle.html().indexOf('<тег>'), -1, 'разметка из названия не экранирована: ' + c.cardTitle.html());
 });
 
 /* Правило кромки (разбор композиции 2026-09-22, п.6). Ряд серий уходит за

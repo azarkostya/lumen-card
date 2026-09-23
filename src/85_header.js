@@ -148,7 +148,28 @@
     var node = root.find('.full-start-new__title');
     if (!node.length) return;
     var title = movie.title || movie.name || '';
-    node.removeClass('lumen-title--long');
+    node.removeClass('lumen-title--long lumen-title--split');
+
+    /* Правка 2026-09-23 (разбор композиции, п.2.1): название с разделителем
+       выводится двумя уровнями — ведущая часть прежним кеглем, вторая
+       мельче и приглушённо (CSS .lumen-title--split). Разбор правила и
+       замер доли таких названий — у LC.cardinfo.titleParts.
+       Текст заголовка ставит сама Lampa из шаблона; здесь он переписывается
+       разметкой, поэтому обе части экранируются. Если разделителя нет, а
+       разметка осталась от прошлой карточки в этом же узле, текст
+       возвращается на место — узел карточки Lampa переживает смену тайтла
+       в истории. */
+    var parts = LC.cardinfo.titleParts(title);
+    if (parts) {
+      node.addClass('lumen-title--split');
+      node.html(
+        '<div class="lumen-title__lead">' + LC.util.esc(parts.lead) + '</div>' +
+        '<div class="lumen-title__sub">' + LC.util.esc(parts.sub) + '</div>'
+      );
+      return;
+    }
+    if (node.find('.lumen-title__lead').length) node.text(title);
+
     var cls = LC.cardinfo.titleClass(title);
     if (cls) node.addClass(cls);
   }

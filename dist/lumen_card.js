@@ -2023,7 +2023,32 @@ css.push('.lumen-card .lumen-meta__sep{color:' + P.line + '}');
 css.push('.lumen-card .full-start-new__title{font-family:' + FB + ';font-size:3.33em;font-weight:700;line-height:1.26;letter-spacing:0;margin:.67em 0 0}');
 
 
-css.push('.lumen-card .full-start-new__title.lumen-title--long{display:-webkit-box;-webkit-box-orient:vertical;overflow:hidden;-webkit-line-clamp:2;line-clamp:2}');
+
+
+
+
+
+
+
+
+css.push('.lumen-card .full-start-new__title.lumen-title--long{display:-webkit-box;-webkit-box-orient:vertical;overflow:hidden;-webkit-line-clamp:2;line-clamp:2;font-size:2.5em;line-height:1.16}');
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+css.push('.lumen-card .full-start-new__title.lumen-title--split{display:block;overflow:visible}');
+css.push('.lumen-card .lumen-title__lead{display:-webkit-box;-webkit-box-orient:vertical;overflow:hidden;-webkit-line-clamp:2;line-clamp:2}');
+css.push('.lumen-card .lumen-title__sub{display:-webkit-box;-webkit-box-orient:vertical;overflow:hidden;-webkit-line-clamp:2;line-clamp:2;font-size:.63em;line-height:1.17;font-weight:600;color:' + P.muted + '}');
 
 
 
@@ -2969,8 +2994,15 @@ css.push(LC.icons.NO_MASK + '{.lumen-descr-row .lumen-reviews__ico,.lumen-descr-
 
 
 
+
+
+
+
+
+
 css.push('@media screen and (max-width:' + narrowWindowPx() + 'px){' +
 '.lumen-card .full-start-new__title{font-size:2.5em;line-height:1.16}' +
+'.lumen-card .full-start-new__title.lumen-title--long{font-size:2.11em;line-height:1.17}' +
 '.lumen-card .full-start-new__body{min-height:0}}');
 
 
@@ -5190,6 +5222,47 @@ return trim(title).length > 18 ? 'lumen-title--long' : '';
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+var TITLE_SPLIT = /^(.{2,}?)\s*(?::|\s[—–-]\s)\s*(.+)$/;
+
+function titleParts(title) {
+var t = trim(title);
+if (t.length <= 18) return null;
+var m = TITLE_SPLIT.exec(t);
+if (!m) return null;
+var lead = trim(m[1]);
+var sub = trim(m[2]);
+if (!lead || !sub) return null;
+return { lead: lead, sub: sub };
+}
+
+
+
+
 function statusKind(status) {
 var s = trim(status).toLowerCase();
 if (s === 'released') return 'good';
@@ -5461,6 +5534,7 @@ facts: facts,
 nextEpisode: nextEpisode,
 shortDate: shortDate,
 titleClass: titleClass,
+titleParts: titleParts,
 statusKind: statusKind,
 qualityChips: qualityChips,
 reactionsCount: reactionsCount,
@@ -28558,7 +28632,28 @@ function renderTitleClass(root, movie) {
 var node = root.find('.full-start-new__title');
 if (!node.length) return;
 var title = movie.title || movie.name || '';
-node.removeClass('lumen-title--long');
+node.removeClass('lumen-title--long lumen-title--split');
+
+
+
+
+
+
+
+
+
+
+var parts = LC.cardinfo.titleParts(title);
+if (parts) {
+node.addClass('lumen-title--split');
+node.html(
+'<div class="lumen-title__lead">' + LC.util.esc(parts.lead) + '</div>' +
+'<div class="lumen-title__sub">' + LC.util.esc(parts.sub) + '</div>'
+);
+return;
+}
+if (node.find('.lumen-title__lead').length) node.text(title);
+
 var cls = LC.cardinfo.titleClass(title);
 if (cls) node.addClass(cls);
 }

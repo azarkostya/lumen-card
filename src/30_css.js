@@ -1305,8 +1305,33 @@
        просветы между буквами шире, чем везде. */
     css.push('.lumen-card .full-start-new__title{font-family:' + FB + ';font-size:3.33em;font-weight:700;line-height:1.26;letter-spacing:0;margin:.67em 0 0}');
     /* Ревью Task 5a: line-clamp не работает без полной тройки display/box-orient/
-       overflow (иначе длинный заголовок не обрезается многоточием вовсе). */
-    css.push('.lumen-card .full-start-new__title.lumen-title--long{display:-webkit-box;-webkit-box-orient:vertical;overflow:hidden;-webkit-line-clamp:2;line-clamp:2}');
+       overflow (иначе длинный заголовок не обрезается многоточием вовсе).
+       Правка 2026-09-23 (разбор композиции, п.2.1): это фолбэк для названий
+       БЕЗ разделителя — им кегль опускается на ступень шкалы tvOS
+       (Title 1 76 px → Title 2 57 px, межстрочный 66/57), и две строки
+       дочитываются там, где прежде обрывались многоточием. Замер по живым
+       данным TMDB (у LC.cardinfo.titleParts): разделителя нет примерно у
+       половины длинных названий, и фолбэк — это их половина.
+       Компактная шапка ступень не делит: её правило (Title 3, ниже по
+       файлу) стоит позже при той же специфичности и бьёт это. */
+    css.push('.lumen-card .full-start-new__title.lumen-title--long{display:-webkit-box;-webkit-box-orient:vertical;overflow:hidden;-webkit-line-clamp:2;line-clamp:2;font-size:2.5em;line-height:1.16}');
+    /* Правка 2026-09-23 (п.2.1): двухуровневое название. Ведущая часть —
+       прежним кеглем заголовка, вторая — 0.63 от него и приглушённая.
+       0.63 — это следующая ступень шкалы tvOS относительно текущей
+       (Title 3 48 px против Title 1 76 px), и задана она ОТНОСИТЕЛЬНО
+       родителя намеренно: у заголовка три разных кегля (обычный, узкий
+       экран, сжатая шапка), и абсолютное число пришлось бы повторять в
+       каждой ветке. Минимальный кегль плагина при этом не нарушается:
+       самый мелкий случай — сжатая шапка на узком экране, 2.11 × 0.63 =
+       1.33em против порога 1.01em.
+       У контейнера display:block: кламп Lampa (-webkit-line-clamp:1 при
+       display:-webkit-box, vendor/lampa/css/app.css:4336-4349) считает
+       строки внутри -webkit-box и схлопнул бы оба уровня в один.
+       Кламп по два на каждый уровень — страховка от совсем длинных частей:
+       обрезка идёт по своему многоточию, а не по кромке экрана. */
+    css.push('.lumen-card .full-start-new__title.lumen-title--split{display:block;overflow:visible}');
+    css.push('.lumen-card .lumen-title__lead{display:-webkit-box;-webkit-box-orient:vertical;overflow:hidden;-webkit-line-clamp:2;line-clamp:2}');
+    css.push('.lumen-card .lumen-title__sub{display:-webkit-box;-webkit-box-orient:vertical;overflow:hidden;-webkit-line-clamp:2;line-clamp:2;font-size:.63em;line-height:1.17;font-weight:600;color:' + P.muted + '}');
     /* Правка пользователя 2026-09-16 (п.2): оригинальное название из шапки
        убрано вместе с узлом .lumen-original — оно дублировало строку
        «Оригинал» таблицы «ПОДРОБНО», которая и есть нужное для него место. */
@@ -2252,8 +2277,15 @@
        Кегли — ступени шкалы tvOS: Title 2 57 px = 2.5em здесь и Title 1
        3.33em в базовом правиле (docs/research/2026-09-21-tv-design-specs.md
        §1); межстрочный Title 2 — 66/57 = 1.16. */
+    /* Правка 2026-09-23 (разбор композиции, п.2.1): фолбэк для названий без
+       разделителя — «кегль на ступень ниже ТЕКУЩЕЙ». В этой ветке текущая
+       уже Title 2, значит ступенью ниже будет Title 3 (48 px = 2.11em,
+       межстрочный 56/48). Без этой строки фолбэк на целевом экране не делал
+       бы ничего: замер на стенде 960×540@2 — и базовый кегль, и «фолбэк»
+       давали одни и те же 2.5em, то есть 66.2 px на две строки. */
     css.push('@media screen and (max-width:' + narrowWindowPx() + 'px){' +
       '.lumen-card .full-start-new__title{font-size:2.5em;line-height:1.16}' +
+      '.lumen-card .full-start-new__title.lumen-title--long{font-size:2.11em;line-height:1.17}' +
       '.lumen-card .full-start-new__body{min-height:0}}');
 
     /* Task 4: motion — анимации в духе Apple TV. */
