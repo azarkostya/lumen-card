@@ -185,7 +185,7 @@ function setupRows(opts) {
       fetchCalls.push({ item: item, page: page, ok: ok, err: err, alive: alive });
       return { clear: function () { fetchCalls[fetchCalls.length - 1].cleared = true; } };
     },
-    /* Task 74: подмена постеров — отдельный шаг между ответом подборки и
+    /* Постеры: подмена постеров — отдельный шаг между ответом подборки и
        ответом Lampa. Заглушка повторяет контракт настоящей: done ровно один
        раз, синхронно (так она и ведёт себя в режиме по умолчанию). */
     posters: function (item, cards, done) { postersCalls.push({ item: item, cards: cards }); done(0); }
@@ -422,10 +422,10 @@ test('call: успешный ответ — ровно один call, повто
   assert.equal(got.length, 1);
 });
 
-/* Task 74: подмена постеров стоит МЕЖДУ ответом подборки и ответом Lampa —
+/* Постеры: подмена постеров стоит МЕЖДУ ответом подборки и ответом Lampa —
    постер карточки ряда ставит сама Lampa по poster_path, и правка обязана
    успеть до этого (разбор — в шапке src/44_rows.js). */
-test('Task 74: ряд отдаёт карточки Lampa только после подмены постеров', function () {
+test('Постеры: ряд отдаёт карточки Lampa только после подмены постеров', function () {
   var s = setupRows();
   s.R.register(s.manifest);
   var got = [];
@@ -440,7 +440,7 @@ test('Task 74: ряд отдаёт карточки Lampa только посл�
 /* Подмена не отвечает — ряд молчит, и пачка Lampa не завершится никогда.
    Контракт «ровно один call при любом исходе» держит резолвер, а закрывает
    молчащий ряд bumpGen (шапка src/44_rows.js). */
-test('Task 74: подмена постеров молчит — ряд закрывается уходом с главной, и ровно один раз', function () {
+test('Постеры: подмена постеров молчит — ряд закрывается уходом с главной, и ровно один раз', function () {
   var s = setupRows();
   var held = [];
   s.LC.sources.posters = function (item, cards, done) { held.push(done); };

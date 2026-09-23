@@ -155,7 +155,7 @@ test('LIST: полный набор ключей — существующие и
     'lumen_hide_watched', 'lumen_rows_limit',
     /* Task 57 (фаза 5): фильм не повторяется в рядах ниже */
     'lumen_rows_dedupe',
-    /* Task 74: откуда берётся обложка карточки */
+    /* Постеры: откуда берётся обложка карточки */
     'lumen_posters',
     /* Task 16 (фаза 2): персональные ряды */
     'lumen_personal_rows',
@@ -288,7 +288,7 @@ const GROUPS = [
      дедупликации прежняя группа выросла бы до десяти строк. */
   ['lumen_group_rows', [
     'lumen_home_rows', 'lumen_rows_limit', 'lumen_rows_dedupe',
-    /* Task 74: источник обложки — перед метками: метка рисуется ПОВЕРХ
+    /* Постеры: источник обложки — перед метками: метка рисуется ПОВЕРХ
        постера, значит сперва «какая обложка», потом «что на ней подписать». */
     'lumen_posters', 'lumen_badges', 'lumen_hide_watched',
     /* Каталог — последним: настройка «на один раз», и она про источник всех
@@ -801,10 +801,10 @@ test('Task 62a: LC.badgesMode читает настройку с тем же д�
   assert.equal(withPrefs({ store: { lumen_badges: 'caption' } }, (LC) => LC.badgesMode()), 'caption');
 });
 
-/* Task 74: источник постера — та же сверка двух дефолтов. Расхождение
+/* Постеры: источник постера — та же сверка двух дефолтов. Расхождение
    «дефолт вызова» и «дефолт пункта» и было дефектом Task 60: настройка
    молча работала не так, как её показывает раздел. */
-test('Task 74: LC.postersMode читает настройку с тем же дефолтом, что стоит в LIST', () => {
+test('Постеры: LC.postersMode читает настройку с тем же дефолтом, что стоит в LIST', () => {
   assert.equal(withPrefs({ store: {} }, (LC) => LC.postersMode()), prefs.find('lumen_posters')['default']);
   assert.equal(withPrefs({ store: {} }, (LC) => LC.postersMode()), 'lampa');
   assert.equal(withPrefs({ store: { lumen_posters: 'original' } }, (LC) => LC.postersMode()), 'original');
@@ -817,7 +817,7 @@ test('Task 74: LC.postersMode читает настройку с тем же д�
   }
 });
 
-test('Task 74: источник постера — select из трёх положений, по умолчанию «как в Lampa»', () => {
+test('Постеры: источник постера — select из трёх положений, по умолчанию «как в Lampa»', () => {
   const entry = prefs.find('lumen_posters');
   assert.equal(entry.type, 'select');
   assert.deepEqual(entry.values, ['lampa', 'original', 'clean']);

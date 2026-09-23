@@ -1543,7 +1543,7 @@
         var captured = gen;
         var request = needsLocalSort(item) ? item : applySort(item, sortMode);
 
-        /* Task 74: сборка страницы вынесена в функцию — между ответом
+        /* Постеры: сборка страницы вынесена в функцию — между ответом
            подборки и ней встала подмена постеров (см. ниже). Тело не
            менялось. */
         function fill(json) {
@@ -1577,7 +1577,7 @@
 
         var handle = LC.sources['fetch'](request, nextPage, function (json) {
           if (gen !== captured) return;
-          /* Task 74: постер сетки собирает не Lampa, а сама сетка (cardNode
+          /* Постеры: постер сетки собирает не Lampa, а сама сетка (cardNode
              выше: el.lumen_poster из card.poster_path), и собирает его ОДИН
              раз при создании узла. Значит подмена обязана пройти до
              appendCards — иначе первая страница осталась бы с постерами

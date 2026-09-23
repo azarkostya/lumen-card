@@ -412,7 +412,7 @@
   var ROW_TITLE_EM = 1.23;
   var CARD_VIEW_GAP = 0.5;
 
-  /* Task 74: точка привязки постера в ячейке карточки.
+  /* Постеры: точка привязки постера в ячейке карточки.
 
      Кадрирует постер не плагин, а Lampa, и делает это ОБЩИМ правилом
      img{object-fit:cover} (vendor/lampa/css/app.css:239-243): своего
@@ -2927,7 +2927,7 @@
     css.push('.lumen-grid__items .lumen-gcard:nth-child(6n){margin-right:0}');
     css.push('.lumen-grid .lumen-gcard .card__view{margin-bottom:.5em;border-radius:.31em;background-color:' + P.panel + '}');
     css.push('.lumen-grid .lumen-gcard .card__img{border-radius:.31em;background-color:' + P.panelLo + '}');
-    /* Task 74: постер сетки кадрируется по тем же правилам, что постер ряда
+    /* Постеры: постер сетки кадрируется по тем же правилам, что постер ряда
        (разбор и замеры — у POSTER_ANCHOR в начале модуля). Карточка сетки
        собрана из штатного шаблона 'card' и ни card--wide, ни card--collection
        не получает (см. комментарий ниже), но селектор берётся общий —
