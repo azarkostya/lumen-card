@@ -2937,7 +2937,9 @@ function rowLayout(built, screenW, screenH, opts) {
   }
   /* Зазор под шапкой. margin-bottom стоит на .items-line__head, у него
      собственный кегль 1em, поэтому em здесь базовые. */
-  const gap = num(decl(built, '.lumen-main .items-line__head'), 'margin-bottom') * EM;
+  /* Ревью фикс-раунда (п.7): у узкой колонки зазор свой и живёт в
+     медиазапросе — берём каскадом, как ширину карточки и кегли подписей. */
+  const gap = parseFloat(cascade(matchingRules(built, rootUp, ['items-line__head'], screenW, screenH), 'margin-bottom').value) * EM;
 
   /* Постер: ширину задаём мы, высоту — штатный padding-bottom:150 % у
      .card__view (app.css:3135-3139), то есть 3:2 от ШИРИНЫ карточки. */
@@ -4502,14 +4504,21 @@ test('Task 42: фокус карточки ряда — увеличение и 
    срезает низ букв. Зазор под заголовком обязан быть не меньше того, на
    сколько постер вырастает вверх. */
 test('Task 42: зазор под заголовком ряда перекрывает рост постера на любом масштабе', () => {
-  const em = (decl, prop) => {
-    const m = new RegExp('(?:^|;)' + prop + ':([\\d.]+)em(?:;|$)').exec(decl);
-    assert.ok(m, prop + ' не найден в «' + decl + '»');
-    return parseFloat(m[1]);
-  };
-  for (const key of ['small', 'normal', 'large', 'huge']) {
-    const text = withStorage({ lumen_scale: key }, (LC) => LC.buildCss());
-    const width = em(findDecl(text, (sel) => sel === '.lumen-main .card'), 'width');
+  /* Ревью фикс-раунда (п.7): рост постера — в кегле .card, который Lampa
+     на «крупнее» поднимает в 1.14 раза (LAMPA_CARD_SIZES, app.css:3525-3528),
+     а зазор — в базовом. Прежняя редакция теста множителя не знала и
+     проверяла только «обычный» размер интерфейса. Теперь — все три размера,
+     все масштабы и три окна: телевизор (там на «крупнее» узкая колонка), окно
+     16:10 (там широкая) и окно пользователя 1840×960. Ширина карточки и
+     зазор берутся каскадом по фактическому окну — у узкой колонки они свои. */
+  for (const [W, H] of [[960, 540], [1280, 800], [1840, 960]]) for (const iface of ['small', 'normal', 'bigger']) for (const key of ['small', 'normal', 'large', 'huge']) {
+    const text = withStorage({ lumen_scale: key, interface_size: iface }, (LC) => LC.buildCss(), W);
+    const k = LAMPA_CARD_SIZES[iface];
+    const widthVal = cascade(matchingRules(text, ['lumen-main', 'lumen-rows-up'], ['card'], W, H), 'width').value;
+    /* Ширина в кегле карточки; в базовые em — умножением на k. calc с vh
+       (полоса подгонки под окно, ревью п.4) переводится в em окна. */
+    const EMb = lampaEm(W, iface);
+    const width = lengthPx(widthVal, EMb * k, H / 100) / EMb;
     /* Высота постера — от его ширины: .card__view{padding-bottom:150%}
        (app.css:3135-3139). Рост вверх — от transform-origin:center bottom.
        Фикс-раунд Task 51: масштаб фокуса читается ИЗ СОБРАННОГО CSS, а не
@@ -4521,8 +4530,9 @@ test('Task 42: зазор под заголовком ряда перекрыв�
     const focus = parseFloat(/(?:^|;)transform:scale\(([\d.]+)\)/.exec(focusRule)[1]);
     assert.ok(focus > 1, key + ': масштаб фокуса не найден в «' + focusRule + '»');
     const grow = width * 1.5 * (focus - 1);
-    const gap = em(findDecl(text, (sel) => sel === '.lumen-main .items-line__head'), 'margin-bottom');
-    assert.ok(gap >= grow, key + ': зазор ' + gap + 'em меньше роста постера ' + grow.toFixed(4) + 'em (масштаб фокуса ' + focus + ')');
+    const gap = parseFloat(cascade(matchingRules(text, ['lumen-main', 'lumen-rows-up'], ['items-line__head'], W, H), 'margin-bottom').value);
+    assert.ok(gap >= grow, W + '×' + H + ' ' + iface + '/' + key + ': зазор ' + gap + 'em меньше роста постера ' + grow.toFixed(4) +
+      'em базовых (масштаб фокуса ' + focus + ', кегль карточки ×' + k + ')');
   }
 });
 

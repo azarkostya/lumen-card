@@ -1673,11 +1673,33 @@ return Math.round(screenEm() * (HERO_VH[key] - textBottomVh(key)) / needEm);
 
 
 
-function rowBlockEm(cardW, titleEm, gapEm, cardTitleEm, cardAgeEm, flow) {
+function cardK() {
 var k = 1;
 try {
 if (LC.util && typeof LC.util.lampaCardK === 'function') k = LC.util.lampaCardK() || 1;
 } catch (e) { }
+return k;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function rowHeadGap(scale, cardW) {
+return round2(ROW_HEAD_GAP * Math.max(scale, cardK() * cardW / ROW_CARD_W));
+}
+
+function rowBlockEm(cardW, titleEm, gapEm, cardTitleEm, cardAgeEm, flow) {
+var k = cardK();
 
 
 
@@ -1728,8 +1750,8 @@ var TV_RATIO = 178;
 
 
 function rowNarrowBlockEm(scale) {
-return rowBlockEm(round2(ROW_CARD_NARROW * scale), round2(ROW_TITLE_EM * scale),
-round2(ROW_HEAD_GAP * scale), TV_MIN, TV_MIN);
+var w = round2(ROW_CARD_NARROW * scale);
+return rowBlockEm(w, round2(ROW_TITLE_EM * scale), rowHeadGap(scale, w), TV_MIN, TV_MIN);
 }
 
 
@@ -4842,6 +4864,8 @@ css.push('@media screen and (min-aspect-ratio:' + heroMinRatio + '/100){' +
 
 
 
+
+
 var ROW_FOCUS = 1.10;
 
 
@@ -4865,7 +4889,9 @@ var cardWEm = round2(ROW_CARD_W * rowScale);
 var cardTitleEm = round2(TV_MIN * rowScale);
 var cardAgeEm = round2(TV_MIN * rowScale);
 var rowTitleEm = round2(ROW_TITLE_EM * rowScale);
-var rowHeadGapEm = round2(ROW_HEAD_GAP * rowScale);
+var rowHeadGapEm = rowHeadGap(rowScale, cardWEm);
+var narrowWEm = round2(ROW_CARD_NARROW * rowScale);
+var narrowGapEm = rowHeadGap(rowScale, narrowWEm);
 css.push('.lumen-main .card{width:' + cardWEm + 'em}');
 
 
@@ -4895,7 +4921,7 @@ css.push('.lumen-main .card{width:' + cardWEm + 'em}');
 var narrowRatio = rowNarrowRatio(heroSize, rowBlockEm(cardWEm, rowTitleEm, rowHeadGapEm, cardTitleEm, cardAgeEm));
 var narrowCss = narrowRatio < Math.max(HERO_MIN_RATIO, textRatio(heroSize, textNeedEm(false)))
 ? '@media screen and (min-aspect-ratio:' + narrowRatio + '/100){' +
-'.lumen-main .card{width:' + round2(ROW_CARD_NARROW * rowScale) + 'em}' +
+'.lumen-main .card{width:' + narrowWEm + 'em}' +
 '.lumen-main .card__title{font-size:' + TV_MIN + 'em}' +
 '.lumen-main .card__age{font-size:' + TV_MIN + 'em}}'
 : '';
@@ -5113,8 +5139,7 @@ return '@media screen and ' + (lo > 0 ? '(min-aspect-ratio:' + lo + '/100) and '
 '.lumen-main .items-line{padding-bottom:-webkit-calc(' + pad + ');padding-bottom:calc(' + pad + ')}}';
 };
 var rowFlowWide = rowBlockEm(cardWEm, rowTitleEm, rowHeadGapEm, cardTitleEm, cardAgeEm, true);
-var rowFlowNarrow = rowBlockEm(round2(ROW_CARD_NARROW * rowScale), rowTitleEm, rowHeadGapEm,
-TV_MIN, TV_MIN, true);
+var rowFlowNarrow = rowBlockEm(narrowWEm, rowTitleEm, narrowGapEm, TV_MIN, TV_MIN, true);
 var rowEdgeWide = rowEdgeMedia(rowFlowWide, 0, narrowCss ? narrowRatio : heroMinRatio);
 var rowEdgeNarrow = narrowCss ? rowEdgeMedia(rowFlowNarrow, narrowRatio, heroMinRatio) : '';
 if (rowEdgeWide) css.push(rowEdgeWide);
@@ -5149,6 +5174,13 @@ if (rowEdgeOffMoods) css.push(rowEdgeOffMoods);
 
 
 css.push('.lumen-main .items-line__head{margin-bottom:' + rowHeadGapEm + 'em;padding-left:' + EDGE + 'em}');
+
+
+
+
+if (narrowCss && narrowGapEm !== rowHeadGapEm) {
+css.push('@media screen and (min-aspect-ratio:' + narrowRatio + '/100){.lumen-main .items-line__head{margin-bottom:' + narrowGapEm + 'em}}');
+}
 
 
 

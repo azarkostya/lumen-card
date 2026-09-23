@@ -874,11 +874,33 @@
      и СЛЕДУЮЩИЙ ряд встаёт именно от линии без него. Порогам узкой колонки
      нужен блок со сдвигом (они меряют, что ВИДНО), а зазору между рядами —
      без (он меряет, где ряд кончается в потоке). */
-  function rowBlockEm(cardW, titleEm, gapEm, cardTitleEm, cardAgeEm, flow) {
+  function cardK() {
     var k = 1;
     try {
       if (LC.util && typeof LC.util.lampaCardK === 'function') k = LC.util.lampaCardK() || 1;
     } catch (e) { }
+    return k;
+  }
+
+  /* Зазор под шапкой ряда — в БАЗОВЫХ em (он лежит на .items-line__head),
+     а постер, который растёт в него под фокусом, — в кегле .card, который
+     Lampa на «крупнее» поднимает ещё в 1.14 раза (app.css:3525-3528).
+     ROW_HEAD_GAP подобран под седьмую колонку при кегле карточки 1: рост
+     9.52 × 1.5 × .10 = 1.428em против 1.5em зазора. Ревью фикс-раунда
+     (п.7): на «крупнее» тот же рост — 1.628em, и выросший постер заходил
+     на заголовок ряда (модель: 1.5–1.8 CSS px на окнах 16:10, где на
+     «крупнее» остаётся широкая колонка; на телевизоре 16:9 там уже узкая, и
+     замер на стенде 960×540@2 показал зазор 1.29–1.43 px, то есть без
+     перекрытия). Поэтому зазор растёт в той же пропорции, что рост
+     постера над эталонным: ширина карточки против седьмой колонки, умноженная
+     на кегль карточки. Меньше базового он не становится — у узкой колонки
+     на «крупнее» (8.07 × 1.14 / 9.52 = .97) остаётся ROW_HEAD_GAP. */
+  function rowHeadGap(scale, cardW) {
+    return round2(ROW_HEAD_GAP * Math.max(scale, cardK() * cardW / ROW_CARD_W));
+  }
+
+  function rowBlockEm(cardW, titleEm, gapEm, cardTitleEm, cardAgeEm, flow) {
+    var k = cardK();
     /* Правка 2026-09-23 (п.1.5): шапка ряда — это его заголовок. Кнопка
        «Ещё» из неё убрана, и Math.max(titleEm, LAMPA_MORE_EM) здесь стоять
        больше не имеет права: он держал бы в бюджете высоту, которую на
@@ -929,8 +951,8 @@
      потому что по этому же блоку считается потолок масштаба; числа те же
      самые, что подставляются в сам медиазапрос. */
   function rowNarrowBlockEm(scale) {
-    return rowBlockEm(round2(ROW_CARD_NARROW * scale), round2(ROW_TITLE_EM * scale),
-      round2(ROW_HEAD_GAP * scale), TV_MIN, TV_MIN);
+    var w = round2(ROW_CARD_NARROW * scale);
+    return rowBlockEm(w, round2(ROW_TITLE_EM * scale), rowHeadGap(scale, w), TV_MIN, TV_MIN);
   }
 
   /* ПОТОЛОК масштаба карточки ряда — из того же бюджета высоты, по которому
@@ -3971,7 +3993,9 @@
        постера на любом масштабе» (test/css.test.mjs) — он читает и ширину, и
        масштаб фокуса из собранного CSS, поэтому переживает смену любого из
        двух. До фикс-раунда Task 51 масштаб стоял в нём числом 0.08 и
-       повышение ROW_FOCUS до 1.10 прошло мимо него.
+       повышение ROW_FOCUS до 1.10 прошло мимо него. Рост постера считается
+       в кегле карточки (на «крупнее» он ×1.14), зазор — в базовом, и
+       согласует их rowHeadGap выше по файлу (ревью фикс-раунда, п.7).
        transform:scale(1) в базовом правиле нужен переходу: без стартового
        значения первый фокус прыгал бы.
 
@@ -4066,7 +4090,9 @@
     var cardTitleEm = round2(TV_MIN * rowScale);
     var cardAgeEm = round2(TV_MIN * rowScale);
     var rowTitleEm = round2(ROW_TITLE_EM * rowScale);
-    var rowHeadGapEm = round2(ROW_HEAD_GAP * rowScale);
+    var rowHeadGapEm = rowHeadGap(rowScale, cardWEm);
+    var narrowWEm = round2(ROW_CARD_NARROW * rowScale);
+    var narrowGapEm = rowHeadGap(rowScale, narrowWEm);
     css.push('.lumen-main .card{width:' + cardWEm + 'em}');
     /* Узкая колонка для низкого окна. Блок ряда растёт вместе с масштабом
        интерфейса, а место под него — нет (комментарий к HERO_VH выше), и на
@@ -4096,7 +4122,7 @@
     var narrowRatio = rowNarrowRatio(heroSize, rowBlockEm(cardWEm, rowTitleEm, rowHeadGapEm, cardTitleEm, cardAgeEm));
     var narrowCss = narrowRatio < Math.max(HERO_MIN_RATIO, textRatio(heroSize, textNeedEm(false)))
       ? '@media screen and (min-aspect-ratio:' + narrowRatio + '/100){' +
-        '.lumen-main .card{width:' + round2(ROW_CARD_NARROW * rowScale) + 'em}' +
+        '.lumen-main .card{width:' + narrowWEm + 'em}' +
         '.lumen-main .card__title{font-size:' + TV_MIN + 'em}' +
         '.lumen-main .card__age{font-size:' + TV_MIN + 'em}}'
       : '';
@@ -4314,8 +4340,7 @@
         '.lumen-main .items-line{padding-bottom:-webkit-calc(' + pad + ');padding-bottom:calc(' + pad + ')}}';
     };
     var rowFlowWide = rowBlockEm(cardWEm, rowTitleEm, rowHeadGapEm, cardTitleEm, cardAgeEm, true);
-    var rowFlowNarrow = rowBlockEm(round2(ROW_CARD_NARROW * rowScale), rowTitleEm, rowHeadGapEm,
-      TV_MIN, TV_MIN, true);
+    var rowFlowNarrow = rowBlockEm(narrowWEm, rowTitleEm, narrowGapEm, TV_MIN, TV_MIN, true);
     var rowEdgeWide = rowEdgeMedia(rowFlowWide, 0, narrowCss ? narrowRatio : heroMinRatio);
     var rowEdgeNarrow = narrowCss ? rowEdgeMedia(rowFlowNarrow, narrowRatio, heroMinRatio) : '';
     if (rowEdgeWide) css.push(rowEdgeWide);
@@ -4350,6 +4375,13 @@
        ряды к ней, а не героя к Lampa: 1.5em — это меньше безопасной зоны
        телевизора, на ТВ такой отступ съедает оверскан. */
     css.push('.lumen-main .items-line__head{margin-bottom:' + rowHeadGapEm + 'em;padding-left:' + EDGE + 'em}');
+    /* Ревью фикс-раунда (п.7): у узкой колонки зазор под шапкой свой
+       (rowHeadGap — постер ниже и растёт меньше), и на «крупнее» он меньше
+       широкого. Пишется тем же порогом, что узкая колонка, и ПОСЛЕ базового
+       правила шапки: специфичность у них одна, решает порядок. */
+    if (narrowCss && narrowGapEm !== rowHeadGapEm) {
+      css.push('@media screen and (min-aspect-ratio:' + narrowRatio + '/100){.lumen-main .items-line__head{margin-bottom:' + narrowGapEm + 'em}}');
+    }
     /* Правка 2026-09-23 (разбор композиции, п.1.5): штатная кнопка «Ещё» из
        ШАПКИ ряда убрана. Разбор предлагал увести её последней плиткой в
        ленту — проверка на стенде 960×540@2 показала, что такую плитку
