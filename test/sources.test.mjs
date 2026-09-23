@@ -22,6 +22,22 @@ test('buildRequest discover tv', () => {
   assert.equal(r.url, 'discover/tv');
   assert.equal(r.params.page, 3);
 });
+/* Находка 2026-09-23: подкаст «The Escape Pod» в «Звёздных войнах». Жанр
+   10767 (Talk) отделяет ток-шоу и подкасты от сериалов — разбор данных у
+   TV_WITHOUT в src/43_sources.js. */
+test('buildRequest discover tv: ток-шоу и подкасты (жанр 10767) запрещены на стороне TMDB', () => {
+  const r = S.buildRequest({ type: 'discover', params: { keywords: 379196 } }, 'tv', 1);
+  assert.equal(r.params.filter.without_genres, '10767');
+  const spec = { type: 'discover', params: { genres: 18, filter: { without_genres: '99', 'vote_count.gte': 50 } } };
+  const own = S.buildRequest(spec, 'tv', 1);
+  assert.deepEqual(own.params.filter, { without_genres: '99,10767', 'vote_count.gte': 50 }, 'свой запрет источника сохранён');
+  assert.equal(spec.params.filter.without_genres, '99', 'манифест не мутируется');
+  assert.equal(S.buildRequest({ type: 'discover', params: { filter: { without_genres: '10767' } } }, 'tv').params.filter.without_genres, '10767', 'без дубля');
+  const movie = S.buildRequest({ type: 'discover', params: { genres: 35 } }, 'movie', 1);
+  assert.equal(movie.params.filter, undefined, 'у фильмов жанра Talk не бывает — запрос не меняется');
+  assert.equal(S.discoverUrl({ type: 'discover', params: { keywords: 379196 } }, 'tv'), 'discover/tv?with_keywords=379196&without_genres=10767',
+    'полный список подборки (category_full) — с тем же запретом');
+});
 
 // --- normalize ---
 test('normalize: parts/items -> results, служебные поля', () => {
@@ -67,7 +83,7 @@ test('discoverUrl: query-строка для category_full, filter раскры�
   assert.equal(S.discoverUrl({ type: 'discover', params: { genres: 35, keywords: 207317, filter: { 'vote_count.gte': 200 } } }, 'movie'),
     'discover/movie?with_genres=35&with_keywords=207317&vote_count.gte=200');
   assert.equal(S.discoverUrl({ type: 'discover', params: { networks: 2552, sort_by: 'popularity.desc', orig_lang: 'ja' } }, 'tv'),
-    'discover/tv?with_networks=2552&sort_by=popularity.desc&with_original_language=ja');
+    'discover/tv?with_networks=2552&sort_by=popularity.desc&with_original_language=ja&without_genres=10767');
 });
 test('discoverUrl: пустые params', () => {
   assert.equal(S.discoverUrl({ type: 'discover', params: {} }, 'movie'), 'discover/movie');

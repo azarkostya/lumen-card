@@ -7411,6 +7411,48 @@ try { store.set(key, value, { nolisten: true }); } catch (e3) {}
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+var TV_WITHOUT = '10767';
+
+
+
+
+function tvFilter(filter) {
+var out = {};
+var k;
+for (k in filter) {
+if (filter.hasOwnProperty(k)) out[k] = filter[k];
+}
+var own = out.without_genres ? String(out.without_genres) : '';
+if ((',' + own + ',').indexOf(',' + TV_WITHOUT + ',') === -1) out.without_genres = own ? own + ',' + TV_WITHOUT : TV_WITHOUT;
+return out;
+}
+
+
+
+
 function buildRequest(spec, media, page) {
 if (spec.type === 'collection') {
 return { url: 'collection/' + spec.id, params: {}, life: LIFE_STATIC };
@@ -7426,6 +7468,7 @@ params[k] = spec.params[k];
 }
 }
 params.page = page || 1;
+if (media === 'tv') params.filter = tvFilter(params.filter || {});
 return { url: 'discover/' + media, params: params, life: LIFE_DISCOVER };
 }
 
@@ -7473,7 +7516,7 @@ if (p.hasOwnProperty(k) && k !== 'filter') {
 q.push((MAP[k] || k) + '=' + encodeURIComponent(p[k]));
 }
 }
-var f = p.filter || {};
+var f = media === 'tv' ? tvFilter(p.filter || {}) : (p.filter || {});
 for (k in f) {
 if (f.hasOwnProperty(k)) {
 q.push(k + '=' + encodeURIComponent(f[k]));

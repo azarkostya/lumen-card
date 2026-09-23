@@ -227,7 +227,9 @@ test('openTarget: одиночный discover-источник — штатна�
 test('openTarget: одиночный discover для сериалов — discover/tv', function () {
   var t = H.openTarget(MANIFEST.collections[3]); /* apple-tv, только tv */
   assert.equal(t.component, 'category_full');
-  assert.equal(t.url, 'discover/tv?with_networks=2552&sort_by=popularity.desc');
+  /* Находка 2026-09-23: полный список сериалов — с тем же запретом ток-шоу
+     и подкастов (жанр 10767), что и ряд (src/43_sources.js, TV_WITHOUT). */
+  assert.equal(t.url, 'discover/tv?with_networks=2552&sort_by=popularity.desc&without_genres=10767');
 });
 test('openTarget: коллекция TMDB — свой компонент lumen_grid', function () {
   var t = H.openTarget(MANIFEST.collections[1]); /* matrix, collection */
