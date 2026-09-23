@@ -2890,6 +2890,23 @@ css.push('.lumen-descr-row .lumen-review.focus .lumen-review__title{white-space:
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+css.push('.lumen-card .full-review-add{border:.04em solid ' + P.line + ';border-radius:.61em;background:' + P.panel + '}');
+
+
+
 css.push('body.lumen-motion-full .lumen-descr-row .lumen-review{-webkit-transition:border-color .2s,-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25);transition:border-color .2s,transform .28s cubic-bezier(.2,.9,.3,1.25)}');
 css.push('body.lumen-motion-lite .lumen-descr-row .lumen-review.focus,body.lumen-motion-off .lumen-descr-row .lumen-review.focus{-webkit-transform:none;transform:none}');
 
@@ -3224,6 +3241,19 @@ css.push('.lumen-card.lumen-compact .lumen-next-chip__short{display:block}');
 css.push('.lumen-card.lumen-compact .lumen-status__label{display:none}');
 css.push('.lumen-card.lumen-compact .lumen-status__short:not(:empty){display:block}');
 css.push('.lumen-card.lumen-motion-lite .full-start-new__title,.lumen-card.lumen-motion-lite .full-start-new__rate-line,.lumen-card.lumen-motion-lite .full-start-new__buttons,.lumen-card.lumen-motion-off .full-start-new__title,.lumen-card.lumen-motion-off .full-start-new__rate-line,.lumen-card.lumen-motion-off .full-start-new__buttons{-webkit-transition:none;transition:none}');
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

@@ -2170,6 +2170,23 @@
     css.push('.lumen-descr-row .lumen-review__text{font-family:' + FB + ';font-weight:500;font-size:1.01em;line-height:1.24;color:' + P.muted + ';display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}');
     css.push('.lumen-descr-row .lumen-review.focus{border:.13em solid ' + A + ';-webkit-transform:scale(1.03);transform:scale(1.03);-webkit-box-shadow:0 .2em 0 ' + AG + ';box-shadow:0 .2em 0 ' + AG + '}');
     css.push('.lumen-descr-row .lumen-review.focus .lumen-review__title{white-space:normal}');
+    /* Правка 2026-09-23 (разбор композиции, п.4.4): плитка «добавить
+       комментарий» перестаёт быть пунктирной. Узел штатный —
+       .full-review-add рисует сама Lampa (vendor/lampa/css/app.css:4856-4867:
+       padding 1.5em, border-radius 1em и border:dashed 2px #ddd), и это
+       единственная пунктирная линия во всём интерфейсе: штриховка даёт
+       высокочастотный контур, который на расстоянии тянет взгляд сильнее
+       сплошных карточек серий и портретов — при том, что важность у неё
+       самая низкая.
+       Приводим к тому же языку, что у карточки отзыва выше: сплошная тёмная
+       подложка, та же тонкая линия P.line и то же скругление .61em. Иконку
+       «+» (штатный ::before с img/icons/add.svg) не трогаем — она и несёт
+       смысл «здесь пусто, добавь»; подписи под ней не добавляем, потому что
+       текст в чужой узел пришлось бы класть через ::after, а его при фокусе
+       занимает штатное кольцо Lampa (app.css:4884-4895).
+       Кольцо фокуса остаётся штатным — оно рисуется на ::after и наши
+       свойства его не касаются. */
+    css.push('.lumen-card .full-review-add{border:.04em solid ' + P.line + ';border-radius:.61em;background:' + P.panel + '}');
     /* Переходы — только в режиме полных анимаций (как у ряда серий Task 5c);
        в lite/off пружины нет вовсе. Класс режима стоит на body (LC.init), а не
        на ряду: ряд описания лежит вне .lumen-card. */
@@ -2514,7 +2531,20 @@
        вставка туда сбивает приоритетную кнопку пользователя. Геометрия и
        фокус — те же, что у кнопки «Стоп» режима трейлера, включая расчёт
        выравнивания по ряду кнопок (MT 1.40em / MB .6em, см. комментарий
-       над .lumen-stop выше). */
+       над .lumen-stop выше).
+
+       Разбор композиции 2026-09-23, п.2.4 («Франшиза» стоит за «…», а
+       многоточие читается как конец ряда) НЕ сделан, и вот почему: порядок
+       на экране задают два РАЗНЫХ флекс-контейнера — ряд кнопок
+       .full-start-new__buttons и .lumen-actions, в котором лежит наша
+       кнопка соседом ряда. Внутрь ряда её можно поставить только правкой
+       DOM, а перенос кнопок карточки запрещён планом фазы 1
+       (docs/plans/2026-09-15-lumen-card.md:643, «кнопки переставляет только
+       Lampa») и инвариантом хэшей 7/7 фазы 4
+       (docs/plans/2026-09-18-lumen-phase4-tv.md:746). Чистым CSS порядок
+       «Смотреть → Трейлеры → Франшиза → иконки → …» не собирается: order
+       работает только между соседями по одному контейнеру, и «Франшиза»
+       может встать либо перед всем рядом, либо после него. */
     css.push('.lumen-card .lumen-franchise{display:none;font-family:' + FB + ';font-weight:600;font-size:1em;height:3.16em;padding:0 1.32em;margin:1.40em .70em .6em 0;border-radius:.79em;border:.04em solid ' + P.line + ';background:' + P.buttonBg + ';color:' + P.text + ';white-space:nowrap;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-box-pack:center;-webkit-justify-content:center;justify-content:center;-webkit-transition:background-color .2s,border-color .2s,color .2s,-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25);transition:background-color .2s,border-color .2s,color .2s,transform .28s cubic-bezier(.2,.9,.3,1.25)}');
     /* Класс корня ставит LC.hub.franchise только когда кнопка вставлена:
        без него ряд кнопок и наша кнопка остались бы двумя блоками друг под
