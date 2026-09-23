@@ -277,6 +277,26 @@ test('Task 68: emScreen учитывает размер интерфейса Lam
   assert.equal(em(at(1920, 'bigger'), 1.2), 66.8, 'оба множителя разом');
 });
 
+/* Долг раздела D плана lumen-final: пороги раскладки в src/30_css.js
+   (screenEm) считали экран как 84.17 / k без пола кегля. Теперь они берут
+   число здесь — у того же baseEm, что и emScreen, но без масштаба плагина:
+   медиазапросы считают em от кегля body, а не от нашего корня. */
+test('screenBaseEm: базовые em экрана с полом кегля, без масштаба плагина', () => {
+  const em = (props, scale) => {
+    const mod = loadCtx('10_util.js', { uiScale: () => scale }).api;
+    return +withScreen(props, () => mod.screenBaseEm()).toFixed(2);
+  };
+  const size = (v) => ({ Lampa: { Storage: { field: (n) => (n === 'interface_size' ? v : '') } } });
+  const at = (w, v) => Object.assign({ innerWidth: w, devicePixelRatio: 1 }, size(v));
+
+  assert.equal(em(at(960, 'normal'), 1), 84.17, '«обычный» при 960 px — пол не действует, у пользователя ничего не сдвигается');
+  assert.equal(em(at(960, 'bigger'), 1), 80.16);
+  assert.equal(em(at(1920, 'small'), 1), 93.52, 'широкое окно — пола нет');
+  assert.equal(em(at(960, 'small'), 1), 90.57, '«мельче» при 960 px — пол 10.6 px, в экране 960 / 10.6 em');
+  assert.equal(em(at(960, 'small'), 1.2), 90.57, 'масштаб плагина сюда не входит');
+  assert.equal(em(size('small'), 1), 93.52, 'окна нет — пол недостижим, 84.17 / k');
+});
+
 test('emScreen: ширины окна нет — 0, а не исключение', () => {
   assert.equal(withScreen({ devicePixelRatio: 1 }, () => u.emScreen()), 0);
 });

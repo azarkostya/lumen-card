@@ -258,6 +258,25 @@
       return one > 0 ? w / one : 0;
     }
 
+    /* Ширина экрана в БАЗОВЫХ em Lampa — без масштаба плагина. Это число
+       нужно порогам раскладки в src/30_css.js (screenEm): медиазапросы
+       считают em от кегля body, а не от нашего корня. Источник тот же, что
+       у emScreen, — baseEm() с полом кегля 10.6 px, — второй формулы нет.
+       Долг раздела D docs/plans/2026-09-22-lumen-final.md: таблица стилей
+       считала экран как 84.17 / k без пола, и на «мельче» при окне 960 px
+       брала 93.52 em вместо фактических 90.57 (+3.3 %).
+       Окна нет (сборка таблицы вне браузера) — пол недостижим, и в экран
+       входит 84.17 / k: ширина в этой формуле сокращается. Порог читается
+       в момент сборки таблицы, как и DPR у narrowWindowPx (src/30_css.js):
+       окно телевизора своей ширины не меняет. */
+    function screenBaseEm() {
+      var w = 0;
+      try {
+        w = Number(window.innerWidth) || 0;
+      } catch (e) { }
+      return w > 0 ? w / baseEm() : 84.17 / lampaSizeK();
+    }
+
     /* Task 44: доля ВЫСОТЫ окна в физических пикселях — для элементов,
        размер которых задан в vh, а не в em. Такой сейчас один: барабан
        рулетки (.lumen-roulette__reel, src/30_css.js). Он обязан помещаться
@@ -460,6 +479,7 @@
       baseEm: baseEm,
       emPx: emPx,
       emScreen: emScreen,
+      screenBaseEm: screenBaseEm,
       vhPx: vhPx,
       posterSize: posterSize,
       frameSize: frameSize,

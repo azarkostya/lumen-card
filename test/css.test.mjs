@@ -68,7 +68,13 @@ function withStorage(storage, fn) {
       field: (name) => storage[name]
     }
   };
-  globalThis.window = { Lampa: Lampa };
+  /* Ширина окна — та, на которой модели раскладки ниже считают экран
+     (960 CSS px, WebView телевизора пользователя). От неё зависит пол
+     кегля Lampa 10.6 px: на «мельче» при 960 px он включается, и таблица
+     стилей считает пороги по 90.57 em экрана, а не по 93.52 (screenEm,
+     src/30_css.js). Модель обязана видеть ту же ширину, иначе она проверяла
+     бы таблицу, собранную для другого окна. */
+  globalThis.window = { Lampa: Lampa, innerWidth: 960 };
   globalThis.Lampa = Lampa;
   try {
     loadInto(LC, module, '10_util.js');
@@ -1198,7 +1204,7 @@ test('правка 2026-09-23: правая кромка приходится н
     assert.ok(rule, iface + ': правила ширины карточки человека нет');
     /* Ширина задана в кегле самой карточки — переводим в базовые em. */
     const widthEm = parseFloat(/width:([0-9.]+)em/.exec(rule)[1]) * ZOOM;
-    const EM = W / 84.17 * LAMPA_SIZES[iface];
+    const EM = lampaEm(W, iface);
     const step = (widthEm + GAP) * EM;
     const left = LEFT * EM;
     /* Сколько карточек влезает целиком и где начинается следующая. */
@@ -1275,7 +1281,7 @@ test('правило кромки: ряд описания не выше кро�
   const VH = H / 100;
   let checked = 0;
   for (const iface of ['small', 'normal', 'bigger']) {
-    const EM = W / 84.17 * LAMPA_SIZES[iface];
+    const EM = lampaEm(W, iface);
     for (const flat of [false, true]) {
       for (const dpr of [1, 2]) {
         const built = withStorage({ interface_size: iface, lumen_flat: flat }, (LC) => {
@@ -2697,6 +2703,15 @@ function cascade(rules, prop) {
    ниже («таблица множителей — та же, что у Lampa»). */
 const LAMPA_SIZES = { small: 0.9, normal: 1, bigger: 1.05 };
 
+/* Кегль body Lampa в CSS px при ширине окна W — вместе с полом 10.6 px
+   (app.min.js:31629-31640: Math.max(innerWidth / 84.17 * sz, 10.6)).
+   Долг раздела D плана lumen-final: без пола модель на «мельче» при 960 px
+   брала 10.26 вместо фактических 10.6 и мерила таблицу, собранную по
+   завышенной на 3.3 % ширине экрана в em. */
+function lampaEm(W, iface) {
+  return Math.max(W / 84.17 * LAMPA_SIZES[iface || 'normal'], 10.6);
+}
+
 /* Второй множитель того же «Размера интерфейса», и он бьёт только по .card:
    app.css:3525-3528 поднимает ей кегль ещё на 14 % на «крупнее». Разбор и
    первоисточник — у LAMPA_CARD_SIZES в src/10_util.js. */
@@ -2744,7 +2759,10 @@ test('таблица множителей — та же, что у Lampa', () =>
      LC.util.lampaSizeK, а не через собственные литералы. */
   const cssSrc = readFileSync(new URL('../src/30_css.js', import.meta.url), 'utf8');
   assert.ok(!/bigger\s*:\s*1\.05/.test(cssSrc), 'в src/30_css.js завелась вторая копия таблицы множителей');
-  assert.ok(/lampaSizeK/.test(cssSrc), 'src/30_css.js перестал спрашивать множитель у LC.util');
+  assert.ok(/LC\.util\.screenBaseEm\(\)/.test(cssSrc), 'src/30_css.js перестал спрашивать ширину экрана у LC.util');
+  /* Пол кегля 10.6 px живёт в одном месте — baseEm в src/10_util.js;
+     второй копии формулы в таблице стилей быть не должно. */
+  assert.ok(!/\b10\.6\b/.test(cssSrc.replace(/\/\*[\s\S]*?\*\//g, '')), 'в src/30_css.js завелась вторая копия пола кегля');
 });
 
 /* Длина в CSS px: '0', '3.43em', 'calc(50vh - 5em)', 'calc(50vh + 1em)'. */
@@ -2790,7 +2808,7 @@ function rowLayout(built, screenW, screenH, opts) {
      Ревью волны A (важное 1): множителя здесь не было вовсе, и модель
      считала «крупнее» по кеглю «обычного» — низ подписи выходил на 5 %
      меньше фактического, а тест при этом оставался зелёным. */
-  const EM = screenW / 84.17 * LAMPA_SIZES[options.interface || 'normal'];
+  const EM = lampaEm(screenW, options.interface);
   /* Кегль ВНУТРИ .card. Lampa поднимает его ещё на 14 % на «крупнее» и
      только там (app.css:3525-3528, @media min-width:767px — ширина окна в
      CSS px, на стенде 960). Шапка ряда и зазор под ней лежат снаружи
@@ -3175,7 +3193,7 @@ test('правка 2026-09-23: кромка не режет заголовок �
           /* Зазор не имеет права стать МЕНЬШЕ штатного: расчётный вариант
              включается только там, где он заведомо больше (вывод интервала
              — в комментарии к правилу). */
-          assert.ok(got.rowGap >= 1.4 * (W / 84.17 * LAMPA_SIZES[iface]) - 0.01,
+          assert.ok(got.rowGap >= 1.4 * lampaEm(W, iface) - 0.01,
             label + ': зазор между рядами ' + got.rowGap.toFixed(1) + ' px меньше штатных 1.4em');
           /* Допуск полпикселя: зазор считается в em с округлением до
              сотых (round2), и на краю это даёт десятые доли пикселя. */
@@ -3376,16 +3394,16 @@ test('Фикс-раунд финального ревью: оговорка пр
 test('Task 51: узкая колонка включается порогом из цепочки высот, а не на глаз', () => {
   const W = 960;
   /* Ревью волны A (важное 1): порог считается из ширины экрана в em, а её
-     задаёт не только окно, но и «Размер интерфейса» Lampa — 93.52em на
-     «мельче», 84.17 на «обычном», 80.16 на «крупнее» (screenEm,
-     src/30_css.js). Поэтому проверка гоняется по обеим осям сразу: до
+     задаёт не только окно, но и «Размер интерфейса» Lampa — 90.57em на
+     «мельче» (при 960 px действует пол кегля 10.6), 84.17 на «обычном»,
+     80.16 на «крупнее» (screenEm, src/30_css.js). Поэтому проверка гоняется по обеим осям сразу: до
      правки порог был один и тот же на все три размера, то есть на двух из
      них включался не там, где кончается место. */
   for (const iface of ['small', 'normal', 'bigger']) {
     for (const scale of ['small', 'normal', 'large', 'huge']) {
       const built = withStorage({ lumen_scale: scale, interface_size: iface }, (LC) => LC.buildCss());
       const label = iface + '/' + scale;
-      const EM = W / 84.17 * LAMPA_SIZES[iface];
+      const EM = lampaEm(W, iface);
       const narrowRules = ruleBodiesWithMedia(built).filter((r) => r.media &&
         r.selectors.some((sel) => sel === '.lumen-main .card') && /(?:^|;)width:/.test(r.decl));
       assert.equal(narrowRules.length, 1, label + ': медиазапрос узкой колонки обязан быть ровно один');

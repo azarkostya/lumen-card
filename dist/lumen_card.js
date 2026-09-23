@@ -313,6 +313,25 @@ return one > 0 ? w / one : 0;
 
 
 
+
+
+
+function screenBaseEm() {
+var w = 0;
+try {
+w = Number(window.innerWidth) || 0;
+} catch (e) { }
+return w > 0 ? w / baseEm() : 84.17 / lampaSizeK();
+}
+
+
+
+
+
+
+
+
+
 function vhPx(vh) {
 var h = 0;
 try {
@@ -507,6 +526,7 @@ lampaCardK: lampaCardK,
 baseEm: baseEm,
 emPx: emPx,
 emScreen: emScreen,
+screenBaseEm: screenBaseEm,
 vhPx: vhPx,
 posterSize: posterSize,
 frameSize: frameSize,
@@ -1517,12 +1537,17 @@ return round2(HERO_HEAD_SAFE + MOODS_IN_EM + inner * TEXT_ZOOM);
 
 
 
+
+
+
+
+
+
 function screenEm() {
-var k = 1;
 try {
-if (LC.util && typeof LC.util.lampaSizeK === 'function') k = LC.util.lampaSizeK() || 1;
+if (LC.util && typeof LC.util.screenBaseEm === 'function') return LC.util.screenBaseEm() || 84.17;
 } catch (e) { }
-return 84.17 / k;
+return 84.17;
 }
 
 
