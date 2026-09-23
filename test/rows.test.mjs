@@ -970,3 +970,50 @@ test('installDedupe: обёртка отдаёт ряды с порцией по
   assert.equal(appended.length, 0, 'пробник снят');
   assert.equal(root.className, 'lumen-main', 'пробник обязан пройти правила ряда главной');
 });
+
+test('installDedupe: ряд, обрезанный окном короче видимой ширины, не показывается', function () {
+  /* «В тренде за неделю»: 16 из 20 уже выше, оставалось 4 при месте на 8. */
+  var s = setupDedupeRuntime({ batches: [[
+    mkRow('Сегодня', range(1, 16)),
+    mkRow('Неделя', range(1, 20)),
+    mkRow('Длинный', range(10, 40)),
+    mkRow('Короткий сам по себе', [100, 101, 102]),
+    /* Подборка из 11, три в дублях: 8 < 8? нет — ровно на всю ширину. */
+    mkRow('Звёздные войны', [1, 2, 3].concat(range(200, 207)))
+  ]] });
+  var root = {
+    style: {},
+    getElementsByClassName: function (cls) {
+      if (cls === 'card') return [{ getBoundingClientRect: function () { return { left: 40 }; } }, { getBoundingClientRect: function () { return { left: 168.6 }; } }];
+      return [{ getBoundingClientRect: function () { return { right: 960 }; } }];
+    }
+  };
+  globalThis.window.document = { createElement: function () { return root; }, body: { appendChild: function (n) { n.parentNode = this; }, removeChild: function (n) { n.parentNode = null; } } };
+  s.R.installDedupe();
+  var got = null;
+  s.Lampa.Api.main({}, function (d) { got = d; }, function () {});
+  assert.deepEqual(got.map(function (r) { return r.title; }), ['Сегодня', 'Длинный', 'Короткий сам по себе', 'Звёздные войны'],
+    'обрезанный до 4 ряд выброшен, обрезанный до 24 — нет, короткий от природы — тоже нет');
+  /* Без замера — прежний пол 4: ряд из 4 остаётся. */
+  delete globalThis.window.document;
+  var s2 = setupDedupeRuntime({ batches: [[mkRow('Сегодня', range(1, 16)), mkRow('Неделя', range(1, 20))]] });
+  s2.R.installDedupe();
+  var got2 = null;
+  s2.Lampa.Api.main({}, function (d) { got2 = d; }, function () {});
+  assert.equal(got2.length, 2);
+});
+
+test('dedupeAcross: fit выбрасывает только огрызок — короче экрана И меньше половины состава', function () {
+  var seen = {};
+  R.dedupeAcross([mkRow('Выше', range(1, 16))], seen, 4, 9);
+  var out = R.dedupeAcross([
+    mkRow('Неделя', range(1, 20)),                         /* 4 из 20, 4 < 9 и 4·2 < 20 — огрызок */
+    mkRow('Звёздные войны', [1, 2, 3].concat(range(30, 37))), /* 8 из 11, 8 < 9, но 16 ≥ 11 — подборка */
+    mkRow('Половина', range(40, 47).concat(range(1, 8))),   /* 8 из 16: ровно половина — остаётся */
+    mkRow('Свой', [1, 2, 50], { lumen_keep: true })         /* выбран вручную — остаётся всегда */
+  ], seen, 4, 9);
+  assert.deepEqual(out.map(function (r) { return r.title; }), ['Звёздные войны', 'Половина', 'Свой']);
+  /* Без fit — прежнее правило, только пол 4. */
+  var old = R.dedupeAcross([mkRow('Выше', range(1, 16)), mkRow('Неделя', range(1, 20))], {}, 4);
+  assert.equal(old.length, 2);
+});

@@ -8362,6 +8362,18 @@ return out;
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
 var DEDUPE_MIN = 4;
 
 
@@ -8528,7 +8540,10 @@ return copy;
 
 
 
-function dedupeAcross(rows, seen, min) {
+
+
+
+function dedupeAcross(rows, seen, min, fit) {
 if (!rows || !rows.length) return [];
 seen = seen || {};
 if (typeof min !== 'number') min = DEDUPE_MIN;
@@ -8538,6 +8553,7 @@ var kept = [];
 
 
 var trimmed = [];
+var before = [];
 var i, j;
 for (i = 0; i < rows.length; i++) {
 var row = rows[i];
@@ -8554,6 +8570,7 @@ if (key) seen[key] = 1;
 if (!out.length) continue;
 kept.push(copyRow(row, out));
 trimmed.push(out.length < row.results.length);
+before.push(row.results.length);
 }
 
 
@@ -8569,7 +8586,9 @@ trimmed.push(out.length < row.results.length);
 var full = [];
 for (i = 0; i < kept.length; i++) {
 var r = kept[i];
-if (!trimmed[i] || r.lumen_keep || r.results.length >= min) full.push(r);
+var n = r.results.length;
+var stub = n < min || (fit > 0 && n < fit && n * 2 < before[i]);
+if (!trimmed[i] || r.lumen_keep || !stub) full.push(r);
 }
 
 
@@ -8791,7 +8810,7 @@ var dedupe = dedupeEnabled();
 var fit = measureFit();
 var seen = {};
 var pass = function (rows) {
-return withView(dedupe ? dedupeAcross(rows, seen, DEDUPE_MIN) : rows, fit);
+return withView(dedupe ? dedupeAcross(rows, seen, DEDUPE_MIN, fit) : rows, fit);
 };
 var next = _mainOriginal(params, function (data) {
 oncomplite(pass(data));
@@ -27943,9 +27962,9 @@ en: 'No repeats across rows',
 uk: 'Не повторювати фільми в рядах'
 },
 lumen_rows_dedupe_descr: {
-ru: 'Фильм показывается в первом ряду, где встретился, а из рядов ниже выпадает — чтобы одна и та же новинка не стояла и в «Сейчас смотрят», и в «В тренде». Ряд, от которого после этого осталась пара карточек, не показывается вовсе; ряды, выбранные вами вручную, и личные ряды остаются на месте.',
-en: 'A movie is shown in the first row it appears in and drops out of the rows below, so the same new release does not sit in "Now playing" and "Trending" at once. A row left with just a couple of cards is hidden; rows you picked yourself and personal rows always stay.',
-uk: 'Фільм показується в першому ряду, де трапився, а з рядів нижче зникає — щоб та сама новинка не стояла і в «Зараз дивляться», і в «У тренді». Ряд, від якого лишилася пара карток, не показується зовсім; ряди, обрані вами вручну, і особисті ряди лишаються на місці.'
+ru: 'Фильм показывается в первом ряду, где встретился, а из рядов ниже выпадает — чтобы одна и та же новинка не стояла и в «Сейчас смотрят», и в «В тренде». Ряд, от которого после этого осталось меньше половины карточек и они не заполняют ширину экрана, не показывается вовсе; ряды, выбранные вами вручную, и личные ряды остаются на месте.',
+en: 'A movie is shown in the first row it appears in and drops out of the rows below, so the same new release does not sit in "Now playing" and "Trending" at once. A row left with less than half of its movies and not enough to fill the screen is hidden; rows you picked yourself and personal rows always stay.',
+uk: 'Фільм показується в першому ряду, де трапився, а з рядів нижче зникає — щоб та сама новинка не стояла і в «Зараз дивляться», і в «У тренді». Ряд, від якого після цього лишилося менше половини карток і вони не заповнюють ширину екрана, не показується зовсім; ряди, обрані вами вручну, і особисті ряди лишаються на місці.'
 },
 
 
