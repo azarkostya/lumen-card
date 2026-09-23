@@ -2230,7 +2230,14 @@ css.push('.lumen-card .full-start__rate{font-family:' + FB + ';' + CARD_CHIP + '
 
 
 
-css.push('.lumen-card .full-start__rate > div:first-child{display:block;width:auto;height:auto;background:transparent;border-radius:0;font-size:1.23em;font-weight:600;line-height:1;color:' + P.spice + '}');
+
+
+
+
+
+
+
+css.push('.lumen-card .full-start__rate > div:first-child{display:block;width:auto;height:auto;background:transparent;border-radius:0;font-size:1.23em;font-weight:600;line-height:1;color:' + P.text + '}');
 
 
 

@@ -4467,13 +4467,18 @@ test('contrast: формула совпадает с известными зна
    добор по читаемости плитки реакций). Три проверки в одной: оранжевое
    пятно стоит на числе ОЦЕНКИ, чип реакций сведён к той же серой схеме, и
    всё, что лежит на кадре, читается по WCAG 2.1 даже на белом кадре. */
-test('правка 2026-09-23: оранжевое — у оценки, реакции серые, чипы читаются на светлом кадре', () => {
+/* Решение пользователя 2026-09-23 поверх этой правки: «надо поменять цвет
+   тмдб на нормальный, ибо выбивается». Оранжевого в ленте чипов нет вовсе —
+   число оценки стоит цветом ведущих значений соседей (P.text). */
+test('правка 2026-09-23: оценка и реакции нейтральные, чипы читаются на светлом кадре', () => {
   const P = tokensWith({});
   const rateValue = findDecl(css, (sel) => sel === '.lumen-card .full-start__rate > div:first-child');
   const rateLabel = findDecl(css, (sel) => sel === '.lumen-card .full-start__rate > div:last-child');
   const reactValue = findDecl(css, (sel) => sel === '.lumen-card .lumen-reactions-chip__value');
   const reactLabel = findDecl(css, (sel) => sel === '.lumen-card .lumen-reactions-chip__label');
-  assert.ok(new RegExp('color:' + P.spice + '($|;)').test(rateValue), 'число оценки не акцентное: ' + rateValue);
+  assert.ok(new RegExp('color:' + P.text + '($|;)').test(rateValue), 'число оценки не тем цветом, что у соседей: ' + rateValue);
+  const statusValue = findDecl(css, (sel) => sel === '.lumen-card .lumen-status__value');
+  assert.equal(/color:([^;]+)/.exec(rateValue)[1], /color:([^;]+)/.exec(statusValue)[1], 'ведущие значения чипов разного цвета');
   assert.ok(new RegExp('color:' + P.text + '($|;)').test(reactValue), 'число реакций осталось акцентным: ' + reactValue);
   assert.ok(new RegExp('color:' + P.muted + '($|;)').test(reactLabel), 'подпись реакций осталась акцентной: ' + reactLabel);
   assert.equal(/opacity:/.test(reactLabel), false, 'подпись реакций гасится прозрачностью — контраст так не считается: ' + reactLabel);
@@ -4501,14 +4506,14 @@ test('правка 2026-09-23: оранжевое — у оценки, реак�
   const onWhite = hex(over(film, 0.12, over(bg, alpha, [255, 255, 255])));
   assert.ok(contrast(P.text, onWhite) >= 4.5, 'на белом кадре текст чипа даёт ' + contrast(P.text, onWhite).toFixed(2) + ':1');
   assert.ok(contrast(P.muted, onWhite) >= 4.5, 'на белом кадре подпись чипа даёт ' + contrast(P.muted, onWhite).toFixed(2) + ':1');
-  assert.ok(contrast(P.spice, onWhite) >= 3, 'на белом кадре число оценки даёт ' + contrast(P.spice, onWhite).toFixed(2) + ':1');
+  /* Число оценки стоит цветом P.text — проверено строкой выше, порог мелкого текста. */
   /* И на тёмном кадре подписи по-прежнему хватает порога мелкого текста. */
   const onDark = hex(over(film, 0.12, over(bg, alpha, [11, 9, 8])));
   assert.ok(contrast(P.muted, onDark) >= 4.5, 'на тёмном кадре подпись чипа даёт ' + contrast(P.muted, onDark).toFixed(2) + ':1');
-  /* Акцентное число — крупный текст, его порог 3:1 (кегль 1.23em ≈ 28 CSS
-     px полужирным). Мелкой подписи оранжевый поэтому и не достался. */
-  assert.ok(contrast(P.spice, onDark) >= 3, 'число оценки на чипе даёт ' + contrast(P.spice, onDark).toFixed(2) + ':1');
-  assert.ok(contrast(P.spice, onDark) < 4.5, 'оранжевый вдруг проходит порог мелкого текста — разбор причины устарел');
+  assert.ok(contrast(P.text, onDark) >= 4.5, 'на тёмном кадре число чипа даёт ' + contrast(P.text, onDark).toFixed(2) + ':1');
+  /* Оранжевого в ленте чипов нет ни в одном правиле. */
+  const rateLine = ruleBodies(css).filter((r) => r.selectors.some((sel) => /full-start__rate|lumen-reactions-chip|lumen-status__|lumen-next-chip/.test(sel)));
+  assert.deepEqual(rateLine.filter((r) => r.decl.indexOf(P.spice) !== -1 || r.decl.indexOf(P.spice.toLowerCase()) !== -1).map((r) => r.selectors.join(',')), []);
 });
 
 /* Правка 2026-09-23 (разбор композиции, п.1.3 + 1.4): всё, что лежит на
