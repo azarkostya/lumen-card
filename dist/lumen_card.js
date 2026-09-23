@@ -6042,16 +6042,53 @@ return trim(title).length > 18 ? 'lumen-title--long' : '';
 
 
 
-var TITLE_SPLIT = /^(.{2,}?)\s*(?::|\s[—–-]\s)\s*(.+)$/;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+var TITLE_SEP = /:\s|\s[—–-]\s/g;
+var NUMBER_WORD = /^(\d+|[IVX]+)$/;
+
+
+function wordCount(text) {
+var parts = trim(text).split(/\s+/);
+var n = 0;
+for (var i = 0; i < parts.length; i++) {
+if (parts[i] && !NUMBER_WORD.test(parts[i])) n++;
+}
+return n;
+}
 
 function titleParts(title) {
 var t = trim(title);
 if (t.length <= 18) return null;
-var m = TITLE_SPLIT.exec(t);
-if (!m) return null;
-var lead = trim(m[1]);
-var sub = trim(m[2]);
-if (!lead || !sub) return null;
+var seps = [];
+var m;
+TITLE_SEP.lastIndex = 0;
+while ((m = TITLE_SEP.exec(t))) {
+seps.push({ at: m.index, len: m[0].length, colon: m[0].charAt(0) === ':' });
+}
+if (!seps.length) return null;
+var cut = seps[0];
+if (cut.colon && wordCount(t.slice(0, cut.at)) === 1) {
+for (var i = 1; i < seps.length; i++) {
+if (!seps[i].colon) { cut = seps[i]; break; }
+}
+}
+var lead = trim(t.slice(0, cut.at));
+var sub = trim(t.slice(cut.at + cut.len));
+if (lead.length < 2 || !sub) return null;
+if (wordCount(lead) === 1 && wordCount(sub) <= 1) return null;
 return { lead: lead, sub: sub };
 }
 

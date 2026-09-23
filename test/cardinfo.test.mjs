@@ -152,6 +152,43 @@ test('titleParts: пустая часть разделителем не счит
   assert.equal(cardinfo.titleParts('Империя наносит ответный удар:'), null);
 });
 
+/* Ф3 п.3 (ревью фикс-раундов): двоеточие внутри имени франшизы. Названия —
+   живые ответы TMDB 2026-09-23 (разбор выборки — у самой функции). */
+test('titleParts: двоеточие без пробела после — часть имени, не разделитель', () => {
+  assert.deepEqual(
+    cardinfo.titleParts('Re:ZERO – Жизнь с нуля в альтернативном мире'),
+    { lead: 'Re:ZERO', sub: 'Жизнь с нуля в альтернативном мире' }
+  );
+  assert.equal(cardinfo.titleParts('Re:ZERO -Starting Life in Another World-'), null);
+});
+
+test('titleParts: у одного слова перед двоеточием тире дальше — разделитель', () => {
+  assert.deepEqual(cardinfo.titleParts('Mission: Impossible - Fallout'), { lead: 'Mission: Impossible', sub: 'Fallout' });
+  assert.deepEqual(
+    cardinfo.titleParts('Mission: Impossible - Dead Reckoning Part One'),
+    { lead: 'Mission: Impossible', sub: 'Dead Reckoning Part One' }
+  );
+  /* Два слова перед двоеточием — это и есть имя франшизы, тире дальше
+     остаётся во второй строке. */
+  assert.deepEqual(
+    cardinfo.titleParts('Star Wars: Episode II - Attack of the Clones'),
+    { lead: 'Star Wars', sub: 'Episode II - Attack of the Clones' }
+  );
+  /* Одно слово перед двоеточием и тире дальше нет — режем по двоеточию. */
+  assert.deepEqual(cardinfo.titleParts('Thor: Love and Thunder'), { lead: 'Thor', sub: 'Love and Thunder' });
+});
+
+test('titleParts: слово и слово (номер не в счёт) не разносятся по уровням', () => {
+  assert.equal(cardinfo.titleParts('Mission: Impossible'), null);
+  assert.equal(cardinfo.titleParts('Mission: Impossible III'), null);
+  /* Цена правила — та же форма у честного подзаголовка: он уходит в
+     фолбэк длинного названия. */
+  assert.equal(cardinfo.titleParts('Матрица: Перезагрузка'), null);
+  /* Номер перед двоеточием словом не считается — «007» не одно слово. */
+  assert.deepEqual(cardinfo.titleParts('007: Квант милосердия'), { lead: '007', sub: 'Квант милосердия' });
+  assert.deepEqual(cardinfo.titleParts('Терминатор 2: Судный день'), { lead: 'Терминатор 2', sub: 'Судный день' });
+});
+
 /* -------------------------------------------------------------------- */
 /* statusKind                                                            */
 /* -------------------------------------------------------------------- */
