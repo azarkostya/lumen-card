@@ -214,6 +214,34 @@
       return media;
     }
 
+    /* Правка 2026-09-23 (долг Task 23): каким медиа рулетка откроет эту
+       подборку уже отмеченной, или null — тогда кнопки «Крутить по этой
+       подборке» в сетке нет.
+       Условие — подборка есть среди чипов рулетки для этого медиа
+       (LC.roulette.collectionsFor по текущему каталогу). Иначе рулетка
+       получила бы preselect, которого нет в её списке, и молча крутила бы
+       набор главной (sourcesFor: «выбраны неизвестные id — набор
+       главной»), а кнопка обещает ровно эту подборку. Так отсекаются
+       «Франшиза» из карточки (franchiseItem — подборка-однодневка с id
+       col-NNN, в каталоге её нет) и подборки, которых нет в загруженном
+       каталоге. Фильмы — первыми, как и пункт меню; сериалы — если
+       фильмового источника у подборки нет. */
+    function rouletteMedia(item, manifest) {
+      if (!item || !item.id) return null;
+      if (!LC.roulette || typeof LC.roulette.collectionsFor !== 'function' || typeof LC.roulette.open !== 'function') return null;
+      if (manifest === undefined) {
+        try { manifest = LC.manifest && LC.manifest.get ? LC.manifest.get() : null; } catch (e) { manifest = null; }
+      }
+      var order = ['movie', 'tv'];
+      for (var m = 0; m < order.length; m++) {
+        var list = LC.roulette.collectionsFor(manifest, order[m]);
+        for (var i = 0; i < list.length; i++) {
+          if (list[i] && list[i].id === item.id) return order[m];
+        }
+      }
+      return null;
+    }
+
     /* Куда открывать подборку: штатная сетка Lampa, если она это умеет,
        иначе свой компонент. Возвращает объект для Lampa.Activity.push. */
     function openTarget(item) {
@@ -604,9 +632,34 @@
        (проверено живьём 2026-09-17: canmove('up') с чипа === false, фокус
        уходил прямо в шапку Lampa). Вернул true — шаг сделан, в шапку Lampa
        не уходим. */
+    /* Правка 2026-09-23 (найдено живой проверкой входа в рулетку из
+       сетки): кэш окна выше помнит, ЧТО мы отдали Navigator, но не знает,
+       что коллекцию с тех пор мог сменить кто-то другой. А это происходит
+       при каждом возврате на экран: карточка фильма, рулетка, штатная
+       сетка, шапка Lampa ставят Navigator свою коллекцию, и на обратном
+       пути Controller.toggle('content') зовёт наш toggle с тем же списком
+       узлов — кэш видит «ничего не сдвинулось», setCollection пропускается,
+       а collectionFocus на узел не из коллекции молча ничего не делает
+       (navigator.js:674). Замер на стенде 960×540@2: после «Назад» из
+       рулетки в сетку «Матрицы» Navigator._collection пустая, узла под
+       фокусом нет, пульт мёртв; то же — хаб после «Назад» из сетки и после
+       «вниз» из шапки Lampa. Лечится там, где коллекция и переходит к нам:
+       toggle — ровно момент, когда Lampa отдаёт экрану управление, — и
+       кэш на нём забывается. Шагов фокуса внутри экрана это не касается:
+       они идут через afterMove, и кэш там по-прежнему экономит пересборку. */
+    function forgetWindow() {
+      lastNodes = null;
+      lastLen = -1;
+      lastViewFrom = -1;
+      lastViewTo = -1;
+      lastNavFrom = -1;
+      lastNavTo = -1;
+    }
+
     function screenController(recollect, afterMove, onUp) {
       return {
         toggle: function () {
+          forgetWindow();
           recollect(null);
         },
         left: function () {
@@ -656,6 +709,9 @@
       var chipNodes = [];
       var tileNodes = [];
       var searchNode = null;
+      /* Кнопка входа в рулетку в шапке хаба (правка 2026-09-23, долг
+         Task 23 — docs/plans/2026-09-15-lumen-phase3-features.md:148). */
+      var rouletteNode = null;
       var lastFocus = null;
       var started = false;
 
@@ -700,7 +756,9 @@
         for (var i = 0; i < tileNodes.length; i++) {
           if (tileNodes[i] === target) { active = i; break; }
         }
-        var fixed = searchNode ? [searchNode] : [];
+        var fixed = [];
+        if (searchNode) fixed.push(searchNode);
+        if (rouletteNode) fixed.push(rouletteNode);
         limitCollection(fixed.concat(chipNodes), tileNodes, active);
       }
 
@@ -994,6 +1052,9 @@
            сопровождает — на обоих путях сразу, потому что подписка идёт
            через LC.focus (пульт и мышь, src/11_focus.js). */
         if (lastFocus === node) return false;
+        /* С кнопки рулетки — тоже в шапку Lampa: она стоит в той же строке,
+           что и поиск, и «вверх» с неё не должно уводить вбок на соседа. */
+        if (rouletteNode && lastFocus === rouletteNode) return false;
         recollect(node);
         return true;
       }
@@ -1012,6 +1073,24 @@
         head.append(search);
         /* Task 33: кнопка в коллекции Navigator всегда, вне окна плиток. */
         searchNode = search[0];
+        /* Правка 2026-09-23, долг Task 23 (план фазы 3, строка 148): вход в
+           рулетку из хаба. Кнопка одна, а не две («Рулетка · Фильмы» и
+           «Рулетка · Сериалы», как предлагал Step 3 плана): у самой рулетки
+           в шапке переключатель «Фильмы / Сериалы» без перезагрузки экрана,
+           и вторая кнопка здесь была бы лишней остановкой пульта ради того
+           же экрана. Открывает фильмы — как и пункт левого меню.
+           Стоит СПРАВА от поиска, в той же строке: пилюля того же вида,
+           что у поиска, и тем же шагом «вправо» с него. Путь пультом:
+           чипы → вверх → поиск → вправо → рулетка; вверх с неё — в шапку
+           Lampa (focusSearch), вниз — к плиткам, как с поиска. */
+        rouletteNode = null;
+        if (LC.roulette && typeof LC.roulette.open === 'function') {
+          var roulette = $('<div class="lumen-hub__roulette selector">' + LC.icons.get('star') + '<span>' + esc(LC.lang('lumen_hub_roulette')) + '</span></div>');
+          LC.focus.on(roulette, function () { keepVisible(roulette[0]); lastFocus = roulette[0]; });
+          roulette.on('hover:enter', function () { LC.roulette.open('movie'); });
+          head.append(roulette);
+          rouletteNode = roulette[0];
+        }
       }
 
       function build(m) {
@@ -1111,6 +1190,7 @@
         chipNodes = [];
         tileNodes = [];
         searchNode = null;
+        rouletteNode = null;
         lastFocus = null;
         try { scroll.destroy(); } catch (e2) {}
         try { root.remove(); } catch (e3) {}
@@ -1153,6 +1233,11 @@
          Чипы сортировки на пустой сетке остаются в любом случае — create()
          заводит их до первого ответа, и в fixed они всегда. Task 33. */
       var emptyNodes = [];
+      /* Кнопка «Крутить по этой подборке» (правка 2026-09-23, долг
+         Task 23): стоит в строке чипов сортировки, в коллекции — всегда,
+         как и они. null, если рулетка эту подборку крутить не умеет
+         (rouletteMedia). */
+      var rouletteNode = null;
       var lastFocus = null;
       /* id карточки под фокусом: список могут пересобрать (сортировка на
          месте при догрузке страницы), и тогда прежний узел исчезает —
@@ -1198,7 +1283,9 @@
         for (var i = 0; i < cardNodes.length; i++) {
           if (cardNodes[i] === target) { active = i; break; }
         }
-        limitCollection(sortNodes.concat(emptyNodes), cardNodes, active);
+        var fixed = sortNodes.concat(emptyNodes);
+        if (rouletteNode) fixed.push(rouletteNode);
+        limitCollection(fixed, cardNodes, active);
       }
 
       /* Коллекцию выставляем сами, а не Controller.collectionSet: тот отдал
@@ -1572,6 +1659,21 @@
           sortNodes.push(node);
         }
         highlightSort();
+        /* Правка 2026-09-23, долг Task 23 (план фазы 3, строка 148): вход в
+           рулетку из сетки подборки — с этой подборкой уже отмеченной
+           (object.preselect рулетки). Кнопка — последним узлом строки
+           сортировки, а не в шапке рядом с заголовком: так «вправо» с
+           последнего чипа сортировки доводит до неё одним шагом, а «вниз»
+           с неё уходит в сетку, как с чипов. Отдельной строки ей не дано —
+           строка стоила бы высоты первого ряда карточек. */
+        var rmedia = rouletteMedia(item);
+        if (rmedia) {
+          var roulette = $('<div class="lumen-chip lumen-grid__roulette selector">' + LC.icons.get('star') + '<span>' + esc(LC.lang('lumen_grid_roulette')) + '</span></div>');
+          LC.focus.on(roulette, function () { keepVisible(roulette[0]); lastFocus = roulette[0]; });
+          roulette.on('hover:enter', function () { LC.roulette.open(rmedia, item.id); });
+          sortsRow.append(roulette);
+          rouletteNode = roulette[0];
+        }
         root.append(sortsRow);
         root.append(itemsRow);
         scroll.append(root);
@@ -1622,6 +1724,7 @@
         cardNodes = [];
         sortNodes = [];
         emptyNodes = [];
+        rouletteNode = null;
         lastFocus = null;
         resumeAfterStop = null;
         try { scroll.destroy(); } catch (e2) {}
@@ -1738,6 +1841,7 @@
       tilesFor: tilesFor,
       inSeason: inSeason,
       openTarget: openTarget,
+      rouletteMedia: rouletteMedia,
       franchiseItem: franchiseItem,
       sortModes: sortModes,
       applySort: applySort,

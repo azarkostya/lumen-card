@@ -605,7 +605,7 @@ function fireReveal() {
   last.opts.then();
 }
 
-function openRoulette34(cards, t, dpr, motion) {
+function openRoulette34(cards, t, dpr, motion, object) {
   resetTimers();
   resetTransition();
   resetCollection();
@@ -655,7 +655,7 @@ function openRoulette34(cards, t, dpr, motion) {
   built.api.install();
 
   var Comp = components.lumen_roulette;
-  var comp = new Comp({});
+  var comp = new Comp(object || {});
   comp.activity = { loader: function () { } };
   comp.create();
   var screen = comp.render();
@@ -663,6 +663,7 @@ function openRoulette34(cards, t, dpr, motion) {
   /* Барабан на экране 1920×1080: 28.67vh — это 310 × 464 px. */
   reel._rect = { left: 805, top: 250, width: 310, height: 464 };
   return {
+    api: built.api,
     comp: comp,
     screen: screen,
     /* Последняя установленная область обхода фокуса и последний фокус. */
@@ -1294,4 +1295,55 @@ test('правка 2026-09-23: подсказки под «Крутить» не
   const LC = {};
   new Function('LC', 'module', settings)(LC, { exports: null, lumen: true });
   assert.equal(LC.STRINGS.lumen_roulette_hint, undefined, 'строка подсказки осталась в словаре без узла');
+});
+
+/* Правка 2026-09-23, долг Task 23: вход из сетки подборки открывает рулетку
+   с этой подборкой уже отмеченной (object.preselect), а сохранённый выбор
+   чипов при этом не перетирается. */
+test('правка 2026-09-23: open(media, preselect) передаёт подборку в активность', (t) => {
+  const env = openRoulette34([R44], t, 1, 'lite');
+  const pushes = [];
+  globalThis.Lampa.Activity = { push: function (p) { pushes.push(p); } };
+  env.api.open('tv', 'col-a');
+  assert.equal(pushes.length, 1);
+  assert.equal(pushes[0].component, 'lumen_roulette');
+  assert.equal(pushes[0].media, 'tv');
+  assert.equal(pushes[0].preselect, 'col-a');
+  env.api.open('movie');
+  assert.equal('preselect' in pushes[1], false, 'без подборки preselect не передаётся вовсе');
+});
+
+test('правка 2026-09-23: рулетка с preselect открывается с отмеченной подборкой, а не «Все подборки»', (t) => {
+  const env = openRoulette34([R44], t, 1, 'lite', { media: 'movie', preselect: 'col-a' });
+  /* Лента: «Все подборки» и единственная подборка каталога col-a. */
+  const chips = env.root.all('lumen-roulette__chips')[0].all('lumen-roulette__chip');
+  assert.equal(chips.length, 2);
+  assert.equal(chips[0].hasClass('lumen-chip--on'), false, '«Все подборки» отмечены при preselect');
+  assert.equal(chips[1].hasClass('lumen-chip--on'), true, 'подборка из preselect не отмечена');
+});
+
+test('правка 2026-09-23: без preselect и без сохранённого выбора отмечены «Все подборки»', (t) => {
+  const env = openRoulette34([R44], t, 1, 'lite', { media: 'movie' });
+  const chips = env.root.all('lumen-roulette__chips')[0].all('lumen-roulette__chip');
+  assert.equal(chips.length, 2);
+  assert.equal(chips[0].hasClass('lumen-chip--on'), true);
+  assert.equal(chips[1].hasClass('lumen-chip--on'), false);
+});
+
+test('правка 2026-09-23: pinFirst ставит подборку из preselect первой, остальное не трогает', () => {
+  const R = fresh({}).api;
+  const list = [{ id: 'a' }, { id: 'b' }, { id: 'c' }];
+  assert.deepEqual(R.pinFirst(list, 'c').map((x) => x.id), ['c', 'a', 'b']);
+  assert.deepEqual(R.pinFirst(list, 'a').map((x) => x.id), ['a', 'b', 'c']);
+  assert.equal(R.pinFirst(list, 'zzz'), list, 'нет такой — список как есть');
+  assert.equal(R.pinFirst(list, ''), list);
+  assert.deepEqual(R.pinFirst(null, 'a'), []);
+  /* Отмеченная за пределом ленты подборка (chipList кладёт её в конец) с
+     preselect оказывается первой. */
+  const cat = [];
+  for (let i = 0; i < R.CHIP_LIMIT + 5; i++) cat.push({ id: 'c' + i });
+  const last = 'c' + (R.CHIP_LIMIT + 3);
+  const shown = R.chipList(cat, [last], R.CHIP_LIMIT);
+  assert.equal(shown[shown.length - 1].id, last, 'предпосылка: chipList держит её в конце');
+  assert.equal(R.pinFirst(shown, last)[0].id, last);
 });

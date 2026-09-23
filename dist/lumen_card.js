@@ -3324,6 +3324,15 @@ css.push('.lumen-hub__count{font-family:' + FB + ';font-weight:500;font-size:1.0
 css.push('.lumen-hub__search{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-align-self:center;align-self:center;height:2.0em;padding:0 .91em;border-radius:1em;margin-left:auto;background:transparent;font-family:' + FB + ';font-weight:600;font-size:1.01em;line-height:1;color:' + P.muted + ';white-space:nowrap;-webkit-transition:background-color .2s,color .2s,-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25);transition:background-color .2s,color .2s,transform .28s cubic-bezier(.2,.9,.3,1.25)}');
 css.push('.lumen-hub__search .lumen-ico{-webkit-flex-shrink:0;flex-shrink:0;width:1.05em;height:1.05em;margin-right:.41em}');
 css.push('.lumen-hub__search.focus{background:' + P.text + ';color:' + P.bg + ';-webkit-transform:scale(1.05);transform:scale(1.05)}');
+
+
+
+
+
+
+css.push('.lumen-hub__roulette{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-align-self:center;align-self:center;height:2.0em;padding:0 .91em;border-radius:1em;margin-left:.27em;background:transparent;font-family:' + FB + ';font-weight:600;font-size:1.01em;line-height:1;color:' + P.muted + ';white-space:nowrap;-webkit-transition:background-color .2s,color .2s,-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25);transition:background-color .2s,color .2s,transform .28s cubic-bezier(.2,.9,.3,1.25)}');
+css.push('.lumen-hub__roulette .lumen-ico{-webkit-flex-shrink:0;flex-shrink:0;width:1.05em;height:1.05em;margin-right:.41em}');
+css.push('.lumen-hub__roulette.focus{background:' + P.text + ';color:' + P.bg + ';-webkit-transform:scale(1.05);transform:scale(1.05)}');
 css.push('.lumen-hub__empty{font-family:' + FB + ';font-size:1.05em;color:' + P.muted + ';padding:2em 0}');
 css.push('.lumen-hub__chips{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;margin-bottom:1.4em}');
 css.push('.lumen-hub__tiles{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap}');
@@ -3340,8 +3349,8 @@ css.push('.lumen-hub .lumen-chip,.lumen-grid .lumen-chip{display:-webkit-box;dis
 
 css.push('.lumen-hub .lumen-chip.lumen-chip--on,.lumen-grid .lumen-chip.lumen-chip--on{background:rgba(' + P.textRgb + ',.14);color:' + P.text + '}');
 css.push('.lumen-hub .lumen-chip.focus,.lumen-grid .lumen-chip.focus{background:' + P.text + ';color:' + P.bg + ';-webkit-transform:scale(1.05);transform:scale(1.05)}');
-css.push('.lumen-hub.lumen-motion-lite .lumen-chip.focus,.lumen-hub.lumen-motion-off .lumen-chip.focus,.lumen-grid.lumen-motion-lite .lumen-chip.focus,.lumen-grid.lumen-motion-off .lumen-chip.focus,.lumen-hub.lumen-motion-lite .lumen-hub__search.focus,.lumen-hub.lumen-motion-off .lumen-hub__search.focus{-webkit-transform:none;transform:none}');
-css.push('.lumen-hub.lumen-motion-off .lumen-chip,.lumen-grid.lumen-motion-off .lumen-chip,.lumen-hub.lumen-motion-off .lumen-hub__search{-webkit-transition:none;transition:none}');
+css.push('.lumen-hub.lumen-motion-lite .lumen-chip.focus,.lumen-hub.lumen-motion-off .lumen-chip.focus,.lumen-grid.lumen-motion-lite .lumen-chip.focus,.lumen-grid.lumen-motion-off .lumen-chip.focus,.lumen-hub.lumen-motion-lite .lumen-hub__search.focus,.lumen-hub.lumen-motion-off .lumen-hub__search.focus,.lumen-hub.lumen-motion-lite .lumen-hub__roulette.focus,.lumen-hub.lumen-motion-off .lumen-hub__roulette.focus{-webkit-transform:none;transform:none}');
+css.push('.lumen-hub.lumen-motion-off .lumen-chip,.lumen-grid.lumen-motion-off .lumen-chip,.lumen-hub.lumen-motion-off .lumen-hub__search,.lumen-hub.lumen-motion-off .lumen-hub__roulette{-webkit-transition:none;transition:none}');
 
 
 
@@ -3409,6 +3418,14 @@ css.push('.lumen-grid__head{margin-bottom:1.05em}');
 css.push('.lumen-grid__title{font-family:' + FB + ';font-weight:700;font-size:2.10em;line-height:1}');
 css.push('.lumen-grid__sub{font-family:' + FB + ';font-weight:500;font-size:1.01em;color:' + P.smoke + ';margin-top:.44em}');
 css.push('.lumen-grid__sorts{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;margin-bottom:1.4em}');
+
+
+
+
+
+
+css.push('.lumen-grid .lumen-grid__roulette{margin-left:.91em}');
+css.push('.lumen-grid .lumen-grid__roulette .lumen-ico{-webkit-flex-shrink:0;flex-shrink:0;width:1.05em;height:1.05em;margin-right:.41em}');
 css.push('.lumen-grid__items{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap}');
 
 
@@ -9925,6 +9942,34 @@ return media;
 
 
 
+
+
+
+
+
+
+
+
+
+
+function rouletteMedia(item, manifest) {
+if (!item || !item.id) return null;
+if (!LC.roulette || typeof LC.roulette.collectionsFor !== 'function' || typeof LC.roulette.open !== 'function') return null;
+if (manifest === undefined) {
+try { manifest = LC.manifest && LC.manifest.get ? LC.manifest.get() : null; } catch (e) { manifest = null; }
+}
+var order = ['movie', 'tv'];
+for (var m = 0; m < order.length; m++) {
+var list = LC.roulette.collectionsFor(manifest, order[m]);
+for (var i = 0; i < list.length; i++) {
+if (list[i] && list[i].id === item.id) return order[m];
+}
+}
+return null;
+}
+
+
+
 function openTarget(item) {
 var media = singleDiscover(item);
 if (media) {
@@ -10313,9 +10358,34 @@ warn('hub: collection window failed', e);
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function forgetWindow() {
+lastNodes = null;
+lastLen = -1;
+lastViewFrom = -1;
+lastViewTo = -1;
+lastNavFrom = -1;
+lastNavTo = -1;
+}
+
 function screenController(recollect, afterMove, onUp) {
 return {
 toggle: function () {
+forgetWindow();
 recollect(null);
 },
 left: function () {
@@ -10365,6 +10435,9 @@ var activeGroup = '';
 var chipNodes = [];
 var tileNodes = [];
 var searchNode = null;
+
+
+var rouletteNode = null;
 var lastFocus = null;
 var started = false;
 
@@ -10409,7 +10482,9 @@ var active = -1;
 for (var i = 0; i < tileNodes.length; i++) {
 if (tileNodes[i] === target) { active = i; break; }
 }
-var fixed = searchNode ? [searchNode] : [];
+var fixed = [];
+if (searchNode) fixed.push(searchNode);
+if (rouletteNode) fixed.push(rouletteNode);
 limitCollection(fixed.concat(chipNodes), tileNodes, active);
 }
 
@@ -10703,6 +10778,9 @@ if (!node) return false;
 
 
 if (lastFocus === node) return false;
+
+
+if (rouletteNode && lastFocus === rouletteNode) return false;
 recollect(node);
 return true;
 }
@@ -10721,6 +10799,24 @@ search.on('hover:enter', function () { openSearch(); });
 head.append(search);
 
 searchNode = search[0];
+
+
+
+
+
+
+
+
+
+
+rouletteNode = null;
+if (LC.roulette && typeof LC.roulette.open === 'function') {
+var roulette = $('<div class="lumen-hub__roulette selector">' + LC.icons.get('star') + '<span>' + esc(LC.lang('lumen_hub_roulette')) + '</span></div>');
+LC.focus.on(roulette, function () { keepVisible(roulette[0]); lastFocus = roulette[0]; });
+roulette.on('hover:enter', function () { LC.roulette.open('movie'); });
+head.append(roulette);
+rouletteNode = roulette[0];
+}
 }
 
 function build(m) {
@@ -10820,6 +10916,7 @@ bump();
 chipNodes = [];
 tileNodes = [];
 searchNode = null;
+rouletteNode = null;
 lastFocus = null;
 try { scroll.destroy(); } catch (e2) {}
 try { root.remove(); } catch (e3) {}
@@ -10862,6 +10959,11 @@ var sortNodes = [];
 
 
 var emptyNodes = [];
+
+
+
+
+var rouletteNode = null;
 var lastFocus = null;
 
 
@@ -10907,7 +11009,9 @@ var active = -1;
 for (var i = 0; i < cardNodes.length; i++) {
 if (cardNodes[i] === target) { active = i; break; }
 }
-limitCollection(sortNodes.concat(emptyNodes), cardNodes, active);
+var fixed = sortNodes.concat(emptyNodes);
+if (rouletteNode) fixed.push(rouletteNode);
+limitCollection(fixed, cardNodes, active);
 }
 
 
@@ -11281,6 +11385,21 @@ sortsRow.append(node);
 sortNodes.push(node);
 }
 highlightSort();
+
+
+
+
+
+
+
+var rmedia = rouletteMedia(item);
+if (rmedia) {
+var roulette = $('<div class="lumen-chip lumen-grid__roulette selector">' + LC.icons.get('star') + '<span>' + esc(LC.lang('lumen_grid_roulette')) + '</span></div>');
+LC.focus.on(roulette, function () { keepVisible(roulette[0]); lastFocus = roulette[0]; });
+roulette.on('hover:enter', function () { LC.roulette.open(rmedia, item.id); });
+sortsRow.append(roulette);
+rouletteNode = roulette[0];
+}
 root.append(sortsRow);
 root.append(itemsRow);
 scroll.append(root);
@@ -11331,6 +11450,7 @@ bump();
 cardNodes = [];
 sortNodes = [];
 emptyNodes = [];
+rouletteNode = null;
 lastFocus = null;
 resumeAfterStop = null;
 try { scroll.destroy(); } catch (e2) {}
@@ -11447,6 +11567,7 @@ groupsWithCounts: groupsWithCounts,
 tilesFor: tilesFor,
 inSeason: inSeason,
 openTarget: openTarget,
+rouletteMedia: rouletteMedia,
 franchiseItem: franchiseItem,
 sortModes: sortModes,
 applySort: applySort,
@@ -18007,6 +18128,25 @@ return out;
 
 
 
+
+
+
+
+function pinFirst(list, id) {
+if (!list || !list.length || !id) return list || [];
+var head = null;
+var rest = [];
+for (var i = 0; i < list.length; i++) {
+if (!head && list[i] && list[i].id === id) head = list[i];
+else rest.push(list[i]);
+}
+return head ? [head].concat(rest) : list;
+}
+
+
+
+
+
 function esc(text) {
 return LC.util.esc('' + (text == null ? '' : text));
 }
@@ -18176,6 +18316,10 @@ var filters = { unseen: unseenDefault(), short: false };
 
 if (object && object.preselect) chosen = [object.preselect];
 
+
+
+var pinned = (object && object.preselect) ? '' + object.preselect : '';
+
 function alive(captured) {
 return function () { return gen === captured; };
 }
@@ -18325,6 +18469,7 @@ if (media === value) return;
 bump();
 media = value;
 chosen = storedIds(media);
+pinned = '';
 filters.short = false;
 pool = [];
 poolKey = '';
@@ -18367,7 +18512,7 @@ schedulePreview();
 recollect(chipsRow.find('.lumen-roulette__chip')[0]);
 });
 chipsRow.append(railChip(all));
-var shown = chipList(collections, chosen, CHIP_LIMIT);
+var shown = pinFirst(chipList(collections, chosen, CHIP_LIMIT), pinned);
 for (var i = 0; i < shown.length; i++) {
 (function (item) {
 var node = railChip(chipNode(titleOf(item), chosen.indexOf(item.id) >= 0));
@@ -19164,15 +19309,22 @@ try { screen.remove(); } catch (e2) { }
 var component_added = false;
 var menu_node = null;
 
-function open(media) {
+
+
+
+
+
+function open(media, preselect) {
 try {
-Lampa.Activity.push({
+var params = {
 url: '',
 title: LC.lang('lumen_roulette_title'),
 component: 'lumen_roulette',
 media: normalizeMedia(media),
 page: 1
-});
+};
+if (preselect) params.preselect = '' + preselect;
+Lampa.Activity.push(params);
 } catch (e) {
 warn('roulette: open failed', e);
 }
@@ -19240,6 +19392,7 @@ pick: pick,
 spinPlan: spinPlan,
 collectionsFor: collectionsFor,
 chipList: chipList,
+pinFirst: pinFirst,
 sourcesFor: sourcesFor,
 parseIds: parseIds,
 joinIds: joinIds,
@@ -27451,6 +27604,13 @@ lumen_hub_title: { ru: 'Подборки', en: 'Collections', uk: 'Підбір�
 
 
 lumen_hub_search: { ru: 'ПОИСК ПО ПОДБОРКАМ', en: 'SEARCH COLLECTIONS', uk: 'ПОШУК ПО ПІДБІРКАХ' },
+
+
+
+
+
+lumen_hub_roulette: { ru: 'ЧТО ПОСМОТРЕТЬ', en: 'WHAT TO WATCH', uk: 'ЩО ПОДИВИТИСЯ' },
+lumen_grid_roulette: { ru: 'Крутить по этой подборке', en: 'Spin this collection', uk: 'Крутити цю підбірку' },
 
 lumen_hub_search_title: { ru: 'Название подборки', en: 'Collection name', uk: 'Назва підбірки' },
 lumen_hub_search_results: { ru: 'Найденные подборки', en: 'Collections found', uk: 'Знайдені підбірки' },

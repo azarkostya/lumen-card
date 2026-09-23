@@ -388,6 +388,25 @@
       return out;
     }
 
+    /* Правка 2026-09-23 (вход из сетки подборки): подборка, с которой
+       рулетку открыли, встаёт первой в ленте — сразу за «Все подборки».
+       chipList держит отмеченное за пределом CHIP_LIMIT в КОНЦЕ ленты, и
+       живая проверка показала, что «Матрица», открытая из своей сетки,
+       стояла отмеченной на x = 1222 CSS px при ширине ленты 40…920, то
+       есть за правой кромкой: человек видел выборку из трёх фильмов и не
+       видел, откуда она. Порядок остальных чипов не меняется; нет такой
+       подборки в списке — список как есть. */
+    function pinFirst(list, id) {
+      if (!list || !list.length || !id) return list || [];
+      var head = null;
+      var rest = [];
+      for (var i = 0; i < list.length; i++) {
+        if (!head && list[i] && list[i].id === id) head = list[i];
+        else rest.push(list[i]);
+      }
+      return head ? [head].concat(rest) : list;
+    }
+
     /* ------------------------------------------------------------------ */
     /* Окружение                                                           */
     /* ------------------------------------------------------------------ */
@@ -560,6 +579,10 @@
 
       /* Стартовый выбор из object.preselect: «крутить по этой подборке». */
       if (object && object.preselect) chosen = [object.preselect];
+      /* Подборка из preselect стоит первой в ленте, пока открыт этот экран
+         с тем же медиа (pinFirst); смена «Фильмы/Сериалы» её отпускает —
+         у другого медиа свой набор подборок. */
+      var pinned = (object && object.preselect) ? '' + object.preselect : '';
 
       function alive(captured) {
         return function () { return gen === captured; };
@@ -710,6 +733,7 @@
         bump();
         media = value;
         chosen = storedIds(media);
+        pinned = '';
         filters.short = false;
         pool = [];
         poolKey = '';
@@ -752,7 +776,7 @@
           recollect(chipsRow.find('.lumen-roulette__chip')[0]);
         });
         chipsRow.append(railChip(all));
-        var shown = chipList(collections, chosen, CHIP_LIMIT);
+        var shown = pinFirst(chipList(collections, chosen, CHIP_LIMIT), pinned);
         for (var i = 0; i < shown.length; i++) {
           (function (item) {
             var node = railChip(chipNode(titleOf(item), chosen.indexOf(item.id) >= 0));
@@ -1549,15 +1573,22 @@
     var component_added = false;
     var menu_node = null;
 
-    function open(media) {
+    /* preselect — id подборки, с которой рулетка откроется уже отмеченной
+       (правка 2026-09-23, вход из сетки подборки, src/46_hub.js). Без него
+       — сохранённый выбор чипов этого медиа, как было. Сохранённый выбор
+       preselect не перетирает: он записывается только когда человек сам
+       тронет чип (saveIds в обработчиках чипов). */
+    function open(media, preselect) {
       try {
-        Lampa.Activity.push({
+        var params = {
           url: '',
           title: LC.lang('lumen_roulette_title'),
           component: 'lumen_roulette',
           media: normalizeMedia(media),
           page: 1
-        });
+        };
+        if (preselect) params.preselect = '' + preselect;
+        Lampa.Activity.push(params);
       } catch (e) {
         warn('roulette: open failed', e);
       }
@@ -1625,6 +1656,7 @@
       spinPlan: spinPlan,
       collectionsFor: collectionsFor,
       chipList: chipList,
+      pinFirst: pinFirst,
       sourcesFor: sourcesFor,
       parseIds: parseIds,
       joinIds: joinIds,

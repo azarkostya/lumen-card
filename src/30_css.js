@@ -2607,6 +2607,15 @@
     css.push('.lumen-hub__search{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-align-self:center;align-self:center;height:2.0em;padding:0 .91em;border-radius:1em;margin-left:auto;background:transparent;font-family:' + FB + ';font-weight:600;font-size:1.01em;line-height:1;color:' + P.muted + ';white-space:nowrap;-webkit-transition:background-color .2s,color .2s,-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25);transition:background-color .2s,color .2s,transform .28s cubic-bezier(.2,.9,.3,1.25)}');
     css.push('.lumen-hub__search .lumen-ico{-webkit-flex-shrink:0;flex-shrink:0;width:1.05em;height:1.05em;margin-right:.41em}');
     css.push('.lumen-hub__search.focus{background:' + P.text + ';color:' + P.bg + ';-webkit-transform:scale(1.05);transform:scale(1.05)}');
+    /* Правка 2026-09-23 (долг Task 23): вход в рулетку — вторая пилюля
+       шапки, справа от поиска. Вид тот же, что у поиска, и собран из его
+       же чисел; отличие одно — поле слева вместо margin-left:auto: к правому
+       краю строку прижимает поиск, а два auto поделили бы свободное место
+       пополам и развели бы кнопки через полэкрана. Зазор .27em — тот же,
+       что между чипами под шапкой. */
+    css.push('.lumen-hub__roulette{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-align-self:center;align-self:center;height:2.0em;padding:0 .91em;border-radius:1em;margin-left:.27em;background:transparent;font-family:' + FB + ';font-weight:600;font-size:1.01em;line-height:1;color:' + P.muted + ';white-space:nowrap;-webkit-transition:background-color .2s,color .2s,-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25);transition:background-color .2s,color .2s,transform .28s cubic-bezier(.2,.9,.3,1.25)}');
+    css.push('.lumen-hub__roulette .lumen-ico{-webkit-flex-shrink:0;flex-shrink:0;width:1.05em;height:1.05em;margin-right:.41em}');
+    css.push('.lumen-hub__roulette.focus{background:' + P.text + ';color:' + P.bg + ';-webkit-transform:scale(1.05);transform:scale(1.05)}');
     css.push('.lumen-hub__empty{font-family:' + FB + ';font-size:1.05em;color:' + P.muted + ';padding:2em 0}');
     css.push('.lumen-hub__chips{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;margin-bottom:1.4em}');
     css.push('.lumen-hub__tiles{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap}');
@@ -2623,8 +2632,8 @@
        акцентом, которым красится фокус. */
     css.push('.lumen-hub .lumen-chip.lumen-chip--on,.lumen-grid .lumen-chip.lumen-chip--on{background:rgba(' + P.textRgb + ',.14);color:' + P.text + '}');
     css.push('.lumen-hub .lumen-chip.focus,.lumen-grid .lumen-chip.focus{background:' + P.text + ';color:' + P.bg + ';-webkit-transform:scale(1.05);transform:scale(1.05)}');
-    css.push('.lumen-hub.lumen-motion-lite .lumen-chip.focus,.lumen-hub.lumen-motion-off .lumen-chip.focus,.lumen-grid.lumen-motion-lite .lumen-chip.focus,.lumen-grid.lumen-motion-off .lumen-chip.focus,.lumen-hub.lumen-motion-lite .lumen-hub__search.focus,.lumen-hub.lumen-motion-off .lumen-hub__search.focus{-webkit-transform:none;transform:none}');
-    css.push('.lumen-hub.lumen-motion-off .lumen-chip,.lumen-grid.lumen-motion-off .lumen-chip,.lumen-hub.lumen-motion-off .lumen-hub__search{-webkit-transition:none;transition:none}');
+    css.push('.lumen-hub.lumen-motion-lite .lumen-chip.focus,.lumen-hub.lumen-motion-off .lumen-chip.focus,.lumen-grid.lumen-motion-lite .lumen-chip.focus,.lumen-grid.lumen-motion-off .lumen-chip.focus,.lumen-hub.lumen-motion-lite .lumen-hub__search.focus,.lumen-hub.lumen-motion-off .lumen-hub__search.focus,.lumen-hub.lumen-motion-lite .lumen-hub__roulette.focus,.lumen-hub.lumen-motion-off .lumen-hub__roulette.focus{-webkit-transform:none;transform:none}');
+    css.push('.lumen-hub.lumen-motion-off .lumen-chip,.lumen-grid.lumen-motion-off .lumen-chip,.lumen-hub.lumen-motion-off .lumen-hub__search,.lumen-hub.lumen-motion-off .lumen-hub__roulette{-webkit-transition:none;transition:none}');
 
     /* Плитка 430×242 (16:9), 4 в ряд при safe area 64 с обеих сторон:
        ширина = (100% − 3 промежутка по .88em) / 4.
@@ -2692,6 +2701,14 @@
     css.push('.lumen-grid__title{font-family:' + FB + ';font-weight:700;font-size:2.10em;line-height:1}');
     css.push('.lumen-grid__sub{font-family:' + FB + ';font-weight:500;font-size:1.01em;color:' + P.smoke + ';margin-top:.44em}');
     css.push('.lumen-grid__sorts{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;margin-bottom:1.4em}');
+    /* Правка 2026-09-23 (долг Task 23): «Крутить по этой подборке» — чип
+       той же строки, что сортировка (вид, высота и фокус — общие правила
+       .lumen-grid .lumen-chip), но с иконкой рулетки и чуть отодвинутый:
+       это действие, а не ещё один порядок карточек, и зазор .91em (поле
+       чипа) отделяет его от сегмент-контрола, не создавая прыжка фокуса
+       через пустоту. */
+    css.push('.lumen-grid .lumen-grid__roulette{margin-left:.91em}');
+    css.push('.lumen-grid .lumen-grid__roulette .lumen-ico{-webkit-flex-shrink:0;flex-shrink:0;width:1.05em;height:1.05em;margin-right:.41em}');
     css.push('.lumen-grid__items{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap}');
     /* Карточка сетки — штатная разметка Lampa ('card'), поэтому правила
        навешиваются на её классы; наш корень .lumen-grid держит их в скоупе.

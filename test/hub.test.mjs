@@ -709,7 +709,11 @@ function loadHub(opts) {
     /* Task 39: заглушка отдаёт ЗАПРОШЕННЫЙ размер, иначе выбор размера
        нечем проверить. */
     cardinfo: { imageUrl: function (path, size) { return path ? 'https://proxy/t/p/' + size + path : ''; } },
-    manifest: { load: function (cb) { cb(opts.manifest || MANIFEST); } },
+    manifest: { load: function (cb) { cb(opts.manifest || MANIFEST); }, get: function () { return opts.manifest || MANIFEST; } },
+    /* Правка 2026-09-23 (долг Task 23): входы в рулетку. Модуля рулетки в
+       этих тестах по умолчанию нет — как и кнопок; тесты входов кладут
+       заглушку с журналом вызовов open. */
+    roulette: opts.roulette,
     /* Task 20: настройки читает только подсказка про ключ Кинопоиска —
        по умолчанию её нет вовсе, как и в бандле до LC.init. */
     pref: opts.pref,
@@ -1851,4 +1855,147 @@ test('inSeason: подборка своего месяца получает ме
   assert.equal(H.inSeason(SEASON_MANIFEST.collections[0], 12), false);
   assert.equal(H.inSeason(null, 12), false);
   assert.equal(H.inSeason(xmas, 0), false);
+});
+
+
+/* ====================================================================== */
+/* Правка 2026-09-23, долг Task 23 (план фазы 3, строка 148): входы в       */
+/* рулетку из шапки хаба и из сетки подборки.                              */
+/* ====================================================================== */
+
+function fakeRoulette() {
+  var opened = [];
+  return {
+    opened: opened,
+    /* Контракт настоящего LC.roulette.collectionsFor: подборки каталога, у
+       которых есть источник этого медиа. */
+    collectionsFor: function (m, media) {
+      return ((m && m.collections) || []).filter(function (c) { return c.sources && c.sources[media]; });
+    },
+    open: function (media, preselect) { opened.push({ media: media, preselect: preselect }); }
+  };
+}
+
+test('рулетка: без модуля рулетки кнопок входа нет — ни в хабе, ни в сетке', function () {
+  var s = openHub();
+  assert.equal(s.root.all('lumen-hub__roulette').length, 0);
+  var g = openGrid(DISCOVER);
+  assert.equal(g.root.all('lumen-grid__roulette').length, 0);
+});
+
+test('рулетка: кнопка в шапке хаба справа от поиска открывает фильмы', function () {
+  var r = fakeRoulette();
+  var s = openHub({ roulette: r });
+  var btn = s.root.all('lumen-hub__roulette');
+  assert.equal(btn.length, 1, 'кнопки нет или их две');
+  var head = s.root.all('lumen-hub__head')[0];
+  var kids = head._children;
+  assert.ok(kids.indexOf(btn[0]) > kids.indexOf(s.root.all('lumen-hub__search')[0]), 'кнопка не после поиска');
+  assert.ok(btn[0].hasClass('selector'));
+  fire(btn[0], 'hover:enter');
+  assert.deepEqual(r.opened, [{ media: 'movie', preselect: undefined }]);
+});
+
+test('рулетка: вверх с кнопки рулетки — в шапку Lampa, а не вбок на поиск', function () {
+  var r = fakeRoulette();
+  var s = openHub({ roulette: r });
+  s.comp.start();
+  var ctrl = s.env.log.controllers.content;
+  ctrl.toggle();
+  var btn = s.root.all('lumen-hub__roulette')[0];
+  fire(btn, 'hover:focus');
+  s.env.log.toggles.length = 0;
+  s.env.nav.canmove = function () { return false; };
+  ctrl.up();
+  assert.deepEqual(s.env.log.toggles, ['head']);
+});
+
+test('рулетка: кнопка хаба в коллекции Navigator всегда, вне окна плиток', function () {
+  var r = fakeRoulette();
+  var s = openHub({ roulette: r });
+  s.comp.start();
+  s.env.log.controllers.content.toggle();
+  var btn = s.root.all('lumen-hub__roulette')[0];
+  assert.ok(s.env.nav.collection.indexOf(btn) !== -1, 'кнопка выпала из коллекции');
+});
+
+test('рулетка: сетка подборки каталога — «Крутить по этой подборке» с preselect', function () {
+  var r = fakeRoulette();
+  var g = openGrid(DISCOVER, { roulette: r });
+  var btn = g.root.all('lumen-grid__roulette');
+  assert.equal(btn.length, 1);
+  /* Последним узлом строки сортировки: «вправо» с последнего чипа — на неё. */
+  var row = g.root.all('lumen-grid__sorts')[0];
+  assert.equal(row._children[row._children.length - 1], btn[0]);
+  fire(btn[0], 'hover:enter');
+  assert.deepEqual(r.opened, [{ media: 'movie', preselect: 'pixar' }]);
+});
+
+test('рулетка: у подборки только с сериалами сетка открывает рулетку сериалов', function () {
+  var r = fakeRoulette();
+  var g = openGrid(MANIFEST.collections[3], { roulette: r });
+  fire(g.root.all('lumen-grid__roulette')[0], 'hover:enter');
+  assert.deepEqual(r.opened, [{ media: 'tv', preselect: 'apple-tv' }]);
+});
+
+test('рулетка: «Франшиза» из карточки (подборки нет в каталоге) — кнопки нет', function () {
+  var r = fakeRoulette();
+  var item = H.franchiseItem({ id: 10, name: 'Звёздные войны' });
+  var g = openGrid(item, { roulette: r });
+  assert.equal(g.root.all('lumen-grid__roulette').length, 0,
+    'рулетка получила бы неизвестный preselect и молча крутила бы набор главной');
+});
+
+test('рулетка: rouletteMedia — фильмы первыми, сериалы при отсутствии фильмов, иначе null', function () {
+  var r = fakeRoulette();
+  var ctx = loadCtx('46_hub.js', { roulette: r, sources: SOURCES, hubEm: HUB_EM, lang: function (k) { return k; } });
+  var f = ctx.api.rouletteMedia;
+  assert.equal(f(MANIFEST.collections[0], MANIFEST), 'movie', 'star-wars: оба медиа — фильмы');
+  assert.equal(f(MANIFEST.collections[3], MANIFEST), 'tv');
+  assert.equal(f({ id: 'col-10' }, MANIFEST), null);
+  assert.equal(f(null, MANIFEST), null);
+  var bare = loadCtx('46_hub.js', { sources: SOURCES, hubEm: HUB_EM, lang: function (k) { return k; } });
+  assert.equal(bare.api.rouletteMedia(MANIFEST.collections[0], MANIFEST), null, 'без модуля рулетки — null');
+});
+
+test('рулетка: кнопка сетки в коллекции всегда, и вправо с последнего чипа сортировки — на неё', function () {
+  var r = fakeRoulette();
+  var g = openGrid(DISCOVER, { roulette: r });
+  g.comp.start();
+  g.env.log.controllers.content.toggle();
+  var btn = g.root.all('lumen-grid__roulette')[0];
+  var col = g.env.nav.collection;
+  assert.ok(col.indexOf(btn) !== -1, 'кнопка выпала из коллекции');
+  var sorts = g.root.all('lumen-grid__sorts')[0]._children;
+  assert.equal(col.indexOf(btn), col.indexOf(sorts[sorts.length - 2]) + 1, 'кнопка не следует за последним чипом сортировки');
+});
+
+/* Правка 2026-09-23: возврат на экран обязан заново отдать Navigator нашу
+   коллекцию, даже если окно не сдвинулось — за время отсутствия её сменил
+   другой экран (карточка, рулетка, шапка Lampa). */
+test('возврат на экран (toggle) выставляет коллекцию заново, даже если окно то же', function () {
+  var g = openGrid(DISCOVER, { roulette: fakeRoulette() });
+  g.h.fetchCalls[0].ok({ results: results(12), page: 1, total_pages: 1, total_results: 12 });
+  g.comp.start();
+  var ctrl = g.env.log.controllers.content;
+  ctrl.toggle();
+  /* Кто-то другой (рулетка) поставил Navigator свою коллекцию. */
+  g.env.nav.setCollection([]);
+  var before = g.env.log.collections.length;
+  ctrl.toggle();
+  assert.ok(g.env.log.collections.length > before, 'toggle не выставил коллекцию — возврат оставил пульт мёртвым');
+  var col = g.env.log.collections[g.env.log.collections.length - 1];
+  assert.ok(col.indexOf(g.root.all('lumen-grid__roulette')[0]) !== -1, 'кнопка рулетки не вернулась в коллекцию');
+});
+
+test('возврат в хаб (toggle) выставляет коллекцию заново', function () {
+  var s = openHub({ roulette: fakeRoulette() });
+  s.comp.start();
+  var ctrl = s.env.log.controllers.content;
+  ctrl.toggle();
+  s.env.nav.setCollection([]);
+  var before = s.env.log.collections.length;
+  ctrl.toggle();
+  assert.equal(s.env.log.collections.length, before + 1, 'toggle не выставил коллекцию заново');
+  assert.ok(s.env.log.collections[before].length > 0);
 });
