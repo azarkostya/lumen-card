@@ -1204,6 +1204,40 @@ test('Ф2 п.2: ответ деталей, доехавший в запарко�
   assert.deepEqual(warnLog, []);
 });
 
+/* Ф2 п.1. «Полный» режим, атмосфера, тот же фильм под фокусом: главная
+   → OK → Назад. Канвас героя снимает уборка LC.fx.sweep() на 'start'
+   карточки; resume обязан поставить его заново — иначе частицы пропадают до
+   следующей смены фильма в фокусе. */
+test('Ф2 п.1: возврат из карточки ставит атмосферу заново, если фильм тот же', () => {
+  const mounts = [];
+  const unmounts = [];
+  const env = makeEnv({
+    themes: {
+      forMovie: () => ({ id: 'snow', preset: 'snow' }),
+      particleColor: () => '#FFFFFF',
+      classNames: () => 'lumen-theme--snow'
+    },
+    fx: { mount: (host, preset, opts) => { mounts.push(opts); return { destroy() {} }; }, unmount: (host) => { unmounts.push(host); } }
+  });
+  const main = makeMain();
+  const card = makeMain();
+  env.hero.mount(main.activity);
+  focusOn(main, main.card1);
+  env.advance(400);
+  env.images[0].onload();
+  env.requests[0].ok({ id: 11, overview: 'о первом' });
+  assert.equal(mounts.length, 1, 'предусловие: слой атмосферы стоит');
+  const requests = env.requests.length;
+
+  env.hero.detach(card.activity);
+  /* Здесь рантайм зовёт LC.fx.sweep(): канвас героя снят. */
+  env.hero.mount(main.activity);
+  assert.equal(mounts.length, 2, 'после возврата слой атмосферы не поставлен заново');
+  assert.equal(mounts[1].paused(), false, 'вернувшийся слой стоит на паузе');
+  assert.equal(env.requests.length, requests, 'ради атмосферы детали заново не спрашиваются');
+  assert.deepEqual(warnLog, []);
+});
+
 /* opts.compact/hostClass — контракт монтирования в чужой корень (пригодится
    экрану франшизы, Task 25): герой сжат всегда и не смотрит на индекс ряда, а
    класс хоста снимается вместе с ним. На экране сетки подборки этот режим

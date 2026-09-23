@@ -14936,6 +14936,10 @@ return false;
 
 
 
+
+
+
+
 function park() {
 if (!state || state.parked) return;
 if (state.timer || state.detailsWait || state.loader || state.logoLoader || state.swapTimer || state.loadTimer || state.titleTimer) {
@@ -14976,6 +14980,7 @@ last = null;
 
 
 
+
 function resume() {
 if (!state || !state.parked) return;
 state.parked = false;
@@ -14991,7 +14996,11 @@ try {
 var el = state.root.find('.card.focus');
 var node = el && el.length ? el[0] : null;
 var card = node && node.card_data;
-if (!card || card.id == null) return;
+
+
+
+
+if (!card || card.id == null) { applyFx(); return; }
 updateCompact(node);
 rememberFocus(node, card);
 state.pending = card;
@@ -15003,6 +15012,8 @@ scheduleTrailer(card);
 if (state.stale || String(state.shownId) !== String(card.id)) {
 state.stale = false;
 show(card);
+} else {
+applyFx();
 }
 } catch (e) {
 warn('hero: resume failed', e);
