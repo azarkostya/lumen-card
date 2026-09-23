@@ -445,7 +445,13 @@
      высоте огромный и осмысленного верха у него нет. Наши ряды таких
      карточек не заводят (класс ставится только по params.card_wide /
      card_collection, app.min.js:51952-51963), но на главной живут и ряды
-     самой Lampa, а .lumen-main — это вся активность целиком. */
+     самой Lampa, а .lumen-main — это вся активность целиком.
+
+     Ревью фикс-раунда (п.9): та же точка — у постеров, которые плагин
+     рисует ФОНОМ в окне 2:3 (background-position вместо object-position):
+     барабан рулетки и стопка под ним, ряд частей франшизы. До правки они
+     кадрировались по центру, то есть резали макушку, которую пользователь
+     просил не резать. */
   var POSTER_ANCHOR = 'center top';
   var CARD_NOT_WIDE = ':not(.card--wide):not(.card--collection)';
   var CARD_TITLE_LH = 1.15;
@@ -2514,7 +2520,7 @@
        обрезается по overflow). */
     css.push('.lumen-descr-row .lumen-fr__row{display:-webkit-box;display:-webkit-flex;display:flex;overflow:hidden;padding:.26em 0}');
     css.push('.lumen-descr-row .lumen-fr-card{position:relative;-webkit-box-sizing:border-box;box-sizing:border-box;width:7.90em;-webkit-box-flex:0;-webkit-flex:none;flex:none;margin-right:.88em;color:' + P.text + '}');
-    css.push('.lumen-descr-row .lumen-fr-card__poster{position:relative;width:100%;height:11.84em;border-radius:.53em;overflow:hidden;background-color:' + P.panel + ';-webkit-background-size:cover;background-size:cover;background-position:center;background-repeat:no-repeat;border:.04em solid ' + P.line + '}');
+    css.push('.lumen-descr-row .lumen-fr-card__poster{position:relative;width:100%;height:11.84em;border-radius:.53em;overflow:hidden;background-color:' + P.panel + ';-webkit-background-size:cover;background-size:cover;background-position:' + POSTER_ANCHOR + ';background-repeat:no-repeat;border:.04em solid ' + P.line + '}');
     /* Просмотренная часть приглушается, а поверх постера ставится галочка —
        та же иконка, что у отмеченных пунктов меню. */
     css.push('.lumen-descr-row .lumen-fr-card--watched .lumen-fr-card__poster{opacity:.45}');
@@ -4744,7 +4750,7 @@
     var reelMaxW = '66.67vh - ' + round2(roulRest * 2 / 3) + 'em';
     var reelMax = 'max-height:-webkit-calc(' + reelMaxH + ');max-height:calc(' + reelMaxH + ');max-width:-webkit-calc(' + reelMaxW + ');max-width:calc(' + reelMaxW + ')';
     css.push('.lumen-roulette .lumen-roulette__reel{width:28.67vh;height:43vh;' + reelMax + ';border-radius:.53em;overflow:hidden;background:' + P.panel + ';border:.04em solid ' + P.line + ';-webkit-flex-shrink:0;flex-shrink:0}');
-    css.push('.lumen-roulette .lumen-roulette__frame{width:100%;height:100%;background-position:center;background-repeat:no-repeat;-webkit-background-size:cover;background-size:cover}');
+    css.push('.lumen-roulette .lumen-roulette__frame{width:100%;height:100%;background-position:' + POSTER_ANCHOR + ';background-repeat:no-repeat;-webkit-background-size:cover;background-size:cover}');
     /* Правка 2026-09-23 (разбор композиции, п.5.1): до нажатия «Крутить»
        барабан был пустым чёрным прямоугольником на 43 % высоты экрана, и
        переключение подборок не меняло центр экрана вообще — отклика на
@@ -4763,7 +4769,7 @@
        иначе задние постеры, стоящие в разметке раньше, всё равно оказались
        бы под ним только по порядку, а не по намерению. */
     css.push('.lumen-roulette .lumen-roulette__reel{position:relative;z-index:1}');
-    css.push('.lumen-roulette .lumen-roulette__peek{display:none;position:absolute;top:0;left:50%;width:28.67vh;height:43vh;' + reelMax + ';border-radius:.53em;background-position:center;background-repeat:no-repeat;-webkit-background-size:cover;background-size:cover;background-color:' + P.panel + '}');
+    css.push('.lumen-roulette .lumen-roulette__peek{display:none;position:absolute;top:0;left:50%;width:28.67vh;height:43vh;' + reelMax + ';border-radius:.53em;background-position:' + POSTER_ANCHOR + ';background-repeat:no-repeat;-webkit-background-size:cover;background-size:cover;background-color:' + P.panel + '}');
     css.push('.lumen-roulette .lumen-roulette__stage.is-stack .lumen-roulette__peek{display:block}');
     /* Выборка короче трёх: лишний задний постер гасится поимённо, а не
        общим классом сцены — стопка из одного и из двух постеров одинаково

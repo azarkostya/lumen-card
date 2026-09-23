@@ -6290,6 +6290,21 @@ test('Task 74: у постера ряда и постера сетки одна 
   assert.equal(main, grid);
 });
 
+/* Ревью фикс-раунда (п.9): решение пользователя «не обрезана голова, лучше
+   туловище, но не голова» (9480e0e) касается КАЖДОГО постера 2:3, а не только
+   рядов и сетки. Постер фоном — в барабане рулетки, в стопке под ним и в
+   ряду частей франшизы — кадрировался по центру. Точка привязки у всех одна
+   — POSTER_ANCHOR. */
+test('ревью п.9: постеры фоном — барабан, стопка, ряд франшизы — прижаты к верху, как в рядах', () => {
+  const anchor = /object-position:([^;]+)/.exec(decl(css, '.lumen-main .card:not(.card--wide):not(.card--collection) .card__img'))[1];
+  assert.equal(anchor, 'center top');
+  for (const sel of ['.lumen-roulette .lumen-roulette__frame', '.lumen-roulette .lumen-roulette__peek', '.lumen-descr-row .lumen-fr-card__poster']) {
+    const body = findDecl(css, (s) => s === sel);
+    assert.ok(body, 'правило ' + sel + ' не найдено');
+    assert.equal(/(?:^|;)background-position:([^;]+)/.exec(body)[1], anchor, sel + ': постер кадрируется не по верху: ' + body);
+  }
+});
+
 /* Правка 2026-09-23: логотип названия в карточке сжимается вместе с
    заголовком — его рамка задана в em узла, а кегль узла в каждой ветке тот
    же, что у заголовка (разбор — CARD_TITLE_EM в src/48_hero.js). Разойдутся
