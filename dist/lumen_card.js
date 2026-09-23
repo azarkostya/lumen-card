@@ -27617,6 +27617,7 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 
+
 LC.hud = (function () {
 
 
@@ -27702,9 +27703,13 @@ return t.state + (t.color ? ' ' + t.color : '') + (t.url ? ' ' + t.url : '');
 
 
 
+
+
+
+
 function format(d) {
 return d.fps + ' fps · long ' + longText(d.long) + ' · raf ' + d.raf.join('/') +
-' · eps ' + d.eps + ' · layers ' + d.layers +
+' · eps ' + d.eps + ' · layers ' + d.layers + '+' + (d.hid || 0) +
 ' · ' + d.w + '×' + d.h + '@' + d.dpr + ' · cr ' + d.cr + ' · ' + d.mode +
 ' · hw ' + d.hw + ' · tint ' + tint(d);
 }
@@ -27782,8 +27787,32 @@ var FULL = '.lumen-hero__bg,.lumen-hero__lqip,.lumen-hero__veil,.lumen-hero__tra
 '.lumen-backdrop__img,.lumen-backdrop__veil,.lumen-backdrop .lumen-bg__img,' +
 '.lumen-ambient,.lumen-ambient__img,.lumen-overlay__img,.lumen-roulette__bg,' +
 '.lumen-hero,.lumen-main .scroll.layer--wheight';
+
+
+
+
+
+
+
+
+
+
+
+
+function layerCounts() {
+var out = { on: 0, off: 0 };
+try {
+var list = document.querySelectorAll(FULL);
+for (var i = 0; i < list.length; i++) {
+if (LC.util.onScreen(list[i])) out.on++;
+else out.off++;
+}
+} catch (e) { }
+return out;
+}
+
 function layers() {
-try { return document.querySelectorAll(FULL).length; } catch (e) { return 0; }
+return layerCounts().on;
 }
 
 
@@ -27858,12 +27887,13 @@ try { mode = LC.motionMode(); } catch (e) { }
 
 
 var sums = totals();
+var lay = layerCounts();
 state.node.textContent = format({
 fps: Math.round(state.frames * 1000 / elapsed), w: window.innerWidth, h: window.innerHeight,
 dpr: Math.round((window.devicePixelRatio || 1) * 100) / 100,
 cr: chrome(), mode: mode,
 long: state.longSup ? { win: sums.long, total: state.longTotal } : null,
-raf: sums.b, eps: eps(), layers: layers(), hw: hardware(), tint: accentStatus()
+raf: sums.b, eps: eps(), layers: lay.on, hid: lay.off, hw: hardware(), tint: accentStatus()
 });
 state.frames = 0; state.last = t;
 
@@ -27938,6 +27968,8 @@ if (on) start(); else stop();
 
 return {
 sync: sync, stop: stop, format: format, running: function () { return !!state; }, layers: layers,
+
+layerCounts: layerCounts,
 
 
 eps: eps, chrome: chrome,

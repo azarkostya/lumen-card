@@ -290,6 +290,38 @@ test('hud: layers() считает и два постоянных слоя Task 
     'у области рядов больше нет translateZ(0) — пересмотреть FULL');
 });
 
+/* Ревью фикс-раунда, Ф2 п.3. На экране карточки счёт по всему документу
+   завышал цифру примерно на 9: под карточкой, в скрытой активности главной,
+   живёт запаркованный герой (src/48_hero.js, park) и область рядов. Слои
+   делятся по правилу LC.util.onScreen: показанная активность и узлы вне
+   активностей — первое число, активности истории — второе. */
+test('Ф2 п.3: layerCounts — слои видимого экрана и скрытых под ним активностей раздельно', () => {
+  const e = env();
+  const activity = (on) => ({ classList: { contains: (c) => on && c === 'activity--active' } });
+  const shown = activity(true);
+  const hidden = activity(false);
+  const put = (cls, act) => { const n = e.addLayer(cls); n.closest = (sel) => (sel === '.activity' ? act : null); return n; };
+  /* Карточка поверх главной: фон карточки на экране… */
+  put('lumen-backdrop__img', shown);
+  put('lumen-backdrop__veil lumen-backdrop__veil--l', shown);
+  /* …а под ней запаркованный герой главной. */
+  put('lumen-hero', hidden);
+  put('lumen-hero__bg lumen-hero__bg--a', hidden);
+  put('lumen-hero__lqip', hidden);
+  put('lumen-hero__veil lumen-hero__veil--l', hidden);
+  /* Слой перехода живёт в body, вне активностей, — он на экране. */
+  put('lumen-overlay__img', null);
+
+  assert.equal(e.api.layers(), 3, 'layers() — видимый экран, без скрытых активностей');
+  assert.deepEqual(e.api.layerCounts(), { on: 3, off: 4 });
+});
+
+test('Ф2 п.3: строка HUD — «layers 3+4», и «+0», когда под экраном ничего', () => {
+  const { api } = fresh();
+  assert.ok(api.format(Object.assign({}, BASE, { layers: 3, hid: 4 })).indexOf(' · layers 3+4 · ') !== -1);
+  assert.ok(api.format(Object.assign({}, BASE, { layers: 5, hid: 0 })).indexOf(' · layers 5+0 · ') !== -1);
+});
+
 /* ====================================================================== */
 /* paint(): rAF-цикл. Первый кадр цикла — опорная точка (state.last ещё 0), */
 /* в счётчик не идёт. Дальше окно в 1000мс набирается несколькими кадрами:  */

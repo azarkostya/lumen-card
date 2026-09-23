@@ -8,7 +8,8 @@
   /* (PerformanceObserver 'longtask'), разрешение и devicePixelRatio, режим  */
   /* анимаций (LC.motionMode) и число полноэкранных слоёв плагина (герой,   */
   /* фон, атмосферы, заставка, переход, фон рулетки — ровно те классы, что   */
-  /* ставят их модули). Назначение — калибровка порогов автодетекта          */
+  /* ставят их модули) — раздельно на видимом экране и в скрытых под ним    */
+  /* активностях истории. Назначение — калибровка порогов автодетекта       */
   /* (SLOW_MS/FAST_MS в LC.perf) на реальном железе пользователя, а не       */
   /* постоянная индикация: пункт «Отладка: показать FPS» стоит сразу под     */
   /* режимом анимаций (81_prefs.js) и выключен по умолчанию.                 */
@@ -102,10 +103,14 @@
     /* Порядок полей: сначала то, что меняется каждый интервал (fps, длинные
        задачи, гистограмма, размер ряда серий), потом неизменное за сессию
        (разрешение, мажор браузера, режим, железо) и подкраска — её адрес
-       длинный и уезжает в перенос строки последним. */
+       длинный и уезжает в перенос строки последним.
+       Ф2 п.3: «layers 5+9» — пять слоёв на видимом экране и девять в
+       скрытых под ним активностях истории (layerCounts ниже). Форма одна
+       и та же всегда, и «+0» тоже пишется: по одному снимку видно, что
+       второе число есть и оно ноль, а не что поле пропало. */
     function format(d) {
       return d.fps + ' fps · long ' + longText(d.long) + ' · raf ' + d.raf.join('/') +
-        ' · eps ' + d.eps + ' · layers ' + d.layers +
+        ' · eps ' + d.eps + ' · layers ' + d.layers + '+' + (d.hid || 0) +
         ' · ' + d.w + '×' + d.h + '@' + d.dpr + ' · cr ' + d.cr + ' · ' + d.mode +
         ' · hw ' + d.hw + ' · tint ' + tint(d);
     }
@@ -183,8 +188,32 @@
       '.lumen-backdrop__img,.lumen-backdrop__veil,.lumen-backdrop .lumen-bg__img,' +
       '.lumen-ambient,.lumen-ambient__img,.lumen-overlay__img,.lumen-roulette__bg,' +
       '.lumen-hero,.lumen-main .scroll.layer--wheight';
+
+    /* Ревью фикс-раунда, Ф2 п.3: счёт по всему документу завышал цифру на
+       экране карточки примерно на 9. Lampa держит в DOM активности истории
+       (скрытые прозрачностью, .activity{opacity:0}), а с правки 2026-09-23
+       герой уходящей главной паркуется, а не снимается (park в
+       src/48_hero.js): под карточкой остаются его узлы и область рядов.
+       Слои делятся по тому же правилу «на экране», что у всего плагина
+       (LC.util.onScreen, src/10_util.js): on — показанная активность и узлы
+       вне всякой активности (слой перехода, заставка); off — активности
+       истории. Скрытые слои не рисуются, но их буферы и растры живут в
+       памяти, поэтому второе число не выбрасывается, а показывается рядом.
+       Один проход querySelectorAll на оба числа — раз в интервал строки. */
+    function layerCounts() {
+      var out = { on: 0, off: 0 };
+      try {
+        var list = document.querySelectorAll(FULL);
+        for (var i = 0; i < list.length; i++) {
+          if (LC.util.onScreen(list[i])) out.on++;
+          else out.off++;
+        }
+      } catch (e) { }
+      return out;
+    }
+
     function layers() {
-      try { return document.querySelectorAll(FULL).length; } catch (e) { return 0; }
+      return layerCounts().on;
     }
 
     /* Task 68: сколько плиток серий сейчас в ряду АКТИВНОЙ карточки. Узел
@@ -259,12 +288,13 @@
            ради обнаружения которого HUD и нужен, иначе занизилось бы вдвое
            реже, чем должно, и осталось незамеченным. */
         var sums = totals();
+        var lay = layerCounts();
         state.node.textContent = format({
           fps: Math.round(state.frames * 1000 / elapsed), w: window.innerWidth, h: window.innerHeight,
           dpr: Math.round((window.devicePixelRatio || 1) * 100) / 100,
           cr: chrome(), mode: mode,
           long: state.longSup ? { win: sums.long, total: state.longTotal } : null,
-          raf: sums.b, eps: eps(), layers: layers(), hw: hardware(), tint: accentStatus()
+          raf: sums.b, eps: eps(), layers: lay.on, hid: lay.off, hw: hardware(), tint: accentStatus()
         });
         state.frames = 0; state.last = t;
         /* Интервал закрыт — кольцо проворачивается, и следующий пишется в
@@ -339,6 +369,8 @@
 
     return {
       sync: sync, stop: stop, format: format, running: function () { return !!state; }, layers: layers,
+      /* Ф2 п.3: оба числа — на экране и под ним — для теста и консоли. */
+      layerCounts: layerCounts,
       /* Task 68: наружу — ради тестов и ради живой проверки со стенда
          (window.lumen_card.hud.eps() в консоли: число плиток ряда серий). */
       eps: eps, chrome: chrome,
