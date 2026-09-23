@@ -3458,9 +3458,23 @@
     /* calc внутри translateY: -webkit-calc остаётся движкам, которые знают
        только его, а следующая декларация перебивает их у всех остальных.
        Сложить эти величины заранее нельзя — vh считается от высоты экрана,
-       em от ширины. */
+       em от ширины.
+
+       Ревью фикс-раунда (п.2): добавка полосы — ТОЛЬКО когда полоса есть.
+       При выключенных «Профилях настроения» слот пуст и снят правилом
+       :empty (ниже), места в потоке не занимает, а сдвиг на её высоту всё
+       равно добавлялся: замер на стенде 960×540@2, крупный кадр, «лёгкий»,
+       кегль 11.4055 — низ меты 293.7 px при кромке сжатого кадра 270, то
+       есть на 23.7 px под кромкой, на область рядов (её верх — 258.6).
+       Признак «полоса есть» — класс .lumen-moods-on на корне активности:
+       его ставит LC.moods ровно тогда, когда наполнил слот (src/49_moods.js,
+       mount), и снимает вместе с чипами (unmount). Базовое правило — без
+       добавки, правило под классом специфичнее на один класс. */
     var textScale = ') scale(' + TEXT_SCALE_COMPACT + ')';
     css.push('.lumen-hero.lumen-hero--compact .lumen-hero__text{' +
+      '-webkit-transform:translateY(' + textShift + 'vh' + textScale + ';' +
+      'transform:translateY(' + textShift + 'vh' + textScale + '}');
+    css.push('.lumen-moods-on .lumen-hero.lumen-hero--compact .lumen-hero__text{' +
       '-webkit-transform:translateY(-webkit-calc(' + textShiftCalc + ')' + textScale + ';' +
       '-webkit-transform:translateY(calc(' + textShiftCalc + ')' + textScale + ';' +
       'transform:translateY(calc(' + textShiftCalc + ')' + textScale + '}');
@@ -3897,8 +3911,10 @@
          больше, и без него правило сжатия (.lumen-hero--compact
          .lumen-hero__text выше) выиграло бы по специфичности — медиазапрос
          её не добавляет. Полоса чипов под шапкой уезжала бы вниз и мельчала
-         при фокусе ниже первого ряда (ревью Task 36, находка В2). */
-      '.lumen-hero .lumen-hero__text,.lumen-hero.lumen-hero--compact .lumen-hero__text{position:static;left:auto;right:auto;top:auto;bottom:auto;font-size:1em;max-width:none;overflow:visible;padding:.53em ' + EDGE + 'em 0;-webkit-transform:none;transform:none}' +
+         при фокусе ниже первого ряда (ревью Task 36, находка В2).
+         Ревью фикс-раунда (п.2): у сдвига с полосой чипов теперь своё правило
+         под .lumen-moods-on — ещё на класс специфичнее, и оно тоже в списке. */
+      '.lumen-hero .lumen-hero__text,.lumen-hero.lumen-hero--compact .lumen-hero__text,.lumen-moods-on .lumen-hero.lumen-hero--compact .lumen-hero__text{position:static;left:auto;right:auto;top:auto;bottom:auto;font-size:1em;max-width:none;overflow:visible;padding:.53em ' + EDGE + 'em 0;-webkit-transform:none;transform:none}' +
       '.lumen-hero .lumen-hero__meta,.lumen-hero .lumen-hero__logo,.lumen-hero .lumen-hero__title,.lumen-hero .lumen-hero__descr,.lumen-hero .lumen-hero__sk,.lumen-hero .lumen-hero__chips{display:none}' +
       '.lumen-hero.lumen-hero--compact .lumen-hero__moods,.lumen-main .lumen-hero .lumen-hero__moods{display:-webkit-box;display:-webkit-flex;display:flex;margin-top:0;opacity:1;visibility:visible;pointer-events:auto}' +
       '.lumen-moods-on.lumen-main .scroll.layer--wheight,.lumen-moods-on.lumen-main.lumen-rows-up .scroll.layer--wheight{margin-top:' + MOODS_BAR + 'em;height:-webkit-calc(100vh - ' + round2(LAMPA_HEAD + MOODS_BAR) + 'em) !important;height:calc(100vh - ' + round2(LAMPA_HEAD + MOODS_BAR) + 'em) !important}}');

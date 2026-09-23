@@ -4258,8 +4258,22 @@ css.push('.lumen-hero .lumen-hero__text{position:absolute;left:-' + VEIL_BLEED +
 
 
 
+
+
+
+
+
+
+
+
+
+
+
 var textScale = ') scale(' + TEXT_SCALE_COMPACT + ')';
 css.push('.lumen-hero.lumen-hero--compact .lumen-hero__text{' +
+'-webkit-transform:translateY(' + textShift + 'vh' + textScale + ';' +
+'transform:translateY(' + textShift + 'vh' + textScale + '}');
+css.push('.lumen-moods-on .lumen-hero.lumen-hero--compact .lumen-hero__text{' +
 '-webkit-transform:translateY(-webkit-calc(' + textShiftCalc + ')' + textScale + ';' +
 '-webkit-transform:translateY(calc(' + textShiftCalc + ')' + textScale + ';' +
 'transform:translateY(calc(' + textShiftCalc + ')' + textScale + '}');
@@ -4697,7 +4711,9 @@ css.push('@media screen and (min-aspect-ratio:' + heroMinRatio + '/100){' +
 
 
 
-'.lumen-hero .lumen-hero__text,.lumen-hero.lumen-hero--compact .lumen-hero__text{position:static;left:auto;right:auto;top:auto;bottom:auto;font-size:1em;max-width:none;overflow:visible;padding:.53em ' + EDGE + 'em 0;-webkit-transform:none;transform:none}' +
+
+
+'.lumen-hero .lumen-hero__text,.lumen-hero.lumen-hero--compact .lumen-hero__text,.lumen-moods-on .lumen-hero.lumen-hero--compact .lumen-hero__text{position:static;left:auto;right:auto;top:auto;bottom:auto;font-size:1em;max-width:none;overflow:visible;padding:.53em ' + EDGE + 'em 0;-webkit-transform:none;transform:none}' +
 '.lumen-hero .lumen-hero__meta,.lumen-hero .lumen-hero__logo,.lumen-hero .lumen-hero__title,.lumen-hero .lumen-hero__descr,.lumen-hero .lumen-hero__sk,.lumen-hero .lumen-hero__chips{display:none}' +
 '.lumen-hero.lumen-hero--compact .lumen-hero__moods,.lumen-main .lumen-hero .lumen-hero__moods{display:-webkit-box;display:-webkit-flex;display:flex;margin-top:0;opacity:1;visibility:visible;pointer-events:auto}' +
 '.lumen-moods-on.lumen-main .scroll.layer--wheight,.lumen-moods-on.lumen-main.lumen-rows-up .scroll.layer--wheight{margin-top:' + MOODS_BAR + 'em;height:-webkit-calc(100vh - ' + round2(LAMPA_HEAD + MOODS_BAR) + 'em) !important;height:calc(100vh - ' + round2(LAMPA_HEAD + MOODS_BAR) + 'em) !important}}');

@@ -2364,7 +2364,12 @@ test('правка: текст героя прижат к низу кадра и
      (src/30_css.js). Низ текста в СЖАТОМ состоянии остался ровно там же, где
      был (46.6vh от верха экрана при крупном кадре): подняв текст в старте,
      правка на столько же удлинила его путь вниз. */
-  const small = findDecl(css, (sel) => sel === '.lumen-hero.lumen-hero--compact .lumen-hero__text');
+  /* Ревью фикс-раунда (п.2): добавка полосы чипов — только под
+     .lumen-moods-on; без чипов сдвиг — чистые vh. */
+  const bare = findDecl(css, (sel) => sel === '.lumen-hero.lumen-hero--compact .lumen-hero__text');
+  assert.ok(/[^-]transform:translateY\(9\.1vh\) scale\(0\.95\)/.test(bare), 'сжатие текста без чипов: ' + bare);
+  assert.ok(bare.indexOf('-webkit-transform:translateY(9.1vh) scale(0.95)') !== -1, 'префиксная пара: ' + bare);
+  const small = findDecl(css, (sel) => sel === '.lumen-moods-on .lumen-hero.lumen-hero--compact .lumen-hero__text');
   assert.ok(small.indexOf('transform:translateY(calc(9.1vh + 3.35em)) scale(0.95)') !== -1, 'сжатие текста: ' + small);
   assert.ok(small.indexOf('-webkit-transform:translateY(-webkit-calc(9.1vh + 3.35em))') !== -1, 'старым webkit-движкам нужен префиксный calc: ' + small);
   assert.ok(small.indexOf('-webkit-transform:translateY(calc(9.1vh + 3.35em))') !== -1, 'после префиксного calc обязана идти обычная форма: ' + small);
@@ -2428,7 +2433,8 @@ test('раскладка героя: кадр, текст и ряды не пе�
     /* Отступ содержимого снизу — padding-bottom рамки блока: рамка доходит
        до низа кадра (в ней лежит подушка-вуаль, ревью фикс-раунда п.3). */
     const textBottom = parseFloat(/(^|;)padding:0 0 ([0-9.]+)vh/.exec(textDecl)[2]) * VH;
-    const compactText = decl('.lumen-hero.lumen-hero--compact .lumen-hero__text');
+    /* С чипами (настройка по умолчанию) — правило под .lumen-moods-on. */
+    const compactText = decl('.lumen-moods-on .lumen-hero.lumen-hero--compact .lumen-hero__text');
     const shiftParts = /[^-]transform:translateY\(calc\(([0-9.]+)vh \+ ([0-9.]+)em\)\) scale\(([0-9.]+)\)/.exec(compactText);
     /* em в transform — кегль САМОГО блока (font-size:1.1em), а не базовый.
        Ревью фикс-раунда (п.6): прежняя редакция теста множила их на базовый
@@ -2492,6 +2498,15 @@ test('раскладка героя: кадр, текст и ряды не пе�
     /* А сам блок вместе с погашенной полосой может уходить за кромку — там
        его срежет overflow:hidden героя, и срезать нечего: полоса невидима. */
     assert.ok(textEdgeUp - textVisibleUp > 80, label + ': полоса чипов перестала занимать место — сдвиг больше не нужен');
+    /* Ревью фикс-раунда (п.2): чипы выключены — слот пуст и снят :empty,
+       места не занимает, и сдвиг обязан обойтись без добавки: видимый низ
+       — это низ блока. До правки добавка стояла безусловно, и на стенде
+       960×540@2 низ меты уходил на 23.7 px под кромку сжатого кадра. */
+    const bare = decl('.lumen-hero.lumen-hero--compact .lumen-hero__text');
+    const bareShift = parseFloat(/[^-]transform:translateY\(([0-9.]+)vh\)/.exec(bare)[1]) * VH;
+    const bareVisibleUp = textEdgeDown - heroShift + bareShift;
+    assert.ok(Math.abs((heroEdgeUp - bareVisibleUp) - 3.4 * VH) < 0.5,
+      label + ', без чипов: зазор от видимого текста до кромки кадра ' + (heroEdgeUp - bareVisibleUp).toFixed(1) + ' px вместо 36.7');
 
     /* И ряд в поднятом состоянии помещается в экран целиком — вместе с
        подписями под постером.
@@ -3820,7 +3835,7 @@ test('фаза 3: у совсем низкого окна ряды занима�
      сжатым селектором тоже — у него на класс больше, а медиазапрос
      специфичности не добавляет. Без этого полоса чипов под шапкой уезжала бы
      вниз и мельчала при фокусе ниже первого ряда. */
-  assert.ok(line.indexOf('.lumen-hero .lumen-hero__text,.lumen-hero.lumen-hero--compact .lumen-hero__text{position:static') !== -1,
+  assert.ok(line.indexOf('.lumen-hero .lumen-hero__text,.lumen-hero.lumen-hero--compact .lumen-hero__text,.lumen-moods-on .lumen-hero.lumen-hero--compact .lumen-hero__text{position:static') !== -1,
     'сжатие текстового блока за порогом не снято: ' + line);
 
   /* Порог описания — отдельный и более мягкий: кадру хватает высоты на
@@ -5712,7 +5727,8 @@ const HERO_TEXT_KIDS = ['lumen-hero__meta', 'lumen-hero__logo', 'lumen-hero__tit
 const TEXT_LESS_BOXES = ['.lumen-card .lumen-progress',
   '.lumen-card .full-start-new__buttons .full-start__button',
   '.lumen-card .lumen-stop', '.lumen-card .lumen-franchise',
-  '.lumen-hero .lumen-hero__text', '.lumen-hero.lumen-hero--compact .lumen-hero__text'];
+  '.lumen-hero .lumen-hero__text', '.lumen-hero.lumen-hero--compact .lumen-hero__text',
+  '.lumen-moods-on .lumen-hero.lumen-hero--compact .lumen-hero__text'];
 
 test('Task 63: ни один текст интерфейса не мельче минимума tvOS', () => {
   const zoom = parseFloat(/font-size:([\d.]+)em/.exec(decl(css, '.lumen-hero .lumen-hero__text'))[1]);
