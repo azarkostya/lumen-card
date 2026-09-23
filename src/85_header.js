@@ -100,7 +100,8 @@
        форматом «2024, США» — cardinfo.country сам отрезает год и падает на
        словарь ISO/английское имя, если head пуст (план 0.2, Task 5 3b.2). */
     var headText = root.find('.full-start-new__head').text();
-    var countryText = LC.cardinfo.country(headText, movie.production_countries);
+    var countryText = LC.cardinfo.country(headText, movie.production_countries,
+      typeof LC.langCode === 'function' ? LC.langCode() : 'ru');
     if (countryText) parts.push('<span>' + LC.util.esc(countryText) + '</span>');
 
     if (serial) {

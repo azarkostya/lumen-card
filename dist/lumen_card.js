@@ -5510,7 +5510,12 @@ warn('fonts inject failed', e);
 
 LC.cardinfo = (function () {
 
-var COUNTRY_RU = {
+
+
+
+
+var COUNTRY_NAMES = {
+ru: {
 US: 'США',
 GB: 'Великобритания',
 RU: 'Россия',
@@ -5524,6 +5529,22 @@ AU: 'Австралия',
 IT: 'Италия',
 ES: 'Испания',
 IN: 'Индия'
+},
+uk: {
+US: 'США',
+GB: 'Велика Британія',
+RU: 'Росія',
+FR: 'Франція',
+DE: 'Німеччина',
+JP: 'Японія',
+KR: 'Південна Корея',
+CN: 'Китай',
+CA: 'Канада',
+AU: 'Австралія',
+IT: 'Італія',
+ES: 'Іспанія',
+IN: 'Індія'
+}
 };
 
 function trim(str) {
@@ -5535,7 +5556,8 @@ return ('' + (str || '')).replace(/^\s+|\s+$/g, '');
 
 
 
-function country(headText, productionCountries) {
+
+function country(headText, productionCountries, lang) {
 var text = trim(headText).replace(/^\d{4}\s*,?\s*/, '');
 text = trim(text);
 if (text) return text;
@@ -5543,7 +5565,8 @@ if (text) return text;
 if (productionCountries && productionCountries.length) {
 var first = productionCountries[0] || {};
 var iso = first.iso_3166_1;
-if (iso && COUNTRY_RU[iso]) return COUNTRY_RU[iso];
+var names = COUNTRY_NAMES[lang || 'ru'];
+if (iso && names && names[iso]) return names[iso];
 return first.name || iso || '';
 }
 return '';
@@ -29327,7 +29350,8 @@ if (year) parts.push('<span>' + LC.util.esc(year) + '</span>');
 
 
 var headText = root.find('.full-start-new__head').text();
-var countryText = LC.cardinfo.country(headText, movie.production_countries);
+var countryText = LC.cardinfo.country(headText, movie.production_countries,
+typeof LC.langCode === 'function' ? LC.langCode() : 'ru');
 if (countryText) parts.push('<span>' + LC.util.esc(countryText) + '</span>');
 
 if (serial) {

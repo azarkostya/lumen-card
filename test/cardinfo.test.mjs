@@ -69,6 +69,19 @@ test('country: код не найден в словаре -> английско�
   assert.equal(cardinfo.country('', [{ iso_3166_1: 'ZZ', name: 'Wonderland' }]), 'Wonderland');
 });
 
+/* Долг фазы 1 (docs/plans/2026-09-15-lumen-card.md:1123, п.3): фолбэк
+   по ISO отдавал русское название при любом языке интерфейса. */
+test('country: фолбэк по ISO — на языке интерфейса, а не всегда по-русски', () => {
+  const us = [{ iso_3166_1: 'US', name: 'United States of America' }];
+  const de = [{ iso_3166_1: 'DE', name: 'Germany' }];
+  assert.equal(cardinfo.country('', us, 'en'), 'United States of America', 'английский — имя TMDB как есть');
+  assert.equal(cardinfo.country('', de, 'en'), 'Germany');
+  assert.equal(cardinfo.country('', de, 'uk'), 'Німеччина');
+  assert.equal(cardinfo.country('', de, 'ru'), 'Германия');
+  assert.equal(cardinfo.country('', de, 'be'), 'Germany', 'языка без словаря — имя TMDB, а не русское');
+  assert.equal(cardinfo.country('2024, Deutschland', de, 'en'), 'Deutschland', 'текст Lampa в шапке главнее словаря');
+});
+
 test('country: ни head, ни countries -> пустая строка', () => {
   assert.equal(cardinfo.country('', []), '');
   assert.equal(cardinfo.country('', null), '');

@@ -5,21 +5,42 @@
   /* -------------------------------------------------------------------- */
 
   LC.cardinfo = (function () {
-    /* Task 5 Step 3b.2: словарь ISO -> русское название страны. */
-    var COUNTRY_RU = {
-      US: 'США',
-      GB: 'Великобритания',
-      RU: 'Россия',
-      FR: 'Франция',
-      DE: 'Германия',
-      JP: 'Япония',
-      KR: 'Южная Корея',
-      CN: 'Китай',
-      CA: 'Канада',
-      AU: 'Австралия',
-      IT: 'Италия',
-      ES: 'Испания',
-      IN: 'Индия'
+    /* Task 5 Step 3b.2: словарь ISO -> название страны на языке интерфейса.
+       Долг фазы 1 (docs/plans/2026-09-15-lumen-card.md:1123, п.3): словарь
+       был один, русский, и фолбэк отдавал «США» при любом языке. Теперь
+       словарей два — русский и украинский; для английского словаря не
+       нужно: production_countries[].name у TMDB и так английское. */
+    var COUNTRY_NAMES = {
+      ru: {
+        US: 'США',
+        GB: 'Великобритания',
+        RU: 'Россия',
+        FR: 'Франция',
+        DE: 'Германия',
+        JP: 'Япония',
+        KR: 'Южная Корея',
+        CN: 'Китай',
+        CA: 'Канада',
+        AU: 'Австралия',
+        IT: 'Италия',
+        ES: 'Испания',
+        IN: 'Индия'
+      },
+      uk: {
+        US: 'США',
+        GB: 'Велика Британія',
+        RU: 'Росія',
+        FR: 'Франція',
+        DE: 'Німеччина',
+        JP: 'Японія',
+        KR: 'Південна Корея',
+        CN: 'Китай',
+        CA: 'Канада',
+        AU: 'Австралія',
+        IT: 'Італія',
+        ES: 'Іспанія',
+        IN: 'Індія'
+      }
     };
 
     function trim(str) {
@@ -29,9 +50,10 @@
     /* headText — текст штатного .full-start-new__head, который start.js
        заполняет до события complite (формат '2024, США' или просто '2024').
        Отрезаем ведущий год с разделителем; если после этого ничего не
-       осталось — фолбэк на production_countries[].iso_3166_1 по словарю,
-       иначе английское имя страны из TMDB. */
-    function country(headText, productionCountries) {
+       осталось — фолбэк на production_countries[].iso_3166_1 по словарю
+       языка lang (код LC.langCode; не передан — русский, как было), иначе
+       английское имя страны из TMDB. */
+    function country(headText, productionCountries, lang) {
       var text = trim(headText).replace(/^\d{4}\s*,?\s*/, '');
       text = trim(text);
       if (text) return text;
@@ -39,7 +61,8 @@
       if (productionCountries && productionCountries.length) {
         var first = productionCountries[0] || {};
         var iso = first.iso_3166_1;
-        if (iso && COUNTRY_RU[iso]) return COUNTRY_RU[iso];
+        var names = COUNTRY_NAMES[lang || 'ru'];
+        if (iso && names && names[iso]) return names[iso];
         return first.name || iso || '';
       }
       return '';
