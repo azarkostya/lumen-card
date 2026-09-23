@@ -536,7 +536,11 @@ var MANIFEST34 = {
 };
 
 var poolCards34 = [];
+/* Ф2 п.5: счётчик запросов пула — тест паузы проверяет, что скрытый экран
+   в сеть не ходит. Сбрасывается в openRoulette34. */
+var fetchCalls34 = 0;
 function fetchStub34(item, page, ok) {
+  fetchCalls34++;
   ok({ results: page === 1 ? poolCards34 : [] });
   return { clear: function () { } };
 }
@@ -612,6 +616,7 @@ function openRoulette34(cards, t, dpr, motion, object) {
   createdImages.length = 0;
   scrolls.length = 0;
   poolCards34 = cards;
+  fetchCalls34 = 0;
   t.after(restoreGlobals34);
 
   var components = {};
@@ -1262,6 +1267,33 @@ test('правка 2026-09-23: выборка показывается отло�
      по-прежнему на «Крутить». */
   const build = SRC.slice(SRC.indexOf("var peek1 = $("), SRC.indexOf("var spinBtn = $("));
   assert.equal(/selector/.test(build), false, 'узлы стопки и счётчика не должны быть фокусируемыми: ' + build);
+});
+
+/* Ревью фикс-раунда, Ф2 п.5. Открыли карточку прямо с рулетки: Lampa
+   зовёт у текущей активности только pause(), а stop() — у той, что под ней
+   (limit() в vendor/lampa/app.min.js:45771-45775, push$3 — :45836-45841).
+   Отложенный показ выборки должен гаснуть уже на pause(): иначе через
+   PREVIEW_DELAY рулетка шлёт запросы пула и рисует стопку в скрытом экране. */
+test('Ф2 п.5: pause() гасит отложенный показ выборки', (t) => {
+  /* Контроль: без pause() тот же заход за PREVIEW_DELAY идёт в сеть — иначе
+     ноль запросов ниже ничего бы не доказывал. */
+  const probe = openRoulette34([R44, R44], t, 1, 'lite');
+  probe.comp.start();
+  drainDelays();
+  assert.ok(fetchCalls34 > 0, 'показ выборки не запросил пул и без паузы — тест ничего не проверяет');
+
+  const env = openRoulette34([R44, R44], t, 1, 'lite');
+  env.comp.start();
+  env.comp.pause();
+  drainDelays();
+  assert.equal(fetchCalls34, 0, 'экран, ушедший под карточку, запросил пул для показа выборки');
+
+  /* Возврат: start() поднимать показ сам не обязан, но экран после pause()
+     обязан остаться рабочим — «Крутить» по-прежнему доводит до результата. */
+  env.comp.start();
+  fire(env.root.find('.lumen-roulette__spin'), 'hover:enter');
+  drainDelays();
+  assert.equal(env.root.find('.lumen-roulette__result').hasClass('is-live'), true, 'после pause()/start() рулетка не крутится');
 });
 
 test('правка 2026-09-23: подпись счётчика выборки есть во всех трёх языках', () => {

@@ -19136,6 +19136,7 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 
+
 LC.roulette = (function () {
 
 
@@ -20580,6 +20581,7 @@ started = true;
 
 
 
+
 if (result && !resultShown()) paintResult(result);
 if (result && !resultBgShown && !resultLoader) prepareFrame(result);
 motionClass(root);
@@ -20620,8 +20622,19 @@ back: function () { Lampa.Activity.backward(); }
 Lampa.Controller.toggle('content');
 };
 
-this.pause = function () { };
 
+
+
+
+
+
+
+
+
+this.pause = function () {
+started = false;
+bump();
+};
 
 
 
