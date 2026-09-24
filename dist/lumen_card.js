@@ -29118,35 +29118,78 @@ var state = null;
 
 
 
+
+
+
 var SLOTS = 5;
 
-function newSlot() { return { long: 0, b: [0, 0, 0, 0] }; }
+function newSlot() { return { long: 0, loaf: 0, loafMs: 0, d: [], lat: [] }; }
+
+function resetSlot(slot) {
+slot.long = 0; slot.loaf = 0; slot.loafMs = 0;
+slot.d.length = 0; slot.lat.length = 0;
+}
+
+function num(a, b) { return a - b; }
+
+function r1(x) { return Math.round(x * 10) / 10; }
+
+
+function pct(sorted, q) {
+if (!sorted.length) return 0;
+var i = Math.ceil(q * sorted.length) - 1;
+return sorted[i < 0 ? 0 : (i >= sorted.length ? sorted.length - 1 : i)];
+}
 
 
 
 
 
 
-function bucket(ms) {
-if (ms <= 16) return 0;
-if (ms <= 33) return 1;
-if (ms <= 50) return 2;
+
+
+function bucket(ms, P) {
+if (!(P > 0) || ms <= 1.5 * P) return 0;
+if (ms <= 2.5 * P) return 1;
+if (ms <= 3.5 * P) return 2;
 return 3;
 }
 
 
+
+
+function windowStats(deltas, lats) {
+var d = deltas.slice().sort(num);
+var l = lats.slice().sort(num);
+var P = d.length ? d[Math.floor(d.length / 2)] : 0;
+var raf = [0, 0, 0, 0];
+var sum = 0;
+for (var i = 0; i < d.length; i++) {
+sum += d[i];
+raf[bucket(d[i], P)]++;
+}
+return {
+raf: raf, P: r1(P), avg: sum > 0 ? Math.round(d.length * 1000 / sum) : 0,
+p95: r1(pct(d, 0.95)), lat95: l.length ? r1(pct(l, 0.95)) : null
+};
+}
+
+
 function totals() {
-var out = { long: 0, b: [0, 0, 0, 0] };
+var d = [];
+var lat = [];
+var out = { long: 0, loaf: 0, loafMs: 0 };
 for (var i = 0; i < state.slots.length; i++) {
 var slot = state.slots[i];
 out.long += slot.long;
-for (var j = 0; j < 4; j++) out.b[j] += slot.b[j];
+out.loaf += slot.loaf;
+out.loafMs += slot.loafMs;
+d.push.apply(d, slot.d);
+lat.push.apply(lat, slot.lat);
 }
+out.stats = windowStats(d, lat);
 return out;
 }
-
-
-
 
 
 
@@ -29155,6 +29198,22 @@ return out;
 function longText(l) {
 if (!l) return 'n/a';
 return l.win + '/' + l.total;
+}
+
+
+
+
+
+
+
+
+function loafText(l) {
+if (!l) return 'n/a';
+return l.n + '/' + Math.round(l.ms);
+}
+
+function orNa(v) {
+return v === null || typeof v === 'undefined' ? 'n/a' : v;
 }
 
 
@@ -29185,8 +29244,15 @@ return t.state + (t.color ? ' ' + t.color : '') + (t.url ? ' ' + t.url : '');
 
 
 
+
+
+
+
+
 function format(d) {
-return d.fps + ' fps · long ' + longText(d.long) + ' · raf ' + d.raf.join('/') +
+return d.fps + ' fps · avg ' + orNa(d.avg) + ' · p95 ' + orNa(d.p95) +
+' · raf ' + d.raf.join('/') + ' P' + orNa(d.P) + ' · lat95 ' + orNa(d.lat95) +
+' · long ' + longText(d.long) + ' · loaf ' + loafText(d.loaf) +
 ' · eps ' + d.eps + ' · layers ' + d.layers + '+' + (d.hid || 0) +
 ' · ' + d.w + '×' + d.h + '@' + d.dpr + ' · cr ' + d.cr + ' · ' + d.mode +
 ' · hw ' + d.hw + ' · tr ' + (d.tr || 'n/a') + ' · tint ' + tint(d);
@@ -29341,6 +29407,36 @@ if (id && window.cancelAnimationFrame) window.cancelAnimationFrame(id);
 
 
 
+function lateness(t) {
+try {
+if (window.performance && typeof window.performance.now === 'function') {
+var late = window.performance.now() - t;
+return late > 0 ? late : 0;
+}
+} catch (e) { }
+return -1;
+}
+
+
+
+function observe(type, onEntries) {
+try {
+var PO = window.PerformanceObserver;
+if (!PO || !PO.supportedEntryTypes || PO.supportedEntryTypes.indexOf(type) === -1) return null;
+var obs = new PO(function (list) {
+if (state) onEntries(list.getEntries());
+});
+if (type === 'longtask') obs.observe({ entryTypes: ['longtask'] });
+else obs.observe({ type: type });
+return obs;
+} catch (e) { }
+return null;
+}
+
+
+
+
+
 
 
 
@@ -29348,6 +29444,8 @@ if (id && window.cancelAnimationFrame) window.cancelAnimationFrame(id);
 
 function paint(t) {
 if (!state) return;
+
+var late = lateness(t);
 if (!state.last) {
 state.last = t;
 
@@ -29363,7 +29461,9 @@ state.frames++;
 
 
 
-state.slots[state.at].b[bucket(t - state.prev)]++;
+var slot = state.slots[state.at];
+slot.d.push(t - state.prev);
+if (late >= 0) slot.lat.push(late);
 state.prev = t;
 var elapsed = t - state.last;
 if (elapsed >= 1000) {
@@ -29375,20 +29475,23 @@ try { mode = LC.motionMode(); } catch (e) { }
 
 
 var sums = totals();
+var st = sums.stats;
 var lay = layerCounts();
 state.node.textContent = format({
-fps: Math.round(state.frames * 1000 / elapsed), w: window.innerWidth, h: window.innerHeight,
+fps: Math.round(state.frames * 1000 / elapsed), avg: st.avg, p95: st.p95, P: st.P, lat95: st.lat95,
+w: window.innerWidth, h: window.innerHeight,
 dpr: Math.round((window.devicePixelRatio || 1) * 100) / 100,
 cr: chrome(), mode: mode,
 long: state.longSup ? { win: sums.long, total: state.longTotal } : null,
-raf: sums.b, eps: eps(), layers: lay.on, hid: lay.off, hw: hardware(), tr: trailerStatus(), tint: accentStatus()
+loaf: state.loafSup ? { n: sums.loaf, ms: sums.loafMs } : null,
+raf: st.raf, eps: eps(), layers: lay.on, hid: lay.off, hw: hardware(), tr: trailerStatus(), tint: accentStatus()
 });
 state.frames = 0; state.last = t;
 
 
 
 state.at = (state.at + 1) % SLOTS;
-state.slots[state.at] = newSlot();
+resetSlot(state.slots[state.at]);
 }
 state.raf = raf(paint);
 }
@@ -29400,30 +29503,34 @@ node.className = 'lumen-hud';
 document.body.appendChild(node);
 var slots = [];
 for (var i = 0; i < SLOTS; i++) slots.push(newSlot());
-state = { node: node, frames: 0, last: 0, prev: 0, longTotal: 0, longSup: false,
-slots: slots, at: 0, raf: 0, obs: null };
+state = { node: node, frames: 0, last: 0, prev: 0, longTotal: 0, longSup: false, loafSup: false,
+slots: slots, at: 0, raf: 0, obs: null, loafObs: null };
 
 
 
 
 
 
-try {
-if (window.PerformanceObserver && window.PerformanceObserver.supportedEntryTypes &&
-window.PerformanceObserver.supportedEntryTypes.indexOf('longtask') > -1) {
-state.obs = new window.PerformanceObserver(function (list) {
-if (!state) return;
-var n = list.getEntries().length;
-state.longTotal += n;
-state.slots[state.at].long += n;
+
+state.obs = observe('longtask', function (entries) {
+state.longTotal += entries.length;
+state.slots[state.at].long += entries.length;
 });
-state.obs.observe({ entryTypes: ['longtask'] });
 
 
 
-state.longSup = true;
+state.longSup = !!state.obs;
+
+
+
+state.loafObs = observe('long-animation-frame', function (entries) {
+var slot = state.slots[state.at];
+for (var i = 0; i < entries.length; i++) {
+slot.loaf++;
+slot.loafMs += Number(entries[i].blockingDuration) || 0;
 }
-} catch (e) { }
+});
+state.loafSup = !!state.loafObs;
 state.raf = raf(paint);
 }
 
@@ -29431,6 +29538,7 @@ function stop() {
 if (!state) return;
 unraf(state.raf);
 try { if (state.obs) state.obs.disconnect(); } catch (e2) { }
+try { if (state.loafObs) state.loafObs.disconnect(); } catch (e4) { }
 try { state.node.parentNode.removeChild(state.node); } catch (e3) { }
 state = null;
 }
@@ -29456,6 +29564,9 @@ if (on) start(); else stop();
 
 return {
 sync: sync, stop: stop, format: format, running: function () { return !!state; }, layers: layers,
+
+
+windowStats: windowStats,
 
 layerCounts: layerCounts,
 

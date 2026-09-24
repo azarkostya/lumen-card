@@ -31,7 +31,50 @@ function fresh(extra) {
 
 /* Task 68 (фаза 6): базовый набор полей строки. Все величины подаются
    готовыми — format() ничего не измеряет сам. */
-const BASE = { fps: 58, w: 1920, h: 1080, dpr: 2, cr: '77', mode: 'full', long: { win: 3, total: 212 }, raf: [48, 3, 1, 0], eps: 25, layers: 5, hw: '4c/2gb' };
+const BASE = { fps: 58, avg: 55, p95: 19.2, P: 16.7, lat95: 3.1, loaf: { n: 2, ms: 140 }, w: 1920, h: 1080, dpr: 2, cr: '77', mode: 'full', long: { win: 3, total: 212 }, raf: [48, 3, 1, 0], eps: 25, layers: 5, hw: '4c/2gb' };
+
+/* Волна производительности (жалоба с ТВ «всё ещё лагает всё», 2026-09-24):
+   гистограмма с жёсткой границей 16 мс резала нормальные кадры — дельта
+   rAF на 60 Гц гуляет 16,4–17,1 мс, и половина ровных кадров уезжала во
+   вторую корзину. Теперь корзины — от медианы дельт P (≤1,5·P — кадр
+   вовремя, ≤2,5·P — пропущен один, ≤3,5·P — два, дальше — больше), P
+   пишется рядом, и в строке среднее fps за окно и p95 дельты. Плюс то, что
+   на cr 153 уже есть: long-animation-frame и задержка колбэка rAF. */
+test('волна perf: format — avg, p95, P у гистограммы, lat95 и loaf', () => {
+  const { api } = fresh();
+  const line = api.format(BASE);
+  assert.ok(line.indexOf('58 fps · avg 55 · p95 19.2 · ') === 0, 'fps, среднее за окно и p95 — в начале строки: ' + line);
+  assert.ok(line.indexOf(' · raf 48/3/1/0 P16.7 · ') !== -1, 'P рядом с корзинами: ' + line);
+  assert.ok(line.indexOf(' · lat95 3.1 · ') !== -1, 'задержка колбэка rAF: ' + line);
+  assert.ok(line.indexOf(' · loaf 2/140 · ') !== -1, 'long-animation-frame: число и сумма blockingDuration: ' + line);
+});
+
+test('волна perf: format — нет loaf и задержки rAF — «n/a», а не ноль', () => {
+  const { api } = fresh();
+  const line = api.format(Object.assign({}, BASE, { loaf: null, lat95: null }));
+  assert.ok(line.indexOf(' · loaf n/a · ') !== -1, line);
+  assert.ok(line.indexOf(' · lat95 n/a · ') !== -1, line);
+});
+
+/* Чистая часть окна: корзины от медианы, среднее, p95. */
+test('волна perf: windowStats — корзины от медианы дельт, границы 1,5/2,5/3,5·P включительно', () => {
+  const { api } = fresh();
+  /* Девять дельт: медиана (пятая по порядку) — 16. Границы: 24 / 40 / 56. */
+  const s = api.windowStats([16, 16, 16, 16, 16, 24, 40, 57, 100], []);
+  assert.equal(s.P, 16);
+  assert.deepEqual(s.raf, [6, 1, 0, 2], '16×5 и 24 — вовремя, 40 — минус один, 57 и 100 — больше трёх');
+  assert.equal(s.avg, Math.round(9 * 1000 / 301), 'среднее fps — кадры на сумму дельт');
+  assert.equal(s.p95, 100, 'p95 девяти значений — девятое');
+  assert.equal(s.lat95, null, 'задержек нет — null');
+  /* 60 Гц с дрожанием: ни один ровный кадр не уходит во вторую корзину —
+     ровно то, что делала прежняя граница 16 мс. */
+  const jitter = api.windowStats([16.4, 16.9, 16.6, 17.1, 16.5, 16.8], [0.4, 1.2, 0.8]);
+  assert.deepEqual(jitter.raf, [6, 0, 0, 0]);
+  assert.equal(jitter.lat95, 1.2);
+  /* 30 Гц ровно: медиана 33 — тоже «вовремя», а не «всё во второй». */
+  assert.deepEqual(api.windowStats([33.3, 33.4, 33.3, 33.4], []).raf, [4, 0, 0, 0]);
+  assert.deepEqual(api.windowStats([], []), { raf: [0, 0, 0, 0], P: 0, avg: 0, p95: 0, lat95: null });
+});
 
 test('hud: format — строка содержит fps, «1920×1080@2», режим, «long 3/212», «layers 5», «hw»', () => {
   const { api } = fresh();
@@ -183,13 +226,25 @@ function env(opts) {
      дёргать longtask-записи руками. */
   const observers = [];
   const obsCallbacks = [];
-  if (opts.longtask) {
+  if (opts.longtask || opts.loaf) {
     win.PerformanceObserver = function (cb) {
-      obsCallbacks.push(cb);
-      this.observe = (init) => { observers.push({ op: 'observe', init }); };
+      const rec = { cb, types: [] };
+      obsCallbacks.push(rec);
+      this.observe = (init) => {
+        rec.types = (init && (init.entryTypes || [init.type])) || [];
+        observers.push({ op: 'observe', init });
+      };
       this.disconnect = () => { observers.push({ op: 'disconnect' }); };
     };
-    win.PerformanceObserver.supportedEntryTypes = opts.longtaskSupported !== false ? ['longtask'] : [];
+    const types = [];
+    if (opts.longtask && opts.longtaskSupported !== false) types.push('longtask');
+    if (opts.loaf) types.push('long-animation-frame');
+    win.PerformanceObserver.supportedEntryTypes = types;
+  }
+  /* Волна perf: задержка колбэка rAF — performance.now() в момент вызова
+     минус метка кадра. opts.lateBy — на сколько мс колбэк опаздывает. */
+  if (typeof opts.lateBy === 'number') {
+    win.performance = { now: () => nowMs + opts.lateBy };
   }
 
   globalThis.document = doc;
@@ -232,7 +287,8 @@ function env(opts) {
     addLayer: (className) => { const n = makeNode('div'); n.className = className; doc.body.appendChild(n); return n; },
     /* Имитирует одну longtask-запись PerformanceObserver — на ВСЕ подписки
        разом, как это делает реальный браузер. */
-    fireLongtask: (entries) => { obsCallbacks.forEach((cb) => cb({ getEntries: () => entries })); }
+    fireLongtask: (entries) => { obsCallbacks.forEach((r) => { if (r.types.indexOf('longtask') !== -1) r.cb({ getEntries: () => entries }); }); },
+    fireLoaf: (entries) => { obsCallbacks.forEach((r) => { if (r.types.indexOf('long-animation-frame') !== -1) r.cb({ getEntries: () => entries }); }); }
   };
 }
 
@@ -375,8 +431,8 @@ test('hud: два окна подряд — fps считается по факт
      кодом, который проверяется (без слоёв в этом env — 0). fps = round(2
      кадра * 1000 / 1200мс) = round(1.667) = 2. long — null: в этом env
      PerformanceObserver не заведён вовсе, мерить длинные задачи нечем.
-     Гистограмма: обе дельты по 600мс, то есть обе в корзине «>50». */
-  const win1 = e.api.format({ fps: 2, w: 1920, h: 1080, dpr: 2, cr: '77', mode: 'full', long: null, raf: [0, 0, 0, 2], eps: 0, layers: 0, hw: '4c/2gb', tint: ENV_TINT });
+     Гистограмма: обе дельты по 600мс — медиана и есть 600, обе «вовремя». */
+  const win1 = e.api.format({ fps: 2, avg: 2, p95: 600, P: 600, lat95: null, loaf: null, w: 1920, h: 1080, dpr: 2, cr: '77', mode: 'full', long: null, raf: [2, 0, 0, 0], eps: 0, layers: 0, hw: '4c/2gb', tint: ENV_TINT });
   assert.equal(e.bodyChildren[0].textContent, win1, 'окно 1: 2 кадра за 1200мс');
 
   assert.ok(e.tick(600), 'первый кадр окна 2 — элапсед от новой опоры 600мс < 1000');
@@ -385,7 +441,7 @@ test('hud: два окна подряд — fps считается по факт
   assert.ok(e.tick(600), 'второй кадр окна 2 — снова 1200мс от опоры');
   /* Те же 2 кадра в fps, но гистограмма — за ПЯТЬ последних интервалов
      обновления, поэтому в ней уже 4 дельты: две из окна 1 плюс две свои. */
-  const win2 = e.api.format({ fps: 2, w: 1920, h: 1080, dpr: 2, cr: '77', mode: 'full', long: null, raf: [0, 0, 0, 4], eps: 0, layers: 0, hw: '4c/2gb', tint: ENV_TINT });
+  const win2 = e.api.format({ fps: 2, avg: 2, p95: 600, P: 600, lat95: null, loaf: null, w: 1920, h: 1080, dpr: 2, cr: '77', mode: 'full', long: null, raf: [4, 0, 0, 0], eps: 0, layers: 0, hw: '4c/2gb', tint: ENV_TINT });
   assert.equal(e.bodyChildren[0].textContent, win2,
     'то же значение fps, что и в окне 1 — счётчик кадров и опорное время реально сброшены, а не растут дальше');
 });
@@ -397,22 +453,51 @@ test('hud: два окна подряд — fps считается по факт
 /* одного снимка видно, редкие ли это провалы или ровная просадка.         */
 /* ====================================================================== */
 
-test('hud: гистограмма rAF — каждая дельта попадает в свою корзину, границы 16/33/50 включительно', () => {
+test('волна perf: гистограмма rAF в строке — корзины от медианы окна, P рядом', () => {
   const e = env({ store: { lumen_debug_hud: true }, width: 1920, height: 1080, dpr: 2, mode: 'lite' });
   e.api.sync();
 
   e.tick(100);              /* опорный кадр: дельты ещё нет */
-  [16, 10, 33, 50, 51, 200].forEach((ms) => e.tick(ms));
-  /* Сумма дельт после опорного — 360мс, порога 1000 ещё нет. */
+  [16, 16, 16, 16, 24, 40, 57].forEach((ms) => e.tick(ms));
+  /* Сумма дельт после опорного — 185мс, порога 1000 ещё нет. */
   assert.equal(e.bodyChildren[0].textContent, '', 'окно ещё не закрыто');
-  e.tick(1000);             /* седьмая дельта, корзина «>50», и закрытие окна */
+  e.tick(1000);             /* восьмая дельта и закрытие окна */
 
+  /* Дельты по порядку: 16, 16, 16, 16, 24, 40, 57, 1000 — медиана (индекс
+     floor(8/2) = 4) равна 24. Границы 36 / 60 / 84: 16×4 и 24 — вовремя,
+     40 и 57 — минус один кадр, 1000 — больше трёх. */
   const expected = e.api.format({
-    fps: Math.round(7 * 1000 / 1360), w: 1920, h: 1080, dpr: 2, cr: '77', mode: 'lite',
-    long: null, raf: [2, 1, 1, 3], eps: 0, layers: 0, hw: '4c/2gb', tint: ENV_TINT
+    fps: Math.round(8 * 1000 / 1185), avg: Math.round(8 * 1000 / 1185), p95: 1000, P: 24, lat95: null, loaf: null,
+    w: 1920, h: 1080, dpr: 2, cr: '77', mode: 'lite',
+    long: null, raf: [5, 2, 0, 1], eps: 0, layers: 0, hw: '4c/2gb', tint: ENV_TINT
   });
-  assert.equal(e.bodyChildren[0].textContent, expected,
-    '16 и 10 — в «≤16», 33 — в «≤33», 50 — в «≤50», 51/200/1000 — в «>50»');
+  assert.equal(e.bodyChildren[0].textContent, expected);
+});
+
+test('волна perf: задержка колбэка rAF доезжает до строки как lat95', () => {
+  const e = env({ store: { lumen_debug_hud: true }, lateBy: 4 });
+  e.api.sync();
+  e.tick(100);
+  e.tick(600);
+  e.tick(600);
+  assert.ok(e.bodyChildren[0].textContent.indexOf(' · lat95 4 · ') !== -1, e.bodyChildren[0].textContent);
+});
+
+test('волна perf: long-animation-frame — подписка при поддержке, число и сумма blockingDuration за окно', () => {
+  const e = env({ store: { lumen_debug_hud: true }, loaf: true });
+  e.api.sync();
+  assert.ok(e.observers.some((x) => x.op === 'observe' && x.init && x.init.type === 'long-animation-frame'),
+    'подписки на long-animation-frame нет: ' + JSON.stringify(e.observers));
+  e.fireLoaf([{ duration: 120, blockingDuration: 70 }, { duration: 90, blockingDuration: 40.4 }]);
+  e.tick(100);
+  e.tick(1000);
+  assert.ok(e.bodyChildren[0].textContent.indexOf(' · loaf 2/110 · ') !== -1, e.bodyChildren[0].textContent);
+  /* Без поддержки типа — «n/a». */
+  const none = env({ store: { lumen_debug_hud: true } });
+  none.api.sync();
+  none.tick(100);
+  none.tick(1000);
+  assert.ok(none.bodyChildren[0].textContent.indexOf(' · loaf n/a · ') !== -1, none.bodyChildren[0].textContent);
 });
 
 /* ====================================================================== */
@@ -486,7 +571,7 @@ test('hud: PerformanceObserver — накопленные longtask-записи 
   assert.ok(e.tick(600), 'элапсед 600мс — рано');
   assert.ok(e.tick(600), 'элапсед 1200мс — отрисовка');
 
-  const expected = e.api.format({ fps: 2, w: 1920, h: 1080, dpr: 2, cr: '77', mode: 'full', long: { win: 3, total: 3 }, raf: [0, 0, 0, 2], eps: 0, layers: 0, hw: '4c/2gb', tint: ENV_TINT });
+  const expected = e.api.format({ fps: 2, avg: 2, p95: 600, P: 600, lat95: null, loaf: null, w: 1920, h: 1080, dpr: 2, cr: '77', mode: 'full', long: { win: 3, total: 3 }, raf: [2, 0, 0, 0], eps: 0, layers: 0, hw: '4c/2gb', tint: ENV_TINT });
   assert.equal(e.bodyChildren[0].textContent, expected, 'три накопленные longtask-записи видны в строке');
 
   e.store.lumen_debug_hud = false;

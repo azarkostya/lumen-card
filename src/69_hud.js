@@ -23,7 +23,7 @@
 
     /* Состояние запущенного HUD. null — выключен (start() ничего не сделал
        или stop() уже прибрал). Одно на модуль: два узла разом не нужны. */
-    var state = null; /* { node, frames, last, prev, longTotal, longSup, slots, at, raf, obs } */
+    var state = null; /* { node, frames, last, prev, longTotal, longSup, loafSup, slots, at, raf, obs, loafObs } */
 
     /* -------------------------------------------------------------------- */
     /* Task 68 (фаза 6): величины, которые читаются с ОДНОГО снимка.         */
@@ -41,48 +41,107 @@
     /* пришлось бы считать по startTime каждой записи, то есть хранить       */
     /* список записей вместо пяти чисел.                                    */
     /*                                                                      */
-    /* Цена кольца — фиксированная: SLOTS объектов по пять чисел, заводятся  */
-    /* один раз в start(), на закрытии интервала один из них переписывается  */
-    /* новым. Ни одного массива переменной длины: HUD включают ровно там,    */
-    /* где ловят просадки, и он не имеет права стоить кадров сам.            */
+    /* Цена кольца. Волна производительности (2026-09-24): корзины теперь   */
+    /* считаются от медианы окна, а медиану по пяти счётчикам не собрать —   */
+    /* слот хранит сами дельты кадров и задержки колбэка. Массивы слота       */
+    /* заводятся один раз в start() и на закрытии интервала обнуляются по    */
+    /* длине, а не создаются заново; сортировка — раз в интервал строки, по  */
+    /* ~300 числам на 60 Гц. HUD включают ровно там, где ловят просадки, и   */
+    /* он не имеет права стоить кадров сам.                                  */
     /* -------------------------------------------------------------------- */
     var SLOTS = 5;
 
-    function newSlot() { return { long: 0, b: [0, 0, 0, 0] }; }
+    function newSlot() { return { long: 0, loaf: 0, loafMs: 0, d: [], lat: [] }; }
 
-    /* Корзины гистограммы: ≤16 / ≤33 / ≤50 / >50 мс — кадр в 60 fps, кадр в
-       30 fps, кадр в 20 fps и всё, что хуже. Верхняя граница совпадает с
-       порогом longtask (50 мс), поэтому четвёртая корзина и счётчик long
-       описывают одно и то же событие с разных сторон: сколько раз это было
-       видно на кадрах и сколько задач за этим стояло. */
-    function bucket(ms) {
-      if (ms <= 16) return 0;
-      if (ms <= 33) return 1;
-      if (ms <= 50) return 2;
+    function resetSlot(slot) {
+      slot.long = 0; slot.loaf = 0; slot.loafMs = 0;
+      slot.d.length = 0; slot.lat.length = 0;
+    }
+
+    function num(a, b) { return a - b; }
+
+    function r1(x) { return Math.round(x * 10) / 10; }
+
+    /* Значение квантиля q по отсортированному списку (ближайший ранг). */
+    function pct(sorted, q) {
+      if (!sorted.length) return 0;
+      var i = Math.ceil(q * sorted.length) - 1;
+      return sorted[i < 0 ? 0 : (i >= sorted.length ? sorted.length - 1 : i)];
+    }
+
+    /* Волна производительности: корзины — от медианы дельт окна P, а не от
+       жёстких 16/33/50 мс. Жалоба с ТВ «всё ещё лагает всё» пришла с фото,
+       на которых ровные кадры 60 Гц (дельта rAF гуляет 16,4–17,1 мс) почти
+       поровну делились между первой и второй корзиной, — гистограмма
+       рисовала просадку там, где её не было. ≤1,5·P — кадр вовремя, ≤2,5·P
+       — пропущен один, ≤3,5·P — два, дальше — больше. P пишется в строку
+       рядом: 16.7 — панель 60 Гц, 33.3 — устройство держит 30. */
+    function bucket(ms, P) {
+      if (!(P > 0) || ms <= 1.5 * P) return 0;
+      if (ms <= 2.5 * P) return 1;
+      if (ms <= 3.5 * P) return 2;
       return 3;
+    }
+
+    /* Чистая часть окна: дельты кадров и задержки колбэка rAF за окно →
+       корзины, P, среднее fps (кадры на сумму дельт), p95 дельты и p95
+       задержки. Наружу — ради теста. */
+    function windowStats(deltas, lats) {
+      var d = deltas.slice().sort(num);
+      var l = lats.slice().sort(num);
+      var P = d.length ? d[Math.floor(d.length / 2)] : 0;
+      var raf = [0, 0, 0, 0];
+      var sum = 0;
+      for (var i = 0; i < d.length; i++) {
+        sum += d[i];
+        raf[bucket(d[i], P)]++;
+      }
+      return {
+        raf: raf, P: r1(P), avg: sum > 0 ? Math.round(d.length * 1000 / sum) : 0,
+        p95: r1(pct(d, 0.95)), lat95: l.length ? r1(pct(l, 0.95)) : null
+      };
     }
 
     /* Суммы по кольцу — считаются раз в интервал, на отрисовке строки. */
     function totals() {
-      var out = { long: 0, b: [0, 0, 0, 0] };
+      var d = [];
+      var lat = [];
+      var out = { long: 0, loaf: 0, loafMs: 0 };
       for (var i = 0; i < state.slots.length; i++) {
         var slot = state.slots[i];
         out.long += slot.long;
-        for (var j = 0; j < 4; j++) out.b[j] += slot.b[j];
+        out.loaf += slot.loaf;
+        out.loafMs += slot.loafMs;
+        d.push.apply(d, slot.d);
+        lat.push.apply(lat, slot.lat);
       }
+      out.stats = windowStats(d, lat);
       return out;
     }
 
     /* «3/212» — за окно и всего. null — мерить нечем: в браузере нет
        PerformanceObserver или в supportedEntryTypes нет 'longtask'. Раньше
        в этом случае счётчик молча стоял на нуле и был неотличим от «длинных
-       задач нет» — на телевизоре, где консоли нет, это тихая ложь.
-       Тип 'long-animation-frame' не используется намеренно: он появился в
-       Chromium 123 (ТЗ Task 68), а устройство пользователя — Chrome/77,
-       и поле cr строки показывает этот мажор рядом. */
+       задач нет» — на телевизоре, где консоли нет, это тихая ложь. */
     function longText(l) {
       if (!l) return 'n/a';
       return l.win + '/' + l.total;
+    }
+
+    /* Волна производительности: «loaf 2/140» — долгие кадры анимации
+       (PerformanceObserver 'long-animation-frame') за окно и сумма их
+       blockingDuration в мс. Прежний комментарий здесь отказывался от этого
+       типа, потому что считал телевизор Chrome/77, — фото HUD 2026-09-24
+       показали «cr 153», а тип есть с Chromium 123. Он честнее longtask:
+       меряет не отдельную задачу, а весь кадр, который опоздал, вместе с
+       рендерингом. n/a — тип не поддержан. */
+    function loafText(l) {
+      if (!l) return 'n/a';
+      return l.n + '/' + Math.round(l.ms);
+    }
+
+    function orNa(v) {
+      return v === null || typeof v === 'undefined' ? 'n/a' : v;
     }
 
     /* Task 60: состояние подкраски от постера — «tint <состояние> [цвет]
@@ -112,9 +171,16 @@
        трейлера (LC.trailer.status, src/55_trailer.js: plan, none, api,
        ready, play, end, stop, timeout api, timeout ready, err N). Стоит
        перед подкраской: у той длинный адрес, и она уезжает в перенос
-       последней. */
+       последней.
+       Волна производительности: сразу за fps — среднее fps за окно (avg) и
+       p95 дельты кадра в мс; у гистограммы — P, от которой считаны корзины;
+       lat95 — p95 задержки колбэка rAF (performance.now() в колбэке минус
+       метка кадра: сколько главный поток был занят, когда кадр начался);
+       loaf — после long. */
     function format(d) {
-      return d.fps + ' fps · long ' + longText(d.long) + ' · raf ' + d.raf.join('/') +
+      return d.fps + ' fps · avg ' + orNa(d.avg) + ' · p95 ' + orNa(d.p95) +
+        ' · raf ' + d.raf.join('/') + ' P' + orNa(d.P) + ' · lat95 ' + orNa(d.lat95) +
+        ' · long ' + longText(d.long) + ' · loaf ' + loafText(d.loaf) +
         ' · eps ' + d.eps + ' · layers ' + d.layers + '+' + (d.hid || 0) +
         ' · ' + d.w + '×' + d.h + '@' + d.dpr + ' · cr ' + d.cr + ' · ' + d.mode +
         ' · hw ' + d.hw + ' · tr ' + (d.tr || 'n/a') + ' · tint ' + tint(d);
@@ -265,6 +331,36 @@
       } catch (e) { }
     }
 
+    /* Волна производительности: задержка колбэка rAF — performance.now() в
+       момент вызова минус метка кадра t (обе — в шкале performance). -1 —
+       мерить нечем (нет window.performance): Date.now() живёт в другой
+       шкале, и разность с t была бы бессмыслицей. */
+    function lateness(t) {
+      try {
+        if (window.performance && typeof window.performance.now === 'function') {
+          var late = window.performance.now() - t;
+          return late > 0 ? late : 0;
+        }
+      } catch (e) { }
+      return -1;
+    }
+
+    /* Подписка PerformanceObserver на тип, если браузер его знает; иначе
+       null — observe() на незнакомом типе бросил бы исключение. */
+    function observe(type, onEntries) {
+      try {
+        var PO = window.PerformanceObserver;
+        if (!PO || !PO.supportedEntryTypes || PO.supportedEntryTypes.indexOf(type) === -1) return null;
+        var obs = new PO(function (list) {
+          if (state) onEntries(list.getEntries());
+        });
+        if (type === 'longtask') obs.observe({ entryTypes: ['longtask'] });
+        else obs.observe({ type: type });
+        return obs;
+      } catch (e) { }
+      return null;
+    }
+
     /* state.last обязан жить в ТОЙ ЖЕ шкале, что и t (DOMHighResTimeStamp
        rAF, отсчитываемый от старта документа, обычно единицы-десятки тысяч
        мс) — раньше его заводили через performance.now()/Date.now() отдельно
@@ -276,6 +372,8 @@
        настоящий момент времени) и в счётчик кадров не идёт. */
     function paint(t) {
       if (!state) return;
+      /* Первой строкой: всё, что ниже, само двигает performance.now(). */
+      var late = lateness(t);
       if (!state.last) {
         state.last = t;
         /* state.prev — время предыдущего кадра, опора гистограммы дельт.
@@ -291,7 +389,9 @@
          поэтому paint() там не вызывается и строка не обновляется — это
          ограничение стенда, а не кода: на устройстве rAF тикает, иначе
          серии фото с меняющимся fps не получилось бы. */
-      state.slots[state.at].b[bucket(t - state.prev)]++;
+      var slot = state.slots[state.at];
+      slot.d.push(t - state.prev);
+      if (late >= 0) slot.lat.push(late);
       state.prev = t;
       var elapsed = t - state.last;
       if (elapsed >= 1000) {
@@ -303,20 +403,23 @@
            ради обнаружения которого HUD и нужен, иначе занизилось бы вдвое
            реже, чем должно, и осталось незамеченным. */
         var sums = totals();
+        var st = sums.stats;
         var lay = layerCounts();
         state.node.textContent = format({
-          fps: Math.round(state.frames * 1000 / elapsed), w: window.innerWidth, h: window.innerHeight,
+          fps: Math.round(state.frames * 1000 / elapsed), avg: st.avg, p95: st.p95, P: st.P, lat95: st.lat95,
+          w: window.innerWidth, h: window.innerHeight,
           dpr: Math.round((window.devicePixelRatio || 1) * 100) / 100,
           cr: chrome(), mode: mode,
           long: state.longSup ? { win: sums.long, total: state.longTotal } : null,
-          raf: sums.b, eps: eps(), layers: lay.on, hid: lay.off, hw: hardware(), tr: trailerStatus(), tint: accentStatus()
+          loaf: state.loafSup ? { n: sums.loaf, ms: sums.loafMs } : null,
+          raf: st.raf, eps: eps(), layers: lay.on, hid: lay.off, hw: hardware(), tr: trailerStatus(), tint: accentStatus()
         });
         state.frames = 0; state.last = t;
         /* Интервал закрыт — кольцо проворачивается, и следующий пишется в
            самый старый слот. Окно из SLOTS интервалов уезжает вместе с ним,
            а state.longTotal продолжает расти с момента включения HUD. */
         state.at = (state.at + 1) % SLOTS;
-        state.slots[state.at] = newSlot();
+        resetSlot(state.slots[state.at]);
       }
       state.raf = raf(paint);
     }
@@ -328,30 +431,34 @@
       document.body.appendChild(node);
       var slots = [];
       for (var i = 0; i < SLOTS; i++) slots.push(newSlot());
-      state = { node: node, frames: 0, last: 0, prev: 0, longTotal: 0, longSup: false,
-        slots: slots, at: 0, raf: 0, obs: null };
+      state = { node: node, frames: 0, last: 0, prev: 0, longTotal: 0, longSup: false, loafSup: false,
+        slots: slots, at: 0, raf: 0, obs: null, loafObs: null };
       /* window.PerformanceObserver — не голый PerformanceObserver: тот же
          повод, что у raf/unraf выше (окружение подменяет window целиком, а
          глобал — нет; в Node, например, PerformanceObserver — свой глобал
          из perf_hooks, никак не связанный с window). 'longtask' — не во
          всех WebView Android TV: подписываемся, только если тип реально в
-         supportedEntryTypes, иначе observe() бросил бы исключение. */
-      try {
-        if (window.PerformanceObserver && window.PerformanceObserver.supportedEntryTypes &&
-            window.PerformanceObserver.supportedEntryTypes.indexOf('longtask') > -1) {
-          state.obs = new window.PerformanceObserver(function (list) {
-            if (!state) return;
-            var n = list.getEntries().length;
-            state.longTotal += n;
-            state.slots[state.at].long += n;
-          });
-          state.obs.observe({ entryTypes: ['longtask'] });
-          /* Подписка состоялась — только теперь счётчику можно верить.
-             Без этого флага ноль в строке означал бы сразу две разные вещи:
-             «длинных задач не было» и «мерить нечем». */
-          state.longSup = true;
+         supportedEntryTypes (observe() выше), иначе observe() бросил бы
+         исключение. */
+      state.obs = observe('longtask', function (entries) {
+        state.longTotal += entries.length;
+        state.slots[state.at].long += entries.length;
+      });
+      /* Подписка состоялась — только теперь счётчику можно верить.
+         Без этого флага ноль в строке означал бы сразу две разные вещи:
+         «длинных задач не было» и «мерить нечем». */
+      state.longSup = !!state.obs;
+      /* Волна производительности: долгие кадры анимации — число и сумма
+         blockingDuration (время, на которое кадр задержал ввод и отрисовку
+         сверх 50 мс). */
+      state.loafObs = observe('long-animation-frame', function (entries) {
+        var slot = state.slots[state.at];
+        for (var i = 0; i < entries.length; i++) {
+          slot.loaf++;
+          slot.loafMs += Number(entries[i].blockingDuration) || 0;
         }
-      } catch (e) { }
+      });
+      state.loafSup = !!state.loafObs;
       state.raf = raf(paint);
     }
 
@@ -359,6 +466,7 @@
       if (!state) return;
       unraf(state.raf);
       try { if (state.obs) state.obs.disconnect(); } catch (e2) { }
+      try { if (state.loafObs) state.loafObs.disconnect(); } catch (e4) { }
       try { state.node.parentNode.removeChild(state.node); } catch (e3) { }
       state = null;
     }
@@ -384,6 +492,9 @@
 
     return {
       sync: sync, stop: stop, format: format, running: function () { return !!state; }, layers: layers,
+      /* Волна производительности: чистая статистика окна — наружу ради
+         теста. */
+      windowStats: windowStats,
       /* Ф2 п.3: оба числа — на экране и под ним — для теста и консоли. */
       layerCounts: layerCounts,
       /* Task 68: наружу — ради тестов и ради живой проверки со стенда
