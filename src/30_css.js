@@ -1232,10 +1232,15 @@
        .lumen-backdrop__img (72% 32%, cover) — оба правила должны выглядеть
        одинаково независимо от того, какое применится по каскаду. Без
        inset (план 0.3/0.4: запрет inset — нет в старых webview), только
-       top/right/bottom/left. Кроссфейд — opacity 1.2s ease-in-out (design
-       screen 12); Ken Burns (14s, 1.00→1.08) — уже в правиле
-       .lumen-backdrop.lumen-motion-full .lumen-bg__img.is-active ниже. */
-    css.push('.lumen-backdrop .lumen-bg__img{position:absolute;top:0;right:0;bottom:0;left:0;background-position:72% 32%;background-repeat:no-repeat;-webkit-background-size:cover;background-size:cover;opacity:0;-webkit-transition:opacity 1.2s ease-in-out;transition:opacity 1.2s ease-in-out}');
+       top/right/bottom/left. Ken Burns (14s, 1.00→1.08) — уже в правиле
+       .lumen-backdrop.lumen-motion-full .lumen-bg__img.is-active ниже.
+       Проверка на ТВ 2026-09-24: кадры меняются во всех режимах, кроме
+       «Выкл», но кроссфейд (opacity 1.2s ease-in-out, design screen 12) —
+       украшение: все 1,2 с на экране лежат ДВЕ полноэкранные картинки. Он
+       живёт только в полном режиме при включённых тяжёлых эффектах; в lite
+       и без тумблера кадр сменяется резко (базовое правило без перехода). */
+    css.push('.lumen-backdrop .lumen-bg__img{position:absolute;top:0;right:0;bottom:0;left:0;background-position:72% 32%;background-repeat:no-repeat;-webkit-background-size:cover;background-size:cover;opacity:0}');
+    css.push('body.lumen-fx-heavy .lumen-backdrop.lumen-motion-full .lumen-bg__img{-webkit-transition:opacity 1.2s ease-in-out;transition:opacity 1.2s ease-in-out}');
     css.push('.lumen-backdrop .lumen-bg__img.is-active{opacity:1}');
     /* Task 7 (экран 02): слой фонового трейлера — между кадрами слайдшоу и
        вуалями (порядок в DOM задаёт ensureLayer в 50_backdrops.js), поэтому

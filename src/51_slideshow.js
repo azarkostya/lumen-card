@@ -84,7 +84,9 @@
     }
 
     /* Длительность кроссфейда — должна совпадать с opacity-transition
-       .lumen-bg__img в src/30_css.js (transition:opacity 1.2s ease-in-out).
+       .lumen-bg__img в src/30_css.js (transition:opacity 1.2s ease-in-out;
+       с 2026-09-24 он есть только в full при тяжёлых эффектах, в lite смена
+       резкая — лишние 1,2 с тёплого уходящего кадра там ничего не стоят).
        Используется дважды (fix, Important/Minor): чтобы не гасить
        background-image уходящего кадра раньше, чем он реально долетит до
        opacity:0 (память, п.3), и чтобы держать инлайн-transform (Ken

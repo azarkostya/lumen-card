@@ -460,11 +460,40 @@ test('pickBackdrops: нет ничего -> []', () => {
 /* контроллера. */
 /* ====================================================================== */
 
-/* Task 40: ротация кадров карточки — тяжёлый эффект: каждый кадр это новая
-   полноэкранная картинка, её загрузка, декодирование и кроссфейд. При
-   выключенном тумблере её нет, хотя сама настройка слайдшоу включена. */
-test('Task 40: при выключенных тяжёлых эффектах ротация кадров не заводится', () => {
+/* Проверка на ТВ 2026-09-24: смена кадров карточки — контент, а не
+   украшение. Она работает во всех режимах анимаций, кроме «Выкл», и не
+   зависит от тумблера тяжёлых эффектов: на телевизоре (lite, тумблер
+   выключен по умолчанию) кадры стояли неподвижно. Тумблер отвечает только
+   за наезд и плавный переход (src/30_css.js). */
+test('ТВ 09-24: lite без тяжёлых эффектов — таймер ротации заводится, второй кадр грузится', () => {
+  const LC = freshLC({ motion: 'lite', fxHeavy: false, prefs: { lumen_slideshow: true } });
+  const body = fakeBody();
+  const movie = { id: 1, backdrop_path: '/main.jpg', images: { backdrops: [mk('/main.jpg', null, 9), mk('/c.jpg', null, 7)] } };
+
+  LC.backdrops.apply(null, body, movie);
+  mount(body._children[0]);
+  loaders[0].onload();
+  assert.equal(intervals.length, 1, 'таймер ротации есть');
+  fireInterval(1);
+  assert.equal(loaders.length, 2, 'второй кадр грузится');
+});
+
+test('ТВ 09-24: full без тяжёлых эффектов — ротация тоже идёт', () => {
   const LC = freshLC({ motion: 'full', fxHeavy: false, prefs: { lumen_slideshow: true } });
+  const body = fakeBody();
+  const movie = { id: 1, backdrop_path: '/main.jpg', images: { backdrops: [mk('/main.jpg', null, 9), mk('/c.jpg', null, 7)] } };
+
+  LC.backdrops.apply(null, body, movie);
+  mount(body._children[0]);
+  loaders[0].onload();
+  assert.equal(intervals.length, 1, 'таймер ротации есть');
+});
+
+test('ТВ 09-24: при режиме «Выкл» таймера ротации нет, и enabled() сам говорит «нет»', () => {
+  const LC = freshLC({ motion: 'off', fxHeavy: false, prefs: { lumen_slideshow: true } });
+  const seen = [];
+  const originalCreate = LC.slideshow.create;
+  LC.slideshow.create = function (layer, urls, opts) { seen.push(opts); return originalCreate(layer, urls, opts); };
   const body = fakeBody();
   const movie = { id: 1, backdrop_path: '/main.jpg', images: { backdrops: [mk('/main.jpg', null, 9), mk('/c.jpg', null, 7)] } };
 
@@ -473,6 +502,19 @@ test('Task 40: при выключенных тяжёлых эффектах р�
   loaders[0].onload();
   assert.equal(intervals.length, 0, 'таймера ротации нет');
   assert.equal(loaders.length, 1, 'второй кадр не грузится');
+  assert.equal(seen.length, 1);
+  assert.equal(seen[0].enabled(), false, 'в «Выкл» слайдшоу выключено независимо от своего пункта');
+});
+
+test('ТВ 09-24: выключенный пункт «Слайдшоу» гасит ротацию и в lite', () => {
+  const LC = freshLC({ motion: 'lite', fxHeavy: true, prefs: { lumen_slideshow: false } });
+  const body = fakeBody();
+  const movie = { id: 1, backdrop_path: '/main.jpg', images: { backdrops: [mk('/main.jpg', null, 9), mk('/c.jpg', null, 7)] } };
+
+  LC.backdrops.apply(null, body, movie);
+  mount(body._children[0]);
+  loaders[0].onload();
+  assert.equal(intervals.length, 0, 'таймера ротации нет');
 });
 
 test('apply()/cancel(): контроллер слайдшоу создаётся, активируется при загрузке первого кадра, cancel() его останавливает', () => {

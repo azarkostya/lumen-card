@@ -2034,7 +2034,12 @@ css.push('.lumen-backdrop__img{position:absolute;top:0;left:0;right:0;bottom:0;b
 
 
 
-css.push('.lumen-backdrop .lumen-bg__img{position:absolute;top:0;right:0;bottom:0;left:0;background-position:72% 32%;background-repeat:no-repeat;-webkit-background-size:cover;background-size:cover;opacity:0;-webkit-transition:opacity 1.2s ease-in-out;transition:opacity 1.2s ease-in-out}');
+
+
+
+
+css.push('.lumen-backdrop .lumen-bg__img{position:absolute;top:0;right:0;bottom:0;left:0;background-position:72% 32%;background-repeat:no-repeat;-webkit-background-size:cover;background-size:cover;opacity:0}');
+css.push('body.lumen-fx-heavy .lumen-backdrop.lumen-motion-full .lumen-bg__img{-webkit-transition:opacity 1.2s ease-in-out;transition:opacity 1.2s ease-in-out}');
 css.push('.lumen-backdrop .lumen-bg__img.is-active{opacity:1}');
 
 
@@ -16045,7 +16050,9 @@ function slideshowEnabled() {
 
 
 
-if (typeof LC.fxHeavy === 'function' && !LC.fxHeavy()) return false;
+
+
+try { if (LC.motionMode() === 'off') return false; } catch (e) { }
 return !!LC.pref('lumen_slideshow', true);
 }
 
@@ -16326,6 +16333,8 @@ return typeof LC.covered === 'function' && LC.covered() === true;
 return false;
 }
 }
+
+
 
 
 

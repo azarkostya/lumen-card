@@ -408,12 +408,27 @@ test('buildCss: .lumen-bg--blur — вне lumen-motion-full правил нет
 /* .lumen-backdrop (слой фона — сосед .lumen-card, не потомок).           */
 /* -------------------------------------------------------------------- */
 
-test('buildCss: .lumen-bg__img — базовое правило внутри .lumen-backdrop, кроссфейд opacity 1.2s ease-in-out, без inset', () => {
+test('buildCss: .lumen-bg__img — базовое правило внутри .lumen-backdrop, без перехода и без inset', () => {
   const decl = findDecl(css, (sel) => sel === '.lumen-backdrop .lumen-bg__img');
   assert.ok(decl, 'правило .lumen-backdrop .lumen-bg__img не найдено');
   assert.ok(/opacity\s*:\s*0\b/.test(decl), 'кадр должен быть по умолчанию прозрачным');
-  assert.ok(decl.indexOf('transition:opacity 1.2s ease-in-out') !== -1, 'ожидался transition:opacity 1.2s ease-in-out (design screen 12)');
+  /* Проверка на ТВ 2026-09-24: кадры карточки меняются и в lite, но там
+     смена резкая — без двух полноэкранных слоёв на время перехода. */
+  assert.equal(/transition/.test(decl), false, 'базовое правило без перехода: ' + decl);
   assert.equal(/inset\s*:/.test(decl), false);
+});
+
+test('ТВ 09-24: кроссфейд кадров карточки — только в full при тяжёлых эффектах, в lite смена резкая', () => {
+  const heavy = findDecl(css, (sel) => sel === 'body.lumen-fx-heavy .lumen-backdrop.lumen-motion-full .lumen-bg__img');
+  assert.ok(heavy, 'правило кроссфейда под body.lumen-fx-heavy не найдено');
+  assert.ok(heavy.indexOf('transition:opacity 1.2s ease-in-out') !== -1, 'ожидался transition:opacity 1.2s ease-in-out (design screen 12): ' + heavy);
+  /* Любое правило, дающее кадру переход, обязано требовать и тумблер, и
+     полный режим: в lite (класс lumen-motion-lite на слое, lumen-fx-heavy
+     на body в lite не бывает — LC.fxHeavy) перехода нет. */
+  const offenders = ruleBodies(css).filter((r) => /transition/.test(r.decl) &&
+    r.selectors.some((s) => s.indexOf('lumen-bg__img') !== -1 &&
+      !(s.indexOf('body.lumen-fx-heavy ') === 0 && s.indexOf('.lumen-motion-full') !== -1)));
+  assert.deepEqual(offenders, [], 'переход кадра без тумблера/полного режима');
 });
 
 test('buildCss: .lumen-bg__img.is-active — opacity:1', () => {
