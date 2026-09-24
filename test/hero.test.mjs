@@ -3856,6 +3856,53 @@ for (const input of ['пульт', 'мышь']) {
   });
 }
 
+/* Ревью правок раунда хвостов, п.4: уже играющий ролик героя играл дальше
+   под поиском и «Расширениями» — Lampa прячет под ними .wrap целиком
+   (body.ambience--enable), а iframe YouTube жил и декодировал ролик
+   впустую. Их открытие — тоже смена контроллера (Search.open ->
+   Controller.toggle('search'), Extensions.show -> toggle своего
+   контроллера), класс Lampa ставит до неё; у SearchInput есть ещё узел
+   .search-box. После закрытия — обычный отсчёт 8 с от возврата фокуса. */
+for (const c of [
+  { name: 'поиск', classes: ['ambience--enable', 'search--open'], nodes: [] },
+  { name: '«Расширения»', classes: ['ambience--enable'], nodes: [] },
+  { name: 'SearchInput (только узел)', classes: [], nodes: ['.search-box'] }
+]) {
+  test('трейлер героя: ' + c.name + ' поверх играющего ролика — ролик снят, после закрытия отсчёт 8 с от возврата фокуса', () => {
+    const env = trailerEnv();
+    const nodes = [];
+    globalThis.document.querySelector = (sel) => (nodes.indexOf(sel) !== -1 ? {} : null);
+    const main = makeMain();
+    env.hero.mount(main.activity);
+    const node = heroOf(main.activity);
+    focusOn(main, main.card1);
+    env.advance(8100);
+    lastVideos(env).ok(VIDEOS_RU);
+    env.players[0].onStart();
+
+    c.classes.forEach((cls) => env.bodyClasses.push(cls));
+    c.nodes.forEach((sel) => nodes.push(sel));
+    env.hero.onToggle();
+    env.advance(0);
+    assert.equal(env.players[0].destroys, 1, 'ролик играет под: ' + c.name);
+    assert.equal(node.hasClass('lumen-hero--trailer'), false);
+    env.advance(3000);
+    assert.equal(videoCount(env), 1, 'под спрятанной главной отсчёт завёлся');
+
+    c.classes.forEach((cls) => env.bodyClasses.splice(env.bodyClasses.indexOf(cls), 1));
+    nodes.length = 0;
+    fireFocus(main.activity, main.card1);
+    env.hero.onToggle();
+    env.advance(7900);
+    assert.equal(videoCount(env), 1, 'ролики спрошены раньше 8 с от закрытия');
+    env.advance(200);
+    assert.equal(videoCount(env), 2, 'после закрытия отсчёт на той же карточке не заведён');
+    lastVideos(env).ok(VIDEOS_RU);
+    assert.equal(env.players.length, 2);
+    assert.deepEqual(warnLog, []);
+  });
+}
+
 /* Ревью раунда хвостов, п.4: как у списка выбора выше — после закрытия
    плеера Lampa ролик героя спрашивается не раньше чем через полные 8 с от
    возврата фокуса. Плеер стартовал посреди отсчёта (трейлер из меню на

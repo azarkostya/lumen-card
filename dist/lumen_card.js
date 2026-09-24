@@ -13597,10 +13597,22 @@ state.trailerCard = null;
 
 
 
+
+
+
+
+
+
 function onToggle() {
-if (!state || !state.trailerTimer) return;
+if (!state || !(state.trailerTimer || state.trailer)) return;
 setTimeout(function () {
-if (state && state.trailerTimer && trailerBlocked()) forgetTrailerFocus();
+if (!state) return;
+if (state.trailer && homeHidden()) {
+cancelTrailer();
+forgetTrailerFocus();
+return;
+}
+if (state.trailerTimer && trailerBlocked()) forgetTrailerFocus();
 }, 0);
 }
 

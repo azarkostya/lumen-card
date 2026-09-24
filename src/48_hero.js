@@ -1051,11 +1051,23 @@
        открытое меню и забывала фокус второй раз — уже после возврата: ролик
        через 8 с стартовал в «забытом» состоянии, и первое же событие фокуса
        той же карточки (пульт или мышь) проходило гард «фокус не сменился»
-       и обрывало его. К следующему такту hide отработал. */
+       и обрывало его. К следующему такту hide отработал.
+       Ревью правок раунда хвостов, п.4: уже играющий ролик (отсчёта у него
+       нет) снимается, если главная спрятана целиком (homeHidden — поиск,
+       «Расширения», SearchInput: .wrap скрыт, а iframe YouTube жил и
+       декодировал ролик впустую). Фокус забывается, как у playerHook:
+       возврат на ту же карточку после закрытия заводит обычные 8 с. Под
+       меню, настройками и шапкой главную видно — ролик играет дальше. */
     function onToggle() {
-      if (!state || !state.trailerTimer) return;
+      if (!state || !(state.trailerTimer || state.trailer)) return;
       setTimeout(function () {
-        if (state && state.trailerTimer && trailerBlocked()) forgetTrailerFocus();
+        if (!state) return;
+        if (state.trailer && homeHidden()) {
+          cancelTrailer();
+          forgetTrailerFocus();
+          return;
+        }
+        if (state.trailerTimer && trailerBlocked()) forgetTrailerFocus();
       }, 0);
     }
 
