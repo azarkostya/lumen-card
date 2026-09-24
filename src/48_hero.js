@@ -594,73 +594,183 @@
        битый или не доехавший логотип — не просить второй раз вовсе (на
        каждом шаге фокуса по рядам это был бы запрос в никуда). Таблица
        растёт только на число разных логотипов, которые фокус успел
-       посетить, и умирает вместе со страницей. */
+       посетить, и умирает вместе со страницей.
+
+       Волна «Логотипы сразу» (2026-09-24): 'ok' теперь значит не «когда-то
+       доехал», а «загруженная картинка лежит в памяти» — см. хранилище
+       ниже. Вытесненный логотип теряет 'ok' и в следующий раз ждётся
+       заново, как незнакомый. */
     var logoSeen = {};
 
-    /* Предзагрузка логотипа — одна на героя и карточку (правка 2026-09-23:
-       логотип фильма появился и в самой карточке, src/85_header.js).
-       Разбор критерия «байты доехали», отказа от decode() и отсутствия
-       приоритета — у loadLogo ниже; здесь только механика, общая для
-       обоих мест:
-         - исход пишется в logoSeen ДО любого сторожа вызывающего: это
-           знание о картинке, а не о том, кто её просил (ревью 2026-09-22,
-           М5: первая неудача — 'retry', вторая — 'fail');
-         - страховочный таймаут LOAD_TIMEOUT — внутри, как у кадра;
-         - done(ok) зовётся ровно один раз, cancel() его отменяет без
-           записи исхода (отменённая загрузка о картинке ничего не узнала).
-       Возвращает {cancel}. */
-    function preloadLogo(path, url, done) {
-      var loader = new Image();
-      loader.decoding = 'async';
-      var over = false;
-      var timer = null;
+    /* Волна «Логотипы сразу»: ОБЩЕЕ хранилище логотипов — героя, карточки
+       фильма (waitLogo) и предзагрузки соседей (LC.prefetch,
+       src/58_prefetch.js). Жалоба пользователя: «логотипы подгружаются
+       только при выборе, и появляется сначала текст, а потом лого».
 
-      function stop() {
-        over = true;
-        loader.onload = null;
-        loader.onerror = null;
-        if (timer) {
-          clearTimeout(timer);
-          timer = null;
+       Почему нужны сильные ссылки. У приложения LAMPA на ТВ нет HTTP-кэша
+       (WebView грузит мимо него — исследование logo, 2026-09-24), и
+       «картинка в кэше» значит только одно: кэш Blink в памяти, а он
+       держит ресурс, пока жив хоть один его клиент. Картинка, у которой не
+       осталось ни одного Image, может уйти оттуда в любой момент, и 'ok' в
+       logoSeen стал бы ложью: известный логотип встал бы фоном, которого в
+       памяти уже нет, — рамка на миг пустая. Поэтому загруженные Image
+       держатся здесь, LRU:
+         - не больше LOGO_KEEP штук (окно соседей героя и первый экран
+           главной — около двадцати карточек);
+         - сумма растров naturalWidth × naturalHeight × 4 не больше
+           LOGO_BYTES — столько займёт декодированный логотип, когда его
+           нарисуют (у w780 это обычно 780 × 150…400, 0.5–1.2 МБ);
+         - вытесненный теряет 'ok' в logoSeen (неудачи — 'retry'/'fail' —
+           остаются: это знание не о памяти);
+         - использование (известный логотип встал на экран) делает запись
+           свежей.
+       Склейка: одинаковый логотип в пути грузится ОДИН раз, кто бы его ни
+       просил — герой, карточка или предзагрузка (logoFlight: путь → одна
+       картинка и список ждущих). Отказался последний ждущий — загрузка
+       снимается и в сети (removeAttribute('src')): на слабом ТВ байты
+       никому не нужной картинки отняты у кадра героя.
+       decode() не зовётся и здесь: растеризацию логотипа делает браузер,
+       когда его рисуют (разбор у loadLogo). */
+    var LOGO_KEEP = 24;
+    var LOGO_BYTES = 16 * 1024 * 1024;
+    var logoFlight = {};
+    var logoKept = [];
+    var logoBytes = 0;
+
+    function dropKept(path) {
+      for (var i = 0; i < logoKept.length; i++) {
+        if (logoKept[i].path === path) {
+          logoBytes -= logoKept[i].bytes;
+          return logoKept.splice(i, 1)[0];
         }
       }
+      return null;
+    }
 
-      function finish(ok) {
-        if (over) return;
-        stop();
-        logoSeen[path] = ok ? 'ok' : (logoSeen[path] === 'retry' ? 'fail' : 'retry');
-        if (done) done(ok);
+    function keepLogo(path, img) {
+      dropKept(path);
+      var bytes = (Number(img.naturalWidth) || 0) * (Number(img.naturalHeight) || 0) * 4;
+      logoKept.push({ path: path, img: img, bytes: bytes });
+      logoBytes += bytes;
+      /* Последний пришедший остаётся всегда — даже один больше потолка:
+         его как раз сейчас и ставят на экран. */
+      while (logoKept.length > 1 && (logoKept.length > LOGO_KEEP || logoBytes > LOGO_BYTES)) {
+        var old = logoKept.shift();
+        logoBytes -= old.bytes;
+        if (logoSeen[old.path] === 'ok') delete logoSeen[old.path];
       }
+    }
 
-      loader.onload = function () { finish(true); };
-      loader.onerror = function () { finish(false); };
-      timer = setTimeout(function () {
-        finish(!!(loader.complete && loader.naturalWidth));
+    /* Известный логотип понадобился — запись в LRU становится свежей.
+       Зовут её и показ (applyLogo, waitLogo), и план окна предзагрузки:
+       логотип соседа, загруженный давно, иначе вытеснил бы первый же
+       новый логотип того же окна. */
+    function touchLogo(path) {
+      var hit = dropKept(path);
+      if (!hit) return;
+      logoKept.push(hit);
+      logoBytes += hit.bytes;
+    }
+
+    /* Что хранилище знает о логотипе: 'ok' (в памяти), 'retry'/'fail'
+       (не доехал раз/два), 'load' (в пути) или '' (ничего). Наружу — для
+       предзагрузки соседей: она грузит незнакомые и не доехавшие раз. */
+    function logoState(path) {
+      if (!path) return '';
+      if (logoFlight[path]) return 'load';
+      return logoSeen[path] || '';
+    }
+
+    function unhookLogo(fl) {
+      fl.img.onload = null;
+      fl.img.onerror = null;
+      if (fl.timer) {
+        clearTimeout(fl.timer);
+        fl.timer = null;
+      }
+    }
+
+    /* Загрузка кончилась: исход — в logoSeen ДО колбэков ждущих (это знание
+       о картинке, а не о том, кто её просил; ревью 2026-09-22, М5: первая
+       неудача — 'retry', вторая — 'fail'), удача — в LRU. */
+    function landLogo(path, fl, ok) {
+      if (logoFlight[path] !== fl) return;
+      delete logoFlight[path];
+      unhookLogo(fl);
+      logoSeen[path] = ok ? 'ok' : (logoSeen[path] === 'retry' ? 'fail' : 'retry');
+      if (ok) keepLogo(path, fl.img);
+      var subs = fl.subs;
+      fl.subs = [];
+      for (var i = 0; i < subs.length; i++) {
+        try {
+          if (subs[i].done) subs[i].done(ok);
+        } catch (e) {
+          warn('hero: logo callback failed', e);
+        }
+      }
+    }
+
+    function flyLogo(path, url) {
+      var img = new Image();
+      img.decoding = 'async';
+      var fl = { img: img, subs: [], timer: null };
+      logoFlight[path] = fl;
+      img.onload = function () { landLogo(path, fl, true); };
+      img.onerror = function () { landLogo(path, fl, false); };
+      /* Страховочный таймаут — как у кадра: байты есть — удача. */
+      fl.timer = setTimeout(function () {
+        fl.timer = null;
+        landLogo(path, fl, !!(img.complete && img.naturalWidth));
       }, LOAD_TIMEOUT);
-      loader.src = url;
-      return { cancel: stop };
+      img.src = url;
+      return fl;
+    }
+
+    function leaveLogo(path, fl, sub) {
+      var i = fl.subs.indexOf(sub);
+      if (i !== -1) fl.subs.splice(i, 1);
+      if (fl.subs.length || logoFlight[path] !== fl) return;
+      /* Не ждёт никто: отменённая загрузка о картинке ничего не узнала —
+         исход не пишется. */
+      delete logoFlight[path];
+      unhookLogo(fl);
+      try {
+        if (typeof fl.img.removeAttribute === 'function') fl.img.removeAttribute('src');
+      } catch (e) {}
+    }
+
+    /* Предзагрузка логотипа — одна на героя, карточку и предзагрузку
+       соседей. Разбор критерия «байты доехали», отказа от decode() и
+       отсутствия приоритета — у loadLogo ниже; склейка и память — у
+       хранилища выше. done(ok) зовётся ровно один раз, cancel() его
+       отменяет. Возвращает {cancel}. */
+    function preloadLogo(path, url, done) {
+      var fl = logoFlight[path] || flyLogo(path, url);
+      var sub = { done: done };
+      fl.subs.push(sub);
+      return { cancel: function () { leaveLogo(path, fl, sub); } };
     }
 
     /* Ожидание логотипа с потолком TITLE_WAIT — правило «название выводится
        ОДИН раз: либо логотипом, либо текстом, без видимой подмены» (Task 71,
        правка 2026-09-22; разбор и замеры — у writeTitle), вынесенное для
-       карточки фильма (src/85_header.js). Герой пользуется теми же тремя
-       частями — logoSeen, preloadLogo и TITLE_WAIT, — но потолок у него
-       свой таймер: там он покрывает ещё и ожидание ДЕТАЛЕЙ (логотип
-       приходит только с ними), а у карточки данные с логотипами уже есть к
-       моменту постройки (Lampa.Api.full просит images вместе с деталями,
+       карточки фильма (src/85_header.js). Герой пользуется теми же частями —
+       хранилищем и TITLE_WAIT, — но потолок у него свой таймер: там он
+       покрывает ещё и ожидание ДЕТАЛЕЙ (логотип приходит только с ними), а
+       у карточки данные с логотипами уже есть к моменту постройки
+       (Lampa.Api.full просит images вместе с деталями,
        vendor/lampa/app.min.js:20071).
 
        decide(show) зовётся РОВНО один раз:
-         true  — логотип уже в кэше ресурсов браузера, его можно ставить;
-         false — выводить текст: логотипа нет в кэше и он не доехал за
+         true  — логотип в памяти (хранилище выше), его можно ставить;
+         false — выводить текст: логотипа нет в памяти и он не доехал за
                  TITLE_WAIT, не доехал вовсе или дважды не доезжал раньше.
        Известный исход ('ok'/'fail') решается синхронно, без таймера.
-       Логотип, доехавший ПОСЛЕ потолка, на экран уже не ставится — текст
-       остаётся до конца этого показа (подмена текста логотипом посреди
-       чтения — ровно та подмена, которую правило запрещает; с волны
-       «Логотипы сразу» так же и у героя, loadLogo); исход при этом всё
-       равно записан, и в следующий раз логотип встанет сразу.
+       Правило одно с героем (волна «Логотипы сразу»): логотип, доехавший
+       ПОСЛЕ потолка, на экран уже не ставится — текст остаётся до конца
+       этого показа (подмена текста логотипом посреди чтения — ровно та
+       подмена, которую правило запрещает); исход при этом записан, и в
+       следующий раз логотип встанет сразу.
        Возвращает {cancel} — снять и загрузку, и потолок. */
     function waitLogo(path, url, decide) {
       if (!path || !url || logoSeen[path] === 'fail') {
@@ -668,6 +778,7 @@
         return { cancel: function () {} };
       }
       if (logoSeen[path] === 'ok') {
+        touchLogo(path);
         decide(true);
         return { cancel: function () {} };
       }
@@ -1661,8 +1772,10 @@
        лого»; замер исследования logo на стенде в условиях ТВ — у 19 из 31
        карточки при шаге 1200 мс): логотип, доехавший, когда текст уже
        выведен (state.titleForced — потолок TITLE_WAIT истёк), на экран НЕ
-       ставится до конца этого показа. Исход при этом записан, и следующий
-       показ того же логотипа — сразу логотипом. */
+       ставится до конца этого показа. Исход при этом записан в хранилище,
+       и следующий показ того же логотипа — сразу логотипом. Чтобы логотип
+       успевал к первому выводу, его заранее тянет предзагрузка соседей
+       (src/58_prefetch.js). */
     function loadLogo(path, url) {
       var captured = gen;
       state.logoLoader = preloadLogo(path, url, function (ok) {
@@ -1721,18 +1834,32 @@
     function applyLogo(node, model) {
       var path = logoAllowed() ? model.logo : null;
       /* Предыдущая предзагрузка больше не нужна: её исход относится к
-         другому названию, а сторож поколения её колбэк уже не пустит. */
-      if (state.logoLoader) {
-        state.logoLoader.cancel();
-        state.logoLoader = null;
-      }
+         другому названию, а сторож поколения её колбэк уже не пустит.
+         Снимается ПОСЛЕ новой: тот же логотип (дорисовка деталей той же
+         карточки) склеивается в хранилище с уже идущей загрузкой, а не
+         рвёт её и не начинает заново. */
+      var prev = state.logoLoader;
+      state.logoLoader = null;
       var url = logoUrl(path);
-      if (!url || logoSeen[path] === 'fail') { hideLogo(node); return 'none'; }
-      if (logoSeen[path] === 'ok' && !state.titleForced) { showLogo(node, url); return 'logo'; }
-      hideLogo(node);
-      if (logoSeen[path] === 'ok') return 'none';
-      loadLogo(path, url);
-      return 'wait';
+      var out = 'wait';
+      if (!url || logoSeen[path] === 'fail') {
+        hideLogo(node);
+        out = 'none';
+      } else if (logoSeen[path] === 'ok') {
+        touchLogo(path);
+        if (state.titleForced) {
+          hideLogo(node);
+          out = 'none';
+        } else {
+          showLogo(node, url);
+          out = 'logo';
+        }
+      } else {
+        hideLogo(node);
+        loadLogo(path, url);
+      }
+      if (prev) prev.cancel();
+      return out;
     }
 
     /* Правка 2026-09-22 по отзыву пользователя («все равно переключение
@@ -1827,16 +1954,19 @@
        иначе герой дёргался бы дважды на каждую карточку.
 
        Найдено живьём (первый круг Task 18): write() обязана брать модель из
-       state.model, а не из замыкания. Ответ деталей из кэша Lampa приходит
-       СИНХРОННО, ещё до того как сработает отложенная на 180 мс подмена
-       текста, — и та возвращала на экран модель без деталей: мета съезжала
-       обратно на голый год, а скелетон загорался навсегда.
+       state.model, а не из замыкания. Ответ деталей может прийти раньше,
+       чем сработает отложенная на 180 мс подмена текста, — и та возвращала
+       на экран модель без деталей: мета съезжала обратно на голый год, а
+       скелетон загорался навсегда. (Тогда это объясняли синхронным ответом
+       из кэша Lampa; в Lampa 3.3.4 кэш деталей — IndexedDB, и его ответ
+       асинхронный всегда. Синхронный ответ с волны «Логотипы сразу» даёт
+       только память предзагрузки соседей, src/58_prefetch.js.)
 
        Task 71: смена карточки откладывает вывод на SWAP_MS во ВСЕХ режимах,
        а не только в full. В full отсрочка была всегда — под анимацию ухода
        текста, — и ровно из-за неё «первая версия работала идеально»: детали
-       уже виденной карточки Lampa отдаёт из кэша синхронно, отложенный
-       write() берёт модель уже с логотипом, и видимый вывод один. В lite
+       уже виденной карточки успевали за отсрочку, отложенный write() брал
+       модель уже с логотипом, и видимый вывод был один. В lite
        write() был мгновенным, и выводов было два: сначала текст, потом
        логотип — отзыв пользователя 2026-09-21, п.2 («названия подгружают на
        ходу „постеры“ названия»). Цена — те же 180 мс задержки текста при
@@ -2189,66 +2319,75 @@
     }
 
     /* Детали карточки: описание целиком, длительность/сезоны, жанры,
-       логотипы, анонс серии. Один запрос на карточку, кэш сутки. */
+       логотипы, анонс серии. Один запрос на карточку, кэш сутки.
+
+       Волна «Логотипы сразу»: запрос идёт через предзагрузку соседей
+       (LC.prefetch.details, src/58_prefetch.js), если она есть. Детали,
+       которые она уже привезла, отдаются из её памяти СИНХРОННО — ещё
+       внутри show(), до первого вывода текста; запрос того же фильма, уже
+       идущий предзагрузкой, не дублируется, а ждётся (склейка). Кэш самой
+       Lampa (life) синхронным не бывает: в Lampa 3.3.4 он в IndexedDB, и
+       ответ из него приходит всегда асинхронно — после первого вывода. */
     function loadDetails(card, captured) {
       try {
         if (!window.Lampa || !Lampa.Api || !Lampa.Api.sources || !Lampa.Api.sources.tmdb) return;
-        var req = detailsRequest(mediaOf(card), card.id, langCode());
         /* Ревью фикс-раунда, Ф2 п.2: get ничего не возвращает (см.
            cancelPending), поэтому «детали в пути» — своя отметка, а не
            дескриптор запроса. Её читает park: оборванная загрузка на
            возврате доводится заново (state.stale). */
         state.detailsWait = true;
-        Lampa.Api.sources.tmdb.get(
-          req.url,
-          req.params,
-          function (json) {
-            if (gen !== captured || !state) return;
-            state.detailsWait = false;
-            /* Ответ доехал в запаркованного героя: главная под другим
-               экраном. Отрабатывать его здесь — значит поставить канвас
-               атмосферы после уборки LC.fx.sweep() и тянуть кадр w1280,
-               пока строится карточка; а если слайд главной Lampa уже снял
-               из DOM (уход на два уровня, stop() у Activity), isMounted()
-               ниже отбросил бы ответ молча, и скелетон описания горел бы
-               на возврате. Поэтому — только пометка: resume покажет
-               карточку заново, детали придут из кэша Lampa (life). */
-            if (state.parked) { state.stale = true; return; }
-            if (!isMounted()) return;
-            state.details = json || null;
-            var model = heroModel(card, state.details, words());
-            /* Пустой ответ — тот же исход, что и ошибка: ждать больше нечего,
-               скелетон гасим (иначе он горел бы до следующей карточки). */
-            if (!state.details) model.pending = false;
-            render(model, false);
-            /* Task 21: атмосфера считается по ключевым словам из этого же
-               ответа. В lite/off и при настройке «Выключены» вызов не
-               создаёт ни канваса, ни кадрового цикла (src/52_fx.js). */
-            applyFx();
-            /* Волна 3: кадр героя выбирается по этому ответу (heroBackdrop
-               в heroModel), если show() его ещё ждёт (startFrame). */
-            startFrame(model, captured);
-            /* «Несколько кадров»: кадры фильма — из этого же ответа. */
-            startSlides(model, captured);
-          },
-          function () {
-            if (gen !== captured || !state) return;
-            state.detailsWait = false;
-            if (state.parked) { state.stale = true; return; }
-            if (!isMounted()) return;
-            /* Деталей не будет — снимаем скелетон, оставляя то, что дала
-               карточка ряда (заголовок, год, краткое описание). Флаг гасим в
-               самой модели, а не классом на узле: отложенная подмена текста
-               (swapTimer) перерисовала бы её и вернула скелетон. */
-            var fallback = heroModel(card, null, words());
-            fallback.pending = false;
-            render(fallback, false);
-            /* Волна 3: деталей не будет — кадр по данным ряда сразу, не
-               дожидаясь FRAME_WAIT. */
-            startFrame(fallback, captured);
-          },
-          { life: req.life }
-        );
+        var onOk = function (json) {
+          if (gen !== captured || !state) return;
+          state.detailsWait = false;
+          /* Ответ доехал в запаркованного героя: главная под другим
+             экраном. Отрабатывать его здесь — значит поставить канвас
+             атмосферы после уборки LC.fx.sweep() и тянуть кадр w1280,
+             пока строится карточка; а если слайд главной Lampa уже снял
+             из DOM (уход на два уровня, stop() у Activity), isMounted()
+             ниже отбросил бы ответ молча, и скелетон описания горел бы
+             на возврате. Поэтому — только пометка: resume покажет
+             карточку заново, детали придут из памяти предзагрузки или из
+             кэша Lampa (life). */
+          if (state.parked) { state.stale = true; return; }
+          if (!isMounted()) return;
+          state.details = json || null;
+          var model = heroModel(card, state.details, words());
+          /* Пустой ответ — тот же исход, что и ошибка: ждать больше нечего,
+             скелетон гасим (иначе он горел бы до следующей карточки). */
+          if (!state.details) model.pending = false;
+          render(model, false);
+          /* Task 21: атмосфера считается по ключевым словам из этого же
+             ответа. В lite/off и при настройке «Выключены» вызов не
+             создаёт ни канваса, ни кадрового цикла (src/52_fx.js). */
+          applyFx();
+          /* Волна 3: кадр героя выбирается по этому ответу (heroBackdrop
+             в heroModel), если show() его ещё ждёт (startFrame). */
+          startFrame(model, captured);
+          /* «Несколько кадров»: кадры фильма — из этого же ответа. */
+          startSlides(model, captured);
+        };
+        var onErr = function () {
+          if (gen !== captured || !state) return;
+          state.detailsWait = false;
+          if (state.parked) { state.stale = true; return; }
+          if (!isMounted()) return;
+          /* Деталей не будет — снимаем скелетон, оставляя то, что дала
+             карточка ряда (заголовок, год, краткое описание). Флаг гасим в
+             самой модели, а не классом на узле: отложенная подмена текста
+             (swapTimer) перерисовала бы её и вернула скелетон. */
+          var fallback = heroModel(card, null, words());
+          fallback.pending = false;
+          render(fallback, false);
+          /* Волна 3: деталей не будет — кадр по данным ряда сразу, не
+             дожидаясь FRAME_WAIT. */
+          startFrame(fallback, captured);
+        };
+        if (LC.prefetch && typeof LC.prefetch.details === 'function') {
+          LC.prefetch.details(card, onOk, onErr);
+          return;
+        }
+        var req = detailsRequest(mediaOf(card), card.id, langCode());
+        Lampa.Api.sources.tmdb.get(req.url, req.params, onOk, onErr, { life: req.life });
       } catch (e) {
         warn('hero: details failed', e);
       }
@@ -2258,9 +2397,11 @@
        show() не грузит кадр по данным ряда сразу, как раньше: там
        backdrop_path — ключевой арт, повторяющий постер под героем
        («текст и обложка одинаковые»). Кадр выбирает heroBackdrop по images
-       из ответа деталей; ответ из кэша Lampa (life — сутки) приходит
-       синхронно, и ожидания нет вовсе, а за новым show() ждёт не дольше
-       FRAME_WAIT — дальше кадр по данным ряда (таймер frameWait в show).
+       из ответа деталей; ответ из памяти предзагрузки соседей
+       (src/58_prefetch.js) приходит синхронно, и ожидания нет вовсе, а за
+       новым show() ждёт не дольше FRAME_WAIT — дальше кадр по данным ряда
+       (таймер frameWait в show). Кэш самой Lampa (life — сутки, IndexedDB)
+       отвечает асинхронно всегда.
        state.framePath: null — ещё не выбран; '' — выбран постер вместо
        кадра (у фильма нет backdrop_path); путь — выбран кадр.
        Выбранный кадр поздний ответ не меняет: вторая смена кадра той же
@@ -2276,10 +2417,29 @@
       state.framePath = model.backdrop || '';
       loadFrame(model, captured, function (ok) {
         if (gen !== captured || !state) return;
+        prefetch('warm', state.root);
         if (!ok) { holdFrame(captured); return; }
         state.frameId = state.shownId;
         stopTimer('holdTimer');
       });
+      /* В «Выкл» кадр не грузится (loadFrame), и колбэка не будет. */
+      if (motionMode() === 'off') prefetch('warm', state.root);
+    }
+
+    /* Волна «Логотипы сразу»: точки предзагрузки соседей
+       (src/58_prefetch.js) — модуля может не быть (в тестах героя его
+       нет), и его ошибка не имеет права ронять героя.
+         around(el) — на каждом переводе фокуса (onFocus);
+         warm(root) — когда первый показ героя кончился: детали пришли, а
+           кадр доехал или не доехал (колбэк loadFrame; в «Выкл» — сразу
+           по деталям). Сам warm срабатывает один раз на корень;
+         stop()     — park и unmount. */
+    function prefetch(name, arg) {
+      try {
+        if (LC.prefetch && typeof LC.prefetch[name] === 'function') LC.prefetch[name](arg);
+      } catch (e) {
+        warn('hero: prefetch ' + name + ' failed', e);
+      }
     }
 
     /* Волна 3 (проверка на ТВ 2026-09-24, фото 2): текст нового фильма, а
@@ -2432,8 +2592,8 @@
            придут его детали. */
         clearFx();
         /* Волна 3: кадр выбирается по деталям (startFrame) — сначала
-           запрос, потом, если ответ не пришёл синхронно из кэша, отсчёт
-           FRAME_WAIT до кадра по данным ряда. */
+           запрос, потом, если ответ не пришёл синхронно из памяти
+           предзагрузки, отсчёт FRAME_WAIT до кадра по данным ряда. */
         state.framePath = null;
         /* Волна 3: на экране кадр — отсчёт заглушки заведёт вывод текста
            этого показа (write в render), если кадр к тому мигу чужой. */
@@ -2581,6 +2741,10 @@
          такого возврата обрываться не должен. */
       if (state.focusEl === el) return;
       state.focusEl = el;
+      /* Волна «Логотипы сразу»: соседи этой карточки — детали и логотипы —
+         поедут после 250 мс покоя фокуса (src/58_prefetch.js); при зажатой
+         стрелке не уходит ни одного запроса. */
+      prefetch('around', el);
 
       updateCompact(el);
 
@@ -3042,6 +3206,9 @@
       state = null;
       gen++;
       unlistenFocus(s);
+      /* Волна «Логотипы сразу»: предзагрузка соседей уходит вместе с
+         героем. */
+      prefetch('stop');
       /* Task 60 (ревью, E): переход цвета — такой же отложенный процесс
          главной, как таймеры ниже, и уходит он вместе с ними. Отдельная
          строка нужна потому, что живёт он не в state героя, а в LC.accent,
@@ -3177,6 +3344,9 @@
       state.focusEl = null;
       state.pending = null;
       cancelPending();
+      /* Волна «Логотипы сразу»: предзагрузка соседей под открытой карточкой
+         не нужна — очередь и логотипы в пути снимаются. */
+      prefetch('stop');
       stopTimer('accentTimer');
       if (state.slides) {
         try { state.slides.pause(); } catch (eSl) { warn('hero: slides pause failed', eSl); }
@@ -3346,6 +3516,11 @@
       logoUrl: logoUrl,
       waitLogo: waitLogo,
       TITLE_WAIT: TITLE_WAIT,
+      /* Волна «Логотипы сразу»: общее хранилище логотипов — для
+         предзагрузки соседей (src/58_prefetch.js). */
+      preloadLogo: preloadLogo,
+      logoState: logoState,
+      touchLogo: touchLogo,
       CARD_TITLE_EM: CARD_TITLE_EM,
       mediaOf: mediaOf,
       heroModel: heroModel,

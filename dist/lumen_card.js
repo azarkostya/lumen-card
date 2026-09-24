@@ -13815,6 +13815,11 @@ var tgen = 0;
 
 
 
+
+
+
+
+
 var logoSeen = {};
 
 
@@ -13829,36 +13834,141 @@ var logoSeen = {};
 
 
 
-function preloadLogo(path, url, done) {
-var loader = new Image();
-loader.decoding = 'async';
-var over = false;
-var timer = null;
 
-function stop() {
-over = true;
-loader.onload = null;
-loader.onerror = null;
-if (timer) {
-clearTimeout(timer);
-timer = null;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+var LOGO_KEEP = 24;
+var LOGO_BYTES = 16 * 1024 * 1024;
+var logoFlight = {};
+var logoKept = [];
+var logoBytes = 0;
+
+function dropKept(path) {
+for (var i = 0; i < logoKept.length; i++) {
+if (logoKept[i].path === path) {
+logoBytes -= logoKept[i].bytes;
+return logoKept.splice(i, 1)[0];
+}
+}
+return null;
+}
+
+function keepLogo(path, img) {
+dropKept(path);
+var bytes = (Number(img.naturalWidth) || 0) * (Number(img.naturalHeight) || 0) * 4;
+logoKept.push({ path: path, img: img, bytes: bytes });
+logoBytes += bytes;
+
+
+while (logoKept.length > 1 && (logoKept.length > LOGO_KEEP || logoBytes > LOGO_BYTES)) {
+var old = logoKept.shift();
+logoBytes -= old.bytes;
+if (logoSeen[old.path] === 'ok') delete logoSeen[old.path];
 }
 }
 
-function finish(ok) {
-if (over) return;
-stop();
+
+
+
+
+function touchLogo(path) {
+var hit = dropKept(path);
+if (!hit) return;
+logoKept.push(hit);
+logoBytes += hit.bytes;
+}
+
+
+
+
+function logoState(path) {
+if (!path) return '';
+if (logoFlight[path]) return 'load';
+return logoSeen[path] || '';
+}
+
+function unhookLogo(fl) {
+fl.img.onload = null;
+fl.img.onerror = null;
+if (fl.timer) {
+clearTimeout(fl.timer);
+fl.timer = null;
+}
+}
+
+
+
+
+function landLogo(path, fl, ok) {
+if (logoFlight[path] !== fl) return;
+delete logoFlight[path];
+unhookLogo(fl);
 logoSeen[path] = ok ? 'ok' : (logoSeen[path] === 'retry' ? 'fail' : 'retry');
-if (done) done(ok);
+if (ok) keepLogo(path, fl.img);
+var subs = fl.subs;
+fl.subs = [];
+for (var i = 0; i < subs.length; i++) {
+try {
+if (subs[i].done) subs[i].done(ok);
+} catch (e) {
+warn('hero: logo callback failed', e);
+}
+}
 }
 
-loader.onload = function () { finish(true); };
-loader.onerror = function () { finish(false); };
-timer = setTimeout(function () {
-finish(!!(loader.complete && loader.naturalWidth));
+function flyLogo(path, url) {
+var img = new Image();
+img.decoding = 'async';
+var fl = { img: img, subs: [], timer: null };
+logoFlight[path] = fl;
+img.onload = function () { landLogo(path, fl, true); };
+img.onerror = function () { landLogo(path, fl, false); };
+
+fl.timer = setTimeout(function () {
+fl.timer = null;
+landLogo(path, fl, !!(img.complete && img.naturalWidth));
 }, LOAD_TIMEOUT);
-loader.src = url;
-return { cancel: stop };
+img.src = url;
+return fl;
+}
+
+function leaveLogo(path, fl, sub) {
+var i = fl.subs.indexOf(sub);
+if (i !== -1) fl.subs.splice(i, 1);
+if (fl.subs.length || logoFlight[path] !== fl) return;
+
+
+delete logoFlight[path];
+unhookLogo(fl);
+try {
+if (typeof fl.img.removeAttribute === 'function') fl.img.removeAttribute('src');
+} catch (e) {}
+}
+
+
+
+
+
+
+function preloadLogo(path, url, done) {
+var fl = logoFlight[path] || flyLogo(path, url);
+var sub = { done: done };
+fl.subs.push(sub);
+return { cancel: function () { leaveLogo(path, fl, sub); } };
 }
 
 
@@ -13888,6 +13998,7 @@ decide(false);
 return { cancel: function () {} };
 }
 if (logoSeen[path] === 'ok') {
+touchLogo(path);
 decide(true);
 return { cancel: function () {} };
 }
@@ -14883,6 +14994,8 @@ node.removeClass('lumen-hero--logo');
 
 
 
+
+
 function loadLogo(path, url) {
 var captured = gen;
 state.logoLoader = preloadLogo(path, url, function (ok) {
@@ -14942,17 +15055,31 @@ function applyLogo(node, model) {
 var path = logoAllowed() ? model.logo : null;
 
 
-if (state.logoLoader) {
-state.logoLoader.cancel();
+
+
+
+var prev = state.logoLoader;
 state.logoLoader = null;
-}
 var url = logoUrl(path);
-if (!url || logoSeen[path] === 'fail') { hideLogo(node); return 'none'; }
-if (logoSeen[path] === 'ok' && !state.titleForced) { showLogo(node, url); return 'logo'; }
+var out = 'wait';
+if (!url || logoSeen[path] === 'fail') {
 hideLogo(node);
-if (logoSeen[path] === 'ok') return 'none';
+out = 'none';
+} else if (logoSeen[path] === 'ok') {
+touchLogo(path);
+if (state.titleForced) {
+hideLogo(node);
+out = 'none';
+} else {
+showLogo(node, url);
+out = 'logo';
+}
+} else {
+hideLogo(node);
 loadLogo(path, url);
-return 'wait';
+}
+if (prev) prev.cancel();
+return out;
 }
 
 
@@ -15041,6 +15168,9 @@ return;
 state.titleForced = true;
 if (state.model) state.node.find('.lumen-hero__title').text(state.model.title);
 }
+
+
+
 
 
 
@@ -15410,21 +15540,26 @@ decoding = false;
 
 
 
+
+
+
+
+
+
+
+
 function loadDetails(card, captured) {
 try {
 if (!window.Lampa || !Lampa.Api || !Lampa.Api.sources || !Lampa.Api.sources.tmdb) return;
-var req = detailsRequest(mediaOf(card), card.id, langCode());
 
 
 
 
 state.detailsWait = true;
-Lampa.Api.sources.tmdb.get(
-req.url,
-req.params,
-function (json) {
+var onOk = function (json) {
 if (gen !== captured || !state) return;
 state.detailsWait = false;
+
 
 
 
@@ -15450,8 +15585,8 @@ applyFx();
 startFrame(model, captured);
 
 startSlides(model, captured);
-},
-function () {
+};
+var onErr = function () {
 if (gen !== captured || !state) return;
 state.detailsWait = false;
 if (state.parked) { state.stale = true; return; }
@@ -15466,13 +15601,19 @@ render(fallback, false);
 
 
 startFrame(fallback, captured);
-},
-{ life: req.life }
-);
+};
+if (LC.prefetch && typeof LC.prefetch.details === 'function') {
+LC.prefetch.details(card, onOk, onErr);
+return;
+}
+var req = detailsRequest(mediaOf(card), card.id, langCode());
+Lampa.Api.sources.tmdb.get(req.url, req.params, onOk, onErr, { life: req.life });
 } catch (e) {
 warn('hero: details failed', e);
 }
 }
+
+
 
 
 
@@ -15496,10 +15637,29 @@ stopTimer('frameWait');
 state.framePath = model.backdrop || '';
 loadFrame(model, captured, function (ok) {
 if (gen !== captured || !state) return;
+prefetch('warm', state.root);
 if (!ok) { holdFrame(captured); return; }
 state.frameId = state.shownId;
 stopTimer('holdTimer');
 });
+
+if (motionMode() === 'off') prefetch('warm', state.root);
+}
+
+
+
+
+
+
+
+
+
+function prefetch(name, arg) {
+try {
+if (LC.prefetch && typeof LC.prefetch[name] === 'function') LC.prefetch[name](arg);
+} catch (e) {
+warn('hero: prefetch ' + name + ' failed', e);
+}
 }
 
 
@@ -15801,6 +15961,10 @@ if (!card || card.id == null) return;
 
 if (state.focusEl === el) return;
 state.focusEl = el;
+
+
+
+prefetch('around', el);
 
 updateCompact(el);
 
@@ -16264,6 +16428,9 @@ gen++;
 unlistenFocus(s);
 
 
+prefetch('stop');
+
+
 
 
 
@@ -16397,6 +16564,9 @@ stopTimer('timer');
 state.focusEl = null;
 state.pending = null;
 cancelPending();
+
+
+prefetch('stop');
 stopTimer('accentTimer');
 if (state.slides) {
 try { state.slides.pause(); } catch (eSl) { warn('hero: slides pause failed', eSl); }
@@ -16566,6 +16736,11 @@ cardLogoBox: cardLogoBox,
 logoUrl: logoUrl,
 waitLogo: waitLogo,
 TITLE_WAIT: TITLE_WAIT,
+
+
+preloadLogo: preloadLogo,
+logoState: logoState,
+touchLogo: touchLogo,
 CARD_TITLE_EM: CARD_TITLE_EM,
 mediaOf: mediaOf,
 heroModel: heroModel,
@@ -23929,6 +24104,444 @@ warn('accent pref failed', e);
 };
 
 if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.color;
+
+
+/* ---- 58_prefetch.js ---- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+LC.prefetch = (function () {
+
+
+
+
+
+var IDLE = 250;
+
+
+var SLOTS = 2;
+
+
+var AHEAD = { full: 3, lite: 2 };
+var BEHIND = { full: 2, lite: 1 };
+
+var NEXT_ROW = 3;
+
+
+var WARM_FIRST = 7;
+var WARM_SECOND = 3;
+
+
+var DETAILS_KEEP = 40;
+
+
+
+
+var gen = 0;
+var idleTimer = null;
+var focusEl = null;
+var prevEl = null;
+
+var dir = 1;
+
+var queue = [];
+
+var busy = 0;
+
+var hits = 0;
+
+var kept = [];
+
+var flight = {};
+
+var logoJobs = [];
+
+var warmed = null;
+
+function langCode() {
+try {
+if (typeof LC.langCode === 'function') return LC.langCode();
+} catch (e) { }
+return 'ru';
+}
+
+function logoAllowed() {
+try { return LC.pref ? LC.pref('lumen_hero_logo', true) !== false : true; } catch (e) { return true; }
+}
+
+function windowMode() {
+var m = 'lite';
+try { m = LC.motionMode(); } catch (e) { }
+return m === 'full' ? 'full' : 'lite';
+}
+
+
+function ready() {
+try {
+return !!(LC.hero && LC.hero.active() && !LC.hero.parked());
+} catch (e) {
+return false;
+}
+}
+
+function lampaGet() {
+return !!(window.Lampa && Lampa.Api && Lampa.Api.sources && Lampa.Api.sources.tmdb &&
+typeof Lampa.Api.sources.tmdb.get === 'function');
+}
+
+
+
+
+function requestOf(card) {
+if (!card || card.id == null || !LC.hero) return null;
+var media = LC.hero.mediaOf(card);
+var lang = langCode();
+var req = LC.hero.detailsRequest(media, card.id, lang);
+req.key = media + '/' + card.id + '/' + lang;
+return req;
+}
+
+function recall(key) {
+for (var i = kept.length - 1; i >= 0; i--) {
+if (kept[i].key === key) {
+var hit = kept.splice(i, 1)[0];
+kept.push(hit);
+return hit.json;
+}
+}
+return null;
+}
+
+function remember(key, json) {
+for (var i = 0; i < kept.length; i++) {
+if (kept[i].key === key) {
+kept.splice(i, 1);
+break;
+}
+}
+kept.push({ key: key, json: json });
+while (kept.length > DETAILS_KEEP) kept.shift();
+}
+
+
+
+
+
+
+function send(req, sub) {
+var key = req.key;
+if (flight[key]) {
+flight[key].push(sub);
+return;
+}
+var mine = [sub];
+flight[key] = mine;
+function settle(json, ok) {
+if (flight[key] !== mine) return;
+delete flight[key];
+if (ok && json) remember(key, json);
+for (var i = 0; i < mine.length; i++) {
+try {
+if (ok) mine[i].ok(json);
+else mine[i].err();
+} catch (e) {
+warn('prefetch: callback failed', e);
+}
+}
+}
+try {
+Lampa.Api.sources.tmdb.get(req.url, req.params,
+function (json) { settle(json, true); },
+function () { settle(null, false); },
+{ life: req.life });
+} catch (e) {
+warn('prefetch: request failed', e);
+settle(null, false);
+}
+}
+
+
+function details(card, ok, err) {
+var req = lampaGet() ? requestOf(card) : null;
+if (!req) {
+err();
+return;
+}
+var json = recall(req.key);
+if (json) {
+hits++;
+ok(json);
+return;
+}
+send(req, { ok: ok, err: err });
+}
+
+
+
+
+
+
+
+
+function logoJob(json) {
+if (!logoAllowed() || !json || !LC.hero) return null;
+var path = LC.hero.pickLogo(json.images && json.images.logos, langCode());
+if (!path) return null;
+var state = LC.hero.logoState(path);
+if (state === 'ok') LC.hero.touchLogo(path);
+if (state && state !== 'retry') return null;
+var url = LC.hero.logoUrl(path);
+return url ? { path: path, url: url } : null;
+}
+
+
+
+
+function chainLogo(json) {
+var job = logoJob(json);
+if (job) queue.unshift(job);
+}
+
+function runLogo(job) {
+var state = LC.hero.logoState(job.path);
+if (state && state !== 'retry') return;
+var entry = { handle: null, over: false };
+entry.handle = LC.hero.preloadLogo(job.path, job.url, function () {
+if (entry.over) return;
+entry.over = true;
+var i = logoJobs.indexOf(entry);
+if (i !== -1) logoJobs.splice(i, 1);
+busy--;
+pump();
+});
+busy++;
+logoJobs.push(entry);
+}
+
+function runDetails(job) {
+var json = recall(job.req.key);
+if (json) {
+chainLogo(json);
+return;
+}
+
+
+if (flight[job.req.key]) return;
+var captured = gen;
+busy++;
+send(job.req, {
+ok: function (j) {
+busy--;
+if (captured === gen) chainLogo(j);
+pump();
+},
+err: function () {
+busy--;
+pump();
+}
+});
+}
+
+function pump() {
+while (busy < SLOTS && queue.length) {
+var job = queue.shift();
+try {
+if (job.path) runLogo(job);
+else runDetails(job);
+} catch (e) {
+warn('prefetch: job failed', e);
+}
+}
+}
+
+
+
+
+function plan(cards) {
+var seen = {};
+var logos = [];
+for (var i = 0; i < queue.length; i++) if (queue[i].req) seen[queue[i].req.key] = true;
+for (var c = 0; c < cards.length; c++) {
+var req = requestOf(cards[c]);
+if (!req || seen[req.key]) continue;
+seen[req.key] = true;
+var json = recall(req.key);
+if (json) {
+var job = logoJob(json);
+if (job) logos.push(job);
+} else {
+queue.push({ req: req });
+}
+}
+queue = logos.concat(queue);
+pump();
+}
+
+
+function cardsIn(line) {
+var out = [];
+var list = line.find('.card');
+for (var i = 0; i < list.length; i++) {
+if (list[i] && list[i].card_data && list[i].card_data.id != null) out.push(list[i]);
+}
+return out;
+}
+
+
+function nextLine(line) {
+var next = line.next();
+for (var guard = 0; next && next.length && guard < 4; guard++) {
+if (next.hasClass('items-line')) return next;
+next = next.next();
+}
+return null;
+}
+
+function dataOf(nodes, from, count, out) {
+for (var i = from; i < nodes.length && i < from + count; i++) out.push(nodes[i].card_data);
+}
+
+
+
+
+
+function windowOf(el) {
+var line = $(el).closest('.items-line');
+if (!line || !line.length) return [];
+var nodes = cardsIn(line);
+var at = nodes.indexOf(el);
+if (at === -1) return [];
+var from = prevEl ? nodes.indexOf(prevEl) : -1;
+if (from !== -1 && from !== at) dir = at > from ? 1 : -1;
+var m = windowMode();
+var out = [];
+var k;
+for (k = 1; k <= AHEAD[m]; k++) if (nodes[at + dir * k]) out.push(nodes[at + dir * k].card_data);
+for (k = 1; k <= BEHIND[m]; k++) if (nodes[at - dir * k]) out.push(nodes[at - dir * k].card_data);
+var next = nextLine(line);
+if (next) dataOf(cardsIn(next), 0, NEXT_ROW, out);
+return out;
+}
+
+function stopIdle() {
+if (idleTimer) {
+clearTimeout(idleTimer);
+idleTimer = null;
+}
+}
+
+function around(el) {
+gen++;
+queue.length = 0;
+stopIdle();
+if (!el) return;
+prevEl = focusEl;
+focusEl = el;
+var captured = gen;
+idleTimer = setTimeout(function () {
+idleTimer = null;
+if (captured !== gen || !ready()) return;
+try {
+plan(windowOf(el));
+} catch (e) {
+warn('prefetch: window failed', e);
+}
+}, IDLE);
+}
+
+function warm(root) {
+if (!root || !root.length || !ready()) return;
+if (warmed === root[0]) return;
+warmed = root[0];
+try {
+var lines = root.find('.items-line');
+var out = [];
+if (lines.length > 0) dataOf(cardsIn($(lines[0])), 0, WARM_FIRST, out);
+if (lines.length > 1) dataOf(cardsIn($(lines[1])), 0, WARM_SECOND, out);
+plan(out);
+} catch (e) {
+warn('prefetch: warm failed', e);
+}
+}
+
+
+
+
+
+function stop() {
+gen++;
+queue.length = 0;
+stopIdle();
+focusEl = null;
+prevEl = null;
+var jobs = logoJobs;
+logoJobs = [];
+for (var i = 0; i < jobs.length; i++) {
+if (jobs[i].over) continue;
+jobs[i].over = true;
+busy--;
+try { if (jobs[i].handle) jobs[i].handle.cancel(); } catch (e) { warn('prefetch: stop failed', e); }
+}
+}
+
+
+
+function stats() {
+return { fly: busy, queue: queue.length, hits: hits };
+}
+
+return {
+around: around,
+details: details,
+warm: warm,
+stop: stop,
+stats: stats
+};
+})();
+
+if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.prefetch;
 
 
 /* ---- 60_reviews.js ---- */
