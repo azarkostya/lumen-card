@@ -424,6 +424,9 @@ El.prototype.css = function (name, val) {
    paintPreview (счётчик выборки) на стенде всегда падал внутрь try/catch, и
    класс is-stack не ставился никогда — показ выборки был невидим тестам. */
 El.prototype.text = function (val) {
+  /* Шестой раунд, п.3: пустой набор (промах find() — общий EMPTY_EL) как у
+     jQuery: сеттер ничего не пишет, геттер отдаёт ''. */
+  if (this.length === 0) return arguments.length ? this : '';
   if (arguments.length) {
     this._text = '' + val;
     this._children = [];
@@ -461,6 +464,22 @@ El.prototype.find = function (sel) {
   var found = this.all(sel);
   return found.length ? found[0] : EMPTY_EL;
 };
+
+/* Контрольное ревью шестого раунда, п.3: промах find() отдаёт ОБЩИЙ
+   EMPTY_EL. Сеттер text() писал в него, и следующий промах — в любом тесте
+   файла — читал чужой текст. У jQuery text(v) на пустом наборе ничего не
+   делает, а геттер отдаёт ''. */
+test('заглушка El: text() на пустом наборе ничего не пишет и читается пустой строкой', () => {
+  const box = new El(['box']);
+  const miss = box.find('.нет-такого');
+  assert.equal(miss.length, 0, 'предпосылка: промах find() — пустой набор');
+  assert.equal(miss.text('чужой'), miss, 'сеттер на пустом наборе не вернул набор');
+  assert.equal(box.find('.и-такого-нет').text(), '', 'промах find() прочитал текст, записанный в другой промах');
+  const hit = new El(['hit']);
+  box.append(hit);
+  box.find('.hit').text('свой');
+  assert.equal(box.find('.hit').text(), 'свой', 'сеттер на непустом узле сломан');
+});
 
 function classesOf(html) {
   var m = /class="([^"]*)"/.exec('' + html);
