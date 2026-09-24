@@ -1037,12 +1037,26 @@
        забывается, и его возврат на ту же карточку заводит полные 8 с
        заново — как когда оверлей застал саму 8-ю секунду (scheduleTrailer).
        Класс оверлея Lampa ставит ДО своего Controller.toggle (Select.show,
-       Search.open, toggle настроек), поэтому trailerBlocked здесь уже
+       Search.open, toggle настроек), поэтому trailerBlocked к проверке уже
        отвечает «да». Смена контроллера без оверлея (шапка, левое меню —
-       главную там видно) отсчёт не трогает, играющий ролик — тоже: отсчёта
-       у него уже нет. */
+       главную там видно) отсчёт не трогает.
+       Ревью правок раунда хвостов, п.1: проверка — через такт, а не в самом
+       'toggle'. Снимает класс Lampa не всегда раньше: «Назад» из меню —
+       да (close -> hide, потом onBack -> Controller.toggle), а выбор
+       пункта — наоборот: onBeforeClose меню карточки зовёт
+       Controller.toggle(enabled) (app.min.js:22120-22123; наше меню — open
+       в src/63_cardmenu.js), toggle возвращает фокус на карточку и шлёт
+       'toggle' (:46297-46314), и только потом goclose -> hide снимает
+       selectbox--open (:7027-7033). Синхронная проверка видела ещё
+       открытое меню и забывала фокус второй раз — уже после возврата: ролик
+       через 8 с стартовал в «забытом» состоянии, и первое же событие фокуса
+       той же карточки (пульт или мышь) проходило гард «фокус не сменился»
+       и обрывало его. К следующему такту hide отработал. */
     function onToggle() {
-      if (state && state.trailerTimer && trailerBlocked()) forgetTrailerFocus();
+      if (!state || !state.trailerTimer) return;
+      setTimeout(function () {
+        if (state && state.trailerTimer && trailerBlocked()) forgetTrailerFocus();
+      }, 0);
     }
 
     /* Старт плеера Lampa ('start', app.min.js:31046/31069) снимает ролик

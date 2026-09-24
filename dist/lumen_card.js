@@ -13586,8 +13586,22 @@ state.trailerCard = null;
 
 
 
+
+
+
+
+
+
+
+
+
+
+
 function onToggle() {
+if (!state || !state.trailerTimer) return;
+setTimeout(function () {
 if (state && state.trailerTimer && trailerBlocked()) forgetTrailerFocus();
+}, 0);
 }
 
 
