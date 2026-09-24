@@ -3206,6 +3206,61 @@ test('трейлер героя: событие start плеера Lampa сни�
   assert.equal((player.subs.start || []).length, 0, 'unmount снимает подписку');
 });
 
+/* Ревью волны 1b, п.6: подписка на Player.listener живёт, пока смонтирован
+   герой, и она ОДНА — сколько бы раз главную ни парковали, ни будили, ни
+   монтировали повторно в тот же корень и ни пересобирали в новый. Вторая
+   подписка — второй cancelTrailer на каждый старт плеера и утечка
+   замыкания на весь сеанс. */
+test('трейлер героя: подписка на старт плеера Lampa одна — mount/park/resume, повторный mount и смена корня', () => {
+  const env = trailerEnv();
+  const player = lampaPlayer(env);
+  const main = makeMain();
+  const other = makeMain();
+  const card = makeMain();
+  const subs = () => (player.subs.start || []).length;
+
+  env.hero.mount(main.activity);
+  assert.equal(subs(), 1);
+  for (let i = 0; i < 3; i++) {
+    env.hero.detach(card.activity);
+    assert.equal(env.hero.parked(), true);
+    assert.equal(subs(), 1, 'парковка подписку не снимает и не множит (круг ' + i + ')');
+    env.hero.mount(main.activity);
+    assert.equal(env.hero.parked(), false);
+    assert.equal(subs(), 1, 'возврат (resume) второй подписки не вешает (круг ' + i + ')');
+    env.hero.mount(main.activity);
+    assert.equal(subs(), 1, 'повторный mount того же корня (круг ' + i + ')');
+  }
+
+  /* Новая главная — другой корень: старый герой снимается, новый
+     подписывается заново; и так же с запаркованного. */
+  env.hero.mount(other.activity);
+  assert.equal(subs(), 1, 'смена корня');
+  const hook = player.subs.start[0];
+  env.hero.detach(card.activity);
+  env.hero.mount(main.activity);
+  assert.equal(subs(), 1, 'смена корня из парковки');
+  assert.notEqual(player.subs.start[0], hook, 'подписка прежнего героя снята, а не оставлена вместо новой');
+
+  /* Старт плеера доходит ровно до одного обработчика и снимает ролик. */
+  focusOn(main, main.card1);
+  env.advance(9000);
+  lastVideos(env).ok(VIDEOS_RU);
+  env.players[0].onStart();
+  player.listener.send('start', {});
+  assert.equal(env.players[0].destroys, 1);
+
+  env.hero.unmount();
+  assert.equal(subs(), 0, 'unmount');
+  env.hero.unmount();
+  assert.equal(subs(), 0, 'повторный unmount');
+  env.hero.mount(other.activity);
+  assert.equal(subs(), 1, 'mount после unmount');
+  env.hero.unmount();
+  assert.equal(subs(), 0);
+  assert.deepEqual(warnLog, []);
+});
+
 /* Ревью волны 1b, п.1: старт ролика, отменённый тем, что открыто поверх
    главной, на этой карточке не возвращался. Меню карточки по долгому OK —
    Lampa.Select (selectbox--open); закрываясь, Lampa возвращает фокус на ту
