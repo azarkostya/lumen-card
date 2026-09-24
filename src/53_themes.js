@@ -80,15 +80,39 @@
       return false;
     }
 
-    /* Совпало хотя бы одно ключевое слово правила (по вхождению, без учёта
-       регистра): «Christmas Eve» ловится словом «christmas». */
+    /* Буква или цифра — продолжение слова; всё остальное (пробел, дефис,
+       апостроф, край строки) — его граница. */
+    var WORD_CHAR = /[a-z0-9À-ɏЀ-ӿ]/;
+
+    /* Слово (или фраза) want стоит в name целым: вокруг вхождения — границы
+       слова. Все вхождения, а не первое: в «sandwich sand» первое «sand» —
+       часть слова, второе — целое. */
+    function hasWord(name, want) {
+      var at = name.indexOf(want);
+      while (at >= 0) {
+        var before = at > 0 ? name.charAt(at - 1) : '';
+        var after = name.charAt(at + want.length);
+        if (!(before && WORD_CHAR.test(before)) && !(after && WORD_CHAR.test(after))) return true;
+        at = name.indexOf(want, at + 1);
+      }
+      return false;
+    }
+
+    /* Совпало хотя бы одно ключевое слово правила — целым словом или целой
+       фразой, без учёта регистра: «Christmas Eve» ловится словом
+       «christmas», «journey into outer space» — фразой «outer space».
+       Волна производительности (2026-09-24): прежде хватало вхождения
+       подстроки, и частицы — самая дорогая часть «Полного» режима —
+       доставались фильмам не по теме: «war» ловился в «award» и «edward»,
+       «sea» — в «seattle» и «research», «sand» — в «sandwich», «space» — в
+       «workspace». */
     function hasKeyword(names, keywords) {
       if (!keywords || !keywords.length) return false;
       for (var i = 0; i < keywords.length; i++) {
         var want = ('' + keywords[i]).toLowerCase();
         if (!want) continue;
         for (var j = 0; j < names.length; j++) {
-          if (names[j].indexOf(want) >= 0) return true;
+          if (hasWord(names[j], want)) return true;
         }
       }
       return false;

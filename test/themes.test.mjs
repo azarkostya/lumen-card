@@ -15,6 +15,34 @@ test('matchTheme: по ключевому слову, регистр и вхож
   assert.equal(T.matchTheme(rules, { keywords: kw('Outer Space'), genres: [] }).id, 'space');
 });
 
+/* Волна производительности (C3a): частицы — самая дорогая часть «Полного»
+   режима, а совпадение по вхождению подстроки давало их фильмам, к теме
+   отношения не имеющим: «war» ловился в «award» и «edward», «sea» — в
+   «seattle» и «research», «sand» — в «sandwich», «space» — в «workspace».
+   Теперь слово правила ищется целым словом (или целой фразой) внутри
+   ключевого слова фильма. */
+test('волна perf: matchTheme — совпадение по целым словам, фразы находятся', () => {
+  const R = [
+    { id: 'war', preset: 'embers', keywords: ['war'] },
+    { id: 'ocean', preset: 'bubbles', keywords: ['sea'] },
+    { id: 'desert', preset: 'sand', keywords: ['sand'] },
+    { id: 'space', preset: 'stars', keywords: ['space', 'outer space'] }
+  ];
+  const id = (...names) => { const t = T.matchTheme(R, { keywords: kw(...names), genres: [] }); return t ? t.id : null; };
+  for (const miss of ['award', 'edward', 'seattle', 'research', 'sandwich', 'workspace', 'warrior', 'seaside town']) {
+    assert.equal(id(miss), null, miss);
+  }
+  assert.equal(id('world war ii'), 'war');
+  assert.equal(id('anti-war'), 'war', 'дефис — граница слова');
+  assert.equal(id('War'), 'war', 'регистр не важен');
+  assert.equal(id('the sea'), 'ocean');
+  assert.equal(id('sand dune'), 'desert');
+  assert.equal(id('outer space'), 'space');
+  assert.equal(T.matchTheme([{ id: 'p', preset: 'stars', keywords: ['outer space'] }], { keywords: kw('journey into outer space'), genres: [] }).id, 'p',
+    'фраза правила внутри ключевого слова');
+  assert.equal(T.matchTheme([{ id: 'p', preset: 'stars', keywords: ['outer space'] }], { keywords: kw('outer spaces'), genres: [] }), null);
+});
+
 test('matchTheme: requireGenre — слово без жанра не считается', () => {
   assert.equal(T.matchTheme(rules, { keywords: kw('halloween'), genres: [{ id: 35 }] }), null);
   assert.equal(T.matchTheme(rules, { keywords: kw('halloween'), genres: [{ id: 27 }] }).id, 'halloween');

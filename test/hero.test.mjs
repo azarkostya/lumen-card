@@ -1488,6 +1488,9 @@ test('Ф2 п.1: возврат из карточки ставит атмосфе
   /* Здесь рантайм зовёт LC.fx.sweep(): канвас героя снят. */
   env.hero.mount(main.activity);
   assert.equal(mounts.length, 2, 'после возврата слой атмосферы не поставлен заново');
+  /* Волна perf: полторы секунды после нажатия частицы стоят — проверяем
+     уже после неё. */
+  env.advance(1100);
   assert.equal(mounts[1].paused(), false, 'вернувшийся слой стоит на паузе');
   assert.equal(env.requests.length, requests, 'ради атмосферы детали заново не спрашиваются');
   assert.deepEqual(warnLog, []);
@@ -2696,17 +2699,62 @@ test('Task 64 (ревью): в сжатом состоянии частицы н
   env.requests[0].ok({ overview: 'о первом' });
   assert.equal(mounts.length, 1, 'слой атмосферы не смонтирован — проверять нечего');
   const paused = mounts[0].paused;
+  /* Волна perf: полторы секунды после нажатия частицы стоят сами по себе
+     (тест ниже), поэтому сжатое состояние проверяем после них. */
+  env.advance(1100);
   assert.equal(paused(), false, 'первый ряд: кадр на экране, частицы обязаны идти');
 
   main.card1.removeClass('focus');
   main.card2.addClass('focus');
   fireFocus(main.activity, main.card2);
+  env.advance(1500);
   assert.equal(paused(), true, 'фокус во втором ряду: кадр погашен, а частицы всё ещё рисуются');
 
   main.card2.removeClass('focus');
   main.card1.addClass('focus');
   fireFocus(main.activity, main.card1);
+  env.advance(1500);
   assert.equal(paused(), false, 'возврат в первый ряд частицы не разбудил');
+});
+
+/* Волна производительности (C3d). Частицы рисуются поверх кадра героя, а
+   каждое нажатие пульта на главной — самый дорогой миг экрана: смена
+   текста, кадра, подсветки карточки. Полторы секунды после нажатия
+   канвас стоит (цикл частиц уходит на редкий таймер, src/52_fx.js), и
+   каждое следующее нажатие отсчёт продлевает. */
+test('волна perf: частицы героя стоят 1,5 с после каждого нажатия', () => {
+  const mounts = [];
+  const env = makeEnv({
+    themes: {
+      forMovie: () => ({ id: 'snow', preset: 'snow' }),
+      particleColor: () => '#FFFFFF',
+      classNames: () => 'lumen-theme--snow'
+    },
+    fx: { mount: (host, preset, opts) => { mounts.push(opts); return { destroy() {} }; }, unmount() {} }
+  });
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  focusOn(main, main.card1);
+  env.advance(400);
+  env.requests[0].ok({ id: 11, overview: 'о первом' });
+  assert.equal(mounts.length, 1, 'слой атмосферы не смонтирован — проверять нечего');
+  const paused = mounts[0].paused;
+  assert.equal(paused(), true, '0,4 с после нажатия — частицы стоят');
+  env.advance(1099);
+  assert.equal(paused(), true, '1,499 с — ещё стоят');
+  env.advance(1);
+  assert.equal(paused(), false, '1,5 с покоя — частицы пошли');
+
+  /* Вниз во второй ряд и обратно: вернулись в первый ряд (сжатия нет),
+     но нажатие было только что. */
+  main.card1.removeClass('focus');
+  focusOn(main, main.card2);
+  main.card2.removeClass('focus');
+  focusOn(main, main.card1);
+  env.advance(1000);
+  assert.equal(paused(), true, 'новое нажатие — снова пауза');
+  env.advance(500);
+  assert.equal(paused(), false);
 });
 
 /* Мини-герой сетки сжат с самого начала — там частицы стоят сразу. */

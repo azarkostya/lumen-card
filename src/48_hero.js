@@ -1159,6 +1159,10 @@
     /* кадра главной остаётся за акцентом от постера (Task 24).            */
     /* ------------------------------------------------------------------ */
 
+    /* Волна производительности: сколько частицы стоят после нажатия
+       (предикат paused в applyFx ниже). */
+    var FX_CALM_MS = 1500;
+
     function fxHost() {
       if (!state || !state.node) return null;
       var node = state.node.find('.lumen-fx');
@@ -1212,8 +1216,16 @@
              там замер Task 64 и делался.
              Предикат зовётся каждый кадр, и когда все слои на паузе, цикл
              уходит с rAF на таймер раз в 500 мс (src/52_fx.js,
-             schedule/IDLE_MS). */
-          paused: function () { return !!(state && (state.trailer || state.compact || state.parked)); }
+             schedule/IDLE_MS).
+             Волна производительности (2026-09-24): и FX_CALM_MS после
+             каждого нажатия. Нажатие пульта — самый дорогой миг главной
+             (смена текста, кадра, подсветки карточки), и перерисовка
+             полноэкранного канваса поверх него отнимала кадры ровно там,
+             где их видно. Каждое следующее нажатие отсчёт продлевает. */
+          paused: function () {
+            return !!(state && (state.trailer || state.compact || state.parked ||
+              Date.now() - state.focusAt < FX_CALM_MS));
+          }
         });
       } catch (e3) {
         warn('hero: fx mount failed', e3);

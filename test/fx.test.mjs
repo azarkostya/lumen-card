@@ -244,6 +244,54 @@ test('mount: DPR ограничен 1.5 — на 3x экране canvas не р�
   });
 });
 
+/* Волна производительности (C3c): на Android плотность канваса — 1.
+   Телевизор отдаёт 960×540 CSS px при DPR 2, и канвас 1.5 рисовал 1440×810
+   пикселей снежинок на каждом кадре — вдвое с лишним больше, чем 960×540, а
+   на трёх метрах разницы в резкости частиц не видно. */
+test('волна perf: на Android DPR канваса — 1, в остальных — прежний потолок 1.5', () => {
+  env(() => {
+    const android = freshFx({ platformInfo: () => ({ android: true, tizen: false, webos: false, weak: false }) });
+    const layer = fakeNode(960, 540);
+    android.mount(layer, 'snow');
+    assert.equal(layer.children[0].width, 960);
+    assert.equal(layer.children[0].height, 540);
+    android.unmountAll();
+
+    const desk = freshFx({ platformInfo: () => ({ android: false, tizen: false, webos: false, weak: false }) });
+    const other = fakeNode(960, 540);
+    desk.mount(other, 'snow');
+    assert.equal(other.children[0].width, 1440);
+    desk.unmountAll();
+  });
+});
+
+/* Волна производительности (C3b): частицы рисуются в 30 fps. На
+   пропущенном кадре цикл только заказывает следующий — ни clearRect, ни
+   draw: полноэкранный канвас перерисовывается вдвое реже, а на глаз
+   снежинки на 30 fps не отличить от 60. */
+test('волна perf: частицы — 30 fps, на пропущенном кадре ни clearRect, ни draw', () => {
+  env(({ tick, contexts, pending }) => {
+    const fx = freshFx();
+    fx.mount(fakeNode(960, 540), 'snow');
+    const ctx = contexts[contexts.length - 1];
+    const clears = () => ctx.calls.filter((c) => c === 'clearRect').length;
+    const drawn = () => ctx.calls.length;
+    tick(16.7);
+    assert.equal(clears(), 1, 'первый кадр рисуется сразу');
+    const after1 = drawn();
+    tick(16.7);
+    assert.equal(clears(), 1, 'второй кадр 60 Гц пропущен — канвас не чистится');
+    assert.equal(drawn(), after1, 'и не рисуется');
+    assert.equal(pending(), 1, 'но следующий кадр заказан');
+    tick(16.7);
+    assert.equal(clears(), 2, 'третий — рисуется');
+    for (let i = 0; i < 60; i++) tick(16.7);
+    assert.equal(clears(), 2 + 30, 'за секунду 60 Гц — тридцать отрисовок');
+    assert.equal(fx.stats().frames, 32, 'stats считает только нарисованные кадры');
+    fx.unmountAll();
+  });
+});
+
 test('mount: в lite и off не стартует вовсе — ни canvas, ни кадра', () => {
   env(({ pending }) => {
     for (const mode of ['lite', 'off']) {
@@ -329,7 +377,9 @@ test('пауза: скрытая вкладка и играющий трейле
 
     const afterHidden = fx.stats().steps;
     trailer = true;
-    tick(16);
+    /* Волна perf: частицы идут в 30 fps, и паузу цикл замечает на кадре,
+       который рисовал бы, — через 33 мс, а не через 16. */
+    tick(34);
     assert.equal(fx.stats().steps, afterHidden, 'под трейлером шагов нет');
     trailer = false;
     timers.fire();
@@ -389,7 +439,8 @@ test('пауза: под заставкой частицы стоят и кад�
     assert.ok(moved > 0);
 
     covered = true;
-    tick(16);
+    /* 30 fps: паузу замечает кадр, который рисовал бы (через 33 мс). */
+    tick(34);
     assert.equal(fx.stats().steps, moved, 'под заставкой шагов нет');
     assert.equal(pending(), 0, 'и кадров тоже');
     assert.equal(timers.live().length, 1);

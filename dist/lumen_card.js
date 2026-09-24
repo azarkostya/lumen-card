@@ -14347,6 +14347,10 @@ warn('hero: player unlisten failed', e);
 
 
 
+
+
+var FX_CALM_MS = 1500;
+
 function fxHost() {
 if (!state || !state.node) return null;
 var node = state.node.find('.lumen-fx');
@@ -14401,7 +14405,15 @@ color: LC.themes.particleColor(theme),
 
 
 
-paused: function () { return !!(state && (state.trailer || state.compact || state.parked)); }
+
+
+
+
+
+paused: function () {
+return !!(state && (state.trailer || state.compact || state.parked ||
+Date.now() - state.focusAt < FX_CALM_MS));
+}
 });
 } catch (e3) {
 warn('hero: fx mount failed', e3);
@@ -17922,12 +17934,27 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 
+
+
+
 LC.fx = (function () {
 
 
 var MAX = 60;
 
+
+
+
+
 var DPR_MAX = 1.5;
+var DPR_MAX_ANDROID = 1;
+
+
+
+
+
+var FRAME_MS = 1000 / 30;
+var FRAME_SLACK = 8;
 
 
 var DT_CAP = 50;
@@ -18449,7 +18476,11 @@ try {
 value = Number(window.devicePixelRatio) || 1;
 } catch (e) { }
 if (!(value > 0)) value = 1;
-return value > DPR_MAX ? DPR_MAX : value;
+var cap = DPR_MAX;
+try {
+if (typeof LC.platformInfo === 'function' && LC.platformInfo().android) cap = DPR_MAX_ANDROID;
+} catch (e2) { }
+return value > cap ? cap : value;
 }
 
 
@@ -18556,6 +18587,12 @@ if (!attached(instances[i])) drop(instances[i]);
 }
 if (!instances.length) { last = 0; return; }
 var time = typeof ts === 'number' ? ts : nowMs();
+
+
+if (last && time - last > 0 && time - last < FRAME_MS - FRAME_SLACK && !hidden()) {
+frame = raf(loop);
+return;
+}
 var dt = last ? time - last : 16;
 last = time;
 if (dt > DT_CAP) dt = DT_CAP;
@@ -18866,13 +18903,37 @@ return false;
 
 
 
+var WORD_CHAR = /[a-z0-9À-ɏЀ-ӿ]/;
+
+
+
+
+function hasWord(name, want) {
+var at = name.indexOf(want);
+while (at >= 0) {
+var before = at > 0 ? name.charAt(at - 1) : '';
+var after = name.charAt(at + want.length);
+if (!(before && WORD_CHAR.test(before)) && !(after && WORD_CHAR.test(after))) return true;
+at = name.indexOf(want, at + 1);
+}
+return false;
+}
+
+
+
+
+
+
+
+
+
 function hasKeyword(names, keywords) {
 if (!keywords || !keywords.length) return false;
 for (var i = 0; i < keywords.length; i++) {
 var want = ('' + keywords[i]).toLowerCase();
 if (!want) continue;
 for (var j = 0; j < names.length; j++) {
-if (names[j].indexOf(want) >= 0) return true;
+if (hasWord(names[j], want)) return true;
 }
 }
 return false;
