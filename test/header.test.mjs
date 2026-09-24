@@ -1995,7 +1995,11 @@ test('B: возврат ↑ со следующего ряда — Lampa ста�
   withDescr(({ c, item, scroll, link }) => {
     LC.header.bindDescr(item, c.row, link);
     item.last = c.frCard;
-    scroll.pos = 2200;
+    /* Ревью волны 2, п.8: страница стоит так, что франшиза в кадре
+       анимации ЦЕЛИКОМ на экране (93…368). При 2200 она была бы выше
+       области и в старом кадре, и мутация «положение по кадру анимации»
+       давала тот же ответ — тест её не ловил. */
+    scroll.pos = 1500;
     scroll.settle();
     scroll.updates.length = 0;
     /* Controller.toggle модуля ряда: фокус на last (он же шлёт hover:focus),
