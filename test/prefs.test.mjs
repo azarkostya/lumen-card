@@ -159,6 +159,8 @@ test('LIST: полный набор ключей — существующие и
     'lumen_posters',
     /* Task 16 (фаза 2): персональные ряды */
     'lumen_personal_rows',
+    /* Волна 4 (ТВ 2026-09-24): начало главной — ротация или история сверху */
+    'lumen_home_start',
     /* Task 20 (фаза 2): состав рядов, чипы настроения, подсказка про ключ */
     'lumen_home_rows', 'lumen_moods', 'lumen_kp_hint',
     /* A6 (волна A): скрывать чужие блоки анализа на карточке фильма */
@@ -280,7 +282,9 @@ const GROUPS = [
        автотрейлер и логотип про одну и ту же часть экрана. */
     /* Правка 2026-09-23: «Что показывает кадр главной» — сразу за размером:
        про ту же часть экрана и общий вопрос, чем выключатель трейлера. */
-    'lumen_hero_size', 'lumen_hero_media', 'lumen_hero_trailer', 'lumen_hero_logo', 'lumen_moods', 'lumen_personal_rows'
+    'lumen_hero_size', 'lumen_hero_media', 'lumen_hero_trailer', 'lumen_hero_logo', 'lumen_moods', 'lumen_personal_rows',
+    /* Волна 4: «Начало главной» — сразу за личными рядами, о которых и речь. */
+    'lumen_home_start'
   ]],
   /* Task 57 (фаза 5): ряды подборок отделены от «Главной» — с настройкой
      дедупликации прежняя группа выросла бы до десяти строк. */
@@ -376,6 +380,23 @@ test('Task 71: логотип названия — переключатель, �
   /* Место: третьим в группе «Главная», сразу за автотрейлером. */
   const names = LIST.map((e) => e.name);
   assert.equal(names[names.indexOf('lumen_hero_trailer') + 1], 'lumen_hero_logo');
+});
+
+/* Волна 4 (ТВ 2026-09-24): «нет ротации списков в начале, постоянно только
+   что вы смотрели раньше». По умолчанию первые ряды крутятся; кто привык к
+   истории сверху — возвращает её этим пунктом. */
+test('волна 4: «Начало главной» — подборки по очереди по умолчанию, «Досмотреть» сверху — по выбору', () => {
+  const entry = prefs.find('lumen_home_start');
+  assert.equal(entry.type, 'select');
+  assert.deepEqual(entry.values, ['rotate', 'history']);
+  assert.equal(entry['default'], 'rotate');
+  assert.equal(entry.vprefix, 'lumen_home_start_');
+  const LC = loadStrings();
+  assert.equal(LC.STRINGS.lumen_home_start_name.ru, 'Начало главной');
+  assert.equal(LC.STRINGS.lumen_home_start_rotate.en, 'Rotating collections');
+  assert.equal(LC.STRINGS.lumen_home_start_history.uk, 'Спочатку «Досивитися»');
+  assert.match(LC.STRINGS.lumen_home_start_descr.ru, /при каждом запуске Lampa/);
+  assert.match(LC.STRINGS.lumen_home_start_descr.ru, /«Досмотреть» стоит вторым/);
 });
 
 test('Task 20: профили настроения — переключатель, по умолчанию включён', () => {
@@ -1106,7 +1127,9 @@ test('Task 60: у каждого вызова LC.pref дефолт совпад�
        Lampa.Storage.field и в сверку не попадали вовсе. */
     'lumen_motion', 'lumen_trailer', 'lumen_menus',
     /* Ф3 п.11 (ревью фикс-раундов): ключи последней волны — тем же списком. */
-    'lumen_posters', 'lumen_hero_media', 'lumen_card_logo']) {
+    'lumen_posters', 'lumen_hero_media', 'lumen_card_logo',
+    /* Волна 4: начало главной — читает план главной (src/47_homeplan.js). */
+    'lumen_home_start']) {
     assert.ok(checked.indexOf(key) !== -1,
       'ключ, записанный не литералом, выпал из сверки: ' + key + ' (сверено: ' + checked.join(', ') + ')');
   }

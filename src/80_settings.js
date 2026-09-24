@@ -928,6 +928,16 @@
       en: 'Show "Continue watching", "Because you watched", "New episodes" and "Coming soon" rows.',
       uk: 'Показувати «Досивитися», «Тому що ви дивилися», «Нові серії» та «Незабаром».'
     },
+    /* Волна 4 (ТВ 2026-09-24): начало главной — ротация рядов по эпохам
+       (src/47_homeplan.js) или прежняя история сверху. */
+    lumen_home_start_name: { ru: 'Начало главной', en: 'Top of the home screen', uk: 'Початок головної' },
+    lumen_home_start_rotate: { ru: 'Подборки по очереди', en: 'Rotating collections', uk: 'Підбірки по черзі' },
+    lumen_home_start_history: { ru: 'Сначала «Досмотреть»', en: '"Continue watching" first', uk: 'Спочатку «Досивитися»' },
+    lumen_home_start_descr: {
+      ru: 'Первые ряды меняются при каждом запуске Lampa и раз в несколько часов, «Досмотреть» стоит вторым. «Сначала «Досмотреть»» — ваша история сверху, как раньше.',
+      en: 'The top rows change every time Lampa starts and every few hours, with "Continue watching" second. "Continue watching" first keeps your history on top, as before.',
+      uk: 'Перші ряди змінюються під час кожного запуску Lampa і раз на кілька годин, «Досивитися» стоїть другим. «Спочатку «Досивитися»» — ваша історія вгорі, як раніше.'
+    },
 
     /* Task 19 (фаза 2): чипы профилей настроения на главной.
        Названия чипов берутся из манифеста (mood.title / mood.i18n),
@@ -1274,9 +1284,11 @@
       try { if (LC.applyRowsPref) LC.applyRowsPref(); } catch (eRows) {}
       return true;
     }
-    /* Task 16 (фаза 2): персональные ряды включены/выключены —
-       перерегистрируем ряды (unregister снимает старые, register строит новые). */
-    if (name === 'lumen_personal_rows') {
+    /* Task 16 (фаза 2): персональные ряды включены/выключены; волна 4 — и
+       «Начало главной». Обе меняют только раскладку главной: план
+       перерегистрирует ряды без перезагрузки каталога, главная
+       пересобирается (LC.applyPersonalPref, src/90_runtime.js). */
+    if (name === 'lumen_personal_rows' || name === 'lumen_home_start') {
       try { if (LC.applyPersonalPref) LC.applyPersonalPref(); } catch (eP) {}
       return true;
     }

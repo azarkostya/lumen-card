@@ -355,6 +355,12 @@
       { name: 'lumen_hero_logo', type: 'trigger', 'default': true, label: 'lumen_hero_logo_name', descr: 'lumen_hero_logo_descr' },
       { name: 'lumen_moods', type: 'trigger', 'default': true, label: 'lumen_moods_name', descr: 'lumen_moods_descr' },
       { name: 'lumen_personal_rows', type: 'trigger', 'default': true, label: 'lumen_personal_rows_name', descr: 'lumen_personal_rows_descr' },
+      /* Волна 4 (ТВ 2026-09-24): «нет ротации списков в начале, постоянно
+         только что вы смотрели раньше — это бесит». По умолчанию первые ряды
+         крутятся по эпохам (src/47_homeplan.js), «Досмотреть» — вторым;
+         'history' — прежний порядок, личные ряды сверху. Место — сразу за
+         личными рядами: пункт про то, где они стоят. */
+      { name: 'lumen_home_start', type: 'select', values: ['rotate', 'history'], vprefix: 'lumen_home_start_', 'default': 'rotate', label: 'lumen_home_start_name', descr: 'lumen_home_start_descr' },
 
       /* Task 57 (фаза 5): всё про ряды подборок — своим заголовком. До него
          эти пункты стояли в «Главной», и с новой настройкой дедупликации

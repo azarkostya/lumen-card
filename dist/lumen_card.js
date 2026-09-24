@@ -30436,6 +30436,16 @@ uk: 'Показувати «Досивитися», «Тому що ви див�
 },
 
 
+lumen_home_start_name: { ru: 'Начало главной', en: 'Top of the home screen', uk: 'Початок головної' },
+lumen_home_start_rotate: { ru: 'Подборки по очереди', en: 'Rotating collections', uk: 'Підбірки по черзі' },
+lumen_home_start_history: { ru: 'Сначала «Досмотреть»', en: '"Continue watching" first', uk: 'Спочатку «Досивитися»' },
+lumen_home_start_descr: {
+ru: 'Первые ряды меняются при каждом запуске Lampa и раз в несколько часов, «Досмотреть» стоит вторым. «Сначала «Досмотреть»» — ваша история сверху, как раньше.',
+en: 'The top rows change every time Lampa starts and every few hours, with "Continue watching" second. "Continue watching" first keeps your history on top, as before.',
+uk: 'Перші ряди змінюються під час кожного запуску Lampa і раз на кілька годин, «Досивитися» стоїть другим. «Спочатку «Досивитися»» — ваша історія вгорі, як раніше.'
+},
+
+
 
 
 lumen_moods_no_sources: {
@@ -30782,7 +30792,9 @@ return true;
 }
 
 
-if (name === 'lumen_personal_rows') {
+
+
+if (name === 'lumen_personal_rows' || name === 'lumen_home_start') {
 try { if (LC.applyPersonalPref) LC.applyPersonalPref(); } catch (eP) {}
 return true;
 }
@@ -31471,6 +31483,12 @@ var LIST = [
 { name: 'lumen_hero_logo', type: 'trigger', 'default': true, label: 'lumen_hero_logo_name', descr: 'lumen_hero_logo_descr' },
 { name: 'lumen_moods', type: 'trigger', 'default': true, label: 'lumen_moods_name', descr: 'lumen_moods_descr' },
 { name: 'lumen_personal_rows', type: 'trigger', 'default': true, label: 'lumen_personal_rows_name', descr: 'lumen_personal_rows_descr' },
+
+
+
+
+
+{ name: 'lumen_home_start', type: 'select', values: ['rotate', 'history'], vprefix: 'lumen_home_start_', 'default': 'rotate', label: 'lumen_home_start_name', descr: 'lumen_home_start_descr' },
 
 
 
