@@ -322,9 +322,10 @@ function findDecl(cssText, matchSelector) {
 /* Волна 3 (ТВ 2026-09-24): разбор градиентов затемнения кадра героя.
    gradients(decl, prop) — слои linear-gradient из БЕСпрефиксного
    объявления prop ('background' или 'mask-image'): [{angle, stops}], стоп —
-   {a, pos, unit}. Сплошной цвет (#RRGGBB, #000) — прозрачность 1. Скобки
+   {a, rgb, pos, unit}. Сплошной цвет (#RRGGBB, #000) — прозрачность 1. Скобки
    считаются, поэтому rgba(...) внутри стопов и несколько слоёв через запятую
-   разбираются честно. */
+   разбираются честно. rgb — [r, g, b] стопа (ревью раунда хвостов, п.7:
+   цвет затемнения больше не один на все слои), null у #RGB. */
 function gradients(declText, prop) {
   const re = new RegExp('(?:^|;)' + prop + ':([^;]*)', 'g');
   let value = null;
@@ -357,8 +358,14 @@ function gradients(declText, prop) {
       stops: parts.map((p) => {
         const t = p.trim();
         const pos = /\s(-?[\d.]+)(%|em|vh)?$/.exec(t);
-        const rgba = /^rgba\([^,]+,[^,]+,[^,]+,\s*([\d.]+)\)/.exec(t);
-        return { a: rgba ? parseFloat(rgba[1]) : (/^#[0-9A-Fa-f]{3,6}\b/.test(t) ? 1 : NaN), pos: pos ? parseFloat(pos[1]) : NaN, unit: pos ? (pos[2] || '') : '' };
+        const rgba = /^rgba\(([^,]+),([^,]+),([^,]+),\s*([\d.]+)\)/.exec(t);
+        const six = /^#([0-9A-Fa-f]{6})\b/.exec(t);
+        return {
+          a: rgba ? parseFloat(rgba[4]) : (/^#[0-9A-Fa-f]{3,6}\b/.test(t) ? 1 : NaN),
+          rgb: rgba ? [rgba[1], rgba[2], rgba[3]].map(Number) : (six ? [0, 2, 4].map((i) => parseInt(six[1].slice(i, i + 2), 16)) : null),
+          pos: pos ? parseFloat(pos[1]) : NaN,
+          unit: pos ? (pos[2] || '') : ''
+        };
       })
     });
     at = end;
@@ -4379,34 +4386,120 @@ test('Task 70: фокус ушёл в ряды — кадр остаётся в�
   assert.ok(text && text.indexOf('opacity:0') === -1, 'текст героя гаснуть не должен: ' + text);
 });
 
-/* Волна 3: модель затемнения кадра героя на экране W×H (CSS px). alphaAt(x,
-   y, compact) — суммарная плотность цвета страницы поверх кадра в точке
-   экрана: верх и низ покоя (.lumen-hero__scrim), левое (scrim--l, умноженное
-   на свою маску) и пол (только в сжатом состоянии). Слой кадра стоит от
-   верха экрана (0…H), поэтому y — прямо координата экрана. Все слои одного
-   цвета, и порядок наложения не важен: плотность 1 − Π(1 − a). em —
-   кегль Lampa в CSS px (lampaEm; по умолчанию — «обычный» размер
-   интерфейса без пола). */
-function heroScrim(built, W, H, em) {
+/* Волна 3: модель затемнения кадра героя на экране W×H (CSS px): верх и
+   низ покоя (.lumen-hero__scrim), левое (scrim--l, умноженное на свою
+   маску) и пол (только в сжатом состоянии). Слой кадра стоит от верха
+   экрана (0…H), поэтому y — прямо координата экрана. em — кегль Lampa в
+   CSS px (lampaEm; по умолчанию — «обычный» размер интерфейса без пола).
+   Ревью раунда хвостов, п.7: до него все слои были одного цвета (фон
+   страницы), и модель считала одну плотность 1 − Π(1 − a). Теперь у слоёв
+   свои цвета (тень подкраски, фон страницы на кромке сплошной части), и
+   модель — цвет пикселя (heroPixel ниже). gradPm — градиент в точке p так,
+   как его интерполирует браузер: прозрачность и цвет, умноженный на неё
+   (premultiplied), линейно между соседними стопами; {a, pm: [r·a, g·a,
+   b·a]}. */
+function gradPm(stops, p) {
+  const pmOf = (s) => (s.rgb || [0, 0, 0]).map((c) => c * s.a);
+  if (p <= stops[0].pos) return { a: stops[0].a, pm: pmOf(stops[0]) };
+  for (let i = 1; i < stops.length; i++) {
+    if (p <= stops[i].pos) {
+      const s0 = stops[i - 1];
+      const s1 = stops[i];
+      const f = s1.pos === s0.pos ? 1 : (p - s0.pos) / (s1.pos - s0.pos);
+      const p0 = pmOf(s0);
+      const p1 = pmOf(s1);
+      return { a: s0.a + (s1.a - s0.a) * f, pm: p0.map((v, k) => v + (p1[k] - v) * f) };
+    }
+  }
+  const last = stops[stops.length - 1];
+  return { a: last.a, pm: pmOf(last) };
+}
+
+/* Порядок слоёв затемнения — порядок узлов в разметке слоя кадра
+   (buildStage, src/48_hero.js): что позже, то рисуется поверх. */
+const HERO_SRC = readFileSync(new URL('../src/48_hero.js', import.meta.url), 'utf8');
+function stageScrimOrder() {
+  const stage = /function buildStage\(\) \{([\s\S]*?)\n    \}/.exec(HERO_SRC);
+  assert.ok(stage, 'buildStage в src/48_hero.js не найдена');
+  return (stage[1].match(/class="([^"]+)"/g) || []).map((m) => m.slice(7, -1))
+    .filter((c) => /lumen-hero__(scrim|floor)/.test(c))
+    .map((c) => (c.indexOf('--l') !== -1 ? 'left' : (c.indexOf('floor') !== -1 ? 'floor' : 'scrim')));
+}
+
+/* Цвет пикселя экрана поверх кадра frame ([r, g, b]) — слои затемнения со
+   своими цветами в порядке разметки. Внутри .lumen-hero__scrim два фона, и
+   первый в списке (верх, 180deg) рисуется поверх второго (низ, 0deg).
+   Смешение — src-over в sRGB, как у браузера: c = pm + c·(1 − a); маска
+   левого затемнения умножает и pm, и a. Возвращает [r, g, b] без
+   округления. */
+function heroPixel(built, W, H, em) {
   const EM = em || W / 84.17;
   const only = (sel, has) => (ruleBodies(built).find((r) => r.selectors.length === 1 && r.selectors[0] === sel && r.decl.indexOf(has) !== -1) || {}).decl;
   const scrim = gradients(only('.lumen-hero-stage .lumen-hero__scrim', 'background'), 'background');
-  const top = scrim.find((l) => l.angle === '180deg').stops.map((s) => ({ a: s.a, pos: s.unit === 'em' ? s.pos * EM : s.pos }));
+  const top = scrim.find((l) => l.angle === '180deg').stops.map((s) => Object.assign({}, s, { pos: s.unit === 'em' ? s.pos * EM : s.pos }));
   const bottom = scrim.find((l) => l.angle === '0deg').stops;
   const left = gradients(only('.lumen-hero-stage .lumen-hero__scrim.lumen-hero__scrim--l', 'background'), 'background')[0].stops;
   const mask = gradients(only('.lumen-hero-stage .lumen-hero__scrim.lumen-hero__scrim--l', 'mask-image'), 'mask-image')[0].stops;
   const floor = gradients(only('.lumen-hero-stage .lumen-hero__floor', 'background'), 'background')[0].stops;
   const box = /(?:^|;)top:calc\(([\d.]+)vh - ([\d.]+)em\)/.exec(only('.lumen-hero-stage .lumen-hero__floor', 'top:calc'));
   const floorTop = parseFloat(box[1]) * H / 100 - parseFloat(box[2]) * EM;
-  return function alphaAt(x, y, compact) {
-    const parts = [
-      gradAt(top, y),
-      gradAt(bottom, (H - y) / H * 100),
-      gradAt(left, x / W * 100) * gradAt(mask, y / H * 100),
-      compact && y >= floorTop ? gradAt(floor, (y - floorTop) / H * 100) : 0
-    ];
-    return 1 - parts.reduce((keep, a) => keep * (1 - a), 1);
+  const order = stageScrimOrder();
+  const pixelAt = function (x, y, compact, frame) {
+    let c = frame.slice();
+    const over = (g, k) => {
+      const m = k === undefined ? 1 : k;
+      c = c.map((v, i) => g.pm[i] * m + v * (1 - g.a * m));
+    };
+    for (const layer of order) {
+      if (layer === 'left') over(gradPm(left, x / W * 100), gradAt(mask, y / H * 100));
+      else if (layer === 'scrim') {
+        over(gradPm(bottom, (H - y) / H * 100));
+        over(gradPm(top, y));
+      } else if (compact && y >= floorTop) over(gradPm(floor, (y - floorTop) / H * 100));
+    }
+    return c;
   };
+  /* Где низ покоя и пол становятся сплошными — нужно проверке фона рядов. */
+  pixelAt.restSolid = H - bottom.filter((s) => s.a >= 1).reduce((m, s) => Math.max(m, s.pos), 0) * H / 100;
+  pixelAt.floorSolid = floorTop + floor.filter((s) => s.a >= 1).reduce((m, s) => Math.min(m, s.pos), Infinity) * H / 100;
+  return pixelAt;
+}
+
+/* Ревью раунда хвостов, п.7: самый светлый фон, какой может выдать
+   подкраска (LC.color.tint, src/57_color.js) для темы. tint берёт у
+   доминанты постера только оттенок и насыщенность (её режет до TINT_S), а
+   светлоту и долю тона задаёт сам, — поэтому перебор оттенка и
+   насыщенности источника покрывает всё, что он может отдать, и промежуточные
+   цвета перехода тоже (они идут через тот же tint). Сторож — P.muted темы
+   с порогом 4.5, как в palette() (src/30_css.js). */
+const COLOR = (() => {
+  const LC = {};
+  const module = { exports: null, lumen: true };
+  loadInto(LC, module, '57_color.js');
+  return module.exports;
+})();
+const LIGHTEST = {};
+function lightestTint(theme) {
+  if (LIGHTEST[theme]) return LIGHTEST[theme];
+  const P = tokensWith({ lumen_theme: theme });
+  let best = null;
+  for (let h = 0; h < 360; h += 0.5) {
+    for (let s = 0.01; s <= 0.3; s += 0.01) {
+      const out = COLOR.tint(COLOR.hslToRgb({ h: h, s: s, l: 0.5 }), P.bg, P.muted, 4.5);
+      if (out && (!best || luminance(out) > luminance(best))) best = out;
+    }
+  }
+  LIGHTEST[theme] = best;
+  return best;
+}
+
+/* Сборка таблицы и палитры с подкраской tint (hex; null — без неё): LC.accent
+   подменяется тем, что palette() у него спрашивает. */
+function withTint(storage, tint, fn) {
+  return withStorage(storage, (LC) => {
+    if (tint) LC.accent = { tint: () => tint };
+    return fn(LC);
+  });
 }
 
 /* Волна 3: строки текста героя на экране W×H — по правилам таблицы, снизу
@@ -4418,7 +4511,7 @@ function heroScrim(built, W, H, em) {
    (translateY и scale с точкой в левом нижнем углу содержимого) и вместе с
    героем уехал вверх на heroShift. Возвращает строки {what, top, bottom,
    left, right} и высоту строки названия текстом. opts.em — кегль Lampa,
-   как у heroScrim. */
+   как у heroPixel. */
 function heroTextLines(built, W, H, opts) {
   const EM = opts.em || W / 84.17;
   const VH = H / 100;
@@ -4494,53 +4587,148 @@ function heroTextLines(built, W, H, opts) {
    Ревью волны 3, п.3 (п.4 списка): и при каждом «Размере интерфейса»
    Lampa — блок текста в em её кегля, и на «крупнее» его правый край
    уходит с 51.2 до 53.8 % ширины экрана, туда, где левое затемнение уже
-   спадает (было 4.42–4.53:1 в худшей точке меты). */
-test('волна 3: мета и описание героя читаются на белом кадре — при любом размере кадра и интерфейса, в покое и в сжатом', () => {
+   спадает (было 4.42–4.53:1 в худшей точке меты).
+   Ревью раунда хвостов, п.7: и при подкраске фона — она включена по
+   умолчанию, а затемнение красилось ею же: с фоном #1E1D1B…#251B16 худшая
+   точка меты падала до 3.9:1 на «крупнее». Проверка идёт на чистом фоне
+   темы и на САМОМ СВЕТЛОМ фоне, какой может выдать подкраска
+   (lightestTint), — в обеих темах; цвет каждого слоя затемнения берётся из
+   таблицы (heroPixel). */
+test('волна 3: мета и описание героя читаются на белом кадре — при любом размере кадра и интерфейса, в покое и в сжатом, с подкраской', () => {
   const W = 960;
   const H = 540;
-  const P = tokensWith({});
-  const bg = [1, 3, 5].map((i) => parseInt(P.bg.slice(i, i + 2), 16));
   const hex = (rgb) => '#' + rgb.map((v) => ('0' + Math.round(v).toString(16)).slice(-2).toUpperCase()).join('');
-  const onFrame = (alpha, frame) => hex(frame.map((v, i) => bg[i] * alpha + v * (1 - alpha)));
   const WHITE = [255, 255, 255];
-  let worstMeta = 99;
-  for (const iface of ['small', 'normal', 'bigger']) {
-    const EM = lampaEm(W, iface);
-    for (const size of ['large', 'medium', 'compact']) {
-      const built = withStorage({ lumen_hero_size: size, interface_size: iface }, (LC) => LC.buildCss());
-      const alphaAt = heroScrim(built, W, H, EM);
-      for (const compact of [false, true]) {
-        for (const v of [{ name: 'фильм', status: false }, { name: 'сериал со статусом', status: true }]) {
-          const lines = heroTextLines(built, W, H, { status: v.status, compact: compact, em: EM });
-          const label = iface + ', ' + size + ', ' + (compact ? 'сжатое' : 'покой') + ', ' + v.name;
-          for (const line of lines) {
-            const big = line.what === 'название';
-            for (const fy of [0.2, 0.5, 0.8]) {
-              const y = line.top + (line.bottom - line.top) * fy;
-              for (let fx = 0; fx <= 1; fx += 0.25) {
-                const x = line.left + (line.right - line.left) * fx;
-                const got = contrast(big ? P.text : P.muted, onFrame(alphaAt(x, y, compact), WHITE));
-                if (!big) worstMeta = Math.min(worstMeta, got);
-                assert.ok(got >= (big ? 3 : 4.5), label + ': ' + line.what + ' в точке (' + x.toFixed(0) + ', ' + y.toFixed(0) + ') на белом кадре ' + got.toFixed(2) + ':1');
+  /* Самый светлый фон подкраски не выдуман: он светлее обоих цветов,
+     на которых ревью волны 3 намерило 3.9–4.2:1. */
+  const warmTint = lightestTint('warm');
+  for (const seen of ['#1E1D1B', '#251B16']) {
+    assert.ok(luminance(warmTint) >= luminance(seen), 'перебор подкраски не нашёл фона светлее ' + seen + ': ' + warmTint);
+  }
+  const variants = [
+    { theme: 'warm', tint: null },
+    { theme: 'warm', tint: warmTint },
+    { theme: 'black', tint: lightestTint('black') }
+  ];
+  const worst = {};
+  for (const variant of variants) {
+    const P = withTint({ lumen_theme: variant.theme }, variant.tint, (LC) => LC.tokens());
+    assert.equal(P.bg, variant.tint || (variant.theme === 'warm' ? '#0B0908' : '#000000'), 'палитра не взяла подкраску');
+    const name = variant.theme + (variant.tint ? ', подкраска ' + variant.tint : ', без подкраски');
+    worst[name] = {};
+    for (const iface of ['small', 'normal', 'bigger']) {
+      const EM = lampaEm(W, iface);
+      let worstMeta = 99;
+      for (const size of ['large', 'medium', 'compact']) {
+        const built = withTint({ lumen_hero_size: size, interface_size: iface, lumen_theme: variant.theme }, variant.tint, (LC) => LC.buildCss());
+        const pixelAt = heroPixel(built, W, H, EM);
+        for (const compact of [false, true]) {
+          for (const v of [{ name: 'фильм', status: false }, { name: 'сериал со статусом', status: true }]) {
+            const lines = heroTextLines(built, W, H, { status: v.status, compact: compact, em: EM });
+            const label = name + ', ' + iface + ', ' + size + ', ' + (compact ? 'сжатое' : 'покой') + ', ' + v.name;
+            for (const line of lines) {
+              const big = line.what === 'название';
+              for (const fy of [0.2, 0.5, 0.8]) {
+                const y = line.top + (line.bottom - line.top) * fy;
+                for (let fx = 0; fx <= 1; fx += 0.25) {
+                  const x = line.left + (line.right - line.left) * fx;
+                  const got = contrast(big ? P.text : P.muted, hex(pixelAt(x, y, compact, WHITE)));
+                  if (!big) worstMeta = Math.min(worstMeta, got);
+                  assert.ok(got >= (big ? 3 : 4.5), label + ': ' + line.what + ' в точке (' + x.toFixed(0) + ', ' + y.toFixed(0) + ') на белом кадре ' + got.toFixed(2) + ':1');
+                }
               }
             }
           }
         }
       }
+      worst[name][iface] = worstMeta;
     }
   }
   /* Запас меты не выдуман: у левого затемнения на правом краю блока .84, и
-     худшая точка — там же. Порог держится, но не с двойным запасом. */
-  assert.ok(worstMeta < 6, 'худшая точка меты подозрительно хороша — модель не видит правого края: ' + worstMeta.toFixed(2));
+     худшая точка — там же. Порог держится, но не с двойным запасом; с
+     самой светлой подкраской — впритык. */
+  const plain = worst['warm, без подкраски'];
+  const tinted = worst['warm, подкраска ' + warmTint];
+  assert.ok(plain.small < 6, 'худшая точка меты подозрительно хороша — модель не видит правого края: ' + JSON.stringify(worst));
+  assert.ok(tinted.bigger < 5, 'с самой светлой подкраской запас меты подозрительно велик: ' + JSON.stringify(worst));
   /* На чёрном кадре то же затемнение мету не гасит. */
-  const alphaAt = heroScrim(css, W, H);
+  const P = tokensWith({});
+  const pixelAt = heroPixel(css, W, H);
   const meta = heroTextLines(css, W, H, { status: false, compact: false }).find((l) => l.what === 'мета');
-  assert.ok(contrast(P.muted, onFrame(alphaAt(meta.right, meta.top, false), [0, 0, 0])) >= 4.5, 'мета на чёрном кадре');
+  assert.ok(contrast(P.muted, hex(pixelAt(meta.right, meta.top, false, [0, 0, 0]))) >= 4.5, 'мета на чёрном кадре');
   /* Заголовок первого ряда в покое лежит на кадре (58.66…62.5 % высоты
      экрана, левая треть) — он под левым затемнением и низом покоя. */
-  for (const y of [316.8, 337.3]) {
-    const got = contrast(P.text, onFrame(alphaAt(0.16 * W, y, false), WHITE));
-    assert.ok(got >= 4.5, 'заголовок первого ряда на белом кадре при y=' + y + ': ' + got.toFixed(2) + ':1');
+  for (const tint of [null, warmTint]) {
+    const built = tint ? withTint({}, tint, (LC) => LC.buildCss()) : css;
+    const at = heroPixel(built, W, H);
+    for (const y of [316.8, 337.3]) {
+      const got = contrast(P.text, hex(at(0.16 * W, y, false, WHITE)));
+      assert.ok(got >= 4.5, 'заголовок первого ряда на белом кадре при y=' + y + (tint ? ', подкраска ' + tint : '') + ': ' + got.toFixed(2) + ':1');
+    }
+  }
+});
+
+/* Ревью раунда хвостов, п.7: затемнения героя красятся ТЕНЬЮ подкраски —
+   она темнее фона страницы, — а фон под рядами остаётся подкраской как
+   есть. Там, где низ покоя (ниже HERO_VH) и пол сжатого состояния
+   сплошные, на экране ровно P.bg при любом кадре: левое затемнение под
+   рядами его не темнит. И ступеньки на стыке нет: по вертикали цвет
+   меняется без скачков — к кромке сплошной части затемнение приходит уже
+   цветом фона рядов. */
+test('п.7 раунда хвостов: фон под рядами — подкраска как есть, стык затемнения с ним без ступеньки', () => {
+  const W = 960;
+  const H = 540;
+  const frames = { 'белый кадр': [255, 255, 255], 'чёрный кадр': [0, 0, 0] };
+  for (const theme of ['warm', 'black']) {
+    const tint = lightestTint(theme);
+    const bg = [1, 3, 5].map((i) => parseInt(tint.slice(i, i + 2), 16));
+    for (const iface of ['small', 'normal', 'bigger']) {
+      const EM = lampaEm(W, iface);
+      for (const size of ['large', 'medium', 'compact']) {
+        const built = withTint({ lumen_hero_size: size, interface_size: iface, lumen_theme: theme }, tint, (LC) => LC.buildCss());
+        const pixelAt = heroPixel(built, W, H, EM);
+        const label = theme + ' ' + tint + ', ' + iface + ', ' + size;
+        for (const fname of Object.keys(frames)) {
+          const frame = frames[fname];
+          for (const x of [0, 0.2 * W, 0.4 * W, 0.6 * W, W - 1]) {
+            for (const [state, compact, from] of [['покой', false, pixelAt.restSolid], ['сжатое', true, pixelAt.floorSolid]]) {
+              for (let y = Math.ceil(from); y < H; y += 2) {
+                const got = pixelAt(x, y, compact, frame);
+                assert.ok(got.every((v, i) => Math.abs(v - bg[i]) < 0.5), label + ', ' + state + ', ' + fname + ': фон под рядами в (' + x.toFixed(0) + ', ' + y + ') — ' +
+                  got.map((v) => v.toFixed(1)).join(',') + ' вместо ' + tint);
+              }
+            }
+            for (const compact of [false, true]) {
+              let prev = pixelAt(x, 0, compact, frame);
+              for (let y = 0.5; y < H; y += 0.5) {
+                const cur = pixelAt(x, y, compact, frame);
+                const jump = Math.max.apply(null, cur.map((v, i) => Math.abs(v - prev[i])));
+                assert.ok(jump <= 3, label + ', ' + (compact ? 'сжатое' : 'покой') + ', ' + fname + ': скачок цвета ' + jump.toFixed(1) + ' на полпикселя в (' + x.toFixed(0) + ', ' + y + ')');
+                prev = cur;
+              }
+            }
+          }
+        }
+        /* Кадр цвета фона рядов у правой кромки (левого затемнения там
+           нет), ниже полосы шапки: низ и пол, подходя к сплошной части, не
+           рисуют на нём полосы темнее фона — цвет стопа идёт к фону вместе
+           с плотностью, и темнее фона он не больше чем на четверть разницы
+           фона и тени (у стопов одной тенью — почти на всю разницу). */
+        const leftDecl = ruleBodies(built).find((r) => r.selectors.length === 1 && r.selectors[0] === '.lumen-hero-stage .lumen-hero__scrim.lumen-hero__scrim--l' &&
+          r.decl.indexOf('background') !== -1).decl;
+        const shade = gradients(leftDecl, 'background')[0].stops[0].rgb;
+        assert.ok(shade.every((v, i) => v <= bg[i]) && shade.some((v, i) => v < bg[i]), label + ': тень ' + shade.join(',') + ' не темнее фона ' + bg.join(','));
+        for (const compact of [false, true]) {
+          for (let y = 9 * EM; y < H; y += 1) {
+            const got = pixelAt(W - 1, y, compact, bg);
+            got.forEach((v, i) => {
+              assert.ok(v >= bg[i] - (bg[i] - shade[i]) / 4 - 0.5, label + ', ' + (compact ? 'сжатое' : 'покой') + ': над рядами полоса темнее фона в y=' + y.toFixed(1) +
+                ' — ' + got.map((c) => c.toFixed(1)).join(',') + ' при фоне ' + bg.join(','));
+            });
+          }
+        }
+      }
+    }
   }
 });
 
@@ -5147,18 +5335,20 @@ test('волна 3: полоса под шапкой Lampa неподвижна 
   const W = 960;
   const H = 540;
   const EM = W / 84.17;
-  const P = tokensWith({});
-  const bg = [1, 3, 5].map((i) => parseInt(P.bg.slice(i, i + 2), 16));
   const hex = (rgb) => '#' + rgb.map((v) => ('0' + Math.round(v).toString(16)).slice(-2).toUpperCase()).join('');
-  for (const size of ['large', 'medium', 'compact']) {
-    const built = withStorage({ lumen_hero_size: size }, (LC) => LC.buildCss());
-    const alphaAt = heroScrim(built, W, H);
-    for (const compact of [false, true]) {
-      for (const x of [0.56 * W, 0.9 * W, 0.98 * W]) {
-        for (const y of [10.3, 20, 2.7 * EM]) {
-          const a = alphaAt(x, y, compact);
-          const got = contrast('#FFFFFF', hex(bg.map((c) => c * a + 255 * (1 - a))));
-          assert.ok(got >= 3, size + (compact ? ', сжатое' : ', покой') + ': часы шапки на белом кадре в (' + x.toFixed(0) + ', ' + y.toFixed(1) + ') — ' + got.toFixed(2) + ':1');
+  /* Ревью раунда хвостов, п.7: полоса красится тенью подкраски — и с
+     самой светлой подкраской тоже. */
+  for (const tint of [null, lightestTint('warm')]) {
+    for (const size of ['large', 'medium', 'compact']) {
+      const built = withTint({ lumen_hero_size: size }, tint, (LC) => LC.buildCss());
+      const pixelAt = heroPixel(built, W, H);
+      for (const compact of [false, true]) {
+        for (const x of [0.56 * W, 0.9 * W, 0.98 * W]) {
+          for (const y of [10.3, 20, 2.7 * EM]) {
+            const got = contrast('#FFFFFF', hex(pixelAt(x, y, compact, [255, 255, 255])));
+            assert.ok(got >= 3, size + (compact ? ', сжатое' : ', покой') + (tint ? ', подкраска ' + tint : '') + ': часы шапки на белом кадре в (' +
+              x.toFixed(0) + ', ' + y.toFixed(1) + ') — ' + got.toFixed(2) + ':1');
+          }
         }
       }
     }

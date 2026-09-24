@@ -1019,6 +1019,9 @@ p.spice = C.spice;
 
 
 
+
+
+
 try {
 if (LC.accent && typeof LC.accent.tint === 'function') {
 var tinted = LC.accent.tint(p.bg, p.muted, 4.5);
@@ -1028,6 +1031,12 @@ if (tinted) p.bg = tinted;
 warn('bg tint failed', eTint);
 }
 p.bgRgb = hexToRgb(p.bg);
+
+
+
+
+
+p.shadeRgb = shadeRgb(p.bg);
 p.textRgb = hexToRgb(p.text);
 p.panelRgb = hexToRgb(p.panel);
 
@@ -1097,6 +1106,8 @@ function accentRules(P, t) {
 var key = heroSizeKey();
 return {
 main: '.lumen-main{background-color:' + P.bg + '}',
+
+
 
 
 
@@ -1680,6 +1691,28 @@ var TEXT_ZOOM = 1.1;
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 var SCRIM_TOP_A = 0.5;
 var SCRIM_TOP_FULL = 3.96;
 var SCRIM_TOP_END = 9;
@@ -1690,6 +1723,7 @@ var SCRIM_L_UP = 22;
 var SCRIM_L_FADE = 20;
 var FLOOR_UP = 1.5;
 var FLOOR_FADE = 14.5;
+var SHADE_K = 0.5;
 
 
 
@@ -1775,8 +1809,31 @@ function alphaCss(a) {
 return ('' + round2(a)).replace(/^0\./, '.');
 }
 
-function bgAt(P, a) {
-return a >= 1 ? P.bg : 'rgba(' + P.bgRgb + ',' + alphaCss(a) + ')';
+
+
+function shadeRgb(hex) {
+var rgb = hexToRgb(hex).split(',');
+for (var i = 0; i < rgb.length; i++) rgb[i] = Math.round(rgb[i] * (1 - SHADE_K));
+return rgb.join(',');
+}
+
+
+
+function shadeAt(P, a) {
+return 'rgba(' + P.shadeRgb + ',' + alphaCss(a) + ')';
+}
+
+
+
+
+
+function edgeAt(P, a) {
+if (a >= 1) return P.bg;
+var bg = P.bgRgb.split(',');
+var sh = P.shadeRgb.split(',');
+var rgb = [];
+for (var i = 0; i < bg.length; i++) rgb.push(Math.round(+sh[i] + (bg[i] - sh[i]) * a));
+return 'rgba(' + rgb.join(',') + ',' + alphaCss(a) + ')';
 }
 
 
@@ -1784,14 +1841,14 @@ return a >= 1 ? P.bg : 'rgba(' + P.bgRgb + ',' + alphaCss(a) + ')';
 function fadeStops(P, from, len) {
 var out = from > 0 ? [P.bg + ' 0%'] : [];
 for (var i = 0; i < SCRIM_FADE.length; i++) {
-out.push(bgAt(P, SCRIM_FADE[i][1]) + ' ' + round2(from + SCRIM_FADE[i][0] * len) + '%');
+out.push(edgeAt(P, SCRIM_FADE[i][1]) + ' ' + round2(from + SCRIM_FADE[i][0] * len) + '%');
 }
 return out.join(',');
 }
 
 function scrimTop(P) {
-var half = bgAt(P, SCRIM_TOP_A);
-return half + ' 0,' + half + ' ' + SCRIM_TOP_FULL + 'em,' + bgAt(P, 0) + ' ' + SCRIM_TOP_END + 'em';
+var half = shadeAt(P, SCRIM_TOP_A);
+return half + ' 0,' + half + ' ' + SCRIM_TOP_FULL + 'em,' + shadeAt(P, 0) + ' ' + SCRIM_TOP_END + 'em';
 }
 
 function scrimBottom(P, key) {
@@ -1804,7 +1861,7 @@ return fadeStops(P, round2(100 - HERO_VH[key]), HERO_VH[key] * SCRIM_FADE_K);
 function scrimFloor(P) {
 var out = [];
 for (var i = SCRIM_FADE.length - 1; i >= 0; i--) {
-out.push(bgAt(P, SCRIM_FADE[i][1]) + ' ' + round2((1 - SCRIM_FADE[i][0]) * FLOOR_FADE) + 'vh');
+out.push(edgeAt(P, SCRIM_FADE[i][1]) + ' ' + round2((1 - SCRIM_FADE[i][0]) * FLOOR_FADE) + 'vh');
 }
 return out.join(',');
 }
@@ -1815,7 +1872,7 @@ return round2(ROWS_TOP_VH[key] - FLOOR_FADE) + 'vh - ' + FLOOR_UP + 'em';
 
 function scrimLeft(P) {
 var out = [];
-for (var i = 0; i < SCRIM_L.length; i++) out.push(bgAt(P, SCRIM_L[i][1]) + ' ' + SCRIM_L[i][0] + '%');
+for (var i = 0; i < SCRIM_L.length; i++) out.push(shadeAt(P, SCRIM_L[i][1]) + ' ' + SCRIM_L[i][0] + '%');
 return out.join(',');
 }
 
@@ -4197,6 +4254,7 @@ css.push('.lumen-hero-stage .lumen-hero__bg.is-active,.lumen-hero-stage .lumen-h
 
 
 
+
 css.push('.lumen-hero-stage.lumen-motion-full .lumen-hero__bg,.lumen-hero-stage.lumen-motion-full .lumen-hero__lqip{-webkit-transition:opacity .35s ease;transition:opacity .35s ease}');
 css.push('body.lumen-fx-heavy .lumen-hero-stage.lumen-motion-full .lumen-hero__bg{-webkit-transition:opacity .6s ease-in-out;transition:opacity .6s ease-in-out}');
 
@@ -4248,6 +4306,8 @@ css.push('.lumen-hero.lumen-hero--trailer .lumen-hero__descr{display:none}');
 
 css.push('.lumen-hero.lumen-hero--compact .lumen-fx{opacity:0}');
 css.push('.lumen-hero.lumen-motion-full .lumen-fx{-webkit-transition:opacity .35s ease;transition:opacity .35s ease}');
+
+
 
 
 
@@ -13213,14 +13273,18 @@ lang: langCode()
 
 
 
+
+
+
+
 function buildStage() {
 return $('<div class="lumen-hero-stage">' +
 '<img class="lumen-hero__lqip" decoding="async" alt="">' +
 '<img class="lumen-hero__bg lumen-hero__bg--a" decoding="async" fetchpriority="high" alt="">' +
 '<img class="lumen-hero__bg lumen-hero__bg--b" decoding="async" fetchpriority="high" alt="">' +
 '<div class="lumen-hero__trailer"></div>' +
-'<div class="lumen-hero__scrim"></div>' +
 '<div class="lumen-hero__scrim lumen-hero__scrim--l"></div>' +
+'<div class="lumen-hero__scrim"></div>' +
 '<div class="lumen-hero__floor"></div>' +
 '</div>');
 }

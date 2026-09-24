@@ -729,21 +729,25 @@
        15/16). Теперь кадр во весь экран не срезается, при уходе в ряды стоит
        на месте, а затемнение — три неподвижных градиента без кромок
        (src/30_css.js, разбор у констант SCRIM_*):
-         .lumen-hero__scrim        — верх под шапкой Lampa и низ покоя;
          .lumen-hero__scrim--l     — подушка под текстом, до правой кромки;
+         .lumen-hero__scrim        — верх под шапкой Lampa и низ покоя;
          .lumen-hero__floor        — сплошной низ под поднятыми рядами.
        Вуалей (левой в потоке текста и верхней с встречным сдвигом) больше
        нет. Слой ролика — между кадром и затемнением, как .lumen-bg__trailer
        в слое фона карточки: затемнение обязано лежать поверх ролика, иначе
-       текст героя на нём не прочитать. */
+       текст героя на нём не прочитать.
+       Ревью раунда хвостов, п.7: левое затемнение — ПОД верхним и нижним.
+       Затемнения красятся тенью подкраски (темнее фона страницы), а низ
+       покоя уходит в сплошной фон рядов: лежи левое поверх, его тень
+       затемняла бы фон рядов слева. На плотность порядок не влияет. */
     function buildStage() {
       return $('<div class="lumen-hero-stage">' +
         '<img class="lumen-hero__lqip" decoding="async" alt="">' +
         '<img class="lumen-hero__bg lumen-hero__bg--a" decoding="async" fetchpriority="high" alt="">' +
         '<img class="lumen-hero__bg lumen-hero__bg--b" decoding="async" fetchpriority="high" alt="">' +
         '<div class="lumen-hero__trailer"></div>' +
-        '<div class="lumen-hero__scrim"></div>' +
         '<div class="lumen-hero__scrim lumen-hero__scrim--l"></div>' +
+        '<div class="lumen-hero__scrim"></div>' +
         '<div class="lumen-hero__floor"></div>' +
         '</div>');
     }
