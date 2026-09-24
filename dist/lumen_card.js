@@ -15078,6 +15078,14 @@ state.stale = true;
 state.parked = true;
 cancelTrailer();
 stopTimer('timer');
+
+
+
+
+
+
+state.focusEl = null;
+state.pending = null;
 cancelPending();
 stopTimer('accentTimer');
 cancelBigPoster();

@@ -1285,6 +1285,42 @@ test('пятый раунд п.6: в пути только таймер фоку
   assert.deepEqual(warnLog, []);
 });
 
+/* Контрольное ревью шестого раунда, п.1. Тот же сценарий, что выше, но после
+   возврата пользователь уходит с плитки «Ещё» влево на B. park() гасил таймер
+   фокуса B, но оставлял state.focusEl = B: гард «фокус не сменился» в
+   onFocus съедал событие, и герой так и висел на A, хотя в фокусе B. */
+test('шестой раунд п.1: таймер B оборван парковкой — после возврата фокус на B показывает B', () => {
+  const env = makeEnv();
+  const main = makeMain();
+  const other = makeMain();
+  env.hero.mount(main.activity);
+  const node = main.activity._children[0];
+  focusOn(main, main.card1);
+  env.advance(400);
+  env.images[0].onload();
+  env.requests[0].ok({ id: 11, runtime: 100, genres: [{ name: 'драма' }] });
+  env.advance(1000);
+
+  main.card1.removeClass('focus');
+  focusOn(main, main.card2);
+  env.advance(100);
+  main.card2.removeClass('focus');
+  env.hero.detach(other.activity);
+  env.advance(1000);
+  env.hero.mount(main.activity);
+  assert.equal(env.requests.filter((r) => r.url === 'movie/22').length, 0, 'предусловие: B ещё не показывали');
+
+  /* С плитки «Ещё» влево — снова на B. */
+  focusOn(main, main.card2);
+  env.advance(400);
+  const b = env.requests.filter((r) => r.url === 'movie/22');
+  assert.equal(b.length, 1, 'фокус на B не запросил его деталей — герой висит на A');
+  b[0].ok({ id: 22, runtime: 90, genres: [{ name: 'комедия' }] });
+  env.advance(1000);
+  assert.equal(node.find('.lumen-hero__meta').text(), '2025 · 1:30 · комедия · ★ 6.4', 'описание героя не от B');
+  assert.deepEqual(warnLog, []);
+});
+
 /* Ф2 п.1. «Полный» режим, атмосфера, тот же фильм под фокусом: главная
    → OK → Назад. Канвас героя снимает уборка LC.fx.sweep() на 'start'
    карточки; resume обязан поставить его заново — иначе частицы пропадают до

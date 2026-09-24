@@ -2573,6 +2573,14 @@
       state.parked = true;
       cancelTrailer();
       stopTimer('timer');
+      /* Контрольное ревью шестого раунда, п.1: вместе с таймером фокуса
+         забываем и карточку, на которую он был заведён. Иначе после
+         «A показан -> B быстрее DELAY -> «Ещё» -> OK -> Назад -> влево на B»
+         гард «фокус не сменился» в onFocus (state.focusEl === el) съедал
+         событие на B: таймер его погашен, а герой так и висел на A. Возврат
+         с фокусом на карточке resume() заводит оба поля заново сам. */
+      state.focusEl = null;
+      state.pending = null;
       cancelPending();
       stopTimer('accentTimer');
       cancelBigPoster();
