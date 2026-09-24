@@ -575,6 +575,14 @@
       var kadr = false;
       var lastFocus = null;
       var started = false;
+      /* Контрольное ревью 84c7b27..de0e2c8, п.1: ответ каталога не
+         отсекается общим gen — его поднимает и pause() при уходе через меню,
+         и тогда экран оставался без каталога навсегда. Каталог гасит только
+         destroy() (destroyed); ответ, пришедший на паузе, строит экран, но
+         выборку не показывает (paused) — это сделает start(). */
+      var destroyed = false;
+      var paused = false;
+      var manifestWait = false;
       var filters = { unseen: unseenDefault(), short: false };
 
       /* Стартовый выбор из object.preselect: «крутить по этой подборке». */
@@ -1408,9 +1416,24 @@
         try { self.activity.loader(false); } catch (e) { }
         /* Правка 2026-09-23 (п.5.1): выборка показывается сразу при заходе,
            а не только после первого касания чипа — иначе центр экрана до
-           первого действия по-прежнему пустая коробка. */
-        schedulePreview();
+           первого действия по-прежнему пустая коробка. На паузе — нет:
+           скрытый экран в сеть не ходит (Ф2 п.5), выборку поднимет start(). */
+        if (!paused) schedulePreview();
         if (started) recollect(null);
+      }
+
+      /* Запрос каталога. Ответ отсекается только уничтожением экрана, а не
+         bump(): тот зовут и pause()/stop(), после которых экран ещё
+         вернётся (ревью 84c7b27..de0e2c8, п.1). */
+      function requestManifest() {
+        try { self.activity.loader(true); } catch (e) { }
+        if (manifestWait) return;
+        manifestWait = true;
+        LC.manifest.load(function (m) {
+          manifestWait = false;
+          if (destroyed) return;
+          build(m);
+        });
       }
 
       this.create = function () {
@@ -1460,12 +1483,7 @@
         screen.append(veilL);
         screen.append(veilB);
         screen.append(scroll.render());
-        try { self.activity.loader(true); } catch (e) { }
-        var captured = gen;
-        LC.manifest.load(function (m) {
-          if (gen !== captured) return;
-          build(m);
-        });
+        requestManifest();
       };
 
       this.render = function (js) {
@@ -1477,6 +1495,11 @@
         try { act = Lampa.Activity.active(); } catch (eAct) { }
         if (act && act.activity && act.activity !== this.activity) return;
         started = true;
+        paused = false;
+        /* Контрольное ревью 84c7b27..de0e2c8, п.1. Каталога ещё нет —
+           запрос в пути (индикатор горит до build()) или, если его нет,
+           уходит заново. */
+        if (!manifest) requestManifest();
         /* Task 34: возврат с просмотра — this.pause() (или this.stop(), если
            уходили глубже) уже прошёл, bump()
            погасил gen и недогруженную предзагрузку (resultLoader на этот
@@ -1555,6 +1578,7 @@
          тем же путём, что после stop(). */
       this.pause = function () {
         started = false;
+        paused = true;
         bump();
       };
 
@@ -1563,10 +1587,12 @@
          pause(): запросы, барабан, отложенный показ выборки. */
       this.stop = function () {
         started = false;
+        paused = true;
         bump();
       };
 
       this.destroy = function () {
+        destroyed = true;
         bump();
         pool = [];
         reel = [];

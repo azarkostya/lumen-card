@@ -539,10 +539,32 @@ var poolCards34 = [];
 /* Ф2 п.5: счётчик запросов пула — тест паузы проверяет, что скрытый экран
    в сеть не ходит. Сбрасывается в openRoulette34. */
 var fetchCalls34 = 0;
+/* Контрольное ревью 84c7b27..de0e2c8: по умолчанию сеть отвечает
+   синхронно (кэш), но настоящие LC.manifest.load (12-часовой кэш устарел —
+   идёт XHR, src/42_manifest.js) и LC.sources.fetch отвечают позже.
+   hold34.manifest / hold34.pool включают это поведение: колбэки копятся в
+   heldManifest34 / heldPool34, и тест отпускает их сам (releaseHeld).
+   Всё сбрасывается в openRoulette34. */
+var hold34 = {};
+var heldManifest34 = [];
+var heldPool34 = [];
+/* Журнал self.activity.loader(...): последнее значение — состояние
+   индикатора загрузки активности. */
+var loaderLog34 = [];
 function fetchStub34(item, page, ok) {
   fetchCalls34++;
-  ok({ results: page === 1 ? poolCards34 : [] });
+  var answer = function () { ok({ results: page === 1 ? poolCards34 : [] }); };
+  if (hold34.pool) heldPool34.push(answer);
+  else answer();
   return { clear: function () { } };
+}
+function manifestStub34(cb) {
+  if (hold34.manifest) heldManifest34.push(function () { cb(MANIFEST34); });
+  else cb(MANIFEST34);
+}
+function releaseHeld(list) {
+  var calls = list.splice(0, list.length);
+  for (var i = 0; i < calls.length; i++) calls[i]();
 }
 
 function backdropUrl(card) {
@@ -609,7 +631,11 @@ function fireReveal() {
   last.opts.then();
 }
 
-function openRoulette34(cards, t, dpr, motion, object) {
+function openRoulette34(cards, t, dpr, motion, object, hold) {
+  hold34 = hold || {};
+  heldManifest34 = [];
+  heldPool34 = [];
+  loaderLog34 = [];
   resetTimers();
   resetTransition();
   resetCollection();
@@ -653,7 +679,7 @@ function openRoulette34(cards, t, dpr, motion, object) {
     hub: { titleOf: function (item) { return (item && item.title) || ''; } },
     cardinfo: { imageUrl: function (path, size) { return path ? 'https://img/' + size + path : ''; } },
     rows: { viewedIds: function () { return []; } },
-    manifest: { load: function (cb) { cb(MANIFEST34); } },
+    manifest: { load: manifestStub34 },
     sources: { fetch: fetchStub34 },
     transition: transitionStub.api
   });
@@ -661,7 +687,7 @@ function openRoulette34(cards, t, dpr, motion, object) {
 
   var Comp = components.lumen_roulette;
   var comp = new Comp(object || {});
-  comp.activity = { loader: function () { } };
+  comp.activity = { loader: function (on) { loaderLog34.push(!!on); } };
   comp.create();
   var screen = comp.render();
   var reel = screen.find('.lumen-roulette__reel');
@@ -677,6 +703,9 @@ function openRoulette34(cards, t, dpr, motion, object) {
     resultNode: function () { return screen.find('.lumen-roulette__result')[0]; },
     root: screen.find('.lumen-roulette'),
     controller: function () { return controllers.content; },
+    /* Горит ли индикатор загрузки активности (последний вызов loader). */
+    loading: function () { return loaderLog34.length ? loaderLog34[loaderLog34.length - 1] : false; },
+    chips: function () { return screen.find('.lumen-roulette__chipbox').all('.lumen-roulette__chip'); },
     reel: reel,
     bg: screen.find('.lumen-roulette__bg'),
     transition: transitionStub
@@ -1297,6 +1326,60 @@ test('Ф2 п.5: pause() гасит отложенный показ выборк�
   fire(env.root.find('.lumen-roulette__spin'), 'hover:enter');
   drainDelays();
   assert.equal(env.root.find('.lumen-roulette__result').hasClass('is-live'), true, 'после pause()/start() рулетка не крутится');
+});
+
+/* Контрольное ревью 84c7b27..de0e2c8, п.1. Каталог идёт в сеть (кэш 12 ч
+   устарел), рулетку открыли и тут же ушли через меню: Activity.push зовёт
+   pause() у текущей, а pause() -> bump() поднимал общий gen, и ответ
+   каталога в create() отсекался навсегда — build() не звался, start() каталог
+   не перезапрашивал, индикатор загрузки висел. Ответ каталога гасит только
+   destroy(). */
+function spinToResult(env) {
+  fire(env.root.find('.lumen-roulette__spin'), 'hover:enter');
+  for (let i = 0; i < 5; i++) {
+    releaseHeld(heldPool34);
+    drainDelays();
+  }
+  return env.root.find('.lumen-roulette__result').hasClass('is-live');
+}
+
+test('ревью п.1: каталог пришёл, пока рулетка на паузе, — на возврате чипы есть, загрузка снята', (t) => {
+  const env = openRoulette34([R44], t, 1, 'lite', { media: 'movie' }, { manifest: true });
+  env.comp.start();
+  assert.equal(env.loading(), true, 'предпосылка: пока каталог в пути, индикатор загрузки горит');
+  assert.equal(env.chips().length, 0, 'предпосылка: чипов до каталога нет');
+  env.comp.pause();
+  releaseHeld(heldManifest34);
+  drainDelays();
+  assert.equal(fetchCalls34, 0, 'экран на паузе пошёл в сеть за выборкой');
+  env.comp.start();
+  assert.ok(env.chips().length > 1, 'на возврате ленты подборок нет — каталог потерян');
+  assert.equal(env.loading(), false, 'индикатор загрузки висит после возврата');
+  drainDelays();
+  assert.ok(fetchCalls34 > 0, 'на возврате выборка не показана');
+  assert.equal(spinToResult(env), true, 'после возврата рулетка не крутится');
+});
+
+test('ревью п.1: каталог пришёл уже после возврата — чипы строятся, загрузка снята', (t) => {
+  const env = openRoulette34([R44], t, 1, 'lite', { media: 'movie' }, { manifest: true });
+  env.comp.start();
+  env.comp.pause();
+  env.comp.start();
+  assert.equal(env.loading(), true, 'каталог ещё в пути — индикатор должен гореть');
+  releaseHeld(heldManifest34);
+  assert.ok(env.chips().length > 1, 'поздний ответ каталога отброшен — ленты подборок нет');
+  assert.equal(env.loading(), false, 'индикатор загрузки висит');
+  assert.equal(spinToResult(env), true, 'рулетка не крутится');
+});
+
+test('ревью п.1: ответ каталога после destroy() экран не строит', (t) => {
+  const env = openRoulette34([R44], t, 1, 'lite', { media: 'movie' }, { manifest: true });
+  env.comp.start();
+  env.comp.destroy();
+  releaseHeld(heldManifest34);
+  drainDelays();
+  assert.equal(env.chips().length, 0, 'уничтоженный экран построил ленту подборок');
+  assert.equal(fetchCalls34, 0, 'уничтоженный экран пошёл в сеть');
 });
 
 test('правка 2026-09-23: подпись счётчика выборки есть во всех трёх языках', () => {

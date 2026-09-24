@@ -19816,6 +19816,14 @@ var frame = null;
 var kadr = false;
 var lastFocus = null;
 var started = false;
+
+
+
+
+
+var destroyed = false;
+var paused = false;
+var manifestWait = false;
 var filters = { unseen: unseenDefault(), short: false };
 
 
@@ -20650,8 +20658,23 @@ try { self.activity.loader(false); } catch (e) { }
 
 
 
-schedulePreview();
+
+if (!paused) schedulePreview();
 if (started) recollect(null);
+}
+
+
+
+
+function requestManifest() {
+try { self.activity.loader(true); } catch (e) { }
+if (manifestWait) return;
+manifestWait = true;
+LC.manifest.load(function (m) {
+manifestWait = false;
+if (destroyed) return;
+build(m);
+});
 }
 
 this.create = function () {
@@ -20701,12 +20724,7 @@ screen.append(bg);
 screen.append(veilL);
 screen.append(veilB);
 screen.append(scroll.render());
-try { self.activity.loader(true); } catch (e) { }
-var captured = gen;
-LC.manifest.load(function (m) {
-if (gen !== captured) return;
-build(m);
-});
+requestManifest();
 };
 
 this.render = function (js) {
@@ -20718,6 +20736,11 @@ var act = null;
 try { act = Lampa.Activity.active(); } catch (eAct) { }
 if (act && act.activity && act.activity !== this.activity) return;
 started = true;
+paused = false;
+
+
+
+if (!manifest) requestManifest();
 
 
 
@@ -20796,6 +20819,7 @@ Lampa.Controller.toggle('content');
 
 this.pause = function () {
 started = false;
+paused = true;
 bump();
 };
 
@@ -20804,10 +20828,12 @@ bump();
 
 this.stop = function () {
 started = false;
+paused = true;
 bump();
 };
 
 this.destroy = function () {
+destroyed = true;
 bump();
 pool = [];
 reel = [];
