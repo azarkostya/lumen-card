@@ -3801,12 +3801,21 @@ test('волна 3: левое затемнение уходит в ноль у 
   assert.equal(last.pos, 100, 'затемнение обязано доходить до правой кромки: последний стоп на ' + last.pos + ' %');
   assert.equal(last.a, 0, 'у правой кромки затемнения нет');
   assert.equal(stops.slice(0, -1).filter((s) => s.a === 0).length, 0, 'затемнение кончается раньше правой кромки');
+  const slopes = [];
   for (let i = 1; i < stops.length; i++) {
     const a = stops[i - 1];
     const b = stops[i];
     assert.ok(b.a <= a.a, 'плотность растёт на ' + b.pos + ' %: ' + rule);
     const slope = (a.a - b.a) / (b.pos - a.pos);
     assert.ok(slope <= 0.025, 'обрыв между ' + a.pos + ' и ' + b.pos + ' %: ' + slope.toFixed(3) + ' на 1 % ширины');
+    slopes.push(slope);
+  }
+  /* Ревью волны 3, п.4 списка: «без видимой полки». Градиент кусочно-
+     линейный, и на глаз видна не плотность, а излом — резкая смена наклона
+     в стопе. Излом не резче, чем у кривой волны 3 в её колене (52 %:
+     .0036 → .0183 на 1 % ширины, разница .0147). */
+  for (let i = 1; i < slopes.length; i++) {
+    assert.ok(slopes[i] - slopes[i - 1] <= 0.015, 'излом в стопе ' + stops[i].pos + ' %: наклон ' + slopes[i - 1].toFixed(4) + ' → ' + slopes[i].toFixed(4));
   }
   assert.ok(rule.indexOf('-webkit-linear-gradient(left,') !== -1, 'старым webkit-движкам нужен префиксный градиент: ' + rule);
   /* По высоте затемнение ограничивает маска — фон несёт одно направление,
@@ -4354,9 +4363,11 @@ test('Task 70: фокус ушёл в ряды — кадр остаётся в�
    экрана: верх и низ покоя (.lumen-hero__scrim), левое (scrim--l, умноженное
    на свою маску) и пол (только в сжатом состоянии). Слой кадра стоит от
    верха экрана (0…H), поэтому y — прямо координата экрана. Все слои одного
-   цвета, и порядок наложения не важен: плотность 1 − Π(1 − a). */
-function heroScrim(built, W, H) {
-  const EM = W / 84.17;
+   цвета, и порядок наложения не важен: плотность 1 − Π(1 − a). em —
+   кегль Lampa в CSS px (lampaEm; по умолчанию — «обычный» размер
+   интерфейса без пола). */
+function heroScrim(built, W, H, em) {
+  const EM = em || W / 84.17;
   const only = (sel, has) => (ruleBodies(built).find((r) => r.selectors.length === 1 && r.selectors[0] === sel && r.decl.indexOf(has) !== -1) || {}).decl;
   const scrim = gradients(only('.lumen-hero-stage .lumen-hero__scrim', 'background'), 'background');
   const top = scrim.find((l) => l.angle === '180deg').stops.map((s) => ({ a: s.a, pos: s.unit === 'em' ? s.pos * EM : s.pos }));
@@ -4385,9 +4396,10 @@ function heroScrim(built, W, H) {
    описание скрыто, блок сдвинут своим transform
    (translateY и scale с точкой в левом нижнем углу содержимого) и вместе с
    героем уехал вверх на heroShift. Возвращает строки {what, top, bottom,
-   left, right} и высоту строки названия текстом. */
+   left, right} и высоту строки названия текстом. opts.em — кегль Lampa,
+   как у heroScrim. */
 function heroTextLines(built, W, H, opts) {
-  const EM = W / 84.17;
+  const EM = opts.em || W / 84.17;
   const VH = H / 100;
   const pick = (sel, re) => {
     const body = ruleBodies(built).filter((r) => r.selectors.indexOf(sel) !== -1).map((r) => r.decl).join(';');
@@ -4457,8 +4469,12 @@ function heroTextLines(built, W, H, opts) {
    проверку не входит: WCAG 2.1 (1.4.11) освобождает логотипы.
    Затемнение неподвижно, а текст в сжатом состоянии уезжает вверх вместе
    с героем, — поэтому состояний два. И на тёмном кадре мету не
-   переосветлили. */
-test('волна 3: мета и описание героя читаются на белом кадре — при любом размере, в покое и в сжатом', () => {
+   переосветлили.
+   Ревью волны 3, п.3 (п.4 списка): и при каждом «Размере интерфейса»
+   Lampa — блок текста в em её кегля, и на «крупнее» его правый край
+   уходит с 51.2 до 53.8 % ширины экрана, туда, где левое затемнение уже
+   спадает (было 4.42–4.53:1 в худшей точке меты). */
+test('волна 3: мета и описание героя читаются на белом кадре — при любом размере кадра и интерфейса, в покое и в сжатом', () => {
   const W = 960;
   const H = 540;
   const P = tokensWith({});
@@ -4467,22 +4483,25 @@ test('волна 3: мета и описание героя читаются н�
   const onFrame = (alpha, frame) => hex(frame.map((v, i) => bg[i] * alpha + v * (1 - alpha)));
   const WHITE = [255, 255, 255];
   let worstMeta = 99;
-  for (const size of ['large', 'medium', 'compact']) {
-    const built = withStorage({ lumen_hero_size: size }, (LC) => LC.buildCss());
-    const alphaAt = heroScrim(built, W, H);
-    for (const compact of [false, true]) {
-      for (const v of [{ name: 'фильм', status: false }, { name: 'сериал со статусом', status: true }]) {
-        const lines = heroTextLines(built, W, H, { status: v.status, compact: compact });
-        const label = size + ', ' + (compact ? 'сжатое' : 'покой') + ', ' + v.name;
-        for (const line of lines) {
-          const big = line.what === 'название';
-          for (const fy of [0.2, 0.5, 0.8]) {
-            const y = line.top + (line.bottom - line.top) * fy;
-            for (let fx = 0; fx <= 1; fx += 0.25) {
-              const x = line.left + (line.right - line.left) * fx;
-              const got = contrast(big ? P.text : P.muted, onFrame(alphaAt(x, y, compact), WHITE));
-              if (!big) worstMeta = Math.min(worstMeta, got);
-              assert.ok(got >= (big ? 3 : 4.5), label + ': ' + line.what + ' в точке (' + x.toFixed(0) + ', ' + y.toFixed(0) + ') на белом кадре ' + got.toFixed(2) + ':1');
+  for (const iface of ['small', 'normal', 'bigger']) {
+    const EM = lampaEm(W, iface);
+    for (const size of ['large', 'medium', 'compact']) {
+      const built = withStorage({ lumen_hero_size: size, interface_size: iface }, (LC) => LC.buildCss());
+      const alphaAt = heroScrim(built, W, H, EM);
+      for (const compact of [false, true]) {
+        for (const v of [{ name: 'фильм', status: false }, { name: 'сериал со статусом', status: true }]) {
+          const lines = heroTextLines(built, W, H, { status: v.status, compact: compact, em: EM });
+          const label = iface + ', ' + size + ', ' + (compact ? 'сжатое' : 'покой') + ', ' + v.name;
+          for (const line of lines) {
+            const big = line.what === 'название';
+            for (const fy of [0.2, 0.5, 0.8]) {
+              const y = line.top + (line.bottom - line.top) * fy;
+              for (let fx = 0; fx <= 1; fx += 0.25) {
+                const x = line.left + (line.right - line.left) * fx;
+                const got = contrast(big ? P.text : P.muted, onFrame(alphaAt(x, y, compact), WHITE));
+                if (!big) worstMeta = Math.min(worstMeta, got);
+                assert.ok(got >= (big ? 3 : 4.5), label + ': ' + line.what + ' в точке (' + x.toFixed(0) + ', ' + y.toFixed(0) + ') на белом кадре ' + got.toFixed(2) + ':1');
+              }
             }
           }
         }

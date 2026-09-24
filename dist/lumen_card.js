@@ -1643,16 +1643,27 @@ var TEXT_ZOOM = 1.1;
 
 
 
+
+
+
+
+
+
+
+
+
 var SCRIM_TOP_A = 0.5;
 var SCRIM_TOP_FULL = 3.96;
 var SCRIM_TOP_END = 9;
 var SCRIM_FADE = [[0, 1], [0.15, 0.9], [0.4, 0.58], [0.7, 0.22], [1, 0]];
 var SCRIM_FADE_K = 0.4;
-var SCRIM_L = [[0, 0.95], [30, 0.92], [52, 0.84], [64, 0.62], [76, 0.34], [88, 0.12], [100, 0]];
+var SCRIM_L = [[0, 0.95], [30, 0.92], [50, 0.88], [56, 0.84], [62, 0.72], [72, 0.49], [82, 0.26], [91, 0.09], [100, 0]];
 var SCRIM_L_UP = 22;
 var SCRIM_L_FADE = 20;
 var FLOOR_UP = 1.5;
 var FLOOR_FADE = 14.5;
+
+
 
 
 
