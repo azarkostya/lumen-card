@@ -1382,6 +1382,22 @@ test('ревью п.1: ответ каталога после destroy() экра
   assert.equal(fetchCalls34, 0, 'уничтоженный экран пошёл в сеть');
 });
 
+/* Контрольное ревью, п.2. «Крутить», пока пул не собран: spin() зажигает
+   индикатор загрузки, а снимает его только колбэк loadPool — его отсекает
+   pause() -> bump(). Ушли через меню и вернулись — индикатор висел. */
+test('ревью п.2: уход во время первого вращения не оставляет индикатор загрузки', (t) => {
+  const env = openRoulette34([R44], t, 1, 'lite', { media: 'movie' }, { pool: true });
+  env.comp.start();
+  fire(env.root.find('.lumen-roulette__spin'), 'hover:enter');
+  assert.equal(env.loading(), true, 'предпосылка: пул в пути — индикатор горит');
+  env.comp.pause();
+  releaseHeld(heldPool34);
+  env.comp.start();
+  assert.equal(env.loading(), false, 'индикатор загрузки висит после возврата');
+  assert.equal(spinToResult(env), true, 'после возврата «Крутить» не доводит до результата');
+  assert.equal(env.loading(), false, 'индикатор не снят после результата');
+});
+
 test('правка 2026-09-23: подпись счётчика выборки есть во всех трёх языках', () => {
   const settings = readFileSync(new URL('../src/80_settings.js', import.meta.url), 'utf8');
   const LC = {};

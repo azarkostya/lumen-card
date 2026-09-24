@@ -20740,7 +20740,13 @@ paused = false;
 
 
 
+
+
+
 if (!manifest) requestManifest();
+else {
+try { self.activity.loader(false); } catch (eL) { }
+}
 
 
 
