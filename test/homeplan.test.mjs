@@ -214,21 +214,74 @@ test('planHome: без ключа Кинопоиска подборок Кино
   assert.ok(withKey > 0, 'с ключом подборки Кинопоиска в ротации есть');
 });
 
-test('planHome: сезонная не в свой месяц не показывается, в свой — ровно одна на местах 0–4', function () {
+test('planHome: сезонная не в свой месяц не показывается, в свой — ровно одна на местах 0–7', function () {
   for (var n = 1; n <= 60; n++) {
     var p = plan({ epoch: n, have: n % 3 ? ALL : {} });
     var cols = collections(p);
     cols.forEach(function (s) {
       assert.ok(!s.item.season || inSeason(s.item, 9), 'эпоха ' + n + ': ' + s.id + ' не в сентябре');
     });
-    var top = cols.filter(function (s) { return s.place <= 4 && inSeason(s.item, 9); });
-    assert.equal(top.length, 1, 'эпоха ' + n + ': сезонных на местах 0–4 — ' + top.length);
+    var top = cols.filter(function (s) { return s.place <= 7 && inSeason(s.item, 9); });
+    assert.equal(top.length, 1, 'эпоха ' + n + ': сезонных на местах 0–7 — ' + top.length);
+    if (top[0].id !== p.lead) assert.ok(top[0].place >= 3, 'эпоха ' + n + ': не лидер — не выше места 3, а на ' + top[0].place);
   }
   /* Январь: три сезонных в сезоне — наверху всё равно одна. */
   for (var e = 1; e <= 30; e++) {
     var jan = collections(plan({ epoch: e, month: 1 }));
-    assert.equal(jan.filter(function (s) { return s.place <= 4 && inSeason(s.item, 1); }).length, 1, 'январь, эпоха ' + e);
+    assert.equal(jan.filter(function (s) { return s.place <= 7 && inSeason(s.item, 1); }).length, 1, 'январь, эпоха ' + e);
   }
+});
+
+/* Решение координатора по ревью волны 4: места 1–3 были одинаковы во всех
+   эпохах — «Досмотреть», «Сейчас смотрят» и «Хэллоуин» на месте 3 до
+   ноября. Место сезонной — по зерну эпохи из свободных 3–7, лидером она —
+   не чаще раза в 3 эпохи. */
+test('planHome: сезонная в свой месяц — место по зерну эпохи из 3–7, в 6 эпохах подряд не на одном месте', function () {
+  var haves = [ALL, { continue: true, because: true, soon: true }, { continue: true }];
+  for (var h = 0; h < haves.length; h++) {
+    for (var start = 1; start <= 30; start++) {
+      var places = {};
+      for (var n = start; n < start + 6; n++) {
+        var p = plan({ epoch: n, month: 10, have: haves[h] });
+        var s = collections(p).filter(function (x) { return x.place <= 7 && inSeason(x.item, 10); })[0];
+        assert.ok(s, 'эпоха ' + n + ': сезонной наверху нет');
+        if (s.id !== p.lead) assert.ok(s.place >= 3 && s.place <= 7, 'эпоха ' + n + ': место ' + s.place);
+        places[s.place] = 1;
+      }
+      assert.ok(Object.keys(places).length >= 2, 'эпохи ' + start + '–' + (start + 5) + ': сезонная всё время на месте ' + Object.keys(places));
+    }
+  }
+});
+
+test('planHome: сезонная лидером — не чаще раза в 3 эпохи', function () {
+  /* В январе в сезоне три подборки — и соседние эпохи легко отдали бы
+     место 0 разным сезонным. */
+  [1, 10].forEach(function (month) {
+    var recent = [];
+    var led = [];
+    for (var n = 1; n <= 200; n++) {
+      var p = plan({ epoch: n, month: month, recentLeads: recent.slice() });
+      if (inSeason(byId[p.lead], month)) led.push(n);
+      recent.unshift(p.lead);
+      recent.length = Math.min(recent.length, 2);
+    }
+    assert.ok(led.length > 0, 'месяц ' + month + ': сезонная лидером бывает');
+    for (var i = 1; i < led.length; i++) {
+      assert.ok(led[i] - led[i - 1] >= 3, 'месяц ' + month + ': сезонная лидером в эпохах ' + led[i - 1] + ' и ' + led[i]);
+    }
+  });
+  /* Прямо: эпоха, где зерно ставит лидером сезонную, а другая сезонная
+     была лидером в одной из двух прошлых эпох, — лидер не сезонный. */
+  var hit = 0;
+  for (var n = 1; n <= 200; n++) {
+    var lead = plan({ epoch: n, month: 1 }).lead;
+    if (!inSeason(byId[lead], 1)) continue;
+    var other = ['xmas-comedy', 'christmas', 'new-year'].filter(function (id) { return id !== lead; })[0];
+    assert.ok(!inSeason(byId[plan({ epoch: n, month: 1, recentLeads: ['star-wars', other] }).lead], 1), 'эпоха ' + n);
+    assert.ok(!inSeason(byId[plan({ epoch: n, month: 1, recentLeads: [other] }).lead], 1), 'эпоха ' + n);
+    hit++;
+  }
+  assert.ok(hit > 0, 'в январе зерно ставит сезонную лидером хоть раз');
 });
 
 test('planHome: в декабре адвент на месте 0, лидер — первой подборкой после него, сезонных наверху больше нет', function () {

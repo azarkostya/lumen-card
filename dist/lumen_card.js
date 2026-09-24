@@ -12543,8 +12543,10 @@ var EPOCH_MS = 3 * 3600000;
 var ANCHOR_RECENT = 5;
 
 
+
 var SALT_ROWS = 1;
 var SALT_ANCHOR = 2;
+var SALT_SEASON = 3;
 
 
 
@@ -12559,7 +12561,11 @@ var HISTORY_ROWS_FROM = 4;
 var PERSONAL_ORDER = ['continue', 'because', 'new_episodes', 'soon'];
 
 
-var SEASON_TOP = 4;
+
+
+
+var SEASON_FROM = 3;
+var SEASON_TOP = 7;
 
 
 var GROUP_SHARE = 4;
@@ -12708,13 +12714,21 @@ var recent = o.recentLeads || [];
 
 
 
+var seasonLed = false;
+for (i = 0; i < manifest.collections.length; i++) {
+c = manifest.collections[i];
+if (c && recent.indexOf(c.id) !== -1 && inSeason(c, month)) seasonLed = true;
+}
+
+
+
 
 
 var lead = null;
 for (i = 0; i < order.length && !lead; i++) {
 if (recent.indexOf(order[i].id) !== -1) continue;
 if (!o.kpKey && kpOnly(order[i])) continue;
-if (o.advent && inSeason(order[i], month)) continue;
+if ((o.advent || seasonLed) && inSeason(order[i], month)) continue;
 lead = order[i];
 }
 if (!lead) lead = order[0];
@@ -12764,44 +12778,70 @@ return null;
 
 
 
+function seasonPlace(taken, epoch) {
+var free = [];
+var p;
+for (p = SEASON_FROM; p <= SEASON_TOP; p++) if (!taken[p]) free.push(p);
+if (free.length) return free[Math.floor(rng(seedOf(epoch, SALT_SEASON))() * free.length)];
+for (p = SEASON_TOP + 1; taken[p]; p++) {}
+return p;
+}
 
 
 
-function layout(chosen, taken, month, seasonDone) {
+
+
+
+
+
+
+function layout(chosen, taken, month, seasonDone, seasonAt) {
 var remaining = chosen.slice();
 var at = {};
 var out = [];
-var seasonal = !!seasonDone;
+var fixed = null;
+var i;
+if (!seasonDone && remaining.length && !inSeason(remaining[0], month)) {
+for (i = 1; i < remaining.length && !fixed; i++) {
+if (inSeason(remaining[i], month)) fixed = remaining.splice(i, 1)[0];
+}
+}
+if (fixed) at[seasonAt] = fixed;
 function groupOk(prev, c) { return !prev || !prev.group || prev.group !== c.group; }
 function pickFor(place) {
 var prev = at[place - 1] || null;
+var next = at[place + 1] || null;
 var top = place <= SEASON_TOP;
-var i;
-if (top && !seasonal) {
-for (i = 0; i < remaining.length; i++) if (inSeason(remaining[i], month) && groupOk(prev, remaining[i])) return i;
-}
+var k;
+function fits(c) { return groupOk(prev, c) && groupOk(next, c); }
 var busy = crowded(remaining);
-if (busy && (!prev || prev.group !== busy)) {
-for (i = 0; i < remaining.length; i++) {
-if (remaining[i].group !== busy) continue;
-if (top && seasonal && inSeason(remaining[i], month)) continue;
-return i;
+if (busy && (!prev || prev.group !== busy) && (!next || next.group !== busy)) {
+for (k = 0; k < remaining.length; k++) {
+if (remaining[k].group !== busy) continue;
+if (top && inSeason(remaining[k], month)) continue;
+return k;
 }
 }
-for (i = 0; i < remaining.length; i++) {
-if (!groupOk(prev, remaining[i])) continue;
-if (top && seasonal && inSeason(remaining[i], month)) continue;
-return i;
+for (k = 0; k < remaining.length; k++) {
+if (!fits(remaining[k])) continue;
+if (top && inSeason(remaining[k], month)) continue;
+return k;
 }
-for (i = 0; i < remaining.length; i++) if (groupOk(prev, remaining[i])) return i;
+for (k = 0; k < remaining.length; k++) if (fits(remaining[k])) return k;
 return 0;
 }
-for (var place = 0; remaining.length; place++) {
+for (var place = 0; remaining.length || fixed; place++) {
 if (taken[place]) continue;
-var idx = out.length ? pickFor(place) : 0;
-var item = remaining.splice(idx, 1)[0];
+var item;
+if (fixed && place === seasonAt) {
+item = fixed;
+fixed = null;
+} else if (remaining.length) {
+item = remaining.splice(out.length ? pickFor(place) : 0, 1)[0];
+} else {
+continue;
+}
 at[place] = item;
-if (place <= SEASON_TOP && inSeason(item, month)) seasonal = true;
 out.push({ place: place, kind: 'collection', id: item.id, item: item });
 }
 return out;
@@ -12857,7 +12897,7 @@ if (have[PERSONAL_ORDER[i]]) put(PLACES[PERSONAL_ORDER[i]], 'personal', PERSONAL
 taken[LAMPA_PLACE] = true;
 var chosen = choose(o, month, limit);
 
-var cols = layout(chosen, taken, month, !!o.advent);
+var cols = layout(chosen, taken, month, !!o.advent, seasonPlace(taken, o.epoch));
 slots = slots.concat(cols);
 slots.sort(byPlace);
 return { slots: slots, lead: chosen.length ? chosen[0].id : null };
