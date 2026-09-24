@@ -2941,6 +2941,95 @@ test('трейлер героя: HUD — к старту открыт плеер
   assert.deepEqual(notes, ['plan', 'stop#1']);
 });
 
+/* Ревью волны 1b, п.5: редкие пути, где план закрывал никто, — HUD
+   оставался на «plan» (или на «api» плеера, упавшего при создании). */
+test('трейлер героя: HUD — герой выпал из документа к старту или к ответу роликов -> «stop» своего плана', () => {
+  const env = trailerEnv();
+  const notes = noteLog(env);
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  focusOn(main, main.card1);
+  globalThis.document.body.contains = () => false;
+  env.advance(9000);
+  assert.deepEqual(notes, ['plan', 'stop#1'], 'таймер 8 с: узла героя в документе нет');
+
+  globalThis.document.body.contains = () => true;
+  main.card1.removeClass('focus');
+  focusOn(main, main.card2);
+  env.advance(9000);
+  globalThis.document.body.contains = () => false;
+  lastVideos(env).ok(VIDEOS_RU);
+  assert.deepEqual(notes.slice(2), ['plan', 'stop#2'], 'ответ роликов: узла героя в документе нет');
+  assert.equal(env.players.length, 0);
+  globalThis.document.body.contains = () => true;
+});
+
+test('трейлер героя: HUD — нет API роликов или запрос бросил -> план закрыт («stop» / «err req»)', () => {
+  const env = trailerEnv();
+  const notes = noteLog(env);
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  focusOn(main, main.card1);
+  const tmdb = env.Lampa.Api.sources.tmdb;
+  env.advance(1000);
+  delete env.Lampa.Api.sources.tmdb;
+  env.advance(8000);
+  assert.deepEqual(notes, ['plan', 'stop#1'], 'API роликов нет');
+
+  env.Lampa.Api.sources.tmdb = {
+    get(url) {
+      if (url.indexOf('/videos') >= 0) throw new Error('boom');
+      return tmdb.get.apply(tmdb, arguments);
+    }
+  };
+  main.card1.removeClass('focus');
+  focusOn(main, main.card2);
+  const warned = warnLog.length;
+  env.advance(9000);
+  assert.deepEqual(notes.slice(2), ['plan', 'err req#2'], 'запрос бросил');
+  assert.deepEqual(warnLog.slice(warned).map((w) => w.msg), ['hero: trailer request failed']);
+  warnLog.length = warned;
+  env.Lampa.Api.sources.tmdb = tmdb;
+});
+
+test('трейлер героя: HUD — нет плеера, нет слоя ролика или плеер бросил при создании -> «stop»', () => {
+  const env = trailerEnv();
+  const notes = noteLog(env);
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  const player = env.LC.trailer.player;
+
+  focusOn(main, main.card1);
+  env.advance(9000);
+  env.LC.trailer.player = undefined;
+  lastVideos(env).ok(VIDEOS_RU);
+  assert.deepEqual(notes, ['plan', 'stop#1'], 'LC.trailer.player нет');
+
+  env.LC.trailer.player = player;
+  const stage = stageOf(heroOf(main.activity));
+  const slot = stage.find('.lumen-hero__trailer');
+  slot.remove();
+  main.card1.removeClass('focus');
+  focusOn(main, main.card2);
+  env.advance(9000);
+  lastVideos(env).ok(VIDEOS_RU);
+  assert.deepEqual(notes.slice(2), ['plan', 'stop#2'], 'слоя ролика нет');
+  stage.append(slot);
+
+  /* Плеер бросил уже после того, как план ему отдан: номер плана к этому
+     мигу устарел (плеер заводит свой, src/55_trailer.js), поэтому «stop»
+     пишется без номера — владельцем мог стать только этот плеер. */
+  env.LC.trailer.player = () => { throw new Error('boom'); };
+  main.card2.removeClass('focus');
+  focusOn(main, main.card1);
+  env.advance(9000);
+  const warned = warnLog.length;
+  lastVideos(env).ok(VIDEOS_RU);
+  assert.deepEqual(notes.slice(4), ['plan', 'stop'], 'плеер бросил при создании');
+  assert.deepEqual(warnLog.slice(warned).map((w) => w.msg), ['hero: trailer start failed']);
+  warnLog.length = warned;
+});
+
 test('trailerAllowed: запрещают только настройка, «Выкл» и выключенный фоновый трейлер', () => {
   const h = H;
   assert.equal(h.trailerAllowed(true, 'full', 'on'), true);

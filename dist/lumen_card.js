@@ -13310,6 +13310,11 @@ return 0;
 
 
 
+
+
+
+
+
 function planDone(st) {
 if (!state || !state.trailerPlan) return;
 var ticket = state.trailerPlan;
@@ -13554,12 +13559,13 @@ var lang = langCode();
 
 function ask(code, next) {
 try {
-if (!window.Lampa || !Lampa.Api || !Lampa.Api.sources || !Lampa.Api.sources.tmdb) return;
+if (!window.Lampa || !Lampa.Api || !Lampa.Api.sources || !Lampa.Api.sources.tmdb) { planDone('stop'); return; }
 Lampa.Api.sources.tmdb.get(
 media + '/' + card.id + '/videos',
 { langs: code },
 function (json) {
-if (tgen !== captured || !state || !isMounted()) return;
+if (tgen !== captured || !state) return;
+if (!isMounted()) { planDone('stop'); return; }
 var video = null;
 try {
 if (LC.trailer && typeof LC.trailer.pickTrailer === 'function') video = LC.trailer.pickTrailer(json && json.results);
@@ -13582,6 +13588,7 @@ else planDone('err req');
 );
 } catch (e) {
 warn('hero: trailer request failed', e);
+if (tgen === captured) planDone('err req');
 }
 }
 
@@ -13589,14 +13596,17 @@ ask(lang, lang === 'en' ? '' : 'en');
 }
 
 function startTrailer(key, captured) {
+var handed = false;
 try {
-if (tgen !== captured || !state || !isMounted()) return;
+if (tgen !== captured || !state) return;
+if (!isMounted()) { planDone('stop'); return; }
 if (!trailerReady()) { planDone('stop'); return; }
 if (trailerBlocked()) { planDone('stop'); forgetTrailerFocus(); return; }
-if (!LC.trailer || typeof LC.trailer.player !== 'function') return;
+if (!LC.trailer || typeof LC.trailer.player !== 'function') { planDone('stop'); return; }
 var host = state.stage.find('.lumen-hero__trailer');
-if (!host || !host.length) return;
+if (!host || !host.length) { planDone('stop'); return; }
 planDone('');
+handed = true;
 
 
 
@@ -13612,6 +13622,13 @@ trailerOff();
 });
 } catch (err) {
 warn('hero: trailer start failed', err);
+
+
+
+
+
+if (handed) trailerNote('stop');
+else planDone('stop');
 }
 }
 
@@ -13625,8 +13642,7 @@ var captured = tgen;
 state.trailerTimer = setTimeout(function () {
 if (!state || tgen !== captured) return;
 state.trailerTimer = null;
-if (state.pending !== card) return;
-if (!isMounted()) return;
+if (state.pending !== card || !isMounted()) { planDone('stop'); return; }
 
 
 if (!trailerReady()) { planDone('stop'); return; }

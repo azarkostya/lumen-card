@@ -886,7 +886,12 @@
        note('plan')) закрывается ровно один раз — созданием плеера (дальше
        статус пишет сам плеер), «none», или здесь: «stop», когда план сняли
        до плеера, «err req», когда запрос роликов упал. Без этого HUD
-       залипал на «plan». Устаревший номер модуль трейлера пропускает. */
+       залипал на «plan». Устаревший номер модуль трейлера пропускает.
+       Ревью волны 1b, п.5: «stop» и на редких выходах — герой выпал из
+       документа (к 8-й секунде или к ответу роликов), нет API роликов, плеера
+       или слоя ролика; «err req» — запрос бросил сразу. Звать planDone
+       можно только при живом tgen своего плана: иначе в state.trailerPlan
+       уже номер следующего. */
     function planDone(st) {
       if (!state || !state.trailerPlan) return;
       var ticket = state.trailerPlan;
@@ -1131,12 +1136,13 @@
 
       function ask(code, next) {
         try {
-          if (!window.Lampa || !Lampa.Api || !Lampa.Api.sources || !Lampa.Api.sources.tmdb) return;
+          if (!window.Lampa || !Lampa.Api || !Lampa.Api.sources || !Lampa.Api.sources.tmdb) { planDone('stop'); return; }
           Lampa.Api.sources.tmdb.get(
             media + '/' + card.id + '/videos',
             { langs: code },
             function (json) {
-              if (tgen !== captured || !state || !isMounted()) return;
+              if (tgen !== captured || !state) return;
+              if (!isMounted()) { planDone('stop'); return; }
               var video = null;
               try {
                 if (LC.trailer && typeof LC.trailer.pickTrailer === 'function') video = LC.trailer.pickTrailer(json && json.results);
@@ -1159,6 +1165,7 @@
           );
         } catch (e) {
           warn('hero: trailer request failed', e);
+          if (tgen === captured) planDone('err req');
         }
       }
 
@@ -1166,14 +1173,17 @@
     }
 
     function startTrailer(key, captured) {
+      var handed = false;
       try {
-        if (tgen !== captured || !state || !isMounted()) return;
+        if (tgen !== captured || !state) return;
+        if (!isMounted()) { planDone('stop'); return; }
         if (!trailerReady()) { planDone('stop'); return; }
         if (trailerBlocked()) { planDone('stop'); forgetTrailerFocus(); return; }
-        if (!LC.trailer || typeof LC.trailer.player !== 'function') return;
+        if (!LC.trailer || typeof LC.trailer.player !== 'function') { planDone('stop'); return; }
         var host = state.stage.find('.lumen-hero__trailer');
-        if (!host || !host.length) return;
+        if (!host || !host.length) { planDone('stop'); return; }
         planDone('');
+        handed = true;
         /* Класс ставится по ФАКТУ старта (onStart плеера), а не по его
            созданию: ролик может не заиграть вовсе (нет сети, YouTube
            недоступен), и тогда герой обязан остаться как был. */
@@ -1189,6 +1199,13 @@
         });
       } catch (err) {
         warn('hero: trailer start failed', err);
+        /* Ревью волны 1b, п.5: план уже отдан плееру, а тот бросил — HUD
+           остался бы на «plan» или на «api» недоделанного плеера. Номер
+           плана к этому мигу мог устареть (плеер заводит свой —
+           src/55_trailer.js), поэтому «stop» без номера: между planDone('')
+           и исключением владельцем мог стать только этот плеер. */
+        if (handed) trailerNote('stop');
+        else planDone('stop');
       }
     }
 
@@ -1202,8 +1219,7 @@
       state.trailerTimer = setTimeout(function () {
         if (!state || tgen !== captured) return;
         state.trailerTimer = null;
-        if (state.pending !== card) return;
-        if (!isMounted()) return;
+        if (state.pending !== card || !isMounted()) { planDone('stop'); return; }
         /* Настройку и режим анимаций перечитываем в момент старта: за восемь
            секунд их могли поменять. */
         if (!trailerReady()) { planDone('stop'); return; }
