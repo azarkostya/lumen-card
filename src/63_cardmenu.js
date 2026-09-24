@@ -41,7 +41,8 @@
   /* тем же Lampa.Select: сначала те же четыре чекбокса закладок (той же    */
   /* парой Favorite.check/Favorite.toggle, что у Lampa), потом наши пункты. */
   /*                                                                       */
-  /* Ресурсы: ни одного таймера. Живут ровно две подписки — capture-        */
+  /* Ресурсы: ни одного таймера (ожидание ответа роликов — сверка времени   */
+  /* в колбэке, wanted). Живут ровно две подписки — capture-               */
   /* слушатель на document и preshow у Lampa.Select.listener, обе ставит    */
   /* install() один раз и снимает uninstall() (настройка lumen_context_menu */
   /* и выключение плагина). Запомненная карточка — одна переменная, она     */
@@ -257,8 +258,14 @@
        из кнопки «Трейлер» (app.min.js ~1396600): на Android, если в
        настройках плеера выбран YouTube, Android.openYoutube(key), иначе
        Lampa.Player.play со ссылкой watch?v=. Lampa.YouTube в 3.3.4 для
-       трейлеров не используется. */
+       трейлеров не используется.
+
+       Проверка на ТВ 2026-09-24: на телевизоре ответ роликов идёт секундами,
+       и трейлер стартовал уже после ухода с экрана, поверх открытого плеера
+       или второй раз. Колбэк теперь сверяет «билет» запроса (wanted ниже) и
+       без него не играет и ничего не пишет. */
     function playTrailer(card) {
+      var ticket = { seq: ++trailerReq, at: Date.now(), activity: currentActivity() };
 
       function play(video) {
         try {
@@ -298,6 +305,9 @@
           return;
         }
         Lampa.Api.sources.tmdb.videos(params, function (json) {
+          if (!wanted(ticket)) return;
+          /* Билет погашен: повторный колбэк того же запроса — уже чужой. */
+          trailerReq++;
           var picked = LC.trailer && LC.trailer.pickTrailer ? LC.trailer.pickTrailer(json && json.results) : null;
           if (picked && picked.key) play(picked);
           else noty('lumen_menu_no_trailer');
@@ -306,6 +316,38 @@
         warn('cardmenu: videos request failed', e);
         noty('lumen_menu_no_trailer');
       }
+    }
+
+    /* Номер последнего запроса трейлера из меню: новый выбор делает все
+       прежние устаревшими. */
+    var trailerReq = 0;
+    /* Сколько ждать ответа роликов. Дольше — человек уже забыл, что просил,
+       и внезапный плеер хуже, чем ничего. */
+    var TRAILER_WAIT_MS = 8000;
+
+    function currentActivity() {
+      try {
+        if (window.Lampa && Lampa.Activity && typeof Lampa.Activity.active === 'function') return Lampa.Activity.active();
+      } catch (e) { }
+      return null;
+    }
+
+    /* Ответ роликов ещё нужен: запрос последний, не старше TRAILER_WAIT_MS,
+       экран тот же (Activity.active() — запись стека, app.min.js:45889),
+       плеер не открыт (Player.opened, :31149), поверх не открыты настройки
+       и левое меню (классы body, :10306 и :9789). */
+    function wanted(ticket) {
+      if (ticket.seq !== trailerReq) return false;
+      if (Date.now() - ticket.at > TRAILER_WAIT_MS) return false;
+      if (currentActivity() !== ticket.activity) return false;
+      try {
+        if (Lampa.Player && typeof Lampa.Player.opened === 'function' && Lampa.Player.opened()) return false;
+      } catch (e) { }
+      try {
+        var body = $('body');
+        if (body.hasClass('settings--open') || body.hasClass('menu--open')) return false;
+      } catch (e2) { }
+      return true;
     }
 
     function openFranchise(card) {
@@ -580,7 +622,10 @@
       install: install,
       uninstall: uninstall,
       open: open,
-      active: active
+      active: active,
+      /* Наружу ради теста: сторожа колбэка роликов (проверка на ТВ
+         2026-09-24) проверяются вызовом напрямую, без Select. */
+      playTrailer: playTrailer
     };
   })();
 

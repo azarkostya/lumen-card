@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { load } from './_load.mjs';
+import { load, loadCtx } from './_load.mjs';
 
 const M = load('63_cardmenu.js');
 
@@ -171,4 +171,119 @@ test('рантайм-часть на месте и при загрузке ни 
     assert.equal(typeof M[name], 'function', name);
   });
   assert.equal(M.active(), false);
+});
+
+/* ---------------------------------------------------------------------- */
+/* Проверка на ТВ 2026-09-24: трейлер из меню (долгое OK -> «Трейлер»)      */
+/* запускался и тогда, когда пользователь уже ушёл с экрана: запрос роликов */
+/* на телевизоре идёт секундами, а колбэк ни о чём не спрашивал.            */
+/* ---------------------------------------------------------------------- */
+
+globalThis.warn = globalThis.warn || function () { };
+
+/* Заглушки — как у настоящей Lampa 3.3.4: Activity.active() отдаёт запись
+   стека (app.min.js:45889-45891, activites[activites.length - 1]),
+   Player.opened() — флаг открытого плеера (:31149), классы
+   settings--open/menu--open на body ставят настройки и левое меню
+   (:10306, :9789). tmdb.videos(params, cb) отвечает колбэком позже. */
+function trailerEnv() {
+  const activities = [{ component: 'main' }];
+  const bodyClasses = [];
+  const played = [];
+  const notes = [];
+  const calls = [];
+  let playerOpen = false;
+  const clock = { now: 1000000 };
+  const Lampa = {
+    Activity: { active: () => activities[activities.length - 1] },
+    Player: { play: (item) => { played.push(item); }, opened: () => playerOpen },
+    Platform: { is: () => false },
+    Storage: { field: () => 'inner' },
+    Noty: { show: (t) => notes.push(t) },
+    Api: { sources: { tmdb: { videos: (params, cb) => { calls.push({ params, cb }); } } } }
+  };
+  globalThis.window = { Lampa };
+  globalThis.Lampa = Lampa;
+  globalThis.$ = (sel) => ({ hasClass: (c) => sel === 'body' && bodyClasses.indexOf(c) !== -1 });
+  const realNow = Date.now;
+  Date.now = () => clock.now;
+  const { api } = loadCtx('63_cardmenu.js', {
+    lang: (k) => k,
+    pref: (n, d) => d,
+    trailer: { pickTrailer: (list) => (list && list[0] && list[0].key ? list[0] : null) }
+  });
+  return {
+    api, activities, bodyClasses, played, notes, calls, clock,
+    setPlayer: (v) => { playerOpen = v; },
+    answer: (i) => calls[i].cb({ results: [{ key: 'K' + i, name: 'Трейлер' }] }),
+    restore: () => { Date.now = realNow; delete globalThis.window; delete globalThis.Lampa; delete globalThis.$; }
+  };
+}
+
+test('трейлер из меню: ответ пришёл на том же экране — играет (контроль)', () => {
+  const env = trailerEnv();
+  try {
+    env.api.playTrailer(MOVIE);
+    env.clock.now += 2000;
+    env.answer(0);
+    assert.equal(env.played.length, 1);
+    assert.equal(env.played[0].id, 'K0');
+  } finally { env.restore(); }
+});
+
+test('трейлер из меню: пользователь ушёл на другой экран — не играет и молчит', () => {
+  const env = trailerEnv();
+  try {
+    env.api.playTrailer(MOVIE);
+    env.activities.push({ component: 'full' });
+    env.answer(0);
+    assert.equal(env.played.length, 0);
+    assert.deepEqual(env.notes, [], 'и «трейлера нет» не показываем');
+  } finally { env.restore(); }
+});
+
+test('трейлер из меню: плеер уже открыт — не играет', () => {
+  const env = trailerEnv();
+  try {
+    env.api.playTrailer(MOVIE);
+    env.setPlayer(true);
+    env.answer(0);
+    assert.equal(env.played.length, 0);
+  } finally { env.restore(); }
+});
+
+test('трейлер из меню: открыты настройки или левое меню — не играет', () => {
+  for (const cls of ['settings--open', 'menu--open']) {
+    const env = trailerEnv();
+    try {
+      env.api.playTrailer(MOVIE);
+      env.bodyClasses.push(cls);
+      env.answer(0);
+      assert.equal(env.played.length, 0, cls);
+    } finally { env.restore(); }
+  }
+});
+
+test('трейлер из меню: ответ дольше 8 с — не играет', () => {
+  const env = trailerEnv();
+  try {
+    env.api.playTrailer(MOVIE);
+    env.clock.now += 8001;
+    env.answer(0);
+    assert.equal(env.played.length, 0);
+  } finally { env.restore(); }
+});
+
+test('трейлер из меню: двойной выбор — играет только последний запрос и ровно один раз', () => {
+  const env = trailerEnv();
+  try {
+    env.api.playTrailer(MOVIE);
+    env.api.playTrailer(MOVIE);
+    env.answer(0);
+    assert.equal(env.played.length, 0, 'устаревший запрос не играет');
+    env.answer(1);
+    assert.equal(env.played.length, 1);
+    env.answer(1);
+    assert.equal(env.played.length, 1, 'повторный колбэк того же запроса ничего не делает');
+  } finally { env.restore(); }
 });

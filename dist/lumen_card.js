@@ -24314,6 +24314,7 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 
+
 LC.cardmenu = (function () {
 
 
@@ -24524,7 +24525,13 @@ thrown: isThrown(card)
 
 
 
+
+
+
+
+
 function playTrailer(card) {
+var ticket = { seq: ++trailerReq, at: Date.now(), activity: currentActivity() };
 
 function play(video) {
 try {
@@ -24564,6 +24571,9 @@ noty('lumen_menu_no_trailer');
 return;
 }
 Lampa.Api.sources.tmdb.videos(params, function (json) {
+if (!wanted(ticket)) return;
+
+trailerReq++;
 var picked = LC.trailer && LC.trailer.pickTrailer ? LC.trailer.pickTrailer(json && json.results) : null;
 if (picked && picked.key) play(picked);
 else noty('lumen_menu_no_trailer');
@@ -24572,6 +24582,38 @@ else noty('lumen_menu_no_trailer');
 warn('cardmenu: videos request failed', e);
 noty('lumen_menu_no_trailer');
 }
+}
+
+
+
+var trailerReq = 0;
+
+
+var TRAILER_WAIT_MS = 8000;
+
+function currentActivity() {
+try {
+if (window.Lampa && Lampa.Activity && typeof Lampa.Activity.active === 'function') return Lampa.Activity.active();
+} catch (e) { }
+return null;
+}
+
+
+
+
+
+function wanted(ticket) {
+if (ticket.seq !== trailerReq) return false;
+if (Date.now() - ticket.at > TRAILER_WAIT_MS) return false;
+if (currentActivity() !== ticket.activity) return false;
+try {
+if (Lampa.Player && typeof Lampa.Player.opened === 'function' && Lampa.Player.opened()) return false;
+} catch (e) { }
+try {
+var body = $('body');
+if (body.hasClass('settings--open') || body.hasClass('menu--open')) return false;
+} catch (e2) { }
+return true;
 }
 
 function openFranchise(card) {
@@ -24846,7 +24888,10 @@ similarTarget: similarTarget,
 install: install,
 uninstall: uninstall,
 open: open,
-active: active
+active: active,
+
+
+playTrailer: playTrailer
 };
 })();
 
