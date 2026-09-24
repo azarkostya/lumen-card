@@ -1192,8 +1192,7 @@
     /* Проверка на ТВ 2026-09-24: смена кадров стоит, пока ролик РЕАЛЬНО
        играет (onStart плеера), и продолжается, когда он кончился или
        снят. Пауза у контроллера слайдшоу одна на все причины, поэтому
-       снимается только тогда, когда не держат и другие: сжатие (фокус в
-       рядах) и парковка (уход с главной). */
+       снимается только тогда, когда не держат и другие (slidesHeld). */
     function trailerOn() {
       if (!state) return;
       state.trailerOn = true;
@@ -1205,9 +1204,20 @@
     function trailerOff() {
       if (!state || !state.trailerOn) return;
       state.trailerOn = false;
-      if (state.slides && !state.compact && !state.parked) {
+      if (state.slides && !slidesHeld()) {
         try { state.slides.resume(); } catch (e) { warn('hero: slides resume failed', e); }
       }
+    }
+
+    /* Причины паузы смены кадров: ролик играет (trailerOn), фокус в рядах
+       (compact), главная под другим экраном (parked) и — ревью правок
+       волны 3, п.7 — фокус на другой карточке, чем показанная (focusAway):
+       до этой правки смену показанного фильма снимал только show()
+       следующей, и до него она тикала — на стенде кадр «Обители зла»
+       сменился через 193 мс после ухода фокуса. Держит хоть одна —
+       resume() не зовётся. */
+    function slidesHeld() {
+      return !!(state && (state.trailerOn || state.compact || state.parked || focusAway()));
     }
 
     /* Запрос роликов. Языков два, как у штатной Lampa (tmdb.js videos,
@@ -1360,7 +1370,8 @@
     /* и в лёгком режиме, где смена — резкий срез без перехода, четыре      */
     /* кадра проходят круг за минуту, а не мелькают.                        */
     /*                                                                     */
-    /* Пауза: фокус в рядах ниже первого (setCompact) — как частицы; уход с */
+    /* Пауза: фокус в рядах ниже первого (setCompact) — как частицы; фокус */
+    /* на другой карточке, чем показанная (onFocus, до её show()); уход с   */
     /* главной вглубь паркует героя (park: pause, номер кадра сохраняется), */
     /* снятие героя (unmount) уничтожает слайдшоу; экран, накрытый заставкой,*/
     /* и главная под открытой карточкой — тиков не делают (проверки самого  */
@@ -1448,10 +1459,10 @@
             loadFrame({ backdrop: path }, captured, function (ok) {
               if (ok) freeHidden(captured);
               done(ok);
-            });
+            }, true);
           }
         });
-        if (state.compact || state.trailerOn) state.slides.pause();
+        if (slidesHeld()) state.slides.pause();
         state.slides.activate();
       } catch (e) {
         warn('hero: slides failed', e);
@@ -1469,11 +1480,12 @@
 
     /* Ревью «Волны 1», п.5: «Интервал смены кадров» сменили на лету —
        идущую смену перезаводим (resume контроллера читает intervalMs
-       заново). Стоящую на паузе — ролик, сжатие, парковка — не будим: её
-       снимет своя причина, и тот же resume возьмёт уже новый интервал. */
+       заново). Стоящую на паузе — ролик, сжатие, парковка, фокус на другой
+       карточке (slidesHeld) — не будим: её снимет своя причина, и тот же
+       resume возьмёт уже новый интервал. */
     function applyInterval() {
       if (!state || !state.slides) return;
-      if (state.trailerOn || state.compact || state.parked) return;
+      if (slidesHeld()) return;
       try {
         state.slides.pause();
         state.slides.resume();
@@ -1882,8 +1894,9 @@
        слабого ТВ выбирает 'off' именно ради этого. */
     /* done(ok) — необязательный: его передаёт слайдшоу «Несколько кадров»
        (startSlides), чтобы знать, показан ли кадр. Зовётся только для живого
-       поколения; кадр, уже стоящий на экране, считается показанным. */
-    function loadFrame(model, captured, done) {
+       поколения; кадр, уже стоящий на экране, считается показанным.
+       slide — кадр смены кадров (startSlides), а не кадр показа. */
+    function loadFrame(model, captured, done, slide) {
       if (!state) return;
       if (motionMode() === 'off') return;
       var blur = false;
@@ -1973,6 +1986,11 @@
         if (gen !== captured || !state || !isMounted()) return;
         stopTimer('loadTimer');
         state.loader = null;
+        /* Ревью правок волны 3, п.7: кадр смены повёл тик до ухода фокуса,
+           а доехал после — не ставим и не докладываем: смена на паузе,
+           очередь контроллера стоит на месте, и тик после возврата
+           предложит тот же кадр (байты уже в кэше браузера). */
+        if (slide && focusAway()) return;
         /* Кадр не пришёл — слои не трогаем: пустой герой хуже любого
            кадра. Кадр прошлого фильма, если он на экране, сменит заглушка
            (report(false) в startFrame → holdFrame, волна 3). */
@@ -2319,8 +2337,8 @@
          рисуются и частицы; вернулся на первый ряд — смена продолжается. */
       if (state.slides) {
         /* Играющий ролик держит свою паузу (trailerOn) — развернувшись, кадры
-           ждут его конца. */
-        try { if (on) state.slides.pause(); else if (!state.trailerOn) state.slides.resume(); } catch (eSl) { }
+           ждут его конца; фокус на другой карточке — тоже (slidesHeld). */
+        try { if (on) state.slides.pause(); else if (!slidesHeld()) state.slides.resume(); } catch (eSl) { }
       }
       state.node.toggleClass('lumen-hero--compact', on);
       try { state.root.toggleClass('lumen-rows-up', on); } catch (e) {}
@@ -2429,6 +2447,12 @@
           state.holdDue = false;
           armHold();
         }
+        /* Ревью правок волны 3, п.7: смена кадров, поставленная на паузу
+           уходом фокуса (ниже), продолжается — если не держит другая
+           причина (slidesHeld). */
+        if (state.slides && !slidesHeld()) {
+          try { state.slides.resume(); } catch (eRs) { warn('hero: slides resume failed', eRs); }
+        }
         return;
       }
 
@@ -2440,6 +2464,11 @@
       if (state.holdTimer) {
         stopTimer('holdTimer');
         state.holdDue = true;
+      }
+      /* Ревью правок волны 3, п.7: и смена кадров показанного фильма — на
+         паузу до возврата фокуса; show() новой карточки её снимет. */
+      if (state.slides) {
+        try { state.slides.pause(); } catch (ePs) { warn('hero: slides pause failed', ePs); }
       }
 
       var captured = gen;
@@ -3015,7 +3044,7 @@
         guardBackground();
       }
       applyMotion();
-      if (state.slides && !state.compact) {
+      if (state.slides && !slidesHeld()) {
         try { state.slides.resume(); } catch (eSl) { warn('hero: slides resume failed', eSl); }
       }
       try {

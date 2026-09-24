@@ -4491,6 +4491,102 @@ test('ревью правок волны 3, п.1: в круге героя то�
   } finally { env.restore(); }
 });
 
+/* Ревью правок волны 3, п.7: смена кадров показанного фильма шла, пока фокус
+   уже стоял на другой карточке, — её снимал только show() следующей, а до
+   него (DELAY, при листании — всё листание) таймер тикал: на стенде кадр
+   «Обители зла» сменился через 193 мс после ухода фокуса. Уход фокуса с
+   показанной карточки ставит смену на паузу; возврат на неё и новый показ
+   смену продолжают. */
+for (const input of ['пульт', 'мышь']) {
+  test('ревью правок волны 3, п.7 (' + input + '): фокус ушёл с показанной карточки — смена её кадров на паузе, вернулся — идёт', () => {
+    const env = slidesEnv();
+    try {
+      const main = makeMain();
+      const card3 = addCard(main, 33);
+      const move = input === 'мышь' ? fireHover : fireFocus;
+      env.hero.mount(main.activity);
+      move(main.activity, main.card1);
+      env.advance(400);
+      detailsOf(env, 11).ok(FRAMES(11, '/b1.jpg'));
+      frameImg(env, '/b1.jpg').onload();
+      assert.equal(env.live().length, 1, 'предусловие: смена кадров идёт');
+
+      move(main.activity, card3);
+      assert.equal(env.live().length, 0, 'фокус на другой карточке, а смена кадров показанного фильма идёт');
+      env.interval.ms = 8000;
+      env.hero.applyInterval();
+      assert.equal(env.live().length, 0, '«Интервал смены кадров» на лету разбудил смену при фокусе на другой карточке');
+      env.advance(200);
+      move(main.activity, main.card1);
+      assert.equal(env.live().length, 1, 'фокус вернулся — смена кадров стоит');
+      assert.equal(env.live()[0].ms, 8000, 'после возврата — новый интервал');
+      assert.equal(env.requests.filter((r) => r.url === 'movie/11').length, 1, 'возврат спросил детали заново');
+
+      move(main.activity, card3);
+      env.advance(400);
+      detailsOf(env, 33).ok(FRAMES(33, '/b33.jpg'));
+      frameImg(env, '/b33.jpg').onload();
+      assert.equal(env.live().length, 1, 'новый показ — смена кадров новой карточки не пошла');
+      assert.deepEqual(warnLog, []);
+    } finally { env.restore(); }
+  });
+}
+
+/* Детали показанной карточки доехали, когда фокус уже ушёл: слайдшоу
+   заводится сразу на паузе, как в сжатом состоянии и под роликом. */
+test('ревью правок волны 3, п.7: детали показанной карточки доехали при фокусе на другой — смена кадров заводится на паузе', () => {
+  const env = slidesEnv();
+  try {
+    const main = makeMain();
+    const card3 = addCard(main, 33);
+    env.hero.mount(main.activity);
+    focusOn(main, main.card1);
+    env.advance(400);
+    main.card1.removeClass('focus');
+    focusOn(main, card3);
+    env.advance(100);
+    detailsOf(env, 11).ok(FRAMES(11, '/b1.jpg'));
+    assert.equal(env.live().length, 0, 'смена кадров показанного фильма пошла при фокусе на другой карточке');
+    card3.removeClass('focus');
+    focusOn(main, main.card1);
+    assert.equal(env.live().length, 1, 'фокус вернулся — смена кадров не пошла');
+    assert.deepEqual(warnLog, []);
+  } finally { env.restore(); }
+});
+
+/* Тик смены успел повести следующий кадр, и фокус ушёл, пока тот ехал: кадр
+   не ставится (очередь контроллера стоит на месте) и после возврата
+   предлагается снова — байты уже в кэше браузера. */
+test('ревью правок волны 3, п.7: кадр смены, доехавший после ухода фокуса, не ставится — после возврата тик предлагает его снова', () => {
+  const env = slidesEnv();
+  try {
+    const main = makeMain();
+    const card3 = addCard(main, 33);
+    env.hero.mount(main.activity);
+    const a = stageOf(heroOf(main.activity)).find('.lumen-hero__bg--a');
+    focusOn(main, main.card1);
+    env.advance(400);
+    detailsOf(env, 11).ok(FRAMES(11, '/b1.jpg'));
+    frameImg(env, '/b1.jpg').onload();
+    env.live()[0].fn();
+    const late = frameImg(env, '/f2.jpg');
+    assert.ok(late, 'предусловие: тик смены повёл следующий кадр');
+    main.card1.removeClass('focus');
+    focusOn(main, card3);
+    late.onload();
+    assert.equal(a.attr('src'), 'https://img/t/p/w1280/b1.jpg', 'кадр показанного фильма сменился при фокусе на другой карточке');
+
+    card3.removeClass('focus');
+    focusOn(main, main.card1);
+    env.live()[0].fn();
+    const again = frameImg(env, '/f2.jpg');
+    assert.notEqual(again, late, 'после возврата тик не повёл кадр заново');
+    again.onload();
+    assert.equal(a.attr('src'), 'https://img/t/p/w1280/f2.jpg', 'после возврата тот же кадр не встал');
+    assert.deepEqual(warnLog, []);
+  } finally { env.restore(); }
+});
+
 test('«Только кадры»: фокус в рядах — пауза, смена карточки снимает таймер прошлой', () => {
   const env = slidesEnv();
   try {

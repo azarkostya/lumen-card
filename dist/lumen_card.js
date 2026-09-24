@@ -13730,7 +13730,6 @@ state.stage.toggleClass('lumen-hero-stage--trailer', !!on);
 
 
 
-
 function trailerOn() {
 if (!state) return;
 state.trailerOn = true;
@@ -13742,9 +13741,20 @@ try { state.slides.pause(); } catch (e) { warn('hero: slides pause failed', e); 
 function trailerOff() {
 if (!state || !state.trailerOn) return;
 state.trailerOn = false;
-if (state.slides && !state.compact && !state.parked) {
+if (state.slides && !slidesHeld()) {
 try { state.slides.resume(); } catch (e) { warn('hero: slides resume failed', e); }
 }
+}
+
+
+
+
+
+
+
+
+function slidesHeld() {
+return !!(state && (state.trailerOn || state.compact || state.parked || focusAway()));
 }
 
 
@@ -13905,6 +13915,7 @@ cancelTrailer();
 
 
 
+
 var SLIDE_FREE = 700;
 
 
@@ -13985,10 +13996,10 @@ if (gen !== captured || !state || state.loader) return;
 loadFrame({ backdrop: path }, captured, function (ok) {
 if (ok) freeHidden(captured);
 done(ok);
-});
+}, true);
 }
 });
-if (state.compact || state.trailerOn) state.slides.pause();
+if (slidesHeld()) state.slides.pause();
 state.slides.activate();
 } catch (e) {
 warn('hero: slides failed', e);
@@ -14008,9 +14019,10 @@ if (!state.slides && state.model && state.details) startSlides(state.model, gen)
 
 
 
+
 function applyInterval() {
 if (!state || !state.slides) return;
-if (state.trailerOn || state.compact || state.parked) return;
+if (slidesHeld()) return;
 try {
 state.slides.pause();
 state.slides.resume();
@@ -14420,7 +14432,8 @@ lqip.removeAttr('src');
 
 
 
-function loadFrame(model, captured, done) {
+
+function loadFrame(model, captured, done, slide) {
 if (!state) return;
 if (motionMode() === 'off') return;
 var blur = false;
@@ -14510,6 +14523,11 @@ loader.onerror = null;
 if (gen !== captured || !state || !isMounted()) return;
 stopTimer('loadTimer');
 state.loader = null;
+
+
+
+
+if (slide && focusAway()) return;
 
 
 
@@ -14857,7 +14875,7 @@ state.compact = !!on;
 if (state.slides) {
 
 
-try { if (on) state.slides.pause(); else if (!state.trailerOn) state.slides.resume(); } catch (eSl) { }
+try { if (on) state.slides.pause(); else if (!slidesHeld()) state.slides.resume(); } catch (eSl) { }
 }
 state.node.toggleClass('lumen-hero--compact', on);
 try { state.root.toggleClass('lumen-rows-up', on); } catch (e) {}
@@ -14966,6 +14984,12 @@ if (state.holdDue && !state.swapTimer) {
 state.holdDue = false;
 armHold();
 }
+
+
+
+if (state.slides && !slidesHeld()) {
+try { state.slides.resume(); } catch (eRs) { warn('hero: slides resume failed', eRs); }
+}
 return;
 }
 
@@ -14977,6 +15001,11 @@ return;
 if (state.holdTimer) {
 stopTimer('holdTimer');
 state.holdDue = true;
+}
+
+
+if (state.slides) {
+try { state.slides.pause(); } catch (ePs) { warn('hero: slides pause failed', ePs); }
 }
 
 var captured = gen;
@@ -15552,7 +15581,7 @@ markBody(true);
 guardBackground();
 }
 applyMotion();
-if (state.slides && !state.compact) {
+if (state.slides && !slidesHeld()) {
 try { state.slides.resume(); } catch (eSl) { warn('hero: slides resume failed', eSl); }
 }
 try {
