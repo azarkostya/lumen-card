@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { load, loadCtx } from './_load.mjs';
 
 const M = load('63_cardmenu.js');
@@ -310,17 +311,42 @@ test('трейлер из меню: ответ дольше 8 с — не игр
 
 /* Ревью «Волны 1», п.4: человек выбрал «Трейлер» и ждёт на том же экране,
    а ответ пришёл на 9-й секунде — прежде была тишина, как будто пункт не
-   сработал. Опоздал ТОЛЬКО ответ — говорим «Трейлер не найден», один раз. */
-test('трейлер из меню: ответ дольше 8 с на том же экране — не играет, но сообщает, ровно один раз', () => {
+   сработал. Опоздал ТОЛЬКО ответ — говорим об этом, один раз.
+   Ревью волны 1b, п.3: не «Трейлер не найден» — это неправда, ролик мог
+   и найтись. Своя строка: «не успел загрузиться — попробуйте ещё раз». */
+test('трейлер из меню: ответ дольше 8 с на том же экране — не играет, но сообщает об опоздании, ровно один раз', () => {
   const env = trailerEnv();
   try {
     env.api.playTrailer(MOVIE);
     env.clock.now += 9000;
     env.answer(0);
     assert.equal(env.played.length, 0);
-    assert.deepEqual(env.notes, ['lumen_menu_no_trailer']);
+    assert.deepEqual(env.notes, ['lumen_menu_trailer_late']);
     env.answer(0);
-    assert.deepEqual(env.notes, ['lumen_menu_no_trailer'], 'повторный колбэк молчит');
+    assert.deepEqual(env.notes, ['lumen_menu_trailer_late'], 'повторный колбэк молчит');
+  } finally { env.restore(); }
+});
+
+test('трейлер из меню: строка опоздания — на трёх языках и не «не найден»', () => {
+  const LC = {};
+  const src = readFileSync(new URL('../src/80_settings.js', import.meta.url), 'utf8');
+  new Function('LC', 'module', src)(LC, { exports: null, lumen: true });
+  assert.deepEqual(LC.STRINGS.lumen_menu_trailer_late, {
+    ru: 'Трейлер не успел загрузиться — попробуйте ещё раз',
+    en: 'The trailer took too long to load — try again',
+    uk: 'Трейлер не встиг завантажитися — спробуйте ще раз'
+  });
+  assert.equal(LC.STRINGS.lumen_menu_no_trailer.ru, 'Трейлер не найден', '«не найден» остаётся для ответа без роликов');
+});
+
+/* «Роликов нет» и «опоздал» — разные строки: ответ вовремя и пустой —
+   по-прежнему «Трейлер не найден». */
+test('трейлер из меню: ответ вовремя, но без роликов — «Трейлер не найден»', () => {
+  const env = trailerEnv();
+  try {
+    env.api.playTrailer(MOVIE);
+    env.calls[0].cb({ results: [] });
+    assert.deepEqual(env.notes, ['lumen_menu_no_trailer']);
   } finally { env.restore(); }
 });
 

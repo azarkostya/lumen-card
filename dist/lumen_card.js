@@ -24682,7 +24682,7 @@ var v = verdict(ticket);
 if (!v) return;
 
 trailerReq++;
-if (v === 'late') { noty('lumen_menu_no_trailer'); return; }
+if (v === 'late') { noty('lumen_menu_trailer_late'); return; }
 var picked = LC.trailer && LC.trailer.pickTrailer ? LC.trailer.pickTrailer(json && json.results) : null;
 if (picked && picked.key) play(picked);
 else noty('lumen_menu_no_trailer');
@@ -24706,6 +24706,8 @@ if (window.Lampa && Lampa.Activity && typeof Lampa.Activity.active === 'function
 } catch (e) { }
 return null;
 }
+
+
 
 
 
@@ -29442,6 +29444,13 @@ lumen_menu_no_trailer: {
 ru: 'Трейлер не найден',
 en: 'No trailer found',
 uk: 'Трейлер не знайдено'
+},
+
+
+lumen_menu_trailer_late: {
+ru: 'Трейлер не успел загрузиться — попробуйте ещё раз',
+en: 'The trailer took too long to load — try again',
+uk: 'Трейлер не встиг завантажитися — спробуйте ще раз'
 },
 lumen_menu_marked: {
 ru: 'Отмечено просмотренным',

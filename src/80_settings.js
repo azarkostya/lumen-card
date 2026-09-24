@@ -891,6 +891,13 @@
       en: 'No trailer found',
       uk: 'Трейлер не знайдено'
     },
+    /* Ревью волны 1b, п.3: ответ роликов пришёл позже 8 с (src/63_cardmenu.js,
+       verdict 'late') — ролик мог и найтись, «не найден» было бы неправдой. */
+    lumen_menu_trailer_late: {
+      ru: 'Трейлер не успел загрузиться — попробуйте ещё раз',
+      en: 'The trailer took too long to load — try again',
+      uk: 'Трейлер не встиг завантажитися — спробуйте ще раз'
+    },
     lumen_menu_marked: {
       ru: 'Отмечено просмотренным',
       en: 'Marked as watched',

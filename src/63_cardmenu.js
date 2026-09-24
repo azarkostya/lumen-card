@@ -309,7 +309,7 @@
           if (!v) return;
           /* Билет погашен: повторный колбэк того же запроса — уже чужой. */
           trailerReq++;
-          if (v === 'late') { noty('lumen_menu_no_trailer'); return; }
+          if (v === 'late') { noty('lumen_menu_trailer_late'); return; }
           var picked = LC.trailer && LC.trailer.pickTrailer ? LC.trailer.pickTrailer(json && json.results) : null;
           if (picked && picked.key) play(picked);
           else noty('lumen_menu_no_trailer');
@@ -345,8 +345,10 @@
        ждёт, но ответ, пришедший, когда человек уже в меню, — чужой.
        'late' — всё то же, но опоздал только ответ: человек так и ждёт на
        том же экране, и молчание выглядело бы как «кнопка не работает»
-       (ревью «Волны 1», п.4). '' — ответ уже чужой (ушли, открыли плеер,
-       оверлей или меню, новый выбор): ни играть, ни говорить. */
+       (ревью «Волны 1», п.4) — говорим, что трейлер не успел загрузиться
+       (своя строка, ревью волны 1b, п.3: «не найден» было бы неправдой).
+       '' — ответ уже чужой (ушли, открыли плеер, оверлей или меню, новый
+       выбор): ни играть, ни говорить. */
     function verdict(ticket) {
       if (ticket.seq !== trailerReq) return '';
       if (currentActivity() !== ticket.activity) return '';
