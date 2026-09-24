@@ -303,6 +303,39 @@
       return date ? date.slice(0, 4) : '';
     }
 
+    /* Ревью правок волны 3, п.1: правило качества кадра героя — одно на
+       выбор кадра (heroBackdrop ниже) и на смену кадров (startSlides). Кадр
+       годится, если у него есть голоса TMDB (vote_count ≥ 1) и оценка не
+       ниже HERO_BD_VOTE_K от оценки ключевого арта key (кадр key в том же
+       списке); нет у ключевого голосов или его самого в списке — планки по
+       оценке нет, голоса у кадра всё равно нужны. Разбор чисел — у
+       heroBackdrop. До этой правки правило жило только в heroBackdrop, а
+       ротация брала кадры через LC.backdrops.pickBackdrops (там отбор только
+       по надписям): на стенде у Zip Wire через 14.5 с вставал кадр без
+       голосов, у «Суперполицейских 3» в круге шли три кадра по 0.166.
+       Карточке фильма (src/50_backdrops.js) правило не дано намеренно:
+       голосов у кадров TMDB мало, и на выборке стенда (89 фильмов и
+       сериалов из трендов и популярного) её круг в lite сократился бы у
+       38, а у 17 смены кадров не осталось бы вовсе — среди них «Юные
+       сердца» и «Истребитель демонов: Бесконечный замок», у которых
+       кадров 60 и 35.
+       Возвращает годные кадры в порядке TMDB. */
+    function goodFrames(list, key) {
+      var floor = 0;
+      for (var k = 0; list && k < list.length; k++) {
+        if (list[k] && list[k].file_path === key && Number(list[k].vote_count) >= 1) {
+          floor = (Number(list[k].vote_average) || 0) * HERO_BD_VOTE_K;
+          break;
+        }
+      }
+      var out = [];
+      for (var i = 0; list && i < list.length; i++) {
+        var b = list[i];
+        if (b && Number(b.vote_count) >= 1 && Number(b.vote_average) >= floor) out.push(b);
+      }
+      return out;
+    }
+
     /* Волна 3 (проверка на ТВ 2026-09-24): «карточка героя на стартовой и
        карточка ниже почти одинаковые — текст и обложка одинаковые».
        backdrop_path у TMDB — чаще всего тот же ключевой арт, что и постер
@@ -327,18 +360,10 @@
        (append_to_response, detailsRequest). Карточка фильма остаётся на
        backdrop_path (src/50_backdrops.js). */
     function heroBackdrop(images, main) {
-      var list = images && images.backdrops;
-      var floor = 0;
-      for (var k = 0; list && k < list.length; k++) {
-        if (list[k] && list[k].file_path === main && Number(list[k].vote_count) >= 1) {
-          floor = (Number(list[k].vote_average) || 0) * HERO_BD_VOTE_K;
-          break;
-        }
-      }
-      for (var i = 0; list && i < list.length; i++) {
+      var list = goodFrames(images && images.backdrops, main);
+      for (var i = 0; i < list.length; i++) {
         var b = list[i];
-        if (!b || !b.file_path || b.iso_639_1 || b.file_path === main) continue;
-        if (!(Number(b.vote_count) >= 1) || !(Number(b.vote_average) >= floor)) continue;
+        if (!b.file_path || b.iso_639_1 || b.file_path === main) continue;
         var w = Number(b.width) || 0;
         var h = Number(b.height) || 0;
         var ratio = Number(b.aspect_ratio) || (w > 0 && h > 0 ? w / h : 0);
@@ -1309,7 +1334,8 @@
     /* Механика слайдшоу — общая с карточкой: отбор кадров                  */
     /* LC.backdrops.pickBackdrops (без текста на кадре, широкие вперёд,     */
     /* главный первым, не больше LC.slideshow.maxFramesFor(режим): lite 4,  */
-    /* full 8, off 1 — то есть в 'off' ротации нет вовсе), ритм и пауза —   */
+    /* full 8, off 1 — то есть в 'off' ротации нет вовсе) — у героя только  */
+    /* среди кадров, годных и для кадра героя (goodFrames), — ритм и пауза —*/
     /* LC.slideshow.create в режиме opts.show (src/51_slideshow.js). Показ  */
     /* остаётся за героем: тот же loadFrame/swapFrame, что у смены          */
     /* карточки, — decode() до показа, сторож поколения, в лёгком режиме и  */
@@ -1403,10 +1429,14 @@
         var main = state.framePath || model.backdrop;
         var keyArt = state.details.backdrop_path || (state.shownCard && state.shownCard.backdrop_path) || '';
         var images = state.details.images;
-        if (keyArt && keyArt !== main && images && images.backdrops) {
-          images = { backdrops: LC.util.filter(images.backdrops, function (b) { return !b || b.file_path !== keyArt; }) };
-        }
-        var paths = LC.backdrops.pickBackdrops(images, main, LC.slideshow.maxFramesFor(motionMode()));
+        /* Ревью правок волны 3, п.1: в круг идут только кадры, годные и для
+           кадра героя (goodFrames: с голосами и не хуже половины оценки
+           ключевого арта). Кадр на экране pickBackdrops ставит первым сам;
+           остался он один — смены кадров нет. */
+        var list = LC.util.filter(goodFrames(images && images.backdrops, keyArt), function (b) {
+          return !keyArt || keyArt === main || b.file_path !== keyArt;
+        });
+        var paths = LC.backdrops.pickBackdrops({ backdrops: list }, main, LC.slideshow.maxFramesFor(motionMode()));
         if (!paths || paths.length <= 1) return;
         state.slides = LC.slideshow.create(state.node, paths, {
           enabled: slidesAllowed,

@@ -12857,6 +12857,39 @@ return date ? date.slice(0, 4) : '';
 
 
 
+function goodFrames(list, key) {
+var floor = 0;
+for (var k = 0; list && k < list.length; k++) {
+if (list[k] && list[k].file_path === key && Number(list[k].vote_count) >= 1) {
+floor = (Number(list[k].vote_average) || 0) * HERO_BD_VOTE_K;
+break;
+}
+}
+var out = [];
+for (var i = 0; list && i < list.length; i++) {
+var b = list[i];
+if (b && Number(b.vote_count) >= 1 && Number(b.vote_average) >= floor) out.push(b);
+}
+return out;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -12864,18 +12897,10 @@ return date ? date.slice(0, 4) : '';
 
 
 function heroBackdrop(images, main) {
-var list = images && images.backdrops;
-var floor = 0;
-for (var k = 0; list && k < list.length; k++) {
-if (list[k] && list[k].file_path === main && Number(list[k].vote_count) >= 1) {
-floor = (Number(list[k].vote_average) || 0) * HERO_BD_VOTE_K;
-break;
-}
-}
-for (var i = 0; list && i < list.length; i++) {
+var list = goodFrames(images && images.backdrops, main);
+for (var i = 0; i < list.length; i++) {
 var b = list[i];
-if (!b || !b.file_path || b.iso_639_1 || b.file_path === main) continue;
-if (!(Number(b.vote_count) >= 1) || !(Number(b.vote_average) >= floor)) continue;
+if (!b.file_path || b.iso_639_1 || b.file_path === main) continue;
 var w = Number(b.width) || 0;
 var h = Number(b.height) || 0;
 var ratio = Number(b.aspect_ratio) || (w > 0 && h > 0 ? w / h : 0);
@@ -13879,6 +13904,7 @@ cancelTrailer();
 
 
 
+
 var SLIDE_FREE = 700;
 
 
@@ -13940,10 +13966,14 @@ try {
 var main = state.framePath || model.backdrop;
 var keyArt = state.details.backdrop_path || (state.shownCard && state.shownCard.backdrop_path) || '';
 var images = state.details.images;
-if (keyArt && keyArt !== main && images && images.backdrops) {
-images = { backdrops: LC.util.filter(images.backdrops, function (b) { return !b || b.file_path !== keyArt; }) };
-}
-var paths = LC.backdrops.pickBackdrops(images, main, LC.slideshow.maxFramesFor(motionMode()));
+
+
+
+
+var list = LC.util.filter(goodFrames(images && images.backdrops, keyArt), function (b) {
+return !keyArt || keyArt === main || b.file_path !== keyArt;
+});
+var paths = LC.backdrops.pickBackdrops({ backdrops: list }, main, LC.slideshow.maxFramesFor(motionMode()));
 if (!paths || paths.length <= 1) return;
 state.slides = LC.slideshow.create(state.node, paths, {
 enabled: slidesAllowed,

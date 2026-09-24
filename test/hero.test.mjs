@@ -4340,16 +4340,19 @@ function slidesEnv(opts) {
   return env;
 }
 
+/* Кадры с голосами TMDB (VOTES): в ротацию героя идут только кадры,
+   прошедшие правило качества кадра героя (ревью правок волны 3, п.1 —
+   тесты ниже). */
 const FRAMES = (id, main) => ({
   id: id,
   backdrop_path: main,
   images: {
     logos: [],
     backdrops: [
-      { file_path: main, iso_639_1: null, width: 1920 },
-      { file_path: '/f2.jpg', iso_639_1: null, width: 1920 },
-      { file_path: '/f3.jpg', iso_639_1: null, width: 1920 },
-      { file_path: '/text.jpg', iso_639_1: 'en', width: 1920 }
+      Object.assign({ file_path: main, iso_639_1: null, width: 1920 }, VOTES),
+      Object.assign({ file_path: '/f2.jpg', iso_639_1: null, width: 1920 }, VOTES),
+      Object.assign({ file_path: '/f3.jpg', iso_639_1: null, width: 1920 }, VOTES),
+      Object.assign({ file_path: '/text.jpg', iso_639_1: 'en', width: 1920 }, VOTES)
     ]
   }
 });
@@ -4426,6 +4429,64 @@ test('волна 3: смена кадров героя начинается с �
       img.onload();
     }
     assert.deepEqual(shown, ['/f3.jpg', '/f2.jpg', '/f3.jpg', '/f2.jpg'], 'по кругу — только кадры без ключевого арта');
+    assert.deepEqual(warnLog, []);
+  } finally { env.restore(); }
+});
+
+/* Ревью правок волны 3, п.1: ротация героя брала кадры через pickBackdrops —
+   там отбор только по надписям, — и правило голосов кадра героя
+   (heroBackdrop) до неё не доходило. На стенде у Zip Wire через 14.5 с
+   встал кадр без голосов, у «Суперполицейских 3» в круге шли ключевой арт
+   2.28 и три кадра по 0.166, у «Операции „Возмездие“» — только кадры без
+   голосов. Правило теперь одно на выбор кадра и на ротацию: кадр с голосами
+   и не хуже половины оценки ключевого арта (если у того голоса есть). После
+   отбора остался один кадр — тот, что на экране, — ротации нет. */
+const voted = (p, avg, count) => ({ file_path: p, iso_639_1: null, width: 1920, height: 1080, aspect_ratio: 1.778, vote_average: avg, vote_count: count });
+
+for (const c of [
+  { name: 'ключевой арт 2.28 и три кадра по 0.166', key: [2.28, 3], rest: [[0.166, 1], [0.166, 1], [0.166, 2]] },
+  { name: 'ни у ключевого арта, ни у кадров нет голосов', key: [0, 0], rest: [[0, 0], [0, 0]] }
+]) {
+  test('ревью правок волны 3, п.1: ' + c.name + ' — смена кадров героя не заводится', () => {
+    const env = slidesEnv();
+    try {
+      const main = makeMain();
+      env.hero.mount(main.activity);
+      focusOn(main, main.card1);
+      env.advance(400);
+      const backdrops = [voted('/b1.jpg', c.key[0], c.key[1])].concat(c.rest.map((r, i) => voted('/r' + i + '.jpg', r[0], r[1])));
+      detailsOf(env, 11).ok({ id: 11, backdrop_path: '/b1.jpg', images: { logos: [], backdrops: backdrops } });
+      frameImg(env, '/b1.jpg').onload();
+      assert.equal(stageOf(heroOf(main.activity)).find('.lumen-hero__bg--a').attr('src'), 'https://img/t/p/w1280/b1.jpg', 'предусловие: кадр героя — ключевой арт');
+      assert.equal(env.live().length, 0, 'смена кадров заведена по отбракованным кадрам');
+      assert.deepEqual(frameLoads(env), ['/b1.jpg'], 'грузились кадры кроме ключевого');
+      assert.deepEqual(warnLog, []);
+    } finally { env.restore(); }
+  });
+}
+
+test('ревью правок волны 3, п.1: в круге героя только кадры с голосами и не хуже половины оценки ключевого арта', () => {
+  const env = slidesEnv();
+  try {
+    const main = makeMain();
+    env.hero.mount(main.activity);
+    focusOn(main, main.card1);
+    env.advance(400);
+    detailsOf(env, 11).ok({ id: 11, backdrop_path: '/b1.jpg', images: { logos: [], backdrops: [
+      voted('/b1.jpg', 5.3, 7), voted('/good.jpg', 5.3, 2), voted('/novote.jpg', 0, 0), voted('/rejected.jpg', 0.166, 1),
+      voted('/half.jpg', 2.65, 1), voted('/low.jpg', 2.6, 3)
+    ] } });
+    frameImg(env, '/good.jpg').onload();
+    assert.equal(env.live().length, 1, 'смена кадров не заведена');
+    const shown = [];
+    for (let i = 0; i < 4; i++) {
+      env.live()[0].fn();
+      const img = env.images[env.images.length - 1];
+      shown.push(img.src.replace('https://img/t/p/w1280', ''));
+      img.onload();
+    }
+    assert.deepEqual(shown, ['/half.jpg', '/good.jpg', '/half.jpg', '/good.jpg'],
+      'в круге кадр без голосов, отбракованный (0.166) или ниже половины оценки ключевого арта');
     assert.deepEqual(warnLog, []);
   } finally { env.restore(); }
 });
