@@ -130,7 +130,8 @@ test('долг ревью (п.2): каждая настройка раздела
     lumen_enabled: ['applyEnabledPref'],
     lumen_card_accent: ['injectCss'],
     lumen_card_fonts: ['injectFonts', 'injectCss'],
-    lumen_motion: ['applyMotionMode'],
+    /* Проверка на ТВ 2026-09-24: ротацию кадров карточки гасит «Выкл». */
+    lumen_motion: ['applyMotionMode', 'applySlideshowPref'],
     /* Task 31 (фаза 4): HUD отладки — LC.hud.sync() (вне POINTS: только
        ставит/снимает свой узел и rAF-цикл, ни CSS, ни шаблон не трогает). */
     lumen_debug_hud: [],
@@ -238,10 +239,10 @@ test('долг ревью (п.2): каждая настройка раздела
     /* Task 23 (фаза 3): фильтр рулетки читается при входе в неё — на живом
        экране применять нечего. */
     lumen_roulette_unseen: [],
-    /* Task 40 (фаза 4): тумблер тяжёлых эффектов — класс на body, автотрейлер
-       героя и слой частиц через applyMotionMode, ротация кадров карточки
-       через applySlideshowPref. */
-    lumen_fx_heavy: ['applyMotionMode', 'applySlideshowPref'],
+    /* Task 40 (фаза 4): тумблер тяжёлых эффектов — класс на body и слой
+       частиц через applyMotionMode. Ротация кадров карточки от него с
+       2026-09-24 не зависит. */
+    lumen_fx_heavy: ['applyMotionMode'],
     /* Task 62b (фаза 5): кнопки готового стиля. Своего значения у них нет —
        нажатие пишет ЧУЖИЕ настройки, и каждая применяется своей веткой
        выше. Здесь проверяется только то, что «запись» самой кнопки ничего

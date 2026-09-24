@@ -347,9 +347,9 @@
     lumen_card_font_plex: { ru: 'IBM Plex Sans', en: 'IBM Plex Sans', uk: 'IBM Plex Sans' },
     lumen_card_motion: { ru: 'Анимации', en: 'Animations', uk: 'Анімації' },
     lumen_card_motion_descr: {
-      ru: '«Авто» — лёгкие анимации на Tizen/webOS, полные на остальных. «Выкл» отключает и появление блоков, и наезд на кадр.',
-      en: '"Auto" means light animations on Tizen/webOS and full ones elsewhere. "Off" disables both block reveal and the Ken Burns zoom.',
-      uk: '«Авто» — легкі анімації на Tizen/webOS, повні на інших. «Викл» вимикає і появу блоків, і наїзд на кадр.'
+      ru: '«Авто» — лёгкие анимации на Tizen/webOS, полные на остальных. «Лёгкие» оставляют смену кадров и трейлеры, но кадр меняется резко, без перехода. «Выкл» отключает всё движение: появление блоков, наезд, смену кадров и фоновые трейлеры.',
+      en: '"Auto" means light animations on Tizen/webOS and full ones elsewhere. "Light" keeps the changing stills and trailers, but a still changes with a hard cut. "Off" disables all motion: block reveal, Ken Burns zoom, changing stills and background trailers.',
+      uk: '«Авто» — легкі анімації на Tizen/webOS, повні на інших. «Легкі» залишають зміну кадрів і трейлери, але кадр змінюється різко, без переходу. «Викл» вимикає весь рух: появу блоків, наїзд, зміну кадрів і фонові трейлери.'
     },
     lumen_card_motion_auto: { ru: 'Авто', en: 'Auto', uk: 'Авто' },
     lumen_card_motion_full: { ru: 'Полные', en: 'Full', uk: 'Повні' },
@@ -360,9 +360,9 @@
        дивана не понять, куда делись частицы и наезд на кадр. */
     lumen_fx_heavy_name: { ru: 'Тяжёлые эффекты', en: 'Heavy effects', uk: 'Важкі ефекти' },
     lumen_fx_heavy_descr: {
-      ru: 'Частицы, наезд на кадр, зум заставки, смена кадров в карточке, плавная смена кадра на главной и автотрейлер. На телевизоре выключены по умолчанию: они стоят кадров. Работают только при полных анимациях.',
-      en: 'Particles, Ken Burns zoom, screensaver zoom, backdrop slideshow, the crossfade on the home screen and the auto trailer. Off by default on a TV: they cost frames. Work only with full animations.',
-      uk: 'Частинки, наїзд на кадр, зум заставки, зміна кадрів у картці, плавна зміна кадру на головній та автотрейлер. На телевізорі вимкнені за замовчуванням: вони коштують кадрів. Працюють лише за повних анімацій.'
+      ru: 'Частицы, наезд на кадр, зум заставки и плавная смена кадров в карточке и на главной. Сами кадры и трейлеры работают и без них — кадр тогда меняется резко. На телевизоре выключены по умолчанию: они стоят кадров. Работают только при полных анимациях.',
+      en: 'Particles, Ken Burns zoom, screensaver zoom and the crossfade between stills on the card and the home screen. The changing stills and trailers work without them too — a still then changes with a hard cut. Off by default on a TV: they cost frames. Work only with full animations.',
+      uk: 'Частинки, наїзд на кадр, зум заставки та плавна зміна кадрів у картці й на головній. Самі кадри й трейлери працюють і без них — кадр тоді змінюється різко. На телевізорі вимкнені за замовчуванням: вони коштують кадрів. Працюють лише за повних анімацій.'
     },
     /* Task 31 (фаза 4): HUD отладки — FPS, долгие задачи, разрешение и
        режим анимаций в углу экрана телевизора, без adb. Нужен только для
@@ -434,9 +434,9 @@
     },
     lumen_card_slide_interval: { ru: 'Интервал смены кадров', en: 'Frame interval', uk: 'Інтервал зміни кадрів' },
     lumen_card_slide_interval_descr: {
-      ru: 'Сколько секунд держится на экране один кадр фона карточки — и кадр главной, если там выбрано «Несколько кадров». В карточке действует только при включённом слайдшоу. Применяется сразу.',
-      en: 'How many seconds a single card background still stays on screen — and the home hero still when it is set to "Several frames". On the card it works only with the slideshow on. Applied immediately.',
-      uk: 'Скільки секунд тримається на екрані один кадр тла картки — і кадр головної, якщо там обрано «Кілька кадрів». У картці діє лише з увімкненим слайдшоу. Застосовується одразу.'
+      ru: 'Сколько секунд держится на экране один кадр фона карточки и кадр главной. В карточке действует только при включённом слайдшоу. Применяется сразу.',
+      en: 'How many seconds a single card background still and the home hero still stay on screen. On the card it works only with the slideshow on. Applied immediately.',
+      uk: 'Скільки секунд тримається на екрані один кадр тла картки і кадр головної. У картці діє лише з увімкненим слайдшоу. Застосовується одразу.'
     },
     lumen_card_seconds: { ru: 'с', en: 's', uk: 'с' },
     lumen_card_menus: { ru: 'Оформление меню и окон', en: 'Menus and dialogs style', uk: 'Оформлення меню і вікон' },
@@ -770,32 +770,35 @@
            выключение — с дивана читают первую строку, а не третью;
          · «8 секунд» — TRAILER_DELAY в src/48_hero.js:57 (равенство держит
            test/prefs.test.mjs, он читает константу из исходника).
-       Условия запуска перечислены по trailerAllowed (src/48_hero.js:305-311):
-       настройка, полные анимации, тумблер тяжёлых эффектов и режим трейлера
-       карточки не 'off'. Тяжёлых эффектов в прежнем тексте не было — а без
-       них ролика нет, и на телевизоре этот тумблер выключен по умолчанию
-       (fxHeavyDefault, src/81_prefs.js). «Переход на другую карточку», а не
+       Условия запуска перечислены по trailerReady/trailerAllowed
+       (src/48_hero.js): настройка, режим анимаций не «Выкл», режим трейлера
+       карточки не 'off' и «Что показывает кадр главной» не «Только кадры».
+       Проверка на ТВ 2026-09-24: полные анимации и тумблер тяжёлых эффектов
+       из условий убраны — трейлер контент, а не украшение, и на телевизоре
+       (lite, тумблер выключен) его не было вовсе. «Переход на другую карточку», а не
        «любое движение»: возврат фокуса на ту же карточку ролик не снимает —
        гард state.trailerCard !== card (src/48_hero.js:1302). */
     /* Правка 2026-09-23, просьба пользователя: «постеры меняются в карточке,
        но не на главной, там всегда статика… может сделай тумблер, типо либо
        несколько постеров или постер и трейлер». Название — вопрос, на
-       который отвечают значения: с дивана «Кадр и трейлер / Несколько
-       кадров» читается без описания. Описание говорит, чем отличается каждый
-       вариант и когда смены нет (фокус в рядах, анимации выключены). */
+       который отвечают значения: с дивана «Кадры и трейлер / Только кадры»
+       читается без описания (до проверки на ТВ 2026-09-24 — «Кадр и
+       трейлер / Несколько кадров»: тогда в первом значении кадр стоял на
+       месте). Описание говорит, чем отличается каждый вариант и когда смены
+       нет (фокус в рядах, анимации выключены). */
     lumen_hero_media_name: { ru: 'Что показывает кадр главной', en: 'What the home hero shows', uk: 'Що показує кадр головної' },
-    lumen_hero_media_trailer: { ru: 'Кадр и трейлер', en: 'Frame and trailer', uk: 'Кадр і трейлер' },
-    lumen_hero_media_frames: { ru: 'Несколько кадров', en: 'Several frames', uk: 'Кілька кадрів' },
+    lumen_hero_media_trailer: { ru: 'Кадры и трейлер', en: 'Stills and trailer', uk: 'Кадри і трейлер' },
+    lumen_hero_media_frames: { ru: 'Только кадры', en: 'Stills only', uk: 'Лише кадри' },
     lumen_hero_media_descr: {
-      ru: '«Кадр и трейлер» — один кадр фильма; если фокус постоял на карточке, его сменяет беззвучный трейлер (пункт «Автотрейлер в кадре главной»). «Несколько кадров» — кадры фильма сменяют друг друга, как в карточке, с тем же «Интервалом смены кадров»; трейлер не запускается. Пока фокус в рядах ниже первого, кадры не меняются; с выключенными анимациями кадр один. Применяется сразу.',
-      en: '"Frame and trailer" shows one still of the film; if focus rests on a card, a muted trailer replaces it (see "Auto-trailer in the home hero"). "Several frames" cycles through the film’s stills like the card does, at the same "Frame interval"; no trailer is started. While focus is in the rows below the first one the stills do not change; with animations off there is a single still. Applied immediately.',
-      uk: '«Кадр і трейлер» — один кадр фільму; якщо фокус постояв на картці, його змінює беззвучний трейлер (пункт «Автотрейлер у кадрі головної»). «Кілька кадрів» — кадри фільму змінюють один одного, як у картці, з тим самим «Інтервалом зміни кадрів»; трейлер не запускається. Поки фокус у рядах нижче першого, кадри не змінюються; з вимкненими анімаціями кадр один. Застосовується одразу.'
+      ru: 'Кадры фильма сменяют друг друга, как в карточке, с тем же «Интервалом смены кадров». «Кадры и трейлер» — если фокус постоял на карточке, кадры сменяет беззвучный трейлер (пункт «Автотрейлер в кадре главной»), а когда он кончится, кадры пойдут дальше. «Только кадры» — трейлер не запускается. Пока фокус в рядах ниже первого, кадры не меняются; с выключенными анимациями кадр один. Применяется сразу.',
+      en: 'The film’s stills replace one another like on the card, at the same "Frame interval". "Stills and trailer": if focus rests on a card, a muted trailer takes over (see "Auto-trailer in the home hero"), and the stills carry on once it ends. "Stills only": no trailer is started. While focus is in the rows below the first one the stills do not change; with animations off there is a single still. Applied immediately.',
+      uk: 'Кадри фільму змінюють один одного, як у картці, з тим самим «Інтервалом зміни кадрів». «Кадри і трейлер» — якщо фокус постояв на картці, кадри змінює беззвучний трейлер (пункт «Автотрейлер у кадрі головної»), а коли він закінчиться, кадри підуть далі. «Лише кадри» — трейлер не запускається. Поки фокус у рядах нижче першого, кадри не змінюються; з вимкненими анімаціями кадр один. Застосовується одразу.'
     },
     lumen_hero_trailer_name: { ru: 'Автотрейлер в кадре главной', en: 'Auto-trailer in the home hero', uk: 'Автотрейлер у кадрі головної' },
     lumen_hero_trailer_descr: {
-      ru: 'Кадр над рядами сам сменяется беззвучным трейлером с YouTube, если фокус постоял на карточке 8 секунд. Выключите, если это мешает. Переход на другую карточку ролик снимает, при листании он не запускается вовсе. Нужны полные анимации, включённые тяжёлые эффекты и не выключенный «Трейлер в фоне карточки». Применяется сразу.',
-      en: 'The hero frame above the rows turns into a muted YouTube trailer by itself once focus has rested on a card for 8 seconds. Turn it off if it gets in the way. Moving to another card removes the clip, and it never starts while you are browsing. Needs full animations, heavy effects on and "Background trailer on the card" not set to Off. Applied immediately.',
-      uk: 'Кадр над рядами сам змінюється беззвучним трейлером з YouTube, якщо фокус постояв на картці 8 секунд. Вимкніть, якщо це заважає. Перехід на іншу картку ролик знімає, під час гортання він не запускається взагалі. Потрібні повні анімації, увімкнені важкі ефекти і не вимкнений «Трейлер у фоні картки». Застосовується одразу.'
+      ru: 'Кадр над рядами сам сменяется беззвучным трейлером с YouTube, если фокус постоял на карточке 8 секунд. Выключите, если это мешает. Переход на другую карточку ролик снимает, при листании он не запускается вовсе. Не работает при выключенных анимациях, при «Трейлер в фоне карточки» — «Выкл» и при «Только кадры». Применяется сразу.',
+      en: 'The hero frame above the rows turns into a muted YouTube trailer by itself once focus has rested on a card for 8 seconds. Turn it off if it gets in the way. Moving to another card removes the clip, and it never starts while you are browsing. Does not work with animations off, with "Background trailer on the card" set to Off or with "Stills only". Applied immediately.',
+      uk: 'Кадр над рядами сам змінюється беззвучним трейлером з YouTube, якщо фокус постояв на картці 8 секунд. Вимкніть, якщо це заважає. Перехід на іншу картку ролик знімає, під час гортання він не запускається взагалі. Не працює з вимкненими анімаціями, з «Трейлер у фоні картки» — «Викл» і з «Лише кадри». Застосовується одразу.'
     },
     /* Task 71 (фаза 6): логотип названия в кадре главной. Название пункта
        не «логотип фильма», а «логотип названия»: с дивана человек видит
@@ -1096,20 +1099,24 @@
        полностью выключенном движении. Смена режима таблицу стилей не
        пересобирает, поэтому узел надо снять (или вернуть) отдельной строкой —
        иначе фон остался бы подкрашенным до следующего события. */
+    /* Проверка на ТВ 2026-09-24: ротацию кадров открытой карточки гасит и
+       возвращает режим «Выкл» (slideshowEnabled, src/50_backdrops.js), а
+       читается он контроллером на resume() — его и дёргает
+       LC.applySlideshowPref. Выключенный плагин не трогает ничего (Task 10). */
     if (name === 'lumen_motion') {
       LC.applyMotionMode();
+      if (LC.enabled()) LC.applySlideshowPref();
       try { if (LC.accent && LC.accent.repaint) LC.accent.repaint(); } catch (eAccentMotion) { warn('accent repaint failed', eAccentMotion); }
       return true;
     }
-    /* Task 40 (фаза 4): тумблер тяжёлых эффектов. Применяется двумя точками.
-       LC.applyMotionMode переставляет класс lumen-fx-heavy на body (от него
-       зависят Ken Burns и зум заставки), перечитывает автотрейлер героя и
-       пересчитывает слой частиц. Слайдшоу кадров карточки живёт своим
-       контроллером и класс не читает — его гасит и возвращает
-       LC.applySlideshowPref (его enabled() спрашивает LC.fxHeavy). */
+    /* Task 40 (фаза 4): тумблер тяжёлых эффектов. LC.applyMotionMode
+       переставляет класс lumen-fx-heavy на body (от него зависят Ken Burns,
+       зум заставки и плавная смена кадров в карточке и на главной) и
+       пересчитывает слой частиц. Проверка на ТВ 2026-09-24: сама смена
+       кадров и трейлеры от тумблера больше не зависят — их гасит только
+       режим «Выкл» (ветка lumen_motion выше). */
     if (name === 'lumen_fx_heavy') {
       LC.applyMotionMode();
-      LC.applySlideshowPref();
       return true;
     }
     /* Task 31 (фаза 4): HUD отладки — sync() сам решает, показать узел или
@@ -1206,9 +1213,9 @@
       try { if (LC.hero && LC.hero.applyTrailer) LC.hero.applyTrailer(); } catch (eHeroTr) {}
       return true;
     }
-    /* Правка 2026-09-23: что показывает кадр главной. «Несколько кадров»
-       снимает ролик и сразу заводит смену кадров по уже загруженным деталям,
-       «Кадр и трейлер» снимает смену кадров (src/48_hero.js, applyMedia). */
+    /* Правка 2026-09-23: что показывает кадр главной. «Только кадры» снимает
+       ролик, смена кадров продолжается; «Кадры и трейлер» смену не трогает,
+       ролик — со следующей остановки фокуса (src/48_hero.js, applyMedia). */
     if (name === 'lumen_hero_media') {
       try { if (LC.hero && LC.hero.applyMedia) LC.hero.applyMedia(); } catch (eHeroMedia) {}
       return true;
