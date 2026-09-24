@@ -25086,10 +25086,17 @@ return null;
 
 
 
-function newOverlay(ticket) {
+
+
+
+function overlaysChanged(ticket) {
 var now = LC.util.overlays();
-for (var i = 0; i < now.length; i++) {
+var i;
+for (i = 0; i < now.length; i++) {
 if (ticket.overlays.indexOf(now[i]) === -1) return true;
+}
+for (i = 0; i < ticket.overlays.length; i++) {
+if (now.indexOf(ticket.overlays[i]) === -1) return true;
 }
 return false;
 }
@@ -25097,7 +25104,7 @@ return false;
 function verdict(ticket) {
 if (ticket.seq !== trailerReq) return '';
 if (currentActivity() !== ticket.activity) return '';
-if (LC.util.playerOpen() || newOverlay(ticket)) return '';
+if (LC.util.playerOpen() || overlaysChanged(ticket)) return '';
 try {
 var list = document.body && document.body.classList;
 if (list && list.contains('menu--open')) return '';
