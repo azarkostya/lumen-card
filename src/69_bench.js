@@ -253,6 +253,15 @@
 
     function hero() { return LC.hero || null; }
 
+    /* Ряды главной ведёт СВОЙ контроллер Lampa 'items_line' (каждый ряд
+       переключает его заново), сетки и наши экраны — 'content'; так же
+       считает src/64_nav.js (onCards). Живая проверка 2026-09-24: после
+       закрытия настроек Controller.enabled().name на главной —
+       'items_line'. */
+    function onRows(name) {
+      return name === 'content' || name === 'items_line';
+    }
+
     function heroCompact() {
       try { return !!(hero() && hero().compact()); } catch (e) { return false; }
     }
@@ -363,7 +372,9 @@
         var ms = Number(e.blockingDuration) || 0;
         r.loaf.n++;
         r.loaf.ms += ms;
-        if (!r.loaf.worst || ms > r.loaf.worst.ms) r.loaf.worst = { ms: ms, host: scriptOf(e) };
+        /* Кадр без блокировки (0 мс — долгий из-за отрисовки) худшим не
+           считается: его скрипта в подвале искать нечего. */
+        if (ms > 0 && (!r.loaf.worst || ms > r.loaf.worst.ms)) r.loaf.worst = { ms: ms, host: scriptOf(e) };
       }
     }
 
@@ -389,7 +400,7 @@
       };
       r.onVis = function () { if (document.hidden) finish('hidden'); };
       r.onAct = function (e) { if (e && e.type === 'start') finish('activity'); };
-      r.onToggle = function (e) { if (e && e.name !== 'content') finish('toggle'); };
+      r.onToggle = function (e) { if (e && !onRows(e.name)) finish('toggle'); };
       try { window.addEventListener('keydown', r.onKey, true); } catch (e1) { }
       try { document.addEventListener('visibilitychange', r.onVis); } catch (e2) { }
       try { if (L && L.Listener) L.Listener.follow('activity', r.onAct); } catch (e3) { }
@@ -537,7 +548,7 @@
       var L = lampa();
       if (!L || !L.Controller) return;
       var on = L.Controller.enabled ? L.Controller.enabled() : null;
-      if (on && on.name && on.name !== 'content') return;
+      if (on && on.name && !onRows(on.name)) return;
       L.Controller.collectionFocus(el, el.parentNode || document.body);
     }
 

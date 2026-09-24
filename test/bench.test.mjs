@@ -376,6 +376,23 @@ test('bench: фон, смена активности, смена контрол�
   assert.equal(e.api.last().reason, 'error');
 });
 
+/* Живая проверка на стенде (2026-09-24): ряды главной ведёт СВОЙ контроллер
+   Lampa 'items_line' (каждый ряд переключает его заново), а не 'content' —
+   так же считает и src/64_nav.js (onCards). Переключение между ними —
+   это всё ещё ряды главной, прерывать тест оно не имеет права. */
+test('bench: переключение контроллера между content и items_line тест не прерывает', () => {
+  const e = makeEnv();
+  e.api.start();
+  e.advance(LEAVE + 10);
+  e.advance(STAGE);
+  e.win.Lampa.Controller.toggle('items_line');
+  e.win.Lampa.Controller.toggle('content');
+  assert.equal(e.api.running(), true, 'тест прерван переключением рядов');
+  e.win.Lampa.Controller.toggle('head');
+  assert.equal(e.api.running(), false);
+  assert.equal(e.api.last().reason, 'toggle');
+});
+
 test('bench: листание в коротком ряду возвращает фокус ровно на исходную карточку', () => {
   const e = makeEnv({ rowLength: 3 });
   e.api.start();
@@ -423,4 +440,16 @@ test('bench: long-animation-frame — число, сумма blockingDuration и
   assert.equal(row.loafMs, 100);
   assert.ok(row.worst && row.worst.host.indexOf('cdn.example.org') === 0, JSON.stringify(row.worst));
   assert.equal(e.api.last().rows[1].loafN, 0, 'чужая стадия не получила записей');
+  /* Живая проверка 2026-09-24: долгий кадр без блокировки (blockingDuration
+     0 — кадр долгий из-за отрисовки, а не задач) худшим не считается:
+     строка «loaf max … 0 ms · n/a» в подвале была шумом. */
+  const quiet = makeEnv({ loaf: true });
+  quiet.api.start();
+  quiet.advance(LEAVE + 10);
+  quiet.advance(1500);
+  quiet.loaf([{ startTime: 1e9, duration: 60, blockingDuration: 0, scripts: [] }]);
+  quiet.advance(8 * STAGE);
+  assert.equal(quiet.api.last().rows[0].loafN, 1);
+  assert.equal(quiet.api.last().rows[0].worst, null);
+  assert.equal(quiet.api.table(quiet.api.last()).filter((l) => l.indexOf('loaf max') === 0).length, 0);
 });

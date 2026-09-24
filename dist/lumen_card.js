@@ -29525,6 +29525,15 @@ try { fn(); } catch (e) { warn('bench: cleanup step failed', e); }
 
 function hero() { return LC.hero || null; }
 
+
+
+
+
+
+function onRows(name) {
+return name === 'content' || name === 'items_line';
+}
+
 function heroCompact() {
 try { return !!(hero() && hero().compact()); } catch (e) { return false; }
 }
@@ -29635,7 +29644,9 @@ if (r.measureFrom >= 0 && e.startTime < r.measureFrom) continue;
 var ms = Number(e.blockingDuration) || 0;
 r.loaf.n++;
 r.loaf.ms += ms;
-if (!r.loaf.worst || ms > r.loaf.worst.ms) r.loaf.worst = { ms: ms, host: scriptOf(e) };
+
+
+if (ms > 0 && (!r.loaf.worst || ms > r.loaf.worst.ms)) r.loaf.worst = { ms: ms, host: scriptOf(e) };
 }
 }
 
@@ -29661,7 +29672,7 @@ finish('key');
 };
 r.onVis = function () { if (document.hidden) finish('hidden'); };
 r.onAct = function (e) { if (e && e.type === 'start') finish('activity'); };
-r.onToggle = function (e) { if (e && e.name !== 'content') finish('toggle'); };
+r.onToggle = function (e) { if (e && !onRows(e.name)) finish('toggle'); };
 try { window.addEventListener('keydown', r.onKey, true); } catch (e1) { }
 try { document.addEventListener('visibilitychange', r.onVis); } catch (e2) { }
 try { if (L && L.Listener) L.Listener.follow('activity', r.onAct); } catch (e3) { }
@@ -29809,7 +29820,7 @@ if (!el || heroFocused() === el) return;
 var L = lampa();
 if (!L || !L.Controller) return;
 var on = L.Controller.enabled ? L.Controller.enabled() : null;
-if (on && on.name && on.name !== 'content') return;
+if (on && on.name && !onRows(on.name)) return;
 L.Controller.collectionFocus(el, el.parentNode || document.body);
 }
 
