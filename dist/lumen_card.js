@@ -12449,7 +12449,6 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 
-
 LC.hero = (function () {
 
 
@@ -12917,14 +12916,6 @@ var gen = 0;
 
 
 var tgen = 0;
-
-
-
-
-
-
-
-var last = null;
 
 
 
@@ -14599,35 +14590,6 @@ return '';
 
 
 
-function rememberFocus(el, card) {
-var poster = posterOf(el);
-if (!poster) { last = null; return; }
-last = { id: card.id, poster: poster, node: el };
-}
-
-
-
-
-
-
-
-
-
-function refreshFocusSource(el, card) {
-var poster = posterOf(el);
-if (!poster) return;
-if (last && String(last.id) === String(card.id) && last.poster === poster) return;
-rememberFocus(el, card);
-}
-
-
-
-
-
-
-
-
-
 function scheduleAccent(card) {
 stopTimer('accentTimer');
 
@@ -14672,11 +14634,10 @@ if (!card || card.id == null) return;
 
 
 
-if (state.focusEl === el) { refreshFocusSource(el, card); return; }
+if (state.focusEl === el) return;
 state.focusEl = el;
 
 updateCompact(el);
-rememberFocus(el, card);
 
 state.focusAt = Date.now();
 state.pending = card;
@@ -14809,12 +14770,6 @@ updateCompact(el[0]);
 
 
 
-
-
-
-
-
-rememberFocus(el[0], el[0].card_data);
 show(el[0].card_data, el[0]);
 }
 } catch (e) {}
@@ -15108,8 +15063,6 @@ markBody(false);
 unguardBackground();
 var s = state;
 state = null;
-
-last = null;
 gen++;
 unlistenFocus(s);
 
@@ -15211,9 +15164,6 @@ return false;
 
 
 
-
-
-
 function park() {
 if (!state || state.parked) return;
 
@@ -15254,7 +15204,6 @@ if (state.hostClass === MAIN_HOST) {
 markBody(false);
 unguardBackground();
 }
-last = null;
 }
 
 
@@ -15306,7 +15255,6 @@ applyFx();
 return;
 }
 updateCompact(node);
-rememberFocus(node, card);
 state.pending = card;
 state.focusEl = node;
 if (trailerReady()) {
@@ -15412,9 +15360,6 @@ owns: owns,
 unmount: unmount,
 applyMotion: applyMotion,
 active: active,
-
-
-lastFocus: function () { return last; },
 
 
 

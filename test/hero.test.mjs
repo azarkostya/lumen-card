@@ -412,17 +412,16 @@ function makeEnv(extra) {
 }
 
 /* Task 29: карточка ряда как в разметке Lampa — с <img class="card__img">
-   внутри и собственным прямоугольником: герой запоминает её (lastFocus;
-   до волны 2 это был источник перехода «постер → кадр», удалённого
-   2026-09-24). */
+   внутри: адрес уже отрисованного постера — заглушка кадра героя (волна 3,
+   holdFrame в src/48_hero.js). */
 function makeCard(id, title, opts) {
   const img = new FakeEl(['card__img']);
   img.attr('src', opts.poster);
   const card = new FakeEl(['card', 'selector'], [new FakeEl(['card__view'], [img])]);
-  /* Task 37: замер раскладки ушёл с горячего пути фокуса в момент открытия
-     карточки (до волны 2 — LC.transition.open). Герой не имеет права
-     звать getBoundingClientRect вовсе — здесь это ловушка; сам прямоугольник
-     лежит рядом, его читает уже слой перехода со своего фейка. */
+  /* Task 37: замер раскладки ушёл с горячего пути фокуса (до волны 2 — в
+     момент открытия карточки, LC.transition.open; переход удалён). Герой не
+     имеет права звать getBoundingClientRect вовсе — здесь это ловушка;
+     прямоугольник лежит рядом только для правдоподобия фейка. */
   card._rect = opts.rect;
   card.getBoundingClientRect = () => { throw new Error('layout read in hot path'); };
   return card;
@@ -1187,7 +1186,6 @@ test('возврат из карточки: тот же узел героя, н�
   assert.equal(env.requests.length, requests, 'детали заново не спрашиваются');
   assert.ok(env.bodyClasses.indexOf('lumen-main-on') !== -1, 'метка главной вернулась');
   assert.equal(focusListeners(main.activity).length, 1, 'слушатель фокуса один, как и был');
-  assert.equal(env.hero.lastFocus().id, 11, 'запись карточки под фокусом снова заведена');
   assert.deepEqual(warnLog, []);
 });
 
@@ -2440,79 +2438,15 @@ test('пустой ответ деталей равносилен ошибке �
 });
 
 /* ====================================================================== */
-/* Task 29: источник перехода «постер → кадр» и отложенный акцент          */
+/* Task 29/37: горячий путь фокуса и отложенный акцент                    */
 /* ====================================================================== */
 
-test('lastFocus: до фокуса источника нет', () => {
-  const env = makeEnv();
-  const main = makeMain();
-  env.hero.mount(main.activity);
-  assert.equal(env.hero.lastFocus(), null);
-});
-
-/* Task 37: запоминается УЗЕЛ карточки, а не её прямоугольник — замер
-   раскладки ушёл в момент открытия карточки (до волны 2 — LC.transition.open). Ловушка в
-   makeCard роняет тест, если герой позовёт getBoundingClientRect: здесь она и
-   проверяет, что горячий путь фокуса раскладку не читает. */
-test('lastFocus: фокус запоминает id, адрес уже отрисованного постера и узел карточки', () => {
-  const env = makeEnv();
-  const main = makeMain();
-  env.hero.mount(main.activity);
-  main.card1.addClass('focus');
-  fireFocus(main.activity, main.card1);
-  assert.deepEqual(env.hero.lastFocus(), {
-    id: 11,
-    poster: 'https://img/t/p/w300/p1.jpg',
-    node: main.card1
-  });
-  /* Прямоугольник узла умеет снять только слой перехода, и здесь это видно:
-     обращение к нему из героя уронило бы тест ещё на строке выше. */
-  assert.throws(() => main.card1.getBoundingClientRect(), /layout read in hot path/);
-});
-
-/* Повторное событие фокуса на той же карточке шлёт сама Lampa, когда
-   возвращает фокус на место. Источник перехода при этом обязан обновиться
-   (постер мог догрузиться на смену заглушки ./img/img_load.svg), а таймеры —
-   нет: их проверяют тесты акцента и трейлера ниже. */
-/* Task 37 (ревью): фокус Lampa восстанавливает синхронно внутри
-   activity.start() — ДО события 'activity':start, по которому мы монтируем
-   героя. Своего 'hover:focus' мы в этот заход не увидим, поэтому источник
-   перехода обязан завести сам mount: иначе «главная → OK → Назад → OK на той
-   же карточке» открывалось бы без перехода. */
-test('lastFocus: карточка была в фокусе ещё до монтирования — источник заведён без события', () => {
-  const env = makeEnv();
-  const main = makeMain();
-  main.card1.addClass('focus');
-
-  env.hero.mount(main.activity);
-  assert.deepEqual(env.hero.lastFocus(), {
-    id: 11,
-    poster: 'https://img/t/p/w300/p1.jpg',
-    node: main.card1
-  }, 'ни одного события фокуса не посылали');
-
-  /* Гард повторной обработки при этом не взведён: первое настоящее событие
-     обязано пройти полный путь и завести таймеры. */
-  fireFocus(main.activity, main.card1);
-  env.advance(3100);
-  assert.deepEqual(warnLog, []);
-});
-
-test('lastFocus: повторный фокус той же карточки подхватывает догруженный постер', () => {
-  const env = makeEnv();
-  const main = makeMain();
-  env.hero.mount(main.activity);
-  main.card1.find('.card__img').attr('src', './img/img_load.svg');
-  fireFocus(main.activity, main.card1);
-  assert.equal(env.hero.lastFocus().poster, './img/img_load.svg');
-
-  main.card1.find('.card__img').attr('src', 'https://img/t/p/w300/p1.jpg');
-  fireFocus(main.activity, main.card1);
-  assert.equal(env.hero.lastFocus().poster, 'https://img/t/p/w300/p1.jpg', 'в переход пойдёт постер, а не заглушка');
-  assert.equal(env.hero.lastFocus().node, main.card1);
-});
-
-test('lastFocus: обновляется сразу, не дожидаясь смены героя', () => {
+/* Ревью волны 2, п.11: запись карточки под фокусом (LC.hero.lastFocus)
+   держала источник перехода «постер → кадр»; переход удалён в волне 2, и
+   запись осталась без потребителя — снята вместе с API. Ловушка в makeCard
+   (getBoundingClientRect) остаётся: горячий путь фокуса раскладку не
+   читает — Task 37, замер ушёл из обработки каждого нажатия стрелки. */
+test('фокус: горячий путь раскладку не читает; мёртвой записи карточки под фокусом нет', () => {
   const env = makeEnv();
   const main = makeMain();
   env.hero.mount(main.activity);
@@ -2521,22 +2455,32 @@ test('lastFocus: обновляется сразу, не дожидаясь см
   env.advance(50);
   main.card2.addClass('focus');
   fireFocus(main.activity, main.card2);
-  assert.equal(env.hero.lastFocus().id, 22, 'до истечения 350 мс герой ещё первый, а источник — уже второй');
-  assert.equal(env.images.length, 0);
+  env.advance(1000);
+  assert.deepEqual(warnLog, [], 'обращение к getBoundingClientRect из героя роняет обработчик фокуса в warn');
+  assert.equal(env.hero.lastFocus, undefined, 'LC.hero.lastFocus без потребителя');
+  assert.equal(H.lastFocus, undefined);
 });
 
-test('lastFocus: карточка без постера источником не становится', () => {
-  const env = makeEnv();
+/* Task 37 (ревью): фокус Lampa восстанавливает синхронно внутри
+   activity.start() — ДО события 'activity':start, по которому мы монтируем
+   героя (разбор у showFocused). Героя mount показывает сам, но гард
+   повторной обработки (state.focusEl) не взводит: первое настоящее событие
+   фокуса на той же карточке обязано пройти полный путь и завести таймеры —
+   здесь это видно по отсчёту автотрейлера. */
+test('фокус: карточка была в фокусе до монтирования — первое событие на ней проходит полный путь', () => {
+  const env = trailerEnv();
   const main = makeMain();
-  env.hero.mount(main.activity);
   main.card1.addClass('focus');
+  env.hero.mount(main.activity);
+  env.advance(9000);
+  assert.equal(env.requests.filter((r) => r.url.indexOf('/videos') >= 0).length, 0,
+    'mount показывает героя, но отсчёта ролика без события фокуса не заводит');
+
   fireFocus(main.activity, main.card1);
-  const bare = new FakeEl(['card', 'focus']);
-  bare.card_data = { id: 33, title: 'Голый' };
-  main.line0._children.push(bare);
-  bare._parentEl = main.line0;
-  fireFocus(main.activity, bare);
-  assert.equal(env.hero.lastFocus(), null);
+  env.advance(9000);
+  assert.equal(env.requests.filter((r) => r.url.indexOf('/videos') >= 0).length, 1,
+    'событие съел гард «фокус не сменился» — mount взвёл его сам');
+  assert.deepEqual(warnLog, []);
 });
 
 /* ---------------------------------------------------------------------- */
@@ -2556,16 +2500,6 @@ test('D3: покой фокуса не грузит крупный постер 
   assert.deepEqual(big.map((i) => i.src), [], 'крупный постер запрошен');
   assert.equal(H.bigPoster, undefined, 'чистая функция адреса w500 осталась без потребителя');
   assert.deepEqual(warnLog, []);
-});
-
-test('lastFocus: снятие героя обнуляет источник', () => {
-  const env = makeEnv();
-  const main = makeMain();
-  env.hero.mount(main.activity);
-  main.card1.addClass('focus');
-  fireFocus(main.activity, main.card1);
-  env.hero.unmount();
-  assert.equal(env.hero.lastFocus(), null);
 });
 
 function accentEnv() {
@@ -2843,7 +2777,6 @@ test('трейлер героя: та же карточка на новом уз
   assert.equal(env.players[0].destroys, 0, 'ролик играет дальше');
   assert.equal(env.images.filter((i) => i.src.indexOf('/t/p/original/') !== -1).length, frames, 'кадр героя заново не грузится');
   assert.equal(env.requests.length, requests, 'ни деталей, ни роликов заново не спрашиваем');
-  assert.equal(env.hero.lastFocus().node, again, 'запись карточки под фокусом переехала на новый узел');
   /* Волна 2 (D3): предзагрузки крупного постера для перехода больше нет —
      повторять на новом узле нечего. */
   assert.equal(env.images.filter((i) => i.src.indexOf('/t/p/w500/') !== -1).length, 0);
