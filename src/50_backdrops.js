@@ -623,7 +623,10 @@
 
   /* intervalMs — наружу для героя главной (src/48_hero.js, «Несколько кадров»):
      интервал смены кадров в плагине один, ручка — «Интервал смены кадров». */
-  LC.backdrops = { apply: apply, cancel: cancel, pickBackdrops: pickBackdrops, revive: revive, intervalMs: slideIntervalMs };
+  LC.backdrops = { apply: apply, cancel: cancel, pickBackdrops: pickBackdrops, revive: revive, intervalMs: slideIntervalMs,
+    /* Наружу ради сторожа test/prefs.test.mjs (проверка на ТВ 2026-09-24):
+       с настоящими настройками телевизора смена кадров карточки разрешена. */
+    slideshowEnabled: slideshowEnabled };
 
   /* В браузере "module" не определён — ветка не выполняется. Экспорт нужен
      только test/backdrops.test.mjs (Step 1, TDD pickBackdrops) через общий

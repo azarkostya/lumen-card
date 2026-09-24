@@ -699,6 +699,47 @@ function withPrefs(opts, fn) {
   }
 }
 
+/* Проверка на ТВ 2026-09-24, сторож: телевизор пользователя — Android,
+   режим lite (и выбранный руками, и по вердикту автодетекта), все прочие
+   настройки по умолчанию. Тумблер тяжёлых эффектов там выключен — и всё
+   равно смена кадров карточки и трейлер героя обязаны быть разрешены:
+   именно их пользователь не видел («кадры не менялись, трейлер не
+   запускался»). Модули — настоящие, в один LC с настоящими настройками. */
+test('сторож ТВ 09-24: android + lite + дефолты — кадры карточки и трейлер героя разрешены', () => {
+  const variants = [
+    { platform: { android: true }, store: { lumen_motion: 'lite' } },
+    { platform: { android: true }, store: {}, perf: { mode: () => 'lite' } }
+  ];
+  for (const v of variants) {
+    withPrefs(v, (LC) => {
+      const load = (name) => new Function('LC', 'module', readFileSync(new URL('../src/' + name, import.meta.url), 'utf8'))(LC, { exports: null, lumen: false });
+      load('10_util.js');
+      load('51_slideshow.js');
+      load('50_backdrops.js');
+      load('55_trailer.js');
+      load('48_hero.js');
+      assert.equal(LC.motionMode(), 'lite', 'предусловие: режим lite');
+      assert.equal(LC.fxHeavy(), false, 'предусловие: тяжёлых эффектов нет');
+      assert.equal(LC.backdrops.slideshowEnabled(), true, 'смена кадров карточки разрешена');
+      assert.equal(LC.pref('lumen_hero_media', 'trailer'), 'trailer', 'дефолт «Кадры и трейлер»');
+      assert.equal(LC.hero.trailerAllowed(LC.pref('lumen_hero_trailer', true), LC.motionMode(), LC.trailer.mode()), true,
+        'трейлер героя разрешён');
+      assert.equal(LC.slideshow.maxFramesFor(LC.motionMode()), 4, 'кадров в lite — четыре');
+    });
+  }
+  /* «Выкл» — единственный режим, где контента нет. */
+  withPrefs({ platform: { android: true }, store: { lumen_motion: 'off' } }, (LC) => {
+    const load = (name) => new Function('LC', 'module', readFileSync(new URL('../src/' + name, import.meta.url), 'utf8'))(LC, { exports: null, lumen: false });
+    load('10_util.js');
+    load('51_slideshow.js');
+    load('50_backdrops.js');
+    load('55_trailer.js');
+    load('48_hero.js');
+    assert.equal(LC.backdrops.slideshowEnabled(), false);
+    assert.equal(LC.hero.trailerAllowed(true, LC.motionMode(), LC.trailer.mode()), false);
+  });
+});
+
 test('fxHeavy: на телевизоре выключен по умолчанию, в браузере включён', () => {
   assert.equal(withPrefs({ platform: { android: true } }, (LC) => LC.fxHeavy()), false);
   assert.equal(withPrefs({ platform: {} }, (LC) => LC.fxHeavy()), true);

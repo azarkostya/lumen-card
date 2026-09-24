@@ -16283,7 +16283,10 @@ return null;
 
 
 
-LC.backdrops = { apply: apply, cancel: cancel, pickBackdrops: pickBackdrops, revive: revive, intervalMs: slideIntervalMs };
+LC.backdrops = { apply: apply, cancel: cancel, pickBackdrops: pickBackdrops, revive: revive, intervalMs: slideIntervalMs,
+
+
+slideshowEnabled: slideshowEnabled };
 
 
 
