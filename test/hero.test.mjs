@@ -2617,6 +2617,21 @@ test('трейлер героя: без тяжёлых эффектов стар
   assert.equal(env.players.length, 1);
 });
 
+test('трейлер героя: состояние для HUD — «plan» на остановке фокуса, «none», если роликов нет ни на одном языке', () => {
+  const env = trailerEnv();
+  const notes = [];
+  env.LC.trailer.note = (st) => notes.push(st);
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  focusOn(main, main.card1);
+  assert.deepEqual(notes, ['plan']);
+  env.advance(9000);
+  lastVideos(env).ok({ results: [] });
+  assert.deepEqual(notes, ['plan'], 'после пустого ответа на языке интерфейса ещё спрашиваем английский');
+  lastVideos(env).ok({ results: [] });
+  assert.deepEqual(notes, ['plan', 'none']);
+});
+
 test('trailerAllowed: запрещают только настройка, «Выкл» и выключенный фоновый трейлер', () => {
   const h = H;
   assert.equal(h.trailerAllowed(true, 'full', 'on'), true);

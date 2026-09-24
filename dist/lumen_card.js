@@ -13365,6 +13365,13 @@ function trailerPref() {
 try { return LC.pref ? LC.pref('lumen_hero_trailer', true) !== false : true; } catch (e) { return true; }
 }
 
+
+function trailerNote(st) {
+try {
+if (LC.trailer && typeof LC.trailer.note === 'function') LC.trailer.note(st);
+} catch (e) { }
+}
+
 function trailerMode() {
 try {
 if (LC.trailer && typeof LC.trailer.mode === 'function') return LC.trailer.mode();
@@ -13548,6 +13555,7 @@ warn('hero: trailer pick failed', ePick);
 }
 if (video && video.key) { startTrailer(video.key, captured); return; }
 if (next) ask(next, '');
+else trailerNote('none');
 },
 function () {
 if (tgen !== captured || !state) return;
@@ -13593,6 +13601,7 @@ warn('hero: trailer start failed', err);
 
 function scheduleTrailer(card) {
 if (!trailerReady()) return;
+trailerNote('plan');
 var captured = tgen;
 state.trailerTimer = setTimeout(function () {
 if (!state || tgen !== captured) return;
@@ -18760,8 +18769,15 @@ var API_SRC = 'https://www.youtube.com/iframe_api';
 
 
 
+
+
+
+
+
+
 var START_DELAY_MS = 3000;
-var WAIT_MS = 6000;
+var LOAD_MS = 20000;
+var WAIT_MS = 12000;
 
 
 var WATCH_MS = 1000;
@@ -18877,17 +18893,54 @@ var seq = 0;
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+var last = 'n/a';
+var owner = 0;
+
+function note(st) {
+last = st;
+}
+
+function status() {
+return last;
+}
+
+
+
+
+
+
 function player($host, key, onStart, onEnd) {
-var id = 'lumen-yt-' + (++seq);
+var mine = ++seq;
+var id = 'lumen-yt-' + mine;
 var yt = null;
 var dead = false;
 var timeout = null;
 
+owner = mine;
+mark('api');
+
 $host.html('<div id="' + id + '"></div>');
 
-function kill() {
+function mark(st) {
+if (owner === mine) last = st;
+}
+
+
+function kill(reason) {
 if (dead) return;
 dead = true;
+mark(typeof reason === 'string' ? reason : 'stop');
 
 
 
@@ -18927,6 +18980,10 @@ events: {
 
 onReady: function (ev) {
 if (dead) return;
+
+if (timeout) clearTimeout(timeout);
+timeout = setTimeout(function () { kill('timeout ready'); }, WAIT_MS);
+mark('ready');
 try { ev.target.mute(); ev.target.playVideo(); } catch (e) { }
 },
 onStateChange: function (ev) {
@@ -18934,19 +18991,23 @@ if (dead || !ev) return;
 if (ev.data === 1) {
 if (timeout) { clearTimeout(timeout); timeout = null; }
 try { $host.addClass('is-live'); } catch (e) { }
+mark('play');
 onStart();
 }
-if (ev.data === 0) kill();
+if (ev.data === 0) kill('end');
 },
-onError: function () { kill(); }
+onError: function (ev) {
+var code = ev && ev.data != null ? ev.data : '?';
+kill('err ' + code);
+}
 }
 });
 } catch (e) {
-kill();
+kill('err ctor');
 }
 }
 
-timeout = setTimeout(kill, WAIT_MS);
+timeout = setTimeout(function () { kill('timeout api'); }, LOAD_MS);
 
 if (window.YT && window.YT.Player) create();
 else {
@@ -18962,7 +19023,7 @@ script.src = API_SRC;
 }
 }
 
-return { destroy: kill };
+return { destroy: function () { kill(); } };
 }
 
 
@@ -19159,10 +19220,11 @@ try { if (LC.motionMode() === 'off') return null; } catch (e) { }
 
 var videos = data && data.videos && data.videos.results;
 var video = pickTrailer(videos);
-if (!video) return null;
+if (!video) { note('none'); return null; }
 
 var layer = body.children('.lumen-backdrop');
 if (!layer || !layer.length) return null;
+note('plan');
 
 var alive = true;
 var control = null;
@@ -19315,7 +19377,10 @@ reveal: reveal,
 schedule: schedule,
 stopActive: stopActive,
 isLive: isLive,
-bind: bind
+bind: bind,
+
+status: status,
+note: note
 };
 })();
 

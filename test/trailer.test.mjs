@@ -159,7 +159,11 @@ function freshEnv(opts) {
   head.appendChild = function (el) { origAppend.call(head, el); if (el.id) byId[el.id] = el; };
 
   const timers = [];
-  globalThis.setTimeout = (fn, ms) => { timers.push({ fn, ms, cleared: false }); return timers.length; };
+  /* Часы: таймер помнит свой срок (at), advanceTo() двигает время и
+     выполняет наступившие по порядку — нужно тестам «таймаут считается с
+     onReady» (проверка на ТВ 2026-09-24). */
+  const clock = { now: 0 };
+  globalThis.setTimeout = (fn, ms) => { timers.push({ fn, ms, at: clock.now + ms, cleared: false }); return timers.length; };
   globalThis.clearTimeout = (id) => { const x = timers[id - 1]; if (x) x.cleared = true; };
 
   const players = [];
@@ -188,6 +192,18 @@ function freshEnv(opts) {
     host, events, players, timers, created, head, byId,
     FakePlayer, mod,
     fire: (id) => { const x = timers[id - 1]; if (x && !x.cleared) x.fn(); },
+    /* Время вперёд до отметки to (мс от создания env). */
+    advanceTo: (to) => {
+      for (;;) {
+        let next = null;
+        for (const x of timers) if (!x.cleared && !x.done && x.at <= to && (!next || x.at < next.at)) next = x;
+        if (!next) break;
+        clock.now = next.at;
+        next.done = true;
+        next.fn();
+      }
+      clock.now = to;
+    },
     /* последний созданный плеер и его колбэки из cfg.events */
     last: () => players[players.length - 1],
     make: () => mod.player(host, 'KEY1', () => events.start++, () => events.end++)
@@ -215,7 +231,7 @@ test('player: старт воспроизведения -> onStart, таймау
   assert.equal(env.events.start, 1);
   assert.equal(env.events.end, 0);
   assert.equal(env.host.hasClass('is-live'), true);
-  assert.equal(env.timers[0].cleared, true, '6-секундный таймаут должен быть снят при старте');
+  assert.equal(env.timers.filter((x) => !x.cleared).length, 0, 'таймауты ожидания сняты при старте');
 
   ctl.destroy();
   assert.deepEqual(warnLog, []);
@@ -246,16 +262,82 @@ test('player: конец ролика (state 0) -> onEnd', () => {
   assert.equal(env.host.hasClass('is-live'), false);
 });
 
-test('player: таймаут 6 с без старта -> kill + onEnd, onStart не звучал', () => {
+/* Проверка на ТВ 2026-09-24: приложение LAMPA на Android TV грузит iframe
+   без кэша (LOAD_NO_CACHE), и за прежние 6 с от создания плеер часто не
+   успевал даже подняться. Таймаут ожидания старта теперь считается с
+   onReady (12 с), а до onReady действует свой, щедрый лимит загрузки. */
+test('player: onReady на 7-й секунде, игра на 9-й -> onStart (таймаут считается с onReady)', () => {
   const env = freshEnv();
   env.make();
+  const p = env.last();
 
-  assert.equal(env.timers[0].ms, 6000, 'таймаут ожидания старта — 6 секунд');
-  env.fire(1);
+  env.advanceTo(7000);
+  assert.equal(env.events.end, 0, 'до onReady плеер жив и на 7-й секунде');
+  p.cfg.events.onReady({ target: p });
+  env.advanceTo(9000);
+  p.cfg.events.onStateChange({ data: 1, target: p });
+  assert.equal(env.events.start, 1);
+  assert.equal(env.events.end, 0);
+  assert.equal(env.mod.status(), 'play');
+});
 
+test('player: после onReady 12 с без старта -> kill + onEnd, статус «timeout ready»', () => {
+  const env = freshEnv();
+  env.make();
+  const p = env.last();
+  env.advanceTo(1000);
+  p.cfg.events.onReady({ target: p });
+  assert.equal(env.mod.status(), 'ready');
+  env.advanceTo(12999);
+  assert.equal(env.events.end, 0, 'до 12 с от onReady ждём');
+  env.advanceTo(13000);
   assert.equal(env.events.start, 0);
   assert.equal(env.events.end, 1);
   assert.equal(env.host.hasClass('is-live'), false);
+  assert.equal(env.mod.status(), 'timeout ready');
+});
+
+test('player: onReady так и не пришёл -> kill по лимиту загрузки, статус «timeout api»', () => {
+  const env = freshEnv();
+  env.make();
+  assert.equal(env.mod.status(), 'api', 'плеер создан, ждём API и iframe');
+  env.advanceTo(19999);
+  assert.equal(env.events.end, 0, 'лимит загрузки щедрый: 20 с');
+  env.advanceTo(20000);
+  assert.equal(env.events.start, 0);
+  assert.equal(env.events.end, 1);
+  assert.equal(env.mod.status(), 'timeout api');
+});
+
+test('player: ошибка YT сохраняет код в статусе («err 150»)', () => {
+  const env = freshEnv();
+  env.make();
+  const p = env.last();
+  p.cfg.events.onError({ data: 150 });
+  assert.equal(env.events.end, 1);
+  assert.equal(env.mod.status(), 'err 150');
+});
+
+test('player: статус — конец ролика «end», снятие снаружи «stop», старый плеер не затирает статус нового', () => {
+  const env = freshEnv();
+  const first = env.make();
+  const p1 = env.last();
+  p1.cfg.events.onStateChange({ data: 1, target: p1 });
+  p1.cfg.events.onStateChange({ data: 0, target: p1 });
+  assert.equal(env.mod.status(), 'end');
+
+  const third = env.make();
+  const second = env.make();
+  const p2 = env.last();
+  p2.cfg.events.onReady({ target: p2 });
+  p2.cfg.events.onStateChange({ data: 1, target: p2 });
+  third.destroy();
+  assert.equal(env.mod.status(), 'play', 'снятый старый плеер статус нового не трогает');
+  second.destroy();
+  assert.equal(env.mod.status(), 'stop');
+
+  env.mod.note('plan');
+  assert.equal(env.mod.status(), 'plan');
 });
 
 test('player: destroy идемпотентен — onEnd ровно один раз', () => {
@@ -526,6 +608,15 @@ test('schedule: подходящего ролика нет — null (и пуст
   assert.equal(scheduleEnv({ data: { videos: { results: [] } } }).run(), null);
   assert.equal(scheduleEnv({ data: {} }).run(), null);
   assert.equal(scheduleEnv({ data: { videos: { results: [{ name: 'Trailer' }] } } }).run(), null);
+});
+
+test('schedule: статус для HUD — «none» без ролика, «plan» при запланированном старте', () => {
+  const none = scheduleEnv({ data: { videos: { results: [] } } });
+  none.run();
+  assert.equal(none.mod.status(), 'none');
+  const plan = scheduleEnv();
+  plan.run();
+  assert.equal(plan.mod.status(), 'plan');
 });
 
 test('schedule: планирует старт через 3 с и кладёт контроллер на слой', () => {

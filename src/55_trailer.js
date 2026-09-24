@@ -50,11 +50,18 @@
 
     var API_ID = 'lumen-yt-api';
     var API_SRC = 'https://www.youtube.com/iframe_api';
-    /* План Task 7: старт через 3 с после открытия карточки; если за 6 с
-       ролик так и не заиграл (нет сети, YouTube недоступен, autoplay
-       запрещён) — тихо убираем и возвращаем слайдшоу. */
+    /* План Task 7: старт через 3 с после открытия карточки; если ролик так
+       и не заиграл (нет сети, YouTube недоступен, autoplay запрещён) —
+       тихо убираем и возвращаем слайдшоу.
+       Проверка на ТВ 2026-09-24: прежние 6 с считались от создания плеера
+       и накрывали сразу загрузку iframe_api, самого iframe и старт ролика.
+       Приложение LAMPA на Android TV грузит WebView с LOAD_NO_CACHE —
+       iframe каждый раз едет из сети, и за 6 с плеер часто не успевал даже
+       подняться. Теперь ожиданий два: LOAD_MS — до onReady (API и iframe
+       загрузились), WAIT_MS — от onReady до фактического старта. */
     var START_DELAY_MS = 3000;
-    var WAIT_MS = 6000;
+    var LOAD_MS = 20000;
+    var WAIT_MS = 12000;
     /* Период сторожа «карточка ещё на экране» (см. startWatchdog ниже).
        Тикает только пока ролик реально играет. */
     var WATCH_MS = 1000;
@@ -165,22 +172,59 @@
        (быстрый backward между карточками) получили бы одинаковый id узла. */
     var seq = 0;
 
+    /* Проверка на ТВ 2026-09-24: состояние последнего плеера для HUD
+       (поле tr, src/69_hud.js) — на телевизоре консоли нет, и отличить
+       «ролика нет у фильма» от «YouTube не поднялся» иначе нечем.
+         plan          — старт запланирован (герой/карточка ждут паузу);
+         none          — у фильма нет подходящего ролика;
+         api           — плеер создан, ждём iframe_api и сам iframe;
+         ready         — onReady пришёл, ждём старта;
+         play          — ролик играет;
+         end           — доиграл до конца;
+         stop          — снят нами (фокус ушёл, карточку закрыли);
+         timeout api   — за LOAD_MS не пришёл onReady;
+         timeout ready — за WAIT_MS от onReady ролик не пошёл;
+         err N         — onError плеера с кодом N (2, 5, 100, 101, 150 —
+                         коды YouTube IFrame API).
+       Пишет только самый свежий плеер (owner): снятие старого не затирает
+       состояние нового. */
+    var last = 'n/a';
+    var owner = 0;
+
+    function note(st) {
+      last = st;
+    }
+
+    function status() {
+      return last;
+    }
+
     /* $host — узел .lumen-bg__trailer внутри слоя фона. Возвращает
        {destroy}; destroy идемпотентен и всегда проходит через kill(), то
        есть onEnd вызывается ровно один раз, каким бы путём ни завершилось
        воспроизведение (старт не случился за WAIT_MS, ошибка плеера, конец
        ролика, закрытие карточки). */
     function player($host, key, onStart, onEnd) {
-      var id = 'lumen-yt-' + (++seq);
+      var mine = ++seq;
+      var id = 'lumen-yt-' + mine;
       var yt = null;
       var dead = false;
       var timeout = null;
 
+      owner = mine;
+      mark('api');
+
       $host.html('<div id="' + id + '"></div>');
 
-      function kill() {
+      function mark(st) {
+        if (owner === mine) last = st;
+      }
+
+      /* reason — строка статуса для HUD; без неё плеер снят снаружи. */
+      function kill(reason) {
         if (dead) return;
         dead = true;
+        mark(typeof reason === 'string' ? reason : 'stop');
         /* Вычёркиваем свой create из очереди ожидания API — иначе глобальный
            хук держал бы его (а через него и всё дерево карточки) до конца
            сессии. */
@@ -220,6 +264,10 @@
                  заводить сторож. */
               onReady: function (ev) {
                 if (dead) return;
+                /* Отсчёт ожидания старта — заново, от готовности плеера. */
+                if (timeout) clearTimeout(timeout);
+                timeout = setTimeout(function () { kill('timeout ready'); }, WAIT_MS);
+                mark('ready');
                 try { ev.target.mute(); ev.target.playVideo(); } catch (e) { }
               },
               onStateChange: function (ev) {
@@ -227,19 +275,23 @@
                 if (ev.data === 1) {
                   if (timeout) { clearTimeout(timeout); timeout = null; }
                   try { $host.addClass('is-live'); } catch (e) { }
+                  mark('play');
                   onStart();
                 }
-                if (ev.data === 0) kill();
+                if (ev.data === 0) kill('end');
               },
-              onError: function () { kill(); }
+              onError: function (ev) {
+                var code = ev && ev.data != null ? ev.data : '?';
+                kill('err ' + code);
+              }
             }
           });
         } catch (e) {
-          kill();
+          kill('err ctor');
         }
       }
 
-      timeout = setTimeout(kill, WAIT_MS);
+      timeout = setTimeout(function () { kill('timeout api'); }, LOAD_MS);
 
       if (window.YT && window.YT.Player) create();
       else {
@@ -255,7 +307,7 @@
         }
       }
 
-      return { destroy: kill };
+      return { destroy: function () { kill(); } };
     }
 
     /* ------------------------------------------------------------------ */
@@ -452,10 +504,11 @@
 
         var videos = data && data.videos && data.videos.results;
         var video = pickTrailer(videos);
-        if (!video) return null;
+        if (!video) { note('none'); return null; }
 
         var layer = body.children('.lumen-backdrop');
         if (!layer || !layer.length) return null;
+        note('plan');
 
         var alive = true;
         var control = null;
@@ -608,7 +661,10 @@
       schedule: schedule,
       stopActive: stopActive,
       isLive: isLive,
-      bind: bind
+      bind: bind,
+      /* Проверка на ТВ 2026-09-24: состояние последнего плеера для HUD. */
+      status: status,
+      note: note
     };
   })();
 

@@ -855,6 +855,13 @@
       try { return LC.pref ? LC.pref('lumen_hero_trailer', true) !== false : true; } catch (e) { return true; }
     }
 
+    /* Состояние ролика для HUD (поле tr, src/69_hud.js). */
+    function trailerNote(st) {
+      try {
+        if (LC.trailer && typeof LC.trailer.note === 'function') LC.trailer.note(st);
+      } catch (e) { }
+    }
+
     function trailerMode() {
       try {
         if (LC.trailer && typeof LC.trailer.mode === 'function') return LC.trailer.mode();
@@ -1038,6 +1045,7 @@
               }
               if (video && video.key) { startTrailer(video.key, captured); return; }
               if (next) ask(next, '');
+              else trailerNote('none');
             },
             function () {
               if (tgen !== captured || !state) return;
@@ -1083,6 +1091,7 @@
        тик, доехавший после перевода фокуса, выходит первой же строкой. */
     function scheduleTrailer(card) {
       if (!trailerReady()) return;
+      trailerNote('plan');
       var captured = tgen;
       state.trailerTimer = setTimeout(function () {
         if (!state || tgen !== captured) return;
