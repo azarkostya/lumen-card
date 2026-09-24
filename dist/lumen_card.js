@@ -20024,6 +20024,16 @@ head.append(filtersRow);
 function setMedia(value, focusNode) {
 if (media === value) return;
 bump();
+
+
+
+
+
+
+
+
+
+try { self.activity.loader(false); } catch (e) { }
 media = value;
 chosen = storedIds(media);
 pinned = '';

@@ -1583,6 +1583,27 @@ test('ревью п.2: уход во время первого вращения 
   assert.equal(env.loading(), false, 'индикатор не снят после результата');
 });
 
+/* Контрольное ревью шестого раунда, п.2. Тот же индикатор, но отсекает
+   колбэк loadPool не уход с экрана, а смена «Фильмы/Сериалы»: setMedia ->
+   bump(). Экран остаётся на месте, start() не зовётся, и индикатор,
+   зажжённый в spin(), висел над рулеткой до следующего «Крутить». */
+test('шестой раунд п.2: смена «Фильмы/Сериалы», пока «Крутить» ждёт пул, снимает индикатор загрузки', (t) => {
+  /* У подборки стенда есть и сериальный источник — иначе после смены медиа
+     крутить было бы нечего. */
+  MANIFEST34.collections[0].sources.tv = { type: 'discover', params: {} };
+  t.after(() => { delete MANIFEST34.collections[0].sources.tv; });
+  const env = openRoulette34([R44], t, 1, 'lite', { media: 'movie' }, { pool: true });
+  env.comp.start();
+  fire(env.root.find('.lumen-roulette__spin'), 'hover:enter');
+  assert.equal(env.loading(), true, 'предпосылка: пул в пути — индикатор горит');
+  fire(env.root.all('.lumen-roulette__tab')[1], 'hover:enter');
+  assert.equal(env.loading(), false, 'после смены медиа индикатор загрузки висит');
+  releaseHeld(heldPool34);
+  assert.equal(env.root.find('.lumen-roulette__result').hasClass('is-live'), false, 'ответ пула фильмов дорисовал результат после смены медиа');
+  assert.equal(spinToResult(env), true, 'после смены медиа «Крутить» не доводит до результата');
+  assert.equal(env.loading(), false, 'индикатор не снят после результата');
+});
+
 test('правка 2026-09-23: подпись счётчика выборки есть во всех трёх языках', () => {
   const settings = readFileSync(new URL('../src/80_settings.js', import.meta.url), 'utf8');
   const LC = {};
