@@ -305,12 +305,13 @@ test('ruleBodies: внутри @media/@supports разбирается кажд�
    запятой) проходит matchSelector — или null, если такого правила нет. */
 /* Медиазапросов по отношению сторон два: первый прячет описание героя,
    второй отдаёт экран рядам целиком. Тесты ниже ищут именно второй.
-   Task 36: признаком второго стало не .lumen-hero{display:none}, а возврат
-   текстового блока героя в поток (position:static) — кадр там превращается
-   в полосу чипов настроения под шапкой, а не пропадает вместе с ними. */
+   Task 36 делал признаком второго возврат текстового блока героя в поток —
+   кадр там превращался в полосу чипов настроения под шапкой. Волна 3
+   (ТВ 2026-09-24) чипы из героя убрала, и за порогом герой снова уходит
+   целиком: признак — .lumen-main .lumen-hero{display:none}. */
 function heroOffMedia(cssText) {
   return cssText.split('\n').find((l) => l.indexOf('@media screen and (min-aspect-ratio:') === 0 &&
-    l.indexOf('.lumen-hero__text{position:static') !== -1);
+    l.indexOf('.lumen-main .lumen-hero{display:none}') !== -1);
 }
 
 function findDecl(cssText, matchSelector) {
@@ -2406,10 +2407,10 @@ test('правка: текст героя прижат к низу кадра и
   assert.ok(bleed > 0, 'рамка блока обязана заходить за кромку кадра: ' + text);
   assert.ok(Math.abs((padL - bleed) * zoom - 3.51) < 0.02, 'Task 63: safe area слева — 80 px tvOS = 3.51em: ' + text);
   assert.ok(/(^|;)right:0;/.test(text) && /(^|;)bottom:0;/.test(text), 'рамка блока обязана доходить до правой и нижней кромки кадра: ' + text);
-  /* Ширина содержимого — прежние 46em своего кегля: справа отступ «кадр
-     минус левый отступ без запаса минус 46em». */
+  /* Ширина содержимого — 36em своего кегля (волна 3, «меньше текста»; было
+     46): справа отступ «кадр минус левый отступ без запаса минус 36em». */
   const padR = parseFloat(/[^-]padding-right:calc\(100% - ([0-9.]+)em\)/.exec(text)[1]);
-  assert.ok(Math.abs(padR - (padL - bleed + 46)) < 0.01, 'ширина содержимого текста героя уехала от 46em: ' + text);
+  assert.ok(Math.abs(padR - (padL - bleed + 36)) < 0.01, 'ширина содержимого текста героя уехала от 36em: ' + text);
   /* Сверху — безопасная зона под шапкой Lampa: без неё высокое содержимое
      налезало на заголовок активности и иконки (находка пользователя). */
   assert.ok(Math.abs(num(text, 'top', 'em') * zoom - 4.4) < 0.02, 'нет безопасной зоны под шапкой Lampa: ' + text);
@@ -2430,15 +2431,14 @@ test('правка: текст героя прижат к низу кадра и
      (src/30_css.js). Низ текста в СЖАТОМ состоянии остался ровно там же, где
      был (46.6vh от верха экрана при крупном кадре): подняв текст в старте,
      правка на столько же удлинила его путь вниз. */
-  /* Ревью фикс-раунда (п.2): добавка полосы чипов — только под
-     .lumen-moods-on; без чипов сдвиг — чистые vh. */
+  /* Ревью фикс-раунда (п.2) добавлял полосу чипов в сдвиг под
+     .lumen-moods-on. Волна 3 чипы из героя убрала: сдвиг один — чистые vh,
+     и правила под .lumen-moods-on у текста героя больше нет. */
   const bare = findDecl(css, (sel) => sel === '.lumen-hero.lumen-hero--compact .lumen-hero__text');
-  assert.ok(/[^-]transform:translateY\(9\.1vh\) scale\(0\.95\)/.test(bare), 'сжатие текста без чипов: ' + bare);
+  assert.ok(/[^-]transform:translateY\(9\.1vh\) scale\(0\.95\)/.test(bare), 'сжатие текста: ' + bare);
   assert.ok(bare.indexOf('-webkit-transform:translateY(9.1vh) scale(0.95)') !== -1, 'префиксная пара: ' + bare);
-  const small = findDecl(css, (sel) => sel === '.lumen-moods-on .lumen-hero.lumen-hero--compact .lumen-hero__text');
-  assert.ok(small.indexOf('transform:translateY(calc(9.1vh + 3.35em)) scale(0.95)') !== -1, 'сжатие текста: ' + small);
-  assert.ok(small.indexOf('-webkit-transform:translateY(-webkit-calc(9.1vh + 3.35em))') !== -1, 'старым webkit-движкам нужен префиксный calc: ' + small);
-  assert.ok(small.indexOf('-webkit-transform:translateY(calc(9.1vh + 3.35em))') !== -1, 'после префиксного calc обязана идти обычная форма: ' + small);
+  assert.equal(findDecl(css, (sel) => sel === '.lumen-moods-on .lumen-hero.lumen-hero--compact .lumen-hero__text'), null,
+    'сдвиг на полосу чипов остался — чипов в герое нет');
   /* Точка масштаба — левый нижний угол СОДЕРЖИМОГО: от рамки это
      padding-left вправо и padding-bottom вверх. */
   assert.ok(text.indexOf('transform-origin:' + padL + 'em calc(100% - 12.5vh)') !== -1,
@@ -2451,20 +2451,14 @@ test('правка: текст героя прижат к низу кадра и
   const content = findDecl(css, (sel) => sel === '.lumen-main .items-line .scroll__content');
   assert.ok(content.indexOf('padding-left:3.51em') !== -1, 'лента карточек не выровнена по safe area: ' + content);
 
-  /* Task 36: полоса чипов лежит ВНУТРИ текстового блока, последним его
-     элементом, и своего absolute-места над кромкой кадра у неё больше нет —
-     отсюда отсутствие bottom под корнем главной. */
+  /* Волна 3 (ТВ 2026-09-24, решение координатора): чипов настроения в
+     герое нет — ни слота в его тексте, ни своего места под корнем главной
+     (при живом кадре LC.moods их не ставит, src/49_moods.js). Правила полосы
+     остались только для главной БЕЗ кадра — под .lumen-moods-on:not(.lumen-main). */
   assert.equal(findDecl(css, (sel) => sel === '.lumen-main .lumen-moods'), null, 'при живом кадре отдельного места под полосу чипов не отмеряется');
-  const moods = findDecl(css, (sel) => sel === '.lumen-hero .lumen-hero__moods');
-  assert.ok(moods.indexOf('pointer-events:auto') !== -1, 'у героя pointer-events сняты — чипам их надо вернуть: ' + moods);
-  assert.ok(moods.indexOf('margin-top:0.9em') !== -1, 'чипы отделены от содержимого выше: ' + moods);
-  /* В сжатом чипы гаснут — вместе с opacity обязана уходить и visibility:
-     opacity:0 сам по себе элемент из hit-testing не убирает, и погашенный
-     чип остался бы под указателем. */
-  const moodsC = findDecl(css, (sel) => sel === '.lumen-hero.lumen-hero--compact .lumen-hero__moods');
-  assert.ok(moodsC.indexOf('opacity:0') !== -1 && moodsC.indexOf('visibility:hidden') !== -1, 'чипы на листании: ' + moodsC);
-  /* Чип нажимаемый: 2.46em × .88 = 2.17em, то есть 49 px при 1920×1080. */
-  assert.ok(2.46 * 0.88 * 22.811 > 40, 'чип обязан остаться нажимаемым');
+  assert.deepEqual(ruleSelectors(css).filter((sel) => sel.indexOf('lumen-hero__moods') !== -1), [], 'в тексте героя остались правила чипов');
+  assert.deepEqual(ruleSelectors(css).filter((sel) => sel.indexOf('.lumen-moods-on') !== -1 && sel.indexOf(':not(.lumen-main)') === -1), [],
+    'правила полосы чипов для главной с кадром — мёртвые: там чипов нет');
 });
 
 /* Замер пользователя на живой вкладке 1153×798 (фаза 3): полоса чипов висела
@@ -2476,11 +2470,9 @@ test('правка: текст героя прижат к низу кадра и
    поэтому тест переводит их в пиксели ЖИВОГО телевизора (1920×1080, база
    кегля Lampa 1920/84.17 = 22.811) и сверяет расстояния между блоками.
 
-   Полоса чипов лежит ВНУТРИ текстового блока, но её низ и низ блока — РАЗНЫЕ
-   величины в сжатом состоянии: там полоса гаснет через visibility и место в
-   потоке сохраняет (ревью Task 36, находка В1). Поэтому тест считает низ
-   ВИДИМОГО содержимого отдельно — иначе 88 px пустоты между строкой рейтинга
-   и кромкой кадра прошли бы мимо него, как прошли мимо живого замера. */
+   Волна 3 (ТВ 2026-09-24): полосы чипов в тексте героя нет, и низ видимого
+   содержимого в сжатом состоянии — низ самого блока (до волны полоса гасла
+   visibility и место сохраняла, ревью Task 36, находка В1). */
 test('раскладка героя: кадр, текст и ряды не пересекаются ни при одном размере', () => {
   const EM = 1920 / 84.17;
   const VH = 1080 / 100;
@@ -2497,28 +2489,13 @@ test('раскладка героя: кадр, текст и ряды не пе�
     const heroShift = parseFloat(/transform:translateY\(-([0-9.]+)vh\)/.exec(decl('.lumen-hero.lumen-hero--compact'))[1]) * VH;
     const textDecl = decl('.lumen-hero .lumen-hero__text');
     /* Отступ содержимого снизу — padding-bottom рамки блока: рамка доходит
-       до низа кадра (в ней лежит подушка-вуаль, ревью фикс-раунда п.3). */
+       до низа кадра (ревью фикс-раунда п.3). */
     const textBottom = parseFloat(/(^|;)padding:0 0 ([0-9.]+)vh/.exec(textDecl)[2]) * VH;
-    /* С чипами (настройка по умолчанию) — правило под .lumen-moods-on. */
-    const compactText = decl('.lumen-moods-on .lumen-hero.lumen-hero--compact .lumen-hero__text');
-    const shiftParts = /[^-]transform:translateY\(calc\(([0-9.]+)vh \+ ([0-9.]+)em\)\) scale\(([0-9.]+)\)/.exec(compactText);
-    /* em в transform — кегль САМОГО блока (font-size:1.1em), а не базовый.
-       Ревью фикс-раунда (п.6): прежняя редакция теста множила их на базовый
-       кегль и брала высоту полосы из того же числа, что и сдвиг, — то есть
-       сверяла число с самим собой и не видела двойного TEXT_ZOOM. */
-    const TE = parseFloat(/(?:^|;)font-size:([0-9.]+)em/.exec(textDecl)[1]) * EM;
-    const scale = parseFloat(shiftParts[3]);
-    const textShift = parseFloat(shiftParts[1]) * VH + parseFloat(shiftParts[2]) * TE;
-    /* Высота полосы чипов — НЕЗАВИСИМО от сдвига, из правил самой полосы:
-       отступ сверху плюс чип (высота и нижний отступ в его собственном
-       кегле, правило .lumen-mood-chip). В сжатом состоянии полоса после
-       масштаба занимает scale своей высоты и лежит у точки масштаба — на
-       столько низ блока ниже низа видимого содержимого. */
-    const moodsGap = parseFloat(/margin-top:([0-9.]+)em/.exec(decl('.lumen-hero .lumen-hero__moods'))[1]);
-    const chip = decl('.lumen-mood-chip');
-    const chipBox = (parseFloat(/(?:^|;)height:([0-9.]+)em/.exec(chip)[1]) + parseFloat(/(?:^|;)margin:0 [0-9.]+em ([0-9.]+)em/.exec(chip)[1])) *
-      parseFloat(/(?:^|;)font-size:([0-9.]+)em/.exec(chip)[1]);
-    const moodsBand = (moodsGap + chipBox) * TE * scale;
+    /* Волна 3: полосы чипов настроения в тексте героя нет — сжатие одно,
+       без добавки на полосу, и низ видимого содержимого — низ блока. */
+    const compactText = decl('.lumen-hero.lumen-hero--compact .lumen-hero__text');
+    const shiftParts = /[^-]transform:translateY\(([0-9.]+)vh\) scale\(([0-9.]+)\)/.exec(compactText);
+    const textShift = parseFloat(shiftParts[1]) * VH;
     const rowsDecl = decl('.lumen-main .scroll.layer--wheight');
     const rowsMargin = /margin-top:calc\(([0-9.]+)vh - ([0-9.]+)em\)/.exec(rowsDecl);
     const rowsHeight = /height:calc\(([0-9.]+)vh \+ ([0-9.]+)em\) !important/.exec(rowsDecl);
@@ -2552,27 +2529,14 @@ test('раскладка героя: кадр, текст и ряды не пе�
     assert.ok(rowHeadDown - textEdgeDown > 10, label + ': текст лип к заголовку ряда (' + (rowHeadDown - textEdgeDown) + ' px)');
     assert.ok(rowHeadDown - heroEdgeDown < AIR * EM, label + ': в старте между кромкой кадра и рядом зияет пустота (' + (rowHeadDown - heroEdgeDown) + ' px)');
 
-    /* В сжатом состоянии проверяется низ ВИДИМОГО содержимого, а не низ
-       блока: полоса чипов там погашена visibility и место в потоке занимает.
-       Именно этот зазор пользователь видит как «текст над кромкой кадра», и
-       он обязан быть тем же TEXT_EDGE_VH (3.4vh = 37 px при 1080), что и до
-       переезда чипов внутрь блока. */
-    const textVisibleUp = textEdgeUp - moodsBand;
-    assert.ok(textVisibleUp < heroEdgeUp, label + ': текст в сжатом свисает с кромки кадра (' + textVisibleUp + ' против ' + heroEdgeUp + ')');
-    assert.ok(Math.abs((heroEdgeUp - textVisibleUp) - 3.4 * VH) < 0.5,
-      label + ': зазор от видимого текста до кромки кадра ' + (heroEdgeUp - textVisibleUp) + ' px вместо 36.7');
-    /* А сам блок вместе с погашенной полосой может уходить за кромку — там
-       его срежет overflow:hidden героя, и срезать нечего: полоса невидима. */
-    assert.ok(textEdgeUp - textVisibleUp > 80, label + ': полоса чипов перестала занимать место — сдвиг больше не нужен');
-    /* Ревью фикс-раунда (п.2): чипы выключены — слот пуст и снят :empty,
-       места не занимает, и сдвиг обязан обойтись без добавки: видимый низ
-       — это низ блока. До правки добавка стояла безусловно, и на стенде
-       960×540@2 низ меты уходил на 23.7 px под кромку сжатого кадра. */
-    const bare = decl('.lumen-hero.lumen-hero--compact .lumen-hero__text');
-    const bareShift = parseFloat(/[^-]transform:translateY\(([0-9.]+)vh\)/.exec(bare)[1]) * VH;
-    const bareVisibleUp = textEdgeDown - heroShift + bareShift;
-    assert.ok(Math.abs((heroEdgeUp - bareVisibleUp) - 3.4 * VH) < 0.5,
-      label + ', без чипов: зазор от видимого текста до кромки кадра ' + (heroEdgeUp - bareVisibleUp).toFixed(1) + ' px вместо 36.7');
+    /* В сжатом состоянии зазор от низа текста до кромки кадра — TEXT_EDGE_VH
+       (3.4vh = 37 px при 1080): его пользователь видит как «текст над кромкой
+       кадра». До волны 3 здесь считался низ ВИДИМОГО содержимого отдельно от
+       низа блока — полоса чипов гасла visibility и место сохраняла (ревью
+       Task 36, находка В1); чипов в герое больше нет, и это одно и то же. */
+    assert.ok(textEdgeUp < heroEdgeUp, label + ': текст в сжатом свисает с кромки кадра (' + textEdgeUp + ' против ' + heroEdgeUp + ')');
+    assert.ok(Math.abs((heroEdgeUp - textEdgeUp) - 3.4 * VH) < 0.5,
+      label + ': зазор от текста до кромки кадра ' + (heroEdgeUp - textEdgeUp).toFixed(1) + ' px вместо 36.7');
 
     /* И ряд в поднятом состоянии помещается в экран целиком — вместе с
        подписями под постером.
@@ -3667,18 +3631,19 @@ test('Task 51: узкая колонка включается порогом и�
 });
 
 /* Правило, которым раскладка опускает ряды под полосу чипов настроения,
-   живёт ТОЛЬКО внутри медиазапроса min-aspect-ratio (ветка «окно
-   приплюснуто, кадра нет»). Вне его чипы раскладку рядов не трогают вовсе:
-   на главной они лежат в слоте .lumen-hero__moods внутри .lumen-hero__text,
-   а сам .lumen-hero — position:absolute с overflow:hidden (buildNode в
-   src/48_hero.js, правило .lumen-hero в src/30_css.js), то есть места в
-   потоке не занимают. Если правило однажды выедет из медиазапроса,
-   раскладка главной поедет вниз на MOODS_BAR — тест это поймает. */
-test('Task 51: правило чипов для главной живёт только за порогом отношения сторон', () => {
+   жило ТОЛЬКО внутри медиазапроса min-aspect-ratio (ветка «окно
+   приплюснуто, кадра нет»), где герой превращался в полосу чипов. Волна 3
+   (ТВ 2026-09-24): чипов в герое нет, и при смонтированном герое (корень с
+   .lumen-main) LC.moods их не ставит вовсе — правил под
+   .lumen-moods-on.lumen-main не должно быть нигде, ни в медиазапросе, ни вне
+   его: выедь такое правило наружу, раскладка главной поехала бы вниз на
+   MOODS_BAR. Сам .lumen-hero — position:absolute с overflow:hidden, места в
+   потоке не занимает. */
+test('Task 51 + волна 3: правил полосы чипов для главной с героем нет нигде', () => {
   const built = withStorage({ lumen_scale: 'normal' }, (LC) => LC.buildCss());
-  const outside = ruleBodiesWithMedia(built).filter((r) => !r.media &&
+  const moodsMain = ruleBodiesWithMedia(built).filter((r) =>
     r.selectors.some((sel) => sel.indexOf('.lumen-moods-on.lumen-main') === 0));
-  assert.deepEqual(outside, [], 'правило чипов для главной вышло из медиазапроса');
+  assert.deepEqual(moodsMain.map((r) => (r.media || '') + ' ' + r.selectors.join(',')), [], 'правило чипов для главной с героем');
   const hero = decl(built, '.lumen-hero');
   assert.ok(hero.indexOf('position:absolute') !== -1 && hero.indexOf('overflow:hidden') !== -1,
     'кадр героя обязан оставаться вне потока — иначе его содержимое начнёт двигать ряды: ' + hero);
@@ -3915,26 +3880,19 @@ test('фаза 3: у совсем низкого окна ряды занима�
      на 2.31:1 — СТРОЖЕ ещё на одну ступень. Проверка, что запас остался:
      телевизор пользователя это 16:9 = 1.78:1, до порога 30 %, а пол
      HERO_MIN_RATIO (2.2:1) правку ещё не перебивает — значит порогом
-     по-прежнему правит бюджет, а не константа. */
-  assert.ok(line.indexOf('min-aspect-ratio:231/100') !== -1, 'порог при крупном кадре — 2.31:1: ' + line);
+     по-прежнему правит бюджет, а не константа.
+     Волна 3 (ТВ 2026-09-24): полосы чипов настроения в тексте героя больше
+     нет (решение координатора), бюджет содержимого похудел на её 3.88em, и
+     порог ушёл с 2.31:1 на 2.87:1 — МЯГЧЕ: кадр держится в окне до 669 px
+     высоты при ширине 1920. Телевизор 16:9 это не трогает вовсе. */
+  assert.ok(line.indexOf('min-aspect-ratio:287/100') !== -1, 'порог при крупном кадре — 2.87:1: ' + line);
   assert.ok(line.indexOf('margin-top:0') !== -1, 'за порогом ряды не сдвигаются');
-  /* Task 36: кадр за порогом не прячется целиком — чипы настроения живут
-     ВНУТРИ его текстового блока, и display:none унёс бы их с экрана. Вместо
-     этого герой превращается в полосу чипов под шапкой: кадр, вуали и весь
-     остальной текст скрыты, текстовый блок возвращён в поток. */
-  assert.ok(line.indexOf('.lumen-hero .lumen-hero__bg,.lumen-hero .lumen-hero__lqip,.lumen-hero .lumen-hero__veil,') !== -1,
-    'кадр, его подложка LQIP и вуаль за порогом не скрыты: ' + line);
-  assert.ok(line.indexOf('.lumen-hero .lumen-hero__logo,') !== -1, 'содержимое кадра за порогом не скрыто: ' + line);
-  assert.ok(/\.lumen-hero[^{]*\.lumen-hero__moods\{[^}]*visibility:visible/.test(line), 'чипы за порогом пропадают: ' + line);
-  assert.ok(line.indexOf('.lumen-moods-on.lumen-main .scroll.layer--wheight') !== -1, 'ряды не опущены под полосу чипов: ' + line);
-  /* Сам кадр за порогом перестаёт быть кадром: ни высоты, ни сдвига. */
-  assert.ok(line.indexOf('.lumen-main .lumen-hero,.lumen-main .lumen-hero.lumen-hero--compact{top:0;height:auto') !== -1, 'кадр за порогом сохранил высоту: ' + line);
-  /* Ревью Task 36 (В2): сжатие снимается и с текстового блока, причём
-     сжатым селектором тоже — у него на класс больше, а медиазапрос
-     специфичности не добавляет. Без этого полоса чипов под шапкой уезжала бы
-     вниз и мельчала при фокусе ниже первого ряда. */
-  assert.ok(line.indexOf('.lumen-hero .lumen-hero__text,.lumen-hero.lumen-hero--compact .lumen-hero__text,.lumen-moods-on .lumen-hero.lumen-hero--compact .lumen-hero__text{position:static') !== -1,
-    'сжатие текстового блока за порогом не снято: ' + line);
+  /* Task 36 превращал героя за порогом в полосу чипов под шапкой. Волна 3:
+     чипов в герое нет, и за порогом он снова уходит целиком — ни кадра, ни
+     текста; рядам не нужно опускаться ни под какую полосу. */
+  assert.ok(line.indexOf('.lumen-main .lumen-hero{display:none}') !== -1, 'герой за порогом не скрыт: ' + line);
+  assert.equal(/lumen-hero__moods|lumen-moods-on/.test(line), false, 'за порогом остались правила полосы чипов: ' + line);
+  assert.equal(/position:static/.test(line), false, 'текст героя за порогом снова возвращается в поток: ' + line);
 
   /* Порог описания — отдельный и более мягкий: кадру хватает высоты на
      минимум, но не на две строки описания. Правка четвёртого круга подняла
@@ -3965,15 +3923,17 @@ test('фаза 3: у совсем низкого окна ряды занима�
      поднимать потолок логотипа нельзя: следующий шаг не будет виден в
      числе порога вообще, потому что пол его закроет молча.
      Почему на целевом экране это безопасно: расчёт консервативен — он
-     меряет логотип по ПОТОЛКУ и полосу чипов по бюджету MOODS_IN_EM, а
-     живой замер на стенде 960×540@2 даёт блоку 242.3 CSS px при худшем
-     содержимом 212.9, то есть 29 px запаса. Щель между расчётным 1.88 и
-     полом 1.90 — один процент отношения сторон, и телевизор пользователя
-     (1.78:1) в неё не попадает. */
-  assert.ok(descr.indexOf('min-aspect-ratio:190/100') !== -1, 'порог описания: ' + descr);
+     меряет логотип по ПОТОЛКУ, а живой замер на стенде 960×540@2 давал
+     блоку 242.3 CSS px при худшем содержимом 212.9, то есть 29 px запаса.
+     Волна 3 (ТВ 2026-09-24): полоса чипов настроения ушла из текста героя
+     и из бюджета (MOODS_IN_EM, 3.88em), и расчётный порог отодвинулся с
+     1.88:1 до 2.24:1 — теперь его держит снова бюджет, а не пол. Телевизор
+     пользователя (1.78:1) по-прежнему с описанием. */
+  assert.ok(descr.indexOf('min-aspect-ratio:224/100') !== -1, 'порог описания: ' + descr);
   assert.ok(1920 / 1080 < 1.90, 'порог описания обязан оставаться выше 16:9');
   assert.ok(parseInt(/min-aspect-ratio:(\d+)\/100/.exec(descr)[1], 10) >= 190, 'порог описания опустился к 16:9: ' + descr);
 });
+
 
 /* Регресс, найденный пользователем на выложенной сборке: в обычном окне
    1168×800 кадра не было вовсе — вместо него полоса чипов под шапкой и сразу
@@ -4209,7 +4169,7 @@ test('сжатый герой: левая вуаль едет вместе с т
    11.4055), то есть в затухании. Теперь вуаль стоит в потоке текстового
    блока сразу под названием. Тест собирает блок снизу вверх по правилам
    таблицы для разных высот содержимого — фильм и сериал, описание в одну и
-   две строки, перенос чипов во вторую строку, компактный кадр без меты — при
+   две строки, компактный кадр без меты (волна 3: чипов в тексте нет) — при
    трёх размерах кадра и проверяет: каждая строка текста ниже полосы полной
    плотности, вуаль дотягивается до низа кадра, и у левой кромки кадра не
    открывается полоса ни в покое, ни в сжатом состоянии. */
@@ -4239,7 +4199,8 @@ test('ревью п.3: подушка под текстом героя стои�
     const veilBody = ruleBodies(built).filter((r) => r.selectors.indexOf(V) !== -1).map((r) => r.decl).join(';');
     assert.ok(/(?:^|;)height:100vh/.test(veilBody) && /margin:0 0 -100vh /.test(veilBody), size + ': высота вуали в потоке не нулевая: ' + veilBody);
     assert.ok(/(?:^|;)order:1/.test(veilBody) && /(?:^|;)flex:none/.test(veilBody), size + ': вуаль не на своём месте в потоке: ' + veilBody);
-    for (const cls of ['meta', 'sk', 'descr', 'chips', 'moods']) {
+    /* Волна 3: чипов настроения в тексте героя нет. */
+    for (const cls of ['meta', 'sk', 'descr', 'chips']) {
       assert.equal(pick(built, '.lumen-hero__text > .lumen-hero__' + cls, /(?:^|;)order:([0-9]+)/), 2, size + ': ' + cls + ' обязан идти после вуали');
     }
     const small = size === 'compact';
@@ -4254,21 +4215,17 @@ test('ревью п.3: подушка под текстом героя стои�
     /* Полоса статуса — бюджет TEXT_STATUS, его сверку с правилом держит тест
        «Task 43: бюджет под полосу статуса совпадает с её геометрией». */
     const status = 2.07 * TE;
-    const moodsGap = pick(built, '.lumen-hero .lumen-hero__moods', /margin-top:([0-9.]+)em/) * TE;
-    const chipRow = 2.60 * 1.01 * TE;
     const variants = [
-      { name: 'фильм', descr: 2, status: false, moods: 1 },
-      { name: 'сериал со статусом', descr: 2, status: true, moods: 1 },
-      { name: 'сериал, описание в строку', descr: 1, status: true, moods: 1 },
-      { name: 'сериал, чипы в две строки', descr: 2, status: true, moods: 2 },
-      { name: 'без чипов и описания', descr: 0, status: true, moods: 0 }
+      { name: 'фильм', descr: 2, status: false },
+      { name: 'сериал со статусом', descr: 2, status: true },
+      { name: 'сериал, описание в строку', descr: 1, status: true },
+      { name: 'без описания', descr: 0, status: true }
     ];
     for (const v of variants) {
-      /* y — высота над низом кадра в покое. Снизу вверх: чипы, статус,
-         описание, мета; выше — низ названия, он же место вуали. */
+      /* y — высота над низом кадра в покое. Снизу вверх: статус, описание,
+         мета; выше — низ названия, он же место вуали. */
       const lines = [];
       let y = padBottom;
-      if (v.moods) y += moodsGap + v.moods * chipRow;
       if (v.status) { y += status; lines.push(['статус', y]); }
       if (v.descr && !small) { y += dGap + v.descr * dLine; lines.push(['описание', y]); }
       if (!small) { y += meta; lines.push(['мета', y]); }
@@ -4428,10 +4385,13 @@ test('Task 18: логотип фильма с текстовым фолбэко�
 
   const descr = findDecl(css, (sel) => sel === '.lumen-hero .lumen-hero__descr');
   assert.ok(descr && descr.indexOf('-webkit-line-clamp:2') !== -1, 'описание — две строки (§0.2)');
-  /* Те же 900 px, но в СОБСТВЕННОМ кегле узла: 39.45 × 1.05 и 36.02 × 1.15 —
-     41.4em контекста блока в обоих случаях (Task 63 поднял кегль описания
-     до Body tvOS). */
-  assert.ok(descr.indexOf('max-width:36.02em') !== -1, '900 px FHD');
+  /* Волна 3 (ТВ 2026-09-24): меньше текста в кадре — описание 30em своего
+     кегля (1.15em блока), то есть 34.5em блока и 432.8 CSS px на 960, правый
+     край на 49.3 % ширины (было 36.02em — шире нового блока в 36em). Плашка
+     скелетона первой строки — той же ширины. */
+  assert.ok(descr.indexOf('max-width:30em') !== -1, 'ширина описания героя: ' + descr);
+  const skDescr = findDecl(css, (sel) => sel === '.lumen-hero.lumen-hero--pending.lumen-hero--nodescr .lumen-hero__sk--descr');
+  assert.ok(skDescr.indexOf('width:34.5em') !== -1, 'скелетон описания шире самого описания: ' + skDescr);
 
   assert.ok(findDecl(css, (sel) => sel === '.lumen-hero.lumen-hero--pending .lumen-hero__sk--meta'), 'скелетон меты, пока грузятся детали');
   assert.ok(findDecl(css, (sel) => sel === '.lumen-hero.lumen-hero--pending.lumen-hero--nodescr .lumen-hero__sk--descr'), 'скелетон описания — только когда описания нет вовсе');
@@ -5857,7 +5817,7 @@ const TV_MIN_EM = 1.01;
    TEXT_ZOOM, и .88em внутри него это .97em базовых, а не .88. Список
    явный, потому что по селектору вложенность не видна. */
 const HERO_TEXT_KIDS = ['lumen-hero__meta', 'lumen-hero__logo', 'lumen-hero__title',
-  'lumen-hero__descr', 'lumen-hero__sk', 'lumen-hero__chips', 'lumen-hero__status', 'lumen-hero__moods'];
+  'lumen-hero__descr', 'lumen-hero__sk', 'lumen-hero__chips', 'lumen-hero__status'];
 
 /* Узлы, которым кегль задан, но СВОЕГО текста у них нет: всё, что читают,
    лежит в детях со своим font-size. Проверено по разметке:
@@ -5869,13 +5829,11 @@ const HERO_TEXT_KIDS = ['lumen-hero__meta', 'lumen-hero__logo', 'lumen-hero__tit
    .lumen-stop и .lumen-franchise — собственная иконка плюс <span>
    (src/55_trailer.js:349-352, src/46_hub.js:1650-1652), у span 1.05em;
    .lumen-hero__text — блок-контейнер, его font-size это множитель
-   содержимого (TEXT_ZOOM), а в ветке «кадра нет» он сброшен в 1em, и из
-   всего блока там виден только ряд чипов настроения с кеглем 1.01em. */
+   содержимого (TEXT_ZOOM). */
 const TEXT_LESS_BOXES = ['.lumen-card .lumen-progress',
   '.lumen-card .full-start-new__buttons .full-start__button',
   '.lumen-card .lumen-stop', '.lumen-card .lumen-franchise',
-  '.lumen-hero .lumen-hero__text', '.lumen-hero.lumen-hero--compact .lumen-hero__text',
-  '.lumen-moods-on .lumen-hero.lumen-hero--compact .lumen-hero__text'];
+  '.lumen-hero .lumen-hero__text', '.lumen-hero.lumen-hero--compact .lumen-hero__text'];
 
 test('Task 63: ни один текст интерфейса не мельче минимума tvOS', () => {
   const zoom = parseFloat(/font-size:([\d.]+)em/.exec(decl(css, '.lumen-hero .lumen-hero__text'))[1]);

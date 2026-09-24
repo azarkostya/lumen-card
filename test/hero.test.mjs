@@ -190,7 +190,10 @@ test('heroModel: фильм с деталями — год, длительнос
     images: { logos: [{ file_path: '/ru.png', iso_639_1: 'ru' }] }
   };
   const m = H.heroModel(card, details, WORDS);
-  assert.deepEqual(m.meta, ['2026', '2:25', 'фантастика, боевик, приключения'], 'не больше трёх жанров');
+  /* Волна 3 (ТВ 2026-09-24): «или делать меньше текст» — в мете героя не
+     больше ДВУХ жанров (карточка фильма по-прежнему показывает три —
+     LC.cardinfo.genres не тронут). */
+  assert.deepEqual(m.meta, ['2026', '2:25', 'фантастика, боевик'], 'не больше двух жанров');
   assert.equal(m.overview, 'полное описание');
   assert.equal(m.logo, '/ru.png');
   assert.equal(m.pending, false);
@@ -1740,6 +1743,19 @@ test('Task 47: без decode() кадр показывается по onload', (
    decode(), ни load/error, и запрос за картинкой уходит только после
    раскладки (docs/research/2026-09-21-webview-perf.md §4, «Герой — только
    <img>»). */
+/* Волна 3 (ТВ 2026-09-24, решение координатора): чипы профилей настроения
+   из героя убраны — меньше текста в кадре; подборки остаются в хабе и
+   меню. Слота под них в текстовом блоке больше нет, и LC.moods при живом
+   кадре чипов на главной не ставит (test/moods.test.mjs). */
+test('волна 3: в тексте героя нет места под чипы настроения', () => {
+  const env = makeEnv();
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  const node = main.activity._children[0];
+  assert.ok(node.find('.lumen-hero__text').length, 'текстовый блок героя не найден');
+  assert.equal(node.find('.lumen-hero__moods'), EMPTY, 'слот чипов настроения остался в тексте героя');
+});
+
 test('Task 64: слои кадра — img с decoding=async и высоким приоритетом', () => {
   const env = makeEnv();
   const main = makeMain();

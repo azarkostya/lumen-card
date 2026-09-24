@@ -655,14 +655,12 @@
   var CHIP_ZOOM = 1.01;
   var MOODS_H = round2(CHIP_BOX * CHIP_ZOOM);
   var MOODS_GAP = 0.8;
-  /* Высота полосы чипов, когда кадра нет вовсе («Герой: выключен» и
-     приплюснутое окно): на неё опущены ряды, иначе полоса легла бы на первый
-     из них. */
+  /* Высота полосы чипов, когда кадра нет вовсе («Кадр над рядами:
+     выключен»): на неё опущены ряды, иначе полоса легла бы на первый из них.
+     Волна 3 (ТВ 2026-09-24): при живом кадре чипов на главной нет вовсе —
+     с Task 36 они лежали внутри .lumen-hero__text, решение координатора их
+     оттуда убрало (src/49_moods.js). */
   var MOODS_BAR = round2(MOODS_H + MOODS_GAP);
-  /* Task 36: при живом кадре чипы переехали ВНУТРЬ .lumen-hero__text, под
-     остальное содержимое, — отдельного absolute-блока над кромкой кадра
-     больше нет. MOODS_IN_GAP — их отступ сверху в кегле текстового блока. */
-  var MOODS_IN_GAP = 0.9;
 
   /* HERO_HEAD_SAFE — безопасная зона сверху. Кадр героя начинается у самой
      кромки экрана и проходит ПОД штатной шапкой Lampa (замер живьём: .head
@@ -740,8 +738,8 @@
      Task 63: кегль статуса поднят с .88em до .92em — внутри блока героя em
      дороже базового в TEXT_ZOOM раз, и .92 × 1.1 = 1.012em, то есть ровно
      минимум tvOS (TV_MIN выше). Отсюда и пересчитанный бюджет.
-     Полоса считается всегда, как и чипы настроения: у фильма и у
-     досмотренного сериала статуса нет, и кадр просто получает запас.
+     Полоса считается всегда: у фильма и у досмотренного сериала статуса
+     нет, и кадр просто получает запас.
      Связь константы с правилом держит тест «бюджет под полосу статуса
      совпадает с её геометрией». */
   var TEXT_STATUS = 2.07;
@@ -755,25 +753,19 @@
   var VEIL_RISE = 0.6;
   var VEIL_FADE = 5.7;
   var VEIL_BLEED = 1;
-  /* Ширина содержимого текстового блока, в его же кегле. */
-  var TEXT_MAX_W = 46;
-  /* Высота полосы чипов, когда она лежит внутри текстового блока, — в ДВУХ
-     единицах, и путать их нельзя.
-     MOODS_IN_TEXT — в кегле самого блока: оба слагаемых заданы в нём
-     (отступ сверху — прямо, а CHIP_ZOOM у чипа считается от того же кегля).
-     MOODS_IN_EM — то же в БАЗОВЫХ em, умноженное на TEXT_ZOOM; из неё
-     складывается бюджет содержимого (textNeedEm), который живёт в базовых.
-     Ревью Task 36, находка М1: множителя у MOODS_H не было, и бюджет
-     содержимого был занижен на .26em.
-     Сдвиг сжатия текста (находка В1 того же ревью: полоса гаснет через
-     visibility, а место в потоке сохраняет) стоит в transform самого блока,
-     где em — это кегль блока, и считается от MOODS_IN_TEXT. Ревью
-     фикс-раунда (п.6): до правки туда шла MOODS_IN_EM, то есть базовые em
-     умножались на TEXT_ZOOM второй раз — 3.88em кегля блока = 4.27 базовых
-     вместо 3.88, и видимый низ текста вставал на 4.4 px ниже расчётного на
-     стенде 960×540. */
-  var MOODS_IN_TEXT = round2(MOODS_IN_GAP + MOODS_H);
-  var MOODS_IN_EM = round2(MOODS_IN_TEXT * TEXT_ZOOM);
+  /* Ширина содержимого текстового блока, в его же кегле.
+     Волна 3 (ТВ 2026-09-24): 46 → 36em — «или делать меньше текст».
+     36em кегля блока от safe area — это 3.19 + 36 = 39.19em, 491.7 CSS px
+     из 960, то есть правый край текста на 51.2 % ширины экрана; на этой
+     границе держится и затемнение кадра под текстом (волна 3, слой кадра).
+     Логотип в блок помещается: его рамка по умолчанию 37.84em, и
+     max-width:100% ужимает самые длинные (шире 12:1) до ширины блока. */
+  var TEXT_MAX_W = 36;
+  /* Описание — две строки, но короче строки блока: 30em своего кегля
+     (1.15em блока), то есть 34.5em кегля блока и 432.8 CSS px на 960, правый
+     край — на 49.3 % ширины экрана. Было 36.02em (41.4em кегля блока — шире
+     нового блока): меньше текста в кадре — просьба пользователя. */
+  var DESCR_MAX_W = 30;
   /* Сжатый текст мельче на 5 % — и это тоже transform, а не кегль: font-size
      пересчитывает раскладку блока каждый кадр перехода. */
   var TEXT_SCALE_COMPACT = 0.95;
@@ -837,13 +829,17 @@
   /* Сколько высоты просит содержимое кадра вместе с безопасной зоной сверху.
      withDescr — считать ли описание (две строки). Из этой величины считаются
      оба порога раскладки.
-     Полоса чипов считается всегда: настройка «Профили настроения» включена
-     по умолчанию, а пороги — одни на всю таблицу стилей. С выключенными
-     чипами кадр просто получает лишний запас. */
+     Волна 3 (ТВ 2026-09-24): полосы чипов настроения в бюджете больше нет —
+     в тексте героя их нет (решение координатора, src/49_moods.js). До волны
+     бюджет держал её всегда (MOODS_IN_EM, 3.88em базовых), и оба порога
+     сдвинулись к более плоским окнам ровно на эту высоту: при крупном кадре
+     описание уходит с 2.24:1 (было 1.90:1 — держал пол DESCR_MIN_RATIO), сам
+     кадр — с 2.87:1 (было 2.31:1). Телевизор пользователя 16:9 (1.78:1) от
+     этого не меняется ничем. */
   function textNeedEm(withDescr) {
     var inner = TEXT_STATUS + TEXT_LOGO + (heroSmallText() ? 0 : TEXT_META);
     if (withDescr) inner += TEXT_DESCR;
-    return round2(HERO_HEAD_SAFE + MOODS_IN_EM + inner * TEXT_ZOOM);
+    return round2(HERO_HEAD_SAFE + inner * TEXT_ZOOM);
   }
 
   /* Ширина экрана В БАЗОВЫХ em — общий множитель обоих порогов ниже.
@@ -3025,10 +3021,6 @@
     var heroShift = heroShiftVh(heroSize);
     var textBottom = textBottomVh(heroSize);
     var textShift = textShiftVh(heroSize);
-    /* Сдвиг текста в сжатом состоянии целиком (разбор — у правила
-       .lumen-hero--compact .lumen-hero__text ниже); левая вуаль лежит внутри
-       блока и едет вместе с ним. */
-    var textShiftCalc = textShift + 'vh + ' + round2(MOODS_IN_TEXT * TEXT_SCALE_COMPACT) + 'em';
     /* Левый отступ содержимого в текстовом блоке: safe area плюс запас
        подушки (разбор — у правил .lumen-hero__veil--l и .lumen-hero__text). */
     var textPadL = round2(EDGE / TEXT_ZOOM + VEIL_BLEED);
@@ -3312,7 +3304,7 @@
       'margin:0 0 -100vh -' + textPadL + 'em;' +
       '-webkit-mask-image:-webkit-linear-gradient(top,' + veilMask + ');mask-image:linear-gradient(180deg,' + veilMask + ');' +
       '-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat}');
-    css.push('.lumen-hero__text > .lumen-hero__meta,.lumen-hero__text > .lumen-hero__sk,.lumen-hero__text > .lumen-hero__descr,.lumen-hero__text > .lumen-hero__chips,.lumen-hero__text > .lumen-hero__moods{-webkit-box-ordinal-group:3;-webkit-order:2;order:2}');
+    css.push('.lumen-hero__text > .lumen-hero__meta,.lumen-hero__text > .lumen-hero__sk,.lumen-hero__text > .lumen-hero__descr,.lumen-hero__text > .lumen-hero__chips{-webkit-box-ordinal-group:3;-webkit-order:2;order:2}');
     /* Правка 2026-09-23 (разбор композиции, п.1.4, вторая половина): верхняя
        вуаль под штатной шапкой Lampa. Часы, иконки и заголовок активности
        там белые и лежат прямо на кадре: на светлом кадре их контраст равен
@@ -3415,8 +3407,8 @@
        Отступ снизу отмеряется не от кромки кадра (в старте она уже ниже
        первого ряда), а от ВЕРХА ПЕРВОГО РЯДА: textBottomVh считает его так,
        чтобы между низом текста и заголовком ряда оставался TEXT_AIR_VH.
-       Полоса чипов настроения лежит внутри самого блока, последним его
-       элементом, поэтому отдельного места под неё отмерять не нужно.
+       Чипов настроения в блоке с волны 3 нет (решение координатора): низ
+       содержимого — низ описания или статуса.
 
        Task 36: кадр больше не меняет высоту, поэтому текст едет своим
        translateY — вверх кадр уходит на heroShift, а текст должен остаться
@@ -3453,7 +3445,7 @@
          - справа — столько, чтобы содержимому осталось ровно TEXT_MAX_W
            (прежний max-width): calc(100% − (EDGE + TEXT_MAX_W)). Проценты
            отступа считаются от ширины кадра, отрицательный calc движок
-           прижимает к нулю, но на экранах шире 49.19em кегля блока (любое
+           прижимает к нулю, но на экранах шире 39.19em кегля блока (любое
            окно: экран — это 84.17 / k базовых em) до этого не доходит.
        Срез сверху прежний: верх рамки — HERO_HEAD_SAFE, лишнее содержимое
        режется там же, где резалось.
@@ -3474,45 +3466,15 @@
        (transform-origin в правиле выше): левый край остаётся на safe area,
        низ содержимого на месте, поэтому сжатие не двигает текст вбок.
 
-       Ревью Task 36, находка В1: к расчётному сдвигу добавлена высота полосы
-       чипов. Полоса в сжатом гаснет через visibility, а место в потоке при
-       этом СОХРАНЯЕТ (в отличие от display:none у меты и описания), и низ
-       ВИДИМОГО содержимого оказывался на высоту полосы выше низа блока — при
-       1920×1080 это 88 px пустоты между строкой рейтинга и кромкой кадра.
-       Схлопывать саму полосу нельзя: содержимое прижато box-pack:end, и
-       высота 0 уронила бы его на те же 88 px мгновенным скачком раскладки.
-       Сдвинуть блок целиком дешевле — это тот же transform, который уже
-       анимируется.
-       Ревью фикс-раунда (п.6): добавка — в кегле блока (MOODS_IN_TEXT, em
-       в transform считается от font-size самого узла) и умножена на масштаб
-       сжатия: полоса лежит под видимым содержимым, у точки масштаба, и после
-       scale занимает TEXT_SCALE_COMPACT своей высоты. Живой замер до правки
-       (стенд 960×540@2, крупный кадр, сериал со статусом): низ статуса
-       258.3 px при расчётных 251.6 — те 4.4 px двойного TEXT_ZOOM и 2.2 px
-       неучтённого масштаба. */
-    /* calc внутри translateY: -webkit-calc остаётся движкам, которые знают
-       только его, а следующая декларация перебивает их у всех остальных.
-       Сложить эти величины заранее нельзя — vh считается от высоты экрана,
-       em от ширины.
-
-       Ревью фикс-раунда (п.2): добавка полосы — ТОЛЬКО когда полоса есть.
-       При выключенных «Профилях настроения» слот пуст и снят правилом
-       :empty (ниже), места в потоке не занимает, а сдвиг на её высоту всё
-       равно добавлялся: замер на стенде 960×540@2, крупный кадр, «лёгкий»,
-       кегль 11.4055 — низ меты 293.7 px при кромке сжатого кадра 270, то
-       есть на 23.7 px под кромкой, на область рядов (её верх — 258.6).
-       Признак «полоса есть» — класс .lumen-moods-on на корне активности:
-       его ставит LC.moods ровно тогда, когда наполнил слот (src/49_moods.js,
-       mount), и снимает вместе с чипами (unmount). Базовое правило — без
-       добавки, правило под классом специфичнее на один класс. */
+       Ревью Task 36 (находка В1) и фикс-раунда (п.2, п.6) добавляли к сдвигу
+       высоту полосы чипов настроения: она лежала последней в блоке, гасла
+       через visibility и место в потоке сохраняла. Волна 3 (ТВ 2026-09-24)
+       чипы из героя убрала — низ видимого содержимого снова совпадает с
+       низом блока, и сдвиг один: чистые vh. */
     var textScale = ') scale(' + TEXT_SCALE_COMPACT + ')';
     css.push('.lumen-hero.lumen-hero--compact .lumen-hero__text{' +
       '-webkit-transform:translateY(' + textShift + 'vh' + textScale + ';' +
       'transform:translateY(' + textShift + 'vh' + textScale + '}');
-    css.push('.lumen-moods-on .lumen-hero.lumen-hero--compact .lumen-hero__text{' +
-      '-webkit-transform:translateY(-webkit-calc(' + textShiftCalc + ')' + textScale + ';' +
-      '-webkit-transform:translateY(calc(' + textShiftCalc + ')' + textScale + ';' +
-      'transform:translateY(calc(' + textShiftCalc + ')' + textScale + '}');
     /* Task 43: мета — основной кегль и без разрядки. Разрядка .03em стояла
        под моноширинную гарнитуру, которой больше нет, а .88em делали её
        строкой-подписью — теперь в ней же едет рейтинг («2026 · 1:40 ·
@@ -3573,14 +3535,17 @@
     css.push('.lumen-hero .lumen-hero__title{font-family:' + FB + ';font-weight:700;font-size:3.4em;line-height:1.08;color:' + P.text + ';margin-top:.4em;height:1.29em;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:1}');
     css.push('.lumen-hero.lumen-hero--compact .lumen-hero__title{height:1.2em}');
     css.push('.lumen-hero.lumen-hero--logo .lumen-hero__title{display:none}');
-    css.push('.lumen-hero .lumen-hero__descr{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;font-family:' + FB + ';font-weight:500;font-size:1.15em;line-height:1.24;color:' + P.muted + ';max-width:36.02em;margin-top:.46em}');
+    css.push('.lumen-hero .lumen-hero__descr{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;font-family:' + FB + ';font-weight:500;font-size:1.15em;line-height:1.24;color:' + P.muted + ';max-width:' + DESCR_MAX_W + 'em;margin-top:.46em}');
 
     /* Скелетон, пока грузятся детали (ограничение брифа 3): плашка меты —
        всегда (жанров и длительности в данных ряда нет), плашки описания —
        только когда у карточки нет и краткого overview. */
     css.push('.lumen-hero .lumen-hero__sk{display:none;height:.75em;border-radius:.37em;background:-webkit-linear-gradient(left,rgba(' + P.textRgb + ',.14),rgba(' + P.textRgb + ',.06));background:linear-gradient(90deg,rgba(' + P.textRgb + ',.14),rgba(' + P.textRgb + ',.06))}');
     css.push('.lumen-hero.lumen-hero--pending .lumen-hero__sk--meta{display:block;width:14em;max-width:60%;margin-top:.4em}');
-    css.push('.lumen-hero.lumen-hero--pending.lumen-hero--nodescr .lumen-hero__sk--descr{display:block;width:39.45em;max-width:100%;margin-top:.8em}');
+    /* Волна 3: плашка первой строки описания — по ширине самого описания
+       (DESCR_MAX_W его кегля 1.15em в кегле блока), а не прежние 39.45em:
+       шире нового блока (TEXT_MAX_W) она всё равно бы не встала. */
+    css.push('.lumen-hero.lumen-hero--pending.lumen-hero--nodescr .lumen-hero__sk--descr{display:block;width:' + round2(DESCR_MAX_W * 1.15) + 'em;max-width:100%;margin-top:.8em}');
     css.push('.lumen-hero.lumen-hero--pending.lumen-hero--nodescr .lumen-hero__sk--short{display:block;width:26.3em;max-width:67%;margin-top:.4em}');
 
     /* Статус сериала текстом «Выходит · 17 дек» (поправка контроллера).
@@ -3661,50 +3626,23 @@
        .lumen-hero__text: внутри героя он исчезал при «Герой: выключен», а в
        сжатом состоянии его срезала кромка кадра.
 
-       Task 36: при ЖИВОМ кадре чипы вернулись внутрь .lumen-hero__text,
-       последним его элементом. Причина — переход: снаружи полоса ездила
-       собственным bottom (ещё одно свойство раскладки в анимации), а внутри
-       текста она едет тем же translateY, что и весь блок, и отдельной
-       анимации не просит вовсе. Кромка кадра ей больше не грозит: полоса
-       теперь выше низа текста, а не под ним.
-       Когда кадра нет (настройка «Герой: выключен» и приплюснутое окно),
-       блок по-прежнему монтируется отдельным узлом в корень активности —
-       правила ниже и правила медиазапроса «кадра нет» его и раскладывают.
-       Класс .lumen-moods-on на корне ставит LC.moods (src/49_moods.js) в
-       обоих случаях: по нему раскладка узнаёт, что под полосу нужно место.
+       Task 36 возвращал их при ЖИВОМ кадре внутрь .lumen-hero__text (полоса
+       ехала тем же translateY, что и текст). Волна 3 (ТВ 2026-09-24,
+       решение координатора) убрала их из героя совсем: при живом кадре
+       чипов на главной нет (src/49_moods.js), подборки остаются в хабе и
+       меню. Блок .lumen-moods — только при «Кадр над рядами: выключен»:
+       своим узлом в корне активности, а класс .lumen-moods-on на корне
+       опускает под его полосу ряды (правила ниже).
        Чипы используют те же токены акцента, что хабовые .lumen-chip. */
     css.push('.lumen-moods{position:absolute;left:' + EDGE + 'em;right:' + EDGE + 'em;z-index:2;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap}');
-    /* Полоса внутри текста героя. pointer-events:auto — у самого героя они
-       сняты (кадр не кликается), а чипы нажимаются мышью; пространственному
-       Navigator Lampa они не нужны, он ищет .selector по геометрии.
-       В сжатом состоянии полоса гаснет: при листании чипы не нужны, а место
-       под ними отдано ряду. visibility:hidden в паре с opacity — чтобы
-       погашенный чип не остался под указателем: opacity:0 сам по себе
-       элемент из hit-testing не убирает.
-       Из коллекции Navigator чипы при этом НЕ уходят, и рассчитывать на это
-       нельзя вдвойне: collectionSet в vendor/lampa/app.min.js берёт все
-       .selector подряд, а фильтр по offsetParent у неё под флагом
-       visible_only, по умолчанию выключенным. То есть даже display:none не
-       гарантировал бы исчезновения чипа из коллекции — а он к тому же не
-       анимируется. Полагаемся на то же, что и до Task 36: шаг «вверх» с ряда
-       до чипов не доходит, контроллер items_line отдаёт фокус шапке Lampa
-       сам (замер живьём, фаза 3 — см. шапку src/49_moods.js). */
-    css.push('.lumen-hero .lumen-hero__moods{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;margin-top:' + MOODS_IN_GAP + 'em;pointer-events:auto}');
-    /* Настройка «Профили настроения» выключена — слот остаётся в разметке
-       кадра пустым, и его margin-top отодвинул бы текст от низа кадра на
-       ровном месте. :empty снимает и отступ, и сам блок. */
-    css.push('.lumen-hero .lumen-hero__moods:empty{display:none}');
-    css.push('.lumen-hero.lumen-hero--compact .lumen-hero__moods{opacity:0;visibility:hidden;pointer-events:none}');
-    /* Плавность гашения полосы — общий переход opacity у детей текстового
-       блока (правило подмены текста выше). */
     /* Герой выключен настройкой: узла героя нет и класса .lumen-main на
        активности нет тоже — чипы встают под штатной шапкой Lampa, а ряды
        опускаются на высоту их полосы (иначе полоса легла бы на первый ряд). */
     css.push('.lumen-moods-on:not(.lumen-main) .lumen-moods{top:.53em}');
     css.push('.lumen-moods-on:not(.lumen-main) .scroll.layer--wheight{margin-top:' + MOODS_BAR + 'em;height:-webkit-calc(100vh - ' + round2(LAMPA_HEAD + MOODS_BAR) + 'em) !important;height:calc(100vh - ' + round2(LAMPA_HEAD + MOODS_BAR) + 'em) !important}');
-    /* Task 43 (фикс-раунд): чипы лежат последним элементом текстового блока
-       героя (src/48_hero.js) — на том же экране, где у меты и статуса рамки
-       уже сняты, и ряд коробок под ними выбивался. Оформление то же, что у
+    /* Task 43 (фикс-раунд): чипы лежали последним элементом текстового блока
+       героя (src/48_hero.js; с волны 3 — только полосой при выключенном
+       кадре), и ряд коробок под метой без рамок выбивался. Оформление то же, что у
        чипов хаба (.lumen-chip выше): заливка вместо рамки, инверсия в
        фокусе. Заливка идёт через P.chipBg, а не литералом, — иначе
        настройка «Плотные подложки» перестала бы действовать на этот ряд. */
@@ -3934,34 +3872,18 @@
        тем, чем задумана: экстремально приплюснутое окно и явный выбор
        «Герой: выключен» в настройках.
 
-       Task 36: за порогом кадр не прячется целиком, как раньше. Чипы
-       настроения переехали ВНУТРЬ текста героя, и display:none на всём узле
-       унёс бы их с экрана вместе с кадром. Поэтому здесь герой превращается
-       в то же, чем он был в режиме «Герой: выключен», — в полосу чипов под
-       шапкой Lampa: кадр, вуали, трейлер и весь текст скрыты, текстовый блок
-       возвращён в поток, из него виден только .lumen-hero__moods. Ряды при
-       этом занимают экран целиком, опускаясь на высоту полосы, — ровно как
-       в правилах .lumen-moods-on:not(.lumen-main) выше.
-       И гасить чипы на листании тут незачем: их полоса стоит под шапкой и
-       рядам не мешает, а место, которое они освобождали в кадре, здесь уже
-       отдано рядам самим отсутствием кадра. */
+       Task 36 превращал за порогом героя в полосу чипов настроения под
+       шапкой: чипы жили внутри его текста, и display:none на узле унёс бы их
+       с экрана. Волна 3 (ТВ 2026-09-24) чипы из героя убрала — при
+       смонтированном герое LC.moods их не ставит (src/49_moods.js), — и
+       герой за порогом снова уходит целиком: ни кадра, ни текста, ряды на
+       весь экран под шапкой Lampa. Правило на .lumen-main специфичнее
+       базового .lumen-hero — медиазапрос специфичности не добавляет. */
     var heroMinRatio = Math.max(HERO_MIN_RATIO, textRatio(heroSize, textNeedEm(false)));
     var rowsFull = '{margin-top:0;height:-webkit-calc(100vh - ' + LAMPA_HEAD + 'em) !important;height:calc(100vh - ' + LAMPA_HEAD + 'em) !important;overflow:hidden;-webkit-transform:none;transform:none}';
     css.push('@media screen and (min-aspect-ratio:' + heroMinRatio + '/100){' +
       '.lumen-main .scroll.layer--wheight,.lumen-main.lumen-rows-up .scroll.layer--wheight' + rowsFull +
-      '.lumen-main .lumen-hero,.lumen-main .lumen-hero.lumen-hero--compact{top:0;height:auto;overflow:visible;-webkit-transform:none;transform:none}' +
-      '.lumen-hero .lumen-hero__bg,.lumen-hero .lumen-hero__lqip,.lumen-hero .lumen-hero__veil,.lumen-hero .lumen-hero__trailer,.lumen-hero .lumen-fx{display:none}' +
-      /* Сжатый вариант перечислен рядом не для симметрии: у него на класс
-         больше, и без него правило сжатия (.lumen-hero--compact
-         .lumen-hero__text выше) выиграло бы по специфичности — медиазапрос
-         её не добавляет. Полоса чипов под шапкой уезжала бы вниз и мельчала
-         при фокусе ниже первого ряда (ревью Task 36, находка В2).
-         Ревью фикс-раунда (п.2): у сдвига с полосой чипов теперь своё правило
-         под .lumen-moods-on — ещё на класс специфичнее, и оно тоже в списке. */
-      '.lumen-hero .lumen-hero__text,.lumen-hero.lumen-hero--compact .lumen-hero__text,.lumen-moods-on .lumen-hero.lumen-hero--compact .lumen-hero__text{position:static;left:auto;right:auto;top:auto;bottom:auto;font-size:1em;max-width:none;overflow:visible;padding:.53em ' + EDGE + 'em 0;-webkit-transform:none;transform:none}' +
-      '.lumen-hero .lumen-hero__meta,.lumen-hero .lumen-hero__logo,.lumen-hero .lumen-hero__title,.lumen-hero .lumen-hero__descr,.lumen-hero .lumen-hero__sk,.lumen-hero .lumen-hero__chips{display:none}' +
-      '.lumen-hero.lumen-hero--compact .lumen-hero__moods,.lumen-main .lumen-hero .lumen-hero__moods{display:-webkit-box;display:-webkit-flex;display:flex;margin-top:0;opacity:1;visibility:visible;pointer-events:auto}' +
-      '.lumen-moods-on.lumen-main .scroll.layer--wheight,.lumen-moods-on.lumen-main.lumen-rows-up .scroll.layer--wheight{margin-top:' + MOODS_BAR + 'em;height:-webkit-calc(100vh - ' + round2(LAMPA_HEAD + MOODS_BAR) + 'em) !important;height:calc(100vh - ' + round2(LAMPA_HEAD + MOODS_BAR) + 'em) !important}}');
+      '.lumen-main .lumen-hero{display:none}}');
 
     /* --- Фаза 3 (долг фазы 2): карточка ряда главной (design-spec-main §0.4) ---
        Штатная карточка Lampa — .card шириной 12.75em (290 px при 1920).
@@ -4309,10 +4231,10 @@
        em вверх).
        Полос две. С кадром героя верх ряда — ROWS_TOP_VH и ROWS_AIR, полоса
        начинается там, где кончается место у текущей колонки, и кончается
-       порогом «кадра нет». Без кадра верх ряда — шапка Lampa, отступ Lampa
-       над фокусным рядом и, если включены профили настроения, их полоса;
-       поэтому и правил два, второе — под .lumen-moods-on (оно на класс
-       специфичнее). Ниже порогов не меняется ничего: на телевизоре 16:9
+       порогом «кадра нет». Без кадра верх ряда — шапка Lampa и отступ
+       Lampa над фокусным рядом (волна 3: полосы чипов настроения на главной
+       с героем нет — прежнее второе правило под .lumen-moods-on.lumen-main
+       снято как мёртвое). Ниже порогов не меняется ничего: на телевизоре 16:9
        полоса начинается дальше 1.78, и его 72 клетки остаются прежними.
        Кегли подписей и заголовка ряда полоса не трогает — только ширину
        (а с ней постер): подписи и так стоят на минимуме tvOS. */
@@ -4337,7 +4259,6 @@
       css.push(rowFitCss(sel, from, 0, 100, topEm));
     };
     fitOff('.lumen-main', LAMPA_HEAD + LAMPA_ROW_PAD);
-    fitOff('.lumen-moods-on.lumen-main', round2(LAMPA_HEAD + MOODS_BAR + LAMPA_ROW_PAD));
     css.push('.lumen-main .items-line__title{font-family:' + FB + ';font-weight:700;font-size:' + rowTitleEm + 'em}');
     /* Вертикальный зазор между рядами — его НИЖНЯЯ граница, ROW_GAP
        (= LAMPA_ROW_PAD, разбор у константы). Apple HIG Layout → Grids просит
@@ -4427,13 +4348,12 @@
     if (rowEdgeNarrow) css.push(rowEdgeNarrow);
     /* То же правило за порогом, где кадра героя нет (приплюснутое окно, 21:9
        и шире; медиазапрос heroMinRatio выше). Там область рядов стоит сразу
-       под шапкой Lampa: верх области — LAMPA_HEAD (и ещё MOODS_BAR, если
-       включены профили настроения — полоса чипов стоит над областью), сдвига
-       нет, фокусный ряд — на LAMPA_ROW_PAD ниже верха области. Отсюда
-       padding = 100vh − (LAMPA_HEAD [+ MOODS_BAR] + LAMPA_ROW_PAD + блок)em,
+       под шапкой Lampa: верх области — LAMPA_HEAD, сдвига нет, фокусный ряд
+       — на LAMPA_ROW_PAD ниже верха области (волна 3: полосы чипов над
+       областью при смонтированном герое больше нет). Отсюда
+       padding = 100vh − (LAMPA_HEAD + LAMPA_ROW_PAD + блок)em,
        и граница по тому же выводу: расчётный зазор не меньше ROW_GAP, пока
-       W/H ≤ screenEm() / (LAMPA_HEAD [+ MOODS_BAR] + LAMPA_ROW_PAD + блок +
-       ROW_GAP). Блок — тот, что достаётся окну за порогом: узкий, если
+       W/H ≤ screenEm() / (LAMPA_HEAD + LAMPA_ROW_PAD + блок + ROW_GAP). Блок — тот, что достаётся окну за порогом: узкий, если
        узкая колонка там включена, иначе широкий. */
     var rowOffBlock = round2(narrowCss ? rowFlowNarrow : rowFlowWide);
     var rowEdgeOff = function (sel, topEm) {
@@ -4445,9 +4365,7 @@
         sel + '{padding-bottom:-webkit-calc(' + pad + ');padding-bottom:calc(' + pad + ')}}';
     };
     var rowEdgeOffPlain = rowEdgeOff('.lumen-main .items-line', LAMPA_HEAD);
-    var rowEdgeOffMoods = rowEdgeOff('.lumen-moods-on.lumen-main .items-line', round2(LAMPA_HEAD + MOODS_BAR));
     if (rowEdgeOffPlain) css.push(rowEdgeOffPlain);
-    if (rowEdgeOffMoods) css.push(rowEdgeOffMoods);
     /* Правка пользователя 2026-09-17 (второй круг): «левый край логотипа и
        левый край „Сейчас смотрят“ должны стоять на одной линии». У Lampa и
        заголовок ряда, и лента карточек отступают от кромки на 1.5em, а

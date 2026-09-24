@@ -1497,11 +1497,9 @@ var MOODS_GAP = 0.8;
 
 
 
+
+
 var MOODS_BAR = round2(MOODS_H + MOODS_GAP);
-
-
-
-var MOODS_IN_GAP = 0.9;
 
 
 
@@ -1595,24 +1593,18 @@ var VEIL_RISE = 0.6;
 var VEIL_FADE = 5.7;
 var VEIL_BLEED = 1;
 
-var TEXT_MAX_W = 46;
 
 
 
 
 
 
+var TEXT_MAX_W = 36;
 
 
 
 
-
-
-
-
-
-var MOODS_IN_TEXT = round2(MOODS_IN_GAP + MOODS_H);
-var MOODS_IN_EM = round2(MOODS_IN_TEXT * TEXT_ZOOM);
+var DESCR_MAX_W = 30;
 
 
 var TEXT_SCALE_COMPACT = 0.95;
@@ -1679,10 +1671,14 @@ return heroSizeKey() === 'compact';
 
 
 
+
+
+
+
 function textNeedEm(withDescr) {
 var inner = TEXT_STATUS + TEXT_LOGO + (heroSmallText() ? 0 : TEXT_META);
 if (withDescr) inner += TEXT_DESCR;
-return round2(HERO_HEAD_SAFE + MOODS_IN_EM + inner * TEXT_ZOOM);
+return round2(HERO_HEAD_SAFE + inner * TEXT_ZOOM);
 }
 
 
@@ -3866,10 +3862,6 @@ var textBottom = textBottomVh(heroSize);
 var textShift = textShiftVh(heroSize);
 
 
-
-var textShiftCalc = textShift + 'vh + ' + round2(MOODS_IN_TEXT * TEXT_SCALE_COMPACT) + 'em';
-
-
 var textPadL = round2(EDGE / TEXT_ZOOM + VEIL_BLEED);
 var smallText = heroSmallText();
 var EASE = ' .42s cubic-bezier(.2,.8,.2,1)';
@@ -4151,7 +4143,7 @@ css.push('.lumen-hero .lumen-hero__veil--l{position:relative;top:-' + veilUp + '
 'margin:0 0 -100vh -' + textPadL + 'em;' +
 '-webkit-mask-image:-webkit-linear-gradient(top,' + veilMask + ');mask-image:linear-gradient(180deg,' + veilMask + ');' +
 '-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat}');
-css.push('.lumen-hero__text > .lumen-hero__meta,.lumen-hero__text > .lumen-hero__sk,.lumen-hero__text > .lumen-hero__descr,.lumen-hero__text > .lumen-hero__chips,.lumen-hero__text > .lumen-hero__moods{-webkit-box-ordinal-group:3;-webkit-order:2;order:2}');
+css.push('.lumen-hero__text > .lumen-hero__meta,.lumen-hero__text > .lumen-hero__sk,.lumen-hero__text > .lumen-hero__descr,.lumen-hero__text > .lumen-hero__chips{-webkit-box-ordinal-group:3;-webkit-order:2;order:2}');
 
 
 
@@ -4318,40 +4310,10 @@ css.push('.lumen-hero .lumen-hero__text{position:absolute;left:-' + VEIL_BLEED +
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 var textScale = ') scale(' + TEXT_SCALE_COMPACT + ')';
 css.push('.lumen-hero.lumen-hero--compact .lumen-hero__text{' +
 '-webkit-transform:translateY(' + textShift + 'vh' + textScale + ';' +
 'transform:translateY(' + textShift + 'vh' + textScale + '}');
-css.push('.lumen-moods-on .lumen-hero.lumen-hero--compact .lumen-hero__text{' +
-'-webkit-transform:translateY(-webkit-calc(' + textShiftCalc + ')' + textScale + ';' +
-'-webkit-transform:translateY(calc(' + textShiftCalc + ')' + textScale + ';' +
-'transform:translateY(calc(' + textShiftCalc + ')' + textScale + '}');
 
 
 
@@ -4412,14 +4374,17 @@ css.push('.lumen-hero.lumen-hero--logo .lumen-hero__logo{display:block}');
 css.push('.lumen-hero .lumen-hero__title{font-family:' + FB + ';font-weight:700;font-size:3.4em;line-height:1.08;color:' + P.text + ';margin-top:.4em;height:1.29em;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:1}');
 css.push('.lumen-hero.lumen-hero--compact .lumen-hero__title{height:1.2em}');
 css.push('.lumen-hero.lumen-hero--logo .lumen-hero__title{display:none}');
-css.push('.lumen-hero .lumen-hero__descr{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;font-family:' + FB + ';font-weight:500;font-size:1.15em;line-height:1.24;color:' + P.muted + ';max-width:36.02em;margin-top:.46em}');
+css.push('.lumen-hero .lumen-hero__descr{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;font-family:' + FB + ';font-weight:500;font-size:1.15em;line-height:1.24;color:' + P.muted + ';max-width:' + DESCR_MAX_W + 'em;margin-top:.46em}');
 
 
 
 
 css.push('.lumen-hero .lumen-hero__sk{display:none;height:.75em;border-radius:.37em;background:-webkit-linear-gradient(left,rgba(' + P.textRgb + ',.14),rgba(' + P.textRgb + ',.06));background:linear-gradient(90deg,rgba(' + P.textRgb + ',.14),rgba(' + P.textRgb + ',.06))}');
 css.push('.lumen-hero.lumen-hero--pending .lumen-hero__sk--meta{display:block;width:14em;max-width:60%;margin-top:.4em}');
-css.push('.lumen-hero.lumen-hero--pending.lumen-hero--nodescr .lumen-hero__sk--descr{display:block;width:39.45em;max-width:100%;margin-top:.8em}');
+
+
+
+css.push('.lumen-hero.lumen-hero--pending.lumen-hero--nodescr .lumen-hero__sk--descr{display:block;width:' + round2(DESCR_MAX_W * 1.15) + 'em;max-width:100%;margin-top:.8em}');
 css.push('.lumen-hero.lumen-hero--pending.lumen-hero--nodescr .lumen-hero__sk--short{display:block;width:26.3em;max-width:67%;margin-top:.4em}');
 
 
@@ -4508,34 +4473,7 @@ css.push('.lumen-hero.lumen-motion-lite .lumen-hero__text,.lumen-hero.lumen-moti
 
 
 
-
-
-
-
 css.push('.lumen-moods{position:absolute;left:' + EDGE + 'em;right:' + EDGE + 'em;z-index:2;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap}');
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-css.push('.lumen-hero .lumen-hero__moods{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;margin-top:' + MOODS_IN_GAP + 'em;pointer-events:auto}');
-
-
-
-css.push('.lumen-hero .lumen-hero__moods:empty{display:none}');
-css.push('.lumen-hero.lumen-hero--compact .lumen-hero__moods{opacity:0;visibility:hidden;pointer-events:none}');
-
-
 
 
 
@@ -4780,27 +4718,11 @@ css.push('@media screen and (min-aspect-ratio:' + Math.max(DESCR_MIN_RATIO, text
 
 
 
-
-
-
-
 var heroMinRatio = Math.max(HERO_MIN_RATIO, textRatio(heroSize, textNeedEm(false)));
 var rowsFull = '{margin-top:0;height:-webkit-calc(100vh - ' + LAMPA_HEAD + 'em) !important;height:calc(100vh - ' + LAMPA_HEAD + 'em) !important;overflow:hidden;-webkit-transform:none;transform:none}';
 css.push('@media screen and (min-aspect-ratio:' + heroMinRatio + '/100){' +
 '.lumen-main .scroll.layer--wheight,.lumen-main.lumen-rows-up .scroll.layer--wheight' + rowsFull +
-'.lumen-main .lumen-hero,.lumen-main .lumen-hero.lumen-hero--compact{top:0;height:auto;overflow:visible;-webkit-transform:none;transform:none}' +
-'.lumen-hero .lumen-hero__bg,.lumen-hero .lumen-hero__lqip,.lumen-hero .lumen-hero__veil,.lumen-hero .lumen-hero__trailer,.lumen-hero .lumen-fx{display:none}' +
-
-
-
-
-
-
-
-'.lumen-hero .lumen-hero__text,.lumen-hero.lumen-hero--compact .lumen-hero__text,.lumen-moods-on .lumen-hero.lumen-hero--compact .lumen-hero__text{position:static;left:auto;right:auto;top:auto;bottom:auto;font-size:1em;max-width:none;overflow:visible;padding:.53em ' + EDGE + 'em 0;-webkit-transform:none;transform:none}' +
-'.lumen-hero .lumen-hero__meta,.lumen-hero .lumen-hero__logo,.lumen-hero .lumen-hero__title,.lumen-hero .lumen-hero__descr,.lumen-hero .lumen-hero__sk,.lumen-hero .lumen-hero__chips{display:none}' +
-'.lumen-hero.lumen-hero--compact .lumen-hero__moods,.lumen-main .lumen-hero .lumen-hero__moods{display:-webkit-box;display:-webkit-flex;display:flex;margin-top:0;opacity:1;visibility:visible;pointer-events:auto}' +
-'.lumen-moods-on.lumen-main .scroll.layer--wheight,.lumen-moods-on.lumen-main.lumen-rows-up .scroll.layer--wheight{margin-top:' + MOODS_BAR + 'em;height:-webkit-calc(100vh - ' + round2(LAMPA_HEAD + MOODS_BAR) + 'em) !important;height:calc(100vh - ' + round2(LAMPA_HEAD + MOODS_BAR) + 'em) !important}}');
+'.lumen-main .lumen-hero{display:none}}');
 
 
 
@@ -5176,7 +5098,6 @@ var from = Math.max(heroMinRatio * 10, Math.floor(screenEm() * 1000 / (topEm + f
 css.push(rowFitCss(sel, from, 0, 100, topEm));
 };
 fitOff('.lumen-main', LAMPA_HEAD + LAMPA_ROW_PAD);
-fitOff('.lumen-moods-on.lumen-main', round2(LAMPA_HEAD + MOODS_BAR + LAMPA_ROW_PAD));
 css.push('.lumen-main .items-line__title{font-family:' + FB + ';font-weight:700;font-size:' + rowTitleEm + 'em}');
 
 
@@ -5273,7 +5194,6 @@ if (rowEdgeNarrow) css.push(rowEdgeNarrow);
 
 
 
-
 var rowOffBlock = round2(narrowCss ? rowFlowNarrow : rowFlowWide);
 var rowEdgeOff = function (sel, topEm) {
 var headEm = round2(topEm + LAMPA_ROW_PAD + rowOffBlock);
@@ -5284,9 +5204,7 @@ return '@media screen and (min-aspect-ratio:' + heroMinRatio + '/100) and (max-a
 sel + '{padding-bottom:-webkit-calc(' + pad + ');padding-bottom:calc(' + pad + ')}}';
 };
 var rowEdgeOffPlain = rowEdgeOff('.lumen-main .items-line', LAMPA_HEAD);
-var rowEdgeOffMoods = rowEdgeOff('.lumen-moods-on.lumen-main .items-line', round2(LAMPA_HEAD + MOODS_BAR));
 if (rowEdgeOffPlain) css.push(rowEdgeOffPlain);
-if (rowEdgeOffMoods) css.push(rowEdgeOffMoods);
 
 
 
@@ -12709,6 +12627,9 @@ var CARD_LOGO_H_MAX = 2;
 var MOTION_CLASSES = 'lumen-motion-full lumen-motion-lite lumen-motion-off';
 
 
+var HERO_GENRES = 2;
+
+
 
 
 
@@ -12835,7 +12756,10 @@ meta.push(seasons + ' ' + (words.seasonsWord ? words.seasonsWord(seasons) : ''))
 var runtime = LC.util.fmtRuntime(Number(details.runtime) || 0, words.min || '');
 if (runtime) meta.push(runtime);
 }
-var genres = LC.cardinfo.genres(details.genres, words.cap);
+
+
+
+var genres = LC.cardinfo.genres(details.genres, words.cap).slice(0, HERO_GENRES);
 if (genres.length) meta.push(genres.join(', '));
 }
 
@@ -13256,10 +13180,6 @@ var text = $('<div class="lumen-hero__text">' +
 
 
 
-
-
-
-'<div class="lumen-hero__moods"></div>' +
 '</div>');
 node.append(text);
 return node;
@@ -14753,7 +14673,6 @@ show(el[0].card_data);
 
 
 
-
 function sizeOff() {
 try { return LC.pref ? LC.pref('lumen_hero_size', 'large') === 'off' : false; } catch (e) { return false; }
 }
@@ -15365,6 +15284,9 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 
+
+
+
 LC.moods = (function () {
 
 
@@ -15457,8 +15379,6 @@ return [];
 }
 
 
-
-
 function fillChips(wrap, moodList) {
 for (var i = 0; i < moodList.length; i++) {
 wrap.append(buildChip(moodList[i]));
@@ -15499,22 +15419,16 @@ if (!root || !root.length) return;
 
 
 if (!enabled()) { unmount(); return; }
-var slot = root.find('.lumen-hero__moods');
-var inHero = slot.length > 0;
 
 
 
 
 
 
+if (root.children('.lumen-hero').length) { unmount(); return; }
 
 
-
-
-
-
-
-if (state && state.root && state.root[0] === root[0] && state.inHero === inHero) return;
+if (state && state.root && state.root[0] === root[0]) return;
 unmount();
 var moodList = moods();
 if (!moodList.length) return;
@@ -15522,23 +15436,12 @@ if (!moodList.length) return;
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-var node = inHero ? slot : $('<div class="lumen-moods"></div>');
+var node = $('<div class="lumen-moods"></div>');
 fillChips(node, moodList);
-if (!inHero) root.append(node);
+root.append(node);
 root.addClass('lumen-moods-on');
 gen++;
-state = { root: root, node: node, inHero: inHero };
+state = { root: root, node: node };
 
 
 recollect(root);
@@ -15553,9 +15456,7 @@ if (!state) return;
 var s = state;
 state = null;
 gen++;
-
-
-try { if (s.inHero) s.node.empty(); else s.node.remove(); } catch (eN) {}
+try { s.node.remove(); } catch (eN) {}
 
 
 try { s.root.removeClass('lumen-moods-on'); } catch (eC) {}
@@ -29084,10 +28985,13 @@ ru: 'Профили настроения',
 en: 'Mood profiles',
 uk: 'Профілі настрою'
 },
+
+
+
 lumen_moods_descr: {
-ru: 'Строка быстрых подборок под описанием на главной: «Вечер пятницы», «Семейный просмотр», «Страшное на ночь», «Есть 90 минут».',
-en: 'A row of quick picks under the hero text: "Friday night", "Family time", "Scary at night", "90 minutes to spare".',
-uk: 'Рядок швидких підбірок під описом на головній: «Вечір п\'ятниці», «Сімейний перегляд», «Страшне на ніч», «Є 90 хвилин».'
+ru: 'Строка быстрых подборок над рядами главной, когда «Кадр над рядами» выключен: «Вечер пятницы», «Семейный просмотр», «Страшное на ночь», «Есть 90 минут».',
+en: 'A row of quick picks above the home rows when "Hero over the rows" is off: "Friday night", "Family time", "Scary at night", "90 minutes to spare".',
+uk: 'Рядок швидких підбірок над рядами головної, коли «Кадр над рядами» вимкнено: «Вечір п\'ятниці», «Сімейний перегляд», «Страшне на ніч», «Є 90 хвилин».'
 },
 
 lumen_home_rows_name: {
@@ -29211,9 +29115,9 @@ uk: 'Сьогодні прем\'єра'
 
 lumen_hero_size_name: { ru: 'Кадр над рядами', en: 'Hero over the rows', uk: 'Кадр над рядами' },
 lumen_hero_size_descr: {
-ru: 'Какую часть экрана занимает большой кадр с описанием. «Выключен» — ряды на весь экран, чипы настроения остаются. Применяется сразу.',
-en: 'How much of the screen the large hero frame takes. "Off" gives the rows the whole screen and keeps the mood chips. Applied immediately.',
-uk: 'Яку частину екрана займає великий кадр з описом. «Вимкнено» — ряди на весь екран, чипи настрою залишаються. Застосовується одразу.'
+ru: 'Какую часть экрана занимает большой кадр с описанием. «Выключен» — ряды на весь экран, над ними строка чипов настроения. Применяется сразу.',
+en: 'How much of the screen the large hero frame takes. "Off" gives the rows the whole screen, with the mood chips above them. Applied immediately.',
+uk: 'Яку частину екрана займає великий кадр з описом. «Вимкнено» — ряди на весь екран, над ними рядок чипів настрою. Застосовується одразу.'
 },
 lumen_hero_size_large: { ru: 'Крупный', en: 'Large', uk: 'Великий' },
 lumen_hero_size_medium: { ru: 'Средний', en: 'Medium', uk: 'Середній' },
@@ -34508,7 +34412,6 @@ LC.moods.unmount();
 warn('moods pref failed', e);
 }
 };
-
 
 
 

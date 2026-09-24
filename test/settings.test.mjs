@@ -831,3 +831,21 @@ test('«Кадр над рядами»: описание без удалённо
     assert.ok(text.indexOf(off) !== -1, lang + ': в описании нет значения ' + off + ': ' + text);
   }
 });
+
+/* Волна 3 (ТВ 2026-09-24, решение координатора): чипы настроения из героя
+   убраны, и на главной они живут только при выключенном кадре. Описания
+   обязаны говорить правду: «Профили настроения» называют условие —
+   настройку «Кадр над рядами», а «Кадр над рядами» больше не обещает, что
+   чипы «остаются» (при живом кадре их нет). */
+test('волна 3: описания «Профилей настроения» и «Кадра над рядами» — чипы только без кадра', () => {
+  const env = setup();
+  const S = env.LC.STRINGS;
+  const quote = { ru: ['«', '»'], uk: ['«', '»'], en: ['"', '"'] };
+  const stays = { ru: 'остаются', en: 'keeps the mood chips', uk: 'залишаються' };
+  for (const lang of ['ru', 'en', 'uk']) {
+    const moods = S.lumen_moods_descr[lang];
+    const hero = quote[lang][0] + S.lumen_hero_size_name[lang] + quote[lang][1];
+    assert.ok(moods.indexOf(hero) !== -1, lang + ': описание чипов не называет условие ' + hero + ': ' + moods);
+    assert.equal(S.lumen_hero_size_descr[lang].indexOf(stays[lang]), -1, lang + ': «Кадр над рядами» обещает, что чипы остаются: ' + S.lumen_hero_size_descr[lang]);
+  }
+});
