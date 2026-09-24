@@ -15417,11 +15417,14 @@ var poster = state.holdPoster;
 
 
 
+
 try {
 if (!poster) {
 var cards = state.root.find('.card');
+var media = mediaOf(state.shownCard);
 for (var c = 0; !poster && cards && c < cards.length; c++) {
-if (cards[c] && cards[c].card_data && String(cards[c].card_data.id) === String(state.shownId)) poster = rowPoster(cards[c]);
+if (cards[c] && cards[c].card_data && String(cards[c].card_data.id) === String(state.shownId) &&
+mediaOf(cards[c].card_data) === media) poster = rowPoster(cards[c]);
 }
 }
 if (poster) {

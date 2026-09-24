@@ -2274,12 +2274,15 @@
       /* Ревью tails3, п.3: при показе в карточке ряда стояла svg-заглушка
          Lampa, и запомненный постер пуст, — к этому мигу настоящий постер
          мог уже прийти (возврат через «Ещё»: узла карточки у show() нет).
-         Берём его у карточки ряда того же фильма. */
+         Берём его у карточки ряда того же фильма. Ревью tails5: и того же
+         типа — id фильмов и сериалов TMDB пересекаются. */
       try {
         if (!poster) {
           var cards = state.root.find('.card');
+          var media = mediaOf(state.shownCard);
           for (var c = 0; !poster && cards && c < cards.length; c++) {
-            if (cards[c] && cards[c].card_data && String(cards[c].card_data.id) === String(state.shownId)) poster = rowPoster(cards[c]);
+            if (cards[c] && cards[c].card_data && String(cards[c].card_data.id) === String(state.shownId) &&
+              mediaOf(cards[c].card_data) === media) poster = rowPoster(cards[c]);
           }
         }
         if (poster) {

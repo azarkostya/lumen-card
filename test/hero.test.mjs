@@ -2379,6 +2379,36 @@ test('ревью tails3, п.3: при показе в ряду стояла svg-
   assert.deepEqual(warnLog, []);
 });
 
+/* Ревью tails5 (65): id фильмов и сериалов TMDB пересекаются — карточка
+   ряда с тем же id, но сериал, постером фильма A быть не может. Поиск
+   сравнивает и тип (mediaOf). Сериал с id 22 стоит в ряду выше A. */
+test('ревью tails5: постер из ряда — карточка того же id и того же типа, сериал с тем же id не подходит', () => {
+  const env = makeEnv({ fxHeavy: () => false });
+  const main = makeMain();
+  const other = makeMain();
+  const tv = makeCard(22, 'Сериал', { poster: 'https://img/t/p/w300/tv22.jpg', rect: { left: 0, top: 0, width: 1, height: 1 } });
+  tv.card_data = { id: 22, name: 'Сериал', poster_path: '/tv22.jpg', first_air_date: '2019-01-01' };
+  main.line0.append(tv);
+  main.card2.find('.card__img').attr('src', './img/img_load.svg');
+  env.hero.mount(main.activity);
+  const stage = shownFrame(env, main);
+  const active = () => stage.find('.lumen-hero__bg.is-active');
+
+  fireFocus(main.activity, main.card2);
+  env.advance(350);
+  detailsOf(env, 22).ok({ id: 22 });
+  env.advance(100);
+  main.card2.find('.card__img').attr('src', 'https://img/t/p/w300/p2.jpg');
+  main.line1.append(new FakeEl(['card-more', 'selector', 'focus']));
+  env.hero.detach(other.activity);
+
+  env.hero.mount(main.activity);
+  env.advance(180);
+  env.advance(251);
+  assert.equal(active().attr('src'), 'https://img/t/p/w300/p2.jpg', 'под текстом фильма A — постер сериала с тем же id');
+  assert.deepEqual(warnLog, []);
+});
+
 /* Обратная сторона: кадр показанного фильма встал, пока фокус стоял на
    другой карточке, — заглушка больше не нужна, и парковка не должна
    считать её оборванной работой (повторный показ A на возврате вспыхнул
