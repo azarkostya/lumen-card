@@ -4055,7 +4055,12 @@ css.push('body.lumen-motion-full .lumen-main{-webkit-transition:background-color
 
 
 
-css.push('body.lumen-main-on .background,body.lumen-card-on .background{display:none}');
+
+
+
+
+
+css.push('body.lumen-main-on:not(.ambience--enable) .background,body.lumen-card-on:not(.ambience--enable) .background{display:none}');
 
 
 

@@ -3207,8 +3207,13 @@
        90_runtime.js). Без неё при открытии карточки проступал размытый
        постер Lampa (Color.blur + fadeTo 700 мс, app.min.js:38989) — «картинка
        расползается». Фильм без кадра получает свою подложку .lumen-bg--blur
-       (src/50_backdrops.js), так что пустым экран не остаётся. */
-    css.push('body.lumen-main-on .background,body.lumen-card-on .background{display:none}');
+       (src/50_backdrops.js), так что пустым экран не остаётся.
+       Ревью волны 2, п.9: кроме body.ambience--enable. Его ставят поиск
+       (app.min.js:41513), SearchInput (:40035) и «Расширения» (:36504) —
+       Lampa прячет под ними .wrap и .head (app.css:397-402), а сам .search
+       прозрачный: виден только её фон, размытый постер. Погашенный фон
+       давал там плоскую заливку body. */
+    css.push('body.lumen-main-on:not(.ambience--enable) .background,body.lumen-card-on:not(.ambience--enable) .background{display:none}');
     /* translateY(0) в базовом правиле стоит не для красоты: без начального
        значения transition не с чего стартовать, и первый переход в сжатое
        состояние прыгал бы.

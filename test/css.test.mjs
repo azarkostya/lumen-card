@@ -2353,7 +2353,7 @@ test('Task 48: слои, которые Lampa выдаёт карточкам, �
    правил на канвасы не нужно; сама Lampa гасит фон так же —
    body.light--version .background{display:none} (app.css:15959-15961). */
 test('Task 49: под нашей главной штатный фон Lampa не рисуется', () => {
-  const decl = findDecl(css, (sel) => sel === 'body.lumen-main-on .background');
+  const decl = findDecl(css, (sel) => sel === 'body.lumen-main-on:not(.ambience--enable) .background');
   assert.ok(decl, 'нет правила, гасящего фон Lampa под главной плагина');
   assert.equal(decl, 'display:none', 'гасим целиком и ничем больше: ' + decl);
   /* Волна 2 (ТВ 2026-09-24, D1): под карточкой фильма — тоже. Размытый
@@ -2361,9 +2361,24 @@ test('Task 49: под нашей главной штатный фон Lampa не
      при открытии карточки, пока наш кадр не ложился сверху, — «картинка
      расползается» на фото 5/7/11. Метку lumen-card-on ставит рантайм на
      старте экрана 'full' (src/90_runtime.js). */
-  const card = findDecl(css, (sel) => sel === 'body.lumen-card-on .background');
+  const card = findDecl(css, (sel) => sel === 'body.lumen-card-on:not(.ambience--enable) .background');
   assert.ok(card, 'нет правила, гасящего фон Lampa под карточкой плагина');
   assert.equal(card, 'display:none', 'гасим целиком и ничем больше: ' + card);
+  /* Ревью волны 2, п.9: поиск, SearchInput и «Расширения» ставят на body
+     ambience--enable — Lampa прячет .wrap и .head (app.css:397-402), а
+     .search прозрачный: под ними виден только её фон, размытый постер.
+     Погашенный фон давал вместо него плоскую заливку body. Ни одно наше
+     правило, гасящее .background, не должно действовать при
+     ambience--enable. */
+  const hiding = ruleBodies(css).filter((r) => /display:none/.test(r.decl) &&
+    r.selectors.some((s) => /(^|\s)\.background$/.test(s)));
+  assert.ok(hiding.length > 0, 'правила, гасящие фон, не найдены');
+  for (const r of hiding) {
+    for (const s of r.selectors) {
+      if (!/(^|\s)\.background$/.test(s)) continue;
+      assert.ok(/:not\(\.ambience--enable\)/.test(s), 'фон гасится и под поиском/«Расширениями»: ' + s);
+    }
+  }
   /* Отдельных правил на канвасы быть не должно — это мёртвые правила:
      потомков погашенного предка браузер не рисует. */
   const extra = ruleBodies(css).filter((r) => r.selectors.some((s) => /\.background__/.test(s)));
