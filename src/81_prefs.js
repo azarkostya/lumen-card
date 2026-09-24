@@ -225,6 +225,12 @@
          анимаций, который и калибруется: выключен по умолчанию, включать
          его имеет смысл только для настройки, а не для постоянного показа. */
       { name: 'lumen_debug_hud', type: 'trigger', 'default': false, label: 'lumen_debug_hud_name', descr: 'lumen_debug_hud_descr' },
+      /* Волна производительности (жалоба с ТВ «всё ещё лагает всё»,
+         2026-09-24): самотест — около минуты гоняет главную по восьми
+         стадиям и показывает одну таблицу для фото (src/69_bench.js).
+         Кнопка, своего значения не хранит; место — сразу под HUD: оба пункта
+         про замер. */
+      { name: 'lumen_debug_bench', type: 'button', label: 'lumen_debug_bench_name', descr: 'lumen_debug_bench_descr' },
       /* Task 29 (фаза 3): здесь стоял «Переход от постера» (lumen_transition).
          Волна 2 (ТВ 2026-09-24): переход при открытии карточки удалён вместе
          с настройкой — пользователь просил убрать эффект открытия. Записанное
@@ -550,10 +556,49 @@
       return out;
     }
 
+    /* Сырое значение Storage (или подмены) → то, что отдаёт LC.pref: пусто
+       — дефолт, булев дефолт — булево через boolOf. */
+    function normalize(value, def) {
+      if (typeof value === 'undefined' || value === null || value === '') return def;
+      if (typeof def === 'boolean') return boolOf(value, def);
+      return value;
+    }
+
+    /* Волна производительности: подмены настроек ТОЛЬКО в памяти — для
+       самотеста (src/69_bench.js), который гоняет главную по режимам
+       анимаций. LC.pref спрашивает их первой строкой; Storage при этом не
+       читается и не пишется, и выдернутое посреди теста питание оставляет
+       пользователю его собственные настройки. Карта копируется: правка
+       переданного объекта подмену не меняет. */
+    var overrides = null;
+
+    function override(map) {
+      overrides = null;
+      if (!map) return;
+      overrides = {};
+      for (var key in map) {
+        if (Object.prototype.hasOwnProperty.call(map, key)) overrides[key] = map[key];
+      }
+    }
+
+    function clearOverride() {
+      overrides = null;
+    }
+
+    function overridden(name) {
+      return !!overrides && Object.prototype.hasOwnProperty.call(overrides, name);
+    }
+
+    function overrideOf(name) {
+      return overrides ? overrides[name] : undefined;
+    }
+
     return {
       LIST: LIST, find: find, boolOf: boolOf, badgesMode: badgesMode,
       motionModeFor: motionModeFor, fxHeavyDefault: fxHeavyDefault,
-      PRESET_KEYS: PRESET_KEYS, presetValues: presetValues
+      PRESET_KEYS: PRESET_KEYS, presetValues: presetValues,
+      normalize: normalize, override: override, clearOverride: clearOverride,
+      overridden: overridden, overrideOf: overrideOf
     };
   })();
 
@@ -580,6 +625,7 @@
 
   /* Читает настройку плагина из Lampa.Storage с нормализацией булевых. */
   LC.pref = function (name, def) {
+    if (LC.prefs.overridden(name)) return LC.prefs.normalize(LC.prefs.overrideOf(name), def);
     var value;
     try {
       if (window.Lampa && Lampa.Storage && typeof Lampa.Storage.get === 'function') {
@@ -588,9 +634,7 @@
     } catch (e) {
       warn('storage read failed: ' + name, e);
     }
-    if (typeof value === 'undefined' || value === null || value === '') return def;
-    if (typeof def === 'boolean') return LC.prefs.boolOf(value, def);
-    return value;
+    return LC.prefs.normalize(value, def);
   };
 
   /* Task 10: главный выключатель. Выключенный плагин возвращает штатный

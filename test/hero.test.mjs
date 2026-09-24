@@ -5260,6 +5260,70 @@ test('«Кадры и трейлер»: возврат из сжатого со�
   } finally { env.restore(); }
 });
 
+/* Волна производительности: точки самотеста (src/69_bench.js) в герое. */
+test('волна perf: benchHold — смена кадров стоит на время теста и снова идёт после', () => {
+  const env = slidesEnv({ motion: 'full', heavy: true });
+  try {
+    const main = makeMain();
+    env.hero.mount(main.activity);
+    focusOn(main, main.card1);
+    env.advance(400);
+    detailsOf(env, 11).ok(FRAMES(11, '/b1.jpg'));
+    frameImg(env, '/b1.jpg').onload();
+    assert.equal(env.live().length, 1, 'предусловие: кадры идут');
+    env.hero.benchHold(true);
+    assert.equal(env.live().length, 0, 'на время теста смена кадров стоит');
+    env.hero.benchHold(false);
+    assert.equal(env.live().length, 1, 'после теста смена кадров снова идёт');
+  } finally { env.restore(); }
+});
+
+test('волна perf: benchFlip — кроссфейд двумя слоями, benchRestore возвращает кадр показа', () => {
+  const env = slidesEnv({ motion: 'full', heavy: true });
+  try {
+    const main = makeMain();
+    env.hero.mount(main.activity);
+    const stage = stageOf(heroOf(main.activity));
+    focusOn(main, main.card1);
+    env.advance(400);
+    detailsOf(env, 11).ok(FRAMES(11, '/b1.jpg'));
+    frameImg(env, '/b1.jpg').onload();
+    const a = stage.find('.lumen-hero__bg--a');
+    const b = stage.find('.lumen-hero__bg--b');
+    const shown = () => (b.hasClass('is-active') ? b : a);
+    const before = shown();
+    assert.equal(before.attr('src'), 'https://img/t/p/w1280/b1.jpg');
+    assert.equal(env.hero.benchFlip(), true);
+    assert.notEqual(shown(), before, 'показан другой слой');
+    assert.equal(shown().attr('src'), 'https://img/t/p/w1280/b1.jpg', 'скрытый слой был пуст — тот же кадр, декодировать нечего');
+    env.hero.benchFlip();
+    assert.equal(shown(), before, 'второй flip возвращает слой');
+    shown().attr('src', 'https://img/t/p/w1280/other.jpg');
+    env.hero.benchRestore();
+    assert.equal(shown().attr('src'), 'https://img/t/p/w1280/b1.jpg', 'после теста на экране кадр показа');
+  } finally { env.restore(); }
+});
+
+test('волна perf: benchFx — пресет принудительно на любом фильме, null — обратно к теме', () => {
+  const mounts = [];
+  const unmounts = [];
+  const env = makeEnv({
+    themes: { forMovie: () => null, particleColor: () => '#FFFFFF', classNames: () => '' },
+    fx: { mount: (host, preset, opts) => { mounts.push(preset); return { destroy() {} }; }, unmount: () => { unmounts.push(1); } }
+  });
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  focusOn(main, main.card1);
+  env.advance(400);
+  env.requests[0].ok({ id: 11, overview: 'о первом' });
+  assert.deepEqual(mounts, [], 'у фильма нет темы — частиц нет');
+  env.hero.benchFx('snow');
+  assert.deepEqual(mounts, ['snow'], 'самотест ставит снег без темы');
+  env.hero.benchFx(null);
+  assert.deepEqual(mounts, ['snow'], 'без теста — снова по теме фильма, то есть ничего');
+  assert.ok(unmounts.length >= 2, 'принудительный слой снят');
+});
+
 test('«Только кадры» с тяжёлыми эффектами: ушедший слой отпускает кадр после кроссфейда', () => {
   const env = slidesEnv({ motion: 'full', heavy: true });
   try {

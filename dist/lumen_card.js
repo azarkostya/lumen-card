@@ -14383,6 +14383,14 @@ warn('hero: player unlisten failed', e);
 
 var FX_CALM_MS = 1500;
 
+
+
+
+
+
+var benchPreset = null;
+var benchHeld = false;
+
 function fxHost() {
 if (!state || !state.node) return null;
 var node = state.node.find('.lumen-fx');
@@ -14408,16 +14416,24 @@ try { state.node.removeClass(LC.themes.classNames()); } catch (e2) { warn('hero:
 function applyFx() {
 if (!state) return;
 clearFx();
-if (!state.details || !LC.themes || !LC.fx) return;
+if (!LC.fx) return;
 var theme = null;
+if (benchPreset) {
+
+theme = { id: '', preset: benchPreset };
+} else {
+if (!state.details || !LC.themes) return;
 try { theme = LC.themes.forMovie(state.details); } catch (e) { warn('hero: fx theme failed', e); }
+}
 if (!theme) return;
+if (theme.id) {
 try { state.node.addClass('lumen-theme--' + theme.id); } catch (e2) { }
+}
 var host = fxHost();
 if (!host) return;
 try {
 LC.fx.mount(host, theme.preset, {
-color: LC.themes.particleColor(theme),
+color: theme.id && LC.themes ? LC.themes.particleColor(theme) : '#FFFFFF',
 
 
 
@@ -14682,7 +14698,7 @@ var SLIDE_FREE = 700;
 
 
 function slidesAllowed() {
-return motionMode() !== 'off';
+return !benchHeld && motionMode() !== 'off';
 }
 
 function slideInterval() {
@@ -16464,6 +16480,51 @@ return !!(state && state.parked);
 
 
 
+
+
+function benchHold(on) {
+benchHeld = !!on;
+applySlides();
+}
+
+
+
+function benchFx(preset) {
+benchPreset = preset || null;
+applyFx();
+}
+
+
+
+
+
+function benchFlip() {
+if (!state || !state.frameUrl) return false;
+var a = state.stage.find('.lumen-hero__bg--a');
+var b = state.stage.find('.lumen-hero__bg--b');
+var bActive = b.hasClass('is-active');
+var next = bActive ? a : b;
+var prev = bActive ? b : a;
+if (!next.attr('src')) next.attr('src', prev.attr('src') || state.frameUrl);
+next.addClass('is-active');
+prev.removeClass('is-active');
+return true;
+}
+
+
+
+
+function benchRestore() {
+if (!state || !state.frameUrl) return;
+var b = state.stage.find('.lumen-hero__bg--b');
+var shown = b.hasClass('is-active') ? b : state.stage.find('.lumen-hero__bg--a');
+if (shown.attr('src') !== state.frameUrl) shown.attr('src', state.frameUrl);
+shown.addClass('is-active');
+}
+
+
+
+
 function owns(render) {
 return ownedBy(render);
 }
@@ -16532,6 +16593,15 @@ applyMotion: applyMotion,
 
 onToggle: onToggle,
 active: active,
+
+
+
+compact: function () { return !!(state && state.compact); },
+focused: function () { return state ? state.focusEl : null; },
+benchHold: benchHold,
+benchFx: benchFx,
+benchFlip: benchFlip,
+benchRestore: benchRestore,
 
 
 
@@ -23575,6 +23645,17 @@ source = ownRgb(target);
 paint(false);
 }
 
+
+
+
+
+function drive(rgb, instant) {
+target = ownRgb(rgb || null);
+if (!instant && tweenWanted(false, target) && LC.enabled()) startTween(source, target);
+else { stopTween(); source = ownRgb(target); }
+paint();
+}
+
 function rebuild() {
 if (!LC.enabled()) return;
 try {
@@ -23797,6 +23878,7 @@ reset: reset,
 restyle: restyle,
 
 repaint: repaint,
+drive: drive,
 
 
 
@@ -28860,6 +28942,10 @@ var cached;
 
 
 
+var held = false;
+
+
+
 
 
 function median(list) {
@@ -29039,6 +29125,7 @@ return false;
 
 
 function shouldMeasure(source) {
+if (held) return false;
 try {
 if (!LC.enabled()) return false;
 } catch (e) {
@@ -29157,6 +29244,13 @@ unraf(frame);
 frame = 0;
 }
 
+
+
+function hold(on) {
+held = !!on;
+if (held) stop();
+}
+
 return {
 decide: decide,
 merge: merge,
@@ -29167,11 +29261,699 @@ mode: mode,
 weakHardware: weakHardware,
 track: track,
 stop: stop,
+hold: hold,
 samples: function () { return samples.slice(); }
 };
 })();
 
 if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.perf;
+
+
+/* ---- 69_bench.js ---- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+LC.bench = (function () {
+
+
+var LEAVE_MS = 600;
+var WARM_MS = 1000;
+var MEASURE_MS = 5000;
+
+var FLIP_MS = 1500;
+
+var TINT_MS = 2000;
+
+var MOVE_MS = 400;
+var MOVES = 6;
+
+var ANIM_MS = 500;
+
+var UP_TRIES = 6;
+
+
+
+
+var FONT_PX = 15;
+var CHAR_EM = 0.6;
+var PAD_PX = 24;
+var SCREEN_W = 960;
+var MAX_COLS = Math.floor((SCREEN_W - 2 * PAD_PX) / (FONT_PX * CHAR_EM));
+
+
+
+var TINTS = [{ r: 168, g: 72, b: 56 }, { r: 56, g: 96, b: 168 }];
+
+var STAGES = [
+{ id: 'lite idle', motion: 'lite' },
+{ id: 'full idle', motion: 'full' },
+{ id: '+fx', motion: 'full', heavy: true, fx: true },
+{ id: '+frames', motion: 'full', heavy: true, fx: true, flip: true },
+{ id: '+tint', motion: 'full', heavy: true, fx: true, flip: true, tint: true },
+{ id: 'lite scroll', motion: 'lite', scroll: true },
+{ id: 'full scroll', motion: 'full', heavy: true, scroll: true },
+{ id: 'all', motion: 'full', heavy: true, fx: true, flip: true, tint: true, scroll: true }
+];
+
+
+
+
+
+
+
+
+
+function overridesFor(stage) {
+return {
+lumen_motion: stage.motion,
+lumen_fx_heavy: !!stage.heavy,
+lumen_fx: 'off',
+lumen_trailer: 'off',
+lumen_hero_media: 'frames',
+lumen_hero_trailer: false
+};
+}
+
+function num(a, b) { return a - b; }
+
+function r1(x) { return Math.round(x * 10) / 10; }
+
+
+function pct(sorted, q) {
+if (!sorted.length) return 0;
+var i = Math.ceil(q * sorted.length) - 1;
+return sorted[i < 0 ? 0 : (i >= sorted.length ? sorted.length - 1 : i)];
+}
+
+
+function period(deltas) {
+if (!deltas.length) return 0;
+var d = deltas.slice().sort(num);
+return d[Math.floor(d.length / 2)];
+}
+
+function summarize(deltas, lats, P) {
+var d = deltas.slice().sort(num);
+var l = lats.slice().sort(num);
+var sum = 0;
+var miss1 = 0;
+var miss2 = 0;
+for (var i = 0; i < d.length; i++) {
+sum += d[i];
+if (P > 0 && d[i] > 2.5 * P) miss2++;
+else if (P > 0 && d[i] > 1.5 * P) miss1++;
+}
+return {
+frames: d.length, fps: sum > 0 ? r1(d.length * 1000 / sum) : 0,
+p50: r1(pct(d, 0.5)), p95: r1(pct(d, 0.95)), miss1: miss1, miss2: miss2,
+lat95: l.length ? r1(pct(l, 0.95)) : null
+};
+}
+
+function cut(text, max) {
+text = '' + text;
+return text.length > max ? text.slice(0, max - 1) + '…' : text;
+}
+
+function pad(text, width, left) {
+text = cut(text, width);
+while (text.length < width) text = left ? text + ' ' : ' ' + text;
+return text;
+}
+
+function hostOf(url) {
+var m = /^[a-z][a-z0-9+.-]*:\/\/([^\/?#]+)/i.exec(url || '');
+return m ? m[1] : '';
+}
+
+function na(v, fmt) {
+return v === null || typeof v === 'undefined' || v < 0 ? 'n/a' : (fmt ? fmt(v) : '' + v);
+}
+
+function fixed(v) { return (Math.round(v * 10) / 10).toFixed(1); }
+
+function fixed2(v) { return (Math.round(v * 100) / 100).toFixed(2); }
+
+
+var COLS = [['#', 2], ['stage', 13, true], ['fps', 6], ['p50', 7], ['p95', 8], ['-1', 6], ['-2+', 5],
+['loaf n/ms', 12], ['lat95', 7], ['anim', 6], ['fx ms', 7]];
+
+function line(cells) {
+var out = '';
+for (var i = 0; i < COLS.length; i++) out += pad(cells[i], COLS[i][1], COLS[i][2]) + (i < COLS.length - 1 ? ' ' : '');
+return out.replace(/\s+$/, '');
+}
+
+function rowLine(row) {
+return line([
+'' + row.n, row.id + (row.partial ? '*' : ''),
+row.frames ? fixed(row.fps) : '-', row.frames ? fixed(row.p50) : '-', row.frames ? fixed(row.p95) : '-',
+'' + row.miss1, '' + row.miss2,
+row.loafN === null || typeof row.loafN === 'undefined' ? 'n/a' : row.loafN + '/' + Math.round(row.loafMs),
+na(row.lat95, fixed), na(row.anim), na(row.fxMs, fixed2)
+]);
+}
+
+function lang(key, fallback) {
+try {
+if (typeof LC.lang === 'function') {
+var s = LC.lang(key);
+if (s && s !== key) return s;
+}
+} catch (e) { }
+return fallback;
+}
+
+
+
+
+
+function table(result) {
+var out = [];
+out.push(cut('cr ' + result.cr + ' · hw ' + result.hw + ' · ' + result.w + '×' + result.h + '@' + result.dpr +
+' · P ' + fixed(result.P || 0) + ' · ' + result.time + ' · v' + result.version, MAX_COLS));
+out.push('');
+out.push(line(COLS.map(function (c) { return c[0]; })));
+var worst = null;
+for (var i = 0; i < result.rows.length; i++) {
+var row = result.rows[i];
+out.push(rowLine(row));
+if (row.worst && (!worst || row.worst.ms > worst.ms)) worst = { ms: row.worst.ms, host: row.worst.host, n: row.n, id: row.id };
+}
+out.push('');
+if (worst) {
+out.push(cut('loaf max: #' + worst.n + ' ' + worst.id + ' · ' + Math.round(worst.ms) + ' ms · ' + (worst.host || 'n/a'), MAX_COLS));
+}
+if (result.reason && result.reason !== 'done') {
+out.push(cut(lang('lumen_bench_stopped', 'stopped') + ': ' + result.reason + ' · ' + result.stoppedAt + '/' + STAGES.length, MAX_COLS));
+}
+out.push(cut(lang('lumen_bench_back', 'Back — close'), MAX_COLS));
+return out;
+}
+
+
+
+
+
+function setT(fn, ms) {
+var hook = api._timers;
+if (hook && typeof hook.set === 'function') return hook.set(fn, ms);
+try { return setTimeout(fn, ms); } catch (e) { return 0; }
+}
+
+function clearT(id) {
+if (!id) return;
+var hook = api._timers;
+if (hook && typeof hook.clear === 'function') { hook.clear(id); return; }
+try { clearTimeout(id); } catch (e) { }
+}
+
+function raf(fn) {
+try { if (window.requestAnimationFrame) return window.requestAnimationFrame(fn); } catch (e) { }
+return 0;
+}
+
+function unraf(id) {
+try { if (id && window.cancelAnimationFrame) window.cancelAnimationFrame(id); } catch (e) { }
+}
+
+function perfNow() {
+try {
+if (window.performance && typeof window.performance.now === 'function') return window.performance.now();
+} catch (e) { }
+return -1;
+}
+
+function lampa() {
+try { return window.Lampa || null; } catch (e) { return null; }
+}
+
+function log(text) {
+if (typeof api._log === 'function') { api._log(text); return; }
+try { if (typeof console !== 'undefined' && console.log) console.log(text); } catch (e) { }
+}
+
+function safe(fn) {
+try { fn(); } catch (e) { warn('bench: cleanup step failed', e); }
+}
+
+function hero() { return LC.hero || null; }
+
+function heroCompact() {
+try { return !!(hero() && hero().compact()); } catch (e) { return false; }
+}
+
+function heroFocused() {
+try { return hero() ? hero().focused() : null; } catch (e) { return null; }
+}
+
+
+
+
+
+function blocked() {
+try {
+var h = hero();
+if (!h || !h.active() || h.parked()) return 'home';
+if (document.hidden) return 'hidden';
+var cls = document.body.classList;
+if (cls && (cls.contains('settings--open') || cls.contains('selectbox--open') || cls.contains('menu--open'))) return 'overlay';
+if (document.querySelector('.modal,.youtube-player,.player,.search-box,.search')) return 'overlay';
+} catch (e) {
+return 'error';
+}
+return '';
+}
+
+function animCount() {
+try {
+if (typeof document.getAnimations === 'function') return document.getAnimations().length;
+} catch (e) { }
+return -1;
+}
+
+function fxStats() {
+try { if (LC.fx && typeof LC.fx.stats === 'function') return LC.fx.stats(); } catch (e) { }
+return null;
+}
+
+
+
+function fxAvg(from, to) {
+if (!from || !to) return null;
+var frames = to.frames - from.frames;
+if (!(frames > 0)) return null;
+return (to.avgMs * to.frames - from.avgMs * from.frames) / frames;
+}
+
+
+
+
+function scriptOf(entry) {
+var list = entry && entry.scripts;
+var best = null;
+for (var i = 0; list && i < list.length; i++) {
+if (!best || Number(list[i].duration) > Number(best.duration)) best = list[i];
+}
+if (!best) return '';
+return cut((hostOf(best.sourceURL) || 'inline') + (best.invoker ? ' ' + best.invoker : ''), 48);
+}
+
+
+
+
+
+var run = null;
+var pending = 0;
+var last = null;
+var screen = null;
+
+function later(r, ms, fn) {
+r.timers.push(setT(function () {
+if (run !== r) return;
+try { fn(); } catch (e) { warn('bench: stage failed', e); finish('error'); }
+}, ms));
+}
+
+function every(r, ms, fn) {
+later(r, ms, function tick() {
+fn();
+later(r, ms, tick);
+});
+}
+
+function clearStage(r) {
+for (var i = 0; i < r.timers.length; i++) clearT(r.timers[i]);
+r.timers = [];
+}
+
+function frame(t) {
+var r = run;
+if (!r) return;
+var n = perfNow();
+if (r.phase === 'measure') {
+if (r.prevT) r.deltas.push(t - r.prevT);
+if (n >= 0) r.lats.push(n - t > 0 ? n - t : 0);
+}
+r.prevT = t;
+r.raf = raf(frame);
+}
+
+function onLoaf(list) {
+var r = run;
+if (!r || r.phase !== 'measure') return;
+var entries = list.getEntries();
+for (var i = 0; i < entries.length; i++) {
+var e = entries[i];
+if (r.measureFrom >= 0 && e.startTime < r.measureFrom) continue;
+var ms = Number(e.blockingDuration) || 0;
+r.loaf.n++;
+r.loaf.ms += ms;
+if (!r.loaf.worst || ms > r.loaf.worst.ms) r.loaf.worst = { ms: ms, host: scriptOf(e) };
+}
+}
+
+function observeLoaf() {
+try {
+var PO = window.PerformanceObserver;
+if (!PO || !PO.supportedEntryTypes || PO.supportedEntryTypes.indexOf('long-animation-frame') === -1) return null;
+var obs = new PO(onLoaf);
+obs.observe({ type: 'long-animation-frame' });
+return obs;
+} catch (e) { }
+return null;
+}
+
+function listen(r) {
+var L = lampa();
+r.onKey = function (e) {
+try {
+if (e && e.stopPropagation) e.stopPropagation();
+if (e && e.preventDefault) e.preventDefault();
+} catch (x) { }
+finish('key');
+};
+r.onVis = function () { if (document.hidden) finish('hidden'); };
+r.onAct = function (e) { if (e && e.type === 'start') finish('activity'); };
+r.onToggle = function (e) { if (e && e.name !== 'content') finish('toggle'); };
+try { window.addEventListener('keydown', r.onKey, true); } catch (e1) { }
+try { document.addEventListener('visibilitychange', r.onVis); } catch (e2) { }
+try { if (L && L.Listener) L.Listener.follow('activity', r.onAct); } catch (e3) { }
+try { if (L && L.Controller && L.Controller.listener) L.Controller.listener.follow('toggle', r.onToggle); } catch (e4) { }
+}
+
+function unlisten(r) {
+var L = lampa();
+try { window.removeEventListener('keydown', r.onKey, true); } catch (e1) { }
+try { document.removeEventListener('visibilitychange', r.onVis); } catch (e2) { }
+try { if (L && L.Listener) L.Listener.remove('activity', r.onAct); } catch (e3) { }
+try { if (L && L.Controller && L.Controller.listener) L.Controller.listener.remove('toggle', r.onToggle); } catch (e4) { }
+}
+
+
+
+function tag(r) {
+try {
+var n = document.createElement('div');
+n.className = 'lumen-bench-tag';
+n.style.cssText = 'position:fixed;top:8px;right:12px;z-index:10000;padding:4px 8px;background:rgba(0,0,0,.7);' +
+'color:#EDE6DA;font:13px/1.3 monospace;pointer-events:none';
+document.body.appendChild(n);
+r.tag = n;
+} catch (e) { }
+}
+
+function tagText(r) {
+try {
+if (r.tag) r.tag.textContent = (r.step + 1) + '/' + STAGES.length + ' ' + STAGES[r.step].id + ' · ' + lang('lumen_bench_running', 'test · any key stops');
+} catch (e) { }
+}
+
+
+
+function apply() {
+if (typeof LC.applyMotionMode === 'function') LC.applyMotionMode();
+if (hero()) hero().applyMotion();
+if (LC.accent && LC.accent.repaint) LC.accent.repaint();
+}
+
+function next(r) {
+clearStage(r);
+r.step++;
+if (r.step >= STAGES.length) { finish('done'); return; }
+if (blocked()) { finish('activity'); return; }
+var st = STAGES[r.step];
+r.phase = 'warm';
+r.deltas = [];
+r.lats = [];
+r.loaf = { n: 0, ms: 0, worst: null };
+r.anim = -1;
+r.fx0 = null;
+r.measureFrom = -1;
+LC.prefs.override(overridesFor(st));
+apply();
+hero().benchFx(st.fx ? 'snow' : null);
+tagText(r);
+if (st.flip) every(r, FLIP_MS, function () { hero().benchFlip(); });
+if (st.tint) {
+var k = 0;
+every(r, TINT_MS, function () { LC.accent.drive(TINTS[k++ % TINTS.length]); });
+}
+later(r, WARM_MS, function () { measure(r, st); });
+later(r, WARM_MS + MEASURE_MS, function () {
+r.rows.push(rowOf(r, false));
+next(r);
+});
+}
+
+function measure(r, st) {
+r.phase = 'measure';
+r.prevT = 0;
+r.measureFrom = perfNow();
+r.fx0 = fxStats();
+r.anim = animCount();
+every(r, ANIM_MS, function () {
+var n = animCount();
+if (n > r.anim) r.anim = n;
+});
+if (st.scroll) scroll(r);
+}
+
+
+
+
+function scroll(r) {
+var L = lampa();
+var rights = 0;
+var k = 0;
+function step() {
+if (k < MOVES) {
+var before = heroFocused();
+L.Controller.move('right');
+if (heroFocused() !== before) rights++;
+} else if (rights > 0) {
+L.Controller.move('left');
+rights--;
+} else {
+return;
+}
+k++;
+later(r, MOVE_MS, step);
+}
+step();
+}
+
+function rowOf(r, partial) {
+var st = STAGES[r.step];
+
+
+if (!r.P && r.deltas.length >= 10) r.P = period(r.deltas);
+var s = summarize(r.deltas, r.lats, r.P || period(r.deltas));
+return {
+n: r.step + 1, id: st.id, partial: !!partial, frames: s.frames, fps: s.fps, p50: s.p50, p95: s.p95,
+miss1: s.miss1, miss2: s.miss2, lat95: s.lat95,
+loafN: r.obs ? r.loaf.n : null, loafMs: r.obs ? r.loaf.ms : 0, worst: r.loaf.worst,
+anim: r.anim, fxMs: fxAvg(r.fx0, fxStats())
+};
+}
+
+function pad2(n) { return n < 10 ? '0' + n : '' + n; }
+
+function resultOf(r, reason) {
+var hud = LC.hud || {};
+var d = new Date();
+var dpr = 1;
+try { dpr = Math.round((window.devicePixelRatio || 1) * 100) / 100; } catch (e) { }
+return {
+version: LC.VERSION || '', cr: typeof hud.chrome === 'function' ? hud.chrome() : 'n/a',
+hw: typeof hud.hardware === 'function' ? hud.hardware() : 'n/a',
+w: window.innerWidth, h: window.innerHeight, dpr: dpr, P: r1(r.P || 0),
+time: pad2(d.getHours()) + ':' + pad2(d.getMinutes()),
+reason: reason, stoppedAt: Math.min(r.step + 1, STAGES.length), rows: r.rows
+};
+}
+
+
+
+
+
+function refocus(r) {
+var el = r.startEl;
+if (!el || heroFocused() === el) return;
+var L = lampa();
+if (!L || !L.Controller) return;
+var on = L.Controller.enabled ? L.Controller.enabled() : null;
+if (on && on.name && on.name !== 'content') return;
+L.Controller.collectionFocus(el, el.parentNode || document.body);
+}
+
+
+
+
+function finish(reason) {
+var r = run;
+if (!r) return;
+if (reason !== 'done' && r.phase === 'measure') {
+try { r.rows.push(rowOf(r, true)); } catch (e) { }
+}
+run = null;
+clearStage(r);
+unraf(r.raf);
+try { if (r.obs) r.obs.disconnect(); } catch (e1) { }
+unlisten(r);
+try { if (r.tag && r.tag.parentNode) r.tag.parentNode.removeChild(r.tag); } catch (e2) { }
+safe(function () { LC.prefs.clearOverride(); });
+safe(function () { hero().benchFx(null); });
+safe(function () { hero().benchHold(false); });
+safe(function () { hero().benchRestore(); });
+safe(function () { LC.applyMotionMode(); });
+safe(function () { hero().applyMotion(); });
+safe(function () { hero().applyFx(); });
+safe(function () { LC.accent.drive(r.tintSaved, true); });
+safe(function () { LC.accent.repaint(); });
+safe(function () { LC.perf.hold(false); });
+safe(function () { refocus(r); });
+var result = resultOf(r, reason);
+last = result;
+safe(function () { log('[lumen-card] bench ' + JSON.stringify(result)); });
+safe(function () { show(result); });
+}
+
+
+
+
+
+function show(result) {
+close();
+var node = document.createElement('div');
+node.className = 'lumen-bench';
+node.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;z-index:10001;margin:0;padding:' + PAD_PX + 'px;' +
+'box-sizing:border-box;background:#0B0908;color:#EDE6DA;font:' + FONT_PX + 'px/1.45 monospace;' +
+'white-space:pre;overflow:hidden';
+node.textContent = table(result).join('\n');
+node.onclick = close;
+document.body.appendChild(node);
+screen = node;
+var L = lampa();
+if (L && L.Controller) {
+var noop = function () { };
+L.Controller.add('lumen_bench', {
+toggle: function () { try { L.Controller.collectionSet(node); } catch (e) { } },
+back: close, up: noop, down: noop, left: noop, right: noop, enter: noop
+});
+L.Controller.toggle('lumen_bench');
+}
+}
+
+function close() {
+if (!screen) return;
+var node = screen;
+screen = null;
+try { if (node.parentNode) node.parentNode.removeChild(node); } catch (e) { }
+try { lampa().Controller.toggle('content'); } catch (e2) { }
+}
+
+function noty(text) {
+try {
+var L = lampa();
+if (L && L.Noty && typeof L.Noty.show === 'function') L.Noty.show(text);
+} catch (e) { }
+}
+
+function launch() {
+var L = lampa();
+
+
+for (var i = 0; i < UP_TRIES && heroCompact() && !blocked(); i++) {
+try { L.Controller.move('up'); } catch (e) { break; }
+}
+if (blocked() || heroCompact()) {
+noty(lang('lumen_bench_need_home', 'Lumen Card: open the home screen and start the test again'));
+return;
+}
+var r = {
+step: -1, rows: [], P: 0, timers: [], raf: 0, phase: 'idle', prevT: 0, deltas: [], lats: [],
+loaf: { n: 0, ms: 0, worst: null }, anim: -1, fx0: null, measureFrom: -1, obs: null,
+startEl: heroFocused(), tintSaved: null, tag: null
+};
+run = r;
+try {
+LC.perf.hold(true);
+hero().benchHold(true);
+r.tintSaved = LC.accent && LC.accent.target ? LC.accent.target() : null;
+r.obs = observeLoaf();
+listen(r);
+tag(r);
+r.raf = raf(frame);
+next(r);
+} catch (e) {
+warn('bench: start failed', e);
+finish('error');
+}
+}
+
+
+
+
+
+
+function start() {
+if (run || pending) return;
+pending = setT(function () {
+pending = 0;
+var L = lampa();
+try { if (L && L.Controller && L.Controller.toContent) L.Controller.toContent(); } catch (e) { }
+try { if (L && L.Controller) L.Controller.toggle('content'); } catch (e2) { }
+pending = setT(function () {
+pending = 0;
+launch();
+}, LEAVE_MS);
+}, 0);
+}
+
+var api = {
+STAGES: STAGES, MAX_COLS: MAX_COLS, FONT_PX: FONT_PX, CHAR_EM: CHAR_EM, PAD_PX: PAD_PX,
+overridesFor: overridesFor, summarize: summarize, period: period, table: table,
+start: start,
+
+stop: function () { finish('stop'); },
+running: function () { return !!run; },
+
+last: function () { return last; },
+
+_timers: null,
+_log: null
+};
+return api;
+})();
+
+if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.bench;
 
 
 /* ---- 69_hud.js ---- */
@@ -30261,6 +31043,23 @@ uk: 'Лічильник кадрів, довгі задачі, роздільн�
 
 
 
+lumen_debug_bench_name: { ru: 'Отладка: тест производительности', en: 'Debug: performance test', uk: 'Налагодження: тест продуктивності' },
+lumen_debug_bench_descr: {
+ru: 'Около минуты гоняет главную в восьми режимах и показывает таблицу — сфотографируйте её целиком. Запускайте с главной, фокус на первом ряду. Ваши настройки не меняются; любая кнопка прерывает тест.',
+en: 'Runs the home screen through eight modes for about a minute and shows a table — take one photo of it. Start from the home screen with focus on the first row. Your settings are not changed; any key stops the test.',
+uk: 'Близько хвилини ганяє головну у восьми режимах і показує таблицю — сфотографуйте її цілком. Запускайте з головної, фокус на першому ряду. Ваші налаштування не змінюються; будь-яка кнопка перериває тест.'
+},
+lumen_bench_need_home: {
+ru: 'Тест производительности запускается с главной: откройте главную и нажмите кнопку снова',
+en: 'The performance test runs from the home screen: open it and press the button again',
+uk: 'Тест продуктивності запускається з головної: відкрийте головну й натисніть кнопку знову'
+},
+lumen_bench_running: { ru: 'тест · любая кнопка — стоп', en: 'test · any key stops', uk: 'тест · будь-яка кнопка — стоп' },
+lumen_bench_stopped: { ru: 'прервано', en: 'stopped', uk: 'перервано' },
+lumen_bench_back: { ru: 'Назад — закрыть', en: 'Back — close', uk: 'Назад — закрити' },
+
+
+
 lumen_card_continue: { ru: 'Продолжить', en: 'Continue', uk: 'Продовжити' },
 lumen_card_serial: { ru: 'СЕРИАЛ', en: 'SERIES', uk: 'СЕРІАЛ' },
 lumen_card_min: { ru: 'мин', en: 'min', uk: 'хв' },
@@ -31200,6 +31999,9 @@ return true;
 if (name === 'lumen_preset_appletv' || name === 'lumen_preset_lumen') return true;
 
 
+if (name === 'lumen_debug_bench') return true;
+
+
 
 
 if (name === 'lumen_roulette_unseen') return true;
@@ -31410,6 +32212,9 @@ return function () {
 if (name === 'lumen_home_rows') openHomeRows();
 else if (name === 'lumen_preset_appletv') applyPreset('appletv');
 else if (name === 'lumen_preset_lumen') applyPreset('lumen');
+else if (name === 'lumen_debug_bench') {
+try { if (LC.bench) LC.bench.start(); } catch (e) { warn('bench start failed', e); }
+}
 };
 }
 
@@ -31741,6 +32546,12 @@ var LIST = [
 
 
 
+{ name: 'lumen_debug_bench', type: 'button', label: 'lumen_debug_bench_name', descr: 'lumen_debug_bench_descr' },
+
+
+
+
+
 
 
 
@@ -32061,10 +32872,49 @@ out[key] = value;
 return out;
 }
 
+
+
+function normalize(value, def) {
+if (typeof value === 'undefined' || value === null || value === '') return def;
+if (typeof def === 'boolean') return boolOf(value, def);
+return value;
+}
+
+
+
+
+
+
+
+var overrides = null;
+
+function override(map) {
+overrides = null;
+if (!map) return;
+overrides = {};
+for (var key in map) {
+if (Object.prototype.hasOwnProperty.call(map, key)) overrides[key] = map[key];
+}
+}
+
+function clearOverride() {
+overrides = null;
+}
+
+function overridden(name) {
+return !!overrides && Object.prototype.hasOwnProperty.call(overrides, name);
+}
+
+function overrideOf(name) {
+return overrides ? overrides[name] : undefined;
+}
+
 return {
 LIST: LIST, find: find, boolOf: boolOf, badgesMode: badgesMode,
 motionModeFor: motionModeFor, fxHeavyDefault: fxHeavyDefault,
-PRESET_KEYS: PRESET_KEYS, presetValues: presetValues
+PRESET_KEYS: PRESET_KEYS, presetValues: presetValues,
+normalize: normalize, override: override, clearOverride: clearOverride,
+overridden: overridden, overrideOf: overrideOf
 };
 })();
 
@@ -32091,6 +32941,7 @@ return platform;
 
 
 LC.pref = function (name, def) {
+if (LC.prefs.overridden(name)) return LC.prefs.normalize(LC.prefs.overrideOf(name), def);
 var value;
 try {
 if (window.Lampa && Lampa.Storage && typeof Lampa.Storage.get === 'function') {
@@ -32099,9 +32950,7 @@ value = Lampa.Storage.get(name, def);
 } catch (e) {
 warn('storage read failed: ' + name, e);
 }
-if (typeof value === 'undefined' || value === null || value === '') return def;
-if (typeof def === 'boolean') return LC.prefs.boolOf(value, def);
-return value;
+return LC.prefs.normalize(value, def);
 };
 
 

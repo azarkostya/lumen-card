@@ -1590,6 +1590,27 @@ test('волна perf: у подложки рядов нет CSS-переход�
   });
 });
 
+/* Волна производительности: самотест ведёт фон к заданному цвету тем же
+   путём шагов, что смена фильма (стадия «+tint»), и возвращает исходный
+   цвет сразу. */
+test('волна perf: drive — путь шагами в full, instant — сразу', () => {
+  const dom = fakeDom({ datas: [WARM_POSTER, COLD_POSTER] });
+  withDom(dom, () => {
+    const ctx = accentCtx({ prefs: {} });
+    ctx.LC.accent.applyFor({ poster_path: '/warm.jpg' });
+    dom.state.images[0].onload();
+    const saved = ctx.LC.accent.target();
+    ctx.LC.accent.drive({ r: 56, g: 96, b: 168 });
+    assert.deepEqual(ctx.LC.accent.target(), { r: 56, g: 96, b: 168 });
+    assert.notDeepEqual(ctx.LC.accent.dominant(), { r: 56, g: 96, b: 168 }, 'в full — не прыжком');
+    dom.state.advance(1600);
+    assert.deepEqual(ctx.LC.accent.dominant(), { r: 56, g: 96, b: 168 }, 'путь доехал');
+    ctx.LC.accent.drive(saved, true);
+    assert.deepEqual(ctx.LC.accent.dominant(), saved, 'возврат — сразу');
+    assert.equal(dom.state.timers.filter((t) => !t.done).length, 0, 'висящих шагов нет');
+  });
+});
+
 /* ====================================================================== */
 /* Task 60 (ревью): переход не имеет права пережить свой экран.            */
 /* ====================================================================== */

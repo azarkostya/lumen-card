@@ -369,6 +369,23 @@
       en: 'Frame counter, long tasks, resolution and animation mode in the screen corner. For testing on a TV.',
       uk: 'Лічильник кадрів, довгі задачі, роздільність та режим анімацій у кутку екрана. Для перевірки на телевізорі.'
     },
+    /* Волна производительности: самотест на ТВ (src/69_bench.js). Строки
+       экрана таблицы и отказа — здесь же: их видит только тот, кто нажал
+       эту кнопку. */
+    lumen_debug_bench_name: { ru: 'Отладка: тест производительности', en: 'Debug: performance test', uk: 'Налагодження: тест продуктивності' },
+    lumen_debug_bench_descr: {
+      ru: 'Около минуты гоняет главную в восьми режимах и показывает таблицу — сфотографируйте её целиком. Запускайте с главной, фокус на первом ряду. Ваши настройки не меняются; любая кнопка прерывает тест.',
+      en: 'Runs the home screen through eight modes for about a minute and shows a table — take one photo of it. Start from the home screen with focus on the first row. Your settings are not changed; any key stops the test.',
+      uk: 'Близько хвилини ганяє головну у восьми режимах і показує таблицю — сфотографуйте її цілком. Запускайте з головної, фокус на першому ряду. Ваші налаштування не змінюються; будь-яка кнопка перериває тест.'
+    },
+    lumen_bench_need_home: {
+      ru: 'Тест производительности запускается с главной: откройте главную и нажмите кнопку снова',
+      en: 'The performance test runs from the home screen: open it and press the button again',
+      uk: 'Тест продуктивності запускається з головної: відкрийте головну й натисніть кнопку знову'
+    },
+    lumen_bench_running: { ru: 'тест · любая кнопка — стоп', en: 'test · any key stops', uk: 'тест · будь-яка кнопка — стоп' },
+    lumen_bench_stopped: { ru: 'прервано', en: 'stopped', uk: 'перервано' },
+    lumen_bench_back: { ru: 'Назад — закрыть', en: 'Back — close', uk: 'Назад — закрити' },
     /* Task 8: строка ушла из блока прогресса на кнопку «Смотреть» —
        «Продолжить S2 E3» (экран 05). В самой строке прогресса подписи
        «ПРОДОЛЖИТЬ» больше нет: по design-spec §6 там таймкод и процент. */
@@ -1309,6 +1326,9 @@
        то есть фильтр вернул бы false, а не пересборку CSS (поправка
        ревью, М1). */
     if (name === 'lumen_preset_appletv' || name === 'lumen_preset_lumen') return true;
+    /* Волна производительности: кнопка самотеста — то же, что у кнопок
+       стиля: значения нет, работу делает нажатие (onButtonFor). */
+    if (name === 'lumen_debug_bench') return true;
     /* Task 23 (фаза 3): фильтр «не смотрел» читается при входе в рулетку
        (src/56_roulette.js), поэтому применять на лету нечего — на открытом
        экране его состоянием управляет чип. Ветка нужна, чтобы имя не ушло
@@ -1521,6 +1541,9 @@
       if (name === 'lumen_home_rows') openHomeRows();
       else if (name === 'lumen_preset_appletv') applyPreset('appletv');
       else if (name === 'lumen_preset_lumen') applyPreset('lumen');
+      else if (name === 'lumen_debug_bench') {
+        try { if (LC.bench) LC.bench.start(); } catch (e) { warn('bench start failed', e); }
+      }
     };
   }
 

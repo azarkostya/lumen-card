@@ -271,6 +271,25 @@ test('stop: висящий кадр отменяется и замер не до
   assert.equal(e.api.samples().length, 0);
 });
 
+/* Волна производительности: самотест (src/69_bench.js) гоняет главную по
+   стадиям с подменёнными режимами, и первый кадр тяжёлого экрана в это
+   время — замер не устройства, а теста. На время прогона автодетект молчит:
+   track() не заказывает кадров, висящий замер снимается. */
+test('hold: на время самотеста track молчит, висящий замер снят; после — мерит снова', () => {
+  const e = env();
+  e.api.track();
+  assert.equal(e.frames.length, 1, 'предусловие: замер начался');
+  e.api.hold(true);
+  assert.equal(e.frames.length, 0, 'висящий замер снят');
+  e.api.track('card');
+  e.api.track('main');
+  assert.equal(e.frames.length, 0, 'под самотестом кадров не заказано');
+  assert.equal(e.api.samples().length, 0);
+  e.api.hold(false);
+  e.api.track('card');
+  assert.equal(e.frames.length, 1, 'после самотеста замер снова идёт');
+});
+
 test('mode: вердикт из Storage — его читает LC.motionMode', () => {
   const e = env({ store: { lumen_motion_auto: { mode: 'lite', good: 1 } } });
   assert.equal(e.api.mode(), 'lite');

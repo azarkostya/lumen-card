@@ -1163,6 +1163,14 @@
        (предикат paused в applyFx ниже). */
     var FX_CALM_MS = 1500;
 
+    /* Волна производительности: самотест (src/69_bench.js). benchPreset —
+       слой частиц этим пресетом независимо от темы фильма (стадия «+fx»
+       меряет частицы на любом фильме); benchHeld — смена кадров стоит,
+       кадры меняет сам тест (benchFlip), и тик слайдшоу посреди замера
+       покоя испортил бы строку таблицы. Оба снимаются уборкой теста. */
+    var benchPreset = null;
+    var benchHeld = false;
+
     function fxHost() {
       if (!state || !state.node) return null;
       var node = state.node.find('.lumen-fx');
@@ -1188,16 +1196,24 @@
     function applyFx() {
       if (!state) return;
       clearFx();
-      if (!state.details || !LC.themes || !LC.fx) return;
+      if (!LC.fx) return;
       var theme = null;
-      try { theme = LC.themes.forMovie(state.details); } catch (e) { warn('hero: fx theme failed', e); }
+      if (benchPreset) {
+        /* Самотест: пресет принудительно, без класса темы и её цвета. */
+        theme = { id: '', preset: benchPreset };
+      } else {
+        if (!state.details || !LC.themes) return;
+        try { theme = LC.themes.forMovie(state.details); } catch (e) { warn('hero: fx theme failed', e); }
+      }
       if (!theme) return;
-      try { state.node.addClass('lumen-theme--' + theme.id); } catch (e2) { }
+      if (theme.id) {
+        try { state.node.addClass('lumen-theme--' + theme.id); } catch (e2) { }
+      }
       var host = fxHost();
       if (!host) return;
       try {
         LC.fx.mount(host, theme.preset, {
-          color: LC.themes.particleColor(theme),
+          color: theme.id && LC.themes ? LC.themes.particleColor(theme) : '#FFFFFF',
           /* Под играющим автотрейлером частицы стоят: ролик занимает весь
              кадр героя, и рисовать поверх него — двойная работа впустую.
              Ревью Task 64: то же в сжатом состоянии. Слой атмосферы при
@@ -1462,7 +1478,7 @@
        трейлер» (heroMedia выше) — смену запрещает только режим «Выкл».
        В 'trailer' её на время ролика держит пауза (trailerOn). */
     function slidesAllowed() {
-      return motionMode() !== 'off';
+      return !benchHeld && motionMode() !== 'off';
     }
 
     function slideInterval() {
@@ -3241,6 +3257,51 @@
       return !!(state && state.parked);
     }
 
+    /* ------------------------------------------------------------------ */
+    /* Волна производительности: точки самотеста (src/69_bench.js).        */
+    /* ------------------------------------------------------------------ */
+
+    /* Смена кадров стоит на время теста (и снова идёт после). */
+    function benchHold(on) {
+      benchHeld = !!on;
+      applySlides();
+    }
+
+    /* Слой частиц пресетом preset поверх любого фильма; null — обратно к
+       теме фильма. */
+    function benchFx(preset) {
+      benchPreset = preset || null;
+      applyFx();
+    }
+
+    /* Кроссфейд двух уже декодированных кадров — тем же путём, что в
+       swapFrame (приходит верхний или нижний слой). Второй кадр — тот, что
+       остался в скрытом слое от прошлой смены; скрытый слой пуст — тот же
+       кадр, что на экране: цена перехода та же, декодировать нечего. */
+    function benchFlip() {
+      if (!state || !state.frameUrl) return false;
+      var a = state.stage.find('.lumen-hero__bg--a');
+      var b = state.stage.find('.lumen-hero__bg--b');
+      var bActive = b.hasClass('is-active');
+      var next = bActive ? a : b;
+      var prev = bActive ? b : a;
+      if (!next.attr('src')) next.attr('src', prev.attr('src') || state.frameUrl);
+      next.addClass('is-active');
+      prev.removeClass('is-active');
+      return true;
+    }
+
+    /* После теста на экране — кадр показа (state.frameUrl), а не тот, что
+       оставил последний benchFlip. Подмена в показанном слое: кадр в кэше
+       и декодирован. */
+    function benchRestore() {
+      if (!state || !state.frameUrl) return;
+      var b = state.stage.find('.lumen-hero__bg--b');
+      var shown = b.hasClass('is-active') ? b : state.stage.find('.lumen-hero__bg--a');
+      if (shown.attr('src') !== state.frameUrl) shown.attr('src', state.frameUrl);
+      shown.addClass('is-active');
+    }
+
     /* Публичная проверка принадлежности: рантайму она нужна на 'destroy',
        где снимать героя можно ТОЛЬКО если он всё ещё принадлежит умирающей
        активности, а не экрану, открытому поверх неё. */
@@ -3312,6 +3373,15 @@
          followToggle) — оверлей посреди отсчёта ролика. */
       onToggle: onToggle,
       active: active,
+      /* Волна производительности: самотест (src/69_bench.js) — условия
+         старта (фокус в первом ряду), карточка под фокусом (вернуть её после
+         листания) и его точки управления героем. */
+      compact: function () { return !!(state && state.compact); },
+      focused: function () { return state ? state.focusEl : null; },
+      benchHold: benchHold,
+      benchFx: benchFx,
+      benchFlip: benchFlip,
+      benchRestore: benchRestore,
       /* Task 26: детали фильма, которые герой уже загрузил для карточки под
          фокусом (кэш Lampa на сутки). Контекстное меню берёт отсюда
          belongs_to_collection и своего запроса ради одного пункта не делает.

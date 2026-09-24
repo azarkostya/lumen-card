@@ -180,6 +180,8 @@ test('LIST: полный набор ключей — существующие и
     'lumen_accent_scope',
     /* Task 31 (фаза 4): HUD отладки на экране ТВ */
     'lumen_debug_hud',
+    /* Волна производительности: самотест «Отладка: тест производительности» */
+    'lumen_debug_bench',
     /* Task 27 (фаза 3): мини-карта рядов и быстрое листание */
     'lumen_minimap', 'lumen_fastscroll',
     /* Task 28 (фаза 3): режим показа отзывов и автотрейлер в кадре главной */
@@ -264,7 +266,10 @@ const GROUPS = [
      сразу (переход «постер → кадр» удалён в волне 2, ТВ 2026-09-24). Task 31 (фаза 4) добавил HUD отладки — этой зависимости
      он не подчиняется (работает при любом режиме анимаций), но место рядом с
      режимом анимаций логично и для него: сам HUD и калибрует его пороги. */
-  ['lumen_group_motion', ['lumen_motion', 'lumen_fx_heavy', 'lumen_debug_hud', 'lumen_fx']],
+  /* Волна производительности: «Отладка: тест производительности» — сразу
+     под HUD отладки: оба пункта про замер, и таблица теста читается рядом
+     со строкой HUD. */
+  ['lumen_group_motion', ['lumen_motion', 'lumen_fx_heavy', 'lumen_debug_hud', 'lumen_debug_bench', 'lumen_fx']],
   ['lumen_group_backdrop', ['lumen_slideshow', 'lumen_slide_interval', 'lumen_trailer']],
   /* A6 (волна A): «Скрывать блоки анализа Lampa» — последним в группе.
      Группа про то, что показано на карточке, и этот пункт единственный
@@ -717,6 +722,40 @@ function withPrefs(opts, fn) {
     delete globalThis.Lampa;
   }
 }
+
+/* Волна производительности: самотест подменяет настройки ТОЛЬКО в памяти.
+   LC.prefs.override(map) — первое, что спрашивает LC.pref; Storage при этом
+   не читается и не пишется, и clearOverride() возвращает настоящие
+   значения. Пользователь, прервавший тест выдёргиванием питания, не должен
+   найти у себя «Полный» режим вместо своего «Лёгкого». */
+test('волна perf: override — подмена видна через LC.pref, Storage не пишется, clearOverride возвращает настоящее', () => {
+  const writes = [];
+  withPrefs({ store: { lumen_motion: 'lite', lumen_fx_heavy: 'false', lumen_trailer: 'auto' }, writes }, (LC) => {
+    LC.prefs.override({ lumen_motion: 'full', lumen_fx_heavy: true, lumen_trailer: 'off', lumen_hero_trailer: false });
+    assert.equal(LC.pref('lumen_motion', 'auto'), 'full');
+    assert.equal(LC.pref('lumen_fx_heavy', false), true, 'булево приходит булевым');
+    assert.equal(LC.pref('lumen_hero_trailer', true), false, 'false подмены — не «пусто», а false');
+    assert.equal(LC.pref('lumen_trailer', 'auto'), 'off');
+    assert.equal(LC.motionMode(), 'full', 'режим анимаций читает подмену');
+    assert.equal(LC.pref('lumen_scale', 'normal'), 'normal', 'неподменённое читается как было');
+    LC.prefs.clearOverride();
+    assert.equal(LC.pref('lumen_motion', 'auto'), 'lite');
+    assert.equal(LC.pref('lumen_fx_heavy', true), false);
+    assert.equal(LC.pref('lumen_trailer', 'auto'), 'auto');
+  });
+  assert.deepEqual(writes, [], 'подмена писала в Lampa.Storage');
+});
+
+test('волна perf: override копирует карту — правка исходного объекта подмену не меняет', () => {
+  withPrefs({ store: {} }, (LC) => {
+    const map = { lumen_motion: 'full' };
+    LC.prefs.override(map);
+    map.lumen_motion = 'off';
+    assert.equal(LC.pref('lumen_motion', 'auto'), 'full');
+    LC.prefs.override(null);
+    assert.equal(LC.pref('lumen_motion', 'auto'), 'auto');
+  });
+});
 
 /* Проверка на ТВ 2026-09-24, сторож: телевизор пользователя — Android,
    режим lite (и выбранный руками, и по вердикту автодетекта), все прочие

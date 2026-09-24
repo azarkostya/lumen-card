@@ -369,7 +369,10 @@ test('каждая настройка применяется ровно один
        префиксу пересобрал бы CSS на пустом месте. Проверяются они своими
        тестами ниже (нажатие, а не запись значения), поэтому здесь null. */
     lumen_preset_appletv: null,
-    lumen_preset_lumen: null
+    lumen_preset_lumen: null,
+    /* Волна производительности: кнопка самотеста своего значения не хранит,
+       её проверяет нажатие (тест ниже). */
+    lumen_debug_bench: null
   };
   const { LC, log, Storage, params } = setup();
   LC.addSettings();
@@ -557,6 +560,23 @@ test('Task 20: без Lampa.Select нажатие ничего не ломает
 /* своей обычной веткой (пакетная запись в localStorage не применила бы   */
 /* ни одной).                                                             */
 /* ====================================================================== */
+
+/* Волна производительности: «Отладка: тест производительности» — кнопка;
+   нажатие зовёт LC.bench.start() и больше ничего: ни записи в Storage, ни
+   применения настроек. */
+test('волна perf: кнопка «Отладка: тест производительности» запускает LC.bench.start, в Storage ничего', () => {
+  const env = setup();
+  let started = 0;
+  env.LC.bench = { start: () => { started++; } };
+  env.LC.addSettings();
+  env.LC.followStorage();
+  const before = JSON.stringify(env.storage);
+  env.log.length = 0;
+  press(env, 'lumen_debug_bench');
+  assert.equal(started, 1);
+  assert.equal(JSON.stringify(env.storage), before, 'кнопка писала в Storage');
+  assert.deepEqual(env.log, [], 'кнопка применила настройки');
+});
 
 function press(env, name) {
   const param = paramOf(env.params, name);

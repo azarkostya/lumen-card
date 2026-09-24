@@ -1107,6 +1107,17 @@
       paint(false);
     }
 
+    /* Волна производительности: самотест (src/69_bench.js), стадия «+tint»
+       — фон едет к rgb тем же путём шагов, что при смене фильма на главной
+       (в 'full'), без смены акцента. instant — поставить сразу: так тест
+       возвращает цвет, с которым пришёл. */
+    function drive(rgb, instant) {
+      target = ownRgb(rgb || null);
+      if (!instant && tweenWanted(false, target) && LC.enabled()) startTween(source, target);
+      else { stopTween(); source = ownRgb(target); }
+      paint();
+    }
+
     function rebuild() {
       if (!LC.enabled()) return;
       try {
@@ -1329,6 +1340,7 @@
       restyle: restyle,
       /* Task 35 (ревью): смена режима движения — src/80_settings.js. */
       repaint: repaint,
+      drive: drive,
       /* Уход с карточки: незавершённая картинка отменяется, оба акцента
          карточки (постер и тема) снимаются, экран пересобирается ОДИН раз —
          последовательные reset() + setTheme(null) стоили бы двух разборов

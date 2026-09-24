@@ -105,6 +105,10 @@
        LC.motionMode зовётся на каждой сборке CSS, поэтому значение держим
        рядом; запись обновляет и его. undefined — «ещё не читали». */
     var cached;
+    /* Волна производительности: самотест (src/69_bench.js) гоняет главную
+       с подменёнными режимами, и первый кадр экрана в это время — замер
+       теста, а не устройства. Пока held, shouldMeasure отвечает «нет». */
+    var held = false;
 
     /* ------------------------------------------------------------------ */
     /* Чистая часть                                                        */
@@ -287,6 +291,7 @@
     /* source — экран, с которого пришёл замер: 'main' (главная), 'hub'
        (экран подборок) или 'card' (открытая карточка). */
     function shouldMeasure(source) {
+      if (held) return false;
       try {
         if (!LC.enabled()) return false;
       } catch (e) {
@@ -405,6 +410,13 @@
       frame = 0;
     }
 
+    /* Самотест: hold(true) снимает висящий замер и выключает новые до
+       hold(false). Собранные замеры остаются — они честные. */
+    function hold(on) {
+      held = !!on;
+      if (held) stop();
+    }
+
     return {
       decide: decide,
       merge: merge,
@@ -415,6 +427,7 @@
       weakHardware: weakHardware,
       track: track,
       stop: stop,
+      hold: hold,
       samples: function () { return samples.slice(); }
     };
   })();
