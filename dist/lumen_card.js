@@ -608,6 +608,8 @@ return false;
 
 
 
+
+
 var OVERLAY_CLASSES = ['settings--open', 'selectbox--open', 'search--open'];
 var OVERLAY_NODES = ['.modal', '.youtube-player'];
 
@@ -24992,7 +24994,7 @@ thrown: isThrown(card)
 
 
 function playTrailer(card) {
-var ticket = { seq: ++trailerReq, at: Date.now(), activity: currentActivity(), overlays: LC.util.overlays() };
+var ticket = { seq: ++trailerReq, at: Date.now(), activity: currentActivity(), overlays: overlaysNow() };
 
 function play(video) {
 try {
@@ -25089,8 +25091,28 @@ return null;
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+function overlaysNow() {
+var out = LC.util.overlays();
+try {
+var list = document.body && document.body.classList;
+if (list && list.contains('ambience--enable')) out.push('ambience--enable');
+} catch (e) { }
+return out;
+}
+
 function overlaysChanged(ticket) {
-var now = LC.util.overlays();
+var now = overlaysNow();
 var i;
 for (i = 0; i < now.length; i++) {
 if (ticket.overlays.indexOf(now[i]) === -1) return true;

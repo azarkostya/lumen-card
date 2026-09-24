@@ -265,7 +265,7 @@
        или второй раз. Колбэк теперь сверяет «билет» запроса (verdict ниже) и
        без него не играет и ничего не пишет. */
     function playTrailer(card) {
-      var ticket = { seq: ++trailerReq, at: Date.now(), activity: currentActivity(), overlays: LC.util.overlays() };
+      var ticket = { seq: ++trailerReq, at: Date.now(), activity: currentActivity(), overlays: overlaysNow() };
 
       function play(video) {
         try {
@@ -356,14 +356,34 @@
        нажали «Назад» — это ушли с экрана, где трейлер просили. Прежде такой
        трейлер играл уже на главной. Обе проверки — overlaysChanged: набор
        разошёлся с билетом в любую сторону.
+       Ревью правок раунда хвостов, п.3: в наборе меню — ещё
+       body.ambience--enable (overlaysNow ниже): «Расширения», открытые после
+       запроса, — чужие, плеер поверх них не открываем.
        'late' — всё то же, но опоздал только ответ: человек так и ждёт на
        том же экране, и молчание выглядело бы как «кнопка не работает»
        (ревью «Волны 1», п.4) — говорим, что трейлер не успел загрузиться
        (своя строка, ревью волны 1b, п.3: «не найден» было бы неправдой).
        '' — ответ уже чужой (ушли, открыли плеер, оверлей или меню, новый
        выбор): ни играть, ни говорить. */
+    /* Что открыто поверх — для билета и сверки с ним: набор
+       LC.util.overlays() и body.ambience--enable. Его ставят «Расширения»
+       (Extensions.show, app.min.js:36488-36510), SearchInput (:40001-40054)
+       и сам поиск (:41513) — под ним Lampa прячет .wrap целиком. В общий
+       набор LC.util он не входит (для героя его спрашивает homeHidden,
+       src/48_hero.js): поиск ставит его вместе с search--open, и отличить
+       «Расширения», открытые после запроса, от поиска, где «Трейлер» и
+       выбрали, может только сверка с билетом. */
+    function overlaysNow() {
+      var out = LC.util.overlays();
+      try {
+        var list = document.body && document.body.classList;
+        if (list && list.contains('ambience--enable')) out.push('ambience--enable');
+      } catch (e) { }
+      return out;
+    }
+
     function overlaysChanged(ticket) {
-      var now = LC.util.overlays();
+      var now = overlaysNow();
       var i;
       for (i = 0; i < now.length; i++) {
         if (ticket.overlays.indexOf(now[i]) === -1) return true;

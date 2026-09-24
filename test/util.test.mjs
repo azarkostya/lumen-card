@@ -380,8 +380,9 @@ test('scrimSize: кадр с потолком w1280 вместо original', () =
    :53323-53324; оба удаляются на закрытии). Весь набор toContent он не
    повторяет (ревью раунда хвостов, п.2): .player — плеер, его отвечает
    playerOpen; .search-box (SearchInput) и body.ambience--enable
-   («Расширения») спрашивает только автотрейлер героя — ambience--enable
-   ставит и поиск, и трейлеру меню карточки он не помеха. */
+   («Расширения») спрашивает автотрейлер героя, а ambience--enable — ещё и
+   трейлер меню карточки сверкой с билетом (src/63_cardmenu.js): его ставит
+   и поиск, и в общем наборе он глушил бы всё под поиском. */
 function withDocument(classes, found, fn) {
   const had = Object.prototype.hasOwnProperty.call(globalThis, 'document');
   const prev = globalThis.document;

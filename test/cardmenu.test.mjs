@@ -228,6 +228,13 @@ function trailerEnv() {
   };
 }
 
+/* Поиск Lampa ставит на body сразу два класса — ambience--enable и
+   search--open (Search.open, app.min.js:41513-41514) — и оба снимает на
+   закрытии (destroy, :41644-41645). */
+const SEARCH_CLASSES = ['ambience--enable', 'search--open'];
+const openSearch = (env) => SEARCH_CLASSES.forEach((c) => env.bodyClasses.push(c));
+const closeSearch = (env) => SEARCH_CLASSES.forEach((c) => env.bodyClasses.splice(env.bodyClasses.indexOf(c), 1));
+
 test('трейлер из меню: ответ пришёл на том же экране — играет (контроль)', () => {
   const env = trailerEnv();
   try {
@@ -281,7 +288,7 @@ test('трейлер из меню: открыты настройки или л�
    Здесь при запросе не открыто ничего, и каждый из них — чужой. */
 test('трейлер из меню: после запроса открыли поиск, список выбора, модальное окно или YouTube Lampa — не играет и молчит', () => {
   const cases = {
-    'поиск': (env) => env.bodyClasses.push('search--open'),
+    'поиск': (env) => openSearch(env),
     'список выбора': (env) => env.bodyClasses.push('selectbox--open'),
     'модальное окно': (env) => env.nodes.push('.modal'),
     'YouTube Lampa': (env) => env.nodes.push('.youtube-player')
@@ -312,7 +319,7 @@ test('трейлер из меню: после запроса открыли п�
 test('трейлер из меню: меню открыто в результатах поиска — ответ под тем же поиском играет', () => {
   const env = trailerEnv();
   try {
-    env.bodyClasses.push('search--open');
+    openSearch(env);
     env.api.playTrailer(MOVIE);
     env.clock.now += 3;
     env.answer(0);
@@ -324,7 +331,7 @@ test('трейлер из меню: меню открыто в результа�
      опоздании, как на любом другом экране. */
   const late = trailerEnv();
   try {
-    late.bodyClasses.push('search--open');
+    openSearch(late);
     late.api.playTrailer(MOVIE);
     late.clock.now += 9000;
     late.answer(0);
@@ -342,10 +349,30 @@ test('трейлер из меню: запрос из поиска, поиск �
   for (const late of [false, true]) {
     const env = trailerEnv();
     try {
-      env.bodyClasses.push('search--open');
+      openSearch(env);
       env.api.playTrailer(MOVIE);
-      env.bodyClasses.splice(env.bodyClasses.indexOf('search--open'), 1);
+      closeSearch(env);
       env.clock.now += late ? 9000 : 2000;
+      env.answer(0);
+      assert.equal(env.played.length, 0, late ? 'опоздал' : 'вовремя');
+      assert.deepEqual(env.notes, [], late ? 'опоздал' : 'вовремя');
+    } finally { env.restore(); }
+  }
+});
+
+/* Ревью правок раунда хвостов, п.3: «Расширения», открытые после запроса
+   (Extensions.show ставит body.ambience--enable, app.min.js:36488-36510, и
+   под ним Lampa прячет .wrap целиком), — тоже чужой оверлей: плеер поверх
+   них не открываем и об опоздании не говорим. Класс не входит в общий
+   набор LC.util.overlays() — его ставит и сам поиск (тест выше играет под
+   ним), — поэтому меню кладёт его в билет само. */
+test('трейлер из меню: после запроса открыли «Расширения» — не играет и молчит', () => {
+  for (const late of [false, true]) {
+    const env = trailerEnv();
+    try {
+      env.api.playTrailer(MOVIE);
+      if (late) env.clock.now += 9000;
+      env.bodyClasses.push('ambience--enable');
       env.answer(0);
       assert.equal(env.played.length, 0, late ? 'опоздал' : 'вовремя');
       assert.deepEqual(env.notes, [], late ? 'опоздал' : 'вовремя');
@@ -364,7 +391,7 @@ test('трейлер из меню: запрос из поиска, после �
   for (const name of Object.keys(cases)) {
     const env = trailerEnv();
     try {
-      env.bodyClasses.push('search--open');
+      openSearch(env);
       env.api.playTrailer(MOVIE);
       cases[name](env);
       env.answer(0);
