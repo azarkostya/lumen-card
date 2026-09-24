@@ -4193,11 +4193,21 @@ css.push('.lumen-hero-stage.lumen-motion-full .lumen-hero__bg--blur{-webkit-tran
 
 
 
+
+
+
+
+
+
+
+
+
+
 css.push('.lumen-hero-stage .lumen-hero__trailer{position:absolute;top:50%;left:50%;width:100vw;height:56.25vw;min-width:177.78vh;min-height:100vh;' +
 '-webkit-transform:translate(-50%,-50%);transform:translate(-50%,-50%);overflow:hidden;opacity:0}');
 css.push('.lumen-hero-stage.lumen-motion-full .lumen-hero__trailer{-webkit-transition:opacity 1s ease;transition:opacity 1s ease}');
 css.push('.lumen-hero-stage .lumen-hero__trailer.is-live{opacity:1}');
-css.push('.lumen-hero-stage .lumen-hero__trailer iframe{width:100%;height:100%;border:0;pointer-events:none}');
+css.push('.lumen-hero-stage .lumen-hero__trailer iframe{position:absolute;top:-10%;left:-10%;width:120%;height:120%;border:0;pointer-events:none}');
 css.push('.lumen-hero-stage.lumen-hero-stage--trailer .lumen-hero__bg.is-active,.lumen-hero-stage.lumen-hero-stage--trailer .lumen-hero__lqip.is-active{opacity:.25}');
 css.push('.lumen-hero.lumen-hero--trailer .lumen-hero__descr{display:none}');
 

@@ -3923,13 +3923,23 @@ test('волна 3: пол сжатого состояния накрывает 
 
 /* Ролик — 16:9-бокс, накрывающий слой кадра целиком (cover): max(100vw,
    177.78vh) × max(56.25vw, 100vh) по центру экрана. На экране 16:9 это
-   ровно экран. Прежний запас ±10 % и маска с mask-size жили под блок 2.67:1
-   — такого блока у ролика больше нет. */
-test('волна 3: ролик героя — 16:9-бокс, накрывающий слой кадра, без запаса и без маски', () => {
+   ровно экран. Маски у ролика нет, и сам бокс за экран не выходит.
+   Ревью волны 3, п.5: iframe ролика — с запасом ±10 % со всех краёв
+   бокса, обрезанным его overflow. Без запаса при паузе и буферизации
+   заголовок YouTube ложился под шапку Lampa, а у ролика 2.39:1 были видны
+   чёрные полосы: YouTube вписывает ролик по ширине, и запас только по
+   высоте полос не убирает. */
+test('волна 3: ролик героя — 16:9-бокс, накрывающий слой кадра, без маски; iframe с запасом ±10 % со всех краёв', () => {
   const box = decl(css, '.lumen-hero-stage .lumen-hero__trailer');
   assert.ok(box, 'правила слоя ролика в слое кадра нет');
-  assert.equal(/-10%/.test(box), false, 'запас ±10 % вернулся: ' + box);
+  assert.equal(/-10%/.test(box), false, 'запас попал на бокс ролика — слой вырос за экран: ' + box);
   assert.equal(/mask/.test(box), false, 'у ролика снова своя маска: ' + box);
+  assert.ok(/(?:^|;)overflow:hidden/.test(box), 'бокс ролика обязан обрезать запас iframe: ' + box);
+  const frame = decl(css, '.lumen-hero-stage .lumen-hero__trailer iframe');
+  for (const need of ['position:absolute', 'top:-10%', 'left:-10%', 'width:120%', 'height:120%', 'border:0', 'pointer-events:none']) {
+    assert.ok(new RegExp('(?:^|;)' + need + '(;|$)').test(frame), 'у iframe ролика нет ' + need + ': ' + frame);
+  }
+  assert.equal(/mask/.test(frame), false, 'у iframe ролика маска: ' + frame);
   const num = (re) => parseFloat(re.exec(box)[1]);
   const w = num(/(?:^|;)width:([\d.]+)vw/);
   const h = num(/(?:^|;)height:([\d.]+)vw/);
@@ -3941,6 +3951,17 @@ test('волна 3: ролик героя — 16:9-бокс, накрывающ�
     const bh = Math.max(h * W / 100, minH * H / 100);
     assert.ok(Math.abs(bw / bh - 16 / 9) < 0.01, W + '×' + H + ': бокс ролика не 16:9 — ' + bw.toFixed(1) + '×' + bh.toFixed(1));
     assert.ok(bw >= W - 0.5 && bh >= H - 0.5, W + '×' + H + ': ролик не накрывает экран — ' + bw.toFixed(1) + '×' + bh.toFixed(1));
+    /* Верх iframe (там заголовок YouTube при паузе и буферизации) — выше
+       кромки экрана на запас и на то, что бокс срезал сверху. */
+    const above = 0.1 * bh + (bh - H) / 2;
+    assert.ok(above >= 0.1 * H - 0.5, W + '×' + H + ': верх iframe всего на ' + above.toFixed(1) + ' px выше кромки');
+    /* Ролик 2.39:1: iframe 16:9 (1.2 бокса), YouTube вписывает ролик по
+       ширине. Чёрная полоса сверху, оставшаяся на экране, не выше полосы под
+       шапкой Lampa (верхнее затемнение, 3.96em) — там её не видно. */
+    const ih = 1.2 * bh;
+    const band = (ih - 1.2 * bw / 2.39) / 2 - above;
+    const head = 3.96 * lampaEm(W, 'normal');
+    assert.ok(band <= head, W + '×' + H + ': полоса ролика 2.39:1 на ' + band.toFixed(1) + ' px ниже кромки — ниже шапки (' + head.toFixed(1) + ')');
   }
   assert.ok(box.indexOf('opacity:0') !== -1, 'до старта ролика слой невидим');
   assert.equal(/inset\s*:/.test(box), false, 'inset запрещён планом');

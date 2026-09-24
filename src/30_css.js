@@ -3335,11 +3335,21 @@
        бокс ролика — 16:9, накрывающий слой целиком (cover): ширина
        max(100vw, 177.78vh), высота max(56.25vw, 100vh), центр по центру
        экрана. На экране 16:9 это ровно экран; в окне другой пропорции
-       лишнее срезает overflow:hidden слоя, и полей у ролика нет. Прежний
-       запас ±10 % по вертикали и маска с mask-size были нужны блоку 2.67:1
-       — такого блока больше нет, а низ ролика растворяет то же затемнение,
-       что и кадр. translate(-50%,-50%) — статичный 2D-сдвиг центровки,
-       слоя композитора он не заводит.
+       лишнее срезает overflow:hidden слоя. Маска с mask-size была нужна
+       блоку 2.67:1 — такого блока больше нет, а низ ролика растворяет то же
+       затемнение, что и кадр. translate(-50%,-50%) — статичный 2D-сдвиг
+       центровки, слоя композитора он не заводит.
+       Ревью волны 3, п.5: запас ±10 % вернулся — на iframe, со всех краёв
+       бокса, и его срезает overflow:hidden самого бокса: бокс, а с ним и
+       слой ролика, за экран не выходит. Без запаса при паузе и буферизации
+       заголовок YouTube ложился под шапку Lampa, а ролик 2.39:1 показывал
+       чёрные полосы: YouTube вписывает ролик в iframe по ширине, и запас
+       только по высоте (как в карточке, .lumen-bg__trailer) полос не
+       убирает. iframe 120 % × 120 % остаётся 16:9 — ролик 16:9 заполняет его
+       целиком, увеличенный в 1.2 раза; верх iframe с заголовком — на 10 %
+       высоты выше кромки экрана (54 CSS px на 960×540), а полоса ролика
+       2.39:1 сверху — 29 px, ниже её уже не видно под полосой шапки
+       (верхнее затемнение, 3.96em — 45 px).
        Проявление за 1 с — только в полном режиме, в lite ролик встаёт
        сразу, как и смена кадра. is-live ставит сам плеер (src/55_trailer.js),
        когда ролик РЕАЛЬНО пошёл; pointer-events на iframe сняты — слой не
@@ -3350,7 +3360,7 @@
       '-webkit-transform:translate(-50%,-50%);transform:translate(-50%,-50%);overflow:hidden;opacity:0}');
     css.push('.lumen-hero-stage.lumen-motion-full .lumen-hero__trailer{-webkit-transition:opacity 1s ease;transition:opacity 1s ease}');
     css.push('.lumen-hero-stage .lumen-hero__trailer.is-live{opacity:1}');
-    css.push('.lumen-hero-stage .lumen-hero__trailer iframe{width:100%;height:100%;border:0;pointer-events:none}');
+    css.push('.lumen-hero-stage .lumen-hero__trailer iframe{position:absolute;top:-10%;left:-10%;width:120%;height:120%;border:0;pointer-events:none}');
     css.push('.lumen-hero-stage.lumen-hero-stage--trailer .lumen-hero__bg.is-active,.lumen-hero-stage.lumen-hero-stage--trailer .lumen-hero__lqip.is-active{opacity:.25}');
     css.push('.lumen-hero.lumen-hero--trailer .lumen-hero__descr{display:none}');
 
