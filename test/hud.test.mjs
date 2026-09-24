@@ -207,6 +207,9 @@ function env(opts) {
     : opts.accent;
   const { api } = fresh({
     accent: accentStatus ? { status: () => accentStatus } : undefined,
+    /* Проверка на ТВ 2026-09-24: состояние трейлера (поле tr). Без
+       opts.trailer модуля нет вовсе — как у подкраски выше. */
+    trailer: opts.trailer ? { status: () => opts.trailer } : undefined,
     pref, motionMode: () => opts.mode || 'full',
     /* LC.enabled() — гейт «выключенный плагин снял свой CSS, HUD поднимать
        нельзя» (sync(), src/69_hud.js). По умолчанию true, как у соседних
@@ -580,6 +583,28 @@ test('hud: состояние подкраски берётся у LC.accent и 
   assert.ok(e.bodyChildren[0].textContent.indexOf('tint timer') !== -1, e.bodyChildren[0].textContent);
   assert.ok(e.bodyChildren[0].textContent.indexOf('image.tmdb.org/t/p/w185/b.jpg') !== -1,
     e.bodyChildren[0].textContent);
+});
+
+/* ====================================================================== */
+/* Проверка на ТВ 2026-09-24: состояние трейлера в HUD (поле tr).         */
+/* «Трейлер не запускался» на телевизоре без консоли отличить было нечем: */
+/* нет ролика у фильма, YouTube не поднялся, таймаут или ошибка плеера.   */
+/* ====================================================================== */
+
+test('hud: format — поле tr стоит перед подкраской, «tr n/a» без данных', () => {
+  const { api } = fresh();
+  const line = api.format(Object.assign({}, BASE, { tr: 'err 150', tint: { state: 'ok', color: '#8A4C50', url: 'x/y.jpg' } }));
+  assert.ok(line.indexOf(' · tr err 150 · tint ok') !== -1, line);
+  const none = api.format(BASE);
+  assert.ok(none.indexOf(' · tr n/a · ') !== -1, none);
+});
+
+test('hud: состояние трейлера берётся у LC.trailer.status() и доезжает до узла', () => {
+  const e = env({ store: { lumen_debug_hud: true }, trailer: 'timeout ready' });
+  e.api.sync();
+  e.tick(600);
+  e.tick(1800);
+  assert.ok(e.bodyChildren[0].textContent.indexOf(' · tr timeout ready · ') !== -1, e.bodyChildren[0].textContent);
 });
 
 /* Модуля подкраски может не быть (69_hud.js грузится в тестах один) —

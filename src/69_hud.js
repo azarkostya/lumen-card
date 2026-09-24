@@ -107,12 +107,25 @@
        Ф2 п.3: «layers 5+9» — пять слоёв на видимом экране и девять в
        скрытых под ним активностях истории (layerCounts ниже). Форма одна
        и та же всегда, и «+0» тоже пишется: по одному снимку видно, что
-       второе число есть и оно ноль, а не что поле пропало. */
+       второе число есть и оно ноль, а не что поле пропало.
+       Проверка на ТВ 2026-09-24: «tr <состояние>» — последний плеер
+       трейлера (LC.trailer.status, src/55_trailer.js: plan, none, api,
+       ready, play, end, stop, timeout api, timeout ready, err N). Стоит
+       перед подкраской: у той длинный адрес, и она уезжает в перенос
+       последней. */
     function format(d) {
       return d.fps + ' fps · long ' + longText(d.long) + ' · raf ' + d.raf.join('/') +
         ' · eps ' + d.eps + ' · layers ' + d.layers + '+' + (d.hid || 0) +
         ' · ' + d.w + '×' + d.h + '@' + d.dpr + ' · cr ' + d.cr + ' · ' + d.mode +
-        ' · hw ' + d.hw + ' · tint ' + tint(d);
+        ' · hw ' + d.hw + ' · tr ' + (d.tr || 'n/a') + ' · tint ' + tint(d);
+    }
+
+    /* Модуля трейлера может не быть (в тестах 69_hud.js грузится один). */
+    function trailerStatus() {
+      try {
+        if (LC.trailer && typeof LC.trailer.status === 'function') return LC.trailer.status();
+      } catch (e) { }
+      return null;
     }
 
     /* Модуля подкраски может не быть (в тестах 69_hud.js грузится один), и
@@ -294,7 +307,7 @@
           dpr: Math.round((window.devicePixelRatio || 1) * 100) / 100,
           cr: chrome(), mode: mode,
           long: state.longSup ? { win: sums.long, total: state.longTotal } : null,
-          raf: sums.b, eps: eps(), layers: lay.on, hid: lay.off, hw: hardware(), tint: accentStatus()
+          raf: sums.b, eps: eps(), layers: lay.on, hid: lay.off, hw: hardware(), tr: trailerStatus(), tint: accentStatus()
         });
         state.frames = 0; state.last = t;
         /* Интервал закрыт — кольцо проворачивается, и следующий пишется в

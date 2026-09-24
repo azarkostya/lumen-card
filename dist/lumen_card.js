@@ -28071,11 +28071,24 @@ return t.state + (t.color ? ' ' + t.color : '') + (t.url ? ' ' + t.url : '');
 
 
 
+
+
+
+
+
 function format(d) {
 return d.fps + ' fps · long ' + longText(d.long) + ' · raf ' + d.raf.join('/') +
 ' · eps ' + d.eps + ' · layers ' + d.layers + '+' + (d.hid || 0) +
 ' · ' + d.w + '×' + d.h + '@' + d.dpr + ' · cr ' + d.cr + ' · ' + d.mode +
-' · hw ' + d.hw + ' · tint ' + tint(d);
+' · hw ' + d.hw + ' · tr ' + (d.tr || 'n/a') + ' · tint ' + tint(d);
+}
+
+
+function trailerStatus() {
+try {
+if (LC.trailer && typeof LC.trailer.status === 'function') return LC.trailer.status();
+} catch (e) { }
+return null;
 }
 
 
@@ -28257,7 +28270,7 @@ fps: Math.round(state.frames * 1000 / elapsed), w: window.innerWidth, h: window.
 dpr: Math.round((window.devicePixelRatio || 1) * 100) / 100,
 cr: chrome(), mode: mode,
 long: state.longSup ? { win: sums.long, total: state.longTotal } : null,
-raf: sums.b, eps: eps(), layers: lay.on, hid: lay.off, hw: hardware(), tint: accentStatus()
+raf: sums.b, eps: eps(), layers: lay.on, hid: lay.off, hw: hardware(), tr: trailerStatus(), tint: accentStatus()
 });
 state.frames = 0; state.last = t;
 
