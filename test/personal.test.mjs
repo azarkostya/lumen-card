@@ -734,6 +734,30 @@ test('Продолжить: ряд помечен как персональны�
   var got = null;
   cont.call({}, 'main')(function (payload) { got = payload; });
   assert.equal(got.lumen_personal, true);
+  assert.equal(got.lumen_own, true, 'начатые фильмы — карточки самого пользователя');
+});
+
+/* Ревью волны 4 (60): в окно дедупликации вперёд идут только карточки
+   самого пользователя — «Досмотреть» и «Новые серии» (lumen_own);
+   рекомендации «Потому что» и «Скоро» — нет (LC.rows.dedupeAcross). */
+test('«Новые серии» помечены lumen_own, «Потому что» — нет', function () {
+  var s = setupRuntime({
+    getFav: function (opts) {
+      if (opts.type === 'history') return [{ id: 1, title: 'Первый' }];
+      if (opts.type === 'book') return [{ id: 100, name: 'Сериал А' }];
+      return [];
+    }
+  });
+  s.addCalls = s.api.describe();
+  var got = [];
+  rowByName(s, 'lumen_because').call({}, {})(function (data) { got.push(data); });
+  s.tmdbCalls[0].ok({ results: [{ id: 11 }] });
+  assert.equal(got[0].lumen_personal, true);
+  assert.equal(got[0].lumen_own, undefined, 'рекомендации — не карточки пользователя');
+  s.tmdbCalls.length = 0;
+  rowByName(s, 'lumen_new_episodes').call({}, {})(function (data) { got.push(data); });
+  s.tmdbCalls[0].ok({ id: 100, name: 'Сериал А' });
+  assert.equal(got[1].lumen_own, true);
 });
 
 /* Долг фазы 2 (docs/plans/2026-09-15-lumen-phase2-main.md:373): выборка

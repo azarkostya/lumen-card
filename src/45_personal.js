@@ -48,6 +48,8 @@
   /* Task 57: каждый ряд помечает свой ответ полем lumen_personal. Для     */
   /* дедупликации рядов главной (LC.rows.dedupeAcross) это значит «состав  */
   /* не трогать, но карточки в окно положить» — разбор там же.             */
+  /* «Досмотреть» и «Новые серии» — ещё и lumen_own: карточки самого       */
+  /* пользователя, они уходят из подборок пачки и выше ряда (там же).      */
   /* -------------------------------------------------------------------- */
 
   LC.personal = (function () {
@@ -487,7 +489,7 @@
           if (!alive()) { resolve({ results: [] }); return { cancel: function () {} }; }
           var items = continuesList();
           if (!alive()) { resolve({ results: [] }); return { cancel: function () {} }; }
-          resolve({ results: items, title: LC.lang ? LC.lang('lumen_row_continue') : 'Continue watching', lumen_personal: true });
+          resolve({ results: items, title: LC.lang ? LC.lang('lumen_row_continue') : 'Continue watching', lumen_personal: true, lumen_own: true });
           return { cancel: function () {} };
         };
       };
@@ -600,7 +602,7 @@
           var gate = LC.util.gate(shows.length, ROW_TIMEOUT, function () {
             if (cancelled || !alive()) return;
             var filtered = newEpisodes(details, null);
-            resolve({ results: filtered, title: LC.lang ? LC.lang('lumen_row_new_episodes') : 'New episodes', lumen_personal: true });
+            resolve({ results: filtered, title: LC.lang ? LC.lang('lumen_row_new_episodes') : 'New episodes', lumen_personal: true, lumen_own: true });
           });
 
           for (var i = 0; i < shows.length; i++) {

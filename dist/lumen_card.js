@@ -9202,6 +9202,11 @@ return copy;
 
 
 
+
+
+
+
+
 function dedupeAcross(rows, seen, min, fit) {
 if (!rows || !rows.length) return [];
 seen = seen || {};
@@ -9215,7 +9220,7 @@ var trimmed = [];
 var before = [];
 var i, j;
 for (i = 0; i < rows.length; i++) {
-if (!rows[i] || !rows[i].lumen_personal || !rows[i].results) continue;
+if (!rows[i] || !rows[i].lumen_personal || !rows[i].lumen_own || !rows[i].results) continue;
 for (j = 0; j < rows[i].results.length; j++) {
 var own = cardKey(rows[i].results[j]);
 if (own) seen[own] = 1;
@@ -9859,6 +9864,8 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 
+
+
 LC.personal = (function () {
 
 
@@ -10296,7 +10303,7 @@ var resolve = makeResolver(call);
 if (!alive()) { resolve({ results: [] }); return { cancel: function () {} }; }
 var items = continuesList();
 if (!alive()) { resolve({ results: [] }); return { cancel: function () {} }; }
-resolve({ results: items, title: LC.lang ? LC.lang('lumen_row_continue') : 'Continue watching', lumen_personal: true });
+resolve({ results: items, title: LC.lang ? LC.lang('lumen_row_continue') : 'Continue watching', lumen_personal: true, lumen_own: true });
 return { cancel: function () {} };
 };
 };
@@ -10409,7 +10416,7 @@ var cancelled = false;
 var gate = LC.util.gate(shows.length, ROW_TIMEOUT, function () {
 if (cancelled || !alive()) return;
 var filtered = newEpisodes(details, null);
-resolve({ results: filtered, title: LC.lang ? LC.lang('lumen_row_new_episodes') : 'New episodes', lumen_personal: true });
+resolve({ results: filtered, title: LC.lang ? LC.lang('lumen_row_new_episodes') : 'New episodes', lumen_personal: true, lumen_own: true });
 });
 
 for (var i = 0; i < shows.length; i++) {
