@@ -4289,6 +4289,14 @@ css.push('.lumen-hero-stage.lumen-motion-full .lumen-hero__bg--blur{-webkit-tran
 
 
 
+
+
+
+
+
+
+
+
 css.push('.lumen-hero-stage .lumen-hero__trailer{position:absolute;top:50%;left:50%;width:100vw;height:56.25vw;min-width:177.78vh;min-height:100vh;' +
 '-webkit-transform:translate(-50%,-50%);transform:translate(-50%,-50%);overflow:hidden;opacity:0}');
 css.push('.lumen-hero-stage.lumen-motion-full .lumen-hero__trailer{-webkit-transition:opacity 1s ease;transition:opacity 1s ease}');
