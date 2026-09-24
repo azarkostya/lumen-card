@@ -3373,9 +3373,22 @@
        он не даёт — смена идёт в ОДНОМ слое (src/48_hero.js, swapFrame), и
        проигрывается он только на первом появлении кадра и на приглушении
        под роликом. Task 40: плавная смена двумя слоями — тяжёлый эффект,
-       правило ниже перебивает общее на один класс. */
+       правила ниже перебивают общее.
+       Волна производительности (жалоба с ТВ «всё ещё лагает всё»,
+       2026-09-24): переход .6 → .4 с, и анимируется ОДИН слой — верхний
+       (--b, в разметке он ниже --a). Переход берётся из стиля, в который
+       слой приходит, поэтому у --a их два. Приходит верхний — проявляется
+       поверх нижнего, а нижний (--a без is-active) держится непрозрачным
+       .4s и гаснет без интерполяции (длительность 0, задержка .4s).
+       Приходит нижний (--a.is-active) — встаёт сразу, а верхний
+       растворяется над ним. Прежде переход шёл у обоих слоёв разом — два
+       полноэкранных слоя в анимации. Какой слой приходит, решает swapFrame
+       (src/48_hero.js); при листании он и вовсе подменяет кадр в одном
+       слое. */
     css.push('.lumen-hero-stage.lumen-motion-full .lumen-hero__bg,.lumen-hero-stage.lumen-motion-full .lumen-hero__lqip{-webkit-transition:opacity .35s ease;transition:opacity .35s ease}');
-    css.push('body.lumen-fx-heavy .lumen-hero-stage.lumen-motion-full .lumen-hero__bg{-webkit-transition:opacity .6s ease-in-out;transition:opacity .6s ease-in-out}');
+    css.push('body.lumen-fx-heavy .lumen-hero-stage.lumen-motion-full .lumen-hero__bg--b{-webkit-transition:opacity .4s ease-in-out;transition:opacity .4s ease-in-out}');
+    css.push('body.lumen-fx-heavy .lumen-hero-stage.lumen-motion-full .lumen-hero__bg--a{-webkit-transition:opacity 0s linear .4s;transition:opacity 0s linear .4s}');
+    css.push('body.lumen-fx-heavy .lumen-hero-stage.lumen-motion-full .lumen-hero__bg--a.is-active{-webkit-transition:none;transition:none}');
     /* Размытый постер вместо кадра (фильм без backdrop, экран 22; с волны 3
        — и заглушка кадра на время загрузки, src/48_hero.js): мягкость даёт
        сам апскейл маленькой картинки, filter:blur на полноэкранном слое
@@ -3422,6 +3435,12 @@
     css.push('.lumen-hero-stage .lumen-hero__trailer.is-live{opacity:1}');
     css.push('.lumen-hero-stage .lumen-hero__trailer iframe{position:absolute;top:-10%;left:-10%;width:120%;height:120%;border:0;pointer-events:none}');
     css.push('.lumen-hero-stage.lumen-hero-stage--trailer .lumen-hero__bg.is-active,.lumen-hero-stage.lumen-hero-stage--trailer .lumen-hero__lqip.is-active{opacity:.25}');
+    /* Волна производительности: приглушение — без перехода. Ролик сам
+       проявляется за 1 с поверх кадра, и анимировать под ним ещё и кадр
+       значило держать в переходе второй полноэкранный слой. Специфичность
+       (0,5,1) — выше правил кроссфейда тяжёлых эффектов выше (0,4,1 у
+       --b), иначе переход верхнего слоя перебил бы это правило. */
+    css.push('body .lumen-hero-stage.lumen-hero-stage--trailer.lumen-motion-full .lumen-hero__bg.is-active,body .lumen-hero-stage.lumen-hero-stage--trailer.lumen-motion-full .lumen-hero__lqip.is-active{-webkit-transition:none;transition:none}');
     css.push('.lumen-hero.lumen-hero--trailer .lumen-hero__descr{display:none}');
 
     /* Task 70: при уходе фокуса в ряды кадр не гаснет (решение пользователя

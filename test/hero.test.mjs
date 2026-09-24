@@ -1673,7 +1673,7 @@ test('Task 52: метка размытия живёт на слое кадра, 
 
     /* Настоящий кадр: на слое, который его показывает, метки быть не должно.
        А вот с УХОДЯЩЕГО слоя её не снимают: при кроссфейде он ещё
-       непрозрачен (переход opacity .6s, src/30_css.js), а наезд снимается
+       непрозрачен (переход .4s, src/30_css.js), а наезд снимается
        мгновенно и без перехода — зритель увидел бы, как размытый постер
        скачком ужался на 10 %, то есть ровно ту жалобу, которую Task 52 и
        лечит, только на уходящем слое. Правильность от этого не страдает:
@@ -1681,7 +1681,10 @@ test('Task 52: метка размытия живёт на слое кадра, 
     main.card1.removeClass('focus');
     main.card2.addClass('focus');
     fireFocus(main.activity, main.card2);
-    env.advance(400);
+    /* Волна perf (C4): кадр, доехавший меньше чем через секунду после
+       нажатия, подменяется в том же слое. Кроссфейд двумя слоями — в покое:
+       для его ветки детали и кадр доезжают через секунду. */
+    env.advance(heavy ? 1000 : 400);
     answerDetails(env);
     env.images[env.images.length - 1].onload();
     const arrived = heavy ? b : a;
@@ -1691,6 +1694,57 @@ test('Task 52: метка размытия живёт на слое кадра, 
     const shown = heavy ? b : a;
     assert.equal(shown.attr('src'), 'https://img/t/p/w1280/b2.jpg', label + ': кадр второй карточки не приехал');
   }
+});
+
+/* Волна производительности (C4). Кроссфейд кадра героя — две полноэкранные
+   картинки плюс слой затемнений на весь переход. При листании кадр каждой
+   карточки доезжал через доли секунды после нажатия, и кроссфейд шёл
+   ровно тогда, когда главная и так занята сменой текста и подсветки.
+   Теперь: нажатие было меньше секунды назад — кадр подменяется в том же
+   слое, мгновенно; плавно — только в покое и на тиках смены кадров. */
+test('волна perf: кадр, доехавший < 1 с после нажатия, подменяется в том же слое; в покое — кроссфейд', () => {
+  const env = makeEnv({ fxHeavy: () => true });
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  const stage = stageOf(heroOf(main.activity));
+  const a = stage.find('.lumen-hero__bg--a');
+  const b = stage.find('.lumen-hero__bg--b');
+
+  /* Первый кадр в покое: слоёв на экране нет — кадр идёт в верхний (--b),
+     он и проявляется. */
+  main.card1.addClass('focus');
+  fireFocus(main.activity, main.card1);
+  env.advance(400);
+  answerDetails(env);
+  env.advance(600);
+  env.images[env.images.length - 1].onload();
+  assert.equal(b.hasClass('is-active'), true, 'первый кадр в покое — в верхнем слое');
+  assert.equal(a.hasClass('is-active'), false);
+  assert.equal(b.attr('src'), 'https://img/t/p/w1280/b1.jpg');
+
+  /* Листание: кадр второй карточки доехал через 0,4 с после нажатия. */
+  main.card1.removeClass('focus');
+  main.card2.addClass('focus');
+  fireFocus(main.activity, main.card2);
+  env.advance(400);
+  answerDetails(env);
+  env.images[env.images.length - 1].onload();
+  assert.equal(b.attr('src'), 'https://img/t/p/w1280/b2.jpg', 'подмена в том же, показанном слое');
+  assert.equal(b.hasClass('is-active'), true);
+  assert.equal(a.hasClass('is-active'), false, 'второй слой не включался — кроссфейда нет');
+  assert.equal(a.attr('src'), undefined, 'во второй слой ничего не грузили');
+
+  /* Покой: кадр первой карточки доехал через секунду — кроссфейд, кадр
+     приходит в нижний слой (--a) под растворяющийся верхний. */
+  main.card2.removeClass('focus');
+  main.card1.addClass('focus');
+  fireFocus(main.activity, main.card1);
+  env.advance(1000);
+  answerDetails(env);
+  env.images[env.images.length - 1].onload();
+  assert.equal(a.attr('src'), 'https://img/t/p/w1280/b1.jpg', 'в покое — в другой слой');
+  assert.equal(a.hasClass('is-active'), true);
+  assert.equal(b.hasClass('is-active'), false, 'верхний растворяется');
 });
 
 /* Task 39: предзагрузчик кадра помечается decoding='async' — декодирование
@@ -1750,7 +1804,18 @@ function focusedFrame(opts) {
   env.advance(400);
   /* Волна 3: кадр выбирается по ответу деталей (answerDetails). */
   answerDetails(env);
-  return { env: env, main: main, node: node, bg: stageOf(node).find('.lumen-hero__bg--a'), img: env.images[0] };
+  /* Волна perf (C4): в какой слой встаёт кадр, зависит от того, давно ли
+     было нажатие (swapFrame): доехавший меньше чем через секунду — в
+     показанный слой (на первом кадре это --a), в покое — кроссфейдом, первый
+     кадр — в верхний --b. bg — слой, который сейчас на экране. */
+  const stage = stageOf(node);
+  return {
+    env: env, main: main, node: node, img: env.images[0],
+    get bg() {
+      const b = stage.find('.lumen-hero__bg--b');
+      return b.hasClass('is-active') ? b : stage.find('.lumen-hero__bg--a');
+    }
+  };
 }
 
 /* Перевести фокус на вторую карточку и дождаться её показа: новый show()
@@ -1952,7 +2017,9 @@ test('волна 3: детали не пришли за 900 мс — кадр п
      на той же карточке была бы ровно той подменой, от которой уходим. */
   env.requests[0].ok({ id: 11, backdrop_path: '/b1.jpg', runtime: 90, images: W3_IMAGES });
   assert.deepEqual(frameLoads(env), ['/b1.jpg'], 'поздние детали догрузили второй кадр');
-  assert.equal(stageOf(heroOf(main.activity)).find('.lumen-hero__bg--a').attr('src'), 'https://img/t/p/w1280/b1.jpg');
+  /* Кадр доехал через 1,35 с после нажатия — в покое: волна perf (C4)
+     ставит первый кадр кроссфейдом в верхний слой. */
+  assert.equal(stageOf(heroOf(main.activity)).find('.lumen-hero__bg--b').attr('src'), 'https://img/t/p/w1280/b1.jpg');
 });
 
 test('волна 3: детали из кэша (синхронно) — кадр сразу, без ожидания', () => {
@@ -2671,7 +2738,7 @@ test('Task 64: со второй карточки подложка больше 
   await tick();
   assert.equal(lqip.attr('src'), undefined, 'подложку подняли на второй карточке');
   assert.equal(lqip.hasClass('is-active'), false);
-  assert.equal(stageOf(f.node).find('.lumen-hero__bg--b').attr('src'), 'https://img/t/p/w1280/b2.jpg', 'второй кадр не приехал — проверять нечего');
+  assert.equal(f.bg.attr('src'), 'https://img/t/p/w1280/b2.jpg', 'второй кадр не приехал — проверять нечего');
 });
 
 /* Ревью Task 64: с гашением кадра в сжатом состоянии слой атмосферы стал

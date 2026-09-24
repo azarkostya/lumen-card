@@ -3983,6 +3983,14 @@ test('волна 3: ролик героя — 16:9-бокс, накрывающ�
   assert.ok(fade && fade.indexOf('transition:opacity 1s ease') !== -1, 'в полном режиме ролик проявляется за 1 с: ' + fade);
   const dim = findDecl(css, (s) => s === '.lumen-hero-stage.lumen-hero-stage--trailer .lumen-hero__bg.is-active');
   assert.ok(dim && dim.indexOf('opacity:.25') !== -1, 'под играющим роликом кадр приглушается: ' + dim);
+  /* Волна производительности (C5): приглушение — без перехода. Ролик сам
+     проявляется за 1 с поверх кадра; анимировать под ним ещё и кадр —
+     второй полноэкранный слой в переходе. Специфичность правила — выше
+     правил кроссфейда тяжёлых эффектов (0,5,1 против 0,4,1 у --b). */
+  const still = findDecl(css, (s) => s === 'body .lumen-hero-stage.lumen-hero-stage--trailer.lumen-motion-full .lumen-hero__bg.is-active');
+  assert.ok(still && /(^|;)transition:none/.test(still), 'приглушение под роликом без перехода: ' + still);
+  const stillLqip = findDecl(css, (s) => s === 'body .lumen-hero-stage.lumen-hero-stage--trailer.lumen-motion-full .lumen-hero__lqip.is-active');
+  assert.ok(stillLqip && /(^|;)transition:none/.test(stillLqip), 'и у подложки: ' + stillLqip);
   assert.ok(findDecl(css, (s) => s === '.lumen-hero.lumen-hero--trailer .lumen-hero__descr').indexOf('display:none') !== -1, 'под роликом описание уходит');
 });
 
@@ -4318,7 +4326,7 @@ test('решение «показывать описание»: порог мя�
   }
 });
 
-test('Task 18: кроссфейд кадра 600 мс только в полном режиме анимаций', () => {
+test('Task 18: кроссфейд кадра только в полном режиме анимаций (волна perf: 400 мс, анимируется один слой)', () => {
   /* Волна 3: слои кадра — в неподвижном слое .lumen-hero-stage, и класс
      режима анимаций стоит на нём самом. */
   const bg = findDecl(css, (sel) => sel === '.lumen-hero-stage .lumen-hero__bg');
@@ -4327,8 +4335,20 @@ test('Task 18: кроссфейд кадра 600 мс только в полно
 
   /* Task 40: кроссфейд подчинён и тумблеру тяжёлых эффектов — два
      полноэкранных слоя одновременно на слабом ТВ стоят кадров. */
-  const full = findDecl(css, (sel) => sel === 'body.lumen-fx-heavy .lumen-hero-stage.lumen-motion-full .lumen-hero__bg');
-  assert.ok(full && full.indexOf('transition:opacity .6s ease-in-out') !== -1, 'кроссфейд 600 мс: ' + full);
+  /* Волна производительности (C4): переход .6 → .4 с, и анимируется ОДИН
+     слой — верхний (--b, он ниже в разметке). Приходит он — проявляется
+     поверх нижнего, а нижний держится непрозрачным, пока тот не встал, и
+     гаснет без перехода (задержка .4s, длительность 0). Приходит нижний
+     (--a) — встаёт сразу под верхним, а верхний растворяется. Двух
+     одновременно анимированных полноэкранных слоёв больше нет. */
+  const top = findDecl(css, (sel) => sel === 'body.lumen-fx-heavy .lumen-hero-stage.lumen-motion-full .lumen-hero__bg--b');
+  assert.ok(top && top.indexOf('transition:opacity .4s ease-in-out') !== -1, 'верхний слой — переход 400 мс: ' + top);
+  const bottom = findDecl(css, (sel) => sel === 'body.lumen-fx-heavy .lumen-hero-stage.lumen-motion-full .lumen-hero__bg--a');
+  assert.ok(bottom && bottom.indexOf('transition:opacity 0s linear .4s') !== -1, 'нижний уходит без перехода, после верхнего: ' + bottom);
+  const bottomIn = findDecl(css, (sel) => sel === 'body.lumen-fx-heavy .lumen-hero-stage.lumen-motion-full .lumen-hero__bg--a.is-active');
+  assert.ok(bottomIn && /(^|;)transition:none/.test(bottomIn), 'нижний приходит сразу: ' + bottomIn);
+  assert.equal(findDecl(css, (sel) => sel === 'body.lumen-fx-heavy .lumen-hero-stage.lumen-motion-full .lumen-hero__bg'), null,
+    'общее правило кроссфейда на оба слоя вернулось');
   /* Task 64: переход в full-режиме без тяжёлых эффектов появился, но двух
      полноэкранных картинок разом он не даёт. Смена кадра при выключенном
      тумблере идёт в одном слое (src/48_hero.js, swapFrame), его opacity не
@@ -5618,7 +5638,7 @@ test('Task 40: наезд заставки идёт только при вклю
 test('Task 40: ни один тяжёлый эффект не остался без класса lumen-fx-heavy', () => {
   /* Каждое из трёх правил обязано начинаться с body.lumen-fx-heavy: наезд на
      кадр карточки, зум заставки и кроссфейд кадра героя. */
-  for (const marker of ['lumen-kb', 'lumen-amb-zoom', 'transition:opacity .6s ease-in-out']) {
+  for (const marker of ['lumen-kb', 'lumen-amb-zoom', 'transition:opacity .4s ease-in-out', 'transition:opacity 0s linear .4s']) {
     const rules = ruleBodies(css).filter((r) => r.decl.indexOf(marker) !== -1);
     assert.ok(rules.length, 'правило не найдено: ' + marker);
     for (const r of rules) {

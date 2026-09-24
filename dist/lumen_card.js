@@ -4251,8 +4251,21 @@ css.push('.lumen-hero-stage .lumen-hero__bg.is-active,.lumen-hero-stage .lumen-h
 
 
 
+
+
+
+
+
+
+
+
+
+
+
 css.push('.lumen-hero-stage.lumen-motion-full .lumen-hero__bg,.lumen-hero-stage.lumen-motion-full .lumen-hero__lqip{-webkit-transition:opacity .35s ease;transition:opacity .35s ease}');
-css.push('body.lumen-fx-heavy .lumen-hero-stage.lumen-motion-full .lumen-hero__bg{-webkit-transition:opacity .6s ease-in-out;transition:opacity .6s ease-in-out}');
+css.push('body.lumen-fx-heavy .lumen-hero-stage.lumen-motion-full .lumen-hero__bg--b{-webkit-transition:opacity .4s ease-in-out;transition:opacity .4s ease-in-out}');
+css.push('body.lumen-fx-heavy .lumen-hero-stage.lumen-motion-full .lumen-hero__bg--a{-webkit-transition:opacity 0s linear .4s;transition:opacity 0s linear .4s}');
+css.push('body.lumen-fx-heavy .lumen-hero-stage.lumen-motion-full .lumen-hero__bg--a.is-active{-webkit-transition:none;transition:none}');
 
 
 
@@ -4299,6 +4312,12 @@ css.push('.lumen-hero-stage.lumen-motion-full .lumen-hero__trailer{-webkit-trans
 css.push('.lumen-hero-stage .lumen-hero__trailer.is-live{opacity:1}');
 css.push('.lumen-hero-stage .lumen-hero__trailer iframe{position:absolute;top:-10%;left:-10%;width:120%;height:120%;border:0;pointer-events:none}');
 css.push('.lumen-hero-stage.lumen-hero-stage--trailer .lumen-hero__bg.is-active,.lumen-hero-stage.lumen-hero-stage--trailer .lumen-hero__lqip.is-active{opacity:.25}');
+
+
+
+
+
+css.push('body .lumen-hero-stage.lumen-hero-stage--trailer.lumen-motion-full .lumen-hero__bg.is-active,body .lumen-hero-stage.lumen-hero-stage--trailer.lumen-motion-full .lumen-hero__lqip.is-active{-webkit-transition:none;transition:none}');
 css.push('.lumen-hero.lumen-hero--trailer .lumen-hero__descr{display:none}');
 
 
@@ -15088,12 +15107,27 @@ write();
 
 
 
-function swapFrame(url, blur) {
+
+
+
+
+
+
+
+
+
+
+
+
+
+var CROSSFADE_CALM_MS = 1000;
+
+function swapFrame(url, blur, slide) {
 if (!state) return;
 var a = state.stage.find('.lumen-hero__bg--a');
 var b = state.stage.find('.lumen-hero__bg--b');
 var activeIsA = a.hasClass('is-active');
-if (!fxHeavy()) {
+if (!fxHeavy() || (!slide && Date.now() - state.focusAt < CROSSFADE_CALM_MS)) {
 
 
 var only = activeIsA ? a : (b.hasClass('is-active') ? b : a);
@@ -15103,8 +15137,11 @@ only.toggleClass('lumen-hero__bg--blur', !!blur);
 state.frameUrl = url;
 return;
 }
-var next = activeIsA ? b : a;
-var prev = activeIsA ? a : b;
+
+
+var bActive = b.hasClass('is-active');
+var next = bActive ? a : b;
+var prev = bActive ? b : a;
 next.attr('src', url);
 next.addClass('is-active');
 prev.removeClass('is-active');
@@ -15269,7 +15306,7 @@ if (slide && (focusAway() || state.parked)) return;
 
 if (!ok) { report(false); return; }
 try {
-swapFrame(url, blur);
+swapFrame(url, blur, slide);
 } catch (e) {
 warn('hero: frame failed', e);
 }
