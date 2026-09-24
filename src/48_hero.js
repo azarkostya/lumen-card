@@ -661,36 +661,40 @@
        фильтром на этом железе дорого (§«Что НЕ делать»), мягкость даёт сам
        апскейл w300 на весь кадр, как у постера в w92 выше.
 
-       Нижней вуали-плашки (.lumen-hero__veil--b) здесь больше нет: её
-       заменила градиентная МАСКА самих слоёв кадра (src/30_css.js), то есть
-       кадр растворяется в фоне страницы вместо того, чтобы закрашиваться
-       отдельным полноэкранным узлом. Левая вуаль осталась плашкой: двух
-       масок разных направлений на одном элементе без mask-composite не
-       собрать, а mask-composite в WebView телевизора не проверен. Лежит она
-       внутри текстового блока, а не в корне кадра (разбор — у разметки
-       блока ниже). */
-    function buildNode() {
-      var node = $('<div class="lumen-hero">' +
+       Волна 3 (проверка на ТВ 2026-09-24): кадр, подложка, ролик и
+       затемнение живут в СВОЁМ узле — неподвижном слое на весь экран
+       .lumen-hero-stage, соседе ПЕРЕД .lumen-hero (mount ставит его первым
+       ребёнком корня). Жалобы пользователя: кадр 16:9 в блоке 66.67vh
+       срезал головы, а в сжатом состоянии ещё и уезжал вверх (фото 17);
+       тёмная подушка под текстом обрывалась вертикальной границей (фото
+       15/16). Теперь кадр во весь экран не срезается, при уходе в ряды стоит
+       на месте, а затемнение — три неподвижных градиента без кромок
+       (src/30_css.js, разбор у констант SCRIM_*):
+         .lumen-hero__scrim        — верх под шапкой Lampa и низ покоя;
+         .lumen-hero__scrim--l     — подушка под текстом, до правой кромки;
+         .lumen-hero__floor        — сплошной низ под поднятыми рядами.
+       Вуалей (левой в потоке текста и верхней с встречным сдвигом) больше
+       нет. Слой ролика — между кадром и затемнением, как .lumen-bg__trailer
+       в слое фона карточки: затемнение обязано лежать поверх ролика, иначе
+       текст героя на нём не прочитать. */
+    function buildStage() {
+      return $('<div class="lumen-hero-stage">' +
         '<img class="lumen-hero__lqip" decoding="async" alt="">' +
         '<img class="lumen-hero__bg lumen-hero__bg--a" decoding="async" fetchpriority="high" alt="">' +
         '<img class="lumen-hero__bg lumen-hero__bg--b" decoding="async" fetchpriority="high" alt="">' +
-        /* Task 28: слой автотрейлера — между кадром и вуалью, как
-           .lumen-bg__trailer в слое фона карточки: вуаль обязана лежать
-           поверх ролика, иначе текст героя на нём не прочитать. Нижнюю
-           границу ролика Task 64 растворяет той же маской, что и кадр. */
         '<div class="lumen-hero__trailer"></div>' +
-        /* Правка 2026-09-23 (разбор композиции, п.1.4): верхняя вуаль под
-           штатной шапкой Lampa. Часы и иконки шапки белые и лежат прямо на
-           кадре — на светлом кадре их контраст равен 1.00:1. Отдельным
-           узлом, а не псевдоэлементом героя: :after у .lumen-hero встал бы
-           последним ребёнком, то есть ПОВЕРХ текстового блока, который
-           добавляется ниже по этой же функции. Геометрия и цвет — в
-           src/30_css.js (.lumen-hero__veil--t и AR.veilT). */
-        '<div class="lumen-hero__veil lumen-hero__veil--t"></div>' +
-        /* Task 21: слой тематической атмосферы — ПОСЛЕ вуалей, как в слое
-           фона карточки: частицы должны быть видны поверх затемнения.
-           Текст героя лежит в соседнем .lumen-hero__text, который идёт
-           ниже по DOM, поэтому частицы его не закрывают. */
+        '<div class="lumen-hero__scrim"></div>' +
+        '<div class="lumen-hero__scrim lumen-hero__scrim--l"></div>' +
+        '<div class="lumen-hero__floor"></div>' +
+        '</div>');
+    }
+
+    function buildNode() {
+      /* Task 21: слой тематической атмосферы остаётся в .lumen-hero — над
+         затемнением слоя кадра, как частицы в слое фона карточки. Текст
+         героя лежит в соседнем .lumen-hero__text, который идёт ниже по DOM,
+         поэтому частицы его не закрывают. */
+      var node = $('<div class="lumen-hero">' +
         '<div class="lumen-fx"></div>' +
         '</div>');
       /* Правка 2026-09-23 (разбор композиции, п.1.1): название — ПЕРВЫМ.
@@ -708,15 +712,6 @@
          оставалось 85.7 px пустого блока, и весь рост логотипа берётся
          оттуда. */
       var text = $('<div class="lumen-hero__text">' +
-        /* Ревью фикс-раунда (п.3): левая вуаль — подушка под текстом — живёт
-           ВНУТРИ текстового блока. Отдельным узлом на весь кадр её маска
-           отмерялась от низа кадра процентами и не знала, где кончается
-           название: у сериала со статусом и описанием мета уезжала в
-           затухание. Здесь она стоит в потоке блока между названием и
-           остальным содержимым (порядок — order в src/30_css.js) с нулевой
-           высотой в потоке и едет вместе с текстом при сжатии. В разметке
-           она первой: её место в потоке задаёт order, а не позиция узла. */
-        '<div class="lumen-hero__veil lumen-hero__veil--l"></div>' +
         '<div class="lumen-hero__logo"></div>' +
         '<div class="lumen-hero__title"></div>' +
         '<div class="lumen-hero__meta"></div>' +
@@ -755,6 +750,10 @@
       try {
         if (!state) return;
         state.node.removeClass(MOTION_CLASSES).addClass('lumen-motion-' + LC.motionMode());
+        /* Волна 3: у слоя кадра свой класс режима — переходы кадра, ролика и
+           пола сжатого состояния заведены под .lumen-hero-stage.lumen-motion-
+           full (src/30_css.js), а сам слой — сосед героя, не потомок. */
+        state.stage.removeClass(MOTION_CLASSES).addClass('lumen-motion-' + LC.motionMode());
         /* Task 28: режим мог упасть до lite/off (настройка или автодетект
            слабого ТВ) — играющий ролик обязан уйти вместе с полными
            анимациями. */
@@ -1023,10 +1022,20 @@
           warn('hero: trailer destroy failed', e2);
         }
       }
-      try { state.node.removeClass('lumen-hero--trailer'); } catch (e3) { }
+      markTrailer(false);
       /* onEnd плеера сюда уже не дойдёт — tgen поднят выше, — поэтому
          паузу смены кадров, которую ставил ролик, снимаем сами. */
       trailerOff();
+    }
+
+    /* Ролик на экране: у текста героя уходит описание (класс героя), а кадр
+       под роликом приглушается (класс слоя кадра — волна 3, слой отдельный). */
+    function markTrailer(on) {
+      if (!state) return;
+      try {
+        state.node.toggleClass('lumen-hero--trailer', !!on);
+        state.stage.toggleClass('lumen-hero-stage--trailer', !!on);
+      } catch (e) { }
     }
 
     /* Проверка на ТВ 2026-09-24: смена кадров стоит, пока ролик РЕАЛЬНО
@@ -1104,7 +1113,7 @@
         if (tgen !== captured || !state || !isMounted()) return;
         if (!trailerReady() || trailerBlocked()) { planDone('stop'); return; }
         if (!LC.trailer || typeof LC.trailer.player !== 'function') return;
-        var host = state.node.find('.lumen-hero__trailer');
+        var host = state.stage.find('.lumen-hero__trailer');
         if (!host || !host.length) return;
         planDone('');
         /* Класс ставится по ФАКТУ старта (onStart плеера), а не по его
@@ -1112,12 +1121,12 @@
            недоступен), и тогда герой обязан остаться как был. */
         state.trailer = LC.trailer.player(host, key, function () {
           if (tgen !== captured || !state) return;
-          try { state.node.addClass('lumen-hero--trailer'); } catch (e) { }
+          markTrailer(true);
           trailerOn();
         }, function () {
           if (tgen !== captured || !state) return;
           state.trailer = null;
-          try { state.node.removeClass('lumen-hero--trailer'); } catch (e2) { }
+          markTrailer(false);
           trailerOff();
         });
       } catch (err) {
@@ -1230,7 +1239,7 @@
         if (gen !== captured || !state) return;
         state.slideFree = null;
         try {
-          var layers = [state.node.find('.lumen-hero__bg--a'), state.node.find('.lumen-hero__bg--b')];
+          var layers = [state.stage.find('.lumen-hero__bg--a'), state.stage.find('.lumen-hero__bg--b')];
           for (var i = 0; i < layers.length; i++) {
             if (!layers[i].hasClass('is-active')) layers[i].removeAttr('src');
           }
@@ -1602,9 +1611,8 @@
        слой. */
     function swapFrame(url, blur) {
       if (!state) return;
-      var node = state.node;
-      var a = node.find('.lumen-hero__bg--a');
-      var b = node.find('.lumen-hero__bg--b');
+      var a = state.stage.find('.lumen-hero__bg--a');
+      var b = state.stage.find('.lumen-hero__bg--b');
       var activeIsA = a.hasClass('is-active');
       if (!fxHeavy()) {
         /* Слой, который уже на экране; на первом кадре карточки активного
@@ -1658,7 +1666,7 @@
         state.lqipTimer = null;
         state.lqipUrl = '';
         try {
-          var lqip = state.node.find('.lumen-hero__lqip');
+          var lqip = state.stage.find('.lumen-hero__lqip');
           lqip.removeClass('is-active');
           lqip.removeAttr('src');
         } catch (e) {}
@@ -1720,7 +1728,7 @@
       if (!blur && !state.frameUrl) {
         var small = imageUrl(path, 'w300');
         if (small) {
-          var lqip = state.node.find('.lumen-hero__lqip');
+          var lqip = state.stage.find('.lumen-hero__lqip');
           lqip.attr('src', small);
           lqip.addClass('is-active');
           state.lqipUrl = small;
@@ -1929,9 +1937,12 @@
       }
     }
 
-    /* Сжатое состояние: кадр уезжает вверх до половины экрана
-       (design-spec-main §0.2, раскадровка 23б), а освободившуюся высоту
-       забирают ряды — они поднимаются под самый кадр.
+    /* Сжатое состояние: текст героя уезжает вверх (design-spec-main §0.2,
+       раскадровка 23б), а освободившуюся высоту забирают ряды — они
+       поднимаются к половине экрана. Волна 3 (ТВ 2026-09-24): сам кадр в
+       сжатом состоянии больше не едет — он в неподвижном слое на весь экран
+       (buildStage), и ряды наезжают на него снизу, а под ними его закрывает
+       пол слоя (.lumen-hero__floor, по классу .lumen-rows-up ниже).
 
        Правка пользователя 2026-09-17 (второй круг): класс на корне
        активности (.lumen-rows-up) — это и есть та передача места. Раньше
@@ -1943,8 +1954,8 @@
        Task 36: кроме двух классов функция не делает ничего. Всю геометрию
        обоих состояний задаёт таблица стилей, и переключение класса не
        читает и не пишет ни одного размера — потому переход и состоит теперь
-       из одних transform (кадр, текст, логотип, область рядов), без единого
-       свойства раскладки. */
+       из одних transform (текст, логотип, область рядов) и одного opacity
+       (пол слоя кадра), без единого свойства раскладки. */
     function setCompact(on) {
       if (!state) return;
       /* Ревью Task 64: то же состояние нужно и слою атмосферы — читать класс
@@ -2355,7 +2366,12 @@
         opts = opts || {};
 
         var node = buildNode();
+        var stage = buildStage();
+        /* Волна 3: слой кадра — первым ребёнком корня, герой — сразу за ним:
+           порядок узлов и есть порядок отрисовки (кадр под текстом, текст под
+           рядами .activity__body), z-index никому не нужен. */
         root.prepend(node);
+        root.prepend(stage);
         var hostClass = opts.hostClass || MAIN_HOST;
         root.addClass(hostClass);
 
@@ -2363,6 +2379,9 @@
         state = {
           root: root,
           node: node,
+          /* Волна 3: неподвижный слой кадра (buildStage) — кадры, подложка,
+             ролик, затемнение. */
+          stage: stage,
           hostClass: hostClass,
           /* Task 37: слушатель 'hover:focus' на корне и узел карточки, для
              которой фокус уже обработан (гард от повторного события). */
@@ -2513,6 +2532,7 @@
         if (LC.fx && fxGone && fxGone.length) LC.fx.unmount(fxGone);
       } catch (eFx) { warn('hero: fx unmount failed', eFx); }
       try { s.node.remove(); } catch (eR) {}
+      try { s.stage.remove(); } catch (eS) {}
       /* Класс подъёма рядов снимается вместе с хостовым: без героя область
          прокрутки обязана вернуться к штатной раскладке Lampa. */
       try { s.root.removeClass(s.hostClass).removeClass('lumen-rows-up'); } catch (eC) {}

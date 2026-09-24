@@ -388,6 +388,18 @@ function makeCard(id, title, opts) {
   return card;
 }
 
+/* Волна 3 (ТВ 2026-09-24): у героя два узла в корне — неподвижный слой
+   кадра .lumen-hero-stage (первым ребёнком: кадры, подложка, ролик,
+   затемнение) и .lumen-hero (текст и частицы) за ним. heroOf находит узел
+   героя в корне, stageOf — слой кадра рядом с ним. */
+function heroOf(root) {
+  return root._children.find((c) => c.hasClass('lumen-hero')) || EMPTY;
+}
+function stageOf(hero) {
+  const parent = hero && hero._parentEl;
+  return (parent && parent._children.find((c) => c.hasClass('lumen-hero-stage'))) || EMPTY;
+}
+
 /* Главная: .activity -> .activity__body -> ... -> .scroll__body -> .items-line -> .card */
 function makeMain() {
   const card1 = makeCard(11, 'Первый', { poster: 'https://img/t/p/w300/p1.jpg', rect: { left: 100, top: 200, width: 180, height: 270 } });
@@ -441,12 +453,16 @@ function fireHover(root, target) {
   list[0].fn({ target: target });
 }
 
-test('mount: герой первым ребёнком активности, класс .lumen-main, один слушатель фокуса', () => {
+test('mount: слой кадра первым ребёнком активности, герой — вторым, класс .lumen-main, один слушатель фокуса', () => {
   const env = makeEnv();
   const main = makeMain();
   env.hero.mount(main.activity);
   assert.equal(env.hero.active(), true);
-  assert.equal(main.activity._children[0].hasClass('lumen-hero'), true, 'герой — первый ребёнок');
+  /* Волна 3: порядок узлов — порядок отрисовки. Кадр под текстом героя,
+     текст под рядами (.activity__body идёт следом). */
+  assert.equal(main.activity._children[0].hasClass('lumen-hero-stage'), true, 'слой кадра — первый ребёнок');
+  assert.equal(main.activity._children[1].hasClass('lumen-hero'), true, 'герой — сразу за слоем кадра');
+  assert.equal(main.activity._children[2].hasClass('activity__body'), true, 'ряды — после героя');
   assert.equal(main.activity.hasClass('lumen-main'), true);
   /* Task 37: подписка ровно одна и именно в фазе захвата — 'hover:focus' не
      всплывает, на фазе всплытия его не видно вовсе. */
@@ -775,7 +791,7 @@ test('загруженный кадр проявляется вторым сло
   const env = makeEnv();
   const main = makeMain();
   env.hero.mount(main.activity);
-  const node = main.activity._children[0];
+  const node = heroOf(main.activity);
 
   main.card1.addClass('focus');
   fireFocus(main.activity, main.card1);
@@ -791,8 +807,8 @@ test('загруженный кадр проявляется вторым сло
   assert.equal(node.hasClass('lumen-hero--pending'), true, 'скелетон меты до ответа деталей');
 
   env.images[0].onload();
-  const a = node.find('.lumen-hero__bg--a');
-  const b = node.find('.lumen-hero__bg--b');
+  const a = stageOf(node).find('.lumen-hero__bg--a');
+  const b = stageOf(node).find('.lumen-hero__bg--b');
   assert.equal(a.hasClass('is-active'), true, 'первый кадр проявлён');
   assert.equal(b.hasClass('is-active'), false);
   assert.equal(a.attr('src'), 'https://img/t/p/w1280/b1.jpg');
@@ -842,9 +858,9 @@ test('Task 40: без тяжёлых эффектов кадр меняется 
   const env = makeEnv({ fxHeavy: () => false });
   const main = makeMain();
   env.hero.mount(main.activity);
-  const node = main.activity._children[0];
-  const a = node.find('.lumen-hero__bg--a');
-  const b = node.find('.lumen-hero__bg--b');
+  const node = heroOf(main.activity);
+  const a = stageOf(node).find('.lumen-hero__bg--a');
+  const b = stageOf(node).find('.lumen-hero__bg--b');
 
   main.card1.addClass('focus');
   fireFocus(main.activity, main.card1);
@@ -875,7 +891,7 @@ test('логотип: размер по пропорции и неизменно
   const env = makeEnv();
   const main = makeMain();
   env.hero.mount(main.activity);
-  const node = main.activity._children[0];
+  const node = heroOf(main.activity);
   const logo = node.find('.lumen-hero__logo');
 
   main.card1.addClass('focus');
@@ -908,7 +924,7 @@ test('логотип без пропорции в ответе TMDB: разме�
   const env = makeEnv();
   const main = makeMain();
   env.hero.mount(main.activity);
-  const node = main.activity._children[0];
+  const node = heroOf(main.activity);
 
   main.card1.addClass('focus');
   fireFocus(main.activity, main.card1);
@@ -927,7 +943,7 @@ test('второй ряд в фокусе — компактный герой, �
   const env = makeEnv();
   const main = makeMain();
   env.hero.mount(main.activity);
-  const node = main.activity._children[0];
+  const node = heroOf(main.activity);
 
   main.card2.addClass('focus');
   fireFocus(main.activity, main.card2);
@@ -1008,7 +1024,7 @@ test('Task 43: фильм без оценки — мета без хвостов
   fireFocus(main.activity, main.card1);
   env.advance(400);
   env.advance(200);
-  const node = main.activity._children[0];
+  const node = heroOf(main.activity);
 
   env.requests[0].ok({ runtime: 100, genres: [{ name: 'драма' }] });
   assert.equal(node.find('.lumen-hero__meta').text(), '2024 · 1:40 · драма');
@@ -1024,7 +1040,7 @@ test('ответ деталей, доехавший после ухода с г�
   fireFocus(main.activity, main.card1);
   env.advance(400);
   env.advance(200);
-  const node = main.activity._children[0];
+  const node = heroOf(main.activity);
 
   env.hero.unmount();
   env.requests[0].ok({ runtime: 100, genres: [{ name: 'драма' }] });
@@ -1064,12 +1080,12 @@ test('возврат из карточки: тот же узел героя, н�
   const main = makeMain();
   const card = makeMain();
   env.hero.mount(main.activity);
-  const node = main.activity._children[0];
+  const node = heroOf(main.activity);
   focusOn(main, main.card1);
   env.advance(400);
   env.images[0].onload();
   env.requests[0].ok({ id: 11, runtime: 100, genres: [{ name: 'драма' }] });
-  const shownSrc = node.find('.lumen-hero__bg--a').attr('src');
+  const shownSrc = stageOf(node).find('.lumen-hero__bg--a').attr('src');
   assert.ok(shownSrc, 'предусловие: кадр показан');
   const images = env.images.length;
   const requests = env.requests.length;
@@ -1086,9 +1102,9 @@ test('возврат из карточки: тот же узел героя, н�
      шлёт 'start' главной с тем же render(). */
   env.hero.mount(main.activity);
   assert.equal(env.hero.parked(), false);
-  assert.equal(main.activity._children[0], node, 'узел героя тот же — не пересобран');
+  assert.equal(heroOf(main.activity), node, 'узел героя тот же — не пересобран');
   assert.equal(main.activity._children.filter((c) => c.hasClass('lumen-hero')).length, 1, 'второго героя не появилось');
-  assert.equal(node.find('.lumen-hero__bg--a').attr('src'), shownSrc, 'кадр на месте');
+  assert.equal(stageOf(node).find('.lumen-hero__bg--a').attr('src'), shownSrc, 'кадр на месте');
   env.advance(1000);
   assert.equal(env.images.length, images, 'кадр заново не грузится');
   assert.equal(env.requests.length, requests, 'детали заново не спрашиваются');
@@ -1106,7 +1122,7 @@ test('возврат из карточки: оборванная сменой э
   const main = makeMain();
   const card = makeMain();
   env.hero.mount(main.activity);
-  const node = main.activity._children[0];
+  const node = heroOf(main.activity);
   focusOn(main, main.card1);
   env.advance(400);
   env.images[0].onload();
@@ -1120,7 +1136,7 @@ test('возврат из карточки: оборванная сменой э
   assert.equal(env.requests.filter((r) => r.url === 'movie/22').length, 0, 'под карточкой смена героя не доезжает');
 
   env.hero.mount(main.activity);
-  assert.equal(main.activity._children[0], node, 'узлы те же');
+  assert.equal(heroOf(main.activity), node, 'узлы те же');
   assert.equal(env.requests.filter((r) => r.url === 'movie/22').length, 1, 'на возврате — детали карточки под фокусом');
   assert.deepEqual(warnLog, []);
 });
@@ -1137,7 +1153,7 @@ test('Ф2 п.2: оборванный запрос деталей на возвр
   const main = makeMain();
   const card = makeMain();
   env.hero.mount(main.activity);
-  const node = main.activity._children[0];
+  const node = heroOf(main.activity);
   focusOn(main, main.card1);
   env.advance(400);
   env.images[0].onload();
@@ -1186,7 +1202,7 @@ test('Ф2 п.2: ответ деталей, доехавший в запарко�
   /* Кадра в данных ряда нет — его даст ответ деталей (второй loadFrame). */
   main.card1.card_data = { id: 11, title: 'Первый', poster_path: '/p1.jpg', release_date: '2024-01-01', vote_average: 7.2 };
   env.hero.mount(main.activity);
-  const node = main.activity._children[0];
+  const node = heroOf(main.activity);
   focusOn(main, main.card1);
   env.advance(400);
   env.images[0].onload();
@@ -1221,7 +1237,7 @@ function staleWithoutCardFocus(t, viaMount) {
   const other = makeMain();
   if (viaMount) main.card1.addClass('focus');
   env.hero.mount(main.activity);
-  const node = main.activity._children[0];
+  const node = heroOf(main.activity);
   if (!viaMount) focusOn(main, main.card1);
   env.advance(400);
   env.images[0].onload();
@@ -1264,7 +1280,7 @@ test('пятый раунд п.6: в пути только таймер фоку
   const main = makeMain();
   const other = makeMain();
   env.hero.mount(main.activity);
-  const node = main.activity._children[0];
+  const node = heroOf(main.activity);
   focusOn(main, main.card1);
   env.advance(400);
   env.images[0].onload();
@@ -1298,7 +1314,7 @@ test('шестой раунд п.1: таймер B оборван парковк
   const main = makeMain();
   const other = makeMain();
   env.hero.mount(main.activity);
-  const node = main.activity._children[0];
+  const node = heroOf(main.activity);
   focusOn(main, main.card1);
   env.advance(400);
   env.images[0].onload();
@@ -1372,7 +1388,7 @@ test('mount с compact/hostClass: сжат всегда, класс хоста �
   new FakeEl(['activity', 'activity--active'], [grid]);
 
   env.hero.mount(grid, { hostClass: 'lumen-grid--hero', compact: true });
-  const node = grid._children[0];
+  const node = heroOf(grid);
   assert.equal(node.hasClass('lumen-hero'), true);
   assert.equal(node.hasClass('lumen-hero--compact'), true);
   assert.equal(grid.hasClass('lumen-grid--hero'), true);
@@ -1405,7 +1421,7 @@ test('applyMotion зеркалит режим анимаций на узел г�
   const main = makeMain();
   env.LC.motionMode = () => 'full';
   env.hero.mount(main.activity);
-  const node = main.activity._children[0];
+  const node = heroOf(main.activity);
   assert.equal(node.hasClass('lumen-motion-full'), true);
 
   env.LC.motionMode = () => 'off';
@@ -1422,7 +1438,7 @@ test('режим off: текст меняется без подмены и БЕ�
   env.LC.motionMode = () => 'off';
   const main = makeMain();
   env.hero.mount(main.activity);
-  const node = main.activity._children[0];
+  const node = heroOf(main.activity);
 
   main.card1.addClass('focus');
   fireFocus(main.activity, main.card1);
@@ -1485,7 +1501,7 @@ test('нет кадра — используется постер в w92, сло
   main.card1.card_data = { id: 44, title: 'Без кадра', poster_path: '/p.jpg', release_date: '2021-01-01' };
   main.card1.addClass('focus');
   env.hero.mount(main.activity);
-  const node = main.activity._children[0];
+  const node = heroOf(main.activity);
 
   fireFocus(main.activity, main.card1);
   env.advance(400);
@@ -1493,7 +1509,7 @@ test('нет кадра — используется постер в w92, сло
   env.images[0].onload();
   /* Task 52: метка стоит на СЛОЕ, который этот постер и показывает, а не на
      корне героя. */
-  assert.equal(node.find('.lumen-hero__bg--a').hasClass('lumen-hero__bg--blur'), true);
+  assert.equal(stageOf(node).find('.lumen-hero__bg--a').hasClass('lumen-hero__bg--blur'), true);
   assert.equal(node.hasClass('lumen-hero--blur'), false, 'метка на корне героя больше не ставится');
 });
 
@@ -1517,9 +1533,9 @@ test('Task 52: метка размытия живёт на слое кадра, 
        пометит слой для наезда. Вторая — с настоящим кадром. */
     main.card1.card_data = { id: 44, title: 'Без кадра', poster_path: '/p.jpg', release_date: '2021-01-01' };
     env.hero.mount(main.activity);
-    const node = main.activity._children[0];
-    const a = node.find('.lumen-hero__bg--a');
-    const b = node.find('.lumen-hero__bg--b');
+    const node = heroOf(main.activity);
+    const a = stageOf(node).find('.lumen-hero__bg--a');
+    const b = stageOf(node).find('.lumen-hero__bg--b');
     const label = heavy ? 'с кроссфейдом' : 'без кроссфейда';
 
     main.card1.addClass('focus');
@@ -1601,11 +1617,11 @@ function focusedFrame(opts) {
   stubDecode(env, opts);
   const main = makeMain();
   env.hero.mount(main.activity);
-  const node = main.activity._children[0];
+  const node = heroOf(main.activity);
   main.card1.addClass('focus');
   fireFocus(main.activity, main.card1);
   env.advance(400);
-  return { env: env, main: main, node: node, bg: node.find('.lumen-hero__bg--a'), img: env.images[0] };
+  return { env: env, main: main, node: node, bg: stageOf(node).find('.lumen-hero__bg--a'), img: env.images[0] };
 }
 
 /* Перевести фокус на вторую карточку и дождаться её показа: новый show()
@@ -1659,7 +1675,7 @@ test('Task 47: реджект decode() без байт оставляет пре
   await tick();
   assert.equal(f.bg.attr('src'), 'https://img/t/p/w1280/b1.jpg', 'старый кадр не затёрт пустым');
   assert.equal(f.bg.hasClass('is-active'), true);
-  assert.equal(f.node.find('.lumen-hero__bg--b').attr('src'), undefined, 'второй слой не поднимали');
+  assert.equal(stageOf(f.node).find('.lumen-hero__bg--b').attr('src'), undefined, 'второй слой не поднимали');
   assert.deepEqual(warnLog, []);
 });
 
@@ -1726,13 +1742,13 @@ test('Task 47: без decode() кадр показывается по onload', (
   const env = makeEnv();
   const main = makeMain();
   env.hero.mount(main.activity);
-  const node = main.activity._children[0];
+  const node = heroOf(main.activity);
   main.card1.addClass('focus');
   fireFocus(main.activity, main.card1);
   env.advance(400);
   assert.equal(typeof env.images[0].decode, 'undefined', 'заглушка без decode');
   env.images[0].onload();
-  assert.equal(node.find('.lumen-hero__bg--a').attr('src'), 'https://img/t/p/w1280/b1.jpg');
+  assert.equal(stageOf(node).find('.lumen-hero__bg--a').attr('src'), 'https://img/t/p/w1280/b1.jpg');
 });
 
 /* ====================================================================== */
@@ -1751,7 +1767,7 @@ test('волна 3: в тексте героя нет места под чипы
   const env = makeEnv();
   const main = makeMain();
   env.hero.mount(main.activity);
-  const node = main.activity._children[0];
+  const node = heroOf(main.activity);
   assert.ok(node.find('.lumen-hero__text').length, 'текстовый блок героя не найден');
   assert.equal(node.find('.lumen-hero__moods'), EMPTY, 'слот чипов настроения остался в тексте героя');
 });
@@ -1760,20 +1776,53 @@ test('Task 64: слои кадра — img с decoding=async и высоким �
   const env = makeEnv();
   const main = makeMain();
   env.hero.mount(main.activity);
-  const node = main.activity._children[0];
+  const stage = stageOf(heroOf(main.activity));
   for (const cls of ['.lumen-hero__bg--a', '.lumen-hero__bg--b']) {
-    const layer = node.find(cls);
+    const layer = stage.find(cls);
     assert.equal(layer.attr('decoding'), 'async', cls + ': нет подсказки на асинхронное декодирование');
     assert.equal(layer.attr('fetchpriority'), 'high', cls + ': кадр героя — самая крупная картинка экрана, приоритет обязан быть высоким');
   }
-  const lqip = node.find('.lumen-hero__lqip');
+  const lqip = stage.find('.lumen-hero__lqip');
   assert.equal(lqip.attr('decoding'), 'async', 'подложка LQIP декодируется асинхронно');
   /* Приоритета у подложки нет намеренно: высокий приоритет у двух картинок
      разом отнял бы его у той, ради которой он и заведён. */
   assert.equal(lqip.attr('fetchpriority'), undefined);
-  /* Нижней вуали-плашки в разметке больше нет — её заменила маска кадра. */
-  assert.equal(node.find('.lumen-hero__veil--b'), EMPTY, 'нижняя вуаль осталась отдельным узлом');
-  assert.equal(node.find('.lumen-hero__veil--l').hasClass('lumen-hero__veil'), true, 'левая вуаль на месте');
+});
+
+/* Волна 3 (ТВ 2026-09-24, фото 15/16/17): кадр героя — во весь экран и
+   неподвижен, затемнение — три градиента без кромок. Всё это живёт в
+   отдельном слое .lumen-hero-stage: кадры, подложка, ролик, затемнение и
+   пол сжатого состояния, строго в этом порядке (порядок узлов — порядок
+   отрисовки). В самом .lumen-hero остаются частицы и текст; вуалей нет
+   нигде. */
+test('волна 3: кадр, подложка, ролик и затемнение — в неподвижном слое кадра, вуалей нет', () => {
+  const env = makeEnv();
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  const hero = heroOf(main.activity);
+  const stage = stageOf(hero);
+  assert.ok(stage.length, 'слоя кадра в корне нет');
+  const kids = stage._children.map((c) => c._class.join(' '));
+  assert.deepEqual(kids, [
+    'lumen-hero__lqip',
+    'lumen-hero__bg lumen-hero__bg--a',
+    'lumen-hero__bg lumen-hero__bg--b',
+    'lumen-hero__trailer',
+    'lumen-hero__scrim',
+    'lumen-hero__scrim lumen-hero__scrim--l',
+    'lumen-hero__floor'
+  ], 'состав и порядок слоя кадра');
+  for (const cls of ['.lumen-hero__bg', '.lumen-hero__lqip', '.lumen-hero__trailer', '.lumen-hero__scrim', '.lumen-hero__floor']) {
+    assert.equal(hero.find(cls), EMPTY, cls + ' остался в узле героя — он сжимается вместе с текстом');
+  }
+  assert.equal(hero.find('.lumen-hero__veil'), EMPTY, 'вуаль в узле героя');
+  assert.equal(stage.find('.lumen-hero__veil'), EMPTY, 'вуаль в слое кадра');
+  assert.ok(hero.find('.lumen-fx').length && hero.find('.lumen-hero__text').length, 'частицы и текст — в узле героя');
+  /* Класс режима анимаций у слоя свой — переходы кадра заведены под ним. */
+  assert.equal(stage.hasClass('lumen-motion-full'), true, 'у слоя кадра нет класса режима');
+  env.hero.unmount();
+  assert.equal(main.activity._children.some((c) => c.hasClass('lumen-hero-stage') || c.hasClass('lumen-hero')), false,
+    'unmount оставил в корне узлы героя');
 });
 
 test('Task 64: предзагрузчик кадра просит высокий приоритет — запрос делает он', () => {
@@ -1791,7 +1840,7 @@ test('Task 64: предзагрузчик кадра просит высокий
    основного кадра, — в этом весь её смысл. */
 test('Task 64: подложка w300 встаёт сразу, до байтов и decode() основного кадра', () => {
   const f = focusedFrame();
-  const lqip = f.node.find('.lumen-hero__lqip');
+  const lqip = stageOf(f.node).find('.lumen-hero__lqip');
   assert.equal(lqip.attr('src'), 'https://img/t/p/w300/b1.jpg', 'подложка не того размера или не поставлена');
   assert.equal(lqip.hasClass('is-active'), true, 'подложка обязана быть видна сразу');
   assert.equal(f.bg.attr('src'), undefined, 'основной кадр ещё не показан — тем ценнее подложка');
@@ -1804,7 +1853,7 @@ test('Task 64: подложка w300 встаёт сразу, до байтов 
    показать сквозь полупрозрачный кадр голый фон. */
 test('Task 64: показанный кадр освобождает подложку — но не раньше конца кроссфейда', async () => {
   const f = focusedFrame();
-  const lqip = f.node.find('.lumen-hero__lqip');
+  const lqip = stageOf(f.node).find('.lumen-hero__lqip');
   arrive(f.img);
   f.img.onload();
   f.img.decoded.resolve();
@@ -1822,7 +1871,7 @@ test('Task 64: показанный кадр освобождает подлож
    тянуть и декодировать w300 на каждый шаг фокуса незачем. */
 test('Task 64: со второй карточки подложка больше не грузится', async () => {
   const f = focusedFrame();
-  const lqip = f.node.find('.lumen-hero__lqip');
+  const lqip = stageOf(f.node).find('.lumen-hero__lqip');
   arrive(f.img);
   f.img.onload();
   f.img.decoded.resolve();
@@ -1835,7 +1884,7 @@ test('Task 64: со второй карточки подложка больше 
   await tick();
   assert.equal(lqip.attr('src'), undefined, 'подложку подняли на второй карточке');
   assert.equal(lqip.hasClass('is-active'), false);
-  assert.equal(f.node.find('.lumen-hero__bg--b').attr('src'), 'https://img/t/p/w1280/b2.jpg', 'второй кадр не приехал — проверять нечего');
+  assert.equal(stageOf(f.node).find('.lumen-hero__bg--b').attr('src'), 'https://img/t/p/w1280/b2.jpg', 'второй кадр не приехал — проверять нечего');
 });
 
 /* Ревью Task 64: с гашением кадра в сжатом состоянии слой атмосферы стал
@@ -1902,7 +1951,7 @@ test('Task 64 (ревью): у всегда сжатого героя части
    размытого. */
 test('Task 64: неудачная загрузка кадра подложку не снимает', () => {
   const f = focusedFrame();
-  const lqip = f.node.find('.lumen-hero__lqip');
+  const lqip = stageOf(f.node).find('.lumen-hero__lqip');
   f.img.onerror();
   f.env.advance(2000);
   assert.equal(lqip.hasClass('is-active'), true, 'подложка снята, а показывать вместо неё нечего');
@@ -1931,10 +1980,10 @@ test('Task 64: у фильма без кадра подложки нет — п�
   main.card1.card_data = { id: 44, title: 'Без кадра', poster_path: '/p.jpg', release_date: '2021-01-01' };
   main.card1.addClass('focus');
   env.hero.mount(main.activity);
-  const node = main.activity._children[0];
+  const node = heroOf(main.activity);
   fireFocus(main.activity, main.card1);
   env.advance(400);
-  const lqip = node.find('.lumen-hero__lqip');
+  const lqip = stageOf(node).find('.lumen-hero__lqip');
   assert.equal(lqip.attr('src'), undefined, 'подложка для постера не нужна');
   assert.equal(lqip.hasClass('is-active'), false);
   assert.equal(env.images[0].src, 'https://img/t/p/w92/p.jpg');
@@ -1950,8 +1999,8 @@ test('Task 64: другой фильм с тем же backdrop подложку 
   /* Разные id (иначе герой не стал бы обновляться вовсе), один кадр. */
   main.card2.card_data.backdrop_path = '/b1.jpg';
   env.hero.mount(main.activity);
-  const node = main.activity._children[0];
-  const lqip = node.find('.lumen-hero__lqip');
+  const node = heroOf(main.activity);
+  const lqip = stageOf(node).find('.lumen-hero__lqip');
   main.card1.addClass('focus');
   fireFocus(main.activity, main.card1);
   env.advance(400);
@@ -1981,7 +2030,7 @@ test('Task 39: DPR 2 не поднимает логотип выше потол�
   const main = makeMain();
   main.card1.addClass('focus');
   env.hero.mount(main.activity);
-  const node = main.activity._children[0];
+  const node = heroOf(main.activity);
 
   fireFocus(main.activity, main.card1);
   env.advance(400);
@@ -2033,7 +2082,7 @@ test('детали из кэша приходят синхронно — отл�
   const env = makeEnv();
   const main = makeMain();
   env.hero.mount(main.activity);
-  const node = main.activity._children[0];
+  const node = heroOf(main.activity);
 
   main.card1.addClass('focus');
   fireFocus(main.activity, main.card1);
@@ -2053,7 +2102,7 @@ test('ошибка деталей гасит скелетон и пережив�
   const env = makeEnv();
   const main = makeMain();
   env.hero.mount(main.activity);
-  const node = main.activity._children[0];
+  const node = heroOf(main.activity);
 
   main.card1.addClass('focus');
   fireFocus(main.activity, main.card1);
@@ -2070,7 +2119,7 @@ test('пустой ответ деталей равносилен ошибке �
   const env = makeEnv();
   const main = makeMain();
   env.hero.mount(main.activity);
-  const node = main.activity._children[0];
+  const node = heroOf(main.activity);
 
   main.card1.addClass('focus');
   fireFocus(main.activity, main.card1);
@@ -2368,7 +2417,7 @@ test('трейлер героя: старт после 8 с покоя фоку�
   const env = trailerEnv();
   const main = makeMain();
   env.hero.mount(main.activity);
-  const node = main.activity._children[0];
+  const node = heroOf(main.activity);
 
   focusOn(main, main.card1);
   env.advance(400);
@@ -2387,13 +2436,18 @@ test('трейлер героя: старт после 8 с покоя фоку�
   assert.equal(env.players.length, 1);
   assert.equal(env.players[0].key, 'ruKey');
   assert.equal(env.players[0].host.hasClass('lumen-hero__trailer'), true, 'плеер живёт в своём слое героя');
+  /* Волна 3: слой ролика — в неподвижном слое кадра, а не в сжимающемся
+     узле героя. */
+  assert.equal(env.players[0].host._parentEl, stageOf(node), 'ролик обязан лежать в слое кадра');
   assert.equal(node.hasClass('lumen-hero--trailer'), false, 'до фактического старта класса нет');
 
   env.players[0].onStart();
   assert.equal(node.hasClass('lumen-hero--trailer'), true);
+  assert.equal(stageOf(node).hasClass('lumen-hero-stage--trailer'), true, 'кадр под роликом не приглушён');
 
   env.players[0].onEnd();
   assert.equal(node.hasClass('lumen-hero--trailer'), false, 'ролик кончился — герой вернулся к кадру');
+  assert.equal(stageOf(node).hasClass('lumen-hero-stage--trailer'), false, 'кадр остался приглушённым после ролика');
   assert.deepEqual(warnLog, []);
 });
 
@@ -2441,7 +2495,7 @@ test('трейлер героя: повторное событие на той �
   const env = trailerEnv();
   const main = makeMain();
   env.hero.mount(main.activity);
-  const node = main.activity._children[0];
+  const node = heroOf(main.activity);
 
   focusOn(main, main.card1);
   env.advance(9000);
@@ -2489,7 +2543,7 @@ test('трейлер героя: перевод фокуса снимает иг
   const env = trailerEnv();
   const main = makeMain();
   env.hero.mount(main.activity);
-  const node = main.activity._children[0];
+  const node = heroOf(main.activity);
 
   focusOn(main, main.card1);
   env.advance(9000);
@@ -2676,7 +2730,7 @@ test('трейлер героя: выключение настройки на л
   const env = trailerEnv({}, (name, def) => (name === 'lumen_hero_trailer' ? on : def));
   const main = makeMain();
   env.hero.mount(main.activity);
-  const node = main.activity._children[0];
+  const node = heroOf(main.activity);
 
   focusOn(main, main.card1);
   env.advance(9000);
@@ -2803,7 +2857,7 @@ test('трейлер героя: событие start плеера Lampa сни�
   const player = lampaPlayer(env);
   const main = makeMain();
   env.hero.mount(main.activity);
-  const node = main.activity._children[0];
+  const node = heroOf(main.activity);
   focusOn(main, main.card1);
   env.advance(9000);
   lastVideos(env).ok(VIDEOS_RU);
@@ -2842,7 +2896,7 @@ function heroIn(mode) {
   main.card1.addClass('focus');
   fireFocus(main.activity, main.card1);
   env.advance(350);
-  return { env: env, main: main, node: main.activity._children[0] };
+  return { env: env, main: main, node: heroOf(main.activity) };
 }
 
 const LOGO_RU = { images: { logos: [{ file_path: '/l.png', iso_639_1: 'ru' }] } };
@@ -3015,7 +3069,7 @@ test('Task 71: настройка выключена — логотип не з�
   env.LC.motionMode = () => 'lite';
   const main = makeMain();
   env.hero.mount(main.activity);
-  const node = main.activity._children[0];
+  const node = heroOf(main.activity);
   main.card1.addClass('focus');
   fireFocus(main.activity, main.card1);
   env.advance(350);
@@ -3343,11 +3397,11 @@ test('«Только кадры»: кадры фильма сменяются п
   try {
     const main = makeMain();
     env.hero.mount(main.activity);
-    const node = main.activity._children[0];
+    const node = heroOf(main.activity);
     focusOn(main, main.card1);
     env.advance(400);
     env.images[0].onload();
-    assert.equal(node.find('.lumen-hero__bg--a').attr('src'), 'https://img/t/p/w1280/b1.jpg');
+    assert.equal(stageOf(node).find('.lumen-hero__bg--a').attr('src'), 'https://img/t/p/w1280/b1.jpg');
     detailsOf(env, 11).ok(FRAMES(11, '/b1.jpg'));
     assert.equal(env.live().length, 1, 'смена кадров заведена по деталям, без лишнего запроса');
     assert.equal(env.live()[0].ms, 14000);
@@ -3357,8 +3411,8 @@ test('«Только кадры»: кадры фильма сменяются п
     assert.equal(env.images.length, before + 1, 'предзагружается только следующий кадр');
     assert.equal(env.images[before].src, 'https://img/t/p/w1280/f2.jpg');
     env.images[before].onload();
-    const a = node.find('.lumen-hero__bg--a');
-    const b = node.find('.lumen-hero__bg--b');
+    const a = stageOf(node).find('.lumen-hero__bg--a');
+    const b = stageOf(node).find('.lumen-hero__bg--b');
     assert.equal(a.attr('src'), 'https://img/t/p/w1280/f2.jpg', 'без тяжёлых эффектов — один слой, смена без кроссфейда');
     assert.equal(b.attr('src'), undefined, 'второй слой пуст: в памяти не больше двух кадров');
 
@@ -3380,7 +3434,7 @@ test('«Только кадры»: фокус в рядах — пауза, см
   try {
     const main = makeMain();
     env.hero.mount(main.activity);
-    const node = main.activity._children[0];
+    const node = heroOf(main.activity);
     focusOn(main, main.card1);
     env.advance(400);
     env.images[0].onload();
@@ -3420,14 +3474,14 @@ test('«Только кадры»: уход в карточку ставит с�
     const main = makeMain();
     const card = makeMain();
     env.hero.mount(main.activity);
-    const node = main.activity._children[0];
+    const node = heroOf(main.activity);
     focusOn(main, main.card1);
     env.advance(400);
     env.images[0].onload();
     detailsOf(env, 11).ok(FRAMES(11, '/b1.jpg'));
     env.live()[0].fn();
     env.images[env.images.length - 1].onload();
-    const a = node.find('.lumen-hero__bg--a');
+    const a = stageOf(node).find('.lumen-hero__bg--a');
     assert.equal(a.attr('src'), 'https://img/t/p/w1280/f2.jpg', 'предусловие: показан второй кадр');
 
     env.hero.detach(card.activity);
@@ -3453,7 +3507,7 @@ test('«Кадры и трейлер» (по умолчанию) в lite: кад
   try {
     const main = makeMain();
     env.hero.mount(main.activity);
-    const node = main.activity._children[0];
+    const node = heroOf(main.activity);
     focusOn(main, main.card1);
     env.advance(400);
     frameImg(env, '/b1.jpg').onload();
@@ -3581,15 +3635,15 @@ test('«Только кадры» с тяжёлыми эффектами: уше
   try {
     const main = makeMain();
     env.hero.mount(main.activity);
-    const node = main.activity._children[0];
+    const node = heroOf(main.activity);
     focusOn(main, main.card1);
     env.advance(400);
     frameImg(env, '/b1.jpg').onload();
     detailsOf(env, 11).ok(FRAMES(11, '/b1.jpg'));
     env.live()[0].fn();
     frameImg(env, '/f2.jpg').onload();
-    const a = node.find('.lumen-hero__bg--a');
-    const b = node.find('.lumen-hero__bg--b');
+    const a = stageOf(node).find('.lumen-hero__bg--a');
+    const b = stageOf(node).find('.lumen-hero__bg--b');
     assert.equal(b.attr('src'), 'https://img/t/p/w1280/f2.jpg');
     assert.equal(a.attr('src'), 'https://img/t/p/w1280/b1.jpg', 'на время кроссфейда оба слоя с кадром');
     env.advance(700);
@@ -3603,7 +3657,7 @@ test('«Что показывает кадр главной» на лету: «�
   try {
     const main = makeMain();
     env.hero.mount(main.activity);
-    const hero = main.activity._children[0];
+    const hero = heroOf(main.activity);
     focusOn(main, main.card1);
     env.advance(400);
     env.images[0].onload();

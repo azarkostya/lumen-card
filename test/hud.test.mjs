@@ -293,6 +293,31 @@ test('hud: layers() считает и два постоянных слоя Task 
     'у области рядов больше нет translateZ(0) — пересмотреть FULL');
 });
 
+/* Волна 3 (ТВ 2026-09-24): вуали героя сняты, их место заняло затемнение
+   неподвижного слоя кадра — два узла .lumen-hero__scrim (второй с
+   модификатором --l) и пол сжатого состояния .lumen-hero__floor. Сам слой
+   .lumen-hero-stage — контейнер без transform и без своего рисунка, в счёт
+   он не идёт. Разметку слоя берём из исходника героя (buildStage), чтобы
+   сверка шла с тем, что реально строится. */
+test('волна 3: FULL считает затемнение слоя кадра и пол, вуалей в нём нет', () => {
+  const e = env();
+  e.api.layers();
+  const full = e.asked[e.asked.length - 1].split(',').map((p) => p.trim());
+  assert.ok(full.indexOf('.lumen-hero__scrim') !== -1, 'затемнения кадра нет в FULL: ' + full.join(','));
+  assert.ok(full.indexOf('.lumen-hero__floor') !== -1, 'пола сжатого состояния нет в FULL: ' + full.join(','));
+  assert.equal(full.filter((p) => p.indexOf('veil') !== -1 && p.indexOf('lumen-hero') !== -1).length, 0,
+    'в FULL остались вуали героя: ' + full.join(','));
+  assert.equal(full.indexOf('.lumen-hero-stage'), -1, 'контейнер слоя кадра ничего не рисует — ему не место в FULL');
+
+  const heroSrc = readFileSync(new URL('../src/48_hero.js', import.meta.url), 'utf8');
+  const stage = /function buildStage\(\) \{([\s\S]*?)\n    \}/.exec(heroSrc);
+  assert.ok(stage, 'buildStage не найдена');
+  const kids = (stage[1].match(/class="([^"]+)"/g) || []).map((m) => m.slice(7, -1)).filter((c) => c !== 'lumen-hero-stage');
+  assert.equal(kids.length, 7, 'в слое кадра семь рисующих узлов: ' + kids.join(' | '));
+  for (const cls of kids) e.addLayer(cls);
+  assert.equal(e.api.layers(), 7, 'каждый узел слоя кадра посчитан ровно один раз');
+});
+
 /* Ревью фикс-раунда, Ф2 п.3. На экране карточки счёт по всему документу
    завышал цифру примерно на 9: под карточкой, в скрытой активности главной,
    живёт запаркованный герой (src/48_hero.js, park) и область рядов. Слои
@@ -311,7 +336,7 @@ test('Ф2 п.3: layerCounts — слои видимого экрана и скр
   put('lumen-hero', hidden);
   put('lumen-hero__bg lumen-hero__bg--a', hidden);
   put('lumen-hero__lqip', hidden);
-  put('lumen-hero__veil lumen-hero__veil--l', hidden);
+  put('lumen-hero__scrim lumen-hero__scrim--l', hidden);
   /* Слой перехода живёт в body, вне активностей, — он на экране. */
   put('lumen-overlay__img', null);
 

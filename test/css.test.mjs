@@ -319,6 +319,67 @@ function findDecl(cssText, matchSelector) {
   return rule ? rule.decl : null;
 }
 
+/* Волна 3 (ТВ 2026-09-24): разбор градиентов затемнения кадра героя.
+   gradients(decl, prop) — слои linear-gradient из БЕСпрефиксного
+   объявления prop ('background' или 'mask-image'): [{angle, stops}], стоп —
+   {a, pos, unit}. Сплошной цвет (#RRGGBB, #000) — прозрачность 1. Скобки
+   считаются, поэтому rgba(...) внутри стопов и несколько слоёв через запятую
+   разбираются честно. */
+function gradients(declText, prop) {
+  const re = new RegExp('(?:^|;)' + prop + ':([^;]*)', 'g');
+  let value = null;
+  let m;
+  while ((m = re.exec(declText))) if (m[1].indexOf('-webkit-') !== 0) value = m[1];
+  if (value === null) return [];
+  const out = [];
+  let at = 0;
+  const head = 'linear-gradient(';
+  while ((at = value.indexOf(head, at)) !== -1) {
+    let depth = 0;
+    let end = at + head.length - 1;
+    for (; end < value.length; end++) {
+      if (value[end] === '(') depth++;
+      else if (value[end] === ')' && --depth === 0) break;
+    }
+    const body = value.slice(at + head.length, end);
+    const parts = [];
+    let d = 0;
+    let from = 0;
+    for (let k = 0; k < body.length; k++) {
+      if (body[k] === '(') d++;
+      else if (body[k] === ')') d--;
+      else if (body[k] === ',' && !d) { parts.push(body.slice(from, k)); from = k + 1; }
+    }
+    parts.push(body.slice(from));
+    const angle = parts.shift().trim();
+    out.push({
+      angle: angle,
+      stops: parts.map((p) => {
+        const t = p.trim();
+        const pos = /\s(-?[\d.]+)(%|em|vh)?$/.exec(t);
+        const rgba = /^rgba\([^,]+,[^,]+,[^,]+,\s*([\d.]+)\)/.exec(t);
+        return { a: rgba ? parseFloat(rgba[1]) : (/^#[0-9A-Fa-f]{3,6}\b/.test(t) ? 1 : NaN), pos: pos ? parseFloat(pos[1]) : NaN, unit: pos ? (pos[2] || '') : '' };
+      })
+    });
+    at = end;
+  }
+  return out;
+}
+
+/* Прозрачность градиента в точке p (в единицах его стопов): линейно между
+   соседними стопами, за крайними — значение крайнего. */
+function gradAt(stops, p) {
+  if (p <= stops[0].pos) return stops[0].a;
+  for (let i = 1; i < stops.length; i++) {
+    if (p <= stops[i].pos) {
+      const a = stops[i - 1];
+      const b = stops[i];
+      return b.pos === a.pos ? b.a : a.a + (b.a - a.a) * (p - a.pos) / (b.pos - a.pos);
+    }
+  }
+  return stops[stops.length - 1].a;
+}
+
 test('buildCss: все правила шапки ограничены допустимыми корнями', () => {
   const selectors = ruleSelectors(css);
   assert.ok(selectors.length > 20, 'подозрительно мало селекторов извлечено: ' + selectors.length);
@@ -2397,20 +2458,21 @@ test('правка: текст героя прижат к низу кадра и
   const num = (decl, name, unit) => parseFloat(new RegExp(name + ':([0-9.]+)' + unit).exec(decl)[1]);
   const zoom = num(text, 'font-size', 'em');
   assert.equal(zoom, 1.1, 'кегль текста героя не поднят: ' + text);
-  /* Ревью фикс-раунда (п.3): рамка блока — это зона подушки-вуали внутри
-     него (от левой кромки кадра с запасом до правой, от безопасной зоны до
-     низа кадра), а содержимое стоит на отступах. Safe area слева — сумма
-     left (отрицательный запас) и padding-left; отступ снизу — padding-bottom
-     в vh, сама рамка доходит до низа кадра. */
-  const bleed = parseFloat(/(^|;)left:-([0-9.]+)em/.exec(text)[2]);
+  /* Ревью фикс-раунда (п.3): рамка блока — от левой кромки кадра до правой
+     и от безопасной зоны до низа кадра, а содержимое стоит на отступах.
+     Safe area слева — padding-left; отступ снизу — padding-bottom в vh.
+     Волна 3: запаса рамки за левую кромку (под подушку-вуаль) больше нет —
+     left:0. */
   const padL = parseFloat(/(^|;)padding:0 0 [0-9.]+vh ([0-9.]+)em/.exec(text)[2]);
-  assert.ok(bleed > 0, 'рамка блока обязана заходить за кромку кадра: ' + text);
-  assert.ok(Math.abs((padL - bleed) * zoom - 3.51) < 0.02, 'Task 63: safe area слева — 80 px tvOS = 3.51em: ' + text);
+  assert.ok(/(^|;)left:0;/.test(text), 'рамка блока заходит за кромку кадра — вуали в блоке больше нет: ' + text);
+  assert.ok(Math.abs(padL * zoom - 3.51) < 0.02, 'Task 63: safe area слева — 80 px tvOS = 3.51em: ' + text);
   assert.ok(/(^|;)right:0;/.test(text) && /(^|;)bottom:0;/.test(text), 'рамка блока обязана доходить до правой и нижней кромки кадра: ' + text);
-  /* Ширина содержимого — 36em своего кегля (волна 3, «меньше текста»; было
-     46): справа отступ «кадр минус левый отступ без запаса минус 36em». */
+  /* Ширина содержимого — 36em своего кегля (волна 3: было 46; правый край
+     текста обязан остаться там, где левое затемнение ещё плотное): справа
+     отступ «кадр минус левый отступ минус 36em». */
   const padR = parseFloat(/[^-]padding-right:calc\(100% - ([0-9.]+)em\)/.exec(text)[1]);
-  assert.ok(Math.abs(padR - (padL - bleed + 36)) < 0.01, 'ширина содержимого текста героя уехала от 36em: ' + text);
+  assert.ok(Math.abs(padR - (padL + 36)) < 0.01, 'ширина содержимого текста героя уехала от 36em: ' + text);
+  assert.ok((padR * zoom * 960 / 84.17) / 960 <= 0.52, 'правый край текста дальше 52 % ширины — левое затемнение там уже не держит мету: ' + padR);
   /* Сверху — безопасная зона под шапкой Lampa: без неё высокое содержимое
      налезало на заголовок активности и иконки (находка пользователя). */
   assert.ok(Math.abs(num(text, 'top', 'em') * zoom - 4.4) < 0.02, 'нет безопасной зоны под шапкой Lampa: ' + text);
@@ -3650,90 +3712,220 @@ test('Task 51 + волна 3: правил полосы чипов для гла
 });
 
 
-/* Правка пользователя 2026-09-17 (второй круг, п.2): «условно с середины
-   картинки сделаем полупрозрачный, в середине 70 %, до 0 % в конце». */
-/* Правка пользователя 2026-09-17 (третий круг): «фон хочется чтобы был
-   больше прозрачного» — стопы ослаблены ещё раз, и нижний перестал быть
-   сплошным. */
-/* Task 64: нижняя вуаль перестала быть плашкой поверх кадра и стала
-   градиент-МАСКОЙ самих слоёв кадра (tv-design-specs §1: «вуаль — линейный
-   градиент-маска по изображению»). Стопы те же пять, но в обратную сторону:
-   где плашка держала .92 непрозрачности фона, маска оставляет .08
-   изображения. */
-test('Task 36/64: кадр героя растворяется длинной градиент-маской, кромки глазом не найти', () => {
-  const rule = ruleBodies(css).find((r) => r.decl.indexOf('mask-image:linear-gradient') !== -1
-    && r.selectors.indexOf('.lumen-hero .lumen-hero__bg') !== -1);
-  assert.ok(rule, 'у слоёв кадра героя нет градиент-маски');
-  const mask = rule.decl;
-  /* Маска накрывает всё, что показывается в кадре: обе картинки и ролик —
-     иначе нижняя кромка ролика останется резкой. */
-  for (const sel of ['.lumen-hero .lumen-hero__bg', '.lumen-hero .lumen-hero__lqip', '.lumen-hero .lumen-hero__trailer']) {
-    assert.ok(rule.selectors.indexOf(sel) !== -1, 'маска не досталась ' + sel + ': ' + rule.selectors.join(','));
+/* -------------------------------------------------------------------- */
+/* Волна 3 (проверка на ТВ 2026-09-24): кадр героя на весь экран.         */
+/*                                                                        */
+/* Жалобы пользователя по фото с телевизора: тёмная подушка под текстом   */
+/* обрывается вертикальной границей на 614 px из 960 (фото 15/16 — «ведите */
+/* до конца»), кадр 16:9 в блоке 66.67vh режет головы, а в сжатом          */
+/* состоянии ещё и уезжает вверх (фото 17). Решение: кадр — в неподвижном  */
+/* слое .lumen-hero-stage на весь экран, затемнение — три градиента того   */
+/* же слоя без единой кромки. Высота .lumen-hero, текст и ряды — прежние.  */
+/* -------------------------------------------------------------------- */
+
+/* Слой кадра стоит от верхней кромки экрана до нижней и в покое, и при
+   фокусе в рядах. Модель — та же, что у раскладки героя выше: .activitys
+   начинается на 4em ниже верха экрана, слой поднят на -4em и высотой в
+   экран; правил сжатого состояния, которые двигали бы его или его кадры,
+   нет ни одного. */
+test('волна 3: слой кадра неподвижен и стоит 0…540 CSS px и в покое, и в сжатом состоянии', () => {
+  const W = 960;
+  const H = 540;
+  const EM = W / 84.17;
+  for (const size of ['large', 'medium', 'compact']) {
+    const built = withStorage({ lumen_hero_size: size }, (LC) => LC.buildCss());
+    const stage = decl(built, '.lumen-hero-stage');
+    assert.ok(stage, size + ': правила слоя кадра нет');
+    for (const need of ['position:absolute', 'left:0', 'right:0', 'overflow:hidden', 'pointer-events:none']) {
+      assert.ok(new RegExp('(?:^|;)' + need + '(;|$)').test(stage), size + ': у слоя кадра нет ' + need + ': ' + stage);
+    }
+    assert.equal(/transform|transition|will-change/.test(stage), false, size + ': слой кадра двигается или заводит себе слой композитора: ' + stage);
+    const topEm = parseFloat(/(?:^|;)top:(-?[\d.]+)em/.exec(stage)[1]);
+    const heightVh = parseFloat(/(?:^|;)height:([\d.]+)vh/.exec(stage)[1]);
+    /* Ничто не трогает слой и его картинки в сжатом состоянии: ни класс
+       сжатия героя, ни подъём рядов. Единственное правило состояния в слое —
+       прозрачность пола (он и должен появиться под поднятыми рядами). */
+    const stateful = ruleBodies(built).filter((r) => r.selectors.some((s) => /lumen-hero-stage|lumen-hero__(bg|lqip|trailer|scrim|floor)/.test(s) &&
+      /lumen-hero--compact|lumen-rows-up/.test(s)));
+    assert.deepEqual(stateful.map((r) => r.selectors.join(',') + '{' + r.decl + '}'), ['.lumen-main.lumen-rows-up .lumen-hero__floor{opacity:1}'],
+      size + ': в сжатом состоянии слой кадра обязан стоять на месте');
+    for (const state of ['покой', 'сжатое']) {
+      const top = 4 * EM + topEm * EM;
+      const bottom = top + heightVh * H / 100;
+      assert.ok(Math.abs(top) < 0.01 && Math.abs(bottom - H) < 0.01, size + ', ' + state + ': слой кадра ' + top.toFixed(1) + '…' + bottom.toFixed(1) + ' вместо 0…540');
+    }
+    /* Кадры и подложка — во весь слой, обрезка cover с точкой 25 %. */
+    const img = decl(built, '.lumen-hero-stage .lumen-hero__bg');
+    for (const need of ['top:0', 'left:0', 'width:100%', 'height:100%', 'object-fit:cover', 'object-position:center 25%']) {
+      assert.ok(new RegExp('(?:^|;)' + need + '(;|$)').test(img), size + ': у кадра нет ' + need + ': ' + img);
+    }
   }
-  const stops = mask.match(/rgba\([^)]*\)\s[0-9]+%/g) || [];
-  assert.ok(stops.length >= 8, 'маска обязана быть многостоповой: ' + mask);
-  /* Правка 2026-09-23 (разбор композиции, п.1.3): затухание сжато с 62 % до
-     40 % высоты кадра. Кадру отдано две трети экрана, а различим он был
-     только до половины — нижнюю треть забирал этот градиент, и забирал по
-     ВСЕЙ ширине, хотя содержимое лежит слева. Теперь нижняя полоса гасится
-     ровно настолько, чтобы кадр растворился в фоне рядов, а читаемость
-     текста держит левая вуаль со своей маской (тест ниже). */
-  for (const need of [',0) 0%', ',.10) 6%', ',.42) 16%', ',.78) 28%']) {
-    assert.ok(mask.indexOf(need) !== -1, 'нет стопа ' + need + ': ' + mask);
-  }
-  /* Верхний стоп сплошной: выше 40 % высоты кадр не тронут вовсе. */
-  assert.ok(/mask-image:linear-gradient\(0deg,.*#000 40%\)/.test(mask), 'на 40 % маска обязана стать сплошной: ' + mask);
-  /* Вендорная пара обязательна: без -webkit- старый движок маску не увидит
-     и покажет кадр с резкой кромкой у рядов. */
-  assert.ok(mask.indexOf('-webkit-mask-image:-webkit-linear-gradient(bottom,') !== -1, 'старым webkit-движкам нужна префиксная маска: ' + mask);
-  /* В старте заголовок первого ряда стоит в 12 % высоты кадра от его низа
-     (замер на стенде 960×540@2, 2026-09-21: низ кадра 360.0 px = 66.67vh,
-     верх подписи «Сейчас смотрят» 316.8 px = 58.66vh, разница 12.01 %) —
-     то же число, что в комментарии к ROWS_SHIFT_VH в src/30_css.js.
-     Прежние стопы оставляли там .13 картинки, новые — .30, и держит
-     заголовок теперь не маска, а вуаль: он лежит в левой трети, где её
-     плотность .97 (расчёт контраста — в тесте «мета и топбар героя
-     читаются на белом кадре»). */
-  assert.ok(mask.indexOf(',.10) 6%') !== -1, 'второй стоп маски сдвинули — пересчитай контраст заголовка первого ряда: ' + mask);
-  const left = findDecl(css, (sel) => sel === '.lumen-hero .lumen-hero__veil--l');
-  assert.ok(left.indexOf(',.97) 0%') !== -1 && left.indexOf(',0) 78%') !== -1, 'левая вуаль: ' + left);
-  /* Правка 2026-09-23 (п.1.4): у левой вуали появилась СВОЯ маска — по
-     вертикали. Двух направлений на одном элементе без mask-composite не
-     собрать, и его тут нет: одно направление несёт background (плотность по
-     ширине), другое — маска (докуда вуаль доходит по высоте).
-     Ревью фикс-раунда (п.3): маска отмеряется не от низа кадра процентами,
-     а от ВЕРХА самой вуали в em: вуаль стоит в потоке текста под названием,
-     сверху у неё затухание, дальше — полная плотность до низа. Геометрию
-     держит тест «ревью п.3» ниже. */
-  const leftMaskRule = ruleBodies(css).find((r) => r.selectors.length === 1
-    && r.selectors[0] === '.lumen-hero .lumen-hero__veil--l' && r.decl.indexOf('mask-image') !== -1);
-  assert.ok(leftMaskRule, 'у левой вуали нет вертикальной маски');
-  assert.ok(/[^-]mask-image:linear-gradient\(180deg,rgba\(0,0,0,0\) 0,#000 [0-9.]+em\)/.test(leftMaskRule.decl),
-    'маска левой вуали: затухание сверху в em, дальше сплошь: ' + leftMaskRule.decl);
-  assert.ok(leftMaskRule.decl.indexOf('-webkit-mask-image:-webkit-linear-gradient(top,') !== -1,
-    'старым webkit-движкам нужна префиксная маска (без неё вуаль останется сплошной от названия вниз): ' + leftMaskRule.decl);
-  assert.equal(/mask-composite/.test(leftMaskRule.decl), false, 'mask-composite в WebView телевизора не проверен: ' + leftMaskRule.decl);
-  /* Полноэкранных узлов-вуалей теперь два: левая (подушка под текстом) и
-     верхняя (под шапкой Lampa, п.1.4). Нижней плашки по-прежнему нет — она
-     осталась маской самих слоёв кадра. */
-  assert.equal(ruleSelectors(css).filter((sel) => sel.indexOf('.lumen-hero__veil--b') !== -1).length, 0);
+  /* Сам герой — прежний: высота две трети экрана, сжатие — его сдвиг. */
+  assert.ok(decl(css, '.lumen-hero').indexOf('height:66.67vh') !== -1, 'высота блока героя (HERO_VH) не меняется');
+  /* Слой кадра — СОСЕД героя: правил вида «.lumen-hero .lumen-hero__bg» —
+     кадров внутри сжимающегося блока — не осталось. */
+  assert.deepEqual(ruleSelectors(css).filter((s) => /\.lumen-hero[ .][^,]*lumen-hero__(bg|lqip|trailer)/.test(s) && s.indexOf('lumen-hero-stage') === -1), [],
+    'кадры героя всё ещё лежат в сжимающемся блоке');
 });
 
-/* Task 64: у слоя ролика бокс выше кадра на 20 % (top/bottom по -10 %),
-   поэтому маска на нём отмерена отдельно — иначе стопы разъедутся с кадром,
-   а у самой кромки героя ролик останется видимым. */
-test('Task 64: маска ролика отмерена по высоте кадра, а не по своему боксу', () => {
-  const rule = ruleBodies(css).find((r) => r.selectors.length === 1
-    && r.selectors[0] === '.lumen-hero .lumen-hero__trailer'
-    && r.decl.indexOf('mask-size') !== -1);
-  assert.ok(rule, 'у слоя ролика нет собственного размера маски');
-  assert.ok(rule.decl.indexOf('mask-size:100% 83.33%') !== -1, 'высота маски ролика не равна высоте кадра (100/120): ' + rule.decl);
-  assert.ok(rule.decl.indexOf('-webkit-mask-size:100% 83.33%') !== -1, 'нет префиксной пары: ' + rule.decl);
-  assert.ok(rule.decl.indexOf('mask-position:0 50%') !== -1 && rule.decl.indexOf('-webkit-mask-position:0 50%') !== -1,
-    'маска ролика обязана стоять по центру бокса — тогда её верх совпадает с верхом кадра: ' + rule.decl);
-  const box = findDecl(css, (sel) => sel === '.lumen-hero .lumen-hero__trailer');
-  assert.ok(box.indexOf('top:-10%') !== -1 && box.indexOf('bottom:-10%') !== -1,
-    'запас бокса ролика изменился — 83.33 % и 50 % пересчитать: ' + box);
+/* Левое затемнение — подушка под текстом — уходит в ноль ровно у ПРАВОЙ
+   кромки экрана: ни полки полной плотности с обрывом (прежняя вуаль: .94 до
+   64 % ширины и ноль к 78 %), ни ступени. Наклон кривой ограничен: .025 на
+   1 % ширины — у прежней вуали было .067, это и была видимая граница. */
+test('волна 3: левое затемнение уходит в ноль у правой кромки экрана — полки с обрывом нет', () => {
+  const rule = decl(css, '.lumen-hero-stage .lumen-hero__scrim.lumen-hero__scrim--l');
+  assert.ok(rule, 'левого затемнения в слое кадра нет');
+  const layers = gradients(rule, 'background');
+  assert.equal(layers.length, 1, 'у левого затемнения один градиент: ' + rule);
+  assert.equal(layers[0].angle, '90deg', 'левое затемнение идёт слева направо: ' + rule);
+  const stops = layers[0].stops;
+  assert.ok(stops.every((s) => s.unit === '%'), 'стопы — в процентах ширины: ' + rule);
+  assert.equal(stops[0].pos, 0);
+  assert.ok(stops[0].a >= 0.9, 'у левой кромки подушка плотная: ' + stops[0].a);
+  const last = stops[stops.length - 1];
+  assert.equal(last.pos, 100, 'затемнение обязано доходить до правой кромки: последний стоп на ' + last.pos + ' %');
+  assert.equal(last.a, 0, 'у правой кромки затемнения нет');
+  assert.equal(stops.slice(0, -1).filter((s) => s.a === 0).length, 0, 'затемнение кончается раньше правой кромки');
+  for (let i = 1; i < stops.length; i++) {
+    const a = stops[i - 1];
+    const b = stops[i];
+    assert.ok(b.a <= a.a, 'плотность растёт на ' + b.pos + ' %: ' + rule);
+    const slope = (a.a - b.a) / (b.pos - a.pos);
+    assert.ok(slope <= 0.025, 'обрыв между ' + a.pos + ' и ' + b.pos + ' %: ' + slope.toFixed(3) + ' на 1 % ширины');
+  }
+  assert.ok(rule.indexOf('-webkit-linear-gradient(left,') !== -1, 'старым webkit-движкам нужен префиксный градиент: ' + rule);
+  /* По высоте затемнение ограничивает маска — фон несёт одно направление,
+     маска другое; mask-composite в WebView телевизора не проверен. */
+  const mask = ruleBodies(css).find((r) => r.selectors.length === 1 && r.selectors[0] === '.lumen-hero-stage .lumen-hero__scrim.lumen-hero__scrim--l' &&
+    r.decl.indexOf('mask-image') !== -1);
+  assert.ok(mask, 'у левого затемнения нет вертикальной маски');
+  const m = gradients(mask.decl, 'mask-image');
+  assert.equal(m.length, 1);
+  assert.equal(m[0].angle, '180deg', 'маска идёт сверху вниз: ' + mask.decl);
+  assert.equal(m[0].stops[m[0].stops.length - 1].a, 1, 'ниже маски затемнение полное: ' + mask.decl);
+  assert.ok(mask.decl.indexOf('-webkit-mask-image:-webkit-linear-gradient(top,') !== -1, 'нужна префиксная маска: ' + mask.decl);
+  assert.equal(/mask-composite/.test(mask.decl), false);
+  /* Вуалей героя больше нет нигде — ни правил, ни их наследства. */
+  assert.deepEqual(ruleSelectors(css).filter((s) => s.indexOf('lumen-hero__veil') !== -1), [], 'в таблице остались вуали героя');
+});
+
+/* Низ кадра в покое растворяется ровно так же, как до волны 3: стопы
+   затемнения — это стопы прежней маски кадра (.10 картинки на 6 % высоты
+   блока героя от его низа, .42 на 16 %, .78 на 28 %, сплошной кадр с 40 %),
+   пересчитанные в проценты экрана. Ниже блока героя — сплошной фон: кадра
+   там не было и раньше. Масок на самих картинках больше нет. Верхняя
+   полоса под шапкой Lampa — числа прежней верхней вуали. */
+test('волна 3: в покое низ кадра растворяется на стопах прежней маски, верх — под шапкой Lampa', () => {
+  for (const size of ['large', 'medium', 'compact']) {
+    const built = withStorage({ lumen_hero_size: size }, (LC) => LC.buildCss());
+    const heroVh = parseFloat(/height:([\d.]+)vh/.exec(decl(built, '.lumen-hero'))[1]);
+    const rule = (ruleBodies(built).find((r) => r.selectors.length === 1 && r.selectors[0] === '.lumen-hero-stage .lumen-hero__scrim' && r.decl.indexOf('background') !== -1) || {}).decl;
+    assert.ok(rule, size + ': затемнения слоя кадра нет');
+    const layers = gradients(rule, 'background');
+    assert.equal(layers.length, 2, size + ': у затемнения два слоя — верх и низ: ' + rule);
+    const top = layers.find((l) => l.angle === '180deg');
+    const bottom = layers.find((l) => l.angle === '0deg');
+    assert.ok(top && bottom, size + ': направления слоёв затемнения: ' + rule);
+    assert.deepEqual(top.stops.map((s) => [s.a, s.pos, s.unit]), [[0.5, 0, ''], [0.5, 3.96, 'em'], [0, 9, 'em']],
+      size + ': полоса под шапкой Lampa разошлась с прежней верхней вуалью');
+    const solid = 100 - heroVh;
+    const expected = [[1, 0], [1, solid], [0.9, solid + 0.06 * heroVh], [0.58, solid + 0.16 * heroVh], [0.22, solid + 0.28 * heroVh], [0, solid + 0.4 * heroVh]];
+    assert.equal(bottom.stops.length, expected.length, size + ': число стопов низа: ' + rule);
+    bottom.stops.forEach((s, i) => {
+      assert.equal(s.a, expected[i][0], size + ': стоп ' + i + ' низа: ' + JSON.stringify(s));
+      assert.ok(Math.abs(s.pos - expected[i][1]) < 0.02, size + ': стоп ' + i + ' низа на ' + s.pos + ' % вместо ' + expected[i][1].toFixed(2));
+    });
+    assert.ok(rule.indexOf('-webkit-linear-gradient(top,') !== -1 && rule.indexOf('-webkit-linear-gradient(bottom,') !== -1,
+      size + ': старым webkit-движкам нужны префиксные градиенты: ' + rule);
+  }
+  assert.deepEqual(ruleBodies(css).filter((r) => r.selectors.some((s) => /lumen-hero__(bg|lqip|trailer)/.test(s)) && /mask/.test(r.decl))
+    .map((r) => r.selectors.join(',')), [], 'маска на картинках кадра осталась — затемнение теперь в слое');
+});
+
+/* Пол сжатого состояния: кадр больше не уезжает вверх, и под поднятыми
+   рядами его закрывает сплошной фон. Сплошная часть обязана накрыть верх
+   области рядов — там её верхний градиент-заливка (:after) начинается
+   сплошным цветом, и без пола его кромка легла бы на кадр. Верх области
+   отмерен в em (margin-top: calc(Xvh − Yem) плюс шапка Lampa 4em), поэтому
+   и бокс пола начинается calc'ом: проверяем на окнах от 4:3 до 2.9:1 и при
+   всех трёх «Размерах интерфейса» Lampa. Затухание над сплошной частью —
+   монотонное, без ступеней. Переход — только в полном режиме; в lite пол
+   встаёт сразу. */
+test('волна 3: пол сжатого состояния накрывает верх поднятых рядов без кромки', () => {
+  for (const size of ['large', 'medium', 'compact']) {
+    const built = withStorage({ lumen_hero_size: size }, (LC) => LC.buildCss());
+    const rule = ruleBodies(built).find((r) => r.selectors.length === 1 && r.selectors[0] === '.lumen-hero-stage .lumen-hero__floor' && r.decl.indexOf('background') !== -1);
+    assert.ok(rule, size + ': у пола нет градиента');
+    const layers = gradients(rule.decl, 'background');
+    assert.equal(layers.length, 1);
+    assert.equal(layers[0].angle, '180deg', size + ': пол отмерен сверху своего бокса');
+    const stops = layers[0].stops;
+    assert.ok(stops.every((s) => s.unit === 'vh'), size + ': затухание пола — в долях экрана: ' + rule.decl);
+    assert.equal(stops[0].a, 0, size + ': пол начинается прозрачностью');
+    assert.equal(stops[stops.length - 1].a, 1, size + ': пол кончается сплошным фоном');
+    for (let i = 1; i < stops.length; i++) {
+      assert.ok(stops[i].a >= stops[i - 1].a, size + ': ступень в затухании пола: ' + rule.decl);
+      assert.ok((stops[i].a - stops[i - 1].a) / (stops[i].pos - stops[i - 1].pos) <= 0.12, size + ': обрыв в затухании пола: ' + rule.decl);
+    }
+    const box = ruleBodies(built).find((r) => r.selectors.length === 1 && r.selectors[0] === '.lumen-hero-stage .lumen-hero__floor' && /(?:^|;)top:calc/.test(r.decl));
+    assert.ok(box, size + ': у пола нет своего верха');
+    const top = /(?:^|;)top:calc\(([\d.]+)vh - ([\d.]+)em\)/.exec(box.decl);
+    assert.ok(top && box.decl.indexOf('top:-webkit-calc(') !== -1, size + ': верх пола: ' + box.decl);
+    const rows = decl(built, '.lumen-main .scroll.layer--wheight');
+    const mt = /margin-top:calc\(([\d.]+)vh - ([\d.]+)em\)/.exec(rows);
+    const solidVh = stops[stops.length - 1].pos;
+    for (const [w, h] of [[1024, 768], [1920, 1200], [1920, 1080], [960, 540], [2560, 1080], [2900, 1000]]) {
+      for (const k of [0.9, 1, 1.05]) {
+        const em = Math.max(w / 84.17 * k, 10.6);
+        const areaTop = 4 * em + parseFloat(mt[1]) * h / 100 - parseFloat(mt[2]) * em;
+        const solidFrom = parseFloat(top[1]) * h / 100 - parseFloat(top[2]) * em + solidVh * h / 100;
+        assert.ok(solidFrom <= areaTop - 0.25 * em, size + ', ' + w + '×' + h + ', кегль ×' + k + ': верх поднятых рядов на ' +
+          areaTop.toFixed(1) + ' px, а сплошной пол — только с ' + solidFrom.toFixed(1));
+      }
+    }
+  }
+  assert.equal(decl(css, '.lumen-hero-stage .lumen-hero__floor'), 'position:absolute;top:0;left:0;right:0;bottom:0');
+  const hidden = ruleBodies(css).find((r) => r.selectors.length === 1 && r.selectors[0] === '.lumen-hero-stage .lumen-hero__floor' && /(?:^|;)opacity:0(;|$)/.test(r.decl));
+  assert.ok(hidden, 'в покое пол не спрятан');
+  assert.equal(findDecl(css, (s) => s === '.lumen-main.lumen-rows-up .lumen-hero__floor'), 'opacity:1');
+  const soft = findDecl(css, (s) => s === '.lumen-hero-stage.lumen-motion-full .lumen-hero__floor');
+  assert.ok(soft && soft.indexOf('transition:opacity .42s cubic-bezier(.2,.8,.2,1)') !== -1, 'пол проявляется той же кривой, что едут текст и ряды: ' + soft);
+  /* В lite у слоя кадра нет ни одного перехода: всё, что анимирует его
+     детей, стоит под классом полного режима. */
+  const lite = ruleBodies(css).filter((r) => r.selectors.some((s) => s.indexOf('lumen-hero-stage') !== -1) &&
+    /transition|animation/.test(r.decl) && !r.selectors.every((s) => s.indexOf('lumen-motion-full') !== -1));
+  assert.deepEqual(lite.map((r) => r.selectors.join(',')), [], 'у слоя кадра переход вне полного режима');
+});
+
+/* Ролик — 16:9-бокс, накрывающий слой кадра целиком (cover): max(100vw,
+   177.78vh) × max(56.25vw, 100vh) по центру экрана. На экране 16:9 это
+   ровно экран. Прежний запас ±10 % и маска с mask-size жили под блок 2.67:1
+   — такого блока у ролика больше нет. */
+test('волна 3: ролик героя — 16:9-бокс, накрывающий слой кадра, без запаса и без маски', () => {
+  const box = decl(css, '.lumen-hero-stage .lumen-hero__trailer');
+  assert.ok(box, 'правила слоя ролика в слое кадра нет');
+  assert.equal(/-10%/.test(box), false, 'запас ±10 % вернулся: ' + box);
+  assert.equal(/mask/.test(box), false, 'у ролика снова своя маска: ' + box);
+  const num = (re) => parseFloat(re.exec(box)[1]);
+  const w = num(/(?:^|;)width:([\d.]+)vw/);
+  const h = num(/(?:^|;)height:([\d.]+)vw/);
+  const minW = num(/min-width:([\d.]+)vh/);
+  const minH = num(/min-height:([\d.]+)vh/);
+  assert.ok(/(?:^|;)top:50%/.test(box) && /(?:^|;)left:50%/.test(box) && /[^-]transform:translate\(-50%,-50%\)/.test(box), 'бокс ролика не по центру экрана: ' + box);
+  for (const [W, H] of [[960, 540], [1920, 1200], [2560, 1080], [1280, 1024]]) {
+    const bw = Math.max(w * W / 100, minW * H / 100);
+    const bh = Math.max(h * W / 100, minH * H / 100);
+    assert.ok(Math.abs(bw / bh - 16 / 9) < 0.01, W + '×' + H + ': бокс ролика не 16:9 — ' + bw.toFixed(1) + '×' + bh.toFixed(1));
+    assert.ok(bw >= W - 0.5 && bh >= H - 0.5, W + '×' + H + ': ролик не накрывает экран — ' + bw.toFixed(1) + '×' + bh.toFixed(1));
+  }
+  assert.ok(box.indexOf('opacity:0') !== -1, 'до старта ролика слой невидим');
+  assert.equal(/inset\s*:/.test(box), false, 'inset запрещён планом');
+  assert.equal(findDecl(css, (s) => s === '.lumen-hero-stage .lumen-hero__trailer.is-live'), 'opacity:1');
+  const fade = findDecl(css, (s) => s === '.lumen-hero-stage.lumen-motion-full .lumen-hero__trailer');
+  assert.ok(fade && fade.indexOf('transition:opacity 1s ease') !== -1, 'в полном режиме ролик проявляется за 1 с: ' + fade);
+  const dim = findDecl(css, (s) => s === '.lumen-hero-stage.lumen-hero-stage--trailer .lumen-hero__bg.is-active');
+  assert.ok(dim && dim.indexOf('opacity:.25') !== -1, 'под играющим роликом кадр приглушается: ' + dim);
+  assert.ok(findDecl(css, (s) => s === '.lumen-hero.lumen-hero--trailer .lumen-hero__descr').indexOf('display:none') !== -1, 'под роликом описание уходит');
 });
 
 /* Правка пользователя 2026-09-17 (п.2): четыре размера героя. Task 36: доли
@@ -3888,9 +4080,11 @@ test('фаза 3: у совсем низкого окна ряды занима�
   assert.ok(line.indexOf('min-aspect-ratio:287/100') !== -1, 'порог при крупном кадре — 2.87:1: ' + line);
   assert.ok(line.indexOf('margin-top:0') !== -1, 'за порогом ряды не сдвигаются');
   /* Task 36 превращал героя за порогом в полосу чипов под шапкой. Волна 3:
-     чипов в герое нет, и за порогом он снова уходит целиком — ни кадра, ни
-     текста; рядам не нужно опускаться ни под какую полосу. */
+     чипов в герое нет, и за порогом он снова уходит целиком — ни слоя кадра
+     (кадр, ролик, затемнение), ни текста; рядам не нужно опускаться ни под
+     какую полосу. */
   assert.ok(line.indexOf('.lumen-main .lumen-hero{display:none}') !== -1, 'герой за порогом не скрыт: ' + line);
+  assert.ok(line.indexOf('.lumen-main .lumen-hero-stage,') !== -1, 'слой кадра за порогом не скрыт: ' + line);
   assert.equal(/lumen-hero__moods|lumen-moods-on/.test(line), false, 'за порогом остались правила полосы чипов: ' + line);
   assert.equal(/position:static/.test(line), false, 'текст героя за порогом снова возвращается в поток: ' + line);
 
@@ -4067,13 +4261,15 @@ test('решение «показывать описание»: порог мя�
 });
 
 test('Task 18: кроссфейд кадра 600 мс только в полном режиме анимаций', () => {
-  const bg = findDecl(css, (sel) => sel === '.lumen-hero .lumen-hero__bg');
+  /* Волна 3: слои кадра — в неподвижном слое .lumen-hero-stage, и класс
+     режима анимаций стоит на нём самом. */
+  const bg = findDecl(css, (sel) => sel === '.lumen-hero-stage .lumen-hero__bg');
   assert.ok(bg && bg.indexOf('opacity:0') !== -1, 'неактивный слой прозрачен');
-  assert.ok(findDecl(css, (sel) => sel === '.lumen-hero .lumen-hero__bg.is-active').indexOf('opacity:1') !== -1);
+  assert.ok(findDecl(css, (sel) => sel === '.lumen-hero-stage .lumen-hero__bg.is-active').indexOf('opacity:1') !== -1);
 
   /* Task 40: кроссфейд подчинён и тумблеру тяжёлых эффектов — два
      полноэкранных слоя одновременно на слабом ТВ стоят кадров. */
-  const full = findDecl(css, (sel) => sel === 'body.lumen-fx-heavy .lumen-hero.lumen-motion-full .lumen-hero__bg');
+  const full = findDecl(css, (sel) => sel === 'body.lumen-fx-heavy .lumen-hero-stage.lumen-motion-full .lumen-hero__bg');
   assert.ok(full && full.indexOf('transition:opacity .6s ease-in-out') !== -1, 'кроссфейд 600 мс: ' + full);
   /* Task 64: переход в full-режиме без тяжёлых эффектов появился, но двух
      полноэкранных картинок разом он не даёт. Смена кадра при выключенном
@@ -4082,11 +4278,11 @@ test('Task 18: кроссфейд кадра 600 мс только в полно
      Task 70: гашение кадра в сжатом состоянии отменено решением
      пользователя, и этот переход остался при двух случаях — первое
      появление кадра (0 → 1) и приглушение до .25 под играющим роликом
-     (.lumen-hero--trailer выше). */
-  const soft = findDecl(css, (sel) => sel === '.lumen-hero.lumen-motion-full .lumen-hero__bg');
+     (.lumen-hero-stage--trailer). */
+  const soft = findDecl(css, (sel) => sel === '.lumen-hero-stage.lumen-motion-full .lumen-hero__bg');
   assert.ok(soft && soft.indexOf('transition:opacity .35s ease') !== -1,
     'появление кадра без тяжёлых эффектов обязано быть плавным: ' + soft);
-  assert.equal(findDecl(css, (sel) => sel === '.lumen-hero.lumen-motion-lite .lumen-hero__bg'), null, 'в lite перехода нет вовсе — гасить нечего');
+  assert.equal(findDecl(css, (sel) => sel === '.lumen-hero-stage.lumen-motion-lite .lumen-hero__bg'), null, 'в lite перехода нет вовсе — гасить нечего');
 });
 
 /* Task 70. Отзыв пользователя 2026-09-21, п.1: «всё, что ниже первой ленты,
@@ -4096,6 +4292,9 @@ test('Task 18: кроссфейд кадра 600 мс только в полно
    Task 64: кадр в сжатом состоянии остаётся видимым и только уезжает вверх
    (translateY у .lumen-hero--compact). Вуаль возвращается вместе с ним: её
    гашение было нужно только потому, что гас кадр.
+   Волна 3 (ТВ 2026-09-24): кадр не гаснет и не уезжает — он в неподвижном
+   слое .lumen-hero-stage, а под поднятыми рядами его закрывает пол
+   (тест «пол сжатого состояния» выше). Вуалей больше нет.
 
    Слой атмосферы — исключение, и оно измерено: частицы над сжатым кадром
    стоили 120 из 120 кадров за 2 секунды шага фокуса (замер Task 64),
@@ -4104,23 +4303,19 @@ test('Task 18: кроссфейд кадра 600 мс только в полно
    включёнными тяжёлыми эффектами — на слабом ТВ слоя частиц нет вовсе
    (LC.fx.mount отдаёт null вне 'full', src/52_fx.js allowedNow, а тумблер
    тяжёлых эффектов на android/tizen/webos выключен по умолчанию). */
-test('Task 70: фокус ушёл в ряды — кадр и вуаль остаются видимыми, гаснут только частицы', () => {
-  for (const sel of [
-    '.lumen-hero.lumen-hero--compact .lumen-hero__bg.is-active',
-    '.lumen-hero.lumen-hero--compact .lumen-hero__lqip.is-active',
-    '.lumen-hero.lumen-hero--compact .lumen-hero__trailer.is-live',
-    '.lumen-hero.lumen-hero--compact .lumen-hero__veil'
-  ]) {
-    assert.equal(ruleBodies(css).filter((r) => r.selectors.indexOf(sel) !== -1).length, 0,
-      'кадр, подложка, ролик и вуаль в сжатом состоянии больше не гасятся: ' + sel);
-  }
+test('Task 70: фокус ушёл в ряды — кадр остаётся видимым, гаснут только частицы', () => {
+  /* Ни одного правила, которое гасило бы в сжатом состоянии кадр, подложку
+     или ролик: ни по классу сжатия героя, ни по подъёму рядов. */
+  const dimmed = ruleBodies(css).filter((r) => r.selectors.some((sel) => /lumen-hero__(bg|lqip|trailer)/.test(sel) &&
+    /lumen-hero--compact|lumen-rows-up/.test(sel)));
+  assert.deepEqual(dimmed.map((r) => r.selectors.join(',')), [], 'кадр, подложка и ролик в сжатом состоянии больше не гасятся');
   /* Сжатое состояние по-прежнему только сдвигает кадр — и ни одного
      свойства раскладки (сторож у правила .lumen-hero--compact выше). */
   const compact = findDecl(css, (sel) => sel === '.lumen-hero.lumen-hero--compact');
   assert.equal(/opacity/.test(compact), false, 'сам кадр в сжатом состоянии не гасится: ' + compact);
   /* Приглушение кадра под играющим роликом (Task 28) правилом Task 64 не
      перебивалось и остаётся ровно таким, каким было. */
-  const underTrailer = findDecl(css, (sel) => sel === '.lumen-hero.lumen-hero--trailer .lumen-hero__bg.is-active');
+  const underTrailer = findDecl(css, (sel) => sel === '.lumen-hero-stage.lumen-hero-stage--trailer .lumen-hero__bg.is-active');
   assert.ok(underTrailer && underTrailer.indexOf('opacity:.25') !== -1, 'кадр под роликом: ' + underTrailer);
   /* Слой атмосферы гаснет и на паузе: цена частиц на шаге фокуса измерена
      (120 → 0 кадров за 2 с), возвращать их не за что. Сам кадровый цикл
@@ -4129,148 +4324,189 @@ test('Task 70: фокус ушёл в ряды — кадр и вуаль ост
   assert.equal(fx, 'opacity:0', 'частицы над сжатым кадром обязаны гаснуть: ' + fx);
   const fxTrans = ruleBodies(css).find((r) => r.selectors.indexOf('.lumen-hero.lumen-motion-full .lumen-fx') !== -1);
   assert.ok(fxTrans && fxTrans.decl.indexOf('transition:opacity .35s ease') !== -1, 'слой атмосферы обязан гаснуть плавно');
-  /* Переход вуали вместе с её гашением стал мёртвым правилом: opacity у
-     .lumen-hero__veil больше не меняет никто. Левая вуаль едет вместе с
-     текстом, внутри его блока (тест ниже); у верхней свой переход transform
-     (ревью фикс-раунда, п.1). Правила подмены текста гасят детей блока
-     «кроме вуали» — :not(.lumen-hero__veil) в их селекторе вуали не
-     касается. */
-  const veilTrans = ruleBodies(css).filter((r) => r.selectors.some((sel) => sel.indexOf('.lumen-hero__veil') !== -1 && sel.indexOf(':not(.lumen-hero__veil)') === -1) && /transition[^;]*opacity/.test(r.decl));
-  assert.deepEqual(veilTrans.map((r) => r.selectors.join(',')), [],
-    'у вуали остался переход opacity, которому нечего проигрывать');
+  /* У затемнения переход один — у пола, который появляется под
+     поднятыми рядами (и тот только в полном режиме). Верхнее и левое
+     затемнение не меняются ни при сжатии, ни на смене карточки. */
+  const scrimTrans = ruleBodies(css).filter((r) => r.selectors.some((sel) => sel.indexOf('.lumen-hero__scrim') !== -1) && /transition/.test(r.decl));
+  assert.deepEqual(scrimTrans.map((r) => r.selectors.join(',')), [], 'у затемнения кадра переход, которому нечего проигрывать');
   /* Текст героя в сжатом состоянии не гасится — он только поджимается. */
   const text = findDecl(css, (sel) => sel === '.lumen-hero.lumen-hero--compact .lumen-hero__text');
   assert.ok(text && text.indexOf('opacity:0') === -1, 'текст героя гаснуть не должен: ' + text);
 });
 
-/* Дефект с экрана пользователя 2026-09-23: «какой-то прямоугольник чёрный».
-   Тогда вуаль была отдельным узлом на весь кадр, и её маска, отмеренная от
-   низа кадра, оставалась там, где текст стоял в покое (стенд 1600×900@1:
-   190 px плотной полосы над логотипом). Ревью фикс-раунда (п.3) убрало саму
-   причину: вуаль лежит ВНУТРИ текстового блока и едет его transform, так
-   что отстать от текста ей нечем. Сторожим именно это: узел в разметке
-   блока и ни одного собственного правила сдвига или перехода. */
-test('сжатый герой: левая вуаль едет вместе с текстом, а не остаётся на месте покоя', () => {
-  const src = readFileSync(new URL('../src/48_hero.js', import.meta.url), 'utf8');
-  const textAt = src.indexOf('<div class="lumen-hero__text">');
-  const veilAt = src.indexOf('<div class="lumen-hero__veil lumen-hero__veil--l">');
-  const logoAt = src.indexOf('<div class="lumen-hero__logo">');
-  assert.ok(textAt > 0 && veilAt > textAt && veilAt < logoAt, 'левая вуаль обязана лежать в разметке текстового блока');
-  assert.equal(findDecl(css, (sel) => sel === '.lumen-hero.lumen-hero--compact .lumen-hero__veil--l'), null,
-    'собственный сдвиг вуали — второй источник правды о сжатии текста');
-  assert.equal(ruleBodies(css).filter((r) => r.selectors.some((sel) => /__veil--l$/.test(sel)) && /transition/.test(r.decl)).length, 0,
-    'у вуали свой переход — она разъедется с текстом на время перехода');
-});
+/* Волна 3: модель затемнения кадра героя на экране W×H (CSS px). alphaAt(x,
+   y, compact) — суммарная плотность цвета страницы поверх кадра в точке
+   экрана: верх и низ покоя (.lumen-hero__scrim), левое (scrim--l, умноженное
+   на свою маску) и пол (только в сжатом состоянии). Слой кадра стоит от
+   верха экрана (0…H), поэтому y — прямо координата экрана. Все слои одного
+   цвета, и порядок наложения не важен: плотность 1 − Π(1 − a). */
+function heroScrim(built, W, H) {
+  const EM = W / 84.17;
+  const only = (sel, has) => (ruleBodies(built).find((r) => r.selectors.length === 1 && r.selectors[0] === sel && r.decl.indexOf(has) !== -1) || {}).decl;
+  const scrim = gradients(only('.lumen-hero-stage .lumen-hero__scrim', 'background'), 'background');
+  const top = scrim.find((l) => l.angle === '180deg').stops.map((s) => ({ a: s.a, pos: s.unit === 'em' ? s.pos * EM : s.pos }));
+  const bottom = scrim.find((l) => l.angle === '0deg').stops;
+  const left = gradients(only('.lumen-hero-stage .lumen-hero__scrim.lumen-hero__scrim--l', 'background'), 'background')[0].stops;
+  const mask = gradients(only('.lumen-hero-stage .lumen-hero__scrim.lumen-hero__scrim--l', 'mask-image'), 'mask-image')[0].stops;
+  const floor = gradients(only('.lumen-hero-stage .lumen-hero__floor', 'background'), 'background')[0].stops;
+  const box = /(?:^|;)top:calc\(([\d.]+)vh - ([\d.]+)em\)/.exec(only('.lumen-hero-stage .lumen-hero__floor', 'top:calc'));
+  const floorTop = parseFloat(box[1]) * H / 100 - parseFloat(box[2]) * EM;
+  return function alphaAt(x, y, compact) {
+    const parts = [
+      gradAt(top, y),
+      gradAt(bottom, (H - y) / H * 100),
+      gradAt(left, x / W * 100) * gradAt(mask, y / H * 100),
+      compact && y >= floorTop ? gradAt(floor, (y - floorTop) / H * 100) : 0
+    ];
+    return 1 - parts.reduce((keep, a) => keep * (1 - a), 1);
+  };
+}
 
-/* Ревью фикс-раунда (п.3): подушка под текстом героя подбиралась под один
-   замер — полная плотность до 50 % высоты кадра от его низа, затухание к
-   70 %. У фильма на крупном кадре мета стояла на 42.8…46.9 %, у сериала со
-   статусом и описанием — на 50.0…54.2 % (замер на стенде 960×540@2, кегль
-   11.4055), то есть в затухании. Теперь вуаль стоит в потоке текстового
-   блока сразу под названием. Тест собирает блок снизу вверх по правилам
-   таблицы для разных высот содержимого — фильм и сериал, описание в одну и
-   две строки, компактный кадр без меты (волна 3: чипов в тексте нет) — при
-   трёх размерах кадра и проверяет: каждая строка текста ниже полосы полной
-   плотности, вуаль дотягивается до низа кадра, и у левой кромки кадра не
-   открывается полоса ни в покое, ни в сжатом состоянии. */
-test('ревью п.3: подушка под текстом героя стоит под названием при любой высоте блока', () => {
-  const H = 540;
-  const EM = 960 / 84.17;
+/* Волна 3: строки текста героя на экране W×H — по правилам таблицы, снизу
+   вверх от низа содержимого, как раскладывает их box-pack:end. Кегли,
+   межстрочные и отступы — из самих правил (в кегле блока), статус — по
+   бюджету TEXT_STATUS (его сверку с геометрией держит тест Task 43).
+   Чипов настроения в тексте героя нет (волна 3). Сжатое состояние:
+   описание скрыто, блок сдвинут своим transform
+   (translateY и scale с точкой в левом нижнем углу содержимого) и вместе с
+   героем уехал вверх на heroShift. Возвращает строки {what, top, bottom,
+   left, right} и высоту строки названия текстом. */
+function heroTextLines(built, W, H, opts) {
+  const EM = W / 84.17;
   const VH = H / 100;
-  const pick = (built, sel, re) => {
+  const pick = (sel, re) => {
     const body = ruleBodies(built).filter((r) => r.selectors.indexOf(sel) !== -1).map((r) => r.decl).join(';');
     const m = re.exec(body);
     assert.ok(m, sel + ': не разобрать ' + re + ' в «' + body + '»');
     return parseFloat(m[1]);
   };
+  const topLevel = ruleBodies(built.split('\n').filter((l) => l.indexOf('@') !== 0).join('\n'));
+  const hidden = (sel) => topLevel.some((r) => r.selectors.indexOf(sel) !== -1 && /(?:^|;)display:none/.test(r.decl));
+  const heroH = pick('.lumen-hero', /(?:^|;)height:([\d.]+)vh/) * VH;
+  const heroShift = pick('.lumen-hero.lumen-hero--compact', /[^-]transform:translateY\(-([\d.]+)vh\)/) * VH;
+  const T = '.lumen-hero .lumen-hero__text';
+  const TE = pick(T, /(?:^|;)font-size:([\d.]+)em/) * EM;
+  const padBottom = pick(T, /(?:^|;)padding:0 0 ([\d.]+)vh/) * VH;
+  const left = pick(T, /(?:^|;)padding:0 0 [\d.]+vh ([\d.]+)em/) * TE;
+  const right = pick(T, /[^-]padding-right:calc\(100% - ([\d.]+)em\)/) * TE;
+  const M = '.lumen-hero .lumen-hero__meta';
+  const mFont = pick(M, /(?:^|;)font-size:([\d.]+)em/);
+  const metaLine = mFont * pick(M, /line-height:([\d.]+)/) * TE;
+  const metaGap = mFont * pick(M, /margin-top:([\d.]+)em/) * TE;
+  const D = '.lumen-hero .lumen-hero__descr';
+  const dFont = pick(D, /(?:^|;)font-size:([\d.]+)em/);
+  const dLine = dFont * pick(D, /line-height:([\d.]+)/) * TE;
+  const dGap = dFont * pick(D, /margin-top:([\d.]+)em/) * TE;
+  const dRight = Math.min(right, left + dFont * pick(D, /max-width:([\d.]+)em/) * TE);
+  const Ti = '.lumen-hero .lumen-hero__title';
+  const tFont = pick(Ti, /(?:^|;)font-size:([\d.]+)em/);
+  const titleBox = tFont * pick(Ti, /(?:^|;)height:([\d.]+)em/) * TE;
+  const titleLine = tFont * pick(Ti, /line-height:([\d.]+)/) * TE;
+  const small = hidden(M);
+  const bottom = heroH - padBottom;
+  const lines = [];
+  let y = bottom;
+  if (opts.status) y -= 2.07 * TE;
+  if (!opts.compact && !small && !hidden(D)) {
+    for (let i = 1; i >= 0; i--) {
+      lines.push({ what: 'описание, строка ' + (i + 1), top: y - dLine, bottom: y, left: left, right: dRight });
+      y -= dLine;
+    }
+    y -= dGap;
+  }
+  if (!small) {
+    lines.push({ what: 'мета', top: y - metaLine, bottom: y, left: left, right: right });
+    y -= metaLine + metaGap;
+  }
+  lines.push({ what: 'название', top: y - titleBox, bottom: y - titleBox + titleLine, left: left, right: right });
+  if (!opts.compact) return lines;
+  /* Сжатое: translateY(A vh) scale(s) с точкой в (left, bottom), и весь
+     герой поднят на heroShift. */
+  const tf = ruleBodies(built).find((r) => r.selectors.indexOf('.lumen-hero.lumen-hero--compact .lumen-hero__text') !== -1).decl;
+  const sh = /[^-]transform:translateY\(([\d.]+)vh\) scale\(([\d.]+)\)/.exec(tf);
+  assert.ok(sh, 'сжатие текста не разобрать: ' + tf);
+  const shift = parseFloat(sh[1]) * VH;
+  const s = parseFloat(sh[2]);
+  const map = (v) => bottom + shift - (bottom - v) * s - heroShift;
+  const mapX = (v) => left + (v - left) * s;
+  return lines.map((l) => ({ what: l.what, top: map(l.top), bottom: map(l.bottom), left: mapX(l.left), right: mapX(l.right) }));
+}
+
+/* Волна 3 (ТВ 2026-09-24): мета и описание героя читаются на САМОМ СВЕТЛОМ
+   кадре — белом (у 60 разобранных кадров TMDB 90-й перцентиль яркости в
+   полосе меты — 0.995, замер правки 2026-09-23) — при каждом размере кадра,
+   в покое и в сжатом, у фильма и у сериала со статусом: P.muted не ниже
+   4.5:1 по WCAG 2.1 в каждой точке строки, от safe area до правого края
+   (мета — до края блока, описание — до своего max-width). Название
+   текстом (фильм без логотипа) — крупный текст, порог 3:1. Логотип в
+   проверку не входит: WCAG 2.1 (1.4.11) освобождает логотипы.
+   Затемнение неподвижно, а текст в сжатом состоянии уезжает вверх вместе
+   с героем, — поэтому состояний два. И на тёмном кадре мету не
+   переосветлили. */
+test('волна 3: мета и описание героя читаются на белом кадре — при любом размере, в покое и в сжатом', () => {
+  const W = 960;
+  const H = 540;
+  const P = tokensWith({});
+  const bg = [1, 3, 5].map((i) => parseInt(P.bg.slice(i, i + 2), 16));
+  const hex = (rgb) => '#' + rgb.map((v) => ('0' + Math.round(v).toString(16)).slice(-2).toUpperCase()).join('');
+  const onFrame = (alpha, frame) => hex(frame.map((v, i) => bg[i] * alpha + v * (1 - alpha)));
+  const WHITE = [255, 255, 255];
+  let worstMeta = 99;
   for (const size of ['large', 'medium', 'compact']) {
     const built = withStorage({ lumen_hero_size: size }, (LC) => LC.buildCss());
-    const heroH = pick(built, '.lumen-hero', /(?:^|;)height:([0-9.]+)vh/) * VH;
-    const T = '.lumen-hero .lumen-hero__text';
-    const TE = pick(built, T, /(?:^|;)font-size:([0-9.]+)em/) * EM;
-    const padBottom = pick(built, T, /(?:^|;)padding:0 0 ([0-9.]+)vh/) * VH;
-    const padLeft = pick(built, T, /(?:^|;)padding:0 0 [0-9.]+vh ([0-9.]+)em/) * TE;
-    const bleed = pick(built, T, /(?:^|;)left:-([0-9.]+)em/) * TE;
-    const V = '.lumen-hero .lumen-hero__veil--l';
-    const veilUp = pick(built, V, /(?:^|;)top:-([0-9.]+)em/) * TE;
-    const fade = pick(built, V, /[^-]mask-image:linear-gradient\(180deg,rgba\(0,0,0,0\) 0,#000 ([0-9.]+)em\)/) * TE;
-    const veilLeft = pick(built, V, /(?:^|;)margin:0 0 -100vh -([0-9.]+)em/) * TE;
-    /* Нулевая высота в потоке и место между названием и остальным. */
-    const veilBody = ruleBodies(built).filter((r) => r.selectors.indexOf(V) !== -1).map((r) => r.decl).join(';');
-    assert.ok(/(?:^|;)height:100vh/.test(veilBody) && /margin:0 0 -100vh /.test(veilBody), size + ': высота вуали в потоке не нулевая: ' + veilBody);
-    assert.ok(/(?:^|;)order:1/.test(veilBody) && /(?:^|;)flex:none/.test(veilBody), size + ': вуаль не на своём месте в потоке: ' + veilBody);
-    /* Волна 3: чипов настроения в тексте героя нет. */
-    for (const cls of ['meta', 'sk', 'descr', 'chips']) {
-      assert.equal(pick(built, '.lumen-hero__text > .lumen-hero__' + cls, /(?:^|;)order:([0-9]+)/), 2, size + ': ' + cls + ' обязан идти после вуали');
-    }
-    const small = size === 'compact';
-    /* Высоты строк — из правил таблицы, в кегле блока. */
-    const M = '.lumen-hero .lumen-hero__meta';
-    const metaFont = pick(built, M, /(?:^|;)font-size:([0-9.]+)em/);
-    const meta = metaFont * (pick(built, M, /line-height:([0-9.]+)/) + pick(built, M, /margin-top:([0-9.]+)em/)) * TE;
-    const D = '.lumen-hero .lumen-hero__descr';
-    const dFont = pick(built, D, /(?:^|;)font-size:([0-9.]+)em/);
-    const dLine = dFont * pick(built, D, /line-height:([0-9.]+)/) * TE;
-    const dGap = dFont * pick(built, D, /margin-top:([0-9.]+)em/) * TE;
-    /* Полоса статуса — бюджет TEXT_STATUS, его сверку с правилом держит тест
-       «Task 43: бюджет под полосу статуса совпадает с её геометрией». */
-    const status = 2.07 * TE;
-    const variants = [
-      { name: 'фильм', descr: 2, status: false },
-      { name: 'сериал со статусом', descr: 2, status: true },
-      { name: 'сериал, описание в строку', descr: 1, status: true },
-      { name: 'без описания', descr: 0, status: true }
-    ];
-    for (const v of variants) {
-      /* y — высота над низом кадра в покое. Снизу вверх: статус, описание,
-         мета; выше — низ названия, он же место вуали. */
-      const lines = [];
-      let y = padBottom;
-      if (v.status) { y += status; lines.push(['статус', y]); }
-      if (v.descr && !small) { y += dGap + v.descr * dLine; lines.push(['описание', y]); }
-      if (!small) { y += meta; lines.push(['мета', y]); }
-      const veilTop = y + veilUp;
-      const fullFrom = veilTop - fade;
-      const label = size + ', ' + v.name;
-      for (const [what, top] of lines) {
-        assert.ok(top <= fullFrom, label + ': верх строки «' + what + '» (' + top.toFixed(1) +
-          ' px над низом кадра) выше полосы полной плотности (' + fullFrom.toFixed(1) + ')');
+    const alphaAt = heroScrim(built, W, H);
+    for (const compact of [false, true]) {
+      for (const v of [{ name: 'фильм', status: false }, { name: 'сериал со статусом', status: true }]) {
+        const lines = heroTextLines(built, W, H, { status: v.status, compact: compact });
+        const label = size + ', ' + (compact ? 'сжатое' : 'покой') + ', ' + v.name;
+        for (const line of lines) {
+          const big = line.what === 'название';
+          for (const fy of [0.2, 0.5, 0.8]) {
+            const y = line.top + (line.bottom - line.top) * fy;
+            for (let fx = 0; fx <= 1; fx += 0.25) {
+              const x = line.left + (line.right - line.left) * fx;
+              const got = contrast(big ? P.text : P.muted, onFrame(alphaAt(x, y, compact), WHITE));
+              if (!big) worstMeta = Math.min(worstMeta, got);
+              assert.ok(got >= (big ? 3 : 4.5), label + ': ' + line.what + ' в точке (' + x.toFixed(0) + ', ' + y.toFixed(0) + ') на белом кадре ' + got.toFixed(2) + ':1');
+            }
+          }
+        }
       }
-      /* Полная плотность начинается не выше, чем на 1em кегля блока над
-         верхней строкой: подушка идёт за текстом, а не висит над ним. */
-      if (lines.length) {
-        const top = lines[lines.length - 1][1];
-        assert.ok(fullFrom - top <= TE, label + ': полная плотность на ' + (fullFrom - top).toFixed(1) + ' px выше текста');
-      }
-      /* Вниз вуаль тянется на 100vh от своего верха — до низа кадра всегда. */
-      assert.ok(veilTop - 100 * VH <= 0, label + ': вуаль не дотягивается до низа кадра');
-      assert.ok(veilTop <= heroH, label + ': верх вуали выше кадра');
     }
-    /* Слева вуаль доходит до кромки рамки блока, а та заходит за кромку
-       кадра; в сжатом состоянии масштаб с точкой в левом нижнем углу
-       содержимого стягивает её вправо — запаса обязано хватать. */
-    assert.ok(Math.abs(veilLeft - padLeft) < 0.01, size + ': вуаль не доходит до левой кромки рамки блока');
-    const scale = parseFloat(/scale\(([0-9.]+)\)/.exec(findDecl(built, (sel) => sel === '.lumen-hero.lumen-hero--compact .lumen-hero__text'))[1]);
-    assert.ok(-bleed + (1 - scale) * padLeft <= 0,
-      size + ': в сжатом состоянии у левой кромки кадра открылось ' + (-bleed + (1 - scale) * padLeft).toFixed(1) + ' px');
+  }
+  /* Запас меты не выдуман: у левого затемнения на правом краю блока .84, и
+     худшая точка — там же. Порог держится, но не с двойным запасом. */
+  assert.ok(worstMeta < 6, 'худшая точка меты подозрительно хороша — модель не видит правого края: ' + worstMeta.toFixed(2));
+  /* На чёрном кадре то же затемнение мету не гасит. */
+  const alphaAt = heroScrim(css, W, H);
+  const meta = heroTextLines(css, W, H, { status: false, compact: false }).find((l) => l.what === 'мета');
+  assert.ok(contrast(P.muted, onFrame(alphaAt(meta.right, meta.top, false), [0, 0, 0])) >= 4.5, 'мета на чёрном кадре');
+  /* Заголовок первого ряда в покое лежит на кадре (58.66…62.5 % высоты
+     экрана, левая треть) — он под левым затемнением и низом покоя. */
+  for (const y of [316.8, 337.3]) {
+    const got = contrast(P.text, onFrame(alphaAt(0.16 * W, y, false), WHITE));
+    assert.ok(got >= 4.5, 'заголовок первого ряда на белом кадре при y=' + y + ': ' + got.toFixed(2) + ':1');
   }
 });
 
-test('Task 36/64: кадр кадрируется по лицам (center 30%), а не по самому верху', () => {
+test('Task 36/64 + волна 3: кадр кадрируется по лицам (center 25%), а не по самому верху', () => {
   /* Пользователь на живом телевизоре 2026-09-18: «лица на постере не видны,
      просто края картинки». У постеров TMDB верхняя треть — почти всегда небо
      или потолок, и при cover с center top в высокий блок героя попадало
      именно оно. 30 % — линия глаз в типовой композиции кадра.
      Task 64: слои кадра стали <img>, поэтому то же кадрирование задают
-     object-fit/object-position, а не background-size/background-position. */
-  const bg = findDecl(css, (sel) => sel === '.lumen-hero .lumen-hero__bg');
-  assert.ok(bg.indexOf('object-position:center 30%') !== -1, 'кадрирование героя: ' + bg);
+     object-fit/object-position, а не background-size/background-position.
+     Волна 3: кадр — во весь экран (слой .lumen-hero-stage), и у кадра 16:9 на
+     экране 16:9 резать нечего; в окне другой пропорции срез по высоте
+     уходит в основном вниз — точка 25 %. */
+  const bg = findDecl(css, (sel) => sel === '.lumen-hero-stage .lumen-hero__bg');
+  assert.ok(bg.indexOf('object-position:center 25%') !== -1, 'кадрирование героя: ' + bg);
   assert.ok(bg.indexOf('object-fit:cover') !== -1, 'кадр обязан обрезаться, а не растягиваться: ' + bg);
   assert.equal(/background-position/.test(bg), false, 'кадрирование фоном осталось у <img>-слоя: ' + bg);
   /* Подложка LQIP кадрируется ровно так же — иначе на кроссфейде картинка
      сдвинется. */
-  const lqip = ruleBodies(css).find((r) => r.selectors.indexOf('.lumen-hero .lumen-hero__lqip') !== -1 && r.decl.indexOf('object-fit') !== -1);
-  assert.ok(lqip && lqip.decl.indexOf('object-position:center 30%') !== -1, 'подложка LQIP кадрируется иначе, чем кадр');
+  const lqip = ruleBodies(css).find((r) => r.selectors.indexOf('.lumen-hero-stage .lumen-hero__lqip') !== -1 && r.decl.indexOf('object-fit') !== -1);
+  assert.ok(lqip && lqip.decl.indexOf('object-position:center 25%') !== -1, 'подложка LQIP кадрируется иначе, чем кадр');
 });
 
 /* Task 38: раньше тест требовал filter:blur(1.75em) у героя в полном режиме.
@@ -4284,7 +4520,7 @@ test('Task 36/64: кадр кадрируется по лицам (center 30%), 
    «при листании картинка сначала нормально центрировалась, а потом
    съехала»). */
 test('Task 52: наезд размытого кадра — на слое кадра, а не на корне героя', () => {
-  const blur = findDecl(css, (sel) => sel === '.lumen-hero.lumen-motion-full .lumen-hero__bg--blur');
+  const blur = findDecl(css, (sel) => sel === '.lumen-hero-stage.lumen-motion-full .lumen-hero__bg--blur');
   assert.ok(blur, 'правило размытого слоя (экран 22) не найдено');
   assert.ok(blur.indexOf('scale(1.1)') !== -1, 'наезд прячет края растянутого постера: ' + blur);
   assert.equal(blur.indexOf('filter'), -1, 'filter:blur на живом слое героя запрещён: ' + blur);
@@ -4300,18 +4536,18 @@ test('Task 36: подмена текста — только opacity, сдвиг 
   /* До Task 36 подмена двигала блок на .53em своим transform. Теперь на том
      же свойстве живёт сжатие (translateY + scale), и подмена обязана его не
      трогать: иначе текст прыгал бы к низу кадра на каждой карточке. */
-  /* Ревью фикс-раунда (п.3): гаснут дети блока, кроме подушки-вуали — она
-     лежит внутри блока, и opacity самого блока гасила бы кадр под текстом
-     на каждой смене карточки. У самого блока opacity не меняется вовсе. */
-  const swap = findDecl(css, (sel) => sel === '.lumen-hero.lumen-motion-full .lumen-hero__text.is-swapping > :not(.lumen-hero__veil)');
+  /* Ревью фикс-раунда (п.3): гаснут дети блока, а не сам блок — у блока на
+     transform живёт сжатие. Волна 3 убрала из блока подушку-вуаль, и
+     исключать из детей больше некого. */
+  const swap = findDecl(css, (sel) => sel === '.lumen-hero.lumen-motion-full .lumen-hero__text.is-swapping > *');
   assert.equal(swap, 'opacity:0', 'старый текст обязан только гаснуть: ' + swap);
   assert.equal(findDecl(css, (sel) => sel === '.lumen-hero.lumen-motion-full .lumen-hero__text.is-swapping'), null,
     'гаснет весь блок — вместе с ним гаснет подушка под текстом');
-  const inCls = findDecl(css, (sel) => sel === '.lumen-hero.lumen-motion-full .lumen-hero__text.is-in > :not(.lumen-hero__veil):not(.lumen-skeleton)');
+  const inCls = findDecl(css, (sel) => sel === '.lumen-hero.lumen-motion-full .lumen-hero__text.is-in > :not(.lumen-skeleton)');
   assert.ok(inCls && inCls.indexOf('lumen-hero-in .42s') !== -1, 'новый проявляется 420 мс');
   const block = findDecl(css, (sel) => sel === '.lumen-hero.lumen-motion-full .lumen-hero__text');
   assert.equal(/opacity/.test(block), false, 'переход opacity у самого блока: ' + block);
-  const kids = findDecl(css, (sel) => sel === '.lumen-hero.lumen-motion-full .lumen-hero__text > :not(.lumen-hero__veil)');
+  const kids = findDecl(css, (sel) => sel === '.lumen-hero.lumen-motion-full .lumen-hero__text > *');
   assert.ok(kids && /[^-]transition:opacity \.18s ease/.test(kids), 'дети блока гаснут за 180 мс: ' + kids);
   const frames = css.split('\n').filter((l) => l.indexOf('keyframes lumen-hero-in') !== -1);
   assert.equal(frames.length, 2, 'кадры подмены и их webkit-копия');
@@ -4462,8 +4698,11 @@ test('Task 18: сдвигается область прокрутки рядов
     sel !== '.lumen-main' && sel !== '.lumen-main:after' &&
     sel.indexOf('layer--wheight') === -1 &&
     sel.indexOf('.lumen-badge') === -1 && sel.indexOf('.lumen-moods') === -1 && sel.indexOf('.lumen-mood-chip') === -1 &&
+    sel.indexOf('.lumen-hero-stage') === -1 && sel.indexOf('.lumen-hero__floor') === -1 &&
     sel.indexOf('.card') === -1 && sel.indexOf('.items-line') === -1 && sel.indexOf('.items-cards') === -1);
-  assert.deepEqual(offenders, [], 'под .lumen-main только фон корня, область прокрутки, карточки рядов, метки, чипы настроения и сами ряды');
+  /* Волна 3: под .lumen-main — ещё слой кадра героя: пол под поднятыми
+     рядами (.lumen-rows-up стоит на корне) и его выключение в плоском окне. */
+  assert.deepEqual(offenders, [], 'под .lumen-main только фон корня, область прокрутки, карточки рядов, метки, чипы настроения, слой кадра героя и сами ряды');
   assert.equal(ruleSelectors(css).filter((sel) => sel.indexOf('.lumen-main .scroll--horizontal') === 0).length, 0,
     'горизонтальные скроллы рядов не трогаем');
 });
@@ -4701,11 +4940,12 @@ test('Task 62a: veil снимает подложку фокуса карточк
   assert.equal(withStorage({ lumen_accent_scope: 'veil' }, (LC) => LC.accentFocusCss()), '',
     'узел подсветки обязан сниматься целиком, а не оставаться пустым');
 
-  /* Вуаль героя, фон рядов и градиенты кромок подкрашиваются по-прежнему —
-     именно в них у Apple и живёт цвет кадра. */
+  /* Затемнение кадра героя (с волны 3 — вместо вуали), фон рядов и
+     градиенты кромок подкрашиваются по-прежнему — именно в них у Apple и
+     живёт цвет кадра. */
   const hot = withStorage({ lumen_accent_scope: 'veil' }, (LC) => LC.accentCss());
   assert.ok(hot.indexOf('.lumen-main{background-color:') !== -1, hot);
-  assert.ok(hot.indexOf('.lumen-hero__veil--l') !== -1, hot);
+  assert.ok(hot.indexOf('.lumen-hero__scrim--l') !== -1, hot);
   assert.ok(hot.indexOf('.lumen-main:after') !== -1, hot);
 });
 
@@ -4839,160 +5079,38 @@ test('правка 2026-09-23: оценка и реакции нейтральн
   assert.deepEqual(rateLine.filter((r) => r.decl.indexOf(P.spice) !== -1 || r.decl.indexOf(P.spice.toLowerCase()) !== -1).map((r) => r.selectors.join(',')), []);
 });
 
-/* Правка 2026-09-23 (разбор композиции, п.1.3 + 1.4): всё, что лежит на
-   кадре героя, читается по WCAG 2.1 даже на самом светлом кадре.
-
-   «Самый светлый кадр, какой найдёшь» оказался белым: у 60 разобранных
-   backdrop-ов TMDB (trending movie/tv week, popular, top_rated — выборка
-   снята на стенде 960×540@2 холстом 160×90 и пересчитана в относительную
-   яркость) 90-й перцентиль в полосе мета-строки доходит до 0.995, в полосе
-   часов — до 1.00. Поэтому расчёт ниже и ведётся по белому: адаптивная
-   логика по яркости кадра стоила бы разбора картинки в горячем пути, а
-   расчёт на худший случай не стоит ничего.
-
-   Модель слоёв повторяет порядок отрисовки: кадр под маской лежит на фоне
-   страницы, поверх — левая вуаль (плотность по ширине × её собственная
-   маска по высоте), поверх — верхняя вуаль под шапкой Lampa. Позиции точек
-   — живые замеры на стенде в состоянии покоя (кадр 0…360 CSS px): мета
-   191.0…205.9 (42.8…46.9 % высоты кадра от низа, ширина до 64.3 % экрана),
-   заголовок первого ряда 316.8…337.3 (6.4…12 %), часы 10.3…30.8 (91.4…97.1 %).
-
-   Логотип фильма в проверку не входит: WCAG 2.1 (1.4.11) освобождает
-   логотипы от требований к контрасту, и растягивать вуаль ради него значило
-   бы снова закрасить кадр — то, против чего написан п.1.3. */
-test('правка 2026-09-23: мета и топбар героя читаются на белом кадре', () => {
-  const P = tokensWith({});
-  const stops = (decl, re) => {
-    const list = re.exec(decl);
-    assert.ok(list, 'стопы не разобрать: ' + decl);
-    return (list[1].match(/rgba\([^)]*\)\s*[0-9.]+%|#000\s*[0-9.]+%/g) || []).map((one) => {
-      const pos = parseFloat(/([0-9.]+)%$/.exec(one)[1]);
-      const alpha = /#000/.test(one) ? 1 : parseFloat(/rgba\([^,]+,[^,]+,[^,]+,\s*([0-9.]*)\)/.exec(one)[1] || '0');
-      return [pos, alpha];
-    });
-  };
-  const at = (list, p) => {
-    if (p <= list[0][0]) return list[0][1];
-    for (let i = 1; i < list.length; i++) {
-      if (p <= list[i][0]) {
-        return list[i - 1][1] + (list[i][1] - list[i - 1][1]) * (p - list[i - 1][0]) / (list[i][0] - list[i - 1][0]);
-      }
-    }
-    return list[list.length - 1][1];
-  };
-  const bg = [1, 3, 5].map((i) => parseInt(P.bg.slice(i, i + 2), 16));
-  const over = (top, a, bottom) => top.map((v, i) => v * a + bottom[i] * (1 - a));
-  const hex = (rgb) => '#' + rgb.map((v) => ('0' + Math.round(v).toString(16)).slice(-2).toUpperCase()).join('');
-
-  const maskRule = ruleBodies(css).find((r) => r.decl.indexOf('mask-image:linear-gradient') !== -1
-    && r.selectors.indexOf('.lumen-hero .lumen-hero__bg') !== -1);
-  const veilRule = findDecl(css, (sel) => sel === '.lumen-hero .lumen-hero__veil--l');
-  /* Ревью фикс-раунда (п.3): вертикальная граница подушки больше не
-     проценты кадра — вуаль стоит в потоке текста под названием, и вся
-     строка меты, описание, статус и заголовок первого ряда лежат ниже её
-     полосы полной плотности при ЛЮБОЙ высоте блока (это доказывает тест
-     «ревью п.3» ниже). Поэтому здесь плотность вуали по вертикали для этих
-     точек — единица, а работает только её горизонтальный фон. */
-  /* У верхней вуали два правила: геометрия — в общей таблице, цвет — в
-     наборе подкраски (AR.veilT), который buildCss выводит туда же, а
-     LC.accentCss потом переписывает при подкраске от постера. */
-    const topBox = ruleBodies(css).find((r) => r.selectors.length === 1
-      && r.selectors[0] === '.lumen-hero .lumen-hero__veil--t' && r.decl.indexOf('height:') !== -1);
-  const topRuleBody = ruleBodies(css).find((r) => r.selectors.length === 1
-    && r.selectors[0] === '.lumen-hero .lumen-hero__veil--t' && r.decl.indexOf('background:') !== -1);
-  assert.ok(topBox && topRuleBody, 'верхней вуали под шапкой Lampa нет вовсе — часы на светлом кадре исчезают');
-  const topRule = topRuleBody.decl;
-
-  const FILM = stops(maskRule.decl, /[^-]mask-image:linear-gradient\(0deg,([^)]*\)[^;]*)/);
-  const VEIL = stops(veilRule, /[^-]background:linear-gradient\(90deg,(.*)\)$/);
-  const TOP = stops(topRule, /[^-]background:linear-gradient\(180deg,(.*)\)$/);
-  /* Верхняя вуаль отмеряется от ВЕРХА своего бокса, остальные — от низа
-     кадра. Высота бокса — в том же правиле, в em; кадр на стенде 360 px,
-     база кегля 11.4055. */
-  const topH = parseFloat(/height:([0-9.]+)em/.exec(topBox.decl)[1]) * 11.4055;
-
-  const onFilm = (yUpPct, xPct, veilA) => {
-    const film = over([255, 255, 255], at(FILM, yUpPct), bg);
-    const veiled = over(bg, at(VEIL, xPct) * veilA, film);
-    const fromTop = (100 - yUpPct) / 100 * 360;
-    return hex(over(bg, fromTop <= topH ? at(TOP, fromTop / topH * 100) : 0, veiled));
-  };
-
-  /* Мета — мелкий текст приглушённым цветом, порог 4.5. До правки худшая
-     точка давала 1.18:1 (x = 40 % ширины: там кончалась прежняя вуаль, а
-     маска кадра ещё пропускала .79 картинки). */
-  for (const x of [4.2, 20, 40, 55, 64.3]) {
-    const got = contrast(P.muted, onFilm(46.9, x, 1));
-    assert.ok(got >= 4.5, 'мета героя на белом кадре при x=' + x + ' %: ' + got.toFixed(2) + ':1');
-  }
-  /* Заголовок первого ряда лежит на кадре в состоянии покоя — он тоже под
-     вуалью и от сжатия маски не пострадал. */
-  for (const y of [6.4, 12]) {
-    const got = contrast(P.text, onFilm(y, 16, 1));
-    assert.ok(got >= 4.5, 'заголовок первого ряда на белом кадре при y=' + y + ' %: ' + got.toFixed(2) + ':1');
-  }
-  /* Часы и иконки шапки Lampa — белые. Часы набраны 22.8 CSS px полужирным,
-     это крупный текст по WCAG (порог 3), иконки — графика (тот же порог). */
-  for (const x of [56, 90, 98]) {
-    const got = contrast('#FFFFFF', onFilm(91.4, x, 0));
-    assert.ok(got >= 3, 'часы шапки на белом кадре при x=' + x + ' %: ' + got.toFixed(2) + ':1');
-  }
-  /* И на тёмном кадре ничего не переосветлили: те же точки на чёрном. */
-  const dark = contrast(P.muted, hex(over(bg, at(VEIL, 40), over([11, 9, 8], at(FILM, 46.9), bg))));
-  assert.ok(dark >= 4.5, 'мета на тёмном кадре: ' + dark.toFixed(2) + ':1');
-});
-
-/* Ревью фикс-раунда (п.1): в сжатом состоянии кадр уезжает вверх на
-   heroShift, и верхняя вуаль уезжала вместе с ним — полоса полной плотности
-   оказывалась над кромкой экрана, часы шапки Lampa ложились на голый кадр
-   (стенд 960×540@2, крупный кадр: вуаль −90…12.6 px, часы 10.3…30.8 px).
-   Тест прошлой редакции проверял только покой и только крупный кадр.
-   Здесь — сжатое состояние при всех трёх размерах кадра: вуаль обязана
-   стоять у верхней кромки ЭКРАНА, и часы (низ глифов на 2.7em) обязаны
-   читаться на белом кадре с порогом 3:1. */
-test('ревью п.1: верхняя вуаль держится под шапкой Lampa и в сжатом состоянии, при любом размере кадра', () => {
+/* Правка 2026-09-23 (разбор композиции, п.1.4): часы, иконки и заголовок
+   активности в шапке Lampa белые и лежат прямо на кадре — на белом кадре
+   1.00:1. Их держит верхняя полоса затемнения (.5 до 3.96em, ноль к 9em).
+   До волны 3 это была отдельная вуаль, которая уезжала вместе с кадром в
+   сжатом состоянии, и её приходилось сдвигать навстречу (ревью фикс-раунда,
+   п.1). Теперь полоса — в неподвижном слое кадра: у кромки экрана она
+   стоит всегда, и часы (низ глифов на 2.7em, 22.8 CSS px полужирным —
+   крупный текст, порог 3:1) читаются в обоих состояниях при любом размере
+   кадра. */
+test('волна 3: полоса под шапкой Lampa неподвижна — часы читаются и в покое, и в сжатом', () => {
+  const W = 960;
   const H = 540;
-  const EM = 11.4055;
+  const EM = W / 84.17;
   const P = tokensWith({});
   const bg = [1, 3, 5].map((i) => parseInt(P.bg.slice(i, i + 2), 16));
-  const over = (top, a, bottom) => top.map((v, i) => v * a + bottom[i] * (1 - a));
   const hex = (rgb) => '#' + rgb.map((v) => ('0' + Math.round(v).toString(16)).slice(-2).toUpperCase()).join('');
   for (const size of ['large', 'medium', 'compact']) {
     const built = withStorage({ lumen_hero_size: size }, (LC) => LC.buildCss());
-    const shiftOf = (sel) => {
-      const d = findDecl(built, (s) => s === sel);
-      assert.ok(d, size + ': правило ' + sel + ' не найдено');
-      const m = /[^-]transform:translateY\((-?[0-9.]+)vh\)/.exec(d);
-      assert.ok(m, size + ': сдвиг не разобрать: ' + d);
-      return parseFloat(m[1]) * H / 100;
-    };
-    const hero = shiftOf('.lumen-hero.lumen-hero--compact');
-    const veil = shiftOf('.lumen-hero.lumen-hero--compact .lumen-hero__veil--t');
-    assert.ok(hero < 0, size + ': сжатый кадр уезжает вверх');
-    /* Верх вуали на экране в сжатом состоянии: кадр начинается у кромки
-       (top:-4em от .activitys, которая сама на 4em ниже верха), вуаль — у
-       верха кадра, и оба сдвига складываются. */
-    const top = hero + veil;
-    assert.ok(Math.abs(top) < 0.5, size + ': верх вуали в сжатом состоянии на ' + top.toFixed(1) + ' px вместо кромки экрана');
-    const box = ruleBodies(built).find((r) => r.selectors.length === 1 &&
-      r.selectors[0] === '.lumen-hero .lumen-hero__veil--t' && r.decl.indexOf('height:') !== -1);
-    const color = ruleBodies(built).find((r) => r.selectors.length === 1 &&
-      r.selectors[0] === '.lumen-hero .lumen-hero__veil--t' && r.decl.indexOf('background:') !== -1);
-    const boxH = parseFloat(/height:([0-9.]+)em/.exec(box.decl)[1]) * EM;
-    const full = /[^-]background:linear-gradient\(180deg,rgba\([^)]*,\s*([0-9.]+)\) 0%,rgba\([^)]*\) ([0-9.]+)%/.exec(color.decl);
-    assert.ok(full, 'стопы верхней вуали не разобрать: ' + color.decl);
-    const clock = 2.7 * EM;
-    assert.ok(top + boxH * parseFloat(full[2]) / 100 >= clock,
-      size + ': низ часов (' + clock.toFixed(1) + ' px) ниже полосы полной плотности в сжатом состоянии');
-    const got = contrast('#FFFFFF', hex(over(bg, parseFloat(full[1]), [255, 255, 255])));
-    assert.ok(got >= 3, size + ': часы на белом кадре в сжатом состоянии ' + got.toFixed(2) + ':1');
-    /* Переход — той же кривой, что у кадра: иначе вуаль отставала бы от шапки. */
-    const trans = (sel) => ruleBodies(built).find((r) => r.selectors.indexOf(sel) !== -1 && /transition/.test(r.decl));
-    const curve = (decl) => /[^-]transition:[^;]*transform( [^;]*)/.exec(decl)[1];
-    const vt = trans('.lumen-hero.lumen-motion-full .lumen-hero__veil--t');
-    assert.ok(vt, size + ': в полном режиме вуаль прыгала бы, пока кадр едет');
-    assert.equal(curve(vt.decl), curve(trans('.lumen-hero.lumen-motion-full').decl), size + ': кривые вуали и кадра разошлись');
+    const alphaAt = heroScrim(built, W, H);
+    for (const compact of [false, true]) {
+      for (const x of [0.56 * W, 0.9 * W, 0.98 * W]) {
+        for (const y of [10.3, 20, 2.7 * EM]) {
+          const a = alphaAt(x, y, compact);
+          const got = contrast('#FFFFFF', hex(bg.map((c) => c * a + 255 * (1 - a))));
+          assert.ok(got >= 3, size + (compact ? ', сжатое' : ', покой') + ': часы шапки на белом кадре в (' + x.toFixed(0) + ', ' + y.toFixed(1) + ') — ' + got.toFixed(2) + ':1');
+        }
+      }
+    }
   }
+  /* И встречного сдвига, который держал прежнюю вуаль у кромки, больше
+     нет — держать нечего. */
+  assert.deepEqual(ruleSelectors(css).filter((s) => s.indexOf('lumen-hero__veil--t') !== -1), [], 'верхняя вуаль героя осталась в таблице');
 });
 
 /* Правка 2026-09-23 (разбор композиции, п.5.2): фильтры рулетки больше не
@@ -5179,17 +5297,9 @@ test('фаза 3: масштаб не трогает доли экрана и ч
 /* Task 28 (фаза 3): ряд франшизы, спойлеры отзывов, слой трейлера героя. */
 /* ====================================================================== */
 
-test('Task 28: слой автотрейлера героя — под вуалями, ±10% по вертикали, проявление по is-live', () => {
-  const decl = findDecl(css, (s) => s === '.lumen-hero .lumen-hero__trailer');
-  assert.ok(decl, 'правила слоя трейлера героя нет вовсе');
-  assert.ok(decl.indexOf('top:-10%') !== -1 && decl.indexOf('bottom:-10%') !== -1, 'запас прячет чёрные поля ролика: ' + decl);
-  assert.ok(decl.indexOf('opacity:0') !== -1, 'до старта ролика слой невидим');
-  assert.equal(/insets*:/.test(decl), false, 'inset запрещён планом');
-  const live = findDecl(css, (s) => s === '.lumen-hero .lumen-hero__trailer.is-live');
-  assert.ok(live.indexOf('opacity:1') !== -1);
-  const frame = findDecl(css, (s) => s === '.lumen-hero.lumen-hero--trailer .lumen-hero__bg.is-active');
-  assert.ok(frame.indexOf('opacity:.25') !== -1, 'под играющим роликом кадр гасится: ' + frame);
-});
+/* Task 28: слой автотрейлера героя — с волны 3 его геометрию, проявление по
+   is-live и приглушение кадра под роликом держит тест «волна 3: ролик
+   героя — 16:9-бокс…» выше, место в слое кадра — test/hero.test.mjs. */
 
 test('Task 28: спойлер замазан без blur и раскрывается классом на корне окна', () => {
   const hidden = findDecl(css, (s) => s === '.lumen-review-modal .lumen-spoiler');
@@ -5727,15 +5837,18 @@ test('Task 44: кадр и вуаль накрывают и полосу шап�
    белом кадре давала 1.18:1. У рулетки под вуалью кадра нет вовсе (экран
    рисуется ровным градиентом, п.5.4 того же разбора), поднимать там
    плотность не за чем — на этом экране нечего гасить. Общим остаётся
-   направление и смысл, а не числа. */
+   направление и смысл, а не числа.
+   Волна 3: у героя вместо вуали — левое затемнение неподвижного слоя кадра
+   (.95 у кромки и ноль у ПРАВОЙ кромки экрана); с рулеточной вуалью оно
+   по-прежнему не совпадает. */
 test('Task 44/64: левая вуаль результата — плашка на прежних стопах, геройская ушла своим путём', () => {
-  const heroL = findDecl(css, (sel) => sel === '.lumen-hero .lumen-hero__veil--l');
+  const heroL = findDecl(css, (sel) => sel === '.lumen-hero-stage .lumen-hero__scrim.lumen-hero__scrim--l');
   const roulL = findDecl(css, (sel) => sel === '.lumen-roulette-screen .lumen-roulette__veil--l');
   const roulB = findDecl(css, (sel) => sel === '.lumen-roulette-screen .lumen-roulette__veil--b');
   assert.ok(roulL.indexOf(',.85) 0%') !== -1 && roulL.indexOf(',.45) 30%') !== -1 && roulL.indexOf(',0) 65%') !== -1,
     'левая вуаль рулетки съехала со своих стопов: ' + roulL);
   assert.notEqual(roulL, heroL, 'вуали снова совпали — значит геройскую вернули к рулеточной плотности, и мета на белом кадре опять не читается');
-  assert.ok(heroL.indexOf(',.97) 0%') !== -1, 'у героя плотность левой вуали упала ниже расчётной по WCAG: ' + heroL);
+  assert.ok(heroL.indexOf(',.95) 0%') !== -1, 'у героя плотность левого затемнения упала ниже расчётной по WCAG: ' + heroL);
   for (const need of [',.92) 10%', ',.6) 24%', ',.25) 42%', ',0) 62%']) {
     assert.ok(roulB.indexOf(need) !== -1, 'нет стопа ' + need + ': ' + roulB);
   }
@@ -5926,12 +6039,13 @@ test('Task 63: safe area — одна величина на всех экран�
   /* У текста героя отступ делится на его собственный кегль: em у left/right
      считается от font-size самого узла (TEXT_ZOOM), и без деления логотип
      не стоял бы на одной вертикали с заголовком ряда.
-     Ревью фикс-раунда (п.3): рамка блока заходит за левую кромку кадра на
-     запас подушки (left:-X em), и содержимое стоит на padding-left — safe
-     area это их сумма. */
+     Ревью фикс-раунда (п.3): содержимое стоит на padding-left, и safe area —
+     сумма left и padding-left. Волна 3 сняла запас рамки за левую кромку
+     (left:0): подушки-вуали в блоке больше нет. */
   const hero = decl(css, '.lumen-hero .lumen-hero__text');
   const zoom = parseFloat(/font-size:([\d.]+)em/.exec(hero)[1]);
-  const heroLeft = parseFloat(/(^|;)left:(-?[\d.]+)em/.exec(hero)[2]);
+  const heroLeft = parseFloat(/(^|;)left:(-?[\d.]+)(em)?(;|$)/.exec(hero)[2]);
+  assert.equal(heroLeft, 0, 'рамка текстового блока снова заходит за кромку кадра: ' + hero);
   const heroPad = parseFloat(/(^|;)padding:0 0 [\d.]+vh ([\d.]+)em/.exec(hero)[2]);
   assert.ok(Math.abs((heroLeft + heroPad) * zoom - 3.51) < 0.02,
     'текст героя стоит не по safe area: ' + hero);

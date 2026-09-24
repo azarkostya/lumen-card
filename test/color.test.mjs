@@ -1074,12 +1074,14 @@ test('css: узел подкраски стоит в <head> после осно�
     assert.deepEqual(headIds(dom), ['lumen-accent', 'lumen-accent-focus'], 'подкраска появилась первой');
     const warmRules = accentNode(dom).textContent;
     assert.match(warmRules, /\.lumen-main\{background-color:#[0-9A-F]{6}\}/);
-    /* Task 64: низ кадра героя больше не красится отдельным правилом — там
-       градиент-МАСКА, то есть кадр растворяется в фоне .lumen-main, который
-       этот же узел и красит первой строкой. Дублировать цвет негде, значит и
-       разъехаться ему не с чем. */
-    assert.ok(warmRules.indexOf('.lumen-hero__veil--b') === -1, 'низ кадра героя — маска, отдельного крашеного правила у него нет');
-    assert.ok(warmRules.indexOf('.lumen-hero__veil--l') !== -1, 'левая вуаль героя красится вместе с подложкой');
+    /* Волна 3 (ТВ 2026-09-24): вуалей у героя нет — затемнение кадра это
+       три градиента неподвижного слоя .lumen-hero-stage, и все три красятся
+       цветом страницы. Значит все три обязаны ехать в этом же узле вместе с
+       подложкой: иначе после подкраски кадр растворялся бы в прежнем тоне. */
+    assert.ok(warmRules.indexOf('.lumen-hero__veil') === -1, 'в узле подкраски остались вуали героя');
+    for (const sel of ['.lumen-hero-stage .lumen-hero__scrim{', '.lumen-hero-stage .lumen-hero__scrim.lumen-hero__scrim--l{', '.lumen-hero-stage .lumen-hero__floor{background']) {
+      assert.ok(warmRules.indexOf(sel) !== -1, 'затемнение кадра героя не красится вместе с подложкой: ' + sel);
+    }
 
     ctx.LC.injectCss();
     assert.deepEqual(headIds(dom), ['lumen-card-css', 'lumen-accent', 'lumen-accent-focus'], 'наши узлы переехали в конец');

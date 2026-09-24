@@ -177,12 +177,14 @@
     }
 
     /* Полноэкранные РИСУЮЩИЕ слои плагина — контейнеры-обёртки, которые сами
-       ничего не рисуют (.lumen-backdrop, .lumen-overlay), в список не идут.
+       ничего не рисуют (.lumen-backdrop, .lumen-overlay, с волны 3 — слой
+       кадра героя .lumen-hero-stage), в список не идут.
        Проверено grep'ом по src/: .lumen-hero__bg, .lumen-hero__lqip
-       (подложка LQIP, Task 64), .lumen-hero__veil (в DOM
-       "lumen-hero__veil lumen-hero__veil--l"; нижней вуали с Task 64 нет —
-       её заменила маска самих слоёв кадра, отдельного узла у неё не
-       осталось) и .lumen-hero__trailer — src/48_hero.js; .lumen-fx — и в
+       (подложка LQIP, Task 64), .lumen-hero__trailer и, с волны 3,
+       затемнение кадра — .lumen-hero__scrim (в DOM два узла: сам scrim и
+       "lumen-hero__scrim lumen-hero__scrim--l") и пол сжатого состояния
+       .lumen-hero__floor (src/48_hero.js, buildStage; вуалей
+       .lumen-hero__veil больше нет); .lumen-fx — и в
        кадре героя (48_hero.js), и на фоне карточки (src/50_backdrops.js);
        .lumen-backdrop__img, .lumen-backdrop__veil (базовый класс трёх вуалей
        --l/--b/--t) и кадры слайдшоу .lumen-bg__img — src/50_backdrops.js/
@@ -197,7 +199,7 @@
        свой буфер у них есть: всё, что внутри без собственного слоя
        (текст героя, карточки рядов), рисуется в него. Без них цифра в HUD
        была занижена на 2. */
-    var FULL = '.lumen-hero__bg,.lumen-hero__lqip,.lumen-hero__veil,.lumen-hero__trailer,.lumen-fx,' +
+    var FULL = '.lumen-hero__bg,.lumen-hero__lqip,.lumen-hero__scrim,.lumen-hero__floor,.lumen-hero__trailer,.lumen-fx,' +
       '.lumen-backdrop__img,.lumen-backdrop__veil,.lumen-backdrop .lumen-bg__img,' +
       '.lumen-ambient,.lumen-ambient__img,.lumen-overlay__img,.lumen-roulette__bg,' +
       '.lumen-hero,.lumen-main .scroll.layer--wheight';
