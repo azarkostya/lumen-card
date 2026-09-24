@@ -4563,8 +4563,13 @@
        background-position из плана: тот заставляет ТВ перерисовывать плашку
        каждый кадр. В lite/off анимация снимается целиком — гейт на body,
        потому что скелетоны живут на трёх разных корнях (герой, ряд описания,
-       хаб), а класс режима на body ставит LC.applyMotionMode для всех. */
-    css.push('.lumen-skeleton{background:rgba(' + P.textRgb + ',.10);-webkit-animation:lumen-sk 1.4s ease-in-out infinite;animation:lumen-sk 1.4s ease-in-out infinite}');
+       хаб), а класс режима на body ставит LC.applyMotionMode для всех.
+       Волна производительности (2026-09-24): не infinite, а 8,5 повтора
+       (около 12 с). При зависшем запросе (детали героя, отзывы) пульс шёл
+       вечно — анимация, которую никто не ждёт. Половина последнего повтора
+       кончается на 50 % ключевых кадров, где opacity — 1, то есть там же,
+       где стоит плашка без анимации: конец обходится без скачка. */
+    css.push('.lumen-skeleton{background:rgba(' + P.textRgb + ',.10);-webkit-animation:lumen-sk 1.4s ease-in-out 8.5;animation:lumen-sk 1.4s ease-in-out 8.5}');
     css.push('@-webkit-keyframes lumen-sk{0%,100%{opacity:.5}50%{opacity:1}}');
     css.push('@keyframes lumen-sk{0%,100%{opacity:.5}50%{opacity:1}}');
     css.push('body.lumen-motion-lite .lumen-skeleton,body.lumen-motion-off .lumen-skeleton{-webkit-animation:none;animation:none;opacity:1}');

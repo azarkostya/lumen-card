@@ -5441,7 +5441,12 @@ css.push('.lumen-main .card__age .lumen-badge-cap,.lumen-grid .card__age .lumen-
 
 
 
-css.push('.lumen-skeleton{background:rgba(' + P.textRgb + ',.10);-webkit-animation:lumen-sk 1.4s ease-in-out infinite;animation:lumen-sk 1.4s ease-in-out infinite}');
+
+
+
+
+
+css.push('.lumen-skeleton{background:rgba(' + P.textRgb + ',.10);-webkit-animation:lumen-sk 1.4s ease-in-out 8.5;animation:lumen-sk 1.4s ease-in-out 8.5}');
 css.push('@-webkit-keyframes lumen-sk{0%,100%{opacity:.5}50%{opacity:1}}');
 css.push('@keyframes lumen-sk{0%,100%{opacity:.5}50%{opacity:1}}');
 css.push('body.lumen-motion-lite .lumen-skeleton,body.lumen-motion-off .lumen-skeleton{-webkit-animation:none;animation:none;opacity:1}');
