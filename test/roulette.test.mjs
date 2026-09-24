@@ -539,6 +539,11 @@ var poolCards34 = [];
 /* Ф2 п.5: счётчик запросов пула — тест паузы проверяет, что скрытый экран
    в сеть не ходит. Сбрасывается в openRoulette34. */
 var fetchCalls34 = 0;
+/* Пятый раунд, п.1: сколько раз рулетка собирала выборку (в MANIFEST34 одна
+   подборка — один запрос первой страницы на сбор) и сколько раз спросила
+   каталог. Сбрасываются в openRoulette34. */
+var poolSets34 = 0;
+var manifestCalls34 = 0;
 /* Контрольное ревью 84c7b27..de0e2c8: по умолчанию сеть отвечает
    синхронно (кэш), но настоящие LC.manifest.load (12-часовой кэш устарел —
    идёт XHR, src/42_manifest.js) и LC.sources.fetch отвечают позже.
@@ -553,12 +558,14 @@ var heldPool34 = [];
 var loaderLog34 = [];
 function fetchStub34(item, page, ok) {
   fetchCalls34++;
+  if (page === 1) poolSets34++;
   var answer = function () { ok({ results: page === 1 ? poolCards34 : [] }); };
   if (hold34.pool) heldPool34.push(answer);
   else answer();
   return { clear: function () { } };
 }
 function manifestStub34(cb) {
+  manifestCalls34++;
   if (hold34.manifest) heldManifest34.push(function () { cb(MANIFEST34); });
   else cb(MANIFEST34);
 }
@@ -643,6 +650,8 @@ function openRoulette34(cards, t, dpr, motion, object, hold) {
   scrolls.length = 0;
   poolCards34 = cards;
   fetchCalls34 = 0;
+  poolSets34 = 0;
+  manifestCalls34 = 0;
   t.after(restoreGlobals34);
 
   var components = {};
@@ -1366,10 +1375,32 @@ test('ревью п.1: каталог пришёл уже после возвр�
   env.comp.pause();
   env.comp.start();
   assert.equal(env.loading(), true, 'каталог ещё в пути — индикатор должен гореть');
+  /* Пятый раунд, п.1: start() на возврате видит запрос в пути и второй не
+     шлёт (сторож manifestWait в requestManifest). */
+  assert.equal(manifestCalls34, 1, 'возврат до ответа каталога спросил каталог повторно');
   releaseHeld(heldManifest34);
   assert.ok(env.chips().length > 1, 'поздний ответ каталога отброшен — ленты подборок нет');
   assert.equal(env.loading(), false, 'индикатор загрузки висит');
   assert.equal(spinToResult(env), true, 'рулетка не крутится');
+});
+
+/* Пятый раунд, п.1: сторож двойного запроса каталога. Сколько бы раз
+   пользователь ни уходил и ни возвращался до ответа, запрос один, и выборка
+   по его ответу собирается один раз. */
+test('пятый раунд п.1: start/pause/start/pause/start до ответа — один запрос каталога и один сбор выборки', (t) => {
+  const env = openRoulette34([R44], t, 1, 'lite', { media: 'movie' }, { manifest: true });
+  env.comp.start();
+  env.comp.pause();
+  env.comp.start();
+  env.comp.pause();
+  env.comp.start();
+  assert.equal(manifestCalls34, 1, 'каталог запрошен ' + manifestCalls34 + ' раз');
+  assert.equal(heldManifest34.length, 1, 'в пути больше одного ответа каталога');
+  releaseHeld(heldManifest34);
+  drainDelays();
+  assert.equal(poolSets34, 1, 'выборка собрана ' + poolSets34 + ' раз');
+  assert.ok(env.chips().length > 1, 'лента подборок не построена');
+  assert.equal(env.loading(), false, 'индикатор загрузки висит');
 });
 
 test('ревью п.1: ответ каталога после destroy() экран не строит', (t) => {
