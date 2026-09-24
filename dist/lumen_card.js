@@ -13882,7 +13882,6 @@ return { cancel: stop };
 
 
 
-
 function waitLogo(path, url, decide) {
 if (!path || !url || logoSeen[path] === 'fail') {
 decide(false);
@@ -14877,6 +14876,13 @@ node.removeClass('lumen-hero--logo');
 
 
 
+
+
+
+
+
+
+
 function loadLogo(path, url) {
 var captured = gen;
 state.logoLoader = preloadLogo(path, url, function (ok) {
@@ -14895,6 +14901,7 @@ stopTimer('titleTimer');
 
 
 if (!state.model || state.model.logo !== path) return;
+if (state.titleForced) return;
 showLogo(state.node, url);
 });
 }
@@ -14926,6 +14933,11 @@ return path ? imageUrl(path, logoSizeFor(LC.util.emPx(LOGO_EM * TEXT_ZOOM, 1))) 
 
 
 
+
+
+
+
+
 function applyLogo(node, model) {
 var path = logoAllowed() ? model.logo : null;
 
@@ -14936,11 +14948,14 @@ state.logoLoader = null;
 }
 var url = logoUrl(path);
 if (!url || logoSeen[path] === 'fail') { hideLogo(node); return 'none'; }
-if (logoSeen[path] === 'ok') { showLogo(node, url); return 'logo'; }
+if (logoSeen[path] === 'ok' && !state.titleForced) { showLogo(node, url); return 'logo'; }
 hideLogo(node);
+if (logoSeen[path] === 'ok') return 'none';
 loadLogo(path, url);
 return 'wait';
 }
+
+
 
 
 
@@ -15013,6 +15028,16 @@ forceTitleText();
 function forceTitleText() {
 if (!state) return;
 stopTimer('titleTimer');
+
+
+
+
+
+
+if (focusAway()) {
+startTitleTimer();
+return;
+}
 state.titleForced = true;
 if (state.model) state.node.find('.lumen-hero__title').text(state.model.title);
 }

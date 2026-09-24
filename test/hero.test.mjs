@@ -4464,8 +4464,8 @@ test('Название: логотип доехал раньше потолка 
   assert.deepEqual(warnLog, []);
 });
 
-test('Название: логотип не доехал за потолок — выводится текст', () => {
-  const { env, node } = heroIn('lite');
+test('Название: логотип не доехал за потолок — выводится текст, и до конца показа он не подменяется', () => {
+  const { env, main, node } = heroIn('lite');
   env.advance(200);
   env.requests[0].ok(LOGO_RU);
   assert.equal(node.find('.lumen-hero__title').text(), '');
@@ -4474,8 +4474,60 @@ test('Название: логотип не доехал за потолок —
   assert.equal(node.find('.lumen-hero__title').text(), 'Первый', 'дольше потолка название пустым не держим');
   assert.equal(node.hasClass('lumen-hero--logo'), false);
 
-  /* Опоздавший логотип всё-таки встаёт — текст под ним прячет CSS. */
+  /* Волна «Логотипы сразу» (жалоба «появляется сначала текст, а потом
+     лого»): до неё опоздавший логотип вставал поверх уже выведенного
+     текста — это и была подмена. Теперь текст остаётся до конца показа. */
   logoLoader(env).onload();
+  assert.equal(node.hasClass('lumen-hero--logo'), false, 'опоздавший логотип подменил выведенный текст');
+  assert.equal(node.find('.lumen-hero__title').text(), 'Первый');
+
+  /* Исход при этом записан: следующий показ того же логотипа — сразу
+     логотипом, без ожидания и без второй загрузки. */
+  main.card1.removeClass('focus');
+  main.card2.addClass('focus');
+  fireFocus(main.activity, main.card2);
+  env.advance(350);
+  env.requests[1].ok(LOGO_RU);
+  env.advance(200);
+  assert.equal(node.hasClass('lumen-hero--logo'), true, 'исход опоздавшего логотипа не записан');
+  assert.equal(logoLoads(env).length, 1, 'известный логотип загружается второй раз');
+  assert.deepEqual(warnLog, []);
+});
+
+/* Второй путь той же подмены: логотип уже известен ('ok' в logoSeen —
+   его загрузил прошлый показ или предзагрузка соседей), но детали
+   карточки опоздали дольше потолка. Текст к этому мигу выведен — и
+   дорисовка деталей не имеет права поставить логотип поверх него. */
+test('Название: детали пришли после потолка, логотип известен — подмены нет', () => {
+  const { env, main, node } = heroIn('lite');
+  env.advance(200);
+  env.requests[0].ok(LOGO_RU);
+  logoLoader(env).onload();
+  assert.equal(node.hasClass('lumen-hero--logo'), true, 'подготовка: логотип известен');
+
+  main.card1.removeClass('focus');
+  main.card2.addClass('focus');
+  fireFocus(main.activity, main.card2);
+  env.advance(350);
+  /* Вывод — через SWAP_MS, потолок считается от него. */
+  env.advance(200);
+  env.advance(600);
+  assert.equal(node.find('.lumen-hero__title').text(), 'Второй', 'деталей нет дольше потолка — текст');
+  assert.equal(node.hasClass('lumen-hero--logo'), false);
+
+  env.requests[1].ok(LOGO_RU);
+  assert.equal(node.hasClass('lumen-hero--logo'), false, 'поздние детали подменили текст известным логотипом');
+  assert.equal(node.find('.lumen-hero__title').text(), 'Второй');
+  assert.equal(node.find('.lumen-hero__meta').text().indexOf('2025'), 0, 'детали дорисованы как обычно');
+
+  /* Следующая карточка с тем же логотипом — снова сразу логотипом:
+     «текст до конца показа» не переживает смену карточки. */
+  main.card2.removeClass('focus');
+  main.card1.addClass('focus');
+  fireFocus(main.activity, main.card1);
+  env.advance(350);
+  env.requests[2].ok(LOGO_RU);
+  env.advance(200);
   assert.equal(node.hasClass('lumen-hero--logo'), true);
   assert.deepEqual(warnLog, []);
 });
@@ -4505,6 +4557,52 @@ test('Название: фокус ушёл во время ожидания —
   env.advance(400);
   assert.equal(node.find('.lumen-hero__descr').text(), 'о втором', 'подготовка: на экране вторая карточка');
   assert.equal(node.find('.lumen-hero__title').text(), '', 'название ушедшей карточки вывелось поверх новой');
+  assert.deepEqual(warnLog, []);
+});
+
+/* Волна «Логотипы сразу», стенд (шаг 700 мс): потолок уходящей карточки
+   истекал, когда фокус уже стоял на следующей, — за доли секунды до её
+   показа на экране вспыхивал текст уходящего фильма, а следом вставал
+   логотип нового: та же «текст → логотип», только с чужим текстом. */
+test('Название: фокус уже на другой карточке — потолок текст уходящего фильма не выводит', () => {
+  const { env, main, node } = heroIn('lite');
+  env.advance(200);
+  env.requests[0].ok(LOGO_RU);
+  assert.equal(node.find('.lumen-hero__title').text(), '', 'подготовка: название ждёт логотип');
+
+  /* Потолок первой карточки — через 600 мс от вывода (530-я мс), фокус
+     уходит на вторую на 1000-й: её показ — на 1350-й, позже потолка. */
+  env.advance(450);
+  main.card1.removeClass('focus');
+  main.card2.addClass('focus');
+  fireFocus(main.activity, main.card2);
+  env.advance(200);
+  assert.equal(node.find('.lumen-hero__title').text(), '', 'потолок вывел текст фильма, с которого фокус ушёл');
+  /* Показ второй — на 1350-й, её вывод — через SWAP_MS. */
+  env.advance(150);
+  env.advance(200);
+  assert.equal(node.find('.lumen-hero__descr').text(), 'о втором', 'подготовка: показана вторая карточка');
+  assert.equal(node.find('.lumen-hero__title').text(), '');
+  assert.deepEqual(warnLog, []);
+});
+
+test('Название: фокус вернулся на показанную карточку — потолок выводит текст', () => {
+  const { env, main, node } = heroIn('lite');
+  env.advance(200);
+  env.requests[0].ok(LOGO_RU);
+  env.advance(450);
+  main.card1.removeClass('focus');
+  main.card2.addClass('focus');
+  fireFocus(main.activity, main.card2);
+  env.advance(200);
+  assert.equal(node.find('.lumen-hero__title').text(), '', 'подготовка: фокус на второй, текст отложен');
+  /* Вернулись раньше показа второй: показ отменён, на экране первая. */
+  main.card2.removeClass('focus');
+  main.card1.addClass('focus');
+  fireFocus(main.activity, main.card1);
+  env.advance(600);
+  assert.equal(node.find('.lumen-hero__title').text(), 'Первый', 'название вернувшейся карточки так и осталось пустым');
+  assert.equal(node.hasClass('lumen-hero--logo'), false);
   assert.deepEqual(warnLog, []);
 });
 
