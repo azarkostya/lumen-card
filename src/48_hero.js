@@ -196,6 +196,9 @@
     /* Волна 3: дольше этого кадр прошлого фильма под текстом нового не
        держится, пока фокус стоит на новом (разбор — у holdFrame). */
     var HOLD_MS = 250;
+    /* Ревью волны 3, п.2: отсрочка заглушки, когда байты нового кадра уже
+       доехали и его декодирует браузер (разбор — у holdFrame). */
+    var HOLD_DECODE = 150;
 
     /* ------------------------------------------------------------------ */
     /* Чистые функции (без DOM, Lampa и window).                           */
@@ -2046,7 +2049,7 @@
        state.frameId — чей кадр на экране: возврат на тот же фильм (resume
        с оборванной загрузкой) свой кадр не прячет, а первый показ героя
        заглушки не ждёт вовсе — под ним ничего нет. */
-    function holdFrame(captured) {
+    function holdFrame(captured, late) {
       if (!state || gen !== captured) return;
       stopTimer('holdTimer');
       if (String(state.frameId) === String(state.shownId)) return;
@@ -2057,6 +2060,21 @@
          снимает сам (onFocus). */
       if (focusAway()) {
         state.holdDue = true;
+        return;
+      }
+      /* Ревью волны 3, п.2: байты нового кадра уже доехали (тот же признак
+         complete && naturalWidth, что у страховочного таймаута loadFrame),
+         и его декодирует браузер — кадр вот-вот встанет. Заглушка на этом
+         стыке — короткая вспышка постера (живьём 26 мс при возврате из
+         карточки), поэтому ещё HOLD_DECODE, один раз: декодирование,
+         которое не кончается (скрытая вкладка), заглушку не держит. */
+      var loader = state.loader;
+      if (!late && loader && loader.complete && loader.naturalWidth) {
+        state.holdTimer = setTimeout(function () {
+          if (gen !== captured || !state) return;
+          state.holdTimer = null;
+          holdFrame(captured, true);
+        }, HOLD_DECODE);
         return;
       }
       var poster = state.holdPoster;

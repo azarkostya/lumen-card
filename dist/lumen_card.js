@@ -12626,6 +12626,9 @@ var FRAME_WAIT = 900;
 var HOLD_MS = 250;
 
 
+var HOLD_DECODE = 150;
+
+
 
 
 
@@ -14474,7 +14477,7 @@ stopTimer('holdTimer');
 
 
 
-function holdFrame(captured) {
+function holdFrame(captured, late) {
 if (!state || gen !== captured) return;
 stopTimer('holdTimer');
 if (String(state.frameId) === String(state.shownId)) return;
@@ -14485,6 +14488,21 @@ if (!state.frameUrl && !state.lqipUrl) return;
 
 if (focusAway()) {
 state.holdDue = true;
+return;
+}
+
+
+
+
+
+
+var loader = state.loader;
+if (!late && loader && loader.complete && loader.naturalWidth) {
+state.holdTimer = setTimeout(function () {
+if (gen !== captured || !state) return;
+state.holdTimer = null;
+holdFrame(captured, true);
+}, HOLD_DECODE);
 return;
 }
 var poster = state.holdPoster;

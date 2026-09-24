@@ -2272,6 +2272,79 @@ test('ревью волны 3, п.1: кадр встал при фокусе н�
   assert.deepEqual(warnLog, []);
 });
 
+/* Ревью волны 3, п.2: кадр, доехавший сразу после 250 мс, давал короткую
+   вспышку постера (живьём — 26 мс при возврате из карточки): байты уже
+   пришли, а decode() ещё шёл. Байты доехали (complete && naturalWidth —
+   тот же признак, что у страховочного таймаута) — заглушку откладываем
+   ещё на 150 мс; не доехали — она встаёт через 250 мс, как прежде. */
+async function decodingSecond(env) {
+  stubDecode(env);
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  fireFocus(main.activity, main.card1);
+  env.advance(400);
+  answerDetails(env);
+  const first = frameImg(env, '/b1.jpg');
+  arrive(first);
+  first.decoded.resolve();
+  await tick();
+  const stage = stageOf(heroOf(main.activity));
+  assert.equal(stage.find('.lumen-hero__bg.is-active').attr('src'), 'https://img/t/p/w1280/b1.jpg', 'предусловие: кадр первого фильма на экране');
+  const seen = layerLog(env, stage);
+  fireFocus(main.activity, main.card2);
+  env.advance(350);
+  /* Детали пришли — текст выведен, отсчёт 250 мс заведён, кадр грузится. */
+  detailsOf(env, 22).ok({ id: 22 });
+  assert.equal(heroOf(main.activity).find('.lumen-hero__descr').text(), 'о втором', 'предусловие: текст второго фильма выведен');
+  return { seen: seen, img: frameImg(env, '/b2.jpg') };
+}
+
+test('ревью волны 3, п.2: байты кадра доехали, идёт decode — заглушку не ставим, кадр встаёт одной сменой', async () => {
+  const env = makeEnv({ fxHeavy: () => false });
+  const s = await decodingSecond(env);
+  arrive(s.img);
+  env.advance(251);
+  assert.deepEqual(s.seen, [], 'байты кадра доехали, а на экран встал постер');
+  env.advance(100);
+  s.img.decoded.resolve();
+  await tick();
+  env.advance(1000);
+  assert.deepEqual(s.seen, ['https://img/t/p/w1280/b2.jpg'], 'между кадрами двух фильмов мелькнул постер');
+  assert.deepEqual(warnLog, []);
+});
+
+test('ревью волны 3, п.2: decode не кончился и за 150 мс сверх отсчёта — заглушка, не раньше', async () => {
+  const env = makeEnv({ fxHeavy: () => false });
+  const s = await decodingSecond(env);
+  arrive(s.img);
+  /* Шагами: таймер, заведённый внутри сработавшего, фейк отсчитывает от
+     конца шага advance. */
+  env.advance(251);
+  env.advance(147);
+  assert.deepEqual(s.seen, [], 'заглушка раньше 250 + 150 мс');
+  env.advance(3);
+  assert.deepEqual(s.seen, ['https://img/t/p/w300/p2.jpg'], 'отсрочка одна: дальше — постер нового фильма');
+  s.img.decoded.resolve();
+  await tick();
+  assert.deepEqual(s.seen, ['https://img/t/p/w300/p2.jpg', 'https://img/t/p/w1280/b2.jpg'], 'кадр сменил заглушку');
+  assert.deepEqual(warnLog, []);
+});
+
+/* Байтов нет: загрузка ещё идёт — или уже кончилась ошибкой (complete без
+   naturalWidth), а onerror до героя ещё не дошёл. */
+for (const how of ['едут', 'ошибка']) {
+  test('ревью волны 3, п.2: байты кадра не доехали (' + how + ') — заглушка через 250 мс, как прежде', async () => {
+    const env = makeEnv({ fxHeavy: () => false });
+    const s = await decodingSecond(env);
+    if (how === 'ошибка') s.img.complete = true;
+    env.advance(249);
+    assert.deepEqual(s.seen, []);
+    env.advance(2);
+    assert.deepEqual(s.seen, ['https://img/t/p/w300/p2.jpg'], 'без байтов кадра отсрочки нет');
+    assert.deepEqual(warnLog, []);
+  });
+}
+
 /* Сценарий ревью живьём: детали задержаны на 700 мс, шесть шагов по
    550 мс. Ни кадр, ни детали не успевают ни на одном шаге, и прежде на
    каждом шаге через 230 мс после ухода фокуса вставал постер покинутой
