@@ -194,7 +194,7 @@
     var FRAME_WAIT = 900;
 
     /* Волна 3: дольше этого кадр прошлого фильма под текстом нового не
-       держится (разбор — у holdFrame). */
+       держится, пока фокус стоит на новом (разбор — у holdFrame). */
     var HOLD_MS = 250;
 
     /* ------------------------------------------------------------------ */
@@ -1661,17 +1661,12 @@
            прошлого под ним живёт не дольше HOLD_MS (holdFrame). Отсчёт от
            вывода, а не от show(): текст выходит через SWAP_MS или сразу
            (детали из кэша), и отсрочка вывода остаётся кадру нового
-           фильма — доехав за неё, он встаёт без заглушки, одной сменой. */
-        if (state.holdDue) {
+           фильма — доехав за неё, он встаёт без заглушки, одной сменой.
+           Ревью волны 3, п.1: фокус к выводу текста уже ушёл на другую
+           карточку — отсчёт не заводим, он ждёт возврата фокуса (onFocus). */
+        if (state.holdDue && !focusAway()) {
           state.holdDue = false;
-          if (String(state.frameId) !== String(state.shownId)) {
-            var held = gen;
-            state.holdTimer = setTimeout(function () {
-              if (gen !== held || !state) return;
-              state.holdTimer = null;
-              holdFrame(held);
-            }, HOLD_MS);
-          }
+          armHold();
         }
       }
 
@@ -2029,8 +2024,11 @@
        под ним кадр прошлого — новый кадр ещё едет (деталей ждём до
        FRAME_WAIT, сам w1280 на ТВ — сотни миллисекунд) или не загрузился
        вовсе. Кадр ЧУЖОГО фильма под новым текстом держится не дольше
-       HOLD_MS от вывода текста (таймер holdTimer заводит write в render)
-       и уходит сразу, если новый кадр не загрузился.
+       HOLD_MS от вывода текста (отсчёт заводит write в render — armHold)
+       и уходит сразу, если новый кадр не загрузился, — пока фокус стоит на
+       этой карточке. Ревью волны 3, п.1: фокус ушёл дальше — заглушки нет
+       вовсе, при листании на экране остаётся кадр, который уже стоял
+       (focusAway); вернулся — отсчёт с начала (onFocus).
        Заглушка — по образцу Lampa, у которой фон экрана — размытый постер
        фильма: постер новой карточки из ряда. Он уже в кэше браузера —
        Lampa нарисовала его в ряду, — значит, ни запроса, ни ожидания, ни
@@ -2053,6 +2051,14 @@
       stopTimer('holdTimer');
       if (String(state.frameId) === String(state.shownId)) return;
       if (!state.frameUrl && !state.lqipUrl) return;
+      /* Ревью волны 3, п.1: фокус уже на другой карточке — заглушку не
+         ставим (фон при листании не мигает), она ждёт возврата фокуса. Этим
+         путём приходит ошибка кадра (startFrame); отсчёт уход фокуса
+         снимает сам (onFocus). */
+      if (focusAway()) {
+        state.holdDue = true;
+        return;
+      }
       var poster = state.holdPoster;
       try {
         if (poster) {
@@ -2073,6 +2079,28 @@
       } catch (e) {
         warn('hero: hold failed', e);
       }
+    }
+
+    /* Ревью волны 3, п.1: фокус стоит на другой карточке, чем показанная, —
+       листание идёт дальше (её show() ещё впереди, через DELAY). pending
+       пуст у героя, показанного без события фокуса (mount, resume без
+       карточки в фокусе), — тогда фокус никуда не ушёл. */
+    function focusAway() {
+      return !!(state && state.pending && String(state.pending.id) !== String(state.shownId));
+    }
+
+    /* Отсчёт HOLD_MS до заглушки: кадр на экране чужой, а текст показа уже
+       выведен (write в render) или фокус вернулся на показанную карточку
+       (onFocus). Заведённый не перезаводится. */
+    function armHold() {
+      if (!state || state.holdTimer) return;
+      if (String(state.frameId) === String(state.shownId)) return;
+      var held = gen;
+      state.holdTimer = setTimeout(function () {
+        if (gen !== held || !state) return;
+        state.holdTimer = null;
+        holdFrame(held);
+      }, HOLD_MS);
     }
 
     /* Адрес постера карточки из ряда, если он уже настоящий: до появления
@@ -2276,8 +2304,27 @@
         scheduleTrailer(card);
       }
       /* Тот же фильм под фокусом (возврат на ту же карточку, перерисовка
-         ряда) — ни кадра, ни запроса. */
-      if (state.shownId === card.id) return;
+         ряда) — ни кадра, ни запроса. Ревью волны 3, п.1: отсчёт заглушки,
+         снятый уходом фокуса (ниже), заводится заново — от возврата, как
+         от вывода текста. Текст ещё не выведен (swapTimer) — отсчёт заведёт
+         сам вывод. */
+      if (state.shownId === card.id) {
+        if (state.holdDue && !state.swapTimer) {
+          state.holdDue = false;
+          armHold();
+        }
+        return;
+      }
+
+      /* Ревью волны 3, п.1: фокус ушёл с показанной карточки — её
+         заглушка не встаёт, пока идёт листание: живьём на шаге 550 мс
+         отсчёт срабатывал через 230 мс после ухода фокуса и растягивал на
+         весь экран постер карточки, с которой фокус уже ушёл. Отсчёт ждёт
+         возврата фокуса (выше); show() новой карточки его перепишет. */
+      if (state.holdTimer) {
+        stopTimer('holdTimer');
+        state.holdDue = true;
+      }
 
       var captured = gen;
       state.timer = setTimeout(function () {
@@ -2794,8 +2841,12 @@
          показывал уже загруженный A — со вспышкой скелетона и повторным
          запросом деталей. Карточку в фокусе на возврате это не задевает:
          другая карточка показывается по несовпадению shownId, а та же —
-         и так на экране целиком. Сам таймер park гасит ниже. */
-      if (state.detailsWait || state.loader || state.logoLoader || state.swapTimer || state.loadTimer || state.titleTimer || state.frameWait || state.holdTimer) {
+         и так на экране целиком. Сам таймер park гасит ниже.
+         Ревью волны 3, п.1: заглушка, отложенная уходом фокуса (holdDue без
+         живого отсчёта), — такая же оборванная работа показанного фильма,
+         пока на экране чужой кадр; встал свой — ждать нечего. */
+      var holdLeft = state.holdDue && String(state.frameId) !== String(state.shownId);
+      if (state.detailsWait || state.loader || state.logoLoader || state.swapTimer || state.loadTimer || state.titleTimer || state.frameWait || state.holdTimer || holdLeft) {
         state.stale = true;
       }
       state.parked = true;

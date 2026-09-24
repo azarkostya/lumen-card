@@ -2074,6 +2074,245 @@ test('волна 3: подложка нового фильма встала ра
   assert.equal(stage.find('.lumen-hero__bg.is-active'), EMPTY, 'поверх подложки нового фильма встала заглушка');
 });
 
+/* Ревью волны 3, п.1: отсчёт заглушки заводит вывод текста показа, а фокус
+   к этому мигу может уже стоять на другой карточке — при листании шагом
+   550 мс он уходит через 20 мс после вывода текста. Прежде отсчёт это не
+   замечал: через 250 мс на весь экран вставал постер карточки, с которой
+   фокус уже ушёл (живьём — постер «Бегущей» через 244 мс после ухода фокуса
+   на «Обсессию», шесть растянутых постеров на шести шагах). Бриф: «фон при
+   листании не мигает». Теперь уход фокуса отсчёт снимает, а заглушка
+   встаёт у той карточки, где фокус остановился. */
+function addCard(main, id) {
+  const card = makeCard(id, 'Фильм ' + id, { poster: 'https://img/t/p/w300/p' + id + '.jpg', rect: { left: 0, top: 0, width: 1, height: 1 } });
+  card.card_data = { id: id, title: 'Фильм ' + id, backdrop_path: '/b' + id + '.jpg', poster_path: '/p' + id + '.jpg', overview: 'о фильме ' + id, release_date: '2024-01-01', vote_average: 7 };
+  main.line0.append(card);
+  return card;
+}
+
+/* Все замены src в слоях кадра по порядку: заглушка, мелькнувшая на один
+   тик и тут же сменённая, в итоговом состоянии слоя не видна. */
+function layerLog(env, stage) {
+  const seen = [];
+  for (const cls of ['.lumen-hero__bg--a', '.lumen-hero__bg--b']) {
+    const layer = stage.find(cls);
+    const orig = layer.attr;
+    layer.attr = function (name, val) {
+      if (name === 'src' && arguments.length === 2) seen.push(val);
+      return orig.apply(this, arguments);
+    };
+  }
+  return seen;
+}
+
+for (const input of ['пульт', 'мышь']) {
+  test('ревью волны 3, п.1 (' + input + '): фокус ушёл раньше 250 мс — постер покинутой карточки не встаёт, встаёт постер той, где фокус остановился', () => {
+    const env = makeEnv({ fxHeavy: () => false });
+    const main = makeMain();
+    const card3 = addCard(main, 33);
+    env.hero.mount(main.activity);
+    const stage = shownFrame(env, main);
+    const seen = layerLog(env, stage);
+    const move = input === 'мышь' ? fireHover : fireFocus;
+    const active = () => stage.find('.lumen-hero__bg.is-active');
+
+    move(main.activity, main.card2);
+    env.advance(350);
+    env.advance(180);
+    assert.equal(heroOf(main.activity).find('.lumen-hero__descr').text(), 'о втором', 'предусловие: текст второго фильма выведен');
+    env.advance(100);
+    move(main.activity, card3);
+    env.advance(200);
+    assert.equal(active().attr('src'), 'https://img/t/p/w1280/b1.jpg', 'фокус ушёл — под текстом второго фильма его постер не ставим');
+    assert.deepEqual(seen, [], 'слой кадра менялся, пока фокус шёл дальше');
+
+    env.advance(150);
+    env.advance(180);
+    assert.equal(heroOf(main.activity).find('.lumen-hero__descr').text(), 'о фильме 33', 'предусловие: текст третьего фильма выведен');
+    env.advance(249);
+    assert.deepEqual(seen, [], 'раньше 250 мс от текста заглушку не ставим');
+    env.advance(2);
+    assert.deepEqual(seen, ['https://img/t/p/w300/p33.jpg'], 'фокус остановился — постер той карточки, на которой он стоит, и только он');
+    assert.deepEqual(warnLog, []);
+  });
+}
+
+/* Возврат фокуса на показанную карточку (быстрее DELAY, show() не
+   повторяется): снятый уходом отсчёт заводится заново — иначе кадр
+   прошлого фильма стоял бы под её текстом, пока не доедет свой. Отсчёт —
+   с начала, от возврата: и когда прежний истёк бы, пока фокус был в
+   стороне (200 мс), и когда он ещё шёл бы (50 мс). */
+for (const away of [50, 200]) {
+  test('ревью волны 3, п.1: фокус вернулся на показанную карточку через ' + away + ' мс — через 250 мс её постер, не раньше', () => {
+    const env = makeEnv({ fxHeavy: () => false });
+    const main = makeMain();
+    env.hero.mount(main.activity);
+    const stage = shownFrame(env, main);
+    const seen = layerLog(env, stage);
+
+    fireFocus(main.activity, main.card2);
+    env.advance(350);
+    env.advance(180);
+    env.advance(100);
+    fireFocus(main.activity, main.card1);
+    env.advance(away);
+    assert.deepEqual(seen, [], 'фокус на другой карточке — заглушки нет');
+    fireFocus(main.activity, main.card2);
+    env.advance(249);
+    assert.deepEqual(seen, [], 'фокус вернулся — отсчёт с начала, раньше 250 мс заглушки нет');
+    env.advance(2);
+    assert.deepEqual(seen, ['https://img/t/p/w300/p2.jpg'], 'фокус постоял на показанной карточке 250 мс — её постер');
+    assert.deepEqual(warnLog, []);
+  });
+}
+
+/* Фокус ушёл ещё до вывода текста (в SWAP_MS после show()): вывод отсчёт
+   не заводит, и 250 мс считаются от возврата фокуса, а не от вывода. */
+test('ревью волны 3, п.1: фокус ушёл до вывода текста и вернулся — отсчёт от возврата', () => {
+  const env = makeEnv({ fxHeavy: () => false });
+  const main = makeMain();
+  const card3 = addCard(main, 33);
+  env.hero.mount(main.activity);
+  const stage = shownFrame(env, main);
+  const seen = layerLog(env, stage);
+
+  fireFocus(main.activity, main.card2);
+  env.advance(350);
+  env.advance(100);
+  fireFocus(main.activity, card3);
+  env.advance(80);
+  assert.equal(heroOf(main.activity).find('.lumen-hero__descr').text(), 'о втором', 'предусловие: текст выведен при фокусе на другой карточке');
+  env.advance(100);
+  fireFocus(main.activity, main.card2);
+  env.advance(249);
+  assert.deepEqual(seen, [], 'заглушка раньше 250 мс от возврата фокуса');
+  env.advance(2);
+  assert.deepEqual(seen, ['https://img/t/p/w300/p2.jpg']);
+  assert.deepEqual(warnLog, []);
+});
+
+/* Тот же уход фокуса, но кадр показанной карточки не загрузился вовсе:
+   заглушка по ошибке кадра — тоже только при фокусе на этой карточке. */
+test('ревью волны 3, п.1: кадр показанной карточки упал, когда фокус уже на другой, — заглушки нет до возврата фокуса', () => {
+  const env = makeEnv({ fxHeavy: () => false });
+  const main = makeMain();
+  const card3 = addCard(main, 33);
+  env.hero.mount(main.activity);
+  const stage = shownFrame(env, main);
+  const seen = layerLog(env, stage);
+
+  fireFocus(main.activity, main.card2);
+  env.advance(350);
+  detailsOf(env, 22).ok({ id: 22 });
+  fireFocus(main.activity, card3);
+  frameImg(env, '/b2.jpg').onerror();
+  env.advance(300);
+  assert.deepEqual(seen, [], 'ошибка кадра, фокус на другой карточке — слой кадра не меняется');
+  fireFocus(main.activity, main.card2);
+  env.advance(251);
+  assert.deepEqual(seen, ['https://img/t/p/w300/p2.jpg'], 'фокус вернулся — постер показанной карточки');
+  assert.deepEqual(warnLog, []);
+});
+
+/* Отложенная заглушка — такая же оборванная работа показанного фильма, как
+   живой отсчёт: кадр A упал, пока фокус стоял на B, фокус ушёл с B на
+   не-карточку (плитка «Ещё») быстрее DELAY, и OK увёл с главной. На
+   возврате без карточки в фокусе resume показывает A заново (state.stale),
+   иначе кадр прошлого фильма так и стоял бы под текстом A. */
+test('ревью волны 3, п.1: отложенная уходом фокуса заглушка переживает парковку — на возврате A показан заново', () => {
+  const env = makeEnv({ fxHeavy: () => false });
+  const main = makeMain();
+  const other = makeMain();
+  const card3 = addCard(main, 33);
+  env.hero.mount(main.activity);
+  const stage = shownFrame(env, main);
+  const active = () => stage.find('.lumen-hero__bg.is-active');
+
+  fireFocus(main.activity, main.card2);
+  env.advance(350);
+  detailsOf(env, 22).ok({ id: 22 });
+  env.advance(180);
+  fireFocus(main.activity, card3);
+  frameImg(env, '/b2.jpg').onerror();
+  env.advance(100);
+  assert.equal(active().attr('src'), 'https://img/t/p/w1280/b1.jpg', 'предусловие: заглушка отложена, на экране кадр прошлого фильма');
+  env.hero.detach(other.activity);
+
+  env.hero.mount(main.activity);
+  assert.equal(env.requests.filter((r) => r.url === 'movie/22').length, 2, 'на возврате A не показан заново');
+  env.advance(180);
+  env.advance(251);
+  assert.equal(active(), EMPTY, 'под текстом A остался кадр прошлого фильма');
+  assert.deepEqual(warnLog, []);
+});
+
+/* Обратная сторона: кадр показанного фильма встал, пока фокус стоял на
+   другой карточке, — заглушка больше не нужна, и парковка не должна
+   считать её оборванной работой (повторный показ A на возврате вспыхнул
+   бы текстом и спросил детали второй раз). */
+test('ревью волны 3, п.1: кадр встал при фокусе на другой карточке — парковка A заново не показывает', () => {
+  const env = makeEnv({ fxHeavy: () => false });
+  const main = makeMain();
+  const other = makeMain();
+  const card3 = addCard(main, 33);
+  env.hero.mount(main.activity);
+  const stage = shownFrame(env, main);
+
+  fireFocus(main.activity, main.card2);
+  env.advance(350);
+  env.advance(100);
+  fireFocus(main.activity, card3);
+  env.advance(100);
+  detailsOf(env, 22).ok({ id: 22 });
+  frameImg(env, '/b2.jpg').onload();
+  assert.equal(stage.find('.lumen-hero__bg.is-active').attr('src'), 'https://img/t/p/w1280/b2.jpg', 'предусловие: кадр A на экране');
+  env.hero.detach(other.activity);
+
+  env.hero.mount(main.activity);
+  assert.equal(env.requests.filter((r) => r.url === 'movie/22').length, 1, 'A показан заново, хотя его загрузка не оборвана');
+  assert.deepEqual(warnLog, []);
+});
+
+/* Сценарий ревью живьём: детали задержаны на 700 мс, шесть шагов по
+   550 мс. Ни кадр, ни детали не успевают ни на одном шаге, и прежде на
+   каждом шаге через 230 мс после ухода фокуса вставал постер покинутой
+   карточки. Теперь слой кадра за всё листание не меняется ни разу, а
+   после остановки — постер через 250 мс от текста и кадр, когда доедут
+   детали. */
+test('ревью волны 3, п.1: листание шагом 550 мс при деталях через 700 мс — ни одной заглушки, пока фокус идёт', () => {
+  const env = makeEnv({ fxHeavy: () => false });
+  const main = makeMain();
+  const cards = [33, 44, 55, 66, 77, 88].map((id) => addCard(main, id));
+  env.hero.mount(main.activity);
+  const stage = shownFrame(env, main);
+  const seen = layerLog(env, stage);
+  const born = new Map();
+  function run(ms) {
+    for (let t = 0; t < ms; t += 10) {
+      env.advance(10);
+      for (const r of env.requests) {
+        if (!/^movie\/\d+$/.test(r.url) || r.answered) continue;
+        if (!born.has(r)) born.set(r, env.now);
+        if (env.now - born.get(r) >= 700) {
+          r.answered = true;
+          r.ok({ id: Number(r.url.split('/')[1]) });
+        }
+      }
+    }
+  }
+
+  for (const card of cards) {
+    fireFocus(main.activity, card);
+    run(550);
+  }
+  assert.deepEqual(seen, [], 'за листание слой кадра менялся: ' + seen.join(', '));
+  run(250);
+  assert.deepEqual(seen, ['https://img/t/p/w300/p88.jpg'], 'фокус остановился — постер последней карточки');
+  run(300);
+  frameImg(env, '/b88.jpg').onload();
+  assert.deepEqual(seen, ['https://img/t/p/w300/p88.jpg', 'https://img/t/p/w1280/b88.jpg'], 'детали доехали — кадр последней карточки');
+  assert.deepEqual(warnLog, []);
+});
+
 test('Task 64: слои кадра — img с decoding=async и высоким приоритетом', () => {
   const env = makeEnv();
   const main = makeMain();

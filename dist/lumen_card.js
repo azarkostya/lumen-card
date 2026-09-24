@@ -14090,16 +14090,11 @@ if (motionMode() === 'full') text.addClass('is-in');
 
 
 
-if (state.holdDue) {
+
+
+if (state.holdDue && !focusAway()) {
 state.holdDue = false;
-if (String(state.frameId) !== String(state.shownId)) {
-var held = gen;
-state.holdTimer = setTimeout(function () {
-if (gen !== held || !state) return;
-state.holdTimer = null;
-holdFrame(held);
-}, HOLD_MS);
-}
+armHold();
 }
 }
 
@@ -14476,11 +14471,22 @@ stopTimer('holdTimer');
 
 
 
+
+
+
 function holdFrame(captured) {
 if (!state || gen !== captured) return;
 stopTimer('holdTimer');
 if (String(state.frameId) === String(state.shownId)) return;
 if (!state.frameUrl && !state.lqipUrl) return;
+
+
+
+
+if (focusAway()) {
+state.holdDue = true;
+return;
+}
 var poster = state.holdPoster;
 try {
 if (poster) {
@@ -14501,6 +14507,28 @@ state.frameId = state.shownId;
 } catch (e) {
 warn('hero: hold failed', e);
 }
+}
+
+
+
+
+
+function focusAway() {
+return !!(state && state.pending && String(state.pending.id) !== String(state.shownId));
+}
+
+
+
+
+function armHold() {
+if (!state || state.holdTimer) return;
+if (String(state.frameId) === String(state.shownId)) return;
+var held = gen;
+state.holdTimer = setTimeout(function () {
+if (gen !== held || !state) return;
+state.holdTimer = null;
+holdFrame(held);
+}, HOLD_MS);
 }
 
 
@@ -14705,7 +14733,26 @@ scheduleTrailer(card);
 }
 
 
-if (state.shownId === card.id) return;
+
+
+
+if (state.shownId === card.id) {
+if (state.holdDue && !state.swapTimer) {
+state.holdDue = false;
+armHold();
+}
+return;
+}
+
+
+
+
+
+
+if (state.holdTimer) {
+stopTimer('holdTimer');
+state.holdDue = true;
+}
 
 var captured = gen;
 state.timer = setTimeout(function () {
@@ -15223,7 +15270,11 @@ if (!state || state.parked) return;
 
 
 
-if (state.detailsWait || state.loader || state.logoLoader || state.swapTimer || state.loadTimer || state.titleTimer || state.frameWait || state.holdTimer) {
+
+
+
+var holdLeft = state.holdDue && String(state.frameId) !== String(state.shownId);
+if (state.detailsWait || state.loader || state.logoLoader || state.swapTimer || state.loadTimer || state.titleTimer || state.frameWait || state.holdTimer || holdLeft) {
 state.stale = true;
 }
 state.parked = true;
