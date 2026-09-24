@@ -1736,9 +1736,12 @@
        вешает только на свои узлы и только при создании ряда
        (app.min.js:38074-38076) — отзывы и «Смотреть по порядку» дорисованы
        позже. Здесь last пишется для любого узла ряда — тем же
-       присваиванием, что у самой Lampa, и мышью тоже. */
-    if (!holder.lumenDescrBound) {
-      holder.lumenDescrBound = true;
+       присваиванием, что у самой Lampa, и мышью тоже.
+       Метка своя, lumenDescrFollow: lumenDescrBound на том же узле уже
+       ставит bindDescrText (OK — весь текст описания), и под общей меткой
+       слушатель не вешался (живая проверка на стенде). */
+    if (!holder.lumenDescrFollow) {
+      holder.lumenDescrFollow = true;
       LC.focus.capture(holder, function (e) {
         try {
           var node = e && e.target;
@@ -1751,8 +1754,8 @@
       });
     }
 
-    if (typeof item.use === 'function' && !item.lumenDescrBound) {
-      item.lumenDescrBound = true;
+    if (typeof item.use === 'function' && !item.lumenDescrFollow) {
+      item.lumenDescrFollow = true;
       item.use({
         onToggle: function () {
           try {

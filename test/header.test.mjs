@@ -1949,6 +1949,23 @@ test('B: пульт в блоке под кромкой — к верху обл
   });
 });
 
+/* Живая проверка на стенде (960×540@2, фильм 1891): прокрутки не было
+   вовсе. На том же узле .full-descr уже висит своя метка — её ставит
+   bindDescrText (OK на описании открывает весь текст) ещё на рендере
+   таблицы «ПОДРОБНО», — и слушатель фокуса под той же меткой не вешался.
+   Порядок здесь тот же, что в рантайме: сначала LC.header.descr, потом
+   bindDescr. */
+test('B: слушатель фокуса вешается и после bindDescrText на том же узле описания', () => {
+  withDescr(({ c, item, scroll, link }) => {
+    c.holder.lumenDescrBound = true;
+    c.holder.lumenDescrText = { id: 1 };
+    LC.header.bindDescr(item, c.row, link);
+    c.holder.fire('hover:focus', c.frCard);
+    assert.deepEqual(scroll.updates, [c.fr], 'метка чужого слушателя не должна гасить наш');
+    assert.equal(item.last, c.frCard);
+  });
+});
+
 test('B: мышь страницу не двигает, но последний узел ряда помнит', () => {
   withDescr(({ c, item, scroll, link }) => {
     LC.header.bindDescr(item, c.row, link);

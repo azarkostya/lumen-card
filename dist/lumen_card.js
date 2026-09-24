@@ -32516,8 +32516,11 @@ var scroll = link && link.scroll;
 
 
 
-if (!holder.lumenDescrBound) {
-holder.lumenDescrBound = true;
+
+
+
+if (!holder.lumenDescrFollow) {
+holder.lumenDescrFollow = true;
 LC.focus.capture(holder, function (e) {
 try {
 var node = e && e.target;
@@ -32530,8 +32533,8 @@ warn('descr focus failed', err);
 });
 }
 
-if (typeof item.use === 'function' && !item.lumenDescrBound) {
-item.lumenDescrBound = true;
+if (typeof item.use === 'function' && !item.lumenDescrFollow) {
+item.lumenDescrFollow = true;
 item.use({
 onToggle: function () {
 try {
