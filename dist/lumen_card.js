@@ -12740,6 +12740,10 @@ var HERO_BD_VOTE_K = 0.5;
 
 
 
+var HERO_BD_REJECT = 1;
+
+
+
 
 var FRAME_WAIT = 900;
 
@@ -12866,7 +12870,6 @@ return date ? date.slice(0, 4) : '';
 
 
 
-
 function goodFrames(list, key) {
 var floor = 0;
 for (var k = 0; list && k < list.length; k++) {
@@ -12879,6 +12882,39 @@ var out = [];
 for (var i = 0; list && i < list.length; i++) {
 var b = list[i];
 if (b && Number(b.vote_count) >= 1 && Number(b.vote_average) >= floor) out.push(b);
+}
+return out;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function slideFrames(list) {
+var out = [];
+for (var i = 0; list && i < list.length; i++) {
+var b = list[i];
+if (!b) continue;
+if (Number(b.vote_count) >= 1 && Number(b.vote_average) < HERO_BD_REJECT) continue;
+out.push(b);
 }
 return out;
 }
@@ -14017,7 +14053,8 @@ var images = state.details.images;
 
 
 
-var list = LC.util.filter(goodFrames(images && images.backdrops, keyArt), function (b) {
+
+var list = LC.util.filter(slideFrames(images && images.backdrops), function (b) {
 return !keyArt || keyArt === main || b.file_path !== keyArt;
 });
 var paths = LC.backdrops.pickBackdrops({ backdrops: list }, main, LC.slideshow.maxFramesFor(motionMode()));
