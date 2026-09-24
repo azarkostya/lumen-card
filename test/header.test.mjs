@@ -1786,3 +1786,273 @@ test('логотип в карточке: чужой шаблон без узл�
   assert.equal(c.root.hasClass('lumen-logo-wait'), false);
   assert.deepEqual(warnLog, []);
 });
+
+/* -------------------- второй экран: обычная прокрутка -------------------- */
+
+/* Волна 2 (ТВ 2026-09-24, B). Постраничность 5da8ae6 откатана: ряд
+   описания снова один, блоки отзывов и «Смотреть по порядку» лежат под
+   описанием. Lampa внутри ряда не прокручивает (контроллер full_descr
+   делает только Navigator.move, app.min.js:38152-38181), поэтому за фокусом
+   пульта ведёт bindDescr: блок под фокусом выходит за кромку или выше
+   области — Scroll карточки ставит к верху сам блок (Scroll.update,
+   app.min.js:32130); фокус в основной части ряда за кадром — к верху сам
+   ряд. Мышь страницу не двигает.
+
+   Модель геометрии своя: у каждого узла смещение в теле прокрутки и
+   высота, экранное положение считается от прокрутки, как у Lampa
+   (getElementPosition, app.min.js:32046-32057: верх узла встаёт на верх
+   тела при нулевой прокрутке). Экран 960×540, верх области 65 (html 40 +
+   паддинг .scroll__content 25). */
+function GNode(cls, off, height, kids) {
+  this._cls = cls ? cls.split(/\s+/) : [];
+  this._off = off;
+  this._h = height;
+  this.children = [];
+  this.parentNode = null;
+  this._listeners = [];
+  const self = this;
+  this.classList = {
+    contains: (c) => self._cls.indexOf(c) !== -1,
+    add: (c) => { if (self._cls.indexOf(c) === -1) self._cls.push(c); },
+    remove: (c) => { const i = self._cls.indexOf(c); if (i !== -1) self._cls.splice(i, 1); }
+  };
+  (kids || []).forEach((k) => { k.parentNode = self; self.children.push(k); });
+  this[0] = this;
+  this.length = 1;
+}
+GNode.prototype.getBoundingClientRect = function () {
+  return { left: 0, top: GNode.scroll.bodyTop() + this._off, width: 900, height: this._h };
+};
+GNode.prototype.querySelectorAll = function (sel) {
+  const cls = sel.replace(/^\./, '');
+  const out = [];
+  (function walkG(n) { n.children.forEach((c) => { if (c.classList.contains(cls)) out.push(c); walkG(c); }); })(this);
+  return out;
+};
+GNode.prototype.addEventListener = function (type, fn, capture) { this._listeners.push({ type, fn, capture }); };
+GNode.prototype.fire = function (type, target) {
+  this._listeners.filter((l) => l.type === type).forEach((l) => l.fn({ type: type, target: target }));
+};
+
+/* Scroll карточки: html 40…540, у .scroll__content паддинг 25 — верх
+   области 65. pos — заказанная прокрутка (scroll_position у Lampa; в
+   vieport().position она отрицательная), shown — то, до чего тело уже
+   доехало: пока идёт анимация, getBoundingClientRect видит старое
+   положение, а vieport — уже новое. settle() — анимация кончилась. */
+function descrScroll() {
+  const s = { pos: 0, shown: 0, updates: [], wheelCalls: [] };
+  const content = { _pad: 25 };
+  const html = {
+    getBoundingClientRect: () => ({ left: 0, top: 40, width: 960, height: 500 }),
+    querySelector: (sel) => (sel === '.scroll__content' ? content : null)
+  };
+  const body = { getBoundingClientRect: () => ({ left: 0, top: 65 - s.shown, width: 960, height: 3000 }) };
+  s.render = () => html;
+  s.body = () => body;
+  s.vieport = () => ({ position: -s.pos, body: 3000, content: 500 });
+  s.update = (el) => { s.updates.push(el); s.pos = el._off; };
+  s.settle = () => { s.shown = s.pos; };
+  s.bodyTop = () => 65 - s.shown;
+  s.onWheel = (step) => s.wheelCalls.push(step);
+  return s;
+}
+
+/* Ряд описания на втором экране: описание 1000…1188, счётчики 1212…1247,
+   блок отзывов 1316…1507 («Скрыть» 1460), франшиза 1528…1803. Ряд Lampa
+   поставила к верху области — отзывы на экране 381…572, под кромкой 540. */
+function descrRowModel() {
+  const text = new GNode('full-descr__text selector', 1000, 188);
+  const tag = new GNode('tag-count selector', 1212, 35);
+  const left = new GNode('full-descr__left', 1000, 247, [text, new GNode('full-descr__tags', 1212, 35, [tag])]);
+  const facts = new GNode('lumen-facts', 1260, 20);
+  const hide = new GNode('lumen-reviews__hint-hide selector', 1460, 29);
+  const reviews = new GNode('lumen-reviews lumen-reviews--hint', 1316, 191, [hide]);
+  const frMode = new GNode('lumen-fr__mode selector', 1532, 22);
+  const frCard = new GNode('lumen-fr-card selector', 1574, 227);
+  const fr = new GNode('lumen-fr', 1528, 275, [frMode, frCard]);
+  const holder = new GNode('full-descr', 1000, 803, [left, facts, reviews, fr]);
+  const row = new GNode('items-line lumen-descr-row', 1000, 840, [new GNode('items-line__body', 1000, 803, [holder])]);
+  const stranger = new GNode('card selector', 2000, 200);
+  return { row, holder, text, tag, facts, reviews, hide, fr, frMode, frCard, stranger };
+}
+
+/* Модуль ряда (Emit): первым в списке компонентов — Items карточки со своим
+   onToggle (scroll.update ряда, app.min.js:35178-35180), наш встаёт после. */
+function descrItemModel(scroll, rowRef) {
+  const item = {
+    comps: [],
+    last: undefined,
+    use(m) { this.comps.push(m); },
+    emit(name) {
+      const key = 'on' + name.charAt(0).toUpperCase() + name.slice(1);
+      const args = [].slice.call(arguments, 1);
+      this.comps.forEach((m) => { if (typeof m[key] === 'function') m[key].apply(item, args); });
+    }
+  };
+  item.use({ onToggle() { scroll.update(rowRef()); } });
+  return item;
+}
+
+function withDescr(fn) {
+  const prevCs = window.getComputedStyle;
+  const prevH = window.innerHeight;
+  const prevCtl = Lampa.Controller;
+  const scroll = descrScroll();
+  GNode.scroll = scroll;
+  const c = descrRowModel();
+  const item = descrItemModel(scroll, () => c.row);
+  const enabled = { name: 'full_descr', controller: { link: item } };
+  window.getComputedStyle = (el) => ({ getPropertyValue: (p) => (p === 'padding-top' ? el._pad + 'px' : '') });
+  window.innerHeight = 540;
+  Lampa.Controller = { enabled: () => enabled };
+  /* Lampa уже поставила ряд описания к верху области. */
+  scroll.update(c.row);
+  scroll.settle();
+  scroll.updates.length = 0;
+  warnLog.length = 0;
+  try {
+    fn({ c, item, scroll, enabled, link: { scroll: scroll } });
+  } finally {
+    window.getComputedStyle = prevCs;
+    window.innerHeight = prevH;
+    Lampa.Controller = prevCtl;
+  }
+}
+
+test('B: пульт в блоке под кромкой — к верху области встаёт сам блок, в основной части — ряд', () => {
+  withDescr(({ c, item, scroll, link }) => {
+    LC.header.bindDescr(item, c.row, link);
+    c.holder.fire('hover:focus', c.hide);
+    assert.deepEqual(scroll.updates, [c.reviews], 'блок отзывов (381…572) уходил под кромку 540');
+    assert.equal(item.last, c.hide, 'возврат в ряд придёт на тот же узел');
+    scroll.settle();
+
+    /* Дальше вниз — франшиза: при отзывах у верха она 277…552, снова под
+       кромкой. */
+    c.holder.fire('hover:focus', c.frCard);
+    assert.deepEqual(scroll.updates, [c.reviews, c.fr]);
+    scroll.settle();
+    c.holder.fire('hover:focus', c.frMode);
+    assert.equal(scroll.updates.length, 2, 'блок уже на экране — прокрутки нет');
+
+    /* Вверх: отзывы выше области — к ним; основная часть выше области — к
+       ряду. */
+    c.holder.fire('hover:focus', c.hide);
+    assert.equal(scroll.updates[2], c.reviews);
+    scroll.settle();
+    c.holder.fire('hover:focus', c.tag);
+    assert.equal(scroll.updates[3], c.row, 'фокус в основной части ряда — к верху сам ряд');
+    scroll.settle();
+    c.holder.fire('hover:focus', c.text);
+    assert.equal(scroll.updates.length, 4, 'ряд уже у верха — прокрутки нет');
+    assert.deepEqual(warnLog, []);
+  });
+});
+
+test('B: мышь страницу не двигает, но последний узел ряда помнит', () => {
+  withDescr(({ c, item, scroll, link }) => {
+    LC.header.bindDescr(item, c.row, link);
+    c.holder.fire('hover:hover', c.frCard);
+    assert.deepEqual(scroll.updates, [], 'наведение мышью не прокручивает');
+    assert.equal(item.last, c.frCard);
+    assert.deepEqual(warnLog, []);
+  });
+});
+
+test('B: блок целиком на экране не прокручивается; узел вне ряда — ничего', () => {
+  withDescr(({ c, item, scroll, link }) => {
+    /* Короткий ряд: отзывы сразу под описанием и целиком над кромкой. */
+    c.reviews._off = 1250;
+    c.hide._off = 1300;
+    LC.header.bindDescr(item, c.row, link);
+    c.holder.fire('hover:focus', c.hide);
+    assert.deepEqual(scroll.updates, []);
+    c.holder.fire('hover:focus', c.stranger);
+    assert.deepEqual(scroll.updates, [], 'узел вне ряда описания не трогается');
+    assert.equal(item.last, c.hide, 'чужой узел в last не пишется');
+    assert.deepEqual(warnLog, []);
+  });
+});
+
+test('B: возврат ↑ со следующего ряда — Lampa ставит ряд, мы после неё — блок, где last', () => {
+  withDescr(({ c, item, scroll, link }) => {
+    LC.header.bindDescr(item, c.row, link);
+    item.last = c.frCard;
+    scroll.pos = 2200;
+    scroll.settle();
+    scroll.updates.length = 0;
+    /* Controller.toggle модуля ряда: фокус на last (он же шлёт hover:focus),
+       затем emit('toggle') — onToggle Items и наш. Тело ещё не доехало:
+       расчёт обязан идти от заказанной прокрутки, а не от кадра анимации. */
+    c.holder.fire('hover:focus', c.frCard);
+    item.emit('toggle');
+    assert.equal(scroll.updates[scroll.updates.length - 2], c.row, 'Lampa ставит ряд');
+    assert.equal(scroll.updates[scroll.updates.length - 1], c.fr, 'после неё — блок, где фокус');
+    assert.equal(scroll.pos, c.fr._off);
+
+    /* last в основной части — после Lampa ничего не добавляем. */
+    item.last = c.text;
+    scroll.updates.length = 0;
+    item.emit('toggle');
+    assert.deepEqual(scroll.updates, [c.row]);
+    assert.deepEqual(warnLog, []);
+  });
+});
+
+test('B: контроллер ряда не оборачивается, повторный вызов подписок не множит', () => {
+  withDescr(({ c, item, scroll, link }) => {
+    LC.header.bindDescr(item, c.row, link);
+    LC.header.bindDescr(item, c.row, link);
+    const ctrl = { up() {}, down() {} };
+    const up = ctrl.up;
+    const down = ctrl.down;
+    item.emit('controller', ctrl);
+    assert.equal(ctrl.up, up, '↑ пульта остаётся штатным');
+    assert.equal(ctrl.down, down, '↓ пульта остаётся штатным');
+    assert.equal(item.comps.length, 2, 'одна наша подписка на модуль ряда');
+    assert.equal(c.holder._listeners.length, 2, 'одна подписка на фокус (два имени события)');
+    c.holder.fire('hover:focus', c.hide);
+    assert.equal(scroll.updates.length, 1);
+  });
+});
+
+test('B: колесо мыши — к следующему блоку за кромкой и обратно, дальше — штатный шаг рядами', () => {
+  withDescr(({ c, item, scroll, link, enabled }) => {
+    LC.header.bindDescr(item, c.row, link);
+    scroll.onWheel(1);
+    assert.deepEqual(scroll.updates, [c.reviews]);
+    scroll.settle();
+    scroll.onWheel(1);
+    assert.deepEqual(scroll.updates, [c.reviews, c.fr]);
+    scroll.settle();
+    assert.deepEqual(scroll.wheelCalls, []);
+    scroll.onWheel(1);
+    assert.deepEqual(scroll.wheelCalls, [1], 'за франшизой — следующий ряд Lampa');
+
+    scroll.onWheel(-1);
+    assert.equal(scroll.updates[2], c.reviews);
+    scroll.settle();
+    scroll.onWheel(-1);
+    assert.equal(scroll.updates[3], c.row);
+    scroll.settle();
+    scroll.onWheel(-1);
+    assert.deepEqual(scroll.wheelCalls, [1, -1], 'от верха ряда — предыдущий ряд Lampa');
+
+    /* Активен чужой контроллер — колесо штатное. */
+    enabled.controller = { link: {} };
+    scroll.onWheel(1);
+    assert.deepEqual(scroll.wheelCalls, [1, -1, 1]);
+    assert.equal(scroll.updates.length, 4);
+    assert.deepEqual(warnLog, []);
+  });
+});
+
+test('B: без узла ряда, Scroll или модуля — ничего не роняет', () => {
+  withDescr(({ c, item, link }) => {
+    LC.header.bindDescr(null, c.row, link);
+    LC.header.bindDescr(item, null, link);
+    LC.header.bindDescr(item, c.row, null);
+    c.holder.fire('hover:focus', c.hide);
+    assert.deepEqual(warnLog, []);
+  });
+});

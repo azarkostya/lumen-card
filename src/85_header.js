@@ -1589,6 +1589,200 @@
     holder.append(block);
   }
 
+  /* Второй экран карточки (фокус на ряду описания) — обычная прокрутка.
+
+     Волна 2 (ТВ 2026-09-24). Постраничность 5da8ae6 откатана: пользователь
+     «оно нормально не листает, а будто открываются новые страницы — всё же
+     было нормально». Ряд описания снова один: описание, счётчики разделов
+     Lampa, «ПОДРОБНО», под ними блок отзывов и «Смотреть по порядку». Ряд
+     выше экрана, а Lampa внутри ряда не прокручивает: контроллер
+     full_descr делает только Navigator.move (vendor/lampa/app.min.js:
+     38152-38181), и фокус пульта уходил в блок за кромкой (замер стенда
+     960×540@2 в 5da8ae6: карточка франшизы 651.6…878.5 — целиком под
+     кромкой). Прокрутку за фокусом делает этот модуль тем же Scroll
+     карточки, что двигает ряды (Scroll.update, app.min.js:32130).
+
+     Правило (только пульт — у мыши курсор на том, что уже видно, и
+     страница под ним не едет, признак — LC.focus.remote):
+     - фокус в блоке отзывов или франшизы, и блок выходит за кромку или
+       выше области — к верху области встаёт сам блок;
+     - фокус в основной части ряда за кадром — к верху встаёт сам ряд, как
+       его ставит Lampa при входе в ряд;
+     - блок целиком на экране — прокрутки нет.
+     Возврат ↑ со следующего ряда: Controller.toggle модуля ряда фокусирует
+     last и шлёт 'toggle'; onToggle карточки (app.min.js:35178-35180) ставит
+     к верху ряд. Наш onToggle идёт после неё (Emit.use дописывает в конец) и,
+     если last в блоке, повторяет правило выше. Положение считается от
+     заказанной прокрутки (vieport().position), а не от кадра анимации —
+     тело прокрутки в этот момент ещё едет.
+     Колесо мыши у Lampa над карточкой шагает рядами (Items.onCreate,
+     app.min.js:35201-35203) и перепрыгнуло бы блоки. Лёгкая обёртка: ↓ — к
+     следующему блоку, который уходит за кромку; ↑ — к блоку выше или к верху
+     ряда; дальше — штатный шаг рядами. Ничего не прячется.
+
+     Контроллер ряда не оборачивается: ↑/↓ пульта остаются штатными. */
+  var DESCR_PAGES = ['lumen-reviews', 'lumen-fr'];
+
+  function isDescrPage(el) {
+    if (!el || !el.classList) return false;
+    for (var i = 0; i < DESCR_PAGES.length; i++) if (el.classList.contains(DESCR_PAGES[i])) return true;
+    return false;
+  }
+
+  function descrHolder(rowEl) {
+    var list = rowEl && typeof rowEl.querySelectorAll === 'function' ? rowEl.querySelectorAll('.full-descr') : null;
+    return list && list.length ? list[0] : null;
+  }
+
+  /* Блок узла: блок отзывов/франшизы или null (основная часть ряда);
+     undefined — узел не в этом ряду. */
+  function descrPageOf(holder, node) {
+    for (var el = node; el; el = el.parentNode) {
+      if (el === holder) return null;
+      if (el.parentNode === holder) return isDescrPage(el) ? el : null;
+    }
+    return undefined;
+  }
+
+  /* Полоса области прокрутки на экране и заказанная прокрутка. Верх
+     области — верх тела прокрутки при нулевой прокрутке: html Scroll плюс
+     паддинг .scroll__content (так же считает сама Lampa,
+     getElementPosition/maxOffset, app.min.js:32046-32057 и 31977-31984).
+     vieport().position — scroll_position на ТВ (отрицательная) и scrollTop
+     в браузере ПК (положительная), отсюда модуль. */
+  function descrView(scroll) {
+    if (!scroll || typeof scroll.render !== 'function' || typeof scroll.body !== 'function' || typeof scroll.vieport !== 'function') return null;
+    var html = scroll.render(true);
+    var body = scroll.body(true);
+    if (!html || !body || typeof html.getBoundingClientRect !== 'function' || typeof body.getBoundingClientRect !== 'function') return null;
+    var box = html.getBoundingClientRect();
+    var content = typeof html.querySelector === 'function' ? html.querySelector('.scroll__content') : null;
+    var pad = 0;
+    if (content && typeof window.getComputedStyle === 'function') {
+      pad = parseFloat(window.getComputedStyle(content, null).getPropertyValue('padding-top')) || 0;
+    }
+    var bottom = box.top + box.height;
+    if (window.innerHeight && window.innerHeight < bottom) bottom = window.innerHeight;
+    var vp = scroll.vieport() || {};
+    return { top: box.top + pad, bottom: bottom, base: body.getBoundingClientRect().top, pos: Math.abs(vp.position || 0) };
+  }
+
+  /* Где узел встанет на экране, когда прокрутка доедет: смещение в теле
+     прокрутки от анимации не зависит (узел и тело едут вместе). */
+  function descrPlaced(view, node) {
+    var r = node.getBoundingClientRect();
+    var top = view.top + (r.top - view.base) - view.pos;
+    return { top: top, bottom: top + r.height };
+  }
+
+  function descrHidden(view, node) {
+    var p = descrPlaced(view, node);
+    return p.top < view.top - 0.5 || p.bottom > view.bottom + 0.5;
+  }
+
+  function descrFollow(rowEl, holder, scroll, node) {
+    var page = descrPageOf(holder, node);
+    if (page === undefined) return;
+    var view = descrView(scroll);
+    if (!view) return;
+    if (descrHidden(view, page || node)) scroll.update(page || rowEl);
+  }
+
+  /* Шаг колеса: true — прокрутка сделана, штатный шаг рядами не нужен. */
+  function descrWheel(rowEl, holder, scroll, dir) {
+    var view = descrView(scroll);
+    if (!view) return false;
+    var blocks = [];
+    var kids = holder.children;
+    var i;
+    for (i = 0; i < kids.length; i++) {
+      if (isDescrPage(kids[i]) && kids[i].getBoundingClientRect().height > 0) blocks.push(kids[i]);
+    }
+    if (dir === 'down') {
+      for (i = 0; i < blocks.length; i++) {
+        var p = descrPlaced(view, blocks[i]);
+        if (p.top > view.top + 0.5 && p.bottom > view.bottom + 0.5) {
+          scroll.update(blocks[i]);
+          return true;
+        }
+      }
+      return false;
+    }
+    if (descrPlaced(view, rowEl).top >= view.top - 0.5) return false;
+    var target = rowEl;
+    for (i = 0; i < blocks.length; i++) {
+      if (descrPlaced(view, blocks[i]).top < view.top - 0.5) target = blocks[i];
+    }
+    scroll.update(target);
+    return true;
+  }
+
+  function descrActive(item) {
+    var C = window.Lampa && Lampa.Controller;
+    var en = C && typeof C.enabled === 'function' ? C.enabled() : null;
+    return !!(en && en.name === 'full_descr' && en.controller && en.controller.link === item);
+  }
+
+  function bindDescr(item, row, link) {
+    var rowEl = row && row[0];
+    if (!item || !rowEl || typeof rowEl.querySelectorAll !== 'function') return;
+    var holder = descrHolder(rowEl);
+    if (!holder) return;
+    var scroll = link && link.scroll;
+
+    /* Модуль ряда помнит последний узел под фокусом (last) и возвращает на
+       него фокус, когда пульт приходит в ряд снова (Controller.toggle,
+       app.min.js:38158-38161). Но слушатель, который пишет last, Lampa
+       вешает только на свои узлы и только при создании ряда
+       (app.min.js:38074-38076) — отзывы и «Смотреть по порядку» дорисованы
+       позже. Здесь last пишется для любого узла ряда — тем же
+       присваиванием, что у самой Lampa, и мышью тоже. */
+    if (!holder.lumenDescrBound) {
+      holder.lumenDescrBound = true;
+      LC.focus.capture(holder, function (e) {
+        try {
+          var node = e && e.target;
+          if (!node || descrPageOf(holder, node) === undefined) return;
+          if (node.classList && node.classList.contains('selector')) item.last = node;
+          if (LC.focus.remote(e)) descrFollow(rowEl, holder, scroll, node);
+        } catch (err) {
+          warn('descr focus failed', err);
+        }
+      });
+    }
+
+    if (typeof item.use === 'function' && !item.lumenDescrBound) {
+      item.lumenDescrBound = true;
+      item.use({
+        onToggle: function () {
+          try {
+            var last = item.last;
+            if (last && descrPageOf(holder, last)) descrFollow(rowEl, holder, scroll, last);
+          } catch (e) {
+            warn('descr toggle failed', e);
+          }
+        }
+      });
+    }
+
+    /* Обработчик колеса Items ставит раньше первого 'build' (onCreate), у
+       карточки один Scroll на все ряды — обёртка одна на Scroll и работает,
+       только пока активен контроллер ИМЕННО этого ряда (controller.link —
+       сам модуль ряда). */
+    if (scroll && typeof scroll.onWheel === 'function' && !scroll.lumenDescrWheel) {
+      scroll.lumenDescrWheel = true;
+      var wheel = scroll.onWheel;
+      scroll.onWheel = function (step) {
+        try {
+          if (descrActive(item) && descrWheel(rowEl, holder, scroll, step > 0 ? 'down' : 'up')) return;
+        } catch (e) {
+          warn('descr wheel failed', e);
+        }
+        return wheel.apply(this, arguments);
+      };
+    }
+  }
+
   function decorate(root, data) {
     if (!root || !root.length) return;
     if (!root.hasClass('lumen-card')) return;
@@ -1739,6 +1933,7 @@
     descr: renderDescrRow,
     refreshEpisode: refreshEpisode,
     bindStart: bindStart,
+    bindDescr: bindDescr,
     refreshProgress: refreshProgress,
     scheduleProgressRefresh: scheduleProgressRefresh
   };

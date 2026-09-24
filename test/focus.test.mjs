@@ -10,6 +10,18 @@ test('LC.focus.EVENTS: оба события фокуса Lampa, пульт и �
   assert.deepEqual(F.EVENTS, ['hover:focus', 'hover:hover']);
 });
 
+/* Волна 2 (ТВ 2026-09-24, B): прокрутку карточки за фокусом делает только
+   пульт — мышь наводится на то, что уже видит, и страница под курсором
+   ехать не должна. Признак — имя события; сами имена живут только здесь
+   (сторож ниже), поэтому признак тоже отдаёт этот модуль. */
+test('LC.focus.remote: пульт — да, мышь и прочее — нет', () => {
+  assert.equal(F.remote({ type: 'hover:focus' }), true);
+  assert.equal(F.remote({ type: 'hover:hover' }), false);
+  assert.equal(F.remote({ type: 'hover:touch' }), false);
+  assert.equal(F.remote(null), false);
+  assert.equal(F.remote({}), false);
+});
+
 /* Ревью волны A (М1). У штатной карточки Lampa имён ТРИ: к 'hover:focus' и
    'hover:hover' добавлен 'hover:touch', и watched() зовут все три
    (app.min.js:52323-52337). Третьего имени у нас нет сознательно — разбор

@@ -695,6 +695,7 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 
+
 LC.focus = (function () {
 var EVENTS = ['hover:focus', 'hover:hover'];
 
@@ -716,11 +717,21 @@ for (var i = 0; i < EVENTS.length; i++) el.removeEventListener(EVENTS[i], handle
 return true;
 }
 
+
+
+
+
+
+function remote(e) {
+return !!(e && e.type === EVENTS[0]);
+}
+
 return {
 EVENTS: EVENTS,
 on: on,
 capture: capture,
-release: release
+release: release,
+remote: remote
 };
 })();
 
@@ -32647,6 +32658,200 @@ block.html('<div class="lumen-facts__title">' + esc(LC.lang('lumen_card_facts'))
 holder.append(block);
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+var DESCR_PAGES = ['lumen-reviews', 'lumen-fr'];
+
+function isDescrPage(el) {
+if (!el || !el.classList) return false;
+for (var i = 0; i < DESCR_PAGES.length; i++) if (el.classList.contains(DESCR_PAGES[i])) return true;
+return false;
+}
+
+function descrHolder(rowEl) {
+var list = rowEl && typeof rowEl.querySelectorAll === 'function' ? rowEl.querySelectorAll('.full-descr') : null;
+return list && list.length ? list[0] : null;
+}
+
+
+
+function descrPageOf(holder, node) {
+for (var el = node; el; el = el.parentNode) {
+if (el === holder) return null;
+if (el.parentNode === holder) return isDescrPage(el) ? el : null;
+}
+return undefined;
+}
+
+
+
+
+
+
+
+function descrView(scroll) {
+if (!scroll || typeof scroll.render !== 'function' || typeof scroll.body !== 'function' || typeof scroll.vieport !== 'function') return null;
+var html = scroll.render(true);
+var body = scroll.body(true);
+if (!html || !body || typeof html.getBoundingClientRect !== 'function' || typeof body.getBoundingClientRect !== 'function') return null;
+var box = html.getBoundingClientRect();
+var content = typeof html.querySelector === 'function' ? html.querySelector('.scroll__content') : null;
+var pad = 0;
+if (content && typeof window.getComputedStyle === 'function') {
+pad = parseFloat(window.getComputedStyle(content, null).getPropertyValue('padding-top')) || 0;
+}
+var bottom = box.top + box.height;
+if (window.innerHeight && window.innerHeight < bottom) bottom = window.innerHeight;
+var vp = scroll.vieport() || {};
+return { top: box.top + pad, bottom: bottom, base: body.getBoundingClientRect().top, pos: Math.abs(vp.position || 0) };
+}
+
+
+
+function descrPlaced(view, node) {
+var r = node.getBoundingClientRect();
+var top = view.top + (r.top - view.base) - view.pos;
+return { top: top, bottom: top + r.height };
+}
+
+function descrHidden(view, node) {
+var p = descrPlaced(view, node);
+return p.top < view.top - 0.5 || p.bottom > view.bottom + 0.5;
+}
+
+function descrFollow(rowEl, holder, scroll, node) {
+var page = descrPageOf(holder, node);
+if (page === undefined) return;
+var view = descrView(scroll);
+if (!view) return;
+if (descrHidden(view, page || node)) scroll.update(page || rowEl);
+}
+
+
+function descrWheel(rowEl, holder, scroll, dir) {
+var view = descrView(scroll);
+if (!view) return false;
+var blocks = [];
+var kids = holder.children;
+var i;
+for (i = 0; i < kids.length; i++) {
+if (isDescrPage(kids[i]) && kids[i].getBoundingClientRect().height > 0) blocks.push(kids[i]);
+}
+if (dir === 'down') {
+for (i = 0; i < blocks.length; i++) {
+var p = descrPlaced(view, blocks[i]);
+if (p.top > view.top + 0.5 && p.bottom > view.bottom + 0.5) {
+scroll.update(blocks[i]);
+return true;
+}
+}
+return false;
+}
+if (descrPlaced(view, rowEl).top >= view.top - 0.5) return false;
+var target = rowEl;
+for (i = 0; i < blocks.length; i++) {
+if (descrPlaced(view, blocks[i]).top < view.top - 0.5) target = blocks[i];
+}
+scroll.update(target);
+return true;
+}
+
+function descrActive(item) {
+var C = window.Lampa && Lampa.Controller;
+var en = C && typeof C.enabled === 'function' ? C.enabled() : null;
+return !!(en && en.name === 'full_descr' && en.controller && en.controller.link === item);
+}
+
+function bindDescr(item, row, link) {
+var rowEl = row && row[0];
+if (!item || !rowEl || typeof rowEl.querySelectorAll !== 'function') return;
+var holder = descrHolder(rowEl);
+if (!holder) return;
+var scroll = link && link.scroll;
+
+
+
+
+
+
+
+
+if (!holder.lumenDescrBound) {
+holder.lumenDescrBound = true;
+LC.focus.capture(holder, function (e) {
+try {
+var node = e && e.target;
+if (!node || descrPageOf(holder, node) === undefined) return;
+if (node.classList && node.classList.contains('selector')) item.last = node;
+if (LC.focus.remote(e)) descrFollow(rowEl, holder, scroll, node);
+} catch (err) {
+warn('descr focus failed', err);
+}
+});
+}
+
+if (typeof item.use === 'function' && !item.lumenDescrBound) {
+item.lumenDescrBound = true;
+item.use({
+onToggle: function () {
+try {
+var last = item.last;
+if (last && descrPageOf(holder, last)) descrFollow(rowEl, holder, scroll, last);
+} catch (e) {
+warn('descr toggle failed', e);
+}
+}
+});
+}
+
+
+
+
+
+if (scroll && typeof scroll.onWheel === 'function' && !scroll.lumenDescrWheel) {
+scroll.lumenDescrWheel = true;
+var wheel = scroll.onWheel;
+scroll.onWheel = function (step) {
+try {
+if (descrActive(item) && descrWheel(rowEl, holder, scroll, step > 0 ? 'down' : 'up')) return;
+} catch (e) {
+warn('descr wheel failed', e);
+}
+return wheel.apply(this, arguments);
+};
+}
+}
+
 function decorate(root, data) {
 if (!root || !root.length) return;
 if (!root.hasClass('lumen-card')) return;
@@ -32797,6 +33002,7 @@ uninstallPeople: uninstallPeople,
 descr: renderDescrRow,
 refreshEpisode: refreshEpisode,
 bindStart: bindStart,
+bindDescr: bindDescr,
 refreshProgress: refreshProgress,
 scheduleProgressRefresh: scheduleProgressRefresh
 };
@@ -33727,6 +33933,11 @@ LC.reviews.render(descrRow, e.data);
 
 
 LC.franchise.render(descrRow, e.data);
+
+
+
+
+LC.header.bindDescr(e.item, descrRow, e.link);
 } else if (e.type === 'complite') {
 
 

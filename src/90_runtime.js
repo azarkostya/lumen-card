@@ -922,6 +922,11 @@
             /* Task 28: ряд «Смотреть по порядку» — третий сосед в том же
                .full-descr (таблица «ПОДРОБНО», отзывы, франшиза). */
             LC.franchise.render(descrRow, e.data);
+            /* Волна 2: второй экран карточки — обычная прокрутка за фокусом
+               пульта (разбор у bindDescr, src/85_header.js). Модуль ряда и
+               Scroll карточки приходят только здесь — e.item и e.link, у
+               complite их нет. */
+            LC.header.bindDescr(e.item, descrRow, e.link);
           } else if (e.type === 'complite') {
             /* A6: данные Lampa не остаются изменёнными — снятое возвращается
                здесь же, после единственного чтения на app.min.js:38842. */
