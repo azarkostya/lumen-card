@@ -113,7 +113,7 @@ function setup(opts) {
   /* Task 28 (фаза 3): автотрейлер в кадре главной — выключение снимает
      играющий ролик прямо у героя, своей точки в 90_runtime.js ему не нужно. */
   /* Task 71 (фаза 6): логотип названия — перерисовка героя той же моделью. */
-  LC.hero = { applyTrailer: mark('herotrailer'), applyLogoPref: mark('herologo'), applyMedia: mark('heromedia') };
+  LC.hero = { applyTrailer: mark('herotrailer'), applyLogoPref: mark('herologo'), applyMedia: mark('heromedia'), applyInterval: mark('herointerval') };
   /* Правка 2026-09-23: логотип названия в карточке — перерисовка узла
      названия уже открытых карточек (LC.header.applyLogoPref). */
   LC.header = { applyLogoPref: mark('cardlogo') };
@@ -263,7 +263,8 @@ test('каждая настройка применяется ровно один
        а не тумблер тяжёлых эффектов, — ротацию переставляет смена режима. */
     lumen_motion: ['motion', 'slideshow'],
     lumen_slideshow: ['slideshow'],
-    lumen_slide_interval: ['slideshow'],
+    /* Ревью «Волны 1», п.5: «Применяется сразу» — и к кадрам главной. */
+    lumen_slide_interval: ['slideshow', 'herointerval'],
     lumen_trailer: ['trailer'],
     lumen_card_progress: ['progress'],
     /* Правка 2026-09-16 (п.6): смена гарнитуры — подмена <link> шрифтов плюс

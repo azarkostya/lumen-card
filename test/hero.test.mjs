@@ -3336,6 +3336,8 @@ const BACKDROPS_REAL = load('50_backdrops.js');
 function slidesEnv(opts) {
   opts = opts || {};
   const media = { value: opts.media || 'frames' };
+  /* Значение «Интервала смены кадров» — тест может сменить его на лету. */
+  const interval = { ms: 14000 };
   const intervals = [];
   const origSet = globalThis.setInterval;
   const origClear = globalThis.clearInterval;
@@ -3343,13 +3345,14 @@ function slidesEnv(opts) {
   globalThis.clearInterval = (id) => { const t = intervals[id - 1]; if (t) t.cleared = true; };
   const env = trailerEnv({
     slideshow: SLIDESHOW,
-    backdrops: { pickBackdrops: BACKDROPS_REAL.pickBackdrops, intervalMs: () => 14000 },
+    backdrops: { pickBackdrops: BACKDROPS_REAL.pickBackdrops, intervalMs: () => interval.ms },
     motionMode: () => opts.motion || 'lite',
     fxHeavy: () => !!opts.heavy
   }, (name, def) => (name === 'lumen_hero_media' ? media.value : def));
   /* Контроллер слайдшоу спрашивает «слой ещё в документе». */
   globalThis.document.documentElement.contains = () => true;
   env.media = media;
+  env.interval = interval;
   env.intervals = intervals;
   env.live = () => intervals.filter((t) => !t.cleared);
   env.restore = () => { globalThis.setInterval = origSet; globalThis.clearInterval = origClear; };
@@ -3519,6 +3522,54 @@ test('«Кадр и трейлер» (по умолчанию) в lite: кадр
     assert.equal(node.hasClass('lumen-hero--trailer'), false);
     assert.equal(env.live().length, 1, 'ролик кончился — смена кадров продолжается');
     assert.deepEqual(warnLog, []);
+  } finally { env.restore(); }
+});
+
+/* Ревью «Волны 1», п.5: «Интервал смены кадров … Применяется сразу» — а
+   ветка настройки трогала только карточку, и герой держал старый ритм до
+   следующей карточки. applyInterval перезаводит таймер идущей смены;
+   стоящую на паузе (ролик, сжатие, парковка) не будит — её resume и так
+   прочтёт интервал заново. */
+test('«Интервал смены кадров» на лету: идущая смена кадров героя сразу переходит на новый ритм', () => {
+  const env = slidesEnv();
+  try {
+    const main = makeMain();
+    env.hero.mount(main.activity);
+    focusOn(main, main.card1);
+    env.advance(400);
+    frameImg(env, '/b1.jpg').onload();
+    detailsOf(env, 11).ok(FRAMES(11, '/b1.jpg'));
+    assert.equal(env.live()[0].ms, 14000);
+
+    env.interval.ms = 8000;
+    env.hero.applyInterval();
+    assert.equal(env.live().length, 1, 'таймер один — старый снят');
+    assert.equal(env.live()[0].ms, 8000);
+    assert.deepEqual(warnLog, []);
+  } finally { env.restore(); }
+});
+
+test('«Интервал смены кадров» на лету под играющим роликом: смену не будит, после ролика — новый ритм', () => {
+  const env = slidesEnv({ media: 'trailer', motion: 'lite' });
+  try {
+    const main = makeMain();
+    env.hero.mount(main.activity);
+    focusOn(main, main.card1);
+    env.advance(400);
+    frameImg(env, '/b1.jpg').onload();
+    detailsOf(env, 11).ok(FRAMES(11, '/b1.jpg'));
+    env.advance(8200);
+    lastVideos(env).ok(VIDEOS_RU);
+    env.players[0].onStart();
+    assert.equal(env.live().length, 0);
+
+    env.interval.ms = 20000;
+    env.hero.applyInterval();
+    assert.equal(env.live().length, 0, 'ролик играет — кадры стоят');
+
+    env.players[0].onEnd();
+    assert.equal(env.live().length, 1);
+    assert.equal(env.live()[0].ms, 20000);
   } finally { env.restore(); }
 });
 

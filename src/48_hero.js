@@ -1299,6 +1299,21 @@
       if (!state.slides && state.model && state.details) startSlides(state.model, gen);
     }
 
+    /* Ревью «Волны 1», п.5: «Интервал смены кадров» сменили на лету —
+       идущую смену перезаводим (resume контроллера читает intervalMs
+       заново). Стоящую на паузе — ролик, сжатие, парковка — не будим: её
+       снимет своя причина, и тот же resume возьмёт уже новый интервал. */
+    function applyInterval() {
+      if (!state || !state.slides) return;
+      if (state.trailerOn || state.compact || state.parked) return;
+      try {
+        state.slides.pause();
+        state.slides.resume();
+      } catch (e) {
+        warn('hero: slides interval failed', e);
+      }
+    }
+
     /* ------------------------------------------------------------------ */
     /* Отрисовка.                                                          */
     /* ------------------------------------------------------------------ */
@@ -2839,6 +2854,9 @@
         applyTrailer();
         applySlides();
       },
+      /* «Интервал смены кадров» переключён на лету (src/80_settings.js,
+         applyPrefChange): новый ритм — сразу, а не со следующей карточки. */
+      applyInterval: applyInterval,
       /* Task 71: настройка «Логотип названия» переключена на лету
          (src/80_settings.js, applyPrefChange). Перерисовываем героя той же
          моделью: write() спросит настройку заново и либо покажет логотип,

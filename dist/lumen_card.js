@@ -13842,6 +13842,21 @@ if (!state.slides && state.model && state.details) startSlides(state.model, gen)
 
 
 
+function applyInterval() {
+if (!state || !state.slides) return;
+if (state.trailerOn || state.compact || state.parked) return;
+try {
+state.slides.pause();
+state.slides.resume();
+} catch (e) {
+warn('hero: slides interval failed', e);
+}
+}
+
+
+
+
+
 
 
 
@@ -15378,6 +15393,9 @@ applyMedia: function () {
 applyTrailer();
 applySlides();
 },
+
+
+applyInterval: applyInterval,
 
 
 
@@ -29085,9 +29103,9 @@ lumen_card_font_inter: { ru: 'Inter', en: 'Inter', uk: 'Inter' },
 lumen_card_font_plex: { ru: 'IBM Plex Sans', en: 'IBM Plex Sans', uk: 'IBM Plex Sans' },
 lumen_card_motion: { ru: 'Анимации', en: 'Animations', uk: 'Анімації' },
 lumen_card_motion_descr: {
-ru: '«Авто» — лёгкие анимации на Tizen/webOS, полные на остальных. «Лёгкие» оставляют смену кадров и трейлеры, но кадр меняется резко, без перехода. «Выкл» отключает всё движение: появление блоков, наезд, смену кадров и фоновые трейлеры.',
-en: '"Auto" means light animations on Tizen/webOS and full ones elsewhere. "Light" keeps the changing stills and trailers, but a still changes with a hard cut. "Off" disables all motion: block reveal, Ken Burns zoom, changing stills and background trailers.',
-uk: '«Авто» — легкі анімації на Tizen/webOS, повні на інших. «Легкі» залишають зміну кадрів і трейлери, але кадр змінюється різко, без переходу. «Викл» вимикає весь рух: появу блоків, наїзд, зміну кадрів і фонові трейлери.'
+ru: '«Авто» — лёгкие анимации на Tizen/webOS, полные на остальных. «Лёгкие» оставляют смену кадров и трейлеры (на Tizen/webOS трейлеры по умолчанию выключены — пункт «Трейлер в фоне карточки»), но кадр меняется резко, без перехода. «Выкл» отключает всё движение: появление блоков, наезд, смену кадров и фоновые трейлеры.',
+en: '"Auto" means light animations on Tizen/webOS and full ones elsewhere. "Light" keeps the changing stills and trailers (on Tizen/webOS trailers are off by default — see "Background trailer on the card"), but a still changes with a hard cut. "Off" disables all motion: block reveal, Ken Burns zoom, changing stills and background trailers.',
+uk: '«Авто» — легкі анімації на Tizen/webOS, повні на інших. «Легкі» залишають зміну кадрів і трейлери (на Tizen/webOS трейлери за замовчуванням вимкнені — пункт «Трейлер у фоні картки»), але кадр змінюється різко, без переходу. «Викл» вимикає весь рух: появу блоків, наїзд, зміну кадрів і фонові трейлери.'
 },
 lumen_card_motion_auto: { ru: 'Авто', en: 'Auto', uk: 'Авто' },
 lumen_card_motion_full: { ru: 'Полные', en: 'Full', uk: 'Повні' },
@@ -29528,15 +29546,15 @@ lumen_hero_media_name: { ru: 'Что показывает кадр главно�
 lumen_hero_media_trailer: { ru: 'Кадры и трейлер', en: 'Stills and trailer', uk: 'Кадри і трейлер' },
 lumen_hero_media_frames: { ru: 'Только кадры', en: 'Stills only', uk: 'Лише кадри' },
 lumen_hero_media_descr: {
-ru: 'Кадры фильма сменяют друг друга, как в карточке, с тем же «Интервалом смены кадров». «Кадры и трейлер» — если фокус постоял на карточке, кадры сменяет беззвучный трейлер (пункт «Автотрейлер в кадре главной»), а когда он кончится, кадры пойдут дальше. «Только кадры» — трейлер не запускается. Пока фокус в рядах ниже первого, кадры не меняются; с выключенными анимациями кадр один. Применяется сразу.',
-en: 'The film’s stills replace one another like on the card, at the same "Frame interval". "Stills and trailer": if focus rests on a card, a muted trailer takes over (see "Auto-trailer in the home hero"), and the stills carry on once it ends. "Stills only": no trailer is started. While focus is in the rows below the first one the stills do not change; with animations off there is a single still. Applied immediately.',
-uk: 'Кадри фільму змінюють один одного, як у картці, з тим самим «Інтервалом зміни кадрів». «Кадри і трейлер» — якщо фокус постояв на картці, кадри змінює беззвучний трейлер (пункт «Автотрейлер у кадрі головної»), а коли він закінчиться, кадри підуть далі. «Лише кадри» — трейлер не запускається. Поки фокус у рядах нижче першого, кадри не змінюються; з вимкненими анімаціями кадр один. Застосовується одразу.'
+ru: 'Кадры фильма сменяют друг друга, как в карточке, с тем же «Интервалом смены кадров». «Кадры и трейлер» — если фокус постоял на карточке, кадры сменяет беззвучный трейлер (пункт «Автотрейлер в кадре главной»; на Tizen/webOS по умолчанию трейлера нет), а когда он кончится, кадры пойдут дальше. «Только кадры» — трейлер не запускается. Пока фокус в рядах ниже первого, кадры не меняются; с выключенными анимациями кадр один. Применяется сразу.',
+en: 'The film’s stills replace one another like on the card, at the same "Frame interval". "Stills and trailer": if focus rests on a card, a muted trailer takes over (see "Auto-trailer in the home hero"; on Tizen/webOS there is no trailer by default), and the stills carry on once it ends. "Stills only": no trailer is started. While focus is in the rows below the first one the stills do not change; with animations off there is a single still. Applied immediately.',
+uk: 'Кадри фільму змінюють один одного, як у картці, з тим самим «Інтервалом зміни кадрів». «Кадри і трейлер» — якщо фокус постояв на картці, кадри змінює беззвучний трейлер (пункт «Автотрейлер у кадрі головної»; на Tizen/webOS за замовчуванням трейлера немає), а коли він закінчиться, кадри підуть далі. «Лише кадри» — трейлер не запускається. Поки фокус у рядах нижче першого, кадри не змінюються; з вимкненими анімаціями кадр один. Застосовується одразу.'
 },
 lumen_hero_trailer_name: { ru: 'Автотрейлер в кадре главной', en: 'Auto-trailer in the home hero', uk: 'Автотрейлер у кадрі головної' },
 lumen_hero_trailer_descr: {
-ru: 'Кадр над рядами сам сменяется беззвучным трейлером с YouTube, если фокус постоял на карточке 8 секунд. Выключите, если это мешает. Переход на другую карточку ролик снимает, при листании он не запускается вовсе. Не работает при выключенных анимациях, при «Трейлер в фоне карточки» — «Выкл» и при «Только кадры». Применяется сразу.',
-en: 'The hero frame above the rows turns into a muted YouTube trailer by itself once focus has rested on a card for 8 seconds. Turn it off if it gets in the way. Moving to another card removes the clip, and it never starts while you are browsing. Does not work with animations off, with "Background trailer on the card" set to Off or with "Stills only". Applied immediately.',
-uk: 'Кадр над рядами сам змінюється беззвучним трейлером з YouTube, якщо фокус постояв на картці 8 секунд. Вимкніть, якщо це заважає. Перехід на іншу картку ролик знімає, під час гортання він не запускається взагалі. Не працює з вимкненими анімаціями, з «Трейлер у фоні картки» — «Викл» і з «Лише кадри». Застосовується одразу.'
+ru: 'Кадр над рядами сам сменяется беззвучным трейлером с YouTube, если фокус постоял на карточке 8 секунд. Выключите, если это мешает. Переход на другую карточку ролик снимает, при листании он не запускается вовсе. Не работает при выключенных анимациях, при «Трейлер в фоне карточки» — «Выкл» (на Tizen/webOS — и «Авто») и при «Только кадры». Применяется сразу.',
+en: 'The hero frame above the rows turns into a muted YouTube trailer by itself once focus has rested on a card for 8 seconds. Turn it off if it gets in the way. Moving to another card removes the clip, and it never starts while you are browsing. Does not work with animations off, with "Background trailer on the card" set to Off (on Tizen/webOS also Auto) or with "Stills only". Applied immediately.',
+uk: 'Кадр над рядами сам змінюється беззвучним трейлером з YouTube, якщо фокус постояв на картці 8 секунд. Вимкніть, якщо це заважає. Перехід на іншу картку ролик знімає, під час гортання він не запускається взагалі. Не працює з вимкненими анімаціями, з «Трейлер у фоні картки» — «Викл» (на Tizen/webOS — і «Авто») і з «Лише кадри». Застосовується одразу.'
 },
 
 
@@ -29866,7 +29884,14 @@ if (name === 'lumen_debug_hud') {
 try { if (LC.hud) LC.hud.sync(); } catch (eHud) {}
 return true;
 }
-if (name === 'lumen_slideshow' || name === 'lumen_slide_interval') { LC.applySlideshowPref(); return true; }
+if (name === 'lumen_slideshow') { LC.applySlideshowPref(); return true; }
+
+
+if (name === 'lumen_slide_interval') {
+LC.applySlideshowPref();
+try { if (LC.hero && LC.hero.applyInterval) LC.hero.applyInterval(); } catch (eHeroInt) {}
+return true;
+}
 if (name === 'lumen_menus') { LC.applyMenusPref(); return true; }
 if (name === 'lumen_torrents') { LC.applyTorrentsPref(); return true; }
 if (name === 'lumen_trailer') { LC.applyTrailerPref(); return true; }
