@@ -2546,3 +2546,37 @@ test('Critical 1: destroy осиротевшей карточки снимает
   assert.equal(unmounted[0], fx, 'снят именно узел .lumen-fx осиротевшей карточки');
   assert.deepEqual(warnLog, []);
 });
+
+/* Волна 2 (ТВ 2026-09-24, D1): при открытии карточки проступал размытый
+   постер Lampa — штатный .background (Color.blur + fadeTo 700 мс,
+   vendor/lampa/app.min.js:38989). Под главной его гасит метка героя
+   lumen-main-on, а на карточке не гасил никто. Своя метка карточки ставится
+   на старте экрана 'full' и снимается стартом любого другого экрана и
+   выключением плагина. */
+test('D1: body.lumen-card-on — на старте карточки; снимается стартом другого экрана и выключением', () => {
+  const storage = {};
+  const { LC } = initLC({ storage });
+  LC.backdrops = { apply: () => null, cancel: () => { }, revive: () => null };
+  const bodyEl = new FakeEl(['body']);
+  globalThis.$ = (sel) => (sel === 'body' ? bodyEl : EMPTY);
+
+  const card = makeActivityObj('A', false, null);
+  LC.onActivityEvent({ type: 'start', component: 'full', object: card });
+  assert.equal(bodyEl.hasClass('lumen-card-on'), true, 'на карточке фон Lampa гасится');
+
+  LC.onActivityEvent({ type: 'start', component: 'main', object: makeActivityObj('Главная', false, null) });
+  assert.equal(bodyEl.hasClass('lumen-card-on'), false, 'на главной метки карточки нет');
+
+  LC.onActivityEvent({ type: 'start', component: 'full', object: card });
+  LC.onActivityEvent({ type: 'start', component: 'category_full', object: makeActivityObj('Каталог', false, null) });
+  assert.equal(bodyEl.hasClass('lumen-card-on'), false, 'на чужом экране фон Lampa штатный');
+
+  LC.onActivityEvent({ type: 'start', component: 'full', object: card });
+  storage.lumen_enabled = 'false';
+  LC.applyEnabledPref();
+  assert.equal(bodyEl.hasClass('lumen-card-on'), false, 'выключенный плагин метку не держит');
+
+  LC.onActivityEvent({ type: 'start', component: 'full', object: card });
+  assert.equal(bodyEl.hasClass('lumen-card-on'), false, 'выключенный плагин метку и не ставит');
+  assert.deepEqual(warnLog, []);
+});

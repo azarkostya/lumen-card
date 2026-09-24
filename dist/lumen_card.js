@@ -2050,7 +2050,12 @@ var scale = scaleFactor();
 if (scale !== SCALES[SCALE_DEFAULT]) css.push(SCALE_ROOTS + '{font-size:' + scale + 'em}');
 
 
-css.push('.lumen-backdrop{position:absolute;top:0;left:0;width:100%;height:100vh;z-index:-1;overflow:hidden;opacity:0;-webkit-transition:opacity .5s ease;transition:opacity .5s ease;pointer-events:none}');
+
+
+
+
+
+css.push('.lumen-backdrop{position:absolute;top:0;left:0;width:100%;height:100vh;z-index:-1;overflow:hidden;opacity:0;pointer-events:none}');
 css.push('.lumen-backdrop.loaded{opacity:1}');
 css.push('.lumen-backdrop__img{position:absolute;top:0;left:0;right:0;bottom:0;background-position:72% 32%;background-repeat:no-repeat;-webkit-background-size:cover;background-size:cover}');
 
@@ -3947,7 +3952,13 @@ css.push('body.lumen-motion-full .lumen-main{-webkit-transition:background-color
 
 
 
-css.push('body.lumen-main-on .background{display:none}');
+
+
+
+
+
+
+css.push('body.lumen-main-on .background,body.lumen-card-on .background{display:none}');
 
 
 
@@ -33257,6 +33268,22 @@ warn('fx heavy class failed', e);
 
 
 
+
+
+var CARD_ON = 'lumen-card-on';
+function markCardBody(on) {
+var body = bodyRoot();
+if (!body || !body.length) return;
+try {
+body.toggleClass(CARD_ON, !!on);
+} catch (e) {
+warn('card body mark failed', e);
+}
+}
+
+
+
+
 LC.applyMotionMode = function () {
 applyMotionMode(activeCardRoot());
 applyMotionMode(activeBackdropLayer());
@@ -33621,6 +33648,7 @@ if (e.type === 'start') {
 
 
 try { if (LC.refreshPending) LC.refreshPending(e.component); } catch (eRefresh) {}
+markCardBody(e.component === 'full');
 
 
 
@@ -34555,7 +34583,8 @@ try {
 var body = bodyRoot();
 
 
-if (body && body.length) body.removeClass(MOTION_CLASSES).removeClass('lumen-fx-heavy');
+
+if (body && body.length) body.removeClass(MOTION_CLASSES).removeClass('lumen-fx-heavy').removeClass(CARD_ON);
 } catch (e3) {
 warn('motion class off failed', e3);
 }

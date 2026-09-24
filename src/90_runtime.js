@@ -187,6 +187,22 @@
     }
   }
 
+  /* Волна 2 (ТВ 2026-09-24, D1): метка «на экране карточка фильма». По ней
+     таблица стилей гасит штатный фон Lampa (body.lumen-card-on .background,
+     src/30_css.js) — размытый постер, который проступал при открытии
+     карточки. Ставится на старте экрана 'full', снимается стартом любого
+     другого экрана и выключением плагина (deactivate). */
+  var CARD_ON = 'lumen-card-on';
+  function markCardBody(on) {
+    var body = bodyRoot();
+    if (!body || !body.length) return;
+    try {
+      body.toggleClass(CARD_ON, !!on);
+    } catch (e) {
+      warn('card body mark failed', e);
+    }
+  }
+
   /* Вызывается извне (LC.followStorage / onChange параметра lumen_motion), когда режим
      меняется на уже открытой карточке — находит активный корень (и слой фона) сама.
      На body — только пока плагин активен (ui_active, см. ниже). */
@@ -554,6 +570,7 @@
            настройку (состав рядов главной, подсказка про ключ). Замена
            откладывается на таймер — см. LC.refreshComponent. */
         try { if (LC.refreshPending) LC.refreshPending(e.component); } catch (eRefresh) {}
+        markCardBody(e.component === 'full');
         /* Task 29: переход «постер → кадр». Ставится ДО всего остального в
            этой ветке: слой должен лечь на экран в том же кадре, в котором
            Lampa начала строить карточку, иначе постер «догонял» бы уже
@@ -1487,8 +1504,9 @@
     try {
       var body = bodyRoot();
       /* Task 40: класс тяжёлых эффектов снимается вместе с классом режима —
-         выключенный плагин не оставляет на body ни одной своей метки. */
-      if (body && body.length) body.removeClass(MOTION_CLASSES).removeClass('lumen-fx-heavy');
+         выключенный плагин не оставляет на body ни одной своей метки.
+         Волна 2 (D1): метка карточки lumen-card-on — туда же. */
+      if (body && body.length) body.removeClass(MOTION_CLASSES).removeClass('lumen-fx-heavy').removeClass(CARD_ON);
     } catch (e3) {
       warn('motion class off failed', e3);
     }

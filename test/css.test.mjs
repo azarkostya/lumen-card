@@ -2294,11 +2294,30 @@ test('Task 49: под нашей главной штатный фон Lampa не
   const decl = findDecl(css, (sel) => sel === 'body.lumen-main-on .background');
   assert.ok(decl, 'нет правила, гасящего фон Lampa под главной плагина');
   assert.equal(decl, 'display:none', 'гасим целиком и ничем больше: ' + decl);
+  /* Волна 2 (ТВ 2026-09-24, D1): под карточкой фильма — тоже. Размытый
+     постер Lampa (Color.blur + fadeTo 700 мс, app.min.js:38989) проступал
+     при открытии карточки, пока наш кадр не ложился сверху, — «картинка
+     расползается» на фото 5/7/11. Метку lumen-card-on ставит рантайм на
+     старте экрана 'full' (src/90_runtime.js). */
+  const card = findDecl(css, (sel) => sel === 'body.lumen-card-on .background');
+  assert.ok(card, 'нет правила, гасящего фон Lampa под карточкой плагина');
+  assert.equal(card, 'display:none', 'гасим целиком и ничем больше: ' + card);
   /* Отдельных правил на канвасы быть не должно — это мёртвые правила:
      потомков погашенного предка браузер не рисует. */
   const extra = ruleBodies(css).filter((r) => r.selectors.some((s) => /\.background__/.test(s)));
   assert.deepEqual(extra.map((r) => r.selectors.join(',')), [],
     'канвасы внутри .background гасить отдельно нечем — правило станет мёртвым');
+});
+
+/* Волна 2 (ТВ 2026-09-24, D2): кадр карточки встаёт сразу, без проявления
+   0.5 с. Вместе с размытым фоном Lampa под ним проявление и было тем
+   «эффектом открытия», который пользователь просил убрать. Смена кадров
+   слайдшоу — отдельное правило на .lumen-bg__img, его это не касается. */
+test('D2: слой кадра карточки без transition проявления', () => {
+  const decl = findDecl(css, (sel) => sel === '.lumen-backdrop');
+  assert.ok(decl, 'нет базового правила .lumen-backdrop');
+  assert.ok(!/transition/.test(decl), 'кадр карточки проявляется анимацией: ' + decl);
+  assert.equal(findDecl(css, (sel) => sel === '.lumen-backdrop.loaded'), 'opacity:1');
 });
 
 /* Task 50. Акцент под постером в фокусе был тенью с размытием .7em — это
