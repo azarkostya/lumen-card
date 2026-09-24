@@ -336,23 +336,25 @@
 
     /* Что делать с ответом роликов. 'play' — ещё нужен: запрос последний,
        экран тот же (Activity.active() — запись стека, app.min.js:45889),
-       плеер не открыт (Player.opened, :31149), поверх не открыты настройки
-       и левое меню (классы body, :10306 и :9789), и ответ не старше
-       TRAILER_WAIT_MS. 'late' — всё то же, но опоздал только ответ: человек
-       так и ждёт на том же экране, и молчание выглядело бы как «кнопка не
-       работает» (ревью «Волны 1», п.4) — говорим, что трейлера нет.
-       '' — ответ уже чужой (ушли, открыли плеер или оверлей, новый выбор):
-       ни играть, ни говорить. */
+       плеер не открыт и поверх ничего нет, и ответ не старше
+       TRAILER_WAIT_MS. «Плеер» и «поверх» — тот же LC.util.playerOpen/
+       overlayOpen, что у автотрейлера героя (ревью волны 1b, п.4: свой
+       набор здесь разошёлся с ним — поиск, список выбора, модальное окно и
+       YouTube Lampa трейлер из меню пропускал), плюс левое меню (класс
+       body menu--open, :9789): главную под ним видно, и ролик героя его не
+       ждёт, но ответ, пришедший, когда человек уже в меню, — чужой.
+       'late' — всё то же, но опоздал только ответ: человек так и ждёт на
+       том же экране, и молчание выглядело бы как «кнопка не работает»
+       (ревью «Волны 1», п.4). '' — ответ уже чужой (ушли, открыли плеер,
+       оверлей или меню, новый выбор): ни играть, ни говорить. */
     function verdict(ticket) {
       if (ticket.seq !== trailerReq) return '';
       if (currentActivity() !== ticket.activity) return '';
+      if (LC.util.playerOpen() || LC.util.overlayOpen()) return '';
       try {
-        if (Lampa.Player && typeof Lampa.Player.opened === 'function' && Lampa.Player.opened()) return '';
+        var list = document.body && document.body.classList;
+        if (list && list.contains('menu--open')) return '';
       } catch (e) { }
-      try {
-        var body = $('body');
-        if (body.hasClass('settings--open') || body.hasClass('menu--open')) return '';
-      } catch (e2) { }
       if (Date.now() - ticket.at > TRAILER_WAIT_MS) return 'late';
       return 'play';
     }

@@ -185,10 +185,14 @@ globalThis.warn = globalThis.warn || function () { };
    стека (app.min.js:45889-45891, activites[activites.length - 1]),
    Player.opened() — флаг открытого плеера (:31149), классы
    settings--open/menu--open на body ставят настройки и левое меню
-   (:10306, :9789). tmdb.videos(params, cb) отвечает колбэком позже. */
+   (:10306, :9789), selectbox--open и search--open — список выбора и поиск
+   (:7084, :41514); модальное окно и YouTube Lampa — узлы .modal и
+   .youtube-player в body (:32415, :53324). tmdb.videos(params, cb)
+   отвечает колбэком позже. */
 function trailerEnv() {
   const activities = [{ component: 'main' }];
   const bodyClasses = [];
+  const nodes = [];
   const played = [];
   const notes = [];
   const calls = [];
@@ -204,7 +208,10 @@ function trailerEnv() {
   };
   globalThis.window = { Lampa };
   globalThis.Lampa = Lampa;
-  globalThis.$ = (sel) => ({ hasClass: (c) => sel === 'body' && bodyClasses.indexOf(c) !== -1 });
+  globalThis.document = {
+    body: { classList: { contains: (c) => bodyClasses.indexOf(c) !== -1 } },
+    querySelector: (sel) => (sel.split(',').some((s) => nodes.indexOf(s.trim()) !== -1) ? {} : null)
+  };
   const realNow = Date.now;
   Date.now = () => clock.now;
   const { api } = loadCtx('63_cardmenu.js', {
@@ -213,10 +220,10 @@ function trailerEnv() {
     trailer: { pickTrailer: (list) => (list && list[0] && list[0].key ? list[0] : null) }
   });
   return {
-    api, activities, bodyClasses, played, notes, calls, clock,
+    api, activities, bodyClasses, nodes, played, notes, calls, clock,
     setPlayer: (v) => { playerOpen = v; },
     answer: (i) => calls[i].cb({ results: [{ key: 'K' + i, name: 'Трейлер' }] }),
-    restore: () => { Date.now = realNow; delete globalThis.window; delete globalThis.Lampa; delete globalThis.$; }
+    restore: () => { Date.now = realNow; delete globalThis.window; delete globalThis.Lampa; delete globalThis.document; }
   };
 }
 
@@ -261,6 +268,33 @@ test('трейлер из меню: открыты настройки или л�
       env.answer(0);
       assert.equal(env.played.length, 0, cls);
     } finally { env.restore(); }
+  }
+});
+
+/* Ревью волны 1b, п.4: «что открыто поверх» у меню спрашивалось своим
+   набором (настройки и левое меню), у автотрейлера героя — другим
+   (LC.util.overlayOpen). Наборы разошлись: под поиском, списком выбора,
+   модальным окном или YouTube Lampa трейлер из меню стартовал. Теперь —
+   тот же LC.util.playerOpen/overlayOpen плюс левое меню. */
+test('трейлер из меню: открыт поиск, список выбора, модальное окно или YouTube Lampa — не играет и молчит', () => {
+  const cases = {
+    'поиск': (env) => env.bodyClasses.push('search--open'),
+    'список выбора': (env) => env.bodyClasses.push('selectbox--open'),
+    'модальное окно': (env) => env.nodes.push('.modal'),
+    'YouTube Lampa': (env) => env.nodes.push('.youtube-player')
+  };
+  for (const name of Object.keys(cases)) {
+    for (const late of [false, true]) {
+      const env = trailerEnv();
+      try {
+        env.api.playTrailer(MOVIE);
+        if (late) env.clock.now += 9000;
+        cases[name](env);
+        env.answer(0);
+        assert.equal(env.played.length, 0, name + (late ? ' (опоздал)' : ''));
+        assert.deepEqual(env.notes, [], name + (late ? ' (опоздал)' : ''));
+      } finally { env.restore(); }
+    }
   }
 });
 

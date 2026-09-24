@@ -24716,16 +24716,18 @@ return null;
 
 
 
+
+
+
+
 function verdict(ticket) {
 if (ticket.seq !== trailerReq) return '';
 if (currentActivity() !== ticket.activity) return '';
+if (LC.util.playerOpen() || LC.util.overlayOpen()) return '';
 try {
-if (Lampa.Player && typeof Lampa.Player.opened === 'function' && Lampa.Player.opened()) return '';
+var list = document.body && document.body.classList;
+if (list && list.contains('menu--open')) return '';
 } catch (e) { }
-try {
-var body = $('body');
-if (body.hasClass('settings--open') || body.hasClass('menu--open')) return '';
-} catch (e2) { }
 if (Date.now() - ticket.at > TRAILER_WAIT_MS) return 'late';
 return 'play';
 }
