@@ -325,7 +325,10 @@ function findDecl(cssText, matchSelector) {
    {a, rgb, pos, unit}. Сплошной цвет (#RRGGBB, #000) — прозрачность 1. Скобки
    считаются, поэтому rgba(...) внутри стопов и несколько слоёв через запятую
    разбираются честно. rgb — [r, g, b] стопа (ревью раунда хвостов, п.7:
-   цвет затемнения больше не один на все слои), null у #RGB. */
+   цвет затемнения больше не один на все слои), null у #RGB.
+   Волна «подложка»: и radial-gradient — у слоя вместо angle (он null)
+   поле radial: {rx, ry, cx, cy} в процентах слоя, из формы
+   «<rx>% <ry>% at <cx> <cy>%». */
 function gradients(declText, prop) {
   const re = new RegExp('(?:^|;)' + prop + ':([^;]*)', 'g');
   let value = null;
@@ -334,8 +337,11 @@ function gradients(declText, prop) {
   if (value === null) return [];
   const out = [];
   let at = 0;
-  const head = 'linear-gradient(';
-  while ((at = value.indexOf(head, at)) !== -1) {
+  const heads = /(?:linear|radial)-gradient\(/g;
+  let hm;
+  while ((hm = heads.exec(value))) {
+    at = hm.index;
+    const head = hm[0];
     let depth = 0;
     let end = at + head.length - 1;
     for (; end < value.length; end++) {
@@ -352,9 +358,16 @@ function gradients(declText, prop) {
       else if (body[k] === ',' && !d) { parts.push(body.slice(from, k)); from = k + 1; }
     }
     parts.push(body.slice(from));
-    const angle = parts.shift().trim();
+    const first = parts.shift().trim();
+    let radial = null;
+    if (head === 'radial-gradient(') {
+      const r = /^([\d.]+)% ([\d.]+)% at ([\d.]+)%? ([\d.]+)%$/.exec(first);
+      assert.ok(r, 'форма радиального градиента не разобрана: ' + first);
+      radial = { rx: parseFloat(r[1]), ry: parseFloat(r[2]), cx: parseFloat(r[3]), cy: parseFloat(r[4]) };
+    }
     out.push({
-      angle: angle,
+      angle: radial ? null : first,
+      radial: radial,
       stops: parts.map((p) => {
         const t = p.trim();
         const pos = /\s(-?[\d.]+)(%|em|vh)?$/.exec(t);
@@ -368,7 +381,7 @@ function gradients(declText, prop) {
         };
       })
     });
-    at = end;
+    heads.lastIndex = end;
   }
   return out;
 }
@@ -2503,11 +2516,12 @@ test('правка: текст героя прижат к низу кадра и
   assert.ok(/(^|;)left:0;/.test(text), 'рамка блока заходит за кромку кадра — вуали в блоке больше нет: ' + text);
   assert.ok(Math.abs(padL * zoom - 3.51) < 0.02, 'Task 63: safe area слева — 80 px tvOS = 3.51em: ' + text);
   assert.ok(/(^|;)right:0;/.test(text) && /(^|;)bottom:0;/.test(text), 'рамка блока обязана доходить до правой и нижней кромки кадра: ' + text);
-  /* Ширина содержимого — 36em своего кегля (волна 3: было 46; правый край
-     текста обязан остаться там, где левое затемнение ещё плотное): справа
-     отступ «кадр минус левый отступ минус 36em». */
+  /* Ширина содержимого — 28em своего кегля (волна 3: 46 → 36; волна
+     «подложка»: 36 → 28 — правый край текста обязан остаться там, где пятно
+     подушки ещё плотное): справа отступ «кадр минус левый отступ минус
+     28em». */
   const padR = parseFloat(/[^-]padding-right:calc\(100% - ([0-9.]+)em\)/.exec(text)[1]);
-  assert.ok(Math.abs(padR - (padL + 36)) < 0.01, 'ширина содержимого текста героя уехала от 36em: ' + text);
+  assert.ok(Math.abs(padR - (padL + 28)) < 0.01, 'ширина содержимого текста героя уехала от 28em: ' + text);
   assert.ok((padR * zoom * 960 / 84.17) / 960 <= 0.52, 'правый край текста дальше 52 % ширины — левое затемнение там уже не держит мету: ' + padR);
   /* Сверху — безопасная зона под шапкой Lampa: без неё высокое содержимое
      налезало на заголовок активности и иконки (находка пользователя). */
@@ -3094,16 +3108,25 @@ function rowLayout(built, screenW, screenH, opts) {
   const titleFont = parseFloat(cascade(titleRules, 'font-size').value);
   const cardTitleH = titleFont * parseFloat(cascade(titleRules, 'line-height').value) * CARD_EM;
   const ageFont = parseFloat(cascade(ageRules, 'font-size').value);
-  const ageGap = parseFloat(cascade(ageRules, 'margin-top').value) * ageFont * CARD_EM;
-  const ageH = ageFont * parseFloat(cascade(ageRules, 'line-height').value) * CARD_EM;
+  /* Волна «подложка», п.C1: при живом кадре строки «год · ★» нет
+     (display:none каскадом — за порогом «кадра нет» она возвращается), и
+     мерой низа подписи становится низ названия. */
+  const ageShown = (cascade(ageRules, 'display') || { value: 'block' }).value !== 'none';
+  const ageGap = ageShown ? parseFloat(cascade(ageRules, 'margin-top').value) * ageFont * CARD_EM : 0;
+  const ageH = ageShown ? ageFont * parseFloat(cascade(ageRules, 'line-height').value) * CARD_EM : 0;
   /* Task 63: у карточки ПОД ФОКУСОМ подпись уезжает вниз, и читают её именно
      там — значит низ подписи меряется вместе с этим сдвигом. Правило живёт
      под body.lumen-motion-full (класс режима движения стоит на body), то
      есть в модель входит худший случай — полные анимации. transform стоит на
-     самой подписи, поэтому его em считаются в её кегле. */
-  const focusRule = findDecl(built, (sel) => sel === 'body.lumen-motion-full .lumen-main .card.focus .card__age');
-  assert.ok(focusRule, 'нет правила сдвига подписи под фокусом');
-  const focusShift = parseFloat(/[^-]transform:translateY\(([0-9.]+)em\)/.exec(focusRule)[1]) * ageFont * CARD_EM;
+     самой подписи, поэтому его em считаются в её кегле.
+     Волна «подложка», п.C1: при живом кадре сдвига нет — правило живёт в
+     медиазапросе порога «кадра нет», и модель берёт его только там, где
+     медиазапрос действует. Само правило в таблице обязано быть. */
+  const focusRules = ruleBodiesWithMedia(built).filter((r) => r.selectors.indexOf('body.lumen-motion-full .lumen-main .card.focus .card__age') !== -1 &&
+    r.selectors.indexOf('body.lumen-motion-full .lumen-main .card.focus .card__title') !== -1);
+  assert.ok(focusRules.length, 'нет правила сдвига подписи под фокусом');
+  const focusRule = focusRules.filter((r) => mediaApplies(r.media, screenW, screenH)).map((r) => r.decl).pop();
+  const focusShift = focusRule ? parseFloat(/[^-]transform:translateY\(([0-9.]+)em\)/.exec(focusRule)[1]) * (ageShown ? ageFont : titleFont) * CARD_EM : 0;
   const tail = viewGap + cardTitleH + ageGap + ageH + focusShift;
 
   /* Правка 2026-09-23 (правило кромки): зазор между рядами берётся
@@ -3116,6 +3139,9 @@ function rowLayout(built, screenW, screenH, opts) {
 
   return {
     rowTopUp: rowTopUp,
+    /* Верх области рядов в покое (вместе со сдвигом покоя): над ним — кадр
+       героя, не накрытый рядами. */
+    areaTopDown: areaTopDown + shiftDown,
     rowGap: rowGap,
     /* Отступ Lampa над фокусным рядом в px: подписи ПРЕДЫДУЩЕГО ряда стоят
        на (lampaPad − rowGap) ниже верха области, то есть внутри неё, если
@@ -3271,30 +3297,32 @@ test('Task 51: подпись первого ряда в СЖАТОМ состо
      До правки п.1.5 (кнопка «Ещё» в шапке ряда) здесь было 525.0 — разница
      ровно в высоте кнопки, 6.5 px.
      287 — верх шапки первого ряда, от правки не изменился. */
-  assert.ok(Math.abs(box('normal', true).textBottomUp - 518.5) < 1,
-    'штатный масштаб, сжатое состояние: ' + box('normal', true).textBottomUp.toFixed(1) + ' вместо расчётных 518.5');
-  assert.ok(Math.abs(box('normal', true).flowBottomUp - 514.5) < 1,
-    'штатный масштаб, сжатое состояние без сдвига фокуса (режим движения «лёгкий»): ' +
-    box('normal', true).flowBottomUp.toFixed(1) + ' вместо расчётных 514.5');
+  /* Волна «подложка», п.C1: при живом кадре под постером одно название
+     (строки «год · ★» нет) и сдвига подписи под фокусом нет — 500.1 в
+     обоих режимах движения. Мера инварианта — низ названия. */
+  assert.ok(Math.abs(box('normal', true).textBottomUp - 500.1) < 1,
+    'штатный масштаб, сжатое состояние: ' + box('normal', true).textBottomUp.toFixed(1) + ' вместо расчётных 500.1');
+  assert.equal(box('normal', true).flowBottomUp, box('normal', true).textBottomUp,
+    'при живом кадре подпись под фокусом снова уезжает вниз');
   assert.ok(Math.abs(box('normal', true).rowTopUp - 287) < 1,
     'верх шапки первого ряда: ' + box('normal', true).rowTopUp.toFixed(1) + ' вместо замеренных 287');
 
-  /* «Подглядывание» ряда в состоянии ПОКОЯ — вывод отдельной проверкой,
-     потому что оно НЕ универсально, и это выяснилось здесь же: на мелком
-     масштабе карточки ряд помещается в экран целиком (525.7 px при кромке
-     540), а на штатном и выше подпись уходит за кромку (548.2 / 558.6 /
-     569.0). То есть «подглядывание» — не отдельное решение, а следствие
-     двух чисел: доли кадра героя (две трети, решение пользователя) и
-     выбранного масштаба карточки. Инвариант формулировался не для этого
-     состояния, и требовать от покоя чего-либо, кроме целого постера,
-     нельзя. */
-  assert.ok(box('small', true).textBottomDown <= H,
-    'мелкий масштаб, покой: ряд перестал помещаться целиком (' + box('small', true).textBottomDown.toFixed(1) + ' px)');
-  for (const scale of ['normal', 'large', 'huge']) {
-    assert.ok(box(scale, true).textBottomDown > H,
-      scale + ', покой: подпись вдруг помещается в экран (' + box(scale, true).textBottomDown.toFixed(1) +
-      ' px) — либо ряды поднялись, либо кадр героя потерял свою долю');
+  /* Волна «подложка», п.C1: в ПОКОЕ первый ряд при штатном масштабе
+     помещается в экран ЦЕЛИКОМ — при каждом размере кадра и интерфейса.
+     До волны подпись уходила за кромку (548.2 px на «обычном» с крупным
+     кадром; живьём 544.1): строка «год · ★» и сдвиг подписи под фокусом
+     стоили 18.4 px. Теперь 529.8 на «обычном» и 538.3 на «крупнее». На
+     крупных масштабах карточки ряд по-прежнему «подглядывает» — это выбор
+     пользователя в настройке, а постер и там обязан быть целым (проверка
+     выше). */
+  for (const iface of ['small', 'normal', 'bigger']) {
+    for (const size of ['large', 'medium', 'compact']) {
+      const got = box('normal', true, size, iface).textBottomDown;
+      assert.ok(got <= H, iface + '/' + size + ', штатный масштаб, покой: первый ряд не целиком — низ подписи ' + got.toFixed(1) + ' px');
+    }
   }
+  assert.ok(box('normal', true).textBottomDown <= TEXT_LIMIT,
+    'клетка телевизора, покой: низ названия ' + box('normal', true).textBottomDown.toFixed(1) + ' — за пределом 532');
 });
 
 /* Уточнение 2026-09-23: модель раскладки и живой замер на стенде — про одно
@@ -3335,29 +3363,29 @@ test('Task 51: подпись первого ряда в СЖАТОМ состо
 test('уточнение 2026-09-23: модель раскладки сходится с живым замером на стенде', () => {
   const W = 960;
   const H = 540;
+  const LIVE_UP = 499.7;
+  const LIVE_DOWN = 529.7;
   const built = withStorage({ lumen_scale: 'normal', lumen_hero_size: 'large', interface_size: 'normal' },
     (LC) => LC.buildCss());
   const got = rowLayout(built, W, H, { more: true, interface: 'normal' });
-  /* Живые замеры на стенде 2026-09-23 (после getAnimations().finish(),
-     режим движения «лёгкий» — как у пользователя). Допуск 1 px: живьём
-     координаты дробные, модель считает по округлённым до сотых em. */
-  assert.ok(Math.abs(got.flowBottomUp - 514.2) < 1,
-    'сжатое состояние, режим «лёгкий»: модель ' + got.flowBottomUp.toFixed(1) + ' против живых 514.2');
-  /* Покой минус сжатое — одна и та же величина в обоих режимах движения
-     (сдвиг фокуса входит в оба конца и сокращается). Живьём 544.1 − 514.2 =
-     29.8, модель 548.2 − 518.5 = 29.7. */
-  assert.ok(Math.abs(got.textBottomDown - got.textBottomUp - 29.8) < 1,
+  /* Живые замеры на стенде 2026-09-24, волна «подложка» (после
+     getAnimations().finish(), режим движения «лёгкий» — как у
+     пользователя; мера — низ .card__title, строки «год · ★» при живом
+     кадре нет). Допуск 1 px: живьём координаты дробные, модель считает по
+     округлённым до сотых em. До волны было 514.2 в сжатом и 544.1 в покое
+     (низ строки «год · ★»). */
+  assert.ok(Math.abs(got.flowBottomUp - LIVE_UP) < 1,
+    'сжатое состояние, режим «лёгкий»: модель ' + got.flowBottomUp.toFixed(1) + ' против живых ' + LIVE_UP);
+  /* Покой минус сжатое — сдвиг покоя области рядов (ROWS_SHIFT_VH), 29.7. */
+  assert.ok(Math.abs(got.textBottomDown - got.textBottomUp - (LIVE_DOWN - LIVE_UP)) < 1,
     'разница между покоем и сжатым состоянием: ' + (got.textBottomDown - got.textBottomUp).toFixed(1) +
-    ' вместо живых 29.8');
-  /* И сам покой: живьём низ подписи 544.1 при кромке 540, постер 510.8 —
-     подпись за кромкой, постер целиком на экране. */
-  assert.ok(Math.abs(got.textBottomDown - got.textBottomUp - (548.2 - 518.5)) < 0.5,
-    'покой и сжатое разъехались с расчётом');
-  /* И сдвиг подписи под фокусом — ровно та величина, на которую модель
-     худшего случая отличается от замера в «лёгком» режиме. */
-  const shift = got.textBottomUp - got.flowBottomUp;
-  assert.ok(Math.abs(shift - 4.03) < 0.2,
-    'сдвиг подписи под фокусом ' + shift.toFixed(2) + ' px — модель полных анимаций разошлась с CARD_FOCUS_SHIFT');
+    ' вместо живых ' + (LIVE_DOWN - LIVE_UP).toFixed(1));
+  /* И сам покой: первый ряд целиком на экране. */
+  assert.ok(Math.abs(got.textBottomDown - LIVE_DOWN) < 1 && got.textBottomDown <= H,
+    'покой: модель ' + got.textBottomDown.toFixed(1) + ' против живых ' + LIVE_DOWN);
+  /* Сдвига подписи под фокусом при живом кадре нет — модель полных
+     анимаций совпадает с «лёгким» режимом. */
+  assert.equal(got.textBottomUp, got.flowBottomUp, 'при живом кадре подпись под фокусом уезжает вниз');
 });
 
 /* Потолок масштаба карточки ряда (rowScaleCap в src/30_css.js). «Размер
@@ -3482,27 +3510,38 @@ test('правило кромки: расчётный зазор — ровно 
     assert.ok(Math.abs(at.rowGap - 2.5 * lampaEm(1840, 'normal')) < 1,
       'на границе ' + hi + ' зазор ' + at.rowGap.toFixed(1) + ' px вместо штатных 2.5em: ' + l);
   }
-  /* И сама граница: у окна пользователя (1840×960, 1.917:1) расчётный зазор
-     включён — именно там выглядывал заголовок следующего ряда. */
+  /* И сама граница: у окна пользователя (1840×960, 1.917:1) выглядывал
+     заголовок следующего ряда. Волна «подложка»: без строки «год · ★»
+     порог узкой колонки ушёл дальше 1.917, и там теперь широкая карточка —
+     ряд длиннее места, зазор штатный, и следующий ряд начинается за
+     кромкой (975.6 px), а подпись фокусного на экране. */
   const user = rowLayout(built, 1840, 960, { interface: 'normal' });
-  assert.ok(Math.abs(user.rowBottomUp - 960) < 1,
-    '1840×960: фокусный ряд кончается на ' + user.rowBottomUp.toFixed(1) + ' вместо кромки 960');
+  assert.ok(user.rowBottomUp >= 960 - 0.5,
+    '1840×960: следующий ряд начинается на ' + user.rowBottomUp.toFixed(1) + ' — выглядывает над кромкой 960');
+  assert.ok(user.textBottomUp <= 960 - 0.7 * lampaEm(1840, 'normal') + 0.5,
+    '1840×960: подпись фокусного ряда ' + user.textBottomUp.toFixed(1) + ' за кромкой');
 });
 
 /* Телевизор: что поменялось на нём. Клетка пользователя (крупный кадр,
-   штатный масштаб, «обычный» размер) лежит ЗА границей расчётного зазора —
-   ряд там длиннее места под ним, — и зазор равен штатному ROW_GAP: 28.5 px
-   (2.5em при кегле 11.4055) вместо прежних расчётных 26. Следующий ряд
-   начинается на 543.0 вместо 540.0, то есть уже за кромкой, а не на ней;
-   низ подписи фокусного ряда (инвариант Task 51) от зазора не зависит. */
+   штатный масштаб, «обычный» размер) до волны «подложка» лежала ЗА
+   границей расчётного зазора — ряд длиннее места под ним, зазор штатный
+   (28.5 px), следующий ряд с 543.0. Без строки «год · ★» под постером
+   (п.C1) ряд короче места, и зазор снова расчётный: следующий ряд
+   начинается ровно на кромке. Низ подписи фокусного ряда (инвариант
+   Task 51) от зазора не зависит. */
 test('правило кромки: клетка телевизора пользователя — следующий ряд за кромкой, подпись на месте', () => {
   const built = withStorage({ lumen_scale: 'normal', lumen_hero_size: 'large', interface_size: 'normal' },
     (LC) => LC.buildCss());
   const got = rowLayout(built, 960, 540, { interface: 'normal' });
-  assert.ok(Math.abs(got.rowGap - 2.5 * lampaEm(960, 'normal')) < 0.1,
-    'зазор ' + got.rowGap.toFixed(1) + ' вместо штатных 2.5em');
-  assert.ok(Math.abs(got.rowBottomUp - 543.0) < 1, 'следующий ряд начинается на ' + got.rowBottomUp.toFixed(1));
-  assert.ok(Math.abs(got.flowBottomUp - 514.5) < 1, 'низ подписи в потоке ' + got.flowBottomUp.toFixed(1));
+  /* Волна «подложка», п.C1: строки «год · ★» под постером при живом кадре
+     нет, ряд стал короче места под ним — и клетка телевизора вошла в
+     интервал расчётного зазора: 40.0 px вместо штатных 28.5, следующий ряд
+     начинается ровно на кромке (540.0), а не за ней (543.0). Низ названия
+     фокусного ряда — 500.1 (было 514.5 у строки «год · ★»). */
+  assert.ok(got.rowGap > 2.5 * lampaEm(960, 'normal'),
+    'зазор ' + got.rowGap.toFixed(1) + ' — штатный, а ряд короче места под ним');
+  assert.ok(Math.abs(got.rowBottomUp - 540) < 0.5, 'следующий ряд начинается на ' + got.rowBottomUp.toFixed(1));
+  assert.ok(Math.abs(got.flowBottomUp - 500.1) < 1, 'низ подписи в потоке ' + got.flowBottomUp.toFixed(1));
 });
 
 test('Фикс-раунд волны A: потолок масштаба карточки ряда режет только вниз и только по нужде', () => {
@@ -3522,9 +3561,12 @@ test('Фикс-раунд волны A: потолок масштаба карт
     rowLayout(built(scale, size, iface), W, H, { more: true, interface: iface }).textBottomUp;
 
   /* Цена одной сотой масштаба В ПИКСЕЛЯХ — замером по двум настоящим
-     сборкам, а не формулой: «крупнее» со средним кадром, узкая колонка на
-     обоих концах (8.88em и 9.68em), разница масштаба ровно .1. */
-  const step = (bottom('huge', 'medium', 'bigger') - bottom('large', 'medium', 'bigger')) / 10;
+     сборкам, а не формулой: «крупнее» с крупным кадром, узкая колонка на
+     обоих концах (8.07em и 8.88em), разница масштаба ровно .1.
+     Волна «подложка»: прежняя пара («крупнее», средний кадр, «крупный» и
+     «огромный») разошлась по колонкам — без строки «год · ★» порог узкой
+     колонки сдвинулся, и «крупный» там теперь широкий. */
+  const step = (bottom('large', 'large', 'bigger') - bottom('normal', 'large', 'bigger')) / 10;
   assert.ok(step > 1 && step < 3, 'цена сотой масштаба ' + step.toFixed(2) + ' px — замер перестал быть похож на правду');
 
   for (const iface of ['small', 'normal', 'bigger']) {
@@ -3573,20 +3615,18 @@ test('Фикс-раунд волны A: потолок масштаба карт
       }
     }
   }
-  assert.equal(capped, 2, 'ограничено клеток: ' + capped + ' — после правки п.1.5 их ровно две (крупный кадр на «крупнее», масштаб «крупный» и «огромный»)');
-
-  /* Цена ограничения названа числом, а не «где-то около»: на обеих клетках
-     потолок один и тот же — 1.00, то есть «крупный» и «огромный» дают там
-     ту же карточку, что «штатный». Это и есть то, что пользователю сказано
-     в описании настройки (src/80_settings.js).
-     До правки 2026-09-23 (п.1.5) потолок был .96 и захватывал заодно
-     «штатный»: 6.5 CSS px высоты держала кнопка «Ещё» в шапке ряда. */
-  for (const scale of ['normal', 'large', 'huge']) {
-    assert.ok(Math.abs(rowScale(scale, 'large', 'bigger') - 1) < 0.001,
-      'bigger/large/' + scale + ': потолок ' + rowScale(scale, 'large', 'bigger').toFixed(3) + ' вместо 1.00');
+  /* Волна «подложка», п.C1: ограниченная клетка осталась ОДНА — «крупнее»,
+     крупный кадр, масштаб «огромный». Строки «год · ★» под постером при
+     живом кадре нет, ряд короче на её высоту, и потолок, который считает
+     ту подпись, что на экране, поднялся с 1.00 до 1.11: «крупный» (1.10)
+     уложился в бюджет сам. 35 клеток из 36 отдают ровно выбранный масштаб.
+     До волны их было две (потолок 1.00 у «крупного» и «огромного»), до
+     правки 2026-09-23 (п.1.5) — три (потолок .96). */
+  assert.equal(capped, 1, 'ограничено клеток: ' + capped + ' — после волны «подложка» она одна (крупный кадр на «крупнее», масштаб «огромный»)');
+  for (const [scale, want] of [['small', 0.9], ['normal', 1], ['large', 1.1], ['huge', 1.11]]) {
+    assert.ok(Math.abs(rowScale(scale, 'large', 'bigger') - want) < 0.001,
+      'bigger/large/' + scale + ': масштаб ' + rowScale(scale, 'large', 'bigger').toFixed(3) + ' вместо ' + want);
   }
-  assert.ok(Math.abs(rowScale('small', 'large', 'bigger') - 0.9) < 0.001,
-    'bigger/large/small: мелкий масштаб ниже потолка и обязан остаться нетронутым');
 });
 
 /* Фикс-раунд финального ревью (важное 1): оговорка про потолок в описании
@@ -3804,58 +3844,124 @@ test('волна 3: слой кадра неподвижен и стоит 0…5
     'кадры героя всё ещё лежат в сжимающемся блоке');
 });
 
-/* Левое затемнение — подушка под текстом — уходит в ноль ровно у ПРАВОЙ
-   кромки экрана: ни полки полной плотности с обрывом (прежняя вуаль: .94 до
-   64 % ширины и ноль к 78 %), ни ступени. Наклон кривой ограничен: .025 на
-   1 % ширины — у прежней вуали было .067, это и была видимая граница. */
-test('волна 3: левое затемнение уходит в ноль у правой кромки экрана — полки с обрывом нет', () => {
+/* Волна «подложка» (жалоба пользователя 2026-09-24 со скрином — «вот до
+   сих пор есть этот чёрный прямоугольник, почему???»). Левое затемнение —
+   мягкое пятно: радиальный градиент с центром у левой кромки экрана и БЕЗ
+   маски по высоте — горизонтальная кромка прежней маски (8 → 28vh) и была
+   верхом «прямоугольника». Профиль — плато .85 и спад smootherstep до нуля
+   на самом эллипсе.
+   Кромок нет — это проверяется на пикселях, а не по стопам: крутизна
+   плотности не больше .0065 на 1 px в обоих направлениях (у прежней маски
+   было .0088), и излом — скачок крутизны между соседними пикселями, то,
+   что глаз и видит линией, — не больше .002 (у прежней маски .0088 на
+   обоих её концах). */
+test('волна «подложка»: левое затемнение — мягкое пятно без маски и без кромок', () => {
+  const W = 960;
+  const H = 540;
   const rule = decl(css, '.lumen-hero-stage .lumen-hero__scrim.lumen-hero__scrim--l');
   assert.ok(rule, 'левого затемнения в слое кадра нет');
   const layers = gradients(rule, 'background');
   assert.equal(layers.length, 1, 'у левого затемнения один градиент: ' + rule);
-  assert.equal(layers[0].angle, '90deg', 'левое затемнение идёт слева направо: ' + rule);
+  assert.ok(layers[0].radial, 'левое затемнение — не радиальное пятно: ' + rule);
+  assert.equal(layers[0].radial.cx, 0, 'центр пятна — у левой кромки экрана: ' + rule);
   const stops = layers[0].stops;
-  assert.ok(stops.every((s) => s.unit === '%'), 'стопы — в процентах ширины: ' + rule);
+  assert.ok(stops.every((s) => s.unit === '%'), 'стопы — в процентах полуоси: ' + rule);
   assert.equal(stops[0].pos, 0);
-  assert.ok(stops[0].a >= 0.9, 'у левой кромки подушка плотная: ' + stops[0].a);
+  assert.equal(stops[0].a, 0.85, 'плотность пятна: ' + rule);
   const last = stops[stops.length - 1];
-  assert.equal(last.pos, 100, 'затемнение обязано доходить до правой кромки: последний стоп на ' + last.pos + ' %');
-  assert.equal(last.a, 0, 'у правой кромки затемнения нет');
-  assert.equal(stops.slice(0, -1).filter((s) => s.a === 0).length, 0, 'затемнение кончается раньше правой кромки');
-  const slopes = [];
+  assert.equal(last.pos, 100, 'пятно кончается на самом эллипсе: последний стоп на ' + last.pos + ' %');
+  assert.equal(last.a, 0, 'на эллипсе затемнения нет');
+  assert.equal(stops.slice(0, -1).filter((s) => s.a === 0).length, 0, 'пятно кончается раньше эллипса');
+  /* Плато и спад smootherstep: a = .85·(1 − s(t)), t — доля пути от конца
+     плато до эллипса. Три знака прозрачности — отклонение не больше
+     половины тысячной. */
+  const plateau = stops.filter((s) => s.a === stops[0].a);
+  const r0 = plateau[plateau.length - 1].pos;
+  assert.ok(Math.abs(r0 - 45) < 0.01, 'плато пятна кончается на ' + r0 + ' % полуоси вместо 45');
+  const ss = (t) => t * t * t * (t * (t * 6 - 15) + 10);
   for (let i = 1; i < stops.length; i++) {
-    const a = stops[i - 1];
-    const b = stops[i];
-    assert.ok(b.a <= a.a, 'плотность растёт на ' + b.pos + ' %: ' + rule);
-    const slope = (a.a - b.a) / (b.pos - a.pos);
-    assert.ok(slope <= 0.025, 'обрыв между ' + a.pos + ' и ' + b.pos + ' %: ' + slope.toFixed(3) + ' на 1 % ширины');
-    slopes.push(slope);
+    assert.ok(stops[i].a <= stops[i - 1].a, 'плотность растёт на ' + stops[i].pos + ' %: ' + rule);
+    if (stops[i].pos <= r0) continue;
+    const want = 0.85 * (1 - ss((stops[i].pos - r0) / (100 - r0)));
+    assert.ok(Math.abs(stops[i].a - want) <= 0.0005, 'стоп ' + stops[i].pos + ' %: ' + stops[i].a + ' вместо ' + want.toFixed(4));
   }
-  /* Ревью волны 3, п.4 списка: «без видимой полки». Градиент кусочно-
-     линейный, и на глаз видна не плотность, а излом — резкая смена наклона
-     в стопе. Излом не резче, чем у кривой волны 3 в её колене (52 %:
-     .0036 → .0183 на 1 % ширины, разница .0147).
-     Ревью правок волны 3, п.4: в ОБЕ стороны. Сторож считал только рост
-     наклона, а резкое выполаживание — та же видимая граница: кривая,
-     круто падающая и вдруг почти плоская, даёт полку у правой кромки
-     (так, стоп .05 вместо .09 на 91 % — наклон .0233 → .0056 — проходил). */
-  for (let i = 1; i < slopes.length; i++) {
-    assert.ok(Math.abs(slopes[i] - slopes[i - 1]) <= 0.015, 'излом в стопе ' + stops[i].pos + ' %: наклон ' + slopes[i - 1].toFixed(4) + ' → ' + slopes[i].toFixed(4));
+  assert.ok(rule.indexOf('-webkit-radial-gradient(0 ') !== -1, 'старым webkit-движкам нужен префиксный градиент (центр, потом полуоси): ' + rule);
+  /* Маски у пятна нет — ни одной, ни префиксной. */
+  assert.deepEqual(ruleBodies(css).filter((r) => r.selectors.some((sel) => sel.indexOf('lumen-hero__scrim--l') !== -1) && /mask/.test(r.decl))
+    .map((r) => r.selectors.join(',') + '{' + r.decl + '}'), [], 'у левого затемнения осталась маска');
+  for (const size of ['large', 'medium', 'compact']) {
+    const built = withStorage({ lumen_hero_size: size }, (LC) => LC.buildCss());
+    const at = heroPixel(built, W, H);
+    let gy = 0;
+    let ky = 0;
+    let gx = 0;
+    let kx = 0;
+    for (let x = 0.5; x < W; x += 3) {
+      let prev = at.left(x, 0.5);
+      let pd = null;
+      for (let y = 1.5; y < H; y += 1) {
+        const c = at.left(x, y);
+        const d = c - prev;
+        gy = Math.max(gy, Math.abs(d));
+        if (pd !== null) ky = Math.max(ky, Math.abs(d - pd));
+        pd = d;
+        prev = c;
+      }
+    }
+    for (let y = 0.5; y < H; y += 3) {
+      let prev = at.left(0.5, y);
+      let pd = null;
+      for (let x = 1.5; x < W; x += 1) {
+        const c = at.left(x, y);
+        const d = c - prev;
+        gx = Math.max(gx, Math.abs(d));
+        if (pd !== null) kx = Math.max(kx, Math.abs(d - pd));
+        pd = d;
+        prev = c;
+      }
+    }
+    assert.ok(gy <= 0.0065 && gx <= 0.0065, size + ': крутизна пятна ' + gy.toFixed(4) + ' по вертикали, ' + gx.toFixed(4) + ' по горизонтали на 1 px — это уже кромка');
+    assert.ok(ky <= 0.002 && kx <= 0.002, size + ': излом пятна ' + ky.toFixed(4) + ' по вертикали, ' + kx.toFixed(4) + ' по горизонтали — видимая линия');
+    /* Правее полуоси пятна кадр не темнеет вовсе. */
+    const edge = layers[0].radial.rx * W / 100 + 1;
+    assert.ok(edge < 0.9 * W, 'пятно шире 90 % экрана: полуось ' + layers[0].radial.rx + ' %');
+    for (const y of [0, 0.5 * H, H - 1]) assert.equal(at.left(edge, y), 0, size + ': пятно дотянулось до ' + edge.toFixed(0) + ' px на y=' + y);
   }
-  assert.ok(rule.indexOf('-webkit-linear-gradient(left,') !== -1, 'старым webkit-движкам нужен префиксный градиент: ' + rule);
-  /* По высоте затемнение ограничивает маска — фон несёт одно направление,
-     маска другое; mask-composite в WebView телевизора не проверен. */
-  const mask = ruleBodies(css).find((r) => r.selectors.length === 1 && r.selectors[0] === '.lumen-hero-stage .lumen-hero__scrim.lumen-hero__scrim--l' &&
-    r.decl.indexOf('mask-image') !== -1);
-  assert.ok(mask, 'у левого затемнения нет вертикальной маски');
-  const m = gradients(mask.decl, 'mask-image');
-  assert.equal(m.length, 1);
-  assert.equal(m[0].angle, '180deg', 'маска идёт сверху вниз: ' + mask.decl);
-  assert.equal(m[0].stops[m[0].stops.length - 1].a, 1, 'ниже маски затемнение полное: ' + mask.decl);
-  assert.ok(mask.decl.indexOf('-webkit-mask-image:-webkit-linear-gradient(top,') !== -1, 'нужна префиксная маска: ' + mask.decl);
-  assert.equal(/mask-composite/.test(mask.decl), false);
   /* Вуалей героя больше нет нигде — ни правил, ни их наследства. */
   assert.deepEqual(ruleSelectors(css).filter((s) => s.indexOf('lumen-hero__veil') !== -1), [], 'в таблице остались вуали героя');
+});
+
+/* Волна «подложка»: «какой смысл от постера, если его перекрывают; в самом
+   начале всё было хорошо» (пользователь). Сторож площади: в покое кадр над
+   рядами — от верха экрана до верха области рядов (288 px на стенде
+   960×540) — виден не меньше чем на 53 % (средняя по пикселям доля кадра в
+   цвете экрана: белый кадр минус чёрный). Прежняя подушка — плита с маской
+   — оставляла 41.3 % по той же мерке (39.5 % от верха экрана до 309 px,
+   мерка исследователя; новое пятно по ней — 51.1 %).
+   Почему 53, а не 55 из плана волны: 55 даёт пятно исследователя (полуось
+   77 % ширины, плато до .4), но на нём не держатся прежние сторожа
+   читаемости — мета сериала со статусом на «крупнее» с самой светлой
+   подкраской 2.7:1, название текстом 2.0:1 (тест «мета и описание героя
+   читаются на белом кадре»). Перебор формы пятна при крутизне ≤ .0065 на
+   1 px и всех сторожах читаемости даёт потолок 53.7 %; взято 53.2 % с
+   запасом по названию (3.2:1 против 3.05 у потолка).
+   Размер кадра — крупный: он стоит у пользователя и по умолчанию. */
+test('волна «подложка»: кадр над рядами в покое виден не меньше чем на 53 %', () => {
+  const W = 960;
+  const H = 540;
+  const at = heroPixel(css, W, H);
+  const zone = rowLayout(css, W, H, {}).areaTopDown;
+  assert.ok(zone > 250 && zone < 320, 'верх области рядов в покое на ' + zone.toFixed(1) + ' px — модель раскладки разошлась с экраном');
+  let sum = 0;
+  let n = 0;
+  for (let y = 0.5; y < zone; y += 1) {
+    for (let x = 0.5; x < W; x += 2) {
+      sum += (at(x, y, false, [255, 255, 255])[1] - at(x, y, false, [0, 0, 0])[1]) / 255;
+      n++;
+    }
+  }
+  const seen = sum / n;
+  assert.ok(seen >= 0.53, 'кадр над рядами виден на ' + (seen * 100).toFixed(1) + ' % — подушка снова съедает постер');
 });
 
 /* Низ кадра в покое растворяется ровно так же, как до волны 3: стопы
@@ -3912,6 +4018,16 @@ test('волна 3: пол сжатого состояния накрывает 
     assert.ok(stops.every((s) => s.unit === 'vh'), size + ': затухание пола — в долях экрана: ' + rule.decl);
     assert.equal(stops[0].a, 0, size + ': пол начинается прозрачностью');
     assert.equal(stops[stops.length - 1].a, 1, size + ': пол кончается сплошным фоном');
+    /* Волна «подложка»: затухание пола — smootherstep на 22vh (было
+       14.5vh формы низа покоя, и три крутых отрезка над рядами читались
+       полосой), одиннадцать стопов через равные доли. */
+    assert.equal(stops.length, 11, size + ': стопов пола: ' + rule.decl);
+    assert.equal(stops[stops.length - 1].pos, 22, size + ': длина затухания пола: ' + rule.decl);
+    stops.forEach((st, i) => {
+      const t = i / 10;
+      const want = t * t * t * (t * (t * 6 - 15) + 10);
+      assert.ok(Math.abs(st.pos - t * 22) < 0.01 && Math.abs(st.a - want) <= 0.005, size + ': стоп пола ' + i + ' — ' + JSON.stringify(st) + ' вместо ' + want.toFixed(3));
+    });
     for (let i = 1; i < stops.length; i++) {
       assert.ok(stops[i].a >= stops[i - 1].a, size + ': ступень в затухании пола: ' + rule.decl);
       assert.ok((stops[i].a - stops[i - 1].a) / (stops[i].pos - stops[i - 1].pos) <= 0.12, size + ': обрыв в затухании пола: ' + rule.decl);
@@ -3923,6 +4039,12 @@ test('волна 3: пол сжатого состояния накрывает 
     const rows = decl(built, '.lumen-main .scroll.layer--wheight');
     const mt = /margin-top:calc\(([\d.]+)vh - ([\d.]+)em\)/.exec(rows);
     const solidVh = stops[stops.length - 1].pos;
+    /* Сплошная граница пола при удлинённом затухании не сдвинулась: у
+       крупного кадра на стенде 960×540 — 252.9 px (ROWS_TOP_VH − 1.5em). */
+    if (size === 'large') {
+      const solidAt = parseFloat(top[1]) * 5.4 - parseFloat(top[2]) * 960 / 84.17 + solidVh * 5.4;
+      assert.ok(Math.abs(solidAt - 252.9) < 0.1, 'сплошной пол начинается на ' + solidAt.toFixed(1) + ' вместо 252.9');
+    }
     for (const [w, h] of [[1024, 768], [1920, 1200], [1920, 1080], [960, 540], [2560, 1080], [2900, 1000]]) {
       for (const k of [0.9, 1, 1.05]) {
         const em = Math.max(w / 84.17 * k, 10.6);
@@ -4427,8 +4549,8 @@ test('Task 70: фокус ушёл в ряды — кадр остаётся в�
 });
 
 /* Волна 3: модель затемнения кадра героя на экране W×H (CSS px): верх и
-   низ покоя (.lumen-hero__scrim), левое (scrim--l, умноженное на свою
-   маску) и пол (только в сжатом состоянии). Слой кадра стоит от верха
+   низ покоя (.lumen-hero__scrim), левое (scrim--l; с волны «подложка» —
+   радиальное пятно без маски) и пол (только в сжатом состоянии). Слой кадра стоит от верха
    экрана (0…H), поэтому y — прямо координата экрана. em — кегль Lampa в
    CSS px (lampaEm; по умолчанию — «обычный» размер интерфейса без пола).
    Ревью раунда хвостов, п.7: до него все слои были одного цвета (фон
@@ -4469,17 +4591,22 @@ function stageScrimOrder() {
 /* Цвет пикселя экрана поверх кадра frame ([r, g, b]) — слои затемнения со
    своими цветами в порядке разметки. Внутри .lumen-hero__scrim два фона, и
    первый в списке (верх, 180deg) рисуется поверх второго (низ, 0deg).
-   Смешение — src-over в sRGB, как у браузера: c = pm + c·(1 − a); маска
-   левого затемнения умножает и pm, и a. Возвращает [r, g, b] без
-   округления. */
+   Смешение — src-over в sRGB, как у браузера: c = pm + c·(1 − a).
+   Левое затемнение — эллипс: точка на нормированном расстоянии r от центра
+   берёт стоп r·100 % (так браузер тянет стопы по полуоси эллипса).
+   Возвращает [r, g, b] без округления; pixelAt.left(x, y) — плотность
+   одного левого слоя. */
 function heroPixel(built, W, H, em) {
   const EM = em || W / 84.17;
   const only = (sel, has) => (ruleBodies(built).find((r) => r.selectors.length === 1 && r.selectors[0] === sel && r.decl.indexOf(has) !== -1) || {}).decl;
   const scrim = gradients(only('.lumen-hero-stage .lumen-hero__scrim', 'background'), 'background');
   const top = scrim.find((l) => l.angle === '180deg').stops.map((s) => Object.assign({}, s, { pos: s.unit === 'em' ? s.pos * EM : s.pos }));
   const bottom = scrim.find((l) => l.angle === '0deg').stops;
-  const left = gradients(only('.lumen-hero-stage .lumen-hero__scrim.lumen-hero__scrim--l', 'background'), 'background')[0].stops;
-  const mask = gradients(only('.lumen-hero-stage .lumen-hero__scrim.lumen-hero__scrim--l', 'mask-image'), 'mask-image')[0].stops;
+  const leftLayer = gradients(only('.lumen-hero-stage .lumen-hero__scrim.lumen-hero__scrim--l', 'background'), 'background')[0];
+  assert.ok(leftLayer && leftLayer.radial, 'левое затемнение — не радиальное пятно');
+  const left = leftLayer.stops;
+  const E = leftLayer.radial;
+  const leftR = (x, y) => Math.sqrt(Math.pow((x - E.cx * W / 100) / (E.rx * W / 100), 2) + Math.pow((y - E.cy * H / 100) / (E.ry * H / 100), 2)) * 100;
   const floor = gradients(only('.lumen-hero-stage .lumen-hero__floor', 'background'), 'background')[0].stops;
   const box = /(?:^|;)top:calc\(([\d.]+)vh - ([\d.]+)em\)/.exec(only('.lumen-hero-stage .lumen-hero__floor', 'top:calc'));
   const floorTop = parseFloat(box[1]) * H / 100 - parseFloat(box[2]) * EM;
@@ -4491,7 +4618,7 @@ function heroPixel(built, W, H, em) {
       c = c.map((v, i) => g.pm[i] * m + v * (1 - g.a * m));
     };
     for (const layer of order) {
-      if (layer === 'left') over(gradPm(left, x / W * 100), gradAt(mask, y / H * 100));
+      if (layer === 'left') over(gradPm(left, leftR(x, y)));
       else if (layer === 'scrim') {
         over(gradPm(bottom, (H - y) / H * 100));
         over(gradPm(top, y));
@@ -4499,6 +4626,7 @@ function heroPixel(built, W, H, em) {
     }
     return c;
   };
+  pixelAt.left = (x, y) => gradPm(left, leftR(x, y)).a;
   /* Где низ покоя и пол становятся сплошными — нужно проверке фона рядов. */
   pixelAt.restSolid = H - bottom.filter((s) => s.a >= 1).reduce((m, s) => Math.max(m, s.pos), 0) * H / 100;
   pixelAt.floorSolid = floorTop + floor.filter((s) => s.a >= 1).reduce((m, s) => Math.min(m, s.pos), Infinity) * H / 100;
@@ -4633,7 +4761,12 @@ function heroTextLines(built, W, H, opts) {
    точка меты падала до 3.9:1 на «крупнее». Проверка идёт на чистом фоне
    темы и на САМОМ СВЕТЛОМ фоне, какой может выдать подкраска
    (lightestTint), — в обеих темах; цвет каждого слоя затемнения берётся из
-   таблицы (heroPixel). */
+   таблицы (heroPixel).
+   Волна «подложка»: подушка под текстом стала мягким пятном, и плотность у
+   правого края меты упала с .84 до ~.7, — читаемость держит цвет: мета и
+   описание набраны P.soft (яркость .66 против .33 у P.muted), им и
+   считается контраст. Тень под буквами в расчёт не входит — это запас
+   сверху. */
 test('волна 3: мета и описание героя читаются на белом кадре — при любом размере кадра и интерфейса, в покое и в сжатом, с подкраской', () => {
   const W = 960;
   const H = 540;
@@ -4672,7 +4805,7 @@ test('волна 3: мета и описание героя читаются н�
                 const y = line.top + (line.bottom - line.top) * fy;
                 for (let fx = 0; fx <= 1; fx += 0.25) {
                   const x = line.left + (line.right - line.left) * fx;
-                  const got = contrast(big ? P.text : P.muted, hex(pixelAt(x, y, compact, WHITE)));
+                  const got = contrast(big ? P.text : P.soft, hex(pixelAt(x, y, compact, WHITE)));
                   if (!big) worstMeta = Math.min(worstMeta, got);
                   assert.ok(got >= (big ? 3 : 4.5), label + ': ' + line.what + ' в точке (' + x.toFixed(0) + ', ' + y.toFixed(0) + ') на белом кадре ' + got.toFixed(2) + ':1');
                 }
@@ -4684,18 +4817,30 @@ test('волна 3: мета и описание героя читаются н�
       worst[name][iface] = worstMeta;
     }
   }
-  /* Запас меты не выдуман: у левого затемнения на правом краю блока .84, и
-     худшая точка — там же. Порог держится, но не с двойным запасом; с
-     самой светлой подкраской — впритык. */
+  /* Запас меты не выдуман: худшая точка — правый край меты, где пятно
+     подушки уже спадает. Волна «подложка»: мета — P.soft, и на «мельче»
+     без подкраски худшая точка 8.0:1, на «крупнее» с самой светлой
+     подкраской — 4.8:1. */
   const plain = worst['warm, без подкраски'];
   const tinted = worst['warm, подкраска ' + warmTint];
-  assert.ok(plain.small < 6, 'худшая точка меты подозрительно хороша — модель не видит правого края: ' + JSON.stringify(worst));
+  assert.ok(plain.small < 9, 'худшая точка меты подозрительно хороша — модель не видит правого края: ' + JSON.stringify(worst));
   assert.ok(tinted.bigger < 5, 'с самой светлой подкраской запас меты подозрительно велик: ' + JSON.stringify(worst));
   /* На чёрном кадре то же затемнение мету не гасит. */
   const P = tokensWith({});
   const pixelAt = heroPixel(css, W, H);
   const meta = heroTextLines(css, W, H, { status: false, compact: false }).find((l) => l.what === 'мета');
-  assert.ok(contrast(P.muted, hex(pixelAt(meta.right, meta.top, false, [0, 0, 0]))) >= 4.5, 'мета на чёрном кадре');
+  assert.ok(contrast(P.soft, hex(pixelAt(meta.right, meta.top, false, [0, 0, 0]))) >= 4.5, 'мета на чёрном кадре');
+  /* Мета и описание набраны P.soft с тенью под буквами — в обеих темах. */
+  for (const theme of ['warm', 'black']) {
+    const built = withStorage({ lumen_theme: theme }, (LC) => LC.buildCss());
+    const soft = tokensWith({ lumen_theme: theme }).soft;
+    assert.ok(/^#[0-9A-F]{6}$/.test(soft) && luminance(soft) > 0.6, theme + ': P.soft ' + soft + ' — не светлый тон');
+    for (const sel of ['.lumen-hero .lumen-hero__meta', '.lumen-hero .lumen-hero__descr']) {
+      const d = decl(built, sel);
+      assert.ok(d.indexOf('color:' + soft + ';') !== -1, theme + ': ' + sel + ' не P.soft: ' + d);
+      assert.ok(d.indexOf('text-shadow:0 0 .5em rgba(0,0,0,.55),0 .06em .12em rgba(0,0,0,.7)') !== -1, theme + ': ' + sel + ' без тени под буквами: ' + d);
+    }
+  }
   /* Заголовок первого ряда в покое лежит на кадре (58.66…62.5 % высоты
      экрана, левая треть) — он под левым затемнением и низом покоя. */
   for (const tint of [null, warmTint]) {
@@ -4911,12 +5056,12 @@ test('Task 18: логотип фильма с текстовым фолбэко�
   const descr = findDecl(css, (sel) => sel === '.lumen-hero .lumen-hero__descr');
   assert.ok(descr && descr.indexOf('-webkit-line-clamp:2') !== -1, 'описание — две строки (§0.2)');
   /* Волна 3 (ТВ 2026-09-24): меньше текста в кадре — описание 30em своего
-     кегля (1.15em блока), то есть 34.5em блока и 432.8 CSS px на 960, правый
-     край на 49.3 % ширины (было 36.02em — шире нового блока в 36em). Плашка
-     скелетона первой строки — той же ширины. */
-  assert.ok(descr.indexOf('max-width:30em') !== -1, 'ширина описания героя: ' + descr);
+     кегля. Волна «подложка»: 24em (1.15em блока), то есть 27.6em блока и
+     386 CSS px на 960 — правый край на 40.2 % ширины, там, где пятно
+     подушки ещё плотное. Плашка скелетона первой строки — той же ширины. */
+  assert.ok(descr.indexOf('max-width:24em') !== -1, 'ширина описания героя: ' + descr);
   const skDescr = findDecl(css, (sel) => sel === '.lumen-hero.lumen-hero--pending.lumen-hero--nodescr .lumen-hero__sk--descr');
-  assert.ok(skDescr.indexOf('width:34.5em') !== -1, 'скелетон описания шире самого описания: ' + skDescr);
+  assert.ok(skDescr.indexOf('width:27.6em') !== -1, 'скелетон описания шире самого описания: ' + skDescr);
 
   assert.ok(findDecl(css, (sel) => sel === '.lumen-hero.lumen-hero--pending .lumen-hero__sk--meta'), 'скелетон меты, пока грузятся детали');
   assert.ok(findDecl(css, (sel) => sel === '.lumen-hero.lumen-hero--pending.lumen-hero--nodescr .lumen-hero__sk--descr'), 'скелетон описания — только когда описания нет вовсе');
@@ -5797,7 +5942,9 @@ test('Task 43: рейтинг героя — в строке меты, отде�
      стенде 960×540@2), и мета читалась как заголовок секции. */
   assert.ok(meta.indexOf('font-size:.96em') !== -1, 'мета — .96em своего контекста = 1.056em базовых = 24 физических px: ' + meta);
   assert.ok(meta.indexOf('margin-top:.3em') !== -1, 'зазор «название → мета» — .3 кегля самой меты: ' + meta);
-  assert.ok(meta.indexOf('#A89A8A') !== -1, 'мета — muted: ' + meta);
+  /* Волна «подложка»: мета — P.soft (#DCD3C8), светлее muted: пятно подушки
+     у её правого края мягче прежней плиты. */
+  assert.ok(meta.indexOf('color:#DCD3C8;') !== -1, 'мета — P.soft: ' + meta);
 });
 
 /* Правка 2026-09-23 (разбор композиции, п.1.1): порядок узлов внутри
@@ -6134,7 +6281,9 @@ test('Task 44/64: левая вуаль результата — плашка н
   assert.ok(roulL.indexOf(',.85) 0%') !== -1 && roulL.indexOf(',.45) 30%') !== -1 && roulL.indexOf(',0) 65%') !== -1,
     'левая вуаль рулетки съехала со своих стопов: ' + roulL);
   assert.notEqual(roulL, heroL, 'вуали снова совпали — значит геройскую вернули к рулеточной плотности, и мета на белом кадре опять не читается');
-  assert.ok(heroL.indexOf(',.95) 0%') !== -1, 'у героя плотность левого затемнения упала ниже расчётной по WCAG: ' + heroL);
+  /* Волна «подложка»: у героя — мягкое пятно (.85 и спад smootherstep),
+     радиальное; с плашкой рулетки оно не совпадает и формой. */
+  assert.ok(heroL.indexOf(';background:radial-gradient(') !== -1 && heroL.indexOf(',.85) 0%') !== -1, 'у героя левое затемнение — не пятно .85: ' + heroL);
   for (const need of [',.92) 10%', ',.6) 24%', ',.25) 42%', ',0) 62%']) {
     assert.ok(roulB.indexOf(need) !== -1, 'нет стопа ' + need + ': ' + roulB);
   }
@@ -6384,8 +6533,43 @@ test('правка 2026-09-23: кнопка «Ещё» убрана из шап�
   const withMore = rowLayout(css, W, H, { more: true });
   const plain = rowLayout(css, W, H, { more: false });
   assert.equal(withMore.textBottomUp, plain.textBottomUp, 'ряды с кнопкой и без снова разной высоты');
-  assert.ok(Math.abs(withMore.textBottomUp - 518.5) < 1,
-    'низ подписи в сжатом состоянии ' + withMore.textBottomUp.toFixed(1) + ' вместо расчётных 518.5');
+  /* Волна «подложка», п.C1: 518.5 → 500.1 — при живом кадре под постером
+     одно название, и сдвига подписи под фокусом нет. */
+  assert.ok(Math.abs(withMore.textBottomUp - 500.1) < 1,
+    'низ подписи в сжатом состоянии ' + withMore.textBottomUp.toFixed(1) + ' вместо расчётных 500.1');
+});
+
+/* Волна «подложка», п.C1: при живом кадре героя под постерами главной одно
+   название — строки «год · ★» нет (год и оценку фокусной карточки пишет
+   мета героя над рядами), и подпись под фокусом не уезжает вниз. Скрыта
+   строка правилом раскладки, а не только display:none: высоту ряда без неё
+   считают правило кромки, полоса подгонки ширины, порог узкой колонки и
+   потолок масштаба (их сторожат тесты выше через модель раскладки). За
+   порогом «кадра нет» меты героя на экране нет — строка и сдвиг на месте.
+   Компактный кадр мету не показывает вовсе, и строку не прячет. */
+test('волна «подложка», п.C1: при живом кадре под постером одно название — строки «год · ★» и сдвига подписи нет', () => {
+  const H = 540;
+  const shiftOn = (built, w) => ruleBodiesWithMedia(built).some((r) =>
+    r.selectors.indexOf('body.lumen-motion-full .lumen-main .card.focus .card__title') !== -1 &&
+    /[^-]transform:translateY\([0-9.]+em\)/.test(r.decl) && mediaApplies(r.media, w, H));
+  const ageDisplay = (built, w) => (cascade(matchingRules(built, ['lumen-main'], ['card__age'], w, H), 'display') || { value: 'block' }).value;
+  for (const size of ['large', 'medium', 'compact']) {
+    const built = withStorage({ lumen_hero_size: size }, (LC) => LC.buildCss());
+    const off = parseInt(/min-aspect-ratio:(\d+)\/100/.exec(heroOffMedia(built))[1], 10);
+    const wideW = Math.ceil(H * off / 100) + 10;
+    const live = size !== 'compact';
+    assert.equal(ageDisplay(built, 960), live ? 'none' : 'block', size + ': строка «год · ★» при живом кадре');
+    assert.equal(shiftOn(built, 960), !live, size + ': сдвиг подписи под фокусом при живом кадре');
+    assert.equal(ageDisplay(built, wideW), 'block', size + ': за порогом «кадра нет» строка «год · ★» обязана вернуться');
+    assert.equal(shiftOn(built, wideW), true, size + ': за порогом «кадра нет» сдвиг подписи обязан вернуться');
+    /* Название остаётся всегда. */
+    assert.equal(/display:none/.test(declAll(built, '.lumen-main .card__title')), false, size + ': название под постером спрятано');
+  }
+  /* Первый ряд в покое при штатном масштабе — целиком на экране (низ
+     названия ≤ 540, у телевизора пользователя — и в пределе 532). */
+  const tv = rowLayout(css, 960, H, { more: true, interface: 'normal' });
+  assert.ok(tv.textBottomDown <= 532, 'покой: низ первого ряда ' + tv.textBottomDown.toFixed(1));
+  assert.ok(tv.rowBottomUp >= H - 0.5, 'сжатое: следующий ряд выглядывает — начинается на ' + tv.rowBottomUp.toFixed(1));
 });
 
 test('Task 63: зазор между рядами — нижняя граница равна отступу Lampa над фокусным рядом', () => {
@@ -6404,9 +6588,12 @@ test('Task 63: зазор между рядами — нижняя границ�
   const lampa = lampaCss();
   assert.equal(gap, lampaDecl(lampa, '.scroll--mask .scroll__content', 'padding'),
     'базовый зазор между рядами разошёлся с отступом Lampa над фокусным рядом');
+  /* Зазор — каскадом по экрану: на телевизоре с волны «подложка» (строки
+     «год · ★» под постером при живом кадре нет, ряд короче места под ним)
+     действует расчётный зазор правила кромки, а не базовый. */
   const box = rowLayout(css, W, H, { more: true });
-  assert.ok(box.flowBottomUp + gap * EM >= H, 'следующий ряд выглядывает снизу: начинается на ' +
-    (box.flowBottomUp + gap * EM).toFixed(1));
+  assert.ok(box.rowGap >= gap * EM - 0.01, 'зазор ' + box.rowGap.toFixed(1) + ' меньше базового');
+  assert.ok(box.rowBottomUp >= H - 0.5, 'следующий ряд выглядывает снизу: начинается на ' + box.rowBottomUp.toFixed(1));
 });
 
 /* Обрезка ряда. Пятый пункт Task 63 просил overflow:visible у контейнера

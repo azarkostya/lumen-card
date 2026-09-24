@@ -11,6 +11,16 @@
     spice: '#D9622B',
     text: '#F3EDE4',
     muted: '#A89A8A',
+    /* Волна «подложка» (жалоба пользователя 2026-09-24 — «чёрный
+       прямоугольник»): мета и описание героя. Подушка под текстом стала
+       мягким пятном (.85 и спад к нулю, разбор — у констант SCRIM_L_*), и
+       прежнему P.muted на белом кадре её не хватает (2.6–3.5:1 на правом
+       краю меты). Цвет светлее — яркость .66 против .33 у muted, — и на той
+       же плотности контраст почти вдвое выше: худшая точка меты 4.8:1
+       («крупнее», самая светлая подкраска, сериал со статусом), на обычном
+       размере без подкраски — 6.6:1 (тест «мета и описание героя читаются
+       на белом кадре»). */
+    soft: '#DCD3C8',
     smoke: '#7A6A5A',
     good: '#8FBF7A',
     dark: '#1A120A',
@@ -91,7 +101,7 @@
   var THEMES = {
     warm: {
       bg: C.bg, panel: C.panel, line: C.line, dark: C.dark,
-      text: C.text, muted: C.muted, smoke: C.smoke,
+      text: C.text, muted: C.muted, soft: C.soft, smoke: C.smoke,
       panelHi: C.panelHi, panelLo: C.panelLo, raised: C.raised,
       gradPoster: 'linear-gradient(180deg,#1C1613,#0E0B09)',
       gradPanel: 'linear-gradient(180deg,#1C1613,#120E0B)',
@@ -102,7 +112,8 @@
     },
     black: {
       bg: '#000000', panel: '#101012', line: '#26262B', dark: '#08080A',
-      text: '#F2F2F3', muted: '#A7A6A8', smoke: '#7B7A7D',
+      /* soft — нейтральный двойник тёплого C.soft той же яркости (.66). */
+      text: '#F2F2F3', muted: '#A7A6A8', soft: '#D5D4D6', smoke: '#7B7A7D',
       panelHi: '#17171A', panelLo: '#0A0A0C', raised: '#1D1D21',
       gradPoster: 'linear-gradient(180deg,#101012,#08080A)',
       gradPanel: 'linear-gradient(180deg,#101012,#08080A)',
@@ -249,10 +260,11 @@
          в покое выглядят как раньше. */
       scrim: '.lumen-hero-stage .lumen-hero__scrim{background:-webkit-linear-gradient(top,' + scrimTop(P) + '),-webkit-linear-gradient(bottom,' + scrimBottom(P, key) + ');' +
         'background:linear-gradient(180deg,' + scrimTop(P) + '),linear-gradient(0deg,' + scrimBottom(P, key) + ')}',
-      /* scrim--l — подушка под текстом: от .95 у левой кромки до нуля ровно у
-         ПРАВОЙ кромки экрана, без полки. Вертикальную границу задаёт её
-         маска (правило в таблице ниже), а не бокс. */
-      scrimL: '.lumen-hero-stage .lumen-hero__scrim.lumen-hero__scrim--l{background:-webkit-linear-gradient(left,' + scrimLeft(P) + ');background:linear-gradient(90deg,' + scrimLeft(P) + ')}',
+      /* scrim--l — подушка под текстом: мягкое пятно у левой кромки (эллипс,
+         разбор — у констант SCRIM_L_*), без маски и без единой кромки.
+         Префиксная пара — старый синтаксис WebKit: центр, потом полуоси. */
+      scrimL: '.lumen-hero-stage .lumen-hero__scrim.lumen-hero__scrim--l{background:-webkit-radial-gradient(0 ' + scrimLeftY(key) + '%,' + SCRIM_L_RX + '% ' + SCRIM_L_RY + '%,' + scrimLeft(P) + ');' +
+        'background:radial-gradient(' + SCRIM_L_RX + '% ' + SCRIM_L_RY + '% at 0 ' + scrimLeftY(key) + '%,' + scrimLeft(P) + ')}',
       /* floor — сплошной фон под поднятыми рядами (сжатое состояние): кадр
          стоит на месте, и растворяться ему теперь приходится выше, чем в
          покое. Видимостью управляет opacity (таблица ниже). */
@@ -777,38 +789,56 @@
         a·BG + (1 − a)·кадр, поэтому ряды в покое выглядят как до волны 3.
         Ниже HERO_VH — сплошной фон: кадра там не было и раньше.
 
-     3. Левое затемнение (scrimLeft, SCRIM_L) — подушка под текстом. По
-        ширине от .95 у левой кромки до нуля у ПРАВОЙ кромки экрана.
-        Прежняя вуаль держала .94 до 64 % ширины и обрывалась к 78 % — на
-        фото 15/16 это вертикальная граница на 614 px из 960 («ущербно
-        выглядит, когда прямоугольник заканчивается»). Теперь кривая
-        монотонна и нигде не круче .023 на 1 % ширины, полки нет. К правому
-        краю текста плотность не ниже .84, и мета с описанием (P.muted) на
-        белом кадре дают там не меньше 4.5:1 (порог — плотность .8235) —
-        расчёт в тесте «волна 3: мета и описание героя читаются на белом
-        кадре».
-        Ревью волны 3, п.4: блок TEXT_MAX_W задан в em кегля Lampa, и его
-        правый край зависит от «Размера интерфейса»: 47.6 % ширины на
-        «мельче» (пол кегля 10.6 px), 51.2 % на обычном, 53.8 % на
-        «крупнее». Стоп .84 стоял на 52 %, и на «крупнее» худшая точка меты
-        давала 4.25:1 (плотность .807). Теперь .84 держится до 56 %, а спад
-        после него уложен в оставшиеся 44 % ширины: не круче .023, колено
-        разнесено на два стопа (50 и 56 %) — излом наклона в стопе не
-        резче, чем был в 52 % (.0147 на 1 % ширины). Правее 52 % кривая
-        плотнее прежней — до .07 на 56–60 %, к правой кромке разница
-        сходит на нет.
-        По высоте — маска (scrimMask): полная плотность от ROWS_TOP_VH −
-        SCRIM_L_UP вниз, над ней SCRIM_L_FADE затухания. Числа крупного
-        кадра — 8 → 28vh, и при каждом размере мета, описание и статус лежат
-        в полосе полной плотности, а название текстом (крупный текст, порог
-        3:1) — не выше, чем там, где маска даёт .53. Верх кадра слева (небо,
-        головы) остаётся открытым.
+     3. Левое затемнение (scrimLeft, SCRIM_L_*) — подушка под текстом.
+        Волна «подложка» (жалоба пользователя 2026-09-24 со скрином — «вот
+        до сих пор есть этот чёрный прямоугольник, почему???»; раньше —
+        «подложку надо сделать меньше — какой смысл от постера, если его
+        перекрывают; в самом начале всё было хорошо»). Прежняя подушка —
+        полоса .95 → .84 до 56 % ширины, по высоте обрезанная маской
+        (8 → 28vh): горизонтальная кромка маски и почти ровная плита под
+        ней на светлом кадре читались прямоугольником, а кадр над рядами в
+        покое был виден на 39.5 %.
+        Теперь это мягкое пятно без маски — эллипс с центром у левой кромки
+        экрана: полуоси SCRIM_L_RX × SCRIM_L_RY долей экрана (806 × 460 px
+        на стенде 960×540), центр на SCRIM_L_BELOW (доля экрана) ниже низа
+        текста — у крупного кадра это 68.52 % высоты, чуть выше кромки
+        кадра. Плотность SCRIM_L_A до доли SCRIM_L_R0 полуоси, дальше спад
+        smootherstep до нуля на самом эллипсе (SCRIM_L_STEPS отрезков по
+        5 %). У smootherstep нулевая производная на обоих концах, поэтому ни
+        у плато, ни у внешнего края излома нет: крутизна не больше .0063 на
+        1 px по вертикали и .0036 по горизонтали (порог .0065), скачок
+        крутизны в стопе — .0017 (у прежней маски на её концах — .0088).
+        Кадр над рядами в покое (до верха области рядов) виден на 53.2 %,
+        было 41.3 (по мерке исследователя — до 309 px — 51.1 против 39.5;
+        версия 09-18…09-22, которую пользователь хвалил, — 58, но с метой
+        1.58:1). Тест «кадр над рядами в покое виден».
+        Числа пятна — модель исследователя (hero2: полуось 77 % ширины,
+        плато до .4), подвинутые перебором под сторожа читаемости: на его
+        пятне мета сериала со статусом на «крупнее» с самой светлой
+        подкраской давала 2.7:1, название текстом — 2.0:1. Полуось 84 % и
+        плато до .45 (второе — запасной ход из самого плана волны) держат
+        всё: мета и описание не ниже 4.8:1, название 3.2:1; потолок перебора
+        при всех сторожах — 53.7 % видимого кадра, взято 53.2 с запасом по
+        названию.
+        Плотность у правого края меты ниже прежней (.7–.8 против .84), и
+        читаемость меты с описанием держит уже не плита, а цвет: P.soft
+        вместо P.muted и тень под буквами (правила меты и описания ниже), —
+        и более узкий блок (TEXT_MAX_W, DESCR_MAX_W ниже). Расчёт — в тесте
+        «мета и описание героя читаются на белом кадре».
+        Центр эллипса привязан к низу текста, а не к экрану: у среднего и
+        компактного кадра текст стоит выше, и пятно поднимается вместе с
+        ним. Слой затемнения ровно в экран, поэтому проценты градиента —
+        доли экрана.
 
      4. Пол сжатого состояния (scrimFloor, узел .lumen-hero__floor). Кадр
         больше не уезжает вверх — ряды наезжают на него снизу, и
-        растворяться ему приходится выше, чем в покое: та же форма
-        затухания SCRIM_FADE на FLOOR_FADE и под ней сплошной фон до низа
-        экрана. Сплошная часть начинается на FLOOR_UP em выше ROWS_TOP_VH:
+        растворяться ему приходится выше, чем в покое: затухание длиной
+        FLOOR_FADE и под ним сплошной фон до низа экрана. Волна
+        «подложка»: затухание — smootherstep на FLOOR_STEPS отрезков
+        длиной 22vh (было 14.5vh формы SCRIM_FADE: .22 → .58 → .9 на 7vh
+        давали видимую полосу над рядами). Граница сплошной части не
+        сдвинулась — 252.9 px на стенде 960×540: верх бокса отмерен от неё
+        назад на ту же FLOOR_FADE. Сплошная часть начинается на FLOOR_UP em выше ROWS_TOP_VH:
         верх поднятой области рядов стоит на 1em выше ROWS_TOP_VH, и её
         верхний градиент-заливка (:after) начинается сплошным цветом — без
         запаса его кромка легла бы на ещё видимый кадр. Запас в em, а не в
@@ -843,29 +873,41 @@
   var SCRIM_TOP_END = 9;
   var SCRIM_FADE = [[0, 1], [0.15, 0.9], [0.4, 0.58], [0.7, 0.22], [1, 0]];
   var SCRIM_FADE_K = 0.4;
-  var SCRIM_L = [[0, 0.95], [30, 0.92], [50, 0.88], [56, 0.84], [62, 0.72], [72, 0.49], [82, 0.26], [91, 0.09], [100, 0]];
-  var SCRIM_L_UP = 22;
-  var SCRIM_L_FADE = 20;
+  var SCRIM_L_A = 0.85;
+  var SCRIM_L_R0 = 0.45;
+  var SCRIM_L_RX = 84;
+  var SCRIM_L_RY = 85.19;
+  var SCRIM_L_BELOW = 14.35;
+  var SCRIM_L_STEPS = 11;
   var FLOOR_UP = 1.5;
-  var FLOOR_FADE = 14.5;
+  var FLOOR_FADE = 22;
+  var FLOOR_STEPS = 10;
   var SHADE_K = 0.5;
   /* Ширина содержимого текстового блока, в его же кегле.
-     Волна 3 (ТВ 2026-09-24): 46 → 36em. Пользователь — «или делать меньше
-     текст»; и левое затемнение (SCRIM_L выше) держит плотность не ниже .84
-     только до 56 % ширины: 36em кегля блока от safe area — это 3.19 + 36 =
-     39.19em, 491.7 CSS px из 960, то есть 51.2 %, а на «Размере
-     интерфейса: крупнее» — 53.8 % (ревью волны 3, п.4). Шире блок не имеет
-     права стать, пока не пересчитано затемнение (тест «мета и описание
-     героя читаются на белом кадре» — при каждом размере интерфейса
-     Lampa). Логотип в блок помещается: его рамка по
-     умолчанию уже 37.84em, и max-width:100% ужимает самые длинные (шире
-     12:1) до ширины блока. */
-  var TEXT_MAX_W = 36;
-  /* Описание — две строки, но короче строки блока: 30em своего кегля
-     (1.15em блока), то есть 34.5em кегля блока и 432.8 CSS px на 960, правый
-     край — на 49.3 % ширины экрана. Было 36.02em (41.4em кегля блока — шире
-     нового блока): меньше текста в кадре — просьба пользователя. */
-  var DESCR_MAX_W = 30;
+     Волна 3 (ТВ 2026-09-24): 46 → 36em — пользователь: «или делать меньше
+     текст». Волна «подложка»: 36 → 28em. Подушка под текстом стала мягким
+     пятном (SCRIM_L_* выше), и к правому краю блока её плотность спадает:
+     28em кегля блока от safe area — это 3.19 + 28 = 31.19em, 391 CSS px
+     из 960 (40.8 % ширины) на обычном «Размере интерфейса» и 411 px на
+     «крупнее»; при 36em правый край меты уходил на 491 px, где пятно уже
+     спадает к .58. Шире блок не имеет права стать без пересчёта
+     затемнения (тест «мета и описание героя читаются на белом кадре» — при
+     каждом размере интерфейса Lampa). Логотип в блок помещается: его рамка
+     по умолчанию шире (37.84em), и max-width:100% ужимает её до ширины
+     блока. */
+  /* Волна «подложка»: тень под буквами меты и описания — мягкий ореол
+     (.5em) и плотная подпись у самых глифов. На тёмном кадре её не видно,
+     на светлом она отделяет строку там, где пятно подушки уже спадает. Тень
+     статична (правила без перехода), то есть рисуется один раз на смену
+     карточки, а не каждый кадр. */
+  var HERO_TEXT_SHADOW = '0 0 .5em rgba(0,0,0,.55),0 .06em .12em rgba(0,0,0,.7)';
+  var TEXT_MAX_W = 28;
+  /* Описание — две строки, но короче строки блока: 24em своего кегля
+     (1.15em блока), то есть 27.6em кегля блока и 386 CSS px на 960 —
+     правый край на 40.2 % ширины экрана. Было 30em (волна 3), до неё
+     36.02em: меньше текста в кадре — просьба пользователя, и там, где
+     кончается описание, пятно подушки ещё плотное. */
+  var DESCR_MAX_W = 24;
   /* Сжатый текст мельче на 5 % — и это тоже transform, а не кегль: font-size
      пересчитывает раскладку блока каждый кадр перехода. */
   var TEXT_SCALE_COMPACT = 0.95;
@@ -980,13 +1022,22 @@
     return fadeStops(P, round2(100 - HERO_VH[key]), HERO_VH[key] * SCRIM_FADE_K);
   }
 
-  /* Пол — сверху вниз от верха своего бокса: прозрачность, затухание той же
-     формы SCRIM_FADE на FLOOR_FADE (vh) и сплошной фон дальше до низа. Верх
-     бокса — floorTop. */
+  /* Волна «подложка»: спад без изломов на концах — у smootherstep
+     (6t⁵ − 15t⁴ + 10t³) нулевые первая и вторая производные в 0 и 1. Им
+     спадают и пятно подушки под текстом, и пол сжатого состояния. */
+  function smootherstep(t) {
+    t = t < 0 ? 0 : (t > 1 ? 1 : t);
+    return t * t * t * (t * (t * 6 - 15) + 10);
+  }
+
+  /* Пол — сверху вниз от верха своего бокса: прозрачность, затухание
+     smootherstep на FLOOR_FADE (vh, FLOOR_STEPS отрезков) и сплошной фон
+     дальше до низа. Верх бокса — floorTop. */
   function scrimFloor(P) {
     var out = [];
-    for (var i = SCRIM_FADE.length - 1; i >= 0; i--) {
-      out.push(edgeAt(P, SCRIM_FADE[i][1]) + ' ' + round2((1 - SCRIM_FADE[i][0]) * FLOOR_FADE) + 'vh');
+    for (var i = 0; i <= FLOOR_STEPS; i++) {
+      var t = i / FLOOR_STEPS;
+      out.push(edgeAt(P, smootherstep(t)) + ' ' + round2(t * FLOOR_FADE) + 'vh');
     }
     return out.join(',');
   }
@@ -995,20 +1046,24 @@
     return round2(ROWS_TOP_VH[key] - FLOOR_FADE) + 'vh - ' + FLOOR_UP + 'em';
   }
 
+  /* Стопы пятна подушки (разбор — у констант SCRIM_L_*): плато SCRIM_L_A
+     до SCRIM_L_R0 полуоси, дальше SCRIM_L_A·(1 − smootherstep) до нуля на
+     эллипсе. Прозрачность — три знака: у хвоста спада шаг меньше сотой
+     (.03 → .004 → 0), и округление до сотых сделало бы из него ступень. */
   function scrimLeft(P) {
-    var out = [];
-    for (var i = 0; i < SCRIM_L.length; i++) out.push(shadeAt(P, SCRIM_L[i][1]) + ' ' + SCRIM_L[i][0] + '%');
+    var out = [shadeAt(P, SCRIM_L_A) + ' 0%'];
+    for (var i = 0; i <= SCRIM_L_STEPS; i++) {
+      var t = i / SCRIM_L_STEPS;
+      var a = ('' + Math.round(SCRIM_L_A * (1 - smootherstep(t)) * 1000) / 1000).replace(/^0\./, '.');
+      out.push('rgba(' + P.shadeRgb + ',' + a + ') ' + round2((SCRIM_L_R0 + (1 - SCRIM_L_R0) * t) * 100) + '%');
+    }
     return out.join(',');
   }
 
-  /* Маска левого затемнения сверху вниз. Начало затухания выше кромки
-     экрана (компактный кадр) — первым стопом идёт уже набранная там
-     плотность маски, а не отрицательная позиция. */
-  function scrimMask(key) {
-    var full = ROWS_TOP_VH[key] - SCRIM_L_UP;
-    var from = full - SCRIM_L_FADE;
-    var head = from >= 0 ? 'rgba(0,0,0,0) ' + round2(from) + '%' : 'rgba(0,0,0,' + alphaCss(-from / SCRIM_L_FADE) + ') 0%';
-    return head + ',#000 ' + round2(full) + '%';
+  /* Центр пятна по высоте (доля экрана): на SCRIM_L_BELOW ниже низа текста
+     в покое. */
+  function scrimLeftY(key) {
+    return round2(HERO_VH[key] - textBottomVh(key) + SCRIM_L_BELOW);
   }
 
   /* Сколько высоты просит содержимое кадра вместе с безопасной зоной сверху.
@@ -1104,6 +1159,17 @@
     return round2(ROW_HEAD_GAP * Math.max(scale, cardK() * cardW / ROW_CARD_W));
   }
 
+  /* Волна «подложка», п.C1: кегль строки «год · ★» под постером для формул
+     раскладки ПРИ ЖИВОМ КАДРЕ — ноль, потому что строки там нет (разбор — у
+     правила .card__age в buildCss). В rowBlockEm кегль строки умножает и её
+     отступ, и сдвиг подписи под фокусом, а сдвига при живом кадре тоже нет,
+     — поэтому одного нуля хватает на всё. Компактный кадр строку сохраняет
+     (мету он не показывает, heroSmallText). Формулы раскладки за порогом
+     «кадра нет» зовут rowBlockEm с кеглем строки напрямую. */
+  function rowCapAge(em) {
+    return heroSmallText() ? em : 0;
+  }
+
   function rowBlockEm(cardW, titleEm, gapEm, cardTitleEm, cardAgeEm, flow) {
     var k = cardK();
     /* Правка 2026-09-23 (п.1.5): шапка ряда — это его заголовок. Кнопка
@@ -1158,7 +1224,7 @@
      самые, что подставляются в сам медиазапрос. */
   function rowNarrowBlockEm(scale) {
     var w = round2(ROW_CARD_NARROW * scale);
-    return rowBlockEm(w, round2(ROW_TITLE_EM * scale), rowHeadGap(scale, w), TV_MIN, TV_MIN);
+    return rowBlockEm(w, round2(ROW_TITLE_EM * scale), rowHeadGap(scale, w), TV_MIN, rowCapAge(TV_MIN));
   }
 
   /* ПОТОЛОК масштаба карточки ряда — из того же бюджета высоты, по которому
@@ -1208,7 +1274,13 @@
      упирается в пол, а клетка остаётся за пределом — и это видно тесту
      «Task 51: подпись первого ряда помещается в экран телевизора». Шаг
      сотая: ширина карточки и кегли всё равно округляются до сотых
-     (round2), мельче шага смысла нет. */
+     (round2), мельче шага смысла нет.
+
+     Волна «подложка», п.C1: блок узкой колонки — без строки «год · ★»
+     (rowCapAge в rowNarrowBlockEm): при живом кадре её под постером нет.
+     Рабочая точка потолка поднялась с 1.00 до 1.11 («крупнее», крупный
+     кадр), и ограниченной осталась одна клетка из 36 — масштаб «ещё
+     крупнее» (тест «потолок масштаба карточки ряда»). */
   function rowScaleCap(key) {
     var availEm = screenEm() * (100 - ROWS_TOP_VH[key]) / TV_RATIO - ROWS_AIR - ROW_EDGE_AIR;
     var floor = SCALES.small;
@@ -1366,7 +1438,7 @@
     var fonts = useFonts();
     var set = fontSet();
     return {
-      bg: P.bg, panel: P.panel, line: P.line, text: P.text, muted: P.muted, smoke: P.smoke,
+      bg: P.bg, panel: P.panel, line: P.line, text: P.text, muted: P.muted, soft: P.soft, smoke: P.smoke,
       spice: P.spice, dark: P.dark,
       panelHi: P.panelHi, panelLo: P.panelLo, raised: P.raised, textRgb: P.textRgb, bgRgb: P.bgRgb,
       accent: t.color, accentRgb: hexToRgb(t.color), onac: t.onac, ring: t.light, acglow: t.glow,
@@ -3465,14 +3537,10 @@
        три узла во весь слой, градиент, не фильтр (ограничение брифа 5), цвет
        — из набора подкраски (AR.scrim/scrimL/floor). Ни один не двигается и
        ни один не меняет плотность на смене карточки.
-       Левому затемнению вертикальную границу задаёт маска: двух
-       направлений на одном элементе без mask-composite не собрать, а
-       mask-composite в WebView телевизора не проверен, — поэтому по ширине
-       плотность несёт фон, по высоте — маска. Движок без масок покажет
-       затемнение сплошным сверху донизу: фолбэк безопасный, текст на нём
-       читается, а фон рядов не темнеет — левое затемнение лежит в разметке
-       под сплошным низом покоя и полом (п.5 у констант SCRIM_*). Пары
-       -webkit-/без префикса — как у остальных масок плагина.
+       Левое затемнение с волны «подложка» — радиальный градиент без маски
+       (прежняя маска по высоте и давала кромку «прямоугольника»). Фон рядов
+       оно не темнит: лежит в разметке под сплошным низом покоя и полом
+       (п.5 у констант SCRIM_*).
        Пол сжатого состояния виден только при .lumen-rows-up — его ставит
        LC.hero там же, где .lumen-hero--compact (второго источника правды о
        фокусе не заводим). В полном режиме он проявляется той же кривой и за
@@ -3480,8 +3548,6 @@
     css.push('.lumen-hero-stage .lumen-hero__scrim,.lumen-hero-stage .lumen-hero__floor{position:absolute;top:0;left:0;right:0;bottom:0}');
     css.push(AR.scrim);
     css.push(AR.scrimL);
-    css.push('.lumen-hero-stage .lumen-hero__scrim.lumen-hero__scrim--l{-webkit-mask-image:-webkit-linear-gradient(top,' + scrimMask(heroSize) + ');mask-image:linear-gradient(180deg,' + scrimMask(heroSize) + ');' +
-      '-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat}');
     css.push(AR.floor);
     css.push('.lumen-hero-stage .lumen-hero__floor{top:-webkit-calc(' + floorTop(heroSize) + ');top:calc(' + floorTop(heroSize) + ');opacity:0}');
     css.push('.lumen-main.lumen-rows-up .lumen-hero__floor{opacity:1}');
@@ -3571,7 +3637,9 @@
        контекста вместо прежних 1.15em. Отступ сверху — .3em её собственного
        кегля, зазор «название → мета» из разбора. Оба числа сведены в бюджет
        TEXT_META выше, там же и обоснование. */
-    css.push('.lumen-hero .lumen-hero__meta{font-family:' + FB + ';font-weight:500;font-size:.96em;line-height:1.24;color:' + P.muted + ';margin-top:.3em}');
+    /* Волна «подложка»: мета и описание — P.soft и тень под буквами
+       (HERO_TEXT_SHADOW, разбор у самой константы). */
+    css.push('.lumen-hero .lumen-hero__meta{font-family:' + FB + ';font-weight:500;font-size:.96em;line-height:1.24;color:' + P.soft + ';text-shadow:' + HERO_TEXT_SHADOW + ';margin-top:.3em}');
     /* Логотип фильма — фоном (contain), максимум 37.84em своего контекста
        (ревью Task 39: прежние «30.69em = 700 px FHD» из §0.2 давно разошлись
        с кодом — в правиле ниже стоит width:37.84em, а em внутри
@@ -3622,7 +3690,7 @@
     css.push('.lumen-hero .lumen-hero__title{font-family:' + FB + ';font-weight:700;font-size:3.4em;line-height:1.08;color:' + P.text + ';margin-top:.4em;height:1.29em;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:1}');
     css.push('.lumen-hero.lumen-hero--compact .lumen-hero__title{height:1.2em}');
     css.push('.lumen-hero.lumen-hero--logo .lumen-hero__title{display:none}');
-    css.push('.lumen-hero .lumen-hero__descr{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;font-family:' + FB + ';font-weight:500;font-size:1.15em;line-height:1.24;color:' + P.muted + ';max-width:' + DESCR_MAX_W + 'em;margin-top:.46em}');
+    css.push('.lumen-hero .lumen-hero__descr{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;font-family:' + FB + ';font-weight:500;font-size:1.15em;line-height:1.24;color:' + P.soft + ';text-shadow:' + HERO_TEXT_SHADOW + ';max-width:' + DESCR_MAX_W + 'em;margin-top:.46em}');
 
     /* Скелетон, пока грузятся детали (ограничение брифа 3): плашка меты —
        всегда (жанров и длительности в данных ряда нет), плашки описания —
@@ -4117,6 +4185,11 @@
        первого ряда в поднятом состоянии на экране» держит тест Task 51. */
     var cardTitleEm = round2(TV_MIN * rowScale);
     var cardAgeEm = round2(TV_MIN * rowScale);
+    /* Волна «подложка», п.C1: строки «год · ★» под постером при живом кадре
+       нет (разбор — у правила .card__age ниже, кегль для формул —
+       rowCapAge). Ею же считаются потолок масштаба (rowScaleCap выше) и
+       порог узкой колонки: оба обязаны мерить ту подпись, что на экране. */
+    var rowCapShort = !smallText;
     var rowTitleEm = round2(ROW_TITLE_EM * rowScale);
     var rowHeadGapEm = rowHeadGap(rowScale, cardWEm);
     var narrowWEm = round2(ROW_CARD_NARROW * rowScale);
@@ -4147,7 +4220,7 @@
        первое, что отдаётся, — ПРИБАВКА масштаба к подписям: 23 физических
        px они сохраняют при любой настройке. Постеры, заголовок ряда и всё
        остальное масштаб по-прежнему увеличивает. */
-    var narrowRatio = rowNarrowRatio(heroSize, rowBlockEm(cardWEm, rowTitleEm, rowHeadGapEm, cardTitleEm, cardAgeEm));
+    var narrowRatio = rowNarrowRatio(heroSize, rowBlockEm(cardWEm, rowTitleEm, rowHeadGapEm, cardTitleEm, rowCapAge(cardAgeEm)));
     var narrowCss = narrowRatio < Math.max(HERO_MIN_RATIO, textRatio(heroSize, textNeedEm(false)))
       ? '@media screen and (min-aspect-ratio:' + narrowRatio + '/100){' +
         '.lumen-main .card{width:' + narrowWEm + 'em}' +
@@ -4252,6 +4325,26 @@
        инвариант Task 51 («низ подписи первого ряда ≤ 532 при 960×540»).
        Тем же приёмом обрезается и .card__title выше. */
     css.push('.lumen-main .card__age{font-family:' + FB + ';font-size:' + cardAgeEm + 'em;line-height:1;margin-top:' + CARD_AGE_GAP + 'em;white-space:nowrap;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis;color:' + P.muted + '}');
+    /* Волна «подложка», п.C1: при живом кадре героя строки «год · ★» под
+       постерами главной нет — название остаётся. Год и оценку фокусной
+       карточки пишет мета героя над рядами, и строка под постером их только
+       повторяла, а стоила 14.4 CSS px высоты ряда на стенде 960×540: без неё
+       первый ряд в покое помещается в экран целиком (низ названия 529.7
+       вместо 544.1 px), а сжатый — с прежним запасом до 532.
+       Правило — не единственное: высоту ряда без этой строки считают все
+       формулы раскладки, которые работают при живом кадре (rowCapAge ниже —
+       правило кромки и полоса подгонки ширины), иначе следующий ряд
+       выглядывал бы снизу ровно на неё. За порогом «кадра нет»
+       (heroMinRatio) меты героя на экране нет, и строка возвращается —
+       вместе со своей высотой в формулах той раскладки.
+       Компактный кадр строку сохраняет: мету он не показывает вовсе
+       (heroSmallText), и год там написан только под постером.
+       Метка в виде «в подписи» живёт в этой же строке, поэтому на главной с
+       героем её рисует постер (src/62_badges.js, decorate). */
+    if (rowCapShort) {
+      css.push('.lumen-main .card__age{display:none}');
+      css.push('@media screen and (min-aspect-ratio:' + heroMinRatio + '/100){.lumen-main .card__age{display:block}}');
+    }
     /* Task 63: подпись под постером в фокусе уезжает вниз. Так же устроен
        lockup tvOS: «картинка приподнимается, подпись уезжает вниз»
        (docs/research/2026-09-21-tv-design-specs.md §1, разбор WWDC24 10207).
@@ -4272,7 +4365,13 @@
        подписей ряда; временный слой на 180 мс у двух узлов — не то же
        самое, что по три слоя на каждую из двух сотен карточек. */
     css.push('body.lumen-motion-full .lumen-main .card__title,body.lumen-motion-full .lumen-main .card__age{-webkit-transition:-webkit-transform .18s ease-out;transition:transform .18s ease-out}');
-    css.push('body.lumen-motion-full .lumen-main .card.focus .card__title,body.lumen-motion-full .lumen-main .card.focus .card__age{-webkit-transform:translateY(' + CARD_FOCUS_SHIFT + 'em);transform:translateY(' + CARD_FOCUS_SHIFT + 'em)}');
+    /* Волна «подложка», п.C1: при живом кадре сдвига нет — у подписи
+       осталось одно название, и его сдвиг на CARD_FOCUS_SHIFT уводил бы низ
+       первого ряда в покое за 532 (533.7 px в полном режиме на стенде). Там,
+       где строка «год · ★» на месте (за порогом «кадра нет» и у компактного
+       кадра), жест lockup остаётся прежним. */
+    var focusShiftCss = 'body.lumen-motion-full .lumen-main .card.focus .card__title,body.lumen-motion-full .lumen-main .card.focus .card__age{-webkit-transform:translateY(' + CARD_FOCUS_SHIFT + 'em);transform:translateY(' + CARD_FOCUS_SHIFT + 'em)}';
+    css.push(rowCapShort ? '@media screen and (min-aspect-ratio:' + heroMinRatio + '/100){' + focusShiftCss + '}' : focusShiftCss);
     /* Снятие двух слоёв из трёх (разбор — в комментарии выше). Правило стоит
        ПОСЛЕ наших правил на те же узлы с ТОЙ ЖЕ специфичностью: у них решает
        порядок. Сдвиг подписи в фокусе (два правила выше) специфичнее — у
@@ -4326,21 +4425,25 @@
     var fitGap = narrowCss ? narrowGapEm : rowHeadGapEm;
     var fitCap = narrowCss ? TV_MIN : cardTitleEm;
     var fitBlock = rowBlockEm(fitW, rowTitleEm, fitGap, fitCap, fitCap);
-    var fitCaptions = CARD_VIEW_GAP + fitCap * CARD_TITLE_LH + CARD_AGE_GAP * fitCap + fitCap + CARD_FOCUS_SHIFT * fitCap;
-    var rowFitCss = function (sel, lo, hi, tailVh, topEm) {
+    /* Подписи под постером в em карточки; age — кегль строки «год · ★» (ноль
+       при живом кадре, п.C1 у правила .card__age). */
+    var fitCaptions = function (age) {
+      return CARD_VIEW_GAP + fitCap * CARD_TITLE_LH + CARD_AGE_GAP * age + age + CARD_FOCUS_SHIFT * age;
+    };
+    var rowFitCss = function (sel, lo, hi, tailVh, topEm, age) {
       var x = Math.floor(tailVh / POSTER_RATIO * 100) / 100;
-      var y = Math.ceil(((topEm + rowTitleEm + fitGap + ROW_EDGE_AIR) / (POSTER_RATIO * cardK()) + fitCaptions / POSTER_RATIO) * 100) / 100;
+      var y = Math.ceil(((topEm + rowTitleEm + fitGap + ROW_EDGE_AIR) / (POSTER_RATIO * cardK()) + fitCaptions(age) / POSTER_RATIO) * 100) / 100;
       var w = x + 'vh - ' + y + 'em';
       return '@media screen and (min-aspect-ratio:' + lo + '/1000)' + (hi ? ' and (max-aspect-ratio:' + hi + '/1000)' : '') + '{' +
         sel + ' .card{width:-webkit-calc(' + w + ');width:calc(' + w + ')}}';
     };
-    var fitHeroFrom = Math.floor(screenEm() * (100 - rowsTopVh) * 10 / (ROWS_AIR + fitBlock + ROW_EDGE_AIR));
+    var fitHeroFrom = Math.floor(screenEm() * (100 - rowsTopVh) * 10 / (ROWS_AIR + rowBlockEm(fitW, rowTitleEm, fitGap, fitCap, rowCapAge(fitCap)) + ROW_EDGE_AIR));
     if (fitHeroFrom < heroMinRatio * 10) {
-      css.push(rowFitCss('.lumen-main', fitHeroFrom, heroMinRatio * 10, 100 - rowsTopVh, ROWS_AIR));
+      css.push(rowFitCss('.lumen-main', fitHeroFrom, heroMinRatio * 10, 100 - rowsTopVh, ROWS_AIR, rowCapAge(fitCap)));
     }
     var fitOff = function (sel, topEm) {
       var from = Math.max(heroMinRatio * 10, Math.floor(screenEm() * 1000 / (topEm + fitBlock + ROW_EDGE_AIR)));
-      css.push(rowFitCss(sel, from, 0, 100, topEm));
+      css.push(rowFitCss(sel, from, 0, 100, topEm, fitCap));
     };
     fitOff('.lumen-main', LAMPA_HEAD + LAMPA_ROW_PAD);
     css.push('.lumen-main .items-line__title{font-family:' + FB + ';font-weight:700;font-size:' + rowTitleEm + 'em}');
@@ -4424,8 +4527,11 @@
         '(max-aspect-ratio:' + to + '/1000){' +
         '.lumen-main .items-line{padding-bottom:-webkit-calc(' + pad + ');padding-bottom:calc(' + pad + ')}}';
     };
-    var rowFlowWide = rowBlockEm(cardWEm, rowTitleEm, rowHeadGapEm, cardTitleEm, cardAgeEm, true);
-    var rowFlowNarrow = rowBlockEm(narrowWEm, rowTitleEm, narrowGapEm, TV_MIN, TV_MIN, true);
+    /* Волна «подложка», п.C1: при живом кадре блок ряда — без строки «год ·
+       ★» (rowCapAge); за порогом «кадра нет» (rowOffBlock ниже) она на
+       месте. */
+    var rowFlowWide = rowBlockEm(cardWEm, rowTitleEm, rowHeadGapEm, cardTitleEm, rowCapAge(cardAgeEm), true);
+    var rowFlowNarrow = rowBlockEm(narrowWEm, rowTitleEm, narrowGapEm, TV_MIN, rowCapAge(TV_MIN), true);
     var rowEdgeWide = rowEdgeMedia(rowFlowWide, 0, narrowCss ? narrowRatio : heroMinRatio);
     var rowEdgeNarrow = narrowCss ? rowEdgeMedia(rowFlowNarrow, narrowRatio, heroMinRatio) : '';
     if (rowEdgeWide) css.push(rowEdgeWide);
@@ -4439,7 +4545,8 @@
        и граница по тому же выводу: расчётный зазор не меньше ROW_GAP, пока
        W/H ≤ screenEm() / (LAMPA_HEAD + LAMPA_ROW_PAD + блок + ROW_GAP). Блок — тот, что достаётся окну за порогом: узкий, если
        узкая колонка там включена, иначе широкий. */
-    var rowOffBlock = round2(narrowCss ? rowFlowNarrow : rowFlowWide);
+    var rowOffBlock = round2(narrowCss ? rowBlockEm(narrowWEm, rowTitleEm, narrowGapEm, TV_MIN, TV_MIN, true) :
+      rowBlockEm(cardWEm, rowTitleEm, rowHeadGapEm, cardTitleEm, cardAgeEm, true));
     var rowEdgeOff = function (sel, topEm) {
       var headEm = round2(topEm + LAMPA_ROW_PAD + rowOffBlock);
       var to = Math.ceil(screenEm() * 1000 / (headEm + ROW_GAP));

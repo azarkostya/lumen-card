@@ -516,6 +516,50 @@ test('Task 62a: вид сменился, пока экран лежал в ис�
   }
 });
 
+/* Волна «подложка», п.C1: на главной с живым кадром героя строки «год · ★»
+   под постером нет (src/30_css.js, правило .card__age), а в виде меток
+   «в подписи» метка живёт именно в ней. Поэтому на такой главной метку
+   рисует постер — как в виде «на постере», вместе с рейтингом в подписи
+   (строка скрыта, но за порогом «кадра нет» она возвращается целой). */
+function mountedCaption(extra, rootClasses) {
+  class FakeObserver { constructor() {} observe() {} disconnect() {} }
+  globalThis.window = { Lampa: {}, MutationObserver: FakeObserver };
+  globalThis.MutationObserver = FakeObserver;
+  try {
+    const { api } = runtime(Object.assign({ badgesMode: function () { return 'caption'; } }, extra || {}));
+    const card = makeCard({ release_date: '2026-12-17', vote_average: 6.42 });
+    const root = makeRoot([card]);
+    rootClasses.forEach((c) => root.addClass(c));
+    api.mount(root);
+    return card;
+  } finally {
+    delete globalThis.window;
+    delete globalThis.MutationObserver;
+  }
+}
+
+test('волна «подложка», п.C1: «в подписи» на главной с героем — метка на постере, подпись с годом и рейтингом', () => {
+  const card = mountedCaption({ pref: function (key, def) { return key === 'lumen_hero_size' ? 'large' : def; } }, ['lumen-main']);
+  const view = card._children[0];
+  const age = card._children[1];
+  const plates = view._children.filter((c) => c.hasClass('lumen-badge'));
+  assert.equal(plates.length, 1, 'метка обязана встать на постер');
+  assert.ok(plates[0].hasClass('lumen-badge--soon'));
+  assert.equal(age._children.filter((c) => c.hasClass('lumen-badge-cap')).length, 0, 'метка в скрытой строке подписи пропала бы');
+  assert.equal(age.text(), '2017 · ★ 6.4', 'подпись — как в виде «на постере»');
+});
+
+test('волна «подложка», п.C1: «в подписи» без героя и при компактном кадре — метка в подписи, как прежде', () => {
+  /* Без героя (класса .lumen-main нет — «Кадр над рядами: выключен»). */
+  let card = mountedCaption({ pref: function (key, def) { return key === 'lumen_hero_size' ? 'off' : def; } }, []);
+  assert.equal(card._children[0]._children.filter((c) => c.hasClass('lumen-badge')).length, 0, 'без героя плашки на постере быть не должно');
+  assert.equal(card._children[1]._children.filter((c) => c.hasClass('lumen-badge-cap')).length, 1, 'без героя метка — в подписи');
+  /* Компактный кадр строку «год · ★» не прячет (мету он не показывает). */
+  card = mountedCaption({ pref: function (key, def) { return key === 'lumen_hero_size' ? 'compact' : def; } }, ['lumen-main']);
+  assert.equal(card._children[0]._children.filter((c) => c.hasClass('lumen-badge')).length, 0, 'компактный кадр: плашки на постере быть не должно');
+  assert.equal(card._children[1]._children.filter((c) => c.hasClass('lumen-badge-cap')).length, 1, 'компактный кадр: метка — в подписи');
+});
+
 /* Долг фазы 1, п.6 (2026-09-23): фейковый DOM отдаёт на find все
    совпадения, и strip проверяется на нескольких карточках, а не на первой.
    На прежнем фейке (find — первый найденный) тест падает: метка второй и

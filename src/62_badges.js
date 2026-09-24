@@ -153,6 +153,24 @@
       return mode() !== 'off';
     }
 
+    /* Волна «подложка», п.C1: на главной с живым кадром героя строки «год ·
+       ★» под постером нет — её прячет CSS (src/30_css.js, правило
+       .card__age), потому что год и оценку фокусной карточки уже пишет мета
+       героя. Вид меток «в подписи» ставит метку именно в эту строку, и на
+       такой главной метка пропала бы вместе с ней, — поэтому там её рисует
+       постер, как в виде «на постере». Главная с героем — корень экрана с
+       классом .lumen-main (его ставит LC.hero при монтаже, раньше нас:
+       порядок держит src/90_runtime.js). Компактный кадр строку не прячет
+       (мету он не показывает), и метка остаётся в подписи. */
+    function captionHidden() {
+      try {
+        if (!state || !state.root || typeof state.root.hasClass !== 'function' || !state.root.hasClass('lumen-main')) return false;
+        return !LC.pref || LC.pref('lumen_hero_size', 'large') !== 'compact';
+      } catch (e) {
+        return false;
+      }
+    }
+
     /* Строки метки — из LC.STRINGS (ru/en/uk). Месяцы короткие, те же, что у
        чипа серии: на постере места на «17 декабря» нет.
        cont здесь больше не нужен: метка прогресса это один процент (разбор
@@ -304,6 +322,10 @@
         var view = $(el).find('.card__view');
         var hasBadge = !!(badge && badge.text && view && view.length);
         var view_mode = mode();
+        /* Волна «подложка», п.C1: строки подписи на главной с героем нет —
+           метка «в подписи» там встаёт на постер (разбор у captionHidden).
+           Сетке подборки (opts.wide) это не нужно: подпись там своя. */
+        if (view_mode === 'caption' && !(opts && opts.wide) && captionHidden()) view_mode = 'poster';
         /* Task 62a: текст один и тот же, разное только место. В виде
            'caption' плашки на обложке нет вовсе — ради этого вид и заведён. */
         var wantCaption = hasBadge && view_mode === 'caption';
