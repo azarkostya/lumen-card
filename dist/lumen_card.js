@@ -32499,6 +32499,11 @@ holder.append(block);
 
 
 
+
+
+
+
+
 var DESCR_PAGES = ['lumen-reviews', 'lumen-fr'];
 
 function isDescrPage(el) {
@@ -32567,7 +32572,60 @@ if (descrHidden(view, page || node)) scroll.update(page || rowEl);
 }
 
 
-function descrWheel(rowEl, holder, scroll, dir) {
+
+
+
+function descrFocusable(el) {
+return !!(el && el.classList && el.classList.contains('selector') && el.offsetParent !== null);
+}
+
+
+
+
+
+
+
+
+
+
+
+function descrTarget(holder, page, last) {
+if (descrFocusable(last) && descrPageOf(holder, last) === page) return last;
+var list = (page || holder).querySelectorAll('.selector');
+var best = null;
+var left = 0;
+for (var i = 0; i < list.length; i++) {
+if (!descrFocusable(list[i]) || descrPageOf(holder, list[i]) !== page) continue;
+var x = list[i].getBoundingClientRect().left;
+if (!best || x < left - 0.5) {
+best = list[i];
+left = x;
+}
+}
+return best;
+}
+
+
+
+
+
+
+
+function descrFocus(rowEl, node) {
+var C = window.Lampa && Lampa.Controller;
+var nav = window.Navigator;
+if (!node || !C || typeof C.collectionFocus !== 'function' || !nav || typeof nav.getFocusedElement !== 'function') return;
+C.collectionFocus(node, rowEl);
+if (nav.getFocusedElement() === node || typeof C.collectionSet !== 'function') return;
+C.collectionSet(rowEl);
+C.collectionFocus(node, rowEl);
+}
+
+
+
+
+
+function descrWheel(item, rowEl, holder, scroll, dir) {
 var view = descrView(scroll);
 if (!view) return false;
 var blocks = [];
@@ -32581,6 +32639,7 @@ for (i = 0; i < blocks.length; i++) {
 var p = descrPlaced(view, blocks[i]);
 if (p.top > view.top + 0.5 && p.bottom > view.bottom + 0.5) {
 scroll.update(blocks[i]);
+descrFocus(rowEl, descrTarget(holder, blocks[i], item.last));
 return true;
 }
 }
@@ -32592,6 +32651,7 @@ for (i = 0; i < blocks.length; i++) {
 if (descrPlaced(view, blocks[i]).top < view.top - 0.5) target = blocks[i];
 }
 scroll.update(target);
+descrFocus(rowEl, descrTarget(holder, target === rowEl ? null : target, item.last));
 return true;
 }
 
@@ -32655,7 +32715,7 @@ scroll.lumenDescrWheel = true;
 var wheel = scroll.onWheel;
 scroll.onWheel = function (step) {
 try {
-if (descrActive(item) && descrWheel(rowEl, holder, scroll, step > 0 ? 'down' : 'up')) return;
+if (descrActive(item) && descrWheel(item, rowEl, holder, scroll, step > 0 ? 'down' : 'up')) return;
 } catch (e) {
 warn('descr wheel failed', e);
 }

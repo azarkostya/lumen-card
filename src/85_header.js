@@ -1618,7 +1618,12 @@
      Колесо мыши у Lampa над карточкой шагает рядами (Items.onCreate,
      app.min.js:35201-35203) и перепрыгнуло бы блоки. Лёгкая обёртка: ↓ — к
      следующему блоку, который уходит за кромку; ↑ — к блоку выше или к верху
-     ряда; дальше — штатный шаг рядами. Ничего не прячется.
+     ряда; дальше — штатный шаг рядами. Ничего не прячется. Фокус, как у
+     штатного колеса (шаг рядами — это toggle ряда с collectionFocus),
+     переходит на показанную часть: в блоке — на last, если он там, иначе на
+     первый узел блока; у верха ряда — на last основной части или её первый
+     узел (ревью волны 2, п.7: фокус оставался за верхней кромкой, и
+     следующее ↓ пульта уводило страницу на 476 px вверх, ↑ — в шапку).
 
      Контроллер ряда не оборачивается: ↑/↓ пульта остаются штатными. */
   var DESCR_PAGES = ['lumen-reviews', 'lumen-fr'];
@@ -1688,8 +1693,61 @@
     if (descrHidden(view, page || node)) scroll.update(page || rowEl);
   }
 
-  /* Шаг колеса: true — прокрутка сделана, штатный шаг рядами не нужен. */
-  function descrWheel(rowEl, holder, scroll, dir) {
+  /* Узел, который Navigator может взять: видимый .selector. Скрытый
+     (offsetParent === null; .hide у Lampa — тоже display:none, app.css:265)
+     collectionFocus Lampa заменяет первым .selector ряда — описанием за
+     кромкой (app.min.js:46474-46490). */
+  function descrFocusable(el) {
+    return !!(el && el.classList && el.classList.contains('selector') && el.offsetParent !== null);
+  }
+
+  /* Куда колесо ставит фокус в показанной части ряда page (блок или null —
+     основная часть): last, если он там, иначе её первый узел — самый левый,
+     при равных — первый по разметке. Не просто первый по разметке: у
+     франшизы первым идёт переключатель режима у правого края шапки блока
+     (стенд 960×540@2, фильм 1891: x 431…495), и с него ↑ пульта Navigator
+     уводил в описание мимо отзывов — над ним «Скрыть» (x 62…120) не в
+     прямой полосе (vender/navigator/navigator.js:338-392) — и страница
+     ехала к верху ряда на 476 px. Левый узел — тот, куда пульт входит в
+     блок сверху (↓ со «Скрыть» — на левую карточку), и ↑ с него ведёт в
+     блок выше. null — брать нечего. */
+  function descrTarget(holder, page, last) {
+    if (descrFocusable(last) && descrPageOf(holder, last) === page) return last;
+    var list = (page || holder).querySelectorAll('.selector');
+    var best = null;
+    var left = 0;
+    for (var i = 0; i < list.length; i++) {
+      if (!descrFocusable(list[i]) || descrPageOf(holder, list[i]) !== page) continue;
+      var x = list[i].getBoundingClientRect().left;
+      if (!best || x < left - 0.5) {
+        best = list[i];
+        left = x;
+      }
+    }
+    return best;
+  }
+
+  /* Фокус тем же Controller.collectionFocus, которым Lampa входит в ряд.
+     Navigator фокусирует только узел своего снимка коллекции (vender/
+     navigator/navigator.js:657-685), а снимок ряд собирает при входе
+     (app.min.js:38158-38161): узлы, дорисованные позже, в нём не все —
+     блоки дописывают только свои карточки. Не встал — снимок собирается
+     заново тем же collectionSet, что и при входе в ряд. */
+  function descrFocus(rowEl, node) {
+    var C = window.Lampa && Lampa.Controller;
+    var nav = window.Navigator;
+    if (!node || !C || typeof C.collectionFocus !== 'function' || !nav || typeof nav.getFocusedElement !== 'function') return;
+    C.collectionFocus(node, rowEl);
+    if (nav.getFocusedElement() === node || typeof C.collectionSet !== 'function') return;
+    C.collectionSet(rowEl);
+    C.collectionFocus(node, rowEl);
+  }
+
+  /* Шаг колеса: true — прокрутка сделана, штатный шаг рядами не нужен.
+     Ревью волны 2, п.7: фокус переходит на показанную часть — после
+     прокрутки, чтобы capture-слушатель считал её от новой позиции и своей
+     прокрутки не добавил. */
+  function descrWheel(item, rowEl, holder, scroll, dir) {
     var view = descrView(scroll);
     if (!view) return false;
     var blocks = [];
@@ -1703,6 +1761,7 @@
         var p = descrPlaced(view, blocks[i]);
         if (p.top > view.top + 0.5 && p.bottom > view.bottom + 0.5) {
           scroll.update(blocks[i]);
+          descrFocus(rowEl, descrTarget(holder, blocks[i], item.last));
           return true;
         }
       }
@@ -1714,6 +1773,7 @@
       if (descrPlaced(view, blocks[i]).top < view.top - 0.5) target = blocks[i];
     }
     scroll.update(target);
+    descrFocus(rowEl, descrTarget(holder, target === rowEl ? null : target, item.last));
     return true;
   }
 
@@ -1777,7 +1837,7 @@
       var wheel = scroll.onWheel;
       scroll.onWheel = function (step) {
         try {
-          if (descrActive(item) && descrWheel(rowEl, holder, scroll, step > 0 ? 'down' : 'up')) return;
+          if (descrActive(item) && descrWheel(item, rowEl, holder, scroll, step > 0 ? 'down' : 'up')) return;
         } catch (e) {
           warn('descr wheel failed', e);
         }

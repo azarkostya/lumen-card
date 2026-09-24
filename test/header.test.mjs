@@ -1821,7 +1821,7 @@ function GNode(cls, off, height, kids) {
   this.length = 1;
 }
 GNode.prototype.getBoundingClientRect = function () {
-  return { left: 0, top: GNode.scroll.bodyTop() + this._off, width: 900, height: this._h };
+  return { left: this._left || 0, top: GNode.scroll.bodyTop() + this._off, width: 900, height: this._h };
 };
 GNode.prototype.querySelectorAll = function (sel) {
   const cls = sel.replace(/^\./, '');
@@ -1859,7 +1859,9 @@ function descrScroll() {
 
 /* Ряд описания на втором экране: описание 1000…1188, счётчики 1212…1247,
    блок отзывов 1316…1507 («Скрыть» 1460), франшиза 1528…1803. Ряд Lampa
-   поставила к верху области — отзывы на экране 381…572, под кромкой 540. */
+   поставила к верху области — отзывы на экране 381…572, под кромкой 540.
+   Переключатель режима франшизы — у правого края шапки блока (x 431, как
+   на стенде), карточки — от левого края. */
 function descrRowModel() {
   const text = new GNode('full-descr__text selector', 1000, 188);
   const tag = new GNode('tag-count selector', 1212, 35);
@@ -1868,6 +1870,7 @@ function descrRowModel() {
   const hide = new GNode('lumen-reviews__hint-hide selector', 1460, 29);
   const reviews = new GNode('lumen-reviews lumen-reviews--hint', 1316, 191, [hide]);
   const frMode = new GNode('lumen-fr__mode selector', 1532, 22);
+  frMode._left = 431;
   const frCard = new GNode('lumen-fr-card selector', 1574, 227);
   const fr = new GNode('lumen-fr', 1528, 275, [frMode, frCard]);
   const holder = new GNode('full-descr', 1000, 803, [left, facts, reviews, fr]);
@@ -1893,28 +1896,59 @@ function descrItemModel(scroll, rowRef) {
   return item;
 }
 
+/* Navigator и Controller — как у Lampa. Navigator фокусирует только узел
+   своего снимка коллекции (SpatialNavigator.focus: вне коллекции — false,
+   vendor/lampa/vender/navigator/navigator.js:657-685); снимок собирает
+   Controller.collectionSet — все .selector узла (app.min.js:46448-46466).
+   Controller.collectionFocus (:46474-46490): скрытый узел (offsetParent
+   === null) заменяется первым .selector; фокус шлёт узлу hover:focus
+   (Controller.focus, :46437-46446) — здесь его ловит capture на .full-descr. */
+function descrNavigator(c) {
+  const nav = {
+    collection: c.row.querySelectorAll('.selector'),
+    focused: c.text,
+    sets: 0,
+    getFocusedElement: () => nav.focused
+  };
+  const ctl = {
+    collectionSet(html) { nav.sets++; nav.collection = html.querySelectorAll('.selector'); },
+    collectionFocus(target, html) {
+      if (target && target.offsetParent === null) target = false;
+      if (!target) target = html.querySelectorAll('.selector').filter((n) => !n.classList.contains('hide'))[0];
+      if (!target || nav.collection.indexOf(target) < 0) return;
+      nav.focused = target;
+      c.holder.fire('hover:focus', target);
+    }
+  };
+  return { nav, ctl };
+}
+
 function withDescr(fn) {
   const prevCs = window.getComputedStyle;
   const prevH = window.innerHeight;
   const prevCtl = Lampa.Controller;
+  const prevNav = window.Navigator;
   const scroll = descrScroll();
   GNode.scroll = scroll;
   const c = descrRowModel();
   const item = descrItemModel(scroll, () => c.row);
   const enabled = { name: 'full_descr', controller: { link: item } };
+  const { nav, ctl } = descrNavigator(c);
   window.getComputedStyle = (el) => ({ getPropertyValue: (p) => (p === 'padding-top' ? el._pad + 'px' : '') });
   window.innerHeight = 540;
-  Lampa.Controller = { enabled: () => enabled };
+  window.Navigator = nav;
+  Lampa.Controller = { enabled: () => enabled, collectionFocus: ctl.collectionFocus, collectionSet: ctl.collectionSet };
   /* Lampa уже поставила ряд описания к верху области. */
   scroll.update(c.row);
   scroll.settle();
   scroll.updates.length = 0;
   warnLog.length = 0;
   try {
-    fn({ c, item, scroll, enabled, link: { scroll: scroll } });
+    fn({ c, item, scroll, enabled, nav, link: { scroll: scroll } });
   } finally {
     window.getComputedStyle = prevCs;
     window.innerHeight = prevH;
+    window.Navigator = prevNav;
     Lampa.Controller = prevCtl;
   }
 }
@@ -2065,6 +2099,133 @@ test('B: колесо мыши — к следующему блоку за кр�
     assert.deepEqual(scroll.wheelCalls, [1, -1, 1]);
     assert.equal(scroll.updates.length, 4);
     assert.deepEqual(warnLog, []);
+  });
+});
+
+/* Ревью волны 2, п.7. Колесо прокручивало к блоку, а фокус оставался за
+   верхней кромкой: следующее ↓ пульта уводило фокус на счётчики, и
+   страница ехала вверх на 476 px (стенд 960×540@2, фильм 1891), ↑ —
+   сразу в шапку. Штатное колесо Lampa над карточкой переводит фокус
+   (Items.onDown/onUp -> toggle ряда -> collectionFocus), наше обязано так
+   же: блок — item.last, если он в блоке, иначе первый узел блока; ряд —
+   item.last основной части или её первый узел. Первый — самый левый (при
+   равных — верхний): у франшизы первым по разметке идёт переключатель
+   режима у правого края, и с него ↑ пульта Navigator уводил мимо отзывов
+   к верху ряда (стенд, фильм 1891). */
+test('B: колесо переводит фокус на показанный блок — его левый узел или last, если он там', () => {
+  withDescr(({ c, item, scroll, nav, link }) => {
+    LC.header.bindDescr(item, c.row, link);
+    scroll.onWheel(1);
+    assert.deepEqual(scroll.updates, [c.reviews]);
+    assert.equal(nav.getFocusedElement(), c.hide, 'фокус остался за кромкой — следующее ↓ пульта уведёт страницу');
+    assert.equal(item.last, c.hide, 'возврат в ряд придёт на тот же узел');
+    scroll.settle();
+
+    scroll.onWheel(1);
+    assert.deepEqual(scroll.updates, [c.reviews, c.fr], 'фокус не добавил своей прокрутки');
+    assert.equal(nav.getFocusedElement(), c.frCard, 'левый узел франшизы, а не переключатель режима у правого края');
+    scroll.settle();
+
+    /* ↑ — к блоку выше: last не там — его первый узел; ещё ↑ — к верху
+       ряда: last основной части нет — её первый узел. */
+    scroll.onWheel(-1);
+    assert.equal(scroll.updates[2], c.reviews);
+    assert.equal(nav.getFocusedElement(), c.hide);
+    scroll.settle();
+    scroll.onWheel(-1);
+    assert.equal(scroll.updates[3], c.row);
+    assert.equal(nav.getFocusedElement(), c.text, 'первый узел основной части');
+    assert.equal(scroll.updates.length, 4, 'ни одной лишней прокрутки от перевода фокуса');
+    assert.deepEqual(warnLog, []);
+  });
+});
+
+test('B: колесо — last внутри блока или основной части возвращает фокус туда, где он был', () => {
+  withDescr(({ c, item, scroll, nav, link }) => {
+    LC.header.bindDescr(item, c.row, link);
+    item.last = c.frCard;
+    scroll.onWheel(1);
+    assert.equal(nav.getFocusedElement(), c.hide, 'last во франшизе, а колесо показало отзывы — первый узел отзывов');
+    scroll.settle();
+    item.last = c.frCard;
+    scroll.onWheel(1);
+    assert.equal(nav.getFocusedElement(), c.frCard, 'last во франшизе — на него, а не на первый узел');
+    scroll.settle();
+
+    /* Пульт ↑ из отзывов на счётчики: ряд выше области, счётчики видны
+       (1212 при прокрутке 1150 — на экране 127), last — счётчик. Колесо ↑
+       ставит к верху ряд и оставляет фокус на счётчике. */
+    scroll.pos = 1150;
+    scroll.settle();
+    item.last = c.tag;
+    nav.focused = c.tag;
+    scroll.updates.length = 0;
+    scroll.onWheel(-1);
+    assert.deepEqual(scroll.updates, [c.row]);
+    assert.equal(nav.getFocusedElement(), c.tag, 'last основной части — счётчик, а не описание');
+    assert.deepEqual(warnLog, []);
+  });
+});
+
+/* Узлы, дорисованные после входа в ряд, в снимке Navigator есть не все:
+   блоки дописывают в него только свои карточки и только когда ряд активен
+   на экране (appendSelectors в src/60_reviews.js и src/66_franchise.js).
+   Фокус не встал — снимок пересобирается и фокус ставится заново. Скрытый last (offsetParent === null) не берётся: collectionFocus
+   Lampa заменил бы его первым .selector ряда — описанием за кромкой. */
+test('B: колесо — узла нет в снимке Navigator — снимок пересобирается; скрытый last не берётся', () => {
+  withDescr(({ c, item, scroll, nav, link }) => {
+    LC.header.bindDescr(item, c.row, link);
+    nav.collection = nav.collection.filter((n) => n !== c.frCard);
+    c.hide.offsetParent = null;
+    item.last = c.hide;
+    scroll.onWheel(1);
+    assert.equal(nav.getFocusedElement(), c.text, 'у отзывов нет видимого узла — фокус не трогаем');
+    assert.deepEqual(scroll.updates, [c.reviews],
+      'скрытый last отдан collectionFocus: тот поставил фокус на описание за кромкой, и страница уехала к ряду');
+    scroll.settle();
+    scroll.onWheel(1);
+    assert.equal(nav.sets, 1, 'снимок пересобран');
+    assert.equal(nav.getFocusedElement(), c.frCard);
+    assert.deepEqual(warnLog, []);
+  });
+});
+
+/* Узел выбирается только в показанной части: у верха ряда — из основной
+   части, даже если левее всех стоит узел блока ниже. */
+test('B: колесо ↑ к верху ряда — фокус только в основной части, в блоки ниже не уводится', () => {
+  withDescr(({ c, item, scroll, nav, link }) => {
+    LC.header.bindDescr(item, c.row, link);
+    c.text.offsetParent = null;
+    c.tag._left = 40;
+    c.hide._left = 20;
+    scroll.pos = 1150;
+    scroll.settle();
+    item.last = c.frCard;
+    nav.focused = c.frCard;
+    scroll.onWheel(-1);
+    assert.deepEqual(scroll.updates, [c.row]);
+    assert.equal(nav.getFocusedElement(), c.tag, '«Скрыть» левее, но он в блоке отзывов, а показан верх ряда');
+    assert.deepEqual(warnLog, []);
+  });
+});
+
+/* Колесо ↑ со следующего ряда (актёры) проскакивало блоки: last ряда
+   описания оставался в основной части, и onToggle Lampa ставил к верху
+   ряд. С фокусом, переведённым колесом, last — в показанном блоке, и наш
+   onToggle после Lampa возвращает к нему. */
+test('B: колесо ↓ через блоки, штатный шаг рядами и обратно — возврат к последнему показанному блоку', () => {
+  withDescr(({ c, item, scroll, link }) => {
+    LC.header.bindDescr(item, c.row, link);
+    scroll.onWheel(1);
+    scroll.settle();
+    scroll.onWheel(1);
+    scroll.settle();
+    scroll.onWheel(1);
+    assert.deepEqual(scroll.wheelCalls, [1], 'за франшизой — следующий ряд Lampa');
+    /* Items.onUp -> toggle ряда описания: фокус на last, затем 'toggle'. */
+    scroll.updates.length = 0;
+    item.emit('toggle');
+    assert.deepEqual(scroll.updates, [c.row, c.fr], 'Lampa ставит ряд, мы — франшизу, где last');
   });
 });
 
