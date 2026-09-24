@@ -15059,9 +15059,20 @@ return false;
 
 
 
+
 function park() {
 if (!state || state.parked) return;
-if (state.timer || state.detailsWait || state.loader || state.logoLoader || state.swapTimer || state.loadTimer || state.titleTimer) {
+
+
+
+
+
+
+
+
+
+
+if (state.detailsWait || state.loader || state.logoLoader || state.swapTimer || state.loadTimer || state.titleTimer) {
 state.stale = true;
 }
 state.parked = true;

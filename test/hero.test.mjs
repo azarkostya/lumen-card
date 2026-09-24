@@ -1249,6 +1249,42 @@ test('ревью п.4: то же для героя, показанного пр�
   staleWithoutCardFocus(t, true);
 });
 
+/* Контрольное ревью пятого раунда, п.6. Фильм A загружен полностью; фокус
+   ушёл на B быстрее DELAY (в пути только таймер фокуса B), потом на плитку
+   «Ещё» — OK — Назад. park() ставил stale и за один таймер фокуса, и
+   resume без карточки в фокусе заново показывал A: скелетон описания
+   вспыхивал, детали A спрашивались повторно. Оборвана была загрузка не
+   показанного фильма, а только отсчёт до чужого. */
+test('пятый раунд п.6: в пути только таймер фокуса другой карточки — возврат без карточки в фокусе A не перерисовывает', () => {
+  const env = makeEnv();
+  const main = makeMain();
+  const other = makeMain();
+  env.hero.mount(main.activity);
+  const node = main.activity._children[0];
+  focusOn(main, main.card1);
+  env.advance(400);
+  env.images[0].onload();
+  env.requests[0].ok({ id: 11, runtime: 100, genres: [{ name: 'драма' }] });
+  env.advance(1000);
+  assert.equal(node.hasClass('lumen-hero--pending'), false, 'предусловие: A показан полностью');
+  assert.equal(node.find('.lumen-hero__meta').text(), '2024 · 1:40 · драма · ★ 7.2');
+
+  /* A -> B быстрее DELAY, затем плитка «Ещё»: карточки в фокусе нет. */
+  main.card1.removeClass('focus');
+  focusOn(main, main.card2);
+  env.advance(100);
+  main.card2.removeClass('focus');
+  env.hero.detach(other.activity);
+  env.advance(1000);
+
+  env.hero.mount(main.activity);
+  assert.equal(env.requests.filter((r) => r.url === 'movie/11').length, 1, 'на возврате A показан заново — детали спрошены повторно');
+  assert.equal(env.requests.filter((r) => r.url === 'movie/22').length, 0, 'на возврате показан B, которого нет в фокусе');
+  assert.equal(node.hasClass('lumen-hero--pending'), false, 'на возврате вспыхнул скелетон A');
+  assert.equal(node.find('.lumen-hero__meta').text(), '2024 · 1:40 · драма · ★ 7.2', 'описание A пропало');
+  assert.deepEqual(warnLog, []);
+});
+
 /* Ф2 п.1. «Полный» режим, атмосфера, тот же фильм под фокусом: главная
    → OK → Назад. Канвас героя снимает уборка LC.fx.sweep() на 'start'
    карточки; resume обязан поставить его заново — иначе частицы пропадают до
