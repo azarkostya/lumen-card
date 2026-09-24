@@ -19815,6 +19815,8 @@ var collections = [];
 var chosen = storedIds(media);
 var pool = [];
 var poolKey = '';
+
+var poolWait = null;
 var seen = {};
 var runtimes = {};
 var reel = [];
@@ -19894,6 +19896,9 @@ resultLoader = null;
 
 function bump() {
 gen++;
+
+
+poolWait = null;
 clearHandles();
 stopSpin();
 cancelResultLoader();
@@ -20124,20 +20129,35 @@ return applyFilters(pool, filters, context(), media);
 
 
 
+
+
+
+
+
+
+
+
 function loadPool(done) {
 var key = keyOf();
 if (pool.length && poolKey === key) { done(); return; }
+if (poolWait && poolWait.key === key && poolWait.gen === gen) {
+poolWait.done.push(done);
+return;
+}
 var list = sourcesFor(collectionsFor(manifest, media), chosen, manifest);
 if (!list.length) { pool = []; poolKey = key; done(); return; }
 
 var captured = gen;
 var cards = [];
+var wait = { key: key, gen: captured, done: [done] };
+poolWait = wait;
 var gate = LC.util.gate(list.length * PAGES, POOL_TIMEOUT, function () {
+if (poolWait === wait) poolWait = null;
 if (gen !== captured) return;
 pool = buildPool(cards, media, true);
 poolKey = key;
 seen = seenIndex(cards);
-done();
+for (var w = 0; w < wait.done.length; w++) wait.done[w]();
 });
 
 LC.util.each(list, function (item) {

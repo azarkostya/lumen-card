@@ -1483,6 +1483,41 @@ test('пятый раунд п.3: заглушка пула отбрасывае
   assert.deepEqual(got, ['same-gen', 'no-alive'], 'заглушка отдала ответ мёртвому или снятому подписчику');
 });
 
+/* Прогоняет только отложенные колбэки с задержкой ms (один проход) — в
+   отличие от drainDelays(), не трогает дедлайн сборщика пула
+   (POOL_TIMEOUT), который закрыл бы пул пустым раньше ответа сети. */
+function fireDelay(ms) {
+  const due = timers.filter((x) => x.ms === ms && !x.cancelled);
+  timers = timers.filter((x) => due.indexOf(x) < 0);
+  due.forEach((x) => x.fn());
+  return due.length;
+}
+
+/* Пятый раунд, п.4. Показ выборки уже ушёл в сеть (loadPool из
+   schedulePreview), пул ещё не собран — пользователь жмёт «Крутить».
+   spin() снимал только таймер показа, а loadPool видел пустой пул и слал
+   второй полный набор запросов. Теперь «Крутить» присоединяется к сбору
+   в полёте. */
+test('пятый раунд п.4: «Крутить» во время показа выборки ждёт сбор в полёте, а не шлёт второй', (t) => {
+  const delay = Number(/var PREVIEW_DELAY = (\d+);/.exec(SRC)[1]);
+  const env = openRoulette34([R44], t, 1, 'lite', { media: 'movie' }, { pool: true });
+  env.comp.start();
+  assert.equal(fireDelay(delay), 1, 'предпосылка: показ выборки поднят');
+  assert.equal(poolSets34, 1, 'предпосылка: показ выборки пошёл в сеть');
+  const sent = fetchCalls34;
+  fire(env.root.find('.lumen-roulette__spin'), 'hover:enter');
+  assert.equal(poolSets34, 1, '«Крутить» послал второй набор запросов пула');
+  assert.equal(fetchCalls34, sent, '«Крутить» послал лишние запросы пула');
+  assert.equal(env.loading(), true, 'пул в пути — индикатор загрузки должен гореть');
+  releaseHeld(heldPool34);
+  drainDelays();
+  assert.equal(env.root.find('.lumen-roulette__result').hasClass('is-live'), true, 'вращение не дошло до результата');
+  assert.ok(createdImages.some((img) => img.src === backdropUrl(R44)), 'выпал не тот фильм');
+  assert.equal(env.stacked(), false, 'показ выборки дорисовал стопку поверх вращения');
+  assert.equal(env.loading(), false, 'индикатор загрузки висит');
+  assert.equal(poolSets34, 1, 'после ответа пул собирался ещё раз');
+});
+
 test('ревью п.1: ответ каталога после destroy() экран не строит', (t) => {
   const env = openRoulette34([R44], t, 1, 'lite', { media: 'movie' }, { manifest: true });
   env.comp.start();

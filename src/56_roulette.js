@@ -552,6 +552,8 @@
       var chosen = storedIds(media);
       var pool = [];
       var poolKey = '';
+      /* Сбор пула в полёте: {key, gen, done: [...]} — см. loadPool. */
+      var poolWait = null;
       var seen = {};
       var runtimes = {};
       var reel = [];
@@ -631,6 +633,9 @@
          становится неактуальным разом. */
       function bump() {
         gen++;
+        /* Сбор в полёте отсечён вместе с поколением: следующий loadPool
+           начинает свой. */
+        poolWait = null;
         clearHandles();
         stopSpin();
         cancelResultLoader();
@@ -860,21 +865,36 @@
       /* Собирает пул из выбранных подборок (по PAGES страниц на каждую) и
          зовёт done(). Ответ каждой подборки идёт через общий сборщик: пул
          закрывается либо когда ответили все, либо по дедлайну — тем, что
-         успело прийти. */
+         успело прийти.
+
+         Контрольное ревью пятого раунда, п.4: сбор того же набора, уже идущий
+         в том же поколении, не повторяется — новый вызов встаёт в очередь
+         его ожидающих (poolWait). Иначе «Крутить», нажатое, пока показ
+         выборки ждёт сеть, слало второй полный набор запросов: spin()
+         снимает только таймер показа, а пул к этому моменту ещё пуст. Каждый
+         ожидающий сам сверяет своё поколение и состояние экрана, как и
+         прежде: показ выборки на вращении ничего не рисует. */
       function loadPool(done) {
         var key = keyOf();
         if (pool.length && poolKey === key) { done(); return; }
+        if (poolWait && poolWait.key === key && poolWait.gen === gen) {
+          poolWait.done.push(done);
+          return;
+        }
         var list = sourcesFor(collectionsFor(manifest, media), chosen, manifest);
         if (!list.length) { pool = []; poolKey = key; done(); return; }
 
         var captured = gen;
         var cards = [];
+        var wait = { key: key, gen: captured, done: [done] };
+        poolWait = wait;
         var gate = LC.util.gate(list.length * PAGES, POOL_TIMEOUT, function () {
+          if (poolWait === wait) poolWait = null;
           if (gen !== captured) return;
           pool = buildPool(cards, media, true);
           poolKey = key;
           seen = seenIndex(cards);
-          done();
+          for (var w = 0; w < wait.done.length; w++) wait.done[w]();
         });
 
         LC.util.each(list, function (item) {
