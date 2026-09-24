@@ -30785,13 +30785,30 @@ return t.state + (t.color ? ' ' + t.color : '') + (t.url ? ' ' + t.url : '');
 
 
 
+
+
+
+
 function format(d) {
 return d.fps + ' fps · avg ' + orNa(d.avg) + ' · p95 ' + orNa(d.p95) +
 ' · raf ' + d.raf.join('/') + ' P' + orNa(d.P) + ' · lat95 ' + orNa(d.lat95) +
 ' · long ' + longText(d.long) + ' · loaf ' + loafText(d.loaf) +
 ' · eps ' + d.eps + ' · layers ' + d.layers + '+' + (d.hid || 0) +
 ' · ' + d.w + '×' + d.h + '@' + d.dpr + ' · cr ' + d.cr + ' · ' + d.mode +
-' · hw ' + d.hw + ' · tr ' + (d.tr || 'n/a') + ' · tint ' + tint(d);
+' · hw ' + d.hw + ' · pf ' + pfText(d.pf) + ' · tr ' + (d.tr || 'n/a') + ' · tint ' + tint(d);
+}
+
+function pfText(p) {
+if (!p) return 'n/a';
+return p.fly + '/' + p.queue + '/' + p.hits;
+}
+
+
+function prefetchStats() {
+try {
+if (LC.prefetch && typeof LC.prefetch.stats === 'function') return LC.prefetch.stats();
+} catch (e) { }
+return null;
 }
 
 
@@ -31020,7 +31037,7 @@ dpr: Math.round((window.devicePixelRatio || 1) * 100) / 100,
 cr: chrome(), mode: mode,
 long: state.longSup ? { win: sums.long, total: state.longTotal } : null,
 loaf: state.loafSup ? { n: sums.loaf, ms: sums.loafMs } : null,
-raf: st.raf, eps: eps(), layers: lay.on, hid: lay.off, hw: hardware(), tr: trailerStatus(), tint: accentStatus()
+raf: st.raf, eps: eps(), layers: lay.on, hid: lay.off, hw: hardware(), pf: prefetchStats(), tr: trailerStatus(), tint: accentStatus()
 });
 state.frames = 0; state.last = t;
 

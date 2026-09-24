@@ -176,14 +176,31 @@
        p95 дельты кадра в мс; у гистограммы — P, от которой считаны корзины;
        lat95 — p95 задержки колбэка rAF (performance.now() в колбэке минус
        метка кадра: сколько главный поток был занят, когда кадр начался);
-       loaf — после long. */
+       loaf — после long.
+       Волна «Логотипы сразу»: «pf 2/5/17» — предзагрузка соседей героя
+       (LC.prefetch.stats, src/58_prefetch.js): запросов в пути, задач в
+       очереди, деталей героя из памяти. Стоит перед tr: тот короткий, а
+       подкраска уезжает в перенос последней. */
     function format(d) {
       return d.fps + ' fps · avg ' + orNa(d.avg) + ' · p95 ' + orNa(d.p95) +
         ' · raf ' + d.raf.join('/') + ' P' + orNa(d.P) + ' · lat95 ' + orNa(d.lat95) +
         ' · long ' + longText(d.long) + ' · loaf ' + loafText(d.loaf) +
         ' · eps ' + d.eps + ' · layers ' + d.layers + '+' + (d.hid || 0) +
         ' · ' + d.w + '×' + d.h + '@' + d.dpr + ' · cr ' + d.cr + ' · ' + d.mode +
-        ' · hw ' + d.hw + ' · tr ' + (d.tr || 'n/a') + ' · tint ' + tint(d);
+        ' · hw ' + d.hw + ' · pf ' + pfText(d.pf) + ' · tr ' + (d.tr || 'n/a') + ' · tint ' + tint(d);
+    }
+
+    function pfText(p) {
+      if (!p) return 'n/a';
+      return p.fly + '/' + p.queue + '/' + p.hits;
+    }
+
+    /* Модуля предзагрузки может не быть (в тестах 69_hud.js грузится один). */
+    function prefetchStats() {
+      try {
+        if (LC.prefetch && typeof LC.prefetch.stats === 'function') return LC.prefetch.stats();
+      } catch (e) { }
+      return null;
     }
 
     /* Модуля трейлера может не быть (в тестах 69_hud.js грузится один). */
@@ -412,7 +429,7 @@
           cr: chrome(), mode: mode,
           long: state.longSup ? { win: sums.long, total: state.longTotal } : null,
           loaf: state.loafSup ? { n: sums.loaf, ms: sums.loafMs } : null,
-          raf: st.raf, eps: eps(), layers: lay.on, hid: lay.off, hw: hardware(), tr: trailerStatus(), tint: accentStatus()
+          raf: st.raf, eps: eps(), layers: lay.on, hid: lay.off, hw: hardware(), pf: prefetchStats(), tr: trailerStatus(), tint: accentStatus()
         });
         state.frames = 0; state.last = t;
         /* Интервал закрыт — кольцо проворачивается, и следующий пишется в

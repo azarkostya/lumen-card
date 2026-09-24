@@ -265,6 +265,9 @@ function env(opts) {
     /* Проверка на ТВ 2026-09-24: состояние трейлера (поле tr). Без
        opts.trailer модуля нет вовсе — как у подкраски выше. */
     trailer: opts.trailer ? { status: () => opts.trailer } : undefined,
+    /* Волна «Логотипы сразу»: предзагрузка соседей (поле pf). Без
+       opts.prefetch модуля нет вовсе. */
+    prefetch: opts.prefetch ? { stats: () => opts.prefetch } : undefined,
     pref, motionMode: () => opts.mode || 'full',
     /* LC.enabled() — гейт «выключенный плагин снял свой CSS, HUD поднимать
        нельзя» (sync(), src/69_hud.js). По умолчанию true, как у соседних
@@ -725,4 +728,35 @@ test('hud: без LC.accent строка всё равно собирается'
   e.tick(600);
   e.tick(1800);
   assert.ok(e.bodyChildren[0].textContent.indexOf('tint n/a') !== -1, e.bodyChildren[0].textContent);
+});
+
+/* ====================================================================== */
+/* Волна «Логотипы сразу»: поле pf — предзагрузка соседей героя           */
+/* (src/58_prefetch.js): запросов в пути, задач в очереди, деталей героя  */
+/* из памяти. На ТВ без консоли по нему видно, работает ли она вовсе и не */
+/* идут ли запросы при зажатой стрелке.                                   */
+/* ====================================================================== */
+
+test('hud: format — поле pf «в пути/в очереди/попадания» стоит перед tr, «pf n/a» без данных', () => {
+  const { api } = fresh();
+  const line = api.format(Object.assign({}, BASE, { pf: { fly: 2, queue: 5, hits: 17 }, tr: 'play' }));
+  assert.ok(line.indexOf(' · hw 4c/2gb · pf 2/5/17 · tr play · ') !== -1, line);
+  const none = api.format(BASE);
+  assert.ok(none.indexOf(' · pf n/a · tr n/a · ') !== -1, none);
+});
+
+test('hud: состояние предзагрузки берётся у LC.prefetch.stats() и доезжает до узла', () => {
+  const e = env({ store: { lumen_debug_hud: true }, prefetch: { fly: 1, queue: 0, hits: 4 } });
+  e.api.sync();
+  e.tick(600);
+  e.tick(1800);
+  assert.ok(e.bodyChildren[0].textContent.indexOf(' · pf 1/0/4 · ') !== -1, e.bodyChildren[0].textContent);
+});
+
+test('hud: без LC.prefetch — «pf n/a»', () => {
+  const e = env({ store: { lumen_debug_hud: true } });
+  e.api.sync();
+  e.tick(600);
+  e.tick(1800);
+  assert.ok(e.bodyChildren[0].textContent.indexOf(' · pf n/a · ') !== -1, e.bodyChildren[0].textContent);
 });
