@@ -373,11 +373,15 @@ test('scrimSize: кадр с потолком w1280 вместо original', () =
 });
 
 /* Ревью волны 1b, п.2: «поверх экрана открыто то, под чем ролик никто не
-   увидит». Набор — как у самой Lampa в Controller.toContent (app.min.js:
-   46510-46536): классы body settings--open, selectbox--open и search--open
-   (поиск из шапки, open$3 — :41513-41514, поверх главной) и узлы .modal /
-   .youtube-player в body (модал — :32415, YouTube Lampa — :53323-53324;
-   оба удаляются на закрытии). .player — плеер, его отвечает playerOpen. */
+   увидит». Набор взят из того, что Lampa закрывает в Controller.toContent
+   (app.min.js:46504-46542): классы body settings--open, selectbox--open и
+   search--open (поиск из шапки, open$3 — :41513-41514, поверх главной) и
+   узлы .modal / .youtube-player в body (модал — :32415, YouTube Lampa —
+   :53323-53324; оба удаляются на закрытии). Весь набор toContent он не
+   повторяет (ревью раунда хвостов, п.2): .player — плеер, его отвечает
+   playerOpen; .search-box (SearchInput) и body.ambience--enable
+   («Расширения») спрашивает только автотрейлер героя — ambience--enable
+   ставит и поиск, и трейлеру меню карточки он не помеха. */
 function withDocument(classes, found, fn) {
   const had = Object.prototype.hasOwnProperty.call(globalThis, 'document');
   const prev = globalThis.document;

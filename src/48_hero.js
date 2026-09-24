@@ -960,9 +960,29 @@
        не увидит, — плеер Lampa (не активность, главная под ним остаётся
        activity--active) или настройки / список выбора. Спрашивается в
        момент старта: и по истечении 8 с покоя, и когда доехал ответ
-       роликов. */
+       роликов.
+       Ревью раунда хвостов, п.2: и главная, спрятанная целиком. Lampa
+       гасит .wrap под body.ambience--enable (app.css:397-398), и ставят его
+       «Расширения» (Extensions.show, app.min.js:36488-36510), SearchInput
+       (:40001-40054) и поиск; у SearchInput есть ещё свой узел .search-box
+       — в body он только, пока тот открыт (удаляет его destroy). Здесь, а не
+       в общем LC.util.overlayOpen: трейлер меню карточки сверяет тот набор
+       с тем, что было открыто при запросе, и главная под поиском ему не
+       помеха. Без этой проверки на 8-й секунде под «Расширениями» уходил
+       запрос роликов и создавался плеер — YouTube декодировал ролик
+       впустую. */
     function trailerBlocked() {
-      return LC.util.playerOpen() || LC.util.overlayOpen();
+      return LC.util.playerOpen() || LC.util.overlayOpen() || homeHidden();
+    }
+
+    function homeHidden() {
+      try {
+        var list = document.body && document.body.classList;
+        if (list && list.contains('ambience--enable')) return true;
+        return !!(typeof document.querySelector === 'function' && document.querySelector('.search-box'));
+      } catch (e) {
+        return false;
+      }
     }
 
     /* Ревью волны 1b, п.1: старт ролика отменён тем, что открыто поверх

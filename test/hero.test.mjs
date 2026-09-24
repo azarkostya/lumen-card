@@ -3679,6 +3679,55 @@ test('трейлер героя: старт плеера Lampa снял роли
   assert.deepEqual(warnLog, []);
 });
 
+/* Ревью раунда хвостов, п.2: «Расширения» (Lampa.Extensions.show,
+   app.min.js:36488-36510) ставят body.ambience--enable, а под ним Lampa
+   прячет .wrap целиком (app.css:397-398) — главной не видно. Набор
+   LC.util.overlayOpen() этого класса не знает (и знать не должен:
+   ambience--enable ставит и сам поиск, а трейлер меню карточки сверяет
+   набор с тем, что было при запросе), — и на 8-й секунде уходил запрос
+   роликов, создавался плеер (HUD «play»), YouTube декодировал ролик
+   впустую. То же SearchInput: он тоже ставит ambience--enable, а его узел
+   .search-box лежит в body, только пока тот открыт (app.min.js:
+   40001-40054). */
+test('трейлер героя: под «Расширениями» и SearchInput ролик не стартует — ни запроса к 8-й секунде, ни плеера к ответу', () => {
+  const env = trailerEnv();
+  const nodes = [];
+  globalThis.document.querySelector = (sel) => (nodes.indexOf(sel) !== -1 ? {} : null);
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  focusOn(main, main.card1);
+  env.bodyClasses.push('ambience--enable');
+  env.advance(9000);
+  assert.equal(videoCount(env), 0, '«Расширения»: запрос роликов ушёл');
+  assert.equal(env.players.length, 0);
+  env.bodyClasses.splice(env.bodyClasses.indexOf('ambience--enable'), 1);
+
+  /* Закрыли — фокус вернулся на ту же карточку, отсчёт заново; к его
+     концу открыт SearchInput (узел без класса — на случай, если класс
+     уже снят кем-то другим). */
+  fireFocus(main.activity, main.card1);
+  nodes.push('.search-box');
+  env.advance(9000);
+  assert.equal(videoCount(env), 0, 'SearchInput: запрос роликов ушёл');
+  nodes.length = 0;
+
+  /* Ответ роликов доехал под «Расширениями» — плеер героя не создаётся,
+     а после закрытия отсчёт на той же карточке заводится заново. */
+  fireFocus(main.activity, main.card1);
+  env.advance(8100);
+  assert.equal(videoCount(env), 1);
+  env.bodyClasses.push('ambience--enable');
+  lastVideos(env).ok(VIDEOS_RU);
+  assert.equal(env.players.length, 0, 'под «Расширениями» плеер героя создан');
+  env.bodyClasses.splice(env.bodyClasses.indexOf('ambience--enable'), 1);
+  fireFocus(main.activity, main.card1);
+  env.advance(8100);
+  assert.equal(videoCount(env), 2, 'после «Расширений» отсчёт на той же карточке не заводился');
+  lastVideos(env).ok(VIDEOS_RU);
+  assert.equal(env.players.length, 1);
+  assert.deepEqual(warnLog, []);
+});
+
 /* Сторож: без оверлея повторное событие на той же карточке по-прежнему
    ничего не перезапускает — ни идущий ролик, ни отсчёт. */
 test('трейлер героя: без оверлея повторный фокус той же карточки отсчёт не перезапускает', () => {

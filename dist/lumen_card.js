@@ -601,6 +601,13 @@ return false;
 
 
 
+
+
+
+
+
+
+
 var OVERLAY_CLASSES = ['settings--open', 'selectbox--open', 'search--open'];
 var OVERLAY_NODES = ['.modal', '.youtube-player'];
 
@@ -13431,8 +13438,28 @@ return trailerAllowed(trailerPref(), motionMode(), trailerMode());
 
 
 
+
+
+
+
+
+
+
+
+
+
 function trailerBlocked() {
-return LC.util.playerOpen() || LC.util.overlayOpen();
+return LC.util.playerOpen() || LC.util.overlayOpen() || homeHidden();
+}
+
+function homeHidden() {
+try {
+var list = document.body && document.body.classList;
+if (list && list.contains('ambience--enable')) return true;
+return !!(typeof document.querySelector === 'function' && document.querySelector('.search-box'));
+} catch (e) {
+return false;
+}
 }
 
 
