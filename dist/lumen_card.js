@@ -2302,8 +2302,12 @@ css.push('.lumen-backdrop__img{position:absolute;top:0;left:0;right:0;bottom:0;b
 
 
 
+
+
+
+
 css.push('.lumen-backdrop .lumen-bg__img{position:absolute;top:0;right:0;bottom:0;left:0;background-position:72% 32%;background-repeat:no-repeat;-webkit-background-size:cover;background-size:cover;opacity:0}');
-css.push('body.lumen-fx-heavy .lumen-backdrop.lumen-motion-full .lumen-bg__img{-webkit-transition:opacity 1.2s ease-in-out;transition:opacity 1.2s ease-in-out}');
+css.push('body.lumen-fx-heavy .lumen-backdrop.lumen-motion-full .lumen-bg__img{-webkit-transition:opacity .6s ease-in-out;transition:opacity .6s ease-in-out}');
 css.push('.lumen-backdrop .lumen-bg__img.is-active{opacity:1}');
 
 
@@ -3722,7 +3726,11 @@ css.push('.lumen-card.lumen-motion-lite .lumen-stop.focus,.lumen-card.lumen-moti
 
 
 
-css.push('body.lumen-fx-heavy .lumen-backdrop.lumen-motion-full .lumen-bg__img.is-active{-webkit-animation:lumen-kb 14s linear forwards;animation:lumen-kb 14s linear forwards}');
+
+
+
+
+css.push('body.lumen-fx-heavy .lumen-backdrop.lumen-motion-full .lumen-bg__img.is-active{-webkit-animation:lumen-kb 14s steps(280) forwards;animation:lumen-kb 14s steps(280) forwards}');
 css.push('@-webkit-keyframes lumen-kb{from{-webkit-transform:scale(1)}to{-webkit-transform:scale(1.08)}}');
 css.push('@keyframes lumen-kb{from{transform:scale(1)}to{transform:scale(1.08)}}');
 
@@ -17584,7 +17592,9 @@ return false;
 
 
 
-var CROSSFADE_MS = 1200;
+
+
+var CROSSFADE_MS = 600;
 
 
 

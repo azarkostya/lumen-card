@@ -1422,11 +1422,15 @@
        .lumen-backdrop.lumen-motion-full .lumen-bg__img.is-active ниже.
        Проверка на ТВ 2026-09-24: кадры меняются во всех режимах, кроме
        «Выкл», но кроссфейд (opacity 1.2s ease-in-out, design screen 12) —
-       украшение: все 1,2 с на экране лежат ДВЕ полноэкранные картинки. Он
-       живёт только в полном режиме при включённых тяжёлых эффектах; в lite
-       и без тумблера кадр сменяется резко (базовое правило без перехода). */
+       украшение: всё время перехода на экране лежат ДВЕ полноэкранные
+       картинки. Он живёт только в полном режиме при включённых тяжёлых
+       эффектах; в lite и без тумблера кадр сменяется резко (базовое правило
+       без перехода). Волна производительности (2026-09-24): 1,2 → 0,6 с —
+       вдвое короче время двух слоёв; длительность совпадает с
+       LC.slideshow.CROSSFADE_MS (src/51_slideshow.js), по которому
+       контроллер отпускает фон уходящего кадра. */
     css.push('.lumen-backdrop .lumen-bg__img{position:absolute;top:0;right:0;bottom:0;left:0;background-position:72% 32%;background-repeat:no-repeat;-webkit-background-size:cover;background-size:cover;opacity:0}');
-    css.push('body.lumen-fx-heavy .lumen-backdrop.lumen-motion-full .lumen-bg__img{-webkit-transition:opacity 1.2s ease-in-out;transition:opacity 1.2s ease-in-out}');
+    css.push('body.lumen-fx-heavy .lumen-backdrop.lumen-motion-full .lumen-bg__img{-webkit-transition:opacity .6s ease-in-out;transition:opacity .6s ease-in-out}');
     css.push('.lumen-backdrop .lumen-bg__img.is-active{opacity:1}');
     /* Task 7 (экран 02): слой фонового трейлера — между кадрами слайдшоу и
        вуалями (порядок в DOM задаёт ensureLayer в 50_backdrops.js), поэтому
@@ -2825,7 +2829,7 @@
        снят во всех трёх режимах разом (palette(): P.blur/P.blurWide больше
        нет), потому что дорог он не движением, а самой природой свойства:
        backdrop-filter читает пиксели ПОД элементом и пересобирается
-       композитором покадрово, пока фон живой (кроссфейд кадров 1.2 с, наезд
+       композитором покадрово, пока фон живой (кроссфейд кадров 0.6 с, наезд
        Ken Burns, играющий iframe трейлера) — а фон под карточкой живой в
        любом режиме, кроме 'off'.
        Компенсация читаемости, которую эти правила несли вместе с гашением,
@@ -2844,8 +2848,12 @@
        lumen-fx-heavy ставит на body LC.applyMotionMode (src/90_runtime.js);
        на телевизоре тумблер по умолчанию выключен, и кадр стоит неподвижно.
        Селектор начинается с body, потому что сам слой фона (.lumen-backdrop)
-       класс тяжёлых эффектов не носит — он носит только класс режима. */
-    css.push('body.lumen-fx-heavy .lumen-backdrop.lumen-motion-full .lumen-bg__img.is-active{-webkit-animation:lumen-kb 14s linear forwards;animation:lumen-kb 14s linear forwards}');
+       класс тяжёлых эффектов не носит — он носит только класс режима.
+       Волна производительности (2026-09-24): steps(280) вместо linear.
+       Плавный наезд перерисовывал полноэкранный кадр на каждом такте экрана
+       все 14 с; шагами — 20 смен в секунду. Наезд на 8 % за 14 с — это
+       около 0,03 % ширины за шаг: на глаз не отличить от плавного. */
+    css.push('body.lumen-fx-heavy .lumen-backdrop.lumen-motion-full .lumen-bg__img.is-active{-webkit-animation:lumen-kb 14s steps(280) forwards;animation:lumen-kb 14s steps(280) forwards}');
     css.push('@-webkit-keyframes lumen-kb{from{-webkit-transform:scale(1)}to{-webkit-transform:scale(1.08)}}');
     css.push('@keyframes lumen-kb{from{transform:scale(1)}to{transform:scale(1.08)}}');
 

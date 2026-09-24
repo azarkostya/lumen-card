@@ -490,7 +490,15 @@ test('buildCss: .lumen-bg__img — базовое правило внутри .l
 test('ТВ 09-24: кроссфейд кадров карточки — только в full при тяжёлых эффектах, в lite смена резкая', () => {
   const heavy = findDecl(css, (sel) => sel === 'body.lumen-fx-heavy .lumen-backdrop.lumen-motion-full .lumen-bg__img');
   assert.ok(heavy, 'правило кроссфейда под body.lumen-fx-heavy не найдено');
-  assert.ok(heavy.indexOf('transition:opacity 1.2s ease-in-out') !== -1, 'ожидался transition:opacity 1.2s ease-in-out (design screen 12): ' + heavy);
+  /* Волна производительности (C7): 1.2 → .6 с — вдвое короче время, когда
+     на экране две полноэкранные картинки. Длительность обязана совпадать с
+     LC.slideshow.CROSSFADE_MS: по нему контроллер отпускает фон уходящего
+     кадра и держит его наезд (src/51_slideshow.js). */
+  assert.ok(heavy.indexOf('transition:opacity .6s ease-in-out') !== -1, 'ожидался transition:opacity .6s ease-in-out: ' + heavy);
+  const slideSrc = readFileSync(new URL('../src/51_slideshow.js', import.meta.url), 'utf8');
+  const crossfade = /var CROSSFADE_MS = (\d+);/.exec(slideSrc);
+  assert.ok(crossfade, 'CROSSFADE_MS не найден');
+  assert.equal(Number(crossfade[1]), 600, 'CROSSFADE_MS разошёлся с переходом в CSS');
   /* Любое правило, дающее кадру переход, обязано требовать и тумблер, и
      полный режим: в lite (класс lumen-motion-lite на слое, lumen-fx-heavy
      на body в lite не бывает — LC.fxHeavy) перехода нет. */
@@ -1128,6 +1136,12 @@ test('buildCss: наезд Ken Burns — на корне .lumen-backdrop (не .
   const decl = findDecl(css, (sel) => sel.indexOf('body.lumen-fx-heavy ') === 0 && sel.indexOf('.lumen-backdrop.lumen-motion-full') !== -1 && sel.indexOf('lumen-bg__img') !== -1 && sel.indexOf('is-active') !== -1);
   assert.ok(decl, 'правило наезда (body.lumen-fx-heavy .lumen-backdrop.lumen-motion-full .lumen-bg__img.is-active) не найдено');
   assert.ok(decl.indexOf('lumen-kb') !== -1, 'ожидалась ссылка на @keyframes lumen-kb (14s, 1.00 -> 1.08)');
+  /* Волна производительности (C7): наезд 14 с на полноэкранном кадре шёл
+     непрерывно, по кадру на каждый такт экрана. steps(280) — 20 смен в
+     секунду: наезд на 8 % за 14 с — это 0,03 % ширины за шаг, глазу
+     неотличимо от плавного, а кадров на композиторе втрое меньше. */
+  assert.ok(decl.indexOf('animation:lumen-kb 14s steps(280) forwards') !== -1, 'наезд шагами: ' + decl);
+  assert.equal(/lumen-kb 14s linear/.test(decl), false, 'наезд снова linear: ' + decl);
 });
 
 /* -------------------------------------------------------------------- */
