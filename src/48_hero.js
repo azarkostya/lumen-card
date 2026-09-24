@@ -194,6 +194,10 @@
        (замер у writeTitle); 900 — с запасом на прокси пользователя. */
     var FRAME_WAIT = 900;
 
+    /* Волна 3: дольше этого кадр прошлого фильма под текстом нового не
+       держится (разбор — у holdFrame). */
+    var HOLD_MS = 250;
+
     /* ------------------------------------------------------------------ */
     /* Чистые функции (без DOM, Lampa и window).                           */
     /* ------------------------------------------------------------------ */
@@ -835,8 +839,10 @@
       stopTimer('swapTimer');
       /* Правка 2026-09-22: ожидание логотипа прошлой карточки — тоже. */
       stopTimer('titleTimer');
-      /* Волна 3: ожидание деталей перед выбором кадра (startFrame). */
+      /* Волна 3: ожидание деталей перед выбором кадра (startFrame) и
+         отсчёт заглушки вместо кадра прошлого фильма (holdFrame). */
       stopTimer('frameWait');
+      stopTimer('holdTimer');
       /* Task 71: предзагрузка логотипа — такой же незавершённый запрос
          прошлой карточки, как кадр. Её страховочный таймаут живёт внутри
          preloadLogo и снимается вместе с ней. */
@@ -1625,6 +1631,23 @@
 
         text.removeClass('is-swapping');
         if (motionMode() === 'full') text.addClass('is-in');
+
+        /* Волна 3: текст нового фильма выведен — с этого мига кадр
+           прошлого под ним живёт не дольше HOLD_MS (holdFrame). Отсчёт от
+           вывода, а не от show(): текст выходит через SWAP_MS или сразу
+           (детали из кэша), и отсрочка вывода остаётся кадру нового
+           фильма — доехав за неё, он встаёт без заглушки, одной сменой. */
+        if (state.holdDue) {
+          state.holdDue = false;
+          if (String(state.frameId) !== String(state.shownId)) {
+            var held = gen;
+            state.holdTimer = setTimeout(function () {
+              if (gen !== held || !state) return;
+              state.holdTimer = null;
+              holdFrame(held);
+            }, HOLD_MS);
+          }
+        }
       }
 
       if (!swap) {
@@ -1788,6 +1811,8 @@
           lqip.attr('src', small);
           lqip.addClass('is-active');
           state.lqipUrl = small;
+          /* Волна 3: подложка — уже кадр этого фильма (holdFrame). */
+          state.frameId = state.shownId;
         }
       }
 
@@ -1831,8 +1856,9 @@
         if (gen !== captured || !state || !isMounted()) return;
         stopTimer('loadTimer');
         state.loader = null;
-        /* Кадр не пришёл — на экране остаётся предыдущий: пустой герой
-           хуже устаревшего кадра, а следующий фокус всё равно его сменит. */
+        /* Кадр не пришёл — слои не трогаем: пустой герой хуже любого
+           кадра. Кадр прошлого фильма, если он на экране, сменит заглушка
+           (report(false) в startFrame → holdFrame, волна 3). */
         if (!ok) { report(false); return; }
         try {
           swapFrame(url, blur);
@@ -1966,12 +1992,76 @@
       if (state.framePath === '' && !model.backdrop) return;
       stopTimer('frameWait');
       state.framePath = model.backdrop || '';
-      loadFrame(model, captured);
+      loadFrame(model, captured, function (ok) {
+        if (gen !== captured || !state) return;
+        if (!ok) { holdFrame(captured); return; }
+        state.frameId = state.shownId;
+        stopTimer('holdTimer');
+      });
+    }
+
+    /* Волна 3 (проверка на ТВ 2026-09-24, фото 2): текст нового фильма, а
+       под ним кадр прошлого — новый кадр ещё едет (деталей ждём до
+       FRAME_WAIT, сам w1280 на ТВ — сотни миллисекунд) или не загрузился
+       вовсе. Кадр ЧУЖОГО фильма под новым текстом держится не дольше
+       HOLD_MS от вывода текста (таймер holdTimer заводит write в render)
+       и уходит сразу, если новый кадр не загрузился.
+       Заглушка — по образцу Lampa, у которой фон экрана — размытый постер
+       фильма: постер новой карточки из ряда. Он уже в кэше браузера —
+       Lampa нарисовала его в ряду, — значит, ни запроса, ни ожидания, ни
+       нового слоя: он встаёт в тот же слой кадра и растягивается cover'ом,
+       мягкость даёт сам апскейл (в ряду постер w200–w500 — по настройке
+       качества постеров Lampa), без filter:blur, который на полноэкранном
+       слое в lite запрещён. Слой получает ту же
+       метку размытия, что постер фильма без кадра (loadFrame). Кадр
+       прошлого фильма, размытый CSS, дешевле не был бы (filter на весь
+       экран) и остался бы кадром чужого фильма; подложке LQIP нового
+       фильма нужен выбранный кадр — детали и ещё один запрос.
+       Постера в ряду ещё нет (Lampa ставит его, когда карточка появляется
+       на экране, до того там ./img/img_load.svg) — нейтральный фон
+       страницы: гаснут оба слоя кадра и подложка.
+       state.frameId — чей кадр на экране: возврат на тот же фильм (resume
+       с оборванной загрузкой) свой кадр не прячет, а первый показ героя
+       заглушки не ждёт вовсе — под ним ничего нет. */
+    function holdFrame(captured) {
+      if (!state || gen !== captured) return;
+      stopTimer('holdTimer');
+      if (String(state.frameId) === String(state.shownId)) return;
+      if (!state.frameUrl && !state.lqipUrl) return;
+      var poster = state.holdPoster;
+      try {
+        if (poster) {
+          swapFrame(poster, true);
+        } else {
+          state.stage.find('.lumen-hero__bg').removeClass('is-active');
+          state.frameUrl = '';
+          if (state.lqipUrl) {
+            stopTimer('lqipTimer');
+            var lqip = state.stage.find('.lumen-hero__lqip');
+            lqip.removeClass('is-active');
+            lqip.removeAttr('src');
+            state.lqipUrl = '';
+          }
+        }
+        /* На экране больше нет прошлого фильма — второй раз не прячем. */
+        state.frameId = state.shownId;
+      } catch (e) {
+        warn('hero: hold failed', e);
+      }
+    }
+
+    /* Адрес постера карточки из ряда, если он уже настоящий: до появления
+       карточки на экране Lampa держит там svg-заглушку загрузки. */
+    function rowPoster(el) {
+      var src = el ? posterOf(el) : '';
+      return src && !/\.svg(\?|#|$)/i.test(src) ? src : '';
     }
 
     /* Показать героя для карточки. Вызывается только из отложенного тика
-       обработчика фокуса (или из mount для уже сфокусированной карточки). */
-    function show(card) {
+       обработчика фокуса (или из mount для уже сфокусированной карточки).
+       el — узел карточки в ряду, если он есть: его постер — заглушка
+       holdFrame. */
+    function show(card, el) {
       if (!state || !card) return;
       try {
         var captured = ++gen;
@@ -1996,6 +2086,10 @@
            запрос, потом, если ответ не пришёл синхронно из кэша, отсчёт
            FRAME_WAIT до кадра по данным ряда. */
         state.framePath = null;
+        /* Волна 3: на экране кадр — отсчёт заглушки заведёт вывод текста
+           этого показа (write в render), если кадр к тому мигу чужой. */
+        state.holdPoster = rowPoster(el);
+        state.holdDue = !!(state.frameUrl || state.lqipUrl) && motionMode() !== 'off';
         var model = heroModel(card, null, words());
         render(model, true);
         loadDetails(card, captured);
@@ -2197,7 +2291,7 @@
         if (!isMounted()) return;
         if (state.pending !== card) return;
         if (!shouldUpdate(state.shownId, card.id, Date.now() - state.focusAt, DELAY)) return;
-        show(card);
+        show(card, el);
       }, DELAY);
     }
 
@@ -2306,7 +2400,7 @@
              ставится: первое настоящее событие фокуса должно пройти полный
              путь и завести таймеры. */
           rememberFocus(el[0], el[0].card_data);
-          show(el[0].card_data);
+          show(el[0].card_data, el[0]);
         }
       } catch (e) {}
     }
@@ -2507,6 +2601,13 @@
              таймер ожидания деталей перед выбором. */
           framePath: null,
           frameWait: null,
+          /* Волна 3: чей кадр на экране (id фильма); заглушка вместо кадра
+             прошлого фильма — постер карточки из ряда, отсчёт до неё и
+             отметка «завести отсчёт при выводе текста» (holdFrame). */
+          frameId: null,
+          holdPoster: '',
+          holdTimer: null,
+          holdDue: false,
           /* Task 64: адрес кадра-подложки (w300), чтобы тот же не ставился
              дважды. */
           lqipUrl: '',
@@ -2609,7 +2710,7 @@
       } catch (eTween) {
         warn('hero: accent stop failed', eTween);
       }
-      var timers = ['timer', 'swapTimer', 'loadTimer', 'accentTimer', 'trailerTimer', 'lqipTimer', 'titleTimer', 'frameWait'];
+      var timers = ['timer', 'swapTimer', 'loadTimer', 'accentTimer', 'trailerTimer', 'lqipTimer', 'titleTimer', 'frameWait', 'holdTimer'];
       for (var i = 0; i < timers.length; i++) {
         try { if (s[timers[i]]) clearTimeout(s[timers[i]]); } catch (eT) {}
       }
@@ -2710,7 +2811,7 @@
          запросом деталей. Карточку в фокусе на возврате это не задевает:
          другая карточка показывается по несовпадению shownId, а та же —
          и так на экране целиком. Сам таймер park гасит ниже. */
-      if (state.detailsWait || state.loader || state.logoLoader || state.swapTimer || state.loadTimer || state.titleTimer || state.frameWait) {
+      if (state.detailsWait || state.loader || state.logoLoader || state.swapTimer || state.loadTimer || state.titleTimer || state.frameWait || state.holdTimer) {
         state.stale = true;
       }
       state.parked = true;
@@ -2799,7 +2900,7 @@
         }
         if (state.stale || String(state.shownId) !== String(card.id)) {
           state.stale = false;
-          show(card);
+          show(card, node);
         } else {
           applyFx();
         }

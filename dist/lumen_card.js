@@ -12611,6 +12611,10 @@ var FRAME_WAIT = 900;
 
 
 
+var HOLD_MS = 250;
+
+
+
 
 
 
@@ -13251,7 +13255,9 @@ stopTimer('swapTimer');
 
 stopTimer('titleTimer');
 
+
 stopTimer('frameWait');
+stopTimer('holdTimer');
 
 
 
@@ -14040,6 +14046,23 @@ writeTitle(current, logoState);
 
 text.removeClass('is-swapping');
 if (motionMode() === 'full') text.addClass('is-in');
+
+
+
+
+
+
+if (state.holdDue) {
+state.holdDue = false;
+if (String(state.frameId) !== String(state.shownId)) {
+var held = gen;
+state.holdTimer = setTimeout(function () {
+if (gen !== held || !state) return;
+state.holdTimer = null;
+holdFrame(held);
+}, HOLD_MS);
+}
+}
 }
 
 if (!swap) {
@@ -14203,6 +14226,8 @@ var lqip = state.stage.find('.lumen-hero__lqip');
 lqip.attr('src', small);
 lqip.addClass('is-active');
 state.lqipUrl = small;
+
+state.frameId = state.shownId;
 }
 }
 
@@ -14246,6 +14271,7 @@ loader.onerror = null;
 if (gen !== captured || !state || !isMounted()) return;
 stopTimer('loadTimer');
 state.loader = null;
+
 
 
 if (!ok) { report(false); return; }
@@ -14381,12 +14407,76 @@ if (state.framePath) return;
 if (state.framePath === '' && !model.backdrop) return;
 stopTimer('frameWait');
 state.framePath = model.backdrop || '';
-loadFrame(model, captured);
+loadFrame(model, captured, function (ok) {
+if (gen !== captured || !state) return;
+if (!ok) { holdFrame(captured); return; }
+state.frameId = state.shownId;
+stopTimer('holdTimer');
+});
 }
 
 
 
-function show(card) {
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function holdFrame(captured) {
+if (!state || gen !== captured) return;
+stopTimer('holdTimer');
+if (String(state.frameId) === String(state.shownId)) return;
+if (!state.frameUrl && !state.lqipUrl) return;
+var poster = state.holdPoster;
+try {
+if (poster) {
+swapFrame(poster, true);
+} else {
+state.stage.find('.lumen-hero__bg').removeClass('is-active');
+state.frameUrl = '';
+if (state.lqipUrl) {
+stopTimer('lqipTimer');
+var lqip = state.stage.find('.lumen-hero__lqip');
+lqip.removeClass('is-active');
+lqip.removeAttr('src');
+state.lqipUrl = '';
+}
+}
+
+state.frameId = state.shownId;
+} catch (e) {
+warn('hero: hold failed', e);
+}
+}
+
+
+
+function rowPoster(el) {
+var src = el ? posterOf(el) : '';
+return src && !/\.svg(\?|#|$)/i.test(src) ? src : '';
+}
+
+
+
+
+
+function show(card, el) {
 if (!state || !card) return;
 try {
 var captured = ++gen;
@@ -14411,6 +14501,10 @@ clearFx();
 
 
 state.framePath = null;
+
+
+state.holdPoster = rowPoster(el);
+state.holdDue = !!(state.frameUrl || state.lqipUrl) && motionMode() !== 'off';
 var model = heroModel(card, null, words());
 render(model, true);
 loadDetails(card, captured);
@@ -14612,7 +14706,7 @@ state.timer = null;
 if (!isMounted()) return;
 if (state.pending !== card) return;
 if (!shouldUpdate(state.shownId, card.id, Date.now() - state.focusAt, DELAY)) return;
-show(card);
+show(card, el);
 }, DELAY);
 }
 
@@ -14721,7 +14815,7 @@ updateCompact(el[0]);
 
 
 rememberFocus(el[0], el[0].card_data);
-show(el[0].card_data);
+show(el[0].card_data, el[0]);
 }
 } catch (e) {}
 }
@@ -14924,6 +15018,13 @@ framePath: null,
 frameWait: null,
 
 
+
+frameId: null,
+holdPoster: '',
+holdTimer: null,
+holdDue: false,
+
+
 lqipUrl: '',
 
 lqipTimer: null,
@@ -15024,7 +15125,7 @@ if (LC.accent && typeof LC.accent.stopTween === 'function') LC.accent.stopTween(
 } catch (eTween) {
 warn('hero: accent stop failed', eTween);
 }
-var timers = ['timer', 'swapTimer', 'loadTimer', 'accentTimer', 'trailerTimer', 'lqipTimer', 'titleTimer', 'frameWait'];
+var timers = ['timer', 'swapTimer', 'loadTimer', 'accentTimer', 'trailerTimer', 'lqipTimer', 'titleTimer', 'frameWait', 'holdTimer'];
 for (var i = 0; i < timers.length; i++) {
 try { if (s[timers[i]]) clearTimeout(s[timers[i]]); } catch (eT) {}
 }
@@ -15125,7 +15226,7 @@ if (!state || state.parked) return;
 
 
 
-if (state.detailsWait || state.loader || state.logoLoader || state.swapTimer || state.loadTimer || state.titleTimer || state.frameWait) {
+if (state.detailsWait || state.loader || state.logoLoader || state.swapTimer || state.loadTimer || state.titleTimer || state.frameWait || state.holdTimer) {
 state.stale = true;
 }
 state.parked = true;
@@ -15214,7 +15315,7 @@ scheduleTrailer(card);
 }
 if (state.stale || String(state.shownId) !== String(card.id)) {
 state.stale = false;
-show(card);
+show(card, node);
 } else {
 applyFx();
 }

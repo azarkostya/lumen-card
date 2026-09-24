@@ -1754,7 +1754,12 @@ test('Task 47: реджект decode() с загруженными байтам�
   assert.deepEqual(warnLog, []);
 });
 
-test('Task 47: реджект decode() без байт оставляет предыдущий кадр, а не пустоту', async () => {
+/* Волна 3 (ТВ 2026-09-24): прежде здесь на экране оставался кадр прошлого
+   фильма — «пустой герой хуже устаревшего кадра». Теперь кадр чужого
+   фильма под новым текстом не остаётся: неудача кадра сразу ставит
+   заглушку holdFrame — постер нового фильма из ряда. Пустоты по-прежнему
+   нет, и битый кадр по-прежнему ни в один слой не попадает. */
+test('Task 47: реджект decode() без байт — битый кадр в слой не идёт и пустоты нет (волна 3: постер нового фильма из ряда)', async () => {
   const f = focusedFrame();
   arrive(f.img);
   f.img.decoded.resolve();
@@ -1764,9 +1769,11 @@ test('Task 47: реджект decode() без байт оставляет пре
   const second = focusSecond(f);
   second.decoded.reject(new Error('broken image'));
   await tick();
-  assert.equal(f.bg.attr('src'), 'https://img/t/p/w1280/b1.jpg', 'старый кадр не затёрт пустым');
-  assert.equal(f.bg.hasClass('is-active'), true);
-  assert.equal(stageOf(f.node).find('.lumen-hero__bg--b').attr('src'), undefined, 'второй слой не поднимали');
+  const stage = stageOf(f.node);
+  assert.equal(stage.find('.lumen-hero__bg.is-active').attr('src'), 'https://img/t/p/w300/p2.jpg', 'на экране не постер нового фильма');
+  for (const cls of ['.lumen-hero__bg--a', '.lumen-hero__bg--b']) {
+    assert.notEqual(stage.find(cls).attr('src'), 'https://img/t/p/w1280/b2.jpg', cls + ': битый кадр поставлен в слой');
+  }
   assert.deepEqual(warnLog, []);
 });
 
@@ -1923,6 +1930,150 @@ test('волна 3: детали из кэша (синхронно) — кадр
     tmdb.get = get;
   }
   assert.deepEqual(frameLoads(env), ['/scene.jpg']);
+});
+
+/* Волна 3 (ТВ 2026-09-24, фото 2): текст нового фильма, а под ним кадр
+   прошлого — кадр не доехал или не загрузился. Кадр ЧУЖОГО фильма под
+   новым текстом не держится дольше HOLD_MS (250 мс от вывода текста;
+   текст выходит через SWAP_MS = 180 мс после показа или сразу, если
+   детали пришли): вместо него встаёт постер новой карточки из ряда — он
+   уже в кэше браузера (Lampa нарисовала его в ряду), растягивается
+   апскейлом без filter и помечается метой размытия; постера в ряду ещё
+   нет — нейтральный фон страницы. */
+function shownFrame(env, main) {
+  fireFocus(main.activity, main.card1);
+  env.advance(400);
+  answerDetails(env);
+  frameImg(env, '/b1.jpg').onload();
+  const stage = stageOf(heroOf(main.activity));
+  assert.equal(stage.find('.lumen-hero__bg.is-active').attr('src'), 'https://img/t/p/w1280/b1.jpg', 'предусловие: кадр первого фильма на экране');
+  return stage;
+}
+
+test('волна 3: кадр прошлого фильма под новым текстом не дольше 250 мс — заглушка из постера ряда', () => {
+  const env = makeEnv({ fxHeavy: () => false });
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  const stage = shownFrame(env, main);
+  const active = () => stage.find('.lumen-hero__bg.is-active');
+
+  fireFocus(main.activity, main.card2);
+  env.advance(350);
+  assert.equal(detailsOf(env, 22) && true, true, 'второй фильм показан — детали спрошены');
+  env.advance(180);
+  assert.equal(heroOf(main.activity).find('.lumen-hero__descr').text(), 'о втором', 'текст второго фильма выведен');
+  env.advance(249);
+  assert.equal(active().attr('src'), 'https://img/t/p/w1280/b1.jpg', 'раньше 250 мс заглушку не ставим');
+  env.advance(2);
+  assert.equal(active().attr('src'), 'https://img/t/p/w300/p2.jpg', 'через 250 мс под текстом второго фильма — его постер из ряда');
+  assert.equal(active().hasClass('lumen-hero__bg--blur'), true, 'постер помечен как размытый слой');
+  assert.equal(env.images.filter((i) => /p2\.jpg/.test(i.src)).length, 0, 'постер из ряда не грузится заново — он уже в кэше');
+
+  detailsOf(env, 22).ok({ id: 22 });
+  frameImg(env, '/b2.jpg').onload();
+  assert.equal(active().attr('src'), 'https://img/t/p/w1280/b2.jpg', 'кадр второго фильма сменил заглушку');
+  assert.equal(active().hasClass('lumen-hero__bg--blur'), false);
+  assert.deepEqual(warnLog, []);
+});
+
+test('волна 3: постера в ряду ещё нет — вместо кадра прошлого фильма нейтральный фон', () => {
+  const env = makeEnv({ fxHeavy: () => false });
+  const main = makeMain();
+  main.card2.find('.card__img').attr('src', './img/img_load.svg');
+  env.hero.mount(main.activity);
+  const stage = shownFrame(env, main);
+
+  fireFocus(main.activity, main.card2);
+  env.advance(350);
+  env.advance(180);
+  env.advance(251);
+  assert.equal(stage.find('.lumen-hero__bg.is-active'), EMPTY, 'кадр прошлого фильма остался на экране');
+  detailsOf(env, 22).ok({ id: 22 });
+  frameImg(env, '/b2.jpg').onload();
+  assert.equal(stage.find('.lumen-hero__bg.is-active').attr('src'), 'https://img/t/p/w1280/b2.jpg');
+});
+
+test('волна 3: кадр нового фильма не загрузился — кадр прошлого не остаётся и до 250 мс', () => {
+  const env = makeEnv({ fxHeavy: () => false });
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  const stage = shownFrame(env, main);
+
+  fireFocus(main.activity, main.card2);
+  env.advance(350);
+  detailsOf(env, 22).ok({ id: 22 });
+  frameImg(env, '/b2.jpg').onerror();
+  assert.equal(stage.find('.lumen-hero__bg.is-active').attr('src'), 'https://img/t/p/w300/p2.jpg', 'после ошибки кадра — сразу постер нового фильма');
+});
+
+/* Отсчёт — от вывода текста, а не от показа: кадр, доехавший через 300 мс
+   после показа (120 мс после текста), встаёт без заглушки, одной сменой. */
+test('волна 3: кадр нового фильма успел за 250 мс от вывода текста — заглушки нет, смена одна', () => {
+  const env = makeEnv({ fxHeavy: () => false });
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  const stage = shownFrame(env, main);
+  const seen = [];
+  const a = stage.find('.lumen-hero__bg--a');
+  const orig = a.attr;
+  a.attr = function (name, val) {
+    if (name === 'src' && arguments.length === 2) seen.push(val);
+    return orig.apply(this, arguments);
+  };
+
+  fireFocus(main.activity, main.card2);
+  env.advance(350);
+  env.advance(200);
+  assert.equal(heroOf(main.activity).find('.lumen-hero__descr').text(), 'о втором', 'текст второго фильма выведен');
+  detailsOf(env, 22).ok({ id: 22 });
+  env.advance(100);
+  frameImg(env, '/b2.jpg').onload();
+  env.advance(1000);
+  assert.deepEqual(seen, ['https://img/t/p/w1280/b2.jpg'], 'между кадрами двух фильмов мелькнула заглушка');
+});
+
+/* Кадр первого фильма не доехал, а его подложка LQIP (w300) уже на экране —
+   это тоже кадр чужого фильма под новым текстом. */
+test('волна 3: на экране только подложка прошлого фильма — через 250 мс нет и её', () => {
+  const env = makeEnv({ fxHeavy: () => false });
+  const main = makeMain();
+  main.card2.find('.card__img').attr('src', './img/img_load.svg');
+  env.hero.mount(main.activity);
+  const stage = stageOf(heroOf(main.activity));
+  const lqip = stage.find('.lumen-hero__lqip');
+  fireFocus(main.activity, main.card1);
+  env.advance(400);
+  answerDetails(env);
+  assert.equal(lqip.attr('src'), 'https://img/t/p/w300/b1.jpg', 'предусловие: подложка первого фильма');
+
+  fireFocus(main.activity, main.card2);
+  env.advance(350);
+  env.advance(180);
+  env.advance(251);
+  assert.equal(lqip.hasClass('is-active'), false, 'подложка прошлого фильма осталась под текстом нового');
+  assert.equal(lqip.attr('src'), undefined);
+  detailsOf(env, 22).ok({ id: 22 });
+  assert.equal(lqip.attr('src'), 'https://img/t/p/w300/b2.jpg', 'подложка нового фильма не встала');
+  assert.equal(lqip.hasClass('is-active'), true);
+});
+
+test('волна 3: подложка нового фильма встала раньше 250 мс — заглушка её не прячет', () => {
+  const env = makeEnv({ fxHeavy: () => false });
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  const stage = stageOf(heroOf(main.activity));
+  const lqip = stage.find('.lumen-hero__lqip');
+  fireFocus(main.activity, main.card1);
+  env.advance(400);
+  answerDetails(env);
+
+  fireFocus(main.activity, main.card2);
+  env.advance(350);
+  detailsOf(env, 22).ok({ id: 22 });
+  env.advance(300);
+  assert.equal(lqip.attr('src'), 'https://img/t/p/w300/b2.jpg');
+  assert.equal(lqip.hasClass('is-active'), true);
+  assert.equal(stage.find('.lumen-hero__bg.is-active'), EMPTY, 'поверх подложки нового фильма встала заглушка');
 });
 
 test('Task 64: слои кадра — img с decoding=async и высоким приоритетом', () => {
