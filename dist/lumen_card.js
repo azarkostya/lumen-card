@@ -14179,6 +14179,9 @@ write();
 
 
 
+
+
+
 function swapFrame(url, blur) {
 if (!state) return;
 var a = state.stage.find('.lumen-hero__bg--a');
@@ -14517,6 +14520,8 @@ stopTimer('holdTimer');
 
 
 
+
+
 function holdFrame(captured, late) {
 if (!state || gen !== captured) return;
 stopTimer('holdTimer');
@@ -14705,6 +14710,8 @@ var index = rowIndex(el);
 if (index < 0) return;
 setCompact(index > 0);
 }
+
+
 
 
 function posterOf(el) {
