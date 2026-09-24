@@ -9199,6 +9199,12 @@ return copy;
 
 
 
+
+
+
+
+
+
 function dedupeAcross(rows, seen, min, fit) {
 if (!rows || !rows.length) return [];
 seen = seen || {};
@@ -9211,6 +9217,13 @@ var kept = [];
 var trimmed = [];
 var before = [];
 var i, j;
+for (i = 0; i < rows.length; i++) {
+if (!rows[i] || !rows[i].lumen_personal || !rows[i].results) continue;
+for (j = 0; j < rows[i].results.length; j++) {
+var own = cardKey(rows[i].results[j]);
+if (own) seen[own] = 1;
+}
+}
 for (i = 0; i < rows.length; i++) {
 var row = rows[i];
 if (!row || !row.results || !row.results.length) continue;

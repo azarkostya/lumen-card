@@ -391,7 +391,13 @@
            Стоит на рядах, состав которых пользователь выбрал сам
            (настройка lumen_home_rows, см. register), и на ряде адвента:
            в первых числах декабря в нём меньше четырёх карточек по самому
-           его устройству. */
+           его устройству.
+
+       Волна 4 (ротация рядов главной): личный ряд может стоять НИЖЕ
+       подборки — «Досмотреть» вторым, под подборкой-лидером. Поэтому
+       карточки личных рядов пачки кладутся в окно предварительным
+       проходом, до чистки подборок: начатый фильм уходит и из подборки
+       выше. Личные ряды друг друга по-прежнему не чистят. */
     function dedupeAcross(rows, seen, min, fit) {
       if (!rows || !rows.length) return [];
       seen = seen || {};
@@ -404,6 +410,13 @@
       var trimmed = [];
       var before = [];
       var i, j;
+      for (i = 0; i < rows.length; i++) {
+        if (!rows[i] || !rows[i].lumen_personal || !rows[i].results) continue;
+        for (j = 0; j < rows[i].results.length; j++) {
+          var own = cardKey(rows[i].results[j]);
+          if (own) seen[own] = 1;
+        }
+      }
       for (i = 0; i < rows.length; i++) {
         var row = rows[i];
         if (!row || !row.results || !row.results.length) continue;
