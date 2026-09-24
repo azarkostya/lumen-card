@@ -13366,13 +13366,29 @@ return LC.util.playerOpen() || LC.util.overlayOpen();
 
 
 
+
+
+function forgetTrailerFocus() {
+if (!state) return;
+state.focusEl = null;
+state.trailerCard = null;
+}
+
+
+
+
+
+
 var playerHook = null;
 
 function listenPlayer() {
 if (playerHook) return;
 try {
 if (!window.Lampa || !Lampa.Player || !Lampa.Player.listener || typeof Lampa.Player.listener.follow !== 'function') return;
-playerHook = function () { cancelTrailer(); };
+playerHook = function () {
+cancelTrailer();
+forgetTrailerFocus();
+};
 Lampa.Player.listener.follow('start', playerHook);
 } catch (e) {
 playerHook = null;
@@ -13575,7 +13591,8 @@ ask(lang, lang === 'en' ? '' : 'en');
 function startTrailer(key, captured) {
 try {
 if (tgen !== captured || !state || !isMounted()) return;
-if (!trailerReady() || trailerBlocked()) { planDone('stop'); return; }
+if (!trailerReady()) { planDone('stop'); return; }
+if (trailerBlocked()) { planDone('stop'); forgetTrailerFocus(); return; }
 if (!LC.trailer || typeof LC.trailer.player !== 'function') return;
 var host = state.stage.find('.lumen-hero__trailer');
 if (!host || !host.length) return;
@@ -13612,7 +13629,8 @@ if (state.pending !== card) return;
 if (!isMounted()) return;
 
 
-if (!trailerReady() || trailerBlocked()) { planDone('stop'); return; }
+if (!trailerReady()) { planDone('stop'); return; }
+if (trailerBlocked()) { planDone('stop'); forgetTrailerFocus(); return; }
 loadTrailer(card, captured);
 }, TRAILER_DELAY);
 }

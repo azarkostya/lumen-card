@@ -938,6 +938,19 @@
       return LC.util.playerOpen() || LC.util.overlayOpen();
     }
 
+    /* Ревью волны 1b, п.1: старт ролика отменён тем, что открыто поверх
+       (trailerBlocked), или стартом плеера Lampa. Закрываясь, Lampa
+       возвращает фокус на ту же карточку тем же событием на том же узле
+       (Controller.toggle -> collectionFocus), и гард «фокус не сменился» в
+       onFocus его съедал — отсчёт на этой карточке не заводился больше
+       никогда. Забываем узел и карточку ролика: возврат фокуса проходит
+       onFocus целиком и заводит отсчёт заново. */
+    function forgetTrailerFocus() {
+      if (!state) return;
+      state.focusEl = null;
+      state.trailerCard = null;
+    }
+
     /* Старт плеера Lampa ('start', app.min.js:31046/31069) снимает ролик
        героя: без этого долгое OK → «Трейлер» на главной оставляло YouTube
        героя играть под полноэкранным плеером. Подписка живёт, пока смонтирован
@@ -949,7 +962,10 @@
       if (playerHook) return;
       try {
         if (!window.Lampa || !Lampa.Player || !Lampa.Player.listener || typeof Lampa.Player.listener.follow !== 'function') return;
-        playerHook = function () { cancelTrailer(); };
+        playerHook = function () {
+          cancelTrailer();
+          forgetTrailerFocus();
+        };
         Lampa.Player.listener.follow('start', playerHook);
       } catch (e) {
         playerHook = null;
@@ -1152,7 +1168,8 @@
     function startTrailer(key, captured) {
       try {
         if (tgen !== captured || !state || !isMounted()) return;
-        if (!trailerReady() || trailerBlocked()) { planDone('stop'); return; }
+        if (!trailerReady()) { planDone('stop'); return; }
+        if (trailerBlocked()) { planDone('stop'); forgetTrailerFocus(); return; }
         if (!LC.trailer || typeof LC.trailer.player !== 'function') return;
         var host = state.stage.find('.lumen-hero__trailer');
         if (!host || !host.length) return;
@@ -1189,7 +1206,8 @@
         if (!isMounted()) return;
         /* Настройку и режим анимаций перечитываем в момент старта: за восемь
            секунд их могли поменять. */
-        if (!trailerReady() || trailerBlocked()) { planDone('stop'); return; }
+        if (!trailerReady()) { planDone('stop'); return; }
+        if (trailerBlocked()) { planDone('stop'); forgetTrailerFocus(); return; }
         loadTrailer(card, captured);
       }, TRAILER_DELAY);
     }

@@ -3117,6 +3117,96 @@ test('трейлер героя: событие start плеера Lampa сни�
   assert.equal((player.subs.start || []).length, 0, 'unmount снимает подписку');
 });
 
+/* Ревью волны 1b, п.1: старт ролика, отменённый тем, что открыто поверх
+   главной, на этой карточке не возвращался. Меню карточки по долгому OK —
+   Lampa.Select (selectbox--open); закрываясь, Lampa возвращает фокус на ту
+   же карточку тем же событием на том же узле (Controller.toggle ->
+   toggle контроллера экрана -> collectionFocus, app.min.js:46297-46315 и
+   :46474-46490), а его гард «фокус не сменился» в onFocus съедал: отсчёт
+   больше не заводился. */
+const videoCount = (env) => env.requests.filter((r) => r.url.indexOf('/videos') >= 0).length;
+
+test('трейлер героя: список выбора открыт к 8-й секунде — закрыли, фокус вернулся, через 8 с ролики спрашиваются', () => {
+  const env = trailerEnv();
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  focusOn(main, main.card1);
+  env.advance(7900);
+  env.bodyClasses.push('selectbox--open');
+  env.advance(200);
+  assert.equal(videoCount(env), 0, 'под открытым списком старт отменён');
+
+  env.bodyClasses.splice(env.bodyClasses.indexOf('selectbox--open'), 1);
+  fireFocus(main.activity, main.card1);
+  env.advance(7900);
+  assert.equal(videoCount(env), 0, 'отсчёт заново — полные 8 с от возврата фокуса');
+  env.advance(200);
+  assert.equal(videoCount(env), 1, 'возврат фокуса на ту же карточку не завёл отсчёт');
+  lastVideos(env).ok(VIDEOS_RU);
+  assert.equal(env.players.length, 1);
+  assert.deepEqual(warnLog, []);
+});
+
+test('трейлер героя: ответ роликов доехал под открытым поиском — закрыли, фокус вернулся, отсчёт заново', () => {
+  const env = trailerEnv();
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  focusOn(main, main.card1);
+  env.advance(8100);
+  env.bodyClasses.push('search--open');
+  lastVideos(env).ok(VIDEOS_RU);
+  assert.equal(env.players.length, 0, 'под поиском плеер героя не создаётся');
+
+  env.bodyClasses.splice(env.bodyClasses.indexOf('search--open'), 1);
+  fireFocus(main.activity, main.card1);
+  env.advance(8100);
+  assert.equal(videoCount(env), 2, 'возврат фокуса на ту же карточку не завёл отсчёт');
+  lastVideos(env).ok(VIDEOS_RU);
+  assert.equal(env.players.length, 1);
+});
+
+test('трейлер героя: старт плеера Lampa снял ролик — плеер закрыт, фокус вернулся, отсчёт заново', () => {
+  const env = trailerEnv();
+  const player = lampaPlayer(env);
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  focusOn(main, main.card1);
+  env.advance(8100);
+  lastVideos(env).ok(VIDEOS_RU);
+  env.players[0].onStart();
+
+  player.open = true;
+  player.listener.send('start', {});
+  assert.equal(env.players[0].destroys, 1);
+  player.open = false;
+  fireFocus(main.activity, main.card1);
+  env.advance(8100);
+  assert.equal(videoCount(env), 2, 'после плеера Lampa отсчёт на той же карточке не заводился');
+
+  /* Ответ роликов доехал под открытым плеером — то же самое. */
+  player.open = true;
+  lastVideos(env).ok(VIDEOS_RU);
+  assert.equal(env.players.length, 1, 'под плеером Lampa плеер героя не создаётся');
+  player.open = false;
+  fireFocus(main.activity, main.card1);
+  env.advance(8100);
+  assert.equal(videoCount(env), 3);
+  assert.deepEqual(warnLog, []);
+});
+
+/* Сторож: без оверлея повторное событие на той же карточке по-прежнему
+   ничего не перезапускает — ни идущий ролик, ни отсчёт. */
+test('трейлер героя: без оверлея повторный фокус той же карточки отсчёт не перезапускает', () => {
+  const env = trailerEnv();
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  focusOn(main, main.card1);
+  env.advance(5000);
+  fireFocus(main.activity, main.card1);
+  env.advance(3100);
+  assert.equal(videoCount(env), 1, 'отсчёт идёт от первого фокуса, а не от повторного события');
+});
+
 /* ====================================================================== */
 /* Task 71: логотип названия — без подмены на ходу                        */
 /*                                                                        */
