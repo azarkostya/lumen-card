@@ -371,3 +371,58 @@ test('scrimSize: кадр с потолком w1280 вместо original', () =
   assert.equal(u.scrimSize(1920), 'w1280');
   assert.equal(u.scrimSize(3840), 'w1280', 'потолок: original TMDB — 31.6 МБ растра на слой, на 2 ГБ памяти это не окупается');
 });
+
+/* Ревью волны 1b, п.2: «поверх экрана открыто то, под чем ролик никто не
+   увидит». Набор — как у самой Lampa в Controller.toContent (app.min.js:
+   46510-46536): классы body settings--open, selectbox--open и search--open
+   (поиск из шапки, open$3 — :41513-41514, поверх главной) и узлы .modal /
+   .youtube-player в body (модал — :32415, YouTube Lampa — :53323-53324;
+   оба удаляются на закрытии). .player — плеер, его отвечает playerOpen. */
+function withDocument(classes, found, fn) {
+  const had = Object.prototype.hasOwnProperty.call(globalThis, 'document');
+  const prev = globalThis.document;
+  const asked = [];
+  globalThis.document = {
+    body: { classList: { contains: (c) => classes.indexOf(c) !== -1 } },
+    /* Как у DOM: первый узел, подходящий под любой селектор списка. */
+    querySelector: (sel) => {
+      asked.push(sel);
+      const parts = sel.split(',').map((s) => s.trim());
+      return parts.some((p) => found.indexOf(p) !== -1) ? {} : null;
+    }
+  };
+  try { return fn(asked); } finally { if (had) globalThis.document = prev; else delete globalThis.document; }
+}
+
+test('overlayOpen: настройки, список выбора и поиск Lampa — классы body', () => {
+  for (const cls of ['settings--open', 'selectbox--open', 'search--open']) {
+    withDocument([cls], [], () => assert.equal(u.overlayOpen(), true, cls));
+  }
+  withDocument(['ambience--enable', 'menu--open', 'light--version'], [], () => {
+    assert.equal(u.overlayOpen(), false, 'прочие классы body оверлеем не считаются');
+  });
+});
+
+test('overlayOpen: модальное окно и YouTube-плеер Lampa — узлы в документе', () => {
+  withDocument([], ['.modal'], () => assert.equal(u.overlayOpen(), true, '.modal'));
+  withDocument([], ['.youtube-player'], () => assert.equal(u.overlayOpen(), true, '.youtube-player'));
+  withDocument([], [], (asked) => {
+    assert.equal(u.overlayOpen(), false, 'ни класса, ни узла');
+    assert.ok(asked.length > 0, 'узлы спрашиваются у документа');
+  });
+});
+
+test('overlayOpen: нет document, body или querySelector — «не открыт», без исключения', () => {
+  const had = Object.prototype.hasOwnProperty.call(globalThis, 'document');
+  const prev = globalThis.document;
+  try {
+    delete globalThis.document;
+    assert.equal(u.overlayOpen(), false);
+    globalThis.document = {};
+    assert.equal(u.overlayOpen(), false);
+    globalThis.document = { body: { classList: { contains: () => false } } };
+    assert.equal(u.overlayOpen(), false, 'без querySelector (тестовые окружения модулей)');
+    globalThis.document = { body: { classList: { contains: () => false } }, querySelector: () => { throw new Error('boom'); } };
+    assert.equal(u.overlayOpen(), false);
+  } finally { if (had) globalThis.document = prev; else delete globalThis.document; }
+});

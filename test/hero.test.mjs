@@ -3070,7 +3070,7 @@ test('трейлер героя: под открытым плеером Lampa р
   assert.equal(env.players.length, 0);
 });
 
-test('трейлер героя: ответ роликов доехал, когда открыт плеер Lampa или настройки/список — плеер героя не создаётся', () => {
+test('трейлер героя: ответ роликов доехал, когда открыт плеер Lampa или настройки/список/поиск — плеер героя не создаётся', () => {
   const env = trailerEnv();
   const player = lampaPlayer(env);
   const main = makeMain();
@@ -3082,7 +3082,9 @@ test('трейлер героя: ответ роликов доехал, ког�
   assert.equal(env.players.length, 0, 'плеер Lampa');
 
   player.open = false;
-  for (const cls of ['settings--open', 'selectbox--open']) {
+  /* Ревью волны 1b, п.2: поиск из шапки открывается поверх главной
+     (search--open, app.min.js:41514) — ролик под ним никто не увидит. */
+  for (const cls of ['settings--open', 'selectbox--open', 'search--open']) {
     env.bodyClasses.push(cls);
     main.card1.removeClass('focus');
     focusOn(main, main.card2);

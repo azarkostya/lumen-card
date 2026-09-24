@@ -589,10 +589,18 @@ return false;
 
 
 
+
+
+
+
+
+var OVERLAY_NODES = '.modal, .youtube-player';
+
 function overlayOpen() {
 try {
 var list = document.body && document.body.classList;
-return !!(list && (list.contains('settings--open') || list.contains('selectbox--open')));
+if (list && (list.contains('settings--open') || list.contains('selectbox--open') || list.contains('search--open'))) return true;
+return !!(typeof document.querySelector === 'function' && document.querySelector(OVERLAY_NODES));
 } catch (e) {
 return false;
 }

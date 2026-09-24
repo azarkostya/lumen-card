@@ -539,13 +539,21 @@
       }
     }
 
-    /* Поверх экрана открыты настройки или список выбора Lampa — классы body
-       settings--open (app.min.js:10306) и selectbox--open (:7084). Читаем
-       classList голого body: jQuery здесь не нужен. */
+    /* Поверх экрана открыто то, что сама Lampa считает оверлеем, — набор из
+       Controller.toContent (app.min.js:46510-46536): классы body
+       settings--open (:10306), selectbox--open (:7084) и search--open
+       (поиск из шапки, открывается поверх главной — :41514), узлы .modal
+       (модальное окно, :32415) и .youtube-player (YouTube Lampa,
+       :53323-53324); оба узла Lampa удаляет на закрытии (:32561, :53401).
+       .player — плеер, его отвечает playerOpen. Читаем голый DOM: jQuery
+       здесь не нужен. */
+    var OVERLAY_NODES = '.modal, .youtube-player';
+
     function overlayOpen() {
       try {
         var list = document.body && document.body.classList;
-        return !!(list && (list.contains('settings--open') || list.contains('selectbox--open')));
+        if (list && (list.contains('settings--open') || list.contains('selectbox--open') || list.contains('search--open'))) return true;
+        return !!(typeof document.querySelector === 'function' && document.querySelector(OVERLAY_NODES));
       } catch (e) {
         return false;
       }
