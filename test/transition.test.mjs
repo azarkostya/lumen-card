@@ -18,11 +18,16 @@ globalThis.warn = function (msg) { warnLog.push(msg); };
 
 const SRC = readFileSync(new URL('../src/67_transition.js', import.meta.url), 'utf8');
 
-function build(extra) {
+/* onHero — ловушка на ЛЮБОЕ чтение LC.hero (геттер на самом LC): модуль
+   к герою не обращается вовсе, ни при загрузке, ни в reveal/stop. */
+function build(extra, onHero) {
   const LC = Object.assign({
     motionMode: () => 'full',
     pref: (name, def) => def
   }, extra || {});
+  if (onHero) {
+    Object.defineProperty(LC, 'hero', { configurable: true, enumerable: true, get: () => { onHero(); return undefined; } });
+  }
   const module = { exports: null, lumen: true };
   new Function('LC', 'module', SRC)(LC, module);
   return { api: module.exports, LC };
@@ -104,20 +109,16 @@ function env(opts) {
   };
 
   /* Task 44: reveal() обязан обходиться БЕЗ героя — источник ему передают
-     явно. Счётчик обращений к LC.hero.lastFocus проверяет это прямо. */
-  /* Волна 2 (D3): источника перехода из ряда больше нет — герой здесь
-     только ловушка. */
+     явно. Волна 2 (D3): источника перехода из ряда больше нет, а API героя,
+     которое здесь подменялось (LC.hero.lastFocus), удалено в 38abe8e.
+     Ревью раунда хвостов, п.3: мок несуществующего метода ловил только его
+     вызов — чтение LC.hero мимо него проходило незамеченным. Теперь
+     ловушка — на любое обращение к LC.hero (build, onHero). */
   const heroReads = { count: 0 };
   const { api } = build({
     motionMode: () => opts.motion || 'full',
-    pref: (name, def) => (Object.prototype.hasOwnProperty.call(opts.prefs || {}, name) ? opts.prefs[name] : def),
-    hero: {
-      lastFocus: () => {
-        heroReads.count++;
-        return null;
-      }
-    }
-  });
+    pref: (name, def) => (Object.prototype.hasOwnProperty.call(opts.prefs || {}, name) ? opts.prefs[name] : def)
+  }, () => { heroReads.count++; });
 
   function frame() {
     const f = frames.shift();
@@ -194,7 +195,7 @@ test('stop: идемпотентна', () => {
 test('reveal: слой встаёт по переданному прямоугольнику, героя не спрашивает', () => {
   const e = env();
   assert.equal(e.api.reveal(KADR, {}), true);
-  assert.equal(e.heroReads.count, 0, 'reveal обошёлся без LC.hero.lastFocus');
+  assert.equal(e.heroReads.count, 0, 'модуль перехода обратился к LC.hero — при загрузке или в reveal');
   const layers = e.overlay();
   assert.equal(layers.length, 1);
   const img = layers[0].find('.lumen-overlay__img');
@@ -204,6 +205,9 @@ test('reveal: слой встаёт по переданному прямоуго
   assert.equal(img.css('height'), '249px');
   assert.ok(String(img.css('background-image')).indexOf('/t/p/w1280/b.jpg') !== -1,
     'в слой идёт кадр w1280, а не постер барабана: ' + img.css('background-image'));
+  e.fire();
+  e.api.stop();
+  assert.equal(e.heroReads.count, 0, 'модуль перехода обратился к LC.hero — на страховке разгона или в stop');
 });
 
 /* Главное: слой обязан ОСТАТЬСЯ на экране. Растворение в
