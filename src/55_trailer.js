@@ -210,6 +210,11 @@
       var yt = null;
       var dead = false;
       var timeout = null;
+      /* Ревью «Волны 1», п.2: ролик уже пошёл (onStateChange 1). iframe_api
+         порядок событий не обещает — на ТВ onReady приходит и ПОСЛЕ старта,
+         и тогда он не должен ни взводить таймаут ожидания старта (ролик
+         снимался бы на 12-й секунде воспроизведения), ни затирать «play». */
+      var started = false;
 
       owner = mine;
       mark('api');
@@ -264,15 +269,19 @@
                  заводить сторож. */
               onReady: function (ev) {
                 if (dead) return;
-                /* Отсчёт ожидания старта — заново, от готовности плеера. */
-                if (timeout) clearTimeout(timeout);
-                timeout = setTimeout(function () { kill('timeout ready'); }, WAIT_MS);
-                mark('ready');
+                /* Отсчёт ожидания старта — заново, от готовности плеера;
+                   ролик, который уже играет, ждать нечего. */
+                if (!started) {
+                  if (timeout) clearTimeout(timeout);
+                  timeout = setTimeout(function () { kill('timeout ready'); }, WAIT_MS);
+                  mark('ready');
+                }
                 try { ev.target.mute(); ev.target.playVideo(); } catch (e) { }
               },
               onStateChange: function (ev) {
                 if (dead || !ev) return;
                 if (ev.data === 1) {
+                  started = true;
                   if (timeout) { clearTimeout(timeout); timeout = null; }
                   try { $host.addClass('is-live'); } catch (e) { }
                   mark('play');

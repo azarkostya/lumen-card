@@ -309,6 +309,24 @@ test('player: onReady так и не пришёл -> kill по лимиту за
   assert.equal(env.mod.status(), 'timeout api');
 });
 
+/* Ревью «Волны 1», п.2: iframe_api не обещает порядок событий — на ТВ
+   onStateChange(1) приходит и раньше onReady. Прежде onReady после старта
+   заново взводил 12-с «timeout ready», и играющий ролик снимался на 12-й
+   секунде воспроизведения. */
+test('player: onStateChange(1) раньше onReady — onReady не взводит таймаут, ролик живёт дольше 12 с', () => {
+  const env = freshEnv();
+  env.make();
+  const p = env.last();
+  env.advanceTo(1000);
+  p.cfg.events.onStateChange({ data: 1, target: p });
+  assert.equal(env.events.start, 1);
+  p.cfg.events.onReady({ target: p });
+  assert.equal(env.mod.status(), 'play', 'поздний onReady статус «play» не затирает');
+  env.advanceTo(60000);
+  assert.equal(env.events.end, 0, 'играющий ролик по таймауту не снимается');
+  assert.equal(env.timers.filter((x) => !x.cleared && !x.done).length, 0, 'после старта таймеров ожидания нет');
+});
+
 test('player: ошибка YT сохраняет код в статусе («err 150»)', () => {
   const env = freshEnv();
   env.make();

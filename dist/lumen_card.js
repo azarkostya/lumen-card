@@ -19006,6 +19006,11 @@ var yt = null;
 var dead = false;
 var timeout = null;
 
+
+
+
+var started = false;
+
 owner = mine;
 mark('api');
 
@@ -19060,14 +19065,18 @@ events: {
 onReady: function (ev) {
 if (dead) return;
 
+
+if (!started) {
 if (timeout) clearTimeout(timeout);
 timeout = setTimeout(function () { kill('timeout ready'); }, WAIT_MS);
 mark('ready');
+}
 try { ev.target.mute(); ev.target.playVideo(); } catch (e) { }
 },
 onStateChange: function (ev) {
 if (dead || !ev) return;
 if (ev.data === 1) {
+started = true;
 if (timeout) { clearTimeout(timeout); timeout = null; }
 try { $host.addClass('is-live'); } catch (e) { }
 mark('play');
