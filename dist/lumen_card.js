@@ -12617,6 +12617,9 @@ var HERO_BD_RATIO = 1.778;
 var HERO_BD_RATIO_TOL = 0.05;
 
 
+var HERO_BD_VOTE_K = 0.5;
+
+
 
 
 var FRAME_WAIT = 900;
@@ -12743,11 +12746,27 @@ return date ? date.slice(0, 4) : '';
 
 
 
+
+
+
+
+
+
+
+
 function heroBackdrop(images, main) {
 var list = images && images.backdrops;
+var floor = 0;
+for (var k = 0; list && k < list.length; k++) {
+if (list[k] && list[k].file_path === main && Number(list[k].vote_count) >= 1) {
+floor = (Number(list[k].vote_average) || 0) * HERO_BD_VOTE_K;
+break;
+}
+}
 for (var i = 0; list && i < list.length; i++) {
 var b = list[i];
 if (!b || !b.file_path || b.iso_639_1 || b.file_path === main) continue;
+if (!(Number(b.vote_count) >= 1) || !(Number(b.vote_average) >= floor)) continue;
 var w = Number(b.width) || 0;
 var h = Number(b.height) || 0;
 var ratio = Number(b.aspect_ratio) || (w > 0 && h > 0 ? w / h : 0);

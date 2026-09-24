@@ -206,13 +206,17 @@ test('heroModel: фильм с деталями — год, длительнос
    из images.backdrops без надписей (iso_639_1 пустой), не равный
    backdrop_path, шириной от 1280 и с пропорцией 16:9 (±0.05); нет такого —
    backdrop_path. Новых запросов нет: images уже едут в ответе деталей. */
+/* Голоса TMDB у кадра (ревью волны 3, п.3 — правило у следующего теста).
+   Здесь у всех кадров они одинаковые: проверяются прежние условия отбора. */
+const VOTES = { vote_average: 5.3, vote_count: 4 };
+
 test('heroBackdrop: второй кадр без надписей, широкий и 16:9, а не ключевой арт', () => {
-  const key = { file_path: '/key.jpg', iso_639_1: null, width: 3840, height: 2160, aspect_ratio: 1.778 };
-  const text = { file_path: '/text.jpg', iso_639_1: 'en', width: 3840, height: 2160, aspect_ratio: 1.778 };
-  const small = { file_path: '/small.jpg', iso_639_1: null, width: 1000, height: 562, aspect_ratio: 1.779 };
-  const wide = { file_path: '/wide.jpg', iso_639_1: null, width: 2560, height: 1080, aspect_ratio: 2.37 };
-  const good = { file_path: '/good.jpg', iso_639_1: null, width: 1920, height: 1080, aspect_ratio: 1.778 };
-  const later = { file_path: '/later.jpg', iso_639_1: null, width: 1920, height: 1080, aspect_ratio: 1.778 };
+  const key = Object.assign({ file_path: '/key.jpg', iso_639_1: null, width: 3840, height: 2160, aspect_ratio: 1.778 }, VOTES);
+  const text = Object.assign({ file_path: '/text.jpg', iso_639_1: 'en', width: 3840, height: 2160, aspect_ratio: 1.778 }, VOTES);
+  const small = Object.assign({ file_path: '/small.jpg', iso_639_1: null, width: 1000, height: 562, aspect_ratio: 1.779 }, VOTES);
+  const wide = Object.assign({ file_path: '/wide.jpg', iso_639_1: null, width: 2560, height: 1080, aspect_ratio: 2.37 }, VOTES);
+  const good = Object.assign({ file_path: '/good.jpg', iso_639_1: null, width: 1920, height: 1080, aspect_ratio: 1.778 }, VOTES);
+  const later = Object.assign({ file_path: '/later.jpg', iso_639_1: null, width: 1920, height: 1080, aspect_ratio: 1.778 }, VOTES);
   assert.equal(H.heroBackdrop({ backdrops: [key, text, small, wide, good, later] }, '/key.jpg'), '/good.jpg',
     'первый подходящий по порядку TMDB');
   /* Нечего выбрать — ключевой арт: пустой герой хуже совпадения с постером. */
@@ -221,20 +225,45 @@ test('heroBackdrop: второй кадр без надписей, широки�
   assert.equal(H.heroBackdrop({ backdrops: [key, text, small, wide] }, '/key.jpg'), '/key.jpg', 'подходят только ключевой арт и отбракованные');
   /* Пропорция — из aspect_ratio, без него из width/height; размера нет вовсе
      — кадр не берём (урезанный ответ прокси). */
-  assert.equal(H.heroBackdrop({ backdrops: [{ file_path: '/wh.jpg', iso_639_1: null, width: 1280, height: 720 }] }, '/key.jpg'), '/wh.jpg');
-  assert.equal(H.heroBackdrop({ backdrops: [{ file_path: '/nosize.jpg', iso_639_1: null }] }, '/key.jpg'), '/key.jpg');
-  assert.equal(H.heroBackdrop({ backdrops: [{ file_path: '/near.jpg', iso_639_1: null, width: 1280, aspect_ratio: 1.72 }] }, '/key.jpg'), '/key.jpg', '1.72 — уже не 16:9');
+  assert.equal(H.heroBackdrop({ backdrops: [Object.assign({ file_path: '/wh.jpg', iso_639_1: null, width: 1280, height: 720 }, VOTES)] }, '/key.jpg'), '/wh.jpg');
+  assert.equal(H.heroBackdrop({ backdrops: [Object.assign({ file_path: '/nosize.jpg', iso_639_1: null }, VOTES)] }, '/key.jpg'), '/key.jpg');
+  assert.equal(H.heroBackdrop({ backdrops: [Object.assign({ file_path: '/near.jpg', iso_639_1: null, width: 1280, aspect_ratio: 1.72 }, VOTES)] }, '/key.jpg'), '/key.jpg', '1.72 — уже не 16:9');
   /* Без backdrop_path — первый подходящий, а нет его — пусто. */
   assert.equal(H.heroBackdrop({ backdrops: [good] }, ''), '/good.jpg');
   assert.equal(H.heroBackdrop(null, ''), '');
+});
+
+/* Ревью волны 3, п.3: выборка 40 фильмов — у пяти выбранный кадр без
+   голосов вовсе, у «Суперполицейских 3» и NAZA — с оценкой 0.166 (TMDB так
+   помечает отвергнутые кадры), у After Impact — почти чёрный. Кадр героя —
+   кандидат только с голосами (vote_count ≥ 1) и с оценкой не ниже
+   половины оценки ключевого арта (vote_average ≥ 0.5 × ключевого), если у
+   ключевого голоса есть; нет подходящего — ключевой backdrop_path. */
+test('heroBackdrop: кандидат — только с голосами и не хуже половины оценки ключевого арта', () => {
+  const frame = (path, avg, count) => ({ file_path: path, iso_639_1: null, width: 3840, height: 2160, aspect_ratio: 1.778, vote_average: avg, vote_count: count });
+  const key = frame('/key.jpg', 5.3, 7);
+  assert.equal(H.heroBackdrop({ backdrops: [key, frame('/novote.jpg', 0, 0)] }, '/key.jpg'), '/key.jpg', 'кадр без голосов — не кандидат');
+  assert.equal(H.heroBackdrop({ backdrops: [key, { file_path: '/bare.jpg', iso_639_1: null, width: 1920, height: 1080 }] }, '/key.jpg'), '/key.jpg',
+    'у кадра нет полей голосов (урезанный ответ) — не кандидат');
+  assert.equal(H.heroBackdrop({ backdrops: [key, frame('/rejected.jpg', 0.166, 1)] }, '/key.jpg'), '/key.jpg', 'оценка 0.166 при ключевом 5.3 — не кандидат');
+  assert.equal(H.heroBackdrop({ backdrops: [key, frame('/half.jpg', 2.65, 1)] }, '/key.jpg'), '/half.jpg', 'ровно половина оценки ключевого — кандидат');
+  assert.equal(H.heroBackdrop({ backdrops: [key, frame('/low.jpg', 2.6, 3), frame('/ok.jpg', 3.2, 2)] }, '/key.jpg'), '/ok.jpg',
+    'ниже половины пропускаем, берём следующий подходящий');
+  /* У ключевого голосов нет (или его нет среди кадров — backdrop_path бывает
+     с языком вне include_image_language) — планки по оценке нет, голоса у
+     кандидата всё равно нужны. */
+  assert.equal(H.heroBackdrop({ backdrops: [frame('/key.jpg', 0, 0), frame('/any.jpg', 0.166, 1)] }, '/key.jpg'), '/any.jpg', 'ключевой без голосов — планки по оценке нет');
+  assert.equal(H.heroBackdrop({ backdrops: [frame('/key.jpg', 6, 0), frame('/any.jpg', 1, 1)] }, '/key.jpg'), '/any.jpg', 'оценка ключевого без голосов — не планка');
+  assert.equal(H.heroBackdrop({ backdrops: [frame('/any.jpg', 1, 1)] }, '/key.jpg'), '/any.jpg', 'ключевого нет среди кадров — планки по оценке нет');
+  assert.equal(H.heroBackdrop({ backdrops: [frame('/key.jpg', 0, 0), frame('/novote.jpg', 0, 0)] }, '/key.jpg'), '/key.jpg', 'без голосов не берём и тогда');
 });
 
 test('heroModel: кадр героя из деталей — heroBackdrop, до деталей и без них — backdrop_path', () => {
   const card = { id: 8, title: 'Фильм', backdrop_path: '/key.jpg', poster_path: '/p.jpg' };
   assert.equal(H.heroModel(card, null, WORDS).backdrop, '/key.jpg', 'до ответа деталей — из данных ряда');
   const images = { backdrops: [
-    { file_path: '/key.jpg', iso_639_1: null, width: 1920, height: 1080, aspect_ratio: 1.778 },
-    { file_path: '/other.jpg', iso_639_1: null, width: 1920, height: 1080, aspect_ratio: 1.778 }
+    Object.assign({ file_path: '/key.jpg', iso_639_1: null, width: 1920, height: 1080, aspect_ratio: 1.778 }, VOTES),
+    Object.assign({ file_path: '/other.jpg', iso_639_1: null, width: 1920, height: 1080, aspect_ratio: 1.778 }, VOTES)
   ] };
   assert.equal(H.heroModel(card, { backdrop_path: '/key.jpg', images: images }, WORDS).backdrop, '/other.jpg');
   assert.equal(H.heroModel(card, { backdrop_path: '/key.jpg' }, WORDS).backdrop, '/key.jpg', 'без images — ключевой арт');
@@ -1874,8 +1903,8 @@ test('волна 3: в тексте героя нет места под чипы
    (900 мс): дальше кадр по backdrop_path из данных ряда. Детали из кэша
    Lampa приходят синхронно, и ожидания там нет вовсе. */
 const W3_IMAGES = { backdrops: [
-  { file_path: '/b1.jpg', iso_639_1: null, width: 1920, height: 1080, aspect_ratio: 1.778 },
-  { file_path: '/scene.jpg', iso_639_1: null, width: 1920, height: 1080, aspect_ratio: 1.778 }
+  Object.assign({ file_path: '/b1.jpg', iso_639_1: null, width: 1920, height: 1080, aspect_ratio: 1.778 }, VOTES),
+  Object.assign({ file_path: '/scene.jpg', iso_639_1: null, width: 1920, height: 1080, aspect_ratio: 1.778 }, VOTES)
 ] };
 
 function frameLoads(env) {
@@ -4232,7 +4261,7 @@ test('волна 3: смена кадров героя начинается с �
     env.hero.mount(main.activity);
     focusOn(main, main.card1);
     env.advance(400);
-    const sized = (p) => ({ file_path: p, iso_639_1: null, width: 1920, height: 1080, aspect_ratio: 1.778 });
+    const sized = (p) => Object.assign({ file_path: p, iso_639_1: null, width: 1920, height: 1080, aspect_ratio: 1.778 }, VOTES);
     detailsOf(env, 11).ok({ id: 11, backdrop_path: '/b1.jpg', images: { logos: [], backdrops: [sized('/b1.jpg'), sized('/f2.jpg'), sized('/f3.jpg')] } });
     frameImg(env, '/f2.jpg').onload();
     assert.equal(env.live().length, 1, 'смена кадров не заведена');

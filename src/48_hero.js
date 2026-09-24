@@ -187,6 +187,9 @@
     var HERO_BD_MIN_W = 1280;
     var HERO_BD_RATIO = 1.778;
     var HERO_BD_RATIO_TOL = 0.05;
+    /* Ревью волны 3, п.3: оценка кадра-кандидата — не ниже этой доли оценки
+       ключевого арта (разбор — у heroBackdrop). */
+    var HERO_BD_VOTE_K = 0.5;
 
     /* Волна 3: сколько show() ждёт ответ деталей, прежде чем взять кадр по
        данным ряда (разбор — у show). Ответы деталей на стенде — 41…247 мс
@@ -312,14 +315,30 @@
        обрезки). Пропорция — aspect_ratio TMDB, без него — width/height; без
        размеров кадр не берём (урезанный ответ прокси). Подходящего нет —
        main: пустой герой хуже совпадения с постером.
+       Ревью волны 3, п.3: качество кадра — по голосам TMDB. Выборка 40
+       фильмов: у пяти выбранный кадр без голосов вовсе, у «Суперполицейских
+       3» и NAZA — с оценкой 0.166 (так TMDB помечает отвергнутые кадры), у
+       After Impact — почти чёрный. Кандидат — только с голосами
+       (vote_count ≥ 1) и с оценкой не ниже HERO_BD_VOTE_K от оценки
+       ключевого арта (кадр main в том же списке), если у ключевого голоса
+       есть; нет у него голосов или его самого в списке (backdrop_path
+       бывает на языке вне include_image_language) — планки по оценке нет.
        Новых запросов это не стоит: images уже приходят в ответе деталей
        (append_to_response, detailsRequest). Карточка фильма остаётся на
        backdrop_path (src/50_backdrops.js). */
     function heroBackdrop(images, main) {
       var list = images && images.backdrops;
+      var floor = 0;
+      for (var k = 0; list && k < list.length; k++) {
+        if (list[k] && list[k].file_path === main && Number(list[k].vote_count) >= 1) {
+          floor = (Number(list[k].vote_average) || 0) * HERO_BD_VOTE_K;
+          break;
+        }
+      }
       for (var i = 0; list && i < list.length; i++) {
         var b = list[i];
         if (!b || !b.file_path || b.iso_639_1 || b.file_path === main) continue;
+        if (!(Number(b.vote_count) >= 1) || !(Number(b.vote_average) >= floor)) continue;
         var w = Number(b.width) || 0;
         var h = Number(b.height) || 0;
         var ratio = Number(b.aspect_ratio) || (w > 0 && h > 0 ? w / h : 0);
