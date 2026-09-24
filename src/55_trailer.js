@@ -187,12 +187,23 @@
          err N         — onError плеера с кодом N (2, 5, 100, 101, 150 —
                          коды YouTube IFrame API).
        Пишет только самый свежий плеер (owner): снятие старого не затирает
-       состояние нового. */
+       состояние нового.
+
+       Ревью «Волны 1», п.3: «plan» тоже заводит владельца — note('plan')
+       возвращает его номер. План, снятый до создания плеера (карточку
+       закрыли, фокус ушёл, запрос роликов упал), закрывает свой номер:
+       note('stop', номер) / note('err req', номер). Номер устарел — позже
+       был другой план или создан плеер — и запись молча пропускается:
+       HUD не залипает на «plan» и не теряет более свежее состояние. */
     var last = 'n/a';
     var owner = 0;
 
-    function note(st) {
+    function note(st, ticket) {
+      if (ticket !== undefined && ticket !== owner) return 0;
       last = st;
+      if (st !== 'plan') return 0;
+      owner = ++seq;
+      return owner;
     }
 
     function status() {
@@ -517,7 +528,7 @@
 
         var layer = body.children('.lumen-backdrop');
         if (!layer || !layer.length) return null;
-        note('plan');
+        var ticket = note('plan');
 
         var alive = true;
         var control = null;
@@ -567,8 +578,11 @@
           if (!alive) return;
           /* Слой уже не в документе (карточку закрыли) или карточка ушла в
              фон под другую активность — трейлер не начинаем. */
-          if (!LC.slideshow.isMounted(layer[0])) { alive = false; return; }
-          if (!LC.util.onScreen(layer)) { alive = false; return; }
+          if (!LC.slideshow.isMounted(layer[0]) || !LC.util.onScreen(layer)) {
+            alive = false;
+            note('stop', ticket);
+            return;
+          }
 
           control = player(ensureHost(layer), video.key, function () {
             if (!alive) return;
@@ -605,6 +619,8 @@
             return;
           }
           alive = false;
+          /* До begin плеера нет, и «plan» закрываем сами. */
+          note('stop', ticket);
           cleanup();
         }
 

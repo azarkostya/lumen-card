@@ -682,6 +682,37 @@ test('schedule: destroy до старта — таймер снят, плеер�
   assert.deepEqual(warnLog, []);
 });
 
+/* Ревью «Волны 1», п.3: HUD tr залипал на «plan», если план снимали до
+   создания плеера — плеер пишет «stop» сам, а плана без плеера не
+   закрывал никто. */
+test('schedule: HUD — карточку закрыли до старта или она ушла до begin -> «stop», а не вечный «plan»', () => {
+  const early = scheduleEnv();
+  const api = early.run();
+  assert.equal(early.mod.status(), 'plan');
+  api.destroy();
+  assert.equal(early.mod.status(), 'stop', 'destroy до старта');
+
+  const gone = scheduleEnv({ mounted: false });
+  gone.run();
+  gone.fire(1);
+  assert.equal(gone.mod.status(), 'stop', 'слой уже не в документе к begin');
+
+  const away = scheduleEnv({ foreground: false });
+  away.run();
+  away.fire(1);
+  assert.equal(away.mod.status(), 'stop', 'карточка ушла под другую активность к begin');
+});
+
+test('schedule: HUD — снятие старого плана не затирает статус более свежего плана или плеера', () => {
+  const env = scheduleEnv();
+  const api = env.run();
+  const ticket = env.mod.note('plan');
+  api.destroy();
+  assert.equal(env.mod.status(), 'plan', 'чужой свежий план остался');
+  env.mod.note('stop', ticket);
+  assert.equal(env.mod.status(), 'stop', 'свой план по своему номеру закрывается');
+});
+
 test('schedule: полный цикл — старт ролика ставит слайдшоу на паузу и рисует оформление, конец возвращает всё ровно по разу', () => {
   const env = scheduleEnv();
   const api = env.run();

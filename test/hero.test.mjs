@@ -2632,6 +2632,65 @@ test('трейлер героя: состояние для HUD — «plan» на
   assert.deepEqual(notes, ['plan', 'none']);
 });
 
+/* Ревью «Волны 1», п.3: HUD tr залипал на «plan» — план, снятый до
+   создания плеера, не закрывал никто. Закрывается своим номером (второй
+   аргумент note, src/55_trailer.js): устаревший номер модуль трейлера
+   пропускает сам. */
+function noteLog(env) {
+  const notes = [];
+  let seq = 0;
+  env.LC.trailer.note = (st, ticket) => { notes.push(ticket === undefined ? st : st + '#' + ticket); return st === 'plan' ? ++seq : 0; };
+  return notes;
+}
+
+test('трейлер героя: HUD — запрос роликов упал на последнем языке -> «err req»', () => {
+  const env = trailerEnv();
+  const notes = noteLog(env);
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  focusOn(main, main.card1);
+  env.advance(9000);
+  lastVideos(env).err();
+  assert.deepEqual(notes, ['plan'], 'на языке интерфейса упал — ещё спрашиваем английский');
+  lastVideos(env).err();
+  assert.deepEqual(notes, ['plan', 'err req#1']);
+});
+
+test('трейлер героя: HUD — фокус ушёл до создания плеера -> «stop» своего плана; после плеера план не пишем', () => {
+  const env = trailerEnv();
+  const notes = noteLog(env);
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  focusOn(main, main.card1);
+  env.advance(2000);
+  main.card1.removeClass('focus');
+  focusOn(main, main.card2);
+  assert.deepEqual(notes, ['plan', 'stop#1', 'plan'], 'снят таймер — план закрыт');
+
+  env.advance(9000);
+  main.card2.removeClass('focus');
+  focusOn(main, main.card1);
+  assert.deepEqual(notes.slice(3), ['stop#2', 'plan'], 'снят ожидающий ответа запрос — тоже');
+
+  env.advance(9000);
+  lastVideos(env).ok(VIDEOS_RU);
+  assert.equal(env.players.length, 1);
+  env.hero.unmount();
+  assert.deepEqual(notes.slice(5), [], 'плеер создан — его статус пишет сам плеер, план не трогаем');
+});
+
+test('трейлер героя: HUD — к старту открыт плеер Lampa -> «stop» своего плана', () => {
+  const env = trailerEnv();
+  const notes = noteLog(env);
+  const player = lampaPlayer(env);
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  focusOn(main, main.card1);
+  player.open = true;
+  env.advance(9000);
+  assert.deepEqual(notes, ['plan', 'stop#1']);
+});
+
 test('trailerAllowed: запрещают только настройка, «Выкл» и выключенный фоновый трейлер', () => {
   const h = H;
   assert.equal(h.trailerAllowed(true, 'full', 'on'), true);

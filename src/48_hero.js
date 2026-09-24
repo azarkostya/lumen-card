@@ -855,11 +855,25 @@
       try { return LC.pref ? LC.pref('lumen_hero_trailer', true) !== false : true; } catch (e) { return true; }
     }
 
-    /* Состояние ролика для HUD (поле tr, src/69_hud.js). */
-    function trailerNote(st) {
+    /* Состояние ролика для HUD (поле tr, src/69_hud.js). Возвращает номер
+       плана для note('plan') — см. planDone. */
+    function trailerNote(st, ticket) {
       try {
-        if (LC.trailer && typeof LC.trailer.note === 'function') LC.trailer.note(st);
+        if (LC.trailer && typeof LC.trailer.note === 'function') return LC.trailer.note(st, ticket);
       } catch (e) { }
+      return 0;
+    }
+
+    /* Ревью «Волны 1», п.3: план ролика (state.trailerPlan — номер от
+       note('plan')) закрывается ровно один раз — созданием плеера (дальше
+       статус пишет сам плеер), «none», или здесь: «stop», когда план сняли
+       до плеера, «err req», когда запрос роликов упал. Без этого HUD
+       залипал на «plan». Устаревший номер модуль трейлера пропускает. */
+    function planDone(st) {
+      if (!state || !state.trailerPlan) return;
+      var ticket = state.trailerPlan;
+      state.trailerPlan = 0;
+      if (st) trailerNote(st, ticket);
     }
 
     function trailerMode() {
@@ -1022,6 +1036,7 @@
       if (!state) return;
       tgen++;
       stopTimer('trailerTimer');
+      planDone('stop');
       state.trailerCard = null;
       if (state.trailer) {
         var control = state.trailer;
@@ -1086,11 +1101,15 @@
               }
               if (video && video.key) { startTrailer(video.key, captured); return; }
               if (next) ask(next, '');
-              else trailerNote('none');
+              else {
+                planDone('');
+                trailerNote('none');
+              }
             },
             function () {
               if (tgen !== captured || !state) return;
               if (next) ask(next, '');
+              else planDone('err req');
             },
             { life: VIDEOS_LIFE }
           );
@@ -1105,11 +1124,11 @@
     function startTrailer(key, captured) {
       try {
         if (tgen !== captured || !state || !isMounted()) return;
-        if (!trailerReady()) return;
-        if (trailerBlocked()) return;
+        if (!trailerReady() || trailerBlocked()) { planDone('stop'); return; }
         if (!LC.trailer || typeof LC.trailer.player !== 'function') return;
         var host = state.node.find('.lumen-hero__trailer');
         if (!host || !host.length) return;
+        planDone('');
         /* Класс ставится по ФАКТУ старта (onStart плеера), а не по его
            созданию: ролик может не заиграть вовсе (нет сети, YouTube
            недоступен), и тогда герой обязан остаться как был. */
@@ -1133,7 +1152,7 @@
        тик, доехавший после перевода фокуса, выходит первой же строкой. */
     function scheduleTrailer(card) {
       if (!trailerReady()) return;
-      trailerNote('plan');
+      state.trailerPlan = trailerNote('plan');
       var captured = tgen;
       state.trailerTimer = setTimeout(function () {
         if (!state || tgen !== captured) return;
@@ -1142,8 +1161,7 @@
         if (!isMounted()) return;
         /* Настройку и режим анимаций перечитываем в момент старта: за восемь
            секунд их могли поменять. */
-        if (!trailerReady()) return;
-        if (trailerBlocked()) return;
+        if (!trailerReady() || trailerBlocked()) { planDone('stop'); return; }
         loadTrailer(card, captured);
       }, TRAILER_DELAY);
     }
@@ -2460,6 +2478,8 @@
           trailerTimer: null,
           trailer: null,
           trailerCard: null,
+          /* Ревью «Волны 1», п.3: номер плана ролика для HUD (planDone). */
+          trailerPlan: 0,
           /* «Несколько кадров»: контроллер слайдшоу текущей карточки
              (LC.slideshow) и отложенное освобождение ушедшего слоя. */
           slides: null,

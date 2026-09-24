@@ -13395,10 +13395,24 @@ try { return LC.pref ? LC.pref('lumen_hero_trailer', true) !== false : true; } c
 }
 
 
-function trailerNote(st) {
+
+function trailerNote(st, ticket) {
 try {
-if (LC.trailer && typeof LC.trailer.note === 'function') LC.trailer.note(st);
+if (LC.trailer && typeof LC.trailer.note === 'function') return LC.trailer.note(st, ticket);
 } catch (e) { }
+return 0;
+}
+
+
+
+
+
+
+function planDone(st) {
+if (!state || !state.trailerPlan) return;
+var ticket = state.trailerPlan;
+state.trailerPlan = 0;
+if (st) trailerNote(st, ticket);
 }
 
 function trailerMode() {
@@ -13561,6 +13575,7 @@ function cancelTrailer() {
 if (!state) return;
 tgen++;
 stopTimer('trailerTimer');
+planDone('stop');
 state.trailerCard = null;
 if (state.trailer) {
 var control = state.trailer;
@@ -13625,11 +13640,15 @@ warn('hero: trailer pick failed', ePick);
 }
 if (video && video.key) { startTrailer(video.key, captured); return; }
 if (next) ask(next, '');
-else trailerNote('none');
+else {
+planDone('');
+trailerNote('none');
+}
 },
 function () {
 if (tgen !== captured || !state) return;
 if (next) ask(next, '');
+else planDone('err req');
 },
 { life: VIDEOS_LIFE }
 );
@@ -13644,11 +13663,11 @@ ask(lang, lang === 'en' ? '' : 'en');
 function startTrailer(key, captured) {
 try {
 if (tgen !== captured || !state || !isMounted()) return;
-if (!trailerReady()) return;
-if (trailerBlocked()) return;
+if (!trailerReady() || trailerBlocked()) { planDone('stop'); return; }
 if (!LC.trailer || typeof LC.trailer.player !== 'function') return;
 var host = state.node.find('.lumen-hero__trailer');
 if (!host || !host.length) return;
+planDone('');
 
 
 
@@ -13672,7 +13691,7 @@ warn('hero: trailer start failed', err);
 
 function scheduleTrailer(card) {
 if (!trailerReady()) return;
-trailerNote('plan');
+state.trailerPlan = trailerNote('plan');
 var captured = tgen;
 state.trailerTimer = setTimeout(function () {
 if (!state || tgen !== captured) return;
@@ -13681,8 +13700,7 @@ if (state.pending !== card) return;
 if (!isMounted()) return;
 
 
-if (!trailerReady()) return;
-if (trailerBlocked()) return;
+if (!trailerReady() || trailerBlocked()) { planDone('stop'); return; }
 loadTrailer(card, captured);
 }, TRAILER_DELAY);
 }
@@ -14999,6 +15017,8 @@ lqipTimer: null,
 trailerTimer: null,
 trailer: null,
 trailerCard: null,
+
+trailerPlan: 0,
 
 
 slides: null,
@@ -18983,11 +19003,22 @@ var seq = 0;
 
 
 
+
+
+
+
+
+
+
 var last = 'n/a';
 var owner = 0;
 
-function note(st) {
+function note(st, ticket) {
+if (ticket !== undefined && ticket !== owner) return 0;
 last = st;
+if (st !== 'plan') return 0;
+owner = ++seq;
+return owner;
 }
 
 function status() {
@@ -19312,7 +19343,7 @@ if (!video) { note('none'); return null; }
 
 var layer = body.children('.lumen-backdrop');
 if (!layer || !layer.length) return null;
-note('plan');
+var ticket = note('plan');
 
 var alive = true;
 var control = null;
@@ -19362,8 +19393,11 @@ timer = null;
 if (!alive) return;
 
 
-if (!LC.slideshow.isMounted(layer[0])) { alive = false; return; }
-if (!LC.util.onScreen(layer)) { alive = false; return; }
+if (!LC.slideshow.isMounted(layer[0]) || !LC.util.onScreen(layer)) {
+alive = false;
+note('stop', ticket);
+return;
+}
 
 control = player(ensureHost(layer), video.key, function () {
 if (!alive) return;
@@ -19400,6 +19434,8 @@ alive = false;
 return;
 }
 alive = false;
+
+note('stop', ticket);
 cleanup();
 }
 
