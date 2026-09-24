@@ -366,7 +366,7 @@
       /* Кнопка-параметр: multi-select в SettingsApi нет, поэтому состав рядов
          выбирается на экране Lampa.Select с чекбоксами (src/80_settings.js,
          openHomeRows). Значение хранится строкой id через запятую в
-         lumen_home_rows — его читает LC.rows.register. */
+         lumen_home_rows — его читает план главной (src/47_homeplan.js). */
       { name: 'lumen_home_rows', type: 'button', label: 'lumen_home_rows_name', descr: 'lumen_home_rows_descr' },
       { name: 'lumen_rows_limit', type: 'select', values: ['10', '15', '25'], vsuffix: 'lumen_rows_limit_suffix', 'default': '15', label: 'lumen_rows_limit_name', descr: 'lumen_rows_limit_descr' },
       /* Task 57 (фаза 5): фильм, показанный в ряду выше, из нижних рядов

@@ -21,6 +21,23 @@
   /*   pickAnchor(history, n, seed) → исходный фильм «Потому что»           */
   /*   planHome(opts) → {slots: [{place, kind, id, item}], lead}             */
   /*   recentLeads(leads, n) / rememberLead(leads, n, id) — лидеры эпох      */
+  /*                                                                       */
+  /* Публичное API (runtime, требуют Lampa):                                */
+  /*   apply(opts) — план и регистрация рядов главной в ContentRows          */
+  /*   unregister() — снять все наши ряды                                   */
+  /*   hold(on) — идёт пересборка главной из-за настройки: эпоху не двигать */
+  /*                                                                       */
+  /* Почему регистрирует ОДИН модуль и строго по возрастанию места.        */
+  /* ContentRows.call('main', …) обходит ряды в порядке регистрации и      */
+  /* вставляет функцию каждого по его index: splice(index, 0, fn)           */
+  /* (vendor/lampa/app.min.js:18083-18108, Arrays.insert — :2362). Итог     */
+  /* зависел от порядка регистрации: при каталоге из кэша подборки           */
+  /* регистрировались раньше личных рядов и вставали после четырёх рядов    */
+  /* Lampa, при каталоге из сети — сразу за личными. Ряды, вставленные по   */
+  /* возрастанию мест, занимают ровно свои места, а незанятые места         */
+  /* достаются рядам Lampa по порядку — и ряды Lampa с index 1, заведённые  */
+  /* при её старте раньше плагина (continue_watch — :22241, timetable_* —   */
+  /* :21454, :21486), наших не сдвигают.                                   */
   /* -------------------------------------------------------------------- */
 
   LC.homeplan = (function () {
@@ -92,9 +109,9 @@
 
     /* Зерно эпохи n. Номер сперва перемешивается: у Парка–Миллера потоки
        соседних зёрен связаны линейно — поток зерна n+1 это поток зерна n,
-       сдвинутый на постоянную, — и лидер шёл бы по каталогу с постоянным
-       шагом (замер на каталоге: при зерне n лидер 11 эпох из 16 — одна и
-       та же «Корейские дорамы»). */
+       сдвинутый на постоянную, — и перестановки соседних эпох похожи
+       (замер на каталоге: при зерне n первыми в перестановке 9 эпох из 16
+       стояли «Корейские дорамы»). */
     function seedOf(n, salt) {
       var x = mix(mix((Math.floor(Number(n) || 0) + 1) | 0) ^ (salt | 0));
       return (x % (MOD - 1)) + 1;
@@ -382,7 +399,166 @@
       return out.length > LEADS_KEEP ? out.slice(out.length - LEADS_KEEP) : out;
     }
 
-    return {
+    /* ------------------------------------------------------------------ */
+    /* Runtime                                                             */
+    /* ------------------------------------------------------------------ */
+
+    var EPOCH_KEY = 'lumen_home_epoch';
+    var LEADS_KEY = 'lumen_home_leads';
+
+    /* Описания, отданные в ContentRows.add последним apply(). */
+    var _added = [];
+    /* Последний загруженный каталог: до первого LC.manifest.load подборок
+       нет — как и до волны 4 (свой каталог по адресу пользователя не
+       подменяется встроенным). */
+    var _manifest = null;
+    /* После активации первое построение главной ещё впереди. */
+    var _first = false;
+    /* Идёт пересборка главной из-за настройки (LC.refreshComponent). */
+    var _hold = false;
+
+    function storage() {
+      return (window.Lampa && Lampa.Storage && typeof Lampa.Storage.get === 'function') ? Lampa.Storage : null;
+    }
+
+    function read(key, def) {
+      try {
+        var st = storage();
+        return st ? st.get(key, def) : def;
+      } catch (e) {
+        return def;
+      }
+    }
+
+    /* Свои служебные ключи — через Lampa.Storage.set, без рассылки события
+       'change': слушать их некому. */
+    function write(key, value) {
+      try {
+        if (window.Lampa && Lampa.Storage && typeof Lampa.Storage.set === 'function') Lampa.Storage.set(key, value, true);
+      } catch (e) {}
+    }
+
+    /* Выключатель ряда в «Каналах» Lampa (content_rows_<name>, её же
+       фильтр в call$1, app.min.js:18088-18090) — только читаем. Выключенный
+       ряд Lampa не строит, и место под него было бы пустым. */
+    function rowOn(name) {
+      return !!read('content_rows_' + name, 'true');
+    }
+
+    function monthNow() {
+      try {
+        if (LC.themes && typeof LC.themes.month === 'function') return LC.themes.month();
+      } catch (e) {}
+      return new Date().getMonth() + 1;
+    }
+
+    function unregister() {
+      for (var i = 0; i < _added.length; i++) {
+        try {
+          if (window.Lampa && Lampa.ContentRows && typeof Lampa.ContentRows.remove === 'function') Lampa.ContentRows.remove(_added[i]);
+        } catch (e) {}
+      }
+      _added = [];
+    }
+
+    function hold(on) {
+      _hold = !!on;
+    }
+
+    /* План главной и регистрация её рядов.
+       opts.start — активация плагина: первое построение главной впереди;
+       opts.manifest — загружен каталог; opts.fresh — главная строится
+       прямо сейчас (обёртка Api.main, src/44_rows.js): только здесь эпоха
+       может шагнуть — при первом построении после активации и раз в
+       3 часа; под hold() (пересборка из-за настройки) — лишь если это
+       первое построение: главная, построенная без плагина (гонка первого
+       экрана) и пересобранная с нашими рядами, — это запуск Lampa. */
+    function apply(opts) {
+      opts = opts || {};
+      if (opts.manifest) _manifest = opts.manifest;
+      if (opts.start) _first = true;
+      var now = api._now();
+      var stored = read(EPOCH_KEY, '');
+      var epoch = stored && typeof stored === 'object' ? stored : null;
+      var next;
+      if (opts.fresh) {
+        var first = _first;
+        _first = false;
+        next = (first || !_hold) ? nextEpoch(epoch, now, first) : epoch;
+      } else {
+        next = epoch;
+      }
+      if (!next) next = nextEpoch(null, now, false);
+      if (next !== stored) write(EPOCH_KEY, next);
+      epoch = next;
+
+      var mode = LC.pref('lumen_home_start', 'rotate') === 'history' ? 'history' : 'rotate';
+      var picked = (LC.rows && typeof LC.rows.storedIds === 'function') ? LC.rows.storedIds() : null;
+      var limit = parseInt(LC.pref('lumen_rows_limit', '15'), 10) || 15;
+      var anchorSeed = seedOf(epoch.n, SALT_ANCHOR);
+      var own = {};
+      var have = {};
+      var i;
+      try {
+        var personal = (LC.personal && typeof LC.personal.describe === 'function')
+          ? LC.personal.describe({ anchor: function (history) { return pickAnchor(history, ANCHOR_RECENT, anchorSeed); } })
+          : [];
+        for (i = 0; i < personal.length; i++) {
+          if (!rowOn(personal[i].name)) continue;
+          own[personal[i].id] = personal[i];
+          have[personal[i].id] = true;
+        }
+      } catch (ePersonal) {}
+      var advent = null;
+      try {
+        if (_manifest && LC.rows && typeof LC.rows.adventRow === 'function') advent = LC.rows.adventRow(_manifest);
+      } catch (eAdvent) {}
+      if (advent && !rowOn(advent.name)) advent = null;
+      var leads = read(LEADS_KEY, '[]');
+      if (!Array.isArray(leads)) leads = [];
+
+      var plan = planHome({
+        manifest: _manifest,
+        picked: picked,
+        month: monthNow(),
+        epoch: epoch.n,
+        have: have,
+        recentLeads: recentLeads(leads, epoch.n),
+        kpKey: !!LC.pref('lumen_kp_key', ''),
+        limit: limit,
+        mode: mode,
+        advent: !!advent,
+        off: function (id) { return !rowOn('lumen_' + id); }
+      });
+
+      unregister();
+      var pinned = !!(picked && picked.length);
+      for (i = 0; i < plan.slots.length; i++) {
+        var slot = plan.slots[i];
+        var row = null;
+        try {
+          if (slot.kind === 'personal') row = own[slot.id];
+          else if (slot.kind === 'advent') row = advent;
+          else if (LC.rows && typeof LC.rows.describe === 'function') row = LC.rows.describe(slot.item, pinned);
+        } catch (eRow) {}
+        if (!row) continue;
+        row.index = slot.place;
+        try {
+          if (window.Lampa && Lampa.ContentRows && typeof Lampa.ContentRows.add === 'function') {
+            Lampa.ContentRows.add(row);
+            _added.push(row);
+          }
+        } catch (eAdd) {}
+      }
+
+      if (plan.lead) {
+        var last = leads.length ? leads[leads.length - 1] : null;
+        if (!last || last.n !== epoch.n || last.id !== plan.lead) write(LEADS_KEY, rememberLead(leads, epoch.n, plan.lead));
+      }
+      return plan;
+    }
+
+    var api = {
       rng: rng,
       seedOf: seedOf,
       nextEpoch: nextEpoch,
@@ -390,9 +566,13 @@
       planHome: planHome,
       recentLeads: recentLeads,
       rememberLead: rememberLead,
-      ANCHOR_RECENT: ANCHOR_RECENT,
-      SALT_ANCHOR: SALT_ANCHOR
+      apply: apply,
+      unregister: unregister,
+      hold: hold,
+      /* Часы плана — подменяются в тестах и на стенде. */
+      _now: function () { return Date.now(); }
     };
+    return api;
   })();
 
   if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.homeplan;

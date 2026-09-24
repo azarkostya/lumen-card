@@ -8852,6 +8852,7 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 
+
 LC.rows = (function () {
 
 
@@ -8887,10 +8888,6 @@ var WATCHED = 95;
 
 
 var _homeGen = 0;
-
-
-
-var _addedRows = [];
 
 
 
@@ -9477,6 +9474,12 @@ try { return LC.pref ? !!LC.pref('lumen_rows_dedupe', true) : true; } catch (e) 
 
 
 
+
+
+
+
+
+
 function installDedupe() {
 _dedupeActive = true;
 if (_mainWrapped) return;
@@ -9486,6 +9489,9 @@ if (!window.Lampa || !Lampa.Api || typeof Lampa.Api.main !== 'function') return;
 _mainOriginal = Lampa.Api.main;
 _mainWrapped = function (params, oncomplite, onerror) {
 if (!_dedupeActive) return _mainOriginal(params, oncomplite, onerror);
+try {
+if (LC.homeplan && typeof LC.homeplan.apply === 'function') LC.homeplan.apply({ fresh: true });
+} catch (ePlan) {}
 var dedupe = dedupeEnabled();
 
 
@@ -9524,65 +9530,6 @@ _mainWrapped = null;
 _mainOriginal = null;
 }
 } catch (e) {}
-}
-
-
-
-
-
-
-
-function doUnregister() {
-if (!_addedRows.length) return;
-for (var i = 0; i < _addedRows.length; i++) {
-try {
-if (window.Lampa && Lampa.ContentRows &&
-typeof Lampa.ContentRows.remove === 'function') {
-Lampa.ContentRows.remove(_addedRows[i]);
-}
-} catch (e) {}
-}
-_addedRows = [];
-}
-
-
-
-
-
-
-
-
-
-function register(manifest) {
-
-doUnregister();
-
-
-var picked = storedIds();
-
-var limitRaw = 15;
-try { limitRaw = LC.pref ? (parseInt(LC.pref('lumen_rows_limit', '15'), 10) || 15) : 15; } catch (e) {}
-
-
-var month = new Date().getMonth() + 1;
-
-var rows = homeRows(manifest, picked, month, limitRaw);
-
-
-
-
-
-
-
-var pinned = !!(picked && picked.length);
-
-
-
-var shift = registerAdvent(manifest) ? 1 : 0;
-
-for (var i = 0; i < rows.length; i++) {
-registerRow(rows[i], i + shift, pinned);
-}
 }
 
 
@@ -9732,25 +9679,21 @@ try { if (handles[k] && handles[k].clear) handles[k].clear(); } catch (e) {}
 
 
 
-function registerAdvent(manifest) {
+
+function adventRow(manifest) {
 try {
-if (!window.Lampa || !Lampa.ContentRows) return false;
-if (!LC.themes || typeof LC.themes.adventDays !== 'function') return false;
+if (!LC.themes || typeof LC.themes.adventDays !== 'function') return null;
 var today = adventToday();
-if (!today || today.getMonth() !== 11) return false;
-if (!adventSpecs(manifest).length) return false;
-var descriptor = {
+if (!today || today.getMonth() !== 11) return null;
+if (!adventSpecs(manifest).length) return null;
+return {
 name: rowName('advent'),
 title: adventTitle(today),
 screen: 'main',
-index: ROWS_OFFSET,
 call: makeAdventCall(manifest)
 };
-Lampa.ContentRows.add(descriptor);
-_addedRows.push(descriptor);
-return true;
 } catch (e) {
-return false;
+return null;
 }
 }
 
@@ -9760,25 +9703,19 @@ return false;
 
 
 
-var ROWS_OFFSET = 4;
-function registerRow(item, index, pinned) {
-try {
-if (!window.Lampa || !Lampa.ContentRows) return;
 
+
+
+function describe(item, pinned) {
 
 var rowTitle = item.title;
 if (item.badge) rowTitle += ' · ' + item.badge;
-
-var descriptor = {
+return {
 name: rowName(item.id),
 title: rowTitle,
 screen: 'main',
-index: index + ROWS_OFFSET,
-call: makeCall(item, pinned)
+call: makeCall(item, !!pinned)
 };
-Lampa.ContentRows.add(descriptor);
-_addedRows.push(descriptor);
-} catch (e) {}
 }
 
 
@@ -9838,12 +9775,6 @@ if (handle && handle.clear) handle.clear();
 };
 }
 
-
-
-function unregister() {
-doUnregister();
-}
-
 return {
 rowName: rowName,
 filterWatched: filterWatched,
@@ -9864,11 +9795,11 @@ uninstallDedupe: uninstallDedupe,
 
 served: served,
 
-
 adventSpecs: adventSpecs,
 adventPool: adventPool,
-register: register,
-unregister: unregister
+
+describe: describe,
+adventRow: adventRow
 };
 })();
 
@@ -9928,8 +9859,8 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 
-
 LC.personal = (function () {
+
 
 
 
@@ -10044,9 +9975,6 @@ var CONTINUE_DONE = 90;
 
 
 var _gen = 0;
-
-
-var _addedRows = [];
 
 
 
@@ -10263,23 +10191,6 @@ flushWaiting();
 
 
 
-function doUnregister() {
-if (!_addedRows.length) return;
-for (var i = 0; i < _addedRows.length; i++) {
-try {
-if (window.Lampa && Lampa.ContentRows &&
-typeof Lampa.ContentRows.remove === 'function') {
-Lampa.ContentRows.remove(_addedRows[i]);
-}
-} catch (e) {}
-}
-_addedRows = [];
-}
-
-
-
-
-
 
 
 
@@ -10368,15 +10279,6 @@ if (out.length >= limit) return out;
 }
 } catch (e) {}
 return out;
-}
-
-
-function addRow(descriptor) {
-try {
-if (!window.Lampa || !Lampa.ContentRows) return;
-Lampa.ContentRows.add(descriptor);
-_addedRows.push(descriptor);
-} catch (e) {}
 }
 
 
@@ -10628,23 +10530,27 @@ gate.cancel();
 
 
 
-function register() {
-doUnregister();
 
 
+
+
+
+function describe(opts) {
+opts = opts || {};
+var out = [];
 var enabled = true;
 try { enabled = LC.pref ? LC.pref('lumen_personal_rows', true) : true; } catch (e) {}
-if (!enabled) return;
+if (!enabled) return out;
 
 
 try {
 var cont = continuesList();
 if (cont && cont.length) {
-addRow({
+out.push({
+id: 'continue',
 name: 'lumen_continue',
 title: LC.lang ? LC.lang('lumen_row_continue') : 'Continue watching',
 screen: 'main',
-index: 0,
 call: makeContinueCall()
 });
 }
@@ -10653,15 +10559,16 @@ call: makeContinueCall()
 
 
 
+
 try {
-var anchorCard = anchorOf(getHistory());
+var anchorCard = anchorOf(getHistory(), opts.anchor);
 if (anchorCard) {
-addRow({
+out.push({
+id: 'because',
 name: 'lumen_because',
 title: becauseTitle(anchorCard),
 screen: 'main',
-index: 1,
-call: makeBecauseCall()
+call: makeBecauseCall(opts.anchor)
 });
 }
 } catch (e) {}
@@ -10671,31 +10578,25 @@ call: makeBecauseCall()
 try {
 var shows = getShows(SHOWS_LIMIT);
 if (shows && shows.length) {
-addRow({
+out.push({
+id: 'new_episodes',
 name: 'lumen_new_episodes',
 title: LC.lang ? LC.lang('lumen_row_new_episodes') : 'New episodes of your shows',
 screen: 'main',
-index: 2,
 call: makeNewEpisodesCall()
 });
 }
 } catch (e) {}
 
 
-try {
-addRow({
+out.push({
+id: 'soon',
 name: 'lumen_soon',
 title: LC.lang ? LC.lang('lumen_row_soon') : 'Coming soon',
 screen: 'main',
-index: 3,
 call: makeSoonCall()
 });
-} catch (e) {}
-}
-
-
-function unregister() {
-doUnregister();
+return out;
 }
 
 return {
@@ -10705,8 +10606,7 @@ soonRange: soonRange,
 
 dropFinished: dropFinished,
 bumpGen: bumpGen,
-register: register,
-unregister: unregister
+describe: describe
 };
 })();
 
@@ -12603,6 +12503,23 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 LC.homeplan = (function () {
 
 
@@ -12962,7 +12879,166 @@ out.push({ n: n, id: id });
 return out.length > LEADS_KEEP ? out.slice(out.length - LEADS_KEEP) : out;
 }
 
-return {
+
+
+
+
+var EPOCH_KEY = 'lumen_home_epoch';
+var LEADS_KEY = 'lumen_home_leads';
+
+
+var _added = [];
+
+
+
+var _manifest = null;
+
+var _first = false;
+
+var _hold = false;
+
+function storage() {
+return (window.Lampa && Lampa.Storage && typeof Lampa.Storage.get === 'function') ? Lampa.Storage : null;
+}
+
+function read(key, def) {
+try {
+var st = storage();
+return st ? st.get(key, def) : def;
+} catch (e) {
+return def;
+}
+}
+
+
+
+function write(key, value) {
+try {
+if (window.Lampa && Lampa.Storage && typeof Lampa.Storage.set === 'function') Lampa.Storage.set(key, value, true);
+} catch (e) {}
+}
+
+
+
+
+function rowOn(name) {
+return !!read('content_rows_' + name, 'true');
+}
+
+function monthNow() {
+try {
+if (LC.themes && typeof LC.themes.month === 'function') return LC.themes.month();
+} catch (e) {}
+return new Date().getMonth() + 1;
+}
+
+function unregister() {
+for (var i = 0; i < _added.length; i++) {
+try {
+if (window.Lampa && Lampa.ContentRows && typeof Lampa.ContentRows.remove === 'function') Lampa.ContentRows.remove(_added[i]);
+} catch (e) {}
+}
+_added = [];
+}
+
+function hold(on) {
+_hold = !!on;
+}
+
+
+
+
+
+
+
+
+
+function apply(opts) {
+opts = opts || {};
+if (opts.manifest) _manifest = opts.manifest;
+if (opts.start) _first = true;
+var now = api._now();
+var stored = read(EPOCH_KEY, '');
+var epoch = stored && typeof stored === 'object' ? stored : null;
+var next;
+if (opts.fresh) {
+var first = _first;
+_first = false;
+next = (first || !_hold) ? nextEpoch(epoch, now, first) : epoch;
+} else {
+next = epoch;
+}
+if (!next) next = nextEpoch(null, now, false);
+if (next !== stored) write(EPOCH_KEY, next);
+epoch = next;
+
+var mode = LC.pref('lumen_home_start', 'rotate') === 'history' ? 'history' : 'rotate';
+var picked = (LC.rows && typeof LC.rows.storedIds === 'function') ? LC.rows.storedIds() : null;
+var limit = parseInt(LC.pref('lumen_rows_limit', '15'), 10) || 15;
+var anchorSeed = seedOf(epoch.n, SALT_ANCHOR);
+var own = {};
+var have = {};
+var i;
+try {
+var personal = (LC.personal && typeof LC.personal.describe === 'function')
+? LC.personal.describe({ anchor: function (history) { return pickAnchor(history, ANCHOR_RECENT, anchorSeed); } })
+: [];
+for (i = 0; i < personal.length; i++) {
+if (!rowOn(personal[i].name)) continue;
+own[personal[i].id] = personal[i];
+have[personal[i].id] = true;
+}
+} catch (ePersonal) {}
+var advent = null;
+try {
+if (_manifest && LC.rows && typeof LC.rows.adventRow === 'function') advent = LC.rows.adventRow(_manifest);
+} catch (eAdvent) {}
+if (advent && !rowOn(advent.name)) advent = null;
+var leads = read(LEADS_KEY, '[]');
+if (!Array.isArray(leads)) leads = [];
+
+var plan = planHome({
+manifest: _manifest,
+picked: picked,
+month: monthNow(),
+epoch: epoch.n,
+have: have,
+recentLeads: recentLeads(leads, epoch.n),
+kpKey: !!LC.pref('lumen_kp_key', ''),
+limit: limit,
+mode: mode,
+advent: !!advent,
+off: function (id) { return !rowOn('lumen_' + id); }
+});
+
+unregister();
+var pinned = !!(picked && picked.length);
+for (i = 0; i < plan.slots.length; i++) {
+var slot = plan.slots[i];
+var row = null;
+try {
+if (slot.kind === 'personal') row = own[slot.id];
+else if (slot.kind === 'advent') row = advent;
+else if (LC.rows && typeof LC.rows.describe === 'function') row = LC.rows.describe(slot.item, pinned);
+} catch (eRow) {}
+if (!row) continue;
+row.index = slot.place;
+try {
+if (window.Lampa && Lampa.ContentRows && typeof Lampa.ContentRows.add === 'function') {
+Lampa.ContentRows.add(row);
+_added.push(row);
+}
+} catch (eAdd) {}
+}
+
+if (plan.lead) {
+var last = leads.length ? leads[leads.length - 1] : null;
+if (!last || last.n !== epoch.n || last.id !== plan.lead) write(LEADS_KEY, rememberLead(leads, epoch.n, plan.lead));
+}
+return plan;
+}
+
+var api = {
 rng: rng,
 seedOf: seedOf,
 nextEpoch: nextEpoch,
@@ -12970,9 +13046,13 @@ pickAnchor: pickAnchor,
 planHome: planHome,
 recentLeads: recentLeads,
 rememberLead: rememberLead,
-ANCHOR_RECENT: ANCHOR_RECENT,
-SALT_ANCHOR: SALT_ANCHOR
+apply: apply,
+unregister: unregister,
+hold: hold,
+
+_now: function () { return Date.now(); }
 };
+return api;
 })();
 
 if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.homeplan;
@@ -35106,11 +35186,26 @@ LC.applyTorrentsPref();
 
 
 
+
+
+
 try {
-if (LC.rows && LC.rows.register && LC.manifest && LC.manifest.load) {
+if (LC.homeplan && LC.homeplan.apply) LC.homeplan.apply({ start: true });
+} catch (eHome) {
+warn('home plan failed', eHome);
+}
+
+
+
+try {
+if (LC.manifest && LC.manifest.load) {
 LC.manifest.load(function (m) {
-if (!activated || !LC.rows || !LC.rows.register) return;
-LC.rows.register(m);
+if (!activated) return;
+try {
+if (LC.homeplan && LC.homeplan.apply) LC.homeplan.apply({ manifest: m });
+} catch (eHomeRows) {
+warn('home plan failed', eHomeRows);
+}
 
 
 repairHomeRows();
@@ -35135,13 +35230,6 @@ try {
 if (LC.header && LC.header.installPeople) LC.header.installPeople();
 } catch (ePeople) {
 warn('people merge install failed', ePeople);
-}
-
-
-try {
-if (LC.personal && LC.personal.register) LC.personal.register();
-} catch (ePersonal) {
-warn('personal rows register failed', ePersonal);
 }
 
 
@@ -35261,8 +35349,7 @@ warn('motion class off failed', e3);
 stripAllCards();
 
 
-
-try { if (LC.rows && LC.rows.unregister) LC.rows.unregister(); } catch (eRows) {}
+try { if (LC.homeplan && LC.homeplan.unregister) LC.homeplan.unregister(); } catch (eRows) {}
 
 
 try { if (LC.rows && LC.rows.uninstallDedupe) LC.rows.uninstallDedupe(); } catch (eDedupeOff) {}
@@ -35272,8 +35359,6 @@ try { if (LC.header && LC.header.uninstallPeople) LC.header.uninstallPeople(); }
 
 
 home_repaired = false;
-
-try { if (LC.personal && LC.personal.unregister) LC.personal.unregister(); } catch (ePersonalOff) {}
 
 try { if (LC.hub && LC.hub.uninstall) LC.hub.uninstall(); } catch (eHubOff) {}
 
@@ -35341,7 +35426,19 @@ return;
 }
 if (activeComponentName() !== component) return;
 if (!Lampa.Activity || typeof Lampa.Activity.replace !== 'function') return;
+
+
+
+
+
+
+var home = component === 'main' && LC.homeplan && typeof LC.homeplan.hold === 'function';
+if (home) LC.homeplan.hold(true);
+try {
 Lampa.Activity.replace();
+} finally {
+if (home) LC.homeplan.hold(false);
+}
 } catch (e) {
 warn('activity replace failed', e);
 }
@@ -35510,10 +35607,10 @@ replaceSoon(component);
 LC.applyRowsPref = function () {
 if (!activated) return;
 try {
-if (LC.rows && LC.rows.register && LC.manifest && LC.manifest.load) {
+if (LC.manifest && LC.manifest.load) {
 LC.manifest.load(function (m) {
-if (!activated || !LC.rows || !LC.rows.register) return;
-LC.rows.register(m);
+if (!activated) return;
+if (LC.homeplan && LC.homeplan.apply) LC.homeplan.apply({ manifest: m });
 
 
 LC.refreshComponent('main');
@@ -35812,8 +35909,7 @@ LC.refreshComponent('lumen_grid');
 LC.applyPersonalPref = function () {
 if (!activated) return;
 try {
-if (LC.personal && LC.personal.unregister) LC.personal.unregister();
-if (LC.personal && LC.personal.register) LC.personal.register();
+if (LC.homeplan && LC.homeplan.apply) LC.homeplan.apply();
 
 
 LC.refreshComponent('main');

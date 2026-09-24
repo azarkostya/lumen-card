@@ -2217,6 +2217,33 @@ test('C2: слоя нет — пересборка идёт как прежде'
   assert.deepEqual(warnLog, []);
 });
 
+/* Волна 4: пересборка главной из-за настройки эпоху ротации рядов не
+   двигает — план главной держит метку hold ровно на время replace(): Api.main
+   Lampa зовёт внутри него синхронно (push$3 → create → onCreate). */
+test('волна 4: пересборка главной идёт под меткой hold плана главной, чужой экран — без неё', async () => {
+  const { LC, replaces } = layerLC({ selectbox: false });
+  const log = [];
+  LC.homeplan = { hold: (on) => log.push('hold:' + on) };
+  globalThis.Lampa.Activity.replace = () => { log.push('replace'); replaces.push(1); };
+  LC.refreshComponent('main');
+  await tick();
+  assert.deepEqual(log, ['hold:true', 'replace', 'hold:false']);
+
+  /* Упавший replace метку не оставляет. */
+  log.length = 0;
+  globalThis.Lampa.Activity.replace = () => { log.push('replace'); throw new Error('boom'); };
+  LC.refreshComponent('main');
+  await tick();
+  assert.deepEqual(log, ['hold:true', 'replace', 'hold:false']);
+
+  log.length = 0;
+  globalThis.Lampa.Activity.active = () => ({ component: 'lumen_grid' });
+  globalThis.Lampa.Activity.replace = () => log.push('replace');
+  LC.refreshComponent('lumen_grid');
+  await tick();
+  assert.deepEqual(log, ['replace'], 'пересборка другого экрана плана не касается');
+});
+
 test('C2: открытые настройки Lampa (body.settings--open) тоже откладывают пересборку', async () => {
   const { LC, bodyEl, replaces } = layerLC({ selectbox: false });
   bodyEl.addClass('settings--open');

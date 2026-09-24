@@ -11,8 +11,10 @@
   /*                                                                       */
   /* Публичное API (runtime, требуют Lampa):                                */
   /*   bumpGen() — поднимает поколение главной; вызвать при уходе с главной */
-  /*   register() — строит и регистрирует ряды через ContentRows.add        */
-  /*   unregister() — снимает ряды через ContentRows.remove                  */
+  /*   describe(opts) → описания рядов, для которых есть данные, без мест;  */
+  /*     места назначает и ряды регистрирует план главной                   */
+  /*     (src/47_homeplan.js). opts.anchor(history) — исходный фильм        */
+  /*     «Потому что вы смотрели» (без него — самый свежий).               */
   /*                                                                       */
   /* Отмена запросов: сторож поколения _gen — тот же паттерн, что в        */
   /* LC.rows. bumpGen() поднимает _gen, когда главную ВЫБРОСИЛИ (событие   */
@@ -28,9 +30,6 @@
   /* ответа каждой части пачки, см. шапку src/44_rows.js). Держит его      */
   /* makeResolver: поздние колбэки глохнут защёлкой, а bumpGen() закрывает */
   /* всё незавершённое пустым результатом.                                 */
-  /*                                                                       */
-  /* Снятие рядов: _addedRows + ContentRows.remove — тот же паттерн,       */
-  /* что в LC.rows. doUnregister() вызывается из register() и unregister(). */
   /*                                                                       */
   /* Цена запросов: «Потому что вы смотрели» — один исходный фильм, один   */
   /* запрос; «Новые серии» — не более SHOWS_LIMIT (6) сериалов.            */
@@ -55,7 +54,8 @@
 
     /* Максимум сериалов для «Новые серии». Это ровно столько ПАРАЛЛЕЛЬНЫХ
        запросов tv/{id}, и все они попадают в первую пачку главной (ряд стоит
-       на index 2, parts_limit у Lampa = 6), а пачку Lampa отдаёт целиком —
+       на месте 3, в режиме «Сначала «Досмотреть»» — на 2, parts_limit у
+       Lampa = 6, src/47_homeplan.js), а пачку Lampa отдаёт целиком —
        поэтому первый кадр ждёт их все. Шесть — это ровно те сериалы, которые
        отбирает getShows: сперва закладки, потом история; ряду этого хватает
        («что новенького у того, что я смотрю»), а стоит он вдвое дешевле
@@ -166,9 +166,6 @@
 
     /* Поколение главной. bumpGen() поднимает его при уходе с главной. */
     var _gen = 0;
-
-    /* Дескрипторы, переданные в ContentRows.add при последней register(). */
-    var _addedRows = [];
 
     /* ------------------------------------------------------------------ */
     /* Чистые функции (без Lampa, без DOM).                               */
@@ -382,23 +379,6 @@
     }
 
     /* ------------------------------------------------------------------ */
-    /* Снятие рядов через ContentRows.remove.                             */
-    /* ------------------------------------------------------------------ */
-
-    function doUnregister() {
-      if (!_addedRows.length) return;
-      for (var i = 0; i < _addedRows.length; i++) {
-        try {
-          if (window.Lampa && Lampa.ContentRows &&
-              typeof Lampa.ContentRows.remove === 'function') {
-            Lampa.ContentRows.remove(_addedRows[i]);
-          }
-        } catch (e) {}
-      }
-      _addedRows = [];
-    }
-
-    /* ------------------------------------------------------------------ */
     /* Runtime-утилиты (требуют Lampa.Favorite).                          */
     /* ------------------------------------------------------------------ */
 
@@ -490,15 +470,6 @@
         }
       } catch (e) {}
       return out;
-    }
-
-    /* Добавляет дескриптор ряда в ContentRows и сохраняет для doUnregister(). */
-    function addRow(descriptor) {
-      try {
-        if (!window.Lampa || !Lampa.ContentRows) return;
-        Lampa.ContentRows.add(descriptor);
-        _addedRows.push(descriptor);
-      } catch (e) {}
     }
 
     /* ------------------------------------------------------------------ */
@@ -743,81 +714,80 @@
     }
 
     /* ------------------------------------------------------------------ */
-    /* register() — снимает старые ряды и строит новые.                   */
+    /* describe() — описания рядов, для которых есть данные.              */
     /* ------------------------------------------------------------------ */
 
-    /* Регистрирует персональные ряды на главной через ContentRows.add.
-       Вызывается из activate() в 90_runtime.js после LC.rows.register().
-       Не регистрирует ряд, если нужные данные пользователя отсутствуют.
-       Пользовательская настройка lumen_personal_rows=false отключает всё. */
-    function register() {
-      doUnregister();
-
-      /* Проверка настройки включения персональных рядов. */
+    /* Описания личных рядов главной — {id, name, title, screen, call} без
+       index, в порядке «Досмотреть», «Потому что», «Новые серии», «Скоро».
+       Волна 4: места назначает и ряды регистрирует план главной
+       (src/47_homeplan.js) — при ротации «Досмотреть» стоит вторым, и
+       закреплённые индексы 0–3 больше не годятся.
+       Ряда нет, если нет его данных; «Скоро» — всегда. Настройка
+       lumen_personal_rows=false — ни одного ряда.
+       opts.anchor(history) — исходный фильм «Потому что вы смотрели» (план
+       крутит его по эпохе); без него — самый свежий. */
+    function describe(opts) {
+      opts = opts || {};
+      var out = [];
       var enabled = true;
       try { enabled = LC.pref ? LC.pref('lumen_personal_rows', true) : true; } catch (e) {}
-      if (!enabled) return;
+      if (!enabled) return out;
 
-      /* «Досмотреть» (index 0): только если continues() вернул хотя бы 1 карточку. */
+      /* «Досмотреть»: только если continues() вернул хотя бы 1 карточку. */
       try {
         var cont = continuesList();
         if (cont && cont.length) {
-          addRow({
+          out.push({
+            id: 'continue',
             name: 'lumen_continue',
             title: LC.lang ? LC.lang('lumen_row_continue') : 'Continue watching',
             screen: 'main',
-            index: 0,
             call: makeContinueCall()
           });
         }
       } catch (e) {}
 
-      /* «Потому что вы смотрели: «X»» (index 1): только если в истории ≥1
-         карточки. Сама выборка и заголовок пересчитываются на каждом вызове
-         (makeBecauseCall); здесь — только решение, заводить ли ряд. */
+      /* «Потому что вы смотрели: «X»»: только если в истории ≥1 карточки.
+         Исходный фильм и заголовок пересчитываются на каждом вызове
+         (makeBecauseCall); здесь — решение, заводить ли ряд, и заголовок
+         для «Каналов» Lampa. */
       try {
-        var anchorCard = anchorOf(getHistory());
+        var anchorCard = anchorOf(getHistory(), opts.anchor);
         if (anchorCard) {
-          addRow({
+          out.push({
+            id: 'because',
             name: 'lumen_because',
             title: becauseTitle(anchorCard),
             screen: 'main',
-            index: 1,
-            call: makeBecauseCall()
+            call: makeBecauseCall(opts.anchor)
           });
         }
       } catch (e) {}
 
-      /* «Новые серии ваших сериалов» (index 2): только если есть сериалы
-         в истории или закладках. */
+      /* «Новые серии ваших сериалов»: только если есть сериалы в истории
+         или закладках. */
       try {
         var shows = getShows(SHOWS_LIMIT);
         if (shows && shows.length) {
-          addRow({
+          out.push({
+            id: 'new_episodes',
             name: 'lumen_new_episodes',
             title: LC.lang ? LC.lang('lumen_row_new_episodes') : 'New episodes of your shows',
             screen: 'main',
-            index: 2,
             call: makeNewEpisodesCall()
           });
         }
       } catch (e) {}
 
-      /* «Скоро на экранах» (index 3): не зависит от данных пользователя. */
-      try {
-        addRow({
-          name: 'lumen_soon',
-          title: LC.lang ? LC.lang('lumen_row_soon') : 'Coming soon',
-          screen: 'main',
-          index: 3,
-          call: makeSoonCall()
-        });
-      } catch (e) {}
-    }
-
-    /* Снимает все зарегистрированные персональные ряды. */
-    function unregister() {
-      doUnregister();
+      /* «Скоро на экранах»: не зависит от данных пользователя. */
+      out.push({
+        id: 'soon',
+        name: 'lumen_soon',
+        title: LC.lang ? LC.lang('lumen_row_soon') : 'Coming soon',
+        screen: 'main',
+        call: makeSoonCall()
+      });
+      return out;
     }
 
     return {
@@ -827,8 +797,7 @@
       /* Task 58: чистая часть фильтра «Продолжить» наружу ради тестов. */
       dropFinished: dropFinished,
       bumpGen: bumpGen,
-      register: register,
-      unregister: unregister
+      describe: describe
     };
   })();
 

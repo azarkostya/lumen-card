@@ -153,23 +153,18 @@ test('homeRows: дубликаты id в manifest.home не задваивают
 });
 
 /* ------------------------------------------------------------------ */
-/* Runtime-тесты: register / unregister / bumpGen / makeCall /         */
-/* viewedIds — с fake Lampa                                            */
+/* Runtime-тесты: describe / adventRow / bumpGen / makeCall /          */
+/* viewedIds — с fake Lampa. Регистрацию рядов в ContentRows (места,   */
+/* снятие, лимит) с волны 4 делает план главной — test/homeplan.test.mjs */
 /* ------------------------------------------------------------------ */
 
 function setupRows(opts) {
   opts = opts || {};
-  var addedRows = [];
-  var removedRows = [];
   var fetchCalls = [];
   var favViewed = opts.favViewed || [];
   var timelineData = opts.timelineData || {};
 
   var Lampa = {
-    ContentRows: {
-      add: function (d) { addedRows.push(d); },
-      remove: function (d) { removedRows.push(d); }
-    },
     Favorite: {
       get: function (q) {
         if (q && q.type === 'viewed') return favViewed;
@@ -221,7 +216,19 @@ function setupRows(opts) {
   });
   var R = ctx.api;
 
-  return { R: R, addedRows: addedRows, removedRows: removedRows, fetchCalls: fetchCalls, postersCalls: postersCalls, Lampa: Lampa, manifest: manifest, prefs: prefs, LC: ctx.LC };
+  /* Описания рядов главной в прежнем порядке — адвент (в декабре), затем
+     подборки набора; места им назначает план главной. */
+  function rows() {
+    var picked = R.storedIds();
+    var list = R.homeRows(manifest, picked, null, parseInt(prefs.lumen_rows_limit, 10) || 15);
+    var out = [];
+    var advent = R.adventRow(manifest);
+    if (advent) out.push(advent);
+    for (var i = 0; i < list.length; i++) out.push(R.describe(list[i], !!(picked && picked.length)));
+    return out;
+  }
+
+  return { R: R, rows: rows, fetchCalls: fetchCalls, postersCalls: postersCalls, Lampa: Lampa, manifest: manifest, prefs: prefs, LC: ctx.LC };
 }
 
 // --- bumpGen ---
@@ -230,52 +237,27 @@ test('bumpGen: метод существует и живёт на публичн
   assert.equal(typeof s.R.bumpGen, 'function');
 });
 
-// --- register + unregister ---
-test('register: добавляет дескрипторы в ContentRows.add', function () {
+// --- describe ---
+/* Волна 4: ряды регистрирует план главной (src/47_homeplan.js) — он и
+   ставит index. Описание — имя 'lumen_<id>' (выключатели «Каналов» Lampa
+   content_rows_lumen_<id> у пользователей уже записаны под ним), заголовок
+   с меткой источника и экран главной. */
+test('describe: описание ряда подборки — имя, заголовок с меткой, экран главной, без места', function () {
   var s = setupRows();
-  s.R.register(s.manifest);
-  assert.equal(s.addedRows.length, 2);
-  assert.equal(s.addedRows[0].name, 'lumen_col-a');
-  assert.equal(s.addedRows[1].name, 'lumen_col-b');
-});
-test('unregister: вызывает ContentRows.remove для каждого дескриптора', function () {
-  var s = setupRows();
-  s.R.register(s.manifest);
-  var refs = s.addedRows.slice();
-  s.R.unregister();
-  assert.equal(s.removedRows.length, 2);
-  assert.equal(s.removedRows[0], refs[0]);
-  assert.equal(s.removedRows[1], refs[1]);
-});
-test('unregister: после вызова новый register не задваивает ряды', function () {
-  var s = setupRows();
-  s.R.register(s.manifest);
-  s.R.unregister();
-  s.R.register(s.manifest);
-  /* remove должна быть вызвана по одному разу для каждой регистрации */
-  assert.equal(s.addedRows.length, 4); /* 2 первый + 2 второй */
-  assert.equal(s.removedRows.length, 2); /* 2 — первый набор снят */
-  /* В ContentRows живых должно быть ровно 2 последних (убрали первые 2) */
-  assert.equal(s.addedRows.length - s.removedRows.length, 2);
-});
-test('register: повторный вызов без unregister снимает старые ряды (важно для манифеста)', function () {
-  var s = setupRows();
-  s.R.register(s.manifest);
-  s.R.register(s.manifest); /* второй вызов: должен снять первые */
-  assert.equal(s.removedRows.length, 2); /* первые 2 сняты */
-  assert.equal(s.addedRows.length, 4);  /* 2 + 2 */
-});
-test('lumen_rows_limit: применяется при register', function () {
-  var s = setupRows({ prefs: { lumen_rows_limit: '1', lumen_home_rows: '', lumen_hide_watched: false } });
-  s.R.register(s.manifest);
-  assert.equal(s.addedRows.length, 1);
+  var row = s.R.describe({ id: 'kp-top250', title: 'КП Топ-250 фильмов', badge: 'KINOPOISK', sources: { movie: {} } }, false);
+  assert.equal(row.name, 'lumen_kp-top250');
+  assert.equal(row.title, 'КП Топ-250 фильмов · KINOPOISK');
+  assert.equal(row.screen, 'main');
+  assert.equal(row.index, undefined, 'место назначает план главной');
+  assert.equal(typeof row.call, 'function');
+  assert.equal(s.fetchCalls.length, 0, 'описание само ничего не запрашивает');
 });
 
 // --- makeCall + bumpGen (C1) ---
 test('makeCall: alive возвращает true до bumpGen', function () {
   var s = setupRows();
-  s.R.register(s.manifest);
-  var callFn = s.addedRows[0].call;
+  var rows = s.rows();
+  var callFn = rows[0].call;
   var innerFn = callFn({}, 'main');
   var callReceived = false;
   innerFn(function () { callReceived = true; });
@@ -285,8 +267,8 @@ test('makeCall: alive возвращает true до bumpGen', function () {
 });
 test('makeCall: alive возвращает false после bumpGen', function () {
   var s = setupRows();
-  s.R.register(s.manifest);
-  var callFn = s.addedRows[0].call;
+  var rows = s.rows();
+  var callFn = rows[0].call;
   var innerFn = callFn({}, 'main');
   innerFn(function () {});
   var fc = s.fetchCalls[0];
@@ -296,12 +278,12 @@ test('makeCall: alive возвращает false после bumpGen', function (
 });
 test('makeCall: каждый вызов call получает независимое поколение', function () {
   var s = setupRows();
-  s.R.register(s.manifest);
-  var innerFn1 = s.addedRows[0].call({}, 'main');
+  var rows = s.rows();
+  var innerFn1 = rows[0].call({}, 'main');
   innerFn1(function () {});
   var alive1 = s.fetchCalls[0].alive;
   s.R.bumpGen();
-  var innerFn2 = s.addedRows[0].call({}, 'main');
+  var innerFn2 = rows[0].call({}, 'main');
   innerFn2(function () {});
   var alive2 = s.fetchCalls[1].alive;
   assert.equal(alive1(), false); /* первый мёртв */
@@ -380,12 +362,6 @@ test('storedIds: строка настройки разбирается в ма�
   assert.equal(spaces.R.storedIds(), null);
 });
 
-test('register: сохранённый состав рядов важнее manifest.home', function () {
-  var s = setupRows({ prefs: { lumen_rows_limit: '15', lumen_home_rows: 'col-b' } });
-  s.R.register(s.manifest);
-  assert.equal(s.addedRows.length, 1);
-  assert.equal(s.addedRows[0].name, 'lumen_col-b');
-});
 
 /* ------------------------------------------------------------------ */
 /* Контракт call-функции ряда (fix-раунд итогового ревью фазы 2, C1).  */
@@ -403,9 +379,9 @@ test('register: сохранённый состав рядов важнее mani
 
 test('call: мёртвое поколение закрывает ряд пустым результатом, а не молчанием', function () {
   var s = setupRows();
-  s.R.register(s.manifest);
+  var rows = s.rows();
   var got = [];
-  s.addedRows[0].call({}, 'main')(function (data) { got.push(data); });
+  rows[0].call({}, 'main')(function (data) { got.push(data); });
   assert.equal(got.length, 0, 'пока сеть не ответила — ряд молчит');
 
   s.R.bumpGen();
@@ -415,9 +391,9 @@ test('call: мёртвое поколение закрывает ряд пуст
 
 test('call: после закрытия по мёртвому поколению поздний ответ сети ничего не добавляет', function () {
   var s = setupRows();
-  s.R.register(s.manifest);
+  var rows = s.rows();
   var got = [];
-  s.addedRows[0].call({}, 'main')(function (data) { got.push(data); });
+  rows[0].call({}, 'main')(function (data) { got.push(data); });
   s.R.bumpGen();
   s.fetchCalls[0].ok({ results: [{ id: 1 }] });
   s.fetchCalls[0].err({ all_failed: true });
@@ -426,9 +402,9 @@ test('call: после закрытия по мёртвому поколению
 
 test('call: успешный ответ — ровно один call, повторный ok игнорируется', function () {
   var s = setupRows();
-  s.R.register(s.manifest);
+  var rows = s.rows();
   var got = [];
-  s.addedRows[0].call({}, 'main')(function (data) { got.push(data); });
+  rows[0].call({}, 'main')(function (data) { got.push(data); });
   s.fetchCalls[0].ok({ results: [{ id: 1 }, { id: 2 }] });
   s.fetchCalls[0].ok({ results: [{ id: 3 }] });
   assert.equal(got.length, 1);
@@ -444,9 +420,9 @@ test('call: успешный ответ — ровно один call, повто
    успеть до этого (разбор — в шапке src/44_rows.js). */
 test('Постеры: ряд отдаёт карточки Lampa только после подмены постеров', function () {
   var s = setupRows();
-  s.R.register(s.manifest);
+  var rows = s.rows();
   var got = [];
-  s.addedRows[0].call({}, 'main')(function (data) { got.push(data); });
+  rows[0].call({}, 'main')(function (data) { got.push(data); });
   s.fetchCalls[0].ok({ results: [{ id: 1 }, { id: 2 }] });
   assert.equal(s.postersCalls.length, 1, 'подмена постеров обязана быть позвана ровно один раз');
   assert.equal(s.postersCalls[0].item.id, 'col-a', 'ей передаётся сама подборка — из неё берётся английский список');
@@ -461,9 +437,9 @@ test('Постеры: подмена постеров молчит — ряд з
   var s = setupRows();
   var held = [];
   s.LC.sources.posters = function (item, cards, done) { held.push(done); };
-  s.R.register(s.manifest);
+  var rows = s.rows();
   var got = [];
-  s.addedRows[0].call({}, 'main')(function (data) { got.push(data); });
+  rows[0].call({}, 'main')(function (data) { got.push(data); });
   s.fetchCalls[0].ok({ results: [{ id: 1 }] });
   assert.equal(got.length, 0, 'пока постеры не подменены — ряд не отвечает');
   s.R.bumpGen();
@@ -474,9 +450,9 @@ test('Постеры: подмена постеров молчит — ряд з
 
 test('call: ошибка источника — ровно один call с пустым результатом', function () {
   var s = setupRows();
-  s.R.register(s.manifest);
+  var rows = s.rows();
   var got = [];
-  s.addedRows[0].call({}, 'main')(function (data) { got.push(data); });
+  rows[0].call({}, 'main')(function (data) { got.push(data); });
   s.fetchCalls[0].err({ all_failed: true });
   s.R.bumpGen();
   assert.equal(got.length, 1);
@@ -485,10 +461,10 @@ test('call: ошибка источника — ровно один call с пу
 
 test('call: bumpGen закрывает ВСЕ незавершённые ряды пачки', function () {
   var s = setupRows();
-  s.R.register(s.manifest);
+  var rows = s.rows();
   var got = [];
-  s.addedRows[0].call({}, 'main')(function () { got.push('a'); });
-  s.addedRows[1].call({}, 'main')(function () { got.push('b'); });
+  rows[0].call({}, 'main')(function () { got.push('a'); });
+  rows[1].call({}, 'main')(function () { got.push('b'); });
   s.R.bumpGen();
   assert.deepEqual(got, ['a', 'b']);
 });
@@ -507,36 +483,32 @@ const XMAS_MANIFEST = {
   ]
 };
 
-test('адвент: в декабре регистрируется первым рядом подборок, подборки сдвигаются', function () {
+/* Место ряда адвента (первым среди подборок в режиме «Сначала
+   «Досмотреть»», на месте 0 при ротации) назначает план главной —
+   test/homeplan.test.mjs. */
+test('адвент: в декабре — описание ряда с днём в заголовке', function () {
   var s = setupRows({ manifest: XMAS_MANIFEST, now: new Date(2026, 11, 5) });
-  s.R.register(s.manifest);
-  assert.equal(s.addedRows[0].name, 'lumen_advent');
-  assert.equal(s.addedRows[0].index, 4, 'сразу за персональными рядами');
-  assert.equal(s.addedRows[0].title, 'Адвент-календарь · день 5');
-  assert.equal(s.addedRows[1].name, 'lumen_col-a');
-  assert.equal(s.addedRows[1].index, 5, 'подборка сдвинута адвентом');
+  var advent = s.R.adventRow(s.manifest);
+  assert.equal(advent.name, 'lumen_advent');
+  assert.equal(advent.title, 'Адвент-календарь · день 5');
+  assert.equal(advent.screen, 'main');
+  assert.equal(advent.index, undefined);
 });
 
-test('адвент: не в декабре ряда нет вовсе — ни запроса, ни дескриптора', function () {
+test('адвент: не в декабре ряда нет вовсе — ни запроса, ни описания', function () {
   var s = setupRows({ manifest: XMAS_MANIFEST, now: new Date(2026, 10, 30) });
-  s.R.register(s.manifest);
-  assert.equal(s.addedRows.length, 1);
-  assert.equal(s.addedRows[0].name, 'lumen_col-a');
-  assert.equal(s.addedRows[0].index, 4);
+  assert.equal(s.R.adventRow(s.manifest), null);
   assert.equal(s.fetchCalls.length, 0);
 });
 
-test('адвент: без LC.themes (каталог без тем, старый профиль) ряд не регистрируется', function () {
+test('адвент: без LC.themes (каталог без тем, старый профиль) ряда нет', function () {
   var s = setupRows({ manifest: XMAS_MANIFEST, themes: null, now: new Date(2026, 11, 5) });
-  s.R.register(s.manifest);
-  assert.equal(s.addedRows.length, 1);
-  assert.equal(s.addedRows[0].name, 'lumen_col-a');
+  assert.equal(s.R.adventRow(s.manifest), null);
 });
 
 test('адвент: без рождественских подборок в каталоге ряда нет', function () {
   var s = setupRows({ now: new Date(2026, 11, 5) });
-  s.R.register(s.manifest);
-  assert.equal(s.addedRows.filter(function (r) { return r.name === 'lumen_advent'; }).length, 0);
+  assert.equal(s.R.adventRow(s.manifest), null);
 });
 
 test('адвентSpecs: две подборки по две страницы, порядок фиксирован', function () {
@@ -557,8 +529,8 @@ test('adventPool: дубли между подборками снимаются,
 
 test('адвент: четыре запроса, один ответ Lampa, карточки с метками дней', function () {
   var s = setupRows({ manifest: XMAS_MANIFEST, now: new Date(2026, 11, 3) });
-  s.R.register(s.manifest);
-  var advent = s.addedRows[0];
+  var rows = s.rows();
+  var advent = rows[0];
   var got = [];
   advent.call({}, 'main')(function (payload) { got.push(payload); });
   assert.equal(s.fetchCalls.length, 4, 'две подборки по две страницы');
@@ -575,9 +547,9 @@ test('адвент: четыре запроса, один ответ Lampa, ка
 
 test('адвент: ошибки всех запросов дают пустой ряд, но ровно один call', function () {
   var s = setupRows({ manifest: XMAS_MANIFEST, now: new Date(2026, 11, 3) });
-  s.R.register(s.manifest);
+  var rows = s.rows();
   var got = [];
-  s.addedRows[0].call({}, 'main')(function (payload) { got.push(payload); });
+  rows[0].call({}, 'main')(function (payload) { got.push(payload); });
   for (var i = 0; i < 4; i++) s.fetchCalls[i].err({});
   assert.equal(got.length, 1);
   assert.deepEqual(got[0].results, []);
@@ -585,9 +557,9 @@ test('адвент: ошибки всех запросов дают пустой
 
 test('адвент: уход с главной закрывает ряд пустым результатом (контракт Lampa)', function () {
   var s = setupRows({ manifest: XMAS_MANIFEST, now: new Date(2026, 11, 3) });
-  s.R.register(s.manifest);
+  var rows = s.rows();
   var got = [];
-  var handle = s.addedRows[0].call({}, 'main')(function (payload) { got.push(payload); });
+  var handle = rows[0].call({}, 'main')(function (payload) { got.push(payload); });
   s.R.bumpGen();
   assert.equal(got.length, 1, 'ряд закрыт немедленно');
   assert.deepEqual(got[0].results, []);
@@ -597,14 +569,6 @@ test('адвент: уход с главной закрывает ряд пус�
   assert.ok(s.fetchCalls[s.fetchCalls.length - 1].cleared, 'запросы отменены');
   for (var i = 0; i < 4; i++) s.fetchCalls[i].ok({ results: [{ id: i }] });
   assert.equal(got.length, 1, 'второго call не случилось');
-});
-
-test('адвент: unregister снимает ряд адвента вместе с подборками', function () {
-  var s = setupRows({ manifest: XMAS_MANIFEST, now: new Date(2026, 11, 5) });
-  s.R.register(s.manifest);
-  s.R.unregister();
-  assert.equal(s.removedRows.length, s.addedRows.length);
-  assert.ok(s.removedRows.some(function (r) { return r.name === 'lumen_advent'; }));
 });
 
 /* ====================================================================== */
@@ -818,7 +782,7 @@ function setupDedupeRuntime(opts) {
     sources: { fetch: function () { return { clear: function () {} }; }, posters: function (item, cards, done) { done(0); } },
     lang: function (k) { return k; }
   });
-  return { R: ctx.api, Lampa: Lampa, mainCalls: mainCalls };
+  return { R: ctx.api, LC: ctx.LC, Lampa: Lampa, mainCalls: mainCalls };
 }
 
 test('installDedupe: обёртка чистит вторую пачку тем, что показала первая', function () {
@@ -834,6 +798,32 @@ test('installDedupe: обёртка чистит вторую пачку тем,
   next(function (data) { got.push(data); }, function () {});
   assert.deepEqual(idsOf(got[0][0]), [1, 2, 3, 4, 5]);
   assert.deepEqual(idsOf(got[1][0]), [6, 7, 8, 9], 'окно живёт весь экран, а не одну пачку');
+});
+
+/* Волна 4: Api.main — единственная точка ДО ContentRows.call (main$2,
+   app.min.js:19877). План главной обязан отработать раньше штатного main:
+   тогда строящаяся главная уже видит ряды новой эпохи. */
+test('installDedupe: план главной строится до штатного Api.main, на каждый заход', function () {
+  var s = setupDedupeRuntime({ batches: [[mkRow('A', [1, 2, 3, 4])]] });
+  var log = [];
+  s.LC.homeplan = { apply: function (o) { log.push('plan:' + JSON.stringify(o)); } };
+  var original = s.Lampa.Api.main;
+  s.Lampa.Api.main = function () { log.push('main'); return original.apply(null, arguments); };
+  s.R.installDedupe();
+  s.Lampa.Api.main({}, function () {}, function () {});
+  s.Lampa.Api.main({}, function () {}, function () {});
+  assert.deepEqual(log, ['plan:{"fresh":true}', 'main', 'plan:{"fresh":true}', 'main']);
+  /* Упавший план главную не ломает. */
+  s.LC.homeplan.apply = function () { throw new Error('план упал'); };
+  var got = null;
+  s.Lampa.Api.main({}, function (d) { got = d; }, function () {});
+  assert.equal(got.length, 1);
+  /* Выключенный плагин плана не строит. */
+  log.length = 0;
+  s.LC.homeplan.apply = function () { log.push('plan'); };
+  s.R.uninstallDedupe();
+  s.Lampa.Api.main({}, function () {}, function () {});
+  assert.deepEqual(log, ['main']);
 });
 
 test('installDedupe: новый заход на главную начинает окно заново', function () {
@@ -918,20 +908,20 @@ test('installDedupe: ошибка загрузки главной проходи
   assert.equal(err, 'boom');
 });
 
-test('register: явно выбранный пользователем состав помечает ряды как несносимые', function () {
+test('describe: ряд явно выбранного пользователем состава помечен несносимым', function () {
   var s = setupRows({ prefs: { lumen_home_rows: 'col-a,col-b' } });
-  s.R.register(s.manifest);
+  var rows = s.rows();
   var got = [];
-  s.addedRows[0].call({}, 'main')(function (payload) { got.push(payload); });
+  rows[0].call({}, 'main')(function (payload) { got.push(payload); });
   s.fetchCalls[0].ok({ results: [{ id: 1 }] });
   assert.equal(got[0].lumen_keep, true);
 });
 
-test('register: набор по умолчанию метки не получает', function () {
+test('describe: ряд набора по умолчанию метки не получает', function () {
   var s = setupRows();
-  s.R.register(s.manifest);
+  var rows = s.rows();
   var got = [];
-  s.addedRows[0].call({}, 'main')(function (payload) { got.push(payload); });
+  rows[0].call({}, 'main')(function (payload) { got.push(payload); });
   s.fetchCalls[0].ok({ results: [{ id: 1 }] });
   assert.ok(!got[0].lumen_keep);
 });

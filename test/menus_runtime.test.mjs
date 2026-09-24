@@ -525,13 +525,15 @@ test('I3: после повторного init настройка из меню 
 /* возврате, если пользователь ещё в настройках.                          */
 /* ====================================================================== */
 
+/* Волна 4: ряды главной регистрирует план (LC.homeplan.apply,
+   src/47_homeplan.js) — его и считаем. */
 function setupRefresh(component) {
   const env = setup();
   const registered = [];
   let replaced = 0;
   let current = component;
   env.LC.manifest = { load: (cb) => cb({ collections: [], home: [] }) };
-  env.LC.rows = { register: (m) => registered.push(m), unregister: () => { } };
+  env.LC.homeplan = { apply: (o) => registered.push(o), unregister: () => { }, hold: () => { } };
   globalThis.Lampa.Activity = {
     active: () => ({ component: current }),
     replace: () => { replaced++; }
@@ -552,6 +554,8 @@ test('Task 20: открыта главная — состав рядов при�
 
   env.LC.applyRowsPref();
   assert.equal(env.registered.length, 1, 'ряды перерегистрированы');
+  assert.ok(env.registered[0].manifest, 'план получил загруженный каталог');
+  assert.ok(!env.registered[0].fresh, 'перерегистрация эпоху не двигает — её двигает только построение главной');
   await tick();
   assert.equal(env.replaced(), 1, 'главная пересобрана');
 });
@@ -605,7 +609,7 @@ function setupSettingsLayer() {
   let controller = 'settings_component';
   const closeCbs = [];
   env.LC.manifest = { load: (cb) => cb({ collections: [], home: [] }) };
-  env.LC.rows = { register: (m) => registered.push(m), unregister: () => { } };
+  env.LC.homeplan = { apply: (o) => registered.push(o), unregister: () => { }, hold: () => { } };
   globalThis.Lampa.Activity = { active: () => ({ component: 'main' }), replace: () => { replaced++; } };
   globalThis.Lampa.Controller.enabled = () => ({ name: controller });
   globalThis.Lampa.Settings = { listener: { follow: (name, cb) => { if (name === 'close') closeCbs.push(cb); } } };
@@ -664,12 +668,11 @@ function setupHomeRace(opts) {
   let served = !!opts.served;
   env.LC.manifest = { load: (cb) => cb({ collections: [], home: [] }) };
   env.LC.rows = {
-    register: () => { },
-    unregister: () => { },
     installDedupe: () => { },
     uninstallDedupe: () => { },
     served: () => served
   };
+  env.LC.homeplan = { apply: () => { }, unregister: () => { }, hold: () => { } };
   globalThis.Lampa.Activity = {
     active: () => (current ? { component: current } : null),
     replace: () => { replaced++; }
@@ -680,6 +683,20 @@ function setupHomeRace(opts) {
     setServed: (value) => { served = value; }
   }, env);
 }
+
+/* Волна 4: ряды главной — и личные, и подборки — регистрирует план; он же
+   их снимает, когда плагин выключают. */
+test('волна 4: активация отдаёт ряды плану главной, выключение их снимает', async () => {
+  const env = setupHomeRace({ active: null, served: false });
+  const log = [];
+  env.LC.homeplan = { apply: (o) => log.push('apply:' + Object.keys(o || {}).join(',')), unregister: () => log.push('unregister'), hold: () => { } };
+  env.LC.init();
+  assert.deepEqual(log, ['apply:start', 'apply:manifest'], 'личные ряды сразу, подборки — с каталогом');
+  log.length = 0;
+  env.storage.lumen_enabled = 'false';
+  env.LC.applyEnabledPref();
+  assert.deepEqual(log, ['unregister']);
+});
 
 test('гонку выиграли: главной на экране ещё нет — пересборки нет', async () => {
   const env = setupHomeRace({ active: null, served: false });

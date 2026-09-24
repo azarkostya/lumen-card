@@ -1,5 +1,5 @@
   /* -------------------------------------------------------------------- */
-  /* LC.rows — регистрация рядов подборок на главной (ContentRows)          */
+  /* LC.rows — ряды подборок на главной (ContentRows)                       */
   /*                                                                       */
   /* Публичное API:                                                         */
   /*   rowName(id) → 'lumen_' + id                                          */
@@ -14,8 +14,13 @@
   /*   bumpGen() — runtime: поднимает поколение главной                     */
   /*   installDedupe() / uninstallDedupe() — обёртка над Lampa.Api.main     */
   /*   served() → строилась ли главная с нашими рядами хоть раз             */
-  /*   register(manifest) — runtime: регистрирует ряды через ContentRows    */
-  /*   unregister() — runtime: снимает ряды через ContentRows.remove        */
+  /*   describe(item, pinned) → описание ряда подборки для ContentRows       */
+  /*   adventRow(manifest) → описание ряда адвента (декабрь) или null        */
+  /*                                                                       */
+  /* Волна 4 (ТВ 2026-09-24): сам модуль ряды больше не регистрирует. Что  */
+  /* и на каком месте стоит, решает план главной (src/47_homeplan.js): он  */
+  /* берёт описания отсюда, ставит им index и регистрирует все ряды разом, */
+  /* строго по возрастанию места.                                          */
   /*                                                                       */
   /* Отмена запросов: главную ВЫБРОСИЛИ — Lampa.Listener шлёт             */
   /* 'activity':{type:'destroy', component:'main'} → LC.onActivityEvent()  */
@@ -34,10 +39,6 @@
   /* Progress): пачка завершается, только когда КАЖДАЯ её часть позвала    */
   /* свой call. Молчащий ряд навсегда останавливает достройку главной, а   */
   /* двойной вызов сбивает счётчик Progress. Держит контракт makeResolver. */
-  /*                                                                       */
-  /* Снятие рядов (C2-fix): register() перед регистрацией вызывает         */
-  /* ContentRows.remove для дескрипторов предыдущего набора (doUnregister). */
-  /* unregister() делает то же самое — из deactivate() в 90_runtime.js.    */
   /*                                                                       */
   /* Порядок загрузки: ContentRows.call('main', …) зовёт row.call(params,   */
   /* screen) сразу для ВСЕХ зарегистрированных рядов и складывает          */
@@ -81,10 +82,6 @@
        makeCall захватывает текущее значение в момент вызова inner-функции. */
     var _homeGen = 0;
 
-    /* Дескрипторы, переданные в ContentRows.add при последней регистрации.
-       doUnregister() снимает их через ContentRows.remove и очищает массив. */
-    var _addedRows = [];
-
     /* Участвовали ли НАШИ ряды хоть раз в построении главной. Флаг поднимает
        фабрика call-функции ряда: Lampa зовёт её из ContentRows.call('main',
        params, parts_data) (app.min.js:19877 у TMDB, 33962 у CUB) синхронно в
@@ -92,7 +89,7 @@
        строящегося экрана — раньше любых сетевых ответов.
 
        Отвечает на вопрос «была ли главная хоть раз построена с нами», а не
-       «с нами ли текущая регистрация», поэтому register() его НЕ сбрасывает:
+       «с нами ли текущая регистрация», поэтому перерегистрация его НЕ сбрасывает:
        по нему src/90_runtime.js решает, проиграли ли мы гонку с первым
        экраном (главную Lampa поднимает по setTimeout(last, 500) из
        Activity.init, app.min.js:45641). Сброс сделал бы «ряды только что
@@ -389,7 +386,7 @@
            «Новая серия · 12 сен», которой больше негде взяться.
          lumen_keep — состав чистим, но ряд не выбрасываем по порогу длины.
            Стоит на рядах, состав которых пользователь выбрал сам
-           (настройка lumen_home_rows, см. register), и на ряде адвента:
+           (настройка lumen_home_rows, см. describe), и на ряде адвента:
            в первых числах декабря в нём меньше четырёх карточек по самому
            его устройству.
 
@@ -570,8 +567,8 @@
     /* ------------------------------------------------------------------ */
 
     /* Task 20: сохранённый состав рядов главной — массив id или null, если
-       настройка пуста (тогда действует manifest.home). Читают и register(),
-       и экран выбора рядов в настройках. */
+       настройка пуста (тогда действует manifest.home). Читают и план главной
+       (src/47_homeplan.js), и экран выбора рядов в настройках. */
     function storedIds() {
       var raw = '';
       try { raw = LC.pref ? (LC.pref('lumen_home_rows', '') || '') : ''; } catch (e) {}
@@ -669,7 +666,13 @@
        Настройка читается в момент вызова: выключил — следующая же главная
        строится штатно, перерегистрация не нужна. Идемпотентна: если наша
        обёртка уже в цепочке (в том числе осиротевшая под чужой), второй раз
-       не подменяем — иначе получилось бы два окна подряд. */
+       не подменяем — иначе получилось бы два окна подряд.
+
+       Волна 4: Api.main — ещё и единственная точка ДО ContentRows.call
+       (main$2 зовёт его первым делом, app.min.js:19877). Здесь план
+       главной (LC.homeplan.apply, src/47_homeplan.js) двигает эпоху и
+       перерегистрирует ряды — строящаяся главная получает свежий порядок.
+       «Назад» из карточки главную заново не строит, и порядок не меняется. */
     function installDedupe() {
       _dedupeActive = true;
       if (_mainWrapped) return;
@@ -679,6 +682,9 @@
       _mainOriginal = Lampa.Api.main;
       _mainWrapped = function (params, oncomplite, onerror) {
         if (!_dedupeActive) return _mainOriginal(params, oncomplite, onerror);
+        try {
+          if (LC.homeplan && typeof LC.homeplan.apply === 'function') LC.homeplan.apply({ fresh: true });
+        } catch (ePlan) {}
         var dedupe = dedupeEnabled();
         /* Ширина ряда меряется один раз на заход на главную: окно за время
            её достройки не меняется, а пробник — это синхронная раскладка. */
@@ -717,65 +723,6 @@
           _mainOriginal = null;
         }
       } catch (e) {}
-    }
-
-    /* ------------------------------------------------------------------ */
-    /* Снятие зарегистрированных рядов (C2-fix: ContentRows.remove).        */
-    /* ------------------------------------------------------------------ */
-
-    /* Снимает все дескрипторы из ContentRows и очищает _addedRows.
-       Вызывается из register() (перед новой регистрацией) и unregister(). */
-    function doUnregister() {
-      if (!_addedRows.length) return;
-      for (var i = 0; i < _addedRows.length; i++) {
-        try {
-          if (window.Lampa && Lampa.ContentRows &&
-              typeof Lampa.ContentRows.remove === 'function') {
-            Lampa.ContentRows.remove(_addedRows[i]);
-          }
-        } catch (e) {}
-      }
-      _addedRows = [];
-    }
-
-    /* ------------------------------------------------------------------ */
-    /* register(manifest) — регистрирует ряды через Lampa.ContentRows.add  */
-    /* ------------------------------------------------------------------ */
-
-    /* Регистрирует ряды подборок на главной.
-       Перед регистрацией снимает ранее добавленные ряды (ContentRows.remove),
-       чтобы не задваивать при повторном вызове (реактивация, смена лимита,
-       поздний манифест). */
-    function register(manifest) {
-      /* Снять предыдущий набор рядов перед регистрацией нового */
-      doUnregister();
-
-      /* Настройки: пользовательский список id и лимит */
-      var picked = storedIds();
-
-      var limitRaw = 15;
-      try { limitRaw = LC.pref ? (parseInt(LC.pref('lumen_rows_limit', '15'), 10) || 15) : 15; } catch (e) {}
-
-      /* Текущий месяц для сезонного порядка */
-      var month = new Date().getMonth() + 1;
-
-      var rows = homeRows(manifest, picked, month, limitRaw);
-
-      /* Task 57: явный признак «этот ряд выбрал пользователь» — непустая
-         настройка lumen_home_rows. Такие ряды дедупликация чистит, но не
-         выбрасывает, даже если после чистки они стали короткими: человек
-         отметил их сам, и решать за него, что подборка «схлопнулась», мы
-         не вправе. Набор по умолчанию (manifest.home) под правило не
-         попадает — его никто не выбирал. */
-      var pinned = !!(picked && picked.length);
-
-      /* Task 21: ряд адвента идёт первым среди подборок — он и есть главный
-         сезонный ряд декабря; остальные сдвигаются на одну позицию. */
-      var shift = registerAdvent(manifest) ? 1 : 0;
-
-      for (var i = 0; i < rows.length; i++) {
-        registerRow(rows[i], i + shift, pinned);
-      }
     }
 
     /* ------------------------------------------------------------------ */
@@ -923,55 +870,45 @@
       };
     }
 
-    /* Регистрирует ряд адвента, если сейчас декабрь. Возвращает true —
-       тогда подборки сдвигаются на одну позицию вниз. */
-    function registerAdvent(manifest) {
+    /* Описание ряда адвента, если сейчас декабрь и есть из чего его
+       собрать; иначе null. Место ему назначает план главной: первым среди
+       подборок в режиме «Сначала «Досмотреть»», на месте 0 при ротации. */
+    function adventRow(manifest) {
       try {
-        if (!window.Lampa || !Lampa.ContentRows) return false;
-        if (!LC.themes || typeof LC.themes.adventDays !== 'function') return false;
+        if (!LC.themes || typeof LC.themes.adventDays !== 'function') return null;
         var today = adventToday();
-        if (!today || today.getMonth() !== 11) return false;
-        if (!adventSpecs(manifest).length) return false;
-        var descriptor = {
+        if (!today || today.getMonth() !== 11) return null;
+        if (!adventSpecs(manifest).length) return null;
+        return {
           name: rowName('advent'),
           title: adventTitle(today),
           screen: 'main',
-          index: ROWS_OFFSET,
           call: makeAdventCall(manifest)
         };
-        Lampa.ContentRows.add(descriptor);
-        _addedRows.push(descriptor);
-        return true;
       } catch (e) {
-        return false;
+        return null;
       }
     }
 
-    /* Регистрирует один ряд через ContentRows.add и сохраняет дескриптор.
-       index — позиция в списке рядов плагина (к нему прибавляется ROWS_OFFSET,
-       чтобы оставить позиции 0–3 для персональных рядов LC.personal из 45_personal.js;
-       позиции 0–3 — personal, 4+ — подборки манифеста).
-       call-функция возвращается фабрикой makeCall — item захватывается замыканием
-       правильно в ES5 (var в цикле не создаёт отдельного scope). */
-    var ROWS_OFFSET = 4;
-    function registerRow(item, index, pinned) {
-      try {
-        if (!window.Lampa || !Lampa.ContentRows) return;
-
-        /* Заголовок ряда: title из манифеста, badge через «·» если задан */
-        var rowTitle = item.title;
-        if (item.badge) rowTitle += ' · ' + item.badge;
-
-        var descriptor = {
-          name: rowName(item.id),
-          title: rowTitle,
-          screen: 'main',
-          index: index + ROWS_OFFSET,
-          call: makeCall(item, pinned)
-        };
-        Lampa.ContentRows.add(descriptor);
-        _addedRows.push(descriptor);
-      } catch (e) {}
+    /* Описание ряда подборки для ContentRows.add — без index: место в
+       списке рядов главной назначает план (src/47_homeplan.js).
+       pinned — ряд из состава, выбранного пользователем вручную
+       (lumen_home_rows): такие ряды дедупликация чистит, но не выбрасывает
+       по длине — человек отметил их сам, и решать за него, что подборка
+       «схлопнулась», мы не вправе. Набор по умолчанию под правило не
+       попадает — его никто не выбирал (Task 57).
+       call-функция возвращается фабрикой makeCall — item захватывается
+       замыканием правильно в ES5 (var в цикле не создаёт своей области). */
+    function describe(item, pinned) {
+      /* Заголовок ряда: title из манифеста, badge через «·» если задан */
+      var rowTitle = item.title;
+      if (item.badge) rowTitle += ' · ' + item.badge;
+      return {
+        name: rowName(item.id),
+        title: rowTitle,
+        screen: 'main',
+        call: makeCall(item, !!pinned)
+      };
     }
 
     /* Фабрика call-функции для одного элемента.
@@ -1003,7 +940,7 @@
               var filtered = filterWatched(json.results, viewedIds(json.results), hide);
               var payload = { results: filtered, title: item.title };
               /* Task 57: ряд из состава, выбранного пользователем вручную,
-                 дедупликация не выбрасывает по длине (см. register). */
+                 дедупликация не выбрасывает по длине (см. describe). */
               if (pinned) payload.lumen_keep = true;
               /* Постеры: подмена постеров — ПОСЛЕ фильтра досмотренного и
                  ДО ответа Lampa. После фильтра — чтобы не платить запросами
@@ -1031,12 +968,6 @@
       };
     }
 
-    /* Снимает все зарегистрированные ряды через ContentRows.remove (C2-fix).
-       Вызывается из deactivate() в src/90_runtime.js. */
-    function unregister() {
-      doUnregister();
-    }
-
     return {
       rowName: rowName,
       filterWatched: filterWatched,
@@ -1056,12 +987,12 @@
       /* Гонка первого экрана: по этому признаку 90_runtime.js решает,
          строилась ли видимая сейчас главная с нашими рядами. */
       served: served,
-      /* Task 21: чистые части адвента наружу ради тестов — сам ряд
-         регистрирует register() в декабре. */
+      /* Task 21: чистые части адвента наружу ради тестов. */
       adventSpecs: adventSpecs,
       adventPool: adventPool,
-      register: register,
-      unregister: unregister
+      /* Волна 4: описания рядов — их регистрирует план главной. */
+      describe: describe,
+      adventRow: adventRow
     };
   })();
 

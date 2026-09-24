@@ -1352,15 +1352,30 @@
       warn('torrents init failed', e5);
     }
     LC.applyTorrentsPref();
-    /* Task 15 (I4-fix): ряды регистрируются только через manifest.load —
-       и при первой активации (нет гонки с async-загрузкой манифеста),
-       и при реактивации (load отдаёт кэш синхронно).
-       register() сам снимает предыдущие ряды через ContentRows.remove (C2-fix). */
+    /* Волна 4 (ТВ 2026-09-24): все ряды главной — личные и подборки —
+       регистрирует один план (src/47_homeplan.js), строго по возрастанию
+       места; прежде личные регистрировались здесь, подборки — в колбэке
+       каталога, и порядок главной зависел от того, кто успел первым.
+       Сразу — личные ряды (данные локальны) и подборки прошлого каталога,
+       если он уже был загружен; start отмечает, что первое построение
+       главной после активации впереди (шаг эпохи). */
     try {
-      if (LC.rows && LC.rows.register && LC.manifest && LC.manifest.load) {
+      if (LC.homeplan && LC.homeplan.apply) LC.homeplan.apply({ start: true });
+    } catch (eHome) {
+      warn('home plan failed', eHome);
+    }
+    /* Task 15 (I4-fix): подборки — через manifest.load: и при первой
+       активации (нет гонки с async-загрузкой манифеста), и при реактивации
+       (load отдаёт кэш синхронно). apply снимает прежний набор сам. */
+    try {
+      if (LC.manifest && LC.manifest.load) {
         LC.manifest.load(function (m) {
-          if (!activated || !LC.rows || !LC.rows.register) return;
-          LC.rows.register(m);
+          if (!activated) return;
+          try {
+            if (LC.homeplan && LC.homeplan.apply) LC.homeplan.apply({ manifest: m });
+          } catch (eHomeRows) {
+            warn('home plan failed', eHomeRows);
+          }
           /* Ряды зарегистрированы — здесь и только здесь видно, успели мы к
              первому экрану или он построился без нас (см. repairHomeRows). */
           repairHomeRows();
@@ -1385,13 +1400,6 @@
       if (LC.header && LC.header.installPeople) LC.header.installPeople();
     } catch (ePeople) {
       warn('people merge install failed', ePeople);
-    }
-    /* Task 16: персональные ряды регистрируются синхронно — данные берутся
-       из Lampa.Favorite (локально) без async-загрузки манифеста. */
-    try {
-      if (LC.personal && LC.personal.register) LC.personal.register();
-    } catch (ePersonal) {
-      warn('personal rows register failed', ePersonal);
     }
     /* Task 17: компоненты хаба и сетки + пункт меню «Подборки». install()
        идемпотентен: компоненты регистрируются один раз, пункт меню — только
@@ -1509,10 +1517,9 @@
       warn('motion class off failed', e3);
     }
     stripAllCards();
-    /* Task 15: сброс флага регистрации рядов — следующий activate() заново
-       зарегистрирует ряды через LC.rows.register (может понадобиться, если
-       плагин выключили и снова включили). */
-    try { if (LC.rows && LC.rows.unregister) LC.rows.unregister(); } catch (eRows) {}
+    /* Task 15, волна 4: снять все ряды главной — и подборки, и личные;
+       следующий activate() зарегистрирует их заново через план главной. */
+    try { if (LC.homeplan && LC.homeplan.unregister) LC.homeplan.unregister(); } catch (eRows) {}
     /* Task 57: выключенный плагин не имеет права держать свою обёртку над
        Lampa.Api.main — главная должна строиться ровно как без плагина. */
     try { if (LC.rows && LC.rows.uninstallDedupe) LC.rows.uninstallDedupe(); } catch (eDedupeOff) {}
@@ -1522,8 +1529,6 @@
     /* Одна попытка достройки главной на активацию: следующее включение
        плагина получит свою (см. repairHomeRows). */
     home_repaired = false;
-    /* Task 16: снять персональные ряды. */
-    try { if (LC.personal && LC.personal.unregister) LC.personal.unregister(); } catch (ePersonalOff) {}
     /* Task 17: убрать пункт меню «Подборки». */
     try { if (LC.hub && LC.hub.uninstall) LC.hub.uninstall(); } catch (eHubOff) {}
     /* Task 18: снять героя целиком — узел, класс корня, наблюдатель,
@@ -1591,7 +1596,19 @@
         }
         if (activeComponentName() !== component) return;
         if (!Lampa.Activity || typeof Lampa.Activity.replace !== 'function') return;
-        Lampa.Activity.replace();
+        /* Волна 4: пересборка главной из-за настройки эпоху ротации рядов не
+           двигает (src/47_homeplan.js, hold) — иначе смена «Количества
+           рядов» перетасовала бы главную под руками. Api.main Lampa зовёт
+           внутри replace() синхронно (push$3 → create → onCreate,
+           app.min.js:45836-45841, 37068), поэтому метки на время вызова
+           хватает. */
+        var home = component === 'main' && LC.homeplan && typeof LC.homeplan.hold === 'function';
+        if (home) LC.homeplan.hold(true);
+        try {
+          Lampa.Activity.replace();
+        } finally {
+          if (home) LC.homeplan.hold(false);
+        }
       } catch (e) {
         warn('activity replace failed', e);
       }
@@ -1760,10 +1777,10 @@
   LC.applyRowsPref = function () {
     if (!activated) return;
     try {
-      if (LC.rows && LC.rows.register && LC.manifest && LC.manifest.load) {
+      if (LC.manifest && LC.manifest.load) {
         LC.manifest.load(function (m) {
-          if (!activated || !LC.rows || !LC.rows.register) return;
-          LC.rows.register(m);
+          if (!activated) return;
+          if (LC.homeplan && LC.homeplan.apply) LC.homeplan.apply({ manifest: m });
           /* Ряды перерегистрированы — теперь пересобрать главную, иначе
              пользователь увидит новый состав только со следующего захода. */
           LC.refreshComponent('main');
@@ -2056,14 +2073,13 @@
     LC.refreshComponent('lumen_grid');
   };
 
-  /* Task 16: перерегистрация персональных рядов при смене lumen_personal_rows.
-     Снимает все персональные ряды и строит новые (с учётом текущего значения
-     настройки — если выключена, register() вернётся сразу без регистрации). */
+  /* Task 16: персональные ряды включили или выключили. Волна 4: план
+     главной перерегистрирует все её ряды (выключенные личные ряды описаний
+     не дают, src/45_personal.js). */
   LC.applyPersonalPref = function () {
     if (!activated) return;
     try {
-      if (LC.personal && LC.personal.unregister) LC.personal.unregister();
-      if (LC.personal && LC.personal.register) LC.personal.register();
+      if (LC.homeplan && LC.homeplan.apply) LC.homeplan.apply();
       /* Task 20: как и у рядов подборок — пересобрать главную, иначе ряды
          появятся или исчезнут только при следующем её открытии. */
       LC.refreshComponent('main');

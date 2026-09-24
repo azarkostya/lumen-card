@@ -6,7 +6,10 @@ const P = load('45_personal.js');
 /* --- runtime helpers --- */
 
 /* Строит поддельную Lampa и загружает LC.personal в чистый контекст.
-   Возвращает {api, LC, addCalls, removeCalls, tmdbCalls}.
+   Возвращает {api, LC, addCalls, tmdbCalls}. addCalls — журнал
+   ContentRows.add: с волны 4 модуль сам ничего не регистрирует (ряды кладёт
+   план главной, src/47_homeplan.js), и тесты пишут туда описания
+   api.describe().
    tmdbCalls — массив объектов {url, params, ok, err}:
    колбэки ok/err вызываются вручную в тесте для симуляции сетевого ответа.
    Ф3, довесок Д2 (ревью фикс-раундов): get ничего не возвращает — как
@@ -15,7 +18,6 @@ const P = load('45_personal.js');
 function setupRuntime(opts) {
   opts = opts || {};
   var addCalls = [];
-  var removeCalls = [];
   var tmdbCalls = [];
   /* Task 58: журналы записи в данные Lampa — фильтр показа не имеет права
      ни удалять историю, ни трогать отметки просмотра. */
@@ -25,7 +27,7 @@ function setupRuntime(opts) {
   var Lampa = {
     ContentRows: {
       add: function (d) { addCalls.push(d); },
-      remove: function (d) { removeCalls.push(d); }
+      remove: function () {}
     },
     Favorite: opts.noFavorite ? undefined : {
       continues: opts.continues || function () { return []; },
@@ -66,7 +68,7 @@ function setupRuntime(opts) {
     daysWord: function (n) { return n + ' d'; }
   });
   return {
-    api: ctx.api, LC: ctx.LC, addCalls: addCalls, removeCalls: removeCalls, tmdbCalls: tmdbCalls,
+    api: ctx.api, LC: ctx.LC, addCalls: addCalls, tmdbCalls: tmdbCalls,
     timelineWrites: timelineWrites, favoriteWrites: favoriteWrites
   };
 }
@@ -255,7 +257,7 @@ test('runtime: bumpGen закрывает незавершённый ряд пу
       return [];
     }
   });
-  s.api.register();
+  s.addCalls = s.api.describe();
 
   /* Запускаем call-функцию ряда «because». */
   var because = null;
@@ -289,7 +291,7 @@ test('runtime: bumpGen закрывает ВСЕ незавершённые пе
       return [];
     }
   });
-  s.api.register();
+  s.addCalls = s.api.describe();
 
   var names = [];
   var got = [];
@@ -309,7 +311,7 @@ test('runtime: bumpGen закрывает ВСЕ незавершённые пе
 
 test('runtime: обычное завершение ряда «Скоро на экранах» — ровно один call', function () {
   var s = setupRuntime();
-  s.api.register();
+  s.addCalls = s.api.describe();
   var soon = null;
   for (var i = 0; i < s.addCalls.length; i++) {
     if (s.addCalls[i].name === 'lumen_soon') { soon = s.addCalls[i]; break; }
@@ -331,63 +333,57 @@ test('runtime: обычное завершение ряда «Скоро на э
   assert.equal(got.length, 1);
 });
 
-// --- runtime: register не задваивает ---
+// --- runtime: describe ---
 
-test('runtime: повторный register не задваивает дескрипторы', function () {
+/* Волна 4: места и регистрацию берёт план главной (src/47_homeplan.js,
+   test/homeplan.test.mjs): при ротации «Досмотреть» стоит вторым, и
+   закреплённые индексы 0–3 больше не годятся. */
+test('describe: описания рядов с данными, по порядку и без мест; выключенная настройка — ни одного', function () {
   var s = setupRuntime({
+    continues: function (type) { return type === 'movie' ? [{ id: 5, title: 'Начатый', original_title: 'Начатый' }] : []; },
     getFav: function (opts) {
       if (opts.type === 'history') return [{ id: 1, title: 'Movie' }];
+      if (opts.type === 'book') return [{ id: 100, name: 'Show' }];
       return [];
     }
   });
-  s.api.register();
-  var addAfterFirst = s.addCalls.length;
-
-  s.api.register();
-  var addAfterSecond = s.addCalls.length;
-
-  /* doUnregister + повторный register добавляет ≤ первого числа дескрипторов,
-     не удваивает. */
-  assert.ok(addAfterFirst > 0, 'хотя бы один ряд при первом register');
-  assert.equal(addAfterSecond - addAfterFirst, addAfterFirst, 'второй register добавил ровно столько же сколько первый');
-  /* doUnregister перед вторым register снял все дескрипторы первого. */
-  assert.equal(s.removeCalls.length, addAfterFirst, 'remove вызван для всех дескрипторов первого register');
+  var rows = s.api.describe();
+  assert.deepEqual(rows.map(function (d) { return d.id + ':' + d.name; }),
+    ['continue:lumen_continue', 'because:lumen_because', 'new_episodes:lumen_new_episodes', 'soon:lumen_soon']);
+  rows.forEach(function (d) {
+    assert.equal(d.index, undefined, 'место назначает план главной');
+    assert.equal(d.screen, 'main');
+  });
+  assert.equal(s.addCalls.length, 0, 'сам модуль в ContentRows ничего не кладёт');
+  var off = setupRuntime({ prefs: { lumen_personal_rows: false } });
+  assert.deepEqual(off.api.describe(), []);
 });
 
-// --- runtime: unregister передаёт те же дескрипторы ---
-
-test('runtime: unregister вызывает ContentRows.remove с теми же объектами что add', function () {
-  var s = setupRuntime({
-    getFav: function (opts) {
-      if (opts.type === 'history') return [{ id: 2, title: 'Film' }];
-      return [];
-    }
-  });
-  s.api.register();
-  var added = s.addCalls.slice();
-  s.api.unregister();
-
-  assert.equal(s.removeCalls.length, added.length, 'remove вызван для каждого add');
-  for (var i = 0; i < added.length; i++) {
-    assert.ok(s.removeCalls.indexOf(added[i]) >= 0, 'дескриптор #' + i + ' передан в remove');
-  }
+test('describe: исходный фильм «Потому что» выбирает opts.anchor', function () {
+  var history = [{ id: 1, title: 'Свежий' }, { id: 2, title: 'Постарше' }];
+  var s = setupRuntime({ getFav: function (opts) { return opts.type === 'history' ? history : []; } });
+  var seen = [];
+  var row = s.api.describe({ anchor: function (h) { seen.push(h); return { id: 2, media: 'movie', title: 'Постарше' }; } })
+    .filter(function (d) { return d.id === 'because'; })[0];
+  assert.equal(row.title, 'lumen_row_because: «Постарше»');
+  row.call({}, 'main')(function () {});
+  assert.deepEqual(s.tmdbCalls.map(function (c) { return c.url; }), ['movie/2/recommendations']);
+  assert.equal(seen[0], history, 'выбору отдаётся история Lampa как есть');
 });
 
 // --- runtime: отсутствие Lampa.Favorite не падает ---
 
-test('runtime: нет Lampa.Favorite → register не падает, ряды «Досмотреть»/«Потому что»/«Новые серии» не регистрируются', function () {
+test('runtime: нет Lampa.Favorite → describe не падает, рядов «Досмотреть»/«Потому что»/«Новые серии» нет', function () {
   var s = setupRuntime({ noFavorite: true });
-  assert.doesNotThrow(function () { s.api.register(); });
-  /* Без Favorite данных нет → только «Скоро» может быть зарегистрирован. */
-  var names = s.addCalls.map(function (d) { return d.name; });
-  assert.ok(names.indexOf('lumen_continue') === -1, 'Досмотреть не добавлен без Favorite');
-  assert.ok(names.indexOf('lumen_because') === -1, 'Потому что не добавлен без Favorite');
-  assert.ok(names.indexOf('lumen_new_episodes') === -1, 'Новые серии не добавлен без Favorite');
+  var rows = null;
+  assert.doesNotThrow(function () { rows = s.api.describe(); });
+  /* Без Favorite данных нет → только «Скоро». */
+  assert.deepEqual(rows.map(function (d) { return d.name; }), ['lumen_soon']);
 });
 
-test('runtime: нет Lampa.Api → register не падает', function () {
+test('runtime: нет Lampa.Api → describe не падает', function () {
   var s = setupRuntime({ noApi: true });
-  assert.doesNotThrow(function () { s.api.register(); });
+  assert.doesNotThrow(function () { s.api.describe(); });
 });
 
 // --- цена первого экрана: лимит сериалов и дедлайн ряда ---
@@ -423,7 +419,7 @@ test('цена первого экрана: «Новые серии» берут
   var s = setupRuntime({
     getFav: function (opts) { return opts.type === 'book' ? shows : []; }
   });
-  s.api.register();
+  s.addCalls = s.api.describe();
   var row = rowByName(s, 'lumen_new_episodes');
   assert.ok(row, 'ряд «Новые серии» зарегистрирован');
   row.call({}, {})(function () {});
@@ -435,7 +431,7 @@ test('дедлайн: «Новые серии» отдают то, что усп
   var shows = [];
   for (var i = 0; i < 6; i++) shows.push({ id: 200 + i, name: 'Show ' + i, title: 'Show ' + i });
   var s = setupRuntime({ getFav: function (opts) { return opts.type === 'book' ? shows : []; } });
-  s.api.register();
+  s.addCalls = s.api.describe();
   var row = rowByName(s, 'lumen_new_episodes');
   var got = [];
   withFakeTimers(function (ctl) {
@@ -469,7 +465,7 @@ test('дедлайн: «Потому что вы смотрели» молчащ
   var s = setupRuntime({
     getFav: function (opts) { return opts.type === 'history' ? [{ id: 1, title: 'A' }, { id: 2, title: 'B' }] : []; }
   });
-  s.api.register();
+  s.addCalls = s.api.describe();
   var row = rowByName(s, 'lumen_because');
   var got = [];
   withFakeTimers(function (ctl) {
@@ -494,7 +490,7 @@ test('«Потому что вы смотрели»: один исходный �
       return opts.type === 'history' ? [{ id: 7, title: 'Свежий' }, { id: 3, name: 'Сериал' }, { id: 1, title: 'Старый' }] : [];
     }
   });
-  s.api.register();
+  s.addCalls = s.api.describe();
   var row = rowByName(s, 'lumen_because');
   assert.equal(row.title, 'lumen_row_because: «Свежий»', 'заголовок при регистрации — по тому же фильму');
   var got = [];
@@ -508,7 +504,7 @@ test('«Потому что вы смотрели»: один исходный �
 
 test('дедлайн: «Скоро на экранах» отдаёт частичный результат', function () {
   var s = setupRuntime();
-  s.api.register();
+  s.addCalls = s.api.describe();
   var row = rowByName(s, 'lumen_soon');
   var got = [];
   withFakeTimers(function (ctl) {
@@ -525,7 +521,7 @@ test('дедлайн: «Скоро на экранах» отдаёт части
 
 test('полный ответ до дедлайна: таймер снят, ряд отвечает один раз', function () {
   var s = setupRuntime();
-  s.api.register();
+  s.addCalls = s.api.describe();
   var row = rowByName(s, 'lumen_soon');
   var got = [];
   withFakeTimers(function (ctl) {
@@ -542,7 +538,7 @@ test('полный ответ до дедлайна: таймер снят, ря
 
 test('отмена ряда снимает таймер дедлайна', function () {
   var s = setupRuntime();
-  s.api.register();
+  s.addCalls = s.api.describe();
   var row = rowByName(s, 'lumen_soon');
   var got = [];
   withFakeTimers(function (ctl) {
@@ -677,7 +673,7 @@ test('Продолжить: досмотренный фильм в ряд не �
     continues: function (type) { return type === 'movie' ? [movie(1, 'Аватар'), movie(2, 'Дюна')] : []; },
     timeline: { 'h:Аватар': { percent: 98, time: 0, duration: 0 } }
   });
-  s.api.register();
+  s.addCalls = s.api.describe();
   var cont = s.addCalls.filter(function (d) { return d.name === 'lumen_continue'; })[0];
   var got = null;
   cont.call({}, 'main')(function (payload) { got = payload; });
@@ -689,7 +685,7 @@ test('Продолжить: досмотрено всё — ряда нет во
     continues: function (type) { return type === 'movie' ? [movie(1, 'Аватар')] : []; },
     timeline: { 'h:Аватар': { percent: 96 } }
   });
-  s.api.register();
+  s.addCalls = s.api.describe();
   assert.equal(s.addCalls.filter(function (d) { return d.name === 'lumen_continue'; }).length, 0);
 });
 
@@ -698,7 +694,7 @@ test('Продолжить: начатый фильм остаётся на ме
     continues: function (type) { return type === 'movie' ? [movie(1, 'Аватар')] : []; },
     timeline: { 'h:Аватар': { percent: 40 } }
   });
-  s.api.register();
+  s.addCalls = s.api.describe();
   assert.equal(s.addCalls.filter(function (d) { return d.name === 'lumen_continue'; }).length, 1);
 });
 
@@ -709,7 +705,7 @@ test('Продолжить: данные Lampa фильтр не трогает'
     continues: function (type) { return type === 'movie' ? [movie(1, 'Аватар'), movie(2, 'Дюна')] : []; },
     timeline: store
   });
-  s.api.register();
+  s.addCalls = s.api.describe();
   var cont = s.addCalls.filter(function (d) { return d.name === 'lumen_continue'; })[0];
   cont.call({}, 'main')(function () {});
   assert.equal(JSON.stringify(store), snapshot, 'позиция в Timeline осталась нетронутой');
@@ -722,7 +718,7 @@ test('Продолжить: без Lampa.Timeline ряд строится как
     noTimeline: true,
     continues: function (type) { return type === 'movie' ? [movie(1, 'Аватар')] : []; }
   });
-  s.api.register();
+  s.addCalls = s.api.describe();
   var cont = s.addCalls.filter(function (d) { return d.name === 'lumen_continue'; })[0];
   var got = null;
   cont.call({}, 'main')(function (payload) { got = payload; });
@@ -733,7 +729,7 @@ test('Продолжить: ряд помечен как персональны�
   var s = setupRuntime({
     continues: function (type) { return type === 'movie' ? [movie(1, 'Аватар')] : []; }
   });
-  s.api.register();
+  s.addCalls = s.api.describe();
   var cont = s.addCalls.filter(function (d) { return d.name === 'lumen_continue'; })[0];
   var got = null;
   cont.call({}, 'main')(function (payload) { got = payload; });
@@ -755,7 +751,7 @@ test('«Потому что вы смотрели» и «Новые серии»
       return [];
     }
   });
-  s.api.register();
+  s.addCalls = s.api.describe();
   var because = rowByName(s, 'lumen_because');
   var episodes = rowByName(s, 'lumen_new_episodes');
   assert.ok(because && episodes, 'оба ряда заведены');
