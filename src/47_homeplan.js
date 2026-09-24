@@ -343,6 +343,7 @@
         for (k = 0; k < remaining.length; k++) if (fits(remaining[k])) return k;
         return 0;
       }
+      var season = fixed;
       for (var place = 0; remaining.length || fixed; place++) {
         if (taken[place]) continue;
         var item;
@@ -357,7 +358,58 @@
         at[place] = item;
         out.push({ place: place, kind: 'collection', id: item.id, item: item });
       }
+      repair(out, at, month, chosen[0], season);
       return out;
+    }
+
+    /* Пар соседних подборок одной группы в раскладке (out — по местам). */
+    function pairs(out, at) {
+      var n = 0;
+      for (var j = 0; j < out.length; j++) {
+        var up = at[out[j].place - 1];
+        if (up && up.group && up.group === out[j].item.group) n++;
+      }
+      return n;
+    }
+
+    function swap(out, at, a, b) {
+      var x = out[a].item;
+      out[a].item = out[b].item;
+      out[b].item = x;
+      out[a].id = out[a].item.id;
+      out[b].id = out[b].item.id;
+      at[out[a].place] = out[a].item;
+      at[out[b].place] = out[b].item;
+    }
+
+    /* Ремонт раскладки. Жадный проход сверху вниз бывает загнан в угол:
+       сезонная на своём месте запрещает соседям свою группу, подборки этой
+       группы уезжают в хвост, и последнее ослабление ставит их вплотную
+       (финальное ревью: январь, эпоха 10, десять рядов без личных —
+       «Шпионы» и «Фэнтези» на местах 9–10). Подборку из такой пары — сперва
+       нижнюю — меняем местами с подборкой другого места, сперва выше, если
+       пар от обмена становится меньше. Лидер и сезонная на своём месте не
+       двигаются, другая сезонная на места 0…SEASON_TOP не поднимается. */
+    function repair(out, at, month, lead, season) {
+      var bad = pairs(out, at);
+      function movable(j) { return out[j].item !== lead && out[j].item !== season; }
+      function allowed(j, item) { return !(out[j].place <= SEASON_TOP && inSeason(item, month)); }
+      function tryMove(a) {
+        if (!movable(a)) return false;
+        for (var b = 0; b < out.length; b++) {
+          if (b === a || !movable(b) || !allowed(b, out[a].item) || !allowed(a, out[b].item)) continue;
+          swap(out, at, a, b);
+          var now = pairs(out, at);
+          if (now < bad) { bad = now; return true; }
+          swap(out, at, a, b);
+        }
+        return false;
+      }
+      for (var i = 1; i < out.length && bad; i++) {
+        var up = at[out[i].place - 1];
+        if (!up || !up.group || up.group !== out[i].item.group) continue;
+        if (tryMove(i) || tryMove(i - 1)) i = 0;
+      }
     }
 
     function byPlace(a, b) { return a.place - b.place; }

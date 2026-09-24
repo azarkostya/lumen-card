@@ -176,6 +176,24 @@ test('planHome, rotate: две подборки одной группы подр
   }
 });
 
+/* Финальное ревью: личные ряды выключены, десять рядов, в месяце есть
+   сезонная — в ~1,5 % эпох на местах 9–10 две подборки одной группы
+   (январь, эпоха 10: «Шпионы» и «Фэнтези» из группы theme). Сезонная на
+   своём месте запрещала группу соседям, подборки группы уезжали в хвост,
+   и последнее ослабление ставило их вплотную. */
+test('planHome, rotate: без личных рядов, десять рядов, сезон — подряд одной группы нет', function () {
+  [1, 2, 5, 9, 10, 11].forEach(function (month) {
+    for (var n = 1; n <= 1000; n++) {
+      var cols = collections(plan({ epoch: n, month: month, have: {}, limit: 10 }));
+      for (var i = 1; i < cols.length; i++) {
+        if (cols[i].place !== cols[i - 1].place + 1) continue;
+        assert.notEqual(cols[i].item.group, cols[i - 1].item.group,
+          'месяц ' + month + ', эпоха ' + n + ': ' + cols[i - 1].id + ' и ' + cols[i].id + ' подряд из группы ' + cols[i].item.group);
+      }
+    }
+  });
+});
+
 test('planHome, rotate: лидер не повторяет лидеров двух прошлых эпох', function () {
   var recent = [];
   for (var n = 1; n <= 40; n++) {
