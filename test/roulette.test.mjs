@@ -643,6 +643,7 @@ function restoreGlobals34() {
    старые тесты фона от этого не зависят вовсе. Тест, которому нужен сам
    переход, ставит transitionStub.on = true и зовёт fireReveal(). */
 var transitionStub = null;
+var activeAct34 = null;
 var collected = [];
 var focused = [];
 function resetCollection() { collected = []; focused = []; }
@@ -699,7 +700,12 @@ function openRoulette34(cards, t, dpr, motion, object, hold) {
       collectionSet: function (node) { collected.push(node); },
       collectionFocus: function (node, box) { focused.push({ node: node, box: box }); }
     },
-    Menu: { addButton: function () { return new El([]); } }
+    Menu: { addButton: function () { return new El([]); } },
+    /* Пятый раунд, п.5: как у настоящей Lampa, Activity.active() — вершина
+       истории (active$3, vendor/lampa/app.min.js:45889-45891). По умолчанию
+       это сама рулетка; тест «Назад» подменяет activeAct34 предыдущим
+       экраном — так делает backward() до destroy() рулетки. */
+    Activity: { active: function () { return activeAct34; } }
   };
   /* Task 44: высота окна нужна так же, как ширина, — барабан задан в vh. */
   globalThis.window = { Lampa: Lampa, innerWidth: 1920, innerHeight: 1080, devicePixelRatio: dpr || 1 };
@@ -726,6 +732,7 @@ function openRoulette34(cards, t, dpr, motion, object, hold) {
   var Comp = components.lumen_roulette;
   var comp = new Comp(object || {});
   comp.activity = { loader: function (on) { loaderLog34.push(!!on); } };
+  activeAct34 = { component: 'lumen_roulette', activity: comp.activity };
   comp.create();
   var screen = comp.render();
   var reel = screen.find('.lumen-roulette__reel');
@@ -1516,6 +1523,35 @@ test('пятый раунд п.4: «Крутить» во время показ�
   assert.equal(env.stacked(), false, 'показ выборки дорисовал стопку поверх вращения');
   assert.equal(env.loading(), false, 'индикатор загрузки висит');
   assert.equal(poolSets34, 1, 'после ответа пул собирался ещё раз');
+});
+
+/* Пятый раунд, п.5. «Назад» из рулетки, пока каталог в пути: backward()
+   снимает рулетку с вершины истории и сразу стартует предыдущий экран, а
+   destroy() рулетки зовёт только через 200 мс (vendor/lampa/app.min.js:
+   45933-45950); pause() не зовётся, started остаётся true. Ответ каталога в
+   это окно не должен забирать коллекцию Navigator у предыдущего экрана. */
+test('пятый раунд п.5: ответ каталога в окне 200 мс после «Назад» не забирает коллекцию у предыдущего экрана', (t) => {
+  /* Контроль: без «Назад» ответ каталога переустанавливает коллекцию
+     рулетки — иначе тишина ниже ничего не доказывает. */
+  const probe = openRoulette34([R44], t, 1, 'lite', { media: 'movie' }, { manifest: true });
+  probe.comp.start();
+  const before = collected.length;
+  releaseHeld(heldManifest34);
+  assert.ok(collected.length > before, 'предпосылка: ответ каталога на активной рулетке ставит коллекцию');
+
+  const env = openRoulette34([R44], t, 1, 'lite', { media: 'movie' }, { manifest: true });
+  env.comp.start();
+  /* backward(): вершина истории — предыдущий экран, он уже стартовал. */
+  activeAct34 = { component: 'main', activity: { loader: function () { } } };
+  const mark = collected.length;
+  const markFocus = focused.length;
+  releaseHeld(heldManifest34);
+  assert.equal(collected.length, mark, 'ответ каталога забрал коллекцию Navigator у предыдущего экрана');
+  assert.equal(focused.length, markFocus, 'ответ каталога перевёл фокус на уходящую рулетку');
+  /* Через 200 мс Lampa уничтожает рулетку — в сеть она не идёт. */
+  env.comp.destroy();
+  drainDelays();
+  assert.equal(fetchCalls34, 0, 'уходящая рулетка пошла в сеть за выборкой');
 });
 
 test('ревью п.1: ответ каталога после destroy() экран не строит', (t) => {

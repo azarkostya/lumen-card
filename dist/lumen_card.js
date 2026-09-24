@@ -20702,6 +20702,16 @@ try { self.activity.loader(false); } catch (e) { }
 
 
 if (!paused) schedulePreview();
+
+
+
+
+
+
+
+var act = null;
+try { act = Lampa.Activity.active(); } catch (eAct) { }
+if (act && act.activity && act.activity !== self.activity) return;
 if (started) recollect(null);
 }
 

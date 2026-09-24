@@ -1439,6 +1439,16 @@
            первого действия по-прежнему пустая коробка. На паузе — нет:
            скрытый экран в сеть не ходит (Ф2 п.5), выборку поднимет start(). */
         if (!paused) schedulePreview();
+        /* Контрольное ревью пятого раунда, п.5: «Назад» из рулетки. Lampa
+           снимает её с вершины истории и сразу стартует предыдущий экран, а
+           destroy() зовёт только через 200 мс (backward, vendor/lampa/
+           app.min.js:45933-45950); pause() при этом не зовётся, и started
+           всё ещё true. Ответ каталога в это окно забрал бы коллекцию
+           Navigator у экрана, на который вернулись. Сверка — та же, что в
+           this.start(). Отложенный показ выборки гасит сам destroy(). */
+        var act = null;
+        try { act = Lampa.Activity.active(); } catch (eAct) { }
+        if (act && act.activity && act.activity !== self.activity) return;
         if (started) recollect(null);
       }
 
