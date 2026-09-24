@@ -486,14 +486,44 @@ test('apply: лидер эпохи запоминается и в двух сл�
   assert.ok(s.store.lumen_home_leads.length <= 4);
 });
 
-test('apply: ряд, выключенный в «Каналах» Lampa, в план не входит — его место занимает следующий', function () {
+/* Ревью волны 4 (95): список «Каналов» Lampa собирается только из
+   зарегистрированных рядов (settings(), app.min.js:18040-18057). Ряд,
+   который план не регистрировал, из «Каналов» пропадал — и включить его
+   обратно было негде. Выключенный ряд регистрируется после всех рядов
+   плана: call$1 отсеивает его до вставки (:18088-18090), главная та же. */
+test('apply: ряд, выключенный в «Каналах» Lampa, в план не входит, но остаётся в «Каналах» — включил, и он на главной', function () {
   const s = setupApply({ storage: { content_rows_lumen_continue: false } });
   const p = s.H.apply({ start: true, manifest: CATALOG });
-  assert.equal(s.ours().filter((r) => r.name === 'lumen_continue').length, 0);
   assert.equal(p.slots[1].kind, 'collection', 'на месте 1 подборка, а не дыра');
+  const names = s.ours().map((r) => r.name);
+  assert.equal(names.filter((n) => n === 'lumen_continue').length, 1, 'ряд зарегистрирован — Lampa покажет его в «Каналах»');
+  assert.equal(names[names.length - 1], 'lumen_continue', 'после всех рядов плана');
+  assert.equal(buildMain(s).indexOf('lumen_continue'), -1, 'на главной его нет');
+  s.store.content_rows_lumen_continue = true;
+  s.H.apply({ fresh: true });
+  assert.equal(buildMain(s)[1], 'lumen_continue', 'включили — «Досмотреть» снова вторым');
+
   const off = setupApply({ storage: { ['content_rows_lumen_' + p.lead]: false } });
   const q = off.H.apply({ start: true, manifest: CATALOG });
   assert.notEqual(q.lead, p.lead, 'выключенная подборка лидером не встаёт');
+  assert.equal(off.ours().filter((r) => r.name === 'lumen_' + p.lead).length, 1, 'выключенная подборка в «Каналах» есть');
+  assert.equal(buildMain(off).indexOf('lumen_' + p.lead), -1, 'на главной её нет');
+  const planned = q.slots.map((x) => x.place);
+  assert.deepEqual(off.ours().slice(0, planned.length).map((r) => r.index), planned, 'ряды плана — как были, по возрастанию мест');
+  off.store['content_rows_lumen_' + p.lead] = true;
+  off.H.apply({ fresh: true });
+  assert.equal(buildMain(off)[0], 'lumen_' + p.lead, 'включили — та же эпоха, подборка снова лидер');
+
+  /* В режиме истории выключенная подборка набора и так в плане: второй раз
+     не регистрируем — в «Каналах» не двоится. */
+  const h = setupApply({ prefs: { lumen_home_start: 'history' }, storage: { 'content_rows_lumen_star-wars': false, content_rows_lumen_soon: false } });
+  h.H.apply({ start: true, manifest: CATALOG });
+  const hn = h.ours().map((r) => r.name);
+  assert.equal(hn.filter((n) => n === 'lumen_star-wars').length, 1);
+  assert.equal(hn.filter((n) => n === 'lumen_soon').length, 1);
+  assert.equal(new Set(hn).size, hn.length, 'имена рядов не повторяются');
+  h.H.unregister();
+  assert.equal(h.ours().length, 0, 'unregister снимает и выключенные');
 });
 
 test('apply: «Потому что вы смотрели» — один из пяти последних фильмов по эпохе, заголовок о нём же', function () {

@@ -498,13 +498,16 @@
       var anchorSeed = seedOf(epoch.n, SALT_ANCHOR);
       var own = {};
       var have = {};
+      /* Выключенные в «Каналах» ряды: в план не входят, но регистрируются
+         после всех его рядов (см. ниже). */
+      var offRows = [];
       var i;
       try {
         var personal = (LC.personal && typeof LC.personal.describe === 'function')
           ? LC.personal.describe({ anchor: function (history) { return pickAnchor(history, ANCHOR_RECENT, anchorSeed); } })
           : [];
         for (i = 0; i < personal.length; i++) {
-          if (!rowOn(personal[i].name)) continue;
+          if (!rowOn(personal[i].name)) { offRows.push(personal[i]); continue; }
           own[personal[i].id] = personal[i];
           have[personal[i].id] = true;
         }
@@ -513,7 +516,7 @@
       try {
         if (_manifest && LC.rows && typeof LC.rows.adventRow === 'function') advent = LC.rows.adventRow(_manifest);
       } catch (eAdvent) {}
-      if (advent && !rowOn(advent.name)) advent = null;
+      if (advent && !rowOn(advent.name)) { offRows.push(advent); advent = null; }
       var leads = read(LEADS_KEY, '[]');
       if (!Array.isArray(leads)) leads = [];
 
@@ -533,6 +536,17 @@
 
       unregister();
       var pinned = !!(picked && picked.length);
+      var named = {};
+      var place = 0;
+      function register(row) {
+        try {
+          if (window.Lampa && Lampa.ContentRows && typeof Lampa.ContentRows.add === 'function') {
+            Lampa.ContentRows.add(row);
+            _added.push(row);
+            named[row.name] = true;
+          }
+        } catch (eAdd) {}
+      }
       for (i = 0; i < plan.slots.length; i++) {
         var slot = plan.slots[i];
         var row = null;
@@ -543,12 +557,32 @@
         } catch (eRow) {}
         if (!row) continue;
         row.index = slot.place;
-        try {
-          if (window.Lampa && Lampa.ContentRows && typeof Lampa.ContentRows.add === 'function') {
-            Lampa.ContentRows.add(row);
-            _added.push(row);
+        place = slot.place + 1;
+        register(row);
+      }
+
+      /* Ревью волны 4: список «Каналов» Lampa собирается только из
+         зарегистрированных рядов (settings(), app.min.js:18040-18057) —
+         незарегистрированный выключенный ряд оттуда пропадал, и включить
+         его обратно было негде. Регистрируем его ПОСЛЕ всех рядов плана:
+         call$1 отсеивает выключенный до вставки (:18088-18090), и порядок
+         главной тот же. Подборки — весь каталог с выключателем в false; в
+         режиме истории выключенная подборка набора уже в плане — второй
+         раз не регистрируем, в «Каналах» она задвоилась бы. Включили —
+         следующее построение главной (обёртка Api.main) ставит ряд на его
+         место. */
+      try {
+        var catalog = (_manifest && Array.isArray(_manifest.collections)) ? _manifest.collections : [];
+        for (i = 0; i < catalog.length; i++) {
+          if (catalog[i] && catalog[i].id && !rowOn('lumen_' + catalog[i].id) && LC.rows && typeof LC.rows.describe === 'function') {
+            offRows.push(LC.rows.describe(catalog[i], pinned));
           }
-        } catch (eAdd) {}
+        }
+      } catch (eOff) {}
+      for (i = 0; i < offRows.length; i++) {
+        if (!offRows[i] || named[offRows[i].name]) continue;
+        offRows[i].index = place++;
+        register(offRows[i]);
       }
 
       if (plan.lead) {
