@@ -3679,6 +3679,45 @@ test('трейлер героя: старт плеера Lampa снял роли
   assert.deepEqual(warnLog, []);
 });
 
+/* Ревью раунда хвостов, п.4: как у списка выбора выше — после закрытия
+   плеера Lampa ролик героя спрашивается не раньше чем через полные 8 с от
+   возврата фокуса. Плеер стартовал посреди отсчёта (трейлер из меню на
+   3-й секунде) и простоял 2 с: отсчёт, заведённый до плеера, досчитать не
+   должен — иначе ролик пошёл бы через 3 с после закрытия плеера. */
+test('трейлер героя: плеер Lampa открыт посреди отсчёта — закрыли, фокус вернулся, ролики не раньше чем через 8 с', () => {
+  const env = trailerEnv();
+  const player = lampaPlayer(env);
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  focusOn(main, main.card1);
+  env.advance(3000);
+  player.open = true;
+  player.listener.send('start', {});
+  env.advance(2000);
+  player.open = false;
+  fireFocus(main.activity, main.card1);
+  env.advance(7900);
+  assert.equal(videoCount(env), 0, 'ролики спрошены раньше 8 с от возврата фокуса');
+  env.advance(200);
+  assert.equal(videoCount(env), 1, 'возврат фокуса после плеера не завёл отсчёт');
+  lastVideos(env).ok(VIDEOS_RU);
+  assert.equal(env.players.length, 1);
+
+  /* Ролик уже играл, и его снял старт плеера Lampa, — то же самое. */
+  env.players[0].onStart();
+  player.open = true;
+  player.listener.send('start', {});
+  assert.equal(env.players[0].destroys, 1);
+  env.advance(2000);
+  player.open = false;
+  fireFocus(main.activity, main.card1);
+  env.advance(7900);
+  assert.equal(videoCount(env), 1, 'после снятого ролика ролики спрошены раньше 8 с');
+  env.advance(200);
+  assert.equal(videoCount(env), 2);
+  assert.deepEqual(warnLog, []);
+});
+
 /* Ревью раунда хвостов, п.2: «Расширения» (Lampa.Extensions.show,
    app.min.js:36488-36510) ставят body.ambience--enable, а под ним Lampa
    прячет .wrap целиком (app.css:397-398) — главной не видно. Набор
