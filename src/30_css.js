@@ -3663,7 +3663,12 @@
     css.push('.lumen-hero.lumen-motion-full .lumen-hero__text > :not(.lumen-hero__veil){-webkit-transition:opacity .18s ease;transition:opacity .18s ease}');
     css.push('.lumen-hero.lumen-motion-full .lumen-hero__text > .lumen-hero__logo{-webkit-transition:opacity .18s ease,-webkit-transform' + EASE + ';transition:opacity .18s ease,transform' + EASE + '}');
     css.push('.lumen-hero.lumen-motion-full .lumen-hero__text.is-swapping > :not(.lumen-hero__veil){opacity:0}');
-    css.push('.lumen-hero.lumen-motion-full .lumen-hero__text.is-in > :not(.lumen-hero__veil){-webkit-animation:lumen-hero-in' + EASE + ';animation:lumen-hero-in' + EASE + '}');
+    /* Контрольное ревью 84c7b27..de0e2c8, п.3: скелетоны из проявления
+       исключены. is-in висит до следующей смены карточки, а это правило
+       специфичнее .lumen-skeleton и снимало бы плашкам героя пульс на всё
+       время ожидания деталей. Плашки (.lumen-hero__sk) носят .lumen-skeleton
+       (src/48_hero.js); цепочка :not() — тоже CSS3. */
+    css.push('.lumen-hero.lumen-motion-full .lumen-hero__text.is-in > :not(.lumen-hero__veil):not(.lumen-skeleton){-webkit-animation:lumen-hero-in' + EASE + ';animation:lumen-hero-in' + EASE + '}');
     css.push('@-webkit-keyframes lumen-hero-in{from{opacity:0}to{opacity:1}}');
     css.push('@keyframes lumen-hero-in{from{opacity:0}to{opacity:1}}');
     css.push('.lumen-hero.lumen-motion-lite .lumen-hero__text,.lumen-hero.lumen-motion-off .lumen-hero__text{opacity:1;-webkit-transition:none;transition:none;-webkit-animation:none;animation:none}');

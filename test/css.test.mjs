@@ -4316,7 +4316,7 @@ test('Task 36: подмена текста — только opacity, сдвиг 
   assert.equal(swap, 'opacity:0', 'старый текст обязан только гаснуть: ' + swap);
   assert.equal(findDecl(css, (sel) => sel === '.lumen-hero.lumen-motion-full .lumen-hero__text.is-swapping'), null,
     'гаснет весь блок — вместе с ним гаснет подушка под текстом');
-  const inCls = findDecl(css, (sel) => sel === '.lumen-hero.lumen-motion-full .lumen-hero__text.is-in > :not(.lumen-hero__veil)');
+  const inCls = findDecl(css, (sel) => sel === '.lumen-hero.lumen-motion-full .lumen-hero__text.is-in > :not(.lumen-hero__veil):not(.lumen-skeleton)');
   assert.ok(inCls && inCls.indexOf('lumen-hero-in .42s') !== -1, 'новый проявляется 420 мс');
   const block = findDecl(css, (sel) => sel === '.lumen-hero.lumen-motion-full .lumen-hero__text');
   assert.equal(/opacity/.test(block), false, 'переход opacity у самого блока: ' + block);
@@ -4334,6 +4334,28 @@ test('Task 36: подмена текста — только opacity, сдвиг 
   /* transform:none здесь был бы ошибкой: правило специфичнее сжатия и в
      lite/off текст стоял бы на месте, когда кадр уже уехал вверх. */
   assert.equal(/transform:none/.test(calm), false, 'в lite/off сжатие текста обязано остаться, снимается только его плавность: ' + calm);
+});
+
+/* Контрольное ревью 84c7b27..de0e2c8, п.3. Правило проявления детей текста
+   (.lumen-hero__text.is-in > …) по специфичности перебивает пульс
+   .lumen-skeleton, а is-in висит до следующей смены карточки — в режиме
+   «Полный» плашки героя до ответа деталей стояли неподвижно. Проявление
+   обязано обходить скелетоны; сами плашки героя носят .lumen-skeleton. */
+test('ревью п.3: проявление текста героя не отнимает пульс у скелетонов', () => {
+  const heroSrc = readFileSync(new URL('../src/48_hero.js', import.meta.url), 'utf8');
+  const plates = heroSrc.match(/class="lumen-hero__sk [^"]*"/g) || [];
+  assert.ok(plates.length >= 3, 'плашки скелетона героя не найдены в разметке');
+  for (const p of plates) assert.ok(p.indexOf('lumen-skeleton') !== -1, 'плашка без общего класса скелетона: ' + p);
+
+  const appear = ruleBodies(css).filter((r) => /animation:lumen-hero-in/.test(r.decl));
+  assert.ok(appear.length > 0, 'правило проявления текста героя не найдено');
+  for (const r of appear) {
+    for (const sel of r.selectors) {
+      assert.ok(sel.indexOf(':not(.lumen-skeleton)') !== -1, 'проявление перебивает пульс скелетона: ' + sel);
+    }
+  }
+  const pulse = findDecl(css, (sel) => sel === '.lumen-skeleton');
+  assert.ok(pulse && /animation:lumen-sk 1\.4s/.test(pulse), 'пульс скелетона пропал: ' + pulse);
 });
 
 test('Task 18: логотип фильма с текстовым фолбэком, описание в две строки, скелетон до ответа деталей', () => {
