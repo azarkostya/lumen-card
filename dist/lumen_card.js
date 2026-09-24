@@ -571,9 +571,38 @@ return true;
 }
 }
 
+
+
+
+
+
+
+
+function playerOpen() {
+try {
+return !!(window.Lampa && Lampa.Player && typeof Lampa.Player.opened === 'function' && Lampa.Player.opened());
+} catch (e) {
+return false;
+}
+}
+
+
+
+
+function overlayOpen() {
+try {
+var list = document.body && document.body.classList;
+return !!(list && (list.contains('settings--open') || list.contains('selectbox--open')));
+} catch (e) {
+return false;
+}
+}
+
 return {
 ON_SCREEN_SEL: '.' + ON_SCREEN,
 onScreen: onScreen,
+playerOpen: playerOpen,
+overlayOpen: overlayOpen,
 activityOnScreen: activityOnScreen,
 esc: esc,
 pad2: pad2,
@@ -13412,6 +13441,47 @@ return trailerAllowed(trailerPref(), motionMode(), trailerMode());
 
 
 
+function trailerBlocked() {
+return LC.util.playerOpen() || LC.util.overlayOpen();
+}
+
+
+
+
+
+
+var playerHook = null;
+
+function listenPlayer() {
+if (playerHook) return;
+try {
+if (!window.Lampa || !Lampa.Player || !Lampa.Player.listener || typeof Lampa.Player.listener.follow !== 'function') return;
+playerHook = function () { cancelTrailer(); };
+Lampa.Player.listener.follow('start', playerHook);
+} catch (e) {
+playerHook = null;
+warn('hero: player listener failed', e);
+}
+}
+
+function unlistenPlayer() {
+var fn = playerHook;
+playerHook = null;
+if (!fn) return;
+try {
+if (window.Lampa && Lampa.Player && Lampa.Player.listener && typeof Lampa.Player.listener.remove === 'function') {
+Lampa.Player.listener.remove('start', fn);
+}
+} catch (e) {
+warn('hero: player unlisten failed', e);
+}
+}
+
+
+
+
+
+
 
 
 
@@ -13575,6 +13645,7 @@ function startTrailer(key, captured) {
 try {
 if (tgen !== captured || !state || !isMounted()) return;
 if (!trailerReady()) return;
+if (trailerBlocked()) return;
 if (!LC.trailer || typeof LC.trailer.player !== 'function') return;
 var host = state.node.find('.lumen-hero__trailer');
 if (!host || !host.length) return;
@@ -13611,6 +13682,7 @@ if (!isMounted()) return;
 
 
 if (!trailerReady()) return;
+if (trailerBlocked()) return;
 loadTrailer(card, captured);
 }, TRAILER_DELAY);
 }
@@ -14950,6 +15022,7 @@ guardBackground();
 }
 applyMotion();
 listenFocus(root);
+listenPlayer();
 showFocused(root);
 
 
@@ -14988,6 +15061,7 @@ if (!state) return;
 
 
 cancelTrailer();
+unlistenPlayer();
 
 cancelSlides();
 
@@ -16614,6 +16688,11 @@ if (!LC.util.onScreen(layer)) return;
 
 
 if (covered()) return;
+
+
+
+
+if (LC.util.playerOpen()) return;
 if (offset > urls.length) return;
 var next = (idx + offset) % urls.length;
 if (show) {
@@ -18289,10 +18368,7 @@ return false;
 }
 
 function playerOpen() {
-try {
-if (window.Lampa && Lampa.Player && typeof Lampa.Player.opened === 'function') return !!Lampa.Player.opened();
-} catch (e) { }
-return false;
+return LC.util.playerOpen();
 }
 
 

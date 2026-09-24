@@ -840,7 +840,7 @@
     /* вокруг него, и он весь держится на трёх точках:                       */
     /*   - завести таймер (scheduleTrailer) может только onFocus;            */
     /*   - снять всё (cancelTrailer) обязаны onFocus, show(), unmount(),     */
-    /*     applyMotion() и applyTrailer();                                   */
+    /*     applyMotion(), applyTrailer() и старт плеера Lampa (playerHook);  */
     /*   - ничего не пережившего эти точки не остаётся: таймер, запрос       */
     /*     роликов и сам плеер лежат в state и снимаются вместе с ним.       */
     /*                                                                       */
@@ -895,6 +895,47 @@
     function trailerReady() {
       if (heroMedia() === 'frames') return false;
       return trailerAllowed(trailerPref(), motionMode(), trailerMode());
+    }
+
+    /* Ревью «Волны 1», п.1: поверх главной сейчас то, под чем ролик никто
+       не увидит, — плеер Lampa (не активность, главная под ним остаётся
+       activity--active) или настройки / список выбора. Спрашивается в
+       момент старта: и по истечении 8 с покоя, и когда доехал ответ
+       роликов. */
+    function trailerBlocked() {
+      return LC.util.playerOpen() || LC.util.overlayOpen();
+    }
+
+    /* Старт плеера Lampa ('start', app.min.js:31046/31069) снимает ролик
+       героя: без этого долгое OK → «Трейлер» на главной оставляло YouTube
+       героя играть под полноэкранным плеером. Подписка живёт, пока смонтирован
+       герой (mount/unmount); парковка её не трогает — cancelTrailer на
+       запаркованном герое ничего не запускает. */
+    var playerHook = null;
+
+    function listenPlayer() {
+      if (playerHook) return;
+      try {
+        if (!window.Lampa || !Lampa.Player || !Lampa.Player.listener || typeof Lampa.Player.listener.follow !== 'function') return;
+        playerHook = function () { cancelTrailer(); };
+        Lampa.Player.listener.follow('start', playerHook);
+      } catch (e) {
+        playerHook = null;
+        warn('hero: player listener failed', e);
+      }
+    }
+
+    function unlistenPlayer() {
+      var fn = playerHook;
+      playerHook = null;
+      if (!fn) return;
+      try {
+        if (window.Lampa && Lampa.Player && Lampa.Player.listener && typeof Lampa.Player.listener.remove === 'function') {
+          Lampa.Player.listener.remove('start', fn);
+        }
+      } catch (e) {
+        warn('hero: player unlisten failed', e);
+      }
     }
 
     /* ------------------------------------------------------------------ */
@@ -1065,6 +1106,7 @@
       try {
         if (tgen !== captured || !state || !isMounted()) return;
         if (!trailerReady()) return;
+        if (trailerBlocked()) return;
         if (!LC.trailer || typeof LC.trailer.player !== 'function') return;
         var host = state.node.find('.lumen-hero__trailer');
         if (!host || !host.length) return;
@@ -1101,6 +1143,7 @@
         /* Настройку и режим анимаций перечитываем в момент старта: за восемь
            секунд их могли поменять. */
         if (!trailerReady()) return;
+        if (trailerBlocked()) return;
         loadTrailer(card, captured);
       }, TRAILER_DELAY);
     }
@@ -2440,6 +2483,7 @@
         }
         applyMotion();
         listenFocus(root);
+        listenPlayer();
         showFocused(root);
         /* Task 40: замер первого кадра ГЛАВНОЙ. Точка последняя в mount()
            намеренно — как и у карточки в src/90_runtime.js: замер обязан
@@ -2478,6 +2522,7 @@
          запрос роликов и отложенный старт живут именно там, а cancelTrailer
          на пустом state не делает ничего. */
       cancelTrailer();
+      unlistenPlayer();
       /* «Несколько кадров» — по той же причине до обнуления state. */
       cancelSlides();
       /* Task 49: метка снимается ПЕРВОЙ — пока она стоит, обёртка глушит

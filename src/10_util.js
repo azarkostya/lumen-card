@@ -524,9 +524,38 @@
       }
     }
 
+    /* Ревью «Волны 1», п.1: открыт ли плеер Lampa. Плеер — не активность:
+       на 'start' он добавляет свой узел поверх в body (app.min.js:30624-30632)
+       и поднимает is_opened (Player.opened, :31149), а класс
+       activity--active остаётся у экрана под ним — onScreen этот случай не
+       видит. Спрашивают смена кадров (src/51_slideshow.js), автотрейлер
+       героя (src/48_hero.js) и заставка (src/54_ambient.js). Нет Lampa или
+       ошибка чтения — «не открыт»: ничего не блокируем. */
+    function playerOpen() {
+      try {
+        return !!(window.Lampa && Lampa.Player && typeof Lampa.Player.opened === 'function' && Lampa.Player.opened());
+      } catch (e) {
+        return false;
+      }
+    }
+
+    /* Поверх экрана открыты настройки или список выбора Lampa — классы body
+       settings--open (app.min.js:10306) и selectbox--open (:7084). Читаем
+       classList голого body: jQuery здесь не нужен. */
+    function overlayOpen() {
+      try {
+        var list = document.body && document.body.classList;
+        return !!(list && (list.contains('settings--open') || list.contains('selectbox--open')));
+      } catch (e) {
+        return false;
+      }
+    }
+
     return {
       ON_SCREEN_SEL: '.' + ON_SCREEN,
       onScreen: onScreen,
+      playerOpen: playerOpen,
+      overlayOpen: overlayOpen,
       activityOnScreen: activityOnScreen,
       esc: esc,
       pad2: pad2,

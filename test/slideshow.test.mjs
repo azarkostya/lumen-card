@@ -305,6 +305,40 @@ test('slideshow: экран накрыт заставкой -> тик пропу
   assert.equal(loaders.length, 1, 'заставка ушла — ротация вернулась');
 });
 
+/* Ревью «Волны 1», п.1: плеер Lampa — не активность, он добавляется поверх
+   в body (app.min.js:30624-30632), и onScreen слоя его не видит. Под
+   фильмом во встроенном плеере кадры карточки менялись каждые 14 с:
+   загрузка и декод w1280, которых никто не увидит. */
+test('slideshow: открыт плеер Lampa -> тик не грузит кадр (и в режиме show), таймер не тронут', () => {
+  const LC = freshLC();
+  let opened = true;
+  globalThis.Lampa = { Player: { opened: () => opened } };
+  try {
+    const layer = mount(makeLayer());
+    const ctrl = LC.slideshow.create(layer, urls(3), { enabled: () => true, intervalMs: () => 8000 });
+    ctrl.activate();
+    fireInterval(1);
+    assert.equal(loaders.length, 0, 'под плеером предзагрузка не начинается');
+    assert.equal(intervals[0].cleared, false, 'таймер не трогаем — плеер закроют, и тик сменит кадр сам');
+
+    const shown = [];
+    const layer2 = mount(makeLayer());
+    const ctrl2 = LC.slideshow.create(layer2, urls(3), {
+      enabled: () => true, intervalMs: () => 8000,
+      show: (url, done) => { shown.push(url); done(true); }
+    });
+    ctrl2.activate();
+    fireInterval(2);
+    assert.deepEqual(shown, [], 'и показ героя (opts.show) под плеером не зовётся');
+
+    opened = false;
+    fireInterval(1);
+    assert.equal(loaders.length, 1, 'плеер закрыт — ротация вернулась');
+  } finally {
+    delete globalThis.Lampa;
+  }
+});
+
 /* ====================================================================== */
 /* Task 6 (fix, Minor, п.3): память ТВ — во время кроссфейда тёплых ровно  */
 /* 2 (текущий + уходящий), после остывания — ровно 1. Обзор координатора: */

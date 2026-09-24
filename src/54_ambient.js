@@ -351,10 +351,7 @@
     }
 
     function playerOpen() {
-      try {
-        if (window.Lampa && Lampa.Player && typeof Lampa.Player.opened === 'function') return !!Lampa.Player.opened();
-      } catch (e) { }
-      return false;
+      return LC.util.playerOpen();
     }
 
     /* Task 56: включена ли ШТАТНАЯ заставка Lampa. Storage.field отдаёт

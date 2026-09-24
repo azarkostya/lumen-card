@@ -2728,6 +2728,84 @@ test('трейлер героя: режим анимаций на лету — l
   assert.equal(env.players[0].destroys, 1, 'off: ролик снят');
 });
 
+/* Ревью «Волны 1», п.1: плеер Lampa — не активность (app.min.js:30624-30632),
+   главная под ним остаётся activity--active. Долгое OK → «Трейлер» на
+   главной: через 8 с покоя YouTube героя стартовал под плеером Lampa —
+   два ролика на 2 ГБ ТВ. Заглушка — как Lampa: Player.opened() и
+   listener с follow/remove (Subscribe, :31205). */
+function lampaPlayer(env) {
+  const subs = {};
+  const p = {
+    open: false,
+    subs: subs,
+    opened: () => p.open,
+    listener: {
+      follow(name, fn) { (subs[name] = subs[name] || []).push(fn); },
+      remove(name, fn) { const l = subs[name] || []; const i = l.indexOf(fn); if (i >= 0) l.splice(i, 1); },
+      send(name, data) { (subs[name] || []).slice().forEach((fn) => fn(data)); }
+    }
+  };
+  env.Lampa.Player = p;
+  return p;
+}
+
+test('трейлер героя: под открытым плеером Lampa ролики не спрашиваются и плеер героя не создаётся', () => {
+  const env = trailerEnv();
+  const player = lampaPlayer(env);
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  focusOn(main, main.card1);
+  player.open = true;
+  env.advance(9000);
+  assert.equal(env.requests.filter((r) => r.url.indexOf('/videos') >= 0).length, 0, 'к 8-й секунде плеер открыт — не спрашиваем');
+  assert.equal(env.players.length, 0);
+});
+
+test('трейлер героя: ответ роликов доехал, когда открыт плеер Lampa или настройки/список — плеер героя не создаётся', () => {
+  const env = trailerEnv();
+  const player = lampaPlayer(env);
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  focusOn(main, main.card1);
+  env.advance(9000);
+  player.open = true;
+  lastVideos(env).ok(VIDEOS_RU);
+  assert.equal(env.players.length, 0, 'плеер Lampa');
+
+  player.open = false;
+  for (const cls of ['settings--open', 'selectbox--open']) {
+    env.bodyClasses.push(cls);
+    main.card1.removeClass('focus');
+    focusOn(main, main.card2);
+    main.card2.removeClass('focus');
+    focusOn(main, main.card1);
+    env.advance(9000);
+    assert.equal(env.requests.filter((r) => r.url.indexOf('/videos') >= 0).length, 1, cls + ': запрос роликов не уходит');
+    assert.equal(env.players.length, 0, cls);
+    env.bodyClasses.splice(env.bodyClasses.indexOf(cls), 1);
+  }
+});
+
+test('трейлер героя: событие start плеера Lampa снимает играющий ролик; после снятия героя подписки нет', () => {
+  const env = trailerEnv();
+  const player = lampaPlayer(env);
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  const node = main.activity._children[0];
+  focusOn(main, main.card1);
+  env.advance(9000);
+  lastVideos(env).ok(VIDEOS_RU);
+  env.players[0].onStart();
+  assert.equal(node.hasClass('lumen-hero--trailer'), true);
+
+  player.listener.send('start', { url: 'https://www.youtube.com/watch?v=x' });
+  assert.equal(env.players[0].destroys, 1, 'ролик героя снят стартом плеера Lampa');
+  assert.equal(node.hasClass('lumen-hero--trailer'), false);
+
+  env.hero.unmount();
+  assert.equal((player.subs.start || []).length, 0, 'unmount снимает подписку');
+});
+
 /* ====================================================================== */
 /* Task 71: логотип названия — без подмены на ходу                        */
 /*                                                                        */
