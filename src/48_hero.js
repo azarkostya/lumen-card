@@ -1792,6 +1792,9 @@
         /* Слайдшоу прошлой карточки — вместе с её таймером. */
         cancelSlides();
         state.shownId = card.id;
+        /* Сама карточка показанного фильма — для resume без карточки в
+           фокусе (ревью 84c7b27..de0e2c8, п.4). */
+        state.shownCard = card;
         state.details = null;
         state.model = null;
         /* Правка 2026-09-22: новая карточка — новое ожидание логотипа
@@ -2352,6 +2355,7 @@
              Lampa.Api.sources.tmdb.get ничего не возвращает. */
           detailsWait: false,
           shownId: null,
+          shownCard: null,
           details: null,
           model: null,
           pending: null,
@@ -2610,7 +2614,20 @@
            LC.fx.sweep() на время парковки, ставится заново по уже
            загруженным деталям — если героя не показывают заново (show()
            поставит атмосферу сам, когда придут детали). */
-        if (!card || card.id == null) { applyFx(); return; }
+        if (!card || card.id == null) {
+          /* Контрольное ревью 84c7b27..de0e2c8, п.4: фокус вернулся не на
+             карточку (плитка «Ещё» ряда — .card-more, её Lampa помнит как
+             last ряда), а загрузка показанного фильма была оборвана или
+             ответ доехал на парковке. Без повторного show() скелетон
+             описания горел бы до смены фокуса на карточку. */
+          if (state.stale && state.shownCard) {
+            state.stale = false;
+            show(state.shownCard);
+          } else {
+            applyFx();
+          }
+          return;
+        }
         updateCompact(node);
         rememberFocus(node, card);
         state.pending = card;

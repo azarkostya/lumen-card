@@ -1204,6 +1204,51 @@ test('Ф2 п.2: ответ деталей, доехавший в запарко�
   assert.deepEqual(warnLog, []);
 });
 
+/* Контрольное ревью 84c7b27..de0e2c8, п.4. Фокус ушёл с карточки на
+   не-карточку того же ряда — плитку «Ещё» (.card-more, её hover:focus Lampa
+   записывает в last ряда, app.min.js:52780-52783) — и OK на ней открыл
+   категорию, пока детали героя были в пути. Ответ доехал на парковке
+   (stale), а на возврате items_line.toggle вернул фокус на ту же плитку:
+   .card.focus в корне нет, и resume выходил, не показывая героя заново —
+   скелетон описания горел до смены фокуса на карточку. */
+function staleWithoutCardFocus(t, viaMount) {
+  const env = makeEnv();
+  const main = makeMain();
+  const other = makeMain();
+  if (viaMount) main.card1.addClass('focus');
+  env.hero.mount(main.activity);
+  const node = main.activity._children[0];
+  if (!viaMount) focusOn(main, main.card1);
+  env.advance(400);
+  env.images[0].onload();
+  env.advance(200);
+  env.advance(700);
+  assert.equal(node.hasClass('lumen-hero--pending'), true, 'предусловие: деталей ещё нет');
+
+  /* Фокус на плитке «Ещё»: класс focus уходит с карточки, событие фокуса
+     герой не-карточке не отдаёт. */
+  main.card1.removeClass('focus');
+  env.hero.detach(other.activity);
+  env.requests[0].ok({ id: 11, runtime: 100, genres: [{ name: 'драма' }] });
+
+  env.hero.mount(main.activity);
+  const again = env.requests.filter((r) => r.url === 'movie/11');
+  assert.equal(again.length, 2, 'на возврате без карточки в фокусе детали не доведены — скелетон горит');
+  again[1].ok({ id: 11, runtime: 100, genres: [{ name: 'драма' }] });
+  env.advance(400);
+  assert.equal(node.hasClass('lumen-hero--pending'), false, 'скелетон не снят');
+  assert.equal(node.find('.lumen-hero__meta').text(), '2024 · 1:40 · драма · ★ 7.2');
+  assert.deepEqual(warnLog, []);
+}
+
+test('ревью п.4: ответ деталей на парковке, на возврате фокус не на карточке — скелетон снимается', (t) => {
+  staleWithoutCardFocus(t, false);
+});
+
+test('ревью п.4: то же для героя, показанного при монтировании (фокуса-события не было)', (t) => {
+  staleWithoutCardFocus(t, true);
+});
+
 /* Ф2 п.1. «Полный» режим, атмосфера, тот же фильм под фокусом: главная
    → OK → Назад. Канвас героя снимает уборка LC.fx.sweep() на 'start'
    карточки; resume обязан поставить его заново — иначе частицы пропадают до

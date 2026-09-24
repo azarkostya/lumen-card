@@ -14297,6 +14297,9 @@ cancelPending();
 
 cancelSlides();
 state.shownId = card.id;
+
+
+state.shownCard = card;
 state.details = null;
 state.model = null;
 
@@ -14857,6 +14860,7 @@ titleForced: false,
 
 detailsWait: false,
 shownId: null,
+shownCard: null,
 details: null,
 model: null,
 pending: null,
@@ -15115,7 +15119,20 @@ var card = node && node.card_data;
 
 
 
-if (!card || card.id == null) { applyFx(); return; }
+if (!card || card.id == null) {
+
+
+
+
+
+if (state.stale && state.shownCard) {
+state.stale = false;
+show(state.shownCard);
+} else {
+applyFx();
+}
+return;
+}
 updateCompact(node);
 rememberFocus(node, card);
 state.pending = card;
