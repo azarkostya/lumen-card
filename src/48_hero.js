@@ -377,16 +377,15 @@
          pref    — настройка lumen_hero_trailer,
          motion  — режим анимаций (LC.motionMode),
          trailer — режим фонового трейлера карточки (LC.trailer.mode: на
-                   Tizen/webOS 'auto' даёт 'off'),
-         heavy   — тумблер тяжёлых эффектов (LC.fxHeavy, Task 40).
-       В lite/off ролика нет вовсе: там и кадр-то герой не обновляет (см.
-       loadFrame), а iframe YouTube поверх экрана — самая дорогая вещь,
-       которую плагин умеет включать. По той же причине его нет и при
-       выключенных тяжёлых эффектах. */
-    function trailerAllowed(pref, motion, trailer, heavy) {
+                   Tizen/webOS 'auto' даёт 'off').
+       Проверка на ТВ 2026-09-24: трейлер — контент, а не украшение. Прежде
+       его не было в lite и при выключенных тяжёлых эффектах, и на
+       телевизоре (lite, тумблер по умолчанию выключен) он не запускался
+       вовсе. Теперь ролик запрещают только сама настройка, режим «Выкл» и
+       выключенный фоновый трейлер (он же гасит его на Tizen/webOS). */
+    function trailerAllowed(pref, motion, trailer) {
       if (pref === false) return false;
-      if (motion !== 'full') return false;
-      if (heavy === false) return false;
+      if (motion === 'off') return false;
       return trailer !== 'off';
     }
 
@@ -874,17 +873,21 @@
     }
 
     /* Настройка «Что показывает кадр главной» (lumen_hero_media, правка
-       2026-09-23 по просьбе пользователя): 'trailer' — кадр и автотрейлер,
-       как было всегда (дефолт — у тех, кто не трогал, ничего не меняется);
-       'frames' — кадры фильма сменяют друг друга, трейлер не запускается.
-       Дефолт здесь и в LC.prefs.LIST сверяет test/prefs.test.mjs. */
+       2026-09-23 по просьбе пользователя): 'trailer' — кадры и автотрейлер
+       (дефолт); 'frames' — только кадры, трейлер не запускается.
+       Проверка на ТВ 2026-09-24: кадры сменяются в ОБОИХ значениях — в
+       'trailer' они идут, пока ролик не играет (старт ролика ставит смену на
+       паузу, конец продолжает, trailerOn ниже). Прежде в 'trailer' кадр
+       стоял на месте, и там, где ролик не стартовал (телевизор), главная
+       не менялась вовсе. Дефолт здесь и в LC.prefs.LIST сверяет
+       test/prefs.test.mjs. */
     function heroMedia() {
       try { return LC.pref ? LC.pref('lumen_hero_media', 'trailer') : 'trailer'; } catch (e) { return 'trailer'; }
     }
 
     function trailerReady() {
       if (heroMedia() === 'frames') return false;
-      return trailerAllowed(trailerPref(), motionMode(), trailerMode(), fxHeavy());
+      return trailerAllowed(trailerPref(), motionMode(), trailerMode());
     }
 
     /* ------------------------------------------------------------------ */
@@ -980,6 +983,30 @@
         }
       }
       try { state.node.removeClass('lumen-hero--trailer'); } catch (e3) { }
+      /* onEnd плеера сюда уже не дойдёт — tgen поднят выше, — поэтому
+         паузу смены кадров, которую ставил ролик, снимаем сами. */
+      trailerOff();
+    }
+
+    /* Проверка на ТВ 2026-09-24: смена кадров стоит, пока ролик РЕАЛЬНО
+       играет (onStart плеера), и продолжается, когда он кончился или
+       снят. Пауза у контроллера слайдшоу одна на все причины, поэтому
+       снимается только тогда, когда не держат и другие: сжатие (фокус в
+       рядах) и парковка (уход с главной). */
+    function trailerOn() {
+      if (!state) return;
+      state.trailerOn = true;
+      if (state.slides) {
+        try { state.slides.pause(); } catch (e) { warn('hero: slides pause failed', e); }
+      }
+    }
+
+    function trailerOff() {
+      if (!state || !state.trailerOn) return;
+      state.trailerOn = false;
+      if (state.slides && !state.compact && !state.parked) {
+        try { state.slides.resume(); } catch (e) { warn('hero: slides resume failed', e); }
+      }
     }
 
     /* Запрос роликов. Языков два, как у штатной Lampa (tmdb.js videos,
@@ -1039,10 +1066,12 @@
         state.trailer = LC.trailer.player(host, key, function () {
           if (tgen !== captured || !state) return;
           try { state.node.addClass('lumen-hero--trailer'); } catch (e) { }
+          trailerOn();
         }, function () {
           if (tgen !== captured || !state) return;
           state.trailer = null;
           try { state.node.removeClass('lumen-hero--trailer'); } catch (e2) { }
+          trailerOff();
         });
       } catch (err) {
         warn('hero: trailer start failed', err);
@@ -1078,6 +1107,8 @@
 
     /* ------------------------------------------------------------------ */
     /* «Несколько кадров»: кадры фильма в герое сменяют друг друга.        */
+    /* С 2026-09-24 — и в «Кадры и трейлер» тоже, пока ролик не играет      */
+    /* (slidesAllowed, trailerOn/trailerOff выше).                          */
     /*                                                                     */
     /* Механика слайдшоу — общая с карточкой: отбор кадров                  */
     /* LC.backdrops.pickBackdrops (без текста на кадре, широкие вперёд,     */
@@ -1117,8 +1148,11 @@
 
     var SLIDE_FREE = 700;
 
+    /* Проверка на ТВ 2026-09-24: и в «Несколько кадров», и в «Кадры и
+       трейлер» (heroMedia выше) — смену запрещает только режим «Выкл».
+       В 'trailer' её на время ролика держит пауза (trailerOn). */
     function slidesAllowed() {
-      return heroMedia() === 'frames' && motionMode() !== 'off';
+      return motionMode() !== 'off';
     }
 
     function slideInterval() {
@@ -1179,7 +1213,7 @@
             });
           }
         });
-        if (state.compact) state.slides.pause();
+        if (state.compact || state.trailerOn) state.slides.pause();
         state.slides.activate();
       } catch (e) {
         warn('hero: slides failed', e);
@@ -1856,7 +1890,9 @@
       /* «Несколько кадров»: фокус ушёл в ряды — кадры не меняются, как не
          рисуются и частицы; вернулся на первый ряд — смена продолжается. */
       if (state.slides) {
-        try { if (on) state.slides.pause(); else state.slides.resume(); } catch (eSl) { }
+        /* Играющий ролик держит свою паузу (trailerOn) — развернувшись, кадры
+           ждут его конца. */
+        try { if (on) state.slides.pause(); else if (!state.trailerOn) state.slides.resume(); } catch (eSl) { }
       }
       state.node.toggleClass('lumen-hero--compact', on);
       try { state.root.toggleClass('lumen-rows-up', on); } catch (e) {}
@@ -2722,9 +2758,9 @@
       applyTrailer: applyTrailer,
       /* Настройка «Что показывает кадр главной» переключена на лету
          (src/80_settings.js, applyPrefChange): «Несколько кадров» снимает
-         ролик и заводит смену кадров по уже загруженным деталям, «Кадр и
-         трейлер» снимает смену кадров — ролик появится со следующей
-         остановки фокуса, как и при включении автотрейлера. */
+         ролик (снятие паузы продолжает смену кадров), «Кадры и трейлер»
+         смену кадров не трогает — ролик появится со следующей остановки
+         фокуса, как и при включении автотрейлера. */
       applyMedia: function () {
         applyTrailer();
         applySlides();

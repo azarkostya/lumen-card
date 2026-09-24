@@ -2580,28 +2580,51 @@ test('трейлер героя: снятие героя гасит таймер
   assert.deepEqual(warnLog, []);
 });
 
-test('трейлер героя: в lite и off не стартует вовсе', () => {
-  for (const mode of ['lite', 'off']) {
-    const env = trailerEnv({ motionMode: () => mode });
-    const main = makeMain();
-    env.hero.mount(main.activity);
-    focusOn(main, main.card1);
-    env.advance(9000);
-    assert.deepEqual(env.requests.filter((r) => r.url.indexOf('/videos') >= 0), [], mode + ': запросов роликов нет');
-    assert.equal(env.players.length, 0);
-  }
+/* Проверка на ТВ 2026-09-24: трейлер — контент, а не украшение. На
+   телевизоре (lite, тумблер тяжёлых эффектов выключен по умолчанию) он не
+   запускался вовсе. Теперь его нет только в «Выкл». */
+test('трейлер героя: в off не стартует вовсе', () => {
+  const env = trailerEnv({ motionMode: () => 'off' });
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  focusOn(main, main.card1);
+  env.advance(9000);
+  assert.deepEqual(env.requests.filter((r) => r.url.indexOf('/videos') >= 0), [], 'off: запросов роликов нет');
+  assert.equal(env.players.length, 0);
 });
 
-/* Task 40: автотрейлер — тяжёлый эффект (iframe YouTube поверх экрана),
-   поэтому он подчинён и тумблеру, не только режиму анимаций. */
-test('трейлер героя: при выключенных тяжёлых эффектах не стартует', () => {
+test('трейлер героя: в lite стартует, как и в full', () => {
+  const env = trailerEnv({ motionMode: () => 'lite', fxHeavy: () => false });
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  focusOn(main, main.card1);
+  env.advance(9000);
+  const req = lastVideos(env);
+  assert.ok(req, 'lite: ролики спрашиваются');
+  req.ok(VIDEOS_RU);
+  assert.equal(env.players.length, 1, 'lite: плеер создан');
+});
+
+test('трейлер героя: без тяжёлых эффектов стартует — тумблер отвечает только за украшения', () => {
   const env = trailerEnv({ fxHeavy: () => false });
   const main = makeMain();
   env.hero.mount(main.activity);
   focusOn(main, main.card1);
   env.advance(9000);
-  assert.deepEqual(env.requests.filter((r) => r.url.indexOf('/videos') >= 0), [], 'запросов роликов нет');
-  assert.equal(env.players.length, 0);
+  const req = lastVideos(env);
+  assert.ok(req, 'ролики спрашиваются');
+  req.ok(VIDEOS_RU);
+  assert.equal(env.players.length, 1);
+});
+
+test('trailerAllowed: запрещают только настройка, «Выкл» и выключенный фоновый трейлер', () => {
+  const h = H;
+  assert.equal(h.trailerAllowed(true, 'full', 'on'), true);
+  assert.equal(h.trailerAllowed(true, 'lite', 'on'), true, 'lite — можно');
+  assert.equal(h.trailerAllowed(false, 'full', 'on'), false, 'настройка выключена');
+  assert.equal(h.trailerAllowed(true, 'off', 'on'), false, 'режим «Выкл»');
+  assert.equal(h.trailerAllowed(true, 'full', 'off'), false, 'фоновый трейлер выключен (или auto на Tizen/webOS)');
+  assert.equal(h.trailerAllowed(true, 'lite', 'on', false), true, 'четвёртого параметра (тумблера) больше нет');
 });
 
 test('трейлер героя: выключенная настройка — ни таймера, ни запроса; включение действует со следующего покоя', () => {
@@ -2670,7 +2693,8 @@ test('трейлер героя: роликов нет совсем — тиши
   assert.deepEqual(warnLog, []);
 });
 
-test('трейлер героя: режим анимаций упал до lite на лету — играющий ролик снимается', () => {
+/* Проверка на ТВ 2026-09-24: lite ролик больше не снимает — снимает «Выкл». */
+test('трейлер героя: режим анимаций на лету — lite ролик оставляет, «Выкл» снимает', () => {
   let motion = 'full';
   const env = trailerEnv({ motionMode: () => motion });
   const main = makeMain();
@@ -2682,7 +2706,11 @@ test('трейлер героя: режим анимаций упал до lite 
 
   motion = 'lite';
   env.hero.applyMotion();
-  assert.equal(env.players[0].destroys, 1);
+  assert.equal(env.players[0].destroys, 0, 'lite: ролик играет дальше');
+
+  motion = 'off';
+  env.hero.applyMotion();
+  assert.equal(env.players[0].destroys, 1, 'off: ролик снят');
 });
 
 /* ====================================================================== */
@@ -3308,8 +3336,42 @@ test('«Несколько кадров»: уход в карточку став
   } finally { env.restore(); }
 });
 
-test('«Кадр и трейлер» (по умолчанию): смены кадров нет, трейлер как прежде', () => {
-  const env = slidesEnv({ media: 'trailer', motion: 'full', heavy: true });
+/* Проверка на ТВ 2026-09-24: «Кадр и трейлер» (по умолчанию) = кадры и
+   трейлер. Кадры сменяются, пока ролик не играет: старт ролика ставит смену
+   на паузу, его конец (или отказ) — продолжает. На телевизоре ролик может
+   не стартовать вовсе, и тогда главная хотя бы не стоит на одном кадре. */
+test('«Кадр и трейлер» (по умолчанию) в lite: кадры сменяются, ролик ставит смену на паузу, конец ролика её продолжает', () => {
+  const env = slidesEnv({ media: 'trailer', motion: 'lite', heavy: false });
+  try {
+    const main = makeMain();
+    env.hero.mount(main.activity);
+    const node = main.activity._children[0];
+    focusOn(main, main.card1);
+    env.advance(400);
+    frameImg(env, '/b1.jpg').onload();
+    detailsOf(env, 11).ok(FRAMES(11, '/b1.jpg'));
+    assert.equal(env.live().length, 1, 'смена кадров заведена и в режиме с трейлером');
+
+    env.advance(8200);
+    const req = lastVideos(env);
+    assert.ok(req, 'трейлер спрашивается через 8 с');
+    req.ok(VIDEOS_RU);
+    assert.equal(env.players.length, 1);
+    assert.equal(env.live().length, 1, 'пока ролик не пошёл — кадры меняются');
+
+    env.players[0].onStart();
+    assert.equal(node.hasClass('lumen-hero--trailer'), true);
+    assert.equal(env.live().length, 0, 'ролик играет — смена кадров на паузе');
+
+    env.players[0].onEnd();
+    assert.equal(node.hasClass('lumen-hero--trailer'), false);
+    assert.equal(env.live().length, 1, 'ролик кончился — смена кадров продолжается');
+    assert.deepEqual(warnLog, []);
+  } finally { env.restore(); }
+});
+
+test('«Кадр и трейлер»: конец ролика в сжатом состоянии не снимает паузу сжатия', () => {
+  const env = slidesEnv({ media: 'trailer', motion: 'lite' });
   try {
     const main = makeMain();
     env.hero.mount(main.activity);
@@ -3317,9 +3379,44 @@ test('«Кадр и трейлер» (по умолчанию): смены ка�
     env.advance(400);
     frameImg(env, '/b1.jpg').onload();
     detailsOf(env, 11).ok(FRAMES(11, '/b1.jpg'));
-    assert.equal(env.intervals.length, 0);
     env.advance(8200);
-    assert.ok(lastVideos(env), 'трейлер по-прежнему спрашивается через 8 с');
+    lastVideos(env).ok(VIDEOS_RU);
+    env.players[0].onStart();
+    assert.equal(env.live().length, 0);
+
+    /* Тот же фильм во втором ряду: перевод фокуса на него ролик не снимает
+       (trailerCard тот же), но героя сжимает. Ролик доигрывает там. */
+    main.card2.card_data = main.card1.card_data;
+    main.card1.removeClass('focus');
+    focusOn(main, main.card2);
+    assert.equal(env.players[0].destroys, 0, 'предусловие: ролик жив');
+    env.players[0].onEnd();
+    assert.equal(env.live().length, 0, 'сжато — кадры по-прежнему стоят');
+    main.card2.removeClass('focus');
+    focusOn(main, main.card1);
+    assert.equal(env.live().length, 1, 'развернули — смена пошла');
+  } finally { env.restore(); }
+});
+
+test('«Кадр и трейлер»: возврат из сжатого состояния при играющем ролике паузу не снимает', () => {
+  const env = slidesEnv({ media: 'trailer', motion: 'lite' });
+  try {
+    const main = makeMain();
+    env.hero.mount(main.activity);
+    focusOn(main, main.card1);
+    env.advance(400);
+    frameImg(env, '/b1.jpg').onload();
+    detailsOf(env, 11).ok(FRAMES(11, '/b1.jpg'));
+    env.advance(8200);
+    lastVideos(env).ok(VIDEOS_RU);
+    env.players[0].onStart();
+    main.card2.card_data = main.card1.card_data;
+    main.card1.removeClass('focus');
+    focusOn(main, main.card2);
+    main.card2.removeClass('focus');
+    focusOn(main, main.card1);
+    assert.equal(env.players[0].destroys, 0, 'предусловие: ролик жив');
+    assert.equal(env.live().length, 0, 'ролик ещё играет — кадры стоят');
   } finally { env.restore(); }
 });
 
@@ -3345,23 +3442,28 @@ test('«Несколько кадров» с тяжёлыми эффектами
   } finally { env.restore(); }
 });
 
-test('«Что показывает кадр главной» на лету: кадры заводятся по загруженным деталям и снимаются', () => {
+test('«Что показывает кадр главной» на лету: «Несколько кадров» снимает ролик, кадры продолжают идти', () => {
   const env = slidesEnv({ media: 'trailer' });
   try {
     const main = makeMain();
     env.hero.mount(main.activity);
+    const hero = main.activity._children[0];
     focusOn(main, main.card1);
     env.advance(400);
     env.images[0].onload();
     detailsOf(env, 11).ok(FRAMES(11, '/b1.jpg'));
-    assert.equal(env.live().length, 0);
+    assert.equal(env.live().length, 1, 'кадры идут и в режиме с трейлером');
+    env.advance(8200);
+    lastVideos(env).ok(VIDEOS_RU);
+    env.players[0].onStart();
+    assert.equal(env.live().length, 0, 'ролик играет — пауза');
+
     const requests = env.requests.length;
     env.media.value = 'frames';
     env.hero.applyMedia();
-    assert.equal(env.live().length, 1, 'включили — смена кадров пошла сразу');
+    assert.equal(env.players[0].destroys, 1, '«Несколько кадров» снимает играющий ролик');
+    assert.equal(hero.hasClass('lumen-hero--trailer'), false);
+    assert.equal(env.live().length, 1, 'смена кадров продолжается сразу');
     assert.equal(env.requests.length, requests, 'без нового запроса деталей');
-    env.media.value = 'trailer';
-    env.hero.applyMedia();
-    assert.equal(env.live().length, 0, 'выключили — таймер снят');
   } finally { env.restore(); }
 });

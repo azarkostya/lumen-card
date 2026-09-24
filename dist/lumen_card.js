@@ -12893,10 +12893,9 @@ return (elapsedMs || 0) >= (delay || 0);
 
 
 
-function trailerAllowed(pref, motion, trailer, heavy) {
+function trailerAllowed(pref, motion, trailer) {
 if (pref === false) return false;
-if (motion !== 'full') return false;
-if (heavy === false) return false;
+if (motion === 'off') return false;
 return trailer !== 'off';
 }
 
@@ -13388,13 +13387,17 @@ return true;
 
 
 
+
+
+
+
 function heroMedia() {
 try { return LC.pref ? LC.pref('lumen_hero_media', 'trailer') : 'trailer'; } catch (e) { return 'trailer'; }
 }
 
 function trailerReady() {
 if (heroMedia() === 'frames') return false;
-return trailerAllowed(trailerPref(), motionMode(), trailerMode(), fxHeavy());
+return trailerAllowed(trailerPref(), motionMode(), trailerMode());
 }
 
 
@@ -13490,6 +13493,30 @@ warn('hero: trailer destroy failed', e2);
 }
 }
 try { state.node.removeClass('lumen-hero--trailer'); } catch (e3) { }
+
+
+trailerOff();
+}
+
+
+
+
+
+
+function trailerOn() {
+if (!state) return;
+state.trailerOn = true;
+if (state.slides) {
+try { state.slides.pause(); } catch (e) { warn('hero: slides pause failed', e); }
+}
+}
+
+function trailerOff() {
+if (!state || !state.trailerOn) return;
+state.trailerOn = false;
+if (state.slides && !state.compact && !state.parked) {
+try { state.slides.resume(); } catch (e) { warn('hero: slides resume failed', e); }
+}
 }
 
 
@@ -13549,10 +13576,12 @@ if (!host || !host.length) return;
 state.trailer = LC.trailer.player(host, key, function () {
 if (tgen !== captured || !state) return;
 try { state.node.addClass('lumen-hero--trailer'); } catch (e) { }
+trailerOn();
 }, function () {
 if (tgen !== captured || !state) return;
 state.trailer = null;
 try { state.node.removeClass('lumen-hero--trailer'); } catch (e2) { }
+trailerOff();
 });
 } catch (err) {
 warn('hero: trailer start failed', err);
@@ -13625,10 +13654,15 @@ cancelTrailer();
 
 
 
+
+
 var SLIDE_FREE = 700;
 
+
+
+
 function slidesAllowed() {
-return heroMedia() === 'frames' && motionMode() !== 'off';
+return motionMode() !== 'off';
 }
 
 function slideInterval() {
@@ -13689,7 +13723,7 @@ done(ok);
 });
 }
 });
-if (state.compact) state.slides.pause();
+if (state.compact || state.trailerOn) state.slides.pause();
 state.slides.activate();
 } catch (e) {
 warn('hero: slides failed', e);
@@ -14366,7 +14400,9 @@ state.compact = !!on;
 
 
 if (state.slides) {
-try { if (on) state.slides.pause(); else state.slides.resume(); } catch (eSl) { }
+
+
+try { if (on) state.slides.pause(); else if (!state.trailerOn) state.slides.resume(); } catch (eSl) { }
 }
 state.node.toggleClass('lumen-hero--compact', on);
 try { state.root.toggleClass('lumen-rows-up', on); } catch (e) {}
