@@ -77,7 +77,11 @@ test('homeRows: сезонные подборки поднимаются нав�
   assert.equal(rows[0].id, 'xmas-comedy'); /* сезонная наверх */
   assert.equal(rows.length, 3);
 });
-test('homeRows: не сезонный месяц — сезонные не поднимаются', function () {
+/* Волна 4 (ТВ 2026-09-24): набор по умолчанию (manifest.home) показывал
+   «Рождественские комедии» и в сентябре — сезонная подборка не в свой месяц
+   из него выпадает. Состав, отмеченный пользователем вручную, — его выбор:
+   сезонная остаётся, просто не поднимается наверх. */
+test('homeRows: не сезонный месяц — сезонной из набора по умолчанию нет, выбранная вручную стоит на своём месте', function () {
   var m2 = {
     version: 1,
     home: ['comedy', 'xmas-comedy'],
@@ -85,8 +89,21 @@ test('homeRows: не сезонный месяц — сезонные не по�
     collections: MANIFEST.collections
   };
   var rows = R.homeRows(m2, null, 6, 15); /* июнь */
-  assert.equal(rows[0].id, 'comedy');
-  assert.equal(rows[1].id, 'xmas-comedy');
+  assert.deepEqual(rows.map(function (r) { return r.id; }), ['comedy']);
+  var picked = R.homeRows(m2, ['comedy', 'xmas-comedy'], 6, 15);
+  assert.deepEqual(picked.map(function (r) { return r.id; }), ['comedy', 'xmas-comedy']);
+});
+
+test('homeRows: «Рождественские комедии» из набора по умолчанию в сентябре не показываются', function () {
+  var m2 = {
+    version: 1,
+    home: ['star-wars', 'xmas-comedy', 'anime'],
+    groups: MANIFEST.groups,
+    collections: MANIFEST.collections
+  };
+  assert.deepEqual(R.homeRows(m2, null, 9, 15).map(function (r) { return r.id; }), ['star-wars', 'anime']);
+  /* Без месяца (неизвестна дата) — ничего не отсеивается. */
+  assert.equal(R.homeRows(m2, null, null, 15).length, 3);
 });
 test('homeRows: неизвестный id в home пропускается', function () {
   var m2 = {

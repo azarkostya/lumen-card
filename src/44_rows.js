@@ -445,11 +445,23 @@
       return full.length ? full : kept;
     }
 
+    /* Сезонная подборка (season[]) не в свой месяц. month пуст — дата
+       неизвестна, не отсеиваем ничего. */
+    function offSeason(item, month) {
+      if (!month || !item || !item.season || !item.season.length) return false;
+      for (var i = 0; i < item.season.length; i++) if (item.season[i] === month) return false;
+      return true;
+    }
+
     /* Формирует упорядоченный список объектов подборок для главной.
        storedIds: массив id — пользовательский список (не null/пустой → заменяет manifest.home).
        month: 1-12 — текущий месяц для сезонного порядка (null → без сдвига).
        limit: максимальное число рядов (<=0 → пусто; undefined/null → без обрезки).
-       Неизвестные id пропускаются. Дубликаты id в списке снимаются. */
+       Неизвестные id пропускаются. Дубликаты id в списке снимаются.
+       Волна 4 (ТВ 2026-09-24): в наборе по умолчанию сезонная подборка не в
+       свой месяц не показывается («Рождественские комедии» стояли на главной
+       в сентябре). Состав, отмеченный вручную, — выбор пользователя: там она
+       остаётся, просто не поднимается наверх. */
     function homeRows(manifest, storedIds, month, limit) {
       if (!manifest || !Array.isArray(manifest.collections)) return [];
       if (typeof limit === 'number' && limit <= 0) return [];
@@ -462,16 +474,18 @@
       }
 
       /* Список id для главной: пользовательский (непустой) или manifest.home */
-      var ids = (storedIds && storedIds.length) ? storedIds : (manifest.home || []);
+      var own = !!(storedIds && storedIds.length);
+      var ids = own ? storedIds : (manifest.home || []);
 
-      /* Собираем объекты, пропуская неизвестные и дублирующиеся id */
+      /* Собираем объекты, пропуская неизвестные и дублирующиеся id, а в
+         наборе по умолчанию — и сезонные не в свой месяц. */
       var seenIds = {};
       var list = [];
       for (i = 0; i < ids.length; i++) {
         if (!seenIds[ids[i]]) {
           seenIds[ids[i]] = 1;
           var item = byId[ids[i]];
-          if (item) list.push(item);
+          if (item && (own || !offSeason(item, month))) list.push(item);
         }
       }
 

@@ -9254,6 +9254,18 @@ return full.length ? full : kept;
 
 
 
+function offSeason(item, month) {
+if (!month || !item || !item.season || !item.season.length) return false;
+for (var i = 0; i < item.season.length; i++) if (item.season[i] === month) return false;
+return true;
+}
+
+
+
+
+
+
+
 
 
 
@@ -9269,7 +9281,9 @@ byId[manifest.collections[i].id] = manifest.collections[i];
 }
 
 
-var ids = (storedIds && storedIds.length) ? storedIds : (manifest.home || []);
+var own = !!(storedIds && storedIds.length);
+var ids = own ? storedIds : (manifest.home || []);
+
 
 
 var seenIds = {};
@@ -9278,7 +9292,7 @@ for (i = 0; i < ids.length; i++) {
 if (!seenIds[ids[i]]) {
 seenIds[ids[i]] = 1;
 var item = byId[ids[i]];
-if (item) list.push(item);
+if (item && (own || !offSeason(item, month))) list.push(item);
 }
 }
 
