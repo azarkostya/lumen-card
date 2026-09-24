@@ -3319,40 +3319,6 @@ css.push('.lumen-review-modal__reveal.focus{background:' + P.text + ';color:' + 
 
 
 css.push('.lumen-descr-row .lumen-fr{width:100%;-webkit-flex-basis:100%;flex-basis:100%;margin-top:1.75em}');
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-var descrTop = round2((LAMPA_HEAD + LAMPA_ROW_PAD) / scale);
-css.push('.lumen-descr-row .full-descr{min-height:-webkit-calc(100vh - ' + descrTop + 'em);min-height:calc(100vh - ' + descrTop + 'em);-webkit-align-content:flex-start;align-content:flex-start}');
-css.push('.lumen-descr-row .full-descr > .lumen-reviews,.lumen-descr-row .full-descr > .lumen-fr{display:none}');
-css.push('.lumen-descr-row.lumen-descr-row--sub .full-descr > *{display:none}');
-css.push('.lumen-descr-row.lumen-descr-row--sub .full-descr > .lumen-descr-page--on{display:block;margin-top:0}');
 css.push('.lumen-descr-row .lumen-fr__head{display:-webkit-inline-box;display:-webkit-inline-flex;display:inline-flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-flex-wrap:wrap;flex-wrap:wrap;-webkit-box-sizing:border-box;box-sizing:border-box;max-width:100%;margin:0 0 .79em -.7em;padding:.44em .7em;border-radius:.61em;background:' + P.plate + '}');
 css.push('.lumen-descr-row .lumen-fr__ico{width:1.05em;height:1.05em;-webkit-flex-shrink:0;flex-shrink:0;background-color:' + P.muted + ';-webkit-mask-image:' + LC.icons.maskUrl('list') + ';mask-image:' + LC.icons.maskUrl('list') + ';-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;-webkit-mask-size:contain;mask-size:contain;margin-right:.44em}');
 css.push('.lumen-descr-row .lumen-fr__title{font-family:' + FB + ';font-weight:700;font-size:1.40em;line-height:1;color:' + P.text + ';margin-right:.61em}');
@@ -32681,244 +32647,6 @@ block.html('<div class="lumen-facts__title">' + esc(LC.lang('lumen_card_facts'))
 holder.append(block);
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-var DESCR_PAGES = ['lumen-reviews', 'lumen-fr'];
-var DESCR_SUB = 'lumen-descr-row--sub';
-var DESCR_ON = 'lumen-descr-page--on';
-
-function isDescrPage(el) {
-if (!el || !el.classList) return false;
-for (var i = 0; i < DESCR_PAGES.length; i++) if (el.classList.contains(DESCR_PAGES[i])) return true;
-return false;
-}
-
-function descrHolder(rowEl) {
-var list = rowEl && typeof rowEl.querySelectorAll === 'function' ? rowEl.querySelectorAll('.full-descr') : null;
-return list && list.length ? list[0] : null;
-}
-
-
-
-function descrPageOf(holder, node) {
-for (var el = node; el; el = el.parentNode) {
-if (el === holder) return null;
-if (el.parentNode === holder) return isDescrPage(el) ? el : null;
-}
-return undefined;
-}
-
-function descrSelectors(holder, page) {
-var all = holder.querySelectorAll('.selector');
-var out = [];
-for (var i = 0; i < all.length; i++) {
-if (all[i].classList.contains('hide')) continue;
-if (descrPageOf(holder, all[i]) === page) out.push(all[i]);
-}
-return out;
-}
-
-function descrPages(holder) {
-var pages = [null];
-var kids = holder.children;
-for (var i = 0; i < kids.length; i++) {
-if (isDescrPage(kids[i]) && descrSelectors(holder, kids[i]).length) pages.push(kids[i]);
-}
-return pages;
-}
-
-function showDescrPage(rowEl, holder, page) {
-var kids = holder.children;
-for (var i = 0; i < kids.length; i++) {
-if (!isDescrPage(kids[i])) continue;
-if (kids[i] === page) kids[i].classList.add(DESCR_ON);
-else kids[i].classList.remove(DESCR_ON);
-}
-if (page) rowEl.classList.add(DESCR_SUB);
-else rowEl.classList.remove(DESCR_SUB);
-}
-
-
-
-
-function descrTarget(list, dir, mid) {
-var best = null;
-var bestV = 0;
-var bestH = 0;
-for (var i = 0; i < list.length; i++) {
-var r = list[i].getBoundingClientRect();
-var v = dir === 'down' ? r.top : -(r.top + r.height);
-var h = mid < r.left ? r.left - mid : (mid > r.left + r.width ? mid - r.left - r.width : 0);
-if (!best || v < bestV - 0.5 || (Math.abs(v - bestV) <= 0.5 && h < bestH)) {
-best = list[i];
-bestV = v;
-bestH = h;
-}
-}
-return best;
-}
-
-
-
-
-function stepDescrPage(rowEl, dir, from) {
-var holder = descrHolder(rowEl);
-var nav = window.Navigator;
-if (!holder || !nav || typeof nav.getFocusedElement !== 'function') return false;
-if (!window.Lampa || !Lampa.Controller || typeof Lampa.Controller.collectionFocus !== 'function') return false;
-
-var cur = null;
-var i;
-if (from) {
-cur = descrPageOf(holder, from);
-} else {
-for (i = 0; i < holder.children.length; i++) if (holder.children[i].classList.contains(DESCR_ON)) cur = holder.children[i];
-}
-if (cur === undefined) return false;
-
-var pages = descrPages(holder);
-var at = -1;
-for (i = 0; i < pages.length; i++) if (pages[i] === cur) at = i;
-if (at < 0) return false;
-var next = pages[at + (dir === 'down' ? 1 : -1)];
-if (next === undefined) return false;
-
-var mid = 0;
-if (from) {
-var fr = from.getBoundingClientRect();
-mid = fr.left + fr.width / 2;
-}
-showDescrPage(rowEl, holder, next);
-var target = descrTarget(descrSelectors(holder, next), dir, mid);
-if (target) {
-Lampa.Controller.collectionFocus(target, rowEl);
-if (nav.getFocusedElement() === target) return true;
-}
-showDescrPage(rowEl, holder, cur);
-return false;
-}
-
-function bindDescr(item, row, link) {
-var rowEl = row && row[0];
-if (!rowEl || typeof rowEl.querySelectorAll !== 'function') return;
-var holder = descrHolder(rowEl);
-
-
-
-
-
-
-
-
-
-
-if (holder && !holder.lumenPagesBound) {
-holder.lumenPagesBound = true;
-LC.focus.capture(holder, function (e) {
-try {
-var page = descrPageOf(holder, e.target);
-if (page === undefined) return;
-showDescrPage(rowEl, holder, page);
-if (item && e.target && e.target.classList && e.target.classList.contains('selector')) item.last = e.target;
-} catch (err) {
-warn('descr page focus failed', err);
-}
-});
-}
-
-if (item && typeof item.use === 'function' && !item.lumenPagesBound) {
-item.lumenPagesBound = true;
-item.use({
-onController: function (controller) {
-if (!controller) return;
-wrapDescrMove(controller, rowEl, 'down');
-wrapDescrMove(controller, rowEl, 'up');
-}
-});
-}
-
-
-
-
-
-var scroll = link && link.scroll;
-if (item && scroll && typeof scroll.onWheel === 'function' && !scroll.lumenPagesWheel) {
-scroll.lumenPagesWheel = true;
-var wheel = scroll.onWheel;
-scroll.onWheel = function (step) {
-try {
-var enabled = Lampa.Controller && typeof Lampa.Controller.enabled === 'function' ? Lampa.Controller.enabled() : null;
-if (enabled && enabled.name === 'full_descr' && enabled.controller && enabled.controller.link === item &&
-stepDescrPage(rowEl, step > 0 ? 'down' : 'up', null)) return;
-} catch (e) {
-warn('descr page wheel failed', e);
-}
-return wheel.apply(this, arguments);
-};
-}
-}
-
-function wrapDescrMove(controller, rowEl, dir) {
-var orig = controller[dir];
-if (typeof orig !== 'function') return;
-controller[dir] = function () {
-try {
-var nav = window.Navigator;
-var from = nav && typeof nav.getFocusedElement === 'function' ? nav.getFocusedElement() : null;
-if (from && typeof nav.canmove === 'function' && !nav.canmove(dir) && stepDescrPage(rowEl, dir, from)) return;
-} catch (e) {
-warn('descr page step failed', e);
-}
-return orig.apply(this, arguments);
-};
-}
-
 function decorate(root, data) {
 if (!root || !root.length) return;
 if (!root.hasClass('lumen-card')) return;
@@ -33069,7 +32797,6 @@ uninstallPeople: uninstallPeople,
 descr: renderDescrRow,
 refreshEpisode: refreshEpisode,
 bindStart: bindStart,
-bindDescr: bindDescr,
 refreshProgress: refreshProgress,
 scheduleProgressRefresh: scheduleProgressRefresh
 };
@@ -34000,10 +33727,6 @@ LC.reviews.render(descrRow, e.data);
 
 
 LC.franchise.render(descrRow, e.data);
-
-
-
-LC.header.bindDescr(e.item, descrRow, e.link);
 } else if (e.type === 'complite') {
 
 
@@ -34359,7 +34082,7 @@ warn('strip franchise row failed', innerFr);
 warn('strip reviews failed', eRv);
 }
 try {
-$('.lumen-descr-row').removeClass('lumen-descr-row lumen-descr-row--reviews lumen-descr-row--franchise lumen-descr-row--sub');
+$('.lumen-descr-row').removeClass('lumen-descr-row lumen-descr-row--reviews lumen-descr-row--franchise');
 } catch (e1) {
 warn('strip descr row failed', e1);
 }

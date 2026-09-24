@@ -2491,40 +2491,6 @@
        Класс ряда — .lumen-fr; .lumen-franchise (без сокращения) — это КНОПКА
        «Франшиза» в ряду кнопок из Task 17, другой узел. --- */
     css.push('.lumen-descr-row .lumen-fr{width:100%;-webkit-flex-basis:100%;flex-basis:100%;margin-top:1.75em}');
-    /* Правило кромки для второго экрана карточки: ряд описания страницами
-       (разбор и замеры — у bindDescr, src/85_header.js). Видна одна
-       страница: основная (описание, счётчики разделов, «ПОДРОБНО») или блок
-       отзывов, или «Смотреть по порядку». Класс --sub на ряду и
-       .lumen-descr-page--on на блоке ставит LC.header по фокусу.
-
-       Ряд занимает весь остаток экрана под шапкой Lampa: Lampa ставит его к
-       верху области прокрутки (.wrap__content padding-top 4em + .scroll--mask
-       .scroll__content padding 2.5em, app.css:1033-1037 и 2787-2789 —
-       LAMPA_HEAD + LAMPA_ROW_PAD), и min-height от этого же старта кончается
-       ровно на кромке. Следующий ряд Lampa (актёры, похожие) начинается не
-       выше кромки при любом содержимом страницы — кромка не режет его
-       подписи, и снизу он не выглядывает (решение пользователя 2026-09-23 для
-       главной, то же у шапки карточки). Старт — в em body Lampa, а внутри
-       ряда em дороже на масштаб плагина (SCALE_ROOTS выше), поэтому делим.
-
-       display:none, а не visibility: скрытая страница не должна занимать
-       место — иначе видимая стояла бы под ней, а не у верха ряда. Navigator
-       Lampa узлы скрытой страницы из коллекции не выкидывает, но у них
-       нулевой прямоугольник в точке (0,0), а он не попадает в прямую полосу
-       ни от одного видимого узла (straightOnly,
-       vendor/lampa/vender/navigator/navigator.js:65, 948-951).
-
-       align-content:flex-start обязателен: .full-descr — flex с переносом, и
-       лишнюю высоту от min-height многострочный flex по умолчанию раздаёт
-       строкам (align-content:normal ведёт себя как stretch). Без него
-       «ПОДРОБНО», перенесённое под описание (узкое окно, плоский вид),
-       съезжало вниз к середине остатка экрана: замер на стенде 960×540@2,
-       «крупнее», фильм 1891 — низ страницы 456.7 вместо 373.4. */
-    var descrTop = round2((LAMPA_HEAD + LAMPA_ROW_PAD) / scale);
-    css.push('.lumen-descr-row .full-descr{min-height:-webkit-calc(100vh - ' + descrTop + 'em);min-height:calc(100vh - ' + descrTop + 'em);-webkit-align-content:flex-start;align-content:flex-start}');
-    css.push('.lumen-descr-row .full-descr > .lumen-reviews,.lumen-descr-row .full-descr > .lumen-fr{display:none}');
-    css.push('.lumen-descr-row.lumen-descr-row--sub .full-descr > *{display:none}');
-    css.push('.lumen-descr-row.lumen-descr-row--sub .full-descr > .lumen-descr-page--on{display:block;margin-top:0}');
     css.push('.lumen-descr-row .lumen-fr__head{display:-webkit-inline-box;display:-webkit-inline-flex;display:inline-flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;-webkit-flex-wrap:wrap;flex-wrap:wrap;-webkit-box-sizing:border-box;box-sizing:border-box;max-width:100%;margin:0 0 .79em -.7em;padding:.44em .7em;border-radius:.61em;background:' + P.plate + '}');
     css.push('.lumen-descr-row .lumen-fr__ico{width:1.05em;height:1.05em;-webkit-flex-shrink:0;flex-shrink:0;background-color:' + P.muted + ';-webkit-mask-image:' + LC.icons.maskUrl('list') + ';mask-image:' + LC.icons.maskUrl('list') + ';-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;-webkit-mask-size:contain;mask-size:contain;margin-right:.44em}');
     css.push('.lumen-descr-row .lumen-fr__title{font-family:' + FB + ';font-weight:700;font-size:1.40em;line-height:1;color:' + P.text + ';margin-right:.61em}');

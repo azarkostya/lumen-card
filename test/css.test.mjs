@@ -6427,57 +6427,24 @@ test('логотип карточки: кегль узла совпадает с
   assert.ok(/display:block/.test(findDecl(css, (s) => s === '.lumen-card.lumen-logo-on .lumen-logo')));
 });
 
-/* Правило кромки для второго экрана карточки (фокус на ряду описания):
-   ряд показывается страницами (разбор у bindDescr, src/85_header.js), и
-   правило держится на двух вещах, которые сторож и проверяет.
-   1) Ряд занимает ровно остаток экрана под шапкой Lampa — от того старта,
-      с которого Lampa его показывает (.wrap__content padding-top +
-      .scroll--mask .scroll__content padding, первоисточник — app.css).
-      Тогда следующий ряд Lampa начинается не выше кромки при ЛЮБОМ
-      содержимом страницы: три размера интерфейса × оба вида × четыре
-      масштаба плагина (внутри ряда em дороже на масштаб). Подобранное
-      число здесь не пройдёт: у «мельче» с полом кегля 10.6 и «крупнее»
-      остаток экрана в em разный.
-   2) Видна одна страница: на основной блоки отзывов и франшизы сняты, на
-      дополнительной снято всё, кроме неё, и правило показа сильнее правил
-      снятия по числу классов, а не по порядку в файле. */
-test('второй экран карточки: ряд описания — ровно остаток экрана, видна одна страница', () => {
-  const W = 960;
-  const H = 540;
-  const VH = H / 100;
-  const lampa = lampaCss();
-  const topEm = lampaDecl(lampa, '.wrap__content', 'padding-top') +
-    lampaDecl(lampa, '.scroll--mask .scroll__content', 'padding');
-  let checked = 0;
+/* Волна 2 (ТВ 2026-09-24, C): второй экран карточки снова обычный —
+   постраничность 5da8ae6 откатана. Пользователь: «оно нормально не листает,
+   а будто открываются новые страницы — всё же было нормально» (фото 28:
+   блок отзывов один на весь экран). Сторож: ряд описания не растягивается на
+   остаток экрана, блоки отзывов и «Смотреть по порядку» ничем не скрыты,
+   классов страниц в таблице нет. Прокрутка к блоку в фокусе — у bindDescr
+   (src/85_header.js). */
+test('C: второй экран карточки — без страниц: нет min-height у ряда, отзывы и франшиза видны', () => {
   for (const iface of ['small', 'normal', 'bigger']) {
-    const EM = lampaEm(W, iface);
     for (const flat of [false, true]) {
-      for (const scale of ['small', 'normal', 'large', 'huge']) {
-        const got = withStorage({ interface_size: iface, lumen_flat: flat, lumen_scale: scale }, (LC) => ({ css: LC.buildCss(), k: LC.uiScale() }));
-        const label = iface + (flat ? '/плоский' : '') + '/масштаб ' + scale;
-        const body = declAll(got.css, '.lumen-descr-row .full-descr');
-        const minH = declProp(body, 'min-height');
-        assert.ok(minH, label + ': у ряда описания нет min-height — следующий ряд Lampa встанет под кромку');
-        const rowPx = lengthPx(minH, EM * got.k, VH);
-        const rest = H - topEm * EM;
-        assert.ok(Math.abs(rowPx - rest) <= 0.5,
-          label + ': ряд ' + rowPx.toFixed(1) + ' px при остатке экрана ' + rest.toFixed(1) + ' px — ряд обязан кончаться на кромке');
-        assert.equal(declProp(body, 'align-content'), 'flex-start',
-          label + ': без align-content лишняя высота раздаётся строкам flex, и «ПОДРОБНО» съезжает вниз');
-        checked++;
-      }
+      const got = withStorage({ interface_size: iface, lumen_flat: flat }, (LC) => LC.buildCss());
+      const label = iface + (flat ? '/плоский' : '');
+      const rows = ruleBodies(got).filter((r) => r.selectors.some((s) => s === '.lumen-descr-row .full-descr'));
+      rows.forEach((r) => assert.ok(!/min-height/.test(r.decl), label + ': ряд описания растянут на экран: ' + r.decl));
+      const hidden = ruleBodies(got).filter((r) => /display:none/.test(r.decl) &&
+        r.selectors.some((s) => /\.full-descr\s*>\s*(\.lumen-reviews|\.lumen-fr|\*)/.test(s)));
+      assert.deepEqual(hidden.map((r) => r.selectors.join(',')), [], label + ': блоки второго экрана скрыты');
+      assert.ok(!/lumen-descr-row--sub|lumen-descr-page--on/.test(got), label + ': в таблице остались классы страниц');
     }
   }
-  assert.equal(checked, 24);
-
-  const hide = decl(css, '.lumen-descr-row .full-descr > .lumen-reviews');
-  assert.equal(declProp(hide, 'display'), 'none', 'на основной странице блок отзывов снят');
-  assert.equal(decl(css, '.lumen-descr-row .full-descr > .lumen-fr'), hide, 'и «Смотреть по порядку» — тем же правилом');
-  const sub = decl(css, '.lumen-descr-row.lumen-descr-row--sub .full-descr > *');
-  assert.equal(declProp(sub, 'display'), 'none', 'на дополнительной странице снято всё остальное');
-  const on = decl(css, '.lumen-descr-row.lumen-descr-row--sub .full-descr > .lumen-descr-page--on');
-  assert.equal(declProp(on, 'display'), 'block');
-  assert.equal(declProp(on, 'margin-top'), '0', 'страница встаёт к верху ряда, без зазора от основной');
-  assert.ok(classCount('.lumen-descr-row.lumen-descr-row--sub .full-descr > .lumen-descr-page--on') >
-    classCount('.lumen-descr-row .full-descr > .lumen-reviews'), 'показ страницы обязан быть сильнее снятия');
 });
