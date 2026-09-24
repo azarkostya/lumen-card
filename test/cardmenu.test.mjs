@@ -276,8 +276,10 @@ test('трейлер из меню: открыты настройки или л�
    набором (настройки и левое меню), у автотрейлера героя — другим
    (LC.util.overlayOpen). Наборы разошлись: под поиском, списком выбора,
    модальным окном или YouTube Lampa трейлер из меню стартовал. Теперь —
-   тот же LC.util.playerOpen/overlayOpen плюс левое меню. */
-test('трейлер из меню: открыт поиск, список выбора, модальное окно или YouTube Lampa — не играет и молчит', () => {
+   тот же набор LC.util плюс левое меню.
+   Ревью раунда хвостов, п.1: чужой — оверлей, открытый ПОСЛЕ запроса.
+   Здесь при запросе не открыто ничего, и каждый из них — чужой. */
+test('трейлер из меню: после запроса открыли поиск, список выбора, модальное окно или YouTube Lampa — не играет и молчит', () => {
   const cases = {
     'поиск': (env) => env.bodyClasses.push('search--open'),
     'список выбора': (env) => env.bodyClasses.push('selectbox--open'),
@@ -296,6 +298,72 @@ test('трейлер из меню: открыт поиск, список выб
         assert.deepEqual(env.notes, [], name + (late ? ' (опоздал)' : ''));
       } finally { env.restore(); }
     }
+  }
+});
+
+/* Ревью раунда хвостов, п.1 (регрессия f3cb272 + 97185b9): карточки
+   результатов поиска лежат ПОД поиском — body.search--open стоит и когда
+   «Трейлер» выбрали, и когда пришёл ответ (на стенде — из кэша, за 3 мс).
+   Проверка «открыт ли хоть какой-то оверлей» глушила такой трейлер всегда:
+   ни плеера, ни уведомления. Список выбора к onSelect уже закрыт
+   (Select.goclose -> hide, app.min.js:7027-7033), в билет он не попадает.
+   Оверлей, открытый при запросе, чужим не считается. */
+test('трейлер из меню: меню открыто в результатах поиска — ответ под тем же поиском играет', () => {
+  const env = trailerEnv();
+  try {
+    env.bodyClasses.push('search--open');
+    env.api.playTrailer(MOVIE);
+    env.clock.now += 3;
+    env.answer(0);
+    assert.equal(env.played.length, 1, 'трейлер из результатов поиска молчит');
+    assert.equal(env.played[0].id, 'K0');
+    assert.deepEqual(env.notes, []);
+  } finally { env.restore(); }
+  /* Опоздал только ответ, человек так и ждёт в поиске — говорим об
+     опоздании, как на любом другом экране. */
+  const late = trailerEnv();
+  try {
+    late.bodyClasses.push('search--open');
+    late.api.playTrailer(MOVIE);
+    late.clock.now += 9000;
+    late.answer(0);
+    assert.equal(late.played.length, 0);
+    assert.deepEqual(late.notes, ['lumen_menu_trailer_late']);
+  } finally { late.restore(); }
+});
+
+/* Оверлей, закрытый после запроса, чужим не считается: из поиска
+   вернулись на тот же экран, трейлер просили — играет, как и до f3cb272. */
+test('трейлер из меню: запрос из поиска, поиск закрыли до ответа — играет', () => {
+  const env = trailerEnv();
+  try {
+    env.bodyClasses.push('search--open');
+    env.api.playTrailer(MOVIE);
+    env.bodyClasses.splice(env.bodyClasses.indexOf('search--open'), 1);
+    env.clock.now += 2000;
+    env.answer(0);
+    assert.equal(env.played.length, 1);
+  } finally { env.restore(); }
+});
+
+/* Поиск, открытый при запросе, не прикрывает то, что открылось поверх
+   него после: модальное окно, настройки, плеер — ответ чужой. */
+test('трейлер из меню: запрос из поиска, после него открыли ещё оверлей или плеер — не играет и молчит', () => {
+  const cases = {
+    'модальное окно': (env) => env.nodes.push('.modal'),
+    'настройки': (env) => env.bodyClasses.push('settings--open'),
+    'плеер': (env) => env.setPlayer(true)
+  };
+  for (const name of Object.keys(cases)) {
+    const env = trailerEnv();
+    try {
+      env.bodyClasses.push('search--open');
+      env.api.playTrailer(MOVIE);
+      cases[name](env);
+      env.answer(0);
+      assert.equal(env.played.length, 0, name);
+      assert.deepEqual(env.notes, [], name);
+    } finally { env.restore(); }
   }
 });
 

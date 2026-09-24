@@ -412,6 +412,29 @@ test('overlayOpen: модальное окно и YouTube-плеер Lampa — �
   });
 });
 
+/* Ревью раунда хвостов, п.1: трейлеру из меню карточки мало «открыто ли
+   что-нибудь» — ему нужно, ЧТО открыто, чтобы сверить с тем, что было
+   открыто при запросе (src/63_cardmenu.js, verdict). Список — в порядке
+   набора: сперва классы body, потом узлы. */
+test('overlays: какие оверлеи открыты — классы body и узлы, пусто, когда ничего', () => {
+  withDocument([], [], () => assert.deepEqual(u.overlays(), []));
+  withDocument(['search--open', 'menu--open', 'ambience--enable'], [], () => {
+    assert.deepEqual(u.overlays(), ['search--open'], 'левое меню и ambience--enable в наборе не значатся');
+  });
+  withDocument(['selectbox--open', 'settings--open', 'search--open'], ['.youtube-player', '.modal'], () => {
+    assert.deepEqual(u.overlays(), ['settings--open', 'selectbox--open', 'search--open', '.modal', '.youtube-player']);
+    assert.equal(u.overlayOpen(), true);
+  });
+  const had = Object.prototype.hasOwnProperty.call(globalThis, 'document');
+  const prev = globalThis.document;
+  try {
+    delete globalThis.document;
+    assert.deepEqual(u.overlays(), [], 'нет document');
+    globalThis.document = { body: { classList: { contains: (c) => c === 'search--open' } }, querySelector: () => { throw new Error('boom'); } };
+    assert.deepEqual(u.overlays(), [], 'ошибка чтения — «ничего не открыто», как у overlayOpen');
+  } finally { if (had) globalThis.document = prev; else delete globalThis.document; }
+});
+
 test('overlayOpen: нет document, body или querySelector — «не открыт», без исключения', () => {
   const had = Object.prototype.hasOwnProperty.call(globalThis, 'document');
   const prev = globalThis.document;

@@ -594,22 +594,43 @@ return false;
 
 
 
-var OVERLAY_NODES = '.modal, .youtube-player';
 
-function overlayOpen() {
+
+
+
+
+
+
+var OVERLAY_CLASSES = ['settings--open', 'selectbox--open', 'search--open'];
+var OVERLAY_NODES = ['.modal', '.youtube-player'];
+
+function overlays() {
+var out = [];
+var i;
 try {
 var list = document.body && document.body.classList;
-if (list && (list.contains('settings--open') || list.contains('selectbox--open') || list.contains('search--open'))) return true;
-return !!(typeof document.querySelector === 'function' && document.querySelector(OVERLAY_NODES));
-} catch (e) {
-return false;
+for (i = 0; list && i < OVERLAY_CLASSES.length; i++) {
+if (list.contains(OVERLAY_CLASSES[i])) out.push(OVERLAY_CLASSES[i]);
 }
+if (typeof document.querySelector !== 'function') return out;
+for (i = 0; i < OVERLAY_NODES.length; i++) {
+if (document.querySelector(OVERLAY_NODES[i])) out.push(OVERLAY_NODES[i]);
+}
+} catch (e) {
+return [];
+}
+return out;
+}
+
+function overlayOpen() {
+return overlays().length > 0;
 }
 
 return {
 ON_SCREEN_SEL: '.' + ON_SCREEN,
 onScreen: onScreen,
 playerOpen: playerOpen,
+overlays: overlays,
 overlayOpen: overlayOpen,
 activityOnScreen: activityOnScreen,
 esc: esc,
@@ -24759,7 +24780,7 @@ thrown: isThrown(card)
 
 
 function playTrailer(card) {
-var ticket = { seq: ++trailerReq, at: Date.now(), activity: currentActivity() };
+var ticket = { seq: ++trailerReq, at: Date.now(), activity: currentActivity(), overlays: LC.util.overlays() };
 
 function play(video) {
 try {
@@ -24843,10 +24864,28 @@ return null;
 
 
 
+
+
+
+
+
+
+
+
+
+
+function newOverlay(ticket) {
+var now = LC.util.overlays();
+for (var i = 0; i < now.length; i++) {
+if (ticket.overlays.indexOf(now[i]) === -1) return true;
+}
+return false;
+}
+
 function verdict(ticket) {
 if (ticket.seq !== trailerReq) return '';
 if (currentActivity() !== ticket.activity) return '';
-if (LC.util.playerOpen() || LC.util.overlayOpen()) return '';
+if (LC.util.playerOpen() || newOverlay(ticket)) return '';
 try {
 var list = document.body && document.body.classList;
 if (list && list.contains('menu--open')) return '';

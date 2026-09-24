@@ -546,23 +546,44 @@
        (модальное окно, :32415) и .youtube-player (YouTube Lampa,
        :53323-53324); оба узла Lampa удаляет на закрытии (:32561, :53401).
        .player — плеер, его отвечает playerOpen. Читаем голый DOM: jQuery
-       здесь не нужен. */
-    var OVERLAY_NODES = '.modal, .youtube-player';
+       здесь не нужен.
 
-    function overlayOpen() {
+       overlays() — ЧТО открыто: имена классов и селекторы узлов в порядке
+       набора. Ревью раунда хвостов, п.1: трейлер из меню карточки сверяет
+       его с тем, что было открыто при запросе (src/63_cardmenu.js,
+       verdict), — из результатов поиска его просят под открытым поиском.
+       overlayOpen() — открыто ли хоть что-то. Ошибка чтения — «ничего не
+       открыто»: ничего не блокируем. */
+    var OVERLAY_CLASSES = ['settings--open', 'selectbox--open', 'search--open'];
+    var OVERLAY_NODES = ['.modal', '.youtube-player'];
+
+    function overlays() {
+      var out = [];
+      var i;
       try {
         var list = document.body && document.body.classList;
-        if (list && (list.contains('settings--open') || list.contains('selectbox--open') || list.contains('search--open'))) return true;
-        return !!(typeof document.querySelector === 'function' && document.querySelector(OVERLAY_NODES));
+        for (i = 0; list && i < OVERLAY_CLASSES.length; i++) {
+          if (list.contains(OVERLAY_CLASSES[i])) out.push(OVERLAY_CLASSES[i]);
+        }
+        if (typeof document.querySelector !== 'function') return out;
+        for (i = 0; i < OVERLAY_NODES.length; i++) {
+          if (document.querySelector(OVERLAY_NODES[i])) out.push(OVERLAY_NODES[i]);
+        }
       } catch (e) {
-        return false;
+        return [];
       }
+      return out;
+    }
+
+    function overlayOpen() {
+      return overlays().length > 0;
     }
 
     return {
       ON_SCREEN_SEL: '.' + ON_SCREEN,
       onScreen: onScreen,
       playerOpen: playerOpen,
+      overlays: overlays,
       overlayOpen: overlayOpen,
       activityOnScreen: activityOnScreen,
       esc: esc,
