@@ -611,8 +611,12 @@ function fetchStub34(item, page, ok, err, alive) {
   else answer();
   return { clear: function () { cleared = true; } };
 }
+/* Шестой раунд, п.4: что отдавал Activity.active() в момент запроса
+   каталога (его шлёт create() рулетки). */
+var manifestActive34 = null;
 function manifestStub34(cb) {
   manifestCalls34++;
+  manifestActive34 = globalThis.Lampa && globalThis.Lampa.Activity ? globalThis.Lampa.Activity.active() : null;
   if (hold34.manifest) heldManifest34.push(function () { cb(MANIFEST34); });
   else cb(MANIFEST34);
 }
@@ -663,6 +667,8 @@ function restoreGlobals34() {
    переход, ставит transitionStub.on = true и зовёт fireReveal(). */
 var transitionStub = null;
 var activeAct34 = null;
+/* Имя активного контроллера (Controller.enabled().name у Lampa). */
+var activeController34 = '';
 var collected = [];
 var focused = [];
 function resetCollection() { collected = []; focused = []; }
@@ -701,6 +707,8 @@ function openRoulette34(cards, t, dpr, motion, object, hold) {
   poolSets34 = 0;
   manifestCalls34 = 0;
   deliveredPool34 = 0;
+  manifestActive34 = null;
+  activeController34 = '';
   t.after(restoreGlobals34);
 
   var components = {};
@@ -715,7 +723,17 @@ function openRoulette34(cards, t, dpr, motion, object, hold) {
       /* Правка 2026-09-23 (п.5.2): обработчики контроллера теперь
          проверяются — вниз с ленты подборок обязан доводить до «Крутить». */
       add: function (name, handlers) { controllers[name] = handlers; },
-      toggle: function () { },
+      /* Шестой раунд, п.4: как toggle$2 у Lampa (vendor/lampa/app.min.js:
+         46297-46315) — зарегистрированный контроллер становится активным,
+         и зовётся его toggle. Прежде заглушка не делала ничего, и что
+         start() ставит коллекцию только через toggle('content'), стенд
+         не видел. */
+      toggle: function (name) {
+        if (!controllers[name]) return;
+        activeController34 = name;
+        if (controllers[name].toggle) controllers[name].toggle();
+      },
+      enabled: function () { return { name: activeController34, controller: controllers[activeController34] }; },
       collectionSet: function (node) { collected.push(node); },
       collectionFocus: function (node, box) { focused.push({ node: node, box: box }); }
     },
@@ -751,8 +769,14 @@ function openRoulette34(cards, t, dpr, motion, object, hold) {
   var Comp = components.lumen_roulette;
   var comp = new Comp(object || {});
   comp.activity = { loader: function (on) { loaderLog34.push(!!on); } };
-  activeAct34 = { component: 'lumen_roulette', activity: comp.activity };
+  /* Шестой раунд, п.4: порядок push$3 (vendor/lampa/app.min.js:45836-45841)
+     — limit(), create$4 (внутри него create() компонента), activites.push,
+     start$4. Во время create() вершина истории — ещё прошлый экран, и
+     рулеткой она становится только после create(). start() тесты зовут
+     сами. */
+  activeAct34 = { component: 'main', activity: { loader: function () { } } };
   comp.create();
+  activeAct34 = { component: 'lumen_roulette', activity: comp.activity };
   var screen = comp.render();
   var reel = screen.find('.lumen-roulette__reel');
   /* Барабан на экране 1920×1080: 28.67vh — это 310 × 464 px. */
@@ -1571,6 +1595,29 @@ test('пятый раунд п.5: ответ каталога в окне 200 м
   env.comp.destroy();
   drainDelays();
   assert.equal(fetchCalls34, 0, 'уходящая рулетка пошла в сеть за выборкой');
+});
+
+/* Контрольное ревью шестого раунда, п.4. В Lampa push$3 зовёт create()
+   ДО activites.push (vendor/lampa/app.min.js:45836-45841): во время
+   create() Activity.active() отдаёт ПРЕДЫДУЩИЙ экран. Каталог из кэша
+   отвечает синхронно, прямо внутри create(), — build() видит чужую
+   активность и коллекцию не ставит. Экран обязан собраться целиком на
+   start(): лента подборок, коллекция Navigator, выборка. */
+test('шестой раунд п.4: каталог из кэша внутри create() (active — прошлый экран) — start() доводит экран', (t) => {
+  const delay = Number(/var PREVIEW_DELAY = (\d+);/.exec(SRC)[1]);
+  const env = openRoulette34([R44], t, 1, 'lite', { media: 'movie' });
+  assert.equal(manifestCalls34, 1, 'предпосылка: create() спросил каталог');
+  assert.ok(manifestActive34 && manifestActive34.activity !== env.comp.activity,
+    'стенд нечестен: во время create() Activity.active() уже отдаёт рулетку');
+  assert.ok(env.chips().length > 0, 'каталог из кэша не построил ленту подборок');
+  assert.equal(collected.length, 0, 'create() поставил коллекцию Navigator под чужим экраном');
+  env.comp.start();
+  assert.equal(env.lastCollection(), env.root[0], 'start() не поставил коллекцию Navigator на экран рулетки');
+  assert.equal(env.lastFocus().node, env.root.find('.lumen-roulette__spin')[0], 'фокус не на «Крутить»');
+  assert.equal(env.loading(), false, 'индикатор загрузки горит');
+  assert.equal(fireDelay(delay), 1, 'показ выборки не поднят');
+  assert.equal(env.stacked(), true, 'выборка не показана');
+  assert.equal(env.count(), '1', 'счётчик выборки не тот');
 });
 
 test('ревью п.1: ответ каталога после destroy() экран не строит', (t) => {
