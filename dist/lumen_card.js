@@ -20748,6 +20748,21 @@ if (!paused) schedulePreview();
 var act = null;
 try { act = Lampa.Activity.active(); } catch (eAct) { }
 if (act && act.activity && act.activity !== self.activity) return;
+
+
+
+
+
+
+
+
+
+
+
+
+var ctl = null;
+try { ctl = typeof Lampa.Controller.enabled === 'function' ? Lampa.Controller.enabled() : null; } catch (eCtl) { }
+if (ctl && ctl.name !== 'content') return;
 if (started) recollect(null);
 }
 

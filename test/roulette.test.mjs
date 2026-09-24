@@ -1622,6 +1622,38 @@ test('шестой раунд п.4: каталог из кэша внутри cr
   assert.equal(env.count(), '1', 'счётчик выборки не тот');
 });
 
+/* Контрольное ревью шестого раунда, п.6. Левое меню Lampa открывается не
+   сменой активности, а Controller.toggle('menu') (левый край рулетки ->
+   контроллер меню, vendor/lampa/app.min.js:9783-9790): pause() у рулетки
+   не зовётся, Activity.active() — всё ещё она, started — true. Каталог,
+   доехавший в это время, в build() -> recollect() забирал коллекцию
+   Navigator у открытого меню: стрелки меню (Navigator.move) ходили бы по
+   узлам рулетки. Коллекцию ставит тот, чей контроллер активен; рулетке её
+   вернёт toggle('content') при выходе из меню. */
+test('шестой раунд п.6: каталог, доехавший при открытом левом меню, не забирает у меню коллекцию', (t) => {
+  const env = openRoulette34([R44], t, 1, 'lite', { media: 'movie' }, { manifest: true });
+  const menuNode = new El(['menu']);
+  globalThis.Lampa.Controller.add('menu', {
+    toggle: function () {
+      globalThis.Lampa.Controller.collectionSet(menuNode);
+      globalThis.Lampa.Controller.collectionFocus(false, menuNode);
+    }
+  });
+  env.comp.start();
+  assert.equal(env.lastCollection(), env.root[0], 'предпосылка: start() поставил коллекцию рулетки');
+  /* Влево с левого края рулетки — меню. */
+  env.controller().left();
+  assert.equal(env.lastCollection(), menuNode, 'предпосылка: меню взяло коллекцию');
+  releaseHeld(heldManifest34);
+  assert.ok(env.chips().length > 0, 'каталог при открытом меню не построил экран');
+  assert.equal(env.lastCollection(), menuNode, 'ответ каталога забрал коллекцию Navigator у открытого меню');
+  assert.equal(env.loading(), false, 'индикатор загрузки висит');
+  /* Вправо из меню — снова рулетка: коллекцию ставит её toggle. */
+  globalThis.Lampa.Controller.toggle('content');
+  assert.equal(env.lastCollection(), env.root[0], 'после выхода из меню коллекция рулетки не вернулась');
+  assert.equal(env.lastFocus().node, env.root.find('.lumen-roulette__spin')[0], 'после выхода из меню фокус не на «Крутить»');
+});
+
 test('ревью п.1: ответ каталога после destroy() экран не строит', (t) => {
   const env = openRoulette34([R44], t, 1, 'lite', { media: 'movie' }, { manifest: true });
   env.comp.start();

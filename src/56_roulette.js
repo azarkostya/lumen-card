@@ -1466,6 +1466,21 @@
         var act = null;
         try { act = Lampa.Activity.active(); } catch (eAct) { }
         if (act && act.activity && act.activity !== self.activity) return;
+        /* Контрольное ревью шестого раунда, п.6: левое меню и шапка Lampa
+           берут пульт сменой контроллера (Controller.toggle('menu') с
+           левого края, toggle('head') с верхнего; контроллер меню ставит
+           коллекцию на себя, vendor/lampa/app.min.js:9783-9790, шапка —
+           :10196-10199), а не сменой
+           активности: pause() не зовётся, рулетка остаётся активной, started
+           — true. Каталог, доехавший в это время, забирал бы коллекцию
+           Navigator у меню. Коллекцию ставим, только если пульт у нашего
+           'content' (та же сверка имени контроллера, что у эпизодов и
+           франшизы, src/85_header.js, src/66_franchise.js); иначе экран
+           уже построен, а коллекцию вернёт toggle('content') на выходе из
+           меню. */
+        var ctl = null;
+        try { ctl = typeof Lampa.Controller.enabled === 'function' ? Lampa.Controller.enabled() : null; } catch (eCtl) { }
+        if (ctl && ctl.name !== 'content') return;
         if (started) recollect(null);
       }
 
