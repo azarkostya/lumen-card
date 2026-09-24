@@ -2270,7 +2270,42 @@ test('ревью волны 3, п.1: отложенная уходом фоку�
   assert.equal(env.requests.filter((r) => r.url === 'movie/22').length, 2, 'на возврате A не показан заново');
   env.advance(180);
   env.advance(251);
-  assert.equal(active(), EMPTY, 'под текстом A остался кадр прошлого фильма');
+  /* Ревью правок волны 3, п.6: заглушка — постер A из ряда (тест ниже), а
+     не нейтральный фон, как было до этой правки. */
+  assert.equal(active().attr('src'), 'https://img/t/p/w300/p2.jpg', 'под текстом A — кадр прошлого фильма или нейтральный фон, а не постер A');
+  assert.deepEqual(warnLog, []);
+});
+
+/* Ревью правок волны 3, п.6: возврат через «Ещё». Фокус ушёл с показанной
+   карточки A на плитку «Ещё» ряда (.card-more — не карточка, герой её не
+   видит), пока под текстом A стоял кадр прошлого фильма и шёл отсчёт
+   заглушки; OK увёл с главной, «Назад» вернул фокус на ту же плитку.
+   resume показывает A заново без узла карточки (show(state.shownCard)), и
+   заглушка была пустой: под текстом A — нейтральный фон, хотя постер A
+   известен с его показа. Теперь resume передаёт прежний постер. */
+test('ревью правок волны 3, п.6: возврат через «Ещё» с отложенной заглушкой — постер показанного фильма, а не нейтральный фон', () => {
+  const env = makeEnv({ fxHeavy: () => false });
+  const main = makeMain();
+  const other = makeMain();
+  env.hero.mount(main.activity);
+  const stage = shownFrame(env, main);
+  const active = () => stage.find('.lumen-hero__bg.is-active');
+
+  fireFocus(main.activity, main.card2);
+  env.advance(350);
+  detailsOf(env, 22).ok({ id: 22 });
+  env.advance(100);
+  assert.equal(active().attr('src'), 'https://img/t/p/w1280/b1.jpg', 'предусловие: под текстом A кадр прошлого фильма, отсчёт заглушки идёт');
+  main.line1.append(new FakeEl(['card-more', 'selector', 'focus']));
+  env.hero.detach(other.activity);
+
+  env.hero.mount(main.activity);
+  assert.equal(env.requests.filter((r) => r.url === 'movie/22').length, 2, 'предусловие: на возврате A показан заново');
+  env.advance(180);
+  env.advance(251);
+  assert.equal(active().attr('src'), 'https://img/t/p/w300/p2.jpg', 'под текстом A нет его постера из ряда');
+  assert.equal(active().hasClass('lumen-hero__bg--blur'), true, 'постер не помечен как размытый слой');
+  assert.equal(env.images.filter((i) => /p2\.jpg/.test(i.src)).length, 0, 'постер из ряда грузился заново');
   assert.deepEqual(warnLog, []);
 });
 

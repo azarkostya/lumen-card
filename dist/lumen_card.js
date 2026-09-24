@@ -14783,7 +14783,8 @@ return src && !/\.svg(\?|#|$)/i.test(src) ? src : '';
 
 
 
-function show(card, el) {
+
+function show(card, el, poster) {
 if (!state || !card) return;
 try {
 var captured = ++gen;
@@ -14810,7 +14811,7 @@ clearFx();
 state.framePath = null;
 
 
-state.holdPoster = rowPoster(el);
+state.holdPoster = el ? rowPoster(el) : (poster || '');
 state.holdDue = !!(state.frameUrl || state.lqipUrl) && motionMode() !== 'off';
 var model = heroModel(card, null, words());
 render(model, true);
@@ -15598,9 +15599,13 @@ if (!card || card.id == null) {
 
 
 
+
+
+
+
 if (state.stale && state.shownCard) {
 state.stale = false;
-show(state.shownCard);
+show(state.shownCard, null, state.holdPoster);
 } else {
 applyFx();
 }

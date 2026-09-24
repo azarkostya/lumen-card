@@ -2245,8 +2245,9 @@
     /* Показать героя для карточки. Вызывается только из отложенного тика
        обработчика фокуса (или из mount для уже сфокусированной карточки).
        el — узел карточки в ряду, если он есть: его постер — заглушка
-       holdFrame. */
-    function show(card, el) {
+       holdFrame. poster — заглушка, когда узла нет: resume без карточки в
+       фокусе показывает тот же фильм заново (ревью правок волны 3, п.6). */
+    function show(card, el, poster) {
       if (!state || !card) return;
       try {
         var captured = ++gen;
@@ -2273,7 +2274,7 @@
         state.framePath = null;
         /* Волна 3: на экране кадр — отсчёт заглушки заведёт вывод текста
            этого показа (write в render), если кадр к тому мигу чужой. */
-        state.holdPoster = rowPoster(el);
+        state.holdPoster = el ? rowPoster(el) : (poster || '');
         state.holdDue = !!(state.frameUrl || state.lqipUrl) && motionMode() !== 'off';
         var model = heroModel(card, null, words());
         render(model, true);
@@ -3060,10 +3061,14 @@
              карточку (плитка «Ещё» ряда — .card-more, её Lampa помнит как
              last ряда), а загрузка показанного фильма была оборвана или
              ответ доехал на парковке. Без повторного show() скелетон
-             описания горел бы до смены фокуса на карточку. */
+             описания горел бы до смены фокуса на карточку.
+             Ревью правок волны 3, п.6: узла карточки нет (фокус на плитке
+             «Ещё»), но фильм тот же — заглушкой остаётся постер его ряда,
+             взятый при прошлом показе; без него под текстом вставал бы
+             нейтральный фон. */
           if (state.stale && state.shownCard) {
             state.stale = false;
-            show(state.shownCard);
+            show(state.shownCard, null, state.holdPoster);
           } else {
             applyFx();
           }
