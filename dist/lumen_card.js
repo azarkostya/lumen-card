@@ -4107,14 +4107,8 @@ var EASE = ' .42s cubic-bezier(.2,.8,.2,1)';
 
 
 
-
-
-
-
-
 var AR = accentRules(P, t);
 css.push(AR.main);
-css.push('body.lumen-motion-full .lumen-main{-webkit-transition:background-color .1s linear;transition:background-color .1s linear}');
 
 
 
@@ -23156,8 +23150,9 @@ var task = null;
 
 
 
+
 var TWEEN_MS = 1600;
-var TWEEN_STEP_MS = 100;
+var TWEEN_STEP_MS = 200;
 var tween = null;
 
 
@@ -23668,9 +23663,6 @@ setTheme: setTheme,
 
 dominant: function () { return source; },
 target: function () { return target; },
-
-
-
 
 
 timing: function () { return { total: TWEEN_MS, step: TWEEN_STEP_MS }; },
