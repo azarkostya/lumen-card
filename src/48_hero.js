@@ -16,8 +16,7 @@
   /*   unmount() — снять целиком (узел, класс, слушатель, запросы)          */
   /*   applyMotion() — перечитать режим анимаций на открытом герое          */
   /*   active() → смонтирован ли герой                                      */
-  /*   bigPoster(url) → адрес того же постера в w500 или null               */
-  /*   lastFocus() → {id, poster, node, big?} последней карточки под фокусом */
+  /*   lastFocus() → {id, poster, node} последней карточки под фокусом      */
   /*                                                                       */
   /* Как работает смена героя (сториборд 23г, ограничение брифа 1):         */
   /*   - фокус карточки ловит ОДИН обработчик в фазе ЗАХВАТА на корне       */
@@ -71,9 +70,6 @@
        по этим полям фильм за день не меняется, а запрос идёт через прокси
        пользователя. */
     var DETAILS_LIFE = 1440;
-    /* Task 27 (довесок): ширина крупной версии постера, которую герой
-       предзагружает для слоя перехода (см. bigPoster). */
-    var BIG_POSTER = 500;
     /* Кегль содержимого кадра — копия TEXT_ZOOM из src/30_css.js
        (.lumen-hero__text{font-size:1.1em}). Дублируется как литерал по той же
        причине, что WATCHED в других модулях: одно число, ради которого не
@@ -359,20 +355,6 @@
       return (elapsedMs || 0) >= (delay || 0);
     }
 
-    /* Task 27 (довесок): адрес того же постера покрупнее — для слоя перехода
-       «постер → кадр» (src/67_transition.js).
-
-       Ряды Lampa рисуют постеры в w300 (app.min.js ~52500), а переход
-       растягивает картинку почти на весь экран: на FHD это увеличение в
-       шесть раз по ширине, и в полноэкранном состоянии постер видно мыльным.
-       w500 — следующий размер TMDB после w300 (500×750 против 300×450 —
-       снято живьём 2026-09-17): линейного разрешения в полтора с лишним
-       раза больше, а грузится по-прежнему одна картинка на карточку, на
-       которой остановились.
-
-       Меняется ровно сегмент размера в пути TMDB (/t/p/wNNN/). Адрес не
-       оттуда (Кинопоиск, локальная картинка) или постер уже не мельче —
-       null: грузить нечего. */
     /* Task 28: можно ли сейчас заводить фоновый ролик в герое.
          pref    — настройка lumen_hero_trailer,
          motion  — режим анимаций (LC.motionMode),
@@ -387,14 +369,6 @@
       if (pref === false) return false;
       if (motion === 'off') return false;
       return trailer !== 'off';
-    }
-
-    function bigPoster(url) {
-      var src = '' + (url || '');
-      var m = /\/t\/p\/w(\d+)\//.exec(src);
-      if (!m) return null;
-      if ((parseInt(m[1], 10) || 0) >= BIG_POSTER) return null;
-      return src.replace(m[0], '/t/p/w' + BIG_POSTER + '/');
     }
 
     /* Task 39: аргумент — ширина в ФИЗИЧЕСКИХ пикселях (LC.util.screenPx),
@@ -477,10 +451,12 @@
        ровно там, где ролик снимается: в cancelTrailer. */
     var tgen = 0;
 
-    /* Task 29: последняя карточка под фокусом — {id, poster, node}. Её читает
-       слой перехода «постер → кадр» (src/67_transition.js) в момент, когда
-       Lampa открывает полную карточку. Живёт вне state: запись обновляется
-       на каждом переводе фокуса и обнуляется вместе с героем. */
+    /* Task 29: последняя карточка под фокусом — {id, poster, node}. Живёт
+       вне state: запись обновляется на каждом переводе фокуса и обнуляется
+       вместе с героем. До волны 2 (ТВ 2026-09-24) её читал переход «постер →
+       кадр» при открытии карточки; переход удалён, и потребителя в коде у
+       записи сейчас нет — она и её тесты оставлены по плану волны 2,
+       снимать или переиспользовать — отдельной правкой. */
     var last = null;
 
     /* Task 71: что известно про логотипы за эту сессию — file_path в 'ok'
@@ -1991,8 +1967,7 @@
       setCompact(index > 0);
     }
 
-    /* Адрес УЖЕ отрисованного постера карточки: он лежит в кэше браузера, и
-       слой перехода показывается без загрузки. */
+    /* Адрес УЖЕ отрисованного постера карточки: он лежит в кэше браузера. */
     function posterOf(el) {
       try {
         return $(el).find('.card__img').attr('src') || '';
@@ -2006,17 +1981,13 @@
        Task 37: здесь запоминается САМ УЗЕЛ, а не его прямоугольник. Прежний
        вариант звал el.getBoundingClientRect() на каждом переводе фокуса —
        то есть заставлял браузер считать раскладку прямо посреди обработки
-       нажатия стрелки, на каждое нажатие. Прямоугольник нужен ровно одному
-       потребителю и ровно один раз — слою перехода в момент открытия
-       карточки, и снимает его теперь LC.transition.open (src/67_transition.js).
-       Узел к тому моменту может быть уже оторван от документа (ряд
-       перестроился) — у оторванного узла все размеры нулевые, и переход на
-       таком прямоугольнике просто не показывается. */
+       нажатия стрелки, на каждое нажатие. Прямоугольник был нужен ровно
+       одному потребителю — слою перехода в момент открытия карточки
+       (LC.transition.open); переход удалён в волне 2 (ТВ 2026-09-24). */
     function rememberFocus(el, card) {
       var poster = posterOf(el);
-      if (!poster) { last = null; cancelBigPoster(); return; }
+      if (!poster) { last = null; return; }
       last = { id: card.id, poster: poster, node: el };
-      scheduleBigPoster(card.id, poster);
     }
 
     /* Task 37: повторное событие фокуса на ТОЙ ЖЕ карточке. Таймеры оно
@@ -2032,69 +2003,6 @@
       if (!poster) return;
       if (last && String(last.id) === String(card.id) && last.poster === poster) return;
       rememberFocus(el, card);
-    }
-
-    /* Показался бы вообще переход «постер → кадр», ради которого грузится
-       крупная версия. Обе проверки — те же, что делает сам LC.transition
-       перед показом слоя. */
-    function bigPosterWanted() {
-      try {
-        if (LC.motionMode && LC.motionMode() !== 'full') return false;
-        return LC.pref ? LC.pref('lumen_transition', true) !== false : false;
-      } catch (e) {
-        return false;
-      }
-    }
-
-    /* Гасит незавершённую предзагрузку крупного постера. Обработчики
-       снимаются — сеть в снятый или сменившийся герой не вернётся; саму
-       картинку браузер при этом спокойно дотянет в кэш, и на следующем
-       фокусе той же карточки она окажется готовой мгновенно. Тот же приём,
-       что у предзагрузки кадра (cancelPending). */
-    function cancelBigPoster() {
-      if (!state) return;
-      stopTimer('bigTimer');
-      if (state.bigLoader) {
-        state.bigLoader.onload = null;
-        state.bigLoader.onerror = null;
-        state.bigLoader = null;
-      }
-    }
-
-    /* Task 27 (довесок): крупная версия постера для слоя перехода.
-
-       Запрос откладывается на ту же задержку, что и смена героя: при быстром
-       листании ряда ни одной лишней картинки не уходит — грузится постер той
-       карточки, на которой остановились. Готовый адрес кладётся в last.big,
-       откуда его берёт LC.transition; не успела загрузиться или упала —
-       переход идёт на прежнем w300, как и раньше, и ничего не ждёт. */
-    function scheduleBigPoster(id, poster) {
-      cancelBigPoster();
-      /* Крупный постер нужен ровно одному потребителю — слою перехода. Его
-         нет (настройка выключена) или он всё равно не покажется (режим
-         анимаций не 'full', src/67_transition.js) — сеть не тратим. */
-      if (!bigPosterWanted()) return;
-      var url = bigPoster(poster);
-      if (!url) return;
-      state.bigTimer = setTimeout(function () {
-        if (!state) return;
-        state.bigTimer = null;
-        if (!last || String(last.id) !== String(id)) return;
-        var img = new Image();
-        /* Task 39: декодирование вне главного потока (см. loadFrame). */
-        img.decoding = 'async';
-        state.bigLoader = img;
-        img.onload = function () {
-          if (!state || state.bigLoader !== img) return;
-          state.bigLoader = null;
-          if (last && String(last.id) === String(id)) last.big = url;
-        };
-        img.onerror = function () {
-          if (!state || state.bigLoader !== img) return;
-          state.bigLoader = null;
-        };
-        img.src = url;
-      }, DELAY);
     }
 
     /* Правка пользователя 2026-09-17 (третий круг): акцент и подкраска фона
@@ -2277,16 +2185,16 @@
         var el = root.find('.card.focus');
         if (el && el.length && el[0] && el[0].card_data) {
           updateCompact(el[0]);
-          /* Task 37 (ревью): источник перехода «постер → кадр» заводится
-             ЗДЕСЬ, а не ждёт события. Фокус Lampa восстанавливает синхронно
+          /* Task 37 (ревью): запись карточки под фокусом заводится ЗДЕСЬ, а
+             не ждёт события. Фокус Lampa восстанавливает синхронно
              внутри activity.start() — Controller.toggle('content') зовёт
              toggle контроллера с collectionFocus (app.min.js:45441), и это
              происходит ДО Listener.send('activity','start')
              (app.min.js:46027), в обработчике которого мы только монтируем
              героя и вешаем слушатель. Событие 'hover:focus' к тому моменту
-             уже прошло мимо, а слою перехода (src/67_transition.js) источник
-             нужен сразу: без этой строки «главная → OK → Назад → OK на той
-             же карточке» открывалось бы без перехода. Раньше дыру случайно
+             уже прошло мимо. (До волны 2 запись была источником перехода
+             «постер → кадр», и без этой строки «главная → OK → Назад → OK на
+             той же карточке» открывалось без перехода.) Раньше дыру случайно
              закрывал MutationObserver — он ловил классы, которые ставит наш
              же show(), и повторял onFocus. state.focusEl тут намеренно НЕ
              ставится: первое настоящее событие фокуса должно пройти полный
@@ -2567,8 +2475,7 @@
       unguardBackground();
       var s = state;
       state = null;
-      /* Task 29: карточки под фокусом больше нет — переход «постер → кадр»
-         остаётся без источника и не показывается. */
+      /* Task 29: карточки под фокусом больше нет. */
       last = null;
       gen++;
       unlistenFocus(s);
@@ -2579,13 +2486,13 @@
          LC.accent.destroy() рантайм на 'full' не зовёт намеренно
          (src/90_runtime.js) — он снял бы акцент самой карточки. Без этой
          строки tweenStep тикал бы каждые 100 мс всё время, пока карточка
-         строится и играет переход «постер → кадр». */
+         строится. */
       try {
         if (LC.accent && typeof LC.accent.stopTween === 'function') LC.accent.stopTween();
       } catch (eTween) {
         warn('hero: accent stop failed', eTween);
       }
-      var timers = ['timer', 'swapTimer', 'loadTimer', 'accentTimer', 'bigTimer', 'trailerTimer', 'lqipTimer', 'titleTimer'];
+      var timers = ['timer', 'swapTimer', 'loadTimer', 'accentTimer', 'trailerTimer', 'lqipTimer', 'titleTimer'];
       for (var i = 0; i < timers.length; i++) {
         try { if (s[timers[i]]) clearTimeout(s[timers[i]]); } catch (eT) {}
       }
@@ -2596,12 +2503,6 @@
       /* Task 71: предзагрузка логотипа названия — такой же незавершённый
          запрос, как кадр героя, и снимается так же. */
       if (s.logoLoader) s.logoLoader.cancel();
-      /* Task 27 (довесок): предзагрузка крупного постера — такой же
-         незавершённый запрос, как кадр героя, и снимается так же. */
-      if (s.bigLoader) {
-        s.bigLoader.onload = null;
-        s.bigLoader.onerror = null;
-      }
       /* Task 21: слой частиц снимается ДО удаления узла героя — свой
          кадровый цикл движок держит, пока смонтирован хоть один слой
          (src/52_fx.js). Самопроверка по выпавшему канвасу сняла бы его и
@@ -2672,9 +2573,8 @@
          state.parked на тот случай, если слой пережил уборку;
        - метка body.lumen-main-on и обёртка Background.change (Task 49):
          на других экранах штатный фон Lampa обязан работать.
-       last (источник перехода «постер → кадр») обнуляется, как это делал
-       unmount: узел карточки на скрытой главной не должен стать источником
-       перехода для карточки, открытой уже из другой карточки.
+       last (карточка под фокусом) обнуляется, как это делал unmount: узел
+       карточки на скрытой главной не должен остаться записью фокуса.
 
        Цена: пока открыта карточка, в памяти остаётся показанный кадр героя
        (w1280 — 3 686 400 байт растра, с тяжёлыми эффектами и
@@ -2708,7 +2608,6 @@
       state.pending = null;
       cancelPending();
       stopTimer('accentTimer');
-      cancelBigPoster();
       if (state.slides) {
         try { state.slides.pause(); } catch (eSl) { warn('hero: slides pause failed', eSl); }
       }
@@ -2831,7 +2730,6 @@
       waitLogo: waitLogo,
       TITLE_WAIT: TITLE_WAIT,
       CARD_TITLE_EM: CARD_TITLE_EM,
-      bigPoster: bigPoster,
       mediaOf: mediaOf,
       heroModel: heroModel,
       shouldUpdate: shouldUpdate,
@@ -2877,8 +2775,8 @@
       unmount: unmount,
       applyMotion: applyMotion,
       active: active,
-      /* Task 29: последняя карточка под фокусом для слоя перехода
-         (src/67_transition.js). null — фокуса на ряду не было или герой снят. */
+      /* Task 29: последняя карточка под фокусом. null — фокуса на ряду не
+         было или герой снят. Потребителя после волны 2 нет (см. var last). */
       lastFocus: function () { return last; },
       /* Task 26: детали фильма, которые герой уже загрузил для карточки под
          фокусом (кэш Lampa на сутки). Контекстное меню берёт отсюда

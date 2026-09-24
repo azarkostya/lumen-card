@@ -369,14 +369,15 @@ function makeEnv(extra) {
 }
 
 /* Task 29: карточка ряда как в разметке Lampa — с <img class="card__img">
-   внутри и собственным прямоугольником: герой снимает с неё источник для
-   перехода «постер → кадр» (lastFocus). */
+   внутри и собственным прямоугольником: герой запоминает её (lastFocus;
+   до волны 2 это был источник перехода «постер → кадр», удалённого
+   2026-09-24). */
 function makeCard(id, title, opts) {
   const img = new FakeEl(['card__img']);
   img.attr('src', opts.poster);
   const card = new FakeEl(['card', 'selector'], [new FakeEl(['card__view'], [img])]);
   /* Task 37: замер раскладки ушёл с горячего пути фокуса в момент открытия
-     карточки (LC.transition.open, src/67_transition.js). Герой не имеет права
+     карточки (до волны 2 — LC.transition.open). Герой не имеет права
      звать getBoundingClientRect вовсе — здесь это ловушка; сам прямоугольник
      лежит рядом, его читает уже слой перехода со своего фейка. */
   card._rect = opts.rect;
@@ -1090,7 +1091,7 @@ test('возврат из карточки: тот же узел героя, н�
   assert.equal(env.requests.length, requests, 'детали заново не спрашиваются');
   assert.ok(env.bodyClasses.indexOf('lumen-main-on') !== -1, 'метка главной вернулась');
   assert.equal(focusListeners(main.activity).length, 1, 'слушатель фокуса один, как и был');
-  assert.equal(env.hero.lastFocus().id, 11, 'источник перехода «постер → кадр» снова заведён');
+  assert.equal(env.hero.lastFocus().id, 11, 'запись карточки под фокусом снова заведена');
   assert.deepEqual(warnLog, []);
 });
 
@@ -2075,7 +2076,7 @@ test('lastFocus: до фокуса источника нет', () => {
 });
 
 /* Task 37: запоминается УЗЕЛ карточки, а не её прямоугольник — замер
-   раскладки ушёл в момент открытия карточки (LC.transition.open). Ловушка в
+   раскладки ушёл в момент открытия карточки (до волны 2 — LC.transition.open). Ловушка в
    makeCard роняет тест, если герой позовёт getBoundingClientRect: здесь она и
    проверяет, что горячий путь фокуса раскладку не читает. */
 test('lastFocus: фокус запоминает id, адрес уже отрисованного постера и узел карточки', () => {
@@ -2164,85 +2165,22 @@ test('lastFocus: карточка без постера источником н�
 });
 
 /* ---------------------------------------------------------------------- */
-/* Task 27 (довесок): крупная версия постера для перехода.                  */
+/* Волна 2 (ТВ 2026-09-24, D3): крупная версия постера w500 грузилась ради   */
+/* перехода «постер → кадр». Переход удалён — лишней картинки на покое       */
+/* фокуса больше нет, даже при настройках по умолчанию.                      */
 /* ---------------------------------------------------------------------- */
 
-test('bigPoster: адрес того же постера в w500', () => {
-  assert.equal(H.bigPoster('https://img/t/p/w300/p1.jpg'), 'https://img/t/p/w500/p1.jpg');
-  assert.equal(H.bigPoster('http://imagetmdb.com/t/p/w200/x.jpg'), 'http://imagetmdb.com/t/p/w500/x.jpg');
-});
-
-test('bigPoster: постер уже не мельче — грузить нечего', () => {
-  assert.equal(H.bigPoster('https://img/t/p/w500/p1.jpg'), null);
-  assert.equal(H.bigPoster('https://img/t/p/w780/p1.jpg'), null);
-  assert.equal(H.bigPoster('https://img/t/p/w1280/p1.jpg'), null);
-});
-
-test('bigPoster: чужой адрес и мусор — null', () => {
-  assert.equal(H.bigPoster('https://kinopoisk/covers/p1.jpg'), null);
-  assert.equal(H.bigPoster(''), null);
-  assert.equal(H.bigPoster(null), null);
-});
-
-/* Предзагрузка включается настройкой перехода: в остальных тестах LC.pref
-   не задан, и лишних картинок они не видят. */
-const transitionEnv = () => makeEnv({ pref: (name, def) => def });
-
-test('крупный постер грузится после покоя фокуса и попадает в источник перехода', () => {
-  const env = transitionEnv();
+test('D3: покой фокуса не грузит крупный постер w500 — перехода, которому он был нужен, нет', () => {
+  const env = makeEnv({ pref: (name, def) => def });
   const main = makeMain();
   env.hero.mount(main.activity);
   main.card1.addClass('focus');
   fireFocus(main.activity, main.card1);
-  assert.equal(env.images.length, 0, 'до покоя фокуса ничего не грузится');
-  env.advance(350);
-  /* Первой идёт предзагрузка кадра героя, крупный постер — вторая картинка. */
-  const big = env.images.filter((i) => i.src.indexOf('/t/p/w500/p1.jpg') !== -1);
-  assert.equal(big.length, 1, 'крупный постер запрошен ровно один раз');
-  assert.equal(env.hero.lastFocus().big, undefined, 'пока не загрузился — источник прежний');
-  big[0].onload();
-  assert.equal(env.hero.lastFocus().big, 'https://img/t/p/w500/p1.jpg');
-});
-
-test('быстрое листание крупный постер не грузит', () => {
-  const env = transitionEnv();
-  const main = makeMain();
-  env.hero.mount(main.activity);
-  main.card1.addClass('focus');
-  fireFocus(main.activity, main.card1);
-  env.advance(100);
-  main.card2.addClass('focus');
-  fireFocus(main.activity, main.card2);
-  env.advance(350);
+  env.advance(1000);
   const big = env.images.filter((i) => i.src.indexOf('/t/p/w500/') !== -1);
-  assert.equal(big.length, 1, 'грузится только постер карточки, на которой остановились');
-  assert.ok(big[0].src.indexOf('p2.jpg') !== -1);
-});
-
-test('неудача загрузки крупного постера оставляет переход на прежнем постере', () => {
-  const env = transitionEnv();
-  const main = makeMain();
-  env.hero.mount(main.activity);
-  main.card1.addClass('focus');
-  fireFocus(main.activity, main.card1);
-  env.advance(350);
-  const big = env.images.filter((i) => i.src.indexOf('/t/p/w500/') !== -1)[0];
-  big.onerror();
-  assert.equal(env.hero.lastFocus().big, undefined);
-  assert.equal(env.hero.lastFocus().poster, 'https://img/t/p/w300/p1.jpg');
-});
-
-test('снятие героя гасит незавершённую загрузку крупного постера', () => {
-  const env = transitionEnv();
-  const main = makeMain();
-  env.hero.mount(main.activity);
-  main.card1.addClass('focus');
-  fireFocus(main.activity, main.card1);
-  env.advance(350);
-  const big = env.images.filter((i) => i.src.indexOf('/t/p/w500/') !== -1)[0];
-  env.hero.unmount();
-  assert.equal(big.onload, null, 'обработчики сняты — сеть в снятый герой не вернётся');
-  assert.equal(big.onerror, null);
+  assert.deepEqual(big.map((i) => i.src), [], 'крупный постер запрошен');
+  assert.equal(H.bigPoster, undefined, 'чистая функция адреса w500 осталась без потребителя');
+  assert.deepEqual(warnLog, []);
 });
 
 test('lastFocus: снятие героя обнуляет источник', () => {
@@ -2525,11 +2463,10 @@ test('трейлер героя: та же карточка на новом уз
   assert.equal(env.players[0].destroys, 0, 'ролик играет дальше');
   assert.equal(env.images.filter((i) => i.src.indexOf('/t/p/original/') !== -1).length, frames, 'кадр героя заново не грузится');
   assert.equal(env.requests.length, requests, 'ни деталей, ни роликов заново не спрашиваем');
-  assert.equal(env.hero.lastFocus().node, again, 'а источник перехода переехал на новый узел');
-  /* Единственное, что действительно повторяется, — предзагрузка крупного
-     постера для перехода: она привязана к записи источника, а та переехала на
-     новый узел. Картинка та же и уже в кэше браузера, сеть не тратится. */
-  assert.equal(env.images.filter((i) => i.src.indexOf('/t/p/w500/p1.jpg') !== -1).length, 2);
+  assert.equal(env.hero.lastFocus().node, again, 'запись карточки под фокусом переехала на новый узел');
+  /* Волна 2 (D3): предзагрузки крупного постера для перехода больше нет —
+     повторять на новом узле нечего. */
+  assert.equal(env.images.filter((i) => i.src.indexOf('/t/p/w500/') !== -1).length, 0);
 });
 
 test('трейлер героя: перевод фокуса снимает играющий ролик и его запрос', () => {

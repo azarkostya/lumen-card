@@ -2581,3 +2581,18 @@ test('D1: body.lumen-card-on — на старте карточки; снима�
   assert.equal(bodyEl.hasClass('lumen-card-on'), false, 'выключенный плагин метку и не ставит');
   assert.deepEqual(warnLog, []);
 });
+
+/* Волна 2 (ТВ 2026-09-24, D3): переход «постер → кадр» удалён — открытие
+   карточки слоя не рисует. Старт ЛЮБОГО экрана, включая карточку, только
+   снимает слой, если он остался (удержанный слой экрана рулетки,
+   src/56_roulette.js). */
+test('D3: старт карточки перехода не показывает — только снимает слой', () => {
+  const LC = freshLC();
+  LC.backdrops = { apply: () => null, cancel: () => { }, revive: () => null };
+  const calls = [];
+  LC.transition = { open: () => calls.push('open'), stop: () => calls.push('stop') };
+  LC.onActivityEvent({ type: 'start', component: 'full', object: makeActivityObj('A', false, null) });
+  LC.onActivityEvent({ type: 'start', component: 'main', object: makeActivityObj('Главная', false, null) });
+  assert.deepEqual(calls, ['stop', 'stop']);
+  assert.deepEqual(warnLog, []);
+});

@@ -2,12 +2,15 @@ import test from 'node:test'; import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { FakeEl, fakeQuery, toEl } from './_fakedom.mjs';
 
-/* Task 29 (фаза 3): переход «постер ряда → кадр карточки».
+/* Task 29 (фаза 3) / Task 44: слой, который разворачивает прямоугольник в
+   полноэкранный кадр. Волна 2 (ТВ 2026-09-24, D3): переход «постер ряда →
+   кадр карточки» (open) удалён по просьбе пользователя — «убери этот
+   эффект, когда картинка расползается и открывается карточка фильма».
+   Остался reveal для экрана результата рулетки и stop.
 
-   Геометрия (geom) и раскладка прозрачности по времени (fade) — чистые
-   функции, проверяются без окружения. Жизненный цикл (гейты режима и
-   настройки, один узел на переход, снятие по таймеру, отмена при быстром
-   повторном открытии) — на фейковых $, requestAnimationFrame и таймерах. */
+   Геометрия (geom) — чистая функция, проверяется без окружения. Жизненный
+   цикл reveal (гейт режима, один узел, удержание до stop, колбэк конца
+   разгона) — на фейковых $, requestAnimationFrame и таймерах. */
 
 globalThis.PLUGIN = 'lumen_card';
 const warnLog = [];
@@ -66,13 +69,6 @@ test('geom: сдвиг — из центра постера в центр экр
   assert.equal(centred.ty, 0);
 });
 
-test('fade: прозрачность гаснет на последней доле перехода', () => {
-  const f = T.fade(480, 0.4);
-  assert.equal(f.ms, 192, '40 % от 480 мс');
-  assert.equal(f.delay, 288, 'первые 60 % постер полностью непрозрачен');
-  assert.equal(f.delay + f.ms, 480);
-});
-
 /* ====================================================================== */
 /* Жизненный цикл                                                         */
 /* ====================================================================== */
@@ -109,6 +105,8 @@ function env(opts) {
 
   /* Task 44: reveal() обязан обходиться БЕЗ героя — источник ему передают
      явно. Счётчик обращений к LC.hero.lastFocus проверяет это прямо. */
+  /* Волна 2 (D3): источника перехода из ряда больше нет — герой здесь
+     только ловушка. */
   const heroReads = { count: 0 };
   const { api } = build({
     motionMode: () => opts.motion || 'full',
@@ -116,7 +114,7 @@ function env(opts) {
     hero: {
       lastFocus: () => {
         heroReads.count++;
-        return opts.last === undefined ? SOURCE : opts.last;
+        return null;
       }
     }
   });
@@ -145,223 +143,23 @@ function env(opts) {
   return { api, body, frames, timers, cancelledFrames, cancelledTimers, frame, fire, overlay, transitionEnd, heroReads };
 }
 
-/* Task 37: герой отдаёт слою перехода УЗЕЛ карточки, а не снятый заранее
-   прямоугольник — замер раскладки ушёл с горячего пути фокуса сюда, в момент
-   открытия. Фейковый узел считает обращения: тесты ниже проверяют, что
-   getBoundingClientRect зовётся ровно один раз и ровно на open. */
-const RECT = { left: 100, top: 200, width: 180, height: 270 };
+const REEL = { left: 396, top: 120, width: 166, height: 249 };
+const KADR = { rect: REEL, poster: 'https://img/t/p/w342/p.jpg', big: 'https://img/t/p/w1280/b.jpg' };
 
-function cardNode(rect) {
-  const node = { rect: rect, reads: 0 };
-  node.getBoundingClientRect = () => { node.reads++; return node.rect; };
-  return node;
-}
+/* Волна 2 (ТВ 2026-09-24, D3): переход «постер → кадр» при открытии
+   карточки удалён целиком — ни open, ни чтения настройки lumen_transition
+   (её больше нет), ни вспомогательных idOf/sameId/fade. Открытие карточки
+   рантайм теперь только снимает слой (stop, src/90_runtime.js). */
+test('D3: перехода «постер → кадр» больше нет — модуль отдаёт только слой рулетки', () => {
+  assert.equal(T.open, undefined, 'open остался — переход при открытии карточки жив');
+  assert.equal(T.fade, undefined, 'растворение было только у open');
+  assert.deepEqual(Object.keys(T).sort(), ['active', 'geom', 'reveal', 'stop']);
+  assert.equal(/lumen_transition/.test(SRC.replace(/\/\*[\s\S]*?\*\//g, '')), false, 'код читает удалённую настройку');
+});
 
-const SOURCE = { id: 42, poster: 'https://img/poster.jpg', node: cardNode(RECT) };
-
-test('open: рисует один слой поверх экрана с постером фокусной карточки', () => {
+test('stop: снимает удержанный слой — ни узла, ни кадра, ни таймера', () => {
   const e = env();
-  assert.equal(e.api.open({ id: 42 }), true);
-  const layers = e.overlay();
-  assert.equal(layers.length, 1);
-  assert.equal(e.api.active(), true);
-  const img = layers[0].find('.lumen-overlay__img');
-  assert.ok(String(img.css('background-image')).indexOf('poster.jpg') !== -1);
-  assert.equal(img.css('width'), '180px');
-  assert.equal(img.css('height'), '270px');
-  assert.equal(img.css('left'), '100px');
-  assert.equal(img.css('top'), '200px');
-});
-
-/* Task 27 (довесок): крупная версия постера, предзагруженная героем. */
-test('open: берёт крупный постер, если герой успел его загрузить', () => {
-  const e = env({ last: { id: 42, poster: 'https://img/t/p/w300/p.jpg', big: 'https://img/t/p/w500/p.jpg', node: cardNode(RECT) } });
-  assert.equal(e.api.open({ id: 42 }), true);
-  const img = e.overlay()[0].find('.lumen-overlay__img');
-  assert.ok(String(img.css('background-image')).indexOf('/t/p/w500/p.jpg') !== -1, 'в слой пошла крупная версия');
-});
-
-test('open: крупная версия не успела — переход идёт на постере ряда, без ожидания', () => {
-  const e = env({ last: { id: 42, poster: 'https://img/t/p/w300/p.jpg', node: cardNode(RECT) } });
-  assert.equal(e.api.open({ id: 42 }), true);
-  const img = e.overlay()[0].find('.lumen-overlay__img');
-  assert.ok(String(img.css('background-image')).indexOf('/t/p/w300/p.jpg') !== -1);
-});
-
-test('open: разгон задаётся через два кадра — иначе браузеру нечего анимировать', () => {
-  const e = env();
-  e.api.open({ id: 42 });
-  const img = e.overlay()[0].find('.lumen-overlay__img');
-  assert.equal(img.hasClass('is-run'), false, 'до кадров слой лежит на месте постера');
-  e.frame();
-  assert.equal(img.hasClass('is-run'), false, 'первый кадр идёт ДО отрисовки начального состояния');
-  e.frame();
-  assert.equal(img.hasClass('is-run'), true);
-  const transform = String(img.css('transform'));
-  assert.ok(transform.indexOf('translate(770px, 205px)') !== -1, transform);
-  assert.ok(/scale\(11\./.test(transform), 'масштаб покрытия с запасом, а не вписывания: ' + transform);
-  assert.equal(img.css('opacity'), 0);
-});
-
-/* Найдено живой проверкой (2026-09-17): переход начинается с первым
-   отрисованным кадром, а Lampa держит главный поток построением карточки до
-   600 мс. Снятие по часам обрывало разгон на середине. */
-test('open: слой снимает конец растворения, а не часы', () => {
-  const e = env();
-  e.api.open({ id: 42 });
-  e.frame();
-  e.frame();
-  assert.equal(e.overlay().length, 1);
-  e.transitionEnd('opacity');
-  assert.equal(e.overlay().length, 0, 'доиграло — слой ушёл');
-  assert.equal(e.api.active(), false);
-  assert.equal(e.fire(), 0, 'страховочный таймер снят вместе со слоем');
-});
-
-test('open: конец разгона слоя не снимает — ждём именно растворения', () => {
-  const e = env();
-  e.api.open({ id: 42 });
-  e.frame();
-  e.frame();
-  e.transitionEnd('transform');
-  assert.equal(e.overlay().length, 1, 'постер ещё виден — гасить его рано');
-});
-
-test('open: событие не пришло — снимает страховочный таймер', () => {
-  const e = env();
-  e.api.open({ id: 42 });
-  assert.equal(e.timers[0].ms, 2500, 'страховка заметно длиннее самого перехода');
-  e.fire();
-  assert.equal(e.overlay().length, 0);
-});
-
-test('open: событие, доехавшее после снятия, второй раз ничего не делает', () => {
-  const e = env();
-  e.api.open({ id: 42 });
-  e.frame();
-  e.frame();
-  e.api.stop();
-  e.transitionEnd('opacity');
-  assert.equal(e.overlay().length, 0);
-  assert.equal(e.api.active(), false);
-});
-
-test('open: анимируются только композиторные свойства, растворение — по кривой', () => {
-  const e = env();
-  e.api.open({ id: 42 });
-  const img = e.overlay()[0].find('.lumen-overlay__img');
-  const track = String(img.css('transition'));
-  const webkit = String(img.css('-webkit-transition'));
-  assert.ok(track.indexOf('transform 480ms cubic-bezier(.2,.8,.2,1)') !== -1, track);
-  assert.ok(webkit.indexOf('-webkit-transform 480ms cubic-bezier(.2,.8,.2,1)') !== -1, 'старым webkit-движкам нужен префикс: ' + webkit);
-  /* Одним списком их называть нельзя: в Chrome это одно и то же свойство,
-     и переход залипал после первого шага (живая проверка 2026-09-17). */
-  assert.ok(track.indexOf('-webkit-transform') === -1, 'непрефиксный список не должен содержать префиксного имени: ' + track);
-  for (const t of [track, webkit]) {
-    assert.ok(t.indexOf('opacity 192ms ease-in 288ms') !== -1, 'растворение по кривой, не линейное: ' + t);
-    for (const layout of ['left ', 'top ', 'width ', 'height ']) {
-      assert.ok(t.indexOf(layout) === -1, 'раскладку не анимируем — её ведёт занятый главный поток: ' + t);
-    }
-  }
-});
-
-test('open: точка кадрирования поднята выше середины постера', () => {
-  const e = env();
-  e.api.open({ id: 42 });
-  assert.equal(e.overlay()[0].find('.lumen-overlay__img').css('background-position'), '50% 38%');
-});
-
-test('open: id открытой карточки не совпал с фокусной — перехода нет', () => {
-  const e = env();
-  assert.equal(e.api.open({ id: 7 }), false);
-  assert.equal(e.overlay().length, 0);
-  assert.equal(e.frames.length, 0, 'кадр не запрашивался');
-});
-
-test('open: карточка открыта не из ряда (фокуса не было) — перехода нет', () => {
-  const e = env({ last: null });
-  assert.equal(e.api.open({ id: 42 }), false);
-  assert.equal(e.overlay().length, 0);
-});
-
-test('open: id берётся и из object.card — у активности Lampa он лежит там', () => {
-  const e = env();
-  assert.equal(e.api.open({ card: { id: 42 } }), true);
-  assert.equal(e.overlay().length, 1);
-});
-
-test('open: в lite и off — мгновенно, без промежуточных кадров', () => {
-  for (const motion of ['lite', 'off']) {
-    const e = env({ motion });
-    assert.equal(e.api.open({ id: 42 }), false, motion);
-    assert.equal(e.overlay().length, 0, motion);
-    assert.equal(e.frames.length, 0, motion);
-    assert.equal(e.timers.length, 0, motion);
-  }
-});
-
-test('open: выключенная настройка lumen_transition — перехода нет', () => {
-  const e = env({ prefs: { lumen_transition: false } });
-  assert.equal(e.api.open({ id: 42 }), false);
-  assert.equal(e.overlay().length, 0);
-});
-
-test('open: нет постера — перехода нет (растворять нечего)', () => {
-  const e = env({ last: { id: 42, poster: '', node: cardNode(RECT) } });
-  assert.equal(e.api.open({ id: 42 }), false);
-  assert.equal(e.overlay().length, 0);
-});
-
-test('open: нулевой прямоугольник — перехода нет', () => {
-  const e = env({ last: { id: 42, poster: 'p.jpg', node: cardNode({ left: 0, top: 0, width: 0, height: 0 }) } });
-  assert.equal(e.api.open({ id: 42 }), false);
-  assert.equal(e.overlay().length, 0);
-});
-
-/* Task 37: замер раскладки — один и ровно в момент открытия. Пока фокус
-   ходит по ряду, слой перехода узел не трогает вовсе. */
-test('open: прямоугольник снимается с узла в момент открытия, один раз', () => {
-  const node = cardNode(RECT);
-  const e = env({ last: { id: 42, poster: 'https://img/poster.jpg', node: node } });
-  assert.equal(node.reads, 0, 'до открытия раскладку не читаем');
-
-  assert.equal(e.api.open({ id: 42 }), true);
-  assert.equal(node.reads, 1);
-  const img = e.overlay()[0].find('.lumen-overlay__img');
-  assert.equal(img.css('left'), '100px');
-  assert.equal(img.css('top'), '200px');
-});
-
-/* Ряд успел прокрутиться между фокусом и нажатием OK: слой обязан встать на
-   НОВОЕ место карточки, а не на запомненное. Ради этого узел и хранится. */
-test('open: карточка переехала после фокуса — слой встаёт на её новое место', () => {
-  const node = cardNode(RECT);
-  const e = env({ last: { id: 42, poster: 'https://img/poster.jpg', node: node } });
-  node.rect = { left: 620, top: 205, width: 180, height: 270 };
-
-  assert.equal(e.api.open({ id: 42 }), true);
-  const img = e.overlay()[0].find('.lumen-overlay__img');
-  assert.equal(img.css('left'), '620px');
-  assert.equal(img.css('top'), '205px');
-});
-
-/* Ряд перестроился и узел выброшен из документа — у такого узла все размеры
-   нулевые. Отдельный случай — узла нет вовсе. */
-test('open: узла карточки больше нет — перехода нет', () => {
-  for (const last of [
-    { id: 42, poster: 'p.jpg', node: null },
-    { id: 42, poster: 'p.jpg', node: {} },
-    { id: 42, poster: 'p.jpg', node: cardNode(null) }
-  ]) {
-    const e = env({ last: last });
-    assert.equal(e.api.open({ id: 42 }), false);
-    assert.equal(e.overlay().length, 0);
-  }
-});
-
-test('stop: быстрое открытие-закрытие не оставляет ни узла, ни кадра, ни таймера', () => {
-  const e = env();
-  e.api.open({ id: 42 });
+  e.api.reveal(KADR, { then: () => { } });
   e.api.stop();
   assert.equal(e.overlay().length, 0);
   assert.equal(e.frames.length, 0, 'отложенный кадр отменён');
@@ -373,35 +171,25 @@ test('stop: быстрое открытие-закрытие не оставля
 
 test('stop: идемпотентна', () => {
   const e = env();
-  e.api.open({ id: 42 });
+  e.api.reveal(KADR, {});
   e.api.stop();
   e.api.stop();
   assert.equal(e.overlay().length, 0);
-});
-
-test('open: второй переход подряд снимает первый — на экране всегда один слой', () => {
-  const e = env();
-  e.api.open({ id: 42 });
-  e.api.open({ id: 42 });
-  assert.equal(e.overlay().length, 1);
-  e.api.stop();
-  assert.equal(e.overlay().length, 0);
+  assert.deepEqual(warnLog, []);
 });
 
 /* ====================================================================== */
 /* Task 44: reveal — тот же слой по ЯВНОМУ источнику и без автоснятия      */
 /* ====================================================================== */
 
-/* Рулетка показывает выпавший фильм тем же приёмом, что и переход из ряда:
-   прямоугольник барабана разворачивается в полноэкранный кадр. Отличий от
-   open() ровно три, и каждое проверяется ниже:
+/* Рулетка показывает выпавший фильм так: прямоугольник барабана
+   разворачивается в полноэкранный кадр. Три свойства, и каждое проверяется
+   ниже:
      - источник приходит аргументом, героя reveal не спрашивает вовсе;
      - слой не растворяется и не снимается ни концом перехода, ни таймером —
-       только stop() (его же зовёт следующий open());
+       только stop() (его же зовёт следующий reveal и старт любого экрана);
      - конец разгона отдаётся наружу колбэком opts.then, ровно один раз. */
 
-const REEL = { left: 396, top: 120, width: 166, height: 249 };
-const KADR = { rect: REEL, poster: 'https://img/t/p/w342/p.jpg', big: 'https://img/t/p/w1280/b.jpg' };
 
 test('reveal: слой встаёт по переданному прямоугольнику, героя не спрашивает', () => {
   const e = env();
@@ -418,7 +206,7 @@ test('reveal: слой встаёт по переданному прямоуго
     'в слой идёт кадр w1280, а не постер барабана: ' + img.css('background-image'));
 });
 
-/* Главное отличие от open(): слой обязан ОСТАТЬСЯ на экране. Растворение в
+/* Главное: слой обязан ОСТАТЬСЯ на экране. Растворение в
    его переходе не участвует вовсе — иначе «держится до stop()» означало бы
    «держится невидимым». */
 test('reveal: растворения в переходе нет, opacity остаётся непрозрачной', () => {
@@ -517,17 +305,6 @@ test('reveal: только постер, без кадра — слой идёт
   assert.ok(String(img.css('background-image')).indexOf('/t/p/w342/p.jpg') !== -1);
 });
 
-/* Настройка «Переход от постера» описывает ровно открытие карточки из ряда
-   (src/80_settings.js, lumen_transition_descr). Выключив её, пользователь не
-   просил ломать экран результата рулетки — там слой не украшение, а способ
-   показать кадр, и подменять его нечем. */
-test('reveal: настройка lumen_transition его не гасит — она про открытие карточки', () => {
-  const e = env({ prefs: { lumen_transition: false } });
-  assert.equal(e.api.reveal(KADR, {}), true);
-  assert.equal(e.api.stop(), undefined);
-  assert.equal(e.api.open({ id: 42 }), false, 'а открытие карточки она по-прежнему гасит');
-});
-
 test('reveal: в режиме «Движение: выкл» — false, кадр покажут без перехода', () => {
   const e = env({ motion: 'off' });
   assert.equal(e.api.reveal(KADR, {}), false);
@@ -545,11 +322,13 @@ test('reveal: в «Лёгких» работает — это один слой 
   assert.equal(e.overlay().length, 1);
 });
 
-test('reveal: открытие карточки снимает удержанный слой своим stop()', () => {
+test('reveal: второй reveal снимает первый — на экране всегда один слой', () => {
   const e = env();
   e.api.reveal(KADR, {});
-  assert.equal(e.api.open({ id: 42 }), true, 'open идёт обычным путём');
+  e.api.reveal({ rect: REEL, poster: 'https://img/t/p/w342/q.jpg' }, {});
   assert.equal(e.overlay().length, 1, 'на экране по-прежнему один слой — новый');
   const img = e.overlay()[0].find('.lumen-overlay__img');
-  assert.ok(String(img.css('background-image')).indexOf('poster.jpg') !== -1, 'слой уже от open');
+  assert.ok(String(img.css('background-image')).indexOf('q.jpg') !== -1, 'слой уже от второго вызова');
+  e.api.stop();
+  assert.equal(e.overlay().length, 0);
 });

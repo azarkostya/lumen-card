@@ -5422,6 +5422,7 @@ css.push('.lumen-hub .lumen-tile__media.lumen-skeleton{border-radius:.6em}');
 
 
 
+
 css.push('.lumen-overlay{position:fixed;top:0;left:0;right:0;bottom:0;z-index:90;pointer-events:none;overflow:hidden}');
 css.push('.lumen-overlay .lumen-overlay__img{position:absolute;-webkit-background-size:cover;background-size:cover;background-position:center;background-repeat:no-repeat;border-radius:.31em;-webkit-transform-origin:center center;transform-origin:center center;will-change:transform,opacity}');
 
@@ -12562,7 +12563,6 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 
-
 LC.hero = (function () {
 
 
@@ -12598,9 +12598,6 @@ var LOAD_TIMEOUT = 8000;
 
 
 var DETAILS_LIFE = 1440;
-
-
-var BIG_POSTER = 500;
 
 
 
@@ -12896,32 +12893,10 @@ return (elapsedMs || 0) >= (delay || 0);
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 function trailerAllowed(pref, motion, trailer) {
 if (pref === false) return false;
 if (motion === 'off') return false;
 return trailer !== 'off';
-}
-
-function bigPoster(url) {
-var src = '' + (url || '');
-var m = /\/t\/p\/w(\d+)\//.exec(src);
-if (!m) return null;
-if ((parseInt(m[1], 10) || 0) >= BIG_POSTER) return null;
-return src.replace(m[0], '/t/p/w' + BIG_POSTER + '/');
 }
 
 
@@ -13003,6 +12978,8 @@ var gen = 0;
 
 
 var tgen = 0;
+
+
 
 
 
@@ -14519,7 +14496,6 @@ setCompact(index > 0);
 }
 
 
-
 function posterOf(el) {
 try {
 return $(el).find('.card__img').attr('src') || '';
@@ -14536,14 +14512,10 @@ return '';
 
 
 
-
-
-
 function rememberFocus(el, card) {
 var poster = posterOf(el);
-if (!poster) { last = null; cancelBigPoster(); return; }
+if (!poster) { last = null; return; }
 last = { id: card.id, poster: poster, node: el };
-scheduleBigPoster(card.id, poster);
 }
 
 
@@ -14559,69 +14531,6 @@ var poster = posterOf(el);
 if (!poster) return;
 if (last && String(last.id) === String(card.id) && last.poster === poster) return;
 rememberFocus(el, card);
-}
-
-
-
-
-function bigPosterWanted() {
-try {
-if (LC.motionMode && LC.motionMode() !== 'full') return false;
-return LC.pref ? LC.pref('lumen_transition', true) !== false : false;
-} catch (e) {
-return false;
-}
-}
-
-
-
-
-
-
-function cancelBigPoster() {
-if (!state) return;
-stopTimer('bigTimer');
-if (state.bigLoader) {
-state.bigLoader.onload = null;
-state.bigLoader.onerror = null;
-state.bigLoader = null;
-}
-}
-
-
-
-
-
-
-
-
-function scheduleBigPoster(id, poster) {
-cancelBigPoster();
-
-
-
-if (!bigPosterWanted()) return;
-var url = bigPoster(poster);
-if (!url) return;
-state.bigTimer = setTimeout(function () {
-if (!state) return;
-state.bigTimer = null;
-if (!last || String(last.id) !== String(id)) return;
-var img = new Image();
-
-img.decoding = 'async';
-state.bigLoader = img;
-img.onload = function () {
-if (!state || state.bigLoader !== img) return;
-state.bigLoader = null;
-if (last && String(last.id) === String(id)) last.big = url;
-};
-img.onerror = function () {
-if (!state || state.bigLoader !== img) return;
-state.bigLoader = null;
-};
-img.src = url;
-}, DELAY);
 }
 
 
@@ -15095,7 +15004,6 @@ unguardBackground();
 var s = state;
 state = null;
 
-
 last = null;
 gen++;
 unlistenFocus(s);
@@ -15112,7 +15020,7 @@ if (LC.accent && typeof LC.accent.stopTween === 'function') LC.accent.stopTween(
 } catch (eTween) {
 warn('hero: accent stop failed', eTween);
 }
-var timers = ['timer', 'swapTimer', 'loadTimer', 'accentTimer', 'bigTimer', 'trailerTimer', 'lqipTimer', 'titleTimer'];
+var timers = ['timer', 'swapTimer', 'loadTimer', 'accentTimer', 'trailerTimer', 'lqipTimer', 'titleTimer'];
 for (var i = 0; i < timers.length; i++) {
 try { if (s[timers[i]]) clearTimeout(s[timers[i]]); } catch (eT) {}
 }
@@ -15123,12 +15031,6 @@ s.loader.onerror = null;
 
 
 if (s.logoLoader) s.logoLoader.cancel();
-
-
-if (s.bigLoader) {
-s.bigLoader.onload = null;
-s.bigLoader.onerror = null;
-}
 
 
 
@@ -15206,7 +15108,6 @@ return false;
 
 
 
-
 function park() {
 if (!state || state.parked) return;
 
@@ -15235,7 +15136,6 @@ state.focusEl = null;
 state.pending = null;
 cancelPending();
 stopTimer('accentTimer');
-cancelBigPoster();
 if (state.slides) {
 try { state.slides.pause(); } catch (eSl) { warn('hero: slides pause failed', eSl); }
 }
@@ -15358,7 +15258,6 @@ logoUrl: logoUrl,
 waitLogo: waitLogo,
 TITLE_WAIT: TITLE_WAIT,
 CARD_TITLE_EM: CARD_TITLE_EM,
-bigPoster: bigPoster,
 mediaOf: mediaOf,
 heroModel: heroModel,
 shouldUpdate: shouldUpdate,
@@ -27297,45 +27196,10 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 LC.transition = (function () {
 
 
 var DURATION = 480;
-
-var FADE_SHARE = 0.4;
-
-
-
-
-
-
-
-
-
-
-var LIFE = 2500;
 
 
 
@@ -27352,7 +27216,6 @@ var EASE = 'cubic-bezier(.2,.8,.2,1)';
 
 
 var OVERSCAN = 1.04;
-
 
 
 
@@ -27402,21 +27265,9 @@ ty: Math.round(sh / 2 - ((Number(rect.top) || 0) + h / 2))
 
 
 
-function fade(duration, share) {
-var ms = Math.round(duration * share);
-return { ms: ms, delay: duration - ms };
-}
-
-
-
-
 
 function motion() {
 try { return LC.motionMode(); } catch (e) { return 'full'; }
-}
-
-function enabled() {
-try { return LC.pref('lumen_transition', true) !== false; } catch (e) { return false; }
 }
 
 function screenBox() {
@@ -27443,38 +27294,6 @@ if (id && window.cancelAnimationFrame) window.cancelAnimationFrame(id);
 
 
 
-function idOf(object) {
-if (!object) return null;
-if (object.id != null) return object.id;
-if (object.card && object.card.id != null) return object.card.id;
-return null;
-}
-
-function sameId(a, b) {
-if (a == null || b == null) return false;
-return String(a) === String(b);
-}
-
-
-
-
-
-
-
-
-
-function listen(el, live) {
-if (!el || typeof el.addEventListener !== 'function') return;
-function done(e) {
-if (state !== live) return;
-if (e && e.propertyName && e.propertyName !== 'opacity') return;
-stop();
-}
-try {
-el.addEventListener('transitionend', done, false);
-el.addEventListener('webkitTransitionEnd', done, false);
-} catch (err) { }
-}
 
 
 function stop() {
@@ -27493,20 +27312,7 @@ warn('transition: remove failed', eR);
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-function show(source, hold) {
+function show(source) {
 var box = screenBox();
 var g = geom(source.rect, box);
 if (!g) return false;
@@ -27517,30 +27323,15 @@ stop();
 
 var node = $('<div class="lumen-overlay"><div class="lumen-overlay__img"></div></div>');
 var img = node.find('.lumen-overlay__img');
-var f = fade(DURATION, FADE_SHARE);
 var move = DURATION + 'ms ' + EASE;
 
 
 
 
 
-var dim = 'opacity ' + f.ms + 'ms ease-in ' + f.delay + 'ms';
 
 
 
-
-
-
-
-
-
-
-var webkitTrack = '-webkit-transform ' + move;
-var track = 'transform ' + move;
-if (!hold) {
-webkitTrack += ', ' + dim;
-track += ', ' + dim;
-}
 
 img.css({
 left: Math.round(source.rect.left) + 'px',
@@ -27553,17 +27344,13 @@ height: Math.round(source.rect.height) + 'px',
 
 
 'background-position': '50% 38%',
-'-webkit-transition': webkitTrack,
-transition: track
+'-webkit-transition': '-webkit-transform ' + move,
+transition: 'transform ' + move
 });
 
 $('body').append(node);
-state = { node: node, img: img, timer: null, frame: 0, hold: !!hold, done: false };
+state = { node: node, img: img, timer: null, frame: 0, done: false };
 var live = state;
-
-
-
-
 
 
 
@@ -27578,67 +27365,11 @@ live.frame = raf(function () {
 if (state !== live) return;
 live.frame = 0;
 var tr = 'translate(' + g.tx + 'px, ' + g.ty + 'px) scale(' + g.scale + ')';
-var run = { '-webkit-transform': tr, transform: tr };
-if (!live.hold) run.opacity = 0;
-img.addClass('is-run').css(run);
+img.addClass('is-run').css({ '-webkit-transform': tr, transform: tr });
 });
 });
-
-
-
-
-
-if (!live.hold) {
-listen(img[0], live);
-live.timer = setTimeout(function () {
-if (state !== live) return;
-live.timer = null;
-stop();
-}, LIFE);
-}
 
 return true;
-}
-
-
-
-
-
-
-
-
-
-
-
-
-function rectOf(node) {
-try {
-if (!node || typeof node.getBoundingClientRect !== 'function') return null;
-var r = node.getBoundingClientRect();
-if (!r) return null;
-return { left: r.left, top: r.top, width: r.width, height: r.height };
-} catch (e) {
-return null;
-}
-}
-
-
-
-function open(object) {
-try {
-if (motion() !== 'full') return false;
-if (!enabled()) return false;
-var last = null;
-if (LC.hero && typeof LC.hero.lastFocus === 'function') last = LC.hero.lastFocus();
-if (!last || !last.poster) return false;
-if (!sameId(idOf(object), last.id)) return false;
-var rect = rectOf(last.node);
-if (!rect) return false;
-return show({ id: last.id, poster: last.poster, big: last.big, rect: rect });
-} catch (e) {
-warn('transition: open failed', e);
-return false;
-}
 }
 
 
@@ -27678,15 +27409,12 @@ el.addEventListener('webkitTransitionEnd', done, false);
 
 
 
-
-
-
 function reveal(source, opts) {
 try {
 if (motion() === 'off') return false;
 if (!source || !source.rect) return false;
 if (!source.big && !source.poster) return false;
-if (!show(source, true)) return false;
+if (!show(source)) return false;
 var live = state;
 if (opts && typeof opts.then === 'function') {
 var call = function () {
@@ -27706,8 +27434,6 @@ return false;
 
 return {
 geom: geom,
-fade: fade,
-open: open,
 reveal: reveal,
 stop: stop,
 active: function () { return !!state; }
@@ -28872,12 +28598,7 @@ lumen_accent_scope_full: { ru: 'Полная', en: 'Everywhere', uk: 'Повна
 lumen_accent_scope_veil: { ru: 'Только фон', en: 'Background only', uk: 'Лише тло' },
 
 
-lumen_transition_name: { ru: 'Переход от постера', en: 'Poster transition', uk: 'Перехід від постера' },
-lumen_transition_descr: {
-ru: 'При открытии карточки постер, на котором стоял фокус, разворачивается во весь экран и растворяется в кадре фильма. Работает только при полных анимациях; открытие карточки не задерживает.',
-en: 'When a card opens, the poster that had focus expands to full screen and dissolves into the film still. Works only with full animations and never delays the card.',
-uk: 'Під час відкриття картки постер, на якому стояв фокус, розгортається на весь екран і розчиняється в кадрі фільму. Працює лише за повних анімацій і не затримує відкриття картки.'
-},
+
 
 
 
@@ -29488,15 +29209,11 @@ uk: 'Сьогодні прем\'єра'
 
 
 
-
-
-
-
 lumen_hero_size_name: { ru: 'Кадр над рядами', en: 'Hero over the rows', uk: 'Кадр над рядами' },
 lumen_hero_size_descr: {
-ru: 'Какую часть экрана занимает большой кадр с описанием. «Выключен» — ряды на весь экран, чипы настроения остаются, но вместе с кадром отключается и «Переход от постера»: без кадра ему неоткуда взять постер. Применяется сразу.',
-en: 'How much of the screen the large hero frame takes. "Off" gives the rows the whole screen and keeps the mood chips, but also turns off "Poster transition": without the hero it has no poster to start from. Applied immediately.',
-uk: 'Яку частину екрана займає великий кадр з описом. «Вимкнено» — ряди на весь екран, чипи настрою залишаються, але разом із кадром вимикається і «Перехід від постера»: без кадру йому нізвідки взяти постер. Застосовується одразу.'
+ru: 'Какую часть экрана занимает большой кадр с описанием. «Выключен» — ряды на весь экран, чипы настроения остаются. Применяется сразу.',
+en: 'How much of the screen the large hero frame takes. "Off" gives the rows the whole screen and keeps the mood chips. Applied immediately.',
+uk: 'Яку частину екрана займає великий кадр з описом. «Вимкнено» — ряди на весь екран, чипи настрою залишаються. Застосовується одразу.'
 },
 lumen_hero_size_large: { ru: 'Крупный', en: 'Large', uk: 'Великий' },
 lumen_hero_size_medium: { ru: 'Средний', en: 'Medium', uk: 'Середній' },
@@ -29909,7 +29626,6 @@ name === 'lumen_accent_scope' || name === 'lumen_flat') { LC.injectCss(); return
 
 
 
-
 if (name === 'lumen_hide_meta') return true;
 
 
@@ -30032,11 +29748,6 @@ try { if (window.Lampa && Lampa.Storage) Lampa.Storage.set('lumen_manifest', nul
 try { if (LC.applyRowsPref) LC.applyRowsPref(); } catch (eUrl) {}
 return true;
 }
-
-
-
-
-if (name === 'lumen_transition') return true;
 
 
 
@@ -30588,7 +30299,6 @@ var LIST = [
 
 
 
-{ name: 'lumen_transition', type: 'trigger', 'default': true, label: 'lumen_transition_name', descr: 'lumen_transition_descr' },
 
 
 
@@ -33587,16 +33297,8 @@ markCardBody(e.component === 'full');
 
 
 
-
-
-
-
-
 try {
-if (LC.transition) {
-if (e.component === 'full') LC.transition.open(e.object);
-else LC.transition.stop();
-}
+if (LC.transition) LC.transition.stop();
 } catch (eTrans) {
 warn('transition start failed', eTrans);
 }
