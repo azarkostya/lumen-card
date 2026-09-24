@@ -570,13 +570,27 @@ var heldPool34 = [];
 /* Журнал self.activity.loader(...): последнее значение — состояние
    индикатора загрузки активности. */
 var loaderLog34 = [];
-function fetchStub34(item, page, ok) {
+/* Пятый раунд, п.3: заглушка отвечает так же, как настоящий LC.sources.fetch
+   (fetchAll, src/43_sources.js:461-500): поколение alive() снимается в
+   момент вызова, и ответ подписчику отбрасывается, если к ответу alive()
+   отдаёт другое значение (notifySubs: sub.alive() !== sub.gen); clear()
+   снимает подписку — её ответ не придёт вовсе. deliveredPool34 — сколько
+   ответов пула дошло до рулетки. */
+var deliveredPool34 = 0;
+function fetchStub34(item, page, ok, err, alive) {
   fetchCalls34++;
   if (page === 1) poolSets34++;
-  var answer = function () { ok({ results: page === 1 ? poolCards34 : [] }); };
+  var gen = alive ? alive() : 0;
+  var cleared = false;
+  var answer = function () {
+    if (cleared) return;
+    if (alive && alive() !== gen) return;
+    deliveredPool34++;
+    ok({ results: page === 1 ? poolCards34 : [] });
+  };
   if (hold34.pool) heldPool34.push(answer);
   else answer();
-  return { clear: function () { } };
+  return { clear: function () { cleared = true; } };
 }
 function manifestStub34(cb) {
   manifestCalls34++;
@@ -666,6 +680,7 @@ function openRoulette34(cards, t, dpr, motion, object, hold) {
   fetchCalls34 = 0;
   poolSets34 = 0;
   manifestCalls34 = 0;
+  deliveredPool34 = 0;
   t.after(restoreGlobals34);
 
   var components = {};
@@ -1446,6 +1461,28 @@ test('пятый раунд п.2: выборка уже на экране — в
   assert.equal(env.stacked(), true, 'стопка пропала после возврата');
 });
 
+/* Пятый раунд, п.3: сама заглушка обязана вести себя как настоящий
+   LC.sources.fetch — иначе тесты рулетки проверяют мир, которого нет. */
+test('пятый раунд п.3: заглушка пула отбрасывает ответ по alive() и после clear(), как настоящий fetch', (t) => {
+  openRoulette34([R44], t, 1, 'lite', { media: 'movie' }, { pool: true });
+  const got = [];
+  /* Рулетка отдаёт alive(captured) — булево gen === captured: true при
+     вызове, false после bump(). Настоящий fetch сравнивает значение с
+     снятым при вызове, поэтому смена true -> false — это смерть. */
+  let live = true;
+  fetchStub34({ id: 'x' }, 1, () => got.push('bumped'), null, () => live);
+  let gen = 1;
+  fetchStub34({ id: 'x' }, 1, () => got.push('gen-changed'), null, () => gen);
+  fetchStub34({ id: 'x' }, 1, () => got.push('same-gen'), null, () => 7);
+  const handle = fetchStub34({ id: 'x' }, 1, () => got.push('cleared'), null, () => 7);
+  handle.clear();
+  fetchStub34({ id: 'x' }, 1, () => got.push('no-alive'));
+  live = false;
+  gen = 2;
+  releaseHeld(heldPool34);
+  assert.deepEqual(got, ['same-gen', 'no-alive'], 'заглушка отдала ответ мёртвому или снятому подписчику');
+});
+
 test('ревью п.1: ответ каталога после destroy() экран не строит', (t) => {
   const env = openRoulette34([R44], t, 1, 'lite', { media: 'movie' }, { manifest: true });
   env.comp.start();
@@ -1466,6 +1503,9 @@ test('ревью п.2: уход во время первого вращения 
   assert.equal(env.loading(), true, 'предпосылка: пул в пути — индикатор горит');
   env.comp.pause();
   releaseHeld(heldPool34);
+  /* Пятый раунд, п.3: у настоящего LC.sources.fetch ответы, пришедшие после
+     pause() (bump: gen поднят, дескрипторы сняты), до рулетки не доходят. */
+  assert.equal(deliveredPool34, 0, 'ответ пула, запрошенного до pause(), дошёл до рулетки');
   env.comp.start();
   assert.equal(env.loading(), false, 'индикатор загрузки висит после возврата');
   assert.equal(spinToResult(env), true, 'после возврата «Крутить» не доводит до результата');
