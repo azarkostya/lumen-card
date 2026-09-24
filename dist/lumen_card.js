@@ -888,6 +888,16 @@ panel: '#1C1613',
 spice: '#D9622B',
 text: '#F3EDE4',
 muted: '#A89A8A',
+
+
+
+
+
+
+
+
+
+soft: '#DCD3C8',
 smoke: '#7A6A5A',
 good: '#8FBF7A',
 dark: '#1A120A',
@@ -968,7 +978,7 @@ var SPICE_RGB = hexToRgb(C.spice);
 var THEMES = {
 warm: {
 bg: C.bg, panel: C.panel, line: C.line, dark: C.dark,
-text: C.text, muted: C.muted, smoke: C.smoke,
+text: C.text, muted: C.muted, soft: C.soft, smoke: C.smoke,
 panelHi: C.panelHi, panelLo: C.panelLo, raised: C.raised,
 gradPoster: 'linear-gradient(180deg,#1C1613,#0E0B09)',
 gradPanel: 'linear-gradient(180deg,#1C1613,#120E0B)',
@@ -979,7 +989,8 @@ gradBlur: 'linear-gradient(160deg,#2A1B10 0%,#1A110B 38%,#0B0908 72%)'
 },
 black: {
 bg: '#000000', panel: '#101012', line: '#26262B', dark: '#08080A',
-text: '#F2F2F3', muted: '#A7A6A8', smoke: '#7B7A7D',
+
+text: '#F2F2F3', muted: '#A7A6A8', soft: '#D5D4D6', smoke: '#7B7A7D',
 panelHi: '#17171A', panelLo: '#0A0A0C', raised: '#1D1D21',
 gradPoster: 'linear-gradient(180deg,#101012,#08080A)',
 gradPanel: 'linear-gradient(180deg,#101012,#08080A)',
@@ -1129,7 +1140,8 @@ scrim: '.lumen-hero-stage .lumen-hero__scrim{background:-webkit-linear-gradient(
 
 
 
-scrimL: '.lumen-hero-stage .lumen-hero__scrim.lumen-hero__scrim--l{background:-webkit-linear-gradient(left,' + scrimLeft(P) + ');background:linear-gradient(90deg,' + scrimLeft(P) + ')}',
+scrimL: '.lumen-hero-stage .lumen-hero__scrim.lumen-hero__scrim--l{background:-webkit-radial-gradient(0 ' + scrimLeftY(key) + '%,' + SCRIM_L_RX + '% ' + SCRIM_L_RY + '%,' + scrimLeft(P) + ');' +
+'background:radial-gradient(' + SCRIM_L_RX + '% ' + SCRIM_L_RY + '% at 0 ' + scrimLeftY(key) + '%,' + scrimLeft(P) + ')}',
 
 
 
@@ -1715,16 +1727,38 @@ var TEXT_ZOOM = 1.1;
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 var SCRIM_TOP_A = 0.5;
 var SCRIM_TOP_FULL = 3.96;
 var SCRIM_TOP_END = 9;
 var SCRIM_FADE = [[0, 1], [0.15, 0.9], [0.4, 0.58], [0.7, 0.22], [1, 0]];
 var SCRIM_FADE_K = 0.4;
-var SCRIM_L = [[0, 0.95], [30, 0.92], [50, 0.88], [56, 0.84], [62, 0.72], [72, 0.49], [82, 0.26], [91, 0.09], [100, 0]];
-var SCRIM_L_UP = 22;
-var SCRIM_L_FADE = 20;
+var SCRIM_L_A = 0.85;
+var SCRIM_L_R0 = 0.45;
+var SCRIM_L_RX = 84;
+var SCRIM_L_RY = 85.19;
+var SCRIM_L_BELOW = 14.35;
+var SCRIM_L_STEPS = 11;
 var FLOOR_UP = 1.5;
-var FLOOR_FADE = 14.5;
+var FLOOR_FADE = 22;
+var FLOOR_STEPS = 10;
 var SHADE_K = 0.5;
 
 
@@ -1737,12 +1771,20 @@ var SHADE_K = 0.5;
 
 
 
-var TEXT_MAX_W = 36;
 
 
 
 
-var DESCR_MAX_W = 30;
+
+
+var HERO_TEXT_SHADOW = '0 0 .5em rgba(0,0,0,.55),0 .06em .12em rgba(0,0,0,.7)';
+var TEXT_MAX_W = 28;
+
+
+
+
+
+var DESCR_MAX_W = 24;
 
 
 var TEXT_SCALE_COMPACT = 0.95;
@@ -1860,10 +1902,19 @@ return fadeStops(P, round2(100 - HERO_VH[key]), HERO_VH[key] * SCRIM_FADE_K);
 
 
 
+function smootherstep(t) {
+t = t < 0 ? 0 : (t > 1 ? 1 : t);
+return t * t * t * (t * (t * 6 - 15) + 10);
+}
+
+
+
+
 function scrimFloor(P) {
 var out = [];
-for (var i = SCRIM_FADE.length - 1; i >= 0; i--) {
-out.push(edgeAt(P, SCRIM_FADE[i][1]) + ' ' + round2((1 - SCRIM_FADE[i][0]) * FLOOR_FADE) + 'vh');
+for (var i = 0; i <= FLOOR_STEPS; i++) {
+var t = i / FLOOR_STEPS;
+out.push(edgeAt(P, smootherstep(t)) + ' ' + round2(t * FLOOR_FADE) + 'vh');
 }
 return out.join(',');
 }
@@ -1872,20 +1923,24 @@ function floorTop(key) {
 return round2(ROWS_TOP_VH[key] - FLOOR_FADE) + 'vh - ' + FLOOR_UP + 'em';
 }
 
+
+
+
+
 function scrimLeft(P) {
-var out = [];
-for (var i = 0; i < SCRIM_L.length; i++) out.push(shadeAt(P, SCRIM_L[i][1]) + ' ' + SCRIM_L[i][0] + '%');
+var out = [shadeAt(P, SCRIM_L_A) + ' 0%'];
+for (var i = 0; i <= SCRIM_L_STEPS; i++) {
+var t = i / SCRIM_L_STEPS;
+var a = ('' + Math.round(SCRIM_L_A * (1 - smootherstep(t)) * 1000) / 1000).replace(/^0\./, '.');
+out.push('rgba(' + P.shadeRgb + ',' + a + ') ' + round2((SCRIM_L_R0 + (1 - SCRIM_L_R0) * t) * 100) + '%');
+}
 return out.join(',');
 }
 
 
 
-
-function scrimMask(key) {
-var full = ROWS_TOP_VH[key] - SCRIM_L_UP;
-var from = full - SCRIM_L_FADE;
-var head = from >= 0 ? 'rgba(0,0,0,0) ' + round2(from) + '%' : 'rgba(0,0,0,' + alphaCss(-from / SCRIM_L_FADE) + ') 0%';
-return head + ',#000 ' + round2(full) + '%';
+function scrimLeftY(key) {
+return round2(HERO_VH[key] - textBottomVh(key) + SCRIM_L_BELOW);
 }
 
 
@@ -1981,6 +2036,17 @@ function rowHeadGap(scale, cardW) {
 return round2(ROW_HEAD_GAP * Math.max(scale, cardK() * cardW / ROW_CARD_W));
 }
 
+
+
+
+
+
+
+
+function rowCapAge(em) {
+return heroSmallText() ? em : 0;
+}
+
 function rowBlockEm(cardW, titleEm, gapEm, cardTitleEm, cardAgeEm, flow) {
 var k = cardK();
 
@@ -2035,8 +2101,14 @@ var TV_RATIO = 178;
 
 function rowNarrowBlockEm(scale) {
 var w = round2(ROW_CARD_NARROW * scale);
-return rowBlockEm(w, round2(ROW_TITLE_EM * scale), rowHeadGap(scale, w), TV_MIN, TV_MIN);
+return rowBlockEm(w, round2(ROW_TITLE_EM * scale), rowHeadGap(scale, w), TV_MIN, rowCapAge(TV_MIN));
 }
+
+
+
+
+
+
 
 
 
@@ -2243,7 +2315,7 @@ var P = palette();
 var fonts = useFonts();
 var set = fontSet();
 return {
-bg: P.bg, panel: P.panel, line: P.line, text: P.text, muted: P.muted, smoke: P.smoke,
+bg: P.bg, panel: P.panel, line: P.line, text: P.text, muted: P.muted, soft: P.soft, smoke: P.smoke,
 spice: P.spice, dark: P.dark,
 panelHi: P.panelHi, panelLo: P.panelLo, raised: P.raised, textRgb: P.textRgb, bgRgb: P.bgRgb,
 accent: t.color, accentRgb: hexToRgb(t.color), onac: t.onac, ring: t.light, acglow: t.glow,
@@ -4350,15 +4422,9 @@ css.push('.lumen-hero.lumen-motion-full .lumen-fx{-webkit-transition:opacity .35
 
 
 
-
-
-
-
 css.push('.lumen-hero-stage .lumen-hero__scrim,.lumen-hero-stage .lumen-hero__floor{position:absolute;top:0;left:0;right:0;bottom:0}');
 css.push(AR.scrim);
 css.push(AR.scrimL);
-css.push('.lumen-hero-stage .lumen-hero__scrim.lumen-hero__scrim--l{-webkit-mask-image:-webkit-linear-gradient(top,' + scrimMask(heroSize) + ');mask-image:linear-gradient(180deg,' + scrimMask(heroSize) + ');' +
-'-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat}');
 css.push(AR.floor);
 css.push('.lumen-hero-stage .lumen-hero__floor{top:-webkit-calc(' + floorTop(heroSize) + ');top:calc(' + floorTop(heroSize) + ');opacity:0}');
 css.push('.lumen-main.lumen-rows-up .lumen-hero__floor{opacity:1}');
@@ -4448,7 +4514,9 @@ css.push('.lumen-hero.lumen-hero--compact .lumen-hero__text{' +
 
 
 
-css.push('.lumen-hero .lumen-hero__meta{font-family:' + FB + ';font-weight:500;font-size:.96em;line-height:1.24;color:' + P.muted + ';margin-top:.3em}');
+
+
+css.push('.lumen-hero .lumen-hero__meta{font-family:' + FB + ';font-weight:500;font-size:.96em;line-height:1.24;color:' + P.soft + ';text-shadow:' + HERO_TEXT_SHADOW + ';margin-top:.3em}');
 
 
 
@@ -4499,7 +4567,7 @@ css.push('.lumen-hero.lumen-hero--logo .lumen-hero__logo{display:block}');
 css.push('.lumen-hero .lumen-hero__title{font-family:' + FB + ';font-weight:700;font-size:3.4em;line-height:1.08;color:' + P.text + ';margin-top:.4em;height:1.29em;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:1}');
 css.push('.lumen-hero.lumen-hero--compact .lumen-hero__title{height:1.2em}');
 css.push('.lumen-hero.lumen-hero--logo .lumen-hero__title{display:none}');
-css.push('.lumen-hero .lumen-hero__descr{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;font-family:' + FB + ';font-weight:500;font-size:1.15em;line-height:1.24;color:' + P.muted + ';max-width:' + DESCR_MAX_W + 'em;margin-top:.46em}');
+css.push('.lumen-hero .lumen-hero__descr{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;font-family:' + FB + ';font-weight:500;font-size:1.15em;line-height:1.24;color:' + P.soft + ';text-shadow:' + HERO_TEXT_SHADOW + ';max-width:' + DESCR_MAX_W + 'em;margin-top:.46em}');
 
 
 
@@ -4994,6 +5062,11 @@ var cardWEm = round2(ROW_CARD_W * rowScale);
 
 var cardTitleEm = round2(TV_MIN * rowScale);
 var cardAgeEm = round2(TV_MIN * rowScale);
+
+
+
+
+var rowCapShort = !smallText;
 var rowTitleEm = round2(ROW_TITLE_EM * rowScale);
 var rowHeadGapEm = rowHeadGap(rowScale, cardWEm);
 var narrowWEm = round2(ROW_CARD_NARROW * rowScale);
@@ -5024,7 +5097,7 @@ css.push('.lumen-main .card{width:' + cardWEm + 'em}');
 
 
 
-var narrowRatio = rowNarrowRatio(heroSize, rowBlockEm(cardWEm, rowTitleEm, rowHeadGapEm, cardTitleEm, cardAgeEm));
+var narrowRatio = rowNarrowRatio(heroSize, rowBlockEm(cardWEm, rowTitleEm, rowHeadGapEm, cardTitleEm, rowCapAge(cardAgeEm)));
 var narrowCss = narrowRatio < Math.max(HERO_MIN_RATIO, textRatio(heroSize, textNeedEm(false)))
 ? '@media screen and (min-aspect-ratio:' + narrowRatio + '/100){' +
 '.lumen-main .card{width:' + narrowWEm + 'em}' +
@@ -5145,11 +5218,37 @@ css.push('.lumen-main .card__age{font-family:' + FB + ';font-size:' + cardAgeEm 
 
 
 
+if (rowCapShort) {
+css.push('.lumen-main .card__age{display:none}');
+css.push('@media screen and (min-aspect-ratio:' + heroMinRatio + '/100){.lumen-main .card__age{display:block}}');
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
 css.push('body.lumen-motion-full .lumen-main .card__title,body.lumen-motion-full .lumen-main .card__age{-webkit-transition:-webkit-transform .18s ease-out;transition:transform .18s ease-out}');
-css.push('body.lumen-motion-full .lumen-main .card.focus .card__title,body.lumen-motion-full .lumen-main .card.focus .card__age{-webkit-transform:translateY(' + CARD_FOCUS_SHIFT + 'em);transform:translateY(' + CARD_FOCUS_SHIFT + 'em)}');
+
+
+
+
+
+var focusShiftCss = 'body.lumen-motion-full .lumen-main .card.focus .card__title,body.lumen-motion-full .lumen-main .card.focus .card__age{-webkit-transform:translateY(' + CARD_FOCUS_SHIFT + 'em);transform:translateY(' + CARD_FOCUS_SHIFT + 'em)}';
+css.push(rowCapShort ? '@media screen and (min-aspect-ratio:' + heroMinRatio + '/100){' + focusShiftCss + '}' : focusShiftCss);
 
 
 
@@ -5203,21 +5302,25 @@ var fitW = narrowCss ? narrowWEm : cardWEm;
 var fitGap = narrowCss ? narrowGapEm : rowHeadGapEm;
 var fitCap = narrowCss ? TV_MIN : cardTitleEm;
 var fitBlock = rowBlockEm(fitW, rowTitleEm, fitGap, fitCap, fitCap);
-var fitCaptions = CARD_VIEW_GAP + fitCap * CARD_TITLE_LH + CARD_AGE_GAP * fitCap + fitCap + CARD_FOCUS_SHIFT * fitCap;
-var rowFitCss = function (sel, lo, hi, tailVh, topEm) {
+
+
+var fitCaptions = function (age) {
+return CARD_VIEW_GAP + fitCap * CARD_TITLE_LH + CARD_AGE_GAP * age + age + CARD_FOCUS_SHIFT * age;
+};
+var rowFitCss = function (sel, lo, hi, tailVh, topEm, age) {
 var x = Math.floor(tailVh / POSTER_RATIO * 100) / 100;
-var y = Math.ceil(((topEm + rowTitleEm + fitGap + ROW_EDGE_AIR) / (POSTER_RATIO * cardK()) + fitCaptions / POSTER_RATIO) * 100) / 100;
+var y = Math.ceil(((topEm + rowTitleEm + fitGap + ROW_EDGE_AIR) / (POSTER_RATIO * cardK()) + fitCaptions(age) / POSTER_RATIO) * 100) / 100;
 var w = x + 'vh - ' + y + 'em';
 return '@media screen and (min-aspect-ratio:' + lo + '/1000)' + (hi ? ' and (max-aspect-ratio:' + hi + '/1000)' : '') + '{' +
 sel + ' .card{width:-webkit-calc(' + w + ');width:calc(' + w + ')}}';
 };
-var fitHeroFrom = Math.floor(screenEm() * (100 - rowsTopVh) * 10 / (ROWS_AIR + fitBlock + ROW_EDGE_AIR));
+var fitHeroFrom = Math.floor(screenEm() * (100 - rowsTopVh) * 10 / (ROWS_AIR + rowBlockEm(fitW, rowTitleEm, fitGap, fitCap, rowCapAge(fitCap)) + ROW_EDGE_AIR));
 if (fitHeroFrom < heroMinRatio * 10) {
-css.push(rowFitCss('.lumen-main', fitHeroFrom, heroMinRatio * 10, 100 - rowsTopVh, ROWS_AIR));
+css.push(rowFitCss('.lumen-main', fitHeroFrom, heroMinRatio * 10, 100 - rowsTopVh, ROWS_AIR, rowCapAge(fitCap)));
 }
 var fitOff = function (sel, topEm) {
 var from = Math.max(heroMinRatio * 10, Math.floor(screenEm() * 1000 / (topEm + fitBlock + ROW_EDGE_AIR)));
-css.push(rowFitCss(sel, from, 0, 100, topEm));
+css.push(rowFitCss(sel, from, 0, 100, topEm, fitCap));
 };
 fitOff('.lumen-main', LAMPA_HEAD + LAMPA_ROW_PAD);
 css.push('.lumen-main .items-line__title{font-family:' + FB + ';font-weight:700;font-size:' + rowTitleEm + 'em}');
@@ -5301,8 +5404,11 @@ return '@media screen and ' + (lo > 0 ? '(min-aspect-ratio:' + lo + '/100) and '
 '(max-aspect-ratio:' + to + '/1000){' +
 '.lumen-main .items-line{padding-bottom:-webkit-calc(' + pad + ');padding-bottom:calc(' + pad + ')}}';
 };
-var rowFlowWide = rowBlockEm(cardWEm, rowTitleEm, rowHeadGapEm, cardTitleEm, cardAgeEm, true);
-var rowFlowNarrow = rowBlockEm(narrowWEm, rowTitleEm, narrowGapEm, TV_MIN, TV_MIN, true);
+
+
+
+var rowFlowWide = rowBlockEm(cardWEm, rowTitleEm, rowHeadGapEm, cardTitleEm, rowCapAge(cardAgeEm), true);
+var rowFlowNarrow = rowBlockEm(narrowWEm, rowTitleEm, narrowGapEm, TV_MIN, rowCapAge(TV_MIN), true);
 var rowEdgeWide = rowEdgeMedia(rowFlowWide, 0, narrowCss ? narrowRatio : heroMinRatio);
 var rowEdgeNarrow = narrowCss ? rowEdgeMedia(rowFlowNarrow, narrowRatio, heroMinRatio) : '';
 if (rowEdgeWide) css.push(rowEdgeWide);
@@ -5316,7 +5422,8 @@ if (rowEdgeNarrow) css.push(rowEdgeNarrow);
 
 
 
-var rowOffBlock = round2(narrowCss ? rowFlowNarrow : rowFlowWide);
+var rowOffBlock = round2(narrowCss ? rowBlockEm(narrowWEm, rowTitleEm, narrowGapEm, TV_MIN, TV_MIN, true) :
+rowBlockEm(cardWEm, rowTitleEm, rowHeadGapEm, cardTitleEm, cardAgeEm, true));
 var rowEdgeOff = function (sel, topEm) {
 var headEm = round2(topEm + LAMPA_ROW_PAD + rowOffBlock);
 var to = Math.ceil(screenEm() * 1000 / (headEm + ROW_GAP));
@@ -25822,6 +25929,24 @@ return mode() !== 'off';
 
 
 
+
+
+
+function captionHidden() {
+try {
+if (!state || !state.root || typeof state.root.hasClass !== 'function' || !state.root.hasClass('lumen-main')) return false;
+return !LC.pref || LC.pref('lumen_hero_size', 'large') !== 'compact';
+} catch (e) {
+return false;
+}
+}
+
+
+
+
+
+
+
 function words() {
 return {
 soon: LC.lang('lumen_badge_soon'),
@@ -25967,6 +26092,10 @@ var badge = badgeFor(data, ctx.today, { progress: progressOf, words: ctx.words }
 var view = $(el).find('.card__view');
 var hasBadge = !!(badge && badge.text && view && view.length);
 var view_mode = mode();
+
+
+
+if (view_mode === 'caption' && !(opts && opts.wide) && captionHidden()) view_mode = 'poster';
 
 
 var wantCaption = hasBadge && view_mode === 'caption';
@@ -31628,9 +31757,9 @@ uk: 'Вміст лежить прямо на тлі, а не в коробках
 
 lumen_scale_name: { ru: 'Масштаб интерфейса', en: 'Interface scale', uk: 'Масштаб інтерфейсу' },
 lumen_scale_descr: {
-ru: 'Размер текста и блоков на экранах плагина: карточка, главная, подборки. Применяется сразу. Одно исключение: если в самой Lampa выбран «Размер интерфейса: крупнее», она уже увеличила карточки рядов главной, и при настройке «Кадр над рядами» в значении «Крупный» наш масштаб там упирается в высоту экрана — «Обычный», «Крупнее» и «Ещё крупнее» дают одинаковые ряды, иначе подпись первого ряда не поместилась бы. При меньшем кадре и на других размерах интерфейса ограничения нет, и на остальных экранах плагина масштаб действует целиком.',
-en: 'The size of text and blocks on the plugin screens: card, home and collections. Applied immediately. One exception: if Lampa\'s own "Interface size" is set to larger, it has already enlarged the home row cards, and with "Hero over the rows" set to "Large" our scale there runs into the screen height — "Normal", "Larger" and "Largest" give identical rows, otherwise the first row caption would not fit. With a smaller frame and on the other interface sizes there is no cap, and on the other plugin screens the scale applies in full.',
-uk: 'Розмір тексту та блоків на екранах плагіна: картка, головна, підбірки. Застосовується одразу. Один виняток: якщо в самій Lampa вибрано «Розмір інтерфейсу: більше», вона вже збільшила картки рядів головної, і з налаштуванням «Кадр над рядами» у значенні «Великий» наш масштаб там упирається у висоту екрана — «Звичайний», «Більше» і «Ще більше» дають однакові ряди, інакше підпис першого ряду не помістився б. З меншим кадром і на інших розмірах інтерфейсу обмеження немає, а на решті екранів плагіна масштаб діє повністю.'
+ru: 'Размер текста и блоков на экранах плагина: карточка, главная, подборки. Применяется сразу. Одно исключение: если в самой Lampa выбран «Размер интерфейса: крупнее», она уже увеличила карточки рядов главной, и при настройке «Кадр над рядами» в значении «Крупный» наш масштаб там упирается в высоту экрана — «Ещё крупнее» даёт почти те же ряды, что «Крупнее», иначе подпись первого ряда не поместилась бы. При меньшем кадре и на других размерах интерфейса ограничения нет, и на остальных экранах плагина масштаб действует целиком.',
+en: 'The size of text and blocks on the plugin screens: card, home and collections. Applied immediately. One exception: if Lampa\'s own "Interface size" is set to larger, it has already enlarged the home row cards, and with "Hero over the rows" set to "Large" our scale there runs into the screen height — "Largest" gives almost the same rows as "Larger", otherwise the first row caption would not fit. With a smaller frame and on the other interface sizes there is no cap, and on the other plugin screens the scale applies in full.',
+uk: 'Розмір тексту та блоків на екранах плагіна: картка, головна, підбірки. Застосовується одразу. Один виняток: якщо в самій Lampa вибрано «Розмір інтерфейсу: більше», вона вже збільшила картки рядів головної, і з налаштуванням «Кадр над рядами» у значенні «Великий» наш масштаб там упирається у висоту екрана — «Ще більше» дає майже ті самі ряди, що «Більше», інакше підпис першого ряду не помістився б. З меншим кадром і на інших розмірах інтерфейсу обмеження немає, а на решті екранів плагіна масштаб діє повністю.'
 },
 lumen_scale_small: { ru: 'Мельче', en: 'Smaller', uk: 'Дрібніше' },
 lumen_scale_normal: { ru: 'Обычный', en: 'Normal', uk: 'Звичайний' },
