@@ -2219,6 +2219,36 @@ test('ревью волны 3, п.1: фокус ушёл до вывода те�
   assert.deepEqual(warnLog, []);
 });
 
+/* Ревью правок волны 3, п.5: фокус ушёл и вернулся, а текст показа ещё не
+   выведен (отсрочка SWAP_MS идёт). Возврат отсчёт не заводит (гард
+   !state.swapTimer в onFocus) — его заведёт сам вывод текста, и 250 мс
+   считаются от вывода, а не от возврата: иначе постер встал бы под текстом
+   нового фильма раньше, чем тот простоял положенное. */
+test('ревью правок волны 3, п.5: фокус ушёл и вернулся до вывода текста — постер через 250 мс от вывода текста, а не от возврата', () => {
+  const env = makeEnv({ fxHeavy: () => false });
+  const main = makeMain();
+  const card3 = addCard(main, 33);
+  env.hero.mount(main.activity);
+  const stage = shownFrame(env, main);
+  const seen = layerLog(env, stage);
+  const descr = () => heroOf(main.activity).find('.lumen-hero__descr').text();
+
+  fireFocus(main.activity, main.card2);
+  env.advance(350);
+  env.advance(50);
+  fireFocus(main.activity, card3);
+  env.advance(50);
+  fireFocus(main.activity, main.card2);
+  assert.equal(descr(), 'о первом', 'предусловие: фокус вернулся раньше вывода текста');
+  env.advance(80);
+  assert.equal(descr(), 'о втором', 'предусловие: текст второго фильма выведен через 180 мс после показа');
+  env.advance(249);
+  assert.deepEqual(seen, [], 'заглушка раньше 250 мс от вывода текста — отсчёт пошёл от возврата фокуса');
+  env.advance(2);
+  assert.deepEqual(seen, ['https://img/t/p/w300/p2.jpg'], 'через 250 мс от вывода текста — постер показанной карточки');
+  assert.deepEqual(warnLog, []);
+});
+
 /* Тот же уход фокуса, но кадр показанной карточки не загрузился вовсе:
    заглушка по ошибке кадра — тоже только при фокусе на этой карточке. */
 test('ревью волны 3, п.1: кадр показанной карточки упал, когда фокус уже на другой, — заглушки нет до возврата фокуса', () => {
