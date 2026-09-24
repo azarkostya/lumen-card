@@ -200,6 +200,46 @@ test('heroModel: фильм с деталями — год, длительнос
   assert.equal(m.status, '');
 });
 
+/* Волна 3 (ТВ 2026-09-24): «карточка героя на стартовой и карточка ниже
+   почти одинаковые — текст и обложка одинаковые». backdrop_path у TMDB —
+   чаще всего тот же ключевой арт, что и постер. Кадр героя — первый кадр
+   из images.backdrops без надписей (iso_639_1 пустой), не равный
+   backdrop_path, шириной от 1280 и с пропорцией 16:9 (±0.05); нет такого —
+   backdrop_path. Новых запросов нет: images уже едут в ответе деталей. */
+test('heroBackdrop: второй кадр без надписей, широкий и 16:9, а не ключевой арт', () => {
+  const key = { file_path: '/key.jpg', iso_639_1: null, width: 3840, height: 2160, aspect_ratio: 1.778 };
+  const text = { file_path: '/text.jpg', iso_639_1: 'en', width: 3840, height: 2160, aspect_ratio: 1.778 };
+  const small = { file_path: '/small.jpg', iso_639_1: null, width: 1000, height: 562, aspect_ratio: 1.779 };
+  const wide = { file_path: '/wide.jpg', iso_639_1: null, width: 2560, height: 1080, aspect_ratio: 2.37 };
+  const good = { file_path: '/good.jpg', iso_639_1: null, width: 1920, height: 1080, aspect_ratio: 1.778 };
+  const later = { file_path: '/later.jpg', iso_639_1: null, width: 1920, height: 1080, aspect_ratio: 1.778 };
+  assert.equal(H.heroBackdrop({ backdrops: [key, text, small, wide, good, later] }, '/key.jpg'), '/good.jpg',
+    'первый подходящий по порядку TMDB');
+  /* Нечего выбрать — ключевой арт: пустой герой хуже совпадения с постером. */
+  assert.equal(H.heroBackdrop(null, '/key.jpg'), '/key.jpg');
+  assert.equal(H.heroBackdrop({}, '/key.jpg'), '/key.jpg');
+  assert.equal(H.heroBackdrop({ backdrops: [key, text, small, wide] }, '/key.jpg'), '/key.jpg', 'подходят только ключевой арт и отбракованные');
+  /* Пропорция — из aspect_ratio, без него из width/height; размера нет вовсе
+     — кадр не берём (урезанный ответ прокси). */
+  assert.equal(H.heroBackdrop({ backdrops: [{ file_path: '/wh.jpg', iso_639_1: null, width: 1280, height: 720 }] }, '/key.jpg'), '/wh.jpg');
+  assert.equal(H.heroBackdrop({ backdrops: [{ file_path: '/nosize.jpg', iso_639_1: null }] }, '/key.jpg'), '/key.jpg');
+  assert.equal(H.heroBackdrop({ backdrops: [{ file_path: '/near.jpg', iso_639_1: null, width: 1280, aspect_ratio: 1.72 }] }, '/key.jpg'), '/key.jpg', '1.72 — уже не 16:9');
+  /* Без backdrop_path — первый подходящий, а нет его — пусто. */
+  assert.equal(H.heroBackdrop({ backdrops: [good] }, ''), '/good.jpg');
+  assert.equal(H.heroBackdrop(null, ''), '');
+});
+
+test('heroModel: кадр героя из деталей — heroBackdrop, до деталей и без них — backdrop_path', () => {
+  const card = { id: 8, title: 'Фильм', backdrop_path: '/key.jpg', poster_path: '/p.jpg' };
+  assert.equal(H.heroModel(card, null, WORDS).backdrop, '/key.jpg', 'до ответа деталей — из данных ряда');
+  const images = { backdrops: [
+    { file_path: '/key.jpg', iso_639_1: null, width: 1920, height: 1080, aspect_ratio: 1.778 },
+    { file_path: '/other.jpg', iso_639_1: null, width: 1920, height: 1080, aspect_ratio: 1.778 }
+  ] };
+  assert.equal(H.heroModel(card, { backdrop_path: '/key.jpg', images: images }, WORDS).backdrop, '/other.jpg');
+  assert.equal(H.heroModel(card, { backdrop_path: '/key.jpg' }, WORDS).backdrop, '/key.jpg', 'без images — ключевой арт');
+});
+
 test('heroModel: сериал — сезоны вместо длительности, статус «Выходит · 17 dec»', () => {
   const card = { id: 2, name: 'Сериал', backdrop_path: '/b.jpg', first_air_date: '2019-07-25', vote_average: 8.4 };
   const details = {
@@ -388,6 +428,17 @@ function makeCard(id, title, opts) {
   return card;
 }
 
+/* Волна 3 (ТВ 2026-09-24): кадр героя выбирается по ответу деталей
+   (startFrame в src/48_hero.js) — до ответа show() кадр не грузит, а ждёт
+   его до FRAME_WAIT. Тестам, которым нужна загрузка самого кадра, а не
+   состав деталей, хватает пустого ответа последнего запроса деталей: кадр
+   тогда — backdrop_path из данных ряда, ровно как до волны 3. */
+function answerDetails(env, json) {
+  const list = env.requests.filter((r) => /^(movie|tv)\/[^/]+$/.test(r.url));
+  assert.ok(list.length, 'запроса деталей нет');
+  list[list.length - 1].ok(json || {});
+}
+
 /* Волна 3 (ТВ 2026-09-24): у героя два узла в корне — неподвижный слой
    кадра .lumen-hero-stage (первым ребёнком: кадры, подложка, ролик,
    затемнение) и .lumen-hero (текст и частицы) за ним. heroOf находит узел
@@ -513,6 +564,7 @@ test('фокус: ни монтирование, ни обработка фок�
   main.card1.addClass('focus');
   fireFocus(main.activity, main.card1);
   env.advance(400);
+  answerDetails(env);
   assert.equal(env.images[0].src, 'https://img/t/p/w1280/b1.jpg', 'фокус обработан');
   assert.deepEqual(warnLog, []);
 });
@@ -540,6 +592,7 @@ test('mount: снятие и повторное монтирование ост�
   assert.equal(focusListeners(main.activity).length, 1, 'после второго монтирования слушатель по-прежнему один');
   fireFocus(main.activity, main.card1);
   env.advance(400);
+  answerDetails(env);
   assert.equal(env.images.length, 1, 'и он рабочий: фокус дошёл до героя');
 });
 
@@ -569,10 +622,12 @@ test('Task 68: наведение мышью меняет кадр героя т
 
   fireHover(main.activity, main.card1);
   env.advance(400);
+  answerDetails(env);
   assert.equal(env.images[0].src, 'https://img/t/p/w1280/b1.jpg', 'первая карточка — её кадр');
 
   fireHover(main.activity, main.card2);
   env.advance(400);
+  answerDetails(env);
   assert.equal(env.images[1].src, 'https://img/t/p/w1280/b2.jpg', 'мышь на второй — кадр сменился');
   assert.deepEqual(warnLog, []);
 });
@@ -586,13 +641,15 @@ test('Task 68: мышиная ветка держит те же гарды — �
 
   fireHover(main.activity, main.card1);
   env.advance(100);
-  assert.equal(env.images.length, 0, 'до DELAY кадра нет');
+  assert.equal(env.requests.length, 0, 'до DELAY ни деталей, ни кадра');
   env.advance(400);
+  answerDetails(env);
   assert.equal(env.images.length, 1);
 
   fireHover(main.activity, main.card1);
   env.advance(400);
   assert.equal(env.images.length, 1, 'тот же узел — ни второго кадра, ни перезапуска');
+  assert.equal(env.requests.length, 1, 'тот же узел — ни второго запроса деталей');
 });
 
 /* Задвоения быть не может: одно действие пользователя даёт ровно одно из
@@ -606,6 +663,8 @@ test('Task 68: пультовое и мышиное событие на одно
   fireFocus(main.activity, main.card1);
   fireHover(main.activity, main.card1);
   env.advance(400);
+  assert.equal(env.requests.length, 1, 'показ ровно один');
+  answerDetails(env);
   assert.equal(env.images.length, 1, 'кадр ровно один');
 });
 
@@ -764,10 +823,12 @@ test('фокус карточки: кадр грузится только пос
   fireFocus(main.activity, main.card2);
 
   env.advance(350);
-  assert.equal(env.images.length, 1, 'ровно одна предзагрузка кадра');
-  assert.equal(env.images[0].src, 'https://img/t/p/w1280/b2.jpg', 'кадр карточки, на которой фокус остановился');
   assert.equal(env.requests.length, 1);
   assert.equal(env.requests[0].url, 'movie/22');
+  /* Волна 3: кадр выбирается по ответу деталей. */
+  answerDetails(env);
+  assert.equal(env.images.length, 1, 'ровно одна предзагрузка кадра');
+  assert.equal(env.images[0].src, 'https://img/t/p/w1280/b2.jpg', 'кадр карточки, на которой фокус остановился');
 });
 
 test('повторный фокус той же карточки не грузит кадр заново', () => {
@@ -778,6 +839,7 @@ test('повторный фокус той же карточки не грузи
   main.card1.addClass('focus');
   fireFocus(main.activity, main.card1);
   env.advance(400);
+  answerDetails(env);
   assert.equal(env.images.length, 1);
 
   env.advance(400);
@@ -805,28 +867,31 @@ test('загруженный кадр проявляется вторым сло
   assert.equal(node.find('.lumen-hero__title').text(), '');
   assert.equal(node.find('.lumen-hero__descr').text(), 'о первом');
   assert.equal(node.hasClass('lumen-hero--pending'), true, 'скелетон меты до ответа деталей');
+  /* Волна 3: кадр выбирается по ответу деталей — до него кадр не грузится. */
+  assert.equal(frameLoads(env).length, 0, 'кадр до ответа деталей не грузится');
 
-  env.images[0].onload();
-  const a = stageOf(node).find('.lumen-hero__bg--a');
-  const b = stageOf(node).find('.lumen-hero__bg--b');
-  assert.equal(a.hasClass('is-active'), true, 'первый кадр проявлён');
-  assert.equal(b.hasClass('is-active'), false);
-  assert.equal(a.attr('src'), 'https://img/t/p/w1280/b1.jpg');
-
-  /* Ответ деталей дорисовывает мету, жанры и снимает скелетон. */
+  /* Ответ деталей дорисовывает мету, жанры и снимает скелетон — и по нему
+     же выбирается кадр (кадров в ответе нет — берётся кадр ряда). */
   env.requests[0].ok({ runtime: 100, genres: [{ name: 'драма' }], overview: 'полное', images: { logos: [{ file_path: '/l.png', iso_639_1: 'ru' }] } });
   assert.equal(node.hasClass('lumen-hero--pending'), false);
   /* Task 43: рейтинг — последний элемент той же строки, отдельного чипа нет. */
   assert.equal(node.find('.lumen-hero__meta').text(), '2024 · 1:40 · драма · ★ 7.2');
   assert.equal(node.find('.lumen-hero__descr').text(), 'полное');
+
+  frameImg(env, '/b1.jpg').onload();
+  const a = stageOf(node).find('.lumen-hero__bg--a');
+  const b = stageOf(node).find('.lumen-hero__bg--b');
+  assert.equal(a.hasClass('is-active'), true, 'первый кадр проявлён');
+  assert.equal(b.hasClass('is-active'), false);
+  assert.equal(a.attr('src'), 'https://img/t/p/w1280/b1.jpg');
   /* Task 71: логотип встаёт не по ответу деталей, а по загрузке своей
      картинки. Правка 2026-09-22: пока она едет, место названия пустое —
      текстового заголовка, который потом подменяется логотипом, на экране
      не бывает. */
   assert.equal(node.hasClass('lumen-hero--logo'), false, 'класс обязан ждать картинку логотипа');
   assert.equal(node.find('.lumen-hero__title').text(), '', 'текст названия не имеет права мелькнуть до логотипа');
-  const logoPreload = env.images[env.images.length - 1];
-  assert.equal(logoPreload.src, 'https://img/t/p/w780/l.png');
+  const logoPreload = env.images.find((i) => i.src === 'https://img/t/p/w780/l.png');
+  assert.ok(logoPreload, 'логотип не предзагружается');
   logoPreload.onload();
   assert.equal(node.find('.lumen-hero__logo').css('background-image'), 'url("https://img/t/p/w780/l.png")');
   assert.equal(node.hasClass('lumen-hero--logo'), true, 'логотип есть — текстовый заголовок скрыт CSS');
@@ -865,6 +930,7 @@ test('Task 40: без тяжёлых эффектов кадр меняется 
   main.card1.addClass('focus');
   fireFocus(main.activity, main.card1);
   env.advance(400);
+  answerDetails(env);
   env.images[0].onload();
   assert.equal(a.hasClass('is-active'), true);
   assert.equal(a.attr('src'), 'https://img/t/p/w1280/b1.jpg');
@@ -875,6 +941,7 @@ test('Task 40: без тяжёлых эффектов кадр меняется 
   main.card2.addClass('focus');
   fireFocus(main.activity, main.card2);
   env.advance(400);
+  answerDetails(env);
   env.images[env.images.length - 1].onload();
   assert.equal(a.attr('src'), 'https://img/t/p/w1280/b2.jpg', 'подмена в том же слое');
   assert.equal(b.hasClass('is-active'), false, 'второй слой так и не понадобился');
@@ -982,15 +1049,25 @@ test('unmount: узел, класс хоста, слушатель, таймер
   fireFocus(main.activity, main.card1);
   env.advance(400);
   assert.equal(env.requests.length, 1);
+  /* Волна 3: кадр выбирается по ответу деталей — он пошёл грузиться. */
+  answerDetails(env);
+  assert.equal(env.images.length, 1);
 
-  /* Запрос ещё летит, кадр ещё грузится. Предзагрузку кадра unmount гасит;
-     запрос деталей отменить нечем (Lampa get ничего не возвращает) — его
-     ответ обязан пройти мимо снятого героя без следа. */
+  /* Вторая карточка: её запрос деталей ещё летит, кадр ждёт его ответа
+     (frameWait), а кадр первой ещё грузится. Предзагрузку кадра и ожидание
+     unmount гасит; запрос деталей отменить нечем (Lampa get ничего не
+     возвращает) — его ответ обязан пройти мимо снятого героя без следа. */
+  main.card1.removeClass('focus');
+  main.card2.addClass('focus');
+  fireFocus(main.activity, main.card2);
+  env.advance(400);
+  assert.equal(env.requests.length, 2);
   env.hero.unmount();
   assert.equal(env.hero.active(), false);
   assert.equal(focusListeners(main.activity).length, 0, 'слушатель фокуса снят');
-  env.requests[0].ok({ runtime: 100, backdrop_path: '/late.jpg' });
-  assert.equal(env.images.length, 1, 'поздний ответ деталей завёл загрузку кадра в снятом герое');
+  env.requests[1].ok({ runtime: 100, backdrop_path: '/late.jpg' });
+  env.advance(2000);
+  assert.equal(env.images.length, 1, 'поздний ответ деталей или ожидание кадра завели загрузку в снятом герое');
   assert.deepEqual(warnLog, []);
   assert.equal(env.images[0].onload, null);
   assert.equal(main.activity._children.some((c) => c.hasClass('lumen-hero')), false);
@@ -1083,8 +1160,8 @@ test('возврат из карточки: тот же узел героя, н�
   const node = heroOf(main.activity);
   focusOn(main, main.card1);
   env.advance(400);
-  env.images[0].onload();
   env.requests[0].ok({ id: 11, runtime: 100, genres: [{ name: 'драма' }] });
+  env.images[0].onload();
   const shownSrc = stageOf(node).find('.lumen-hero__bg--a').attr('src');
   assert.ok(shownSrc, 'предусловие: кадр показан');
   const images = env.images.length;
@@ -1125,8 +1202,8 @@ test('возврат из карточки: оборванная сменой э
   const node = heroOf(main.activity);
   focusOn(main, main.card1);
   env.advance(400);
-  env.images[0].onload();
   env.requests[0].ok({ id: 11 });
+  env.images[0].onload();
 
   main.card1.removeClass('focus');
   focusOn(main, main.card2);
@@ -1156,11 +1233,14 @@ test('Ф2 п.2: оборванный запрос деталей на возвр
   const node = heroOf(main.activity);
   focusOn(main, main.card1);
   env.advance(400);
-  env.images[0].onload();
   /* Подмена текста (180 мс), за ней потолок ожидания логотипа (600 мс) —
-     оба отработали: деталей всё ещё нет. */
+     оба отработали: деталей всё ещё нет. Волна 3: кадр, не дождавшись
+     деталей за FRAME_WAIT (900 мс), взят по данным ряда и показан; через
+     секунду снята и подложка LQIP. */
   env.advance(200);
   env.advance(700);
+  env.images[0].onload();
+  env.advance(1000);
   /* Живы только отсчёты акцента (3 с) и автотрейлера (8 с) от фокуса —
      park гасит их сам, и stale они не ставят. Ни таймера фокуса, ни
      предзагрузки кадра, ни потолка логотипа: в пути только детали. */
@@ -1205,9 +1285,10 @@ test('Ф2 п.2: ответ деталей, доехавший в запарко�
   const node = heroOf(main.activity);
   focusOn(main, main.card1);
   env.advance(400);
-  env.images[0].onload();
   env.advance(200);
   env.advance(700);
+  /* Волна 3: деталей нет за FRAME_WAIT — кадр по данным ряда (постер). */
+  env.images[0].onload();
   const images = env.images.length;
 
   env.hero.detach(card.activity);
@@ -1240,9 +1321,10 @@ function staleWithoutCardFocus(t, viaMount) {
   const node = heroOf(main.activity);
   if (!viaMount) focusOn(main, main.card1);
   env.advance(400);
-  env.images[0].onload();
   env.advance(200);
   env.advance(700);
+  /* Волна 3: деталей нет за FRAME_WAIT — кадр по данным ряда. */
+  env.images[0].onload();
   assert.equal(node.hasClass('lumen-hero--pending'), true, 'предусловие: деталей ещё нет');
 
   /* Фокус на плитке «Ещё»: класс focus уходит с карточки, событие фокуса
@@ -1283,8 +1365,8 @@ test('пятый раунд п.6: в пути только таймер фоку
   const node = heroOf(main.activity);
   focusOn(main, main.card1);
   env.advance(400);
-  env.images[0].onload();
   env.requests[0].ok({ id: 11, runtime: 100, genres: [{ name: 'драма' }] });
+  env.images[0].onload();
   env.advance(1000);
   assert.equal(node.hasClass('lumen-hero--pending'), false, 'предусловие: A показан полностью');
   assert.equal(node.find('.lumen-hero__meta').text(), '2024 · 1:40 · драма · ★ 7.2');
@@ -1317,8 +1399,8 @@ test('шестой раунд п.1: таймер B оборван парковк
   const node = heroOf(main.activity);
   focusOn(main, main.card1);
   env.advance(400);
-  env.images[0].onload();
   env.requests[0].ok({ id: 11, runtime: 100, genres: [{ name: 'драма' }] });
+  env.images[0].onload();
   env.advance(1000);
 
   main.card1.removeClass('focus');
@@ -1361,8 +1443,8 @@ test('Ф2 п.1: возврат из карточки ставит атмосфе
   env.hero.mount(main.activity);
   focusOn(main, main.card1);
   env.advance(400);
-  env.images[0].onload();
   env.requests[0].ok({ id: 11, overview: 'о первом' });
+  env.images[0].onload();
   assert.equal(mounts.length, 1, 'предусловие: слой атмосферы стоит');
   const requests = env.requests.length;
 
@@ -1396,6 +1478,7 @@ test('mount с compact/hostClass: сжат всегда, класс хоста �
 
   fireFocus(grid, card);
   env.advance(400);
+  answerDetails(env);
   assert.equal(env.images[0].src, 'https://img/t/p/w1280/b3.jpg');
   assert.equal(node.hasClass('lumen-hero--compact'), true, 'компактный герой не разжимается по индексу ряда');
 
@@ -1487,6 +1570,7 @@ test('режимы full и lite кадр грузят — гейт стоит т
     main.card1.addClass('focus');
     env.hero.mount(main.activity);
     env.advance(400);
+    answerDetails(env);
     assert.equal(env.images.length, 1, mode + ': кадр грузится');
   });
 });
@@ -1505,6 +1589,7 @@ test('нет кадра — используется постер в w92, сло
 
   fireFocus(main.activity, main.card1);
   env.advance(400);
+  answerDetails(env);
   assert.equal(env.images[0].src, 'https://img/t/p/w92/p.jpg');
   env.images[0].onload();
   /* Task 52: метка стоит на СЛОЕ, который этот постер и показывает, а не на
@@ -1541,6 +1626,7 @@ test('Task 52: метка размытия живёт на слое кадра, 
     main.card1.addClass('focus');
     fireFocus(main.activity, main.card1);
     env.advance(400);
+    answerDetails(env);
     env.images[env.images.length - 1].onload();
     assert.equal(a.hasClass('lumen-hero__bg--blur'), true, label + ': слой с постером не помечен');
     assert.equal(a.hasClass('is-active'), true, label + ': помечен не тот слой, что на экране');
@@ -1557,6 +1643,7 @@ test('Task 52: метка размытия живёт на слое кадра, 
     main.card2.addClass('focus');
     fireFocus(main.activity, main.card2);
     env.advance(400);
+    answerDetails(env);
     env.images[env.images.length - 1].onload();
     const arrived = heavy ? b : a;
     assert.equal(arrived.hasClass('lumen-hero__bg--blur'), false, label + ': метка осталась на слое с настоящим кадром');
@@ -1576,6 +1663,7 @@ test('Task 39: предзагрузчик кадра героя просит а�
   env.hero.mount(main.activity);
   fireFocus(main.activity, main.card1);
   env.advance(400);
+  answerDetails(env);
   assert.equal(env.images[0].decoding, 'async');
   assert.ok(env.images[0].src, 'адрес присвоен — то есть decoding стоял раньше него');
 });
@@ -1621,6 +1709,8 @@ function focusedFrame(opts) {
   main.card1.addClass('focus');
   fireFocus(main.activity, main.card1);
   env.advance(400);
+  /* Волна 3: кадр выбирается по ответу деталей (answerDetails). */
+  answerDetails(env);
   return { env: env, main: main, node: node, bg: stageOf(node).find('.lumen-hero__bg--a'), img: env.images[0] };
 }
 
@@ -1632,6 +1722,7 @@ function focusSecond(f) {
   f.main.card2.addClass('focus');
   fireFocus(f.main.activity, f.main.card2);
   f.env.advance(400);
+  answerDetails(f.env);
   return f.env.images[f.env.images.length - 1];
 }
 
@@ -1746,6 +1837,7 @@ test('Task 47: без decode() кадр показывается по onload', (
   main.card1.addClass('focus');
   fireFocus(main.activity, main.card1);
   env.advance(400);
+  answerDetails(env);
   assert.equal(typeof env.images[0].decode, 'undefined', 'заглушка без decode');
   env.images[0].onload();
   assert.equal(stageOf(node).find('.lumen-hero__bg--a').attr('src'), 'https://img/t/p/w1280/b1.jpg');
@@ -1770,6 +1862,67 @@ test('волна 3: в тексте героя нет места под чипы
   const node = heroOf(main.activity);
   assert.ok(node.find('.lumen-hero__text').length, 'текстовый блок героя не найден');
   assert.equal(node.find('.lumen-hero__moods'), EMPTY, 'слот чипов настроения остался в тексте героя');
+});
+
+/* Волна 3: кадр героя ≠ постер. Кадр выбирает heroBackdrop по images из
+   ответа деталей, поэтому show() ждёт детали — но не дольше FRAME_WAIT
+   (900 мс): дальше кадр по backdrop_path из данных ряда. Детали из кэша
+   Lampa приходят синхронно, и ожидания там нет вовсе. */
+const W3_IMAGES = { backdrops: [
+  { file_path: '/b1.jpg', iso_639_1: null, width: 1920, height: 1080, aspect_ratio: 1.778 },
+  { file_path: '/scene.jpg', iso_639_1: null, width: 1920, height: 1080, aspect_ratio: 1.778 }
+] };
+
+function frameLoads(env) {
+  return env.images.filter((i) => /\/w1280\//.test(i.src)).map((i) => i.src.replace('https://img/t/p/w1280', ''));
+}
+
+test('волна 3: кадр героя — выбранный по деталям, ключевой арт не грузится вовсе', () => {
+  const env = makeEnv();
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  fireFocus(main.activity, main.card1);
+  env.advance(400);
+  assert.deepEqual(frameLoads(env), [], 'кадр грузится до ответа деталей — это был бы ключевой арт');
+  env.requests[0].ok({ id: 11, backdrop_path: '/b1.jpg', images: W3_IMAGES });
+  assert.deepEqual(frameLoads(env), ['/scene.jpg'], 'кадр героя — второй кадр без надписей');
+  env.images.find((i) => /scene/.test(i.src)).onload();
+  assert.equal(stageOf(heroOf(main.activity)).find('.lumen-hero__bg--a').attr('src'), 'https://img/t/p/w1280/scene.jpg');
+  assert.deepEqual(warnLog, []);
+});
+
+test('волна 3: детали не пришли за 900 мс — кадр по backdrop_path, поздние детали кадр не меняют', () => {
+  const env = makeEnv();
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  fireFocus(main.activity, main.card1);
+  env.advance(400);
+  env.advance(850);
+  assert.deepEqual(frameLoads(env), [], 'ждём детали до 900 мс после показа');
+  env.advance(100);
+  assert.deepEqual(frameLoads(env), ['/b1.jpg'], 'детали не пришли — кадр по данным ряда');
+  env.images.find((i) => /b1\.jpg/.test(i.src)).onload();
+  /* Поздний ответ дорисовывает текст, а кадр не трогает: вторая смена кадра
+     на той же карточке была бы ровно той подменой, от которой уходим. */
+  env.requests[0].ok({ id: 11, backdrop_path: '/b1.jpg', runtime: 90, images: W3_IMAGES });
+  assert.deepEqual(frameLoads(env), ['/b1.jpg'], 'поздние детали догрузили второй кадр');
+  assert.equal(stageOf(heroOf(main.activity)).find('.lumen-hero__bg--a').attr('src'), 'https://img/t/p/w1280/b1.jpg');
+});
+
+test('волна 3: детали из кэша (синхронно) — кадр сразу, без ожидания', () => {
+  const env = makeEnv();
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  const tmdb = env.Lampa.Api.sources.tmdb;
+  const get = tmdb.get;
+  tmdb.get = (url, params, ok, err, opts) => ok({ id: 11, backdrop_path: '/b1.jpg', images: W3_IMAGES });
+  try {
+    fireFocus(main.activity, main.card1);
+    env.advance(400);
+  } finally {
+    tmdb.get = get;
+  }
+  assert.deepEqual(frameLoads(env), ['/scene.jpg']);
 });
 
 test('Task 64: слои кадра — img с decoding=async и высоким приоритетом', () => {
@@ -1832,6 +1985,7 @@ test('Task 64: предзагрузчик кадра просит высокий
   env.hero.mount(main.activity);
   fireFocus(main.activity, main.card1);
   env.advance(400);
+  answerDetails(env);
   assert.equal(env.images[0].fetchPriority, 'high');
 });
 
@@ -1983,6 +2137,7 @@ test('Task 64: у фильма без кадра подложки нет — п�
   const node = heroOf(main.activity);
   fireFocus(main.activity, main.card1);
   env.advance(400);
+  answerDetails(env);
   const lqip = stageOf(node).find('.lumen-hero__lqip');
   assert.equal(lqip.attr('src'), undefined, 'подложка для постера не нужна');
   assert.equal(lqip.hasClass('is-active'), false);
@@ -2004,6 +2159,7 @@ test('Task 64: другой фильм с тем же backdrop подложку 
   main.card1.addClass('focus');
   fireFocus(main.activity, main.card1);
   env.advance(400);
+  answerDetails(env);
   env.images[0].onload();
   assert.equal(lqip.attr('src'), 'https://img/t/p/w300/b1.jpg');
   const sets = [];
@@ -2016,6 +2172,7 @@ test('Task 64: другой фильм с тем же backdrop подложку 
   main.card2.addClass('focus');
   fireFocus(main.activity, main.card2);
   env.advance(400);
+  answerDetails(env);
   assert.equal(env.images.length, 1, 'и сам кадр второй раз не грузится — адрес тот же');
   assert.deepEqual(sets, [], 'подложку переставили тем же адресом: ' + sets.join(','));
   assert.equal(lqip.hasClass('is-active'), true, 'подложка осталась на экране');
@@ -2034,16 +2191,17 @@ test('Task 39: DPR 2 не поднимает логотип выше потол�
 
   fireFocus(main.activity, main.card1);
   env.advance(400);
-  assert.equal(env.images[0].src, 'https://img/t/p/original/b1.jpg',
-    '1920 CSS × DPR 2 = 3840 физических — кадр в original');
-  env.images[0].onload();
-
   /* Логотип приходит с деталями: рамка при DPR 2 — 1900 физических пикселей,
      но потолок логотипа w780 (ревью Task 39, п.4).
      Task 71: адрес у него запрашивает предзагрузчик, и фоном он встаёт
-     после того, как картинка доехала. */
+     после того, как картинка доехала. Волна 3: по этому же ответу
+     выбирается и кадр. */
   env.requests[0].ok({ id: 11, images: { logos: [{ file_path: '/l.png', aspect_ratio: 4, iso_639_1: 'ru' }] } });
-  const preload = env.images[env.images.length - 1];
+  const frame = env.images.find((i) => i.src.slice(-7) === '/b1.jpg');
+  assert.equal(frame.src, 'https://img/t/p/original/b1.jpg',
+    '1920 CSS × DPR 2 = 3840 физических — кадр в original');
+  frame.onload();
+  const preload = env.images.find((i) => i.src.slice(-6) === '/l.png');
   assert.equal(preload.src, 'https://img/t/p/w780/l.png');
   preload.onload();
   assert.equal(node.find('.lumen-hero__logo').css('background-image'), 'url("https://img/t/p/w780/l.png")');
@@ -2056,6 +2214,7 @@ test('Task 39: DPR 2 не поднимает логотип выше потол�
   noFrame.hero.mount(main2.activity);
   fireFocus(main2.activity, main2.card1);
   noFrame.advance(400);
+  answerDetails(noFrame);
   assert.equal(noFrame.images[0].src, 'https://img/t/p/w92/p.jpg', 'размытый фон крошечный при любом DPR');
 });
 
@@ -3087,7 +3246,8 @@ test('Task 71: у предзагрузчика логотипа приорите
   const { env } = heroIn('lite');
   env.advance(200);
   env.requests[0].ok(LOGO_RU);
-  assert.equal(env.images[0].fetchPriority, 'high', 'кадр героя грузится первым по приоритету');
+  /* Волна 3: кадр выбирается по тому же ответу деталей, что принёс логотип. */
+  assert.equal(frameImg(env, '/b1.jpg').fetchPriority, 'high', 'кадр героя грузится первым по приоритету');
   assert.equal(logoLoader(env).fetchPriority, undefined, 'логотипу высокий приоритет не положен');
   assert.equal(logoLoader(env).decoding, 'async');
 });
@@ -3400,9 +3560,9 @@ test('«Только кадры»: кадры фильма сменяются п
     const node = heroOf(main.activity);
     focusOn(main, main.card1);
     env.advance(400);
-    env.images[0].onload();
-    assert.equal(stageOf(node).find('.lumen-hero__bg--a').attr('src'), 'https://img/t/p/w1280/b1.jpg');
     detailsOf(env, 11).ok(FRAMES(11, '/b1.jpg'));
+    frameImg(env, '/b1.jpg').onload();
+    assert.equal(stageOf(node).find('.lumen-hero__bg--a').attr('src'), 'https://img/t/p/w1280/b1.jpg');
     assert.equal(env.live().length, 1, 'смена кадров заведена по деталям, без лишнего запроса');
     assert.equal(env.live()[0].ms, 14000);
 
@@ -3429,6 +3589,33 @@ test('«Только кадры»: кадры фильма сменяются п
   } finally { env.restore(); }
 });
 
+/* Волна 3: кадр героя — не ключевой арт, и смена кадров начинается с
+   выбранного кадра, а сам ключевой арт в ротацию героя не идёт — иначе
+   через интервал на экране снова стоял бы постер ряда. У карточки фильма
+   ротация прежняя (src/50_backdrops.js не тронут). */
+test('волна 3: смена кадров героя начинается с выбранного кадра, ключевого арта в ней нет', () => {
+  const env = slidesEnv();
+  try {
+    const main = makeMain();
+    env.hero.mount(main.activity);
+    focusOn(main, main.card1);
+    env.advance(400);
+    const sized = (p) => ({ file_path: p, iso_639_1: null, width: 1920, height: 1080, aspect_ratio: 1.778 });
+    detailsOf(env, 11).ok({ id: 11, backdrop_path: '/b1.jpg', images: { logos: [], backdrops: [sized('/b1.jpg'), sized('/f2.jpg'), sized('/f3.jpg')] } });
+    frameImg(env, '/f2.jpg').onload();
+    assert.equal(env.live().length, 1, 'смена кадров не заведена');
+    const shown = [];
+    for (let i = 0; i < 4; i++) {
+      env.live()[0].fn();
+      const img = env.images[env.images.length - 1];
+      shown.push(img.src.replace('https://img/t/p/w1280', ''));
+      img.onload();
+    }
+    assert.deepEqual(shown, ['/f3.jpg', '/f2.jpg', '/f3.jpg', '/f2.jpg'], 'по кругу — только кадры без ключевого арта');
+    assert.deepEqual(warnLog, []);
+  } finally { env.restore(); }
+});
+
 test('«Только кадры»: фокус в рядах — пауза, смена карточки снимает таймер прошлой', () => {
   const env = slidesEnv();
   try {
@@ -3437,8 +3624,8 @@ test('«Только кадры»: фокус в рядах — пауза, см
     const node = heroOf(main.activity);
     focusOn(main, main.card1);
     env.advance(400);
-    env.images[0].onload();
     detailsOf(env, 11).ok(FRAMES(11, '/b1.jpg'));
+    frameImg(env, '/b1.jpg').onload();
     const first = env.live()[0];
 
     /* Вторая карточка — во втором ряду: герой сжат. */
@@ -3477,8 +3664,8 @@ test('«Только кадры»: уход в карточку ставит с�
     const node = heroOf(main.activity);
     focusOn(main, main.card1);
     env.advance(400);
-    env.images[0].onload();
     detailsOf(env, 11).ok(FRAMES(11, '/b1.jpg'));
+    frameImg(env, '/b1.jpg').onload();
     env.live()[0].fn();
     env.images[env.images.length - 1].onload();
     const a = stageOf(node).find('.lumen-hero__bg--a');
@@ -3510,8 +3697,8 @@ test('«Кадры и трейлер» (по умолчанию) в lite: кад
     const node = heroOf(main.activity);
     focusOn(main, main.card1);
     env.advance(400);
-    frameImg(env, '/b1.jpg').onload();
     detailsOf(env, 11).ok(FRAMES(11, '/b1.jpg'));
+    frameImg(env, '/b1.jpg').onload();
     assert.equal(env.live().length, 1, 'смена кадров заведена и в режиме с трейлером');
 
     env.advance(8200);
@@ -3544,8 +3731,8 @@ test('«Интервал смены кадров» на лету: идущая �
     env.hero.mount(main.activity);
     focusOn(main, main.card1);
     env.advance(400);
-    frameImg(env, '/b1.jpg').onload();
     detailsOf(env, 11).ok(FRAMES(11, '/b1.jpg'));
+    frameImg(env, '/b1.jpg').onload();
     assert.equal(env.live()[0].ms, 14000);
 
     env.interval.ms = 8000;
@@ -3563,8 +3750,8 @@ test('«Интервал смены кадров» на лету под игра
     env.hero.mount(main.activity);
     focusOn(main, main.card1);
     env.advance(400);
-    frameImg(env, '/b1.jpg').onload();
     detailsOf(env, 11).ok(FRAMES(11, '/b1.jpg'));
+    frameImg(env, '/b1.jpg').onload();
     env.advance(8200);
     lastVideos(env).ok(VIDEOS_RU);
     env.players[0].onStart();
@@ -3587,8 +3774,8 @@ test('«Кадры и трейлер»: конец ролика в сжатом 
     env.hero.mount(main.activity);
     focusOn(main, main.card1);
     env.advance(400);
-    frameImg(env, '/b1.jpg').onload();
     detailsOf(env, 11).ok(FRAMES(11, '/b1.jpg'));
+    frameImg(env, '/b1.jpg').onload();
     env.advance(8200);
     lastVideos(env).ok(VIDEOS_RU);
     env.players[0].onStart();
@@ -3615,8 +3802,8 @@ test('«Кадры и трейлер»: возврат из сжатого со�
     env.hero.mount(main.activity);
     focusOn(main, main.card1);
     env.advance(400);
-    frameImg(env, '/b1.jpg').onload();
     detailsOf(env, 11).ok(FRAMES(11, '/b1.jpg'));
+    frameImg(env, '/b1.jpg').onload();
     env.advance(8200);
     lastVideos(env).ok(VIDEOS_RU);
     env.players[0].onStart();
@@ -3638,8 +3825,8 @@ test('«Только кадры» с тяжёлыми эффектами: уше
     const node = heroOf(main.activity);
     focusOn(main, main.card1);
     env.advance(400);
-    frameImg(env, '/b1.jpg').onload();
     detailsOf(env, 11).ok(FRAMES(11, '/b1.jpg'));
+    frameImg(env, '/b1.jpg').onload();
     env.live()[0].fn();
     frameImg(env, '/f2.jpg').onload();
     const a = stageOf(node).find('.lumen-hero__bg--a');
@@ -3660,8 +3847,8 @@ test('«Что показывает кадр главной» на лету: «�
     const hero = heroOf(main.activity);
     focusOn(main, main.card1);
     env.advance(400);
-    env.images[0].onload();
     detailsOf(env, 11).ok(FRAMES(11, '/b1.jpg'));
+    frameImg(env, '/b1.jpg').onload();
     assert.equal(env.live().length, 1, 'кадры идут и в режиме с трейлером');
     env.advance(8200);
     lastVideos(env).ok(VIDEOS_RU);

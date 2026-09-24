@@ -183,6 +183,17 @@
     /* Волна 3: жанров в мете героя (разбор — у heroModel). */
     var HERO_GENRES = 2;
 
+    /* Волна 3: кадр героя ≠ ключевой арт постера (разбор — у heroBackdrop):
+       ширина кадра не меньше HERO_BD_MIN_W, пропорция — 16:9 с допуском. */
+    var HERO_BD_MIN_W = 1280;
+    var HERO_BD_RATIO = 1.778;
+    var HERO_BD_RATIO_TOL = 0.05;
+
+    /* Волна 3: сколько show() ждёт ответ деталей, прежде чем взять кадр по
+       данным ряда (разбор — у show). Ответы деталей на стенде — 41…247 мс
+       (замер у writeTitle); 900 — с запасом на прокси пользователя. */
+    var FRAME_WAIT = 900;
+
     /* ------------------------------------------------------------------ */
     /* Чистые функции (без DOM, Lampa и window).                           */
     /* ------------------------------------------------------------------ */
@@ -283,6 +294,35 @@
       return date ? date.slice(0, 4) : '';
     }
 
+    /* Волна 3 (проверка на ТВ 2026-09-24): «карточка героя на стартовой и
+       карточка ниже почти одинаковые — текст и обложка одинаковые».
+       backdrop_path у TMDB — чаще всего тот же ключевой арт, что и постер
+       (самый популярный кадр, нередко с тем же кадрированием героев). Кадр
+       героя — первый по порядку TMDB кадр из images.backdrops, у которого
+       нет надписей (iso_639_1 пустой — тот же признак, что у отбора кадров
+       карточки, LC.backdrops.pickBackdrops), который не равен main
+       (backdrop_path), не уже HERO_BD_MIN_W и с пропорцией 16:9 (±
+       HERO_BD_RATIO_TOL; в кадре во весь экран 16:9 он встаёт без
+       обрезки). Пропорция — aspect_ratio TMDB, без него — width/height; без
+       размеров кадр не берём (урезанный ответ прокси). Подходящего нет —
+       main: пустой герой хуже совпадения с постером.
+       Новых запросов это не стоит: images уже приходят в ответе деталей
+       (append_to_response, detailsRequest). Карточка фильма остаётся на
+       backdrop_path (src/50_backdrops.js). */
+    function heroBackdrop(images, main) {
+      var list = images && images.backdrops;
+      for (var i = 0; list && i < list.length; i++) {
+        var b = list[i];
+        if (!b || !b.file_path || b.iso_639_1 || b.file_path === main) continue;
+        var w = Number(b.width) || 0;
+        var h = Number(b.height) || 0;
+        var ratio = Number(b.aspect_ratio) || (w > 0 && h > 0 ? w / h : 0);
+        if (w < HERO_BD_MIN_W || !(Math.abs(ratio - HERO_BD_RATIO) < HERO_BD_RATIO_TOL)) continue;
+        return b.file_path;
+      }
+      return main || '';
+    }
+
     /* Модель героя: card — это el.card_data ряда (есть сразу), details —
        ответ movie/{id}|tv/{id} с images (приходит позже, может не прийти
        вовсе). words — строки интерфейса (собирает runtime из LC.STRINGS),
@@ -333,7 +373,9 @@
         id: card.id,
         media: media,
         title: card.title || card.name || '',
-        backdrop: (details && details.backdrop_path) || card.backdrop_path || '',
+        /* Волна 3: с деталями — кадр без надписей, не ключевой арт
+           (heroBackdrop); до деталей — backdrop_path ряда. */
+        backdrop: heroBackdrop(details && details.images, (details && details.backdrop_path) || card.backdrop_path || ''),
         poster: card.poster_path || (details && details.poster_path) || '',
         logo: logoItem ? logoItem.file_path : null,
         /* Пропорция нужна рантайму, чтобы дать логотипу размер по площади
@@ -793,6 +835,8 @@
       stopTimer('swapTimer');
       /* Правка 2026-09-22: ожидание логотипа прошлой карточки — тоже. */
       stopTimer('titleTimer');
+      /* Волна 3: ожидание деталей перед выбором кадра (startFrame). */
+      stopTimer('frameWait');
       /* Task 71: предзагрузка логотипа — такой же незавершённый запрос
          прошлой карточки, как кадр. Её страховочный таймаут живёт внутри
          preloadLogo и снимается вместе с ней. */
@@ -1255,7 +1299,19 @@
       if (!slidesAllowed() || !state.details || !model || !model.backdrop) return;
       if (!LC.slideshow || !LC.backdrops) return;
       try {
-        var paths = LC.backdrops.pickBackdrops(state.details.images, model.backdrop, LC.slideshow.maxFramesFor(motionMode()));
+        /* Волна 3: круг начинается с кадра, который на экране (выбран
+           startFrame; до выбора — heroBackdrop модели), а ключевой арт
+           (backdrop_path) в ротацию героя не идёт, если на экране не он:
+           иначе через интервал на месте героя снова стоял бы постер ряда.
+           Карточке фильма ротацию это не меняет — у неё свой вызов
+           pickBackdrops (src/50_backdrops.js). */
+        var main = state.framePath || model.backdrop;
+        var keyArt = state.details.backdrop_path || (state.shownCard && state.shownCard.backdrop_path) || '';
+        var images = state.details.images;
+        if (keyArt && keyArt !== main && images && images.backdrops) {
+          images = { backdrops: LC.util.filter(images.backdrops, function (b) { return !b || b.file_path !== keyArt; }) };
+        }
+        var paths = LC.backdrops.pickBackdrops(images, main, LC.slideshow.maxFramesFor(motionMode()));
         if (!paths || paths.length <= 1) return;
         state.slides = LC.slideshow.create(state.node, paths, {
           enabled: slidesAllowed,
@@ -1861,9 +1917,9 @@
                ответа. В lite/off и при настройке «Выключены» вызов не
                создаёт ни канваса, ни кадрового цикла (src/52_fx.js). */
             applyFx();
-            /* Кадра не было в данных ряда, но он есть в деталях — только
-               тогда грузим второй раз: лишний большой кадр на ТВ дорог. */
-            if (!state.frameUrl && model.backdrop) loadFrame(model, captured);
+            /* Волна 3: кадр героя выбирается по этому ответу (heroBackdrop
+               в heroModel), если show() его ещё ждёт (startFrame). */
+            startFrame(model, captured);
             /* «Несколько кадров»: кадры фильма — из этого же ответа. */
             startSlides(model, captured);
           },
@@ -1879,12 +1935,38 @@
             var fallback = heroModel(card, null, words());
             fallback.pending = false;
             render(fallback, false);
+            /* Волна 3: деталей не будет — кадр по данным ряда сразу, не
+               дожидаясь FRAME_WAIT. */
+            startFrame(fallback, captured);
           },
           { life: req.life }
         );
       } catch (e) {
         warn('hero: details failed', e);
       }
+    }
+
+    /* Волна 3 (проверка на ТВ 2026-09-24): кадр показа выбирается ОДИН раз.
+       show() не грузит кадр по данным ряда сразу, как раньше: там
+       backdrop_path — ключевой арт, повторяющий постер под героем
+       («текст и обложка одинаковые»). Кадр выбирает heroBackdrop по images
+       из ответа деталей; ответ из кэша Lampa (life — сутки) приходит
+       синхронно, и ожидания нет вовсе, а за новым show() ждёт не дольше
+       FRAME_WAIT — дальше кадр по данным ряда (таймер frameWait в show).
+       state.framePath: null — ещё не выбран; '' — выбран постер вместо
+       кадра (у фильма нет backdrop_path); путь — выбран кадр.
+       Выбранный кадр поздний ответ не меняет: вторая смена кадра той же
+       карточки — та самая подмена на глазах, от которой уходим. Одно
+       исключение — постер: если детали принесли настоящий кадр, он
+       ставится (прежнее правило «кадра не было в данных ряда, но он есть в
+       деталях»). */
+    function startFrame(model, captured) {
+      if (!state || gen !== captured || !model) return;
+      if (state.framePath) return;
+      if (state.framePath === '' && !model.backdrop) return;
+      stopTimer('frameWait');
+      state.framePath = model.backdrop || '';
+      loadFrame(model, captured);
     }
 
     /* Показать героя для карточки. Вызывается только из отложенного тика
@@ -1910,10 +1992,21 @@
            рождественского фильма висел бы над кадром следующего, пока не
            придут его детали. */
         clearFx();
+        /* Волна 3: кадр выбирается по деталям (startFrame) — сначала
+           запрос, потом, если ответ не пришёл синхронно из кэша, отсчёт
+           FRAME_WAIT до кадра по данным ряда. */
+        state.framePath = null;
         var model = heroModel(card, null, words());
         render(model, true);
-        loadFrame(model, captured);
         loadDetails(card, captured);
+        /* В «Выкл» кадр не грузится вовсе (loadFrame) — и ждать нечего. */
+        if (gen === captured && state && state.framePath === null && motionMode() !== 'off') {
+          state.frameWait = setTimeout(function () {
+            if (gen !== captured || !state) return;
+            state.frameWait = null;
+            startFrame(heroModel(card, null, words()), captured);
+          }, FRAME_WAIT);
+        }
       } catch (e) {
         warn('hero: show failed', e);
       }
@@ -2410,6 +2503,10 @@
           pending: null,
           focusAt: 0,
           frameUrl: '',
+          /* Волна 3: кадр этого показа — null, пока не выбран (startFrame), и
+             таймер ожидания деталей перед выбором. */
+          framePath: null,
+          frameWait: null,
           /* Task 64: адрес кадра-подложки (w300), чтобы тот же не ставился
              дважды. */
           lqipUrl: '',
@@ -2512,7 +2609,7 @@
       } catch (eTween) {
         warn('hero: accent stop failed', eTween);
       }
-      var timers = ['timer', 'swapTimer', 'loadTimer', 'accentTimer', 'trailerTimer', 'lqipTimer', 'titleTimer'];
+      var timers = ['timer', 'swapTimer', 'loadTimer', 'accentTimer', 'trailerTimer', 'lqipTimer', 'titleTimer', 'frameWait'];
       for (var i = 0; i < timers.length; i++) {
         try { if (s[timers[i]]) clearTimeout(s[timers[i]]); } catch (eT) {}
       }
@@ -2613,7 +2710,7 @@
          запросом деталей. Карточку в фокусе на возврате это не задевает:
          другая карточка показывается по несовпадению shownId, а та же —
          и так на экране целиком. Сам таймер park гасит ниже. */
-      if (state.detailsWait || state.loader || state.logoLoader || state.swapTimer || state.loadTimer || state.titleTimer) {
+      if (state.detailsWait || state.loader || state.logoLoader || state.swapTimer || state.loadTimer || state.titleTimer || state.frameWait) {
         state.stale = true;
       }
       state.parked = true;
@@ -2753,6 +2850,9 @@
       CARD_TITLE_EM: CARD_TITLE_EM,
       mediaOf: mediaOf,
       heroModel: heroModel,
+      /* Волна 3: выбор кадра героя — наружу ради теста, применяет его сам
+         модуль (heroModel). */
+      heroBackdrop: heroBackdrop,
       shouldUpdate: shouldUpdate,
       sizeFor: sizeFor,
       logoSizeFor: logoSizeFor,

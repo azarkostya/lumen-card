@@ -12600,6 +12600,17 @@ var HERO_GENRES = 2;
 
 
 
+var HERO_BD_MIN_W = 1280;
+var HERO_BD_RATIO = 1.778;
+var HERO_BD_RATIO_TOL = 0.05;
+
+
+
+
+var FRAME_WAIT = 900;
+
+
+
 
 
 
@@ -12705,6 +12716,35 @@ return date ? date.slice(0, 4) : '';
 
 
 
+
+
+
+
+
+
+
+
+function heroBackdrop(images, main) {
+var list = images && images.backdrops;
+for (var i = 0; list && i < list.length; i++) {
+var b = list[i];
+if (!b || !b.file_path || b.iso_639_1 || b.file_path === main) continue;
+var w = Number(b.width) || 0;
+var h = Number(b.height) || 0;
+var ratio = Number(b.aspect_ratio) || (w > 0 && h > 0 ? w / h : 0);
+if (w < HERO_BD_MIN_W || !(Math.abs(ratio - HERO_BD_RATIO) < HERO_BD_RATIO_TOL)) continue;
+return b.file_path;
+}
+return main || '';
+}
+
+
+
+
+
+
+
+
 function heroModel(card, details, words) {
 if (!card) return null;
 words = words || {};
@@ -12748,7 +12788,9 @@ return {
 id: card.id,
 media: media,
 title: card.title || card.name || '',
-backdrop: (details && details.backdrop_path) || card.backdrop_path || '',
+
+
+backdrop: heroBackdrop(details && details.images, (details && details.backdrop_path) || card.backdrop_path || ''),
 poster: card.poster_path || (details && details.poster_path) || '',
 logo: logoItem ? logoItem.file_path : null,
 
@@ -13208,6 +13250,8 @@ stopTimer('loadTimer');
 stopTimer('swapTimer');
 
 stopTimer('titleTimer');
+
+stopTimer('frameWait');
 
 
 
@@ -13670,7 +13714,19 @@ if (!state || state.slides || gen !== captured || state.parked) return;
 if (!slidesAllowed() || !state.details || !model || !model.backdrop) return;
 if (!LC.slideshow || !LC.backdrops) return;
 try {
-var paths = LC.backdrops.pickBackdrops(state.details.images, model.backdrop, LC.slideshow.maxFramesFor(motionMode()));
+
+
+
+
+
+
+var main = state.framePath || model.backdrop;
+var keyArt = state.details.backdrop_path || (state.shownCard && state.shownCard.backdrop_path) || '';
+var images = state.details.images;
+if (keyArt && keyArt !== main && images && images.backdrops) {
+images = { backdrops: LC.util.filter(images.backdrops, function (b) { return !b || b.file_path !== keyArt; }) };
+}
+var paths = LC.backdrops.pickBackdrops(images, main, LC.slideshow.maxFramesFor(motionMode()));
 if (!paths || paths.length <= 1) return;
 state.slides = LC.slideshow.create(state.node, paths, {
 enabled: slidesAllowed,
@@ -14278,7 +14334,7 @@ render(model, false);
 applyFx();
 
 
-if (!state.frameUrl && model.backdrop) loadFrame(model, captured);
+startFrame(model, captured);
 
 startSlides(model, captured);
 },
@@ -14294,12 +14350,38 @@ if (!isMounted()) return;
 var fallback = heroModel(card, null, words());
 fallback.pending = false;
 render(fallback, false);
+
+
+startFrame(fallback, captured);
 },
 { life: req.life }
 );
 } catch (e) {
 warn('hero: details failed', e);
 }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function startFrame(model, captured) {
+if (!state || gen !== captured || !model) return;
+if (state.framePath) return;
+if (state.framePath === '' && !model.backdrop) return;
+stopTimer('frameWait');
+state.framePath = model.backdrop || '';
+loadFrame(model, captured);
 }
 
 
@@ -14325,10 +14407,21 @@ state.titleForced = false;
 
 
 clearFx();
+
+
+
+state.framePath = null;
 var model = heroModel(card, null, words());
 render(model, true);
-loadFrame(model, captured);
 loadDetails(card, captured);
+
+if (gen === captured && state && state.framePath === null && motionMode() !== 'off') {
+state.frameWait = setTimeout(function () {
+if (gen !== captured || !state) return;
+state.frameWait = null;
+startFrame(heroModel(card, null, words()), captured);
+}, FRAME_WAIT);
+}
 } catch (e) {
 warn('hero: show failed', e);
 }
@@ -14827,6 +14920,10 @@ focusAt: 0,
 frameUrl: '',
 
 
+framePath: null,
+frameWait: null,
+
+
 lqipUrl: '',
 
 lqipTimer: null,
@@ -14927,7 +15024,7 @@ if (LC.accent && typeof LC.accent.stopTween === 'function') LC.accent.stopTween(
 } catch (eTween) {
 warn('hero: accent stop failed', eTween);
 }
-var timers = ['timer', 'swapTimer', 'loadTimer', 'accentTimer', 'trailerTimer', 'lqipTimer', 'titleTimer'];
+var timers = ['timer', 'swapTimer', 'loadTimer', 'accentTimer', 'trailerTimer', 'lqipTimer', 'titleTimer', 'frameWait'];
 for (var i = 0; i < timers.length; i++) {
 try { if (s[timers[i]]) clearTimeout(s[timers[i]]); } catch (eT) {}
 }
@@ -15028,7 +15125,7 @@ if (!state || state.parked) return;
 
 
 
-if (state.detailsWait || state.loader || state.logoLoader || state.swapTimer || state.loadTimer || state.titleTimer) {
+if (state.detailsWait || state.loader || state.logoLoader || state.swapTimer || state.loadTimer || state.titleTimer || state.frameWait) {
 state.stale = true;
 }
 state.parked = true;
@@ -15168,6 +15265,9 @@ TITLE_WAIT: TITLE_WAIT,
 CARD_TITLE_EM: CARD_TITLE_EM,
 mediaOf: mediaOf,
 heroModel: heroModel,
+
+
+heroBackdrop: heroBackdrop,
 shouldUpdate: shouldUpdate,
 sizeFor: sizeFor,
 logoSizeFor: logoSizeFor,
