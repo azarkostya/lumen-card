@@ -20166,6 +20166,12 @@ return applyFilters(pool, filters, context(), media);
 
 
 
+
+
+
+
+
+
 function loadPool(done) {
 var key = keyOf();
 if (pool.length && poolKey === key) { done(); return; }
@@ -20731,6 +20737,7 @@ try { self.activity.loader(false); } catch (e) { }
 
 
 if (!paused) schedulePreview();
+
 
 
 
