@@ -32,8 +32,8 @@
   /* Снятие рядов: _addedRows + ContentRows.remove — тот же паттерн,       */
   /* что в LC.rows. doUnregister() вызывается из register() и unregister(). */
   /*                                                                       */
-  /* Цена запросов: «Потому что вы смотрели» — не более BECAUSE_LIMIT (2)  */
-  /* исходных карточек; «Новые серии» — не более SHOWS_LIMIT (6) сериалов. */
+  /* Цена запросов: «Потому что вы смотрели» — один исходный фильм, один   */
+  /* запрос; «Новые серии» — не более SHOWS_LIMIT (6) сериалов.            */
   /* Все сетевые ряды закрываются общим сборщиком LC.util.gate с дедлайном  */
   /* ROW_TIMEOUT: не дождавшись всех ответов, ряд отдаёт то, что успело     */
   /* прийти — страховка от запроса, который не ответит никогда. Цена        */
@@ -52,9 +52,6 @@
   /* -------------------------------------------------------------------- */
 
   LC.personal = (function () {
-
-    /* Максимум исходных карточек для «Потому что вы смотрели». */
-    var BECAUSE_LIMIT = 2;
 
     /* Максимум сериалов для «Новые серии». Это ровно столько ПАРАЛЛЕЛЬНЫХ
        запросов tv/{id}, и все они попадают в первую пачку главной (ряд стоит
@@ -178,13 +175,18 @@
     /* ------------------------------------------------------------------ */
 
     /* Возвращает последние n уникальных карточек из history с известными id.
-       history — массив карточек (объекты TMDB), читается от конца (свежие).
+       history — массив карточек (объекты TMDB) в порядке Lampa: ОТ НОВЫХ К
+       СТАРЫМ. Favorite.add вставляет id в начало списка, повторный просмотр
+       переносит его в начало (vendor/lampa/app.min.js:22339, 22359-22360),
+       синхронизация CUB — так же (:22941-22957). До волны 4 история читалась
+       с конца, и ряд вечно стоял на самом старом фильме («Побег из
+       Шоушенка» на фото с ТВ 2026-09-24).
        Результат: [{id, media, title}], где media = 'movie' | 'tv'. */
     function pickBecause(history, n) {
       if (!history || !history.length || n <= 0) return [];
       var seen = {};
       var out = [];
-      for (var i = history.length - 1; i >= 0 && out.length < n; i--) {
+      for (var i = 0; i < history.length && out.length < n; i++) {
         var c = history[i];
         if (!c || c.id == null) continue;
         if (seen[c.id]) continue;
@@ -520,71 +522,75 @@
       };
     }
 
-    /* Заголовок ряда «Потому что вы смотрели: «X»» по первой карточке
-       выборки. Двоеточие избавляет от необходимости склонять произвольное
+    /* Заголовок ряда «Потому что вы смотрели: «X»» по исходному фильму.
+       Двоеточие избавляет от необходимости склонять произвольное
        название фильма, что нереализуемо без словаря (например,
        «Оппенгеймер» → родительный «Оппенгеймера» неоднозначен для
        автоматики без морфологического анализатора). */
-    function becauseTitle(picked) {
+    function becauseTitle(card) {
       var title = LC.lang ? LC.lang('lumen_row_because') : 'Because you watched';
-      if (picked && picked[0] && picked[0].title) title += ': «' + picked[0].title + '»';
+      if (card && card.title) title += ': «' + card.title + '»';
       return title;
     }
 
-    /* «Потому что вы смотрели «X»»:
-       для каждой карточки из picked запрашивает recommendations через Lampa.
-       Долг фазы 2 (docs/plans/2026-09-15-lumen-phase2-main.md:373): picked
-       захватывался при register(), то есть раз за активацию плагина, и ряд
+    /* Исходный фильм ряда: anchor(history) — выбор снаружи (план главной
+       крутит его по эпохе, src/47_homeplan.js); без него — самый свежий
+       фильм истории. */
+    function anchorOf(history, anchor) {
+      if (typeof anchor === 'function') return anchor(history) || null;
+      return pickBecause(history, 1)[0] || null;
+    }
+
+    /* «Потому что вы смотрели «X»»: recommendations ОДНОГО исходного фильма.
+       Волна 4 (ТВ 2026-09-24): рекомендации шли к двум фильмам, а заголовок
+       называл первый — в ряду «Потому что вы смотрели: «Побег из Шоушенка»»
+       стояла «Кунг-фу Панда». Теперь заголовок и содержимое — один фильм.
+       Долг фазы 2 (docs/plans/2026-09-15-lumen-phase2-main.md:373): выборка
+       захватывалась при register(), то есть раз за активацию плагина, и ряд
        до конца сессии показывал фильм, с которого она началась. Теперь
        история читается на каждом вызове — Lampa зовёт call при каждой
        сборке главной, и новая главная видит последний просмотр. Заголовок
        приходит в ответе (title), поэтому меняется вместе с выборкой. */
-    function makeBecauseCall() {
+    function makeBecauseCall(anchor) {
       return function (params, screen) {
         return function (call) {
           var gen = _gen;
           function alive() { return _gen === gen; }
           /* Ровно один ответ Lampa при любом исходе — см. шапку модуля. */
           var resolve = makeResolver(call);
-          var picked = alive() ? pickBecause(getHistory(), BECAUSE_LIMIT) : null;
-          var rowTitle = becauseTitle(picked);
-          if (!alive() || !picked || !picked.length) {
+          var card = alive() ? anchorOf(getHistory(), anchor) : null;
+          if (!alive() || !card) {
             resolve({ results: [] }); return { cancel: function () {} };
           }
+          var rowTitle = becauseTitle(card);
           var results = [];
           var cancelled = false;
 
-          /* Ответы собирает общий сборщик с дедлайном (LC.util.gate):
-             ряд закрывается либо когда ответили все, либо по ROW_TIMEOUT —
-             тем, что успело прийти. */
-          var gate = LC.util.gate(picked.length, ROW_TIMEOUT, function () {
+          /* Ответ ждёт общий сборщик с дедлайном (LC.util.gate): ряд
+             закрывается либо ответом, либо по ROW_TIMEOUT — пустым. */
+          var gate = LC.util.gate(1, ROW_TIMEOUT, function () {
             if (cancelled || !alive()) return;
             resolve({ results: results, title: rowTitle, lumen_personal: true });
           });
 
-          for (var i = 0; i < picked.length; i++) {
-            (function (card) {
-              var url = card.media + '/' + card.id + '/recommendations';
-              try {
-                Lampa.Api.sources.tmdb.get(
-                  url,
-                  { filter: { page: 1 } },
-                  function (json) {
-                    if (!alive()) return;
-                    var arr = (json && json.results) ? json.results : [];
-                    for (var k = 0; k < arr.length; k++) results.push(arr[k]);
-                    gate.tick();
-                  },
-                  function () {
-                    if (!alive()) return;
-                    gate.tick();
-                  },
-                  { life: 1440 }
-                );
-              } catch (e) {
+          try {
+            Lampa.Api.sources.tmdb.get(
+              card.media + '/' + card.id + '/recommendations',
+              { filter: { page: 1 } },
+              function (json) {
+                if (!alive()) return;
+                var arr = (json && json.results) ? json.results : [];
+                for (var k = 0; k < arr.length; k++) results.push(arr[k]);
                 gate.tick();
-              }
-            })(picked[i]);
+              },
+              function () {
+                if (!alive()) return;
+                gate.tick();
+              },
+              { life: 1440 }
+            );
+          } catch (e) {
+            gate.tick();
           }
 
           /* Отмена — только сборщик: запросов отменить нечем (шапка
@@ -770,11 +776,11 @@
          карточки. Сама выборка и заголовок пересчитываются на каждом вызове
          (makeBecauseCall); здесь — только решение, заводить ли ряд. */
       try {
-        var picked = pickBecause(getHistory(), BECAUSE_LIMIT);
-        if (picked && picked.length) {
+        var anchorCard = anchorOf(getHistory());
+        if (anchorCard) {
           addRow({
             name: 'lumen_because',
-            title: becauseTitle(picked),
+            title: becauseTitle(anchorCard),
             screen: 'main',
             index: 1,
             call: makeBecauseCall()

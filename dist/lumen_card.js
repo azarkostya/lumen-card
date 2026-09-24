@@ -9905,9 +9905,6 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 LC.personal = (function () {
 
 
-var BECAUSE_LIMIT = 2;
-
-
 
 
 
@@ -10031,11 +10028,16 @@ var _addedRows = [];
 
 
 
+
+
+
+
+
 function pickBecause(history, n) {
 if (!history || !history.length || n <= 0) return [];
 var seen = {};
 var out = [];
-for (var i = history.length - 1; i >= 0 && out.length < n; i--) {
+for (var i = 0; i < history.length && out.length < n; i++) {
 var c = history[i];
 if (!c || c.id == null) continue;
 if (seen[c.id]) continue;
@@ -10376,49 +10378,55 @@ return { cancel: function () {} };
 
 
 
-function becauseTitle(picked) {
+function becauseTitle(card) {
 var title = LC.lang ? LC.lang('lumen_row_because') : 'Because you watched';
-if (picked && picked[0] && picked[0].title) title += ': «' + picked[0].title + '»';
+if (card && card.title) title += ': «' + card.title + '»';
 return title;
 }
 
 
 
 
+function anchorOf(history, anchor) {
+if (typeof anchor === 'function') return anchor(history) || null;
+return pickBecause(history, 1)[0] || null;
+}
 
 
 
 
 
-function makeBecauseCall() {
+
+
+
+
+
+
+function makeBecauseCall(anchor) {
 return function (params, screen) {
 return function (call) {
 var gen = _gen;
 function alive() { return _gen === gen; }
 
 var resolve = makeResolver(call);
-var picked = alive() ? pickBecause(getHistory(), BECAUSE_LIMIT) : null;
-var rowTitle = becauseTitle(picked);
-if (!alive() || !picked || !picked.length) {
+var card = alive() ? anchorOf(getHistory(), anchor) : null;
+if (!alive() || !card) {
 resolve({ results: [] }); return { cancel: function () {} };
 }
+var rowTitle = becauseTitle(card);
 var results = [];
 var cancelled = false;
 
 
 
-
-var gate = LC.util.gate(picked.length, ROW_TIMEOUT, function () {
+var gate = LC.util.gate(1, ROW_TIMEOUT, function () {
 if (cancelled || !alive()) return;
 resolve({ results: results, title: rowTitle, lumen_personal: true });
 });
 
-for (var i = 0; i < picked.length; i++) {
-(function (card) {
-var url = card.media + '/' + card.id + '/recommendations';
 try {
 Lampa.Api.sources.tmdb.get(
-url,
+card.media + '/' + card.id + '/recommendations',
 { filter: { page: 1 } },
 function (json) {
 if (!alive()) return;
@@ -10434,8 +10442,6 @@ gate.tick();
 );
 } catch (e) {
 gate.tick();
-}
-})(picked[i]);
 }
 
 
@@ -10621,11 +10627,11 @@ call: makeContinueCall()
 
 
 try {
-var picked = pickBecause(getHistory(), BECAUSE_LIMIT);
-if (picked && picked.length) {
+var anchorCard = anchorOf(getHistory());
+if (anchorCard) {
 addRow({
 name: 'lumen_because',
-title: becauseTitle(picked),
+title: becauseTitle(anchorCard),
 screen: 'main',
 index: 1,
 call: makeBecauseCall()

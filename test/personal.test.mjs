@@ -79,15 +79,22 @@ test('pickBecause: пустая история → []', function () {
 test('pickBecause: n=0 → []', function () {
   assert.deepEqual(P.pickBecause([{ id: 1, title: 'A' }], 0), []);
 });
-test('pickBecause: берёт последние n карточек (от конца)', function () {
+/* Волна 4 (ТВ 2026-09-24): история Lampa идёт ОТ НОВЫХ К СТАРЫМ.
+   Favorite.add вставляет id в начало списка, повторный просмотр переносит
+   его в начало (Arrays.insert(data[where], 0, id), vendor/lampa/app.min.js:
+   22339 и 22359-22360), и синхронизация CUB делает то же
+   (Arrays.insert(bookmarks, 0, …), :22941-22957). Прежний тест читал её
+   с конца и закреплял ошибку: ряд вечно показывал самый старый фильм
+   истории — «Побег из Шоушенка» на фото пользователя. */
+test('pickBecause: берёт последние n карточек — история Lampa от новых к старым', function () {
   var history = [
-    { id: 1, title: 'A' },
+    { id: 3, title: 'C' }, /* посмотрен последним */
     { id: 2, title: 'B' },
-    { id: 3, title: 'C' }
+    { id: 1, title: 'A' }  /* самый старый */
   ];
   var result = P.pickBecause(history, 2);
   assert.equal(result.length, 2);
-  assert.equal(result[0].id, 3); /* последняя */
+  assert.equal(result[0].id, 3, 'первым — самый свежий');
   assert.equal(result[1].id, 2);
 });
 test('pickBecause: дедупликация по id', function () {
@@ -456,7 +463,9 @@ function isoDaysAgo(n) {
   return d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0') + '-' + String(d.getUTCDate()).padStart(2, '0');
 }
 
-test('дедлайн: «Потому что вы смотрели» отдаёт частичный результат', function () {
+/* Волна 4: у ряда один исходный фильм — значит один запрос, и дедлайн
+   закрывает ряд пустым, если этот запрос молчит. */
+test('дедлайн: «Потому что вы смотрели» молчащий запрос закрывает ряд пустым', function () {
   var s = setupRuntime({
     getFav: function (opts) { return opts.type === 'history' ? [{ id: 1, title: 'A' }, { id: 2, title: 'B' }] : []; }
   });
@@ -465,15 +474,36 @@ test('дедлайн: «Потому что вы смотрели» отдаёт
   var got = [];
   withFakeTimers(function (ctl) {
     row.call({}, {})(function (data) { got.push(data); });
-    assert.equal(s.tmdbCalls.length, 2, 'два запроса рекомендаций');
-    s.tmdbCalls[0].ok({ results: [{ id: 11 }, { id: 12 }] });
+    assert.equal(s.tmdbCalls.length, 1, 'один запрос рекомендаций на ряд');
     assert.equal(got.length, 0);
     ctl.fire(0);
     assert.equal(got.length, 1, 'по дедлайну ряд отвечает');
-    assert.equal(got[0].results.length, 2, 'отданы рекомендации первого ответа');
-    s.tmdbCalls[1].ok({ results: [{ id: 13 }] });
+    assert.deepEqual(got[0].results, [], 'ответа не было — ряд пустой, Lampa его не покажет');
+    s.tmdbCalls[0].ok({ results: [{ id: 13 }] });
     assert.equal(got.length, 1, 'call строго один раз');
   });
+});
+
+/* Волна 4, фото пользователя: заголовок «Потому что вы смотрели:
+   «Побег из Шоушенка»», а в ряду «Кунг-фу Панда» — рекомендации ко ДВУМ
+   фильмам, заголовок по первому. Ряд обязан говорить правду: один исходный
+   фильм, один запрос, заголовок — ровно он. */
+test('«Потому что вы смотрели»: один исходный фильм — один запрос и заголовок о нём же', function () {
+  var s = setupRuntime({
+    getFav: function (opts) {
+      return opts.type === 'history' ? [{ id: 7, title: 'Свежий' }, { id: 3, name: 'Сериал' }, { id: 1, title: 'Старый' }] : [];
+    }
+  });
+  s.api.register();
+  var row = rowByName(s, 'lumen_because');
+  assert.equal(row.title, 'lumen_row_because: «Свежий»', 'заголовок при регистрации — по тому же фильму');
+  var got = [];
+  row.call({}, {})(function (data) { got.push(data); });
+  assert.deepEqual(s.tmdbCalls.map(function (c) { return c.url; }), ['movie/7/recommendations'],
+    'рекомендации — только к фильму из заголовка');
+  s.tmdbCalls[0].ok({ results: [{ id: 70 }, { id: 71 }] });
+  assert.equal(got[0].title, 'lumen_row_because: «Свежий»');
+  assert.deepEqual(got[0].results.map(function (c) { return c.id; }), [70, 71]);
 });
 
 test('дедлайн: «Скоро на экранах» отдаёт частичный результат', function () {
@@ -736,14 +766,15 @@ test('«Потому что вы смотрели» и «Новые серии»
   s.tmdbCalls[0].ok({ results: [{ id: 11 }] });
   assert.equal(got[0].title, 'lumen_row_because: «Первый»');
 
-  /* Пользователь посмотрел другой фильм и вернулся на новую главную. */
-  history = [{ id: 1, title: 'Первый' }, { id: 2, title: 'Второй' }];
+  /* Пользователь посмотрел другой фильм и вернулся на новую главную.
+     Lampa кладёт новый просмотр в НАЧАЛО истории (Favorite.add,
+     vendor/lampa/app.min.js:22339). */
+  history = [{ id: 2, title: 'Второй' }, { id: 1, title: 'Первый' }];
   books = [{ id: 200, name: 'Сериал Б' }];
   s.tmdbCalls.length = 0;
   because.call({}, {})(function (data) { got.push(data); });
-  var urls = s.tmdbCalls.map(function (c) { return c.url; }).sort();
-  assert.deepEqual(urls, ['movie/1/recommendations', 'movie/2/recommendations'],
-    'вторая сборка обязана взять свежую историю');
+  assert.deepEqual(s.tmdbCalls.map(function (c) { return c.url; }), ['movie/2/recommendations'],
+    'вторая сборка обязана взять свежую историю — и только фильм из заголовка');
   s.tmdbCalls.forEach(function (c) { c.ok({ results: [] }); });
   assert.equal(got[1].title, 'lumen_row_because: «Второй»', 'заголовок — по последнему просмотру');
 
