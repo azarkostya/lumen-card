@@ -13384,6 +13384,9 @@ return date ? date.slice(0, 4) : '';
 
 
 
+
+
+
 function goodFrames(list, key) {
 var floor = 0;
 for (var k = 0; list && k < list.length; k++) {
@@ -13395,7 +13398,7 @@ break;
 var out = [];
 for (var i = 0; list && i < list.length; i++) {
 var b = list[i];
-if (b && Number(b.vote_count) >= 1 && Number(b.vote_average) >= floor) out.push(b);
+if (b && Number(b.vote_count) >= 1 && Number(b.vote_average) >= floor && Number(b.vote_average) >= HERO_BD_REJECT) out.push(b);
 }
 return out;
 }
@@ -14579,7 +14582,12 @@ intervalMs: slideInterval,
 show: function (path, done) {
 
 
-if (gen !== captured || !state || state.loader) return;
+
+
+
+
+
+if (gen !== captured || !state || state.loader || homeHidden()) return;
 loadFrame({ backdrop: path }, captured, function (ok) {
 if (ok) freeHidden(captured);
 done(ok);
@@ -15114,7 +15122,9 @@ state.loader = null;
 
 
 
-if (slide && focusAway()) return;
+
+
+if (slide && (focusAway() || state.parked)) return;
 
 
 
@@ -15133,6 +15143,9 @@ function shown() { finish(true); }
 loader.onload = function () { if (!decoding) shown(); };
 loader.onerror = function () { finish(false); };
 state.loader = loader;
+
+
+state.slideLoad = !!slide;
 
 
 
@@ -15289,6 +15302,7 @@ stopTimer('holdTimer');
 
 
 
+
 function holdFrame(captured, late) {
 if (!state || gen !== captured) return;
 stopTimer('holdTimer');
@@ -15318,7 +15332,17 @@ holdFrame(captured, true);
 return;
 }
 var poster = state.holdPoster;
+
+
+
+
 try {
+if (!poster) {
+var cards = state.root.find('.card');
+for (var c = 0; !poster && cards && c < cards.length; c++) {
+if (cards[c] && cards[c].card_data && String(cards[c].card_data.id) === String(state.shownId)) poster = rowPoster(cards[c]);
+}
+}
 if (poster) {
 swapFrame(poster, true);
 } else {
@@ -15888,6 +15912,8 @@ loadTimer: null,
 accentTimer: null,
 loader: null,
 
+slideLoad: false,
+
 
 logoLoader: null,
 
@@ -16117,8 +16143,13 @@ if (!state || state.parked) return;
 
 
 
+
+
+
+
 var holdLeft = state.holdDue && String(state.frameId) !== String(state.shownId);
-if (state.detailsWait || state.loader || state.logoLoader || state.swapTimer || state.loadTimer || state.titleTimer || state.frameWait || state.holdTimer || holdLeft) {
+var frameLeft = (state.loader || state.loadTimer) && !state.slideLoad;
+if (state.detailsWait || frameLeft || state.logoLoader || state.swapTimer || state.titleTimer || state.frameWait || state.holdTimer || holdLeft) {
 state.stale = true;
 }
 state.parked = true;

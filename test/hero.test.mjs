@@ -252,10 +252,19 @@ test('heroBackdrop: кандидат — только с голосами и н�
   /* У ключевого голосов нет (или его нет среди кадров — backdrop_path бывает
      с языком вне include_image_language) — планки по оценке нет, голоса у
      кандидата всё равно нужны. */
-  assert.equal(H.heroBackdrop({ backdrops: [frame('/key.jpg', 0, 0), frame('/any.jpg', 0.166, 1)] }, '/key.jpg'), '/any.jpg', 'ключевой без голосов — планки по оценке нет');
+  assert.equal(H.heroBackdrop({ backdrops: [frame('/key.jpg', 0, 0), frame('/any.jpg', 1.222, 1)] }, '/key.jpg'), '/any.jpg', 'ключевой без голосов — планки по оценке нет');
   assert.equal(H.heroBackdrop({ backdrops: [frame('/key.jpg', 6, 0), frame('/any.jpg', 1, 1)] }, '/key.jpg'), '/any.jpg', 'оценка ключевого без голосов — не планка');
   assert.equal(H.heroBackdrop({ backdrops: [frame('/any.jpg', 1, 1)] }, '/key.jpg'), '/any.jpg', 'ключевого нет среди кадров — планки по оценке нет');
   assert.equal(H.heroBackdrop({ backdrops: [frame('/key.jpg', 0, 0), frame('/novote.jpg', 0, 0)] }, '/key.jpg'), '/key.jpg', 'без голосов не берём и тогда');
+  /* Ревью tails4, п.7: без планки явно отвергнутый кадр (с голосами и
+     оценкой ниже HERO_BD_REJECT — его нет и в смене кадров, slideFrames)
+     первым не встаёт: первый кадр не мягче смены. */
+  assert.equal(H.heroBackdrop({ backdrops: [frame('/key.jpg', 0, 0), frame('/rej.jpg', 0.166, 1)] }, '/key.jpg'), '/key.jpg', 'ключевой 0/0 — отвергнутый 0.166/1 встал первым');
+  assert.equal(H.heroBackdrop({ backdrops: [frame('/rej.jpg', 0, 1)] }, '/key.jpg'), '/key.jpg', 'ключевого нет — отвергнутый 0/1 встал первым');
+  assert.equal(H.heroBackdrop({ backdrops: [frame('/key.jpg', 0, 0), frame('/rej.jpg', 0.958, 4), frame('/ok.jpg', 1.222, 3)] }, '/key.jpg'), '/ok.jpg',
+    'отвергнутый пропускаем, берём следующий');
+  assert.equal(H.heroBackdrop({ backdrops: [frame('/key.jpg', 1.5, 2), frame('/rej.jpg', 0.8, 5)] }, '/key.jpg'), '/key.jpg',
+    'планка ключевого (0.75) ниже порога отвергнутых — отвергнутый 0.8 встал первым');
 });
 
 test('heroModel: кадр героя из деталей — heroBackdrop, до деталей и без них — backdrop_path', () => {
@@ -2336,6 +2345,37 @@ test('ревью правок волны 3, п.6: возврат через «Е
   assert.equal(active().attr('src'), 'https://img/t/p/w300/p2.jpg', 'под текстом A нет его постера из ряда');
   assert.equal(active().hasClass('lumen-hero__bg--blur'), true, 'постер не помечен как размытый слой');
   assert.equal(env.images.filter((i) => /p2\.jpg/.test(i.src)).length, 0, 'постер из ряда грузился заново');
+  assert.deepEqual(warnLog, []);
+});
+
+/* Ревью tails3, п.3: при показе A в его карточке ряда стояла svg-заглушка
+   Lampa (постер ещё не пришёл), и запомненный постер пуст; к возврату через
+   «Ещё» постер в ряду уже настоящий. Заглушка — он (карточка ряда с тем же
+   card_data.id), а не нейтральный фон. */
+test('ревью tails3, п.3: при показе в ряду стояла svg-заглушка — на возврате через «Ещё» постер из ряда, а не нейтральный фон', () => {
+  const env = makeEnv({ fxHeavy: () => false });
+  const main = makeMain();
+  const other = makeMain();
+  main.card2.find('.card__img').attr('src', './img/img_load.svg');
+  env.hero.mount(main.activity);
+  const stage = shownFrame(env, main);
+  const active = () => stage.find('.lumen-hero__bg.is-active');
+
+  fireFocus(main.activity, main.card2);
+  env.advance(350);
+  detailsOf(env, 22).ok({ id: 22 });
+  env.advance(100);
+  assert.equal(active().attr('src'), 'https://img/t/p/w1280/b1.jpg', 'предусловие: под текстом A кадр прошлого фильма, отсчёт заглушки идёт');
+  main.card2.find('.card__img').attr('src', 'https://img/t/p/w300/p2.jpg');
+  main.line1.append(new FakeEl(['card-more', 'selector', 'focus']));
+  env.hero.detach(other.activity);
+
+  env.hero.mount(main.activity);
+  assert.equal(env.requests.filter((r) => r.url === 'movie/22').length, 2, 'предусловие: на возврате A показан заново');
+  env.advance(180);
+  env.advance(251);
+  assert.equal(active().attr('src'), 'https://img/t/p/w300/p2.jpg', 'под текстом A нет его постера из ряда');
+  assert.equal(active().hasClass('lumen-hero__bg--blur'), true);
   assert.deepEqual(warnLog, []);
 });
 
@@ -4862,6 +4902,85 @@ test('«Только кадры»: уход в карточку ставит с�
     assert.equal(env.requests.filter((r) => r.url === 'movie/11').length, 1, 'детали заново не спрашивались');
     assert.deepEqual(warnLog, []);
   } finally { env.restore(); }
+});
+
+/* Ревью tails3, п.4: тик смены повёл кадр, и OK увёл в карточку, пока тот
+   ехал (decode() отменить нечем — промис доезжает и после парковки). Кадр
+   под открытой карточкой не ставится, а парковка не считает его оборванной
+   загрузкой показанного фильма: кадр смены — не первый кадр, и на возврате
+   фильм заново не показывается (иначе первый кадр выбирался бы заново —
+   видимое переключение после «Назад»). Тик после возврата предлагает тот же
+   кадр снова. */
+test('ревью tails3, п.4: кадр смены, доехавший на парковке, не ставится, а возврат не показывает фильм заново', () => {
+  const env = slidesEnv();
+  try {
+    const main = makeMain();
+    const card = makeMain();
+    env.hero.mount(main.activity);
+    const a = stageOf(heroOf(main.activity)).find('.lumen-hero__bg--a');
+    focusOn(main, main.card1);
+    env.advance(400);
+    detailsOf(env, 11).ok(FRAMES(11, '/b1.jpg'));
+    frameImg(env, '/b1.jpg').onload();
+    env.live()[0].fn();
+    const late = frameImg(env, '/f2.jpg');
+    assert.ok(late, 'предусловие: тик смены повёл следующий кадр');
+    const arrive = late.onload;
+    env.hero.detach(card.activity);
+    arrive();
+    assert.equal(a.attr('src'), 'https://img/t/p/w1280/b1.jpg', 'кадр смены встал под открытой карточкой');
+
+    env.hero.mount(main.activity);
+    assert.equal(env.requests.filter((r) => r.url === 'movie/11').length, 1, 'на возврате фильм показан заново');
+    assert.equal(a.attr('src'), 'https://img/t/p/w1280/b1.jpg', 'на возврате кадр сменился');
+    assert.equal(env.live().length, 1, 'на возврате смена не продолжилась');
+    env.live()[0].fn();
+    const again = frameImg(env, '/f2.jpg');
+    assert.notEqual(again, late, 'после возврата тик не повёл кадр заново');
+    again.onload();
+    assert.equal(a.attr('src'), 'https://img/t/p/w1280/f2.jpg', 'после возврата тот же кадр не встал');
+    assert.deepEqual(warnLog, []);
+  } finally { env.restore(); }
+});
+
+/* Ревью tails4, п.6: под поиском, SearchInput и «Расширениями» главная
+   спрятана целиком (homeHidden), а смена кадров героя шла дальше — на
+   стенде две загрузки w1280 за 20 с. Тик там кадр не ведёт (очередь стоит
+   на месте); после закрытия смена идёт с того же кадра. */
+test('ревью tails4, п.6: под поиском и «Расширениями» кадры героя не сменяются — ни одной загрузки кадра', () => {
+  const env = slidesEnv();
+  const nodes = [];
+  const origQuery = globalThis.document.querySelector;
+  globalThis.document.querySelector = (sel) => (nodes.indexOf(sel) !== -1 ? {} : null);
+  try {
+    const main = makeMain();
+    env.hero.mount(main.activity);
+    const a = stageOf(heroOf(main.activity)).find('.lumen-hero__bg--a');
+    focusOn(main, main.card1);
+    env.advance(400);
+    detailsOf(env, 11).ok(FRAMES(11, '/b1.jpg'));
+    frameImg(env, '/b1.jpg').onload();
+    const before = env.images.length;
+
+    env.bodyClasses.push('ambience--enable');
+    env.live()[0].fn();
+    env.live()[0].fn();
+    assert.equal(env.images.length, before, 'под «Расширениями» тик смены повёл кадр');
+    env.bodyClasses.splice(env.bodyClasses.indexOf('ambience--enable'), 1);
+    nodes.push('.search-box');
+    env.live()[0].fn();
+    assert.equal(env.images.length, before, 'под SearchInput тик смены повёл кадр');
+    nodes.length = 0;
+
+    env.live()[0].fn();
+    assert.equal(env.images[before].src, 'https://img/t/p/w1280/f2.jpg', 'после закрытия смена не пошла со следующего кадра');
+    env.images[before].onload();
+    assert.equal(a.attr('src'), 'https://img/t/p/w1280/f2.jpg');
+    assert.deepEqual(warnLog, []);
+  } finally {
+    globalThis.document.querySelector = origQuery;
+    env.restore();
+  }
 });
 
 /* Проверка на ТВ 2026-09-24: «Кадры и трейлер» (по умолчанию) = кадры и

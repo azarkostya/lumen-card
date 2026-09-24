@@ -312,7 +312,10 @@
        ниже HERO_BD_VOTE_K от оценки ключевого арта key (кадр key в том же
        списке); нет у ключевого голосов или его самого в списке — планки по
        оценке нет, голоса у кадра всё равно нужны. Разбор чисел — у
-       heroBackdrop.
+       heroBackdrop. Ревью tails4, п.7: явно отвергнутый кадр (оценка ниже
+       HERO_BD_REJECT — его нет и в смене, slideFrames) не годится и без
+       планки, и при планке ниже порога: без этого ключевой 0/0 пропускал
+       первым кадр 0.166/1.
        Ревью правок волны 3, п.1 (6a76db3) отдало это правило и смене кадров
        (startSlides); ревью правок раунда хвостов, п.5, вернуло смене своё,
        мягкое — slideFrames ниже: со строгим смены кадров не было у 28 из 90
@@ -334,7 +337,7 @@
       var out = [];
       for (var i = 0; list && i < list.length; i++) {
         var b = list[i];
-        if (b && Number(b.vote_count) >= 1 && Number(b.vote_average) >= floor) out.push(b);
+        if (b && Number(b.vote_count) >= 1 && Number(b.vote_average) >= floor && Number(b.vote_average) >= HERO_BD_REJECT) out.push(b);
       }
       return out;
     }
@@ -1517,8 +1520,13 @@
           intervalMs: slideInterval,
           show: function (path, done) {
             /* Прошлый кадр ещё едет (медленная сеть) — тик пропускаем, не
-               заводя второго предзагрузчика: кадров в памяти не больше двух. */
-            if (gen !== captured || !state || state.loader) return;
+               заводя второго предзагрузчика: кадров в памяти не больше двух.
+               Ревью tails4, п.6: главная спрятана под поиском, SearchInput
+               или «Расширениями» (homeHidden) — кадр никто не увидит, тик
+               тоже пропускаем (на стенде — две загрузки w1280 за 20 с).
+               Очередь контроллера стоит на месте, и после закрытия смена
+               идёт с того же кадра. */
+            if (gen !== captured || !state || state.loader || homeHidden()) return;
             loadFrame({ backdrop: path }, captured, function (ok) {
               if (ok) freeHidden(captured);
               done(ok);
@@ -2052,8 +2060,10 @@
         /* Ревью правок волны 3, п.7: кадр смены повёл тик до ухода фокуса,
            а доехал после — не ставим и не докладываем: смена на паузе,
            очередь контроллера стоит на месте, и тик после возврата
-           предложит тот же кадр (байты уже в кэше браузера). */
-        if (slide && focusAway()) return;
+           предложит тот же кадр (байты уже в кэше браузера). Ревью tails3,
+           п.4: так же — доехавший на парковке (decode() отменить нечем):
+           под открытой карточкой кадр не ставится. */
+        if (slide && (focusAway() || state.parked)) return;
         /* Кадр не пришёл — слои не трогаем: пустой герой хуже любого
            кадра. Кадр прошлого фильма, если он на экране, сменит заглушка
            (report(false) в startFrame → holdFrame, волна 3). */
@@ -2072,6 +2082,9 @@
       loader.onload = function () { if (!decoding) shown(); };
       loader.onerror = function () { finish(false); };
       state.loader = loader;
+      /* Ревью tails3, п.4: загрузка кадра смены — не загрузка показа
+         (park по ней stale не ставит). */
+      state.slideLoad = !!slide;
       /* Страховочный таймаут. Решает по тому же признаку, что и неудачный
          decode(): байты есть — показываем (декодирует браузер при
          отрисовке), нет — оставляем предыдущий кадр. Через него же
@@ -2207,8 +2220,9 @@
        этой карточке. Ревью волны 3, п.1: фокус ушёл дальше — заглушки нет
        вовсе (focusAway); вернулся — отсчёт с начала (onFocus). Кадры
        пройденных карточек при листании при этом сменяться могут (ревью
-       правок волны 3, п.2): DELAY короче шага листания, каждая пройденная
-       карточка успевает показаться, и её кадр, если доехал, встаёт.
+       правок волны 3, п.2): при листании по одному нажатию шаг длиннее
+       DELAY, каждая пройденная карточка успевает показаться, и её кадр,
+       если доехал, встаёт; при удержании стрелки шаг короче — показа нет.
        Заглушка — по образцу Lampa, у которой фон экрана — размытый постер
        фильма: постер новой карточки из ряда. Обычно он уже в кэше браузера
        — Lampa нарисовала его в ряду, — и тогда нет ни запроса, ни ожидания;
@@ -2257,7 +2271,17 @@
         return;
       }
       var poster = state.holdPoster;
+      /* Ревью tails3, п.3: при показе в карточке ряда стояла svg-заглушка
+         Lampa, и запомненный постер пуст, — к этому мигу настоящий постер
+         мог уже прийти (возврат через «Ещё»: узла карточки у show() нет).
+         Берём его у карточки ряда того же фильма. */
       try {
+        if (!poster) {
+          var cards = state.root.find('.card');
+          for (var c = 0; !poster && cards && c < cards.length; c++) {
+            if (cards[c] && cards[c].card_data && String(cards[c].card_data.id) === String(state.shownId)) poster = rowPoster(cards[c]);
+          }
+        }
         if (poster) {
           swapFrame(poster, true);
         } else {
@@ -2826,6 +2850,8 @@
           loadTimer: null,
           accentTimer: null,
           loader: null,
+          /* Ревью tails3, п.4: loader везёт кадр смены, а не показа (park). */
+          slideLoad: false,
           /* Task 71: предзагрузка логотипа названия — дескриптор
              preloadLogo (её страховочный таймаут живёт внутри). */
           logoLoader: null,
@@ -3055,9 +3081,14 @@
          и так на экране целиком. Сам таймер park гасит ниже.
          Ревью волны 3, п.1: заглушка, отложенная уходом фокуса (holdDue без
          живого отсчёта), — такая же оборванная работа показанного фильма,
-         пока на экране чужой кадр; встал свой — ждать нечего. */
+         пока на экране чужой кадр; встал свой — ждать нечего.
+         Ревью tails3, п.4: кадр смены (state.slideLoad) — тоже не работа
+         показа: он не первый кадр, и повторный show() на возврате выбирал
+         бы первый кадр заново — видимое переключение после «Назад». Его
+         тик после возврата предложит снова (slides.pause ниже). */
       var holdLeft = state.holdDue && String(state.frameId) !== String(state.shownId);
-      if (state.detailsWait || state.loader || state.logoLoader || state.swapTimer || state.loadTimer || state.titleTimer || state.frameWait || state.holdTimer || holdLeft) {
+      var frameLeft = (state.loader || state.loadTimer) && !state.slideLoad;
+      if (state.detailsWait || frameLeft || state.logoLoader || state.swapTimer || state.titleTimer || state.frameWait || state.holdTimer || holdLeft) {
         state.stale = true;
       }
       state.parked = true;
