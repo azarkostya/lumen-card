@@ -13480,6 +13480,24 @@ state.trailerCard = null;
 
 
 
+
+
+
+
+
+
+
+
+
+function onToggle() {
+if (state && state.trailerTimer && trailerBlocked()) forgetTrailerFocus();
+}
+
+
+
+
+
+
 var playerHook = null;
 
 function listenPlayer() {
@@ -15570,6 +15588,9 @@ parked: parked,
 owns: owns,
 unmount: unmount,
 applyMotion: applyMotion,
+
+
+onToggle: onToggle,
 active: active,
 
 
@@ -33340,6 +33361,11 @@ if (!e || !e.name) return;
 
 
 if (!activated) return;
+
+
+
+
+if (LC.hero && typeof LC.hero.onToggle === 'function') LC.hero.onToggle();
 var root = activeCardRoot();
 if (!root || !root.length) return;
 if (e.name === 'full_descr' || e.name === 'items_line') root.addClass('lumen-compact');

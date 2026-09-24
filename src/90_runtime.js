@@ -275,6 +275,11 @@
              не трогает трейлер — без CSS этого не видно, но состояние он
              оставлять не должен. */
           if (!activated) return;
+          /* Ревью раунда хвостов, п.6: и герою главной — оверлей, открытый
+             посреди отсчёта его ролика, перезапускает отсчёт
+             (LC.hero.onToggle, src/48_hero.js). До проверки карточки: на
+             главной её нет. */
+          if (LC.hero && typeof LC.hero.onToggle === 'function') LC.hero.onToggle();
           var root = activeCardRoot();
           if (!root || !root.length) return;
           if (e.name === 'full_descr' || e.name === 'items_line') root.addClass('lumen-compact');

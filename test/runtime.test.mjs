@@ -556,7 +556,7 @@ function initLC(opts) {
      опирается 90_runtime.js: mount() на уже смонтированный корень — no-op
      (второго наблюдателя не бывает), detach() снимает героя только чужой
      активности, owns() отвечает «мой» лишь про корень, отданный при mount. */
-  const hero = { mounts: 0, unmounts: 0, detaches: [], mountCurrent: 0, motion: 0, root: null };
+  const hero = { mounts: 0, unmounts: 0, detaches: [], mountCurrent: 0, motion: 0, root: null, toggles: 0 };
   LC.hero = {
     mount: (root) => { if (hero.root === root) return; hero.mounts++; hero.root = root; },
     unmount: () => { if (!hero.root) return; hero.unmounts++; hero.root = null; },
@@ -564,7 +564,8 @@ function initLC(opts) {
     owns: (render) => !!render && hero.root === render,
     active: () => !!hero.root,
     mountCurrent: () => { hero.mountCurrent++; },
-    applyMotion: () => { hero.motion++; }
+    applyMotion: () => { hero.motion++; },
+    onToggle: () => { hero.toggles++; }
   };
 
   /* Task 27: ускорители навигации. Здесь проверяется только СКЛЕЙКА — что
@@ -784,6 +785,23 @@ test('Task 7: уход фокуса с full_start снимает трейлер,
   toggles[0]({ name: 'full_start' });
   toggles[0]({ name: 'select' });
   assert.equal(calls.stop, 3);
+  assert.deepEqual(warnLog, []);
+});
+
+/* Ревью раунда хвостов, п.6: о смене контроллера узнаёт и герой главной —
+   оверлей, открытый посреди отсчёта ролика, перезапускает отсчёт
+   (LC.hero.onToggle, test/hero.test.mjs). Подписка та же, вторая не
+   заводится; герою сообщается КАЖДОЕ переключение, и на главной, где
+   открытой карточки нет вовсе, — до проверки корня карточки. */
+test('п.6 раунда хвостов: каждое переключение контроллера сообщается герою — и без открытой карточки', () => {
+  const { toggles, hero } = initLC();
+  assert.equal(toggles.length, 1, 'вторая подписка на toggle');
+  globalThis.$ = () => EMPTY;
+  toggles[0]({ name: 'select' });
+  toggles[0]({ name: 'content' });
+  assert.equal(hero.toggles, 2, 'на главной (корня карточки нет) герой не узнал о смене контроллера');
+  toggles[0]({});
+  assert.equal(hero.toggles, 2, 'событие без имени герою не передаётся');
   assert.deepEqual(warnLog, []);
 });
 

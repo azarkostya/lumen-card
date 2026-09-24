@@ -3679,6 +3679,66 @@ test('трейлер героя: старт плеера Lampa снял роли
   assert.deepEqual(warnLog, []);
 });
 
+/* Ревью раунда хвостов, п.6 (чек-лист: «через восемь секунд покоя» после
+   меню по долгому OK). Меню открыли и закрыли РАНЬШЕ 8-й секунды — отсчёт
+   шёл дальше, и ролик стартовал через 3 с после закрытия, а не через 8.
+   Открытие оверлея Lampa сообщает сменой контроллера (Controller.listener
+   'toggle', подписка одна на плагин — src/90_runtime.js); рантайм зовёт
+   LC.hero.onToggle(). Здесь это делает сам тест, в том же порядке, что
+   Lampa: Select.show ставит selectbox--open ДО Controller.toggle('select'),
+   а на закрытии класс снят, фокус возвращается на карточку внутри
+   Controller.toggle('content'), и только потом летит его 'toggle'. */
+test('трейлер героя: меню карточки открыли и закрыли до 8-й секунды — отсчёт заново, полные 8 с от возврата фокуса', () => {
+  const env = trailerEnv();
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  focusOn(main, main.card1);
+  env.advance(3000);
+  env.bodyClasses.push('selectbox--open');
+  env.hero.onToggle();
+  env.advance(2000);
+  env.bodyClasses.splice(env.bodyClasses.indexOf('selectbox--open'), 1);
+  fireFocus(main.activity, main.card1);
+  env.hero.onToggle();
+  env.advance(7900);
+  assert.equal(videoCount(env), 0, 'ролики спрошены раньше 8 с от закрытия меню');
+  env.advance(200);
+  assert.equal(videoCount(env), 1, 'возврат фокуса после меню не завёл отсчёт');
+  lastVideos(env).ok(VIDEOS_RU);
+  assert.equal(env.players.length, 1);
+  assert.deepEqual(warnLog, []);
+});
+
+/* Сторожа п.6. Уход без оверлея (шапка, левое меню — главную там видно)
+   отсчёт не трогает: он идёт от первого фокуса. И играющий ролик смена
+   контроллера с оверлеем не обрывает: отсчёта уже нет, а возврат фокуса
+   на ту же карточку съедает гард «фокус не сменился». */
+test('трейлер героя: уход в шапку посреди отсчёта и меню поверх играющего ролика отсчёт и ролик не трогают', () => {
+  const env = trailerEnv();
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  focusOn(main, main.card1);
+  env.advance(3000);
+  env.hero.onToggle();
+  env.advance(2000);
+  fireFocus(main.activity, main.card1);
+  env.hero.onToggle();
+  env.advance(3100);
+  assert.equal(videoCount(env), 1, 'шапка без оверлея перезапустила отсчёт');
+  lastVideos(env).ok(VIDEOS_RU);
+  env.players[0].onStart();
+
+  env.bodyClasses.push('selectbox--open');
+  env.hero.onToggle();
+  env.advance(2000);
+  env.bodyClasses.splice(env.bodyClasses.indexOf('selectbox--open'), 1);
+  fireFocus(main.activity, main.card1);
+  env.hero.onToggle();
+  assert.equal(env.players[0].destroys, 0, 'меню поверх играющего ролика его оборвало');
+  assert.equal(videoCount(env), 1);
+  assert.deepEqual(warnLog, []);
+});
+
 /* Ревью раунда хвостов, п.4: как у списка выбора выше — после закрытия
    плеера Lampa ролик героя спрашивается не раньше чем через полные 8 с от
    возврата фокуса. Плеер стартовал посреди отсчёта (трейлер из меню на
