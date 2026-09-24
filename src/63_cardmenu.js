@@ -42,7 +42,7 @@
   /* парой Favorite.check/Favorite.toggle, что у Lampa), потом наши пункты. */
   /*                                                                       */
   /* Ресурсы: ни одного таймера (ожидание ответа роликов — сверка времени   */
-  /* в колбэке, wanted). Живут ровно две подписки — capture-               */
+  /* в колбэке, verdict). Живут ровно две подписки — capture-             */
   /* слушатель на document и preshow у Lampa.Select.listener, обе ставит    */
   /* install() один раз и снимает uninstall() (настройка lumen_context_menu */
   /* и выключение плагина). Запомненная карточка — одна переменная, она     */
@@ -262,7 +262,7 @@
 
        Проверка на ТВ 2026-09-24: на телевизоре ответ роликов идёт секундами,
        и трейлер стартовал уже после ухода с экрана, поверх открытого плеера
-       или второй раз. Колбэк теперь сверяет «билет» запроса (wanted ниже) и
+       или второй раз. Колбэк теперь сверяет «билет» запроса (verdict ниже) и
        без него не играет и ничего не пишет. */
     function playTrailer(card) {
       var ticket = { seq: ++trailerReq, at: Date.now(), activity: currentActivity() };
@@ -305,9 +305,11 @@
           return;
         }
         Lampa.Api.sources.tmdb.videos(params, function (json) {
-          if (!wanted(ticket)) return;
+          var v = verdict(ticket);
+          if (!v) return;
           /* Билет погашен: повторный колбэк того же запроса — уже чужой. */
           trailerReq++;
+          if (v === 'late') { noty('lumen_menu_no_trailer'); return; }
           var picked = LC.trailer && LC.trailer.pickTrailer ? LC.trailer.pickTrailer(json && json.results) : null;
           if (picked && picked.key) play(picked);
           else noty('lumen_menu_no_trailer');
@@ -332,22 +334,27 @@
       return null;
     }
 
-    /* Ответ роликов ещё нужен: запрос последний, не старше TRAILER_WAIT_MS,
+    /* Что делать с ответом роликов. 'play' — ещё нужен: запрос последний,
        экран тот же (Activity.active() — запись стека, app.min.js:45889),
        плеер не открыт (Player.opened, :31149), поверх не открыты настройки
-       и левое меню (классы body, :10306 и :9789). */
-    function wanted(ticket) {
-      if (ticket.seq !== trailerReq) return false;
-      if (Date.now() - ticket.at > TRAILER_WAIT_MS) return false;
-      if (currentActivity() !== ticket.activity) return false;
+       и левое меню (классы body, :10306 и :9789), и ответ не старше
+       TRAILER_WAIT_MS. 'late' — всё то же, но опоздал только ответ: человек
+       так и ждёт на том же экране, и молчание выглядело бы как «кнопка не
+       работает» (ревью «Волны 1», п.4) — говорим, что трейлера нет.
+       '' — ответ уже чужой (ушли, открыли плеер или оверлей, новый выбор):
+       ни играть, ни говорить. */
+    function verdict(ticket) {
+      if (ticket.seq !== trailerReq) return '';
+      if (currentActivity() !== ticket.activity) return '';
       try {
-        if (Lampa.Player && typeof Lampa.Player.opened === 'function' && Lampa.Player.opened()) return false;
+        if (Lampa.Player && typeof Lampa.Player.opened === 'function' && Lampa.Player.opened()) return '';
       } catch (e) { }
       try {
         var body = $('body');
-        if (body.hasClass('settings--open') || body.hasClass('menu--open')) return false;
+        if (body.hasClass('settings--open') || body.hasClass('menu--open')) return '';
       } catch (e2) { }
-      return true;
+      if (Date.now() - ticket.at > TRAILER_WAIT_MS) return 'late';
+      return 'play';
     }
 
     function openFranchise(card) {

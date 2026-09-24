@@ -274,6 +274,50 @@ test('трейлер из меню: ответ дольше 8 с — не игр
   } finally { env.restore(); }
 });
 
+/* Ревью «Волны 1», п.4: человек выбрал «Трейлер» и ждёт на том же экране,
+   а ответ пришёл на 9-й секунде — прежде была тишина, как будто пункт не
+   сработал. Опоздал ТОЛЬКО ответ — говорим «Трейлер не найден», один раз. */
+test('трейлер из меню: ответ дольше 8 с на том же экране — не играет, но сообщает, ровно один раз', () => {
+  const env = trailerEnv();
+  try {
+    env.api.playTrailer(MOVIE);
+    env.clock.now += 9000;
+    env.answer(0);
+    assert.equal(env.played.length, 0);
+    assert.deepEqual(env.notes, ['lumen_menu_no_trailer']);
+    env.answer(0);
+    assert.deepEqual(env.notes, ['lumen_menu_no_trailer'], 'повторный колбэк молчит');
+  } finally { env.restore(); }
+});
+
+test('трейлер из меню: опоздал и ушли / открыт плеер / оверлей / новый выбор — молчит', () => {
+  const cases = {
+    'другой экран': (env) => env.activities.push({ component: 'full' }),
+    'плеер': (env) => env.setPlayer(true),
+    'настройки': (env) => env.bodyClasses.push('settings--open'),
+    'левое меню': (env) => env.bodyClasses.push('menu--open')
+  };
+  for (const name of Object.keys(cases)) {
+    const env = trailerEnv();
+    try {
+      env.api.playTrailer(MOVIE);
+      env.clock.now += 9000;
+      cases[name](env);
+      env.answer(0);
+      assert.equal(env.played.length, 0, name);
+      assert.deepEqual(env.notes, [], name);
+    } finally { env.restore(); }
+  }
+  const env = trailerEnv();
+  try {
+    env.api.playTrailer(MOVIE);
+    env.api.playTrailer(MOVIE);
+    env.clock.now += 9000;
+    env.answer(0);
+    assert.deepEqual(env.notes, [], 'устаревший запрос');
+  } finally { env.restore(); }
+});
+
 test('трейлер из меню: двойной выбор — играет только последний запрос и ровно один раз', () => {
   const env = trailerEnv();
   try {
