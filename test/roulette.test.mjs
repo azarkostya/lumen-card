@@ -419,6 +419,20 @@ El.prototype.css = function (name, val) {
   this._css[name] = val;
   return this;
 };
+/* Пятый раунд, п.2: text() как у jQuery — без аргумента геттер (текст узла
+   и потомков подряд), с аргументом сеттер, заменяющий содержимое. Без него
+   paintPreview (счётчик выборки) на стенде всегда падал внутрь try/catch, и
+   класс is-stack не ставился никогда — показ выборки был невидим тестам. */
+El.prototype.text = function (val) {
+  if (arguments.length) {
+    this._text = '' + val;
+    this._children = [];
+    return this;
+  }
+  var out = this._text || '';
+  for (var i = 0; i < this._children.length; i++) out += this._children[i].text();
+  return out;
+};
 El.prototype.on = function (name, fn) { (this._ev[name] = this._ev[name] || []).push(fn); return this; };
 El.prototype.show = function () { return this; };
 El.prototype.hide = function () { return this; };
@@ -715,6 +729,10 @@ function openRoulette34(cards, t, dpr, motion, object, hold) {
     /* Горит ли индикатор загрузки активности (последний вызов loader). */
     loading: function () { return loaderLog34.length ? loaderLog34[loaderLog34.length - 1] : false; },
     chips: function () { return screen.find('.lumen-roulette__chipbox').all('.lumen-roulette__chip'); },
+    /* Пятый раунд, п.2: выборка на экране — класс is-stack на сцене и число
+       под барабаном (их ставит paintPreview). */
+    stacked: function () { return screen.find('.lumen-roulette__stage').hasClass('is-stack'); },
+    count: function () { return screen.find('.lumen-roulette__count-value').text(); },
     reel: reel,
     bg: screen.find('.lumen-roulette__bg'),
     transition: transitionStub
@@ -1319,12 +1337,14 @@ test('Ф2 п.5: pause() гасит отложенный показ выборк�
   probe.comp.start();
   drainDelays();
   assert.ok(fetchCalls34 > 0, 'показ выборки не запросил пул и без паузы — тест ничего не проверяет');
+  assert.equal(probe.stacked(), true, 'показ выборки без паузы не поставил стопку — тест ничего не проверяет');
 
   const env = openRoulette34([R44, R44], t, 1, 'lite');
   env.comp.start();
   env.comp.pause();
   drainDelays();
   assert.equal(fetchCalls34, 0, 'экран, ушедший под карточку, запросил пул для показа выборки');
+  assert.equal(env.stacked(), false, 'стопка нарисована на экране, ушедшем под карточку');
 
   /* Возврат: показ, погашенный на pause(), поднимается заново — иначе
      барабан пустая коробка до первого действия. И экран остаётся рабочим:
@@ -1332,6 +1352,7 @@ test('Ф2 п.5: pause() гасит отложенный показ выборк�
   env.comp.start();
   drainDelays();
   assert.ok(fetchCalls34 > 0, 'на возврате показ выборки не поднят заново');
+  assert.equal(env.stacked(), true, 'на возврате выборка не на экране');
   fire(env.root.find('.lumen-roulette__spin'), 'hover:enter');
   drainDelays();
   assert.equal(env.root.find('.lumen-roulette__result').hasClass('is-live'), true, 'после pause()/start() рулетка не крутится');
@@ -1361,11 +1382,15 @@ test('ревью п.1: каталог пришёл, пока рулетка на
   releaseHeld(heldManifest34);
   drainDelays();
   assert.equal(fetchCalls34, 0, 'экран на паузе пошёл в сеть за выборкой');
+  assert.equal(env.stacked(), false, 'экран на паузе нарисовал выборку');
   env.comp.start();
   assert.ok(env.chips().length > 1, 'на возврате ленты подборок нет — каталог потерян');
   assert.equal(env.loading(), false, 'индикатор загрузки висит после возврата');
   drainDelays();
   assert.ok(fetchCalls34 > 0, 'на возврате выборка не показана');
+  /* Пятый раунд, п.2: не только запрос, но и сама выборка на экране. */
+  assert.equal(env.stacked(), true, 'на возврате стопки выборки на сцене нет');
+  assert.equal(env.count(), '1', 'счётчик выборки не показан');
   assert.equal(spinToResult(env), true, 'после возврата рулетка не крутится');
 });
 
@@ -1401,6 +1426,24 @@ test('пятый раунд п.1: start/pause/start/pause/start до ответ�
   assert.equal(poolSets34, 1, 'выборка собрана ' + poolSets34 + ' раз');
   assert.ok(env.chips().length > 1, 'лента подборок не построена');
   assert.equal(env.loading(), false, 'индикатор загрузки висит');
+});
+
+/* Пятый раунд, п.2: ветка start() с !stage.hasClass('is-stack'). Выборка
+   уже на экране — ушли и вернулись: показ заново не поднимается (ни
+   отложенного таймера PREVIEW_DELAY, ни сбора выборки), стопка стоит. */
+test('пятый раунд п.2: выборка уже на экране — возврат не поднимает показ заново', (t) => {
+  const delay = Number(/var PREVIEW_DELAY = (\d+);/.exec(SRC)[1]);
+  const env = openRoulette34([R44], t, 1, 'lite', { media: 'movie' });
+  env.comp.start();
+  assert.ok(drainDelays().indexOf(delay) !== -1, 'предпосылка: первый заход показывает выборку отложенно');
+  assert.equal(env.stacked(), true, 'предпосылка: выборка на экране');
+  assert.equal(poolSets34, 1);
+  env.comp.pause();
+  env.comp.start();
+  const delays = drainDelays();
+  assert.equal(delays.indexOf(delay), -1, 'возврат поднял отложенный показ выборки, уже стоящей на экране');
+  assert.equal(poolSets34, 1, 'возврат собрал выборку заново');
+  assert.equal(env.stacked(), true, 'стопка пропала после возврата');
 });
 
 test('ревью п.1: ответ каталога после destroy() экран не строит', (t) => {
