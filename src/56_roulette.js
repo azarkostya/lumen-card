@@ -416,6 +416,19 @@
       return 'lumen_roulette_' + normalizeMedia(media);
     }
 
+    /* Полное ревью, C5: из сохранённого набора — только id, которые есть в
+       списке подборок. Подборку могли снять из каталога (venom, 2026-09-25):
+       её id в наборе гасил «Все подборки», не зажигая ни одного чипа, а
+       крутился при этом набор главной. Порядок набора сохраняется. */
+    function knownIds(ids, list) {
+      var out = [];
+      var have = {};
+      var i;
+      for (i = 0; list && i < list.length; i++) if (list[i]) have[list[i].id] = 1;
+      for (i = 0; ids && i < ids.length; i++) if (have[ids[i]]) out.push(ids[i]);
+      return out;
+    }
+
     /* Чипы подборок на экране: «Все подборки» рисуется отдельно, а сюда
        попадают первые CHIP_LIMIT из каталога (подборки главной идут первыми
        — collectionsFor) плюс всё, что пользователь отметил раньше, даже если
@@ -938,6 +951,9 @@
            таб, значит railChip не сработает). */
         try { chipsScroll.reset(); } catch (eR) { warn('roulette: chips reset failed', eR); }
         collections = collectionsFor(manifest, media);
+        /* C5: отмечено только то, что есть в каталоге. В хранилище не
+           пишем — сохранит первое же касание чипа. */
+        chosen = knownIds(chosen, collections);
         var all = chipNode(LC.lang('lumen_roulette_all'), !chosen.length);
         all.on('hover:enter', function () {
           if (!chosen.length) return;
@@ -2188,6 +2204,7 @@
       parseIds: parseIds,
       joinIds: joinIds,
       storageKey: storageKey,
+      knownIds: knownIds,
       normalizeMedia: normalizeMedia,
       atvLook: atvLook,
       shelfCards: shelfCards,

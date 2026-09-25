@@ -23753,6 +23753,19 @@ return 'lumen_roulette_' + normalizeMedia(media);
 
 
 
+function knownIds(ids, list) {
+var out = [];
+var have = {};
+var i;
+for (i = 0; list && i < list.length; i++) if (list[i]) have[list[i].id] = 1;
+for (i = 0; ids && i < ids.length; i++) if (have[ids[i]]) out.push(ids[i]);
+return out;
+}
+
+
+
+
+
 
 
 
@@ -24271,6 +24284,9 @@ chipsRow.empty();
 
 try { chipsScroll.reset(); } catch (eR) { warn('roulette: chips reset failed', eR); }
 collections = collectionsFor(manifest, media);
+
+
+chosen = knownIds(chosen, collections);
 var all = chipNode(LC.lang('lumen_roulette_all'), !chosen.length);
 all.on('hover:enter', function () {
 if (!chosen.length) return;
@@ -25521,6 +25537,7 @@ sourcesFor: sourcesFor,
 parseIds: parseIds,
 joinIds: joinIds,
 storageKey: storageKey,
+knownIds: knownIds,
 normalizeMedia: normalizeMedia,
 atvLook: atvLook,
 shelfCards: shelfCards,

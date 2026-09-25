@@ -716,7 +716,9 @@ function fireReveal() {
 
 /* Волна fx2: prefs — значения настроек поверх значений по умолчанию
    (вид «как Apple TV» — lumen_flat). */
-function openRoulette34(cards, t, dpr, motion, object, hold, prefs) {
+/* Полное ревью, C5: storage — сохранённые наборы чипов (Lampa.Storage),
+   {ключ: значение}; по умолчанию Storage нет, как было. */
+function openRoulette34(cards, t, dpr, motion, object, hold, prefs, storage) {
   hold34 = hold || {};
   heldManifest34 = [];
   heldPool34 = [];
@@ -768,6 +770,12 @@ function openRoulette34(cards, t, dpr, motion, object, hold, prefs) {
        экраном — так делает backward() до destroy() рулетки. */
     Activity: { active: function () { return activeAct34; } }
   };
+  if (storage) {
+    Lampa.Storage = {
+      get: function (k, d) { return Object.prototype.hasOwnProperty.call(storage, k) ? storage[k] : d; },
+      set: function (k, v) { storage[k] = v; }
+    };
+  }
   /* Task 44: высота окна нужна так же, как ширина, — барабан задан в vh. */
   globalThis.window = { Lampa: Lampa, innerWidth: 1920, innerHeight: 1080, devicePixelRatio: dpr || 1 };
   globalThis.Lampa = Lampa;
@@ -2176,4 +2184,31 @@ test('C3: пересборка коллекции после полки лент
   assert.ok(env.stacked(), 'предпосылка: выборка перерисована');
   assert.equal(env.lastFocus().node, chips[1][0], 'предпосылка: коллекция пересобрана на наведённом чипе');
   assert.deepEqual(horiz[0].updates, [], 'лента чипов снова отцентрована под курсором');
+});
+
+/* Полное ревью, C5: в сохранённом наборе рулетки остались id подборок,
+   которых в каталоге больше нет (venom снят из каталога 2026-09-25). Не
+   горел ни чип «Все подборки», ни один чип подборки, а крутился набор
+   главной. Отмеченными считаются только существующие id. */
+test('C5: knownIds — только id, которые есть в списке, в прежнем порядке', () => {
+  const list = [{ id: 'a' }, { id: 'b' }, { id: 'c' }];
+  assert.deepEqual(R.knownIds(['venom', 'c', 'a', 'x'], list), ['c', 'a']);
+  assert.deepEqual(R.knownIds(['venom'], list), []);
+  assert.deepEqual(R.knownIds([], list), []);
+  assert.deepEqual(R.knownIds(['a'], []), []);
+});
+
+test('C5: удалённый id в сохранённом наборе — горит «Все подборки»; выбор не переписывается сам', (t) => {
+  const store = { lumen_roulette_movie: 'venom' };
+  const env = openRoulette34([R44], t, 1, 'full', { media: 'movie' }, null, null, store);
+  const chips = env.chips();
+  assert.equal(chips[0].hasClass('lumen-chip--on'), true, '«Все подборки» не горит');
+  for (let i = 1; i < chips.length; i++) assert.equal(chips[i].hasClass('lumen-chip--on'), false);
+  assert.equal(store.lumen_roulette_movie, 'venom', 'открытие экрана не пишет в хранилище');
+
+  const mixed = { lumen_roulette_movie: 'venom,col-a' };
+  const env2 = openRoulette34([R44], t, 1, 'full', { media: 'movie' }, null, null, mixed);
+  const chips2 = env2.chips();
+  assert.equal(chips2[0].hasClass('lumen-chip--on'), false);
+  assert.equal(chips2[1].hasClass('lumen-chip--on'), true, 'существующая подборка из набора не горит');
 });
