@@ -23645,6 +23645,10 @@ var started = false;
 
 var destroyed = false;
 var paused = false;
+
+
+var shelfNodes = [];
+var shelfList = [];
 var manifestWait = false;
 var filters = { unseen: unseenDefault(), short: false };
 
@@ -24067,8 +24071,12 @@ return node;
 
 
 
+
+
+
 function shelfLogos(nodes, cards, captured, at) {
 if (at >= cards.length || gen !== captured) return;
+if (nodes[at] && nodes[at].hasClass('has-logo')) { shelfLogos(nodes, cards, captured, at + 1); return; }
 logoOf(cards[at], function (item, json) {
 if (gen !== captured || !nodes[at]) return;
 
@@ -24118,6 +24126,8 @@ row.append(node);
 
 if (had) lastFocus = null;
 refreshCollection();
+shelfNodes = nodes;
+shelfList = cards;
 shelfLogos(nodes, cards, gen, 0);
 }
 
@@ -24826,6 +24836,9 @@ var act = null;
 try { act = Lampa.Activity.active(); } catch (eAct) { }
 if (act && act.activity && act.activity !== this.activity) return;
 started = true;
+
+
+if (paused && atv) shelfLogos(shelfNodes, shelfList, gen, 0);
 paused = false;
 
 

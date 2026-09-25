@@ -717,6 +717,10 @@
          выборку не показывает (paused) — это сделает start(). */
       var destroyed = false;
       var paused = false;
+      /* Вид «как Apple TV»: карточки полки и их узлы — для цепочки
+         логотипов, которую start() поднимает заново (shelfLogos). */
+      var shelfNodes = [];
+      var shelfList = [];
       var manifestWait = false;
       var filters = { unseen: unseenDefault(), short: false };
 
@@ -1138,9 +1142,13 @@
          запросов разом на каждое переключение чипа были бы залпом, которого
          экран не просил. Каждый шаг сверяет поколение и то, что полка всё
          та же. Логотип встаёт, только когда картинка уже в памяти
-         (LC.hero.preloadLogo) — на глазах он не догружается. */
+         (LC.hero.preloadLogo) — на глазах он не догружается.
+         Ревью ba6a3ac..6a1c364 (~70): цепочку обрывает bump() на
+         pause()/stop(), и start() поднимает её заново — карточки, уже
+         получившие логотип, она пропускает. */
       function shelfLogos(nodes, cards, captured, at) {
         if (at >= cards.length || gen !== captured) return;
+        if (nodes[at] && nodes[at].hasClass('has-logo')) { shelfLogos(nodes, cards, captured, at + 1); return; }
         logoOf(cards[at], function (item, json) {
           if (gen !== captured || !nodes[at]) return;
           /* Полку перерисовали — карточки этой цепочки уже не в документе. */
@@ -1190,6 +1198,8 @@
            встаёт на «Крутить». */
         if (had) lastFocus = null;
         refreshCollection();
+        shelfNodes = nodes;
+        shelfList = cards;
         shelfLogos(nodes, cards, gen, 0);
       }
 
@@ -1898,6 +1908,9 @@
         try { act = Lampa.Activity.active(); } catch (eAct) { }
         if (act && act.activity && act.activity !== this.activity) return;
         started = true;
+        /* Ревью ba6a3ac..6a1c364 (~70): возврат после pause()/stop() — их
+           bump() оборвал цепочку логотипов полки. */
+        if (paused && atv) shelfLogos(shelfNodes, shelfList, gen, 0);
         paused = false;
         /* Контрольное ревью 84c7b27..de0e2c8, п.1-2. Каталога ещё нет —
            запрос в пути (индикатор горит до build()) или, если его нет,

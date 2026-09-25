@@ -2005,3 +2005,29 @@ test('вид «как Apple TV»: «Смотреть» до решения о л
   assert.equal(box.find('.lumen-roulette__rlogo').css('background-image'), 'url("https://logo/logo1.png")');
   flushTimers();
 });
+
+/* (~70) Логотипы полки идут цепочкой по одной карточке, и цепочку обрывал
+   bump() на pause(): ответ деталей, пришедший, пока смотрели карточку,
+   отбрасывался по поколению, а start() цепочку не поднимал — часть полки
+   оставалась без логотипов. На возврате цепочка идёт заново с первой
+   карточки без логотипа. */
+test('вид «как Apple TV»: логотипы полки, оборванные уходом с экрана, догружаются на возврате', (t) => {
+  const env = openRoulette34(atvCards(4), t, 1, 'full', null, null, { lumen_flat: true });
+  const logo = logoStubs(env, true);
+  env.comp.start();
+  flushTimers();
+  const tiles = env.screen.find('.lumen-roulette__shelf').all('.lumen-roulette__tile');
+  assert.equal(tiles.length, 3, 'предпосылка: на полке три карточки');
+  assert.equal(logo.details.length, 1, 'предпосылка: цепочка — по одной карточке');
+  logo.details.shift()();
+  assert.ok(tiles[0].hasClass('has-logo'), 'первая карточка получила логотип');
+  assert.equal(logo.details.length, 1, 'цепочка перешла ко второй');
+  env.comp.pause();
+  logo.details.shift()();              /* ответ пришёл, пока смотрели карточку */
+  env.comp.start();
+  for (let k = 0; k < 5 && logo.details.length; k++) logo.details.shift()();
+  assert.ok(tiles[1].hasClass('has-logo'), 'вторая карточка без логотипа после возврата');
+  assert.ok(tiles[2].hasClass('has-logo'), 'третья карточка без логотипа после возврата');
+  assert.equal(logo.details.length, 0, 'цепочка дошла до конца полки');
+  flushTimers();
+});
