@@ -11777,18 +11777,20 @@ return null;
 
 
 
+
+
 function openTarget(item) {
 var media = singleDiscover(item);
 if (media) {
 return {
 url: LC.sources.discoverUrl(item.sources[media], media),
-title: item.title,
+title: titleOf(item, lang()),
 component: 'category_full',
 source: 'tmdb',
 page: 1
 };
 }
-return { url: '', title: (item && item.title) || '', component: 'lumen_grid', lumen: item, page: 1 };
+return { url: '', title: titleOf(item, lang()), component: 'lumen_grid', lumen: item, page: 1 };
 }
 
 
@@ -12606,7 +12608,7 @@ var node = $(
 '<div class="lumen-tile__scrim"></div>' +
 season +
 '<div class="lumen-tile__text">' +
-'<div class="lumen-tile__title">' + esc(item.title) + '</div>' +
+'<div class="lumen-tile__title">' + esc(titleOf(item, lang())) + '</div>' +
 '<div class="lumen-tile__sub">' + esc(sub) + '</div>' +
 '</div>' +
 '<div class="lumen-tile__nokey">' + esc(LC.lang('lumen_hub_nokey')) + '</div>' +
@@ -13415,7 +13417,8 @@ return node[0];
 
 this.create = function () {
 motionClass(root);
-head.append($('<div class="lumen-grid__title">' + esc(item.title || '') + '</div>'));
+
+head.append($('<div class="lumen-grid__title">' + esc(titleOf(item, lang())) + '</div>'));
 head.append(subtitle);
 root.append(head);
 var modes = sortModes();

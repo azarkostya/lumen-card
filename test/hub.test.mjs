@@ -728,7 +728,7 @@ function loadHub(opts) {
     sources: sources,
     hubEm: HUB_EM,
     lang: function (k) { return k; },
-    langCode: function () { return 'ru'; },
+    langCode: function () { return opts.langCode || 'ru'; },
     collectionsWord: function () { return 'подборок'; },
     motionMode: function () { return opts.motion || 'full'; },
     icons: { get: function () { return '<svg></svg>'; } },
@@ -2555,4 +2555,49 @@ test('C2: хаб — прокрутка пальцем или колесом (н
   scroll.update_calls.length = 0;
   ctrl.toggle();
   assert.deepEqual(scroll.update_calls, []);
+});
+
+/* ---------------------------------------------------------------------- */
+/* Полное ревью, C4: названия подборок в хабе и сетке шли без перевода —     */
+/* плитка, заголовок сетки и title активности брали item.title, хотя чипы и  */
+/* поиск уже переводились (titleOf).                                        */
+/* ---------------------------------------------------------------------- */
+
+var I18N_MANIFEST = JSON.parse(JSON.stringify(MANIFEST));
+I18N_MANIFEST.collections[0].i18n = { en: 'Star Wars' };
+I18N_MANIFEST.collections[1].i18n = { en: 'The Matrix' };
+I18N_MANIFEST.collections[2].i18n = { en: 'Pixar EN' };
+
+function escSpy(h) {
+  var seen = [];
+  var real = h.LC.util.esc;
+  h.LC.util.esc = function (x) { seen.push('' + x); return real(x); };
+  return seen;
+}
+
+test('C4: openTarget — title активности на языке интерфейса', function () {
+  var h = loadHub({ langCode: 'en', manifest: I18N_MANIFEST });
+  assert.equal(h.api.openTarget(I18N_MANIFEST.collections[2]).title, 'Pixar EN', 'штатная сетка');
+  assert.equal(h.api.openTarget(I18N_MANIFEST.collections[1]).title, 'The Matrix', 'своя сетка');
+  var ru = loadHub({ manifest: I18N_MANIFEST });
+  assert.equal(ru.api.openTarget(I18N_MANIFEST.collections[1]).title, 'Матрица');
+});
+
+test('C4: плитка хаба и заголовок сетки — на языке интерфейса', function () {
+  var env = setupLampa({ cols: 2 });
+  var h = loadHub({ cols: 2, langCode: 'en', manifest: I18N_MANIFEST });
+  var seen = escSpy(h);
+  h.api.install();
+  var comp = makeComponent('lumen_hub', {}, env);
+  comp.create();
+  assert.ok(seen.indexOf('Star Wars') >= 0, 'плитка без перевода: ' + seen.join(' | '));
+  assert.ok(seen.indexOf('Звёздные войны') < 0, 'на плитке русское название');
+
+  var env2 = setupLampa({ cols: 6 });
+  var h2 = loadHub({ langCode: 'en', manifest: I18N_MANIFEST });
+  var seen2 = escSpy(h2);
+  h2.api.install();
+  var grid = makeComponent('lumen_grid', { lumen: I18N_MANIFEST.collections[1], title: 'Матрица' }, env2);
+  grid.create();
+  assert.ok(seen2.indexOf('The Matrix') >= 0, 'заголовок сетки без перевода: ' + seen2.join(' | '));
 });

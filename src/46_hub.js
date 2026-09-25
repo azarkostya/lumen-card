@@ -243,19 +243,21 @@
     }
 
     /* Куда открывать подборку: штатная сетка Lampa, если она это умеет,
-       иначе свой компонент. Возвращает объект для Lampa.Activity.push. */
+       иначе свой компонент. Возвращает объект для Lampa.Activity.push.
+       Полное ревью, C4: title — на языке интерфейса (titleOf), как у чипов
+       и поиска. */
     function openTarget(item) {
       var media = singleDiscover(item);
       if (media) {
         return {
           url: LC.sources.discoverUrl(item.sources[media], media),
-          title: item.title,
+          title: titleOf(item, lang()),
           component: 'category_full',
           source: 'tmdb',
           page: 1
         };
       }
-      return { url: '', title: (item && item.title) || '', component: 'lumen_grid', lumen: item, page: 1 };
+      return { url: '', title: titleOf(item, lang()), component: 'lumen_grid', lumen: item, page: 1 };
     }
 
     /* movie.belongs_to_collection → подборка-однодневка для lumen_grid.
@@ -1073,7 +1075,7 @@
             '<div class="lumen-tile__scrim"></div>' +
             season +
             '<div class="lumen-tile__text">' +
-              '<div class="lumen-tile__title">' + esc(item.title) + '</div>' +
+              '<div class="lumen-tile__title">' + esc(titleOf(item, lang())) + '</div>' +
               '<div class="lumen-tile__sub">' + esc(sub) + '</div>' +
             '</div>' +
             '<div class="lumen-tile__nokey">' + esc(LC.lang('lumen_hub_nokey')) + '</div>' +
@@ -1882,7 +1884,8 @@
 
       this.create = function () {
         motionClass(root);
-        head.append($('<div class="lumen-grid__title">' + esc(item.title || '') + '</div>'));
+        /* C4: заголовок — на языке интерфейса. */
+        head.append($('<div class="lumen-grid__title">' + esc(titleOf(item, lang())) + '</div>'));
         head.append(subtitle);
         root.append(head);
         var modes = sortModes();
