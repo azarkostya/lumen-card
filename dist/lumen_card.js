@@ -16600,6 +16600,8 @@ if (decided) return;
 
 
 
+
+
 finish(pickFrame(cands.paths, cands.strong, verdictOf, model.backdrop, true).path);
 }, LOOK_WAIT);
 }
