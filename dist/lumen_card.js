@@ -2209,6 +2209,15 @@ LC.uiScale = scaleFactor;
 
 
 
+var heroOffAt = 0;
+LC.heroOffRatio = function () { return heroOffAt; };
+
+
+
+
+
+
+
 
 
 var EPISODE_EM = { width: 14.9, gap: 0.70 };
@@ -4555,6 +4564,15 @@ css.push('.lumen-hero.lumen-hero--logo .lumen-hero__logo{display:block}');
 
 
 
+css.push('.lumen-hero .lumen-hero__logo.lumen-logo-white,.lumen-card .lumen-logo.lumen-logo-white{-webkit-filter:brightness(0) invert(1);filter:brightness(0) invert(1)}');
+
+
+
+
+
+
+
+
 
 
 
@@ -4909,7 +4927,9 @@ css.push('@media screen and (min-aspect-ratio:' + Math.max(DESCR_MIN_RATIO, text
 
 
 var heroMinRatio = Math.max(HERO_MIN_RATIO, textRatio(heroSize, textNeedEm(false)));
-var rowsFull = '{margin-top:0;height:-webkit-calc(100vh - ' + LAMPA_HEAD + 'em) !important;height:calc(100vh - ' + LAMPA_HEAD + 'em) !important;overflow:hidden;-webkit-transform:none;transform:none}';
+
+heroOffAt = heroMinRatio;
+var rowsFull ='{margin-top:0;height:-webkit-calc(100vh - ' + LAMPA_HEAD + 'em) !important;height:calc(100vh - ' + LAMPA_HEAD + 'em) !important;overflow:hidden;-webkit-transform:none;transform:none}';
 css.push('@media screen and (min-aspect-ratio:' + heroMinRatio + '/100){' +
 '.lumen-main .scroll.layer--wheight,.lumen-main.lumen-rows-up .scroll.layer--wheight' + rowsFull +
 '.lumen-main .lumen-hero-stage,.lumen-main .lumen-hero{display:none}}');
@@ -13529,6 +13549,11 @@ var FRAME_WAIT = 900;
 
 
 
+
+var LOOK_WAIT = 300;
+
+
+
 var HOLD_MS = 250;
 
 
@@ -13555,7 +13580,54 @@ if (code === lang) { if (!own) own = item; }
 else if (code === 'en') { if (!en) en = item; }
 else if (!code) { if (!neutral) neutral = item; }
 }
-return own || en || neutral || null;
+var picked = own || en || neutral || null;
+return picked ? lightLogo(logos, picked) : null;
+}
+
+
+
+
+
+
+
+
+
+
+
+var SIBLINGS_MAX = 2;
+var logoSiblings = {};
+var siblingKeys = 0;
+
+function logoTone(path) {
+try {
+return path && LC.thumbs && typeof LC.thumbs.toneOf === 'function' ? LC.thumbs.toneOf(path) : undefined;
+} catch (e) {
+return undefined;
+}
+}
+
+function lightLogo(logos, picked) {
+var code = picked.iso_639_1 || '';
+var sibs = [];
+for (var i = 0; logos && i < logos.length; i++) {
+var item = logos[i];
+if (!item || !item.file_path || item.file_path === picked.file_path) continue;
+if ((item.iso_639_1 || '') !== code) continue;
+sibs.push(item);
+}
+if (!sibs.length) return picked;
+if (!Object.prototype.hasOwnProperty.call(logoSiblings, picked.file_path)) {
+if (siblingKeys >= 400) { logoSiblings = {}; siblingKeys = 0; }
+siblingKeys++;
+var paths = [];
+for (var k = 0; k < sibs.length && paths.length < SIBLINGS_MAX; k++) paths.push(sibs[k].file_path);
+logoSiblings[picked.file_path] = paths;
+}
+if (logoTone(picked.file_path) !== 'dark') return picked;
+for (var j = 0; j < sibs.length; j++) {
+if (logoTone(sibs[j].file_path) === 'light') return sibs[j];
+}
+return picked;
 }
 
 function pickLogo(logos, lang) {
@@ -13728,15 +13800,74 @@ return out;
 function heroBackdrop(images, main) {
 var list = goodFrames(images && images.backdrops, main);
 for (var i = 0; i < list.length; i++) {
-var b = list[i];
-if (!b.file_path || b.iso_639_1 || b.file_path === main) continue;
+if (wideFrame(list[i], main)) return list[i].file_path;
+}
+return main || '';
+}
+
+
+
+function wideFrame(b, main) {
+if (!b || !b.file_path || b.iso_639_1 || b.file_path === main) return false;
 var w = Number(b.width) || 0;
 var h = Number(b.height) || 0;
 var ratio = Number(b.aspect_ratio) || (w > 0 && h > 0 ? w / h : 0);
-if (w < HERO_BD_MIN_W || !(Math.abs(ratio - HERO_BD_RATIO) < HERO_BD_RATIO_TOL)) continue;
-return b.file_path;
+return w >= HERO_BD_MIN_W && Math.abs(ratio - HERO_BD_RATIO) < HERO_BD_RATIO_TOL;
 }
-return main || '';
+
+
+
+
+
+
+
+
+
+
+
+var LOOK_MAX = 3;
+
+function frameCandidates(images, main) {
+var list = images && images.backdrops;
+var paths = [];
+var good = goodFrames(list, main);
+var i;
+for (i = 0; i < good.length && paths.length < LOOK_MAX; i++) {
+if (wideFrame(good[i], main)) paths.push(good[i].file_path);
+}
+var strong = paths.length;
+var rest = slideFrames(list);
+for (i = 0; i < rest.length && paths.length < LOOK_MAX; i++) {
+if (wideFrame(rest[i], main) && paths.indexOf(rest[i].file_path) === -1) paths.push(rest[i].file_path);
+}
+return { paths: paths, strong: strong };
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+function pickFrame(cands, strong, verdictOf, fallback, late) {
+for (var i = 0; i < cands.length; i++) {
+var v = verdictOf(cands[i]);
+if (v === false) return { path: cands[i], wait: '' };
+if (v === true) continue;
+if (v === null) break;
+if (!late) return { path: '', wait: cands[i] };
+for (var j = 0; j < strong && j < cands.length; j++) {
+if (verdictOf(cands[j]) !== true) return { path: cands[j], wait: '' };
+}
+break;
+}
+return { path: fallback || '', wait: '' };
 }
 
 
@@ -14015,6 +14146,43 @@ if (fl.timer) {
 clearTimeout(fl.timer);
 fl.timer = null;
 }
+if (fl.linger) {
+clearTimeout(fl.linger);
+fl.linger = null;
+}
+}
+
+
+
+
+
+
+
+
+
+
+
+
+var LOGO_LINGER = 1500;
+
+function holdLogo(path) {
+var fl = path ? logoFlight[path] : null;
+if (fl) fl.keep = Date.now() + LOGO_LINGER;
+}
+
+function dropFlight(path, fl) {
+if (fl.subs.length || logoFlight[path] !== fl) return;
+
+
+delete logoFlight[path];
+unhookLogo(fl);
+if (fl.probe) {
+fl.probe.cancel();
+fl.probe = null;
+}
+try {
+if (typeof fl.img.removeAttribute === 'function') fl.img.removeAttribute('src');
+} catch (e) {}
 }
 
 
@@ -14026,6 +14194,27 @@ delete logoFlight[path];
 unhookLogo(fl);
 logoSeen[path] = ok ? 'ok' : (logoSeen[path] === 'retry' ? 'fail' : 'retry');
 if (ok) keepLogo(path, fl.img);
+
+
+
+
+if (ok && fl.probe) {
+fl.late = setTimeout(function () {
+fl.late = null;
+tellLogo(fl, true);
+}, TONE_WAIT);
+return;
+}
+tellLogo(fl, ok);
+}
+
+function tellLogo(fl, ok) {
+if (fl.told) return;
+fl.told = true;
+if (fl.late) {
+clearTimeout(fl.late);
+fl.late = null;
+}
 var subs = fl.subs;
 fl.subs = [];
 for (var i = 0; i < subs.length; i++) {
@@ -14037,10 +14226,41 @@ warn('hero: logo callback failed', e);
 }
 }
 
+
+var TONE_WAIT = 250;
+
+
+
+
+
+function probeTone(path, fl) {
+if (!LC.thumbs || typeof LC.thumbs.tone !== 'function' || logoTone(path) !== undefined) return;
+var done = false;
+var probe = LC.thumbs.tone(path, function (tone) {
+done = true;
+fl.probe = null;
+if (tone === 'dark') probeSiblings(path);
+if (fl.late) tellLogo(fl, true);
+});
+if (!done) fl.probe = probe;
+}
+
+function probeSiblings(path) {
+var sibs = Object.prototype.hasOwnProperty.call(logoSiblings, path) ? logoSiblings[path] : null;
+for (var i = 0; sibs && i < sibs.length; i++) {
+if (logoTone(sibs[i]) === undefined) {
+try { LC.thumbs.tone(sibs[i], function () {}); } catch (e) { warn('hero: logo tone failed', e); }
+}
+}
+}
+
 function flyLogo(path, url) {
 var img = new Image();
 img.decoding = 'async';
-var fl = { img: img, subs: [], timer: null };
+
+
+
+var fl = { img: img, subs: [], timer: null, keep: 0, linger: null, probe: null, late: null, told: false };
 logoFlight[path] = fl;
 img.onload = function () { landLogo(path, fl, true); };
 img.onerror = function () { landLogo(path, fl, false); };
@@ -14050,6 +14270,8 @@ fl.timer = null;
 landLogo(path, fl, !!(img.complete && img.naturalWidth));
 }, LOAD_TIMEOUT);
 img.src = url;
+
+probeTone(path, fl);
 return fl;
 }
 
@@ -14058,12 +14280,17 @@ var i = fl.subs.indexOf(sub);
 if (i !== -1) fl.subs.splice(i, 1);
 if (fl.subs.length || logoFlight[path] !== fl) return;
 
-
-delete logoFlight[path];
-unhookLogo(fl);
-try {
-if (typeof fl.img.removeAttribute === 'function') fl.img.removeAttribute('src');
-} catch (e) {}
+var wait = (fl.keep || 0) - Date.now();
+if (wait > 0) {
+if (!fl.linger) {
+fl.linger = setTimeout(function () {
+fl.linger = null;
+dropFlight(path, fl);
+}, wait);
+}
+return;
+}
+dropFlight(path, fl);
 }
 
 
@@ -14073,6 +14300,11 @@ if (typeof fl.img.removeAttribute === 'function') fl.img.removeAttribute('src');
 
 function preloadLogo(path, url, done) {
 var fl = logoFlight[path] || flyLogo(path, url);
+
+if (fl.linger) {
+clearTimeout(fl.linger);
+fl.linger = null;
+}
 var sub = { done: done };
 fl.subs.push(sub);
 return { cancel: function () { leaveLogo(path, fl, sub); } };
@@ -14361,6 +14593,13 @@ stopTimer('titleTimer');
 
 stopTimer('frameWait');
 stopTimer('holdTimer');
+
+
+stopTimer('lookTimer');
+if (state.look) {
+state.look.cancel();
+state.look = null;
+}
 
 
 
@@ -14928,6 +15167,10 @@ return 14000;
 function cancelSlides() {
 if (!state) return;
 stopTimer('slideFree');
+if (state.slideLook) {
+state.slideLook.cancel();
+state.slideLook = null;
+}
 if (state.slides) {
 var s = state.slides;
 state.slides = null;
@@ -14975,11 +15218,23 @@ var images = state.details.images;
 
 
 
+
+
+
+var poster = model.poster || '';
+var look = poster ? LC.thumbs : null;
 var list = LC.util.filter(slideFrames(images && images.backdrops), function (b) {
+if (look && b.file_path !== main && look.verdict(poster, b.file_path) === true) return false;
 return !keyArt || keyArt === main || b.file_path !== keyArt;
 });
 var paths = LC.backdrops.pickBackdrops({ backdrops: list }, main, LC.slideshow.maxFramesFor(motionMode()));
 if (!paths || paths.length <= 1) return;
+var slideShow = function (path, done) {
+loadFrame({ backdrop: path }, captured, function (ok) {
+if (ok) freeHidden(captured);
+done(ok);
+}, true);
+};
 state.slides = LC.slideshow.create(state.node, paths, {
 enabled: slidesAllowed,
 intervalMs: slideInterval,
@@ -14991,11 +15246,24 @@ show: function (path, done) {
 
 
 
-if (gen !== captured || !state || state.loader || homeHidden()) return;
-loadFrame({ backdrop: path }, captured, function (ok) {
-if (ok) freeHidden(captured);
-done(ok);
-}, true);
+if (gen !== captured || !state || state.loader || state.slideLook || homeHidden()) return;
+
+
+
+
+
+
+
+var v = look ? look.verdict(poster, path) : false;
+if (v === true) { done(false); return; }
+if (v !== undefined) { slideShow(path, done); return; }
+state.slideLook = look.compare(poster, path, function (similar) {
+if (!state || gen !== captured) return;
+state.slideLook = null;
+if (state.loader || homeHidden() || slidesHeld()) return;
+if (similar === true) { done(false); return; }
+slideShow(path, done);
+});
 }
 });
 if (slidesHeld()) state.slides.pause();
@@ -15065,8 +15333,16 @@ try { return LC.pref ? LC.pref('lumen_hero_logo', true) !== false : true; } catc
 
 
 
-function showLogo(node, url) {
-node.find('.lumen-hero__logo').css('background-image', 'url("' + encodeURI(url) + '")');
+function showLogo(node, url, path) {
+var logo = node.find('.lumen-hero__logo');
+logo.css('background-image', 'url("' + encodeURI(url) + '")');
+
+
+
+
+
+if (state.logoWhite === null) state.logoWhite = logoTone(path) === 'dark';
+logo.toggleClass('lumen-logo-white', !!state.logoWhite);
 node.addClass('lumen-hero--logo');
 }
 
@@ -15074,7 +15350,7 @@ node.addClass('lumen-hero--logo');
 
 
 function hideLogo(node) {
-node.find('.lumen-hero__logo').css('background-image', 'none');
+node.find('.lumen-hero__logo').css('background-image', 'none').removeClass('lumen-logo-white');
 node.removeClass('lumen-hero--logo');
 }
 
@@ -15122,7 +15398,7 @@ stopTimer('titleTimer');
 
 if (!state.model || state.model.logo !== path) return;
 if (state.titleForced) return;
-showLogo(state.node, url);
+showLogo(state.node, url, path);
 });
 }
 
@@ -15178,7 +15454,7 @@ if (state.titleForced) {
 hideLogo(node);
 out = 'none';
 } else {
-showLogo(node, url);
+showLogo(node, url, path);
 out = 'logo';
 }
 } else {
@@ -15410,7 +15686,6 @@ write();
 
 
 
-
 var CROSSFADE_CALM_MS = 1000;
 
 function swapFrame(url, blur, slide) {
@@ -15426,6 +15701,7 @@ only.attr('src', url);
 only.addClass('is-active');
 only.toggleClass('lumen-hero__bg--blur', !!blur);
 state.frameUrl = url;
+state.frameBlur = !!blur;
 return;
 }
 
@@ -15447,6 +15723,8 @@ prev.removeClass('is-active');
 
 next.toggleClass('lumen-hero__bg--blur', !!blur);
 state.frameUrl = url;
+
+state.frameBlur = !!blur;
 }
 
 
@@ -15689,9 +15967,10 @@ render(model, false);
 applyFx();
 
 
-startFrame(model, captured);
 
-startSlides(model, captured);
+
+
+chooseFrame(model, captured);
 };
 var onErr = function () {
 if (gen !== captured || !state) return;
@@ -15736,6 +16015,76 @@ warn('hero: details failed', e);
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+function chooseFrame(model, captured) {
+if (!state || gen !== captured || !model) return;
+if (state.framePath || state.lookTimer || state.look) {
+startSlides(model, captured);
+return;
+}
+var d = state.details;
+var main = (d && d.backdrop_path) || (state.shownCard && state.shownCard.backdrop_path) || '';
+var cands = frameCandidates(d && d.images, main);
+var poster = model.poster;
+var look = LC.thumbs;
+var decided = false;
+function verdictOf(path) { return look.verdict(poster, path); }
+function finish(path) {
+decided = true;
+stopTimer('lookTimer');
+var m = model;
+if (path && path !== model.backdrop) {
+m = {};
+for (var k in model) if (Object.prototype.hasOwnProperty.call(model, k)) m[k] = model[k];
+m.backdrop = path;
+}
+startFrame(m, captured);
+startSlides(m, captured);
+}
+if (!look || !poster || !cands.paths.length || motionMode() === 'off') {
+finish(model.backdrop);
+return;
+}
+
+stopTimer('frameWait');
+function step() {
+if (decided || !state || gen !== captured) return;
+var r = pickFrame(cands.paths, cands.strong, verdictOf, model.backdrop, false);
+if (!r.wait) {
+finish(r.path);
+return;
+}
+state.look = look.compare(poster, r.wait, function () {
+if (!state || gen !== captured) return;
+state.look = null;
+step();
+});
+}
+step();
+if (decided || !state || gen !== captured) return;
+state.lookTimer = setTimeout(function () {
+if (!state || gen !== captured) return;
+state.lookTimer = null;
+if (decided) return;
+
+
+
+finish(pickFrame(cands.paths, cands.strong, verdictOf, model.backdrop, true).path);
+}, LOOK_WAIT);
+}
+
 function startFrame(model, captured) {
 if (!state || gen !== captured || !model) return;
 if (state.framePath) return;
@@ -15744,7 +16093,11 @@ stopTimer('frameWait');
 state.framePath = model.backdrop || '';
 loadFrame(model, captured, function (ok) {
 if (gen !== captured || !state) return;
-prefetch('warm', state.root);
+
+
+
+
+if (!focusAway()) prefetch('warm', state.root);
 if (!ok) { holdFrame(captured); return; }
 state.frameId = state.shownId;
 stopTimer('holdTimer');
@@ -15768,15 +16121,6 @@ if (LC.prefetch && typeof LC.prefetch[name] === 'function') LC.prefetch[name](ar
 warn('hero: prefetch ' + name + ' failed', e);
 }
 }
-
-
-
-
-
-
-
-
-
 
 
 
@@ -15828,33 +16172,22 @@ holdFrame(captured, true);
 }, HOLD_DECODE);
 return;
 }
-var poster = state.holdPoster;
+
 
 
 
 
 
 try {
-if (!poster) {
-var cards = state.root.find('.card');
-var media = mediaOf(state.shownCard);
-for (var c = 0; !poster && cards && c < cards.length; c++) {
-if (cards[c] && cards[c].card_data && String(cards[c].card_data.id) === String(state.shownId) &&
-mediaOf(cards[c].card_data) === media) poster = rowPoster(cards[c]);
-}
-}
-if (poster) {
-swapFrame(poster, true);
-} else {
 state.stage.find('.lumen-hero__bg').removeClass('is-active');
 state.frameUrl = '';
+state.frameBlur = false;
 if (state.lqipUrl) {
 stopTimer('lqipTimer');
 var lqip = state.stage.find('.lumen-hero__lqip');
 lqip.removeClass('is-active');
 lqip.removeAttr('src');
 state.lqipUrl = '';
-}
 }
 
 state.frameId = state.shownId;
@@ -15887,17 +16220,8 @@ holdFrame(held);
 
 
 
-function rowPoster(el) {
-var src = el ? posterOf(el) : '';
-return src && !/\.svg(\?|#|$)/i.test(src) ? src : '';
-}
 
-
-
-
-
-
-function show(card, el, poster) {
+function show(card) {
 if (!state || !card) return;
 try {
 var captured = ++gen;
@@ -15915,6 +16239,8 @@ state.model = null;
 
 state.titleForced = false;
 
+state.logoWhite = null;
+
 
 
 clearFx();
@@ -15924,7 +16250,6 @@ clearFx();
 state.framePath = null;
 
 
-state.holdPoster = el ? rowPoster(el) : (poster || '');
 state.holdDue = !!(state.frameUrl || state.lqipUrl) && motionMode() !== 'off';
 var model = heroModel(card, null, words());
 render(model, true);
@@ -16001,17 +16326,6 @@ if (!state || state.fixedCompact) return;
 var index = rowIndex(el);
 if (index < 0) return;
 setCompact(index > 0);
-}
-
-
-
-
-function posterOf(el) {
-try {
-return $(el).find('.card__img').attr('src') || '';
-} catch (e) {
-return '';
-}
 }
 
 
@@ -16133,7 +16447,7 @@ state.timer = null;
 if (!isMounted()) return;
 if (state.pending !== card) return;
 if (!shouldUpdate(state.shownId, card.id, Date.now() - state.focusAt, DELAY)) return;
-show(card, el);
+show(card);
 }, DELAY);
 }
 
@@ -16236,7 +16550,7 @@ updateCompact(el[0]);
 
 
 
-show(el[0].card_data, el[0]);
+show(el[0].card_data);
 }
 } catch (e) {}
 }
@@ -16427,6 +16741,9 @@ titleTimer: null,
 titleForced: false,
 
 
+logoWhite: null,
+
+
 detailsWait: false,
 shownId: null,
 shownCard: null,
@@ -16436,14 +16753,21 @@ pending: null,
 focusAt: 0,
 frameUrl: '',
 
+frameBlur: false,
+
 
 framePath: null,
 frameWait: null,
 
 
 
+lookTimer: null,
+look: null,
+slideLook: null,
+
+
+
 frameId: null,
-holdPoster: '',
 holdTimer: null,
 holdDue: false,
 
@@ -16549,10 +16873,14 @@ if (LC.accent && typeof LC.accent.stopTween === 'function') LC.accent.stopTween(
 } catch (eTween) {
 warn('hero: accent stop failed', eTween);
 }
-var timers = ['timer', 'swapTimer', 'loadTimer', 'accentTimer', 'trailerTimer', 'lqipTimer', 'titleTimer', 'frameWait', 'holdTimer'];
+var timers = ['timer', 'swapTimer', 'loadTimer', 'accentTimer', 'trailerTimer', 'lqipTimer', 'titleTimer', 'frameWait', 'lookTimer', 'holdTimer'];
 for (var i = 0; i < timers.length; i++) {
 try { if (s[timers[i]]) clearTimeout(s[timers[i]]); } catch (eT) {}
 }
+
+
+try { if (s.look) s.look.cancel(); } catch (eL) {}
+try { if (s.slideLook) s.slideLook.cancel(); } catch (eSL) {}
 if (s.loader) {
 s.loader.onload = null;
 s.loader.onerror = null;
@@ -16656,7 +16984,9 @@ if (!state || state.parked) return;
 
 var holdLeft = state.holdDue && String(state.frameId) !== String(state.shownId);
 var frameLeft = (state.loader || state.loadTimer) && !state.slideLoad;
-if (state.detailsWait || frameLeft || state.logoLoader || state.swapTimer || state.titleTimer || state.frameWait || state.holdTimer || holdLeft) {
+
+
+if (state.detailsWait || frameLeft || state.logoLoader || state.swapTimer || state.titleTimer || state.frameWait || state.lookTimer || state.holdTimer || holdLeft) {
 state.stale = true;
 }
 state.parked = true;
@@ -16670,6 +17000,10 @@ stopTimer('timer');
 
 state.focusEl = null;
 state.pending = null;
+
+
+
+holdLogo(state.model && state.model.logo);
 cancelPending();
 
 
@@ -16729,13 +17063,9 @@ if (!card || card.id == null) {
 
 
 
-
-
-
-
 if (state.stale && state.shownCard) {
 state.stale = false;
-show(state.shownCard, null, state.holdPoster);
+show(state.shownCard);
 } else {
 applyFx();
 }
@@ -16750,7 +17080,7 @@ scheduleTrailer(card);
 }
 if (state.stale || String(state.shownId) !== String(card.id)) {
 state.stale = false;
-show(card, node);
+show(card);
 } else {
 applyFx();
 }
@@ -16816,12 +17146,21 @@ return true;
 
 
 
+
+
+
+
+
 function benchRestore() {
 if (!state || !state.frameUrl) return;
+var a = state.stage.find('.lumen-hero__bg--a');
 var b = state.stage.find('.lumen-hero__bg--b');
-var shown = b.hasClass('is-active') ? b : state.stage.find('.lumen-hero__bg--a');
+var bShown = b.hasClass('is-active');
+var shown = bShown ? b : a;
 if (shown.attr('src') !== state.frameUrl) shown.attr('src', state.frameUrl);
+shown.toggleClass('lumen-hero__bg--blur', !!state.frameBlur);
 shown.addClass('is-active');
+(bShown ? a : b).removeClass('is-active');
 }
 
 
@@ -16847,6 +17186,9 @@ TITLE_WAIT: TITLE_WAIT,
 
 preloadLogo: preloadLogo,
 logoState: logoState,
+
+
+logoTone: logoTone,
 touchLogo: touchLogo,
 CARD_TITLE_EM: CARD_TITLE_EM,
 mediaOf: mediaOf,
@@ -16854,6 +17196,10 @@ heroModel: heroModel,
 
 
 heroBackdrop: heroBackdrop,
+
+
+frameCandidates: frameCandidates,
+pickFrame: pickFrame,
 shouldUpdate: shouldUpdate,
 sizeFor: sizeFor,
 logoSizeFor: logoSizeFor,
@@ -19337,11 +19683,26 @@ var WORD_CHAR = /[a-z0-9À-ɏЀ-ӿ]/;
 
 
 
+
+
+
+
+
+function pluralOf(want) {
+return /(s|x|z|ch|sh)$/.test(want) ? 'es' : 's';
+}
+
 function hasWord(name, want) {
+var tail = pluralOf(want);
 var at = name.indexOf(want);
 while (at >= 0) {
 var before = at > 0 ? name.charAt(at - 1) : '';
-var after = name.charAt(at + want.length);
+var end = at + want.length;
+var after = name.charAt(end);
+if (after && name.substr(end, tail.length) === tail) {
+var past = name.charAt(end + tail.length);
+if (!(past && WORD_CHAR.test(past))) after = '';
+}
 if (!(before && WORD_CHAR.test(before)) && !(after && WORD_CHAR.test(after))) return true;
 at = name.indexOf(want, at + 1);
 }
@@ -24213,6 +24574,600 @@ warn('accent pref failed', e);
 if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.color;
 
 
+/* ---- 57_thumbs.js ---- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+LC.thumbs = (function () {
+
+var SIZE = 'w92';
+
+var FW = 48;
+var FH = 27;
+
+
+var CROP = 0.7;
+
+
+var SCALES = [1, 0.8, 0.64];
+
+var HIST_W = 30;
+
+
+
+var HIST_SIM = 0.7;
+var CORR_SIM = 0.75;
+var BOTH_SIM = 0.6;
+
+
+var LOGO_W = 64;
+var LOGO_H_MAX = 64;
+var ALPHA_MIN = 128;
+
+
+
+
+
+
+
+
+
+
+var DARK_MED = 0.25;
+var DARK_P75 = 0.35;
+var LOAD_MS = 8000;
+
+
+var IDLE_MS = 120;
+
+
+var KEEP = 60;
+
+
+var TABLE_MAX = 600;
+var DIRECT_HOST = 'https://image.tmdb.org/t/p/';
+var DIRECT_MARK = 'image.tmdb.org/';
+
+
+
+
+
+function bytes(n) {
+return typeof Uint8Array === 'function' ? new Uint8Array(n) : new Array(n);
+}
+
+
+function luma(data, n) {
+var out = bytes(n);
+for (var i = 0, j = 0; i < n; i++, j += 4) {
+out[i] = Math.round(0.299 * data[j] + 0.587 * data[j + 1] + 0.114 * data[j + 2]);
+}
+return out;
+}
+
+
+function histogram(data, n) {
+var h = [];
+var k;
+for (k = 0; k < 64; k++) h[k] = 0;
+var count = 0;
+for (var i = 0, j = 0; i < n; i++, j += 4) {
+if (data[j + 3] < ALPHA_MIN) continue;
+h[((data[j] >> 6) << 4) | ((data[j + 1] >> 6) << 2) | (data[j + 2] >> 6)]++;
+count++;
+}
+if (count) for (k = 0; k < 64; k++) h[k] /= count;
+return h;
+}
+
+
+function histMatch(a, b) {
+var s = 0;
+for (var k = 0; k < 64; k++) s += Math.min(a[k] || 0, b[k] || 0);
+return s;
+}
+
+
+
+function corrAt(f, fw, t, tw, th, x, y, st, vt) {
+var n = tw * th;
+var sf = 0;
+var sff = 0;
+var sft = 0;
+for (var r = 0; r < th; r++) {
+var fo = (y + r) * fw + x;
+var to = r * tw;
+for (var c = 0; c < tw; c++) {
+var a = f[fo + c];
+sf += a;
+sff += a * a;
+sft += a * t[to + c];
+}
+}
+var vf = sff - sf * sf / n;
+if (vf <= 1e-6 || vt <= 1e-6) return 0;
+return (sft - sf * st / n) / Math.sqrt(vf * vt);
+}
+
+
+
+function bestCorr(f, fw, fh, tmpl) {
+if (!tmpl || tmpl.w > fw || tmpl.h > fh) return -1;
+var n = tmpl.w * tmpl.h;
+var st = 0;
+var stt = 0;
+for (var i = 0; i < n; i++) {
+st += tmpl.g[i];
+stt += tmpl.g[i] * tmpl.g[i];
+}
+var vt = stt - st * st / n;
+var best = -1;
+for (var y = 0; y + tmpl.h <= fh; y++) {
+for (var x = 0; x + tmpl.w <= fw; x++) {
+var v = corrAt(f, fw, tmpl.g, tmpl.w, tmpl.h, x, y, st, vt);
+if (v > best) best = v;
+}
+}
+return best;
+}
+
+function similar(hist, corr) {
+return hist >= HIST_SIM || corr >= CORR_SIM || (hist >= BOTH_SIM && corr >= BOTH_SIM);
+}
+
+
+
+function judge(poster, frame) {
+var hist = histMatch(poster.h, frame.hist);
+var corr = -1;
+for (var i = 0; i < poster.t.length; i++) {
+var c = bestCorr(frame.g, frame.w, frame.h, poster.t[i]);
+if (c > corr) corr = c;
+}
+return { hist: hist, corr: corr, similar: similar(hist, corr) };
+}
+
+function linear(v) {
+v /= 255;
+return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+}
+
+
+function lightness(y) {
+return y > 0.008856 ? (116 * Math.pow(y, 1 / 3) - 16) / 100 : 9.033 * y;
+}
+
+
+function toneStats(data) {
+var ls = [];
+for (var j = 0; j < data.length; j += 4) {
+if (data[j + 3] < ALPHA_MIN) continue;
+ls.push(lightness(0.2126 * linear(data[j]) + 0.7152 * linear(data[j + 1]) + 0.0722 * linear(data[j + 2])));
+}
+ls.sort(function (a, b) { return a - b; });
+var n = ls.length;
+return { n: n, med: n ? ls[n >> 1] : 0, p75: n ? ls[Math.min(n - 1, Math.floor(n * 0.75))] : 0 };
+}
+
+function darkOf(stats) {
+return !!(stats && stats.n > 0 && (stats.med < DARK_MED || stats.p75 < DARK_P75));
+}
+
+
+
+
+
+var idleQueue = [];
+var idleArmed = false;
+
+function idle(fn) {
+idleQueue.push(fn);
+arm();
+}
+
+function arm() {
+if (idleArmed || !idleQueue.length) return;
+idleArmed = true;
+var run = function () {
+idleArmed = false;
+var fn = idleQueue.shift();
+try {
+if (fn) fn();
+} catch (e) {
+warn('thumbs: idle task failed', e);
+}
+arm();
+};
+try {
+if (typeof window.requestIdleCallback === 'function') {
+window.requestIdleCallback(run, { timeout: IDLE_MS });
+return;
+}
+} catch (e) { }
+setTimeout(run, 16);
+}
+
+
+
+
+
+function urlOf(path) {
+try {
+var tmdb = window.Lampa && Lampa.TMDB && typeof Lampa.TMDB.image === 'function' ?
+function (u) { return Lampa.TMDB.image(u); } : null;
+var api = window.Lampa && Lampa.Api && typeof Lampa.Api.img === 'function' ?
+function (p, s) { return Lampa.Api.img(p, s); } : null;
+return LC.cardinfo.imageUrl(path, SIZE, tmdb, api);
+} catch (e) {
+return '';
+}
+}
+
+function directOf(path, url) {
+if (!path || (url && url.indexOf(DIRECT_MARK) !== -1)) return '';
+return DIRECT_HOST + SIZE + (path.charAt(0) === '/' ? path : '/' + path);
+}
+
+
+var flights = {};
+
+function unhook(fl) {
+if (fl.img) {
+fl.img.onload = null;
+fl.img.onerror = null;
+}
+if (fl.timer) {
+clearTimeout(fl.timer);
+fl.timer = null;
+}
+}
+
+function land(path, fl, img) {
+if (flights[path] !== fl) return;
+delete flights[path];
+unhook(fl);
+var subs = fl.subs;
+fl.subs = [];
+for (var i = 0; i < subs.length; i++) {
+try { subs[i](img); } catch (e) { warn('thumbs: callback failed', e); }
+}
+}
+
+function start(path, fl, url, alt) {
+var img = new Image();
+fl.img = img;
+img.onload = function () { land(path, fl, img); };
+img.onerror = function () {
+if (alt) {
+unhook(fl);
+start(path, fl, alt, '');
+return;
+}
+land(path, fl, null);
+};
+fl.timer = setTimeout(function () {
+fl.timer = null;
+land(path, fl, img.complete && img.naturalWidth ? img : null);
+}, LOAD_MS);
+
+
+
+
+img.crossOrigin = 'anonymous';
+img.src = url;
+}
+
+
+
+function fetchImage(path, cb) {
+var fl = flights[path];
+if (!fl) {
+var url = urlOf(path);
+if (!url) {
+cb(null);
+return { cancel: function () { } };
+}
+fl = { img: null, subs: [], timer: null };
+flights[path] = fl;
+start(path, fl, url, directOf(path, url));
+}
+fl.subs.push(cb);
+return {
+cancel: function () {
+var i = fl.subs.indexOf(cb);
+if (i !== -1) fl.subs.splice(i, 1);
+if (fl.subs.length || flights[path] !== fl) return;
+delete flights[path];
+unhook(fl);
+try {
+if (fl.img && typeof fl.img.removeAttribute === 'function') fl.img.removeAttribute('src');
+} catch (e) { }
+}
+};
+}
+
+
+
+
+
+function context(w, h) {
+var canvas = document.createElement('canvas');
+canvas.width = w;
+canvas.height = h;
+
+
+return canvas.getContext('2d', { willReadFrequently: true });
+}
+
+function framePixels(img) {
+var ctx = context(FW, FH);
+ctx.drawImage(img, 0, 0, FW, FH);
+var data = ctx.getImageData(0, 0, FW, FH).data;
+return { w: FW, h: FH, g: luma(data, FW * FH), hist: histogram(data, FW * FH) };
+}
+
+function posterPixels(img) {
+var W = img.naturalWidth;
+var H = img.naturalHeight;
+var sy = H * (1 - CROP) / 2;
+var sh = H * CROP;
+var aspect = W / sh;
+var t = [];
+for (var i = 0; i < SCALES.length; i++) {
+var th = Math.round(FH * SCALES[i]);
+var tw = Math.round(th * aspect);
+if (tw < 2 || th < 2 || tw > FW) continue;
+var ctx = context(tw, th);
+ctx.drawImage(img, 0, sy, W, sh, 0, 0, tw, th);
+t.push({ w: tw, h: th, g: luma(ctx.getImageData(0, 0, tw, th).data, tw * th) });
+}
+var hh = Math.max(1, Math.round(HIST_W / aspect));
+var hc = context(HIST_W, hh);
+hc.drawImage(img, 0, sy, W, sh, 0, 0, HIST_W, hh);
+return { t: t, h: histogram(hc.getImageData(0, 0, HIST_W, hh).data, HIST_W * hh) };
+}
+
+function logoPixels(img) {
+var h = Math.max(1, Math.min(LOGO_H_MAX, Math.round(LOGO_W * img.naturalHeight / img.naturalWidth)));
+var ctx = context(LOGO_W, h);
+ctx.drawImage(img, 0, 0, LOGO_W, h);
+return toneStats(ctx.getImageData(0, 0, LOGO_W, h).data);
+}
+
+
+
+var feats = {};
+var featKeys = [];
+
+function featGet(key) {
+return Object.prototype.hasOwnProperty.call(feats, key) ? feats[key] : undefined;
+}
+
+function featPut(key, value) {
+if (!Object.prototype.hasOwnProperty.call(feats, key)) {
+featKeys.push(key);
+while (featKeys.length > KEEP) delete feats[featKeys.shift()];
+}
+feats[key] = value;
+}
+
+
+
+
+function extract(kind, img) {
+
+
+
+if (!img) { score(false); return false; }
+if (!img.naturalWidth || !img.naturalHeight) return false;
+try {
+var out = kind === 'poster' ? posterPixels(img) : (kind === 'frame' ? framePixels(img) : logoPixels(img));
+score(true);
+return out;
+} catch (e) {
+warn('thumbs: pixels blocked', e);
+score(false);
+return false;
+}
+}
+
+var verdicts = {};
+var verdictCount = 0;
+var tones = {};
+var toneCount = 0;
+
+
+
+
+
+
+
+var FAIL_LIMIT = 6;
+var failRow = 0;
+
+function blocked() {
+return failRow >= FAIL_LIMIT;
+}
+
+function score(ok) {
+failRow = ok ? 0 : failRow + 1;
+}
+
+function remember(table, key, value) {
+if (table === verdicts) {
+if (verdictCount >= TABLE_MAX) { verdicts = {}; verdictCount = 0; table = verdicts; }
+if (!Object.prototype.hasOwnProperty.call(table, key)) verdictCount++;
+} else {
+if (toneCount >= TABLE_MAX) { tones = {}; toneCount = 0; table = tones; }
+if (!Object.prototype.hasOwnProperty.call(table, key)) toneCount++;
+}
+table[key] = value;
+}
+
+function verdict(poster, frame) {
+var key = poster + '|' + frame;
+return Object.prototype.hasOwnProperty.call(verdicts, key) ? verdicts[key] : undefined;
+}
+
+function toneOf(path) {
+return path && Object.prototype.hasOwnProperty.call(tones, path) ? tones[path] : undefined;
+}
+
+
+
+function need(kind, path, cb) {
+var key = kind + ':' + path;
+var got = featGet(key);
+if (got !== undefined) {
+cb(got);
+return { cancel: function () { } };
+}
+var live = true;
+var load = fetchImage(path, function (img) {
+if (!live) return;
+idle(function () {
+if (!live) return;
+var now = featGet(key);
+if (now === undefined) {
+now = extract(kind, img);
+featPut(key, now);
+}
+cb(now);
+});
+});
+return {
+cancel: function () {
+if (!live) return;
+live = false;
+load.cancel();
+}
+};
+}
+
+
+
+
+
+
+function compare(poster, frame, cb) {
+var known = verdict(poster, frame);
+if (known !== undefined || blocked()) {
+cb(known === undefined ? null : known);
+return { cancel: function () { } };
+}
+var live = true;
+var pf;
+var ff;
+var jobs = [];
+function settle() {
+if (!live || pf === undefined || ff === undefined) return;
+live = false;
+var value = pf && ff ? judge(pf, ff).similar : null;
+remember(verdicts, poster + '|' + frame, value);
+cb(value);
+}
+jobs.push(need('poster', poster, function (got) { pf = got; settle(); }));
+if (live) jobs.push(need('frame', frame, function (got) { ff = got; settle(); }));
+return {
+cancel: function () {
+if (!live) return;
+live = false;
+for (var i = 0; i < jobs.length; i++) jobs[i].cancel();
+}
+};
+}
+
+
+
+function tone(path, cb) {
+var known = toneOf(path);
+if (known !== undefined || blocked()) {
+cb(known === undefined ? 'none' : known);
+return { cancel: function () { } };
+}
+var live = true;
+var job = need('logo', path, function (stats) {
+if (!live) return;
+live = false;
+var value = stats ? (darkOf(stats) ? 'dark' : 'light') : 'none';
+remember(tones, path, value);
+cb(value);
+});
+return {
+cancel: function () {
+if (!live) return;
+live = false;
+job.cancel();
+}
+};
+}
+
+return {
+
+luma: luma,
+histogram: histogram,
+histMatch: histMatch,
+bestCorr: bestCorr,
+similar: similar,
+judge: judge,
+toneStats: toneStats,
+darkOf: darkOf,
+
+compare: compare,
+verdict: verdict,
+tone: tone,
+toneOf: toneOf,
+
+stats: function () {
+var fly = 0;
+for (var k in flights) if (Object.prototype.hasOwnProperty.call(flights, k)) fly++;
+return { fly: fly, idle: idleQueue.length, feats: featKeys.length, blocked: blocked() };
+}
+};
+})();
+
+if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.thumbs;
+
+
 /* ---- 58_prefetch.js ---- */
 
 
@@ -24623,6 +25578,10 @@ queue.length = 0;
 stopIdle();
 focusEl = null;
 prevEl = null;
+
+
+
+warmed = null;
 var jobs = logoJobs;
 logoJobs = [];
 for (var i = 0; i < jobs.length; i++) {
@@ -25935,10 +26894,28 @@ return mode() !== 'off';
 function captionHidden() {
 try {
 if (!state || !state.root || typeof state.root.hasClass !== 'function' || !state.root.hasClass('lumen-main')) return false;
-return !LC.pref || LC.pref('lumen_hero_size', 'large') !== 'compact';
+if (LC.pref && LC.pref('lumen_hero_size', 'large') === 'compact') return false;
+return !frameGone();
 } catch (e) {
 return false;
 }
+}
+
+
+
+
+
+
+
+function frameGone() {
+var at = typeof LC.heroOffRatio === 'function' ? Number(LC.heroOffRatio()) || 0 : 0;
+if (!at) return false;
+if (typeof window.matchMedia === 'function') {
+return !!window.matchMedia('screen and (min-aspect-ratio:' + at + '/100)').matches;
+}
+var w = Number(window.innerWidth) || 0;
+var h = Number(window.innerHeight) || 0;
+return w > 0 && h > 0 && w / h >= at / 100;
 }
 
 
@@ -34145,6 +35122,7 @@ el.lumen_logo = st;
 
 if (!path) {
 holder.css('background-image', 'none');
+holder.removeClass('lumen-logo-white');
 setTitleMode(root, 'text');
 return;
 }
@@ -34161,9 +35139,14 @@ if (el.lumen_logo !== st) return;
 st.handle = null;
 if (show) {
 holder.css('background-image', 'url("' + encodeURI(url) + '")');
+
+
+
+holder.toggleClass('lumen-logo-white', typeof hero.logoTone === 'function' && hero.logoTone(path) === 'dark');
 setTitleMode(root, 'logo');
 } else {
 holder.css('background-image', 'none');
+holder.removeClass('lumen-logo-white');
 setTitleMode(root, 'text');
 }
 });
@@ -37705,10 +38688,23 @@ if (!activated) return;
 try {
 LC.injectCss();
 remountHero();
+if (captionBadges()) remountBadges();
 } catch (e) {
 warn('hero size pref failed', e);
 }
 };
+
+
+
+
+
+
+
+
+
+function captionBadges() {
+try { return LC.badgesMode() === 'caption'; } catch (e) { return false; }
+}
 
 
 
@@ -37807,7 +38803,9 @@ for (var i = 0; i < keys.length; i++) changed[keys[i]] = true;
 if (changed.lumen_font) LC.injectFonts();
 LC.injectCss();
 if (changed.lumen_hero_size) remountHero();
-if (changed.lumen_badges) remountBadges();
+
+
+if (changed.lumen_badges || (changed.lumen_hero_size && captionBadges())) remountBadges();
 
 
 
