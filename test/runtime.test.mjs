@@ -995,6 +995,34 @@ test('Task 62b: порядок прохода — шрифт, таблица, г
   assert.ok(seen.indexOf('css') < seen.indexOf('hero:mount'));
 });
 
+/* Волна «хвосты героя», п.G (ревью подложки): вид меток «в подписи» на
+   главной с живым кадром рисует метку на постере — строки «год · ★» при
+   живом кадре нет (src/62_badges.js, captionHidden). Смена «Кадра над
+   рядами» на живой главной (Компактный/Выключен ↔ Крупный/Средний) меняет
+   это решение, а нарисованные метки оставались на прежних местах: метки в
+   подписи пропадали вместе со строкой. После героя метки перерисовываются
+   — в виде «в подписи»; в виде «на постере» место у метки одно, и
+   перерисовывать нечего. */
+test('п.G: смена размера кадра в виде «в подписи» перерисовывает метки после героя и чипов', () => {
+  const { env, seen } = presetEnv({ lumen_badges: 'caption', lumen_hero_size: 'large' });
+  env.LC.applyHeroSizePref();
+  assert.deepEqual(seen, ['css', 'hero:mount', 'moods:mount', 'badges:uninstall', 'badges:install']);
+  seen.length = 0;
+  env.LC.applyPresetChanges(['lumen_hero_size']);
+  assert.deepEqual(seen, ['css', 'hero:mount', 'moods:mount', 'badges:uninstall', 'badges:install']);
+  seen.length = 0;
+  env.LC.applyPresetChanges(['lumen_hero_size', 'lumen_badges']);
+  assert.equal(seen.filter((s) => s === 'badges:install').length, 1, 'метки перерисованы дважды: ' + seen.join(', '));
+  assert.deepEqual(warnLog, []);
+});
+
+test('п.G: в виде «на постере» смена размера кадра метки не трогает', () => {
+  const { env, seen } = presetEnv({ lumen_badges: 'poster', lumen_hero_size: 'large' });
+  env.LC.applyHeroSizePref();
+  env.LC.applyPresetChanges(['lumen_hero_size']);
+  assert.deepEqual(seen.filter((s) => s.indexOf('badges:') === 0), []);
+});
+
 test('Task 62b: ключей нет — применять нечего, таблица не трогается', () => {
   const { env, seen } = presetEnv();
   env.LC.applyPresetChanges([]);
