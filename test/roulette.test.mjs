@@ -805,6 +805,8 @@ function openRoulette34(cards, t, dpr, motion, object, hold, prefs, storage) {
   var Comp = components.lumen_roulette;
   var comp = new Comp(object || {});
   comp.activity = { loader: function (on) { loaderLog34.push(!!on); } };
+  /* D1: узел активности — тесту, который проверяет её класс. */
+  if (object && object.lumen_activity) comp.activity.render = function () { return object.lumen_activity; };
   /* Шестой раунд, п.4: порядок push$3 (vendor/lampa/app.min.js:45836-45841)
      — limit(), create$4 (внутри него create() компонента), activites.push,
      start$4. Во время create() вершина истории — ещё прошлый экран, и
@@ -2237,4 +2239,13 @@ test('C6: экран рулетки без ключа — чипа подбор�
   assert.equal(env.chips().length, 2, '«Все подборки» и одна подборка — без КП');
   const keyed = openRoulette34([R44], t, 1, 'full', { media: 'movie' }, null, { lumen_kp_key: 'KEY' });
   assert.equal(keyed.chips().length, 3, 'с ключом подборка КП на месте');
+});
+
+/* Полное ревью, D1: у «Что посмотреть» свой фон — класс lumen-screen на
+   активности (правило — в наборе подкраски, src/30_css.js). */
+test('D1: рулетка ставит активности класс своего фона', (t) => {
+  const act = new El(['activity']);
+  const env = openRoulette34([R44], t, 1, 'full', { media: 'movie', lumen_activity: act });
+  assert.ok(act.hasClass('lumen-screen'), 'у активности рулетки нет своего фона');
+  assert.ok(env.comp);
 });

@@ -206,7 +206,9 @@ test('правка 2026-09-23: двухуровневое название — �
    под содержимым карточки. Класс ставит сам плагин на вертикальную ленту
    содержимого (src/50_backdrops.js), без нашего DOM его не бывает, а само
    правило — один background-image, чужой разметке он ничего не меняет. */
-const ALLOWED_ROOTS = ['.lumen-scrim', '.lumen-card', '.lumen-backdrop', '.lumen-descr-row', '.lumen-review-modal', '.lumen-descr-modal', '.lumen-hub', '.lumen-grid', '.lumen-menu-hub', '.lumen-hero', '.lumen-main', '.lumen-moods', '.lumen-mood-chip', '.lumen-skeleton', '.lumen-overlay', '.lumen-minimap', '.lumen-jump', '.lumen-ambient', '.lumen-roulette', '.lumen-menu-roulette', '.lumen-hud', '.full-start__background', '.full-start-new', 'body'];
+/* Полное ревью, D1: .lumen-screen — класс плагина на активности его
+   экранов (хаб, сетка, «Что посмотреть»), свой фон экрана. */
+const ALLOWED_ROOTS = ['.lumen-screen', '.lumen-scrim', '.lumen-card', '.lumen-backdrop', '.lumen-descr-row', '.lumen-review-modal', '.lumen-descr-modal', '.lumen-hub', '.lumen-grid', '.lumen-menu-hub', '.lumen-hero', '.lumen-main', '.lumen-moods', '.lumen-mood-chip', '.lumen-skeleton', '.lumen-overlay', '.lumen-minimap', '.lumen-jump', '.lumen-ambient', '.lumen-roulette', '.lumen-menu-roulette', '.lumen-hud', '.full-start__background', '.full-start-new', 'body'];
 
 /* Ревью Task 5a (замечание, зафиксировано в Task 5b): проверка была по
    sel.indexOf(root) === 0 без учёта границы селектора — так
@@ -7339,4 +7341,91 @@ test('fx2: вид «как Apple TV» — под кадром результат
   assert.ok(base && /background-color:/.test(base), 'под экраном не просвечивает фон Lampa');
   const kadrBg = findDecl(css, (sel) => sel === '.lumen-roulette-screen.is-atv.is-kadr .lumen-roulette__bg');
   assert.ok(kadrBg && kadrBg.indexOf('opacity:1') !== -1, 'кадр результата — во всю яркость');
+});
+
+/* ---------------------------------------------------------------------- */
+/* Полное ревью, D1: «Что посмотреть» (стандартный стиль), хаб и сетка не    */
+/* рисовали своего фона — под экраном был серый размытый фон Lampa (он     */
+/* включён по умолчанию), и невыбранные вкладки и чипы P.smoke читались на  */
+/* 1.02–1.35:1, подзаголовок сетки — 1.45, чипы хаба — 2.4–3.5. Теперь у     */
+/* активности экрана свой фон — P.bg с подкраской, как у главной (класс     */
+/* lumen-screen, правило в наборе подкраски), а неактивные вкладки и чипы   */
+/* читаются не ниже 4.5:1 на любом фоне плагина: тёплая и чёрная темы, без  */
+/* подкраски и на самой светлой подкраске, с плотными подложками и без.     */
+/* ---------------------------------------------------------------------- */
+
+function rgbaOver(value, bgHex) {
+  const v = ('' + value).trim();
+  const hexRgb = (h) => [0, 2, 4].map((i) => parseInt(h.replace('#', '').slice(i, i + 2), 16));
+  const B = hexRgb(bgHex);
+  if (v === 'transparent') return bgHex;
+  if (v.charAt(0) === '#') return v;
+  const m = /^rgba\((\d+),(\d+),(\d+),([\d.]+)\)$/.exec(v);
+  assert.ok(m, 'заливка не разобрана: ' + v);
+  const a = parseFloat(m[4]);
+  const out = [1, 2, 3].map((i, k) => Math.round(parseInt(m[i], 10) * a + B[k] * (1 - a)));
+  return '#' + out.map((x) => ('0' + x.toString(16)).slice(-2)).join('');
+}
+
+test('D1: у экранов рулетки, хаба и сетки свой фон — P.bg с подкраской, как у главной', () => {
+  const P = tokensWith({});
+  const rule = findDecl(css, (sel) => sel === '.lumen-screen');
+  assert.ok(rule, 'нет правила фона .lumen-screen');
+  assert.equal(declProp(rule, 'background-color'), P.bg);
+  const tint = lightestTint('warm');
+  const hot = withTint({}, tint, (LC) => LC.accentCss());
+  assert.ok(hot.indexOf('.lumen-screen{background-color:' + tint + '}') !== -1, 'фон экранов не едет с подкраской: ' + hot);
+});
+
+test('D1: неактивные вкладки и чипы рулетки, хаба и сетки, подзаголовок сетки — не ниже 4.5:1 на любом фоне плагина', () => {
+  /* Третий элемент — селектор подложки, если текст лежит не на своей
+     заливке: вкладки вида «как Apple TV» прозрачны и стоят в сегменте
+     .lumen-roulette__media с заливкой. */
+  const cases = [
+    ['.lumen-roulette .lumen-roulette__tab', true],
+    ['.lumen-roulette .lumen-roulette__chip', true],
+    ['.lumen-roulette-screen.is-atv .lumen-roulette__tab', true, '.lumen-roulette-screen.is-atv .lumen-roulette__media'],
+    ['.lumen-roulette-screen.is-atv .lumen-roulette__chip', true],
+    ['.lumen-hub .lumen-chip', true],
+    ['.lumen-grid .lumen-chip', true],
+    ['.lumen-grid__sub', false],
+    ['.lumen-grid .lumen-gcard .card__age', false],
+    ['.lumen-roulette .lumen-roulette__empty', false],
+    ['.lumen-hub__search', true],
+    ['.lumen-hub__count', false]
+  ];
+  const variants = [
+    { name: 'тёплая', storage: {}, tint: null },
+    { name: 'тёплая, подкраска', storage: {}, tint: lightestTint('warm') },
+    { name: 'чёрная, подкраска', storage: { lumen_theme: 'black' }, tint: lightestTint('black') },
+    { name: 'тёплая, плотные подложки', storage: { lumen_solid: true }, tint: lightestTint('warm') }
+  ];
+  const bad = [];
+  for (const v of variants) {
+    const built = withTint(v.storage, v.tint, (LC) => LC.buildCss());
+    const P = withTint(v.storage, v.tint, (LC) => LC.tokens());
+    const fillOf = (sel) => {
+      const decl = ruleBodies(built).filter((r) => r.selectors.indexOf(sel) !== -1).map((r) => r.decl).join(';');
+      const fills = decl.match(/(?:^|;)background:([^;]+)/g) || [];
+      return fills.length ? fills[fills.length - 1].replace(/^;?background:/, '') : null;
+    };
+    for (const [sel, filled, underSel] of cases) {
+      const bodies = ruleBodies(built).filter((r) => r.selectors.indexOf(sel) !== -1).map((r) => r.decl).join(';');
+      assert.ok(bodies, 'нет правила ' + sel);
+      /* Последнее объявление побеждает — как в каскаде при равной специфичности. */
+      const colors = bodies.match(/(?:^|;)color:([^;]+)/g) || [];
+      const color = colors.length ? colors[colors.length - 1].replace(/^;?color:/, '') : null;
+      assert.ok(color, sel + ': нет цвета');
+      let fill = null;
+      if (filled) {
+        const fills = bodies.match(/(?:^|;)background:([^;]+)/g) || [];
+        fill = fills.length ? fills[fills.length - 1].replace(/^;?background:/, '') : null;
+      }
+      let under = fill ? rgbaOver(fill, P.bg) : P.bg;
+      if (underSel && (!fill || fill === 'transparent')) under = rgbaOver(fillOf(underSel), P.bg);
+      const got = contrast(color.charAt(0) === '#' ? color : rgbaOver(color, P.bg), under);
+      if (got < 4.5) bad.push(v.name + ': ' + sel + ' ' + color + ' на ' + under + ' — ' + got.toFixed(2));
+    }
+  }
+  assert.deepEqual(bad, []);
 });

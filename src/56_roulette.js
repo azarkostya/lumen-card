@@ -1908,6 +1908,13 @@
 
       this.create = function () {
         motionClass(root);
+        /* Полное ревью, D1: свой фон экрана — класс на активности, правило
+           в наборе подкраски (src/30_css.js, .lumen-screen). Без него под
+           спокойным экраном был серый размытый фон Lampa. */
+        try {
+          var act = self.activity && typeof self.activity.render === 'function' ? self.activity.render() : null;
+          if (act && typeof act.addClass === 'function') act.addClass('lumen-screen');
+        } catch (eAct) { }
         /* Task 44: порядок сверху вниз — шапка (заголовок, медиа, фильтры),
            лента подборок, сцена с барабаном. Барабан стоит ПОД лентой, а не
            над ней, как было до Task 44: спокойный экран помещается целиком

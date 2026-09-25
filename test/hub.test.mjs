@@ -2654,3 +2654,21 @@ test('C7: destroy сетки после возврата в хаб окно ха
   grid.destroy();
   assert.equal(h.api._windowNodes(), hubWindow, 'destroy сетки сбросил окно хаба');
 });
+
+/* Полное ревью, D1: у хаба и сетки свой фон — класс lumen-screen на
+   активности (правило — в наборе подкраски, src/30_css.js). */
+test('D1: хаб и сетка ставят активности класс своего фона', function () {
+  var env = setupLampa({ cols: 2 });
+  var h = loadHub({ cols: 2 });
+  h.api.install();
+  var hubAct = new El(['activity']);
+  var hub = makeComponent('lumen_hub', {}, env);
+  hub.activity.render = function () { return hubAct; };
+  hub.create();
+  assert.ok(hubAct.hasClass('lumen-screen'), 'у активности хаба нет своего фона');
+  var gridAct = new El(['activity']);
+  var grid = makeComponent('lumen_grid', { lumen: DISCOVER, title: 'x' }, env);
+  grid.activity.render = function () { return gridAct; };
+  grid.create();
+  assert.ok(gridAct.hasClass('lumen-screen'), 'у активности сетки нет своего фона');
+});

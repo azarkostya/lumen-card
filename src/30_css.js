@@ -242,6 +242,13 @@
     var key = heroSizeKey();
     return {
       main: '.lumen-main{background-color:' + P.bg + '}',
+      /* Полное ревью, D1: свой фон у экранов «Что посмотреть», хаба и
+         сетки — тот же фон страницы с подкраской, что у главной. Без него
+         под экраном был серый размытый фон Lampa (он включён по
+         умолчанию), и приглушённый текст читался на 1.02–3.5:1. Класс
+         lumen-screen ставят на активность сами экраны (src/46_hub.js,
+         src/56_roulette.js). */
+      screen: '.lumen-screen{background-color:' + P.bg + '}',
       /* Волна 3 (проверка на ТВ 2026-09-24): затемнение кадра героя — три
          неподвижных градиента в слое .lumen-hero-stage, во весь экран, без
          единой видимой кромки. Прежние вуали (левая — плашка .97/.94 до
@@ -311,7 +318,7 @@
      таблице. */
   LC.accentCss = function () {
     var R = accentRules(palette(), theme());
-    return R.main + '\n' + R.scrim + '\n' + R.scrimL + '\n' + R.floor + '\n' + R.fadeTop + '\n' + R.fadeBot;
+    return R.main + '\n' + R.screen + '\n' + R.scrim + '\n' + R.scrimL + '\n' + R.floor + '\n' + R.fadeTop + '\n' + R.fadeBot;
   };
 
   /* Task 60 (ревью): подсветка карточки под фокусом уехала в СВОЙ узел
@@ -3297,7 +3304,9 @@
     css.push('.lumen-grid{padding:' + EDGE_Y + 'em ' + EDGE + 'em 3.5em ' + EDGE + 'em;color:' + P.text + '}');
     css.push('.lumen-grid__head{margin-bottom:1.05em}');
     css.push('.lumen-grid__title{font-family:' + FB + ';font-weight:700;font-size:2.10em;line-height:1}');
-    css.push('.lumen-grid__sub{font-family:' + FB + ';font-weight:500;font-size:1.01em;color:' + P.smoke + ';margin-top:.44em}');
+    /* Полное ревью, D1: P.muted, а не P.smoke — на фоне экрана smoke давал
+       3.2–3.8:1 (с подкраской и без). */
+    css.push('.lumen-grid__sub{font-family:' + FB + ';font-weight:500;font-size:1.01em;color:' + P.muted + ';margin-top:.44em}');
     css.push('.lumen-grid__sorts{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;margin-bottom:1.4em}');
     /* Правка 2026-09-23 (долг Task 23): «Крутить по этой подборке» — чип
        той же строки, что сортировка (вид, высота и фокус — общие правила
@@ -3464,6 +3473,7 @@
        и у градиентов. */
     var AR = accentRules(P, t);
     css.push(AR.main);
+    css.push(AR.screen);
     /* Task 49: штатный фон Lampa под нашей главной не рисуется вовсе. Его
        разметка — один .background с тремя канвасами внутри
        (vendor/lampa/app.min.js:31225: <div class="background"> с
@@ -4981,7 +4991,14 @@
     css.push('.lumen-roulette .lumen-roulette__head{position:relative;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;padding-top:1.05em;margin-bottom:.88em}');
     css.push('.lumen-roulette .lumen-roulette__title{font-family:' + FB + ';font-weight:700;font-size:2.1em;line-height:1.1;color:' + P.text + ';margin-right:1.05em}');
     css.push('.lumen-roulette .lumen-roulette__media{display:-webkit-box;display:-webkit-flex;display:flex}');
-    css.push('.lumen-roulette .lumen-roulette__tab{height:2em;padding:0 .91em;margin-right:.50em;border-radius:.50em;background:' + P.chipBg + ';font-family:' + FB + ';font-weight:600;font-size:1.01em;line-height:2em;color:' + P.smoke + '}');
+    /* Полное ревью, D1: неактивные вкладки и чипы — P.muted на заливке
+       R_CHIP. Было P.smoke на P.chipBg: 2.2–3.4:1 на фоне плагина и 1.02–1.35
+       на сером фоне Lampa. Заливка без «Плотных подложек» — .08 текста, а не
+       .12: на самой светлой подкраске фона muted на .12 давал 4.25:1, на .08
+       — 4.8 (тест D1 в test/css.test.mjs). С плотными — сама панель, как
+       везде. Отмеченные (.22 и акцент .14) и фокус (инверсия) не менялись. */
+    var R_CHIP = P.chipBg.charAt(0) === '#' ? P.chipBg : 'rgba(' + P.textRgb + ',.08)';
+    css.push('.lumen-roulette .lumen-roulette__tab{height:2em;padding:0 .91em;margin-right:.50em;border-radius:.50em;background:' + R_CHIP + ';font-family:' + FB + ';font-weight:600;font-size:1.01em;line-height:2em;color:' + P.muted + '}');
     css.push('.lumen-roulette .lumen-roulette__tab.is-on{color:' + P.text + ';background:rgba(' + P.textRgb + ',.22)}');
     css.push('.lumen-roulette .lumen-roulette__tab.focus{background:' + P.text + ';color:' + P.bg + '}');
     css.push('.lumen-roulette .lumen-roulette__filters{position:relative;display:-webkit-box;display:-webkit-flex;display:flex;margin-left:1.05em}');
@@ -4998,7 +5015,7 @@
        отмеченный — подложкой из акцента .14 и светлым текстом, фокус —
        инверсией, как у остальных чипов плагина. flex-shrink:0 — чтобы в
        ленте чипы держали свою ширину, а не ужимались до нечитаемого. */
-    css.push('.lumen-roulette .lumen-roulette__chip{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;height:2em;padding:0 .84em;margin:0 .50em 0 0;border-radius:.50em;background:' + P.chipBg + ';font-family:' + FB + ';font-weight:500;font-size:1.01em;line-height:1;color:' + P.smoke + ';white-space:nowrap;-webkit-flex-shrink:0;flex-shrink:0}');
+    css.push('.lumen-roulette .lumen-roulette__chip{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;height:2em;padding:0 .84em;margin:0 .50em 0 0;border-radius:.50em;background:' + R_CHIP + ';font-family:' + FB + ';font-weight:500;font-size:1.01em;line-height:1;color:' + P.muted + ';white-space:nowrap;-webkit-flex-shrink:0;flex-shrink:0}');
     css.push('.lumen-roulette .lumen-roulette__chip.lumen-chip--on{color:' + P.text + ';background:rgba(' + A_RGB + ',.14)}');
     css.push('.lumen-roulette .lumen-roulette__chip.focus{background:' + P.text + ';color:' + P.bg + '}');
     /* Барабан, кнопка и подсказка — столбиком по центру (Task 44). */
@@ -5130,7 +5147,7 @@
        карте отделять нечего. Акцент у кнопки остался в подложке под ней
        (box-shadow в самом правиле). */
     css.push('.lumen-roulette .lumen-roulette__btn.focus{background:' + P.text + ';color:' + P.bg + ';-webkit-box-shadow:0 .2em 0 ' + AG + ';box-shadow:0 .2em 0 ' + AG + '}');
-    css.push('.lumen-roulette .lumen-roulette__empty{font-family:' + FB + ';font-size:1.05em;color:' + P.smoke + '}');
+    css.push('.lumen-roulette .lumen-roulette__empty{font-family:' + FB + ';font-size:1.05em;color:' + P.muted + '}');
     /* Пункт меню «Что посмотреть»: иконка набора плагина — 1em, штатные
        иконки меню Lampa — 1.5em (та же правка, что у пункта «Подборки»). */
     css.push('.lumen-menu-roulette .lumen-ico{width:1.5em;height:1.5em}');
@@ -5170,11 +5187,11 @@
        дорожке, фильтры и подборки — пилюлями. Подложки — P.chipBg: при
        «Плотных подложках» они непрозрачны, как и везде. */
     css.push(ATV + ' .lumen-roulette__title{font-size:2.3em;font-weight:700;letter-spacing:-.01em}');
-    css.push(ATV + ' .lumen-roulette__media{padding:.2em;border-radius:1.2em;background:' + P.chipBg + '}');
+    css.push(ATV + ' .lumen-roulette__media{padding:.2em;border-radius:1.2em;background:' + R_CHIP + '}');
     css.push(ATV + ' .lumen-roulette__tab{margin-right:0;border-radius:1em;background:transparent;color:' + P.muted + '}');
     css.push(ATV + ' .lumen-roulette__tab.is-on{background:rgba(' + P.textRgb + ',.22);color:' + P.text + '}');
     css.push(ATV + ' .lumen-roulette__tab.focus{background:' + P.text + ';color:' + P.bg + '}');
-    css.push(ATV + ' .lumen-roulette__chip{border-radius:1em;background:' + P.chipBg + ';color:' + P.muted + '}');
+    css.push(ATV + ' .lumen-roulette__chip{border-radius:1em;background:' + R_CHIP + ';color:' + P.muted + '}');
     css.push(ATV + ' .lumen-roulette__chip.lumen-chip--on{background:rgba(' + P.textRgb + ',.22);color:' + P.text + '}');
     css.push(ATV + ' .lumen-roulette__chip.focus{background:' + P.text + ';color:' + P.bg + '}');
     /* Сцена: колонка текста слева, барабан-кадр справа, одной строкой. */

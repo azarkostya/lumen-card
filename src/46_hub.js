@@ -427,6 +427,18 @@
       } catch (e) {}
     }
 
+    /* Полное ревью, D1: свой фон экрана — класс на активности (её узел —
+       activity.render(), app.min.js:45547), правило в наборе подкраски
+       (src/30_css.js, .lumen-screen), как у главной. Без него под хабом и
+       сеткой был серый размытый фон Lampa, и приглушённый текст читался на
+       1.45–3.5:1. */
+    function screenBg(activity) {
+      try {
+        var node = activity && typeof activity.render === 'function' ? activity.render() : null;
+        if (node && typeof node.addClass === 'function') node.addClass('lumen-screen');
+      } catch (e) { }
+    }
+
     /* Год из даты выхода. */
     function cardYear(card) {
       var d = cardDate(card);
@@ -1263,6 +1275,7 @@
 
       this.create = function () {
         motionClass(root);
+        screenBg(self.activity);
         root.append(head);
         root.append(chipsRow);
         root.append(tilesRow);
@@ -1895,6 +1908,7 @@
 
       this.create = function () {
         motionClass(root);
+        screenBg(self.activity);
         /* C4: заголовок — на языке интерфейса. */
         head.append($('<div class="lumen-grid__title">' + esc(titleOf(item, lang())) + '</div>'));
         head.append(subtitle);
