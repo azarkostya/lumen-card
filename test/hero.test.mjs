@@ -988,6 +988,54 @@ for (const input of ['пульт', 'мышь']) {
   });
 }
 
+/* Раунд «Листание», F2: метка серии на корне главной. Под ней в «Полном»
+   увеличение карточки и сдвиг подписи идут без перехода (src/30_css.js):
+   одиночное нажатие по-прежнему плавное. Снимается через BURST_GAP покоя,
+   парковкой и снятием героя. */
+for (const input of ['пульт', 'мышь']) {
+  test('раунд «Листание», F2 (' + input + '): нажатие в серии ставит lumen-burst на корень, BURST_GAP покоя снимает; одиночное — без метки', () => {
+    const env = makeEnv();
+    const { main, cards } = rowMain(4);
+    const move = input === 'мышь' ? fireHover : fireFocus;
+    env.hero.mount(main.activity);
+    move(main.activity, cards[0]);
+    assert.equal(main.activity.hasClass('lumen-burst'), false, 'одиночное нажатие — переход карточки плавный');
+    env.advance(400);
+    move(main.activity, cards[1]);
+    assert.equal(main.activity.hasClass('lumen-burst'), true, 'нажатие в серии — без перехода');
+    env.advance(400);
+    move(main.activity, cards[2]);
+    env.advance(BURST_GAP - 1);
+    assert.equal(main.activity.hasClass('lumen-burst'), true, 'метка снята раньше BURST_GAP покоя');
+    env.advance(1);
+    assert.equal(main.activity.hasClass('lumen-burst'), false, 'после BURST_GAP покоя метка осталась');
+    move(main.activity, cards[3]);
+    assert.equal(main.activity.hasClass('lumen-burst'), false, 'нажатие после покоя — одиночное, без метки');
+    assert.deepEqual(warnLog, []);
+  });
+}
+
+test('раунд «Листание», F2: парковка и снятие героя снимают метку серии и её таймер', () => {
+  const env = makeEnv();
+  const { main, cards } = rowMain(3);
+  const other = makeMain();
+  env.hero.mount(main.activity);
+  fireFocus(main.activity, cards[0]);
+  env.advance(100);
+  fireFocus(main.activity, cards[1]);
+  assert.equal(main.activity.hasClass('lumen-burst'), true, 'подготовка: серия');
+  env.hero.detach(other.activity);
+  assert.equal(main.activity.hasClass('lumen-burst'), false, 'под открытой карточкой метка серии осталась на главной');
+
+  env.hero.mount(main.activity);
+  fireFocus(main.activity, cards[2]);
+  assert.equal(main.activity.hasClass('lumen-burst'), true, 'подготовка: серия после возврата');
+  env.hero.unmount();
+  assert.equal(main.activity.hasClass('lumen-burst'), false, 'после снятия героя метка серии осталась');
+  assert.equal(env.timers.every((t) => t.done), true, 'после снятия героя жив таймер');
+  assert.deepEqual(warnLog, []);
+});
+
 /* Самотест (src/69_bench.js, стадии 6 и 7): шесть шагов вправо и столько же
    обратно, шаг 400 мс. Первый шаг приходит после покоя — одиночное
    нажатие, его карточка показывается через DELAY (будущего нажатия герой

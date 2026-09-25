@@ -3091,6 +3091,29 @@
       }, ACCENT_DELAY);
     }
 
+    /* Раунд «Листание», F2: метка серии нажатий на корне главной. Под ней
+       в «Полном» увеличение карточки и сдвиг подписи идут без перехода
+       (src/30_css.js): переход .18s на двух карточках за шаг — их промоушен
+       в слой и обратно, перерисовка ряда дважды и пересчёт стиля на каждом
+       кадре перехода. Одиночное нажатие по-прежнему плавное. Снимается
+       через BURST_GAP покоя, парковкой и unmount. Класс переключается,
+       только когда меняется состояние: на каждом шаге серии перезаводится
+       лишь таймер. */
+    function markBurst(on) {
+      if (!state) return;
+      stopTimer('burstTimer');
+      if (on) {
+        state.burstTimer = setTimeout(function () {
+          if (!state) return;
+          state.burstTimer = null;
+          markBurst(false);
+        }, BURST_GAP);
+      }
+      if (state.burst === on) return;
+      state.burst = on;
+      try { state.root.toggleClass('lumen-burst', on); } catch (e) {}
+    }
+
     function onFocus(el) {
       if (!state) return;
       var card = el.card_data;
@@ -3121,6 +3144,7 @@
       var burst = !!state.focusAt && now - state.focusAt < BURST_GAP;
       var wait = burst ? BURST_DELAY : DELAY;
       state.focusAt = now;
+      markBurst(burst);
       state.pending = card;
       stopTimer('timer');
       /* Акцент ждёт свои 3 с независимо от того, меняется герой или нет:
@@ -3514,6 +3538,10 @@
           frameId: null,
           holdTimer: null,
           holdDue: false,
+          /* Раунд «Листание», F2: метка серии нажатий на корне и её снятие
+             через BURST_GAP покоя (markBurst). */
+          burst: false,
+          burstTimer: null,
           /* Task 64: адрес кадра-подложки (w300), чтобы тот же не ставился
              дважды. */
           lqipUrl: '',
@@ -3617,7 +3645,7 @@
       } catch (eTween) {
         warn('hero: accent stop failed', eTween);
       }
-      var timers = ['timer', 'swapTimer', 'loadTimer', 'accentTimer', 'trailerTimer', 'lqipTimer', 'titleTimer', 'frameWait', 'lookTimer', 'holdTimer'];
+      var timers = ['timer', 'swapTimer', 'loadTimer', 'accentTimer', 'trailerTimer', 'lqipTimer', 'titleTimer', 'frameWait', 'lookTimer', 'holdTimer', 'burstTimer'];
       for (var i = 0; i < timers.length; i++) {
         try { if (s[timers[i]]) clearTimeout(s[timers[i]]); } catch (eT) {}
       }
@@ -3643,8 +3671,9 @@
       try { s.node.remove(); } catch (eR) {}
       try { s.stage.remove(); } catch (eS) {}
       /* Класс подъёма рядов снимается вместе с хостовым: без героя область
-         прокрутки обязана вернуться к штатной раскладке Lampa. */
-      try { s.root.removeClass(s.hostClass).removeClass('lumen-rows-up'); } catch (eC) {}
+         прокрутки обязана вернуться к штатной раскладке Lampa. Метка серии
+         нажатий (раунд «Листание», F2) — тоже: её таймер снят выше. */
+      try { s.root.removeClass(s.hostClass).removeClass('lumen-rows-up').removeClass('lumen-burst'); } catch (eC) {}
     }
 
     /* Герой принадлежит этой активности? Для главной его корень — сама
@@ -3736,6 +3765,9 @@
       state.parked = true;
       cancelTrailer();
       stopTimer('timer');
+      /* Раунд «Листание», F2: серия кончилась уходом с главной — метка
+         серии снимается вместе с её таймером. */
+      markBurst(false);
       /* Контрольное ревью шестого раунда, п.1: вместе с таймером фокуса
          забываем и карточку, на которую он был заведён. Иначе после
          «A показан -> B быстрее DELAY -> «Ещё» -> OK -> Назад -> влево на B»

@@ -5267,10 +5267,21 @@ test('Task 42: фокус карточки ряда — увеличение и 
   assert.ok(findDecl(css, (sel) => sel === '.lumen-main .card.hover .card__view').indexOf('animation:none !important') !== -1, 'у мыши тоже');
 
   /* Переход — только transform: тень статична, анимировать её ресёрч
-     запрещает (docs/research/2026-09-18-android-tv-animations.md). */
-  const move = findDecl(css, (sel) => sel === 'body.lumen-motion-full .lumen-main .card__view');
+     запрещает (docs/research/2026-09-18-android-tv-animations.md).
+     Раунд «Листание», F2: и только вне серии нажатий — метку lumen-burst
+     на корень главной ставит герой (src/48_hero.js, markBurst). В серии
+     переход .18s на двух карточках за шаг — их промоушен в слой и обратно,
+     перерисовка ряда дважды и пересчёт стиля на каждом кадре перехода. */
+  const move = findDecl(css, (sel) => sel === 'body.lumen-motion-full .lumen-main:not(.lumen-burst) .card__view');
   assert.equal(move, '-webkit-transition:-webkit-transform .18s ease-out;transition:transform .18s ease-out', 'переход только по transform: ' + move);
   assert.equal(ruleSelectors(css).filter((sel) => /lumen-motion-(lite|off) .*card__view/.test(sel)).length, 0, 'в lite/off перехода нет вовсе');
+  const views = ruleBodies(css).filter((r) => /transition/.test(r.decl) && r.selectors.some((sel) => /\.lumen-main.*\.card__view$/.test(sel)));
+  assert.ok(views.length > 0, 'правила перехода карточки главной не найдены');
+  for (const r of views) {
+    for (const sel of r.selectors.filter((x) => /\.lumen-main.*\.card__view$/.test(x))) {
+      assert.ok(sel.indexOf('.lumen-main:not(.lumen-burst)') !== -1, 'переход карточки главной и в серии нажатий: ' + sel);
+    }
+  }
 
   /* Качество и тип дизайн главной не показывает — всегда. Рейтинг —
      отдельным правилом (тест ниже), он зависит от настройки меток. */
@@ -6541,11 +6552,16 @@ test('Task 63: подпись карточки под фокусом уезжа�
   const em = parseFloat(/[^-]transform:translateY\(([\d.]+)em\)/.exec(shift.decl)[1]);
   assert.ok(em > 0 && em <= 0.4, 'сдвиг вне разумного (8 физ. px при .35em): ' + em);
 
-  /* Сдвиг едет тем же переходом, что и постер: жест обязан быть один. */
-  const move = findDecl(css, (sel) => sel === 'body.lumen-motion-full .lumen-main .card__title');
-  const poster = findDecl(css, (sel) => sel === 'body.lumen-motion-full .lumen-main .card__view');
+  /* Сдвиг едет тем же переходом, что и постер: жест обязан быть один.
+     Раунд «Листание», F2: и в серии нажатий один — без перехода у обоих. */
+  const move = findDecl(css, (sel) => sel === 'body.lumen-motion-full .lumen-main:not(.lumen-burst) .card__title');
+  const age = findDecl(css, (sel) => sel === 'body.lumen-motion-full .lumen-main:not(.lumen-burst) .card__age');
+  const poster = findDecl(css, (sel) => sel === 'body.lumen-motion-full .lumen-main:not(.lumen-burst) .card__view');
   assert.ok(move && /transition:transform \.18s ease-out/.test(move), 'подпись едет без перехода: ' + move);
+  assert.equal(age, move, 'год и название подписи едут одним переходом');
   assert.ok(poster && /transition:transform \.18s ease-out/.test(poster), 'постер сменил переход: ' + poster);
+  assert.equal(findDecl(css, (sel) => sel === 'body.lumen-motion-full .lumen-main .card__title'), null,
+    'переход подписи остался и в серии нажатий — постер без перехода, подпись с ним');
 
   /* box-shadow в списке переходов запрещён по всему плагину (Task 38). */
   assert.equal(/box-shadow/.test(move), false, 'тень в списке переходов подписи: ' + move);

@@ -4269,8 +4269,15 @@
     /* Переход перечисляет ровно transform: подложка фокуса (AR.cardFocus
        ниже) появляется вместе с классом и не анимируется — анимированный
        box-shadow заставляет ТВ перерисовывать карточку каждый кадр
-       (docs/research/2026-09-18-android-tv-animations.md). */
-    css.push('body.lumen-motion-full .lumen-main .card__view{-webkit-transition:-webkit-transform .18s ease-out;transition:transform .18s ease-out}');
+       (docs/research/2026-09-18-android-tv-animations.md).
+       Раунд «Листание», F2 (трейс 2026-09-25, CPU ×10: full 124 → 98 мс на
+       шаг): в серии нажатий перехода нет. Переход .18s на двух карточках за
+       шаг — их промоушен в композитный слой и обратно, перерисовка ряда
+       дважды и пересчёт стиля на каждом кадре перехода. Метку lumen-burst
+       на корень главной ставит герой (src/48_hero.js, markBurst) на нажатии
+       в серии и снимает через BURST_GAP покоя: одиночное нажатие
+       по-прежнему плавное. Подпись под постером — тем же условием ниже. */
+    css.push('body.lumen-motion-full .lumen-main:not(.lumen-burst) .card__view{-webkit-transition:-webkit-transform .18s ease-out;transition:transform .18s ease-out}');
     css.push('.lumen-main .card__quality,.lumen-main .card__type{display:none}');
     /* A3: панель «Просмотрено …» на постере ряда — штатная, не наша. Её
        рисует компонент карточки Watched (vendor/lampa/app.min.js:21870): по
@@ -4383,8 +4390,10 @@
        слой на время перехода у двух подписей (уходящей и приходящей), то
        есть ровно там, где Task 48 снимал ПОСТОЯННЫЕ слои Lampa со всех
        подписей ряда; временный слой на 180 мс у двух узлов — не то же
-       самое, что по три слоя на каждую из двух сотен карточек. */
-    css.push('body.lumen-motion-full .lumen-main .card__title,body.lumen-motion-full .lumen-main .card__age{-webkit-transition:-webkit-transform .18s ease-out;transition:transform .18s ease-out}');
+       самое, что по три слоя на каждую из двух сотен карточек.
+       Раунд «Листание», F2: в серии нажатий (метка lumen-burst) перехода
+       нет ни у постера, ни у подписи — жест и там один. */
+    css.push('body.lumen-motion-full .lumen-main:not(.lumen-burst) .card__title,body.lumen-motion-full .lumen-main:not(.lumen-burst) .card__age{-webkit-transition:-webkit-transform .18s ease-out;transition:transform .18s ease-out}');
     /* Волна «подложка», п.C1: при живом кадре сдвига нет — у подписи
        осталось одно название, и его сдвиг на CARD_FOCUS_SHIFT уводил бы низ
        первого ряда в покое за 532 (533.7 px в полном режиме на стенде). Там,
@@ -4395,8 +4404,9 @@
     /* Снятие двух слоёв из трёх (разбор — в комментарии выше). Правило стоит
        ПОСЛЕ наших правил на те же узлы с ТОЙ ЖЕ специфичностью: у них решает
        порядок. Сдвиг подписи в фокусе (два правила выше) специфичнее — у
-       перехода четыре класса (lumen-motion-full, lumen-main, card__title) и
-       тег body, у самого сдвига пять (плюс card и focus), у этого правила
+       перехода четыре класса (lumen-motion-full, lumen-main, lumen-burst в
+       :not, card__title) и тег body, у самого сдвига пять (lumen-motion-full,
+       lumen-main, card, focus, card__title), у этого правила
        два, — поэтому его это правило не гасит, и стоять ему можно где
        угодно; порядок здесь сохранён ради читаемости. */
     css.push('.lumen-main .card__title,.lumen-main .card__age{-webkit-transform:none;transform:none}');
