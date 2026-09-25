@@ -2099,6 +2099,7 @@
         only.addClass('is-active');
         only.toggleClass('lumen-hero__bg--blur', !!blur);
         state.frameUrl = url;
+        state.frameBlur = !!blur;
         return;
       }
       /* Нижний слой (--a) приходит, только когда показан верхний; на
@@ -2120,6 +2121,8 @@
          ему метку заново — по его собственному кадру. */
       next.toggleClass('lumen-hero__bg--blur', !!blur);
       state.frameUrl = url;
+      /* Волна «хвосты героя», п.E: метка кадра показа — для benchRestore. */
+      state.frameBlur = !!blur;
     }
 
     /* Task 64: подложку LQIP держат до первого ПОКАЗАННОГО кадра — дальше
@@ -3108,6 +3111,8 @@
           pending: null,
           focusAt: 0,
           frameUrl: '',
+          /* Волна «хвосты героя», п.E: метка размытия кадра на экране. */
+          frameBlur: false,
           /* Волна 3: кадр этого показа — null, пока не выбран (startFrame), и
              таймер ожидания деталей перед выбором. */
           framePath: null,
@@ -3488,13 +3493,22 @@
 
     /* После теста на экране — кадр показа (state.frameUrl), а не тот, что
        оставил последний benchFlip. Подмена в показанном слое: кадр в кэше
-       и декодирован. */
+       и декодирован.
+       Волна «хвосты героя», п.E (ревью perf): после нечётного числа смен на
+       экране другой слой, и метка размытия на нём — от ЕГО прошлого кадра:
+       настоящий кадр оставался с наездом scale(1.1) прежней заглушки (или
+       постер фильма без кадра — без наезда). Метка ставится по кадру показа
+       (state.frameBlur из swapFrame), второй слой гаснет. */
     function benchRestore() {
       if (!state || !state.frameUrl) return;
+      var a = state.stage.find('.lumen-hero__bg--a');
       var b = state.stage.find('.lumen-hero__bg--b');
-      var shown = b.hasClass('is-active') ? b : state.stage.find('.lumen-hero__bg--a');
+      var bShown = b.hasClass('is-active');
+      var shown = bShown ? b : a;
       if (shown.attr('src') !== state.frameUrl) shown.attr('src', state.frameUrl);
+      shown.toggleClass('lumen-hero__bg--blur', !!state.frameBlur);
       shown.addClass('is-active');
+      (bShown ? a : b).removeClass('is-active');
     }
 
     /* Публичная проверка принадлежности: рантайму она нужна на 'destroy',

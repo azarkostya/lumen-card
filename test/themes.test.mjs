@@ -40,7 +40,34 @@ test('волна perf: matchTheme — совпадение по целым сл�
   assert.equal(id('outer space'), 'space');
   assert.equal(T.matchTheme([{ id: 'p', preset: 'stars', keywords: ['outer space'] }], { keywords: kw('journey into outer space'), genres: [] }).id, 'p',
     'фраза правила внутри ключевого слова');
-  assert.equal(T.matchTheme([{ id: 'p', preset: 'stars', keywords: ['outer space'] }], { keywords: kw('outer spaces'), genres: [] }), null);
+  assert.equal(T.matchTheme([{ id: 'p', preset: 'stars', keywords: ['outer space'] }], { keywords: kw('outer spacecraft'), genres: [] }), null);
+});
+
+/* Волна «хвосты героя», п.E (ревью perf): ключевые слова TMDB нередко во
+   множественном числе — «zombies», «explosions», «aliens», «witches», — и
+   целое слово их не ловило. Окончание множественного числа английского:
+   -es после s/x/z/ch/sh, иначе -s. Ложных совпадений это не возвращает:
+   «award» по-прежнему не «war» (граница слова слева), а «wares» — не
+   множественное «war». */
+test('волна «хвосты героя», п.E: matchTheme — слово правила и во множественном числе', () => {
+  const R = [
+    { id: 'zombie', preset: 'glitch', keywords: ['zombie'] },
+    { id: 'war', preset: 'embers', keywords: ['war', 'explosion'] },
+    { id: 'halloween', preset: 'bats', keywords: ['witch'] },
+    { id: 'ocean', preset: 'bubbles', keywords: ['sea'] },
+    { id: 'space', preset: 'stars', keywords: ['alien', 'outer space'] }
+  ];
+  const id = (...names) => { const t = T.matchTheme(R, { keywords: kw(...names), genres: [] }); return t ? t.id : null; };
+  assert.equal(id('zombies'), 'zombie');
+  assert.equal(id('explosions'), 'war');
+  assert.equal(id('witches'), 'halloween', '-es после ch');
+  assert.equal(id('seven seas'), 'ocean');
+  assert.equal(id('aliens'), 'space');
+  assert.equal(id('outer spaces'), 'space', 'и у фразы');
+  assert.equal(id('culture wars'), 'war');
+  for (const miss of ['award', 'awards', 'wares', 'warsaw', 'witchs', 'seasons', 'zombieses', 'explosionsx']) {
+    assert.equal(id(miss), null, miss);
+  }
 });
 
 test('matchTheme: requireGenre — слово без жанра не считается', () => {

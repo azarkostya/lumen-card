@@ -5402,6 +5402,63 @@ test('волна perf: benchFlip — кроссфейд двумя слоями,
   } finally { env.restore(); }
 });
 
+/* Волна «хвосты героя», п.E (ревью perf): после нечётного числа смен кадра
+   на экране другой слой, и метка размытия (наезд scale(1.1) в полном
+   режиме) на нём — от ЕГО прошлого кадра. benchRestore ставит кадр показа
+   и метку по кадру показа: настоящий кадр без наезда, постер фильма без
+   кадра — с ним. */
+test('волна «хвосты героя», п.E: benchRestore возвращает и метку размытия кадра показа', () => {
+  const env = slidesEnv({ motion: 'full', heavy: true });
+  try {
+    const main = makeMain();
+    env.hero.mount(main.activity);
+    const stage = stageOf(heroOf(main.activity));
+    focusOn(main, main.card1);
+    env.advance(400);
+    detailsOf(env, 11).ok(FRAMES(11, '/b1.jpg'));
+    frameImg(env, '/b1.jpg').onload();
+    const a = stage.find('.lumen-hero__bg--a');
+    const b = stage.find('.lumen-hero__bg--b');
+    const shown = () => (b.hasClass('is-active') ? b : a);
+    const hidden = () => (shown() === a ? b : a);
+    /* Скрытый слой несёт метку от своего прошлого кадра (постер фильма
+       без кадра). */
+    hidden().addClass('lumen-hero__bg--blur');
+    env.hero.benchHold(true);
+    env.hero.benchFlip();
+    env.hero.benchHold(false);
+    env.hero.benchRestore();
+    assert.equal(shown().attr('src'), 'https://img/t/p/w1280/b1.jpg');
+    assert.equal(shown().hasClass('lumen-hero__bg--blur'), false, 'настоящий кадр остался с наездом прошлой заглушки');
+    assert.equal(hidden().hasClass('is-active'), false, 'активен ровно один слой');
+  } finally { env.restore(); }
+});
+
+test('волна «хвосты героя», п.E: постер фильма без кадра — метка размытия возвращается после теста', () => {
+  const env = slidesEnv({ motion: 'full', heavy: true });
+  try {
+    const main = makeMain();
+    main.card1.card_data.backdrop_path = '';
+    env.hero.mount(main.activity);
+    const stage = stageOf(heroOf(main.activity));
+    focusOn(main, main.card1);
+    env.advance(400);
+    detailsOf(env, 11).ok({ id: 11, overview: 'о первом' });
+    const poster = env.images.filter((i) => i.src === 'https://img/t/p/w92/p1.jpg').pop();
+    assert.ok(poster, 'предусловие: кадра нет — постер w92');
+    poster.onload();
+    const a = stage.find('.lumen-hero__bg--a');
+    const b = stage.find('.lumen-hero__bg--b');
+    const shown = () => (b.hasClass('is-active') ? b : a);
+    assert.equal(shown().hasClass('lumen-hero__bg--blur'), true, 'предусловие: постер с меткой');
+    env.hero.benchFlip();
+    shown().removeClass('lumen-hero__bg--blur');
+    env.hero.benchRestore();
+    assert.equal(shown().attr('src'), 'https://img/t/p/w92/p1.jpg');
+    assert.equal(shown().hasClass('lumen-hero__bg--blur'), true, 'постер вместо кадра — без метки размытия');
+  } finally { env.restore(); }
+});
+
 test('волна perf: benchFx — пресет принудительно на любом фильме, null — обратно к теме', () => {
   const mounts = [];
   const unmounts = [];

@@ -86,12 +86,27 @@
 
     /* Слово (или фраза) want стоит в name целым: вокруг вхождения — границы
        слова. Все вхождения, а не первое: в «sandwich sand» первое «sand» —
-       часть слова, второе — целое. */
+       часть слова, второе — целое.
+       Волна «хвосты героя», п.E (ревью perf): и во множественном числе —
+       ключевые слова TMDB нередко «zombies», «explosions», «witches».
+       Окончание — по правилу английского: -es после s/x/z/ch/sh, иначе -s;
+       за окончанием — граница слова. «wares» поэтому не «war», а «award»
+       отсекает левая граница, как и прежде. */
+    function pluralOf(want) {
+      return /(s|x|z|ch|sh)$/.test(want) ? 'es' : 's';
+    }
+
     function hasWord(name, want) {
+      var tail = pluralOf(want);
       var at = name.indexOf(want);
       while (at >= 0) {
         var before = at > 0 ? name.charAt(at - 1) : '';
-        var after = name.charAt(at + want.length);
+        var end = at + want.length;
+        var after = name.charAt(end);
+        if (after && name.substr(end, tail.length) === tail) {
+          var past = name.charAt(end + tail.length);
+          if (!(past && WORD_CHAR.test(past))) after = '';
+        }
         if (!(before && WORD_CHAR.test(before)) && !(after && WORD_CHAR.test(after))) return true;
         at = name.indexOf(want, at + 1);
       }
