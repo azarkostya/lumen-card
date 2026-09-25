@@ -14472,6 +14472,202 @@ return api;
 if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.homeplan;
 
 
+/* ---- 47_homerow.js ---- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+LC.homeRow = (function () {
+
+
+var MAX_STEPS = 60;
+
+var MAX_DEPTH = 40;
+
+var bound = null;
+
+var last = null;
+
+var origin = null;
+
+
+
+
+
+var armed = null;
+
+function lineOf(el) {
+var node = el;
+for (var i = 0; node && i < MAX_DEPTH; i++) {
+if (node.classList && node.classList.contains('items-line')) return node;
+node = node.parentNode;
+}
+return null;
+}
+
+
+
+
+
+function above(a, b) {
+if (!a || !b || a === b || !a.parentNode || a.parentNode !== b.parentNode) return false;
+try {
+
+return !!(a.compareDocumentPosition(b) & 4);
+} catch (e) {
+return false;
+}
+}
+
+function onMain() {
+try {
+var act = Lampa.Activity.active();
+return !!(act && act.component === 'main');
+} catch (e) {
+return false;
+}
+}
+
+function tvScreen() {
+try {
+if (Lampa.Platform && typeof Lampa.Platform.screen === 'function') return Lampa.Platform.screen('tv') !== false;
+} catch (e) { }
+return true;
+}
+
+function onFocus(e) {
+try {
+if (!LC.focus.remote(e)) return;
+var el = e && e.target;
+if (!el || !el.classList || !el.classList.contains('card')) return;
+var line = lineOf(el);
+if (!line || !onMain()) return;
+var up = !!last && above(line, last.line);
+last = { line: line, card: el };
+if (!up) origin = last;
+} catch (err) {
+warn('homeRow: focus failed', err);
+}
+}
+
+function install() {
+if (bound) return;
+try {
+var body = typeof document !== 'undefined' ? document.body : null;
+if (body && LC.focus.capture(body, onFocus)) bound = body;
+} catch (e) {
+warn('homeRow: install failed', e);
+}
+}
+
+function uninstall() {
+if (bound) {
+try { LC.focus.release(bound, onFocus); } catch (e) { }
+}
+bound = null;
+last = null;
+origin = null;
+armed = null;
+}
+
+function arm() {
+armed = origin && onMain() ? origin : null;
+}
+
+function inDocument(node) {
+try {
+return !!(node && document.body && document.body.contains(node));
+} catch (e) {
+return false;
+}
+}
+
+function goBack(target) {
+try {
+if (!target || !onMain() || !tvScreen() || !inDocument(target.line)) return;
+var ctl = typeof Lampa.Controller.enabled === 'function' ? Lampa.Controller.enabled() : null;
+var name = ctl && ctl.name;
+if (name === 'head') Lampa.Controller.toggle('content');
+else if (name !== 'content' && name !== 'items_line') return;
+for (var i = 0; i < MAX_STEPS; i++) {
+var cur = last && last.line;
+if (!cur || !above(cur, target.line)) break;
+Lampa.Controller.move('down');
+if ((last && last.line) === cur) break;
+}
+} catch (e) {
+warn('homeRow: return failed', e);
+}
+}
+
+function onToggle(name) {
+if (!armed) return;
+if (name !== 'head' && name !== 'content' && name !== 'items_line') return;
+var target = armed;
+armed = null;
+setTimeout(function () { goBack(target); }, 0);
+}
+
+return {
+install: install,
+uninstall: uninstall,
+arm: arm,
+onToggle: onToggle
+};
+})();
+
+if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.homeRow;
+
+
 /* ---- 48_hero.js ---- */
 
 
@@ -18297,6 +18493,8 @@ showStill();
 warn('hero: mountCurrent failed', e);
 }
 }
+
+
 
 
 
@@ -40333,6 +40531,10 @@ if (!activated) return;
 
 
 if (LC.hero && typeof LC.hero.onToggle === 'function') LC.hero.onToggle();
+
+
+
+if (LC.homeRow && typeof LC.homeRow.onToggle === 'function') LC.homeRow.onToggle(e.name);
 var root = activeCardRoot();
 if (!root || !root.length) return;
 if (e.name === 'full_descr' || e.name === 'items_line') root.addClass('lumen-compact');
@@ -41483,6 +41685,14 @@ warn('hero mount failed', eHero);
 }
 
 
+
+try {
+if (LC.homeRow && LC.homeRow.install) LC.homeRow.install();
+} catch (eHomeRow) {
+warn('home row install failed', eHomeRow);
+}
+
+
 try {
 if (LC.moods && LC.moods.install) LC.moods.install();
 } catch (eMoods) {
@@ -41597,6 +41807,8 @@ try { if (LC.hub && LC.hub.uninstall) LC.hub.uninstall(); } catch (eHubOff) {}
 
 
 try { if (LC.hero && LC.hero.unmount) LC.hero.unmount(); } catch (eHeroOff) {}
+
+try { if (LC.homeRow && LC.homeRow.uninstall) LC.homeRow.uninstall(); } catch (eHomeRowOff) {}
 
 try { if (LC.moods && LC.moods.uninstall) LC.moods.uninstall(); } catch (eMoodsOff) {}
 
@@ -41891,6 +42103,7 @@ warn('moods pref failed', e);
 LC.applyHeroSizePref = function () {
 if (!activated) return;
 try {
+armRowBack();
 LC.injectCss();
 remountHero();
 if (captionBadges()) remountBadges();
@@ -41898,6 +42111,19 @@ if (captionBadges()) remountBadges();
 warn('hero size pref failed', e);
 }
 };
+
+
+
+
+
+
+function armRowBack() {
+try {
+if (LC.homeRow && typeof LC.homeRow.arm === 'function') LC.homeRow.arm();
+} catch (e) {
+warn('home row arm failed', e);
+}
+}
 
 
 
@@ -42005,6 +42231,7 @@ try {
 if (!keys || !keys.length) return;
 var changed = {};
 for (var i = 0; i < keys.length; i++) changed[keys[i]] = true;
+if (changed.lumen_hero_size) armRowBack();
 if (changed.lumen_font) LC.injectFonts();
 LC.injectCss();
 if (changed.lumen_hero_size) remountHero();

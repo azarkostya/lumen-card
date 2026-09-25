@@ -280,6 +280,10 @@
              (LC.hero.onToggle, src/48_hero.js). До проверки карточки: на
              главной её нет. */
           if (LC.hero && typeof LC.hero.onToggle === 'function') LC.hero.onToggle();
+          /* Следующий раунд, п.10: выход из настроек в шапку или в ряды —
+             возврат фокуса в прежний ряд главной, если его взвела смена
+             «Кадра над рядами» (src/47_homerow.js). */
+          if (LC.homeRow && typeof LC.homeRow.onToggle === 'function') LC.homeRow.onToggle(e.name);
           var root = activeCardRoot();
           if (!root || !root.length) return;
           if (e.name === 'full_descr' || e.name === 'items_line') root.addClass('lumen-compact');
@@ -1428,6 +1432,14 @@
     } catch (eHero) {
       warn('hero mount failed', eHero);
     }
+    /* Следующий раунд, п.10: ряд главной, из которого ушли в шапку, — для
+       возврата фокуса после смены «Кадра над рядами» (src/47_homerow.js).
+       Слушатель один на body, пока плагин включён. */
+    try {
+      if (LC.homeRow && LC.homeRow.install) LC.homeRow.install();
+    } catch (eHomeRow) {
+      warn('home row install failed', eHomeRow);
+    }
     /* Task 19: чипы профилей настроения — подписываются на события Activity
        и сами монтируются/снимаются при переходах на главную и с неё. */
     try {
@@ -1544,6 +1556,8 @@
     /* Task 18: снять героя целиком — узел, класс корня, наблюдатель,
        незавершённые предзагрузку кадра и запрос деталей. */
     try { if (LC.hero && LC.hero.unmount) LC.hero.unmount(); } catch (eHeroOff) {}
+    /* Следующий раунд, п.10: слушатель фокуса и взведённый возврат ряда. */
+    try { if (LC.homeRow && LC.homeRow.uninstall) LC.homeRow.uninstall(); } catch (eHomeRowOff) {}
     /* Task 19: снять чипы настроения и отписаться от событий Activity. */
     try { if (LC.moods && LC.moods.uninstall) LC.moods.uninstall(); } catch (eMoodsOff) {}
     /* Task 25: снять наблюдатель меток и сами метки с открытой главной. */
@@ -1838,6 +1852,7 @@
   LC.applyHeroSizePref = function () {
     if (!activated) return;
     try {
+      armRowBack();
       LC.injectCss();
       remountHero();
       if (captionBadges()) remountBadges();
@@ -1845,6 +1860,19 @@
       warn('hero size pref failed', e);
     }
   };
+
+  /* Следующий раунд, п.10 (полное ревью c644bfd, D4): смена «Кадра над
+     рядами» на открытой главной — фокус после выхода из настроек вернётся
+     в ряд, из которого пользователь поднялся в шапку (src/47_homerow.js).
+     Взводится до пересборки: снимок ряда не зависит от того, что сделают
+     таблица стилей и герой. */
+  function armRowBack() {
+    try {
+      if (LC.homeRow && typeof LC.homeRow.arm === 'function') LC.homeRow.arm();
+    } catch (e) {
+      warn('home row arm failed', e);
+    }
+  }
 
   /* Волна «хвосты героя», п.G (ревью подложки): в виде меток «в подписи»
      место метки на главной зависит от кадра — при живом кадре строки
@@ -1952,6 +1980,7 @@
       if (!keys || !keys.length) return;
       var changed = {};
       for (var i = 0; i < keys.length; i++) changed[keys[i]] = true;
+      if (changed.lumen_hero_size) armRowBack();
       if (changed.lumen_font) LC.injectFonts();
       LC.injectCss();
       if (changed.lumen_hero_size) remountHero();

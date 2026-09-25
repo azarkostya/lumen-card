@@ -590,8 +590,20 @@ function initLC(opts) {
     destroy: () => { accent.destroyed++; }
   };
 
+  /* Следующий раунд, п.10: возврат фокуса в прежний ряд главной
+     (src/47_homerow.js — test/homerow.test.mjs). Здесь — только склейка:
+     кто ставит и снимает слушатель, кто взводит возврат и кто передаёт
+     переключения контроллера. */
+  const homeRow = { log: [] };
+  LC.homeRow = {
+    install: () => homeRow.log.push('install'),
+    uninstall: () => homeRow.log.push('uninstall'),
+    arm: () => homeRow.log.push('arm'),
+    onToggle: (name) => homeRow.log.push('toggle:' + name)
+  };
+
   LC.init();
-  return { LC, calls, full, toggles, timelines, descrRows, reviewRows, clearedRows, franchiseCalls, franchiseRows, extra, hero, nav, accent };
+  return { LC, calls, full, toggles, timelines, descrRows, reviewRows, clearedRows, franchiseCalls, franchiseRows, extra, hero, nav, accent, homeRow };
 }
 
 test('Task 7: complite — bind(root) и schedule(root, body, data), контроллер попадает в LC.active.trailer', () => {
@@ -1013,6 +1025,33 @@ test('п.G: смена размера кадра в виде «в подписи
   seen.length = 0;
   env.LC.applyPresetChanges(['lumen_hero_size', 'lumen_badges']);
   assert.equal(seen.filter((s) => s === 'badges:install').length, 1, 'метки перерисованы дважды: ' + seen.join(', '));
+  assert.deepEqual(warnLog, []);
+});
+
+/* Следующий раунд, п.10: смена «Кадра над рядами» (своя настройка и
+   готовый стиль) взводит возврат фокуса в прежний ряд главной; переключения
+   контроллера доходят до модуля из общей подписки followToggle; слушатель
+   фокуса живёт, пока плагин включён. */
+test('п.10: склейка LC.homeRow — install/uninstall с плагином, arm на смене кадра, onToggle из followToggle', () => {
+  const storage = { lumen_hero_size: 'large' };
+  const env = initLC({ storage });
+  assert.deepEqual(env.homeRow.log, ['install'], 'слушатель фокуса не поставлен активацией');
+  env.homeRow.log.length = 0;
+  env.LC.applyHeroSizePref();
+  env.LC.applyPresetChanges(['lumen_hero_size']);
+  env.LC.applyPresetChanges(['lumen_font', 'lumen_badges']);
+  assert.deepEqual(env.homeRow.log, ['arm', 'arm'], 'возврат взводит только смена размера кадра');
+  env.homeRow.log.length = 0;
+  env.toggles[0]({ name: 'head' });
+  assert.deepEqual(env.homeRow.log, ['toggle:head']);
+  env.homeRow.log.length = 0;
+  storage.lumen_enabled = 'false';
+  env.LC.applyEnabledPref();
+  assert.deepEqual(env.homeRow.log, ['uninstall'], 'выключенный плагин держит слушатель фокуса');
+  env.homeRow.log.length = 0;
+  env.toggles[0]({ name: 'head' });
+  env.LC.applyHeroSizePref();
+  assert.deepEqual(env.homeRow.log, [], 'выключенный плагин взводит возврат');
   assert.deepEqual(warnLog, []);
 });
 
