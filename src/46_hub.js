@@ -943,6 +943,18 @@
         loadBanners((from < 0 ? 0 : from) + BANNER_AHEAD);
       }
 
+      /* Окно по видимости, а не по фокусу: колесо мыши листает хаб, не
+         двигая фокус, а при входе на экране 2560×1440 и 960×540 видно 2.75
+         ряда — третий ряд за окном BANNER_AHEAD оставался без кадров. */
+      function loadInView() {
+        loadBanners(lastInView(tileNodes) + LC.hubEm.tileCols);
+      }
+
+      function onScroll() {
+        loadInView();
+        try { Lampa.Layer.visible(scroll.render(true)); } catch (e) {}
+      }
+
       function tileNode(item) {
         var group = null;
         var i;
@@ -998,6 +1010,7 @@
           tileNodes.push(node);
         }
         loadVisibleBanners();
+        loadInView();
         for (var c = 0; c < chipNodes.length; c++) {
           $(chipNodes[c]).toggleClass('lumen-chip--on', chipNodes[c].lumen_group === groupId);
         }
@@ -1156,6 +1169,7 @@
            Без аргумента: аргументом вычлась бы ещё и высота переданного
            узла, а наша шапка едет внутри прокрутки. */
         scroll.minus();
+        scroll.onScroll = onScroll;
         try { self.activity.loader(true); } catch (e) {}
         var captured = gen;
         LC.manifest.load(function (m) {
@@ -1181,7 +1195,10 @@
         /* Возврат после stop(): кадры, которые тогда погасили (или которые
            не успели прийти), запрашиваются снова — в этот момент они уже в
            кэше TMDB/КП, поэтому возврат сетью не платит. */
-        if (manifest) loadVisibleBanners();
+        if (manifest) {
+          loadVisibleBanners();
+          loadInView();
+        }
       };
 
       this.pause = function () {};

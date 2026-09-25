@@ -970,6 +970,41 @@ test('Task 68: окно кадров плиток двигается и мышь
   assert.equal(s.h.bannerCalls.length, 17, 'мышью окно доехало так же, как пультом');
 });
 
+/* Плитки 4 в ряд, ряд 300 px, первый ряд с 400 px; view.shift — прокрутка. */
+function layTiles(tiles, view) {
+  tiles.forEach(function (t, i) {
+    t.getBoundingClientRect = function () {
+      var top = 400 + Math.floor(i / 4) * 300 - view.shift;
+      return { top: top, bottom: top + 280, height: 280 };
+    };
+  });
+  globalThis.window.innerHeight = 1080;
+}
+
+test('lumen_hub: колесо мыши без шага фокуса догружает кадры видимых плиток', function () {
+  var s = openHub({ manifest: BIG_MANIFEST, cols: 4 });
+  var tiles = s.root.all('lumen-tile');
+  var view = { shift: 0 };
+  layTiles(tiles, view);
+  var scroll = s.env.log.scrolls[0];
+  assert.equal(typeof scroll.onScroll, 'function', 'хаб слушает окончание прокрутки');
+  view.shift = 600;          /* два ряда колесом: видны ряды 0..4, плитки 9..19 — вне окна фокуса */
+  scroll.onScroll(600);
+  var asked = s.h.bannerCalls.map(function (c) { return c.item.id; });
+  var list = s.h.api.tilesFor(BIG_MANIFEST, 'franchises');
+  for (var i = 9; i <= 19; i++) {
+    if (i < list.length) assert.ok(asked.indexOf(list[i].id) >= 0, 'видимая плитка ' + i + ' без кадра');
+  }
+});
+
+test('lumen_hub: при входе кадр получает и частично видимый третий ряд', function () {
+  var s = openHub({ manifest: BIG_MANIFEST, cols: 4 });
+  layTiles(s.root.all('lumen-tile'), { shift: 0 });   /* ряды 0..2 на экране */
+  assert.equal(s.h.bannerCalls.length, 9, 'до start окно фокуса: 0..8');
+  s.comp.start();
+  assert.equal(s.h.bannerCalls.length, 16, 'после входа — три видимых ряда и ряд запаса');
+});
+
 test('lumen_hub: кадр, упавший с ошибкой, перезапрашивается при следующем фокусе', function () {
   var s = openHub();
   var tile = s.root.all('lumen-tile')[0];

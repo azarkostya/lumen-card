@@ -12015,6 +12015,18 @@ var from = tileIndex(lastFocus);
 loadBanners((from < 0 ? 0 : from) + BANNER_AHEAD);
 }
 
+
+
+
+function loadInView() {
+loadBanners(lastInView(tileNodes) + LC.hubEm.tileCols);
+}
+
+function onScroll() {
+loadInView();
+try { Lampa.Layer.visible(scroll.render(true)); } catch (e) {}
+}
+
 function tileNode(item) {
 var group = null;
 var i;
@@ -12070,6 +12082,7 @@ tilesRow.append(node);
 tileNodes.push(node);
 }
 loadVisibleBanners();
+loadInView();
 for (var c = 0; c < chipNodes.length; c++) {
 $(chipNodes[c]).toggleClass('lumen-chip--on', chipNodes[c].lumen_group === groupId);
 }
@@ -12228,6 +12241,7 @@ scroll.append(root);
 
 
 scroll.minus();
+scroll.onScroll = onScroll;
 try { self.activity.loader(true); } catch (e) {}
 var captured = gen;
 LC.manifest.load(function (m) {
@@ -12253,7 +12267,10 @@ Lampa.Controller.toggle('content');
 
 
 
-if (manifest) loadVisibleBanners();
+if (manifest) {
+loadVisibleBanners();
+loadInView();
+}
 };
 
 this.pause = function () {};
