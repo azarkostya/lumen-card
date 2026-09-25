@@ -24920,6 +24920,10 @@ Lampa.Controller.toggle('head');
 down: function () {
 
 
+
+if (atv && !kadr && focusIn(shelf)) return;
+
+
 if (atv && !kadr && focusIn(chipsBox)) { recollect(spinBtn[0]); return; }
 if (navMove('down')) return;
 if (kadr || !spinBtn.length || spinBtn.hasClass('focus')) return;

@@ -2031,3 +2031,25 @@ test('вид «как Apple TV»: логотипы полки, оборванн�
   assert.equal(logo.details.length, 0, 'цепочка дошла до конца полки');
   flushTimers();
 });
+
+/* (~70) Полка — нижняя строка экрана, ниже неё только подсказка. «Вниз» с
+   карточки полки Navigator не двигает, и запасной путь down (recollect на
+   «Крутить» — для ленты подборок, где кнопку по геометрии не видно) уводил
+   фокус вверх, на кнопку. С полки «вниз» не делает ничего. */
+test('вид «как Apple TV»: «вниз» с карточки полки фокус не уводит на «Крутить»', (t) => {
+  const env = openRoulette34(atvCards(4), t, 1, 'full', null, null, { lumen_flat: true });
+  env.comp.start();
+  flushTimers();
+  const tiles = env.screen.find('.lumen-roulette__shelf').all('.lumen-roulette__tile');
+  assert.equal(tiles.length, 3, 'предпосылка: полка есть');
+  tiles[1].addClass('focus');
+  const before = focused.length;
+  env.controller().down();
+  assert.equal(focused.length, before, 'фокус с полки ушёл на «Крутить»');
+
+  /* Остальной «вниз» — как был: с ленты подборок — на кнопку. */
+  tiles[1].removeClass('focus');
+  env.chips()[0].addClass('focus');
+  env.controller().down();
+  assert.equal(env.lastFocus().node, env.root.find('.lumen-roulette__spin')[0], 'с подборок — на «Крутить»');
+});
