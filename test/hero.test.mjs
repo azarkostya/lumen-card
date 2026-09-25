@@ -6430,3 +6430,63 @@ test('ревью H1: ответ роликов в срок снимает тай
   env2.hero.unmount();
   assert.equal(env2.timers.filter((t) => !t.done && t.ms === 12000).length, 0, 'срок пережил снятие героя');
 });
+
+/* ====================================================================== */
+/* Ревью H2: парковка и кадр w1280 в пути                                  */
+/* ====================================================================== */
+
+/* cancelPending снимал только обработчики загрузчика: байты w1280 ехали
+   дальше, а промис decode(), начатый до парковки, отменить нечем — он
+   доезжал, gen парковка не поднимает, и кадр вставал в запаркованного героя
+   (на слабом ТВ — декодирование 3.7 МБ растра, пока строится карточка).
+   Репро ревьюера — scratchpad/fullrev/hero/test/zz_park.test.mjs. */
+function removable(img) {
+  img.removed = false;
+  img.removeAttribute = function (name) { if (name === 'src') { this.src = ''; this.removed = true; } };
+  return img;
+}
+
+test('ревью H2: парковка снимает загрузку кадра и в сети; decode(), начатый до неё, кадр в запаркованного героя не ставит', async () => {
+  const f = focusedFrame();
+  const img = removable(f.img);
+  assert.equal(img.src, 'https://img/t/p/w1280/b1.jpg', 'подготовка: кадр показа в пути');
+  const stage = stageOf(f.node);
+  f.env.hero.detach(new FakeEl(['activity']));
+  assert.equal(f.env.hero.parked(), true, 'подготовка: герой запаркован');
+  const removed = img.removed;
+  /* Байты доехали и декодированы уже под карточкой. */
+  arrive(img);
+  img.decoded.resolve();
+  await tick();
+  await tick();
+  const shown = ['a', 'b'].map((k) => stage.find('.lumen-hero__bg--' + k))
+    .filter((l) => l.hasClass('is-active') && l.attr('src') === 'https://img/t/p/w1280/b1.jpg');
+  assert.equal(shown.length, 0, 'кадр встал в запаркованного героя');
+  assert.equal(removed, true, 'загрузка w1280 едет под открытой карточкой');
+  assert.deepEqual(warnLog, []);
+});
+
+test('ревью H2: снятие героя снимает загрузку кадра и в сети', () => {
+  const f = focusedFrame();
+  const img = removable(f.img);
+  f.env.hero.unmount();
+  assert.equal(img.removed, true, 'загрузка w1280 пережила снятие героя');
+  assert.equal(img.onload, null);
+});
+
+test('ревью H2: возврат с парковки показывает кадр заново — тем же адресом', async () => {
+  const f = focusedFrame();
+  removable(f.img);
+  const main = f.main;
+  f.env.hero.detach(new FakeEl(['activity']));
+  f.env.hero.mount(main.activity);
+  assert.equal(f.env.hero.parked(), false);
+  answerDetails(f.env);
+  const again = f.env.images[f.env.images.length - 1];
+  assert.notEqual(again, f.img, 'после возврата кадр не грузится заново');
+  assert.equal(again.src, 'https://img/t/p/w1280/b1.jpg');
+  arrive(again);
+  again.decoded.resolve();
+  await tick();
+  assert.equal(f.bg.attr('src'), 'https://img/t/p/w1280/b1.jpg');
+});

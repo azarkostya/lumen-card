@@ -1287,11 +1287,24 @@
         state.logoLoader = null;
       }
       if (state.loader) {
-        state.loader.onload = null;
-        state.loader.onerror = null;
+        dropLoader(state.loader);
         state.loader = null;
       }
       state.detailsWait = false;
+    }
+
+    /* Предзагрузчик кадра больше не нужен. Ревью H2: снять обработчики
+       мало — байты w1280 (3.7 МБ растра) ехали бы дальше; снятие src
+       отменяет загрузку и в сети (removeAttribute, а не src = '': пустой
+       src в старых движках — запрос к адресу самой страницы). Промис
+       decode(), начатый раньше, отменить нечем — его исход отсекают
+       сторожа finish в loadFrame. */
+    function dropLoader(loader) {
+      loader.onload = null;
+      loader.onerror = null;
+      try {
+        if (typeof loader.removeAttribute === 'function') loader.removeAttribute('src');
+      } catch (e) {}
     }
 
     /* ------------------------------------------------------------------ */
@@ -2609,15 +2622,19 @@
         loader.onload = null;
         loader.onerror = null;
         if (gen !== captured || !state || !isMounted()) return;
+        /* Ревью tails3, п.4 и ревью H2: доехавший на парковке (decode()
+           отменить нечем, а gen парковка не поднимает) — ни кадра, ни
+           доклада: под открытой карточкой кадр не ставится, и не только кадр
+           смены, но и кадр показа. Загрузчик и его таймер park уже снял
+           (cancelPending); resume покажет карточку заново (state.stale). */
+        if (state.parked) return;
         stopTimer('loadTimer');
         state.loader = null;
         /* Ревью правок волны 3, п.7: кадр смены повёл тик до ухода фокуса,
            а доехал после — не ставим и не докладываем: смена на паузе,
            очередь контроллера стоит на месте, и тик после возврата
-           предложит тот же кадр (байты уже в кэше браузера). Ревью tails3,
-           п.4: так же — доехавший на парковке (decode() отменить нечем):
-           под открытой карточкой кадр не ставится. */
-        if (slide && (focusAway() || state.parked)) return;
+           предложит тот же кадр (байты уже в кэше браузера). */
+        if (slide && focusAway()) return;
         /* Кадр не пришёл — слои не трогаем: пустой герой хуже любого
            кадра. Кадр прошлого фильма, если он на экране, сменит заглушка
            (report(false) в startFrame → holdFrame, волна 3). */
@@ -3710,10 +3727,7 @@
          смены кадров. */
       try { if (s.look) s.look.cancel(); } catch (eL) {}
       try { if (s.slideLook) s.slideLook.cancel(); } catch (eSL) {}
-      if (s.loader) {
-        s.loader.onload = null;
-        s.loader.onerror = null;
-      }
+      if (s.loader) dropLoader(s.loader);
       /* Task 71: предзагрузка логотипа названия — такой же незавершённый
          запрос, как кадр героя, и снимается так же. */
       if (s.logoLoader) s.logoLoader.cancel();
