@@ -2601,3 +2601,16 @@ test('C4: плитка хаба и заголовок сетки — на язы
   grid.create();
   assert.ok(seen2.indexOf('The Matrix') >= 0, 'заголовок сетки без перевода: ' + seen2.join(' | '));
 });
+
+/* Полное ревью, C6: сетка подборки Кинопоиска без ключа API предлагала
+   «Крутить по этой подборке» — рулетка по ней пуста всегда. Кнопку решает
+   настоящий LC.roulette.collectionsFor: без ключа подборок КП в нём нет. */
+test('C6: сетка Кинопоиска без ключа — кнопки рулетки нет, с ключом — есть', function () {
+  var KP = MANIFEST.collections[4];
+  var noKey = loadCtx('56_roulette.js', { pref: function (k, d) { return k === 'lumen_kp_key' ? '' : d; } }).api;
+  var g = openGrid(KP, { roulette: noKey });
+  assert.equal(g.root.all('lumen-grid__roulette').length, 0, 'без ключа кнопка рулетки есть');
+  var withKey = loadCtx('56_roulette.js', { pref: function (k, d) { return k === 'lumen_kp_key' ? 'KEY' : d; } }).api;
+  var k = openGrid(KP, { roulette: withKey });
+  assert.equal(k.root.all('lumen-grid__roulette').length, 1, 'с ключом кнопки рулетки нет');
+});

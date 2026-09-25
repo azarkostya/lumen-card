@@ -23681,12 +23681,22 @@ return land(plan, n);
 }
 
 
+function kpKeySet() {
+try { return !!(typeof LC.pref === 'function' && LC.pref('lumen_kp_key', '')); } catch (e) { return false; }
+}
+
+
+
+
+
+
 
 
 function collectionsFor(manifest, media) {
 var out = [];
 if (!manifest || !Array.isArray(manifest.collections)) return out;
 var want = normalizeMedia(media);
+var kp = kpKeySet();
 var home = {};
 var homeList = manifest.home || [];
 var i;
@@ -23696,6 +23706,7 @@ var rest = [];
 for (i = 0; i < manifest.collections.length; i++) {
 var c = manifest.collections[i];
 if (!c || !c.sources || !c.sources[want]) continue;
+if (!kp && c.sources[want].type === 'kp') continue;
 if (home[c.id]) first.push(c);
 else rest.push(c);
 }

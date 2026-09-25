@@ -347,13 +347,23 @@
       return land(plan, n);
     }
 
+    /* Ключ API Кинопоиска задан (только чтение настройки). */
+    function kpKeySet() {
+      try { return !!(typeof LC.pref === 'function' && LC.pref('lumen_kp_key', '')); } catch (e) { return false; }
+    }
+
     /* Подборки каталога, у которых есть источник нужного медиа. Подборки
        главной идут первыми: с них начинают, и докручивать ленту чипов до
-       «В тренде» никто не должен. */
+       «В тренде» никто не должен.
+       Полное ревью, C6: подборки Кинопоиска — только с ключом API. Без него
+       их выдача пуста всегда (LC.sources.fetchKp: nokey), и чип «КП Топ-250»
+       давал «0 в выборке» и «Под фильтры ничего не подошло». Тот же список
+       решает кнопку «Крутить по этой подборке» в сетке (LC.hub.rouletteMedia). */
     function collectionsFor(manifest, media) {
       var out = [];
       if (!manifest || !Array.isArray(manifest.collections)) return out;
       var want = normalizeMedia(media);
+      var kp = kpKeySet();
       var home = {};
       var homeList = manifest.home || [];
       var i;
@@ -363,6 +373,7 @@
       for (i = 0; i < manifest.collections.length; i++) {
         var c = manifest.collections[i];
         if (!c || !c.sources || !c.sources[want]) continue;
+        if (!kp && c.sources[want].type === 'kp') continue;
         if (home[c.id]) first.push(c);
         else rest.push(c);
       }
