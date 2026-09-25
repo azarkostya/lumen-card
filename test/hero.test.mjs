@@ -1226,6 +1226,50 @@ test('логотип: размер по пропорции и неизменно
   assert.equal(logo.css('height'), '6.37em');
 });
 
+/* Раунд «Листание», F5: applyLogoBox зовётся на каждой перерисовке героя
+   (вывод текста, дорисовка деталей, настройка логотипа), и прежде каждый
+   раз переписывал инлайн width/height логотипа — даже тем же значением.
+   Теперь запись — только когда размер сменился. */
+test('раунд «Листание», F5: инлайн-размер логотипа не переписывается тем же значением', () => {
+  const env = makeEnv();
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  const node = heroOf(main.activity);
+  const logo = node.find('.lumen-hero__logo');
+  const writes = [];
+  const css = logo.css;
+  logo.css = function (name, val) {
+    if (arguments.length === 2 && (name === 'width' || name === 'height')) writes.push(name + '=' + val);
+    return css.apply(this, arguments);
+  };
+
+  main.card1.addClass('focus');
+  fireFocus(main.activity, main.card1);
+  env.advance(400);
+  env.advance(200);
+  writes.length = 0;
+  env.requests[0].ok({ images: { logos: [{ file_path: '/l.png', iso_639_1: 'ru', aspect_ratio: 2.5 }] } });
+  assert.deepEqual(writes, ['width=15.93em', 'height=6.37em'], 'размер по пропорции записан');
+
+  writes.length = 0;
+  env.hero.applyLogoPref();
+  env.hero.applyLogoPref();
+  assert.deepEqual(writes, [], 'перерисовка той же модели переписала тот же размер');
+  assert.equal(logo.css('width'), '15.93em');
+
+  /* Другая карточка с другой пропорцией — размер пишется заново. */
+  rest(env);
+  main.card1.removeClass('focus');
+  main.card2.addClass('focus');
+  fireFocus(main.activity, main.card2);
+  env.advance(400);
+  env.advance(200);
+  writes.length = 0;
+  env.requests[1].ok({ images: { logos: [{ file_path: '/l2.png', iso_639_1: 'ru', aspect_ratio: 6 }] } });
+  assert.deepEqual(writes, ['width=24.69em', 'height=4.11em'], 'новая пропорция не записана');
+  assert.deepEqual(warnLog, []);
+});
+
 /* Task 36: тест «при компактном размере кадра сразу сжатый размер» удалён.
    Он проверял, что герой САМ считает уменьшенный логотип, когда размер кадра
    «компактный»; теперь это делает CSS одним правилом (масштаб в базовом
