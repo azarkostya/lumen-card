@@ -754,8 +754,11 @@ test('prefetch: ошибка деталей в память не пишется 
    Api.clear() — :23277, :44784). Без своего срока запись в flight и место
    в лимите висели до конца сеанса: два таких запроса — предзагрузка
    мертва, а герой этого фильма навсегда со скелетоном меты. Репро
-   ревьюера — scratchpad/fullrev/hero/test/zz_orphan.test.mjs. */
-const SEND_LIMIT = 12000;
+   ревьюера — scratchpad/fullrev/hero/test/zz_orphan.test.mjs.
+   Следующий раунд, п.6: срок 25 с, а не 12 — при прокси TMDB через
+   зеркала CUB Lampa по таймауту одного зеркала пробует следующее
+   (app.min.js:33500-33520), и живой ответ приходит позже 12 с. */
+const SEND_LIMIT = 25000;
 
 /* Запрос окна, который Lampa отменила: колбэков у него не будет. */
 function orphanWindow(env, main) {
@@ -771,12 +774,12 @@ function orphanWindow(env, main) {
   return lost;
 }
 
-test('ревью H1: молча отменённый запрос через 12 с отдаёт место в лимите и ключ — окно снова грузит', () => {
+test('ревью H1: молча отменённый запрос через 25 с отдаёт место в лимите и ключ — окно снова грузит', () => {
   const { env, main } = mounted();
   const lost = orphanWindow(env, main);
   assert.equal(env.pf.stats().fly, lost.length, 'подготовка: осиротевшие запросы держат места');
   env.advance(SEND_LIMIT - 1);
-  assert.equal(env.pf.stats().fly, lost.length, 'срок сработал раньше 12 с');
+  assert.equal(env.pf.stats().fly, lost.length, 'срок сработал раньше 25 с');
   env.advance(1);
   assert.equal(env.pf.stats().fly, 0, 'место осиротевшего запроса не освободилось');
 
@@ -827,7 +830,7 @@ test('ревью H1: герой, вставший на осиротевший з
   assert.equal(pending(env).filter((r) => idOf(r.url) === target).length, 0, 'подготовка: герой склеился с запросом в пути');
   assert.equal(node.hasClass('lumen-hero--pending'), true, 'подготовка: герой ждёт детали');
   env.advance(SEND_LIMIT - 1000 - DELAY - 200 - 1);
-  assert.equal(node.hasClass('lumen-hero--pending'), true, 'срок сработал раньше 12 с от запроса');
+  assert.equal(node.hasClass('lumen-hero--pending'), true, 'срок сработал раньше 25 с от запроса');
   env.advance(1);
   assert.equal(node.hasClass('lumen-hero--pending'), false, 'скелетон меты висит после срока');
   assert.equal(node.find('.lumen-hero__meta').text(), '2024 · ★ 7.0', 'то, что дала карточка ряда');

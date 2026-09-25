@@ -14483,7 +14483,9 @@ var VIDEOS_LIFE = 10080;
 
 
 
-var VIDEOS_LIMIT = 12000;
+
+
+var VIDEOS_LIMIT = 25000;
 
 var SWAP_MS = 180;
 
@@ -27969,7 +27971,11 @@ var DETAILS_KEEP = 40;
 
 
 
-var SEND_LIMIT = 12000;
+
+
+
+
+var SEND_LIMIT = 25000;
 
 
 
