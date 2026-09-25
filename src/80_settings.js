@@ -515,10 +515,13 @@
       uk: 'Потрібен для відгуків і рейтингу КП. Безкоштовно на kinopoiskapiunofficial.tech, 500 запитів на день'
     },
     lumen_card_reviews_title: { ru: 'Отзывы зрителей', en: 'Viewer reviews', uk: 'Відгуки глядачів' },
-    lumen_card_reviews_src: { ru: 'КИНОПОИСК', en: 'KINOPOISK', uk: 'КІНОПОШУК' },
-    lumen_card_review_good: { ru: 'ПОЗИТИВНЫЙ', en: 'POSITIVE', uk: 'ПОЗИТИВНИЙ' },
-    lumen_card_review_mid: { ru: 'НЕЙТРАЛЬНЫЙ', en: 'NEUTRAL', uk: 'НЕЙТРАЛЬНИЙ' },
-    lumen_card_review_bad: { ru: 'НЕГАТИВНЫЙ', en: 'NEGATIVE', uk: 'НЕГАТИВНИЙ' },
+    /* Жалоба 2026-09-25 («вычурно, особенно цвет текста»): метка источника
+       и тон отзыва — обычным регистром. Капс цветом кричал громче заголовка
+       отзыва; тон теперь несёт полоса слева, а подпись лишь поясняет её. */
+    lumen_card_reviews_src: { ru: 'Кинопоиск', en: 'Kinopoisk', uk: 'Кінопошук' },
+    lumen_card_review_good: { ru: 'Позитивный', en: 'Positive', uk: 'Позитивний' },
+    lumen_card_review_mid: { ru: 'Нейтральный', en: 'Neutral', uk: 'Нейтральний' },
+    lumen_card_review_bad: { ru: 'Негативный', en: 'Negative', uk: 'Негативний' },
     lumen_card_review_useful: { ru: 'полезно', en: 'helpful', uk: 'корисно' },
     /* Task 28 (фаза 3): отзывы без спойлеров. Режим показа — настройка
        lumen_reviews_mode, переключатель того же режима стоит в шапке ряда
@@ -532,10 +535,10 @@
     lumen_reviews_mode_headlines: { ru: 'Только заголовки', en: 'Headlines only', uk: 'Лише заголовки' },
     lumen_reviews_mode_full: { ru: 'С выдержкой', en: 'With excerpt', uk: 'З уривком' },
     /* Подпись переключателя в шапке ряда отзывов: это действие, а не
-       состояние, — «Показывать текст» с подсветкой, когда он включён. */
+       состояние, — «Показывать текст» с галочкой, когда он включён. */
     lumen_reviews_mode_toggle: { ru: 'Показывать текст', en: 'Show text', uk: 'Показувати текст' },
     /* Метка на карточке отзыва, в котором нашёлся скрытый кусок. */
-    lumen_reviews_spoiler: { ru: 'ЕСТЬ СПОЙЛЕР', en: 'HAS SPOILER', uk: 'Є СПОЙЛЕР' },
+    lumen_reviews_spoiler: { ru: 'Есть спойлер', en: 'Has spoilers', uk: 'Є спойлер' },
     /* Кнопка в окне отзыва: раскрывает замазанные куски и прячет обратно. */
     lumen_reviews_reveal: { ru: 'Показать спойлеры', en: 'Reveal spoilers', uk: 'Показати спойлери' },
     lumen_reviews_hide: { ru: 'Скрыть спойлеры', en: 'Hide spoilers', uk: 'Сховати спойлери' },

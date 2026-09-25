@@ -564,26 +564,56 @@
         '</div>';
     }
 
+    /* Жалоба 2026-09-25 («вычурно, особенно цвет текста»): мета отзыва —
+       одна строка «дата · тон · ★ N» без переносов. Прежде три span'а стояли
+       через margin, и строка «27.03.2011 НЕГАТИВНЫЙ ★ 669 полезно» не
+       влезала в колонку рядом с аватаром: «669 полезно» уезжало на вторую
+       строку, и из-за этой лишней строки в карточке режима заголовков не
+       хватало места заголовку (разбор — у правила .lumen-review__title в
+       src/30_css.js).
+       Разделители — отдельными узлами, а не :before: псевдоэлемент у
+       __likes уже занят звездой-маской. Пустая дата (у отзыва без даты) не
+       рисуется вовсе — иначе строка начиналась бы с висящей точки.
+       Слово «полезно» лежит в своём узле: в карточке его скрывает CSS (там
+       его заменяет звезда, а места нет), в окне отзыва и на движке без
+       CSS-масок, где звезды нет, — показывает. prefix — корень классов:
+       'lumen-review' у карточки ряда, 'lumen-review-modal' у окна. */
+    function metaHtml(item, prefix) {
+      var parts = [];
+      if (item.date) parts.push('<span class="' + prefix + '__date">' + item.date + '</span>');
+      parts.push('<span class="' + prefix + '__tag">' + esc(toneLabel(item.tone)) + '</span>');
+      /* likes из normalize — число, но запись могла прийти из кэша Storage,
+         поэтому в разметку — только через esc, как total в шапке. */
+      if (item.likes) {
+        parts.push('<span class="' + prefix + '__likes">' + esc(String(item.likes)) +
+          '<span class="' + prefix + '__useful"> ' + esc(lang('lumen_card_review_useful')) + '</span></span>');
+      }
+      return parts.join('<span class="' + prefix + '__sep">\u00B7</span>');
+    }
+
     /* Все поля item уже экранированы normalize() — второй раз не экранируем
        (иначе «A &amp; B» превратилось бы в «A &amp;amp; B»). */
     function cardHtml(item, index, mode) {
-      var likes = item.likes ? '<span class="lumen-review__likes">' + item.likes + ' ' + esc(lang('lumen_card_review_useful')) + '</span>' : '';
       /* Метка «в отзыве есть спойлер» — и в режиме заголовков, и с текстом:
          в обоих случаях она обещает, что под OK ждёт скрытый кусок. */
       var mark = item.spoiler ? '<div class="lumen-review__spoiler">' + esc(lang('lumen_reviews_spoiler')) + '</div>' : '';
       var text = mode === 'full' ? '<div class="lumen-review__text">' + item.excerpt + '</div>' : '';
-      return '<div class="lumen-review selector lumen-review--' + item.tone + '" data-lumen-review="' + index + '">' +
+      /* --spoiler: строка метки занимает место внизу карточки, и выдержке в
+         режиме с текстом достаётся на строку меньше (src/30_css.js).
+         Жалоба 2026-09-25: кружка с инициалами в карточке ряда больше нет.
+         Замер на стенде 960×540@2 по всем пяти гарнитурам плагина: строка
+         «17.08.2008 · Нейтральный · ★ 351» занимает до 195 CSS px, а колонка
+         рядом с аватаром — 184, то есть мета в одну строку не влезала даже
+         без слова «полезно». Без аватара колонка — вся ширина карточки
+         (214). Заодно у текста карточки остаётся одна левая кромка вместо
+         двух. Инициалы остались в окне отзыва — там место есть. */
+      return '<div class="lumen-review selector lumen-review--' + item.tone + (item.spoiler ? ' lumen-review--spoiler' : '') + '" data-lumen-review="' + index + '">' +
         '<div class="lumen-review__tone"></div>' +
         '<div class="lumen-review__body">' +
         '<div class="lumen-review__top">' +
-        '<div class="lumen-review__ava">' + item.initials + '</div>' +
         '<div class="lumen-review__who">' +
         '<div class="lumen-review__author">' + item.author + '</div>' +
-        '<div class="lumen-review__meta">' +
-        '<span class="lumen-review__date">' + item.date + '</span>' +
-        '<span class="lumen-review__tag">' + esc(toneLabel(item.tone)) + '</span>' +
-        likes +
-        '</div>' +
+        '<div class="lumen-review__meta">' + metaHtml(item, 'lumen-review') + '</div>' +
         '</div>' +
         '</div>' +
         '<div class="lumen-review__title">' + item.title + '</div>' +
@@ -625,11 +655,7 @@
         '<div class="lumen-review-modal__ava">' + item.initials + '</div>' +
         '<div class="lumen-review-modal__who">' +
         '<div class="lumen-review-modal__author">' + item.author + '</div>' +
-        '<div class="lumen-review-modal__meta">' +
-        '<span>' + item.date + '</span>' +
-        '<span class="lumen-review-modal__tag">' + esc(toneLabel(item.tone)) + '</span>' +
-        (item.likes ? '<span class="lumen-review-modal__likes">' + item.likes + ' ' + esc(lang('lumen_card_review_useful')) + '</span>' : '') +
-        '</div>' +
+        '<div class="lumen-review-modal__meta">' + metaHtml(item, 'lumen-review-modal') + '</div>' +
         '</div>' +
         '<div class="lumen-review-modal__src">' + esc(lang('lumen_card_reviews_src')) + '</div>' +
         '</div>' +

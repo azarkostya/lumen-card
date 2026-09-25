@@ -1067,20 +1067,29 @@ test('buildCss: тон отзыва — полоса 4px цветами токе
   assert.ok(bad && bad.indexOf('#D9622B') !== -1, 'негативный — spice');
 });
 
-test('buildCss: текст отзыва — ровно 4 строки клампом, минимум tvOS (1.01em) muted', () => {
+/* Жалоба 2026-09-25: выдержку читают, это не подпись — P.soft, а muted
+   остаётся мете. */
+test('buildCss: текст отзыва — ровно 4 строки клампом, минимум tvOS (1.01em), P.soft', () => {
   const decl = findDecl(css, (sel) => sel === '.lumen-descr-row .lumen-review__text');
   assert.ok(decl, 'правило текста отзыва не найдено');
   assert.ok(decl.indexOf('-webkit-line-clamp:4') !== -1, 'экран 07: четыре строки');
   assert.ok(decl.indexOf('display:-webkit-box') !== -1 && decl.indexOf('-webkit-box-orient:vertical') !== -1, 'кламп без этих двух свойств не работает');
   assert.ok(decl.indexOf('font-size:1.01em') !== -1, 'Task 63: текст отзыва — 23 px = 1.01em');
-  assert.ok(decl.indexOf('#A89A8A') !== -1);
+  assert.ok(decl.indexOf('color:#DCD3C8') !== -1, 'текст выдержки — P.soft: ' + decl);
 });
 
-test('buildCss: фокус карточки отзыва — рамка accent и scale(1.03); в lite/off scale нет', () => {
+/* Жалоба 2026-09-25: фокус — инверсия, как у плиток серий и кнопок (Task
+   54). Акцентная рамка .13em в плоском виде читалась случайной золотой
+   обводкой, а её рост с .04em сдвигал содержимое внутрь. */
+test('buildCss: фокус карточки отзыва — инверсия и scale(1.03), рамка не растёт; в lite/off scale нет', () => {
+  const P = tokensWith({});
   const focus = findDecl(css, (sel) => sel === '.lumen-descr-row .lumen-review.focus');
   assert.ok(focus, 'правило фокуса карточки отзыва не найдено');
   assert.ok(focus.indexOf('scale(1.03)') !== -1);
-  assert.ok(focus.indexOf('border:.13em solid #E8B87A') !== -1, 'рамка акцентом');
+  assert.ok(focus.indexOf('background:' + P.text + ';color:' + P.bg) !== -1, 'фокус — инверсия: ' + focus);
+  assert.ok(focus.indexOf('border-color:' + P.text) !== -1, 'рамка в цвет заливки — видимой границы у сплошной карты нет: ' + focus);
+  assert.equal(/(^|;)border(-width)?:/.test(focus), false, 'толщина рамки в фокусе не меняется — иначе содержимое сдвигается: ' + focus);
+  assert.equal(focus.indexOf(P.accent), -1, 'акцентной рамки у карточки отзыва больше нет: ' + focus);
 
   /* Класс режима движения стоит на body (LC.init), а не на ряду: ряд описания
      лежит вне .lumen-card, и правило с корнем карточки сюда не дотянулось бы. */
@@ -1095,13 +1104,17 @@ test('buildCss: фокус карточки отзыва — рамка accent �
   }
 });
 
-test('buildCss: заголовок ряда — название 32px (1.40em), «КИНОПОИСК» акцентом 1.01em', () => {
+/* Жалоба 2026-09-25: «Кинопоиск» — подпись к заголовку, а не золотая
+   капитель с разрядкой: цвет и начертание счётчика рядом. */
+test('buildCss: заголовок ряда — название 32px (1.40em), «Кинопоиск» приглушённым 1.01em, без разрядки', () => {
   const title = findDecl(css, (sel) => sel === '.lumen-descr-row .lumen-reviews__title');
   assert.ok(title && title.indexOf('font-size:1.40em') !== -1, 'название 32px = 1.40em');
   const src = findDecl(css, (sel) => sel === '.lumen-descr-row .lumen-reviews__src');
   assert.ok(src, 'правило метки источника не найдено');
-  assert.ok(src.indexOf('font-size:1.01em') !== -1 && src.indexOf('letter-spacing:.11em') !== -1);
-  assert.ok(src.indexOf('#E8B87A') !== -1, 'метка источника — акцентом (экран 07)');
+  assert.ok(src.indexOf('font-size:1.01em') !== -1, src);
+  assert.equal(/letter-spacing/.test(src), false, 'разрядка метки источника вернулась: ' + src);
+  assert.ok(src.indexOf('color:#A89A8A') !== -1, 'метка источника — muted, как счётчик: ' + src);
+  assert.equal(src.indexOf('#E8B87A'), -1, 'метка источника снова акцентом: ' + src);
   const total = findDecl(css, (sel) => sel === '.lumen-descr-row .lumen-reviews__total');
   /* Цвет и кегль счётчика подняты правкой читаемости 2026-09-16 (заголовок ряда
      лежит на вуали поверх кадра) — детали в тесте «ревью п.2» ниже. */
@@ -1154,6 +1167,167 @@ test('buildCss: без CSS-масок иконки отзывов скрыты (
   assert.ok(line, 'фолбэк без масок для отзывов не найден');
   assert.ok(line.indexOf('lumen-review__likes:before') !== -1);
   assert.ok(line.indexOf('lumen-review-modal__likes:before') !== -1);
+  assert.ok(line.indexOf('lumen-reviews__mode--on:before') !== -1, 'галочка переключателя без масок — пустой квадрат');
+  /* Без звезды число в мете ничего не говорит — слово «полезно» обязано
+     вернуться именно там, где звезды нет. */
+  const back = css.split('\n').find((l) => l.indexOf('@supports not ((-webkit-mask-image:none)') === 0 && l.indexOf('lumen-review__useful') !== -1);
+  assert.ok(back && /\.lumen-review__useful\{display:inline\}/.test(back), 'без масок слово «полезно» не возвращается: ' + back);
+});
+
+/* -------------------------------------------------------------------- */
+/* Жалоба 2026-09-25 (скрины с ПК, «Отступники»): «выглядит как-то        */
+/* вычурно, особенно цвет текста». Тёмно-синие плашки не в тон тёплому    */
+/* фону, цветной капс тона, оранжевое «ЕСТЬ СПОЙЛЕР», золотой «КИНОПОИСК», */
+/* перенос меты и висящая точка под заголовком.                           */
+/* -------------------------------------------------------------------- */
+
+test('жалоба 2026-09-25: карточка отзыва — подложка P.plate в тон фону, а не холодный градиент', () => {
+  const P = tokensWith({});
+  const card = findDecl(css, (sel) => sel === '.lumen-descr-row .lumen-review');
+  assert.ok(card.indexOf('background:rgba(' + P.bgRgb + ',.85)') !== -1, 'подложка карточки не P.plate: ' + card);
+  assert.equal(/linear-gradient|#161825|#0C0D0F/.test(card), false, 'холодный градиент карты серии вернулся: ' + card);
+  /* «Плотные подложки»: та же карта — сплошным цветом страницы. */
+  const solid = withStorage({ lumen_solid: true }, (LC) => LC.buildCss());
+  const bg = withStorage({ lumen_solid: true }, (LC) => LC.tokens()).bg;
+  assert.ok(findDecl(solid, (sel) => sel === '.lumen-descr-row .lumen-review').indexOf('background:' + bg) !== -1, 'с плотными подложками карта отзыва осталась полупрозрачной');
+});
+
+test('жалоба 2026-09-25: тон несёт полоса — подписи тона, спойлера и источника без своего цвета и без капса', () => {
+  const P = tokensWith({});
+  /* Зелёный «хороший» в tokens() не выведен — берём его значением (C.good). */
+  const LOUD = new RegExp('color:(' + ['#8FBF7A', P.spice, P.accent].join('|') + ')');
+  assert.ok(P.spice && P.accent, 'токены цвета не найдены');
+  let seen = 0;
+  for (const r of ruleBodies(css)) {
+    for (const sel of r.selectors) {
+      if (!/lumen-review(-modal)?__(tag|spoiler|src|meta)\b|lumen-reviews__(src|total)\b/.test(sel)) continue;
+      seen++;
+      assert.equal(LOUD.test(r.decl), false, sel + ' снова цветной: ' + r.decl);
+      assert.equal(/letter-spacing|text-transform:uppercase/.test(r.decl), false, sel + ': разрядка или капс — ' + r.decl);
+    }
+  }
+  assert.ok(seen >= 6, 'правил подписей ряда отзывов нашлось подозрительно мало: ' + seen);
+  /* Сами строки — обычным регистром: капс шёл из словаря, а не из CSS. */
+  const S = withStorage({}, (LC) => LC.STRINGS);
+  for (const key of ['lumen_card_reviews_src', 'lumen_card_review_good', 'lumen_card_review_mid', 'lumen_card_review_bad', 'lumen_reviews_spoiler']) {
+    for (const code of ['ru', 'en', 'uk']) {
+      const s = S[key][code];
+      assert.notEqual(s, s.toUpperCase(), key + '.' + code + ' набрана капсом: ' + s);
+    }
+  }
+});
+
+test('жалоба 2026-09-25: мета отзыва — одна строка, «полезно» в карточке заменяет звезда', () => {
+  const meta = findDecl(css, (sel) => sel === '.lumen-descr-row .lumen-review__meta');
+  assert.ok(/white-space:nowrap/.test(meta), 'мета снова переносится: ' + meta);
+  assert.ok(/(^|;)overflow:hidden/.test(meta) && /(^|;)text-overflow:ellipsis/.test(meta), 'непоместившаяся мета обязана резаться многоточием, а не вылезать: ' + meta);
+  assert.ok(/display:none/.test(findDecl(css, (sel) => sel === '.lumen-descr-row .lumen-review__useful')), 'слово «полезно» в карточке не скрыто');
+  /* Аватара в карточке ряда нет — ради ширины меты; в окне отзыва он есть. */
+  assert.equal(findDecl(css, (sel) => sel === '.lumen-descr-row .lumen-review__ava'), null, 'правило аватара карточки осталось мёртвым');
+  assert.ok(findDecl(css, (sel) => sel === '.lumen-review-modal__ava'), 'аватар окна отзыва пропал');
+});
+
+/* «Висящая точка» под заголовком: тело карточки — flex-колонка фиксированной
+   высоты, и узел с overflow:hidden flex сжимал посреди строки (замер на
+   стенде: заголовок 18.5 px при клампе 30 — из-под среза торчали верхушки
+   второй строки). Сторож в две части: (1) узлы текста не сжимаются и
+   режутся только целыми строками; (2) бюджет высоты карточки режима
+   заголовков сходится с меткой спойлера. */
+test('жалоба 2026-09-25: заголовок и текст карточки режутся только целыми строками', () => {
+  const lh = (sel) => parseFloat(declProp(findDecl(css, (s) => s === sel), 'line-height'));
+  for (const sel of ['.lumen-descr-row .lumen-review__title', '.lumen-descr-row .lumen-review__text', '.lumen-descr-row .lumen-review__spoiler']) {
+    const d = findDecl(css, (s) => s === sel);
+    assert.ok(/(^|;)flex:none/.test(d), sel + ': flex сжимает узел посреди строки — ' + d);
+  }
+  const cases = [
+    ['.lumen-descr-row .lumen-review__title', '.lumen-descr-row .lumen-review__title', 1],
+    ['.lumen-descr-row .lumen-reviews--headlines .lumen-review__title', '.lumen-descr-row .lumen-review__title', 2],
+    ['.lumen-descr-row .lumen-review__text', '.lumen-descr-row .lumen-review__text', 4],
+    ['.lumen-descr-row .lumen-review--spoiler .lumen-review__text', '.lumen-descr-row .lumen-review__text', 3]
+  ];
+  for (const [sel, base, lines] of cases) {
+    const d = findDecl(css, (s) => s === sel);
+    assert.ok(d, 'правило не найдено: ' + sel);
+    const clamp = declProp(d, '-webkit-line-clamp');
+    if (lines > 1) assert.equal(clamp, String(lines), sel + ': кламп не ' + lines + ' — ' + d);
+    const max = parseFloat(declProp(d, 'max-height'));
+    assert.ok(Math.abs(max - lines * lh(base)) < 0.005, sel + ': max-height ' + max + 'em не равен ' + lines + ' строкам по ' + lh(base) + ' — срез ляжет посреди строки');
+  }
+});
+
+test('жалоба 2026-09-25: в карточке режима заголовков хватает места мете, двум строкам заголовка и метке спойлера', () => {
+  const d = (sel) => findDecl(css, (s) => s === sel);
+  const em = (decl, prop) => parseFloat(declProp(decl, prop));
+  const card = d('.lumen-descr-row .lumen-review');
+  const body = d('.lumen-descr-row .lumen-review__body');
+  const author = d('.lumen-descr-row .lumen-review__author');
+  const meta = d('.lumen-descr-row .lumen-review__meta');
+  const top = d('.lumen-descr-row .lumen-review__top');
+  const title = d('.lumen-descr-row .lumen-review__title');
+  const spoiler = d('.lumen-descr-row .lumen-review__spoiler');
+  const height = em(d('.lumen-descr-row .lumen-reviews--headlines .lumen-review'), 'height');
+  const border = parseFloat(/border:([\d.]+)em/.exec(card)[1]);
+  const pad = em(body, 'padding');
+  /* Отступы в em узла умножаются на его кегль — всё в базовых em. */
+  const fs = (decl) => em(decl, 'font-size');
+  const need = 2 * pad +
+    fs(author) * (em(author, 'line-height') + em(author, 'margin-bottom')) +
+    fs(meta) * em(meta, 'line-height') + em(top, 'margin-bottom') +
+    fs(title) * (em(d('.lumen-descr-row .lumen-reviews--headlines .lumen-review__title'), 'max-height') + em(title, 'margin-bottom')) +
+    fs(spoiler) * em(spoiler, 'line-height');
+  assert.ok(need <= height - 2 * border, 'содержимое ' + need.toFixed(2) + 'em не влезает в ' + (height - 2 * border).toFixed(2) + 'em — flex снова сожмёт заголовок');
+});
+
+test('жалоба 2026-09-25: под инверсией фокуса у карточки отзыва не остаётся приглушённого текста', () => {
+  /* Тот же урок, что у серий (ревью Task 54): наследование от .focus
+     проигрывает любому явному цвету потомка. Цвет в фокусе может быть
+     полупрозрачным фоном страницы — сводим его на заливку P.text. */
+  const over = (color, base) => {
+    const m = /^rgba\((\d+),(\d+),(\d+),([\d.]+)\)$/.exec(color);
+    if (!m) return color;
+    const b = base.replace('#', '');
+    const mix = [1, 2, 3].map((i) => Math.round(+m[i] * +m[4] + parseInt(b.slice((i - 1) * 2, i * 2), 16) * (1 - +m[4])));
+    return '#' + mix.map((v) => ('0' + v.toString(16)).slice(-2)).join('');
+  };
+  for (const theme of ['warm', 'black']) {
+    const table = withStorage({ lumen_theme: theme }, (LC) => LC.buildCss());
+    const P = withStorage({ lumen_theme: theme }, (LC) => LC.tokens());
+    const CHILD = /^\.lumen-descr-row (\.lumen-review(\.focus|--[\w-]+)? )?\.lumen-review__[\w-]+$/;
+    const plain = [];
+    const focused = [];
+    for (const r of ruleBodies(table)) {
+      for (const sel of r.selectors) {
+        if (!CHILD.test(sel)) continue;
+        const color = /(^|;)color:(#[0-9A-Fa-f]{6}|rgba\([\d,.]+\))/.exec(r.decl);
+        if (!color) continue;
+        (sel.indexOf('.focus') !== -1 ? focused : plain).push({ child: sel.slice(sel.lastIndexOf(' ') + 1), color: color[2], sel });
+      }
+    }
+    assert.ok(plain.length >= 5, theme + ': правил с цветом у потомков карточки отзыва подозрительно мало — ' + plain.length);
+    for (const p of plain) {
+      assert.ok(focused.some((f) => f.child === p.child), theme + ': ' + p.sel + ' красит узел (' + p.color + '), а правила фокуса на него нет');
+    }
+    for (const f of focused) {
+      const ratio = contrast(over(f.color, P.text), P.text);
+      assert.ok(ratio >= 4.5, theme + ': ' + f.sel + ' — ' + f.color + ' на заливке фокуса даёт ' + ratio.toFixed(2) + ':1');
+    }
+  }
+});
+
+test('жалоба 2026-09-25: фокус первой карточки не срезается кромкой ряда', () => {
+  /* scale(1.03) растит карточку на 1.5 % в каждую сторону, подложка фокуса
+     уходит ещё на .2em вниз, а ряд режет всё по overflow:hidden. */
+  const row = findDecl(css, (sel) => sel === '.lumen-descr-row .lumen-reviews__row');
+  const card = findDecl(css, (sel) => sel === '.lumen-descr-row .lumen-review');
+  const pad = declProp(row, 'padding').split(' ').map(parseFloat);
+  const width = parseFloat(declProp(card, 'width'));
+  const height = parseFloat(declProp(card, 'height'));
+  assert.ok(pad[1] >= width * 0.015, 'боковое поле ряда ' + pad[1] + 'em меньше роста карточки ' + (width * 0.015).toFixed(2) + 'em');
+  assert.ok(pad[2] >= height * 0.015 + 0.2, 'нижнее поле ряда ' + pad[2] + 'em не вмещает рост и подложку фокуса');
+  assert.ok(/margin:0 -/.test(row) && declProp(row, 'margin').split(' ')[1] === '-' + declProp(row, 'padding').split(' ')[1], 'боковое поле не скомпенсировано — карточки съехали с вертикали заголовка: ' + row);
+  /* Переход — только transform: цвета инверсии меняются разом. */
+  const tr = findDecl(css, (sel) => sel === 'body.lumen-motion-full .lumen-descr-row .lumen-review');
+  assert.equal(/background|border-color|color/.test(declProp(tr, 'transition')), false, 'переход анимирует цвет — перерисовка карточки каждый кадр: ' + tr);
 });
 
 test('buildCss: наезд Ken Burns — на корне .lumen-backdrop (не .lumen-card: слой фона лежит вне карточки)', () => {
@@ -1994,9 +2168,11 @@ test('Task 41: плитка хаба — баннер без рамки, заг�
    становится заливкой, фон страницы — подписью. Так уже показывают фокус
    кнопки карточки (Task 43), чипы хаба, сетки, настроения и рулетки; теперь
    так же — все остальные кнопки плагина. Карточки с постером или превью
-   (.lumen-fr-card, .lumen-review, .lumen-gcard, .lumen-tile) в список не
-   входят: сплошная светлая заливка под картинкой ничего не покажет, у них
-   фокус держится рамкой, увеличением и подложкой.
+   (.lumen-fr-card, .lumen-gcard, .lumen-tile) в список не входят: сплошная
+   светлая заливка под картинкой ничего не покажет, у них фокус держится
+   рамкой, увеличением и подложкой. Карточка отзыва (.lumen-review) —
+   текстовая, картинки у неё нет, и с жалобы 2026-09-25 она в списке: её
+   акцентная рамка в плоском виде читалась случайной золотой обводкой.
    Вторая половина проверки — про мёртвые правила: если фокус больше не
    красится акцентом, ни одного правила с акцентной заливкой или акцентной
    рамкой на том же селекторе остаться не должно (ошибка, которую ловили в
@@ -2010,6 +2186,7 @@ test('Task 54: фокус кнопок и строк списка — инвер
     '.lumen-card .lumen-episode.focus',
     '.lumen-card .lumen-franchise.focus',
     /* ряд описания: отзывы и «Смотреть по порядку» */
+    '.lumen-descr-row .lumen-review.focus',
     '.lumen-descr-row .lumen-reviews__hint-hide.focus',
     '.lumen-descr-row .lumen-reviews__mode.focus',
     '.lumen-review-modal__reveal.focus',
@@ -2116,7 +2293,20 @@ test('Ревью Task 54: под инверсией фокуса у карточ
 test('Ревью Task 54: отметка «режим включён» читается и под фокусом', () => {
   const P = tokensWith({});
   assert.ok(contrast(P.accent, P.text) < 3, 'акцент на заливке фокуса и правда не читается: ' + contrast(P.accent, P.text).toFixed(2));
-  for (const chip of ['.lumen-descr-row .lumen-reviews__mode', '.lumen-descr-row .lumen-fr__mode']) {
+  /* Жалоба 2026-09-25: у переключателя отзывов отметка — галочка-маска
+     цветом подписи. Под фокусом подпись — P.bg, и галочка вместе с ней;
+     отдельное кольцо ей не нужно (а на пилюле старого движка outline
+     рисовался бы прямоугольником поверх скруглений). Сторож — что
+     галочка есть, красится currentColor и что фокус переключателя —
+     инверсия с читаемым цветом подписи. */
+  const mark = findDecl(css, (sel) => sel === '.lumen-descr-row .lumen-reviews__mode--on:before');
+  assert.ok(mark, 'у включённого переключателя отзывов нет отметки');
+  assert.ok(/background-color:currentColor/.test(mark), 'отметка не красится цветом подписи — под фокусом она не станет P.bg: ' + mark);
+  assert.ok(mark.indexOf('mask-image:' + withStorage({}, (LC) => LC.icons.maskUrl('check'))) !== -1, 'отметка — не галочка из общего набора: ' + mark);
+  const modeFocus = findDecl(css, (sel) => sel === '.lumen-descr-row .lumen-reviews__mode.focus');
+  assert.ok(contrast(P.bg, P.text) >= 4.5, 'подпись под фокусом не читается');
+  assert.ok(modeFocus.indexOf('color:' + P.bg) !== -1, modeFocus);
+  for (const chip of ['.lumen-descr-row .lumen-fr__mode']) {
     const decl = findDecl(css, (sel) => sel === chip + '--on.focus');
     assert.ok(decl, chip + ': у отмеченного состояния под фокусом нет своего правила');
     const mark = /(^|;)outline:[\d.]+em solid (#[0-9A-Fa-f]{6})/.exec(decl);
@@ -6908,6 +7098,15 @@ test('Task 73: отзывы — плоский список без карточ�
   assert.ok(/background:none/.test(review) && /border-color:transparent/.test(review), review);
   /* Полоса тона слева — единственный цветной признак — остаётся. */
   assert.equal(lastDecl(flatCss, '.lumen-descr-row .lumen-review__tone'), lastDecl(css, '.lumen-descr-row .lumen-review__tone'));
+  /* Жалоба 2026-09-25: фокус в плоском виде — та же инверсия, что в
+     обычном (своего правила фокуса плоский вид не заводит), и светлая
+     карта скруглена, как плитки серий плоского вида, а не резким
+     прямоугольником с радиусом 0. */
+  assert.equal(lastDecl(flatCss, '.lumen-descr-row .lumen-review.focus'), lastDecl(css, '.lumen-descr-row .lumen-review.focus'));
+  assert.ok(/border-radius:\.3em/.test(review), 'радиус карточки отзыва в плоском виде: ' + review);
+  /* Скелетон виден и в плоском виде: background:none его не гасит. */
+  const sk = lastDecl(flatCss, '.lumen-descr-row .lumen-review.lumen-review--sk');
+  assert.ok(sk && /background:rgba\(/.test(sk), 'скелетон ряда отзывов в плоском виде без заливки: ' + sk);
 });
 
 test('Task 73: сетка подборки и хаб — плитки без подложек', () => {

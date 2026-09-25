@@ -2607,17 +2607,31 @@
        (свой svg в разметку не вставляем: 20_icons.js, план 0.3). */
     css.push('.lumen-descr-row .lumen-reviews__ico{width:1.05em;height:1.05em;-webkit-flex-shrink:0;flex-shrink:0;background-color:' + P.muted + ';-webkit-mask-image:' + LC.icons.maskUrl('comment') + ';mask-image:' + LC.icons.maskUrl('comment') + ';-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;-webkit-mask-size:contain;mask-size:contain;margin-right:.44em;-webkit-align-self:center;align-self:center}');
     css.push('.lumen-descr-row .lumen-reviews__title{font-family:' + FB + ';font-weight:700;font-size:1.40em;line-height:1;color:' + P.text + ';margin-right:.61em}');
-    /* Правка 2026-09-16, п.6: «КИНОПОИСК» — метка источника, не колонка цифр. */
-    css.push('.lumen-descr-row .lumen-reviews__src{font-family:' + FB + ';font-weight:600;font-size:1.01em;line-height:1;letter-spacing:.11em;color:' + A + ';margin-right:.42em}');
+    /* Правка 2026-09-16, п.6: «КИНОПОИСК» — метка источника, не колонка цифр.
+       Жалоба 2026-09-25 («вычурно, особенно цвет текста»): метка источника
+       больше не золотая капителью с разрядкой — обычный регистр (строка
+       lumen_card_reviews_src) и тот же muted, что у счётчика рядом:
+       «Кинопоиск · 419 отзывов» читается одной подписью к заголовку. Акцент
+       в плагине — цвет фокуса и выбранного, а метка источника ни то ни
+       другое: в шапке ряда она спорила за взгляд с самим заголовком. */
+    css.push('.lumen-descr-row .lumen-reviews__src{font-family:' + FB + ';font-weight:500;font-size:1.01em;line-height:1;color:' + P.muted + ';margin-right:.3em}');
     /* Ревью (п.2), та же правка читаемости, что у таблицы «ПОДРОБНО»: заголовок
        ряда лежит на вуали поверх кадра, и smoke давал там 2.9-3.8:1. Цвет
        поднят до muted (5.6:1 над светлым кадром, 7.2:1 над тёмным), кегль — до
-       20px по правилу «приглушённый текст не мельче 20px». */
-    css.push('.lumen-descr-row .lumen-reviews__total{font-family:' + FB + ';font-weight:500;font-size:1.01em;line-height:1;letter-spacing:.07em;color:' + P.muted + '}');
+       20px по правилу «приглушённый текст не мельче 20px». Разрядка снята
+       вместе с капсом метки источника (жалоба 2026-09-25): строчным она
+       только расшатывает слово. */
+    css.push('.lumen-descr-row .lumen-reviews__total{font-family:' + FB + ';font-weight:500;font-size:1.01em;line-height:1;color:' + P.muted + '}');
     /* Горизонтальный ряд: карточки не сжимаются, лишнее скрыто, к карточке в
        фокусе ряд подкручивается scrollLeft (Lampa ряды ВНУТРИ ряда описания
-       не двигает — находка Task 5d). */
-    css.push('.lumen-descr-row .lumen-reviews__row{display:-webkit-box;display:-webkit-flex;display:flex;overflow:hidden;padding:.26em 0}');
+       не двигает — находка Task 5d).
+       Жалоба 2026-09-25: у первой карточки в фокусе scale(1.03) срезал левую
+       кромку, а подложку фокуса (0 .2em 0) — низ: overflow:hidden ряда
+       начинался ровно у края карточки. Поле .45em по бокам — с запасом на
+       рост карточки 21.04em × .03 / 2 = .32em; .5em снизу — на рост высоты
+       (13.3em × .015 = .2em) плюс саму подложку .2em. Отрицательный margin
+       возвращает карточки на прежнюю вертикаль под заголовком. */
+    css.push('.lumen-descr-row .lumen-reviews__row{display:-webkit-box;display:-webkit-flex;display:flex;overflow:hidden;padding:.3em .45em .5em;margin:0 -.45em}');
     /* Фикс-раунд Task 63: высота карточки 11.4em → 13.3em. Кегли внутри
        поднялись до минимума tvOS, и содержимое в прежнюю коробку перестало
        помещаться. Замер на стенде 960×540@2 узлом-пробником с типовым
@@ -2632,8 +2646,16 @@
        ряду описания хватает — он лежит ниже шапки и прокручивается.
        13.3em = 303 физических px; ряд отзывов вместе с заголовком остаётся
        около 365 px, и весь ряд описания (текст 8 строк + теги + отзывы)
-       укладывается примерно в 800 px при вьюпорте 1080. */
-    css.push('.lumen-descr-row .lumen-review{position:relative;-webkit-box-sizing:border-box;box-sizing:border-box;width:21.04em;height:13.3em;-webkit-box-flex:0;-webkit-flex:none;flex:none;margin-right:.88em;border-radius:.61em;overflow:hidden;background:' + P.gradSlate + ';border:.04em solid ' + P.line + ';color:' + P.text + ';display:-webkit-box;display:-webkit-flex;display:flex}');
+       укладывается примерно в 800 px при вьюпорте 1080.
+       Жалоба 2026-09-25: перенос меты снят (мета — одна строка, разбор у
+       правила .lumen-review__meta ниже); высота осталась прежней, освободив
+       строку под метку «Есть спойлер» и воздух над ней.
+       Подложка — P.plate, тот же материал, что у описания и таблицы
+       «ПОДРОБНО» в этом же ряду: цвет страницы (с подкраской от постера,
+       palette()) на .85. Прежний P.gradSlate уходил в холодный синий
+       #161825 — на тёплом кадре карточки отзывов читались чужими плашками
+       (жалоба: «тёмно-синие плашки не в тон»). */
+    css.push('.lumen-descr-row .lumen-review{position:relative;-webkit-box-sizing:border-box;box-sizing:border-box;width:21.04em;height:13.3em;-webkit-box-flex:0;-webkit-flex:none;flex:none;margin-right:.88em;border-radius:.61em;overflow:hidden;background:' + P.plate + ';border:.04em solid ' + P.line + ';color:' + P.text + ';display:-webkit-box;display:-webkit-flex;display:flex}');
     /* Тон отзыва — левая полоса 4px (экран 07): позитив good, нейтраль muted,
        негатив spice. */
     css.push('.lumen-descr-row .lumen-review__tone{width:.18em;-webkit-box-flex:0;-webkit-flex:none;flex:none;background:' + P.muted + '}');
@@ -2641,11 +2663,18 @@
     css.push('.lumen-descr-row .lumen-review--bad .lumen-review__tone{background:' + P.spice + '}');
     css.push('.lumen-descr-row .lumen-review__body{-webkit-box-sizing:border-box;box-sizing:border-box;padding:.96em;min-width:0;-webkit-box-flex:1;-webkit-flex:1 1 auto;flex:1 1 auto;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-orient:vertical;-webkit-flex-direction:column;flex-direction:column}');
     css.push('.lumen-descr-row .lumen-review__top{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;margin-bottom:.53em}');
-    /* Аватар-инициалы 48×48 при шрифте 19px: ширина/высота в em считаются от
-       СОБСТВЕННОГО font-size узла, поэтому 48 ÷ 19 = 2.53em, а не 48 ÷ 22.811. */
-    css.push('.lumen-descr-row .lumen-review__ava{-webkit-box-sizing:border-box;box-sizing:border-box;width:2.08em;height:2.08em;-webkit-box-flex:0;-webkit-flex:none;flex:none;border-radius:50%;background:' + P.panel + ';font-family:' + FB + ';font-weight:500;font-size:1.01em;line-height:2.08em;text-align:center;color:' + P.muted + ';margin-right:.52em;overflow:hidden}');
-    css.push('.lumen-descr-row .lumen-review__who{min-width:0}');
-    css.push('.lumen-descr-row .lumen-review__author{font-family:' + FB + ';font-weight:600;font-size:1.01em;line-height:1.1;color:' + P.text + ';margin-bottom:.22em;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis;white-space:nowrap}');
+    /* Жалоба 2026-09-25: аватара-инициалов в карточке ряда больше нет —
+       мета в одну строку рядом с ним не помещалась (замер и разбор — у
+       cardHtml в src/60_reviews.js). В окне отзыва он остался
+       (.lumen-review-modal__ava ниже). */
+    /* Колонка «автор + мета» занимает всю ширину строки: без flex-grow её
+       ширина равнялась бы содержимому, и у меты не было бы границы, по
+       которой резать многоточием. */
+    css.push('.lumen-descr-row .lumen-review__who{min-width:0;-webkit-box-flex:1;-webkit-flex:1 1 auto;flex:1 1 auto}');
+    /* Жалоба 2026-09-25: главный текст карточки — заголовок отзыва, а не имя
+       автора. Прежде оба были P.text одного веса и спорили; автор уходит в
+       P.soft (тот же вес — имя остаётся различимым с дивана). */
+    css.push('.lumen-descr-row .lumen-review__author{font-family:' + FB + ';font-weight:600;font-size:1.01em;line-height:1.1;color:' + P.soft + ';margin-bottom:.22em;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis;white-space:nowrap}');
     /* Ревью 2026-09-16 (п.2) поднял мете только цвет (smoke давал 3.7:1 к
        фону карточки, muted даёт 7.1:1) и прямо запрещал трогать кегль:
        «карточка фиксированной высоты 11.4em, рост кегля её переполнит».
@@ -2653,20 +2682,68 @@
        снят не на словах: высота карточки пересчитана по фактической
        геометрии до 13.3em (разбор и замеры — у самого правила .lumen-review
        выше). */
-    css.push('.lumen-descr-row .lumen-review__meta{font-family:' + FB + ';font-weight:500;font-size:1.01em;line-height:1.2;color:' + P.muted + '}');
-    css.push('.lumen-descr-row .lumen-review__meta > span{margin-right:.43em}');
-    css.push('.lumen-descr-row .lumen-review__tag{color:' + P.muted + '}');
-    css.push('.lumen-descr-row .lumen-review--good .lumen-review__tag{color:' + P.good + '}');
-    css.push('.lumen-descr-row .lumen-review--bad .lumen-review__tag{color:' + P.spice + '}');
+    /* Жалоба 2026-09-25: мета — ОДНА строка «дата · тон · ★ N». Прежде она
+       переносилась («27.03.2011 НЕГАТИВНЫЙ ★» / «669 полезно»), и лишняя
+       строка съедала место заголовка. Теперь слово «полезно» в карточке
+       скрыто (его заменяет звезда, правило __useful ниже; в окне отзыва оно
+       есть), тон — обычным регистром, а аватара рядом больше нет. Замер на
+       стенде 960×540@2: самая длинная строка фикстур, «17.08.2008 ·
+       Нейтральный · ★ 351», — 186…195 CSS px в пяти гарнитурах плагина при
+       колонке 214; «Размер интерфейса» пропорцию не меняет (всё в em). Если
+       строка всё же не влезет (гарнитура шире замеренных), её режет
+       многоточие, а не перенос: высота карточки от меты больше не зависит. */
+    css.push('.lumen-descr-row .lumen-review__meta{font-family:' + FB + ';font-weight:500;font-size:1.01em;line-height:1.2;color:' + P.muted + ';white-space:nowrap;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis}');
+    /* Разделители «·» — отдельные узлы (src/60_reviews.js, metaHtml): у
+       __likes псевдоэлемент занят звездой. Подпись тона своего цвета больше
+       не имеет — она muted, как вся мета: тон несёт цветная полоса слева, а
+       цветной капс «НЕГАТИВНЫЙ»/«ПОЗИТИВНЫЙ» кричал громче самого отзыва. */
+    css.push('.lumen-descr-row .lumen-review__sep{margin:0 .32em}');
     /* «12 полезно» — со звездой экрана 07, тоже маской. */
-    css.push('.lumen-descr-row .lumen-review__likes:before{content:"";display:inline-block;vertical-align:-.1em;width:1em;height:1em;background-color:currentColor;-webkit-mask-image:' + LC.icons.maskUrl('star') + ';mask-image:' + LC.icons.maskUrl('star') + ';-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;-webkit-mask-size:contain;mask-size:contain;margin-right:.33em}');
-    css.push('.lumen-descr-row .lumen-review__title{font-family:' + FB + ';font-weight:600;font-size:1.05em;line-height:1.25;color:' + P.text + ';margin-bottom:.53em;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis;white-space:nowrap}');
+    css.push('.lumen-descr-row .lumen-review__likes:before{content:"";display:inline-block;vertical-align:-.1em;width:1em;height:1em;background-color:currentColor;-webkit-mask-image:' + LC.icons.maskUrl('star') + ';mask-image:' + LC.icons.maskUrl('star') + ';-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;-webkit-mask-size:contain;mask-size:contain;margin-right:.26em}');
+    css.push('.lumen-descr-row .lumen-review__useful{display:none}');
+    /* Заголовок — главный текст карточки: P.text и вес 600.
+       Жалоба 2026-09-25, «висящая точка» после заголовка — разбор. Тело
+       карточки — flex-колонка фиксированной высоты, а у заголовка
+       overflow:hidden, и потому min-height:auto для него равен нулю: когда
+       содержимое не влезало, flex СЖИМАЛ заголовок посреди строки. Замер на
+       стенде 960×540@2 (карточка со спойлером в режиме заголовков):
+       заголовок 18.5 CSS px при содержимом 45 и клампе 30 — из-под среза
+       торчали верхушки букв второй строки («й», «ё», прописные), они и
+       читались точкой или многоточием. Причина нехватки места — мета в две
+       строки плюс строка «ЕСТЬ СПОЙЛЕР», на которую высота 9.6em не
+       считалась.
+       Теперь заголовок не сжимается (flex:none) и режется только целыми
+       строками: кламп плюс max-height ровно в N строк (страховка движку без
+       -webkit-line-clamp). То же у текста ниже. */
+    css.push('.lumen-descr-row .lumen-review__title{-webkit-box-flex:0;-webkit-flex:none;flex:none;font-family:' + FB + ';font-weight:600;font-size:1.05em;line-height:1.25;max-height:1.25em;color:' + P.text + ';margin-bottom:.53em;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis;white-space:nowrap}');
     /* Текст — ровно 4 строки (экран 07). -webkit-line-clamp работает во всех
-       webkit-движках ТВ; на движке без него текст просто обрежется по
-       overflow:hidden внутри фиксированной высоты карточки. */
-    css.push('.lumen-descr-row .lumen-review__text{font-family:' + FB + ';font-weight:500;font-size:1.01em;line-height:1.24;color:' + P.muted + ';display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}');
-    css.push('.lumen-descr-row .lumen-review.focus{border:.13em solid ' + A + ';-webkit-transform:scale(1.03);transform:scale(1.03);-webkit-box-shadow:0 .2em 0 ' + AG + ';box-shadow:0 .2em 0 ' + AG + '}');
-    css.push('.lumen-descr-row .lumen-review.focus .lumen-review__title{white-space:normal}');
+       webkit-движках ТВ; на движке без него текст режет max-height по
+       границе четвёртой строки (4 × 1.24).
+       Жалоба 2026-09-25: цвет — P.soft, а не muted. Выдержку читают, это не
+       подпись; muted оставлен мете, и в карточке три ступени вместо двух:
+       заголовок P.text → текст P.soft → мета P.muted. */
+    css.push('.lumen-descr-row .lumen-review__text{-webkit-box-flex:0;-webkit-flex:none;flex:none;font-family:' + FB + ';font-weight:500;font-size:1.01em;line-height:1.24;max-height:4.96em;color:' + P.soft + ';display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}');
+    /* У отзыва со спойлером внизу карточки стоит метка — выдержке остаются
+       три строки. Четыре тоже влезали бы, но впритык (зазор .19em), и метка
+       читалась бы пятой строкой текста, а не пометкой к нему. */
+    css.push('.lumen-descr-row .lumen-review--spoiler .lumen-review__text{-webkit-line-clamp:3;max-height:3.72em}');
+    /* Жалоба 2026-09-25: фокус — инверсия P.text/P.bg, как у плиток серий
+       рядом (.lumen-episode.focus) и у всех кнопок плагина (Task 54).
+       Прежняя акцентная рамка .13em в плоском виде (радиус 0, без подложки)
+       читалась случайной золотой обводкой, а не фокусом, и к тому же росла
+       с .04em — содержимое сдвигалось на .09em внутрь. Теперь толщина рамки
+       не меняется, меняется только её цвет (цвет заливки — видимой границы
+       у сплошной карты нет). Увеличение и подложка — те же, что у серий. */
+    css.push('.lumen-descr-row .lumen-review.focus{background:' + P.text + ';color:' + P.bg + ';border-color:' + P.text + ';-webkit-transform:scale(1.03);transform:scale(1.03);-webkit-box-shadow:0 .2em 0 ' + AG + ';box-shadow:0 .2em 0 ' + AG + '}');
+    /* Под инверсией у каждого узла со своим цветом — своё правило фокуса:
+       наследование от .focus проигрывает любому явному цвету потомка (тот же
+       урок, что у серий, ревью Task 54). Приглушённые ступени — фоном
+       страницы на прозрачности, а не серыми hex: так они остаются в тоне
+       подкраски. Контраст на заливке P.text (WCAG 2.1, тёплая / «Глубокая
+       чёрная»): P.bg 17.07 / 18.77, .8 — 10.19 / 11.78, .7 — 7.19 / 8.05. */
+    css.push('.lumen-descr-row .lumen-review.focus .lumen-review__author,.lumen-descr-row .lumen-review.focus .lumen-review__title{color:' + P.bg + '}');
+    css.push('.lumen-descr-row .lumen-review.focus .lumen-review__text{color:rgba(' + P.bgRgb + ',.8)}');
+    css.push('.lumen-descr-row .lumen-review.focus .lumen-review__meta,.lumen-descr-row .lumen-review.focus .lumen-review__spoiler{color:rgba(' + P.bgRgb + ',.7)}');
     /* Правка 2026-09-23 (разбор композиции, п.4.4): плитка «добавить
        комментарий» перестаёт быть пунктирной. Узел штатный —
        .full-review-add рисует сама Lampa (vendor/lampa/css/app.css:4856-4867:
@@ -2687,7 +2764,12 @@
     /* Переходы — только в режиме полных анимаций (как у ряда серий Task 5c);
        в lite/off пружины нет вовсе. Класс режима стоит на body (LC.init), а не
        на ряду: ряд описания лежит вне .lumen-card. */
-    css.push('body.lumen-motion-full .lumen-descr-row .lumen-review{-webkit-transition:border-color .2s,-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25);transition:border-color .2s,transform .28s cubic-bezier(.2,.9,.3,1.25)}');
+    /* Жалоба 2026-09-25: переход — только transform. Цвета инверсии
+       меняются разом, классом: анимированная заливка при мгновенно
+       сменившемся тексте дала бы на .2 с тёмные буквы на ещё тёмной карте,
+       а анимация цвета фона — это перерисовка карточки каждый кадр
+       (docs/research/2026-09-18-android-tv-animations.md). */
+    css.push('body.lumen-motion-full .lumen-descr-row .lumen-review{-webkit-transition:-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25);transition:transform .28s cubic-bezier(.2,.9,.3,1.25)}');
     css.push('body.lumen-motion-lite .lumen-descr-row .lumen-review.focus,body.lumen-motion-off .lumen-descr-row .lumen-review.focus{-webkit-transform:none;transform:none}');
 
     /* Экран 13, панель 2: ключа нет — вместо пустоты путь до настройки. */
@@ -2728,16 +2810,21 @@
     /* Ревью (п.2): модал лежит на своей панели, не на кадре — но smoke давал к
        ней 3.4:1, ниже порога. Цвет поднят до muted (6.5:1). */
     css.push('.lumen-review-modal__meta{font-family:' + FB + ';font-weight:500;font-size:1.01em;line-height:1.2;color:' + P.muted + '}');
-    css.push('.lumen-review-modal__meta > span{margin-right:.52em}');
-    css.push('.lumen-review-modal--good .lumen-review-modal__tag{color:' + P.good + '}');
-    css.push('.lumen-review-modal--bad .lumen-review-modal__tag{color:' + P.spice + '}');
+    /* Жалоба 2026-09-25: мета окна — та же строка «дата · тон · ★ N полезно»,
+       что у карточки (разделители — узлами, src/60_reviews.js), и тон так
+       же без собственного цвета: его несёт полоса слева. Слово «полезно»
+       здесь остаётся — место в окне есть. */
+    css.push('.lumen-review-modal__sep{margin:0 .4em}');
     css.push('.lumen-review-modal__likes:before{content:"";display:inline-block;vertical-align:-.1em;width:1em;height:1em;background-color:currentColor;-webkit-mask-image:' + LC.icons.maskUrl('star') + ';mask-image:' + LC.icons.maskUrl('star') + ';-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;-webkit-mask-size:contain;mask-size:contain;margin-right:.33em}');
-    css.push('.lumen-review-modal__src{font-family:' + FB + ';font-weight:600;font-size:1.01em;line-height:1;letter-spacing:.11em;color:' + P.muted + ';-webkit-box-flex:0;-webkit-flex:none;flex:none;margin-left:.61em}');
+    /* Метка источника — обычным регистром и без разрядки, как в шапке ряда. */
+    css.push('.lumen-review-modal__src{font-family:' + FB + ';font-weight:500;font-size:1.01em;line-height:1;color:' + P.muted + ';-webkit-box-flex:0;-webkit-flex:none;flex:none;margin-left:.61em}');
     css.push('.lumen-review-modal__line{height:.04em;background:' + P.line + ';margin:.88em 0}');
     css.push('.lumen-review-modal__title{font-family:' + FB + ';font-weight:700;font-size:1.58em;line-height:1.18;margin-bottom:.88em}');
     /* Длинный отзыв прокручивается внутри модала: контроллер modal у Lampa
-       двигает собственный скролл окна, а высота ограничена вьюпортом. */
-    css.push('.lumen-review-modal__text{font-family:' + FB + ';font-weight:500;font-size:1.01em;line-height:1.4;color:' + P.muted + ';max-height:50vh;overflow:auto}');
+       двигает собственный скролл окна, а высота ограничена вьюпортом.
+       Цвет — P.soft, как у выдержки в карточке (жалоба 2026-09-25): это
+       основной текст окна, его читают целиком, и muted для него тускл. */
+    css.push('.lumen-review-modal__text{font-family:' + FB + ';font-weight:500;font-size:1.01em;line-height:1.4;color:' + P.soft + ';max-height:50vh;overflow:auto}');
     /* Фикс-раунд Task 59: окно полного описания по OK. Своих размеров и
        прокрутки ему не нужно: .selector внутри окна нет ни одного, и тогда
        стрелки листают его штатным Scroll модала (roll(), app.min.js:
@@ -2748,39 +2835,43 @@
 
     /* --- Task 28 (фаза 3): отзывы без спойлеров. --- */
 
-    /* Переключатель режима в шапке ряда: справа от счётчика отзывов, тем же
-       ростом, что метка источника. Включённое состояние — акцентом, как
-       чипы порядка ряда франшизы ниже. */
-    css.push('.lumen-descr-row .lumen-reviews__mode{margin-left:auto;padding:.24em .42em;border-radius:.30em;background:' + P.buttonBg + ';border:.04em solid ' + P.line + ';font-family:' + FB + ';font-weight:600;font-size:1.01em;line-height:1.2;color:' + P.muted + '}');
-    css.push('.lumen-descr-row .lumen-reviews__mode--on{color:' + A + ';border-color:rgba(' + A_RGB + ',.5)}');
-    /* Task 54: фокус — инверсия P.text/P.bg, как у остальных кнопок плагина.
-       Ревью: отметка --on акцентом под фокусом НЕ выживает — правило фокуса
-       (три класса) перебивает color:A у --on (два), и от акцента остаётся
-       только волосок border-color rgba(A,.5) на .04em, который на заливке
-       P.text не виден: контраст акцента на ней 1.56. А переключатель тут
-       одиночный (src/60_reviews.js), и состояние «вкл/выкл» нужно читать
-       ровно в тот момент, когда пульт стоит на нём. Поэтому отмеченному
-       состоянию под фокусом дан свой признак — внутреннее кольцо цветом
-       подписи (контраст P.bg на P.text 17.07 в тёплой теме, 18.77 в
-       «Глубокой чёрной»). Кольцо не рамкой, а outline: рамка сдвинула бы
-       содержимое чипа, outline лежит поверх и в поток не входит (тот же
-       приём, что у плитки хаба в lite — правило .lumen-hub.lumen-motion-lite
-       .lumen-tile.focus ниже). Толщина .19em — от СОБСТВЕННОГО кегля чипа
-       (.70em базового, то есть 15.97 px при 1920), это те же 3 физических
-       px, что у колец плагина на базовой шкале (.13em); на .11em кольцо
-       выходило 1.76 px и на стенде не отличалось от чипа без отметки. */
+    /* Переключатель режима в шапке ряда: справа от счётчика отзывов.
+       Жалоба 2026-09-25: серый чип с рамкой и приглушённой подписью, впритык
+       к «419 отзывов», читался чужим полем ввода, а не кнопкой. Теперь он
+       того же языка, что кнопки карточки (.full-start__button): заливка
+       P.buttonBg без рамки, подпись P.soft весом 600, скругление в четверть
+       высоты (.5em при высоте 1.88em — у кнопок карточки .79 при 3.16), и
+       отступ от счётчика. */
+    css.push('.lumen-descr-row .lumen-reviews__mode{display:inline-block;margin-left:.8em;padding:.34em .8em;border-radius:.5em;background:' + P.buttonBg + ';font-family:' + FB + ';font-weight:600;font-size:1.01em;line-height:1.2;color:' + P.soft + ';white-space:nowrap}');
+    /* Включённое состояние — галочкой перед подписью (та же иконка, что у
+       отмеченных пунктов меню) и полным цветом текста. Прежде его несли
+       акцентный текст и акцентная рамка: под фокусом-инверсией акцент не
+       читается (1.56 на P.text), и приходилось держать отдельное кольцо
+       (ревью Task 54). Галочка красится currentColor, поэтому под фокусом
+       становится P.bg сама — контраст 17.07 в тёплой теме, 18.77 в
+       «Глубокой чёрной», — и отдельного признака фокуса у --on больше не
+       нужно. */
+    css.push('.lumen-descr-row .lumen-reviews__mode--on{color:' + P.text + '}');
+    css.push('.lumen-descr-row .lumen-reviews__mode--on:before{content:"";display:inline-block;vertical-align:-.14em;width:1em;height:1em;margin-right:.35em;background-color:currentColor;-webkit-mask-image:' + LC.icons.maskUrl('check') + ';mask-image:' + LC.icons.maskUrl('check') + ';-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;-webkit-mask-size:contain;mask-size:contain}');
+    /* Task 54: фокус — инверсия P.text/P.bg, как у остальных кнопок плагина. */
     css.push('.lumen-descr-row .lumen-reviews__mode.focus{background:' + P.text + ';color:' + P.bg + '}');
-    css.push('.lumen-descr-row .lumen-reviews__mode--on.focus{outline:.13em solid ' + P.bg + ';outline-offset:-.13em}');
     /* Метка «в отзыве есть спойлер» — внизу карточки, у самой кромки: она
-       обещает, что под OK ждёт скрытый кусок. */
-    css.push('.lumen-descr-row .lumen-review__spoiler{margin-top:auto;font-family:' + FB + ';font-weight:600;font-size:1.01em;line-height:1;letter-spacing:.07em;color:' + P.spice + '}');
+       обещает, что под OK ждёт скрытый кусок.
+       Жалоба 2026-09-25: метка — пометка к отзыву, а не предупреждение:
+       обычный регистр (строка lumen_reviews_spoiler), вес 500 и muted, как
+       мета. Оранжевый капс с разрядкой был самым громким текстом ряда. */
+    css.push('.lumen-descr-row .lumen-review__spoiler{-webkit-box-flex:0;-webkit-flex:none;flex:none;margin-top:auto;font-family:' + FB + ';font-weight:500;font-size:1.01em;line-height:1.2;color:' + P.muted + ';white-space:nowrap;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis}');
     /* В режиме заголовков текста в карточке нет, и высота ей нужна меньше:
        заголовку при этом достаётся две строки вместо одной. */
     /* Фикс-раунд Task 63: 8.33em → 9.6em по тому же замеру — в режиме
        заголовков текста нет, но заголовку положены две строки, а мета
-       занимает две. Естественная высота пробника: 9.59em. */
+       занимает две. Естественная высота пробника: 9.59em.
+       Жалоба 2026-09-25: мета теперь в одну строку, и та же высота вмещает
+       ещё и метку «Есть спойлер»: паддинги 1.92 + автор с метой и зазор
+       3.02 + заголовок в две строки с зазором 3.18 + метка 1.21 = 9.33em
+       при 9.52 внутри рамки. */
     css.push('.lumen-descr-row .lumen-reviews--headlines .lumen-review{height:9.6em}');
-    css.push('.lumen-descr-row .lumen-reviews--headlines .lumen-review__title{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}');
+    css.push('.lumen-descr-row .lumen-reviews--headlines .lumen-review__title{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;max-height:2.5em}');
     /* Замазка спойлера в окне отзыва: текст на месте (высота окна не
        прыгает при раскрытии), но не читается — плотная плашка цвета текста
        поверх собственных букв. Никакого blur: на ТВ он дорог, а на движке без
@@ -2808,8 +2899,12 @@
     css.push('.lumen-descr-row .lumen-fr__mode{padding:.24em .42em;margin-right:.24em;border-radius:.30em;background:' + P.buttonBg + ';border:.04em solid ' + P.line + ';font-family:' + FB + ';font-weight:600;font-size:1.01em;line-height:1.2;color:' + P.muted + '}');
     css.push('.lumen-descr-row .lumen-fr__mode--on{color:' + A + ';border-color:rgba(' + A_RGB + ',.5)}');
     /* Task 54: фокус — инверсия P.text/P.bg. Отметка --on под фокусом — своё
-       внутреннее кольцо цветом подписи, по тем же причинам, что у
-       переключателя отзывов выше. */
+       внутреннее кольцо цветом подписи: правило фокуса (три класса)
+       перебивает color:A у --on (два), а волосок border-color rgba(A,.5) на
+       заливке P.text не виден — контраст акцента на ней 1.56. Кольцо
+       outline'ом, а не рамкой: рамка сдвинула бы подпись чипа. (У
+       переключателя отзывов выше отметка — галочка currentColor, ей кольцо
+       не нужно.) */
     css.push('.lumen-descr-row .lumen-fr__mode.focus{background:' + P.text + ';color:' + P.bg + '}');
     css.push('.lumen-descr-row .lumen-fr__mode--on.focus{outline:.13em solid ' + P.bg + ';outline-offset:-.13em}');
     /* Ряд частей — горизонтальный, как ряд отзывов: Lampa внутри ряда
@@ -2841,7 +2936,12 @@
        (мерцают только при полных анимациях — правило .lumen-skeleton). */
     css.push('.lumen-descr-row .lumen-fr-card--sk{height:11.84em;border-radius:.53em}');
     /* Движок без масок: пустые закрашенные квадраты вместо иконок не рисуем. */
-    css.push(LC.icons.NO_MASK + '{.lumen-descr-row .lumen-reviews__ico,.lumen-descr-row .lumen-reviews__hint-ico,.lumen-descr-row .lumen-review__likes:before,.lumen-review-modal__likes:before,.lumen-descr-row .lumen-fr__ico,.lumen-descr-row .lumen-fr-card__mark{display:none}}');
+    css.push(LC.icons.NO_MASK + '{.lumen-descr-row .lumen-reviews__ico,.lumen-descr-row .lumen-reviews__hint-ico,.lumen-descr-row .lumen-review__likes:before,.lumen-review-modal__likes:before,.lumen-descr-row .lumen-reviews__mode--on:before,.lumen-descr-row .lumen-fr__ico,.lumen-descr-row .lumen-fr-card__mark{display:none}}');
+    /* Без звезды число в мете карточки ничего не говорит — возвращаем слово
+       «полезно»; без галочки включённый переключатель режима отличает
+       внутреннее кольцо цветом подписи (outline внутрь: в поток не входит,
+       и тени со spread, запрещённой правилом Task 38, не нужно). */
+    css.push(LC.icons.NO_MASK + '{.lumen-descr-row .lumen-review__useful{display:inline}.lumen-descr-row .lumen-reviews__mode--on{outline:.08em solid currentColor;outline-offset:-.2em}}');
 
     /* --- Компактная раскладка на узких экранах (страховка). Правка 2026-09-16
        (п.1): правил боковой колонки здесь больше нет, а одноколоночный поток
@@ -4754,8 +4854,13 @@
     css.push('@keyframes lumen-sk{0%,100%{opacity:.5}50%{opacity:1}}');
     css.push('body.lumen-motion-lite .lumen-skeleton,body.lumen-motion-off .lumen-skeleton{-webkit-animation:none;animation:none;opacity:1}');
     /* Плашка на месте карточки отзыва: геометрию даёт сам .lumen-review
-       (21.04em × 11.4em), здесь — только заливка вместо содержимого. */
-    css.push('.lumen-descr-row .lumen-review--sk{background-image:none}');
+       (21.04em × 11.4em), здесь — только заливка вместо содержимого.
+       Жалоба 2026-09-25: у карточки теперь сплошной цвет P.plate, и снять
+       один background-image стало мало — заливку скелетона перебивал фон
+       карточки (два класса против одного у .lumen-skeleton), а в плоском
+       виде background:none гасил плашку совсем. Три класса и явный цвет —
+       скелетон одинаков в обоих видах. */
+    css.push('.lumen-descr-row .lumen-review.lumen-review--sk{background:rgba(' + P.textRgb + ',.10)}');
     /* Кадр плитки хаба: плашка занимает весь прямоугольник плитки, поэтому
        ей достаточно скруглений её собственного контейнера. */
     css.push('.lumen-hub .lumen-tile__media.lumen-skeleton{border-radius:.6em}');
@@ -5315,8 +5420,12 @@
       css.push('.lumen-card .lumen-episode{border-radius:.3em;background:none;background-color:' + P.panel + ';border-color:transparent}');
 
       /* Отзывы — плоский список: подложка и рамка снимаются, полоса тона
-         слева остаётся единственным цветным признаком. */
-      css.push('.lumen-descr-row .lumen-review{background:none;border-color:transparent;border-radius:0}');
+         слева остаётся единственным цветным признаком.
+         Жалоба 2026-09-25: радиус .3em вместо 0 — тот же, что у плиток серий
+         в плоском виде. Без подложки его не видно, но фокус (инверсия,
+         общее правило .lumen-review.focus выше) рисует светлую карту, и с
+         радиусом 0 она выходила резким прямоугольником. */
+      css.push('.lumen-descr-row .lumen-review{background:none;border-color:transparent;border-radius:.3em}');
       css.push('.lumen-descr-row .lumen-reviews__head{background:none;padding-left:0;padding-right:0;margin-left:0}');
 
       /* Сетка подборки и хаб: подложки под плитками. Подпись в сетке уже

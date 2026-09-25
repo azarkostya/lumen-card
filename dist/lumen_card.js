@@ -3485,24 +3485,20 @@ css.push('.lumen-descr-row .lumen-reviews__head{display:-webkit-inline-box;displ
 css.push('.lumen-descr-row .lumen-reviews__ico{width:1.05em;height:1.05em;-webkit-flex-shrink:0;flex-shrink:0;background-color:' + P.muted + ';-webkit-mask-image:' + LC.icons.maskUrl('comment') + ';mask-image:' + LC.icons.maskUrl('comment') + ';-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;-webkit-mask-size:contain;mask-size:contain;margin-right:.44em;-webkit-align-self:center;align-self:center}');
 css.push('.lumen-descr-row .lumen-reviews__title{font-family:' + FB + ';font-weight:700;font-size:1.40em;line-height:1;color:' + P.text + ';margin-right:.61em}');
 
-css.push('.lumen-descr-row .lumen-reviews__src{font-family:' + FB + ';font-weight:600;font-size:1.01em;line-height:1;letter-spacing:.11em;color:' + A + ';margin-right:.42em}');
-
-
-
-
-css.push('.lumen-descr-row .lumen-reviews__total{font-family:' + FB + ';font-weight:500;font-size:1.01em;line-height:1;letter-spacing:.07em;color:' + P.muted + '}');
-
-
-
-css.push('.lumen-descr-row .lumen-reviews__row{display:-webkit-box;display:-webkit-flex;display:flex;overflow:hidden;padding:.26em 0}');
 
 
 
 
 
 
+css.push('.lumen-descr-row .lumen-reviews__src{font-family:' + FB + ';font-weight:500;font-size:1.01em;line-height:1;color:' + P.muted + ';margin-right:.3em}');
 
 
+
+
+
+
+css.push('.lumen-descr-row .lumen-reviews__total{font-family:' + FB + ';font-weight:500;font-size:1.01em;line-height:1;color:' + P.muted + '}');
 
 
 
@@ -3510,7 +3506,33 @@ css.push('.lumen-descr-row .lumen-reviews__row{display:-webkit-box;display:-webk
 
 
 
-css.push('.lumen-descr-row .lumen-review{position:relative;-webkit-box-sizing:border-box;box-sizing:border-box;width:21.04em;height:13.3em;-webkit-box-flex:0;-webkit-flex:none;flex:none;margin-right:.88em;border-radius:.61em;overflow:hidden;background:' + P.gradSlate + ';border:.04em solid ' + P.line + ';color:' + P.text + ';display:-webkit-box;display:-webkit-flex;display:flex}');
+
+
+css.push('.lumen-descr-row .lumen-reviews__row{display:-webkit-box;display:-webkit-flex;display:flex;overflow:hidden;padding:.3em .45em .5em;margin:0 -.45em}');
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+css.push('.lumen-descr-row .lumen-review{position:relative;-webkit-box-sizing:border-box;box-sizing:border-box;width:21.04em;height:13.3em;-webkit-box-flex:0;-webkit-flex:none;flex:none;margin-right:.88em;border-radius:.61em;overflow:hidden;background:' + P.plate + ';border:.04em solid ' + P.line + ';color:' + P.text + ';display:-webkit-box;display:-webkit-flex;display:flex}');
 
 
 css.push('.lumen-descr-row .lumen-review__tone{width:.18em;-webkit-box-flex:0;-webkit-flex:none;flex:none;background:' + P.muted + '}');
@@ -3520,9 +3542,16 @@ css.push('.lumen-descr-row .lumen-review__body{-webkit-box-sizing:border-box;box
 css.push('.lumen-descr-row .lumen-review__top{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;margin-bottom:.53em}');
 
 
-css.push('.lumen-descr-row .lumen-review__ava{-webkit-box-sizing:border-box;box-sizing:border-box;width:2.08em;height:2.08em;-webkit-box-flex:0;-webkit-flex:none;flex:none;border-radius:50%;background:' + P.panel + ';font-family:' + FB + ';font-weight:500;font-size:1.01em;line-height:2.08em;text-align:center;color:' + P.muted + ';margin-right:.52em;overflow:hidden}');
-css.push('.lumen-descr-row .lumen-review__who{min-width:0}');
-css.push('.lumen-descr-row .lumen-review__author{font-family:' + FB + ';font-weight:600;font-size:1.01em;line-height:1.1;color:' + P.text + ';margin-bottom:.22em;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis;white-space:nowrap}');
+
+
+
+
+
+css.push('.lumen-descr-row .lumen-review__who{min-width:0;-webkit-box-flex:1;-webkit-flex:1 1 auto;flex:1 1 auto}');
+
+
+
+css.push('.lumen-descr-row .lumen-review__author{font-family:' + FB + ';font-weight:600;font-size:1.01em;line-height:1.1;color:' + P.soft + ';margin-bottom:.22em;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis;white-space:nowrap}');
 
 
 
@@ -3530,20 +3559,68 @@ css.push('.lumen-descr-row .lumen-review__author{font-family:' + FB + ';font-wei
 
 
 
-css.push('.lumen-descr-row .lumen-review__meta{font-family:' + FB + ';font-weight:500;font-size:1.01em;line-height:1.2;color:' + P.muted + '}');
-css.push('.lumen-descr-row .lumen-review__meta > span{margin-right:.43em}');
-css.push('.lumen-descr-row .lumen-review__tag{color:' + P.muted + '}');
-css.push('.lumen-descr-row .lumen-review--good .lumen-review__tag{color:' + P.good + '}');
-css.push('.lumen-descr-row .lumen-review--bad .lumen-review__tag{color:' + P.spice + '}');
-
-css.push('.lumen-descr-row .lumen-review__likes:before{content:"";display:inline-block;vertical-align:-.1em;width:1em;height:1em;background-color:currentColor;-webkit-mask-image:' + LC.icons.maskUrl('star') + ';mask-image:' + LC.icons.maskUrl('star') + ';-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;-webkit-mask-size:contain;mask-size:contain;margin-right:.33em}');
-css.push('.lumen-descr-row .lumen-review__title{font-family:' + FB + ';font-weight:600;font-size:1.05em;line-height:1.25;color:' + P.text + ';margin-bottom:.53em;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis;white-space:nowrap}');
 
 
 
-css.push('.lumen-descr-row .lumen-review__text{font-family:' + FB + ';font-weight:500;font-size:1.01em;line-height:1.24;color:' + P.muted + ';display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}');
-css.push('.lumen-descr-row .lumen-review.focus{border:.13em solid ' + A + ';-webkit-transform:scale(1.03);transform:scale(1.03);-webkit-box-shadow:0 .2em 0 ' + AG + ';box-shadow:0 .2em 0 ' + AG + '}');
-css.push('.lumen-descr-row .lumen-review.focus .lumen-review__title{white-space:normal}');
+
+
+
+
+
+
+
+css.push('.lumen-descr-row .lumen-review__meta{font-family:' + FB + ';font-weight:500;font-size:1.01em;line-height:1.2;color:' + P.muted + ';white-space:nowrap;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis}');
+
+
+
+
+css.push('.lumen-descr-row .lumen-review__sep{margin:0 .32em}');
+
+css.push('.lumen-descr-row .lumen-review__likes:before{content:"";display:inline-block;vertical-align:-.1em;width:1em;height:1em;background-color:currentColor;-webkit-mask-image:' + LC.icons.maskUrl('star') + ';mask-image:' + LC.icons.maskUrl('star') + ';-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;-webkit-mask-size:contain;mask-size:contain;margin-right:.26em}');
+css.push('.lumen-descr-row .lumen-review__useful{display:none}');
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+css.push('.lumen-descr-row .lumen-review__title{-webkit-box-flex:0;-webkit-flex:none;flex:none;font-family:' + FB + ';font-weight:600;font-size:1.05em;line-height:1.25;max-height:1.25em;color:' + P.text + ';margin-bottom:.53em;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis;white-space:nowrap}');
+
+
+
+
+
+
+css.push('.lumen-descr-row .lumen-review__text{-webkit-box-flex:0;-webkit-flex:none;flex:none;font-family:' + FB + ';font-weight:500;font-size:1.01em;line-height:1.24;max-height:4.96em;color:' + P.soft + ';display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}');
+
+
+
+css.push('.lumen-descr-row .lumen-review--spoiler .lumen-review__text{-webkit-line-clamp:3;max-height:3.72em}');
+
+
+
+
+
+
+
+css.push('.lumen-descr-row .lumen-review.focus{background:' + P.text + ';color:' + P.bg + ';border-color:' + P.text + ';-webkit-transform:scale(1.03);transform:scale(1.03);-webkit-box-shadow:0 .2em 0 ' + AG + ';box-shadow:0 .2em 0 ' + AG + '}');
+
+
+
+
+
+
+css.push('.lumen-descr-row .lumen-review.focus .lumen-review__author,.lumen-descr-row .lumen-review.focus .lumen-review__title{color:' + P.bg + '}');
+css.push('.lumen-descr-row .lumen-review.focus .lumen-review__text{color:rgba(' + P.bgRgb + ',.8)}');
+css.push('.lumen-descr-row .lumen-review.focus .lumen-review__meta,.lumen-descr-row .lumen-review.focus .lumen-review__spoiler{color:rgba(' + P.bgRgb + ',.7)}');
 
 
 
@@ -3564,7 +3641,12 @@ css.push('.lumen-card .full-review-add{border:.04em solid ' + P.line + ';border-
 
 
 
-css.push('body.lumen-motion-full .lumen-descr-row .lumen-review{-webkit-transition:border-color .2s,-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25);transition:border-color .2s,transform .28s cubic-bezier(.2,.9,.3,1.25)}');
+
+
+
+
+
+css.push('body.lumen-motion-full .lumen-descr-row .lumen-review{-webkit-transition:-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25);transition:transform .28s cubic-bezier(.2,.9,.3,1.25)}');
 css.push('body.lumen-motion-lite .lumen-descr-row .lumen-review.focus,body.lumen-motion-off .lumen-descr-row .lumen-review.focus{-webkit-transform:none;transform:none}');
 
 
@@ -3605,16 +3687,21 @@ css.push('.lumen-review-modal__author{font-family:' + FB + ';font-weight:600;fon
 
 
 css.push('.lumen-review-modal__meta{font-family:' + FB + ';font-weight:500;font-size:1.01em;line-height:1.2;color:' + P.muted + '}');
-css.push('.lumen-review-modal__meta > span{margin-right:.52em}');
-css.push('.lumen-review-modal--good .lumen-review-modal__tag{color:' + P.good + '}');
-css.push('.lumen-review-modal--bad .lumen-review-modal__tag{color:' + P.spice + '}');
+
+
+
+
+css.push('.lumen-review-modal__sep{margin:0 .4em}');
 css.push('.lumen-review-modal__likes:before{content:"";display:inline-block;vertical-align:-.1em;width:1em;height:1em;background-color:currentColor;-webkit-mask-image:' + LC.icons.maskUrl('star') + ';mask-image:' + LC.icons.maskUrl('star') + ';-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;-webkit-mask-size:contain;mask-size:contain;margin-right:.33em}');
-css.push('.lumen-review-modal__src{font-family:' + FB + ';font-weight:600;font-size:1.01em;line-height:1;letter-spacing:.11em;color:' + P.muted + ';-webkit-box-flex:0;-webkit-flex:none;flex:none;margin-left:.61em}');
+
+css.push('.lumen-review-modal__src{font-family:' + FB + ';font-weight:500;font-size:1.01em;line-height:1;color:' + P.muted + ';-webkit-box-flex:0;-webkit-flex:none;flex:none;margin-left:.61em}');
 css.push('.lumen-review-modal__line{height:.04em;background:' + P.line + ';margin:.88em 0}');
 css.push('.lumen-review-modal__title{font-family:' + FB + ';font-weight:700;font-size:1.58em;line-height:1.18;margin-bottom:.88em}');
 
 
-css.push('.lumen-review-modal__text{font-family:' + FB + ';font-weight:500;font-size:1.01em;line-height:1.4;color:' + P.muted + ';max-height:50vh;overflow:auto}');
+
+
+css.push('.lumen-review-modal__text{font-family:' + FB + ';font-weight:500;font-size:1.01em;line-height:1.4;color:' + P.soft + ';max-height:50vh;overflow:auto}');
 
 
 
@@ -3628,8 +3715,11 @@ css.push('.lumen-descr-modal__text{font-family:' + FB + ';font-weight:500;font-s
 
 
 
-css.push('.lumen-descr-row .lumen-reviews__mode{margin-left:auto;padding:.24em .42em;border-radius:.30em;background:' + P.buttonBg + ';border:.04em solid ' + P.line + ';font-family:' + FB + ';font-weight:600;font-size:1.01em;line-height:1.2;color:' + P.muted + '}');
-css.push('.lumen-descr-row .lumen-reviews__mode--on{color:' + A + ';border-color:rgba(' + A_RGB + ',.5)}');
+
+
+
+
+css.push('.lumen-descr-row .lumen-reviews__mode{display:inline-block;margin-left:.8em;padding:.34em .8em;border-radius:.5em;background:' + P.buttonBg + ';font-family:' + FB + ';font-weight:600;font-size:1.01em;line-height:1.2;color:' + P.soft + ';white-space:nowrap}');
 
 
 
@@ -3638,26 +3728,27 @@ css.push('.lumen-descr-row .lumen-reviews__mode--on{color:' + A + ';border-color
 
 
 
-
-
-
-
-
-
-
+css.push('.lumen-descr-row .lumen-reviews__mode--on{color:' + P.text + '}');
+css.push('.lumen-descr-row .lumen-reviews__mode--on:before{content:"";display:inline-block;vertical-align:-.14em;width:1em;height:1em;margin-right:.35em;background-color:currentColor;-webkit-mask-image:' + LC.icons.maskUrl('check') + ';mask-image:' + LC.icons.maskUrl('check') + ';-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;-webkit-mask-size:contain;mask-size:contain}');
 
 css.push('.lumen-descr-row .lumen-reviews__mode.focus{background:' + P.text + ';color:' + P.bg + '}');
-css.push('.lumen-descr-row .lumen-reviews__mode--on.focus{outline:.13em solid ' + P.bg + ';outline-offset:-.13em}');
 
 
-css.push('.lumen-descr-row .lumen-review__spoiler{margin-top:auto;font-family:' + FB + ';font-weight:600;font-size:1.01em;line-height:1;letter-spacing:.07em;color:' + P.spice + '}');
+
+
+
+css.push('.lumen-descr-row .lumen-review__spoiler{-webkit-box-flex:0;-webkit-flex:none;flex:none;margin-top:auto;font-family:' + FB + ';font-weight:500;font-size:1.01em;line-height:1.2;color:' + P.muted + ';white-space:nowrap;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis}');
+
+
+
+
 
 
 
 
 
 css.push('.lumen-descr-row .lumen-reviews--headlines .lumen-review{height:9.6em}');
-css.push('.lumen-descr-row .lumen-reviews--headlines .lumen-review__title{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}');
+css.push('.lumen-descr-row .lumen-reviews--headlines .lumen-review__title{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;max-height:2.5em}');
 
 
 
@@ -3684,6 +3775,10 @@ css.push('.lumen-descr-row .lumen-fr__name{font-family:' + FB + ';font-weight:50
 css.push('.lumen-descr-row .lumen-fr__modes{display:-webkit-box;display:-webkit-flex;display:flex}');
 css.push('.lumen-descr-row .lumen-fr__mode{padding:.24em .42em;margin-right:.24em;border-radius:.30em;background:' + P.buttonBg + ';border:.04em solid ' + P.line + ';font-family:' + FB + ';font-weight:600;font-size:1.01em;line-height:1.2;color:' + P.muted + '}');
 css.push('.lumen-descr-row .lumen-fr__mode--on{color:' + A + ';border-color:rgba(' + A_RGB + ',.5)}');
+
+
+
+
 
 
 
@@ -3718,7 +3813,12 @@ css.push('body.lumen-motion-full .lumen-descr-row .lumen-fr-card.focus .lumen-fr
 
 css.push('.lumen-descr-row .lumen-fr-card--sk{height:11.84em;border-radius:.53em}');
 
-css.push(LC.icons.NO_MASK + '{.lumen-descr-row .lumen-reviews__ico,.lumen-descr-row .lumen-reviews__hint-ico,.lumen-descr-row .lumen-review__likes:before,.lumen-review-modal__likes:before,.lumen-descr-row .lumen-fr__ico,.lumen-descr-row .lumen-fr-card__mark{display:none}}');
+css.push(LC.icons.NO_MASK + '{.lumen-descr-row .lumen-reviews__ico,.lumen-descr-row .lumen-reviews__hint-ico,.lumen-descr-row .lumen-review__likes:before,.lumen-review-modal__likes:before,.lumen-descr-row .lumen-reviews__mode--on:before,.lumen-descr-row .lumen-fr__ico,.lumen-descr-row .lumen-fr-card__mark{display:none}}');
+
+
+
+
+css.push(LC.icons.NO_MASK + '{.lumen-descr-row .lumen-review__useful{display:inline}.lumen-descr-row .lumen-reviews__mode--on{outline:.08em solid currentColor;outline-offset:-.2em}}');
 
 
 
@@ -5632,7 +5732,12 @@ css.push('@keyframes lumen-sk{0%,100%{opacity:.5}50%{opacity:1}}');
 css.push('body.lumen-motion-lite .lumen-skeleton,body.lumen-motion-off .lumen-skeleton{-webkit-animation:none;animation:none;opacity:1}');
 
 
-css.push('.lumen-descr-row .lumen-review--sk{background-image:none}');
+
+
+
+
+
+css.push('.lumen-descr-row .lumen-review.lumen-review--sk{background:rgba(' + P.textRgb + ',.10)}');
 
 
 css.push('.lumen-hub .lumen-tile__media.lumen-skeleton{border-radius:.6em}');
@@ -6193,7 +6298,11 @@ css.push('.lumen-card .lumen-episode{border-radius:.3em;background:none;backgrou
 
 
 
-css.push('.lumen-descr-row .lumen-review{background:none;border-color:transparent;border-radius:0}');
+
+
+
+
+css.push('.lumen-descr-row .lumen-review{background:none;border-color:transparent;border-radius:.3em}');
 css.push('.lumen-descr-row .lumen-reviews__head{background:none;padding-left:0;padding-right:0;margin-left:0}');
 
 
@@ -28087,24 +28196,54 @@ esc(lang('lumen_reviews_mode_toggle')) + '</div>' +
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+function metaHtml(item, prefix) {
+var parts = [];
+if (item.date) parts.push('<span class="' + prefix + '__date">' + item.date + '</span>');
+parts.push('<span class="' + prefix + '__tag">' + esc(toneLabel(item.tone)) + '</span>');
+
+
+if (item.likes) {
+parts.push('<span class="' + prefix + '__likes">' + esc(String(item.likes)) +
+'<span class="' + prefix + '__useful"> ' + esc(lang('lumen_card_review_useful')) + '</span></span>');
+}
+return parts.join('<span class="' + prefix + '__sep">\u00B7</span>');
+}
+
+
+
 function cardHtml(item, index, mode) {
-var likes = item.likes ? '<span class="lumen-review__likes">' + item.likes + ' ' + esc(lang('lumen_card_review_useful')) + '</span>' : '';
 
 
 var mark = item.spoiler ? '<div class="lumen-review__spoiler">' + esc(lang('lumen_reviews_spoiler')) + '</div>' : '';
 var text = mode === 'full' ? '<div class="lumen-review__text">' + item.excerpt + '</div>' : '';
-return '<div class="lumen-review selector lumen-review--' + item.tone + '" data-lumen-review="' + index + '">' +
+
+
+
+
+
+
+
+
+
+return '<div class="lumen-review selector lumen-review--' + item.tone + (item.spoiler ? ' lumen-review--spoiler' : '') + '" data-lumen-review="' + index + '">' +
 '<div class="lumen-review__tone"></div>' +
 '<div class="lumen-review__body">' +
 '<div class="lumen-review__top">' +
-'<div class="lumen-review__ava">' + item.initials + '</div>' +
 '<div class="lumen-review__who">' +
 '<div class="lumen-review__author">' + item.author + '</div>' +
-'<div class="lumen-review__meta">' +
-'<span class="lumen-review__date">' + item.date + '</span>' +
-'<span class="lumen-review__tag">' + esc(toneLabel(item.tone)) + '</span>' +
-likes +
-'</div>' +
+'<div class="lumen-review__meta">' + metaHtml(item, 'lumen-review') + '</div>' +
 '</div>' +
 '</div>' +
 '<div class="lumen-review__title">' + item.title + '</div>' +
@@ -28146,11 +28285,7 @@ return '<div class="lumen-review-modal__tone"></div>' +
 '<div class="lumen-review-modal__ava">' + item.initials + '</div>' +
 '<div class="lumen-review-modal__who">' +
 '<div class="lumen-review-modal__author">' + item.author + '</div>' +
-'<div class="lumen-review-modal__meta">' +
-'<span>' + item.date + '</span>' +
-'<span class="lumen-review-modal__tag">' + esc(toneLabel(item.tone)) + '</span>' +
-(item.likes ? '<span class="lumen-review-modal__likes">' + item.likes + ' ' + esc(lang('lumen_card_review_useful')) + '</span>' : '') +
-'</div>' +
+'<div class="lumen-review-modal__meta">' + metaHtml(item, 'lumen-review-modal') + '</div>' +
 '</div>' +
 '<div class="lumen-review-modal__src">' + esc(lang('lumen_card_reviews_src')) + '</div>' +
 '</div>' +
@@ -34961,10 +35096,13 @@ en: 'Needed for reviews and the KP rating. Free at kinopoiskapiunofficial.tech, 
 uk: 'Потрібен для відгуків і рейтингу КП. Безкоштовно на kinopoiskapiunofficial.tech, 500 запитів на день'
 },
 lumen_card_reviews_title: { ru: 'Отзывы зрителей', en: 'Viewer reviews', uk: 'Відгуки глядачів' },
-lumen_card_reviews_src: { ru: 'КИНОПОИСК', en: 'KINOPOISK', uk: 'КІНОПОШУК' },
-lumen_card_review_good: { ru: 'ПОЗИТИВНЫЙ', en: 'POSITIVE', uk: 'ПОЗИТИВНИЙ' },
-lumen_card_review_mid: { ru: 'НЕЙТРАЛЬНЫЙ', en: 'NEUTRAL', uk: 'НЕЙТРАЛЬНИЙ' },
-lumen_card_review_bad: { ru: 'НЕГАТИВНЫЙ', en: 'NEGATIVE', uk: 'НЕГАТИВНИЙ' },
+
+
+
+lumen_card_reviews_src: { ru: 'Кинопоиск', en: 'Kinopoisk', uk: 'Кінопошук' },
+lumen_card_review_good: { ru: 'Позитивный', en: 'Positive', uk: 'Позитивний' },
+lumen_card_review_mid: { ru: 'Нейтральный', en: 'Neutral', uk: 'Нейтральний' },
+lumen_card_review_bad: { ru: 'Негативный', en: 'Negative', uk: 'Негативний' },
 lumen_card_review_useful: { ru: 'полезно', en: 'helpful', uk: 'корисно' },
 
 
@@ -34981,7 +35119,7 @@ lumen_reviews_mode_full: { ru: 'С выдержкой', en: 'With excerpt', uk: 
 
 lumen_reviews_mode_toggle: { ru: 'Показывать текст', en: 'Show text', uk: 'Показувати текст' },
 
-lumen_reviews_spoiler: { ru: 'ЕСТЬ СПОЙЛЕР', en: 'HAS SPOILER', uk: 'Є СПОЙЛЕР' },
+lumen_reviews_spoiler: { ru: 'Есть спойлер', en: 'Has spoilers', uk: 'Є спойлер' },
 
 lumen_reviews_reveal: { ru: 'Показать спойлеры', en: 'Reveal spoilers', uk: 'Показати спойлери' },
 lumen_reviews_hide: { ru: 'Скрыть спойлеры', en: 'Hide spoilers', uk: 'Сховати спойлери' },

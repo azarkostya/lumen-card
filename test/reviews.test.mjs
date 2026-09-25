@@ -488,12 +488,14 @@ test('render: блок отзывов — сосед .lumen-facts в теле р
   assert.ok(d.row.hasClass('lumen-descr-row'), 'корень ряда помечен — иначе CSS не применится');
 
   const html = blocks[0].html();
-  assert.ok(html.indexOf('КИНОПОИСК') !== -1, 'источник в заголовке');
+  /* Жалоба 2026-09-25: метка источника и тон — обычным регистром. */
+  assert.ok(html.indexOf('Кинопоиск') !== -1, 'источник в заголовке');
   assert.ok(html.indexOf('318 отзывов') !== -1, 'число отзывов из total со склонением');
   assert.ok(html.indexOf('Иван Петров') !== -1 && html.indexOf('Шедевр') !== -1);
   assert.ok(html.indexOf('02.03.2024') !== -1);
-  assert.ok(html.indexOf('ПОЗИТИВНЫЙ') !== -1 && html.indexOf('НЕЙТРАЛЬНЫЙ') !== -1 && html.indexOf('НЕГАТИВНЫЙ') !== -1);
-  assert.ok(html.indexOf('12 полезно') !== -1);
+  assert.ok(html.indexOf('Позитивный') !== -1 && html.indexOf('Нейтральный') !== -1 && html.indexOf('Негативный') !== -1);
+  /* «полезно» — в своём узле: в карточке его прячет CSS (там звезда). */
+  assert.ok(html.indexOf('<span class="lumen-review__likes">12<span class="lumen-review__useful"> полезно</span></span>') !== -1, html);
   assert.ok(html.indexOf('lumen-review--good') !== -1 && html.indexOf('lumen-review--bad') !== -1);
   assert.ok(html.indexOf('lumen-review selector') !== -1, 'карточка отзыва — .selector (навигация пультом)');
   assert.ok(d.row.hasClass('lumen-descr-row--reviews'), 'с рядом отзывов описание поджимается (иначе карточки уходят за нижний край)');
@@ -1151,7 +1153,54 @@ test('render: режим заголовков (по умолчанию) — те
   assert.equal(html.indexOf('Картинка отличная'), -1, 'текста в ряду нет вовсе');
   assert.ok(html.indexOf('Отлично') >= 0, 'заголовок, автор и мета остаются');
   assert.ok(html.indexOf('lumen-review__spoiler') >= 0, 'метка «есть спойлер»');
+  /* Жалоба 2026-09-25: метка — обычным регистром, а карточка помечена
+     классом: выдержке в режиме с текстом остаётся на строку меньше. */
+  assert.ok(html.indexOf('>Есть спойлер<') >= 0, html);
+  assert.ok(html.indexOf('lumen-review--spoiler') >= 0, 'карточка со спойлером не помечена классом');
   assert.deepEqual(warnLog, []);
+});
+
+/* Жалоба 2026-09-25: мета — «дата · тон · ★ N» одной строкой. Разделители
+   — узлами (у __likes псевдоэлемент занят звездой), и у отзыва без даты
+   строка не начинается с висящей точки. Аватара в карточке ряда больше
+   нет: рядом с ним мета в одну строку не помещалась. */
+test('render: мета отзыва — части через разделители, без висящего разделителя; аватара в карточке нет', () => {
+  const env = freshEnv({ store: { lumen_kp_key: 'KEY' } });
+  const d = makeDescrRow();
+  env.LC.reviews.render(d.row, DUNE);
+  env.journal.calls[0].ok(SEARCH_OK);
+  env.journal.calls[1].ok({
+    total: 2,
+    items: [
+      { type: 'NEGATIVE', date: '2011-03-27T21:00:00', positiveRating: 669, author: 'Алексей Дёмин', title: 'Долго', description: 'Сюжет топчется на месте.' },
+      { type: 'NEUTRAL', author: 'Мария', title: 'Холодно', description: 'Держит на расстоянии.' }
+    ]
+  });
+  const html = blocksOf(d)[0].html();
+  const metas = html.match(/<div class="lumen-review__meta">.*?<\/div>/g);
+  assert.equal(metas.length, 2, html);
+  assert.equal(metas[0], '<div class="lumen-review__meta">' +
+    '<span class="lumen-review__date">27.03.2011</span><span class="lumen-review__sep">·</span>' +
+    '<span class="lumen-review__tag">Негативный</span><span class="lumen-review__sep">·</span>' +
+    '<span class="lumen-review__likes">669<span class="lumen-review__useful"> полезно</span></span></div>');
+  assert.equal(metas[1], '<div class="lumen-review__meta"><span class="lumen-review__tag">Нейтральный</span></div>',
+    'без даты и без «полезно» — ни одного висящего разделителя');
+  assert.equal(html.indexOf('lumen-review__ava'), -1, 'аватар в карточке ряда вернулся — мета снова не влезет в строку');
+  assert.deepEqual(warnLog, []);
+});
+
+test('modal: мета окна — та же строка, со словом «полезно»; аватар на месте; likes из кэша экранируются', () => {
+  const env = freshEnv({ store: { lumen_kp_key: 'KEY' } });
+  env.LC.reviews.openModal({ tone: 'bad', author: 'А', initials: 'АБ', title: 'Т', excerpt: 'э', full: 'текст', date: '01.01.2024', likes: 5 });
+  const html = env.modals[0].html.html();
+  assert.ok(html.indexOf('lumen-review-modal__ava">АБ<') >= 0, 'аватар окна отзыва пропал: ' + html);
+  assert.ok(html.indexOf('<span class="lumen-review-modal__date">01.01.2024</span><span class="lumen-review-modal__sep">·</span><span class="lumen-review-modal__tag">Негативный</span>') >= 0, html);
+  assert.ok(html.indexOf('5<span class="lumen-review-modal__useful"> полезно</span>') >= 0, html);
+  assert.ok(html.indexOf('>Кинопоиск<') >= 0, 'метка источника окна — обычным регистром: ' + html);
+  /* Запись кэша могла прийти из Storage чем угодно — в разметку только через esc. */
+  env.LC.reviews.openModal({ tone: 'good', author: 'А', initials: 'А', title: 'Т', excerpt: 'э', full: 'текст', date: '', likes: '<b>9</b>' });
+  const tainted = env.modals[1].html.html();
+  assert.equal(tainted.indexOf('<b>'), -1, 'likes попал в разметку без экранирования: ' + tainted);
 });
 
 test('render: режим «с текстом» показывает выдержку без спойлерных кусков', () => {
