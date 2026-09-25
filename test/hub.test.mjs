@@ -919,6 +919,43 @@ test('lumen_hub: плитка рисует один <img decoding="async">, пр
   assert.equal(second.src, 'https://proxy/t/p/w780/bd.jpg', 'путь TMDB — через прокси, кадровой ступенью');
 });
 
+/* Ревью каталога (60): кадр из каталога (cover) — картинка TMDB, которую
+   TMDB может снять, и плитка без отката так и стояла бы пустой панелью.
+   Упал кадр каталога — плитка просит живой кадр (первая страница подборки),
+   и больше к cover не возвращается. */
+test('lumen_hub: кадр каталога (cover) не загрузился — плитка берёт живой кадр', function () {
+  var m = JSON.parse(JSON.stringify(MANIFEST));
+  m.collections[0].cover = '/cover.jpg';
+  var s = openHub({ manifest: m });
+  var tile = s.root.all('lumen-tile')[0];
+  assert.equal(s.h.bannerCalls[0].item.cover, '/cover.jpg');
+  s.h.bannerCalls[0].ok('/cover.jpg');
+  tile.all('lumen-tile__img')[0].onerror();
+  assert.equal(s.h.bannerCalls.length, 3, 'второй запрос кадра той же плитки');
+  var again = s.h.bannerCalls[2];
+  assert.equal(again.item.id, 'star-wars');
+  assert.equal(again.item.cover, undefined, 'без cover — живой кадр');
+  again.ok('/live.jpg');
+  var imgs = tile.all('lumen-tile__img');
+  assert.equal(imgs.length, 1);
+  assert.equal(imgs[0].src, 'https://proxy/t/p/w780/live.jpg');
+  if (imgs[0].onerror) imgs[0].onerror();
+  assert.equal(s.h.bannerCalls.length, 3, 'живой кадр упал — круга запросов нет');
+  var before = s.h.bannerCalls.length;
+  s.comp.stop();
+  s.comp.start();
+  var back = s.h.bannerCalls.slice(before).filter(function (c) { return c.item.id === 'star-wars'; });
+  assert.equal(back.length, 1, 'незаполненная плитка перезапрошена на start');
+  assert.equal(back[0].item.cover, undefined, 'и после возврата на экран — без cover');
+});
+
+test('lumen_hub: живой кадр без cover отката не заводит', function () {
+  var s = openHub();
+  s.h.bannerCalls[0].ok('/bd.jpg');
+  var img = s.root.all('lumen-tile')[0].all('lumen-tile__img')[0];
+  assert.ok(!img.onerror, 'обработчик отката — только у кадра каталога');
+});
+
 test('lumen_hub: кадр проявляется только после загрузки картинки', function () {
   var s = openHub();
   s.h.bannerCalls[0].ok('/bd.jpg');

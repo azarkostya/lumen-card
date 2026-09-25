@@ -855,7 +855,7 @@
          Кинопоиска берёт картинку прямо из ответа КП — один запрос вместо
          «1 к КП + до 20 к TMDB», которых стоила бы целая страница подборки
          (ревью Task 17, C1). */
-      function paintBanner(node, path) {
+      function paintBanner(node, path, onFail) {
         var box = $(node).find('.lumen-tile__media');
         if (!box || !box.length) return;
         box.empty();
@@ -870,17 +870,41 @@
            декодируется на главном потоке в момент показа.
            Класс плитки ставится по событию загрузки: до него плитка стоит
            ровным фоном панели, а кадр проявляется переходом
-           (.lumen-tile__img в src/30_css.js). */
+           (.lumen-tile__img в src/30_css.js).
+         onFail — откат, если картинка не загрузилась (только у кадра
+         каталога, см. loadBanner). */
         var img = $('<img class="lumen-tile__img" decoding="async">');
         img[0].onload = function () { $(node).addClass('lumen-tile--filled'); };
+        if (onFail) img[0].onerror = onFail;
         img[0].src = url;
         box.append(img);
+      }
+
+      /* Подборка без поля cover — копия: манифест общий на весь плагин. */
+      function liveItem(item) {
+        var out = {};
+        for (var k in item) {
+          if (item.hasOwnProperty(k) && k !== 'cover') out[k] = item[k];
+        }
+        return out;
       }
 
       function loadBanner(item, node) {
         if (node.lumen_banner) return;
         node.lumen_banner = true;
         var captured = gen;
+        /* Ревью каталога (60): кадр каталога (cover) — картинка TMDB, которую
+           могут снять, и без отката плитка так и стояла бы ровной панелью.
+           Упал он — плитка помечается lumen_live и просит живой кадр (первая
+           страница подборки, путь bannerPath без cover); к cover она больше
+           не возвращается — ни на следующем фокусе, ни после stop/start. */
+        var src = node.lumen_live ? liveItem(item) : item;
+        function toLive() {
+          if (gen !== captured || node.lumen_live) return;
+          node.lumen_live = true;
+          node.lumen_banner = false;
+          loadBanner(item, node);
+        }
         /* Task 25: скелетон плитки. Класс .lumen-skeleton живёт ровно
            столько, сколько идёт запрос кадра, и снимается в ОБЕИХ ветках
            ответа — иначе плитка пульсировала бы вечно после ошибки. Пульсируют
@@ -896,10 +920,10 @@
           } catch (eSk) { }
         }
         skeleton(true);
-        var handle = LC.sources.bannerPath(item, function (path) {
+        var handle = LC.sources.bannerPath(src, function (path) {
           skeleton(false);
           if (gen !== captured) return;
-          paintBanner(node, path);
+          paintBanner(node, path, src.cover && path === src.cover ? toLive : null);
         }, function (err) {
           skeleton(false);
           if (gen !== captured) return;

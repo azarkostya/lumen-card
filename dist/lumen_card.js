@@ -11933,7 +11933,7 @@ return LC.util.emPx(tileEm()) * 0.85 > 300 ? 'w780' : 'w300';
 
 
 
-function paintBanner(node, path) {
+function paintBanner(node, path, onFail) {
 var box = $(node).find('.lumen-tile__media');
 if (!box || !box.length) return;
 box.empty();
@@ -11949,16 +11949,40 @@ if (!url) return;
 
 
 
+
+
 var img = $('<img class="lumen-tile__img" decoding="async">');
 img[0].onload = function () { $(node).addClass('lumen-tile--filled'); };
+if (onFail) img[0].onerror = onFail;
 img[0].src = url;
 box.append(img);
+}
+
+
+function liveItem(item) {
+var out = {};
+for (var k in item) {
+if (item.hasOwnProperty(k) && k !== 'cover') out[k] = item[k];
+}
+return out;
 }
 
 function loadBanner(item, node) {
 if (node.lumen_banner) return;
 node.lumen_banner = true;
 var captured = gen;
+
+
+
+
+
+var src = node.lumen_live ? liveItem(item) : item;
+function toLive() {
+if (gen !== captured || node.lumen_live) return;
+node.lumen_live = true;
+node.lumen_banner = false;
+loadBanner(item, node);
+}
 
 
 
@@ -11974,10 +11998,10 @@ else box.removeClass('lumen-skeleton');
 } catch (eSk) { }
 }
 skeleton(true);
-var handle = LC.sources.bannerPath(item, function (path) {
+var handle = LC.sources.bannerPath(src, function (path) {
 skeleton(false);
 if (gen !== captured) return;
-paintBanner(node, path);
+paintBanner(node, path, src.cover && path === src.cover ? toLive : null);
 }, function (err) {
 skeleton(false);
 if (gen !== captured) return;
