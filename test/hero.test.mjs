@@ -6375,3 +6375,58 @@ test('п.D: загрузку логотипа сняли — проба тона
   env.advance(BURST_DELAY - DELAY);
   assert.equal(thumbs.probes[0].cancelled, true);
 });
+
+/* ====================================================================== */
+/* Ревью H1: запрос роликов, который Lampa отменила молча                  */
+/* ====================================================================== */
+
+/* Тот же дефект, что у предзагрузки деталей (src/58_prefetch.js, send):
+   network.clear() Lampa выбрасывает колбэки запроса, и ответа не будет
+   никогда. План ролика висел без исхода, HUD залипал на «plan». Свой
+   срок — 12 с на каждый язык. */
+test('ревью H1: запрос роликов без ответа — через 12 с следующий язык, ещё через 12 с «err req»; поздний ответ ролик не заводит', () => {
+  const env = trailerEnv();
+  const notes = noteLog(env);
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  focusOn(main, main.card1);
+  env.advance(9000);
+  const ru = lastVideos(env);
+  assert.deepEqual(ru.params, { langs: 'ru' }, 'подготовка: запрос на языке интерфейса');
+  env.advance(11999);
+  assert.equal(lastVideos(env), ru, 'срок сработал раньше 12 с');
+  env.advance(1);
+  const en = lastVideos(env);
+  assert.notEqual(en, ru, 'по сроку не спросили английский');
+  assert.deepEqual(en.params, { langs: 'en' });
+  assert.deepEqual(notes, ['plan'], 'план закрыт раньше последнего языка');
+  env.advance(12000);
+  assert.deepEqual(notes, ['plan', 'err req#1'], 'HUD остался на «plan»');
+  /* Lampa всё же ответила — поздно: ни второго исхода, ни плеера. */
+  ru.ok(VIDEOS_RU);
+  en.ok(VIDEOS_RU);
+  assert.equal(env.players.length, 0, 'поздний ответ завёл ролик');
+  assert.deepEqual(notes, ['plan', 'err req#1']);
+  assert.deepEqual(warnLog, []);
+});
+
+test('ревью H1: ответ роликов в срок снимает таймер срока; снятие героя — тоже', () => {
+  const env = trailerEnv();
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  focusOn(main, main.card1);
+  env.advance(9000);
+  lastVideos(env).ok(VIDEOS_RU);
+  assert.equal(env.players.length, 1);
+  const live = () => env.timers.filter((t) => !t.done && t.ms === 12000).length;
+  assert.equal(live(), 0, 'срок пережил ответ');
+
+  const env2 = trailerEnv();
+  const main2 = makeMain();
+  env2.hero.mount(main2.activity);
+  focusOn(main2, main2.card1);
+  env2.advance(9000);
+  assert.equal(env2.timers.filter((t) => !t.done && t.ms === 12000).length, 1, 'подготовка: срок заведён');
+  env2.hero.unmount();
+  assert.equal(env2.timers.filter((t) => !t.done && t.ms === 12000).length, 0, 'срок пережил снятие героя');
+});

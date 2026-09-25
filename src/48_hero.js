@@ -74,6 +74,10 @@
     /* Ролики фильма меняются редко — та же неделя, что у штатного
        Lampa.Api.sources.tmdb.videos (docs/research/API_NOTES_2.md §2). */
     var VIDEOS_LIFE = 10080;
+    /* Ревью H1: срок запроса роликов на один язык (разбор у loadTrailer).
+       Живой запрос Lampa обрывает сама через 10 с (network.timeout в get$c,
+       vendor/lampa/app.min.js:19700). */
+    var VIDEOS_LIMIT = 12000;
     /* Уход старого текста перед подменой (раскадровка 23а: 180 мс). */
     var SWAP_MS = 180;
     /* Потолок ожидания логотипа перед выводом ТЕКСТОВОГО заголовка —
@@ -1617,6 +1621,7 @@
       if (!state) return;
       tgen++;
       stopTimer('trailerTimer');
+      stopTimer('videosTimer');
       planDone('stop');
       state.trailerCard = null;
       if (state.trailer) {
@@ -1682,18 +1687,42 @@
        карточки в фокусе (onFocus), смена настройки автотрейлера
        (applyTrailer), park() и unmount(); ответ, доехавший до снятого
        героя, отсекает ещё и isMounted(). */
+    /* Ревью H1: у запроса роликов свой срок, VIDEOS_LIMIT на каждый язык.
+       network.clear() Lampa выбрасывает колбэки запроса, и ответа не будет
+       никогда (разбор у send в src/58_prefetch.js) — план висел без исхода,
+       HUD залипал на «plan». Срок — тот же исход, что ошибка: следующий
+       язык или «err req». Один исход на язык (over): поздний ответ после
+       срока ничего не заводит. Таймер — state.videosTimer, его снимает
+       cancelTrailer (а с ней — park и unmount). */
     function loadTrailer(card, captured) {
       var media = mediaOf(card);
       var lang = langCode();
 
       function ask(code, next) {
+        var over = false;
+        function fail() {
+          if (over) return;
+          over = true;
+          if (tgen !== captured || !state) return;
+          stopTimer('videosTimer');
+          if (next) ask(next, '');
+          else planDone('err req');
+        }
         try {
           if (!window.Lampa || !Lampa.Api || !Lampa.Api.sources || !Lampa.Api.sources.tmdb) { planDone('stop'); return; }
+          stopTimer('videosTimer');
+          state.videosTimer = setTimeout(function () {
+            if (state && tgen === captured) state.videosTimer = null;
+            fail();
+          }, VIDEOS_LIMIT);
           Lampa.Api.sources.tmdb.get(
             media + '/' + card.id + '/videos',
             { langs: code },
             function (json) {
+              if (over) return;
+              over = true;
               if (tgen !== captured || !state) return;
+              stopTimer('videosTimer');
               if (!isMounted()) { planDone('stop'); return; }
               var video = null;
               try {
@@ -1708,16 +1737,16 @@
                 trailerNote('none');
               }
             },
-            function () {
-              if (tgen !== captured || !state) return;
-              if (next) ask(next, '');
-              else planDone('err req');
-            },
+            fail,
             { life: VIDEOS_LIFE }
           );
         } catch (e) {
           warn('hero: trailer request failed', e);
-          if (tgen === captured) planDone('err req');
+          over = true;
+          if (tgen === captured) {
+            stopTimer('videosTimer');
+            planDone('err req');
+          }
         }
       }
 
@@ -3577,6 +3606,8 @@
              он принадлежит. Запроса роликов здесь нет: отменить его нечем
              (см. loadTrailer). */
           trailerTimer: null,
+          /* Ревью H1: срок запроса роликов (loadTrailer). */
+          videosTimer: null,
           trailer: null,
           trailerCard: null,
           /* Ревью «Волны 1», п.3: номер плана ролика для HUD (planDone). */

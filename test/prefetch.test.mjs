@@ -743,3 +743,102 @@ test('prefetch: ошибка деталей в память не пишется 
   env.pf.details(card, () => {}, () => {});
   assert.equal(env.requests.length, 2, 'ошибка закэширована');
 });
+
+/* ====================================================================== */
+/* Ревью H1: запрос, который Lampa отменила молча                          */
+/* ====================================================================== */
+
+/* network.clear() Lampa очищает список вызовов, и колбэки отменённого
+   запроса не приходят НИКОГДА (vendor/lampa/app.min.js:20283; поиск зовёт
+   clear на каждом запросе и при закрытии, :41336-41339, :41369-41375;
+   Api.clear() — :23277, :44784). Без своего срока запись в flight и место
+   в лимите висели до конца сеанса: два таких запроса — предзагрузка
+   мертва, а герой этого фильма навсегда со скелетоном меты. Репро
+   ревьюера — scratchpad/fullrev/hero/test/zz_orphan.test.mjs. */
+const SEND_LIMIT = 12000;
+
+/* Запрос окна, который Lampa отменила: колбэков у него не будет. */
+function orphanWindow(env, main) {
+  focus(main, main.rows[0][0]);
+  env.advance(400);
+  drain(env);
+  env.advance(1000);
+  focus(main, main.rows[0][1]);
+  env.advance(250);
+  const lost = pending(env).map((r) => idOf(r.url));
+  assert.ok(lost.length > 0, 'подготовка: в пути есть запросы окна');
+  pending(env).forEach((r) => { r.done = true; });
+  return lost;
+}
+
+test('ревью H1: молча отменённый запрос через 12 с отдаёт место в лимите и ключ — окно снова грузит', () => {
+  const { env, main } = mounted();
+  const lost = orphanWindow(env, main);
+  assert.equal(env.pf.stats().fly, lost.length, 'подготовка: осиротевшие запросы держат места');
+  env.advance(SEND_LIMIT - 1);
+  assert.equal(env.pf.stats().fly, lost.length, 'срок сработал раньше 12 с');
+  env.advance(1);
+  assert.equal(env.pf.stats().fly, 0, 'место осиротевшего запроса не освободилось');
+
+  /* Ключ свободен: окно, в которое попал тот же фильм, просит его снова. */
+  const before = env.requests.filter((r) => idOf(r.url) === lost[0]).length;
+  env.advance(1000);
+  focus(main, main.rows[0][lost[0] - 101]);
+  env.advance(250);
+  env.advance(DELAY);
+  assert.equal(env.requests.filter((r) => idOf(r.url) === lost[0]).length, before + 1, 'детали фильма больше не запрашиваются');
+  assert.deepEqual(warnLog, []);
+});
+
+test('ревью H1: ответ, доехавший после срока, чужой — в память не пишется и ждущих второй раз не зовёт', () => {
+  const env = makeEnv();
+  const card = { id: 7, title: 'x' };
+  const got = [];
+  env.pf.details(card, (j) => got.push('ok'), () => got.push('err'));
+  const req = env.requests[0];
+  env.advance(SEND_LIMIT);
+  assert.deepEqual(got, ['err'], 'по сроку ждущий получает отказ');
+  req.ok({ id: 7 });
+  assert.deepEqual(got, ['err'], 'поздний ответ позвал ждущего второй раз');
+  env.pf.details(card, () => {}, () => {});
+  assert.equal(env.requests.length, 2, 'поздний ответ лёг в память');
+});
+
+test('ревью H1: ответ в срок снимает таймер срока — лишнего отказа нет', () => {
+  const env = makeEnv();
+  const got = [];
+  env.pf.details({ id: 8, title: 'y' }, () => got.push('ok'), () => got.push('err'));
+  answer(env.requests[0], { id: 8 });
+  env.advance(SEND_LIMIT * 2);
+  assert.deepEqual(got, ['ok']);
+  assert.equal(env.timers.filter((t) => !t.done && t.ms === SEND_LIMIT).length, 0, 'таймер срока остался жить');
+});
+
+test('ревью H1: герой, вставший на осиротевший запрос соседа, по сроку снимает скелетон, а следующий показ просит детали заново', () => {
+  const { env, main, node } = mounted();
+  const lost = orphanWindow(env, main);
+  const target = lost[0];
+  const el = main.rows[0].find((c) => c.card_data.id === target);
+  env.advance(1000);
+  focus(main, el);
+  /* Показ через DELAY, вывод текста — через SWAP_MS (180 мс) после него. */
+  env.advance(DELAY);
+  env.advance(200);
+  assert.equal(pending(env).filter((r) => idOf(r.url) === target).length, 0, 'подготовка: герой склеился с запросом в пути');
+  assert.equal(node.hasClass('lumen-hero--pending'), true, 'подготовка: герой ждёт детали');
+  env.advance(SEND_LIMIT - 1000 - DELAY - 200 - 1);
+  assert.equal(node.hasClass('lumen-hero--pending'), true, 'срок сработал раньше 12 с от запроса');
+  env.advance(1);
+  assert.equal(node.hasClass('lumen-hero--pending'), false, 'скелетон меты висит после срока');
+  assert.equal(node.find('.lumen-hero__meta').text(), '2024 · ★ 7.0', 'то, что дала карточка ряда');
+
+  /* Уход и возврат: запрос деталей того же фильма уходит заново. */
+  env.advance(1000);
+  focus(main, main.rows[0][5]);
+  env.advance(1000);
+  drain(env, target);
+  env.advance(1000);
+  focus(main, el);
+  env.advance(DELAY);
+  assert.ok(pending(env).some((r) => idOf(r.url) === target), 'детали фильма не запрошены заново');
+});
