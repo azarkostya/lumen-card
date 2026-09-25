@@ -174,6 +174,12 @@ test('monthOf: месяц 1..12 из даты, хук _now подменяем д
 
 /* Найдено живой проверкой (2026-09-17): каталог с хостинга, собранный до
    этой задачи, поля themes не содержит, а кэш держится 12 часов. */
+test('волна «праздники крупнее»: particleColor — зимняя сцена белая (снег), Хэллоуин и Валентин — акцент темы', () => {
+  assert.equal(T.particleColor({ id: 'christmas', preset: 'winter', accent: '#E8C170' }), '#FFFFFF');
+  assert.equal(T.particleColor({ id: 'halloween', preset: 'halloween', accent: '#E07B2C' }), '#E07B2C');
+  assert.equal(T.particleColor({ id: 'valentine', preset: 'hearts', accent: '#E8607D' }), '#E8607D');
+});
+
 test('current: каталог без тем — встроенные правила; свои темы каталога побеждают', () => {
   const DEFAULT_THEMES = [{ id: 'built', preset: 'snow', keywords: ['x'] }];
   const own = [{ id: 'own', preset: 'stars', keywords: ['y'] }];

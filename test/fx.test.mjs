@@ -17,9 +17,11 @@ function seeded(seed) {
 
 const { api: FX } = loadCtx('52_fx.js', { motionMode: () => 'full', enabled: () => true });
 
-const NAMES = ['bats', 'snow', 'stars', 'rain', 'sand', 'bubbles', 'petals', 'embers', 'glitch'];
+const NAMES = ['bats', 'snow', 'stars', 'rain', 'sand', 'bubbles', 'petals', 'embers', 'glitch', 'halloween', 'winter', 'hearts'];
+/* Волна «праздники крупнее»: праздничные сцены. */
+const SCENES = ['halloween', 'winter', 'hearts'];
 
-test('presets: девять пресетов, у каждого count, spawn, step, draw', () => {
+test('presets: двенадцать пресетов (девять движков и три сцены), у каждого count, spawn, step, draw', () => {
   assert.deepEqual(Object.keys(FX.presets).sort(), NAMES.slice().sort());
   for (const name of NAMES) {
     const p = FX.presets[name];
@@ -606,4 +608,259 @@ test('stats: средняя длительность кадра считаетс
     fx.unmountAll();
     assert.equal(fx.stats().particles, 0);
   });
+});
+
+/* ====================================================================== */
+/* Волна «праздники крупнее»: единица слоя, зона текста, сцены, спрайты.   */
+/* ====================================================================== */
+
+test('сцены: помечены scene и умеют рисовать спрайты; старые движки — нет', () => {
+  for (const name of SCENES) {
+    assert.equal(FX.presets[name].scene, true, name + '.scene');
+    assert.equal(typeof FX.presets[name].sprites, 'function', name + '.sprites');
+  }
+  for (const name of NAMES) {
+    if (SCENES.indexOf(name) !== -1) continue;
+    assert.ok(!FX.presets[name].scene, name + ' — не сцена');
+  }
+});
+
+test('unitOf: опора — слой 960 CSS px; 2K — 2.67, крайности зажаты', () => {
+  assert.equal(FX.REF_W, 960);
+  assert.equal(FX.unitOf(960), 1);
+  assert.ok(Math.abs(FX.unitOf(2560) - 2560 / 960) < 1e-9);
+  assert.equal(FX.unitOf(1920), 2);
+  assert.equal(FX.unitOf(100), 0.5, 'крошечный слой не сжимает частицы до пылинок');
+  assert.equal(FX.unitOf(20000), 4);
+  assert.equal(FX.unitOf(0), 1);
+  assert.equal(FX.unitOf(NaN), 1);
+});
+
+/* Канвас с записью аргументов и присваиваний: setTransform (масштаб
+   рисования), globalAlpha (зона текста), shadowBlur/filter (запрет на
+   кадре), плюс градиенты и drawImage — путь спрайтов. */
+function richEnv(run) {
+  return env((e) => {
+    const all = [];
+    e.doc.createElement = function (tag) {
+      const calls = [];
+      const log = [];
+      const alphas = [];
+      const banned = [];
+      const rec = (name) => (...args) => { calls.push(name); log.push([name].concat(args)); };
+      const ctx = {
+        calls, log, alphas, banned,
+        canvas: null, fillStyle: '', strokeStyle: '', lineWidth: 1,
+        setTransform: rec('setTransform'), clearRect: rec('clearRect'), save: rec('save'),
+        restore: rec('restore'), beginPath: rec('beginPath'), closePath: rec('closePath'),
+        moveTo: rec('moveTo'), lineTo: rec('lineTo'), arc: rec('arc'),
+        quadraticCurveTo: rec('quadraticCurveTo'), bezierCurveTo: rec('bezierCurveTo'),
+        fill: rec('fill'), stroke: rec('stroke'), fillRect: rec('fillRect'),
+        translate: rec('translate'), rotate: rec('rotate'), scale: rec('scale'),
+        drawImage: rec('drawImage'),
+        createRadialGradient: () => { calls.push('createRadialGradient'); return { addColorStop() {} }; },
+        createLinearGradient: () => ({ addColorStop() {} })
+      };
+      let ga = 1;
+      Object.defineProperty(ctx, 'globalAlpha', { get: () => ga, set: (v) => { ga = v; alphas.push(v); } });
+      for (const key of ['shadowBlur', 'filter']) {
+        let v = key === 'filter' ? 'none' : 0;
+        Object.defineProperty(ctx, key, { get: () => v, set: (x) => { v = x; banned.push(key); } });
+      }
+      const el = {
+        tagName: ('' + tag).toUpperCase(), className: '', width: 0, height: 0, parentNode: null,
+        style: { setProperty() {}, removeProperty() {} },
+        getContext: () => ctx
+      };
+      ctx.canvas = el;
+      all.push(ctx);
+      return el;
+    };
+    return run(Object.assign({ all }, e));
+  });
+}
+
+/* Главный канвас слоя — тот, что лёг в узел (спрайты в узел не кладутся). */
+function mainCtx(all, layer) {
+  return all.filter((c) => c.canvas === layer.children[0])[0];
+}
+
+test('mount: на 2K частицы рисуются в логическом слое 960 px — масштаб в setTransform, пиксели канваса прежние', () => {
+  richEnv(({ all }) => {
+    const fx = freshFx({ platformInfo: () => ({ android: false }) });
+    const layer = fakeNode(2560, 1440);
+    const inst = fx.mount(layer, 'snow');
+    const canvas = layer.children[0];
+    assert.equal(canvas.width, 2560 * 1.5, 'число пикселей канваса — по-прежнему ширина × DPR');
+    const ctx = mainCtx(all, layer);
+    const st = ctx.log.filter((c) => c[0] === 'setTransform')[0];
+    assert.ok(Math.abs(st[1] - 1.5 * 2560 / 960) < 1e-9, 'масштаб = DPR × единица слоя');
+    for (const p of inst.particles()) {
+      assert.ok(p.x >= 0 && p.x <= 960 + 1, 'x в логической ширине 960');
+      assert.ok(p.y <= 540 + 1, 'y в логической высоте 540');
+    }
+    fx.unmountAll();
+  });
+});
+
+test('mount: на ТВ (960 CSS px, Android) единица 1 — рисунок как прежде', () => {
+  richEnv(({ all }) => {
+    const fx = freshFx({ platformInfo: () => ({ android: true }) });
+    const layer = fakeNode(960, 540);
+    fx.mount(layer, 'snow');
+    const st = mainCtx(all, layer).log.filter((c) => c[0] === 'setTransform')[0];
+    assert.deepEqual(st.slice(1), [1, 0, 0, 1, 0, 0]);
+    fx.unmountAll();
+  });
+});
+
+test('зона текста: частица внутри зоны рисуется с альфой floor, без зоны — полной', () => {
+  richEnv(({ tick, all }) => {
+    const fx = freshFx({ platformInfo: () => ({ android: true }) });
+    const a = fakeNode(960, 540);
+    fx.mount(a, 'stars', { safe: { left: -1, top: -1, right: 2, bottom: 2, floor: 0 } });
+    tick(40);
+    const inZone = mainCtx(all, a).alphas.slice(0, -1);
+    assert.ok(inZone.length > 10, 'кадр нарисован');
+    assert.ok(inZone.every((v) => v === 0), 'зона шире слоя с floor 0 гасит всё');
+    fx.unmountAll();
+
+    const b = fakeNode(960, 540);
+    fx.mount(b, 'stars');
+    tick(40);
+    const free = mainCtx(all, b).alphas.slice(0, -1);
+    assert.ok(free.some((v) => v > 0.2), 'без зоны звёзды видны');
+    fx.unmountAll();
+  });
+});
+
+test('зона текста: плавный край — за полосой feather альфа полная, у края зоны — между', () => {
+  richEnv(({ tick, all }) => {
+    const fx = freshFx({ platformInfo: () => ({ android: true }) });
+    const layer = fakeNode(960, 540);
+    const inst = fx.mount(layer, 'stars', { safe: { left: 0, top: 0, right: 0.5, bottom: 1, floor: 0, feather: 0.1 } });
+    /* Три звезды: в зоне, в середине полосы края, далеко справа. Альфа
+       звезды в draw — 0.22 + 0.33·мерцание; мерцание замерло на пике, и
+       отношение к звезде без зоны — это множитель зоны. */
+    const list = inst.particles();
+    list.length = 3;
+    list[0].x = 100; list[1].x = 480 + 48; list[2].x = 900;
+    for (const p of list) { p.y = 200; p.vx = 0; p.vy = 0; p.life = Math.PI / 2; p.freq = 0; }
+    tick(40);
+    const al = mainCtx(all, layer).alphas.slice(-4, -1);
+    assert.equal(al[0], 0, 'в зоне — floor');
+    assert.ok(al[1] > 0 && al[1] < al[2], 'в полосе края — между floor и полной');
+    assert.ok(Math.abs(al[1] / al[2] - 0.5) < 0.02, 'середина полосы — половина');
+    fx.unmountAll();
+  });
+});
+
+test('сцена: класс lumen-fx--scene на слое, пока смонтирована; канвас — без приглушения', () => {
+  richEnv(() => {
+    const fx = freshFx({ platformInfo: () => ({ android: true }) });
+    const layer = fakeNode(960, 540);
+    layer.className = 'lumen-fx';
+    fx.mount(layer, 'winter');
+    assert.ok(/(^| )lumen-fx--scene( |$)/.test(layer.className), 'класс сцены на слое');
+    assert.ok(/(^| )lumen-fx__canvas--scene( |$)/.test(layer.children[0].className), 'класс сцены на канвасе');
+    fx.unmount(layer);
+    assert.equal(layer.className, 'lumen-fx', 'снят вместе со сценой, чужие классы целы');
+
+    const plain = fakeNode(960, 540);
+    plain.className = 'lumen-fx';
+    fx.mount(plain, 'snow');
+    assert.equal(plain.className, 'lumen-fx', 'у прежних движков класса нет');
+    assert.equal(plain.children[0].className, 'lumen-fx__canvas');
+    fx.unmountAll();
+  });
+});
+
+test('сцены: на кадре — ни shadowBlur, ни filter, ни createRadialGradient; свечение — fillRect, силуэты — drawImage', () => {
+  richEnv(({ tick, all }) => {
+    const fx = freshFx({ platformInfo: () => ({ android: true }) });
+    const grads = () => all.reduce((n, c) => n + c.calls.filter((x) => x === 'createRadialGradient').length, 0);
+    for (const name of SCENES) {
+      const layer = fakeNode(960, 540);
+      fx.mount(layer, name, { color: '#E07B2C' });
+      const main = mainCtx(all, layer);
+      const before = grads();
+      assert.ok(before > 0, name + ': градиенты созданы при монтаже');
+      tick(40); tick(40); tick(40);
+      assert.equal(grads(), before, name + ': на кадре градиенты не создаются');
+      assert.deepEqual(main.banned, [], name + ': на кадре нет shadowBlur и filter');
+      assert.ok(main.calls.indexOf('fillRect') !== -1, name + ': свечение нарисовано');
+      if (name !== 'winter') assert.ok(main.calls.indexOf('drawImage') !== -1, name + ': силуэты — drawImage');
+      /* Кадр кончается в базовом преобразовании: следующий clearRect —
+         в логических координатах. */
+      const last = main.log.filter((c) => c[0] === 'setTransform').pop();
+      assert.deepEqual(last.slice(1), [1, 0, 0, 1, 0, 0], name + ': базовое преобразование восстановлено');
+      fx.unmount(layer);
+    }
+  });
+});
+
+test('сцены: спрайты рисуются один раз на пресет, цвет и масштаб — повторный монтаж их не перерисовывает', () => {
+  richEnv(({ all }) => {
+    const fx = freshFx({ platformInfo: () => ({ android: true }) });
+    fx.mount(fakeNode(960, 540), 'halloween', { color: '#E07B2C' });
+    const made = all.length;
+    fx.unmountAll();
+    fx.mount(fakeNode(960, 540), 'halloween', { color: '#E07B2C' });
+    assert.equal(all.length, made + 1, 'новый — только канвас слоя');
+    fx.unmountAll();
+    fx.mount(fakeNode(960, 540), 'halloween', { color: '#9FCF8A' });
+    assert.ok(all.length > made + 2, 'другой цвет — свой набор');
+    fx.unmountAll();
+  });
+});
+
+test('сцены: без градиентов и drawImage (старая среда) — запасные фигуры, кадр не падает', () => {
+  env(({ tick, contexts }) => {
+    warnLog.length = 0;
+    const fx = freshFx({ platformInfo: () => ({ android: true }) });
+    for (const name of SCENES) {
+      const layer = fakeNode(960, 540);
+      fx.mount(layer, name, { color: '#E8607D' });
+      tick(40); tick(40);
+      const ctx = contexts.filter((c) => c.canvas === layer.children[0])[0];
+      assert.ok(ctx.calls.indexOf('arc') !== -1 || ctx.calls.indexOf('quadraticCurveTo') !== -1, name + ': нарисованы запасные фигуры');
+      fx.unmount(layer);
+    }
+    assert.equal(warnLog.filter((w) => /render failed/.test(w.msg)).length, 0, 'ни один кадр не упал');
+    assert.ok(fx.stats().frames >= 6);
+  });
+});
+
+test('сцены: мыши Хэллоуина держатся верхней трети, угли поднимаются и рождаются снизу', () => {
+  const w = 960, h = 540;
+  const list = FX.spawn('halloween', w, h, FX.presets.halloween.count, seeded(4));
+  const bats = list.filter((p) => p.kind === 1);
+  const embers = list.filter((p) => p.kind === 0);
+  assert.equal(bats.length, 7);
+  assert.equal(embers.length, 32);
+  for (const b of bats) assert.ok(b.y >= h * 0.08 && b.y <= h * 0.32, 'мышь над зоной текста');
+  for (const e of embers) assert.ok(e.vy < 0, 'уголь летит вверх');
+  for (let i = 0; i < 2000; i++) FX.step(list, 33, w, h);
+  for (const b of list.filter((p) => p.kind === 1)) assert.ok(b.y > -h * 0.05 && b.y < h * 0.45, 'мышь не спускается к тексту (' + b.y + ')');
+});
+
+test('сцены: у зимы три плана снега — ближние крупнее и быстрее дальних; гирлянда неподвижна', () => {
+  const list = FX.spawn('winter', 960, 540, FX.presets.winter.count, seeded(6));
+  const plane = (k) => list.filter((p) => p.kind === k);
+  assert.equal(plane(3).length, 6, 'огни боке');
+  assert.equal(plane(4).length, 10, 'лампочки гирлянды');
+  const far = plane(0), mid = plane(1), near = plane(2);
+  assert.equal(far.length + mid.length + near.length, 42);
+  assert.equal(near.length, 6, 'ближний план — шесть крупных хлопьев');
+  const maxOf = (a, k) => Math.max.apply(null, a.map((p) => p[k]));
+  const minOf = (a, k) => Math.min.apply(null, a.map((p) => p[k]));
+  /* Отзыв пользователя «снег более яркий»: средний и ближний планы
+     плотнее прежних (.75 и .3 — нижние границы до правки). */
+  assert.ok(minOf(mid, 'life') >= 0.85, 'средние хлопья почти непрозрачны');
+  assert.ok(minOf(near, 'life') >= 0.45, 'ближние хлопья плотнее прежних');
+  assert.ok(maxOf(far, 'size') < minOf(mid, 'size') && maxOf(mid, 'size') < minOf(near, 'size'), 'размер растёт к зрителю');
+  assert.ok(maxOf(far, 'vy') < minOf(near, 'vy'), 'ближние падают быстрее дальних');
+  const bulbs = plane(4).map((p) => [p.x, p.y]);
+  FX.step(list, 33, 960, 540);
+  assert.deepEqual(plane(4).map((p) => [p.x, p.y]), bulbs, 'лампочки стоят на месте, мерцают фазой');
 });

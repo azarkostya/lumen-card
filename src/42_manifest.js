@@ -1153,10 +1153,20 @@
          #E58A2E из первой редакции плана.
 
          Каталог с хостинга может этот список заменить целиком — правила
-         обновляются без переустановки плагина. */
+         обновляются без переустановки плагина.
+
+         Волна «праздники крупнее»: у праздников — сцены вместо одиночных
+         движков (src/52_fx.js): «halloween» — угли с ореолом, летучие мыши
+         в трёх планах и туман по низу, «winter» — снег в трёх планах, боке
+         и гирлянда с бегущим мерцанием, «hearts» — сердца и розовое боке.
+         Прежние bats и snow остаются в движке для своих тем каталога.
+         valentine стоит раньше общих тем по той же причине, что праздники
+         выше: «романтическая комедия ко Дню святого Валентина» должна
+         получить сердца, а не лепестки. */
       themes: [
-        { id: 'halloween', preset: 'bats', accent: '#E07B2C', keywords: ['halloween', 'haunted house', 'slasher', 'witch', 'trick or treat'], genres: [27], months: [10], requireGenre: true },
-        { id: 'christmas', preset: 'snow', accent: '#E8C170', keywords: ['christmas', 'santa claus', 'new year', 'christmas eve'], months: [12, 1] },
+        { id: 'halloween', preset: 'halloween', accent: '#E07B2C', keywords: ['halloween', 'haunted house', 'slasher', 'witch', 'trick or treat'], genres: [27], months: [10], requireGenre: true },
+        { id: 'christmas', preset: 'winter', accent: '#E8C170', keywords: ['christmas', 'santa claus', 'new year', 'christmas eve'], months: [12, 1] },
+        { id: 'valentine', preset: 'hearts', accent: '#E8607D', keywords: ["valentine's day", 'valentine'], months: [2] },
         { id: 'space', preset: 'stars', accent: '#8FB8D9', keywords: ['space', 'alien', 'spaceship', 'astronaut', 'outer space'] },
         { id: 'noir', preset: 'rain', accent: '#9AA7B5', keywords: ['film noir', 'detective', 'private detective', 'neo-noir'] },
         { id: 'desert', preset: 'sand', accent: '#E8B87A', keywords: ['desert', 'sand', 'dune'] },

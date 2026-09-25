@@ -1559,6 +1559,30 @@
     css.push('.lumen-backdrop.lumen-theme--halloween .lumen-fx,.lumen-hero.lumen-theme--halloween .lumen-fx{background-image:linear-gradient(0deg,rgba(224,123,44,.20) 0%,rgba(224,123,44,.07) 14%,rgba(224,123,44,0) 34%)}');
     /* Остальные темы обходятся частицами: у «космоса» и «нуара» градиент
        поверх кадра спорил бы с вуалями, и в макете его нет. */
+    /* Волна «праздники крупнее»: канвас сцены (halloween, winter, hearts в
+       src/52_fx.js) не приглушается — яркость сцены задана альфами самих
+       частиц, а у текста их гасит зона текста (safe). Прежние .82 поверх
+       этого давали бы двойное притушение ровно там, где пользователь
+       написал «их не видно». */
+    css.push('.lumen-backdrop .lumen-fx__canvas--scene,.lumen-hero .lumen-fx__canvas--scene{opacity:1}');
+    /* Класс lumen-fx--scene ставит LC.fx.mount, пока смонтирована сцена, и
+       снимает drop: без канваса (лёгкие анимации, тяжёлые эффекты
+       выключены) у темы остаётся прежний статичный фон.
+       Сцена winter рисует гирлянду сама — лампочки мерцают бегущей волной,
+       — и статичная CSS-гирлянда под ней стала бы вторым рядом огней. */
+    css.push('.lumen-backdrop.lumen-theme--christmas .lumen-fx.lumen-fx--scene,.lumen-hero.lumen-theme--christmas .lumen-fx.lumen-fx--scene{background-image:none}');
+    /* Сцена halloween: к тыквенному зареву — дымка по низу, три пологих
+       эллипса холодного серо-лилового поверх него. Это фон слоя, а не
+       частицы: растрируется один раз, на кадре не стоит ничего (в канвасе
+       шесть полос тумана были самой дорогой частью сцены — замер в
+       src/52_fx.js у пресета). Правый эллипс плотнее левого: слева лежит
+       текст карточки и героя. */
+    var MIST = '176,168,196';
+    css.push('.lumen-backdrop.lumen-theme--halloween .lumen-fx.lumen-fx--scene,.lumen-hero.lumen-theme--halloween .lumen-fx.lumen-fx--scene{background-image:' +
+      'radial-gradient(ellipse 38% 18% at 78% 100%,rgba(' + MIST + ',.3) 0%,rgba(' + MIST + ',.12) 55%,rgba(' + MIST + ',0) 100%),' +
+      'radial-gradient(ellipse 32% 13% at 46% 102%,rgba(' + MIST + ',.2) 0%,rgba(' + MIST + ',.07) 55%,rgba(' + MIST + ',0) 100%),' +
+      'radial-gradient(ellipse 26% 10% at 12% 103%,rgba(' + MIST + ',.07) 0%,rgba(' + MIST + ',0) 100%),' +
+      'linear-gradient(0deg,rgba(224,123,44,.26) 0%,rgba(224,123,44,.09) 16%,rgba(224,123,44,0) 38%)}');
     /* Пока играет ролик, вуали приглушаются (экран 02 держит их заметно
        светлее обычных: .34/.55/.28 против .96/.98/.70) — текст остаётся
        читаемым, но кадр видно. */

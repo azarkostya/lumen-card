@@ -2439,6 +2439,30 @@ css.push('.lumen-backdrop.lumen-theme--halloween .lumen-fx,.lumen-hero.lumen-the
 
 
 
+
+
+css.push('.lumen-backdrop .lumen-fx__canvas--scene,.lumen-hero .lumen-fx__canvas--scene{opacity:1}');
+
+
+
+
+
+css.push('.lumen-backdrop.lumen-theme--christmas .lumen-fx.lumen-fx--scene,.lumen-hero.lumen-theme--christmas .lumen-fx.lumen-fx--scene{background-image:none}');
+
+
+
+
+
+
+var MIST = '176,168,196';
+css.push('.lumen-backdrop.lumen-theme--halloween .lumen-fx.lumen-fx--scene,.lumen-hero.lumen-theme--halloween .lumen-fx.lumen-fx--scene{background-image:' +
+'radial-gradient(ellipse 38% 18% at 78% 100%,rgba(' + MIST + ',.3) 0%,rgba(' + MIST + ',.12) 55%,rgba(' + MIST + ',0) 100%),' +
+'radial-gradient(ellipse 32% 13% at 46% 102%,rgba(' + MIST + ',.2) 0%,rgba(' + MIST + ',.07) 55%,rgba(' + MIST + ',0) 100%),' +
+'radial-gradient(ellipse 26% 10% at 12% 103%,rgba(' + MIST + ',.07) 0%,rgba(' + MIST + ',0) 100%),' +
+'linear-gradient(0deg,rgba(224,123,44,.26) 0%,rgba(224,123,44,.09) 16%,rgba(224,123,44,0) 38%)}');
+
+
+
 css.push('.lumen-backdrop.lumen-trailer-live .lumen-backdrop__veil{opacity:.45}');
 css.push('.lumen-backdrop__veil{position:absolute;top:0;left:0;right:0;bottom:0;-webkit-transition:opacity 1s ease;transition:opacity 1s ease}');
 css.push('.lumen-backdrop__veil--l{background:linear-gradient(90deg,rgba(' + P.bgRgb + ',0.96) 0%,rgba(' + P.bgRgb + ',0.88) 30%,rgba(' + P.bgRgb + ',0.35) 58%,rgba(' + P.bgRgb + ',0) 82%)}');
@@ -8035,9 +8059,19 @@ sources: { movie: { type: 'kp', collection: 'OSKAR_WINNERS_2021' } }
 
 
 
+
+
+
+
+
+
+
+
+
 themes: [
-{ id: 'halloween', preset: 'bats', accent: '#E07B2C', keywords: ['halloween', 'haunted house', 'slasher', 'witch', 'trick or treat'], genres: [27], months: [10], requireGenre: true },
-{ id: 'christmas', preset: 'snow', accent: '#E8C170', keywords: ['christmas', 'santa claus', 'new year', 'christmas eve'], months: [12, 1] },
+{ id: 'halloween', preset: 'halloween', accent: '#E07B2C', keywords: ['halloween', 'haunted house', 'slasher', 'witch', 'trick or treat'], genres: [27], months: [10], requireGenre: true },
+{ id: 'christmas', preset: 'winter', accent: '#E8C170', keywords: ['christmas', 'santa claus', 'new year', 'christmas eve'], months: [12, 1] },
+{ id: 'valentine', preset: 'hearts', accent: '#E8607D', keywords: ["valentine's day", 'valentine'], months: [2] },
 { id: 'space', preset: 'stars', accent: '#8FB8D9', keywords: ['space', 'alien', 'spaceship', 'astronaut', 'outer space'] },
 { id: 'noir', preset: 'rain', accent: '#9AA7B5', keywords: ['film noir', 'detective', 'private detective', 'neo-noir'] },
 { id: 'desert', preset: 'sand', accent: '#E8B87A', keywords: ['desert', 'sand', 'dune'] },
@@ -15297,6 +15331,8 @@ warn('hero: player unlisten failed', e);
 
 var FX_CALM_MS = 1500;
 
+var FX_SAFE = { left: 0, top: 0.4, right: 0.5, bottom: 1, floor: 0.15, feather: 0.08 };
+
 
 
 
@@ -15348,6 +15384,13 @@ if (!host) return;
 try {
 LC.fx.mount(host, theme.preset, {
 color: theme.id && LC.themes ? LC.themes.particleColor(theme) : '#FFFFFF',
+
+
+
+
+
+
+safe: FX_SAFE,
 
 
 
@@ -19288,6 +19331,9 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 
+
+
+
 LC.fx = (function () {
 
 
@@ -19314,6 +19360,39 @@ var DT_CAP = 50;
 
 var IDLE_MS = 500;
 var TWO_PI = Math.PI * 2;
+
+
+
+
+
+
+
+
+
+var REF_W = 960;
+var UNIT_MIN = 0.5;
+var UNIT_MAX = 4;
+
+
+
+
+var SPRITE_CACHE = 6;
+
+var BAT_FRAMES = 8;
+
+var BAT_PAD = 0.3;
+
+
+
+
+var fadeK = 1;
+
+
+
+
+
+var fillNow = null;
+var tDirty = false;
 
 
 
@@ -19349,8 +19428,242 @@ else if (p.y > h + m) p.y = -m;
 
 
 function alpha(ctx, value) {
+value = value * fadeK;
 ctx.globalAlpha = value < 0 ? 0 : (value > 1 ? 1 : value);
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function num(value, def) {
+return typeof value === 'number' && !isNaN(value) ? value : def;
+}
+
+
+function rgbOf(hex) {
+var m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec('' + (hex || ''));
+if (!m) return [255, 255, 255];
+return [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)];
+}
+
+function rgba(rgb, a) {
+return 'rgba(' + rgb[0] + ',' + rgb[1] + ',' + rgb[2] + ',' + a + ')';
+}
+
+
+function mix(a, b, t) {
+return [Math.round(a[0] + (b[0] - a[0]) * t), Math.round(a[1] + (b[1] - a[1]) * t), Math.round(a[2] + (b[2] - a[2]) * t)];
+}
+
+
+function surface(wpx, hpx) {
+var d = doc();
+if (!d || typeof d.createElement !== 'function') return null;
+var canvas = d.createElement('canvas');
+canvas.width = Math.max(2, Math.ceil(wpx));
+canvas.height = Math.max(2, Math.ceil(hpx));
+var ctx = canvas.getContext ? canvas.getContext('2d') : null;
+if (!ctx) return null;
+return { canvas: canvas, ctx: ctx, w: canvas.width, h: canvas.height };
+}
+
+
+
+
+function unitGrad(maker, stops) {
+var g = maker.createRadialGradient(0, 0, 0, 0, 0, 1);
+for (var i = 0; i < stops.length; i++) g.addColorStop(stops[i][0], stops[i][1]);
+return g;
+}
+
+
+
+
+
+function glow(ctx, grad, S, x, y, rx, ry, a) {
+alpha(ctx, a);
+if (fillNow !== grad) {
+ctx.fillStyle = grad;
+fillNow = grad;
+}
+ctx.setTransform(S * rx, 0, 0, S * ry, S * x, S * y);
+ctx.fillRect(-1, -1, 2, 2);
+tDirty = true;
+}
+
+
+
+function flat(ctx, S) {
+if (!tDirty) return;
+ctx.setTransform(S, 0, 0, S, 0, 0);
+tDirty = false;
+}
+
+
+function spot(ctx, p, color, a, S) {
+flat(ctx, S);
+alpha(ctx, a);
+if (fillNow !== color) {
+ctx.fillStyle = color;
+fillNow = color;
+}
+ctx.beginPath();
+ctx.arc(p.x, p.y, p.size, 0, TWO_PI);
+ctx['fill']();
+}
+
+
+
+
+
+
+function batNodes(a) {
+var k = 1 - 0.14 * Math.abs(a);
+var tip = [0.98 * k, -0.02 - 0.72 * a];
+var f1 = [0.74 * k, 0.07 - 0.52 * a];
+var f2 = [0.5, 0.11 - 0.3 * a];
+var f3 = [0.27, 0.14 - 0.14 * a];
+function notch(from, to) {
+return [to[0], to[1], (from[0] + to[0]) / 2, (from[1] + to[1]) / 2 - 0.09];
+}
+return [
+[0, -0.19],
+[0.03, -0.2],
+[0.058, -0.32],
+[0.078, -0.18],
+[0.1, -0.08, 0.1, -0.15],
+[0.42, -0.15 - 0.42 * a],
+[tip[0], tip[1], 0.72 * k, -0.14 - 0.64 * a],
+notch(tip, f1),
+notch(f1, f2),
+notch(f2, f3),
+notch(f3, [0.07, 0.2]),
+[0, 0.29, 0.05, 0.28]
+];
+}
+
+function traceBat(c, cx, cy, R, a) {
+var n = batNodes(a);
+var i, q;
+c.beginPath();
+c.moveTo(cx + n[0][0] * R, cy + n[0][1] * R);
+for (i = 1; i < n.length; i++) {
+q = n[i];
+if (q.length > 2) c.quadraticCurveTo(cx + q[2] * R, cy + q[3] * R, cx + q[0] * R, cy + q[1] * R);
+else c.lineTo(cx + q[0] * R, cy + q[1] * R);
+}
+
+for (i = n.length - 1; i >= 1; i--) {
+q = n[i];
+var prev = n[i - 1];
+if (q.length > 2) c.quadraticCurveTo(cx - q[2] * R, cy + q[3] * R, cx - prev[0] * R, cy + prev[1] * R);
+else c.lineTo(cx - prev[0] * R, cy + prev[1] * R);
+}
+c.closePath();
+}
+
+
+
+
+function batSheet(color, R) {
+var rgb = rgbOf(color);
+var pad = BAT_PAD * R;
+var frames = [];
+for (var f = 0; f < BAT_FRAMES; f++) {
+var s = surface(2 * (R + pad), (0.8 + 0.35) * R + 2 * pad);
+if (!s) return null;
+var c = s.ctx;
+c.shadowColor = rgba(rgb, 0.85);
+c.shadowBlur = R * 0.26;
+c.fillStyle = '#120806';
+
+
+
+traceBat(c, R + pad, 0.8 * R + pad, R, 0.225 + 0.775 * Math.cos(TWO_PI * f / BAT_FRAMES));
+c['fill']();
+
+c.shadowBlur = 0;
+c.shadowColor = 'rgba(0,0,0,0)';
+c['fill']();
+frames.push(s.canvas);
+}
+return frames;
+}
+
+
+function traceHeart(c, cx, cy, R) {
+c.beginPath();
+c.moveTo(cx, cy + 0.36 * R);
+c.bezierCurveTo(cx - 0.06 * R, cy + 0.3 * R, cx - 0.5 * R, cy + 0.06 * R, cx - 0.5 * R, cy - 0.16 * R);
+c.bezierCurveTo(cx - 0.5 * R, cy - 0.42 * R, cx - 0.2 * R, cy - 0.52 * R, cx, cy - 0.28 * R);
+c.bezierCurveTo(cx + 0.2 * R, cy - 0.52 * R, cx + 0.5 * R, cy - 0.42 * R, cx + 0.5 * R, cy - 0.16 * R);
+c.bezierCurveTo(cx + 0.5 * R, cy + 0.06 * R, cx + 0.06 * R, cy + 0.3 * R, cx, cy + 0.36 * R);
+c.closePath();
+}
+
+
+
+function bokeh(maker, rgb) {
+return unitGrad(maker, [
+[0, rgba(rgb, 0.5)], [0.55, rgba(rgb, 0.56)], [0.8, rgba(rgb, 0.72)],
+[0.9, rgba(rgb, 0.3)], [1, rgba(rgb, 0)]
+]);
+}
+
+
+function bulb(maker, rgb) {
+return unitGrad(maker, [
+[0, 'rgba(255,250,235,1)'], [0.1, rgba(mix(rgb, [255, 250, 235], 0.45), 1)],
+[0.22, rgba(rgb, 0.7)], [0.46, rgba(rgb, 0.24)], [1, rgba(rgb, 0)]
+]);
+}
+
+
+
+
+
+
+
+
+function bitmapize(holder, key) {
+try {
+var src = holder[key];
+if (!src || typeof window.createImageBitmap !== 'function') return;
+var pending = window.createImageBitmap(src);
+if (pending && typeof pending.then === 'function') {
+pending.then(function (bmp) { if (bmp) holder[key] = bmp; }, function () { });
+}
+} catch (e) { }
+}
+
+
+function maker() {
+var s = surface(2, 2);
+return s && typeof s.ctx.createRadialGradient === 'function' ? s.ctx : null;
+}
+
+
+
+var LIGHTS = [[255, 206, 120], [255, 160, 64], [255, 86, 72], [108, 214, 138], [150, 200, 255]];
 
 
 
@@ -19359,6 +19672,7 @@ ctx.globalAlpha = value < 0 ? 0 : (value > 1 ? 1 : value);
 function dot(ctx, p, color, a) {
 alpha(ctx, a);
 ctx.fillStyle = color;
+fillNow = color;
 ctx.beginPath();
 ctx.arc(p.x, p.y, p.size, 0, TWO_PI);
 ctx['fill']();
@@ -19707,6 +20021,351 @@ alpha(ctx, 0.05 + p.amp * 0.08);
 ctx.fillStyle = color;
 ctx.fillRect(0, p.y, w, p.size);
 }
+},
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+halloween: {
+count: 39,
+scene: true,
+spawn: function (i, w, h, rnd) {
+var p;
+if (i < 32) {
+p = particle(
+rand(rnd, 0, w),
+rand(rnd, h * 0.3, h),
+rand(rnd, -0.006, 0.006),
+rand(rnd, -0.05, -0.02),
+rand(rnd, 2, 3.8),
+rand(rnd, 0.3, 1),
+
+
+i >= 23 ? 1 : 0,
+0
+);
+p.phase = rand(rnd, 0, TWO_PI);
+p.freq = rand(rnd, 0.003, 0.007);
+p.fade = rand(rnd, 0.00012, 0.00028);
+p.amp = rand(rnd, 0.006, 0.016);
+return p;
+}
+var depth = rand(rnd, 0.5, 1.25);
+p = particle(
+rand(rnd, 0, w),
+rand(rnd, h * 0.08, h * 0.32),
+(rnd() < 0.5 ? -1 : 1) * rand(rnd, 0.035, 0.065) * depth,
+0,
+24 * depth,
+rand(rnd, 0, TWO_PI),
+0,
+1
+);
+p.depth = depth;
+p.phase = rand(rnd, 0, TWO_PI);
+p.freq = rand(rnd, 0.0008, 0.0016);
+p.amp = rand(rnd, 0.01, 0.024);
+
+p.flap = rand(rnd, 0.019, 0.026);
+return p;
+},
+step: function (p, dt, w, h) {
+p.phase += dt * p.freq;
+if (p.phase > TWO_PI * 64) p.phase -= TWO_PI * 64;
+if (p.kind === 1) {
+p.vy = Math.sin(p.phase) * p.amp;
+p.x += p.vx * dt;
+p.y += p.vy * dt;
+p.life += dt * p.flap;
+if (p.life > TWO_PI * 64) p.life -= TWO_PI * 64;
+return;
+}
+p.x += (p.vx + Math.sin(p.phase * 0.35) * p.amp) * dt;
+p.y += p.vy * dt;
+p.life -= p.fade * dt;
+if (p.life <= 0 || p.y < h * 0.05) {
+p.life = 1;
+p.x = Math.random() * w;
+p.y = h * (0.82 + Math.random() * 0.18);
+}
+},
+draw: function (ctx, p, w, h, color, s) {
+if (p.kind === 1) {
+var a = 0.6 + 0.4 * (p.depth - 0.5) / 0.75;
+if (s) {
+var frame = Math.floor(p.life / TWO_PI * BAT_FRAMES) % BAT_FRAMES;
+var r = p.size;
+var pad = BAT_PAD * r;
+flat(ctx, s.S);
+alpha(ctx, a);
+ctx.drawImage(s.bats[frame], p.x - r - pad, p.y - 0.8 * r - pad, 2 * (r + pad), 1.15 * r + 2 * pad);
+return;
+}
+presets.bats.draw(ctx, p, w, h, color);
+return;
+}
+
+var heat = p.life * (0.72 + 0.28 * Math.sin(p.phase * 2.3));
+if (s) {
+var r2 = p.size * (p.rot ? 7 : 5.5);
+glow(ctx, p.rot ? s.hot : s.ember, s.S, p.x, p.y, r2, r2, heat);
+return;
+}
+dot(ctx, p, color, heat * 0.8);
+},
+sprites: function (color, scale) {
+var g = maker();
+if (!g) return null;
+var rgb = rgbOf(color);
+var deep = mix(rgb, [150, 24, 8], 0.45);
+var out = {
+S: scale,
+ember: unitGrad(g, [
+[0, 'rgba(255,240,210,1)'], [0.12, 'rgba(255,200,120,.95)'], [0.26, rgba(rgb, 0.66)],
+[0.52, rgba(deep, 0.24)], [1, rgba(deep, 0)]
+]),
+hot: unitGrad(g, [
+[0, 'rgba(255,252,238,1)'], [0.12, 'rgba(255,222,150,1)'], [0.26, rgba(rgb, 0.78)],
+[0.52, rgba(deep, 0.26)], [1, rgba(deep, 0)]
+]),
+
+
+bats: batSheet(color, 31 * scale)
+};
+if (!out.bats) return null;
+for (var f = 0; f < out.bats.length; f++) bitmapize(out.bats, f);
+return out;
+}
+},
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+winter: {
+count: 58,
+scene: true,
+spawn: function (i, w, h, rnd) {
+var p;
+if (i < 6) {
+p = particle(
+rand(rnd, w * 0.48, w),
+rand(rnd, h * 0.14, h * 0.72),
+rand(rnd, -0.004, 0.004),
+rand(rnd, -0.003, 0.003),
+rand(rnd, 18, 38),
+rand(rnd, 0.2, 0.38),
+i % 5,
+3
+);
+p.phase = rand(rnd, 0, TWO_PI);
+p.freq = rand(rnd, 0.0004, 0.0009);
+return p;
+}
+if (i < 16) {
+var t = (i - 6) / 9;
+var sag = 4 * t * (1 - t);
+p = particle(
+w * (0.04 + 0.92 * t),
+Math.min(h * 0.28, 60 + 32 * sag),
+0,
+0,
+rand(rnd, 6, 7.5),
+1,
+(i - 6) % 5,
+4
+);
+
+p.phase = (i - 6) * 0.9;
+p.freq = 0.0021;
+return p;
+}
+var plane = i < 38 ? 0 : (i < 52 ? 1 : 2);
+p = particle(
+rand(rnd, 0, w),
+rand(rnd, -h * 0.2, h),
+plane === 2 ? rand(rnd, 0.004, 0.02) : rand(rnd, -0.004, 0.01),
+plane === 0 ? rand(rnd, 0.011, 0.02) : (plane === 1 ? rand(rnd, 0.026, 0.045) : rand(rnd, 0.06, 0.095)),
+plane === 0 ? rand(rnd, 1, 1.7) : (plane === 1 ? rand(rnd, 2.4, 3.8) : rand(rnd, 7, 13)),
+plane === 0 ? rand(rnd, 0.5, 0.8) : (plane === 1 ? rand(rnd, 0.85, 1) : rand(rnd, 0.45, 0.65)),
+0,
+plane
+);
+p.phase = rand(rnd, 0, TWO_PI);
+p.freq = rand(rnd, 0.0007, 0.0016);
+p.amp = plane === 2 ? rand(rnd, 0.01, 0.024) : rand(rnd, 0.004, 0.014);
+return p;
+},
+step: function (p, dt) {
+p.phase += dt * p.freq;
+if (p.phase > TWO_PI * 64) p.phase -= TWO_PI * 64;
+if (p.kind === 4) return;
+if (p.kind === 3) {
+p.x += p.vx * dt;
+p.y += p.vy * dt;
+return;
+}
+p.x += (p.vx + Math.sin(p.phase) * p.amp) * dt;
+p.y += p.vy * dt;
+},
+draw: function (ctx, p, w, h, color, s) {
+if (p.kind === 3) {
+if (s) glow(ctx, s.bokeh[p.rot], s.S, p.x, p.y, p.size, p.size, p.life * (0.6 + 0.4 * Math.sin(p.phase)));
+return;
+}
+if (p.kind === 4) {
+var tw = 0.5 + 0.5 * Math.sin(p.phase);
+var a = 0.4 + 0.6 * tw * tw;
+if (s) {
+glow(ctx, s.bulb[p.rot], s.S, p.x, p.y, p.size * 4, p.size * 4, a);
+return;
+}
+dot(ctx, p, rgba(LIGHTS[p.rot], 1), a);
+return;
+}
+if (!s) {
+dot(ctx, p, color, p.kind === 2 ? p.life * 0.5 : p.life);
+return;
+}
+if (p.kind === 2) glow(ctx, s.blur, s.S, p.x, p.y, p.size * 1.15, p.size * 1.15, p.life);
+else if (p.kind === 1) glow(ctx, s.flake, s.S, p.x, p.y, p.size * 2.3, p.size * 2.3, p.life);
+else spot(ctx, p, color, p.life, s.S);
+},
+sprites: function (color, scale) {
+var g = maker();
+if (!g) return null;
+var white = rgbOf(color);
+var out = {
+S: scale,
+
+
+
+flake: unitGrad(g, [[0, rgba(white, 1)], [0.3, rgba(white, 1)], [0.42, rgba(white, 0.5)], [0.68, rgba(white, 0.14)], [1, rgba(white, 0)]]),
+blur: unitGrad(g, [[0, rgba(white, 0.85)], [0.5, rgba(white, 0.7)], [0.8, rgba(white, 0.3)], [1, rgba(white, 0)]]),
+bokeh: [],
+bulb: []
+};
+for (var i = 0; i < LIGHTS.length; i++) {
+out.bokeh.push(bokeh(g, LIGHTS[i]));
+out.bulb.push(bulb(g, LIGHTS[i]));
+}
+return out;
+}
+},
+
+
+
+
+hearts: {
+count: 22,
+scene: true,
+spawn: function (i, w, h, rnd) {
+var p;
+if (i < 6) {
+p = particle(
+rand(rnd, w * 0.48, w),
+rand(rnd, h * 0.1, h * 0.75),
+rand(rnd, -0.004, 0.004),
+rand(rnd, -0.004, 0.002),
+rand(rnd, 16, 34),
+rand(rnd, 0.16, 0.3),
+i % 2,
+1
+);
+p.phase = rand(rnd, 0, TWO_PI);
+p.freq = rand(rnd, 0.0004, 0.0009);
+return p;
+}
+p = particle(
+rand(rnd, 0, w),
+rand(rnd, 0, h),
+rand(rnd, -0.004, 0.004),
+rand(rnd, -0.042, -0.016),
+rand(rnd, 6, 12),
+rand(rnd, 0.55, 0.9),
+0,
+0
+);
+p.phase = rand(rnd, 0, TWO_PI);
+p.freq = rand(rnd, 0.0008, 0.0016);
+p.amp = rand(rnd, 0.008, 0.02);
+return p;
+},
+step: function (p, dt) {
+p.phase += dt * p.freq;
+if (p.phase > TWO_PI * 64) p.phase -= TWO_PI * 64;
+if (p.kind === 1) {
+p.x += p.vx * dt;
+p.y += p.vy * dt;
+return;
+}
+p.x += (p.vx + Math.sin(p.phase) * p.amp) * dt;
+p.y += p.vy * dt;
+},
+draw: function (ctx, p, w, h, color, s) {
+if (p.kind === 1) {
+if (s) glow(ctx, s.bokeh[p.rot], s.S, p.x, p.y, p.size, p.size, p.life * (0.6 + 0.4 * Math.sin(p.phase)));
+return;
+}
+if (s) {
+var d = p.size * 2.6;
+flat(ctx, s.S);
+alpha(ctx, p.life);
+ctx.drawImage(s.heart, p.x - d * 0.5, p.y - d * 0.5, d, d);
+return;
+}
+dot(ctx, p, color, p.life * 0.7);
+},
+sprites: function (color, scale) {
+var g = maker();
+if (!g) return null;
+var rgb = rgbOf(color);
+
+var R = 12 * scale;
+var s = surface(2.6 * R, 2.6 * R);
+if (!s) return null;
+s.ctx.shadowColor = rgba(rgb, 0.9);
+s.ctx.shadowBlur = R * 0.45;
+s.ctx.fillStyle = rgba(mix(rgb, [255, 255, 255], 0.25), 1);
+traceHeart(s.ctx, s.w / 2, s.h / 2, R * 1.9);
+s.ctx['fill']();
+var out = {
+S: scale,
+heart: s.canvas,
+bokeh: [bokeh(g, rgb), bokeh(g, mix(rgb, [255, 214, 226], 0.6))]
+};
+bitmapize(out, 'heart');
+return out;
+}
 }
 };
 
@@ -19917,17 +20576,120 @@ if (inst.paused && inst.paused()) return true;
 return archived(inst);
 }
 
+
+
+
+
+
+
+function safeZone(spec, w, h) {
+if (!spec || typeof spec !== 'object') return null;
+var l = num(spec.left, 0);
+var t = num(spec.top, 0);
+var r = num(spec.right, 1);
+var b = num(spec.bottom, 1);
+if (!(r > l) || !(b > t)) return null;
+var floor = num(spec.floor, 0.2);
+var feather = num(spec.feather, 0.08) * w;
+return {
+x0: l * w, y0: t * h, x1: r * w, y1: b * h,
+floor: floor < 0 ? 0 : (floor > 1 ? 1 : floor),
+feather: feather > 1 ? feather : 1
+};
+}
+
+function shade(zone, x, y) {
+var dx = x < zone.x0 ? zone.x0 - x : (x > zone.x1 ? x - zone.x1 : 0);
+var dy = y < zone.y0 ? zone.y0 - y : (y > zone.y1 ? y - zone.y1 : 0);
+var d = dx > dy ? dx : dy;
+if (d >= zone.feather) return 1;
+return zone.floor + (1 - zone.floor) * (d / zone.feather);
+}
+
 function render(inst, dt) {
 var ctx = inst.ctx;
+fadeK = 1;
+fillNow = null;
+tDirty = false;
 ctx.clearRect(0, 0, inst.w, inst.h);
-step(inst.particles, dt, inst.w, inst.h);
 stat_steps++;
 var preset = presets[inst.name];
 if (!preset) return;
-for (var i = 0; i < inst.particles.length; i++) {
-preset.draw(ctx, inst.particles[i], inst.w, inst.h, inst.color);
+var zone = inst.safe;
+var sprites = inst.sprites;
+
+
+
+
+
+
+var list = inst.particles;
+var w = inst.w;
+var h = inst.h;
+var color = inst.color;
+var moving = dt > 0;
+for (var i = 0; i < list.length; i++) {
+var p = list[i];
+if (moving) {
+preset.step(p, dt, w, h);
+wrap(p, w, h);
 }
+fadeK = zone ? shade(zone, p.x, p.y) : 1;
+preset.draw(ctx, p, w, h, color, sprites);
+}
+fadeK = 1;
+
+
+if (tDirty) flat(ctx, inst.S);
 ctx.globalAlpha = 1;
+}
+
+
+
+function unitOf(w) {
+var u = w / REF_W;
+if (!(u > 0)) return 1;
+return u < UNIT_MIN ? UNIT_MIN : (u > UNIT_MAX ? UNIT_MAX : u);
+}
+
+
+
+
+var sprite_cache = {};
+var sprite_keys = [];
+
+function spritesFor(name, color, scale) {
+var preset = presets[name];
+if (!preset || typeof preset.sprites !== 'function') return null;
+var key = name + '|' + color + '|' + Math.round(scale * 100);
+if (Object.prototype.hasOwnProperty.call(sprite_cache, key)) return sprite_cache[key];
+var made = null;
+try {
+made = preset.sprites(color, scale) || null;
+} catch (e) {
+made = null;
+}
+sprite_cache[key] = made;
+sprite_keys.push(key);
+while (sprite_keys.length > SPRITE_CACHE) delete sprite_cache[sprite_keys.shift()];
+return made;
+}
+
+
+
+function toggleClass(node, name, on) {
+try {
+if (node.classList) {
+if (on) node.classList.add(name);
+else node.classList.remove(name);
+return;
+}
+var list = ('' + (node.className || '')).split(/\s+/);
+var out = [];
+for (var i = 0; i < list.length; i++) if (list[i] && list[i] !== name) out.push(list[i]);
+if (on) out.push(name);
+node.className = out.join(' ');
+} catch (e) { }
 }
 
 function loop(ts) {
@@ -20022,6 +20784,7 @@ try {
 inst.canvas.width = 0;
 inst.canvas.height = 0;
 } catch (e2) { }
+if (inst.scene) toggleClass(inst.node, 'lumen-fx--scene', false);
 if (!instances.length) {
 unraf(frame);
 frame = 0;
@@ -20067,6 +20830,9 @@ destroy: function () { drop(inst); }
 
 
 
+
+
+
 function mount(layer, name, opts) {
 try {
 opts = opts || {};
@@ -20092,26 +20858,41 @@ h = h || window.innerHeight || 0;
 if (!(w > 0) || !(h > 0)) return null;
 
 var ratio = dpr();
+var preset = presets[name];
 var canvas = d.createElement('canvas');
-canvas.className = 'lumen-fx__canvas';
+canvas.className = 'lumen-fx__canvas' + (preset.scene ? ' lumen-fx__canvas--scene' : '');
 canvas.width = Math.round(w * ratio);
 canvas.height = Math.round(h * ratio);
 var ctx = canvas.getContext ? canvas.getContext('2d') : null;
 if (!ctx) return null;
 
-if (typeof ctx.setTransform === 'function') ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+
+
+
+var unit = unitOf(w);
+if (typeof ctx.setTransform === 'function') ctx.setTransform(ratio * unit, 0, 0, ratio * unit, 0, 0);
+else unit = 1;
+var lw = w / unit;
+var lh = h / unit;
+var color = opts.color || '#FFFFFF';
 node.appendChild(canvas);
+if (preset.scene) toggleClass(node, 'lumen-fx--scene', true);
 
 var inst = {
 node: node,
 canvas: canvas,
 ctx: ctx,
 name: name,
-w: w,
-h: h,
-color: opts.color || '#FFFFFF',
+w: lw,
+h: lh,
+unit: unit,
+S: ratio * unit,
+scene: !!preset.scene,
+color: color,
+safe: safeZone(opts.safe, lw, lh),
+sprites: spritesFor(name, color, ratio * unit),
 paused: typeof opts.paused === 'function' ? opts.paused : null,
-particles: spawn(name, w, h, opts.count, Math.random)
+particles: spawn(name, lw, lh, opts.count, Math.random)
 };
 
 
@@ -20160,6 +20941,8 @@ unmountAll: unmountAll,
 sweep: sweep,
 active: function () { return instances.length; },
 stats: stats,
+REF_W: REF_W,
+unitOf: unitOf,
 
 _timers: null
 };
@@ -20461,7 +21244,9 @@ return theme;
 
 
 
-var PALE = { snow: 1, stars: 1, rain: 1, bubbles: 1 };
+
+
+var PALE = { snow: 1, stars: 1, rain: 1, bubbles: 1, winter: 1 };
 
 
 
@@ -39524,6 +40309,8 @@ return layer;
 
 
 
+var CARD_FX_SAFE = { left: 0, top: 0.4, right: 0.57, bottom: 0.93, floor: 0.15, feather: 0.08 };
+
 LC.applyFxFor = function (body, movie) {
 var layer = fxLayerOf(body);
 if (!layer) return null;
@@ -39549,6 +40336,12 @@ try { if (LC.accent) LC.accent.setTheme(theme.accent); } catch (eAcc2) {}
 try {
 return LC.fx.mount(node, theme.preset, {
 color: LC.themes.particleColor(theme),
+
+
+
+
+
+safe: CARD_FX_SAFE,
 
 
 paused: function () {

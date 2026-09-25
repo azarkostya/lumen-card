@@ -161,10 +161,10 @@ test('Task 20: LC.MANIFEST_URL — адрес каталога на хостин
 });
 
 /* Task 21 (фаза 3): правила тематических атмосфер в каталоге. */
-test('DEFAULT.themes: девять правил, у каждого id, preset из набора LC.fx, accent и ключевые слова', () => {
-  const presets = ['bats', 'snow', 'stars', 'rain', 'sand', 'bubbles', 'petals', 'embers', 'glitch'];
+test('DEFAULT.themes: десять правил, у каждого id, preset из набора LC.fx, accent и ключевые слова', () => {
+  const presets = ['bats', 'snow', 'stars', 'rain', 'sand', 'bubbles', 'petals', 'embers', 'glitch', 'halloween', 'winter', 'hearts'];
   const themes = M.DEFAULT.themes;
-  assert.equal(themes.length, 9);
+  assert.equal(themes.length, 10);
   const ids = new Set();
   for (const t of themes) {
     assert.ok(!ids.has(t.id), 'дублированный id темы: ' + t.id);
@@ -180,6 +180,15 @@ test('DEFAULT.themes: девять правил, у каждого id, preset и
   assert.equal(themes[0].accent, '#E07B2C');
   /* Рождество должно побеждать «космос» и прочие общие темы — оно раньше. */
   assert.ok(themes.findIndex(t => t.id === 'christmas') < themes.findIndex(t => t.id === 'space'));
+  /* Волна «праздники крупнее»: у праздников — сцены, и Валентин раньше
+     «сакуры» (романтика в аниме) — иначе сердцам не достаться никому. */
+  assert.equal(themes[0].preset, 'halloween');
+  assert.equal(themes.find(t => t.id === 'christmas').preset, 'winter');
+  const val = themes.find(t => t.id === 'valentine');
+  assert.ok(val, 'есть тема Дня святого Валентина');
+  assert.equal(val.preset, 'hearts');
+  assert.deepEqual(val.months, [2]);
+  assert.ok(themes.indexOf(val) < themes.findIndex(t => t.id === 'sakura'));
 });
 
 test('DEFAULT: подборка christmas — пул адвент-календаря, сезон декабрь-январь', () => {

@@ -5843,6 +5843,29 @@ test('buildCss: «Хэллоуин» — тыквенное зарево сни�
   assert.ok(rule.indexOf('224,123,44') !== -1, 'акцент темы из экспорта дизайна (#E07B2C)');
 });
 
+/* Волна «праздники крупнее»: класс lumen-fx--scene (ставит LC.fx.mount). */
+test('buildCss: канвас сцены не приглушается — яркость задают альфы частиц', () => {
+  const rule = css.split('\n').filter((l) => l.indexOf('.lumen-backdrop .lumen-fx__canvas--scene') === 0)[0];
+  assert.ok(rule, 'нет правила канваса сцены');
+  assert.ok(rule.indexOf('.lumen-hero .lumen-fx__canvas--scene') !== -1, 'и в кадре главной');
+  assert.ok(rule.indexOf('opacity:1') !== -1);
+});
+
+test('buildCss: сцена зимы снимает CSS-гирлянду (рисует свою), без сцены гирлянда остаётся', () => {
+  const lines = css.split('\n');
+  const off = lines.filter((l) => l.indexOf('.lumen-backdrop.lumen-theme--christmas .lumen-fx.lumen-fx--scene') === 0)[0];
+  assert.ok(off && off.indexOf('background-image:none') !== -1, 'гирлянда снимается только под классом сцены');
+  assert.ok(lines.indexOf(off) > lines.findIndex((l) => l.indexOf('.lumen-backdrop.lumen-theme--christmas .lumen-fx,') === 0), 'правило сцены — после гирлянды и берёт верх');
+});
+
+test('buildCss: сцена Хэллоуина — дымка по низу статичным фоном, без фильтров и анимаций', () => {
+  const rule = css.split('\n').filter((l) => l.indexOf('.lumen-backdrop.lumen-theme--halloween .lumen-fx.lumen-fx--scene') === 0)[0];
+  assert.ok(rule, 'нет правила дымки');
+  assert.ok((rule.match(/radial-gradient\(ellipse/g) || []).length >= 3, 'три эллипса дымки');
+  assert.ok(rule.indexOf('224,123,44') !== -1, 'тыквенное зарево осталось в том же фоне');
+  assert.equal(/filter|animation|transition/.test(rule), false, 'только фон: растрируется один раз');
+});
+
 /* ====================================================================== */
 /* Task 40: тяжёлые эффекты под классом body.lumen-fx-heavy.              */
 /* ====================================================================== */

@@ -3195,7 +3195,7 @@
   "themes": [
     {
       "id": "halloween",
-      "preset": "bats",
+      "preset": "halloween",
       "accent": "#E07B2C",
       "keywords": [
         "halloween",
@@ -3214,7 +3214,7 @@
     },
     {
       "id": "christmas",
-      "preset": "snow",
+      "preset": "winter",
       "accent": "#E8C170",
       "keywords": [
         "christmas",
@@ -3225,6 +3225,18 @@
       "months": [
         12,
         1
+      ]
+    },
+    {
+      "id": "valentine",
+      "preset": "hearts",
+      "accent": "#E8607D",
+      "keywords": [
+        "valentine's day",
+        "valentine"
+      ],
+      "months": [
+        2
       ]
     },
     {
