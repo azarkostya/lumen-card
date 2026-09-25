@@ -1318,3 +1318,36 @@ test('D2: колесо над правой половиной ленты отз�
      = 540, упор ленты — 1400 − 1000 = 400. */
   assert.equal(f.row.scrollLeft, 400, 'лента не пролисталась к следующей карточке');
 });
+
+/* Полное ревью (сомнительное): кэш отзывов хранит уже экранированную
+   разметку, и при чтении поля не перепроверялись — tone уходит в класс,
+   date и тексты в разметку как есть. Запись в localStorage могла прийти
+   битой или правленой руками. При чтении: tone — только good/bad/mid, дата —
+   только ДД.ММ.ГГГГ, числа — числами, тексты — без сырых «<>"'» (корректно
+   экранированный текст их не содержит; иной экранируется ещё раз). */
+test('кэш: поля отзывов нормализуются при чтении', () => {
+  const env = freshEnv();
+  const good = { tone: 'good', author: 'A &amp; B', initials: 'AB', title: 'Шедевр', excerpt: 'текст', full: 'весь', parts: [], spoiler: false, date: '02.03.2024', likes: 12, dislikes: 1 };
+  const bad = {
+    tone: 'good" onmouseover="alert(1)', author: '<img src=x onerror=alert(1)>', initials: '"><b>', title: 'T<script>',
+    excerpt: 'ok', full: '', parts: [{ t: '<b>x</b>', s: 1 }, { t: 'y', s: 0 }, null], spoiler: 'yes',
+    date: '1<img>', likes: 'abc', dislikes: '5'
+  };
+  env.LC.reviews.cacheWrite('tt1', [good, bad, null, 'junk'], 2, 1000);
+  const rec = env.LC.reviews.cacheRead('tt1', 1000 + 1000);
+  assert.equal(rec.list.length, 2, 'мусор вместо отзыва выброшен');
+  assert.deepEqual(rec.list[0], good, 'корректная запись не меняется');
+  const b = rec.list[1];
+  assert.equal(b.tone, 'mid');
+  assert.equal(b.date, '');
+  assert.equal(b.author, '&lt;img src=x onerror=alert(1)&gt;');
+  assert.equal(b.initials, '&quot;&gt;&lt;b&gt;');
+  assert.equal(b.title, 'T&lt;script&gt;');
+  assert.deepEqual(b.parts, [{ t: '&lt;b&gt;x&lt;/b&gt;', s: true }, { t: 'y', s: false }]);
+  assert.equal(b.spoiler, true);
+  assert.equal(b.likes, 0);
+  assert.equal(b.dislikes, 5);
+
+  env.LC.reviews.cacheWrite('tt2', 'не массив', 1, 1000);
+  assert.deepEqual(env.LC.reviews.cacheRead('tt2', 2000).list, []);
+});

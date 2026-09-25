@@ -28406,12 +28406,65 @@ if (failed) purge(store);
 return !failed;
 }
 
+
+
+
+
+
+
+
+
+
+var TONES = { good: 1, bad: 1, mid: 1 };
+var CACHE_DATE = /^\d{2}\.\d{2}\.\d{4}$/;
+
+function cachedText(v) {
+if (v === null || typeof v === 'undefined') return '';
+var s = '' + v;
+return /[<>"']/.test(s) ? esc(s) : s;
+}
+
+function cachedItem(it) {
+if (!it || typeof it !== 'object') return null;
+var parts = [];
+if (Object.prototype.toString.call(it.parts) === '[object Array]') {
+for (var i = 0; i < it.parts.length; i++) {
+var p = it.parts[i];
+if (p && typeof p === 'object') parts.push({ t: cachedText(p.t), s: !!p.s });
+}
+}
+return {
+tone: TONES.hasOwnProperty(it.tone) ? it.tone : 'mid',
+author: cachedText(it.author),
+initials: cachedText(it.initials),
+title: cachedText(it.title),
+excerpt: cachedText(it.excerpt),
+full: cachedText(it.full),
+parts: parts,
+spoiler: !!it.spoiler,
+date: CACHE_DATE.test('' + it.date) ? '' + it.date : '',
+likes: parseInt(it.likes, 10) || 0,
+dislikes: parseInt(it.dislikes, 10) || 0
+};
+}
+
+function cachedList(list) {
+var out = [];
+if (Object.prototype.toString.call(list) !== '[object Array]') return out;
+for (var i = 0; i < list.length; i++) {
+var item = cachedItem(list[i]);
+if (item) out.push(item);
+}
+return out;
+}
+
 function cacheRead(imdbId, at) {
 try {
 var store = storage();
 if (!store || !imdbId) return null;
 var rec = store.get(cacheKey(imdbId), null);
 if (!isFresh(rec, at)) return null;
+rec.list = cachedList(rec.list);
 
 
 
