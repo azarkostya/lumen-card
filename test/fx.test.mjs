@@ -864,3 +864,106 @@ test('сцены: у зимы три плана снега — ближние к
   FX.step(list, 33, 960, 540);
   assert.deepEqual(plane(4).map((p) => [p.x, p.y]), bulbs, 'лампочки стоят на месте, мерцают фазой');
 });
+
+/* ====================================================================== */
+/* Полное ревью c644bfd: плеер Lampa и снимки спрайтов                     */
+/* ====================================================================== */
+
+/* S4: плеер Lampa — не активность (главная и карточка под ним остаются
+   activity--active), и частицы рисовались под полноэкранным видео: канвас
+   во весь экран 30 раз в секунду поверх декодирования ролика на 2 ГБ ТВ.
+   Признак — общий LC.util.playerOpen (src/10_util.js). */
+test('ревью S4: под открытым плеером Lampa частицы стоят; закрыли — движение вернулось', () => {
+  env(({ win, tick }) => {
+    const fx = freshFx();
+    const timers = fakeTimers();
+    fx._timers = timers.hook;
+    let open = false;
+    /* Lampa в src — и window.Lampa, и голое имя (как в браузере). */
+    globalThis.Lampa = win.Lampa = { Player: { opened: () => open } };
+    fx.mount(fakeNode(800, 400), 'snow');
+    tick(16); tick(16);
+    const moved = fx.stats().steps;
+    assert.ok(moved > 0, 'подготовка: частицы движутся');
+    open = true;
+    tick(34);
+    assert.equal(fx.stats().steps, moved, 'частицы рисуются под плеером Lampa');
+    open = false;
+    timers.fire();
+    tick(16);
+    assert.ok(fx.stats().steps > moved, 'плеер закрыт — движение не вернулось');
+    fx.unmountAll();
+  });
+});
+
+/* Сомнительное ревью: снимки спрайтов (ImageBitmap, bitmapize) живут вне
+   кучи JS — растр в памяти процесса, и сборщик мусора до него добирается
+   поздно. Набор, вытесненный из кэша (SPRITE_CACHE), закрывает свои снимки
+   (close), если его не рисует ни один слой; рисует — когда слой снимут.
+   Снимок, доехавший после закрытия набора, закрывается сразу. */
+function bitmapEnv(run, deferred) {
+  return richEnv((e) => {
+    const bitmaps = [];
+    const later = [];
+    e.win.createImageBitmap = () => {
+      const b = { closed: false, close() { this.closed = true; } };
+      bitmaps.push(b);
+      if (deferred) return { then: (ok) => later.push(() => ok(b)) };
+      return { then: (ok) => ok(b) };
+    };
+    return run(Object.assign({ bitmaps, later }, e));
+  });
+}
+
+const COLORS = ['#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#00FFFF', '#FF00FF', '#808080'];
+
+test('ревью: вытесненный из кэша набор спрайтов закрывает свои ImageBitmap — если его не рисует ни один слой', () => {
+  bitmapEnv(({ bitmaps }) => {
+    const fx = freshFx({ platformInfo: () => ({ android: true }) });
+    for (let i = 0; i < 6; i++) {
+      const layer = fakeNode(960, 540);
+      fx.mount(layer, 'hearts', { color: COLORS[i] });
+      fx.unmount(layer);
+    }
+    assert.equal(bitmaps.length, 6, 'подготовка: снимок сердца на каждый цвет');
+    assert.ok(bitmaps.every((b) => !b.closed), 'наборы в кэше закрыты раньше вытеснения');
+    const layer = fakeNode(960, 540);
+    fx.mount(layer, 'hearts', { color: COLORS[6] });
+    assert.equal(bitmaps[0].closed, true, 'вытесненный набор держит снимок');
+    assert.ok(bitmaps.slice(1).every((b) => !b.closed), 'закрыт набор, который ещё в кэше');
+    fx.unmountAll();
+  });
+});
+
+test('ревью: вытесненный набор, который ещё рисует слой, закрывается со снятием слоя; мыши Хэллоуина — тоже', () => {
+  bitmapEnv(({ bitmaps }) => {
+    const fx = freshFx({ platformInfo: () => ({ android: true }) });
+    const keep = fakeNode(960, 540);
+    fx.mount(keep, 'halloween', { color: COLORS[0] });
+    const bats = bitmaps.length;
+    assert.ok(bats > 1, 'подготовка: кадры мыши сняты в снимки');
+    for (let i = 1; i < 7; i++) {
+      const layer = fakeNode(960, 540);
+      fx.mount(layer, 'halloween', { color: COLORS[i] });
+      fx.unmount(layer);
+    }
+    assert.ok(bitmaps.slice(0, bats).every((b) => !b.closed), 'закрыт набор, который рисует живой слой');
+    fx.unmount(keep);
+    assert.ok(bitmaps.slice(0, bats).every((b) => b.closed), 'снятый слой не закрыл вытесненный набор');
+    fx.unmountAll();
+  });
+});
+
+test('ревью: снимок, доехавший после закрытия набора, закрывается сразу и в набор не ложится', () => {
+  bitmapEnv(({ bitmaps, later }) => {
+    const fx = freshFx({ platformInfo: () => ({ android: true }) });
+    for (let i = 0; i < 7; i++) {
+      const layer = fakeNode(960, 540);
+      fx.mount(layer, 'hearts', { color: COLORS[i] });
+      fx.unmount(layer);
+    }
+    later.forEach((fn) => fn());
+    assert.equal(bitmaps[0].closed, true, 'поздний снимок вытесненного набора остался жить');
+    assert.ok(bitmaps.slice(1).every((b) => !b.closed));
+  }, true);
+});

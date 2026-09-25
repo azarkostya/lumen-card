@@ -371,7 +371,15 @@
         if (!src || typeof window.createImageBitmap !== 'function') return;
         var pending = window.createImageBitmap(src);
         if (pending && typeof pending.then === 'function') {
-          pending.then(function (bmp) { if (bmp) holder[key] = bmp; }, function () { });
+          pending.then(function (bmp) {
+            if (!bmp) return;
+            /* Набор уже закрыт (closeSprites) — снимок никому не нужен. */
+            if (holder.closed) {
+              try { bmp.close(); } catch (e) { }
+              return;
+            }
+            holder[key] = bmp;
+          }, function () { });
         }
       } catch (e) { }
     }
@@ -1285,12 +1293,17 @@
       return false;
     }
 
-    /* Слой на паузе: скрытая вкладка, накрытый заставкой экран, собственное
-       условие слоя (играющий трейлер — src/55_trailer.js), уход вглубь из
-       активности. */
+    /* Слой на паузе: скрытая вкладка, накрытый заставкой экран, открытый
+       плеер Lampa, собственное условие слоя (играющий трейлер —
+       src/55_trailer.js), уход вглубь из активности.
+       Полное ревью c644bfd, S4: плеер Lampa — не активность, экран под ним
+       остаётся activity--active (разбор у LC.util.playerOpen), и частицы
+       рисовались под полноэкранным видео — канвас во весь экран поверх
+       декодирования ролика. */
     function paused(inst) {
       if (hidden()) return true;
       if (covered()) return true;
+      if (LC.util.playerOpen()) return true;
       try {
         if (inst.paused && inst.paused()) return true;
       } catch (e) { }
@@ -1392,8 +1405,48 @@
       }
       sprite_cache[key] = made;
       sprite_keys.push(key);
-      while (sprite_keys.length > SPRITE_CACHE) delete sprite_cache[sprite_keys.shift()];
+      while (sprite_keys.length > SPRITE_CACHE) {
+        var old = sprite_cache[sprite_keys[0]];
+        delete sprite_cache[sprite_keys.shift()];
+        if (!spritesUsed(old)) closeSprites(old);
+      }
       return made;
+    }
+
+    /* Сомнительное полного ревью c644bfd: снимки спрайтов (ImageBitmap,
+       bitmapize) — растр вне кучи JS, и сборщик мусора до него добирается
+       поздно. Набор, вышедший из кэша, закрывает свои снимки (close), как
+       только его не рисует ни один слой: сразу при вытеснении или со
+       снятием последнего слоя (drop). Метка closed — на самом наборе и на
+       его массивах кадров: снимок, доехавший позже, закрывается там же
+       (bitmapize). Канвасы и градиенты close не имеют — их отпускает
+       сборщик. */
+    function spritesUsed(set) {
+      if (!set) return false;
+      for (var i = 0; i < instances.length; i++) if (instances[i].sprites === set) return true;
+      for (var k in sprite_cache) {
+        if (Object.prototype.hasOwnProperty.call(sprite_cache, k) && sprite_cache[k] === set) return true;
+      }
+      return false;
+    }
+
+    function shutHolder(holder) {
+      holder.closed = true;
+      for (var k in holder) {
+        if (!Object.prototype.hasOwnProperty.call(holder, k)) continue;
+        var v = holder[k];
+        if (v && typeof v.close === 'function') {
+          try { v.close(); } catch (e) { }
+        }
+      }
+    }
+
+    function closeSprites(set) {
+      if (!set || set.closed) return;
+      shutHolder(set);
+      for (var k in set) {
+        if (Object.prototype.hasOwnProperty.call(set, k) && Object.prototype.toString.call(set[k]) === '[object Array]') shutHolder(set[k]);
+      }
     }
 
     /* Класс на узле слоя без jQuery: узел здесь голый DOM (или подделка
@@ -1496,6 +1549,9 @@
     function drop(inst) {
       var i = instances.indexOf(inst);
       if (i !== -1) instances.splice(i, 1);
+      /* Набор спрайтов, уже вытесненный из кэша, этот слой рисовал
+         последним — снимки закрываются (closeSprites). */
+      if (inst.sprites && !spritesUsed(inst.sprites)) closeSprites(inst.sprites);
       try {
         if (inst.canvas.parentNode) inst.canvas.parentNode.removeChild(inst.canvas);
       } catch (e) {
