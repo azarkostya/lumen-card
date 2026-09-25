@@ -292,15 +292,15 @@ test('п.D: tone — пиксели закрыты или SVG без разме�
   assert.deepEqual(got, ['none', 'none']);
 });
 
-test('п.C2/D: четыре отказа подряд (прокси без CORS) — до конца сеанса миниатюры не грузятся', () => {
+test('п.C2/D: шесть отказов подряд (прокси без CORS) — до конца сеанса миниатюры не грузятся', () => {
   const e = env();
   const got = [];
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < 6; i++) {
     e.T.tone('/l' + i + '.png', (t) => got.push(t));
     e.arrive(e.images[e.images.length - 1], () => [0, 0, 0], 92, 30, true);
     e.idleAll();
   }
-  assert.deepEqual(got, ['none', 'none', 'none', 'none']);
+  assert.deepEqual(got, ['none', 'none', 'none', 'none', 'none', 'none']);
   assert.equal(e.T.stats().blocked, true);
   const before = e.images.length;
   const more = [];
@@ -310,9 +310,9 @@ test('п.C2/D: четыре отказа подряд (прокси без CORS)
   assert.equal(e.images.length, before, 'после отказов миниатюры грузятся');
 });
 
-test('п.C2/D: удача сбрасывает счёт отказов', () => {
+test('п.C2/D: удача сбрасывает счёт отказов; SVG без размеров — не отказ', () => {
   const e = env();
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < 5; i++) {
     e.T.tone('/l' + i + '.png', () => {});
     e.arrive(e.images[e.images.length - 1], () => [0, 0, 0], 92, 30, true);
     e.idleAll();
@@ -320,8 +320,17 @@ test('п.C2/D: удача сбрасывает счёт отказов', () => {
   e.T.tone('/ok.png', () => {});
   e.arrive(e.images[e.images.length - 1], () => [255, 255, 255], 92, 30);
   e.idleAll();
-  e.T.tone('/bad.png', () => {});
-  e.arrive(e.images[e.images.length - 1], () => [0, 0, 0], 92, 30, true);
-  e.idleAll();
+  for (let i = 0; i < 5; i++) {
+    e.T.tone('/bad' + i + '.png', () => {});
+    e.arrive(e.images[e.images.length - 1], () => [0, 0, 0], 92, 30, true);
+    e.idleAll();
+  }
+  for (let i = 0; i < 3; i++) {
+    e.T.tone('/v' + i + '.svg', () => {});
+    const svg = e.images[e.images.length - 1];
+    svg.complete = true;
+    svg.onload();
+    e.idleAll();
+  }
   assert.equal(e.T.stats().blocked, false);
 });

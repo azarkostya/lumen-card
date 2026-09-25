@@ -298,7 +298,7 @@
     function start(path, fl, url, alt) {
       var img = new Image();
       fl.img = img;
-      img.onload = function () { land(path, fl, img.naturalWidth ? img : null); };
+      img.onload = function () { land(path, fl, img); };
       img.onerror = function () {
         if (alt) {
           unhook(fl);
@@ -417,13 +417,18 @@
        canvas — SecurityError, нет 2d-контекста) — false: этот растр в сеансе
        больше не читаем. */
     function extract(kind, img) {
-      if (!img || !img.naturalWidth || !img.naturalHeight) return false;
+      /* Картинка не пришла — отказ (счёт FAIL_LIMIT). Пришла без размеров
+         (SVG-логотип без собственного размера) — прочитать нечего, но это
+         не отказ сети или CORS. */
+      if (!img) { score(false); return false; }
+      if (!img.naturalWidth || !img.naturalHeight) return false;
       try {
-        if (kind === 'poster') return posterPixels(img);
-        if (kind === 'frame') return framePixels(img);
-        return logoPixels(img);
+        var out = kind === 'poster' ? posterPixels(img) : (kind === 'frame' ? framePixels(img) : logoPixels(img));
+        score(true);
+        return out;
       } catch (e) {
         warn('thumbs: pixels blocked', e);
+        score(false);
         return false;
       }
     }
@@ -439,7 +444,7 @@
        отказов подряд модуль до конца сеанса не грузит ничего и отвечает
        «сравнить нельзя» / 'none' сразу — кадр и логотип тогда как без
        модуля. Любая удача счёт сбрасывает. */
-    var FAIL_LIMIT = 4;
+    var FAIL_LIMIT = 6;
     var failRow = 0;
 
     function blocked() {
@@ -520,7 +525,6 @@
         if (!live || pf === undefined || ff === undefined) return;
         live = false;
         var value = pf && ff ? judge(pf, ff).similar : null;
-        score(value !== null);
         remember(verdicts, poster + '|' + frame, value);
         cb(value);
       }
@@ -547,7 +551,6 @@
       var job = need('logo', path, function (stats) {
         if (!live) return;
         live = false;
-        score(!!stats);
         var value = stats ? (darkOf(stats) ? 'dark' : 'light') : 'none';
         remember(tones, path, value);
         cb(value);
