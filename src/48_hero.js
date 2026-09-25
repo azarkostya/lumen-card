@@ -3075,6 +3075,8 @@
         /* Сама карточка показанного фильма — для resume без карточки в
            фокусе (ревью 84c7b27..de0e2c8, п.4). */
         state.shownCard = card;
+        /* D4: и для героя, заново поставленного настройкой (showStill). */
+        if (state.hostClass === MAIN_HOST) lastShown = card;
         state.details = null;
         state.model = null;
         /* Правка 2026-09-22: новая карточка — новое ожидание логотипа
@@ -3726,9 +3728,42 @@
         if (!act || act.component !== 'main') return;
         if (!act.activity || typeof act.activity.render !== 'function') return;
         mount(act.activity.render());
+        showStill();
       } catch (e) {
         warn('hero: mountCurrent failed', e);
       }
+    }
+
+    /* Полное ревью c644bfd, D4: «Кадр над рядами» Выключен → Крупный.
+       Модель у героя появляется только по фокусу карточки (showFocused,
+       onFocus), а после смены настройки фокус обычно в шапке — настройки
+       открывали шестерёнкой, и карточки с классом focus нет. 60 % экрана
+       оставались пустым блоком без кадра, названия и меты до первого
+       «вниз». Здесь — последняя показанная карточка этой главной (узлы
+       рядов те же: главная не пересобиралась, сменился только герой), а
+       её нет — первая карточка первого ряда. Без сжатия: фокус не в рядах.
+       Только из mountCurrent (смена настройки, включение плагина — события
+       'activity' там нет); на старте главной героя ставит фокус Lampa.
+       Ряд, в котором был фокус, этим не возвращается: путь пульта в шапку
+       идёт через ряды вверх, и Lampa обнуляет номер ряда сама (onUp модуля
+       рядов главной Items$1, vendor/lampa/app.min.js:35157-35166) ещё до
+       смены настройки. */
+    var lastShown = null;
+
+    function showStill() {
+      if (!state || state.parked || state.fixedCompact || state.shownId != null) return;
+      var list = state.root.find('.card');
+      var first = null;
+      for (var i = 0; list && i < list.length; i++) {
+        var card = list[i] && list[i].card_data;
+        if (!card || card.id == null) continue;
+        if (!first) first = card;
+        if (lastShown && String(card.id) === String(lastShown.id)) {
+          first = card;
+          break;
+        }
+      }
+      if (first) show(first);
     }
 
     /* Снять героя целиком: узел, класс корня, слушатель фокуса, все таймеры,

@@ -6617,3 +6617,66 @@ test('ревью H5: сравнение ответило null без запис�
   assert.deepEqual(w1280(env), ['/c1.jpg'], 'кадр — выбор heroBackdrop, без ожидания потолка');
   assert.deepEqual(warnLog, []);
 });
+
+/* ====================================================================== */
+/* Ревью D4: герой после пересборки главной настройкой                     */
+/* ====================================================================== */
+
+/* «Кадр над рядами»: Выключен → Крупный → Назад (стенд, скрин
+   p4_row2_rebuild_2_Круп.png). mountCurrent ставил героя на открытую главную,
+   но модель у него появляется только по фокусу карточки, а фокус в шапке
+   (настройки открывали шестерёнкой): 60 % экрана — пустой блок без кадра,
+   названия и меты до первого «вниз». Теперь mountCurrent без карточки в
+   фокусе показывает последнюю показанную карточку этой главной, а если её
+   нет — первую карточку первого ряда. Обычный mount (старт главной) — как
+   прежде: Lampa ставит фокус сама. */
+function mountCurrentOn(env, main) {
+  env.activeActivity = { component: 'main', activity: { render: () => main.activity } };
+  env.hero.mountCurrent();
+}
+
+test('ревью D4: mountCurrent без карточки в фокусе — герой по первой карточке первого ряда, а не пустой блок', () => {
+  const env = makeEnv();
+  const main = makeMain();
+  mountCurrentOn(env, main);
+  const node = heroOf(main.activity);
+  assert.ok(detailsOf(env, 11), 'детали первой карточки не запрошены — герой пустой');
+  env.advance(200);
+  assert.equal(node.find('.lumen-hero__descr').text(), 'о первом');
+  assert.equal(node.hasClass('lumen-hero--compact'), false, 'фокус в шапке — герой не сжат');
+  assert.deepEqual(warnLog, []);
+});
+
+test('ревью D4: «Выключен» → «Крупный» — герой возвращается с последней показанной карточкой; фокус в рядах — как прежде', () => {
+  const env = makeEnv();
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  main.card2.addClass('focus');
+  fireFocus(main.activity, main.card2);
+  env.advance(DELAY);
+  env.advance(200);
+  assert.equal(heroOf(main.activity).find('.lumen-hero__descr').text(), 'о втором', 'подготовка: показан второй ряд');
+  /* «Выключен»: герой снят; фокус уходит в шапку — класс focus с карточки
+     снимает Lampa. */
+  env.hero.unmount();
+  main.card2.removeClass('focus');
+  mountCurrentOn(env, main);
+  env.advance(200);
+  const node = heroOf(main.activity);
+  assert.equal(node.find('.lumen-hero__descr').text(), 'о втором', 'после пересборки герой не вернулся к показанному фильму');
+  assert.equal(node.hasClass('lumen-hero--compact'), false);
+
+  /* Фокус в рядах: героя показывает карточка под фокусом (showFocused). */
+  env.hero.unmount();
+  main.card1.addClass('focus');
+  mountCurrentOn(env, main);
+  env.advance(200);
+  assert.equal(heroOf(main.activity).find('.lumen-hero__descr').text(), 'о первом');
+});
+
+test('ревью D4: старт главной без фокуса на карточке — героя по-прежнему ставит фокус, а не mount', () => {
+  const env = makeEnv();
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  assert.equal(env.requests.length, 0, 'mount без фокуса запросил детали');
+});
