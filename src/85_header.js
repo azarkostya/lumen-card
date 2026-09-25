@@ -1611,6 +1611,11 @@
      текст, и число шагов пульта по ряду не меняется. Показывает подсказку
      CSS и только там, где текст действительно поджат
      (.lumen-descr-row--reviews). */
+  /* Полное ревью, D6: место подсказки — сразу за .full-descr__text. В конце
+     .full-descr__left она стояла под чипами «Жанр / Производство / Теги»
+     (шаблон full_descr, app.min.js:2520: текст, потом details и tags), а не
+     под описанием, к которому относится. Подсказка, поставленная раньше в
+     конец (карточка из истории Lampa), переезжает на своё место. */
   function ensureDescrHint(holder, movie) {
     var left = holder.find('.full-descr__left');
     if (!left.length) return;
@@ -1619,8 +1624,14 @@
       if (existing.length) existing.remove();
       return;
     }
-    if (existing.length) return;
-    left.append($('<div class="lumen-descr-more">' + LC.util.esc(LC.lang('lumen_card_descr_more')) + '</div>'));
+    var text = left.find('.full-descr__text').eq(0);
+    var hint = existing.length ? existing.eq(0) : $('<div class="lumen-descr-more">' + LC.util.esc(LC.lang('lumen_card_descr_more')) + '</div>');
+    if (!text.length) {
+      if (!existing.length) left.append(hint);
+      return;
+    }
+    if (existing.length && text.next()[0] === hint[0]) return;
+    text.after(hint);
   }
 
   function renderDescrRow(row, data) {
@@ -1832,13 +1843,22 @@
       if (isDescrPage(kids[i]) && kids[i].getBoundingClientRect().height > 0) blocks.push(kids[i]);
     }
     if (dir === 'down') {
+      /* Полное ревью, D7: следующий блок ПО ПОРЯДКУ — первый ниже верха
+         области, даже если он виден целиком. Прежнее правило брало первый
+         блок, выходящий за нижнюю кромку, и «Смотреть по порядку», видимое
+         целиком под отзывами, перескакивалось штатным шагом рядами.
+         Исключение — блок, где уже фокус (колесо переводит его на
+         показанный блок), видимый целиком: к верху его не поднять (конец
+         карточки), и колесо стояло бы на нём вечно — дальше идёт
+         следующий блок или штатный шаг. */
+      var current = item.last ? descrPageOf(holder, item.last) : null;
       for (i = 0; i < blocks.length; i++) {
         var p = descrPlaced(view, blocks[i]);
-        if (p.top > view.top + 0.5 && p.bottom > view.bottom + 0.5) {
-          scroll.update(blocks[i]);
-          descrFocus(rowEl, descrTarget(holder, blocks[i], item.last));
-          return true;
-        }
+        if (!(p.top > view.top + 0.5)) continue;
+        if (blocks[i] === current && p.bottom <= view.bottom + 0.5) continue;
+        scroll.update(blocks[i]);
+        descrFocus(rowEl, descrTarget(holder, blocks[i], item.last));
+        return true;
       }
       return false;
     }

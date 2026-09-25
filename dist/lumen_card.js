@@ -39079,6 +39079,11 @@ warn('descr enter failed', err);
 
 
 
+
+
+
+
+
 function ensureDescrHint(holder, movie) {
 var left = holder.find('.full-descr__left');
 if (!left.length) return;
@@ -39087,8 +39092,14 @@ if (!(movie && movie.overview)) {
 if (existing.length) existing.remove();
 return;
 }
-if (existing.length) return;
-left.append($('<div class="lumen-descr-more">' + LC.util.esc(LC.lang('lumen_card_descr_more')) + '</div>'));
+var text = left.find('.full-descr__text').eq(0);
+var hint = existing.length ? existing.eq(0) : $('<div class="lumen-descr-more">' + LC.util.esc(LC.lang('lumen_card_descr_more')) + '</div>');
+if (!text.length) {
+if (!existing.length) left.append(hint);
+return;
+}
+if (existing.length && text.next()[0] === hint[0]) return;
+text.after(hint);
 }
 
 function renderDescrRow(row, data) {
@@ -39300,13 +39311,22 @@ for (i = 0; i < kids.length; i++) {
 if (isDescrPage(kids[i]) && kids[i].getBoundingClientRect().height > 0) blocks.push(kids[i]);
 }
 if (dir === 'down') {
+
+
+
+
+
+
+
+
+var current = item.last ? descrPageOf(holder, item.last) : null;
 for (i = 0; i < blocks.length; i++) {
 var p = descrPlaced(view, blocks[i]);
-if (p.top > view.top + 0.5 && p.bottom > view.bottom + 0.5) {
+if (!(p.top > view.top + 0.5)) continue;
+if (blocks[i] === current && p.bottom <= view.bottom + 0.5) continue;
 scroll.update(blocks[i]);
 descrFocus(rowEl, descrTarget(holder, blocks[i], item.last));
 return true;
-}
 }
 return false;
 }

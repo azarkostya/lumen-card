@@ -1599,6 +1599,26 @@ test('Фикс Task 59: подсказка «весь текст» — один 
   assert.equal(d.left._children.filter((n) => n.hasClass('lumen-descr-more')).length, 0);
 });
 
+/* Полное ревью, D6: подсказка стояла последним узлом .full-descr__left —
+   под чипами «Жанр / Производство / Теги» (шаблон full_descr, app.min.js:
+   2520: текст, потом details и tags), а не под описанием, к которому она
+   относится. Место — сразу за .full-descr__text; прежняя подсказка в конце
+   (карточка из истории, отрисованная прежним плагином) переезжает туда же. */
+test('D6: подсказка «весь текст» стоит сразу под описанием, а не под чипами', () => {
+  const d = makeDescrRow();
+  LC.header.descr(d.row, OVERVIEW);
+  const kids = d.left._children;
+  const at = kids.findIndex((n) => n.hasClass('lumen-descr-more'));
+  assert.equal(kids[at - 1], d.text, 'подсказка не сразу за описанием: ' + kids.map((n) => n._classes || n._class).join(' | '));
+
+  const old = makeDescrRow();
+  old.left.append(new FakeEl(['lumen-descr-more']));
+  LC.header.descr(old.row, OVERVIEW);
+  const k2 = old.left._children;
+  assert.equal(k2.filter((n) => n.hasClass('lumen-descr-more')).length, 1);
+  assert.equal(k2[k2.findIndex((n) => n.hasClass('lumen-descr-more')) - 1], old.text, 'подсказка из конца не переехала под описание');
+});
+
 /* ------------------------------ refreshEpisode (п.2, п.8) ------------------------------ */
 
 test('refreshEpisode: перерисовывает только серию с этим хэшем и только при изменении состояния; кадр сохраняется', () => {
@@ -2293,4 +2313,47 @@ test('D2: колесо над правой половиной ряда сери�
   layout(c.track);
   wheelEp(c.root, c.track._children[4], 1500, -100);
   assert.equal(c.track.lumenShift, 434, 'второе колесо в пределах 200 мс — тот же шаг, без двойного');
+});
+
+/* Полное ревью, D7: колесо перескакивало «Смотреть по порядку». После
+   отзывов у верха области блок франшизы виден целиком (короткий: две
+   карточки в ряд), а правило брало первый блок, выходящий за нижнюю
+   кромку, — такого не было, и шаг уходил штатным рядом Lampa: фокус мимо
+   франшизы. Теперь ↓ — следующий блок по порядку, даже если он виден
+   целиком; за последним — штатный шаг рядами. */
+test('D7: колесо ↓ не перескакивает блок, видимый целиком', () => {
+  withDescr(({ c, item, scroll, link }) => {
+    c.fr._h = 200;                     /* отзывы у верха: франшиза 277…477 — целиком на экране */
+    c.frCard._h = 150;
+    LC.header.bindDescr(item, c.row, link);
+    scroll.onWheel(1);
+    assert.deepEqual(scroll.updates, [c.reviews]);
+    scroll.settle();
+    scroll.onWheel(1);
+    assert.deepEqual(scroll.updates, [c.reviews, c.fr], 'франшиза, видимая целиком, пропущена');
+    assert.deepEqual(scroll.wheelCalls, [], 'шаг ушёл штатным рядом мимо франшизы');
+    scroll.settle();
+    scroll.onWheel(1);
+    assert.deepEqual(scroll.wheelCalls, [1], 'за последним блоком — следующий ряд Lampa');
+  });
+});
+
+/* D7, край: блок с фокусом виден целиком, но к верху его не поднять —
+   конец карточки (прокрутка упёрлась). Колесо не стоит на нём вечно, а
+   уходит штатным шагом рядами. */
+test('D7: блок с фокусом, видимый целиком, в конце карточки — колесо уходит дальше', () => {
+  withDescr(({ c, item, scroll, link }) => {
+    c.fr._h = 200;
+    c.frCard._h = 150;
+    LC.header.bindDescr(item, c.row, link);
+    scroll.onWheel(1);
+    scroll.settle();
+    /* Прокрутка упёрлась: update франшизы не двигает тело. */
+    scroll.update = (el) => { scroll.updates.push(el); };
+    scroll.onWheel(1);
+    assert.deepEqual(scroll.updates, [c.reviews, c.fr]);
+    scroll.onWheel(1);
+    assert.deepEqual(scroll.updates, [c.reviews, c.fr], 'колесо застряло на франшизе');
+    assert.deepEqual(scroll.wheelCalls, [1]);
+  });
 });

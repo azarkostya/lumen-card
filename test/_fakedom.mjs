@@ -161,6 +161,16 @@ FakeEl.prototype.before = function (child) {
   el._parentEl = p;
   return this;
 };
+/* Полное ревью, D6: after — вставить узел сразу за собой (как jQuery). */
+FakeEl.prototype.after = function (child) {
+  const el = toEl(child);
+  const p = this._parentEl;
+  if (!p) return this;
+  el.remove();
+  p._children.splice(p._children.indexOf(this) + 1, 0, el);
+  el._parentEl = p;
+  return this;
+};
 FakeEl.prototype.eq = function (i) { return i === 0 ? this : EMPTY; };
 FakeEl.prototype.not = function (sel) { return matchesSelector(this, parseSelector(sel)) ? EMPTY : this; };
 FakeEl.prototype.trigger = function (name) { (this._triggered = this._triggered || []).push(name); return this; };
