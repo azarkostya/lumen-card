@@ -2047,6 +2047,23 @@ test('вид «как Apple TV»: «вниз» с карточки полки ф
   env.controller().down();
   assert.equal(focused.length, before, 'фокус с полки ушёл на «Крутить»');
 
+  /* Ниже полки есть куда идти (карточка результата без кадра стоит в потоке
+     под полкой) — «вниз» ведёт туда по геометрии, а не стоит на месте. */
+  const moves = [];
+  const nav = { canmove: (dir) => dir === 'down', move: (dir) => { moves.push(dir); } };
+  const prevNav = globalThis.Navigator;
+  /* navMove спрашивает window.Navigator и зовёт голый Navigator — как в Lampa. */
+  globalThis.Navigator = nav;
+  globalThis.window.Navigator = nav;
+  try {
+    env.controller().down();
+  } finally {
+    delete globalThis.window.Navigator;
+    if (prevNav === undefined) delete globalThis.Navigator; else globalThis.Navigator = prevNav;
+  }
+  assert.deepEqual(moves, ['down'], 'с полки «вниз» не пошёл по геометрии к результату');
+  assert.equal(focused.length, before, 'с полки «вниз» пересобрал фокус на «Крутить»');
+
   /* Остальной «вниз» — как был: с ленты подборок — на кнопку. */
   tiles[1].removeClass('focus');
   env.chips()[0].addClass('focus');

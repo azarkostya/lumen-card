@@ -24927,7 +24927,9 @@ down: function () {
 
 
 
-if (atv && !kadr && focusIn(shelf)) return;
+
+
+if (atv && !kadr && focusIn(shelf)) { navMove('down'); return; }
 
 
 if (atv && !kadr && focusIn(chipsBox)) { recollect(spinBtn[0]); return; }
