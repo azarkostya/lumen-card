@@ -959,6 +959,46 @@ test('bannerPath: cover из каталога — сразу, ни одного 
   h.clear();
 });
 
+/* Ревью каталога (65): cover приходит и из внешнего каталога
+   (LC.MANIFEST_URL), а тест формата стоит только на встроенном. Не путь
+   TMDB — не берётся: плитка идёт обычным путём, первой страницей подборки. */
+test('bannerPath: cover не в формате пути TMDB — обычный запрос, а не чужой адрес', async function () {
+  var bad = ['https://evil.example/x.jpg', '//evil.example/x.jpg', '/../x.jpg', '/a b.jpg',
+    '/x.gif', 'x.jpg', '/x.jpg?y=1', '/x.jpg"', ' /x.jpg', '/x.jpg\n'];
+  for (var i = 0; i < bad.length; i++) {
+    var calls = 0;
+    global.Lampa = makeFakeLampa({
+      Api: { sources: { tmdb: { get: function (url, params, ok) {
+        calls++;
+        ok({ results: [{ id: 1, backdrop_path: '/bd.jpg' }], page: 1, total_pages: 1, total_results: 1 });
+      } } } }
+    });
+    global.window = { localStorage: null };
+    var S = loadCtx('43_sources.js', { pref: function () { return ''; } }).api;
+    var item = { id: 'bad-cover-' + i, cover: bad[i], sources: { movie: { type: 'discover', params: {} } } };
+    var path = await new Promise(function (resolve, reject) {
+      S.bannerPath(item, resolve, function (e) { reject(new Error('err: ' + JSON.stringify(e))); }, null);
+    });
+    assert.equal(path, '/bd.jpg', 'cover ' + JSON.stringify(bad[i]) + ' не должен уйти в плитку');
+    assert.equal(calls, 1, 'cover ' + JSON.stringify(bad[i]) + ' — кадр обычным запросом');
+  }
+});
+
+test('bannerPath: cover .png тоже путь TMDB — сразу, без запроса', function () {
+  var calls = 0;
+  global.Lampa = makeFakeLampa({
+    Api: { sources: { tmdb: { get: function () { calls++; } } } }
+  });
+  global.window = { localStorage: null };
+  var S = loadCtx('43_sources.js', { pref: function () { return ''; } }).api;
+  var got = null;
+  S.bannerPath({ id: 'png', cover: '/Ab_9-z.png', sources: { movie: { type: 'discover', params: {} } } }, function (path) {
+    got = path;
+  }, function (e) { throw new Error('err: ' + JSON.stringify(e)); }, null);
+  assert.equal(got, '/Ab_9-z.png');
+  assert.equal(calls, 0);
+});
+
 test('bannerPath: cover у подборки Кинопоиска не отменяет err({nokey:true})', function (t, done) {
   global.Lampa = makeFakeLampa({
     storage: makeFakeStorage(),

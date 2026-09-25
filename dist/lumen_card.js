@@ -8944,6 +8944,12 @@ return net;
 
 
 
+
+
+
+
+var COVER_PATH = /^\/[A-Za-z0-9_-]+\.(jpg|png)$/;
+
 function bannerPath(item, ok, err, alive) {
 var src = (item && item.sources) || {};
 var media = src.movie ? 'movie' : (src.tv ? 'tv' : '');
@@ -8961,7 +8967,7 @@ try { if (net && net.clear) net.clear(); } catch (e) {}
 };
 }
 
-if (typeof item.cover === 'string' && item.cover) {
+if (typeof item.cover === 'string' && COVER_PATH.test(item.cover)) {
 ok(item.cover);
 return { clear: function () {} };
 }

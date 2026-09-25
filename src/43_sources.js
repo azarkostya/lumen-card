@@ -666,7 +666,13 @@
        каталога) отдаёт его сразу, без запроса, — так снимаются одинаковые
        кадры у подборок с общим лидером выдачи (разбор у поля cover в
        src/42_manifest.js). Кинопоиск проверяется раньше: его плитка без
-       ключа обязана сказать «нужен ключ», а не показать красивый кадр. */
+       ключа обязана сказать «нужен ключ», а не показать красивый кадр.
+       Ревью каталога (65): cover — только путь TMDB (COVER_PATH). Каталог
+       может прийти и внешним (LC.MANIFEST_URL), а тест формата стоит лишь
+       на встроенном; всё прочее (чужой адрес, «..», пробелы) не берётся, и
+       плитка идёт обычным путём — первой страницей подборки. */
+    var COVER_PATH = /^\/[A-Za-z0-9_-]+\.(jpg|png)$/;
+
     function bannerPath(item, ok, err, alive) {
       var src = (item && item.sources) || {};
       var media = src.movie ? 'movie' : (src.tv ? 'tv' : '');
@@ -684,7 +690,7 @@
         };
       }
 
-      if (typeof item.cover === 'string' && item.cover) {
+      if (typeof item.cover === 'string' && COVER_PATH.test(item.cover)) {
         ok(item.cover);
         return { clear: function () {} };
       }
