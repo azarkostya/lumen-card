@@ -12204,7 +12204,15 @@ var keep = typeof Navigator.getFocusedElement === 'function' ? Navigator.getFocu
 
 
 
-if (keep && fixed.indexOf(keep) < 0 && nodes.indexOf(keep) < 0) keep = null;
+
+
+
+
+
+if (keep && fixed.indexOf(keep) < 0 && nodes.indexOf(keep) < 0) {
+try { if (keep.classList) keep.classList.remove('focus'); } catch (eKeep) { }
+keep = null;
+}
 var collection = fixed.concat(nodes.slice(navFrom, navTo));
 
 

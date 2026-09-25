@@ -2624,15 +2624,28 @@ test('п.8: на ТВ-экране вход по-прежнему ставит �
 /* уйти на него. Возвращать можно только свой узел — из окна или fixed.     */
 /* ---------------------------------------------------------------------- */
 
+/* Пункт меню под фокусом несёт класс focus (Controller.focus на ТВ). */
 function fromMenu(s) {
   var ctrl = s.env.log.controllers.content;
   ctrl.toggle();
-  var menu = new El(['menu__item', 'selector']);
+  var menu = new El(['menu__item', 'selector', 'focus']);
   s.env.nav.setCollection([menu]);
   s.env.nav.focus(menu);
   ctrl.toggle();
   return menu;
 }
+
+/* Стенд (960×540@2): пункт меню, выброшенный из коллекции, оставался с
+   классом focus — прежде его снимал Controller.focus, потому что пункт
+   лежал в нашей коллекции, а у штатных экранов — clearSelects в
+   collectionSet. Кнопка шапки после «вниз» из шапки так же осталась бы
+   подсвеченной на виду. Чужой узел класс фокуса теряет. */
+test('п.9: выброшенный из коллекции чужой узел теряет класс focus', function () {
+  var s = openHub();
+  s.comp.start();
+  var menu = fromMenu(s);
+  assert.equal(menu.hasClass('focus'), false, 'пункт меню остался подсвеченным');
+});
 
 test('п.9: хаб — после возврата из меню пункта меню нет в коллекции, фокус на своём узле', function () {
   var s = openHub();

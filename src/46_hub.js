@@ -615,8 +615,16 @@
            toggle('content') приходит к нам раньше, чем кто-то фокус снимет.
            Прежде пункт меню оставался в коллекции экрана лишним, и шаг
            влево с экрана мог уйти на него. indexOf по списку — только на
-           пересборке окна, не на каждом нажатии. */
-        if (keep && fixed.indexOf(keep) < 0 && nodes.indexOf(keep) < 0) keep = null;
+           пересборке окна, не на каждом нажатии.
+           Чужой узел при этом теряет класс focus — как в clearSelects
+           штатного collectionSet (app.min.js:46395-46398); прежде класс
+           снимал Controller.focus, потому что узел лежал в нашей коллекции.
+           Без этого кнопка шапки после «вниз» из шапки оставалась
+           подсвеченной на виду (стенд 960×540@2: пункт меню — с focus). */
+        if (keep && fixed.indexOf(keep) < 0 && nodes.indexOf(keep) < 0) {
+          try { if (keep.classList) keep.classList.remove('focus'); } catch (eKeep) { }
+          keep = null;
+        }
         var collection = fixed.concat(nodes.slice(navFrom, navTo));
         /* Узел под фокусом возвращаем в коллекцию всегда, даже если окно до
            него не достаёт. Иначе _focus остался бы пустым, а класс .focus на
