@@ -467,10 +467,12 @@ function attrsOf(html) {
   return out;
 }
 
+/* Обработчик получает событие с его именем в type — как от настоящего
+   jQuery: по нему LC.focus.remote отличает пульт от мыши. */
 function fire(node, name) {
   var el = node instanceof El ? node : node[0];
   var list = el._ev[name] || [];
-  for (var i = 0; i < list.length; i++) list[i]();
+  for (var i = 0; i < list.length; i++) list[i]({ type: name });
 }
 
 function make$(doc) {
@@ -612,6 +614,10 @@ function setupLampa(opts) {
     this.minus = function () { self.minus_calls++; };
     this.update_calls = [];
     this.update = function (el, center) { self.update_calls.push([el, !!center]); };
+    /* Штатная прокрутка колесом (app.min.js:32117): её зовёт обработчик
+       колеса Scroll, если onWheel не задан, — и наш onWheel сетки. */
+    this.wheel_calls = [];
+    this.wheel = function (size) { self.wheel_calls.push(size); };
     this.destroy = function () { self.destroyed = true; };
     log.scrolls.push(this);
   }
@@ -1455,6 +1461,113 @@ test('lumen_grid: onScroll снятой из документа сетки по�
   globalThis.window.innerHeight = 1080;
   g.env.log.scrolls[0].onScroll(0);
   assert.ok(!cards[59].lumen_posted, 'узлы без высоты — не в документе, видимых нет');
+});
+
+/* Мышь в подборках (2026-09-25, п.2): следующую страницу сетки грузил только
+   afterMove — шаг пульта на последний ряд. Колесом список обрывался на
+   первой странице. Догрузка — по той же onScroll, как штатная
+   category_full (scroll.onEnd, app.min.js:53168): последний видимый ряд —
+   предпоследний или последний. */
+test('lumen_grid: прокрутка к концу списка догружает следующую страницу без шага фокуса', function () {
+  var g = openGrid(DISCOVER);
+  g.h.fetchCalls[0].ok({ results: results(60), page: 1, total_pages: 3, total_results: 180 });
+  var view = { shift: 0 };
+  layGrid(g.root.all('lumen-gcard'), view);
+  var scroll = g.env.log.scrolls[0];
+  scroll.onScroll(0);                /* видны ряды 0..2 из 10 */
+  assert.equal(g.h.fetchCalls.length, 1, 'до конца далеко — страницу не просим');
+  view.shift = 1800;                 /* видны ряды 6..8: предпоследний ряд на экране */
+  scroll.onScroll(1800);
+  assert.equal(g.h.fetchCalls.length, 2, 'колесом дошли до конца — следующая страница');
+  assert.equal(g.h.fetchCalls[1].page, 2);
+  scroll.onScroll(1800);
+  assert.equal(g.h.fetchCalls.length, 2, 'пока страница в пути, второй запрос не уходит');
+});
+
+test('lumen_grid: колесо идёт штатным Scroll.wheel', function () {
+  var g = openGrid(DISCOVER);
+  var scroll = g.env.log.scrolls[0];
+  assert.equal(typeof scroll.onWheel, 'function', 'сетка знает, что прокрутка — колесом');
+  scroll.onWheel(250);
+  scroll.onWheel(-250);
+  assert.deepEqual(scroll.wheel_calls, [250, -250], 'сама прокрутка — штатная, шаг тот же');
+});
+
+/* Пришедшая страница ставит фокус заново (recollect): Navigator.focus ->
+   'hover:focus' -> keepVisible -> scroll.update, и экран, пролистанный
+   колесом, уезжал назад к карточке под фокусом — к началу списка. Штатная
+   limit (app.min.js:53146-53162) фокус возвращает без события
+   (Navigator.focused) и экран не трогает. */
+function wheelToEnd(g) {
+  var view = { shift: 0 };
+  var scroll = g.env.log.scrolls[0];
+  layGrid(g.root.all('lumen-gcard'), view);
+  scroll.onWheel(250);
+  view.shift = 1800;
+  scroll.onScroll(1800);
+  assert.equal(g.h.fetchCalls.length, 2, 'страница запрошена прокруткой');
+  scroll.update_calls.length = 0;
+  g.h.fetchCalls[1].ok({ results: results(20, 100), page: 2, total_pages: 3, total_results: 180 });
+  return scroll;
+}
+
+test('lumen_grid: страница, догруженная колесом, не откатывает экран к фокусу', function () {
+  var g = openGrid(DISCOVER);
+  g.h.fetchCalls[0].ok({ results: results(60), page: 1, total_pages: 3, total_results: 180 });
+  g.comp.start();
+  g.env.log.controllers.content.toggle();
+  var focused = g.env.nav.getFocusedElement();
+  assert.ok(focused, 'фокус при входе стоит');
+  var scroll = wheelToEnd(g);
+  assert.equal(g.root.all('lumen-gcard').length, 80, 'страница дорисована');
+  assert.deepEqual(scroll.update_calls, [], 'экран остался там, куда его прокрутили колесом');
+  assert.equal(g.env.nav.getFocusedElement(), focused, 'фокус Navigator — на прежнем узле');
+});
+
+test('lumen_grid: наведённая мышью карточка не тянет экран назад при догрузке', function () {
+  var g = openGrid(DISCOVER);
+  g.h.fetchCalls[0].ok({ results: results(60), page: 1, total_pages: 3, total_results: 180 });
+  g.comp.start();
+  g.env.log.controllers.content.toggle();
+  var hovered = g.root.all('lumen-gcard')[3];
+  fire(hovered, 'hover:hover');
+  var scroll = wheelToEnd(g);
+  assert.deepEqual(scroll.update_calls, [], 'наведённая карточка давно выше экрана — к ней не едем');
+});
+
+test('lumen_grid: после шага пульта догруженная страница снова подкручивает к фокусу', function () {
+  var g = openGrid(DISCOVER);
+  g.h.fetchCalls[0].ok({ results: results(60), page: 1, total_pages: 3, total_results: 180 });
+  g.comp.start();
+  var ctrl = g.env.log.controllers.content;
+  ctrl.toggle();
+  g.env.log.scrolls[0].onWheel(250);
+  ctrl.down();                       /* пульт взяли в руки после колеса */
+  var focused = g.env.nav.getFocusedElement();
+  var view = { shift: 1800 };
+  var scroll = g.env.log.scrolls[0];
+  layGrid(g.root.all('lumen-gcard'), view);
+  scroll.onScroll(1800);
+  scroll.update_calls.length = 0;
+  g.h.fetchCalls[1].ok({ results: results(20, 100), page: 2, total_pages: 3, total_results: 180 });
+  assert.equal(scroll.update_calls.length, 1, 'у пульта фокус и экран вместе — как было');
+  assert.equal(scroll.update_calls[0][0], focused);
+});
+
+test('lumen_grid: ошибка страницы, догруженной колесом, экран тоже не откатывает', function () {
+  var g = openGrid(DISCOVER);
+  g.h.fetchCalls[0].ok({ results: results(60), page: 1, total_pages: 3, total_results: 180 });
+  g.comp.start();
+  g.env.log.controllers.content.toggle();
+  var view = { shift: 0 };
+  var scroll = g.env.log.scrolls[0];
+  layGrid(g.root.all('lumen-gcard'), view);
+  scroll.onWheel(250);
+  view.shift = 1800;
+  scroll.onScroll(1800);
+  scroll.update_calls.length = 0;
+  g.h.fetchCalls[1].err({});
+  assert.deepEqual(scroll.update_calls, []);
 });
 
 test('lumen_grid: метка закладки и полоса продолжения — как на штатной карточке (I6)', function () {

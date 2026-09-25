@@ -1280,6 +1280,14 @@
          фокус возвращается на ту же карточку, а не на первый чип. */
       var lastCardId = null;
       var started = false;
+      /* Мышь в подборках (2026-09-25): последний ввод — мышь (колесо или
+         наведение), а не шаг пульта. Сбрасывает его только шаг пульта
+         (afterMove). Пока он стоит, пришедшая страница экран не двигает:
+         см. recollect. */
+      var byMouse = false;
+      /* Фокус ставится заново, а экран остаётся где был — keepVisible на
+         это время молчит. Живёт ровно один вызов collectionFocus. */
+      var quiet = false;
 
       function alive(captured) {
         return function () { return gen === captured; };
@@ -1330,15 +1338,22 @@
          поверх окна работает штатно — узлу он зовёт Navigator.focus
          (app.min.js:46474-46491), а тот требует, чтобы элемент лежал в
          коллекции (navigator.js:674); окно потому и строится ВОКРУГ того
-         узла, на который сейчас встанет фокус. */
-      function recollect(prefer) {
+         узла, на который сейчас встанет фокус.
+         still — экран не двигать (мышь в подборках, 2026-09-25): фокус
+         встаёт через Navigator.focus -> 'hover:focus' -> keepVisible, и
+         страница, догруженная колесом, уводила экран назад, к карточке под
+         фокусом, — к началу списка. Штатная limit (app.min.js:53146-53162)
+         возвращает фокус без события (Navigator.focused) и экран не трогает. */
+      function recollect(prefer, still) {
         try {
           var node = prefer || focusTarget();
           limitGrid(node);
+          quiet = !!still;
           Lampa.Controller.collectionFocus(node || false, root[0]);
         } catch (e) {
           warn('grid: collection failed', e);
         }
+        quiet = false;
       }
 
       /* Task 32: то же, что keepVisible хаба (см. комментарий там) — экран
@@ -1348,6 +1363,7 @@
          шапка хаба: вернувшись «вверх» на прокрученном экране, они иначе
          остались бы за кромкой. */
       function keepVisible(el) {
+        if (quiet) return;
         try { scroll.update(el, true); } catch (e) { warn('grid: scroll.update failed', e); }
       }
 
@@ -1389,18 +1405,36 @@
          зовётся. Lampa завершает любую прокрутку вызовом onScroll
          (scrollEnded, app.min.js:31979-31980): по нему постеры получают
          видимые карточки и ряд запаса. onScroll заменяет штатный
-         Layer.visible — зовём его сами, как штатная limit (app.min.js:53162). */
+         Layer.visible — зовём его сами, как штатная limit (app.min.js:53162).
+         Мышь в подборках (2026-09-25): по ней же — следующая страница, когда
+         на экране предпоследний или последний ряд, как штатная category_full
+         по scroll.onEnd (app.min.js:53168). Без этого колесом список
+         обрывался на первой странице: догрузку звал только afterMove.
+         Сама себя догрузка не крутит: условие — видимость, а пришедшая
+         страница дописывает ряды НИЖЕ экрана. */
       function onScroll() {
         var last = lastInView(cardNodes);
-        if (last >= 0) loadPosters(last + GRID_COLS);
+        if (last >= 0) {
+          loadPosters(last + GRID_COLS);
+          if (Math.floor(last / GRID_COLS) >= Math.floor((cardNodes.length - 1) / GRID_COLS) - 1) loadNext();
+        }
         try { Lampa.Layer.visible(scroll.render(true)); } catch (e) {}
       }
 
-      /* Догрузка следующей страницы и постеров — только от пульта: фокус
-         ставится и программно (после каждой пришедшей страницы), и цепочка
-         «страница пришла -> фокус -> догрузка» крутилась бы сама (живая
-         проверка: сетка набирала 320 карточек за заход). */
+      /* Колесо — штатная прокрутка тем же шагом (scroll.wheel), плюс отметка,
+         что ввод теперь мышиный: пришедшая страница экран не тронет. Без
+         onWheel Lampa зовёт тот же wheel сама (app.min.js:31870-31874). */
+      function onWheel(step) {
+        byMouse = true;
+        scroll.wheel(step);
+      }
+
+      /* Догрузка по ФОКУСУ — только от пульта: фокус ставится и программно
+         (после каждой пришедшей страницы), и цепочка «страница пришла ->
+         фокус -> догрузка» крутилась бы сама (живая проверка: сетка
+         набирала 320 карточек за заход). По прокрутке догружает onScroll. */
       function afterMove() {
+        byMouse = false;
         /* Task 33: окно едет за фокусом — на каждом шаге, включая шаг на
            чип сортировки (там окно встаёт на начало списка). */
         limitGrid(lastFocus);
@@ -1452,7 +1486,8 @@
            клетках, то есть w342 без растяжения (285 / 342 = 0.83). */
         el.lumen_poster = imageUrl(card.poster_path, LC.util.posterSize(LC.util.emPx(gcardEm())));
 
-        LC.focus.on(node, function () {
+        LC.focus.on(node, function (e) {
+          if (!LC.focus.remote(e)) byMouse = true;
           keepVisible(el);
           lastFocus = el;
           lastCardId = card.id;
@@ -1620,7 +1655,9 @@
           var from = focusedIndex();
           loadPosters((from < 0 ? 0 : from) + POSTER_AHEAD);
           renderSub();
-          if (started) recollect(null);
+          /* Мышь в подборках: страница, догруженная колесом или под
+             наведённой карточкой, экран не двигает (recollect, still). */
+          if (started) recollect(null, byMouse);
         }
 
         var handle = LC.sources['fetch'](request, nextPage, function (json) {
@@ -1646,7 +1683,7 @@
           try { self.activity.loader(false); } catch (e3) {}
           if (!cardNodes.length) showEmpty(err && err.nokey ? 'nokey' : '');
           renderSub();
-          if (started) recollect(null);
+          if (started) recollect(null, byMouse);
         }, alive(captured));
         if (handle) handles.push(handle);
       }
@@ -1732,6 +1769,7 @@
            вообще не листается вниз. */
         scroll.minus();
         scroll.onScroll = onScroll;
+        scroll.onWheel = onWheel;
         loadPage(1, true);
       };
 

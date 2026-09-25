@@ -12353,6 +12353,14 @@ var lastFocus = null;
 var lastCardId = null;
 var started = false;
 
+
+
+
+var byMouse = false;
+
+
+var quiet = false;
+
 function alive(captured) {
 return function () { return gen === captured; };
 }
@@ -12403,14 +12411,21 @@ limitCollection(fixed, cardNodes, active);
 
 
 
-function recollect(prefer) {
+
+
+
+
+
+function recollect(prefer, still) {
 try {
 var node = prefer || focusTarget();
 limitGrid(node);
+quiet = !!still;
 Lampa.Controller.collectionFocus(node || false, root[0]);
 } catch (e) {
 warn('grid: collection failed', e);
 }
+quiet = false;
 }
 
 
@@ -12420,6 +12435,7 @@ warn('grid: collection failed', e);
 
 
 function keepVisible(el) {
+if (quiet) return;
 try { scroll.update(el, true); } catch (e) { warn('grid: scroll.update failed', e); }
 }
 
@@ -12462,10 +12478,27 @@ img.src = url;
 
 
 
+
+
+
+
+
+
 function onScroll() {
 var last = lastInView(cardNodes);
-if (last >= 0) loadPosters(last + GRID_COLS);
+if (last >= 0) {
+loadPosters(last + GRID_COLS);
+if (Math.floor(last / GRID_COLS) >= Math.floor((cardNodes.length - 1) / GRID_COLS) - 1) loadNext();
+}
 try { Lampa.Layer.visible(scroll.render(true)); } catch (e) {}
+}
+
+
+
+
+function onWheel(step) {
+byMouse = true;
+scroll.wheel(step);
 }
 
 
@@ -12473,6 +12506,7 @@ try { Lampa.Layer.visible(scroll.render(true)); } catch (e) {}
 
 
 function afterMove() {
+byMouse = false;
 
 
 limitGrid(lastFocus);
@@ -12524,7 +12558,8 @@ if (age.length && !('' + age.text())) age.remove();
 
 el.lumen_poster = imageUrl(card.poster_path, LC.util.posterSize(LC.util.emPx(gcardEm())));
 
-LC.focus.on(node, function () {
+LC.focus.on(node, function (e) {
+if (!LC.focus.remote(e)) byMouse = true;
 keepVisible(el);
 lastFocus = el;
 lastCardId = card.id;
@@ -12692,7 +12727,9 @@ else appendCards(list);
 var from = focusedIndex();
 loadPosters((from < 0 ? 0 : from) + POSTER_AHEAD);
 renderSub();
-if (started) recollect(null);
+
+
+if (started) recollect(null, byMouse);
 }
 
 var handle = LC.sources['fetch'](request, nextPage, function (json) {
@@ -12718,7 +12755,7 @@ pending = null;
 try { self.activity.loader(false); } catch (e3) {}
 if (!cardNodes.length) showEmpty(err && err.nokey ? 'nokey' : '');
 renderSub();
-if (started) recollect(null);
+if (started) recollect(null, byMouse);
 }, alive(captured));
 if (handle) handles.push(handle);
 }
@@ -12804,6 +12841,7 @@ scroll.append(root);
 
 scroll.minus();
 scroll.onScroll = onScroll;
+scroll.onWheel = onWheel;
 loadPage(1, true);
 };
 
