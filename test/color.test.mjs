@@ -796,45 +796,27 @@ test('accent: reset снимает переопределение и перес�
   });
 });
 
-/* Task 35, CORS-фолбэк. Lampa.TMDB.image уважает настройку proxy_tmdb
-   пользователя (vendor/lampa/app.min.js:19314-19316), а чужой прокси не
-   обязан отдавать Access-Control-Allow-Origin — для браузера с
-   crossOrigin = 'anonymous' это ошибка загрузки, то есть у владельца прокси
-   подкраска молча не работала бы никогда. */
-test('accent: постер через прокси не загрузился — одна попытка прямым адресом TMDB', () => {
+/* Task 35 ввёл CORS-фолбэк: постер через прокси пользователя не загрузился —
+   вторая попытка прямым image.tmdb.org. Полное ревью (сомнительное,
+   безопасность): это запрос в обход прокси, который пользователь поставил
+   сам, — утечка IP к TMDB и до 8 с зависания запроса в сетях, где TMDB
+   заблокирован (для того прокси и ставят). Прямого адреса больше нет:
+   постер не загрузился — подкраска по умолчанию (акцент настроек). */
+test('accent: постер через прокси не загрузился — прямого адреса нет, подкраска по умолчанию', () => {
   const dom = fakeDom({ proxy: 'https://proxy.example/' });
   withDom(dom, () => {
     const ctx = accentCtx({ prefs: { lumen_accent_auto: 'true' } });
     warnLog = [];
     ctx.LC.accent.applyFor({ poster_path: '/a.jpg' });
-    assert.equal(dom.state.images[0].src, 'https://proxy.example/t/p/w185/a.jpg', 'сначала — адрес пользователя');
+    assert.equal(dom.state.images[0].src, 'https://proxy.example/t/p/w185/a.jpg', 'адрес пользователя');
     dom.state.images[0].onerror();
-
-    assert.equal(dom.state.images.length, 2, 'вторая попытка сделана');
-    assert.equal(dom.state.images[1].src, 'https://image.tmdb.org/t/p/w185/a.jpg', 'прямой адрес TMDB');
-    assert.equal(dom.state.images[1].crossOrigin, 'anonymous', 'иначе пиксели снова были бы закрыты');
-    assert.equal(ctx.api.pending(), 1, 'заявка та же, а не вторая');
-    dom.state.images[1].onload();
-    assert.ok(ctx.LC.accent.current(), 'со второй попытки цвет посчитан');
-    assert.equal(ctx.api.pending(), 0);
-    warnLog = [];
-  });
-});
-
-test('accent: провалились обе попытки — акцент из настроек, третьей нет', () => {
-  const dom = fakeDom({ proxy: 'https://proxy.example/' });
-  withDom(dom, () => {
-    const ctx = accentCtx({ prefs: { lumen_accent_auto: 'true' } });
-    warnLog = [];
-    ctx.LC.accent.applyFor({ poster_path: '/a.jpg' });
-    dom.state.images[0].onerror();
-    dom.state.images[1].onerror();
-    assert.equal(dom.state.images.length, 2, 'третьей попытки нет');
+    assert.equal(dom.state.images.length, 1, 'второй попытки в обход прокси нет');
+    assert.ok(dom.state.images.every((img) => ('' + img.src).indexOf('image.tmdb.org') === -1), 'запрос мимо прокси');
     assert.equal(ctx.LC.accent.current(), null, 'остался акцент настроек');
-    assert.equal(accentNode(dom), null, 'подкраски тоже нет');
-    assert.equal(warnLog.length, 2, 'оба отказа в логе');
+    assert.equal(accentNode(dom), null, 'подкраски нет');
+    assert.equal(ctx.api.pending(), 0);
+    assert.equal(warnLog.length, 1, 'отказ в логе');
     assert.match(warnLog[0].msg, /proxy\.example/);
-    assert.match(warnLog[1].msg, /image\.tmdb\.org/);
     warnLog = [];
   });
 });

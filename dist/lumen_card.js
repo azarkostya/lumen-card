@@ -25758,13 +25758,8 @@ var request_count = 0;
 
 
 
-
-
 var last_state = 'idle';
 var last_url = '';
-
-
-
 
 
 
@@ -26374,8 +26369,7 @@ var POSTER_SIZE = 't/p/w185';
 
 
 
-var DIRECT_HOST = 'https://image.tmdb.org/';
-var DIRECT_HOST_MARK = 'image.tmdb.org/';
+
 
 
 
@@ -26834,10 +26828,6 @@ var url = posterUrl(path);
 if (!url) { apply(null, null, deep); return; }
 
 
-
-
-
-
 task = LC.color.fromImage(url, function (rgb) {
 task = null;
 
@@ -26847,7 +26837,7 @@ task = null;
 
 var dom = quantize(rgb);
 apply(dom ? LC.color.tokens(dom, bg()) : null, dom, deep);
-}, url.indexOf(DIRECT_HOST_MARK) === -1 ? DIRECT_HOST + POSTER_SIZE + path : '');
+}, '');
 }
 
 
