@@ -12495,12 +12495,21 @@ img.src = url;
 
 
 function onScroll() {
-var last = lastInView(cardNodes);
-if (last >= 0) {
-loadPosters(last + GRID_COLS);
-if (Math.floor(last / GRID_COLS) >= Math.floor((cardNodes.length - 1) / GRID_COLS) - 1) loadNext();
-}
+var last = loadInView();
+if (last >= 0 && Math.floor(last / GRID_COLS) >= Math.floor((cardNodes.length - 1) / GRID_COLS) - 1) loadNext();
 try { Lampa.Layer.visible(scroll.render(true)); } catch (e) {}
+}
+
+
+
+
+
+
+
+function loadInView() {
+var last = lastInView(cardNodes);
+if (last >= 0) loadPosters(last + GRID_COLS);
+return last;
 }
 
 
@@ -12736,6 +12745,7 @@ if (!list.length && !cardNodes.length) showEmpty('');
 else appendCards(list);
 var from = focusedIndex();
 loadPosters((from < 0 ? 0 : from) + POSTER_AHEAD);
+loadInView();
 renderSub();
 
 
@@ -12867,6 +12877,9 @@ started = true;
 motionClass(root);
 Lampa.Controller.add('content', screenController(recollect, afterMove));
 Lampa.Controller.toggle('content');
+
+
+loadInView();
 
 if (resumeAfterStop) {
 var again = resumeAfterStop;

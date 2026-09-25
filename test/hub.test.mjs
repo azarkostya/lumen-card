@@ -1489,6 +1489,46 @@ test('lumen_grid: onScroll снятой из документа сетки по�
   assert.ok(!cards[59].lumen_posted, 'узлы без высоты — не в документе, видимых нет');
 });
 
+/* Экран 5:4 (1280×1024, 2026-09-25): при входе видно три ряда, а окно
+   постеров от фокуса — POSTER_AHEAD + 1 = 15 карточек; 15..17 стояли
+   заглушками до первой прокрутки. При входе сетка грузит видимое так же,
+   как по прокрутке: видимые ряды и ряд запаса. */
+function laidTemplate(g, innerHeight) {
+  var n = 0;
+  g.env.Lampa.Template.js = function (name, vars) {
+    var card = cardTemplate(vars || {});
+    var i = n++;
+    card.getBoundingClientRect = function () {
+      var top = 200 + Math.floor(i / 6) * 300;
+      return { top: top, bottom: top + 280, height: 280 };
+    };
+    return card;
+  };
+  globalThis.window.innerHeight = innerHeight;
+}
+
+test('lumen_grid: страница на экране сразу даёт постеры всем видимым рядам и ряду запаса (5:4)', function () {
+  var g = openGrid(DISCOVER);
+  laidTemplate(g, 1024);             /* ряды 0..2 на экране, ряд 3 — с 1100 px */
+  g.h.fetchCalls[0].ok({ results: results(40), page: 1, total_pages: 2, total_results: 40 });
+  var cards = g.root.all('lumen-gcard');
+  for (var i = 0; i <= 17; i++) assert.ok(cards[i].lumen_posted, 'видимая карточка ' + i + ' без постера');
+  for (var k = 18; k <= 23; k++) assert.ok(cards[k].lumen_posted, 'ряд запаса: ' + k);
+  for (var j = 24; j < 40; j++) assert.ok(!cards[j].lumen_posted, 'дальняя карточка ' + j);
+});
+
+test('lumen_grid: страница, пришедшая до вставки экрана, добирает видимое на start', function () {
+  var g = openGrid(DISCOVER);
+  g.h.fetchCalls[0].ok({ results: results(40), page: 1, total_pages: 2, total_results: 40 });
+  var cards = g.root.all('lumen-gcard');
+  assert.ok(!cards[15].lumen_posted, 'экрана ещё нет в документе — видимости не знаем');
+  layGrid(cards, { shift: 0 });
+  globalThis.window.innerHeight = 1024;
+  g.comp.start();
+  for (var i = 15; i <= 23; i++) assert.ok(cards[i].lumen_posted, 'после входа: ' + i);
+  assert.ok(!cards[24].lumen_posted);
+});
+
 /* Мышь в подборках (2026-09-25, п.2): следующую страницу сетки грузил только
    afterMove — шаг пульта на последний ряд. Колесом список обрывался на
    первой странице. Догрузка — по той же onScroll, как штатная
