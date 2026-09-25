@@ -578,6 +578,75 @@ test('prefetch: warm — после первого показа героя, од
   assert.deepEqual(warnLog, []);
 });
 
+/* Волна «хвосты героя», п.F (ревью логотипов). OK на карточке героя —
+   Lampa открывает карточку фильма, герой паркуется, и park снимал загрузку
+   логотипа показанной карточки (cancelPending → logoLoader.cancel, затем
+   prefetch('stop')), а карточка подписывается на тот же логотип позже —
+   после ответа Api.full. Итог — чаще текст вместо логотипа в карточке.
+   Теперь логотип показанной карточки на парковке ещё LOGO_LINGER (1,5 с)
+   едет без ждущих: карточка подхватывает ту же загрузку. */
+test('п.F: park не обрывает логотип показанной карточки — карточка фильма подхватывает загрузку', () => {
+  const { env, main } = mounted();
+  focus(main, main.rows[0][0]);
+  env.advance(350);
+  answer(pending(env).find((r) => idOf(r.url) === 101), withLogo(101));
+  const img = logoImgs(env, 101)[0];
+  assert.ok(img, 'подготовка: логотип показа в пути');
+  env.hero.detach(new FakeEl(['activity']));
+  assert.equal(env.hero.parked(), true, 'подготовка: герой запаркован');
+  assert.equal(img.removed, false, 'park оборвал логотип показанной карточки');
+  env.advance(900);
+  const got = [];
+  env.hero.waitLogo('/l101.png', logoUrl(101), (s) => got.push(s));
+  assert.equal(logoImgs(env, 101).length, 1, 'карточка фильма начала ту же загрузку заново');
+  land(img);
+  assert.deepEqual(got, [true]);
+  assert.equal(env.hero.logoState('/l101.png'), 'ok');
+});
+
+test('п.F: логотип показанной карточки никто не подхватил за 1,5 с — загрузка снимается и в сети', () => {
+  const { env, main } = mounted();
+  focus(main, main.rows[0][0]);
+  env.advance(350);
+  answer(pending(env).find((r) => idOf(r.url) === 101), withLogo(101));
+  const img = logoImgs(env, 101)[0];
+  env.hero.detach(new FakeEl(['activity']));
+  env.advance(1400);
+  assert.equal(img.removed, false, 'снята раньше срока');
+  env.advance(100);
+  assert.equal(img.removed, true, 'никому не нужная картинка тянет байты');
+  assert.equal(img.onload, null);
+  assert.equal(env.hero.logoState('/l101.png'), '', 'отменённая загрузка записала исход');
+});
+
+/* Ниже порога ревью логотипов: warmed держал корень после stop() (узел
+   снятой главной жил в памяти), а warm из колбэка кадра шёл и тогда, когда
+   фокус уже уехал дальше, — план первого экрана посреди листания. */
+test('п.F: stop забывает корень warm — на том же корне warm снова планирует', () => {
+  const env = makeEnv();
+  const main = makeMain([10, 6]);
+  main.rows[0][0].addClass('focus');
+  env.hero.mount(main.activity);
+  answer(env.requests[0], {});
+  land(frameOf(env, 101));
+  assert.ok(env.pf.stats().queue > 0, 'подготовка: warm спланирован');
+  env.pf.stop();
+  env.pf.warm(main.activity);
+  assert.ok(env.pf.stats().queue > 0, 'после stop корень остался помеченным — warm не повторился');
+});
+
+test('п.F: кадр показа доехал, когда фокус уже на другой карточке, — warm не планирует', () => {
+  const { env, main } = mounted();
+  focus(main, main.rows[0][0]);
+  env.advance(350);
+  answer(pending(env).find((r) => idOf(r.url) === 101), {});
+  focus(main, main.rows[0][1]);
+  const before = env.requests.length;
+  land(frameOf(env, 101));
+  assert.equal(env.requests.length, before, 'warm первого экрана посреди листания');
+  assert.equal(env.pf.stats().queue, 0);
+});
+
 test('prefetch: warm не работает на парковке и без героя', () => {
   const env = makeEnv();
   const main = makeMain([10, 6]);

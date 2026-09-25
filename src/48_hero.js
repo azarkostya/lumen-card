@@ -688,6 +688,39 @@
         clearTimeout(fl.timer);
         fl.timer = null;
       }
+      if (fl.linger) {
+        clearTimeout(fl.linger);
+        fl.linger = null;
+      }
+    }
+
+    /* Волна «хвосты героя», п.F (ревью логотипов): OK на карточке героя
+       открывает карточку фильма, и герой паркуется — park снимал загрузку
+       логотипа показанной карточки (cancelPending, затем prefetch('stop')),
+       а карточка подписывается на тот же логотип позже, после ответа
+       Api.full (src/85_header.js, waitLogo). Логотип начинался заново и
+       чаще не успевал к потолку — в карточке текст вместо логотипа.
+       holdLogo(path) — загрузка этого логотипа, оставшись без ждущих, ещё
+       LOGO_LINGER едет дальше: подписавшийся за это время подхватывает её,
+       не подписался никто — снимается и в сети, как прежде. Держит только
+       park, и только логотип показанной карточки: остальные отказы (смена
+       карточки при листании, окно предзагрузки) снимают загрузку сразу. */
+    var LOGO_LINGER = 1500;
+
+    function holdLogo(path) {
+      var fl = path ? logoFlight[path] : null;
+      if (fl) fl.keep = Date.now() + LOGO_LINGER;
+    }
+
+    function dropFlight(path, fl) {
+      if (fl.subs.length || logoFlight[path] !== fl) return;
+      /* Не ждёт никто: отменённая загрузка о картинке ничего не узнала —
+         исход не пишется. */
+      delete logoFlight[path];
+      unhookLogo(fl);
+      try {
+        if (typeof fl.img.removeAttribute === 'function') fl.img.removeAttribute('src');
+      } catch (e) {}
     }
 
     /* Загрузка кончилась: исход — в logoSeen ДО колбэков ждущих (это знание
@@ -713,7 +746,9 @@
     function flyLogo(path, url) {
       var img = new Image();
       img.decoding = 'async';
-      var fl = { img: img, subs: [], timer: null };
+      /* keep/linger — п.F: срок, до которого загрузка без ждущих едет
+         дальше (holdLogo), и её таймер. */
+      var fl = { img: img, subs: [], timer: null, keep: 0, linger: null };
       logoFlight[path] = fl;
       img.onload = function () { landLogo(path, fl, true); };
       img.onerror = function () { landLogo(path, fl, false); };
@@ -730,13 +765,18 @@
       var i = fl.subs.indexOf(sub);
       if (i !== -1) fl.subs.splice(i, 1);
       if (fl.subs.length || logoFlight[path] !== fl) return;
-      /* Не ждёт никто: отменённая загрузка о картинке ничего не узнала —
-         исход не пишется. */
-      delete logoFlight[path];
-      unhookLogo(fl);
-      try {
-        if (typeof fl.img.removeAttribute === 'function') fl.img.removeAttribute('src');
-      } catch (e) {}
+      /* П.F: загрузку держит парковка (holdLogo) — снимаем по сроку. */
+      var wait = (fl.keep || 0) - Date.now();
+      if (wait > 0) {
+        if (!fl.linger) {
+          fl.linger = setTimeout(function () {
+            fl.linger = null;
+            dropFlight(path, fl);
+          }, wait);
+        }
+        return;
+      }
+      dropFlight(path, fl);
     }
 
     /* Предзагрузка логотипа — одна на героя, карточку и предзагрузку
@@ -746,6 +786,11 @@
        отменяет. Возвращает {cancel}. */
     function preloadLogo(path, url, done) {
       var fl = logoFlight[path] || flyLogo(path, url);
+      /* П.F: подхватили загрузку, которую держала парковка. */
+      if (fl.linger) {
+        clearTimeout(fl.linger);
+        fl.linger = null;
+      }
       var sub = { done: done };
       fl.subs.push(sub);
       return { cancel: function () { leaveLogo(path, fl, sub); } };
@@ -2420,7 +2465,11 @@
       state.framePath = model.backdrop || '';
       loadFrame(model, captured, function (ok) {
         if (gen !== captured || !state) return;
-        prefetch('warm', state.root);
+        /* Волна «хвосты героя», п.F (ниже порога ревью логотипов): кадр
+           доехал, когда фокус уже на другой карточке, — план первого
+           экрана посреди листания не заводим; warm придёт с кадром
+           следующего показа. */
+        if (!focusAway()) prefetch('warm', state.root);
         if (!ok) { holdFrame(captured); return; }
         state.frameId = state.shownId;
         stopTimer('holdTimer');
@@ -3348,6 +3397,10 @@
          с фокусом на карточке resume() заводит оба поля заново сам. */
       state.focusEl = null;
       state.pending = null;
+      /* Волна «хвосты героя», п.F: логотип показанной карточки — тот, что
+         сейчас понадобится открываемой карточке фильма, — отказ ниже не
+         обрывает (holdLogo, разбор у хранилища логотипов). */
+      holdLogo(state.model && state.model.logo);
       cancelPending();
       /* Волна «Логотипы сразу»: предзагрузка соседей под открытой карточкой
          не нужна — очередь и логотипы в пути снимаются. */

@@ -407,6 +407,10 @@
       stopIdle();
       focusEl = null;
       prevEl = null;
+      /* Волна «хвосты героя», п.F (ниже порога ревью логотипов): корень
+         снятой главной не держим в памяти; на возврате warm спланирует
+         первый экран заново — всё, что уже в памяти, из неё. */
+      warmed = null;
       var jobs = logoJobs;
       logoJobs = [];
       for (var i = 0; i < jobs.length; i++) {
