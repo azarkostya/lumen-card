@@ -5147,7 +5147,14 @@ css.push('.lumen-main .card.focus{z-index:3}');
 
 
 
-css.push('body.lumen-motion-full .lumen-main .card__view{-webkit-transition:-webkit-transform .18s ease-out;transition:transform .18s ease-out}');
+
+
+
+
+
+
+
+css.push('body.lumen-motion-full .lumen-main:not(.lumen-burst) .card__view{-webkit-transition:-webkit-transform .18s ease-out;transition:transform .18s ease-out}');
 css.push('.lumen-main .card__quality,.lumen-main .card__type{display:none}');
 
 
@@ -5261,7 +5268,9 @@ css.push('@media screen and (min-aspect-ratio:' + heroMinRatio + '/100){.lumen-m
 
 
 
-css.push('body.lumen-motion-full .lumen-main .card__title,body.lumen-motion-full .lumen-main .card__age{-webkit-transition:-webkit-transform .18s ease-out;transition:transform .18s ease-out}');
+
+
+css.push('body.lumen-motion-full .lumen-main:not(.lumen-burst) .card__title,body.lumen-motion-full .lumen-main:not(.lumen-burst) .card__age{-webkit-transition:-webkit-transform .18s ease-out;transition:transform .18s ease-out}');
 
 
 
@@ -5269,6 +5278,7 @@ css.push('body.lumen-motion-full .lumen-main .card__title,body.lumen-motion-full
 
 var focusShiftCss = 'body.lumen-motion-full .lumen-main .card.focus .card__title,body.lumen-motion-full .lumen-main .card.focus .card__age{-webkit-transform:translateY(' + CARD_FOCUS_SHIFT + 'em);transform:translateY(' + CARD_FOCUS_SHIFT + 'em)}';
 css.push(rowCapShort ? '@media screen and (min-aspect-ratio:' + heroMinRatio + '/100){' + focusShiftCss + '}' : focusShiftCss);
+
 
 
 
@@ -13381,10 +13391,27 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 
+
+
 LC.hero = (function () {
 
 
 var DELAY = 350;
+
+
+
+
+
+
+
+
+
+
+
+
+
+var BURST_GAP = 700;
+var BURST_DELAY = 700;
 
 
 
@@ -15327,13 +15354,25 @@ warn('hero: slides interval failed', e);
 
 
 
+
+
+
+
+
+
+
+
 function applyLogoBox() {
 if (!state || !state.model) return;
 var model = state.model;
 var box = model.logo ? logoBox(model.logoRatio) : null;
+var w = box ? box.w + 'em' : '';
+var h = box ? box.h + 'em' : '';
+if (state.logoBox === w + ' ' + h) return;
+state.logoBox = w + ' ' + h;
 var logo = state.node.find('.lumen-hero__logo');
-logo.css('width', box ? box.w + 'em' : '');
-logo.css('height', box ? box.h + 'em' : '');
+logo.css('width', w);
+logo.css('height', h);
 }
 
 
@@ -16121,7 +16160,12 @@ return;
 }
 }
 }
-step();
+
+
+
+
+
+if (!focusAway()) step();
 if (decided || !state || gen !== captured) return;
 state.lookTimer = setTimeout(function () {
 if (!state || gen !== captured) return;
@@ -16170,6 +16214,7 @@ if (LC.prefetch && typeof LC.prefetch[name] === 'function') LC.prefetch[name](ar
 warn('hero: prefetch ' + name + ' failed', e);
 }
 }
+
 
 
 
@@ -16415,6 +16460,29 @@ warn('hero: accent failed', e);
 }, ACCENT_DELAY);
 }
 
+
+
+
+
+
+
+
+
+function markBurst(on) {
+if (!state) return;
+stopTimer('burstTimer');
+if (on) {
+state.burstTimer = setTimeout(function () {
+if (!state) return;
+state.burstTimer = null;
+markBurst(false);
+}, BURST_GAP);
+}
+if (state.burst === on) return;
+state.burst = on;
+try { state.root.toggleClass('lumen-burst', on); } catch (e) {}
+}
+
 function onFocus(el) {
 if (!state) return;
 var card = el.card_data;
@@ -16438,7 +16506,14 @@ prefetch('around', el);
 
 updateCompact(el);
 
-state.focusAt = Date.now();
+
+
+
+var now = Date.now();
+var burst = !!state.focusAt && now - state.focusAt < BURST_GAP;
+var wait = burst ? BURST_DELAY : DELAY;
+state.focusAt = now;
+markBurst(burst);
 state.pending = card;
 stopTimer('timer');
 
@@ -16508,9 +16583,9 @@ if (gen !== captured || !state) return;
 state.timer = null;
 if (!isMounted()) return;
 if (state.pending !== card) return;
-if (!shouldUpdate(state.shownId, card.id, Date.now() - state.focusAt, DELAY)) return;
+if (!shouldUpdate(state.shownId, card.id, Date.now() - state.focusAt, wait)) return;
 show(card);
-}, DELAY);
+}, wait);
 }
 
 
@@ -16806,6 +16881,9 @@ titleForced: false,
 logoWhite: null,
 
 
+logoBox: null,
+
+
 detailsWait: false,
 shownId: null,
 shownCard: null,
@@ -16832,6 +16910,10 @@ slideLook: null,
 frameId: null,
 holdTimer: null,
 holdDue: false,
+
+
+burst: false,
+burstTimer: null,
 
 
 lqipUrl: '',
@@ -16935,7 +17017,7 @@ if (LC.accent && typeof LC.accent.stopTween === 'function') LC.accent.stopTween(
 } catch (eTween) {
 warn('hero: accent stop failed', eTween);
 }
-var timers = ['timer', 'swapTimer', 'loadTimer', 'accentTimer', 'trailerTimer', 'lqipTimer', 'titleTimer', 'frameWait', 'lookTimer', 'holdTimer'];
+var timers = ['timer', 'swapTimer', 'loadTimer', 'accentTimer', 'trailerTimer', 'lqipTimer', 'titleTimer', 'frameWait', 'lookTimer', 'holdTimer', 'burstTimer'];
 for (var i = 0; i < timers.length; i++) {
 try { if (s[timers[i]]) clearTimeout(s[timers[i]]); } catch (eT) {}
 }
@@ -16962,7 +17044,8 @@ try { s.node.remove(); } catch (eR) {}
 try { s.stage.remove(); } catch (eS) {}
 
 
-try { s.root.removeClass(s.hostClass).removeClass('lumen-rows-up'); } catch (eC) {}
+
+try { s.root.removeClass(s.hostClass).removeClass('lumen-rows-up').removeClass('lumen-burst'); } catch (eC) {}
 }
 
 
@@ -17054,6 +17137,9 @@ state.stale = true;
 state.parked = true;
 cancelTrailer();
 stopTimer('timer');
+
+
+markBurst(false);
 
 
 
@@ -24064,8 +24150,11 @@ var task = null;
 
 
 
+
+
+
 var TWEEN_MS = 1600;
-var TWEEN_STEP_MS = 200;
+var TWEEN_STEP_MS = 400;
 var tween = null;
 
 
@@ -31117,6 +31206,11 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 
+
+
+
+
+
 LC.bench = (function () {
 
 
@@ -31138,11 +31232,16 @@ var UP_TRIES = 6;
 
 
 
+
+
 var FONT_PX = 15;
 var CHAR_EM = 0.6;
+var LINE_EM = 1.45;
 var PAD_PX = 24;
 var SCREEN_W = 960;
+var SCREEN_H = 540;
 var MAX_COLS = Math.floor((SCREEN_W - 2 * PAD_PX) / (FONT_PX * CHAR_EM));
+var MAX_LINES = Math.floor((SCREEN_H - 2 * PAD_PX) / (FONT_PX * LINE_EM));
 
 
 
@@ -31248,6 +31347,32 @@ for (var i = 0; i < COLS.length; i++) out += pad(cells[i], COLS[i][1], COLS[i][2
 return out.replace(/\s+$/, '');
 }
 
+
+
+var COLS2 = [['#', 2], ['max', 5], ['blk', 5], ['js', 5], ['r+ev', 5], ['st+l', 5], ['frc', 5], ['other', 6]];
+
+
+var SCRIPT_W = MAX_COLS;
+for (var c2 = 0; c2 < COLS2.length; c2++) SCRIPT_W -= COLS2[c2][1] + 1;
+
+var SCRIPT_MAX = 120;
+
+function line2(cells) {
+var out = '';
+for (var i = 0; i < cells.length; i++) {
+var last = i === cells.length - 1;
+out += (i < COLS2.length ? pad(cells[i], COLS2[i][1]) : pad(cells[i], SCRIPT_W, true)) + (last ? '' : ' ');
+}
+return out.replace(/\s+$/, '');
+}
+
+function topLine(row) {
+var tp = row.top;
+if (!tp) return line2(['' + row.n, '-']);
+return line2(['' + row.n, Math.round(tp.ms), Math.round(tp.block), Math.round(tp.js), Math.round(tp.rev),
+Math.round(tp.sl), Math.round(tp.forced), Math.round(tp.other), tp.script || '-']);
+}
+
 function rowLine(row) {
 return line([
 '' + row.n, row.id + (row.partial ? '*' : ''),
@@ -31272,26 +31397,36 @@ return fallback;
 
 
 
+
+
+
+
 function table(result) {
 var out = [];
 out.push(cut('cr ' + result.cr + ' · hw ' + result.hw + ' · ' + result.w + '×' + result.h + '@' + result.dpr +
 ' · P ' + fixed(result.P || 0) + ' · ' + result.time + ' · v' + result.version, MAX_COLS));
-out.push('');
 out.push(line(COLS.map(function (c) { return c[0]; })));
 var worst = null;
+var loaf = false;
 for (var i = 0; i < result.rows.length; i++) {
 var row = result.rows[i];
 out.push(rowLine(row));
 if (row.worst && (!worst || row.worst.ms > worst.ms)) worst = { ms: row.worst.ms, host: row.worst.host, n: row.n, id: row.id };
+if (row.loafN !== null && typeof row.loafN !== 'undefined') loaf = true;
 }
 out.push('');
+if (loaf) {
+out.push(line2(['#', 'max', 'blk', 'js', 'r+ev', 'st+l', 'frc', 'other', 'script']));
+for (var j = 0; j < result.rows.length; j++) out.push(topLine(result.rows[j]));
+}
 if (worst) {
 out.push(cut('loaf max: #' + worst.n + ' ' + worst.id + ' · ' + Math.round(worst.ms) + ' ms · ' + (worst.host || 'n/a'), MAX_COLS));
 }
+var back = lang('lumen_bench_back', 'Back — close');
 if (result.reason && result.reason !== 'done') {
-out.push(cut(lang('lumen_bench_stopped', 'stopped') + ': ' + result.reason + ' · ' + result.stoppedAt + '/' + STAGES.length, MAX_COLS));
+back = lang('lumen_bench_stopped', 'stopped') + ': ' + result.reason + ' · ' + result.stoppedAt + '/' + STAGES.length + ' · ' + back;
 }
-out.push(cut(lang('lumen_bench_back', 'Back — close'), MAX_COLS));
+out.push(cut(back, MAX_COLS));
 return out;
 }
 
@@ -31416,6 +31551,49 @@ return cut((hostOf(best.sourceURL) || 'inline') + (best.invoker ? ' ' + best.inv
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+function partsOf(e) {
+var start = Number(e.startTime) || 0;
+var dur = Number(e.duration) || 0;
+var rs = Number(e.renderStart) || 0;
+var sls = Number(e.styleAndLayoutStart) || 0;
+var list = e.scripts || [];
+var js = 0;
+var forced = 0;
+var top = null;
+for (var i = 0; i < list.length; i++) {
+var d = Number(list[i].duration) || 0;
+forced += Number(list[i].forcedStyleAndLayoutDuration) || 0;
+if (!rs || Number(list[i].startTime) < rs) js += d;
+if (!top || d > Number(top.duration)) top = list[i];
+}
+var task = rs > 0 ? rs - start : dur;
+var other = task - js;
+var pos = top && Number(top.sourceCharPosition) >= 0 ? '' + top.sourceCharPosition : '';
+return {
+ms: dur, block: Number(e.blockingDuration) || 0, js: js, forced: forced,
+rev: rs > 0 && sls > 0 ? sls - rs : 0,
+sl: sls > 0 ? start + dur - sls : 0,
+other: other > 0 ? other : 0,
+script: top ? cut((hostOf(top.sourceURL) || 'inline') + ' ' + (top.sourceFunctionName || '') + '@' + pos +
+(top.invoker ? ' ' + top.invoker : ''), SCRIPT_MAX) : ''
+};
+}
+
+
+
+
+
 var run = null;
 var pending = 0;
 var last = null;
@@ -31465,6 +31643,9 @@ r.loaf.ms += ms;
 
 
 if (ms > 0 && (!r.loaf.worst || ms > r.loaf.worst.ms)) r.loaf.worst = { ms: ms, host: scriptOf(e) };
+
+
+if (!r.loaf.top || (Number(e.duration) || 0) > r.loaf.top.ms) r.loaf.top = partsOf(e);
 }
 }
 
@@ -31541,7 +31722,7 @@ var st = STAGES[r.step];
 r.phase = 'warm';
 r.deltas = [];
 r.lats = [];
-r.loaf = { n: 0, ms: 0, worst: null };
+r.loaf = { n: 0, ms: 0, worst: null, top: null };
 r.anim = -1;
 r.fx0 = null;
 r.measureFrom = -1;
@@ -31607,7 +31788,7 @@ var s = summarize(r.deltas, r.lats, r.P || period(r.deltas));
 return {
 n: r.step + 1, id: st.id, partial: !!partial, frames: s.frames, fps: s.fps, p50: s.p50, p95: s.p95,
 miss1: s.miss1, miss2: s.miss2, lat95: s.lat95,
-loafN: r.obs ? r.loaf.n : null, loafMs: r.obs ? r.loaf.ms : 0, worst: r.loaf.worst,
+loafN: r.obs ? r.loaf.n : null, loafMs: r.obs ? r.loaf.ms : 0, worst: r.loaf.worst, top: r.loaf.top,
 anim: r.anim, fxMs: fxAvg(r.fx0, fxStats())
 };
 }
@@ -31683,7 +31864,7 @@ close();
 var node = document.createElement('div');
 node.className = 'lumen-bench';
 node.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;z-index:10001;margin:0;padding:' + PAD_PX + 'px;' +
-'box-sizing:border-box;background:#0B0908;color:#EDE6DA;font:' + FONT_PX + 'px/1.45 monospace;' +
+'box-sizing:border-box;background:#0B0908;color:#EDE6DA;font:' + FONT_PX + 'px/' + LINE_EM + ' monospace;' +
 'white-space:pre;overflow:hidden';
 node.textContent = table(result).join('\n');
 node.onclick = close;
@@ -31728,7 +31909,7 @@ return;
 }
 var r = {
 step: -1, rows: [], P: 0, timers: [], raf: 0, phase: 'idle', prevT: 0, deltas: [], lats: [],
-loaf: { n: 0, ms: 0, worst: null }, anim: -1, fx0: null, measureFrom: -1, obs: null,
+loaf: { n: 0, ms: 0, worst: null, top: null }, anim: -1, fx0: null, measureFrom: -1, obs: null,
 startEl: heroFocused(), tintSaved: null, tag: null
 };
 run = r;
@@ -31767,8 +31948,8 @@ launch();
 }
 
 var api = {
-STAGES: STAGES, MAX_COLS: MAX_COLS, FONT_PX: FONT_PX, CHAR_EM: CHAR_EM, PAD_PX: PAD_PX,
-overridesFor: overridesFor, summarize: summarize, period: period, table: table,
+STAGES: STAGES, MAX_COLS: MAX_COLS, MAX_LINES: MAX_LINES, FONT_PX: FONT_PX, CHAR_EM: CHAR_EM, LINE_EM: LINE_EM, PAD_PX: PAD_PX,
+overridesFor: overridesFor, summarize: summarize, period: period, table: table, partsOf: partsOf,
 start: start,
 
 stop: function () { finish('stop'); },
