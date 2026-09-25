@@ -656,6 +656,27 @@
       lastNavTo = -1;
     }
 
+    /* Полное ревью, C1: пульт сейчас у экрана activity — он вершина
+       истории, и контроллер — 'content'. Сверка для всех ОТЛОЖЕННЫХ
+       recollect (каталог хаба, страница сетки): открыли карточку (сетке
+       зовётся pause(), stop() — только под следующим экраном), ушли в меню
+       или шапку (смена контроллера, pause() не зовётся), нажали «Назад»
+       (destroy — через 200 мс) — и пришедший ответ ставил Navigator
+       коллекцию скрытого экрана: на стенде коллекция из 75 узлов сетки при
+       контроллере full_start, OK открывал другой фильм. Не наш пульт —
+       коллекцию не трогаем: её поставит toggle('content') на возврате. */
+    function ownsRemote(activity) {
+      try {
+        var act = Lampa.Activity.active();
+        if (act && act.activity && act.activity !== activity) return false;
+      } catch (eAct) { }
+      try {
+        var ctl = typeof Lampa.Controller.enabled === 'function' ? Lampa.Controller.enabled() : null;
+        if (ctl && ctl.name !== 'content') return false;
+      } catch (eCtl) { }
+      return true;
+    }
+
     /* Последний узел списка, верх которого выше нижней кромки экрана, или
        -1. Карточки сетки идут рядами сверху вниз в порядке списка, поэтому
        хватает бинарного поиска — getBoundingClientRect у ~7 узлов из сотни,
@@ -1173,8 +1194,8 @@
         try { self.activity.loader(false); } catch (e) {}
         /* Активность могла уже стартовать (манифест грузится асинхронно,
            только если задан внешний URL) — тогда коллекцию надо пересобрать
-           здесь: в start() плиток ещё не было. */
-        if (started) recollect(null);
+           здесь: в start() плиток ещё не было. C1: только если пульт у нас. */
+        if (started && ownsRemote(self.activity)) recollect(null);
         /* Task 40: замер первого кадра ХАБА — самого тяжёлого экрана
            плагина: чипы групп плюс плитки с кадрами подборок. Точка
            последняя в build() намеренно: замер обязан включать всю нашу
@@ -1233,7 +1254,13 @@
         }
       };
 
-      this.pause = function () {};
+      /* C1: уход на один уровень (карточка, рулетка поверх) — pause(), а
+         stop() придёт, только когда сверху ляжет ещё экран. Экран с этого
+         момента не наш: отложенные ответы коллекцию не ставят, её вернёт
+         start(). */
+      this.pause = function () {
+        started = false;
+      };
 
       /* Lampa зовёт stop() при уходе вглубь и тут же снимает слайд из DOM
          (ActivitySlide.stop: component.stop() + slide.remove()), а destroy()
@@ -1676,7 +1703,7 @@
         appendCards(sortLocal(raw, sortMode));
         loadPosters(POSTER_AHEAD);
         renderSub();
-        if (started) recollect(null);
+        if (started && ownsRemote(self.activity)) recollect(null);
       }
 
       /* Одна страница подборки. reset — начать список заново (первая
@@ -1720,8 +1747,10 @@
           loadInView();
           renderSub();
           /* Мышь в подборках: страница, догруженная колесом или под
-             наведённой карточкой, экран не двигает (recollect, still). */
-          if (started) recollect(null, byMouse);
+             наведённой карточкой, экран не двигает (recollect, still).
+             C1: пульт не у нас (карточка, меню, «Назад») — коллекцию не
+             трогаем; lastCardId уже помнит карточку для toggle. */
+          if (started && ownsRemote(self.activity)) recollect(null, byMouse);
         }
 
         var handle = LC.sources['fetch'](request, nextPage, function (json) {
@@ -1747,7 +1776,7 @@
           try { self.activity.loader(false); } catch (e3) {}
           if (!cardNodes.length) showEmpty(err && err.nokey ? 'nokey' : '');
           renderSub();
-          if (started) recollect(null, byMouse);
+          if (started && ownsRemote(self.activity)) recollect(null, byMouse);
         }, alive(captured));
         if (handle) handles.push(handle);
       }
@@ -1860,7 +1889,12 @@
         }
       };
 
-      this.pause = function () {};
+      /* C1: открыли карточку — pause(), а stop() только под следующим
+         экраном (limit(), app.min.js:45771-45775). Незавершённая страница
+         дорисуется, но коллекцию Navigator не тронет. */
+      this.pause = function () {
+        started = false;
+      };
 
       /* Уход вглубь: Lampa снимает слайд из DOM (ActivitySlide.stop), но
          компонент жив и вернётся по start(). Незавершённую страницу гасим —

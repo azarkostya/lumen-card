@@ -12193,6 +12193,27 @@ lastNavTo = -1;
 
 
 
+
+
+
+
+
+function ownsRemote(activity) {
+try {
+var act = Lampa.Activity.active();
+if (act && act.activity && act.activity !== activity) return false;
+} catch (eAct) { }
+try {
+var ctl = typeof Lampa.Controller.enabled === 'function' ? Lampa.Controller.enabled() : null;
+if (ctl && ctl.name !== 'content') return false;
+} catch (eCtl) { }
+return true;
+}
+
+
+
+
+
 function lastInView(nodes) {
 var bottom = window.innerHeight || 0;
 var lo = 0;
@@ -12707,7 +12728,7 @@ try { self.activity.loader(false); } catch (e) {}
 
 
 
-if (started) recollect(null);
+if (started && ownsRemote(self.activity)) recollect(null);
 
 
 
@@ -12766,7 +12787,13 @@ loadInView();
 }
 };
 
-this.pause = function () {};
+
+
+
+
+this.pause = function () {
+started = false;
+};
 
 
 
@@ -13209,7 +13236,7 @@ emptyNodes = [];
 appendCards(sortLocal(raw, sortMode));
 loadPosters(POSTER_AHEAD);
 renderSub();
-if (started) recollect(null);
+if (started && ownsRemote(self.activity)) recollect(null);
 }
 
 
@@ -13254,7 +13281,9 @@ loadInView();
 renderSub();
 
 
-if (started) recollect(null, byMouse);
+
+
+if (started && ownsRemote(self.activity)) recollect(null, byMouse);
 }
 
 var handle = LC.sources['fetch'](request, nextPage, function (json) {
@@ -13280,7 +13309,7 @@ pending = null;
 try { self.activity.loader(false); } catch (e3) {}
 if (!cardNodes.length) showEmpty(err && err.nokey ? 'nokey' : '');
 renderSub();
-if (started) recollect(null, byMouse);
+if (started && ownsRemote(self.activity)) recollect(null, byMouse);
 }, alive(captured));
 if (handle) handles.push(handle);
 }
@@ -13393,7 +13422,12 @@ loadPage(again.page, again.reset);
 }
 };
 
-this.pause = function () {};
+
+
+
+this.pause = function () {
+started = false;
+};
 
 
 
@@ -24460,11 +24494,34 @@ return false;
 }
 
 function refreshCollection() {
-if (!started || kadr) return;
-var ctl = null;
-try { ctl = typeof Lampa.Controller.enabled === 'function' ? Lampa.Controller.enabled() : null; } catch (e) { }
-if (ctl && ctl.name !== 'content') return;
-recollect(null);
+if (kadr) return;
+if (ownsRemote()) recollect(null);
+}
+
+
+
+
+
+
+
+function ownsRemote() {
+if (!started) return false;
+try {
+var act = Lampa.Activity.active();
+if (act && act.activity && act.activity !== self.activity) return false;
+} catch (eAct) { }
+try {
+var ctl = typeof Lampa.Controller.enabled === 'function' ? Lampa.Controller.enabled() : null;
+if (ctl && ctl.name !== 'content') return false;
+} catch (eCtl) { }
+return true;
+}
+
+
+
+function recollectOwn(prefer) {
+if (ownsRemote()) { recollect(prefer); return; }
+if (prefer) lastFocus = prefer;
 }
 
 function paintPreview() {
@@ -24601,7 +24658,8 @@ screen.addClass('is-kadr');
 
 
 
-recollect(null);
+
+recollectOwn(null);
 }
 
 function leaveKadr() {
@@ -24703,7 +24761,7 @@ function showEmpty() {
 resultBox.empty();
 resultBox.addClass('is-live');
 resultBox.append($('<div class="lumen-roulette__empty">' + esc(LC.lang('lumen_roulette_empty')) + '</div>'));
-recollect(spinBtn[0]);
+recollectOwn(spinBtn[0]);
 }
 
 function actionNode(key, handler) {
@@ -24800,7 +24858,7 @@ actions.append(actionNode('lumen_roulette_watch', function () { openCard(card); 
 actions.append(actionNode('lumen_roulette_again', function () { spin(); }));
 actions.append(actionNode('lumen_roulette_book', function () { book(card); }));
 resultBox.append(actions);
-recollect(actions.find('.lumen-roulette__btn')[0]);
+recollectOwn(actions.find('.lumen-roulette__btn')[0]);
 }
 
 

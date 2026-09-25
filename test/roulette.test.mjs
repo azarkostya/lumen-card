@@ -1236,6 +1236,9 @@ test('Task 44: destroy снимает удержанный слой перехо
    ручным планировщиком; на исход этого теста длина плана не влияет. */
 test('Ревью Task 44: кадр долетел позже результата — коллекция сужается до карточки', (t) => {
   const env = openRoulette34([R44], t, 1, 'lite');
+  /* C1: результат ставит коллекцию, только когда пульт у рулетки — экран
+     запущен (start() -> toggle('content')), как это и бывает живьём. */
+  env.comp.start();
   env.transition.on = true;
   spinAndFlush(env);
   assert.equal(env.transition.reveals.length, 0, 'в «Лёгких» кадр к остановке барабана прийти не успевает');
@@ -1252,6 +1255,9 @@ test('Ревью Task 44: кадр долетел позже результат�
    воспроизводится, но область обхода обязана быть сужена и там. */
 test('Ревью Task 44: обычный путь через переход тоже оставляет обход на карточке', (t) => {
   const env = openRoulette34([R44], t);
+  /* C1: результат ставит коллекцию, только когда пульт у рулетки — экран
+     запущен (start() -> toggle('content')), как это и бывает живьём. */
+  env.comp.start();
   env.transition.on = true;
   fire(env.root.find('.lumen-roulette__spin'), 'hover:enter');
   createdImages[0].onload();
@@ -1265,6 +1271,9 @@ test('Ревью Task 44: обычный путь через переход то
    СРАЗУ, а не через три секунды барабана. */
 test('Ревью Task 44: «Ещё раз» сразу возвращает обход на спокойный экран', (t) => {
   const env = openRoulette34([R44], t);
+  /* C1: результат ставит коллекцию, только когда пульт у рулетки — экран
+     запущен (start() -> toggle('content')), как это и бывает живьём. */
+  env.comp.start();
   env.transition.on = true;
   fire(env.root.find('.lumen-roulette__spin'), 'hover:enter');
   createdImages[0].onload();
@@ -1338,6 +1347,9 @@ function drainDelays() {
 
 test('Task 72: в «Лёгких» результат приходит после восьми шагов барабана, а не сразу', (t) => {
   const env = openRoulette34([R44], t, 1, 'lite');
+  /* C1: результат ставит коллекцию, только когда пульт у рулетки — экран
+     запущен (start() -> toggle('content')), как это и бывает живьём. */
+  env.comp.start();
   fire(env.root.find('.lumen-roulette__spin'), 'hover:enter');
   /* Пул отдаётся заглушкой синхронно, и до Task 72 результат был бы уже на
      экране: в «Лёгких» runReel показывал его сразу за prepareFrame. */
@@ -2069,4 +2081,60 @@ test('вид «как Apple TV»: «вниз» с карточки полки ф
   env.chips()[0].addClass('focus');
   env.controller().down();
   assert.equal(env.lastFocus().node, env.root.find('.lumen-roulette__spin')[0], 'с подборок — на «Крутить»');
+});
+
+/* Полное ревью, C1 (сценарий C): «Крутить», ← в меню во время вращения —
+   после результата меню было «мёртвым»: paintResult/enterKadr/showEmpty
+   ставили коллекцию Navigator без сверки, чей сейчас пульт. Сверка общая:
+   активность — наша и контроллер — 'content'; иначе запоминается только
+   узел фокуса, а коллекцию вернёт toggle('content'). */
+function menuStub34() {
+  const menuNode = new El(['menu']);
+  globalThis.Lampa.Controller.add('menu', {
+    toggle: function () {
+      globalThis.Lampa.Controller.collectionSet(menuNode);
+      globalThis.Lampa.Controller.collectionFocus(false, menuNode);
+    }
+  });
+  return menuNode;
+}
+
+test('C1: результат, пришедший при открытом меню, коллекцию у меню не забирает', (t) => {
+  const env = openRoulette34([R44], t, 1, 'full', { media: 'movie' });
+  const menuNode = menuStub34();
+  env.comp.start();
+  fire(env.root.find('.lumen-roulette__spin'), 'hover:enter');
+  env.controller().left();
+  assert.equal(env.lastCollection(), menuNode, 'предпосылка: меню взяло коллекцию');
+  flushTimers();
+  assert.ok(env.screen.find('.lumen-roulette__actions').length, 'результат нарисован');
+  assert.equal(env.lastCollection(), menuNode, 'результат забрал коллекцию Navigator у меню');
+  if (createdImages.length) createdImages[createdImages.length - 1].onload();
+  assert.equal(env.lastCollection(), menuNode, 'кадр результата (enterKadr) забрал коллекцию у меню');
+  globalThis.Lampa.Controller.toggle('content');
+  assert.equal(env.lastFocus().node, env.screen.find('.lumen-roulette__btn')[0], 'после меню фокус не на «Смотреть»');
+});
+
+test('C1: «под фильтры ничего не подошло» при открытом меню коллекцию не забирает', (t) => {
+  const env = openRoulette34([], t, 1, 'full', { media: 'movie' }, { pool: true });
+  const menuNode = menuStub34();
+  env.comp.start();
+  fire(env.root.find('.lumen-roulette__spin'), 'hover:enter');
+  env.controller().left();
+  releaseHeld(heldPool34);
+  flushTimers();
+  assert.ok(env.screen.find('.lumen-roulette__empty').length, 'предпосылка: пустой результат нарисован');
+  assert.equal(env.lastCollection(), menuNode, 'пустой результат забрал коллекцию у меню');
+  globalThis.Lampa.Controller.toggle('content');
+  assert.equal(env.lastCollection(), env.root[0]);
+});
+
+test('C1: результат после «Назад» (активность уже другая) коллекцию не забирает', (t) => {
+  const env = openRoulette34([R44], t, 1, 'full', { media: 'movie' });
+  env.comp.start();
+  fire(env.root.find('.lumen-roulette__spin'), 'hover:enter');
+  const before = collected.length;
+  activeAct34 = { component: 'main', activity: {} };
+  flushTimers();
+  assert.equal(collected.length, before, 'результат поставил коллекцию под чужим экраном');
 });

@@ -2381,3 +2381,80 @@ test('возврат в хаб (toggle) выставляет коллекцию 
   assert.equal(s.env.log.collections.length, before + 1, 'toggle не выставил коллекцию заново');
   assert.ok(s.env.log.collections[before].length > 0);
 });
+
+/* ---------------------------------------------------------------------- */
+/* Полное ревью, C1: страница, пришедшая по сети, отбирала пульт у экрана   */
+/* поверх. Карточку Lampa открывает push-ем: сетке зовётся pause(), а stop()  */
+/* — только когда сверху ляжет ещё один экран (limit(), app.min.js:45771),   */
+/* так что started оставался true, и пришедшая страница ставила Navigator    */
+/* коллекцию из 75 узлов скрытой сетки при контроллере full_start: OK        */
+/* открывал другой фильм. То же с меню (← сразу после входа) и с «Назад».   */
+/* Сторож один: активность — наша и контроллер — 'content'; pause() гасит    */
+/* started. Коллекцию на возврате ставит toggle('content').                 */
+/* ---------------------------------------------------------------------- */
+
+test('C1: страница сетки, пришедшая после pause() (открыта карточка), коллекцию не трогает', function () {
+  var g = openGrid(DISCOVER);
+  g.comp.start();
+  g.env.log.controllers.content.toggle();
+  g.h.fetchCalls[0].ok({ results: results(12), page: 1, total_pages: 3, total_results: 60 });
+  var ctrl = g.env.log.controllers.content;
+  ctrl.down();
+  ctrl.down();
+  assert.equal(g.h.fetchCalls.length, 2, 'предпосылка: пошла вторая страница');
+  g.comp.pause();
+  g.env.Lampa.Controller.enabled = function () { return { name: 'full_start' }; };
+  var cols = g.env.log.collections.length;
+  var focuses = g.env.log.focuses.length;
+  g.h.fetchCalls[1].ok({ results: results(12, 100), page: 2, total_pages: 3, total_results: 60 });
+  assert.equal(g.env.log.collections.length, cols, 'страница под карточкой поставила Navigator коллекцию сетки');
+  assert.equal(g.env.log.focuses.length, focuses, 'страница под карточкой сдвинула фокус');
+  assert.equal(g.root.all('lumen-gcard').length, 24, 'страница при этом дорисована');
+});
+
+test('C1: страница сетки, пришедшая при открытом меню, коллекцию у меню не забирает; toggle возвращает её', function () {
+  var g = openGrid(DISCOVER);
+  g.comp.start();
+  g.env.log.controllers.content.toggle();
+  g.env.Lampa.Controller.enabled = function () { return { name: 'menu' }; };
+  var cols = g.env.log.collections.length;
+  var focuses = g.env.log.focuses.length;
+  g.h.fetchCalls[0].ok({ results: results(12), page: 1, total_pages: 3, total_results: 60 });
+  assert.equal(g.env.log.collections.length, cols, 'страница забрала коллекцию у меню');
+  assert.equal(g.env.log.focuses.length, focuses);
+  g.env.Lampa.Controller.enabled = function () { return { name: 'content' }; };
+  g.env.log.controllers.content.toggle();
+  assert.ok(g.env.log.collections.length > cols, 'toggle вернул коллекцию экрану');
+});
+
+test('C1: ошибка страницы при чужой активности (после «Назад») коллекцию не трогает', function () {
+  var g = openGrid(DISCOVER);
+  g.comp.start();
+  /* backward(): вершина истории — уже прошлый экран, а pause() сетке не
+     зовётся (destroy — через 200 мс). */
+  g.env.Lampa.Activity.active = function () { return { activity: { other: true } }; };
+  var cols = g.env.log.collections.length;
+  g.h.fetchCalls[0].err({});
+  assert.equal(g.env.log.collections.length, cols);
+});
+
+test('C1: каталог хаба, пришедший при открытом меню или после pause(), коллекцию не трогает', function () {
+  [function (env, comp) { env.Lampa.Controller.enabled = function () { return { name: 'menu' }; }; },
+   function (env, comp) { comp.pause(); }].forEach(function (away, n) {
+    var env = setupLampa({ cols: 2 });
+    var h = loadHub({ cols: 2 });
+    var held = null;
+    h.LC.manifest.load = function (cb) { held = cb; };
+    h.api.install();
+    var comp = makeComponent('lumen_hub', {}, env);
+    comp.create();
+    comp.start();
+    away(env, comp);
+    var cols = env.log.collections.length;
+    var focuses = env.log.focuses.length;
+    held(MANIFEST);
+    assert.ok(env.log.scrolls[0].body()._children[0].all('lumen-tile').length > 0, 'хаб построен (' + n + ')');
+    assert.equal(env.log.collections.length, cols, 'каталог забрал коллекцию (' + n + ')');
+    assert.equal(env.log.focuses.length, focuses, 'каталог сдвинул фокус (' + n + ')');
+  });
+});

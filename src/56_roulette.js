@@ -1217,11 +1217,34 @@
       }
 
       function refreshCollection() {
-        if (!started || kadr) return;
-        var ctl = null;
-        try { ctl = typeof Lampa.Controller.enabled === 'function' ? Lampa.Controller.enabled() : null; } catch (e) { }
-        if (ctl && ctl.name !== 'content') return;
-        recollect(null);
+        if (kadr) return;
+        if (ownsRemote()) recollect(null);
+      }
+
+      /* Полное ревью, C1: пульт сейчас у нашего экрана — рулетка активна
+         (started, вершина истории — она) и контроллер — её 'content'. Та же
+         сверка, что в build(). Нужна всем отложенным recollect — результату
+         барабана, кадру, пустому результату, полке: «Крутить», ← в меню во
+         время вращения — и результат забирал коллекцию Navigator у меню,
+         меню было «мёртвым». */
+      function ownsRemote() {
+        if (!started) return false;
+        try {
+          var act = Lampa.Activity.active();
+          if (act && act.activity && act.activity !== self.activity) return false;
+        } catch (eAct) { }
+        try {
+          var ctl = typeof Lampa.Controller.enabled === 'function' ? Lampa.Controller.enabled() : null;
+          if (ctl && ctl.name !== 'content') return false;
+        } catch (eCtl) { }
+        return true;
+      }
+
+      /* Отложенный recollect: пульт не у нас — только запоминаем узел, и
+         его вернёт toggle('content') (focusTarget). */
+      function recollectOwn(prefer) {
+        if (ownsRemote()) { recollect(prefer); return; }
+        if (prefer) lastFocus = prefer;
       }
 
       function paintPreview() {
@@ -1357,8 +1380,9 @@
            На обычном пути коллекция ставится дважды подряд — сперва из
            paintResult, потом отсюда. Это осознанно: развилка «звать или не
            звать» обошлась бы дороже одного лишнего collectionSet на нажатие
-           пульта. */
-        recollect(null);
+           пульта.
+           C1: пульт не у нас (меню, шапка) — коллекцию вернёт toggle. */
+        recollectOwn(null);
       }
 
       function leaveKadr() {
@@ -1460,7 +1484,7 @@
         resultBox.empty();
         resultBox.addClass('is-live');
         resultBox.append($('<div class="lumen-roulette__empty">' + esc(LC.lang('lumen_roulette_empty')) + '</div>'));
-        recollect(spinBtn[0]);
+        recollectOwn(spinBtn[0]);
       }
 
       function actionNode(key, handler) {
@@ -1557,7 +1581,7 @@
         actions.append(actionNode('lumen_roulette_again', function () { spin(); }));
         actions.append(actionNode('lumen_roulette_book', function () { book(card); }));
         resultBox.append(actions);
-        recollect(actions.find('.lumen-roulette__btn')[0]);
+        recollectOwn(actions.find('.lumen-roulette__btn')[0]);
       }
 
       /* Task 44: результат открывается КАДРОМ. Прямоугольник барабана
