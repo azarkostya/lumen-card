@@ -1367,6 +1367,61 @@ test('lumen_grid: шаг фокуса догружает постеры след
   assert.ok(last.lumen_posted, 'после спуска постер дальней карточки запрошен');
 });
 
+/* Дефект 2026-09-25 (2560×1440, «Звёздные войны»): колесо мыши листает
+   сетку штатным Scroll.wheel (vendor/lampa/app.min.js:32117), наведение
+   мыши — подкруткой scroll.update, и ни то ни другое не двигает фокус
+   пульта: afterMove не зовётся, постеры оставались только у первых
+   POSTER_AHEAD + 1 карточек, ниже — заглушки img_load.svg. Прокрутку любого
+   происхождения Lampa завершает вызовом scroll.onScroll (scrollEnded,
+   app.min.js:31979-31980) — по нему сетка и обязана догружать видимое. */
+function layGrid(cards, view) {
+  /* 6 колонок, ряд 300 px, первый ряд с 200 px; view.shift — прокрутка. */
+  cards.forEach(function (c, i) {
+    c.getBoundingClientRect = function () {
+      var top = 200 + Math.floor(i / 6) * 300 - view.shift;
+      return { top: top, bottom: top + 280, height: 280 };
+    };
+  });
+  globalThis.window.innerHeight = 1080;
+}
+
+test('lumen_grid: прокрутка колесом без шага фокуса догружает постеры видимых карточек', function () {
+  var g = openGrid(DISCOVER);
+  g.h.fetchCalls[0].ok({ results: results(60), page: 1, total_pages: 3, total_results: 60 });
+  var cards = g.root.all('lumen-gcard');
+  var view = { shift: 0 };
+  layGrid(cards, view);
+  var scroll = g.env.log.scrolls[0];
+  assert.equal(typeof scroll.onScroll, 'function', 'сетка слушает окончание прокрутки');
+  view.shift = 900;          /* колесом на три ряда: видны ряды 2..5 */
+  scroll.onScroll(900);
+  for (var i = 12; i <= 35; i++) assert.ok(cards[i].lumen_posted, 'видимая карточка ' + i + ' без постера');
+  for (var k = 36; k <= 41; k++) assert.ok(cards[k].lumen_posted, 'ряд запаса ниже экрана: ' + k);
+  for (var j = 42; j < 60; j++) assert.ok(!cards[j].lumen_posted, 'дальняя карточка ' + j + ' грузиться не должна');
+});
+
+test('lumen_grid: onScroll сетки сохраняет штатный Layer.visible', function () {
+  var g = openGrid(DISCOVER);
+  g.h.fetchCalls[0].ok({ results: results(12), page: 1, total_pages: 1, total_results: 12 });
+  layGrid(g.root.all('lumen-gcard'), { shift: 0 });
+  var seen = [];
+  g.env.Lampa.Layer = { visible: function (where) { seen.push(where); } };
+  var scroll = g.env.log.scrolls[0];
+  scroll.onScroll(0);
+  assert.equal(seen.length, 1, 'onScroll подменяет штатный вызов Layer.visible — его зовём сами');
+  assert.equal(seen[0], scroll.render(true));
+});
+
+test('lumen_grid: onScroll снятой из документа сетки постеры не грузит', function () {
+  var g = openGrid(DISCOVER);
+  g.h.fetchCalls[0].ok({ results: results(60), page: 1, total_pages: 3, total_results: 60 });
+  var cards = g.root.all('lumen-gcard');
+  cards.forEach(function (c) { c.getBoundingClientRect = function () { return { top: 0, bottom: 0, height: 0 }; }; });
+  globalThis.window.innerHeight = 1080;
+  g.env.log.scrolls[0].onScroll(0);
+  assert.ok(!cards[59].lumen_posted, 'узлы без высоты — не в документе, видимых нет');
+});
+
 test('lumen_grid: метка закладки и полоса продолжения — как на штатной карточке (I6)', function () {
   var env = setupLampa({
     cols: 6,

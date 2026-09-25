@@ -11728,6 +11728,25 @@ lastNavFrom = -1;
 lastNavTo = -1;
 }
 
+
+
+
+
+function lastInView(nodes) {
+var bottom = window.innerHeight || 0;
+var lo = 0;
+var hi = nodes.length - 1;
+var found = -1;
+if (hi < 0 || typeof nodes[0].getBoundingClientRect !== 'function') return -1;
+if (!nodes[0].getBoundingClientRect().height) return -1;
+while (lo <= hi) {
+var mid = (lo + hi) >> 1;
+if (nodes[mid].getBoundingClientRect().top < bottom) { found = mid; lo = mid + 1; }
+else hi = mid - 1;
+}
+return found;
+}
+
 function screenController(recollect, afterMove, onUp) {
 return {
 toggle: function () {
@@ -12424,6 +12443,18 @@ img.src = url;
 
 
 
+
+
+function onScroll() {
+var last = lastInView(cardNodes);
+if (last >= 0) loadPosters(last + GRID_COLS);
+try { Lampa.Layer.visible(scroll.render(true)); } catch (e) {}
+}
+
+
+
+
+
 function afterMove() {
 
 
@@ -12755,6 +12786,7 @@ scroll.append(root);
 
 
 scroll.minus();
+scroll.onScroll = onScroll;
 loadPage(1, true);
 };
 

@@ -656,6 +656,25 @@
       lastNavTo = -1;
     }
 
+    /* Последний узел списка, верх которого выше нижней кромки экрана, или
+       -1. Карточки сетки идут рядами сверху вниз в порядке списка, поэтому
+       хватает бинарного поиска — getBoundingClientRect у ~7 узлов из сотни,
+       а не у всех. Узел без высоты — экран не в документе: видимых нет. */
+    function lastInView(nodes) {
+      var bottom = window.innerHeight || 0;
+      var lo = 0;
+      var hi = nodes.length - 1;
+      var found = -1;
+      if (hi < 0 || typeof nodes[0].getBoundingClientRect !== 'function') return -1;
+      if (!nodes[0].getBoundingClientRect().height) return -1;
+      while (lo <= hi) {
+        var mid = (lo + hi) >> 1;
+        if (nodes[mid].getBoundingClientRect().top < bottom) { found = mid; lo = mid + 1; }
+        else hi = mid - 1;
+      }
+      return found;
+    }
+
     function screenController(recollect, afterMove, onUp) {
       return {
         toggle: function () {
@@ -1348,6 +1367,18 @@
         img.src = url;
       }
 
+      /* Прокрутка не пультом — колесо мыши (Scroll.wheel, app.min.js:32117),
+         подкрутка под мышиный фокус, тач — фокус не двигает, и afterMove не
+         зовётся. Lampa завершает любую прокрутку вызовом onScroll
+         (scrollEnded, app.min.js:31979-31980): по нему постеры получают
+         видимые карточки и ряд запаса. onScroll заменяет штатный
+         Layer.visible — зовём его сами, как штатная limit (app.min.js:53162). */
+      function onScroll() {
+        var last = lastInView(cardNodes);
+        if (last >= 0) loadPosters(last + GRID_COLS);
+        try { Lampa.Layer.visible(scroll.render(true)); } catch (e) {}
+      }
+
       /* Догрузка следующей страницы и постеров — только от пульта: фокус
          ставится и программно (после каждой пришедшей страницы), и цепочка
          «страница пришла -> фокус -> догрузка» крутилась бы сама (живая
@@ -1683,6 +1714,7 @@
            без minus() контейнер прокрутки растянут по содержимому и сетка
            вообще не листается вниз. */
         scroll.minus();
+        scroll.onScroll = onScroll;
         loadPage(1, true);
       };
 
