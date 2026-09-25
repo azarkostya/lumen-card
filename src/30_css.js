@@ -23,6 +23,11 @@
     soft: '#DCD3C8',
     smoke: '#7A6A5A',
     good: '#8FBF7A',
+    /* Следующий раунд, п.3: «хороший» зелёный на светлой заливке фокуса
+       (P.text) — 1.82:1, его не видно. Тёмный вариант того же тона — good,
+       смешанный с фоном страницы 60/40: 4.37:1 на тёплой заливке, 4.54 на
+       «Глубокой чёрной». Нужен только полосе тона отзыва под фокусом. */
+    goodDeep: '#5A764C',
     dark: '#1A120A',
     /* Task 5a Step 4 (design-spec §0): «тёмная карточка» — фон и обводка,
        общие для чипов/кнопок/статуса на всех экранах дизайна. Сами заливки
@@ -144,6 +149,7 @@
     /* Не зависят от темы: «спайс» — чип реакций и негативный отзыв,
        «хороший» — точка статуса и отметка просмотренной серии. */
     p.good = C.good;
+    p.goodDeep = C.goodDeep;
     p.spice = C.spice;
     /* Правка пользователя 2026-09-17 (третий круг): «фон определялся от
        картинки». Фон темы получает оттенок постера текущего фильма ДО того,
@@ -2751,6 +2757,22 @@
     css.push('.lumen-descr-row .lumen-review.focus .lumen-review__author,.lumen-descr-row .lumen-review.focus .lumen-review__title{color:' + P.bg + '}');
     css.push('.lumen-descr-row .lumen-review.focus .lumen-review__text{color:rgba(' + P.bgRgb + ',.8)}');
     css.push('.lumen-descr-row .lumen-review.focus .lumen-review__meta,.lumen-descr-row .lumen-review.focus .lumen-review__spoiler{color:rgba(' + P.bgRgb + ',.7)}');
+    /* Следующий раунд, п.3 (ревью отзывов): полоса тона под той же
+       инверсией. На заливке P.text нейтральная P.muted давала 2.36:1
+       (тёплая) / 2.17 («Глубокая чёрная»), позитивная P.good — 1.82 / 1.90:
+       полоса пропадала ровно на карточке под пультом. Под фокусом у тона
+       тёмный вариант, порог — 3:1, как у значимой графики:
+       - нейтральный — фон страницы на .6, как приглушённые ступени текста
+         выше (в тоне подкраски): 5.04 / 5.54, и не ниже 3.28 на любом
+         фоне, который пропускает сторож подкраски (P.muted к фону ≥ 4.5:1,
+         palette(); перебор всех цветов с шагом 3);
+       - позитивный — P.goodDeep (разбор у C.goodDeep): 4.37 / 4.54;
+       - негативный — сам P.spice, он и на светлой заливке 3.15 / 3.27.
+         Правило ему всё равно нужно: нейтральное (четыре класса)
+         перебивает базовое --bad (три). */
+    css.push('.lumen-descr-row .lumen-review.focus .lumen-review__tone{background:rgba(' + P.bgRgb + ',.6)}');
+    css.push('.lumen-descr-row .lumen-review--good.focus .lumen-review__tone{background:' + P.goodDeep + '}');
+    css.push('.lumen-descr-row .lumen-review--bad.focus .lumen-review__tone{background:' + P.spice + '}');
     /* Правка 2026-09-23 (разбор композиции, п.4.4): плитка «добавить
        комментарий» перестаёт быть пунктирной. Узел штатный —
        .full-review-add рисует сама Lampa (vendor/lampa/css/app.css:4856-4867:

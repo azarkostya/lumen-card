@@ -1316,6 +1316,44 @@ test('жалоба 2026-09-25: под инверсией фокуса у кар�
   }
 });
 
+/* Следующий раунд, п.3 (ревью отзывов): полоса тона под фокусом-инверсией
+   лежит на заливке P.text. Нейтральная P.muted на ней — 2.36:1 (тёплая) /
+   2.17:1 («Глубокая чёрная»), позитивная P.good — 1.82 / 1.90: полоса
+   пропадает ровно на карточке под пультом. Под фокусом у тона свой, тёмный
+   вариант; порог — 3:1, как у значимой графики (WCAG 2.1, 1.4.11). */
+test('п.3: полоса тона отзыва под фокусом-инверсией видна — контраст к заливке ≥ 3:1 в обеих темах', () => {
+  const over = (color, base) => {
+    const m = /^rgba\((\d+),(\d+),(\d+),([\d.]+)\)$/.exec(color);
+    if (!m) return color;
+    const b = base.replace('#', '');
+    const mix = [1, 2, 3].map((i) => Math.round(+m[i] * +m[4] + parseInt(b.slice((i - 1) * 2, i * 2), 16) * (1 - +m[4])));
+    return '#' + mix.map((v) => ('0' + v.toString(16)).slice(-2)).join('');
+  };
+  for (const theme of ['warm', 'black']) {
+    const table = withStorage({ lumen_theme: theme }, (LC) => LC.buildCss());
+    const P = withStorage({ lumen_theme: theme }, (LC) => LC.tokens());
+    const focus = findDecl(table, (sel) => sel === '.lumen-descr-row .lumen-review.focus');
+    assert.ok(focus.indexOf('background:' + P.text) !== -1, 'подготовка: заливка фокуса — P.text');
+    const TONE = {
+      mid: '.lumen-descr-row .lumen-review.focus .lumen-review__tone',
+      good: '.lumen-descr-row .lumen-review--good.focus .lumen-review__tone',
+      bad: '.lumen-descr-row .lumen-review--bad.focus .lumen-review__tone'
+    };
+    for (const tone of Object.keys(TONE)) {
+      const decl = findDecl(table, (sel) => sel === TONE[tone]);
+      assert.ok(decl, theme + ': у полосы тона «' + tone + '» под фокусом нет своего правила');
+      const bg = /(^|;)background:(#[0-9A-Fa-f]{6}|rgba\([\d,.]+\))/.exec(decl);
+      assert.ok(bg, theme + ': цвет полосы «' + tone + '» не найден — ' + decl);
+      const ratio = contrast(over(bg[2], P.text), P.text);
+      assert.ok(ratio >= 3, theme + ': полоса «' + tone + '» ' + bg[2] + ' на заливке фокуса — ' + ratio.toFixed(2) + ':1');
+    }
+    /* Три тона под фокусом остаются различимыми: нейтральный не сливается
+       с позитивным и негативным. */
+    const colorOf = (tone) => /(^|;)background:([^;]+)/.exec(findDecl(table, (sel) => sel === TONE[tone]))[2];
+    assert.equal(new Set(['mid', 'good', 'bad'].map(colorOf)).size, 3, theme + ': тона под фокусом совпали');
+  }
+});
+
 test('жалоба 2026-09-25: фокус первой карточки не срезается кромкой ряда', () => {
   /* scale(1.03) растит карточку на 1.5 % в каждую сторону, подложка фокуса
      уходит ещё на .2em вниз, а ряд режет всё по overflow:hidden. */

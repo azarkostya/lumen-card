@@ -900,6 +900,11 @@ muted: '#A89A8A',
 soft: '#DCD3C8',
 smoke: '#7A6A5A',
 good: '#8FBF7A',
+
+
+
+
+goodDeep: '#5A764C',
 dark: '#1A120A',
 
 
@@ -1021,6 +1026,7 @@ if (Object.prototype.hasOwnProperty.call(base, k)) p[k] = base[k];
 
 
 p.good = C.good;
+p.goodDeep = C.goodDeep;
 p.spice = C.spice;
 
 
@@ -3628,6 +3634,22 @@ css.push('.lumen-descr-row .lumen-review.focus{background:' + P.text + ';color:'
 css.push('.lumen-descr-row .lumen-review.focus .lumen-review__author,.lumen-descr-row .lumen-review.focus .lumen-review__title{color:' + P.bg + '}');
 css.push('.lumen-descr-row .lumen-review.focus .lumen-review__text{color:rgba(' + P.bgRgb + ',.8)}');
 css.push('.lumen-descr-row .lumen-review.focus .lumen-review__meta,.lumen-descr-row .lumen-review.focus .lumen-review__spoiler{color:rgba(' + P.bgRgb + ',.7)}');
+
+
+
+
+
+
+
+
+
+
+
+
+
+css.push('.lumen-descr-row .lumen-review.focus .lumen-review__tone{background:rgba(' + P.bgRgb + ',.6)}');
+css.push('.lumen-descr-row .lumen-review--good.focus .lumen-review__tone{background:' + P.goodDeep + '}');
+css.push('.lumen-descr-row .lumen-review--bad.focus .lumen-review__tone{background:' + P.spice + '}');
 
 
 
