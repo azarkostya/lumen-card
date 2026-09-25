@@ -6896,6 +6896,9 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 
+
+
+
 LC.manifest = (function () {
 
 
@@ -6944,6 +6947,28 @@ home: [
 'star-wars', 'xmas-comedy', 'netflix-comedy', 'apple-tv',
 'kdrama', 'anime', 'kp-top250'
 ],
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 collections: [
@@ -7060,6 +7085,40 @@ sources: { movie: { type: 'collection', id: 528 } }
 },
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+{
+id: 'mcu', title: 'Киновселенная Marvel', i18n: { en: 'Marvel Cinematic Universe', uk: 'Кіновсесвіт Marvel' }, group: 'franchise', icon: 'film',
+sources: {
+movie: { type: 'discover', params: { keywords: 180547, sort_by: 'primary_release_date.asc', filter: { without_genres: '99,16', 'with_runtime.gte': 40 } } },
+tv:    { type: 'discover', params: { keywords: 180547, sort_by: 'popularity.desc', filter: { without_genres: '99,10763' } } }
+}
+},
 {
 id: 'avengers', title: 'Мстители', group: 'franchise', icon: 'film',
 sources: { movie: { type: 'collection', id: 86311 } }
@@ -7067,6 +7126,34 @@ sources: { movie: { type: 'collection', id: 86311 } }
 {
 id: 'xmen', title: 'Люди Икс', group: 'franchise', icon: 'film',
 sources: { movie: { type: 'collection', id: 748 } }
+},
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+{
+id: 'dc-universe', title: 'Вселенная DC', i18n: { en: 'DC Universe', uk: 'Всесвіт DC' }, group: 'franchise', icon: 'film', cover: '/pcDc2WJAYGJTTvRSEIpRZwM3Ola.jpg',
+sources: {
+movie: { type: 'discover', params: { companies: '429|9993|128064|184898', sort_by: 'primary_release_date.asc', filter: { without_genres: '16,99,10770', 'vote_count.gte': 300 } } },
+tv:    { type: 'discover', params: { companies: '429|9993|184898', sort_by: 'popularity.desc', filter: { without_genres: '99,10762,10751', 'vote_count.gte': 50 } } }
+}
 },
 {
 id: 'dark-knight', title: 'Тёмный рыцарь', group: 'franchise', icon: 'film',
@@ -7156,14 +7243,6 @@ sources: { movie: { type: 'collection', id: 8354 } }
 id: 'kingsman', title: 'Kingsman', group: 'franchise', icon: 'film',
 sources: { movie: { type: 'collection', id: 391860 } }
 },
-{
-id: 'suicide-squad', title: 'Отряд самоубийц', group: 'franchise', icon: 'film',
-sources: { movie: { type: 'collection', id: 531242 } }
-},
-{
-id: 'venom', title: 'Веном', group: 'franchise', icon: 'film',
-sources: { movie: { type: 'collection', id: 558216 } }
-},
 
 
 
@@ -7177,7 +7256,7 @@ id: 'ghibli', title: 'Студия Гибли', group: 'studio',
 sources: { movie: { type: 'discover', params: { companies: 10342, sort_by: 'popularity.desc' } } }
 },
 {
-id: 'marvel', title: 'Marvel Studios', group: 'studio',
+id: 'marvel', title: 'Marvel Studios', group: 'studio', cover: '/9wXPKruA6bWYk2co5ix6fH59Qr8.jpg',
 
 
 
@@ -7193,9 +7272,19 @@ tv:    { type: 'discover', params: { companies: 420, sort_by: 'popularity.desc',
 id: 'a24', title: 'A24', group: 'studio',
 sources: { movie: { type: 'discover', params: { companies: 41077, sort_by: 'popularity.desc' } } }
 },
+
+
+
+
+
+
+
 {
 id: 'dc', title: 'DC Studios', group: 'studio',
-sources: { movie: { type: 'discover', params: { companies: 128064, sort_by: 'popularity.desc' } } }
+sources: {
+movie: { type: 'discover', params: { companies: '128064|184898', sort_by: 'popularity.desc' } },
+tv:    { type: 'discover', params: { companies: 184898, sort_by: 'popularity.desc', filter: { without_genres: '99', 'vote_count.gte': 10 } } }
+}
 },
 {
 id: 'lucasfilm', title: 'Lucasfilm', group: 'studio',
@@ -7208,7 +7297,7 @@ id: 'warner-bros', title: 'Warner Bros.', group: 'studio',
 sources: { movie: { type: 'discover', params: { companies: 174, sort_by: 'popularity.desc' } } }
 },
 {
-id: 'universal', title: 'Universal Pictures', group: 'studio',
+id: 'universal', title: 'Universal Pictures', group: 'studio', cover: '/kJMLPj5enrZti8udTVeULlM70mz.jpg',
 sources: { movie: { type: 'discover', params: { companies: 33, sort_by: 'popularity.desc' } } }
 },
 {
@@ -7216,7 +7305,7 @@ id: 'paramount', title: 'Paramount Pictures', group: 'studio',
 sources: { movie: { type: 'discover', params: { companies: 4, sort_by: 'popularity.desc' } } }
 },
 {
-id: 'sony-pictures', title: 'Sony Pictures', group: 'studio',
+id: 'sony-pictures', title: 'Sony Pictures', group: 'studio', cover: '/rz3TAyd5kmiJmozp3GUbYeB5Kep.jpg',
 sources: { movie: { type: 'discover', params: { companies: 5, sort_by: 'popularity.desc' } } }
 },
 {
@@ -7271,7 +7360,7 @@ id: 'amazon-series', title: 'Amazon Prime', group: 'service', badge: 'PRIME',
 sources: { tv: { type: 'discover', params: { networks: 1024, sort_by: 'popularity.desc' } } }
 },
 {
-id: 'netflix-series', title: 'Netflix: Сериалы', group: 'service', badge: 'NETFLIX',
+id: 'netflix-series', title: 'Netflix: Сериалы', group: 'service', badge: 'NETFLIX', cover: '/8zbAoryWbtH0DKdev8abFAjdufy.jpg',
 sources: { tv: { type: 'discover', params: { networks: 213, sort_by: 'popularity.desc' } } }
 },
 
@@ -7289,7 +7378,7 @@ sources: { tv: { type: 'discover', params: { networks: 4330, sort_by: 'popularit
 
 
 {
-id: 'xmas-comedy', title: 'Рождественские комедии', group: 'theme', icon: 'star', season: [12, 1],
+id: 'xmas-comedy', title: 'Рождественские комедии', group: 'theme', icon: 'star', season: [12, 1], cover: '/vaVaNrscmsG8CUKYxiwZGFNqGJo.jpg',
 sources: { movie: { type: 'discover', params: { genres: 35, keywords: 207317, sort_by: 'popularity.desc' } } }
 },
 
@@ -7297,125 +7386,161 @@ sources: { movie: { type: 'discover', params: { genres: 35, keywords: 207317, so
 
 
 {
-id: 'christmas', title: 'Рождественское кино', group: 'theme', icon: 'star', season: [12, 1],
+id: 'christmas', title: 'Рождественское кино', group: 'theme', icon: 'star', season: [12, 1], cover: '/y8Mabq84N0d5fm83CWb9Zkltkwr.jpg',
 sources: { movie: { type: 'discover', params: { keywords: 207317, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 50 } } } }
 },
 {
-id: 'halloween', title: 'Хэллоуин', group: 'theme', icon: 'star', season: [9, 10, 11],
+id: 'halloween', title: 'Хэллоуин', group: 'theme', icon: 'star', season: [9, 10, 11], cover: '/aRka9neADW1M0Zf9lF8kW2jEgXe.jpg',
 sources: { movie: { type: 'discover', params: { genres: 27, keywords: 3335, sort_by: 'popularity.desc' } } }
 },
 {
-id: 'comedy', title: 'Комедии', group: 'theme',
+id: 'comedy', title: 'Комедии', group: 'theme', cover: '/ubiu5Y7nP187ZFWUzjPj7Hgw6Go.jpg',
 sources: { movie: { type: 'discover', params: { genres: 35, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 200 } } } }
 },
 {
-id: 'superhero', title: 'Супергерои', group: 'theme',
+id: 'superhero', title: 'Супергерои', group: 'theme', cover: '/IYUD7rAIXzBM91TT3Z5fILUS7n.jpg',
 sources: {
-movie: { type: 'discover', params: { genres: '28|12', sort_by: 'popularity.desc', filter: { 'vote_count.gte': 100 } } },
-tv:    { type: 'discover', params: { genres: '10759|10765', sort_by: 'popularity.desc' } }
+movie: { type: 'discover', params: { keywords: 9715, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 300 } } },
+tv:    { type: 'discover', params: { keywords: 9715, sort_by: 'popularity.desc', filter: { without_genres: '10762,10751', 'vote_count.gte': 200 } } }
 }
 },
 {
-id: 'horror-top', title: 'Хоррор', group: 'theme',
+id: 'horror-top', title: 'Хоррор', group: 'theme', cover: '/mmd1HnuvAzFc4iuVJcnBrhDNEKr.jpg',
 sources: { movie: { type: 'discover', params: { genres: 27, sort_by: 'vote_average.desc', filter: { 'vote_count.gte': 300 } } } }
 },
 {
-id: 'documentary', title: 'Документальное', group: 'theme',
-sources: { movie: { type: 'discover', params: { genres: 99, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 100 } } } }
+id: 'documentary', title: 'Документальное', group: 'theme', cover: '/e5NzCG9eoWTDABPIGeB362ztV9R.jpg',
+sources: { movie: { type: 'discover', params: { genres: 99, sort_by: 'popularity.desc', filter: { without_genres: '35', 'vote_count.gte': 100 } } } }
 },
 {
-id: 'thriller', title: 'Триллеры', group: 'theme',
+id: 'thriller', title: 'Триллеры', group: 'theme', cover: '/lDJx0ZKbfYbGoe8mwWmVKSQr0ub.jpg',
 sources: { movie: { type: 'discover', params: { genres: 53, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 200 } } } }
 },
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 {
-id: 'space', title: 'Космос', group: 'theme',
+id: 'space', title: 'Космос', group: 'theme', cover: '/vCkC4lHpJZNVUGzdWAF09UKK8by.jpg',
 sources: { movie: { type: 'discover', params: { keywords: 9882, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 100 } } } }
 },
 {
-id: 'post-apocalyptic', title: 'Постапокалипсис', group: 'theme',
-sources: { movie: { type: 'discover', params: { keywords: 359337, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 50 } } } }
+id: 'post-apocalyptic', title: 'Постапокалипсис', group: 'theme', cover: '/aTLq0TMKdsmIy1ZyFM1LfPs326d.jpg',
+sources: {
+movie: { type: 'discover', params: { keywords: '4458|359337', sort_by: 'popularity.desc', filter: { 'vote_count.gte': 200 } } },
+tv:    { type: 'discover', params: { keywords: '4458|359337', sort_by: 'popularity.desc', filter: { 'vote_count.gte': 50 } } }
+}
 },
 {
-id: 'zombie', title: 'Зомби', group: 'theme',
+id: 'zombie', title: 'Зомби', group: 'theme', cover: '/qFKb25O9ROiGYt3GwtuXG5Lb2J.jpg',
 sources: {
 movie: { type: 'discover', params: { keywords: 12377, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 50 } } },
 tv:    { type: 'discover', params: { keywords: 12377, sort_by: 'popularity.desc' } }
 }
 },
 {
-id: 'vampire', title: 'Вампиры', group: 'theme',
+id: 'vampire', title: 'Вампиры', group: 'theme', cover: '/gmCqIGV0xcK7G47lj6OyVPcRelk.jpg',
 sources: {
 movie: { type: 'discover', params: { keywords: 3133, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 50 } } },
 tv:    { type: 'discover', params: { keywords: 3133, sort_by: 'popularity.desc' } }
 }
 },
 {
-id: 'spy', title: 'Шпионы', group: 'theme',
+id: 'spy', title: 'Шпионы', group: 'theme', cover: '/mXFmGlMCgTIOyHaGmQG1Hb6Rv2m.jpg',
 sources: { movie: { type: 'discover', params: { keywords: 470, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 100 } } } }
 },
 {
-id: 'heist', title: 'Ограбления', group: 'theme',
+id: 'heist', title: 'Ограбления', group: 'theme', cover: '/4CHlGJ9lUN97SsdUpMCA8pvvp1F.jpg',
 sources: {
 movie: { type: 'discover', params: { keywords: 10051, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 100 } } },
 tv:    { type: 'discover', params: { keywords: 10051, sort_by: 'popularity.desc' } }
 }
 },
 {
-id: 'survival', title: 'Выживание', group: 'theme',
+id: 'survival', title: 'Выживание', group: 'theme', cover: '/bdO24JwOiv1r0WV7VPyM1ZnI4Q.jpg',
 sources: { movie: { type: 'discover', params: { keywords: 10349, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 100 } } } }
 },
 {
-id: 'sport', title: 'Спорт', group: 'theme',
-sources: { movie: { type: 'discover', params: { keywords: 333328, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 50 } } } }
+id: 'sport', title: 'Спортивные драмы', group: 'theme', cover: '/n3UanIvmnBlH531pykuzNs4LbH6.jpg',
+sources: { movie: { type: 'discover', params: { keywords: '6075|294708|333328', genres: 18, sort_by: 'popularity.desc', filter: { without_genres: '99,16', 'vote_count.gte': 200 } } } }
 },
 {
-id: 'biopic', title: 'Байопики', group: 'theme',
-sources: { movie: { type: 'discover', params: { keywords: 360939, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 100 } } } }
+id: 'biopic', title: 'Байопики', group: 'theme', cover: '/9441r6izIG2t46C2W1XoKYVN1o.jpg',
+sources: { movie: { type: 'discover', params: { keywords: '5565|360939', sort_by: 'popularity.desc', filter: { without_genres: '99', 'vote_count.gte': 200 } } } }
 },
 {
-id: 'noir', title: 'Нуар', group: 'theme',
+id: 'noir', title: 'Нуар', group: 'theme', cover: '/qlndzxlcXQj9scIwnN1hnQg9Uyg.jpg',
 sources: { movie: { type: 'discover', params: { keywords: 9807, sort_by: 'vote_average.desc', filter: { 'vote_count.gte': 100 } } } }
 },
 {
-id: 'slasher', title: 'Слэшеры', group: 'theme',
+id: 'slasher', title: 'Слэшеры', group: 'theme', cover: '/vh7np635kDIcfO6x2Y9ElgLJsuI.jpg',
 sources: { movie: { type: 'discover', params: { keywords: 12339, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 50 } } } }
 },
 {
-id: 'road-movie', title: 'Роуд-муви', group: 'theme',
+id: 'road-movie', title: 'Роуд-муви', group: 'theme', cover: '/lWXcaHFLmGrI9hl8uCCfIRiK4A4.jpg',
 sources: { movie: { type: 'discover', params: { keywords: 167043, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 50 } } } }
 },
 {
-id: 'romcom', title: 'Романтические комедии', group: 'theme',
-sources: { movie: { type: 'discover', params: { genres: '35|10749', sort_by: 'popularity.desc', filter: { 'vote_count.gte': 100 } } } }
+id: 'romcom', title: 'Романтические комедии', group: 'theme', cover: '/i8aIbji5vcPoHwcLBZYQSniGkAI.jpg',
+sources: { movie: { type: 'discover', params: { genres: '35,10749', sort_by: 'popularity.desc', filter: { 'vote_count.gte': 200 } } } }
 },
 {
-id: 'psycho-thriller', title: 'Психологические триллеры', group: 'theme',
-sources: { movie: { type: 'discover', params: { genres: '9648|53', sort_by: 'vote_average.desc', filter: { 'vote_count.gte': 200 } } } }
+id: 'psycho-thriller', title: 'Психологические триллеры', group: 'theme', cover: '/lavdyiJWciCJvyLG37ZOs6HJijg.jpg',
+sources: { movie: { type: 'discover', params: { keywords: 12565, sort_by: 'vote_average.desc', filter: { 'vote_count.gte': 300 } } } }
 },
 {
-id: 'anime-movies', title: 'Аниме-фильмы', group: 'theme',
+id: 'anime-movies', title: 'Аниме-фильмы', group: 'theme', cover: '/jkwVCMIkN3j284EPIDIGnskTd69.jpg',
 sources: { movie: { type: 'discover', params: { genres: 16, orig_lang: 'ja', sort_by: 'popularity.desc' } } }
 },
 {
-id: 'fantasy', title: 'Фэнтези', group: 'theme',
+id: 'fantasy', title: 'Фэнтези', group: 'theme', cover: '/amjiPGOiJVUCgddTgl4dVRauKgV.jpg',
 sources: { movie: { type: 'discover', params: { genres: 14, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 100 } } } }
 },
 {
-id: 'scifi', title: 'Научная фантастика', group: 'theme',
+id: 'scifi', title: 'Научная фантастика', group: 'theme', cover: '/qr7dUqleMRd0VgollazbmyP9XjI.jpg',
 sources: { movie: { type: 'discover', params: { genres: 878, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 100 } } } }
 },
 {
-id: 'western', title: 'Вестерны', group: 'theme',
+id: 'western', title: 'Вестерны', group: 'theme', cover: '/26SUDI2iKhZTIKcU4ZzezTH1G15.jpg',
 sources: { movie: { type: 'discover', params: { genres: 37, sort_by: 'vote_average.desc', filter: { 'vote_count.gte': 200 } } } }
 },
 {
-id: 'new-year', title: 'Новогоднее', group: 'theme', icon: 'star', season: [12, 1],
-sources: { movie: { type: 'discover', params: { keywords: 252123, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 50 } } } }
+id: 'new-year', title: 'Новогоднее', group: 'theme', icon: 'star', season: [12, 1], cover: '/mTEYBOOnOJ6p5w9xsfMh39t7iPV.jpg',
+sources: { movie: { type: 'discover', params: { keywords: '207317|252123|613', orig_lang: 'ru', sort_by: 'popularity.desc', filter: { without_genres: '27,53', 'vote_count.gte': 40 } } } }
 },
 {
-id: 'war-movies', title: 'Военные фильмы', group: 'theme',
+id: 'war-movies', title: 'Военные фильмы', group: 'theme', cover: '/pNHv41t8Im8wlwgdzMK9I8WpuBZ.jpg',
 sources: { movie: { type: 'discover', params: { genres: 10752, sort_by: 'vote_average.desc', filter: { 'vote_count.gte': 200 } } } }
 },
 
@@ -7450,20 +7575,171 @@ sources: { movie: { type: 'discover', params: { genres: 10752, sort_by: 'vote_av
 
 
 {
-id: 'war-may', title: 'Кино о войне', i18n: { en: 'War Films', uk: 'Кіно про війну' }, group: 'theme', icon: 'star', season: [5],
+id: 'war-may', title: 'Кино о войне', i18n: { en: 'War Films', uk: 'Кіно про війну' }, group: 'theme', icon: 'star', season: [5], cover: '/1uKHoFWyYJn060dpIXUCU7Wbc15.jpg',
 sources: { movie: { type: 'discover', params: { genres: 10752, keywords: 1956, sort_by: 'popularity.desc', filter: { without_genres: '99', 'vote_count.gte': 300 } } } }
 },
 {
-id: 'love-feb', title: 'Кино о любви', i18n: { en: 'Love Stories', uk: 'Кіно про кохання' }, group: 'theme', icon: 'star', season: [2],
+id: 'love-feb', title: 'Кино о любви', i18n: { en: 'Love Stories', uk: 'Кіно про кохання' }, group: 'theme', icon: 'star', season: [2], cover: '/xnHVX37XZEp33hhCbYlQFq7ux1J.jpg',
 sources: { movie: { type: 'discover', params: { genres: '10749,18', sort_by: 'popularity.desc', filter: { without_genres: '99,16,27', 'vote_count.gte': 500 } } } }
 },
 {
-id: 'musical', title: 'Мюзиклы', group: 'theme',
-sources: { movie: { type: 'discover', params: { genres: 10402, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 100 } } } }
+id: 'musical', title: 'Мюзиклы', group: 'theme', cover: '/zpq404Sk7qQ7N4x3xOeNgp74GtU.jpg',
+sources: { movie: { type: 'discover', params: { keywords: 4344, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 100 } } } }
 },
 {
-id: 'crime', title: 'Криминал', group: 'theme',
+id: 'crime', title: 'Криминал', group: 'theme', cover: '/9pGM43a9VmXxwIxmhJoiDkcB2hT.jpg',
 sources: { movie: { type: 'discover', params: { genres: 80, sort_by: 'vote_average.desc', filter: { 'vote_count.gte': 300 } } } }
+},
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+{
+id: 'action', title: 'Боевики', i18n: { en: 'Action', uk: 'Бойовики' }, group: 'theme', cover: '/3IzR3VhZAyhxVnuRRUHFLkfK4hT.jpg',
+sources: { movie: { type: 'discover', params: { genres: 28, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 300 } } } }
+},
+{
+id: 'animation', title: 'Мультфильмы', i18n: { en: 'Animated Films', uk: 'Мультфільми' }, group: 'theme', cover: '/pDMndR1yj7WHZmLTwzLxMu16xxD.jpg',
+sources: { movie: { type: 'discover', params: { genres: '16,10751', sort_by: 'popularity.desc', filter: { 'vote_count.gte': 300 } } } }
+},
+{
+id: 'adult-animation', title: 'Мультфильмы для взрослых', i18n: { en: 'Adult Animation', uk: 'Мультфільми для дорослих' }, group: 'theme', cover: '/iFOkrSrJRwE27PwbyQeYLlMJXzw.jpg',
+sources: {
+movie: { type: 'discover', params: { keywords: 161919, sort_by: 'popularity.desc', filter: { without_keywords: '210024', 'vote_count.gte': 100 } } },
+tv:    { type: 'discover', params: { keywords: 161919, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 100 } } }
+}
+},
+{
+id: 'true-story', title: 'По реальным событиям', i18n: { en: 'Based on a True Story', uk: 'За реальними подіями' }, group: 'theme', cover: '/dc8Sr1mCiyGXsdVcah3Ot9ff4w9.jpg',
+sources: {
+movie: { type: 'discover', params: { keywords: 9672, sort_by: 'popularity.desc', filter: { without_genres: '99,27', 'vote_count.gte': 300 } } },
+tv:    { type: 'discover', params: { keywords: 9672, sort_by: 'popularity.desc', filter: { without_genres: '99', 'vote_count.gte': 100 } } }
+}
+},
+{
+id: 'time-travel', title: 'Путешествия во времени', i18n: { en: 'Time Travel', uk: 'Подорожі в часі' }, group: 'theme', cover: '/50mCQ4lhJFED6ugaSQsn78cC83f.jpg',
+sources: {
+movie: { type: 'discover', params: { keywords: '4379|10854', sort_by: 'popularity.desc', filter: { 'vote_count.gte': 200 } } },
+tv:    { type: 'discover', params: { keywords: '4379|10854', sort_by: 'popularity.desc', filter: { without_genres: '10762', 'vote_count.gte': 100 } } }
+}
+},
+{
+id: 'robots', title: 'Роботы и ИИ', i18n: { en: 'Robots & AI', uk: 'Роботи та ШІ' }, group: 'theme', cover: '/jFxxqdEQ9TkXQSytO7qM8wlwXL1.jpg',
+sources: { movie: { type: 'discover', params: { keywords: '310|14544|803', genres: 878, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 300 } } } }
+},
+{
+id: 'dystopia', title: 'Антиутопии', i18n: { en: 'Dystopias', uk: 'Антиутопії' }, group: 'theme', cover: '/gDLCap8mcJ32mNIZWTJyk2KyMLW.jpg',
+sources: {
+movie: { type: 'discover', params: { keywords: 4565, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 200 } } },
+tv:    { type: 'discover', params: { keywords: 4565, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 100 } } }
+}
+},
+{
+id: 'disaster', title: 'Катастрофы', i18n: { en: 'Disaster Films', uk: 'Катастрофи' }, group: 'theme', cover: '/jCvkDqWWBrgxf9R3DrtJ6GpqXse.jpg',
+sources: { movie: { type: 'discover', params: { keywords: '10617|5096', sort_by: 'popularity.desc', filter: { without_genres: '99,16', 'vote_count.gte': 300 } } } }
+},
+{
+id: 'serial-killers', title: 'Маньяки', i18n: { en: 'Serial Killers', uk: 'Маніяки' }, group: 'theme', cover: '/p1PLSI5Nw2krGxD7X4ulul1tDAk.jpg',
+sources: {
+movie: { type: 'discover', params: { keywords: 10714, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 300 } } },
+tv:    { type: 'discover', params: { keywords: 10714, sort_by: 'popularity.desc', filter: { without_genres: '16', 'vote_count.gte': 100 } } }
+}
+},
+{
+id: 'whodunit', title: 'Детективы', i18n: { en: 'Whodunits', uk: 'Детективи' }, group: 'theme', cover: '/fkdMSS93pFBzNW9OByNpi8i2UYg.jpg',
+sources: {
+movie: { type: 'discover', params: { keywords: '12570|207046', sort_by: 'popularity.desc', filter: { without_genres: '27', 'vote_count.gte': 200 } } },
+tv:    { type: 'discover', params: { keywords: '12570|207046', sort_by: 'popularity.desc', filter: { 'vote_count.gte': 50 } } }
+}
+},
+{
+id: 'mafia', title: 'Мафия и гангстеры', i18n: { en: 'Mafia & Gangsters', uk: 'Мафія та гангстери' }, group: 'theme', cover: '/ejdD20cdHNFAYAN2DlqPToXKyzx.jpg',
+sources: {
+movie: { type: 'discover', params: { keywords: '10391|3149|10291', genres: 80, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 300 } } },
+tv:    { type: 'discover', params: { keywords: '10391|3149|10291', genres: 80, sort_by: 'popularity.desc', filter: { without_genres: '16', 'vote_count.gte': 50 } } }
+}
+},
+{
+id: 'prison', title: 'Тюрьма и побег', i18n: { en: 'Prison & Escape', uk: 'В\'язниця та втеча' }, group: 'theme', cover: '/zfbjgQE1uSd9wiPTX4VzsLi0rGG.jpg',
+sources: {
+movie: { type: 'discover', params: { keywords: '378|9777', genres: 18, sort_by: 'popularity.desc', filter: { without_genres: '16,35,10751,14', 'vote_count.gte': 300 } } },
+tv:    { type: 'discover', params: { keywords: '378|9777', sort_by: 'popularity.desc', filter: { without_genres: '16,35', 'vote_count.gte': 100 } } }
+}
+},
+{
+id: 'martial-arts', title: 'Боевые искусства', i18n: { en: 'Martial Arts', uk: 'Бойові мистецтва' }, group: 'theme', cover: '/ylZ06kRUF2JKkrCG2E3qn5D9w8L.jpg',
+sources: { movie: { type: 'discover', params: { keywords: '779|780', sort_by: 'popularity.desc', filter: { without_genres: '16', 'vote_count.gte': 300 } } } }
+},
+{
+id: 'aliens', title: 'Инопланетяне', i18n: { en: 'Aliens', uk: 'Прибульці' }, group: 'theme', cover: '/2GzzMdmjWHxk4NG3MX36fEAE8He.jpg',
+sources: {
+movie: { type: 'discover', params: { keywords: '9951|14909', genres: 878, sort_by: 'popularity.desc', filter: { without_genres: '16,10751,35', without_keywords: '9715', 'vote_count.gte': 500 } } },
+tv:    { type: 'discover', params: { keywords: '9951|14909', sort_by: 'popularity.desc', filter: { without_genres: '16,10762', without_keywords: '9715', 'vote_count.gte': 200 } } }
+}
+},
+{
+id: 'video-games', title: 'По мотивам игр', i18n: { en: 'Based on Video Games', uk: 'За мотивами ігор' }, group: 'theme', cover: '/q8eejQcg1bAqImEV8jh8RtBD4uH.jpg',
+sources: {
+movie: { type: 'discover', params: { keywords: 41645, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 100 } } },
+tv:    { type: 'discover', params: { keywords: 41645, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 500 } } }
+}
 },
 
 
@@ -7486,7 +7762,7 @@ id: 'french', title: 'Французское кино', group: 'country',
 sources: { movie: { type: 'discover', params: { sort_by: 'vote_average.desc', filter: { with_origin_country: 'FR', 'vote_count.gte': 100 } } } }
 },
 {
-id: 'british', title: 'Британское ТВ', group: 'country',
+id: 'british', title: 'Британское ТВ', group: 'country', cover: '/hmLTIRtVyTHShJl2Wb8LHmvUgJm.jpg',
 sources: {
 tv:    { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_origin_country: 'GB' } } },
 movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_origin_country: 'GB', 'vote_count.gte': 100 } } }
@@ -7597,7 +7873,7 @@ id: 'fincher', title: 'Дэвид Финчер', group: 'people',
 sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_people: 7467 } } } }
 },
 {
-id: 'scorsese', title: 'Мартин Скорсезе', group: 'people',
+id: 'scorsese', title: 'Мартин Скорсезе', group: 'people', cover: '/6aoyUbvu0419XLKLIMoH0TkEicH.jpg',
 sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_people: 1032 } } } }
 },
 {
@@ -7605,13 +7881,13 @@ id: 'villeneuve', title: 'Дени Вильнёв', group: 'people',
 sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_people: 137427 } } } }
 },
 {
-id: 'miyazaki', title: 'Хаяо Миядзаки', group: 'people',
+id: 'miyazaki', title: 'Хаяо Миядзаки', group: 'people', cover: '/95ozIP0A2fKaAXxwDxUEVn74Iux.jpg',
 sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_people: 608 } } } }
 },
 
 
 {
-id: 'ridley-scott', title: 'Ридли Скотт', group: 'people',
+id: 'ridley-scott', title: 'Ридли Скотт', group: 'people', cover: '/hND7xAaxxBgaIspp9iMsaEXOSTz.jpg',
 sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_people: 578 } } } }
 },
 {
@@ -7631,11 +7907,11 @@ id: 'coen-brothers', title: 'Братья Коэн', group: 'people',
 sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_people: '1223|1224' } } } }
 },
 {
-id: 'tom-hanks', title: 'Том Хэнкс', group: 'people',
+id: 'tom-hanks', title: 'Том Хэнкс', group: 'people', cover: '/ghgfzbEV7kbpbi1O8eIILKVXEA8.jpg',
 sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_people: 31 } } } }
 },
 {
-id: 'keanu-reeves', title: 'Киану Ривз', group: 'people',
+id: 'keanu-reeves', title: 'Киану Ривз', group: 'people', cover: '/26OvB15pqk3eiKJG8LrXDVzO7Mw.jpg',
 sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_people: 6384 } } } }
 },
 {
@@ -7643,7 +7919,7 @@ id: 'denzel', title: 'Дензел Вашингтон', group: 'people',
 sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_people: 5292 } } } }
 },
 {
-id: 'brad-pitt', title: 'Брэд Питт', group: 'people',
+id: 'brad-pitt', title: 'Брэд Питт', group: 'people', cover: '/hZkgoQYus5vegHoetLkCJzb17zJ.jpg',
 sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_people: 287 } } } }
 },
 {
@@ -8663,6 +8939,11 @@ return net;
 
 
 
+
+
+
+
+
 function bannerPath(item, ok, err, alive) {
 var src = (item && item.sources) || {};
 var media = src.movie ? 'movie' : (src.tv ? 'tv' : '');
@@ -8678,6 +8959,11 @@ clear: function () {
 try { if (net && net.clear) net.clear(); } catch (e) {}
 }
 };
+}
+
+if (typeof item.cover === 'string' && item.cover) {
+ok(item.cover);
+return { clear: function () {} };
 }
 
 return fetchAll(item, 1, function (json) {

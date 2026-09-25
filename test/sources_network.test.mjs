@@ -939,3 +939,37 @@ test('Постеры: сменилось поколение — поздний �
     assert.deepEqual(done, [0], 'ответ Lampa всё равно один — контракт ряда важнее');
   } finally { s.restore(); }
 });
+
+/* Правка 2026-09-25: кадр из каталога (cover) — сразу и без запроса; у
+   подборки Кинопоиска он не заслоняет ошибку «нет ключа». */
+test('bannerPath: cover из каталога — сразу, ни одного запроса к TMDB', function () {
+  var calls = 0;
+  global.Lampa = makeFakeLampa({
+    Api: { sources: { tmdb: { get: function () { calls++; } } } }
+  });
+  global.window = { localStorage: null };
+  var S = loadCtx('43_sources.js', { pref: function () { return ''; } }).api;
+  var got = null;
+  var h = S.bannerPath({ id: 'xmas-comedy', cover: '/c.jpg', sources: { movie: { type: 'discover', params: {} } } }, function (path) {
+    got = path;
+  }, function (e) { throw new Error('err: ' + JSON.stringify(e)); }, null);
+  assert.equal(got, '/c.jpg', 'ответ синхронный');
+  assert.equal(calls, 0, 'первая страница подборки для плитки не нужна');
+  assert.equal(typeof h.clear, 'function');
+  h.clear();
+});
+
+test('bannerPath: cover у подборки Кинопоиска не отменяет err({nokey:true})', function (t, done) {
+  global.Lampa = makeFakeLampa({
+    storage: makeFakeStorage(),
+    Reguest: function () { return new FakeReguest('ok_empty'); }
+  });
+  global.window = { localStorage: null };
+  var S = loadCtx('43_sources.js', { pref: function () { return ''; } }).api;
+  S.bannerPath({ id: 'kp', cover: '/c.jpg', sources: { movie: { type: 'kp', collection: 'X' } } }, function () {
+    done(new Error('ok не должен вызываться'));
+  }, function (e) {
+    assert.ok(e && e.nokey);
+    done();
+  }, null);
+});

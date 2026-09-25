@@ -661,7 +661,12 @@
        картинка Кинопоиска, иначе это путь TMDB, который вызывающий
        превращает в URL через прокси (LC.cardinfo.imageUrl). Ничего не
        нашлось — пустая строка.
-       Возвращает {clear} — как fetchAll. */
+       Возвращает {clear} — как fetchAll.
+       Правка 2026-09-25: подборка с полем cover (путь кадра TMDB из
+       каталога) отдаёт его сразу, без запроса, — так снимаются одинаковые
+       кадры у подборок с общим лидером выдачи (разбор у поля cover в
+       src/42_manifest.js). Кинопоиск проверяется раньше: его плитка без
+       ключа обязана сказать «нужен ключ», а не показать красивый кадр. */
     function bannerPath(item, ok, err, alive) {
       var src = (item && item.sources) || {};
       var media = src.movie ? 'movie' : (src.tv ? 'tv' : '');
@@ -677,6 +682,11 @@
             try { if (net && net.clear) net.clear(); } catch (e) {}
           }
         };
+      }
+
+      if (typeof item.cover === 'string' && item.cover) {
+        ok(item.cover);
+        return { clear: function () {} };
       }
 
       return fetchAll(item, 1, function (json) {

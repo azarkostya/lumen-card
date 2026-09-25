@@ -298,3 +298,99 @@ test('франшизы: сериалы по студиям — «Звёздны�
   assert.equal(marvel.tv.params.companies, 420, 'сериалы той же студии');
   assert.equal(marvel.tv.params.filter.without_genres, '99', 'без документальных выпусков о студии');
 });
+
+/* Правка 2026-09-25 (жалоба: «зачем мне Веном и Отряд самоубийц, но нет ни
+   Marvel, ни DC»; разбор и живые данные TMDB — в комментариях к подборкам в
+   src/42_manifest.js). Сторож держит форму запросов: вернуть студию 420
+   вместо ключевого слова — значит снова получить Рэйми и «Призрачного
+   гонщика» в MCU; потерять with_runtime — короткометражки One-Shot. */
+test('франшизы: «Киновселенная Marvel» и «Вселенная DC» есть, «Венома» и «Отряда самоубийц» нет', () => {
+  const byId = {};
+  for (const c of M.DEFAULT.collections) byId[c.id] = c;
+  assert.equal(byId['venom'], undefined, 'Веном — кнопкой «Франшиза» в карточке, не плиткой');
+  assert.equal(byId['suicide-squad'], undefined, 'оба «Отряда» — внутри «Вселенной DC»');
+
+  const mcu = byId['mcu'];
+  assert.ok(mcu, 'нет подборки mcu');
+  assert.equal(mcu.group, 'franchise');
+  assert.deepEqual(mcu.sources.movie, { type: 'discover', params: { keywords: 180547, sort_by: 'primary_release_date.asc',
+    filter: { without_genres: '99,16', 'with_runtime.gte': 40 } } },
+    'ключевое слово MCU, без документалок и Грута, без короткометражек, по дате выхода');
+  assert.equal(mcu.sources.tv.params.keywords, 180547);
+  assert.deepEqual(mcu.sources.tv.params.filter.without_genres.split(',').sort(), ['10763', '99']);
+  assert.equal(mcu.sources.movie.params.companies, undefined, 'студия 420 тянет чужой канон');
+
+  const dc = byId['dc-universe'];
+  assert.ok(dc, 'нет подборки dc-universe');
+  assert.equal(dc.group, 'franchise');
+  assert.deepEqual(dc.sources.movie.params.companies.split('|').sort(), ['128064', '184898', '429', '9993']);
+  assert.deepEqual(dc.sources.movie.params.filter.without_genres.split(',').sort(), ['10770', '16', '99']);
+  assert.ok(dc.sources.movie.params.filter['vote_count.gte'] >= 300);
+  assert.ok(dc.sources.tv, 'сериалы DC');
+  assert.ok(typeof dc.cover === 'string' && dc.cover, 'кадр задан: первым по дате идёт «Бэтмен: Начало», как у «Тёмного рыцаря»');
+
+  const franchises = M.DEFAULT.collections.filter(c => c.group === 'franchise');
+  assert.equal(franchises.length, 34, 'две добавлены, две сняты');
+  assert.ok(franchises.findIndex(c => c.id === 'mcu') < franchises.findIndex(c => c.id === 'avengers'));
+  assert.ok(franchises.findIndex(c => c.id === 'dc-universe') < franchises.findIndex(c => c.id === 'dark-knight'));
+});
+
+test('темы: исправленные запросы — супергерои, ромкомы, мюзиклы, психотриллеры, новогоднее', () => {
+  const byId = {};
+  for (const c of M.DEFAULT.collections) byId[c.id] = c;
+  const sh = byId['superhero'].sources;
+  assert.equal(sh.movie.params.keywords, 9715, 'жанры 28|12 — это любой боевик или приключения');
+  assert.equal(sh.movie.params.genres, undefined);
+  assert.equal(sh.tv.params.keywords, 9715);
+  assert.equal(byId['romcom'].sources.movie.params.genres, '35,10749', 'комедия И романтика — запятая');
+  assert.equal(byId['musical'].sources.movie.params.keywords, 4344, 'жанр 10402 — «Музыка», а не мюзиклы');
+  assert.equal(byId['musical'].sources.movie.params.genres, undefined);
+  assert.equal(byId['psycho-thriller'].sources.movie.params.keywords, 12565);
+  const ny = byId['new-year'].sources.movie.params;
+  assert.equal(ny.orig_lang, 'ru', 'новогоднее — русское кино');
+  assert.deepEqual(ny.filter.without_genres.split(',').sort(), ['27', '53']);
+  assert.ok(('' + byId['documentary'].sources.movie.params.filter.without_genres).split(',').indexOf('35') !== -1);
+});
+
+test('темы: 15 новых, у каждой перевод, кадр и только discover-источники', () => {
+  const ids = ['action', 'animation', 'adult-animation', 'true-story', 'time-travel', 'robots', 'dystopia', 'disaster',
+    'serial-killers', 'whodunit', 'mafia', 'prison', 'martial-arts', 'aliens', 'video-games'];
+  const byId = {};
+  for (const c of M.DEFAULT.collections) byId[c.id] = c;
+  for (const id of ids) {
+    const c = byId[id];
+    assert.ok(c, 'нет темы ' + id);
+    assert.equal(c.group, 'theme', id);
+    assert.ok(c.i18n && c.i18n.en && c.i18n.uk, 'нет перевода у ' + id);
+    assert.ok(typeof c.cover === 'string', 'нет кадра у ' + id);
+    for (const media of ['movie', 'tv']) {
+      const s = c.sources[media];
+      if (!s) continue;
+      assert.equal(s.type, 'discover', id + '/' + media);
+      assert.ok(s.params.keywords || s.params.genres, id + '/' + media + ': ни ключевого слова, ни жанра');
+    }
+  }
+  assert.equal(M.DEFAULT.collections.filter(c => c.group === 'theme').length, 47);
+  assert.equal(M.DEFAULT.collections.length, 165);
+});
+
+/* Кадр плитки из каталога (cover): путь TMDB, у всех разный, не кадр
+   заставки и не у Кинопоиска (плитка КП без ключа обязана сказать «нужен
+   ключ»). У каждой темы он есть — тема абстрактна, лидер её выдачи
+   случаен (разбор у поля cover в src/42_manifest.js). */
+test('cover: формат пути, без повторов, не из ambient, у всех тем, не у Кинопоиска', () => {
+  const seen = new Set();
+  const ambient = new Set(M.DEFAULT.ambient.map(f => f.path));
+  let n = 0;
+  for (const c of M.DEFAULT.collections) {
+    if (c.group === 'theme') assert.ok(c.cover, 'у темы нет кадра: ' + c.id);
+    if (c.cover === undefined) continue;
+    n++;
+    assert.match(c.cover, /^\/[A-Za-z0-9]+\.jpg$/, 'путь кадра ' + c.id);
+    assert.ok(!seen.has(c.cover), 'кадр повторяется: ' + c.id);
+    seen.add(c.cover);
+    assert.ok(!ambient.has(c.cover), 'кадр заставки на плитке: ' + c.id);
+    assert.notEqual(c.group, 'kp', 'у подборки Кинопоиска кадра быть не должно: ' + c.id);
+  }
+  assert.ok(n >= 59, 'кадров меньше, чем требуют группы совпадений: ' + n);
+});

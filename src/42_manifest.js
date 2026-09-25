@@ -13,6 +13,9 @@
   /* НЕ подтверждены и НЕ включены: col 8783 (Ice Age — чужая коллекция),  */
   /* col 398 (Kingsman — ошибка), col 576734 (ОС), col 654159 (Веном).     */
   /* Правильные: Ice Age 8354, Kingsman 391860, ОС 531242, Веном 558216.    */
+  /* (Правка 2026-09-25: «Веном» и «Отряд самоубийц» из каталога сняты —   */
+  /* вторая вошла во «Вселенную DC», первая открывается кнопкой «Франшиза» */
+  /* в карточке любого фильма коллекции 558216.)                           */
   /* -------------------------------------------------------------------- */
 
   LC.manifest = (function () {
@@ -64,7 +67,29 @@
         'kdrama', 'anime', 'kp-top250'
       ],
 
-      /* ---- 150 подборок ------------------------------------------------ */
+      /* ---- 165 подборок ------------------------------------------------ */
+      /* cover (необязательное, правка 2026-09-25) — путь кадра TMDB для
+         плитки хаба. Без него кадр берётся из первой страницы подборки
+         (LC.sources.bannerPath: backdrop_path первой карточки), и у
+         подборок с общим лидером кадр один и тот же: на скрине пользователя
+         «Рождественские комедии» и «Рождественское кино» (одно ключевое
+         слово, одна сортировка) обе показывали «Вам письмо». Живой прогон
+         всех 138 TMDB-подборок каталога 2026-09-25 нашёл 17 таких групп на
+         40 плиток: «История игрушек 5» у Pixar, Тома Хэнкса и Киану Ривза,
+         «Человек-паук: Новый день» у Marvel Studios, Sony, «Супергероев»,
+         «Научной фантастики» и «Популярного сейчас», «Начало» у «Шпионов»,
+         «Ограблений» и ДиКаприо и т. д.
+         Кадр в cover — всегда НЕ основной backdrop_path своего фильма
+         (другой кадр без текста, iso_639_1 = null, от 1280 px, не из списка
+         ambient): основной кадр — ровно то, что плитка без cover берёт из
+         выдачи, так что совпасть с живой плиткой cover не может, как бы ни
+         менялась популярность. cover задан у всех тем (тема абстрактна,
+         лидер её выдачи — случайный фильм: «Чудаки» у «Документального»,
+         «Мстители» у «Супергероев») и у одной-двух плиток каждой группы
+         совпадений; «владелец» кадра (Pixar — «История игрушек 5», Гибли —
+         «Ходячий замок», Нолан — «Одиссея») остаётся живым. Плитка с cover
+         не делает запроса вовсе. Подборке Кинопоиска cover не задаётся:
+         без ключа плитка обязана сказать «нужен ключ». */
       collections: [
 
         /* === FRANCHISE (34 подборки) === */
@@ -179,6 +204,40 @@
         },
 
         /* Новые (26), проверены live — API_NOTES_4.md */
+
+        /* Правка 2026-09-25 (жалоба пользователя: «зачем мне „Веном“ и
+           „Отряд самоубийц“, но нет ни Marvel, ни DC»). Живые запросы TMDB
+           через прокси Lampa, ru-RU, 2026-09-25.
+
+           «Киновселенная Marvel» — ключевое слово TMDB «marvel cinematic
+           universe (mcu)» (180547), а не студия. Студия Marvel Studios (420)
+           тянет чужой канон: «Человек-паук 3» Рэйми, «Призрачного гонщика»
+           (2007), «Фантастическую четвёрку» (2007), «Карателя: Территория
+           войны» и десятки мультфильмов direct-to-video; «Веном» и Fox-овские
+           «Люди Икс» в MCU не входят и под словом 180547 не стоят. Под словом —
+           80 фильмов, из них лишние трёх видов, и каждый снят признаком:
+           документальные «Общий сбор» / «Создание вселенной» — жанр 99;
+           короткометражки «Я есть Грут» — анимация 16; короткометражки
+           One-Shot и «Команда Тора» (10-15 минут, 600-950 голосов, по голосам
+           не отсекаются) — with_runtime.gte 40. Остаётся 42 фильма по дате
+           выхода: «Железный человек» (2008) … «Дэдпул и Росомаха»,
+           «Громовержцы*», «Фантастическая четвёрка: Первые шаги»,
+           «Человек-паук: Новый день», «Мстители: Доктор Дум»; спецвыпуски
+           Disney+ «Ночной оборотень» и «Праздничный спецвыпуск Стражей» — это
+           канон, они проходят (53 и 44 минуты). Анонсы без хронометража
+           («Люди Икс» 2028, «Чёрная пантера 3») не проходят — войдут, когда
+           TMDB проставит длительность.
+           Сериалы — то же слово без документального (99) и новостного (10763,
+           веб-выпуски WHIH Newsfront): 32 позиции — «Локи», «ВандаВижн»,
+           «Сорвиголова: Рождённый заново», «Что, если…?», сериалы Netflix
+           2015-2018 (TMDB числит их в MCU), подкаст отсекает talkOnly. */
+        {
+          id: 'mcu', title: 'Киновселенная Marvel', i18n: { en: 'Marvel Cinematic Universe', uk: 'Кіновсесвіт Marvel' }, group: 'franchise', icon: 'film',
+          sources: {
+            movie: { type: 'discover', params: { keywords: 180547, sort_by: 'primary_release_date.asc', filter: { without_genres: '99,16', 'with_runtime.gte': 40 } } },
+            tv:    { type: 'discover', params: { keywords: 180547, sort_by: 'popularity.desc', filter: { without_genres: '99,10763' } } }
+          }
+        },
         {
           id: 'avengers', title: 'Мстители', group: 'franchise', icon: 'film',
           sources: { movie: { type: 'collection', id: 86311 } }
@@ -186,6 +245,34 @@
         {
           id: 'xmen', title: 'Люди Икс', group: 'franchise', icon: 'film',
           sources: { movie: { type: 'collection', id: 748 } }
+        },
+        /* «Вселенная DC» — все игровые фильмы и сериалы по комиксам DC, не
+           только DCEU. Ключевые слова DCEU (229266) и DCU (312528) дают 18
+           фильмов 2013-2026 и не знают ни Нолана, ни «Джокера», ни «Бэтмена»
+           (2022) — а их зритель ищет под словом «DC» первыми. Поэтому запрос
+           по студиям ИЛИ (черта в with_companies): DC Comics (429), DC
+           Entertainment (9993), DC Films (128064), DC Studios (184898).
+           Без анимации (16 — у DC её десятки: LEGO, direct-to-video,
+           «Юные титаны»), документального (99) и телефильмов (10770), от 300
+           голосов, по дате: 30 фильмов — «Бэтмен: Начало», «Тёмный рыцарь»,
+           «Хранители», «Зелёный Фонарь», «Человек из стали», оба «Отряда
+           самоубийц», «Чудо-женщина», «Аквамен», «Шазам!», «Джокер»,
+           «Бэтмен» (2022), «Флэш», «Синий Жук», «Супермен» (2025),
+           «Супергёрл» (2026). Цена: ранние фильмы без студии DC в титрах TMDB
+           («Бэтмен» 1989, «Супермен» 1978, «Константин», «Джокер: Безумие на
+           двоих») сюда не попадают; «РЭД» (Summit по комиксу DC) — попадает.
+           Сериалы — те же студии кроме DC Films (сериалов у неё нет) без
+           детского (10762) и семейного (10751), от 50 голосов: «Фонари»,
+           «Флэш», «Стрела», «Тайны Смолвиля», «Люцифер», «Пингвин»,
+           «Миротворец», «Песочный человек», «Харли Квинн» — 39 позиций.
+           Кадр плитки задан (cover): первым по дате идёт «Бэтмен: Начало», и
+           его кадр совпал бы с плиткой «Тёмный рыцарь» в той же вкладке. */
+        {
+          id: 'dc-universe', title: 'Вселенная DC', i18n: { en: 'DC Universe', uk: 'Всесвіт DC' }, group: 'franchise', icon: 'film', cover: '/pcDc2WJAYGJTTvRSEIpRZwM3Ola.jpg',
+          sources: {
+            movie: { type: 'discover', params: { companies: '429|9993|128064|184898', sort_by: 'primary_release_date.asc', filter: { without_genres: '16,99,10770', 'vote_count.gte': 300 } } },
+            tv:    { type: 'discover', params: { companies: '429|9993|184898', sort_by: 'popularity.desc', filter: { without_genres: '99,10762,10751', 'vote_count.gte': 50 } } }
+          }
         },
         {
           id: 'dark-knight', title: 'Тёмный рыцарь', group: 'franchise', icon: 'film',
@@ -275,14 +362,6 @@
           id: 'kingsman', title: 'Kingsman', group: 'franchise', icon: 'film',
           sources: { movie: { type: 'collection', id: 391860 } }
         },
-        {
-          id: 'suicide-squad', title: 'Отряд самоубийц', group: 'franchise', icon: 'film',
-          sources: { movie: { type: 'collection', id: 531242 } }
-        },
-        {
-          id: 'venom', title: 'Веном', group: 'franchise', icon: 'film',
-          sources: { movie: { type: 'collection', id: 558216 } }
-        },
 
         /* === STUDIO (16 подборок) === */
 
@@ -296,7 +375,7 @@
           sources: { movie: { type: 'discover', params: { companies: 10342, sort_by: 'popularity.desc' } } }
         },
         {
-          id: 'marvel', title: 'Marvel Studios', group: 'studio',
+          id: 'marvel', title: 'Marvel Studios', group: 'studio', cover: '/9wXPKruA6bWYk2co5ix6fH59Qr8.jpg',
           /* Правка 2026-09-23: сериалов у подборки не было вовсе, хотя
              студия та же — discover/tv по Marvel Studios (420) отдаёт 35
              позиций: «Локи», «Ванда/Вижн», «Сорвиголова: Рождённый заново»,
@@ -312,9 +391,19 @@
           id: 'a24', title: 'A24', group: 'studio',
           sources: { movie: { type: 'discover', params: { companies: 41077, sort_by: 'popularity.desc' } } }
         },
+        /* Правка 2026-09-25: company 128064 на TMDB — «DC Films» (метка
+           2016-2022: «Отряд самоубийц», «Аквамен», «Джокер»), а сама DC
+           Studios — отдельная запись 184898 («Супермен» 2025, «Супергёрл»,
+           «Пингвин», «Миротворец», «Фонари»). Подборка под именем DC Studios
+           показывала только прежнюю метку — теперь обе (черта — ИЛИ), и у
+           студии появились сериалы (от 10 голосов — без анонсов без даты:
+           «Absolute Batman», «Starfire!»). */
         {
           id: 'dc', title: 'DC Studios', group: 'studio',
-          sources: { movie: { type: 'discover', params: { companies: 128064, sort_by: 'popularity.desc' } } }
+          sources: {
+            movie: { type: 'discover', params: { companies: '128064|184898', sort_by: 'popularity.desc' } },
+            tv:    { type: 'discover', params: { companies: 184898, sort_by: 'popularity.desc', filter: { without_genres: '99', 'vote_count.gte': 10 } } }
+          }
         },
         {
           id: 'lucasfilm', title: 'Lucasfilm', group: 'studio',
@@ -327,7 +416,7 @@
           sources: { movie: { type: 'discover', params: { companies: 174, sort_by: 'popularity.desc' } } }
         },
         {
-          id: 'universal', title: 'Universal Pictures', group: 'studio',
+          id: 'universal', title: 'Universal Pictures', group: 'studio', cover: '/kJMLPj5enrZti8udTVeULlM70mz.jpg',
           sources: { movie: { type: 'discover', params: { companies: 33, sort_by: 'popularity.desc' } } }
         },
         {
@@ -335,7 +424,7 @@
           sources: { movie: { type: 'discover', params: { companies: 4, sort_by: 'popularity.desc' } } }
         },
         {
-          id: 'sony-pictures', title: 'Sony Pictures', group: 'studio',
+          id: 'sony-pictures', title: 'Sony Pictures', group: 'studio', cover: '/rz3TAyd5kmiJmozp3GUbYeB5Kep.jpg',
           sources: { movie: { type: 'discover', params: { companies: 5, sort_by: 'popularity.desc' } } }
         },
         {
@@ -390,7 +479,7 @@
           sources: { tv: { type: 'discover', params: { networks: 1024, sort_by: 'popularity.desc' } } }
         },
         {
-          id: 'netflix-series', title: 'Netflix: Сериалы', group: 'service', badge: 'NETFLIX',
+          id: 'netflix-series', title: 'Netflix: Сериалы', group: 'service', badge: 'NETFLIX', cover: '/8zbAoryWbtH0DKdev8abFAjdufy.jpg',
           sources: { tv: { type: 'discover', params: { networks: 213, sort_by: 'popularity.desc' } } }
         },
 
@@ -404,11 +493,11 @@
           sources: { tv: { type: 'discover', params: { networks: 4330, sort_by: 'popularity.desc' } } }
         },
 
-        /* === THEME (32 подборки) === */
+        /* === THEME (47 подборок) === */
 
         /* Существующие (7) */
         {
-          id: 'xmas-comedy', title: 'Рождественские комедии', group: 'theme', icon: 'star', season: [12, 1],
+          id: 'xmas-comedy', title: 'Рождественские комедии', group: 'theme', icon: 'star', season: [12, 1], cover: '/vaVaNrscmsG8CUKYxiwZGFNqGJo.jpg',
           sources: { movie: { type: 'discover', params: { genres: 35, keywords: 207317, sort_by: 'popularity.desc' } } }
         },
         /* Task 21 (фаза 3): рождественское кино без привязки к жанру — тот
@@ -416,125 +505,161 @@
            genres: 35. Отдельная подборка нужна адвент-календарю: его пул
            собирается из этих двух, и одними комедиями 24 дня не закрыть. */
         {
-          id: 'christmas', title: 'Рождественское кино', group: 'theme', icon: 'star', season: [12, 1],
+          id: 'christmas', title: 'Рождественское кино', group: 'theme', icon: 'star', season: [12, 1], cover: '/y8Mabq84N0d5fm83CWb9Zkltkwr.jpg',
           sources: { movie: { type: 'discover', params: { keywords: 207317, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 50 } } } }
         },
         {
-          id: 'halloween', title: 'Хэллоуин', group: 'theme', icon: 'star', season: [9, 10, 11],
+          id: 'halloween', title: 'Хэллоуин', group: 'theme', icon: 'star', season: [9, 10, 11], cover: '/aRka9neADW1M0Zf9lF8kW2jEgXe.jpg',
           sources: { movie: { type: 'discover', params: { genres: 27, keywords: 3335, sort_by: 'popularity.desc' } } }
         },
         {
-          id: 'comedy', title: 'Комедии', group: 'theme',
+          id: 'comedy', title: 'Комедии', group: 'theme', cover: '/ubiu5Y7nP187ZFWUzjPj7Hgw6Go.jpg',
           sources: { movie: { type: 'discover', params: { genres: 35, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 200 } } } }
         },
         {
-          id: 'superhero', title: 'Супергерои', group: 'theme',
+          id: 'superhero', title: 'Супергерои', group: 'theme', cover: '/IYUD7rAIXzBM91TT3Z5fILUS7n.jpg',
           sources: {
-            movie: { type: 'discover', params: { genres: '28|12', sort_by: 'popularity.desc', filter: { 'vote_count.gte': 100 } } },
-            tv:    { type: 'discover', params: { genres: '10759|10765', sort_by: 'popularity.desc' } }
+            movie: { type: 'discover', params: { keywords: 9715, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 300 } } },
+            tv:    { type: 'discover', params: { keywords: 9715, sort_by: 'popularity.desc', filter: { without_genres: '10762,10751', 'vote_count.gte': 200 } } }
           }
         },
         {
-          id: 'horror-top', title: 'Хоррор', group: 'theme',
+          id: 'horror-top', title: 'Хоррор', group: 'theme', cover: '/mmd1HnuvAzFc4iuVJcnBrhDNEKr.jpg',
           sources: { movie: { type: 'discover', params: { genres: 27, sort_by: 'vote_average.desc', filter: { 'vote_count.gte': 300 } } } }
         },
         {
-          id: 'documentary', title: 'Документальное', group: 'theme',
-          sources: { movie: { type: 'discover', params: { genres: 99, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 100 } } } }
+          id: 'documentary', title: 'Документальное', group: 'theme', cover: '/e5NzCG9eoWTDABPIGeB362ztV9R.jpg',
+          sources: { movie: { type: 'discover', params: { genres: 99, sort_by: 'popularity.desc', filter: { without_genres: '35', 'vote_count.gte': 100 } } } }
         },
         {
-          id: 'thriller', title: 'Триллеры', group: 'theme',
+          id: 'thriller', title: 'Триллеры', group: 'theme', cover: '/lDJx0ZKbfYbGoe8mwWmVKSQr0ub.jpg',
           sources: { movie: { type: 'discover', params: { genres: 53, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 200 } } } }
         },
 
-        /* Новые (23), keywords и genres проверены live */
+        /* Новые (23), keywords и genres проверены live.
+           Правка 2026-09-25 — живые запросы TMDB (прокси Lampa, ru-RU),
+           первые 20 позиций каждой:
+           - «Супергерои» были жанрами 28|12 (боевик ИЛИ приключения) —
+             «Обитель зла», «Хитрый Койот», «Моана», «История игрушек 5»;
+             у сериалов 10759|10765 — «Ричер», «Морская полиция», «Игра
+             престолов». Теперь ключевое слово «superhero» (9715).
+           - «Романтические комедии» были '35|10749' (комедия ИЛИ
+             романтика) — «Моана», «Миньоны и монстры». Теперь '35,10749'
+             (И): «Больше чем секс», «Вам письмо», «Предложение», «Амели».
+           - «Психологические триллеры» были '9648|53' (любой детектив или
+             триллер) — теперь ключевое слово «psychological thriller»
+             (12565): «Паразиты», «Психо», «Остров проклятых», «Мементо».
+           - «Спорт» (333328) давал 17 фильмов, первым — хоррор «Тот
+             самый»; теперь «sports» | «sports drama» | «sport» И драма, без
+             документального и анимации (иначе первыми «Тачки»): «F1»,
+             «Ford против Ferrari», «Крид», «Рокки», «Малышка на миллион».
+           - «Байопики» (360939) — 7 фильмов; + «biography» (5565): 410.
+           - «Постапокалипсис» (359337) — 14 фильмов; + «post-apocalyptic
+             future» (4458): «Безумный Макс», «Я — легенда», «Тихое место»,
+             и сериалы: «Укрытие», «Ходячие мертвецы», «Одни из нас».
+           - «Мюзиклы» были жанром 10402 «Музыка» — «Майкл», «Одержимость»,
+             «Богемская рапсодия» (это байопики, они и ушли в «Байопики»).
+             Теперь ключевое слово «musical» (4344): «Ла-Ла Ленд», «Злая»,
+             «Король Лев», «Холодное сердце», «Величайший шоумен».
+           - «Новогоднее» (252123) — 8 фильмов, первым «Крёстный отец 2»
+             (сцена в Новый год); ключевое слово «канун Нового года» (613)
+             приносит «Форреста Гампа». Праздник по-русски — это русское
+             кино: Рождество, Новый год или канун И язык оригинала ru, без
+             ужасов и триллеров, от 40 голосов — 11 фильмов: «Ирония
+             судьбы», «Ёлки» 1-5, «Двенадцать месяцев», «Серебряные коньки»,
+             «Зигзаг удачи». Мало, но без мусора; «Рождественское кино»
+             остаётся для голливудского.
+           - «Документальное»: без комедии (35) — первыми шли «Чудаки». */
         {
-          id: 'space', title: 'Космос', group: 'theme',
+          id: 'space', title: 'Космос', group: 'theme', cover: '/vCkC4lHpJZNVUGzdWAF09UKK8by.jpg',
           sources: { movie: { type: 'discover', params: { keywords: 9882, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 100 } } } }
         },
         {
-          id: 'post-apocalyptic', title: 'Постапокалипсис', group: 'theme',
-          sources: { movie: { type: 'discover', params: { keywords: 359337, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 50 } } } }
+          id: 'post-apocalyptic', title: 'Постапокалипсис', group: 'theme', cover: '/aTLq0TMKdsmIy1ZyFM1LfPs326d.jpg',
+          sources: {
+            movie: { type: 'discover', params: { keywords: '4458|359337', sort_by: 'popularity.desc', filter: { 'vote_count.gte': 200 } } },
+            tv:    { type: 'discover', params: { keywords: '4458|359337', sort_by: 'popularity.desc', filter: { 'vote_count.gte': 50 } } }
+          }
         },
         {
-          id: 'zombie', title: 'Зомби', group: 'theme',
+          id: 'zombie', title: 'Зомби', group: 'theme', cover: '/qFKb25O9ROiGYt3GwtuXG5Lb2J.jpg',
           sources: {
             movie: { type: 'discover', params: { keywords: 12377, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 50 } } },
             tv:    { type: 'discover', params: { keywords: 12377, sort_by: 'popularity.desc' } }
           }
         },
         {
-          id: 'vampire', title: 'Вампиры', group: 'theme',
+          id: 'vampire', title: 'Вампиры', group: 'theme', cover: '/gmCqIGV0xcK7G47lj6OyVPcRelk.jpg',
           sources: {
             movie: { type: 'discover', params: { keywords: 3133, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 50 } } },
             tv:    { type: 'discover', params: { keywords: 3133, sort_by: 'popularity.desc' } }
           }
         },
         {
-          id: 'spy', title: 'Шпионы', group: 'theme',
+          id: 'spy', title: 'Шпионы', group: 'theme', cover: '/mXFmGlMCgTIOyHaGmQG1Hb6Rv2m.jpg',
           sources: { movie: { type: 'discover', params: { keywords: 470, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 100 } } } }
         },
         {
-          id: 'heist', title: 'Ограбления', group: 'theme',
+          id: 'heist', title: 'Ограбления', group: 'theme', cover: '/4CHlGJ9lUN97SsdUpMCA8pvvp1F.jpg',
           sources: {
             movie: { type: 'discover', params: { keywords: 10051, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 100 } } },
             tv:    { type: 'discover', params: { keywords: 10051, sort_by: 'popularity.desc' } }
           }
         },
         {
-          id: 'survival', title: 'Выживание', group: 'theme',
+          id: 'survival', title: 'Выживание', group: 'theme', cover: '/bdO24JwOiv1r0WV7VPyM1ZnI4Q.jpg',
           sources: { movie: { type: 'discover', params: { keywords: 10349, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 100 } } } }
         },
         {
-          id: 'sport', title: 'Спорт', group: 'theme',
-          sources: { movie: { type: 'discover', params: { keywords: 333328, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 50 } } } }
+          id: 'sport', title: 'Спортивные драмы', group: 'theme', cover: '/n3UanIvmnBlH531pykuzNs4LbH6.jpg',
+          sources: { movie: { type: 'discover', params: { keywords: '6075|294708|333328', genres: 18, sort_by: 'popularity.desc', filter: { without_genres: '99,16', 'vote_count.gte': 200 } } } }
         },
         {
-          id: 'biopic', title: 'Байопики', group: 'theme',
-          sources: { movie: { type: 'discover', params: { keywords: 360939, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 100 } } } }
+          id: 'biopic', title: 'Байопики', group: 'theme', cover: '/9441r6izIG2t46C2W1XoKYVN1o.jpg',
+          sources: { movie: { type: 'discover', params: { keywords: '5565|360939', sort_by: 'popularity.desc', filter: { without_genres: '99', 'vote_count.gte': 200 } } } }
         },
         {
-          id: 'noir', title: 'Нуар', group: 'theme',
+          id: 'noir', title: 'Нуар', group: 'theme', cover: '/qlndzxlcXQj9scIwnN1hnQg9Uyg.jpg',
           sources: { movie: { type: 'discover', params: { keywords: 9807, sort_by: 'vote_average.desc', filter: { 'vote_count.gte': 100 } } } }
         },
         {
-          id: 'slasher', title: 'Слэшеры', group: 'theme',
+          id: 'slasher', title: 'Слэшеры', group: 'theme', cover: '/vh7np635kDIcfO6x2Y9ElgLJsuI.jpg',
           sources: { movie: { type: 'discover', params: { keywords: 12339, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 50 } } } }
         },
         {
-          id: 'road-movie', title: 'Роуд-муви', group: 'theme',
+          id: 'road-movie', title: 'Роуд-муви', group: 'theme', cover: '/lWXcaHFLmGrI9hl8uCCfIRiK4A4.jpg',
           sources: { movie: { type: 'discover', params: { keywords: 167043, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 50 } } } }
         },
         {
-          id: 'romcom', title: 'Романтические комедии', group: 'theme',
-          sources: { movie: { type: 'discover', params: { genres: '35|10749', sort_by: 'popularity.desc', filter: { 'vote_count.gte': 100 } } } }
+          id: 'romcom', title: 'Романтические комедии', group: 'theme', cover: '/i8aIbji5vcPoHwcLBZYQSniGkAI.jpg',
+          sources: { movie: { type: 'discover', params: { genres: '35,10749', sort_by: 'popularity.desc', filter: { 'vote_count.gte': 200 } } } }
         },
         {
-          id: 'psycho-thriller', title: 'Психологические триллеры', group: 'theme',
-          sources: { movie: { type: 'discover', params: { genres: '9648|53', sort_by: 'vote_average.desc', filter: { 'vote_count.gte': 200 } } } }
+          id: 'psycho-thriller', title: 'Психологические триллеры', group: 'theme', cover: '/lavdyiJWciCJvyLG37ZOs6HJijg.jpg',
+          sources: { movie: { type: 'discover', params: { keywords: 12565, sort_by: 'vote_average.desc', filter: { 'vote_count.gte': 300 } } } }
         },
         {
-          id: 'anime-movies', title: 'Аниме-фильмы', group: 'theme',
+          id: 'anime-movies', title: 'Аниме-фильмы', group: 'theme', cover: '/jkwVCMIkN3j284EPIDIGnskTd69.jpg',
           sources: { movie: { type: 'discover', params: { genres: 16, orig_lang: 'ja', sort_by: 'popularity.desc' } } }
         },
         {
-          id: 'fantasy', title: 'Фэнтези', group: 'theme',
+          id: 'fantasy', title: 'Фэнтези', group: 'theme', cover: '/amjiPGOiJVUCgddTgl4dVRauKgV.jpg',
           sources: { movie: { type: 'discover', params: { genres: 14, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 100 } } } }
         },
         {
-          id: 'scifi', title: 'Научная фантастика', group: 'theme',
+          id: 'scifi', title: 'Научная фантастика', group: 'theme', cover: '/qr7dUqleMRd0VgollazbmyP9XjI.jpg',
           sources: { movie: { type: 'discover', params: { genres: 878, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 100 } } } }
         },
         {
-          id: 'western', title: 'Вестерны', group: 'theme',
+          id: 'western', title: 'Вестерны', group: 'theme', cover: '/26SUDI2iKhZTIKcU4ZzezTH1G15.jpg',
           sources: { movie: { type: 'discover', params: { genres: 37, sort_by: 'vote_average.desc', filter: { 'vote_count.gte': 200 } } } }
         },
         {
-          id: 'new-year', title: 'Новогоднее', group: 'theme', icon: 'star', season: [12, 1],
-          sources: { movie: { type: 'discover', params: { keywords: 252123, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 50 } } } }
+          id: 'new-year', title: 'Новогоднее', group: 'theme', icon: 'star', season: [12, 1], cover: '/mTEYBOOnOJ6p5w9xsfMh39t7iPV.jpg',
+          sources: { movie: { type: 'discover', params: { keywords: '207317|252123|613', orig_lang: 'ru', sort_by: 'popularity.desc', filter: { without_genres: '27,53', 'vote_count.gte': 40 } } } }
         },
         {
-          id: 'war-movies', title: 'Военные фильмы', group: 'theme',
+          id: 'war-movies', title: 'Военные фильмы', group: 'theme', cover: '/pNHv41t8Im8wlwgdzMK9I8WpuBZ.jpg',
           sources: { movie: { type: 'discover', params: { genres: 10752, sort_by: 'vote_average.desc', filter: { 'vote_count.gte': 200 } } } }
         },
         /* Сезонные подборки к 9 мая и к 14 февраля (идеи пользователя,
@@ -569,20 +694,171 @@
            комедии» (romcom выше, комедия ИЛИ романтика) и так живут круглый
            год. */
         {
-          id: 'war-may', title: 'Кино о войне', i18n: { en: 'War Films', uk: 'Кіно про війну' }, group: 'theme', icon: 'star', season: [5],
+          id: 'war-may', title: 'Кино о войне', i18n: { en: 'War Films', uk: 'Кіно про війну' }, group: 'theme', icon: 'star', season: [5], cover: '/1uKHoFWyYJn060dpIXUCU7Wbc15.jpg',
           sources: { movie: { type: 'discover', params: { genres: 10752, keywords: 1956, sort_by: 'popularity.desc', filter: { without_genres: '99', 'vote_count.gte': 300 } } } }
         },
         {
-          id: 'love-feb', title: 'Кино о любви', i18n: { en: 'Love Stories', uk: 'Кіно про кохання' }, group: 'theme', icon: 'star', season: [2],
+          id: 'love-feb', title: 'Кино о любви', i18n: { en: 'Love Stories', uk: 'Кіно про кохання' }, group: 'theme', icon: 'star', season: [2], cover: '/xnHVX37XZEp33hhCbYlQFq7ux1J.jpg',
           sources: { movie: { type: 'discover', params: { genres: '10749,18', sort_by: 'popularity.desc', filter: { without_genres: '99,16,27', 'vote_count.gte': 500 } } } }
         },
         {
-          id: 'musical', title: 'Мюзиклы', group: 'theme',
-          sources: { movie: { type: 'discover', params: { genres: 10402, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 100 } } } }
+          id: 'musical', title: 'Мюзиклы', group: 'theme', cover: '/zpq404Sk7qQ7N4x3xOeNgp74GtU.jpg',
+          sources: { movie: { type: 'discover', params: { keywords: 4344, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 100 } } } }
         },
         {
-          id: 'crime', title: 'Криминал', group: 'theme',
+          id: 'crime', title: 'Криминал', group: 'theme', cover: '/9pGM43a9VmXxwIxmhJoiDkcB2hT.jpg',
           sources: { movie: { type: 'discover', params: { genres: 80, sort_by: 'vote_average.desc', filter: { 'vote_count.gte': 300 } } } }
+        },
+
+        /* Правка 2026-09-25: 15 новых тем — чего не хватало против разделов
+           Netflix, Apple TV и Кинопоиска («Боевики», «Мультфильмы», «По
+           реальным событиям», «Про маньяков», «Про мафию», «Про тюрьму»,
+           «Катастрофы» — последние у нас были только подборками КП, которые
+           без ключа не открываются). Каждая проверена живым запросом (прокси
+           Lampa, ru-RU, 2026-09-25), первые 20 позиций:
+           - Боевики (жанр 28): «Человек-паук: Новый день», «Одиссея»,
+             «Мстители: Финал», «Тёмный рыцарь», «Начало».
+           - Мультфильмы (16 И 10751 — семейная анимация): «История
+             игрушек 5», «Зверополис 2», «Дикий робот», «Головоломка»,
+             «Тайна Коко», «Король Лев», «В поисках Немо».
+           - Мультфильмы для взрослых («adult animation» 161919): сериалы —
+             «Симпсоны», «Гриффины», «Рик и Морти», «Южный парк»,
+             «Футурама», «Конь БоДжек», «Аркейн», «Любовь, смерть и
+             роботы»; фильмы без аниме (210024 — оно живёт в «Аниме-фильмах»):
+             «Полный расколбас», «Мечты робота», «Мемуары улитки», «Бэтмен:
+             Убийственная шутка».
+           - По реальным событиям (9672, без документального и ужасов —
+             «Заклятие» TMDB тоже считает реальным): «Игра в имитацию»,
+             «Оппенгеймер», «Волк с Уолл-стрит», «Список Шиндлера», «1+1»;
+             сериалы: «Монстр», «Корона», «Нарко», «Чернобыль».
+           - Путешествия во времени («time travel» 4379 | «time loop»
+             10854): «Интерстеллар», «Терминатор», «Назад в будущее»,
+             «Грань будущего», «День сурка», «Довод»; сериалы без детских —
+             «Доктор Кто», «Тьма», «Локи», «Чужестранка».
+           - Роботы и ИИ (310 | 14544 | 803 И фантастика): «Бегущий по
+             лезвию 2049», «Матрица», «ВАЛЛ·И», «Я, робот», «Из машины».
+           - Антиутопии (4565): «Матрица», «Бегущий в лабиринте», «Голодные
+             игры», «Шоу Трумана»; сериалы — «Укрытие», «Чёрное зеркало»,
+             «Рассказ служанки».
+           - Катастрофы (10617 | 5096, без анимации): «Гренландия 2»,
+             «2012», «Разлом Сан-Андреас», «Армагеддон», «Послезавтра».
+           - Маньяки («serial killer» 10714): «Семь», «Зодиак»,
+             «Американский психопат», «Молчание ягнят»; сериалы — «Декстер»,
+             «Ганнибал», «Охотник за разумом», «Настоящий детектив».
+           - Детективы (whodunit 12570 | «murder mystery» 207046, без
+             ужасов — иначе «Крик» и «Проклятие монахини»): «Достать ножи»,
+             «Смерть на Ниле», «Окно во двор»; сериалы — «Пуаро», «Шерлок»,
+             «Убийства в одном здании».
+           - Мафия и гангстеры (10391 | 3149 | 10291 И криминал — без него
+             «365 дней»): «Крёстный отец», «Отступники», «Славные парни»,
+             «Лицо со шрамом»; сериалы без аниме — «Клан Сопрано», «Острые
+             козырьки», «Подпольная империя».
+           - Тюрьма и побег (378 | 9777 И драма, без фэнтези, комедий и
+             анимации — иначе «Шрек 2» и «Фантастические твари»): «Побег из
+             Шоушенка», «Большой побег», «Побег из Алькатраса»; сериалы —
+             «Побег», «Тюрьма OZ», «Визави».
+           - Боевые искусства (779 | 780, без анимации): «Убить Билла»,
+             «Джон Уик», «Матрица», «Шан-Чи», «Каратэ-пацан».
+           - Инопланетяне (9951 | 14909 И фантастика, без супергероев 9715 —
+             иначе первыми «Мстители» и «Человек из стали»): «Чужой»,
+             «Прибытие», «Хищник», «Тихое место», «День независимости».
+           - По мотивам игр (41645): «Мортал Комбат 2», «Соник», «Супер
+             Марио», «Пять ночей с Фредди»; сериалы от 500 голосов — «Одни
+             из нас», «Аркейн», «Фоллаут», «Halo».
+           Проверены и не взяты (шум в первых 20): «Месть» (9748 — «Железный
+           человек 2», «Зверополис»), «Динозавры» (12616 — «Щенячий патруль»),
+           «Школа и взросление» (10683 | 6270 — «Человек-паук», «Крик»).
+           В резерве, чистые: «Киберпанк» (12190), «Гигантские монстры»
+           (161791 | 11100), «Суд и адвокаты» (33519 | 214780 | 222517). */
+        {
+          id: 'action', title: 'Боевики', i18n: { en: 'Action', uk: 'Бойовики' }, group: 'theme', cover: '/3IzR3VhZAyhxVnuRRUHFLkfK4hT.jpg',
+          sources: { movie: { type: 'discover', params: { genres: 28, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 300 } } } }
+        },
+        {
+          id: 'animation', title: 'Мультфильмы', i18n: { en: 'Animated Films', uk: 'Мультфільми' }, group: 'theme', cover: '/pDMndR1yj7WHZmLTwzLxMu16xxD.jpg',
+          sources: { movie: { type: 'discover', params: { genres: '16,10751', sort_by: 'popularity.desc', filter: { 'vote_count.gte': 300 } } } }
+        },
+        {
+          id: 'adult-animation', title: 'Мультфильмы для взрослых', i18n: { en: 'Adult Animation', uk: 'Мультфільми для дорослих' }, group: 'theme', cover: '/iFOkrSrJRwE27PwbyQeYLlMJXzw.jpg',
+          sources: {
+            movie: { type: 'discover', params: { keywords: 161919, sort_by: 'popularity.desc', filter: { without_keywords: '210024', 'vote_count.gte': 100 } } },
+            tv:    { type: 'discover', params: { keywords: 161919, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 100 } } }
+          }
+        },
+        {
+          id: 'true-story', title: 'По реальным событиям', i18n: { en: 'Based on a True Story', uk: 'За реальними подіями' }, group: 'theme', cover: '/dc8Sr1mCiyGXsdVcah3Ot9ff4w9.jpg',
+          sources: {
+            movie: { type: 'discover', params: { keywords: 9672, sort_by: 'popularity.desc', filter: { without_genres: '99,27', 'vote_count.gte': 300 } } },
+            tv:    { type: 'discover', params: { keywords: 9672, sort_by: 'popularity.desc', filter: { without_genres: '99', 'vote_count.gte': 100 } } }
+          }
+        },
+        {
+          id: 'time-travel', title: 'Путешествия во времени', i18n: { en: 'Time Travel', uk: 'Подорожі в часі' }, group: 'theme', cover: '/50mCQ4lhJFED6ugaSQsn78cC83f.jpg',
+          sources: {
+            movie: { type: 'discover', params: { keywords: '4379|10854', sort_by: 'popularity.desc', filter: { 'vote_count.gte': 200 } } },
+            tv:    { type: 'discover', params: { keywords: '4379|10854', sort_by: 'popularity.desc', filter: { without_genres: '10762', 'vote_count.gte': 100 } } }
+          }
+        },
+        {
+          id: 'robots', title: 'Роботы и ИИ', i18n: { en: 'Robots & AI', uk: 'Роботи та ШІ' }, group: 'theme', cover: '/jFxxqdEQ9TkXQSytO7qM8wlwXL1.jpg',
+          sources: { movie: { type: 'discover', params: { keywords: '310|14544|803', genres: 878, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 300 } } } }
+        },
+        {
+          id: 'dystopia', title: 'Антиутопии', i18n: { en: 'Dystopias', uk: 'Антиутопії' }, group: 'theme', cover: '/gDLCap8mcJ32mNIZWTJyk2KyMLW.jpg',
+          sources: {
+            movie: { type: 'discover', params: { keywords: 4565, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 200 } } },
+            tv:    { type: 'discover', params: { keywords: 4565, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 100 } } }
+          }
+        },
+        {
+          id: 'disaster', title: 'Катастрофы', i18n: { en: 'Disaster Films', uk: 'Катастрофи' }, group: 'theme', cover: '/jCvkDqWWBrgxf9R3DrtJ6GpqXse.jpg',
+          sources: { movie: { type: 'discover', params: { keywords: '10617|5096', sort_by: 'popularity.desc', filter: { without_genres: '99,16', 'vote_count.gte': 300 } } } }
+        },
+        {
+          id: 'serial-killers', title: 'Маньяки', i18n: { en: 'Serial Killers', uk: 'Маніяки' }, group: 'theme', cover: '/p1PLSI5Nw2krGxD7X4ulul1tDAk.jpg',
+          sources: {
+            movie: { type: 'discover', params: { keywords: 10714, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 300 } } },
+            tv:    { type: 'discover', params: { keywords: 10714, sort_by: 'popularity.desc', filter: { without_genres: '16', 'vote_count.gte': 100 } } }
+          }
+        },
+        {
+          id: 'whodunit', title: 'Детективы', i18n: { en: 'Whodunits', uk: 'Детективи' }, group: 'theme', cover: '/fkdMSS93pFBzNW9OByNpi8i2UYg.jpg',
+          sources: {
+            movie: { type: 'discover', params: { keywords: '12570|207046', sort_by: 'popularity.desc', filter: { without_genres: '27', 'vote_count.gte': 200 } } },
+            tv:    { type: 'discover', params: { keywords: '12570|207046', sort_by: 'popularity.desc', filter: { 'vote_count.gte': 50 } } }
+          }
+        },
+        {
+          id: 'mafia', title: 'Мафия и гангстеры', i18n: { en: 'Mafia & Gangsters', uk: 'Мафія та гангстери' }, group: 'theme', cover: '/ejdD20cdHNFAYAN2DlqPToXKyzx.jpg',
+          sources: {
+            movie: { type: 'discover', params: { keywords: '10391|3149|10291', genres: 80, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 300 } } },
+            tv:    { type: 'discover', params: { keywords: '10391|3149|10291', genres: 80, sort_by: 'popularity.desc', filter: { without_genres: '16', 'vote_count.gte': 50 } } }
+          }
+        },
+        {
+          id: 'prison', title: 'Тюрьма и побег', i18n: { en: 'Prison & Escape', uk: 'В\'язниця та втеча' }, group: 'theme', cover: '/zfbjgQE1uSd9wiPTX4VzsLi0rGG.jpg',
+          sources: {
+            movie: { type: 'discover', params: { keywords: '378|9777', genres: 18, sort_by: 'popularity.desc', filter: { without_genres: '16,35,10751,14', 'vote_count.gte': 300 } } },
+            tv:    { type: 'discover', params: { keywords: '378|9777', sort_by: 'popularity.desc', filter: { without_genres: '16,35', 'vote_count.gte': 100 } } }
+          }
+        },
+        {
+          id: 'martial-arts', title: 'Боевые искусства', i18n: { en: 'Martial Arts', uk: 'Бойові мистецтва' }, group: 'theme', cover: '/ylZ06kRUF2JKkrCG2E3qn5D9w8L.jpg',
+          sources: { movie: { type: 'discover', params: { keywords: '779|780', sort_by: 'popularity.desc', filter: { without_genres: '16', 'vote_count.gte': 300 } } } }
+        },
+        {
+          id: 'aliens', title: 'Инопланетяне', i18n: { en: 'Aliens', uk: 'Прибульці' }, group: 'theme', cover: '/2GzzMdmjWHxk4NG3MX36fEAE8He.jpg',
+          sources: {
+            movie: { type: 'discover', params: { keywords: '9951|14909', genres: 878, sort_by: 'popularity.desc', filter: { without_genres: '16,10751,35', without_keywords: '9715', 'vote_count.gte': 500 } } },
+            tv:    { type: 'discover', params: { keywords: '9951|14909', sort_by: 'popularity.desc', filter: { without_genres: '16,10762', without_keywords: '9715', 'vote_count.gte': 200 } } }
+          }
+        },
+        {
+          id: 'video-games', title: 'По мотивам игр', i18n: { en: 'Based on Video Games', uk: 'За мотивами ігор' }, group: 'theme', cover: '/q8eejQcg1bAqImEV8jh8RtBD4uH.jpg',
+          sources: {
+            movie: { type: 'discover', params: { keywords: 41645, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 100 } } },
+            tv:    { type: 'discover', params: { keywords: 41645, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 500 } } }
+          }
         },
 
         /* === COUNTRY (14 подборок) === */
@@ -605,7 +881,7 @@
           sources: { movie: { type: 'discover', params: { sort_by: 'vote_average.desc', filter: { with_origin_country: 'FR', 'vote_count.gte': 100 } } } }
         },
         {
-          id: 'british', title: 'Британское ТВ', group: 'country',
+          id: 'british', title: 'Британское ТВ', group: 'country', cover: '/hmLTIRtVyTHShJl2Wb8LHmvUgJm.jpg',
           sources: {
             tv:    { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_origin_country: 'GB' } } },
             movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_origin_country: 'GB', 'vote_count.gte': 100 } } }
@@ -716,7 +992,7 @@
           sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_people: 7467 } } } }
         },
         {
-          id: 'scorsese', title: 'Мартин Скорсезе', group: 'people',
+          id: 'scorsese', title: 'Мартин Скорсезе', group: 'people', cover: '/6aoyUbvu0419XLKLIMoH0TkEicH.jpg',
           sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_people: 1032 } } } }
         },
         {
@@ -724,13 +1000,13 @@
           sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_people: 137427 } } } }
         },
         {
-          id: 'miyazaki', title: 'Хаяо Миядзаки', group: 'people',
+          id: 'miyazaki', title: 'Хаяо Миядзаки', group: 'people', cover: '/95ozIP0A2fKaAXxwDxUEVn74Iux.jpg',
           sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_people: 608 } } } }
         },
 
         /* Новые (13), person ID проверены live */
         {
-          id: 'ridley-scott', title: 'Ридли Скотт', group: 'people',
+          id: 'ridley-scott', title: 'Ридли Скотт', group: 'people', cover: '/hND7xAaxxBgaIspp9iMsaEXOSTz.jpg',
           sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_people: 578 } } } }
         },
         {
@@ -750,11 +1026,11 @@
           sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_people: '1223|1224' } } } }
         },
         {
-          id: 'tom-hanks', title: 'Том Хэнкс', group: 'people',
+          id: 'tom-hanks', title: 'Том Хэнкс', group: 'people', cover: '/ghgfzbEV7kbpbi1O8eIILKVXEA8.jpg',
           sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_people: 31 } } } }
         },
         {
-          id: 'keanu-reeves', title: 'Киану Ривз', group: 'people',
+          id: 'keanu-reeves', title: 'Киану Ривз', group: 'people', cover: '/26OvB15pqk3eiKJG8LrXDVzO7Mw.jpg',
           sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_people: 6384 } } } }
         },
         {
@@ -762,7 +1038,7 @@
           sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_people: 5292 } } } }
         },
         {
-          id: 'brad-pitt', title: 'Брэд Питт', group: 'people',
+          id: 'brad-pitt', title: 'Брэд Питт', group: 'people', cover: '/hZkgoQYus5vegHoetLkCJzb17zJ.jpg',
           sources: { movie: { type: 'discover', params: { sort_by: 'popularity.desc', filter: { with_people: 287 } } } }
         },
         {
