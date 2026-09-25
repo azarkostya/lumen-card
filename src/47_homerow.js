@@ -69,6 +69,14 @@
        'toggle', и этот фокус (не подъём) переписал бы источник первым
        рядом. */
     var armed = null;
+    /* Ревью fa7d4fd..cd6c2e5 (~80): источник подъёма фиксируется только в
+       момент перехода из рядов в шапку. Из рядов можно уйти и мимо шапки —
+       «влево» в меню, клик мышью по шестерёнке; тогда подъём с пятого ряда до
+       второго — не подъём в шапку, и возвращать надо во второй (last), а не
+       в пятый. prevCtl — прошлый контроллер (все переключения, а не только
+       взведённые), climb — источник, зафиксированный при уходе рядов в шапку. */
+    var prevCtl = '';
+    var climb = null;
 
     function lineOf(el) {
       var node = el;
@@ -142,10 +150,12 @@
       last = null;
       origin = null;
       armed = null;
+      prevCtl = '';
+      climb = null;
     }
 
     function arm() {
-      armed = origin && onMain() ? origin : null;
+      armed = onMain() ? (climb || last) : null;
     }
 
     function inDocument(node) {
@@ -174,7 +184,15 @@
       }
     }
 
+    function rows(name) {
+      return name === 'items_line' || name === 'content';
+    }
+
     function onToggle(name) {
+      var from = prevCtl;
+      prevCtl = name;
+      if (rows(name)) climb = null;
+      else if (name === 'head' && rows(from)) climb = origin;
       if (!armed) return;
       if (name !== 'head' && name !== 'content' && name !== 'items_line') return;
       var target = armed;

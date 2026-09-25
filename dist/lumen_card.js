@@ -14553,6 +14553,14 @@ var origin = null;
 
 var armed = null;
 
+
+
+
+
+
+var prevCtl = '';
+var climb = null;
+
 function lineOf(el) {
 var node = el;
 for (var i = 0; node && i < MAX_DEPTH; i++) {
@@ -14625,10 +14633,12 @@ bound = null;
 last = null;
 origin = null;
 armed = null;
+prevCtl = '';
+climb = null;
 }
 
 function arm() {
-armed = origin && onMain() ? origin : null;
+armed = onMain() ? (climb || last) : null;
 }
 
 function inDocument(node) {
@@ -14657,7 +14667,15 @@ warn('homeRow: return failed', e);
 }
 }
 
+function rows(name) {
+return name === 'items_line' || name === 'content';
+}
+
 function onToggle(name) {
+var from = prevCtl;
+prevCtl = name;
+if (rows(name)) climb = null;
+else if (name === 'head' && rows(from)) climb = origin;
 if (!armed) return;
 if (name !== 'head' && name !== 'content' && name !== 'items_line') return;
 var target = armed;

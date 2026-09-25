@@ -76,7 +76,11 @@ function setup(opts) {
     st.ctl = 'items_line';
     st.focused = st.last[r];
     fire(st.focused);
+    /* Как в Lampa: Controller.toggle сначала ставит фокус, потом рассылает
+       'toggle' (общая подписка рантайма → LC.homeRow.onToggle). */
+    if (H) H.onToggle('items_line');
   }
+  let H = null;
   const Lampa = {
     Activity: { active: () => ({ component: st.comp }) },
     Platform: { screen: (need) => (need === 'tv' ? st.tv : false) },
@@ -96,7 +100,7 @@ function setup(opts) {
   globalThis.Lampa = Lampa;
   globalThis.window = { Lampa: Lampa };
   globalThis.document = { body: main.body };
-  const H = loadCtx('47_homerow.js').api;
+  H = loadCtx('47_homerow.js').api;
 
   /* Руки пользователя — пульт. */
   const user = {
@@ -104,7 +108,7 @@ function setup(opts) {
     down: () => { if (st.active < main.lines.length - 1) focusRow(st.active + 1); },
     up: () => {
       if (st.active > 0) focusRow(st.active - 1);
-      else { st.ctl = 'head'; st.focused = null; }
+      else { st.ctl = 'head'; st.focused = null; H.onToggle('head'); }
     },
     right: () => {
       const row = main.cards[st.active];
@@ -114,7 +118,10 @@ function setup(opts) {
       st.focused = next;
       fire(next);
     },
-    hover: (r, c) => fire(main.cards[r][c], 'hover:hover')
+    hover: (r, c) => fire(main.cards[r][c], 'hover:hover'),
+    /* «Влево» с первой карточки ряда — меню Lampa (Line.left → onLeft →
+       toggle('menu')), шапку не проходит. */
+    menu: () => { st.ctl = 'menu'; st.focused = null; H.onToggle('menu'); }
   };
   /* Смена «Кадра над рядами» и выход из настроек «Назад» — в шапку. */
   function settingsBack() {
@@ -268,6 +275,29 @@ test('п.10: Lampa поставила фокус ниже источника —
   await tick();
   assert.deepEqual(st.moves, []);
   assert.equal(st.active, 3);
+});
+
+/* Ревью fa7d4fd..cd6c2e5 (~80): из рядов ушли не через шапку («влево» в
+   меню, клик по шестерёнке мышью) — источником остаётся ряд, где стоял фокус,
+   а не ряд, с которого когда-то начали подниматься. */
+test('п.10: подъём с пятого ряда до второго, «влево» в меню, смена кадра — фокус во втором ряду, не в пятом', async () => {
+  const { H, st, user } = setup({ rows: 6 });
+  H.install();
+  user.start();
+  user.down(); user.down(); user.down(); user.down();
+  user.up(); user.up(); user.up();
+  assert.equal(st.active, 1, 'подготовка: фокус во втором ряду');
+  user.menu();
+  H.onToggle('settings');
+  H.arm();
+  st.toggles.length = 0;
+  st.moves.length = 0;
+  H.onToggle('settings_component');
+  st.ctl = 'head';
+  H.onToggle('head');
+  await tick();
+  assert.deepEqual(st.moves, [], 'фокус увели вниз — в ряд, с которого когда-то начали подъём');
+  assert.equal(st.active, 1, 'фокус не во втором ряду');
 });
 
 test('п.10: install один раз, uninstall снимает слушатель и забывает источник', async () => {
