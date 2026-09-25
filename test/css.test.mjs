@@ -1108,12 +1108,28 @@ test('buildCss: заголовок ряда — название 32px (1.40em), 
   assert.ok(total && total.indexOf('#A89A8A') !== -1, '«· 318 отзывов» — muted');
 });
 
-test('buildCss: подсказка без ключа (экран 13) — плашка пути на прозрачном акценте', () => {
+/* Пользователь (скрин «Ключ API не задан»): «тут кнопки странные». Путь до
+   настройки стоял плашкой с золотой рамкой и фоном — выглядел кнопкой, но не
+   нажимался; «Скрыть» (inline-block с margin-left) при длинном пути
+   переносилась на новую строку сдвинутой вправо и прилипала к рамке пути.
+   Путь — строка текста акцентом, «Скрыть» — своей строкой от левого края
+   текста, с отступом сверху, в виде остальных кнопок плагина. */
+test('buildCss: подсказка без ключа (экран 13) — путь строкой акцентом, «Скрыть» своей строкой, как кнопки плагина', () => {
   const path = findDecl(css, (sel) => sel === '.lumen-descr-row .lumen-reviews__hint-path');
-  assert.ok(path, 'правило плашки пути не найдено');
-  assert.ok(path.indexOf('rgba(232,184,122,.1)') !== -1, 'фон — акцент 10 %');
-  assert.ok(path.indexOf('rgba(232,184,122,.4)') !== -1, 'рамка — акцент 40 %');
-  assert.ok(path.indexOf('font-size:1.01em') !== -1, 'Task 63: текст плашки — 23 px = 1.01em');
+  assert.ok(path, 'правило пути не найдено');
+  for (const prop of ['border', 'background', 'padding', 'display']) {
+    assert.equal(declProp(path, prop), null, 'путь — не плашка: ' + prop + ':' + declProp(path, prop));
+  }
+  assert.ok(path.indexOf('color:#E8B87A') !== -1, 'путь — акцентом');
+  assert.ok(path.indexOf('font-size:1.01em') !== -1, 'Task 63: текст пути — 23 px = 1.01em');
+  const hide = findDecl(css, (sel) => sel === '.lumen-descr-row .lumen-reviews__hint-hide');
+  assert.ok(hide, 'правило «Скрыть» не найдено');
+  assert.equal(declProp(hide, 'margin-left'), null, '«Скрыть» не сдвинута вправо от левого края текста');
+  assert.equal(declProp(hide, 'margin-top'), '.70em', 'отступ сверху от пути');
+  const back = findDecl(css, (sel) => sel === '.lumen-grid .lumen-grid__back');
+  for (const prop of ['display', 'height', 'padding', 'border-radius', 'border', 'background', 'font-weight', 'font-size', 'color']) {
+    assert.equal(declProp(hide, prop), declProp(back, prop), '«Скрыть» — как «Назад» сетки: ' + prop);
+  }
   const hint = findDecl(css, (sel) => sel === '.lumen-descr-row .lumen-reviews__hint');
   assert.ok(hint && hint.indexOf('border-radius:.61em') !== -1);
 });

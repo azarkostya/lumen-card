@@ -3572,12 +3572,18 @@ css.push('.lumen-descr-row .lumen-reviews__hint{-webkit-box-sizing:border-box;bo
 css.push('.lumen-descr-row .lumen-reviews__hint-ico{width:2.10em;height:2.10em;background-color:' + A + ';-webkit-mask-image:' + LC.icons.maskUrl('comment') + ';mask-image:' + LC.icons.maskUrl('comment') + ';-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;-webkit-mask-size:contain;mask-size:contain;margin-bottom:.70em}');
 css.push('.lumen-descr-row .lumen-reviews__hint-title{font-family:' + FB + ';font-weight:700;font-size:1.23em;line-height:1.15;color:' + P.text + ';margin-bottom:.44em}');
 css.push('.lumen-descr-row .lumen-reviews__hint-text{font-family:' + FB + ';font-weight:500;font-size:1.01em;line-height:1.3;color:' + P.muted + ';margin-bottom:.70em}');
-css.push('.lumen-descr-row .lumen-reviews__hint-path{display:inline-block;padding:.48em .62em;border-radius:.41em;background:rgba(' + A_RGB + ',.1);border:.04em solid rgba(' + A_RGB + ',.4);font-family:' + FB + ';font-weight:500;font-size:1.01em;line-height:1.3;color:' + A + '}');
+
+
+
+css.push('.lumen-descr-row .lumen-reviews__hint-path{font-family:' + FB + ';font-weight:500;font-size:1.01em;line-height:1.3;color:' + A + '}');
 
 
 
 
-css.push('.lumen-descr-row .lumen-reviews__hint-hide{display:inline-block;margin-left:.41em;padding:.48em .62em;border-radius:.41em;background:' + P.buttonBg + ';border:.04em solid ' + P.line + ';font-family:' + FB + ';font-weight:600;font-size:1.01em;line-height:1.3;color:' + P.text + '}');
+
+
+
+css.push('.lumen-descr-row .lumen-reviews__hint-hide{display:-webkit-inline-box;display:-webkit-inline-flex;display:inline-flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;height:3.16em;padding:0 1.32em;margin-top:.70em;border-radius:.79em;border:.04em solid ' + P.line + ';background:' + P.buttonBg + ';font-family:' + FB + ';font-weight:600;font-size:1.01em;color:' + P.text + '}');
 
 css.push('.lumen-descr-row .lumen-reviews__hint-hide.focus{background:' + P.text + ';color:' + P.bg + '}');
 
