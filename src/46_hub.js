@@ -696,11 +696,25 @@
       return found;
     }
 
-    function screenController(recollect, afterMove, onUp) {
+    /* Полное ревью, C2: экран ТВ по мерке Lampa (Platform.screen,
+       app.min.js:32740). На телефоне и планшете портретом штатные экраны
+       фокус на возврате не ставят вовсе (category_full: restorePosition, и
+       items[active].toggle() только на ТВ, app.min.js:35096). Без Platform
+       (тесты, старые сборки) — ТВ. */
+    function tvScreen() {
+      try {
+        if (window.Lampa && Lampa.Platform && typeof Lampa.Platform.screen === 'function') return Lampa.Platform.screen('tv') !== false;
+      } catch (e) { }
+      return true;
+    }
+
+    /* enter — вход экрана в пульт (toggle): Lampa отдала управление — при
+       старте, с карточки, из меню карточки, из поиска, из меню и шапки. */
+    function screenController(enter, afterMove, onUp) {
       return {
         toggle: function () {
           forgetWindow();
-          recollect(null);
+          enter();
         },
         left: function () {
           if (!navMove('left')) Lampa.Controller.toggle('menu');
@@ -754,6 +768,13 @@
       var rouletteNode = null;
       var lastFocus = null;
       var started = false;
+      /* Полное ревью, C2 — то же, что у сетки: последний ввод не пульт
+         (наведение мышью, прокрутка колесом или пальцем); сбрасывает шаг
+         пульта (afterMove). Пока он стоит, возврат на экран ставит фокус
+         тихо (quiet) — экран остаётся там, где его оставили. */
+      var byMouse = false;
+      var quiet = false;
+      var remoteScroll = false;
 
       function alive(captured) {
         return function () { return gen === captured; };
@@ -808,18 +829,32 @@
          зовёт Navigator.focus (app.min.js:46474-46491), а тот требует, чтобы
          элемент лежал в коллекции (navigator.js:674); окно потому и
          строится ВОКРУГ того узла, на который сейчас встанет фокус. */
-      function recollect(prefer) {
+      function recollect(prefer, still) {
         try {
           var node = prefer || focusTarget();
           limitHub(node);
+          quiet = !!still;
           Lampa.Controller.collectionFocus(node || false, root[0]);
         } catch (e) {
           warn('hub: collection failed', e);
         }
+        quiet = false;
+      }
+
+      /* C2: вход в пульт. Прокрутка восстанавливается, как у штатных
+         экранов (на ТВ restorePosition ничего не делает); на не-ТВ экране
+         фокус не ставится вовсе, на ТВ — тихо, если последний ввод был не
+         пультом: иначе программный 'hover:focus' подкручивал экран к
+         lastFocus — на таче это первый чип, и хаб прыгал в начало. */
+      function enter() {
+        try { scroll.restorePosition(); } catch (e) { }
+        if (!tvScreen()) return;
+        recollect(null, byMouse);
       }
 
       /* Шаг фокуса внутри экрана: окно едет за ним. */
       function afterMove() {
+        byMouse = false;
         limitHub(lastFocus);
       }
 
@@ -847,8 +882,15 @@
          (app.min.js:52333), а category_full его не задаёт: наведение
          страницу не двигает. Мышью листают колесом (onScroll ниже). */
       function keepVisible(el, ev) {
-        if (!LC.focus.remote(ev)) return;
-        try { scroll.update(el, true); } catch (e) { warn('hub: scroll.update failed', e); }
+        if (!LC.focus.remote(ev)) { byMouse = true; return; }
+        if (quiet) return;
+        try {
+          var from = scroll.position();
+          remoteScroll = true;
+          scroll.update(el, true);
+          /* Экран уже там — onScroll не придёт (см. keepVisible сетки). */
+          if (scroll.position() === from) remoteScroll = false;
+        } catch (e) { warn('hub: scroll.update failed', e); }
       }
 
       /* Task 41: размер кадра плитки по её фактической ширине. Ступени
@@ -1003,7 +1045,11 @@
         loadBanners(lastInView(tileNodes) + LC.hubEm.tileCols);
       }
 
+      /* C2: прокрутка, которую начал не keepVisible (колесо, палец,
+         полоса), — ввод не пультовый. */
       function onScroll() {
+        if (remoteScroll) remoteScroll = false;
+        else byMouse = true;
         loadInView();
         try { Lampa.Layer.visible(scroll.render(true)); } catch (e) {}
       }
@@ -1243,7 +1289,7 @@
         if (act && act.activity && act.activity !== this.activity) return;
         started = true;
         motionClass(root);
-        Lampa.Controller.add('content', screenController(recollect, afterMove, focusSearch));
+        Lampa.Controller.add('content', screenController(enter, afterMove, focusSearch));
         Lampa.Controller.toggle('content');
         /* Возврат после stop(): кадры, которые тогда погасили (или которые
            не успели прийти), запрашиваются снова — в этот момент они уже в
@@ -1419,6 +1465,13 @@
           warn('grid: collection failed', e);
         }
         quiet = false;
+      }
+
+      /* C2: вход в пульт — как у хаба (enter там). */
+      function enter() {
+        try { scroll.restorePosition(); } catch (e) { }
+        if (!tvScreen()) return;
+        recollect(null, byMouse);
       }
 
       /* Task 32: то же, что keepVisible хаба (см. комментарий там) — экран
@@ -1876,7 +1929,7 @@
         if (act && act.activity && act.activity !== this.activity) return;
         started = true;
         motionClass(root);
-        Lampa.Controller.add('content', screenController(recollect, afterMove));
+        Lampa.Controller.add('content', screenController(enter, afterMove));
         Lampa.Controller.toggle('content');
         /* Страница могла прийти раньше, чем экран встал в документ, — тогда
            видимое добирается здесь (loadInView). */

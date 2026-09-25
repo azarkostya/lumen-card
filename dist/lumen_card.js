@@ -12229,11 +12229,25 @@ else hi = mid - 1;
 return found;
 }
 
-function screenController(recollect, afterMove, onUp) {
+
+
+
+
+
+function tvScreen() {
+try {
+if (window.Lampa && Lampa.Platform && typeof Lampa.Platform.screen === 'function') return Lampa.Platform.screen('tv') !== false;
+} catch (e) { }
+return true;
+}
+
+
+
+function screenController(enter, afterMove, onUp) {
 return {
 toggle: function () {
 forgetWindow();
-recollect(null);
+enter();
 },
 left: function () {
 if (!navMove('left')) Lampa.Controller.toggle('menu');
@@ -12288,6 +12302,13 @@ var rouletteNode = null;
 var lastFocus = null;
 var started = false;
 
+
+
+
+var byMouse = false;
+var quiet = false;
+var remoteScroll = false;
+
 function alive(captured) {
 return function () { return gen === captured; };
 }
@@ -12341,18 +12362,32 @@ limitCollection(fixed.concat(chipNodes), tileNodes, active);
 
 
 
-function recollect(prefer) {
+function recollect(prefer, still) {
 try {
 var node = prefer || focusTarget();
 limitHub(node);
+quiet = !!still;
 Lampa.Controller.collectionFocus(node || false, root[0]);
 } catch (e) {
 warn('hub: collection failed', e);
 }
+quiet = false;
+}
+
+
+
+
+
+
+function enter() {
+try { scroll.restorePosition(); } catch (e) { }
+if (!tvScreen()) return;
+recollect(null, byMouse);
 }
 
 
 function afterMove() {
+byMouse = false;
 limitHub(lastFocus);
 }
 
@@ -12380,8 +12415,15 @@ limitHub(lastFocus);
 
 
 function keepVisible(el, ev) {
-if (!LC.focus.remote(ev)) return;
-try { scroll.update(el, true); } catch (e) { warn('hub: scroll.update failed', e); }
+if (!LC.focus.remote(ev)) { byMouse = true; return; }
+if (quiet) return;
+try {
+var from = scroll.position();
+remoteScroll = true;
+scroll.update(el, true);
+
+if (scroll.position() === from) remoteScroll = false;
+} catch (e) { warn('hub: scroll.update failed', e); }
 }
 
 
@@ -12536,7 +12578,11 @@ function loadInView() {
 loadBanners(lastInView(tileNodes) + LC.hubEm.tileCols);
 }
 
+
+
 function onScroll() {
+if (remoteScroll) remoteScroll = false;
+else byMouse = true;
 loadInView();
 try { Lampa.Layer.visible(scroll.render(true)); } catch (e) {}
 }
@@ -12776,7 +12822,7 @@ try { act = Lampa.Activity.active(); } catch (eAct) {}
 if (act && act.activity && act.activity !== this.activity) return;
 started = true;
 motionClass(root);
-Lampa.Controller.add('content', screenController(recollect, afterMove, focusSearch));
+Lampa.Controller.add('content', screenController(enter, afterMove, focusSearch));
 Lampa.Controller.toggle('content');
 
 
@@ -12952,6 +12998,13 @@ Lampa.Controller.collectionFocus(node || false, root[0]);
 warn('grid: collection failed', e);
 }
 quiet = false;
+}
+
+
+function enter() {
+try { scroll.restorePosition(); } catch (e) { }
+if (!tvScreen()) return;
+recollect(null, byMouse);
 }
 
 
@@ -13409,7 +13462,7 @@ try { act = Lampa.Activity.active(); } catch (eAct) {}
 if (act && act.activity && act.activity !== this.activity) return;
 started = true;
 motionClass(root);
-Lampa.Controller.add('content', screenController(recollect, afterMove));
+Lampa.Controller.add('content', screenController(enter, afterMove));
 Lampa.Controller.toggle('content');
 
 

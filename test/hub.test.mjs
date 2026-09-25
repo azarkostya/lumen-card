@@ -628,6 +628,11 @@ function setupLampa(opts) {
        колеса Scroll, если onWheel не задан, — и наш onWheel сетки. */
     this.wheel_calls = [];
     this.wheel = function (size) { self.wheel_calls.push(size); };
+    /* Полное ревью, C2: штатные контроллеры Lampa на toggle зовут
+       restorePosition (app.min.js:35096, 39124) — на телефоне он
+       возвращает прокрутку, сбитую снятием слайда. */
+    this.restore_calls = 0;
+    this.restorePosition = function () { self.restore_calls++; };
     this.destroy = function () { self.destroyed = true; };
     log.scrolls.push(this);
   }
@@ -673,6 +678,9 @@ function setupLampa(opts) {
     TMDB: { image: function (url) { return 'https://proxy/' + url; } },
     Storage: { get: function (k, d) { return d; }, set: function (k, v) { log.stored.push({ name: k, value: v }); } }
   };
+  /* C2: экран не ТВ (телефон, планшет портретом — Platform.screen,
+     app.min.js:32740). По умолчанию Platform нет — как ТВ. */
+  if (opts.tv === false) Lampa.Platform = { screen: function (need) { return need === 'mobile'; } };
 
   /* Task 39: innerWidth нужен LC.util.screenPx — от него зависит размер
      кадров плиток и постеров карточек сетки. */
@@ -2457,4 +2465,94 @@ test('C1: каталог хаба, пришедший при открытом м
     assert.equal(env.log.collections.length, cols, 'каталог забрал коллекцию (' + n + ')');
     assert.equal(env.log.focuses.length, focuses, 'каталог сдвинул фокус (' + n + ')');
   });
+});
+
+/* ---------------------------------------------------------------------- */
+/* Полное ревью, C2: на таче при возврате (с карточки, из своего меню       */
+/* карточки, из поиска хаба) хаб и сетка прыгали в начало: toggle звал      */
+/* recollect(null) — collectionFocus на lastFocus (на таче это первый чип:   */
+/* 'hover:touch' фокус не двигает) — программный 'hover:focus', и           */
+/* keepVisible подкручивал экран к нему. Стенд: сетка «Звёздные войны»       */
+/* 600 px → тап → «Назад» → scrollTop 0; хаб «Темы» 521 → 0. Штатная          */
+/* category_full на toggle зовёт restorePosition и фокус ставит только на    */
+/* ТВ (app.min.js:35096). Так же и у нас; а на ТВ-экране, если последний      */
+/* ввод был не пультом (мышь, колесо, палец), фокус ставится тихо.           */
+/* ---------------------------------------------------------------------- */
+
+test('C2: сетка на не-ТВ экране — возврат восстанавливает прокрутку и фокус не ставит', function () {
+  var g = openGrid(DISCOVER, { tv: false });
+  g.h.fetchCalls[0].ok({ results: results(60), page: 1, total_pages: 3, total_results: 180 });
+  g.comp.start();
+  var scroll = g.env.log.scrolls[0];
+  var ctrl = g.env.log.controllers.content;
+  ctrl.toggle();
+  var focuses = g.env.log.focuses.length;
+  scroll.update_calls.length = 0;
+  var restored = scroll.restore_calls;
+  g.comp.pause();
+  g.comp.start();
+  ctrl.toggle();                     /* «Назад» с карточки */
+  assert.ok(scroll.restore_calls > restored, 'restorePosition не позван');
+  assert.equal(g.env.log.focuses.length, focuses, 'на таче фокус переставлен — экран уехал бы к нему');
+  assert.deepEqual(scroll.update_calls, [], 'экран подкручен');
+});
+
+test('C2: хаб на не-ТВ экране — возврат из поиска экран не трогает', function () {
+  var s = openHub({ tv: false });
+  s.comp.start();
+  var scroll = s.env.log.scrolls[0];
+  var focuses = s.env.log.focuses.length;
+  scroll.update_calls.length = 0;
+  s.env.log.controllers.content.toggle();   /* onDone поиска: toggle('content') */
+  assert.ok(scroll.restore_calls > 0);
+  assert.equal(s.env.log.focuses.length, focuses);
+  assert.deepEqual(scroll.update_calls, []);
+});
+
+test('C2: сетка на ТВ-экране после колеса — возврат ставит фокус тихо, экран не едет', function () {
+  var g = openGrid(DISCOVER);
+  g.h.fetchCalls[0].ok({ results: results(60), page: 1, total_pages: 3, total_results: 180 });
+  g.comp.start();
+  var ctrl = g.env.log.controllers.content;
+  ctrl.toggle();
+  var scroll = g.env.log.scrolls[0];
+  scroll.onWheel(250);
+  var card = g.root.all('lumen-gcard')[20];
+  fire(card, 'hover:hover');
+  g.comp.pause();
+  g.comp.start();
+  scroll.update_calls.length = 0;
+  ctrl.toggle();
+  assert.equal(g.env.nav.getFocusedElement(), card, 'фокус вернулся на карточку');
+  assert.deepEqual(scroll.update_calls, [], 'возврат после мыши подкрутил экран');
+});
+
+test('C2: хаб на ТВ-экране — после мыши возврат тихий, после пульта — с подкруткой', function () {
+  var s = openHub();
+  s.comp.start();
+  var ctrl = s.env.log.controllers.content;
+  ctrl.toggle();
+  var scroll = s.env.log.scrolls[0];
+  var tile = s.root.all('lumen-tile')[1];
+  fire(tile, 'hover:hover');
+  scroll.update_calls.length = 0;
+  ctrl.toggle();
+  assert.equal(s.env.nav.getFocusedElement(), tile);
+  assert.deepEqual(scroll.update_calls, [], 'после мыши возврат двинул экран');
+  ctrl.up();                                 /* пульт взяли в руки */
+  scroll.update_calls.length = 0;
+  ctrl.toggle();
+  assert.equal(scroll.update_calls.length, 1, 'после пульта экран едет за фокусом, как раньше');
+});
+
+test('C2: хаб — прокрутка пальцем или колесом (не от пульта) тоже делает возврат тихим', function () {
+  var s = openHub();
+  s.comp.start();
+  var ctrl = s.env.log.controllers.content;
+  ctrl.toggle();
+  var scroll = s.env.log.scrolls[0];
+  scroll.onScroll(300);
+  scroll.update_calls.length = 0;
+  ctrl.toggle();
+  assert.deepEqual(scroll.update_calls, []);
 });
