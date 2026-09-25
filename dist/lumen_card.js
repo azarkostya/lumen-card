@@ -8419,6 +8419,103 @@ ambient: [
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+var ID_RE = /^[\w-]{1,64}$/;
+var KP_RE = /^[A-Z0-9_]{1,64}$/;
+var NUM_ID_RE = /^\d{1,12}$/;
+var THEME_RE = /^[a-z0-9-]{1,64}$/;
+var ACCENT_RE = /^#[0-9a-f]{6}$/i;
+var FILTER_KEY_RE = /^[a-z_]{1,48}(\.(gte|lte))?$/;
+var VALUE_RE = /^[\w.,|:-]{1,256}$/;
+
+
+
+var PARAM_KEYS = {
+genres: 1, keywords: 1, companies: 1, networks: 1, watch_providers: 1,
+watch_region: 1, sort_by: 1, orig_lang: 1
+};
+
+function safeText(s) {
+return typeof s === 'string' && s.length > 0 && s.length <= 200 && !/[<>]/.test(s);
+}
+
+
+
+function labelOk(o) {
+if (typeof o.title !== 'undefined' && !safeText(o.title)) return false;
+if (typeof o.i18n !== 'undefined') {
+if (!o.i18n || typeof o.i18n !== 'object' || Array.isArray(o.i18n)) return false;
+for (var k in o.i18n) {
+if (o.i18n.hasOwnProperty(k) && !safeText(o.i18n[k])) return false;
+}
+}
+if (typeof o.badge !== 'undefined' && !safeText(o.badge)) return false;
+return true;
+}
+
+function valueOk(v) {
+if (typeof v === 'number') return isFinite(v);
+if (typeof v === 'boolean') return true;
+return typeof v === 'string' && VALUE_RE.test(v);
+}
+
+function specOk(spec) {
+if (!spec || typeof spec !== 'object') return false;
+if (spec.type === 'kp') return typeof spec.collection === 'string' && KP_RE.test(spec.collection);
+if (spec.type === 'collection' || spec.type === 'list') return NUM_ID_RE.test(String(spec.id));
+if (spec.type !== 'discover') return false;
+var p = spec.params;
+if (typeof p === 'undefined') return true;
+if (!p || typeof p !== 'object' || Array.isArray(p)) return false;
+for (var k in p) {
+if (!p.hasOwnProperty(k)) continue;
+if (k === 'filter') {
+var f = p.filter;
+if (!f || typeof f !== 'object' || Array.isArray(f)) return false;
+for (var fk in f) {
+if (!f.hasOwnProperty(fk)) continue;
+if (!FILTER_KEY_RE.test(fk) || !valueOk(f[fk])) return false;
+}
+continue;
+}
+if (!PARAM_KEYS.hasOwnProperty(k) || !valueOk(p[k])) return false;
+}
+return true;
+}
+
+function sourcesOk(src) {
+if (!src || typeof src !== 'object') return false;
+if (!src.movie && !src.tv) return false;
+if (src.movie && !specOk(src.movie)) return false;
+if (src.tv && !specOk(src.tv)) return false;
+return true;
+}
+
+
+function labelsOk(list) {
+for (var i = 0; i < list.length; i++) {
+var g = list[i];
+if (!g || typeof g.id !== 'string' || !ID_RE.test(g.id)) return false;
+if (!labelOk(g)) return false;
+}
+return true;
+}
+
+
+
+
+
+
 function validate(m) {
 if (!m || typeof m !== 'object' || Array.isArray(m)) {
 return { ok: false, reason: 'not_object' };
@@ -8440,21 +8537,65 @@ return { ok: false, reason: 'themes_not_array' };
 if (typeof m.ambient !== 'undefined' && !Array.isArray(m.ambient)) {
 return { ok: false, reason: 'ambient_not_array' };
 }
+if (!labelsOk(m.groups)) return { ok: false, reason: 'bad_group' };
+if (typeof m.hubGroups !== 'undefined') {
+if (!Array.isArray(m.hubGroups) || !labelsOk(m.hubGroups)) return { ok: false, reason: 'bad_hub_group' };
+for (var h = 0; h < m.hubGroups.length; h++) {
+var hg = m.hubGroups[h].groups;
+if (!Array.isArray(hg)) return { ok: false, reason: 'bad_hub_group' };
+for (var hj = 0; hj < hg.length; hj++) {
+if (typeof hg[hj] !== 'string' || !ID_RE.test(hg[hj])) return { ok: false, reason: 'bad_hub_group' };
+}
+}
+}
+if (typeof m.moods !== 'undefined') {
+if (!Array.isArray(m.moods) || !labelsOk(m.moods)) return { ok: false, reason: 'bad_mood' };
+for (var mi = 0; mi < m.moods.length; mi++) {
+if (!sourcesOk(m.moods[mi].sources)) return { ok: false, reason: 'bad_mood: ' + m.moods[mi].id };
+}
+}
+for (var hi = 0; hi < m.home.length; hi++) {
+if (typeof m.home[hi] !== 'string' || !ID_RE.test(m.home[hi])) return { ok: false, reason: 'bad_home' };
+}
 var seen = {};
 var i, c;
 for (i = 0; i < m.collections.length; i++) {
 c = m.collections[i];
 if (!c || !c.id) return { ok: false, reason: 'collection_no_id' };
+if (typeof c.id !== 'string' || !ID_RE.test(c.id)) return { ok: false, reason: 'bad_id' };
 if (typeof c.title !== 'string' || !c.title) {
 return { ok: false, reason: 'collection_no_title: ' + c.id };
+}
+if (!labelOk(c)) return { ok: false, reason: 'bad_title: ' + c.id };
+if (typeof c.group !== 'undefined' && (typeof c.group !== 'string' || !ID_RE.test(c.group))) {
+return { ok: false, reason: 'bad_group: ' + c.id };
 }
 if (seen[c.id]) return { ok: false, reason: 'duplicate_id: ' + c.id };
 seen[c.id] = 1;
 if (!c.sources || (!c.sources.movie && !c.sources.tv)) {
 return { ok: false, reason: 'no_sources: ' + c.id };
 }
+if (!sourcesOk(c.sources)) return { ok: false, reason: 'bad_sources: ' + c.id };
+}
+var themes = m.themes || [];
+for (i = 0; i < themes.length; i++) {
+var t = themes[i];
+if (!t || typeof t.id !== 'string' || !THEME_RE.test(t.id)) return { ok: false, reason: 'bad_theme' };
+if (typeof t.preset !== 'undefined' && (typeof t.preset !== 'string' || !THEME_RE.test(t.preset))) {
+return { ok: false, reason: 'bad_theme: ' + t.id };
+}
+if (typeof t.accent !== 'undefined' && (typeof t.accent !== 'string' || !ACCENT_RE.test(t.accent))) {
+return { ok: false, reason: 'bad_theme: ' + t.id };
+}
 }
 return { ok: true };
+}
+
+
+
+
+function httpsUrl(url) {
+return typeof url === 'string' && /^https:\/\/[^\s\/?#]+/i.test(url);
 }
 
 
@@ -8496,10 +8637,13 @@ if (typeof LC.pref === 'function') url = LC.pref('lumen_manifest_url', '') || ''
 try {
 if (!url && typeof LC.MANIFEST_URL === 'string') url = LC.MANIFEST_URL || '';
 } catch (e) {}
-if (!url) { current = DEFAULT; cb(DEFAULT); return; }
+if (!url || !httpsUrl(url)) { current = DEFAULT; cb(DEFAULT); return; }
 var cached = null;
 try { cached = Lampa.Storage.get('lumen_manifest', null); } catch (e) {}
-if (isFresh(cached) && cached && validate(cached.data).ok) {
+
+
+var usable = !!(cached && validate(cached.data).ok);
+if (usable && isFresh(cached)) {
 current = cached.data;
 cb(current);
 return;
@@ -8515,12 +8659,12 @@ try { Lampa.Storage.set('lumen_manifest', { at: Date.now(), data: json }); } cat
 current = json;
 cb(json);
 } else {
-current = (cached && cached.data) || DEFAULT;
+current = usable ? cached.data : DEFAULT;
 cb(current);
 }
 },
 function () {
-current = (cached && cached.data) || DEFAULT;
+current = usable ? cached.data : DEFAULT;
 cb(current);
 },
 false,
@@ -29534,13 +29678,16 @@ return book;
 
 
 
+
+
+
 function extraItems(card, ctx) {
 if (!card || !ctx || !ctx.words) return [];
 var w = ctx.words;
 var out = [];
 out.push({ title: w.trailer, lumen: 'trailer' });
 if (ctx.collection && ctx.collection.id) {
-out.push({ title: w.franchise, subtitle: ctx.collection.name || '', lumen: 'franchise' });
+out.push({ title: w.franchise, subtitle: LC.util.esc(ctx.collection.name || ''), lumen: 'franchise' });
 }
 out.push({ title: w.similar, lumen: 'similar' });
 if (mediaOf(card) === 'movie') {
@@ -31000,9 +31147,12 @@ try { Lampa.Noty.show(words.empty || ''); } catch (eN) { }
 done();
 return;
 }
+
+
+
 var items = [];
 for (var i = 0; i < found.length; i++) {
-items.push({ title: found[i].title || found[i].id, lumen_item: found[i] });
+items.push({ title: LC.util.esc(found[i].title || found[i].id), lumen_item: found[i] });
 }
 Lampa.Select.show({
 title: words.results || '',
@@ -35994,6 +36144,11 @@ groupTitle[groups[g].id] = (LC.hub && typeof LC.hub.titleOf === 'function')
 : (groups[g].title || groups[g].id);
 }
 
+
+
+
+
+var esc = LC.util.esc;
 var items = [];
 var lastGroup = null;
 for (var i = 0; i < choices.length; i++) {
@@ -36002,9 +36157,9 @@ var c = choices[i];
 
 if (!c.checked && c.group !== lastGroup) {
 lastGroup = c.group;
-items.push({ title: groupTitle[c.group] || c.group, separator: true });
+items.push({ title: esc(groupTitle[c.group] || c.group), separator: true });
 }
-items.push({ title: c.title, lumen_id: c.id, checkbox: true, checked: c.checked });
+items.push({ title: esc(c.title), lumen_id: c.id, checkbox: true, checked: c.checked });
 }
 
 function save() {

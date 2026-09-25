@@ -1,5 +1,5 @@
 import test from 'node:test'; import assert from 'node:assert/strict';
-import { load } from './_load.mjs';
+import { load, loadCtx } from './_load.mjs';
 import { readFileSync } from 'node:fs';
 const M = load('42_manifest.js');
 
@@ -402,4 +402,138 @@ test('cover: формат пути, без повторов, не из ambient, 
     assert.notEqual(c.group, 'kp', 'у подборки Кинопоиска кадра быть не должно: ' + c.id);
   }
   assert.ok(n >= 59, 'кадров меньше, чем требуют группы совпадений: ' + n);
+});
+
+/* ---------------------------------------------------------------------- */
+/* Полное ревью, S1: каталог может прийти внешним (lumen_manifest_url), и   */
+/* его строки попадают в разметку Lampa (Lampa.Select вставляет заголовки   */
+/* сырыми), в классы (lumen-theme--<id>), в адреса запросов и ключи          */
+/* localStorage. validate() отсекает всё, что не похоже на данные каталога. */
+/* ---------------------------------------------------------------------- */
+
+function okCatalog() {
+  return {
+    version: 1,
+    groups: [{ id: 'theme', title: 'Темы', i18n: { en: 'Themes' } }],
+    hubGroups: [{ id: 'themes', title: 'Темы', i18n: { en: 'Themes' }, groups: ['theme'] }],
+    moods: [{ id: 'friday', title: 'Пятница', i18n: { en: 'Friday' }, sources: { movie: { type: 'discover', params: { genres: '28|12', filter: { 'vote_average.gte': 6.5 } } } } }],
+    collections: [
+      { id: 'horror_top-1', title: 'Хоррор', i18n: { en: 'Horror' }, group: 'theme', badge: 'HBO', sources: { movie: { type: 'discover', params: { genres: 27, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 300, 'primary_release_date.gte': '1970-01-01' } } } } },
+      { id: 'kp-top', title: 'КП', group: 'theme', sources: { movie: { type: 'kp', collection: 'TOP_250_MOVIES' } } },
+      { id: 'col', title: 'Коллекция', group: 'theme', sources: { movie: { type: 'collection', id: 10 }, tv: { type: 'list', id: '8123' } } }
+    ],
+    home: ['horror_top-1'],
+    themes: [{ id: 'space-2', preset: 'stars', accent: '#8fb8D9', keywords: ['space'] }],
+    ambient: []
+  };
+}
+
+test('S1: validate — встроенный каталог и корректный внешний проходят', () => {
+  assert.deepEqual(M.validate(M.DEFAULT), { ok: true });
+  assert.deepEqual(M.validate(okCatalog()), { ok: true });
+});
+
+test('S1: validate — разметка в названиях и подписях отвергается', () => {
+  const cases = [
+    (m) => { m.collections[0].title = 'Хоррор<img src=x onerror=alert(1)>'; },
+    (m) => { m.collections[0].i18n.en = 'Horror>'; },
+    (m) => { m.collections[0].badge = '<b>HBO</b>'; },
+    (m) => { m.groups[0].title = '<svg onload=1>'; },
+    (m) => { m.groups[0].i18n.en = 'x<y'; },
+    (m) => { m.hubGroups[0].title = '<i>'; },
+    (m) => { m.moods[0].title = 'Пятница<script>'; },
+    (m) => { m.collections[0].i18n = 'en'; }
+  ];
+  cases.forEach((fn, i) => {
+    const m = okCatalog();
+    fn(m);
+    assert.equal(M.validate(m).ok, false, 'случай ' + i);
+  });
+});
+
+test('S1: validate — идентификаторы, коллекции КП, id тем и акцент — только по формату', () => {
+  const cases = [
+    (m) => { m.collections[0].id = 'a b'; },
+    (m) => { m.collections[0].id = 'x"onmouseover="1'; },
+    (m) => { m.collections[0].id = 'x'.repeat(65); },
+    (m) => { m.collections[0].group = 'the me'; },
+    (m) => { m.groups[0].id = '<g>'; },
+    (m) => { m.hubGroups[0].id = 'a/b'; },
+    (m) => { m.moods[0].id = 'a&b'; },
+    (m) => { m.collections[1].sources.movie.collection = 'top_250'; },
+    (m) => { m.collections[1].sources.movie.collection = 'TOP&api_key=1'; },
+    (m) => { m.collections[1].sources.movie.collection = ''; },
+    (m) => { m.collections[2].sources.movie.id = '10/../x'; },
+    (m) => { m.collections[2].sources.movie.type = 'eval'; },
+    (m) => { m.collections[0].sources.movie.params.evil = '1'; },
+    (m) => { m.collections[0].sources.movie.params.genres = '27&api_key=x'; },
+    (m) => { m.collections[0].sources.movie.params.filter['a=1&b'] = 1; },
+    (m) => { m.collections[0].sources.movie.params.filter['vote_count.gte'] = '1#x'; },
+    (m) => { m.moods[0].sources.movie.params.sort_by = 'x y'; },
+    (m) => { m.themes[0].id = 'Space'; },
+    (m) => { m.themes[0].id = 'a b'; },
+    (m) => { m.themes[0].accent = 'red'; },
+    (m) => { m.themes[0].accent = '#fff;background:url(x)'; },
+    (m) => { m.themes[0].preset = 'stars x'; }
+  ];
+  cases.forEach((fn, i) => {
+    const m = okCatalog();
+    fn(m);
+    assert.equal(M.validate(m).ok, false, 'случай ' + i);
+  });
+});
+
+/* Загрузка с настоящим LC.manifest: Lampa.Storage и Lampa.Reguest — моки. */
+function loadWith(url, opts) {
+  opts = opts || {};
+  const prevLampa = globalThis.Lampa;
+  const prevWin = globalThis.window;
+  const store = Object.assign({}, opts.store || {});
+  const requests = [];
+  globalThis.Lampa = {
+    Storage: { get: (k, d) => (k in store ? store[k] : d), set: (k, v) => { store[k] = v; } },
+    Reguest: function () {
+      return { silent: function (u, ok, err) { requests.push(u); if (opts.reply) opts.reply(ok, err); } };
+    }
+  };
+  globalThis.window = { Lampa: globalThis.Lampa };
+  try {
+    const ctx = loadCtx('42_manifest.js', { pref: (k, d) => (k === 'lumen_manifest_url' ? url : d) });
+    let got = null;
+    ctx.api.load((m) => { got = m; });
+    return { got, requests, api: ctx.api, store };
+  } finally {
+    globalThis.Lampa = prevLampa;
+    globalThis.window = prevWin;
+  }
+}
+
+test('S1: lumen_manifest_url — только https:, иначе встроенный каталог без запроса', () => {
+  for (const url of ['http://example.test/m.json', 'javascript:alert(1)', '//example.test/m.json', 'ftp://x/m.json', 'data:application/json,{}']) {
+    const r = loadWith(url);
+    assert.equal(r.requests.length, 0, 'запрос по ' + url);
+    assert.equal(r.got, r.api.DEFAULT, 'каталог по ' + url);
+  }
+  const ok = loadWith('https://example.test/m.json');
+  assert.equal(ok.requests.length, 1);
+  assert.ok(ok.requests[0].indexOf('https://example.test/m.json?t=') === 0);
+});
+
+test('S1: внешний каталог с разметкой в названии отвергается — встроенный, в кэш не пишется', () => {
+  const bad = okCatalog();
+  bad.collections[0].title = '<img src=x onerror=alert(1)>';
+  const r = loadWith('https://example.test/m.json', { reply: (ok) => ok(bad) });
+  assert.equal(r.got, r.api.DEFAULT);
+  assert.equal(r.store.lumen_manifest, undefined);
+});
+
+test('S1: сеть упала — старый кэш берётся, только если он проходит нынешнюю проверку', () => {
+  const bad = okCatalog();
+  bad.themes[0].id = 'Bad Id';
+  const stale = { at: Date.now() - 13 * 3600e3, data: bad };
+  const r = loadWith('https://example.test/m.json', { store: { lumen_manifest: stale }, reply: (ok, err) => err() });
+  assert.equal(r.got, r.api.DEFAULT);
+  const good = okCatalog();
+  const r2 = loadWith('https://example.test/m.json', { store: { lumen_manifest: { at: Date.now() - 13 * 3600e3, data: good } }, reply: (ok, err) => err() });
+  assert.equal(r2.got, good);
 });

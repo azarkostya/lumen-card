@@ -664,9 +664,12 @@
             done();
             return;
           }
+          /* Полное ревью, S1: Lampa.Select вставляет заголовок пункта в
+             разметку сырым, а названия приходят из каталога (он может быть
+             внешним) — экранируем. */
           var items = [];
           for (var i = 0; i < found.length; i++) {
-            items.push({ title: found[i].title || found[i].id, lumen_item: found[i] });
+            items.push({ title: LC.util.esc(found[i].title || found[i].id), lumen_item: found[i] });
           }
           Lampa.Select.show({
             title: words.results || '',

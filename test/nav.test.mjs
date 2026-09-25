@@ -519,3 +519,30 @@ test('мини-карта: выключенная настройка не пок
   assert.deepEqual(warnLog, []);
   env.nav.uninstall();
 });
+
+/* Полное ревью, S1: список найденного — Lampa.Select, а он вставляет
+   заголовок пункта в разметку сырым; названия подборок приходят из
+   каталога (в том числе внешнего). */
+test('S1: openSearch — названия найденных подборок экранированы', () => {
+  const prev = globalThis.Lampa;
+  const prevW = globalThis.window;
+  const shown = [];
+  globalThis.Lampa = {
+    Input: { edit: (o, cb) => cb('жут') },
+    Select: { show: (o) => shown.push(o) },
+    Noty: { show: () => { } }
+  };
+  globalThis.window = { Lampa: globalThis.Lampa };
+  try {
+    const picked = [];
+    const item = { id: 'horror', title: 'Жуть <img src=x onerror="alert(1)">' };
+    M.openSearch({ items: [item], words: {}, onSelect: (f) => picked.push(f), onDone: () => { } });
+    assert.equal(shown.length, 1);
+    assert.equal(shown[0].items[0].title, 'Жуть &lt;img src=x onerror=&quot;alert(1)&quot;&gt;');
+    shown[0].onSelect(shown[0].items[0]);
+    assert.equal(picked[0], item, 'выбор отдаёт исходную подборку');
+  } finally {
+    globalThis.Lampa = prev;
+    globalThis.window = prevW;
+  }
+});

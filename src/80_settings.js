@@ -1413,6 +1413,11 @@
           : (groups[g].title || groups[g].id);
       }
 
+      /* Полное ревью, S1: Lampa.Select вставляет заголовок пункта и
+         разделителя в разметку сырым (Template.get → $(tpl) и
+         '<span>' + title + '</span>', app.min.js bind$4 ~7000), а названия
+         приходят из каталога — он может быть внешним. Экранируются все. */
+      var esc = LC.util.esc;
       var items = [];
       var lastGroup = null;
       for (var i = 0; i < choices.length; i++) {
@@ -1421,9 +1426,9 @@
            группам незачем — группы начинаются там, где пошли неотмеченные. */
         if (!c.checked && c.group !== lastGroup) {
           lastGroup = c.group;
-          items.push({ title: groupTitle[c.group] || c.group, separator: true });
+          items.push({ title: esc(groupTitle[c.group] || c.group), separator: true });
         }
-        items.push({ title: c.title, lumen_id: c.id, checkbox: true, checked: c.checked });
+        items.push({ title: esc(c.title), lumen_id: c.id, checkbox: true, checked: c.checked });
       }
 
       function save() {

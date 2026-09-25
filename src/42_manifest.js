@@ -1272,10 +1272,107 @@
 
     /* ---- Вспомогательные чистые функции -------------------------------- */
 
+    /* ---- Проверка формата (полное ревью, S1) --------------------------
+       Каталог может прийти внешним (lumen_manifest_url), а его строки
+       попадают в разметку Lampa (Lampa.Select вставляет заголовки сырыми),
+       в имена классов (lumen-theme--<id>), в адреса запросов TMDB и
+       Кинопоиска и в ключи localStorage. Поэтому каждое поле, которым
+       плагин пользуется, принимается только в формате встроенного каталога:
+       - подписи (title, i18n.*, badge) — строки без «<» и «>»;
+       - id подборок, групп, настроений, групп хаба и group — [\w-]{1,64};
+       - источник: discover (ключи params — только известные Lampa, ключи
+         filter — вида with_runtime.lte, значения — числа или строки из
+         [\w.,|:-]), collection/list (числовой id), kp (collection —
+         [A-Z0-9_]{1,64}, как у КП: TOP_250_MOVIES);
+       - темы: id и preset — [a-z0-9-], accent — #rrggbb.
+       Не прошло что-то одно — отвергается каталог целиком, и load() берёт
+       встроенный (или прежний кэш, если он проходит эту же проверку). */
+    var ID_RE = /^[\w-]{1,64}$/;
+    var KP_RE = /^[A-Z0-9_]{1,64}$/;
+    var NUM_ID_RE = /^\d{1,12}$/;
+    var THEME_RE = /^[a-z0-9-]{1,64}$/;
+    var ACCENT_RE = /^#[0-9a-f]{6}$/i;
+    var FILTER_KEY_RE = /^[a-z_]{1,48}(\.(gte|lte))?$/;
+    var VALUE_RE = /^[\w.,|:-]{1,256}$/;
+    /* Ключи discover, которые понимает Lampa (url$1 в app.min.js) и
+       LC.sources (MAP): прочие Lampa молча не отправит, а discoverUrl
+       отправил бы как есть. */
+    var PARAM_KEYS = {
+      genres: 1, keywords: 1, companies: 1, networks: 1, watch_providers: 1,
+      watch_region: 1, sort_by: 1, orig_lang: 1
+    };
+
+    function safeText(s) {
+      return typeof s === 'string' && s.length > 0 && s.length <= 200 && !/[<>]/.test(s);
+    }
+
+    /* Подписи — если есть (обязательность title у подборки проверяет
+       validate отдельно; группа без title подписывается своим id). */
+    function labelOk(o) {
+      if (typeof o.title !== 'undefined' && !safeText(o.title)) return false;
+      if (typeof o.i18n !== 'undefined') {
+        if (!o.i18n || typeof o.i18n !== 'object' || Array.isArray(o.i18n)) return false;
+        for (var k in o.i18n) {
+          if (o.i18n.hasOwnProperty(k) && !safeText(o.i18n[k])) return false;
+        }
+      }
+      if (typeof o.badge !== 'undefined' && !safeText(o.badge)) return false;
+      return true;
+    }
+
+    function valueOk(v) {
+      if (typeof v === 'number') return isFinite(v);
+      if (typeof v === 'boolean') return true;
+      return typeof v === 'string' && VALUE_RE.test(v);
+    }
+
+    function specOk(spec) {
+      if (!spec || typeof spec !== 'object') return false;
+      if (spec.type === 'kp') return typeof spec.collection === 'string' && KP_RE.test(spec.collection);
+      if (spec.type === 'collection' || spec.type === 'list') return NUM_ID_RE.test(String(spec.id));
+      if (spec.type !== 'discover') return false;
+      var p = spec.params;
+      if (typeof p === 'undefined') return true;
+      if (!p || typeof p !== 'object' || Array.isArray(p)) return false;
+      for (var k in p) {
+        if (!p.hasOwnProperty(k)) continue;
+        if (k === 'filter') {
+          var f = p.filter;
+          if (!f || typeof f !== 'object' || Array.isArray(f)) return false;
+          for (var fk in f) {
+            if (!f.hasOwnProperty(fk)) continue;
+            if (!FILTER_KEY_RE.test(fk) || !valueOk(f[fk])) return false;
+          }
+          continue;
+        }
+        if (!PARAM_KEYS.hasOwnProperty(k) || !valueOk(p[k])) return false;
+      }
+      return true;
+    }
+
+    function sourcesOk(src) {
+      if (!src || typeof src !== 'object') return false;
+      if (!src.movie && !src.tv) return false;
+      if (src.movie && !specOk(src.movie)) return false;
+      if (src.tv && !specOk(src.tv)) return false;
+      return true;
+    }
+
+    /* Записи {id, title, i18n}: groups, hubGroups, moods. */
+    function labelsOk(list) {
+      for (var i = 0; i < list.length; i++) {
+        var g = list[i];
+        if (!g || typeof g.id !== 'string' || !ID_RE.test(g.id)) return false;
+        if (!labelOk(g)) return false;
+      }
+      return true;
+    }
+
     /* Возвращает {ok, reason}.
        Проверяет: не null, есть version; collections — массив без дублей id,
        у каждой подборки есть id, title (строка непустая) и sources (movie или tv);
-       groups — непустой массив; home — массив (может быть пустым). */
+       groups — непустой массив; home — массив (может быть пустым).
+       Формат полей — по правилам выше (S1). */
     function validate(m) {
       if (!m || typeof m !== 'object' || Array.isArray(m)) {
         return { ok: false, reason: 'not_object' };
@@ -1297,21 +1394,65 @@
       if (typeof m.ambient !== 'undefined' && !Array.isArray(m.ambient)) {
         return { ok: false, reason: 'ambient_not_array' };
       }
+      if (!labelsOk(m.groups)) return { ok: false, reason: 'bad_group' };
+      if (typeof m.hubGroups !== 'undefined') {
+        if (!Array.isArray(m.hubGroups) || !labelsOk(m.hubGroups)) return { ok: false, reason: 'bad_hub_group' };
+        for (var h = 0; h < m.hubGroups.length; h++) {
+          var hg = m.hubGroups[h].groups;
+          if (!Array.isArray(hg)) return { ok: false, reason: 'bad_hub_group' };
+          for (var hj = 0; hj < hg.length; hj++) {
+            if (typeof hg[hj] !== 'string' || !ID_RE.test(hg[hj])) return { ok: false, reason: 'bad_hub_group' };
+          }
+        }
+      }
+      if (typeof m.moods !== 'undefined') {
+        if (!Array.isArray(m.moods) || !labelsOk(m.moods)) return { ok: false, reason: 'bad_mood' };
+        for (var mi = 0; mi < m.moods.length; mi++) {
+          if (!sourcesOk(m.moods[mi].sources)) return { ok: false, reason: 'bad_mood: ' + m.moods[mi].id };
+        }
+      }
+      for (var hi = 0; hi < m.home.length; hi++) {
+        if (typeof m.home[hi] !== 'string' || !ID_RE.test(m.home[hi])) return { ok: false, reason: 'bad_home' };
+      }
       var seen = {};
       var i, c;
       for (i = 0; i < m.collections.length; i++) {
         c = m.collections[i];
         if (!c || !c.id) return { ok: false, reason: 'collection_no_id' };
+        if (typeof c.id !== 'string' || !ID_RE.test(c.id)) return { ok: false, reason: 'bad_id' };
         if (typeof c.title !== 'string' || !c.title) {
           return { ok: false, reason: 'collection_no_title: ' + c.id };
+        }
+        if (!labelOk(c)) return { ok: false, reason: 'bad_title: ' + c.id };
+        if (typeof c.group !== 'undefined' && (typeof c.group !== 'string' || !ID_RE.test(c.group))) {
+          return { ok: false, reason: 'bad_group: ' + c.id };
         }
         if (seen[c.id]) return { ok: false, reason: 'duplicate_id: ' + c.id };
         seen[c.id] = 1;
         if (!c.sources || (!c.sources.movie && !c.sources.tv)) {
           return { ok: false, reason: 'no_sources: ' + c.id };
         }
+        if (!sourcesOk(c.sources)) return { ok: false, reason: 'bad_sources: ' + c.id };
+      }
+      var themes = m.themes || [];
+      for (i = 0; i < themes.length; i++) {
+        var t = themes[i];
+        if (!t || typeof t.id !== 'string' || !THEME_RE.test(t.id)) return { ok: false, reason: 'bad_theme' };
+        if (typeof t.preset !== 'undefined' && (typeof t.preset !== 'string' || !THEME_RE.test(t.preset))) {
+          return { ok: false, reason: 'bad_theme: ' + t.id };
+        }
+        if (typeof t.accent !== 'undefined' && (typeof t.accent !== 'string' || !ACCENT_RE.test(t.accent))) {
+          return { ok: false, reason: 'bad_theme: ' + t.id };
+        }
       }
       return { ok: true };
+    }
+
+    /* Адрес каталога — только https: (полное ревью, S1). По http: его
+       подменит любой узел по дороге, а javascript:/data: — не адрес
+       каталога вовсе. */
+    function httpsUrl(url) {
+      return typeof url === 'string' && /^https:\/\/[^\s\/?#]+/i.test(url);
     }
 
     /* Поднимает подборки с season-массивом, содержащим month, наверх,
@@ -1353,10 +1494,13 @@
       try {
         if (!url && typeof LC.MANIFEST_URL === 'string') url = LC.MANIFEST_URL || '';
       } catch (e) {}
-      if (!url) { current = DEFAULT; cb(DEFAULT); return; }
+      if (!url || !httpsUrl(url)) { current = DEFAULT; cb(DEFAULT); return; }
       var cached = null;
       try { cached = Lampa.Storage.get('lumen_manifest', null); } catch (e) {}
-      if (isFresh(cached) && cached && validate(cached.data).ok) {
+      /* Кэш мог записать прежний плагин с прежней проверкой — перепроверяем
+         и свежий, и запасной (на случай ошибки сети). */
+      var usable = !!(cached && validate(cached.data).ok);
+      if (usable && isFresh(cached)) {
         current = cached.data;
         cb(current);
         return;
@@ -1372,12 +1516,12 @@
             current = json;
             cb(json);
           } else {
-            current = (cached && cached.data) || DEFAULT;
+            current = usable ? cached.data : DEFAULT;
             cb(current);
           }
         },
         function () {
-          current = (cached && cached.data) || DEFAULT;
+          current = usable ? cached.data : DEFAULT;
           cb(current);
         },
         false,

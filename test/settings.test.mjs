@@ -872,3 +872,31 @@ test('волна 3: описания «Профилей настроения» �
     assert.equal(S.lumen_hero_size_descr[lang].indexOf(stays[lang]), -1, lang + ': «Кадр над рядами» обещает, что чипы остаются: ' + S.lumen_hero_size_descr[lang]);
   }
 });
+
+/* Полное ревью, S1: Lampa.Select вставляет заголовок пункта в разметку
+   сырым (Template.get → $(tpl), разделитель '<span>'+title+'</span>',
+   app.min.js bind$4 ~7000), а заголовки групп и подборок приходят из
+   каталога — в том числе внешнего (lumen_manifest_url). Без экранирования
+   каталог выполнял бы свой код в Lampa через этот экран. */
+test('S1: заголовки подборок и групп каталога приходят в Lampa.Select экранированными', () => {
+  const env = setupHomeRows();
+  const evil = '<img src=x onerror="alert(1)">';
+  env.LC.manifest = {
+    get: () => ({
+      version: 1,
+      groups: [{ id: 'theme', title: 'Темы' + evil }],
+      collections: [
+        { id: 'comedy', title: 'Комедии', group: 'theme', sources: { movie: { type: 'discover', params: {} } } },
+        { id: 'horror', title: 'Ужасы' + evil, group: 'theme', sources: { movie: { type: 'discover', params: {} } } }
+      ],
+      home: ['comedy']
+    })
+  };
+  const box = pressHomeRows(env);
+  for (const it of box.items) {
+    assert.ok(String(it.title).indexOf('<') < 0, 'сырой «<» в пункте: ' + it.title);
+  }
+  const horror = box.items.filter((i) => i.lumen_id === 'horror')[0];
+  assert.equal(horror.title, 'Ужасы&lt;img src=x onerror=&quot;alert(1)&quot;&gt;');
+  assert.equal(box.items.filter((i) => i.separator)[0].title, 'Темы&lt;img src=x onerror=&quot;alert(1)&quot;&gt;');
+});

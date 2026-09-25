@@ -112,14 +112,17 @@
        держит по сериям (Timeline.watched перебирает s1e1..e24), и одной
        отметки на весь сериал у неё попросту нет — рисовать пункт, который
        Lampa не увидит, нельзя.
-       Закладок здесь нет намеренно: их штатный чекбокс уже в этом же меню. */
+       Закладок здесь нет намеренно: их штатный чекбокс уже в этом же меню.
+       Полное ревью, S1: имя коллекции приходит из TMDB, а Lampa.Select
+       вставляет подзаголовок в разметку сырым (Template.get → $(tpl)) —
+       поэтому экранируется. */
     function extraItems(card, ctx) {
       if (!card || !ctx || !ctx.words) return [];
       var w = ctx.words;
       var out = [];
       out.push({ title: w.trailer, lumen: 'trailer' });
       if (ctx.collection && ctx.collection.id) {
-        out.push({ title: w.franchise, subtitle: ctx.collection.name || '', lumen: 'franchise' });
+        out.push({ title: w.franchise, subtitle: LC.util.esc(ctx.collection.name || ''), lumen: 'franchise' });
       }
       out.push({ title: w.similar, lumen: 'similar' });
       if (mediaOf(card) === 'movie') {

@@ -493,3 +493,12 @@ test('трейлер из меню: двойной выбор — играет �
     assert.equal(env.played.length, 1, 'повторный колбэк того же запроса ничего не делает');
   } finally { env.restore(); }
 });
+
+/* Полное ревью, S1: подзаголовок «Вся франшиза» — имя коллекции TMDB, и
+   Lampa.Select вставляет его в разметку сырым (Template.get → $(tpl)). */
+test('S1: имя коллекции в подзаголовке пункта экранировано', () => {
+  const items = M.extraItems(MOVIE, { words: W, collection: { id: 1, name: 'Дюна <img src=x onerror="alert(1)">' } });
+  const fr = items.filter((i) => i.lumen === 'franchise')[0];
+  assert.equal(fr.subtitle, 'Дюна &lt;img src=x onerror=&quot;alert(1)&quot;&gt;');
+  for (const it of items) assert.ok(String(it.title).indexOf('<') < 0);
+});
