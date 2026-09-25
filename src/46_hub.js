@@ -658,6 +658,15 @@
       lastNavTo = -1;
     }
 
+    /* Полное ревью, C7: экран ушёл (stop/destroy) — окно забывается, если
+       оно его: иначе модульный кэш держал бы узлы сетки (с постерами) до
+       следующего экрана плагина. Чужое окно — экрана, на который уже
+       вернулись (destroy приходит через 200 мс после «Назад»), — не
+       трогаем: его экономия пересборки живёт дальше. */
+    function forgetWindowOf(nodes) {
+      if (lastNodes && lastNodes === nodes) forgetWindow();
+    }
+
     /* Полное ревью, C1: пульт сейчас у экрана activity — он вершина
        истории, и контроллер — 'content'. Сверка для всех ОТЛОЖЕННЫХ
        recollect (каталог хаба, страница сетки): открыли карточку (сетке
@@ -1320,6 +1329,7 @@
       this.stop = function () {
         started = false;
         bump();
+        forgetWindowOf(tileNodes);
         /* Погашенные кадры помечаем как незапрошенные — чтобы start()
            запросил их снова. Плитки, которые успели нарисоваться, остаются
            как есть: у них уже есть картинка. */
@@ -1330,6 +1340,7 @@
 
       this.destroy = function () {
         bump();
+        forgetWindowOf(tileNodes);
         chipNodes = [];
         tileNodes = [];
         searchNode = null;
@@ -1961,12 +1972,14 @@
         started = false;
         resumeAfterStop = loading ? pending : null;
         bump();
+        forgetWindowOf(cardNodes);
         loading = false;
         pending = null;
       };
 
       this.destroy = function () {
         bump();
+        forgetWindowOf(cardNodes);
         cardNodes = [];
         sortNodes = [];
         emptyNodes = [];
@@ -2098,7 +2111,9 @@
       install: install,
       uninstall: uninstall,
       menuNode: menuNode,
-      franchise: franchise
+      franchise: franchise,
+      /* C7: для тестов — список, который держит кэш окна коллекции. */
+      _windowNodes: function () { return lastNodes; }
     };
   })();
 

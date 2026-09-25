@@ -2614,3 +2614,43 @@ test('C6: сетка Кинопоиска без ключа — кнопки р�
   var k = openGrid(KP, { roulette: withKey });
   assert.equal(k.root.all('lumen-grid__roulette').length, 1, 'с ключом кнопки рулетки нет');
 });
+
+/* Полное ревью, C7: модульный кэш окна коллекции (lastNodes) держал узлы
+   сетки после ухода с неё — вся сетка с постерами оставалась в памяти до
+   следующего экрана плагина. stop()/destroy() экрана забывают окно, если
+   оно его; чужое окно (экран, на который вернулись) не трогают. */
+test('C7: destroy сетки и хаба отпускает кэш окна, чужое окно не трогает', function () {
+  var g = openGrid(DISCOVER);
+  g.h.fetchCalls[0].ok({ results: results(12), page: 1, total_pages: 1, total_results: 12 });
+  g.comp.start();
+  g.env.log.controllers.content.toggle();
+  assert.ok(g.h.api._windowNodes(), 'предпосылка: окно выставлено');
+  g.comp.destroy();
+  assert.equal(g.h.api._windowNodes(), null, 'узлы сетки остались в кэше модуля');
+
+  var s = openHub();
+  s.comp.start();
+  s.env.log.controllers.content.toggle();
+  assert.ok(s.h.api._windowNodes());
+  s.comp.stop();
+  assert.equal(s.h.api._windowNodes(), null, 'stop() хаба окно не отпустил');
+});
+
+test('C7: destroy сетки после возврата в хаб окно хаба не сбрасывает', function () {
+  var env = setupLampa({ cols: 2 });
+  var h = loadHub({ cols: 2 });
+  h.api.install();
+  var grid = makeComponent('lumen_grid', { lumen: DISCOVER, title: 'x' }, env);
+  grid.create();
+  h.fetchCalls[0].ok({ results: results(6), page: 1, total_pages: 1, total_results: 6 });
+  grid.start();
+  env.log.controllers.content.toggle();
+  var hub = makeComponent('lumen_hub', {}, env);
+  hub.create();
+  hub.start();
+  env.log.controllers.content.toggle();
+  var hubWindow = h.api._windowNodes();
+  assert.ok(hubWindow);
+  grid.destroy();
+  assert.equal(h.api._windowNodes(), hubWindow, 'destroy сетки сбросил окно хаба');
+});

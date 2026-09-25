@@ -12196,6 +12196,15 @@ lastNavTo = -1;
 
 
 
+function forgetWindowOf(nodes) {
+if (lastNodes && lastNodes === nodes) forgetWindow();
+}
+
+
+
+
+
+
 
 
 
@@ -12853,6 +12862,7 @@ started = false;
 this.stop = function () {
 started = false;
 bump();
+forgetWindowOf(tileNodes);
 
 
 
@@ -12863,6 +12873,7 @@ if (!$(tileNodes[i]).hasClass('lumen-tile--filled')) tileNodes[i].lumen_banner =
 
 this.destroy = function () {
 bump();
+forgetWindowOf(tileNodes);
 chipNodes = [];
 tileNodes = [];
 searchNode = null;
@@ -13494,12 +13505,14 @@ this.stop = function () {
 started = false;
 resumeAfterStop = loading ? pending : null;
 bump();
+forgetWindowOf(cardNodes);
 loading = false;
 pending = null;
 };
 
 this.destroy = function () {
 bump();
+forgetWindowOf(cardNodes);
 cardNodes = [];
 sortNodes = [];
 emptyNodes = [];
@@ -13631,7 +13644,9 @@ hasMore: hasMore,
 install: install,
 uninstall: uninstall,
 menuNode: menuNode,
-franchise: franchise
+franchise: franchise,
+
+_windowNodes: function () { return lastNodes; }
 };
 })();
 
