@@ -2672,3 +2672,33 @@ test('D3: старт карточки перехода не показывает
   assert.deepEqual(calls, ['stop', 'stop']);
   assert.deepEqual(warnLog, []);
 });
+
+/* Ревью H4: «Назад» из карточки на главную. Акцент карточки снимается
+   (destroy — её постер и тема), и СЛЕДОМ герой ставит подкраску фильма под
+   фокусом (LC.hero.accentBack). Без второго шага главная оставалась без
+   подкраски до следующего перевода фокуса: resume героя акцент не ставит.
+   Первый старт главной (герой не был запаркован) — как прежде: подкраска
+   ждёт свои три секунды покоя фокуса. */
+test('ревью H4: возврат на главную с запаркованным героем — destroy акцента, затем accentBack героя', () => {
+  const { LC } = heroLC();
+  const log = [];
+  let parked = false;
+  LC.hero.parked = () => parked;
+  LC.hero.accentBack = () => { log.push('back'); };
+  LC.accent.destroy = () => { log.push('destroy'); };
+  const main = makeActivityObj('main', false);
+  LC.onActivityEvent({ type: 'start', component: 'main', object: main });
+  assert.deepEqual(log, ['destroy'], 'первый старт главной красит без покоя фокуса');
+
+  LC.onActivityEvent({ type: 'start', component: 'full', object: makeActivityObj('card', false) });
+  parked = true;
+  log.length = 0;
+  LC.onActivityEvent({ type: 'start', component: 'main', object: main });
+  assert.deepEqual(log, ['destroy', 'back'], 'после «Назад» подкраска фильма под фокусом не вернулась');
+
+  /* Возврат не на главную (сетка, хаб) — героя это не касается. */
+  log.length = 0;
+  LC.onActivityEvent({ type: 'start', component: 'lumen_grid', object: makeActivityObj('grid', false) });
+  assert.deepEqual(log, ['destroy']);
+  assert.deepEqual(warnLog, []);
+});

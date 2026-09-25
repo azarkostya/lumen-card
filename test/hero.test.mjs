@@ -6554,3 +6554,46 @@ test('ревью H3: из «Выкл» обратно — кадр показа�
   again.onload();
   assert.equal(stage.find('.lumen-hero__bg.is-active').attr('src'), 'https://img/t/p/w1280/b1.jpg', 'кадр показанного фильма не вернулся');
 });
+
+/* ====================================================================== */
+/* Ревью H4: подкраска после «Назад» из карточки                           */
+/* ====================================================================== */
+
+/* Рантайм на старте любого экрана, кроме карточки, снимает акцент
+   (LC.accent.destroy, src/90_runtime.js), а resume героя его не ставил —
+   главная после «Назад» теряла подкраску фильма под фокусом до следующего
+   перевода фокуса. accentBack — подкраска карточки под фокусом (или
+   показанной, если фокус не на карточке) сразу, без трёх секунд покоя:
+   это возврат, а не листание, и цвет этого постера уже в кэше. */
+test('ревью H4: accentBack после возврата — подкраска карточки под фокусом, без полной пересборки CSS', () => {
+  const env = accentEnv();
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  main.card1.addClass('focus');
+  fireFocus(main.activity, main.card1);
+  env.advance(3100);
+  assert.deepEqual(env.calls, [11], 'подготовка: подкраска первой карточки');
+  env.hero.detach(new FakeEl(['activity']));
+  env.hero.accentBack();
+  assert.deepEqual(env.calls, [11], 'запаркованный герой красит главную под карточкой');
+  env.hero.mount(main.activity);
+  env.hero.accentBack();
+  assert.deepEqual(env.calls, [11, 11], 'возврат не вернул подкраску');
+  assert.deepEqual(env.deep, [undefined, undefined], 'с главной — без полной пересборки CSS');
+});
+
+test('ревью H4: фокус вернулся не на карточку — подкраска показанного фильма; без героя — ничего', () => {
+  const env = accentEnv();
+  const main = makeMain();
+  env.hero.accentBack();
+  assert.deepEqual(env.calls, [], 'героя нет — красить нечего');
+  env.hero.mount(main.activity);
+  main.card2.addClass('focus');
+  fireFocus(main.activity, main.card2);
+  env.advance(400);
+  env.hero.detach(new FakeEl(['activity']));
+  main.card2.removeClass('focus');
+  env.hero.mount(main.activity);
+  env.hero.accentBack();
+  assert.deepEqual(env.calls, [22]);
+});

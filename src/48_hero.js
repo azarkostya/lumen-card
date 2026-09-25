@@ -3977,6 +3977,27 @@
       }
     }
 
+    /* Ревью H4: «Назад» из карточки. Рантайм на старте главной снимает
+       акцент открытой карточки (LC.accent.destroy, src/90_runtime.js), а
+       resume его не ставит — главная теряла подкраску фильма под фокусом до
+       следующего перевода фокуса. Рантайм зовёт это следом за destroy, если
+       герой вернулся с парковки: подкраска карточки под фокусом (resume
+       записал её в pending), а фокус не на карточке — показанного фильма.
+       Сразу, без ACCENT_DELAY: это возврат, а не листание, и цвет постера,
+       на котором открывали карточку, уже в кэше LC.color. Второй аргумент
+       не передаётся — как у scheduleAccent: полная пересборка CSS только у
+       открытой карточки. */
+    function accentBack() {
+      if (!state || state.parked) return;
+      var card = state.pending || state.shownCard;
+      if (!card) return;
+      try {
+        if (LC.accent && typeof LC.accent.applyFor === 'function') LC.accent.applyFor(card);
+      } catch (e) {
+        warn('hero: accent back failed', e);
+      }
+    }
+
     /* Вызывается на 'activity':start ЛЮБОЙ активности. Ушли с экрана, где
        живёт герой (вглубь в карточку, в меню, в другой компонент), — герой
        паркуется (park выше): Lampa для покидаемой активности событий не шлёт
@@ -4127,6 +4148,7 @@
       mountCurrent: mountCurrent,
       detach: detach,
       parked: parked,
+      accentBack: accentBack,
       owns: owns,
       unmount: unmount,
       applyMotion: applyMotion,

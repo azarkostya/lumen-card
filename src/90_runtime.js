@@ -590,8 +590,12 @@
         try {
           if (e.object && e.object.activity && typeof e.object.activity.render === 'function') startRender = e.object.activity.render();
         } catch (eRender) {}
+        /* Ревью H4: герой главной возвращается с парковки («Назад» из
+           карточки) — подкраску его фильма вернёт accentBack ниже. */
+        var heroBack = false;
         try {
           if (LC.hero) {
+            heroBack = e.component === 'main' && typeof LC.hero.parked === 'function' && LC.hero.parked();
             LC.hero.detach(startRender);
             if (e.component === 'main' && startRender && startRender.length) LC.hero.mount(startRender);
           }
@@ -667,6 +671,12 @@
              он принадлежит открытой карточке ровно так же, как постерный
              (одна пересборка CSS на оба, src/57_color.js). */
           if (LC.accent && e.component !== 'full') LC.accent.destroy();
+          /* Ревью H4: destroy снял акцент ушедшей карточки, а вместе с ним и
+             подкраску главной — resume героя её не ставит, и главная после
+             «Назад» оставалась без подкраски до следующего перевода фокуса.
+             Первый старт главной (героя не было на парковке) — как прежде:
+             подкраска ждёт покоя фокуса (src/48_hero.js, scheduleAccent). */
+          if (heroBack && typeof LC.hero.accentBack === 'function') LC.hero.accentBack();
         } catch (eAccentStart) {
           warn('accent start failed', eAccentStart);
         }
