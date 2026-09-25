@@ -33,6 +33,15 @@ function at(p, place) {
 function collections(p) { return p.slots.filter(function (s) { return s.kind === 'collection'; }); }
 function inSeason(item, month) { return !!(item.season && item.season.indexOf(month) !== -1); }
 
+/* Следующий раунд, п.2: стартовая эпоха чистой установки — от
+   Math.random. Подмена на время fn: число — постоянное значение, функция —
+   сама последовательность. */
+function withRandom(value, fn) {
+  const real = Math.random;
+  Math.random = typeof value === 'function' ? value : () => value;
+  try { return fn(); } finally { Math.random = real; }
+}
+
 /* ---------------------------------------------------------------- */
 /* ГПСЧ и зерно эпохи                                                */
 /* ---------------------------------------------------------------- */
@@ -82,10 +91,25 @@ test('nextEpoch: без перезапуска эпоха сменяется р�
   assert.deepEqual(H.nextEpoch(rec, T + 4 * 3600000, false), { n: 6, at: T + 4 * 3600000 }, 'через 4 часа — следующая');
 });
 
-test('nextEpoch: нет записи — первая эпоха; часы ушли назад — следующая', function () {
+/* Следующий раунд, п.2. Пользователь: «Рокки всегда будет в начале?» Без
+   записи эпоха была 1 — на каждом новом устройстве, в каждом чистом браузере
+   (и на стенде) первая раскладка главной выходила одна и та же. Стартовая
+   эпоха — случайная, 1…100000; дальше шаги как были. */
+test('nextEpoch: нет записи — случайная стартовая эпоха; часы ушли назад — следующая', function () {
   var T = Date.UTC(2026, 8, 24, 11, 0);
-  assert.deepEqual(H.nextEpoch(null, T, false), { n: 1, at: T });
-  assert.deepEqual(H.nextEpoch({ n: 'x' }, T, true), { n: 1, at: T }, 'битая запись — как её отсутствие');
+  withRandom(0, function () { assert.deepEqual(H.nextEpoch(null, T, false), { n: 1, at: T }); });
+  withRandom(0.5, function () { assert.deepEqual(H.nextEpoch(null, T, false), { n: 50001, at: T }); });
+  withRandom(0.9999999, function () {
+    assert.deepEqual(H.nextEpoch({ n: 'x' }, T, true), { n: 100000, at: T }, 'битая запись — как её отсутствие');
+  });
+  var seen = {};
+  for (var k = 0; k < 50; k++) {
+    var r = H.nextEpoch(null, T, false);
+    assert.ok(r.n === Math.floor(r.n) && r.n >= 1 && r.n <= 100000, 'стартовая эпоха вне 1…100000: ' + r.n);
+    assert.equal(r.at, T);
+    seen[r.n] = 1;
+  }
+  assert.ok(Object.keys(seen).length > 1, 'стартовая эпоха не постоянна');
   assert.deepEqual(H.nextEpoch({ n: 3, at: T }, T - 3600000, false), { n: 4, at: T - 3600000 },
     'часы телевизора переставили назад — иначе эпоха застыла бы до прежнего времени');
 });
@@ -479,18 +503,20 @@ test('модель вставки Lampa: порядок главной один�
     rows.add({ name: 'continue_watch', title: 'x', index: 1, screen: ['main', 'category'], call: () => function () {} });
     rows.add({ name: 'timetable_lately', title: 'x', index: 1, screen: ['main', 'category'], call: () => function () {} });
   }
+  /* Три чистые установки сравниваются между собой — стартовая эпоха у них
+     одна (следующий раунд, п.2: иначе она случайная). */
   const sync = setupApply({ lampaRows: lampaOwn });
-  sync.H.apply({ start: true, manifest: CATALOG });
+  withRandom(0.25, () => sync.H.apply({ start: true, manifest: CATALOG }));
   const a = buildMain(sync);
 
   /* Каталог приехал после личных рядов (кэш каталога устарел, сеть). */
   const late = setupApply({ lampaRows: lampaOwn });
-  late.H.apply({ start: true });
+  withRandom(0.25, () => late.H.apply({ start: true }));
   late.H.apply({ manifest: CATALOG });
   const b = buildMain(late);
 
   const bare = setupApply();
-  bare.H.apply({ start: true, manifest: CATALOG });
+  withRandom(0.25, () => bare.H.apply({ start: true, manifest: CATALOG }));
   const c = buildMain(bare).filter((n) => /^lumen_/.test(n));
 
   assert.deepEqual(b, a, 'порядок не зависит от того, когда приехал каталог');
@@ -557,14 +583,39 @@ test('apply: лидер эпохи запоминается и в двух сл�
   assert.ok(s.store.lumen_home_leads.length <= 4);
 });
 
+/* Следующий раунд, п.2 («Рокки всегда будет в начале?»): первая главная
+   чистой установки — от случайной стартовой эпохи. Последовательность
+   Math.random — Парк–Миллер с постоянным зерном, чтобы тест не зависел от
+   удачи; 60 чистых установок — 30 пар «два новых устройства». */
+test('apply: чистые установки начинают со случайной эпохи — одинаковый лидер у двух реже, чем раз в десять', function () {
+  const leads = [];
+  withRandom(H.rng(20260925), () => {
+    for (let k = 0; k < 60; k++) {
+      const s = setupApply();
+      const p = s.H.apply({ start: true, manifest: CATALOG });
+      const n = s.store.lumen_home_epoch.n;
+      assert.ok(n === Math.floor(n) && n >= 1, 'стартовая эпоха — целое ≥ 1: ' + n);
+      assert.ok(byId[p.lead], 'лидер — подборка каталога: ' + p.lead);
+      assert.equal(s.ours()[0].name, 'lumen_' + p.lead, 'лидер на месте 0');
+      leads.push(p.lead);
+    }
+  });
+  let same = 0;
+  for (let k = 0; k < leads.length; k += 2) if (leads[k] === leads[k + 1]) same++;
+  assert.ok(same * 10 < leads.length / 2, 'пар с одинаковым лидером: ' + same + ' из ' + leads.length / 2);
+  assert.ok(new Set(leads).size >= 20, 'лидеров чистых установок слишком мало: ' + new Set(leads).size);
+});
+
 /* Ревью волны 4 (95): список «Каналов» Lampa собирается только из
    зарегистрированных рядов (settings(), app.min.js:18040-18057). Ряд,
    который план не регистрировал, из «Каналов» пропадал — и включить его
    обратно было негде. Выключенный ряд регистрируется после всех рядов
    плана: call$1 отсеивает его до вставки (:18088-18090), главная та же. */
 test('apply: ряд, выключенный в «Каналах» Lampa, в план не входит, но остаётся в «Каналах» — включил, и он на главной', function () {
+  /* s и off — две чистые установки с одной стартовой эпохой (следующий
+     раунд, п.2: иначе она случайная): лидер s — лидер эпохи и для off. */
   const s = setupApply({ storage: { content_rows_lumen_continue: false } });
-  const p = s.H.apply({ start: true, manifest: CATALOG });
+  const p = withRandom(0.25, () => s.H.apply({ start: true, manifest: CATALOG }));
   assert.equal(p.slots[1].kind, 'collection', 'на месте 1 подборка, а не дыра');
   const names = s.ours().map((r) => r.name);
   assert.equal(names.filter((n) => n === 'lumen_continue').length, 1, 'ряд зарегистрирован — Lampa покажет его в «Каналах»');
@@ -575,7 +626,7 @@ test('apply: ряд, выключенный в «Каналах» Lampa, в пл
   assert.equal(buildMain(s)[1], 'lumen_continue', 'включили — «Досмотреть» снова вторым');
 
   const off = setupApply({ storage: { ['content_rows_lumen_' + p.lead]: false } });
-  const q = off.H.apply({ start: true, manifest: CATALOG });
+  const q = withRandom(0.25, () => off.H.apply({ start: true, manifest: CATALOG }));
   assert.notEqual(q.lead, p.lead, 'выключенная подборка лидером не встаёт');
   assert.equal(off.ours().filter((r) => r.name === 'lumen_' + p.lead).length, 1, 'выключенная подборка в «Каналах» есть');
   assert.equal(buildMain(off).indexOf('lumen_' + p.lead), -1, 'на главной её нет');

@@ -13293,6 +13293,7 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 
+
 LC.homeplan = (function () {
 
 
@@ -13380,10 +13381,15 @@ return (x % (MOD - 1)) + 1;
 
 
 
+
+
+
+
+
 function nextEpoch(rec, now, firstBuild) {
 var ok = rec && typeof rec.n === 'number' && isFinite(rec.n) && rec.n >= 0 &&
 typeof rec.at === 'number' && isFinite(rec.at);
-if (!ok) return { n: 1, at: now };
+if (!ok) return { n: 1 + Math.floor(Math.random() * 100000), at: now };
 var gap = now - rec.at;
 if (gap < 0 || gap >= EPOCH_MS || (firstBuild && gap >= FIRST_GAP)) {
 return { n: Math.floor(rec.n) + 1, at: now };

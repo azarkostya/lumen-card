@@ -17,7 +17,8 @@
   /* Публичное API (чистые функции):                                        */
   /*   rng(seed) → () → [0, 1) — ГПСЧ Парк–Миллер                           */
   /*   seedOf(n, salt) → зерно эпохи n для своей соли                       */
-  /*   nextEpoch(rec, now, firstBuild) → rec (тот же объект — шага нет)     */
+  /*   nextEpoch(rec, now, firstBuild) → rec (тот же объект — шага нет);    */
+  /*     без записи — случайная стартовая эпоха (Math.random)               */
   /*   pickAnchor(history, n, seed) → исходный фильм «Потому что»           */
   /*   planHome(opts) → {slots: [{place, kind, id, item}], lead}             */
   /*   recentLeads(leads, n) / rememberLead(leads, n, id) — лидеры эпох      */
@@ -126,11 +127,16 @@
     /* Следующая эпоха или та же (тот же объект rec — писать нечего).
        firstBuild — первое построение главной после активации плагина. Часы
        ушли назад (телевизор синхронизировал время) — шаг сразу: иначе
-       эпоха застыла бы до прежнего времени. */
+       эпоха застыла бы до прежнего времени.
+       Следующий раунд, п.2 (пользователь: «Рокки всегда будет в начале?»):
+       без записи эпоха была 1, и первая главная на каждом новом устройстве
+       и в чистом браузере выходила одна и та же. Стартовая эпоха —
+       случайная (единственное место модуля не от зерна), дальше шаги как
+       были. */
     function nextEpoch(rec, now, firstBuild) {
       var ok = rec && typeof rec.n === 'number' && isFinite(rec.n) && rec.n >= 0 &&
         typeof rec.at === 'number' && isFinite(rec.at);
-      if (!ok) return { n: 1, at: now };
+      if (!ok) return { n: 1 + Math.floor(Math.random() * 100000), at: now };
       var gap = now - rec.at;
       if (gap < 0 || gap >= EPOCH_MS || (firstBuild && gap >= FIRST_GAP)) {
         return { n: Math.floor(rec.n) + 1, at: now };
