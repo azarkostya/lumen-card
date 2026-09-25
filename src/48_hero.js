@@ -2873,6 +2873,14 @@
           answered = true;
           if (sync || !state || gen !== captured) return;
           state.look = null;
+          /* Ревью H5: ответ без знания — миниатюра не доехала, LC.thumbs его
+             не запоминает (src/57_thumbs.js). Спросить ту же пару снова —
+             ещё одна загрузка на каждый ответ, пока сеть отказывает: кадр
+             как было, как у синхронного ответа в step. */
+          if (verdictOf(path) === undefined) {
+            finish(model.backdrop);
+            return;
+          }
           step();
         });
         sync = false;

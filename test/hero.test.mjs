@@ -6597,3 +6597,23 @@ test('ревью H4: фокус вернулся не на карточку — 
   env.hero.accentBack();
   assert.deepEqual(env.calls, [22]);
 });
+
+/* Ревью H5: сетевой отказ миниатюры LC.thumbs больше не запоминает
+   (src/57_thumbs.js) — ответ null приходит, а verdict() остаётся
+   undefined. Выбор первого кадра не спрашивает ту же пару по кругу: ответ
+   без знания — «сравнить нельзя сейчас», кадр как было. */
+test('ревью H5: сравнение ответило null без записи в память — кадр как было, та же пара второй раз не спрашивается', () => {
+  const thumbs = fakeThumbs();
+  const env = makeEnv({ fxHeavy: () => false, thumbs: thumbs });
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  fireFocus(main.activity, main.card1);
+  env.advance(400);
+  detailsOf(env, 11).ok(LOOK_DETAILS(11));
+  assert.equal(thumbs.calls.length, 1, 'подготовка: первая пара спрошена');
+  /* Миниатюра не доехала: ответ есть, знания нет. */
+  thumbs.calls[0].cb(null);
+  assert.equal(thumbs.calls.length, 1, 'та же пара спрошена снова — по кругу, пока сеть отказывает');
+  assert.deepEqual(w1280(env), ['/c1.jpg'], 'кадр — выбор heroBackdrop, без ожидания потолка');
+  assert.deepEqual(warnLog, []);
+});

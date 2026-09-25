@@ -33,9 +33,12 @@
   /* crossOrigin='anonymous' и с заголовком Access-Control-Allow-Origin в  */
   /* ответе: иначе canvas «испорчен», и getImageData бросает SecurityError.*/
   /* Адрес — через Lampa.TMDB.image, как у всех картинок плагина: прокси   */
-  /* Lampa (imagetmdb.com) отдаёт ACAO: * (проверено 2026-09-25), а сам     */
-  /* image.tmdb.org — запасной адрес, как у подкраски (src/57_color.js):   */
-  /* на части сетей он недоступен вовсе. Размер w92 выбран ещё и потому,   */
+  /* Lampa (imagetmdb.com) отдаёт ACAO: * (проверено 2026-09-25). Запасного */
+  /* адреса нет (сомнительное полного ревью c644bfd): прямой image.tmdb.org */
+  /* в обход прокси пользователя отдавал TMDB его IP, а где TMDB закрыт —  */
+  /* ждал до LOAD_MS на каждую миниатюру; без прокси адрес и так прямой.    */
+  /* Прокси без CORS даёт отказ каждой миниатюре — после FAIL_LIMIT подряд */
+  /* модуль молчит до конца сеанса. Размер w92 выбран ещё и потому,         */
   /* что сама Lampa его не грузит (ряды — w200…w500, логотипы героя и       */
   /* карточки — w500/w780, все без CORS): тот же адрес в другом режиме      */
   /* CORS — это второй ресурс в кэше браузера и, без HTTP-кэша на ТВ,       */
@@ -89,8 +92,6 @@
     /* Ответов по парам и тонов — таблица сбрасывается целиком, если
        разрослась: это кэш, а не знание. */
     var TABLE_MAX = 600;
-    var DIRECT_HOST = 'https://image.tmdb.org/t/p/';
-    var DIRECT_MARK = 'image.tmdb.org/';
 
     /* ------------------------------------------------------------------ */
     /* Чистые функции: массивы RGBA, без DOM.                              */
@@ -267,11 +268,6 @@
       }
     }
 
-    function directOf(path, url) {
-      if (!path || (url && url.indexOf(DIRECT_MARK) !== -1)) return '';
-      return DIRECT_HOST + SIZE + (path.charAt(0) === '/' ? path : '/' + path);
-    }
-
     /* Картинки в пути: путь → {img, subs, timer}. */
     var flights = {};
 
@@ -297,18 +293,11 @@
       }
     }
 
-    function start(path, fl, url, alt) {
+    function start(path, fl, url) {
       var img = new Image();
       fl.img = img;
       img.onload = function () { land(path, fl, img); };
-      img.onerror = function () {
-        if (alt) {
-          unhook(fl);
-          start(path, fl, alt, '');
-          return;
-        }
-        land(path, fl, null);
-      };
+      img.onerror = function () { land(path, fl, null); };
       fl.timer = setTimeout(function () {
         fl.timer = null;
         land(path, fl, img.complete && img.naturalWidth ? img : null);
@@ -333,7 +322,7 @@
         }
         fl = { img: null, subs: [], timer: null };
         flights[path] = fl;
-        start(path, fl, url, directOf(path, url));
+        start(path, fl, url);
       }
       fl.subs.push(cb);
       return {
@@ -417,12 +406,16 @@
 
     /* Признаки по картинке — внутри задачи простоя. Исключение (испорченный
        canvas — SecurityError, нет 2d-контекста) — false: этот растр в сеансе
-       больше не читаем. */
+       больше не читаем.
+       Ревью H5: картинка не пришла — null, а не false. Это знание о сети, а
+       не о картинке: в память (признаки, вердикт пары, тон) оно не ложится,
+       и следующий вопрос грузит миниатюру снова. Прежде один сбой загрузки
+       постера отключал проверку «кадр ≈ постер» для всех кадров фильма. */
     function extract(kind, img) {
       /* Картинка не пришла — отказ (счёт FAIL_LIMIT). Пришла без размеров
          (SVG-логотип без собственного размера) — прочитать нечего, но это
          не отказ сети или CORS. */
-      if (!img) { score(false); return false; }
+      if (!img) { score(false); return null; }
       if (!img.naturalWidth || !img.naturalHeight) return false;
       try {
         var out = kind === 'poster' ? posterPixels(img) : (kind === 'frame' ? framePixels(img) : logoPixels(img));
@@ -478,7 +471,7 @@
     }
 
     /* Признаки растра: из памяти — синхронно, иначе загрузка и разбор в
-       простое. cb(признаки | false). Возвращает {cancel}. */
+       простое. cb(признаки | false | null — не доехала). Возвращает {cancel}. */
     function need(kind, path, cb) {
       var key = kind + ':' + path;
       var got = featGet(key);
@@ -494,7 +487,7 @@
           var now = featGet(key);
           if (now === undefined) {
             now = extract(kind, img);
-            featPut(key, now);
+            if (now !== null) featPut(key, now);
           }
           cb(now);
         });
@@ -533,11 +526,16 @@
       var pf;
       var ff;
       var jobs = [];
+      /* Ревью H5: постер прочитать нельзя или он не доехал — ответ «сравнить
+         нельзя» сразу, кадр пары не нужен (из памяти — даже не грузится,
+         в пути — снимается). Вердикт с сетевым отказом (null) в память не
+         ложится: следующий показ спросит снова. */
       function settle() {
-        if (!live || pf === undefined || ff === undefined) return;
+        if (!live || pf === undefined || (pf && ff === undefined)) return;
         live = false;
+        for (var i = 1; i < jobs.length; i++) jobs[i].cancel();
         var value = pf && ff ? judge(pf, ff).similar : null;
-        remember(verdicts, poster + '|' + frame, value);
+        if (pf !== null && ff !== null) remember(verdicts, poster + '|' + frame, value);
         cb(value);
       }
       jobs.push(need('poster', poster, function (got) { pf = got; settle(); }));
@@ -564,7 +562,8 @@
         if (!live) return;
         live = false;
         var value = stats ? (darkOf(stats) ? 'dark' : 'light') : 'none';
-        remember(tones, path, value);
+        /* Ревью H5: логотип не доехал (null) — 'none' только этому ответу. */
+        if (stats !== null) remember(tones, path, value);
         cb(value);
       });
       return {

@@ -232,21 +232,6 @@ test('п.C2: пиксели закрыты (SecurityError) или картинк
   assert.equal(e.T.verdict('/p.jpg', '/f.jpg'), null);
 });
 
-test('п.C2: прокси не ответил — один запасной запрос на image.tmdb.org, потом отказ', () => {
-  const e = env();
-  const got = [];
-  e.T.compare('/p.jpg', '/f.jpg', (v) => got.push(v));
-  e.img('/f.jpg').onerror();
-  const direct = e.img('image.tmdb.org');
-  assert.ok(direct, 'запасного запроса нет');
-  assert.equal(direct.src, 'https://image.tmdb.org/t/p/w92/f.jpg');
-  assert.equal(direct.corsAtSrc, 'anonymous');
-  direct.onerror();
-  e.arrive(e.img('proxy/t/p/w92/p.jpg'), scene(1), 92, 138);
-  e.idleAll();
-  assert.deepEqual(got, [null]);
-});
-
 test('п.C2: отмена — колбэка нет, недоехавшие миниатюры сняты и в сети', () => {
   const e = env();
   const got = [];
@@ -354,4 +339,78 @@ test('п.C2/D: удача сбрасывает счёт отказов; SVG бе
     e.idleAll();
   }
   assert.equal(e.T.stats().blocked, false);
+});
+
+/* ====================================================================== */
+/* Ревью H5: сетевой отказ миниатюры — не знание о картинке               */
+/* ====================================================================== */
+
+/* Один сбой загрузки (сеть моргнула, прокси ответил ошибкой) ложился в
+   признаки растра как false — «прочитать нельзя» — и до вытеснения из LRU
+   отключал проверку «кадр ≈ постер» для всех кадров фильма, а вердикт пары
+   null — навсегда. Сетевой отказ теперь не запоминается ни в признаках, ни
+   в вердикте, ни в тоне: следующий показ пробует снова. Пиксели, закрытые
+   CORS (SecurityError), и SVG без размеров — знание о картинке, оно в
+   памяти, как прежде. */
+test('ревью H5: сетевой отказ постера — ответ null, но в памяти его нет: следующий вопрос грузит постер снова', () => {
+  const e = env();
+  const got = [];
+  e.T.compare('/p.jpg', '/f.jpg', (v) => got.push(v));
+  e.img('/p.jpg').onerror();
+  e.idleAll();
+  assert.deepEqual(got, [null], 'нет постера — сравнить нельзя');
+  assert.equal(e.T.verdict('/p.jpg', '/f.jpg'), undefined, 'сетевой отказ лёг в память вердиктом');
+  const before = e.images.length;
+  e.T.compare('/p.jpg', '/g.jpg', (v) => got.push(v));
+  assert.equal(e.images.length, before + 2, 'постер после сетевого отказа больше не грузится — проверка отключена для фильма');
+  e.arrive(e.img('/p.jpg'), scene(1), 92, 138);
+  e.arrive(e.img('/g.jpg'), scene(1), 92, 52);
+  e.idleAll();
+  assert.equal(got[1], true, 'после удачной загрузки проверка работает');
+});
+
+test('ревью H5: постер прочитать нельзя (в памяти) — ответ null сразу, кадр не грузится', () => {
+  const e = env();
+  const got = [];
+  e.T.compare('/p.jpg', '/f.jpg', (v) => got.push(v));
+  const frame = e.img('/f.jpg');
+  e.arrive(e.img('/p.jpg'), scene(1), 92, 138, true);
+  e.idleAll();
+  assert.equal(frame.removed, true, 'постер прочитать нельзя, а кадр пары грузится дальше');
+  assert.deepEqual(got, [null]);
+  const before = e.images.length;
+  e.T.compare('/p.jpg', '/g.jpg', (v) => got.push(v));
+  assert.deepEqual(got, [null, null], 'известный отказ постера — ответ синхронно');
+  assert.equal(e.images.length, before, 'кадр грузится, хотя сравнивать не с чем');
+});
+
+test('ревью H5: сетевой отказ логотипа — тон none, но не в памяти: следующая проба грузит снова', () => {
+  const e = env();
+  const got = [];
+  e.T.tone('/l.png', (t) => got.push(t));
+  e.images[0].onerror();
+  e.idleAll();
+  assert.deepEqual(got, ['none']);
+  assert.equal(e.T.toneOf('/l.png'), undefined, 'сетевой отказ лёг в память тоном');
+  e.T.tone('/l.png', (t) => got.push(t));
+  assert.equal(e.images.length, 2, 'логотип после сетевого отказа больше не пробуется');
+  e.arrive(e.images[1], () => [0, 0, 0], 92, 30);
+  e.idleAll();
+  assert.deepEqual(got, ['none', 'dark']);
+});
+
+/* Сомнительное ревью (S/H): при отказе прокси пользователя модуль шёл на
+   прямой image.tmdb.org — в обход выбранного пользователем пути (его IP
+   уходит TMDB, а где TMDB заблокирован — ещё и ожидание до 8 с на каждую
+   миниатюру). Адрес — только тот, что дала Lampa. */
+test('ревью: прокси не ответил — прямого запроса на image.tmdb.org нет, ответ null', () => {
+  const e = env();
+  const got = [];
+  e.T.compare('/p.jpg', '/f.jpg', (v) => got.push(v));
+  e.img('/f.jpg').onerror();
+  assert.equal(e.img('image.tmdb.org'), undefined, 'запрос в обход прокси пользователя');
+  e.arrive(e.img('proxy/t/p/w92/p.jpg'), scene(1), 92, 138);
+  e.idleAll();
+  assert.deepEqual(got, [null]);
+  assert.equal(e.images.length, 2);
 });
