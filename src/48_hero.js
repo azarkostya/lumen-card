@@ -1224,20 +1224,53 @@
     function applyMotion() {
       try {
         if (!state) return;
-        state.node.removeClass(MOTION_CLASSES).addClass('lumen-motion-' + LC.motionMode());
+        var mode = LC.motionMode();
+        state.node.removeClass(MOTION_CLASSES).addClass('lumen-motion-' + mode);
         /* Волна 3: у слоя кадра свой класс режима — переходы кадра, ролика и
            пола сжатого состояния заведены под .lumen-hero-stage.lumen-motion-
            full (src/30_css.js), а сам слой — сосед героя, не потомок. */
-        state.stage.removeClass(MOTION_CLASSES).addClass('lumen-motion-' + LC.motionMode());
+        state.stage.removeClass(MOTION_CLASSES).addClass('lumen-motion-' + mode);
         /* Task 28: режим мог упасть до lite/off (настройка или автодетект
            слабого ТВ) — играющий ролик обязан уйти вместе с полными
            анимациями. */
         applyTrailer();
         /* «Несколько кадров»: в 'off' ротации нет. */
         applySlides();
+        /* Ревью H3: в «Выкл» кадр не грузится (loadFrame), и заглушка не
+           заводится (holdDue в show) — кадр фильма, показанного до
+           переключения, стоял бы под текстом ВСЕХ следующих. Он гаснет
+           сразу, вместе с подложкой, как в заглушке, а ехавший кадр снимается
+           и в сети. Обратно из «Выкл» — кадр показанного фильма грузится
+           заново, не дожидаясь смены фокуса. */
+        var was = state.motion;
+        state.motion = mode;
+        if (mode === 'off') offFrame();
+        else if (was === 'off') onFrame();
       } catch (e) {
         warn('hero: motion failed', e);
       }
+    }
+
+    function offFrame() {
+      stopTimer('loadTimer');
+      stopTimer('holdTimer');
+      state.holdDue = false;
+      if (state.loader) {
+        dropLoader(state.loader);
+        state.loader = null;
+      }
+      neutralFrame();
+      /* Погасшие слои растр не держат: в «Выкл» их до выхода из режима
+         никто не покажет. */
+      state.stage.find('.lumen-hero__bg').removeAttr('src');
+    }
+
+    function onFrame() {
+      if (state.parked || state.frameUrl || state.framePath === null || !state.model) return;
+      var captured = gen;
+      loadFrame({ backdrop: state.framePath, poster: state.model.poster }, captured, function (ok) {
+        if (ok && state && gen === captured) state.frameId = state.shownId;
+      });
     }
 
     function motionMode() {
@@ -2626,8 +2659,10 @@
            отменить нечем, а gen парковка не поднимает) — ни кадра, ни
            доклада: под открытой карточкой кадр не ставится, и не только кадр
            смены, но и кадр показа. Загрузчик и его таймер park уже снял
-           (cancelPending); resume покажет карточку заново (state.stale). */
-        if (state.parked) return;
+           (cancelPending); resume покажет карточку заново (state.stale).
+           Ревью H3: так же — доехавший после переключения в «Выкл»
+           (загрузчик снял offFrame в applyMotion). */
+        if (state.parked || motionMode() === 'off') return;
         stopTimer('loadTimer');
         state.loader = null;
         /* Ревью правок волны 3, п.7: кадр смены повёл тик до ухода фокуса,
@@ -2973,21 +3008,27 @@
          и подложка, и под текстом остаются фон страницы и затемнения слоя
          кадра — тень подкраски (src/30_css.js, accentRules). */
       try {
-        state.stage.find('.lumen-hero__bg').removeClass('is-active');
-        state.frameUrl = '';
-        state.frameBlur = false;
-        if (state.lqipUrl) {
-          stopTimer('lqipTimer');
-          var lqip = state.stage.find('.lumen-hero__lqip');
-          lqip.removeClass('is-active');
-          lqip.removeAttr('src');
-          state.lqipUrl = '';
-        }
-        /* На экране больше нет прошлого фильма — второй раз не прячем. */
-        state.frameId = state.shownId;
+        neutralFrame();
       } catch (e) {
         warn('hero: hold failed', e);
       }
+    }
+
+    /* Нейтральный фон вместо кадра: гаснут оба слоя кадра и подложка
+       (заглушка holdFrame и режим «Выкл» — applyMotion). */
+    function neutralFrame() {
+      state.stage.find('.lumen-hero__bg').removeClass('is-active');
+      state.frameUrl = '';
+      state.frameBlur = false;
+      if (state.lqipUrl) {
+        stopTimer('lqipTimer');
+        var lqip = state.stage.find('.lumen-hero__lqip');
+        lqip.removeClass('is-active');
+        lqip.removeAttr('src');
+        state.lqipUrl = '';
+      }
+      /* На экране больше нет прошлого фильма — второй раз не прячем. */
+      state.frameId = state.shownId;
     }
 
     /* Ревью волны 3, п.1: фокус стоит на другой карточке, чем показанная, —

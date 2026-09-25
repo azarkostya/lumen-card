@@ -6490,3 +6490,67 @@ test('ревью H2: возврат с парковки показывает к�
   await tick();
   assert.equal(f.bg.attr('src'), 'https://img/t/p/w1280/b1.jpg');
 });
+
+/* ====================================================================== */
+/* Ревью H3: «Выкл» анимаций на живой главной                              */
+/* ====================================================================== */
+
+/* В «Выкл» кадр не грузится вовсе (loadFrame), заглушка не заводится
+   (holdDue в show), а applyMotion кадр не убирал: кадр фильма, показанного
+   до переключения, оставался под текстом ВСЕХ следующих. Репро ревьюера —
+   scratchpad/fullrev/hero/test/zz_off.test.mjs. */
+test('ревью H3: переключение в «Выкл» гасит кадр и подложку — под текстом следующих фильмов нет кадра прошлого', () => {
+  const env = makeEnv({ fxHeavy: () => false });
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  const stage = shownFrame(env, main);
+  const lit = () => stage.find('.lumen-hero__bg.is-active').length + stage.find('.lumen-hero__lqip.is-active').length;
+  env.LC.motionMode = () => 'off';
+  env.hero.applyMotion();
+  assert.equal(lit(), 0, 'кадр прошлого фильма остался под текстом');
+  assert.equal(stage.find('.lumen-hero__lqip').attr('src'), undefined, 'подложка держит растр');
+
+  fireFocus(main.activity, main.card2);
+  env.advance(DELAY);
+  env.advance(200);
+  assert.equal(heroOf(main.activity).find('.lumen-hero__descr').text(), 'о втором', 'подготовка: показан второй фильм');
+  assert.equal(lit(), 0, 'под текстом второго фильма — кадр первого');
+  assert.deepEqual(warnLog, []);
+});
+
+test('ревью H3: кадр, ехавший при переключении в «Выкл», снят и в сети и не встаёт, когда доедет', () => {
+  const env = makeEnv({ fxHeavy: () => false });
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  fireFocus(main.activity, main.card1);
+  env.advance(400);
+  answerDetails(env);
+  const img = removable(frameImg(env, '/b1.jpg'));
+  const onload = img.onload;
+  env.LC.motionMode = () => 'off';
+  env.hero.applyMotion();
+  assert.equal(img.removed, true, 'загрузка кадра в «Выкл» едет дальше');
+  img.complete = true;
+  img.naturalWidth = 1280;
+  if (onload) onload();
+  env.advance(9000);
+  const stage = stageOf(heroOf(main.activity));
+  assert.equal(stage.find('.lumen-hero__bg.is-active').length, 0, 'доехавший кадр встал в «Выкл»');
+});
+
+test('ревью H3: из «Выкл» обратно — кадр показанного фильма возвращается без смены фокуса', () => {
+  const env = makeEnv({ fxHeavy: () => false });
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  const stage = shownFrame(env, main);
+  const loads = frameLoads(env).length;
+  env.LC.motionMode = () => 'off';
+  env.hero.applyMotion();
+  assert.equal(stage.find('.lumen-hero__bg.is-active').length, 0, 'подготовка: в «Выкл» кадр погашен');
+  env.LC.motionMode = () => 'lite';
+  env.hero.applyMotion();
+  assert.equal(frameLoads(env).length, loads + 1, 'кадр показанного фильма не грузится снова');
+  const again = frameImg(env, '/b1.jpg');
+  again.onload();
+  assert.equal(stage.find('.lumen-hero__bg.is-active').attr('src'), 'https://img/t/p/w1280/b1.jpg', 'кадр показанного фильма не вернулся');
+});
