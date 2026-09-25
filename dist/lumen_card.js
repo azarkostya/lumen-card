@@ -12551,10 +12551,16 @@ var started = false;
 
 
 
+
 var byMouse = false;
 
 
 var quiet = false;
+
+
+
+
+var remoteScroll = false;
 
 function alive(captured) {
 return function () { return gen === captured; };
@@ -12633,7 +12639,15 @@ quiet = false;
 
 function keepVisible(el, ev) {
 if (quiet || !LC.focus.remote(ev)) return;
-try { scroll.update(el, true); } catch (e) { warn('grid: scroll.update failed', e); }
+try {
+var from = scroll.position();
+remoteScroll = true;
+scroll.update(el, true);
+
+
+
+if (scroll.position() === from) remoteScroll = false;
+} catch (e) { warn('grid: scroll.update failed', e); }
 }
 
 
@@ -12681,7 +12695,13 @@ img.src = url;
 
 
 
+
+
+
+
 function onScroll() {
+if (remoteScroll) remoteScroll = false;
+else byMouse = true;
 var last = loadInView();
 if (last >= 0 && Math.floor(last / GRID_COLS) >= Math.floor((cardNodes.length - 1) / GRID_COLS) - 1) loadNext();
 try { Lampa.Layer.visible(scroll.render(true)); } catch (e) {}

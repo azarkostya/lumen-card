@@ -613,7 +613,17 @@ function setupLampa(opts) {
     this.minus_calls = 0;
     this.minus = function () { self.minus_calls++; };
     this.update_calls = [];
-    this.update = function (el, center) { self.update_calls.push([el, !!center]); };
+    /* Следующий раунд, п.1: позиция прокрутки (Scroll.position,
+       app.min.js:32291). Штатная update сдвигает экран, только если он
+       смотрит не туда (startScroll, :32013), — заглушка по умолчанию не
+       сдвигает; тест, которому сдвиг нужен, задаёт posOf(el). */
+    this.pos = 0;
+    this.posOf = null;
+    this.position = function () { return self.pos; };
+    this.update = function (el, center) {
+      self.update_calls.push([el, !!center]);
+      if (self.posOf) self.pos = self.posOf(el);
+    };
     /* Штатная прокрутка колесом (app.min.js:32117): её зовёт обработчик
        колеса Scroll, если onWheel не задан, — и наш onWheel сетки. */
     this.wheel_calls = [];
@@ -1645,6 +1655,9 @@ test('lumen_grid: после шага пульта догруженная стр
   var ctrl = g.env.log.controllers.content;
   ctrl.toggle();
   g.env.log.scrolls[0].onWheel(250);
+  /* Шаг пульта сдвигает экран, и onScroll(1800) ниже — конец ЭТОЙ
+     прокрутки (следующий раунд, п.1: по нему byMouse не ставится). */
+  g.env.log.scrolls[0].posOf = function () { return -1800; };
   ctrl.down();                       /* пульт взяли в руки после колеса */
   var focused = g.env.nav.getFocusedElement();
   var view = { shift: 1800 };
@@ -1671,6 +1684,62 @@ test('lumen_grid: ошибка страницы, догруженной коле
   scroll.update_calls.length = 0;
   g.h.fetchCalls[1].err({});
   assert.deepEqual(scroll.update_calls, []);
+});
+
+/* Следующий раунд, п.1 (ревью мыши, тач): на телефоне и планшете нет ни
+   колеса (onWheel), ни наведения, и byMouse оставался false: прокрутка
+   пальцем до конца -> onScroll -> loadNext, а пришедшая страница
+   (recollect(null, byMouse)) ставила фокус с подкруткой к lastFocus — к чипу
+   сверху, и сетка прыгала в начало. Прокрутку не от пульта сетка узнаёт по
+   тому, что её не начинал keepVisible (флаг remoteScroll). Тач на экране
+   режима ТВ (планшет, телефон боком — Platform.screen) кончается одним
+   scrollEnded на жест (moveend, app.min.js:31935), поэтому здесь один
+   onScroll. Фокус при входе ставился с keepVisible, но экран не сдвинул —
+   onScroll на это не придёт, и флаг с входа жест не съедает. */
+function touchToEnd(g) {
+  var view = { shift: 0 };
+  var scroll = g.env.log.scrolls[0];
+  layGrid(g.root.all('lumen-gcard'), view);
+  view.shift = 1800;
+  scroll.onScroll(1800);             /* один жест пальцем — к концу списка */
+  assert.equal(g.h.fetchCalls.length, 2, 'страница запрошена прокруткой');
+  scroll.update_calls.length = 0;
+  g.h.fetchCalls[1].ok({ results: results(20, 100), page: 2, total_pages: 3, total_results: 180 });
+  return scroll;
+}
+
+test('тач: страница, догруженная прокруткой пальцем, не откатывает экран к фокусу', function () {
+  var g = openGrid(DISCOVER);
+  g.h.fetchCalls[0].ok({ results: results(60), page: 1, total_pages: 3, total_results: 180 });
+  g.comp.start();
+  g.env.log.controllers.content.toggle();
+  var focused = g.env.nav.getFocusedElement();
+  assert.ok(focused, 'фокус при входе стоит');
+  var scroll = touchToEnd(g);
+  assert.equal(g.root.all('lumen-gcard').length, 80, 'страница дорисована');
+  assert.deepEqual(scroll.update_calls, [], 'экран остался там, куда его долистали пальцем');
+  assert.equal(g.env.nav.getFocusedElement(), focused, 'фокус Navigator — на прежнем узле');
+});
+
+/* Прокрутку, начатую пультом (keepVisible -> scroll.update), Lampa
+   завершает тем же onScroll — она мышиной не делает. Флаг живёт одну
+   прокрутку: следующая, уже пальцем или полосой, — снова не от пульта. */
+test('тач после шага пульта: конец его подкрутки — не тач, следующий жест — тач', function () {
+  var g = openGrid(DISCOVER);
+  g.h.fetchCalls[0].ok({ results: results(60), page: 1, total_pages: 3, total_results: 180 });
+  g.comp.start();
+  var ctrl = g.env.log.controllers.content;
+  ctrl.toggle();
+  var scroll = g.env.log.scrolls[0];
+  var view = { shift: 0 };
+  layGrid(g.root.all('lumen-gcard'), view);
+  scroll.posOf = function () { return -300; };
+  ctrl.down();                       /* шаг пульта сдвигает экран… */
+  view.shift = 300;
+  scroll.onScroll(300);              /* …и Lampa завершает эту прокрутку */
+  assert.equal(g.h.fetchCalls.length, 1, 'до конца далеко — страницу не просим');
+  var scrolled = touchToEnd(g);
+  assert.deepEqual(scrolled.update_calls, [], 'жест после шага пульта — тач: экран не откатывается');
 });
 
 test('lumen_grid: метка закладки и полоса продолжения — как на штатной карточке (I6)', function () {

@@ -1313,13 +1313,19 @@
       var lastCardId = null;
       var started = false;
       /* Мышь в подборках (2026-09-25): последний ввод — мышь (колесо или
-         наведение), а не шаг пульта. Сбрасывает его только шаг пульта
+         наведение; с п.1 следующего раунда — и прокрутка пальцем или
+         полосой, см. onScroll), а не шаг пульта. Сбрасывает его только шаг пульта
          (afterMove). Пока он стоит, пришедшая страница экран не двигает:
          см. recollect. */
       var byMouse = false;
       /* Фокус ставится заново, а экран остаётся где был — keepVisible на
          это время молчит. Живёт ровно один вызов collectionFocus. */
       var quiet = false;
+      /* Следующий раунд, п.1 (тач): прокрутку начал keepVisible, то есть
+         пульт. Lampa завершает onScroll любую прокрутку — пальцем, полосой,
+         подкруткой за фокусом, — и флаг отличает последнюю; снимает его
+         первый же onScroll. */
+      var remoteScroll = false;
 
       function alive(captured) {
         return function () { return gen === captured; };
@@ -1398,7 +1404,15 @@
          двигает — разбор у keepVisible хаба. */
       function keepVisible(el, ev) {
         if (quiet || !LC.focus.remote(ev)) return;
-        try { scroll.update(el, true); } catch (e) { warn('grid: scroll.update failed', e); }
+        try {
+          var from = scroll.position();
+          remoteScroll = true;
+          scroll.update(el, true);
+          /* Экран уже там: startScroll выходит, не дойдя до scrollEnded
+             (app.min.js:32013-32016), onScroll не придёт — и флаг съел бы
+             первый жест пальцем (фокус при входе стоит на чипе сверху). */
+          if (scroll.position() === from) remoteScroll = false;
+        } catch (e) { warn('grid: scroll.update failed', e); }
       }
 
       /* Индекс карточки под фокусом или -1 (фокус на чипе сортировки). */
@@ -1445,8 +1459,14 @@
          по scroll.onEnd (app.min.js:53168). Без этого колесом список
          обрывался на первой странице: догрузку звал только afterMove.
          Сама себя догрузка не крутит: условие — видимость, а пришедшая
-         страница дописывает ряды НИЖЕ экрана. */
+         страница дописывает ряды НИЖЕ экрана.
+         Следующий раунд, п.1: прокрутка, которую начал не keepVisible, —
+         пальцем или полосой — ввод не пультовый (byMouse), как колесо: на
+         таче мышиных событий нет, и пришедшая страница подкручивала экран к
+         фокусу — к чипу сверху. */
       function onScroll() {
+        if (remoteScroll) remoteScroll = false;
+        else byMouse = true;
         var last = loadInView();
         if (last >= 0 && Math.floor(last / GRID_COLS) >= Math.floor((cardNodes.length - 1) / GRID_COLS) - 1) loadNext();
         try { Lampa.Layer.visible(scroll.render(true)); } catch (e) {}
