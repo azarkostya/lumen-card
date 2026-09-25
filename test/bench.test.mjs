@@ -1,5 +1,6 @@
 import test from 'node:test'; import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { load } from './_load.mjs';
 
 /* Волна производительности (жалоба с ТВ «всё ещё лагает всё», 2026-09-24):
    самодиагностика «Отладка: тест производительности» (src/69_bench.js).
@@ -17,6 +18,9 @@ import { readFileSync } from 'node:fs';
 
 const SRC = readFileSync(new URL('../src/69_bench.js', import.meta.url), 'utf8');
 globalThis.warn = function () { };
+/* Пресеты движка частиц — сверка, что стадия «+fx» меряет существующую
+   сцену (src/52_fx.js). */
+const FX_PRESETS = load('52_fx.js').presets;
 
 function fresh(LC) {
   LC = LC || {};
@@ -381,7 +385,12 @@ test('bench: полный прогон — восемь стадий, подме
   assert.deepEqual(e.overrides.map((o) => o.lumen_motion), ['lite', 'full', 'full', 'full', 'full', 'lite', 'full', 'full']);
   assert.deepEqual(e.overrides.map((o) => o.lumen_fx_heavy), [false, false, true, true, true, false, true, true]);
   assert.ok(e.overrides.every((o) => o.lumen_trailer === 'off' && o.lumen_hero_media === 'frames'), 'трейлер выключен подменой');
-  assert.ok(e.log.indexOf('hero.benchFx snow') !== -1, 'частицы — пресет snow принудительно');
+  /* Ревью ba6a3ac..6a1c364 (~60): праздничные темы рисуют сцены
+     (winter/halloween — спрайты свечения, src/52_fx.js), и дороже всего на
+     главной — они, а не прежний движок snow. Стадия «+fx» меряет winter. */
+  assert.ok(e.log.indexOf('hero.benchFx winter') !== -1, 'частицы — сцена winter принудительно');
+  assert.equal(e.log.indexOf('hero.benchFx snow'), -1, 'прежний движок snow — не то, что рисуют праздники');
+  assert.equal(FX_PRESETS.winter && FX_PRESETS.winter.scene, true, 'winter — сцена движка частиц');
   assert.ok(e.log.indexOf('hero.benchFlip') !== -1, 'смена кадров на стадиях 4, 5, 8');
   assert.ok(e.log.some((x) => /^accent\.drive \{"r":\d+/.test(x) && x.indexOf('instant') === -1), 'подкраска шагами');
   assert.ok(e.log.indexOf('move right') !== -1 && e.log.indexOf('move left') !== -1, 'листание');

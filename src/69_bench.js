@@ -549,7 +549,10 @@
       r.measureFrom = -1;
       LC.prefs.override(overridesFor(st));
       apply();
-      hero().benchFx(st.fx ? 'snow' : null);
+      /* Ревью ba6a3ac..6a1c364 (~60): праздничные темы рисуют сцены
+         (winter/halloween — спрайты свечения, src/52_fx.js), и мерить надо
+         их, а не прежний движок snow. */
+      hero().benchFx(st.fx ? 'winter' : null);
       tagText(r);
       if (st.flip) every(r, FLIP_MS, function () { hero().benchFlip(); });
       if (st.tint) {

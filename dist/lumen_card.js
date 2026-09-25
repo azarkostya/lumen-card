@@ -33465,7 +33465,10 @@ r.fx0 = null;
 r.measureFrom = -1;
 LC.prefs.override(overridesFor(st));
 apply();
-hero().benchFx(st.fx ? 'snow' : null);
+
+
+
+hero().benchFx(st.fx ? 'winter' : null);
 tagText(r);
 if (st.flip) every(r, FLIP_MS, function () { hero().benchFlip(); });
 if (st.tint) {
