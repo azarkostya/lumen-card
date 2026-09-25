@@ -739,6 +739,26 @@
       return true;
     }
 
+    /* Следующий раунд, п.8: вход на не-ТВ экране. Штатный экран Lampa на
+       toggle зовёт collectionSet и только на ТВ — collectionFocus
+       (app.min.js:39124-39127). collectionSet — это clearSelects (выбор
+       прошлого экрана, select_active, и его класс focus) плюс своя коллекция
+       Navigator. Прежде хаб и сетка на телефоне не делали ни того, ни
+       другого: у Navigator оставалась коллекция прошлого экрана, у
+       Controller — его select_active, и OK с клавиатуры или пульта у
+       телефона нажимал узел, которого на экране нет. Здесь то же, что у
+       штатного, но коллекция — окном Task 33 (collectionSet отдал бы все
+       .selector разом): Controller.clear — ровно clearSelects и пустая
+       коллекция (app.min.js:46544-46547), — и окно вокруг прежнего узла без
+       фокуса. */
+    function clearSelects() {
+      try {
+        if (typeof Lampa.Controller.clear === 'function') Lampa.Controller.clear();
+      } catch (e) {
+        warn('hub: controller clear failed', e);
+      }
+    }
+
     /* enter — вход экрана в пульт (toggle): Lampa отдала управление — при
        старте, с карточки, из меню карточки, из поиска, из меню и шапки. */
     function screenController(enter, afterMove, onUp) {
@@ -874,12 +894,17 @@
 
       /* C2: вход в пульт. Прокрутка восстанавливается, как у штатных
          экранов (на ТВ restorePosition ничего не делает); на не-ТВ экране
-         фокус не ставится вовсе, на ТВ — тихо, если последний ввод был не
+         фокус не ставится вовсе — только коллекция (п.8, разбор у
+         clearSelects), на ТВ — тихо, если последний ввод был не
          пультом: иначе программный 'hover:focus' подкручивал экран к
          lastFocus — на таче это первый чип, и хаб прыгал в начало. */
       function enter() {
         try { scroll.restorePosition(); } catch (e) { }
-        if (!tvScreen()) return;
+        if (!tvScreen()) {
+          clearSelects();
+          limitHub(focusTarget());
+          return;
+        }
         recollect(null, byMouse);
       }
 
@@ -1501,10 +1526,14 @@
         quiet = false;
       }
 
-      /* C2: вход в пульт — как у хаба (enter там). */
+      /* C2 и п.8: вход в пульт — как у хаба (enter там). */
       function enter() {
         try { scroll.restorePosition(); } catch (e) { }
-        if (!tvScreen()) return;
+        if (!tvScreen()) {
+          clearSelects();
+          limitGrid(focusTarget());
+          return;
+        }
         recollect(null, byMouse);
       }
 

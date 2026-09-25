@@ -12329,6 +12329,26 @@ return true;
 
 
 
+
+
+
+
+
+
+
+
+
+
+function clearSelects() {
+try {
+if (typeof Lampa.Controller.clear === 'function') Lampa.Controller.clear();
+} catch (e) {
+warn('hub: controller clear failed', e);
+}
+}
+
+
+
 function screenController(enter, afterMove, onUp) {
 return {
 toggle: function () {
@@ -12465,9 +12485,14 @@ quiet = false;
 
 
 
+
 function enter() {
 try { scroll.restorePosition(); } catch (e) { }
-if (!tvScreen()) return;
+if (!tvScreen()) {
+clearSelects();
+limitHub(focusTarget());
+return;
+}
 recollect(null, byMouse);
 }
 
@@ -13092,7 +13117,11 @@ quiet = false;
 
 function enter() {
 try { scroll.restorePosition(); } catch (e) { }
-if (!tvScreen()) return;
+if (!tvScreen()) {
+clearSelects();
+limitGrid(focusTarget());
+return;
+}
 recollect(null, byMouse);
 }
 

@@ -537,6 +537,9 @@ function setupLampa(opts) {
     moves: 0,
     collections: [],
     menuButtons: [],
+    /* Следующий раунд, п.8: Controller.clear (clearSelects + пустая
+       коллекция, app.min.js:46544-46547). */
+    clears: 0,
     backward: 0,
     scrolls: [],
     /* Task 20: записи в Lampa.Storage (кнопка «Скрыть» подсказки про ключ). */
@@ -657,6 +660,11 @@ function setupLampa(opts) {
       collectionFocus: function (node) {
         if (node && nav.collection.indexOf(node) >= 0) nav.focus(node);
         else if (nav.collection.length) nav.focus(nav.collection[0]);
+      },
+      clear: function () {
+        log.clears++;
+        nav.collection = [];
+        nav.index = -1;
       },
       enabled: function () { return { name: 'content' }; }
     },
@@ -2555,6 +2563,56 @@ test('C2: хаб — прокрутка пальцем или колесом (н
   scroll.update_calls.length = 0;
   ctrl.toggle();
   assert.deepEqual(scroll.update_calls, []);
+});
+
+/* ---------------------------------------------------------------------- */
+/* Следующий раунд, п.8: на не-ТВ экране (телефон, планшет) enter() не     */
+/* ставил коллекцию вовсе — у Navigator оставалась коллекция прошлого       */
+/* экрана, а у Controller — select_active оттуда же: клавиатура или пульт   */
+/* у телефона жали OK на узле, которого на экране нет. Штатный экран Lampa  */
+/* (app.min.js:39124) на toggle зовёт collectionSet — clearSelects и своя   */
+/* коллекция, — а фокус ставит только на ТВ. У нас то же, но коллекция —    */
+/* окном Task 33: Controller.clear, затем окно вокруг прежнего узла.        */
+/* ---------------------------------------------------------------------- */
+
+function ownCollection(s) {
+  var own = s.root.all('selector');
+  return s.env.nav.collection.length > 0 && s.env.nav.collection.every(function (n) { return own.indexOf(n) >= 0; });
+}
+
+test('п.8: хаб на не-ТВ экране — возврат ставит свою коллекцию без фокуса и снимает выбор прошлого экрана', function () {
+  var s = openHub({ tv: false });
+  s.comp.start();
+  var menu = new El(['menu__item', 'selector']);
+  s.env.nav.setCollection([menu]);
+  s.env.nav.focus(menu);
+  var focuses = s.env.log.focuses.length;
+  s.env.log.controllers.content.toggle();
+  assert.equal(s.env.log.clears, 1, 'выбор прошлого экрана не снят (Controller.clear)');
+  assert.ok(ownCollection(s), 'у Navigator не коллекция хаба: ' + s.env.nav.collection.length);
+  assert.equal(s.env.nav.getFocusedElement(), null, 'на не-ТВ экране фокус поставлен');
+  assert.equal(s.env.log.focuses.length, focuses, 'на не-ТВ экране фокус поставлен');
+});
+
+test('п.8: сетка на не-ТВ экране — то же, коллекция окном (Task 33), без фокуса', function () {
+  var g = openGrid(DISCOVER, { tv: false });
+  g.h.fetchCalls[0].ok({ results: results(120), page: 1, total_pages: 3, total_results: 360 });
+  g.comp.start();
+  var focuses = g.env.log.focuses.length;
+  g.env.log.controllers.content.toggle();
+  assert.equal(g.env.log.clears, 1);
+  assert.ok(ownCollection(g), 'у Navigator не коллекция сетки');
+  assert.ok(g.env.nav.collection.length < g.root.all('selector').length, 'окно Task 33 потеряно — в коллекции все карточки');
+  assert.equal(g.env.nav.getFocusedElement(), null);
+  assert.equal(g.env.log.focuses.length, focuses);
+});
+
+test('п.8: на ТВ-экране вход по-прежнему ставит фокус и выбор не сбрасывает', function () {
+  var s = openHub();
+  s.comp.start();
+  s.env.log.controllers.content.toggle();
+  assert.equal(s.env.log.clears, 0);
+  assert.ok(s.env.nav.getFocusedElement(), 'на ТВ фокус не поставлен');
 });
 
 /* ---------------------------------------------------------------------- */
