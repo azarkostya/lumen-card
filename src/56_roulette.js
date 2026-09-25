@@ -1485,16 +1485,21 @@
          не дольше потолка, опоздавший не подменяет текст). Пока решение не
          принято, название не показано вовсе (is-logo-wait) — обычно это ноль
          миллисекунд: детали и логотип греются с начала вращения (warmLogo).
-         Страховка на зависший запрос — LOGO_GUARD. */
+         Страховка на зависший запрос — LOGO_GUARD.
+         Ревью ba6a3ac..6a1c364 (~80): решение сверяется с экраном — тот
+         же результат и место под логотип всё ещё в карточке, — а не с
+         поколением. «Смотреть» до решения: pause() -> bump() поднимал gen,
+         settle выходил, не сняв is-logo-wait, а start() показанный
+         результат не перерисовывает (resultShown) — название пропадало
+         насовсем. */
       var LOGO_GUARD = 1500;
 
       function paintResultLogo(card, holder) {
-        var captured = gen;
         var settled = false;
         function settle(url, white) {
           if (settled) return;
           settled = true;
-          if (gen !== captured || result !== card) return;
+          if (result !== card || !resultBox[0].contains(holder[0])) return;
           if (url) {
             holder.css('background-image', 'url("' + encodeURI(url) + '")');
             holder.toggleClass('lumen-logo-white', !!white);

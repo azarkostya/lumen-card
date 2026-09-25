@@ -445,17 +445,28 @@ El.prototype.text = function (val) {
 El.prototype.on = function (name, fn) { (this._ev[name] = this._ev[name] || []).push(fn); return this; };
 El.prototype.show = function () { return this; };
 El.prototype.hide = function () { return this; };
+/* Ревью ba6a3ac..6a1c364: составной селектор классов ('.selector.focus')
+   — узел со всеми классами сразу; по нему рулетка ищет узел в фокусе
+   (focusIn). Прежде такой селектор не находил ничего. */
 El.prototype.all = function (sel) {
-  var cls = sel.replace(/^\./, '');
+  var classes = sel.replace(/^\./, '').split('.');
   var out = [];
   (function walk(node) {
     for (var i = 0; i < node._children.length; i++) {
       var c = node._children[i];
-      if (c.hasClass(cls)) out.push(c);
+      if (classes.every(function (cls) { return c.hasClass(cls); })) out.push(c);
       walk(c);
     }
   })(this);
   return out;
+};
+/* Ревью ba6a3ac..6a1c364: contains как у DOM (узел содержит и сам себя) —
+   рулетка сверяет им, что узел ещё на экране (логотип результата, focusIn,
+   focusTarget). */
+El.prototype.contains = function (node) {
+  if (node === this) return true;
+  for (var i = 0; i < this._children.length; i++) if (this._children[i].contains(node)) return true;
+  return false;
 };
 /* Обход коллекции. ВАЖНО: find() этой заглушки отдаёт ОДИН узел (первый
    совпавший), поэтому each() пробегает ровно по нему. Для путей, которые
@@ -791,6 +802,9 @@ function openRoulette34(cards, t, dpr, motion, object, hold, prefs) {
   reel._rect = { left: 805, top: 250, width: 310, height: 464 };
   return {
     api: built.api,
+    /* Ревью ba6a3ac..6a1c364: LC экрана — тесты логотипов подставляют
+       LC.prefetch и LC.hero (logoOf читает их в момент вызова). */
+    LC: built.LC,
     comp: comp,
     screen: screen,
     /* Последняя установленная область обхода фокуса и последний фокус. */
@@ -1931,5 +1945,63 @@ test('вид «как Apple TV»: на вращении фон спокойно�
   assert.equal(env.bg.css('background-image'), 'url("' + backdropUrl(A) + '")', 'результат — кадр во весь экран');
   fire(env.root.find('.lumen-roulette__spin'), 'hover:enter');
   assert.equal(env.bg.css('background-image'), calm, '«Ещё раз» — снова мягкий фон, сразу');
+  flushTimers();
+});
+
+/* ---------------------------------------------------------------------- */
+/* Ревью ba6a3ac..6a1c364: вид «как Apple TV» и уход с экрана.            */
+/* ---------------------------------------------------------------------- */
+
+/* Логотипы: детали (LC.prefetch.details) с чистым кадром и логотипом,
+   LC.hero — выбор, адрес, ожидание и прогрев. holdDetails — ответы деталей
+   копятся в log.details и отпускаются тестом; ожидание логотипа результата
+   (waitLogo) копится всегда. */
+function logoStubs(env, holdDetails) {
+  const log = { details: [], waits: [] };
+  const json = (card) => ({ images: {
+    logos: [{ file_path: '/logo' + card.id + '.png' }],
+    backdrops: [{ file_path: card.backdrop_path, iso_639_1: null }]
+  } });
+  env.LC.prefetch = {
+    details: (card, ok) => {
+      if (holdDetails) log.details.push(() => ok(json(card)));
+      else ok(json(card));
+    }
+  };
+  env.LC.hero = {
+    pickLogoItem: (logos) => (logos && logos[0]) || null,
+    logoUrl: (path) => 'https://logo' + path,
+    waitLogo: (path, url, done) => log.waits.push(done),
+    preloadLogo: (path, url, done) => done(true),
+    logoTone: () => 'light'
+  };
+  return log;
+}
+
+/* (~80) Название результата пряталось насовсем: settle() ставил settled и
+   выходил на gen !== captured, не сняв is-logo-wait (rtitle —
+   visibility:hidden). «Смотреть» до решения о логотипе: pause() -> bump() ->
+   gen++, а на возврате start() результат не перерисовывает (resultShown()).
+   Решение о логотипе сверяется с тем, что на экране, а не с поколением. */
+test('вид «как Apple TV»: «Смотреть» до решения о логотипе — на возврате название результата не спрятано', (t) => {
+  const A = { id: 1, title: 'Фильм A', release_date: '2020-01-01', poster_path: '/a-p.jpg', backdrop_path: '/a-b.jpg', overview: 'Про A' };
+  const env = openRoulette34([A], t, 1, 'off', null, null, { lumen_flat: true });
+  const logo = logoStubs(env, false);
+  const pushed = [];
+  globalThis.Lampa.Activity.push = (p) => pushed.push(p);
+  env.comp.start();
+  fire(env.root.find('.lumen-roulette__spin'), 'hover:enter');
+  const box = env.screen.find('.lumen-roulette__result');
+  assert.ok(box.hasClass('is-live'), 'предпосылка: результат на экране');
+  assert.ok(box.hasClass('is-logo-wait'), 'предпосылка: логотип не решён — название спрятано');
+  assert.equal(logo.waits.length, 1);
+  fire(box.find('.lumen-roulette__btn'), 'hover:enter');
+  assert.equal(pushed.length, 1, '«Смотреть» открыл карточку');
+  env.comp.pause();
+  logo.waits[0](true);
+  env.comp.start();
+  assert.equal(box.hasClass('is-logo-wait'), false, 'название так и осталось спрятанным');
+  assert.ok(box.hasClass('has-logo'), 'логотип встал, пока смотрели карточку');
+  assert.equal(box.find('.lumen-roulette__rlogo').css('background-image'), 'url("https://logo/logo1.png")');
   flushTimers();
 });

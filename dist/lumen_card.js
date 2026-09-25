@@ -24414,15 +24414,20 @@ return null;
 
 
 
+
+
+
+
+
+
 var LOGO_GUARD = 1500;
 
 function paintResultLogo(card, holder) {
-var captured = gen;
 var settled = false;
 function settle(url, white) {
 if (settled) return;
 settled = true;
-if (gen !== captured || result !== card) return;
+if (result !== card || !resultBox[0].contains(holder[0])) return;
 if (url) {
 holder.css('background-image', 'url("' + encodeURI(url) + '")');
 holder.toggleClass('lumen-logo-white', !!white);
