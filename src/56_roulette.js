@@ -800,14 +800,22 @@
         return spinBtn[0] || null;
       }
 
-      function recollect(prefer) {
+      /* still — фокус ставится заново, а лента чипов и экран остаются где
+         были (полное ревью, C3): collectionFocus шлёт узлу программный
+         'hover:focus', и без флага watchFocus/railChip подкручивали бы к
+         нему. Живёт ровно один вызов collectionFocus. */
+      var quiet = false;
+
+      function recollect(prefer, still) {
         try {
           var box = scope();
           Lampa.Controller.collectionSet(box);
+          quiet = !!still;
           Lampa.Controller.collectionFocus(prefer || focusTarget() || false, box);
         } catch (e) {
           warn('roulette: collection failed', e);
         }
+        quiet = false;
       }
 
       /* Task 32: экран едет за фокусом — вторая половина штатного контракта
@@ -829,9 +837,12 @@
       /* Task 68: подписка — общий LC.focus.on (src/11_focus.js): пульт шлёт
          'hover:focus', мышь — 'hover:hover' (vendor/lampa/app.min.js:46360-
          46364), а подкрутка к фокусу нужна в обоих режимах одинаково. */
+      /* Полное ревью, C3: подкрутка — только за пультом (LC.focus.remote),
+         как в хабе и сетке: узел под курсором и так на экране, а подкрутка
+         подвозила под курсор соседа, и тот получал 'hover:hover'. */
       function watchFocus(node) {
-        return LC.focus.on(node, function () {
-          keepVisible(node[0]);
+        return LC.focus.on(node, function (e) {
+          if (LC.focus.remote(e) && !quiet) keepVisible(node[0]);
           lastFocus = node[0];
         });
       }
@@ -841,9 +852,13 @@
          кромку ленты и чип на экране не появляется вовсе. Отдельным
          обработчиком, а не внутри watchFocus: через него проходят и чипы
          фильтров, и кнопки, а они в ленте не лежат. */
+      /* C3: наведение мышью ленту не двигает — иначе она ехала каскадом до
+         конца: подвезённый под курсор чип получал 'hover:hover' и подвозил
+         следующий. */
       function railChip(node) {
-        return LC.focus.on(node, function () {
-          try { chipsScroll.update(node[0], true); } catch (e) { warn('roulette: chips scroll failed', e); }
+        return LC.focus.on(node, function (e) {
+          if (!LC.focus.remote(e) || quiet) return;
+          try { chipsScroll.update(node[0], true); } catch (eS) { warn('roulette: chips scroll failed', eS); }
         });
       }
 
@@ -1218,7 +1233,10 @@
 
       function refreshCollection() {
         if (kadr) return;
-        if (ownsRemote()) recollect(null);
+        /* C3: фокус не двигается — и ленту с экраном не трогаем: в виде
+           «как Apple TV» клик мышью по чипу перерисовывает полку, и лента
+           центровалась под курсором заново после каждого клика. */
+        if (ownsRemote()) recollect(null, true);
       }
 
       /* Полное ревью, C1: пульт сейчас у нашего экрана — рулетка активна

@@ -444,6 +444,9 @@ El.prototype.text = function (val) {
 };
 El.prototype.on = function (name, fn) { (this._ev[name] = this._ev[name] || []).push(fn); return this; };
 El.prototype.show = function () { return this; };
+/* Полное ревью, C3: eq как у jQuery — клик по чипу подборки подсвечивает
+   «Все подборки» через find(...).eq(0); find отдаёт первый узел. */
+El.prototype.eq = function (i) { return i === 0 ? this : EMPTY_EL; };
 El.prototype.hide = function () { return this; };
 /* Ревью ba6a3ac..6a1c364: составной селектор классов ('.selector.focus')
    — узел со всеми классами сразу; по нему рулетка ищет узел в фокусе
@@ -516,9 +519,11 @@ function make$() {
   };
 }
 
+/* Полное ревью, C3: обработчик получает событие с type — по нему
+   LC.focus.remote отличает пульт ('hover:focus') от мыши ('hover:hover'). */
 function fire(node, name) {
   var list = (node && node._ev && node._ev[name]) || [];
-  for (var i = 0; i < list.length; i++) list[i]();
+  for (var i = 0; i < list.length; i++) list[i]({ type: name });
 }
 
 var scrolls = [];
@@ -1026,30 +1031,39 @@ test('Task 44: чипы подборок живут в горизонтальн�
    (vendor/lampa/app.min.js:46360-46364) — подписку на оба ставит общий
    LC.focus.on (src/11_focus.js). У рулетки через него идут оба места:
    watchFocus (вертикальная прокрутка экрана и lastFocus) и railChip
-   (горизонтальная лента чипов подборок). */
-test('Task 68: мышиный hover:hover ведёт ленту чипов так же, как пультовый', (t) => {
+   (горизонтальная лента чипов подборок).
+   Полное ревью, C3: подкрутка ленты и экрана — только за ПУЛЬТОМ, как в
+   хабе и сетке. Наведение мышью двигало ленту чипов каскадом до конца:
+   лента подвозила под курсор соседний чип, тот получал 'hover:hover' и
+   подвозил следующий. Узел под курсором и так на экране. */
+test('C3: мышиный hover:hover ленту чипов не двигает, пультовый — ведёт', (t) => {
   const env = openRoulette34([R44], t);
   const horiz = scrolls.filter((s) => s.params.horizontal);
   const chips = env.root.find('.lumen-roulette__chipbox').all('.lumen-roulette__chip');
   fire(chips[1], 'hover:hover');
-  assert.equal(horiz[0].updates.length, 1, 'мышью лента чипов тоже едет');
+  assert.equal(horiz[0].updates.length, 0, 'наведение повело ленту чипов');
+  fire(chips[1], 'hover:focus');
+  assert.equal(horiz[0].updates.length, 1, 'пультом лента за фокусом не поехала');
   assert.equal(horiz[0].updates[0], chips[1][0]);
 });
 
-test('Task 68: мышиный hover:hover подкручивает и сам экран рулетки (watchFocus)', (t) => {
+test('C3: мышиный hover:hover экран рулетки не двигает, но фокус запоминает (watchFocus)', (t) => {
   const env = openRoulette34([R44], t);
   const vert = scrolls.filter((s) => !s.params.horizontal);
   assert.equal(vert.length, 1, 'вертикальная прокрутка ровно одна');
   const spin = env.root.find('.lumen-roulette__spin');
+  const tab = env.root.all('.lumen-roulette__tab')[1];
   vert[0].updates.length = 0;
-  fire(spin, 'hover:hover');
-  assert.equal(vert[0].updates.length, 1, 'мышью экран за фокусом тоже едет');
-  assert.equal(vert[0].updates[0], spin[0]);
+  fire(tab, 'hover:hover');
+  assert.equal(vert[0].updates.length, 0, 'наведение подкрутило экран');
+  env.comp.start();
+  assert.equal(env.lastFocus().node, tab, 'наведённый узел не запомнен — возврат фокуса мимо');
 
-  /* Одно действие — один проход: обработчик у обоих событий общий. */
+  /* Пульт — ровно один вызов. */
   vert[0].updates.length = 0;
   fire(spin, 'hover:focus');
   assert.equal(vert[0].updates.length, 1, 'пультом — ровно один вызов, не два');
+  assert.equal(vert[0].updates[0], spin[0]);
 });
 
 /* Правка 2026-09-23 (разбор композиции, п.5.2). Вниз с ленты подборок фокус
@@ -2137,4 +2151,29 @@ test('C1: результат после «Назад» (активность у�
   activeAct34 = { component: 'main', activity: {} };
   flushTimers();
   assert.equal(collected.length, before, 'результат поставил коллекцию под чужим экраном');
+});
+
+/* Полное ревью, C3: в виде «как Apple TV» клик мышью по чипу подборки
+   перерисовывает полку (paintShelf -> refreshCollection), и collectionFocus
+   на lastFocus — программный 'hover:focus' — центрировал ленту чипов снова:
+   лента уезжала из-под курсора после каждого клика. Пересборка коллекции
+   фокус не двигает — и ленту с экраном тоже. */
+test('C3: пересборка коллекции после полки ленту чипов не центрирует', (t) => {
+  const env = openRoulette34(atvCards(8), t, 1, 'full', null, null, { lumen_flat: true });
+  /* Как Lampa: collectionFocus шлёт узлу 'hover:focus' (Controller.focus). */
+  globalThis.Lampa.Controller.collectionFocus = function (node, box) {
+    focused.push({ node: node, box: box });
+    if (node) fire(node, 'hover:focus');
+  };
+  env.comp.start();
+  flushTimers();
+  const horiz = scrolls.filter((s) => s.params.horizontal);
+  const chips = env.chips();
+  fire(chips[1], 'hover:hover');
+  fire(chips[1], 'hover:enter');
+  horiz[0].updates.length = 0;
+  flushTimers();                     /* показ выборки -> полка -> refreshCollection */
+  assert.ok(env.stacked(), 'предпосылка: выборка перерисована');
+  assert.equal(env.lastFocus().node, chips[1][0], 'предпосылка: коллекция пересобрана на наведённом чипе');
+  assert.deepEqual(horiz[0].updates, [], 'лента чипов снова отцентрована под курсором');
 });

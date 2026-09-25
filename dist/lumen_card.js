@@ -24130,14 +24130,22 @@ if (kadr) return resultBox.find('.lumen-roulette__btn')[0] || null;
 return spinBtn[0] || null;
 }
 
-function recollect(prefer) {
+
+
+
+
+var quiet = false;
+
+function recollect(prefer, still) {
 try {
 var box = scope();
 Lampa.Controller.collectionSet(box);
+quiet = !!still;
 Lampa.Controller.collectionFocus(prefer || focusTarget() || false, box);
 } catch (e) {
 warn('roulette: collection failed', e);
 }
+quiet = false;
 }
 
 
@@ -24159,9 +24167,12 @@ try { scroll.update(el, true); } catch (e) { warn('roulette: scroll.update faile
 
 
 
+
+
+
 function watchFocus(node) {
-return LC.focus.on(node, function () {
-keepVisible(node[0]);
+return LC.focus.on(node, function (e) {
+if (LC.focus.remote(e) && !quiet) keepVisible(node[0]);
 lastFocus = node[0];
 });
 }
@@ -24171,9 +24182,13 @@ lastFocus = node[0];
 
 
 
+
+
+
 function railChip(node) {
-return LC.focus.on(node, function () {
-try { chipsScroll.update(node[0], true); } catch (e) { warn('roulette: chips scroll failed', e); }
+return LC.focus.on(node, function (e) {
+if (!LC.focus.remote(e) || quiet) return;
+try { chipsScroll.update(node[0], true); } catch (eS) { warn('roulette: chips scroll failed', eS); }
 });
 }
 
@@ -24548,7 +24563,10 @@ return false;
 
 function refreshCollection() {
 if (kadr) return;
-if (ownsRemote()) recollect(null);
+
+
+
+if (ownsRemote()) recollect(null, true);
 }
 
 
