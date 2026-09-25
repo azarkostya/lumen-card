@@ -7429,3 +7429,26 @@ test('D1: неактивные вкладки и чипы рулетки, хаб
   }
   assert.deepEqual(bad, []);
 });
+
+/* Полное ревью c644bfd, D5 (стенд, скрин p1tl_tv_title_hp1_crop.png): под
+   обрезанным текстовым названием героя видны верхушки ВТОРОЙ строки —
+   «Гарри Поттер…» с чёрточками под многоточием, «Vetenskapens…» с точками
+   от «ä». Коробка названия выше строки (1.29em при межстрочном 1.08 — место
+   логотипа, 4.4em контекста; в сжатом 1.2em — запас под хвосты «у», «р»),
+   а -webkit-line-clamp в Chromium вторую строку не прячет, только ставит
+   многоточие: её верх виден в зазоре под первой. Название — одна строка
+   без переноса: второй строки нет вовсе, многоточие даёт text-overflow
+   (проверено в Chromium 152: line-clamp + nowrap + ellipsis — многоточие
+   есть, второй строки нет). */
+test('ревью D5: текстовое название героя — одна строка без переноса, вторая строка не выглядывает из коробки', () => {
+  const title = findDecl(css, (sel) => sel === '.lumen-hero .lumen-hero__title');
+  const lh = parseFloat(/line-height:([\d.]+)/.exec(title)[1]);
+  const box = parseFloat(/(?:^|;)height:([\d.]+)em/.exec(title)[1]);
+  const small = findDecl(css, (sel) => sel === '.lumen-hero.lumen-hero--compact .lumen-hero__title');
+  const smallBox = parseFloat(/(?:^|;)height:([\d.]+)em/.exec(small)[1]);
+  assert.ok(box > lh && smallBox > lh, 'предусловие: коробка выше строки в обоих состояниях');
+  assert.ok(/(?:^|;)white-space:nowrap(?:;|$)/.test(title), 'без nowrap вторая строка названия видна в зазоре под первой: ' + title);
+  assert.ok(/(?:^|;)text-overflow:ellipsis(?:;|$)/.test(title), 'длинное название обязано кончаться многоточием: ' + title);
+  assert.ok(/(?:^|;)overflow:hidden(?:;|$)/.test(title), title);
+  assert.ok(!/white-space:/.test(small), 'сжатое состояние перенос не возвращает: ' + small);
+});

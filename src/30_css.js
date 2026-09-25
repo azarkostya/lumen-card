@@ -3857,8 +3857,14 @@
        межстрочным (1.08em) её задавать нельзя: line-height меньше глифового
        бокса гарнитуры, и при overflow:hidden срезались бы хвосты «у», «р»,
        «щ» — на кегле 3.4em это заметно. 1.2em даёт по .06em запаса сверху и
-       снизу. */
-    css.push('.lumen-hero .lumen-hero__title{font-family:' + FB + ';font-weight:700;font-size:3.4em;line-height:1.08;color:' + P.text + ';margin-top:.4em;height:1.29em;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:1}');
+       снизу.
+       Полное ревью c644bfd, D5: коробка выше строки в обоих состояниях, а
+       -webkit-line-clamp в Chromium вторую строку не прячет — только ставит
+       многоточие, — и под «Гарри Поттер…» были видны верхушки второй строки
+       (точки «ä» у «Vetenskapens…»). Поэтому white-space:nowrap: второй
+       строки нет вовсе, многоточие даёт text-overflow (Chromium 152:
+       line-clamp + nowrap + ellipsis — многоточие есть, второй строки нет). */
+    css.push('.lumen-hero .lumen-hero__title{font-family:' + FB + ';font-weight:700;font-size:3.4em;line-height:1.08;color:' + P.text + ';margin-top:.4em;height:1.29em;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:1;white-space:nowrap;text-overflow:ellipsis}');
     css.push('.lumen-hero.lumen-hero--compact .lumen-hero__title{height:1.2em}');
     css.push('.lumen-hero.lumen-hero--logo .lumen-hero__title{display:none}');
     css.push('.lumen-hero .lumen-hero__descr{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;font-family:' + FB + ';font-weight:500;font-size:1.15em;line-height:1.24;color:' + P.soft + ';text-shadow:' + HERO_TEXT_SHADOW + ';max-width:' + DESCR_MAX_W + 'em;margin-top:.46em}');
