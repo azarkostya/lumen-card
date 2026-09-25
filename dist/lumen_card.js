@@ -25075,10 +25075,18 @@ warn('roulette: open card failed', e);
 }
 }
 
+
+
+
+
 function book(card) {
 try {
-Lampa.Favorite.toggle('book', card);
-if (Lampa.Noty && typeof Lampa.Noty.show === 'function') Lampa.Noty.show(LC.lang('lumen_roulette_booked'));
+var already = false;
+try {
+if (typeof Lampa.Favorite.check === 'function') already = !!(Lampa.Favorite.check(card) || {}).book;
+} catch (eCheck) { }
+if (!already) Lampa.Favorite.toggle('book', card);
+if (Lampa.Noty && typeof Lampa.Noty.show === 'function') Lampa.Noty.show(LC.lang(already ? 'lumen_roulette_booked_already' : 'lumen_roulette_booked'));
 } catch (e) {
 warn('roulette: book failed', e);
 }
@@ -35227,6 +35235,8 @@ lumen_roulette_again: { ru: 'Ещё раз', en: 'Again', uk: 'Ще раз' },
 lumen_roulette_watch: { ru: 'Смотреть', en: 'Watch', uk: 'Дивитися' },
 lumen_roulette_book: { ru: 'В закладки', en: 'Bookmark', uk: 'У закладки' },
 lumen_roulette_booked: { ru: 'Добавлено в закладки', en: 'Added to bookmarks', uk: 'Додано в закладки' },
+
+lumen_roulette_booked_already: { ru: 'Уже в закладках', en: 'Already in bookmarks', uk: 'Вже в закладках' },
 lumen_roulette_unseen: { ru: 'Не смотрел', en: 'Not watched', uk: 'Не дивився' },
 lumen_roulette_short_movie: { ru: 'Есть 90 минут', en: '90 minutes to spare', uk: 'Є 90 хвилин' },
 lumen_roulette_short_tv: { ru: 'Серия до 30 минут', en: 'Episode under 30 min', uk: 'Серія до 30 хвилин' },

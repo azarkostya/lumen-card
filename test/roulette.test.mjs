@@ -2249,3 +2249,28 @@ test('D1: рулетка ставит активности класс своег
   assert.ok(act.hasClass('lumen-screen'), 'у активности рулетки нет своего фона');
   assert.ok(env.comp);
 });
+
+/* Полное ревью, D3: «В закладки» в результате переключал закладку
+   (Favorite.toggle), а сообщение всегда было «Добавлено»: фильм, уже
+   лежавший в закладках, молча из них удалялся. Уже в закладках — не трогаем
+   и говорим об этом. */
+test('D3: «В закладки» добавляет только то, чего в закладках нет, и говорит правду', (t) => {
+  const env = openRoulette34([R44], t, 1, 'off', { media: 'movie' });
+  const log = { toggles: [], noty: [] };
+  let booked = {};
+  globalThis.Lampa.Favorite = {
+    check: (card) => ({ book: !!booked[card.id] }),
+    toggle: (where, card) => { log.toggles.push([where, card.id]); booked[card.id] = !booked[card.id]; }
+  };
+  globalThis.Lampa.Noty = { show: (text) => log.noty.push(text) };
+  env.comp.start();
+  spinAndFlush(env);
+  const bookBtn = env.root.all('.lumen-roulette__btn')[2];
+  fire(bookBtn, 'hover:enter');
+  assert.deepEqual(log.toggles, [['book', R44.id]]);
+  assert.deepEqual(log.noty, ['lumen_roulette_booked']);
+  fire(bookBtn, 'hover:enter');
+  assert.deepEqual(log.toggles, [['book', R44.id]], 'второе нажатие убрало фильм из закладок');
+  assert.deepEqual(log.noty, ['lumen_roulette_booked', 'lumen_roulette_booked_already']);
+  assert.equal(booked[R44.id], true);
+});

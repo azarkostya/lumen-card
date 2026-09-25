@@ -183,6 +183,8 @@
     lumen_roulette_watch: { ru: 'Смотреть', en: 'Watch', uk: 'Дивитися' },
     lumen_roulette_book: { ru: 'В закладки', en: 'Bookmark', uk: 'У закладки' },
     lumen_roulette_booked: { ru: 'Добавлено в закладки', en: 'Added to bookmarks', uk: 'Додано в закладки' },
+    /* Полное ревью, D3: фильм уже в закладках — «В закладки» его не убирает. */
+    lumen_roulette_booked_already: { ru: 'Уже в закладках', en: 'Already in bookmarks', uk: 'Вже в закладках' },
     lumen_roulette_unseen: { ru: 'Не смотрел', en: 'Not watched', uk: 'Не дивився' },
     lumen_roulette_short_movie: { ru: 'Есть 90 минут', en: '90 minutes to spare', uk: 'Є 90 хвилин' },
     lumen_roulette_short_tv: { ru: 'Серия до 30 минут', en: 'Episode under 30 min', uk: 'Серія до 30 хвилин' },

@@ -1696,10 +1696,18 @@
         }
       }
 
+      /* Полное ревью, D3: Favorite.toggle переключает закладку, а сообщение
+         было всегда «Добавлено» — фильм, уже лежавший в закладках, молча из
+         них удалялся. Уже в закладках (Favorite.check — тот же, что у меню
+         карточки) — не трогаем и говорим «Уже в закладках». */
       function book(card) {
         try {
-          Lampa.Favorite.toggle('book', card);
-          if (Lampa.Noty && typeof Lampa.Noty.show === 'function') Lampa.Noty.show(LC.lang('lumen_roulette_booked'));
+          var already = false;
+          try {
+            if (typeof Lampa.Favorite.check === 'function') already = !!(Lampa.Favorite.check(card) || {}).book;
+          } catch (eCheck) { }
+          if (!already) Lampa.Favorite.toggle('book', card);
+          if (Lampa.Noty && typeof Lampa.Noty.show === 'function') Lampa.Noty.show(LC.lang(already ? 'lumen_roulette_booked_already' : 'lumen_roulette_booked'));
         } catch (e) {
           warn('roulette: book failed', e);
         }
