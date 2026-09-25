@@ -12197,6 +12197,14 @@ lastNavFrom = navFrom;
 lastNavTo = navTo;
 
 var keep = typeof Navigator.getFocusedElement === 'function' ? Navigator.getFocusedElement() : null;
+
+
+
+
+
+
+
+if (keep && fixed.indexOf(keep) < 0 && nodes.indexOf(keep) < 0) keep = null;
 var collection = fixed.concat(nodes.slice(navFrom, navTo));
 
 

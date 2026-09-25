@@ -609,6 +609,14 @@
         lastNavTo = navTo;
 
         var keep = typeof Navigator.getFocusedElement === 'function' ? Navigator.getFocusedElement() : null;
+        /* Следующий раунд, п.9: возвращаем только СВОЙ узел — из списка или
+           fixed. На возврате из левого меню (и шапки) Navigator ещё держит
+           фокус на пункте меню: его коллекцию поставил контроллер меню, а
+           toggle('content') приходит к нам раньше, чем кто-то фокус снимет.
+           Прежде пункт меню оставался в коллекции экрана лишним, и шаг
+           влево с экрана мог уйти на него. indexOf по списку — только на
+           пересборке окна, не на каждом нажатии. */
+        if (keep && fixed.indexOf(keep) < 0 && nodes.indexOf(keep) < 0) keep = null;
         var collection = fixed.concat(nodes.slice(navFrom, navTo));
         /* Узел под фокусом возвращаем в коллекцию всегда, даже если окно до
            него не достаёт. Иначе _focus остался бы пустым, а класс .focus на

@@ -2558,6 +2558,48 @@ test('C2: хаб — прокрутка пальцем или колесом (н
 });
 
 /* ---------------------------------------------------------------------- */
+/* Следующий раунд, п.9: возврат из левого меню. Меню Lampa ставит          */
+/* Navigator свою коллекцию и фокус на пункт; на «вправо» Lampa зовёт       */
+/* toggle('content'), и limitCollection возвращал в НАШУ коллекцию узел     */
+/* под фокусом Navigator — пункт меню («узел под фокусом возвращаем в       */
+/* коллекцию всегда»). Пункт оставался лишним: шаг влево с экрана мог       */
+/* уйти на него. Возвращать можно только свой узел — из окна или fixed.     */
+/* ---------------------------------------------------------------------- */
+
+function fromMenu(s) {
+  var ctrl = s.env.log.controllers.content;
+  ctrl.toggle();
+  var menu = new El(['menu__item', 'selector']);
+  s.env.nav.setCollection([menu]);
+  s.env.nav.focus(menu);
+  ctrl.toggle();
+  return menu;
+}
+
+test('п.9: хаб — после возврата из меню пункта меню нет в коллекции, фокус на своём узле', function () {
+  var s = openHub();
+  s.comp.start();
+  var menu = fromMenu(s);
+  assert.equal(s.env.nav.collection.indexOf(menu), -1, 'пункт меню остался в коллекции хаба');
+  var f = s.env.nav.getFocusedElement();
+  assert.ok(f && f !== menu && s.root.all('selector').indexOf(f) >= 0, 'фокус не на узле хаба');
+});
+
+test('п.9: сетка — после возврата из меню пункта меню нет в коллекции, фокус на своём узле', function () {
+  var g = openGrid(DISCOVER);
+  g.h.fetchCalls[0].ok({ results: results(60), page: 1, total_pages: 3, total_results: 180 });
+  g.comp.start();
+  var menu = fromMenu(g);
+  assert.equal(g.env.nav.collection.indexOf(menu), -1, 'пункт меню остался в коллекции сетки');
+  var f = g.env.nav.getFocusedElement();
+  assert.ok(f && f !== menu && g.root.all('selector').indexOf(f) >= 0, 'фокус не на узле сетки');
+});
+
+/* Свой узел под фокусом вне окна возвращается по-прежнему — тест Task 33
+   «узел под фокусом попадает в коллекцию, даже когда окно до него не
+   достаёт» выше. */
+
+/* ---------------------------------------------------------------------- */
 /* Полное ревью, C4: названия подборок в хабе и сетке шли без перевода —     */
 /* плитка, заголовок сетки и title активности брали item.title, хотя чипы и  */
 /* поиск уже переводились (titleOf).                                        */
