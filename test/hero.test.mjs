@@ -1861,9 +1861,10 @@ test('Task 47: реджект decode() с загруженными байтам�
 /* Волна 3 (ТВ 2026-09-24): прежде здесь на экране оставался кадр прошлого
    фильма — «пустой герой хуже устаревшего кадра». Теперь кадр чужого
    фильма под новым текстом не остаётся: неудача кадра сразу ставит
-   заглушку holdFrame — постер нового фильма из ряда. Пустоты по-прежнему
-   нет, и битый кадр по-прежнему ни в один слой не попадает. */
-test('Task 47: реджект decode() без байт — битый кадр в слой не идёт и пустоты нет (волна 3: постер нового фильма из ряда)', async () => {
+   заглушку holdFrame — с волны «хвосты героя», п.C2, нейтральный фон, а не
+   постер нового фильма из ряда. Битый кадр по-прежнему ни в один слой не
+   попадает. */
+test('Task 47: реджект decode() без байт — битый кадр в слой не идёт (п.C2: заглушка — нейтральный фон)', async () => {
   const f = focusedFrame();
   arrive(f.img);
   f.img.decoded.resolve();
@@ -1874,7 +1875,7 @@ test('Task 47: реджект decode() без байт — битый кадр �
   second.decoded.reject(new Error('broken image'));
   await tick();
   const stage = stageOf(f.node);
-  assert.equal(stage.find('.lumen-hero__bg.is-active').attr('src'), 'https://img/t/p/w300/p2.jpg', 'на экране не постер нового фильма');
+  assert.equal(stage.find('.lumen-hero__bg.is-active'), EMPTY, 'под текстом нового фильма кадр прошлого, а не нейтральный фон');
   for (const cls of ['.lumen-hero__bg--a', '.lumen-hero__bg--b']) {
     assert.notEqual(stage.find(cls).attr('src'), 'https://img/t/p/w1280/b2.jpg', cls + ': битый кадр поставлен в слой');
   }
@@ -2042,10 +2043,9 @@ test('волна 3: детали из кэша (синхронно) — кадр
    прошлого — кадр не доехал или не загрузился. Кадр ЧУЖОГО фильма под
    новым текстом не держится дольше HOLD_MS (250 мс от вывода текста;
    текст выходит через SWAP_MS = 180 мс после показа или сразу, если
-   детали пришли): вместо него встаёт постер новой карточки из ряда — он
-   уже в кэше браузера (Lampa нарисовала его в ряду), растягивается
-   апскейлом без filter и помечается метой размытия; постера в ряду ещё
-   нет — нейтральный фон страницы. */
+   детали пришли): вместо него — нейтральный фон страницы (гаснут оба слоя
+   кадра и подложка). Волна «хвосты героя», п.C2: прежде здесь вставал
+   постер новой карточки из ряда — тот же арт, что под героем в ряду. */
 function shownFrame(env, main) {
   fireFocus(main.activity, main.card1);
   env.advance(400);
@@ -2056,7 +2056,7 @@ function shownFrame(env, main) {
   return stage;
 }
 
-test('волна 3: кадр прошлого фильма под новым текстом не дольше 250 мс — заглушка из постера ряда', () => {
+test('волна 3: кадр прошлого фильма под новым текстом не дольше 250 мс — заглушка, нейтральный фон (п.C2)', () => {
   const env = makeEnv({ fxHeavy: () => false });
   const main = makeMain();
   env.hero.mount(main.activity);
@@ -2071,9 +2071,8 @@ test('волна 3: кадр прошлого фильма под новым т�
   env.advance(249);
   assert.equal(active().attr('src'), 'https://img/t/p/w1280/b1.jpg', 'раньше 250 мс заглушку не ставим');
   env.advance(2);
-  assert.equal(active().attr('src'), 'https://img/t/p/w300/p2.jpg', 'через 250 мс под текстом второго фильма — его постер из ряда');
-  assert.equal(active().hasClass('lumen-hero__bg--blur'), true, 'постер помечен как размытый слой');
-  assert.equal(env.images.filter((i) => /p2\.jpg/.test(i.src)).length, 0, 'постер из ряда не грузится заново — он уже в кэше');
+  assert.equal(active(), EMPTY, 'через 250 мс под текстом второго фильма — нейтральный фон, без постера из ряда');
+  assert.equal(env.images.filter((i) => /p2\.jpg/.test(i.src)).length, 0, 'постер ради заглушки грузится');
 
   detailsOf(env, 22).ok({ id: 22 });
   frameImg(env, '/b2.jpg').onload();
@@ -2109,7 +2108,7 @@ test('волна 3: кадр нового фильма не загрузился
   env.advance(350);
   detailsOf(env, 22).ok({ id: 22 });
   frameImg(env, '/b2.jpg').onerror();
-  assert.equal(stage.find('.lumen-hero__bg.is-active').attr('src'), 'https://img/t/p/w300/p2.jpg', 'после ошибки кадра — сразу постер нового фильма');
+  assert.equal(stage.find('.lumen-hero__bg.is-active'), EMPTY, 'после ошибки кадра — сразу нейтральный фон');
 });
 
 /* Отсчёт — от вывода текста, а не от показа: кадр, доехавший через 300 мс
@@ -2198,15 +2197,26 @@ function addCard(main, id) {
 }
 
 /* Все замены src в слоях кадра по порядку: заглушка, мелькнувшая на один
-   тик и тут же сменённая, в итоговом состоянии слоя не видна. */
+   тик и тут же сменённая, в итоговом состоянии слоя не видна.
+   Волна «хвосты героя», п.C2: заглушка — нейтральный фон (оба слоя
+   гаснут), в журнале — 'neutral' в тот миг, когда погас последний
+   активный слой. */
+const NEUTRAL = 'neutral';
 function layerLog(env, stage) {
   const seen = [];
-  for (const cls of ['.lumen-hero__bg--a', '.lumen-hero__bg--b']) {
-    const layer = stage.find(cls);
+  const layers = [stage.find('.lumen-hero__bg--a'), stage.find('.lumen-hero__bg--b')];
+  for (const layer of layers) {
     const orig = layer.attr;
     layer.attr = function (name, val) {
       if (name === 'src' && arguments.length === 2) seen.push(val);
       return orig.apply(this, arguments);
+    };
+    const origRemove = layer.removeClass;
+    layer.removeClass = function (list) {
+      const was = layers.some((l) => l.hasClass('is-active'));
+      const out = origRemove.apply(this, arguments);
+      if (was && !layers.some((l) => l.hasClass('is-active'))) seen.push(NEUTRAL);
+      return out;
     };
   }
   return seen;
@@ -2239,7 +2249,7 @@ for (const input of ['пульт', 'мышь']) {
     env.advance(249);
     assert.deepEqual(seen, [], 'раньше 250 мс от текста заглушку не ставим');
     env.advance(2);
-    assert.deepEqual(seen, ['https://img/t/p/w300/p33.jpg'], 'фокус остановился — постер той карточки, на которой он стоит, и только он');
+    assert.deepEqual(seen, [NEUTRAL], 'фокус остановился — заглушка той карточки, на которой он стоит, и только она');
     assert.deepEqual(warnLog, []);
   });
 }
@@ -2268,7 +2278,7 @@ for (const away of [50, 200]) {
     env.advance(249);
     assert.deepEqual(seen, [], 'фокус вернулся — отсчёт с начала, раньше 250 мс заглушки нет');
     env.advance(2);
-    assert.deepEqual(seen, ['https://img/t/p/w300/p2.jpg'], 'фокус постоял на показанной карточке 250 мс — её постер');
+    assert.deepEqual(seen, [NEUTRAL], 'фокус постоял на показанной карточке 250 мс — заглушка');
     assert.deepEqual(warnLog, []);
   });
 }
@@ -2294,7 +2304,7 @@ test('ревью волны 3, п.1: фокус ушёл до вывода те�
   env.advance(249);
   assert.deepEqual(seen, [], 'заглушка раньше 250 мс от возврата фокуса');
   env.advance(2);
-  assert.deepEqual(seen, ['https://img/t/p/w300/p2.jpg']);
+  assert.deepEqual(seen, [NEUTRAL]);
   assert.deepEqual(warnLog, []);
 });
 
@@ -2324,7 +2334,7 @@ test('ревью правок волны 3, п.5: фокус ушёл и вер�
   env.advance(249);
   assert.deepEqual(seen, [], 'заглушка раньше 250 мс от вывода текста — отсчёт пошёл от возврата фокуса');
   env.advance(2);
-  assert.deepEqual(seen, ['https://img/t/p/w300/p2.jpg'], 'через 250 мс от вывода текста — постер показанной карточки');
+  assert.deepEqual(seen, [NEUTRAL], 'через 250 мс от вывода текста — заглушка показанной карточки');
   assert.deepEqual(warnLog, []);
 });
 
@@ -2347,7 +2357,7 @@ test('ревью волны 3, п.1: кадр показанной карточ�
   assert.deepEqual(seen, [], 'ошибка кадра, фокус на другой карточке — слой кадра не меняется');
   fireFocus(main.activity, main.card2);
   env.advance(251);
-  assert.deepEqual(seen, ['https://img/t/p/w300/p2.jpg'], 'фокус вернулся — постер показанной карточки');
+  assert.deepEqual(seen, [NEUTRAL], 'фокус вернулся — заглушка показанной карточки');
   assert.deepEqual(warnLog, []);
 });
 
@@ -2379,9 +2389,8 @@ test('ревью волны 3, п.1: отложенная уходом фоку�
   assert.equal(env.requests.filter((r) => r.url === 'movie/22').length, 2, 'на возврате A не показан заново');
   env.advance(180);
   env.advance(251);
-  /* Ревью правок волны 3, п.6: заглушка — постер A из ряда (тест ниже), а
-     не нейтральный фон, как было до этой правки. */
-  assert.equal(active().attr('src'), 'https://img/t/p/w300/p2.jpg', 'под текстом A — кадр прошлого фильма или нейтральный фон, а не постер A');
+  /* Волна «хвосты героя», п.C2: заглушка — нейтральный фон. */
+  assert.equal(active(), EMPTY, 'под текстом A — кадр прошлого фильма');
   assert.deepEqual(warnLog, []);
 });
 
@@ -2389,93 +2398,38 @@ test('ревью волны 3, п.1: отложенная уходом фоку�
    карточки A на плитку «Ещё» ряда (.card-more — не карточка, герой её не
    видит), пока под текстом A стоял кадр прошлого фильма и шёл отсчёт
    заглушки; OK увёл с главной, «Назад» вернул фокус на ту же плитку.
-   resume показывает A заново без узла карточки (show(state.shownCard)), и
-   заглушка была пустой: под текстом A — нейтральный фон, хотя постер A
-   известен с его показа. Теперь resume передаёт прежний постер. */
-test('ревью правок волны 3, п.6: возврат через «Ещё» с отложенной заглушкой — постер показанного фильма, а не нейтральный фон', () => {
-  const env = makeEnv({ fxHeavy: () => false });
-  const main = makeMain();
-  const other = makeMain();
-  env.hero.mount(main.activity);
-  const stage = shownFrame(env, main);
-  const active = () => stage.find('.lumen-hero__bg.is-active');
-
-  fireFocus(main.activity, main.card2);
-  env.advance(350);
-  detailsOf(env, 22).ok({ id: 22 });
-  env.advance(100);
-  assert.equal(active().attr('src'), 'https://img/t/p/w1280/b1.jpg', 'предусловие: под текстом A кадр прошлого фильма, отсчёт заглушки идёт');
-  main.line1.append(new FakeEl(['card-more', 'selector', 'focus']));
-  env.hero.detach(other.activity);
-
-  env.hero.mount(main.activity);
-  assert.equal(env.requests.filter((r) => r.url === 'movie/22').length, 2, 'предусловие: на возврате A показан заново');
-  env.advance(180);
-  env.advance(251);
-  assert.equal(active().attr('src'), 'https://img/t/p/w300/p2.jpg', 'под текстом A нет его постера из ряда');
-  assert.equal(active().hasClass('lumen-hero__bg--blur'), true, 'постер не помечен как размытый слой');
-  assert.equal(env.images.filter((i) => /p2\.jpg/.test(i.src)).length, 0, 'постер из ряда грузился заново');
-  assert.deepEqual(warnLog, []);
-});
-
-/* Ревью tails3, п.3: при показе A в его карточке ряда стояла svg-заглушка
-   Lampa (постер ещё не пришёл), и запомненный постер пуст; к возврату через
-   «Ещё» постер в ряду уже настоящий. Заглушка — он (карточка ряда с тем же
-   card_data.id), а не нейтральный фон. */
-test('ревью tails3, п.3: при показе в ряду стояла svg-заглушка — на возврате через «Ещё» постер из ряда, а не нейтральный фон', () => {
-  const env = makeEnv({ fxHeavy: () => false });
-  const main = makeMain();
-  const other = makeMain();
-  main.card2.find('.card__img').attr('src', './img/img_load.svg');
-  env.hero.mount(main.activity);
-  const stage = shownFrame(env, main);
-  const active = () => stage.find('.lumen-hero__bg.is-active');
-
-  fireFocus(main.activity, main.card2);
-  env.advance(350);
-  detailsOf(env, 22).ok({ id: 22 });
-  env.advance(100);
-  assert.equal(active().attr('src'), 'https://img/t/p/w1280/b1.jpg', 'предусловие: под текстом A кадр прошлого фильма, отсчёт заглушки идёт');
-  main.card2.find('.card__img').attr('src', 'https://img/t/p/w300/p2.jpg');
-  main.line1.append(new FakeEl(['card-more', 'selector', 'focus']));
-  env.hero.detach(other.activity);
-
-  env.hero.mount(main.activity);
-  assert.equal(env.requests.filter((r) => r.url === 'movie/22').length, 2, 'предусловие: на возврате A показан заново');
-  env.advance(180);
-  env.advance(251);
-  assert.equal(active().attr('src'), 'https://img/t/p/w300/p2.jpg', 'под текстом A нет его постера из ряда');
-  assert.equal(active().hasClass('lumen-hero__bg--blur'), true);
-  assert.deepEqual(warnLog, []);
-});
-
-/* Ревью tails5 (65): id фильмов и сериалов TMDB пересекаются — карточка
-   ряда с тем же id, но сериал, постером фильма A быть не может. Поиск
-   сравнивает и тип (mediaOf). Сериал с id 22 стоит в ряду выше A. */
-test('ревью tails5: постер из ряда — карточка того же id и того же типа, сериал с тем же id не подходит', () => {
+   resume показывает A заново без узла карточки (show(state.shownCard)).
+   До волны «хвосты героя» заглушкой был постер A из ряда (ревью tails3,
+   п.3 и tails5 искали его по id и типу карточки); с п.C2 заглушка —
+   нейтральный фон, и постер ряда не берётся ни у карточки A, ни у сериала
+   с тем же id. */
+test('ревью правок волны 3, п.6 + п.C2: возврат через «Ещё» с отложенной заглушкой — нейтральный фон, постер ряда не берётся', () => {
   const env = makeEnv({ fxHeavy: () => false });
   const main = makeMain();
   const other = makeMain();
   const tv = makeCard(22, 'Сериал', { poster: 'https://img/t/p/w300/tv22.jpg', rect: { left: 0, top: 0, width: 1, height: 1 } });
   tv.card_data = { id: 22, name: 'Сериал', poster_path: '/tv22.jpg', first_air_date: '2019-01-01' };
   main.line0.append(tv);
-  main.card2.find('.card__img').attr('src', './img/img_load.svg');
   env.hero.mount(main.activity);
   const stage = shownFrame(env, main);
+  const seen = layerLog(env, stage);
   const active = () => stage.find('.lumen-hero__bg.is-active');
 
   fireFocus(main.activity, main.card2);
   env.advance(350);
   detailsOf(env, 22).ok({ id: 22 });
   env.advance(100);
-  main.card2.find('.card__img').attr('src', 'https://img/t/p/w300/p2.jpg');
+  assert.equal(active().attr('src'), 'https://img/t/p/w1280/b1.jpg', 'предусловие: под текстом A кадр прошлого фильма, отсчёт заглушки идёт');
   main.line1.append(new FakeEl(['card-more', 'selector', 'focus']));
   env.hero.detach(other.activity);
 
   env.hero.mount(main.activity);
+  assert.equal(env.requests.filter((r) => r.url === 'movie/22').length, 2, 'предусловие: на возврате A показан заново');
   env.advance(180);
   env.advance(251);
-  assert.equal(active().attr('src'), 'https://img/t/p/w300/p2.jpg', 'под текстом фильма A — постер сериала с тем же id');
+  assert.equal(active(), EMPTY, 'под текстом A остался кадр прошлого фильма');
+  assert.deepEqual(seen, [NEUTRAL], 'в слой кадра встал постер из ряда');
+  assert.equal(env.images.filter((i) => /p2.jpg|tv22.jpg/.test(i.src)).length, 0, 'постер ради заглушки грузится');
   assert.deepEqual(warnLog, []);
 });
 
@@ -2557,10 +2511,10 @@ test('ревью волны 3, п.2: decode не кончился и за 150 м
   env.advance(147);
   assert.deepEqual(s.seen, [], 'заглушка раньше 250 + 150 мс');
   env.advance(3);
-  assert.deepEqual(s.seen, ['https://img/t/p/w300/p2.jpg'], 'отсрочка одна: дальше — постер нового фильма');
+  assert.deepEqual(s.seen, [NEUTRAL], 'отсрочка одна: дальше — заглушка');
   s.img.decoded.resolve();
   await tick();
-  assert.deepEqual(s.seen, ['https://img/t/p/w300/p2.jpg', 'https://img/t/p/w1280/b2.jpg'], 'кадр сменил заглушку');
+  assert.deepEqual(s.seen, [NEUTRAL, 'https://img/t/p/w1280/b2.jpg'], 'кадр сменил заглушку');
   assert.deepEqual(warnLog, []);
 });
 
@@ -2574,7 +2528,7 @@ for (const how of ['едут', 'ошибка']) {
     env.advance(249);
     assert.deepEqual(s.seen, []);
     env.advance(2);
-    assert.deepEqual(s.seen, ['https://img/t/p/w300/p2.jpg'], 'без байтов кадра отсрочки нет');
+    assert.deepEqual(s.seen, [NEUTRAL], 'без байтов кадра отсрочки нет');
     assert.deepEqual(warnLog, []);
   });
 }
@@ -2613,10 +2567,10 @@ test('ревью волны 3, п.1: листание шагом 550 мс при
   }
   assert.deepEqual(seen, [], 'за листание слой кадра менялся: ' + seen.join(', '));
   run(250);
-  assert.deepEqual(seen, ['https://img/t/p/w300/p88.jpg'], 'фокус остановился — постер последней карточки');
+  assert.deepEqual(seen, [NEUTRAL], 'фокус остановился — заглушка последней карточки');
   run(300);
   frameImg(env, '/b88.jpg').onload();
-  assert.deepEqual(seen, ['https://img/t/p/w300/p88.jpg', 'https://img/t/p/w1280/b88.jpg'], 'детали доехали — кадр последней карточки');
+  assert.deepEqual(seen, [NEUTRAL, 'https://img/t/p/w1280/b88.jpg'], 'детали доехали — кадр последней карточки');
   assert.deepEqual(warnLog, []);
 });
 
@@ -4770,7 +4724,9 @@ function slidesEnv(opts) {
     slideshow: SLIDESHOW,
     backdrops: { pickBackdrops: BACKDROPS_REAL.pickBackdrops, intervalMs: () => interval.ms },
     motionMode: () => opts.motion || 'lite',
-    fxHeavy: () => !!opts.heavy
+    fxHeavy: () => !!opts.heavy,
+    /* Волна «хвосты героя», п.C2: сравнение кадров с постером. */
+    thumbs: opts.thumbs
   }, (name, def) => (name === 'lumen_hero_media' ? media.value : def));
   /* Контроллер слайдшоу спрашивает «слой ещё в документе». */
   globalThis.document.documentElement.contains = () => true;
@@ -5525,4 +5481,371 @@ test('«Что показывает кадр главной» на лету: «�
     assert.equal(env.live().length, 1, 'смена кадров продолжается сразу');
     assert.equal(env.requests.length, requests, 'без нового запроса деталей');
   } finally { env.restore(); }
+});
+
+/* ====================================================================== */
+/* Волна «хвосты героя», п.C2: кадр героя ≠ постер карточки               */
+/* ====================================================================== */
+
+/* Кадр 16:9 без надписей; noVotes — без голосов TMDB (не годен по голосам,
+   но и не отвергнут). */
+const lookBd = (path, noVotes) => Object.assign({ file_path: path, iso_639_1: null, width: 1920, height: 1080, aspect_ratio: 1.778 },
+  noVotes ? { vote_count: 0, vote_average: 0 } : VOTES);
+
+test('п.C2: frameCandidates — годные по голосам, потом неотвергнутые, той же формы, не больше трёх', () => {
+  const rejected = Object.assign({}, lookBd('/rej.jpg'), { vote_count: 3, vote_average: 0.166 });
+  const text = Object.assign({}, lookBd('/text.jpg'), { iso_639_1: 'en' });
+  const narrow = Object.assign({}, lookBd('/narrow.jpg'), { width: 2560, height: 1080, aspect_ratio: 2.37 });
+  const images = { backdrops: [lookBd('/key.jpg'), lookBd('/nv1.jpg', true), rejected, text, narrow, lookBd('/g1.jpg'), lookBd('/nv2.jpg', true), lookBd('/g2.jpg')] };
+  assert.deepEqual(H.frameCandidates(images, '/key.jpg'), { paths: ['/g1.jpg', '/g2.jpg', '/nv1.jpg'], strong: 2 });
+  assert.deepEqual(H.frameCandidates({ backdrops: [lookBd('/key.jpg'), lookBd('/nv1.jpg', true)] }, '/key.jpg'), { paths: ['/nv1.jpg'], strong: 0 });
+  assert.deepEqual(H.frameCandidates(null, '/key.jpg'), { paths: [], strong: 0 });
+});
+
+test('п.C2: pickFrame — первый непохожий по порядку; похожи все — как было; сравнить нельзя — как было', () => {
+  const v = (map) => (p) => (Object.prototype.hasOwnProperty.call(map, p) ? map[p] : undefined);
+  const c = ['/a.jpg', '/b.jpg', '/c.jpg'];
+  assert.deepEqual(H.pickFrame(c, 2, v({ '/a.jpg': false }), '/a.jpg'), { path: '/a.jpg', wait: '' });
+  assert.deepEqual(H.pickFrame(c, 2, v({ '/a.jpg': true, '/b.jpg': false }), '/a.jpg'), { path: '/b.jpg', wait: '' });
+  assert.deepEqual(H.pickFrame(c, 2, v({ '/a.jpg': true, '/b.jpg': true, '/c.jpg': false }), '/a.jpg'), { path: '/c.jpg', wait: '' },
+    'годных по голосам непохожих нет — неотвергнутый непохожий');
+  assert.deepEqual(H.pickFrame(c, 2, v({ '/a.jpg': true, '/b.jpg': true, '/c.jpg': true }), '/a.jpg'), { path: '/a.jpg', wait: '' },
+    'похожи все — как было');
+  assert.deepEqual(H.pickFrame(c, 2, v({ '/a.jpg': null }), '/a.jpg'), { path: '/a.jpg', wait: '' }, 'пиксели закрыты — как было');
+  assert.deepEqual(H.pickFrame(c, 2, v({}), '/a.jpg'), { path: '', wait: '/a.jpg' }, 'ответа нет — ждём первого');
+  assert.deepEqual(H.pickFrame(c, 2, v({ '/a.jpg': true }), '/a.jpg'), { path: '', wait: '/b.jpg' });
+  /* Потолок: по тому, что известно. */
+  assert.deepEqual(H.pickFrame(c, 2, v({}), '/a.jpg', true), { path: '/a.jpg', wait: '' }, 'потолок, ответов нет — как было');
+  assert.deepEqual(H.pickFrame(c, 2, v({ '/a.jpg': true }), '/a.jpg', true), { path: '/b.jpg', wait: '' },
+    'потолок: первый похож — следующий годный по голосам, про который не известно, что похож');
+  assert.deepEqual(H.pickFrame(c, 1, v({ '/a.jpg': true }), '/a.jpg', true), { path: '/a.jpg', wait: '' },
+    'потолок: годных по голосам больше нет — как было (без голосов вслепую не берём)');
+  assert.deepEqual(H.pickFrame([], 0, v({}), '/key.jpg'), { path: '/key.jpg', wait: '' });
+});
+
+function fakeThumbs(known) {
+  const calls = [];
+  const verdicts = Object.assign({}, known || {});
+  return {
+    calls: calls,
+    verdict: (p, f) => (Object.prototype.hasOwnProperty.call(verdicts, p + '|' + f) ? verdicts[p + '|' + f] : undefined),
+    compare: (p, f, cb) => {
+      const c = { p: p, f: f, cb: cb, cancelled: false };
+      calls.push(c);
+      return { cancel() { c.cancelled = true; } };
+    },
+    answer(i, value) {
+      const c = calls[i];
+      verdicts[c.p + '|' + c.f] = value;
+      c.cb(value);
+    },
+    tone: () => ({ cancel() {} }),
+    toneOf: () => undefined
+  };
+}
+
+const LOOK_DETAILS = (id) => ({
+  id: id, backdrop_path: '/key.jpg',
+  images: { logos: [], backdrops: [lookBd('/key.jpg'), lookBd('/c1.jpg'), lookBd('/c2.jpg'), lookBd('/c3.jpg', true)] }
+});
+const w1280 = (env) => env.images.filter((i) => /\/w1280\//.test(i.src)).map((i) => i.src.replace('https://img/t/p/w1280', ''));
+
+test('п.C2: первый кадр — первый непохожий на постер кандидат; до ответа кадр не грузится; пары — по одной', () => {
+  const thumbs = fakeThumbs();
+  const env = makeEnv({ fxHeavy: () => false, thumbs: thumbs });
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  fireFocus(main.activity, main.card1);
+  env.advance(400);
+  detailsOf(env, 11).ok(LOOK_DETAILS(11));
+  assert.deepEqual(thumbs.calls.map((c) => c.p + '|' + c.f), ['/p1.jpg|/c1.jpg'], 'сравнение первого кандидата с постером карточки');
+  assert.deepEqual(w1280(env), [], 'кадр грузится раньше ответа');
+  thumbs.answer(0, true);
+  assert.deepEqual(thumbs.calls.map((c) => c.f), ['/c1.jpg', '/c2.jpg'], 'вторая пара — после ответа первой');
+  assert.deepEqual(w1280(env), []);
+  thumbs.answer(1, false);
+  assert.deepEqual(w1280(env), ['/c2.jpg'], 'первый непохожий');
+  frameImg(env, '/c2.jpg').onload();
+  assert.equal(stageOf(heroOf(main.activity)).find('.lumen-hero__bg.is-active').attr('src'), 'https://img/t/p/w1280/c2.jpg');
+  assert.deepEqual(warnLog, []);
+});
+
+test('п.C2: ответы уже в памяти (возврат на фильм) — кадр сразу, без сравнения и ожидания', () => {
+  const thumbs = fakeThumbs({ '/p1.jpg|/c1.jpg': true, '/p1.jpg|/c2.jpg': false });
+  const env = makeEnv({ fxHeavy: () => false, thumbs: thumbs });
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  fireFocus(main.activity, main.card1);
+  env.advance(400);
+  detailsOf(env, 11).ok(LOOK_DETAILS(11));
+  assert.equal(thumbs.calls.length, 0);
+  assert.deepEqual(w1280(env), ['/c2.jpg']);
+});
+
+test('п.C2: сравнение не успело за 300 мс — кадр как было; поздний ответ кадр не меняет', () => {
+  const thumbs = fakeThumbs();
+  const env = makeEnv({ fxHeavy: () => false, thumbs: thumbs });
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  fireFocus(main.activity, main.card1);
+  env.advance(400);
+  detailsOf(env, 11).ok(LOOK_DETAILS(11));
+  env.advance(299);
+  assert.deepEqual(w1280(env), [], 'раньше потолка');
+  env.advance(1);
+  assert.deepEqual(w1280(env), ['/c1.jpg'], 'потолок — выбор heroBackdrop');
+  assert.equal(thumbs.calls[0].cancelled, false, 'сравнение показанной карточки снято потолком — его ответ пропал бы');
+  thumbs.answer(0, true);
+  assert.deepEqual(w1280(env), ['/c1.jpg'], 'поздний ответ сменил выбранный кадр');
+  assert.equal(thumbs.calls.length, 1, 'после выбора сравнение пошло дальше');
+});
+
+test('п.C2: новый показ снимает сравнение и потолок прошлого', () => {
+  const thumbs = fakeThumbs();
+  const env = makeEnv({ fxHeavy: () => false, thumbs: thumbs });
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  fireFocus(main.activity, main.card1);
+  env.advance(400);
+  fireFocus(main.activity, main.card2);
+  env.advance(300);
+  /* Детали первой доехали, когда фокус уже на второй, а её показа ещё нет. */
+  detailsOf(env, 11).ok(LOOK_DETAILS(11));
+  assert.equal(thumbs.calls.length, 1, 'предусловие: сравнение первой идёт');
+  env.advance(50);
+  assert.equal(thumbs.calls[0].cancelled, true, 'сравнение прошлой карточки тянет миниатюры');
+  env.advance(1000);
+  assert.equal(w1280(env).indexOf('/c1.jpg'), -1, 'потолок прошлого показа поставил её кадр');
+});
+
+test('п.C2: сравнивать нечего (нет постера) или «Выкл» — кадр как было, без сравнения', () => {
+  const thumbs = fakeThumbs();
+  const env = makeEnv({ fxHeavy: () => false, thumbs: thumbs });
+  const main = makeMain();
+  main.card1.card_data.poster_path = '';
+  env.hero.mount(main.activity);
+  fireFocus(main.activity, main.card1);
+  env.advance(400);
+  detailsOf(env, 11).ok(LOOK_DETAILS(11));
+  assert.equal(thumbs.calls.length, 0);
+  assert.deepEqual(w1280(env), ['/c1.jpg']);
+
+  const off = fakeThumbs();
+  const envOff = makeEnv({ thumbs: off, motionMode: () => 'off' });
+  const mainOff = makeMain();
+  envOff.hero.mount(mainOff.activity);
+  fireFocus(mainOff.activity, mainOff.card1);
+  envOff.advance(400);
+  detailsOf(envOff, 11).ok(LOOK_DETAILS(11));
+  assert.equal(off.calls.length, 0, 'в «Выкл» кадр не грузится — сравнивать незачем');
+});
+
+test('п.C2: парковка во время сравнения — сравнение снято, на возврате фильм показан заново', () => {
+  const thumbs = fakeThumbs();
+  const env = makeEnv({ fxHeavy: () => false, thumbs: thumbs });
+  const main = makeMain();
+  const other = makeMain();
+  env.hero.mount(main.activity);
+  fireFocus(main.activity, main.card1);
+  env.advance(400);
+  detailsOf(env, 11).ok(LOOK_DETAILS(11));
+  env.advance(200);
+  env.hero.detach(other.activity);
+  assert.equal(thumbs.calls[0].cancelled, true, 'парковка не сняла сравнение');
+  env.hero.mount(main.activity);
+  assert.equal(env.requests.filter((r) => r.url === 'movie/11').length, 2, 'на возврате показ не повторён — кадра так и нет');
+});
+
+/* Смена кадров: тот же запрет. Кадр, известный похожим, в круг не идёт;
+   про незнакомый сперва спрашивается сравнение, и похожий пропускается. */
+const SLIDE_DETAILS = (id) => ({
+  id: id, backdrop_path: '/key.jpg',
+  images: { logos: [], backdrops: [lookBd('/key.jpg'), lookBd('/c1.jpg'), lookBd('/c2.jpg'), lookBd('/c3.jpg'), lookBd('/c4.jpg')] }
+});
+
+test('п.C2: смена кадров — известный похожий на постер кадр в круг не идёт, незнакомый сперва сравнивается', () => {
+  const thumbs = fakeThumbs({ '/p1.jpg|/c1.jpg': false, '/p1.jpg|/c2.jpg': true });
+  const env = slidesEnv({ thumbs: thumbs });
+  try {
+    const main = makeMain();
+    env.hero.mount(main.activity);
+    focusOn(main, main.card1);
+    env.advance(400);
+    detailsOf(env, 11).ok(SLIDE_DETAILS(11));
+    frameImg(env, '/c1.jpg').onload();
+    assert.equal(env.live().length, 1, 'предусловие: смена кадров заведена');
+    env.live()[0].fn();
+    assert.deepEqual(thumbs.calls.map((c) => c.f), ['/c3.jpg'], 'сперва сравнение следующего кадра; c2 известен похожим — в круге его нет');
+    assert.deepEqual(w1280(env), ['/c1.jpg'], 'кадр смены грузится до ответа');
+    thumbs.answer(0, true);
+    assert.deepEqual(thumbs.calls.map((c) => c.f), ['/c3.jpg', '/c4.jpg'], 'похожий пропущен — сразу следующий');
+    thumbs.answer(1, false);
+    assert.deepEqual(w1280(env), ['/c1.jpg', '/c4.jpg'], 'непохожий грузится');
+    frameImg(env, '/c4.jpg').onload();
+    assert.equal(stageOf(heroOf(main.activity)).find('.lumen-hero__bg.is-active').attr('src'), 'https://img/t/p/w1280/c4.jpg');
+    assert.equal(w1280(env).indexOf('/c2.jpg'), -1);
+    assert.deepEqual(warnLog, []);
+  } finally { env.restore(); }
+});
+
+test('п.C2: смена кадров — пока шло сравнение, фокус ушёл: тик пропущен, ответ в памяти', () => {
+  const thumbs = fakeThumbs({ '/p1.jpg|/c1.jpg': false });
+  const env = slidesEnv({ thumbs: thumbs });
+  try {
+    const main = makeMain();
+    env.hero.mount(main.activity);
+    focusOn(main, main.card1);
+    env.advance(400);
+    detailsOf(env, 11).ok(SLIDE_DETAILS(11));
+    frameImg(env, '/c1.jpg').onload();
+    env.live()[0].fn();
+    assert.equal(thumbs.calls.length, 1);
+    focusOn(main, main.card2);
+    thumbs.answer(0, false);
+    assert.deepEqual(w1280(env), ['/c1.jpg'], 'кадр смены пошёл, когда фокус уже на другой карточке');
+  } finally { env.restore(); }
+});
+
+/* ====================================================================== */
+/* Волна «хвосты героя», п.D: тёмные логотипы («7 самураев» не читается)  */
+/* ====================================================================== */
+
+/* Тоны логотипов: tones — известные; tone(path, cb) — проба, ответ даёт
+   тест (answer). */
+function toneThumbs(tones) {
+  const probes = [];
+  const known = tones || {};
+  return {
+    probes: probes,
+    toneOf: (p) => (Object.prototype.hasOwnProperty.call(known, p) ? known[p] : undefined),
+    tone: (p, cb) => {
+      const pr = { p: p, cb: cb, cancelled: false };
+      probes.push(pr);
+      return { cancel() { pr.cancelled = true; } };
+    },
+    answer(i, t) { known[probes[i].p] = t; probes[i].cb(t); },
+    verdict: () => undefined,
+    compare: () => ({ cancel() {} })
+  };
+}
+
+function heroTone(thumbs) {
+  const env = makeEnv({ thumbs: thumbs });
+  env.LC.motionMode = () => 'lite';
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  main.card1.addClass('focus');
+  fireFocus(main.activity, main.card1);
+  env.advance(350);
+  return { env: env, main: main, node: heroOf(main.activity) };
+}
+
+const white = (node) => node.find('.lumen-hero__logo').hasClass('lumen-logo-white');
+
+test('п.D: тон логотипа известен к показу и тёмный — белый силуэт', () => {
+  const thumbs = toneThumbs({ '/l.png': 'dark' });
+  const { env, node } = heroTone(thumbs);
+  env.requests[0].ok(LOGO_RU);
+  logoLoader(env).onload();
+  assert.equal(node.hasClass('lumen-hero--logo'), true);
+  assert.equal(white(node), true, 'тёмный логотип на тёмном кадре — без силуэта');
+  assert.equal(thumbs.probes.length, 0, 'известный тон проверяется заново');
+});
+
+test('п.D: светлый логотип и логотип, чей тон прочитать нельзя, — как есть', () => {
+  for (const t of ['light', 'none']) {
+    const { env, node } = heroTone(toneThumbs({ '/l.png': t }));
+    env.requests[0].ok(LOGO_RU);
+    logoLoader(env).onload();
+    assert.equal(node.hasClass('lumen-hero--logo'), true);
+    assert.equal(white(node), false, t);
+  }
+});
+
+test('п.D: тон считается при загрузке логотипа — показ ждёт его не дольше 250 мс', () => {
+  const thumbs = toneThumbs();
+  const { env, node } = heroTone(thumbs);
+  env.requests[0].ok(LOGO_RU);
+  assert.deepEqual(thumbs.probes.map((p) => p.p), ['/l.png'], 'проба тона не заведена вместе с загрузкой логотипа');
+  logoLoader(env).onload();
+  assert.equal(node.hasClass('lumen-hero--logo'), false, 'логотип встал, не дождавшись тона');
+  thumbs.answer(0, 'dark');
+  assert.equal(node.hasClass('lumen-hero--logo'), true, 'тон пришёл — логотип встаёт');
+  assert.equal(white(node), true);
+});
+
+test('п.D: тон не успел за 250 мс — логотип как есть, и до конца показа не белеет; со следующего показа — силуэт', () => {
+  const thumbs = toneThumbs();
+  const { env, main, node } = heroTone(thumbs);
+  env.requests[0].ok(LOGO_RU);
+  logoLoader(env).onload();
+  env.advance(249);
+  assert.equal(node.hasClass('lumen-hero--logo'), false);
+  env.advance(1);
+  assert.equal(node.hasClass('lumen-hero--logo'), true, 'тон не пришёл — логотип встал без него');
+  assert.equal(white(node), false);
+  thumbs.answer(0, 'dark');
+  env.hero.applyLogoPref();
+  assert.equal(white(node), false, 'посреди показа логотип стал белым — подмена');
+
+  /* Следующий показ того же фильма — сразу силуэт. */
+  main.card1.removeClass('focus');
+  main.card2.addClass('focus');
+  fireFocus(main.activity, main.card2);
+  env.advance(350);
+  main.card2.removeClass('focus');
+  main.card1.addClass('focus');
+  fireFocus(main.activity, main.card1);
+  env.advance(350);
+  env.requests[env.requests.length - 1].ok(LOGO_RU);
+  env.advance(200);
+  assert.equal(node.hasClass('lumen-hero--logo'), true);
+  assert.equal(white(node), true, 'со следующего показа — белый силуэт');
+});
+
+test('п.D: тёмный логотип — светлый вариант на том же языке, если его тон известен', () => {
+  const logos = { images: { logos: [
+    { file_path: '/ru-dark.png', iso_639_1: 'ru' },
+    { file_path: '/en.png', iso_639_1: 'en' },
+    { file_path: '/ru-light.png', iso_639_1: 'ru' }
+  ] } };
+  const thumbs = toneThumbs({ '/ru-dark.png': 'dark', '/ru-light.png': 'light', '/en.png': 'light' });
+  const H2 = freshHero({ thumbs: thumbs }).api;
+  assert.equal(H2.pickLogo(logos.images.logos, 'ru'), '/ru-light.png');
+  /* Светлого на своём языке нет — свой тёмный (он станет силуэтом), а не
+     английский. */
+  const other = toneThumbs({ '/ru-dark.png': 'dark', '/en.png': 'light' });
+  const H3 = freshHero({ thumbs: other }).api;
+  assert.equal(H3.pickLogo(logos.images.logos, 'ru'), '/ru-dark.png', 'светлый вариант на чужом языке');
+  /* Тон варианта ещё не известен — пока свой тёмный. */
+  const unknown = toneThumbs({ '/ru-dark.png': 'dark' });
+  assert.equal(freshHero({ thumbs: unknown }).api.pickLogo(logos.images.logos, 'ru'), '/ru-dark.png');
+  /* Без модуля тонов — как было. */
+  assert.equal(H.pickLogo(logos.images.logos, 'ru'), '/ru-dark.png');
+});
+
+test('п.D: тёмный тон пришёл — пробуются варианты того же языка (не больше двух), без чужих языков', () => {
+  const thumbs = toneThumbs();
+  const { env } = heroTone(thumbs);
+  env.requests[0].ok({ images: { logos: [
+    { file_path: '/l.png', iso_639_1: 'ru' },
+    { file_path: '/en.png', iso_639_1: 'en' },
+    { file_path: '/l2.png', iso_639_1: 'ru' },
+    { file_path: '/l3.png', iso_639_1: 'ru' },
+    { file_path: '/l4.png', iso_639_1: 'ru' }
+  ] } });
+  assert.deepEqual(thumbs.probes.map((p) => p.p), ['/l.png']);
+  thumbs.answer(0, 'dark');
+  assert.deepEqual(thumbs.probes.map((p) => p.p), ['/l.png', '/l2.png', '/l3.png']);
+});
+
+test('п.D: загрузку логотипа сняли — проба тона снята вместе с ней', () => {
+  const thumbs = toneThumbs();
+  const { env, main } = heroTone(thumbs);
+  env.requests[0].ok(LOGO_RU);
+  main.card1.removeClass('focus');
+  main.card2.addClass('focus');
+  fireFocus(main.activity, main.card2);
+  env.advance(350);
+  assert.equal(thumbs.probes[0].cancelled, true);
 });

@@ -1716,6 +1716,28 @@ test('логотип в карточке: не доехал — текст, и �
   assert.equal(c.logo.css('background-image'), 'none');
 });
 
+/* Волна «хвосты героя», п.D: тёмный логотип в карточке — тот же белый
+   силуэт, что у героя (тон — LC.hero.logoTone, его считает хранилище
+   логотипов при загрузке). Тон неизвестен или светлый — логотип как есть;
+   текст — без класса. */
+test('п.D: тёмный логотип в карточке — белый силуэт; светлый и неизвестный — как есть', () => {
+  for (const [tone, want] of [['dark', true], ['light', false], [undefined, false]]) {
+    const c = logoCard();
+    const hero = stubHero();
+    hero.logoTone = (path) => (path === '/sw.png' ? tone : undefined);
+    withHero(hero, () => LC.header.decorate(c.root, LOGO_MOVIE()));
+    hero.last.decide(true);
+    assert.ok(c.root.hasClass('lumen-logo-on'));
+    assert.equal(c.logo.hasClass('lumen-logo-white'), want, String(tone));
+  }
+  const t = logoCard();
+  const hero = stubHero();
+  hero.logoTone = () => 'dark';
+  withHero(hero, () => LC.header.decorate(t.root, LOGO_MOVIE()));
+  hero.last.decide(false);
+  assert.equal(t.logo.hasClass('lumen-logo-white'), false, 'у текстового заголовка остался силуэт логотипа');
+});
+
 test('логотип в карточке: build и complite — одно ожидание, второй decorate ничего не перезапускает', () => {
   const c = logoCard();
   const hero = stubHero();

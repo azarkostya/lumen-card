@@ -3679,6 +3679,15 @@
        там тексту достаётся заметно меньше высоты. */
     css.push('.lumen-hero .lumen-hero__logo{display:none;width:37.84em;max-width:100%;height:4.4em;margin-top:.4em;-webkit-background-size:contain;background-size:contain;background-position:left bottom;background-repeat:no-repeat;-webkit-transform-origin:left bottom;transform-origin:left bottom;-webkit-transform:scale(' + (smallText ? LOGO_COMPACT : 1) + ');transform:scale(' + (smallText ? LOGO_COMPACT : 1) + ')}');
     css.push('.lumen-hero.lumen-hero--logo .lumen-hero__logo{display:block}');
+    /* Волна «хвосты героя», п.D (жалоба «Логотип не читается»: чёрный
+       логотип «Семи самураев» на тёмном кадре): тёмный логотип, у которого
+       нет светлого варианта на том же языке, рисуется белым силуэтом —
+       brightness(0) делает все непрозрачные пиксели чёрными, invert(1) —
+       белыми, альфа (форма букв) остаётся. Не drop-shadow: тень вокруг
+       тёмных букв их не осветляет. Класс ставят герой (src/48_hero.js,
+       showLogo) и карточка фильма (src/85_header.js, renderLogo) — по тону,
+       который посчитал LC.thumbs (src/57_thumbs.js). */
+    css.push('.lumen-hero .lumen-hero__logo.lumen-logo-white,.lumen-card .lumen-logo.lumen-logo-white{-webkit-filter:brightness(0) invert(1);filter:brightness(0) invert(1)}');
     /* Текстовый фолбэк названия — обычный текст без панели (поправка
        контроллера к Task 18, единообразно с экранами 16–19). */
     /* Фолбэк без логотипа занимает РОВНО место логотипа — 4.4em этого

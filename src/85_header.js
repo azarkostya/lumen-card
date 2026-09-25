@@ -275,6 +275,7 @@
 
     if (!path) {
       holder.css('background-image', 'none');
+      holder.removeClass('lumen-logo-white');
       setTitleMode(root, 'text');
       return;
     }
@@ -291,9 +292,14 @@
       st.handle = null;
       if (show) {
         holder.css('background-image', 'url("' + encodeURI(url) + '")');
+        /* Волна «хвосты героя», п.D: тёмный логотип — белым силуэтом, как
+           в герое (тон считает хранилище логотипов при загрузке,
+           LC.hero.logoTone). Решение одно на показ: decide зовётся раз. */
+        holder.toggleClass('lumen-logo-white', typeof hero.logoTone === 'function' && hero.logoTone(path) === 'dark');
         setTitleMode(root, 'logo');
       } else {
         holder.css('background-image', 'none');
+        holder.removeClass('lumen-logo-white');
         setTitleMode(root, 'text');
       }
     });

@@ -7038,3 +7038,14 @@ test('C: второй экран карточки — без страниц: н�
     }
   }
 });
+
+/* Волна «хвосты героя», п.D: тёмный логотип — белый силуэт в герое и в
+   карточке фильма, фильтром brightness(0) invert(1), а не тенью. */
+test('п.D: класс lumen-logo-white — белый силуэт логотипа в герое и в карточке', () => {
+  for (const sel of ['.lumen-hero .lumen-hero__logo.lumen-logo-white', '.lumen-card .lumen-logo.lumen-logo-white']) {
+    const decl = findDecl(css, (s) => s === sel);
+    assert.ok(decl, 'нет правила ' + sel);
+    assert.ok(/(^|;)filter:brightness\(0\) invert\(1\)/.test(decl), sel + ': ' + decl);
+    assert.equal(/drop-shadow/.test(decl), false, sel + ': тень вместо силуэта');
+  }
+});

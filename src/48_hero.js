@@ -199,6 +199,11 @@
        данным ряда (разбор — у show). Ответы деталей на стенде — 41…247 мс
        (замер у writeTitle); 900 — с запасом на прокси пользователя. */
     var FRAME_WAIT = 900;
+    /* Волна «хвосты героя», п.C2: сколько выбор первого кадра ждёт
+       сравнения миниатюр с постером (chooseFrame) — сверх ответа деталей.
+       Дольше кадр не откладываем: под текстом нового фильма стоит кадр
+       прошлого, а через HOLD_MS от вывода текста — нейтральный фон. */
+    var LOOK_WAIT = 300;
 
     /* Волна 3: дольше этого кадр прошлого фильма под текстом нового не
        держится, пока фокус стоит на новом (разбор — у holdFrame). */
@@ -228,7 +233,54 @@
         else if (code === 'en') { if (!en) en = item; }
         else if (!code) { if (!neutral) neutral = item; }
       }
-      return own || en || neutral || null;
+      var picked = own || en || neutral || null;
+      return picked ? lightLogo(logos, picked) : null;
+    }
+
+    /* Волна «хвосты героя», п.D (жалоба «Логотип не читается»: чёрный
+       логотип «Семи самураев» на тёмном кадре). Тон логотипа считает
+       LC.thumbs (src/57_thumbs.js) по миниатюре w92, пока грузится сам
+       логотип (flyLogo ниже). Логотип, про который известно, что он
+       тёмный, уступает место светлому варианту на ТОМ ЖЕ языке, если тон
+       того известен: название на языке пользователя важнее цвета. Нет
+       такого — остаётся свой, и его рисует белый силуэт (showLogo).
+       Варианты того же языка запоминаются (logoSiblings): когда проба
+       скажет «тёмный», их тоны пробуются, и к следующему показу светлый
+       вариант уже известен. Без модуля тонов — выбор прежний. */
+    var SIBLINGS_MAX = 2;
+    var logoSiblings = {};
+    var siblingKeys = 0;
+
+    function logoTone(path) {
+      try {
+        return path && LC.thumbs && typeof LC.thumbs.toneOf === 'function' ? LC.thumbs.toneOf(path) : undefined;
+      } catch (e) {
+        return undefined;
+      }
+    }
+
+    function lightLogo(logos, picked) {
+      var code = picked.iso_639_1 || '';
+      var sibs = [];
+      for (var i = 0; logos && i < logos.length; i++) {
+        var item = logos[i];
+        if (!item || !item.file_path || item.file_path === picked.file_path) continue;
+        if ((item.iso_639_1 || '') !== code) continue;
+        sibs.push(item);
+      }
+      if (!sibs.length) return picked;
+      if (!Object.prototype.hasOwnProperty.call(logoSiblings, picked.file_path)) {
+        if (siblingKeys >= 400) { logoSiblings = {}; siblingKeys = 0; }
+        siblingKeys++;
+        var paths = [];
+        for (var k = 0; k < sibs.length && paths.length < SIBLINGS_MAX; k++) paths.push(sibs[k].file_path);
+        logoSiblings[picked.file_path] = paths;
+      }
+      if (logoTone(picked.file_path) !== 'dark') return picked;
+      for (var j = 0; j < sibs.length; j++) {
+        if (logoTone(sibs[j].file_path) === 'light') return sibs[j];
+      }
+      return picked;
     }
 
     function pickLogo(logos, lang) {
@@ -401,15 +453,74 @@
     function heroBackdrop(images, main) {
       var list = goodFrames(images && images.backdrops, main);
       for (var i = 0; i < list.length; i++) {
-        var b = list[i];
-        if (!b.file_path || b.iso_639_1 || b.file_path === main) continue;
-        var w = Number(b.width) || 0;
-        var h = Number(b.height) || 0;
-        var ratio = Number(b.aspect_ratio) || (w > 0 && h > 0 ? w / h : 0);
-        if (w < HERO_BD_MIN_W || !(Math.abs(ratio - HERO_BD_RATIO) < HERO_BD_RATIO_TOL)) continue;
-        return b.file_path;
+        if (wideFrame(list[i], main)) return list[i].file_path;
       }
       return main || '';
+    }
+
+    /* Кадр годится в кадр героя по форме: без надписей, не ключевой арт
+       main, не уже HERO_BD_MIN_W и 16:9 (разбор — у heroBackdrop). */
+    function wideFrame(b, main) {
+      if (!b || !b.file_path || b.iso_639_1 || b.file_path === main) return false;
+      var w = Number(b.width) || 0;
+      var h = Number(b.height) || 0;
+      var ratio = Number(b.aspect_ratio) || (w > 0 && h > 0 ? w / h : 0);
+      return w >= HERO_BD_MIN_W && Math.abs(ratio - HERO_BD_RATIO) < HERO_BD_RATIO_TOL;
+    }
+
+    /* Волна «хвосты героя», п.C2 (жалоба «Герой = карточка»: кадр героя
+       «Мятежа» — арт постера из ряда под ним). heroBackdrop отсекает
+       ключевой арт backdrop_path, но у TMDB бывает несколько его версий без
+       надписей, и первая годная по голосам — нередко та же картинка, что
+       постер. Кандидаты первого кадра, которые сравниваются с постером
+       (LC.thumbs, src/57_thumbs.js), по порядку: сначала годные по голосам
+       (goodFrames — те, из которых выбирает heroBackdrop), потом остальные
+       неотвергнутые (slideFrames — правило смены кадров), все той же формы
+       (wideFrame); не больше LOOK_MAX — каждый стоит миниатюры w92.
+       strong — сколько в начале списка годных по голосам. */
+    var LOOK_MAX = 3;
+
+    function frameCandidates(images, main) {
+      var list = images && images.backdrops;
+      var paths = [];
+      var good = goodFrames(list, main);
+      var i;
+      for (i = 0; i < good.length && paths.length < LOOK_MAX; i++) {
+        if (wideFrame(good[i], main)) paths.push(good[i].file_path);
+      }
+      var strong = paths.length;
+      var rest = slideFrames(list);
+      for (i = 0; i < rest.length && paths.length < LOOK_MAX; i++) {
+        if (wideFrame(rest[i], main) && paths.indexOf(rest[i].file_path) === -1) paths.push(rest[i].file_path);
+      }
+      return { paths: paths, strong: strong };
+    }
+
+    /* Выбор первого кадра по ответам сравнения (п.C2, правило исследования
+       hero2): первый НЕпохожий на постер кандидат — годный по голосам, если
+       такой есть, иначе неотвергнутый (порядок frameCandidates это и
+       даёт); похожи все — как было (fallback — выбор heroBackdrop).
+       verdictOf(path): false — не похож, true — похож, null — сравнить
+       нельзя (пиксели закрыты, миниатюра не пришла: тогда как было),
+       undefined — ответа ещё нет.
+       Возвращает {path, wait}: wait — кандидат, чей ответ нужен, чтобы
+       решить (путь тогда пуст). late — потолок ожидания истёк, решаем по
+       тому, что известно: первый годный по голосам кандидат, про которого
+       не известно, что он похож (обычно это и есть выбор heroBackdrop),
+       иначе как было. */
+    function pickFrame(cands, strong, verdictOf, fallback, late) {
+      for (var i = 0; i < cands.length; i++) {
+        var v = verdictOf(cands[i]);
+        if (v === false) return { path: cands[i], wait: '' };
+        if (v === true) continue;
+        if (v === null) break;
+        if (!late) return { path: '', wait: cands[i] };
+        for (var j = 0; j < strong && j < cands.length; j++) {
+          if (verdictOf(cands[j]) !== true) return { path: cands[j], wait: '' };
+        }
+        break;
+      }
+      return { path: fallback || '', wait: '' };
     }
 
     /* Модель героя: card — это el.card_data ряда (есть сразу), details —
@@ -715,9 +826,13 @@
     function dropFlight(path, fl) {
       if (fl.subs.length || logoFlight[path] !== fl) return;
       /* Не ждёт никто: отменённая загрузка о картинке ничего не узнала —
-         исход не пишется. */
+         исход не пишется. П.D: и проба её тона снимается. */
       delete logoFlight[path];
       unhookLogo(fl);
+      if (fl.probe) {
+        fl.probe.cancel();
+        fl.probe = null;
+      }
       try {
         if (typeof fl.img.removeAttribute === 'function') fl.img.removeAttribute('src');
       } catch (e) {}
@@ -732,6 +847,27 @@
       unhookLogo(fl);
       logoSeen[path] = ok ? 'ok' : (logoSeen[path] === 'retry' ? 'fail' : 'retry');
       if (ok) keepLogo(path, fl.img);
+      /* П.D: тон логотипа ещё считается — ждущим отвечаем, когда он
+         известен, но не дольше TONE_WAIT: тёмный логотип обязан встать
+         сразу силуэтом, а не тёмным, чтобы потом побелеть (подмена). Не
+         успел — логотип встаёт как есть, силуэт — со следующего показа. */
+      if (ok && fl.probe) {
+        fl.late = setTimeout(function () {
+          fl.late = null;
+          tellLogo(fl, true);
+        }, TONE_WAIT);
+        return;
+      }
+      tellLogo(fl, ok);
+    }
+
+    function tellLogo(fl, ok) {
+      if (fl.told) return;
+      fl.told = true;
+      if (fl.late) {
+        clearTimeout(fl.late);
+        fl.late = null;
+      }
       var subs = fl.subs;
       fl.subs = [];
       for (var i = 0; i < subs.length; i++) {
@@ -743,12 +879,41 @@
       }
     }
 
+    /* П.D: сколько ответ ждущим ждёт тон уже загруженного логотипа. */
+    var TONE_WAIT = 250;
+
+    /* П.D: проба тона логотипа (LC.thumbs.tone) — вместе с его загрузкой,
+       то есть там же, где сама загрузка: после показа героя или в покое
+       фокуса (предзагрузка соседей). Тон уже известен — пробы нет. Тёмный
+       — пробуются варианты того же языка (lightLogo). */
+    function probeTone(path, fl) {
+      if (!LC.thumbs || typeof LC.thumbs.tone !== 'function' || logoTone(path) !== undefined) return;
+      var done = false;
+      var probe = LC.thumbs.tone(path, function (tone) {
+        done = true;
+        fl.probe = null;
+        if (tone === 'dark') probeSiblings(path);
+        if (fl.late) tellLogo(fl, true);
+      });
+      if (!done) fl.probe = probe;
+    }
+
+    function probeSiblings(path) {
+      var sibs = Object.prototype.hasOwnProperty.call(logoSiblings, path) ? logoSiblings[path] : null;
+      for (var i = 0; sibs && i < sibs.length; i++) {
+        if (logoTone(sibs[i]) === undefined) {
+          try { LC.thumbs.tone(sibs[i], function () {}); } catch (e) { warn('hero: logo tone failed', e); }
+        }
+      }
+    }
+
     function flyLogo(path, url) {
       var img = new Image();
       img.decoding = 'async';
       /* keep/linger — п.F: срок, до которого загрузка без ждущих едет
-         дальше (holdLogo), и её таймер. */
-      var fl = { img: img, subs: [], timer: null, keep: 0, linger: null };
+         дальше (holdLogo), и её таймер. probe/late/told — п.D: проба тона,
+         отсрочка ответа ждущим до тона и отметка «ответ отдан». */
+      var fl = { img: img, subs: [], timer: null, keep: 0, linger: null, probe: null, late: null, told: false };
       logoFlight[path] = fl;
       img.onload = function () { landLogo(path, fl, true); };
       img.onerror = function () { landLogo(path, fl, false); };
@@ -758,6 +923,8 @@
         landLogo(path, fl, !!(img.complete && img.naturalWidth));
       }, LOAD_TIMEOUT);
       img.src = url;
+      /* П.D: проба тона — после самого логотипа: его запрос первым. */
+      probeTone(path, fl);
       return fl;
     }
 
@@ -1079,6 +1246,13 @@
          отсчёт заглушки вместо кадра прошлого фильма (holdFrame). */
       stopTimer('frameWait');
       stopTimer('holdTimer');
+      /* Волна «хвосты героя», п.C2: потолок и сравнение миниатюр прошлого
+         показа (chooseFrame) — миниатюры в пути снимаются и в сети. */
+      stopTimer('lookTimer');
+      if (state.look) {
+        state.look.cancel();
+        state.look = null;
+      }
       /* Task 71: предзагрузка логотипа — такой же незавершённый запрос
          прошлой карточки, как кадр. Её страховочный таймаут живёт внутри
          preloadLogo и снимается вместе с ней. */
@@ -1646,6 +1820,10 @@
     function cancelSlides() {
       if (!state) return;
       stopTimer('slideFree');
+      if (state.slideLook) {
+        state.slideLook.cancel();
+        state.slideLook = null;
+      }
       if (state.slides) {
         var s = state.slides;
         state.slides = null;
@@ -1693,11 +1871,23 @@
            годные для первого кадра, goodFrames, и у многих фильмов круга не
            было вовсе). Кадр на экране pickBackdrops ставит первым сам;
            остался он один — смены кадров нет. */
+        /* Волна «хвосты героя», п.C2: и в смене кадров — не копия постера.
+           Кадр, про который уже известно, что он похож на постер (ответ
+           сравнения первого кадра, chooseFrame), в круг не идёт вовсе. */
+        var poster = model.poster || '';
+        var look = poster ? LC.thumbs : null;
         var list = LC.util.filter(slideFrames(images && images.backdrops), function (b) {
+          if (look && b.file_path !== main && look.verdict(poster, b.file_path) === true) return false;
           return !keyArt || keyArt === main || b.file_path !== keyArt;
         });
         var paths = LC.backdrops.pickBackdrops({ backdrops: list }, main, LC.slideshow.maxFramesFor(motionMode()));
         if (!paths || paths.length <= 1) return;
+        var slideShow = function (path, done) {
+          loadFrame({ backdrop: path }, captured, function (ok) {
+            if (ok) freeHidden(captured);
+            done(ok);
+          }, true);
+        };
         state.slides = LC.slideshow.create(state.node, paths, {
           enabled: slidesAllowed,
           intervalMs: slideInterval,
@@ -1709,11 +1899,24 @@
                тоже пропускаем (на стенде — две загрузки w1280 за 20 с).
                Очередь контроллера стоит на месте, и после закрытия смена
                идёт с того же кадра. */
-            if (gen !== captured || !state || state.loader || homeHidden()) return;
-            loadFrame({ backdrop: path }, captured, function (ok) {
-              if (ok) freeHidden(captured);
-              done(ok);
-            }, true);
+            if (gen !== captured || !state || state.loader || state.slideLook || homeHidden()) return;
+            /* П.C2: ответа про этот кадр ещё нет — сперва сравнение с
+               постером (фокус стоит — смена идёт только в покое), и только
+               потом загрузка w1280. Похож — кадр помечается битым
+               (done(false)) и больше не предлагается; контроллер сразу
+               пробует следующий. Пока шло сравнение, что-то сменилось
+               (фокус ушёл, парковка, ролик, главная спрятана, едет кадр) —
+               тик пропускается, ответ уже в памяти для следующего. */
+            var v = look ? look.verdict(poster, path) : false;
+            if (v === true) { done(false); return; }
+            if (v !== undefined) { slideShow(path, done); return; }
+            state.slideLook = look.compare(poster, path, function (similar) {
+              if (!state || gen !== captured) return;
+              state.slideLook = null;
+              if (state.loader || homeHidden() || slidesHeld()) return;
+              if (similar === true) { done(false); return; }
+              slideShow(path, done);
+            });
           }
         });
         if (slidesHeld()) state.slides.pause();
@@ -1783,8 +1986,16 @@
        фон и класс ставятся одной парой. Класс прячет текстовый заголовок
        (.lumen-hero--logo, src/30_css.js) — ставить его раньше картинки
        значило бы показать пустое место вместо названия. */
-    function showLogo(node, url) {
-      node.find('.lumen-hero__logo').css('background-image', 'url("' + encodeURI(url) + '")');
+    function showLogo(node, url, path) {
+      var logo = node.find('.lumen-hero__logo');
+      logo.css('background-image', 'url("' + encodeURI(url) + '")');
+      /* Волна «хвосты героя», п.D: тёмный логотип — белым силуэтом
+         (класс lumen-logo-white, filter в src/30_css.js). Решение
+         принимается на первом выводе логотипа в этом показе и до его конца
+         не меняется: тон, пришедший позже, логотип на глазах не
+         перекрашивает — силуэт со следующего показа. */
+      if (state.logoWhite === null) state.logoWhite = logoTone(path) === 'dark';
+      logo.toggleClass('lumen-logo-white', !!state.logoWhite);
       node.addClass('lumen-hero--logo');
     }
 
@@ -1792,7 +2003,7 @@
        текстовый заголовок. Пустая строка в background-image оставила бы
        style="" на узле (ловушка плана 0.2), поэтому 'none'. */
     function hideLogo(node) {
-      node.find('.lumen-hero__logo').css('background-image', 'none');
+      node.find('.lumen-hero__logo').css('background-image', 'none').removeClass('lumen-logo-white');
       node.removeClass('lumen-hero--logo');
     }
 
@@ -1840,7 +2051,7 @@
            тому названию, которое его и просило. */
         if (!state.model || state.model.logo !== path) return;
         if (state.titleForced) return;
-        showLogo(state.node, url);
+        showLogo(state.node, url, path);
       });
     }
 
@@ -1896,7 +2107,7 @@
           hideLogo(node);
           out = 'none';
         } else {
-          showLogo(node, url);
+          showLogo(node, url, path);
           out = 'logo';
         }
       } else {
@@ -2098,8 +2309,7 @@
        onload слои меняются местами. Пока кадр не пришёл, на экране остаётся
        предыдущий: при листании фон не мигает (ограничение брифа 1). Когда
        фокус остановился, кадр прошлого фильма под новым текстом держится не
-       дольше HOLD_MS — дальше заглушка, постер карточки из ряда (holdFrame);
-       её ставит эта же функция.
+       дольше HOLD_MS — дальше заглушка, нейтральный фон (holdFrame, п.C2).
 
        Task 40: при выключенных тяжёлых эффектах второй полноэкранный слой не
        используется вовсе — кадр подменяется в том, что уже показан. Кроссфейд
@@ -2409,10 +2619,11 @@
              создаёт ни канваса, ни кадрового цикла (src/52_fx.js). */
           applyFx();
           /* Волна 3: кадр героя выбирается по этому ответу (heroBackdrop
-             в heroModel), если show() его ещё ждёт (startFrame). */
-          startFrame(model, captured);
-          /* «Несколько кадров»: кадры фильма — из этого же ответа. */
-          startSlides(model, captured);
+             в heroModel), если show() его ещё ждёт (startFrame). Волна
+             «хвосты героя», п.C2: сначала — сравнение кандидатов с
+             постером (chooseFrame); смена кадров («Несколько кадров», из
+             этого же ответа) заводится за выбором. */
+          chooseFrame(model, captured);
         };
         var onErr = function () {
           if (gen !== captured || !state) return;
@@ -2457,6 +2668,76 @@
        исключение — постер: если детали принесли настоящий кадр, он
        ставится (прежнее правило «кадра не было в данных ряда, но он есть в
        деталях»). */
+    /* Волна «хвосты героя», п.C2: первый кадр показа — не копия постера.
+       Кандидаты (frameCandidates) по одному сравниваются с постером
+       карточки (LC.thumbs.compare: миниатюры w92, разбор в простое), и
+       выбор — pickFrame. Ответы лежат в памяти по паре «постер | кадр»:
+       возврат на тот же фильм решает синхронно, без миниатюр и ожидания.
+       Сравнение ждётся не дольше LOOK_WAIT от ответа деталей; не успело —
+       кадр по тому, что известно (pickFrame, late), а выбранный кадр
+       поздний ответ уже не меняет (одна смена кадра на показ — разбор у
+       startFrame). Сравнения нет, если нечего сравнивать (нет постера или
+       кандидатов), в «Выкл» (кадр не грузится вовсе) и без модуля.
+       Смена кадров заводится за выбором: её круг начинается с кадра на
+       экране (startSlides). Сторож — gen: новый показ снимает и потолок, и
+       сравнение (cancelPending). */
+    function chooseFrame(model, captured) {
+      if (!state || gen !== captured || !model) return;
+      if (state.framePath || state.lookTimer || state.look) {
+        startSlides(model, captured);
+        return;
+      }
+      var d = state.details;
+      var main = (d && d.backdrop_path) || (state.shownCard && state.shownCard.backdrop_path) || '';
+      var cands = frameCandidates(d && d.images, main);
+      var poster = model.poster;
+      var look = LC.thumbs;
+      var decided = false;
+      function verdictOf(path) { return look.verdict(poster, path); }
+      function finish(path) {
+        decided = true;
+        stopTimer('lookTimer');
+        var m = model;
+        if (path && path !== model.backdrop) {
+          m = {};
+          for (var k in model) if (Object.prototype.hasOwnProperty.call(model, k)) m[k] = model[k];
+          m.backdrop = path;
+        }
+        startFrame(m, captured);
+        startSlides(m, captured);
+      }
+      if (!look || !poster || !cands.paths.length || motionMode() === 'off') {
+        finish(model.backdrop);
+        return;
+      }
+      /* Кадр по данным ряда (FRAME_WAIT) больше не нужен: детали пришли. */
+      stopTimer('frameWait');
+      function step() {
+        if (decided || !state || gen !== captured) return;
+        var r = pickFrame(cands.paths, cands.strong, verdictOf, model.backdrop, false);
+        if (!r.wait) {
+          finish(r.path);
+          return;
+        }
+        state.look = look.compare(poster, r.wait, function () {
+          if (!state || gen !== captured) return;
+          state.look = null;
+          step();
+        });
+      }
+      step();
+      if (decided || !state || gen !== captured) return;
+      state.lookTimer = setTimeout(function () {
+        if (!state || gen !== captured) return;
+        state.lookTimer = null;
+        if (decided) return;
+        /* Идущее сравнение не снимаем: фокус стоит на этой карточке, и
+           его ответ ляжет в память — возврат на фильм решит без ожидания.
+           Снимет его новый показ (cancelPending). */
+        finish(pickFrame(cands.paths, cands.strong, verdictOf, model.backdrop, true).path);
+      }, LOOK_WAIT);
+    }
+
     function startFrame(model, captured) {
       if (!state || gen !== captured || !model) return;
       if (state.framePath) return;
@@ -2506,22 +2787,13 @@
        правок волны 3, п.2): при листании по одному нажатию шаг длиннее
        DELAY, каждая пройденная карточка успевает показаться, и её кадр,
        если доехал, встаёт; при удержании стрелки шаг короче — показа нет.
-       Заглушка — по образцу Lampa, у которой фон экрана — размытый постер
-       фильма: постер новой карточки из ряда. Обычно он уже в кэше браузера
-       — Lampa нарисовала его в ряду, — и тогда нет ни запроса, ни ожидания;
-       у карточки, только что въехавшей в ряд, он может ещё грузиться (ревью
-       волны 3, п.6). Нового слоя нет ни в каком случае: он встаёт в тот же
-       слой кадра и растягивается cover'ом,
-       мягкость даёт сам апскейл (в ряду постер w200–w500 — по настройке
-       качества постеров Lampa), без filter:blur, который на полноэкранном
-       слое в lite запрещён. Слой получает ту же
-       метку размытия, что постер фильма без кадра (loadFrame). Кадр
+       Заглушка — нейтральный фон: гаснут оба слоя кадра и подложка.
+       Волна «хвосты героя», п.C2: до неё заглушкой был постер новой
+       карточки из ряда, растянутый на весь кадр, — тот же арт, что под
+       героем в ряду («герой = карточка» на время загрузки кадра). Кадр
        прошлого фильма, размытый CSS, дешевле не был бы (filter на весь
        экран) и остался бы кадром чужого фильма; подложке LQIP нового
        фильма нужен выбранный кадр — детали и ещё один запрос.
-       Постера в ряду ещё нет (Lampa ставит его, когда карточка появляется
-       на экране, до того там ./img/img_load.svg) — нейтральный фон
-       страницы: гаснут оба слоя кадра и подложка.
        state.frameId — чей кадр на экране: возврат на тот же фильм (resume
        с оборванной загрузкой) свой кадр не прячет, а первый показ героя
        заглушки не ждёт вовсе — под ним ничего нет. */
@@ -2541,7 +2813,7 @@
       /* Ревью волны 3, п.2: байты нового кадра уже доехали (тот же признак
          complete && naturalWidth, что у страховочного таймаута loadFrame),
          и его декодирует браузер — кадр вот-вот встанет. Заглушка на этом
-         стыке — короткая вспышка постера (живьём 26 мс при возврате из
+         стыке мелькнула бы на миг (живьём 26 мс при возврате из
          карточки), поэтому ещё HOLD_DECODE, один раз: декодирование,
          которое не кончается (скрытая вкладка), заглушку не держит. */
       var loader = state.loader;
@@ -2553,33 +2825,22 @@
         }, HOLD_DECODE);
         return;
       }
-      var poster = state.holdPoster;
-      /* Ревью tails3, п.3: при показе в карточке ряда стояла svg-заглушка
-         Lampa, и запомненный постер пуст, — к этому мигу настоящий постер
-         мог уже прийти (возврат через «Ещё»: узла карточки у show() нет).
-         Берём его у карточки ряда того же фильма. Ревью tails5: и того же
-         типа — id фильмов и сериалов TMDB пересекаются. */
+      /* Волна «хвосты героя», п.C2: заглушка — нейтральный фон, без
+         картинки. Прежде это был постер карточки из ряда, растянутый на
+         весь кадр, — тот же арт, что под героем в ряду, то есть ровно
+         «герой = карточка» на время загрузки кадра. Гаснут оба слоя кадра
+         и подложка, и под текстом остаются фон страницы и затемнения слоя
+         кадра — тень подкраски (src/30_css.js, accentRules). */
       try {
-        if (!poster) {
-          var cards = state.root.find('.card');
-          var media = mediaOf(state.shownCard);
-          for (var c = 0; !poster && cards && c < cards.length; c++) {
-            if (cards[c] && cards[c].card_data && String(cards[c].card_data.id) === String(state.shownId) &&
-              mediaOf(cards[c].card_data) === media) poster = rowPoster(cards[c]);
-          }
-        }
-        if (poster) {
-          swapFrame(poster, true);
-        } else {
-          state.stage.find('.lumen-hero__bg').removeClass('is-active');
-          state.frameUrl = '';
-          if (state.lqipUrl) {
-            stopTimer('lqipTimer');
-            var lqip = state.stage.find('.lumen-hero__lqip');
-            lqip.removeClass('is-active');
-            lqip.removeAttr('src');
-            state.lqipUrl = '';
-          }
+        state.stage.find('.lumen-hero__bg').removeClass('is-active');
+        state.frameUrl = '';
+        state.frameBlur = false;
+        if (state.lqipUrl) {
+          stopTimer('lqipTimer');
+          var lqip = state.stage.find('.lumen-hero__lqip');
+          lqip.removeClass('is-active');
+          lqip.removeAttr('src');
+          state.lqipUrl = '';
         }
         /* На экране больше нет прошлого фильма — второй раз не прячем. */
         state.frameId = state.shownId;
@@ -2610,19 +2871,10 @@
       }, HOLD_MS);
     }
 
-    /* Адрес постера карточки из ряда, если он уже настоящий: до появления
-       карточки на экране Lampa держит там svg-заглушку загрузки. */
-    function rowPoster(el) {
-      var src = el ? posterOf(el) : '';
-      return src && !/\.svg(\?|#|$)/i.test(src) ? src : '';
-    }
-
     /* Показать героя для карточки. Вызывается только из отложенного тика
-       обработчика фокуса (или из mount для уже сфокусированной карточки).
-       el — узел карточки в ряду, если он есть: его постер — заглушка
-       holdFrame. poster — заглушка, когда узла нет: resume без карточки в
-       фокусе показывает тот же фильм заново (ревью правок волны 3, п.6). */
-    function show(card, el, poster) {
+       обработчика фокуса (или из mount для уже сфокусированной карточки и
+       из resume). */
+    function show(card) {
       if (!state || !card) return;
       try {
         var captured = ++gen;
@@ -2639,6 +2891,8 @@
            (writeTitle). Решение «ждать больше нечего», принятое для
            предыдущей, на неё не распространяется. */
         state.titleForced = false;
+        /* П.D: силуэт логотипа решается заново на каждый показ (showLogo). */
+        state.logoWhite = null;
         /* Task 21: атмосфера прошлой карточки уходит сразу — иначе снег с
            рождественского фильма висел бы над кадром следующего, пока не
            придут его детали. */
@@ -2649,7 +2903,6 @@
         state.framePath = null;
         /* Волна 3: на экране кадр — отсчёт заглушки заведёт вывод текста
            этого показа (write в render), если кадр к тому мигу чужой. */
-        state.holdPoster = el ? rowPoster(el) : (poster || '');
         state.holdDue = !!(state.frameUrl || state.lqipUrl) && motionMode() !== 'off';
         var model = heroModel(card, null, words());
         render(model, true);
@@ -2726,17 +2979,6 @@
       var index = rowIndex(el);
       if (index < 0) return;
       setCompact(index > 0);
-    }
-
-    /* Адрес постера карточки из её <img>: обычно уже отрисован и лежит в
-       кэше браузера, у только что въехавшей в ряд карточки может ещё
-       грузиться. */
-    function posterOf(el) {
-      try {
-        return $(el).find('.card__img').attr('src') || '';
-      } catch (e) {
-        return '';
-      }
     }
 
     /* Правка пользователя 2026-09-17 (третий круг): акцент и подкраска фона
@@ -2858,7 +3100,7 @@
         if (!isMounted()) return;
         if (state.pending !== card) return;
         if (!shouldUpdate(state.shownId, card.id, Date.now() - state.focusAt, DELAY)) return;
-        show(card, el);
+        show(card);
       }, DELAY);
     }
 
@@ -2961,7 +3203,7 @@
              уже прошло мимо — героя показываем здесь. state.focusEl тут
              намеренно НЕ ставится: первое настоящее событие фокуса должно
              пройти полный путь и завести таймеры. */
-          show(el[0].card_data, el[0]);
+          show(el[0].card_data);
         }
       } catch (e) {}
     }
@@ -3150,6 +3392,9 @@
              (writeTitle). */
           titleTimer: null,
           titleForced: false,
+          /* Волна «хвосты героя», п.D: белый силуэт логотипа в этом показе —
+             null, пока логотип не выводился (showLogo). */
+          logoWhite: null,
           /* Запрос деталей в пути (loadDetails). Флаг, а не дескриптор:
              Lampa.Api.sources.tmdb.get ничего не возвращает. */
           detailsWait: false,
@@ -3166,11 +3411,16 @@
              таймер ожидания деталей перед выбором. */
           framePath: null,
           frameWait: null,
-          /* Волна 3: чей кадр на экране (id фильма); заглушка вместо кадра
-             прошлого фильма — постер карточки из ряда, отсчёт до неё и
-             отметка «завести отсчёт при выводе текста» (holdFrame). */
+          /* Волна «хвосты героя», п.C2: потолок и дескриптор сравнения
+             кандидатов с постером (chooseFrame) и сравнение кадра смены
+             (startSlides). */
+          lookTimer: null,
+          look: null,
+          slideLook: null,
+          /* Волна 3: чей кадр на экране (id фильма); отсчёт до заглушки
+             вместо кадра прошлого фильма (нейтральный фон, п.C2) и отметка
+             «завести отсчёт при выводе текста» (holdFrame). */
           frameId: null,
-          holdPoster: '',
           holdTimer: null,
           holdDue: false,
           /* Task 64: адрес кадра-подложки (w300), чтобы тот же не ставился
@@ -3276,10 +3526,14 @@
       } catch (eTween) {
         warn('hero: accent stop failed', eTween);
       }
-      var timers = ['timer', 'swapTimer', 'loadTimer', 'accentTimer', 'trailerTimer', 'lqipTimer', 'titleTimer', 'frameWait', 'holdTimer'];
+      var timers = ['timer', 'swapTimer', 'loadTimer', 'accentTimer', 'trailerTimer', 'lqipTimer', 'titleTimer', 'frameWait', 'lookTimer', 'holdTimer'];
       for (var i = 0; i < timers.length; i++) {
         try { if (s[timers[i]]) clearTimeout(s[timers[i]]); } catch (eT) {}
       }
+      /* Волна «хвосты героя», п.C2: сравнения миниатюр первого кадра и
+         смены кадров. */
+      try { if (s.look) s.look.cancel(); } catch (eL) {}
+      try { if (s.slideLook) s.slideLook.cancel(); } catch (eSL) {}
       if (s.loader) {
         s.loader.onload = null;
         s.loader.onerror = null;
@@ -3383,7 +3637,9 @@
          тик после возврата предложит снова (slides.pause ниже). */
       var holdLeft = state.holdDue && String(state.frameId) !== String(state.shownId);
       var frameLeft = (state.loader || state.loadTimer) && !state.slideLoad;
-      if (state.detailsWait || frameLeft || state.logoLoader || state.swapTimer || state.titleTimer || state.frameWait || state.holdTimer || holdLeft) {
+      /* Волна «хвосты героя», п.C2: выбор кадра ещё ждёт сравнения
+         миниатюр (lookTimer) — кадра показа нет, как и при frameWait. */
+      if (state.detailsWait || frameLeft || state.logoLoader || state.swapTimer || state.titleTimer || state.frameWait || state.lookTimer || state.holdTimer || holdLeft) {
         state.stale = true;
       }
       state.parked = true;
@@ -3459,14 +3715,10 @@
              карточку (плитка «Ещё» ряда — .card-more, её Lampa помнит как
              last ряда), а загрузка показанного фильма была оборвана или
              ответ доехал на парковке. Без повторного show() скелетон
-             описания горел бы до смены фокуса на карточку.
-             Ревью правок волны 3, п.6: узла карточки нет (фокус на плитке
-             «Ещё»), но фильм тот же — заглушкой остаётся постер его ряда,
-             взятый при прошлом показе; без него под текстом вставал бы
-             нейтральный фон. */
+             описания горел бы до смены фокуса на карточку. */
           if (state.stale && state.shownCard) {
             state.stale = false;
-            show(state.shownCard, null, state.holdPoster);
+            show(state.shownCard);
           } else {
             applyFx();
           }
@@ -3481,7 +3733,7 @@
         }
         if (state.stale || String(state.shownId) !== String(card.id)) {
           state.stale = false;
-          show(card, node);
+          show(card);
         } else {
           applyFx();
         }
@@ -3587,6 +3839,9 @@
          предзагрузки соседей (src/58_prefetch.js). */
       preloadLogo: preloadLogo,
       logoState: logoState,
+      /* Волна «хвосты героя», п.D: тон логотипа ('dark' | 'light' | 'none'
+         или undefined) — для карточки фильма (src/85_header.js). */
+      logoTone: logoTone,
       touchLogo: touchLogo,
       CARD_TITLE_EM: CARD_TITLE_EM,
       mediaOf: mediaOf,
@@ -3594,6 +3849,10 @@
       /* Волна 3: выбор кадра героя — наружу ради теста, применяет его сам
          модуль (heroModel). */
       heroBackdrop: heroBackdrop,
+      /* Волна «хвосты героя», п.C2: кандидаты первого кадра и выбор по
+         ответам сравнения с постером — наружу ради теста. */
+      frameCandidates: frameCandidates,
+      pickFrame: pickFrame,
       shouldUpdate: shouldUpdate,
       sizeFor: sizeFor,
       logoSizeFor: logoSizeFor,
