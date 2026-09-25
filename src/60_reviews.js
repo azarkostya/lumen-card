@@ -853,9 +853,51 @@
       } catch (e) { }
     }
 
+    /* Следующий раунд, п.5: упор ленты — на кромке карточки. В конце
+       ленты упор (scrollWidth − clientWidth) обычно приходится на середину
+       карточки, и слева снова торчал бы её кусок. Хвост — пустой узел
+       после карточек (.lumen-reviews__tail): его ширина добирает упор до
+       ближайшей кромки за ним, справа остаётся пусто меньше чем на одну
+       карточку. Кромки — в координатах прокрутки: offsetLeft карточки минус
+       offsetLeft первой (у всех карточек один offsetParent, поэтому ни
+       позиционировать ряд, ни читать его padding не нужно). Нынешняя ширина
+       хвоста берётся из его же style.width — она уже в scrollWidth, и
+       второй раскладки ради неё не нужно. Возвращает упор с хвостом. */
+    function fitTail(block, box, cards, origin) {
+      var max = box.scrollWidth - box.clientWidth;
+      var tail = block.find('.lumen-reviews__tail');
+      var node = tail && tail.length ? tail[0] : null;
+      if (!node || !node.style) return max;
+      var cur = parseFloat(node.style.width) || 0;
+      var base = max - cur;
+      var want = 0;
+      if (base > 0.5) {
+        for (var i = 0; i < cards.length; i++) {
+          var c = cards[i];
+          if (!c || typeof c.offsetLeft !== 'number') continue;
+          var edge = c.offsetLeft - origin;
+          if (edge >= base - 0.5) {
+            want = Math.max(0, edge - base);
+            break;
+          }
+        }
+      }
+      if (Math.abs(want - cur) > 0.5) node.style.width = Math.round(want) + 'px';
+      return base + want;
+    }
+
     /* Прокрутка ряда к карточке в фокусе: Lampa сама ряды внутри ряда
        описания не двигает (находка Task 5d), поэтому двигаем scrollLeft.
-       Плавно — только в режиме полных анимаций, как везде в плагине. */
+       Плавно — только в режиме полных анимаций, как везде в плагине.
+       Следующий раунд, п.5 (дизайнер отзывов): лента центрировала карточку,
+       и слева торчал обрезанный кусок предыдущей. Теперь карточка встаёт к
+       левой кромке — на то место, где при scrollLeft 0 стоит первая, то есть
+       с тем же полем ряда под увеличение фокуса (.45em), — как штатный
+       Scroll.update Lampa без tocenter (getElementPosition,
+       vendor/lampa/app.min.js:32046). Маску края не брали: кусок бывает шире
+       любой разумной маски (до почти целой карточки), а маска на ленте с
+       живыми карточками — лишний слой композиции на слабом ТВ. Справа
+       обрезанная карточка остаётся — она и говорит, что лента не кончилась. */
     function scrollToCard(block, card) {
       try {
         var row = block.find('.lumen-reviews__row');
@@ -863,8 +905,11 @@
         var box = row[0];
         var node = card[0];
         if (!box || !node || typeof node.offsetLeft !== 'number') return;
-        var target = node.offsetLeft - (box.clientWidth - node.offsetWidth) / 2;
-        var max = box.scrollWidth - box.clientWidth;
+        var cards = block.find('.lumen-review');
+        var first = cards && cards.length ? cards[0] : node;
+        var origin = first && typeof first.offsetLeft === 'number' ? first.offsetLeft : node.offsetLeft;
+        var target = node.offsetLeft - origin;
+        var max = fitTail(block, box, cards || [], origin);
         if (target > max) target = max;
         if (target < 0) target = 0;
         var motion = 'full';
@@ -1010,7 +1055,8 @@
       var block = $('<div class="lumen-reviews' + (mode === 'full' ? '' : ' lumen-reviews--headlines') + '"></div>');
       var cards = [];
       LC.util.each(list, function (item, i) { cards.push(cardHtml(item, i, mode)); });
-      block.html(headHtml(total, mode) + '<div class="lumen-reviews__row">' + cards.join('') + '</div>');
+      /* Хвост ленты — последним узлом ряда (разбор у fitTail). */
+      block.html(headHtml(total, mode) + '<div class="lumen-reviews__row">' + cards.join('') + '<div class="lumen-reviews__tail"></div></div>');
       holder.append(block);
       bind(block, list);
       appendSelectors(block);

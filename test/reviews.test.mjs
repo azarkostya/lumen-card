@@ -515,16 +515,17 @@ function reviewsFocusEnv() {
   env.journal.calls[1].ok(REVIEWS_OK);
   const block = blocksOf(d)[0];
   const row = block.find('.lumen-reviews__row');
-  /* find отдаёт набор всех карточек отзывов (как jQuery) — берём первую. */
-  const card = block.find('.lumen-review').eq(0);
-  /* Геометрия ленты: карточка шириной 400 на позиции 900, видимая часть 1000,
-     вся лента 2400. Центрирование даёт 900 − (1000 − 400) / 2 = 600. */
+  /* find отдаёт набор всех карточек отзывов (как jQuery). Геометрия ленты
+     (следующий раунд, п.5): три карточки шириной 400 с шагом 420, первая —
+     на поле 10 (padding ряда под увеличение фокуса), видимая часть 1000,
+     вся лента 10 + 840 + 400 + 20 + 10 = 1280. Фокус — на второй (430). */
+  const cards = block.find('.lumen-review');
+  for (let i = 0; i < cards.length; i++) { cards[i].offsetLeft = 10 + i * 420; cards[i].offsetWidth = 400; }
+  const card = cards.eq(1);
   row.clientWidth = 1000;
-  row.scrollWidth = 2400;
+  row.scrollWidth = 1280;
   row.scrollLeft = 0;
-  card.offsetLeft = 900;
-  card.offsetWidth = 400;
-  return { env, block, row, card };
+  return { env, block, row, card, cards };
 }
 
 test('Task 68: на корне блока отзывов ОБА события фокуса, и это один обработчик', () => {
@@ -544,11 +545,16 @@ test('Task 68: на корне блока отзывов ОБА события �
    наведением (центрирование), подвозила под курсор соседнюю карточку, и
    клик по второму отзыву открывал первый. Мышью лента листается колесом
    (тест ниже), как штатные ряды Lampa. */
-test('D2: пультовый hover:focus центрирует ленту отзывов, мышиный hover:hover — нет', () => {
+/* Следующий раунд, п.5 (дизайнер отзывов): лента центрировала карточку под
+   фокусом, и слева торчал обрезанный кусок предыдущей. Теперь карточка
+   встаёт к левой кромке — на то же поле, где стоит первая при scrollLeft 0
+   (так увеличение фокуса не срезается), как штатный Scroll.update Lampa без
+   tocenter. Центрирование дало бы 430 − (1000 − 400) / 2 = 130. */
+test('D2 и п.5: пультовый hover:focus ставит карточку к левой кромке ленты, мышиный hover:hover ленту не двигает', () => {
   const remote = reviewsFocusEnv();
   (remote.block._listeners || []).filter((l) => l.type === 'hover:focus')[0]
     .fn({ type: 'hover:focus', target: remote.card });
-  assert.equal(remote.row.scrollLeft, 600, 'пультом лента встала по центру карточки');
+  assert.equal(remote.row.scrollLeft, 420, 'пультом лента не встала к левой кромке карточки (с полем первой)');
 
   const mouse = reviewsFocusEnv();
   (mouse.block._listeners || []).filter((l) => l.type === 'hover:hover')[0]
@@ -1314,9 +1320,41 @@ test('D2: колесо над правой половиной ленты отз�
   assert.equal(f.row.scrollLeft, 0);
   const fwd = wheelOn(f.block, cards[1], 1500, 100);
   assert.equal(fwd.stopped, true, 'колесо над лентой ушло ещё и карточке');
-  /* Третья карточка (840…1240) за кромкой 1000: центр её — 840 − (1000 − 400) / 2
-     = 540, упор ленты — 1400 − 1000 = 400. */
-  assert.equal(f.row.scrollLeft, 400, 'лента не пролисталась к следующей карточке');
+  /* Третья карточка (840…1240) за кромкой 1000. К левой кромке её не
+     поставить: упор ленты — 1400 − 1000 = 400. Следующий раунд, п.5: упор
+     ложится на кромку ближайшей карточки (420) — хвост ленты добирает 20,
+     и слева не торчит кусок первой; третья видна целиком. */
+  assert.equal(f.row.scrollLeft, 420, 'лента не пролисталась к следующей карточке');
+});
+
+/* Следующий раунд, п.5: в конце ленты упор (scrollWidth − clientWidth)
+   обычно приходится на середину карточки — и слева снова кусок. Хвост
+   ленты (пустой узел после карточек) добирает ширину так, чтобы упор лёг на
+   кромку карточки; справа остаётся пусто меньше чем на одну карточку. */
+test('п.5: в конце ленты отзывов слева не торчит кусок — упор на кромке карточки', () => {
+  const f = reviewsFocusEnv();
+  const tail = f.block.find('.lumen-reviews__tail');
+  assert.ok(tail && tail.length, 'у ленты нет хвоста');
+  const focus = (card) => (f.block._listeners || []).filter((l) => l.type === 'hover:focus')[0]
+    .fn({ type: 'hover:focus', target: card });
+  /* Третья карточка: к левой кромке — 840, упор без хвоста — 280 (середина
+     второй карточки: 280 − 0 не кромка 0/420/840). Ближайшая кромка за
+     упором — 420: хвост 140, лента встаёт на 420. */
+  focus(f.cards.eq(2));
+  assert.equal(tail[0].style.width, '140px', 'хвост не добрал упор до кромки карточки');
+  assert.equal(f.row.scrollLeft, 420, 'в конце ленты слева кусок карточки');
+  /* Назад к первой: лента в начале; хвост уже учтён в scrollWidth. */
+  f.row.scrollWidth = 1280 + 140;
+  focus(f.cards.eq(0));
+  assert.equal(f.row.scrollLeft, 0);
+  assert.equal(tail[0].style.width, '140px', 'хвост пересчитан с ошибкой: его ширина уже входит в scrollWidth');
+  /* Лента короче экрана — прокрутки нет, хвоста тоже. */
+  const g = reviewsFocusEnv();
+  g.row.scrollWidth = 1000;
+  (g.block._listeners || []).filter((l) => l.type === 'hover:focus')[0].fn({ type: 'hover:focus', target: g.cards.eq(2) });
+  assert.equal(g.row.scrollLeft, 0);
+  assert.ok(!g.block.find('.lumen-reviews__tail')[0].style.width || g.block.find('.lumen-reviews__tail')[0].style.width === '0px');
+  assert.deepEqual(warnLog, []);
 });
 
 /* Полное ревью (сомнительное): кэш отзывов хранит уже экранированную

@@ -1321,6 +1321,15 @@ test('жалоба 2026-09-25: под инверсией фокуса у кар�
    2.17:1 («Глубокая чёрная»), позитивная P.good — 1.82 / 1.90: полоса
    пропадает ровно на карточке под пультом. Под фокусом у тона свой, тёмный
    вариант; порог — 3:1, как у значимой графики (WCAG 2.1, 1.4.11). */
+/* Следующий раунд, п.5: хвост ленты отзывов (ширину ставит fitTail в
+   src/60_reviews.js) не сжимается flex'ом и сам ничего не рисует. */
+test('п.5: хвост ленты отзывов — flex:none, ширина 0 до расчёта, без фона', () => {
+  const decl = findDecl(css, (sel) => sel === '.lumen-descr-row .lumen-reviews__tail');
+  assert.ok(decl, 'правила хвоста нет');
+  assert.ok(/(^|;)flex:none/.test(decl) && /(^|;)width:0(;|$)/.test(decl), decl);
+  assert.equal(/background|border/.test(decl), false, decl);
+});
+
 test('п.3: полоса тона отзыва под фокусом-инверсией видна — контраст к заливке ≥ 3:1 в обеих темах', () => {
   const over = (color, base) => {
     const m = /^rgba\((\d+),(\d+),(\d+),([\d.]+)\)$/.exec(color);
@@ -2346,16 +2355,47 @@ test('Ревью Task 54: отметка «режим включён» чита�
   const modeFocus = findDecl(css, (sel) => sel === '.lumen-descr-row .lumen-reviews__mode.focus');
   assert.ok(contrast(P.bg, P.text) >= 4.5, 'подпись под фокусом не читается');
   assert.ok(modeFocus.indexOf('color:' + P.bg) !== -1, modeFocus);
+  /* Следующий раунд, п.5: кнопки «Смотреть по порядку» — того же языка,
+     что переключатель отзывов, и отметка у них та же галочка цветом
+     подписи. Кольцо --on.focus ушло вместе с акцентом. */
   for (const chip of ['.lumen-descr-row .lumen-fr__mode']) {
-    const decl = findDecl(css, (sel) => sel === chip + '--on.focus');
-    assert.ok(decl, chip + ': у отмеченного состояния под фокусом нет своего правила');
-    const mark = /(^|;)outline:[\d.]+em solid (#[0-9A-Fa-f]{6})/.exec(decl);
-    assert.ok(mark, chip + ': признак отметки не найден — ' + decl);
-    assert.ok(contrast(mark[2], P.text) >= 4.5, chip + ': признак ' + mark[2] + ' на заливке фокуса — ' + contrast(mark[2], P.text).toFixed(2) + ':1');
-    /* Кольцо внутрь: рамка сдвинула бы содержимое чипа, outline лежит поверх. */
-    assert.ok(/outline-offset:-[\d.]+em/.test(decl), chip + ': кольцо обязано быть внутренним — ' + decl);
-    assert.equal(decl.indexOf(P.accent), -1, chip + ': акцент на светлой заливке не читается — ' + decl);
+    const frMark = findDecl(css, (sel) => sel === chip + '--on:before');
+    assert.ok(frMark, chip + ': у включённого режима нет отметки');
+    assert.ok(/background-color:currentColor/.test(frMark), chip + ': отметка не красится цветом подписи — ' + frMark);
+    const focus = findDecl(css, (sel) => sel === chip + '.focus');
+    assert.ok(focus.indexOf('color:' + P.bg) !== -1, focus);
+    assert.equal(findDecl(css, (sel) => sel === chip + '--on.focus'), null, chip + ': лишнее кольцо под фокусом');
   }
+});
+
+/* Следующий раунд, п.5 (дизайнер отзывов): в соседнем ряду «Смотреть по
+   порядку» кнопки «По выходу / По рейтингу» остались прежними — серый чип
+   с рамкой, приглушённая подпись, включённый режим акцентным текстом и
+   акцентной рамкой. Переключатель отзывов с жалобы 2026-09-25 — того же
+   языка, что кнопки карточки (заливка P.buttonBg без рамки, подпись
+   P.soft весом 600, скругление .5em); кнопки франшизы — туда же. */
+test('п.5: кнопки режима «Смотреть по порядку» — в стиле кнопок карточки, как переключатель отзывов', () => {
+  const P = tokensWith({});
+  const fr = findDecl(css, (sel) => sel === '.lumen-descr-row .lumen-fr__mode');
+  const rv = findDecl(css, (sel) => sel === '.lumen-descr-row .lumen-reviews__mode');
+  assert.ok(fr && rv, 'правила кнопок не найдены');
+  assert.equal(/(^|;)border(-color)?:/.test(fr), false, 'у кнопки франшизы осталась рамка: ' + fr);
+  /* Заливка кнопок карточки — P.buttonBg (в LC.tokens её нет): вуаль
+     текста темы, rgba(textRgb,.12). */
+  const buttonBg = 'rgba(' + P.textRgb + ',.12)';
+  for (const part of ['background:' + buttonBg, 'color:' + P.soft, 'font-weight:600', 'border-radius:.5em', 'padding:.34em .8em', 'font-size:1.01em']) {
+    assert.ok(rv.indexOf(part) !== -1, 'подготовка: у переключателя отзывов нет ' + part);
+    assert.ok(fr.indexOf(part) !== -1, 'кнопка франшизы не в стиле кнопок карточки — нет ' + part + ': ' + fr);
+  }
+  const on = findDecl(css, (sel) => sel === '.lumen-descr-row .lumen-fr__mode--on');
+  assert.ok(on.indexOf('color:' + P.text) !== -1, 'включённый режим — полным цветом текста: ' + on);
+  assert.equal(on.indexOf(P.accent), -1, 'акцентный текст включённого режима остался: ' + on);
+  assert.equal(/border-color/.test(on), false, 'акцентная рамка включённого режима осталась: ' + on);
+  /* Без CSS-масок галочки нет — включённый режим отличает внутреннее
+     кольцо цветом подписи, как у переключателя отзывов. */
+  const noMask = css.split('\n').filter((l) => l.indexOf('@supports not ((-webkit-mask-image:none)') === 0).join('\n');
+  assert.ok(noMask.indexOf('.lumen-descr-row .lumen-fr__mode--on:before') !== -1, 'галочка без масок — пустой квадрат');
+  assert.ok(/\.lumen-descr-row \.lumen-fr__mode--on\{outline:[^}]*currentColor/.test(noMask), 'без масок включённый режим ничем не отмечен');
 });
 
 test('Task 17: на слабых ТВ пружины фокуса в хабе и сетке нет', () => {

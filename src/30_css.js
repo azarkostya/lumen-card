@@ -2645,6 +2645,11 @@
        (13.3em × .015 = .2em) плюс саму подложку .2em. Отрицательный margin
        возвращает карточки на прежнюю вертикаль под заголовком. */
     css.push('.lumen-descr-row .lumen-reviews__row{display:-webkit-box;display:-webkit-flex;display:flex;overflow:hidden;padding:.3em .45em .5em;margin:0 -.45em}');
+    /* Следующий раунд, п.5: хвост ленты — пустой узел после карточек.
+       Ширину ему ставит src/60_reviews.js (fitTail), чтобы упор прокрутки
+       лёг на кромку карточки и в конце ленты слева не торчал кусок; сам он
+       не сжимается и ничего не рисует. */
+    css.push('.lumen-descr-row .lumen-reviews__tail{-webkit-box-flex:0;-webkit-flex:none;flex:none;width:0}');
     /* Фикс-раунд Task 63: высота карточки 11.4em → 13.3em. Кегли внутри
        поднялись до минимума tvOS, и содержимое в прежнюю коробку перестало
        помещаться. Замер на стенде 960×540@2 узлом-пробником с типовым
@@ -2925,17 +2930,22 @@
     css.push('.lumen-descr-row .lumen-fr__title{font-family:' + FB + ';font-weight:700;font-size:1.40em;line-height:1;color:' + P.text + ';margin-right:.61em}');
     css.push('.lumen-descr-row .lumen-fr__name{font-family:' + FB + ';font-weight:500;font-size:1.01em;line-height:1;letter-spacing:.05em;color:' + P.muted + ';margin-right:.69em}');
     css.push('.lumen-descr-row .lumen-fr__modes{display:-webkit-box;display:-webkit-flex;display:flex}');
-    css.push('.lumen-descr-row .lumen-fr__mode{padding:.24em .42em;margin-right:.24em;border-radius:.30em;background:' + P.buttonBg + ';border:.04em solid ' + P.line + ';font-family:' + FB + ';font-weight:600;font-size:1.01em;line-height:1.2;color:' + P.muted + '}');
-    css.push('.lumen-descr-row .lumen-fr__mode--on{color:' + A + ';border-color:rgba(' + A_RGB + ',.5)}');
-    /* Task 54: фокус — инверсия P.text/P.bg. Отметка --on под фокусом — своё
-       внутреннее кольцо цветом подписи: правило фокуса (три класса)
-       перебивает color:A у --on (два), а волосок border-color rgba(A,.5) на
-       заливке P.text не виден — контраст акцента на ней 1.56. Кольцо
-       outline'ом, а не рамкой: рамка сдвинула бы подпись чипа. (У
-       переключателя отзывов выше отметка — галочка currentColor, ей кольцо
-       не нужно.) */
+    /* Следующий раунд, п.5 (дизайнер отзывов): кнопки «По выходу / По
+       рейтингу» оставались серыми чипами с рамкой и приглушённой подписью,
+       а включённый режим — акцентным текстом с акцентной рамкой, хотя
+       переключатель отзывов в соседнем ряду с жалобы 2026-09-25 уже того же
+       языка, что кнопки карточки (разбор у .lumen-reviews__mode выше).
+       Теперь и эти кнопки такие же: заливка P.buttonBg без рамки, подпись
+       P.soft весом 600, скругление .5em; включённый режим — полным цветом
+       текста и галочкой currentColor, под фокусом-инверсией (Task 54) она
+       становится P.bg вместе с подписью, и прежнее кольцо --on.focus (им
+       отмечали акцентную отметку, которую инверсия гасила до 1.56:1) больше
+       не нужно. Зазор между двумя кнопками — .44em: с новыми полями
+       прежние .24em сливали их в одну плашку. */
+    css.push('.lumen-descr-row .lumen-fr__mode{display:inline-block;padding:.34em .8em;margin-right:.44em;border-radius:.5em;background:' + P.buttonBg + ';font-family:' + FB + ';font-weight:600;font-size:1.01em;line-height:1.2;color:' + P.soft + ';white-space:nowrap}');
+    css.push('.lumen-descr-row .lumen-fr__mode--on{color:' + P.text + '}');
+    css.push('.lumen-descr-row .lumen-fr__mode--on:before{content:"";display:inline-block;vertical-align:-.14em;width:1em;height:1em;margin-right:.35em;background-color:currentColor;-webkit-mask-image:' + LC.icons.maskUrl('check') + ';mask-image:' + LC.icons.maskUrl('check') + ';-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;-webkit-mask-size:contain;mask-size:contain}');
     css.push('.lumen-descr-row .lumen-fr__mode.focus{background:' + P.text + ';color:' + P.bg + '}');
-    css.push('.lumen-descr-row .lumen-fr__mode--on.focus{outline:.13em solid ' + P.bg + ';outline-offset:-.13em}');
     /* Ряд частей — горизонтальный, как ряд отзывов: Lampa внутри ряда
        описания не прокручивает (находка Task 5d), к карточке в фокусе ряд
        подкручивается сам (scrollToCard в src/66_franchise.js нет — карточки
@@ -2965,12 +2975,12 @@
        (мерцают только при полных анимациях — правило .lumen-skeleton). */
     css.push('.lumen-descr-row .lumen-fr-card--sk{height:11.84em;border-radius:.53em}');
     /* Движок без масок: пустые закрашенные квадраты вместо иконок не рисуем. */
-    css.push(LC.icons.NO_MASK + '{.lumen-descr-row .lumen-reviews__ico,.lumen-descr-row .lumen-reviews__hint-ico,.lumen-descr-row .lumen-review__likes:before,.lumen-review-modal__likes:before,.lumen-descr-row .lumen-reviews__mode--on:before,.lumen-descr-row .lumen-fr__ico,.lumen-descr-row .lumen-fr-card__mark{display:none}}');
+    css.push(LC.icons.NO_MASK + '{.lumen-descr-row .lumen-reviews__ico,.lumen-descr-row .lumen-reviews__hint-ico,.lumen-descr-row .lumen-review__likes:before,.lumen-review-modal__likes:before,.lumen-descr-row .lumen-reviews__mode--on:before,.lumen-descr-row .lumen-fr__mode--on:before,.lumen-descr-row .lumen-fr__ico,.lumen-descr-row .lumen-fr-card__mark{display:none}}');
     /* Без звезды число в мете карточки ничего не говорит — возвращаем слово
        «полезно»; без галочки включённый переключатель режима отличает
        внутреннее кольцо цветом подписи (outline внутрь: в поток не входит,
        и тени со spread, запрещённой правилом Task 38, не нужно). */
-    css.push(LC.icons.NO_MASK + '{.lumen-descr-row .lumen-review__useful{display:inline}.lumen-descr-row .lumen-reviews__mode--on{outline:.08em solid currentColor;outline-offset:-.2em}}');
+    css.push(LC.icons.NO_MASK + '{.lumen-descr-row .lumen-review__useful{display:inline}.lumen-descr-row .lumen-reviews__mode--on,.lumen-descr-row .lumen-fr__mode--on{outline:.08em solid currentColor;outline-offset:-.2em}}');
 
     /* --- Компактная раскладка на узких экранах (страховка). Правка 2026-09-16
        (п.1): правил боковой колонки здесь больше нет, а одноколоночный поток
