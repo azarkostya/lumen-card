@@ -853,6 +853,7 @@
       if (fl.probe) {
         fl.probe.cancel();
         fl.probe = null;
+        if (Object.prototype.hasOwnProperty.call(toneProbes, path) && toneProbes[path].fl === fl) delete toneProbes[path];
       }
       try {
         if (typeof fl.img.removeAttribute === 'function') fl.img.removeAttribute('src');
@@ -906,24 +907,96 @@
     /* П.D: проба тона логотипа (LC.thumbs.tone) — вместе с его загрузкой,
        то есть там же, где сама загрузка: после показа героя или в покое
        фокуса (предзагрузка соседей). Тон уже известен — пробы нет. Тёмный
-       — пробуются варианты того же языка (lightLogo). */
+       — пробуются варианты того же языка (lightLogo).
+       Полное ревью c644bfd (сомнительное героя): пробы в пути — в таблице
+       toneProbes (путь → {job, fl}), одна на путь. Уход фокуса с показанной
+       карточки снимает пробы её логотипа и его вариантов (dropTones) — как
+       сравнения миниатюр: canvas во время листания не работает. Снятая проба
+       заводится снова, когда логотип встаёт на экран (showLogo): тон
+       известного логотипа иначе не узнать до конца сеанса — загрузки,
+       при которой проба заводится, у него больше не будет. fl — загрузка
+       логотипа, чей ответ ждущим ждёт тон (landLogo); у повторной пробы её
+       нет. */
+    var toneProbes = {};
+
     function probeTone(path, fl) {
       if (!LC.thumbs || typeof LC.thumbs.tone !== 'function' || logoTone(path) !== undefined) return;
+      if (Object.prototype.hasOwnProperty.call(toneProbes, path)) return;
+      var entry = { job: null, fl: fl || null };
+      toneProbes[path] = entry;
       var done = false;
       var probe = LC.thumbs.tone(path, function (tone) {
         done = true;
-        fl.probe = null;
+        if (toneProbes[path] === entry) delete toneProbes[path];
+        if (entry.fl) entry.fl.probe = null;
         if (tone === 'dark') probeSiblings(path);
-        if (fl.late) tellLogo(fl, true);
+        if (entry.fl && entry.fl.late) tellLogo(entry.fl, true);
       });
-      if (!done) fl.probe = probe;
+      if (done) return;
+      entry.job = probe;
+      if (fl) fl.probe = probe;
     }
 
     function probeSiblings(path) {
+      if (!LC.thumbs || typeof LC.thumbs.tone !== 'function') return;
       var sibs = Object.prototype.hasOwnProperty.call(logoSiblings, path) ? logoSiblings[path] : null;
       for (var i = 0; sibs && i < sibs.length; i++) {
-        if (logoTone(sibs[i]) === undefined) {
-          try { LC.thumbs.tone(sibs[i], function () {}); } catch (e) { warn('hero: logo tone failed', e); }
+        if (logoTone(sibs[i]) === undefined && !Object.prototype.hasOwnProperty.call(toneProbes, sibs[i])) probeSibling(path, sibs[i]);
+      }
+    }
+
+    function probeSibling(path, sib) {
+      var entry = { job: null, fl: null };
+      toneProbes[sib] = entry;
+      var done = false;
+      try {
+        var probe = LC.thumbs.tone(sib, function (tone) {
+          done = true;
+          if (toneProbes[sib] === entry) delete toneProbes[sib];
+          if (tone === 'light') preloadLight(path, sib);
+        });
+        if (!done) entry.job = probe;
+      } catch (e) {
+        if (toneProbes[sib] === entry) delete toneProbes[sib];
+        warn('hero: logo tone failed', e);
+      }
+    }
+
+    /* Полное ревью c644bfd (сомнительное героя, 55): логотип — героя или
+       предзагрузки соседей (src/58_prefetch.js) — выбирается, пока тон его
+       вариантов неизвестен, и грузится тёмный; когда пробы скажут «тёмный» и
+       «светлый», следующий показ выберет светлый вариант (lightLogo), а его
+       в памяти нет — ожидание, а то и текст. Тот вариант, который выберет
+       показ (первый светлый в logoSiblings), грузится сразу в общее
+       хранилище. */
+    function preloadLight(path, sib) {
+      var sibs = Object.prototype.hasOwnProperty.call(logoSiblings, path) ? logoSiblings[path] : [];
+      for (var i = 0; i < sibs.length && sibs[i] !== sib; i++) {
+        if (logoTone(sibs[i]) === 'light') return;
+      }
+      if (!logoAllowed() || logoSeen[sib] === 'ok' || logoSeen[sib] === 'fail' || logoFlight[sib]) return;
+      var url = logoUrl(sib);
+      if (url) preloadLogo(sib, url, function () {});
+    }
+
+    /* Уход фокуса с показанной карточки: пробы тона её логотипа и его
+       вариантов снимаются. Ждущие логотипа, которым ответ придерживала
+       проба (landLogo), получают его сразу — логотип как есть. */
+    function dropTones(path) {
+      if (!path) return;
+      var list = [path].concat(Object.prototype.hasOwnProperty.call(logoSiblings, path) ? logoSiblings[path] : []);
+      for (var i = 0; i < list.length; i++) {
+        if (!Object.prototype.hasOwnProperty.call(toneProbes, list[i])) continue;
+        var entry = toneProbes[list[i]];
+        delete toneProbes[list[i]];
+        try {
+          if (entry.job) entry.job.cancel();
+        } catch (e) {
+          warn('hero: logo tone cancel failed', e);
+        }
+        if (entry.fl) {
+          entry.fl.probe = null;
+          if (entry.fl.late) tellLogo(entry.fl, true);
         }
       }
     }
@@ -2123,6 +2196,14 @@
       if (state.logoWhite === null) state.logoWhite = logoTone(path) === 'dark';
       logo.toggleClass('lumen-logo-white', !!state.logoWhite);
       node.addClass('lumen-hero--logo');
+      /* Полное ревью c644bfd: проба, снятая уходом фокуса (dropTones),
+         заводится снова, когда логотип на экране и фокус на нём: тон — к
+         следующему показу, варианты тёмного — к нему же. */
+      if (!focusAway()) {
+        var tone = logoTone(path);
+        if (tone === undefined) probeTone(path, null);
+        else if (tone === 'dark') probeSiblings(path);
+      }
     }
 
     /* Логотипа нет, он выключен настройкой или не доехал — на экране
@@ -3327,6 +3408,9 @@
         state.slideLook.cancel();
         state.slideLook = null;
       }
+      /* Полное ревью c644bfd: и пробы тона её логотипа и вариантов
+         (dropTones) — тоже canvas. */
+      dropTones(state.model && state.model.logo);
 
       var captured = gen;
       state.timer = setTimeout(function () {

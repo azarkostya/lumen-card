@@ -6360,20 +6360,24 @@ test('п.D: тёмный тон пришёл — пробуются вариан
   assert.deepEqual(thumbs.probes.map((p) => p.p), ['/l.png', '/l2.png', '/l3.png']);
 });
 
-test('п.D: загрузку логотипа сняли — проба тона снята вместе с ней', () => {
+/* Полное ревью c644bfd (сомнительное героя): проба тона показанного
+   логотипа снимается уже уходом фокуса — как сравнения миниатюр (canvas во
+   время листания не работает), а не только снятием загрузки логотипа. */
+test('п.D: проба тона снята уходом фокуса; загрузка логотипа живёт до показа следующей карточки', () => {
   const thumbs = toneThumbs();
   const { env, main } = heroTone(thumbs);
   env.requests[0].ok(LOGO_RU);
   main.card1.removeClass('focus');
   main.card2.addClass('focus');
   fireFocus(main.activity, main.card2);
+  assert.equal(thumbs.probes[0].cancelled, true, 'уход фокуса не снял пробу тона показанного логотипа');
   /* Раунд «Листание», F1: нажатие через 350 мс после первого — серия,
      показ второй (он и снимает загрузку логотипа первой) — через
      BURST_DELAY. */
   env.advance(DELAY);
-  assert.equal(thumbs.probes[0].cancelled, false, 'серия: до показа второй загрузка логотипа первой жива');
+  assert.equal(typeof logoLoader(env).onload, 'function', 'серия: до показа второй загрузка логотипа первой жива');
   env.advance(BURST_DELAY - DELAY);
-  assert.equal(thumbs.probes[0].cancelled, true);
+  assert.equal(logoLoader(env).onload, null, 'показ второй не снял загрузку логотипа первой');
 });
 
 /* ====================================================================== */
@@ -6679,4 +6683,100 @@ test('ревью D4: старт главной без фокуса на карт
   const main = makeMain();
   env.hero.mount(main.activity);
   assert.equal(env.requests.length, 0, 'mount без фокуса запросил детали');
+});
+
+/* ====================================================================== */
+/* Полное ревью c644bfd (сомнительное героя): варианты логотипа и пробы     */
+/* ====================================================================== */
+
+const VARIANTS = { images: { logos: [
+  { file_path: '/l.png', iso_639_1: 'ru' },
+  { file_path: '/l2.png', iso_639_1: 'ru' },
+  { file_path: '/l3.png', iso_639_1: 'ru' }
+] } };
+const variantLoads = (env, p) => env.images.filter((i) => i.src === 'https://img/t/p/w780' + p);
+
+/* Логотип (показа или предзагрузки соседей) выбирается, пока тон его
+   вариантов неизвестен, — грузится тёмный. Проба говорит «тёмный», пробы
+   вариантов — «светлый», и следующий показ выбирает светлый вариант
+   (lightLogo), которого в памяти нет: ожидание логотипа, а то и текст.
+   Светлый вариант, который выберет показ, грузится сразу, как только его
+   тон известен, — в то же общее хранилище. */
+test('ревью: вариант, светлый по пробе, грузится заранее — следующий показ ставит именно его, сразу', () => {
+  const thumbs = toneThumbs();
+  const { env, main, node } = heroTone(thumbs);
+  env.requests[0].ok(VARIANTS);
+  thumbs.answer(0, 'dark');
+  assert.deepEqual(thumbs.probes.map((p) => p.p), ['/l.png', '/l2.png', '/l3.png'], 'подготовка: пробуются варианты');
+  thumbs.answer(1, 'dark');
+  assert.equal(variantLoads(env, '/l2.png').length, 0, 'тёмный вариант грузится заранее');
+  thumbs.answer(2, 'light');
+  assert.equal(variantLoads(env, '/l3.png').length, 1, 'светлый вариант не загружен заранее');
+  variantLoads(env, '/l3.png')[0].onload();
+  assert.equal(env.hero.logoState('/l3.png'), 'ok');
+
+  /* Следующий показ того же фильма — светлый вариант сразу, без ожидания. */
+  rest(env);
+  main.card1.removeClass('focus');
+  main.card2.addClass('focus');
+  fireFocus(main.activity, main.card2);
+  env.advance(DELAY);
+  rest(env);
+  main.card2.removeClass('focus');
+  main.card1.addClass('focus');
+  fireFocus(main.activity, main.card1);
+  env.advance(DELAY);
+  env.requests[env.requests.length - 1].ok(VARIANTS);
+  env.advance(200);
+  assert.equal(node.hasClass('lumen-hero--logo'), true, 'светлый вариант не встал сразу');
+  assert.equal(node.find('.lumen-hero__logo').css('background-image'), 'url("https://img/t/p/w780/l3.png")');
+  assert.equal(variantLoads(env, '/l3.png').length, 1, 'светлый вариант загружен второй раз');
+  assert.deepEqual(warnLog, []);
+});
+
+test('ревью: пробы вариантов логотипа сняты уходом фокуса; возврат на фильм пробует их снова', () => {
+  const thumbs = toneThumbs();
+  const { env, main, node } = heroTone(thumbs);
+  env.requests[0].ok(VARIANTS);
+  env.images.find((i) => i.src === 'https://img/t/p/w780/l.png').onload();
+  thumbs.answer(0, 'dark');
+  assert.equal(node.hasClass('lumen-hero--logo'), true, 'подготовка: тёмный логотип на экране');
+  rest(env);
+  main.card1.removeClass('focus');
+  main.card2.addClass('focus');
+  fireFocus(main.activity, main.card2);
+  assert.deepEqual(thumbs.probes.filter((p) => p.p !== '/l.png').map((p) => p.cancelled), [true, true], 'пробы вариантов пережили уход фокуса');
+  env.advance(DELAY);
+
+  rest(env);
+  main.card2.removeClass('focus');
+  main.card1.addClass('focus');
+  fireFocus(main.activity, main.card1);
+  env.advance(DELAY);
+  env.requests[env.requests.length - 1].ok(VARIANTS);
+  env.advance(200);
+  const again = thumbs.probes.filter((p) => !p.cancelled && p.p !== '/l.png').map((p) => p.p);
+  assert.deepEqual(again, ['/l2.png', '/l3.png'], 'тон вариантов больше не узнать до конца сеанса');
+});
+
+test('ревью: проба тона, снятая уходом фокуса, заводится снова на следующем показе логотипа', () => {
+  const thumbs = toneThumbs();
+  const { env, main, node } = heroTone(thumbs);
+  env.requests[0].ok(LOGO_RU);
+  logoLoader(env).onload();
+  rest(env);
+  main.card1.removeClass('focus');
+  main.card2.addClass('focus');
+  fireFocus(main.activity, main.card2);
+  assert.equal(thumbs.probes[0].cancelled, true, 'подготовка: проба снята уходом фокуса');
+  env.advance(DELAY);
+  rest(env);
+  main.card2.removeClass('focus');
+  main.card1.addClass('focus');
+  fireFocus(main.activity, main.card1);
+  env.advance(DELAY);
+  env.requests[env.requests.length - 1].ok(LOGO_RU);
+  env.advance(200);
+  assert.equal(node.hasClass('lumen-hero--logo'), true, 'подготовка: логотип из памяти');
+  assert.deepEqual(thumbs.probes.filter((p) => !p.cancelled).map((p) => p.p), ['/l.png'], 'тон логотипа больше не узнать до конца сеанса');
 });
