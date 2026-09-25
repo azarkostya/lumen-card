@@ -385,6 +385,8 @@ function makeEnv(extra) {
   globalThis.MutationObserver = ForbiddenObserver;
   globalThis.Image = FakeImage;
   globalThis.Date.now = () => env.now;
+  /* Раунд «Листание»: нажатия прошлого теста к этому герою не относятся. */
+  lastPress = -Infinity;
   globalThis.setTimeout = (fn, ms) => {
     const id = timers.length + 1;
     timers.push({ id: id, fn: fn, ms: ms, at: env.now + ms, done: false });
@@ -529,15 +531,38 @@ function hoverListeners(root) {
   return (root._listeners || []).filter((l) => l.type === 'hover:hover' && l.capture);
 }
 
+/* Раунд «Листание», F1 (src/48_hero.js): одиночное нажатие показывает
+   героя через DELAY; нажатие, пришедшее меньше чем через BURST_GAP после
+   прошлого, — серия, и герой встаёт через BURST_DELAY после последнего.
+   Время последнего нажатия (пульт или мышь) помнят fireFocus/fireHover. */
+const DELAY = 350;
+const BURST_GAP = 700;
+const BURST_DELAY = 700;
+let lastPress = -Infinity;
+
+/* Пользователь постоял на карточке: следующее нажатие — одиночное.
+   Тесты, чей предмет — вторая карточка ПОСЛЕ показанной первой (кадр в
+   том же слое, заглушка под новым текстом, логотип нового фильма), до
+   правки F1 нажимали вторую через 400 мс после первой — шаг длиннее
+   DELAY, но короче BURST_GAP, то есть теперь серия. Их предмет —
+   одиночный шаг, и перед ним пауза до BURST_GAP. Серии проверяются
+   отдельно (тесты раунда «Листание» ниже и тесты с явным шагом). */
+function rest(env) {
+  const wait = lastPress + BURST_GAP - env.now;
+  if (wait > 0) env.advance(wait);
+}
+
 function fireFocus(root, target) {
   const list = focusListeners(root);
   assert.equal(list.length, 1, 'на корне обязан жить ровно один capture-слушатель фокуса');
+  lastPress = Date.now();
   list[0].fn({ target: target });
 }
 
 function fireHover(root, target) {
   const list = hoverListeners(root);
   assert.equal(list.length, 1, 'на корне обязан жить ровно один capture-слушатель мышиного фокуса');
+  lastPress = Date.now();
   list[0].fn({ target: target });
 }
 
@@ -662,6 +687,9 @@ test('Task 68: наведение мышью меняет кадр героя т
   answerDetails(env);
   assert.equal(env.images[0].src, 'https://img/t/p/w1280/b1.jpg', 'первая карточка — её кадр');
 
+  /* Раунд «Листание»: мышь остановилась на первой — второе наведение
+     одиночное (серии мышью — тесты раунда ниже). */
+  rest(env);
   fireHover(main.activity, main.card2);
   env.advance(400);
   answerDetails(env);
@@ -844,7 +872,7 @@ test('Task 49: mount на другой корень оставляет ровн�
   assert.equal(env.bodyClasses.indexOf('lumen-main-on'), -1);
 });
 
-test('фокус карточки: кадр грузится только после задержки 350 мс, быстрое листание даёт одну загрузку', () => {
+test('фокус карточки: кадр грузится только после задержки, быстрое листание (серия) даёт одну загрузку', () => {
   const env = makeEnv();
   const main = makeMain();
   env.hero.mount(main.activity);
@@ -853,19 +881,147 @@ test('фокус карточки: кадр грузится только пос
   fireFocus(main.activity, main.card1);
   assert.equal(env.images.length, 0, 'до задержки кадр не грузится');
 
-  /* Фокус ушёл на вторую карточку раньше 350 мс — первый таймер снят. */
+  /* Фокус ушёл на вторую карточку раньше 350 мс — первый таймер снят.
+     Раунд «Листание», F1: второе нажатие через 100 мс — серия, и герой
+     встаёт через BURST_DELAY после него, а не через DELAY. */
   env.advance(100);
   main.card1.removeClass('focus');
   main.card2.addClass('focus');
   fireFocus(main.activity, main.card2);
 
-  env.advance(350);
+  env.advance(DELAY);
+  assert.equal(env.requests.length, 0, 'серия нажатий: через DELAY героя ещё нет');
+  env.advance(BURST_DELAY - DELAY - 1);
+  assert.equal(env.requests.length, 0, 'раньше BURST_DELAY после последнего нажатия героя нет');
+  env.advance(1);
   assert.equal(env.requests.length, 1);
   assert.equal(env.requests[0].url, 'movie/22');
   /* Волна 3: кадр выбирается по ответу деталей. */
   answerDetails(env);
   assert.equal(env.images.length, 1, 'ровно одна предзагрузка кадра');
   assert.equal(env.images[0].src, 'https://img/t/p/w1280/b2.jpg', 'кадр карточки, на которой фокус остановился');
+});
+
+/* ====================================================================== */
+/* Раунд «Листание», F1: серия нажатий ждёт покоя дольше                  */
+/*                                                                        */
+/* Трейс 2026-09-25 (CPU ×10, шаг 400 мс — шаг самотеста): шаг длиннее    */
+/* DELAY, и герой менялся на каждом шаге — треть работы главного потока.  */
+/* Нажатие меньше чем через BURST_GAP после прошлого — серия: герой       */
+/* встаёт через BURST_DELAY после последнего. Одиночное — через DELAY.    */
+/* ====================================================================== */
+
+/* Лента из n карточек первого ряда (id 101…), фокус — по одной. */
+function rowMain(n) {
+  const main = makeMain();
+  const cards = [];
+  for (let i = 0; i < n; i++) cards.push(addCard(main, 101 + i));
+  return { main: main, cards: cards };
+}
+
+test('раунд «Листание»: одиночное нажатие — герой через DELAY (350 мс), как было', () => {
+  const env = makeEnv();
+  const { main, cards } = rowMain(3);
+  env.hero.mount(main.activity);
+  fireFocus(main.activity, cards[0]);
+  env.advance(DELAY - 1);
+  assert.equal(env.requests.length, 0, 'раньше DELAY');
+  env.advance(1);
+  assert.deepEqual(env.requests.map((r) => r.url), ['movie/101'], 'одиночное нажатие — показ через DELAY');
+
+  /* Пауза не короче BURST_GAP — следующее нажатие снова одиночное. */
+  env.advance(BURST_GAP - DELAY);
+  fireFocus(main.activity, cards[1]);
+  env.advance(DELAY);
+  assert.deepEqual(env.requests.map((r) => r.url), ['movie/101', 'movie/102'], 'после паузы BURST_GAP нажатие не одиночное');
+  assert.deepEqual(warnLog, []);
+});
+
+test('раунд «Листание»: граница серии — прошлое нажатие ближе BURST_GAP (699 мс) — серия, ровно BURST_GAP — одиночное', () => {
+  for (const gap of [BURST_GAP - 1, BURST_GAP]) {
+    const env = makeEnv();
+    const { main, cards } = rowMain(2);
+    env.hero.mount(main.activity);
+    fireFocus(main.activity, cards[0]);
+    env.advance(gap);
+    fireFocus(main.activity, cards[1]);
+    env.advance(DELAY);
+    const shown = env.requests.some((r) => r.url === 'movie/102');
+    assert.equal(shown, gap >= BURST_GAP, 'шаг ' + gap + ' мс: ' + (shown ? 'показан через DELAY' : 'не показан через DELAY'));
+    env.advance(BURST_DELAY - DELAY);
+    assert.ok(env.requests.some((r) => r.url === 'movie/102'), 'шаг ' + gap + ' мс: к BURST_DELAY герой так и не встал');
+  }
+});
+
+for (const input of ['пульт', 'мышь']) {
+  test('раунд «Листание» (' + input + '): серия шагом 400 мс — ни одного показа, пока идёт; после серии через BURST_DELAY — один показ последней карточки', () => {
+    const env = makeEnv();
+    const { main, cards } = rowMain(7);
+    const move = input === 'мышь' ? fireHover : fireFocus;
+    env.hero.mount(main.activity);
+    const node = heroOf(main.activity);
+    move(main.activity, cards[0]);
+    env.advance(400);
+    answerDetails(env);
+    assert.deepEqual(env.requests.map((r) => r.url), ['movie/101'], 'подготовка: первое нажатие одиночное — показано');
+
+    for (let i = 1; i < cards.length; i++) {
+      move(main.activity, cards[i]);
+      env.advance(400);
+    }
+    assert.deepEqual(env.requests.map((r) => r.url), ['movie/101'], 'серия: пройденные карточки показывались');
+    assert.equal(node.find('.lumen-hero__descr').text(), 'о фильме 101', 'серия: герой сменился посреди листания');
+    assert.equal(frameLoads(env).length, 1, 'серия: кадры пройденных карточек грузились');
+
+    /* Последнее нажатие — 400 мс назад. */
+    env.advance(BURST_DELAY - 400 - 1);
+    assert.equal(env.requests.length, 1, 'раньше BURST_DELAY после последнего нажатия');
+    env.advance(1);
+    assert.deepEqual(env.requests.map((r) => r.url), ['movie/101', 'movie/107'], 'после серии — один показ, карточки под фокусом');
+    env.advance(200);
+    assert.equal(node.find('.lumen-hero__descr').text(), 'о фильме 107');
+    answerDetails(env);
+    assert.deepEqual(frameLoads(env), ['/b101.jpg', '/b107.jpg'], 'кадр — только у последней');
+    env.advance(3000);
+    assert.equal(env.requests.length, 2, 'после серии — ровно один показ');
+    assert.deepEqual(warnLog, []);
+  });
+}
+
+/* Самотест (src/69_bench.js, стадии 6 и 7): шесть шагов вправо и столько же
+   обратно, шаг 400 мс. Первый шаг приходит после покоя — одиночное
+   нажатие, его карточка показывается через DELAY (будущего нажатия герой
+   не знает); остальные одиннадцать — серия, без показов. Серия кончается
+   на исходной карточке, и она встаёт через BURST_DELAY. Итого два показа
+   за листание вместо двенадцати. */
+test('раунд «Листание»: шаги самотеста (6 вправо, 6 обратно по 400 мс) — два показа вместо двенадцати', () => {
+  const env = makeEnv();
+  const { main, cards } = rowMain(7);
+  env.hero.mount(main.activity);
+  const node = heroOf(main.activity);
+  fireFocus(main.activity, cards[0]);
+  env.advance(400);
+  answerDetails(env);
+  env.advance(2000);
+  const shownRequests = env.requests.length;
+  const shownFrames = frameLoads(env).length;
+
+  const path = [1, 2, 3, 4, 5, 6, 5, 4, 3, 2, 1, 0];
+  for (const i of path) {
+    fireFocus(main.activity, cards[i]);
+    env.advance(400);
+  }
+  assert.deepEqual(env.requests.slice(shownRequests).map((r) => r.url), ['movie/102'],
+    'за серию показан кто-то, кроме первого шага (одиночного нажатия)');
+  env.advance(BURST_DELAY - 400 - 1);
+  assert.equal(env.requests.length, shownRequests + 1, 'исходная карточка встала раньше BURST_DELAY');
+  env.advance(1);
+  assert.deepEqual(env.requests.slice(shownRequests).map((r) => r.url), ['movie/102', 'movie/101'], 'после серии — исходная карточка');
+  env.advance(1000);
+  assert.equal(env.requests.length, shownRequests + 2, 'за листание самотеста больше двух показов');
+  assert.equal(node.find('.lumen-hero__descr').text(), 'о фильме 101');
+  assert.ok(frameLoads(env).length - shownFrames <= 2, 'кадров за листание больше двух');
+  assert.deepEqual(warnLog, []);
 });
 
 test('повторный фокус той же карточки не грузит кадр заново', () => {
@@ -973,7 +1129,9 @@ test('Task 40: без тяжёлых эффектов кадр меняется 
   assert.equal(a.attr('src'), 'https://img/t/p/w1280/b1.jpg');
   assert.equal(b.hasClass('is-active'), false, 'второй слой не поднимался');
 
-  /* Вторая карточка: кадр обязан приехать в ТОТ ЖЕ слой. */
+  /* Вторая карточка: кадр обязан приехать в ТОТ ЖЕ слой. Нажатие —
+     одиночное, после паузы (раунд «Листание», F1). */
+  rest(env);
   main.card1.removeClass('focus');
   main.card2.addClass('focus');
   fireFocus(main.activity, main.card2);
@@ -1007,6 +1165,8 @@ test('логотип: размер по пропорции и неизменно
   assert.equal(logo.css('width'), '15.93em');
   assert.equal(logo.css('height'), '6.37em');
 
+  /* Раунд «Листание», F1: второе нажатие — одиночное, после паузы. */
+  rest(env);
   main.card1.removeClass('focus');
   main.card2.addClass('focus');
   fireFocus(main.activity, main.card2);
@@ -1093,7 +1253,9 @@ test('unmount: узел, класс хоста, слушатель, таймер
   /* Вторая карточка: её запрос деталей ещё летит, кадр ждёт его ответа
      (frameWait), а кадр первой ещё грузится. Предзагрузку кадра и ожидание
      unmount гасит; запрос деталей отменить нечем (Lampa get ничего не
-     возвращает) — его ответ обязан пройти мимо снятого героя без следа. */
+     возвращает) — его ответ обязан пройти мимо снятого героя без следа.
+     Раунд «Листание», F1: нажатие одиночное, после паузы. */
+  rest(env);
   main.card1.removeClass('focus');
   main.card2.addClass('focus');
   fireFocus(main.activity, main.card2);
@@ -1677,7 +1839,9 @@ test('Task 52: метка размытия живёт на слое кадра, 
        мгновенно и без перехода — зритель увидел бы, как размытый постер
        скачком ужался на 10 %, то есть ровно ту жалобу, которую Task 52 и
        лечит, только на уходящем слое. Правильность от этого не страдает:
-       приходящему слою метку каждый раз выставляет toggleClass. */
+       приходящему слою метку каждый раз выставляет toggleClass.
+       Раунд «Листание», F1: нажатие одиночное, после паузы. */
+    rest(env);
     main.card1.removeClass('focus');
     main.card2.addClass('focus');
     fireFocus(main.activity, main.card2);
@@ -1822,6 +1986,8 @@ function focusedFrame(opts) {
    поднимает поколение, снимает предзагрузку прежней карточки и заводит
    свой Image. Возвращается этот новый Image. */
 function focusSecond(f) {
+  /* Раунд «Листание», F1: второе нажатие — одиночное, после паузы. */
+  rest(f.env);
   f.main.card1.removeClass('focus');
   f.main.card2.addClass('focus');
   fireFocus(f.main.activity, f.main.card2);
@@ -2053,6 +2219,9 @@ function shownFrame(env, main) {
   frameImg(env, '/b1.jpg').onload();
   const stage = stageOf(heroOf(main.activity));
   assert.equal(stage.find('.lumen-hero__bg.is-active').attr('src'), 'https://img/t/p/w1280/b1.jpg', 'предусловие: кадр первого фильма на экране');
+  /* Раунд «Листание», F1: на первом фильме постояли — следующее нажатие
+     одиночное, и его показ через DELAY, как в сценариях ниже. */
+  rest(env);
   return stage;
 }
 
@@ -2150,6 +2319,8 @@ test('волна 3: на экране только подложка прошло
   env.advance(400);
   answerDetails(env);
   assert.equal(lqip.attr('src'), 'https://img/t/p/w300/b1.jpg', 'предусловие: подложка первого фильма');
+  /* Раунд «Листание», F1: второе нажатие — одиночное, после паузы. */
+  rest(env);
 
   fireFocus(main.activity, main.card2);
   env.advance(350);
@@ -2171,6 +2342,8 @@ test('волна 3: подложка нового фильма встала ра
   fireFocus(main.activity, main.card1);
   env.advance(400);
   answerDetails(env);
+  /* Раунд «Листание», F1: второе нажатие — одиночное, после паузы. */
+  rest(env);
 
   fireFocus(main.activity, main.card2);
   env.advance(350);
@@ -2243,7 +2416,11 @@ for (const input of ['пульт', 'мышь']) {
     assert.equal(active().attr('src'), 'https://img/t/p/w1280/b1.jpg', 'фокус ушёл — под текстом второго фильма его постер не ставим');
     assert.deepEqual(seen, [], 'слой кадра менялся, пока фокус шёл дальше');
 
-    env.advance(150);
+    /* Раунд «Листание», F1: третье нажатие через 630 мс после второго —
+       серия, и третий фильм встаёт через BURST_DELAY, а не через DELAY. */
+    env.advance(DELAY - 200);
+    assert.equal(heroOf(main.activity).find('.lumen-hero__descr').text(), 'о втором', 'серия: через DELAY третий фильм ещё не показан');
+    env.advance(BURST_DELAY - DELAY);
     env.advance(180);
     assert.equal(heroOf(main.activity).find('.lumen-hero__descr').text(), 'о фильме 33', 'предусловие: текст третьего фильма выведен');
     env.advance(249);
@@ -2479,6 +2656,8 @@ async function decodingSecond(env) {
   const stage = stageOf(heroOf(main.activity));
   assert.equal(stage.find('.lumen-hero__bg.is-active').attr('src'), 'https://img/t/p/w1280/b1.jpg', 'предусловие: кадр первого фильма на экране');
   const seen = layerLog(env, stage);
+  /* Раунд «Листание», F1: второе нажатие — одиночное, после паузы. */
+  rest(env);
   fireFocus(main.activity, main.card2);
   env.advance(350);
   /* Детали пришли — текст выведен, отсчёт 250 мс заведён, кадр грузится. */
@@ -2537,17 +2716,16 @@ for (const how of ['едут', 'ошибка']) {
    550 мс. Ни кадр, ни детали не успевают ни на одном шаге, и прежде на
    каждом шаге через 230 мс после ухода фокуса вставал постер покинутой
    карточки. Теперь слой кадра за всё листание не меняется ни разу, а
-   после остановки — постер через 250 мс от текста и кадр, когда доедут
-   детали. */
-test('ревью волны 3, п.1: листание шагом 550 мс при деталях через 700 мс — ни одной заглушки, пока фокус идёт', () => {
-  const env = makeEnv({ fxHeavy: () => false });
-  const main = makeMain();
-  const cards = [33, 44, 55, 66, 77, 88].map((id) => addCard(main, id));
-  env.hero.mount(main.activity);
-  const stage = shownFrame(env, main);
-  const seen = layerLog(env, stage);
+   после остановки — заглушка через 250 мс от текста и кадр, когда доедут
+   детали.
+   Раунд «Листание», F1: шаг 550 мс короче BURST_GAP — это серия, и
+   пройденные карточки не показываются вовсе; последняя встаёт через
+   BURST_DELAY после нажатия, текст — через SWAP_MS после показа, заглушка
+   — через 250 мс от текста. Тот же механизм «фокус ушёл до заглушки» на
+   одиночных нажатиях (шаг длиннее BURST_GAP) — следующий тест. */
+function slowDetails(env) {
   const born = new Map();
-  function run(ms) {
+  return function run(ms) {
     for (let t = 0; t < ms; t += 10) {
       env.advance(10);
       for (const r of env.requests) {
@@ -2559,14 +2737,65 @@ test('ревью волны 3, п.1: листание шагом 550 мс при
         }
       }
     }
-  }
+  };
+}
+
+test('ревью волны 3, п.1: листание шагом 550 мс при деталях через 700 мс — ни одной заглушки, пока фокус идёт', () => {
+  const env = makeEnv({ fxHeavy: () => false });
+  const main = makeMain();
+  const cards = [33, 44, 55, 66, 77, 88].map((id) => addCard(main, id));
+  env.hero.mount(main.activity);
+  const stage = shownFrame(env, main);
+  const seen = layerLog(env, stage);
+  const run = slowDetails(env);
+  const before = env.requests.length;
 
   for (const card of cards) {
     fireFocus(main.activity, card);
     run(550);
   }
   assert.deepEqual(seen, [], 'за листание слой кадра менялся: ' + seen.join(', '));
-  run(250);
+  /* Первое нажатие — после паузы, одиночное: его карточка показана через
+     DELAY, и фокус ушёл с неё через 20 мс после вывода текста (исходный
+     сценарий ревью). Дальше — серия: пройденные карточки не показываются. */
+  assert.deepEqual(env.requests.slice(before).map((r) => r.url), ['movie/33'], 'серия нажатий: пройденные карточки показывались');
+  /* Последнее нажатие было 550 мс назад: показ — на BURST_DELAY, текст —
+     через 180 мс после него, заглушка — через 250 мс от текста. */
+  run(BURST_DELAY - 550 + 180 + 250 - 10);
+  assert.deepEqual(seen, [], 'заглушка раньше 250 мс от текста');
+  run(10);
+  assert.deepEqual(seen, [NEUTRAL], 'фокус остановился — заглушка последней карточки');
+  run(300);
+  frameImg(env, '/b88.jpg').onload();
+  assert.deepEqual(seen, [NEUTRAL, 'https://img/t/p/w1280/b88.jpg'], 'детали доехали — кадр последней карточки');
+  assert.deepEqual(warnLog, []);
+});
+
+/* То же на одиночных нажатиях: шаг 750 мс длиннее BURST_GAP, и каждая
+   карточка показывается через DELAY; текст выходит через 530 мс после
+   нажатия, а фокус уходит через 750 — за 30 мс до отсчёта заглушки. Ни на
+   одном шаге заглушка не встаёт; после остановки — через 250 мс от
+   текста. */
+test('ревью волны 3, п.1 + раунд «Листание»: шаг 750 мс (одиночные нажатия) при деталях через 700 мс — ни одной заглушки, пока фокус идёт', () => {
+  const env = makeEnv({ fxHeavy: () => false });
+  const main = makeMain();
+  const cards = [33, 44, 55, 66, 77, 88].map((id) => addCard(main, id));
+  env.hero.mount(main.activity);
+  const stage = shownFrame(env, main);
+  const seen = layerLog(env, stage);
+  const run = slowDetails(env);
+  const descr = () => heroOf(main.activity).find('.lumen-hero__descr').text();
+
+  for (const card of cards) {
+    fireFocus(main.activity, card);
+    run(DELAY + 180);
+    assert.equal(descr(), 'о фильме ' + card.card_data.id, 'одиночное нажатие — карточка показана через DELAY');
+    run(750 - DELAY - 180);
+  }
+  assert.deepEqual(seen, [], 'за листание слой кадра менялся: ' + seen.join(', '));
+  run(20);
+  assert.deepEqual(seen, [], 'заглушка раньше 250 мс от текста');
+  run(10);
   assert.deepEqual(seen, [NEUTRAL], 'фокус остановился — заглушка последней карточки');
   run(300);
   frameImg(env, '/b88.jpg').onload();
@@ -4159,6 +4388,9 @@ test('трейлер героя: без оверлея повторный фок
 /* Карточка под фокусом в заданном режиме движения: показ запущен, кадр
    запрошен, текст (теперь во всех режимах отложенный на SWAP_MS) ещё не
    записан. */
+/* Раунд «Листание», F1: в тестах названия ниже переход на следующую
+   карточку — одиночное нажатие после показанной (rest перед ним); серия
+   названий не трогает — её показ тот же, только позже. */
 function heroIn(mode) {
   const env = makeEnv();
   env.LC.motionMode = () => mode;
@@ -4231,6 +4463,7 @@ test('Task 71: логотип не загрузился — остаётся т�
   assert.equal(node.find('.lumen-hero__title').text(), 'Первый');
 
   /* Та же картинка у следующей карточки: одна повторная попытка. */
+  rest(env);
   main.card1.removeClass('focus');
   main.card2.addClass('focus');
   fireFocus(main.activity, main.card2);
@@ -4243,6 +4476,7 @@ test('Task 71: логотип не загрузился — остаётся т�
 
   /* А третьей попытки нет: после второго провала картинка помечена
      окончательно. */
+  rest(env);
   main.card2.removeClass('focus');
   main.card1.addClass('focus');
   fireFocus(main.activity, main.card1);
@@ -4264,6 +4498,7 @@ test('Task 71 (ревью М5): вторая попытка удалась — �
   logoLoader(env).onerror();
   assert.equal(node.hasClass('lumen-hero--logo'), false);
 
+  rest(env);
   main.card1.removeClass('focus');
   main.card2.addClass('focus');
   fireFocus(main.activity, main.card2);
@@ -4274,6 +4509,7 @@ test('Task 71 (ревью М5): вторая попытка удалась — �
   logoLoader(env).onload();
   assert.equal(node.hasClass('lumen-hero--logo'), true, 'удачный повтор обязан поставить логотип');
 
+  rest(env);
   main.card2.removeClass('focus');
   main.card1.addClass('focus');
   fireFocus(main.activity, main.card1);
@@ -4292,6 +4528,7 @@ test('Task 71: уже загруженный логотип ставится с�
   logoLoader(env).onload();
   assert.equal(node.hasClass('lumen-hero--logo'), true);
 
+  rest(env);
   main.card1.removeClass('focus');
   main.card2.addClass('focus');
   fireFocus(main.activity, main.card2);
@@ -4311,6 +4548,7 @@ test('Task 71: карточка сменилась до прихода лого�
      загрузчика мало, поэтому проверяем обе страховки сразу. */
   const staleOnload = stale.onload;
 
+  rest(env);
   main.card1.removeClass('focus');
   main.card2.addClass('focus');
   fireFocus(main.activity, main.card2);
@@ -4459,6 +4697,7 @@ test('Название: детали пришли после потолка, л�
   logoLoader(env).onload();
   assert.equal(node.hasClass('lumen-hero--logo'), true, 'подготовка: логотип известен');
 
+  rest(env);
   main.card1.removeClass('focus');
   main.card2.addClass('focus');
   fireFocus(main.activity, main.card2);
@@ -4476,6 +4715,7 @@ test('Название: детали пришли после потолка, л�
 
   /* Следующая карточка с тем же логотипом — снова сразу логотипом:
      «текст до конца показа» не переживает смену карточки. */
+  rest(env);
   main.card2.removeClass('focus');
   main.card1.addClass('focus');
   fireFocus(main.activity, main.card1);
@@ -4502,6 +4742,7 @@ test('Название: фокус ушёл во время ожидания —
   env.requests[0].ok(LOGO_RU);
   assert.equal(node.find('.lumen-hero__title').text(), '');
 
+  rest(env);
   main.card1.removeClass('focus');
   main.card2.addClass('focus');
   fireFocus(main.activity, main.card2);
@@ -4568,6 +4809,7 @@ test('Название: знакомый фильм показывается м�
   assert.equal(node.hasClass('lumen-hero--logo'), true);
 
   /* Вторая карточка с тем же логотипом: исход уже известен (logoSeen). */
+  rest(env);
   main.card1.removeClass('focus');
   main.card2.addClass('focus');
   fireFocus(main.activity, main.card2);
@@ -4969,8 +5211,12 @@ for (const input of ['пульт', 'мышь']) {
       assert.equal(env.live()[0].ms, 8000, 'после возврата — новый интервал');
       assert.equal(env.requests.filter((r) => r.url === 'movie/11').length, 1, 'возврат спросил детали заново');
 
+      /* Раунд «Листание», F1: нажатия идут подряд — серия, и третья
+         карточка встаёт через BURST_DELAY после нажатия. */
       move(main.activity, card3);
-      env.advance(400);
+      env.advance(DELAY + 50);
+      assert.equal(detailsOf(env, 33), undefined, 'серия: через DELAY третья карточка ещё не показана');
+      env.advance(BURST_DELAY - DELAY);
       detailsOf(env, 33).ok(FRAMES(33, '/b33.jpg'));
       frameImg(env, '/b33.jpg').onload();
       assert.equal(env.live().length, 1, 'новый показ — смена кадров новой карточки не пошла');
@@ -5046,7 +5292,9 @@ test('«Только кадры»: фокус в рядах — пауза, см
     frameImg(env, '/b1.jpg').onload();
     const first = env.live()[0];
 
-    /* Вторая карточка — во втором ряду: герой сжат. */
+    /* Вторая карточка — во втором ряду: герой сжат. Нажатия здесь и ниже
+       — одиночные, после паузы (раунд «Листание», F1). */
+    rest(env);
     main.card1.removeClass('focus');
     focusOn(main, main.card2);
     assert.equal(node.hasClass('lumen-hero--compact'), true);
@@ -5056,6 +5304,7 @@ test('«Только кадры»: фокус в рядах — пауза, см
     assert.equal(env.live().length, 0, 'слайдшоу новой карточки заводится на паузе');
 
     /* Назад в первый ряд: пауза снята, кадры — уже этой карточки. */
+    rest(env);
     main.card2.removeClass('focus');
     focusOn(main, main.card1);
     assert.equal(node.hasClass('lumen-hero--compact'), false);
@@ -5600,22 +5849,49 @@ test('п.C2: сравнение не успело за 300 мс — кадр к�
   assert.equal(thumbs.calls.length, 1, 'после выбора сравнение пошло дальше');
 });
 
-test('п.C2: новый показ снимает сравнение и потолок прошлого', () => {
+/* Раунд «Листание» (и ревью d97cffc, п.3): детали показанной карточки
+   доехали, когда фокус уже на другой, — сравнения не заводятся вовсе
+   (canvas во время листания не работает); кадр выбрал бы потолок, но
+   новый показ снимает и его. */
+test('п.C2: детали доехали при фокусе на другой карточке — сравнения нет, новый показ снимает потолок прошлого', () => {
   const thumbs = fakeThumbs();
   const env = makeEnv({ fxHeavy: () => false, thumbs: thumbs });
   const main = makeMain();
   env.hero.mount(main.activity);
   fireFocus(main.activity, main.card1);
   env.advance(400);
+  rest(env);
   fireFocus(main.activity, main.card2);
   env.advance(300);
   /* Детали первой доехали, когда фокус уже на второй, а её показа ещё нет. */
   detailsOf(env, 11).ok(LOOK_DETAILS(11));
-  assert.equal(thumbs.calls.length, 1, 'предусловие: сравнение первой идёт');
+  assert.equal(thumbs.calls.length, 0, 'сравнение миниатюр при фокусе на другой карточке');
   env.advance(50);
-  assert.equal(thumbs.calls[0].cancelled, true, 'сравнение прошлой карточки тянет миниатюры');
+  assert.equal(detailsOf(env, 22) && true, true, 'предусловие: вторая показана');
   env.advance(1000);
   assert.equal(w1280(env).indexOf('/c1.jpg'), -1, 'потолок прошлого показа поставил её кадр');
+  assert.equal(thumbs.calls.length, 0);
+});
+
+/* То же в серии: вторая карточка встанет только через BURST_DELAY, и
+   потолок первой (300 мс от деталей) успевает раньше — кадр первой
+   выбирается по известному, без сравнений. */
+test('раунд «Листание»: детали показанной карточки в серии нажатий — кадр по известному, без сравнения миниатюр', () => {
+  const thumbs = fakeThumbs({ '/p1.jpg|/c1.jpg': true });
+  const env = makeEnv({ fxHeavy: () => false, thumbs: thumbs });
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  fireFocus(main.activity, main.card1);
+  env.advance(400);
+  fireFocus(main.activity, main.card2);
+  env.advance(100);
+  detailsOf(env, 11).ok(LOOK_DETAILS(11));
+  assert.equal(thumbs.calls.length, 0, 'сравнение миниатюр посреди серии нажатий');
+  env.advance(299);
+  assert.deepEqual(w1280(env), [], 'раньше потолка');
+  env.advance(1);
+  assert.deepEqual(w1280(env), ['/c2.jpg'], 'потолок: известно, что c1 похож, — следующий годный');
+  assert.equal(thumbs.calls.length, 0);
 });
 
 /* Ревью раунда героя (d97cffc), п.3: фокус ушёл с показанной карточки,
@@ -5938,11 +6214,14 @@ test('п.D: тон не успел за 250 мс — логотип как ес�
   env.hero.applyLogoPref();
   assert.equal(white(node), false, 'посреди показа логотип стал белым — подмена');
 
-  /* Следующий показ того же фильма — сразу силуэт. */
+  /* Следующий показ того же фильма — сразу силуэт. Нажатия — одиночные,
+     после паузы (раунд «Листание», F1). */
+  rest(env);
   main.card1.removeClass('focus');
   main.card2.addClass('focus');
   fireFocus(main.activity, main.card2);
   env.advance(350);
+  rest(env);
   main.card2.removeClass('focus');
   main.card1.addClass('focus');
   fireFocus(main.activity, main.card1);
@@ -5996,6 +6275,11 @@ test('п.D: загрузку логотипа сняли — проба тона
   main.card1.removeClass('focus');
   main.card2.addClass('focus');
   fireFocus(main.activity, main.card2);
-  env.advance(350);
+  /* Раунд «Листание», F1: нажатие через 350 мс после первого — серия,
+     показ второй (он и снимает загрузку логотипа первой) — через
+     BURST_DELAY. */
+  env.advance(DELAY);
+  assert.equal(thumbs.probes[0].cancelled, false, 'серия: до показа второй загрузка логотипа первой жива');
+  env.advance(BURST_DELAY - DELAY);
   assert.equal(thumbs.probes[0].cancelled, true);
 });

@@ -147,6 +147,12 @@ function listener(root, type) {
   return list[0].fn;
 }
 
+/* Раунд «Листание», F1 (src/48_hero.js): одиночное нажатие показывает
+   героя через DELAY, серия (прошлое нажатие ближе 700 мс) — через
+   BURST_DELAY после последнего. Предзагрузка соседей серию не ждёт. */
+const DELAY = 350;
+const BURST_DELAY = 700;
+
 let focused = null;
 function focus(main, card, type) {
   if (focused) focused.removeClass('focus');
@@ -218,6 +224,45 @@ test('prefetch: мышь заводит окно так же, как пульт'
   assert.deepEqual(env.requests.map((r) => idOf(r.url)), [105, 106]);
 });
 
+/* Раунд «Листание», F1: серия нажатий шагом 400 мс (шаг самотеста). Герой
+   за серию не меняется, а соседи предзагружаются на КАЖДОМ шаге — после
+   250 мс покоя, как прежде. Показ после серии — через BURST_DELAY, и
+   детали последней карточки у него уже в памяти (её предзагрузили как
+   соседа предпоследней). Пультом и мышью — одинаково. */
+for (const type of ['hover:focus', 'hover:hover']) {
+  test('раунд «Листание» (' + (type === 'hover:hover' ? 'мышь' : 'пульт') + '): серия шагом 400 мс — соседи предзагружаются на каждом шаге, герой встаёт один раз, после серии, с деталями из памяти', () => {
+    const { env, main, node } = mounted();
+    const descr = () => node.find('.lumen-hero__descr').text();
+    focus(main, main.rows[0][0], type);
+    env.advance(400);
+    drain(env);
+    assert.equal(descr(), 'о 101', 'подготовка: одиночное нажатие — 101 показан');
+
+    for (let i = 1; i <= 4; i++) {
+      const before = env.requests.length;
+      focus(main, main.rows[0][i], type);
+      env.advance(249);
+      assert.equal(env.requests.length, before, 'шаг ' + i + ': запросы раньше 250 мс покоя');
+      env.advance(1);
+      assert.ok(env.requests.length > before, 'шаг ' + i + ': предзагрузка соседей в серии не пошла');
+      drain(env);
+      env.advance(150);
+      assert.equal(descr(), 'о 101', 'шаг ' + i + ': герой сменился посреди серии');
+    }
+    assert.equal(env.requests.filter((r) => idOf(r.url) === 105).length, 1, 'подготовка: 105 предзагружен как сосед 104');
+
+    /* Последнее нажатие было 400 мс назад. */
+    env.advance(BURST_DELAY - 400 - 1);
+    assert.equal(descr(), 'о 101', 'раньше BURST_DELAY после последнего нажатия');
+    env.advance(1);
+    env.advance(200);
+    assert.equal(descr(), 'о 105', 'после серии герой не встал на последней карточке');
+    assert.equal(env.requests.filter((r) => idOf(r.url) === 105).length, 1, 'детали 105 запрошены второй раз — не из памяти');
+    assert.ok(env.pf.stats().hits >= 1, 'попадание в память предзагрузки не посчитано');
+    assert.deepEqual(warnLog, []);
+  });
+}
+
 /* ====================================================================== */
 /* Окно: по направлению движения, затем назад, затем следующий ряд         */
 /* ====================================================================== */
@@ -282,7 +327,12 @@ test('prefetch: собственный запрос героя идёт свер
   focus(main, main.rows[0][3]);
   env.advance(250);
   assert.equal(pending(env).length, 2, 'подготовка: оба места заняты предзагрузкой');
-  env.advance(100);
+  /* Раунд «Листание», F1: нажатие через 100 мс после прошлого — серия,
+     показ героя через BURST_DELAY, а предзагрузка соседей — как прежде,
+     после 250 мс покоя. */
+  env.advance(DELAY - 250);
+  assert.equal(pending(env).length, 2, 'серия нажатий: через DELAY показа героя ещё нет');
+  env.advance(BURST_DELAY - DELAY);
   assert.equal(pending(env).length, 3, 'показ героя ждал очереди предзагрузки');
   assert.equal(idOf(pending(env)[2].url), 104);
 });
@@ -294,9 +344,10 @@ test('prefetch: склейка — герой встаёт на уже идущ�
   focus(main, main.rows[0][3]);
   env.advance(250);
   env.advance(50);
-  /* Запрос 105 уехал предзагрузкой; фокус переходит на 105 раньше показа 104. */
+  /* Запрос 105 уехал предзагрузкой; фокус переходит на 105 раньше показа 104.
+     Раунд «Листание», F1: это серия — показ 105 через BURST_DELAY. */
   focus(main, main.rows[0][4]);
-  env.advance(350);
+  env.advance(BURST_DELAY);
   const for105 = env.requests.filter((r) => idOf(r.url) === 105);
   assert.equal(for105.length, 1, 'запрос деталей 105 ушёл второй раз');
   answer(for105[0], { overview: 'полное о 105' });
@@ -312,8 +363,9 @@ test('prefetch: детали в памяти — герой получает и�
   env.advance(250);
   answer(pending(env).find((r) => idOf(r.url) === 105), { overview: 'полное о 105', runtime: 100 });
   const before = env.requests.length;
+  /* Раунд «Листание», F1: серия — показ 105 через BURST_DELAY. */
   focus(main, main.rows[0][4]);
-  env.advance(350);
+  env.advance(BURST_DELAY);
   assert.equal(env.requests.filter((r) => idOf(r.url) === 105).length, 1, 'детали из памяти запрошены снова');
   assert.ok(env.requests.length >= before);
   assert.equal(node.find('.lumen-hero__descr').text(), 'полное о 105');
@@ -349,8 +401,9 @@ test('prefetch: логотип из памяти — в ПЕРВОМ вывод�
   answer(pending(env).find((r) => idOf(r.url) === 105), withLogo(105, { runtime: 100 }));
   land(logoImgs(env, 105)[0]);
 
+  /* Раунд «Листание», F1: серия — показ 105 через BURST_DELAY. */
   focus(main, main.rows[0][4]);
-  env.advance(349);
+  env.advance(BURST_DELAY - 1);
   assert.equal(node.hasClass('lumen-hero--logo'), false, 'подготовка: 105 ещё не показан');
   env.advance(1);
   /* show(105): детали — синхронно из памяти, логотип известен — вывод
