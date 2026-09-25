@@ -540,7 +540,11 @@ test('Task 68: на корне блока отзывов ОБА события �
   assert.equal(focus.fn, hover.fn, 'обработчик у обеих веток один');
 });
 
-test('Task 68: мышиный hover:hover подкручивает ленту отзывов так же, как пультовый', () => {
+/* Полное ревью, D2: ряд отзывов — только за пультом. Мышью лента ехала за
+   наведением (центрирование), подвозила под курсор соседнюю карточку, и
+   клик по второму отзыву открывал первый. Мышью лента листается колесом
+   (тест ниже), как штатные ряды Lampa. */
+test('D2: пультовый hover:focus центрирует ленту отзывов, мышиный hover:hover — нет', () => {
   const remote = reviewsFocusEnv();
   (remote.block._listeners || []).filter((l) => l.type === 'hover:focus')[0]
     .fn({ type: 'hover:focus', target: remote.card });
@@ -549,7 +553,7 @@ test('Task 68: мышиный hover:hover подкручивает ленту о
   const mouse = reviewsFocusEnv();
   (mouse.block._listeners || []).filter((l) => l.type === 'hover:hover')[0]
     .fn({ type: 'hover:hover', target: mouse.card });
-  assert.equal(mouse.row.scrollLeft, 600, 'мышью — ровно та же позиция');
+  assert.equal(mouse.row.scrollLeft, 0, 'наведение мышью сдвинуло ленту из-под курсора');
   assert.deepEqual(warnLog, []);
 });
 
@@ -1284,4 +1288,33 @@ test('modal: запись старого формата (только full, бе
   const html = env.modals[0].html.html();
   assert.ok(html.indexOf('полный текст') >= 0);
   assert.equal(html.indexOf('lumen-review-modal__reveal'), -1);
+});
+
+/* Полное ревью, D2: мышью лента отзывов листается колесом над её правой
+   половиной — как штатные горизонтальные ряды Lampa (Scroll.wheel +
+   onTheRightSide, app.min.js:31863-31969); над левой половиной колесо
+   остаётся карточке (прокрутка вниз). Шаг — к следующей карточке за кромкой. */
+function wheelOn(block, target, clientX, deltaY) {
+  const ev = { type: 'wheel', target: target, clientX: clientX, deltaY: deltaY, stopped: false, prevented: false, cancelable: true };
+  ev.stopPropagation = () => { ev.stopped = true; };
+  ev.preventDefault = () => { ev.prevented = true; };
+  (block._listeners || []).filter((l) => l.type === 'wheel').forEach((l) => l.fn(ev));
+  return ev;
+}
+
+test('D2: колесо над правой половиной ленты отзывов листает её к следующей карточке', () => {
+  const f = reviewsFocusEnv();
+  const cards = f.block.find('.lumen-review');
+  for (let i = 0; i < cards.length; i++) { cards[i].offsetLeft = i * 420; cards[i].offsetWidth = 400; }
+  f.row.clientWidth = 1000;
+  f.row.scrollWidth = 1400;
+  f.row.getBoundingClientRect = () => ({ left: 600, right: 1600 });
+  const left = wheelOn(f.block, cards[0], 700, 100);
+  assert.equal(left.stopped, false, 'левая половина — колесо остаётся карточке');
+  assert.equal(f.row.scrollLeft, 0);
+  const fwd = wheelOn(f.block, cards[1], 1500, 100);
+  assert.equal(fwd.stopped, true, 'колесо над лентой ушло ещё и карточке');
+  /* Третья карточка (840…1240) за кромкой 1000: центр её — 840 − (1000 − 400) / 2
+     = 540, упор ленты — 1400 − 1000 = 400. */
+  assert.equal(f.row.scrollLeft, 400, 'лента не пролисталась к следующей карточке');
 });

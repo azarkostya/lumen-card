@@ -863,12 +863,56 @@
            (vendor/lampa/app.min.js:46360-46364). Подкрутка ленты к рецензии
            под фокусом нужна в обоих режимах: без неё мышью карточка уезжает
            за кромку блока. */
+        /* Полное ревью, D2: подкрутка — только за пультом (LC.focus.remote),
+           как у рядов главной. Мышью лента ехала за наведением, подвозила
+           под курсор соседнюю карточку — и клик по второму отзыву открывал
+           первый. Мышью лента листается колесом (onWheel ниже). */
         LC.focus.capture(el, function (event) {
           try {
             var card = cardOf(event.target);
-            if (card) scrollToCard(block, card);
+            if (card && LC.focus.remote(event)) scrollToCard(block, card);
           } catch (e) { warn('reviews focus failed', e); }
         });
+
+        /* D2: колесо над правой половиной блока — ленте, над левой —
+           прокрутке карточки, как у штатных горизонтальных рядов Lampa
+           (Scroll.wheel и onTheRightSide, vendor/lampa/app.min.js:
+           31863-31969). Шаг — к карточке за кромкой (вперёд — первой за
+           правой, назад — последней за левой), не чаще раза в 200 мс: одно
+           движение колеса шлёт и 'wheel', и 'mousewheel'. */
+        var onWheel = function (event) {
+          try {
+            if (!event || typeof event.clientX !== 'number') return;
+            var row = block.find('.lumen-reviews__row');
+            var box = row && row.length ? row[0] : null;
+            if (!box || typeof box.getBoundingClientRect !== 'function') return;
+            var left = box.getBoundingClientRect().left;
+            var screen = window.innerWidth || 0;
+            if (!(event.clientX - left > (screen - left) / 2)) return;
+            if (event.stopPropagation) event.stopPropagation();
+            if (event.cancelable && event.preventDefault) event.preventDefault();
+            var now = Date.now();
+            if (now - (box.lumenWheelAt || 0) < 200) return;
+            box.lumenWheelAt = now;
+            var forward = (typeof event.deltaY === 'number' && event.deltaY) ? event.deltaY > 0 : (Number(event.wheelDelta) || 0) < 0;
+            var from = box.scrollLeft || 0;
+            var view = box.clientWidth || 0;
+            var cards = block.find('.lumen-review');
+            var target = null;
+            for (var i = 0; i < cards.length; i++) {
+              var c = cards[i];
+              if (!c || typeof c.offsetLeft !== 'number') continue;
+              if (forward) {
+                if (c.offsetLeft + c.offsetWidth > from + view + 0.5) { target = c; break; }
+              } else if (c.offsetLeft < from - 0.5) {
+                target = c;
+              }
+            }
+            if (target) scrollToCard(block, $(target));
+          } catch (e) { warn('reviews wheel failed', e); }
+        };
+        el.addEventListener('wheel', onWheel);
+        el.addEventListener('mousewheel', onWheel);
 
         el.addEventListener('hover:enter', function (event) {
           try {

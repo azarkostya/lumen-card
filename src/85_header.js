@@ -1199,7 +1199,12 @@
      его на экране с запасом в полкарточки с обеих сторон и подгружаем кадры
      вокруг него. Видимая часть ряда — от левого края ряда до правого края
      экрана (дизайн: ряд уходит за край). */
-  function scrollToEpisode(root, node) {
+  /* still — ряд не двигать (полное ревью, D2): фокус мышью. Окно узлов и
+     кадры едут и за ней, а сдвиг дорожки — только за пультом: курсор на
+     крайней плитке подвозил под себя следующую, та получала 'hover:hover',
+     и ряд доезжал до конца за секунду. Мышью ряд листается колесом
+     (wheelEpisodes ниже). */
+  function scrollToEpisode(root, node, still) {
     var row = root.find('.lumen-episodes');
     var viewport = root.find('.lumen-episodes__viewport')[0];
     var track = row.find('.lumen-episodes__track');
@@ -1229,11 +1234,61 @@
     else if (left + width + reserve > shift + view) shift = left + width + reserve - view;
     shift = Math.max(0, Math.min(shift, track[0].scrollWidth - view));
 
-    if (shift !== current) setShift(track, shift);
+    if (shift !== current && !still) setShift(track, shift);
     /* Правило кромки: после сдвига срезанные плитки — другие. Зовём и когда
        сдвиг не изменился: окно могло переехать выше по этой же функции, и
        в ряду появились новые узлы. */
     markClipped(info, track, view);
+  }
+
+  /* Полное ревью, D2: мышью ряд серий за наведением не едет (scrollToEpisode,
+     still) — листает его колесо, как штатные горизонтальные ряды Lampa:
+     колесо над ПРАВОЙ половиной ряда (от его левого края до правого края
+     экрана) — ряду, над левой — прокрутке карточки (Scroll.wheel и
+     onTheRightSide, vendor/lampa/app.min.js:31863-31969). Шаг — плитка:
+     вперёд к первой за правой кромкой, назад к последней за левой; та же
+     дорога, что у пульта (окно узлов, кадры, сдвиг с запасом в полплитки).
+     Не чаще раза в WHEEL_MS — как у Lampa (там же, 200 мс): одно движение
+     колеса шлёт и 'wheel', и 'mousewheel'. true — событие наше: ряд
+     забирает его у прокрутки карточки. */
+  var WHEEL_MS = 200;
+
+  function wheelForward(e) {
+    if (typeof e.deltaY === 'number' && e.deltaY) return e.deltaY > 0;
+    return (Number(e.wheelDelta) || 0) < 0;
+  }
+
+  function wheelEpisodes(root, e) {
+    if (!e || typeof e.clientX !== 'number') return false;
+    if (!$(e.target).closest('.lumen-episodes__viewport').length) return false;
+    var row = root.find('.lumen-episodes');
+    var info = row.length ? row[0].lumenEpisodes : null;
+    var viewport = root.find('.lumen-episodes__viewport')[0];
+    var track = row.find('.lumen-episodes__track');
+    if (!info || !viewport || !track.length) return false;
+    var left = viewport.getBoundingClientRect().left;
+    var screen = window.innerWidth || 0;
+    if (!(e.clientX - left > (screen - left) / 2)) return false;
+    var now = Date.now();
+    if (now - (row[0].lumenWheelAt || 0) < WHEEL_MS) return true;
+    row[0].lumenWheelAt = now;
+    var view = viewWidth(viewport);
+    if (view <= 0) return true;
+    var forward = wheelForward(e);
+    var shift = track[0].lumenShift || 0;
+    var target = null;
+    for (var i = info.from; i <= info.to; i++) {
+      var node = info.nodes[i];
+      if (!node || !node.length) continue;
+      var l = node[0].offsetLeft;
+      if (forward) {
+        if (l + node[0].offsetWidth > shift + view + 0.5) { target = node[0]; break; }
+      } else if (l < shift - 0.5) {
+        target = node[0];
+      }
+    }
+    if (target) scrollToEpisode(root, target, false);
+    return true;
   }
 
   /* Step 4: фокус и OK на карточках серий. Lampa шлёт события фокуса и
@@ -1271,7 +1326,7 @@
           if (el.lumenEpisodesBusy) return;
           el.lumenEpisodesBusy = true;
           try {
-            scrollToEpisode(root, node[0]);
+            scrollToEpisode(root, node[0], !LC.focus.remote(e));
           } finally {
             el.lumenEpisodesBusy = false;
           }
@@ -1282,6 +1337,20 @@
         warn('episode focus failed', err);
       }
     });
+
+    /* Полное ревью, D2: колесо мыши над рядом серий. */
+    var onWheel = function (e) {
+      try {
+        if (wheelEpisodes(root, e)) {
+          if (e.stopPropagation) e.stopPropagation();
+          if (e.cancelable && e.preventDefault) e.preventDefault();
+        }
+      } catch (err) {
+        warn('episode wheel failed', err);
+      }
+    };
+    el.addEventListener('wheel', onWheel);
+    el.addEventListener('mousewheel', onWheel);
 
     /* OK на серии -> выбор источника той же кнопкой «Смотреть» (серию
        пользователь выбирает уже в TorrServer). */

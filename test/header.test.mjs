@@ -997,12 +997,14 @@ test('bindEpisodes: повторный decorate не удваивает слуш
   /* Task 68: подписок три — фокус пультом ('hover:focus'), фокус мышью
      ('hover:hover', vendor/lampa/app.min.js:46360-46364) и OK
      ('hover:enter'). Первые две ставит LC.focus.capture одним обработчиком. */
+  /* Полное ревью, D2: плюс колесо ('wheel' и 'mousewheel') — в фазе
+     всплытия: ряд забирает его у прокрутки карточки, которая выше. */
   assert.deepEqual(
     c.root._listeners.map((l) => l.type).sort(),
-    ['hover:enter', 'hover:focus', 'hover:hover'],
+    ['hover:enter', 'hover:focus', 'hover:hover', 'mousewheel', 'wheel'],
     'повторный decorate слушатели не удваивает'
   );
-  assert.ok(c.root._listeners.every((l) => l.capture), 'слушатели в фазе перехвата');
+  assert.ok(c.root._listeners.filter((l) => l.type.indexOf('hover:') === 0).every((l) => l.capture), 'события Lampa — в фазе перехвата');
 
   fire(c.root, 'hover:focus', c.track._children[1]);
   assert.ok(c.root.hasClass('lumen-compact'));
@@ -1033,11 +1035,14 @@ test('bindEpisodes: одно событие — один проход, пуль�
   fire(c.root, 'hover:focus', c.track._children[4]);
   assert.equal(c.track.lumenShift, 78, 'пультом — тот же сдвиг, что в тесте scrollToEpisode');
 
+  /* Полное ревью, D2: мышью ряд за наведением не едет — курсор на крайней
+     плитке подвозил под себя следующую, и ряд доезжал до конца за секунду.
+     Сжатие шапки и окно кадров при этом работают (тест выше). */
   const m = makeCard();
   LC.header.decorate(m.root, serial(8));
   layout(m.track);
   fire(m.root, 'hover:hover', m.track._children[4]);
-  assert.equal(m.track.lumenShift, 78, 'мышью — ровно тот же сдвиг, не удвоенный');
+  assert.ok(!m.track.lumenShift, 'наведение мышью сдвинуло ряд серий');
 });
 
 test('bindEpisodes: OK -> «Смотреть» только с карточки серии и только если «Смотреть» не скрыта', () => {
@@ -2259,4 +2264,33 @@ test('B: без узла ряда, Scroll или модуля — ничего �
     c.holder.fire('hover:focus', c.hide);
     assert.deepEqual(warnLog, []);
   });
+});
+
+/* Полное ревью, D2: мышью ряд серий листается колесом над его правой
+   половиной — как штатные горизонтальные ряды Lampa (Scroll.wheel +
+   onTheRightSide, app.min.js:31863-31969): вперёд — к первой плитке за
+   правой кромкой, назад — к последней за левой. Над левой половиной колесо
+   остаётся карточке. Экран 1920, ряд с 64 — правая половина с x = 992. */
+function wheelEp(root, target, clientX, deltaY) {
+  const ev = { type: 'wheel', target: target, clientX: clientX, deltaY: deltaY, stopped: false, cancelable: true };
+  ev.stopPropagation = () => { ev.stopped = true; };
+  ev.preventDefault = () => { };
+  (root._listeners || []).filter((l) => l.type === 'wheel').forEach((l) => l.fn(ev));
+  return ev;
+}
+
+test('D2: колесо над правой половиной ряда серий листает его на плитку, над левой — нет', () => {
+  const c = makeCard();
+  LC.header.decorate(c.root, serial(8));
+  layout(c.track);
+  const left = wheelEp(c.root, c.track._children[1], 500, 100);
+  assert.equal(left.stopped, false, 'левая половина — колесо карточке');
+  assert.ok(!c.track.lumenShift);
+  const fwd = wheelEp(c.root, c.track._children[4], 1500, 100);
+  assert.equal(fwd.stopped, true, 'колесо над рядом ушло ещё и карточке');
+  /* Шестая плитка (1780…2120) за кромкой 1920: 1780 + 340 + 170 − 1856. */
+  assert.equal(c.track.lumenShift, 434, 'ряд не пролистался к следующей плитке');
+  layout(c.track);
+  wheelEp(c.root, c.track._children[4], 1500, -100);
+  assert.equal(c.track.lumenShift, 434, 'второе колесо в пределах 200 мс — тот же шаг, без двойного');
 });

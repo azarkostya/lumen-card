@@ -28906,12 +28906,56 @@ return $card && $card.length ? $card : null;
 
 
 
+
+
+
+
 LC.focus.capture(el, function (event) {
 try {
 var card = cardOf(event.target);
-if (card) scrollToCard(block, card);
+if (card && LC.focus.remote(event)) scrollToCard(block, card);
 } catch (e) { warn('reviews focus failed', e); }
 });
+
+
+
+
+
+
+
+var onWheel = function (event) {
+try {
+if (!event || typeof event.clientX !== 'number') return;
+var row = block.find('.lumen-reviews__row');
+var box = row && row.length ? row[0] : null;
+if (!box || typeof box.getBoundingClientRect !== 'function') return;
+var left = box.getBoundingClientRect().left;
+var screen = window.innerWidth || 0;
+if (!(event.clientX - left > (screen - left) / 2)) return;
+if (event.stopPropagation) event.stopPropagation();
+if (event.cancelable && event.preventDefault) event.preventDefault();
+var now = Date.now();
+if (now - (box.lumenWheelAt || 0) < 200) return;
+box.lumenWheelAt = now;
+var forward = (typeof event.deltaY === 'number' && event.deltaY) ? event.deltaY > 0 : (Number(event.wheelDelta) || 0) < 0;
+var from = box.scrollLeft || 0;
+var view = box.clientWidth || 0;
+var cards = block.find('.lumen-review');
+var target = null;
+for (var i = 0; i < cards.length; i++) {
+var c = cards[i];
+if (!c || typeof c.offsetLeft !== 'number') continue;
+if (forward) {
+if (c.offsetLeft + c.offsetWidth > from + view + 0.5) { target = c; break; }
+} else if (c.offsetLeft < from - 0.5) {
+target = c;
+}
+}
+if (target) scrollToCard(block, $(target));
+} catch (e) { warn('reviews wheel failed', e); }
+};
+el.addEventListener('wheel', onWheel);
+el.addEventListener('mousewheel', onWheel);
 
 el.addEventListener('hover:enter', function (event) {
 try {
@@ -38613,7 +38657,12 @@ else marks[i][0].removeClass('lumen-episode--cut');
 
 
 
-function scrollToEpisode(root, node) {
+
+
+
+
+
+function scrollToEpisode(root, node, still) {
 var row = root.find('.lumen-episodes');
 var viewport = root.find('.lumen-episodes__viewport')[0];
 var track = row.find('.lumen-episodes__track');
@@ -38643,11 +38692,61 @@ if (left - reserve < shift) shift = left - reserve;
 else if (left + width + reserve > shift + view) shift = left + width + reserve - view;
 shift = Math.max(0, Math.min(shift, track[0].scrollWidth - view));
 
-if (shift !== current) setShift(track, shift);
+if (shift !== current && !still) setShift(track, shift);
 
 
 
 markClipped(info, track, view);
+}
+
+
+
+
+
+
+
+
+
+
+
+var WHEEL_MS = 200;
+
+function wheelForward(e) {
+if (typeof e.deltaY === 'number' && e.deltaY) return e.deltaY > 0;
+return (Number(e.wheelDelta) || 0) < 0;
+}
+
+function wheelEpisodes(root, e) {
+if (!e || typeof e.clientX !== 'number') return false;
+if (!$(e.target).closest('.lumen-episodes__viewport').length) return false;
+var row = root.find('.lumen-episodes');
+var info = row.length ? row[0].lumenEpisodes : null;
+var viewport = root.find('.lumen-episodes__viewport')[0];
+var track = row.find('.lumen-episodes__track');
+if (!info || !viewport || !track.length) return false;
+var left = viewport.getBoundingClientRect().left;
+var screen = window.innerWidth || 0;
+if (!(e.clientX - left > (screen - left) / 2)) return false;
+var now = Date.now();
+if (now - (row[0].lumenWheelAt || 0) < WHEEL_MS) return true;
+row[0].lumenWheelAt = now;
+var view = viewWidth(viewport);
+if (view <= 0) return true;
+var forward = wheelForward(e);
+var shift = track[0].lumenShift || 0;
+var target = null;
+for (var i = info.from; i <= info.to; i++) {
+var node = info.nodes[i];
+if (!node || !node.length) continue;
+var l = node[0].offsetLeft;
+if (forward) {
+if (l + node[0].offsetWidth > shift + view + 0.5) { target = node[0]; break; }
+} else if (l < shift - 0.5) {
+target = node[0];
+}
+}
+if (target) scrollToEpisode(root, target, false);
+return true;
 }
 
 
@@ -38685,7 +38784,7 @@ root.addClass('lumen-compact');
 if (el.lumenEpisodesBusy) return;
 el.lumenEpisodesBusy = true;
 try {
-scrollToEpisode(root, node[0]);
+scrollToEpisode(root, node[0], !LC.focus.remote(e));
 } finally {
 el.lumenEpisodesBusy = false;
 }
@@ -38696,6 +38795,20 @@ root.removeClass('lumen-compact');
 warn('episode focus failed', err);
 }
 });
+
+
+var onWheel = function (e) {
+try {
+if (wheelEpisodes(root, e)) {
+if (e.stopPropagation) e.stopPropagation();
+if (e.cancelable && e.preventDefault) e.preventDefault();
+}
+} catch (err) {
+warn('episode wheel failed', err);
+}
+};
+el.addEventListener('wheel', onWheel);
+el.addEventListener('mousewheel', onWheel);
 
 
 
