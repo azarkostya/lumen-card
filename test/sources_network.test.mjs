@@ -1013,3 +1013,29 @@ test('bannerPath: cover у подборки Кинопоиска не отмен
     done();
   }, null);
 });
+
+/* Полное ревью, S3: коллекция КП из каталога уходила в адрес запроса и в
+   ключ localStorage как есть. Только формат КП ([A-Z0-9_]) и
+   encodeURIComponent. */
+test('S3: fetchKp и kpPosters — коллекция не по формату в сеть не идёт', function () {
+  var urls = [];
+  global.Lampa = makeFakeLampa({
+    storage: makeFakeStorage(),
+    Reguest: function () {
+      return new FakeReguest(function (url, ok) { urls.push(url); ok({ items: [], totalPages: 1, total: 0 }); });
+    }
+  });
+  global.window = { localStorage: null };
+  var S = loadCtx('43_sources.js', { pref: function (k) { return k === 'lumen_kp_key' ? 'KEY' : ''; } }).api;
+  var errs = [];
+  var bad = { id: 'kp-x', title: 'x', sources: { movie: { type: 'kp', collection: 'TOP&api_key=1' } } };
+  S['fetch'](bad, 1, function () { errs.push('ok'); }, function (e) { errs.push(e); });
+  S.bannerPath(bad, function () { errs.push('ok'); }, function (e) { errs.push(e); }, null);
+  assert.equal(urls.length, 0, 'запрос по кривой коллекции ушёл: ' + urls.join(' '));
+  assert.equal(errs.length, 2);
+  assert.ok(errs.indexOf('ok') < 0);
+  var good = { id: 'kp-top', title: 'x', sources: { movie: { type: 'kp', collection: 'TOP_250_MOVIES' } } };
+  S['fetch'](good, 2, function () {}, function () {});
+  assert.equal(urls.length, 1);
+  assert.ok(urls[0].indexOf('collections?type=TOP_250_MOVIES&page=2') > 0, urls[0]);
+});

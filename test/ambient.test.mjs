@@ -711,3 +711,40 @@ test('источник «кадры текущего фильма»: без от
   assert.ok(e.layer().find('.lumen-ambient__img.is-active').css('background-image').indexOf('image.tmdb.org') >= 0);
   e.api.uninstall();
 });
+
+/* Полное ревью, S2: каталог может прийти внешним, и кадр каталога с полем
+   url задавал заставке любой адрес (любой хост видит IP пользователя), а
+   url("…") собирался без экранирования. Кадр каталога — только путь TMDB
+   того же формата, что cover (COVER_PATH, src/43_sources.js); готовый адрес
+   берётся лишь у кадров открытой карточки (их считает слайдшоу). */
+test('S2: кадры каталога — только путь TMDB; url и чужой путь отбрасываются', () => {
+  const frames = [
+    { title: 'Чужой адрес', url: 'https://evil.test/x.jpg' },
+    { title: 'Адрес и путь', url: 'https://evil.test/y.jpg', path: '/ok1.jpg' },
+    { title: 'Путь с хостом', path: '//evil.test/a.jpg' },
+    { title: 'Путь с кавычкой', path: '/a").jpg' },
+    { title: 'Путь назад', path: '/../a.jpg' },
+    { title: 'Хороший', path: '/Ok_2-x.png' }
+  ];
+  const e = env({ frames });
+  const list = e.api.frames();
+  assert.deepEqual(list.map((f) => f.path), ['/ok1.jpg', '/Ok_2-x.png']);
+  assert.deepEqual(list.map((f) => f.url), ['', '']);
+});
+
+test('S2: адрес кадра в url("…") экранирован — кавычка не закрывает строку', () => {
+  const urls = ['https://host/a".jpg?x=1 2'];
+  const layerNode = new Node('lumen-backdrop');
+  layerNode.data = (key) => (key === 'lumenUrls' ? urls : null);
+  const bodyNode = new Node('activity__body');
+  bodyNode.children = () => layerNode;
+  const e = env({
+    store: { lumen_ambient_source: 'current' },
+    lc: { active: { body: bodyNode, data: { movie: { title: 'Дюна' } } } }
+  });
+  e.api.install();
+  e.fire();
+  const bg = e.layer().find('.lumen-ambient__img.is-active').css('background-image');
+  assert.equal(bg, 'url("https://host/a%22.jpg?x=1%202")');
+  e.api.uninstall();
+});

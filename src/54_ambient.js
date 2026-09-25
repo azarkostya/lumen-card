@@ -252,8 +252,17 @@
       return '';
     }
 
+    /* Путь кадра каталога — тот же формат, что у cover (COVER_PATH,
+       src/43_sources.js): «/имя.jpg» без хоста, «..» и кавычек. */
+    var FRAME_PATH = /^\/[A-Za-z0-9_-]+\.(jpg|png)$/;
+
     /* Кадры каталога (манифест обновляется с хостинга без переустановки
-       плагина; встроенный список — запасной). */
+       плагина; встроенный список — запасной).
+       Полное ревью, S2: каталог может прийти внешним, и поле url кадра
+       задавало заставке любой адрес — любой хост получал бы IP
+       пользователя. У кадра каталога берётся только путь TMDB (через
+       imageUrl и прокси, как у всех картинок плагина); готовый адрес —
+       лишь у кадров открытой карточки (currentFrames). */
     function curatedFrames() {
       var list = null;
       try {
@@ -263,7 +272,13 @@
       } catch (e) {
         warn('ambient: manifest failed', e);
       }
-      return normalizeFrames(list);
+      var safe = [];
+      for (var i = 0; list && i < list.length; i++) {
+        var item = list[i];
+        if (!item || typeof item.path !== 'string' || !FRAME_PATH.test(item.path)) continue;
+        safe.push({ title: item.title, path: item.path });
+      }
+      return normalizeFrames(safe);
     }
 
     /* Кадры открытой карточки. Слайдшоу уже посчитало для них адреса и
@@ -520,7 +535,9 @@
       var target = imgs[slot];
       var other = imgs[slot ? 0 : 1];
       try {
-        target.css('background-image', 'url("' + url + '")');
+        /* encodeURI — как у слайдшоу и фона карточки: кавычка или пробел
+           в адресе не закроют строку url("…") (полное ревью, S2). */
+        target.css('background-image', 'url("' + encodeURI(url) + '")');
         target.addClass('is-active');
         other.removeClass('is-active');
       } catch (e) {

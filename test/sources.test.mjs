@@ -279,3 +279,19 @@ test('Постеры: дырки в списке карточек ничего �
   assert.deepEqual(S.posterIndex(null), {});
   assert.deepEqual(S.posterIndex([null, {}, { id: 0, poster_path: '/a.jpg' }]), {});
 });
+
+/* Полное ревью, S3: параметры каталога уходили в адреса TMDB без проверки —
+   Lampa (url$1) склеивает filter и значения известных ключей сырыми, а
+   discoverUrl отправлял и неизвестные ключи. Каталог может быть внешним. */
+test('S3: buildRequest — только известные ключи discover, filter по формату, значения без «&#= »', () => {
+  const r = S.buildRequest({ type: 'discover', params: {
+    genres: 35, evil: 'x', api_key: 'k', sort_by: 'a&api_key=1',
+    filter: { 'a=1&b': 1, 'vote_count.gte': '1#x', 'with_runtime.lte': 90, without_genres: '99,16' }
+  } }, 'movie', 1);
+  assert.deepEqual(r.params, { genres: 35, filter: { 'with_runtime.lte': 90, without_genres: '99,16' }, page: 1 });
+  assert.equal(S.buildRequest({ type: 'collection', id: '10/../x' }, 'movie').url, 'collection/10%2F..%2Fx');
+});
+test('S3: discoverUrl — неизвестные ключи и кривые ключи filter не уходят в адрес', () => {
+  const spec = { type: 'discover', params: { genres: 18, api_key: 'x', 'a&b': 1, filter: { 'x&y': 1, 'vote_count.gte': 50 } } };
+  assert.equal(S.discoverUrl(spec, 'movie'), 'discover/movie?with_genres=18&vote_count.gte=50');
+});

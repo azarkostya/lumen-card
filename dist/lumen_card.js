@@ -8879,19 +8879,52 @@ return data;
 
 
 
+
+
+
+
+var FILTER_KEY = /^[a-z_]{1,48}(\.(gte|lte))?$/;
+var SAFE_VALUE = /^[\w.,|:-]{1,256}$/;
+var KP_COLLECTION = /^[A-Z0-9_]{1,64}$/;
+
+function safeValue(v) {
+if (typeof v === 'number') return isFinite(v);
+if (typeof v === 'boolean') return true;
+return typeof v === 'string' && SAFE_VALUE.test(v);
+}
+
+
+function cleanFilter(f) {
+var out = {};
+if (!f || typeof f !== 'object') return out;
+for (var k in f) {
+if (f.hasOwnProperty(k) && FILTER_KEY.test(k) && safeValue(f[k])) out[k] = f[k];
+}
+return out;
+}
+
+function kpCollection(spec) {
+var c = spec && spec.collection;
+return (typeof c === 'string' && KP_COLLECTION.test(c)) ? c : '';
+}
+
+
+
+
 function buildRequest(spec, media, page) {
 if (spec.type === 'collection') {
-return { url: 'collection/' + spec.id, params: {}, life: LIFE_STATIC };
+return { url: 'collection/' + encodeURIComponent(spec.id), params: {}, life: LIFE_STATIC };
 }
 if (spec.type === 'list') {
-return { url: 'list/' + spec.id, params: {}, life: LIFE_STATIC };
+return { url: 'list/' + encodeURIComponent(spec.id), params: {}, life: LIFE_STATIC };
 }
 var params = {};
+var src = spec.params || {};
 var k;
-for (k in spec.params) {
-if (spec.params.hasOwnProperty(k)) {
-params[k] = spec.params[k];
-}
+for (k in src) {
+if (!src.hasOwnProperty(k)) continue;
+if (k === 'filter') params.filter = cleanFilter(src.filter);
+else if (MAP.hasOwnProperty(k) && safeValue(src[k])) params[k] = src[k];
 }
 params.page = page || 1;
 return { url: 'discover/' + media, params: params, life: LIFE_DISCOVER };
@@ -8937,11 +8970,13 @@ var q = [];
 var p = spec.params || {};
 var k;
 for (k in p) {
-if (p.hasOwnProperty(k) && k !== 'filter') {
-q.push((MAP[k] || k) + '=' + encodeURIComponent(p[k]));
+
+if (p.hasOwnProperty(k) && k !== 'filter' && MAP.hasOwnProperty(k)) {
+q.push(MAP[k] + '=' + encodeURIComponent(p[k]));
 }
 }
-var f = media === 'tv' ? tvFilter(p.filter || {}) : (p.filter || {});
+var own = cleanFilter(p.filter);
+var f = media === 'tv' ? tvFilter(own) : own;
 for (k in f) {
 if (f.hasOwnProperty(k)) {
 q.push(k + '=' + encodeURIComponent(f[k]));
@@ -9000,8 +9035,10 @@ function dead() { return alive && alive() !== gen; }
 
 var key = typeof LC.pref === 'function' ? LC.pref('lumen_kp_key', '') : '';
 if (!key) { err({ nokey: true }); return null; }
+var collection = kpCollection(spec);
+if (!collection) { err({ kp_failed: true }); return null; }
 
-var cacheKey = 'lumen_kp_' + spec.collection + '_' + (page || 1);
+var cacheKey = 'lumen_kp_' + collection + '_' + (page || 1);
 var store = storage();
 var cached = null;
 try {
@@ -9018,7 +9055,7 @@ return null;
 var net = new Lampa.Reguest();
 net.silent(
 'https://kinopoiskapiunofficial.tech/api/v2.2/films/collections?type=' +
-spec.collection + '&page=' + (page || 1),
+encodeURIComponent(collection) + '&page=' + (page || 1),
 function (json) {
 if (dead()) return;
 var ids = kpToFinds(json, 20);
@@ -9297,8 +9334,10 @@ function dead() { return alive && alive() !== gen; }
 
 var key = typeof LC.pref === 'function' ? LC.pref('lumen_kp_key', '') : '';
 if (!key) { err({ nokey: true }); return null; }
+var collection = kpCollection(spec);
+if (!collection) { err({ kp_failed: true }); return null; }
 
-var cacheKey = 'lumen_kpp_' + spec.collection;
+var cacheKey = 'lumen_kpp_' + collection;
 var store = storage();
 var cached = null;
 try {
@@ -9313,7 +9352,7 @@ return null;
 var net = new Lampa.Reguest();
 net.silent(
 'https://kinopoiskapiunofficial.tech/api/v2.2/films/collections?type=' +
-spec.collection + '&page=1',
+encodeURIComponent(collection) + '&page=1',
 function (json) {
 if (dead()) return;
 var urls = [];
@@ -21962,6 +22001,15 @@ return '';
 
 
 
+var FRAME_PATH = /^\/[A-Za-z0-9_-]+\.(jpg|png)$/;
+
+
+
+
+
+
+
+
 function curatedFrames() {
 var list = null;
 try {
@@ -21971,7 +22019,13 @@ if (!list && LC.manifest && LC.manifest.DEFAULT) list = LC.manifest.DEFAULT.ambi
 } catch (e) {
 warn('ambient: manifest failed', e);
 }
-return normalizeFrames(list);
+var safe = [];
+for (var i = 0; list && i < list.length; i++) {
+var item = list[i];
+if (!item || typeof item.path !== 'string' || !FRAME_PATH.test(item.path)) continue;
+safe.push({ title: item.title, path: item.path });
+}
+return normalizeFrames(safe);
 }
 
 
@@ -22228,7 +22282,9 @@ if (!url) return;
 var target = imgs[slot];
 var other = imgs[slot ? 0 : 1];
 try {
-target.css('background-image', 'url("' + url + '")');
+
+
+target.css('background-image', 'url("' + encodeURI(url) + '")');
 target.addClass('is-active');
 other.removeClass('is-active');
 } catch (e) {

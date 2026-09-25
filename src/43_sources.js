@@ -183,22 +183,55 @@
       return data;
     }
 
+    /* Полное ревью, S3: параметры подборки уходят в адрес запроса, а
+       каталог может быть внешним. Lampa (url$1, app.min.js) склеивает
+       значения известных ключей и весь filter сырыми, discoverUrl отправлял
+       и неизвестные ключи. Поэтому в запрос идут только ключи MAP, ключи
+       filter вида with_runtime.lte и значения — числа или строки из
+       [\w.,|:-] (формат каталога, тот же, что проверяет LC.manifest.
+       validate); коллекция Кинопоиска — [A-Z0-9_] и encodeURIComponent. */
+    var FILTER_KEY = /^[a-z_]{1,48}(\.(gte|lte))?$/;
+    var SAFE_VALUE = /^[\w.,|:-]{1,256}$/;
+    var KP_COLLECTION = /^[A-Z0-9_]{1,64}$/;
+
+    function safeValue(v) {
+      if (typeof v === 'number') return isFinite(v);
+      if (typeof v === 'boolean') return true;
+      return typeof v === 'string' && SAFE_VALUE.test(v);
+    }
+
+    /* filter{} только из допустимых ключей и значений (копия). */
+    function cleanFilter(f) {
+      var out = {};
+      if (!f || typeof f !== 'object') return out;
+      for (var k in f) {
+        if (f.hasOwnProperty(k) && FILTER_KEY.test(k) && safeValue(f[k])) out[k] = f[k];
+      }
+      return out;
+    }
+
+    function kpCollection(spec) {
+      var c = spec && spec.collection;
+      return (typeof c === 'string' && KP_COLLECTION.test(c)) ? c : '';
+    }
+
     /* Строит параметры запроса к Lampa.Api.sources.tmdb.get.
        Для collection/list — фиксированный URL без page (TMDB отдаёт всё сразу).
        Для discover — page обязателен. */
     function buildRequest(spec, media, page) {
       if (spec.type === 'collection') {
-        return { url: 'collection/' + spec.id, params: {}, life: LIFE_STATIC };
+        return { url: 'collection/' + encodeURIComponent(spec.id), params: {}, life: LIFE_STATIC };
       }
       if (spec.type === 'list') {
-        return { url: 'list/' + spec.id, params: {}, life: LIFE_STATIC };
+        return { url: 'list/' + encodeURIComponent(spec.id), params: {}, life: LIFE_STATIC };
       }
       var params = {};
+      var src = spec.params || {};
       var k;
-      for (k in spec.params) {
-        if (spec.params.hasOwnProperty(k)) {
-          params[k] = spec.params[k];
-        }
+      for (k in src) {
+        if (!src.hasOwnProperty(k)) continue;
+        if (k === 'filter') params.filter = cleanFilter(src.filter);
+        else if (MAP.hasOwnProperty(k) && safeValue(src[k])) params[k] = src[k];
       }
       params.page = page || 1;
       return { url: 'discover/' + media, params: params, life: LIFE_DISCOVER };
@@ -244,11 +277,13 @@
       var p = spec.params || {};
       var k;
       for (k in p) {
-        if (p.hasOwnProperty(k) && k !== 'filter') {
-          q.push((MAP[k] || k) + '=' + encodeURIComponent(p[k]));
+        /* Только известные ключи (S3): прочие ушли бы в адрес как есть. */
+        if (p.hasOwnProperty(k) && k !== 'filter' && MAP.hasOwnProperty(k)) {
+          q.push(MAP[k] + '=' + encodeURIComponent(p[k]));
         }
       }
-      var f = media === 'tv' ? tvFilter(p.filter || {}) : (p.filter || {});
+      var own = cleanFilter(p.filter);
+      var f = media === 'tv' ? tvFilter(own) : own;
       for (k in f) {
         if (f.hasOwnProperty(k)) {
           q.push(k + '=' + encodeURIComponent(f[k]));
@@ -307,8 +342,10 @@
 
       var key = typeof LC.pref === 'function' ? LC.pref('lumen_kp_key', '') : '';
       if (!key) { err({ nokey: true }); return null; }
+      var collection = kpCollection(spec);
+      if (!collection) { err({ kp_failed: true }); return null; }
 
-      var cacheKey = 'lumen_kp_' + spec.collection + '_' + (page || 1);
+      var cacheKey = 'lumen_kp_' + collection + '_' + (page || 1);
       var store = storage();
       var cached = null;
       try {
@@ -325,7 +362,7 @@
       var net = new Lampa.Reguest();
       net.silent(
         'https://kinopoiskapiunofficial.tech/api/v2.2/films/collections?type=' +
-          spec.collection + '&page=' + (page || 1),
+          encodeURIComponent(collection) + '&page=' + (page || 1),
         function (json) {
           if (dead()) return;
           var ids = kpToFinds(json, 20);
@@ -604,8 +641,10 @@
 
       var key = typeof LC.pref === 'function' ? LC.pref('lumen_kp_key', '') : '';
       if (!key) { err({ nokey: true }); return null; }
+      var collection = kpCollection(spec);
+      if (!collection) { err({ kp_failed: true }); return null; }
 
-      var cacheKey = 'lumen_kpp_' + spec.collection;
+      var cacheKey = 'lumen_kpp_' + collection;
       var store = storage();
       var cached = null;
       try {
@@ -620,7 +659,7 @@
       var net = new Lampa.Reguest();
       net.silent(
         'https://kinopoiskapiunofficial.tech/api/v2.2/films/collections?type=' +
-          spec.collection + '&page=1',
+          encodeURIComponent(collection) + '&page=1',
         function (json) {
           if (dead()) return;
           var urls = [];
