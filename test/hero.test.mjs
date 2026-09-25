@@ -5618,6 +5618,27 @@ test('п.C2: новый показ снимает сравнение и пото
   assert.equal(w1280(env).indexOf('/c1.jpg'), -1, 'потолок прошлого показа поставил её кадр');
 });
 
+/* Ревью раунда героя (d97cffc), п.3: фокус ушёл с показанной карточки,
+   пока шло сравнение её первого кадра, — сравнение снято сразу (canvas
+   во время листания не работает), кадр выбирает потолок ожидания. */
+test('ревью d97cffc п.3: уход фокуса снимает сравнение первого кадра, выбор — за потолком', () => {
+  const thumbs = fakeThumbs();
+  const env = makeEnv({ fxHeavy: () => false, thumbs: thumbs });
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  fireFocus(main.activity, main.card1);
+  env.advance(400);
+  detailsOf(env, 11).ok(LOOK_DETAILS(11));
+  assert.equal(thumbs.calls.length, 1, 'предусловие: сравнение первого кандидата идёт');
+  env.advance(50);
+  fireFocus(main.activity, main.card2);
+  assert.equal(thumbs.calls[0].cancelled, true, 'сравнение показанной карточки тянет миниатюры, пока фокус идёт дальше');
+  env.advance(250);
+  assert.deepEqual(w1280(env), ['/c1.jpg'], 'потолок ожидания не выбрал кадр по известному');
+  assert.equal(thumbs.calls.length, 1, 'после ухода фокуса сравнение пошло дальше');
+  assert.deepEqual(warnLog, []);
+});
+
 test('п.C2: сравнивать нечего (нет постера) или «Выкл» — кадр как было, без сравнения', () => {
   const thumbs = fakeThumbs();
   const env = makeEnv({ fxHeavy: () => false, thumbs: thumbs });
@@ -5688,7 +5709,7 @@ test('п.C2: смена кадров — известный похожий на 
   } finally { env.restore(); }
 });
 
-test('п.C2: смена кадров — пока шло сравнение, фокус ушёл: тик пропущен, ответ в памяти', () => {
+test('п.C2: смена кадров — пока шло сравнение, фокус ушёл: сравнение снято, тик пропущен', () => {
   const thumbs = fakeThumbs({ '/p1.jpg|/c1.jpg': false });
   const env = slidesEnv({ thumbs: thumbs });
   try {
@@ -5701,9 +5722,138 @@ test('п.C2: смена кадров — пока шло сравнение, ф�
     env.live()[0].fn();
     assert.equal(thumbs.calls.length, 1);
     focusOn(main, main.card2);
+    /* Ревью раунда героя (d97cffc), п.3: уход фокуса снимает и само
+       сравнение — canvas во время листания не работает. */
+    assert.equal(thumbs.calls[0].cancelled, true, 'сравнение кадра смены тянет миниатюры, пока фокус идёт дальше');
     thumbs.answer(0, false);
     assert.deepEqual(w1280(env), ['/c1.jpg'], 'кадр смены пошёл, когда фокус уже на другой карточке');
   } finally { env.restore(); }
+});
+
+/* ====================================================================== */
+/* Ревью раунда героя (d97cffc): синхронный ответ сравнения               */
+/* ====================================================================== */
+
+/* LC.thumbs отвечает синхронно: пара уже в памяти, признаки обеих
+   миниатюр в памяти, модуль заблокирован отказами (прокси без CORS,
+   WebView без crossOrigin, пропала сеть). answers — ответ по кадру
+   (нет в списке — null, «сравнить нельзя»); remember: false — ответ в
+   память не кладётся, как у заблокированного модуля до правки. */
+function syncThumbs(answers, opts) {
+  const calls = [];
+  const verdicts = {};
+  const keep = !(opts && opts.remember === false);
+  return {
+    calls: calls,
+    verdict: (p, f) => (Object.prototype.hasOwnProperty.call(verdicts, p + '|' + f) ? verdicts[p + '|' + f] : undefined),
+    compare: (p, f, cb) => {
+      calls.push(f);
+      if (calls.length > 50) throw new Error('compare зовут по кругу');
+      const v = Object.prototype.hasOwnProperty.call(answers, f) ? answers[f] : null;
+      if (keep) verdicts[p + '|' + f] = v;
+      cb(v);
+      return { cancel() {} };
+    },
+    tone: () => ({ cancel() {} }),
+    toneOf: () => undefined
+  };
+}
+
+test('ревью d97cffc п.1: сравнение ответило синхронно и не запомнило ответ — кадр как было, без повторного вопроса', () => {
+  const thumbs = syncThumbs({}, { remember: false });
+  const env = makeEnv({ fxHeavy: () => false, thumbs: thumbs });
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  fireFocus(main.activity, main.card1);
+  env.advance(400);
+  detailsOf(env, 11).ok(LOOK_DETAILS(11));
+  assert.deepEqual(thumbs.calls, ['/c1.jpg'], 'та же пара спрошена снова — это и был бесконечный круг');
+  assert.deepEqual(w1280(env), ['/c1.jpg'], 'кадр не пошёл — до перезапуска Lampa героя без кадра');
+  env.advance(1000);
+  assert.deepEqual(w1280(env), ['/c1.jpg'], 'потолок ожидания завёл второй кадр');
+  assert.deepEqual(warnLog, []);
+});
+
+test('ревью d97cffc п.1: синхронные ответы из памяти — первый непохожий кадр сразу, без ожидания', () => {
+  const thumbs = syncThumbs({ '/c1.jpg': true, '/c2.jpg': false });
+  const env = makeEnv({ fxHeavy: () => false, thumbs: thumbs });
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  fireFocus(main.activity, main.card1);
+  env.advance(400);
+  detailsOf(env, 11).ok(LOOK_DETAILS(11));
+  assert.deepEqual(thumbs.calls, ['/c1.jpg', '/c2.jpg']);
+  assert.deepEqual(w1280(env), ['/c2.jpg'], 'первый непохожий — сразу');
+  frameImg(env, '/c2.jpg').onload();
+  env.advance(1000);
+  assert.deepEqual(w1280(env), ['/c2.jpg'], 'потолок ожидания сменил выбранный кадр');
+  assert.equal(stageOf(heroOf(main.activity)).find('.lumen-hero__bg.is-active').attr('src'), 'https://img/t/p/w1280/c2.jpg');
+  assert.deepEqual(warnLog, []);
+});
+
+test('ревью d97cffc п.1: смена кадров при синхронном ответе сравнения — после первого тика грузятся следующие кадры', () => {
+  const thumbs = syncThumbs({ '/c1.jpg': false, '/c2.jpg': false, '/c3.jpg': false, '/c4.jpg': false });
+  const env = slidesEnv({ thumbs: thumbs });
+  try {
+    const main = makeMain();
+    env.hero.mount(main.activity);
+    focusOn(main, main.card1);
+    env.advance(400);
+    detailsOf(env, 11).ok(SLIDE_DETAILS(11));
+    assert.deepEqual(w1280(env), ['/c1.jpg'], 'предусловие: первый кадр выбран синхронно');
+    frameImg(env, '/c1.jpg').onload();
+    assert.equal(env.live().length, 1, 'предусловие: смена кадров заведена');
+    env.live()[0].fn();
+    assert.deepEqual(w1280(env), ['/c1.jpg', '/c2.jpg'], 'первый тик');
+    frameImg(env, '/c2.jpg').onload();
+    env.live()[0].fn();
+    assert.deepEqual(w1280(env), ['/c1.jpg', '/c2.jpg', '/c3.jpg'],
+      'второй тик не загрузил кадр — мёртвый дескриптор сравнения закрыл смену кадров');
+    frameImg(env, '/c3.jpg').onload();
+    env.live()[0].fn();
+    assert.deepEqual(w1280(env), ['/c1.jpg', '/c2.jpg', '/c3.jpg', '/c4.jpg'], 'третий тик');
+    assert.deepEqual(warnLog, []);
+  } finally { env.restore(); }
+});
+
+/* П.2: байты логотипа доехали к потолку TITLE_WAIT, а ответ ждущим
+   придерживает проба тона (TONE_WAIT) — это логотип, а не текст на весь
+   показ. */
+test('ревью d97cffc п.2: логотип доехал, тон ещё считается, потолок истёк — логотип (как есть), не текст', () => {
+  const thumbs = toneThumbs();
+  const { env, node } = heroTone(thumbs);
+  env.requests[0].ok(LOGO_RU);
+  /* Потолок названия (TITLE_WAIT, 600 мс) заведён выводом с деталями.
+     Логотип доехал за 180 мс до потолка, и ответ ему придерживает тон
+     (TONE_WAIT, 250 мс) — дольше, чем осталось до потолка. */
+  env.advance(420);
+  logoLoader(env).onload();
+  assert.equal(node.hasClass('lumen-hero--logo'), false, 'предусловие: логотип ждёт тон');
+  env.advance(200);
+  assert.equal(node.hasClass('lumen-hero--logo'), true, 'потолок вывел текст вместо доехавшего логотипа');
+  assert.equal(node.find('.lumen-hero__title').text(), '', 'рядом с логотипом выведен текст названия');
+  assert.equal(white(node), false, 'тон не известен — логотип как есть');
+  /* Поздний тон решения не меняет: второго вывода нет. */
+  thumbs.answer(0, 'dark');
+  env.advance(300);
+  assert.equal(node.hasClass('lumen-hero--logo'), true);
+  assert.equal(white(node), false, 'логотип побелел посреди показа — подмена');
+  assert.deepEqual(warnLog, []);
+});
+
+test('ревью d97cffc п.2: waitLogo — к потолку байты доехали, ответ держит тон — решение «логотип»', () => {
+  const thumbs = toneThumbs();
+  const env = makeEnv({ thumbs: thumbs });
+  const got = [];
+  env.hero.waitLogo('/t1.png', 'https://img/t1.png', (show) => got.push(show));
+  env.advance(500);
+  env.images.find((i) => i.src === 'https://img/t1.png').onload();
+  assert.deepEqual(got, [], 'предусловие: ответ ждёт тон');
+  env.advance(100);
+  assert.deepEqual(got, [true], 'потолок решил «текст», хотя логотип в памяти');
+  thumbs.answer(0, 'dark');
+  env.advance(300);
+  assert.deepEqual(got, [true], 'решение одно');
 });
 
 /* ====================================================================== */

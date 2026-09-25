@@ -1006,9 +1006,14 @@
         decide(show);
       }
       var load = preloadLogo(path, url, function (ok) { once(ok); });
+      /* Ревью раунда героя (d97cffc), п.2: байты логотипа к потолку уже
+         доехали ('ok'), а ответ ждущим ещё придерживает проба тона
+         (TONE_WAIT в landLogo), — это логотип, а не текст: он встаёт с тем
+         тоном, что известен (неизвестен — как есть). Иначе отсрочка ради
+         тона выталкивала логотип за потолок, и весь показ шёл текстом. */
       ceiling = setTimeout(function () {
         ceiling = null;
-        once(false);
+        once(logoSeen[path] === 'ok');
       }, TITLE_WAIT);
       return {
         cancel: function () {
@@ -1910,13 +1915,21 @@
             var v = look ? look.verdict(poster, path) : false;
             if (v === true) { done(false); return; }
             if (v !== undefined) { slideShow(path, done); return; }
-            state.slideLook = look.compare(poster, path, function (similar) {
+            /* Ревью раунда героя (d97cffc), п.1: ответ бывает синхронным
+               (память, блокировка модуля) — тогда колбэк уже отработал, и
+               его дескриптор в state.slideLook не пишется: иначе мёртвый
+               дескриптор навсегда закрывал бы тики смены кадров гардом
+               выше. */
+            var answered = false;
+            var job = look.compare(poster, path, function (similar) {
+              answered = true;
               if (!state || gen !== captured) return;
               state.slideLook = null;
               if (state.loader || homeHidden() || slidesHeld()) return;
               if (similar === true) { done(false); return; }
               slideShow(path, done);
             });
+            if (!answered) state.slideLook = job;
           }
         });
         if (slidesHeld()) state.slides.pause();
@@ -2199,6 +2212,21 @@
          получит текст. */
       if (focusAway()) {
         startTitleTimer();
+        return;
+      }
+      /* Ревью раунда героя (d97cffc), п.2: байты логотипа уже доехали
+         ('ok'), а ответ придерживает проба тона (TONE_WAIT в landLogo) —
+         на потолке встаёт логотип, а не текст: с тем тоном, что известен
+         (showLogo решает силуэт по нему; неизвестен — как есть). Его
+         ожидание снимается — второго вывода по позднему ответу не будет. */
+      var path = state.model && logoAllowed() ? state.model.logo : null;
+      if (path && logoSeen[path] === 'ok') {
+        if (state.logoLoader) {
+          state.logoLoader.cancel();
+          state.logoLoader = null;
+        }
+        touchLogo(path);
+        showLogo(state.node, logoUrl(path), path);
         return;
       }
       state.titleForced = true;
@@ -2712,18 +2740,39 @@
       }
       /* Кадр по данным ряда (FRAME_WAIT) больше не нужен: детали пришли. */
       stopTimer('frameWait');
-      function step() {
-        if (decided || !state || gen !== captured) return;
-        var r = pickFrame(cands.paths, cands.strong, verdictOf, model.backdrop, false);
-        if (!r.wait) {
-          finish(r.path);
-          return;
-        }
-        state.look = look.compare(poster, r.wait, function () {
-          if (!state || gen !== captured) return;
+      /* Ревью раунда героя (d97cffc), п.1: compare отвечает и синхронно
+         (ответ в памяти, признаки обеих миниатюр в памяти, модуль
+         заблокирован отказами). Синхронный ответ разбирается здесь же, в
+         цикле, а не рекурсией из колбэка, и его дескриптор в state.look не
+         пишется: ответ уже был, снимать нечего. Ответ, не легший в память
+         (verdict всё ещё undefined), — «сравнить нельзя»: кадр как было,
+         без второго вопроса о той же паре. */
+      function ask(path) {
+        var answered = false;
+        var sync = true;
+        var job = look.compare(poster, path, function () {
+          answered = true;
+          if (sync || !state || gen !== captured) return;
           state.look = null;
           step();
         });
+        sync = false;
+        if (!answered) state.look = job;
+        return answered;
+      }
+      function step() {
+        while (!decided && state && gen === captured) {
+          var r = pickFrame(cands.paths, cands.strong, verdictOf, model.backdrop, false);
+          if (!r.wait) {
+            finish(r.path);
+            return;
+          }
+          if (!ask(r.wait)) return;
+          if (verdictOf(r.wait) === undefined) {
+            finish(model.backdrop);
+            return;
+          }
+        }
       }
       step();
       if (decided || !state || gen !== captured) return;
@@ -3091,6 +3140,19 @@
          паузу до возврата фокуса; show() новой карточки её снимет. */
       if (state.slides) {
         try { state.slides.pause(); } catch (ePs) { warn('hero: slides pause failed', ePs); }
+      }
+      /* Ревью раунда героя (d97cffc), п.3: и сравнения миниатюр
+         показанной карточки (LC.thumbs, src/57_thumbs.js) — canvas не
+         работает, пока идёт листание. Первый кадр тогда выберет потолок
+         ожидания (lookTimer в chooseFrame) по тому, что уже известно;
+         кадр смены с оборванным сравнением предложит следующий тик. */
+      if (state.look) {
+        state.look.cancel();
+        state.look = null;
+      }
+      if (state.slideLook) {
+        state.slideLook.cancel();
+        state.slideLook = null;
       }
 
       var captured = gen;

@@ -310,6 +310,27 @@ test('п.C2/D: шесть отказов подряд (прокси без CORS)
   assert.equal(e.images.length, before, 'после отказов миниатюры грузятся');
 });
 
+/* Ревью раунда героя (d97cffc), п.1 (critical): заблокированный модуль
+   отвечал null синхронно и ответа не запоминал — verdict() оставался
+   undefined, и выбор кадра героя спрашивал ту же пару снова, до
+   переполнения стека. Ответ «сравнить нельзя» обязан лечь в память. */
+test('ревью d97cffc п.1: заблокированный compare запоминает «сравнить нельзя» — verdict() null, а не undefined', () => {
+  const e = env();
+  for (let i = 0; i < 6; i++) {
+    e.T.tone('/l' + i + '.png', () => {});
+    e.arrive(e.images[e.images.length - 1], () => [0, 0, 0], 92, 30, true);
+    e.idleAll();
+  }
+  assert.equal(e.T.stats().blocked, true, 'предусловие: модуль заблокирован');
+  assert.equal(e.T.verdict('/p.jpg', '/f.jpg'), undefined, 'предусловие: про пару ничего не известно');
+  const got = [];
+  e.T.compare('/p.jpg', '/f.jpg', (v) => got.push(v));
+  assert.deepEqual(got, [null]);
+  assert.equal(e.T.verdict('/p.jpg', '/f.jpg'), null, 'ответ «нельзя» не лёг в память — выбор кадра спросит снова');
+  e.T.compare('/p.jpg', '/f.jpg', (v) => got.push(v));
+  assert.deepEqual(got, [null, null], 'повтор — из памяти, тот же ответ');
+});
+
 test('п.C2/D: удача сбрасывает счёт отказов; SVG без размеров — не отказ', () => {
   const e = env();
   for (let i = 0; i < 5; i++) {
