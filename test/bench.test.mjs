@@ -75,7 +75,9 @@ function wideResult(api) {
   const rows = api.STAGES.map((s, i) => ({
     n: i + 1, id: s.id, partial: i === 7, frames: 300, fps: 59.9, p50: 16.7, p95: 1234.5, miss1: 1234, miss2: 999,
     loafN: 123, loafMs: 98765, worst: { ms: 4321, host: 'very-long-cdn-hostname.example.com setTimeout handler with a long name' },
-    lat95: 123.4, anim: 1234, fxMs: 12.34
+    lat95: 123.4, anim: 1234, fxMs: 12.34,
+    top: { ms: 12345.6, block: 9876.5, js: 1234.4, rev: 2345.6, sl: 3456.7, forced: 456.7, other: 12345.6,
+      script: 'very-long-cdn-hostname.example.com someVeryLongFunctionName@1234567 DIV.onwebkitTransitionEnd' }
   }));
   return {
     version: '0.2.0', cr: '153', hw: '4c/n/a', w: 960, h: 540, dpr: 2, P: 16.7, time: '21:05',
@@ -103,10 +105,80 @@ test('bench: таблица — шапка cr · hw · 960×540@2 · P · вре
   assert.ok(/all\*/.test(text), 'недомеренная стадия помечена звёздочкой');
   assert.ok(text.indexOf('very-long-cdn-hostname') !== -1, 'хост скрипта худшего долгого кадра');
   assert.ok(text.indexOf('прервано') !== -1, 'причина прерывания');
-  assert.equal(lines[lines.length - 1], 'Назад — закрыть');
+  /* Раунд «Листание»: вторая таблица съела строки экрана — причина
+     прерывания и «Назад» делят одну строку. */
+  assert.equal(lines[lines.length - 1], 'прервано: key · 8/8 · Назад — закрыть');
+  const done = api.table(Object.assign({}, r, { reason: 'done' }));
+  assert.equal(done[done.length - 1], 'Назад — закрыть');
   /* Без LoAF — «n/a», а не ноль. */
   const none = api.table(Object.assign({}, r, { reason: 'done', rows: [Object.assign({}, r.rows[0], { loafN: null, worst: null, lat95: null, fxMs: null, anim: -1 })] }));
   assert.ok(/\bn\/a\b/.test(none.join('\n')), none.join('\n'));
+});
+
+/* Раунд «Листание», п.5 исследования: «n/a» в подвале (у худшего кадра нет
+   скрипта дольше 5 мс) не говорил, ЧЕМ занят кадр. Самый длинный кадр
+   стадии (по duration) раскладывается по фазам LoAF:
+     js    — скрипты задачи (начались до renderStart);
+     r+ev  — renderStart → styleAndLayoutStart: колбэки rAF и события
+             анимаций (сюда попадает transitionend Lampa);
+     st+l  — styleAndLayoutStart → конец кадра: стиль, раскладка, отрисовка;
+     frc   — из них принудительные (forcedStyleAndLayoutDuration скриптов);
+     other — остаток задачи без скриптов: GC, декодирование, натив;
+     script — самый долгий скрипт кадра: хост, функция@символ, вызвавший. */
+test('bench: partsOf — фазы долгого кадра: js, r+ev, st+l, frc, other и главный скрипт', () => {
+  const { api } = fresh();
+  const p = api.partsOf({
+    startTime: 1000, duration: 120, blockingDuration: 70, renderStart: 1060, styleAndLayoutStart: 1090,
+    scripts: [
+      { startTime: 1005, duration: 40, forcedStyleAndLayoutDuration: 6, sourceURL: 'https://cdn.example.org/app.min.js',
+        sourceFunctionName: 'move', sourceCharPosition: 46253, invoker: 'TimerHandler:setTimeout' },
+      { startTime: 1065, duration: 20, forcedStyleAndLayoutDuration: 3, sourceURL: '',
+        sourceFunctionName: 'frameVisible', sourceCharPosition: 32024, invoker: 'DIV.onwebkitTransitionEnd' }
+    ]
+  });
+  assert.equal(p.ms, 120);
+  assert.equal(p.block, 70);
+  assert.equal(p.js, 40, 'скрипты задачи — только те, что до renderStart');
+  assert.equal(p.rev, 30, 'rAF и события анимаций — от renderStart до styleAndLayoutStart');
+  assert.equal(p.sl, 30, 'стиль, раскладка, отрисовка — от styleAndLayoutStart до конца кадра');
+  assert.equal(p.forced, 9, 'принудительные стиль и раскладка — по всем скриптам');
+  assert.equal(p.other, 20, 'задача (60 мс) без её скриптов (40)');
+  assert.equal(p.script, 'cdn.example.org move@46253 TimerHandler:setTimeout');
+  /* Кадр без отрисовки (renderStart 0): весь — задача; без скриптов — всё
+     в other, скрипта нет. */
+  const bare = api.partsOf({ startTime: 0, duration: 80, blockingDuration: 30, renderStart: 0, styleAndLayoutStart: 0, scripts: [] });
+  assert.deepEqual([bare.js, bare.rev, bare.sl, bare.forced, bare.other, bare.script], [0, 0, 0, 0, 80, '']);
+  const inline = api.partsOf({ startTime: 0, duration: 60, renderStart: 50, styleAndLayoutStart: 55,
+    scripts: [{ startTime: 1, duration: 30, sourceURL: '', sourceFunctionName: '', sourceCharPosition: -1, invoker: '' }] });
+  assert.equal(inline.script, 'inline @', 'скрипт без адреса — inline, без функции и позиции');
+});
+
+test('bench: вторая таблица — самый длинный кадр каждой стадии по фазам; обе таблицы — на одном экране 960×540', () => {
+  const { api } = fresh({ lang: (k) => ({ lumen_bench_back: 'Назад — закрыть', lumen_bench_stopped: 'прервано' })[k] || k });
+  const lines = api.table(wideResult(api));
+  /* Экран: кегль FONT_PX, межстрочный LINE_EM, поля PAD_PX — 22 строки на
+     540 CSS px (телевизор 960×540@2). */
+  assert.equal(api.MAX_LINES, Math.floor((540 - 2 * api.PAD_PX) / (api.FONT_PX * api.LINE_EM)));
+  assert.equal(api.MAX_LINES, 22);
+  assert.ok(lines.length <= api.MAX_LINES, 'таблица длиннее экрана: ' + lines.length + ' строк\n' + lines.join('\n'));
+  for (const line of lines) assert.ok(line.length <= api.MAX_COLS, 'строка шире экрана: «' + line + '»');
+  const head = lines.findIndex((l) => /^\s*#\s+max\s+blk\s+js\s+r\+ev\s+st\+l\s+frc\s+other\s+script$/.test(l));
+  assert.ok(head > 0, 'заголовка второй таблицы нет:\n' + lines.join('\n'));
+  const rows = lines.slice(head + 1, head + 9);
+  assert.equal(rows.length, 8);
+  const cells = rows[0].trim().split(/\s+/);
+  assert.deepEqual(cells.slice(0, 8), ['1', '12346', '9877', '1234', '2346', '3457', '457', '12346'], rows[0]);
+  assert.ok(rows[0].indexOf('very-long-cdn-hostname') !== -1, 'скрипта нет: ' + rows[0]);
+
+  /* Стадия без долгих кадров — прочерк; LoAF не поддерживается вовсе —
+     второй таблицы нет. */
+  const r = wideResult(api);
+  r.rows[1] = Object.assign({}, r.rows[1], { top: null, loafN: 0 });
+  const quiet = api.table(r);
+  const qHead = quiet.findIndex((l) => /^\s*#\s+max/.test(l));
+  assert.ok(/^\s*2\s+-$/.test(quiet[qHead + 2]), 'стадия без долгих кадров: «' + quiet[qHead + 2] + '»');
+  const none = api.table(Object.assign({}, r, { rows: r.rows.map((x) => Object.assign({}, x, { loafN: null, top: null, worst: null })) }));
+  assert.equal(none.filter((l) => /^\s*#\s+max/.test(l)).length, 0, 'вторая таблица без LoAF');
 });
 
 /* ====================================================================== */
@@ -452,4 +524,31 @@ test('bench: long-animation-frame — число, сумма blockingDuration и
   assert.equal(quiet.api.last().rows[0].loafN, 1);
   assert.equal(quiet.api.last().rows[0].worst, null);
   assert.equal(quiet.api.table(quiet.api.last()).filter((l) => l.indexOf('loaf max') === 0).length, 0);
+  /* Раунд «Листание», п.5: в фазы раскладывается и такой кадр — самый
+     длинный по duration, а не по блокировке. */
+  assert.equal(quiet.api.last().rows[0].top.ms, 60);
+  assert.equal(quiet.api.last().rows[0].top.other, 60);
+});
+
+/* Раунд «Листание», п.5: худший кадр для фаз — по duration (сколько кадр
+   держал экран), худший для подвала — по blockingDuration, как прежде. */
+test('bench: самый длинный кадр стадии — по duration, в строке стадии и в JSON', () => {
+  const e = makeEnv({ loaf: true });
+  e.api.start();
+  e.advance(LEAVE + 10);
+  e.advance(1500);
+  e.loaf([
+    { startTime: 1e9, duration: 60, blockingDuration: 50, renderStart: 1e9 + 55, styleAndLayoutStart: 1e9 + 58,
+      scripts: [{ startTime: 1e9 + 1, duration: 52, sourceURL: 'https://cdn.example.org/a.js', sourceFunctionName: 'a', sourceCharPosition: 1, invoker: 'TimerHandler:setTimeout' }] },
+    { startTime: 1e9 + 100, duration: 150, blockingDuration: 10, renderStart: 1e9 + 120, styleAndLayoutStart: 1e9 + 200,
+      scripts: [{ startTime: 1e9 + 125, duration: 70, sourceURL: 'https://cdn.example.org/app.min.js', sourceFunctionName: 'frameVisible', sourceCharPosition: 32024, invoker: 'DIV.onwebkitTransitionEnd' }] }
+  ]);
+  e.advance(8 * STAGE);
+  const row = e.api.last().rows[0];
+  assert.equal(row.worst.ms, 50, 'подвал — по блокировке');
+  assert.equal(row.top.ms, 150, 'фазы — самого длинного кадра');
+  assert.equal(row.top.rev, 80, 'transitionend Lampa — в r+ev');
+  assert.equal(row.top.sl, 50);
+  assert.equal(row.top.script, 'cdn.example.org frameVisible@32024 DIV.onwebkitTransitionEnd');
+  assert.equal(e.api.last().rows[1].top, null, 'чужая стадия не получила кадра');
 });

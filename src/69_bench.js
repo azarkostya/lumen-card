@@ -15,7 +15,12 @@
   /* первой стадии; lat95 — p95 задержки колбэка rAF; долгие кадры          */
   /* (PerformanceObserver 'long-animation-frame') — число и сумма           */
   /* blockingDuration, у худшего — хост скрипта; число анимаций документа   */
-  /* (getAnimations) и средняя цена кадра частиц (LC.fx.stats).             */
+  /* (getAnimations) и средняя цена кадра частиц (LC.fx.stats). Раунд       */
+  /* «Листание»: вторая таблица — самый длинный кадр каждой стадии по       */
+  /* фазам LoAF (partsOf: js, r+ev, st+l, frc, other, главный скрипт).      */
+  /* Сам цикл замера (rAF на каждом кадре) — не бесплатный: по трейсу при   */
+  /* CPU ×10 он добавляет 40–70 мс на шаг листания, и сравнивать цифры      */
+  /* стадий можно между собой и между прогонами, а не с «голой» главной.    */
   /*                                                                       */
   /* Настройки подменяются ТОЛЬКО в памяти (LC.prefs.override, первая      */
   /* строка LC.pref), в Storage не пишется ничего. На время теста молчит    */
@@ -46,13 +51,18 @@
     var UP_TRIES = 6;
 
     /* Экран таблицы: моноширинный кегль FONT_PX, символ — CHAR_EM кегля,
-       поля PAD_PX. MAX_COLS — сколько символов строки влезает в 960 CSS px
-       (ширина окна телевизора при DPR 2). */
+       строка — LINE_EM кегля, поля PAD_PX. MAX_COLS — сколько символов
+       строки влезает в 960 CSS px (ширина окна телевизора при DPR 2),
+       MAX_LINES — сколько строк в 540 (раунд «Листание»: вторая таблица
+       обязана поместиться на тот же экран, фото одно). */
     var FONT_PX = 15;
     var CHAR_EM = 0.6;
+    var LINE_EM = 1.45;
     var PAD_PX = 24;
     var SCREEN_W = 960;
+    var SCREEN_H = 540;
     var MAX_COLS = Math.floor((SCREEN_W - 2 * PAD_PX) / (FONT_PX * CHAR_EM));
+    var MAX_LINES = Math.floor((SCREEN_H - 2 * PAD_PX) / (FONT_PX * LINE_EM));
 
     /* Два цвета стадии «+tint»: тёплый и холодный — путь через
        приглушённый тон, как между соседними постерами. */
@@ -158,6 +168,32 @@
       return out.replace(/\s+$/, '');
     }
 
+    /* Раунд «Листание»: вторая таблица — самый длинный кадр каждой стадии
+       по фазам (partsOf ниже), мс. Скрипт — всё, что остаётся от строки. */
+    var COLS2 = [['#', 2], ['max', 5], ['blk', 5], ['js', 5], ['r+ev', 5], ['st+l', 5], ['frc', 5], ['other', 6]];
+    /* Колонке скрипта — всё, что осталось от MAX_COLS после чисел и пробелов
+       между колонками (55 символов на экране 960). */
+    var SCRIPT_W = MAX_COLS;
+    for (var c2 = 0; c2 < COLS2.length; c2++) SCRIPT_W -= COLS2[c2][1] + 1;
+    /* В JSON результата скрипт — длиннее, чем влезает в колонку. */
+    var SCRIPT_MAX = 120;
+
+    function line2(cells) {
+      var out = '';
+      for (var i = 0; i < cells.length; i++) {
+        var last = i === cells.length - 1;
+        out += (i < COLS2.length ? pad(cells[i], COLS2[i][1]) : pad(cells[i], SCRIPT_W, true)) + (last ? '' : ' ');
+      }
+      return out.replace(/\s+$/, '');
+    }
+
+    function topLine(row) {
+      var tp = row.top;
+      if (!tp) return line2(['' + row.n, '-']);
+      return line2(['' + row.n, Math.round(tp.ms), Math.round(tp.block), Math.round(tp.js), Math.round(tp.rev),
+        Math.round(tp.sl), Math.round(tp.forced), Math.round(tp.other), tp.script || '-']);
+    }
+
     function rowLine(row) {
       return line([
         '' + row.n, row.id + (row.partial ? '*' : ''),
@@ -180,28 +216,38 @@
 
     /* Строки экрана таблицы. Шапка — чем снято: мажор Chromium, железо,
        окно, P, время, версия плагина. Дальше — по строке на стадию
-       (недомеренная — со звёздочкой), худший долгий кадр со скриптом,
-       причина прерывания и подсказка «Назад». Каждая — не длиннее MAX_COLS. */
+       (недомеренная — со звёздочкой); раунд «Листание»: вторая таблица —
+       самый длинный кадр каждой стадии по фазам (partsOf), если браузер
+       умеет LoAF; худший по блокировке кадр со скриптом, причина прерывания
+       и подсказка «Назад» — одной строкой. Каждая — не длиннее MAX_COLS,
+       всех — не больше MAX_LINES (22 на экране 960×540): пустой строки под
+       шапкой ради второй таблицы больше нет. */
     function table(result) {
       var out = [];
       out.push(cut('cr ' + result.cr + ' · hw ' + result.hw + ' · ' + result.w + '×' + result.h + '@' + result.dpr +
         ' · P ' + fixed(result.P || 0) + ' · ' + result.time + ' · v' + result.version, MAX_COLS));
-      out.push('');
       out.push(line(COLS.map(function (c) { return c[0]; })));
       var worst = null;
+      var loaf = false;
       for (var i = 0; i < result.rows.length; i++) {
         var row = result.rows[i];
         out.push(rowLine(row));
         if (row.worst && (!worst || row.worst.ms > worst.ms)) worst = { ms: row.worst.ms, host: row.worst.host, n: row.n, id: row.id };
+        if (row.loafN !== null && typeof row.loafN !== 'undefined') loaf = true;
       }
       out.push('');
+      if (loaf) {
+        out.push(line2(['#', 'max', 'blk', 'js', 'r+ev', 'st+l', 'frc', 'other', 'script']));
+        for (var j = 0; j < result.rows.length; j++) out.push(topLine(result.rows[j]));
+      }
       if (worst) {
         out.push(cut('loaf max: #' + worst.n + ' ' + worst.id + ' · ' + Math.round(worst.ms) + ' ms · ' + (worst.host || 'n/a'), MAX_COLS));
       }
+      var back = lang('lumen_bench_back', 'Back — close');
       if (result.reason && result.reason !== 'done') {
-        out.push(cut(lang('lumen_bench_stopped', 'stopped') + ': ' + result.reason + ' · ' + result.stoppedAt + '/' + STAGES.length, MAX_COLS));
+        back = lang('lumen_bench_stopped', 'stopped') + ': ' + result.reason + ' · ' + result.stoppedAt + '/' + STAGES.length + ' · ' + back;
       }
-      out.push(cut(lang('lumen_bench_back', 'Back — close'), MAX_COLS));
+      out.push(cut(back, MAX_COLS));
       return out;
     }
 
@@ -322,6 +368,49 @@
       return cut((hostOf(best.sourceURL) || 'inline') + (best.invoker ? ' ' + best.invoker : ''), 48);
     }
 
+    /* Раунд «Листание» (трейс 2026-09-25, п.5 исследования): «n/a» в
+       подвале — у худшего кадра нет скрипта дольше 5 мс — не говорил, ЧЕМ
+       занят кадр. Фазы записи LoAF (мс):
+         js    — скрипты задачи, начавшиеся до renderStart;
+         rev   — renderStart → styleAndLayoutStart: колбэки rAF и события
+                 анимаций (сюда попадает transitionend Lampa — конец
+                 прокрутки ряда, Layer.visible/frameVisible);
+         sl    — styleAndLayoutStart → конец кадра: стиль, раскладка,
+                 отрисовка;
+         forced — принудительные стиль и раскладка (сумма
+                 forcedStyleAndLayoutDuration скриптов, внутри js/rev);
+         other — остаток задачи без скриптов: сборка мусора,
+                 декодирование, нативная работа, скрипты короче 5 мс;
+         script — самый долгий скрипт: хост, функция@символ, вызвавший.
+       Без renderStart (кадр без отрисовки) весь кадр — задача. */
+    function partsOf(e) {
+      var start = Number(e.startTime) || 0;
+      var dur = Number(e.duration) || 0;
+      var rs = Number(e.renderStart) || 0;
+      var sls = Number(e.styleAndLayoutStart) || 0;
+      var list = e.scripts || [];
+      var js = 0;
+      var forced = 0;
+      var top = null;
+      for (var i = 0; i < list.length; i++) {
+        var d = Number(list[i].duration) || 0;
+        forced += Number(list[i].forcedStyleAndLayoutDuration) || 0;
+        if (!rs || Number(list[i].startTime) < rs) js += d;
+        if (!top || d > Number(top.duration)) top = list[i];
+      }
+      var task = rs > 0 ? rs - start : dur;
+      var other = task - js;
+      var pos = top && Number(top.sourceCharPosition) >= 0 ? '' + top.sourceCharPosition : '';
+      return {
+        ms: dur, block: Number(e.blockingDuration) || 0, js: js, forced: forced,
+        rev: rs > 0 && sls > 0 ? sls - rs : 0,
+        sl: sls > 0 ? start + dur - sls : 0,
+        other: other > 0 ? other : 0,
+        script: top ? cut((hostOf(top.sourceURL) || 'inline') + ' ' + (top.sourceFunctionName || '') + '@' + pos +
+          (top.invoker ? ' ' + top.invoker : ''), SCRIPT_MAX) : ''
+      };
+    }
+
     /* ------------------------------------------------------------------ */
     /* Прогон                                                              */
     /* ------------------------------------------------------------------ */
@@ -375,6 +464,9 @@
         /* Кадр без блокировки (0 мс — долгий из-за отрисовки) худшим не
            считается: его скрипта в подвале искать нечего. */
         if (ms > 0 && (!r.loaf.worst || ms > r.loaf.worst.ms)) r.loaf.worst = { ms: ms, host: scriptOf(e) };
+        /* Раунд «Листание»: для фаз — самый длинный кадр (duration: сколько
+           он держал экран), а не самый блокирующий. */
+        if (!r.loaf.top || (Number(e.duration) || 0) > r.loaf.top.ms) r.loaf.top = partsOf(e);
       }
     }
 
@@ -451,7 +543,7 @@
       r.phase = 'warm';
       r.deltas = [];
       r.lats = [];
-      r.loaf = { n: 0, ms: 0, worst: null };
+      r.loaf = { n: 0, ms: 0, worst: null, top: null };
       r.anim = -1;
       r.fx0 = null;
       r.measureFrom = -1;
@@ -517,7 +609,7 @@
       return {
         n: r.step + 1, id: st.id, partial: !!partial, frames: s.frames, fps: s.fps, p50: s.p50, p95: s.p95,
         miss1: s.miss1, miss2: s.miss2, lat95: s.lat95,
-        loafN: r.obs ? r.loaf.n : null, loafMs: r.obs ? r.loaf.ms : 0, worst: r.loaf.worst,
+        loafN: r.obs ? r.loaf.n : null, loafMs: r.obs ? r.loaf.ms : 0, worst: r.loaf.worst, top: r.loaf.top,
         anim: r.anim, fxMs: fxAvg(r.fx0, fxStats())
       };
     }
@@ -593,7 +685,7 @@
       var node = document.createElement('div');
       node.className = 'lumen-bench';
       node.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;z-index:10001;margin:0;padding:' + PAD_PX + 'px;' +
-        'box-sizing:border-box;background:#0B0908;color:#EDE6DA;font:' + FONT_PX + 'px/1.45 monospace;' +
+        'box-sizing:border-box;background:#0B0908;color:#EDE6DA;font:' + FONT_PX + 'px/' + LINE_EM + ' monospace;' +
         'white-space:pre;overflow:hidden';
       node.textContent = table(result).join('\n');
       node.onclick = close;
@@ -638,7 +730,7 @@
       }
       var r = {
         step: -1, rows: [], P: 0, timers: [], raf: 0, phase: 'idle', prevT: 0, deltas: [], lats: [],
-        loaf: { n: 0, ms: 0, worst: null }, anim: -1, fx0: null, measureFrom: -1, obs: null,
+        loaf: { n: 0, ms: 0, worst: null, top: null }, anim: -1, fx0: null, measureFrom: -1, obs: null,
         startEl: heroFocused(), tintSaved: null, tag: null
       };
       run = r;
@@ -677,8 +769,8 @@
     }
 
     var api = {
-      STAGES: STAGES, MAX_COLS: MAX_COLS, FONT_PX: FONT_PX, CHAR_EM: CHAR_EM, PAD_PX: PAD_PX,
-      overridesFor: overridesFor, summarize: summarize, period: period, table: table,
+      STAGES: STAGES, MAX_COLS: MAX_COLS, MAX_LINES: MAX_LINES, FONT_PX: FONT_PX, CHAR_EM: CHAR_EM, LINE_EM: LINE_EM, PAD_PX: PAD_PX,
+      overridesFor: overridesFor, summarize: summarize, period: period, table: table, partsOf: partsOf,
       start: start,
       /* Прервать из консоли — тот же путь, что у клавиши. */
       stop: function () { finish('stop'); },
