@@ -4735,7 +4735,13 @@ css.push('.lumen-hero .lumen-hero__logo.lumen-logo-white,.lumen-card .lumen-logo
 
 
 
-css.push('.lumen-hero .lumen-hero__title{font-family:' + FB + ';font-weight:700;font-size:3.4em;line-height:1.08;color:' + P.text + ';margin-top:.4em;height:1.29em;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:1}');
+
+
+
+
+
+
+css.push('.lumen-hero .lumen-hero__title{font-family:' + FB + ';font-weight:700;font-size:3.4em;line-height:1.08;color:' + P.text + ';margin-top:.4em;height:1.29em;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:1;white-space:nowrap;text-overflow:ellipsis}');
 css.push('.lumen-hero.lumen-hero--compact .lumen-hero__title{height:1.2em}');
 css.push('.lumen-hero.lumen-hero--logo .lumen-hero__title{display:none}');
 css.push('.lumen-hero .lumen-hero__descr{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;font-family:' + FB + ';font-weight:500;font-size:1.15em;line-height:1.24;color:' + P.soft + ';text-shadow:' + HERO_TEXT_SHADOW + ';max-width:' + DESCR_MAX_W + 'em;margin-top:.46em}');
@@ -14475,6 +14481,10 @@ var TRAILER_DELAY = 8000;
 
 var VIDEOS_LIFE = 10080;
 
+
+
+var VIDEOS_LIMIT = 12000;
+
 var SWAP_MS = 180;
 
 
@@ -15249,6 +15259,7 @@ unhookLogo(fl);
 if (fl.probe) {
 fl.probe.cancel();
 fl.probe = null;
+if (Object.prototype.hasOwnProperty.call(toneProbes, path) && toneProbes[path].fl === fl) delete toneProbes[path];
 }
 try {
 if (typeof fl.img.removeAttribute === 'function') fl.img.removeAttribute('src');
@@ -15303,23 +15314,95 @@ var TONE_WAIT = 250;
 
 
 
+
+
+
+
+
+
+
+
+
+var toneProbes = {};
+
 function probeTone(path, fl) {
 if (!LC.thumbs || typeof LC.thumbs.tone !== 'function' || logoTone(path) !== undefined) return;
+if (Object.prototype.hasOwnProperty.call(toneProbes, path)) return;
+var entry = { job: null, fl: fl || null };
+toneProbes[path] = entry;
 var done = false;
 var probe = LC.thumbs.tone(path, function (tone) {
 done = true;
-fl.probe = null;
+if (toneProbes[path] === entry) delete toneProbes[path];
+if (entry.fl) entry.fl.probe = null;
 if (tone === 'dark') probeSiblings(path);
-if (fl.late) tellLogo(fl, true);
+if (entry.fl && entry.fl.late) tellLogo(entry.fl, true);
 });
-if (!done) fl.probe = probe;
+if (done) return;
+entry.job = probe;
+if (fl) fl.probe = probe;
 }
 
 function probeSiblings(path) {
+if (!LC.thumbs || typeof LC.thumbs.tone !== 'function') return;
 var sibs = Object.prototype.hasOwnProperty.call(logoSiblings, path) ? logoSiblings[path] : null;
 for (var i = 0; sibs && i < sibs.length; i++) {
-if (logoTone(sibs[i]) === undefined) {
-try { LC.thumbs.tone(sibs[i], function () {}); } catch (e) { warn('hero: logo tone failed', e); }
+if (logoTone(sibs[i]) === undefined && !Object.prototype.hasOwnProperty.call(toneProbes, sibs[i])) probeSibling(path, sibs[i]);
+}
+}
+
+function probeSibling(path, sib) {
+var entry = { job: null, fl: null };
+toneProbes[sib] = entry;
+var done = false;
+try {
+var probe = LC.thumbs.tone(sib, function (tone) {
+done = true;
+if (toneProbes[sib] === entry) delete toneProbes[sib];
+if (tone === 'light') preloadLight(path, sib);
+});
+if (!done) entry.job = probe;
+} catch (e) {
+if (toneProbes[sib] === entry) delete toneProbes[sib];
+warn('hero: logo tone failed', e);
+}
+}
+
+
+
+
+
+
+
+
+function preloadLight(path, sib) {
+var sibs = Object.prototype.hasOwnProperty.call(logoSiblings, path) ? logoSiblings[path] : [];
+for (var i = 0; i < sibs.length && sibs[i] !== sib; i++) {
+if (logoTone(sibs[i]) === 'light') return;
+}
+if (!logoAllowed() || logoSeen[sib] === 'ok' || logoSeen[sib] === 'fail' || logoFlight[sib]) return;
+var url = logoUrl(sib);
+if (url) preloadLogo(sib, url, function () {});
+}
+
+
+
+
+function dropTones(path) {
+if (!path) return;
+var list = [path].concat(Object.prototype.hasOwnProperty.call(logoSiblings, path) ? logoSiblings[path] : []);
+for (var i = 0; i < list.length; i++) {
+if (!Object.prototype.hasOwnProperty.call(toneProbes, list[i])) continue;
+var entry = toneProbes[list[i]];
+delete toneProbes[list[i]];
+try {
+if (entry.job) entry.job.cancel();
+} catch (e) {
+warn('hero: logo tone cancel failed', e);
+}
+if (entry.fl) {
+entry.fl.probe = null;
+if (entry.fl.late) tellLogo(entry.fl, true);
 }
 }
 }
@@ -15620,20 +15703,53 @@ return !!state;
 function applyMotion() {
 try {
 if (!state) return;
-state.node.removeClass(MOTION_CLASSES).addClass('lumen-motion-' + LC.motionMode());
+var mode = LC.motionMode();
+state.node.removeClass(MOTION_CLASSES).addClass('lumen-motion-' + mode);
 
 
 
-state.stage.removeClass(MOTION_CLASSES).addClass('lumen-motion-' + LC.motionMode());
+state.stage.removeClass(MOTION_CLASSES).addClass('lumen-motion-' + mode);
 
 
 
 applyTrailer();
 
 applySlides();
+
+
+
+
+
+
+var was = state.motion;
+state.motion = mode;
+if (mode === 'off') offFrame();
+else if (was === 'off') onFrame();
 } catch (e) {
 warn('hero: motion failed', e);
 }
+}
+
+function offFrame() {
+stopTimer('loadTimer');
+stopTimer('holdTimer');
+state.holdDue = false;
+if (state.loader) {
+dropLoader(state.loader);
+state.loader = null;
+}
+neutralFrame();
+
+
+state.stage.find('.lumen-hero__bg').removeAttr('src');
+}
+
+function onFrame() {
+if (state.parked || state.frameUrl || state.framePath === null || !state.model) return;
+var captured = gen;
+loadFrame({ backdrop: state.framePath, poster: state.model.poster }, captured, function (ok) {
+if (ok && state && gen === captured) state.frameId = state.shownId;
+});
 }
 
 function motionMode() {
@@ -15649,6 +15765,7 @@ if (!state || !state[name]) return;
 try { clearTimeout(state[name]); } catch (e) {}
 state[name] = null;
 }
+
 
 
 
@@ -15683,11 +15800,24 @@ state.logoLoader.cancel();
 state.logoLoader = null;
 }
 if (state.loader) {
-state.loader.onload = null;
-state.loader.onerror = null;
+dropLoader(state.loader);
 state.loader = null;
 }
 state.detailsWait = false;
+}
+
+
+
+
+
+
+
+function dropLoader(loader) {
+loader.onload = null;
+loader.onerror = null;
+try {
+if (typeof loader.removeAttribute === 'function') loader.removeAttribute('src');
+} catch (e) {}
 }
 
 
@@ -16017,6 +16147,7 @@ function cancelTrailer() {
 if (!state) return;
 tgen++;
 stopTimer('trailerTimer');
+stopTimer('videosTimer');
 planDone('stop');
 state.trailerCard = null;
 if (state.trailer) {
@@ -16082,18 +16213,42 @@ return !!(state && (state.trailerOn || state.compact || state.parked || focusAwa
 
 
 
+
+
+
+
+
+
+
 function loadTrailer(card, captured) {
 var media = mediaOf(card);
 var lang = langCode();
 
 function ask(code, next) {
+var over = false;
+function fail() {
+if (over) return;
+over = true;
+if (tgen !== captured || !state) return;
+stopTimer('videosTimer');
+if (next) ask(next, '');
+else planDone('err req');
+}
 try {
 if (!window.Lampa || !Lampa.Api || !Lampa.Api.sources || !Lampa.Api.sources.tmdb) { planDone('stop'); return; }
+stopTimer('videosTimer');
+state.videosTimer = setTimeout(function () {
+if (state && tgen === captured) state.videosTimer = null;
+fail();
+}, VIDEOS_LIMIT);
 Lampa.Api.sources.tmdb.get(
 media + '/' + card.id + '/videos',
 { langs: code },
 function (json) {
+if (over) return;
+over = true;
 if (tgen !== captured || !state) return;
+stopTimer('videosTimer');
 if (!isMounted()) { planDone('stop'); return; }
 var video = null;
 try {
@@ -16108,16 +16263,16 @@ planDone('');
 trailerNote('none');
 }
 },
-function () {
-if (tgen !== captured || !state) return;
-if (next) ask(next, '');
-else planDone('err req');
-},
+fail,
 { life: VIDEOS_LIFE }
 );
 } catch (e) {
 warn('hero: trailer request failed', e);
-if (tgen === captured) planDone('err req');
+over = true;
+if (tgen === captured) {
+stopTimer('videosTimer');
+planDone('err req');
+}
 }
 }
 
@@ -16448,6 +16603,14 @@ logo.css('background-image', 'url("' + encodeURI(url) + '")');
 if (state.logoWhite === null) state.logoWhite = logoTone(path) === 'dark';
 logo.toggleClass('lumen-logo-white', !!state.logoWhite);
 node.addClass('lumen-hero--logo');
+
+
+
+if (!focusAway()) {
+var tone = logoTone(path);
+if (tone === undefined) probeTone(path, null);
+else if (tone === 'dark') probeSiblings(path);
+}
 }
 
 
@@ -16980,15 +17143,23 @@ done = true;
 loader.onload = null;
 loader.onerror = null;
 if (gen !== captured || !state || !isMounted()) return;
+
+
+
+
+
+if (state.parked) return;
 stopTimer('loadTimer');
 state.loader = null;
 
 
 
+if (motionMode() === 'off') return;
 
 
 
-if (slide && (focusAway() || state.parked)) return;
+
+if (slide && focusAway()) return;
 
 
 
@@ -17192,6 +17363,14 @@ var job = look.compare(poster, path, function () {
 answered = true;
 if (sync || !state || gen !== captured) return;
 state.look = null;
+
+
+
+
+if (verdictOf(path) === undefined) {
+finish(model.backdrop);
+return;
+}
 step();
 });
 sync = false;
@@ -17327,6 +17506,15 @@ return;
 
 
 try {
+neutralFrame();
+} catch (e) {
+warn('hero: hold failed', e);
+}
+}
+
+
+
+function neutralFrame() {
 state.stage.find('.lumen-hero__bg').removeClass('is-active');
 state.frameUrl = '';
 state.frameBlur = false;
@@ -17339,9 +17527,6 @@ state.lqipUrl = '';
 }
 
 state.frameId = state.shownId;
-} catch (e) {
-warn('hero: hold failed', e);
-}
 }
 
 
@@ -17380,6 +17565,8 @@ state.shownId = card.id;
 
 
 state.shownCard = card;
+
+if (state.hostClass === MAIN_HOST) lastShown = card;
 state.details = null;
 state.model = null;
 
@@ -17630,6 +17817,9 @@ if (state.slideLook) {
 state.slideLook.cancel();
 state.slideLook = null;
 }
+
+
+dropTones(state.model && state.model.logo);
 
 var captured = gen;
 state.timer = setTimeout(function () {
@@ -17977,6 +18167,8 @@ lqipTimer: null,
 
 
 trailerTimer: null,
+
+videosTimer: null,
 trailer: null,
 trailerCard: null,
 
@@ -18029,10 +18221,44 @@ var act = Lampa.Activity.active();
 if (!act || act.component !== 'main') return;
 if (!act.activity || typeof act.activity.render !== 'function') return;
 mount(act.activity.render());
+showStill();
 } catch (e) {
 warn('hero: mountCurrent failed', e);
 }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+var lastShown = null;
+
+function showStill() {
+if (!state || state.parked || state.fixedCompact || state.shownId != null) return;
+var list = state.root.find('.card');
+var first = null;
+for (var i = 0; list && i < list.length; i++) {
+var card = list[i] && list[i].card_data;
+if (!card || card.id == null) continue;
+if (!first) first = card;
+if (lastShown && String(card.id) === String(lastShown.id)) {
+first = card;
+break;
+}
+}
+if (first) show(first);
+}
+
 
 
 
@@ -18079,10 +18305,7 @@ try { if (s[timers[i]]) clearTimeout(s[timers[i]]); } catch (eT) {}
 
 try { if (s.look) s.look.cancel(); } catch (eL) {}
 try { if (s.slideLook) s.slideLook.cancel(); } catch (eSL) {}
-if (s.loader) {
-s.loader.onload = null;
-s.loader.onerror = null;
-}
+if (s.loader) dropLoader(s.loader);
 
 
 if (s.logoLoader) s.logoLoader.cancel();
@@ -18296,6 +18519,27 @@ warn('hero: resume failed', e);
 
 
 
+
+
+
+
+
+function accentBack() {
+if (!state || state.parked) return;
+var card = state.pending || state.shownCard;
+if (!card) return;
+try {
+if (LC.accent && typeof LC.accent.applyFor === 'function') LC.accent.applyFor(card);
+} catch (e) {
+warn('hero: accent back failed', e);
+}
+}
+
+
+
+
+
+
 function detach(render) {
 if (!state) return;
 if (ownedBy(render)) return;
@@ -18441,6 +18685,7 @@ mount: mount,
 mountCurrent: mountCurrent,
 detach: detach,
 parked: parked,
+accentBack: accentBack,
 owns: owns,
 unmount: unmount,
 applyMotion: applyMotion,
@@ -20233,7 +20478,15 @@ var src = holder[key];
 if (!src || typeof window.createImageBitmap !== 'function') return;
 var pending = window.createImageBitmap(src);
 if (pending && typeof pending.then === 'function') {
-pending.then(function (bmp) { if (bmp) holder[key] = bmp; }, function () { });
+pending.then(function (bmp) {
+if (!bmp) return;
+
+if (holder.closed) {
+try { bmp.close(); } catch (e) { }
+return;
+}
+holder[key] = bmp;
+}, function () { });
 }
 } catch (e) { }
 }
@@ -21150,9 +21403,14 @@ return false;
 
 
 
+
+
+
+
 function paused(inst) {
 if (hidden()) return true;
 if (covered()) return true;
+if (LC.util.playerOpen()) return true;
 try {
 if (inst.paused && inst.paused()) return true;
 } catch (e) { }
@@ -21254,8 +21512,48 @@ made = null;
 }
 sprite_cache[key] = made;
 sprite_keys.push(key);
-while (sprite_keys.length > SPRITE_CACHE) delete sprite_cache[sprite_keys.shift()];
+while (sprite_keys.length > SPRITE_CACHE) {
+var old = sprite_cache[sprite_keys[0]];
+delete sprite_cache[sprite_keys.shift()];
+if (!spritesUsed(old)) closeSprites(old);
+}
 return made;
+}
+
+
+
+
+
+
+
+
+
+function spritesUsed(set) {
+if (!set) return false;
+for (var i = 0; i < instances.length; i++) if (instances[i].sprites === set) return true;
+for (var k in sprite_cache) {
+if (Object.prototype.hasOwnProperty.call(sprite_cache, k) && sprite_cache[k] === set) return true;
+}
+return false;
+}
+
+function shutHolder(holder) {
+holder.closed = true;
+for (var k in holder) {
+if (!Object.prototype.hasOwnProperty.call(holder, k)) continue;
+var v = holder[k];
+if (v && typeof v.close === 'function') {
+try { v.close(); } catch (e) { }
+}
+}
+}
+
+function closeSprites(set) {
+if (!set || set.closed) return;
+shutHolder(set);
+for (var k in set) {
+if (Object.prototype.hasOwnProperty.call(set, k) && Object.prototype.toString.call(set[k]) === '[object Array]') shutHolder(set[k]);
+}
 }
 
 
@@ -21358,6 +21656,9 @@ frame = raf(loop);
 function drop(inst) {
 var i = instances.indexOf(inst);
 if (i !== -1) instances.splice(i, 1);
+
+
+if (inst.sprites && !spritesUsed(inst.sprites)) closeSprites(inst.sprites);
 try {
 if (inst.canvas.parentNode) inst.canvas.parentNode.removeChild(inst.canvas);
 } catch (e) {
@@ -27035,6 +27336,9 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 
+
+
+
 LC.thumbs = (function () {
 
 var SIZE = 'w92';
@@ -27082,8 +27386,6 @@ var KEEP = 60;
 
 
 var TABLE_MAX = 600;
-var DIRECT_HOST = 'https://image.tmdb.org/t/p/';
-var DIRECT_MARK = 'image.tmdb.org/';
 
 
 
@@ -27260,11 +27562,6 @@ return '';
 }
 }
 
-function directOf(path, url) {
-if (!path || (url && url.indexOf(DIRECT_MARK) !== -1)) return '';
-return DIRECT_HOST + SIZE + (path.charAt(0) === '/' ? path : '/' + path);
-}
-
 
 var flights = {};
 
@@ -27290,18 +27587,11 @@ try { subs[i](img); } catch (e) { warn('thumbs: callback failed', e); }
 }
 }
 
-function start(path, fl, url, alt) {
+function start(path, fl, url) {
 var img = new Image();
 fl.img = img;
 img.onload = function () { land(path, fl, img); };
-img.onerror = function () {
-if (alt) {
-unhook(fl);
-start(path, fl, alt, '');
-return;
-}
-land(path, fl, null);
-};
+img.onerror = function () { land(path, fl, null); };
 fl.timer = setTimeout(function () {
 fl.timer = null;
 land(path, fl, img.complete && img.naturalWidth ? img : null);
@@ -27326,7 +27616,7 @@ return { cancel: function () { } };
 }
 fl = { img: null, subs: [], timer: null };
 flights[path] = fl;
-start(path, fl, url, directOf(path, url));
+start(path, fl, url);
 }
 fl.subs.push(cb);
 return {
@@ -27411,11 +27701,15 @@ feats[key] = value;
 
 
 
+
+
+
+
 function extract(kind, img) {
 
 
 
-if (!img) { score(false); return false; }
+if (!img) { score(false); return null; }
 if (!img.naturalWidth || !img.naturalHeight) return false;
 try {
 var out = kind === 'poster' ? posterPixels(img) : (kind === 'frame' ? framePixels(img) : logoPixels(img));
@@ -27487,7 +27781,7 @@ if (!live) return;
 var now = featGet(key);
 if (now === undefined) {
 now = extract(kind, img);
-featPut(key, now);
+if (now !== null) featPut(key, now);
 }
 cb(now);
 });
@@ -27526,11 +27820,16 @@ var live = true;
 var pf;
 var ff;
 var jobs = [];
+
+
+
+
 function settle() {
-if (!live || pf === undefined || ff === undefined) return;
+if (!live || pf === undefined || (pf && ff === undefined)) return;
 live = false;
+for (var i = 1; i < jobs.length; i++) jobs[i].cancel();
 var value = pf && ff ? judge(pf, ff).similar : null;
-remember(verdicts, poster + '|' + frame, value);
+if (pf !== null && ff !== null) remember(verdicts, poster + '|' + frame, value);
 cb(value);
 }
 jobs.push(need('poster', poster, function (got) { pf = got; settle(); }));
@@ -27557,7 +27856,8 @@ var job = need('logo', path, function (stats) {
 if (!live) return;
 live = false;
 var value = stats ? (darkOf(stats) ? 'dark' : 'light') : 'none';
-remember(tones, path, value);
+
+if (stats !== null) remember(tones, path, value);
 cb(value);
 });
 return {
@@ -27669,6 +27969,11 @@ var DETAILS_KEEP = 40;
 
 
 
+var SEND_LIMIT = 12000;
+
+
+
+
 var gen = 0;
 var idleTimer = null;
 var focusEl = null;
@@ -27760,6 +28065,14 @@ while (kept.length > DETAILS_KEEP) kept.shift();
 
 
 
+
+
+
+
+
+
+
+
 function send(req, sub) {
 var key = req.key;
 if (flight[key]) {
@@ -27768,9 +28081,17 @@ return;
 }
 var mine = [sub];
 flight[key] = mine;
+var limit = setTimeout(function () {
+limit = null;
+settle(null, false);
+}, SEND_LIMIT);
 function settle(json, ok) {
 if (flight[key] !== mine) return;
 delete flight[key];
+if (limit) {
+clearTimeout(limit);
+limit = null;
+}
 if (ok && json) remember(key, json);
 for (var i = 0; i < mine.length; i++) {
 try {
@@ -40201,8 +40522,12 @@ var startRender = null;
 try {
 if (e.object && e.object.activity && typeof e.object.activity.render === 'function') startRender = e.object.activity.render();
 } catch (eRender) {}
+
+
+var heroBack = false;
 try {
 if (LC.hero) {
+heroBack = e.component === 'main' && typeof LC.hero.parked === 'function' && LC.hero.parked();
 LC.hero.detach(startRender);
 if (e.component === 'main' && startRender && startRender.length) LC.hero.mount(startRender);
 }
@@ -40278,6 +40603,12 @@ try {
 
 
 if (LC.accent && e.component !== 'full') LC.accent.destroy();
+
+
+
+
+
+if (heroBack && typeof LC.hero.accentBack === 'function') LC.hero.accentBack();
 } catch (eAccentStart) {
 warn('accent start failed', eAccentStart);
 }
