@@ -165,10 +165,28 @@
     function captionHidden() {
       try {
         if (!state || !state.root || typeof state.root.hasClass !== 'function' || !state.root.hasClass('lumen-main')) return false;
-        return !LC.pref || LC.pref('lumen_hero_size', 'large') !== 'compact';
+        if (LC.pref && LC.pref('lumen_hero_size', 'large') === 'compact') return false;
+        return !frameGone();
       } catch (e) {
         return false;
       }
+    }
+
+    /* Волна «хвосты героя», п.H: окно шире порога «кадра нет» — кадра на
+       главной нет (правило heroMinRatio в src/30_css.js), строка «год · ★»
+       на месте, и метке «в подписи» есть где жить. Признак — тот же
+       медиазапрос, что у CSS (LC.heroOffRatio — порог последней сборки
+       таблицы); без matchMedia — размеры окна. Порога нет (таблица не
+       собиралась, модуль в тесте) — кадр считаем живым, как до п.H. */
+    function frameGone() {
+      var at = typeof LC.heroOffRatio === 'function' ? Number(LC.heroOffRatio()) || 0 : 0;
+      if (!at) return false;
+      if (typeof window.matchMedia === 'function') {
+        return !!window.matchMedia('screen and (min-aspect-ratio:' + at + '/100)').matches;
+      }
+      var w = Number(window.innerWidth) || 0;
+      var h = Number(window.innerHeight) || 0;
+      return w > 0 && h > 0 && w / h >= at / 100;
     }
 
     /* Строки метки — из LC.STRINGS (ru/en/uk). Месяцы короткие, те же, что у

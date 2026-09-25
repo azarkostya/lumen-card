@@ -3509,6 +3509,22 @@ test('правило кромки, п.I: окна 2.5:1 и 2.7:1 — клетк�
   }
 });
 
+/* Волна «хвосты героя», п.H: метки вида «в подписи» решают, спрятана ли
+   строка «год · ★», тем же порогом, что и CSS, — LC.heroOffRatio отдаёт
+   ровно число из медиазапроса «кадра нет» последней сборки. */
+test('п.H: LC.heroOffRatio — порог медиазапроса «кадра нет» последней сборки', () => {
+  for (const size of ['large', 'medium', 'compact']) {
+    for (const iface of ['small', 'normal', 'bigger']) {
+      withStorage({ lumen_scale: 'normal', lumen_hero_size: size, interface_size: iface }, (LC) => {
+        assert.equal(LC.heroOffRatio(), 0, 'до сборки порога нет');
+        const built = LC.buildCss();
+        const media = parseInt(/min-aspect-ratio:(\d+)\/100/.exec(heroOffMedia(built))[1], 10);
+        assert.equal(LC.heroOffRatio(), media, size + '/' + iface);
+      });
+    }
+  }
+});
+
 /* Та же правка со стороны цены и формы: расчётный зазор пишется там, где
    ряд короче места под ним, и нигде больше. */
 test('правило кромки: расчётный зазор — ровно до границы, где он опускается до штатного', () => {

@@ -521,9 +521,9 @@ test('Task 62a: вид сменился, пока экран лежал в ис�
    «в подписи» метка живёт именно в ней. Поэтому на такой главной метку
    рисует постер — как в виде «на постере», вместе с рейтингом в подписи
    (строка скрыта, но за порогом «кадра нет» она возвращается целой). */
-function mountedCaption(extra, rootClasses) {
+function mountedCaption(extra, rootClasses, win) {
   class FakeObserver { constructor() {} observe() {} disconnect() {} }
-  globalThis.window = { Lampa: {}, MutationObserver: FakeObserver };
+  globalThis.window = Object.assign({ Lampa: {}, MutationObserver: FakeObserver }, win || {});
   globalThis.MutationObserver = FakeObserver;
   try {
     const { api } = runtime(Object.assign({ badgesMode: function () { return 'caption'; } }, extra || {}));
@@ -558,6 +558,37 @@ test('волна «подложка», п.C1: «в подписи» без ге�
   card = mountedCaption({ pref: function (key, def) { return key === 'lumen_hero_size' ? 'compact' : def; } }, ['lumen-main']);
   assert.equal(card._children[0]._children.filter((c) => c.hasClass('lumen-badge')).length, 0, 'компактный кадр: плашки на постере быть не должно');
   assert.equal(card._children[1]._children.filter((c) => c.hasClass('lumen-badge-cap')).length, 1, 'компактный кадр: метка — в подписи');
+});
+
+/* Волна «хвосты героя», п.H: строку «год · ★» CSS прячет только при живом
+   кадре — до порога «кадра нет» по отношению сторон окна (heroMinRatio в
+   src/30_css.js, наружу — LC.heroOffRatio). В широком окне кадра нет,
+   строка на месте, и метка «в подписи» обязана жить в ней, а не на постере.
+   Признак тот же, что у CSS: тот же медиазапрос через matchMedia (без него
+   — innerWidth/innerHeight). */
+function mediaAt(ratio) {
+  return {
+    matchMedia: (q) => {
+      const m = /min-aspect-ratio:\s*(\d+)\/100/.exec(q);
+      assert.ok(m, 'медиазапрос не тот, что у CSS: ' + q);
+      return { matches: ratio >= Number(m[1]) / 100 };
+    }
+  };
+}
+
+test('п.H: «в подписи» в окне шире порога «кадра нет» — метка в подписи, как без героя', () => {
+  const large = { pref: function (key, def) { return key === 'lumen_hero_size' ? 'large' : def; }, heroOffRatio: () => 287 };
+  let card = mountedCaption(large, ['lumen-main'], mediaAt(3.0));
+  assert.equal(card._children[0]._children.filter((c) => c.hasClass('lumen-badge')).length, 0, 'кадра нет — плашки на постере быть не должно');
+  assert.equal(card._children[1]._children.filter((c) => c.hasClass('lumen-badge-cap')).length, 1, 'кадра нет — метка в подписи');
+  /* До порога кадр живой — метка на постере (п.C1). */
+  card = mountedCaption(large, ['lumen-main'], mediaAt(1.78));
+  assert.equal(card._children[0]._children.filter((c) => c.hasClass('lumen-badge')).length, 1, 'живой кадр — метка на постере');
+  /* Без matchMedia — по размерам окна. */
+  card = mountedCaption(large, ['lumen-main'], { innerWidth: 2592, innerHeight: 864 });
+  assert.equal(card._children[1]._children.filter((c) => c.hasClass('lumen-badge-cap')).length, 1, '3:1 без matchMedia — метка в подписи');
+  card = mountedCaption(large, ['lumen-main'], { innerWidth: 1920, innerHeight: 1080 });
+  assert.equal(card._children[0]._children.filter((c) => c.hasClass('lumen-badge')).length, 1, '16:9 без matchMedia — метка на постере');
 });
 
 /* Долг фазы 1, п.6 (2026-09-23): фейковый DOM отдаёт на find все

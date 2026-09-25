@@ -1326,6 +1326,15 @@
      (src/48_hero.js, LOGO_EM). */
   LC.uiScale = scaleFactor;
 
+  /* Волна «хвосты героя», п.H: порог «кадра нет» последней сборки таблицы
+     (heroMinRatio в LC.buildCss, в сотых отношения сторон — ровно то число,
+     что стоит в медиазапросе min-aspect-ratio:N/100). По нему метки вида
+     «в подписи» (src/62_badges.js, captionHidden) решают, спрятана ли
+     строка «год · ★» тем же признаком, что и CSS: шире порога кадра нет,
+     и строка на месте. 0 — таблица ещё не собиралась. */
+  var heroOffAt = 0;
+  LC.heroOffRatio = function () { return heroOffAt; };
+
   /* Task 67: метрика плитки ряда серий — ширина и правый зазор в em. Раньше
      оба числа стояли литералами в правиле .lumen-episode ниже, а ширину
      вторым литералом повторял src/85_header.js (выбор размера кадра серии).
@@ -4032,7 +4041,9 @@
        ряды на весь экран под шапкой Lampa. Правила на .lumen-main
        специфичнее базовых — медиазапрос специфичности не добавляет. */
     var heroMinRatio = Math.max(HERO_MIN_RATIO, textRatio(heroSize, textNeedEm(false)));
-    var rowsFull = '{margin-top:0;height:-webkit-calc(100vh - ' + LAMPA_HEAD + 'em) !important;height:calc(100vh - ' + LAMPA_HEAD + 'em) !important;overflow:hidden;-webkit-transform:none;transform:none}';
+    /* Волна «хвосты героя», п.H: порог — наружу (LC.heroOffRatio ниже). */
+    heroOffAt = heroMinRatio;
+    var rowsFull ='{margin-top:0;height:-webkit-calc(100vh - ' + LAMPA_HEAD + 'em) !important;height:calc(100vh - ' + LAMPA_HEAD + 'em) !important;overflow:hidden;-webkit-transform:none;transform:none}';
     css.push('@media screen and (min-aspect-ratio:' + heroMinRatio + '/100){' +
       '.lumen-main .scroll.layer--wheight,.lumen-main.lumen-rows-up .scroll.layer--wheight' + rowsFull +
       '.lumen-main .lumen-hero-stage,.lumen-main .lumen-hero{display:none}}');
