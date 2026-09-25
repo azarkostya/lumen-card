@@ -841,37 +841,48 @@ test('lumen_hub: hover:focus плитки подкручивает скролл 
    (vendor/lampa/app.min.js:46360-46364) — подписку на оба события ставит
    общий LC.focus.on (src/11_focus.js). Проверяется каждое место хаба: плитка,
    чип, кнопка поиска (и ниже, в сетке, — карточка, «Назад» и чип сортировки).
-   Без мышиной ветки экран за фокусом не едет, а lastFocus не обновляется —
-   «вверх» с чипа на поиск ломается. */
-test('Task 68: hover:hover плитки (мышь) делает ровно то же, что hover:focus', function () {
+   Без мышиной ветки lastFocus не обновляется — «вверх» с чипа на поиск
+   ломается, а окно кадров стоит (тест «окно кадров плиток двигается и
+   мышью» ниже).
+   Мышь в подборках (2026-09-25, п.3): экран за НАВЕДЕНИЕМ не едет. Узел под
+   курсором и так на экране, а подкрутка с центрированием подвозила под
+   курсор следующий ряд, тот получал 'hover:hover' — и сетка на ТВ сама
+   уезжала к концу (фокус 12 -> 30). Штатная карточка на 'hover:hover' зовёт
+   onHover (app.min.js:52333), а category_full его не задаёт — наведение
+   страницу не двигает. */
+test('мышь: hover:hover плитки обновляет фокус, но экран не двигает', function () {
   var s = openHub();
   var scroll = s.env.log.scrolls[0];
   var tile = s.root.all('lumen-tile')[1];
   scroll.update_calls.length = 0;
   fire(tile, 'hover:hover');
-  assert.equal(scroll.update_calls.length, 1, 'мышью экран тоже едет за фокусом');
+  assert.deepEqual(scroll.update_calls, [], 'наведение экран не двигает');
+  fire(tile, 'hover:focus');
+  assert.equal(scroll.update_calls.length, 1, 'пульт — едет, как и раньше');
   assert.equal(scroll.update_calls[0][0], tile);
   assert.equal(scroll.update_calls[0][1], true);
 });
 
-test('Task 68: hover:hover чипа и кнопки поиска ведут себя как пультовые', function () {
+test('мышь: hover:hover чипа и кнопки поиска — фокус запомнен, экран на месте', function () {
   var s = openHub();
   var scroll = s.env.log.scrolls[0];
   var chip = s.root.all('lumen-chip')[1];
   scroll.update_calls.length = 0;
   fire(chip, 'hover:hover');
-  assert.equal(scroll.update_calls.length, 1, 'чип: подкрутка есть');
-  assert.equal(scroll.update_calls[0][0], chip);
-
   var search = s.root.all('lumen-hub__search')[0];
-  scroll.update_calls.length = 0;
   fire(search, 'hover:hover');
-  assert.equal(scroll.update_calls.length, 1, 'кнопка поиска: подкрутка есть');
-  assert.equal(scroll.update_calls[0][0], search);
+  assert.deepEqual(scroll.update_calls, [], 'ни чип, ни поиск экран не двигают');
+  /* lastFocus обновлён наведением: с кнопки поиска «вверх» — в шапку Lampa,
+     а не повторный шаг на ту же кнопку (focusSearch). */
+  s.comp.start();
+  s.env.log.toggles.length = 0;
+  s.env.log.controllers.content.up();
+  assert.deepEqual(s.env.log.toggles, ['head']);
 });
 
-/* Одно наведение — один проход: обработчик у обоих событий общий, а сами
-   события на одно действие приходят поодиночке. */
+/* Одно событие — один проход: обработчик у обоих событий общий, а сами
+   события на одно действие приходят поодиночке. Мышиный проход виден по
+   окну кадров — тест «окно кадров плиток двигается и мышью» ниже. */
 test('Task 68: hover:focus и hover:hover — это ОДИН обработчик на каждое событие', function () {
   var s = openHub();
   var scroll = s.env.log.scrolls[0];
@@ -881,7 +892,7 @@ test('Task 68: hover:focus и hover:hover — это ОДИН обработчи
   assert.equal(scroll.update_calls.length, 1, 'пультовое событие — один вызов');
   scroll.update_calls.length = 0;
   fire(tile, 'hover:hover');
-  assert.equal(scroll.update_calls.length, 1, 'мышиное событие — тоже ровно один');
+  assert.equal(scroll.update_calls.length, 0, 'мышиное событие — ни одного');
 });
 
 test('lumen_hub: кадр плитки идёт дешёвым путём bannerPath, а не полной страницей (C1)', function () {
@@ -1323,29 +1334,33 @@ test('lumen_grid: hover:focus карточки подкручивает скро
 
 /* Task 68: те же три места сетки — карточка, чип сортировки и «Назад» —
    обязаны отзываться и на мышиное 'hover:hover' (vendor/lampa/
-   app.min.js:46360-46364). Иначе мышью список не подкручивается, а lastFocus
-   остаётся от прошлого узла и возврат фокуса после догрузки бьёт мимо. */
-test('Task 68: hover:hover карточки сетки подкручивает список так же, как пультовый', function () {
+   app.min.js:46360-46364). Иначе lastFocus остаётся от прошлого узла и
+   возврат фокуса после догрузки бьёт мимо.
+   Мышь в подборках (2026-09-25, п.3): экран за наведением не едет — разбор
+   у тестов хаба «мышь: hover:hover плитки…». */
+test('мышь: hover:hover карточки сетки запоминает её, но список не двигает', function () {
   var g = openGrid(COLLECTION);
   g.h.fetchCalls[0].ok({ results: results(9), page: 1, total_pages: 1, total_results: 9 });
   var scroll = g.env.log.scrolls[0];
   var card = g.root.all('lumen-gcard')[4];
   scroll.update_calls.length = 0;
   fire(card, 'hover:hover');
-  assert.equal(scroll.update_calls.length, 1);
-  assert.equal(scroll.update_calls[0][0], card);
-  assert.equal(scroll.update_calls[0][1], true);
+  assert.deepEqual(scroll.update_calls, [], 'наведение экран не двигает');
+  g.comp.start();
+  g.env.log.controllers.content.toggle();
+  assert.equal(g.env.nav.getFocusedElement(), card, 'возврат фокуса — на наведённую карточку');
 });
 
-test('Task 68: hover:hover чипа сортировки и кнопки «Назад» работают', function () {
+test('мышь: hover:hover чипа сортировки и кнопки «Назад» экран не двигает', function () {
   var g = openGrid(COLLECTION);
   g.h.fetchCalls[0].ok({ results: results(3), page: 1, total_pages: 1, total_results: 3 });
   var scroll = g.env.log.scrolls[0];
   var chip = g.root.all('lumen-chip')[1];
   scroll.update_calls.length = 0;
   fire(chip, 'hover:hover');
-  assert.equal(scroll.update_calls.length, 1, 'чип сортировки: подкрутка есть');
-  assert.equal(scroll.update_calls[0][0], chip);
+  assert.deepEqual(scroll.update_calls, [], 'чип сортировки: без подкрутки');
+  fire(chip, 'hover:focus');
+  assert.equal(scroll.update_calls.length, 1, 'чип сортировки пультом — с подкруткой');
 
   var e = openGrid(COLLECTION);
   e.h.fetchCalls[0].ok({ results: [], page: 1, total_pages: 1, total_results: 0 });
@@ -1353,8 +1368,19 @@ test('Task 68: hover:hover чипа сортировки и кнопки «На�
   var back = e.root.all('lumen-grid__back')[0];
   eScroll.update_calls.length = 0;
   fire(back, 'hover:hover');
-  assert.equal(eScroll.update_calls.length, 1, '«Назад»: подкрутка есть');
-  assert.equal(eScroll.update_calls[0][0], back);
+  assert.deepEqual(eScroll.update_calls, [], '«Назад»: без подкрутки');
+});
+
+/* Дефект с ТВ (мышь): курсор стоит, а сетка сама уезжает к концу — каждое
+   наведение центрировало ряд, под курсор подъезжал следующий. */
+test('мышь: наведения подряд по рядам сетки экран не двигают', function () {
+  var g = openGrid(DISCOVER);
+  g.h.fetchCalls[0].ok({ results: results(36), page: 1, total_pages: 1, total_results: 36 });
+  var scroll = g.env.log.scrolls[0];
+  var cards = g.root.all('lumen-gcard');
+  scroll.update_calls.length = 0;
+  for (var i = 12; i <= 30; i += 6) fire(cards[i], 'hover:hover');
+  assert.deepEqual(scroll.update_calls, []);
 });
 
 test('lumen_grid: данные карточки лежат в card_data узла', function () {

@@ -11890,7 +11890,15 @@ limitHub(lastFocus);
 
 
 
-function keepVisible(el) {
+
+
+
+
+
+
+
+function keepVisible(el, ev) {
+if (!LC.focus.remote(ev)) return;
 try { scroll.update(el, true); } catch (e) { warn('hub: scroll.update failed', e); }
 }
 
@@ -12057,8 +12065,8 @@ season +
 
 
 
-LC.focus.on(node, function () {
-keepVisible(node[0]);
+LC.focus.on(node, function (e) {
+keepVisible(node[0], e);
 lastFocus = node[0];
 loadVisibleBanners();
 });
@@ -12094,7 +12102,7 @@ function chipNode(group) {
 
 var node = $('<div class="lumen-chip selector">' + esc(group.title) + '</div>');
 node[0].lumen_group = group.id;
-LC.focus.on(node, function () { keepVisible(node[0]); lastFocus = node[0]; });
+LC.focus.on(node, function (e) { keepVisible(node[0], e); lastFocus = node[0]; });
 node.on('hover:enter', function () {
 if (activeGroup === group.id) return;
 buildTiles(group.id);
@@ -12172,7 +12180,7 @@ head.append($('<div class="lumen-hub__count">' + total + ' ' + esc(LC.collection
 
 
 var search = $('<div class="lumen-hub__search selector">' + LC.icons.get('search') + '<span>' + esc(LC.lang('lumen_hub_search')) + '</span></div>');
-LC.focus.on(search, function () { keepVisible(search[0]); lastFocus = search[0]; });
+LC.focus.on(search, function (e) { keepVisible(search[0], e); lastFocus = search[0]; });
 search.on('hover:enter', function () { openSearch(); });
 head.append(search);
 
@@ -12190,7 +12198,7 @@ searchNode = search[0];
 rouletteNode = null;
 if (LC.roulette && typeof LC.roulette.open === 'function') {
 var roulette = $('<div class="lumen-hub__roulette selector">' + LC.icons.get('star') + '<span>' + esc(LC.lang('lumen_hub_roulette')) + '</span></div>');
-LC.focus.on(roulette, function () { keepVisible(roulette[0]); lastFocus = roulette[0]; });
+LC.focus.on(roulette, function (e) { keepVisible(roulette[0], e); lastFocus = roulette[0]; });
 roulette.on('hover:enter', function () { LC.roulette.open('movie'); });
 head.append(roulette);
 rouletteNode = roulette[0];
@@ -12434,8 +12442,10 @@ quiet = false;
 
 
 
-function keepVisible(el) {
-if (quiet) return;
+
+
+function keepVisible(el, ev) {
+if (quiet || !LC.focus.remote(ev)) return;
 try { scroll.update(el, true); } catch (e) { warn('grid: scroll.update failed', e); }
 }
 
@@ -12560,7 +12570,7 @@ el.lumen_poster = imageUrl(card.poster_path, LC.util.posterSize(LC.util.emPx(gca
 
 LC.focus.on(node, function (e) {
 if (!LC.focus.remote(e)) byMouse = true;
-keepVisible(el);
+keepVisible(el, e);
 lastFocus = el;
 lastCardId = card.id;
 });
@@ -12662,7 +12672,7 @@ if (nokey) {
 
 
 var hide = $('<div class="lumen-grid__back lumen-grid__hide selector">' + esc(LC.lang('lumen_kp_hint_hide')) + '</div>');
-LC.focus.on(hide, function () { keepVisible(hide[0]); lastFocus = hide[0]; });
+LC.focus.on(hide, function (e) { keepVisible(hide[0], e); lastFocus = hide[0]; });
 hide.on('hover:enter', function () {
 try { Lampa.Storage.set('lumen_kp_hint', 'false'); } catch (e) {}
 });
@@ -12670,7 +12680,7 @@ box.append(hide);
 emptyNodes.push(hide[0]);
 }
 var back = $('<div class="lumen-grid__back selector">' + esc(LC.lang('lumen_grid_back')) + '</div>');
-LC.focus.on(back, function () { keepVisible(back[0]); lastFocus = back[0]; });
+LC.focus.on(back, function (e) { keepVisible(back[0], e); lastFocus = back[0]; });
 back.on('hover:enter', function () { Lampa.Activity.backward(); });
 box.append(back);
 emptyNodes.push(back[0]);
@@ -12775,7 +12785,7 @@ $(sortNodes[i]).toggleClass('lumen-chip--on', sortNodes[i].lumen_sort === sortMo
 function sortNode(mode) {
 var node = $('<div class="lumen-chip selector">' + esc(LC.lang(mode.key)) + '</div>');
 node[0].lumen_sort = mode.id;
-LC.focus.on(node, function () { keepVisible(node[0]); lastFocus = node[0]; });
+LC.focus.on(node, function (e) { keepVisible(node[0], e); lastFocus = node[0]; });
 node.on('hover:enter', function () {
 if (sortMode === mode.id) return;
 
@@ -12828,7 +12838,7 @@ highlightSort();
 var rmedia = rouletteMedia(item);
 if (rmedia) {
 var roulette = $('<div class="lumen-chip lumen-grid__roulette selector">' + LC.icons.get('star') + '<span>' + esc(LC.lang('lumen_grid_roulette')) + '</span></div>');
-LC.focus.on(roulette, function () { keepVisible(roulette[0]); lastFocus = roulette[0]; });
+LC.focus.on(roulette, function (e) { keepVisible(roulette[0], e); lastFocus = roulette[0]; });
 roulette.on('hover:enter', function () { LC.roulette.open(rmedia, item.id); });
 sortsRow.append(roulette);
 rouletteNode = roulette[0];

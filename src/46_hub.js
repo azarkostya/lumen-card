@@ -817,8 +817,16 @@
          верхнюю половину экрана, Math.min(0, ...) отдаёт им одну и ту же
          позицию — начало списка.
          Узел передаём как есть: scroll.update принимает и jQuery, и DOM
-         (app.min.js:32049), как штатный card.render(true). */
-      function keepVisible(el) {
+         (app.min.js:32049), как штатный card.render(true).
+         Мышь в подборках (2026-09-25): только за фокусом ПУЛЬТА (ev —
+         событие фокуса, LC.focus.remote). Наведённый мышью узел и так на
+         экране, а подкрутка с центрированием подвозила под курсор соседний
+         ряд, тот получал 'hover:hover' — и на ТВ сетка сама уезжала к концу
+         (фокус 12 -> 30). Штатная карточка на наведение зовёт onHover
+         (app.min.js:52333), а category_full его не задаёт: наведение
+         страницу не двигает. Мышью листают колесом (onScroll ниже). */
+      function keepVisible(el, ev) {
+        if (!LC.focus.remote(ev)) return;
         try { scroll.update(el, true); } catch (e) { warn('hub: scroll.update failed', e); }
       }
 
@@ -982,11 +990,11 @@
         );
         /* Task 68: LC.focus.on — подписка на фокус и пультом, и мышью
            (src/11_focus.js). Мышиное наведение шлёт 'hover:hover', не
-           'hover:focus' (vendor/lampa/app.min.js:46360-46364), а подкрутка
-           экрана и догрузка кадров нужны одинаково в обоих режимах: без них
-           мышью уезжаешь за кромку списка к плиткам без кадров. */
-        LC.focus.on(node, function () {
-          keepVisible(node[0]);
+           'hover:focus' (vendor/lampa/app.min.js:46360-46364), а догрузка
+           кадров нужна одинаково в обоих режимах. Подкрутка экрана — только
+           пультом (keepVisible). */
+        LC.focus.on(node, function (e) {
+          keepVisible(node[0], e);
           lastFocus = node[0];
           loadVisibleBanners();
         });
@@ -1022,7 +1030,7 @@
            заголовке экрана, buildHead ниже). */
         var node = $('<div class="lumen-chip selector">' + esc(group.title) + '</div>');
         node[0].lumen_group = group.id;
-        LC.focus.on(node, function () { keepVisible(node[0]); lastFocus = node[0]; });
+        LC.focus.on(node, function (e) { keepVisible(node[0], e); lastFocus = node[0]; });
         node.on('hover:enter', function () {
           if (activeGroup === group.id) return;
           buildTiles(group.id);
@@ -1100,7 +1108,7 @@
         /* Поиск по подборкам (design-spec-main §0.8): место в шапке держалось
            с Task 17 скрытым узлом, теперь это рабочая кнопка. */
         var search = $('<div class="lumen-hub__search selector">' + LC.icons.get('search') + '<span>' + esc(LC.lang('lumen_hub_search')) + '</span></div>');
-        LC.focus.on(search, function () { keepVisible(search[0]); lastFocus = search[0]; });
+        LC.focus.on(search, function (e) { keepVisible(search[0], e); lastFocus = search[0]; });
         search.on('hover:enter', function () { openSearch(); });
         head.append(search);
         /* Task 33: кнопка в коллекции Navigator всегда, вне окна плиток. */
@@ -1118,7 +1126,7 @@
         rouletteNode = null;
         if (LC.roulette && typeof LC.roulette.open === 'function') {
           var roulette = $('<div class="lumen-hub__roulette selector">' + LC.icons.get('star') + '<span>' + esc(LC.lang('lumen_hub_roulette')) + '</span></div>');
-          LC.focus.on(roulette, function () { keepVisible(roulette[0]); lastFocus = roulette[0]; });
+          LC.focus.on(roulette, function (e) { keepVisible(roulette[0], e); lastFocus = roulette[0]; });
           roulette.on('hover:enter', function () { LC.roulette.open('movie'); });
           head.append(roulette);
           rouletteNode = roulette[0];
@@ -1361,9 +1369,11 @@
          карточек встаёт посередине, и следующий ряд виден заранее. Чипы
          сортировки и кнопки пустой сетки зовут его по той же причине, что и
          шапка хаба: вернувшись «вверх» на прокрученном экране, они иначе
-         остались бы за кромкой. */
-      function keepVisible(el) {
-        if (quiet) return;
+         остались бы за кромкой.
+         Мышь в подборках: только за фокусом пульта (ev), наведение экран не
+         двигает — разбор у keepVisible хаба. */
+      function keepVisible(el, ev) {
+        if (quiet || !LC.focus.remote(ev)) return;
         try { scroll.update(el, true); } catch (e) { warn('grid: scroll.update failed', e); }
       }
 
@@ -1488,7 +1498,7 @@
 
         LC.focus.on(node, function (e) {
           if (!LC.focus.remote(e)) byMouse = true;
-          keepVisible(el);
+          keepVisible(el, e);
           lastFocus = el;
           lastCardId = card.id;
         });
@@ -1590,7 +1600,7 @@
              Запись поднимает listener 'change' → LC.applyKpHintPref
              пересобирает эту сетку уже без подсказки. */
           var hide = $('<div class="lumen-grid__back lumen-grid__hide selector">' + esc(LC.lang('lumen_kp_hint_hide')) + '</div>');
-          LC.focus.on(hide, function () { keepVisible(hide[0]); lastFocus = hide[0]; });
+          LC.focus.on(hide, function (e) { keepVisible(hide[0], e); lastFocus = hide[0]; });
           hide.on('hover:enter', function () {
             try { Lampa.Storage.set('lumen_kp_hint', 'false'); } catch (e) {}
           });
@@ -1598,7 +1608,7 @@
           emptyNodes.push(hide[0]);
         }
         var back = $('<div class="lumen-grid__back selector">' + esc(LC.lang('lumen_grid_back')) + '</div>');
-        LC.focus.on(back, function () { keepVisible(back[0]); lastFocus = back[0]; });
+        LC.focus.on(back, function (e) { keepVisible(back[0], e); lastFocus = back[0]; });
         back.on('hover:enter', function () { Lampa.Activity.backward(); });
         box.append(back);
         emptyNodes.push(back[0]);
@@ -1703,7 +1713,7 @@
       function sortNode(mode) {
         var node = $('<div class="lumen-chip selector">' + esc(LC.lang(mode.key)) + '</div>');
         node[0].lumen_sort = mode.id;
-        LC.focus.on(node, function () { keepVisible(node[0]); lastFocus = node[0]; });
+        LC.focus.on(node, function (e) { keepVisible(node[0], e); lastFocus = node[0]; });
         node.on('hover:enter', function () {
           if (sortMode === mode.id) return;
           /* Первая загрузка ещё идёт, а фокус по умолчанию стоит именно на
@@ -1756,7 +1766,7 @@
         var rmedia = rouletteMedia(item);
         if (rmedia) {
           var roulette = $('<div class="lumen-chip lumen-grid__roulette selector">' + LC.icons.get('star') + '<span>' + esc(LC.lang('lumen_grid_roulette')) + '</span></div>');
-          LC.focus.on(roulette, function () { keepVisible(roulette[0]); lastFocus = roulette[0]; });
+          LC.focus.on(roulette, function (e) { keepVisible(roulette[0], e); lastFocus = roulette[0]; });
           roulette.on('hover:enter', function () { LC.roulette.open(rmedia, item.id); });
           sortsRow.append(roulette);
           rouletteNode = roulette[0];
