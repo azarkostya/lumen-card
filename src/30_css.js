@@ -592,6 +592,19 @@
   var ROUL_REST_EM = round2(1.05 + Math.max(2.1 * 1.1, 2 * 1.01) + 0.88 + 2 * 1.01 + 0.88 +
     0.70 + 1.58 * 1.1 + 1.01 * 1.2 + 0.88 + 3.16 * 1.05);
 
+  /* Рулетка в виде «как Apple TV» (.is-atv, src/56_roulette.js): всё, что
+     на спокойном экране не барабан и не кадр полки, в кегле корня. Шапка
+     (1.05em сверху, заголовок 2.3em × 1.1, отступ .88em), лента чипов (2em
+     × 1.01 и .88em), отступ сцены 1.1em, полка (отступ 1.2em, подпись
+     1.05em × 1.2 и .55em × 1.05 под ней, зазор .45em и подпись карточки
+     1.01em × 1.3). Барабан — ATV_REEL_VH высоты экрана, кадр полки —
+     ATV_TILE_VH; когда кегль крупный и места не хватает, барабан уступает
+     (потолок max-height ниже), полка — никогда: её карточки — цель пульта. */
+  var ATV_REST_EM = round2(1.05 + 2.3 * 1.1 + 0.88 + 2 * 1.01 + 0.88 + 1.1 +
+    1.2 + 1.05 * 1.2 + 0.55 * 1.05 + 0.45 + 1.01 * 1.3);
+  var ATV_REEL_VH = 36;
+  var ATV_TILE_VH = 15.75;
+
   /* Размер героя — настройка (правка пользователя 2026-09-17, п.2).
 
      Task 36: три размера задают ДВЕ доли экрана каждый — сколько кадр
@@ -4832,7 +4845,7 @@
        результата стоит от его нижней кромки, и «внизу слева» обязано
        означать низ ЭКРАНА, а не низ содержимого спокойного экрана. */
     css.push('.lumen-roulette-screen.is-kadr .lumen-roulette{height:100%;overflow:hidden}');
-    css.push('.lumen-roulette-screen.is-kadr .lumen-roulette__head,.lumen-roulette-screen.is-kadr .lumen-roulette__chipbox,.lumen-roulette-screen.is-kadr .lumen-roulette__stage{opacity:0}');
+    css.push('.lumen-roulette-screen.is-kadr .lumen-roulette__head,.lumen-roulette-screen.is-kadr .lumen-roulette__chipbox,.lumen-roulette-screen.is-kadr .lumen-roulette__stage,.lumen-roulette-screen.is-kadr .lumen-roulette__shelf{opacity:0}');
     /* Шапка: заголовок, сегмент медиа и сегмент фильтров одной строкой.
        Правка 2026-09-23 (разбор композиции, п.5.2): фильтры больше НЕ
        прижаты к правому краю. Замер на стенде 960×540@2 до правки: от
@@ -5010,6 +5023,116 @@
     /* Пункт меню «Что посмотреть»: иконка набора плагина — 1em, штатные
        иконки меню Lampa — 1.5em (та же правка, что у пункта «Подборки»). */
     css.push('.lumen-menu-roulette .lumen-ico{width:1.5em;height:1.5em}');
+
+    /* --- Волна fx2: «Что посмотреть» в виде «как Apple TV» ---
+       Класс is-atv на .lumen-roulette-screen ставит src/56_roulette.js при
+       «Плоском виде» (lumen_flat) — его включает кнопка «Применить стиль
+       Apple TV». Правила стоят вне блока плоского вида (конец buildCss)
+       намеренно: вид экрана решается при его создании, и экран, открытый в
+       истории, обязан остаться собранным, даже если стиль переключили, пока
+       он лежал под настройками.
+       Ориентир — docs/research/2026-09-21-tv-design-specs.md §1: содержимое
+       на фоне, а не в коробках; крупная типографика; кадр 16:9 с логотипом
+       названия; фокус — инверсия и подъём, как в остальном плагине.
+       Цена на ТВ: ни filter на кадре, ни box-shadow с размытием, ни
+       backdrop-filter. Фон — w300 во весь экран (растяжение и есть
+       «размытие» фона Apple TV, декодирование — 300×169 пикселей), кадр
+       барабана на шагах вращения — тоже w300. Подъём карточки в фокусе —
+       transform, переходы только в «Полном» режиме. */
+    var ATV = '.lumen-roulette-screen.is-atv';
+    var atvRest = round2((LAMPA_HEAD + 2 * LAMPA_ROW_PAD) / scale + ATV_REST_EM);
+    var atvReelH = '100vh - ' + atvRest + 'em - ' + ATV_TILE_VH + 'vh';
+    var atvReelMax = 'max-height:-webkit-calc(' + atvReelH + ');max-height:calc(' + atvReelH + ');' +
+      'max-width:-webkit-calc((' + atvReelH + ') * 1.7778);max-width:calc((' + atvReelH + ') * 1.7778)';
+    /* Подложка экрана — цвет темы: пока кадр фона не пришёл, под экраном не
+       должен просвечивать фон самой Lampa (серый градиент на снимке «было»). */
+    css.push(ATV + '{background-color:' + P.bg + '}');
+    css.push(ATV + ' .lumen-roulette__bg{opacity:.6}');
+    css.push(ATV + ' .lumen-roulette__veil{opacity:1}');
+    css.push(ATV + '.is-kadr .lumen-roulette__bg{opacity:1}');
+    /* Спокойный экран: левая вуаль темнее и доходит до правого края (текст
+       колонки и шапка лежат на фоне целиком), нижняя — под полкой. В режиме
+       кадра — прежние вуали кадра результата (:not(.is-kadr)). */
+    css.push(ATV + ':not(.is-kadr) .lumen-roulette__veil--l{background:-webkit-linear-gradient(left,rgba(' + P.bgRgb + ',.94) 0%,rgba(' + P.bgRgb + ',.78) 38%,rgba(' + P.bgRgb + ',.45) 70%,rgba(' + P.bgRgb + ',.3) 100%);background:linear-gradient(90deg,rgba(' + P.bgRgb + ',.94) 0%,rgba(' + P.bgRgb + ',.78) 38%,rgba(' + P.bgRgb + ',.45) 70%,rgba(' + P.bgRgb + ',.3) 100%)}');
+    css.push(ATV + ':not(.is-kadr) .lumen-roulette__veil--b{background:-webkit-linear-gradient(bottom,' + P.bg + ' 0%,rgba(' + P.bgRgb + ',.86) 26%,rgba(' + P.bgRgb + ',0) 58%);background:linear-gradient(0deg,' + P.bg + ' 0%,rgba(' + P.bgRgb + ',.86) 26%,rgba(' + P.bgRgb + ',0) 58%)}');
+    /* Шапка: крупный заголовок, «Фильмы/Сериалы» — сегментом в общей
+       дорожке, фильтры и подборки — пилюлями. Подложки — P.chipBg: при
+       «Плотных подложках» они непрозрачны, как и везде. */
+    css.push(ATV + ' .lumen-roulette__title{font-size:2.3em;font-weight:700;letter-spacing:-.01em}');
+    css.push(ATV + ' .lumen-roulette__media{padding:.2em;border-radius:1.2em;background:' + P.chipBg + '}');
+    css.push(ATV + ' .lumen-roulette__tab{margin-right:0;border-radius:1em;background:transparent;color:' + P.muted + '}');
+    css.push(ATV + ' .lumen-roulette__tab.is-on{background:rgba(' + P.textRgb + ',.22);color:' + P.text + '}');
+    css.push(ATV + ' .lumen-roulette__tab.focus{background:' + P.text + ';color:' + P.bg + '}');
+    css.push(ATV + ' .lumen-roulette__chip{border-radius:1em;background:' + P.chipBg + ';color:' + P.muted + '}');
+    css.push(ATV + ' .lumen-roulette__chip.lumen-chip--on{background:rgba(' + P.textRgb + ',.22);color:' + P.text + '}');
+    css.push(ATV + ' .lumen-roulette__chip.focus{background:' + P.text + ';color:' + P.bg + '}');
+    /* Сцена: колонка текста слева, барабан-кадр справа, одной строкой. */
+    css.push(ATV + ' .lumen-roulette__stage{-webkit-box-orient:horizontal;-webkit-flex-direction:row;flex-direction:row;-webkit-box-align:stretch;-webkit-align-items:stretch;align-items:stretch;margin-top:1.1em}');
+    /* Колонка прижата к низу барабана: у Apple TV текст героя стоит на
+       нижней линии кадра. overflow:hidden — на крупных кеглях срезается
+       надпись сверху, а не кнопка снизу. */
+    css.push(ATV + ' .lumen-roulette__lead{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-orient:vertical;-webkit-flex-direction:column;flex-direction:column;-webkit-box-pack:end;-webkit-justify-content:flex-end;justify-content:flex-end;-webkit-box-flex:1;-webkit-flex:1 1 auto;flex:1 1 auto;min-width:0;margin-right:2.2em;overflow:hidden}');
+    css.push(ATV + ' .lumen-roulette__kicker{font-family:' + FB + ';font-weight:600;font-size:1.01em;line-height:1.2;letter-spacing:.14em;text-transform:uppercase;color:' + P.muted + '}');
+    css.push(ATV + ' .lumen-roulette__kicker-n,' + ATV + ' .lumen-roulette__kicker-l{display:inline}');
+    css.push(ATV + ' .lumen-roulette__kicker-n{color:' + P.text + ';margin-right:.5em}');
+    css.push(ATV + ' .lumen-roulette__ltitle{font-family:' + FB + ';font-weight:700;font-size:2.5em;line-height:1.08;letter-spacing:-.01em;color:' + P.text + ';margin-top:.25em;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}');
+    css.push(ATV + ' .lumen-roulette__lmeta{font-family:' + FB + ';font-weight:500;font-size:1.05em;line-height:1.2;color:' + P.muted + ';margin-top:.5em}');
+    css.push(ATV + ' .lumen-roulette__ldescr{font-family:' + FB + ';font-weight:400;font-size:1.05em;line-height:1.4;color:rgba(' + P.textRgb + ',.78);margin-top:.5em;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}');
+    css.push(ATV + ' .lumen-roulette__ldescr:empty,' + ATV + ' .lumen-roulette__lmeta:empty{display:none}');
+    /* «Крутить» — пилюля в колонке, по левому краю. Вне фокуса —
+       полупрозрачная, в фокусе — инверсия и подъём: у Apple TV кнопка
+       становится белой именно в фокусе, и это же правило фокуса во всём
+       плагине. Фокус на экран приходит сюда (focusTarget), так что первым
+       взглядом кнопка белая. */
+    css.push(ATV + ' .lumen-roulette__spin{-webkit-align-self:flex-start;align-self:flex-start;-webkit-flex-shrink:0;flex-shrink:0;height:2.9em;padding:0 1.7em;margin:1.1em 0 0;border-radius:1.45em;border:0;background:' + P.buttonBg + ';color:' + P.text + ';font-weight:700}');
+    css.push(ATV + ' .lumen-roulette__spin.focus{border:0;background:' + P.text + ';color:' + P.bg + ';-webkit-transform:scale(1.06);transform:scale(1.06)}');
+    /* Барабан — кадр 16:9 справа. Потолок — остаток области под шапкой,
+       лентой и полкой (ATV_REST_EM выше); ширина держит 16:9 тем же
+       потолком. */
+    css.push(ATV + ' .lumen-roulette__reel{width:' + round2(ATV_REEL_VH * 16 / 9) + 'vh;height:' + ATV_REEL_VH + 'vh;' + atvReelMax + ';border-radius:.7em;border:.04em solid rgba(' + P.textRgb + ',.1)}');
+    css.push(ATV + ' .lumen-roulette__frame{background-position:center}');
+    /* Полка «Ещё в выборке»: пять кадров 16:9 одной строкой. */
+    css.push(ATV + ' .lumen-roulette__shelf{margin-top:1.2em}');
+    css.push(ATV + ' .lumen-roulette__shelf.is-empty{visibility:hidden}');
+    css.push(ATV + ' .lumen-roulette__shelf-title{font-family:' + FB + ';font-weight:700;font-size:1.05em;line-height:1.2;color:' + P.text + ';margin-bottom:.55em}');
+    css.push(ATV + ' .lumen-roulette__shelf-row{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:nowrap;flex-wrap:nowrap}');
+    css.push(ATV + ' .lumen-roulette__tile{-webkit-flex-shrink:0;flex-shrink:0;width:' + round2(ATV_TILE_VH * 16 / 9) + 'vh;margin-right:2.2vh}');
+    css.push(ATV + ' .lumen-roulette__tile-img{position:relative;width:100%;height:' + ATV_TILE_VH + 'vh;border-radius:.5em;overflow:hidden;background-color:' + P.panel + ';background-position:center;background-repeat:no-repeat;-webkit-background-size:cover;background-size:cover}');
+    /* Затемнение под логотипом — только у карточки с логотипом: кадру без
+       него затемнять нечего. Градиент — часть картинки карточки, а не
+       отдельный слой. */
+    css.push(ATV + ' .lumen-roulette__tile.has-logo .lumen-roulette__tile-img:after{content:"";position:absolute;left:0;right:0;bottom:0;height:62%;background:-webkit-linear-gradient(bottom,rgba(0,0,0,.62) 0%,rgba(0,0,0,0) 100%);background:linear-gradient(0deg,rgba(0,0,0,.62) 0%,rgba(0,0,0,0) 100%)}');
+    css.push(ATV + ' .lumen-roulette__tile-logo{position:absolute;z-index:1;left:7%;bottom:9%;width:62%;height:40%;background-position:left bottom;background-repeat:no-repeat;-webkit-background-size:contain;background-size:contain}');
+    css.push(ATV + ' .lumen-roulette__tile-name{font-family:' + FB + ';font-weight:600;font-size:1.01em;line-height:1.3;color:' + P.muted + ';margin-top:.45em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}');
+    /* Фокус карточки полки — тот же язык, что у плитки хаба
+       (.lumen-hub__tiles .lumen-tile.focus): подъём, жёсткая тень без
+       размытия под ней и кольцо outline цветом текста — на кадре любой
+       яркости кольцо видно, а outline, в отличие от рамки, не сдвигает
+       раскладку. */
+    css.push(ATV + ' .lumen-roulette__tile.focus .lumen-roulette__tile-img{outline:.14em solid ' + P.text + ';outline-offset:.1em;-webkit-box-shadow:0 .2em 0 rgba(0,0,0,.45);box-shadow:0 .2em 0 rgba(0,0,0,.45);-webkit-transform:scale(1.06);transform:scale(1.06)}');
+    css.push(ATV + ' .lumen-roulette__tile.focus .lumen-roulette__tile-name{color:' + P.text + '}');
+    /* Переход подъёма — только transform и только в «Полном» режиме. Правило
+       нарочно под корнем .lumen-roulette, а не под обёрткой экрана: смена
+       состояния экрана (спокойный ↔ кадр) переходов не имеет вовсе (тест
+       «Task 44: смена состояния рулетки без переходов», разбор у обёртки
+       выше), а это — отклик на шаг пульта внутри спокойного экрана, как
+       «щелчок» барабана .is-step. Карточки полки есть только в этом виде. */
+    css.push('.lumen-roulette.lumen-motion-full .lumen-roulette__tile-img{-webkit-transition:-webkit-transform .2s ease;transition:transform .2s ease}');
+    css.push(ATV + ' .lumen-roulette.lumen-motion-lite .lumen-roulette__tile.focus .lumen-roulette__tile-img,' + ATV + ' .lumen-roulette.lumen-motion-off .lumen-roulette__tile.focus .lumen-roulette__tile-img,' + ATV + ' .lumen-roulette.lumen-motion-lite .lumen-roulette__spin.focus,' + ATV + ' .lumen-roulette.lumen-motion-off .lumen-roulette__spin.focus{-webkit-transform:none;transform:none}');
+    /* Логотип светлого фона — белым силуэтом, как в герое и карточке.
+       filter здесь — на статичной картинке, растрируется один раз. */
+    css.push(ATV + ' .lumen-roulette__tile-logo.lumen-logo-white,' + ATV + ' .lumen-roulette__rlogo.lumen-logo-white{-webkit-filter:brightness(0) invert(1);filter:brightness(0) invert(1)}');
+    /* Результат: логотип названия вместо текста, мета, описание, кнопки. */
+    css.push(ATV + ' .lumen-roulette__result{max-width:40em}');
+    css.push(ATV + ' .lumen-roulette__rlogo{display:none;width:18em;height:5em;margin-bottom:.7em;background-position:left bottom;background-repeat:no-repeat;-webkit-background-size:contain;background-size:contain}');
+    css.push(ATV + ' .lumen-roulette__result.has-logo .lumen-roulette__rlogo{display:block}');
+    css.push(ATV + ' .lumen-roulette__result.has-logo .lumen-roulette__rtitle{display:none}');
+    css.push(ATV + ' .lumen-roulette__result.is-logo-wait .lumen-roulette__rtitle{visibility:hidden}');
+    css.push(ATV + ' .lumen-roulette__rtitle{font-weight:700;font-size:2.6em;line-height:1.08;letter-spacing:-.01em}');
+    css.push(ATV + ' .lumen-roulette__rmeta{font-size:1.05em}');
+    css.push(ATV + ' .lumen-roulette__rdescr{font-family:' + FB + ';font-weight:400;font-size:1.05em;line-height:1.4;color:rgba(' + P.textRgb + ',.82);margin-top:.55em;max-width:34em;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}');
+    css.push(ATV + ' .lumen-roulette__btn{border-radius:1.2em;background:' + P.buttonBg + '}');
+    css.push(ATV + ' .lumen-roulette__btn.focus{background:' + P.text + ';color:' + P.bg + '}');
 
     /* --- Task 22: ambient-режим (заставка из кадров) ---
        Слой поверх всего, что рисует плагин (слой перехода рулетки — 90,

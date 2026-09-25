@@ -7088,3 +7088,40 @@ test('п.D: класс lumen-logo-white — белый силуэт логоти
     assert.equal(/drop-shadow/.test(decl), false, sel + ': тень вместо силуэта');
   }
 });
+
+/* Волна fx2: «Что посмотреть» в виде «как Apple TV». */
+test('fx2: вид «как Apple TV» — сцена строкой, барабан 16:9 в долях высоты экрана с потолком, полка 16:9', () => {
+  const stage = findDecl(css, (sel) => sel === '.lumen-roulette-screen.is-atv .lumen-roulette__stage');
+  assert.ok(stage && /flex-direction:row/.test(stage), 'колонка и барабан одной строкой: ' + stage);
+  const reel = findDecl(css, (sel) => sel === '.lumen-roulette-screen.is-atv .lumen-roulette__reel');
+  assert.ok(reel, 'нет правила барабана');
+  const w = parseFloat(/(?:^|;)width:([0-9.]+)vh/.exec(reel)[1]);
+  const h = parseFloat(/(?:^|;)height:([0-9.]+)vh/.exec(reel)[1]);
+  assert.ok(Math.abs(w / h - 16 / 9) < 0.01, 'барабан 16:9: ' + w + '×' + h);
+  assert.ok(/max-height:calc\(100vh - [0-9.]+em - [0-9.]+vh\)/.test(reel), 'потолок высоты — остаток области под шапкой, лентой и полкой');
+  const tile = findDecl(css, (sel) => sel === '.lumen-roulette-screen.is-atv .lumen-roulette__tile');
+  const tileImg = findDecl(css, (sel) => sel === '.lumen-roulette-screen.is-atv .lumen-roulette__tile-img');
+  const tw = parseFloat(/width:([0-9.]+)vh/.exec(tile)[1]);
+  const th = parseFloat(/height:([0-9.]+)vh/.exec(tileImg)[1]);
+  assert.ok(Math.abs(tw / th - 16 / 9) < 0.01, 'карточка полки 16:9: ' + tw + '×' + th);
+  const gap = parseFloat(/margin-right:([0-9.]+)vh/.exec(tile)[1]);
+  assert.ok(5 * tw + 4 * gap < 177.78 - 10, 'пять карточек помещаются в ширину экрана 16:9 без прокрутки');
+});
+
+test('fx2: вид «как Apple TV» — фокус полки подъёмом и кольцом outline, в «Лёгких» и «Выкл» без подъёма', () => {
+  const focus = findDecl(css, (sel) => sel === '.lumen-roulette-screen.is-atv .lumen-roulette__tile.focus .lumen-roulette__tile-img');
+  assert.ok(focus && /outline:[^;]+solid/.test(focus) && /scale\(1\.06\)/.test(focus), focus);
+  const lite = ruleBodies(css).find((r) => r.selectors.indexOf('.lumen-roulette-screen.is-atv .lumen-roulette.lumen-motion-lite .lumen-roulette__tile.focus .lumen-roulette__tile-img') !== -1);
+  assert.ok(lite && /transform:none/.test(lite.decl), 'в «Лёгких» подъёма нет');
+  const tr = ruleBodies(css).find((r) => r.selectors.indexOf('.lumen-roulette.lumen-motion-full .lumen-roulette__tile-img') !== -1);
+  assert.ok(tr && /transition:transform/.test(tr.decl) && !/opacity|background/.test(tr.decl), 'переход подъёма — только transform');
+});
+
+test('fx2: вид «как Apple TV» — под кадром результата полка гаснет вместе со спокойным экраном; фон экрана — цвет темы', () => {
+  const calm = findDecl(css, (sel) => sel === '.lumen-roulette-screen.is-kadr .lumen-roulette__shelf');
+  assert.ok(calm && calm.indexOf('opacity:0') !== -1, calm);
+  const base = findDecl(css, (sel) => sel === '.lumen-roulette-screen.is-atv');
+  assert.ok(base && /background-color:/.test(base), 'под экраном не просвечивает фон Lampa');
+  const kadrBg = findDecl(css, (sel) => sel === '.lumen-roulette-screen.is-atv.is-kadr .lumen-roulette__bg');
+  assert.ok(kadrBg && kadrBg.indexOf('opacity:1') !== -1, 'кадр результата — во всю яркость');
+});

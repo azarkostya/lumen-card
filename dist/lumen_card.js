@@ -1477,6 +1477,19 @@ var ROUL_REST_EM = round2(1.05 + Math.max(2.1 * 1.1, 2 * 1.01) + 0.88 + 2 * 1.01
 
 
 
+var ATV_REST_EM = round2(1.05 + 2.3 * 1.1 + 0.88 + 2 * 1.01 + 0.88 + 1.1 +
+1.2 + 1.05 * 1.2 + 0.55 * 1.05 + 0.45 + 1.01 * 1.3);
+var ATV_REEL_VH = 36;
+var ATV_TILE_VH = 15.75;
+
+
+
+
+
+
+
+
+
 
 
 
@@ -5709,7 +5722,7 @@ css.push('.lumen-roulette{position:relative;min-height:100%;padding:0 ' + EDGE +
 
 
 css.push('.lumen-roulette-screen.is-kadr .lumen-roulette{height:100%;overflow:hidden}');
-css.push('.lumen-roulette-screen.is-kadr .lumen-roulette__head,.lumen-roulette-screen.is-kadr .lumen-roulette__chipbox,.lumen-roulette-screen.is-kadr .lumen-roulette__stage{opacity:0}');
+css.push('.lumen-roulette-screen.is-kadr .lumen-roulette__head,.lumen-roulette-screen.is-kadr .lumen-roulette__chipbox,.lumen-roulette-screen.is-kadr .lumen-roulette__stage,.lumen-roulette-screen.is-kadr .lumen-roulette__shelf{opacity:0}');
 
 
 
@@ -5887,6 +5900,116 @@ css.push('.lumen-roulette .lumen-roulette__empty{font-family:' + FB + ';font-siz
 
 
 css.push('.lumen-menu-roulette .lumen-ico{width:1.5em;height:1.5em}');
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+var ATV = '.lumen-roulette-screen.is-atv';
+var atvRest = round2((LAMPA_HEAD + 2 * LAMPA_ROW_PAD) / scale + ATV_REST_EM);
+var atvReelH = '100vh - ' + atvRest + 'em - ' + ATV_TILE_VH + 'vh';
+var atvReelMax = 'max-height:-webkit-calc(' + atvReelH + ');max-height:calc(' + atvReelH + ');' +
+'max-width:-webkit-calc((' + atvReelH + ') * 1.7778);max-width:calc((' + atvReelH + ') * 1.7778)';
+
+
+css.push(ATV + '{background-color:' + P.bg + '}');
+css.push(ATV + ' .lumen-roulette__bg{opacity:.6}');
+css.push(ATV + ' .lumen-roulette__veil{opacity:1}');
+css.push(ATV + '.is-kadr .lumen-roulette__bg{opacity:1}');
+
+
+
+css.push(ATV + ':not(.is-kadr) .lumen-roulette__veil--l{background:-webkit-linear-gradient(left,rgba(' + P.bgRgb + ',.94) 0%,rgba(' + P.bgRgb + ',.78) 38%,rgba(' + P.bgRgb + ',.45) 70%,rgba(' + P.bgRgb + ',.3) 100%);background:linear-gradient(90deg,rgba(' + P.bgRgb + ',.94) 0%,rgba(' + P.bgRgb + ',.78) 38%,rgba(' + P.bgRgb + ',.45) 70%,rgba(' + P.bgRgb + ',.3) 100%)}');
+css.push(ATV + ':not(.is-kadr) .lumen-roulette__veil--b{background:-webkit-linear-gradient(bottom,' + P.bg + ' 0%,rgba(' + P.bgRgb + ',.86) 26%,rgba(' + P.bgRgb + ',0) 58%);background:linear-gradient(0deg,' + P.bg + ' 0%,rgba(' + P.bgRgb + ',.86) 26%,rgba(' + P.bgRgb + ',0) 58%)}');
+
+
+
+css.push(ATV + ' .lumen-roulette__title{font-size:2.3em;font-weight:700;letter-spacing:-.01em}');
+css.push(ATV + ' .lumen-roulette__media{padding:.2em;border-radius:1.2em;background:' + P.chipBg + '}');
+css.push(ATV + ' .lumen-roulette__tab{margin-right:0;border-radius:1em;background:transparent;color:' + P.muted + '}');
+css.push(ATV + ' .lumen-roulette__tab.is-on{background:rgba(' + P.textRgb + ',.22);color:' + P.text + '}');
+css.push(ATV + ' .lumen-roulette__tab.focus{background:' + P.text + ';color:' + P.bg + '}');
+css.push(ATV + ' .lumen-roulette__chip{border-radius:1em;background:' + P.chipBg + ';color:' + P.muted + '}');
+css.push(ATV + ' .lumen-roulette__chip.lumen-chip--on{background:rgba(' + P.textRgb + ',.22);color:' + P.text + '}');
+css.push(ATV + ' .lumen-roulette__chip.focus{background:' + P.text + ';color:' + P.bg + '}');
+
+css.push(ATV + ' .lumen-roulette__stage{-webkit-box-orient:horizontal;-webkit-flex-direction:row;flex-direction:row;-webkit-box-align:stretch;-webkit-align-items:stretch;align-items:stretch;margin-top:1.1em}');
+
+
+
+css.push(ATV + ' .lumen-roulette__lead{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-orient:vertical;-webkit-flex-direction:column;flex-direction:column;-webkit-box-pack:end;-webkit-justify-content:flex-end;justify-content:flex-end;-webkit-box-flex:1;-webkit-flex:1 1 auto;flex:1 1 auto;min-width:0;margin-right:2.2em;overflow:hidden}');
+css.push(ATV + ' .lumen-roulette__kicker{font-family:' + FB + ';font-weight:600;font-size:1.01em;line-height:1.2;letter-spacing:.14em;text-transform:uppercase;color:' + P.muted + '}');
+css.push(ATV + ' .lumen-roulette__kicker-n,' + ATV + ' .lumen-roulette__kicker-l{display:inline}');
+css.push(ATV + ' .lumen-roulette__kicker-n{color:' + P.text + ';margin-right:.5em}');
+css.push(ATV + ' .lumen-roulette__ltitle{font-family:' + FB + ';font-weight:700;font-size:2.5em;line-height:1.08;letter-spacing:-.01em;color:' + P.text + ';margin-top:.25em;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}');
+css.push(ATV + ' .lumen-roulette__lmeta{font-family:' + FB + ';font-weight:500;font-size:1.05em;line-height:1.2;color:' + P.muted + ';margin-top:.5em}');
+css.push(ATV + ' .lumen-roulette__ldescr{font-family:' + FB + ';font-weight:400;font-size:1.05em;line-height:1.4;color:rgba(' + P.textRgb + ',.78);margin-top:.5em;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}');
+css.push(ATV + ' .lumen-roulette__ldescr:empty,' + ATV + ' .lumen-roulette__lmeta:empty{display:none}');
+
+
+
+
+
+css.push(ATV + ' .lumen-roulette__spin{-webkit-align-self:flex-start;align-self:flex-start;-webkit-flex-shrink:0;flex-shrink:0;height:2.9em;padding:0 1.7em;margin:1.1em 0 0;border-radius:1.45em;border:0;background:' + P.buttonBg + ';color:' + P.text + ';font-weight:700}');
+css.push(ATV + ' .lumen-roulette__spin.focus{border:0;background:' + P.text + ';color:' + P.bg + ';-webkit-transform:scale(1.06);transform:scale(1.06)}');
+
+
+
+css.push(ATV + ' .lumen-roulette__reel{width:' + round2(ATV_REEL_VH * 16 / 9) + 'vh;height:' + ATV_REEL_VH + 'vh;' + atvReelMax + ';border-radius:.7em;border:.04em solid rgba(' + P.textRgb + ',.1)}');
+css.push(ATV + ' .lumen-roulette__frame{background-position:center}');
+
+css.push(ATV + ' .lumen-roulette__shelf{margin-top:1.2em}');
+css.push(ATV + ' .lumen-roulette__shelf.is-empty{visibility:hidden}');
+css.push(ATV + ' .lumen-roulette__shelf-title{font-family:' + FB + ';font-weight:700;font-size:1.05em;line-height:1.2;color:' + P.text + ';margin-bottom:.55em}');
+css.push(ATV + ' .lumen-roulette__shelf-row{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:nowrap;flex-wrap:nowrap}');
+css.push(ATV + ' .lumen-roulette__tile{-webkit-flex-shrink:0;flex-shrink:0;width:' + round2(ATV_TILE_VH * 16 / 9) + 'vh;margin-right:2.2vh}');
+css.push(ATV + ' .lumen-roulette__tile-img{position:relative;width:100%;height:' + ATV_TILE_VH + 'vh;border-radius:.5em;overflow:hidden;background-color:' + P.panel + ';background-position:center;background-repeat:no-repeat;-webkit-background-size:cover;background-size:cover}');
+
+
+
+css.push(ATV + ' .lumen-roulette__tile.has-logo .lumen-roulette__tile-img:after{content:"";position:absolute;left:0;right:0;bottom:0;height:62%;background:-webkit-linear-gradient(bottom,rgba(0,0,0,.62) 0%,rgba(0,0,0,0) 100%);background:linear-gradient(0deg,rgba(0,0,0,.62) 0%,rgba(0,0,0,0) 100%)}');
+css.push(ATV + ' .lumen-roulette__tile-logo{position:absolute;z-index:1;left:7%;bottom:9%;width:62%;height:40%;background-position:left bottom;background-repeat:no-repeat;-webkit-background-size:contain;background-size:contain}');
+css.push(ATV + ' .lumen-roulette__tile-name{font-family:' + FB + ';font-weight:600;font-size:1.01em;line-height:1.3;color:' + P.muted + ';margin-top:.45em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}');
+
+
+
+
+
+css.push(ATV + ' .lumen-roulette__tile.focus .lumen-roulette__tile-img{outline:.14em solid ' + P.text + ';outline-offset:.1em;-webkit-box-shadow:0 .2em 0 rgba(0,0,0,.45);box-shadow:0 .2em 0 rgba(0,0,0,.45);-webkit-transform:scale(1.06);transform:scale(1.06)}');
+css.push(ATV + ' .lumen-roulette__tile.focus .lumen-roulette__tile-name{color:' + P.text + '}');
+
+
+
+
+
+
+css.push('.lumen-roulette.lumen-motion-full .lumen-roulette__tile-img{-webkit-transition:-webkit-transform .2s ease;transition:transform .2s ease}');
+css.push(ATV + ' .lumen-roulette.lumen-motion-lite .lumen-roulette__tile.focus .lumen-roulette__tile-img,' + ATV + ' .lumen-roulette.lumen-motion-off .lumen-roulette__tile.focus .lumen-roulette__tile-img,' + ATV + ' .lumen-roulette.lumen-motion-lite .lumen-roulette__spin.focus,' + ATV + ' .lumen-roulette.lumen-motion-off .lumen-roulette__spin.focus{-webkit-transform:none;transform:none}');
+
+
+css.push(ATV + ' .lumen-roulette__tile-logo.lumen-logo-white,' + ATV + ' .lumen-roulette__rlogo.lumen-logo-white{-webkit-filter:brightness(0) invert(1);filter:brightness(0) invert(1)}');
+
+css.push(ATV + ' .lumen-roulette__result{max-width:40em}');
+css.push(ATV + ' .lumen-roulette__rlogo{display:none;width:18em;height:5em;margin-bottom:.7em;background-position:left bottom;background-repeat:no-repeat;-webkit-background-size:contain;background-size:contain}');
+css.push(ATV + ' .lumen-roulette__result.has-logo .lumen-roulette__rlogo{display:block}');
+css.push(ATV + ' .lumen-roulette__result.has-logo .lumen-roulette__rtitle{display:none}');
+css.push(ATV + ' .lumen-roulette__result.is-logo-wait .lumen-roulette__rtitle{visibility:hidden}');
+css.push(ATV + ' .lumen-roulette__rtitle{font-weight:700;font-size:2.6em;line-height:1.08;letter-spacing:-.01em}');
+css.push(ATV + ' .lumen-roulette__rmeta{font-size:1.05em}');
+css.push(ATV + ' .lumen-roulette__rdescr{font-family:' + FB + ';font-weight:400;font-size:1.05em;line-height:1.4;color:rgba(' + P.textRgb + ',.82);margin-top:.55em;max-width:34em;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}');
+css.push(ATV + ' .lumen-roulette__btn{border-radius:1.2em;background:' + P.buttonBg + '}');
+css.push(ATV + ' .lumen-roulette__btn.focus{background:' + P.text + ';color:' + P.bg + '}');
 
 
 
@@ -22833,6 +22956,20 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 LC.roulette = (function () {
 
 
@@ -22887,6 +23024,18 @@ var REEL_VH = 28.67;
 
 
 
+var ATV_REEL_VH = 36;
+var ATV_TILE_VH = 15.75;
+
+
+
+
+var SHELF_SIZE = 5;
+
+
+
+
+
 
 
 function cardMedia(card) {
@@ -22896,6 +23045,35 @@ return (card && (card.name || card.first_air_date)) ? 'tv' : 'movie';
 
 function normalizeMedia(value) {
 return value === 'tv' ? 'tv' : 'movie';
+}
+
+
+
+
+
+
+
+
+function atvLook() {
+try {
+return !!(LC.pref && LC.pref('lumen_flat', false));
+} catch (e) {
+return false;
+}
+}
+
+
+
+
+function shelfCards(list, n) {
+if (!Array.isArray(list) || !(n > 0)) return [];
+return list.slice(1, 1 + n);
+}
+
+
+
+function backdropOf(card) {
+return (card && (card.backdrop_path || card.poster_path)) || '';
 }
 
 
@@ -23280,6 +23458,66 @@ return (card && (card.title || card.name)) || '';
 
 
 
+function cardOverview(card) {
+return (card && card.overview) ? ('' + card.overview) : '';
+}
+
+
+
+function logoAllowed() {
+try {
+return LC.pref ? LC.pref('lumen_hero_logo', true) !== false : true;
+} catch (e) {
+return true;
+}
+}
+
+
+
+
+
+
+
+
+function textless(json, path) {
+var list = json && json.images && json.images.backdrops;
+if (!path || !Array.isArray(list)) return false;
+for (var i = 0; i < list.length; i++) {
+if (list[i] && list[i].file_path === path) return !list[i].iso_639_1;
+}
+return false;
+}
+
+
+
+
+
+
+function logoOf(card, done) {
+if (!card || !logoAllowed() || !LC.prefetch || typeof LC.prefetch.details !== 'function' ||
+!LC.hero || typeof LC.hero.pickLogoItem !== 'function') {
+done(null);
+return;
+}
+var once = false;
+function finish(item, json) {
+if (once) return;
+once = true;
+done(item, json || null);
+}
+try {
+LC.prefetch.details(card, function (json) {
+var item = null;
+try { item = LC.hero.pickLogoItem(json && json.images && json.images.logos, lang()); } catch (e) { item = null; }
+finish(item && item.file_path ? item : null, json);
+}, function () { finish(null, null); });
+} catch (e2) {
+finish(null, null);
+}
+}
+
+
+
 
 
 function RouletteComponent(object) {
@@ -23321,6 +23559,24 @@ var countBox = $('<div class="lumen-roulette__count">' +
 '</div>');
 var spinBtn = $('<div class="lumen-roulette__spin selector">' + esc(LC.lang('lumen_roulette_spin')) + '</div>');
 var resultBox = $('<div class="lumen-roulette__result"></div>');
+
+
+var atv = atvLook();
+
+
+
+
+var calmBg = '';
+var lead = $('<div class="lumen-roulette__lead">' +
+'<div class="lumen-roulette__kicker"><div class="lumen-roulette__kicker-n"></div><div class="lumen-roulette__kicker-l"></div></div>' +
+'<div class="lumen-roulette__ltitle"></div>' +
+'<div class="lumen-roulette__lmeta"></div>' +
+'<div class="lumen-roulette__ldescr"></div>' +
+'</div>');
+var shelf = $('<div class="lumen-roulette__shelf">' +
+'<div class="lumen-roulette__shelf-title"></div>' +
+'<div class="lumen-roulette__shelf-row"></div>' +
+'</div>');
 
 var gen = 0;
 var handles = [];
@@ -23745,8 +24001,136 @@ node.removeClass('is-off');
 
 
 
+
+
+
+function paintLead(list) {
+var head0 = list[0] || null;
+lead.find('.lumen-roulette__kicker-n').text(String(list.length));
+lead.find('.lumen-roulette__kicker-l').text(LC.lang('lumen_roulette_pick'));
+lead.find('.lumen-roulette__ltitle').text(head0 ? cardTitle(head0) : LC.lang('lumen_roulette_empty'));
+lead.find('.lumen-roulette__lmeta').text(head0 ? cardMeta(head0) : '');
+lead.find('.lumen-roulette__ldescr').text(head0 ? cardOverview(head0) : '');
+
+
+
+var soft = head0 ? imageUrl(backdropOf(head0), 'w300') : '';
+calmBg = soft ? 'url("' + soft + '")' : '';
+if (!kadr) {
+try { bg.css('background-image', calmBg); } catch (e) { }
+}
+}
+
+
+
+function shelfTile(card, size) {
+var node = watchFocus($('<div class="lumen-roulette__tile selector">' +
+'<div class="lumen-roulette__tile-img"><div class="lumen-roulette__tile-logo"></div></div>' +
+'<div class="lumen-roulette__tile-name"></div>' +
+'</div>'));
+var url = imageUrl(backdropOf(card), size);
+if (url) node.find('.lumen-roulette__tile-img').css('background-image', 'url("' + url + '")');
+node.find('.lumen-roulette__tile-name').text(cardTitle(card));
+node.on('hover:enter', function () { openCard(card); });
+return node;
+}
+
+
+
+
+
+
+
+function shelfLogos(nodes, cards, captured, at) {
+if (at >= cards.length || gen !== captured) return;
+logoOf(cards[at], function (item, json) {
+if (gen !== captured || !nodes[at]) return;
+
+try { if (typeof nodes[at].closest === 'function' && !nodes[at].closest('body').length) return; } catch (eC) { return; }
+var next = function () { shelfLogos(nodes, cards, captured, at + 1); };
+
+var path = item && textless(json, backdropOf(cards[at])) ? item.file_path : '';
+var url = path && LC.hero && typeof LC.hero.logoUrl === 'function' ? LC.hero.logoUrl(path) : '';
+if (!url || typeof LC.hero.preloadLogo !== 'function') { next(); return; }
+LC.hero.preloadLogo(path, url, function (ok) {
+if (gen === captured && ok) {
+var holder = nodes[at].find('.lumen-roulette__tile-logo');
+holder.css('background-image', 'url("' + encodeURI(url) + '")');
+holder.toggleClass('lumen-logo-white', typeof LC.hero.logoTone === 'function' && LC.hero.logoTone(path) === 'dark');
+nodes[at].addClass('has-logo');
+
+
+
+var meta = cardMeta(cards[at]);
+if (meta) nodes[at].find('.lumen-roulette__tile-name').text(meta);
+}
+next();
+});
+});
+}
+
+function paintShelf(list) {
+var row = shelf.find('.lumen-roulette__shelf-row');
+var had = !!(lastFocus && row[0] && row[0].contains && row[0].contains(lastFocus));
+row.empty();
+var cards = shelfCards(list, SHELF_SIZE);
+shelf.find('.lumen-roulette__shelf-title').text(LC.lang('lumen_roulette_more'));
+shelf.toggleClass('is-empty', !cards.length);
+
+
+
+var size = LC.util.vhPx(ATV_TILE_VH * 16 / 9) * 0.85 > 300 ? 'w780' : 'w300';
+var nodes = [];
+for (var i = 0; i < cards.length; i++) {
+var node = shelfTile(cards[i], size);
+nodes.push(node);
+row.append(node);
+}
+
+
+
+
+if (had) lastFocus = null;
+refreshCollection();
+shelfLogos(nodes, cards, gen, 0);
+}
+
+
+
+
+
+function focusIn(box) {
+try {
+var node = root.find('.selector.focus')[0];
+return !!(node && box && box[0] && box[0].contains(node));
+} catch (e) {
+return false;
+}
+}
+
+function refreshCollection() {
+if (!started || kadr) return;
+var ctl = null;
+try { ctl = typeof Lampa.Controller.enabled === 'function' ? Lampa.Controller.enabled() : null; } catch (e) { }
+if (ctl && ctl.name !== 'content') return;
+recollect(null);
+}
+
 function paintPreview() {
 var list = filtered();
+if (atv) {
+try {
+var head1 = list[0] || null;
+var big = head1 ? imageUrl(backdropOf(head1), LC.util.scrimSize(LC.util.vhPx(ATV_REEL_VH * 16 / 9))) : '';
+reelBox.find('.lumen-roulette__frame').css('background-image', big ? 'url("' + big + '")' : 'none');
+paintLead(list);
+paintShelf(list);
+stage.addClass('is-stack');
+} catch (eA) {
+warn('roulette: atv preview failed', eA);
+}
+return;
+}
 try {
 countBox.find('.lumen-roulette__count-value').text(String(list.length));
 countBox.find('.lumen-roulette__count-label').text(LC.lang('lumen_roulette_pick'));
@@ -23793,7 +24177,12 @@ function paintFrame(card) {
 
 
 
-var url = imageUrl(card && card.poster_path, LC.util.posterSize(LC.util.vhPx(REEL_VH)));
+
+
+
+
+
+var url = atv ? imageUrl(backdropOf(card), 'w300') : imageUrl(card && card.poster_path, LC.util.posterSize(LC.util.vhPx(REEL_VH)));
 var frameNode = reelBox.find('.lumen-roulette__frame');
 if (url) frameNode.css('background-image', 'url("' + url + '")');
 frameNode.addClass('is-step');
@@ -23945,7 +24334,11 @@ resultBgShown = false;
 resultBox.empty();
 resultBox.removeClass('is-live');
 leaveKadr();
-try { bg.css('background-image', ''); } catch (e) { }
+
+
+
+
+try { bg.css('background-image', atv ? calmBg : ''); } catch (e) { }
 
 
 
@@ -23988,11 +24381,64 @@ return null;
 
 
 
+
+
+
+
+
+
+
+var LOGO_GUARD = 1500;
+
+function paintResultLogo(card, holder) {
+var captured = gen;
+var settled = false;
+function settle(url, white) {
+if (settled) return;
+settled = true;
+if (gen !== captured || result !== card) return;
+if (url) {
+holder.css('background-image', 'url("' + encodeURI(url) + '")');
+holder.toggleClass('lumen-logo-white', !!white);
+resultBox.addClass('has-logo');
+}
+resultBox.removeClass('is-logo-wait');
+}
+resultBox.addClass('is-logo-wait');
+setTimeout(function () { settle('', false); }, LOGO_GUARD);
+logoOf(card, function (item) {
+var path = item ? item.file_path : '';
+var url = path && typeof LC.hero.logoUrl === 'function' ? LC.hero.logoUrl(path) : '';
+if (!url || typeof LC.hero.waitLogo !== 'function') { settle('', false); return; }
+LC.hero.waitLogo(path, url, function (show) {
+settle(show ? url : '', show && typeof LC.hero.logoTone === 'function' && LC.hero.logoTone(path) === 'dark');
+});
+});
+}
+
+
+
+
+function warmLogo(card) {
+logoOf(card, function (item) {
+var path = item ? item.file_path : '';
+var url = path && LC.hero && typeof LC.hero.logoUrl === 'function' ? LC.hero.logoUrl(path) : '';
+if (url && typeof LC.hero.preloadLogo === 'function') LC.hero.preloadLogo(path, url, function () { });
+});
+}
+
 function paintResult(card) {
 resultBox.empty();
 resultBox.addClass('is-live');
+resultBox.removeClass('has-logo is-logo-wait');
+if (atv) {
+var logo = $('<div class="lumen-roulette__rlogo"></div>');
+resultBox.append(logo);
+paintResultLogo(card, logo);
+}
 resultBox.append($('<div class="lumen-roulette__rtitle">' + esc(cardTitle(card)) + '</div>'));
 resultBox.append($('<div class="lumen-roulette__rmeta">' + esc(cardMeta(card)) + '</div>'));
+if (atv && cardOverview(card)) resultBox.append($('<div class="lumen-roulette__rdescr">' + esc(cardOverview(card)) + '</div>'));
 var actions = $('<div class="lumen-roulette__actions"></div>');
 actions.append(actionNode('lumen_roulette_watch', function () { openCard(card); }));
 actions.append(actionNode('lumen_roulette_again', function () { spin(); }));
@@ -24031,7 +24477,7 @@ var revealed = false;
 try {
 revealed = !!(rect && LC.transition && typeof LC.transition.reveal === 'function' && LC.transition.reveal({
 rect: rect,
-poster: imageUrl(card.poster_path, LC.util.posterSize(LC.util.vhPx(REEL_VH))),
+poster: atv ? imageUrl(backdropOf(card), 'w300') : imageUrl(card.poster_path, LC.util.posterSize(LC.util.vhPx(REEL_VH))),
 big: live.url
 }, {
 
@@ -24207,6 +24653,7 @@ if (gen !== captured) return;
 
 
 prepareFrame(final);
+if (atv) warmLogo(final);
 var strip = [];
 var i;
 for (i = 0; i < REEL_SIZE - 1; i++) {
@@ -24291,16 +24738,28 @@ root.append(chipsBox);
 
 
 
+if (atv) {
+
+
+
+
+screen.addClass('is-atv');
+lead.append(spinBtn);
+stage.append(lead);
+stage.append(reelBox);
+} else {
 stage.append(peek2);
 stage.append(peek1);
 stage.append(reelBox);
 stage.append(countBox);
 stage.append(spinBtn);
+}
 
 
 
 
 root.append(stage);
+if (atv) root.append(shelf);
 
 
 root.append(resultBox);
@@ -24386,8 +24845,18 @@ Lampa.Controller.collectionFocus(focusTarget() || false, box);
 left: function () {
 if (!navMove('left')) Lampa.Controller.toggle('menu');
 },
-right: function () { navMove('right'); },
+
+
+right: function () {
+if (atv && !kadr && spinBtn.hasClass('focus')) return;
+navMove('right');
+},
+
+
+
+
 up: function () {
+if (atv && !kadr && focusIn(shelf)) { recollect(spinBtn[0]); return; }
 if (navMove('up')) return;
 Lampa.Controller.toggle('head');
 },
@@ -24405,6 +24874,9 @@ Lampa.Controller.toggle('head');
 
 
 down: function () {
+
+
+if (atv && !kadr && focusIn(chipsBox)) { recollect(spinBtn[0]); return; }
 if (navMove('down')) return;
 if (kadr || !spinBtn.length || spinBtn.hasClass('focus')) return;
 recollect(spinBtn[0]);
@@ -24553,6 +25025,10 @@ parseIds: parseIds,
 joinIds: joinIds,
 storageKey: storageKey,
 normalizeMedia: normalizeMedia,
+atvLook: atvLook,
+shelfCards: shelfCards,
+textless: textless,
+SHELF_SIZE: SHELF_SIZE,
 unseenDefault: unseenDefault,
 install: install,
 uninstall: uninstall,
@@ -34109,6 +34585,8 @@ ru: 'в выборке',
 en: 'in the pick',
 uk: 'у вибірці'
 },
+
+lumen_roulette_more: { ru: 'Ещё в выборке', en: 'More in the pick', uk: 'Ще у вибірці' },
 lumen_roulette_empty: {
 ru: 'Под фильтры ничего не подошло',
 en: 'Nothing matches the filters',
@@ -34168,9 +34646,9 @@ uk: 'Кнопки, чипи та підкладки тексту стають с
 
 lumen_flat_name: { ru: 'Плоский вид', en: 'Flat look', uk: 'Плаский вигляд' },
 lumen_flat_descr: {
-ru: 'Содержимое лежит прямо на фоне, а не в коробках: в карточке панель «Подробно» становится строкой фактов под описанием, счётчики разделов теряют плашки, отзывы — рамки и подложки, а у плиток серий кадр встаёт сверху во всю ширину, название и подпись уходят под него (ряд серий из-за этого чуть выше); на пути TorrServer раздачи и файлы разделяются тонкими линиями вместо карточек. В сетке подборки и в хабе меняется немногое: снимается только подложка под плиткой, а её видно, пока не пришёл постер или кадр, и у карточек без картинки. Фокус и размер текста не меняются. Применяется сразу.',
-en: 'Content sits on the background instead of inside boxes: on the card the "Details" panel becomes a line of facts under the description, section counters lose their plates, reviews lose frames and panels, and on episode tiles the still moves to the top across the full width with the name and caption below it (which makes the episode row a little taller); on the TorrServer path releases and files are separated by thin lines instead of cards. In the collection grid and the hub little changes: only the plate under a tile is removed, and it is visible only until the poster or still arrives, and on items without an image. Focus and text size stay as they are. Applied immediately.',
-uk: 'Вміст лежить прямо на тлі, а не в коробках: у картці панель «Докладно» стає рядком фактів під описом, лічильники розділів втрачають плашки, відгуки — рамки й підкладки, а в плиток серій кадр стає зверху на всю ширину, назва та підпис ідуть під нього (через це ряд серій трохи вищий); на шляху TorrServer роздачі та файли розділяються тонкими лініями замість карток. У сітці підбірки та в хабі змінюється небагато: знімається лише підкладка під плиткою, а її видно, доки не прийшов постер або кадр, і в карток без зображення. Фокус і розмір тексту не змінюються. Застосовується одразу.'
+ru: 'Содержимое лежит прямо на фоне, а не в коробках: в карточке панель «Подробно» становится строкой фактов под описанием, счётчики разделов теряют плашки, отзывы — рамки и подложки, а у плиток серий кадр встаёт сверху во всю ширину, название и подпись уходят под него (ряд серий из-за этого чуть выше); на пути TorrServer раздачи и файлы разделяются тонкими линиями вместо карточек. В сетке подборки и в хабе меняется немногое: снимается только подложка под плиткой, а её видно, пока не пришёл постер или кадр, и у карточек без картинки. Экран «Что посмотреть» собирается как «Смотреть» в Apple TV: кадр 16:9 вместо постера и полка карточек с логотипами названий — со следующего открытия экрана. Фокус и размер текста не меняются. Применяется сразу.',
+en: 'Content sits on the background instead of inside boxes: on the card the "Details" panel becomes a line of facts under the description, section counters lose their plates, reviews lose frames and panels, and on episode tiles the still moves to the top across the full width with the name and caption below it (which makes the episode row a little taller); on the TorrServer path releases and files are separated by thin lines instead of cards. In the collection grid and the hub little changes: only the plate under a tile is removed, and it is visible only until the poster or still arrives, and on items without an image. The "What to watch" screen is laid out like Apple TV "Watch Now": a 16:9 still instead of a poster and a shelf of cards with title logos — from the next time the screen opens. Focus and text size stay as they are. Applied immediately.',
+uk: 'Вміст лежить прямо на тлі, а не в коробках: у картці панель «Докладно» стає рядком фактів під описом, лічильники розділів втрачають плашки, відгуки — рамки й підкладки, а в плиток серій кадр стає зверху на всю ширину, назва та підпис ідуть під нього (через це ряд серій трохи вищий); на шляху TorrServer роздачі та файли розділяються тонкими лініями замість карток. У сітці підбірки та в хабі змінюється небагато: знімається лише підкладка під плиткою, а її видно, доки не прийшов постер або кадр, і в карток без зображення. Екран «Що подивитися» збирається як «Дивитися» в Apple TV: кадр 16:9 замість постера і полиця карток із логотипами назв — з наступного відкриття екрана. Фокус і розмір тексту не змінюються. Застосовується одразу.'
 },
 
 

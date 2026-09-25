@@ -10,6 +10,8 @@
   /*   collectionsFor(manifest, media) / sourcesFor(list, ids, manifest)   */
   /*   parseIds(text) / joinIds(ids) / storageKey(media)                    */
   /*   normalizeMedia(value) / MAX_SOURCES                                  */
+  /*   atvLook() → вид «как Apple TV» (настройка lumen_flat)                */
+  /*   shelfCards(list, n) → карточки полки под барабаном в этом виде       */
   /*                                                                       */
   /* Публичное API (рантайм, требуют Lampa и $):                            */
   /*   unseenDefault() → значение настройки lumen_roulette_unseen          */
@@ -31,6 +33,18 @@
   /* а карточка результата встаёт внизу слева под вуалью. «Ещё раз»        */
   /* возвращает спокойный экран (clearResult → leaveKadr) и крутит снова.  */
   /* Кадр предзагружается заранее — в spin(), пока крутится барабан.       */
+  /*                                                                       */
+  /* Вид «как Apple TV» (волна fx2): при «Плоском виде» — его включает и    */
+  /* кнопка «Применить стиль Apple TV» — спокойный экран другой. Фон —      */
+  /* кадр главного фильма выборки, мягкий (w300, растянутый на экран, — это */
+  /* и есть размытие, без filter); слева крупной типографикой — сколько в   */
+  /* выборке, название, мета, две строки описания и белая кнопка «Крутить»; */
+  /* справа барабан — крупный кадр 16:9 вместо постера 2:3; под ними полка  */
+  /* из SHELF_SIZE карточек 16:9 «Ещё в выборке» — кадр, логотип названия,  */
+  /* подпись; OK на карточке открывает фильм. Результат — тот же кадр во    */
+  /* весь экран, но с логотипом названия и описанием. Логика экрана         */
+  /* (пул, фильтры, барабан, переход, жизненный цикл) общая — вид меняет     */
+  /* только разметку сцены и размеры картинок.                              */
   /*                                                                       */
   /* Данные — только уже готовые LC.manifest и LC.sources.fetch: рулетка   */
   /* не знает ни про TMDB, ни про Кинопоиск и не заводит своего кэша.      */
@@ -103,6 +117,18 @@
        помещаться на экране; разбор арифметики — в комментарии к самому
        правилу. */
     var REEL_VH = 28.67;
+    /* Вид «как Apple TV»: барабан — кадр 16:9 высотой ATV_REEL_VH процентов
+       высоты экрана (то же число — у .is-atv .lumen-roulette__reel в
+       src/30_css.js), карточка полки — ATV_TILE_VH. Доли высоты, а не em —
+       по той же причине, что REEL_VH: спокойный экран обязан помещаться
+       целиком при любом «Размере интерфейса» и масштабе плагина. */
+    var ATV_REEL_VH = 36;
+    var ATV_TILE_VH = 15.75;
+    /* Карточек на полке: пять 16:9 по 28vh с зазорами — 150vh, то есть они
+       помещаются в ширину экрана 16:9 (177.8vh минус поля) без прокрутки.
+       Прокрутки у полки нет намеренно: это витрина выборки, а не второй
+       каталог, — полный список живёт в сетке подборки. */
+    var SHELF_SIZE = 5;
 
     /* ------------------------------------------------------------------ */
     /* Чистые функции                                                      */
@@ -117,6 +143,35 @@
 
     function normalizeMedia(value) {
       return value === 'tv' ? 'tv' : 'movie';
+    }
+
+    /* Вид «как Apple TV» — это «Плоский вид» (lumen_flat): его ставит кнопка
+       «Применить стиль Apple TV», и снимает «Вернуть стиль Lumen». Своей
+       настройки у экрана нет: пользователь спросил «оформление „как у
+       Apple“ вообще есть?» про стиль, который уже включил, — значит, экран
+       обязан следовать стилю, а не заводить второй переключатель.
+       Читается при создании экрана: открытый экран вид не меняет, новый —
+       уже в новом. */
+    function atvLook() {
+      try {
+        return !!(LC.pref && LC.pref('lumen_flat', false));
+      } catch (e) {
+        return false;
+      }
+    }
+
+    /* Полка под барабаном: следующие за главной n карточек выборки. Главная
+       (list[0]) уже стоит в барабане и в заголовке слева — повторять её на
+       полке незачем. */
+    function shelfCards(list, n) {
+      if (!Array.isArray(list) || !(n > 0)) return [];
+      return list.slice(1, 1 + n);
+    }
+
+    /* Кадр карточки для вида «как Apple TV»: кадр, а если его нет — постер
+       (карточка без кадра лучше, чем пустая). */
+    function backdropOf(card) {
+      return (card && (card.backdrop_path || card.poster_path)) || '';
     }
 
     /* Кандидаты одного медиа без дублей. needPoster — требовать постер:
@@ -499,6 +554,66 @@
       return (card && (card.title || card.name)) || '';
     }
 
+    /* Описание для вида «как Apple TV»: у карточек discover оно уже есть
+       (overview), отдельного запроса не стоит. */
+    function cardOverview(card) {
+      return (card && card.overview) ? ('' + card.overview) : '';
+    }
+
+    /* Логотип названия разрешён той же настройкой, что в герое главной
+       («Логотип названия», lumen_hero_logo; входит в стиль Apple TV). */
+    function logoAllowed() {
+      try {
+        return LC.pref ? LC.pref('lumen_hero_logo', true) !== false : true;
+      } catch (e) {
+        return true;
+      }
+    }
+
+    /* Кадр path — без надписей? По списку кадров из деталей: у TMDB кадр с
+       впечатанным названием помечен языком (iso_639_1), чистый — null.
+       discover отдаёт backdrop_path на языке интерфейса, и нередко это
+       ключевой арт с названием («Клаус», «Пока ты спал» на снимке стенда):
+       логотип поверх него дал бы название дважды. Кадра нет в списке —
+       неизвестно, и логотип не ставится (двойное название хуже его
+       отсутствия). */
+    function textless(json, path) {
+      var list = json && json.images && json.images.backdrops;
+      if (!path || !Array.isArray(list)) return false;
+      for (var i = 0; i < list.length; i++) {
+        if (list[i] && list[i].file_path === path) return !list[i].iso_639_1;
+      }
+      return false;
+    }
+
+    /* Логотип карточки: детали — через общую память деталей
+       (LC.prefetch.details: из памяти синхронно, тот же фильм в пути —
+       склейка), выбор — тот же, что у героя и карточки фильма
+       (LC.hero.pickLogoItem). done(item | null, json | null) зовётся ровно
+       один раз. */
+    function logoOf(card, done) {
+      if (!card || !logoAllowed() || !LC.prefetch || typeof LC.prefetch.details !== 'function' ||
+        !LC.hero || typeof LC.hero.pickLogoItem !== 'function') {
+        done(null);
+        return;
+      }
+      var once = false;
+      function finish(item, json) {
+        if (once) return;
+        once = true;
+        done(item, json || null);
+      }
+      try {
+        LC.prefetch.details(card, function (json) {
+          var item = null;
+          try { item = LC.hero.pickLogoItem(json && json.images && json.images.logos, lang()); } catch (e) { item = null; }
+          finish(item && item.file_path ? item : null, json);
+        }, function () { finish(null, null); });
+      } catch (e2) {
+        finish(null, null);
+      }
+    }
+
     /* ------------------------------------------------------------------ */
     /* Компонент lumen_roulette                                            */
     /* ------------------------------------------------------------------ */
@@ -542,6 +657,24 @@
         '</div>');
       var spinBtn = $('<div class="lumen-roulette__spin selector">' + esc(LC.lang('lumen_roulette_spin')) + '</div>');
       var resultBox = $('<div class="lumen-roulette__result"></div>');
+      /* Вид «как Apple TV» (atvLook): колонка слева от барабана и полка под
+         ним. Узлы заводятся всегда, в разметку идут только в этом виде. */
+      var atv = atvLook();
+      /* Мягкий фон спокойного экрана в этом виде (кадр главной карточки
+         w300, paintLead). Запоминается, потому что clearResult снимает фон
+         кадра результата — и без него на всё вращение барабана за ним
+         оставался плоский цвет (ревью волны fx2). */
+      var calmBg = '';
+      var lead = $('<div class="lumen-roulette__lead">' +
+        '<div class="lumen-roulette__kicker"><div class="lumen-roulette__kicker-n"></div><div class="lumen-roulette__kicker-l"></div></div>' +
+        '<div class="lumen-roulette__ltitle"></div>' +
+        '<div class="lumen-roulette__lmeta"></div>' +
+        '<div class="lumen-roulette__ldescr"></div>' +
+        '</div>');
+      var shelf = $('<div class="lumen-roulette__shelf">' +
+        '<div class="lumen-roulette__shelf-title"></div>' +
+        '<div class="lumen-roulette__shelf-row"></div>' +
+        '</div>');
 
       var gen = 0;
       var handles = [];
@@ -966,8 +1099,136 @@
          сторонам, число под ними. Пустая выборка тоже показывается — нулём:
          «0 в выборке» отвечает на вопрос «почему не крутится» лучше, чем
          пустая коробка. */
+      /* Вид «как Apple TV»: колонка слева — сколько в выборке, название
+         главной карточки, мета и описание. Кнопка «Крутить» живёт в той же
+         колонке (create), её не трогаем. */
+      function paintLead(list) {
+        var head0 = list[0] || null;
+        lead.find('.lumen-roulette__kicker-n').text(String(list.length));
+        lead.find('.lumen-roulette__kicker-l').text(LC.lang('lumen_roulette_pick'));
+        lead.find('.lumen-roulette__ltitle').text(head0 ? cardTitle(head0) : LC.lang('lumen_roulette_empty'));
+        lead.find('.lumen-roulette__lmeta').text(head0 ? cardMeta(head0) : '');
+        lead.find('.lumen-roulette__ldescr').text(head0 ? cardOverview(head0) : '');
+        /* Фон — кадр главной карточки размером w300 во весь экран: на
+           растяжении он сам расплывается в цветовое поле, как фон Apple TV,
+           без filter и без второго полноразмерного декодирования. */
+        var soft = head0 ? imageUrl(backdropOf(head0), 'w300') : '';
+        calmBg = soft ? 'url("' + soft + '")' : '';
+        if (!kadr) {
+          try { bg.css('background-image', calmBg); } catch (e) { }
+        }
+      }
+
+      /* Карточка полки: кадр 16:9, поверх — логотип названия (когда он
+         есть), под ней — подпись. .selector: OK открывает фильм. */
+      function shelfTile(card, size) {
+        var node = watchFocus($('<div class="lumen-roulette__tile selector">' +
+          '<div class="lumen-roulette__tile-img"><div class="lumen-roulette__tile-logo"></div></div>' +
+          '<div class="lumen-roulette__tile-name"></div>' +
+          '</div>'));
+        var url = imageUrl(backdropOf(card), size);
+        if (url) node.find('.lumen-roulette__tile-img').css('background-image', 'url("' + url + '")');
+        node.find('.lumen-roulette__tile-name').text(cardTitle(card));
+        node.on('hover:enter', function () { openCard(card); });
+        return node;
+      }
+
+      /* Логотипы карточек полки — по одному, цепочкой: детали идут мимо
+         очереди предзагрузки (LC.prefetch.details — путь героя), и пять
+         запросов разом на каждое переключение чипа были бы залпом, которого
+         экран не просил. Каждый шаг сверяет поколение и то, что полка всё
+         та же. Логотип встаёт, только когда картинка уже в памяти
+         (LC.hero.preloadLogo) — на глазах он не догружается. */
+      function shelfLogos(nodes, cards, captured, at) {
+        if (at >= cards.length || gen !== captured) return;
+        logoOf(cards[at], function (item, json) {
+          if (gen !== captured || !nodes[at]) return;
+          /* Полку перерисовали — карточки этой цепочки уже не в документе. */
+          try { if (typeof nodes[at].closest === 'function' && !nodes[at].closest('body').length) return; } catch (eC) { return; }
+          var next = function () { shelfLogos(nodes, cards, captured, at + 1); };
+          /* Логотип — только на чистый кадр (textless выше). */
+          var path = item && textless(json, backdropOf(cards[at])) ? item.file_path : '';
+          var url = path && LC.hero && typeof LC.hero.logoUrl === 'function' ? LC.hero.logoUrl(path) : '';
+          if (!url || typeof LC.hero.preloadLogo !== 'function') { next(); return; }
+          LC.hero.preloadLogo(path, url, function (ok) {
+            if (gen === captured && ok) {
+              var holder = nodes[at].find('.lumen-roulette__tile-logo');
+              holder.css('background-image', 'url("' + encodeURI(url) + '")');
+              holder.toggleClass('lumen-logo-white', typeof LC.hero.logoTone === 'function' && LC.hero.logoTone(path) === 'dark');
+              nodes[at].addClass('has-logo');
+              /* Название теперь на кадре логотипом — подпись под карточкой
+                 отдаётся году и оценке: у франшиз («Звёздные войны: Эпизо…»
+                 пять раз подряд) обрезанное название ничего не различает. */
+              var meta = cardMeta(cards[at]);
+              if (meta) nodes[at].find('.lumen-roulette__tile-name').text(meta);
+            }
+            next();
+          });
+        });
+      }
+
+      function paintShelf(list) {
+        var row = shelf.find('.lumen-roulette__shelf-row');
+        var had = !!(lastFocus && row[0] && row[0].contains && row[0].contains(lastFocus));
+        row.empty();
+        var cards = shelfCards(list, SHELF_SIZE);
+        shelf.find('.lumen-roulette__shelf-title').text(LC.lang('lumen_roulette_more'));
+        shelf.toggleClass('is-empty', !cards.length);
+        /* Размер кадра — по ширине карточки (16:9 от ATV_TILE_VH), тем же
+           путём, что у барабана: на ТВ 960×540@2 это 302 физических
+           пикселя и w300, на 2K — w780. */
+        var size = LC.util.vhPx(ATV_TILE_VH * 16 / 9) * 0.85 > 300 ? 'w780' : 'w300';
+        var nodes = [];
+        for (var i = 0; i < cards.length; i++) {
+          var node = shelfTile(cards[i], size);
+          nodes.push(node);
+          row.append(node);
+        }
+        /* Новые карточки обязаны попасть в обход пульта: коллекция Lampa —
+           снимок узлов .selector на момент collectionSet. Фокус остаётся,
+           где был (lastFocus); был на карточке полки, которой больше нет, —
+           встаёт на «Крутить». */
+        if (had) lastFocus = null;
+        refreshCollection();
+        shelfLogos(nodes, cards, gen, 0);
+      }
+
+      /* Пересобрать коллекцию пульта, не трогая фокус, — только когда пульт
+         у нашего экрана (та же сверка, что в build()). */
+      /* Узел в фокусе лежит внутри box? Вид «как Apple TV» ведёт пульт
+         по зонам экрана, а не по одной геометрии (см. up/down в start). */
+      function focusIn(box) {
+        try {
+          var node = root.find('.selector.focus')[0];
+          return !!(node && box && box[0] && box[0].contains(node));
+        } catch (e) {
+          return false;
+        }
+      }
+
+      function refreshCollection() {
+        if (!started || kadr) return;
+        var ctl = null;
+        try { ctl = typeof Lampa.Controller.enabled === 'function' ? Lampa.Controller.enabled() : null; } catch (e) { }
+        if (ctl && ctl.name !== 'content') return;
+        recollect(null);
+      }
+
       function paintPreview() {
         var list = filtered();
+        if (atv) {
+          try {
+            var head1 = list[0] || null;
+            var big = head1 ? imageUrl(backdropOf(head1), LC.util.scrimSize(LC.util.vhPx(ATV_REEL_VH * 16 / 9))) : '';
+            reelBox.find('.lumen-roulette__frame').css('background-image', big ? 'url("' + big + '")' : 'none');
+            paintLead(list);
+            paintShelf(list);
+            stage.addClass('is-stack');
+          } catch (eA) {
+            warn('roulette: atv preview failed', eA);
+          }
+          return;
+        }
         try {
           countBox.find('.lumen-roulette__count-value').text(String(list.length));
           countBox.find('.lumen-roulette__count-label').text(LC.lang('lumen_roulette_pick'));
@@ -1014,7 +1275,12 @@
            высоты экрана (src/30_css.js), то есть 310 физических пикселей и
            на 1920×1080 при DPR 1, и на 960×540 при DPR 2 (оба множителя
            учитывает LC.util.vhPx); размер выбирает LC.util.posterSize. */
-        var url = imageUrl(card && card.poster_path, LC.util.posterSize(LC.util.vhPx(REEL_VH)));
+        /* Вид «как Apple TV»: барабан — кадр 16:9, и на шагах вращения это
+           w300 — картинка мелькает 100–400 мс, резкость w780 на ней не
+           разглядеть, а декодировать её на каждом шаге стоило бы вдвое
+           больше пикселей. Остановившийся барабан и так уходит в кадр во весь
+           экран. */
+        var url = atv ? imageUrl(backdropOf(card), 'w300') : imageUrl(card && card.poster_path, LC.util.posterSize(LC.util.vhPx(REEL_VH)));
         var frameNode = reelBox.find('.lumen-roulette__frame');
         if (url) frameNode.css('background-image', 'url("' + url + '")');
         frameNode.addClass('is-step');
@@ -1166,7 +1432,11 @@
         resultBox.empty();
         resultBox.removeClass('is-live');
         leaveKadr();
-        try { bg.css('background-image', ''); } catch (e) { }
+        /* Вид «как Apple TV»: вместо кадра результата — снова мягкий фон
+           спокойного экрана, сразу, а не через PREVIEW_DELAY: на «Ещё раз»
+           барабан крутится на этом фоне, а показ выборки на вращении не
+           поднимается вовсе (schedulePreview). */
+        try { bg.css('background-image', atv ? calmBg : ''); } catch (e) { }
         /* «Ещё раз» и возврат с карточки результата возвращают спокойный
            экран — значит и выборку в барабане. Пул к этому моменту уже
            собран, loadPool отдаст его по кешу без сети. */
@@ -1209,11 +1479,64 @@
       /* Содержимое карточки результата. Отдельно от showResult, потому что
          зовут её из двух мест: сразу (перехода нет или он не начался) и из
          колбэка перехода, когда слой уже накрыл экран. */
+      /* Вид «как Apple TV»: название результата — логотипом (title
+         treatment), по правилу героя и карточки «название выводится один
+         раз» (LC.hero.waitLogo: известный логотип — сразу, неизвестный —
+         не дольше потолка, опоздавший не подменяет текст). Пока решение не
+         принято, название не показано вовсе (is-logo-wait) — обычно это ноль
+         миллисекунд: детали и логотип греются с начала вращения (warmLogo).
+         Страховка на зависший запрос — LOGO_GUARD. */
+      var LOGO_GUARD = 1500;
+
+      function paintResultLogo(card, holder) {
+        var captured = gen;
+        var settled = false;
+        function settle(url, white) {
+          if (settled) return;
+          settled = true;
+          if (gen !== captured || result !== card) return;
+          if (url) {
+            holder.css('background-image', 'url("' + encodeURI(url) + '")');
+            holder.toggleClass('lumen-logo-white', !!white);
+            resultBox.addClass('has-logo');
+          }
+          resultBox.removeClass('is-logo-wait');
+        }
+        resultBox.addClass('is-logo-wait');
+        setTimeout(function () { settle('', false); }, LOGO_GUARD);
+        logoOf(card, function (item) {
+          var path = item ? item.file_path : '';
+          var url = path && typeof LC.hero.logoUrl === 'function' ? LC.hero.logoUrl(path) : '';
+          if (!url || typeof LC.hero.waitLogo !== 'function') { settle('', false); return; }
+          LC.hero.waitLogo(path, url, function (show) {
+            settle(show ? url : '', show && typeof LC.hero.logoTone === 'function' && LC.hero.logoTone(path) === 'dark');
+          });
+        });
+      }
+
+      /* Детали и логотип выпавшего фильма — заранее, пока крутится барабан:
+         к показу результата логотип уже в памяти, и название встаёт
+         логотипом сразу. */
+      function warmLogo(card) {
+        logoOf(card, function (item) {
+          var path = item ? item.file_path : '';
+          var url = path && LC.hero && typeof LC.hero.logoUrl === 'function' ? LC.hero.logoUrl(path) : '';
+          if (url && typeof LC.hero.preloadLogo === 'function') LC.hero.preloadLogo(path, url, function () { });
+        });
+      }
+
       function paintResult(card) {
         resultBox.empty();
         resultBox.addClass('is-live');
+        resultBox.removeClass('has-logo is-logo-wait');
+        if (atv) {
+          var logo = $('<div class="lumen-roulette__rlogo"></div>');
+          resultBox.append(logo);
+          paintResultLogo(card, logo);
+        }
         resultBox.append($('<div class="lumen-roulette__rtitle">' + esc(cardTitle(card)) + '</div>'));
         resultBox.append($('<div class="lumen-roulette__rmeta">' + esc(cardMeta(card)) + '</div>'));
+        if (atv && cardOverview(card)) resultBox.append($('<div class="lumen-roulette__rdescr">' + esc(cardOverview(card)) + '</div>'));
         var actions = $('<div class="lumen-roulette__actions"></div>');
         actions.append(actionNode('lumen_roulette_watch', function () { openCard(card); }));
         actions.append(actionNode('lumen_roulette_again', function () { spin(); }));
@@ -1252,7 +1575,7 @@
           try {
             revealed = !!(rect && LC.transition && typeof LC.transition.reveal === 'function' && LC.transition.reveal({
               rect: rect,
-              poster: imageUrl(card.poster_path, LC.util.posterSize(LC.util.vhPx(REEL_VH))),
+              poster: atv ? imageUrl(backdropOf(card), 'w300') : imageUrl(card.poster_path, LC.util.posterSize(LC.util.vhPx(REEL_VH))),
               big: live.url
             }, {
               /* Карточка рисуется ДО кадра, а не после: режим кадра теперь
@@ -1428,6 +1751,7 @@
                после Task 72). К его остановке w1280 обычно в кэше, и
                переход «барабан → кадр» стартует без паузы. */
             prepareFrame(final);
+            if (atv) warmLogo(final);
             var strip = [];
             var i;
             for (i = 0; i < REEL_SIZE - 1; i++) {
@@ -1512,16 +1836,28 @@
         /* Задние постеры стопки идут в разметке ПЕРЕД барабаном: они лежат
            под ним, и порядок документа — вторая половина решения вместе с
            z-index самого барабана (правка 2026-09-23, п.5.1). */
-        stage.append(peek2);
-        stage.append(peek1);
-        stage.append(reelBox);
-        stage.append(countBox);
-        stage.append(spinBtn);
+        if (atv) {
+          /* Вид «как Apple TV»: колонка текста с кнопкой слева, барабан-кадр
+             справа, полка — отдельной строкой под сценой (ниже). Стопки
+             постеров и счётчика под барабаном в этом виде нет: их роль —
+             «что в выборке» — играют надпись колонки и полка. */
+          screen.addClass('is-atv');
+          lead.append(spinBtn);
+          stage.append(lead);
+          stage.append(reelBox);
+        } else {
+          stage.append(peek2);
+          stage.append(peek1);
+          stage.append(reelBox);
+          stage.append(countBox);
+          stage.append(spinBtn);
+        }
         /* Правка 2026-09-23 (разбор композиции, п.5.3): подсказки «Отметьте
            подборки и нажмите «Крутить»» под кнопкой больше нет — разбор и
            обоснование у бывшего правила .lumen-roulette__hint в
            src/30_css.js. */
         root.append(stage);
+        if (atv) root.append(shelf);
         /* Карточка результата — ребёнок корня, а не сцены: в режиме кадра она
            встаёт абсолютом от его нижней кромки (src/30_css.js). */
         root.append(resultBox);
@@ -1607,8 +1943,18 @@
           left: function () {
             if (!navMove('left')) Lampa.Controller.toggle('menu');
           },
-          right: function () { navMove('right'); },
+          /* Вид «как Apple TV»: у колонки одна кнопка, и «вправо» с неё
+             уводило бы фокус по геометрии в случайный чип или карточку. */
+          right: function () {
+            if (atv && !kadr && spinBtn.hasClass('focus')) return;
+            navMove('right');
+          },
+          /* Вид «как Apple TV»: полка — строка под кнопкой, и «вверх» с
+             любой её карточки возвращает на «Крутить», как с полки Apple TV
+             на кнопку героя. По одной геометрии с третьей карточки фокус
+             уходил в ленту подборок мимо кнопки (стенд 960×540@2). */
           up: function () {
+            if (atv && !kadr && focusIn(shelf)) { recollect(spinBtn[0]); return; }
             if (navMove('up')) return;
             Lampa.Controller.toggle('head');
           },
@@ -1626,6 +1972,9 @@
              Кнопка — единственный разумный адрес: ниже неё на экране
              только подсказка, и та не фокусируемая. */
           down: function () {
+            /* Вид «как Apple TV»: с ленты подборок — на кнопку, а не по
+               геометрии на карточку полки под правым краем ленты. */
+            if (atv && !kadr && focusIn(chipsBox)) { recollect(spinBtn[0]); return; }
             if (navMove('down')) return;
             if (kadr || !spinBtn.length || spinBtn.hasClass('focus')) return;
             recollect(spinBtn[0]);
@@ -1774,6 +2123,10 @@
       joinIds: joinIds,
       storageKey: storageKey,
       normalizeMedia: normalizeMedia,
+      atvLook: atvLook,
+      shelfCards: shelfCards,
+      textless: textless,
+      SHELF_SIZE: SHELF_SIZE,
       unseenDefault: unseenDefault,
       install: install,
       uninstall: uninstall,

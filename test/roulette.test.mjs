@@ -404,6 +404,12 @@ El.prototype.removeClass = function (list) {
   return this;
 };
 El.prototype.hasClass = function (c) { return this._class.indexOf(c) >= 0; };
+/* Волна fx2: toggleClass как у jQuery — вид «как Apple TV» метит им полку
+   (is-empty) и карточки. */
+El.prototype.toggleClass = function (c, on) {
+  if (on === undefined) on = !this.hasClass(c);
+  return on ? this.addClass(c) : this.removeClass(c);
+};
 /* Task 44: показ результата снимает прямоугольник барабана
    (getBoundingClientRect) — узлом служит сам El, потому что конструктор
    ставит this[0] = this. По умолчанию прямоугольник нулевой: переход на
@@ -692,7 +698,9 @@ function fireReveal() {
   last.opts.then();
 }
 
-function openRoulette34(cards, t, dpr, motion, object, hold) {
+/* Волна fx2: prefs — значения настроек поверх значений по умолчанию
+   (вид «как Apple TV» — lumen_flat). */
+function openRoulette34(cards, t, dpr, motion, object, hold, prefs) {
   hold34 = hold || {};
   heldManifest34 = [];
   heldPool34 = [];
@@ -755,7 +763,7 @@ function openRoulette34(cards, t, dpr, motion, object, hold) {
   var built = fresh({
     lang: function (k) { return k; },
     langCode: function () { return 'ru'; },
-    pref: function (name, def) { return def; },
+    pref: function (name, def) { return prefs && Object.prototype.hasOwnProperty.call(prefs, name) ? prefs[name] : def; },
     motionMode: function () { return motion || 'full'; },
     hub: { titleOf: function (item) { return (item && item.title) || ''; } },
     cardinfo: { imageUrl: function (path, size) { return path ? 'https://img/' + size + path : ''; } },
@@ -1786,4 +1794,142 @@ test('правка 2026-09-23: pinFirst ставит подборку из prese
   const shown = R.chipList(cat, [last], R.CHIP_LIMIT);
   assert.equal(shown[shown.length - 1].id, last, 'предпосылка: chipList держит её в конце');
   assert.equal(R.pinFirst(shown, last)[0].id, last);
+});
+
+/* ====================================================================== */
+/* Волна fx2: «Что посмотреть» в виде «как Apple TV» (lumen_flat).         */
+/* ====================================================================== */
+
+test('atvLook: вид «как Apple TV» — это «Плоский вид» (lumen_flat), по умолчанию выключен', () => {
+  assert.equal(fresh({ pref: (n, d) => d }).api.atvLook(), false);
+  assert.equal(fresh({ pref: (n, d) => (n === 'lumen_flat' ? true : d) }).api.atvLook(), true);
+  assert.equal(fresh({ pref: () => { throw new Error('storage'); } }).api.atvLook(), false, 'сбой хранилища — прежний вид');
+  assert.equal(fresh({}).api.atvLook(), false, 'без LC.pref — прежний вид');
+});
+
+test('shelfCards: полка — следующие за главной карточки выборки, не больше n', () => {
+  const list = [1, 2, 3, 4, 5, 6, 7, 8].map((i) => movie(i));
+  assert.deepEqual(R.shelfCards(list, 5).map((c) => c.id), [2, 3, 4, 5, 6], 'главная (list[0]) стоит в барабане и на полке не повторяется');
+  assert.deepEqual(R.shelfCards(list.slice(0, 3), 5).map((c) => c.id), [2, 3]);
+  assert.deepEqual(R.shelfCards([movie(1)], 5), []);
+  assert.deepEqual(R.shelfCards(null, 5), []);
+  assert.deepEqual(R.shelfCards(list, 0), []);
+  assert.equal(R.SHELF_SIZE, 5);
+});
+
+test('textless: логотип — только на кадр без впечатанного названия', () => {
+  const json = { images: { backdrops: [
+    { file_path: '/clean.jpg', iso_639_1: null },
+    { file_path: '/ru-art.jpg', iso_639_1: 'ru' },
+    { file_path: '/en-art.jpg', iso_639_1: 'en' }
+  ] } };
+  assert.equal(R.textless(json, '/clean.jpg'), true);
+  assert.equal(R.textless(json, '/ru-art.jpg'), false, 'ключевой арт с названием — двойного названия не будет');
+  assert.equal(R.textless(json, '/en-art.jpg'), false);
+  assert.equal(R.textless(json, '/unknown.jpg'), false, 'кадра нет в списке — неизвестно, логотип не ставится');
+  assert.equal(R.textless(null, '/clean.jpg'), false);
+  assert.equal(R.textless(json, ''), false);
+});
+
+function atvCards(n) {
+  const out = [];
+  for (let i = 1; i <= n; i++) {
+    out.push({ id: i, title: 'Фильм ' + i, release_date: '20' + (10 + i) + '-01-01', vote_average: 7, overview: 'Описание ' + i,
+      poster_path: '/p' + i + '.jpg', backdrop_path: '/b' + i + '.jpg' });
+  }
+  return out;
+}
+
+test('вид «как Apple TV»: экран собран колонкой, барабаном-кадром и полкой; кнопка — в колонке', (t) => {
+  const env = openRoulette34(atvCards(8), t, 1, 'full', null, null, { lumen_flat: true });
+  assert.ok(env.screen.hasClass('is-atv'), 'класс вида на обёртке экрана');
+  const stage = env.screen.find('.lumen-roulette__stage');
+  assert.deepEqual(stage._children.map((c) => c._class[0]), ['lumen-roulette__lead', 'lumen-roulette__reel'], 'колонка слева, барабан справа — без стопки и счётчика');
+  assert.ok(stage.find('.lumen-roulette__lead').find('.lumen-roulette__spin').length, '«Крутить» живёт в колонке');
+  assert.ok(env.screen.find('.lumen-roulette__shelf').length, 'полка есть');
+  env.comp.start();
+  flushTimers();
+  assert.ok(env.stacked(), 'выборка показана');
+  const tiles = env.screen.find('.lumen-roulette__shelf').all('.lumen-roulette__tile');
+  assert.equal(tiles.length, 5, 'на полке пять карточек');
+  assert.equal(tiles[0].find('.lumen-roulette__tile-name').text(), 'Фильм 2', 'первая на полке — вторая в выборке');
+  assert.equal(env.screen.find('.lumen-roulette__ltitle').text(), 'Фильм 1', 'название главной — в колонке');
+  assert.equal(env.screen.find('.lumen-roulette__kicker-n').text(), '8', 'сколько в выборке');
+  assert.equal(env.screen.find('.lumen-roulette__ldescr').text(), 'Описание 1');
+  /* 1920×1080 при DPR 1: барабан 36vh × 16/9 — 691 px, кадр w780;
+     фон — тот же кадр w300 (растянутый, мягкий). Карточки полки — 28vh,
+     302 px — w300. */
+  assert.equal(env.reel.find('.lumen-roulette__frame').css('background-image'), 'url("https://img/w780/b1.jpg")');
+  assert.equal(env.bg.css('background-image'), 'url("https://img/w300/b1.jpg")');
+  assert.equal(tiles[0].find('.lumen-roulette__tile-img').css('background-image'), 'url("https://img/w300/b2.jpg")');
+});
+
+test('вид «как Apple TV»: карточки полки — в обходе пульта, OK открывает фильм', (t) => {
+  const env = openRoulette34(atvCards(4), t, 1, 'full', null, null, { lumen_flat: true });
+  const pushed = [];
+  globalThis.Lampa.Activity.push = (p) => pushed.push(p);
+  env.comp.start();
+  const n0 = collected.length;
+  flushTimers();
+  assert.ok(collected.length > n0, 'коллекция пересобрана после того, как полка встала');
+  const tiles = env.screen.find('.lumen-roulette__shelf').all('.lumen-roulette__tile');
+  assert.equal(tiles.length, 3, 'три — выборка из четырёх минус главная');
+  assert.ok(tiles[0].hasClass('selector'), 'карточка — цель пульта');
+  fire(tiles[1], 'hover:enter');
+  assert.equal(pushed.length, 1);
+  assert.equal(pushed[0].component, 'full');
+  assert.equal(pushed[0].id, 3);
+});
+
+test('вид «как Apple TV»: барабан крутит кадры w300, переход стартует с той же картинки', (t) => {
+  const A = { id: 1, title: 'Фильм A', release_date: '2020-01-01', poster_path: '/a-p.jpg', backdrop_path: '/a-b.jpg', overview: 'Про A' };
+  const env = openRoulette34([A], t, 1, 'full', null, null, { lumen_flat: true });
+  env.comp.start();
+  flushTimers();
+  env.transition.on = true;
+  spinAndFlush(env);
+  assert.equal(env.reel.find('.lumen-roulette__frame').css('background-image'), 'url("https://img/w300/a-b.jpg")', 'шаг барабана — кадр, а не постер');
+  createdImages[createdImages.length - 1].onload();
+});
+
+test('вид «как Apple TV»: результат — описание под метой; прежний вид его не рисует', (t) => {
+  const A = { id: 1, title: 'Фильм A', release_date: '2020-01-01', poster_path: '/a-p.jpg', backdrop_path: '/a-b.jpg', overview: 'Про A' };
+  const env = openRoulette34([A], t, 1, 'off', null, null, { lumen_flat: true });
+  env.comp.start();
+  spinAndFlush(env);
+  const box = env.screen.find('.lumen-roulette__result');
+  /* Заглушка $ разбирает из строки только классы, не текст, — проверяем
+     узлы: название и описание нарисованы, место под логотип заведено. */
+  assert.ok(box.find('.lumen-roulette__rtitle').length, 'без модуля логотипов — название текстом');
+  assert.equal(box.hasClass('has-logo'), false, 'логотипа нет — текст не спрятан');
+  assert.equal(box.hasClass('is-logo-wait'), false, 'ожидание логотипа решено сразу');
+  assert.ok(box.find('.lumen-roulette__rdescr').length, 'описание под метой');
+  assert.ok(box.find('.lumen-roulette__rlogo').length, 'место под логотип заведено');
+
+  const plain = openRoulette34([A], t, 1, 'off');
+  plain.comp.start();
+  spinAndFlush(plain);
+  assert.equal(plain.screen.find('.lumen-roulette__result').find('.lumen-roulette__rdescr').length, 0);
+  assert.equal(plain.screen.hasClass('is-atv'), false);
+  assert.equal(plain.screen.find('.lumen-roulette__shelf').length, 0, 'в прежнем виде полки нет');
+});
+
+/* Ревью волны fx2: «Крутить» и «Ещё раз» в виде «как Apple TV» — за
+   вращающимся барабаном остаётся мягкий фон спокойного экрана, а не
+   плоский цвет; кадр результата сменяет его, «Ещё раз» возвращает. */
+test('вид «как Apple TV»: на вращении фон спокойного экрана не гаснет, «Ещё раз» его возвращает', (t) => {
+  const A = { id: 1, title: 'Фильм A', release_date: '2020-01-01', poster_path: '/a-p.jpg', backdrop_path: '/a-b.jpg' };
+  const env = openRoulette34([A], t, 1, 'full', null, null, { lumen_flat: true });
+  env.comp.start();
+  flushTimers();
+  const calm = 'url("https://img/w300/a-b.jpg")';
+  assert.equal(env.bg.css('background-image'), calm, 'спокойный экран — мягкий фон');
+  fire(env.root.find('.lumen-roulette__spin'), 'hover:enter');
+  assert.equal(env.bg.css('background-image'), calm, 'нажали «Крутить» — фон на месте, пока крутится барабан');
+  flushTimers();
+  createdImages[createdImages.length - 1].onload();
+  assert.equal(env.bg.css('background-image'), 'url("' + backdropUrl(A) + '")', 'результат — кадр во весь экран');
+  fire(env.root.find('.lumen-roulette__spin'), 'hover:enter');
+  assert.equal(env.bg.css('background-image'), calm, '«Ещё раз» — снова мягкий фон, сразу');
+  flushTimers();
 });
