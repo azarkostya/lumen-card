@@ -1415,6 +1415,169 @@ test('цвет сразу: в карточке (deep) цвет ставится 
   });
 });
 
+/* ---------------------------------------------------------------------- */
+/* Один цвет на фильм: кэш по типу и id, а не по адресу картинки.          */
+/* ---------------------------------------------------------------------- */
+
+/* Один фильм приходит в разных рядах и в открытой карточке, и его
+   poster_path там может быть разным (другой язык, другой список).
+   Посчитанный цвет — цвет фильма: второй картинки нет, перекраски нет. */
+test('цвет сразу: тот же фильм с другим постером — без новой картинки и тем же цветом', () => {
+  const dom = fakeDom({ datas: [WARM_POSTER, COLD_POSTER] });
+  withDom(dom, () => {
+    const ctx = accentCtx({ prefs: {} });
+    ctx.LC.accent.applyFor({ id: 7, title: 'Фильм', poster_path: '/ru.jpg' });
+    dom.state.images[0].onload();
+    ctx.LC.accent.applyFor({ id: 8, title: 'Другой', poster_path: '/b.jpg' });
+    dom.state.images[1].onload();
+    assert.equal(paintedHex(dom), COLD_HEX);
+
+    ctx.LC.accent.applyFor({ id: 7, title: 'Фильм', poster_path: '/en.jpg' });
+    assert.equal(dom.state.images.length, 2, 'из другой картинки цвет не пересчитывается');
+    assert.equal(paintedHex(dom), WARM_HEX, 'цвет фильма — тот, что посчитан первым, и сразу');
+
+    ctx.LC.accent.applyFor({ id: 7, title: 'Фильм', poster_path: '/card.jpg' }, true);
+    assert.equal(dom.state.images.length, 2, 'и в открытой карточке тоже');
+    assert.equal(paintedHex(dom), WARM_HEX);
+  });
+});
+
+/* Показ фильма на главной, и тут же его открывают карточкой, пока постер ещё
+   едет: второй заказ того же фильма ждёт ту же картинку, а не отменяет её и
+   не грузит заново. */
+test('цвет сразу: повторный заказ того же фильма в пути — та же картинка', () => {
+  const dom = fakeDom({ datas: [COLD_POSTER] });
+  withDom(dom, () => {
+    const ctx = accentCtx({ prefs: {} });
+    ctx.LC.accent.applyFor({ id: 2, title: 'Холодный', poster_path: '/cold.jpg' });
+    ctx.LC.accent.applyFor({ id: 2, title: 'Холодный', poster_path: '/cold.jpg' }, true);
+    assert.equal(dom.state.images.length, 1, 'вторая картинка не создана');
+    assert.ok(dom.state.images[0].onload, 'первая не отменена');
+    dom.state.images[0].onload();
+    assert.equal(paintedHex(dom), COLD_HEX);
+    assert.equal(ctx.state.injects, 1, 'карточка получила цвет полной пересборкой');
+    assert.equal(ctx.api.pending(), 0);
+  });
+});
+
+test('цвет сразу: фильм и сериал с одним id — разные записи', () => {
+  const dom = fakeDom({ datas: [WARM_POSTER, COLD_POSTER] });
+  withDom(dom, () => {
+    const ctx = accentCtx({ prefs: {} });
+    ctx.LC.accent.applyFor({ id: 7, title: 'Фильм', poster_path: '/m.jpg' });
+    dom.state.images[0].onload();
+    assert.equal(ctx.LC.accent.known({ id: 7, title: 'Фильм' }), true);
+    assert.equal(ctx.LC.accent.known({ id: 7, name: 'Сериал' }), false, 'у сериала TMDB свой id-ряд');
+    ctx.LC.accent.applyFor({ id: 7, name: 'Сериал', poster_path: '/s.jpg' });
+    assert.equal(dom.state.images.length, 2, 'сериал считается своим постером');
+    dom.state.images[1].onload();
+    assert.equal(paintedHex(dom), COLD_HEX);
+  });
+});
+
+/* ---------------------------------------------------------------------- */
+/* Предрасчёт соседей (LC.accent.prepare, зовёт src/58_prefetch.js).        */
+/* ---------------------------------------------------------------------- */
+
+/* Устойчивый отказ (прокси без CORS-заголовка): FAIL_LIMIT считается по
+   адресу, и предрасчёт соседей делал бы по неудачному запросу на КАЖДОГО
+   соседа. Последняя попытка кончилась отказом — соседей не считаем; цвет
+   показанного фильма считается и тогда, и первая удача возвращает
+   предрасчёт. */
+test('prepare: после отказа чтения соседи не считаются, первая удача показа возвращает предрасчёт', () => {
+  const dom = fakeDom({ datas: [COLD_POSTER] });
+  withDom(dom, () => {
+    const ctx = accentCtx({ prefs: {} });
+    ctx.LC.accent.applyFor({ id: 1, title: 'Отказ', poster_path: '/fail.jpg' });
+    dom.state.images[0].onerror();
+    assert.equal(ctx.api.status().state, 'load', 'подготовка: последняя попытка — отказ');
+    warnLog = [];
+
+    let done = 0;
+    assert.equal(ctx.LC.accent.prepare({ id: 2, title: 'Сосед', poster_path: '/n.jpg' }, () => { done++; }), null);
+    assert.equal(done, 1, 'ответ сразу');
+    assert.equal(dom.state.images.length, 1, 'запроса соседа нет');
+
+    ctx.LC.accent.applyFor({ id: 3, title: 'Показ', poster_path: '/ok.jpg' });
+    assert.equal(dom.state.images.length, 2, 'показанный фильм считается и после отказа');
+    dom.state.images[1].onload();
+    assert.equal(ctx.api.status().state, 'ok');
+
+    ctx.LC.accent.prepare({ id: 2, title: 'Сосед', poster_path: '/n.jpg' }, () => { done++; });
+    assert.equal(dom.state.images.length, 3, 'удача вернула предрасчёт');
+    warnLog = [];
+  });
+});
+
+test('prepare: цвет считается без покраски, а показ фильма потом ставит его сразу, без картинки', () => {
+  const dom = fakeDom({ datas: [WARM_POSTER, COLD_POSTER] });
+  withDom(dom, () => {
+    const ctx = accentCtx({ prefs: {} });
+    ctx.LC.accent.applyFor({ id: 1, title: 'Тёплый', poster_path: '/warm.jpg' });
+    dom.state.images[0].onload();
+    const paints = recordPaints(dom);
+
+    let done = 0;
+    ctx.LC.accent.prepare({ id: 2, title: 'Холодный', poster_path: '/cold.jpg' }, () => { done++; });
+    assert.equal(dom.state.images.length, 2, 'постер соседа запрошен');
+    assert.equal(dom.state.images[1].src, 'https://image.tmdb.org/t/p/w185/cold.jpg', 'та же маленькая копия, что у показа');
+    dom.state.images[1].onload();
+    assert.equal(done, 1, 'готово — один ответ');
+    assert.deepEqual(paints, [], 'предрасчёт экран не красит');
+    assert.equal(ctx.LC.accent.known({ id: 2, title: 'Холодный' }), true);
+
+    ctx.LC.accent.applyFor({ id: 2, title: 'Холодный', poster_path: '/cold.jpg' });
+    assert.equal(dom.state.images.length, 2, 'показ не грузит картинку второй раз');
+    assert.deepEqual(paints, [COLD_HEX], 'цвет встал синхронно — вместе с текстом героя');
+  });
+});
+
+test('prepare и показ того же фильма ждут одну картинку; уход предрасчёта её не отменяет', () => {
+  const dom = fakeDom({ datas: [COLD_POSTER] });
+  withDom(dom, () => {
+    const ctx = accentCtx({ prefs: {} });
+    let done = 0;
+    const handle = ctx.LC.accent.prepare({ id: 2, title: 'Холодный', poster_path: '/cold.jpg' }, () => { done++; });
+    ctx.LC.accent.applyFor({ id: 2, title: 'Холодный', poster_path: '/cold.jpg' });
+    assert.equal(dom.state.images.length, 1, 'вторая картинка не создана');
+    handle.cancel();
+    assert.ok(dom.state.images[0].onload, 'показ ещё ждёт — картинка жива');
+    dom.state.images[0].onload();
+    assert.equal(done, 0, 'снятый предрасчёт ответа не получает');
+    assert.equal(paintedHex(dom), COLD_HEX, 'показ покрасил экран одной записью');
+  });
+});
+
+test('prepare: последний ушедший ждущий отменяет картинку', () => {
+  const dom = fakeDom({ datas: [COLD_POSTER] });
+  withDom(dom, () => {
+    const ctx = accentCtx({ prefs: {} });
+    const handle = ctx.LC.accent.prepare({ id: 2, title: 'Холодный', poster_path: '/cold.jpg' }, () => { });
+    assert.equal(ctx.api.pending(), 1);
+    handle.cancel();
+    assert.equal(ctx.api.pending(), 0, 'картинка отпущена');
+    assert.equal(dom.state.images[0].onload, null);
+  });
+});
+
+test('prepare: подкраска выключена или цвет известен — ни картинки, ответ сразу', () => {
+  const dom = fakeDom({ datas: [COLD_POSTER] });
+  withDom(dom, () => {
+    const off = accentCtx({ prefs: { lumen_accent_auto: 'false' } });
+    let done = 0;
+    assert.equal(off.LC.accent.prepare({ id: 2, title: 'X', poster_path: '/x.jpg' }, () => { done++; }), null);
+    assert.equal(done, 1);
+    assert.equal(dom.state.images.length, 0, 'выключено — не грузим');
+
+    const ctx = accentCtx({ prefs: {} });
+    ctx.LC.accent.applyFor({ id: 2, title: 'X', poster_path: '/x.jpg' });
+    dom.state.images[0].onload();
+    assert.equal(ctx.LC.accent.prepare({ id: 2, title: 'X', poster_path: '/x.jpg' }, () => { done++; }), null);
+    assert.equal(done, 2);
+    assert.equal(dom.state.images.length, 1, 'известный цвет второй раз не считается');
+  });
+});
+
 /* ====================================================================== */
 /* Task 60: состояние подкраски — по факту, а не по догадке.               */
 /* ====================================================================== */

@@ -499,8 +499,10 @@
        устройстве «подкраска не работает» было невозможно отличить от
        «настройка выключена» — ровно с этим пользователь и пришёл. Потоком
        строки не пойдут: до расчёта дело доходит только в покое фокуса
-       (показ героя, src/48_hero.js), а на один постер приходится не больше
-       FAIL_LIMIT попыток — дальше отвечает кэш, молча. */
+       (показ героя, src/48_hero.js, и предрасчёт соседей по одному,
+       src/58_prefetch.js), цвет фильма считается один раз (LC.accent ниже),
+       а на один постер приходится не больше FAIL_LIMIT попыток — дальше
+       отвечает кэш, молча. */
     function read(img, doc, src) {
       /* Ревью J: картинка ответила, но кадра в ней нет (битый файл, WebView
          отдал пустое изображение). Прежде выход отсюда был молчаливым, и
@@ -677,7 +679,7 @@
       /* Сколько раз за сеанс дело дошло до расчёта цвета по картинке (кэш
          сюда не считается). Нужен живой проверке: зажатая стрелка обязана
          давать ноль — цвет считается только в покое фокуса (показ героя,
-         src/48_hero.js). */
+         src/48_hero.js, и предрасчёт соседей, src/58_prefetch.js). */
       requests: function () { return request_count; }
     };
   })();
@@ -741,6 +743,8 @@
 
        Теперь смена одна и сразу итоговым цветом, в обоих режимах:
        - цвет ставит герой вместе с текстом фильма (src/48_hero.js);
+       - к этому моменту он обычно уже посчитан: соседей фокуса считает в
+         простое предзагрузка (prepare ниже, src/58_prefetch.js);
        - нет цвета (сеть) — остаётся прежний, и новый встаёт один раз,
          когда посчитался.
        Плавный шаг (один CSS-переход ≤ 250 мс) рассмотрен и отклонён: из
@@ -752,6 +756,22 @@
        экрана каждый кадр. На ТВ дорога и одна запись узла: трейс раунда
        «Листание» (F3, CPU ×10) — четыре записи пути стоили 160 мс главного
        потока, то есть около 40 мс на запись. */
+
+    /* Цвет фильма: один на фильм и на сеанс. Ключ — тип и id (filmKey), а
+       не адрес картинки: один и тот же фильм приходит в разных рядах и в
+       открытой карточке, и его poster_path там может быть разным (другой
+       язык, другой список) — «пересчёт из другой картинки» перекрасил бы
+       фильм, уже показанный своим цветом. Первый посчитанный цвет и есть
+       цвет фильма. Хранится округлённая доминанта (quantize ниже).
+       FILM_LIMIT — вытеснение FIFO, как у кэша адресов в LC.color; запись —
+       три числа, и двухсот хватает на долгий проход по главной. */
+    var FILM_LIMIT = 200;
+    var films = {};
+    var film_keys = [];
+    /* Расчёты в пути: ключ фильма (или адрес постера, если id нет) ->
+       {subs, handle}. Предрасчёт соседа и показ того же фильма ждут ОДНУ
+       картинку. */
+    var flight = {};
 
     /* Переключатели Lampa пишут строки 'true'/'false' (план 0.2), поэтому
        сравниваем и со строкой, и с булевым.
@@ -1045,6 +1065,95 @@
       apply(null, null, true);
     }
 
+    /* Тип фильма — то же правило, что у LC.hero.mediaOf (src/48_hero.js) и
+       ключа деталей в src/58_prefetch.js: у сериала TMDB есть name. */
+    function filmKey(movie) {
+      if (!movie || movie.id == null) return '';
+      var media = movie.media_type || (movie.name ? 'tv' : 'movie');
+      return media + '/' + movie.id;
+    }
+
+    function knownKey(key) {
+      return !!key && Object.prototype.hasOwnProperty.call(films, key);
+    }
+
+    function keepFilm(key, rgb) {
+      if (!knownKey(key)) {
+        film_keys.push(key);
+        while (film_keys.length > FILM_LIMIT) delete films[film_keys.shift()];
+      }
+      films[key] = rgb;
+    }
+
+    /* Ответ расчёта: цвет фильма ложится в кэш (только удача — отказ
+       считает LC.color по адресу, со своими FAIL_LIMIT попытками) и
+       раздаётся всем ждущим. Хранится округлённая доминанта: иначе «тот же
+       цвет» не совпал бы сам с собой при возврате на карточку. */
+    function settle(id, run, key, rgb) {
+      if (flight[id] !== run) return;
+      delete flight[id];
+      var dom = quantize(rgb);
+      if (dom && key) keepFilm(key, dom);
+      var subs = run.subs;
+      run.subs = [];
+      for (var i = 0; i < subs.length; i++) {
+        var fn = subs[i].cb;
+        subs[i].cb = null;
+        if (!fn) continue;
+        try {
+          fn(dom);
+        } catch (e) {
+          warn('accent: color callback failed', e);
+        }
+      }
+    }
+
+    /* Ждущий ушёл (фокус на другом фильме, уход с главной). Последний
+       ушедший отменяет и саму картинку — как прежде cancel() отменял
+       расчёт карточки, с которой ушли. */
+    function drop(id, sub) {
+      if (!sub.cb) return;
+      sub.cb = null;
+      var run = flight[id];
+      if (!run) return;
+      var at = run.subs.indexOf(sub);
+      if (at !== -1) run.subs.splice(at, 1);
+      if (run.subs.length) return;
+      delete flight[id];
+      if (run.handle) run.handle.cancel();
+    }
+
+    /* Цвет фильма: cb(rgb | null). Источник один — постер карточки w185 (см.
+       POSTER_SIZE), один расчёт на фильм: из кэша — синхронно (ручки нет,
+       null), тот же фильм уже считается — ждущий добавляется к расчёту,
+       второй картинки нет. Ручка {cancel} снимает только своего ждущего.
+       Запасного адреса нет (alt = ''): прямой image.tmdb.org шёл бы в обход
+       прокси пользователя (см. POSTER_SIZE выше). */
+    function colorOf(movie, cb) {
+      var key = filmKey(movie);
+      if (knownKey(key)) {
+        cb(films[key]);
+        return null;
+      }
+      var url = movie && movie.poster_path ? posterUrl(movie.poster_path) : '';
+      if (!url) {
+        cb(null);
+        return null;
+      }
+      var id = key || url;
+      var sub = { cb: cb };
+      var run = flight[id];
+      if (run) {
+        run.subs.push(sub);
+      } else {
+        run = { subs: [sub], handle: null };
+        flight[id] = run;
+        run.handle = LC.color.fromImage(url, function (rgb) { settle(id, run, key, rgb); }, '');
+      }
+      if (!sub.cb) return null;
+      return { cancel: function () { drop(id, sub); } };
+    }
+
     /* Считает и применяет акцент фильма. Пока новый цвет не посчитан,
        предыдущий остаётся на месте — так переход между карточками не
        моргает серединным сбросом на акцент настроек, — и новый встаёт ОДИН
@@ -1054,20 +1163,49 @@
        годится — он красится тоном, а не самим цветом плаката.
        deep — фильм открыт карточкой (src/90_runtime.js): см. apply выше. */
     function applyFor(movie, deep) {
-      cancel();
-      if (!on()) { apply(null, null, deep); return; }
-      var path = movie && movie.poster_path;
-      var url = path ? posterUrl(path) : '';
-      if (!url) { apply(null, null, deep); return; }
-      /* Запасного адреса нет (alt = ''): прямой image.tmdb.org шёл бы в
-         обход прокси пользователя (см. POSTER_SIZE выше). Округлённая
-         доминанта (quantize выше) — иначе «тот же цвет» не совпал бы сам с
-         собой при возврате на карточку. */
-      task = LC.color.fromImage(url, function (rgb) {
+      if (!on()) {
+        cancel();
+        apply(null, null, deep);
+        return;
+      }
+      /* Прошлый ждущий снимается ПОСЛЕ того, как встал новый: тот же фильм
+         (показ на главной, следом — его карточка) склеивается с картинкой
+         в пути, а не отменяет её и не грузит заново. */
+      var prev = task;
+      task = null;
+      var answered = false;
+      var handle = colorOf(movie, function (dom) {
+        answered = true;
         task = null;
-        var dom = quantize(rgb);
         apply(dom ? LC.color.tokens(dom, bg()) : null, dom, deep);
-      }, '');
+      });
+      if (prev) prev.cancel();
+      if (!answered) task = handle;
+    }
+
+    /* Раунд «Цвет сразу»: предрасчёт без покраски — соседи карточки под
+       фокусом, в простое и по одному (src/58_prefetch.js). Когда герой
+       покажет соседа, его цвет уже в кэше, и applyFor ставит его в тот же
+       миг, что и текст. done() — цвет готов или отказ; синхронно, если
+       считать нечего (подкраска выключена, цвет уже известен). Ручка
+       {cancel} — для ухода с главной.
+       Последняя попытка LC.color кончилась отказом (прокси без
+       CORS-заголовка, сеть, таймаут — status() выше) — соседей не считаем:
+       при устойчивом отказе предрасчёт множил бы неудачные запросы и строки
+       в логе по числу соседей, а FAIL_LIMIT считается по адресу, то есть
+       по каждому соседу заново. Цвет показанного фильма считается и тогда
+       (applyFor), и первая удача возвращает предрасчёт. */
+    function readable() {
+      var st = LC.color.status().state;
+      return st === 'idle' || st === 'ok' || st === 'dim';
+    }
+
+    function prepare(movie, done) {
+      if (!on() || knownKey(filmKey(movie)) || !readable()) {
+        done();
+        return null;
+      }
+      return colorOf(movie, function () { done(); });
     }
 
     /* Правка пользователя 2026-09-17 (третий круг): фон страницы получает
@@ -1182,6 +1320,11 @@
       tint: tint,
       rowsTint: rowsTint,
       applyFor: applyFor,
+      /* Раунд «Цвет сразу»: предрасчёт соседей фокуса (src/58_prefetch.js)
+         и вопрос «цвет фильма уже известен?» — им предзагрузка не ставит в
+         очередь то, что считать не нужно. */
+      prepare: prepare,
+      known: function (movie) { return knownKey(filmKey(movie)); },
       reset: reset,
       /* Task 35: зовётся последней строкой LC.injectCss (src/30_css.js) —
          см. restyle выше. Наружу больше ни для чего не нужна. */

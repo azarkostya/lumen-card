@@ -30,6 +30,11 @@
   /* логотип (если настройка «Логотип названия» включена, а логотип        */
   /* незнаком или не доехал один раз; известный освежается в памяти).     */
   /* Одновременно в пути не больше SLOTS запросов предзагрузки.            */
+  /* Раунд «Цвет сразу» (2026-09-26): своя дорожка — цвет фильма          */
+  /* (LC.accent.prepare, src/57_color.js): карточка под фокусом и то же    */
+  /* окно, по одному, в простое браузера (requestIdleCallback), постер     */
+  /* w185 и канвас 16×16. Герой ставит цвет вместе с текстом, и к этому    */
+  /* мигу он уже посчитан.                                                  */
   /* Кадры w1280 заранее НЕ грузятся: 3.7 МБ растра на кадр — это память   */
   /* и канал, отнятые у кадра карточки под фокусом. decode() не зовётся.   */
   /*                                                                       */
@@ -99,6 +104,19 @@
     var logoJobs = [];
     /* Корень, для которого warm уже был. */
     var warmed = null;
+    /* Раунд «Цвет сразу»: дорожка цвета. Карточки ждут своей очереди в
+       colors, расчёт идёт ОДИН (colorJob — {handle, over}), следующий
+       стартует в простое браузера (colorWait — ручка ожидания). Отдельно от
+       SLOTS: детали и логотип нужны герою к показу так же, как цвет, и
+       делить с ними два места цвету незачем — его запрос — десяток КБ. */
+    var colors = [];
+    var colorJob = null;
+    var colorWait = null;
+    /* Потолок ожидания простоя: браузер, занятый без передышки (листание
+       мышью, частицы), иначе не дал бы дорожке ни одного окна. */
+    var COLOR_IDLE_MAX = 500;
+    /* Шаг дорожки там, где requestIdleCallback нет (старые WebView). */
+    var COLOR_GAP = 50;
 
     function langCode() {
       try {
@@ -335,6 +353,75 @@
       pump();
     }
 
+    function colorAllowed() {
+      return !!(LC.accent && typeof LC.accent.prepare === 'function' && typeof LC.accent.known === 'function');
+    }
+
+    /* Ожидание простоя браузера; ручка {cancel}. */
+    function idle(fn) {
+      var w = typeof window !== 'undefined' ? window : null;
+      if (w && typeof w.requestIdleCallback === 'function' && typeof w.cancelIdleCallback === 'function') {
+        var id = w.requestIdleCallback(fn, { timeout: COLOR_IDLE_MAX });
+        return { cancel: function () { w.cancelIdleCallback(id); } };
+      }
+      var t = setTimeout(fn, COLOR_GAP);
+      return { cancel: function () { clearTimeout(t); } };
+    }
+
+    function stopColorWait() {
+      if (colorWait) {
+        colorWait.cancel();
+        colorWait = null;
+      }
+    }
+
+    /* Следующий расчёт дорожки — в простое и только когда прошлый кончился.
+       Цвет, ставший известным, пока карточка ждала (его посчитал показ
+       героя), пропускается. */
+    function pumpColors() {
+      if (colorJob || colorWait || !colors.length) return;
+      var captured = gen;
+      colorWait = idle(function () {
+        colorWait = null;
+        if (captured !== gen || !ready()) return;
+        var card = null;
+        while (colors.length && !card) {
+          card = colors.shift();
+          if (LC.accent.known(card)) card = null;
+        }
+        if (!card) return;
+        var entry = { handle: null, over: false };
+        colorJob = entry;
+        try {
+          entry.handle = LC.accent.prepare(card, function () {
+            if (entry.over) return;
+            entry.over = true;
+            if (colorJob === entry) colorJob = null;
+            pumpColors();
+          });
+        } catch (e) {
+          warn('prefetch: color failed', e);
+          entry.over = true;
+          colorJob = null;
+        }
+      });
+    }
+
+    /* Очередь цвета — в порядке списка, без повторов и без уже известных. */
+    function planColors(cards) {
+      if (!colorAllowed()) return;
+      var seen = {};
+      for (var i = 0; i < cards.length; i++) {
+        var card = cards[i];
+        if (!card || card.id == null) continue;
+        var key = (LC.hero ? LC.hero.mediaOf(card) : '') + '/' + card.id;
+        if (seen[key] || LC.accent.known(card)) continue;
+        seen[key] = true;
+        colors.push(card);
+      }
+      pumpColors();
+    }
+
     /* Узлы карточек ряда с данными — в порядке разметки. */
     function cardsIn(line) {
       var out = [];
@@ -391,6 +478,8 @@
     function around(el) {
       gen++;
       queue.length = 0;
+      colors.length = 0;
+      stopColorWait();
       stopIdle();
       if (!el) return;
       prevEl = focusEl;
@@ -400,7 +489,11 @@
         idleTimer = null;
         if (captured !== gen || !ready()) return;
         try {
-          plan(windowOf(el));
+          var near = windowOf(el);
+          plan(near);
+          /* Цвет — и самой карточке под фокусом, первой: герой покажет её
+             через DELAY, и её цвет нужен раньше соседских. */
+          planColors([el.card_data].concat(near));
         } catch (e) {
           warn('prefetch: window failed', e);
         }
@@ -417,6 +510,7 @@
         if (lines.length > 0) dataOf(cardsIn($(lines[0])), 0, WARM_FIRST, out);
         if (lines.length > 1) dataOf(cardsIn($(lines[1])), 0, WARM_SECOND, out);
         plan(out);
+        planColors(out);
       } catch (e) {
         warn('prefetch: warm failed', e);
       }
@@ -430,6 +524,14 @@
       gen++;
       queue.length = 0;
       stopIdle();
+      colors.length = 0;
+      stopColorWait();
+      if (colorJob) {
+        var job = colorJob;
+        colorJob = null;
+        job.over = true;
+        try { if (job.handle) job.handle.cancel(); } catch (eColor) { warn('prefetch: stop failed', eColor); }
+      }
       focusEl = null;
       prevEl = null;
       /* Волна «хвосты героя», п.F (ниже порога ревью логотипов): корень

@@ -15881,6 +15881,7 @@ var BURST_DELAY = 700;
 
 
 
+
 var TRAILER_DELAY = 8000;
 
 
@@ -28119,6 +28120,8 @@ cache[url] = { rgb: rgb || null, fails: fails || 0 };
 
 
 
+
+
 function read(img, doc, src) {
 
 
@@ -28370,6 +28373,24 @@ var task = null;
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+var FILM_LIMIT = 200;
+var films = {};
+var film_keys = [];
+
+
+
+var flight = {};
 
 
 
@@ -28665,6 +28686,95 @@ apply(null, null, true);
 
 
 
+function filmKey(movie) {
+if (!movie || movie.id == null) return '';
+var media = movie.media_type || (movie.name ? 'tv' : 'movie');
+return media + '/' + movie.id;
+}
+
+function knownKey(key) {
+return !!key && Object.prototype.hasOwnProperty.call(films, key);
+}
+
+function keepFilm(key, rgb) {
+if (!knownKey(key)) {
+film_keys.push(key);
+while (film_keys.length > FILM_LIMIT) delete films[film_keys.shift()];
+}
+films[key] = rgb;
+}
+
+
+
+
+
+function settle(id, run, key, rgb) {
+if (flight[id] !== run) return;
+delete flight[id];
+var dom = quantize(rgb);
+if (dom && key) keepFilm(key, dom);
+var subs = run.subs;
+run.subs = [];
+for (var i = 0; i < subs.length; i++) {
+var fn = subs[i].cb;
+subs[i].cb = null;
+if (!fn) continue;
+try {
+fn(dom);
+} catch (e) {
+warn('accent: color callback failed', e);
+}
+}
+}
+
+
+
+
+function drop(id, sub) {
+if (!sub.cb) return;
+sub.cb = null;
+var run = flight[id];
+if (!run) return;
+var at = run.subs.indexOf(sub);
+if (at !== -1) run.subs.splice(at, 1);
+if (run.subs.length) return;
+delete flight[id];
+if (run.handle) run.handle.cancel();
+}
+
+
+
+
+
+
+
+function colorOf(movie, cb) {
+var key = filmKey(movie);
+if (knownKey(key)) {
+cb(films[key]);
+return null;
+}
+var url = movie && movie.poster_path ? posterUrl(movie.poster_path) : '';
+if (!url) {
+cb(null);
+return null;
+}
+var id = key || url;
+var sub = { cb: cb };
+var run = flight[id];
+if (run) {
+run.subs.push(sub);
+} else {
+run = { subs: [sub], handle: null };
+flight[id] = run;
+run.handle = LC.color.fromImage(url, function (rgb) { settle(id, run, key, rgb); }, '');
+}
+if (!sub.cb) return null;
+return { cancel: function () { drop(id, sub); } };
+}
+
+
+
 
 
 
@@ -28672,20 +28782,49 @@ apply(null, null, true);
 
 
 function applyFor(movie, deep) {
+if (!on()) {
 cancel();
-if (!on()) { apply(null, null, deep); return; }
-var path = movie && movie.poster_path;
-var url = path ? posterUrl(path) : '';
-if (!url) { apply(null, null, deep); return; }
+apply(null, null, deep);
+return;
+}
 
 
 
-
-task = LC.color.fromImage(url, function (rgb) {
+var prev = task;
 task = null;
-var dom = quantize(rgb);
+var answered = false;
+var handle = colorOf(movie, function (dom) {
+answered = true;
+task = null;
 apply(dom ? LC.color.tokens(dom, bg()) : null, dom, deep);
-}, '');
+});
+if (prev) prev.cancel();
+if (!answered) task = handle;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+function readable() {
+var st = LC.color.status().state;
+return st === 'idle' || st === 'ok' || st === 'dim';
+}
+
+function prepare(movie, done) {
+if (!on() || knownKey(filmKey(movie)) || !readable()) {
+done();
+return null;
+}
+return colorOf(movie, function () { done(); });
 }
 
 
@@ -28800,6 +28939,11 @@ status: status,
 tint: tint,
 rowsTint: rowsTint,
 applyFor: applyFor,
+
+
+
+prepare: prepare,
+known: function (movie) { return knownKey(filmKey(movie)); },
 reset: reset,
 
 
@@ -29485,6 +29629,11 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 
+
+
+
+
+
 LC.prefetch = (function () {
 
 
@@ -29541,6 +29690,19 @@ var flight = {};
 var logoJobs = [];
 
 var warmed = null;
+
+
+
+
+
+var colors = [];
+var colorJob = null;
+var colorWait = null;
+
+
+var COLOR_IDLE_MAX = 500;
+
+var COLOR_GAP = 50;
 
 function langCode() {
 try {
@@ -29777,6 +29939,75 @@ queue = logos.concat(queue);
 pump();
 }
 
+function colorAllowed() {
+return !!(LC.accent && typeof LC.accent.prepare === 'function' && typeof LC.accent.known === 'function');
+}
+
+
+function idle(fn) {
+var w = typeof window !== 'undefined' ? window : null;
+if (w && typeof w.requestIdleCallback === 'function' && typeof w.cancelIdleCallback === 'function') {
+var id = w.requestIdleCallback(fn, { timeout: COLOR_IDLE_MAX });
+return { cancel: function () { w.cancelIdleCallback(id); } };
+}
+var t = setTimeout(fn, COLOR_GAP);
+return { cancel: function () { clearTimeout(t); } };
+}
+
+function stopColorWait() {
+if (colorWait) {
+colorWait.cancel();
+colorWait = null;
+}
+}
+
+
+
+
+function pumpColors() {
+if (colorJob || colorWait || !colors.length) return;
+var captured = gen;
+colorWait = idle(function () {
+colorWait = null;
+if (captured !== gen || !ready()) return;
+var card = null;
+while (colors.length && !card) {
+card = colors.shift();
+if (LC.accent.known(card)) card = null;
+}
+if (!card) return;
+var entry = { handle: null, over: false };
+colorJob = entry;
+try {
+entry.handle = LC.accent.prepare(card, function () {
+if (entry.over) return;
+entry.over = true;
+if (colorJob === entry) colorJob = null;
+pumpColors();
+});
+} catch (e) {
+warn('prefetch: color failed', e);
+entry.over = true;
+colorJob = null;
+}
+});
+}
+
+
+function planColors(cards) {
+if (!colorAllowed()) return;
+var seen = {};
+for (var i = 0; i < cards.length; i++) {
+var card = cards[i];
+if (!card || card.id == null) continue;
+var key = (LC.hero ? LC.hero.mediaOf(card) : '') + '/' + card.id;
+if (seen[key] || LC.accent.known(card)) continue;
+seen[key] = true;
+colors.push(card);
+}
+pumpColors();
+}
+
 
 function cardsIn(line) {
 var out = [];
@@ -29833,6 +30064,8 @@ idleTimer = null;
 function around(el) {
 gen++;
 queue.length = 0;
+colors.length = 0;
+stopColorWait();
 stopIdle();
 if (!el) return;
 prevEl = focusEl;
@@ -29842,7 +30075,11 @@ idleTimer = setTimeout(function () {
 idleTimer = null;
 if (captured !== gen || !ready()) return;
 try {
-plan(windowOf(el));
+var near = windowOf(el);
+plan(near);
+
+
+planColors([el.card_data].concat(near));
 } catch (e) {
 warn('prefetch: window failed', e);
 }
@@ -29859,6 +30096,7 @@ var out = [];
 if (lines.length > 0) dataOf(cardsIn($(lines[0])), 0, WARM_FIRST, out);
 if (lines.length > 1) dataOf(cardsIn($(lines[1])), 0, WARM_SECOND, out);
 plan(out);
+planColors(out);
 } catch (e) {
 warn('prefetch: warm failed', e);
 }
@@ -29872,6 +30110,14 @@ function stop() {
 gen++;
 queue.length = 0;
 stopIdle();
+colors.length = 0;
+stopColorWait();
+if (colorJob) {
+var job = colorJob;
+colorJob = null;
+job.over = true;
+try { if (job.handle) job.handle.cancel(); } catch (eColor) { warn('prefetch: stop failed', eColor); }
+}
 focusEl = null;
 prevEl = null;
 

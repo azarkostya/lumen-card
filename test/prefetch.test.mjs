@@ -98,6 +98,9 @@ function makeEnv(opts) {
   const prefs = opts.prefs || {};
   const LC = {
     util: UTIL, focus: FOCUS, cardinfo: CARDINFO,
+    /* Раунд «Цвет сразу»: цвет фильма (src/57_color.js) — заглушка теста;
+       без неё дорожки цвета нет вовсе. */
+    accent: opts.accent,
     motionMode: () => env.mode,
     lang: (k) => k,
     langCode: () => 'ru',
@@ -844,4 +847,110 @@ test('ревью H1: герой, вставший на осиротевший з
   focus(main, el);
   env.advance(DELAY);
   assert.ok(pending(env).some((r) => idOf(r.url) === target), 'детали фильма не запрошены заново');
+});
+
+/* ====================================================================== */
+/* Раунд «Цвет сразу» (2026-09-26): цвет соседей — заранее, в простое.     */
+/* ====================================================================== */
+
+/* Жалоба: «фон адаптируется не сразу». Герой ставит цвет вместе с текстом
+   фильма (src/48_hero.js), а посчитан он к этому мигу потому, что
+   предзагрузка ведёт свою дорожку: карточка под фокусом и её окно, по
+   одному, в простое браузера (в тестах requestIdleCallback нет — шаг
+   COLOR_GAP через setTimeout). Заглушка LC.accent: prepare ставит задачу,
+   тест сам говорит «посчитано». */
+const COLOR_GAP = 50;
+
+function fakeAccent() {
+  const acc = { calls: [], jobs: [], ready: {}, applied: [] };
+  acc.prepare = (card, done) => {
+    acc.calls.push(card.id);
+    const job = { id: card.id, cancelled: false, finish: () => { acc.ready[card.id] = true; done(); } };
+    acc.jobs.push(job);
+    return { cancel: () => { job.cancelled = true; } };
+  };
+  acc.known = (card) => !!acc.ready[card.id];
+  acc.applyFor = (card) => { acc.applied.push(card && card.id); };
+  return acc;
+}
+
+/* Досчитывает дорожку до конца: задача за задачей, каждая следующая — после
+   своего окна простоя. */
+function drainColors(env, acc) {
+  for (let guard = 0; guard < 20; guard++) {
+    const job = acc.jobs.find((j) => !j.cancelled && !acc.ready[j.id]);
+    if (!job) break;
+    job.finish();
+    env.advance(COLOR_GAP);
+  }
+}
+
+test('цвет сразу: дорожка цвета — карточка под фокусом первой, потом окно; по одному и в простое', () => {
+  const acc = fakeAccent();
+  const { env, main } = mounted({ accent: acc });
+  focus(main, main.rows[0][2]);
+  env.advance(249);
+  assert.deepEqual(acc.calls, [], 'раньше 250 мс покоя');
+  env.advance(1);
+  assert.deepEqual(acc.calls, [], 'план есть, но расчёт ждёт простоя');
+  env.advance(COLOR_GAP);
+  assert.deepEqual(acc.calls, [103], 'первой — карточка под фокусом');
+  env.advance(1000);
+  assert.deepEqual(acc.calls, [103], 'пока идёт расчёт, следующий не стартует');
+  drainColors(env, acc);
+  /* Окно в «Лёгких»: +2 вперёд, −1 назад, три карточки следующего ряда. */
+  assert.deepEqual(acc.calls, [103, 104, 105, 102, 201, 202, 203]);
+  assert.deepEqual(warnLog, []);
+});
+
+test('цвет сразу: зажатая стрелка — ни одного расчёта цвета', () => {
+  const acc = fakeAccent();
+  const { env, main } = mounted({ accent: acc });
+  for (let i = 0; i < 8; i++) {
+    focus(main, main.rows[0][i]);
+    env.advance(100);
+  }
+  env.advance(COLOR_GAP);
+  assert.deepEqual(acc.calls, [], 'при зажатой стрелке ушёл расчёт цвета');
+  env.advance(150);
+  env.advance(COLOR_GAP);
+  assert.deepEqual(acc.calls, [108], 'покой — карточка, где стрелку отпустили');
+});
+
+test('цвет сразу: известный цвет пропускается, новое окно сбрасывает очередь, уход с главной снимает расчёт', () => {
+  const acc = fakeAccent();
+  acc.ready[104] = true;
+  const { env, main } = mounted({ accent: acc });
+  focus(main, main.rows[0][2]);
+  env.advance(250);
+  env.advance(COLOR_GAP);
+  acc.jobs[0].finish();
+  env.advance(COLOR_GAP);
+  assert.deepEqual(acc.calls, [103, 105], 'цвет 104 уже известен — не считается');
+
+  /* Фокус ушёл дальше, расчёт 105 ещё идёт: он доживает, а очередь старого
+     окна (102, 201…) выброшена. */
+  focus(main, main.rows[0][6]);
+  env.advance(250);
+  env.advance(COLOR_GAP);
+  assert.deepEqual(acc.calls, [103, 105], 'новый расчёт — только после текущего');
+  acc.jobs[1].finish();
+  env.advance(COLOR_GAP);
+  assert.deepEqual(acc.calls, [103, 105, 107], 'очередь нового окна, с карточки под фокусом');
+
+  env.hero.unmount();
+  assert.equal(acc.jobs[2].cancelled, true, 'уход с главной снял расчёт в пути');
+  env.advance(5000);
+  assert.deepEqual(acc.calls, [103, 105, 107], 'после ухода — ни одного расчёта');
+});
+
+test('цвет сразу: запаркованная главная (открыта карточка) цвет соседей не считает', () => {
+  const acc = fakeAccent();
+  const { env, main } = mounted({ accent: acc });
+  focus(main, main.rows[0][2]);
+  env.advance(250);
+  env.hero.detach(new FakeEl(['activity']));
+  assert.equal(env.hero.parked(), true, 'подготовка: герой запаркован');
+  env.advance(5000);
+  assert.deepEqual(acc.calls, [], 'под открытой карточкой — ни одного расчёта');
 });
