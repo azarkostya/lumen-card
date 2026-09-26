@@ -2225,8 +2225,19 @@ return w;
 
 
 
+
+
+
+
+
+
+
+
 function rowNarrowBase(key) {
-return round2(Math.min(ROW_CARD_NARROW * tileFactor(), rowCardBase(key)));
+var t = tileFactor();
+var w = Math.min(ROW_CARD_NARROW * t, rowCardBase(key));
+if (t > 1) w = Math.max(ROW_CARD_NARROW, Math.min(w, ROW_CARD_W / cardK()));
+return round2(w);
 }
 
 
@@ -2236,9 +2247,25 @@ return round2(Math.min(ROW_CARD_NARROW * tileFactor(), rowCardBase(key)));
 var TILES = { small: 0.9, normal: 1, large: 1.1 };
 var TILE_DEFAULT = 'normal';
 
+
+
+
+var tileForced = null;
+
 function tileKey() {
+if (tileForced) return tileForced;
 var key = LC.pref('lumen_tile_size', TILE_DEFAULT);
 return TILES[key] ? key : TILE_DEFAULT;
+}
+
+function withTile(key, fn) {
+var was = tileForced;
+tileForced = key;
+try {
+return fn();
+} finally {
+tileForced = was;
+}
 }
 
 function tileFactor() {
@@ -2365,6 +2392,139 @@ var floor = SCALES.small;
 var scale = scaleFactor();
 while (scale > floor && rowNarrowBlockEm(key, scale) > availEm) scale = round2(scale - 0.01);
 return scale;
+}
+
+
+
+
+
+
+
+function rowGeometry(key) {
+var s = rowScaleCap(key);
+var w = round2(rowCardBase(key) * s);
+var cap = round2(TV_MIN * s);
+var title = round2(ROW_TITLE_EM * s);
+var gap = rowHeadGap(s, w);
+var nw = round2(rowNarrowBase(key) * s);
+return {
+scale: s,
+cardW: w,
+cap: cap,
+title: title,
+gap: gap,
+narrowW: nw,
+narrowGap: rowHeadGap(s, nw),
+narrowRatio: rowNarrowRatio(key, rowBlockEm(w, title, gap, cap, rowCapAge(cap), rowCapFlow(false)))
+};
+}
+
+
+
+
+
+
+
+
+
+
+
+function rowFitSpec(g, narrowOn, heroMin, fitTop) {
+var w = narrowOn ? g.narrowW : g.cardW;
+var gap = narrowOn ? g.narrowGap : g.gap;
+var cap = narrowOn ? TV_MIN : g.cap;
+
+
+function band(tailVh, topEm, age, flow) {
+var captions = CARD_VIEW_GAP + cap * CARD_TITLE_LH + CARD_AGE_GAP * age + age + (flow ? 0 : CARD_FOCUS_SHIFT * age);
+return {
+x: Math.floor(tailVh / POSTER_RATIO * 100) / 100,
+y: Math.ceil(((topEm + g.title + gap + ROW_EDGE_AIR) / (POSTER_RATIO * cardK()) + captions / POSTER_RATIO) * 100) / 100
+};
+}
+var hero = null;
+var heroFrom = Math.floor(screenEm() * (100 - fitTop) * 10 / (ROWS_AIR + rowBlockEm(w, g.title, gap, cap, rowCapAge(cap), rowCapFlow(false)) + ROW_EDGE_AIR));
+if (heroFrom < heroMin * 10) {
+hero = band(100 - fitTop, ROWS_AIR, rowCapAge(cap), rowCapFlow(false));
+hero.from = heroFrom;
+hero.to = heroMin * 10 - 1;
+}
+var offTop = LAMPA_HEAD + LAMPA_ROW_PAD;
+var off = band(100, offTop, cap);
+off.from = Math.max(heroMin * 10, Math.floor(screenEm() * 1000 / (offTop + rowBlockEm(w, g.title, gap, cap, cap) + ROW_EDGE_AIR)));
+return { hero: hero, off: off };
+}
+
+function rowFitWidth(f) {
+var w = f.x + 'vh - ' + f.y + 'em';
+return 'width:-webkit-calc(' + w + ');width:calc(' + w + ')';
+}
+
+function rowFitCss(f, lo, hi) {
+return '@media screen and (min-aspect-ratio:' + lo + '/1000)' + (hi ? ' and (max-aspect-ratio:' + hi + '/1000)' : '') + '{' +
+'.lumen-main .card{' + rowFitWidth(f) + '}}';
+}
+
+
+
+
+
+
+function rowLayoutAt(lay, r) {
+var narrow = lay.narrowOn && r >= lay.narrowRatio * 10;
+var out = {
+key: narrow ? 'narrow' : 'base',
+w: narrow ? lay.g.narrowW : lay.g.cardW,
+cap: narrow ? TV_MIN : lay.g.cap,
+gap: narrow ? lay.g.narrowGap : lay.g.gap,
+fit: null
+};
+var f = null;
+if (r >= lay.spec.off.from) { f = lay.spec.off; out.key = 'off'; }
+else if (lay.spec.hero && r >= lay.spec.hero.from && r <= lay.spec.hero.to) { f = lay.spec.hero; out.key = 'hero'; }
+if (f) {
+out.fit = f;
+out.w = f.x * screenEm() * 10 / (cardK() * r) - f.y;
+}
+return out;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+var ROW_ORDER_MAX = 4000;
+
+function rowTileOrderCss(own, normal, bigger) {
+var out = [];
+var run = null;
+function close(hi) {
+var s = run.at;
+var width = s.fit ? rowFitWidth(s.fit) : 'width:' + s.w + 'em';
+out.push('@media screen and (min-aspect-ratio:' + run.lo + '/1000)' + (hi ? ' and (max-aspect-ratio:' + hi + '/1000)' : '') + '{' +
+'.lumen-main .card{' + width + '}' +
+'.lumen-main .card__title{font-size:' + s.cap + 'em}' +
+'.lumen-main .card__age{font-size:' + s.cap + 'em}' +
+'.lumen-main .items-line__head{margin-bottom:' + s.gap + 'em}}');
+run = null;
+}
+for (var r = 1000; r <= ROW_ORDER_MAX; r++) {
+var mine = rowLayoutAt(own, r);
+var theirs = rowLayoutAt(normal, r);
+var bad = bigger ? theirs.w > mine.w + 0.001 : mine.w > theirs.w + 0.001;
+if (run && (!bad || theirs.key !== run.at.key)) close(theirs.key === run.at.key ? r : r - 1);
+if (bad && !run) run = { lo: r, at: theirs };
+}
+if (run) close(0);
+return out;
 }
 
 
@@ -5471,8 +5631,13 @@ var ROW_FOCUS = 1.10;
 
 
 
-var rowScale = rowScaleCap(heroSize);
-var cardWEm = round2(rowCardBase(heroSize) * rowScale);
+
+
+
+var rowGeo = rowGeometry(heroSize);
+var rowGeoNormal = tileKey() === TILE_DEFAULT ? rowGeo : withTile(TILE_DEFAULT, function () { return rowGeometry(heroSize); });
+var rowScale = rowGeo.scale;
+var cardWEm = rowGeo.cardW;
 
 
 
@@ -5490,10 +5655,10 @@ var rowCapShort = !smallText && compactOn();
 
 
 var liveShift = smallText && compactOn();
-var rowTitleEm = round2(ROW_TITLE_EM * rowScale);
-var rowHeadGapEm = rowHeadGap(rowScale, cardWEm);
-var narrowWEm = round2(rowNarrowBase(heroSize) * rowScale);
-var narrowGapEm = rowHeadGap(rowScale, narrowWEm);
+var rowTitleEm = rowGeo.title;
+var rowHeadGapEm = rowGeo.gap;
+var narrowWEm = rowGeo.narrowW;
+var narrowGapEm = rowGeo.narrowGap;
 css.push('.lumen-main .card{width:' + cardWEm + 'em}');
 
 
@@ -5520,7 +5685,14 @@ css.push('.lumen-main .card{width:' + cardWEm + 'em}');
 
 
 
-var narrowRatio = rowNarrowRatio(heroSize, rowBlockEm(cardWEm, rowTitleEm, rowHeadGapEm, cardTitleEm, rowCapAge(cardAgeEm), rowCapFlow(false)));
+var narrowRatio = rowGeo.narrowRatio;
+
+
+
+
+
+
+if (tileFactor() < 1 && rowGeoNormal.narrowRatio < narrowRatio) narrowRatio = rowGeoNormal.narrowRatio;
 var narrowCss = narrowRatio < Math.max(HERO_MIN_RATIO, textRatio(heroSize, textNeedEm(false)))
 ? '@media screen and (min-aspect-ratio:' + narrowRatio + '/100){' +
 '.lumen-main .card{width:' + narrowWEm + 'em}' +
@@ -5737,38 +5909,11 @@ if (narrowCss) css.push(narrowCss);
 
 
 
-var fitW = narrowCss ? narrowWEm : cardWEm;
-var fitGap = narrowCss ? narrowGapEm : rowHeadGapEm;
-var fitCap = narrowCss ? TV_MIN : cardTitleEm;
-var fitBlock = rowBlockEm(fitW, rowTitleEm, fitGap, fitCap, fitCap);
 
 
-var fitCaptions = function (age, flow) {
-return CARD_VIEW_GAP + fitCap * CARD_TITLE_LH + CARD_AGE_GAP * age + age + (flow ? 0 : CARD_FOCUS_SHIFT * age);
-};
-var rowFitCss = function (sel, lo, hi, tailVh, topEm, age, flow) {
-var x = Math.floor(tailVh / POSTER_RATIO * 100) / 100;
-var y = Math.ceil(((topEm + rowTitleEm + fitGap + ROW_EDGE_AIR) / (POSTER_RATIO * cardK()) + fitCaptions(age, flow) / POSTER_RATIO) * 100) / 100;
-var w = x + 'vh - ' + y + 'em';
-return '@media screen and (min-aspect-ratio:' + lo + '/1000)' + (hi ? ' and (max-aspect-ratio:' + hi + '/1000)' : '') + '{' +
-sel + ' .card{width:-webkit-calc(' + w + ');width:calc(' + w + ')}}';
-};
-var fitHeroFrom = Math.floor(screenEm() * (100 - rowsFitTop) * 10 / (ROWS_AIR + rowBlockEm(fitW, rowTitleEm, fitGap, fitCap, rowCapAge(fitCap), rowCapFlow(false)) + ROW_EDGE_AIR));
-
-
-
-
-
-
-
-if (fitHeroFrom < heroMinRatio * 10) {
-css.push(rowFitCss('.lumen-main', fitHeroFrom, heroMinRatio * 10 - 1, 100 - rowsFitTop, ROWS_AIR, rowCapAge(fitCap), rowCapFlow(false)));
-}
-var fitOff = function (sel, topEm) {
-var from = Math.max(heroMinRatio * 10, Math.floor(screenEm() * 1000 / (topEm + fitBlock + ROW_EDGE_AIR)));
-css.push(rowFitCss(sel, from, 0, 100, topEm, fitCap));
-};
-fitOff('.lumen-main', LAMPA_HEAD + LAMPA_ROW_PAD);
+var fitSpec = rowFitSpec(rowGeo, !!narrowCss, heroMinRatio, rowsFitTop);
+if (fitSpec.hero) css.push(rowFitCss(fitSpec.hero, fitSpec.hero.from, fitSpec.hero.to));
+css.push(rowFitCss(fitSpec.off, fitSpec.off.from, 0));
 css.push('.lumen-main .items-line__title{font-family:' + FB + ';font-weight:700;font-size:' + rowTitleEm + 'em}');
 
 
@@ -5896,6 +6041,20 @@ css.push('.lumen-main .items-line__head{margin-bottom:' + rowHeadGapEm + 'em;pad
 
 if (narrowCss && narrowGapEm !== rowHeadGapEm) {
 css.push('@media screen and (min-aspect-ratio:' + narrowRatio + '/100){.lumen-main .items-line__head{margin-bottom:' + narrowGapEm + 'em}}');
+}
+
+
+
+
+
+
+if (rowGeoNormal !== rowGeo) {
+var normalNarrowOn = rowGeoNormal.narrowRatio < Math.max(HERO_MIN_RATIO, textRatio(heroSize, textNeedEm(false)));
+var tileOrder = rowTileOrderCss(
+{ g: rowGeo, narrowOn: !!narrowCss, narrowRatio: narrowRatio, spec: fitSpec },
+{ g: rowGeoNormal, narrowOn: normalNarrowOn, narrowRatio: rowGeoNormal.narrowRatio, spec: rowFitSpec(rowGeoNormal, normalNarrowOn, heroMinRatio, rowsFitTop) },
+tileFactor() > 1);
+for (var to = 0; to < tileOrder.length; to++) css.push(tileOrder[to]);
 }
 
 

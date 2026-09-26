@@ -1347,9 +1347,20 @@
 
   /* Узкая колонка (разбор — у rowNarrowRatio) — восьмая колонка сетки,
      тоже с множителем плиток и не шире базовой: иначе за порогом
-     «Мельче» плитки становились бы крупнее. */
+     «Мельче» плитки становились бы крупнее.
+     Ревью раунда главной (~85): у «Крупнее» узкая колонка ещё и не шире
+     ROW_CARD_W / кегль карточки — до этой ширины зазор под шапкой ряда
+     остаётся базовым (rowHeadGap: постер в фокусе растёт не больше
+     седьмой колонки при кегле 1), как у узкой колонки «Обычных». Иначе на
+     «крупнее» размере интерфейса Lampa (кегль .card ×1.14) зазор выходил
+     шире, и в полосе, где ширину задаёт место (rowFitCss), «Крупнее» было
+     на .06em уже «Обычных» (1920×969, средний кадр: 7.52 против 7.58em).
+     Ниже восьмой колонки «Обычных» это ограничение не опускает. */
   function rowNarrowBase(key) {
-    return round2(Math.min(ROW_CARD_NARROW * tileFactor(), rowCardBase(key)));
+    var t = tileFactor();
+    var w = Math.min(ROW_CARD_NARROW * t, rowCardBase(key));
+    if (t > 1) w = Math.max(ROW_CARD_NARROW, Math.min(w, ROW_CARD_W / cardK()));
+    return round2(w);
   }
 
   /* Правка 2026-09-26: «Размер плиток в рядах» (lumen_tile_size) — множитель
@@ -1359,9 +1370,25 @@
   var TILES = { small: 0.9, normal: 1, large: 1.1 };
   var TILE_DEFAULT = 'normal';
 
+  /* Ревью раунда главной (~85): ключ плиток, которым сборка таблицы
+     временно считает раскладку «Обычных» (withTile ниже) — ради порядка
+     «Мельче» ≤ «Обычные» ≤ «Крупнее» на каждом окне; null — настройка. */
+  var tileForced = null;
+
   function tileKey() {
+    if (tileForced) return tileForced;
     var key = LC.pref('lumen_tile_size', TILE_DEFAULT);
     return TILES[key] ? key : TILE_DEFAULT;
+  }
+
+  function withTile(key, fn) {
+    var was = tileForced;
+    tileForced = key;
+    try {
+      return fn();
+    } finally {
+      tileForced = was;
+    }
   }
 
   function tileFactor() {
@@ -1488,6 +1515,139 @@
     var scale = scaleFactor();
     while (scale > floor && rowNarrowBlockEm(key, scale) > availEm) scale = round2(scale - 0.01);
     return scale;
+  }
+
+  /* Раскладка ряда главной при текущем размере плиток: масштаб карточки
+     ряда, ширины широкой и узкой колонки, кегли подписей и заголовка ряда,
+     зазоры под шапкой и порог узкой колонки (в сотых отношения сторон).
+     Одним набором — ради ревью раунда главной (~85): сборка считает его и
+     для «Обычных» (withTile), чтобы «Мельче» и «Крупнее» не выходили за
+     них ни на одном окне. */
+  function rowGeometry(key) {
+    var s = rowScaleCap(key);
+    var w = round2(rowCardBase(key) * s);
+    var cap = round2(TV_MIN * s);
+    var title = round2(ROW_TITLE_EM * s);
+    var gap = rowHeadGap(s, w);
+    var nw = round2(rowNarrowBase(key) * s);
+    return {
+      scale: s,
+      cardW: w,
+      cap: cap,
+      title: title,
+      gap: gap,
+      narrowW: nw,
+      narrowGap: rowHeadGap(s, nw),
+      narrowRatio: rowNarrowRatio(key, rowBlockEm(w, title, gap, cap, rowCapAge(cap), rowCapFlow(false)))
+    };
+  }
+
+  /* Полосы, где ширину карточки ряда задаёт место (разбор — у правила в
+     buildCss, «ревью фикс-раунда (п.4)»): ширина calc(x vh − y em) в em
+     карточки, границы — в тысячных отношения сторон, обе включительные.
+     hero — с кадром героя (null, если полоса не начинается раньше порога
+     «кадра нет»); её верх — на тысячную раньше порога: ровно на пороге
+     (окно 2400×960 — 2.5:1, «мельче», компактный кадр) действовали бы сразу
+     ширина полосы героя и раскладка без кадра — карточка уже той, по
+     которой считан зазор правила кромки ветки «кадра нет», и следующий ряд
+     выглядывал на 16.6 px. off — без кадра, от порога «кадра нет» или
+     дальше. g — rowGeometry, narrowOn — пишется ли узкая колонка. */
+  function rowFitSpec(g, narrowOn, heroMin, fitTop) {
+    var w = narrowOn ? g.narrowW : g.cardW;
+    var gap = narrowOn ? g.narrowGap : g.gap;
+    var cap = narrowOn ? TV_MIN : g.cap;
+    /* Подписи под постером в em карточки; age — кегль строки «год · ★»
+       (ноль при живом кадре, п.C1 у правила .card__age). */
+    function band(tailVh, topEm, age, flow) {
+      var captions = CARD_VIEW_GAP + cap * CARD_TITLE_LH + CARD_AGE_GAP * age + age + (flow ? 0 : CARD_FOCUS_SHIFT * age);
+      return {
+        x: Math.floor(tailVh / POSTER_RATIO * 100) / 100,
+        y: Math.ceil(((topEm + g.title + gap + ROW_EDGE_AIR) / (POSTER_RATIO * cardK()) + captions / POSTER_RATIO) * 100) / 100
+      };
+    }
+    var hero = null;
+    var heroFrom = Math.floor(screenEm() * (100 - fitTop) * 10 / (ROWS_AIR + rowBlockEm(w, g.title, gap, cap, rowCapAge(cap), rowCapFlow(false)) + ROW_EDGE_AIR));
+    if (heroFrom < heroMin * 10) {
+      hero = band(100 - fitTop, ROWS_AIR, rowCapAge(cap), rowCapFlow(false));
+      hero.from = heroFrom;
+      hero.to = heroMin * 10 - 1;
+    }
+    var offTop = LAMPA_HEAD + LAMPA_ROW_PAD;
+    var off = band(100, offTop, cap);
+    off.from = Math.max(heroMin * 10, Math.floor(screenEm() * 1000 / (offTop + rowBlockEm(w, g.title, gap, cap, cap) + ROW_EDGE_AIR)));
+    return { hero: hero, off: off };
+  }
+
+  function rowFitWidth(f) {
+    var w = f.x + 'vh - ' + f.y + 'em';
+    return 'width:-webkit-calc(' + w + ');width:calc(' + w + ')';
+  }
+
+  function rowFitCss(f, lo, hi) {
+    return '@media screen and (min-aspect-ratio:' + lo + '/1000)' + (hi ? ' and (max-aspect-ratio:' + hi + '/1000)' : '') + '{' +
+      '.lumen-main .card{' + rowFitWidth(f) + '}}';
+  }
+
+  /* Раскладка ряда на отношении сторон r (тысячные) — та, что выберет
+     каскад из правил buildCss: полоса без кадра, полоса героя, узкая
+     колонка, база. lay — {g, narrowOn, narrowRatio, spec}. Отдаёт
+     {w — ширина в em карточки, key — какая из четырёх, cap и gap — кегль
+     подписей и зазор под шапкой, которые при этом действуют}. */
+  function rowLayoutAt(lay, r) {
+    var narrow = lay.narrowOn && r >= lay.narrowRatio * 10;
+    var out = {
+      key: narrow ? 'narrow' : 'base',
+      w: narrow ? lay.g.narrowW : lay.g.cardW,
+      cap: narrow ? TV_MIN : lay.g.cap,
+      gap: narrow ? lay.g.narrowGap : lay.g.gap,
+      fit: null
+    };
+    var f = null;
+    if (r >= lay.spec.off.from) { f = lay.spec.off; out.key = 'off'; }
+    else if (lay.spec.hero && r >= lay.spec.hero.from && r <= lay.spec.hero.to) { f = lay.spec.hero; out.key = 'hero'; }
+    if (f) {
+      out.fit = f;
+      out.w = f.x * screenEm() * 10 / (cardK() * r) - f.y;
+    }
+    return out;
+  }
+
+  /* Ревью раунда главной (~85): «Мельче» ≤ «Обычные» ≤ «Крупнее» на любом
+     окне. Каждый размер плиток — своя цепочка порогов (база, узкая
+     колонка, полосы места), и пороги у них разные: у «Крупнее» база шире
+     и место кончается раньше, у «Мельче» — позже. Где своя ширина выходит
+     не по ту сторону от «Обычных», ряд получает раскладку «Обычных» целиком
+     — ширину, кегль подписей и зазор под шапкой (заголовок ряда остаётся
+     своим: масштаб карточки у «Крупнее» не выше, у «Мельче» не ниже, чем у
+     «Обычных»). Она помещается там по построению — это их собственная
+     раскладка на этом окне. Полосы ищутся перебором отношений сторон с
+     шагом в тысячную от 1:1 до ROW_ORDER_MAX; полоса захватывает и первую
+     тысячную, где порядок уже восстановлен (равенство безопасно), — между
+     узлами перебора отношение сторон окна может оказаться дробным. */
+  var ROW_ORDER_MAX = 4000;
+
+  function rowTileOrderCss(own, normal, bigger) {
+    var out = [];
+    var run = null;
+    function close(hi) {
+      var s = run.at;
+      var width = s.fit ? rowFitWidth(s.fit) : 'width:' + s.w + 'em';
+      out.push('@media screen and (min-aspect-ratio:' + run.lo + '/1000)' + (hi ? ' and (max-aspect-ratio:' + hi + '/1000)' : '') + '{' +
+        '.lumen-main .card{' + width + '}' +
+        '.lumen-main .card__title{font-size:' + s.cap + 'em}' +
+        '.lumen-main .card__age{font-size:' + s.cap + 'em}' +
+        '.lumen-main .items-line__head{margin-bottom:' + s.gap + 'em}}');
+      run = null;
+    }
+    for (var r = 1000; r <= ROW_ORDER_MAX; r++) {
+      var mine = rowLayoutAt(own, r);
+      var theirs = rowLayoutAt(normal, r);
+      var bad = bigger ? theirs.w > mine.w + 0.001 : mine.w > theirs.w + 0.001;
+      if (run && (!bad || theirs.key !== run.at.key)) close(theirs.key === run.at.key ? r : r - 1);
+      if (bad && !run) run = { lo: r, at: theirs };
+    }
+    if (run) close(0);
+    return out;
   }
 
   /* Корни, на которые вешается коэффициент. Каждый из них — самостоятельный
@@ -4594,8 +4754,13 @@
        клеток не достаёт, и rowScale равен scale. Остальные экраны плагина
        (хаб, сетка, карточка, текст героя) масштабируются по-прежнему
        целиком — им высоту первого ряда главной не делить. */
-    var rowScale = rowScaleCap(heroSize);
-    var cardWEm = round2(rowCardBase(heroSize) * rowScale);
+    /* Ревью раунда главной (~85): числа ряда — одним набором (rowGeometry),
+       и тем же набором — раскладка «Обычных» для сверки порядка плиток
+       (правила rowTileOrder ниже). */
+    var rowGeo = rowGeometry(heroSize);
+    var rowGeoNormal = tileKey() === TILE_DEFAULT ? rowGeo : withTile(TILE_DEFAULT, function () { return rowGeometry(heroSize); });
+    var rowScale = rowGeo.scale;
+    var cardWEm = rowGeo.cardW;
     /* Task 63: обе подписи — по минимуму tvOS (TV_MIN, разбор у самой
        константы). Было .96em у названия и .88em у меты, то есть 21.9 и 20
        физических px при базе 22.811 — ниже порога Caption 2 (23 px), с
@@ -4613,10 +4778,10 @@
        со сжатием и только там, где строка «год · ★» и была (компактный
        кадр); без сжатия его нет ни у одного размера (rowCapFlow выше). */
     var liveShift = smallText && compactOn();
-    var rowTitleEm = round2(ROW_TITLE_EM * rowScale);
-    var rowHeadGapEm = rowHeadGap(rowScale, cardWEm);
-    var narrowWEm = round2(rowNarrowBase(heroSize) * rowScale);
-    var narrowGapEm = rowHeadGap(rowScale, narrowWEm);
+    var rowTitleEm = rowGeo.title;
+    var rowHeadGapEm = rowGeo.gap;
+    var narrowWEm = rowGeo.narrowW;
+    var narrowGapEm = rowGeo.narrowGap;
     css.push('.lumen-main .card{width:' + cardWEm + 'em}');
     /* Узкая колонка для низкого окна. Блок ряда растёт вместе с масштабом
        интерфейса, а место под него — нет (комментарий к HERO_VH выше), и на
@@ -4643,7 +4808,14 @@
        первое, что отдаётся, — ПРИБАВКА масштаба к подписям: 23 физических
        px они сохраняют при любой настройке. Постеры, заголовок ряда и всё
        остальное масштаб по-прежнему увеличивает. */
-    var narrowRatio = rowNarrowRatio(heroSize, rowBlockEm(cardWEm, rowTitleEm, rowHeadGapEm, cardTitleEm, rowCapAge(cardAgeEm), rowCapFlow(false)));
+    var narrowRatio = rowGeo.narrowRatio;
+    /* Ревью раунда главной (~85): у «Мельче» узкая колонка включается не
+       позже, чем у «Обычных». Иначе между двумя порогами «Обычные» уже на
+       восьмой колонке, а «Мельче» ещё на своей базовой — и крупнее их
+       (1840×960, крупный кадр, «мельче» интерфейс: 8.57 против 8.07em).
+       Узкая колонка «Мельче» уже узкой «Обычных» и помещается везде, где
+       помещается та. */
+    if (tileFactor() < 1 && rowGeoNormal.narrowRatio < narrowRatio) narrowRatio = rowGeoNormal.narrowRatio;
     var narrowCss = narrowRatio < Math.max(HERO_MIN_RATIO, textRatio(heroSize, textNeedEm(false)))
       ? '@media screen and (min-aspect-ratio:' + narrowRatio + '/100){' +
         '.lumen-main .card{width:' + narrowWEm + 'em}' +
@@ -4860,38 +5032,11 @@
        полоса начинается дальше 1.78, и его 72 клетки остаются прежними.
        Кегли подписей и заголовка ряда полоса не трогает — только ширину
        (а с ней постер): подписи и так стоят на минимуме tvOS. */
-    var fitW = narrowCss ? narrowWEm : cardWEm;
-    var fitGap = narrowCss ? narrowGapEm : rowHeadGapEm;
-    var fitCap = narrowCss ? TV_MIN : cardTitleEm;
-    var fitBlock = rowBlockEm(fitW, rowTitleEm, fitGap, fitCap, fitCap);
-    /* Подписи под постером в em карточки; age — кегль строки «год · ★» (ноль
-       при живом кадре, п.C1 у правила .card__age). */
-    var fitCaptions = function (age, flow) {
-      return CARD_VIEW_GAP + fitCap * CARD_TITLE_LH + CARD_AGE_GAP * age + age + (flow ? 0 : CARD_FOCUS_SHIFT * age);
-    };
-    var rowFitCss = function (sel, lo, hi, tailVh, topEm, age, flow) {
-      var x = Math.floor(tailVh / POSTER_RATIO * 100) / 100;
-      var y = Math.ceil(((topEm + rowTitleEm + fitGap + ROW_EDGE_AIR) / (POSTER_RATIO * cardK()) + fitCaptions(age, flow) / POSTER_RATIO) * 100) / 100;
-      var w = x + 'vh - ' + y + 'em';
-      return '@media screen and (min-aspect-ratio:' + lo + '/1000)' + (hi ? ' and (max-aspect-ratio:' + hi + '/1000)' : '') + '{' +
-        sel + ' .card{width:-webkit-calc(' + w + ');width:calc(' + w + ')}}';
-    };
-    var fitHeroFrom = Math.floor(screenEm() * (100 - rowsFitTop) * 10 / (ROWS_AIR + rowBlockEm(fitW, rowTitleEm, fitGap, fitCap, rowCapAge(fitCap), rowCapFlow(false)) + ROW_EDGE_AIR));
-    /* Верх полосы — на тысячную раньше порога «кадра нет». Обе границы
-       медиазапросов включительные, и ровно на пороге (окно 2400×960 — 2.5:1,
-       «мельче», компактный кадр) действовали бы сразу ширина полосы героя и
-       раскладка без кадра: карточка уже той, по которой считан зазор правила
-       кромки ветки «кадра нет», и следующий ряд выглядывал на 16.6 px.
-       Проявилось, когда раскладка ряда стала считаться от места покоя
-       (правка 2026-09-26): полоса героя дотянулась до порога. */
-    if (fitHeroFrom < heroMinRatio * 10) {
-      css.push(rowFitCss('.lumen-main', fitHeroFrom, heroMinRatio * 10 - 1, 100 - rowsFitTop, ROWS_AIR, rowCapAge(fitCap), rowCapFlow(false)));
-    }
-    var fitOff = function (sel, topEm) {
-      var from = Math.max(heroMinRatio * 10, Math.floor(screenEm() * 1000 / (topEm + fitBlock + ROW_EDGE_AIR)));
-      css.push(rowFitCss(sel, from, 0, 100, topEm, fitCap));
-    };
-    fitOff('.lumen-main', LAMPA_HEAD + LAMPA_ROW_PAD);
+    /* Числа полос — rowFitSpec (там же разбор верха полосы героя: на
+       тысячную раньше порога «кадра нет»). */
+    var fitSpec = rowFitSpec(rowGeo, !!narrowCss, heroMinRatio, rowsFitTop);
+    if (fitSpec.hero) css.push(rowFitCss(fitSpec.hero, fitSpec.hero.from, fitSpec.hero.to));
+    css.push(rowFitCss(fitSpec.off, fitSpec.off.from, 0));
     css.push('.lumen-main .items-line__title{font-family:' + FB + ';font-weight:700;font-size:' + rowTitleEm + 'em}');
     /* Вертикальный зазор между рядами — его НИЖНЯЯ граница, ROW_GAP
        (= LAMPA_ROW_PAD, разбор у константы). Apple HIG Layout → Grids просит
@@ -5019,6 +5164,20 @@
        правила шапки: специфичность у них одна, решает порядок. */
     if (narrowCss && narrowGapEm !== rowHeadGapEm) {
       css.push('@media screen and (min-aspect-ratio:' + narrowRatio + '/100){.lumen-main .items-line__head{margin-bottom:' + narrowGapEm + 'em}}');
+    }
+    /* Ревью раунда главной (~85): порядок размеров плиток на каждом окне
+       (разбор — у rowTileOrderCss). Пример дефекта: база «Крупнее» шире, и
+       его узкая колонка наступает раньше, чем у «Обычных», — на 1840×960,
+       1920×969 и 2560×1300 со средним кадром было 8.88 против 9.52em.
+       После всех правил ширины, подписей и зазора — специфичность та же,
+       решает порядок. */
+    if (rowGeoNormal !== rowGeo) {
+      var normalNarrowOn = rowGeoNormal.narrowRatio < Math.max(HERO_MIN_RATIO, textRatio(heroSize, textNeedEm(false)));
+      var tileOrder = rowTileOrderCss(
+        { g: rowGeo, narrowOn: !!narrowCss, narrowRatio: narrowRatio, spec: fitSpec },
+        { g: rowGeoNormal, narrowOn: normalNarrowOn, narrowRatio: rowGeoNormal.narrowRatio, spec: rowFitSpec(rowGeoNormal, normalNarrowOn, heroMinRatio, rowsFitTop) },
+        tileFactor() > 1);
+      for (var to = 0; to < tileOrder.length; to++) css.push(tileOrder[to]);
     }
     /* Правка 2026-09-23 (разбор композиции, п.1.5): штатная кнопка «Ещё» из
        ШАПКИ ряда убрана. Разбор предлагал увести её последней плиткой в
