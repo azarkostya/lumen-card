@@ -3097,9 +3097,13 @@ css.push('.lumen-main .lumen-advent-card--today.lumen-advent-card--final .card__
 
 
 
-css.push('.lumen-main .lumen-advent-card .lumen-badge{color:' + P.text + ';background:' + P.panel + '}');
-css.push('.lumen-main .lumen-advent-card--today .lumen-badge{color:' + t.onac + ';background:' + A + ';border-color:' + A + '}');
-css.push('.lumen-main .lumen-advent-card--today.lumen-advent-card--final .lumen-badge{color:' + P.dark + ';background:#E8C170;border-color:#E8C170}');
+
+
+
+
+css.push('.lumen-main .lumen-advent-card--today .card__age{font-weight:600;color:' + liftTo(A, P.soft, P.text) + '}');
+css.push('.lumen-main .lumen-advent-card--final .card__age{font-weight:600;color:#E8C170}');
+css.push('.lumen-main .lumen-advent-card .card__vote{display:none}');
 css.push('.lumen-main .card .lumen-advent__door--opening{-webkit-transform-origin:0 50%;transform-origin:0 50%}');
 css.push('body.lumen-motion-full .lumen-main .card .lumen-advent__door--opening{-webkit-animation:lumen-advent-open 1.5s ease-in-out .9s both;animation:lumen-advent-open 1.5s ease-in-out .9s both}');
 css.push('body.lumen-motion-lite .lumen-main .card .lumen-advent__door--opening{display:none}');
@@ -11622,6 +11626,25 @@ return '<div class="' + cls + '"><div class="lumen-advent__frame"></div>' + star
 
 
 
+
+
+
+
+function adventCaption(node, label) {
+var age = node.querySelector('.card__age');
+if (!age && typeof document !== 'undefined' && document.createElement && typeof node.appendChild === 'function') {
+age = document.createElement('div');
+age.className = 'card__age';
+node.appendChild(age);
+}
+if (!age) return;
+age.textContent = label;
+}
+
+
+
+
+
 function adventCreate() {
 try {
 var info = this.data && this.data.lumen_advent;
@@ -11631,6 +11654,7 @@ node.classList.add('lumen-advent-card');
 node.classList.add('lumen-advent-card--' + info.state);
 if (info.final) node.classList.add('lumen-advent-card--final');
 if (info.fresh) node.classList.add('lumen-advent-card--fresh');
+if (info.label) adventCaption(node, info.label);
 if (info.state === 'open' || (info.state === 'today' && !info.fresh)) return;
 var view = node.querySelector('.card__view');
 if (view) view.insertAdjacentHTML('beforeend', doorHtml(info));
@@ -24415,8 +24439,11 @@ copy.day = day;
 
 
 
-copy.lumen_badge = state === 'today' ? todayWord : dayWord + ' ' + day;
-copy.lumen_advent = { day: day, state: state };
+
+
+
+
+copy.lumen_advent = { day: day, state: state, label: state === 'today' ? todayWord : dayWord + ' ' + day };
 if (extra && extra.fresh) copy.lumen_advent.fresh = true;
 if (day === ADVENT_DAYS) copy.lumen_advent.final = true;
 return copy;
@@ -33339,6 +33366,10 @@ if (!el || el.lumen_badged) return;
 var data = card || el.card_data;
 if (!data) return;
 el.lumen_badged = true;
+
+
+
+if (data.lumen_advent) return;
 var ctx = shared || batch();
 var badge = badgeFor(data, ctx.today, { progress: progressOf, left: leftOf, words: ctx.words });
 var view = $(el).find('.card__view');

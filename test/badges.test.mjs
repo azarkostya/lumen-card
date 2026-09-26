@@ -250,6 +250,27 @@ test('decorate: метка попадает внутрь .card__view один р
   assert.equal(card.lumen_badged, true);
 });
 
+/* Раунд C, C1: окошко адвента — постер чистый, подпись своя (метка дня,
+   src/44_rows.js). Новинка в окошке не получает плашки «Новинка», а её
+   подпись — рейтинга. */
+test('C1: окошко адвента — ни метки на постере, ни рейтинга в подписи', () => {
+  const { api } = runtime();
+  const card = makeCard({ release_date: '2026-12-17', vote_average: 7.4, lumen_advent: { day: 3, state: 'open', label: 'День 3' } }, 'День 3');
+  const plain = makeCard({ release_date: '2026-12-17', vote_average: 7.4 });
+  globalThis.window = { Lampa: {} };
+  try {
+    api.decorate(card, null, null);
+    api.decorate(plain, null, null);
+  } finally {
+    delete globalThis.window;
+  }
+  assert.equal(card._children[0]._children.length, 0, 'на постере окошка ничего нет');
+  assert.equal(card._children[1].text(), 'День 3', 'подпись — метка дня, без « · ★ »');
+  assert.equal(card.lumen_badged, true, 'повторный проход окошко не трогает');
+  assert.equal(plain._children[0]._children.length, 1, 'предусловие: обычной новинке метка есть');
+  assert.equal(plain._children[1].text(), '2017 · ★ 7.4');
+});
+
 test('decorate: без метки узел не создаётся вовсе', () => {
   const { api } = runtime();
   const card = makeCard({ release_date: '2000-01-01' });

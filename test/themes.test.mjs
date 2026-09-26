@@ -144,13 +144,15 @@ test('holB адвент: 31 окошко — прошедшие открыты, 
   assert.ok(st.slice(15).every((s) => s === 'locked'), 'дни 16–31 закрыты');
   const open = cards.slice(0, 15);
   assert.equal(new Set(open.map((c) => c.id)).size, 15, 'фильмы без повторов');
-  assert.equal(cards[0].lumen_badge, 'День 1');
-  assert.equal(cards[14].lumen_badge, 'Сегодня', 'одно слово — «Сегодня · день 15» рвалось на постере надвое');
+  assert.equal(cards[0].lumen_advent.label, 'День 1');
+  assert.equal(cards[14].lumen_advent.label, 'Сегодня', 'одно слово — «Сегодня · день 15» рвалось надвое');
+  /* Раунд C, C1: метка — подписью под плиткой, не плашкой на постере. */
+  assert.ok(cards.every((c) => c.lumen_badge === undefined), 'у окошка нет метки на постере (lumen_badge)');
   const locked = cards[20];
   assert.equal(locked.id, undefined, 'у закрытого окошка нет фильма');
   assert.equal(locked.poster_path, undefined);
   assert.equal(locked.title, '21 декабря');
-  assert.equal(locked.lumen_badge, undefined);
+  assert.equal(locked.lumen_advent.label, undefined, 'у закрытого окошка метки дня нет — подпись дата');
   assert.equal(cards[30].lumen_advent.final, true, '31-е — особая плитка и закрытым');
   assert.ok(!cards[29].lumen_advent.final);
 });
@@ -197,7 +199,7 @@ test('holB адвент: «Ирония судьбы» — только в ок�
   assert.equal(last.id, 43430);
   assert.equal(last.lumen_advent.state, 'today');
   assert.equal(last.lumen_advent.final, true);
-  assert.equal(last.lumen_badge, 'Сегодня');
+  assert.equal(last.lumen_advent.label, 'Сегодня');
   assert.equal(T.ADVENT_FINAL_ID, 43430);
   /* Отдельно запрошенная карточка (в пулах её нет) — тоже 31-го. */
   const alone = T.adventDays({ world: pool(100, 40), final: IRONY }, dec(31), words);

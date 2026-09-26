@@ -912,10 +912,29 @@
         '<div class="lumen-advent__mon">' + month + '</div>' + note + lock + '</div>';
     }
 
+    /* Раунд C, C1: метка окошка («День 12», «Сегодня» — info.label,
+       LC.themes.adventCard) — в подписи под плиткой, на месте строки «год ·
+       ★»: плашкой на постере она закрывала название фильма на нём самом
+       («Сегодня» на «Иронии судьбы»). Строку «год» Lampa убирает у фильма
+       без даты (модуль Release, app.min.js:21027-21041) — тогда узел
+       подписи создаётся заново, в конце карточки, как в шаблоне Lampa.
+       Цвет — src/30_css.js («Сегодня» акцентом, 31-е золотом); метки на
+       постере и рейтинга в подписи у окошка нет (src/62_badges.js). */
+    function adventCaption(node, label) {
+      var age = node.querySelector('.card__age');
+      if (!age && typeof document !== 'undefined' && document.createElement && typeof node.appendChild === 'function') {
+        age = document.createElement('div');
+        age.className = 'card__age';
+        node.appendChild(age);
+      }
+      if (!age) return;
+      age.textContent = label;
+    }
+
     /* onCreate карточки окошка (Emit Lampa: this — сама карточка, html —
-       её узел): классы состояния и дверца. Зовётся ПОСЛЕ модулей карточки
-       Lampa — params.emit ставится в конец их списка (Utils.createInstance,
-       app.min.js:4705-4723). */
+       её узел): классы состояния, подпись и дверца. Зовётся ПОСЛЕ модулей
+       карточки Lampa — params.emit ставится в конец их списка
+       (Utils.createInstance, app.min.js:4705-4723). */
     function adventCreate() {
       try {
         var info = this.data && this.data.lumen_advent;
@@ -925,6 +944,7 @@
         node.classList.add('lumen-advent-card--' + info.state);
         if (info.final) node.classList.add('lumen-advent-card--final');
         if (info.fresh) node.classList.add('lumen-advent-card--fresh');
+        if (info.label) adventCaption(node, info.label);
         if (info.state === 'open' || (info.state === 'today' && !info.fresh)) return;
         var view = node.querySelector('.card__view');
         if (view) view.insertAdjacentHTML('beforeend', doorHtml(info));

@@ -395,12 +395,15 @@
       var dayWord = (words && words.day) || 'День';
       var todayWord = (words && words.today) || 'Сегодня';
       copy.day = day;
-      /* Метка сегодняшнего — одно «Сегодня»: «Сегодня · день 15» на
-         постере ряда не помещалась в строку и рвалась надвое (стенд
-         960×540@2); число дня видно и так — соседи «День 14» и дверцы
-         «16 декабря». */
-      copy.lumen_badge = state === 'today' ? todayWord : dayWord + ' ' + day;
-      copy.lumen_advent = { day: day, state: state };
+      /* Метка сегодняшнего — одно «Сегодня»: «Сегодня · день 15» не
+         помещалась в строку и рвалась надвое (стенд 960×540@2); число дня
+         видно и так — соседи «День 14» и дверцы «16 декабря».
+         Раунд C, C1: метка — в подписи под плиткой вместо «год · ★»
+         (label, рисует src/44_rows.js, adventCreate), а не плашкой на
+         постере (lumen_badge): плашка закрывала название фильма на самом
+         постере — «Сегодня» на «Иронии судьбы», «День 29» на «Один дома»,
+         «День 13» на «Маленьких женщинах» (e2e 2026-09-26). */
+      copy.lumen_advent = { day: day, state: state, label: state === 'today' ? todayWord : dayWord + ' ' + day };
       if (extra && extra.fresh) copy.lumen_advent.fresh = true;
       if (day === ADVENT_DAYS) copy.lumen_advent.final = true;
       return copy;

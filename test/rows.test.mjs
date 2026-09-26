@@ -600,8 +600,8 @@ test('адвент: пять запросов, один ответ Lampa — 31 
   var cards = got[0].results;
   assert.equal(cards.length, 31, 'все 31 окошко видны');
   assert.deepEqual(cards.slice(0, 3).map(function (c) { return c.lumen_advent.state; }), ['open', 'open', 'today']);
-  assert.equal(cards[2].lumen_badge, 'Сегодня');
-  assert.equal(cards[0].lumen_badge, 'День 1');
+  assert.equal(cards[2].lumen_advent.label, 'Сегодня');
+  assert.equal(cards[0].lumen_advent.label, 'День 1');
   assert.ok(cards.slice(3).every(function (c) { return c.lumen_advent.state === 'locked' && c.id == null; }));
   assert.equal(cards[3].title, '4 декабря');
   assert.equal(got[0].lumen_keep, true, 'из-под порога длины выведен');
@@ -638,9 +638,10 @@ test('адвент: ряд ставит фокус на сегодняшнее �
     var classes = [];
     var html = [];
     var view = { insertAdjacentHTML: function (where, h) { html.push(h); } };
+    var age = { textContent: '2019' };
     return {
-      data: data, classes: classes, html: html,
-      node: { classList: { add: function (c) { classes.push(c); } }, querySelector: function (q) { return q === '.card__view' ? view : null; } }
+      data: data, classes: classes, html: html, age: age,
+      node: { classList: { add: function (c) { classes.push(c); } }, querySelector: function (q) { return q === '.card__view' ? view : (q === '.card__age' ? age : null); } }
     };
   }
   var locked = fakeCard(cards[20]);
@@ -661,6 +662,35 @@ test('адвент: ряд ставит фокус на сегодняшнее �
   var past = fakeCard(cards[0]);
   cards[0].params.emit.onCreate.call({ data: past.data, html: past.node });
   assert.equal(past.html.length, 0, 'у открытого окошка дверцы нет — постер');
+  /* Раунд C, C1: метка дня — в подписи вместо года, постер чистый. */
+  assert.equal(past.age.textContent, 'День 1', 'подпись прошедшего окошка — «День N»');
+  assert.equal(today.age.textContent, 'Сегодня', 'подпись сегодняшнего — «Сегодня»');
+  assert.equal(locked.age.textContent, '2019', 'закрытое окошко подпись не трогает — фильма там нет');
+});
+
+/* Раунд C, C1: фильм без даты — узел подписи Lampa убрала (Release), метка
+   дня встаёт в новый узел в конце карточки. */
+test('C1 адвент: у фильма без года подпись создаётся заново — метка дня не теряется', function () {
+  var s = setupRows({ manifest: XMAS_MANIFEST, now: new Date(2026, 11, 12) });
+  var got = adventPayload(s);
+  answerAdvent(s);
+  var card = got[0].results[4];
+  var added = [];
+  var prevDoc = globalThis.document;
+  globalThis.document = { createElement: function (tag) { return { tag: tag, className: '', textContent: '' }; } };
+  try {
+    var node = {
+      classList: { add: function () {} },
+      querySelector: function () { return null; },
+      appendChild: function (n) { added.push(n); }
+    };
+    card.params.emit.onCreate.call({ data: card, html: node });
+  } finally {
+    globalThis.document = prevDoc;
+  }
+  assert.equal(added.length, 1);
+  assert.equal(added[0].className, 'card__age');
+  assert.equal(added[0].textContent, 'День 5');
 });
 
 test('адвент: открытые окошки запоминаются — назавтра те же фильмы у прошедших дней, сегодняшнее не «свежее» повторно', function () {
@@ -688,7 +718,7 @@ test('адвент: 31 декабря — «Ирония судьбы» из «�
   var last = got[0].results[30];
   assert.equal(last.id, 43430);
   assert.equal(last.lumen_advent.final, true);
-  assert.equal(last.lumen_badge, 'Сегодня');
+  assert.equal(last.lumen_advent.label, 'Сегодня');
   assert.equal(s.tmdbCalls.length, 0);
 });
 

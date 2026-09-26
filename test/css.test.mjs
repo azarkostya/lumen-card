@@ -8395,62 +8395,32 @@ test('holB: фон праздничного Хэллоуина — по клас
   assert.ok(!/filter|box-shadow|animation/.test(mist));
 });
 
-/* Следующий раунд, п.2: метка окошка адвента («День 12», «Сегодня») лежала
-   на общей подложке меток рядов — P.chipBg, то есть светлой вуали
-   rgba(текст, .12): на светлом постере это рамка без фона поверх его
-   названия (снимок holB-shots/advent_d15_stalo.png, «День 13» поверх
-   «Маленьких женщин»). Метке окошка — плотная подложка: прошедшим дням —
-   сплошная тёмная карта, сегодняшнему — акцент, как у «Новинки», и в тон
-   контура окошка; 31-му — золото его плитки. Узел — сам .lumen-badge в
-   .card__view окошка, модель каскада — по цепочке предков. */
-function badgeCascade(cardClasses, prop) {
-  const chain = [['lumen-main'], ['card'].concat(cardClasses), ['card__view']];
-  const leaf = ['lumen-badge', 'lumen-badge--custom'];
-  const rules = [];
-  const all = ruleBodies(css);
-  for (let i = 0; i < all.length; i++) {
-    for (const sel of all[i].selectors) {
-      const parts = sel.split(/\s+/).map(compound);
-      if (parts.some((p) => !p) || !compoundMatches(parts[parts.length - 1], leaf)) continue;
-      let at = chain.length - 1;
-      let ok = true;
-      for (let k = parts.length - 2; k >= 0 && ok; k--) {
-        while (at >= 0 && !compoundMatches(parts[k], chain[at])) at--;
-        if (at < 0) ok = false; else at--;
-      }
-      if (!ok) continue;
-      rules.push({ order: i, spec: classCount(sel), decl: all[i].decl, sel: sel });
-      break;
-    }
-  }
-  return cascade(rules, prop);
-}
-
-test('следующий раунд, п.2: метка окошка адвента — на плотной подложке, «Сегодня» — акцентом, как «Новинка»', () => {
-  const fresh = findDecl(css, (sel) => sel === '.lumen-main .lumen-badge');
+/* Раунд C, C1: метка окошка адвента («День 12», «Сегодня») — в подписи под
+   плиткой, на месте «год · ★» (src/44_rows.js, adventCaption). Плашкой на
+   постере — даже на плотной подложке следующего раунда, п.2 — она закрывала
+   название фильма на самом постере («Сегодня» на «Иронии судьбы», e2e
+   2026-09-26). Сегодняшнее — акцентом, поднятым до яркости подписи (как
+   метка «в подписи»), 31-е — золотом контура своей плитки. */
+test('C1: метка окошка адвента — в подписи: «Сегодня» акцентом, 31-е золотом; на постере окошка плашек нет', () => {
+  const onPoster = ruleBodies(css).filter((r) => r.selectors.some((sel) => /lumen-advent-card[^ ]* \.lumen-badge/.test(sel)));
+  assert.deepEqual(onPoster.map((r) => r.selectors.join(',')), [], 'правил плашки окошка на постере нет');
+  const base = findDecl(css, (sel) => sel === '.lumen-main .card__age');
+  const today = findDecl(css, (sel) => sel === '.lumen-main .lumen-advent-card--today .card__age');
+  const eve = findDecl(css, (sel) => sel === '.lumen-main .lumen-advent-card--final .card__age');
   const ring = findDecl(css, (sel) => sel === '.lumen-main .lumen-advent-card--today.lumen-advent-card--final .card__view');
-
-  const past = badgeCascade(['lumen-advent-card', 'lumen-advent-card--open'], 'background');
-  assert.ok(/^#[0-9A-Fa-f]{6}$/.test(past.value), '«День N» — сплошная подложка, без прозрачности: ' + past.value + ' (' + past.sel + ')');
-  assert.equal(badgeCascade(['lumen-advent-card', 'lumen-advent-card--open'], 'color').value,
-    declProp(findDecl(css, (sel) => sel === '.lumen-main .lumen-badge--custom'), 'color'), 'текст — светлый, как у меток рядов');
-
-  const today = badgeCascade(['lumen-advent-card', 'lumen-advent-card--today'], 'background');
-  assert.equal(today.value, declProp(fresh, 'background'), '«Сегодня» — акцентом, как «Новинка»');
-  assert.equal(badgeCascade(['lumen-advent-card', 'lumen-advent-card--today'], 'color').value, declProp(fresh, 'color'));
-
-  const eve = badgeCascade(['lumen-advent-card', 'lumen-advent-card--today', 'lumen-advent-card--final'], 'background');
-  assert.equal(eve.value, declProp(ring, 'outline-color'), '31-е — золото контура плитки');
-
-  const other = badgeCascade([], 'background');
-  assert.equal(other.value, declProp(findDecl(css, (sel) => sel === '.lumen-main .lumen-badge--custom'), 'background'),
-    'метки других рядов («Новая серия») правило окошка не задевает');
-
-  const own = ruleBodies(css).filter((r) => r.selectors.some((s) => /lumen-advent-card[^ ]* \.lumen-badge$/.test(s)));
-  assert.ok(own.length >= 3, 'правила метки окошка: ' + own.length);
-  for (const r of own) {
-    assert.ok(!/(?:^|;)(width|height|margin|padding|font-size|top|left)(?:-[a-z]+)?:/.test(r.decl), 'метка окошка — только цвет, размеры общие: ' + r.decl);
+  assert.ok(today && eve, 'правила подписи окошка');
+  assert.notEqual(declProp(today, 'color'), declProp(base, 'color'), '«Сегодня» — не цветом подписи');
+  assert.equal(declProp(today, 'font-weight'), '600');
+  assert.ok(luminance(declProp(today, 'color')) >= luminance(declProp(base, 'color')) - 1e-9,
+    '«Сегодня» не темнее подписи — сторож читаемости на цвете рядов тот же (P.soft)');
+  assert.equal(declProp(eve, 'color').toUpperCase(), declProp(ring, 'outline-color').toUpperCase(), '31-е — золото контура плитки');
+  assert.ok(css.indexOf('.lumen-main .lumen-advent-card--final .card__age{') > css.indexOf('.lumen-main .lumen-advent-card--today .card__age{'),
+    'специфичность равная — золото 31-го стоит после акцента сегодняшнего');
+  for (const d of [today, eve]) {
+    assert.ok(!/(?:^|;)(width|height|margin|padding|font-size|line-height|top|left)(?:-[a-z]+)?:/.test(d), 'только цвет и вес — строка общая с подписью: ' + d);
   }
+  const vote = findDecl(css, (sel) => sel === '.lumen-main .lumen-advent-card .card__vote');
+  assert.ok(vote && /display:none/.test(vote), 'плашка рейтинга Lampa на постере окошка спрятана и при выключенных метках');
 });
 
 /* Следующий раунд, п.5: цвет фильма ставится в тот же тик, что его кадр

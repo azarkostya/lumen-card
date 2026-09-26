@@ -370,6 +370,10 @@
         var data = card || el.card_data;
         if (!data) return;
         el.lumen_badged = true;
+        /* Раунд C, C1: окошко адвента — постер чистый, а подпись своя: метка
+           дня вместо «год · ★» (src/44_rows.js, adventCaption). Ни плашки
+           («Новинка», прогресс) на постере, ни рейтинга в подписи. */
+        if (data.lumen_advent) return;
         var ctx = shared || batch();
         var badge = badgeFor(data, ctx.today, { progress: progressOf, left: leftOf, words: ctx.words });
         var view = $(el).find('.card__view');
