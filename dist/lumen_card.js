@@ -43110,8 +43110,16 @@ html.html('<div class="lumen-descr-modal__text">' + LC.util.esc(text) + '</div>'
 
 
 
+
+
+
+
+
+
+
+
 Lampa.Modal.open({
-title: '',
+title: title ? ' ' : '',
 html: html,
 size: 'medium',
 onBack: function () {

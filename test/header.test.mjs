@@ -1547,7 +1547,7 @@ test('Фикс Task 59: OK на описании открывает модал �
     LC.header.descr(d.row, OVERVIEW);
     fire(d.descr, 'hover:enter', d.text);
     assert.equal(log.opened.length, 1, 'модал не открылся');
-    assert.equal(log.opened[0].title, '', 'в шаблон модала название не идёт (SEC-1)');
+    assert.equal(log.opened[0].title, ' ', 'в шаблон модала название не идёт (SEC-1) — только заглушка шапки (C7)');
     assert.deepEqual(log.titles, ['Дюна: Часть вторая'], 'в шапке окна — название фильма, текстом через Modal.title');
     assert.ok(log.opened[0].html.html().indexOf('фрименами') !== -1, 'в окне — полный текст описания');
   } finally {
@@ -1566,8 +1566,31 @@ test('SEC-1: название с разметкой уходит в Modal.title 
     LC.header.descr(d.row, { movie: Object.assign({}, OVERVIEW.movie, { title: evil }) });
     fire(d.descr, 'hover:enter', d.text);
     assert.equal(log.opened.length, 1);
-    assert.equal(log.opened[0].title, '');
+    assert.equal(log.opened[0].title, ' ', 'в шаблоне — только заглушка шапки');
     assert.deepEqual(log.titles, [evil], 'строка не экранирована: .text() покажет её буквально, как есть');
+  } finally {
+    log.restore();
+  }
+});
+
+/* Раунд C, C7 (ревью rv3): пустой заголовок в Modal.open — Lampa считает
+   высоту окна без шапки (modal--empty-title), а Modal.title шапку потом
+   показывает: длинный текст уходил за нижний край. Заглушка — неразрывный
+   пробел (обычный даёт шапке неполную строку: стенд 960×540@2 — низ окна
+   518.6 px против 502.6 с NBSP и с самим названием). Без названия шапки нет. */
+test('C7: модал описания открывается с непустой заглушкой шапки (NBSP), без названия — без шапки', () => {
+  const d = makeDescrRow();
+  const log = modalLog();
+  try {
+    LC.header.descr(d.row, OVERVIEW);
+    fire(d.descr, 'hover:enter', d.text);
+    const tit = log.opened[0].title;
+    assert.ok(tit && !tit.trim() && tit !== ' ', 'заглушка — NBSP, не пусто и не обычный пробел: ' + JSON.stringify(tit));
+    const d2 = makeDescrRow();
+    LC.header.descr(d2.row, { movie: Object.assign({}, OVERVIEW.movie, { id: 8, title: '', name: '' }) });
+    fire(d2.descr, 'hover:enter', d2.text);
+    assert.equal(log.opened[1].title, '', 'без названия — шапки нет вовсе');
+    assert.deepEqual(log.titles, ['Дюна: Часть вторая'], 'Modal.title — только с названием');
   } finally {
     log.restore();
   }
