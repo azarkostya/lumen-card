@@ -3029,6 +3029,56 @@ css.push('.lumen-backdrop.lumen-theme--halloween .lumen-fx.lumen-fx--scene,.lume
 
 
 
+
+
+
+
+
+
+
+
+var ADV_DOT = function (x, y, a) {
+return 'radial-gradient(circle at ' + x + '% ' + y + '%,rgba(255,255,255,' + a + ') 0,rgba(255,255,255,' + a + ') .05em,rgba(255,255,255,0) .1em)';
+};
+var ADV_SNOW = [ADV_DOT(16, 12, 0.6), ADV_DOT(78, 9, 0.45), ADV_DOT(58, 22, 0.35), ADV_DOT(24, 44, 0.3),
+ADV_DOT(86, 38, 0.5), ADV_DOT(12, 76, 0.4), ADV_DOT(70, 84, 0.35), ADV_DOT(44, 92, 0.3)].join(',');
+css.push('.lumen-main .card .lumen-advent__door{position:absolute;top:0;left:0;right:0;bottom:0;border-radius:.31em;overflow:hidden;text-align:center;pointer-events:none;' +
+'background:' + ADV_SNOW + ',linear-gradient(162deg,#24335e 0%,#161b33 52%,#2c1735 100%)}');
+css.push('.lumen-main .card .lumen-advent__frame{position:absolute;top:.42em;left:.42em;right:.42em;bottom:.42em;border:.07em dashed rgba(255,255,255,.32);border-radius:.2em}');
+css.push('.lumen-main .card .lumen-advent__num{position:absolute;left:0;right:0;top:24%;font-family:' + FB + ';font-weight:700;font-size:3.4em;line-height:1;letter-spacing:-.02em;color:rgba(255,255,255,.95)}');
+css.push('.lumen-main .card .lumen-advent__mon{position:absolute;left:0;right:0;top:56%;font-family:' + FB + ';font-weight:600;font-size:1.01em;line-height:1;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.66)}');
+css.push('.lumen-main .card .lumen-advent__lock{position:absolute;left:50%;bottom:7%;width:1.4em;height:1.4em;margin-left:-.7em;color:rgba(255,255,255,.55)}');
+css.push('.lumen-main .card .lumen-advent__star{position:absolute;left:50%;top:7%;width:1.5em;height:1.5em;margin-left:-.75em;color:#F1CF84}');
+css.push('.lumen-main .card .lumen-advent__note{position:absolute;left:.55em;right:.55em;bottom:19%;font-family:' + FB + ';font-weight:700;font-size:1.01em;line-height:1.15;color:#F1CF84}');
+css.push('.lumen-main .card.lumen-advent-card--final .lumen-advent__door{background:' + ADV_SNOW + ',linear-gradient(162deg,#5e1d33 0%,#2b0f22 55%,#3f2712 100%)}');
+css.push('.lumen-main .card.lumen-advent-card--final .lumen-advent__frame{border:.08em solid rgba(232,193,112,.8)}');
+css.push('.lumen-main .card.lumen-advent-card--final .lumen-advent__num{top:20%;color:#F1CF84}');
+css.push('.lumen-main .card.lumen-advent-card--final .lumen-advent__mon{top:48%;color:rgba(241,207,132,.8)}');
+
+
+css.push('.lumen-main .card.lumen-advent-card--empty .lumen-advent__door{opacity:.55}');
+css.push('.lumen-main .lumen-advent-card--today .card__view{outline:.13em solid ' + A + ';outline-offset:.08em}');
+
+css.push('.lumen-main .lumen-advent-card--today.lumen-advent-card--final .card__view{outline-color:#E8C170}');
+css.push('.lumen-main .card .lumen-advent__door--opening{-webkit-transform-origin:0 50%;transform-origin:0 50%}');
+css.push('body.lumen-motion-full .lumen-main .card .lumen-advent__door--opening{-webkit-animation:lumen-advent-open 1.5s ease-in-out .9s both;animation:lumen-advent-open 1.5s ease-in-out .9s both}');
+css.push('body.lumen-motion-lite .lumen-main .card .lumen-advent__door--opening{display:none}');
+css.push('body.lumen-motion-off .lumen-main .card .lumen-advent__door--opening{display:none}');
+css.push('@-webkit-keyframes lumen-advent-open{0%{-webkit-transform:perspective(30em) rotateY(0);opacity:1}75%{-webkit-transform:perspective(30em) rotateY(-96deg);opacity:1}100%{-webkit-transform:perspective(30em) rotateY(-110deg);opacity:0}}');
+css.push('@keyframes lumen-advent-open{0%{transform:perspective(30em) rotateY(0);opacity:1}75%{transform:perspective(30em) rotateY(-96deg);opacity:1}100%{transform:perspective(30em) rotateY(-110deg);opacity:0}}');
+
+
+
+
+
+css.push('.lumen-hero .lumen-fx.lumen-fx--halloween{background-image:' +
+'radial-gradient(ellipse 38% 18% at 78% 100%,rgba(' + MIST + ',.3) 0%,rgba(' + MIST + ',.12) 55%,rgba(' + MIST + ',0) 100%),' +
+'radial-gradient(ellipse 32% 13% at 46% 102%,rgba(' + MIST + ',.2) 0%,rgba(' + MIST + ',.07) 55%,rgba(' + MIST + ',0) 100%),' +
+'radial-gradient(ellipse 26% 10% at 12% 103%,rgba(' + MIST + ',.07) 0%,rgba(' + MIST + ',0) 100%),' +
+'linear-gradient(0deg,rgba(224,123,44,.26) 0%,rgba(224,123,44,.09) 16%,rgba(224,123,44,0) 38%)}');
+
+
+
 css.push('.lumen-backdrop.lumen-trailer-live .lumen-backdrop__veil{opacity:.45}');
 css.push('.lumen-backdrop__veil{position:absolute;top:0;left:0;right:0;bottom:0;-webkit-transition:opacity 1s ease;transition:opacity 1s ease}');
 css.push('.lumen-backdrop__veil--l{background:linear-gradient(90deg,rgba(' + P.bgRgb + ',0.96) 0%,rgba(' + P.bgRgb + ',0.88) 30%,rgba(' + P.bgRgb + ',0.35) 58%,rgba(' + P.bgRgb + ',0) 82%)}');
@@ -8593,6 +8643,70 @@ sources: { movie: { type: 'discover', params: { genres: 10752, keywords: 1956, s
 id: 'love-feb', title: 'Кино о любви', i18n: { en: 'Love Stories', uk: 'Кіно про кохання' }, group: 'theme', icon: 'star', season: [2], cover: '/xnHVX37XZEp33hhCbYlQFq7ux1J.jpg',
 sources: { movie: { type: 'discover', params: { genres: '10749,18', sort_by: 'popularity.desc', filter: { without_genres: '99,16,27', 'vote_count.gte': 500 } } } }
 },
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+{
+id: 'winter-movies', title: 'Зимнее кино', i18n: { en: 'Winter Films', uk: 'Зимове кіно' }, group: 'theme', icon: 'star', season: [1, 2], cover: '/tuDhEdza074bA497bO9WFEPs6O6.jpg',
+sources: { movie: { type: 'discover', params: { keywords: '1442|10794|3373', genres: '35|10751|10749|14|16|12', sort_by: 'popularity.desc', filter: { without_genres: '27,53,80,10752,37,878', without_keywords: '207317', 'vote_count.gte': 150 } } } }
+},
+{
+id: 'space-race', title: 'Покорители космоса', i18n: { en: 'Space Pioneers', uk: 'Підкорювачі космосу' }, group: 'theme', icon: 'star', season: [4], cover: '/t4YhlPbrloOjukZLKol9dhfDyxS.jpg',
+sources: { movie: { type: 'discover', params: { keywords: '198136|229169|306201|156836|7422|226233', sort_by: 'popularity.desc', filter: { without_genres: '27,99', 'vote_count.gte': 15 } } } }
+},
+{
+id: 'summer-movies', title: 'Летнее кино', i18n: { en: 'Summer Films', uk: 'Літнє кіно' }, group: 'theme', icon: 'star', season: [6, 7, 8], cover: '/y3zUOMWRoI2vC4ck2GBJyFWhzyA.jpg',
+sources: { movie: { type: 'discover', params: { keywords: '13088|14714|5767', genres: '35|10751|16|12', sort_by: 'popularity.desc', filter: { without_genres: '27,53,80,18', certification_country: 'US', 'certification.lte': 'PG-13', 'vote_count.gte': 150 } } } }
+},
+{
+id: 'soviet-cartoons', title: 'Советские мультфильмы', i18n: { en: 'Soviet Animation', uk: 'Радянські мультфільми' }, group: 'theme', icon: 'star', season: [6], cover: '/xvk0mFGUojrTiiTo0iutGW5Xd1n.jpg',
+sources: { movie: { type: 'discover', params: { genres: 16, orig_lang: 'ru', sort_by: 'vote_count.desc', filter: { 'primary_release_date.lte': '1991-12-31', 'vote_count.gte': 20 } } } }
+},
+{
+id: 'school-years', title: 'Школьные годы', i18n: { en: 'School Years', uk: 'Шкільні роки' }, group: 'theme', icon: 'star', season: [9], cover: '/jehzP4JKiFzgTWIaASLFOJocJke.jpg',
+sources: { movie: { type: 'discover', params: { keywords: '6270|173642', sort_by: 'popularity.desc', filter: { without_genres: '27,53,14,878,28', certification_country: 'US', 'certification.lte': 'PG-13', 'vote_count.gte': 400 } } } }
+},
 {
 id: 'musical', title: 'Мюзиклы', group: 'theme', cover: '/zpq404Sk7qQ7N4x3xOeNgp74GtU.jpg',
 sources: { movie: { type: 'discover', params: { keywords: 4344, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 100 } } } }
@@ -9026,6 +9140,12 @@ sources: { movie: { type: 'kp', collection: 'OSKAR_WINNERS_2021' } }
 }
 
 ],
+
+
+
+
+
+
 
 
 
@@ -11216,8 +11336,31 @@ _mainOriginal = null;
 
 
 
-var ADVENT_IDS = ['xmas-comedy', 'christmas'];
-var ADVENT_PAGES = 2;
+
+
+
+
+
+
+
+
+
+
+
+
+
+var ADVENT_SPECS = [
+{ id: 'new-year', pages: 1, ours: true },
+{ id: 'xmas-comedy', pages: 2 },
+{ id: 'christmas', pages: 2 }
+];
+var ADVENT_KEY = 'lumen_advent_open';
+
+
+var ADVENT_BLANK = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+
+var ADVENT_LOCK = '<svg class="lumen-advent__lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V7.5a4 4 0 018 0v3"/><path d="M12 14.5v2.5"/></svg>';
+var ADVENT_STAR = '<svg class="lumen-advent__star" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3.2l2.5 5.3 5.8.8-4.2 4.1 1 5.8L12 16.5l-5.1 2.7 1-5.8-4.2-4.1 5.8-.8L12 3.2z"/></svg>';
 
 function adventWord(key, def) {
 try {
@@ -11237,21 +11380,20 @@ return null;
 
 
 
+
 function adventSpecs(manifest) {
 var out = [];
 if (!manifest || !Array.isArray(manifest.collections)) return out;
 var byId = {};
 var i;
 for (i = 0; i < manifest.collections.length; i++) byId[manifest.collections[i].id] = manifest.collections[i];
-for (var j = 0; j < ADVENT_IDS.length; j++) {
-var item = byId[ADVENT_IDS[j]];
+for (var j = 0; j < ADVENT_SPECS.length; j++) {
+var item = byId[ADVENT_SPECS[j].id];
 if (!item) continue;
-for (var page = 1; page <= ADVENT_PAGES; page++) out.push({ item: item, page: page });
+for (var page = 1; page <= ADVENT_SPECS[j].pages; page++) out.push({ item: item, page: page, ours: !!ADVENT_SPECS[j].ours });
 }
 return out;
 }
-
-
 
 
 
@@ -11270,11 +11412,144 @@ pool.push(card);
 return pool;
 }
 
+
+
+function adventDays(n) {
+var word = '';
+try {
+if (typeof LC.daysWord === 'function') word = LC.daysWord(n);
+} catch (e) { }
+return n + ' ' + (word || (n === 1 ? 'день' : 'дней'));
+}
+
 function adventTitle(today) {
 var day = today.getDate();
-if (day > 24) day = 24;
-return adventWord('lumen_advent_title', 'Advent calendar') + ' · ' +
-adventWord('lumen_advent_day', 'Day').toLowerCase() + ' ' + day;
+var head = adventWord('lumen_advent_title', 'Advent calendar');
+if (day >= 31) return head + ' · ' + adventWord('lumen_advent_eve', "New Year's Eve");
+return head + ' · ' + adventWord('lumen_advent_left', 'to New Year') + ' ' + adventDays(32 - day);
+}
+
+function adventDate(day) {
+return ('' + adventWord('lumen_advent_date', '{d} Dec')).replace('{d}', day);
+}
+
+
+function adventOpened() {
+try {
+var raw = Lampa.Storage.get(ADVENT_KEY, '');
+if (typeof raw === 'string') return raw ? JSON.parse(raw) : null;
+return raw && typeof raw === 'object' ? raw : null;
+} catch (e) {
+return null;
+}
+}
+
+function adventSave(cards, today) {
+try {
+Lampa.Storage.set(ADVENT_KEY, LC.themes.adventRecord(cards, today));
+} catch (e) { }
+}
+
+
+
+
+
+function doorHtml(info) {
+var cls = 'lumen-advent__door' + (info.fresh ? ' lumen-advent__door--opening' : '');
+var note = info.final ? '<div class="lumen-advent__note">' + adventWord('lumen_advent_final', "New Year's Eve") + '</div>' : '';
+var star = info.final ? ADVENT_STAR : '';
+var lock = info.state === 'locked' ? ADVENT_LOCK : '';
+var month = ('' + adventWord('lumen_advent_date', '{d}')).replace('{d}', '').replace(/^\s+|\s+$/g, '');
+return '<div class="' + cls + '"><div class="lumen-advent__frame"></div>' + star +
+'<div class="lumen-advent__num">' + info.day + '</div>' +
+'<div class="lumen-advent__mon">' + month + '</div>' + note + lock + '</div>';
+}
+
+
+
+
+
+function adventCreate() {
+try {
+var info = this.data && this.data.lumen_advent;
+var node = this.html;
+if (!info || !node || !node.classList) return;
+node.classList.add('lumen-advent-card');
+node.classList.add('lumen-advent-card--' + info.state);
+if (info.final) node.classList.add('lumen-advent-card--final');
+if (info.fresh) node.classList.add('lumen-advent-card--fresh');
+if (info.state === 'open' || (info.state === 'today' && !info.fresh)) return;
+var view = node.querySelector('.card__view');
+if (view) view.insertAdjacentHTML('beforeend', doorHtml(info));
+} catch (e) {
+warn('rows: advent card failed', e);
+}
+}
+
+
+
+function lockedEnter(day) {
+return function () {
+try {
+if (window.Lampa && Lampa.Noty && typeof Lampa.Noty.show === 'function') {
+Lampa.Noty.show(('' + adventWord('lumen_advent_locked', 'Opens on December {d}')).replace('{d}', day));
+}
+} catch (e) { }
+};
+}
+
+function quiet() {}
+
+
+
+
+
+
+function decorateAdvent(cards) {
+for (var i = 0; i < cards.length; i++) {
+var c = cards[i];
+var emit = { onCreate: adventCreate };
+if (c.lumen_advent && (c.lumen_advent.state === 'locked' || c.lumen_advent.state === 'empty')) {
+emit.onlyEnter = lockedEnter(c.day);
+emit.onlyLong = quiet;
+c.img = ADVENT_BLANK;
+}
+c.params = { emit: emit };
+}
+return cards;
+}
+
+
+
+
+
+
+function focusToday() {
+try {
+var items = this.items || [];
+for (var i = 0; i < items.length; i++) {
+var d = items[i] && items[i].data;
+if (d && d.lumen_advent && d.lumen_advent.state === 'today') {
+this.last = items[i].render(true);
+this.active = i;
+return;
+}
+}
+} catch (e) { }
+}
+
+
+
+function listCard(json) {
+var out = {};
+for (var k in json) {
+if (Object.prototype.hasOwnProperty.call(json, k)) out[k] = json[k];
+}
+if (!out.genre_ids && Array.isArray(json.genres)) {
+out.genre_ids = [];
+for (var i = 0; i < json.genres.length; i++) if (json.genres[i] && json.genres[i].id != null) out.genre_ids.push(json.genres[i].id);
+}
+return out;
 }
 
 
@@ -11296,30 +11571,72 @@ var left = specs.length;
 var handles = [];
 var words = {
 day: adventWord('lumen_advent_day', 'Day'),
-today: adventWord('lumen_advent_today', 'Today')
+today: adventWord('lumen_advent_today', 'Today'),
+date: adventWord('lumen_advent_date', '{d} Dec'),
+final: adventWord('lumen_advent_final', "New Year's Eve")
 };
 
-function finish() {
-left--;
-if (left > 0) return;
-var days = [];
+function build(final) {
+var ours = [];
+var world = [];
+for (var i = 0; i < specs.length; i++) {
+if (specs[i].ours) ours.push(slots[i]);
+else world.push(slots[i]);
+}
+var cards = [];
 try {
-days = LC.themes.adventDays(adventPool(slots), today, words);
+cards = LC.themes.adventDays({ ours: adventPool(ours), world: adventPool(world), final: final }, today, words, adventOpened());
 } catch (e) {
-days = [];
+cards = [];
+}
+
+
+var films = 0;
+for (var j = 0; j < cards.length; j++) if (cards[j].id != null) films++;
+if (!films) { resolve({ results: [] }); return; }
+adventSave(cards, today);
+
+var payload = {
+results: decorateAdvent(cards),
+title: adventTitle(today),
+lumen_keep: true,
+params: { items: { view: cards.length }, emit: { onCreate: focusToday } }
+};
+
+
+
+
+
+LC.sources.posters(null, cards, function () { resolve(payload); }, alive);
 }
 
 
 
-var payload = { results: days, title: adventTitle(today), lumen_keep: true };
+function finalMissing() {
+if (today.getDate() < 31) return false;
+var id = LC.themes.ADVENT_FINAL_ID;
+for (var i = 0; i < slots.length; i++) {
+var list = slots[i] || [];
+for (var j = 0; j < list.length; j++) if (list[j] && Number(list[j].id) === id) return false;
+}
+return true;
+}
 
-
-
-
-
-
-
-LC.sources.posters(null, days, function () { resolve(payload); }, alive);
+function finish() {
+left--;
+if (left > 0) return;
+if (!alive()) return;
+if (!finalMissing()) { build(null); return; }
+try {
+Lampa.Api.sources.tmdb.get(
+'movie/' + LC.themes.ADVENT_FINAL_ID,
+{},
+function (json) { if (alive()) build(json && json.id ? listCard(json) : null); },
+function () { if (alive()) build(null); }
+);
+} catch (e) {
+build(null);
+}
 }
 
 
@@ -21540,6 +21857,11 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 
+
+
+
+
+
 LC.fx = (function () {
 
 
@@ -22262,6 +22584,10 @@ ctx.fillRect(0, p.y, w, p.size);
 halloween: {
 count: 39,
 scene: true,
+
+
+festive: true,
+keep: true,
 spawn: function (i, w, h, rnd) {
 var p;
 if (i < 32) {
@@ -22388,6 +22714,9 @@ return out;
 winter: {
 count: 58,
 scene: true,
+
+festive: true,
+keep: true,
 spawn: function (i, w, h, rnd) {
 var p;
 if (i < 6) {
@@ -22716,15 +23045,72 @@ return value > cap ? cap : value;
 
 
 
-function allowedNow() {
+
+
+
+
+
+function allowedNow(name) {
 try {
 if (!LC.enabled()) return false;
-if (LC.motionMode() !== 'full') return false;
+var motion = LC.motionMode();
+var preset = presets[name];
+if (preset && preset.festive && (motion === 'full' || motion === 'lite')) return true;
+if (motion !== 'full') return false;
 if (typeof LC.fxHeavy === 'function' && !LC.fxHeavy()) return false;
 return true;
 } catch (e) {
 return false;
 }
+}
+
+
+
+
+
+
+
+
+
+var LINGER_MS = 6000;
+
+
+
+
+var CARRY_MS = 60000;
+var carry = null;
+
+function lingerOk(inst) {
+if (!inst.keep || !allowedNow(inst.name)) return false;
+try {
+if (LC.themes && typeof LC.themes.mode === 'function' && LC.themes.mode() === 'off') return false;
+} catch (e) { }
+return true;
+}
+
+
+
+
+
+
+
+var CALM_MS = 1200;
+var lastKey = 0;
+var keyBound = false;
+
+function onKey() {
+lastKey = nowMs();
+}
+
+function bindKeys() {
+if (keyBound) return;
+var d = doc();
+try {
+if (d && typeof d.addEventListener === 'function') {
+d.addEventListener('keydown', onKey, true);
+keyBound = true;
+}
+} catch (e) { }
 }
 
 function nodeOf(layer) {
@@ -22786,6 +23172,8 @@ return false;
 
 
 function paused(inst) {
+if (inst.leaving) return true;
+if (inst.festive && lastKey && nowMs() - lastKey < CALM_MS) return true;
 if (hidden()) return true;
 if (covered()) return true;
 if (LC.util.playerOpen()) return true;
@@ -22954,11 +23342,13 @@ node.className = out.join(' ');
 function loop(ts) {
 frame = 0;
 var i;
+var clock = nowMs();
 for (i = instances.length - 1; i >= 0; i--) {
-if (!attached(instances[i])) drop(instances[i]);
+var inst = instances[i];
+if (!attached(inst) || (inst.leaving && clock - inst.leaving > LINGER_MS)) drop(inst);
 }
 if (!instances.length) { last = 0; return; }
-var time = typeof ts === 'number' ? ts : nowMs();
+var time = typeof ts === 'number' ? ts : clock;
 
 
 if (last && time - last > 0 && time - last < FRAME_MS - FRAME_SLACK && !hidden()) {
@@ -23035,6 +23425,8 @@ function drop(inst) {
 var i = instances.indexOf(inst);
 if (i !== -1) instances.splice(i, 1);
 
+if (inst.keep) carry = { name: inst.name, w: inst.w, h: inst.h, at: nowMs(), particles: inst.particles };
+
 
 if (inst.sprites && !spritesUsed(inst.sprites)) closeSprites(inst.sprites);
 try {
@@ -23047,6 +23439,7 @@ inst.canvas.width = 0;
 inst.canvas.height = 0;
 } catch (e2) { }
 if (inst.scene) toggleClass(inst.node, 'lumen-fx--scene', false);
+if (inst.keep) toggleClass(inst.node, 'lumen-fx--' + inst.name, false);
 if (!instances.length) {
 unraf(frame);
 frame = 0;
@@ -23100,12 +23493,22 @@ try {
 opts = opts || {};
 var node = nodeOf(layer);
 if (!node || !presets[name]) return null;
-if (!allowedNow()) return null;
 var exist = find(node);
 
 
+if (exist && exist.leaving && (exist.name !== name || !allowedNow(name))) {
+drop(exist);
+exist = null;
+}
+if (!allowedNow(name)) return null;
 
-if (exist) return handle(exist);
+
+
+
+if (exist) {
+if (exist.leaving) revive(exist, opts);
+return handle(exist);
+}
 var d = doc();
 if (!d || typeof d.createElement !== 'function') return null;
 
@@ -23140,6 +23543,18 @@ var color = opts.color || '#FFFFFF';
 node.appendChild(canvas);
 if (preset.scene) toggleClass(node, 'lumen-fx--scene', true);
 
+
+
+if (preset.keep) toggleClass(node, 'lumen-fx--' + name, true);
+if (preset.festive) bindKeys();
+
+
+
+var kept = null;
+if (preset.keep && carry && carry.name === name && Math.abs(carry.w - lw) < 1 && Math.abs(carry.h - lh) < 1 &&
+nowMs() - carry.at < CARRY_MS) kept = carry.particles;
+if (preset.keep) carry = null;
+
 var inst = {
 node: node,
 canvas: canvas,
@@ -23150,11 +23565,14 @@ h: lh,
 unit: unit,
 S: ratio * unit,
 scene: !!preset.scene,
+keep: !!preset.keep,
+festive: !!preset.festive,
+leaving: 0,
 color: color,
 safe: safeZone(opts.safe, lw, lh),
 sprites: spritesFor(name, color, ratio * unit),
 paused: typeof opts.paused === 'function' ? opts.paused : null,
-particles: spawn(name, lw, lh, opts.count, Math.random)
+particles: kept || spawn(name, lw, lh, opts.count, Math.random)
 };
 
 
@@ -23168,11 +23586,34 @@ return null;
 }
 }
 
+
+
+function revive(inst, opts) {
+inst.leaving = 0;
+inst.paused = typeof opts.paused === 'function' ? opts.paused : null;
+inst.safe = safeZone(opts.safe, inst.w, inst.h);
+var color = opts.color || '#FFFFFF';
+if (color !== inst.color) {
+var old = inst.sprites;
+inst.color = color;
+inst.sprites = spritesFor(inst.name, color, inst.S);
+if (old && !spritesUsed(old)) closeSprites(old);
+}
+wake();
+}
+
 function unmount(layer) {
 var node = nodeOf(layer);
 if (!node) return;
 var inst = find(node);
-if (inst) drop(inst);
+if (!inst) return;
+
+
+if (lingerOk(inst)) {
+if (!inst.leaving) inst.leaving = nowMs();
+return;
+}
+drop(inst);
 }
 
 function unmountAll() {
@@ -23241,16 +23682,37 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+LC.fxAutoThemes = false;
+
 LC.themes = (function () {
 
 
-var ADVENT_LAST = 24;
+
+
+var ADVENT_DAYS = 31;
 
 
 
 
 
-var ADVENT_STEP = 7919;
+var ADVENT_FINAL_ID = 43430;
+
+
+
+var ADVENT_OURS = 3;
 
 
 
@@ -23406,7 +23868,144 @@ return date.getMonth() + 1;
 
 
 
-function adventCard(card, day, isToday, words) {
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+var HOLIDAYS = [
+{ id: 'newyear', from: [12, 1], to: [1, 7], preset: 'winter', accent: '#E8C170' },
+{ id: 'halloween', from: [10, 25], to: [11, 1], preset: 'halloween', accent: '#E07B2C' }
+];
+
+
+
+var HOLIDAY_RULES = { christmas: 1, halloween: 1 };
+
+
+function dayKey(date) {
+if (!date || typeof date.getMonth !== 'function' || typeof date.getDate !== 'function') return 0;
+return (date.getMonth() + 1) * 100 + date.getDate();
+}
+
+function inWindow(key, from, to) {
+var a = from[0] * 100 + from[1];
+var b = to[0] * 100 + to[1];
+
+return a <= b ? (key >= a && key <= b) : (key >= a || key <= b);
+}
+
+function holidayAt(date) {
+var key = dayKey(date);
+if (!key) return null;
+for (var i = 0; i < HOLIDAYS.length; i++) {
+if (inWindow(key, HOLIDAYS[i].from, HOLIDAYS[i].to)) return HOLIDAYS[i];
+}
+return null;
+}
+
+
+
+function themeOf(entry) {
+return { id: entry.id, preset: entry.preset, accent: entry.accent, holiday: true };
+}
+
+
+
+function rulesNow() {
+var rules = current();
+if (LC.fxAutoThemes === true) return rules;
+var out = [];
+for (var i = 0; i < rules.length; i++) {
+if (rules[i] && HOLIDAY_RULES[rules[i].id]) out.push(rules[i]);
+}
+return out;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function adventScore(day, id) {
+var s = (Math.abs(Math.floor(Number(id) || 0)) % 2147483646) + 1;
+s = (s * 48271) % 2147483647;
+s = (s + day * 16807) % 2147483647;
+s = (s * 48271) % 2147483647;
+return (s * 48271) % 2147483647;
+}
+
+
+function adventPick(list, day, used) {
+var best = null;
+var top = -1;
+for (var i = 0; i < list.length; i++) {
+var c = list[i];
+if (used[c.id]) continue;
+var w = adventScore(day, c.id);
+if (w > top) { top = w; best = c; }
+}
+return best;
+}
+
+
+
+function adventList(list, skip) {
+var out = [];
+if (!Array.isArray(list)) return out;
+for (var i = 0; i < list.length; i++) {
+var c = list[i];
+if (!c || c.id == null || c.id === '' || skip[c.id]) continue;
+skip[c.id] = 1;
+out.push(c);
+}
+return out;
+}
+
+
+function adventMap(opened, year) {
+if (!opened || typeof opened !== 'object' || Number(opened.y) !== year) return {};
+var d = opened.d;
+return d && typeof d === 'object' ? d : {};
+}
+
+
+
+function adventCard(card, day, state, words, extra) {
 var copy = {};
 for (var k in card) {
 if (Object.prototype.hasOwnProperty.call(card, k)) copy[k] = card[k];
@@ -23414,44 +24013,103 @@ if (Object.prototype.hasOwnProperty.call(card, k)) copy[k] = card[k];
 var dayWord = (words && words.day) || 'День';
 var todayWord = (words && words.today) || 'Сегодня';
 copy.day = day;
-copy.lumen_badge = isToday
-? todayWord + ' · ' + dayWord.toLowerCase() + ' ' + day
-: dayWord + ' ' + day;
 
 
-if (day === ADVENT_LAST) copy.lumen_final = true;
+
+
+copy.lumen_badge = state === 'today' ? todayWord : dayWord + ' ' + day;
+copy.lumen_advent = { day: day, state: state };
+if (extra && extra.fresh) copy.lumen_advent.fresh = true;
+if (day === ADVENT_DAYS) copy.lumen_advent.final = true;
 return copy;
 }
 
 
 
+function adventDoor(day, state, words) {
+var date = (words && words.date) || '{d}';
+var door = { day: day, title: date.replace('{d}', day), lumen_advent: { day: day, state: state } };
+if (day === ADVENT_DAYS) door.lumen_advent.final = true;
+return door;
+}
 
 
 
 
 
 
-function adventDays(pool, today, words) {
+
+function adventDays(src, today, words, opened) {
 var out = [];
-if (!Array.isArray(pool) || !pool.length) return out;
 if (!today || typeof today.getMonth !== 'function') return out;
 if (today.getMonth() !== 11) return out;
-var last = today.getDate();
-if (last > ADVENT_LAST) last = ADVENT_LAST;
-var used = {};
-for (var day = 1; day <= last; day++) {
-if (out.length >= pool.length) break;
-var index = (day * ADVENT_STEP) % pool.length;
-var guard = 0;
-while (used[index] && guard < pool.length) {
-index = (index + 1) % pool.length;
-guard++;
+if (Array.isArray(src)) src = { world: src };
+src = src || {};
+var now = today.getDate();
+var skip = {};
+skip[ADVENT_FINAL_ID] = 1;
+var ours = adventList(src.ours, skip);
+var world = adventList(src.world, skip);
+
+var final = src.final && Number(src.final.id) === ADVENT_FINAL_ID ? src.final : null;
+var all = (src.ours || []).concat(src.world || []);
+for (var f = 0; !final && f < all.length; f++) {
+if (all[f] && Number(all[f].id) === ADVENT_FINAL_ID) final = all[f];
 }
-if (used[index]) break;
-used[index] = 1;
-out.push(adventCard(pool[index], day, day === today.getDate(), words));
+var byId = {};
+var i;
+for (i = 0; i < ours.length; i++) byId[ours[i].id] = ours[i];
+for (i = 0; i < world.length; i++) byId[world[i].id] = world[i];
+var map = adventMap(opened, today.getFullYear());
+var used = {};
+var pick = {};
+var day;
+var open = now < ADVENT_DAYS ? now : ADVENT_DAYS;
+
+for (day = 1; day <= open; day++) {
+var id = map[day];
+if (day === ADVENT_DAYS && final) break;
+if (id != null && byId[id] && !used[id]) {
+pick[day] = byId[id];
+used[id] = 1;
+}
+}
+for (day = 1; day <= open; day++) {
+if (pick[day] || (day === ADVENT_DAYS && final)) continue;
+var mine = ours.length && day % ADVENT_OURS === 0;
+var c = adventPick(mine ? ours : world, day, used) || adventPick(mine ? world : ours, day, used);
+if (!c) continue;
+pick[day] = c;
+used[c.id] = 1;
+}
+for (day = 1; day <= ADVENT_DAYS; day++) {
+if (day > now) {
+out.push(adventDoor(day, 'locked', words));
+continue;
+}
+var film = day === ADVENT_DAYS && final ? final : pick[day];
+if (!film) {
+out.push(adventDoor(day, 'empty', words));
+continue;
+}
+var state = day === now ? 'today' : 'open';
+out.push(adventCard(film, day, state, words, { fresh: state === 'today' && map[day] == null }));
 }
 return out;
+}
+
+
+
+
+function adventRecord(cards, today) {
+var rec = { y: today && typeof today.getFullYear === 'function' ? today.getFullYear() : 0, d: {} };
+for (var i = 0; i < (cards || []).length; i++) {
+var c = cards[i];
+var info = c && c.lumen_advent;
+if (!info || c.id == null) continue;
+if (info.state === 'open' || info.state === 'today') rec.d[info.day] = c.id;
+}
+return rec;
 }
 
 
@@ -23495,11 +24153,40 @@ return value;
 
 
 
+
+
+
+
+
+function onHome() {
+try {
+var hero = LC.hero;
+if (!hero || typeof hero.active !== 'function' || !hero.active()) return false;
+return !(typeof hero.parked === 'function' && hero.parked());
+} catch (e) {
+return false;
+}
+}
+
+
+
+
+
+
+
+
+
+
 function forMovie(movie) {
 var current_mode = mode();
 if (current_mode === 'off') return null;
-var theme = matchTheme(current(), movie);
-if (!allowed(theme, current_mode, api.month())) return null;
+var today = api._now();
+if (onHome()) {
+var holiday = holidayAt(today);
+if (holiday) return themeOf(holiday);
+}
+var theme = matchTheme(rulesNow(), movie);
+if (!allowed(theme, current_mode, monthOf(today))) return null;
 return theme;
 }
 
@@ -23522,10 +24209,16 @@ return theme.accent || '#FFFFFF';
 
 
 function classNames() {
-var rules = current();
+
+
+var rules = current().concat(HOLIDAYS);
 var out = [];
+var seen = {};
 for (var i = 0; i < rules.length; i++) {
-if (rules[i] && rules[i].id) out.push('lumen-theme--' + rules[i].id);
+var id = rules[i] && rules[i].id;
+if (!id || seen[id]) continue;
+seen[id] = 1;
+out.push('lumen-theme--' + id);
 }
 return out.join(' ');
 }
@@ -23543,9 +24236,15 @@ matchTheme: matchTheme,
 allowed: allowed,
 seasonalIds: seasonalIds,
 adventDays: adventDays,
+adventRecord: adventRecord,
+ADVENT_DAYS: ADVENT_DAYS,
+ADVENT_FINAL_ID: ADVENT_FINAL_ID,
 monthOf: monthOf,
 month: function () { return monthOf(api._now()); },
 today: function () { return api._now(); },
+HOLIDAYS: HOLIDAYS,
+holidayAt: holidayAt,
+holiday: function () { return holidayAt(api._now()); },
 current: current,
 classNames: classNames,
 particleColor: particleColor,
@@ -37457,10 +38156,16 @@ lumen_accent_scope_veil: { ru: 'Только фон', en: 'Background only', uk:
 
 
 lumen_fx_name: { ru: 'Атмосферы', en: 'Atmospheres', uk: 'Атмосфери' },
+
+
+
+
+
+
 lumen_fx_descr: {
-ru: 'Лёгкий слой поверх кадра под тему фильма: снег у рождественского кино, летучие мыши у хоррора на Хэллоуин, звёзды у фантастики, дождь у нуара. Тема определяется по ключевым словам фильма. «Только сезонные» показывает лишь праздничные темы и лишь в свой месяц. Не запускается при лёгких и выключенных анимациях, а значит и на слабых телевизорах; под играющим трейлером встаёт на паузу.',
-en: 'A light layer over the still matching the film: snow for Christmas films, bats for Halloween horror, stars for science fiction, rain for noir. The theme is chosen by the film keywords. "Seasonal only" shows holiday themes and only in their month. It never starts with light or disabled animations, and therefore not on weak TVs; it pauses while a trailer is playing.',
-uk: 'Легкий шар поверх кадру під тему фільму: сніг для різдвяного кіно, кажани для горору на Гелловін, зорі для фантастики, дощ для нуару. Тема визначається за ключовими словами фільму. «Лише сезонні» показує тільки святкові теми і лише в їхній місяць. Не запускається за легких і вимкнених анімацій, а отже й на слабких телевізорах; під час трейлера стає на паузу.'
+ru: 'Праздничные частицы поверх кадра: снег и гирлянда под Новый год, угли и летучие мыши на Хэллоуин. На главной — в сам праздник у любого фильма (Новый год — с 1 декабря по 7 января, Хэллоуин — неделя до 31 октября), а у новогодних, рождественских и хэллоуинских фильмов — и в карточке. Видны и при лёгких анимациях, замирают, пока листаете, и встают на паузу под трейлером и плеером. «Только сезонные» показывает сцену фильма лишь в её сезон: новогоднюю — в декабре и январе, хэллоуинскую — в октябре.',
+en: 'Holiday particles over the still: snow and a garland for New Year, embers and bats for Halloween. On the home screen they show for any film during the holiday itself (New Year — 1 December to 7 January, Halloween — the week up to 31 October), and New Year, Christmas and Halloween films get them on their card too. They show with light animations too, freeze while you browse and pause under a trailer and the player. "Seasonal only" shows a film scene only in its season: New Year in December and January, Halloween in October.',
+uk: 'Святкові частинки поверх кадру: сніг і гірлянда на Новий рік, жаринки й кажани на Гелловін. На головній — у саме свято для будь-якого фільму (Новий рік — з 1 грудня до 7 січня, Гелловін — тиждень до 31 жовтня), а новорічні, різдвяні й гелловінські фільми мають їх і в картці. Їх видно й за легких анімацій, вони завмирають, поки гортаєте, і стають на паузу під трейлером і плеєром. «Лише сезонні» показує сцену фільму тільки в її сезон: новорічну — у грудні й січні, гелловінську — у жовтні.'
 },
 
 
@@ -37559,6 +38264,14 @@ lumen_season_badge: { ru: 'Сезон', en: 'In season', uk: 'Сезон' },
 lumen_advent_title: { ru: 'Адвент-календарь', en: 'Advent calendar', uk: 'Адвент-календар' },
 lumen_advent_day: { ru: 'День', en: 'Day', uk: 'День' },
 lumen_advent_today: { ru: 'Сегодня', en: 'Today', uk: 'Сьогодні' },
+
+
+
+lumen_advent_left: { ru: 'до Нового года', en: 'to New Year', uk: 'до Нового року' },
+lumen_advent_eve: { ru: 'новогодняя ночь', en: 'New Year\'s Eve', uk: 'новорічна ніч' },
+lumen_advent_final: { ru: 'Новогодняя ночь', en: 'New Year\'s Eve', uk: 'Новорічна ніч' },
+lumen_advent_date: { ru: '{d} декабря', en: 'December {d}', uk: '{d} грудня' },
+lumen_advent_locked: { ru: 'Окошко откроется {d} декабря', en: 'This window opens on December {d}', uk: 'Віконце відкриється {d} грудня' },
 lumen_motion_auto_noty: {
 ru: 'Lumen Card: включены лёгкие анимации — устройство не успевает рисовать полные',
 en: 'Lumen Card: light animations enabled — this device cannot keep up with the full ones',
@@ -37704,9 +38417,9 @@ lumen_card_motion_off: { ru: 'Выкл', en: 'Off', uk: 'Викл' },
 
 lumen_fx_heavy_name: { ru: 'Тяжёлые эффекты', en: 'Heavy effects', uk: 'Важкі ефекти' },
 lumen_fx_heavy_descr: {
-ru: 'Частицы, наезд на кадр, зум заставки и плавная смена кадров в карточке и на главной. Сами кадры и трейлеры работают и без них — кадр тогда меняется резко. На телевизоре выключены по умолчанию: они стоят кадров. Работают только при полных анимациях.',
-en: 'Particles, Ken Burns zoom, screensaver zoom and the crossfade between stills on the card and the home screen. The changing stills and trailers work without them too — a still then changes with a hard cut. Off by default on a TV: they cost frames. Work only with full animations.',
-uk: 'Частинки, наїзд на кадр, зум заставки та плавна зміна кадрів у картці й на головній. Самі кадри й трейлери працюють і без них — кадр тоді змінюється різко. На телевізорі вимкнені за замовчуванням: вони коштують кадрів. Працюють лише за повних анімацій.'
+ru: 'Наезд на кадр, зум заставки и плавная смена кадров в карточке и на главной. Сами кадры и трейлеры работают и без них — кадр тогда меняется резко. Праздничные частицы Нового года и Хэллоуина от этого пункта не зависят. На телевизоре выключены по умолчанию: они стоят кадров. Работают только при полных анимациях.',
+en: 'Ken Burns zoom, screensaver zoom and the crossfade between stills on the card and the home screen. The changing stills and trailers work without them too — a still then changes with a hard cut. New Year and Halloween holiday particles do not depend on this item. Off by default on a TV: they cost frames. Work only with full animations.',
+uk: 'Наїзд на кадр, зум заставки та плавна зміна кадрів у картці й на головній. Самі кадри й трейлери працюють і без них — кадр тоді змінюється різко. Святкові частинки Нового року й Гелловіну від цього пункту не залежать. На телевізорі вимкнені за замовчуванням: вони коштують кадрів. Працюють лише за повних анімацій.'
 },
 
 

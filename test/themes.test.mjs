@@ -277,9 +277,9 @@ test('current: каталог без тем — встроенные прави�
 const at = (m, d, y) => new Date(y || 2026, m - 1, d, 12, 0, 0);
 const hid = (m, d) => { const h = T.holidayAt(at(m, d)); return h ? h.id : null; };
 
-test('holB: праздников по дате два — Новый год 15.12–10.01 через границу года и Хэллоуин 25.10–1.11', () => {
+test('holB: праздников по дате два — Новый год 1.12–7.01 через границу года и Хэллоуин 25.10–1.11', () => {
   const cases = [
-    [12, 14, null], [12, 15, 'newyear'], [12, 31, 'newyear'], [1, 1, 'newyear'], [1, 7, 'newyear'], [1, 10, 'newyear'], [1, 11, null],
+    [11, 30, null], [12, 1, 'newyear'], [12, 15, 'newyear'], [12, 31, 'newyear'], [1, 1, 'newyear'], [1, 7, 'newyear'], [1, 8, null], [1, 10, null],
     [10, 24, null], [10, 25, 'halloween'], [10, 31, 'halloween'], [11, 1, 'halloween'], [11, 2, null],
     [2, 14, null], [2, 23, null], [3, 8, null], [4, 12, null], [5, 9, null], [6, 1, null], [9, 1, null], [9, 26, null]
   ];
