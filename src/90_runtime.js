@@ -678,8 +678,8 @@
           /* Ревью H4: destroy снял акцент ушедшей карточки, а вместе с ним и
              подкраску главной — resume героя её не ставит, и главная после
              «Назад» оставалась без подкраски до следующего перевода фокуса.
-             Первый старт главной (героя не было на парковке) — как прежде:
-             подкраска ждёт покоя фокуса (src/48_hero.js, scheduleAccent). */
+             Первый старт главной (героя не было на парковке) — подкраску
+             ставит показ героя вместе с текстом (src/48_hero.js, applyAccent). */
           if (heroBack && typeof LC.hero.accentBack === 'function') LC.hero.accentBack();
         } catch (eAccentStart) {
           warn('accent start failed', eAccentStart);
