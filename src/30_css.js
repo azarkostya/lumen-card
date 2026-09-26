@@ -179,6 +179,21 @@
        кадре под ним не дотягивала до 4.5:1. Фон страницы и рядов остаётся
        подкраской как есть. */
     p.shadeRgb = shadeRgb(p.bg);
+    /* Правка 2026-09-26: фон области рядов главной — заметно в тон постера
+       (разбор — у констант ROWS_* и у LC.color.rowsTint). Без доминанты
+       (подкраска выключена, постер не дал цвета, режим движения 'off') —
+       обычный фон. Сторож — P.soft, подпись под постером, на смеси с белым
+       кадром в доле ROWS_LEAK. */
+    p.rows = p.bg;
+    try {
+      if (LC.accent && typeof LC.accent.rowsTint === 'function') {
+        var rows = LC.accent.rowsTint(p.soft, 4.5, ROWS_LEAK);
+        if (rows) p.rows = rows;
+      }
+    } catch (eRows) {
+      warn('rows tint failed', eRows);
+    }
+    p.rowsRgb = hexToRgb(p.rows);
     p.textRgb = hexToRgb(p.text);
     p.panelRgb = hexToRgb(p.panel);
     /* Заливка чипов, рейтингов и кнопок.
@@ -247,7 +262,10 @@
        (HERO_VH / ROWS_TOP_VH ниже по файлу). */
     var key = heroSizeKey();
     return {
-      main: '.lumen-main{background-color:' + P.bg + '}',
+      /* Правка 2026-09-26: корень главной — цвет рядов (P.rows, в тон
+         постера): он виден там, где кадра нет, — до его загрузки и за
+         порогом «кадра нет». */
+      main: '.lumen-main{background-color:' + P.rows + '}',
       /* Полное ревью, D1: свой фон у экранов «Что посмотреть», хаба и
          сетки — тот же фон страницы с подкраской, что у главной. Без него
          под экраном был серый размытый фон Lampa (он включён по
@@ -261,16 +279,17 @@
          64 % ширины с обрывом к 78 %, верхняя — отдельный узел, уезжавший
          со сжатым кадром) сняты: пользователь на фото 15/16 — «прямоугольник
          с градиентом под названием фильма… ущербно выглядит, когда
-         прямоугольник заканчивается, надо вести до конца». Все три красятся
-         от фона страницы — его тенью P.shadeRgb, а низ и пол у сплошной
-         части самим P.bg (ревью раунда хвостов, п.7), — и потому живут в
-         наборе подкраски: оттенок фона от постера доезжает до них тем же
-         узлом, что и до .lumen-main. Числа, цвета и их разбор — у констант
-         SCRIM_* / FLOOR_* / SHADE_K ниже по файлу.
+         прямоугольник заканчивается, надо вести до конца». Верх и левое
+         пятно красятся тенью фона страницы P.shadeRgb (ревью раунда хвостов,
+         п.7), низ покоя и пол — цветом рядов P.rows (правка 2026-09-26), — и
+         потому живут в наборе подкраски: оттенок постера доезжает до них тем
+         же узлом, что и до .lumen-main. Числа, цвета и их разбор — у
+         констант SCRIM_* / ROWS_* / FLOOR_* / SHADE_K ниже по файлу.
          scrim — верх под шапкой Lampa (.5 до 3.96em, ноль к 9em: прежняя
          верхняя вуаль, часы и иконки шапки на белом кадре 3.7:1) и низ
-         покоя: стопы прежней маски кадра в координатах экрана, то есть ряды
-         в покое выглядят как раньше. */
+         покоя. Правка 2026-09-26: низ — одно плавное затемнение цветом
+         рядов P.rows до ROWS_A у кромки (разбор — у констант ROWS_*), кадр
+         под плитками слабо виден. */
       scrim: '.lumen-hero-stage .lumen-hero__scrim{background:-webkit-linear-gradient(top,' + scrimTop(P) + '),-webkit-linear-gradient(bottom,' + scrimBottom(P, key) + ');' +
         'background:linear-gradient(180deg,' + scrimTop(P) + '),linear-gradient(0deg,' + scrimBottom(P, key) + ')}',
       /* scrim--l — подушка под текстом: мягкое пятно у левой кромки (эллипс,
@@ -288,8 +307,13 @@
          шаг, и на экране появятся две полосы чужого тона. Геометрия обоих
          (позиция, высота, z-index) остаётся в общей таблице: она от цвета
          не зависит. */
-      fadeTop: '.lumen-main .scroll.layer--wheight:after{background:-webkit-linear-gradient(top,' + P.bg + ' 0,' + P.bg + ' 2em,rgba(' + P.bgRgb + ',0) 2.5em);background:linear-gradient(to bottom,' + P.bg + ' 0,' + P.bg + ' 2em,rgba(' + P.bgRgb + ',0) 2.5em)}',
-      fadeBot: '.lumen-main:after{background:-webkit-linear-gradient(bottom,' + P.bg + ' 0,rgba(' + P.bgRgb + ',0) 100%);background:linear-gradient(0deg,' + P.bg + ' 0,rgba(' + P.bgRgb + ',0) 100%)}',
+      /* Правка 2026-09-26: обе заливки — цветом рядов, тем же, что пол
+         сжатого состояния и корень главной: верхняя видна только при
+         поднятых рядах (сжатое состояние), нижняя — только за порогом
+         «кадра нет» (при живом кадре она погашена, правило .lumen-main:after
+         ниже). */
+      fadeTop: '.lumen-main .scroll.layer--wheight:after{background:-webkit-linear-gradient(top,' + P.rows + ' 0,' + P.rows + ' 2em,rgba(' + P.rowsRgb + ',0) 2.5em);background:linear-gradient(to bottom,' + P.rows + ' 0,' + P.rows + ' 2em,rgba(' + P.rowsRgb + ',0) 2.5em)}',
+      fadeBot: '.lumen-main:after{background:-webkit-linear-gradient(bottom,' + P.rows + ' 0,rgba(' + P.rowsRgb + ',0) 100%);background:linear-gradient(0deg,' + P.rows + ' 0,rgba(' + P.rowsRgb + ',0) 100%)}',
       /* Task 42: кольцо вокруг карточки снято (штатный :after погашен, см.
          блок рядов ниже), и акцент переехал на сам постер — подложкой под
          ним. Одной тенью, а не списком: проверку формы («0 <смещение>em
@@ -846,13 +870,25 @@
         при пороге 3:1). Слой неподвижен, и прежний встречный сдвиг вуали в
         сжатом состоянии не нужен: полоса стоит у кромки экрана всегда.
 
-     2. Низ покоя (scrimBottom) — прежняя маска кадра (Task 64, правка
-        2026-09-23 п.1.3) в координатах экрана: кадр высотой HERO_VH
-        растворялся от своего низа на SCRIM_FADE_K этой высоты по стопам
-        SCRIM_FADE. Маска кадр стирала, градиент тем же цветом страницы
-        закрашивает — src-over с одним цветом даёт ту же смесь
-        a·BG + (1 − a)·кадр, поэтому ряды в покое выглядят как до волны 3.
-        Ниже HERO_VH — сплошной фон: кадра там не было и раньше.
+     2. Низ покоя (scrimBottom, константы ROWS_*). Правка 2026-09-26 —
+        жалоба пользователя со снимками с ПК 2K («Психо», «Хитрый Койот», «В
+        джазе только девушки», «Унесённые ветром», «Истинная грусть»):
+        «жёсткий переход картинки, градиента и фона на плитках… фон плиток
+        не красится… градиент на картинке героя всё так же жёстко
+        перекрывает её». До правки здесь стояли стопы прежней маски кадра
+        (Task 64): плотность от нуля на 40 % высоты до единицы ровно на
+        66.67 % (1 → .9 → .58 → .22 → 0 на 33.33/37.33/44/52/60 % от низа) и
+        сплошной фон ниже — на светлом кадре это горизонтальная граница над
+        плитками, а под ними одинаковый у всех фильмов тёмный фон без кадра.
+        Теперь — одно плавное затемнение ЦВЕТОМ РЯДОВ (P.rows, п.5) по всей
+        длине, как у главной Apple TV: ноль на ROWS_FADE_UP выше низа текста
+        героя (над ним текст держит левое пятно, п.3), спад smootherstep на
+        ROWS_FADE экрана (ROWS_STEPS равных отрезков) и ровная плотность
+        ROWS_A до кромки экрана, НЕ единица: кадр слабо виден под плитками и
+        красит их фон вместе с цветом постера. Крутизна на телевизоре
+        (540 CSS px) — ROWS_A × 1.875 / (ROWS_FADE × 5.4) = .0062 на 1 px при
+        пороге .0065, излом в стопе — .0016 при пороге .002 (тест «в покое
+        низ кадра — одно плавное затемнение…»).
 
      3. Левое затемнение (scrimLeft, SCRIM_L_*) — подушка под текстом.
         Волна «подложка» (жалоба пользователя 2026-09-24 со скрином — «вот
@@ -913,7 +949,7 @@
         «Размере интерфейса». Видимостью пола управляет opacity (в покое 0,
         при .lumen-rows-up — 1).
 
-     5. Цвет (ревью раунда хвостов, п.7). Фон страницы подкрашивается
+     5. Цвет (ревью раунда хвостов, п.7; правка 2026-09-26 — ниже). Фон страницы подкрашивается
         постером (LC.accent.tint, src/57_color.js; по умолчанию включено), и
         затемнение, крашенное им же, светлело вместе с ним: с фоном
         #1E1D1B…#251B16 худшая точка меты на белом кадре — 3.9–4.2:1 на
@@ -932,12 +968,26 @@
         уже цветом фона рядов, ступеньки на стыке нет. Левое затемнение лежит
         в разметке ПОД верхним и нижним (buildStage, src/48_hero.js): иначе
         его тень легла бы на сплошной низ покоя и затемнила бы фон рядов
-        слева. */
+        слева.
+        Правка 2026-09-26: «фон плиток не красится» — подкраска выше под
+        рядами неотличима от чёрного, и низ покоя красится теперь СВОИМ
+        цветом, P.rows: заметно в тон постера (LC.accent.rowsTint,
+        src/57_color.js — светлота около .18 и насыщенность .35–.6 по HSL).
+        Им же залит корень главной и пол сжатого состояния (сплошной стоп
+        edgeAt). Верх под шапкой и левое пятно — по-прежнему тень P.bg.
+        Читаемость подписей под постерами (P.soft) сторожит сам подбор
+        цвета — на смеси с белым кадром в доле ROWS_LEAK: столько кадра видно
+        у верха подписей ряда в фокусе, где затемнение ещё чуть не дошло до
+        ROWS_A (тест «подписи и заголовок ряда читаются на цвете рядов при
+        белом кадре»). */
   var SCRIM_TOP_A = 0.5;
   var SCRIM_TOP_FULL = 3.96;
   var SCRIM_TOP_END = 9;
-  var SCRIM_FADE = [[0, 1], [0.15, 0.9], [0.4, 0.58], [0.7, 0.22], [1, 0]];
-  var SCRIM_FADE_K = 0.4;
+  var ROWS_A = 0.86;
+  var ROWS_FADE_UP = 5;
+  var ROWS_FADE = 48;
+  var ROWS_STEPS = 12;
+  var ROWS_LEAK = 0.16;
   var SCRIM_L_A = 0.85;
   var SCRIM_L_R0 = 0.45;
   var SCRIM_L_RX = 84;
@@ -1055,27 +1105,18 @@
     return 'rgba(' + P.shadeRgb + ',' + alphaCss(a) + ')';
   }
 
-  /* Стоп низа покоя и пола: они уходят в сплошной фон под рядами, и цвет
-     стопа идёт от тени к фону страницы вместе с плотностью — P.shade + (P.bg
-     − P.shade)·a. Сплошной стоп — сам P.bg, фон рядов как есть; к нему
-     затемнение приходит тем же цветом, ступеньки на кромке нет. */
+  /* Стоп пола сжатого состояния (флаг LC.heroCompact): пол уходит в
+     сплошной фон под поднятыми рядами, и цвет стопа идёт от тени к цвету
+     рядов вместе с плотностью — P.shade + (P.rows − P.shade)·a. Сплошной
+     стоп — сам P.rows; к нему затемнение приходит тем же цветом, ступеньки на
+     кромке нет. */
   function edgeAt(P, a) {
-    if (a >= 1) return P.bg;
-    var bg = P.bgRgb.split(',');
+    if (a >= 1) return P.rows;
+    var bg = P.rowsRgb.split(',');
     var sh = P.shadeRgb.split(',');
     var rgb = [];
     for (var i = 0; i < bg.length; i++) rgb.push(Math.round(+sh[i] + (bg[i] - sh[i]) * a));
     return 'rgba(' + rgb.join(',') + ',' + alphaCss(a) + ')';
-  }
-
-  /* Сплошной фон от кромки до from %, дальше затухание формы SCRIM_FADE
-     длиной len %. */
-  function fadeStops(P, from, len) {
-    var out = from > 0 ? [P.bg + ' 0%'] : [];
-    for (var i = 0; i < SCRIM_FADE.length; i++) {
-      out.push(edgeAt(P, SCRIM_FADE[i][1]) + ' ' + round2(from + SCRIM_FADE[i][0] * len) + '%');
-    }
-    return out.join(',');
   }
 
   function scrimTop(P) {
@@ -1083,8 +1124,25 @@
     return half + ' 0,' + half + ' ' + SCRIM_TOP_FULL + 'em,' + shadeAt(P, 0) + ' ' + SCRIM_TOP_END + 'em';
   }
 
+  /* Правка 2026-09-26: низ покоя — одно плавное затемнение цветом рядов
+     (разбор — у констант ROWS_*). Градиент идёт снизу (0deg): от кромки
+     экрана ровная плотность ROWS_A до верха подписей ряда в фокусе, дальше
+     спад A·(1 − smootherstep) за ROWS_STEPS равных отрезков на ROWS_FADE
+     экрана до нуля — на ROWS_FADE_UP выше низа текста героя. Прозрачность —
+     три знака: у хвоста спада шаг меньше сотой, и округление до сотых
+     сделало бы из него ступень. */
   function scrimBottom(P, key) {
-    return fadeStops(P, round2(100 - HERO_VH[key]), HERO_VH[key] * SCRIM_FADE_K);
+    var from = round2(HERO_VH[key] - textBottomVh(key) - ROWS_FADE_UP);
+    var len = Math.min(ROWS_FADE, 100 - from);
+    var flat = round2(100 - from - len);
+    var out = [];
+    if (flat > 0) out.push('rgba(' + P.rowsRgb + ',' + alphaCss(ROWS_A) + ') 0%');
+    for (var i = 0; i <= ROWS_STEPS; i++) {
+      var t = i / ROWS_STEPS;
+      var a = ('' + Math.round(ROWS_A * (1 - smootherstep(t)) * 1000) / 1000).replace(/^0\./, '.');
+      out.push('rgba(' + P.rowsRgb + ',' + a + ') ' + round2(flat + t * len) + '%');
+    }
+    return out.join(',');
   }
 
   /* Волна «подложка»: спад без изломов на концах — у smootherstep
@@ -1549,6 +1607,9 @@
       bg: P.bg, panel: P.panel, line: P.line, text: P.text, muted: P.muted, soft: P.soft, smoke: P.smoke,
       spice: P.spice, dark: P.dark,
       panelHi: P.panelHi, panelLo: P.panelLo, raised: P.raised, textRgb: P.textRgb, bgRgb: P.bgRgb,
+      /* Правка 2026-09-26: цвет фона рядов главной (palette, P.rows) —
+         HUD и живой проверке. */
+      rows: P.rows,
       accent: t.color, accentRgb: hexToRgb(t.color), onac: t.onac, ring: t.light, acglow: t.glow,
       /* Task 43: стек ровно один. Прежние fontDisplay/fontMono сняты вместе
          с заголовочной и моноширинной гарнитурами — экраны пути
@@ -4248,7 +4309,13 @@
        z-index:1 держит его над рядами и при этом ниже надстроек с z-index 80
        и выше — мини-карты и подсказки прыжка (.lumen-jump стоит как раз
        внизу экрана, на EDGE_Y от кромки, и перекрывать её нельзя). */
-    css.push('.lumen-main:after{content:"";position:absolute;left:0;right:0;bottom:0;height:2.5em;z-index:1;pointer-events:none}');
+    /* Правка 2026-09-26: при живом кадре заливки у кромки нет — низ экрана
+       красит плавное затемнение кадра (scrimBottom), и сплошная полоса
+       2.5em цвета рядов поверх него вернула бы и «максимум у низа — единица»,
+       и кромку в 28 CSS px; следующий ряд за кромку и так не выглядывает
+       (правило кромки). За порогом «кадра нет» слоя кадра нет — заливка
+       возвращается медиазапросом heroMinRatio ниже. */
+    css.push('.lumen-main:after{content:"";position:absolute;left:0;right:0;bottom:0;height:2.5em;z-index:1;pointer-events:none;display:none}');
     css.push(AR.fadeBot);
 
     /* Правка пользователя 2026-09-17 (второй круг, главное): «когда начинаем
@@ -4330,7 +4397,10 @@
     var rowsFull ='{margin-top:0;height:-webkit-calc(100vh - ' + LAMPA_HEAD + 'em) !important;height:calc(100vh - ' + LAMPA_HEAD + 'em) !important;overflow:hidden;-webkit-transform:none;transform:none}';
     css.push('@media screen and (min-aspect-ratio:' + heroMinRatio + '/100){' +
       '.lumen-main .scroll.layer--wheight,.lumen-main.lumen-rows-up .scroll.layer--wheight' + rowsFull +
-      '.lumen-main .lumen-hero-stage,.lumen-main .lumen-hero{display:none}}');
+      '.lumen-main .lumen-hero-stage,.lumen-main .lumen-hero{display:none}' +
+      /* Правка 2026-09-26: заливка у кромки — только без кадра (разбор — у
+         правила .lumen-main:after). */
+      '.lumen-main:after{display:block}}');
 
     /* --- Фаза 3 (долг фазы 2): карточка ряда главной (design-spec-main §0.4) ---
        Штатная карточка Lampa — .card шириной 12.75em (290 px при 1920).
@@ -4622,7 +4692,7 @@
        В СЕТКЕ подборки правило другое — там подпись шире, и рейтинг
        дописывается и карточке с меткой (блок сетки выше, opts.wide). */
     if (LC.badgesMode() !== 'off') css.push('.lumen-main .card__vote{display:none}');
-    css.push('.lumen-main .card__title{font-family:' + FB + ';font-weight:700;font-size:' + cardTitleEm + 'em;line-height:' + CARD_TITLE_LH + ';white-space:nowrap;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis;color:' + P.muted + '}');
+    css.push('.lumen-main .card__title{font-family:' + FB + ';font-weight:700;font-size:' + cardTitleEm + 'em;line-height:' + CARD_TITLE_LH + ';white-space:nowrap;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis;color:' + P.soft + '}');
     css.push('.lumen-main .card.focus .card__title{color:' + P.text + '}');
     /* Task 62a: подпись обрезается многоточием, а не переносится. До неё в
        строке стоял только год с рейтингом («2017 · ★ 6.4»), и в ширину
@@ -4630,7 +4700,13 @@
        длиннее, а вторая строка сдвинула бы вниз весь блок ряда — то есть
        инвариант Task 51 («низ подписи первого ряда ≤ 532 при 960×540»).
        Тем же приёмом обрезается и .card__title выше. */
-    css.push('.lumen-main .card__age{font-family:' + FB + ';font-size:' + cardAgeEm + 'em;line-height:1;margin-top:' + CARD_AGE_GAP + 'em;white-space:nowrap;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis;color:' + P.muted + '}');
+    /* Правка 2026-09-26: название и строка «год · ★» под постером — P.soft,
+       а не P.muted. Фон рядов теперь окрашен в тон постера (P.rows), и под
+       ним просвечивает кадр: приглушённый P.muted (яркость .33) на жёлтом
+       тоне с белым кадром давал 2.6:1, P.soft (.66) держит 4.5:1 и выше
+       (тест «подписи и заголовок ряда читаются на цвете рядов при белом
+       кадре»). Название в фокусе — P.text, как и было. */
+    css.push('.lumen-main .card__age{font-family:' + FB + ';font-size:' + cardAgeEm + 'em;line-height:1;margin-top:' + CARD_AGE_GAP + 'em;white-space:nowrap;overflow:hidden;-o-text-overflow:ellipsis;text-overflow:ellipsis;color:' + P.soft + '}');
     /* Волна «подложка», п.C1: при живом кадре героя строки «год · ★» под
        постерами главной нет — название остаётся. Год и оценку фокусной
        карточки пишет мета героя над рядами, и строка под постером их только

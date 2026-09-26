@@ -1224,6 +1224,70 @@ test('tint: серый постер фона почти не двигает', ()
   assert.ok(out.s < 0.12, 'без своего цвета плакат фон не красит: ' + out.s);
 });
 
+/* ====================================================================== */
+/* Правка 2026-09-26: фон области рядов главной — в цвет постера, заметно. */
+/* ====================================================================== */
+
+/* Самая слабая подпись на фоне рядов — название и строка «год · ★» под
+   постером, P.soft тёплой темы; под рядами просвечивает кадр героя, и доля
+   белого кадра под подписями — ROWS_LEAK (src/30_css.js). */
+const WARM_SOFT = '#DCD3C8';
+const LEAK = 0.16;
+const WHITE = { r: 255, g: 255, b: 255 };
+/* Доминанты четырёх постеров выборки пользователя — замер на стенде
+   (LC.accent.dominant() после остановки фокуса, округление QUANT):
+   «Психо» (539), «В джазе только девушки» (239), «Унесённые ветром» (770),
+   «Истинная грусть» (10494). */
+const POSTERS = {
+  psycho: { r: 136, g: 40, b: 40 },
+  jazz: { r: 232, g: 200, b: 40 },
+  gone: { r: 152, g: 72, b: 40 },
+  blue: { r: 56, g: 72, b: 104 }
+};
+
+test('rowsTint: без доминанты красить нечем', () => {
+  assert.equal(color.rowsTint(null, WARM_SOFT, 4.5, LEAK), null);
+});
+
+test('rowsTint: оттенок постера, светлота 14–22 % и насыщенность 35–60 % по HSL — на выборке постеров', () => {
+  for (const name of Object.keys(POSTERS)) {
+    const src = color.rgbToHsl(POSTERS[name]);
+    const out = color.rowsTint(POSTERS[name], WARM_SOFT, 4.5, LEAK);
+    assert.ok(out, name + ': цвета нет');
+    const hsl = color.rgbToHsl(color.parseHex(out));
+    const gap = Math.min(Math.abs(hsl.h - src.h), 360 - Math.abs(hsl.h - src.h));
+    assert.ok(gap < 6, name + ': оттенок ' + hsl.h.toFixed(0) + ' против постерного ' + src.h.toFixed(0));
+    assert.ok(hsl.s >= 0.34 && hsl.s <= 0.61, name + ': насыщенность ' + hsl.s.toFixed(2));
+    assert.ok(hsl.l >= 0.14 && hsl.l <= 0.22, name + ': светлота ' + hsl.l.toFixed(3));
+    const seen = color.mixRgb(color.parseHex(out), WHITE, LEAK);
+    assert.ok(color.contrast(WARM_SOFT, seen) >= 4.5, name + ': подпись на белом кадре ' + color.contrast(WARM_SOFT, seen).toFixed(2));
+  }
+});
+
+test('rowsTint: заметнее прежней подкраски — светлее и насыщеннее её на любом оттенке', () => {
+  for (let h = 0; h < 360; h += 15) {
+    const rgb = color.hslToRgb({ h: h, s: 0.8, l: 0.5 });
+    const rows = color.rgbToHsl(color.parseHex(color.rowsTint(rgb, WARM_SOFT, 4.5, LEAK)));
+    const old = color.rgbToHsl(color.parseHex(color.tint(rgb, WARM_BG, WARM_MUTED, 4.5)));
+    assert.ok(rows.s >= 0.34 && rows.s > old.s + 0.1, 'оттенок ' + h + ': насыщенность ' + rows.s.toFixed(2) + ' против ' + old.s.toFixed(2));
+    assert.ok(rows.l > old.l + 0.03, 'оттенок ' + h + ': светлота ' + rows.l.toFixed(3) + ' против ' + old.l.toFixed(3));
+  }
+});
+
+test('rowsTint: подпись читается на любом оттенке круга и при белом кадре под рядами', () => {
+  for (let h = 0; h < 360; h += 5) {
+    for (const s of [0.2, 0.6, 1]) {
+      const out = color.rowsTint(color.hslToRgb({ h: h, s: s, l: 0.55 }), WARM_SOFT, 4.5, LEAK);
+      assert.ok(out, 'оттенок ' + h + ': цвета нет');
+      const ratio = color.contrast(WARM_SOFT, color.mixRgb(color.parseHex(out), WHITE, LEAK));
+      assert.ok(ratio >= 4.5, 'оттенок ' + h + ', s ' + s + ': контраст подписи ' + ratio.toFixed(2));
+    }
+  }
+  /* Недостижимый порог — null (вызывающая сторона возьмёт обычную
+     подкраску), а не цвет похуже. */
+  assert.equal(color.rowsTint(POSTERS.jazz, WARM_SOFT, 21, LEAK), null);
+});
+
 test('mixRgb: доля второго цвета — от нуля до единицы', () => {
   assert.deepEqual(color.mixRgb({ r: 0, g: 0, b: 0 }, { r: 100, g: 200, b: 50 }, 0), { r: 0, g: 0, b: 0 });
   assert.deepEqual(color.mixRgb({ r: 0, g: 0, b: 0 }, { r: 100, g: 200, b: 50 }, 1), { r: 100, g: 200, b: 50 });

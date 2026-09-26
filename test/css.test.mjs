@@ -3456,6 +3456,13 @@ function rowLayout(built, screenW, screenH, opts) {
        всегда стоит на месте первого ряда в ПОКОЕ, и следующий ряд
        начинается отсюда. */
     rowBottomDown: posterBottomDown + tail - focusShift + rowGap,
+    /* Верх шапки ряда в фокусе в покое и высота его заголовка — проверке
+       контраста заголовка ряда на цвете рядов. */
+    rowTopDown: rowTopDown,
+    titleH: titleH,
+    /* Верх подписей под постером (в покое): низ постера плюс отступ
+       .card__view. */
+    captionTopDown: posterBottomDown + viewGap,
     cardW: cardW / CARD_EM,
     /* Низ подписи В ПОТОКЕ — без сдвига фокуса: transform раскладку не
        меняет, и следующий ряд встаёт именно от этой линии. */
@@ -4450,16 +4457,24 @@ test('волна «подложка»: кадр над рядами в поко�
   assert.ok(seen >= 0.53, 'кадр над рядами виден на ' + (seen * 100).toFixed(1) + ' % — подушка снова съедает постер');
 });
 
-/* Низ кадра в покое растворяется ровно так же, как до волны 3: стопы
-   затемнения — это стопы прежней маски кадра (.10 картинки на 6 % высоты
-   блока героя от его низа, .42 на 16 %, .78 на 28 %, сплошной кадр с 40 %),
-   пересчитанные в проценты экрана. Ниже блока героя — сплошной фон: кадра
-   там не было и раньше. Масок на самих картинках больше нет. Верхняя
-   полоса под шапкой Lampa — числа прежней верхней вуали. */
-test('волна 3: в покое низ кадра растворяется на стопах прежней маски, верх — под шапкой Lampa', () => {
+/* Правка 2026-09-26 (жалоба пользователя со снимками с ПК 2K: «жёсткий
+   переход картинки, градиента и фона на плитках… фон плиток не красится…
+   градиент на картинке героя всё так же жёстко перекрывает её»). Прежний низ
+   покоя — стопы маски кадра до волны 3: полная плотность ровно на 66.67 %
+   высоты экрана и сплошной фон под рядами, то есть на светлом кадре (душ в
+   «Психо») видимая горизонтальная граница над плитками и одинаковый у всех
+   фильмов фон под ними. Теперь это ОДНО плавное затемнение цветом рядов
+   (P.rows) по всей длине: smootherstep от ROWS_FADE_UP над низом текста
+   героя до нижней кромки экрана, и там плотность ROWS_A ниже единицы — кадр
+   слабо виден под плитками («как Apple TV»). Кромок нет — это проверяется на
+   пикселях: крутизна не больше .0065 на 1 px по высоте телевизора, излом не
+   больше .002 (та же мерка, что у левого пятна). Верх под шапкой Lampa —
+   прежний (числа верхней вуали). Масок на картинках кадра нет. */
+test('правка 2026-09-26: в покое низ кадра — одно плавное затемнение цветом рядов до кромки, кадр под плитками виден', () => {
+  const W = 960;
+  const H = 540;
   for (const size of ['large', 'medium', 'compact']) {
     const built = withStorage({ lumen_hero_size: size }, (LC) => LC.buildCss());
-    const heroVh = parseFloat(/height:([\d.]+)vh/.exec(decl(built, '.lumen-hero'))[1]);
     const rule = (ruleBodies(built).find((r) => r.selectors.length === 1 && r.selectors[0] === '.lumen-hero-stage .lumen-hero__scrim' && r.decl.indexOf('background') !== -1) || {}).decl;
     assert.ok(rule, size + ': затемнения слоя кадра нет');
     const layers = gradients(rule, 'background');
@@ -4469,18 +4484,183 @@ test('волна 3: в покое низ кадра растворяется н�
     assert.ok(top && bottom, size + ': направления слоёв затемнения: ' + rule);
     assert.deepEqual(top.stops.map((s) => [s.a, s.pos, s.unit]), [[0.5, 0, ''], [0.5, 3.96, 'em'], [0, 9, 'em']],
       size + ': полоса под шапкой Lampa разошлась с прежней верхней вуалью');
-    const solid = 100 - heroVh;
-    const expected = [[1, 0], [1, solid], [0.9, solid + 0.06 * heroVh], [0.58, solid + 0.16 * heroVh], [0.22, solid + 0.28 * heroVh], [0, solid + 0.4 * heroVh]];
-    assert.equal(bottom.stops.length, expected.length, size + ': число стопов низа: ' + rule);
-    bottom.stops.forEach((s, i) => {
-      assert.equal(s.a, expected[i][0], size + ': стоп ' + i + ' низа: ' + JSON.stringify(s));
-      assert.ok(Math.abs(s.pos - expected[i][1]) < 0.02, size + ': стоп ' + i + ' низа на ' + s.pos + ' % вместо ' + expected[i][1].toFixed(2));
-    });
+    const stops = bottom.stops;
+    assert.ok(stops.every((s) => s.unit === '%'), size + ': стопы низа — в процентах экрана: ' + rule);
+    assert.equal(stops[0].pos, 0, size + ': низ начинается у кромки экрана');
+    assert.ok(stops[0].a >= 0.82 && stops[0].a <= 0.9, size + ': плотность у кромки ' + stops[0].a + ' — не .82….9');
+    assert.ok(stops.every((s) => s.a < 1), size + ': у низа снова сплошная часть: ' + rule);
+    assert.equal(stops[stops.length - 1].a, 0, size + ': затемнение не кончается прозрачностью');
+    for (let i = 1; i < stops.length; i++) assert.ok(stops[i].a <= stops[i - 1].a && stops[i].pos > stops[i - 1].pos, size + ': стопы низа не монотонны: ' + rule);
+    /* Один цвет — цвет рядов (без подкраски это фон темы). */
+    assert.ok(stops.every((s) => s.rgb && s.rgb.join() === '11,9,8'), size + ': низ красится не цветом рядов: ' + rule);
+    /* Пиксели: крутизна и излом по высоте телевизора. */
+    const alpha = (y) => gradPm(stops, (H - y) / H * 100).a;
+    let g = 0;
+    let k = 0;
+    let prev = alpha(0);
+    let pd = null;
+    for (let y = 1; y < H; y += 1) {
+      const c = alpha(y);
+      const d = c - prev;
+      g = Math.max(g, Math.abs(d));
+      if (pd !== null) k = Math.max(k, Math.abs(d - pd));
+      pd = d;
+      prev = c;
+    }
+    assert.ok(g <= 0.0065, size + ': крутизна низа ' + g.toFixed(4) + ' на 1 px — это уже кромка');
+    assert.ok(k <= 0.002, size + ': излом низа ' + k.toFixed(4) + ' — видимая линия');
+    /* Над низом текста героя низ не темнит: подпись и описание держит
+       левое пятно, как и было одобрено. */
+    const lines = heroTextLines(built, W, H, { status: true, compact: false });
+    const textBottom = Math.max.apply(null, lines.map((l) => l.bottom));
+    assert.ok(alpha(textBottom) <= 0.02, size + ': у низа текста героя затемнение уже ' + alpha(textBottom).toFixed(3));
     assert.ok(rule.indexOf('-webkit-linear-gradient(top,') !== -1 && rule.indexOf('-webkit-linear-gradient(bottom,') !== -1,
       size + ': старым webkit-движкам нужны префиксные градиенты: ' + rule);
   }
   assert.deepEqual(ruleBodies(css).filter((r) => r.selectors.some((s) => /lumen-hero__(bg|lqip|trailer)/.test(s)) && /mask/.test(r.decl))
     .map((r) => r.selectors.join(',')), [], 'маска на картинках кадра осталась — затемнение теперь в слое');
+});
+
+/* Правка 2026-09-26: «кадр продолжается под рядами» — значит между слоем
+   кадра и карточками никто не рисует непрозрачный фон: ни штатные узлы
+   Lampa (.activity__body, скролл, ряд, лента ряда — у app.css фона у них
+   нет), ни наши правила под .lumen-main. Нижний градиент-заливка
+   .lumen-main:after (Task 38: цветом страницы от кромки экрана вверх на
+   2.5em) при живом кадре погашен — он делал бы низ сплошным поверх
+   плавного затемнения; следующий ряд за кромкой и так не выглядывает
+   (правило кромки). За порогом «кадра нет» слоя кадра нет, и заливка
+   возвращается. Верхняя заливка области рядов видна только при поднятых
+   рядах — то есть только со сжатым состоянием. */
+test('правка 2026-09-26: между кадром и карточками главной нет непрозрачного фона', () => {
+  const H = 540;
+  const between = ['activity__body', 'scroll', 'scroll__content', 'scroll__body', 'items-line', 'items-line__body', 'scroll--horizontal', 'items-cards', 'mapping--line', 'layer--wheight'];
+  const opaque = (d) => /(?:^|;)\s*background(-color|-image)?\s*:(?!\s*(none|transparent|rgba\([^)]*,\s*0\)))[^;]+/.test(d);
+  const lastCompound = (sel) => sel.trim().split(/\s+|>/).filter(Boolean).pop() || '';
+  const hits = (text) => ruleBodies(text).filter((r) => r.selectors.some((sel) => {
+    const tail = lastCompound(sel);
+    return !/:(after|before)/.test(tail) && between.some((c) => new RegExp('\\.' + c + '(?![\\w-])').test(tail));
+  }) && opaque(r.decl)).map((r) => r.selectors.join(',') + '{' + r.decl + '}');
+  assert.deepEqual(hits(css).filter((h) => h.indexOf('.lumen-main') !== -1 || h.indexOf('.lumen-') === -1), [], 'наши правила красят фон между кадром и карточками');
+  assert.deepEqual(hits(lampaCss()).filter((h) => !/search|explorer|console|extensions|selectbox|settings|menu|wrap__left|lang__selector|torrent|full-|player|notice|modal|broadcast|iptv|card-more|touch/.test(h)), [],
+    'штатные правила Lampa красят фон ряда или скролла');
+  for (const size of ['large', 'medium', 'compact']) {
+    const built = withStorage({ lumen_hero_size: size }, (LC) => LC.buildCss());
+    const afterDisplay = (w) => {
+      const rules = ruleBodiesWithMedia(built).filter((r) => r.selectors.indexOf('.lumen-main:after') !== -1 && mediaApplies(r.media, w, H) && /(?:^|;)display:/.test(r.decl));
+      return rules.length ? /(?:^|;)display:([a-z]+)/.exec(rules[rules.length - 1].decl)[1] : 'block';
+    };
+    assert.equal(afterDisplay(960), 'none', size + ': при живом кадре у кромки экрана сплошная заливка поверх затемнения');
+    const off = parseInt(/min-aspect-ratio:(\d+)\/100/.exec(heroOffMedia(built))[1], 10);
+    assert.equal(afterDisplay(Math.ceil(H * off / 100) + 10), 'block', size + ': за порогом «кадра нет» заливка у кромки пропала');
+  }
+  assert.ok(/(?:^|;)opacity:0(;|$)/.test(ruleBodies(css).filter((r) => r.selectors.length === 1 && r.selectors[0] === '.lumen-main .scroll.layer--wheight:after').map((r) => r.decl).join(';')),
+    'верхняя заливка области рядов видна без поднятых рядов');
+});
+
+/* Правка 2026-09-26 (пользователь: «когда уже решится вопрос по покрасу
+   фона на рядах плиток в цвет постера?»): фон рядов — P.rows, заметно в тон
+   постера (LC.accent.rowsTint, src/57_color.js), им красятся корень главной
+   и низ затемнения кадра; подписи под постерами — P.soft (в фокусе —
+   P.text): приглушённый P.muted на окрашенном фоне с просвечивающим кадром
+   не читается. Без подкраски P.rows — обычный фон (P.bg). */
+test('правка 2026-09-26: фон рядов — P.rows в тон постера, подписи под постерами — P.soft', () => {
+  const asked = [];
+  const tinted = withStorage({}, (LC) => {
+    LC.accent = { tint: () => '#1E1D1B', rowsTint: (guard, ratio, leak) => { asked.push([guard, ratio, leak]); return '#5A2A24'; } };
+    return { P: LC.tokens(), css: LC.buildCss(), accent: LC.accentCss() };
+  });
+  assert.equal(tinted.P.rows, '#5A2A24', 'палитра не взяла цвет рядов');
+  assert.equal(tinted.P.bg, '#1E1D1B', 'цвет рядов подменил подкраску остальных подложек');
+  assert.ok(asked.length && asked.every((a) => a[0] === tinted.P.soft && a[1] === 4.5 && a[2] > 0.1 && a[2] < 0.19),
+    'сторож цвета рядов — P.soft, 4.5:1 и доля кадра под подписями: ' + JSON.stringify(asked));
+  for (const text of [tinted.css, tinted.accent]) {
+    assert.equal(findDecl(text, (sel) => sel === '.lumen-main'), 'background-color:#5A2A24', 'корень главной не цвета рядов');
+    const scrim = ruleBodies(text).find((r) => r.selectors.length === 1 && r.selectors[0] === '.lumen-hero-stage .lumen-hero__scrim' && r.decl.indexOf('background') !== -1).decl;
+    const bottom = gradients(scrim, 'background').find((l) => l.angle === '0deg');
+    assert.ok(bottom.stops.every((s) => s.rgb.join() === '90,42,36'), 'низ затемнения не цвета рядов: ' + scrim);
+  }
+  const plain = tokensWith({});
+  assert.equal(plain.rows, plain.bg, 'без подкраски фон рядов обязан быть фоном темы');
+  for (const theme of ['warm', 'black']) {
+    const built = withStorage({ lumen_theme: theme }, (LC) => LC.buildCss());
+    const P = tokensWith({ lumen_theme: theme });
+    assert.ok(findDecl(built, (sel) => sel === '.lumen-main .card__title').indexOf('color:' + P.soft) !== -1, theme + ': название под постером не P.soft');
+    assert.ok(findDecl(built, (sel) => sel === '.lumen-main .card__age').indexOf('color:' + P.soft) !== -1, theme + ': строка «год · ★» не P.soft');
+    assert.equal(findDecl(built, (sel) => sel === '.lumen-main .card.focus .card__title'), 'color:' + P.text, theme + ': название в фокусе');
+  }
+});
+
+/* Самый светлый цвет рядов, какой может выдать LC.color.rowsTint для темы:
+   перебор оттенка и насыщенности доминанты при светлоте .5 (rowsTint берёт у
+   доминанты только оттенок и насыщенность). Сторож и доля кадра — те, что
+   palette() передаёт в LC.accent.rowsTint. */
+const LIGHTEST_ROWS = {};
+function lightestRows(theme) {
+  if (LIGHTEST_ROWS[theme]) return LIGHTEST_ROWS[theme];
+  let args = null;
+  withStorage({ lumen_theme: theme }, (LC) => {
+    LC.accent = { tint: () => null, rowsTint: (guard, ratio, leak) => { args = [guard, ratio, leak]; return null; } };
+    LC.tokens();
+  });
+  let best = null;
+  for (let h = 0; h < 360; h += 1) {
+    for (let s = 0.05; s <= 1.001; s += 0.05) {
+      const out = COLOR.rowsTint(COLOR.hslToRgb({ h: h, s: s, l: 0.5 }), args[0], args[1], args[2]);
+      if (out && (!best || luminance(out) > luminance(best))) best = out;
+    }
+  }
+  LIGHTEST_ROWS[theme] = best;
+  return best;
+}
+
+/* Правка 2026-09-26: подписи под постерами (название и строка «год · ★»,
+   P.soft) и заголовок ряда в фокусе (P.text) читаются на цвете рядов при
+   худшем кадре — белом — не хуже 4.5:1: в покое (без сжатия ряд в фокусе
+   всегда там), при трёх «Размерах интерфейса» Lampa и трёх размерах кадра,
+   с САМЫМ СВЕТЛЫМ цветом рядов, какой может выдать подкраска, в обеих
+   темах. Подписи — по всей ширине экрана: под правыми постерами левого
+   пятна нет. */
+test('правка 2026-09-26: подписи и заголовок ряда читаются на цвете рядов при белом кадре', () => {
+  const W = 960;
+  const H = 540;
+  const hex = (rgb) => '#' + rgb.map((v) => ('0' + Math.round(v).toString(16)).slice(-2).toUpperCase()).join('');
+  const WHITE = [255, 255, 255];
+  let worst = 99;
+  for (const theme of ['warm', 'black']) {
+    const rows = lightestRows(theme);
+    assert.ok(rows, theme + ': перебор не нашёл цвета рядов');
+    for (const iface of ['small', 'normal', 'bigger']) {
+      const EM = lampaEm(W, iface);
+      for (const size of ['large', 'medium', 'compact']) {
+        const res = withStorage({ lumen_hero_size: size, interface_size: iface, lumen_theme: theme }, (LC) => {
+          LC.accent = { tint: () => null, rowsTint: () => rows };
+          return { built: LC.buildCss(), P: LC.tokens() };
+        });
+        assert.equal(res.P.rows, rows);
+        const at = heroPixel(res.built, W, H, EM);
+        const box = rowLayout(res.built, W, H, { more: true, interface: iface });
+        const label = theme + ' ' + rows + ', ' + iface + ', ' + size;
+        const from = box.captionTopDown;
+        const to = Math.min(box.textBottomDown, H - 0.5);
+        for (let y = from; y <= to + 1e-6; y += (to - from) / 6) {
+          for (let x = 0.5; x < W; x += 20) {
+            const soft = contrast(res.P.soft, hex(at(x, y, false, WHITE)));
+            worst = Math.min(worst, soft);
+            assert.ok(soft >= 4.5, label + ': подпись под постером в (' + x.toFixed(0) + ', ' + y.toFixed(0) + ') ' + soft.toFixed(2) + ':1');
+          }
+        }
+        for (let y = box.rowTopDown; y <= box.rowTopDown + box.titleH + 1e-6; y += box.titleH / 4) {
+          for (let x = 3.51 * EM; x <= 21.51 * EM; x += EM) {
+            const got = contrast(res.P.text, hex(at(x, y, false, WHITE)));
+            assert.ok(got >= 4.5, label + ': заголовок ряда в (' + x.toFixed(0) + ', ' + y.toFixed(0) + ') ' + got.toFixed(2) + ':1');
+          }
+        }
+      }
+    }
+  }
+  /* Запас не выдуман: худшая точка подписи — у верха подписей справа, где
+     левого пятна нет и затемнение ещё не дошло до ROWS_A. */
+  assert.ok(worst < 6, 'худшая точка подписи подозрительно хороша: ' + worst.toFixed(2));
 });
 
 /* Пол сжатого состояния: кадр больше не уезжает вверх, и под поднятыми
@@ -4681,8 +4861,13 @@ test('Task 38: маска области рядов снята, хвост уе�
 
   /* Нижнее затухание, которое раньше давала штатная маска Lampa (92→100 %),
      теперь отдельный неподвижный оверлей на самой активности. */
-  const bottom = ruleBodies(css).filter((r) => r.selectors.length === 1 && r.selectors[0] === '.lumen-main:after');
+  const bottom = ruleBodies(css.split('\n').filter((l) => l.indexOf('@') !== 0).join('\n')).filter((r) => r.selectors.length === 1 && r.selectors[0] === '.lumen-main:after');
   assert.equal(bottom.length, 2, 'ожидались два правила нижнего оверлея: геометрия и цвет из accentRules');
+  /* Правка 2026-09-26: при живом кадре оверлей погашен, возвращает его
+     медиазапрос «кадра нет» (тест «между кадром и карточками главной нет
+     непрозрачного фона»). */
+  assert.ok(/(?:^|;)display:none/.test(bottom[0].decl), 'при живом кадре нижний оверлей обязан быть погашен: ' + bottom[0].decl);
+  assert.ok(heroOffMedia(css).indexOf('.lumen-main:after{display:block}') !== -1, 'за порогом «кадра нет» нижний оверлей не вернулся');
   const bDecl = bottom.map((r) => r.decl).join(';');
   assert.ok(bDecl.indexOf('bottom:0') !== -1 && bDecl.indexOf('height:2.5em') !== -1, 'нижний оверлей стоит на кромке экрана: ' + bDecl);
   assert.ok(bDecl.indexOf('pointer-events:none') !== -1, 'нижний оверлей не должен ловить фокус: ' + bDecl);
@@ -5737,9 +5922,11 @@ test('Task 42: фокус карточки ряда — увеличение и 
     assert.equal(findDecl(css, (sel) => sel === '.lumen-main .' + part), 'display:none', part);
   }
 
-  /* Ряд приглушён целиком, в фокусе название светлеет. */
+  /* Ряд приглушён целиком, в фокусе название светлеет. Правка 2026-09-26:
+     вне фокуса — P.soft, а не P.muted (фон рядов окрашен в тон постера,
+     тест «фон рядов — P.rows…»). */
   const title = findDecl(css, (sel) => sel === '.lumen-main .card__title');
-  assert.ok(title.indexOf('color:#A89A8A') !== -1, 'название вне фокуса — muted: ' + title);
+  assert.ok(title.indexOf('color:#DCD3C8') !== -1, 'название вне фокуса — soft: ' + title);
   assert.equal(findDecl(css, (sel) => sel === '.lumen-main .card.focus .card__title'), 'color:#F3EDE4');
 
   /* Выросший постер официально заезжает в зону заголовка ряда, а его

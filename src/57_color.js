@@ -456,6 +456,50 @@
       return hex(base);
     }
 
+    /* Правка 2026-09-26 (пользователь: «И когда уже решится вопрос по покрасу
+       фона на рядах плиток в цвет постера? Это было ещё в самом начале»).
+
+       tint выше — «тёмная комната с отсветом плаката»: светлота фона темы
+       плюс TINT_LIFT, насыщенность до TINT_S и доля тона до TINT_MIX, то есть
+       #1E1D1B…#251B16, а самый светлый результат — #212014. Под рядами
+       главной такой фон от чёрного на глаз не отличить — именно это
+       пользователь и видит. Фон ОБЛАСТИ РЯДОВ главной (P.rows, src/30_css.js)
+       красится заметно: оттенок постера, насыщенность ROWS_S_MIN…ROWS_S_MAX
+       (у доминанты она есть всегда — почти серые пиксели usable отбрасывает),
+       светлота ROWS_L по HSL. Остальные подложки плагина остаются на tint.
+
+       Сторож читаемости — самая слабая подпись на этом фоне (guard: название
+       и строка «год · ★» под постером, P.soft) с порогом ratio, и проверяется
+       она не на самом цвете, а на том, что видно на экране: под рядами кадр
+       героя просвечивает — затемнение низа кончается не сплошным фоном, а
+       плотностью ниже единицы (src/30_css.js, ROWS_A). leak — доля кадра под
+       подписями, и худший кадр — белый: цвет смешивается с белым на leak.
+       Не проходит — светлота опускается шагом ROWS_L_STEP (жёлтые и зелёные
+       тона при той же светлоте по HSL заметно ярче красных и синих), не ниже
+       ROWS_L_FLOOR; не прошёл и там — null, и вызывающая сторона берёт
+       обычную подкраску. Замер на выборке (test/color.test.mjs): красный,
+       оранжевый и синий постеры держат ROWS_L, жёлтый опускается на пару
+       шагов. */
+    var ROWS_L = 0.18;
+    var ROWS_L_FLOOR = 0.06;
+    var ROWS_L_STEP = 0.01;
+    var ROWS_S_MIN = 0.35;
+    var ROWS_S_MAX = 0.6;
+    var WHITE = { r: 255, g: 255, b: 255 };
+
+    function rowsTint(rgb, guard, ratio, leak) {
+      if (!rgb) return null;
+      var src = rgbToHsl(toRgb(rgb));
+      var s = clamp(src.s, ROWS_S_MIN, ROWS_S_MAX);
+      var limit = typeof ratio === 'number' ? ratio : MIN_RATIO;
+      var veil = clamp(typeof leak === 'number' ? leak : 0, 0, 1);
+      for (var l = ROWS_L; l >= ROWS_L_FLOOR - 0.0001; l = Math.round((l - ROWS_L_STEP) * 1000) / 1000) {
+        var out = hslToRgb({ h: src.h, s: s, l: l });
+        if (!guard || contrast(guard, mixRgb(out, WHITE, veil)) >= limit) return hex(out);
+      }
+      return null;
+    }
+
     /* Приводит цвет постера к рамке акцента и поднимает светлоту, пока не
        выполнятся ОБА условия читаемости: акцент на фоне страницы (он служит
        текстом — метка «КИНОПОИСК», статус героя) и тёмный текст на заливке
@@ -701,6 +745,7 @@
       mixRgb: mixRgb,
       blend: blend,
       tint: tint,
+      rowsTint: rowsTint,
       fromImage: fromImage,
       /* Task 60: чем кончилась последняя попытка и с какого адреса читались
          пиксели — для HUD (src/69_hud.js) и для живой проверки с пульта. */
@@ -1233,6 +1278,21 @@
       return LC.color.tint(source, bg, guard, ratio);
     }
 
+    /* Правка 2026-09-26: цвет фона области рядов главной — заметно в тон
+       постера (разбор — у LC.color.rowsTint). Тот же source, что у tint: на
+       шагах перехода (Task 60) фон рядов едет вместе с остальной подкраской,
+       в 'lite' встаёт сразу; режим 'off' — не красит. Зовётся из palette()
+       (src/30_css.js). */
+    function rowsTint(guard, ratio, leak) {
+      if (!source) return null;
+      try {
+        if (LC.motionMode() === 'off') return null;
+      } catch (e) {
+        return null;
+      }
+      return LC.color.rowsTint(source, guard, ratio, leak);
+    }
+
     /* Task 60: состояние подкраски одной записью — его показывает HUD.
        'off' отвечает по факту выключения (настройка, главный выключатель
        плагина или режим движения 'off'), остальное берётся у LC.color,
@@ -1326,6 +1386,7 @@
       stopTween: stopTween,
       status: status,
       tint: tint,
+      rowsTint: rowsTint,
       applyFor: applyFor,
       reset: reset,
       /* Task 35: зовётся последней строкой LC.injectCss (src/30_css.js) —
