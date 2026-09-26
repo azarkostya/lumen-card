@@ -346,7 +346,9 @@ test('holB: новогодние и хэллоуинские фильмы — с
   assert.equal(ambientEnv({ now: at(7, 1), home: false }).forMovie(film('christmas')), null, '«Только сезонные»: летом нет');
   assert.equal(id(ambientEnv({ now: at(7, 1), home: false, mode: 'all' }).forMovie(film('christmas'))), 'christmas', '«Все»: и летом');
   assert.equal(id(ambientEnv({ now: at(10, 10), home: false }).forMovie(film('halloween'))), 'halloween', 'хоррор про Хэллоуин в октябре');
-  assert.equal(id(ambientEnv({ now: at(12, 5) }).forMovie(film('christmas'))), 'christmas', 'главная до окна праздника — тема фильма');
+  /* Окно Нового года — с 1 декабря (решение 2026-09-26): до окна в декабре дней нет;
+     5 декабря на главной у рождественского фильма уже сцена праздника. */
+  assert.equal(id(ambientEnv({ now: at(12, 5) }).forMovie(film('christmas'))), 'newyear', 'главная в окне праздника — сцена праздника');
 });
 
 test('holB: на главной в окно праздника — сцена праздника у любого фильма; в карточке — нет', () => {
@@ -354,7 +356,7 @@ test('holB: на главной в окно праздника — сцена п
   assert.equal(ny.id, 'newyear');
   assert.equal(ny.preset, 'winter');
   assert.equal(ny.holiday, true);
-  assert.equal(ambientEnv({ now: at(1, 10) }).forMovie(film()).id, 'newyear');
+  assert.equal(ambientEnv({ now: at(1, 7) }).forMovie(film()).id, 'newyear');
   assert.equal(ambientEnv({ now: at(10, 31) }).forMovie(film('christmas')).preset, 'halloween', 'праздник дня первым');
   assert.equal(ambientEnv({ now: at(11, 1) }).forMovie(null).id, 'halloween', 'деталей нет — праздник всё равно');
   assert.equal(ambientEnv({ now: at(12, 25), home: false }).forMovie(odyssey), null, 'карточка обычного фильма — без праздника');
