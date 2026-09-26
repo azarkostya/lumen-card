@@ -6,6 +6,7 @@
   /*   groupsWithCounts(manifest, lang) → [{id, title, count, groups}]      */
   /*   tilesFor(manifest, hubGroupId) → [подборка, …]                       */
   /*   openTarget(item) → объект для Lampa.Activity.push                    */
+  /*   open(item) — открыть подборку (фолбэк на свою сетку; «Ещё» рядов)    */
   /*   franchiseItem(belongs_to_collection) → подборка для lumen_grid       */
   /*   sortModes() / applySort(item, mode) / sortLocal(results, mode)       */
   /*   needsLocalSort(item) / cardMedia(card)                              */
@@ -2188,6 +2189,9 @@
       tilesFor: tilesFor,
       inSeason: inSeason,
       openTarget: openTarget,
+      /* Сверка 2026-09-26: открыть подборку с фолбэком на свою сетку —
+         «Ещё» рядов главной (src/44_rows.js). */
+      open: openCollection,
       rouletteMedia: rouletteMedia,
       franchiseItem: franchiseItem,
       sortModes: sortModes,

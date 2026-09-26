@@ -923,6 +923,17 @@
       };
     }
 
+    /* «Ещё» ряда подборки: сетка той же подборки (LC.hub.open). Хаба нет
+       (выключен, модуль не загрузился) — ничего, без исключения в
+       обработчике Lampa. */
+    function openFull(item) {
+      try {
+        if (LC.hub && typeof LC.hub.open === 'function') LC.hub.open(item);
+      } catch (e) {
+        if (typeof warn === 'function') warn('rows: open collection failed', e);
+      }
+    }
+
     /* Фабрика call-функции для одного элемента.
        Lampa передаёт (params, screen) — screen это строка 'main', не объект.
        Функция(call) выполняет запрос через LC.sources.fetch с alive-guard.
@@ -954,6 +965,25 @@
               /* Task 57: ряд из состава, выбранного пользователем вручную,
                  дедупликация не выбрасывает по длине (см. describe). */
               if (pinned) payload.lumen_keep = true;
+              /* Сверка 2026-09-26: «Ещё» в конце ряда. Плитку дописывает
+                 модуль More ряда Lampa, когда вся первая страница уже в
+                 ленте и total_pages > 1 (app.min.js:19150-19176), а её
+                 hover:enter — это 'more' ряда, пультом и мышью одинаково.
+                 Главная отдаёт 'more' в router.call('category_full', data)
+                 (app.min.js:37080), и нашему ответу без url это пустой
+                 экран, — поэтому ряд несёт свой обработчик: params.emit
+                 Lampa ставит ряду при создании (Utils.createInstance,
+                 app.min.js:4705-4719), а «only»-обработчик Emit зовёт
+                 вместо всех on* (app.min.js:11120-11136). Открывается та же
+                 подборка — штатной сеткой или своей (LC.hub.open, фолбэк
+                 там же). Одностраничный ответ — без «Ещё»: ряд и так
+                 показывает всё. Дедупликация и подгонка порции копируют
+                 ряд вместе с этими полями (copyRow, withView). */
+              var pages = Number(json && json.total_pages) || 1;
+              if (pages > 1) {
+                payload.total_pages = pages;
+                payload.params = { emit: { onlyMore: function () { openFull(item); } } };
+              }
               /* Постеры: подмена постеров — ПОСЛЕ фильтра досмотренного и
                  ДО ответа Lampa. После фильтра — чтобы не платить запросами
                  за карточки, которых на экране не будет; до ответа — потому

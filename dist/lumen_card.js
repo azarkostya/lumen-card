@@ -11233,6 +11233,17 @@ call: makeCall(item, !!pinned)
 
 
 
+function openFull(item) {
+try {
+if (LC.hub && typeof LC.hub.open === 'function') LC.hub.open(item);
+} catch (e) {
+if (typeof warn === 'function') warn('rows: open collection failed', e);
+}
+}
+
+
+
+
 
 
 
@@ -11261,6 +11272,25 @@ var payload = { results: filtered, title: item.title };
 
 
 if (pinned) payload.lumen_keep = true;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+var pages = Number(json && json.total_pages) || 1;
+if (pages > 1) {
+payload.total_pages = pages;
+payload.params = { emit: { onlyMore: function () { openFull(item); } } };
+}
 
 
 
@@ -12128,6 +12158,7 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 /* ---- 46_hub.js ---- */
+
 
 
 
@@ -14318,6 +14349,9 @@ groupsWithCounts: groupsWithCounts,
 tilesFor: tilesFor,
 inSeason: inSeason,
 openTarget: openTarget,
+
+
+open: openCollection,
 rouletteMedia: rouletteMedia,
 franchiseItem: franchiseItem,
 sortModes: sortModes,

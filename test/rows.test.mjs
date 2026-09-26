@@ -1108,3 +1108,76 @@ test('dedupeAcross: fit выбрасывает только огрызок — �
   var old = R.dedupeAcross([mkRow('Выше', range(1, 16)), mkRow('Неделя', range(1, 20))], {}, 4);
   assert.equal(old.length, 2);
 });
+
+/* ------------------------------------------------------------------ */
+/* Сверка 2026-09-26: «Ещё» в конце ряда подборки на главной.            */
+/*                                                                    */
+/* Плитку «Ещё» в конец ленты Lampa дописывает сама — модуль More ряда  */
+/* (vendor/lampa/app.min.js:19150-19176): только при total_pages > 1, и  */
+/* её hover:enter шлёт ряду 'more'. Ответ ряда подборки total_pages не   */
+/* отдавал — плитки не было, и подборку целиком из ряда было не открыть. */
+/* 'more' главная отдаёт в router.call('category_full', data)            */
+/* (app.min.js:37080) — нашему ответу без url это пустой экран, поэтому  */
+/* ряд несёт свой обработчик: params.emit (Utils.createInstance ставит   */
+/* его ряду, app.min.js:4705-4719) с onlyMore — Emit зовёт «only»-       */
+/* обработчик вместо всех on* (app.min.js:11120-11136).                  */
+/* ------------------------------------------------------------------ */
+
+/* Emit Lampa в миниатюре — ровно та логика, что в app.min.js:11113-11144. */
+function emitLikeLampa(components, event) {
+  var name = event.charAt(0).toUpperCase() + event.slice(1);
+  var only = null;
+  components.forEach(function (c) { if (typeof c['only' + name] === 'function') only = c['only' + name]; });
+  if (only) return only.call(null);
+  components.forEach(function (c) { if (typeof c['on' + name] === 'function') c['on' + name].call(null); });
+}
+
+test('сверка: ряд подборки с несколькими страницами отдаёт total_pages и своё «Ещё» — сетку той же подборки', function () {
+  var s = setupRows();
+  var opened = [];
+  s.LC.hub = { open: function (item) { opened.push(item); } };
+  var rows = s.rows();
+  var got = [];
+  rows[0].call({}, 'main')(function (payload) { got.push(payload); });
+  s.fetchCalls[0].ok({ results: [{ id: 1 }, { id: 2 }], total_pages: 7 });
+  assert.equal(got[0].total_pages, 7, 'без total_pages > 1 Lampa плитку «Ещё» не рисует');
+  var emit = got[0].params && got[0].params.emit;
+  assert.ok(emit && typeof emit.onlyMore === 'function', 'нет своего обработчика «Ещё»');
+  /* Главная Lampa ставит ряду свой onMore — наш обязан его перебить. */
+  var lampaMore = [];
+  emitLikeLampa([emit, { onMore: function () { lampaMore.push(1); } }], 'more');
+  assert.deepEqual(lampaMore, [], 'сработал штатный переход category_full без адреса');
+  assert.equal(opened.length, 1);
+  assert.equal(opened[0].id, 'col-a', '«Ещё» открывает ту же подборку');
+});
+
+test('сверка: ряд подборки в одну страницу — без «Ещё», как и был', function () {
+  var s = setupRows();
+  s.LC.hub = { open: function () { assert.fail('открывать нечего'); } };
+  var rows = s.rows();
+  var got = [];
+  rows[0].call({}, 'main')(function (payload) { got.push(payload); });
+  s.fetchCalls[0].ok({ results: [{ id: 1 }], total_pages: 1 });
+  assert.ok(!(got[0].total_pages > 1), 'одностраничный ряд получил «Ещё»');
+  assert.equal(got[0].params, undefined);
+});
+
+test('сверка: «Ещё» без хаба (выключен, не загрузился) — без исключения', function () {
+  var s = setupRows();
+  var rows = s.rows();
+  var got = [];
+  rows[0].call({}, 'main')(function (payload) { got.push(payload); });
+  s.fetchCalls[0].ok({ results: [{ id: 1 }], total_pages: 3 });
+  assert.doesNotThrow(function () { got[0].params.emit.onlyMore(); });
+});
+
+test('сверка: dedupe и порция ряда сохраняют total_pages и обработчик «Ещё»', function () {
+  var s = setupRows();
+  var more = { emit: { onlyMore: function () {} } };
+  var row = { title: 'A', results: [{ id: 1, source: 'tmdb' }, { id: 2, source: 'tmdb' }, { id: 3, source: 'tmdb' }, { id: 4, source: 'tmdb' }, { id: 5, source: 'tmdb' }], total_pages: 4, params: more };
+  var kept = s.R.dedupeAcross([row], {}, 1, 0);
+  assert.equal(kept[0].total_pages, 4);
+  assert.equal(kept[0].params.emit, more.emit);
+  var viewed = s.R.withView(kept, 12);
+  assert.equal(viewed[0].params.emit, more.emit, 'копия params при подгонке порции потеряла обработчик');
+});
