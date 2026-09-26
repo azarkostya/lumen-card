@@ -379,8 +379,8 @@ test('темы: 15 новых, у каждой перевод, кадр и то�
       assert.ok(s.params.keywords || s.params.genres, id + '/' + media + ': ни ключевого слова, ни жанра');
     }
   }
-  assert.equal(M.DEFAULT.collections.filter(c => c.group === 'theme').length, 47);
-  assert.equal(M.DEFAULT.collections.length, 165);
+  assert.equal(M.DEFAULT.collections.filter(c => c.group === 'theme').length, 52, 'раунд holB: +5 сезонных');
+  assert.equal(M.DEFAULT.collections.length, 170);
 });
 
 /* Кадр плитки из каталога (cover): путь TMDB, у всех разный, не кадр
@@ -536,4 +536,43 @@ test('S1: сеть упала — старый кэш берётся, тольк
   const good = okCatalog();
   const r2 = loadWith('https://example.test/m.json', { store: { lumen_manifest: { at: Date.now() - 13 * 3600e3, data: good } }, reply: (ok, err) => err() });
   assert.equal(r2.got, good);
+});
+
+/* Раунд holB: сезонные подборки к праздникам СНГ и временам года (живые
+   запросы TMDB через Lampa, 2026-09-26, первые 20 — в комментарии у
+   подборок в src/42_manifest.js). Сезон — месяцы: план главной
+   (src/47_homeplan.js) показывает сезонную подборку только в её месяц. */
+test('holB: пять сезонных подборок — месяц, перевод, кадр, только discover; летняя и школьная — без взрослого кино', () => {
+  const want = {
+    'winter-movies': [1, 2], 'summer-movies': [6, 7, 8], 'space-race': [4], 'soviet-cartoons': [6], 'school-years': [9]
+  };
+  const byId = {};
+  for (const c of M.DEFAULT.collections) byId[c.id] = c;
+  for (const id in want) {
+    const c = byId[id];
+    assert.ok(c, 'нет подборки ' + id);
+    assert.deepEqual(c.season, want[id], id);
+    assert.equal(c.group, 'theme', id);
+    assert.equal(c.icon, 'star', id + ': сезонная — со звездой, как прочие');
+    assert.ok(c.i18n && c.i18n.en && c.i18n.uk, 'перевод ' + id);
+    assert.ok(typeof c.cover === 'string', 'кадр ' + id);
+    assert.equal(c.sources.movie.type, 'discover', id);
+    assert.equal(c.sources.tv, undefined, id);
+    assert.ok(M.validate({ version: 1, groups: [{ id: 'theme' }], home: [], collections: [c] }).ok, id + ': проходит проверку каталога');
+  }
+  for (const id of ['summer-movies', 'school-years']) {
+    const f = byId[id].sources.movie.params.filter;
+    assert.equal(f.certification_country, 'US', id);
+    assert.equal(f['certification.lte'], 'PG-13', id + ': «Без обид» и «SuperПерцы» — не летнее и не школьное кино на главной');
+  }
+  const cartoons = byId['soviet-cartoons'].sources.movie.params;
+  assert.equal(cartoons.orig_lang, 'ru');
+  assert.equal(cartoons.filter['primary_release_date.lte'], '1991-12-31', 'советские — до 1992 года');
+  assert.ok(('' + byId['winter-movies'].sources.movie.params.filter.without_keywords).split('|').concat(('' + byId['winter-movies'].sources.movie.params.filter.without_keywords).split(',')).indexOf('207317') !== -1,
+    'рождественское — в своих подборках и в адвенте, зимнее кино без него');
+  /* Прежние лидеры своих месяцев остаются лидерами: новые идут в каталоге после них. */
+  const theme = M.DEFAULT.collections.filter(x => x.group === 'theme');
+  assert.equal(M.orderForMonth(theme, 2)[0].id, 'love-feb');
+  assert.equal(M.orderForMonth(theme, 4)[0].id, 'space-race');
+  assert.equal(M.orderForMonth(theme, 6)[0].id, 'summer-movies');
 });

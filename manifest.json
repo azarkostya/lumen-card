@@ -1748,6 +1748,152 @@
       }
     },
     {
+      "id": "winter-movies",
+      "title": "Зимнее кино",
+      "i18n": {
+        "en": "Winter Films",
+        "uk": "Зимове кіно"
+      },
+      "group": "theme",
+      "icon": "star",
+      "season": [
+        1,
+        2
+      ],
+      "cover": "/tuDhEdza074bA497bO9WFEPs6O6.jpg",
+      "sources": {
+        "movie": {
+          "type": "discover",
+          "params": {
+            "keywords": "1442|10794|3373",
+            "genres": "35|10751|10749|14|16|12",
+            "sort_by": "popularity.desc",
+            "filter": {
+              "without_genres": "27,53,80,10752,37,878",
+              "without_keywords": "207317",
+              "vote_count.gte": 150
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "space-race",
+      "title": "Покорители космоса",
+      "i18n": {
+        "en": "Space Pioneers",
+        "uk": "Підкорювачі космосу"
+      },
+      "group": "theme",
+      "icon": "star",
+      "season": [
+        4
+      ],
+      "cover": "/t4YhlPbrloOjukZLKol9dhfDyxS.jpg",
+      "sources": {
+        "movie": {
+          "type": "discover",
+          "params": {
+            "keywords": "198136|229169|306201|156836|7422|226233",
+            "sort_by": "popularity.desc",
+            "filter": {
+              "without_genres": "27,99",
+              "vote_count.gte": 15
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "summer-movies",
+      "title": "Летнее кино",
+      "i18n": {
+        "en": "Summer Films",
+        "uk": "Літнє кіно"
+      },
+      "group": "theme",
+      "icon": "star",
+      "season": [
+        6,
+        7,
+        8
+      ],
+      "cover": "/y3zUOMWRoI2vC4ck2GBJyFWhzyA.jpg",
+      "sources": {
+        "movie": {
+          "type": "discover",
+          "params": {
+            "keywords": "13088|14714|5767",
+            "genres": "35|10751|16|12",
+            "sort_by": "popularity.desc",
+            "filter": {
+              "without_genres": "27,53,80,18",
+              "certification_country": "US",
+              "certification.lte": "PG-13",
+              "vote_count.gte": 150
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "soviet-cartoons",
+      "title": "Советские мультфильмы",
+      "i18n": {
+        "en": "Soviet Animation",
+        "uk": "Радянські мультфільми"
+      },
+      "group": "theme",
+      "icon": "star",
+      "season": [
+        6
+      ],
+      "cover": "/xvk0mFGUojrTiiTo0iutGW5Xd1n.jpg",
+      "sources": {
+        "movie": {
+          "type": "discover",
+          "params": {
+            "genres": 16,
+            "orig_lang": "ru",
+            "sort_by": "vote_count.desc",
+            "filter": {
+              "primary_release_date.lte": "1991-12-31",
+              "vote_count.gte": 20
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "school-years",
+      "title": "Школьные годы",
+      "i18n": {
+        "en": "School Years",
+        "uk": "Шкільні роки"
+      },
+      "group": "theme",
+      "icon": "star",
+      "season": [
+        9
+      ],
+      "cover": "/jehzP4JKiFzgTWIaASLFOJocJke.jpg",
+      "sources": {
+        "movie": {
+          "type": "discover",
+          "params": {
+            "keywords": "6270|173642",
+            "sort_by": "popularity.desc",
+            "filter": {
+              "without_genres": "27,53,14,878,28",
+              "certification_country": "US",
+              "certification.lte": "PG-13",
+              "vote_count.gte": 400
+            }
+          }
+        }
+      }
+    },
+    {
       "id": "musical",
       "title": "Мюзиклы",
       "group": "theme",
