@@ -566,14 +566,55 @@
       return false;
     }
 
-    /* Год и рейтинг результата — та же мета, что у карточек сетки. */
-    function cardMeta(card) {
+    /* Мета рулетки — та же строка, что у героя главной: «2026 · 1:40 ·
+       драма · ★ 8.1», оценка последней и со звездой (src/48_hero.js, render;
+       подпись ряда — «2017 · ★ 6.4», src/62_badges.js). Дизайн-проход
+       2026-09-26: здесь было «1994 · 8.7» — голое число без звезды, которое
+       на соседних экранах плагина нигде так не пишется. С деталями фильма
+       (результат: они греются, пока крутится барабан) — длительность или
+       сезоны и жанры собирает сам LC.hero.heroModel, чтобы строка не
+       разошлась с героем; без деталей — год. Порог оценки 1 — тот же, что у
+       героя и ряда: оценка 0.04 — это «оценки нет». */
+    function heroWords() {
+      var months = [];
+      try { months = ('' + LC.lang('lumen_card_months_short')).split(','); } catch (e) { }
+      var cap = null;
+      try {
+        if (window.Lampa && Lampa.Utils && typeof Lampa.Utils.capitalizeFirstLetter === 'function') {
+          cap = function (s) { return Lampa.Utils.capitalizeFirstLetter(s); };
+        }
+      } catch (eCap) { }
+      return {
+        min: LC.lang('lumen_card_min'),
+        airing: LC.lang('lumen_hero_airing'),
+        months: months,
+        seasonsWord: LC.seasonsWord,
+        cap: cap,
+        lang: lang()
+      };
+    }
+
+    function metaLine(card, details) {
       var parts = [];
-      var date = (card && (card.release_date || card.first_air_date)) || '';
-      if (date) parts.push(('' + date).slice(0, 4));
+      try {
+        if (details && LC.hero && typeof LC.hero.heroModel === 'function') {
+          var model = LC.hero.heroModel(card, details, heroWords());
+          if (model && model.meta && model.meta.length) parts = model.meta.slice();
+        }
+      } catch (e) {
+        parts = [];
+      }
+      if (!parts.length) {
+        var date = (card && (card.release_date || card.first_air_date)) || '';
+        if (date) parts.push(('' + date).slice(0, 4));
+      }
       var vote = Number(card && card.vote_average) || 0;
-      if (vote > 0) parts.push(vote.toFixed(1));
+      if (vote >= 1) parts.push('★ ' + vote.toFixed(1));
       return parts.join(' · ');
+    }
+
+    function cardMeta(card) {
+      return metaLine(card, null);
     }
 
     function cardTitle(card) {
@@ -1652,6 +1693,29 @@
         });
       }
 
+      /* Детали выпавшего фильма — те же, что у героя и логотипа
+         (LC.prefetch.details: память, склейка запроса в пути). Их просят с
+         начала вращения (warmDetails в spin), так что к показу результата
+         они обычно уже в памяти и мета сразу полная; пришли позже — строка
+         дописывается, пока на экране тот же результат. */
+      function warmDetails(card) {
+        try {
+          if (LC.prefetch && typeof LC.prefetch.details === 'function') LC.prefetch.details(card, function () { }, function () { });
+        } catch (e) { }
+      }
+
+      function resultMeta(card, node) {
+        if (!LC.prefetch || typeof LC.prefetch.details !== 'function') return;
+        try {
+          LC.prefetch.details(card, function (json) {
+            if (result !== card || !resultBox[0].contains(node[0])) return;
+            node.text(metaLine(card, json));
+          }, function () { });
+        } catch (e) {
+          warn('roulette: result details failed', e);
+        }
+      }
+
       function paintResult(card) {
         resultBox.empty();
         resultBox.addClass('is-live');
@@ -1661,9 +1725,14 @@
           resultBox.append(logo);
           paintResultLogo(card, logo);
         }
-        resultBox.append($('<div class="lumen-roulette__rtitle">' + esc(cardTitle(card)) + '</div>'));
-        resultBox.append($('<div class="lumen-roulette__rmeta">' + esc(cardMeta(card)) + '</div>'));
-        if (atv && cardOverview(card)) resultBox.append($('<div class="lumen-roulette__rdescr">' + esc(cardOverview(card)) + '</div>'));
+        resultBox.append($('<div class="lumen-roulette__rtitle"></div>').text(cardTitle(card)));
+        var metaNode = $('<div class="lumen-roulette__rmeta"></div>').text(cardMeta(card));
+        resultBox.append(metaNode);
+        /* Дизайн-проход 2026-09-26: описание — в обоих видах. В стандартном
+           его не было, и о выпавшем фильме экран говорил только названием и
+           годом: решать «смотреть или ещё раз» было не по чему. */
+        if (cardOverview(card)) resultBox.append($('<div class="lumen-roulette__rdescr"></div>').text(cardOverview(card)));
+        resultMeta(card, metaNode);
         var actions = $('<div class="lumen-roulette__actions"></div>');
         actions.append(actionNode('lumen_roulette_watch', function () { openCard(card); }));
         actions.append(actionNode('lumen_roulette_again', function () { spin(); }));
@@ -1892,6 +1961,7 @@
                после Task 72). К его остановке w1280 обычно в кэше, и
                переход «барабан → кадр» стартует без паузы. */
             prepareFrame(final);
+            warmDetails(final);
             if (atv) warmLogo(final);
             var strip = [];
             var i;

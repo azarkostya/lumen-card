@@ -5819,6 +5819,10 @@
        карте отделять нечего. Акцент у кнопки остался в подложке под ней
        (box-shadow в самом правиле). */
     css.push('.lumen-roulette .lumen-roulette__btn.focus{background:' + P.text + ';color:' + P.bg + ';-webkit-box-shadow:0 .2em 0 ' + AG + ';box-shadow:0 .2em 0 ' + AG + '}');
+    /* Дизайн-проход 2026-09-26: описание результата — и в стандартном
+       виде (в виде «как Apple TV» оно было с волны fx2): о выпавшем фильме
+       экран говорил только названием и годом. Две строки, как у героя. */
+    css.push('.lumen-roulette .lumen-roulette__rdescr{font-family:' + FB + ';font-weight:400;font-size:1.05em;line-height:1.4;color:rgba(' + P.textRgb + ',.82);margin-top:.55em;max-width:34em;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}');
     /* Пустая выборка — сообщение в самом барабане (узел .lumen-roulette__none
        в src/56_roulette.js, класс сцены is-none): крупно, что случилось, и
        ниже — что сделать. Прежде оно появлялось только после «Крутить»,
@@ -5979,7 +5983,6 @@
     css.push(ATV + ' .lumen-roulette__result.is-logo-wait .lumen-roulette__rtitle{visibility:hidden}');
     css.push(ATV + ' .lumen-roulette__rtitle{font-weight:700;font-size:2.6em;line-height:1.08;letter-spacing:-.01em}');
     css.push(ATV + ' .lumen-roulette__rmeta{font-size:1.05em}');
-    css.push(ATV + ' .lumen-roulette__rdescr{font-family:' + FB + ';font-weight:400;font-size:1.05em;line-height:1.4;color:rgba(' + P.textRgb + ',.82);margin-top:.55em;max-width:34em;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}');
     css.push(ATV + ' .lumen-roulette__btn{border-radius:1.2em;background:' + P.buttonBg + '}');
     css.push(ATV + ' .lumen-roulette__btn.focus{background:' + P.text + ';color:' + P.bg + '}');
 

@@ -1951,7 +1951,7 @@ test('вид «как Apple TV»: барабан крутит кадры w300, �
   createdImages[createdImages.length - 1].onload();
 });
 
-test('вид «как Apple TV»: результат — описание под метой; прежний вид его не рисует', (t) => {
+test('вид «как Apple TV»: результат — описание под метой и место под логотип; прежний вид — без логотипа', (t) => {
   const A = { id: 1, title: 'Фильм A', release_date: '2020-01-01', poster_path: '/a-p.jpg', backdrop_path: '/a-b.jpg', overview: 'Про A' };
   const env = openRoulette34([A], t, 1, 'off', null, null, { lumen_flat: true });
   env.comp.start();
@@ -1968,7 +1968,9 @@ test('вид «как Apple TV»: результат — описание под
   const plain = openRoulette34([A], t, 1, 'off');
   plain.comp.start();
   spinAndFlush(plain);
-  assert.equal(plain.screen.find('.lumen-roulette__result').find('.lumen-roulette__rdescr').length, 0);
+  /* Дизайн-проход 2026-09-26: описание результата есть и в прежнем виде
+     (тест «дизайн C: результат в обоих видах»); логотипа там нет. */
+  assert.equal(plain.screen.find('.lumen-roulette__result').find('.lumen-roulette__rlogo').length, 0);
   assert.equal(plain.screen.hasClass('is-atv'), false);
   assert.equal(plain.screen.find('.lumen-roulette__shelf').length, 0, 'в прежнем виде полки нет');
 });
@@ -2356,4 +2358,43 @@ test('дизайн C: на вращении экран помечен is-spinnin
     env.comp.pause();
     assert.equal(env.screen.hasClass('is-spinning'), false, 'метка пережила уход с экрана');
   }
+});
+
+test('дизайн C: результат в обоих видах — название, мета со звездой, описание', (t) => {
+  const A = { id: 1, title: 'Фильм A', release_date: '2020-01-01', vote_average: 7.34, poster_path: '/a-p.jpg', backdrop_path: '/a-b.jpg', overview: 'Про A' };
+  for (const prefs of [{}, { lumen_flat: true }]) {
+    const env = openRoulette34([A], t, 1, 'off', null, null, prefs);
+    env.comp.start();
+    spinAndFlush(env);
+    const box = env.screen.find('.lumen-roulette__result');
+    assert.equal(box.find('.lumen-roulette__rtitle').text(), 'Фильм A');
+    assert.equal(box.find('.lumen-roulette__rmeta').text(), '2020 · ★ 7.3', 'оценка без звезды — не как на главной и в герое');
+    assert.equal(box.find('.lumen-roulette__rdescr').text(), 'Про A', 'описания нет');
+  }
+  /* Порог оценки — тот же, что у подписи ряда и героя: меньше 1 — не оценка. */
+  const B = Object.assign({}, A, { id: 2, vote_average: 0.4 });
+  const env = openRoulette34([B], t, 1, 'off');
+  env.comp.start();
+  spinAndFlush(env);
+  assert.equal(env.screen.find('.lumen-roulette__rmeta').text(), '2020');
+});
+
+test('дизайн C: мета результата — как у героя (длительность, жанры), детали греются на старте вращения', (t) => {
+  const A = { id: 1, title: 'Фильм A', release_date: '2020-01-01', vote_average: 7.34, poster_path: '/a-p.jpg', backdrop_path: '/a-b.jpg', overview: 'Про A' };
+  const env = openRoulette34([A], t, 1, 'lite');
+  const asked = [];
+  const later = [];
+  env.LC.prefetch = { details: (card, ok) => { asked.push(card.id); later.push(() => ok({ id: card.id, runtime: 101 })); } };
+  const models = [];
+  env.LC.hero = { heroModel: (card, details, words) => { models.push([card.id, details.runtime, typeof words]); return { meta: ['2020', '1:41', 'Комедия'] }; } };
+  env.comp.start();
+  flushTimers();
+  fire(env.root.find('.lumen-roulette__spin'), 'hover:enter');
+  assert.deepEqual(asked, [1], 'детали выпавшего не запрошены, пока крутится барабан');
+  flushTimers();
+  const meta = env.screen.find('.lumen-roulette__rmeta');
+  assert.equal(meta.text(), '2020 · ★ 7.3', 'до деталей — год и оценка');
+  later.forEach((fn) => fn());
+  assert.equal(meta.text(), '2020 · 1:41 · Комедия · ★ 7.3', 'детали не дописали длительность и жанры');
+  assert.deepEqual(models[models.length - 1], [1, 101, 'object']);
 });
