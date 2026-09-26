@@ -526,7 +526,14 @@
            with willReadFrequently») — проверено живьём. Движки, которые
            второго аргумента не знают, просто его игнорируют. */
         var ctx = canvas.getContext('2d', { willReadFrequently: true });
-        if (!ctx) return null;
+        /* Раунд правок финальной проверки, A3: исход и у этой ветки —
+           иначе last_state остался бы от прошлого постера, и после серого
+           (dim) временный сбой контекста лёг бы в кэш окончательным «цвета
+           нет». */
+        if (!ctx) {
+          mark('error', src);
+          return null;
+        }
         ctx.drawImage(img, 0, 0, SAMPLE, SAMPLE);
         var rgb = dominant(ctx.getImageData(0, 0, SAMPLE, SAMPLE).data);
         /* Task 60: пиксели прочитаны — значит CORS тут ни при чём, даже

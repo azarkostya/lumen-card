@@ -3089,12 +3089,19 @@
        Следующий раунд, п.5: failed — зов по отказу кадра (startFrame).
        Картинка при нём не меняется (под текстом свой кадр, подложка этого
        фильма или ничего) — цвет фильма ставится сразу (settleAccent);
-       меняется на нейтральный фон — цвет с ним, в том же тике. */
+       меняется на нейтральный фон — цвет с ним, в том же тике.
+       Раунд правок финальной проверки, A1: тот же потолок и у цвета, когда
+       чужого кадра под текстом нет (нейтральный фон, подложка этого
+       фильма), а полный кадр ещё едет: через HOLD_MS от вывода текста цвет
+       встаёт без смены картинки (own ниже). Прежде он ждал полного кадра
+       без потолка, до таймаута загрузки, — под текстом нового фильма стоял
+       цвет прошлого. */
     function holdFrame(captured, late, failed) {
       if (!state || gen !== captured) return;
       stopTimer('holdTimer');
-      if (String(state.frameId) === String(state.shownId) || (!state.frameUrl && !state.lqipUrl)) {
-        if (failed) settleAccent(false);
+      var own = String(state.frameId) === String(state.shownId) || (!state.frameUrl && !state.lqipUrl);
+      if (own && (failed || !state.accentWait)) {
+        settleAccent(false);
         return;
       }
       /* Ревью волны 3, п.1: фокус уже на другой карточке — заглушку не
@@ -3118,6 +3125,11 @@
           state.holdTimer = null;
           holdFrame(captured, true, failed);
         }, HOLD_DECODE);
+        return;
+      }
+      /* A1: картинка не меняется — цвет встаёт сам по себе. */
+      if (own) {
+        settleAccent(false);
         return;
       }
       /* Волна «хвосты героя», п.C2: заглушка — нейтральный фон, без
@@ -3164,7 +3176,9 @@
        (onFocus). Заведённый не перезаводится. */
     function armHold() {
       if (!state || state.holdTimer) return;
-      if (String(state.frameId) === String(state.shownId)) return;
+      /* A1: свой кадр или подложка на экране, но цвет показа ещё ждёт
+         полного кадра — отсчёт нужен цвету (holdFrame). */
+      if (String(state.frameId) === String(state.shownId) && !state.accentWait) return;
       var held = gen;
       state.holdTimer = setTimeout(function () {
         if (gen !== held || !state) return;
@@ -3213,8 +3227,13 @@
            предзагрузки, отсчёт FRAME_WAIT до кадра по данным ряда. */
         state.framePath = null;
         /* Волна 3: на экране кадр — отсчёт заглушки заведёт вывод текста
-           этого показа (write в render), если кадр к тому мигу чужой. */
-        state.holdDue = !!(state.frameUrl || state.lqipUrl) && motionMode() !== 'off';
+           этого показа (write в render), если кадр к тому мигу чужой.
+           Раунд правок финальной проверки, A1: и потолок цвета — тот же
+           отсчёт от вывода текста, когда на экране уже нейтральный фон, а
+           цвет стоит прошлого фильма (tinted): без него цвет нового ждал
+           бы его кадра до таймаута загрузки. Первый показ (ни кадра, ни
+           цвета фильма) ждёт кадра. */
+        state.holdDue = !!(state.frameUrl || state.lqipUrl || state.tinted) && motionMode() !== 'off';
         var model = heroModel(card, null, words());
         render(model, true);
         loadDetails(card, captured);
@@ -3307,6 +3326,7 @@
        Второй аргумент applyFor не передаётся: полная пересборка CSS —
        только у открытой карточки. */
     function applyAccent(card) {
+      if (state) state.tinted = true;
       try {
         if (LC.accent && typeof LC.accent.applyFor === 'function') LC.accent.applyFor(card);
       } catch (e) {
@@ -3782,6 +3802,11 @@
           accentCard: null,
           accentWait: false,
           textOut: false,
+          /* Раунд правок финальной проверки, A1: цвет фильма уже заказан
+             (applyAccent) — дальше у цвета показа есть потолок HOLD_MS
+             (show, holdFrame); до первого заказа — первый показ, он ждёт
+             кадра. */
+          tinted: false,
           details: null,
           model: null,
           pending: null,

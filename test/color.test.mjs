@@ -284,6 +284,9 @@ function fakeDom(opts) {
         width: 0,
         height: 0,
         getContext: function () {
+          /* A3: WebView не дал 2d-контекста (временный сбой) — опция
+             читается в миг вызова, тест включает её посреди сценария. */
+          if (options.noCtx) return null;
           return {
             drawImage: function () { state.drawn++; },
             getImageData: function (x, y, w, h) {
@@ -1825,6 +1828,31 @@ test('п.3: сбой картинки ответом не считается —
     assert.equal(ctx.LC.accent.known(film), false);
     ctx.LC.accent.applyFor(film);
     assert.equal(dom.state.images.length, 2, 'после сбоя — новая попытка');
+  });
+});
+
+/* Раунд правок финальной проверки, A3 (ревью rv2, RV2-3): ветка «нет
+   2d-контекста» исход не отмечала — после серого постера (dim) её null
+   читался как окончательный «цвета нет» и ложился в кэш фильма до конца
+   сеанса. */
+test('A3: нет 2d-контекста после серого постера — сбой, а не «цвета нет»: фильм не известен, попытка повторяется', () => {
+  const opts = { data: GRAY_POSTER };
+  const dom = fakeDom(opts);
+  withDom(dom, () => {
+    const ctx = accentCtx({ prefs: {} });
+    ctx.LC.accent.applyFor({ id: 8, title: 'Серый', poster_path: '/g8.jpg' });
+    dom.state.images[0].onload();
+    assert.equal(ctx.LC.color.status().state, 'dim', 'предусловие: прошлый разбор — серый постер');
+    opts.noCtx = true;
+    const film = { id: 9, title: 'Без контекста', poster_path: '/n9.jpg' };
+    ctx.LC.accent.applyFor(film);
+    dom.state.images[1].onload();
+    warnLog = [];
+    assert.equal(ctx.LC.color.status().state, 'error', 'исход — сбой чтения');
+    assert.equal(ctx.LC.accent.known(film), false, 'сбой не запоминается ответом');
+    opts.noCtx = false;
+    ctx.LC.accent.applyFor(film);
+    assert.equal(dom.state.images.length, 3, 'следующая попытка — новая картинка');
   });
 });
 

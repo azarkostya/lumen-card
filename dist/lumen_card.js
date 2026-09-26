@@ -19271,11 +19271,18 @@ warn('hero: prefetch ' + name + ' failed', e);
 
 
 
+
+
+
+
+
+
 function holdFrame(captured, late, failed) {
 if (!state || gen !== captured) return;
 stopTimer('holdTimer');
-if (String(state.frameId) === String(state.shownId) || (!state.frameUrl && !state.lqipUrl)) {
-if (failed) settleAccent(false);
+var own = String(state.frameId) === String(state.shownId) || (!state.frameUrl && !state.lqipUrl);
+if (own && (failed || !state.accentWait)) {
+settleAccent(false);
 return;
 }
 
@@ -19299,6 +19306,11 @@ if (gen !== captured || !state) return;
 state.holdTimer = null;
 holdFrame(captured, true, failed);
 }, HOLD_DECODE);
+return;
+}
+
+if (own) {
+settleAccent(false);
 return;
 }
 
@@ -19345,7 +19357,9 @@ return !!(state && state.pending && String(state.pending.id) !== String(state.sh
 
 function armHold() {
 if (!state || state.holdTimer) return;
-if (String(state.frameId) === String(state.shownId)) return;
+
+
+if (String(state.frameId) === String(state.shownId) && !state.accentWait) return;
 var held = gen;
 state.holdTimer = setTimeout(function () {
 if (gen !== held || !state) return;
@@ -19395,7 +19409,12 @@ clearFx();
 state.framePath = null;
 
 
-state.holdDue = !!(state.frameUrl || state.lqipUrl) && motionMode() !== 'off';
+
+
+
+
+
+state.holdDue = !!(state.frameUrl || state.lqipUrl || state.tinted) && motionMode() !== 'off';
 var model = heroModel(card, null, words());
 render(model, true);
 loadDetails(card, captured);
@@ -19488,6 +19507,7 @@ setCompact(LC.heroCompact === true && index > 0);
 
 
 function applyAccent(card) {
+if (state) state.tinted = true;
 try {
 if (LC.accent && typeof LC.accent.applyFor === 'function') LC.accent.applyFor(card);
 } catch (e) {
@@ -19963,6 +19983,11 @@ shownCard: null,
 accentCard: null,
 accentWait: false,
 textOut: false,
+
+
+
+
+tinted: false,
 details: null,
 model: null,
 pending: null,
@@ -28956,7 +28981,14 @@ canvas.height = SAMPLE;
 
 
 var ctx = canvas.getContext('2d', { willReadFrequently: true });
-if (!ctx) return null;
+
+
+
+
+if (!ctx) {
+mark('error', src);
+return null;
+}
 ctx.drawImage(img, 0, 0, SAMPLE, SAMPLE);
 var rgb = dominant(ctx.getImageData(0, 0, SAMPLE, SAMPLE).data);
 
