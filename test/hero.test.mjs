@@ -3398,21 +3398,21 @@ test('D3: покой фокуса не грузит крупный постер 
   assert.deepEqual(warnLog, []);
 });
 
-function accentEnv() {
+function accentEnv(extra) {
   const calls = [];
   /* Task 35: второй аргумент applyFor («фильм открыт карточкой») герой
      главной передавать НЕ имеет права — он и заказывает полную пересборку
      таблицы стилей, ради снятия которой с этого пути задача и делалась
      (src/57_color.js). Поэтому он тоже попадает в журнал. */
   const deep = [];
-  const env = makeEnv({
+  const env = makeEnv(Object.assign({
     accent: {
       applyFor: (card, full) => {
         calls.push(card && card.id);
         deep.push(full);
       }
     }
-  });
+  }, extra || {}));
   env.calls = calls;
   env.deep = deep;
   return env;
@@ -3424,29 +3424,241 @@ function accentEnv() {
    время стоял цвет прошлого фильма. Теперь герой ставит цвет в тот же миг,
    что и текст фильма (write в render), один раз на показ. От листания его
    защищает сам показ: DELAY, в серии нажатий — BURST_DELAY.
+   Следующий раунд, п.5 (жалоба с ПК: «фон появляется сначала, потом
+   картинка»): цвет встаёт не с текстом, а с КАРТИНКОЙ показа — в тот же
+   тик, что swapFrame ставит первый кадр (frameIn ниже: ответ деталей и
+   onload кадра по данным ряда). Кадр этого фильма уже на экране — цвет с
+   текстом, как было; кадра не будет — с тем, что встаёт вместо него.
    Фейковые таймеры ставят новый срок от КОНЦА advance, поэтому показ
    (350 мс) и вывод текста (ещё SWAP_MS = 180) — два шага advance. */
 const SWAP = 180;
+const HOLD = 250;
 
 function metaOf(main) {
   return heroOf(main.activity).find('.lumen-hero__meta').text();
 }
 
-test('цвет сразу: цвет фильма ставится в тот же миг, что и его текст, — без трёх секунд', () => {
+/* П.5: кадр показа доехал — ответ деталей (кадр — backdrop_path ряда) и
+   onload его предзагрузчика. */
+function frameIn(env, path) {
+  answerDetails(env);
+  const img = frameImg(env, path);
+  assert.ok(img, 'предзагрузчик кадра ' + path);
+  img.onload();
+  return img;
+}
+
+function activeSrc(main) {
+  return stageOf(heroOf(main.activity)).find('.lumen-hero__bg.is-active').attr('src');
+}
+
+test('п.5: текст выведен, кадр ещё едет — цвет прежний; кадр встал — цвет в тот же тик, одна запись', () => {
   const env = accentEnv();
   const main = makeMain();
   env.hero.mount(main.activity);
   main.card1.addClass('focus');
   fireFocus(main.activity, main.card1);
   env.advance(DELAY + 10);
-  assert.deepEqual(env.calls, [], 'показ начался, текст ещё уходит — цвета нет');
-  assert.equal(metaOf(main).indexOf('2024'), -1, 'предусловие: текста фильма ещё нет');
   env.advance(SWAP);
-  assert.notEqual(metaOf(main).indexOf('2024'), -1, 'текст фильма выведен');
-  assert.deepEqual(env.calls, [11], 'цвет — в тот же тик, что текст');
+  assert.notEqual(metaOf(main).indexOf('2024'), -1, 'предусловие: текст фильма выведен');
+  answerDetails(env);
+  const img = frameImg(env, '/b1.jpg');
+  env.advance(2000);
+  assert.deepEqual(env.calls, [], 'кадр ещё едет — цвета нет');
+  let seen = null;
+  const orig = env.LC.accent.applyFor;
+  env.LC.accent.applyFor = function (card, full) { seen = activeSrc(main); return orig(card, full); };
+  img.onload();
+  assert.deepEqual(env.calls, [11], 'кадр встал — цвет в тот же тик');
+  assert.equal(seen, 'https://img/t/p/w1280/b1.jpg', 'в миг заказа цвета кадр уже в слое');
   assert.deepEqual(env.deep, [undefined], 'с главной — без полной пересборки CSS');
   env.advance(5000);
   assert.deepEqual(env.calls, [11], 'второго заказа цвета на тот же показ нет');
+});
+
+/* Кадр этого фильма уже стоит (возврат из карточки с оборванной загрузкой
+   логотипа — resume показывает фильм заново): картинка не меняется, и цвет
+   — с текстом, как в раунде «Цвет сразу». */
+test('п.5: кадр фильма уже на экране — цвет при выводе текста', () => {
+  const env = accentEnv();
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  main.card1.addClass('focus');
+  fireFocus(main.activity, main.card1);
+  env.advance(DELAY + 10);
+  env.advance(SWAP);
+  answerDetails(env, LOGO_RU);
+  frameImg(env, '/b1.jpg').onload();
+  assert.deepEqual(env.calls, [11], 'подготовка: кадр и цвет первого показа');
+  env.hero.detach(new FakeEl(['activity']));
+  env.hero.mount(main.activity);
+  assert.equal(activeSrc(main), 'https://img/t/p/w1280/b1.jpg', 'предусловие: кадр фильма на экране');
+  assert.deepEqual(env.calls, [11], 'resume показал фильм заново, текст ещё не выведен');
+  env.advance(SWAP);
+  assert.deepEqual(env.calls, [11, 11], 'цвет — с текстом, кадра ждать незачем');
+  assert.equal(frameLoads(env).length, 1, 'кадр второй раз не грузился');
+});
+
+/* Кадр не загрузился: нечего синхронизировать — цвет ставится, не
+   зависает. Первый показ: под текстом подложка LQIP этого же фильма,
+   картинка не меняется — цвет сразу при отказе. Под текстом кадр прошлого
+   фильма: отказ ставит нейтральный фон — и цвет в тот же тик. */
+test('п.5: ошибка кадра — цвет ставится при отказе, одна запись', () => {
+  const env = accentEnv();
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  main.card1.addClass('focus');
+  fireFocus(main.activity, main.card1);
+  env.advance(DELAY + 10);
+  env.advance(SWAP);
+  answerDetails(env);
+  assert.deepEqual(env.calls, []);
+  frameImg(env, '/b1.jpg').onerror();
+  assert.deepEqual(env.calls, [11], 'картинка не меняется — цвет сразу при отказе');
+  env.advance(9000);
+  assert.deepEqual(env.calls, [11]);
+});
+
+test('п.5: ошибка кадра под кадром прошлого фильма — нейтральный фон и цвет в одном тике', () => {
+  const env = accentEnv();
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  shownFrame(env, main);
+  assert.deepEqual(env.calls, [11], 'подготовка: кадр и цвет первого фильма');
+  main.card1.removeClass('focus');
+  main.card2.addClass('focus');
+  fireFocus(main.activity, main.card2);
+  env.advance(DELAY + 10);
+  answerDetails(env);
+  let seen = null;
+  const orig = env.LC.accent.applyFor;
+  env.LC.accent.applyFor = function (card, full) { seen = activeSrc(main) || NEUTRAL; return orig(card, full); };
+  frameImg(env, '/b2.jpg').onerror();
+  assert.deepEqual(env.calls, [11, 22], 'цвет второго фильма — при отказе');
+  assert.equal(seen, NEUTRAL, 'в миг заказа цвета кадр прошлого фильма уже погашен');
+  env.advance(SWAP + 9000);
+  assert.deepEqual(env.calls, [11, 22]);
+});
+
+/* Потолок: кадр едет дольше HOLD_MS от вывода текста — под текстом
+   встаёт нейтральный фон (holdFrame), и цвет — с ним. Доехавший позже кадр
+   цвета второй раз не заказывает. */
+test('п.5: кадр прошлого фильма уходит в нейтральный фон — цвет в тот же тик; поздний кадр цвет не повторяет', () => {
+  const env = accentEnv();
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  shownFrame(env, main);
+  main.card1.removeClass('focus');
+  main.card2.addClass('focus');
+  fireFocus(main.activity, main.card2);
+  env.advance(DELAY + 10);
+  env.advance(SWAP);
+  answerDetails(env);
+  env.advance(HOLD - 20);
+  assert.deepEqual(env.calls, [11], 'кадр прошлого ещё держится — цвет прежний');
+  env.advance(30);
+  assert.equal(activeSrc(main), undefined, 'предусловие: нейтральный фон');
+  assert.deepEqual(env.calls, [11, 22], 'цвет — с нейтральным фоном');
+  frameImg(env, '/b2.jpg').onload();
+  assert.equal(activeSrc(main), 'https://img/t/p/w1280/b2.jpg');
+  assert.deepEqual(env.calls, [11, 22], 'поздний кадр цвет не повторяет');
+});
+
+test('п.5: фокус ушёл до прихода кадра — цвет покинутого фильма не ставится', () => {
+  const env = accentEnv({ fxHeavy: () => false });
+  const main = makeMain();
+  const card3 = addCard(main, 33);
+  env.hero.mount(main.activity);
+  shownFrame(env, main);
+  main.card1.removeClass('focus');
+  main.card2.addClass('focus');
+  fireFocus(main.activity, main.card2);
+  env.advance(DELAY + 10);
+  env.advance(SWAP);
+  answerDetails(env);
+  const late = frameImg(env, '/b2.jpg');
+  env.advance(100);
+  main.card2.removeClass('focus');
+  card3.addClass('focus');
+  fireFocus(main.activity, card3);
+  env.advance(100);
+  late.onload();
+  assert.equal(activeSrc(main), 'https://img/t/p/w1280/b2.jpg', 'предусловие: кадр пройденной карточки встал, пока фокус шёл дальше');
+  assert.deepEqual(env.calls, [11], 'фокус ушёл — цвет покинутого фильма не ставится');
+  env.advance(BURST_DELAY);
+  env.advance(SWAP);
+  frameIn(env, '/b33.jpg');
+  assert.deepEqual(env.calls, [11, 33], 'цвет — у фильма, где фокус остановился');
+});
+
+/* Загрузчик прошлого показа снимает новый show() (cancelPending), но
+   промис decode() отменить нечем — он доезжает, и его отсекает gen. */
+test('п.5: новый показ раньше кадра прошлого — поздний кадр прошлого цвета не ставит', async () => {
+  const env = accentEnv();
+  const main = makeMain();
+  const card3 = addCard(main, 33);
+  env.hero.mount(main.activity);
+  shownFrame(env, main);
+  stubDecode(env);
+  main.card1.removeClass('focus');
+  main.card2.addClass('focus');
+  fireFocus(main.activity, main.card2);
+  env.advance(DELAY + 10);
+  answerDetails(env);
+  const late = frameImg(env, '/b2.jpg');
+  env.advance(100);
+  main.card2.removeClass('focus');
+  card3.addClass('focus');
+  fireFocus(main.activity, card3);
+  env.advance(BURST_DELAY + 10);
+  arrive(late);
+  late.decoded.resolve();
+  await tick();
+  assert.equal(activeSrc(main), 'https://img/t/p/w1280/b1.jpg', 'поздний кадр прошлого показа не встал');
+  assert.equal(env.calls.indexOf(22), -1, 'цвет прошлого показа после нового не ставится');
+});
+
+test('п.5: «Выкл» — кадра нет, цвет при выводе текста', () => {
+  const env = accentEnv({ motionMode: () => 'off' });
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  main.card1.addClass('focus');
+  fireFocus(main.activity, main.card1);
+  env.advance(DELAY + 10);
+  assert.deepEqual(env.calls, []);
+  env.advance(SWAP);
+  assert.deepEqual(env.calls, [11], 'цвет — с текстом');
+  assert.deepEqual(frameLoads(env), [], 'кадр в «Выкл» не грузится');
+});
+
+test('п.5: у фильма нет ни кадра, ни постера — цвет не зависает', () => {
+  const env = accentEnv();
+  const main = makeMain();
+  main.card1.card_data = { id: 11, title: 'Первый', overview: 'о первом', release_date: '2024-01-01' };
+  env.hero.mount(main.activity);
+  main.card1.addClass('focus');
+  fireFocus(main.activity, main.card1);
+  env.advance(DELAY + 10);
+  env.advance(SWAP);
+  answerDetails(env);
+  assert.deepEqual(env.calls, [11], 'кадра не будет — цвет при отказе');
+});
+
+test('п.5: переключение в «Выкл», пока кадр едет, — цвет с погасшим кадром', () => {
+  const mode = { v: 'full' };
+  const env = accentEnv({ motionMode: () => mode.v });
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  shownFrame(env, main);
+  main.card1.removeClass('focus');
+  main.card2.addClass('focus');
+  fireFocus(main.activity, main.card2);
+  env.advance(DELAY + 10);
+  answerDetails(env);
+  assert.deepEqual(env.calls, [11]);
+  mode.v = 'off';
+  env.hero.applyMotion();
+  assert.deepEqual(env.calls, [11, 22], 'кадр погас — цвет второго фильма');
 });
 
 test('цвет сразу: быстрый проход по ряду не даёт ни одного расчёта', () => {
@@ -3475,6 +3687,7 @@ test('цвет сразу: серия нажатий — цвет только �
   assert.deepEqual(env.calls, [], 'шаг 300 мс — короче DELAY и BURST_GAP: показов нет');
   env.advance(BURST_DELAY);
   env.advance(SWAP);
+  frameIn(env, '/b2.jpg');
   assert.deepEqual(env.calls, [22], 'цвет — у последней карточки, один раз');
 });
 
@@ -3489,6 +3702,7 @@ test('цвет сразу: цвет берётся с карточки, на к�
   fireFocus(main.activity, main.card2);
   env.advance(BURST_DELAY + 10);
   env.advance(SWAP);
+  frameIn(env, '/b2.jpg');
   assert.deepEqual(env.calls, [22]);
 });
 
@@ -3502,6 +3716,7 @@ test('цвет сразу: повторное событие на той же к
   fireFocus(main.activity, main.card1);
   env.advance(DELAY + 10);
   env.advance(SWAP);
+  frameIn(env, '/b1.jpg');
   assert.deepEqual(env.calls, [11]);
   fireFocus(main.activity, main.card1);
   fireFocus(main.activity, main.card1);
@@ -3518,6 +3733,7 @@ test('цвет сразу: возврат фокуса на показанную
   fireFocus(main.activity, main.card1);
   env.advance(DELAY + 10);
   env.advance(SWAP);
+  frameIn(env, '/b1.jpg');
   rest(env);
   main.card1.removeClass('focus');
   main.card2.addClass('focus');
@@ -6641,6 +6857,7 @@ test('ревью H4: accentBack после возврата — подкраск
   fireFocus(main.activity, main.card1);
   env.advance(DELAY + 10);
   env.advance(SWAP);
+  frameIn(env, '/b1.jpg');
   assert.deepEqual(env.calls, [11], 'подготовка: подкраска первой карточки');
   env.hero.detach(new FakeEl(['activity']));
   env.hero.accentBack();

@@ -6041,14 +6041,16 @@ test('Task 18: сдвигается область прокрутки рядов
 /* Правка пользователя 2026-09-17 (третий круг): «фон определялся от
    картинки». Фон корня главной — тот же P.bg, что у всех подложек, поэтому
    подкраска доходит до него без отдельного механизма. */
-test('правка: у корня главной есть фон; перехода у него нет ни в одном режиме (волна perf)', () => {
+test('правка: у корня главной есть фон; перехода у него нет в «Лёгких» и «Выкл» (волна perf)', () => {
   const main = findDecl(css, (sel) => sel === '.lumen-main');
   assert.equal(main, 'background-color:#0B0908', 'фон корня — цвет темы: ' + main);
   /* Волна производительности: фон корня целиком закрыт сценой (кадр героя
      во весь экран, ряды поверх), и CSS-переход background-color у него
      только гонял анимацию невидимого полноэкранного узла на каждом шаге
-     пути подкраски. Путь по-прежнему ведёт LC.accent шагами (200 мс). */
-  assert.equal(ruleSelectors(css).filter((sel) => /lumen-motion-(full|lite|off) \.lumen-main$/.test(sel)).length, 0,
+     пути подкраски. Следующий раунд, п.5: в «Полном» переход вернулся —
+     один на показ, тот же, что у кадра (тест п.5 в конце файла); в
+     «Лёгких» и «Выкл» (ТВ) его по-прежнему нет. */
+  assert.equal(ruleSelectors(css).filter((sel) => /lumen-motion-(lite|off) \.lumen-main$/.test(sel)).length, 0,
     'правило перехода у корня главной вернулось');
 });
 
@@ -8390,4 +8392,33 @@ test('следующий раунд, п.2: метка окошка адвент�
   for (const r of own) {
     assert.ok(!/(?:^|;)(width|height|margin|padding|font-size|top|left)(?:-[a-z]+)?:/.test(r.decl), 'метка окошка — только цвет, размеры общие: ' + r.decl);
   }
+});
+
+/* Следующий раунд, п.5: цвет фильма ставится в тот же тик, что его кадр
+   (src/48_hero.js, settleAccent). В «Полном» кадр проявляется переходом
+   opacity — .35 с, с тяжёлыми эффектами .4 с (верхний слой кроссфейда);
+   фон корня главной, видный там, где кадра нет (первый кадр, нейтральный
+   фон вместо кадра), проявляется тем же переходом — длительность и кривая
+   те же. В «Лёгких» и «Выкл» перехода у большого слоя нет (волна perf, ТВ). */
+test('следующий раунд, п.5: переход фона главной в «Полном» — тот же, что у кадра; в «Лёгких» и «Выкл» его нет', () => {
+  const timing = (decl, prop) => {
+    const v = declProp(decl || '', 'transition') || '';
+    const part = v.split(',').map((x) => x.trim()).find((x) => x.indexOf(prop + ' ') === 0);
+    assert.ok(part, 'переход ' + prop + ': ' + decl);
+    return part.slice(prop.length + 1);
+  };
+  const frame = findDecl(css, (sel) => sel === '.lumen-hero-stage.lumen-motion-full .lumen-hero__bg');
+  const frameHeavy = findDecl(css, (sel) => sel === 'body.lumen-fx-heavy .lumen-hero-stage.lumen-motion-full .lumen-hero__bg--b');
+  const main = findDecl(css, (sel) => sel === 'body.lumen-motion-full .lumen-main');
+  const mainHeavy = findDecl(css, (sel) => sel === 'body.lumen-fx-heavy.lumen-motion-full .lumen-main');
+  assert.equal(timing(main, 'background-color'), timing(frame, 'opacity'), '«Полный»: как проявление кадра');
+  assert.equal(timing(mainHeavy, 'background-color'), timing(frameHeavy, 'opacity'), 'тяжёлые эффекты: как кроссфейд кадра');
+  assert.ok(/-webkit-transition:[^;]*background-color/.test(main), 'префиксная пара для старого WebKit');
+  /* .lumen-main — узел активности Lampa: её штатное проявление экрана
+     (.activity{transition:opacity .3s}, vendor/lampa/css/app.css) правило
+     обязано сохранить — свойство transition одно на узел. */
+  assert.equal(timing(main, 'opacity'), '.3s', 'штатный переход активности Lampa сохранён');
+  assert.equal(timing(mainHeavy, 'opacity'), '.3s', 'и с тяжёлыми эффектами');
+  const others = ruleBodies(css).filter((r) => r.selectors.some((s) => /\.lumen-main$/.test(s) && !/lumen-motion-full/.test(s)));
+  for (const r of others) assert.ok(!/transition/.test(r.decl), 'у фона главной вне «Полного» переход: ' + r.selectors.join(',') + '{' + r.decl + '}');
 });

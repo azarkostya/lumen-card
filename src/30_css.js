@@ -4273,6 +4273,26 @@
     css.push('body.lumen-fx-heavy .lumen-hero-stage.lumen-motion-full .lumen-hero__bg--b{-webkit-transition:opacity .4s ease-in-out;transition:opacity .4s ease-in-out}');
     css.push('body.lumen-fx-heavy .lumen-hero-stage.lumen-motion-full .lumen-hero__bg--a{-webkit-transition:opacity 0s linear .4s;transition:opacity 0s linear .4s}');
     css.push('body.lumen-fx-heavy .lumen-hero-stage.lumen-motion-full .lumen-hero__bg--a.is-active{-webkit-transition:none;transition:none}');
+    /* Следующий раунд, п.5: цвет фильма ставится в том же тике, что его
+       кадр (src/48_hero.js, settleAccent), и в «Полном» фон корня главной
+       проявляется тем же переходом, что кадр: .35 с ease, с тяжёлыми
+       эффектами — .4 с ease-in-out верхнего слоя кроссфейда. Фон корня
+       виден там, где кадра нет (первый кадр героя, нейтральный фон вместо
+       кадра), — ровно там, где кадр проявляется или гаснет переходом.
+       Затемнения кадра (scrim, пол, кромки рядов — accentRules) —
+       градиенты: переходом CSS они не интерполируются и сменяются в том же
+       тике, что встаёт кадр. Перерисовки при листании правило не
+       добавляет: цвет меняется один раз на показ, а показа в серии нажатий
+       нет (BURST_DELAY). «Лёгкие» и «Выкл» — без перехода (волна perf, ТВ:
+       анимация большого слоя).
+       .lumen-main — сам узел активности Lampa, и у него свой штатный
+       переход: .activity{transition:opacity .3s} (vendor/lampa/css/app.css,
+       проявление экрана при смене активности). Свойство transition одно на
+       узел, поэтому штатная пара повторена первой — без неё экран главной
+       в «Полном» перестал бы проявляться (замер на стенде: computed
+       transition без неё — только background-color). */
+    css.push('body.lumen-motion-full .lumen-main{-webkit-transition:opacity .3s,background-color .35s ease;transition:opacity .3s,background-color .35s ease}');
+    css.push('body.lumen-fx-heavy.lumen-motion-full .lumen-main{-webkit-transition:opacity .3s,background-color .4s ease-in-out;transition:opacity .3s,background-color .4s ease-in-out}');
     /* Размытый постер вместо кадра (фильм без backdrop, экран 22; с волны 3
        — и заглушка кадра на время загрузки, src/48_hero.js): мягкость даёт
        сам апскейл маленькой картинки, filter:blur на полноэкранном слое

@@ -5155,6 +5155,26 @@ css.push('body.lumen-fx-heavy .lumen-hero-stage.lumen-motion-full .lumen-hero__b
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+css.push('body.lumen-motion-full .lumen-main{-webkit-transition:opacity .3s,background-color .35s ease;transition:opacity .3s,background-color .35s ease}');
+css.push('body.lumen-fx-heavy.lumen-motion-full .lumen-main{-webkit-transition:opacity .3s,background-color .4s ease-in-out;transition:opacity .3s,background-color .4s ease-in-out}');
+
+
+
+
+
 css.push('.lumen-hero-stage.lumen-motion-full .lumen-hero__bg--blur{-webkit-transform:scale(1.1);transform:scale(1.1)}');
 
 
@@ -17491,6 +17511,9 @@ neutralFrame();
 
 
 state.stage.find('.lumen-hero__bg').removeAttr('src');
+
+
+settleAccent(true);
 }
 
 function onFrame() {
@@ -18655,12 +18678,8 @@ if (motionMode() === 'full') text.addClass('is-in');
 
 
 
-
-if (state.accentCard && !state.parked) {
-var tinted = state.accentCard;
-state.accentCard = null;
-applyAccent(tinted);
-}
+state.textOut = true;
+if (!state.accentWait) flushAccent();
 
 
 
@@ -18821,7 +18840,10 @@ if (motionMode() === 'off') return;
 var blur = false;
 var path = model.backdrop;
 if (!path) { path = model.poster; blur = true; }
-if (!path) return;
+
+
+
+if (!path) { if (done && !slide) done(false); return; }
 
 
 
@@ -18829,7 +18851,9 @@ if (!path) return;
 
 
 var url = imageUrl(path, blur ? 'w92' : sizeFor(screenWidth()));
-if (url && url === state.frameUrl && done) { done(true); return; }
+
+if (url && url === state.frameUrl && done) { done(true, true); return; }
+if (!url && done && !slide) { done(false); return; }
 if (!url || url === state.frameUrl) return;
 
 
@@ -19177,16 +19201,19 @@ if (state.framePath) return;
 if (state.framePath === '' && !model.backdrop) return;
 stopTimer('frameWait');
 state.framePath = model.backdrop || '';
-loadFrame(model, captured, function (ok) {
+loadFrame(model, captured, function (ok, kept) {
 if (gen !== captured || !state) return;
 
 
 
 
 if (!focusAway()) prefetch('warm', state.root);
-if (!ok) { holdFrame(captured); return; }
+if (!ok) { holdFrame(captured, false, true); return; }
 state.frameId = state.shownId;
 stopTimer('holdTimer');
+
+
+settleAccent(!kept);
 });
 
 if (motionMode() === 'off') prefetch('warm', state.root);
@@ -19231,11 +19258,17 @@ warn('hero: prefetch ' + name + ' failed', e);
 
 
 
-function holdFrame(captured, late) {
+
+
+
+
+function holdFrame(captured, late, failed) {
 if (!state || gen !== captured) return;
 stopTimer('holdTimer');
-if (String(state.frameId) === String(state.shownId)) return;
-if (!state.frameUrl && !state.lqipUrl) return;
+if (String(state.frameId) === String(state.shownId) || (!state.frameUrl && !state.lqipUrl)) {
+if (failed) settleAccent(false);
+return;
+}
 
 
 
@@ -19255,7 +19288,7 @@ if (!late && loader && loader.complete && loader.naturalWidth) {
 state.holdTimer = setTimeout(function () {
 if (gen !== captured || !state) return;
 state.holdTimer = null;
-holdFrame(captured, true);
+holdFrame(captured, true, failed);
 }, HOLD_DECODE);
 return;
 }
@@ -19270,6 +19303,7 @@ neutralFrame();
 } catch (e) {
 warn('hero: hold failed', e);
 }
+settleAccent(true);
 }
 
 
@@ -19326,7 +19360,12 @@ state.shownId = card.id;
 
 state.shownCard = card;
 
+
+
+
 state.accentCard = card;
+state.textOut = false;
+state.accentWait = motionMode() !== 'off' && !(state.frameUrl && String(state.frameId) === String(card.id));
 
 if (state.hostClass === MAIN_HOST) lastShown = card;
 state.details = null;
@@ -19455,6 +19494,39 @@ warn('hero: accent failed', e);
 
 
 
+
+
+
+
+
+
+
+
+
+
+function flushAccent() {
+if (!state || !state.accentCard || state.parked || focusAway()) return;
+var card = state.accentCard;
+state.accentCard = null;
+applyAccent(card);
+}
+
+
+
+function settleAccent(changed) {
+if (!state || !state.accentWait) return;
+state.accentWait = false;
+if (changed || state.textOut) flushAccent();
+}
+
+
+
+
+
+
+
+
+
 function markBurst(on) {
 if (!state) return;
 stopTimer('burstTimer');
@@ -19523,6 +19595,9 @@ if (state.holdDue && !state.swapTimer) {
 state.holdDue = false;
 armHold();
 }
+
+
+if (!state.accentWait && state.textOut) flushAccent();
 
 
 
@@ -19874,7 +19949,11 @@ shownId: null,
 shownCard: null,
 
 
+
+
 accentCard: null,
+accentWait: false,
+textOut: false,
 details: null,
 model: null,
 pending: null,

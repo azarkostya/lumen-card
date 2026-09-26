@@ -1339,6 +1339,9 @@
       /* Погасшие слои растр не держат: в «Выкл» их до выхода из режима
          никто не покажет. */
       state.stage.find('.lumen-hero__bg').removeAttr('src');
+      /* Следующий раунд, п.5: ехавший кадр снят, картинка — нейтральный
+         фон: цвет показа, если ждал кадра, встаёт с ним. */
+      settleAccent(true);
     }
 
     function onFrame() {
@@ -2499,16 +2502,12 @@
         text.removeClass('is-swapping');
         if (motionMode() === 'full') text.addClass('is-in');
 
-        /* Раунд «Цвет сразу»: текст нового фильма на экране — в тот же миг
-           его цвет (applyAccent). Один раз на показ: следующие выводы того
-           же показа (детали, логотип) цвет не трогают. Цвет обычно уже
-           посчитан предзагрузкой соседей; нет — прежний стоит, пока не
-           посчитается, и новый встаёт одной сменой. */
-        if (state.accentCard && !state.parked) {
-          var tinted = state.accentCard;
-          state.accentCard = null;
-          applyAccent(tinted);
-        }
+        /* Раунд «Цвет сразу»: цвет фильма ставится один раз на показ.
+           Следующий раунд, п.5: с текстом — только если картинка показа
+           уже решена (кадр фильма стоял, «Выкл», отказ без смены
+           картинки); иначе цвет ждёт кадра (settleAccent). */
+        state.textOut = true;
+        if (!state.accentWait) flushAccent();
 
         /* Волна 3: текст нового фильма выведен — с этого мига кадр
            прошлого под ним живёт не дольше HOLD_MS (holdFrame). Отсчёт от
@@ -2669,7 +2668,10 @@
       var blur = false;
       var path = model.backdrop;
       if (!path) { path = model.poster; blur = true; }
-      if (!path) return;
+      /* Следующий раунд, п.5: кадра показа не будет вовсе (ни кадра, ни
+         постера) — это отказ, как у незагрузившегося: заглушка и цвет
+         фильма решаются тем же путём (startFrame → holdFrame). */
+      if (!path) { if (done && !slide) done(false); return; }
 
       /* Task 38: у «размытого» варианта размер намеренно крошечный. Блюр
          фильтром снят (src/30_css.js, .lumen-hero__bg--blur), и мягкость теперь
@@ -2677,7 +2679,9 @@
          кадр героя, то есть больше чем в двадцать раз. Заодно это самый
          дешёвый кадр, который герой вообще грузит. */
       var url = imageUrl(path, blur ? 'w92' : sizeFor(screenWidth()));
-      if (url && url === state.frameUrl && done) { done(true); return; }
+      /* П.5: второй аргумент — кадр уже стоял, картинка не сменилась. */
+      if (url && url === state.frameUrl && done) { done(true, true); return; }
+      if (!url && done && !slide) { done(false); return; }
       if (!url || url === state.frameUrl) return;
 
       /* Task 64: LQIP — тот же backdrop в w300. Слой под кадрами, показ без
@@ -3025,16 +3029,19 @@
       if (state.framePath === '' && !model.backdrop) return;
       stopTimer('frameWait');
       state.framePath = model.backdrop || '';
-      loadFrame(model, captured, function (ok) {
+      loadFrame(model, captured, function (ok, kept) {
         if (gen !== captured || !state) return;
         /* Волна «хвосты героя», п.F (ниже порога ревью логотипов): кадр
            доехал, когда фокус уже на другой карточке, — план первого
            экрана посреди листания не заводим; warm придёт с кадром
            следующего показа. */
         if (!focusAway()) prefetch('warm', state.root);
-        if (!ok) { holdFrame(captured); return; }
+        if (!ok) { holdFrame(captured, false, true); return; }
         state.frameId = state.shownId;
         stopTimer('holdTimer');
+        /* П.5: кадр встал в этом же тике (swapFrame в finish loadFrame) —
+           с ним и цвет; кадр уже стоял (kept) — цвет с текстом. */
+        settleAccent(!kept);
       });
       /* В «Выкл» кадр не грузится (loadFrame), и колбэка не будет. */
       if (motionMode() === 'off') prefetch('warm', state.root);
@@ -3078,12 +3085,18 @@
        фильма нужен выбранный кадр — детали и ещё один запрос.
        state.frameId — чей кадр на экране: возврат на тот же фильм (resume
        с оборванной загрузкой) свой кадр не прячет, а первый показ героя
-       заглушки не ждёт вовсе — под ним ничего нет. */
-    function holdFrame(captured, late) {
+       заглушки не ждёт вовсе — под ним ничего нет.
+       Следующий раунд, п.5: failed — зов по отказу кадра (startFrame).
+       Картинка при нём не меняется (под текстом свой кадр, подложка этого
+       фильма или ничего) — цвет фильма ставится сразу (settleAccent);
+       меняется на нейтральный фон — цвет с ним, в том же тике. */
+    function holdFrame(captured, late, failed) {
       if (!state || gen !== captured) return;
       stopTimer('holdTimer');
-      if (String(state.frameId) === String(state.shownId)) return;
-      if (!state.frameUrl && !state.lqipUrl) return;
+      if (String(state.frameId) === String(state.shownId) || (!state.frameUrl && !state.lqipUrl)) {
+        if (failed) settleAccent(false);
+        return;
+      }
       /* Ревью волны 3, п.1: фокус уже на другой карточке — заглушку не
          ставим (фон при листании не мигает), она ждёт возврата фокуса. Этим
          путём приходит ошибка кадра (startFrame); отсчёт уход фокуса
@@ -3103,7 +3116,7 @@
         state.holdTimer = setTimeout(function () {
           if (gen !== captured || !state) return;
           state.holdTimer = null;
-          holdFrame(captured, true);
+          holdFrame(captured, true, failed);
         }, HOLD_DECODE);
         return;
       }
@@ -3118,6 +3131,7 @@
       } catch (e) {
         warn('hero: hold failed', e);
       }
+      settleAccent(true);
     }
 
     /* Нейтральный фон вместо кадра: гаснут оба слоя кадра и подложка
@@ -3173,8 +3187,13 @@
         /* Сама карточка показанного фильма — для resume без карточки в
            фокусе (ревью 84c7b27..de0e2c8, п.4). */
         state.shownCard = card;
-        /* Раунд «Цвет сразу»: цвет фильма встанет вместе с его текстом. */
+        /* Раунд «Цвет сразу»: цвет фильма ставится один раз на показ.
+           Следующий раунд, п.5: вместе с его картинкой — ждём её
+           (accentWait), если кадр этого фильма ещё не на экране и кадр
+           вообще будет (не «Выкл»). */
         state.accentCard = card;
+        state.textOut = false;
+        state.accentWait = motionMode() !== 'off' && !(state.frameUrl && String(state.frameId) === String(card.id));
         /* D4: и для героя, заново поставленного настройкой (showStill). */
         if (state.hostClass === MAIN_HOST) lastShown = card;
         state.details = null;
@@ -3295,6 +3314,39 @@
       }
     }
 
+    /* Следующий раунд, п.5 (жалоба с ПК: «фон появляется сначала, потом
+       картинка — выглядит топорно»). Цвет ставился с текстом фильма, а
+       кадр w1280 встаёт позже — после загрузки и декодирования (loadFrame
+       → swapFrame), и цвет рядов опережал картинку на сотни миллисекунд.
+       Теперь цвет показа (state.accentCard) ждёт его картинку
+       (state.accentWait, заводит show) и встаёт в том же тике, что:
+         - первый кадр показа (swapFrame; кадр-постер — тоже первый кадр,
+           кадр смены — нет): startFrame → settleAccent(true);
+         - нейтральный фон вместо кадра (holdFrame: потолок HOLD_MS от
+           вывода текста или отказ кадра; переключение в «Выкл» — offFrame).
+       Картинка не меняется — кадр фильма уже стоял (kept, возврат), отказ
+       без заглушки, «Выкл» — цвет с текстом (write в render) или сразу,
+       если текст уже выведен. Отдельного таймера у цвета нет: потолок —
+       тот же отказ кадра или HOLD_MS, что и у картинки.
+       Сторожа — те же, что у кадра: новый показ переписывает accentCard
+       (поздний кадр прошлого отсекает gen в loadFrame), парковка и уход
+       фокуса цвет не ставят — вернулся фокус на показанную карточку
+       (onFocus) — ставят. */
+    function flushAccent() {
+      if (!state || !state.accentCard || state.parked || focusAway()) return;
+      var card = state.accentCard;
+      state.accentCard = null;
+      applyAccent(card);
+    }
+
+    /* Картинка показа решена: changed — сменилась в этом тике (кадр встал,
+       нейтральный фон), иначе — не сменится (ждать нечего). */
+    function settleAccent(changed) {
+      if (!state || !state.accentWait) return;
+      state.accentWait = false;
+      if (changed || state.textOut) flushAccent();
+    }
+
     /* Раунд «Листание», F2: метка серии нажатий на корне главной. Под ней
        в «Полном» увеличение карточки и сдвиг подписи идут без перехода
        (src/30_css.js): переход .18s на двух карточках за шаг — их промоушен
@@ -3371,6 +3423,9 @@
           state.holdDue = false;
           armHold();
         }
+        /* Следующий раунд, п.5: картинка показа решилась, пока фокус был
+           на другой карточке, — цвет встаёт с возвратом. */
+        if (!state.accentWait && state.textOut) flushAccent();
         /* Ревью правок волны 3, п.7: смена кадров, поставленная на паузу
            уходом фокуса (ниже), продолжается — если не держит другая
            причина (slidesHeld). */
@@ -3720,9 +3775,13 @@
           detailsWait: false,
           shownId: null,
           shownCard: null,
-          /* Раунд «Цвет сразу»: карточка показа, чей цвет ещё не заказан, —
-             его ставит первый вывод текста (write в render). */
+          /* Раунд «Цвет сразу»: карточка показа, чей цвет ещё не заказан.
+             Следующий раунд, п.5: ставит его картинка показа (settleAccent)
+             или вывод текста, когда картинка уже решена (accentWait false);
+             textOut — текст показа выведен. */
           accentCard: null,
+          accentWait: false,
+          textOut: false,
           details: null,
           model: null,
           pending: null,
