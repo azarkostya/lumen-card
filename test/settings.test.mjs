@@ -993,3 +993,31 @@ test('holB: строки адвента на трёх языках; описан
   assert.ok(/не зависят/.test(S.lumen_fx_heavy_descr.ru), S.lumen_fx_heavy_descr.ru);
   assert.equal(S.lumen_fx_heavy_descr.ru.indexOf('Частицы'), -1, 'тяжёлые эффекты больше не про частицы');
 });
+
+/* Финальная проверка, B9: описание «Профилей настроения» называет чипы так,
+   как их пишет сам чип, — названиями каталога (manifest.moods: title для
+   ru, i18n для en/uk; src/49_moods.js moodTitle). Прежде там стояли
+   «Вечер пятницы» и «Есть 90 минут», а на экране — «Пятничный вечер» и
+   «90 минут». «Метки на постерах» не обещают рейтинг рядом с меткой в
+   подписи: в ряду главной он выброшен (src/62_badges.js, правило A2). */
+test('B9: описание «Профилей настроения» — названия чипов из каталога; «Метки» — без рейтинга рядом с меткой на главной', () => {
+  const env = setup();
+  const S = env.LC.STRINGS;
+  const M = {};
+  loadInto(M, '10_util.js');
+  loadInto(M, '42_manifest.js');
+  const moods = M.manifest.DEFAULT.moods;
+  assert.ok(moods.length >= 4);
+  const quote = { ru: ['«', '»'], uk: ['«', '»'], en: ['"', '"'] };
+  for (const lang of ['ru', 'en', 'uk']) {
+    for (const mood of moods) {
+      const name = lang === 'ru' ? mood.title : mood.i18n[lang];
+      const want = quote[lang][0] + name + quote[lang][1];
+      assert.ok(S.lumen_moods_descr[lang].indexOf(want) !== -1, lang + ': нет ' + want + ' в «' + S.lumen_moods_descr[lang] + '»');
+    }
+  }
+  assert.equal(S.lumen_badges_descr.ru.indexOf('рядом с годом и рейтингом'), -1);
+  assert.equal(S.lumen_badges_descr.en.indexOf('next to the year and the rating'), -1);
+  assert.equal(S.lumen_badges_descr.uk.indexOf('поряд із роком і рейтингом'), -1);
+  assert.ok(/сетке подборки/.test(S.lumen_badges_descr.ru) && /collection grid/.test(S.lumen_badges_descr.en) && /сітці підбірки/.test(S.lumen_badges_descr.uk));
+});
