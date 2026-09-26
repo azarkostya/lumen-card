@@ -112,9 +112,49 @@
       return keys;
     }
 
+    /* Раунд C, C2 (e2e, E5): «зима» не находила «Зимнее кино», «лето» —
+       «Летнее кино»: подстрока не знает, что это одно слово в разных формах.
+       Второй проход — по основам: основа слова запроса — его первые STEM_LONG
+       букв (слово от STEM_LONG_FROM букв) или STEM_SHORT (короче), и каждая
+       основа запроса обязана начинать какое-то слово ключа. Слова короче
+       STEM_MIN (предлоги, «и», «на») в этом проходе не участвуют. Ранг такого
+       совпадения — STEM_RANK, после любого совпадения подстрокой. «Новый
+       год» ↔ «Новогоднее» основами не сходится (одно слово против двух) —
+       это закрывают синонимы каталога (aliases, src/42_manifest.js). */
+    var STEM_MIN = 3;
+    var STEM_SHORT = 3;
+    var STEM_LONG = 4;
+    var STEM_LONG_FROM = 6;
+    var STEM_RANK = 3;
+
+    function stemsOf(q) {
+      var words = q.split(' ');
+      var out = [];
+      for (var i = 0; i < words.length; i++) {
+        var w = words[i];
+        if (w.length < STEM_MIN) continue;
+        out.push(w.slice(0, w.length >= STEM_LONG_FROM ? STEM_LONG : STEM_SHORT));
+      }
+      return out;
+    }
+
+    /* Каждая основа запроса начинает хотя бы одно слово ключа (key уже
+       приведён norm). */
+    function stemMatch(key, stems) {
+      if (!key || !stems.length) return false;
+      var words = key.split(' ');
+      for (var i = 0; i < stems.length; i++) {
+        var hit = false;
+        for (var k = 0; k < words.length && !hit; k++) hit = words[k].indexOf(stems[i]) === 0;
+        if (!hit) return false;
+      }
+      return true;
+    }
+
     function find(manifest, query, lang) {
       var q = norm(query);
       var qs = skeleton(query);
+      var stems = stemsOf(q);
       var list = manifest && Array.isArray(manifest.collections) ? manifest.collections : [];
       if (!q) return [];
       var found = [];
@@ -124,9 +164,11 @@
         var keys = keysOf(item);
         var best = -1;
         for (var k = 0; k < keys.length; k++) {
-          var r1 = rankOf(norm(keys[k]), q);
+          var key = norm(keys[k]);
+          var r1 = rankOf(key, q);
           var r2 = rankOf(skeleton(keys[k]), qs);
           var r = r1 < 0 ? r2 : (r2 < 0 ? r1 : Math.min(r1, r2));
+          if (r < 0 && stemMatch(key, stems)) r = STEM_RANK;
           if (r >= 0 && (best < 0 || r < best)) best = r;
         }
         if (best >= 0) found.push({ item: item, rank: best, order: i });

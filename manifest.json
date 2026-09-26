@@ -1130,6 +1130,11 @@
       "title": "Рождественские комедии",
       "group": "theme",
       "icon": "star",
+      "aliases": [
+        "Рождество",
+        "Christmas",
+        "Різдво"
+      ],
       "season": [
         12,
         1
@@ -1151,6 +1156,11 @@
       "title": "Рождественское кино",
       "group": "theme",
       "icon": "star",
+      "aliases": [
+        "Рождество",
+        "Christmas",
+        "Різдво"
+      ],
       "season": [
         12,
         1
@@ -1174,6 +1184,11 @@
       "title": "Хэллоуин",
       "group": "theme",
       "icon": "star",
+      "aliases": [
+        "Halloween",
+        "Гелловін",
+        "Осень"
+      ],
       "season": [
         9,
         10,
@@ -1654,6 +1669,11 @@
       "title": "Новогоднее",
       "group": "theme",
       "icon": "star",
+      "aliases": [
+        "Новый год",
+        "New Year",
+        "Новий рік"
+      ],
       "season": [
         12,
         1
@@ -1701,6 +1721,12 @@
       },
       "group": "theme",
       "icon": "star",
+      "aliases": [
+        "День Победы",
+        "9 мая",
+        "Victory Day",
+        "День Перемоги"
+      ],
       "season": [
         5
       ],
@@ -1729,6 +1755,10 @@
       },
       "group": "theme",
       "icon": "star",
+      "aliases": [
+        "День святого Валентина",
+        "Valentine"
+      ],
       "season": [
         2
       ],
@@ -1756,6 +1786,9 @@
       },
       "group": "theme",
       "icon": "star",
+      "aliases": [
+        "Зима"
+      ],
       "season": [
         1,
         2
@@ -1786,6 +1819,10 @@
       },
       "group": "theme",
       "icon": "star",
+      "aliases": [
+        "День космонавтики",
+        "12 апреля"
+      ],
       "season": [
         4
       ],
@@ -1813,6 +1850,10 @@
       },
       "group": "theme",
       "icon": "star",
+      "aliases": [
+        "Лето",
+        "Літо"
+      ],
       "season": [
         6,
         7,
@@ -1845,6 +1886,10 @@
       },
       "group": "theme",
       "icon": "star",
+      "aliases": [
+        "Союзмультфильм",
+        "Мультики"
+      ],
       "season": [
         6
       ],
@@ -1873,6 +1918,11 @@
       },
       "group": "theme",
       "icon": "star",
+      "aliases": [
+        "Школа",
+        "Осень",
+        "1 сентября"
+      ],
       "season": [
         9
       ],

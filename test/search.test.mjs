@@ -87,6 +87,66 @@ test('find: синонимы из каталога (aliases) — тоже клю
   assert.deepEqual(S.find(manifest, 'мку', 'ru').map((c) => c.id), ['mcu']);
 });
 
+/* Раунд C, C2 (e2e, E5): «зима» не находила «Зимнее кино» — подстрока не
+   знает форм слова. Второй проход — по основам: первые 3 буквы слова
+   запроса (4 — у слов от 6 букв) начинают слово ключа; каждая основа
+   запроса — своё слово. Такое совпадение — после любого подстрокой. Каталог
+   здесь свой, без синонимов: находит сам проход по основам. */
+test('C2 find: формы слова — по основам: «зима» → «Зимнее кино», «лето» → «Летнее», «школа» → «Школьные годы»', () => {
+  const S = fresh().api;
+  const manifest = { collections: [
+    { id: 'winter', title: 'Зимнее кино' },
+    { id: 'summer', title: 'Летнее кино' },
+    { id: 'school', title: 'Школьные годы' },
+    { id: 'xmas', title: 'Рождественские комедии' },
+    { id: 'lake', title: 'Озеро' }
+  ] };
+  const ids = (q) => S.find(manifest, q, 'ru').map((c) => c.id);
+  assert.deepEqual(ids('зима'), ['winter']);
+  assert.deepEqual(ids('лето'), ['summer']);
+  assert.deepEqual(ids('школа'), ['school']);
+  assert.deepEqual(ids('рождество'), ['xmas'], 'длинное слово — основа из четырёх букв');
+  assert.deepEqual(ids('и зима'), ['winter'], 'короткие слова в проходе по основам не участвуют');
+  assert.deepEqual(ids('зимнее лето'), [], 'каждая основа запроса — своё слово того же ключа');
+  assert.deepEqual(ids('зимородок'), [], 'основа длинного слова — четыре буквы: «зимо» не «зимн»');
+  /* Совпадение подстрокой — выше совпадения по основе. */
+  const both = { collections: [{ id: 'a', title: 'Зимнее кино' }, { id: 'b', title: 'Зима в горах' }] };
+  assert.deepEqual(S.find(both, 'зима', 'ru').map((c) => c.id), ['b', 'a']);
+});
+
+/* Раунд C, C2: живой каталог — сезонные подборки находятся так, как их
+   ищут: формы слова — по основам, «новый год» и «осень» — синонимами
+   каталога (aliases, src/42_manifest.js; validate их пропускает). */
+test('C2 find: живой каталог — «зима», «новый год», «хэллоуин», «лето», «осень», «космос», «школ…» находят сезонные подборки', () => {
+  const S = fresh().api;
+  const ids = (q) => S.find(CATALOG, q, 'ru').map((c) => c.id);
+  const has = (q, id) => assert.ok(ids(q).indexOf(id) !== -1, q + ' → ' + id + ': ' + ids(q));
+  has('зима', 'winter-movies');
+  has('новый год', 'new-year');
+  has('Новый год', 'new-year');
+  has('хэллоуин', 'halloween');
+  has('хеллоуин', 'halloween');
+  has('лето', 'summer-movies');
+  has('осень', 'halloween');
+  has('осень', 'school-years');
+  has('космос', 'space-race');
+  has('школ', 'school-years');
+  has('школа', 'school-years');
+  has('рождество', 'christmas');
+  has('день победы', 'war-may');
+  /* Синонимы — только у сезонных подборок и проходят проверку каталога. */
+  for (const c of CATALOG.collections) {
+    if (!c.aliases) continue;
+    assert.ok(c.season !== undefined, 'синонимы у несезонной подборки ' + c.id);
+    for (const a of c.aliases) assert.ok(typeof a === 'string' && a.length && !/[<>]/.test(a), c.id + ': ' + a);
+  }
+  const LC = {};
+  const module = { exports: null, lumen: true };
+  loadInto(LC, module, '10_util.js');
+  loadInto(LC, module, '42_manifest.js');
+  assert.equal(module.exports.validate(JSON.parse(JSON.stringify(CATALOG))).ok, true, 'каталог с синонимами проходит validate');
+});
+
 test('source: результаты — строка широких карточек подборок, без сети; заголовок вкладки экранирован', () => {
   const had = globalThis.fetch;
   globalThis.fetch = () => { throw new Error('поиск по каталогу ходит в сеть'); };

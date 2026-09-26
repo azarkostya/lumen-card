@@ -495,9 +495,15 @@
 
         /* === THEME (52 подборки) === */
 
+        /* Раунд C, C2: у сезонных подборок (season) — синонимы для поиска
+           Lampa (aliases, src/46_search.js): так, как их ищут, а не как они
+           названы — «новый год» не находил «Новогоднее», «осень» — ничего
+           («Хэллоуин» и «Школьные годы» — осенние). Формы слова («зима» →
+           «Зимнее кино») находит сам поиск по основам. */
+
         /* Существующие (7) */
         {
-          id: 'xmas-comedy', title: 'Рождественские комедии', group: 'theme', icon: 'star', season: [12, 1], cover: '/vaVaNrscmsG8CUKYxiwZGFNqGJo.jpg',
+          id: 'xmas-comedy', title: 'Рождественские комедии', group: 'theme', icon: 'star', aliases: ['Рождество', 'Christmas', 'Різдво'], season: [12, 1], cover: '/vaVaNrscmsG8CUKYxiwZGFNqGJo.jpg',
           sources: { movie: { type: 'discover', params: { genres: 35, keywords: 207317, sort_by: 'popularity.desc' } } }
         },
         /* Task 21 (фаза 3): рождественское кино без привязки к жанру — тот
@@ -505,11 +511,11 @@
            genres: 35. Отдельная подборка нужна адвент-календарю: его пул
            собирается из этих двух, и одними комедиями 24 дня не закрыть. */
         {
-          id: 'christmas', title: 'Рождественское кино', group: 'theme', icon: 'star', season: [12, 1], cover: '/y8Mabq84N0d5fm83CWb9Zkltkwr.jpg',
+          id: 'christmas', title: 'Рождественское кино', group: 'theme', icon: 'star', aliases: ['Рождество', 'Christmas', 'Різдво'], season: [12, 1], cover: '/y8Mabq84N0d5fm83CWb9Zkltkwr.jpg',
           sources: { movie: { type: 'discover', params: { keywords: 207317, sort_by: 'popularity.desc', filter: { 'vote_count.gte': 50 } } } }
         },
         {
-          id: 'halloween', title: 'Хэллоуин', group: 'theme', icon: 'star', season: [9, 10, 11], cover: '/aRka9neADW1M0Zf9lF8kW2jEgXe.jpg',
+          id: 'halloween', title: 'Хэллоуин', group: 'theme', icon: 'star', aliases: ['Halloween', 'Гелловін', 'Осень'], season: [9, 10, 11], cover: '/aRka9neADW1M0Zf9lF8kW2jEgXe.jpg',
           sources: { movie: { type: 'discover', params: { genres: 27, keywords: 3335, sort_by: 'popularity.desc' } } }
         },
         {
@@ -655,7 +661,7 @@
           sources: { movie: { type: 'discover', params: { genres: 37, sort_by: 'vote_average.desc', filter: { 'vote_count.gte': 200 } } } }
         },
         {
-          id: 'new-year', title: 'Новогоднее', group: 'theme', icon: 'star', season: [12, 1], cover: '/mTEYBOOnOJ6p5w9xsfMh39t7iPV.jpg',
+          id: 'new-year', title: 'Новогоднее', group: 'theme', icon: 'star', aliases: ['Новый год', 'New Year', 'Новий рік'], season: [12, 1], cover: '/mTEYBOOnOJ6p5w9xsfMh39t7iPV.jpg',
           sources: { movie: { type: 'discover', params: { keywords: '207317|252123|613', orig_lang: 'ru', sort_by: 'popularity.desc', filter: { without_genres: '27,53', 'vote_count.gte': 40 } } } }
         },
         {
@@ -694,11 +700,11 @@
            комедии» (romcom выше, комедия ИЛИ романтика) и так живут круглый
            год. */
         {
-          id: 'war-may', title: 'Кино о войне', i18n: { en: 'War Films', uk: 'Кіно про війну' }, group: 'theme', icon: 'star', season: [5], cover: '/1uKHoFWyYJn060dpIXUCU7Wbc15.jpg',
+          id: 'war-may', title: 'Кино о войне', i18n: { en: 'War Films', uk: 'Кіно про війну' }, group: 'theme', icon: 'star', aliases: ['День Победы', '9 мая', 'Victory Day', 'День Перемоги'], season: [5], cover: '/1uKHoFWyYJn060dpIXUCU7Wbc15.jpg',
           sources: { movie: { type: 'discover', params: { genres: 10752, keywords: 1956, sort_by: 'popularity.desc', filter: { without_genres: '99', 'vote_count.gte': 300 } } } }
         },
         {
-          id: 'love-feb', title: 'Кино о любви', i18n: { en: 'Love Stories', uk: 'Кіно про кохання' }, group: 'theme', icon: 'star', season: [2], cover: '/xnHVX37XZEp33hhCbYlQFq7ux1J.jpg',
+          id: 'love-feb', title: 'Кино о любви', i18n: { en: 'Love Stories', uk: 'Кіно про кохання' }, group: 'theme', icon: 'star', aliases: ['День святого Валентина', 'Valentine'], season: [2], cover: '/xnHVX37XZEp33hhCbYlQFq7ux1J.jpg',
           sources: { movie: { type: 'discover', params: { genres: '10749,18', sort_by: 'popularity.desc', filter: { without_genres: '99,16,27', 'vote_count.gte': 500 } } } }
         },
         /* Раунд holB: праздники СНГ и времена года (пользователь: «праздников
@@ -746,23 +752,23 @@
            на TMDB — те же семь случайных, а «кино к 8 марта» — оценка, не
            тема. Осенью в сезоне уже «Хэллоуин» и «Школьные годы». */
         {
-          id: 'winter-movies', title: 'Зимнее кино', i18n: { en: 'Winter Films', uk: 'Зимове кіно' }, group: 'theme', icon: 'star', season: [1, 2], cover: '/tuDhEdza074bA497bO9WFEPs6O6.jpg',
+          id: 'winter-movies', title: 'Зимнее кино', i18n: { en: 'Winter Films', uk: 'Зимове кіно' }, group: 'theme', icon: 'star', aliases: ['Зима'], season: [1, 2], cover: '/tuDhEdza074bA497bO9WFEPs6O6.jpg',
           sources: { movie: { type: 'discover', params: { keywords: '1442|10794|3373', genres: '35|10751|10749|14|16|12', sort_by: 'popularity.desc', filter: { without_genres: '27,53,80,10752,37,878', without_keywords: '207317', 'vote_count.gte': 150 } } } }
         },
         {
-          id: 'space-race', title: 'Покорители космоса', i18n: { en: 'Space Pioneers', uk: 'Підкорювачі космосу' }, group: 'theme', icon: 'star', season: [4], cover: '/t4YhlPbrloOjukZLKol9dhfDyxS.jpg',
+          id: 'space-race', title: 'Покорители космоса', i18n: { en: 'Space Pioneers', uk: 'Підкорювачі космосу' }, group: 'theme', icon: 'star', aliases: ['День космонавтики', '12 апреля'], season: [4], cover: '/t4YhlPbrloOjukZLKol9dhfDyxS.jpg',
           sources: { movie: { type: 'discover', params: { keywords: '198136|229169|306201|156836|7422|226233', sort_by: 'popularity.desc', filter: { without_genres: '27,99', 'vote_count.gte': 15 } } } }
         },
         {
-          id: 'summer-movies', title: 'Летнее кино', i18n: { en: 'Summer Films', uk: 'Літнє кіно' }, group: 'theme', icon: 'star', season: [6, 7, 8], cover: '/y3zUOMWRoI2vC4ck2GBJyFWhzyA.jpg',
+          id: 'summer-movies', title: 'Летнее кино', i18n: { en: 'Summer Films', uk: 'Літнє кіно' }, group: 'theme', icon: 'star', aliases: ['Лето', 'Літо'], season: [6, 7, 8], cover: '/y3zUOMWRoI2vC4ck2GBJyFWhzyA.jpg',
           sources: { movie: { type: 'discover', params: { keywords: '13088|14714|5767', genres: '35|10751|16|12', sort_by: 'popularity.desc', filter: { without_genres: '27,53,80,18', certification_country: 'US', 'certification.lte': 'PG-13', 'vote_count.gte': 150 } } } }
         },
         {
-          id: 'soviet-cartoons', title: 'Советские мультфильмы', i18n: { en: 'Soviet Animation', uk: 'Радянські мультфільми' }, group: 'theme', icon: 'star', season: [6], cover: '/xvk0mFGUojrTiiTo0iutGW5Xd1n.jpg',
+          id: 'soviet-cartoons', title: 'Советские мультфильмы', i18n: { en: 'Soviet Animation', uk: 'Радянські мультфільми' }, group: 'theme', icon: 'star', aliases: ['Союзмультфильм', 'Мультики'], season: [6], cover: '/xvk0mFGUojrTiiTo0iutGW5Xd1n.jpg',
           sources: { movie: { type: 'discover', params: { genres: 16, orig_lang: 'ru', sort_by: 'vote_count.desc', filter: { 'primary_release_date.lte': '1991-12-31', 'vote_count.gte': 20 } } } }
         },
         {
-          id: 'school-years', title: 'Школьные годы', i18n: { en: 'School Years', uk: 'Шкільні роки' }, group: 'theme', icon: 'star', season: [9], cover: '/jehzP4JKiFzgTWIaASLFOJocJke.jpg',
+          id: 'school-years', title: 'Школьные годы', i18n: { en: 'School Years', uk: 'Шкільні роки' }, group: 'theme', icon: 'star', aliases: ['Школа', 'Осень', '1 сентября'], season: [9], cover: '/jehzP4JKiFzgTWIaASLFOJocJke.jpg',
           sources: { movie: { type: 'discover', params: { keywords: '6270|173642', sort_by: 'popularity.desc', filter: { without_genres: '27,53,14,878,28', certification_country: 'US', 'certification.lte': 'PG-13', 'vote_count.gte': 400 } } } }
         },
         {
