@@ -856,23 +856,32 @@ test('ревью H1: герой, вставший на осиротевший з
 /* Раунд «Цвет сразу» (2026-09-26): цвет соседей — заранее, в простое.     */
 /* ====================================================================== */
 
-/* Жалоба: «фон адаптируется не сразу». Герой ставит цвет вместе с текстом
+/* Жалоба: «фон адаптируется не сразу». Герой ставит цвет вместе с кадром
    фильма (src/48_hero.js), а посчитан он к этому мигу потому, что
    предзагрузка ведёт свою дорожку: карточка под фокусом и её окно, по
    одному, в простое браузера (в тестах requestIdleCallback нет — шаг
-   COLOR_GAP через setTimeout). Заглушка LC.accent: prepare ставит задачу,
-   тест сам говорит «посчитано». */
+   COLOR_GAP через setTimeout). Раунд C, C3: цвет фильма — низ его КАДРА,
+   поэтому карточка считается, только когда её кадр решён (детали в памяти;
+   LC.thumbs в этих тестах нет — кадр решает heroBackdrop), и считается
+   prepareFrame(кадр); кадра нет — prepare (постер). Заглушка LC.accent:
+   расчёт ставит задачу, тест сам говорит «посчитано»; calls — расчёты
+   дорожки, hero — заказы самого героя (без done). */
 const COLOR_GAP = 50;
 
 function fakeAccent() {
-  const acc = { calls: [], jobs: [], ready: {}, applied: [] };
-  acc.prepare = (card, done) => {
+  const acc = { calls: [], frames: [], hero: [], jobs: [], ready: {}, applied: [] };
+  const job = (card, path, done) => {
+    if (typeof done !== 'function') { acc.hero.push(path); return null; }
     acc.calls.push(card.id);
-    const job = { id: card.id, cancelled: false, finish: () => { acc.ready[card.id] = true; done(); } };
-    acc.jobs.push(job);
-    return { cancel: () => { job.cancelled = true; } };
+    acc.frames.push(path);
+    const j = { id: card.id, cancelled: false, finish: () => { acc.ready[card.id] = true; done(); } };
+    acc.jobs.push(j);
+    return { cancel: () => { j.cancelled = true; } };
   };
+  acc.prepare = (card, done) => job(card, '', done);
+  acc.prepareFrame = (path, done, card) => job(card, path, done);
   acc.known = (card) => !!acc.ready[card.id];
+  acc.knownFrame = () => false;
   acc.applyFor = (card) => { acc.applied.push(card && card.id); };
   /* Ключ цвета фильма — то же правило, что filmKey (src/57_color.js). */
   acc.key = (card) => ((!card.source || card.source === 'cub') ? 'tmdb' : card.source) + ':' + (card.media_type || (card.name ? 'tv' : 'movie')) + '/' + card.id;
@@ -890,27 +899,71 @@ function drainColors(env, acc) {
   }
 }
 
-test('цвет сразу: дорожка цвета — карточка под фокусом первой, потом окно; по одному и в простое', () => {
+/* Детали карточек окна фокуса в памяти предзагрузки: фокус на card, покой,
+   ответы на запросы окна. */
+function warmDetails(env, main, card, acc) {
+  const own = env.LC.accent;
+  env.LC.accent = undefined;
+  focus(main, card);
+  env.advance(250);
+  drain(env);
+  env.advance(1000);
+  drain(env);
+  env.LC.accent = acc || own;
+}
+
+test('C3: дорожка цвета — низ решённого кадра; карточка под фокусом первой, потом окно; по одному и в простое', () => {
   const acc = fakeAccent();
   const { env, main } = mounted({ accent: acc });
+  warmDetails(env, main, main.rows[0][1]);
   focus(main, main.rows[0][2]);
   env.advance(249);
   assert.deepEqual(acc.calls, [], 'раньше 250 мс покоя');
   env.advance(1);
+  drain(env);
   assert.deepEqual(acc.calls, [], 'план есть, но расчёт ждёт простоя');
   env.advance(COLOR_GAP);
   assert.deepEqual(acc.calls, [103], 'первой — карточка под фокусом');
+  assert.deepEqual(acc.frames, ['/b103.jpg'], 'цвет — низ её кадра (prepareFrame), не постер');
   env.advance(1000);
   assert.deepEqual(acc.calls, [103], 'пока идёт расчёт, следующий не стартует');
   drainColors(env, acc);
   /* Окно в «Лёгких»: +2 вперёд, −1 назад, три карточки следующего ряда. */
   assert.deepEqual(acc.calls, [103, 104, 105, 102, 201, 202, 203]);
+  assert.deepEqual(acc.frames, ['/b103.jpg', '/b104.jpg', '/b105.jpg', '/b102.jpg', '/b201.jpg', '/b202.jpg', '/b203.jpg']);
   assert.deepEqual(warnLog, []);
+});
+
+test('C3: кадр ещё не решён (деталей нет) — цвет заранее не считается; детали пришли — считается', () => {
+  const acc = fakeAccent();
+  const { env, main } = mounted({ accent: acc });
+  focus(main, main.rows[0][2]);
+  env.advance(250);
+  env.advance(COLOR_GAP * 4);
+  assert.deepEqual(acc.calls, [], 'без деталей — ни постера, ни кадра заранее');
+  const first = pending(env).find((r) => idOf(r.url) === 104);
+  answer(first, {});
+  env.advance(COLOR_GAP);
+  assert.deepEqual(acc.calls, [104], 'детали соседа пришли — его кадр решён, цвет считается');
+  assert.deepEqual(acc.frames, ['/b104.jpg']);
+});
+
+test('C3: кадра у фильма нет — цвет постера (prepare), как прежде', () => {
+  const acc = fakeAccent();
+  const { env, main } = mounted({ accent: acc });
+  for (const c of main.rows[0]) c.card_data.backdrop_path = '';
+  warmDetails(env, main, main.rows[0][1]);
+  focus(main, main.rows[0][2]);
+  env.advance(250);
+  env.advance(COLOR_GAP);
+  assert.deepEqual(acc.calls, [103]);
+  assert.deepEqual(acc.frames, [''], 'кадра нет — постер');
 });
 
 test('цвет сразу: зажатая стрелка — ни одного расчёта цвета', () => {
   const acc = fakeAccent();
   const { env, main } = mounted({ accent: acc });
+  warmDetails(env, main, main.rows[0][6]);
   for (let i = 0; i < 8; i++) {
     focus(main, main.rows[0][i]);
     env.advance(100);
@@ -922,31 +975,33 @@ test('цвет сразу: зажатая стрелка — ни одного �
   assert.deepEqual(acc.calls, [108], 'покой — карточка, где стрелку отпустили');
 });
 
-test('цвет сразу: известный цвет пропускается, новое окно сбрасывает очередь, уход с главной снимает расчёт', () => {
+test('цвет сразу / C3: известный цвет и нерешённый кадр пропускаются, новое окно сбрасывает очередь, уход с главной снимает расчёт', () => {
   const acc = fakeAccent();
-  acc.ready[104] = true;
   const { env, main } = mounted({ accent: acc });
+  warmDetails(env, main, main.rows[0][1]);
+  acc.ready[104] = true;
   focus(main, main.rows[0][2]);
   env.advance(250);
   env.advance(COLOR_GAP);
   acc.jobs[0].finish();
   env.advance(COLOR_GAP);
-  assert.deepEqual(acc.calls, [103, 105], 'цвет 104 уже известен — не считается');
+  assert.deepEqual(acc.calls, [103, 102], 'цвет 104 известен — пропущен; у 105 деталей нет — кадр не решён, ждёт');
 
-  /* Фокус ушёл дальше, расчёт 105 ещё идёт: он доживает, а очередь старого
-     окна (102, 201…) выброшена. */
+  /* Фокус ушёл дальше, расчёт 102 ещё идёт: он доживает, а очередь старого
+     окна (201…) выброшена. */
   focus(main, main.rows[0][6]);
   env.advance(250);
+  drain(env);
   env.advance(COLOR_GAP);
-  assert.deepEqual(acc.calls, [103, 105], 'новый расчёт — только после текущего');
+  assert.deepEqual(acc.calls, [103, 102], 'новый расчёт — только после текущего');
   acc.jobs[1].finish();
   env.advance(COLOR_GAP);
-  assert.deepEqual(acc.calls, [103, 105, 107], 'очередь нового окна, с карточки под фокусом');
+  assert.deepEqual(acc.calls, [103, 102, 108], 'очередь нового окна (кадр 107 ещё не решён — у него нет деталей)');
 
   env.hero.unmount();
   assert.equal(acc.jobs[2].cancelled, true, 'уход с главной снял расчёт в пути');
   env.advance(5000);
-  assert.deepEqual(acc.calls, [103, 105, 107], 'после ухода — ни одного расчёта');
+  assert.deepEqual(acc.calls, [103, 102, 108], 'после ухода — ни одного расчёта');
 });
 
 /* Раунд правок финальной проверки, A9: повтор в очереди цвета — по ключу
@@ -955,18 +1010,22 @@ test('цвет сразу: известный цвет пропускается,
 test('финал A9: очередь цвета различает источник — один id и тип из разных источников считаются оба', () => {
   const acc = fakeAccent();
   acc.known = (card) => !!acc.ready[acc.key(card)];
-  acc.prepare = (card, done) => {
+  const lane = (card, done) => {
     const key = acc.key(card);
     acc.calls.push(key);
     const job = { id: key, cancelled: false, finish: () => { acc.ready[key] = true; done(); } };
     acc.jobs.push(job);
     return { cancel: () => { job.cancelled = true; } };
   };
+  acc.prepare = (card, done) => (typeof done === 'function' ? lane(card, done) : null);
+  acc.prepareFrame = (path, done, card) => (typeof done === 'function' ? lane(card, done) : null);
   const { env, main } = mounted({ accent: acc });
+  warmDetails(env, main, main.rows[0][1]);
   const twin = main.rows[0][3];
   twin.card_data = Object.assign({}, twin.card_data, { id: 103, source: 'ivi' });
   focus(main, main.rows[0][2]);
   env.advance(250);
+  drain(env);
   env.advance(COLOR_GAP);
   drainColors(env, acc);
   assert.deepEqual(acc.calls.slice(0, 3), ['tmdb:movie/103', 'ivi:movie/103', 'tmdb:movie/105'], 'фильм другого источника с тем же id выпал из предрасчёта');
@@ -1164,4 +1223,27 @@ test('RV4-1: детали соседа пришли на запрос самог
   answer(hero103, lookDetails(103));
   wait(env, COLOR_GAP + LOOK_RETRY * 3);
   assert.ok(th.pairs().some((p) => p.indexOf('103:') === 0), 'сосед 103 так и не получил вердикт: ' + th.pairs());
+});
+
+test('C3: сосед с кадром, похожим на постер, — цвет ждёт ответа сравнения и считается от выбранного кадра', () => {
+  const acc = fakeAccent();
+  const th = fakeLook();
+  const { env, main } = mounted({ accent: acc, thumbs: th });
+  focus(main, main.rows[0][2]);
+  env.advance(250);
+  answerLooks(env);
+  wait(env, DELAY - 250);
+  answerLooks(env);
+  th.answer(th.calls[0], false);
+  wait(env, COLOR_GAP + LOOK_RETRY);
+  const laneColor = acc.calls.filter((id) => id === 104);
+  assert.deepEqual(laneColor, [], 'кадр 104 не решён (сравнение в пути) — цвет не считается');
+  th.answer(th.calls[1], true);
+  wait(env, COLOR_GAP);
+  th.answer(th.calls[2], false);
+  wait(env, COLOR_GAP * 3);
+  drainColors(env, acc);
+  const at = acc.calls.indexOf(104);
+  assert.ok(at !== -1, 'кадр решён — цвет посчитан: ' + acc.calls);
+  assert.equal(acc.frames[at], '/b104.jpg', 'цвет — низ ВЫБРАННОГО кадра (второй кандидат), а не первого');
 });

@@ -17061,6 +17061,26 @@ return !(typeof s === 'number' && s < 1);
 
 
 
+function frameFor(card, details) {
+if (!card || !details) return undefined;
+var main = details.backdrop_path || card.backdrop_path || '';
+var fallback = heroBackdrop(details.images, main);
+var poster = card.poster_path || details.poster_path || '';
+var cands = frameCandidates(details.images, main);
+var look = LC.thumbs;
+if (!look || !poster || !cands.paths.length || motionMode() === 'off') return fallback || '';
+var r = pickFrame(cands.paths, cands.strong, function (p) { return look.verdict(poster, p); }, fallback, false,
+function (p) { return typeof look.scoreOf === 'function' ? look.scoreOf(poster, p) : undefined; });
+return r.wait ? undefined : (r.path || '');
+}
+
+
+
+
+
+
+
+
 function heroModel(card, details, words) {
 if (!card) return null;
 words = words || {};
@@ -19574,6 +19594,12 @@ if (state.framePath) return;
 if (state.framePath === '' && !model.backdrop) return;
 stopTimer('frameWait');
 state.framePath = model.backdrop || '';
+
+
+
+if (state.framePath && motionMode() !== 'off' && LC.accent && typeof LC.accent.prepareFrame === 'function') {
+try { LC.accent.prepareFrame(state.framePath, null, state.shownCard); } catch (eColor) { warn('hero: frame color failed', eColor); }
+}
 loadFrame(model, captured, function (ok, kept) {
 if (gen !== captured || !state) return;
 
@@ -19887,10 +19913,11 @@ setCompact(index > 0);
 
 
 
-function applyAccent(card) {
+
+function applyAccent(card, frame) {
 if (state) state.tinted = true;
 try {
-if (LC.accent && typeof LC.accent.applyFor === 'function') LC.accent.applyFor(card);
+if (LC.accent && typeof LC.accent.applyFor === 'function') LC.accent.applyFor(card, undefined, frame || '');
 } catch (e) {
 warn('hero: accent failed', e);
 }
@@ -19918,7 +19945,7 @@ function flushAccent() {
 if (!state || !state.accentCard || state.parked || focusAway()) return;
 var card = state.accentCard;
 state.accentCard = null;
-applyAccent(card);
+applyAccent(card, card === state.shownCard ? state.framePath : '');
 }
 
 
@@ -20745,7 +20772,7 @@ function accentBack() {
 if (!state || state.parked) return;
 var card = state.pending || state.shownCard;
 if (!card) return;
-applyAccent(card);
+applyAccent(card, card === state.shownCard ? state.framePath : '');
 }
 
 
@@ -20864,6 +20891,8 @@ pickFrame: pickFrame,
 
 
 choosing: choosing,
+
+frameFor: frameFor,
 shouldUpdate: shouldUpdate,
 sizeFor: sizeFor,
 logoSizeFor: logoSizeFor,
@@ -29433,7 +29462,10 @@ cache[url] = { rgb: rgb || null, fails: fails || 0, dim: !!dim };
 
 
 
-function read(img, doc, src) {
+
+
+
+function read(img, doc, src, crop) {
 
 
 
@@ -29459,7 +29491,12 @@ if (!ctx) {
 mark('error', src);
 return null;
 }
+if (crop > 0 && crop < 1) {
+var sy = img.naturalHeight * crop;
+ctx.drawImage(img, 0, sy, img.naturalWidth, img.naturalHeight - sy, 0, 0, SAMPLE, SAMPLE);
+} else {
 ctx.drawImage(img, 0, 0, SAMPLE, SAMPLE);
+}
 var rgb = dominant(ctx.getImageData(0, 0, SAMPLE, SAMPLE).data);
 
 
@@ -29492,9 +29529,13 @@ return null;
 
 
 
-function fromImage(url, cb, alt) {
+
+
+function fromImage(url, cb, alt, crop) {
 if (!url) { cb(null); return null; }
-var seen = cacheGet(url);
+var part = crop > 0 && crop < 1 ? crop : 0;
+var key = part ? url + '#crop=' + part : url;
+var seen = cacheGet(key);
 
 
 
@@ -29541,10 +29582,10 @@ release();
 
 
 
-if (rgb || dim) cachePut(url, rgb, 0, dim);
+if (rgb || dim) cachePut(key, rgb, 0, dim);
 else {
-var prev = cacheGet(url);
-cachePut(url, null, (prev ? prev.fails : 0) + 1);
+var prev = cacheGet(key);
+cachePut(key, null, (prev ? prev.fails : 0) + 1);
 }
 cb(rgb, !!dim);
 }
@@ -29569,7 +29610,7 @@ img = el;
 
 
 el.onload = function () {
-var rgb = read(el, doc, src);
+var rgb = read(el, doc, src, part);
 done(rgb, !rgb && last_state === 'dim');
 };
 el.onerror = function () { fail(src, 'load'); };
@@ -29657,6 +29698,18 @@ var POSTER_SIZE = 't/p/w185';
 
 
 
+
+var FRAME_SIZE = 't/p/w300';
+var FRAME_CROP = 0.5;
+
+
+
+
+
+
+
+
+
 var override = null;
 
 
@@ -29711,7 +29764,9 @@ var task = null;
 
 
 
-var FILM_LIMIT = 200;
+
+
+var FILM_LIMIT = 400;
 var films = {};
 var film_keys = [];
 
@@ -29830,6 +29885,17 @@ function posterUrl(path) {
 try {
 if (window.Lampa && Lampa.TMDB && typeof Lampa.TMDB.image === 'function') {
 return Lampa.TMDB.image(POSTER_SIZE + path);
+}
+} catch (e) {
+warn('accent: tmdb image failed', e);
+}
+return '';
+}
+
+function frameUrl(path) {
+try {
+if (window.Lampa && Lampa.TMDB && typeof Lampa.TMDB.image === 'function') {
+return Lampa.TMDB.image(FRAME_SIZE + path);
 }
 } catch (e) {
 warn('accent: tmdb image failed', e);
@@ -30139,10 +30205,51 @@ return { cancel: function () { drop(id, sub); } };
 
 
 
+function frameKey(path) {
+return path ? 'frame:' + path : '';
+}
+
+function colorOfFrame(path, cb) {
+var key = frameKey(path);
+if (knownKey(key)) {
+cb(films[key]);
+return null;
+}
+var url = path ? frameUrl(path) : '';
+if (!url) {
+cb(null);
+return null;
+}
+var sub = { cb: cb };
+var run = flight[key];
+if (run) {
+run.subs.push(sub);
+} else {
+run = { subs: [sub], handle: null };
+flight[key] = run;
+run.handle = LC.color.fromImage(url, function (rgb, dim) { settle(key, run, key, rgb, dim); }, '', FRAME_CROP);
+}
+if (!sub.cb) return null;
+return { cancel: function () { drop(key, sub); } };
+}
 
 
 
-function applyFor(movie, deep) {
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function applyFor(movie, deep, frame) {
 if (!on()) {
 cancel();
 apply(null, null, deep);
@@ -30154,11 +30261,20 @@ return;
 var prev = task;
 task = null;
 var answered = false;
-var handle = colorOf(movie, function (dom) {
+function use(dom) {
 answered = true;
 task = null;
 apply(dom ? LC.color.tokens(dom, filmBg(dom)) : null, dom, deep);
-});
+}
+var key = filmKey(movie);
+var fk = frameKey(frame);
+var handle = null;
+if (fk && !knownKey(key) && knownKey(fk) && films[fk]) {
+if (key) keepFilm(key, films[fk]);
+use(films[fk]);
+} else {
+handle = colorOf(movie, use);
+}
 if (prev) prev.cancel();
 if (!answered) task = handle;
 }
@@ -30186,6 +30302,37 @@ done();
 return null;
 }
 return colorOf(movie, function () { done(); });
+}
+
+
+
+
+
+
+
+
+function prepareFrame(path, done, movie) {
+var fin = typeof done === 'function' ? done : function () {};
+var fk = frameKey(path);
+if (!on() || !fk || (movie && knownKey(filmKey(movie))) || !readable()) {
+fin();
+return null;
+}
+var chained = null;
+var own = colorOfFrame(path, function (dom) {
+if (dom || !movie) {
+fin();
+return;
+}
+chained = prepare(movie, fin);
+});
+if (!own && !chained) return null;
+return {
+cancel: function () {
+if (own) own.cancel();
+if (chained) chained.cancel();
+}
+};
 }
 
 
@@ -30309,6 +30456,10 @@ applyFor: applyFor,
 
 
 prepare: prepare,
+
+
+prepareFrame: prepareFrame,
+knownFrame: function (path) { return knownKey(frameKey(path)); },
 known: function (movie) { return knownKey(filmKey(movie)); },
 
 
@@ -31458,6 +31609,9 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 
+
+
+
 LC.prefetch = (function () {
 
 
@@ -31661,7 +31815,11 @@ warn('prefetch: callback failed', e);
 
 
 
-if (ok && json) pumpLooks();
+if (ok && json) {
+pumpLooks();
+
+pumpColors();
+}
 }
 try {
 Lampa.Api.sources.tmdb.get(req.url, req.params,
@@ -31792,7 +31950,18 @@ pump();
 }
 
 function colorAllowed() {
-return !!(LC.accent && typeof LC.accent.prepare === 'function' && typeof LC.accent.known === 'function' && typeof LC.accent.key === 'function');
+return !!(LC.accent && typeof LC.accent.prepare === 'function' && typeof LC.accent.prepareFrame === 'function' &&
+typeof LC.accent.known === 'function' && typeof LC.accent.knownFrame === 'function' && typeof LC.accent.key === 'function' &&
+LC.hero && typeof LC.hero.frameFor === 'function');
+}
+
+
+
+function frameOf(card) {
+var req = requestOf(card);
+var json = req ? recall(req.key) : null;
+if (!json) return undefined;
+return LC.hero.frameFor(card, json);
 }
 
 
@@ -31816,6 +31985,9 @@ colorWait = null;
 
 
 
+
+
+
 function pumpColors() {
 if (colorJob || colorWait || !colors.length) return;
 var captured = gen;
@@ -31823,20 +31995,28 @@ colorWait = idle(function () {
 colorWait = null;
 if (captured !== gen || !ready()) return;
 var card = null;
-while (colors.length && !card) {
-card = colors.shift();
-if (LC.accent.known(card)) card = null;
+var path;
+var at = 0;
+while (at < colors.length && !card) {
+var c = colors[at];
+if (LC.accent.known(c)) { colors.splice(at, 1); continue; }
+path = frameOf(c);
+if (path === undefined) { at++; continue; }
+colors.splice(at, 1);
+if (path && LC.accent.knownFrame(path)) continue;
+card = c;
 }
 if (!card) return;
 var entry = { handle: null, over: false };
 colorJob = entry;
-try {
-entry.handle = LC.accent.prepare(card, function () {
+var done = function () {
 if (entry.over) return;
 entry.over = true;
 if (colorJob === entry) colorJob = null;
 pumpColors();
-});
+};
+try {
+entry.handle = path ? LC.accent.prepareFrame(path, done, card) : LC.accent.prepare(card, done);
 } catch (e) {
 warn('prefetch: color failed', e);
 entry.over = true;
@@ -31952,7 +32132,11 @@ if (LC.thumbs.verdict(pair.poster, pair.frame) === undefined) {
 var i = looks.indexOf(card);
 if (i !== -1) looks.splice(i, 1);
 }
-if (!sync) pumpLooks();
+if (!sync) {
+pumpLooks();
+
+pumpColors();
+}
 });
 } catch (e) {
 warn('prefetch: look failed', e);
@@ -31962,7 +32146,10 @@ looks.length = 0;
 return;
 }
 sync = false;
-if (entry.over) pumpLooks();
+if (entry.over) {
+pumpLooks();
+pumpColors();
+}
 });
 }
 

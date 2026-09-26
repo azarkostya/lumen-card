@@ -31,10 +31,13 @@
   /* незнаком или не доехал один раз; известный освежается в памяти).     */
   /* Одновременно в пути не больше SLOTS запросов предзагрузки.            */
   /* Раунд «Цвет сразу» (2026-09-26): своя дорожка — цвет фильма          */
-  /* (LC.accent.prepare, src/57_color.js): карточка под фокусом и то же    */
-  /* окно, по одному, в простое браузера (requestIdleCallback), постер     */
-  /* w185 и канвас 16×16. Герой ставит цвет вместе с текстом, и к этому    */
-  /* мигу он уже посчитан.                                                  */
+  /* (src/57_color.js): карточка под фокусом и то же окно, по одному, в    */
+  /* простое браузера (requestIdleCallback), канвас 16×16. Герой ставит   */
+  /* цвет вместе с кадром, и к этому мигу он уже посчитан. Раунд C, C3:   */
+  /* цвет — низ КАДРА фильма (w300, LC.accent.prepareFrame), поэтому      */
+  /* карточка ждёт в очереди, пока её кадр не решён (детали в памяти и   */
+  /* ответы сравнения с постером — LC.hero.frameFor); кадра у фильма нет  */
+  /* — постер w185 (LC.accent.prepare), как прежде.                        */
   /* Раунд C (E3, 2026-09-26): третья дорожка — вердикты «кадр ≈ постер»   */
   /* соседей (LC.thumbs.compare) по их деталям из памяти, по одной паре, в  */
   /* простое и не раньше, чем герой выбрал кадр своей карточки: к показу    */
@@ -256,7 +259,11 @@
            а заказать их могло прошлое окно (его ответ несёт старое
            поколение) или сам герой (details) — будим дорожку на любой
            ответ: она работает от текущих очереди и поколения. */
-        if (ok && json) pumpLooks();
+        if (ok && json) {
+          pumpLooks();
+          /* Раунд C, C3: и дорожку цвета — кадр соседа решается по деталям. */
+          pumpColors();
+        }
       }
       try {
         Lampa.Api.sources.tmdb.get(req.url, req.params,
@@ -387,7 +394,18 @@
     }
 
     function colorAllowed() {
-      return !!(LC.accent && typeof LC.accent.prepare === 'function' && typeof LC.accent.known === 'function' && typeof LC.accent.key === 'function');
+      return !!(LC.accent && typeof LC.accent.prepare === 'function' && typeof LC.accent.prepareFrame === 'function' &&
+        typeof LC.accent.known === 'function' && typeof LC.accent.knownFrame === 'function' && typeof LC.accent.key === 'function' &&
+        LC.hero && typeof LC.hero.frameFor === 'function');
+    }
+
+    /* Раунд C, C3: кадр карточки, если он уже решён: путь, '' — кадра нет,
+       undefined — деталей ещё нет или ответа сравнения ещё нет. */
+    function frameOf(card) {
+      var req = requestOf(card);
+      var json = req ? recall(req.key) : null;
+      if (!json) return undefined;
+      return LC.hero.frameFor(card, json);
     }
 
     /* Ожидание простоя браузера; ручка {cancel}. */
@@ -410,7 +428,10 @@
 
     /* Следующий расчёт дорожки — в простое и только когда прошлый кончился.
        Цвет, ставший известным, пока карточка ждала (его посчитал показ
-       героя), пропускается. */
+       героя), пропускается. Раунд C, C3: карточка, чей кадр ещё не решён,
+       остаётся в очереди — её зовут снова ответ деталей и ответ сравнения
+       (runDetails, дорожка вердиктов); считается первая готовая. Кадр
+       решён — цвет его низа, кадра нет — постер. */
     function pumpColors() {
       if (colorJob || colorWait || !colors.length) return;
       var captured = gen;
@@ -418,20 +439,28 @@
         colorWait = null;
         if (captured !== gen || !ready()) return;
         var card = null;
-        while (colors.length && !card) {
-          card = colors.shift();
-          if (LC.accent.known(card)) card = null;
+        var path;
+        var at = 0;
+        while (at < colors.length && !card) {
+          var c = colors[at];
+          if (LC.accent.known(c)) { colors.splice(at, 1); continue; }
+          path = frameOf(c);
+          if (path === undefined) { at++; continue; }
+          colors.splice(at, 1);
+          if (path && LC.accent.knownFrame(path)) continue;
+          card = c;
         }
         if (!card) return;
         var entry = { handle: null, over: false };
         colorJob = entry;
+        var done = function () {
+          if (entry.over) return;
+          entry.over = true;
+          if (colorJob === entry) colorJob = null;
+          pumpColors();
+        };
         try {
-          entry.handle = LC.accent.prepare(card, function () {
-            if (entry.over) return;
-            entry.over = true;
-            if (colorJob === entry) colorJob = null;
-            pumpColors();
-          });
+          entry.handle = path ? LC.accent.prepareFrame(path, done, card) : LC.accent.prepare(card, done);
         } catch (e) {
           warn('prefetch: color failed', e);
           entry.over = true;
@@ -547,7 +576,11 @@
               var i = looks.indexOf(card);
               if (i !== -1) looks.splice(i, 1);
             }
-            if (!sync) pumpLooks();
+            if (!sync) {
+              pumpLooks();
+              /* Раунд C, C3: кадр соседа мог решиться этим ответом. */
+              pumpColors();
+            }
           });
         } catch (e) {
           warn('prefetch: look failed', e);
@@ -557,7 +590,10 @@
           return;
         }
         sync = false;
-        if (entry.over) pumpLooks();
+        if (entry.over) {
+          pumpLooks();
+          pumpColors();
+        }
       });
     }
 

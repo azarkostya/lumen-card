@@ -577,6 +577,26 @@
       return !(typeof s === 'number' && s < 1);
     }
 
+    /* Раунд C, C3: кадр, который выбрал бы показ карточки card по её деталям
+       details, если выбор решается без ожидания — то же правило, что у
+       chooseFrame (кандидаты, ответы сравнения с постером из памяти
+       LC.thumbs, наименее похожий, иначе выбор heroBackdrop): путь, '' —
+       кадра у фильма нет, undefined — ещё не решён (ответа сравнения нет).
+       Предзагрузке соседей (src/58_prefetch.js): цвет фильма — низ ЕГО
+       кадра, и считать заранее можно только решённый кадр. */
+    function frameFor(card, details) {
+      if (!card || !details) return undefined;
+      var main = details.backdrop_path || card.backdrop_path || '';
+      var fallback = heroBackdrop(details.images, main);
+      var poster = card.poster_path || details.poster_path || '';
+      var cands = frameCandidates(details.images, main);
+      var look = LC.thumbs;
+      if (!look || !poster || !cands.paths.length || motionMode() === 'off') return fallback || '';
+      var r = pickFrame(cands.paths, cands.strong, function (p) { return look.verdict(poster, p); }, fallback, false,
+        function (p) { return typeof look.scoreOf === 'function' ? look.scoreOf(poster, p) : undefined; });
+      return r.wait ? undefined : (r.path || '');
+    }
+
     /* Модель героя: card — это el.card_data ряда (есть сразу), details —
        ответ movie/{id}|tv/{id} с images (приходит позже, может не прийти
        вовсе). words — строки интерфейса (собирает runtime из LC.STRINGS),
@@ -3097,6 +3117,12 @@
       if (state.framePath === '' && !model.backdrop) return;
       stopTimer('frameWait');
       state.framePath = model.backdrop || '';
+      /* Раунд C, C3: цвет фильма — низ этого кадра (w300, src/57_color.js);
+         заказ — сейчас, параллельно с w1280: к тику кадра он обычно готов.
+         В «Выкл» кадра нет, и цвета нет. */
+      if (state.framePath && motionMode() !== 'off' && LC.accent && typeof LC.accent.prepareFrame === 'function') {
+        try { LC.accent.prepareFrame(state.framePath, null, state.shownCard); } catch (eColor) { warn('hero: frame color failed', eColor); }
+      }
       loadFrame(model, captured, function (ok, kept) {
         if (gen !== captured || !state) return;
         /* Волна «хвосты героя», п.F (ниже порога ревью логотипов): кадр
@@ -3409,11 +3435,12 @@
        его защищает сам показ (DELAY, в серии — BURST_DELAY), и в серии
        нажатий цвет получает только та карточка, где листание кончилось.
        Второй аргумент applyFor не передаётся: полная пересборка CSS —
-       только у открытой карточки. */
-    function applyAccent(card) {
+       только у открытой карточки. Третий (раунд C, C3) — кадр показа: цвет
+       фильма от низа кадра (src/57_color.js, applyFor). */
+    function applyAccent(card, frame) {
       if (state) state.tinted = true;
       try {
-        if (LC.accent && typeof LC.accent.applyFor === 'function') LC.accent.applyFor(card);
+        if (LC.accent && typeof LC.accent.applyFor === 'function') LC.accent.applyFor(card, undefined, frame || '');
       } catch (e) {
         warn('hero: accent failed', e);
       }
@@ -3441,7 +3468,7 @@
       if (!state || !state.accentCard || state.parked || focusAway()) return;
       var card = state.accentCard;
       state.accentCard = null;
-      applyAccent(card);
+      applyAccent(card, card === state.shownCard ? state.framePath : '');
     }
 
     /* Картинка показа решена: changed — сменилась в этом тике (кадр встал,
@@ -4268,7 +4295,7 @@
       if (!state || state.parked) return;
       var card = state.pending || state.shownCard;
       if (!card) return;
-      applyAccent(card);
+      applyAccent(card, card === state.shownCard ? state.framePath : '');
     }
 
     /* Вызывается на 'activity':start ЛЮБОЙ активности. Ушли с экрана, где
@@ -4387,6 +4414,8 @@
       /* Раунд C, E3: выбор кадра карточки под фокусом ещё идёт — дорожке
          вердиктов соседей (src/58_prefetch.js) ждать. */
       choosing: choosing,
+      /* Раунд C, C3: кадр карточки, если он уже решён (src/58_prefetch.js). */
+      frameFor: frameFor,
       shouldUpdate: shouldUpdate,
       sizeFor: sizeFor,
       logoSizeFor: logoSizeFor,

@@ -7465,3 +7465,71 @@ test('rv4: круг смены кадров — серая зона остаёт
     assert.equal(w1280(env).indexOf('/c3.jpg'), -1);
   } finally { env.restore(); }
 });
+
+/* ====================================================================== */
+/* Раунд C, C3: цвет фона рядов — низ кадра героя                         */
+/* ====================================================================== */
+
+/* Герой заказывает цвет кадра сразу, как выбрал кадр (prepareFrame: w300
+   едет параллельно с w1280), и отдаёт кадр в applyFor в тот же тик, что
+   кадр встаёт, — один раз на показ. */
+test('C3: цвет кадра — prepareFrame при выборе кадра, applyFor с кадром в тике показа, один раз', () => {
+  const prepared = [];
+  const frames = [];
+  const env = makeEnv({
+    accent: {
+      applyFor: (card, full, frame) => { frames.push([card && card.id, full, frame]); },
+      prepareFrame: (path, done, card) => { prepared.push([path, card && card.id]); }
+    }
+  });
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  main.card1.addClass('focus');
+  fireFocus(main.activity, main.card1);
+  env.advance(DELAY + 10);
+  env.advance(SWAP);
+  answerDetails(env);
+  const img = frameImg(env, '/b1.jpg');
+  assert.deepEqual(prepared, [['/b1.jpg', 11]], 'цвет кадра заказан, пока едет w1280');
+  assert.deepEqual(frames, [], 'кадр ещё едет — цвета нет');
+  img.onload();
+  assert.deepEqual(frames, [[11, undefined, '/b1.jpg']], 'цвет — по кадру, в тике показа, без полной пересборки');
+  env.advance(5000);
+  assert.equal(frames.length, 1, 'второй записи на показ нет');
+  env.hero.detach(new FakeEl(['activity']));
+  env.hero.mount(main.activity);
+  env.hero.accentBack();
+  assert.deepEqual(frames[1], [11, undefined, '/b1.jpg'], '«Назад» — с тем же кадром (цвет фильма уже решён)');
+});
+
+test('C3: «Выкл» — цвет кадра не заказывается', () => {
+  const prepared = [];
+  const env = makeEnv({
+    motionMode: () => 'off',
+    accent: { applyFor: () => {}, prepareFrame: (path) => { prepared.push(path); } }
+  });
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  main.card1.addClass('focus');
+  fireFocus(main.activity, main.card1);
+  env.advance(DELAY + 10);
+  env.advance(SWAP);
+  answerDetails(env);
+  env.advance(2000);
+  assert.deepEqual(prepared, []);
+});
+
+/* frameFor — тот же выбор, что у показа, но только когда он уже решён:
+   предзагрузка считает цвет соседа от ЕГО кадра. */
+test('C3: frameFor — решённый кадр по ответам сравнения; ответа нет — undefined; без сравнения — выбор heroBackdrop', () => {
+  const thumbs = fakeThumbs({ '/p1.jpg|/c1.jpg': true, '/p1.jpg|/c2.jpg': false });
+  const env = makeEnv({ fxHeavy: () => false, thumbs: thumbs });
+  const card = { id: 11, poster_path: '/p1.jpg', backdrop_path: '/key.jpg' };
+  assert.equal(env.hero.frameFor(card, LOOK_DETAILS(11)), '/c2.jpg', 'первый похож — второй кандидат');
+  const open = makeEnv({ fxHeavy: () => false, thumbs: fakeThumbs({}) });
+  assert.equal(open.hero.frameFor(card, LOOK_DETAILS(11)), undefined, 'ответа сравнения нет — не решён');
+  assert.equal(open.hero.frameFor(card, null), undefined, 'деталей нет — не решён');
+  const bare = makeEnv({ fxHeavy: () => false });
+  assert.equal(bare.hero.frameFor(card, LOOK_DETAILS(11)), '/c1.jpg', 'без LC.thumbs — первый годный (heroBackdrop)');
+  assert.equal(bare.hero.frameFor({ id: 12, poster_path: '/p.jpg' }, {}), '', 'кадров нет вовсе — ""');
+});

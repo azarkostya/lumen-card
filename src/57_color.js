@@ -507,8 +507,11 @@
        (показ героя, src/48_hero.js, и предрасчёт соседей по одному,
        src/58_prefetch.js), цвет фильма считается один раз (LC.accent ниже),
        а на один постер приходится не больше FAIL_LIMIT попыток — дальше
-       отвечает кэш, молча. */
-    function read(img, doc, src) {
+       отвечает кэш, молча.
+       crop (раунд C, C3) — доля высоты сверху, которую чтение пропускает:
+       0.5 — только нижняя половина картинки (кадр героя: та его часть, что
+       уходит затемнением в фон рядов). */
+    function read(img, doc, src, crop) {
       /* Ревью J: картинка ответила, но кадра в ней нет (битый файл, WebView
          отдал пустое изображение). Прежде выход отсюда был молчаливым, и
          HUD показывал бы состояние ПРЕДЫДУЩЕГО фильма — ровно та догадка
@@ -534,7 +537,12 @@
           mark('error', src);
           return null;
         }
-        ctx.drawImage(img, 0, 0, SAMPLE, SAMPLE);
+        if (crop > 0 && crop < 1) {
+          var sy = img.naturalHeight * crop;
+          ctx.drawImage(img, 0, sy, img.naturalWidth, img.naturalHeight - sy, 0, 0, SAMPLE, SAMPLE);
+        } else {
+          ctx.drawImage(img, 0, 0, SAMPLE, SAMPLE);
+        }
         var rgb = dominant(ctx.getImageData(0, 0, SAMPLE, SAMPLE).data);
         /* Task 60: пиксели прочитаны — значит CORS тут ни при чём, даже
            если цвета в них не нашлось (весь плакат серый). Эти два случая
@@ -566,10 +574,14 @@
        Access-Control-Allow-Origin для браузера — ошибка загрузки, то есть у
        владельца прокси подкраска молча не работала бы никогда. Сам
        image.tmdb.org отдаёт ACAO: * (проверено координатором живьём
-       2026-09-18), поэтому прямой адрес и есть осмысленный запасной. */
-    function fromImage(url, cb, alt) {
+       2026-09-18), поэтому прямой адрес и есть осмысленный запасной.
+       crop — см. read: разные части одной картинки — разные ответы, и ключ
+       кэша у части свой. */
+    function fromImage(url, cb, alt, crop) {
       if (!url) { cb(null); return null; }
-      var seen = cacheGet(url);
+      var part = crop > 0 && crop < 1 ? crop : 0;
+      var key = part ? url + '#crop=' + part : url;
+      var seen = cacheGet(key);
       /* Готовый цвет отдаётся сразу; запомненный отказ — только когда попыток
          было достаточно (FAIL_LIMIT выше). Пока их меньше, запись в кэше
          хранит счётчик, а не ответ, и за постером идём снова. */
@@ -616,10 +628,10 @@
            цвету до конца сеанса. Счётчик читается заново: между стартом и
            ответом запись могли вытеснить.
            П.3: «своего цвета нет» (dim) — тоже ответ, а не неудача. */
-        if (rgb || dim) cachePut(url, rgb, 0, dim);
+        if (rgb || dim) cachePut(key, rgb, 0, dim);
         else {
-          var prev = cacheGet(url);
-          cachePut(url, null, (prev ? prev.fails : 0) + 1);
+          var prev = cacheGet(key);
+          cachePut(key, null, (prev ? prev.fails : 0) + 1);
         }
         cb(rgb, !!dim);
       }
@@ -644,7 +656,7 @@
         /* П.3: read() помечает исход синхронно (mark), поэтому last_state
            сразу после него — исход этого чтения. */
         el.onload = function () {
-          var rgb = read(el, doc, src);
+          var rgb = read(el, doc, src, part);
           done(rgb, !rgb && last_state === 'dim');
         };
         el.onerror = function () { fail(src, 'load'); };
@@ -723,6 +735,18 @@
        лежащая в HTTP-кэше как ответ на запрос БЕЗ CORS, закрыла бы нам
        пиксели, и такую ошибку видно в консоли у самой Lampa на её w300. */
     var POSTER_SIZE = 't/p/w185';
+    /* Раунд C, C3 (решение пользователя по исследованию study.md, E4): фон
+       рядов продолжает кадр героя, а не постер ряда — у постера и кадра
+       разные палитры примерно у половины фильмов («Одиссея»: постер синий,
+       кадр — пожар; «Ледниковый период»: постер — рыжая белка, кадр —
+       лёд). Цвет — по нижней половине (FRAME_CROP) того кадра, что стоит
+       над рядами, в размере FRAME_SIZE: w300 — около 16 КБ, как w185
+       постера, и около 8 мс на канвас при CPU ×10 (w1280 с экрана — 80 мс:
+       своё декодирование на главном потоке). Кадр цвета не дал (своего
+       цвета нет, картинка не пришла, прокси без CORS) — постер, как
+       прежде. */
+    var FRAME_SIZE = 't/p/w300';
+    var FRAME_CROP = 0.5;
     /* Task 35 держал здесь прямой адрес TMDB — запасной путь, если картинка
        через прокси пользователя не загрузилась. Полное ревью (сомнительное,
        безопасность): это запрос в обход прокси, который пользователь
@@ -785,8 +809,10 @@
        цвет фильма. Хранится округлённая доминанта (quantize ниже); null —
        окончательный ответ «своего цвета у постера нет» (п.3, dim).
        FILM_LIMIT — вытеснение FIFO, как у кэша адресов в LC.color; запись —
-       три числа, и двухсот хватает на долгий проход по главной. */
-    var FILM_LIMIT = 200;
+       три числа, и двухсот хватает на долгий проход по главной. Раунд C,
+       C3: в той же таблице — цвет низа кадра ('frame:' + путь, frameKey),
+       у фильма их обычно два, отсюда 400. */
+    var FILM_LIMIT = 400;
     var films = {};
     var film_keys = [];
     /* Расчёты в пути: ключ фильма (или адрес постера, если id нет) ->
@@ -905,6 +931,17 @@
       try {
         if (window.Lampa && Lampa.TMDB && typeof Lampa.TMDB.image === 'function') {
           return Lampa.TMDB.image(POSTER_SIZE + path);
+        }
+      } catch (e) {
+        warn('accent: tmdb image failed', e);
+      }
+      return '';
+    }
+
+    function frameUrl(path) {
+      try {
+        if (window.Lampa && Lampa.TMDB && typeof Lampa.TMDB.image === 'function') {
+          return Lampa.TMDB.image(FRAME_SIZE + path);
         }
       } catch (e) {
         warn('accent: tmdb image failed', e);
@@ -1209,6 +1246,39 @@
       return { cancel: function () { drop(id, sub); } };
     }
 
+    /* Раунд C, C3: цвет низа кадра path. Ключ — сам кадр ('frame:' + путь)
+       в той же таблице films (своё вытеснение; с ключами фильмов не
+       пересекается): это знание о картинке, а не решение о фильме. cb(rgb |
+       null) — как у colorOf; null — считать нечем, не пришла или своего
+       цвета у низа кадра нет (dim). */
+    function frameKey(path) {
+      return path ? 'frame:' + path : '';
+    }
+
+    function colorOfFrame(path, cb) {
+      var key = frameKey(path);
+      if (knownKey(key)) {
+        cb(films[key]);
+        return null;
+      }
+      var url = path ? frameUrl(path) : '';
+      if (!url) {
+        cb(null);
+        return null;
+      }
+      var sub = { cb: cb };
+      var run = flight[key];
+      if (run) {
+        run.subs.push(sub);
+      } else {
+        run = { subs: [sub], handle: null };
+        flight[key] = run;
+        run.handle = LC.color.fromImage(url, function (rgb, dim) { settle(key, run, key, rgb, dim); }, '', FRAME_CROP);
+      }
+      if (!sub.cb) return null;
+      return { cancel: function () { drop(key, sub); } };
+    }
+
     /* Считает и применяет акцент фильма. Пока новый цвет не посчитан,
        предыдущий остаётся на месте — так переход между карточками не
        моргает серединным сбросом на акцент настроек, — и новый встаёт ОДИН
@@ -1216,8 +1286,16 @@
        Доминанта сохраняется даже тогда, когда акцент из неё собрать не
        удалось (цвет не вытянул контраст к пределу светлоты): фону она
        годится — он красится тоном, а не самим цветом плаката.
-       deep — фильм открыт карточкой (src/90_runtime.js): см. apply выше. */
-    function applyFor(movie, deep) {
+       deep — фильм открыт карточкой (src/90_runtime.js): см. apply выше.
+       frame (раунд C, C3) — кадр над рядами этого показа (герой главной).
+       Цвет фильма — ОДИН на сеанс (films, filmKey) и решается при первой
+       покраске: цвет низа кадра, если он к этому мигу посчитан (w300 едет
+       параллельно с w1280, соседей считает предзагрузка), иначе постер —
+       и тогда фильм остаётся с цветом постера и при возврате: поздний
+       ответ кадра уже ничего не перекрашивает (одна смена на показ). Без
+       кадра (карточка, фильм без кадров) — постер, как прежде; решённый
+       цвет фильма (с главной) карточка берёт тот же. */
+    function applyFor(movie, deep, frame) {
       if (!on()) {
         cancel();
         apply(null, null, deep);
@@ -1229,11 +1307,20 @@
       var prev = task;
       task = null;
       var answered = false;
-      var handle = colorOf(movie, function (dom) {
+      function use(dom) {
         answered = true;
         task = null;
         apply(dom ? LC.color.tokens(dom, filmBg(dom)) : null, dom, deep);
-      });
+      }
+      var key = filmKey(movie);
+      var fk = frameKey(frame);
+      var handle = null;
+      if (fk && !knownKey(key) && knownKey(fk) && films[fk]) {
+        if (key) keepFilm(key, films[fk]);
+        use(films[fk]);
+      } else {
+        handle = colorOf(movie, use);
+      }
       if (prev) prev.cancel();
       if (!answered) task = handle;
     }
@@ -1261,6 +1348,37 @@
         return null;
       }
       return colorOf(movie, function () { done(); });
+    }
+
+    /* Раунд C, C3: предрасчёт цвета низа кадра path без покраски — герой
+       зовёт его, как только выбрал кадр (startFrame, src/48_hero.js: w300
+       едет параллельно с w1280 и приходит раньше), предзагрузка — для
+       соседей с уже решённым кадром (src/58_prefetch.js). Кадр цвета не дал
+       — сразу постер фильма movie (он и станет цветом фильма), чтобы и
+       запасной путь был готов к тику кадра. Цвет фильма уже решён — считать
+       нечего. done() — один раз; синхронно, если считать нечего. */
+    function prepareFrame(path, done, movie) {
+      var fin = typeof done === 'function' ? done : function () {};
+      var fk = frameKey(path);
+      if (!on() || !fk || (movie && knownKey(filmKey(movie))) || !readable()) {
+        fin();
+        return null;
+      }
+      var chained = null;
+      var own = colorOfFrame(path, function (dom) {
+        if (dom || !movie) {
+          fin();
+          return;
+        }
+        chained = prepare(movie, fin);
+      });
+      if (!own && !chained) return null;
+      return {
+        cancel: function () {
+          if (own) own.cancel();
+          if (chained) chained.cancel();
+        }
+      };
     }
 
     /* Правка пользователя 2026-09-17 (третий круг): фон страницы получает
@@ -1384,6 +1502,10 @@
          и вопрос «цвет фильма уже известен?» — им предзагрузка не ставит в
          очередь то, что считать не нужно. */
       prepare: prepare,
+      /* Раунд C, C3: цвет низа кадра — предрасчёт и вопрос «известен ли»
+         (src/48_hero.js, src/58_prefetch.js). */
+      prepareFrame: prepareFrame,
+      knownFrame: function (path) { return knownKey(frameKey(path)); },
       known: function (movie) { return knownKey(filmKey(movie)); },
       /* Раунд правок финальной проверки, A9: ключ цвета фильма
          «источник:тип/id» — им предрасчёт соседей (src/58_prefetch.js)

@@ -288,7 +288,7 @@ function fakeDom(opts) {
              читается в миг вызова, тест включает её посреди сценария. */
           if (options.noCtx) return null;
           return {
-            drawImage: function () { state.drawn++; },
+            drawImage: function () { state.drawn++; state.lastDraw = Array.prototype.slice.call(arguments, 1); },
             getImageData: function (x, y, w, h) {
               state.reads++;
               if (options.tainted) {
@@ -2031,5 +2031,120 @@ test('п.3: ключ цвета — с источником; cub и tmdb — о�
     assert.equal(dom.state.images.length, 2, 'чужой источник считается своим постером');
     dom.state.images[1].onload();
     assert.equal(paintedHex(dom), COLD_HEX);
+  });
+});
+
+/* ====================================================================== */
+/* Раунд C, C3 (решение пользователя, study.md E4): цвет фона рядов — низ   */
+/* кадра героя (w300 того же кадра), запасной путь — постер w185.         */
+/* ====================================================================== */
+
+const FRAME_RED = pixels([{ r: 190, g: 40, b: 40, n: 256 }]);
+const POSTER_BLUE = pixels([{ r: 40, g: 90, b: 210, n: 256 }]);
+const FRAME_GRAY = pixels([{ r: 128, g: 128, b: 128, n: 256 }]);
+const MOVIE = { id: 7, title: 'Фильм', poster_path: '/p7.jpg' };
+
+test('C3: fromImage с crop — читается нижняя половина, ответ в кэше отдельно от целой картинки', () => {
+  const dom = fakeDom({});
+  withDom(dom, () => {
+    const api = fresh().api;
+    const url = 'https://image.tmdb.org/t/p/w300/f.jpg';
+    let got = 'нет ответа';
+    api.fromImage(url, (rgb) => { got = rgb; }, '', 0.5);
+    dom.state.images[0].onload();
+    assert.ok(got && typeof got.r === 'number', 'цвет посчитан');
+    assert.deepEqual(dom.state.lastDraw, [0, 139, 185, 139, 0, 0, 16, 16], 'нижняя половина 185×278 в 16×16');
+    let whole = 'нет ответа';
+    api.fromImage(url, (rgb) => { whole = rgb; });
+    assert.equal(dom.state.images.length, 2, 'целая картинка — свой расчёт, не ответ по половине');
+    dom.state.images[1].onload();
+    assert.deepEqual(dom.state.lastDraw, [0, 0, 16, 16], 'целая картинка — как прежде');
+    let again = 'нет ответа';
+    api.fromImage(url, (rgb) => { again = rgb; }, '', 0.5);
+    assert.deepEqual(again, got, 'половина — из кэша, синхронно');
+    assert.equal(dom.state.images.length, 2);
+  });
+});
+
+test('C3: цвет низа кадра готов к тику кадра — фон в его цвет, одна запись; цвет закреплён за фильмом', () => {
+  const dom = fakeDom({ datas: [FRAME_RED] });
+  withDom(dom, () => {
+    const ctx = accentCtx({ prefs: {} });
+    let done = 0;
+    ctx.LC.accent.prepareFrame('/f.jpg', () => { done++; }, MOVIE);
+    assert.equal(dom.state.images[0].src, 'https://image.tmdb.org/t/p/w300/f.jpg', 'кадр героя в w300');
+    assert.equal(dom.state.images[0].crossOrigin, 'anonymous');
+    dom.state.images[0].onload();
+    assert.equal(done, 1);
+    assert.equal(ctx.LC.accent.dominant(), null, 'предрасчёт не красит');
+    ctx.LC.accent.applyFor(MOVIE, undefined, '/f.jpg');
+    assert.equal(dom.state.images.length, 1, 'постер не грузится');
+    assert.equal(paintedHex(dom), '#B82828', 'фон — цвет низа кадра, сразу');
+    const paints = recordPaints(dom);
+    ctx.LC.accent.applyFor(MOVIE);
+    ctx.LC.accent.applyFor(MOVIE, undefined, '/other.jpg');
+    assert.deepEqual(paints, [], 'тот же фильм (карточка, возврат, другой кадр) — тот же цвет, без записей');
+    assert.equal(dom.state.images.length, 1);
+  });
+});
+
+test('C3: цвет кадра не готов к тику — постер, одна смена; поздний кадр не перекрашивает, и возврат — тем же цветом', () => {
+  const dom = fakeDom({ datas: [POSTER_BLUE, FRAME_RED] });
+  withDom(dom, () => {
+    const ctx = accentCtx({ prefs: {} });
+    ctx.LC.accent.applyFor({ id: 1, title: 'Прошлый', poster_path: '/old.jpg' });
+    dom.state.images[0].onload();
+    const paints = recordPaints(dom);
+    ctx.LC.accent.prepareFrame('/f.jpg', null, MOVIE);
+    ctx.LC.accent.applyFor(MOVIE, undefined, '/f.jpg');
+    assert.equal(dom.state.images[2].src, 'https://image.tmdb.org/t/p/w185/p7.jpg', 'кадр ещё едет — запасной путь, постер');
+    dom.state.images[2].onload();
+    dom.state.images[1].onload();
+    assert.equal(ctx.LC.accent.knownFrame('/f.jpg'), true, 'предусловие: цвет кадра посчитан позже');
+    assert.equal(paints.length, 1, 'одна смена цвета: ' + paints.join(','));
+    const posterHex = paints[0];
+    ctx.LC.accent.applyFor({ id: 2, title: 'Другой', poster_path: '/o2.jpg' });
+    dom.state.images[3].onload();
+    ctx.LC.accent.applyFor(MOVIE, undefined, '/f.jpg');
+    assert.equal(paintedHex(dom), posterHex, 'возврат на фильм — цвет постера, которым он уже был, а не кадра');
+  });
+});
+
+test('C3: кадр своего цвета не дал (серый низ) — постер считается сразу, заранее, и становится цветом фильма', () => {
+  const dom = fakeDom({ datas: [FRAME_GRAY, POSTER_BLUE] });
+  withDom(dom, () => {
+    const ctx = accentCtx({ prefs: {} });
+    let done = 0;
+    ctx.LC.accent.prepareFrame('/gray.jpg', () => { done++; }, MOVIE);
+    dom.state.images[0].onload();
+    assert.equal(done, 0, 'ждём и постер');
+    assert.equal(dom.state.images[1].src, 'https://image.tmdb.org/t/p/w185/p7.jpg', 'запасной путь заказан сразу');
+    dom.state.images[1].onload();
+    assert.equal(done, 1);
+    ctx.LC.accent.applyFor(MOVIE, undefined, '/gray.jpg');
+    assert.equal(dom.state.images.length, 2);
+    const d = ctx.LC.accent.dominant();
+    assert.ok(d && d.b > d.r, 'цвет постера — сразу, из кэша');
+  });
+});
+
+test('C3: prepareFrame — цвет фильма уже решён или подкраска выключена: ни картинки, ответ сразу', () => {
+  const dom = fakeDom({ datas: [POSTER_BLUE] });
+  withDom(dom, () => {
+    const ctx = accentCtx({ prefs: {} });
+    ctx.LC.accent.applyFor(MOVIE);
+    dom.state.images[0].onload();
+    let done = 0;
+    ctx.LC.accent.prepareFrame('/f.jpg', () => { done++; }, MOVIE);
+    assert.equal(done, 1);
+    assert.equal(dom.state.images.length, 1, 'фильм уже со своим цветом — кадр не грузится');
+    const off = accentCtx({ prefs: { lumen_accent_auto: false } });
+    off.LC.accent.prepareFrame('/g.jpg', () => { done++; }, { id: 9, poster_path: '/p9.jpg' });
+    assert.equal(done, 2);
+    assert.equal(dom.state.images.length, 1, 'выключенная подкраска — ни одной картинки');
+    const still = accentCtx({ prefs: {}, motion: 'off' });
+    still.LC.accent.prepareFrame('/g.jpg', () => { done++; }, { id: 9, poster_path: '/p9.jpg' });
+    assert.equal(done, 3);
+    assert.equal(dom.state.images.length, 1, '«Выкл» — ни одной картинки');
   });
 });
