@@ -483,6 +483,48 @@ test('S1: validate — идентификаторы, коллекции КП, id
   });
 });
 
+/* Финальная проверка, L3: необязательные поля подборки season / aliases /
+   cover — тоже только в формате встроенного каталога. season: "12"
+   строкой прежде проходил и молча выкидывал подборку из набора на весь
+   год (потребители сравнивают месяцы строго). */
+test('L3: validate — season, aliases и cover подборки только по формату', () => {
+  const bad = [
+    (m) => { m.collections[0].season = '12'; },
+    (m) => { m.collections[0].season = ['12']; },
+    (m) => { m.collections[0].season = [12, 13]; },
+    (m) => { m.collections[0].season = [0]; },
+    (m) => { m.collections[0].season = [1.5]; },
+    (m) => { m.collections[0].season = { length: 1, 0: 12 }; },
+    (m) => { m.collections[0].season = null; },
+    (m) => { m.collections[0].aliases = 'марвел'; },
+    (m) => { m.collections[0].aliases = [{}]; },
+    (m) => { m.collections[0].aliases = [5]; },
+    (m) => { m.collections[0].aliases = ['ok', '<img src=x>']; },
+    (m) => { m.collections[0].aliases = ['']; },
+    (m) => { m.collections[0].cover = 'javascript:alert(1)'; },
+    (m) => { m.collections[0].cover = 'http://x/p.jpg'; },
+    (m) => { m.collections[0].cover = '/p.jpg")'; },
+    (m) => { m.collections[0].cover = '/../p.jpg'; },
+    (m) => { m.collections[0].cover = 5; }
+  ];
+  bad.forEach((fn, i) => {
+    const m = okCatalog();
+    fn(m);
+    const r = M.validate(m);
+    assert.equal(r.ok, false, 'случай ' + i);
+    assert.match(r.reason, /^bad_(season|aliases|cover): horror_top-1$/, 'случай ' + i + ': ' + r.reason);
+  });
+  const good = okCatalog();
+  good.collections[0].season = [12, 1];
+  good.collections[0].aliases = ['ужасы', 'horror'];
+  good.collections[0].cover = '/pcDc2WJAYGJTTvRSEIpRZwM3Ola.jpg';
+  good.collections[1].season = [];
+  good.collections[2].season = 9;
+  assert.deepEqual(M.validate(good), { ok: true });
+  assert.deepEqual(good.collections[2].season, [9], 'месяц числом — массив из одного: потребители ждут массив');
+  assert.deepEqual(good.collections[0].season, [12, 1]);
+});
+
 /* Загрузка с настоящим LC.manifest: Lampa.Storage и Lampa.Reguest — моки. */
 function loadWith(url, opts) {
   opts = opts || {};

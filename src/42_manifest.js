@@ -1354,7 +1354,11 @@
          filter — вида with_runtime.lte, значения — числа или строки из
          [\w.,|:-]), collection/list (числовой id), kp (collection —
          [A-Z0-9_]{1,64}, как у КП: TOP_250_MOVIES);
-       - темы: id и preset — [a-z0-9-], accent — #rrggbb.
+       - темы: id и preset — [a-z0-9-], accent — #rrggbb;
+       - необязательные поля подборки (финальная проверка, L3): season —
+         месяц 1–12 или массив месяцев, aliases — массив подписей (как
+         title), cover — путь кадра TMDB (/имя.jpg|png, как COVER_PATH в
+         src/43_sources.js).
        Не прошло что-то одно — отвергается каталог целиком, и load() берёт
        встроенный (или прежний кэш, если он проходит эту же проверку). */
     var ID_RE = /^[\w-]{1,64}$/;
@@ -1364,6 +1368,7 @@
     var ACCENT_RE = /^#[0-9a-f]{6}$/i;
     var FILTER_KEY_RE = /^[a-z_]{1,48}(\.(gte|lte))?$/;
     var VALUE_RE = /^[\w.,|:-]{1,256}$/;
+    var COVER_RE = /^\/[A-Za-z0-9_-]+\.(jpg|png)$/;
     /* Ключи discover, которые понимает Lampa (url$1 в app.min.js) и
        LC.sources (MAP): прочие Lampa молча не отправит, а discoverUrl
        отправил бы как есть. */
@@ -1387,6 +1392,26 @@
         }
       }
       if (typeof o.badge !== 'undefined' && !safeText(o.badge)) return false;
+      return true;
+    }
+
+    function monthOk(v) {
+      return typeof v === 'number' && v % 1 === 0 && v >= 1 && v <= 12;
+    }
+
+    /* season: массив месяцев 1–12; голое число — месяц. Строка "12" не
+       проходит: потребители (rows, homeplan, hub, themes) сравнивают месяцы
+       строго, и такая подборка молча выпадала из набора на весь год. */
+    function seasonOk(v) {
+      if (monthOk(v)) return true;
+      if (!Array.isArray(v)) return false;
+      for (var i = 0; i < v.length; i++) if (!monthOk(v[i])) return false;
+      return true;
+    }
+
+    function aliasesOk(v) {
+      if (!Array.isArray(v)) return false;
+      for (var i = 0; i < v.length; i++) if (!safeText(v[i])) return false;
       return true;
     }
 
@@ -1442,7 +1467,8 @@
        Проверяет: не null, есть version; collections — массив без дублей id,
        у каждой подборки есть id, title (строка непустая) и sources (movie или tv);
        groups — непустой массив; home — массив (может быть пустым).
-       Формат полей — по правилам выше (S1). */
+       Формат полей — по правилам выше (S1). Единственная правка каталога
+       здесь: season голым числом становится массивом из одного месяца. */
     function validate(m) {
       if (!m || typeof m !== 'object' || Array.isArray(m)) {
         return { ok: false, reason: 'not_object' };
@@ -1503,6 +1529,15 @@
           return { ok: false, reason: 'no_sources: ' + c.id };
         }
         if (!sourcesOk(c.sources)) return { ok: false, reason: 'bad_sources: ' + c.id };
+        if (typeof c.season !== 'undefined') {
+          if (!seasonOk(c.season)) return { ok: false, reason: 'bad_season: ' + c.id };
+          /* Месяц числом — массивом из одного: все потребители ждут массив. */
+          if (!Array.isArray(c.season)) c.season = [c.season];
+        }
+        if (typeof c.aliases !== 'undefined' && !aliasesOk(c.aliases)) return { ok: false, reason: 'bad_aliases: ' + c.id };
+        if (typeof c.cover !== 'undefined' && (typeof c.cover !== 'string' || !COVER_RE.test(c.cover))) {
+          return { ok: false, reason: 'bad_cover: ' + c.id };
+        }
       }
       var themes = m.themes || [];
       for (i = 0; i < themes.length; i++) {
