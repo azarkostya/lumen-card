@@ -7,7 +7,8 @@
   /*   allowed(theme, mode, month) → показывать ли эту тему сейчас          */
   /*   seasonalIds(collections, month) → id подборок сезона                 */
   /*   adventDays(src, today, words, opened) → 31 окошко адвента (holB)     */
-  /*   adventRecord(cards, today) → запись lumen_advent_open                */
+  /*   adventRecord(cards, today, old) → запись lumen_advent_open           */
+  /*   adventMissing(src, today, opened) → id запомненных окошек вне пулов  */
   /*   monthOf(date) / month() → месяц 1..12 (month() — через хук _now)      */
   /*   current() → правила тем из манифеста                                 */
   /*   mode() → значение настройки lumen_fx: 'all' | 'seasonal' | 'off'     */
@@ -297,7 +298,14 @@
     /* добавить в подборку один фильм; теперь новый фильм меняет только   */
     /* те дни, где он побеждает. А открытые окошки ещё и запоминаются      */
     /* (opened — запись lumen_advent_open, adventRecord): фильм прошедшего */
-    /* дня остаётся тем же, пока он есть в пулах, — и сегодня, и 31-го.    */
+    /* дня остаётся тем же — и сегодня, и 31-го.                           */
+    /*                                                                     */
+    /* Финальная проверка, L1: запомненный фильм, которого нет в пулах     */
+    /* (упал один из пяти запросов, TMDB убрал фильм из подборки), день    */
+    /* не теряет: rows дозапрашивает его карточку по id (adventMissing →   */
+    /* src.kept), а не получилось — окошко пустое, но НЕ переназначается.  */
+    /* Прежде такой день получал другой фильм, и запись закрепляла замену  */
+    /* навсегда.                                                           */
     /* ------------------------------------------------------------------ */
 
     /* Вес пары «день · фильм» — генератор Лемера (48271 mod 2^31−1):
@@ -345,6 +353,36 @@
       return d && typeof d === 'object' ? d : {};
     }
 
+    /* id фильма из записи — целое TMDB-число, иначе null. Запись живёт в
+       localStorage, и по ней rows строит путь запроса movie/{id}: мусор
+       не должен ни держать окошко, ни уходить в адрес. */
+    function adventId(id) {
+      var s = String(id);
+      return /^[1-9]\d{0,9}$/.test(s) ? Number(s) : null;
+    }
+
+    /* id запомненных окошек (прошедшие дни и сегодня), которых нет в
+       пулах: rows запросит их карточки по id и отдаст в adventDays полем
+       src.kept. Без повторов, по порядку дней. */
+    function adventMissing(src, today, opened) {
+      var out = [];
+      if (!today || typeof today.getMonth !== 'function' || today.getMonth() !== 11) return out;
+      if (Array.isArray(src)) src = { world: src };
+      src = src || {};
+      var have = {};
+      var all = (src.ours || []).concat(src.world || []);
+      for (var i = 0; i < all.length; i++) if (all[i] && all[i].id != null) have[all[i].id] = 1;
+      var map = adventMap(opened, today.getFullYear());
+      var open = Math.min(today.getDate(), ADVENT_DAYS);
+      for (var day = 1; day <= open; day++) {
+        var id = adventId(map[day]);
+        if (id === null || have[id]) continue;
+        have[id] = 1;
+        out.push(id);
+      }
+      return out;
+    }
+
     /* Копия карточки фильма с полями окошка. Исходный объект не трогаем: он
        лежит в кэше LC.sources и переиспользуется другими рядами. */
     function adventCard(card, day, state, words, extra) {
@@ -378,7 +416,9 @@
     /* Карточки адвент-календаря: 31 окошко в декабре, иначе пустой список.
        src — {ours, world, final}: наше новогоднее кино, мировое
        рождественское и отдельно запрошенная «Ирония судьбы»; голый массив
-       — всё «мировое» (прежняя форма пула). opened — прошлая запись
+       — всё «мировое» (прежняя форма пула). src.kept — карточки
+       запомненных окошек, запрошенные по id (adventMissing): только для
+       своих дней, в раскладку прочих не идут. opened — прошлая запись
        lumen_advent_open. Сегодняшнее окошко, которого в записи ещё нет,
        помечено fresh — rows один раз играет его открытие. */
     function adventDays(src, today, words, opened) {
@@ -392,9 +432,11 @@
       skip[ADVENT_FINAL_ID] = 1;
       var ours = adventList(src.ours, skip);
       var world = adventList(src.world, skip);
-      /* «Ирония судьбы»: отдельная карточка или та, что пришла в пулах. */
+      var kept = adventList(src.kept, skip);
+      /* «Ирония судьбы»: отдельная карточка или та, что пришла в пулах
+         (или среди запрошенных по id). */
       var final = src.final && Number(src.final.id) === ADVENT_FINAL_ID ? src.final : null;
-      var all = (src.ours || []).concat(src.world || []);
+      var all = (src.ours || []).concat(src.world || [], src.kept || []);
       for (var f = 0; !final && f < all.length; f++) {
         if (all[f] && Number(all[f].id) === ADVENT_FINAL_ID) final = all[f];
       }
@@ -402,22 +444,28 @@
       var i;
       for (i = 0; i < ours.length; i++) byId[ours[i].id] = ours[i];
       for (i = 0; i < world.length; i++) byId[world[i].id] = world[i];
+      for (i = 0; i < kept.length; i++) byId[kept[i].id] = kept[i];
       var map = adventMap(opened, today.getFullYear());
       var used = {};
       var pick = {};
+      var held = {};
       var day;
       var open = now < ADVENT_DAYS ? now : ADVENT_DAYS;
-      /* Сначала — запомненные окошки: их фильм не меняется. */
+      /* Сначала — запомненные окошки: их фильм не меняется. Фильма нет ни
+         в пулах, ни среди запрошенных по id — окошко держится пустым
+         (held): другой фильм на его место не встаёт. */
       for (day = 1; day <= open; day++) {
-        var id = map[day];
         if (day === ADVENT_DAYS && final) break;
-        if (id != null && byId[id] && !used[id]) {
+        var id = adventId(map[day]);
+        if (id === null) continue;
+        if (!byId[id]) held[day] = 1;
+        else if (!used[id]) {
           pick[day] = byId[id];
           used[id] = 1;
         }
       }
       for (day = 1; day <= open; day++) {
-        if (pick[day] || (day === ADVENT_DAYS && final)) continue;
+        if (pick[day] || held[day] || (day === ADVENT_DAYS && final)) continue;
         var mine = ours.length && day % ADVENT_OURS === 0;
         var c = adventPick(mine ? ours : world, day, used) || adventPick(mine ? world : ours, day, used);
         if (!c) continue;
@@ -442,9 +490,20 @@
 
     /* Запись lumen_advent_open после показа: {y: год, d: {день: id}} —
        открытые окошки с фильмом. Малый набор дней текущего года: запись
-       прошлого года adventMap не читает. */
-    function adventRecord(cards, today) {
+       прошлого года adventMap не читает.
+       old — прежняя запись: её дни этого года сохраняются, новые
+       дописываются поверх (L1). Окошко, показанное сегодня пустым, свой
+       фильм из записи не теряет, и часы ТВ, ушедшие назад, не стирают
+       дни «из будущего». */
+    function adventRecord(cards, today, old) {
       var rec = { y: today && typeof today.getFullYear === 'function' ? today.getFullYear() : 0, d: {} };
+      var prev = adventMap(old, rec.y);
+      for (var k in prev) {
+        if (!Object.prototype.hasOwnProperty.call(prev, k)) continue;
+        var day = Number(k);
+        var id = adventId(prev[k]);
+        if (id !== null && day >= 1 && day <= ADVENT_DAYS && Math.floor(day) === day) rec.d[day] = id;
+      }
       for (var i = 0; i < (cards || []).length; i++) {
         var c = cards[i];
         var info = c && c.lumen_advent;
@@ -579,6 +638,7 @@
       seasonalIds: seasonalIds,
       adventDays: adventDays,
       adventRecord: adventRecord,
+      adventMissing: adventMissing,
       ADVENT_DAYS: ADVENT_DAYS,
       ADVENT_FINAL_ID: ADVENT_FINAL_ID,
       monthOf: monthOf,

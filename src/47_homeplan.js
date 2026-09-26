@@ -592,6 +592,9 @@
 
       var mode = LC.pref('lumen_home_start', 'rotate') === 'history' ? 'history' : 'rotate';
       var picked = (LC.rows && typeof LC.rows.storedIds === 'function') ? LC.rows.storedIds() : null;
+      /* L2: состав из одних исчезнувших id — не выбор, а устаревшая запись:
+         план и pinned берут набор по умолчанию (LC.rows.knownIds). */
+      if (picked && LC.rows && typeof LC.rows.knownIds === 'function') picked = LC.rows.knownIds(_manifest, picked);
       var limit = parseInt(LC.pref('lumen_rows_limit', '10'), 10) || 10;
       var anchorSeed = seedOf(epoch.n, SALT_ANCHOR);
       var own = {};

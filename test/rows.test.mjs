@@ -364,6 +364,23 @@ test('rowChoices: id, которого больше нет в каталоге, 
   assert.equal(list.filter(function (c) { return c.checked; }).length, 1);
 });
 
+/* Финальная проверка, L2: сохранённый состав, целиком из id, которых в
+   каталоге больше нет (сменили каталог, подборку убрали), — устаревшая
+   запись: главная и экран выбора берут набор по умолчанию. */
+test('L2: состав из одних неизвестных id — набор по умолчанию на главной и на экране выбора', function () {
+  var stale = ['venom', 'suicide-squad'];
+  assert.deepEqual(R.homeRows(MANIFEST, stale, null, 10).map(function (c) { return c.id; }), ['star-wars', 'kp-top250', 'anime']);
+  assert.deepEqual(R.rowChoices(MANIFEST, stale).filter(function (c) { return c.checked; }).map(function (c) { return c.id; }),
+    ['star-wars', 'kp-top250', 'anime']);
+  /* Хоть один живой id — это выбор пользователя: ровно он. */
+  assert.deepEqual(R.homeRows(MANIFEST, ['venom', 'comedy'], null, 10).map(function (c) { return c.id; }), ['comedy']);
+  assert.deepEqual(R.knownIds(MANIFEST, ['venom', 'comedy', 'anime']), ['comedy', 'anime']);
+  assert.equal(R.knownIds(MANIFEST, stale), null);
+  assert.equal(R.knownIds(MANIFEST, ['__proto__', 'constructor', 'toString']), null, 'имена свойств Object — не подборки');
+  assert.equal(R.knownIds(MANIFEST, null), null);
+  assert.equal(R.knownIds(null, ['comedy']), null);
+});
+
 test('rowChoices: пустой/битый каталог — пустой список', function () {
   assert.deepEqual(R.rowChoices(null, null), []);
   assert.deepEqual(R.rowChoices({}, null), []);
@@ -686,6 +703,72 @@ test('адвент: 31 декабря без Иронии в подборке �
   assert.equal(got.length, 1);
   assert.equal(got[0].results[30].id, 43430);
   assert.deepEqual(got[0].results[30].genre_ids, [35], 'карточка из деталей — в виде карточки списка');
+});
+
+/* Финальная проверка, L1: «Новогоднее» (один из пяти запросов) упало —
+   открытые окошки прошлых дней не переназначаются и запись не пишется. */
+test('L1 адвент: один из пяти запросов пула — ошибка: запись открытых окошков прошлых дней не меняется', function () {
+  var s = setupRows({ manifest: XMAS_MANIFEST, now: new Date(2026, 11, 6) });
+  adventPayload(s);
+  answerAdvent(s);
+  var rec = s.Lampa.Storage.data.lumen_advent_open;
+  assert.ok(rec.d[3] >= 500 && rec.d[6] >= 500, 'дни 3 и 6 — «Новогоднее»');
+  var saved = JSON.stringify(rec);
+
+  var s2 = setupRows({ manifest: XMAS_MANIFEST, now: new Date(2026, 11, 7), storage: { lumen_advent_open: rec }, tmdb: true });
+  var got = adventPayload(s2);
+  s2.fetchCalls[0].err({});
+  for (var k = 1; k < 5; k++) {
+    var list = [];
+    for (var j = 0; j < 12; j++) list.push({ id: 100 + k * 20 + j, title: 'мир ' + k + '/' + j });
+    s2.fetchCalls[k].ok({ results: list });
+  }
+  assert.deepEqual(s2.tmdbCalls.map(function (c) { return c.url; }), ['movie/' + rec.d[3], 'movie/' + rec.d[6]],
+    'запомненные фильмы вне пулов — по id');
+  s2.tmdbCalls[0].ok({ id: rec.d[3], title: 'наш', genres: [{ id: 35 }] });
+  assert.equal(got.length, 0, 'ряд ждёт все карточки по id');
+  s2.tmdbCalls[1].err({});
+  assert.equal(got.length, 1);
+  var cards = got[0].results;
+  assert.equal(cards[2].id, rec.d[3], 'окошко 3 — свой фильм, запрошенный по id');
+  assert.equal(cards[5].id, undefined, 'окошко 6 — пустое, но не чужой фильм');
+  assert.equal(cards[5].lumen_advent.state, 'empty');
+  assert.equal(JSON.stringify(s2.Lampa.Storage.data.lumen_advent_open), saved, 'при сбое пула запись не пишется');
+
+  /* Назавтра сеть в порядке — те же фильмы у дней 1–6. */
+  var s3 = setupRows({ manifest: XMAS_MANIFEST, now: new Date(2026, 11, 8), storage: { lumen_advent_open: s2.Lampa.Storage.data.lumen_advent_open } });
+  var got3 = adventPayload(s3);
+  answerAdvent(s3);
+  for (var d = 1; d <= 6; d++) assert.equal(got3[0].results[d - 1].id, rec.d[d], 'день ' + d);
+});
+
+test('L1 адвент: ответ пула без списка или по дедлайну (partial) — тоже сбой, запись не пишется', function () {
+  [{ results: [], partial: true }, { status_message: 'x' }, null].forEach(function (bad) {
+    var s = setupRows({ manifest: XMAS_MANIFEST, now: new Date(2026, 11, 6) });
+    var got = adventPayload(s);
+    s.fetchCalls[0].ok(bad);
+    for (var k = 1; k < 5; k++) {
+      var list = [];
+      for (var j = 0; j < 12; j++) list.push({ id: 100 + k * 20 + j, title: 'мир ' + k + '/' + j });
+      s.fetchCalls[k].ok({ results: list });
+    }
+    assert.equal(got.length, 1, 'ряд строится из того, что есть');
+    assert.equal(s.Lampa.Storage.data.lumen_advent_open, undefined, JSON.stringify(bad));
+  });
+});
+
+test('L1 адвент: TMDB убрал запомненный фильм из подборки — карточка по id, запись слита со старой', function () {
+  var rec = { y: 2026, d: { 1: 130, 2: 131, 3: 777 } };
+  var s = setupRows({ manifest: XMAS_MANIFEST, now: new Date(2026, 11, 4), storage: { lumen_advent_open: rec }, tmdb: true });
+  var got = adventPayload(s);
+  answerAdvent(s);
+  assert.deepEqual(s.tmdbCalls.map(function (c) { return c.url; }), ['movie/777']);
+  s.tmdbCalls[0].ok({ id: 777, title: 'ушедший из подборки', poster_path: '/p.jpg' });
+  var cards = got[0].results;
+  assert.deepEqual(cards.slice(0, 3).map(function (c) { return c.id; }), [130, 131, 777]);
+  var saved = s.Lampa.Storage.data.lumen_advent_open;
+  assert.deepEqual(Object.keys(saved.d).sort(), ['1', '2', '3', '4']);
+  assert.equal(saved.d[3], 777);
 });
 
 test('адвент: ошибки всех запросов дают пустой ряд, но ровно один call', function () {

@@ -10,6 +10,7 @@
   /*   withView(rows, fit) → rows[] — первая порция ряда до правой кромки   */
   /*   fitCount(right, left, pitch) → сколько карточек видно в ряду        */
   /*   storedIds() → runtime: сохранённый состав рядов или null             */
+  /*   knownIds(manifest, ids) → id состава из каталога или null            */
   /*   viewedIds(results?) → number[]                                        */
   /*   bumpGen() — runtime: поднимает поколение главной                     */
   /*   installDedupe() / uninstallDedupe() — обёртка над Lampa.Api.main     */
@@ -487,6 +488,7 @@
     function homeRows(manifest, storedIds, month, limit) {
       if (!manifest || !Array.isArray(manifest.collections)) return [];
       if (typeof limit === 'number' && limit <= 0) return [];
+      storedIds = knownIds(manifest, storedIds);
 
       /* Индекс подборок по id для быстрого поиска */
       var byId = {};
@@ -553,7 +555,7 @@
 
     function rowChoices(manifest, pickedIds) {
       if (!manifest || !Array.isArray(manifest.collections)) return [];
-      var picked = (pickedIds && pickedIds.length) ? pickedIds : (manifest.home || []);
+      var picked = knownIds(manifest, pickedIds) || manifest.home || [];
       var checked = {};
       var i;
       for (i = 0; i < picked.length; i++) checked[picked[i]] = 1;
@@ -579,6 +581,24 @@
         tail.push({ id: c.id, title: c.title, group: c.group, checked: !!checked[c.id], seasonal: isSeasonal(c) });
       }
       return head.concat(tail);
+    }
+
+    /* Финальная проверка, L2: из сохранённого состава рядов — только id,
+       которые есть в каталоге. Ни одного — null: состав устарел (сменили
+       адрес каталога, подборку переименовали или убрали), и действует
+       набор по умолчанию manifest.home. Прежде главная оставалась без
+       единой подборки, а экран выбора рядов — без единой галочки. */
+    function knownIds(manifest, ids) {
+      if (!ids || !ids.length || !manifest || !Array.isArray(manifest.collections)) return null;
+      var has = {};
+      var i;
+      for (i = 0; i < manifest.collections.length; i++) {
+        var c = manifest.collections[i];
+        if (c && c.id) has['#' + c.id] = 1;
+      }
+      var out = [];
+      for (i = 0; i < ids.length; i++) if (has['#' + ids[i]]) out.push(ids[i]);
+      return out.length ? out : null;
     }
 
     /* ------------------------------------------------------------------ */
@@ -768,6 +788,12 @@
     /* Фильм прошедшего дня от этого не меняется, даже если TMDB           */
     /* переставил подборку, а сегодняшнее окошко один раз «открывается» —  */
     /* дверца распахивается (CSS, только при полных анимациях).           */
+    /*                                                                     */
+    /* Финальная проверка, L1: запомненный фильм, которого нет в ответах   */
+    /* пула, дозапрашивается по id (movie/{id}); сбой хоть одного запроса  */
+    /* пула — запись не пишется вовсе, а пишется она слиянием со старой.   */
+    /* Прежде таймаут одной страницы TMDB переназначал открытые окошки и   */
+    /* навсегда закреплял замену.                                          */
     /* ------------------------------------------------------------------ */
 
     var ADVENT_SPECS = [
@@ -865,9 +891,9 @@
       }
     }
 
-    function adventSave(cards, today) {
+    function adventSave(cards, today, old) {
       try {
-        Lampa.Storage.set(ADVENT_KEY, LC.themes.adventRecord(cards, today));
+        Lampa.Storage.set(ADVENT_KEY, LC.themes.adventRecord(cards, today, old));
       } catch (e) { }
     }
 
@@ -990,6 +1016,10 @@
           var slots = [];
           var left = specs.length;
           var handles = [];
+          /* L1: хоть один запрос пула не дал списка (ошибка, ответ без
+             results, дедлайн сборщика LC.sources — partial) — пул сегодня
+             неполный, и запись открытых окошков не трогаем. */
+          var failed = false;
           var words = {
             day: adventWord('lumen_advent_day', 'Day'),
             today: adventWord('lumen_advent_today', 'Today'),
@@ -997,7 +1027,9 @@
             final: adventWord('lumen_advent_final', "New Year's Eve")
           };
 
-          function build(final) {
+          /* extra — карточки, запрошенные по id: запомненные окошки вне
+             пулов и «Ирония судьбы» 31-го. */
+          function build(extra, opened) {
             var ours = [];
             var world = [];
             for (var i = 0; i < specs.length; i++) {
@@ -1006,7 +1038,7 @@
             }
             var cards = [];
             try {
-              cards = LC.themes.adventDays({ ours: adventPool(ours), world: adventPool(world), final: final }, today, words, adventOpened());
+              cards = LC.themes.adventDays({ ours: adventPool(ours), world: adventPool(world), kept: extra }, today, words, opened);
             } catch (e) {
               cards = [];
             }
@@ -1015,7 +1047,7 @@
             var films = 0;
             for (var j = 0; j < cards.length; j++) if (cards[j].id != null) films++;
             if (!films) { resolve({ results: [] }); return; }
-            adventSave(cards, today);
+            if (!failed) adventSave(cards, today, opened);
             /* Task 57: ряд адвента из-под порога длины выведен флагом.
                Следующий раунд, п.1: и состав его окно не режет
                (lumen_personal, разбор у dedupeAcross) — окошко — день
@@ -1047,21 +1079,50 @@
             return true;
           }
 
+          /* Какие карточки нужны по id: запомненные окошки, которых нет
+             в ответах пула (LC.themes.adventMissing), и «Ирония» 31-го. */
+          function wanted(opened) {
+            var need = [];
+            try {
+              need = LC.themes.adventMissing(adventPool(slots), today, opened) || [];
+            } catch (e) {
+              need = [];
+            }
+            var id = LC.themes.ADVENT_FINAL_ID;
+            if (finalMissing() && need.indexOf(id) === -1) need.push(id);
+            return need;
+          }
+
+          /* Карточка фильма по id. done — ровно один раз при любом исходе. */
+          function askCard(id, extra, done) {
+            var fired = false;
+            function once() { if (!fired) { fired = true; done(); } }
+            try {
+              Lampa.Api.sources.tmdb.get(
+                'movie/' + id,
+                {},
+                function (json) { if (json && Number(json.id) === id) extra.push(listCard(json)); once(); },
+                once
+              );
+            } catch (e) {
+              once();
+            }
+          }
+
           function finish() {
             left--;
             if (left > 0) return;
             if (!alive()) return;
-            if (!finalMissing()) { build(null); return; }
-            try {
-              Lampa.Api.sources.tmdb.get(
-                'movie/' + LC.themes.ADVENT_FINAL_ID,
-                {},
-                function (json) { if (alive()) build(json && json.id ? listCard(json) : null); },
-                function () { if (alive()) build(null); }
-              );
-            } catch (e) {
-              build(null);
+            var opened = adventOpened();
+            var need = wanted(opened);
+            var extra = [];
+            var rest = need.length;
+            if (!rest) { build(extra, opened); return; }
+            function one() {
+              rest--;
+              if (!rest && alive()) build(extra, opened);
             }
+            for (var n = 0; n < need.length; n++) askCard(need[n], extra, one);
           }
 
           /* Фабрика на итерацию: var в цикле ES5 не создаёт своей области,
@@ -1071,8 +1132,13 @@
             return LC.sources['fetch'](
               spec.item,
               spec.page,
-              function (json) { slots[index] = (json && json.results) || []; finish(); },
-              function () { slots[index] = []; finish(); },
+              function (json) {
+                var list = json && json.results;
+                if (!Array.isArray(list) || json.partial) failed = true;
+                slots[index] = Array.isArray(list) ? list : [];
+                finish();
+              },
+              function () { failed = true; slots[index] = []; finish(); },
               alive
             );
           }
@@ -1224,6 +1290,7 @@
       homeRows: homeRows,
       rowChoices: rowChoices,
       storedIds: storedIds,
+      knownIds: knownIds,
       viewedIds: viewedIds,
       bumpGen: bumpGen,
       /* Task 57: чистая часть наружу ради тестов, обёртка — ради

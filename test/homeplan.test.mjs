@@ -697,6 +697,23 @@ test('apply: без сохранённого «Количества рядов»
   assert.equal(kept.ours().filter((r) => personal.indexOf(r.name) === -1).length, 15, 'сохранённое значение пользователя не действует');
 });
 
+test('L2 apply: состав из одних исчезнувших id — подборки набора по умолчанию, без lumen_keep «выбранного вручную»', function () {
+  const s = setupApply({ prefs: { lumen_home_rows: 'venom,suicide-squad' } });
+  const p = s.H.apply({ start: true, manifest: CATALOG });
+  assert.equal(collections(p).length, 15, 'подборок — сколько положено, а не ни одной');
+  assert.ok(p.lead, 'есть лидер ротации');
+  const fetched = [];
+  s.LC.sources.fetch = (item, page, ok) => { fetched.push(ok); return { clear() {} }; };
+  const row = s.ours().filter((r) => r.name === 'lumen_' + p.lead)[0];
+  const got = [];
+  row.call({}, 'main')((data) => got.push(data));
+  fetched[0]({ results: [{ id: 1 }] });
+  assert.ok(!got[0].lumen_keep, 'ряд набора по умолчанию — не «выбранный вручную»');
+  /* Один живой id — выбор пользователя, как прежде. */
+  const one = setupApply({ prefs: { lumen_home_rows: 'venom,pixar' } });
+  assert.deepEqual(collections(one.H.apply({ start: true, manifest: CATALOG })).map((x) => x.id), ['pixar']);
+});
+
 test('apply: ряды выбранного вручную состава дедупликация по длине не выбрасывает (lumen_keep)', function () {
   const s = setupApply({ prefs: { lumen_home_rows: 'pixar,nolan' } });
   s.H.apply({ start: true, manifest: CATALOG });
