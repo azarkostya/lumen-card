@@ -387,14 +387,20 @@ function gradients(declText, prop) {
       radial: radial,
       stops: parts.map((p) => {
         const t = p.trim();
-        const pos = /\s(-?[\d.]+)(%|em|vh)?$/.exec(t);
+        /* Ревью раунда главной (~80): стоп вида calc(P% - Eem) — низ
+           покоя, привязанный к подписям ряда. pos — проценты, em — сколько
+           em вычесть; перевести в проценты может только тот, кто знает окно
+           (heroPixel). */
+        const calc = /\scalc\((-?[\d.]+)% ([-+]) ([\d.]+)em\)$/.exec(t);
+        const pos = calc ? [calc[0], calc[1], '%'] : /\s(-?[\d.]+)(%|em|vh)?$/.exec(t);
         const rgba = /^rgba\(([^,]+),([^,]+),([^,]+),\s*([\d.]+)\)/.exec(t);
         const six = /^#([0-9A-Fa-f]{6})\b/.exec(t);
         return {
           a: rgba ? parseFloat(rgba[4]) : (/^#[0-9A-Fa-f]{3,6}\b/.test(t) ? 1 : NaN),
           rgb: rgba ? [rgba[1], rgba[2], rgba[3]].map(Number) : (six ? [0, 2, 4].map((i) => parseInt(six[1].slice(i, i + 2), 16)) : null),
           pos: pos ? parseFloat(pos[1]) : NaN,
-          unit: pos ? (pos[2] || '') : ''
+          unit: pos ? (pos[2] || '') : '',
+          em: calc ? (calc[2] === '-' ? 1 : -1) * parseFloat(calc[3]) : 0
         };
       })
     });
@@ -4781,6 +4787,76 @@ test('правка 2026-09-26: подписи и заголовок ряда ч�
   assert.ok(worst < 6, 'худшая точка подписи подозрительно хороша: ' + worst.toFixed(2));
 });
 
+/* Ревью раунда главной `7b473f6..52d2b12` (~80): тест выше проверял только
+   телевизор 960×540 и «Обычные» плитки, а доля кадра под подписями
+   (ROWS_LEAK) была отмерена ровно там. На окнах выше 16:9 и на «Мельче»
+   подписи стоят выше по экрану, где затемнение низа ещё не набрало
+   плотность: 16:10 (1280×800, 1920×1200) — 3.74–4.44:1, телевизор с
+   «мельче» интерфейсом и плитками — 4.44, 1840×960 «мельче» — 4.44. Та же
+   проверка — на всех окнах правила кромки × три размера плиток × три
+   размера интерфейса × три размера кадра, с самым светлым цветом рядов
+   обеих тем над белым кадром. Затемнение модель берёт каскадом по окну
+   (медиазапросы и стопы в calc — heroPixel). */
+test('ревью раунда главной: подписи и заголовок ряда читаются на всех окнах, плитках и интерфейсах при белом кадре', () => {
+  const hex = (rgb) => '#' + rgb.map((v) => ('0' + Math.round(v).toString(16)).slice(-2).toUpperCase()).join('');
+  const WHITE = [255, 255, 255];
+  const bad = [];
+  let worst = 99;
+  for (const theme of ['warm', 'black']) {
+    const rows = lightestRows(theme);
+    /* И 4:3 / 5:4 — окна, где ревью видело худшие 2.76:1. */
+    for (const [W, H] of EDGE_WINDOWS.concat([[1024, 768], [1600, 1200], [1280, 1024]])) {
+      for (const iface of ['small', 'normal', 'bigger']) {
+        const EM = lampaEm(W, iface);
+        for (const size of ['large', 'medium', 'compact']) {
+          for (const tile of ['small', 'normal', 'large']) {
+            const res = withStorage({ lumen_hero_size: size, interface_size: iface, lumen_theme: theme, lumen_tile_size: tile }, (LC) => {
+              LC.accent = { tint: () => null, rowsTint: () => rows };
+              return { built: LC.buildCss(), P: LC.tokens(), off: LC.heroOffRatio() };
+            }, W);
+            /* За порогом «кадра нет» слоя кадра нет — подписи на сплошном
+               цвете рядов, проверять нечего. */
+            if (W / H >= res.off / 100) continue;
+            const at = heroPixel(res.built, W, H, EM);
+            const box = rowLayout(res.built, W, H, { more: true, interface: iface });
+            const label = theme + ' ' + W + '×' + H + ' ' + iface + '/' + size + ', плитки ' + tile;
+            const from = box.captionTopDown;
+            const to = Math.min(box.textBottomDown, H - 0.5);
+            let low = 99;
+            let where = '';
+            for (let y = from; y <= to + 1e-6; y += (to - from) / 4) {
+              for (let x = 0.5; x < W; x += W / 48) {
+                const soft = contrast(res.P.soft, hex(at(x, y, false, WHITE)));
+                if (soft < low) { low = soft; where = '(' + x.toFixed(0) + ', ' + y.toFixed(0) + ')'; }
+              }
+            }
+            worst = Math.min(worst, low);
+            if (low < 4.5) bad.push(label + ': подпись под постером ' + where + ' ' + low.toFixed(2) + ':1');
+            for (let y = box.rowTopDown; y <= box.rowTopDown + box.titleH + 1e-6; y += box.titleH / 2) {
+              for (let x = 3.51 * EM; x <= 21.51 * EM; x += 3 * EM) {
+                const got = contrast(res.P.text, hex(at(x, y, false, WHITE)));
+                if (got < 4.5) { bad.push(label + ': заголовок ряда (' + x.toFixed(0) + ', ' + y.toFixed(0) + ') ' + got.toFixed(2) + ':1'); break; }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  assert.deepEqual(bad, []);
+  assert.ok(worst < 6, 'худшая точка подписи подозрительно хороша: ' + worst.toFixed(2));
+  /* На телевизоре 16:9 с настройками по умолчанию низ — прежний (правило
+     без медиазапроса: крутизну и излом держит тест выше), а привязанные
+     правила едут и в узле подкраски — цвет рядов меняется там. */
+  const scrimAt = (text, W, H) => ruleBodiesWithMedia(text).filter((r) => r.selectors.length === 1 && r.selectors[0] === '.lumen-hero-stage .lumen-hero__scrim' &&
+    r.decl.indexOf('background') !== -1 && mediaApplies(r.media, W, H)).pop();
+  assert.equal(scrimAt(css, 960, 540).media, null, 'на телевизоре 16:9 по умолчанию низ затемнения сменился');
+  assert.ok(scrimAt(css, 1280, 800).media, '16:10: низ затемнения не привязан к подписям');
+  const accent = withStorage({}, (LC) => { LC.accent = { tint: () => null, rowsTint: () => '#5A2A24' }; return LC.accentCss(); });
+  assert.ok(/calc\([-\d.]+% [-+] [\d.]+em\)/.test(scrimAt(accent, 1280, 800).decl) && scrimAt(accent, 1280, 800).decl.indexOf('90,42,36') !== -1,
+    'в узле подкраски нет привязанного низа цвета рядов');
+});
+
 /* Пол сжатого состояния: кадр больше не уезжает вверх, и под поднятыми
    рядами его закрывает сплошной фон. Сплошная часть обязана накрыть верх
    области рядов — там её верхний градиент-заливка (:after) начинается
@@ -5180,9 +5256,11 @@ test('сжатое состояние: описание уходит по диз
   /* Правка 2026-09-23 (правило кромки на ПК): с max-aspect-ratio теперь
      начинается правило зазора между рядами — у широкого интервала нижней
      границы нет. К бюджету кадра оно отношения не имеет и отсюда
-     исключается по своему телу. */
+     исключается по своему телу. Ревью раунда главной (~80): так же — низ
+     затемнения кадра, привязанный к подписям ряда на окнах выше 16:9. */
   assert.equal(css.split('\n').filter((l) => l.indexOf('@media screen and (max-aspect-ratio:') === 0 &&
-    l.indexOf('{.lumen-main .items-line{padding-bottom:') === -1).length, 0,
+    l.indexOf('{.lumen-main .items-line{padding-bottom:') === -1 &&
+    l.indexOf('{.lumen-hero-stage .lumen-hero__scrim{') === -1).length, 0,
     'порогов по max-aspect-ratio не осталось: бюджет сжатого состояния совпал с полным');
   /* При самом маленьком размере кадра мета не показывается вовсе — и там это
      не про состояние, а про размер: бюджета на неё нет ни в одном из двух. */
@@ -5388,9 +5466,14 @@ function stageScrimOrder() {
 function heroPixel(built, W, H, em) {
   const EM = em || W / 84.17;
   const only = (sel, has) => (ruleBodies(built).find((r) => r.selectors.length === 1 && r.selectors[0] === sel && r.decl.indexOf(has) !== -1) || {}).decl;
-  const scrim = gradients(only('.lumen-hero-stage .lumen-hero__scrim', 'background'), 'background');
+  /* Ревью раунда главной (~80): у затемнения есть правила в медиазапросах
+     (низ, привязанный к подписям ряда) — берём каскадом по окну: последнее
+     подходящее. Стопы calc(P% - Eem) переводятся в проценты этого окна. */
+  const scrimRule = ruleBodiesWithMedia(built).filter((r) => r.selectors.length === 1 && r.selectors[0] === '.lumen-hero-stage .lumen-hero__scrim' &&
+    r.decl.indexOf('background') !== -1 && mediaApplies(r.media, W, H)).pop();
+  const scrim = gradients(scrimRule.decl, 'background');
   const top = scrim.find((l) => l.angle === '180deg').stops.map((s) => Object.assign({}, s, { pos: s.unit === 'em' ? s.pos * EM : s.pos }));
-  const bottom = scrim.find((l) => l.angle === '0deg').stops;
+  const bottom = scrim.find((l) => l.angle === '0deg').stops.map((s) => Object.assign({}, s, { pos: s.pos - s.em * EM / H * 100 }));
   const leftLayer = gradients(only('.lumen-hero-stage .lumen-hero__scrim.lumen-hero__scrim--l', 'background'), 'background')[0];
   assert.ok(leftLayer && leftLayer.radial, 'левое затемнение — не радиальное пятно');
   const left = leftLayer.stops;
