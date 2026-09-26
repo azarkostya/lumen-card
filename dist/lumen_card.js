@@ -1134,7 +1134,7 @@ return p;
 
 
 
-function accentRules(P, t) {
+function accentRules(P, t, live) {
 
 
 var key = heroSizeKey();
@@ -1174,7 +1174,7 @@ scrim: ['.lumen-hero-stage .lumen-hero__scrim{background:-webkit-linear-gradient
 
 
 
-scrimAnchoredCss(P, key)).join('\n'),
+scrimAnchoredCss(P, key, live)).join('\n'),
 
 
 
@@ -1230,7 +1230,7 @@ cardFocus: '.lumen-main .card.focus .card__view{-webkit-box-shadow:0 .2em 0 ' + 
 
 
 LC.accentCss = function () {
-var R = accentRules(palette(), theme());
+var R = accentRules(palette(), theme(), true);
 return R.main + '\n' + R.screen + '\n' + R.scrim + '\n' + R.scrimL + '\n' + R.floor + '\n' + R.fadeTop + '\n' + R.fadeBot;
 };
 
@@ -1258,7 +1258,7 @@ LC.accentFocusCss = function () {
 
 
 if (LC.accentScope() === 'veil') return '';
-return accentRules(palette(), theme()).cardFocus;
+return accentRules(palette(), theme(), true).cardFocus;
 };
 
 
@@ -2111,10 +2111,15 @@ var list = [];
 
 
 
+
+
+
+
+
 function add(lo, hi, vh, em) {
 var room = 100 - vh - span.flat - ROWS_CAP_U * span.len;
 var from = lo;
-var to = hi - 1;
+var to = hi;
 if (em > 0) to = Math.min(to, Math.floor(room * screenEm() * 10 / em));
 else if (em < 0) from = Math.max(from, Math.ceil(room * screenEm() * 10 / em));
 else if (room <= 0) return;
@@ -2128,18 +2133,37 @@ add(0, narrowAt, fitTop, captionEm(g.cardW, g.gap));
 if (narrowOn && narrowAt < heroEnd) add(narrowAt, heroEnd, fitTop, captionEm(g.narrowW, g.narrowGap));
 
 if (spec.hero) {
-add(spec.hero.from, spec.hero.to + 1, round2(fitTop + POSTER_RATIO * spec.hero.x),
+add(spec.hero.from, spec.hero.to, round2(fitTop + POSTER_RATIO * spec.hero.x),
 captionEm(0, narrowOn ? g.narrowGap : g.gap) - POSTER_RATIO * k * spec.hero.y);
 }
 scrimAnchorsCache = { sig: sig, list: list };
 return list;
 }
 
-function scrimAnchoredCss(P, key) {
+
+
+
+
+
+
+
+function windowRatio() {
+try {
+var w = Number(window.innerWidth) || 0;
+var h = Number(window.innerHeight) || 0;
+return w > 0 && h > 0 ? w / h * 1000 : 0;
+} catch (e) {
+return 0;
+}
+}
+
+function scrimAnchoredCss(P, key, live) {
 var list = scrimAnchors(key);
 var out = [];
+var r = live ? windowRatio() : 0;
 for (var i = 0; i < list.length; i++) {
 var b = list[i];
+if (live && !(r >= b.lo && r <= b.to)) continue;
 out.push('@media screen and ' + (b.lo > 0 ? '(min-aspect-ratio:' + b.lo + '/1000) and ' : '') + '(max-aspect-ratio:' + b.to + '/1000){' +
 '.lumen-hero-stage .lumen-hero__scrim{background:linear-gradient(180deg,' + scrimTop(P) + '),linear-gradient(0deg,' + scrimBottomAnchored(P, key, b.vh, b.em) + ')}}');
 }

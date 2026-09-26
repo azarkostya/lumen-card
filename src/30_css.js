@@ -257,7 +257,7 @@
      (.lumen-minimap__row--on). Оба мелкие и показываются не всегда, поэтому
      их цвет догоняет остальных на ближайшей полной пересборке — при
      открытии карточки или смене настройки. */
-  function accentRules(P, t) {
+  function accentRules(P, t, live) {
     /* Волна 3: стопы низа затемнения героя зависят от размера кадра
        (HERO_VH / ROWS_TOP_VH ниже по файлу). */
     var key = heroSizeKey();
@@ -297,7 +297,7 @@
            медиазапросами своими строками, после основного правила. Без
            префиксной пары: движок, который не примет calc в стопе,
            отбросит объявление и останется на основном правиле. */
-        scrimAnchoredCss(P, key)).join('\n'),
+        scrimAnchoredCss(P, key, live)).join('\n'),
       /* scrim--l — подушка под текстом: мягкое пятно у левой кромки (эллипс,
          разбор — у констант SCRIM_L_*), без маски и без единой кромки.
          Префиксная пара — старый синтаксис WebKit: центр, потом полуоси. */
@@ -353,7 +353,7 @@
      при равной специфичности побеждают эти правила, а не их копии в общей
      таблице. */
   LC.accentCss = function () {
-    var R = accentRules(palette(), theme());
+    var R = accentRules(palette(), theme(), true);
     return R.main + '\n' + R.screen + '\n' + R.scrim + '\n' + R.scrimL + '\n' + R.floor + '\n' + R.fadeTop + '\n' + R.fadeBot;
   };
 
@@ -381,7 +381,7 @@
        означает «красить нечем», и src/57_color.js снимает узел целиком, а
        не оставляет его пустым в head. */
     if (LC.accentScope() === 'veil') return '';
-    return accentRules(palette(), theme()).cardFocus;
+    return accentRules(palette(), theme(), true).cardFocus;
   };
 
   /* Фаза 3, настройка «Масштаб интерфейса». Все размеры плагина считаются в em
@@ -1228,7 +1228,12 @@
     var fitTop = rowsFitTopVh(key);
     var k = cardK();
     var list = [];
-    /* Полоса [lo, hi) с верхом подписей vh + em экрана. Привязка нужна,
+    /* Полоса [lo, hi] с верхом подписей vh + em экрана. Граница hi
+       включена (ревью 4be39a5, (a)): следующая полоса начинается ровно на
+       ней — узкая колонка с min-aspect-ratio: hi, — и с «hi − 1» окно строго
+       между двумя тысячными (например «Мельче» 2135×1200) оставалось без
+       привязки; на самой границе каскад отдаёт её правилу, записанному
+       позже, — следующей полосе. Привязка нужна,
        пока верх подписей над обычной ровной частью с запасом хода U:
        100 − vh − em·r·100/screenEm > flat + U·len. При em > 0 (ширина
        карточки постоянна) подписи поднимаются к узким окнам — полоса
@@ -1237,7 +1242,7 @@
     function add(lo, hi, vh, em) {
       var room = 100 - vh - span.flat - ROWS_CAP_U * span.len;
       var from = lo;
-      var to = hi - 1;
+      var to = hi;
       if (em > 0) to = Math.min(to, Math.floor(room * screenEm() * 10 / em));
       else if (em < 0) from = Math.max(from, Math.ceil(room * screenEm() * 10 / em));
       else if (room <= 0) return;
@@ -1251,18 +1256,37 @@
     if (narrowOn && narrowAt < heroEnd) add(narrowAt, heroEnd, fitTop, captionEm(g.narrowW, g.narrowGap));
     /* Полоса места: ширина calc(x vh − y em) карточки, постер — 1.5 её. */
     if (spec.hero) {
-      add(spec.hero.from, spec.hero.to + 1, round2(fitTop + POSTER_RATIO * spec.hero.x),
+      add(spec.hero.from, spec.hero.to, round2(fitTop + POSTER_RATIO * spec.hero.x),
         captionEm(0, narrowOn ? g.narrowGap : g.gap) - POSTER_RATIO * k * spec.hero.y);
     }
     scrimAnchorsCache = { sig: sig, list: list };
     return list;
   }
 
-  function scrimAnchoredCss(P, key) {
+  /* live — для узла подкраски (LC.accentCss): ревью 4be39a5, (b) — узел
+     переписывается на каждом шаге перехода цвета, и все полосы разом
+     раздували его на 2.3 КБ (+83 %). В него идёт только полоса, в которой
+     окно сейчас (медиазапросом, как в таблице); остальные — в полной
+     таблице. Окно сменило пропорцию посреди главной — основное правило
+     узла перебивает полосы таблицы до ближайшей записи узла (следующая
+     остановка фокуса), то есть обычный низ, а не чужой цвет. */
+  function windowRatio() {
+    try {
+      var w = Number(window.innerWidth) || 0;
+      var h = Number(window.innerHeight) || 0;
+      return w > 0 && h > 0 ? w / h * 1000 : 0;
+    } catch (e) {
+      return 0;
+    }
+  }
+
+  function scrimAnchoredCss(P, key, live) {
     var list = scrimAnchors(key);
     var out = [];
+    var r = live ? windowRatio() : 0;
     for (var i = 0; i < list.length; i++) {
       var b = list[i];
+      if (live && !(r >= b.lo && r <= b.to)) continue;
       out.push('@media screen and ' + (b.lo > 0 ? '(min-aspect-ratio:' + b.lo + '/1000) and ' : '') + '(max-aspect-ratio:' + b.to + '/1000){' +
         '.lumen-hero-stage .lumen-hero__scrim{background:linear-gradient(180deg,' + scrimTop(P) + '),linear-gradient(0deg,' + scrimBottomAnchored(P, key, b.vh, b.em) + ')}}');
     }

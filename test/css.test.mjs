@@ -4805,7 +4805,7 @@ test('ревью раунда главной: подписи и заголово
   for (const theme of ['warm', 'black']) {
     const rows = lightestRows(theme);
     /* И 4:3 / 5:4 — окна, где ревью видело худшие 2.76:1. */
-    for (const [W, H] of EDGE_WINDOWS.concat([[1024, 768], [1600, 1200], [1280, 1024]])) {
+    for (const [W, H] of EDGE_WINDOWS.concat([[1024, 768], [1600, 1200], [1280, 1024], [2135, 1200]])) {
       for (const iface of ['small', 'normal', 'bigger']) {
         const EM = lampaEm(W, iface);
         for (const size of ['large', 'medium', 'compact']) {
@@ -4852,9 +4852,30 @@ test('ревью раунда главной: подписи и заголово
     r.decl.indexOf('background') !== -1 && mediaApplies(r.media, W, H)).pop();
   assert.equal(scrimAt(css, 960, 540).media, null, 'на телевизоре 16:9 по умолчанию низ затемнения сменился');
   assert.ok(scrimAt(css, 1280, 800).media, '16:10: низ затемнения не привязан к подписям');
-  const accent = withStorage({}, (LC) => { LC.accent = { tint: () => null, rowsTint: () => '#5A2A24' }; return LC.accentCss(); });
+  const accentAt = (W, H) => withStorage({}, (LC) => {
+    window.innerHeight = H;
+    LC.accent = { tint: () => null, rowsTint: () => '#5A2A24' };
+    return LC.accentCss();
+  }, W);
+  const accent = accentAt(1280, 800);
   assert.ok(/calc\([-\d.]+% [-+] [\d.]+em\)/.test(scrimAt(accent, 1280, 800).decl) && scrimAt(accent, 1280, 800).decl.indexOf('90,42,36') !== -1,
     'в узле подкраски нет привязанного низа цвета рядов');
+  /* Ревью 4be39a5, (b): узел подкраски переписывается на каждом шаге
+     перехода цвета — в нём только полоса текущего окна, не все разом. На
+     телевизоре 16:9 по умолчанию полос нет вовсе — узел того же размера,
+     что до привязки. */
+  const scrimMedia = (text) => text.split('\n').filter((l) => l.indexOf('@media') === 0 && l.indexOf('.lumen-hero__scrim{') !== -1);
+  assert.equal(scrimMedia(accent).length, 1, '16:10: в узле подкраски не одна полоса');
+  const tv = accentAt(960, 540);
+  assert.equal(scrimMedia(tv).length, 0, 'ТВ 16:9: в узле подкраски полоса привязки');
+  assert.ok(accent.length - tv.length < 1100, 'полоса привязки в узле подкраски тяжелее 1.1 КБ: ' + (accent.length - tv.length));
+  const full = withStorage({ lumen_tile_size: 'small' }, (LC) => LC.buildCss(), 1920);
+  assert.ok(scrimMedia(full).length >= 2, 'полная таблица обязана держать все полосы привязки');
+  /* Ревью 4be39a5, (a): полосы привязки стыкуются без щели в тысячную —
+     окно 2135×1200 (1.7792:1, между 1779 и 1780) у «Мельче» с крупным
+     кадром на «обычном» интерфейсе получает привязанный низ. */
+  const seam = withStorage({ lumen_tile_size: 'small' }, (LC) => LC.buildCss(), 2135);
+  assert.ok(scrimAt(seam, 2135, 1200).media, '2135×1200 «Мельче»: низ затемнения на стыке полос не привязан');
 });
 
 /* Пол сжатого состояния: кадр больше не уезжает вверх, и под поднятыми
