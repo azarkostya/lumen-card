@@ -2453,3 +2453,93 @@ test('дизайн C: «Назад» с результата возвращае�
   env.controller().back();
   assert.equal(back, 1, 'второй «Назад» не ушёл');
 });
+
+/* «Что посмотреть похожее» — пункт меню карточки (src/63_cardmenu.js):
+   рулетка по жанрам этого фильма. */
+test('похожее: similarItem — подборка по двум первым жанрам своего медиа, без мультфильмов и документалок', () => {
+  const it = R.similarItem({ id: 603, title: 'Матрица', genre_ids: [28, 878, 12] }, 'Как «Матрица»');
+  assert.equal(it.media, 'movie');
+  assert.equal(it.id, 'like-movie-603');
+  assert.equal(it.like, 603);
+  assert.equal(it.title, 'Как «Матрица»');
+  const src = it.sources.movie;
+  assert.equal(src.type, 'discover');
+  assert.equal(src.params.genres, '28,878', 'жанры — И, двух первых хватает');
+  assert.equal(src.params.sort_by, 'popularity.desc');
+  assert.equal(src.params.filter.without_genres, '16,99');
+  assert.ok(src.params.filter['vote_count.gte'] >= 100, 'без порога голосов выборка — случайные премьеры');
+  assert.equal(it.sources.tv, undefined, 'у жанров фильма и сериала разные номера');
+  const cartoon = R.similarItem({ id: 1, title: 'Тачки', genre_ids: [16, 10751] });
+  assert.equal(cartoon.sources.movie.params.filter.without_genres, '99', 'мультфильм похож на мультфильмы');
+  assert.equal(cartoon.title, 'Тачки');
+  const tv = R.similarItem({ id: 2, name: 'Мандалорец', first_air_date: '2019-11-12', genres: [{ id: 10765, name: 'x' }, { id: 18 }] });
+  assert.equal(tv.media, 'tv');
+  assert.equal(tv.sources.tv.params.genres, '10765,18');
+  assert.equal(R.similarItem({ id: 3, title: 'Без жанров' }), null);
+  assert.equal(R.similarItem({ id: 4, title: 'Пустые', genre_ids: [] }), null);
+  assert.equal(R.similarItem(null), null);
+});
+
+test('похожее: openSimilar открывает рулетку медиа карточки, без жанров — нет', (t) => {
+  const env = openRoulette34([R44], t);
+  const pushed = [];
+  globalThis.Lampa.Activity.push = (p) => pushed.push(p);
+  assert.equal(env.api.openSimilar({ id: 603, title: 'Матрица', genre_ids: [28, 878], overview: 'длинное' }), true);
+  assert.equal(pushed.length, 1);
+  assert.equal(pushed[0].component, 'lumen_roulette');
+  assert.equal(pushed[0].media, 'movie');
+  assert.deepEqual(pushed[0].similar, { id: 603, title: 'Матрица', genre_ids: [28, 878] }, 'в историю активности — только нужные поля');
+  assert.equal(env.api.openSimilar({ id: 2, name: 'Сериал', first_air_date: '2020', genre_ids: [18] }), true);
+  assert.equal(pushed[1].media, 'tv');
+  assert.equal(env.api.openSimilar({ id: 1, title: 'x' }), false);
+  assert.equal(pushed.length, 2);
+});
+
+test('похожее: экран открыт с отмеченной похожей подборкой первой; сам фильм в выборку не попадает; набор не сохраняется', (t) => {
+  const store = {};
+  const SRC = { id: 603, title: 'Матрица', release_date: '1999-03-30', poster_path: '/m.jpg', genre_ids: [28, 878] };
+  const env = openRoulette34([R44, SRC], t, 1, 'full', { media: 'movie', similar: { id: 603, title: 'Матрица', genre_ids: [28, 878] } }, null, null, store);
+  const asked = [];
+  env.LC.sources = { fetch: (item, page, ok, err, alive) => { asked.push(item.id); return fetchStub34(item, page, ok, err, alive); } };
+  env.comp.start();
+  flushTimers();
+  const chips = env.chips();
+  assert.equal(chips[0].hasClass('lumen-chip--on'), false, '«Все подборки» горят при похожей подборке');
+  assert.ok(chips[1].hasClass('lumen-chip--on'), 'похожая подборка не отмечена или не первая');
+  assert.deepEqual(asked, ['like-movie-603', 'like-movie-603'], 'выборка собрана не из похожей подборки');
+  assert.equal(env.count(), '1', 'сам фильм попал в «похожее на него»');
+  fire(chips[1], 'hover:enter');
+  fire(chips[1], 'hover:enter');
+  assert.equal((store.lumen_roulette_movie || '').indexOf('like-'), -1, 'похожая подборка записана в сохранённый набор');
+});
+
+/* Ревью дизайн-прохода: исключение самого фильма — только в пуле его
+   медиа. id фильмов и сериалов у TMDB — разные пространства, и сериал с
+   тем же числом, что у фильма, «похожим на себя» не является. */
+test('похожее: после смены на «Сериалы» сериал с тем же id, что у фильма, из выборки не выпадает', (t) => {
+  MANIFEST34.collections[0].sources.tv = { type: 'discover', params: {} };
+  t.after(() => { delete MANIFEST34.collections[0].sources.tv; });
+  const SHOW603 = { id: 603, name: 'Сериал с тем же id', first_air_date: '2020-01-01', poster_path: '/s.jpg' };
+  const SHOW7 = { id: 7, name: 'Другой сериал', first_air_date: '2020-01-01', poster_path: '/s7.jpg' };
+  const env = openRoulette34([R44, SHOW603, SHOW7], t, 1, 'full', { media: 'movie', similar: { id: 603, title: 'Матрица', genre_ids: [28, 878] } });
+  env.comp.start();
+  flushTimers();
+  fire(env.root.all('.lumen-roulette__tab')[1], 'hover:enter');
+  flushTimers();
+  assert.equal(env.count(), '2', 'сериал 603 выпал из выборки сериалов из-за фильма 603');
+});
+
+test('дизайн C: новые строки рулетки — во всех трёх языках', () => {
+  const settings = readFileSync(new URL('../src/80_settings.js', import.meta.url), 'utf8');
+  const LC = {};
+  new Function('LC', 'module', settings)(LC, { exports: null, lumen: true });
+  for (const key of ['lumen_roulette_empty_hint', 'lumen_roulette_similar', 'lumen_roulette_like']) {
+    const pack = LC.STRINGS[key];
+    assert.ok(pack, 'нет строки ' + key);
+    for (const lang of ['ru', 'en', 'uk']) assert.ok(pack[lang] && ('' + pack[lang]).trim(), key + ': пустой перевод ' + lang);
+  }
+  for (const lang of ['ru', 'en', 'uk']) {
+    assert.ok(LC.STRINGS.lumen_roulette_like[lang].indexOf('%s') !== -1, 'в подписи похожей подборки нет места под название: ' + lang);
+  }
+  assert.equal(LC.STRINGS.lumen_roulette_similar.ru, 'Что посмотреть похожее', 'пункт назван не словами пользователя');
+});

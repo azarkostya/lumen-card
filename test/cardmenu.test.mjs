@@ -114,6 +114,53 @@ test('extraItems: без карточки и без словаря — пуст�
   assert.deepEqual(M.extraItems(MOVIE, null), []);
 });
 
+/* «Что посмотреть похожее» (2026-09-26): рулетка по жанрам этого фильма
+   (LC.roulette.openSimilar, src/56_roulette.js). Пункт стоит сразу за
+   «Похожими» — это та же мысль, только со случайным выбором, — и только
+   там, где его есть из чего собрать: у карточки есть жанры, а рулетка
+   жива (ctx.roulette). */
+test('extraItems: «Что посмотреть похожее» — за «Похожими», только у карточки с жанрами и при живой рулетке', () => {
+  const W2 = Object.assign({}, W, { roulette: 'Что посмотреть похожее' });
+  const withG = Object.assign({}, MOVIE, { genre_ids: [878, 12] });
+  assert.deepEqual(kinds(M.extraItems(withG, { words: W2, roulette: true })), ['trailer', 'similar', 'roulette', 'watched', 'hide']);
+  assert.equal(M.extraItems(withG, { words: W2, roulette: true })[2].title, 'Что посмотреть похожее');
+  assert.deepEqual(kinds(M.extraItems(MOVIE, { words: W2, roulette: true })), ['trailer', 'similar', 'watched', 'hide'], 'без жанров собирать не из чего');
+  assert.deepEqual(kinds(M.extraItems(Object.assign({}, MOVIE, { genre_ids: [] }), { words: W2, roulette: true })), ['trailer', 'similar', 'watched', 'hide']);
+  assert.deepEqual(kinds(M.extraItems(withG, { words: W2 })), ['trailer', 'similar', 'watched', 'hide'], 'рулетки нет — пункта нет');
+  const tvG = Object.assign({}, TV, { genres: [{ id: 10765, name: 'НФ' }] });
+  assert.deepEqual(kinds(M.extraItems(tvG, { words: W2, roulette: true })), ['trailer', 'similar', 'roulette', 'hide']);
+});
+
+test('меню своей сетки: «Что посмотреть похожее» открывает рулетку похожего', () => {
+  const shown = [];
+  const opened = [];
+  const Lampa = {
+    Select: { show: (p) => shown.push(p), listener: { follow() {}, remove() {} } },
+    Controller: { enabled: () => ({ name: 'content' }), toggle() {} },
+    Favorite: { check: () => ({}) }
+  };
+  globalThis.window = { Lampa };
+  globalThis.Lampa = Lampa;
+  try {
+    const { api } = loadCtx('63_cardmenu.js', {
+      lang: (k) => k,
+      pref: (n, d) => d,
+      roulette: { openSimilar: (card) => { opened.push(card.id); return true; } }
+    });
+    const card = { id: 603, title: 'Матрица', genre_ids: [28, 878] };
+    api.open({}, card);
+    assert.equal(shown.length, 1, 'меню не открылось');
+    const item = shown[0].items.filter((i) => i.lumen === 'roulette')[0];
+    assert.ok(item, 'пункта нет в меню');
+    assert.equal(item.title, 'lumen_roulette_similar');
+    item.onSelect();
+    assert.deepEqual(opened, [603]);
+  } finally {
+    delete globalThis.window;
+    delete globalThis.Lampa;
+  }
+});
+
 /* ---------------------------------------------------------------------- */
 /* Данные действий.                                                        */
 /* ---------------------------------------------------------------------- */

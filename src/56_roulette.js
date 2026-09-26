@@ -12,11 +12,13 @@
   /*   normalizeMedia(value) / MAX_SOURCES                                  */
   /*   atvLook() → вид «как Apple TV» (настройка lumen_flat)                */
   /*   shelfCards(list, n) → карточки полки под барабаном в этом виде       */
+  /*   similarItem(card, label) → подборка «похожее» по жанрам карточки     */
   /*                                                                       */
   /* Публичное API (рантайм, требуют Lampa и $):                            */
   /*   unseenDefault() → значение настройки lumen_roulette_unseen          */
   /*   install() / uninstall() — компонент lumen_roulette и пункт меню     */
   /*   open(media) — открыть рулетку                                        */
+  /*   openSimilar(card) → рулетка «Что посмотреть похожее» (меню карточки) */
   /*   menuNode() — узел пункта меню (для тестов и проверок)               */
   /*                                                                       */
   /* Рулеток две — фильмы и сериалы: у них разные подборки, разный фильтр  */
@@ -489,6 +491,49 @@
       return head ? [head].concat(rest) : list;
     }
 
+    /* «Что посмотреть похожее» (дизайн-проход 2026-09-26, пункт меню
+       карточки, src/63_cardmenu.js): подборка по жанрам фильма — discover его
+       медиа по LIKE_GENRES первым жанрам через запятую. У TMDB запятая — это
+       «И»: три жанра разом дают выборку в десяток фильмов, один — полкаталога,
+       два — «боевик-фантастика», то есть то, что человек и назвал бы
+       похожим. Самые известные первыми и с порогом голосов — иначе в барабан
+       идут безвестные премьеры. Мультфильмы и документальное отсекаются, если
+       сам фильм не из них: похожее на «Матрицу» — не мультфильм про роботов.
+       Жанры — genre_ids карточки ряда или genres деталей (объекты с id).
+       id подборки свой у каждого фильма: по нему кэшируется пул (keyOf) и
+       склеиваются запросы (LC.sources, inflight). Жанров нет — null. */
+    var LIKE_GENRES = 2;
+
+    function genreIds(card) {
+      var out = [];
+      var list = card && (card.genre_ids || card.genres);
+      if (!Array.isArray(list)) return out;
+      for (var i = 0; i < list.length; i++) {
+        var g = list[i];
+        var id = Number(g && typeof g === 'object' ? g.id : g);
+        if (id > 0 && out.indexOf(id) < 0) out.push(id);
+      }
+      return out;
+    }
+
+    function similarItem(card, label) {
+      if (!card || card.id == null) return null;
+      var ids = genreIds(card);
+      if (!ids.length) return null;
+      var media = cardMedia(card);
+      var drop = [];
+      if (ids.indexOf(16) < 0) drop.push(16);
+      if (ids.indexOf(99) < 0) drop.push(99);
+      var filter = { 'vote_count.gte': media === 'tv' ? 100 : 200 };
+      if (drop.length) filter.without_genres = drop.join(',');
+      var sources = {};
+      sources[media] = {
+        type: 'discover',
+        params: { genres: ids.slice(0, LIKE_GENRES).join(','), sort_by: 'popularity.desc', filter: filter }
+      };
+      return { id: 'like-' + media + '-' + card.id, title: label || cardTitle(card), like: card.id, media: media, sources: sources };
+    }
+
     /* ------------------------------------------------------------------ */
     /* Окружение                                                           */
     /* ------------------------------------------------------------------ */
@@ -619,6 +664,17 @@
 
     function cardTitle(card) {
       return (card && (card.title || card.name)) || '';
+    }
+
+    /* Подпись чипа «похожее»: «Как «Матрица»» — название в кавычках обходит
+       склонение. Длинное название срезается: чип в ленте не переносится, и
+       «Звёздные войны: Эпизод 4 — Новая надежда» заняли бы треть ленты. */
+    var LIKE_TITLE_MAX = 28;
+
+    function likeLabel(card) {
+      var title = cardTitle(card);
+      if (title.length > LIKE_TITLE_MAX) title = title.slice(0, LIKE_TITLE_MAX - 1) + '…';
+      return ('' + LC.lang('lumen_roulette_like')).replace('%s', title);
     }
 
     /* Описание для вида «как Apple TV»: у карточек discover оно уже есть
@@ -812,6 +868,17 @@
          у другого медиа свой набор подборок. */
       var pinned = (object && object.preselect) ? '' + object.preselect : '';
 
+      /* «Что посмотреть похожее» (object.similar, openSimilar ниже): своя
+         подборка по жанрам фильма — первой в ленте и отмеченной (listFor).
+         В сохранённый набор чипов она не пишется (saveChosen): это вход на
+         один раз, а не выбор человека, и после выхода рулетка открывается с
+         прежними подборками. Сам фильм из выборки убран — «похожее на него»
+         не может выпасть им же. */
+      var like = (object && object.similar) ? similarItem(object.similar, likeLabel(object.similar)) : null;
+      if (like && like.media === media) {
+        chosen = [like.id];
+        pinned = like.id;
+      }
       /* Дизайн-проход 2026-09-26: последний чип подборки, на котором стоял
          фокус, — «вверх» с «Крутить» возвращает на него (up в start), как
          пульт Apple TV возвращается в ряд на то же место. */
@@ -1039,6 +1106,23 @@
         recollect(focusNode || null);
       }
 
+      /* Подборки медиа m: каталог, а у экрана «похожего» — ещё и его
+         подборка первой (только для медиа того фильма: номера жанров у
+         фильмов и сериалов разные). */
+      function listFor(m) {
+        var list = collectionsFor(manifest, m);
+        return like && like.media === m ? [like].concat(list) : list;
+      }
+
+      /* Набор чипов в хранилище — без подборки «похожего» (см. like). */
+      function saveChosen() {
+        var ids = [];
+        for (var i = 0; i < chosen.length; i++) {
+          if (!like || chosen[i] !== like.id) ids.push(chosen[i]);
+        }
+        saveIds(media, ids);
+      }
+
       function chipNode(text, on) {
         var node = watchFocus($('<div class="lumen-chip lumen-roulette__chip selector">' + esc(text) + '</div>'));
         if (on) node.addClass('lumen-chip--on');
@@ -1053,7 +1137,7 @@
            пустота до первого касания чипа (смена медиа возвращает фокус на
            таб, значит railChip не сработает). */
         try { chipsScroll.reset(); } catch (eR) { warn('roulette: chips reset failed', eR); }
-        collections = collectionsFor(manifest, media);
+        collections = listFor(media);
         /* C5: отмечено только то, что есть в каталоге. В хранилище не
            пишем — сохранит первое же касание чипа. */
         chosen = knownIds(chosen, collections);
@@ -1061,7 +1145,7 @@
         all.on('hover:enter', function () {
           if (!chosen.length) return;
           chosen = [];
-          saveIds(media, chosen);
+          saveChosen();
           poolKey = '';
           buildChips();
           schedulePreview();
@@ -1076,7 +1160,7 @@
               var at = chosen.indexOf(item.id);
               if (at >= 0) chosen.splice(at, 1);
               else chosen.push(item.id);
-              saveIds(media, chosen);
+              saveChosen();
               poolKey = '';
               node.toggleClass('lumen-chip--on', at < 0);
               chipsRow.find('.lumen-roulette__chip').eq(0).toggleClass('lumen-chip--on', !chosen.length);
@@ -1168,7 +1252,7 @@
           poolWait.done.push(done);
           return;
         }
-        var list = sourcesFor(collectionsFor(manifest, media), chosen, manifest);
+        var list = sourcesFor(listFor(media), chosen, manifest);
         if (!list.length) { pool = []; poolKey = key; done(); return; }
 
         var captured = gen;
@@ -1179,6 +1263,14 @@
           if (poolWait === wait) poolWait = null;
           if (gen !== captured) return;
           pool = buildPool(cards, media, true);
+          /* «Похожее на фильм» не выпадает им же (см. like) — только в пуле
+             его медиа: id фильмов и сериалов у TMDB — разные пространства,
+             и после «Сериалы» сериал с тем же числом выпадал бы зря. */
+          if (like && like.media === media) {
+            var own = [];
+            for (var p = 0; p < pool.length; p++) if (pool[p].id !== like.like) own.push(pool[p]);
+            pool = own;
+          }
           poolKey = key;
           seen = seenIndex(cards);
           for (var w = 0; w < wait.done.length; w++) wait.done[w]();
@@ -2352,6 +2444,34 @@
       }
     }
 
+    /* «Что посмотреть похожее» из меню карточки (src/63_cardmenu.js):
+       рулетка медиа этой карточки с её похожей подборкой (similarItem).
+       В параметры активности — только id, название и жанры: Lampa хранит
+       историю активностей, и целая карточка с описанием там ни к чему.
+       Жанров нет — рулетку не открываем (false), пункта в меню тогда и нет. */
+    function openSimilar(card) {
+      var item = similarItem(card);
+      if (!item) return false;
+      var slim = { id: card.id };
+      if (item.media === 'tv') slim.name = cardTitle(card);
+      else slim.title = cardTitle(card);
+      slim.genre_ids = genreIds(card);
+      try {
+        Lampa.Activity.push({
+          url: '',
+          title: LC.lang('lumen_roulette_title'),
+          component: 'lumen_roulette',
+          media: item.media,
+          similar: slim,
+          page: 1
+        });
+        return true;
+      } catch (e) {
+        warn('roulette: open similar failed', e);
+        return false;
+      }
+    }
+
     function addComponent() {
       if (component_added) return;
       if (!window.Lampa || !Lampa.Component || typeof Lampa.Component.add !== 'function') return;
@@ -2429,6 +2549,8 @@
       install: install,
       uninstall: uninstall,
       open: open,
+      similarItem: similarItem,
+      openSimilar: openSimilar,
       menuNode: menuNode
     };
   })();

@@ -215,6 +215,11 @@
       en: 'Turn a filter off or pick other collections',
       uk: 'Зніміть фільтр або позначте інші підбірки'
     },
+    /* Пункт меню карточки (src/63_cardmenu.js) — рулетка по жанрам этого
+       фильма; названо словами пользователя. %s в подписи чипа — название
+       фильма: «Как «Матрица»» обходит склонение названия. */
+    lumen_roulette_similar: { ru: 'Что посмотреть похожее', en: 'What to watch like this', uk: 'Що подивитися схоже' },
+    lumen_roulette_like: { ru: 'Как «%s»', en: 'Like “%s”', uk: 'Як «%s»' },
     /* Настройка: с чего начинается фильтр «не смотрел» в рулетке. */
     lumen_roulette_unseen_name: { ru: 'Рулетка: только непросмотренное', en: 'Roulette: unwatched only', uk: 'Рулетка: лише непереглянуте' },
     lumen_roulette_unseen_descr: {

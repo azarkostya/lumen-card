@@ -107,7 +107,8 @@
          words      — подписи (LC.STRINGS, собирает words() ниже),
          collection — belongs_to_collection из кэша деталей или null,
          watched    — фильм отмечен просмотренным (Lampa.Timeline),
-         thrown     — карточка скрыта из рекомендаций (Lampa.Favorite).
+         thrown     — карточка скрыта из рекомендаций (Lampa.Favorite),
+         roulette   — рулетка «Что посмотреть» на месте (LC.roulette).
        «Отметить просмотренным» только для фильмов: прогресс сериала Lampa
        держит по сериям (Timeline.watched перебирает s1e1..e24), и одной
        отметки на весь сериал у неё попросту нет — рисовать пункт, который
@@ -125,6 +126,12 @@
         out.push({ title: w.franchise, subtitle: LC.util.esc(ctx.collection.name || ''), lumen: 'franchise' });
       }
       out.push({ title: w.similar, lumen: 'similar' });
+      /* Дизайн-проход рулетки 2026-09-26: «Что посмотреть похожее» — та же
+         мысль, что «Похожие», только со случайным выбором: рулетка по
+         жанрам этого фильма (LC.roulette.openSimilar). Собирать её не из
+         чего без жанров (у карточки ряда — genre_ids, у деталей — genres);
+         тогда пункта нет, как нет «Всей франшизы» без коллекции. */
+      if (ctx.roulette && w.roulette && hasGenres(card)) out.push({ title: w.roulette, lumen: 'roulette' });
       if (mediaOf(card) === 'movie') {
         if (ctx.watched) out.push({ title: w.unwatched, lumen: 'unwatched' });
         else out.push({ title: w.watched, lumen: 'watched' });
@@ -132,6 +139,11 @@
       if (ctx.thrown) out.push({ title: w.unhide, lumen: 'unhide' });
       else out.push({ title: w.hide, lumen: 'hide' });
       return out;
+    }
+
+    function hasGenres(card) {
+      var list = card && (card.genre_ids || card.genres);
+      return !!(list && list.length);
     }
 
     /* Параметры штатного Lampa.Api.sources.tmdb.videos: он сам запрашивает
@@ -175,6 +187,7 @@
         trailer: LC.lang('lumen_menu_trailer'),
         franchise: LC.lang('lumen_menu_franchise'),
         similar: LC.lang('lumen_menu_similar'),
+        roulette: LC.lang('lumen_roulette_similar'),
         watched: LC.lang('lumen_menu_watched'),
         unwatched: LC.lang('lumen_menu_unwatched'),
         hide: LC.lang('lumen_menu_hide'),
@@ -244,7 +257,8 @@
         words: words(),
         collection: collectionOf(card),
         watched: isWatched(card),
-        thrown: isThrown(card)
+        thrown: isThrown(card),
+        roulette: !!(LC.roulette && typeof LC.roulette.openSimilar === 'function')
       };
     }
 
@@ -430,6 +444,14 @@
       }
     }
 
+    function openRoulette(card) {
+      try {
+        if (LC.roulette && typeof LC.roulette.openSimilar === 'function') LC.roulette.openSimilar(card);
+      } catch (e) {
+        warn('cardmenu: roulette failed', e);
+      }
+    }
+
     /* Отметка просмотра — штатным Lampa.Timeline: он же пишет историю,
        обновляет полосы .time-line на всех слоях и рассылает state:changed,
        по которому Lampa перерисовывает значки карточек. */
@@ -464,6 +486,7 @@
       if (kind === 'trailer') { playTrailer(card); return; }
       if (kind === 'franchise') { openFranchise(card); return; }
       if (kind === 'similar') { openSimilar(card); return; }
+      if (kind === 'roulette') { openRoulette(card); return; }
       if (kind === 'watched') { setWatched(card, true); return; }
       if (kind === 'unwatched') { setWatched(card, false); return; }
       if (kind === 'hide') { setThrown(card, true); return; }
