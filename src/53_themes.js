@@ -240,8 +240,10 @@
     ];
 
     /* Правила каталога, которые работают и при выключенных автотемах: это
-       те же два праздника, но «по фильму». */
-    var HOLIDAY_RULES = { christmas: 1, halloween: 1 };
+       те же два праздника, но «по фильму». Значение — id праздника в
+       HOLIDAYS: при «Только сезонные» сцена фильма живёт в его окне
+       (forMovie), а не в месяцах months правила. */
+    var HOLIDAY_RULES = { christmas: 'newyear', halloween: 'halloween' };
 
     /* Ключ даты «месяц·100 + день»: окна сравниваются числами. */
     function dayKey(date) {
@@ -587,6 +589,15 @@
         if (holiday) return themeOf(holiday);
       }
       var theme = matchTheme(rulesNow(), movie);
+      /* Финальная проверка, B8 (logic-rows S1): при «Только сезонные»
+         новогодняя и хэллоуинская сцена фильма — в окно своего праздника
+         (Новый год 1.12–7.01, Хэллоуин 25.10–1.11, решение пользователя
+         2026-09-26), а не весь январь и весь октябрь по months каталога.
+         «Все» — как прежде, круглый год. */
+      if (theme && current_mode === 'seasonal' && typeof HOLIDAY_RULES[theme.id] === 'string') {
+        var span = holidayAt(today);
+        return span && span.id === HOLIDAY_RULES[theme.id] ? theme : null;
+      }
       if (!allowed(theme, current_mode, monthOf(today))) return null;
       return theme;
     }

@@ -1232,7 +1232,10 @@
          (Валентин, космос, нуар, пустыня, море, сакура, война, зомби) целы,
          но выключены флагом LC.fxAutoThemes (src/53_themes.js, решение
          пользователя после «Одиссеи» с лучами и пузырями: «оставим только
-         Рождество и Хэллоуин»). */
+         Рождество и Хэллоуин»).
+         Финальная проверка, B8: у christmas и halloween при «Только
+         сезонные» months не действует — сцена фильма живёт в окне праздника
+         (1.12–7.01 и 25.10–1.11, HOLIDAYS в src/53_themes.js). */
       themes: [
         { id: 'halloween', preset: 'halloween', accent: '#E07B2C', keywords: ['halloween', 'haunted house', 'slasher', 'witch', 'trick or treat'], genres: [27], months: [10], requireGenre: true },
         { id: 'christmas', preset: 'winter', accent: '#E8C170', keywords: ['christmas', 'santa claus', 'new year', 'christmas eve'], months: [12, 1] },

@@ -983,6 +983,12 @@ test('holB: строки адвента на трёх языках; описан
   for (const gone of ['звёзды у фантастики', 'дождь у нуара', 'Не запускается при лёгких']) {
     assert.equal(fx.indexOf(gone), -1, 'описание обещает выключенное: ' + gone);
   }
+  /* Финальная проверка, B8: «Только сезонные» — окна праздников, а не
+     «декабрь и январь» / «октябрь» (src/53_themes.js, forMovie). */
+  assert.equal(fx.indexOf('в декабре и январе'), -1, fx);
+  assert.equal(S.lumen_fx_descr.en.indexOf('December and January'), -1);
+  assert.equal(S.lumen_fx_descr.uk.indexOf('у грудні й січні'), -1);
+  assert.ok(/те же дни праздника|эти же дни праздника/.test(fx) && /same holiday dates/.test(S.lumen_fx_descr.en) && /ці ж дні свята/.test(S.lumen_fx_descr.uk));
   assert.ok(/Hallow/.test(S.lumen_fx_descr.en) && /Гелловін/.test(S.lumen_fx_descr.uk));
   assert.ok(/не зависят/.test(S.lumen_fx_heavy_descr.ru), S.lumen_fx_heavy_descr.ru);
   assert.equal(S.lumen_fx_heavy_descr.ru.indexOf('Частицы'), -1, 'тяжёлые эффекты больше не про частицы');

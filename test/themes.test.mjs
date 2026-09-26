@@ -397,13 +397,42 @@ test('holB: флаг автотем — по умолчанию выключен
 
 test('holB: новогодние и хэллоуинские фильмы — своя сцена и при выключенных автотемах, в свой сезон', () => {
   assert.equal(id(ambientEnv({ now: at(12, 5), home: false }).forMovie(film('christmas'))), 'christmas', 'карточка рождественского фильма в декабре');
-  assert.equal(id(ambientEnv({ now: at(1, 20), home: false }).forMovie(film('new year'))), 'christmas', 'и в январе');
+  assert.equal(id(ambientEnv({ now: at(1, 5), home: false }).forMovie(film('new year'))), 'christmas', 'и в январе — до 7-го');
   assert.equal(ambientEnv({ now: at(7, 1), home: false }).forMovie(film('christmas')), null, '«Только сезонные»: летом нет');
   assert.equal(id(ambientEnv({ now: at(7, 1), home: false, mode: 'all' }).forMovie(film('christmas'))), 'christmas', '«Все»: и летом');
-  assert.equal(id(ambientEnv({ now: at(10, 10), home: false }).forMovie(film('halloween'))), 'halloween', 'хоррор про Хэллоуин в октябре');
+  assert.equal(id(ambientEnv({ now: at(10, 27), home: false }).forMovie(film('halloween'))), 'halloween', 'хоррор про Хэллоуин в неделю праздника');
   /* Окно Нового года — с 1 декабря (решение 2026-09-26): до окна в декабре дней нет;
      5 декабря на главной у рождественского фильма уже сцена праздника. */
   assert.equal(id(ambientEnv({ now: at(12, 5) }).forMovie(film('christmas'))), 'newyear', 'главная в окне праздника — сцена праздника');
+});
+
+/* Финальная проверка, B8 (logic-rows S1): при «Только сезонные» сцена
+   фильма по ключевым словам — в окно праздника (решение пользователя
+   2026-09-26: Новый год 1.12–7.01, Хэллоуин 25.10–1.11), а не весь январь
+   и весь октябрь по months каталога. «Все» — круглый год, как прежде. */
+test('B8: «Только сезонные» — сцена новогоднего и хэллоуинского фильма только в окно праздника, «Все» — круглый год', () => {
+  const card = (m, d, mode) => id(ambientEnv({ now: at(m, d), home: false, mode: mode }).forMovie(film('christmas')));
+  const horror = (m, d, mode) => id(ambientEnv({ now: at(m, d), home: false, mode: mode }).forMovie(film('halloween')));
+  assert.equal(card(11, 30), null, '30 ноября — ещё нет');
+  assert.equal(card(12, 1), 'christmas');
+  assert.equal(card(1, 7), 'christmas', '7 января — последний день');
+  assert.equal(card(1, 8), null, '8 января — уже нет (прежде — весь январь)');
+  assert.equal(card(1, 25), null);
+  assert.equal(horror(10, 3), null, '3 октября — нет (прежде — весь октябрь)');
+  assert.equal(horror(10, 24), null);
+  assert.equal(horror(10, 25), 'halloween');
+  assert.equal(horror(11, 1), 'halloween', '1 ноября — последний день (прежде его не было)');
+  assert.equal(horror(11, 2), null);
+  /* Новогодний фильм в окно Хэллоуина — не его праздник. */
+  assert.equal(card(10, 31), null);
+  /* «Все» — не трогаем: круглый год. */
+  assert.equal(card(1, 25, 'all'), 'christmas');
+  assert.equal(card(7, 15, 'all'), 'christmas');
+  assert.equal(horror(10, 3, 'all'), 'halloween');
+  /* Главная вне окна: у новогоднего фильма при «Только сезонные» — тоже нет. */
+  assert.equal(ambientEnv({ now: at(1, 20) }).forMovie(film('christmas')), null);
+  /* Прочие темы при включённых автотемах — по months, как прежде. */
+  assert.equal(id(ambientEnv({ now: at(2, 20), mode: 'seasonal', auto: true, home: false }).forMovie(film('valentine'))), 'valentine');
 });
 
 test('holB: на главной в окно праздника — сцена праздника у любого фильма; в карточке — нет', () => {
