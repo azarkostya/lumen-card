@@ -6,7 +6,8 @@
   /*   matchTheme(rules, movie) → правило темы или null                     */
   /*   allowed(theme, mode, month) → показывать ли эту тему сейчас          */
   /*   seasonalIds(collections, month) → id подборок сезона                 */
-  /*   adventDays(pool, today, words) → карточки адвента с метками          */
+  /*   adventDays(src, today, words, opened) → 31 окошко адвента (holB)     */
+  /*   adventRecord(cards, today) → запись lumen_advent_open                */
   /*   monthOf(date) / month() → месяц 1..12 (month() — через хук _now)      */
   /*   current() → правила тем из манифеста                                 */
   /*   mode() → значение настройки lumen_fx: 'all' | 'seasonal' | 'off'     */
@@ -26,14 +27,20 @@
 
   LC.themes = (function () {
 
-    /* Адвент идёт до сочельника включительно: 24 плитки, не 31. */
-    var ADVENT_LAST = 24;
-    /* Шаг раскладки фильмов по дням. Простое число, взаимно простое с любой
-       разумной длиной пула, — соседние дни получают далёкие друг от друга
-       позиции списка, и подряд не выпадают три части одной франшизы.
-       Детерминизм важнее случайности: 5 декабря обязано показывать тот же
-       фильм и завтра, и после перезагрузки Lampa. */
-    var ADVENT_STEP = 7919;
+    /* Раунд holB: адвент под СНГ — весь декабрь, 31 окошко. Прежде он шёл до
+       католического сочельника (24 плитки); у нас праздник — Новый год, и
+       31-го смотрят «Иронию судьбы» (пользователь). */
+    var ADVENT_DAYS = 31;
+    /* «Ирония судьбы, или С лёгким паром!» (1976) — TMDB id 43430, найден
+       живым запросом search/movie через Lampa на стенде 2026-09-26. Фильм
+       есть в подборке «Новогоднее» (src/42_manifest.js, orig_lang ru), но
+       окошку 31-го он положен при любом составе пулов: rows дозапросит его
+       сам, если в подборке его не окажется. */
+    var ADVENT_FINAL_ID = 43430;
+    /* Каждое ADVENT_OURS-е окошко — наше новогоднее кино (подборка
+       «Новогоднее»), остальные — мировое рождественское: в «Новогоднем» ~10
+       фильмов, и на 30 дней их ровно хватает раз в три дня. */
+    var ADVENT_OURS = 3;
 
     /* ------------------------------------------------------------------ */
     /* Чистые функции                                                      */
@@ -187,9 +194,72 @@
       return date.getMonth() + 1;
     }
 
-    /* Копия карточки с полями адвента. Исходный объект не трогаем: он лежит
-       в кэше LC.sources и переиспользуется другими рядами. */
-    function adventCard(card, day, isToday, words) {
+    /* ------------------------------------------------------------------ */
+    /* Раунд holB: адвент под СНГ.                                         */
+    /*                                                                     */
+    /* 31 окошко — все видны. Прошедшие и сегодняшнее открыты (фильм дня), */
+    /* будущие закрыты: на месте постера дверца с датой и замком, фильма   */
+    /* в карточке нет вовсе (ни id, ни постера) — кадр героя его не        */
+    /* покажет, дедупликация главной не тронет, OK не откроет              */
+    /* (src/44_rows.js). 31-е — «Ирония судьбы», особая плитка и закрытой. */
+    /*                                                                     */
+    /* Раскладка — «наибольший вес» (rendezvous hashing): каждому дню —    */
+    /* свободный фильм с наибольшим score(день, id). Прежняя              */
+    /* (день · шаг) mod длина пула перетасовывала ВСЕ дни, стоило TMDB     */
+    /* добавить в подборку один фильм; теперь новый фильм меняет только   */
+    /* те дни, где он побеждает. А открытые окошки ещё и запоминаются      */
+    /* (opened — запись lumen_advent_open, adventRecord): фильм прошедшего */
+    /* дня остаётся тем же, пока он есть в пулах, — и сегодня, и 31-го.    */
+    /* ------------------------------------------------------------------ */
+
+    /* Вес пары «день · фильм» — генератор Лемера (48271 mod 2^31−1):
+       произведения меньше 2^53, в double точны, Math.imul (ES2015) не
+       нужен. */
+    function adventScore(day, id) {
+      var s = (Math.abs(Math.floor(Number(id) || 0)) % 2147483646) + 1;
+      s = (s * 48271) % 2147483647;
+      s = (s + day * 16807) % 2147483647;
+      s = (s * 48271) % 2147483647;
+      return (s * 48271) % 2147483647;
+    }
+
+    /* Свободный фильм списка с наибольшим весом дня, либо null. */
+    function adventPick(list, day, used) {
+      var best = null;
+      var top = -1;
+      for (var i = 0; i < list.length; i++) {
+        var c = list[i];
+        if (used[c.id]) continue;
+        var w = adventScore(day, c.id);
+        if (w > top) { top = w; best = c; }
+      }
+      return best;
+    }
+
+    /* Карточки списка без дублей и без пустых id; skip — id, которых здесь
+       быть не должно (финальная плитка, уже взятые другим пулом). */
+    function adventList(list, skip) {
+      var out = [];
+      if (!Array.isArray(list)) return out;
+      for (var i = 0; i < list.length; i++) {
+        var c = list[i];
+        if (!c || c.id == null || c.id === '' || skip[c.id]) continue;
+        skip[c.id] = 1;
+        out.push(c);
+      }
+      return out;
+    }
+
+    /* Запись lumen_advent_open этого года: {день: id} или пустая. */
+    function adventMap(opened, year) {
+      if (!opened || typeof opened !== 'object' || Number(opened.y) !== year) return {};
+      var d = opened.d;
+      return d && typeof d === 'object' ? d : {};
+    }
+
+    /* Копия карточки фильма с полями окошка. Исходный объект не трогаем: он
+       лежит в кэше LC.sources и переиспользуется другими рядами. */
+    function adventCard(card, day, state, words, extra) {
       var copy = {};
       for (var k in card) {
         if (Object.prototype.hasOwnProperty.call(card, k)) copy[k] = card[k];
@@ -197,44 +267,103 @@
       var dayWord = (words && words.day) || 'День';
       var todayWord = (words && words.today) || 'Сегодня';
       copy.day = day;
-      copy.lumen_badge = isToday
-        ? todayWord + ' · ' + dayWord.toLowerCase() + ' ' + day
-        : dayWord + ' ' + day;
-      /* Сочельник — особая плитка (поправки контроллера к Task 21): рамка
-         акцентом рисуется по этому признаку, а не по числу 24 в разметке. */
-      if (day === ADVENT_LAST) copy.lumen_final = true;
+      /* Метка сегодняшнего — одно «Сегодня»: «Сегодня · день 15» на
+         постере ряда не помещалась в строку и рвалась надвое (стенд
+         960×540@2); число дня видно и так — соседи «День 14» и дверцы
+         «16 декабря». */
+      copy.lumen_badge = state === 'today' ? todayWord : dayWord + ' ' + day;
+      copy.lumen_advent = { day: day, state: state };
+      if (extra && extra.fresh) copy.lumen_advent.fresh = true;
+      if (day === ADVENT_DAYS) copy.lumen_advent.final = true;
       return copy;
     }
 
-    /* Карточки адвент-календаря: дни с 1-го по сегодняшний (максимум 24-й),
-       по одному фильму на день. Не декабрь — пустой список.
+    /* Окошко без фильма: закрытое (будущий день) или пустое (прошедший, на
+       который в пулах не хватило фильма). Подпись — дата. */
+    function adventDoor(day, state, words) {
+      var date = (words && words.date) || '{d}';
+      var door = { day: day, title: date.replace('{d}', day), lumen_advent: { day: day, state: state } };
+      if (day === ADVENT_DAYS) door.lumen_advent.final = true;
+      return door;
+    }
 
-       Раскладка: индекс дня = (day * ADVENT_STEP) % длина пула, а занятые
-       позиции обходятся линейно вперёд — так один и тот же фильм не выпадет
-       дважды, и при этом каждый день сохраняет своё кино между запусками.
-       Пул короче числа дней — лишние дни просто не появляются: показывать
-       повтор хуже, чем не показывать день. */
-    function adventDays(pool, today, words) {
+    /* Карточки адвент-календаря: 31 окошко в декабре, иначе пустой список.
+       src — {ours, world, final}: наше новогоднее кино, мировое
+       рождественское и отдельно запрошенная «Ирония судьбы»; голый массив
+       — всё «мировое» (прежняя форма пула). opened — прошлая запись
+       lumen_advent_open. Сегодняшнее окошко, которого в записи ещё нет,
+       помечено fresh — rows один раз играет его открытие. */
+    function adventDays(src, today, words, opened) {
       var out = [];
-      if (!Array.isArray(pool) || !pool.length) return out;
       if (!today || typeof today.getMonth !== 'function') return out;
       if (today.getMonth() !== 11) return out;
-      var last = today.getDate();
-      if (last > ADVENT_LAST) last = ADVENT_LAST;
+      if (Array.isArray(src)) src = { world: src };
+      src = src || {};
+      var now = today.getDate();
+      var skip = {};
+      skip[ADVENT_FINAL_ID] = 1;
+      var ours = adventList(src.ours, skip);
+      var world = adventList(src.world, skip);
+      /* «Ирония судьбы»: отдельная карточка или та, что пришла в пулах. */
+      var final = src.final && Number(src.final.id) === ADVENT_FINAL_ID ? src.final : null;
+      var all = (src.ours || []).concat(src.world || []);
+      for (var f = 0; !final && f < all.length; f++) {
+        if (all[f] && Number(all[f].id) === ADVENT_FINAL_ID) final = all[f];
+      }
+      var byId = {};
+      var i;
+      for (i = 0; i < ours.length; i++) byId[ours[i].id] = ours[i];
+      for (i = 0; i < world.length; i++) byId[world[i].id] = world[i];
+      var map = adventMap(opened, today.getFullYear());
       var used = {};
-      for (var day = 1; day <= last; day++) {
-        if (out.length >= pool.length) break;
-        var index = (day * ADVENT_STEP) % pool.length;
-        var guard = 0;
-        while (used[index] && guard < pool.length) {
-          index = (index + 1) % pool.length;
-          guard++;
+      var pick = {};
+      var day;
+      var open = now < ADVENT_DAYS ? now : ADVENT_DAYS;
+      /* Сначала — запомненные окошки: их фильм не меняется. */
+      for (day = 1; day <= open; day++) {
+        var id = map[day];
+        if (day === ADVENT_DAYS && final) break;
+        if (id != null && byId[id] && !used[id]) {
+          pick[day] = byId[id];
+          used[id] = 1;
         }
-        if (used[index]) break;
-        used[index] = 1;
-        out.push(adventCard(pool[index], day, day === today.getDate(), words));
+      }
+      for (day = 1; day <= open; day++) {
+        if (pick[day] || (day === ADVENT_DAYS && final)) continue;
+        var mine = ours.length && day % ADVENT_OURS === 0;
+        var c = adventPick(mine ? ours : world, day, used) || adventPick(mine ? world : ours, day, used);
+        if (!c) continue;
+        pick[day] = c;
+        used[c.id] = 1;
+      }
+      for (day = 1; day <= ADVENT_DAYS; day++) {
+        if (day > now) {
+          out.push(adventDoor(day, 'locked', words));
+          continue;
+        }
+        var film = day === ADVENT_DAYS && final ? final : pick[day];
+        if (!film) {
+          out.push(adventDoor(day, 'empty', words));
+          continue;
+        }
+        var state = day === now ? 'today' : 'open';
+        out.push(adventCard(film, day, state, words, { fresh: state === 'today' && map[day] == null }));
       }
       return out;
+    }
+
+    /* Запись lumen_advent_open после показа: {y: год, d: {день: id}} —
+       открытые окошки с фильмом. Малый набор дней текущего года: запись
+       прошлого года adventMap не читает. */
+    function adventRecord(cards, today) {
+      var rec = { y: today && typeof today.getFullYear === 'function' ? today.getFullYear() : 0, d: {} };
+      for (var i = 0; i < (cards || []).length; i++) {
+        var c = cards[i];
+        var info = c && c.lumen_advent;
+        if (!info || c.id == null) continue;
+        if (info.state === 'open' || info.state === 'today') rec.d[info.day] = c.id;
+      }
+      return rec;
     }
 
     /* ------------------------------------------------------------------ */
@@ -326,6 +455,9 @@
       allowed: allowed,
       seasonalIds: seasonalIds,
       adventDays: adventDays,
+      adventRecord: adventRecord,
+      ADVENT_DAYS: ADVENT_DAYS,
+      ADVENT_FINAL_ID: ADVENT_FINAL_ID,
       monthOf: monthOf,
       month: function () { return monthOf(api._now()); },
       today: function () { return api._now(); },

@@ -176,8 +176,19 @@ function setupRows(opts) {
     },
     Utils: {
       hash: function (s) { return 'h:' + s; }
-    }
+    },
+    /* Раунд holB: запись открытых окошек адвента и уведомление закрытого. */
+    Storage: {
+      data: opts.storage || {},
+      get: function (k, d) { return (k in this.data) ? this.data[k] : d; },
+      set: function (k, v) { this.data[k] = v; }
+    },
+    Noty: { shown: [], show: function (t) { this.shown.push(t); } }
   };
+  var tmdbCalls = [];
+  if (opts.tmdb) {
+    Lampa.Api = { sources: { tmdb: { get: function (url, params, ok, err) { tmdbCalls.push({ url: url, ok: ok, err: err }); } } } };
+  }
   globalThis.window = { Lampa: Lampa, innerWidth: 1920 };
   globalThis.Lampa = Lampa;
 
@@ -210,7 +221,14 @@ function setupRows(opts) {
   var ctx = loadCtx('44_rows.js', {
     pref: function (name, def) { return (name in prefs) ? prefs[name] : def; },
     sources: fakeSources,
-    lang: function (key) { return ({ lumen_advent_title: 'Адвент-календарь', lumen_advent_day: 'День', lumen_advent_today: 'Сегодня' })[key] || key; },
+    lang: function (key) {
+      return ({
+        lumen_advent_title: 'Адвент-календарь', lumen_advent_day: 'День', lumen_advent_today: 'Сегодня',
+        lumen_advent_left: 'до Нового года', lumen_advent_eve: 'новогодняя ночь', lumen_advent_date: '{d} декабря',
+        lumen_advent_final: 'Новогодняя ночь', lumen_advent_locked: 'Окошко откроется {d} декабря'
+      })[key] || key;
+    },
+    daysWord: function (n) { return n % 10 === 1 && n % 100 !== 11 ? 'день' : (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? 'дня' : 'дней'); },
     themes: themes || undefined,
     manifest: { get: function () { return manifest; }, load: function (cb) { cb(manifest); } }
   });
@@ -228,7 +246,7 @@ function setupRows(opts) {
     return out;
   }
 
-  return { R: R, rows: rows, fetchCalls: fetchCalls, postersCalls: postersCalls, Lampa: Lampa, manifest: manifest, prefs: prefs, LC: ctx.LC };
+  return { R: R, rows: rows, fetchCalls: fetchCalls, postersCalls: postersCalls, tmdbCalls: tmdbCalls, Lampa: Lampa, manifest: manifest, prefs: prefs, LC: ctx.LC };
 }
 
 // --- bumpGen ---
@@ -478,21 +496,48 @@ const XMAS_MANIFEST = {
   home: ['col-a'],
   collections: [
     { id: 'col-a', title: 'Collection A', sources: { movie: {} } },
+    { id: 'new-year', title: 'Новогоднее', season: [12, 1], sources: { movie: {} } },
     { id: 'xmas-comedy', title: 'Рождественские комедии', season: [12, 1], sources: { movie: {} } },
     { id: 'christmas', title: 'Рождественское кино', season: [12, 1], sources: { movie: {} } }
   ]
 };
 
+/* Раунд holB: адвент под СНГ — 31 окошко. Ответы пяти запросов пула:
+   «Новогоднее» (наше, одна страница, в нём и «Ирония судьбы») и две
+   рождественские по две страницы. */
+function answerAdvent(s, withIrony) {
+  var ours = [];
+  for (var i = 0; i < 10; i++) ours.push({ id: 500 + i, title: 'наш ' + i });
+  if (withIrony !== false) ours.push({ id: 43430, title: 'Ирония судьбы, или С лёгким паром!' });
+  s.fetchCalls[0].ok({ results: ours });
+  for (var k = 1; k < 5; k++) {
+    var list = [];
+    for (var j = 0; j < 12; j++) list.push({ id: 100 + k * 20 + j, title: 'мир ' + k + '/' + j });
+    s.fetchCalls[k].ok({ results: list });
+  }
+}
+
+function adventPayload(s) {
+  var rows = s.rows();
+  var got = [];
+  rows[0].call({}, 'main')(function (payload) { got.push(payload); });
+  return got;
+}
+
 /* Место ряда адвента (первым среди подборок в режиме «Сначала
    «Досмотреть»», на месте 0 при ротации) назначает план главной —
    test/homeplan.test.mjs. */
-test('адвент: в декабре — описание ряда с днём в заголовке', function () {
+test('адвент: в декабре — описание ряда, в заголовке — сколько до Нового года', function () {
   var s = setupRows({ manifest: XMAS_MANIFEST, now: new Date(2026, 11, 5) });
   var advent = s.R.adventRow(s.manifest);
   assert.equal(advent.name, 'lumen_advent');
-  assert.equal(advent.title, 'Адвент-календарь · день 5');
+  assert.equal(advent.title, 'Адвент-календарь · до Нового года 27 дней');
   assert.equal(advent.screen, 'main');
   assert.equal(advent.index, undefined);
+  assert.equal(setupRows({ manifest: XMAS_MANIFEST, now: new Date(2026, 11, 30) }).R.adventRow(XMAS_MANIFEST).title,
+    'Адвент-календарь · до Нового года 2 дня');
+  assert.equal(setupRows({ manifest: XMAS_MANIFEST, now: new Date(2026, 11, 31) }).R.adventRow(XMAS_MANIFEST).title,
+    'Адвент-календарь · новогодняя ночь');
 });
 
 test('адвент: не в декабре ряда нет вовсе — ни запроса, ни описания', function () {
@@ -506,16 +551,17 @@ test('адвент: без LC.themes (каталог без тем, старый
   assert.equal(s.R.adventRow(s.manifest), null);
 });
 
-test('адвент: без рождественских подборок в каталоге ряда нет', function () {
+test('адвент: без новогодних подборок в каталоге ряда нет', function () {
   var s = setupRows({ now: new Date(2026, 11, 5) });
   assert.equal(s.R.adventRow(s.manifest), null);
 });
 
-test('адвентSpecs: две подборки по две страницы, порядок фиксирован', function () {
+test('адвентSpecs: «Новогоднее» — одна страница и наше; рождественские — по две; порядок фиксирован', function () {
   var s = setupRows({ manifest: XMAS_MANIFEST, now: new Date(2026, 11, 5) });
   var specs = s.R.adventSpecs(XMAS_MANIFEST);
   assert.deepEqual(specs.map(function (x) { return x.item.id + ':' + x.page; }),
-    ['xmas-comedy:1', 'xmas-comedy:2', 'christmas:1', 'christmas:2']);
+    ['new-year:1', 'xmas-comedy:1', 'xmas-comedy:2', 'christmas:1', 'christmas:2']);
+  assert.deepEqual(specs.map(function (x) { return !!x.ours; }), [true, false, false, false, false]);
   assert.deepEqual(s.R.adventSpecs({ collections: [] }), []);
   assert.deepEqual(s.R.adventSpecs(null), []);
 });
@@ -527,22 +573,119 @@ test('adventPool: дубли между подборками снимаются,
   assert.deepEqual(s.R.adventPool([]), []);
 });
 
-test('адвент: четыре запроса, один ответ Lampa, карточки с метками дней', function () {
+test('адвент: пять запросов, один ответ Lampa — 31 окошко, прошедшие открыты, будущие закрыты', function () {
   var s = setupRows({ manifest: XMAS_MANIFEST, now: new Date(2026, 11, 3) });
-  var rows = s.rows();
-  var advent = rows[0];
-  var got = [];
-  advent.call({}, 'main')(function (payload) { got.push(payload); });
-  assert.equal(s.fetchCalls.length, 4, 'две подборки по две страницы');
+  var got = adventPayload(s);
+  assert.equal(s.fetchCalls.length, 5, '«Новогоднее» и две рождественские по две страницы');
   assert.equal(got.length, 0, 'до последнего ответа ряд молчит');
-  for (var i = 0; i < 4; i++) {
-    s.fetchCalls[i].ok({ results: [{ id: 100 + i, title: 'f' + i }, { id: 200 + i, title: 'g' + i }] });
-  }
+  answerAdvent(s);
   assert.equal(got.length, 1, 'ровно один ответ Lampa');
-  assert.equal(got[0].results.length, 3, 'три дня декабря');
-  assert.deepEqual(got[0].results.map(function (c) { return c.day; }), [1, 2, 3]);
-  assert.equal(got[0].results[2].lumen_badge, 'Сегодня · день 3');
-  assert.equal(got[0].results[0].lumen_badge, 'День 1');
+  var cards = got[0].results;
+  assert.equal(cards.length, 31, 'все 31 окошко видны');
+  assert.deepEqual(cards.slice(0, 3).map(function (c) { return c.lumen_advent.state; }), ['open', 'open', 'today']);
+  assert.equal(cards[2].lumen_badge, 'Сегодня');
+  assert.equal(cards[0].lumen_badge, 'День 1');
+  assert.ok(cards.slice(3).every(function (c) { return c.lumen_advent.state === 'locked' && c.id == null; }));
+  assert.equal(cards[3].title, '4 декабря');
+  assert.equal(got[0].lumen_keep, true, 'из-под порога длины выведен');
+  assert.equal(got[0].params.items.view, 31, 'все окошки строятся сразу — фокус встаёт на сегодняшнее');
+  assert.equal(typeof got[0].params.emit.onCreate, 'function');
+  for (var i = 0; i < cards.length; i++) assert.equal(typeof cards[i].params.emit.onCreate, 'function', 'окошко ' + (i + 1));
+});
+
+test('адвент: закрытое окошко — OK говорит, когда оно откроется, фильма не открывает; долгое OK молчит', function () {
+  var s = setupRows({ manifest: XMAS_MANIFEST, now: new Date(2026, 11, 3) });
+  var got = adventPayload(s);
+  answerAdvent(s);
+  var locked = got[0].results[14];
+  assert.equal(typeof locked.params.emit.onlyEnter, 'function');
+  assert.equal(typeof locked.params.emit.onlyLong, 'function', 'меню карточки у закрытого окошка не открывается');
+  locked.params.emit.onlyEnter();
+  assert.deepEqual(s.Lampa.Noty.shown, ['Окошко откроется 15 декабря']);
+  var open = got[0].results[0];
+  assert.equal(open.params.emit.onlyEnter, undefined, 'открытое окошко открывает фильм как обычная карточка');
+  assert.ok(open.id > 0);
+});
+
+test('адвент: ряд ставит фокус на сегодняшнее окошко; окошко получает классы и дверцу', function () {
+  var s = setupRows({ manifest: XMAS_MANIFEST, now: new Date(2026, 11, 12) });
+  var got = adventPayload(s);
+  answerAdvent(s);
+  var cards = got[0].results;
+  var line = { items: cards.map(function (d) { return { data: d, render: function () { return { day: d.day }; } }; }) };
+  got[0].params.emit.onCreate.call(line);
+  assert.equal(line.last.day, 12, 'Line.last — сегодняшнее окошко: collectionFocus поставит фокус на него');
+  assert.equal(line.active, 11);
+
+  function fakeCard(data) {
+    var classes = [];
+    var html = [];
+    var view = { insertAdjacentHTML: function (where, h) { html.push(h); } };
+    return {
+      data: data, classes: classes, html: html,
+      node: { classList: { add: function (c) { classes.push(c); } }, querySelector: function (q) { return q === '.card__view' ? view : null; } }
+    };
+  }
+  var locked = fakeCard(cards[20]);
+  cards[20].params.emit.onCreate.call({ data: locked.data, html: locked.node });
+  assert.ok(locked.classes.indexOf('lumen-advent-card') !== -1 && locked.classes.indexOf('lumen-advent-card--locked') !== -1);
+  assert.equal(locked.html.length, 1, 'дверца в .card__view');
+  assert.ok(/lumen-advent__num[^>]*>21</.test(locked.html[0]), 'на дверце — число');
+  assert.ok(/lumen-advent__lock/.test(locked.html[0]), 'и замок');
+  var last = fakeCard(cards[30]);
+  cards[30].params.emit.onCreate.call({ data: last.data, html: last.node });
+  assert.ok(last.classes.indexOf('lumen-advent-card--final') !== -1);
+  assert.ok(/Новогодняя ночь/.test(last.html[0]), 'на плитке 31-го — «Новогодняя ночь»');
+  var today = fakeCard(cards[11]);
+  cards[11].params.emit.onCreate.call({ data: today.data, html: today.node });
+  assert.ok(today.classes.indexOf('lumen-advent-card--today') !== -1);
+  assert.ok(today.classes.indexOf('lumen-advent-card--fresh') !== -1, 'первый показ сегодняшнего — открытие');
+  assert.ok(/lumen-advent__door--opening/.test(today.html[0]), 'дверца, которая откроется');
+  var past = fakeCard(cards[0]);
+  cards[0].params.emit.onCreate.call({ data: past.data, html: past.node });
+  assert.equal(past.html.length, 0, 'у открытого окошка дверцы нет — постер');
+});
+
+test('адвент: открытые окошки запоминаются — назавтра те же фильмы у прошедших дней, сегодняшнее не «свежее» повторно', function () {
+  var s = setupRows({ manifest: XMAS_MANIFEST, now: new Date(2026, 11, 3) });
+  var got = adventPayload(s);
+  answerAdvent(s);
+  var rec = s.Lampa.Storage.data.lumen_advent_open;
+  assert.equal(rec.y, 2026);
+  assert.deepEqual(Object.keys(rec.d).sort(), ['1', '2', '3']);
+  var first = got[0].results.slice(0, 3).map(function (c) { return c.id; });
+
+  var s2 = setupRows({ manifest: XMAS_MANIFEST, now: new Date(2026, 11, 4), storage: { lumen_advent_open: rec } });
+  var got2 = adventPayload(s2);
+  answerAdvent(s2);
+  assert.deepEqual(got2[0].results.slice(0, 3).map(function (c) { return c.id; }), first);
+  assert.equal(got2[0].results[3].lumen_advent.fresh, true);
+  assert.ok(!got2[0].results[2].lumen_advent.fresh);
+  assert.deepEqual(Object.keys(s2.Lampa.Storage.data.lumen_advent_open.d).sort(), ['1', '2', '3', '4']);
+});
+
+test('адвент: 31 декабря — «Ирония судьбы» из «Новогоднего», без лишнего запроса', function () {
+  var s = setupRows({ manifest: XMAS_MANIFEST, now: new Date(2026, 11, 31), tmdb: true });
+  var got = adventPayload(s);
+  answerAdvent(s, true);
+  var last = got[0].results[30];
+  assert.equal(last.id, 43430);
+  assert.equal(last.lumen_advent.final, true);
+  assert.equal(last.lumen_badge, 'Сегодня');
+  assert.equal(s.tmdbCalls.length, 0);
+});
+
+test('адвент: 31 декабря без Иронии в подборке — дозапрос movie/43430, ряд ждёт его ответа', function () {
+  var s = setupRows({ manifest: XMAS_MANIFEST, now: new Date(2026, 11, 31), tmdb: true });
+  var got = adventPayload(s);
+  answerAdvent(s, false);
+  assert.equal(got.length, 0, 'ждёт карточку 31-го');
+  assert.equal(s.tmdbCalls.length, 1);
+  assert.equal(s.tmdbCalls[0].url, 'movie/43430');
+  s.tmdbCalls[0].ok({ id: 43430, title: 'Ирония судьбы, или С лёгким паром!', poster_path: '/i.jpg', genres: [{ id: 35 }] });
+  assert.equal(got.length, 1);
+  assert.equal(got[0].results[30].id, 43430);
+  assert.deepEqual(got[0].results[30].genre_ids, [35], 'карточка из деталей — в виде карточки списка');
 });
 
 test('адвент: ошибки всех запросов дают пустой ряд, но ровно один call', function () {
@@ -550,9 +693,9 @@ test('адвент: ошибки всех запросов дают пустой
   var rows = s.rows();
   var got = [];
   rows[0].call({}, 'main')(function (payload) { got.push(payload); });
-  for (var i = 0; i < 4; i++) s.fetchCalls[i].err({});
+  for (var i = 0; i < 5; i++) s.fetchCalls[i].err({});
   assert.equal(got.length, 1);
-  assert.deepEqual(got[0].results, []);
+  assert.deepEqual(got[0].results, [], 'без единого фильма ряда нет — одних дверец мало');
 });
 
 test('адвент: уход с главной закрывает ряд пустым результатом (контракт Lampa)', function () {
@@ -563,11 +706,11 @@ test('адвент: уход с главной закрывает ряд пус�
   s.R.bumpGen();
   assert.equal(got.length, 1, 'ряд закрыт немедленно');
   assert.deepEqual(got[0].results, []);
-  /* cancel() зовёт clear() у всех четырёх ручек — фейковый fetch умеет
-     пометить только последнюю, поэтому проверяем сам факт отмены по ней. */
+  /* cancel() зовёт clear() у всех ручек — фейковый fetch умеет пометить
+     только последнюю, поэтому проверяем сам факт отмены по ней. */
   handle.cancel();
   assert.ok(s.fetchCalls[s.fetchCalls.length - 1].cleared, 'запросы отменены');
-  for (var i = 0; i < 4; i++) s.fetchCalls[i].ok({ results: [{ id: i }] });
+  for (var i = 0; i < 5; i++) s.fetchCalls[i].ok({ results: [{ id: i }] });
   assert.equal(got.length, 1, 'второго call не случилось');
 });
 

@@ -961,3 +961,18 @@ test('сверка: метка «Сезонная» экранируется, к
   const it = box.items.filter((i) => i.lumen_id === 'halloween')[0];
   assert.equal(it.subtitle, 'Сезон&lt;b&gt;');
 });
+
+/* Раунд holB: адвент под СНГ. Строки ряда адвента — на всех трёх языках,
+   с подстановкой дня. */
+test('holB: строки адвента на трёх языках, дата и уведомление закрытого окошка — с днём', () => {
+  const env = setup();
+  const S = env.LC.STRINGS;
+  for (const key of ['lumen_advent_left', 'lumen_advent_eve', 'lumen_advent_final', 'lumen_advent_date', 'lumen_advent_locked']) {
+    for (const lang of ['ru', 'en', 'uk']) assert.ok(S[key] && S[key][lang], key + '.' + lang);
+  }
+  for (const lang of ['ru', 'en', 'uk']) {
+    assert.ok(S.lumen_advent_date[lang].indexOf('{d}') !== -1, 'дата окошка — с днём: ' + lang);
+    assert.ok(S.lumen_advent_locked[lang].indexOf('{d}') !== -1, 'уведомление закрытого — с днём: ' + lang);
+  }
+  assert.equal(S.lumen_advent_date.ru, '{d} декабря');
+});

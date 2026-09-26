@@ -117,50 +117,123 @@ test('seasonalIds: месяц → id подборок с season, включая 
   assert.deepEqual(T.seasonalIds(cols, 0), []);
 });
 
-const words = { today: 'Сегодня', day: 'День' };
+/* ====================================================================== */
+/* Раунд holB: адвент под СНГ — 31 окошко (1–31 декабря).                 */
+/*                                                                        */
+/* Пользователь: «Адвент — прикольная тема, но это надо адаптировать под  */
+/* СНГ: у нас 31 день, где 31 числа обычно смотрят „Иронию судьбы“».       */
+/* Все 31 окошко видны; прошедшие и сегодняшний открыты (фильм дня),       */
+/* будущие закрыты (дата и замок), 31-е — «Ирония судьбы». Открытые        */
+/* окошки запоминаются (lumen_advent_open) — фильм прошедшего дня не       */
+/* меняется, даже если TMDB переставил подборку.                          */
+/* ====================================================================== */
 
-test('adventDays: декабрь → дни 1..min(today,24), детерминированный фильм на день', () => {
-  const pool = Array.from({ length: 30 }, (_, i) => ({ id: 100 + i, title: 't' + i }));
-  const d = T.adventDays(pool, new Date(2026, 11, 5), words);
-  assert.equal(d.length, 5);
-  assert.equal(d[4].day, 5);
-  assert.ok(d[4].lumen_badge.indexOf('Сегодня') === 0);
-  assert.deepEqual(T.adventDays(pool, new Date(2026, 11, 5), words).map(x => x.id), d.map(x => x.id)); // детерминизм
-  assert.equal(new Set(d.map(x => x.id)).size, 5); // без повторов
-  assert.deepEqual(T.adventDays(pool, new Date(2026, 10, 30), words), []); // ноябрь — пусто
-  assert.equal(T.adventDays(pool, new Date(2026, 11, 28), words).length, 24);
+const words = { today: 'Сегодня', day: 'День', date: '{d} декабря', final: 'Новогодняя ночь' };
+const pool = (from, n) => Array.from({ length: n }, (_, i) => ({ id: from + i, title: 't' + (from + i), poster_path: '/p' + (from + i) + '.jpg' }));
+const IRONY = { id: 43430, title: 'Ирония судьбы, или С лёгким паром!', poster_path: '/irony.jpg' };
+const dec = (d) => new Date(2026, 11, d, 12, 0, 0);
+const states = (cards) => cards.map((c) => c.lumen_advent.state);
+
+test('holB адвент: 31 окошко — прошедшие открыты, сегодняшнее «сегодня», будущие закрыты', () => {
+  const cards = T.adventDays({ world: pool(100, 40), ours: pool(500, 10) }, dec(15), words);
+  assert.equal(cards.length, 31);
+  assert.deepEqual(cards.map((c) => c.day), Array.from({ length: 31 }, (_, i) => i + 1));
+  const st = states(cards);
+  assert.ok(st.slice(0, 14).every((s) => s === 'open'), 'дни 1–14 открыты');
+  assert.equal(st[14], 'today');
+  assert.ok(st.slice(15).every((s) => s === 'locked'), 'дни 16–31 закрыты');
+  const open = cards.slice(0, 15);
+  assert.equal(new Set(open.map((c) => c.id)).size, 15, 'фильмы без повторов');
+  assert.equal(cards[0].lumen_badge, 'День 1');
+  assert.equal(cards[14].lumen_badge, 'Сегодня', 'одно слово — «Сегодня · день 15» рвалось на постере надвое');
+  const locked = cards[20];
+  assert.equal(locked.id, undefined, 'у закрытого окошка нет фильма');
+  assert.equal(locked.poster_path, undefined);
+  assert.equal(locked.title, '21 декабря');
+  assert.equal(locked.lumen_badge, undefined);
+  assert.equal(cards[30].lumen_advent.final, true, '31-е — особая плитка и закрытым');
+  assert.ok(!cards[29].lumen_advent.final);
 });
 
-test('adventDays: метка прошедшего дня — «День N», сегодняшнего — «Сегодня · день N»', () => {
-  const pool = Array.from({ length: 30 }, (_, i) => ({ id: 100 + i, title: 't' + i }));
-  const d = T.adventDays(pool, new Date(2026, 11, 3), words);
-  assert.equal(d[0].lumen_badge, 'День 1');
-  assert.equal(d[2].lumen_badge, 'Сегодня · день 3');
+test('holB адвент: каждое третье окошко — наше новогоднее кино, остальные — мировое', () => {
+  const ours = pool(500, 10);
+  const cards = T.adventDays({ world: pool(100, 40), ours: ours }, dec(30), words);
+  const oursIds = new Set(ours.map((c) => c.id));
+  for (let day = 1; day <= 30; day++) {
+    assert.equal(oursIds.has(cards[day - 1].id), day % 3 === 0, 'день ' + day);
+  }
 });
 
-test('adventDays: исходные карточки не мутируются, порядок — от сегодняшнего дня вниз не идёт', () => {
-  const pool = [{ id: 1, title: 'a' }, { id: 2, title: 'b' }, { id: 3, title: 'c' }];
-  const d = T.adventDays(pool, new Date(2026, 11, 2), words);
-  assert.equal(pool[0].lumen_badge, undefined);
-  assert.deepEqual(d.map(x => x.day), [1, 2]);
+test('holB адвент: раскладка детерминирована, исходные карточки не мутируются, не декабрь — пусто', () => {
+  const world = pool(100, 40);
+  const a = T.adventDays({ world: world, ours: pool(500, 10) }, dec(12), words);
+  const b = T.adventDays({ world: world, ours: pool(500, 10) }, dec(12), words);
+  assert.deepEqual(a.map((c) => c.id), b.map((c) => c.id));
+  assert.equal(world[0].lumen_badge, undefined);
+  assert.equal(world[0].lumen_advent, undefined);
+  assert.deepEqual(T.adventDays({ world: world }, new Date(2026, 10, 30), words), []);
+  assert.deepEqual(T.adventDays({ world: world }, new Date(2027, 0, 1), words), []);
+  /* Голый массив — прежняя форма пула: всё «мировое». */
+  assert.equal(T.adventDays(world, dec(2), words)[1].lumen_advent.state, 'today');
 });
 
-test('adventDays: пул короче числа дней — дни без фильма отбрасываются, повторов нет', () => {
-  const pool = [{ id: 1 }, { id: 2 }, { id: 3 }];
-  const d = T.adventDays(pool, new Date(2026, 11, 10), words);
-  assert.equal(d.length, 3);
-  assert.equal(new Set(d.map(x => x.id)).size, 3);
-  assert.deepEqual(T.adventDays([], new Date(2026, 11, 10), words), []);
-  assert.deepEqual(T.adventDays(null, new Date(2026, 11, 10), words), []);
+test('holB адвент: пул короче числа дней — прошедшие окошки без фильма «пустые», повторов нет', () => {
+  const cards = T.adventDays({ world: pool(1, 3) }, dec(10), words);
+  assert.equal(cards.length, 31);
+  assert.deepEqual(states(cards).slice(0, 10).filter((s) => s !== 'empty').length, 3);
+  assert.equal(new Set(cards.filter((c) => c.id).map((c) => c.id)).size, 3);
+  assert.ok(states(T.adventDays({}, dec(10), words)).slice(0, 10).every((s) => s === 'empty'));
+  assert.ok(states(T.adventDays(null, dec(10), words)).slice(0, 10).every((s) => s === 'empty'));
 });
 
-test('adventDays: день 24 помечен особой плиткой (дизайн: акцентная рамка)', () => {
-  const pool = Array.from({ length: 30 }, (_, i) => ({ id: 100 + i }));
-  const d = T.adventDays(pool, new Date(2026, 11, 24), words);
-  assert.equal(d.length, 24);
-  assert.equal(d[23].day, 24);
-  assert.equal(d[23].lumen_final, true);
-  assert.equal(d[0].lumen_final, undefined);
+test('holB адвент: «Ирония судьбы» — только в окошке 31-го, и 31-го оно открыто', () => {
+  const ours = pool(500, 10).concat([IRONY]);
+  for (let d = 1; d <= 30; d++) {
+    const cards = T.adventDays({ world: pool(100, 40), ours: ours }, dec(d), words);
+    assert.ok(cards.every((c) => c.id !== 43430), 'день ' + d + ': Ирония ещё закрыта');
+  }
+  const eve = T.adventDays({ world: pool(100, 40), ours: ours }, dec(31), words);
+  const last = eve[30];
+  assert.equal(last.id, 43430);
+  assert.equal(last.lumen_advent.state, 'today');
+  assert.equal(last.lumen_advent.final, true);
+  assert.equal(last.lumen_badge, 'Сегодня');
+  assert.equal(T.ADVENT_FINAL_ID, 43430);
+  /* Отдельно запрошенная карточка (в пулах её нет) — тоже 31-го. */
+  const alone = T.adventDays({ world: pool(100, 40), final: IRONY }, dec(31), words);
+  assert.equal(alone[30].id, 43430);
+  /* Иронии нет нигде — 31-е получает фильм из пула, не пустое окошко. */
+  const none = T.adventDays({ world: pool(100, 40) }, dec(31), words);
+  assert.ok(none[30].id > 0 && none[30].lumen_advent.final);
+});
+
+test('holB адвент: запомненные окошки — фильм прошедшего дня тот же, даже если подборку переставили', () => {
+  const world = pool(100, 40);
+  const ours = pool(500, 10);
+  const day3 = T.adventDays({ world: world, ours: ours }, dec(3), words);
+  const record = T.adventRecord(day3, dec(3));
+  assert.equal(record.y, 2026);
+  assert.deepEqual(Object.keys(record.d).sort(), ['1', '2', '3']);
+  const shuffled = { world: world.slice().reverse().slice(5), ours: ours.slice().reverse() };
+  const day4 = T.adventDays(shuffled, dec(4), words, record);
+  for (let d = 1; d <= 3; d++) {
+    const before = day3[d - 1].id;
+    if (shuffled.world.concat(shuffled.ours).some((c) => c.id === before)) assert.equal(day4[d - 1].id, before, 'день ' + d);
+  }
+  assert.equal(day4[3].lumen_advent.fresh, true, 'новое окошко сегодня — открывается впервые');
+  assert.ok(!day4[2].lumen_advent.fresh, 'вчерашнее уже открывали');
+  const again = T.adventDays(shuffled, dec(4), words, T.adventRecord(day4, dec(4)));
+  assert.ok(!again[3].lumen_advent.fresh, 'второй показ того же дня — без открытия');
+});
+
+test('holB адвент: запись прошлого года не действует; запись — только открытые окошки с фильмом', () => {
+  const world = pool(100, 40);
+  const cards = T.adventDays({ world: world }, dec(2), words, { y: 2025, d: { 1: 111, 2: 112 } });
+  assert.equal(cards[1].lumen_advent.fresh, true);
+  const rec = T.adventRecord(cards, dec(2));
+  assert.deepEqual(Object.keys(rec.d), ['1', '2']);
+  assert.ok(Object.keys(rec.d).every((k) => rec.d[k] > 0));
+  assert.deepEqual(T.adventRecord([], dec(2)), { y: 2026, d: {} });
 });
 
 test('monthOf: месяц 1..12 из даты, хук _now подменяем для живой проверки', () => {
@@ -190,3 +263,4 @@ test('current: каталог без тем — встроенные прави�
   assert.equal(make([]).current()[0].id, 'built');
   assert.equal(make(own).current()[0].id, 'own');
 });
+

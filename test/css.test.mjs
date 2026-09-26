@@ -8292,3 +8292,33 @@ test('сверка: метка в подписи на главной — ≥ 4.5
   }
   assert.deepEqual(bad, []);
 });
+
+/* Раунд holB: адвент под СНГ — дверцы окошек (src/44_rows.js, doorHtml).
+   Дверца лежит поверх постера в .card__view и раскладку ряда не трогает:
+   инвариант Task 51 (низ подписи первого ряда ≤ 532 на 960×540) держат
+   размеры карточки, а у дверцы — только position:absolute во весь постер.
+   Открытие сегодняшнего окошка — одна анимация transform и opacity, и
+   только при полных анимациях; в «Лёгких» и «Выкл» дверцы нет — сразу
+   постер. */
+test('holB: адвент — дверца поверх постера не меняет размеров карточки; открытие только в «Полных»', () => {
+  const door = findDecl(css, (sel) => sel === '.lumen-main .card .lumen-advent__door');
+  assert.ok(door, 'правило дверцы');
+  assert.ok(/(?:^|;)position:absolute(?:;|$)/.test(door) && /top:0/.test(door) && /bottom:0/.test(door), door);
+  const lines = css.split('\n').filter((l) => l.indexOf('lumen-advent') !== -1);
+  for (const l of lines) {
+    const sel = l.slice(0, l.indexOf('{'));
+    if (/\.card(?:[\s,{]|$)/.test(sel + ' ') && !/lumen-advent__/.test(sel)) {
+      assert.ok(!/(?:^|[;{])(width|height|margin|padding)(?:-[a-z]+)?:/.test(l.slice(l.indexOf('{'))), 'правило карточки окошка не меняет её размер: ' + l);
+    }
+  }
+  const anim = lines.filter((l) => /animation:lumen-advent-open/.test(l));
+  assert.ok(anim.length >= 1, 'открытие окошка анимировано');
+  assert.ok(anim.every((l) => l.indexOf('body.lumen-motion-full ') === 0), 'и только при полных анимациях: ' + anim.join(' | '));
+  const lite = findDecl(css, (sel) => sel === 'body.lumen-motion-lite .lumen-main .card .lumen-advent__door--opening');
+  assert.ok(lite && /display:none/.test(lite), '«Лёгкие» — без дверцы, сразу постер');
+  const key = css.split('\n').filter((l) => l.indexOf('@keyframes lumen-advent-open') === 0)[0];
+  assert.ok(key && /transform/.test(key) && /opacity/.test(key) && !/box-shadow|filter|width|height/.test(key), key);
+  assert.ok(findDecl(css, (sel) => sel === '.lumen-main .card.lumen-advent-card--final .lumen-advent__door'), 'особая плитка 31-го');
+  const ring = findDecl(css, (sel) => sel === '.lumen-main .lumen-advent-card--today .card__view');
+  assert.ok(ring && /outline:[^;]+solid/.test(ring), 'сегодняшнее окошко выделено контуром, не тенью: ' + ring);
+});

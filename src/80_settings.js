@@ -235,6 +235,14 @@
     lumen_advent_title: { ru: 'Адвент-календарь', en: 'Advent calendar', uk: 'Адвент-календар' },
     lumen_advent_day: { ru: 'День', en: 'Day', uk: 'День' },
     lumen_advent_today: { ru: 'Сегодня', en: 'Today', uk: 'Сьогодні' },
+    /* Раунд holB: адвент под СНГ — 31 окошко (src/44_rows.js). Заголовок
+       ряда: «… · до Нового года 16 дней», 31-го — «… · новогодняя ночь».
+       {d} — день декабря: подпись закрытого окошка и его уведомление по OK. */
+    lumen_advent_left: { ru: 'до Нового года', en: 'to New Year', uk: 'до Нового року' },
+    lumen_advent_eve: { ru: 'новогодняя ночь', en: 'New Year\'s Eve', uk: 'новорічна ніч' },
+    lumen_advent_final: { ru: 'Новогодняя ночь', en: 'New Year\'s Eve', uk: 'Новорічна ніч' },
+    lumen_advent_date: { ru: '{d} декабря', en: 'December {d}', uk: '{d} грудня' },
+    lumen_advent_locked: { ru: 'Окошко откроется {d} декабря', en: 'This window opens on December {d}', uk: 'Віконце відкриється {d} грудня' },
     lumen_motion_auto_noty: {
       ru: 'Lumen Card: включены лёгкие анимации — устройство не успевает рисовать полные',
       en: 'Lumen Card: light animations enabled — this device cannot keep up with the full ones',

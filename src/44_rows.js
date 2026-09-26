@@ -15,7 +15,7 @@
   /*   installDedupe() / uninstallDedupe() — обёртка над Lampa.Api.main     */
   /*   served() → строилась ли главная с нашими рядами хоть раз             */
   /*   describe(item, pinned) → описание ряда подборки для ContentRows       */
-  /*   adventRow(manifest) → описание ряда адвента (декабрь) или null        */
+  /*   adventRow(manifest) → описание ряда адвента (декабрь, 31 окошко)      */
   /*                                                                       */
   /* Волна 4 (ТВ 2026-09-24): сам модуль ряды больше не регистрирует. Что  */
   /* и на каком месте стоит, решает план главной (src/47_homeplan.js): он  */
@@ -738,20 +738,43 @@
     }
 
     /* ------------------------------------------------------------------ */
-    /* Task 21 (фаза 3): адвент-календарь.                                 */
+    /* Task 21 (фаза 3): адвент-календарь. Раунд holB: адвент под СНГ.     */
     /*                                                                     */
-    /* В декабре над подборками встаёт ряд «Адвент-календарь · день N»: по */
-    /* одному рождественскому фильму на каждый день с 1-го по сегодняшний  */
-    /* (максимум 24). Раскладка детерминированная — 5 декабря показывает   */
-    /* один и тот же фильм и утром, и вечером (LC.themes.adventDays).      */
+    /* Пользователь: «Адвент — прикольная тема, но это надо адаптировать   */
+    /* под СНГ: у нас 31 день, где 31 числа обычно смотрят „Иронию         */
+    /* судьбы“». В декабре над подборками встаёт ряд «Адвент-календарь ·   */
+    /* до Нового года N дней»: 31 окошко, все видны. Прошедшие и           */
+    /* сегодняшнее открыты — фильм дня; будущие закрыты — дверца с датой и */
+    /* замком, фильма в карточке нет вовсе (кадр героя, дедупликация и     */
+    /* меню карточки его не увидят), OK на ней только говорит, когда она   */
+    /* откроется. 31-е — «Ирония судьбы» (LC.themes.ADVENT_FINAL_ID),      */
+    /* особая плитка и закрытой («Новогодняя ночь»). Раскладка фильмов по  */
+    /* дням и запись открытых окошков — LC.themes.adventDays/adventRecord. */
     /*                                                                     */
-    /* Пул — первые две страницы подборок 'xmas-comedy' и 'christmas'.     */
-    /* Ряд не входит в лимит числа рядов: он живёт три недели в году и     */
-    /* занимает место не подборки, а праздника.                            */
+    /* Пул — «Новогоднее» (наше кино, orig_lang ru, одна страница: в нём   */
+    /* ~11 фильмов) и первые две страницы 'xmas-comedy' и 'christmas'.     */
+    /* Каждое третье окошко — наше. Ряд не входит в лимит числа рядов: он  */
+    /* живёт месяц в году и занимает место не подборки, а праздника.       */
+    /*                                                                     */
+    /* Открытые окошки запоминаются: Lampa.Storage 'lumen_advent_open' —   */
+    /* {y: год, d: {день: id фильма}}, малый набор дней текущего года.     */
+    /* Фильм прошедшего дня от этого не меняется, даже если TMDB           */
+    /* переставил подборку, а сегодняшнее окошко один раз «открывается» —  */
+    /* дверца распахивается (CSS, только при полных анимациях).           */
     /* ------------------------------------------------------------------ */
 
-    var ADVENT_IDS = ['xmas-comedy', 'christmas'];
-    var ADVENT_PAGES = 2;
+    var ADVENT_SPECS = [
+      { id: 'new-year', pages: 1, ours: true },
+      { id: 'xmas-comedy', pages: 2 },
+      { id: 'christmas', pages: 2 }
+    ];
+    var ADVENT_KEY = 'lumen_advent_open';
+    /* Прозрачный пиксель вместо постера закрытого окошка: без картинки
+       Lampa ставит свою «битую» (Card.getPosterPath, img_broken.svg). */
+    var ADVENT_BLANK = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+    /* Иконки дверцы — в стиле набора кнопок (24×24, штрих 1.8). */
+    var ADVENT_LOCK = '<svg class="lumen-advent__lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V7.5a4 4 0 018 0v3"/><path d="M12 14.5v2.5"/></svg>';
+    var ADVENT_STAR = '<svg class="lumen-advent__star" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3.2l2.5 5.3 5.8.8-4.2 4.1 1 5.8L12 16.5l-5.1 2.7 1-5.8-4.2-4.1 5.8-.8L12 3.2z"/></svg>';
 
     function adventWord(key, def) {
       try {
@@ -769,26 +792,25 @@
       return null;
     }
 
-    /* Пары «подборка + страница» для пула. Неизвестные id (каталог с
-       хостинга мог их не содержать) просто пропускаются. */
+    /* Пары «подборка + страница» для пула; ours — наше новогоднее кино.
+       Неизвестные id (каталог с хостинга мог их не содержать) просто
+       пропускаются. */
     function adventSpecs(manifest) {
       var out = [];
       if (!manifest || !Array.isArray(manifest.collections)) return out;
       var byId = {};
       var i;
       for (i = 0; i < manifest.collections.length; i++) byId[manifest.collections[i].id] = manifest.collections[i];
-      for (var j = 0; j < ADVENT_IDS.length; j++) {
-        var item = byId[ADVENT_IDS[j]];
+      for (var j = 0; j < ADVENT_SPECS.length; j++) {
+        var item = byId[ADVENT_SPECS[j].id];
         if (!item) continue;
-        for (var page = 1; page <= ADVENT_PAGES; page++) out.push({ item: item, page: page });
+        for (var page = 1; page <= ADVENT_SPECS[j].pages; page++) out.push({ item: item, page: page, ours: !!ADVENT_SPECS[j].ours });
       }
       return out;
     }
 
     /* Ответы подборок -> пул без дублей. Порядок фиксирован порядком
-       ЗАПРОСОВ, а не порядком ответов: от него зависит, какой фильм
-       достанется какому дню, и он обязан быть одинаковым при каждом
-       заходе на главную. */
+       ЗАПРОСОВ, а не порядком ответов. */
     function adventPool(slots) {
       var pool = [];
       var seen = {};
@@ -804,16 +826,149 @@
       return pool;
     }
 
-    function adventTitle(today) {
-      var day = today.getDate();
-      if (day > 24) day = 24;
-      return adventWord('lumen_advent_title', 'Advent calendar') + ' · ' +
-        adventWord('lumen_advent_day', 'Day').toLowerCase() + ' ' + day;
+    /* Сколько дней до Нового года — «27 дней» по-русски и на двух других
+       языках плагина (LC.daysWord, src/80_settings.js). */
+    function adventDays(n) {
+      var word = '';
+      try {
+        if (typeof LC.daysWord === 'function') word = LC.daysWord(n);
+      } catch (e) { }
+      return n + ' ' + (word || (n === 1 ? 'день' : 'дней'));
     }
 
-    /* call-функция ряда: четыре запроса (две подборки по две страницы),
-       общий пул, раскладка по дням. Контракт «ровно один call при любом
-       исходе» держит makeResolver, как и у обычных рядов. */
+    function adventTitle(today) {
+      var day = today.getDate();
+      var head = adventWord('lumen_advent_title', 'Advent calendar');
+      if (day >= 31) return head + ' · ' + adventWord('lumen_advent_eve', "New Year's Eve");
+      return head + ' · ' + adventWord('lumen_advent_left', 'to New Year') + ' ' + adventDays(32 - day);
+    }
+
+    function adventDate(day) {
+      return ('' + adventWord('lumen_advent_date', '{d} Dec')).replace('{d}', day);
+    }
+
+    /* Запись открытых окошков: Lampa.Storage отдаёт объект или его JSON. */
+    function adventOpened() {
+      try {
+        var raw = Lampa.Storage.get(ADVENT_KEY, '');
+        if (typeof raw === 'string') return raw ? JSON.parse(raw) : null;
+        return raw && typeof raw === 'object' ? raw : null;
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function adventSave(cards, today) {
+      try {
+        Lampa.Storage.set(ADVENT_KEY, LC.themes.adventRecord(cards, today));
+      } catch (e) { }
+    }
+
+    /* Дверца окошка — на месте постера (в .card__view). У закрытого — дата
+       и замок, у 31-го — звезда и «Новогодняя ночь»; у сегодняшнего при
+       первом показе — та же дверца без замка, которая распахивается
+       (lumen-advent__door--opening, src/30_css.js). */
+    function doorHtml(info) {
+      var cls = 'lumen-advent__door' + (info.fresh ? ' lumen-advent__door--opening' : '');
+      var note = info.final ? '<div class="lumen-advent__note">' + adventWord('lumen_advent_final', "New Year's Eve") + '</div>' : '';
+      var star = info.final ? ADVENT_STAR : '';
+      var lock = info.state === 'locked' ? ADVENT_LOCK : '';
+      var month = ('' + adventWord('lumen_advent_date', '{d}')).replace('{d}', '').replace(/^\s+|\s+$/g, '');
+      return '<div class="' + cls + '"><div class="lumen-advent__frame"></div>' + star +
+        '<div class="lumen-advent__num">' + info.day + '</div>' +
+        '<div class="lumen-advent__mon">' + month + '</div>' + note + lock + '</div>';
+    }
+
+    /* onCreate карточки окошка (Emit Lampa: this — сама карточка, html —
+       её узел): классы состояния и дверца. Зовётся ПОСЛЕ модулей карточки
+       Lampa — params.emit ставится в конец их списка (Utils.createInstance,
+       app.min.js:4705-4723). */
+    function adventCreate() {
+      try {
+        var info = this.data && this.data.lumen_advent;
+        var node = this.html;
+        if (!info || !node || !node.classList) return;
+        node.classList.add('lumen-advent-card');
+        node.classList.add('lumen-advent-card--' + info.state);
+        if (info.final) node.classList.add('lumen-advent-card--final');
+        if (info.fresh) node.classList.add('lumen-advent-card--fresh');
+        if (info.state === 'open' || (info.state === 'today' && !info.fresh)) return;
+        var view = node.querySelector('.card__view');
+        if (view) view.insertAdjacentHTML('beforeend', doorHtml(info));
+      } catch (e) {
+        warn('rows: advent card failed', e);
+      }
+    }
+
+    /* OK на закрытом окошке: карточка фильма не открывается (фильма там и
+       нет) — вместо неё уведомление, когда окошко откроется. */
+    function lockedEnter(day) {
+      return function () {
+        try {
+          if (window.Lampa && Lampa.Noty && typeof Lampa.Noty.show === 'function') {
+            Lampa.Noty.show(('' + adventWord('lumen_advent_locked', 'Opens on December {d}')).replace('{d}', day));
+          }
+        } catch (e) { }
+      };
+    }
+
+    function quiet() {}
+
+    /* Параметры Lampa для каждой карточки окошка: onCreate — оформление;
+       у закрытого и пустого — onlyEnter (вместо открытия карточки фильма)
+       и onlyLong (вместо меню карточки: у дверцы нет фильма, и «Закладки»
+       по ней завели бы запись без id). «only» у Emit Lampa заменяет все
+       обработчики события (app.min.js:11120-11136). */
+    function decorateAdvent(cards) {
+      for (var i = 0; i < cards.length; i++) {
+        var c = cards[i];
+        var emit = { onCreate: adventCreate };
+        if (c.lumen_advent && (c.lumen_advent.state === 'locked' || c.lumen_advent.state === 'empty')) {
+          emit.onlyEnter = lockedEnter(c.day);
+          emit.onlyLong = quiet;
+          c.img = ADVENT_BLANK;
+        }
+        c.params = { emit: emit };
+      }
+      return cards;
+    }
+
+    /* onCreate ряда (this — Line Lampa): фокус ряда встаёт на сегодняшнее
+       окошко. Line.toggle зовёт Controller.collectionFocus(this.last)
+       (app.min.js:35276-35281), а фокус карточки сам докручивает ряд к ней
+       (Items onAppend, 18985-18993). Все окошки строятся сразу
+       (items.view = 31), иначе сегодняшнего могло не быть среди первых. */
+    function focusToday() {
+      try {
+        var items = this.items || [];
+        for (var i = 0; i < items.length; i++) {
+          var d = items[i] && items[i].data;
+          if (d && d.lumen_advent && d.lumen_advent.state === 'today') {
+            this.last = items[i].render(true);
+            this.active = i;
+            return;
+          }
+        }
+      } catch (e) { }
+    }
+
+    /* Карточка из деталей фильма (movie/{id}) — в виде карточки списка:
+       жанры числами, как у discover. */
+    function listCard(json) {
+      var out = {};
+      for (var k in json) {
+        if (Object.prototype.hasOwnProperty.call(json, k)) out[k] = json[k];
+      }
+      if (!out.genre_ids && Array.isArray(json.genres)) {
+        out.genre_ids = [];
+        for (var i = 0; i < json.genres.length; i++) if (json.genres[i] && json.genres[i].id != null) out.genre_ids.push(json.genres[i].id);
+      }
+      return out;
+    }
+
+    /* call-функция ряда: запросы пула, при необходимости — карточка 31-го,
+       раскладка по дням. Контракт «ровно один call при любом исходе»
+       держит makeResolver, как и у обычных рядов. */
     function makeAdventCall(manifest) {
       return function (params, screen) {
         _served = true;
@@ -830,34 +985,76 @@
           var handles = [];
           var words = {
             day: adventWord('lumen_advent_day', 'Day'),
-            today: adventWord('lumen_advent_today', 'Today')
+            today: adventWord('lumen_advent_today', 'Today'),
+            date: adventWord('lumen_advent_date', '{d} Dec'),
+            final: adventWord('lumen_advent_final', "New Year's Eve")
           };
+
+          function build(final) {
+            var ours = [];
+            var world = [];
+            for (var i = 0; i < specs.length; i++) {
+              if (specs[i].ours) ours.push(slots[i]);
+              else world.push(slots[i]);
+            }
+            var cards = [];
+            try {
+              cards = LC.themes.adventDays({ ours: adventPool(ours), world: adventPool(world), final: final }, today, words, adventOpened());
+            } catch (e) {
+              cards = [];
+            }
+            /* Ни одного фильма (сеть легла) — ряда нет: одни дверцы
+               без единого открытого окошка — это не календарь. */
+            var films = 0;
+            for (var j = 0; j < cards.length; j++) if (cards[j].id != null) films++;
+            if (!films) { resolve({ results: [] }); return; }
+            adventSave(cards, today);
+            /* Task 57: ряд адвента из-под порога длины выведен флагом. */
+            var payload = {
+              results: decorateAdvent(cards),
+              title: adventTitle(today),
+              lumen_keep: true,
+              params: { items: { view: cards.length }, emit: { onCreate: focusToday } }
+            };
+            /* Постеры: первым аргументом null — у ряда адвента нет ОДНОЙ
+               подборки. Режим «без надписей» спрашивает картинки по id
+               карточки (у закрытых окошек id нет — их он пропускает),
+               «Английские» переспрашивает СПИСОК — их тут три, и ряд
+               остаётся с постерами Lampa, как ряд с источником Кинопоиска. */
+            LC.sources.posters(null, cards, function () { resolve(payload); }, alive);
+          }
+
+          /* Нужна ли карточка 31-го отдельным запросом: сегодня 31-е, а в
+             ответах подборок «Иронии» нет. */
+          function finalMissing() {
+            if (today.getDate() < 31) return false;
+            var id = LC.themes.ADVENT_FINAL_ID;
+            for (var i = 0; i < slots.length; i++) {
+              var list = slots[i] || [];
+              for (var j = 0; j < list.length; j++) if (list[j] && Number(list[j].id) === id) return false;
+            }
+            return true;
+          }
 
           function finish() {
             left--;
             if (left > 0) return;
-            var days = [];
+            if (!alive()) return;
+            if (!finalMissing()) { build(null); return; }
             try {
-              days = LC.themes.adventDays(adventPool(slots), today, words);
+              Lampa.Api.sources.tmdb.get(
+                'movie/' + LC.themes.ADVENT_FINAL_ID,
+                {},
+                function (json) { if (alive()) build(json && json.id ? listCard(json) : null); },
+                function () { if (alive()) build(null); }
+              );
             } catch (e) {
-              days = [];
+              build(null);
             }
-            /* Task 57: ряд адвента короче порога по самому своему
-               устройству — 5 декабря в нём ровно пять карточек, — поэтому
-               из-под порога длины он выведен флагом. */
-            var payload = { results: days, title: adventTitle(today), lumen_keep: true };
-            /* Постеры: первым аргументом null — у ряда адвента нет ОДНОЙ
-               подборки: он собран из четырёх (adventSpecs), а карточки дней
-               это копии карточек из общего пула (LC.themes.adventCard).
-               Режим «без надписей» работает как везде — он спрашивает
-               картинки по id карточки; режим «Английские» переспрашивает
-               СПИСОК, а списка тут четыре, и для него ряд адвента остаётся
-               с постерами Lampa — ровно как ряд с источником Кинопоиска. */
-            LC.sources.posters(null, days, function () { resolve(payload); }, alive);
           }
 
           /* Фабрика на итерацию: var в цикле ES5 не создаёт своей области,
-             и без неё все четыре колбэка писали бы в последний слот. */
+             и без неё все колбэки писали бы в последний слот. */
           function ask(index) {
             var spec = specs[index];
             return LC.sources['fetch'](
