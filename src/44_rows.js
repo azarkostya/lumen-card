@@ -536,7 +536,14 @@
        иначе на пульте их пришлось бы искать среди полутора сотен строк.
        storedIds пуст → отмечен набор manifest.home, ровно тот, что главная
        и показывает. Неизвестные id из storedIds отбрасываются: каталог с
-       хостинга мог измениться с прошлого выбора. */
+       хостинга мог измениться с прошлого выбора.
+       Сверка 2026-09-26: seasonal — у подборки есть свои месяцы (поле
+       season каталога); на главной такая стоит только в свой сезон, и экран
+       выбора подписывает её «Сезонная». */
+    function isSeasonal(item) {
+      return !!(item && Array.isArray(item.season) && item.season.length);
+    }
+
     function rowChoices(manifest, pickedIds) {
       if (!manifest || !Array.isArray(manifest.collections)) return [];
       var picked = (pickedIds && pickedIds.length) ? pickedIds : (manifest.home || []);
@@ -555,14 +562,14 @@
         var item = byId[picked[i]];
         if (!item || seen[item.id]) continue;
         seen[item.id] = 1;
-        head.push({ id: item.id, title: item.title, group: item.group, checked: true });
+        head.push({ id: item.id, title: item.title, group: item.group, checked: true, seasonal: isSeasonal(item) });
       }
 
       var tail = [];
       for (i = 0; i < manifest.collections.length; i++) {
         var c = manifest.collections[i];
         if (seen[c.id]) continue;
-        tail.push({ id: c.id, title: c.title, group: c.group, checked: !!checked[c.id] });
+        tail.push({ id: c.id, title: c.title, group: c.group, checked: !!checked[c.id], seasonal: isSeasonal(c) });
       }
       return head.concat(tail);
     }

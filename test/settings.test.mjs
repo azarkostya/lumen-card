@@ -907,3 +907,50 @@ test('S1: заголовки подборок и групп каталога п�
   assert.equal(horror.title, 'Ужасы&lt;img src=x onerror=&quot;alert(1)&quot;&gt;');
   assert.equal(box.items.filter((i) => i.separator)[0].title, 'Темы&lt;img src=x onerror=&quot;alert(1)&quot;&gt;');
 });
+
+/* Сверка 2026-09-26: в окне «Какие ряды показывать» сезонные подборки
+   (поле season в каталоге — «Хэллоуин», «Рождественские комедии»…) видны
+   только в свой месяц на главной, и без метки было непонятно, почему
+   отмеченная подборка пропадает. Метка «Сезонная» — строкой под названием
+   (subtitle штатного Lampa.Select), на языке интерфейса; у остальных
+   подборок её нет. */
+test('сверка: сезонные подборки в «Какие ряды показывать» подписаны «Сезонная»', () => {
+  const env = setupHomeRows();
+  env.LC.manifest = {
+    get: () => ({
+      version: 1,
+      groups: [{ id: 'theme', title: 'Темы' }],
+      collections: [
+        { id: 'comedy', title: 'Комедии', group: 'theme', sources: { movie: { type: 'discover', params: {} } } },
+        { id: 'halloween', title: 'Хэллоуин', group: 'theme', season: [9, 10, 11], sources: { movie: { type: 'discover', params: {} } } },
+        { id: 'empty', title: 'Пустой сезон', group: 'theme', season: [], sources: { movie: { type: 'discover', params: {} } } }
+      ],
+      home: ['comedy']
+    })
+  };
+  const box = pressHomeRows(env);
+  const byId = {};
+  for (const it of box.items) if (it.lumen_id) byId[it.lumen_id] = it;
+  assert.equal(byId.halloween.subtitle, 'Сезонная');
+  assert.ok(!byId.comedy.subtitle, 'у несезонной подборки метки нет');
+  assert.ok(!byId.empty.subtitle, 'пустой список месяцев — не сезонная');
+  const LC = env.LC;
+  assert.equal(LC.STRINGS.lumen_rows_seasonal.en, 'Seasonal');
+  assert.equal(LC.STRINGS.lumen_rows_seasonal.uk, 'Сезонна');
+});
+
+test('сверка: метка «Сезонная» экранируется, как заголовки', () => {
+  const env = setupHomeRows();
+  env.LC.STRINGS.lumen_rows_seasonal.ru = 'Сезон<b>';
+  env.LC.manifest = {
+    get: () => ({
+      version: 1,
+      groups: [{ id: 'theme', title: 'Темы' }],
+      collections: [{ id: 'halloween', title: 'Хэллоуин', group: 'theme', season: [10], sources: { movie: { type: 'discover', params: {} } } }],
+      home: []
+    })
+  };
+  const box = pressHomeRows(env);
+  const it = box.items.filter((i) => i.lumen_id === 'halloween')[0];
+  assert.equal(it.subtitle, 'Сезон&lt;b&gt;');
+});

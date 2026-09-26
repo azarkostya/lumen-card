@@ -10820,6 +10820,13 @@ return list;
 
 
 
+
+
+
+function isSeasonal(item) {
+return !!(item && Array.isArray(item.season) && item.season.length);
+}
+
 function rowChoices(manifest, pickedIds) {
 if (!manifest || !Array.isArray(manifest.collections)) return [];
 var picked = (pickedIds && pickedIds.length) ? pickedIds : (manifest.home || []);
@@ -10838,14 +10845,14 @@ for (i = 0; i < picked.length; i++) {
 var item = byId[picked[i]];
 if (!item || seen[item.id]) continue;
 seen[item.id] = 1;
-head.push({ id: item.id, title: item.title, group: item.group, checked: true });
+head.push({ id: item.id, title: item.title, group: item.group, checked: true, seasonal: isSeasonal(item) });
 }
 
 var tail = [];
 for (i = 0; i < manifest.collections.length; i++) {
 var c = manifest.collections[i];
 if (seen[c.id]) continue;
-tail.push({ id: c.id, title: c.title, group: c.group, checked: !!checked[c.id] });
+tail.push({ id: c.id, title: c.title, group: c.group, checked: !!checked[c.id], seasonal: isSeasonal(c) });
 }
 return head.concat(tail);
 }
@@ -37014,6 +37021,9 @@ ru: 'Ряды подборок на главной',
 en: 'Collection rows on home',
 uk: 'Ряди підбірок на головній'
 },
+
+
+lumen_rows_seasonal: { ru: 'Сезонная', en: 'Seasonal', uk: 'Сезонна' },
 lumen_hide_watched_name: {
 ru: 'Скрывать досмотренное',
 en: 'Hide watched',
@@ -37801,7 +37811,13 @@ if (!c.checked && c.group !== lastGroup) {
 lastGroup = c.group;
 items.push({ title: esc(groupTitle[c.group] || c.group), separator: true });
 }
-items.push({ title: esc(c.title), lumen_id: c.id, checkbox: true, checked: c.checked });
+var item = { title: esc(c.title), lumen_id: c.id, checkbox: true, checked: c.checked };
+
+
+
+
+if (c.seasonal) item.subtitle = esc(LC.lang('lumen_rows_seasonal'));
+items.push(item);
 }
 
 function save() {

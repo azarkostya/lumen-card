@@ -671,6 +671,9 @@
       en: 'Collection rows on home',
       uk: 'Ряди підбірок на головній'
     },
+    /* Сверка 2026-09-26: метка сезонной подборки (поле season каталога) в
+       окне «Какие ряды показывать» — строкой под названием. */
+    lumen_rows_seasonal: { ru: 'Сезонная', en: 'Seasonal', uk: 'Сезонна' },
     lumen_hide_watched_name: {
       ru: 'Скрывать досмотренное',
       en: 'Hide watched',
@@ -1458,7 +1461,13 @@
           lastGroup = c.group;
           items.push({ title: esc(groupTitle[c.group] || c.group), separator: true });
         }
-        items.push({ title: esc(c.title), lumen_id: c.id, checkbox: true, checked: c.checked });
+        var item = { title: esc(c.title), lumen_id: c.id, checkbox: true, checked: c.checked };
+        /* Сверка 2026-09-26: сезонная подборка стоит на главной только в
+           свой сезон — метка объясняет, почему отмеченной её сейчас нет.
+           subtitle Lampa вставляет так же сыро, как заголовок (шаблон
+           selectbox_item), — экранируется тем же esc. */
+        if (c.seasonal) item.subtitle = esc(LC.lang('lumen_rows_seasonal'));
+        items.push(item);
       }
 
       function save() {
