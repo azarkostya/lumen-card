@@ -8041,6 +8041,22 @@ test('дизайн C: стопка — веер по обе стороны ба�
   assert.ok(op(p1) >= 0.4 && op(p1) <= 0.7, 'задние не приглушены: ' + op(p1));
 });
 
+test('дизайн C: пустая выборка — сообщение в барабане стандартного вида, в виде «как Apple TV» оно в колонке', () => {
+  const none = findDecl(css, (sel) => sel === '.lumen-roulette .lumen-roulette__none');
+  assert.ok(none && /(^|;)display:none/.test(none) && /position:absolute/.test(none), none);
+  const on = findDecl(css, (sel) => sel === '.lumen-roulette .lumen-roulette__stage.is-none .lumen-roulette__none');
+  assert.ok(on && /display:block/.test(on), on);
+  const atv = findDecl(css, (sel) => sel === '.lumen-roulette-screen.is-atv .lumen-roulette__stage.is-none .lumen-roulette__none');
+  assert.ok(atv && /display:none/.test(atv), 'в виде «как Apple TV» сообщение продублировано в кадре: ' + atv);
+  const P = tokensWith({});
+  const empty = findDecl(css, (sel) => sel === '.lumen-roulette .lumen-roulette__empty');
+  assert.equal(declProp(empty, 'color'), P.text, 'заголовок пустой выборки приглушён: ' + empty);
+  const tip = findDecl(css, (sel) => sel === '.lumen-roulette .lumen-roulette__tip');
+  assert.ok(tip, 'правила подсказки нет');
+  assert.equal(declProp(tip, 'color'), P.muted);
+  assert.ok(contrast(P.muted, P.panel) >= 4.5, 'подсказка на заливке барабана не читается');
+});
+
 test('дизайн C: вид «как Apple TV» — на вращении колонка притушена, без перехода', () => {
   for (const part of ['kicker', 'ltitle', 'lmeta', 'ldescr']) {
     const sel = '.lumen-roulette-screen.is-atv.is-spinning .lumen-roulette__' + part;

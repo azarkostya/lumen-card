@@ -681,6 +681,20 @@
         '<div class="lumen-roulette__count-value"></div>' +
         '<div class="lumen-roulette__count-label"></div>' +
         '</div>');
+      /* Дизайн-проход 2026-09-26: пустая выборка говорит о себе там, куда
+         смотрят, — в самом барабане, а не строкой в левом нижнем углу после
+         «Крутить» (замер на стенде: сообщение стояло на x = 40 CSS px под
+         сценой, выровненной по центру, а счётчик «0» при этом пропадал). Под
+         сообщением — что с этим делать. Узел живёт в барабане всегда,
+         показывает его класс сцены is-none (paintPreview); в виде «как Apple
+         TV» то же самое говорит колонка слева, и CSS прячет узел. */
+      var noneBox = $('<div class="lumen-roulette__none">' +
+        '<div class="lumen-roulette__empty"></div>' +
+        '<div class="lumen-roulette__tip"></div>' +
+        '</div>');
+      noneBox.find('.lumen-roulette__empty').text(LC.lang('lumen_roulette_empty'));
+      noneBox.find('.lumen-roulette__tip').text(LC.lang('lumen_roulette_empty_hint'));
+      reelBox.append(noneBox);
       var spinBtn = $('<div class="lumen-roulette__spin selector">' + esc(LC.lang('lumen_roulette_spin')) + '</div>');
       var resultBox = $('<div class="lumen-roulette__result"></div>');
       /* Вид «как Apple TV» (atvLook): колонка слева от барабана и полка под
@@ -1120,11 +1134,16 @@
         }
       }
 
-      /* Снять стопку и счётчик: барабан возвращается к пустой коробке. */
+      /* Снять стопку: барабан возвращается к пустой коробке.
+         Дизайн-проход 2026-09-26: счётчик (is-counted) здесь НЕ снимается.
+         Прежде он уходил вместе со стопкой, и «Крутить» под ним прыгал вверх
+         на 42 CSS px (84 физических) на каждом нажатии, а с выборкой —
+         обратно; «N в выборке» на вращении к тому же правда: крутим именно
+         их. Сообщение пустой выборки (is-none) уходит — барабан занят. */
       function clearPreview() {
         clearPreviewTimer();
         try {
-          stage.removeClass('is-stack');
+          stage.removeClass('is-stack is-none');
           peek1.addClass('is-off');
           peek2.addClass('is-off');
         } catch (e) {
@@ -1157,7 +1176,9 @@
         lead.find('.lumen-roulette__kicker-l').text(LC.lang('lumen_roulette_pick'));
         lead.find('.lumen-roulette__ltitle').text(head0 ? cardTitle(head0) : LC.lang('lumen_roulette_empty'));
         lead.find('.lumen-roulette__lmeta').text(head0 ? cardMeta(head0) : '');
-        lead.find('.lumen-roulette__ldescr').text(head0 ? cardOverview(head0) : '');
+        /* Дизайн-проход 2026-09-26: пустой выборке — не пустое место под
+           заголовком, а что с ней сделать. */
+        lead.find('.lumen-roulette__ldescr').text(head0 ? cardOverview(head0) : LC.lang('lumen_roulette_empty_hint'));
         /* Фон — кадр главной карточки размером w300 во весь экран: на
            растяжении он сам расплывается в цветовое поле, как фон Apple TV,
            без filter и без второго полноразмерного декодирования. */
@@ -1310,6 +1331,7 @@
             paintLead(list);
             paintShelf(list);
             stage.addClass('is-stack');
+            stage.toggleClass('is-none', !list.length);
           } catch (eA) {
             warn('roulette: atv preview failed', eA);
           }
@@ -1328,6 +1350,7 @@
           stage.addClass('is-stack');
           /* Счётчик — своим классом: на вращении он остаётся (clearPreview). */
           stage.addClass('is-counted');
+          stage.toggleClass('is-none', !list.length);
         } catch (e) {
           warn('roulette: preview paint failed', e);
         }
@@ -1534,11 +1557,21 @@
 
       /* Под фильтры ничего не подошло. В режим кадра экран при этом НЕ
          переводится: менять чипы придётся на спокойном экране, и прятать его
-         тут нечего. */
+         тут нечего.
+         Дизайн-проход 2026-09-26: отдельной карточки результата больше нет.
+         Она рисовала «Под фильтры ничего не подошло» приглушённой строкой у
+         левого края под сценой, выровненной по центру, счётчик «0» при этом
+         пропадал (стопку снял spin), а в виде «как Apple TV» то же сообщение
+         уже стояло заголовком колонки — выходило дважды. Теперь экран
+         возвращается к выборке (paintPreview): «0 в выборке», сообщение с
+         подсказкой — в барабане (в колонке для «как Apple TV»), и короткое
+         уведомление: нажатие, после которого на экране ничего не
+         изменилось, читалось бы как сломанная кнопка. */
       function showEmpty() {
-        resultBox.empty();
-        resultBox.addClass('is-live');
-        resultBox.append($('<div class="lumen-roulette__empty">' + esc(LC.lang('lumen_roulette_empty')) + '</div>'));
+        paintPreview();
+        try {
+          if (Lampa.Noty && typeof Lampa.Noty.show === 'function') Lampa.Noty.show(LC.lang('lumen_roulette_empty'));
+        } catch (e) { }
         recollectOwn(spinBtn[0]);
       }
 

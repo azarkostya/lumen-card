@@ -1754,7 +1754,12 @@ test('шестой раунд п.2: смена «Фильмы/Сериалы», 
      крутить было бы нечего. */
   MANIFEST34.collections[0].sources.tv = { type: 'discover', params: {} };
   t.after(() => { delete MANIFEST34.collections[0].sources.tv; });
-  const env = openRoulette34([R44], t, 1, 'lite', { media: 'movie' }, { pool: true });
+  /* Дизайн-проход 2026-09-26: в пуле есть и сериал. Прежде пул сериалов
+     был пуст (R44 — фильм, buildPool его отсеивает), и «результатом» здесь
+     засчитывалась строка «Под фильтры ничего не подошло» — пустая выборка
+     теперь говорит о себе в барабане, а не карточкой результата. */
+  const SHOW44 = { id: 7, name: 'Сериал С', first_air_date: '2021-01-01', poster_path: '/s-p.jpg', backdrop_path: '/s-b.jpg' };
+  const env = openRoulette34([R44, SHOW44], t, 1, 'lite', { media: 'movie' }, { pool: true });
   env.comp.start();
   fire(env.root.find('.lumen-roulette__spin'), 'hover:enter');
   assert.equal(env.loading(), true, 'предпосылка: пул в пути — индикатор горит');
@@ -2295,6 +2300,46 @@ test('дизайн C: счётчик выборки держит место и �
   assert.equal(stage.hasClass('is-stack'), false, 'стопка на вращении уходит, как и была');
   assert.ok(stage.hasClass('is-counted'), 'счётчик пропал на вращении — кнопка под ним прыгнула бы вверх');
   assert.equal(env.count(), '2');
+});
+
+test('дизайн C: пустая выборка — «0» и подсказка в самом барабане, «Крутить» не рисует строку в углу', (t) => {
+  const env = openRoulette34([], t);
+  const noty = [];
+  globalThis.Lampa.Noty = { show: (text) => noty.push(text) };
+  env.comp.start();
+  flushTimers();
+  const stage = env.screen.find('.lumen-roulette__stage');
+  assert.ok(stage.hasClass('is-none'), 'пустая выборка не помечена');
+  assert.equal(env.count(), '0');
+  const none = env.reel.find('.lumen-roulette__none');
+  assert.ok(none.length, 'сообщения в барабане нет');
+  assert.equal(none.find('.lumen-roulette__empty').text(), 'lumen_roulette_empty');
+  assert.equal(none.find('.lumen-roulette__tip').text(), 'lumen_roulette_empty_hint');
+  spinAndFlush(env);
+  assert.equal(env.resultNode().hasClass('is-live'), false, 'пустой результат снова нарисован отдельной строкой под сценой');
+  assert.ok(stage.hasClass('is-none'), 'после «Крутить» сообщение из барабана пропало');
+  assert.ok(stage.hasClass('is-counted'));
+  assert.equal(env.count(), '0', 'после «Крутить» счётчик пропал');
+  assert.deepEqual(noty, ['lumen_roulette_empty'], 'нажатие без ответа — выглядит как сломанная кнопка');
+  assert.equal(env.lastFocus().node, env.root.find('.lumen-roulette__spin')[0]);
+  /* Выборка появилась — сообщение уходит. */
+  poolCards34 = [R44];
+  fire(env.chips()[1], 'hover:enter');
+  flushTimers();
+  assert.equal(stage.hasClass('is-none'), false, 'сообщение осталось при непустой выборке');
+  assert.equal(env.count(), '1');
+});
+
+test('дизайн C: вид «как Apple TV», пустая выборка — заголовок колонки и подсказка, без второго сообщения', (t) => {
+  const env = openRoulette34([], t, 1, 'full', null, null, { lumen_flat: true });
+  env.comp.start();
+  flushTimers();
+  assert.equal(env.screen.find('.lumen-roulette__kicker-n').text(), '0');
+  assert.equal(env.screen.find('.lumen-roulette__ltitle').text(), 'lumen_roulette_empty');
+  assert.equal(env.screen.find('.lumen-roulette__ldescr').text(), 'lumen_roulette_empty_hint', 'что делать — не сказано');
+  spinAndFlush(env);
+  assert.equal(env.resultNode().hasClass('is-live'), false, 'сообщение продублировано строкой под сценой');
+  assert.equal(env.screen.find('.lumen-roulette__ltitle').text(), 'lumen_roulette_empty');
 });
 
 test('дизайн C: на вращении экран помечен is-spinning, по остановке и уходу метка снята', (t) => {

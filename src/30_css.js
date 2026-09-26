@@ -5819,7 +5819,14 @@
        карте отделять нечего. Акцент у кнопки остался в подложке под ней
        (box-shadow в самом правиле). */
     css.push('.lumen-roulette .lumen-roulette__btn.focus{background:' + P.text + ';color:' + P.bg + ';-webkit-box-shadow:0 .2em 0 ' + AG + ';box-shadow:0 .2em 0 ' + AG + '}');
-    css.push('.lumen-roulette .lumen-roulette__empty{font-family:' + FB + ';font-size:1.05em;color:' + P.muted + '}');
+    /* Пустая выборка — сообщение в самом барабане (узел .lumen-roulette__none
+       в src/56_roulette.js, класс сцены is-none): крупно, что случилось, и
+       ниже — что сделать. Прежде оно появлялось только после «Крутить»,
+       приглушённой строкой у левого края под сценой, выровненной по центру. */
+    css.push('.lumen-roulette .lumen-roulette__none{display:none;position:absolute;left:0;right:0;top:50%;padding:0 .9em;text-align:center;-webkit-transform:translateY(-50%);transform:translateY(-50%)}');
+    css.push('.lumen-roulette .lumen-roulette__stage.is-none .lumen-roulette__none{display:block}');
+    css.push('.lumen-roulette .lumen-roulette__empty{font-family:' + FB + ';font-weight:700;font-size:1.05em;line-height:1.25;color:' + P.text + '}');
+    css.push('.lumen-roulette .lumen-roulette__tip{font-family:' + FB + ';font-weight:500;font-size:1.01em;line-height:1.3;color:' + P.muted + ';margin-top:.5em}');
     /* Пункт меню «Что посмотреть»: иконка набора плагина — 1em, штатные
        иконки меню Lampa — 1.5em (та же правка, что у пункта «Подборки»). */
     css.push('.lumen-menu-roulette .lumen-ico{width:1.5em;height:1.5em}');
@@ -5909,6 +5916,9 @@
        другого фильма справа). Статичная прозрачность, без перехода и без
        слоя; метку is-spinning снимает остановка барабана. */
     css.push(ATV + '.is-spinning .lumen-roulette__kicker,' + ATV + '.is-spinning .lumen-roulette__ltitle,' + ATV + '.is-spinning .lumen-roulette__lmeta,' + ATV + '.is-spinning .lumen-roulette__ldescr{opacity:.4}');
+    /* Пустая выборка здесь — заголовком и описанием колонки; в пустом кадре
+       справа второе такое же сообщение не нужно. */
+    css.push(ATV + ' .lumen-roulette__stage.is-none .lumen-roulette__none{display:none}');
     /* «Крутить» — пилюля в колонке, по левому краю. Вне фокуса —
        полупрозрачная, в фокусе — инверсия и подъём: у Apple TV кнопка
        становится белой именно в фокусе, и это же правило фокуса во всём
