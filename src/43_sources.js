@@ -293,11 +293,15 @@
     }
 
     /* Извлекает IMDb-идентификаторы из ответа Кинопоиска, до limit штук,
-       пропуская позиции без imdbId. */
+       пропуская позиции без imdbId.
+       Финальная проверка, B7: id идёт в путь запроса TMDB ('find/' + id) —
+       берём только вид IMDb (tt и цифры); прочее из ответа КП — мимо, без
+       запроса. */
+    var IMDB_RE = /^tt\d{1,10}$/;
     function kpToFinds(json, limit) {
       var ids = [];
       LC.util.each((json && json.items) || [], function (it) {
-        if (it && it.imdbId && ids.length < limit) {
+        if (it && typeof it.imdbId === 'string' && IMDB_RE.test(it.imdbId) && ids.length < limit) {
           ids.push(it.imdbId);
         }
       });

@@ -1529,10 +1529,11 @@ function modalLog() {
   const opened = [];
   const prevModal = Lampa.Modal;
   const prevController = Lampa.Controller;
-  Lampa.Modal = { open: (params) => opened.push(params), close: () => { } };
+  const titles = [];
+  Lampa.Modal = { open: (params) => opened.push(params), close: () => { }, title: (t) => titles.push(t) };
   Lampa.Controller = { enabled: () => ({ name: 'full_descr' }), toggle: () => { }, collectionFocus: () => { } };
   return {
-    opened,
+    opened, titles,
     restore() { Lampa.Modal = prevModal; Lampa.Controller = prevController; }
   };
 }
@@ -1546,8 +1547,27 @@ test('Фикс Task 59: OK на описании открывает модал �
     LC.header.descr(d.row, OVERVIEW);
     fire(d.descr, 'hover:enter', d.text);
     assert.equal(log.opened.length, 1, 'модал не открылся');
-    assert.equal(log.opened[0].title, 'Дюна: Часть вторая', 'в шапке окна — название фильма');
+    assert.equal(log.opened[0].title, '', 'в шаблон модала название не идёт (SEC-1)');
+    assert.deepEqual(log.titles, ['Дюна: Часть вторая'], 'в шапке окна — название фильма, текстом через Modal.title');
     assert.ok(log.opened[0].html.html().indexOf('фрименами') !== -1, 'в окне — полный текст описания');
+  } finally {
+    log.restore();
+  }
+});
+
+/* Финальная проверка, SEC-1: название фильма из TMDB — не разметка.
+   Modal.open разбирает title шаблоном 'modal' как HTML (app.min.js:
+   32375-32377), Modal.title ставит его .text() (:32551-32554). */
+test('SEC-1: название с разметкой уходит в Modal.title как есть, в шаблон модала — пустая строка', () => {
+  const d = makeDescrRow();
+  const log = modalLog();
+  const evil = 'Фильм <img src=x onerror=alert(1)> & «кавычки»';
+  try {
+    LC.header.descr(d.row, { movie: Object.assign({}, OVERVIEW.movie, { title: evil }) });
+    fire(d.descr, 'hover:enter', d.text);
+    assert.equal(log.opened.length, 1);
+    assert.equal(log.opened[0].title, '');
+    assert.deepEqual(log.titles, [evil], 'строка не экранирована: .text() покажет её буквально, как есть');
   } finally {
     log.restore();
   }

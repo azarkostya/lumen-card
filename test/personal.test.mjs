@@ -502,6 +502,25 @@ test('«Потому что вы смотрели»: один исходный �
   assert.deepEqual(got[0].results.map(function (c) { return c.id; }), [70, 71]);
 });
 
+/* Финальная проверка, SEC-1: заголовок ряда Lampa рисует в «Настройки →
+   Каналы» склейкой строк (field.name, app.min.js:8484) — название фильма из
+   истории (TMDB) идёт туда без «<» и «>». Не esc: на главной заголовок —
+   текстовый узел, и сущности были бы видны буквально. */
+test('SEC-1 «Потому что вы смотрели»: название из истории — без «<» и «>», прочее как есть', function () {
+  var evil = 'Фильм <img src=x onerror=alert(1)> & «Том и Джерри»';
+  var s = setupRuntime({ getFav: function (o) { return o.type === 'history' ? [{ id: 7, title: evil }] : []; } });
+  var row = s.api.describe().filter(function (d) { return d.id === 'because'; })[0];
+  assert.equal(row.title, 'lumen_row_because: «Фильм img src=x onerror=alert(1) & «Том и Джерри»»');
+  var got = [];
+  row.call({}, {})(function (data) { got.push(data); });
+  s.tmdbCalls[0].ok({ results: [{ id: 70 }] });
+  assert.equal(got[0].title.indexOf('<'), -1, 'и в ответе ряда');
+  assert.equal(got[0].title.indexOf('>'), -1);
+  /* Название из одних скобок — заголовок без него, а не «: «»». */
+  var bare = setupRuntime({ getFav: function (o) { return o.type === 'history' ? [{ id: 8, title: '<>' }] : []; } });
+  assert.equal(bare.api.describe().filter(function (d) { return d.id === 'because'; })[0].title, 'lumen_row_because');
+});
+
 test('дедлайн: «Скоро на экранах» отдаёт частичный результат', function () {
   var s = setupRuntime();
   s.addCalls = s.api.describe();

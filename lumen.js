@@ -8,15 +8,14 @@
   var src = (cur && cur.src) || '';
   var base = src ? src.replace(/[?#].*$/, '').replace(/[^\/]*$/, '') : FALLBACK;
   /* Адрес установки набрали с http: — GitHub Pages и jsDelivr сборку всё
-     равно отдают по https: (http: у них — редирект, лишний круг по сети на
-     каждом запуске Lampa, или подмена по дороге). Для этих двух хостов берём
-     https: сразу; свой сервер (стенд, локальная сеть) — как был.
-     Запасной путь (следующий раунд, п.7): старый ТВ с устаревшими
-     корневыми сертификатами или сбитыми часами https: не откроет вовсе, а
-     набранный адрес с http: у него работал. Поэтому исходный http:-адрес
-     остаётся запасным — одна попытка на ошибку <script>, с той же меткой
-     свежести. */
-  var plain = base;
+     равно отдают по https: (http: у них — редирект 301, лишний круг по сети
+     на каждом запуске Lampa, или подмена по дороге). Для этих двух хостов
+     берём https: сразу; свой сервер (стенд, локальная сеть) — как был.
+     Финальная проверка, SEC-2: запасного http:-пути больше нет. Он обещал
+     старому ТВ, у которого https: не открывается (сертификаты, часы), что
+     «адрес с http: у него работал», но оба хоста отвечают на http: тем же
+     301 на https: (curl -sI, 2026-09-26): попытка уходила в тот же https: и
+     падала, а на пути без HSTS давала лишний запрос открытым текстом. */
   base = base.replace(/^http:(\/\/(?:[^\/?#]+\.github\.io|cdn\.jsdelivr\.net)\/)/i, 'https:$1');
   /* Метка свежести: jsDelivr отдаёт файл с max-age=604800 (7 дней), а
      Pages — с max-age=600; без параметра в адресе телевизор мог бы держать
@@ -27,16 +26,7 @@
      не чаще раза в 10 минут при запуске Lampa, и с новым адресом движок
      теряет кэш её компиляции — разбор и компиляция идут заново. */
   var stamp = Math.floor(Date.now() / 600000);
-  function add(from, fallback) {
-    var s = document.createElement('script');
-    s.src = from + 'dist/lumen_card.js?v=' + stamp;
-    if (fallback) {
-      s.onerror = function () {
-        s.onerror = null;
-        add(fallback, '');
-      };
-    }
-    (document.head || document.documentElement).appendChild(s);
-  }
-  add(base, base !== plain ? plain : '');
+  var s = document.createElement('script');
+  s.src = base + 'dist/lumen_card.js?v=' + stamp;
+  (document.head || document.documentElement).appendChild(s);
 })();

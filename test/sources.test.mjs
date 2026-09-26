@@ -126,6 +126,17 @@ test('discoverUrl: companies', () => {
 test('kpToFinds: items -> список imdbId без пустых, не больше лимита', () => {
   assert.deepEqual(S.kpToFinds({ items: [{ imdbId: 'tt1' }, { imdbId: null }, { imdbId: 'tt2' }, { imdbId: 'tt3' }] }, 2), ['tt1', 'tt2']);
 });
+/* Финальная проверка, B7: imdbId из ответа КП идёт в путь запроса TMDB
+   ('find/' + id) — только вида tt и цифры. */
+test('B7 kpToFinds: только id вида tt+цифры — прочее из ответа КП в путь запроса не идёт', () => {
+  const items = [
+    { imdbId: 'tt0111161' }, { imdbId: 'tt1/../../account' }, { imdbId: 'tt1?api_key=x' }, { imdbId: 'tt1#x' },
+    { imdbId: 'nm0000001' }, { imdbId: 'tt' }, { imdbId: 'tt12345678901' }, { imdbId: 42 }, { imdbId: ['tt1'] },
+    { imdbId: ' tt2' }, { imdbId: 'tt2\n' }, { imdbId: 'tt15239678' }
+  ];
+  assert.deepEqual(S.kpToFinds({ items: items }, 20), ['tt0111161', 'tt15239678']);
+  assert.deepEqual(S.kpToFinds({ items: [{ imdbId: 'bad' }, { imdbId: 'tt1' }, { imdbId: 'tt2' }] }, 1), ['tt1'], 'лимит считает только годные');
+});
 test('kpToFinds: пустой json', () => {
   assert.deepEqual(S.kpToFinds(null, 10), []);
   assert.deepEqual(S.kpToFinds({}, 10), []);

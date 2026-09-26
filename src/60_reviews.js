@@ -517,7 +517,10 @@
                отношения не имеет, а ответ уже на руках. */
             var rate = kpRateOf(item);
             reportRate(rate, onRate);
-            if (!kp) { cb(null); return; }
+            /* Финальная проверка, B7: id Кинопоиска идёт в путь запроса
+               (BASE + '/' + kp + '/reviews') — только цифры; иначе запроса
+               нет, как и без id. */
+            if (!kp || !/^\d{1,10}$/.test('' + kp)) { cb(null); return; }
             request(net, BASE + '/' + kp + '/reviews?page=1&order=USER_POSITIVE_RATING_DESC', key, function (resp) {
               if (dead()) return;
               try {

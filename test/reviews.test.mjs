@@ -1024,6 +1024,27 @@ test('load: фильма в Кинопоиске нет — рейтинг не 
   assert.deepEqual(rates, []);
 });
 
+/* Финальная проверка, B7: kinopoiskId из ответа films?imdbId идёт в путь
+   запроса отзывов — только цифры; иначе второго запроса нет. Рейтинг из
+   того же ответа от этого не зависит. */
+test('B7 load: kinopoiskId не из цифр — запроса отзывов нет, null, рейтинг показан', () => {
+  for (const kp of ['301/../../staff', '301?x=1', '301#x', ' 301', '12345678901', 'abc', -1, 3.5, true, [1, 2]]) {
+    const env = freshEnv();
+    const got = [];
+    const rates = [];
+    env.LC.applyKpRate = (v) => rates.push(v);
+    env.LC.reviews.load('tt15239678', 'KEY', (res) => got.push(res));
+    env.journal.calls[0].ok({ total: 1, items: [{ kinopoiskId: kp, ratingKinopoisk: 7.8 }] });
+    assert.equal(env.journal.calls.length, 1, 'второго запроса нет: ' + JSON.stringify(kp));
+    assert.deepEqual(got, [null]);
+    assert.equal(rates.length, 1, 'рейтинг из того же ответа — показан');
+  }
+  const ok = freshEnv();
+  ok.LC.reviews.load('tt15239678', 'KEY', () => { });
+  ok.journal.calls[0].ok({ total: 1, items: [{ kinopoiskId: '301' }] });
+  assert.equal(ok.journal.calls[1].url, 'https://kinopoiskapiunofficial.tech/api/v2.2/films/301/reviews?page=1&order=USER_POSITIVE_RATING_DESC', 'строка из цифр — годится');
+});
+
 test('load: рантайм ещё не подключил LC.applyKpRate — модуль это переживает', () => {
   const env = freshEnv();
   env.LC.reviews.load('tt15239678', 'KEY', () => { });

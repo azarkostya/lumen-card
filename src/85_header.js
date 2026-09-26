@@ -1564,8 +1564,12 @@
       var html = $('<div class="lumen-descr-modal"></div>');
       html.html('<div class="lumen-descr-modal__text">' + LC.util.esc(text) + '</div>');
 
+      /* Финальная проверка, SEC-1: название фильма (TMDB) — только текстом.
+         Modal.open подставляет title в шаблон 'modal' строкой и разбирает
+         его как разметку (open$5 → Template.get, app.min.js:32375-32377);
+         Modal.title ставит его уже .text() (:32551-32554). */
       Lampa.Modal.open({
-        title: title || '',
+        title: '',
         html: html,
         size: 'medium',
         onBack: function () {
@@ -1578,6 +1582,7 @@
           } catch (e4) { }
         }
       });
+      if (title && typeof Lampa.Modal.title === 'function') Lampa.Modal.title('' + title);
     } catch (err) {
       warn('descr modal failed', err);
     }
