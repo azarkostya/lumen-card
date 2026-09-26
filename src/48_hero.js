@@ -532,17 +532,33 @@
        тому, что известно: первый годный по голосам кандидат, про которого
        не известно, что он похож (обычно это и есть выбор heroBackdrop),
        иначе как было. */
-    function pickFrame(cands, strong, verdictOf, fallback, late) {
+    /* Раунд C, E3 (исследование study.md): вердикт LC.thumbs — «не чистый»
+       (похож на постер или в серой зоне того же стиля). Не чистые все —
+       берётся наименее похожий по счёту пары (scoreOf, необязательный):
+       прежний запасной путь (выбор heroBackdrop — первый кандидат) в этом
+       случае почти всегда и есть повтор постера («Славные парни»). */
+    function pickFrame(cands, strong, verdictOf, fallback, late, scoreOf) {
+      var all = cands.length > 0;
       for (var i = 0; i < cands.length; i++) {
         var v = verdictOf(cands[i]);
         if (v === false) return { path: cands[i], wait: '' };
         if (v === true) continue;
+        all = false;
         if (v === null) break;
         if (!late) return { path: '', wait: cands[i] };
         for (var j = 0; j < strong && j < cands.length; j++) {
           if (verdictOf(cands[j]) !== true) return { path: cands[j], wait: '' };
         }
         break;
+      }
+      if (all && typeof scoreOf === 'function') {
+        var least = '';
+        var low = Infinity;
+        for (var k = 0; k < cands.length; k++) {
+          var s = scoreOf(cands[k]);
+          if (typeof s === 'number' && s < low) { low = s; least = cands[k]; }
+        }
+        if (least) return { path: least, wait: '' };
       }
       return { path: fallback || '', wait: '' };
     }
@@ -2962,6 +2978,7 @@
       var look = LC.thumbs;
       var decided = false;
       function verdictOf(path) { return look.verdict(poster, path); }
+      function scoreOf(path) { return typeof look.scoreOf === 'function' ? look.scoreOf(poster, path) : undefined; }
       function finish(path) {
         decided = true;
         stopTimer('lookTimer');
@@ -3010,7 +3027,7 @@
       }
       function step() {
         while (!decided && state && gen === captured) {
-          var r = pickFrame(cands.paths, cands.strong, verdictOf, model.backdrop, false);
+          var r = pickFrame(cands.paths, cands.strong, verdictOf, model.backdrop, false, scoreOf);
           if (!r.wait) {
             finish(r.path);
             return;
@@ -3038,7 +3055,7 @@
            заводили, а начатое снимает onFocus другой карточки), и его
            ответ ляжет в память — возврат на фильм решит без ожидания.
            Снимет его новый показ (cancelPending). */
-        finish(pickFrame(cands.paths, cands.strong, verdictOf, model.backdrop, true).path);
+        finish(pickFrame(cands.paths, cands.strong, verdictOf, model.backdrop, true, scoreOf).path);
       }, LOOK_WAIT);
     }
 
@@ -3074,6 +3091,16 @@
            кадр доехал или не доехал (колбэк loadFrame; в «Выкл» — сразу
            по деталям). Сам warm срабатывает один раз на корень;
          stop()     — park и unmount. */
+    /* Раунд C, E3: выбор первого кадра карточки под фокусом ещё не кончился
+       — её показ впереди (DELAY), ждёт деталей или сравнения с постером
+       (chooseFrame). Дорожка вердиктов соседей (src/58_prefetch.js) в это
+       время своих сравнений не заводит: очередь простоя LC.thumbs одна. */
+    function choosing() {
+      if (!state || state.parked) return false;
+      if (state.pending && state.pending.id !== state.shownId) return true;
+      return state.framePath === null || !!state.look || !!state.lookTimer;
+    }
+
     function prefetch(name, arg) {
       try {
         if (LC.prefetch && typeof LC.prefetch[name] === 'function') LC.prefetch[name](arg);
@@ -4320,9 +4347,14 @@
          модуль (heroModel). */
       heroBackdrop: heroBackdrop,
       /* Волна «хвосты героя», п.C2: кандидаты первого кадра и выбор по
-         ответам сравнения с постером — наружу ради теста. */
+         ответам сравнения с постером — наружу ради теста; раунд C, E3 — и
+         для дорожки вердиктов соседей (src/58_prefetch.js): те же пары,
+         что спросил бы показ. */
       frameCandidates: frameCandidates,
       pickFrame: pickFrame,
+      /* Раунд C, E3: выбор кадра карточки под фокусом ещё идёт — дорожке
+         вердиктов соседей (src/58_prefetch.js) ждать. */
+      choosing: choosing,
       shouldUpdate: shouldUpdate,
       sizeFor: sizeFor,
       logoSizeFor: logoSizeFor,

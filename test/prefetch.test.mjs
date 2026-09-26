@@ -101,6 +101,9 @@ function makeEnv(opts) {
     /* Раунд «Цвет сразу»: цвет фильма (src/57_color.js) — заглушка теста;
        без неё дорожки цвета нет вовсе. */
     accent: opts.accent,
+    /* Раунд C, E3: сравнение «кадр ≈ постер» (src/57_thumbs.js) — заглушка
+       теста; без неё дорожки вердиктов нет вовсе. */
+    thumbs: opts.thumbs,
     motionMode: () => env.mode,
     lang: (k) => k,
     langCode: () => 'ru',
@@ -979,4 +982,123 @@ test('цвет сразу: запаркованная главная (откры
   assert.equal(env.hero.parked(), true, 'подготовка: герой запаркован');
   env.advance(5000);
   assert.deepEqual(acc.calls, [], 'под открытой карточкой — ни одного расчёта');
+});
+
+/* ====================================================================== */
+/* Раунд C, E3: дорожка вердиктов «кадр ≈ постер» соседей                  */
+/* ====================================================================== */
+
+/* Новый признак сравнения дороже прежнего (пара 24 мс против 6, CPU ×10),
+   и сравнение карточки под фокусом на ТВ чаще не успевало бы к потолку
+   героя (300 мс). Предзагрузка считает вердикты соседей заранее: по одной
+   паре, в простое, после того как герой выбрал кадр своей карточки. */
+const LOOK_RETRY = 120;
+/* Часы тестов ставят новый таймер от КОНЦА шага advance: цепочку «повтор
+   через LOOK_RETRY, затем простой» проходим мелкими шагами. */
+function wait(env, ms) {
+  for (let t = 0; t < ms; t += 10) env.advance(10);
+}
+const LOOK_VOTES = { vote_average: 5.3, vote_count: 4 };
+const lookBd = (path) => Object.assign({ file_path: path, iso_639_1: null, width: 1920, height: 1080, aspect_ratio: 1.778 }, LOOK_VOTES);
+/* Детали с кадрами: ключевой арт /kN (в кандидаты не идёт) и два годных
+   кадра /aN, /bN. */
+const lookDetails = (id) => ({ id: id, backdrop_path: '/k' + id + '.jpg', images: { logos: [], backdrops: [lookBd('/k' + id + '.jpg'), lookBd('/a' + id + '.jpg'), lookBd('/b' + id + '.jpg')] } });
+
+function fakeLook() {
+  const t = { calls: [], verdicts: {} };
+  t.verdict = (p, f) => (Object.prototype.hasOwnProperty.call(t.verdicts, p + '|' + f) ? t.verdicts[p + '|' + f] : undefined);
+  t.compare = (p, f, cb) => {
+    const c = { p: p, f: f, cb: cb, cancelled: false };
+    t.calls.push(c);
+    return { cancel() { c.cancelled = true; } };
+  };
+  t.answer = (c, v) => { t.verdicts[c.p + '|' + c.f] = v; c.cb(v); };
+  t.tone = () => ({ cancel() {} });
+  t.toneOf = () => undefined;
+  t.pairs = () => t.calls.map((c) => c.p.replace(/^\/p|\.jpg$/g, '') + ':' + c.f.replace(/^\/|\.jpg$/g, ''));
+  return t;
+}
+
+/* Отвечает на все запросы деталей (соседей и героя) деталями с кадрами. */
+function answerLooks(env) {
+  for (let guard = 0; guard < 50; guard++) {
+    const next = pending(env)[0];
+    if (!next) break;
+    answer(next, lookDetails(idOf(next.url)));
+  }
+}
+
+test('E3: дорожка вердиктов — соседи окна по одной паре, после выбора кадра героем; карточку под фокусом не трогает', () => {
+  const th = fakeLook();
+  const { env, main } = mounted({ thumbs: th });
+  focus(main, main.rows[0][2]);
+  env.advance(250);
+  answerLooks(env);
+  env.advance(DELAY - 250);
+  answerLooks(env);
+  assert.deepEqual(th.pairs(), ['103:a103'], 'первым сравнивает сам герой — свою карточку');
+  wait(env, COLOR_GAP + LOOK_RETRY * 3);
+  assert.deepEqual(th.pairs(), ['103:a103'], 'пока герой выбирает кадр, дорожка своих пар не заводит');
+  th.answer(th.calls[0], false);
+  wait(env, COLOR_GAP + LOOK_RETRY);
+  assert.deepEqual(th.pairs(), ['103:a103', '104:a104'], 'после выбора — первый сосед по ходу');
+  wait(env, 1000);
+  assert.equal(th.calls.length, 2, 'следующая пара — только после ответа');
+  th.answer(th.calls[1], true);
+  wait(env, COLOR_GAP);
+  assert.deepEqual(th.pairs().slice(2), ['104:b104'], 'похож — следующий кандидат того же соседа, как спросил бы герой');
+  th.answer(th.calls[2], false);
+  for (let guard = 0; guard < 10; guard++) {
+    wait(env, COLOR_GAP);
+    const open = th.calls.find((c) => th.verdict(c.p, c.f) === undefined && !c.cancelled);
+    if (open) th.answer(open, false);
+  }
+  /* Окно «Лёгких»: +2 вперёд, −1 назад, три карточки следующего ряда. */
+  assert.deepEqual(th.pairs().slice(3), ['105:a105', '102:a102', '201:a201', '202:a202', '203:a203']);
+  assert.deepEqual(warnLog, []);
+});
+
+test('E3: дорожка вердиктов — смена фокуса снимает пару в пути; при зажатой стрелке пар нет', () => {
+  const th = fakeLook();
+  const { env, main } = mounted({ thumbs: th });
+  focus(main, main.rows[0][2]);
+  env.advance(250);
+  answerLooks(env);
+  env.advance(DELAY - 250);
+  answerLooks(env);
+  th.answer(th.calls[0], false);
+  wait(env, COLOR_GAP + LOOK_RETRY);
+  const lane = th.calls[1];
+  assert.equal(lane.p + '|' + lane.f, '/p104.jpg|/a104.jpg', 'предусловие: пара соседа в пути');
+  const before = th.calls.length;
+  for (let i = 3; i < 9; i++) {
+    focus(main, main.rows[0][i]);
+    env.advance(100);
+  }
+  assert.equal(lane.cancelled, true, 'уход фокуса снял сравнение соседа — canvas во время листания не работает');
+  assert.equal(th.calls.length, before, 'при зажатой стрелке ни одной новой пары');
+});
+
+test('E3: вердикт соседа посчитан заранее — его показ выбирает кадр из памяти, без сравнения и потолка', () => {
+  const th = fakeLook();
+  const { env, main } = mounted({ thumbs: th });
+  focus(main, main.rows[0][2]);
+  env.advance(250);
+  answerLooks(env);
+  env.advance(DELAY - 250);
+  answerLooks(env);
+  th.answer(th.calls[0], false);
+  wait(env, COLOR_GAP + LOOK_RETRY);
+  th.answer(th.calls[1], true);
+  wait(env, COLOR_GAP);
+  th.answer(th.calls[2], false);
+  const known = th.calls.length;
+  /* Прошлое нажатие ближе BURST_GAP — показ через BURST_DELAY (серия). */
+  focus(main, main.rows[0][3]);
+  wait(env, BURST_DELAY);
+  answerLooks(env);
+  assert.equal(th.calls.filter((c) => c.p === '/p104.jpg').length, 2, 'герой не спрашивал пары соседа второй раз');
+  assert.ok(th.calls.length >= known, 'дорожка дальше — своим ходом');
+  assert.ok(env.images.some((i) => /\/w1280\/b104\.jpg$/.test(i.src)), 'кадр — второй кандидат, первый похож: ' + env.images.map((i) => i.src).join(' '));
+  assert.ok(!env.images.some((i) => /\/w1280\/a104\.jpg$/.test(i.src)), 'похожий кадр не грузился');
 });

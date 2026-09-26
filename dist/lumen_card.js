@@ -16876,17 +16876,33 @@ return { paths: paths, strong: strong };
 
 
 
-function pickFrame(cands, strong, verdictOf, fallback, late) {
+
+
+
+
+
+function pickFrame(cands, strong, verdictOf, fallback, late, scoreOf) {
+var all = cands.length > 0;
 for (var i = 0; i < cands.length; i++) {
 var v = verdictOf(cands[i]);
 if (v === false) return { path: cands[i], wait: '' };
 if (v === true) continue;
+all = false;
 if (v === null) break;
 if (!late) return { path: '', wait: cands[i] };
 for (var j = 0; j < strong && j < cands.length; j++) {
 if (verdictOf(cands[j]) !== true) return { path: cands[j], wait: '' };
 }
 break;
+}
+if (all && typeof scoreOf === 'function') {
+var least = '';
+var low = Infinity;
+for (var k = 0; k < cands.length; k++) {
+var s = scoreOf(cands[k]);
+if (typeof s === 'number' && s < low) { low = s; least = cands[k]; }
+}
+if (least) return { path: least, wait: '' };
 }
 return { path: fallback || '', wait: '' };
 }
@@ -19306,6 +19322,7 @@ var poster = model.poster;
 var look = LC.thumbs;
 var decided = false;
 function verdictOf(path) { return look.verdict(poster, path); }
+function scoreOf(path) { return typeof look.scoreOf === 'function' ? look.scoreOf(poster, path) : undefined; }
 function finish(path) {
 decided = true;
 stopTimer('lookTimer');
@@ -19354,7 +19371,7 @@ return answered;
 }
 function step() {
 while (!decided && state && gen === captured) {
-var r = pickFrame(cands.paths, cands.strong, verdictOf, model.backdrop, false);
+var r = pickFrame(cands.paths, cands.strong, verdictOf, model.backdrop, false, scoreOf);
 if (!r.wait) {
 finish(r.path);
 return;
@@ -19382,7 +19399,7 @@ if (decided) return;
 
 
 
-finish(pickFrame(cands.paths, cands.strong, verdictOf, model.backdrop, true).path);
+finish(pickFrame(cands.paths, cands.strong, verdictOf, model.backdrop, true, scoreOf).path);
 }, LOOK_WAIT);
 }
 
@@ -19417,6 +19434,16 @@ if (motionMode() === 'off') prefetch('warm', state.root);
 
 
 
+
+
+
+
+
+function choosing() {
+if (!state || state.parked) return false;
+if (state.pending && state.pending.id !== state.shownId) return true;
+return state.framePath === null || !!state.look || !!state.lookTimer;
+}
 
 function prefetch(name, arg) {
 try {
@@ -20665,8 +20692,13 @@ heroModel: heroModel,
 heroBackdrop: heroBackdrop,
 
 
+
+
 frameCandidates: frameCandidates,
 pickFrame: pickFrame,
+
+
+choosing: choosing,
 shouldUpdate: shouldUpdate,
 sizeFor: sizeFor,
 logoSizeFor: logoSizeFor,
@@ -30174,6 +30206,8 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 
+
+
 LC.thumbs = (function () {
 
 var SIZE = 'w92';
@@ -30185,15 +30219,45 @@ var FH = 27;
 var CROP = 0.7;
 
 
+
+
+
+
+
+var BANDS = [[0.15, 0.85], [0, 0.5], [0.25, 0.75], [0.5, 1]];
+
+
+
 var SCALES = [1, 0.8, 0.64];
+
+
+
+
+var STEP = 2;
+
+var TMPL_MIN = 4;
 
 var HIST_W = 30;
 
 
 
-var HIST_SIM = 0.7;
-var CORR_SIM = 0.75;
-var BOTH_SIM = 0.6;
+
+
+
+var LIGHT_MIN = 40;
+var LIGHT_GATE = 0.7;
+
+
+
+
+
+
+
+
+
+var HIST_SIM = 0.71;
+var JOINT_SIM = 0.62;
+var CLEAN = 0.85;
 
 
 var LOGO_W = 64;
@@ -30215,6 +30279,8 @@ var LOAD_MS = 8000;
 
 
 var IDLE_MS = 120;
+
+
 
 
 var KEEP = 60;
@@ -30239,19 +30305,65 @@ out[i] = Math.round(0.299 * data[j] + 0.587 * data[j + 1] + 0.114 * data[j + 2])
 return out;
 }
 
+function lit(data, j) {
+return Math.max(data[j], data[j + 1], data[j + 2]) >= LIGHT_MIN;
+}
 
-function histogram(data, n) {
+
+
+function histogram(data, n, light) {
 var h = [];
 var k;
 for (k = 0; k < 64; k++) h[k] = 0;
 var count = 0;
 for (var i = 0, j = 0; i < n; i++, j += 4) {
 if (data[j + 3] < ALPHA_MIN) continue;
+if (light && !lit(data, j)) continue;
 h[((data[j] >> 6) << 4) | ((data[j + 1] >> 6) << 2) | (data[j + 2] >> 6)]++;
 count++;
 }
 if (count) for (k = 0; k < 64; k++) h[k] /= count;
 return h;
+}
+
+
+function lightShare(data, n) {
+var all = 0;
+var on = 0;
+for (var i = 0, j = 0; i < n; i++, j += 4) {
+if (data[j + 3] < ALPHA_MIN) continue;
+all++;
+if (lit(data, j)) on++;
+}
+return all ? on / all : 0;
+}
+
+function floats(n) {
+return typeof Float32Array === 'function' ? new Float32Array(n) : new Array(n);
+}
+
+
+
+
+
+
+function sobel(g, w, h) {
+var out = floats(w * h);
+for (var y = 0; y < h; y++) {
+var y0 = y > 0 ? y - 1 : 0;
+var y1 = y < h - 1 ? y + 1 : h - 1;
+for (var x = 0; x < w; x++) {
+var x0 = x > 0 ? x - 1 : 0;
+var x1 = x < w - 1 ? x + 1 : w - 1;
+var a = g[y0 * w + x0], b = g[y0 * w + x], c = g[y0 * w + x1];
+var d = g[y * w + x0], f = g[y * w + x1];
+var p = g[y1 * w + x0], q = g[y1 * w + x], r = g[y1 * w + x1];
+var gx = (c + 2 * f + r) - (a + 2 * d + p);
+var gy = (p + 2 * q + r) - (a + 2 * b + c);
+out[y * w + x] = Math.sqrt(gx * gx + gy * gy);
+}
+}
+return out;
 }
 
 
@@ -30305,20 +30417,85 @@ if (v > best) best = v;
 return best;
 }
 
-function similar(hist, corr) {
-return hist >= HIST_SIM || corr >= CORR_SIM || (hist >= BOTH_SIM && corr >= BOTH_SIM);
+
+function stats(a, n) {
+var s = 0;
+var ss = 0;
+for (var i = 0; i < n; i++) {
+s += a[i];
+ss += a[i] * a[i];
 }
+return { s: s, v: ss - s * s / n };
+}
+
+
+
+
+
+
+function bestJoint(frame, tmpl) {
+if (!tmpl || tmpl.w > frame.w || tmpl.h > frame.h || tmpl.w < TMPL_MIN || tmpl.h < TMPL_MIN) return -1;
+var n = tmpl.w * tmpl.h;
+var te = tmpl.e || (tmpl.e = sobel(tmpl.g, tmpl.w, tmpl.h));
+var fe = frame.e || (frame.e = sobel(frame.g, frame.w, frame.h));
+var sg = stats(tmpl.g, n);
+var se = stats(te, n);
+var mx = frame.w - tmpl.w;
+var my = frame.h - tmpl.h;
+function at(x, y) {
+return (corrAt(frame.g, frame.w, tmpl.g, tmpl.w, tmpl.h, x, y, sg.s, sg.v) +
+corrAt(fe, frame.w, te, tmpl.w, tmpl.h, x, y, se.s, se.v)) / 2;
+}
+var best = -1;
+var bx = 0;
+var by = 0;
+var x, y, v;
+for (y = 0; y <= my; y += STEP) {
+for (x = 0; x <= mx; x += STEP) {
+v = at(x, y);
+if (v > best) { best = v; bx = x; by = y; }
+}
+}
+for (y = Math.max(0, by - 1); y <= Math.min(my, by + 1); y++) {
+for (x = Math.max(0, bx - 1); x <= Math.min(mx, bx + 1); x++) {
+v = at(x, y);
+if (v > best) best = v;
+}
+}
+return best;
+}
+
+
+function similar(hist, joint) {
+return hist >= HIST_SIM || joint >= JOINT_SIM;
+}
+
+
+function pairScore(hist, joint) {
+return Math.max(hist / HIST_SIM, joint / JOINT_SIM);
+}
+
+
+
+
+function histPair(poster, frame) {
+var dark = typeof poster.light === 'number' && typeof frame.light === 'number' &&
+Math.min(poster.light, frame.light) < LIGHT_GATE && poster.hl && frame.histL;
+return dark ? histMatch(poster.hl, frame.histL) : histMatch(poster.h, frame.hist);
+}
+
 
 
 
 function judge(poster, frame) {
-var hist = histMatch(poster.h, frame.hist);
+var hist = histPair(poster, frame);
 var corr = -1;
 for (var i = 0; i < poster.t.length; i++) {
-var c = bestCorr(frame.g, frame.w, frame.h, poster.t[i]);
+var c = bestJoint(frame, poster.t[i]);
 if (c > corr) corr = c;
 }
-return { hist: hist, corr: corr, similar: similar(hist, corr) };
+var s = pairScore(hist, corr);
+return { hist: hist, corr: corr, score: s, similar: similar(hist, corr), clean: s < CLEAN };
 }
 
 function linear(v) {
@@ -30485,28 +30662,38 @@ function framePixels(img) {
 var ctx = context(FW, FH);
 ctx.drawImage(img, 0, 0, FW, FH);
 var data = ctx.getImageData(0, 0, FW, FH).data;
-return { w: FW, h: FH, g: luma(data, FW * FH), hist: histogram(data, FW * FH) };
+var n = FW * FH;
+var g = luma(data, n);
+return { w: FW, h: FH, g: g, e: sobel(g, FW, FH), hist: histogram(data, n), histL: histogram(data, n, true), light: lightShare(data, n) };
 }
+
+
 
 function posterPixels(img) {
 var W = img.naturalWidth;
 var H = img.naturalHeight;
-var sy = H * (1 - CROP) / 2;
-var sh = H * CROP;
-var aspect = W / sh;
 var t = [];
+for (var b = 0; b < BANDS.length; b++) {
+var by = H * BANDS[b][0];
+var bh = H * (BANDS[b][1] - BANDS[b][0]);
 for (var i = 0; i < SCALES.length; i++) {
 var th = Math.round(FH * SCALES[i]);
-var tw = Math.round(th * aspect);
-if (tw < 2 || th < 2 || tw > FW) continue;
+var tw = Math.round(th * W / bh);
+if (tw < TMPL_MIN || th < TMPL_MIN || tw > FW) continue;
 var ctx = context(tw, th);
-ctx.drawImage(img, 0, sy, W, sh, 0, 0, tw, th);
-t.push({ w: tw, h: th, g: luma(ctx.getImageData(0, 0, tw, th).data, tw * th) });
+ctx.drawImage(img, 0, by, W, bh, 0, 0, tw, th);
+var g = luma(ctx.getImageData(0, 0, tw, th).data, tw * th);
+t.push({ w: tw, h: th, g: g, e: sobel(g, tw, th) });
 }
-var hh = Math.max(1, Math.round(HIST_W / aspect));
+}
+var sy = H * (1 - CROP) / 2;
+var sh = H * CROP;
+var hh = Math.max(1, Math.round(HIST_W * sh / W));
 var hc = context(HIST_W, hh);
 hc.drawImage(img, 0, sy, W, sh, 0, 0, HIST_W, hh);
-return { t: t, h: histogram(hc.getImageData(0, 0, HIST_W, hh).data, HIST_W * hh) };
+var data = hc.getImageData(0, 0, HIST_W, hh).data;
+var n = HIST_W * hh;
+return { t: t, h: histogram(data, n), hl: histogram(data, n, true), light: lightShare(data, n) };
 }
 
 function logoPixels(img) {
@@ -30590,6 +30777,22 @@ if (!Object.prototype.hasOwnProperty.call(table, key)) toneCount++;
 table[key] = value;
 }
 
+
+
+var scores = {};
+var scoreCount = 0;
+
+function keepScore(key, s) {
+if (scoreCount >= TABLE_MAX) { scores = {}; scoreCount = 0; }
+if (!Object.prototype.hasOwnProperty.call(scores, key)) scoreCount++;
+scores[key] = s;
+}
+
+function scoreOf(poster, frame) {
+var key = poster + '|' + frame;
+return Object.prototype.hasOwnProperty.call(scores, key) ? scores[key] : undefined;
+}
+
 function verdict(poster, frame) {
 var key = poster + '|' + frame;
 return Object.prototype.hasOwnProperty.call(verdicts, key) ? verdicts[key] : undefined;
@@ -30663,8 +30866,15 @@ function settle() {
 if (!live || pf === undefined || (pf && ff === undefined)) return;
 live = false;
 for (var i = 1; i < jobs.length; i++) jobs[i].cancel();
-var value = pf && ff ? judge(pf, ff).similar : null;
-if (pf !== null && ff !== null) remember(verdicts, poster + '|' + frame, value);
+
+
+
+var j = pf && ff ? judge(pf, ff) : null;
+var value = j ? !j.clean : null;
+if (pf !== null && ff !== null) {
+remember(verdicts, poster + '|' + frame, value);
+if (j) keepScore(poster + '|' + frame, j.score);
+}
 cb(value);
 }
 jobs.push(need('poster', poster, function (got) { pf = got; settle(); }));
@@ -30711,12 +30921,23 @@ histogram: histogram,
 histMatch: histMatch,
 bestCorr: bestCorr,
 similar: similar,
+score: pairScore,
+sobel: sobel,
+lightShare: lightShare,
+bestJoint: bestJoint,
 judge: judge,
+
+posterPixels: posterPixels,
+framePixels: framePixels,
+HIST_SIM: HIST_SIM,
+JOINT_SIM: JOINT_SIM,
+CLEAN: CLEAN,
 toneStats: toneStats,
 darkOf: darkOf,
 
 compare: compare,
 verdict: verdict,
+scoreOf: scoreOf,
 tone: tone,
 toneOf: toneOf,
 
@@ -30732,6 +30953,11 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 /* ---- 58_prefetch.js ---- */
+
+
+
+
+
 
 
 
@@ -30851,6 +31077,29 @@ var colorWait = null;
 var COLOR_IDLE_MAX = 500;
 
 var COLOR_GAP = 50;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+var looks = [];
+var lookJob = null;
+var lookWait = null;
+
+
+var LOOK_RETRY = 120;
 
 function langCode() {
 try {
@@ -31044,6 +31293,8 @@ ok: function (j) {
 busy--;
 if (captured === gen) chainLogo(j);
 pump();
+
+if (captured === gen) pumpLooks();
 },
 err: function () {
 busy--;
@@ -31160,6 +31411,123 @@ colors.push(card);
 pumpColors();
 }
 
+function lookAllowed() {
+if (!LC.thumbs || typeof LC.thumbs.compare !== 'function' || typeof LC.thumbs.verdict !== 'function') return false;
+if (!LC.hero || typeof LC.hero.frameCandidates !== 'function' || typeof LC.hero.pickFrame !== 'function') return false;
+
+try { return LC.motionMode() !== 'off'; } catch (e) { return true; }
+}
+
+function heroChoosing() {
+try {
+return !!(LC.hero && typeof LC.hero.choosing === 'function' && LC.hero.choosing());
+} catch (e) {
+return false;
+}
+}
+
+
+
+
+
+function lookPair(card) {
+var req = requestOf(card);
+if (!req) return null;
+var json = recall(req.key);
+if (!json) return undefined;
+var poster = card.poster_path || json.poster_path || '';
+if (!poster) return null;
+var cands = LC.hero.frameCandidates(json.images, json.backdrop_path || card.backdrop_path || '');
+if (!cands.paths.length) return null;
+var r = LC.hero.pickFrame(cands.paths, cands.strong, function (path) { return LC.thumbs.verdict(poster, path); }, '', false);
+return r.wait ? { poster: poster, frame: r.wait } : null;
+}
+
+function stopLooks() {
+looks.length = 0;
+if (lookWait) {
+lookWait.cancel();
+lookWait = null;
+}
+if (lookJob) {
+var job = lookJob;
+lookJob = null;
+job.over = true;
+try { if (job.handle) job.handle.cancel(); } catch (e) { warn('prefetch: look cancel failed', e); }
+}
+}
+
+
+
+
+function pumpLooks() {
+if (lookJob || lookWait || !looks.length) return;
+var captured = gen;
+lookWait = idle(function () {
+lookWait = null;
+if (captured !== gen || !ready() || !lookAllowed()) return;
+if (heroChoosing()) {
+var t = setTimeout(function () {
+lookWait = null;
+pumpLooks();
+}, LOOK_RETRY);
+lookWait = { cancel: function () { clearTimeout(t); } };
+return;
+}
+var pair = null;
+var at = 0;
+while (at < looks.length && !pair) {
+var got = lookPair(looks[at]);
+if (got === undefined) at++;
+else if (!got) looks.splice(at, 1);
+else pair = got;
+}
+if (!pair) return;
+var card = looks[at];
+var entry = { handle: null, over: false };
+lookJob = entry;
+var sync = true;
+try {
+entry.handle = LC.thumbs.compare(pair.poster, pair.frame, function () {
+if (entry.over) return;
+entry.over = true;
+if (lookJob === entry) lookJob = null;
+
+
+
+if (LC.thumbs.verdict(pair.poster, pair.frame) === undefined) {
+var i = looks.indexOf(card);
+if (i !== -1) looks.splice(i, 1);
+}
+if (!sync) pumpLooks();
+});
+} catch (e) {
+warn('prefetch: look failed', e);
+entry.over = true;
+if (lookJob === entry) lookJob = null;
+looks.length = 0;
+return;
+}
+sync = false;
+if (entry.over) pumpLooks();
+});
+}
+
+
+function planLooks(cards) {
+if (!lookAllowed()) return;
+var seen = {};
+for (var i = 0; i < cards.length; i++) {
+var card = cards[i];
+if (!card || card.id == null) continue;
+var req = requestOf(card);
+if (!req || seen[req.key]) continue;
+seen[req.key] = true;
+looks.push(card);
+}
+pumpLooks();
+}
+
 
 function cardsIn(line) {
 var out = [];
@@ -31218,6 +31586,7 @@ gen++;
 queue.length = 0;
 colors.length = 0;
 stopColorWait();
+stopLooks();
 stopIdle();
 if (!el) return;
 prevEl = focusEl;
@@ -31232,6 +31601,9 @@ plan(near);
 
 
 planColors([el.card_data].concat(near));
+
+
+planLooks(near);
 } catch (e) {
 warn('prefetch: window failed', e);
 }
@@ -31249,6 +31621,7 @@ if (lines.length > 0) dataOf(cardsIn($(lines[0])), 0, WARM_FIRST, out);
 if (lines.length > 1) dataOf(cardsIn($(lines[1])), 0, WARM_SECOND, out);
 plan(out);
 planColors(out);
+planLooks(out);
 } catch (e) {
 warn('prefetch: warm failed', e);
 }
@@ -31264,6 +31637,7 @@ queue.length = 0;
 stopIdle();
 colors.length = 0;
 stopColorWait();
+stopLooks();
 if (colorJob) {
 var job = colorJob;
 colorJob = null;

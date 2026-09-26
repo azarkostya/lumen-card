@@ -72,13 +72,104 @@ test('п.C2: bestCorr — шаблон, вырезанный из кадра, н
   assert.equal(T.bestCorr(frame, fw, fh, { w: 60, h: 10, g: new Uint8Array(600) }), -1, 'шаблон шире кадра');
 });
 
-test('п.C2: similar — гистограмма ≥ .70, или корреляция ≥ .75, или обе ≥ .60', () => {
-  assert.equal(T.similar(0.7, 0), true);
-  assert.equal(T.similar(0.1, 0.75), true);
-  assert.equal(T.similar(0.6, 0.6), true);
-  assert.equal(T.similar(0.69, 0.74), true, 'обе ≥ .60');
-  assert.equal(T.similar(0.59, 0.74), false);
-  assert.equal(T.similar(0.69, 0.59), false);
+/* E3 (study.md): пороги — максимум у кадров фильма на подборе + .02. */
+test('E3: similar — гистограмма ≥ .71 или совместная корреляция ≥ .62; счёт и «чистый» ниже .85', () => {
+  assert.equal(T.similar(0.71, 0), true);
+  assert.equal(T.similar(0.1, 0.62), true);
+  assert.equal(T.similar(0.7, 0.61), false, 'условия «обе ≥ .60» больше нет');
+  assert.ok(Math.abs(T.score(0.71, 0) - 1) < 1e-9, 'на пороге гистограммы счёт 1');
+  assert.ok(Math.abs(T.score(0, 0.62) - 1) < 1e-9, 'на пороге корреляции счёт 1');
+  assert.equal(T.CLEAN, 0.85);
+  assert.ok(T.score(0.6, 0.5) < T.CLEAN, '.6/.5 — чистый');
+  assert.ok(T.score(0.62, 0.3) >= T.CLEAN, '.62 по гистограмме — серая зона');
+});
+
+test('E3: bestJoint — вырезанный из кадра шаблон находится и на нечётном смещении (шаг 2 + уточнение ±1), > .95', () => {
+  const fw = 48;
+  const fh = 27;
+  const g = T.luma(raster(fw, fh, scene(1)), fw * fh);
+  const frame = { w: fw, h: fh, g: g };
+  for (const [ox, oy] of [[13, 3], [12, 4], [7, 1]]) {
+    const tw = 21;
+    const th = 22;
+    const t = new Uint8Array(tw * th);
+    for (let y = 0; y < th; y++) for (let x = 0; x < tw; x++) t[y * tw + x] = g[(y + oy) * fw + (x + ox)];
+    /* Не единица: градиент у края шаблона считается по его собственным
+       пикселям, у кадра — по соседям. */
+    assert.ok(T.bestJoint(frame, { w: tw, h: th, g: t }) > 0.95, 'смещение ' + ox + ',' + oy);
+  }
+  assert.equal(T.bestJoint(frame, { w: 60, h: 10, g: new Uint8Array(600) }), -1, 'шаблон шире кадра');
+  assert.equal(T.bestJoint(frame, { w: 3, h: 10, g: new Uint8Array(30) }), -1, 'шаблон уже 4 пикселей');
+});
+
+/* Общий световой рисунок (светлый верх, тёмный низ) при другом содержимом:
+   корреляция одной яркости высокая, совместная с градиентом — нет. */
+test('E3: bestJoint — тот же световой рисунок, другое содержимое — не совпадение (градиент)', () => {
+  const fw = 48;
+  const fh = 27;
+  /* Спад яркости сверху вниз (общий рисунок) и мелкая псевдослучайная
+     фактура (своя у каждой картинки). */
+  const tex = (seed) => (x, y) => {
+    const h = ((Math.imul(x + 31 * seed, 73856093) ^ Math.imul(y + 17 * seed, 19349663)) >>> 0) % 37;
+    const v = Math.max(0, Math.min(255, Math.round(230 - (y / fh) * 200 + (h - 18))));
+    return [v, v, v];
+  };
+  const g = T.luma(raster(fw, fh, tex(1)), fw * fh);
+  const tw = 26;
+  const t = T.luma(raster(tw, fh, (x, y) => tex(4)(x + 11, y)), tw * fh);
+  const tmpl = { w: tw, h: fh, g: t };
+  const luma = T.bestCorr(g, fw, fh, tmpl);
+  const joint = T.bestJoint({ w: fw, h: fh, g: g }, tmpl);
+  assert.ok(luma > 0.9, 'предусловие: по одной яркости совпадение ' + luma);
+  assert.ok(joint < T.JOINT_SIM, 'совместная корреляция ' + joint);
+});
+
+test('E3: гистограмма тёмной пары — только по светлым пикселям', () => {
+  /* Постер и кадр на 80 % чёрные, светлые пиксели — разного цвета. */
+  const dark = (col) => (x, y) => (y < 8 ? col : [5, 5, 5]);
+  const P = raster(10, 40, dark([230, 40, 40]));
+  const F = raster(10, 40, dark([40, 40, 230]));
+  const poster = { t: [], h: T.histogram(P, 400), hl: T.histogram(P, 400, true), light: T.lightShare(P, 400) };
+  const frame = { w: 48, h: 27, g: new Uint8Array(48 * 27), hist: T.histogram(F, 400), histL: T.histogram(F, 400, true), light: T.lightShare(F, 400) };
+  assert.ok(Math.abs(poster.light - 0.2) < 1e-9);
+  assert.ok(T.histMatch(poster.h, frame.hist) >= 0.8, 'предусловие: полные гистограммы совпадают чёрной корзиной');
+  assert.equal(T.judge(poster, frame).hist, 0, 'тёмная пара сравнена по всем пикселям');
+  /* Светлая пара — полные гистограммы, как прежде. */
+  const L1 = raster(10, 10, () => [200, 200, 200]);
+  const lp = { t: [], h: T.histogram(L1, 100), hl: T.histogram(L1, 100, true), light: 1 };
+  const lf = { w: 48, h: 27, g: new Uint8Array(48 * 27), hist: T.histogram(L1, 100), histL: T.histogram(L1, 100, true), light: 1 };
+  assert.equal(T.judge(lp, lf).hist, 1);
+});
+
+/* Фикстура: признаки настоящих миниатюр w92, посчитанные тем же кодом на
+   canvas Chromium (стенд study, make_fixture.py). Ожидания — разметка
+   глазами: «Звёздные войны: Эпизод 8» №1 — горизонтальный арт той же
+   кампании (не должен быть «чистым»), №2 — кадр фильма; «Побег из
+   Шоушенка» №1 — лица с верха постера, №2 — кадр; «Одиссея» №1 — тот же
+   арт; «Брат» №2 и №3 — тёмные кадры фильма, которые прежнее правило
+   отмечало «похожими» по чёрной корзине гистограммы. */
+test('E3: фикстура настоящих пар — повтор арта не чистый, кадры фильма чистые', () => {
+  const fx = JSON.parse(readFileSync(new URL('./fixtures/thumbs_e3.json', import.meta.url), 'utf8'));
+  const bytes = (s) => Uint8Array.from(Buffer.from(s, 'base64'));
+  const want = {
+    181808: { 1: { clean: false }, 2: { clean: true } },
+    278: { 1: { similar: true, clean: false }, 2: { clean: true } },
+    1368337: { 1: { similar: true, clean: false }, 2: { clean: true } },
+    20992: { 2: { similar: false, clean: true }, 3: { similar: false, clean: true } }
+  };
+  for (const id of Object.keys(want)) {
+    const f = fx[id];
+    const poster = { t: f.poster.t.map((t) => ({ w: t.w, h: t.h, g: bytes(t.g) })), h: f.poster.h, hl: f.poster.hl, light: f.poster.light };
+    for (const o of f.order) {
+      const fr = f.frames[o.path];
+      const frame = { w: fr.w, h: fr.h, g: bytes(fr.g), hist: fr.hist, histL: fr.histL, light: fr.light };
+      const j = T.judge(poster, frame);
+      const w = want[id][o.n];
+      if ('clean' in w) assert.equal(j.clean, w.clean, f.title + ' №' + o.n + ' ' + JSON.stringify(j));
+      if ('similar' in w) assert.equal(j.similar, w.similar, f.title + ' №' + o.n + ' ' + JSON.stringify(j));
+      assert.ok(Math.abs(j.corr - fr.expect.corr) < 1e-6, 'совместная корреляция разошлась со стендом');
+    }
+  }
 });
 
 test('п.C2: judge — постер из того же арта похож, из другого — нет', () => {
@@ -219,6 +310,73 @@ test('п.C2: compare — тот же арт похож, другой — нет;
   e.idleAll();
   assert.equal(got.same, true);
   assert.equal(got.other, false);
+  /* E3: счёт пары лежит в памяти рядом с вердиктом — для выбора наименее
+     похожего, когда чистых кандидатов нет. */
+  assert.equal(typeof e.T.scoreOf('/p.jpg', '/same.jpg'), 'number');
+  assert.ok(e.T.scoreOf('/p.jpg', '/same.jpg') > e.T.scoreOf('/p.jpg', '/other.jpg'));
+  assert.equal(e.T.scoreOf('/p.jpg', '/none.jpg'), undefined);
+});
+
+/* Раунд C, E3: вердикт compare — «не чистый», а не «похож»: пара в серой
+   зоне (счёт от CLEAN до 1 — тот же стиль кампании, «Звёздные войны:
+   Эпизод 8» №1) выбором кадра обходится, пока есть чистый кандидат.
+   Постер одного цвета (шаблоны без контраста — корреляция 0), кадр на 62.5 %
+   того же цвета: гистограмма .625 — ниже «похож» (.71), но счёт .88. */
+test('E3: compare — пара в серой зоне (не похожа, но и не чистая) отвечает «не чистый», счёт в памяти', () => {
+  const e = env();
+  let got;
+  e.T.compare('/p.jpg', '/gray.jpg', (v) => { got = v; });
+  e.arrive(e.img('/p.jpg'), () => [200, 60, 60], 92, 138);
+  e.arrive(e.img('/gray.jpg'), (x, y, w) => (x < w * 0.625 ? [200, 60, 60] : [60, 60, 200]), 92, 52);
+  e.idleAll();
+  const s = e.T.scoreOf('/p.jpg', '/gray.jpg');
+  assert.ok(s >= e.T.CLEAN && s < 1, 'предусловие: серая зона, счёт ' + s);
+  assert.equal(got, true, 'серая зона — не чистый кадр');
+  assert.equal(e.T.verdict('/p.jpg', '/gray.jpg'), true);
+});
+
+/* Раунд C, E3: шаблоны постера — не только середина. Canvas заглушки здесь
+   честно режет источник (drawImage с прямоугольником источника): арт
+   «Побега из Шоушенка» стоит в кадре своей ВЕРХНЕЙ половиной (лица), а низ
+   постера — другой рисунок; середина постера кадр не находит, верхняя
+   полоса — находит. */
+test('E3: compare — кадр повторяет верхнюю половину постера: находит полоса [0, .5]', () => {
+  const e = env();
+  globalThis.document = {
+    createElement: () => {
+      let src = null;
+      let rect = null;
+      return {
+        width: 0, height: 0,
+        getContext: () => ({
+          /* Девять аргументов — прямоугольник источника (полосы постера),
+             пять — картинка целиком. */
+          drawImage: function (img, sx, sy, sw, sh) {
+            src = img;
+            rect = arguments.length >= 9 ? { sx: sx, sy: sy, sw: sw, sh: sh } : null;
+          },
+          getImageData: (x, y, w, h) => {
+            const r = rect || { sx: 0, sy: 0, sw: src.naturalWidth, sh: src.naturalHeight };
+            return { data: raster(w, h, (px, py) => src.paint(r.sx + (px + 0.5) / w * r.sw, r.sy + (py + 0.5) / h * r.sh, src.naturalWidth, src.naturalHeight)) };
+          }
+        })
+      };
+    }
+  };
+  const top = scene(1);
+  const bottom = scene(4.3);
+  const poster = (u, v, W, H) => (v < H / 2 ? top(u, v, W, H / 2) : bottom(u, v - H / 2, W, H / 2));
+  const frame = (u, v, W, H) => {
+    const fx = u / W;
+    return fx >= 0.125 && fx < 0.875 ? top((fx - 0.125) / 0.75 * W, v, W, H) : [0, 0, 0];
+  };
+  let got;
+  e.T.compare('/p.jpg', '/top.jpg', (v) => { got = v; });
+  e.arrive(e.img('/p.jpg'), poster, 92, 138);
+  e.arrive(e.img('/top.jpg'), frame, 92, 52);
+  e.idleAll();
+  assert.equal(got, true, 'повтор верхней половины постера — не чистый кадр, счёт ' + e.T.scoreOf('/p.jpg', '/top.jpg'));
+  assert.ok(e.T.scoreOf('/p.jpg', '/top.jpg') >= 1, 'и похож: ' + e.T.scoreOf('/p.jpg', '/top.jpg'));
 });
 
 test('п.C2: пиксели закрыты (SecurityError) или картинка не пришла — вердикт null, и он в памяти', () => {

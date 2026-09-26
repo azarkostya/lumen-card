@@ -7,11 +7,13 @@
   /* «Семи самураев» на тёмном кадре).                                     */
   /*                                                                       */
   /* Что умеет модуль:                                                     */
-  /*   compare(poster, frame, cb) — похож ли кадр на постер: миниатюры w92  */
-  /*     обоих, цветовые гистограммы 4×4×4 и корреляция скользящего        */
-  /*     шаблона постера по кадру (similar ниже). cb(true | false | null), */
-  /*     null — сравнить нельзя (картинка не пришла, пиксели закрыты);     */
+  /*   compare(poster, frame, cb) — «не чистый» ли кадр (похож на постер  */
+  /*     или в серой зоне, E3): миниатюры w92 обоих, гистограммы 4×4×4 и   */
+  /*     совместная корреляция яркости и градиента полос постера по кадру  */
+  /*     (judge ниже). cb(true | false | null), null — сравнить нельзя     */
+  /*     (картинка не пришла, пиксели закрыты);                             */
   /*   verdict(poster, frame) — известный ответ или undefined;             */
+  /*   scoreOf(poster, frame) — счёт пары (1 — порог «похож») или undefined; */
   /*   tone(path, cb) — тон логотипа: 'dark' | 'light' | 'none' (прочитать */
   /*     нельзя); toneOf(path) — известный тон или undefined.              */
   /*                                                                       */
@@ -51,20 +53,50 @@
     /* Растр кадра на canvas: 16:9, как сам кадр героя. */
     var FW = 48;
     var FH = 27;
-    /* У постера сравнивается средняя часть по высоте — сверху и снизу у
+    /* Гистограмма постера — по средней части высоты: сверху и снизу у
        ключевого арта обычно надписи (название, слоган, титры). */
     var CROP = 0.7;
-    /* Высоты шаблона постера в долях высоты кадра: ключевой арт в кадре
-       16:9 бывает и во всю высоту, и мельче — слева или справа от надписи. */
+    /* Исследование E3 (study.md, 40 фильмов русской главной, 317 пар
+       «постер ряда — кандидат», разметка глазами, подбор/проверка по
+       фильмам): шаблон только из середины постера не находит арт, который
+       в кадре стоит своей верхней половиной («Побег из Шоушенка» — лица
+       с верха постера) или мельче кадра («Мстители: Война бесконечности»).
+       Шаблоны — полосы постера BANDS (доли высоты) в масштабах SCALES
+       (высота шаблона в долях высоты кадра). */
+    var BANDS = [[0.15, 0.85], [0, 0.5], [0.25, 0.75], [0.5, 1]];
+    /* Масштабы .5 и .4 проверены и сняты (study.md, отбор на подборе):
+       мелкий шаблон случайно совпадает с кадрами фильма, порог растёт, и
+       полнота падает; цена — вдвое больше. */
     var SCALES = [1, 0.8, 0.64];
+    /* Грубый шаг перебора положений и уточнение ±1 вокруг лучшего: в 2.7
+       раза меньше умножений, чем полный перебор, качество на выборке то же.
+       Сравнение пары на стенде при CPU ×10 — 24 мс (медиана, макс. 36),
+       у прежнего правила — 6 мс. */
+    var STEP = 2;
+    /* Шаблон уже этого — не шаблон: корреляция по трём пикселям случайна. */
+    var TMPL_MIN = 4;
     /* Ширина растра постера для гистограммы. */
     var HIST_W = 30;
-    /* Пороги «похож» (исследование hero2, выборка 48 фильмов; сверено на
-       стенде 2026-09-25 на 72 фильмах главной): совпадение гистограмм
-       ≥ HIST_SIM, или корреляция шаблона ≥ CORR_SIM, или обе ≥ BOTH_SIM. */
-    var HIST_SIM = 0.7;
-    var CORR_SIM = 0.75;
-    var BOTH_SIM = 0.6;
+    /* Светлый пиксель — самый яркий канал от LIGHT_MIN. Гистограмма 4×4×4
+       у тёмных картинок почти целиком в одной чёрной корзине, и любой тёмный
+       кадр «совпадал» с тёмным постером («Славные парни», «Брат», «Волк с
+       Уолл-стрит» — 9 из 13 ложных «похож» на кадрах фильма у прежнего
+       правила). Если у постера или кадра светлых пикселей меньше LIGHT_GATE,
+       гистограммы сравниваются только по светлым. */
+    var LIGHT_MIN = 40;
+    var LIGHT_GATE = 0.7;
+    /* Пороги (study.md): максимум у кадров ФИЛЬМА на подборе + 0.02
+       (гистограмма .693 «Дэдпул и Росомаха» №5, корреляция .604 After
+       Impact №3; «Звёздные войны: Эпизод 8» и «Побег из Шоушенка» — в
+       проверке, на них порог не подбирался) —
+       гистограмма ≥ HIST_SIM или совместная корреляция ≥ JOINT_SIM — «похож»
+       (similar). Счёт пары — max(hist / HIST_SIM, joint / JOINT_SIM);
+       кадр «чистый», если счёт ниже CLEAN: серую зону (тот же стиль
+       кампании, «Звёздные войны: Эпизод 8») выбор кадра обходит, пока есть
+       чистый кандидат. */
+    var HIST_SIM = 0.71;
+    var JOINT_SIM = 0.62;
+    var CLEAN = 0.85;
     /* Логотип: растр шириной LOGO_W, высота — по пропорции, не больше
        LOGO_H_MAX. Непрозрачный пиксель — альфа от ALPHA_MIN. */
     var LOGO_W = 64;
@@ -87,7 +119,9 @@
        всё это время занят. */
     var IDLE_MS = 120;
     /* Признаков растров в памяти: постер и до трёх кадров на показ героя —
-       с запасом на возвраты. Растр в признаках — Uint8Array, около 3 КБ. */
+       с запасом на возвраты. E3: признаки постера — 12 шаблонов (7439
+       пикселей яркости Uint8Array и столько же градиентов Float32Array),
+       около 37 КБ; кадра — около 6.5 КБ. */
     var KEEP = 60;
     /* Ответов по парам и тонов — таблица сбрасывается целиком, если
        разрослась: это кэш, а не знание. */
@@ -110,19 +144,65 @@
       return out;
     }
 
-    /* Цветовая гистограмма 4×4×4 непрозрачных пикселей, в долях. */
-    function histogram(data, n) {
+    function lit(data, j) {
+      return Math.max(data[j], data[j + 1], data[j + 2]) >= LIGHT_MIN;
+    }
+
+    /* Цветовая гистограмма 4×4×4 непрозрачных пикселей, в долях; light —
+       только светлые пиксели (LIGHT_MIN). */
+    function histogram(data, n, light) {
       var h = [];
       var k;
       for (k = 0; k < 64; k++) h[k] = 0;
       var count = 0;
       for (var i = 0, j = 0; i < n; i++, j += 4) {
         if (data[j + 3] < ALPHA_MIN) continue;
+        if (light && !lit(data, j)) continue;
         h[((data[j] >> 6) << 4) | ((data[j + 1] >> 6) << 2) | (data[j + 2] >> 6)]++;
         count++;
       }
       if (count) for (k = 0; k < 64; k++) h[k] /= count;
       return h;
+    }
+
+    /* Доля светлых среди непрозрачных пикселей. */
+    function lightShare(data, n) {
+      var all = 0;
+      var on = 0;
+      for (var i = 0, j = 0; i < n; i++, j += 4) {
+        if (data[j + 3] < ALPHA_MIN) continue;
+        all++;
+        if (lit(data, j)) on++;
+      }
+      return all ? on / all : 0;
+    }
+
+    function floats(n) {
+      return typeof Float32Array === 'function' ? new Float32Array(n) : new Array(n);
+    }
+
+    /* Модуль градиента Собеля по растру яркости (края — повтором крайнего
+       пикселя). Корреляция одной яркости на растрах 48 × 27 ловит общий
+       световой рисунок («светлый верх, тёмный низ»), и кадр фильма с таким
+       же рисунком получал 0.8–0.9; совпадение картинки видно по совпадению
+       контуров в той же точке. */
+    function sobel(g, w, h) {
+      var out = floats(w * h);
+      for (var y = 0; y < h; y++) {
+        var y0 = y > 0 ? y - 1 : 0;
+        var y1 = y < h - 1 ? y + 1 : h - 1;
+        for (var x = 0; x < w; x++) {
+          var x0 = x > 0 ? x - 1 : 0;
+          var x1 = x < w - 1 ? x + 1 : w - 1;
+          var a = g[y0 * w + x0], b = g[y0 * w + x], c = g[y0 * w + x1];
+          var d = g[y * w + x0], f = g[y * w + x1];
+          var p = g[y1 * w + x0], q = g[y1 * w + x], r = g[y1 * w + x1];
+          var gx = (c + 2 * f + r) - (a + 2 * d + p);
+          var gy = (p + 2 * q + r) - (a + 2 * b + c);
+          out[y * w + x] = Math.sqrt(gx * gx + gy * gy);
+        }
+      }
+      return out;
     }
 
     /* Совпадение гистограмм — сумма минимумов (1 — одинаковые). */
@@ -176,20 +256,85 @@
       return best;
     }
 
-    function similar(hist, corr) {
-      return hist >= HIST_SIM || corr >= CORR_SIM || (hist >= BOTH_SIM && corr >= BOTH_SIM);
+    /* Сумма и «дисперсия» (сумма квадратов отклонений) растра. */
+    function stats(a, n) {
+      var s = 0;
+      var ss = 0;
+      for (var i = 0; i < n; i++) {
+        s += a[i];
+        ss += a[i] * a[i];
+      }
+      return { s: s, v: ss - s * s / n };
     }
 
-    /* Сравнение признаков постера {h, t:[шаблоны]} и кадра {w, h, g, hist}:
-       {hist, corr, similar}. */
+    /* Совместная корреляция шаблона {w, h, g[, e]} с кадром {w, h, g[, e]}:
+       в КАЖДОЙ точке — среднее корреляций яркости и градиента, по всем
+       точкам — максимум. Градиенты, если их нет в признаках (старые
+       фикстуры тестов), считаются здесь. Шаблон больше кадра или уже
+       TMPL_MIN — -1. */
+    function bestJoint(frame, tmpl) {
+      if (!tmpl || tmpl.w > frame.w || tmpl.h > frame.h || tmpl.w < TMPL_MIN || tmpl.h < TMPL_MIN) return -1;
+      var n = tmpl.w * tmpl.h;
+      var te = tmpl.e || (tmpl.e = sobel(tmpl.g, tmpl.w, tmpl.h));
+      var fe = frame.e || (frame.e = sobel(frame.g, frame.w, frame.h));
+      var sg = stats(tmpl.g, n);
+      var se = stats(te, n);
+      var mx = frame.w - tmpl.w;
+      var my = frame.h - tmpl.h;
+      function at(x, y) {
+        return (corrAt(frame.g, frame.w, tmpl.g, tmpl.w, tmpl.h, x, y, sg.s, sg.v) +
+          corrAt(fe, frame.w, te, tmpl.w, tmpl.h, x, y, se.s, se.v)) / 2;
+      }
+      var best = -1;
+      var bx = 0;
+      var by = 0;
+      var x, y, v;
+      for (y = 0; y <= my; y += STEP) {
+        for (x = 0; x <= mx; x += STEP) {
+          v = at(x, y);
+          if (v > best) { best = v; bx = x; by = y; }
+        }
+      }
+      for (y = Math.max(0, by - 1); y <= Math.min(my, by + 1); y++) {
+        for (x = Math.max(0, bx - 1); x <= Math.min(mx, bx + 1); x++) {
+          v = at(x, y);
+          if (v > best) best = v;
+        }
+      }
+      return best;
+    }
+
+    /* «Похож»: гистограмма ≥ HIST_SIM или совместная корреляция ≥ JOINT_SIM. */
+    function similar(hist, joint) {
+      return hist >= HIST_SIM || joint >= JOINT_SIM;
+    }
+
+    /* Счёт пары: 1 — на пороге «похож», ниже CLEAN — «чистый» кадр. */
+    function pairScore(hist, joint) {
+      return Math.max(hist / HIST_SIM, joint / JOINT_SIM);
+    }
+
+    /* Гистограммы пары: полные, если у обеих картинок светлых пикселей не
+       меньше LIGHT_GATE, иначе — только по светлым. Признаки без светлой
+       гистограммы (старые фикстуры) — полные. */
+    function histPair(poster, frame) {
+      var dark = typeof poster.light === 'number' && typeof frame.light === 'number' &&
+        Math.min(poster.light, frame.light) < LIGHT_GATE && poster.hl && frame.histL;
+      return dark ? histMatch(poster.hl, frame.histL) : histMatch(poster.h, frame.hist);
+    }
+
+    /* Сравнение признаков постера {h, hl, light, t:[шаблоны]} и кадра
+       {w, h, g, e, hist, histL, light}: {hist, corr (совместная), score,
+       similar, clean}. */
     function judge(poster, frame) {
-      var hist = histMatch(poster.h, frame.hist);
+      var hist = histPair(poster, frame);
       var corr = -1;
       for (var i = 0; i < poster.t.length; i++) {
-        var c = bestCorr(frame.g, frame.w, frame.h, poster.t[i]);
+        var c = bestJoint(frame, poster.t[i]);
         if (c > corr) corr = c;
       }
-      return { hist: hist, corr: corr, similar: similar(hist, corr) };
+      var s = pairScore(hist, corr);
+      return { hist: hist, corr: corr, score: s, similar: similar(hist, corr), clean: s < CLEAN };
     }
 
     function linear(v) {
@@ -356,28 +501,38 @@
       var ctx = context(FW, FH);
       ctx.drawImage(img, 0, 0, FW, FH);
       var data = ctx.getImageData(0, 0, FW, FH).data;
-      return { w: FW, h: FH, g: luma(data, FW * FH), hist: histogram(data, FW * FH) };
+      var n = FW * FH;
+      var g = luma(data, n);
+      return { w: FW, h: FH, g: g, e: sobel(g, FW, FH), hist: histogram(data, n), histL: histogram(data, n, true), light: lightShare(data, n) };
     }
 
+    /* Шаблоны постера: каждая полоса BANDS в каждом масштабе SCALES (высота
+       шаблона — доля высоты кадра FH, ширина — по пропорции полосы). */
     function posterPixels(img) {
       var W = img.naturalWidth;
       var H = img.naturalHeight;
+      var t = [];
+      for (var b = 0; b < BANDS.length; b++) {
+        var by = H * BANDS[b][0];
+        var bh = H * (BANDS[b][1] - BANDS[b][0]);
+        for (var i = 0; i < SCALES.length; i++) {
+          var th = Math.round(FH * SCALES[i]);
+          var tw = Math.round(th * W / bh);
+          if (tw < TMPL_MIN || th < TMPL_MIN || tw > FW) continue;
+          var ctx = context(tw, th);
+          ctx.drawImage(img, 0, by, W, bh, 0, 0, tw, th);
+          var g = luma(ctx.getImageData(0, 0, tw, th).data, tw * th);
+          t.push({ w: tw, h: th, g: g, e: sobel(g, tw, th) });
+        }
+      }
       var sy = H * (1 - CROP) / 2;
       var sh = H * CROP;
-      var aspect = W / sh;
-      var t = [];
-      for (var i = 0; i < SCALES.length; i++) {
-        var th = Math.round(FH * SCALES[i]);
-        var tw = Math.round(th * aspect);
-        if (tw < 2 || th < 2 || tw > FW) continue;
-        var ctx = context(tw, th);
-        ctx.drawImage(img, 0, sy, W, sh, 0, 0, tw, th);
-        t.push({ w: tw, h: th, g: luma(ctx.getImageData(0, 0, tw, th).data, tw * th) });
-      }
-      var hh = Math.max(1, Math.round(HIST_W / aspect));
+      var hh = Math.max(1, Math.round(HIST_W * sh / W));
       var hc = context(HIST_W, hh);
       hc.drawImage(img, 0, sy, W, sh, 0, 0, HIST_W, hh);
-      return { t: t, h: histogram(hc.getImageData(0, 0, HIST_W, hh).data, HIST_W * hh) };
+      var data = hc.getImageData(0, 0, HIST_W, hh).data;
+      var n = HIST_W * hh;
+      return { t: t, h: histogram(data, n), hl: histogram(data, n, true), light: lightShare(data, n) };
     }
 
     function logoPixels(img) {
@@ -461,6 +616,22 @@
       table[key] = value;
     }
 
+    /* Счёт пары (score) — для выбора наименее похожего кадра, когда чистых
+       нет (pickFrame в src/48_hero.js). Та же таблица-кэш, что у вердиктов. */
+    var scores = {};
+    var scoreCount = 0;
+
+    function keepScore(key, s) {
+      if (scoreCount >= TABLE_MAX) { scores = {}; scoreCount = 0; }
+      if (!Object.prototype.hasOwnProperty.call(scores, key)) scoreCount++;
+      scores[key] = s;
+    }
+
+    function scoreOf(poster, frame) {
+      var key = poster + '|' + frame;
+      return Object.prototype.hasOwnProperty.call(scores, key) ? scores[key] : undefined;
+    }
+
     function verdict(poster, frame) {
       var key = poster + '|' + frame;
       return Object.prototype.hasOwnProperty.call(verdicts, key) ? verdicts[key] : undefined;
@@ -534,8 +705,15 @@
         if (!live || pf === undefined || (pf && ff === undefined)) return;
         live = false;
         for (var i = 1; i < jobs.length; i++) jobs[i].cancel();
-        var value = pf && ff ? judge(pf, ff).similar : null;
-        if (pf !== null && ff !== null) remember(verdicts, poster + '|' + frame, value);
+        /* Вердикт пары — «не чистый» (счёт от CLEAN): выбор кадра обходит и
+           похожие, и серую зону; счёт — отдельно, для выбора наименее
+           похожего. */
+        var j = pf && ff ? judge(pf, ff) : null;
+        var value = j ? !j.clean : null;
+        if (pf !== null && ff !== null) {
+          remember(verdicts, poster + '|' + frame, value);
+          if (j) keepScore(poster + '|' + frame, j.score);
+        }
         cb(value);
       }
       jobs.push(need('poster', poster, function (got) { pf = got; settle(); }));
@@ -582,12 +760,23 @@
       histMatch: histMatch,
       bestCorr: bestCorr,
       similar: similar,
+      score: pairScore,
+      sobel: sobel,
+      lightShare: lightShare,
+      bestJoint: bestJoint,
       judge: judge,
+      /* Для стенда и тестов: признаки растров так же, как их считает рантайм. */
+      posterPixels: posterPixels,
+      framePixels: framePixels,
+      HIST_SIM: HIST_SIM,
+      JOINT_SIM: JOINT_SIM,
+      CLEAN: CLEAN,
       toneStats: toneStats,
       darkOf: darkOf,
       /* Рантайм. */
       compare: compare,
       verdict: verdict,
+      scoreOf: scoreOf,
       tone: tone,
       toneOf: toneOf,
       /* Для HUD и живой проверки: сколько миниатюр в пути. */

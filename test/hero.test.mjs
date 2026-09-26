@@ -6399,11 +6399,32 @@ test('п.C2: pickFrame — первый непохожий по порядку; 
   assert.deepEqual(H.pickFrame([], 0, v({}), '/key.jpg'), { path: '/key.jpg', wait: '' });
 });
 
-function fakeThumbs(known) {
+/* Раунд C, E3 (study.md): вердикт — «не чистый»; не чистые все — наименее
+   похожий по счёту пары, а не прежний запасной путь (первый кандидат, почти
+   всегда повтор постера: «Славные парни»). Без счёта — как было. */
+test('E3: pickFrame — не чистые все: наименее похожий по счёту; счёта нет — как было', () => {
+  const v = (map) => (p) => (Object.prototype.hasOwnProperty.call(map, p) ? map[p] : undefined);
+  const c = ['/a.jpg', '/b.jpg', '/c.jpg'];
+  const all = v({ '/a.jpg': true, '/b.jpg': true, '/c.jpg': true });
+  const sc = v({ '/a.jpg': 1.07, '/b.jpg': 0.89, '/c.jpg': 0.94 });
+  assert.deepEqual(H.pickFrame(c, 2, all, '/a.jpg', false, sc), { path: '/b.jpg', wait: '' });
+  assert.deepEqual(H.pickFrame(c, 2, all, '/a.jpg', true, sc), { path: '/b.jpg', wait: '' }, 'и на потолке, если известны все');
+  assert.deepEqual(H.pickFrame(c, 2, all, '/a.jpg', false, v({})), { path: '/a.jpg', wait: '' }, 'счёта нет — как было');
+  assert.deepEqual(H.pickFrame(c, 2, all, '/a.jpg'), { path: '/a.jpg', wait: '' }, 'без функции счёта — как было');
+  /* Чистый есть — счёт не нужен; не все известны — наименее похожий не выбирается. */
+  assert.deepEqual(H.pickFrame(c, 2, v({ '/a.jpg': true, '/b.jpg': false }), '/a.jpg', false, sc), { path: '/b.jpg', wait: '' });
+  assert.deepEqual(H.pickFrame(c, 2, v({ '/a.jpg': true, '/b.jpg': null }), '/a.jpg', false, sc), { path: '/a.jpg', wait: '' },
+    'сравнить нельзя — как было');
+  assert.deepEqual(H.pickFrame(c, 2, v({ '/a.jpg': true }), '/a.jpg', true, sc), { path: '/b.jpg', wait: '' },
+    'потолок, ответ есть не у всех — прежнее правило');
+});
+
+function fakeThumbs(known, scores) {
   const calls = [];
   const verdicts = Object.assign({}, known || {});
   return {
     calls: calls,
+    scoreOf: scores ? (p, f) => scores[p + '|' + f] : undefined,
     verdict: (p, f) => (Object.prototype.hasOwnProperty.call(verdicts, p + '|' + f) ? verdicts[p + '|' + f] : undefined),
     compare: (p, f, cb) => {
       const c = { p: p, f: f, cb: cb, cancelled: false };
@@ -6456,6 +6477,22 @@ test('п.C2: ответы уже в памяти (возврат на фильм
   detailsOf(env, 11).ok(LOOK_DETAILS(11));
   assert.equal(thumbs.calls.length, 0);
   assert.deepEqual(w1280(env), ['/c2.jpg']);
+});
+
+/* Раунд C, E3: у всех трёх кандидатов вердикт «не чистый» — герой берёт
+   наименее похожий по счёту пары (LC.thumbs.scoreOf), а не первый. */
+test('E3: все кандидаты не чистые — кадр с наименьшим счётом пары', () => {
+  const thumbs = fakeThumbs(
+    { '/p1.jpg|/c1.jpg': true, '/p1.jpg|/c2.jpg': true, '/p1.jpg|/c3.jpg': true },
+    { '/p1.jpg|/c1.jpg': 1.2, '/p1.jpg|/c2.jpg': 0.97, '/p1.jpg|/c3.jpg': 0.88 });
+  const env = makeEnv({ fxHeavy: () => false, thumbs: thumbs });
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  fireFocus(main.activity, main.card1);
+  env.advance(400);
+  detailsOf(env, 11).ok(LOOK_DETAILS(11));
+  assert.equal(thumbs.calls.length, 0, 'всё известно — без сравнения');
+  assert.deepEqual(w1280(env), ['/c3.jpg'], 'наименее похожий, а не первый кандидат');
 });
 
 /* Раунд правок финальной проверки, A7 (logic-hero, LH-2): в «Выкл» кадр

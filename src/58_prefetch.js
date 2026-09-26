@@ -35,6 +35,11 @@
   /* окно, по одному, в простое браузера (requestIdleCallback), постер     */
   /* w185 и канвас 16×16. Герой ставит цвет вместе с текстом, и к этому    */
   /* мигу он уже посчитан.                                                  */
+  /* Раунд C (E3, 2026-09-26): третья дорожка — вердикты «кадр ≈ постер»   */
+  /* соседей (LC.thumbs.compare) по их деталям из памяти, по одной паре, в  */
+  /* простое и не раньше, чем герой выбрал кадр своей карточки: к показу    */
+  /* соседа выбор его первого кадра решается из памяти, без потолка         */
+  /* LOOK_WAIT (разбор — у переменной looks).                               */
   /* Кадры w1280 заранее НЕ грузятся: 3.7 МБ растра на кадр — это память   */
   /* и канал, отнятые у кадра карточки под фокусом. decode() не зовётся.   */
   /*                                                                       */
@@ -117,6 +122,29 @@
     var COLOR_IDLE_MAX = 500;
     /* Шаг дорожки там, где requestIdleCallback нет (старые WebView). */
     var COLOR_GAP = 50;
+    /* Раунд C, E3: дорожка вердиктов «кадр ≈ постер» (LC.thumbs.compare,
+       src/57_thumbs.js) для первого кадра соседей. Новый признак сравнения
+       точнее прежнего, но дороже: пара — 24 мс против 6, признаки постера
+       — 37 мс против 12 (стенд, CPU ×10, study.md), и на медленном ТВ
+       сравнение карточки под фокусом чаще не успевало бы к потолку
+       LOOK_WAIT героя (300 мс) — тогда кадр выбирается вслепую. Посчитанный
+       заранее вердикт герой берёт из памяти синхронно, без ожидания.
+       Устроена как дорожка цвета: карточки окна по одной, пара за парой,
+       в простое; при зажатой стрелке — ничего (окно планируется после
+       IDLE покоя, смена фокуса снимает и очередь, и сравнение в пути —
+       canvas во время листания не работает). Карточку под фокусом дорожка
+       не считает — её сравнивает сам герой, — и пока он выбирает её кадр,
+       своих пар не заводит: очередь простоя у LC.thumbs одна, и пара
+       соседа, начатая раньше, задержала бы сравнение героя. Пары — те же,
+       что спросил бы герой: кандидаты LC.hero.frameCandidates по деталям
+       из памяти и правило LC.hero.pickFrame (дальше первого чистого не
+       идём). */
+    var looks = [];
+    var lookJob = null;
+    var lookWait = null;
+    /* Пока герой выбирает кадр своей карточки — проверка снова через
+       LOOK_RETRY. */
+    var LOOK_RETRY = 120;
 
     function langCode() {
       try {
@@ -310,6 +338,8 @@
           busy--;
           if (captured === gen) chainLogo(j);
           pump();
+          /* Раунд C, E3: сосед ждал своих деталей в очереди вердиктов. */
+          if (captured === gen) pumpLooks();
         },
         err: function () {
           busy--;
@@ -426,6 +456,123 @@
       pumpColors();
     }
 
+    function lookAllowed() {
+      if (!LC.thumbs || typeof LC.thumbs.compare !== 'function' || typeof LC.thumbs.verdict !== 'function') return false;
+      if (!LC.hero || typeof LC.hero.frameCandidates !== 'function' || typeof LC.hero.pickFrame !== 'function') return false;
+      /* В «Выкл» кадр не грузится, и герой не сравнивает. */
+      try { return LC.motionMode() !== 'off'; } catch (e) { return true; }
+    }
+
+    function heroChoosing() {
+      try {
+        return !!(LC.hero && typeof LC.hero.choosing === 'function' && LC.hero.choosing());
+      } catch (e) {
+        return false;
+      }
+    }
+
+    /* Следующая пара карточки — та, чей ответ нужен выбору первого кадра
+       (pickFrame без потолка): {poster, frame}; null — выбор уже решён
+       (или решать нечего); undefined — деталей ещё нет в памяти. Постер и
+       ключевой арт — как у героя (heroModel, chooseFrame). */
+    function lookPair(card) {
+      var req = requestOf(card);
+      if (!req) return null;
+      var json = recall(req.key);
+      if (!json) return undefined;
+      var poster = card.poster_path || json.poster_path || '';
+      if (!poster) return null;
+      var cands = LC.hero.frameCandidates(json.images, json.backdrop_path || card.backdrop_path || '');
+      if (!cands.paths.length) return null;
+      var r = LC.hero.pickFrame(cands.paths, cands.strong, function (path) { return LC.thumbs.verdict(poster, path); }, '', false);
+      return r.wait ? { poster: poster, frame: r.wait } : null;
+    }
+
+    function stopLooks() {
+      looks.length = 0;
+      if (lookWait) {
+        lookWait.cancel();
+        lookWait = null;
+      }
+      if (lookJob) {
+        var job = lookJob;
+        lookJob = null;
+        job.over = true;
+        try { if (job.handle) job.handle.cancel(); } catch (e) { warn('prefetch: look cancel failed', e); }
+      }
+    }
+
+    /* Следующая пара дорожки — в простое и только когда прошлая кончилась.
+       Карточка без деталей в памяти ждёт их (runDetails зовёт pumpLooks
+       снова); решённая — уходит из очереди. */
+    function pumpLooks() {
+      if (lookJob || lookWait || !looks.length) return;
+      var captured = gen;
+      lookWait = idle(function () {
+        lookWait = null;
+        if (captured !== gen || !ready() || !lookAllowed()) return;
+        if (heroChoosing()) {
+          var t = setTimeout(function () {
+            lookWait = null;
+            pumpLooks();
+          }, LOOK_RETRY);
+          lookWait = { cancel: function () { clearTimeout(t); } };
+          return;
+        }
+        var pair = null;
+        var at = 0;
+        while (at < looks.length && !pair) {
+          var got = lookPair(looks[at]);
+          if (got === undefined) at++;
+          else if (!got) looks.splice(at, 1);
+          else pair = got;
+        }
+        if (!pair) return;
+        var card = looks[at];
+        var entry = { handle: null, over: false };
+        lookJob = entry;
+        var sync = true;
+        try {
+          entry.handle = LC.thumbs.compare(pair.poster, pair.frame, function () {
+            if (entry.over) return;
+            entry.over = true;
+            if (lookJob === entry) lookJob = null;
+            /* Ответ не лёг в память (миниатюра не доехала) — эту карточку
+               сейчас не повторяем: следующий вопрос о той же паре — ещё
+               одна загрузка. */
+            if (LC.thumbs.verdict(pair.poster, pair.frame) === undefined) {
+              var i = looks.indexOf(card);
+              if (i !== -1) looks.splice(i, 1);
+            }
+            if (!sync) pumpLooks();
+          });
+        } catch (e) {
+          warn('prefetch: look failed', e);
+          entry.over = true;
+          if (lookJob === entry) lookJob = null;
+          looks.length = 0;
+          return;
+        }
+        sync = false;
+        if (entry.over) pumpLooks();
+      });
+    }
+
+    /* Очередь вердиктов — карточки окна в его порядке, без повторов. */
+    function planLooks(cards) {
+      if (!lookAllowed()) return;
+      var seen = {};
+      for (var i = 0; i < cards.length; i++) {
+        var card = cards[i];
+        if (!card || card.id == null) continue;
+        var req = requestOf(card);
+        if (!req || seen[req.key]) continue;
+        seen[req.key] = true;
+        looks.push(card);
+      }
+      pumpLooks();
+    }
+
     /* Узлы карточек ряда с данными — в порядке разметки. */
     function cardsIn(line) {
       var out = [];
@@ -484,6 +631,7 @@
       queue.length = 0;
       colors.length = 0;
       stopColorWait();
+      stopLooks();
       stopIdle();
       if (!el) return;
       prevEl = focusEl;
@@ -498,6 +646,9 @@
           /* Цвет — и самой карточке под фокусом, первой: герой покажет её
              через DELAY, и её цвет нужен раньше соседских. */
           planColors([el.card_data].concat(near));
+          /* Вердикты «кадр ≈ постер» — только соседям: карточку под
+             фокусом сравнивает сам герой. */
+          planLooks(near);
         } catch (e) {
           warn('prefetch: window failed', e);
         }
@@ -515,6 +666,7 @@
         if (lines.length > 1) dataOf(cardsIn($(lines[1])), 0, WARM_SECOND, out);
         plan(out);
         planColors(out);
+        planLooks(out);
       } catch (e) {
         warn('prefetch: warm failed', e);
       }
@@ -530,6 +682,7 @@
       stopIdle();
       colors.length = 0;
       stopColorWait();
+      stopLooks();
       if (colorJob) {
         var job = colorJob;
         colorJob = null;
