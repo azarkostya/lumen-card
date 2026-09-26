@@ -359,6 +359,14 @@
          заголовка. Дефолт здесь и дефолт в месте чтения (logoAllowed,
          src/48_hero.js) сверяет test/prefs.test.mjs. */
       { name: 'lumen_hero_logo', type: 'trigger', 'default': true, label: 'lumen_hero_logo_name', descr: 'lumen_hero_logo_descr' },
+      /* Правка 2026-09-26 (пользователь: «Может подгоним размер плиток» →
+         «Да, сделай»): размер плиток рядов главной и сеток подборок —
+         сразу за пунктами кадра: про ту же раскладку главной (сколько места
+         достаётся плиткам под кадром). Ширина постера и колонки сетки — в
+         TILES/GCARD_COLS_TILE (src/30_css.js), текст остаётся за «Масштабом
+         интерфейса». Применяется пересборкой CSS (src/80_settings.js,
+         applyPrefChange). */
+      { name: 'lumen_tile_size', type: 'select', values: ['small', 'normal', 'large'], vprefix: 'lumen_tile_size_', 'default': 'normal', label: 'lumen_tile_size_name', descr: 'lumen_tile_size_descr' },
       { name: 'lumen_moods', type: 'trigger', 'default': true, label: 'lumen_moods_name', descr: 'lumen_moods_descr' },
       { name: 'lumen_personal_rows', type: 'trigger', 'default': true, label: 'lumen_personal_rows_name', descr: 'lumen_personal_rows_descr' },
       /* Волна 4 (ТВ 2026-09-24): «нет ротации списков в начале, постоянно

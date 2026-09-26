@@ -3497,16 +3497,81 @@ test('сжатие выключено: ряд в фокусе — на мест�
       const limit = H - 0.7 * EM + 0.5;
       for (const size of (W === 960 ? ['large', 'medium', 'compact'] : ['large'])) {
         for (const scale of ['small', 'normal', 'large', 'huge']) {
-          const built = withStorage({ lumen_scale: scale, lumen_hero_size: size, interface_size: iface }, (LC) => LC.buildCss(), W);
+          for (const tile of ['small', 'normal', 'large']) {
+          const built = withStorage({ lumen_scale: scale, lumen_hero_size: size, interface_size: iface, lumen_tile_size: tile }, (LC) => LC.buildCss(), W);
           const got = rowLayout(built, W, H, { more: true, interface: iface });
-          const label = W + '×' + H + ' ' + iface + '/' + size + '/' + scale;
+          const label = W + '×' + H + ' ' + iface + '/' + size + '/' + scale + ', плитки ' + tile;
           assert.ok(got.textBottomDown <= limit, label + ': низ подписи ряда в фокусе ' + got.textBottomDown.toFixed(1) + ' px при пределе ' + limit.toFixed(1));
           assert.ok(got.posterBottomDown <= H, label + ': постер срезан кромкой — низ ' + got.posterBottomDown.toFixed(1));
           assert.ok(got.rowBottomDown >= H - 0.5, label + ': следующий ряд выглядывает — начинается на ' + got.rowBottomDown.toFixed(1));
+          }
         }
       }
     }
   }
+});
+
+/* Правка 2026-09-26 (пользователь: «Может подгоним размер плиток» → «Да,
+   сделай»): настройка «Размер плиток в рядах» (lumen_tile_size). Меняет
+   только ширину постера рядов главной — подписи и заголовок ряда остаются
+   за «Масштабом интерфейса» — и число колонок сетки подборки (7 / 6 / 5).
+   «Мельче» — на десятую уже «Обычных»; «Крупнее» — на десятую шире, но не
+   шире того, что помещается на месте первого ряда в покое (потолок, как у
+   масштаба). Где «Крупнее» упирается, говорит описание пункта: крупный кадр
+   на «обычном» и «крупнее» размере интерфейса Lampa, — и тест держит ровно
+   эти утверждения. */
+test('правка 2026-09-26: «Размер плиток в рядах» — ширина постера ряда и колонки сетки, «Крупнее» — только где есть место', () => {
+  const widthOf = (built) => parseFloat(/(?:^|;)width:([0-9.]+)em/.exec(findDecl(built, (sel) => sel === '.lumen-main .card'))[1]);
+  const text = (built) => [findDecl(built, (sel) => sel === '.lumen-main .card__title'), findDecl(built, (sel) => sel === '.lumen-main .card__age'),
+    findDecl(built, (sel) => sel === '.lumen-main .items-line__title')].join('|');
+  const w = {};
+  for (const iface of ['small', 'normal', 'bigger']) {
+    for (const size of ['large', 'medium', 'compact']) {
+      const cell = {};
+      let captions = null;
+      for (const tile of ['small', 'normal', 'large']) {
+        const built = withStorage({ lumen_tile_size: tile, lumen_hero_size: size, interface_size: iface }, (LC) => LC.buildCss());
+        cell[tile] = widthOf(built);
+        if (captions === null) captions = text(built);
+        /* Кегли подписей и заголовка ряда — от «Масштаба интерфейса». Там,
+           где его упирает в высоту потолок (rowScaleCap — «крупнее» размер
+           интерфейса Lampa с крупным кадром), плитки поменьше оставляют ему
+           место, и текст ближе к выбранному масштабу — это не плитки меняют
+           текст, а потолок отпускает. Остальные клетки — строго равны. */
+        if (!(iface === 'bigger' && size === 'large')) {
+          assert.equal(text(built), captions, iface + '/' + size + ': плитки ' + tile + ' меняют кегль подписей или заголовка ряда');
+        }
+      }
+      const label = iface + '/' + size + ': ' + JSON.stringify(cell);
+      /* У потолка масштаба (та же клетка «крупнее»/крупный кадр) «Мельче»
+         отпускает и масштаб — плитка уже, но не ровно на десятую. */
+      if (iface === 'bigger' && size === 'large') assert.ok(cell.small < cell.normal, label + ' — «Мельче» не уже');
+      else assert.ok(Math.abs(cell.small / cell.normal - 0.9) < 0.01, label + ' — «Мельче» не на десятую уже');
+      assert.ok(cell.large >= cell.normal && cell.large <= cell.normal * 1.1 + 0.011, label + ' — «Крупнее» вне [обычные, ×1.1]');
+      w[iface + '/' + size] = cell;
+    }
+  }
+  /* Утверждения описания: при крупном кадре на «обычном» и «крупнее»
+     размере интерфейса «Крупнее» плитки не меняет, на «мельче» —
+     увеличивает; со средним и компактным кадром увеличивает на десятую. */
+  for (const iface of ['normal', 'bigger']) assert.equal(w[iface + '/large'].large, w[iface + '/large'].normal, iface + ': крупный кадр — описание обещает, что «Крупнее» упирается');
+  assert.ok(w['small/large'].large > w['small/large'].normal, 'мельче: «Крупнее» не увеличивает — описание обещает обратное');
+  for (const size of ['medium', 'compact']) {
+    assert.ok(Math.abs(w['normal/' + size].large / w['normal/' + size].normal - 1.1) < 0.01, size + ': «Крупнее» не на десятую крупнее');
+  }
+  /* Без настройки — «Обычные». */
+  assert.equal(widthOf(css), w['normal/large'].normal);
+  /* Сетка подборки: 7 / 6 / 5 колонок, и ту же цифру видит раскладка хаба
+     (LC.hubEm — по ней он выбирает размер картинки). */
+  for (const [tile, cols] of [['small', 7], ['normal', 6], ['large', 5]]) {
+    withStorage({ lumen_tile_size: tile }, (LC) => {
+      const rule = findDecl(LC.buildCss(), (sel) => sel === '.lumen-grid__items .lumen-gcard');
+      assert.ok(rule.indexOf(') / ' + cols + ');') !== -1, tile + ': в сетке не ' + cols + ' колонок: ' + rule);
+      assert.equal(LC.hubEm.gcardCols, cols, tile + ': раскладка хаба видит другое число колонок');
+    });
+  }
+  /* Со сжатым состоянием — от седьмой колонки: 8.57 / 9.52 / 10.47em. */
+  assert.deepEqual(['small', 'normal', 'large'].map((tile) => widthOf(withCompact({ lumen_tile_size: tile }, (LC) => LC.buildCss()))), [8.57, 9.52, 10.47]);
 });
 
 /* Правка 2026-09-26 (пользователь: «чтобы ряд плиток включал год. Может
@@ -3843,18 +3908,19 @@ const EDGE_WINDOWS = [
    ряд в фокусе поднят (.lumen-rows-up); без флага — ряд в фокусе всегда на
    месте первого ряда в покое, и мерить надо его. За порогом «кадра нет»
    сдвига нет, и оба состояния совпадают. */
-function edgeViolations(W, H, compact) {
+function edgeViolations(W, H, compact, tile) {
   const bad = [];
   const build = compact ? withCompact : withStorage;
   for (const iface of ['small', 'normal', 'bigger']) {
     for (const size of ['large', 'medium', 'compact']) {
       for (const scale of ['small', 'normal', 'large', 'huge']) {
-        const built = build(
-          { lumen_scale: scale, lumen_hero_size: size, interface_size: iface }, (LC) => LC.buildCss(), W);
+        const storage = { lumen_scale: scale, lumen_hero_size: size, interface_size: iface };
+        if (tile) storage.lumen_tile_size = tile;
+        const built = build(storage, (LC) => LC.buildCss(), W);
         for (const moods of [true, false]) {
           const at = rowLayout(built, W, H, { interface: iface, moods: moods });
           const got = compact ? at : { rowBottomUp: at.rowBottomDown, textBottomUp: at.textBottomDown, rowGap: at.rowGap, lampaPad: at.lampaPad };
-          const label = W + '×' + H + ' ' + iface + '/' + size + '/' + scale + (moods ? '/чипы' : '') + (compact ? ', сжатие' : ', покой');
+          const label = W + '×' + H + ' ' + iface + '/' + size + '/' + scale + (moods ? '/чипы' : '') + (compact ? ', сжатие' : ', покой') + (tile ? ', плитки ' + tile : '');
           /* Допуск полпикселя: границы интервалов пишутся в тысячных
              отношения сторон, зазор — в em с округлением до сотых. */
           if (got.rowBottomUp < H - 0.5) {
@@ -3899,6 +3965,16 @@ test('правило кромки: то же на окнах браузера П
 test('правило кромки без сжатия: ряд в фокусе в покое — на телевизоре (72 клетки) и на окнах ПК', () => {
   const bad = [];
   for (const [W, H] of EDGE_WINDOWS) bad.push(...edgeViolations(W, H, false));
+  assert.deepEqual(bad, []);
+});
+
+/* Правка 2026-09-26: и при каждом значении «Размера плиток в рядах» — на
+   телевизоре и в окне ПК 2560×1300 (72 клетки на каждое). */
+test('правило кромки без сжатия: при «Мельче» и «Крупнее» плитках — телевизор и ПК 2560×1300', () => {
+  const bad = [];
+  for (const tile of ['small', 'large']) {
+    for (const [W, H] of [[960, 540], [2560, 1300]]) bad.push(...edgeViolations(W, H, false, tile));
+  }
   assert.deepEqual(bad, []);
 });
 

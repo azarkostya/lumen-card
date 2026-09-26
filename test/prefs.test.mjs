@@ -191,6 +191,8 @@ test('LIST: полный набор ключей — существующие и
     'lumen_hero_media',
     /* Task 71 (фаза 6): логотип названия в кадре главной */
     'lumen_hero_logo',
+    /* Правка 2026-09-26: размер плиток рядов главной и сеток подборок */
+    'lumen_tile_size',
     /* Task 21 (фаза 3): тематические атмосферы (слой частиц) */
     'lumen_fx',
     /* Task 40 (фаза 4): тумблер тяжёлых эффектов */
@@ -228,6 +230,20 @@ test('фаза 3: значения по умолчанию сохраняют п
   assert.ok(prefs.find('lumen_theme').descr, 'у темы обязана быть подсказка про OLED');
   assert.ok(prefs.find('lumen_solid').descr, 'у плотных подложек обязана быть подсказка, когда включать');
   assert.ok(prefs.find('lumen_scale').descr);
+});
+
+/* Правка 2026-09-26 (пользователь: «Может подгоним размер плиток» → «Да,
+   сделай»): отдельная настройка размера плиток рядов главной и сеток
+   подборок — три ступени, по умолчанию «Обычные» (прежний вид). */
+test('правка 2026-09-26: «Размер плиток в рядах» — три ступени, по умолчанию «Обычные», в группе «Главная»', () => {
+  const e = prefs.find('lumen_tile_size');
+  assert.ok(e, 'пункта нет в разделе');
+  assert.equal(e.type, 'select');
+  assert.equal(e['default'], 'normal');
+  assert.deepEqual(e.values, ['small', 'normal', 'large']);
+  assert.equal(e.vprefix, 'lumen_tile_size_');
+  assert.equal(e.label, 'lumen_tile_size_name');
+  assert.equal(e.descr, 'lumen_tile_size_descr');
 });
 
 test('фаза 3: масштаб — четыре ступени от «мельче» до «ещё крупнее»', () => {
@@ -287,7 +303,10 @@ const GROUPS = [
        автотрейлер и логотип про одну и ту же часть экрана. */
     /* Правка 2026-09-23: «Что показывает кадр главной» — сразу за размером:
        про ту же часть экрана и общий вопрос, чем выключатель трейлера. */
-    'lumen_hero_size', 'lumen_hero_media', 'lumen_hero_trailer', 'lumen_hero_logo', 'lumen_moods', 'lumen_personal_rows',
+    /* Правка 2026-09-26: «Размер плиток в рядах» — сразу за пунктами кадра:
+       про ту же раскладку главной (сколько места достаётся плиткам под
+       кадром). */
+    'lumen_hero_size', 'lumen_hero_media', 'lumen_hero_trailer', 'lumen_hero_logo', 'lumen_tile_size', 'lumen_moods', 'lumen_personal_rows',
     /* Волна 4: «Начало главной» — сразу за личными рядами, о которых и речь. */
     'lumen_home_start'
   ]],

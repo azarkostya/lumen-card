@@ -1315,13 +1315,57 @@
      Замер модели (test/css.test.mjs) на телевизоре 960×540, крупный кадр,
      «обычный» размер интерфейса: 8.79em — 100.3 CSS px, 200 физических;
      низ строки «год · ★» 531.6 при пределе 532. Со сжатием — прежние
-     ROW_CARD_W. */
+     ROW_CARD_W.
+
+     Правка 2026-09-26 (пользователь: «Да, сделай» — отдельная настройка
+     «Размер плиток в рядах», lumen_tile_size): ширина умножается на TILES.
+     «Мельче» — на десятую уже «Обычных»; «Крупнее» — на десятую шире, но не
+     шире того, что помещается (rowFitW): где «Обычные» и так упираются в
+     высоту (крупный кадр на «обычном» и «крупнее» размере интерфейса),
+     «Крупнее» с ними совпадает — так и сказано в описании пункта
+     (src/80_settings.js). Со сжатием — от седьмой колонки, как было:
+     8.57 / 9.52 / 10.47em. */
   function rowCardBase(key) {
-    if (compactOn()) return ROW_CARD_W;
+    var t = tileFactor();
+    if (compactOn()) return round2(ROW_CARD_W * t);
+    var fit = rowFitW(key);
+    var normal = Math.min(ROW_CARD_W, Math.max(fit, ROW_CARD_NARROW));
+    return round2(t <= 1 ? normal * t : Math.min(normal * t, Math.max(fit, normal)));
+  }
+
+  /* Самая крупная карточка, при которой ряд в фокусе со строкой «год · ★»
+     помещается на месте ряда в фокусе при TV_RATIO и штатном масштабе
+     (бюджет — тот же, что у rowScaleCap). Перебор сверху вниз с шагом в
+     сотую — от «Крупнее» седьмой колонки до «Мельче» восьмой. */
+  function rowFitW(key) {
     var availEm = screenEm() * (100 - rowsFitTopVh(key)) / TV_RATIO - ROWS_AIR - ROW_EDGE_AIR;
-    var w = ROW_CARD_W;
-    while (w > ROW_CARD_NARROW && rowBlockEm(w, ROW_TITLE_EM, rowHeadGap(1, w), TV_MIN, TV_MIN, true) > availEm) w = round2(w - 0.01);
+    var w = round2(ROW_CARD_W * TILES.large);
+    var low = round2(ROW_CARD_NARROW * TILES.small);
+    while (w > low && rowBlockEm(w, ROW_TITLE_EM, rowHeadGap(1, w), TV_MIN, TV_MIN, true) > availEm) w = round2(w - 0.01);
     return w;
+  }
+
+  /* Узкая колонка (разбор — у rowNarrowRatio) — восьмая колонка сетки,
+     тоже с множителем плиток и не шире базовой: иначе за порогом
+     «Мельче» плитки становились бы крупнее. */
+  function rowNarrowBase(key) {
+    return round2(Math.min(ROW_CARD_NARROW * tileFactor(), rowCardBase(key)));
+  }
+
+  /* Правка 2026-09-26: «Размер плиток в рядах» (lumen_tile_size) — множитель
+     ширины постера рядов главной (rowCardBase) и число колонок сетки
+     подборки (GCARD_COLS_TILE). Кегли подписей и заголовка ряда он не
+     трогает: текст — забота «Масштаба интерфейса» (SCALES). */
+  var TILES = { small: 0.9, normal: 1, large: 1.1 };
+  var TILE_DEFAULT = 'normal';
+
+  function tileKey() {
+    var key = LC.pref('lumen_tile_size', TILE_DEFAULT);
+    return TILES[key] ? key : TILE_DEFAULT;
+  }
+
+  function tileFactor() {
+    return TILES[tileKey()];
   }
 
   function rowBlockEm(cardW, titleEm, gapEm, cardTitleEm, cardAgeEm, flow) {
@@ -1379,8 +1423,8 @@
      подписи по минимуму tvOS БЕЗ масштаба интерфейса. Вынесено в функцию,
      потому что по этому же блоку считается потолок масштаба; числа те же
      самые, что подставляются в сам медиазапрос. */
-  function rowNarrowBlockEm(scale) {
-    var w = round2(ROW_CARD_NARROW * scale);
+  function rowNarrowBlockEm(key, scale) {
+    var w = round2(rowNarrowBase(key) * scale);
     return rowBlockEm(w, round2(ROW_TITLE_EM * scale), rowHeadGap(scale, w), TV_MIN, rowCapAge(TV_MIN), rowCapFlow(false));
   }
 
@@ -1442,7 +1486,7 @@
     var availEm = screenEm() * (100 - rowsFitTopVh(key)) / TV_RATIO - ROWS_AIR - ROW_EDGE_AIR;
     var floor = SCALES.small;
     var scale = scaleFactor();
-    while (scale > floor && rowNarrowBlockEm(scale) > availEm) scale = round2(scale - 0.01);
+    while (scale > floor && rowNarrowBlockEm(key, scale) > availEm) scale = round2(scale - 0.01);
     return scale;
   }
 
@@ -1521,6 +1565,11 @@
   var TILE_COLS = 4;
   var GCARD_COLS = 6;
   LC.hubEm = { edge: EDGE, gap: GRID_GAP, tileCols: TILE_COLS, gcardCols: GCARD_COLS };
+  /* Правка 2026-09-26: «Размер плиток в рядах» в сетке подборки — число
+     колонок: «Мельче» — семь, «Обычные» — шесть, «Крупнее» — пять. LC.hubEm
+     переписывается на каждой сборке (buildCss), и раскладка хаба выбирает
+     размер картинки уже по нему. */
+  var GCARD_COLS_TILE = { small: 1, normal: 0, large: -1 };
 
   /* Настройка «Шрифт»: пять гарнитур, все с Google Fonts — CSP плагина
      другого источника не пропустит.
@@ -3487,7 +3536,9 @@
        навешиваются на её классы; наш корень .lumen-grid держит их в скоупе.
        Ширина считается под 6 в ряд: (100% − 5 промежутков по .88em) / 6 —
        штатные 12.75em переопределяются двумя классами. */
-    css.push('.lumen-grid__items .lumen-gcard{-webkit-flex-shrink:0;flex-shrink:0;width:-webkit-calc((100% - ' + emCss(GRID_GAP * (GCARD_COLS - 1)) + ') / ' + GCARD_COLS + ');width:calc((100% - ' + emCss(GRID_GAP * (GCARD_COLS - 1)) + ') / ' + GCARD_COLS + ');margin:0 ' + emCss(GRID_GAP) + ' 1.4em 0;position:relative;-webkit-transition:-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25);transition:transform .28s cubic-bezier(.2,.9,.3,1.25)}');
+    var gcardCols = GCARD_COLS + GCARD_COLS_TILE[tileKey()];
+    LC.hubEm.gcardCols = gcardCols;
+    css.push('.lumen-grid__items .lumen-gcard{-webkit-flex-shrink:0;flex-shrink:0;width:-webkit-calc((100% - ' + emCss(GRID_GAP * (gcardCols - 1)) + ') / ' + gcardCols + ');width:calc((100% - ' + emCss(GRID_GAP * (gcardCols - 1)) + ') / ' + gcardCols + ');margin:0 ' + emCss(GRID_GAP) + ' 1.4em 0;position:relative;-webkit-transition:-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25);transition:transform .28s cubic-bezier(.2,.9,.3,1.25)}');
     css.push('.lumen-grid__items .lumen-gcard:nth-child(6n){margin-right:0}');
     css.push('.lumen-grid .lumen-gcard .card__view{margin-bottom:.5em;border-radius:.31em;background-color:' + P.panel + '}');
     css.push('.lumen-grid .lumen-gcard .card__img{border-radius:.31em;background-color:' + P.panelLo + '}');
@@ -4561,7 +4612,7 @@
     var liveShift = smallText && compactOn();
     var rowTitleEm = round2(ROW_TITLE_EM * rowScale);
     var rowHeadGapEm = rowHeadGap(rowScale, cardWEm);
-    var narrowWEm = round2(ROW_CARD_NARROW * rowScale);
+    var narrowWEm = round2(rowNarrowBase(heroSize) * rowScale);
     var narrowGapEm = rowHeadGap(rowScale, narrowWEm);
     css.push('.lumen-main .card{width:' + cardWEm + 'em}');
     /* Узкая колонка для низкого окна. Блок ряда растёт вместе с масштабом

@@ -838,6 +838,24 @@
       en: 'The title in the hero above the rows is shown as the film’s own logo from TMDB instead of plain text. The logo appears only once its image has loaded: until then — and if there is none — the plain title stays. Turn it off to always keep the title as text. Applied immediately.',
       uk: 'Назва фільму в кадрі над рядами показується його фірмовим написом з TMDB, а не звичайним заголовком. Напис з’являється лише тоді, коли картинка завантажилась: доки її немає — і якщо її немає взагалі — лишається звичайний заголовок. Вимкніть, щоб назва завжди була набрана текстом. Застосовується одразу.'
     },
+    /* Правка 2026-09-26 (пользователь: «Может подгоним размер плиток» →
+       «Да, сделай»): размер плиток рядов главной и сеток подборок. Что
+       обещает описание, держит тест «Размер плиток в рядах — ширина постера
+       ряда и колонки сетки…» (test/css.test.mjs): «Мельче» — на десятую
+       уже; «Крупнее» — на десятую шире там, где под кадром есть место, а с
+       крупным кадром на «обычном» и «крупнее» размере интерфейса Lampa
+       плитки уже самые крупные из помещающихся (ряд в фокусе обязан
+       помещаться целиком вместе с годом), и «Крупнее» их не меняет; на
+       «мельче» — увеличивает. Сетка подборки — 7 / 6 / 5 колонок. */
+    lumen_tile_size_name: { ru: 'Размер плиток в рядах', en: 'Tile size in rows', uk: 'Розмір плиток у рядах' },
+    lumen_tile_size_descr: {
+      ru: 'Размер постеров в рядах главной и в сетках подборок; текст и остальной интерфейс меняет «Масштаб интерфейса». Ряд в фокусе всегда целиком помещается под кадром вместе с названием и годом, поэтому «Крупнее» увеличивает плитки только там, где есть место: с «Кадром над рядами» в значении «Крупный» они уже самые крупные из помещающихся, и «Крупнее» их не меняет — кроме «Размера интерфейса: мельче» в самой Lampa. В сетке подборки — семь, шесть или пять колонок. Применяется сразу.',
+      en: 'The size of posters in the home rows and in collection grids; text and the rest of the interface follow "Interface scale". The focused row always fits under the frame together with its title and year, so "Larger" enlarges tiles only where there is room: with "Hero over the rows" set to "Large" they are already the largest that fit, and "Larger" does not change them — except when Lampa’s own "Interface size" is set to smaller. Collection grids get seven, six or five columns. Applied immediately.',
+      uk: 'Розмір постерів у рядах головної та в сітках підбірок; текст і решту інтерфейсу змінює «Масштаб інтерфейсу». Ряд у фокусі завжди повністю вміщується під кадром разом із назвою та роком, тож «Більші» збільшують плитки лише там, де є місце: з «Кадром над рядами» у значенні «Великий» вони вже найбільші з тих, що вміщуються, і «Більші» їх не змінюють — крім «Розміру інтерфейсу: менше» в самій Lampa. У сітці підбірки — сім, шість або п’ять колонок. Застосовується одразу.'
+    },
+    lumen_tile_size_small: { ru: 'Мельче', en: 'Smaller', uk: 'Дрібніші' },
+    lumen_tile_size_normal: { ru: 'Обычные', en: 'Normal', uk: 'Звичайні' },
+    lumen_tile_size_large: { ru: 'Крупнее', en: 'Larger', uk: 'Більші' },
     /* Task 62a (фаза 5): видов метки стало три. Название осталось прежним —
        настройка про то же самое, — а описание теперь объясняет выбор между
        плашкой и подписью: с дивана «На постере / В подписи» без пояснения
@@ -1200,8 +1218,10 @@
        (src/57_color.js, writeAccentStyle). */
     /* Task 73 (фаза 6): плоский вид — тоже целиком таблица стилей, и
        карточки, и экранов пути до плеера (LC.injectCss пересобирает обе). */
+    /* Правка 2026-09-26: размер плиток рядов и сеток — ширина карточки ряда
+       и число колонок сетки, тоже целиком таблица стилей. */
     if (name === 'lumen_theme' || name === 'lumen_solid' || name === 'lumen_scale' ||
-        name === 'lumen_accent_scope' || name === 'lumen_flat') { LC.injectCss(); return true; }
+        name === 'lumen_accent_scope' || name === 'lumen_flat' || name === 'lumen_tile_size') { LC.injectCss(); return true; }
     /* A6: «Скрывать блоки анализа Lampa» читается в момент ПОСТРОЕНИЯ
        карточки: ряды Lampa не создаются вовсе (src/90_runtime.js,
        dropMetaData). Ни прятать их правилом, ни снимать узел со сцены

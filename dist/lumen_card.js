@@ -2193,12 +2193,56 @@ return !!flow || !compactOn();
 
 
 
+
+
+
+
+
+
+
+
+
 function rowCardBase(key) {
-if (compactOn()) return ROW_CARD_W;
+var t = tileFactor();
+if (compactOn()) return round2(ROW_CARD_W * t);
+var fit = rowFitW(key);
+var normal = Math.min(ROW_CARD_W, Math.max(fit, ROW_CARD_NARROW));
+return round2(t <= 1 ? normal * t : Math.min(normal * t, Math.max(fit, normal)));
+}
+
+
+
+
+
+function rowFitW(key) {
 var availEm = screenEm() * (100 - rowsFitTopVh(key)) / TV_RATIO - ROWS_AIR - ROW_EDGE_AIR;
-var w = ROW_CARD_W;
-while (w > ROW_CARD_NARROW && rowBlockEm(w, ROW_TITLE_EM, rowHeadGap(1, w), TV_MIN, TV_MIN, true) > availEm) w = round2(w - 0.01);
+var w = round2(ROW_CARD_W * TILES.large);
+var low = round2(ROW_CARD_NARROW * TILES.small);
+while (w > low && rowBlockEm(w, ROW_TITLE_EM, rowHeadGap(1, w), TV_MIN, TV_MIN, true) > availEm) w = round2(w - 0.01);
 return w;
+}
+
+
+
+
+function rowNarrowBase(key) {
+return round2(Math.min(ROW_CARD_NARROW * tileFactor(), rowCardBase(key)));
+}
+
+
+
+
+
+var TILES = { small: 0.9, normal: 1, large: 1.1 };
+var TILE_DEFAULT = 'normal';
+
+function tileKey() {
+var key = LC.pref('lumen_tile_size', TILE_DEFAULT);
+return TILES[key] ? key : TILE_DEFAULT;
+}
+
+function tileFactor() {
+return TILES[tileKey()];
 }
 
 function rowBlockEm(cardW, titleEm, gapEm, cardTitleEm, cardAgeEm, flow) {
@@ -2256,8 +2300,8 @@ var TV_RATIO = 178;
 
 
 
-function rowNarrowBlockEm(scale) {
-var w = round2(ROW_CARD_NARROW * scale);
+function rowNarrowBlockEm(key, scale) {
+var w = round2(rowNarrowBase(key) * scale);
 return rowBlockEm(w, round2(ROW_TITLE_EM * scale), rowHeadGap(scale, w), TV_MIN, rowCapAge(TV_MIN), rowCapFlow(false));
 }
 
@@ -2319,7 +2363,7 @@ function rowScaleCap(key) {
 var availEm = screenEm() * (100 - rowsFitTopVh(key)) / TV_RATIO - ROWS_AIR - ROW_EDGE_AIR;
 var floor = SCALES.small;
 var scale = scaleFactor();
-while (scale > floor && rowNarrowBlockEm(scale) > availEm) scale = round2(scale - 0.01);
+while (scale > floor && rowNarrowBlockEm(key, scale) > availEm) scale = round2(scale - 0.01);
 return scale;
 }
 
@@ -2398,6 +2442,11 @@ var GRID_GAP = 0.88;
 var TILE_COLS = 4;
 var GCARD_COLS = 6;
 LC.hubEm = { edge: EDGE, gap: GRID_GAP, tileCols: TILE_COLS, gcardCols: GCARD_COLS };
+
+
+
+
+var GCARD_COLS_TILE = { small: 1, normal: 0, large: -1 };
 
 
 
@@ -4364,7 +4413,9 @@ css.push('.lumen-grid__items{display:-webkit-box;display:-webkit-flex;display:fl
 
 
 
-css.push('.lumen-grid__items .lumen-gcard{-webkit-flex-shrink:0;flex-shrink:0;width:-webkit-calc((100% - ' + emCss(GRID_GAP * (GCARD_COLS - 1)) + ') / ' + GCARD_COLS + ');width:calc((100% - ' + emCss(GRID_GAP * (GCARD_COLS - 1)) + ') / ' + GCARD_COLS + ');margin:0 ' + emCss(GRID_GAP) + ' 1.4em 0;position:relative;-webkit-transition:-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25);transition:transform .28s cubic-bezier(.2,.9,.3,1.25)}');
+var gcardCols = GCARD_COLS + GCARD_COLS_TILE[tileKey()];
+LC.hubEm.gcardCols = gcardCols;
+css.push('.lumen-grid__items .lumen-gcard{-webkit-flex-shrink:0;flex-shrink:0;width:-webkit-calc((100% - ' + emCss(GRID_GAP * (gcardCols - 1)) + ') / ' + gcardCols + ');width:calc((100% - ' + emCss(GRID_GAP * (gcardCols - 1)) + ') / ' + gcardCols + ');margin:0 ' + emCss(GRID_GAP) + ' 1.4em 0;position:relative;-webkit-transition:-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25);transition:transform .28s cubic-bezier(.2,.9,.3,1.25)}');
 css.push('.lumen-grid__items .lumen-gcard:nth-child(6n){margin-right:0}');
 css.push('.lumen-grid .lumen-gcard .card__view{margin-bottom:.5em;border-radius:.31em;background-color:' + P.panel + '}');
 css.push('.lumen-grid .lumen-gcard .card__img{border-radius:.31em;background-color:' + P.panelLo + '}');
@@ -5438,7 +5489,7 @@ var rowCapShort = !smallText && compactOn();
 var liveShift = smallText && compactOn();
 var rowTitleEm = round2(ROW_TITLE_EM * rowScale);
 var rowHeadGapEm = rowHeadGap(rowScale, cardWEm);
-var narrowWEm = round2(ROW_CARD_NARROW * rowScale);
+var narrowWEm = round2(rowNarrowBase(heroSize) * rowScale);
 var narrowGapEm = rowHeadGap(rowScale, narrowWEm);
 css.push('.lumen-main .card{width:' + cardWEm + 'em}');
 
@@ -36848,6 +36899,24 @@ uk: 'Назва фільму в кадрі над рядами показуєт�
 
 
 
+
+
+
+
+
+lumen_tile_size_name: { ru: 'Размер плиток в рядах', en: 'Tile size in rows', uk: 'Розмір плиток у рядах' },
+lumen_tile_size_descr: {
+ru: 'Размер постеров в рядах главной и в сетках подборок; текст и остальной интерфейс меняет «Масштаб интерфейса». Ряд в фокусе всегда целиком помещается под кадром вместе с названием и годом, поэтому «Крупнее» увеличивает плитки только там, где есть место: с «Кадром над рядами» в значении «Крупный» они уже самые крупные из помещающихся, и «Крупнее» их не меняет — кроме «Размера интерфейса: мельче» в самой Lampa. В сетке подборки — семь, шесть или пять колонок. Применяется сразу.',
+en: 'The size of posters in the home rows and in collection grids; text and the rest of the interface follow "Interface scale". The focused row always fits under the frame together with its title and year, so "Larger" enlarges tiles only where there is room: with "Hero over the rows" set to "Large" they are already the largest that fit, and "Larger" does not change them — except when Lampa’s own "Interface size" is set to smaller. Collection grids get seven, six or five columns. Applied immediately.',
+uk: 'Розмір постерів у рядах головної та в сітках підбірок; текст і решту інтерфейсу змінює «Масштаб інтерфейсу». Ряд у фокусі завжди повністю вміщується під кадром разом із назвою та роком, тож «Більші» збільшують плитки лише там, де є місце: з «Кадром над рядами» у значенні «Великий» вони вже найбільші з тих, що вміщуються, і «Більші» їх не змінюють — крім «Розміру інтерфейсу: менше» в самій Lampa. У сітці підбірки — сім, шість або п’ять колонок. Застосовується одразу.'
+},
+lumen_tile_size_small: { ru: 'Мельче', en: 'Smaller', uk: 'Дрібніші' },
+lumen_tile_size_normal: { ru: 'Обычные', en: 'Normal', uk: 'Звичайні' },
+lumen_tile_size_large: { ru: 'Крупнее', en: 'Larger', uk: 'Більші' },
+
+
+
+
 lumen_badges_name: { ru: 'Метки на постерах', en: 'Poster badges', uk: 'Мітки на постерах' },
 lumen_badges_descr: {
 ru: '«Скоро», «Новинка», процент просмотра и новые серии в рядах главной и подборок. «На постере» — плашкой поверх обложки; «В подписи» — строкой под ней, рядом с годом и рейтингом: обложка остаётся чистой. Применяется сразу.',
@@ -37206,8 +37275,10 @@ if (name === 'lumen_font') { LC.injectFonts(); LC.injectCss(); return true; }
 
 
 
+
+
 if (name === 'lumen_theme' || name === 'lumen_solid' || name === 'lumen_scale' ||
-name === 'lumen_accent_scope' || name === 'lumen_flat') { LC.injectCss(); return true; }
+name === 'lumen_accent_scope' || name === 'lumen_flat' || name === 'lumen_tile_size') { LC.injectCss(); return true; }
 
 
 
@@ -38030,6 +38101,14 @@ var LIST = [
 
 
 { name: 'lumen_hero_logo', type: 'trigger', 'default': true, label: 'lumen_hero_logo_name', descr: 'lumen_hero_logo_descr' },
+
+
+
+
+
+
+
+{ name: 'lumen_tile_size', type: 'select', values: ['small', 'normal', 'large'], vprefix: 'lumen_tile_size_', 'default': 'normal', label: 'lumen_tile_size_name', descr: 'lumen_tile_size_descr' },
 { name: 'lumen_moods', type: 'trigger', 'default': true, label: 'lumen_moods_name', descr: 'lumen_moods_descr' },
 { name: 'lumen_personal_rows', type: 'trigger', 'default': true, label: 'lumen_personal_rows_name', descr: 'lumen_personal_rows_descr' },
 

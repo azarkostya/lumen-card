@@ -185,6 +185,10 @@ test('addSettings: подписи и описания по-русски, зна�
     { warm: 'Тёплая тёмная', black: 'Глубокая чёрная' });
   assert.deepEqual(paramOf(params, 'lumen_scale').param.values,
     { small: 'Мельче', normal: 'Обычный', large: 'Крупнее', huge: 'Ещё крупнее' });
+  /* Правка 2026-09-26: размер плиток рядов главной и сеток подборок. */
+  assert.equal(paramOf(params, 'lumen_tile_size').field.name, 'Размер плиток в рядах');
+  assert.deepEqual(paramOf(params, 'lumen_tile_size').param.values,
+    { small: 'Мельче', normal: 'Обычные', large: 'Крупнее' });
   assert.equal(paramOf(params, 'lumen_solid').field.name, 'Плотные подложки');
   assert.deepEqual(paramOf(params, 'lumen_motion').param.values,
     { auto: 'Авто', full: 'Полные', lite: 'Лёгкие', off: 'Выкл' });
@@ -335,6 +339,9 @@ test('каждая настройка применяется ровно один
        применять нечего, поэтому список пуст, но ветка у настройки своя. */
     lumen_hide_meta: [],
     lumen_scale: ['css'],
+    /* Правка 2026-09-26: размер плиток рядов и сеток — тоже целиком таблица
+       стилей (ширина карточки ряда и число колонок сетки). */
+    lumen_tile_size: ['css'],
     /* Task 24 (фаза 3): акцент от постера — своя точка применения: при
        выключении возвращает цвет настроек, при включении считает по фильму
        открытой карточки (пересборку CSS делает она сама). */
