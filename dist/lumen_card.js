@@ -37260,9 +37260,9 @@ uk: 'Утримання «вгору» або «вниз» на головній
 },
 lumen_fastscroll_name: { ru: 'Быстрое листание', en: 'Fast scrolling', uk: 'Швидке гортання' },
 lumen_fastscroll_descr: {
-ru: 'Удержание «влево» или «вправо» разгоняет листание ряда втрое, а кнопки каналов на пульте прыгают сразу на десять карточек. Позиция в ряду показывается внизу экрана. Применяется сразу.',
-en: 'Holding "left" or "right" scrolls a row three times faster, and the channel buttons on the remote jump ten cards at once. The position in the row is shown at the bottom. Applied immediately.',
-uk: 'Утримання «вліво» або «вправо» пришвидшує гортання ряду втричі, а кнопки каналів на пульті стрибають одразу на десять карток. Позиція в ряду показується внизу екрана. Застосовується одразу.'
+ru: 'Удержание «влево» или «вправо» разгоняет листание ряда вдвое, а кнопки каналов на пульте прыгают сразу на десять карточек. Позиция в ряду показывается внизу экрана. Применяется сразу.',
+en: 'Holding "left" or "right" scrolls a row twice as fast, and the channel buttons on the remote jump ten cards at once. The position in the row is shown at the bottom. Applied immediately.',
+uk: 'Утримання «вліво» або «вправо» пришвидшує гортання ряду удвічі, а кнопки каналів на пульті стрибають одразу на десять карток. Позиція в ряду показується внизу екрана. Застосовується одразу.'
 },
 
 lumen_minimap_rows: { ru: 'РЯДЫ', en: 'ROWS', uk: 'РЯДИ' },

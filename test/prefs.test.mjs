@@ -1216,3 +1216,25 @@ test('Task 60: у каждого вызова LC.pref дефолт совпад�
   }
   assert.match(String(load('81_prefs.js').boolOf), /function/, 'модуль настроек загрузился');
 });
+
+/* Сверка 2026-09-26: описание «Быстрого листания» обещало ускорение втрое,
+   а код с Task 33 добавляет один шаг на каждое штатное событие (FAST_EXTRA
+   = 1 в src/64_nav.js), то есть ×2. Кратность в описании — от той же
+   константы, на всех трёх языках. */
+test('сверка: «Быстрое листание» — кратность в описании та же, что в коде (FAST_EXTRA)', () => {
+  const nav = readFileSync(new URL('../src/64_nav.js', import.meta.url), 'utf8');
+  const extra = /var FAST_EXTRA = (\d+);/.exec(nav);
+  assert.ok(extra, 'FAST_EXTRA в src/64_nav.js не найдена');
+  const factor = 1 + Number(extra[1]);
+  const words = {
+    2: { ru: /вдвое/, en: /twice as fast/, uk: /удвічі/ },
+    3: { ru: /втрое/, en: /three times faster/, uk: /втричі/ }
+  }[factor];
+  assert.ok(words, 'кратность ×' + factor + ' тест не знает — допишите слова');
+  const LC = loadStrings();
+  for (const lang of LANGS) {
+    const text = LC.STRINGS.lumen_fastscroll_descr[lang];
+    assert.match(text, words[lang], lang + ': описание не называет ×' + factor + ': ' + text);
+    assert.doesNotMatch(text, /втрое|three times|втричі/, lang + ': в описании осталось «втрое»');
+  }
+});
