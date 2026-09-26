@@ -1232,7 +1232,38 @@
      (мету он не показывает, heroSmallText). Формулы раскладки за порогом
      «кадра нет» зовут rowBlockEm с кеглем строки напрямую. */
   function rowCapAge(em) {
-    return heroSmallText() ? em : 0;
+    return (heroSmallText() || !compactOn()) ? em : 0;
+  }
+
+  /* Правка 2026-09-26: строка «год · ★» вернулась под постер (без сжатия,
+     флаг LC.heroCompact), а сдвиг подписи под фокусом при живом кадре — нет
+     (пользователь: «будет меньше анимаций»). Формулы раскладки при живом
+     кадре мерят блок ряда БЕЗ сдвига ровно тогда, когда его нет на экране:
+     без сжатия — всегда, со сжатием — как прежде, по кеглю строки
+     (rowCapAge: у крупного и среднего кадра строки нет, и сдвиг с ней). */
+  function rowCapFlow(flow) {
+    return !!flow || !compactOn();
+  }
+
+  /* Правка 2026-09-26 (пользователь: «чтобы ряд плиток включал год. Может
+     подгоним размер плиток»): базовая ширина карточки ряда БЕЗ сжатия —
+     самая крупная, при которой ряд в фокусе со строкой «год · ★» целиком
+     помещается на месте первого ряда в покое при отношении сторон TV_RATIO
+     (16:9 с запасом) и штатном масштабе. Бюджет — тот же, что у потолка
+     масштаба (rowScaleCap ниже, разбор цепочки — у rowNarrowRatio). Потолок
+     — седьмая колонка сетки Apple (ROW_CARD_W, средний и компактный кадр
+     помещают её целиком), пол — восьмая (ROW_CARD_NARROW): мельче базовую
+     карточку не делаем, дальше работают узкая колонка и потолок масштаба.
+     Замер модели (test/css.test.mjs) на телевизоре 960×540, крупный кадр,
+     «обычный» размер интерфейса: 8.79em — 100.3 CSS px, 200 физических;
+     низ строки «год · ★» 531.6 при пределе 532. Со сжатием — прежние
+     ROW_CARD_W. */
+  function rowCardBase(key) {
+    if (compactOn()) return ROW_CARD_W;
+    var availEm = screenEm() * (100 - rowsFitTopVh(key)) / TV_RATIO - ROWS_AIR - ROW_EDGE_AIR;
+    var w = ROW_CARD_W;
+    while (w > ROW_CARD_NARROW && rowBlockEm(w, ROW_TITLE_EM, rowHeadGap(1, w), TV_MIN, TV_MIN, true) > availEm) w = round2(w - 0.01);
+    return w;
   }
 
   function rowBlockEm(cardW, titleEm, gapEm, cardTitleEm, cardAgeEm, flow) {
@@ -1292,7 +1323,7 @@
      самые, что подставляются в сам медиазапрос. */
   function rowNarrowBlockEm(scale) {
     var w = round2(ROW_CARD_NARROW * scale);
-    return rowBlockEm(w, round2(ROW_TITLE_EM * scale), rowHeadGap(scale, w), TV_MIN, rowCapAge(TV_MIN));
+    return rowBlockEm(w, round2(ROW_TITLE_EM * scale), rowHeadGap(scale, w), TV_MIN, rowCapAge(TV_MIN), rowCapFlow(false));
   }
 
   /* ПОТОЛОК масштаба карточки ряда — из того же бюджета высоты, по которому
@@ -4440,7 +4471,7 @@
        (хаб, сетка, карточка, текст героя) масштабируются по-прежнему
        целиком — им высоту первого ряда главной не делить. */
     var rowScale = rowScaleCap(heroSize);
-    var cardWEm = round2(ROW_CARD_W * rowScale);
+    var cardWEm = round2(rowCardBase(heroSize) * rowScale);
     /* Task 63: обе подписи — по минимуму tvOS (TV_MIN, разбор у самой
        константы). Было .96em у названия и .88em у меты, то есть 21.9 и 20
        физических px при базе 22.811 — ниже порога Caption 2 (23 px), с
@@ -4453,7 +4484,11 @@
        нет (разбор — у правила .card__age ниже, кегль для формул —
        rowCapAge). Ею же считаются потолок масштаба (rowScaleCap выше) и
        порог узкой колонки: оба обязаны мерить ту подпись, что на экране. */
-    var rowCapShort = !smallText;
+    var rowCapShort = !smallText && compactOn();
+    /* Правка 2026-09-26: сдвиг подписи под фокусом при живом кадре — только
+       со сжатием и только там, где строка «год · ★» и была (компактный
+       кадр); без сжатия его нет ни у одного размера (rowCapFlow выше). */
+    var liveShift = smallText && compactOn();
     var rowTitleEm = round2(ROW_TITLE_EM * rowScale);
     var rowHeadGapEm = rowHeadGap(rowScale, cardWEm);
     var narrowWEm = round2(ROW_CARD_NARROW * rowScale);
@@ -4484,7 +4519,7 @@
        первое, что отдаётся, — ПРИБАВКА масштаба к подписям: 23 физических
        px они сохраняют при любой настройке. Постеры, заголовок ряда и всё
        остальное масштаб по-прежнему увеличивает. */
-    var narrowRatio = rowNarrowRatio(heroSize, rowBlockEm(cardWEm, rowTitleEm, rowHeadGapEm, cardTitleEm, rowCapAge(cardAgeEm)));
+    var narrowRatio = rowNarrowRatio(heroSize, rowBlockEm(cardWEm, rowTitleEm, rowHeadGapEm, cardTitleEm, rowCapAge(cardAgeEm), rowCapFlow(false)));
     var narrowCss = narrowRatio < Math.max(HERO_MIN_RATIO, textRatio(heroSize, textNeedEm(false)))
       ? '@media screen and (min-aspect-ratio:' + narrowRatio + '/100){' +
         '.lumen-main .card{width:' + narrowWEm + 'em}' +
@@ -4644,7 +4679,7 @@
        где строка «год · ★» на месте (за порогом «кадра нет» и у компактного
        кадра), жест lockup остаётся прежним. */
     var focusShiftCss = 'body.lumen-motion-full .lumen-main .card.focus .card__title,body.lumen-motion-full .lumen-main .card.focus .card__age{-webkit-transform:translateY(' + CARD_FOCUS_SHIFT + 'em);transform:translateY(' + CARD_FOCUS_SHIFT + 'em)}';
-    css.push(rowCapShort ? '@media screen and (min-aspect-ratio:' + heroMinRatio + '/100){' + focusShiftCss + '}' : focusShiftCss);
+    css.push(liveShift ? focusShiftCss : '@media screen and (min-aspect-ratio:' + heroMinRatio + '/100){' + focusShiftCss + '}');
     /* Снятие двух слоёв из трёх (разбор — в комментарии выше). Правило стоит
        ПОСЛЕ наших правил на те же узлы с ТОЙ ЖЕ специфичностью: у них решает
        порядок. Сдвиг подписи в фокусе (два правила выше) специфичнее — у
@@ -4701,17 +4736,17 @@
     var fitBlock = rowBlockEm(fitW, rowTitleEm, fitGap, fitCap, fitCap);
     /* Подписи под постером в em карточки; age — кегль строки «год · ★» (ноль
        при живом кадре, п.C1 у правила .card__age). */
-    var fitCaptions = function (age) {
-      return CARD_VIEW_GAP + fitCap * CARD_TITLE_LH + CARD_AGE_GAP * age + age + CARD_FOCUS_SHIFT * age;
+    var fitCaptions = function (age, flow) {
+      return CARD_VIEW_GAP + fitCap * CARD_TITLE_LH + CARD_AGE_GAP * age + age + (flow ? 0 : CARD_FOCUS_SHIFT * age);
     };
-    var rowFitCss = function (sel, lo, hi, tailVh, topEm, age) {
+    var rowFitCss = function (sel, lo, hi, tailVh, topEm, age, flow) {
       var x = Math.floor(tailVh / POSTER_RATIO * 100) / 100;
-      var y = Math.ceil(((topEm + rowTitleEm + fitGap + ROW_EDGE_AIR) / (POSTER_RATIO * cardK()) + fitCaptions(age) / POSTER_RATIO) * 100) / 100;
+      var y = Math.ceil(((topEm + rowTitleEm + fitGap + ROW_EDGE_AIR) / (POSTER_RATIO * cardK()) + fitCaptions(age, flow) / POSTER_RATIO) * 100) / 100;
       var w = x + 'vh - ' + y + 'em';
       return '@media screen and (min-aspect-ratio:' + lo + '/1000)' + (hi ? ' and (max-aspect-ratio:' + hi + '/1000)' : '') + '{' +
         sel + ' .card{width:-webkit-calc(' + w + ');width:calc(' + w + ')}}';
     };
-    var fitHeroFrom = Math.floor(screenEm() * (100 - rowsFitTop) * 10 / (ROWS_AIR + rowBlockEm(fitW, rowTitleEm, fitGap, fitCap, rowCapAge(fitCap)) + ROW_EDGE_AIR));
+    var fitHeroFrom = Math.floor(screenEm() * (100 - rowsFitTop) * 10 / (ROWS_AIR + rowBlockEm(fitW, rowTitleEm, fitGap, fitCap, rowCapAge(fitCap), rowCapFlow(false)) + ROW_EDGE_AIR));
     /* Верх полосы — на тысячную раньше порога «кадра нет». Обе границы
        медиазапросов включительные, и ровно на пороге (окно 2400×960 — 2.5:1,
        «мельче», компактный кадр) действовали бы сразу ширина полосы героя и
@@ -4720,7 +4755,7 @@
        Проявилось, когда раскладка ряда стала считаться от места покоя
        (правка 2026-09-26): полоса героя дотянулась до порога. */
     if (fitHeroFrom < heroMinRatio * 10) {
-      css.push(rowFitCss('.lumen-main', fitHeroFrom, heroMinRatio * 10 - 1, 100 - rowsFitTop, ROWS_AIR, rowCapAge(fitCap)));
+      css.push(rowFitCss('.lumen-main', fitHeroFrom, heroMinRatio * 10 - 1, 100 - rowsFitTop, ROWS_AIR, rowCapAge(fitCap), rowCapFlow(false)));
     }
     var fitOff = function (sel, topEm) {
       var from = Math.max(heroMinRatio * 10, Math.floor(screenEm() * 1000 / (topEm + fitBlock + ROW_EDGE_AIR)));

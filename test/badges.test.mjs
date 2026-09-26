@@ -539,7 +539,9 @@ function mountedCaption(extra, rootClasses, win) {
 }
 
 test('волна «подложка», п.C1: «в подписи» на главной с героем — метка на постере, подпись с годом и рейтингом', () => {
-  const card = mountedCaption({ pref: function (key, def) { return key === 'lumen_hero_size' ? 'large' : def; } }, ['lumen-main']);
+  /* Правка 2026-09-26: так — только со сжатым состоянием (флаг
+     LC.heroCompact, src/30_css.js), без него строка «год · ★» на месте. */
+  const card = mountedCaption({ heroCompact: true, pref: function (key, def) { return key === 'lumen_hero_size' ? 'large' : def; } }, ['lumen-main']);
   const view = card._children[0];
   const age = card._children[1];
   const plates = view._children.filter((c) => c.hasClass('lumen-badge'));
@@ -577,7 +579,7 @@ function mediaAt(ratio) {
 }
 
 test('п.H: «в подписи» в окне шире порога «кадра нет» — метка в подписи, как без героя', () => {
-  const large = { pref: function (key, def) { return key === 'lumen_hero_size' ? 'large' : def; }, heroOffRatio: () => 287 };
+  const large = { heroCompact: true, pref: function (key, def) { return key === 'lumen_hero_size' ? 'large' : def; }, heroOffRatio: () => 287 };
   let card = mountedCaption(large, ['lumen-main'], mediaAt(3.0));
   assert.equal(card._children[0]._children.filter((c) => c.hasClass('lumen-badge')).length, 0, 'кадра нет — плашки на постере быть не должно');
   assert.equal(card._children[1]._children.filter((c) => c.hasClass('lumen-badge-cap')).length, 1, 'кадра нет — метка в подписи');
@@ -589,6 +591,23 @@ test('п.H: «в подписи» в окне шире порога «кадра
   assert.equal(card._children[1]._children.filter((c) => c.hasClass('lumen-badge-cap')).length, 1, '3:1 без matchMedia — метка в подписи');
   card = mountedCaption(large, ['lumen-main'], { innerWidth: 1920, innerHeight: 1080 });
   assert.equal(card._children[0]._children.filter((c) => c.hasClass('lumen-badge')).length, 1, '16:9 без matchMedia — метка на постере');
+});
+
+/* Правка 2026-09-26 (пользователь: «чтобы ряд плиток включал год»): без
+   сжатого состояния (флаг LC.heroCompact выключен — так по умолчанию)
+   строка «год · ★» под постером главной есть и при живом кадре, поэтому
+   метка «в подписи» живёт в ней, а не на постере, — при любом размере кадра
+   и в любом окне. */
+test('правка 2026-09-26: «в подписи» на главной с героем без сжатия — метка в подписи, не на постере', () => {
+  for (const size of ['large', 'medium', 'compact']) {
+    for (const flag of [undefined, false]) {
+      const extra = { pref: function (key, def) { return key === 'lumen_hero_size' ? size : def; }, heroOffRatio: () => 287 };
+      if (flag !== undefined) extra.heroCompact = flag;
+      const card = mountedCaption(extra, ['lumen-main'], mediaAt(1.78));
+      assert.equal(card._children[0]._children.filter((c) => c.hasClass('lumen-badge')).length, 0, size + ': метка на постере при строке «год · ★» под ним');
+      assert.equal(card._children[1]._children.filter((c) => c.hasClass('lumen-badge-cap')).length, 1, size + ': метки нет в подписи');
+    }
+  }
 });
 
 /* Долг фазы 1, п.6 (2026-09-23): фейковый DOM отдаёт на find все

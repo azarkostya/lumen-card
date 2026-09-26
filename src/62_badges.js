@@ -165,6 +165,10 @@
     function captionHidden() {
       try {
         if (!state || !state.root || typeof state.root.hasClass !== 'function' || !state.root.hasClass('lumen-main')) return false;
+        /* Правка 2026-09-26: строку «год · ★» при живом кадре прячет только
+           сжатое состояние (флаг LC.heroCompact, src/30_css.js — там же
+           правило .card__age); без него строка на месте всегда. */
+        if (LC.heroCompact !== true) return false;
         if (LC.pref && LC.pref('lumen_hero_size', 'large') === 'compact') return false;
         return !frameGone();
       } catch (e) {

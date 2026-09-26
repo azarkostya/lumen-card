@@ -2109,7 +2109,38 @@ return round2(ROW_HEAD_GAP * Math.max(scale, cardK() * cardW / ROW_CARD_W));
 
 
 function rowCapAge(em) {
-return heroSmallText() ? em : 0;
+return (heroSmallText() || !compactOn()) ? em : 0;
+}
+
+
+
+
+
+
+
+function rowCapFlow(flow) {
+return !!flow || !compactOn();
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function rowCardBase(key) {
+if (compactOn()) return ROW_CARD_W;
+var availEm = screenEm() * (100 - rowsFitTopVh(key)) / TV_RATIO - ROWS_AIR - ROW_EDGE_AIR;
+var w = ROW_CARD_W;
+while (w > ROW_CARD_NARROW && rowBlockEm(w, ROW_TITLE_EM, rowHeadGap(1, w), TV_MIN, TV_MIN, true) > availEm) w = round2(w - 0.01);
+return w;
 }
 
 function rowBlockEm(cardW, titleEm, gapEm, cardTitleEm, cardAgeEm, flow) {
@@ -2169,7 +2200,7 @@ var TV_RATIO = 178;
 
 function rowNarrowBlockEm(scale) {
 var w = round2(ROW_CARD_NARROW * scale);
-return rowBlockEm(w, round2(ROW_TITLE_EM * scale), rowHeadGap(scale, w), TV_MIN, rowCapAge(TV_MIN));
+return rowBlockEm(w, round2(ROW_TITLE_EM * scale), rowHeadGap(scale, w), TV_MIN, rowCapAge(TV_MIN), rowCapFlow(false));
 }
 
 
@@ -5317,7 +5348,7 @@ var ROW_FOCUS = 1.10;
 
 
 var rowScale = rowScaleCap(heroSize);
-var cardWEm = round2(ROW_CARD_W * rowScale);
+var cardWEm = round2(rowCardBase(heroSize) * rowScale);
 
 
 
@@ -5330,7 +5361,11 @@ var cardAgeEm = round2(TV_MIN * rowScale);
 
 
 
-var rowCapShort = !smallText;
+var rowCapShort = !smallText && compactOn();
+
+
+
+var liveShift = smallText && compactOn();
 var rowTitleEm = round2(ROW_TITLE_EM * rowScale);
 var rowHeadGapEm = rowHeadGap(rowScale, cardWEm);
 var narrowWEm = round2(ROW_CARD_NARROW * rowScale);
@@ -5361,7 +5396,7 @@ css.push('.lumen-main .card{width:' + cardWEm + 'em}');
 
 
 
-var narrowRatio = rowNarrowRatio(heroSize, rowBlockEm(cardWEm, rowTitleEm, rowHeadGapEm, cardTitleEm, rowCapAge(cardAgeEm)));
+var narrowRatio = rowNarrowRatio(heroSize, rowBlockEm(cardWEm, rowTitleEm, rowHeadGapEm, cardTitleEm, rowCapAge(cardAgeEm), rowCapFlow(false)));
 var narrowCss = narrowRatio < Math.max(HERO_MIN_RATIO, textRatio(heroSize, textNeedEm(false)))
 ? '@media screen and (min-aspect-ratio:' + narrowRatio + '/100){' +
 '.lumen-main .card{width:' + narrowWEm + 'em}' +
@@ -5521,7 +5556,7 @@ css.push('body.lumen-motion-full .lumen-main:not(.lumen-burst) .card__title,body
 
 
 var focusShiftCss = 'body.lumen-motion-full .lumen-main .card.focus .card__title,body.lumen-motion-full .lumen-main .card.focus .card__age{-webkit-transform:translateY(' + CARD_FOCUS_SHIFT + 'em);transform:translateY(' + CARD_FOCUS_SHIFT + 'em)}';
-css.push(rowCapShort ? '@media screen and (min-aspect-ratio:' + heroMinRatio + '/100){' + focusShiftCss + '}' : focusShiftCss);
+css.push(liveShift ? focusShiftCss : '@media screen and (min-aspect-ratio:' + heroMinRatio + '/100){' + focusShiftCss + '}');
 
 
 
@@ -5578,17 +5613,17 @@ var fitCap = narrowCss ? TV_MIN : cardTitleEm;
 var fitBlock = rowBlockEm(fitW, rowTitleEm, fitGap, fitCap, fitCap);
 
 
-var fitCaptions = function (age) {
-return CARD_VIEW_GAP + fitCap * CARD_TITLE_LH + CARD_AGE_GAP * age + age + CARD_FOCUS_SHIFT * age;
+var fitCaptions = function (age, flow) {
+return CARD_VIEW_GAP + fitCap * CARD_TITLE_LH + CARD_AGE_GAP * age + age + (flow ? 0 : CARD_FOCUS_SHIFT * age);
 };
-var rowFitCss = function (sel, lo, hi, tailVh, topEm, age) {
+var rowFitCss = function (sel, lo, hi, tailVh, topEm, age, flow) {
 var x = Math.floor(tailVh / POSTER_RATIO * 100) / 100;
-var y = Math.ceil(((topEm + rowTitleEm + fitGap + ROW_EDGE_AIR) / (POSTER_RATIO * cardK()) + fitCaptions(age) / POSTER_RATIO) * 100) / 100;
+var y = Math.ceil(((topEm + rowTitleEm + fitGap + ROW_EDGE_AIR) / (POSTER_RATIO * cardK()) + fitCaptions(age, flow) / POSTER_RATIO) * 100) / 100;
 var w = x + 'vh - ' + y + 'em';
 return '@media screen and (min-aspect-ratio:' + lo + '/1000)' + (hi ? ' and (max-aspect-ratio:' + hi + '/1000)' : '') + '{' +
 sel + ' .card{width:-webkit-calc(' + w + ');width:calc(' + w + ')}}';
 };
-var fitHeroFrom = Math.floor(screenEm() * (100 - rowsFitTop) * 10 / (ROWS_AIR + rowBlockEm(fitW, rowTitleEm, fitGap, fitCap, rowCapAge(fitCap)) + ROW_EDGE_AIR));
+var fitHeroFrom = Math.floor(screenEm() * (100 - rowsFitTop) * 10 / (ROWS_AIR + rowBlockEm(fitW, rowTitleEm, fitGap, fitCap, rowCapAge(fitCap), rowCapFlow(false)) + ROW_EDGE_AIR));
 
 
 
@@ -5597,7 +5632,7 @@ var fitHeroFrom = Math.floor(screenEm() * (100 - rowsFitTop) * 10 / (ROWS_AIR + 
 
 
 if (fitHeroFrom < heroMinRatio * 10) {
-css.push(rowFitCss('.lumen-main', fitHeroFrom, heroMinRatio * 10 - 1, 100 - rowsFitTop, ROWS_AIR, rowCapAge(fitCap)));
+css.push(rowFitCss('.lumen-main', fitHeroFrom, heroMinRatio * 10 - 1, 100 - rowsFitTop, ROWS_AIR, rowCapAge(fitCap), rowCapFlow(false)));
 }
 var fitOff = function (sel, topEm) {
 var from = Math.max(heroMinRatio * 10, Math.floor(screenEm() * 1000 / (topEm + fitBlock + ROW_EDGE_AIR)));
@@ -30180,6 +30215,10 @@ return mode() !== 'off';
 function captionHidden() {
 try {
 if (!state || !state.root || typeof state.root.hasClass !== 'function' || !state.root.hasClass('lumen-main')) return false;
+
+
+
+if (LC.heroCompact !== true) return false;
 if (LC.pref && LC.pref('lumen_hero_size', 'large') === 'compact') return false;
 return !frameGone();
 } catch (e) {
@@ -36123,11 +36162,19 @@ uk: 'Вміст лежить прямо на тлі, а не в коробках
 
 
 
+
+
+
+
+
+
+
+
 lumen_scale_name: { ru: 'Масштаб интерфейса', en: 'Interface scale', uk: 'Масштаб інтерфейсу' },
 lumen_scale_descr: {
-ru: 'Размер текста и блоков на экранах плагина: карточка, главная, подборки. Применяется сразу. Одно исключение: если в самой Lampa выбран «Размер интерфейса: крупнее», она уже увеличила карточки рядов главной, и при настройке «Кадр над рядами» в значении «Крупный» наш масштаб там упирается в высоту экрана — «Ещё крупнее» даёт почти те же ряды, что «Крупнее», иначе подпись первого ряда не поместилась бы. При меньшем кадре и на других размерах интерфейса ограничения нет, и на остальных экранах плагина масштаб действует целиком.',
-en: 'The size of text and blocks on the plugin screens: card, home and collections. Applied immediately. One exception: if Lampa\'s own "Interface size" is set to larger, it has already enlarged the home row cards, and with "Hero over the rows" set to "Large" our scale there runs into the screen height — "Largest" gives almost the same rows as "Larger", otherwise the first row caption would not fit. With a smaller frame and on the other interface sizes there is no cap, and on the other plugin screens the scale applies in full.',
-uk: 'Розмір тексту та блоків на екранах плагіна: картка, головна, підбірки. Застосовується одразу. Один виняток: якщо в самій Lampa вибрано «Розмір інтерфейсу: більше», вона вже збільшила картки рядів головної, і з налаштуванням «Кадр над рядами» у значенні «Великий» наш масштаб там упирається у висоту екрана — «Ще більше» дає майже ті самі ряди, що «Більше», інакше підпис першого ряду не помістився б. З меншим кадром і на інших розмірах інтерфейсу обмеження немає, а на решті екранів плагіна масштаб діє повністю.'
+ru: 'Размер текста и блоков на экранах плагина: карточка, главная, подборки. Применяется сразу. На главной ряд в фокусе целиком помещается под кадром, поэтому карточки рядов там растут только до высоты экрана: с настройкой «Кадр над рядами» в значении «Крупный» «Ещё крупнее» может дать те же ряды, что «Крупнее», а если в самой Lampa выбран «Размер интерфейса: крупнее», ряды не растут вовсе. С меньшим кадром запас больше, а на остальных экранах плагина масштаб действует целиком.',
+en: 'The size of text and blocks on the plugin screens: card, home and collections. Applied immediately. On the home screen the focused row always fits under the frame, so the row cards grow only up to the screen height: with "Hero over the rows" set to "Large", "Largest" may give the same rows as "Larger", and if Lampa\'s own "Interface size" is set to larger, the rows do not grow at all. A smaller frame leaves more room, and on the other plugin screens the scale applies in full.',
+uk: 'Розмір тексту та блоків на екранах плагіна: картка, головна, підбірки. Застосовується одразу. На головній ряд у фокусі завжди вміщується під кадром, тож картки рядів ростуть лише до висоти екрана: з налаштуванням «Кадр над рядами» у значенні «Великий» «Ще більше» може дати ті самі ряди, що «Більше», а якщо в самій Lampa вибрано «Розмір інтерфейсу: більше», ряди не ростуть зовсім. З меншим кадром запас більший, а на решті екранів плагіна масштаб діє повністю.'
 },
 lumen_scale_small: { ru: 'Мельче', en: 'Smaller', uk: 'Дрібніше' },
 lumen_scale_normal: { ru: 'Обычный', en: 'Normal', uk: 'Звичайний' },

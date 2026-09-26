@@ -3485,7 +3485,9 @@ test('сжатие выключено: ряд в фокусе — на мест�
   for (const [W, H] of [[960, 540], [2560, 1300]]) {
     for (const iface of ['small', 'normal', 'bigger']) {
       const EM = lampaEm(W, iface);
-      const limit = W === 960 ? 532 : H - 0.7 * EM + 0.5;
+      /* Предел — воздух ROW_EDGE_AIR (.7em) до кромки, как у правила кромки:
+         на телевизоре это 532.1…533.1 px по размерам интерфейса. */
+      const limit = H - 0.7 * EM + 0.5;
       for (const size of (W === 960 ? ['large', 'medium', 'compact'] : ['large'])) {
         for (const scale of ['small', 'normal', 'large', 'huge']) {
           const built = withStorage({ lumen_scale: scale, lumen_hero_size: size, interface_size: iface }, (LC) => LC.buildCss(), W);
@@ -3498,6 +3500,38 @@ test('сжатие выключено: ряд в фокусе — на мест�
       }
     }
   }
+});
+
+/* Правка 2026-09-26 (пользователь: «чтобы ряд плиток включал год. Может
+   подгоним размер плиток»): без сжатия под постером главной снова строка
+   «год · ★» — при любом размере кадра, — а сдвига подписи под фокусом при
+   живом кадре нет («будет меньше анимаций»; за порогом «кадра нет» жест
+   lockup прежний). Плитка — самая крупная, при которой ряд в фокусе с этой
+   строкой целиком помещается в покое на телевизоре 16:9: у крупного кадра низ
+   подписи в пределах 6 px от предела 532 (мельче плитку делать незачем), у
+   среднего и компактного места хватает на седьмую колонку сетки Apple. */
+test('правка 2026-09-26: без сжатия под постером строка «год · ★», плитка — самая крупная, что помещается в покое', () => {
+  const H = 540;
+  const ageDisplay = (built, w) => (cascade(matchingRules(built, ['lumen-main'], ['card__age'], w, H), 'display') || { value: 'block' }).value;
+  const shiftOn = (built, w) => ruleBodiesWithMedia(built).some((r) =>
+    r.selectors.indexOf('body.lumen-motion-full .lumen-main .card.focus .card__title') !== -1 &&
+    /[^-]transform:translateY\([0-9.]+em\)/.test(r.decl) && mediaApplies(r.media, w, H));
+  const widthEm = (built) => parseFloat(/(?:^|;)width:([0-9.]+)em/.exec(findDecl(built, (sel) => sel === '.lumen-main .card'))[1]);
+  for (const size of ['large', 'medium', 'compact']) {
+    const built = withStorage({ lumen_hero_size: size }, (LC) => LC.buildCss());
+    assert.equal(ageDisplay(built, 960), 'block', size + ': строки «год · ★» под постером нет');
+    assert.equal(shiftOn(built, 960), false, size + ': при живом кадре подпись под фокусом снова уезжает');
+    const off = parseInt(/min-aspect-ratio:(\d+)\/100/.exec(heroOffMedia(built))[1], 10);
+    assert.equal(shiftOn(built, Math.ceil(H * off / 100) + 10), true, size + ': за порогом «кадра нет» жест подписи пропал');
+    if (size !== 'large') assert.equal(widthEm(built), 9.52, size + ': места хватает на седьмую колонку, а плитка мельче');
+  }
+  const tv = rowLayout(css, 960, H, { more: true, interface: 'normal' });
+  assert.ok(tv.textBottomDown <= 532 && tv.textBottomDown >= 526,
+    'крупный кадр, телевизор: низ строки «год · ★» ' + tv.textBottomDown.toFixed(1) + ' — плитка не по высоте');
+  const large = widthEm(css);
+  assert.ok(large < 9.52 && large > 8.07, 'крупный кадр: плитка ' + large + 'em — не между восьмой и седьмой колонкой');
+  assert.equal(cascade(matchingRules(css, ['lumen-main'], ['card'], 960, H), 'width').value, large + 'em',
+    'на телевизоре 16:9 при штатном масштабе включилась узкая колонка или полоса подгонки');
 });
 
 /* Правка 2026-09-26: «будет меньше анимаций». Переход между рядами главной
@@ -3722,7 +3756,7 @@ test('уточнение 2026-09-23: модель раскладки сходи�
   const H = 540;
   const LIVE_UP = 499.7;
   const LIVE_DOWN = 529.7;
-  const built = withStorage({ lumen_scale: 'normal', lumen_hero_size: 'large', interface_size: 'normal' },
+  const built = withCompact({ lumen_scale: 'normal', lumen_hero_size: 'large', interface_size: 'normal' },
     (LC) => LC.buildCss());
   const got = rowLayout(built, W, H, { more: true, interface: 'normal' });
   /* Живые замеры на стенде 2026-09-24, волна «подложка» (после
@@ -4085,6 +4119,18 @@ test('Фикс-раунд финального ревью: оговорка пр
       'заставка из кадров (' + on + ') меняет ширину карточки ряда');
   }
 
+  /* Правка 2026-09-26: описание говорит о раскладке БЕЗ сжатия (флаг
+     LC.heroCompact выключен — так по умолчанию), и его утверждения
+     проверяются там же: при крупном кадре «Ещё крупнее» даёт ту же карточку,
+     что «Крупнее» («обычный» размер интерфейса), при «крупнее» — все четыре
+     значения одну; средний кадр при «крупнее» расти даёт. */
+  const restEm = (scale, size, iface) => withStorage({ lumen_scale: scale, lumen_hero_size: size, interface_size: iface },
+    (LC) => parseFloat(/(?:^|;)width:([0-9.]+)em/.exec(findDecl(LC.buildCss(), (sel) => sel === '.lumen-main .card'))[1]));
+  assert.equal(restEm('huge', 'large', 'normal'), restEm('large', 'large', 'normal'), 'без сжатия «Ещё крупнее» и «Крупнее» разошлись — описание устарело');
+  const biggerLarge = ['small', 'normal', 'large', 'huge'].map((sc) => restEm(sc, 'large', 'bigger'));
+  assert.ok(biggerLarge.every((w) => w === biggerLarge[0]), '«крупнее» с крупным кадром: ряды растут — описание устарело: ' + biggerLarge.join(', '));
+  assert.ok(restEm('large', 'medium', 'bigger') > restEm('normal', 'medium', 'bigger'), 'со средним кадром запаса нет — описание обещает лишнее');
+
   const S = withStorage({}, (LC) => LC.STRINGS);
   const descr = S.lumen_scale_descr;
   /* Кавычки те же, что в самих строках: русская и украинская «ёлочка»,
@@ -4146,9 +4192,20 @@ test('Task 51: узкая колонка включается порогом и�
            обязано быть 8.07/9.52 при любом масштабе интерфейса. */
         const narrow = parseFloat(/(?:^|;)width:([0-9.]+)em/.exec(narrowRules[0].decl)[1]);
         const wide = lengthPx(cascade(matchingRules(built, ['lumen-main'], ['card'], 100, 100), 'width').value, 1, 0);
-        assert.ok(narrow < wide, label + ': за порогом карточка обязана быть УЖЕ базовой (' + narrow + ' против ' + wide + ')');
-        assert.ok(Math.abs(narrow / wide - 8.07 / 9.52) < 0.005,
-          label + ': за порогом не восьмая колонка сетки — ' + narrow + 'em при базовых ' + wide + 'em');
+        /* Правка 2026-09-26: без сжатия базовая карточка подогнана под место
+           покоя (8.07…9.52em на штатном масштабе), и отношение узкой к ней —
+           не 8.07/9.52, а не больше него; сама узкая — всё та же восьмая
+           колонка при масштабе из настройки (.9…1.2). На «крупнее» базовая
+           упирается в пол — восьмую колонку, — и узкая с ней совпадает:
+           медиазапрос тогда меняет только кегли подписей (к TV_MIN). */
+        assert.ok(compact ? narrow < wide : narrow <= wide, label + ': за порогом карточка обязана быть УЖЕ базовой (' + narrow + ' против ' + wide + ')');
+        if (compact) {
+          assert.ok(Math.abs(narrow / wide - 8.07 / 9.52) < 0.005,
+            label + ': за порогом не восьмая колонка сетки — ' + narrow + 'em при базовых ' + wide + 'em');
+        } else {
+          assert.ok(narrow / wide >= 8.07 / 9.52 - 0.005 && narrow / 8.07 >= 0.9 - 0.005 && narrow / 8.07 <= 1.2 + 0.005,
+            label + ': за порогом не восьмая колонка сетки — ' + narrow + 'em при базовых ' + wide + 'em');
+        }
 
         /* Порог согласован с раскладкой: ЧУТЬ ВЫШЕ него (окно ещё не такое
            приплюснутое, правило не сработало) широкая карточка обязана
@@ -5596,8 +5653,15 @@ test('Task 51: карточка ряда главной — 217×325 (7 коло
      сделала арифметика, а не вкус: при 260 px подпись под постером не
      помещалась в экран даже в поднятом состоянии (замер координатора на
      стенде 960×540: низ подписи 543 при кромке 540). */
-  const card = findDecl(css, (sel) => sel === '.lumen-main .card');
+  /* Правка 2026-09-26: 9.52em — ширина со сжатым состоянием (флаг
+     LC.heroCompact); без него у крупного кадра плитка подогнана под место
+     первого ряда в покое (тест «без сжатия под постером строка «год · ★»…»),
+     у среднего и компактного — та же седьмая колонка. */
+  const card = findDecl(cssCompact, (sel) => sel === '.lumen-main .card');
   assert.equal(card, 'width:9.52em', '217 px FHD; высоту даёт штатный padding-bottom:150 % у .card__view');
+  for (const size of ['medium', 'compact']) {
+    assert.equal(findDecl(withStorage({ lumen_hero_size: size }, (LC) => LC.buildCss()), (sel) => sel === '.lumen-main .card'), 'width:9.52em', size + ': без сжатия');
+  }
   const title = findDecl(css, (sel) => sel === '.lumen-main .card__title');
   assert.ok(title.indexOf('font-size:1.01em') !== -1, 'Task 63: название — минимум tvOS, 23 px: ' + title);
   assert.ok(title.indexOf('white-space:nowrap') !== -1, 'одна строка: вторая отнимает у героя столько же экрана');
@@ -6992,14 +7056,14 @@ test('Task 63: подпись карточки под фокусом уезжа�
    Своего узла в ряд Lampa мы при этом не вставляем — только гасим чужой,
    как уже гасим .card-watched и .card__vote. */
 test('правка 2026-09-23: кнопка «Ещё» убрана из шапки ряда, шапку меряет заголовок', () => {
-  const more = declAll(css, '.lumen-main .items-line__more');
+  const more = declAll(cssCompact, '.lumen-main .items-line__more');
   assert.ok(/display:none/.test(more), 'дубль «Ещё» в шапке ряда вернулся: ' + more);
   /* И высота шапки в модели раскладки теперь равна высоте заголовка — то
      самое место, где освободились 6.5 CSS px бюджета первого ряда. */
   const W = 960;
   const H = 540;
-  const withMore = rowLayout(css, W, H, { more: true });
-  const plain = rowLayout(css, W, H, { more: false });
+  const withMore = rowLayout(cssCompact, W, H, { more: true });
+  const plain = rowLayout(cssCompact, W, H, { more: false });
   assert.equal(withMore.textBottomUp, plain.textBottomUp, 'ряды с кнопкой и без снова разной высоты');
   /* Волна «подложка», п.C1: 518.5 → 500.1 — при живом кадре под постером
      одно название, и сдвига подписи под фокусом нет. */
