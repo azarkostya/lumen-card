@@ -204,9 +204,26 @@ test('holB адвент: «Ирония судьбы» — только в ок�
   /* Отдельно запрошенная карточка (в пулах её нет) — тоже 31-го. */
   const alone = T.adventDays({ world: pool(100, 40), final: IRONY }, dec(31), words);
   assert.equal(alone[30].id, 43430);
-  /* Иронии нет нигде — 31-е получает фильм из пула, не пустое окошко. */
+  /* Раунд C, ревью rv4: «Иронии» нет нигде (не успела к дедлайну
+     дозапроса) — окошко 31 пустое (дверца 31-го), а не другой фильм: иначе
+     запись закрепила бы его за 31-м. */
   const none = T.adventDays({ world: pool(100, 40) }, dec(31), words);
-  assert.ok(none[30].id > 0 && none[30].lumen_advent.final);
+  assert.equal(none[30].id, undefined, 'окошко 31 — только «Ирония судьбы»');
+  assert.equal(none[30].lumen_advent.state, 'empty');
+  assert.equal(none[30].lumen_advent.final, true, 'дверца 31-го');
+  assert.equal(T.adventRecord(none, dec(31)).d[31], undefined, 'в запись 31-е не попадает');
+  /* Старая запись с чужим фильмом у 31-го — не держит окошко и не
+     переписывается дальше; «Ирония» по id — встаёт. */
+  const bad = { y: 2026, d: { 31: 123 } };
+  assert.deepEqual(T.adventMissing({ world: pool(100, 40) }, dec(31), bad), [], 'чужой id 31-го по сети не спрашивается');
+  assert.equal(T.adventRecord(none, dec(31), bad).d[31], undefined, 'чужой id 31-го из старой записи не переносится');
+  /* И сама запись: окошко 31 с чужим фильмом (карточки собраны не
+     adventDays) в неё не попадает. */
+  const foreign = [{ id: 777, lumen_advent: { day: 31, state: 'today', final: true } }, { id: 555, lumen_advent: { day: 30, state: 'open' } }];
+  assert.deepEqual(T.adventRecord(foreign, dec(31)).d, { 30: 555 }, 'чужой фильм у 31-го не записывается');
+  const fixed = T.adventDays({ world: pool(100, 40), kept: [IRONY] }, dec(31), words, bad);
+  assert.equal(fixed[30].id, 43430);
+  assert.equal(T.adventRecord(fixed, dec(31), bad).d[31], 43430);
 });
 
 test('holB адвент: запомненные окошки — фильм прошедшего дня тот же, даже если подборку переставили', () => {

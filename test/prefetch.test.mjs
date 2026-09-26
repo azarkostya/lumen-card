@@ -1102,3 +1102,66 @@ test('E3: вердикт соседа посчитан заранее — его
   assert.ok(env.images.some((i) => /\/w1280\/b104\.jpg$/.test(i.src)), 'кадр — второй кандидат, первый похож: ' + env.images.map((i) => i.src).join(' '));
   assert.ok(!env.images.some((i) => /\/w1280\/a104\.jpg$/.test(i.src)), 'похожий кадр не грузился');
 });
+
+/* Ревью rv4, RV4-1: дорожка вердиктов не просыпалась на детали соседа,
+   заказанные прошлым окном (ответ несёт старое поколение) или самим героем
+   (details). Репро ревьюера (scratchpad/final/rv4, zz_rv4_prefetch). */
+test('RV4-1: детали соседа, заказанные прошлым окном, доехали — дорожка вердиктов его не пропускает', () => {
+  const th = fakeLook();
+  const { env, main } = mounted({ thumbs: th });
+  /* Окно карточки 103: детали 104 и 105 уходят (SLOTS = 2). */
+  focus(main, main.rows[0][2]);
+  env.advance(260);
+  const old105 = pending(env).find((r) => idOf(r.url) === 105);
+  assert.ok(old105, 'предусловие: детали 105 заказаны окном 103');
+  /* Шаг вправо до показа 103: новое окно (104) — 105 в пути. */
+  focus(main, main.rows[0][3]);
+  env.advance(260);
+  for (let round = 0; round < 2; round++) {
+    for (let guard = 0; guard < 50; guard++) {
+      const next = pending(env).find((r) => r !== old105);
+      if (!next) break;
+      answer(next, lookDetails(idOf(next.url)));
+    }
+    if (!round) wait(env, BURST_DELAY);
+  }
+  for (let guard = 0; guard < 40; guard++) {
+    wait(env, COLOR_GAP + LOOK_RETRY);
+    const open = th.calls.find((c) => th.verdict(c.p, c.f) === undefined && !c.cancelled);
+    if (open) th.answer(open, false);
+  }
+  assert.ok(!th.pairs().some((p) => p.indexOf('105:') === 0), 'предусловие: 105 без деталей — пары нет: ' + th.pairs());
+  answer(old105, lookDetails(105));
+  wait(env, COLOR_GAP + LOOK_RETRY * 3);
+  assert.ok(th.pairs().some((p) => p.indexOf('105:') === 0), 'сосед 105 (в окне 104) так и не получил вердикт: ' + th.pairs());
+});
+
+test('RV4-1: детали соседа пришли на запрос самого героя — дорожка вердиктов его не пропускает', () => {
+  const th = fakeLook();
+  const { env, main } = mounted({ thumbs: th });
+  /* Показ 103: герой сам заказал детали 103. */
+  focus(main, main.rows[0][2]);
+  env.advance(DELAY);
+  const hero103 = pending(env).find((r) => idOf(r.url) === 103);
+  assert.ok(hero103, 'предусловие: детали 103 заказал герой');
+  /* Шаг влево: 103 — сосед окна 102, его детали в пути (запрос героя). */
+  focus(main, main.rows[0][1]);
+  env.advance(260);
+  for (let round = 0; round < 2; round++) {
+    for (let guard = 0; guard < 50; guard++) {
+      const next = pending(env).find((r) => r !== hero103);
+      if (!next) break;
+      answer(next, lookDetails(idOf(next.url)));
+    }
+    if (!round) wait(env, BURST_DELAY);
+  }
+  for (let guard = 0; guard < 40; guard++) {
+    wait(env, COLOR_GAP + LOOK_RETRY);
+    const open = th.calls.find((c) => th.verdict(c.p, c.f) === undefined && !c.cancelled);
+    if (open) th.answer(open, false);
+  }
+  assert.ok(!th.pairs().some((p) => p.indexOf('103:') === 0), 'предусловие: у 103 деталей нет — пары нет: ' + th.pairs());
+  answer(hero103, lookDetails(103));
+  wait(env, COLOR_GAP + LOOK_RETRY * 3);
+  assert.ok(th.pairs().some((p) => p.indexOf('103:') === 0), 'сосед 103 так и не получил вердикт: ' + th.pairs());
+});

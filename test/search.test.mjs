@@ -105,7 +105,14 @@ test('C2 find: формы слова — по основам: «зима» → �
   assert.deepEqual(ids('зима'), ['winter']);
   assert.deepEqual(ids('лето'), ['summer']);
   assert.deepEqual(ids('школа'), ['school']);
-  assert.deepEqual(ids('рождество'), ['xmas'], 'длинное слово — основа из четырёх букв');
+  assert.deepEqual(ids('звезды'), [], 'в каталоге теста звёзд нет');
+  const stars = { collections: [{ id: 'sw', title: 'Звездные войны' }, { id: 'det', title: 'Детективы' }] };
+  assert.deepEqual(S.find(stars, 'звезды', 'ru').map((c) => c.id), ['sw'], 'длинное слово — основа из четырёх букв («звез»)');
+  /* Ревью rv4, RV4-2: слово названия длиннее слова запроса больше чем на 3
+     буквы — не форма того же слова: «дети» ≠ «Детективы», «рождество» ≠
+     «Рождественские» (+5; в живом каталоге «рождество» — синоним). */
+  assert.deepEqual(S.find(stars, 'дети', 'ru').map((c) => c.id), [], '«дети» не находит «Детективы»');
+  assert.deepEqual(ids('рождество'), [], '+5 букв — не основа');
   assert.deepEqual(ids('и зима'), ['winter'], 'короткие слова в проходе по основам не участвуют');
   assert.deepEqual(ids('зимнее лето'), [], 'каждая основа запроса — своё слово того же ключа');
   assert.deepEqual(ids('зимородок'), [], 'основа длинного слова — четыре буквы: «зимо» не «зимн»');
@@ -265,4 +272,15 @@ test('install: Lampa без поиска — тихо', () => {
     delete globalThis.window;
     delete globalThis.Lampa;
   }
+});
+
+/* Ревью rv4, RV4-2: живой каталог — «дети» не находит «Детективы», формы
+   слов по-прежнему находятся. */
+test('RV4-2 find: живой каталог — «дети» без «Детективов», «зима»/«драма»/«война» — по основам', () => {
+  const S = fresh().api;
+  const ids = (q) => S.find(CATALOG, q, 'ru').map((c) => c.id);
+  assert.equal(ids('дети').indexOf('whodunit'), -1, '«дети» → «Детективы»: ' + ids('дети'));
+  assert.ok(ids('зима').indexOf('winter-movies') !== -1);
+  assert.ok(ids('лето').indexOf('summer-movies') !== -1);
+  assert.ok(ids('школа').indexOf('school-years') !== -1);
 });

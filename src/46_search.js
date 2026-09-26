@@ -116,7 +116,10 @@
        «Летнее кино»: подстрока не знает, что это одно слово в разных формах.
        Второй проход — по основам: основа слова запроса — его первые STEM_LONG
        букв (слово от STEM_LONG_FROM букв) или STEM_SHORT (короче), и каждая
-       основа запроса обязана начинать какое-то слово ключа. Слова короче
+       основа запроса обязана начинать какое-то слово ключа, которое длиннее
+       слова запроса не больше чем на STEM_TAIL букв (ревью rv4, RV4-2:
+       «дети» находили «Детективы»; «зима» → «зимнее», «драма» → «драмы»,
+       «звезды» → «звездные» проходят). Слова короче
        STEM_MIN (предлоги, «и», «на») в этом проходе не участвуют. Ранг такого
        совпадения — STEM_RANK, после любого совпадения подстрокой. «Новый
        год» ↔ «Новогоднее» основами не сходится (одно слово против двух) —
@@ -126,26 +129,30 @@
     var STEM_LONG = 4;
     var STEM_LONG_FROM = 6;
     var STEM_RANK = 3;
+    var STEM_TAIL = 3;
 
+    /* Основы слов запроса: {stem, len} — основа и длина самого слова. */
     function stemsOf(q) {
       var words = q.split(' ');
       var out = [];
       for (var i = 0; i < words.length; i++) {
         var w = words[i];
         if (w.length < STEM_MIN) continue;
-        out.push(w.slice(0, w.length >= STEM_LONG_FROM ? STEM_LONG : STEM_SHORT));
+        out.push({ stem: w.slice(0, w.length >= STEM_LONG_FROM ? STEM_LONG : STEM_SHORT), len: w.length });
       }
       return out;
     }
 
-    /* Каждая основа запроса начинает хотя бы одно слово ключа (key уже
-       приведён norm). */
+    /* Каждая основа запроса начинает хотя бы одно слово ключа не длиннее
+       своего слова запроса + STEM_TAIL (key уже приведён norm). */
     function stemMatch(key, stems) {
       if (!key || !stems.length) return false;
       var words = key.split(' ');
       for (var i = 0; i < stems.length; i++) {
         var hit = false;
-        for (var k = 0; k < words.length && !hit; k++) hit = words[k].indexOf(stems[i]) === 0;
+        for (var k = 0; k < words.length && !hit; k++) {
+          hit = words[k].indexOf(stems[i].stem) === 0 && words[k].length - stems[i].len <= STEM_TAIL;
+        }
         if (!hit) return false;
       }
       return true;

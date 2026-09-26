@@ -566,6 +566,17 @@
       return { path: fallback || '', wait: '' };
     }
 
+    /* Раунд C, ревью rv4 (пользователь: «кадры не меняются»): вердикт
+       LC.thumbs с E3 — «не чистый» (счёт от CLEAN, .85 порога), и первый
+       кадр обходит всю серую зону. Кругу смены кадров этого не нужно: из
+       него выпадает только «похож» (счёт от 1); счёта нет (таблицы кэша
+       сбросились порознь) — как прежде, по вердикту. */
+    function slideSimilar(look, poster, path) {
+      if (!look || look.verdict(poster, path) !== true) return false;
+      var s = typeof look.scoreOf === 'function' ? look.scoreOf(poster, path) : undefined;
+      return !(typeof s === 'number' && s < 1);
+    }
+
     /* Модель героя: card — это el.card_data ряда (есть сразу), details —
        ответ movie/{id}|tv/{id} с images (приходит позже, может не прийти
        вовсе). words — строки интерфейса (собирает runtime из LC.STRINGS),
@@ -2114,7 +2125,7 @@
         var poster = model.poster || '';
         var look = poster ? LC.thumbs : null;
         var list = LC.util.filter(slideFrames(images && images.backdrops), function (b) {
-          if (look && b.file_path !== main && look.verdict(poster, b.file_path) === true) return false;
+          if (look && b.file_path !== main && slideSimilar(look, poster, b.file_path)) return false;
           return !keyArt || keyArt === main || b.file_path !== keyArt;
         });
         var paths = LC.backdrops.pickBackdrops({ backdrops: list }, main, LC.slideshow.maxFramesFor(motionMode()));
@@ -2145,7 +2156,7 @@
                (фокус ушёл, парковка, ролик, главная спрятана, едет кадр) —
                тик пропускается, ответ уже в памяти для следующего. */
             var v = look ? look.verdict(poster, path) : false;
-            if (v === true) { done(false); return; }
+            if (v === true && slideSimilar(look, poster, path)) { done(false); return; }
             if (v !== undefined) { slideShow(path, done); return; }
             /* Ревью раунда героя (d97cffc), п.1: ответ бывает синхронным
                (память, блокировка модуля) — тогда колбэк уже отработал, и
@@ -2158,7 +2169,7 @@
               if (!state || gen !== captured) return;
               state.slideLook = null;
               if (state.loader || homeHidden() || slidesHeld()) return;
-              if (similar === true) { done(false); return; }
+              if (similar === true && slideSimilar(look, poster, path)) { done(false); return; }
               slideShow(path, done);
             });
             if (!answered) state.slideLook = job;

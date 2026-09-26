@@ -7438,3 +7438,30 @@ test('ревью: проба тона, снятая уходом фокуса, �
   assert.equal(node.hasClass('lumen-hero--logo'), true, 'подготовка: логотип из памяти');
   assert.deepEqual(thumbs.probes.filter((p) => !p.cancelled).map((p) => p.p), ['/l.png'], 'тон логотипа больше не узнать до конца сеанса');
 });
+
+/* Ревью rv4 (пользователь: «кадры не меняются»): вердикт LC.thumbs с E3 —
+   «не чистый» (серая зона от .85 порога), а из круга смены кадров выпадает
+   только «похож» (счёт от 1). */
+test('rv4: круг смены кадров — серая зона остаётся, «похож» выпадает; незнакомый в серой зоне показывается', () => {
+  const thumbs = fakeThumbs(
+    { '/p1.jpg|/c1.jpg': false, '/p1.jpg|/c2.jpg': true, '/p1.jpg|/c3.jpg': true },
+    { '/p1.jpg|/c1.jpg': 0.5, '/p1.jpg|/c2.jpg': 0.9, '/p1.jpg|/c3.jpg': 1.3 });
+  const env = slidesEnv({ thumbs: thumbs });
+  try {
+    const main = makeMain();
+    env.hero.mount(main.activity);
+    focusOn(main, main.card1);
+    env.advance(400);
+    detailsOf(env, 11).ok(SLIDE_DETAILS(11));
+    frameImg(env, '/c1.jpg').onload();
+    assert.equal(env.live().length, 1, 'предусловие: смена кадров заведена');
+    env.live()[0].fn();
+    assert.deepEqual(w1280(env), ['/c1.jpg', '/c2.jpg'], 'кадр серой зоны (.9) — в круге, грузится без сравнения');
+    frameImg(env, '/c2.jpg').onload();
+    env.live()[0].fn();
+    assert.deepEqual(thumbs.calls.map((c) => c.f), ['/c4.jpg'], 'c3 «похож» (1.3) — в круге его нет; незнакомый c4 сравнивается');
+    thumbs.answer(0, true, 0.88);
+    assert.deepEqual(w1280(env), ['/c1.jpg', '/c2.jpg', '/c4.jpg'], 'ответ «не чистый», но серая зона — кадр показывается');
+    assert.equal(w1280(env).indexOf('/c3.jpg'), -1);
+  } finally { env.restore(); }
+});

@@ -377,6 +377,10 @@
       var map = adventMap(opened, today.getFullYear());
       var open = Math.min(today.getDate(), ADVENT_DAYS);
       for (var day = 1; day <= open; day++) {
+        /* Раунд C, ревью rv4: окошко 31 — только «Ирония судьбы»; её rows
+           запрашивает сам (finalMissing), чужой id из старой записи не
+           нужен. */
+        if (day === ADVENT_DAYS) continue;
         var id = adventId(map[day]);
         if (id === null || have[id]) continue;
         have[id] = 1;
@@ -460,7 +464,7 @@
          в пулах, ни среди запрошенных по id — окошко держится пустым
          (held): другой фильм на его место не встаёт. */
       for (day = 1; day <= open; day++) {
-        if (day === ADVENT_DAYS && final) break;
+        if (day === ADVENT_DAYS) break;
         var id = adventId(map[day]);
         if (id === null) continue;
         if (!byId[id]) held[day] = 1;
@@ -469,8 +473,12 @@
           used[id] = 1;
         }
       }
+      /* Раунд C, ревью rv4 (C6): окошко 31 — только «Ирония судьбы». Её нет
+         ни в пулах, ни среди запрошенных по id (не успела к дедлайну
+         дозапроса) — окошко пустое (дверца 31-го), а не другой фильм: иначе
+         запись закрепила бы его за 31-м. */
       for (day = 1; day <= open; day++) {
-        if (pick[day] || held[day] || (day === ADVENT_DAYS && final)) continue;
+        if (pick[day] || held[day] || day === ADVENT_DAYS) continue;
         var mine = ours.length && day % ADVENT_OURS === 0;
         var c = adventPick(mine ? ours : world, day, used) || adventPick(mine ? world : ours, day, used);
         if (!c) continue;
@@ -507,12 +515,14 @@
         if (!Object.prototype.hasOwnProperty.call(prev, k)) continue;
         var day = Number(k);
         var id = adventId(prev[k]);
+        if (day === ADVENT_DAYS && id !== ADVENT_FINAL_ID) continue;
         if (id !== null && day >= 1 && day <= ADVENT_DAYS && Math.floor(day) === day) rec.d[day] = id;
       }
       for (var i = 0; i < (cards || []).length; i++) {
         var c = cards[i];
         var info = c && c.lumen_advent;
         if (!info || c.id == null) continue;
+        if (info.day === ADVENT_DAYS && Number(c.id) !== ADVENT_FINAL_ID) continue;
         if (info.state === 'open' || info.state === 'today') rec.d[info.day] = c.id;
       }
       return rec;

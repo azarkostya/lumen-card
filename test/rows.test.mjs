@@ -874,6 +874,39 @@ test('C6 адвент: карточка по id не ответила за 4 с 
   }
 });
 
+/* Ревью rv4 (C6): 31-го «Ирония» по id не успела за 4 с — окошко 31 пустое
+   (дверца), в запись 31-е не пишется; поздний ответ — в память, следующее
+   построение с «Иронией». */
+test('C6 адвент: 31 декабря «Ирония» по id не успела — окошко 31 без чужого фильма, d[31] не пишется', function () {
+  var timers = [];
+  var realSet = globalThis.setTimeout;
+  var realClear = globalThis.clearTimeout;
+  globalThis.setTimeout = function (fn, ms) { timers.push({ fn: fn, ms: ms, done: false }); return timers.length; };
+  globalThis.clearTimeout = function (id) { if (timers[id - 1]) timers[id - 1].done = true; };
+  try {
+    var s = setupRows({ manifest: XMAS_MANIFEST, now: new Date(2026, 11, 31), tmdb: true });
+    var got = adventPayload(s);
+    answerAdvent(s, false);
+    assert.equal(s.tmdbCalls[0].url, 'movie/43430');
+    var wait = timers.filter(function (t) { return !t.done; });
+    wait[0].done = true;
+    wait[0].fn();
+    assert.equal(got.length, 1);
+    var last = got[0].results[30];
+    assert.equal(last.id, undefined, 'окошко 31 — не другой фильм');
+    assert.equal(last.lumen_advent.final, true);
+    assert.equal(s.Lampa.Storage.data.lumen_advent_open.d[31], undefined, 'запись 31-го не закреплена за чужим фильмом');
+    s.tmdbCalls[0].ok({ id: 43430, title: 'Ирония судьбы, или С лёгким паром!', poster_path: '/i.jpg' });
+    var again = adventPayload(s);
+    answerAdventFrom(s, 5);
+    assert.equal(again[0].results[30].id, 43430, 'следующее построение — «Ирония» из памяти сеанса');
+    assert.equal(s.Lampa.Storage.data.lumen_advent_open.d[31], 43430);
+  } finally {
+    globalThis.setTimeout = realSet;
+    globalThis.clearTimeout = realClear;
+  }
+});
+
 test('адвент: ошибки всех запросов дают пустой ряд, но ровно один call', function () {
   var s = setupRows({ manifest: XMAS_MANIFEST, now: new Date(2026, 11, 3) });
   var rows = s.rows();

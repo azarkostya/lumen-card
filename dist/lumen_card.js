@@ -15320,11 +15320,16 @@ return keys;
 
 
 
+
+
+
 var STEM_MIN = 3;
 var STEM_SHORT = 3;
 var STEM_LONG = 4;
 var STEM_LONG_FROM = 6;
 var STEM_RANK = 3;
+var STEM_TAIL = 3;
+
 
 function stemsOf(q) {
 var words = q.split(' ');
@@ -15332,7 +15337,7 @@ var out = [];
 for (var i = 0; i < words.length; i++) {
 var w = words[i];
 if (w.length < STEM_MIN) continue;
-out.push(w.slice(0, w.length >= STEM_LONG_FROM ? STEM_LONG : STEM_SHORT));
+out.push({ stem: w.slice(0, w.length >= STEM_LONG_FROM ? STEM_LONG : STEM_SHORT), len: w.length });
 }
 return out;
 }
@@ -15344,7 +15349,9 @@ if (!key || !stems.length) return false;
 var words = key.split(' ');
 for (var i = 0; i < stems.length; i++) {
 var hit = false;
-for (var k = 0; k < words.length && !hit; k++) hit = words[k].indexOf(stems[i]) === 0;
+for (var k = 0; k < words.length && !hit; k++) {
+hit = words[k].indexOf(stems[i].stem) === 0 && words[k].length - stems[i].len <= STEM_TAIL;
+}
 if (!hit) return false;
 }
 return true;
@@ -17041,6 +17048,17 @@ return { path: fallback || '', wait: '' };
 
 
 
+function slideSimilar(look, poster, path) {
+if (!look || look.verdict(poster, path) !== true) return false;
+var s = typeof look.scoreOf === 'function' ? look.scoreOf(poster, path) : undefined;
+return !(typeof s === 'number' && s < 1);
+}
+
+
+
+
+
+
 
 
 function heroModel(card, details, words) {
@@ -18584,7 +18602,7 @@ var images = state.details.images;
 var poster = model.poster || '';
 var look = poster ? LC.thumbs : null;
 var list = LC.util.filter(slideFrames(images && images.backdrops), function (b) {
-if (look && b.file_path !== main && look.verdict(poster, b.file_path) === true) return false;
+if (look && b.file_path !== main && slideSimilar(look, poster, b.file_path)) return false;
 return !keyArt || keyArt === main || b.file_path !== keyArt;
 });
 var paths = LC.backdrops.pickBackdrops({ backdrops: list }, main, LC.slideshow.maxFramesFor(motionMode()));
@@ -18615,7 +18633,7 @@ if (gen !== captured || !state || state.loader || state.slideLook || homeHidden(
 
 
 var v = look ? look.verdict(poster, path) : false;
-if (v === true) { done(false); return; }
+if (v === true && slideSimilar(look, poster, path)) { done(false); return; }
 if (v !== undefined) { slideShow(path, done); return; }
 
 
@@ -18628,7 +18646,7 @@ answered = true;
 if (!state || gen !== captured) return;
 state.slideLook = null;
 if (state.loader || homeHidden() || slidesHeld()) return;
-if (similar === true) { done(false); return; }
+if (similar === true && slideSimilar(look, poster, path)) { done(false); return; }
 slideShow(path, done);
 });
 if (!answered) state.slideLook = job;
@@ -24540,6 +24558,10 @@ for (var i = 0; i < all.length; i++) if (all[i] && all[i].id != null) have[all[i
 var map = adventMap(opened, today.getFullYear());
 var open = Math.min(today.getDate(), ADVENT_DAYS);
 for (var day = 1; day <= open; day++) {
+
+
+
+if (day === ADVENT_DAYS) continue;
 var id = adventId(map[day]);
 if (id === null || have[id]) continue;
 have[id] = 1;
@@ -24623,7 +24645,7 @@ var open = now < ADVENT_DAYS ? now : ADVENT_DAYS;
 
 
 for (day = 1; day <= open; day++) {
-if (day === ADVENT_DAYS && final) break;
+if (day === ADVENT_DAYS) break;
 var id = adventId(map[day]);
 if (id === null) continue;
 if (!byId[id]) held[day] = 1;
@@ -24632,8 +24654,12 @@ pick[day] = byId[id];
 used[id] = 1;
 }
 }
+
+
+
+
 for (day = 1; day <= open; day++) {
-if (pick[day] || held[day] || (day === ADVENT_DAYS && final)) continue;
+if (pick[day] || held[day] || day === ADVENT_DAYS) continue;
 var mine = ours.length && day % ADVENT_OURS === 0;
 var c = adventPick(mine ? ours : world, day, used) || adventPick(mine ? world : ours, day, used);
 if (!c) continue;
@@ -24670,12 +24696,14 @@ for (var k in prev) {
 if (!Object.prototype.hasOwnProperty.call(prev, k)) continue;
 var day = Number(k);
 var id = adventId(prev[k]);
+if (day === ADVENT_DAYS && id !== ADVENT_FINAL_ID) continue;
 if (id !== null && day >= 1 && day <= ADVENT_DAYS && Math.floor(day) === day) rec.d[day] = id;
 }
 for (var i = 0; i < (cards || []).length; i++) {
 var c = cards[i];
 var info = c && c.lumen_advent;
 if (!info || c.id == null) continue;
+if (info.day === ADVENT_DAYS && Number(c.id) !== ADVENT_FINAL_ID) continue;
 if (info.state === 'open' || info.state === 'today') rec.d[info.day] = c.id;
 }
 return rec;
@@ -31629,6 +31657,11 @@ else mine[i].err();
 warn('prefetch: callback failed', e);
 }
 }
+
+
+
+
+if (ok && json) pumpLooks();
 }
 try {
 Lampa.Api.sources.tmdb.get(req.url, req.params,
@@ -31715,8 +31748,6 @@ ok: function (j) {
 busy--;
 if (captured === gen) chainLogo(j);
 pump();
-
-if (captured === gen) pumpLooks();
 },
 err: function () {
 busy--;
@@ -43393,8 +43424,16 @@ html.html('<div class="lumen-descr-modal__text">' + LC.util.esc(text) + '</div>'
 
 
 
+
+
+
+
+
+
+
+var head = !title ? '' : (/[<&${]/.test(title) ? '\u00A0' : '' + title);
 Lampa.Modal.open({
-title: title ? ' ' : '',
+title: head,
 html: html,
 size: 'medium',
 onBack: function () {

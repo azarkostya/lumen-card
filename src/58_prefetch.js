@@ -252,6 +252,11 @@
             warn('prefetch: callback failed', e);
           }
         }
+        /* Ревью rv4, RV4-1: сосед ждёт своих деталей в очереди вердиктов,
+           а заказать их могло прошлое окно (его ответ несёт старое
+           поколение) или сам герой (details) — будим дорожку на любой
+           ответ: она работает от текущих очереди и поколения. */
+        if (ok && json) pumpLooks();
       }
       try {
         Lampa.Api.sources.tmdb.get(req.url, req.params,
@@ -338,8 +343,6 @@
           busy--;
           if (captured === gen) chainLogo(j);
           pump();
-          /* Раунд C, E3: сосед ждал своих деталей в очереди вердиктов. */
-          if (captured === gen) pumpLooks();
         },
         err: function () {
           busy--;

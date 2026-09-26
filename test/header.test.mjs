@@ -1547,7 +1547,7 @@ test('Фикс Task 59: OK на описании открывает модал �
     LC.header.descr(d.row, OVERVIEW);
     fire(d.descr, 'hover:enter', d.text);
     assert.equal(log.opened.length, 1, 'модал не открылся');
-    assert.equal(log.opened[0].title, ' ', 'в шаблон модала название не идёт (SEC-1) — только заглушка шапки (C7)');
+    assert.equal(log.opened[0].title, 'Дюна: Часть вторая', 'безопасное название — в шаблон, шапка рассчитана по нему (C7, ревью rv4)');
     assert.deepEqual(log.titles, ['Дюна: Часть вторая'], 'в шапке окна — название фильма, текстом через Modal.title');
     assert.ok(log.opened[0].html.html().indexOf('фрименами') !== -1, 'в окне — полный текст описания');
   } finally {
@@ -1566,7 +1566,7 @@ test('SEC-1: название с разметкой уходит в Modal.title 
     LC.header.descr(d.row, { movie: Object.assign({}, OVERVIEW.movie, { title: evil }) });
     fire(d.descr, 'hover:enter', d.text);
     assert.equal(log.opened.length, 1);
-    assert.equal(log.opened[0].title, ' ', 'в шаблоне — только заглушка шапки');
+    assert.equal(log.opened[0].title, '\u00A0', 'в шаблоне — только заглушка шапки');
     assert.deepEqual(log.titles, [evil], 'строка не экранирована: .text() покажет её буквально, как есть');
   } finally {
     log.restore();
@@ -1578,19 +1578,26 @@ test('SEC-1: название с разметкой уходит в Modal.title 
    показывает: длинный текст уходил за нижний край. Заглушка — неразрывный
    пробел (обычный даёт шапке неполную строку: стенд 960×540@2 — низ окна
    518.6 px против 502.6 с NBSP и с самим названием). Без названия шапки нет. */
-test('C7: модал описания открывается с непустой заглушкой шапки (NBSP), без названия — без шапки', () => {
+test('C7: шапка модала в open() — само название, если подстановка безопасна; иначе NBSP; без названия — без шапки', () => {
   const d = makeDescrRow();
   const log = modalLog();
   try {
     LC.header.descr(d.row, OVERVIEW);
     fire(d.descr, 'hover:enter', d.text);
-    const tit = log.opened[0].title;
-    assert.ok(tit && !tit.trim() && tit !== ' ', 'заглушка — NBSP, не пусто и не обычный пробел: ' + JSON.stringify(tit));
+    assert.equal(log.opened[0].title, 'Дюна: Часть вторая', 'название в шаблоне — высота с его шапкой, и в две строки тоже');
+    for (const bad of ['Том & Джерри', 'A <b>', 'Цена $& и $1', 'Шаблон {@modal}']) {
+      const dx = makeDescrRow();
+      LC.header.descr(dx.row, { movie: Object.assign({}, OVERVIEW.movie, { id: 9, title: bad }) });
+      fire(dx.descr, 'hover:enter', dx.text);
+      const tit = log.opened[log.opened.length - 1].title;
+      assert.equal(tit, '\u00A0', 'небезопасная подстановка «' + bad + '» — заглушка NBSP: ' + JSON.stringify(tit));
+    }
     const d2 = makeDescrRow();
     LC.header.descr(d2.row, { movie: Object.assign({}, OVERVIEW.movie, { id: 8, title: '', name: '' }) });
     fire(d2.descr, 'hover:enter', d2.text);
-    assert.equal(log.opened[1].title, '', 'без названия — шапки нет вовсе');
-    assert.deepEqual(log.titles, ['Дюна: Часть вторая'], 'Modal.title — только с названием');
+    assert.equal(log.opened[log.opened.length - 1].title, '', 'без названия — шапки нет вовсе');
+    assert.equal(log.titles.length, 5, 'Modal.title — только с названием');
+    assert.equal(log.titles[0], 'Дюна: Часть вторая');
   } finally {
     log.restore();
   }
