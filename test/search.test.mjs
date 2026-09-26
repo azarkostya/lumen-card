@@ -143,9 +143,34 @@ test('source: выбор карточки закрывает поиск и от�
   src.onSelect({ element: card, data: rows[0] }, () => order.push('close'));
   assert.deepEqual(order, ['close', 'open'], 'сначала закрыть поиск, потом открыть сетку');
   assert.equal(opened[0], CATALOG.collections.filter((c) => c.id === 'star-wars')[0], 'открыта подборка из каталога, а не копия из кэша поиска');
-  /* Карточка из кэша поиска с id, которого в каталоге больше нет, — только закрыть. */
-  src.onSelect({ element: { lumen_id: 'nope' } }, () => order.push('close'));
-  assert.equal(opened.length, 1);
+});
+
+/* Финальная проверка, L4: Lampa сутки показывает вчерашние результаты из
+   кэша search_<вкладка>_last (app.min.js:40975-40990, 41020-41030) —
+   карточка может вести на подборку, которой в каталоге уже нет. */
+test('L4 source: выбор карточки с неизвестным lumen_id — уведомление, поиск открыт, сетка не открывается', () => {
+  const opened = [];
+  const Lampa = { Noty: { shown: [], show(t) { this.shown.push(t); } } };
+  globalThis.window = { Lampa: Lampa };
+  globalThis.Lampa = Lampa;
+  try {
+    const { api } = fresh({
+      lang: (k) => ({ lumen_search_gone: 'Подборка больше недоступна' })[k] || k,
+      hub: { open: (item) => opened.push(item) }
+    });
+    let closed = 0;
+    api.source().onSelect({ element: { id: 'lumen_venom', lumen_id: 'venom', title: 'Веном' } }, () => { closed++; });
+    assert.equal(closed, 0, 'поиск не закрыт');
+    assert.deepEqual(opened, []);
+    assert.deepEqual(Lampa.Noty.shown, ['Подборка больше недоступна']);
+    /* Без Noty (другая сборка Lampa) — тихо, без исключения. */
+    delete Lampa.Noty;
+    assert.doesNotThrow(() => api.source().onSelect({ element: { lumen_id: 'venom' } }, () => { closed++; }));
+    assert.equal(closed, 0);
+  } finally {
+    delete globalThis.window;
+    delete globalThis.Lampa;
+  }
 });
 
 test('install/uninstall: источник в поиске Lampa один, снимается целиком', () => {

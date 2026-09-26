@@ -231,17 +231,26 @@
           }
           oncomplite(rows);
         },
+        /* Финальная проверка, L4: карточка подборки, которой в каталоге
+           уже нет (Lampa показывает вчерашние результаты из своего кэша
+           search_<вкладка>_last сутки), — уведомление, и поиск остаётся
+           открытым. Прежде он закрывался, и не открывалось ничего. */
         onSelect: function (params, close) {
-          try { if (typeof close === 'function') close(); } catch (e) { }
           var id = params && params.element && params.element.lumen_id;
           var manifest = catalog();
           var list = (manifest && manifest.collections) || [];
+          var item = null;
           for (var i = 0; i < list.length; i++) {
-            if (list[i] && list[i].id === id) {
-              try { if (LC.hub && typeof LC.hub.open === 'function') LC.hub.open(list[i]); } catch (e2) { warn('search: open failed', e2); }
-              return;
-            }
+            if (list[i] && list[i].id === id) { item = list[i]; break; }
           }
+          if (!item) {
+            try {
+              if (window.Lampa && Lampa.Noty && typeof Lampa.Noty.show === 'function') Lampa.Noty.show(LC.lang('lumen_search_gone'));
+            } catch (e) { }
+            return;
+          }
+          try { if (typeof close === 'function') close(); } catch (e1) { }
+          try { if (LC.hub && typeof LC.hub.open === 'function') LC.hub.open(item); } catch (e2) { warn('search: open failed', e2); }
         },
         onCancel: function () { }
       };
