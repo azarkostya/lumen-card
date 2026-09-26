@@ -998,7 +998,7 @@ function cssCtx(dom, storage) {
      проверить ни порядок узлов в <head>, ни свежесть узла подкраски после
      полной пересборки. */
   const inject = LC.injectCss;
-  LC.injectCss = function () { injects++; inject(); };
+  LC.injectCss = function () { injects++; return inject(); };
   return { LC: LC, injects: () => injects };
 }
 
@@ -1823,5 +1823,19 @@ test('status: пустая картинка — своё состояние, а 
     img.onload();
     assert.equal(api.status().state, 'blank');
     assert.equal(api.status().url, 'image.tmdb.org/t/p/w185/blank.jpg');
+  });
+});
+
+/* Сверка 2026-09-26: LC.injectCss сообщает, собралась ли таблица стилей, —
+   по false рантайм не включает оформление (src/90_runtime.js, activate). */
+test('css: injectCss — false, когда таблица стилей не собралась, true, когда записана', () => {
+  const dom = fakeDom({ data: pixels([{ r: 200, g: 120, b: 40, n: 256 }]) });
+  withDom(dom, () => {
+    const ctx = cssCtx(dom, { lumen_theme: 'warm' });
+    const build = ctx.LC.buildCss;
+    ctx.LC.buildCss = () => { throw new Error('css boom'); };
+    assert.equal(ctx.LC.injectCss(), false);
+    ctx.LC.buildCss = build;
+    assert.equal(ctx.LC.injectCss(), true);
   });
 });

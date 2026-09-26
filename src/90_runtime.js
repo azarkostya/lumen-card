@@ -1375,8 +1375,21 @@
       restoreOriginalTemplate();
       return;
     }
+    /* Сверка 2026-09-26: таблица стилей не собралась (LC.buildCss бросил —
+       LC.injectCss гасит исключение и отдаёт false) — плагин прежде
+       оставался включённым без стилей: наш шаблон карточки, экраны и ряды
+       голой разметкой. Теперь — откат, как при неудачной подмене шаблона
+       выше: шаблон Lampa на место, пустой узел стилей снят, дальше ничего не
+       ставится (хаб, ряды, подписки гейтятся флагом activated). Шрифты —
+       только после удачных стилей: без них грузить нечего. */
+    if (LC.injectCss() === false) {
+      activated = false;
+      warn('css build failed: Lumen Card is not enabled, Lampa stays as is');
+      restoreOriginalTemplate();
+      try { LC.removeCss(); } catch (eRm) { }
+      return;
+    }
     LC.injectFonts();
-    LC.injectCss();
     /* Task 31 (фаза 4): HUD отладки — читает свою настройку сам, как и все
        LC.apply*Pref; здесь только точка старта при активации плагина. */
     try { if (LC.hud) LC.hud.sync(); } catch (eHudOn) {}

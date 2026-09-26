@@ -6921,7 +6921,14 @@ return css.join('\n');
 
 var card_css_text = null;
 
+
+
+
+
+
+
 LC.injectCss = function () {
+var written = false;
 try {
 var el = document.getElementById(STYLE_ID);
 if (!el) {
@@ -6937,6 +6944,7 @@ if ('styleSheet' in el && el.styleSheet) el.styleSheet.cssText = text;
 else el.innerHTML = text;
 card_css_text = text;
 }
+written = true;
 
 
 if (typeof LC.applyTorrentsPref === 'function') LC.applyTorrentsPref();
@@ -6951,6 +6959,7 @@ if (LC.accent && typeof LC.accent.restyle === 'function') LC.accent.restyle();
 } catch (e) {
 warn('css inject failed', e);
 }
+return written;
 };
 
 
@@ -42485,8 +42494,21 @@ warn('template add failed', eTpl);
 restoreOriginalTemplate();
 return;
 }
+
+
+
+
+
+
+
+if (LC.injectCss() === false) {
+activated = false;
+warn('css build failed: Lumen Card is not enabled, Lampa stays as is');
+restoreOriginalTemplate();
+try { LC.removeCss(); } catch (eRm) { }
+return;
+}
 LC.injectFonts();
-LC.injectCss();
 
 
 try { if (LC.hud) LC.hud.sync(); } catch (eHudOn) {}

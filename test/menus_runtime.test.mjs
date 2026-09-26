@@ -304,7 +304,9 @@ test('Task 10: включение на лету активирует оформ�
   storage.lumen_enabled = 'true';
   storageCbs[0]({ name: 'lumen_enabled' });
 
-  assert.deepEqual(log, ['fonts', 'css', 'hud-sync', 'mode:all', 'install', 'torrents-install', 'torrents:true']);
+  /* Сверка 2026-09-26: шрифты — только после удачной сборки стилей (без
+     стилей плагин не включается, и грузить их незачем). */
+  assert.deepEqual(log, ['css', 'fonts', 'hud-sync', 'mode:all', 'install', 'torrents-install', 'torrents:true']);
   assert.deepEqual(added, [{ name: 'full_start_new', html: '<div class="lumen-card"></div>' }]);
 });
 
@@ -438,7 +440,7 @@ test('LC.init на широкой раскладке: css -> mode(сохранё
   const { LC, log, storage } = setup({ storage: { lumen_menus: 'path' } });
   LC.init();
   const i = log.indexOf('css');
-  assert.deepEqual(log.slice(i, i + 4), ['css', 'hud-sync', 'mode:path', 'install']);
+  assert.deepEqual(log.slice(i, i + 5), ['css', 'fonts', 'hud-sync', 'mode:path', 'install']);
   log.length = 0;
   storage.lumen_menus = 'off';
   LC.applyMenusPref();

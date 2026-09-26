@@ -6044,7 +6044,14 @@
      настройках по умолчанию — 103 КБ, 2026-09-18). */
   var card_css_text = null;
 
+  /* Сверка 2026-09-26: отдаёт, записана ли таблица стилей. false — LC.buildCss
+     бросил (или узел не вставить): тогда рантайм не включает оформление вовсе
+     (src/90_runtime.js, activate), и Lampa остаётся штатной, а не с нашим
+     шаблоном и экранами без стилей. Прежний текст в узле при этом не
+     трогается: при пересборке по смене настройки остаются последние
+     удачные стили. */
   LC.injectCss = function () {
+    var written = false;
     try {
       var el = document.getElementById(STYLE_ID);
       if (!el) {
@@ -6060,6 +6067,7 @@
         else el.innerHTML = text;
         card_css_text = text;
       }
+      written = true;
       /* Task 32: CSS экранов пути пересобирается вместе с CSS карточки
          (смена акцента/шрифтов); сама функция уважает ui_active и lumen_torrents. */
       if (typeof LC.applyTorrentsPref === 'function') LC.applyTorrentsPref();
@@ -6074,6 +6082,7 @@
     } catch (e) {
       warn('css inject failed', e);
     }
+    return written;
   };
 
   /* Task 10: плагин выключили — <style> карточки снимаем целиком (а не

@@ -440,7 +440,7 @@ function initLC(opts) {
   const timelines = [];
   /* noty — что плагин показал пользователю через Lampa.Noty (единственное
      сообщение плагина: неподдерживаемая сборка Lampa, ревью фазы 1 M2). */
-  const extra = { added: [], bgCancel: [], reviewCancel: [], franchiseCancel: [], franchiseCleared: [], cast: 0, css: 0, noty: [], hubInstall: 0, hubUninstall: 0 };
+  const extra = { added: [], bgCancel: [], reviewCancel: [], franchiseCancel: [], franchiseCleared: [], cast: 0, css: 0, fonts: 0, cssRemoved: 0, noty: [], hubInstall: 0, hubUninstall: 0 };
   const Lampa = {
     Template: {
       all: () => ({ full_start_new: '<div>orig</div>' }),
@@ -489,7 +489,7 @@ function initLC(opts) {
     },
     assert: () => (opts.templateUnsupported ? { ok: false, missingInOurs: ['lumen-card'] } : { ok: true, missingInOurs: [] })
   };
-  LC.injectFonts = () => { };
+  LC.injectFonts = () => { extra.fonts++; };
   /* Ревью Task 11 (Important): счётчик нужен, чтобы откат неудачной подмены
      шаблона проверялся ЦЕЛИКОМ. Без него тесты не замечали потерю return
      после restoreOriginalTemplate(): activated уже false, но выполнение шло
@@ -504,8 +504,12 @@ function initLC(opts) {
     cssCalls++;
     if (opts.injectCssThrowsOnce && cssCalls === 1) throw new Error('css boom');
     extra.css++;
+    /* Сверка 2026-09-26: LC.injectCss отдаёт false, когда таблица стилей не
+       собралась (LC.buildCss бросил) — рантайм обязан выйти, не включая
+       оформления. */
+    return opts.injectCssFails ? false : true;
   };
-  LC.removeCss = () => { };
+  LC.removeCss = () => { extra.cssRemoved++; };
   LC.menus = { mode: () => { }, install: () => { } };
   LC.torrents = { install: () => { }, toggle: () => { } };
   const descrRows = [];
@@ -2777,4 +2781,25 @@ test('сверка: LC.applyFranchisePref — кнопка по фильму н�
   LC.applyFranchisePref();
   assert.deepEqual(franchiseRows, [onScreen, inHistory], 'выключенный ряд снимается на всех рядах описания');
   assert.deepEqual(warnLog, []);
+});
+
+/* Сверка 2026-09-26: LC.buildCss бросил — LC.injectCss гасит исключение и
+   отдаёт false, а плагин прежде оставался включённым без стилей: наш шаблон
+   карточки, наши экраны и ряды — голой разметкой. Теперь activate() выходит:
+   шаблон Lampa возвращён, пустой узел стилей снят, шрифты не грузятся, хаб
+   и ряды не ставятся, подписка 'full' ничего не дорисовывает. Lampa работает
+   штатно; причина — в журнале. */
+test('сверка: таблица стилей не собралась — плагин не включается, Lampa штатная', () => {
+  const { LC, full, extra, descrRows, reviewRows } = initLC({ injectCssFails: true });
+  const last = extra.added[extra.added.length - 1];
+  assert.equal(last.html, '<div>orig</div>', 'шаблон Lampa не возвращён');
+  assert.equal(extra.cssRemoved, 1, 'пустой узел стилей не снят');
+  assert.equal(extra.fonts, 0, 'шрифты грузятся без стилей');
+  assert.equal(extra.hubInstall, 0, 'хаб подборок поставлен без стилей');
+  assert.ok(warnLog.some((w) => /css/i.test(w.msg)), 'причина не записана: ' + JSON.stringify(warnLog.map((w) => w.msg)));
+  const root = new FakeEl(['full-start-new', 'lumen-card']);
+  const descr = new FakeEl(['full-descr']);
+  const body = new FakeEl(['activity__body'], [new FakeEl(['items-line'], [new FakeEl(['items-line__body'], [descr])])]);
+  full.forEach((fn) => fn({ type: 'complite', body: body, object: {}, data: { movie: { id: 1 } }, item: { render: () => root } }));
+  assert.equal(descrRows.length + reviewRows.length, 0, 'карточка дорисовывается без стилей');
 });
