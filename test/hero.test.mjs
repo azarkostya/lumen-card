@@ -1555,10 +1555,11 @@ test('Ф2 п.2: оборванный запрос деталей на возвр
   env.advance(700);
   env.images[0].onload();
   env.advance(1000);
-  /* Живы только отсчёты акцента (3 с) и автотрейлера (8 с) от фокуса —
-     park гасит их сам, и stale они не ставят. Ни таймера фокуса, ни
-     предзагрузки кадра, ни потолка логотипа: в пути только детали. */
-  assert.deepEqual(env.timers.filter((t) => !t.done).map((t) => t.ms).sort(), [3000, 8000], 'предусловие: кроме запроса деталей, в пути ничего');
+  /* Жив только отсчёт автотрейлера (8 с) от фокуса — park гасит его
+     сам, и stale он не ставит. Раунд «Цвет сразу»: своего отсчёта у цвета
+     (прежние 3 с) больше нет. Ни таймера фокуса, ни предзагрузки кадра, ни
+     потолка логотипа: в пути только детали. */
+  assert.deepEqual(env.timers.filter((t) => !t.done).map((t) => t.ms).sort(), [8000], 'предусловие: кроме запроса деталей, в пути ничего');
   assert.equal(node.hasClass('lumen-hero--pending'), true, 'предусловие: деталей ещё нет');
   assert.equal(env.requests.filter((r) => r.url === 'movie/11').length, 1);
 
@@ -1850,11 +1851,10 @@ test('режим off: текст меняется без подмены и БЕ�
   /* Правка 2026-09-22: название ждёт исхода логотипа — деталей ещё нет. */
   assert.equal(node.find('.lumen-hero__title').text(), '');
   assert.equal(env.images.length, 0, 'ни одной предзагрузки кадра');
-  /* Task 29: живой таймер расчёта акцента — трёхсекундный; он от режима
-     анимаций не зависит (цвет кнопок — не движение). Таймаута загрузки кадра
-     при этом нет: кадр в 'off' не запрашивается вовсе. Правка 2026-09-22:
-     рядом с ним ждёт потолок вывода названия (600 мс). */
-  assert.deepEqual(env.timers.filter((t) => !t.done).map((t) => t.ms), [3000, 600], 'ни одного таймаута загрузки');
+  /* Таймаута загрузки кадра нет: кадр в 'off' не запрашивается вовсе.
+     Правка 2026-09-22: ждёт только потолок вывода названия (600 мс).
+     Раунд «Цвет сразу»: трёхсекундного отсчёта акцента больше нет. */
+  assert.deepEqual(env.timers.filter((t) => !t.done).map((t) => t.ms), [600], 'ни одного таймаута загрузки');
 
   /* Текст при этом живой: детали запрашиваются и дорисовываются. */
   assert.equal(env.requests.length, 1);
@@ -3418,20 +3418,38 @@ function accentEnv() {
   return env;
 }
 
-test('акцент: считается только после трёх секунд покоя фокуса', () => {
+/* Раунд «Цвет сразу» (2026-09-26). Жалоба пользователя: «Фон адаптируется
+   не сразу + появляются смены фона». Цвет фильма (LC.accent.applyFor)
+   раньше ждал 3 с покоя фокуса своим таймером — под новым текстом всё это
+   время стоял цвет прошлого фильма. Теперь герой ставит цвет в тот же миг,
+   что и текст фильма (write в render), один раз на показ. От листания его
+   защищает сам показ: DELAY, в серии нажатий — BURST_DELAY.
+   Фейковые таймеры ставят новый срок от КОНЦА advance, поэтому показ
+   (350 мс) и вывод текста (ещё SWAP_MS = 180) — два шага advance. */
+const SWAP = 180;
+
+function metaOf(main) {
+  return heroOf(main.activity).find('.lumen-hero__meta').text();
+}
+
+test('цвет сразу: цвет фильма ставится в тот же миг, что и его текст, — без трёх секунд', () => {
   const env = accentEnv();
   const main = makeMain();
   env.hero.mount(main.activity);
   main.card1.addClass('focus');
   fireFocus(main.activity, main.card1);
-  env.advance(2900);
-  assert.deepEqual(env.calls, [], 'до 3 с — ни одного расчёта');
-  env.advance(200);
-  assert.deepEqual(env.calls, [11]);
+  env.advance(DELAY + 10);
+  assert.deepEqual(env.calls, [], 'показ начался, текст ещё уходит — цвета нет');
+  assert.equal(metaOf(main).indexOf('2024'), -1, 'предусловие: текста фильма ещё нет');
+  env.advance(SWAP);
+  assert.notEqual(metaOf(main).indexOf('2024'), -1, 'текст фильма выведен');
+  assert.deepEqual(env.calls, [11], 'цвет — в тот же тик, что текст');
   assert.deepEqual(env.deep, [undefined], 'с главной — без полной пересборки CSS');
+  env.advance(5000);
+  assert.deepEqual(env.calls, [11], 'второго заказа цвета на тот же показ нет');
 });
 
-test('акцент: быстрый проход по ряду не даёт ни одного расчёта', () => {
+test('цвет сразу: быстрый проход по ряду не даёт ни одного расчёта', () => {
   const env = accentEnv();
   const main = makeMain();
   env.hero.mount(main.activity);
@@ -3441,67 +3459,85 @@ test('акцент: быстрый проход по ряду не даёт ни
     fireFocus(main.activity, card);
     env.advance(200);
   }
-  assert.deepEqual(env.calls, [], 'фокус нигде не стоял 3 с');
+  assert.deepEqual(env.calls, [], 'фокус нигде не стоял до показа');
 });
 
-test('акцент: считается по карточке, на которой остановились, а не по покинутой', () => {
+test('цвет сразу: серия нажатий — цвет только у карточки, где листание кончилось', () => {
+  const env = accentEnv();
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  const seq = [main.card1, main.card2, main.card1, main.card2];
+  for (const card of seq) {
+    card.addClass('focus');
+    fireFocus(main.activity, card);
+    env.advance(300);
+  }
+  assert.deepEqual(env.calls, [], 'шаг 300 мс — короче DELAY и BURST_GAP: показов нет');
+  env.advance(BURST_DELAY);
+  env.advance(SWAP);
+  assert.deepEqual(env.calls, [22], 'цвет — у последней карточки, один раз');
+});
+
+test('цвет сразу: цвет берётся с карточки, на которой остановились, а не с покинутой', () => {
   const env = accentEnv();
   const main = makeMain();
   env.hero.mount(main.activity);
   main.card1.addClass('focus');
   fireFocus(main.activity, main.card1);
-  env.advance(1000);
+  env.advance(100);
   main.card2.addClass('focus');
   fireFocus(main.activity, main.card2);
-  env.advance(3100);
+  env.advance(BURST_DELAY + 10);
+  env.advance(SWAP);
   assert.deepEqual(env.calls, [22]);
 });
 
-/* Task 37: гард от повторной обработки той же карточки проверяется ПО
-   ТАЙМЕРУ, а не по числу вызовов: перезапуск отсчёта акцента сдвинул бы
-   расчёт на новые 3 с, и при потоке повторных событий (а прежний
-   MutationObserver ловил любую мутацию класса в активности, включая классы
-   самого героя) акцент не наступал бы вовсе. */
-test('акцент: повторное событие на той же карточке не перезапускает отсчёт', () => {
+/* Task 37: повторное событие на той же карточке (Lampa возвращает фокус на
+   место) показа не повторяет — значит, и цвета тоже. */
+test('цвет сразу: повторное событие на той же карточке второго заказа не даёт', () => {
   const env = accentEnv();
   const main = makeMain();
   env.hero.mount(main.activity);
   main.card1.addClass('focus');
   fireFocus(main.activity, main.card1);
-
-  env.advance(2000);
+  env.advance(DELAY + 10);
+  env.advance(SWAP);
+  assert.deepEqual(env.calls, [11]);
   fireFocus(main.activity, main.card1);
   fireFocus(main.activity, main.card1);
-  assert.deepEqual(env.calls, [], 'три секунды ещё не прошли');
-
-  env.advance(1100);
-  assert.deepEqual(env.calls, [11], 'акцент наступил в свой срок, отсчёт не сдвинулся');
+  env.advance(1000);
+  env.advance(SWAP);
+  assert.deepEqual(env.calls, [11], 'цвет у показанного фильма уже стоит');
 });
 
-test('акцент: перевод фокуса на другую карточку отсчёт перезапускает', () => {
+test('цвет сразу: возврат фокуса на показанную карточку цвет не перезаказывает', () => {
   const env = accentEnv();
   const main = makeMain();
   env.hero.mount(main.activity);
   main.card1.addClass('focus');
   fireFocus(main.activity, main.card1);
-
-  env.advance(2000);
+  env.advance(DELAY + 10);
+  env.advance(SWAP);
+  rest(env);
   main.card1.removeClass('focus');
   main.card2.addClass('focus');
   fireFocus(main.activity, main.card2);
-
-  env.advance(1100);
-  assert.deepEqual(env.calls, [], 'с момента смены карточки прошло 1,1 с — рано');
-  env.advance(1950);
-  assert.deepEqual(env.calls, [22], 'три секунды отсчитаны заново и по новой карточке');
+  env.advance(100);
+  main.card2.removeClass('focus');
+  main.card1.addClass('focus');
+  fireFocus(main.activity, main.card1);
+  env.advance(2000);
+  env.advance(SWAP);
+  assert.deepEqual(env.calls, [11], 'вторая карточка не показывалась — и цвет не менялся');
 });
 
-test('акцент: снятие героя гасит отложенный расчёт', () => {
+test('цвет сразу: снятие героя до вывода текста — цвета нет', () => {
   const env = accentEnv();
   const main = makeMain();
   env.hero.mount(main.activity);
   main.card1.addClass('focus');
   fireFocus(main.activity, main.card1);
+  env.advance(DELAY + 10);
   env.hero.unmount();
   env.advance(5000);
   assert.deepEqual(env.calls, []);
@@ -6595,15 +6631,16 @@ test('ревью H3: из «Выкл» обратно — кадр показа�
    (LC.accent.destroy, src/90_runtime.js), а resume героя его не ставил —
    главная после «Назад» теряла подкраску фильма под фокусом до следующего
    перевода фокуса. accentBack — подкраска карточки под фокусом (или
-   показанной, если фокус не на карточке) сразу, без трёх секунд покоя:
-   это возврат, а не листание, и цвет этого постера уже в кэше. */
+   показанной, если фокус не на карточке) сразу: это возврат, а не
+   листание, и цвет этого фильма уже в кэше. */
 test('ревью H4: accentBack после возврата — подкраска карточки под фокусом, без полной пересборки CSS', () => {
   const env = accentEnv();
   const main = makeMain();
   env.hero.mount(main.activity);
   main.card1.addClass('focus');
   fireFocus(main.activity, main.card1);
-  env.advance(3100);
+  env.advance(DELAY + 10);
+  env.advance(SWAP);
   assert.deepEqual(env.calls, [11], 'подготовка: подкраска первой карточки');
   env.hero.detach(new FakeEl(['activity']));
   env.hero.accentBack();

@@ -40,7 +40,7 @@
     var MEASURE_MS = 5000;
     /* Кроссфейд кадра героя — раз в 1,5 с (переход .4 с, src/30_css.js). */
     var FLIP_MS = 1500;
-    /* Переход подкраски — раз в 2 с (путь 1,6 с, src/57_color.js). */
+    /* Смена подкраски — раз в 2 с (одна запись узла, src/57_color.js). */
     var TINT_MS = 2000;
     /* Листание: 6 шагов вправо и столько же обратно, шаг 400 мс. */
     var MOVE_MS = 400;
@@ -64,8 +64,8 @@
     var MAX_COLS = Math.floor((SCREEN_W - 2 * PAD_PX) / (FONT_PX * CHAR_EM));
     var MAX_LINES = Math.floor((SCREEN_H - 2 * PAD_PX) / (FONT_PX * LINE_EM));
 
-    /* Два цвета стадии «+tint»: тёплый и холодный — путь через
-       приглушённый тон, как между соседними постерами. */
+    /* Два цвета стадии «+tint»: тёплый и холодный — как соседние
+       постеры. */
     var TINTS = [{ r: 168, g: 72, b: 56 }, { r: 56, g: 96, b: 168 }];
 
     var STAGES = [
@@ -669,7 +669,7 @@
       safe(function () { LC.applyMotionMode(); });
       safe(function () { hero().applyMotion(); });
       safe(function () { hero().applyFx(); });
-      safe(function () { LC.accent.drive(r.tintSaved, true); });
+      safe(function () { LC.accent.drive(r.tintSaved); });
       safe(function () { LC.accent.repaint(); });
       safe(function () { LC.perf.hold(false); });
       safe(function () { refocus(r); });
@@ -740,7 +740,7 @@
       try {
         LC.perf.hold(true);
         hero().benchHold(true);
-        r.tintSaved = LC.accent && LC.accent.target ? LC.accent.target() : null;
+        r.tintSaved = LC.accent && LC.accent.dominant ? LC.accent.dominant() : null;
         r.obs = observeLoaf();
         listen(r);
         tag(r);

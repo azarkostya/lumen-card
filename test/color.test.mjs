@@ -317,17 +317,17 @@ function fakeDom(opts) {
   const host = options.proxy || 'https://image.tmdb.org/';
   const Lampa = { TMDB: { image: function (path) { return host + path; } } };
   const window = { document: document, Lampa: Lampa };
-  /* Task 60: плавный переход цвета ведёт setTimeout (шагами по
-     TWEEN_STEP_MS), и таймаут загрузки постера — он же. Очередь ручная:
+  /* Таймаут загрузки постера (LOAD_MS) ведёт setTimeout. Очередь ручная:
      ни один таймер не срабатывает сам, только через state.advance(мс), —
      поэтому после последнего теста node --test завершает процесс сам, а
-     шаги перехода видно поимённо. Тот же приём, что в test/hero.test.mjs. */
+     раунд «Цвет сразу» видит, что после смены цвета не висит ни одного
+     отложенного шага. Тот же приём, что в test/hero.test.mjs. */
   const timers = [];
   state.now = 0;
   state.timers = timers;
-  /* Время идёт ДО ближайшего срока, а не сразу на всю дельту: шаг перехода
-     ставит следующий таймер от текущего момента, и прыжок часами вперёд
-     съел бы всю цепочку, оставив один шаг. */
+  /* Время идёт ДО ближайшего срока, а не сразу на всю дельту: таймер,
+     поставленный из сработавшего, отсчитывается от своего момента, и
+     прыжок часами вперёд съел бы цепочку. */
   state.advance = function (ms) {
     const until = state.now + ms;
     for (let round = 0; round < 1000; round++) {
@@ -1128,32 +1128,31 @@ test('css: правила подкраски из узла есть и в пол
   });
 });
 
-/* Task 60 (ревью): ради чего узлы и разделили. Подсветка карточки под
-   фокусом красится токенами, а они на шагах перехода не меняются — значит
-   её узел за весь переход не переписывается ни разу. Пока правило лежало
-   вместе с фоном, каждая перезапись заставляла движок заново оценивать
-   '.lumen-main .card.focus .card__view', который из-за .card.focus трогает
-   карточки всех видимых рядов. */
-test('Task 60: за весь переход узел подсветки не переписывается ни разу', () => {
+/* Раунд «Цвет сразу» на настоящей таблице стилей (LC.accentCss из
+   src/30_css.js): смена фильма — ОДНА запись узла фона, сразу итоговым
+   текстом, и ни одной записи потом. До раунда их было четыре — шаги пути
+   цвета по 400 мс (Task 60). */
+test('цвет сразу (настоящий CSS): смена фильма — одна запись узла фона, итоговым текстом', () => {
   const dom = fakeDom({ datas: [WARM_POSTER, COLD_POSTER] });
   withDom(dom, () => {
     const ctx = cssCtx(dom, { lumen_accent_auto: 'true' });
-    ctx.LC.accent.applyFor({ poster_path: '/warm.jpg' });
+    ctx.LC.accent.applyFor({ id: 1, title: 'Тёплый', poster_path: '/warm.jpg' });
     dom.state.images[0].onload();
-    ctx.LC.accent.applyFor({ poster_path: '/cold.jpg' });
-    dom.state.images[1].onload();
-
-    const focus = focusNode(dom);
-    let writes = 0;
-    let text = focus.textContent;
-    Object.defineProperty(focus, 'textContent', {
+    const node = accentNode(dom);
+    const before = node.textContent;
+    const writes = [];
+    let text = before;
+    Object.defineProperty(node, 'textContent', {
       get: () => text,
-      set: (v) => { writes++; text = v; }
+      set: (v) => { writes.push(v); text = v; }
     });
-    const before = accentNode(dom).textContent;
-    dom.state.advance(1600);
-    assert.notEqual(accentNode(dom).textContent, before, 'фон за переход перекрашен');
-    assert.equal(writes, 0, 'узел подсветки за переход не тронут');
+    ctx.LC.accent.applyFor({ id: 2, title: 'Холодный', poster_path: '/cold.jpg' });
+    dom.state.images[1].onload();
+    assert.equal(writes.length, 1, 'записей узла фона на смену фильма: ' + writes.length);
+    assert.notEqual(writes[0], before, 'фон перекрашен');
+    assert.equal(writes[0], ctx.LC.accentCss(), 'сразу итоговым текстом');
+    dom.state.advance(5000);
+    assert.equal(writes.length, 1, 'после смены — ни одной записи');
   });
 });
 
@@ -1295,58 +1294,6 @@ test('mixRgb: доля второго цвета — от нуля до един
 });
 
 /* ====================================================================== */
-/* Task 60: плавность подкраски — лерп между прежним и новым цветом.       */
-/* ====================================================================== */
-
-test('blend: концы отрезка — это сами цвета', () => {
-  const a = { r: 210, g: 130, b: 50 };
-  const b = { r: 40, g: 90, b: 210 };
-  assert.deepEqual(color.blend(a, b, 0), a);
-  assert.deepEqual(color.blend(a, b, 1), b);
-  /* За пределами отрезка путь не продолжается. */
-  assert.deepEqual(color.blend(a, b, -1), a);
-  assert.deepEqual(color.blend(a, b, 5), b);
-});
-
-test('blend: середина близких оттенков — оттенок между ними, светлота посередине', () => {
-  /* 20° и 50° — разница 30°, меньше порога дальнего перехода. */
-  const a = color.hslToRgb({ h: 20, s: 0.7, l: 0.5 });
-  const b = color.hslToRgb({ h: 50, s: 0.7, l: 0.5 });
-  const mid = color.rgbToHsl(color.blend(a, b, 0.5));
-  assert.ok(Math.abs(mid.h - 35) < 1.5, 'оттенок посередине: ' + mid.h);
-  assert.ok(Math.abs(mid.s - 0.7) < 0.02, 'насыщенность близких тонов не проседает: ' + mid.s);
-  assert.ok(Math.abs(mid.l - 0.5) < 0.02, 'светлота посередине: ' + mid.l);
-});
-
-test('blend: через 0°/360° идёт короткой дугой, а не через весь круг', () => {
-  const a = color.hslToRgb({ h: 350, s: 0.7, l: 0.5 });
-  const b = color.hslToRgb({ h: 10, s: 0.7, l: 0.5 });
-  const mid = color.rgbToHsl(color.blend(a, b, 0.5));
-  /* Короткая дуга 350 -> 10 проходит через 0, а не через 180. */
-  const gap = Math.min(Math.abs(mid.h - 0), 360 - Math.abs(mid.h - 0));
-  assert.ok(gap < 2, 'середина у нуля: ' + mid.h);
-});
-
-test('blend: дальний оттенок (Δh > 60°) идёт через приглушённый тон, а не по яркой дуге', () => {
-  /* Тёплый -> холодный: 30° и 220°, разница 170°. По яркой дуге глаз
-     прочитал бы проезд через чужие цвета — вместо этого тон глушится. */
-  const a = color.hslToRgb({ h: 30, s: 0.8, l: 0.5 });
-  const b = color.hslToRgb({ h: 220, s: 0.8, l: 0.5 });
-  const mid = color.rgbToHsl(color.blend(a, b, 0.5));
-  assert.ok(mid.s < 0.35, 'в середине дальнего перехода тон приглушён: ' + mid.s);
-  /* Но концы остаются насыщенными — глушение только в пути. */
-  assert.ok(color.rgbToHsl(color.blend(a, b, 0.02)).s > 0.7, 'у начала тон ещё свой');
-  assert.ok(color.rgbToHsl(color.blend(a, b, 0.98)).s > 0.7, 'у конца тон уже свой');
-});
-
-test('blend: серый конец не тянет оттенок к нулю — берётся оттенок цветного', () => {
-  const grey = { r: 120, g: 120, b: 120 };
-  const blue = color.hslToRgb({ h: 220, s: 0.8, l: 0.5 });
-  const mid = color.rgbToHsl(color.blend(grey, blue, 0.5));
-  assert.ok(Math.abs(mid.h - 220) < 2, 'оттенок цветного конца: ' + mid.h);
-});
-
-/* ====================================================================== */
 /* Task 60: «подкраска вообще не работает».                                */
 /* ====================================================================== */
 
@@ -1371,13 +1318,23 @@ test('accent: дефолт настройки в модуле — тот же, �
 });
 
 /* ====================================================================== */
-/* Task 60: «надо сделать это плавным очень, без резких смен тонов».       */
+/* Раунд «Цвет сразу» (2026-09-26): одна смена фона на фильм, сразу.       */
 /* ====================================================================== */
 
-/* Два постера с разными доминантами: тёплый оранжевый и холодный синий —
-   самая заметная пара, ровно та, на которой видно «резкую смену тонов». */
+/* Жалоба пользователя с ПК: «Фон адаптируется не сразу + появляются смены
+   фона: на „Дэдпуле и Росомахе“ сразу должен быть красный, но он через
+   секунду меняется на фиолетовый, потом оранж, потом уже красный». Стенд:
+   цвет ждал 3 с покоя фокуса (src/48_hero.js) и ещё 1,6 с ехал четырьмя
+   шагами по кругу оттенков от прошлого цвета — путь из синего в красный
+   идёт через фиолетовый. Теперь на экране только два цвета: прежний и
+   итоговый, и смена между ними одна — в «Полном» так же, как в «Лёгком». */
+
+/* Два постера с разными доминантами: тёплый оранжевый и холодный синий. */
 const WARM_POSTER = pixels([{ r: 210, g: 130, b: 50, n: 256 }]);
 const COLD_POSTER = pixels([{ r: 40, g: 90, b: 210, n: 256 }]);
+/* Их доминанты после округления (QUANT = 16: floor(v / 16) * 16 + 8). */
+const WARM_HEX = '#D88838';
+const COLD_HEX = '#2858D8';
 
 /* Цвет фона из текста узла подкраски: заглушка accentCss пишет туда hex
    текущей доминанты (см. accentCtx выше). */
@@ -1388,92 +1345,64 @@ function paintedHex(dom) {
   return m ? m[0] : null;
 }
 
-function twoPosters(ctx, dom) {
-  ctx.LC.accent.applyFor({ poster_path: '/warm.jpg' });
-  dom.state.images[0].onload();
-  const first = paintedHex(dom);
-  ctx.LC.accent.applyFor({ poster_path: '/cold.jpg' });
-  dom.state.images[1].onload();
-  return first;
+/* Хронология: каждый hex, записанный в узел подкраски после этого вызова. */
+function recordPaints(dom) {
+  const node = accentNode(dom);
+  const log = [];
+  let text = node.textContent;
+  Object.defineProperty(node, 'textContent', {
+    get: () => text,
+    set: (v) => {
+      text = v;
+      const m = /#[0-9A-F]{6}/.exec(v);
+      log.push(m ? m[0] : v);
+    }
+  });
+  return log;
 }
 
-test('Task 60: на главной цвет не прыгает — он едет шагами и доезжает за 1.6 с', () => {
+for (const motion of ['full', 'lite']) {
+  test('цвет сразу (' + motion + '): смена фильма — одна запись, сразу итоговым цветом, промежуточных нет', () => {
+    const dom = fakeDom({ datas: [WARM_POSTER, COLD_POSTER] });
+    withDom(dom, () => {
+      const ctx = accentCtx({ prefs: {}, motion: motion });
+      ctx.LC.accent.applyFor({ id: 1, title: 'Тёплый', poster_path: '/warm.jpg' });
+      dom.state.images[0].onload();
+      assert.equal(paintedHex(dom), WARM_HEX, 'первый фильм');
+      const paints = recordPaints(dom);
+
+      ctx.LC.accent.applyFor({ id: 2, title: 'Холодный', poster_path: '/cold.jpg' });
+      dom.state.images[1].onload();
+      assert.deepEqual(paints, [COLD_HEX], 'в момент ответа — сразу итоговый цвет');
+      dom.state.advance(5000);
+      assert.deepEqual(paints, [COLD_HEX], 'и ни одной смены после — пути нет');
+      assert.equal(ctx.LC.color.hex(ctx.LC.accent.dominant()), COLD_HEX);
+      assert.equal(dom.state.timers.filter((t) => !t.done).length, 0, 'висящих таймеров нет');
+    });
+  });
+}
+
+/* Цвета нового фильма ещё нет (постер в сети): на экране остаётся прежний, и
+   новый встаёт ОДИН раз — когда посчитался, а не цепочкой. */
+test('цвет сразу: цвета ещё нет — прежний стоит, новый встаёт одной сменой по ответу', () => {
   const dom = fakeDom({ datas: [WARM_POSTER, COLD_POSTER] });
   withDom(dom, () => {
     const ctx = accentCtx({ prefs: {} });
-    const first = twoPosters(ctx, dom);
-    assert.ok(first, 'первый постер покрасил фон сразу — ехать было неоткуда');
-    assert.equal(paintedHex(dom), first, 'в момент ответа цвет ещё прежний');
-
-    const target = ctx.LC.color.hex(ctx.LC.accent.target());
-    assert.notEqual(target, first, 'постеры действительно разного цвета');
-    const written = ctx.state.rules;
-
-    /* Середина пути: цвет уже не прежний и ещё не целевой. */
-    dom.state.advance(800);
-    const mid = paintedHex(dom);
-    assert.notEqual(mid, first, 'через 0.8 с цвет сдвинулся');
-    assert.notEqual(mid, target, 'и ещё не доехал');
-
-    dom.state.advance(800);
-    assert.equal(paintedHex(dom), target, 'за 1.6 с переход закончен');
-    /* Волна производительности: шаг 200 мс, а не 100, — за путь узел
-       подкраски (около 1,8 КБ правил) переписывался восемь раз, а не
-       шестнадцать: каждая запись — пересчёт стилей и перерисовка
-       полноэкранных градиентов. Раунд «Листание», F3 (трейс 2026-09-25,
-       CPU ×10: смена цвета 259 → 160 мс главного потока, растр 92 → 45):
-       шаг 400 мс — четыре записи за путь. */
-    assert.equal(ctx.state.rules - written, 4, 'перезаписей узла за путь');
+    ctx.LC.accent.applyFor({ id: 1, title: 'Тёплый', poster_path: '/warm.jpg' });
+    dom.state.images[0].onload();
+    const paints = recordPaints(dom);
+    ctx.LC.accent.applyFor({ id: 2, title: 'Холодный', poster_path: '/cold.jpg' });
+    dom.state.advance(1500);
+    assert.deepEqual(paints, [], 'пока постер едет — экран не трогаем');
+    assert.equal(paintedHex(dom), WARM_HEX, 'прежний цвет на месте');
+    dom.state.images[1].onload();
+    assert.deepEqual(paints, [COLD_HEX], 'одна смена — сразу в итоговый');
   });
 });
 
-test('Task 60: переход идёт через приглушённый тон — середина не ярче обоих концов', () => {
-  const dom = fakeDom({ datas: [WARM_POSTER, COLD_POSTER] });
-  withDom(dom, () => {
-    const ctx = accentCtx({ prefs: {} });
-    twoPosters(ctx, dom);
-    const from = ctx.LC.color.rgbToHsl(ctx.LC.accent.dominant());
-    dom.state.advance(800);
-    const mid = ctx.LC.color.rgbToHsl(ctx.LC.accent.dominant());
-    dom.state.advance(800);
-    const to = ctx.LC.color.rgbToHsl(ctx.LC.accent.dominant());
-    assert.ok(mid.s < Math.min(from.s, to.s),
-      'середина приглушена: ' + mid.s.toFixed(2) + ' против ' + from.s.toFixed(2) + ' и ' + to.s.toFixed(2));
-  });
-});
-
-test('Task 60: новый постер посреди перехода уводит цвет с того места, где он сейчас', () => {
-  const dom = fakeDom({ datas: [WARM_POSTER, COLD_POSTER, WARM_POSTER] });
-  withDom(dom, () => {
-    const ctx = accentCtx({ prefs: {} });
-    twoPosters(ctx, dom);
-    dom.state.advance(400);
-    const onTheWay = ctx.LC.accent.dominant();
-    ctx.LC.accent.applyFor({ poster_path: '/warm2.jpg' });
-    dom.state.images[2].onload();
-    assert.deepEqual(ctx.LC.accent.dominant(), onTheWay, 'скачка в момент разворота нет');
-    dom.state.advance(1600);
-    assert.equal(ctx.LC.color.hex(ctx.LC.accent.dominant()), ctx.LC.color.hex(ctx.LC.accent.target()));
-  });
-});
-
-/* В 'lite' и 'off' анимации выключены сознательно (автодетект слабого ТВ
-   держит там ровно lite), поэтому цвет ставится сразу: шестнадцать
-   перезаписей узла в секунду с половиной — ровно та работа, от которой
-   этот режим и уводит. */
-test('Task 60: в lite переход мгновенный — ни одного шага', () => {
-  const dom = fakeDom({ datas: [WARM_POSTER, COLD_POSTER] });
-  withDom(dom, () => {
-    const ctx = accentCtx({ prefs: {}, motion: 'lite' });
-    twoPosters(ctx, dom);
-    assert.equal(ctx.LC.color.hex(ctx.LC.accent.dominant()), ctx.LC.color.hex(ctx.LC.accent.target()));
-    assert.equal(dom.state.timers.filter((t) => !t.done).length, 0, 'висящих таймеров нет');
-  });
-});
-
-/* Открытая карточка — другой случай: там каждый шаг стоил бы полной
-   пересборки таблицы (deep), а экран и так только что сменился. */
-test('Task 60: в карточке (deep) цвет ставится сразу, пересборка одна', () => {
+/* Открытая карточка (deep): цвет ставится сразу, таблица пересобирается
+   один раз на карточку. */
+test('цвет сразу: в карточке (deep) цвет ставится сразу, пересборка одна', () => {
   const dom = fakeDom({ datas: [WARM_POSTER, COLD_POSTER] });
   withDom(dom, () => {
     const ctx = accentCtx({ prefs: {} });
@@ -1481,22 +1410,8 @@ test('Task 60: в карточке (deep) цвет ставится сразу, 
     dom.state.images[0].onload();
     ctx.LC.accent.applyFor({ poster_path: '/cold.jpg' }, true);
     dom.state.images[1].onload();
-    assert.equal(ctx.LC.color.hex(ctx.LC.accent.dominant()), ctx.LC.color.hex(ctx.LC.accent.target()));
+    assert.equal(ctx.LC.color.hex(ctx.LC.accent.dominant()), COLD_HEX);
     assert.equal(ctx.state.injects, 2, 'по одной пересборке на карточку');
-  });
-});
-
-test('Task 60: уход с карточки останавливает переход — поздних перекрасок нет', () => {
-  const dom = fakeDom({ datas: [WARM_POSTER, COLD_POSTER] });
-  withDom(dom, () => {
-    const ctx = accentCtx({ prefs: {} });
-    twoPosters(ctx, dom);
-    dom.state.advance(300);
-    ctx.LC.accent.destroy();
-    const after = ctx.state.rules;
-    dom.state.advance(3000);
-    assert.equal(ctx.state.rules, after, 'после destroy узел больше не переписывался');
-    assert.equal(accentNode(dom), null, 'и сам узел снят');
   });
 });
 
@@ -1622,184 +1537,33 @@ test('accent: status — выключенное движение тоже off, �
 
 /* Волна производительности (жалоба с ТВ «всё ещё лагает всё», 2026-09-24).
    CSS-переход background-color у корня главной сглаживал ступеньку между
-   шагами пути, но сам фон корня целиком закрыт сценой — кадром героя во
-   весь экран и рядами поверх него, — и переход только гонял анимацию
-   цвета у невидимого полноэкранного узла, по кадру на каждом из
-   шестнадцати шагов. Перехода больше нет, шаг — 200 мс; с раунда
-   «Листание» (F3) — 400 мс, четыре шага за путь. */
-test('волна perf + раунд «Листание»: у подложки рядов нет CSS-перехода, шаг пути 400 мс, путь не короче 1.5 с', () => {
+   шагами пути цвета, но сам фон корня целиком закрыт сценой — кадром героя
+   во весь экран и рядами поверх него, — и переход только гонял анимацию
+   цвета у невидимого полноэкранного узла. Раунд «Цвет сразу»: шагов пути
+   больше нет вовсе, и переход сюда не возвращается. */
+test('волна perf: у подложки рядов нет CSS-перехода background-color', () => {
   const css = readFileSync(new URL('../src/30_css.js', import.meta.url), 'utf8');
   assert.equal(/\.lumen-main\{[^}]*transition:background-color/.test(css), false,
     'у корня главной снова переход background-color');
-  const dom = fakeDom({ datas: [WARM_POSTER, COLD_POSTER] });
-  withDom(dom, () => {
-    const ctx = accentCtx({ prefs: {} });
-    assert.equal(ctx.LC.accent.timing().step, 400);
-    assert.equal(ctx.LC.accent.timing().total / ctx.LC.accent.timing().step, 4, 'записей узла подкраски за путь');
-    assert.ok(ctx.LC.accent.timing().total >= 1500, 'переход короче 1.5 с: ' + ctx.LC.accent.timing().total);
-  });
 });
 
-/* Волна производительности: самотест ведёт фон к заданному цвету тем же
-   путём шагов, что смена фильма (стадия «+tint»), и возвращает исходный
-   цвет сразу. */
-test('волна perf: drive — путь шагами в full, instant — сразу', () => {
-  const dom = fakeDom({ datas: [WARM_POSTER, COLD_POSTER] });
+/* Волна производительности: самотест ставит фону заданный цвет так же, как
+   смена фильма (стадия «+tint»), — одной записью — и тем же вызовом
+   возвращает исходный. */
+test('волна perf: drive — фон встаёт на цвет сразу, одной записью', () => {
+  const dom = fakeDom({ datas: [WARM_POSTER] });
   withDom(dom, () => {
     const ctx = accentCtx({ prefs: {} });
     ctx.LC.accent.applyFor({ poster_path: '/warm.jpg' });
     dom.state.images[0].onload();
-    const saved = ctx.LC.accent.target();
+    const saved = ctx.LC.accent.dominant();
+    const paints = recordPaints(dom);
     ctx.LC.accent.drive({ r: 56, g: 96, b: 168 });
-    assert.deepEqual(ctx.LC.accent.target(), { r: 56, g: 96, b: 168 });
-    assert.notDeepEqual(ctx.LC.accent.dominant(), { r: 56, g: 96, b: 168 }, 'в full — не прыжком');
-    dom.state.advance(1600);
-    assert.deepEqual(ctx.LC.accent.dominant(), { r: 56, g: 96, b: 168 }, 'путь доехал');
-    ctx.LC.accent.drive(saved, true);
+    assert.deepEqual(ctx.LC.accent.dominant(), { r: 56, g: 96, b: 168 }, 'сразу');
+    assert.deepEqual(paints, ['#3860A8'], 'одна запись');
+    ctx.LC.accent.drive(saved);
     assert.deepEqual(ctx.LC.accent.dominant(), saved, 'возврат — сразу');
     assert.equal(dom.state.timers.filter((t) => !t.done).length, 0, 'висящих шагов нет');
-  });
-});
-
-/* ====================================================================== */
-/* Task 60 (ревью): переход не имеет права пережить свой экран.            */
-/* ====================================================================== */
-
-/* E. Карточку открывают посреди перехода. LC.accent.destroy() рантайм при
-   component === 'full' не зовёт намеренно (src/90_runtime.js) — он снял бы
-   акцент самой карточки, — поэтому обрыв висит на уходе героя
-   (LC.hero.unmount) и на этой функции. Без неё tweenStep тикал бы каждые
-   100 мс, пока карточка строится: от 'start' до 'complite' на телевизоре
-   это секунда и больше. */
-test('Task 60: stopTween обрывает переход, и поздних перекрасок нет', () => {
-  const dom = fakeDom({ datas: [WARM_POSTER, COLD_POSTER] });
-  withDom(dom, () => {
-    const ctx = accentCtx({ prefs: {} });
-    twoPosters(ctx, dom);
-    dom.state.advance(300);
-    const stopped = ctx.LC.accent.dominant();
-    const rules = ctx.state.rules;
-    ctx.LC.accent.stopTween();
-    dom.state.advance(3000);
-    assert.equal(ctx.state.rules, rules, 'после обрыва узел не переписывался');
-    assert.deepEqual(ctx.LC.accent.dominant(), stopped, 'цвет остался там, где его застали');
-    assert.equal(dom.state.timers.filter((t) => !t.done).length, 0, 'висящих таймеров нет');
-  });
-});
-
-/* Оборванный переход обязан доигрываться: фокус ушёл на соседнюю карточку
-   и вернулся — цель та же, и без этого цвет застрял бы на промежуточном
-   шаге до следующей смены фильма (ранний выход в apply). */
-test('Task 60: вернувшийся на ту же карточку фокус доигрывает оборванный путь', () => {
-  const dom = fakeDom({ datas: [WARM_POSTER, COLD_POSTER] });
-  withDom(dom, () => {
-    const ctx = accentCtx({ prefs: {} });
-    twoPosters(ctx, dom);
-    dom.state.advance(300);
-    ctx.LC.accent.stopTween();
-    const stopped = ctx.LC.accent.dominant();
-    assert.notDeepEqual(stopped, ctx.LC.accent.target(), 'путь и правда оборван посередине');
-
-    ctx.LC.accent.applyFor({ poster_path: '/cold.jpg' });
-    assert.deepEqual(ctx.LC.accent.dominant(), stopped, 'в момент возврата скачка нет');
-    dom.state.advance(1600);
-    assert.equal(ctx.LC.color.hex(ctx.LC.accent.dominant()), ctx.LC.color.hex(ctx.LC.accent.target()),
-      'путь доигран с того места, где его прервали');
-  });
-});
-
-/* F. Тот же фильм открывают карточкой посреди перехода: токены и цель
-   совпадают, и до правки функция возвращалась ДО обрыва — переход шёл
-   поверх карточки, а основная таблица оставалась с промежуточным цветом
-   (p.bg = LC.accent.tint(source), palette() в src/30_css.js). */
-test('Task 60: открытие карточки посреди перехода обрывает его и пересобирает таблицу', () => {
-  const dom = fakeDom({ datas: [WARM_POSTER, COLD_POSTER] });
-  withDom(dom, () => {
-    const ctx = accentCtx({ prefs: {} });
-    twoPosters(ctx, dom);
-    dom.state.advance(300);
-    assert.notDeepEqual(ctx.LC.accent.dominant(), ctx.LC.accent.target(), 'переход идёт');
-    const injects = ctx.state.injects;
-
-    /* Тот же постер, что был под фокусом, — цвет придёт из кэша синхронно. */
-    ctx.LC.accent.applyFor({ poster_path: '/cold.jpg' }, true);
-    assert.deepEqual(ctx.LC.accent.dominant(), ctx.LC.accent.target(), 'цвет доведён до цели сразу');
-    assert.equal(ctx.state.injects, injects + 1, 'таблица пересобрана — в ней мог остаться цвет середины пути');
-    const rules = ctx.state.rules;
-    dom.state.advance(3000);
-    assert.equal(ctx.state.rules, rules, 'на открытой карточке переход больше не тикает');
-  });
-});
-
-/* Смена режима движения на 'off' — тот же случай: подкраски там нет вовсе,
-   и доигрывать её переходу незачем (src/80_settings.js зовёт repaint). */
-test('Task 60: перевод движения в off гасит переход, а не оставляет его тикать', () => {
-  const dom = fakeDom({ datas: [WARM_POSTER, COLD_POSTER] });
-  withDom(dom, () => {
-    const motion = { mode: 'full' };
-    const ctx = accentCtx({ prefs: {}, motionRef: motion });
-    twoPosters(ctx, dom);
-    dom.state.advance(300);
-    motion.mode = 'off';
-    ctx.LC.accent.repaint();
-    const rules = ctx.state.rules;
-    dom.state.advance(3000);
-    assert.equal(ctx.state.rules, rules, 'после выключения движения узел не переписывался');
-    assert.equal(dom.state.timers.filter((t) => !t.done).length, 0, 'висящих таймеров нет');
-  });
-});
-
-/* Ревью B: антиподы — единственный случай, где короткой дуги нет вовсе
-   (обе половины круга ровно по 180°). Ни одна из двух поправок не
-   срабатывает: разница остаётся ±180 со СВОИМ знаком, поэтому путь туда и
-   обратно проходит по одной и той же половине круга, и середина у них
-   одна. То есть выбор стороны здесь детерминирован и симметричен —
-   blend(a,b,t) === blend(b,a,1-t) по оттенку; зафиксировано тестом, чтобы
-   следующая правка дуги не сломала это молча. */
-test('blend: ровно 180° — сторона круга выбрана устойчиво и одинаково в обе стороны', () => {
-  const a = color.hslToRgb({ h: 30, s: 0.8, l: 0.5 });
-  const b = color.hslToRgb({ h: 210, s: 0.8, l: 0.5 });
-  const mid = color.rgbToHsl(color.blend(a, b, 0.5));
-  assert.ok(Math.abs(mid.h - 120) < 2, 'середина между 30 и 210: ' + mid.h);
-  const back = color.rgbToHsl(color.blend(b, a, 0.5));
-  assert.ok(Math.abs(back.h - mid.h) < 2, 'обратный путь идёт той же половиной круга: ' + back.h);
-  /* На четверти пути — тоже зеркало: 30 + 45 против 210 - 45. */
-  assert.ok(Math.abs(color.rgbToHsl(color.blend(a, b, 0.25)).h - 75) < 2);
-  assert.ok(Math.abs(color.rgbToHsl(color.blend(b, a, 0.75)).h - 75) < 2);
-  /* Концы при этом остаются концами в обе стороны. */
-  assert.deepEqual(color.blend(a, b, 0), a);
-  assert.deepEqual(color.blend(b, a, 0), b);
-});
-
-/* Ревью C: оба конца без своего оттенка. Тянуть оттенок неоткуда, и путь
-   обязан остаться серым, а не заехать в красный (h = 0). */
-test('blend: два серых конца — путь остаётся серым', () => {
-  const dark = { r: 60, g: 60, b: 60 };
-  const light = { r: 180, g: 180, b: 180 };
-  const mid = color.blend(dark, light, 0.5);
-  assert.ok(Math.abs(mid.r - mid.g) <= 1 && Math.abs(mid.g - mid.b) <= 1, 'середина серая: ' + JSON.stringify(mid));
-  assert.ok(mid.r > 60 && mid.r < 180, 'светлота посередине: ' + mid.r);
-});
-
-/* Ревью D: шаг пути обязан быть СВОИМ объектом. Прежде blend на концах
-   отдавал тот же объект, что ему передали, и после конца перехода
-   нарисованный цвет и цель оказывались одной ссылкой. */
-test('blend: концы отрезка — копии, а не те же объекты', () => {
-  const a = { r: 210, g: 130, b: 50 };
-  const b = { r: 40, g: 90, b: 210 };
-  assert.notEqual(color.blend(a, b, 0), a, 'начало — копия');
-  assert.notEqual(color.blend(a, b, 1), b, 'конец — копия');
-  assert.deepEqual(color.blend(a, b, 0), a);
-});
-
-test('Task 60: после перехода нарисованный цвет и цель — разные объекты', () => {
-  const dom = fakeDom({ datas: [WARM_POSTER, COLD_POSTER] });
-  withDom(dom, () => {
-    const ctx = accentCtx({ prefs: {} });
-    twoPosters(ctx, dom);
-    dom.state.advance(1600);
-    assert.deepEqual(ctx.LC.accent.dominant(), ctx.LC.accent.target());
-    assert.notEqual(ctx.LC.accent.dominant(), ctx.LC.accent.target(), 'одна ссылка на два значения — хрупкий инвариант');
   });
 });
 

@@ -295,8 +295,8 @@ function makeEnv(opts) {
     applyMotionMode: () => log.push('applyMotionMode'),
     hero,
     accent: {
-      target: () => ({ r: 1, g: 2, b: 3 }),
-      drive: (rgb, instant) => log.push('accent.drive ' + JSON.stringify(rgb) + (instant ? ' instant' : '')),
+      dominant: () => ({ r: 1, g: 2, b: 3 }),
+      drive: (rgb) => log.push('accent.drive ' + JSON.stringify(rgb)),
       repaint: () => log.push('accent.repaint')
     },
     perf: { hold: (on) => log.push('perf.hold ' + on) },
@@ -361,7 +361,7 @@ function assertCleanup(e, label) {
   for (const step of ['applyMotionMode', 'hero.benchFx null', 'hero.benchHold false', 'hero.benchRestore', 'hero.applyMotion', 'hero.applyFx', 'accent.repaint', 'perf.hold false']) {
     assert.ok(after.indexOf(step) !== -1, label + ': после снятия подмен нет «' + step + '»: ' + after.join(' | '));
   }
-  assert.ok(after.indexOf('accent.drive {"r":1,"g":2,"b":3} instant') !== -1, label + ': цвет подкраски не возвращён');
+  assert.ok(after.indexOf('accent.drive {"r":1,"g":2,"b":3}') !== -1, label + ': цвет подкраски не возвращён');
   assert.equal(e.log.filter((x) => x.indexOf('override ') === 0 && e.log.indexOf(x) > at).length, 0, label + ': подмена после уборки');
   assert.deepEqual(e.listeners(), { key: 0, vis: 0, act: 0, toggle: 0 }, label + ': слушатели не сняты');
   assert.deepEqual(e.storageWrites, [], label + ': тест писал в Lampa.Storage');
@@ -392,7 +392,7 @@ test('bench: полный прогон — восемь стадий, подме
   assert.equal(e.log.indexOf('hero.benchFx snow'), -1, 'прежний движок snow — не то, что рисуют праздники');
   assert.equal(FX_PRESETS.winter && FX_PRESETS.winter.scene, true, 'winter — сцена движка частиц');
   assert.ok(e.log.indexOf('hero.benchFlip') !== -1, 'смена кадров на стадиях 4, 5, 8');
-  assert.ok(e.log.some((x) => /^accent\.drive \{"r":\d+/.test(x) && x.indexOf('instant') === -1), 'подкраска шагами');
+  assert.ok(e.log.some((x) => /^accent\.drive \{"r":(?!1,)\d+/.test(x)), 'подкраска меняется на стадиях +tint и all');
   assert.ok(e.log.indexOf('move right') !== -1 && e.log.indexOf('move left') !== -1, 'листание');
   assert.equal(e.focusIdx(), 0, 'листание вернуло фокус на исходную карточку');
 

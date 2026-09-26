@@ -4927,7 +4927,6 @@ var EASE = ' .42s cubic-bezier(.2,.8,.2,1)';
 
 
 
-
 var AR = accentRules(P, t);
 css.push(AR.main);
 css.push(AR.screen);
@@ -15875,7 +15874,7 @@ var BURST_DELAY = 700;
 
 
 
-var ACCENT_DELAY = 3000;
+
 
 
 
@@ -18315,6 +18314,17 @@ if (motionMode() === 'full') text.addClass('is-in');
 
 
 
+if (state.accentCard && !state.parked) {
+var tinted = state.accentCard;
+state.accentCard = null;
+applyAccent(tinted);
+}
+
+
+
+
+
+
 
 
 if (state.holdDue && !focusAway()) {
@@ -18974,6 +18984,8 @@ state.shownId = card.id;
 
 state.shownCard = card;
 
+state.accentCard = card;
+
 if (state.hostClass === MAIN_HOST) lastShown = card;
 state.details = null;
 state.model = null;
@@ -19085,34 +19097,12 @@ setCompact(LC.heroCompact === true && index > 0);
 
 
 
-function scheduleAccent(card) {
-stopTimer('accentTimer');
-
-
-
-
-
-
-
-
-
-
-try {
-if (LC.accent && typeof LC.accent.stopTween === 'function') LC.accent.stopTween();
-} catch (eStop) {
-warn('hero: accent stop failed', eStop);
-}
-state.accentTimer = setTimeout(function () {
-if (!state) return;
-state.accentTimer = null;
-if (state.pending !== card) return;
-if (!isMounted()) return;
+function applyAccent(card) {
 try {
 if (LC.accent && typeof LC.accent.applyFor === 'function') LC.accent.applyFor(card);
 } catch (e) {
 warn('hero: accent failed', e);
 }
-}, ACCENT_DELAY);
 }
 
 
@@ -19171,10 +19161,6 @@ state.focusAt = now;
 markBurst(burst);
 state.pending = card;
 stopTimer('timer');
-
-
-
-scheduleAccent(card);
 
 
 
@@ -19522,7 +19508,6 @@ focusEl: null,
 timer: null,
 swapTimer: null,
 loadTimer: null,
-accentTimer: null,
 loader: null,
 
 slideLoad: false,
@@ -19545,6 +19530,9 @@ logoBox: null,
 detailsWait: false,
 shownId: null,
 shownCard: null,
+
+
+accentCard: null,
 details: null,
 model: null,
 pending: null,
@@ -19700,20 +19688,7 @@ unlistenFocus(s);
 
 
 prefetch('stop');
-
-
-
-
-
-
-
-
-try {
-if (LC.accent && typeof LC.accent.stopTween === 'function') LC.accent.stopTween();
-} catch (eTween) {
-warn('hero: accent stop failed', eTween);
-}
-var timers = ['timer', 'swapTimer', 'loadTimer', 'accentTimer', 'trailerTimer', 'lqipTimer', 'titleTimer', 'frameWait', 'lookTimer', 'holdTimer', 'burstTimer'];
+var timers = ['timer', 'swapTimer', 'loadTimer', 'trailerTimer', 'lqipTimer', 'titleTimer', 'frameWait', 'lookTimer', 'holdTimer', 'burstTimer'];
 for (var i = 0; i < timers.length; i++) {
 try { if (s[timers[i]]) clearTimeout(s[timers[i]]); } catch (eT) {}
 }
@@ -19755,8 +19730,6 @@ return !!(act && act.length && act[0] === render[0]);
 return false;
 }
 }
-
-
 
 
 
@@ -19849,14 +19822,8 @@ cancelPending();
 
 
 prefetch('stop');
-stopTimer('accentTimer');
 if (state.slides) {
 try { state.slides.pause(); } catch (eSl) { warn('hero: slides pause failed', eSl); }
-}
-try {
-if (LC.accent && typeof LC.accent.stopTween === 'function') LC.accent.stopTween();
-} catch (eTween) {
-warn('hero: accent stop failed', eTween);
 }
 if (state.hostClass === MAIN_HOST) {
 markBody(false);
@@ -19938,17 +19905,11 @@ warn('hero: resume failed', e);
 
 
 
-
-
 function accentBack() {
 if (!state || state.parked) return;
 var card = state.pending || state.shownCard;
 if (!card) return;
-try {
-if (LC.accent && typeof LC.accent.applyFor === 'function') LC.accent.applyFor(card);
-} catch (e) {
-warn('hero: accent back failed', e);
-}
+applyAccent(card);
 }
 
 
@@ -28018,84 +27979,6 @@ b: Math.round(a.b + (b.b - a.b) * k)
 
 
 
-
-
-
-
-var HUE_FAR = 60;
-var FAR_DIP = 0.75;
-
-
-
-
-var HUE_MUTE = 0.04;
-
-function hueGap(a, b) {
-var d = Math.abs(normHue(a) - normHue(b));
-return d > 180 ? 360 - d : d;
-}
-
-
-
-function hueLerp(a, b, t) {
-var d = normHue(b) - normHue(a);
-if (d > 180) d -= 360;
-if (d < -180) d += 360;
-return normHue(normHue(a) + d * t);
-}
-
-
-
-
-
-
-function copyRgb(c) {
-var rgb = toRgb(c);
-return { r: rgb.r, g: rgb.g, b: rgb.b };
-}
-
-
-
-
-
-
-function blend(a, b, t) {
-var from = rgbToHsl(toRgb(a));
-var to = rgbToHsl(toRgb(b));
-var k = clamp(Number(t) || 0, 0, 1);
-if (k <= 0) return copyRgb(a);
-if (k >= 1) return copyRgb(b);
-var h;
-if (from.s < HUE_MUTE) h = to.h;
-else if (to.s < HUE_MUTE) h = from.h;
-else h = hueLerp(from.h, to.h, k);
-var s = from.s + (to.s - from.s) * k;
-var gap = from.s < HUE_MUTE || to.s < HUE_MUTE ? 0 : hueGap(from.h, to.h);
-if (gap > HUE_FAR) {
-
-
-
-var depth = FAR_DIP * (gap - HUE_FAR) / (180 - HUE_FAR);
-s = s * (1 - depth * Math.sin(Math.PI * k));
-}
-return hslToRgb({ h: h, s: s, l: from.l + (to.l - from.l) * k });
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 function tint(rgb, bg, guard, ratio, maxMix) {
 if (!rgb) return null;
 var base = toRgb(bg);
@@ -28400,7 +28283,6 @@ ring: ringOf,
 glow: glow,
 tokens: tokens,
 mixRgb: mixRgb,
-blend: blend,
 tint: tint,
 rowsTint: rowsTint,
 fromImage: fromImage,
@@ -28457,9 +28339,7 @@ var themeTokens = null;
 
 
 
-
 var source = null;
-var target = null;
 var task = null;
 
 
@@ -28495,14 +28375,6 @@ var task = null;
 
 
 
-var TWEEN_MS = 1600;
-var TWEEN_STEP_MS = 400;
-var tween = null;
-
-
-
-
-
 
 
 
@@ -28525,7 +28397,6 @@ function auto() {
 var v = LC.pref(AUTO_KEY, true);
 return v === true || v === 'true';
 }
-
 
 
 
@@ -28603,54 +28474,6 @@ task = null;
 }
 }
 
-
-
-
-
-function stopTween() {
-if (!tween) return;
-try { clearTimeout(tween.timer); } catch (e) { }
-tween = null;
-}
-
-function tweenStep() {
-if (!tween) return;
-tween.step++;
-if (tween.step >= tween.steps) {
-source = ownRgb(tween.to);
-tween = null;
-paint();
-return;
-}
-source = LC.color.blend(tween.from, tween.to, tween.step / tween.steps);
-paint();
-tween.timer = setTimeout(tweenStep, TWEEN_STEP_MS);
-}
-
-function startTween(from, to) {
-stopTween();
-tween = {
-from: from, to: to, step: 0,
-steps: Math.round(TWEEN_MS / TWEEN_STEP_MS), timer: 0
-};
-tween.timer = setTimeout(tweenStep, TWEEN_STEP_MS);
-}
-
-
-
-
-
-
-function tweenWanted(deep, next) {
-if (deep || !source || !next) return false;
-if (sameRgb(source, next)) return false;
-try {
-return LC.motionMode() === 'full';
-} catch (e) {
-return false;
-}
-}
-
 function sameRgb(a, b) {
 if (!a || !b) return !a && !b;
 return a.r === b.r && a.g === b.g && a.b === b.b;
@@ -28659,12 +28482,9 @@ return a.r === b.r && a.g === b.g && a.b === b.b;
 
 
 
-
 function ownRgb(rgb) {
 return rgb ? { r: rgb.r, g: rgb.g, b: rgb.b } : null;
 }
-
-
 
 
 
@@ -28788,21 +28608,6 @@ paint(true);
 
 
 function repaint() {
-
-
-
-
-
-
-
-var full = false;
-try {
-full = LC.motionMode() === 'full';
-} catch (e) { }
-if (!full && tween) {
-stopTween();
-source = ownRgb(target);
-}
 paint(false);
 }
 
@@ -28810,10 +28615,8 @@ paint(false);
 
 
 
-function drive(rgb, instant) {
-target = ownRgb(rgb || null);
-if (!instant && tweenWanted(false, target) && LC.enabled()) startTween(source, target);
-else { stopTween(); source = ownRgb(target); }
+function drive(rgb) {
+source = ownRgb(rgb || null);
 paint();
 }
 
@@ -28834,47 +28637,19 @@ warn('accent: css inject failed', e);
 
 
 
+
+
+
 function apply(next, rgb, deep) {
-
-
-
-
-
-
-
-
-
-var stopped = false;
-if (deep && tween) {
-stopTween();
-source = ownRgb(target);
-stopped = true;
-}
 var sameTokens = next && override ? next.color === override.color : (!next && !override);
-
-
-
-
-
-if (!stopped && sameTokens && sameRgb(target, rgb || null) &&
-sameRgb(source, target) && !(deep && applied !== tokenColor())) return;
-
-
-
-
-
-
-
-var tweening = tweenWanted(deep, rgb || null) && LC.enabled();
+if (sameTokens && sameRgb(source, rgb || null) && !(deep && applied !== tokenColor())) return;
 override = next || null;
-target = rgb || null;
-if (tweening) startTween(source, target);
-else { stopTween(); source = ownRgb(target); }
+source = ownRgb(rgb || null);
 
 
 
 if (!LC.enabled()) { paint(); return; }
-if (deep && (stopped || applied !== tokenColor())) {
+if (deep && applied !== tokenColor()) {
 
 
 rebuild();
@@ -28892,27 +28667,26 @@ apply(null, null, true);
 
 
 
+
+
+
+
 function applyFor(movie, deep) {
 cancel();
 if (!on()) { apply(null, null, deep); return; }
 var path = movie && movie.poster_path;
-if (!path) { apply(null, null, deep); return; }
-var url = posterUrl(path);
+var url = path ? posterUrl(path) : '';
 if (!url) { apply(null, null, deep); return; }
+
+
 
 
 task = LC.color.fromImage(url, function (rgb) {
 task = null;
-
-
-
-
-
 var dom = quantize(rgb);
 apply(dom ? LC.color.tokens(dom, bg()) : null, dom, deep);
 }, '');
 }
-
 
 
 
@@ -28934,7 +28708,6 @@ return null;
 }
 return LC.color.tint(source, bg, guard, ratio);
 }
-
 
 
 
@@ -28974,11 +28747,9 @@ color: st.state === 'ok' && source ? LC.color.hex(source) : ''
 
 function destroy() {
 cancel();
-stopTween();
 var had = !!(override || source || themeTokens);
 override = null;
 source = null;
-target = null;
 themeTokens = null;
 
 
@@ -29024,23 +28795,7 @@ current: function () { return override || themeTokens; },
 theme: function () { return themeTokens; },
 setTheme: setTheme,
 
-
-
-
 dominant: function () { return source; },
-target: function () { return target; },
-
-
-timing: function () { return { total: TWEEN_MS, step: TWEEN_STEP_MS }; },
-
-
-
-
-
-
-
-
-stopTween: stopTween,
 status: status,
 tint: tint,
 rowsTint: rowsTint,
@@ -36470,7 +36225,7 @@ safe(function () { hero().benchRestore(); });
 safe(function () { LC.applyMotionMode(); });
 safe(function () { hero().applyMotion(); });
 safe(function () { hero().applyFx(); });
-safe(function () { LC.accent.drive(r.tintSaved, true); });
+safe(function () { LC.accent.drive(r.tintSaved); });
 safe(function () { LC.accent.repaint(); });
 safe(function () { LC.perf.hold(false); });
 safe(function () { refocus(r); });
@@ -36541,7 +36296,7 @@ run = r;
 try {
 LC.perf.hold(true);
 hero().benchHold(true);
-r.tintSaved = LC.accent && LC.accent.target ? LC.accent.target() : null;
+r.tintSaved = LC.accent && LC.accent.dominant ? LC.accent.dominant() : null;
 r.obs = observeLoaf();
 listen(r);
 tag(r);
@@ -37433,9 +37188,9 @@ lumen_card_accent_graphite: { ru: 'Графит', en: 'Graphite', uk: 'Граф�
 
 lumen_accent_auto_name: { ru: 'Акцент от постера', en: 'Accent from poster', uk: 'Акцент від постера' },
 lumen_accent_auto_descr: {
-ru: 'В открытой карточке цвет кнопок, колец фокуса и подсветок берётся из постера фильма. На главной от постера под фокусом меняются фон страницы, вуаль кадра и подложка карточки под фокусом — когда фокус постоял на карточке 3 секунды; при быстром листании ничего не считается. Тёмный цвет плагин высветляет, чтобы подписи читались; если постер не отдаёт пиксели, остаётся акцент, выбранный выше.',
-en: 'Inside an open film card the colour of buttons, focus rings and highlights is taken from the poster. On the home screen the poster under focus changes the page background, the hero veil and the plate under the focused card — once focus has rested on a card for 3 seconds; fast browsing computes nothing. A dark colour is lightened so that labels stay readable; if the poster does not give up its pixels, the accent chosen above stays in place.',
-uk: 'У відкритій картці колір кнопок, кілець фокуса та підсвічувань береться з постера фільму. На головній від постера під фокусом змінюються тло сторінки, вуаль кадру та підкладка картки під фокусом — коли фокус постояв на картці 3 секунди; при швидкому гортанні нічого не рахується. Темний колір плагін висвітлює, щоб підписи читалися; якщо постер не віддає пікселі, залишається акцент, вибраний вище.'
+ru: 'В открытой карточке цвет кнопок, колец фокуса и подсветок берётся из постера фильма. На главной от постера под фокусом меняются фон страницы, вуаль кадра и подложка карточки под фокусом — сразу вместе с фильмом в герое, одной сменой; при зажатой стрелке ничего не считается. Тёмный цвет плагин высветляет, чтобы подписи читались; если постер не отдаёт пиксели, остаётся акцент, выбранный выше.',
+en: 'Inside an open film card the colour of buttons, focus rings and highlights is taken from the poster. On the home screen the poster under focus changes the page background, the hero veil and the plate under the focused card — at once, together with the film in the hero, in a single change; holding an arrow key computes nothing. A dark colour is lightened so that labels stay readable; if the poster does not give up its pixels, the accent chosen above stays in place.',
+uk: 'У відкритій картці колір кнопок, кілець фокуса та підсвічувань береться з постера фільму. На головній від постера під фокусом змінюються тло сторінки, вуаль кадру та підкладка картки під фокусом — одразу разом із фільмом у герої, однією зміною; при затиснутій стрілці нічого не рахується. Темний колір плагін висвітлює, щоб підписи читалися; якщо постер не віддає пікселі, залишається акцент, вибраний вище.'
 },
 
 
