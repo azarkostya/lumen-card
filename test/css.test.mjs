@@ -3567,6 +3567,11 @@ test('правка 2026-09-26: «Размер плиток в рядах» — �
     withStorage({ lumen_tile_size: tile }, (LC) => {
       const rule = findDecl(LC.buildCss(), (sel) => sel === '.lumen-grid__items .lumen-gcard');
       assert.ok(rule.indexOf(') / ' + cols + ');') !== -1, tile + ': в сетке не ' + cols + ' колонок: ' + rule);
+      /* Последняя карточка ряда без правого зазора — иначе ряд не
+         помещается и переносится (стенд: при пяти колонках в ряду было
+         четыре карточки, прибитое :nth-child(6n)). */
+      const edge = ruleSelectors(LC.buildCss()).filter((sel) => /^\.lumen-grid__items \.lumen-gcard:nth-child\(\d+n\)$/.test(sel));
+      assert.deepEqual(edge, ['.lumen-grid__items .lumen-gcard:nth-child(' + cols + 'n)'], tile + ': правый зазор снят не у последней карточки ряда');
       assert.equal(LC.hubEm.gcardCols, cols, tile + ': раскладка хаба видит другое число колонок');
     });
   }

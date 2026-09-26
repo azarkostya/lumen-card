@@ -3539,7 +3539,10 @@
     var gcardCols = GCARD_COLS + GCARD_COLS_TILE[tileKey()];
     LC.hubEm.gcardCols = gcardCols;
     css.push('.lumen-grid__items .lumen-gcard{-webkit-flex-shrink:0;flex-shrink:0;width:-webkit-calc((100% - ' + emCss(GRID_GAP * (gcardCols - 1)) + ') / ' + gcardCols + ');width:calc((100% - ' + emCss(GRID_GAP * (gcardCols - 1)) + ') / ' + gcardCols + ');margin:0 ' + emCss(GRID_GAP) + ' 1.4em 0;position:relative;-webkit-transition:-webkit-transform .28s cubic-bezier(.2,.9,.3,1.25);transition:transform .28s cubic-bezier(.2,.9,.3,1.25)}');
-    css.push('.lumen-grid__items .lumen-gcard:nth-child(6n){margin-right:0}');
+    /* Правка 2026-09-26: правый зазор снят у ПОСЛЕДНЕЙ карточки ряда — при
+       числе колонок из «Размера плиток» (стенд: с прибитым 6n при пяти
+       колонках пятая карточка переносилась, и в ряду стояло четыре). */
+    css.push('.lumen-grid__items .lumen-gcard:nth-child(' + gcardCols + 'n){margin-right:0}');
     css.push('.lumen-grid .lumen-gcard .card__view{margin-bottom:.5em;border-radius:.31em;background-color:' + P.panel + '}');
     css.push('.lumen-grid .lumen-gcard .card__img{border-radius:.31em;background-color:' + P.panelLo + '}');
     /* Постеры: постер сетки кадрируется по тем же правилам, что постер ряда
