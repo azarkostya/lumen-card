@@ -966,6 +966,55 @@ return r + ',' + g + ',' + b;
 
 
 
+
+
+
+
+function relLum(hex) {
+var rgb = hexToRgb(hex).split(',');
+var out = [0.2126, 0.7152, 0.0722];
+var sum = 0;
+for (var i = 0; i < 3; i++) {
+var c = rgb[i] / 255;
+sum += out[i] * (c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4));
+}
+return sum;
+}
+
+function mixHex(a, b, t) {
+var x = hexToRgb(a).split(',');
+var y = hexToRgb(b).split(',');
+var out = '#';
+for (var i = 0; i < 3; i++) {
+var v = Math.round(+x[i] + (y[i] - x[i]) * t);
+out += (v < 16 ? '0' : '') + v.toString(16).toUpperCase();
+}
+return out;
+}
+
+function liftTo(color, floor, toward) {
+var need = relLum(floor);
+if (relLum(color) >= need) return color;
+if (relLum(toward) < need) return toward;
+var lo = 0;
+var hi = 1;
+for (var i = 0; i < 12; i++) {
+var mid = (lo + hi) / 2;
+if (relLum(mixHex(color, toward, mid)) >= need) hi = mid;
+else lo = mid;
+}
+var out = mixHex(color, toward, hi);
+
+
+while (relLum(out) < need && hi < 1) {
+hi = Math.min(1, hi + 1 / 255);
+out = mixHex(color, toward, hi);
+}
+return out;
+}
+
+
+
 var SPICE_RGB = hexToRgb(C.spice);
 
 
@@ -6294,8 +6343,15 @@ css.push('.lumen-main .lumen-badge-bar > div{height:100%;border-radius:.09em;bac
 
 
 
+
+
+
+
+
+
 if (LC.badgesMode() === 'caption') {
-css.push('.lumen-main .card__age .lumen-badge-cap,.lumen-grid .card__age .lumen-badge-cap{font-weight:600;color:' + A + '}');
+css.push('.lumen-main .card__age .lumen-badge-cap{font-weight:600;color:' + liftTo(A, P.soft, P.text) + '}');
+css.push('.lumen-grid .card__age .lumen-badge-cap{font-weight:600;color:' + A + '}');
 }
 
 

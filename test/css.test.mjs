@@ -8109,3 +8109,41 @@ test('сверка: метка «Осталось N мин» переносит�
   const rule = findDecl(css, (sel) => sel === '.lumen-main .lumen-badge--left');
   assert.ok(rule && rule.indexOf('white-space:normal') !== -1, 'метка остатка режется многоточием: ' + rule);
 });
+
+/* Сверка 2026-09-26: метка «в подписи» (вид меток caption) красится
+   акцентом, а подпись вокруг неё — P.soft, под который подобран цвет рядов
+   (≥ 4.5:1 на смеси с белым кадром). Акцент темнее P.soft: на самом
+   светлом цвете рядов над белым кадром метка давала ~3.9:1. Цвет метки на
+   главной — акцент, осветлённый к P.text ровно до яркости P.soft (не
+   темнее её), — тогда он читается везде, где читается подпись. В сетке
+   подборки фон — тёмная страница, там метка остаётся акцентом. */
+test('сверка: метка в подписи на главной — ≥ 4.5:1 на самом светлом цвете рядов над белым кадром, при любом акценте', () => {
+  const W = 960;
+  const H = 540;
+  const hex = (rgb) => '#' + rgb.map((v) => ('0' + Math.round(v).toString(16)).slice(-2).toUpperCase()).join('');
+  const WHITE = [255, 255, 255];
+  const bad = [];
+  for (const theme of ['warm', 'black']) {
+    const rows = lightestRows(theme);
+    for (const accent of ['sand', 'copper', 'wine', 'garnet', 'mint', 'emerald', 'ice', 'lavender', 'graphite']) {
+      const res = withStorage({ lumen_theme: theme, lumen_card_accent: accent, lumen_badges: 'caption' }, (LC) => {
+        LC.accent = { tint: () => null, rowsTint: () => rows };
+        return { built: LC.buildCss(), P: LC.tokens() };
+      });
+      const main = findDecl(res.built, (sel) => sel === '.lumen-main .card__age .lumen-badge-cap');
+      const grid = findDecl(res.built, (sel) => sel === '.lumen-grid .card__age .lumen-badge-cap');
+      assert.ok(main && grid, theme + '/' + accent + ': правил метки в подписи нет');
+      const cap = /color:(#[0-9A-F]{6})/i.exec(main)[1];
+      assert.ok(luminance(cap) >= luminance(res.P.soft) - 1e-9, theme + '/' + accent + ': метка темнее подписи — ' + cap + ' против ' + res.P.soft);
+      assert.equal(/color:(#[0-9A-F]{6})/i.exec(grid)[1].toUpperCase(), res.P.accent.toUpperCase(), theme + '/' + accent + ': в сетке метка — акцент');
+      const at = heroPixel(res.built, W, H, lampaEm(W, 'normal'));
+      const box = rowLayout(res.built, W, H, { more: true, interface: 'normal' });
+      let low = 99;
+      for (let y = box.captionTopDown; y <= Math.min(box.textBottomDown, H - 0.5); y += 2) {
+        for (let x = 0.5; x < W; x += 20) low = Math.min(low, contrast(cap, hex(at(x, y, false, WHITE))));
+      }
+      if (low < 4.5) bad.push(theme + '/' + accent + ' ' + cap + ': ' + low.toFixed(2) + ':1');
+    }
+  }
+  assert.deepEqual(bad, []);
+});

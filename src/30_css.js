@@ -87,6 +87,55 @@
     return r + ',' + g + ',' + b;
   }
 
+  /* Сверка 2026-09-26: относительная яркость WCAG цвета '#RRGGBB' и цвет,
+     поднятый к toward ровно до яркости floor (не темнее её). Нужны метке
+     «в подписи» (правило .lumen-badge-cap ниже): подпись вокруг неё —
+     P.soft, под который подобран цвет рядов, и метка не темнее подписи
+     читается везде, где читается подпись. Перебор половинным делением доли
+     смеси: яркость монотонна по ней, двенадцати шагов хватает до 1/4096. */
+  function relLum(hex) {
+    var rgb = hexToRgb(hex).split(',');
+    var out = [0.2126, 0.7152, 0.0722];
+    var sum = 0;
+    for (var i = 0; i < 3; i++) {
+      var c = rgb[i] / 255;
+      sum += out[i] * (c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4));
+    }
+    return sum;
+  }
+
+  function mixHex(a, b, t) {
+    var x = hexToRgb(a).split(',');
+    var y = hexToRgb(b).split(',');
+    var out = '#';
+    for (var i = 0; i < 3; i++) {
+      var v = Math.round(+x[i] + (y[i] - x[i]) * t);
+      out += (v < 16 ? '0' : '') + v.toString(16).toUpperCase();
+    }
+    return out;
+  }
+
+  function liftTo(color, floor, toward) {
+    var need = relLum(floor);
+    if (relLum(color) >= need) return color;
+    if (relLum(toward) < need) return toward;
+    var lo = 0;
+    var hi = 1;
+    for (var i = 0; i < 12; i++) {
+      var mid = (lo + hi) / 2;
+      if (relLum(mixHex(color, toward, mid)) >= need) hi = mid;
+      else lo = mid;
+    }
+    var out = mixHex(color, toward, hi);
+    /* Округление каналов до целых могло уронить яркость на волосок ниже
+       порога — добираем шагом в 1/255 доли. */
+    while (relLum(out) < need && hi < 1) {
+      hi = Math.min(1, hi + 1 / 255);
+      out = mixHex(color, toward, hi);
+    }
+    return out;
+  }
+
   /* Акцент «спайс» (чип реакций, тег «следующая серия») — фиксированный цвет,
      не зависит от темы, поэтому переводится в rgb один раз при загрузке модуля. */
   var SPICE_RGB = hexToRgb(C.spice);
@@ -5417,8 +5466,15 @@
        Своего кегля метке не задаётся — он общий с подписью, то есть уже по
        минимуму tvOS; отличают её вес и цвет акцента. Обрезку многоточием
        делает сама подпись (правила .card__age выше), поэтому здесь её нет. */
+    /* Сверка 2026-09-26: на главной метка — акцент, поднятый к P.text до
+       яркости подписи P.soft (liftTo): акцент темнее подписи, и на самом
+       светлом цвете рядов над белым кадром он давал ~3.9:1 при пороге 4.5,
+       под который подобран цвет рядов (сторож — P.soft). Тон акцента
+       остаётся, светлеет только тёмный. В сетке подборки фон — тёмная
+       страница, там метка — сам акцент. */
     if (LC.badgesMode() === 'caption') {
-      css.push('.lumen-main .card__age .lumen-badge-cap,.lumen-grid .card__age .lumen-badge-cap{font-weight:600;color:' + A + '}');
+      css.push('.lumen-main .card__age .lumen-badge-cap{font-weight:600;color:' + liftTo(A, P.soft, P.text) + '}');
+      css.push('.lumen-grid .card__age .lumen-badge-cap{font-weight:600;color:' + A + '}');
     }
 
     /* --- Task 25: скелетоны ---
