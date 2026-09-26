@@ -1768,3 +1768,81 @@ test('css: injectCss — false, когда таблица стилей не со
     assert.equal(ctx.LC.injectCss(), true);
   });
 });
+
+/* ====================================================================== */
+/* Следующий раунд, п.3: окончательный ответ «цвета нет» и ключ с          */
+/* источником.                                                             */
+/* ====================================================================== */
+
+/* Серый постер (dim): пиксели прочитаны, своего цвета нет — это ответ, а
+   не сбой. Прежде он считался провалом (FAIL_LIMIT), и предрасчёт соседей
+   грузил и разбирал такой постер до трёх раз. */
+const GRAY_POSTER = pixels([{ r: 128, g: 128, b: 128, n: 256 }]);
+
+test('п.3: серый постер (dim) — окончательный ответ, второй раз из кэша, без картинки', () => {
+  const dom = fakeDom({ data: GRAY_POSTER });
+  withDom(dom, () => {
+    const api = fresh().api;
+    const url = 'https://image.tmdb.org/t/p/w185/gray.jpg';
+    api.fromImage(url, () => {});
+    dom.state.images[0].onload();
+    assert.equal(api.status().state, 'dim', 'подготовка: цвета нет, пиксели прочитаны');
+    let second = 'нет ответа';
+    const handle = api.fromImage(url, (rgb) => { second = rgb; });
+    assert.equal(dom.state.images.length, 1, 'вторая картинка не создавалась');
+    assert.equal(dom.state.reads, 1, 'пиксели второй раз не читались');
+    assert.equal(second, null, 'ответ — «цвета нет», синхронно');
+    assert.equal(handle, null);
+  });
+});
+
+test('п.3: фильм с серым постером — известен после первого расчёта; предрасчёт и показ картинку не повторяют', () => {
+  const dom = fakeDom({ data: GRAY_POSTER });
+  withDom(dom, () => {
+    const ctx = accentCtx({ prefs: {} });
+    const gray = { id: 5, title: 'Серый', poster_path: '/g.jpg' };
+    let done = 0;
+    ctx.LC.accent.prepare(gray, () => { done++; });
+    dom.state.images[0].onload();
+    assert.equal(done, 1);
+    assert.equal(ctx.LC.accent.known(gray), true, 'ответ «цвета нет» — тоже ответ');
+    assert.equal(ctx.LC.accent.prepare(gray, () => { done++; }), null);
+    assert.equal(done, 2, 'предрасчёт отвечает сразу');
+    ctx.LC.accent.applyFor({ id: 5, title: 'Серый', poster_path: '/g-en.jpg' });
+    assert.equal(dom.state.images.length, 1, 'ни предрасчёт, ни показ картинку не повторили');
+    assert.equal(ctx.LC.accent.dominant(), null, 'акцент — из настроек');
+  });
+});
+
+test('п.3: сбой картинки ответом не считается — фильм не «известен», попытка повторяется', () => {
+  const dom = fakeDom({ datas: [COLD_POSTER] });
+  withDom(dom, () => {
+    const ctx = accentCtx({ prefs: {} });
+    const film = { id: 6, title: 'Сбой', poster_path: '/f.jpg' };
+    ctx.LC.accent.applyFor(film);
+    dom.state.images[0].onerror();
+    warnLog = [];
+    assert.equal(ctx.LC.accent.known(film), false);
+    ctx.LC.accent.applyFor(film);
+    assert.equal(dom.state.images.length, 2, 'после сбоя — новая попытка');
+  });
+});
+
+/* Ключ цвета фильма — источник, тип и id: у чужого источника (не TMDB и
+   не CUB, который проксирует TMDB) свой ряд id, и совпадение номеров
+   красило бы фильм чужим цветом. */
+test('п.3: ключ цвета — с источником; cub и tmdb — одно пространство, чужой источник — своё', () => {
+  const dom = fakeDom({ datas: [WARM_POSTER, COLD_POSTER] });
+  withDom(dom, () => {
+    const ctx = accentCtx({ prefs: {} });
+    ctx.LC.accent.applyFor({ id: 7, title: 'Фильм', poster_path: '/m.jpg', source: 'cub' });
+    dom.state.images[0].onload();
+    assert.equal(ctx.LC.accent.known({ id: 7, title: 'Фильм', source: 'tmdb' }), true, 'CUB — те же id TMDB');
+    assert.equal(ctx.LC.accent.known({ id: 7, title: 'Фильм' }), true, 'без source — TMDB');
+    assert.equal(ctx.LC.accent.known({ id: 7, title: 'Другой', source: 'ivi' }), false, 'чужой источник — свой ряд id');
+    ctx.LC.accent.applyFor({ id: 7, title: 'Другой', poster_path: '/o.jpg', source: 'ivi' });
+    assert.equal(dom.state.images.length, 2, 'чужой источник считается своим постером');
+    dom.state.images[1].onload();
+    assert.equal(paintedHex(dom), COLD_HEX);
+  });
+});

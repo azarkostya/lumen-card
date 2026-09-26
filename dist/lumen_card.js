@@ -28902,7 +28902,12 @@ function cacheGet(url) {
 return Object.prototype.hasOwnProperty.call(cache, url) ? cache[url] : null;
 }
 
-function cachePut(url, rgb, fails) {
+
+
+
+
+
+function cachePut(url, rgb, fails, dim) {
 if (!Object.prototype.hasOwnProperty.call(cache, url)) {
 cache_keys.push(url);
 while (cache_keys.length > CACHE_LIMIT) {
@@ -28910,7 +28915,7 @@ var old = cache_keys.shift();
 delete cache[old];
 }
 }
-cache[url] = { rgb: rgb || null, fails: fails || 0 };
+cache[url] = { rgb: rgb || null, fails: fails || 0, dim: !!dim };
 }
 
 
@@ -28974,13 +28979,15 @@ return null;
 
 
 
+
+
 function fromImage(url, cb, alt) {
 if (!url) { cb(null); return null; }
 var seen = cacheGet(url);
 
 
 
-if (seen && (seen.rgb || seen.fails >= FAIL_LIMIT)) { cb(seen.rgb); return null; }
+if (seen && (seen.rgb || seen.dim || seen.fails >= FAIL_LIMIT)) { cb(seen.rgb, seen.dim); return null; }
 var doc = typeof document !== 'undefined' ? document : null;
 if (!doc || typeof Image === 'undefined') { cb(null); return null; }
 
@@ -29014,7 +29021,7 @@ pending_count--;
 detach();
 }
 
-function done(rgb) {
+function done(rgb, dim) {
 if (!live) return;
 release();
 
@@ -29022,12 +29029,13 @@ release();
 
 
 
-if (rgb) cachePut(url, rgb, 0);
+
+if (rgb || dim) cachePut(url, rgb, 0, dim);
 else {
 var prev = cacheGet(url);
 cachePut(url, null, (prev ? prev.fails : 0) + 1);
 }
-cb(rgb);
+cb(rgb, !!dim);
 }
 
 function fail(src, state) {
@@ -29047,7 +29055,12 @@ done(null);
 function start(src) {
 var el = new Image();
 img = el;
-el.onload = function () { done(read(el, doc, src)); };
+
+
+el.onload = function () {
+var rgb = read(el, doc, src);
+done(rgb, !rgb && last_state === 'dim');
+};
 el.onerror = function () { fail(src, 'load'); };
 watchdog = setTimeout(function () {
 watchdog = 0;
@@ -29146,6 +29159,7 @@ var themeTokens = null;
 
 var source = null;
 var task = null;
+
 
 
 
@@ -29488,10 +29502,15 @@ apply(null, null, true);
 
 
 
+
+
+
+
 function filmKey(movie) {
 if (!movie || movie.id == null) return '';
 var media = movie.media_type || (movie.name ? 'tv' : 'movie');
-return media + '/' + movie.id;
+var ns = (!movie.source || movie.source === 'cub') ? 'tmdb' : '' + movie.source;
+return ns + ':' + media + '/' + movie.id;
 }
 
 function knownKey(key) {
@@ -29510,11 +29529,12 @@ films[key] = rgb;
 
 
 
-function settle(id, run, key, rgb) {
+
+function settle(id, run, key, rgb, dim) {
 if (flight[id] !== run) return;
 delete flight[id];
 var dom = quantize(rgb);
-if (dom && key) keepFilm(key, dom);
+if (key && (dom || dim)) keepFilm(key, dom);
 var subs = run.subs;
 run.subs = [];
 for (var i = 0; i < subs.length; i++) {
@@ -29569,7 +29589,7 @@ run.subs.push(sub);
 } else {
 run = { subs: [sub], handle: null };
 flight[id] = run;
-run.handle = LC.color.fromImage(url, function (rgb) { settle(id, run, key, rgb); }, '');
+run.handle = LC.color.fromImage(url, function (rgb, dim) { settle(id, run, key, rgb, dim); }, '');
 }
 if (!sub.cb) return null;
 return { cancel: function () { drop(id, sub); } };

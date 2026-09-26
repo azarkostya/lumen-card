@@ -481,7 +481,12 @@
       return Object.prototype.hasOwnProperty.call(cache, url) ? cache[url] : null;
     }
 
-    function cachePut(url, rgb, fails) {
+    /* Следующий раунд, п.3: dim — окончательный ответ «своего цвета у
+       постера нет» (пиксели прочитаны). Он не сбой: картинка та же, и
+       повторный разбор дал бы тот же серый. Прежде такой ответ шёл
+       счётчиком неудач, и предрасчёт соседей (src/58_prefetch.js) грузил и
+       разбирал серый постер до FAIL_LIMIT раз. */
+    function cachePut(url, rgb, fails, dim) {
       if (!Object.prototype.hasOwnProperty.call(cache, url)) {
         cache_keys.push(url);
         while (cache_keys.length > CACHE_LIMIT) {
@@ -489,7 +494,7 @@
           delete cache[old];
         }
       }
-      cache[url] = { rgb: rgb || null, fails: fails || 0 };
+      cache[url] = { rgb: rgb || null, fails: fails || 0, dim: !!dim };
     }
 
     /* Чтение пикселей уменьшенной копии. SecurityError бросает getImageData,
@@ -545,6 +550,8 @@
        {cancel} для незавершённого запроса — уход с карточки обязан её
        дёрнуть, иначе поздний ответ применил бы чужой акцент. Ответ из кэша
        приходит синхронно, и ручки тогда нет (null).
+       Второй аргумент колбэка (п.3) — true, если ответ null окончательный:
+       постер прочитан, своего цвета у него нет (dim).
 
        alt (Task 35) — запасной адрес той же картинки, к которому запрос
        уходит ОДИН раз, если первый не загрузился. Нужен из-за TMDB-прокси
@@ -559,7 +566,7 @@
       /* Готовый цвет отдаётся сразу; запомненный отказ — только когда попыток
          было достаточно (FAIL_LIMIT выше). Пока их меньше, запись в кэше
          хранит счётчик, а не ответ, и за постером идём снова. */
-      if (seen && (seen.rgb || seen.fails >= FAIL_LIMIT)) { cb(seen.rgb); return null; }
+      if (seen && (seen.rgb || seen.dim || seen.fails >= FAIL_LIMIT)) { cb(seen.rgb, seen.dim); return null; }
       var doc = typeof document !== 'undefined' ? document : null;
       if (!doc || typeof Image === 'undefined') { cb(null); return null; }
 
@@ -593,20 +600,21 @@
         detach();
       }
 
-      function done(rgb) {
+      function done(rgb, dim) {
         if (!live) return;
         release();
         /* Task 35: удача кладётся ответом, неудача — счётчиком попыток.
            Прежде отказ запоминался ответом сразу, и одна неудачная загрузка
            (сеть моргнула, прокси ответил 502) закрывала постеру дорогу к
            цвету до конца сеанса. Счётчик читается заново: между стартом и
-           ответом запись могли вытеснить. */
-        if (rgb) cachePut(url, rgb, 0);
+           ответом запись могли вытеснить.
+           П.3: «своего цвета нет» (dim) — тоже ответ, а не неудача. */
+        if (rgb || dim) cachePut(url, rgb, 0, dim);
         else {
           var prev = cacheGet(url);
           cachePut(url, null, (prev ? prev.fails : 0) + 1);
         }
-        cb(rgb);
+        cb(rgb, !!dim);
       }
 
       function fail(src, state) {
@@ -626,7 +634,12 @@
       function start(src) {
         var el = new Image();
         img = el;
-        el.onload = function () { done(read(el, doc, src)); };
+        /* П.3: read() помечает исход синхронно (mark), поэтому last_state
+           сразу после него — исход этого чтения. */
+        el.onload = function () {
+          var rgb = read(el, doc, src);
+          done(rgb, !rgb && last_state === 'dim');
+        };
         el.onerror = function () { fail(src, 'load'); };
         watchdog = setTimeout(function () {
           watchdog = 0;
@@ -762,7 +775,8 @@
        открытой карточке, и его poster_path там может быть разным (другой
        язык, другой список) — «пересчёт из другой картинки» перекрасил бы
        фильм, уже показанный своим цветом. Первый посчитанный цвет и есть
-       цвет фильма. Хранится округлённая доминанта (quantize ниже).
+       цвет фильма. Хранится округлённая доминанта (quantize ниже); null —
+       окончательный ответ «своего цвета у постера нет» (п.3, dim).
        FILM_LIMIT — вытеснение FIFO, как у кэша адресов в LC.color; запись —
        три числа, и двухсот хватает на долгий проход по главной. */
     var FILM_LIMIT = 200;
@@ -1066,11 +1080,16 @@
     }
 
     /* Тип фильма — то же правило, что у LC.hero.mediaOf (src/48_hero.js) и
-       ключа деталей в src/58_prefetch.js: у сериала TMDB есть name. */
+       ключа деталей в src/58_prefetch.js: у сериала TMDB есть name.
+       Следующий раунд, п.3: и источник карточки — у чужого источника свой
+       ряд id, и совпадение номеров красило бы фильм чужим цветом. CUB
+       проксирует TMDB (те же id), карточка без source — наш путь TMDB:
+       оба — 'tmdb', как у дедупликации главной (cardKey, src/44_rows.js). */
     function filmKey(movie) {
       if (!movie || movie.id == null) return '';
       var media = movie.media_type || (movie.name ? 'tv' : 'movie');
-      return media + '/' + movie.id;
+      var ns = (!movie.source || movie.source === 'cub') ? 'tmdb' : '' + movie.source;
+      return ns + ':' + media + '/' + movie.id;
     }
 
     function knownKey(key) {
@@ -1085,15 +1104,16 @@
       films[key] = rgb;
     }
 
-    /* Ответ расчёта: цвет фильма ложится в кэш (только удача — отказ
-       считает LC.color по адресу, со своими FAIL_LIMIT попытками) и
-       раздаётся всем ждущим. Хранится округлённая доминанта: иначе «тот же
-       цвет» не совпал бы сам с собой при возврате на карточку. */
-    function settle(id, run, key, rgb) {
+    /* Ответ расчёта: цвет фильма ложится в кэш (удача и окончательное «цвета
+       нет» — dim, п.3; сбой считает LC.color по адресу, со своими
+       FAIL_LIMIT попытками) и раздаётся всем ждущим. Хранится округлённая
+       доминанта: иначе «тот же цвет» не совпал бы сам с собой при возврате
+       на карточку. */
+    function settle(id, run, key, rgb, dim) {
       if (flight[id] !== run) return;
       delete flight[id];
       var dom = quantize(rgb);
-      if (dom && key) keepFilm(key, dom);
+      if (key && (dom || dim)) keepFilm(key, dom);
       var subs = run.subs;
       run.subs = [];
       for (var i = 0; i < subs.length; i++) {
@@ -1148,7 +1168,7 @@
       } else {
         run = { subs: [sub], handle: null };
         flight[id] = run;
-        run.handle = LC.color.fromImage(url, function (rgb) { settle(id, run, key, rgb); }, '');
+        run.handle = LC.color.fromImage(url, function (rgb, dim) { settle(id, run, key, rgb, dim); }, '');
       }
       if (!sub.cb) return null;
       return { cancel: function () { drop(id, sub); } };
