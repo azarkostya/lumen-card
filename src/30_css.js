@@ -6197,8 +6197,16 @@
        показывает, где фокус, и отобрать его не может (план Task 27 Step 2 —
        «не перехватывать сами нажатия»). */
     css.push('.lumen-minimap{position:fixed;right:' + EDGE + 'em;top:11.40em;width:13.15em;padding:1.05em .96em;border-radius:.53em;background:' + P.plate + ';border:.04em solid ' + P.line + ';z-index:80;pointer-events:none}');
-    css.push('.lumen-minimap .lumen-minimap__head{font-family:' + FB + ';font-weight:500;font-size:1.01em;line-height:1;letter-spacing:.12em;color:' + P.smoke + ';margin-bottom:.61em}');
-    css.push('.lumen-minimap .lumen-minimap__row{font-family:' + FB + ';font-weight:500;font-size:1.01em;line-height:1.15;color:' + P.smoke + ';min-height:1.76em;padding:.27em .53em;border-radius:.30em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}');
+    /* Раунд правок финальной проверки, A5 (code-perf, M2): текст панели —
+       P.soft, а не P.smoke. Панель лежит на подложке P.plate (.85 от
+       подкрашенного фона) поверх кадра героя, и над белым кадром P.smoke
+       давал 1.98–3.55:1. P.muted, предложенный ревью, держит 4.5:1 без
+       подкраски (4.92 тёплая, 6.24 чёрная), но с самой светлой подкраской
+       тёплой темы — 3.75:1. P.soft — тот же цвет, что мета героя на том
+       же кадре: не ниже 6.95:1 во всех темах, с подкраской и без. Активная
+       строка по-прежнему выделена акцентом, подложкой и полосой. */
+    css.push('.lumen-minimap .lumen-minimap__head{font-family:' + FB + ';font-weight:500;font-size:1.01em;line-height:1;letter-spacing:.12em;color:' + P.soft + ';margin-bottom:.61em}');
+    css.push('.lumen-minimap .lumen-minimap__row{font-family:' + FB + ';font-weight:500;font-size:1.01em;line-height:1.15;color:' + P.soft + ';min-height:1.76em;padding:.27em .53em;border-radius:.30em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}');
     /* Активная строка — тот же паттерн, что у фокуса пункта меню (§0.13):
        подложка приглушённым акцентом и полоса слева его же цветом. */
     css.push('.lumen-minimap .lumen-minimap__row--on{background:rgba(' + A_RGB + ',.14);border-left:.16em solid ' + A + ';color:' + A + ';font-weight:600;padding-left:.37em}');

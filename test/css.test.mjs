@@ -8256,6 +8256,35 @@ test('D1: неактивные вкладки и чипы рулетки, хаб
   assert.deepEqual(bad, []);
 });
 
+/* Раунд правок финальной проверки, A5 (замер code-perf, M2): мини-карта
+   рядов (удержание ↑/↓ на главной) — заголовок «Ряды · N» и строки лежат
+   на подложке P.plate (.85 от подкрашенного фона) поверх кадра героя.
+   P.smoke давал на ней над белым кадром 1.98–3.55:1, P.muted — 3.75 с
+   самой светлой подкраской тёплой темы; P.soft — не ниже 4.5:1 в обеих
+   темах, с подкраской и без, с плотными подложками. */
+test('финал A5: мини-карта рядов — заголовок и строки не ниже 4.5:1 на подложке над белым кадром', () => {
+  const variants = [
+    { name: 'тёплая', storage: {}, tint: null },
+    { name: 'тёплая, подкраска', storage: {}, tint: lightestTint('warm') },
+    { name: 'чёрная', storage: { lumen_theme: 'black' }, tint: null },
+    { name: 'чёрная, подкраска', storage: { lumen_theme: 'black' }, tint: lightestTint('black') },
+    { name: 'тёплая, плотные подложки', storage: { lumen_solid: true }, tint: lightestTint('warm') }
+  ];
+  const bad = [];
+  for (const v of variants) {
+    const built = withTint(v.storage, v.tint, (LC) => LC.buildCss());
+    const panel = declProp(findDecl(built, (sel) => sel === '.lumen-minimap'), 'background');
+    assert.ok(panel, v.name + ': у мини-карты нет подложки');
+    const under = rgbaOver(panel, '#FFFFFF');
+    for (const sel of ['.lumen-minimap .lumen-minimap__head', '.lumen-minimap .lumen-minimap__row']) {
+      const color = declProp(findDecl(built, (s) => s === sel), 'color');
+      const got = contrast(color, under);
+      if (got < 4.5) bad.push(v.name + ': ' + sel + ' ' + color + ' на ' + under + ' — ' + got.toFixed(2));
+    }
+  }
+  assert.deepEqual(bad, []);
+});
+
 /* Полное ревью c644bfd, D5 (стенд, скрин p1tl_tv_title_hp1_crop.png): под
    обрезанным текстовым названием героя видны верхушки ВТОРОЙ строки —
    «Гарри Поттер…» с чёрточками под многоточием, «Vetenskapens…» с точками
