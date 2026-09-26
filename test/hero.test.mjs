@@ -7479,7 +7479,7 @@ test('C3: цвет кадра — prepareFrame при выборе кадра, a
   const env = makeEnv({
     accent: {
       applyFor: (card, full, frame) => { frames.push([card && card.id, full, frame]); },
-      prepareFrame: (path, done, card) => { prepared.push([path, card && card.id]); }
+      prepareFrame: (path, done, card, shown) => { prepared.push([path, card && card.id, shown]); }
     }
   });
   const main = makeMain();
@@ -7490,7 +7490,7 @@ test('C3: цвет кадра — prepareFrame при выборе кадра, a
   env.advance(SWAP);
   answerDetails(env);
   const img = frameImg(env, '/b1.jpg');
-  assert.deepEqual(prepared, [['/b1.jpg', 11]], 'цвет кадра заказан, пока едет w1280');
+  assert.deepEqual(prepared, [['/b1.jpg', 11, true]], 'цвет кадра заказан, пока едет w1280; кадр показа — без гейта отказов (rv5)');
   assert.deepEqual(frames, [], 'кадр ещё едет — цвета нет');
   img.onload();
   assert.deepEqual(frames, [[11, undefined, '/b1.jpg']], 'цвет — по кадру, в тике показа, без полной пересборки');

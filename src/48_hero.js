@@ -3119,9 +3119,10 @@
       state.framePath = model.backdrop || '';
       /* Раунд C, C3: цвет фильма — низ этого кадра (w300, src/57_color.js);
          заказ — сейчас, параллельно с w1280: к тику кадра он обычно готов.
-         В «Выкл» кадра нет, и цвета нет. */
+         В «Выкл» кадра нет, и цвета нет. Четвёртый аргумент — кадр показа:
+         гейта отказов подряд у него нет (ревью rv5, RV5-1). */
       if (state.framePath && motionMode() !== 'off' && LC.accent && typeof LC.accent.prepareFrame === 'function') {
-        try { LC.accent.prepareFrame(state.framePath, null, state.shownCard); } catch (eColor) { warn('hero: frame color failed', eColor); }
+        try { LC.accent.prepareFrame(state.framePath, null, state.shownCard, true); } catch (eColor) { warn('hero: frame color failed', eColor); }
       }
       loadFrame(model, captured, function (ok, kept) {
         if (gen !== captured || !state) return;

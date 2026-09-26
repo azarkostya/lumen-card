@@ -1646,27 +1646,34 @@ test('цвет сразу: фильм и сериал с одним id — ра�
    соседа. Последняя попытка кончилась отказом — соседей не считаем; цвет
    показанного фильма считается и тогда, и первая удача возвращает
    предрасчёт. */
-test('prepare: после отказа чтения соседи не считаются, первая удача показа возвращает предрасчёт', () => {
+/* Ревью rv5, RV5-1: гейт предрасчёта — три отказа чтения ПОДРЯД, а не
+   исход последнего чтения. */
+test('prepare: после трёх отказов чтения подряд соседи не считаются, первая удача показа возвращает предрасчёт', () => {
   const dom = fakeDom({ datas: [COLD_POSTER] });
   withDom(dom, () => {
     const ctx = accentCtx({ prefs: {} });
-    ctx.LC.accent.applyFor({ id: 1, title: 'Отказ', poster_path: '/fail.jpg' });
-    dom.state.images[0].onerror();
+    for (let i = 0; i < 3; i++) {
+      ctx.LC.accent.applyFor({ id: 10 + i, title: 'Отказ', poster_path: '/fail' + i + '.jpg' });
+      dom.state.images[dom.state.images.length - 1].onerror();
+    }
     assert.equal(ctx.api.status().state, 'load', 'подготовка: последняя попытка — отказ');
+    assert.equal(ctx.api.failRow(), 3, 'подготовка: три отказа подряд');
     warnLog = [];
 
     let done = 0;
+    const before = dom.state.images.length;
     assert.equal(ctx.LC.accent.prepare({ id: 2, title: 'Сосед', poster_path: '/n.jpg' }, () => { done++; }), null);
     assert.equal(done, 1, 'ответ сразу');
-    assert.equal(dom.state.images.length, 1, 'запроса соседа нет');
+    assert.equal(dom.state.images.length, before, 'запроса соседа нет');
 
     ctx.LC.accent.applyFor({ id: 3, title: 'Показ', poster_path: '/ok.jpg' });
-    assert.equal(dom.state.images.length, 2, 'показанный фильм считается и после отказа');
-    dom.state.images[1].onload();
+    assert.equal(dom.state.images.length, before + 1, 'показанный фильм считается и после отказов');
+    dom.state.images[before].onload();
     assert.equal(ctx.api.status().state, 'ok');
+    assert.equal(ctx.api.failRow(), 0, 'удача сбрасывает счёт');
 
     ctx.LC.accent.prepare({ id: 2, title: 'Сосед', poster_path: '/n.jpg' }, () => { done++; });
-    assert.equal(dom.state.images.length, 3, 'удача вернула предрасчёт');
+    assert.equal(dom.state.images.length, before + 2, 'удача вернула предрасчёт');
     warnLog = [];
   });
 });
@@ -2146,5 +2153,87 @@ test('C3: prepareFrame — цвет фильма уже решён или под
     still.LC.accent.prepareFrame('/g.jpg', () => { done++; }, { id: 9, poster_path: '/p9.jpg' });
     assert.equal(done, 3);
     assert.equal(dom.state.images.length, 1, '«Выкл» — ни одной картинки');
+  });
+});
+
+/* ====================================================================== */
+/* Ревью rv5 (хвост раунда C): репро ревьюера (scratchpad/final/rv5,       */
+/* zz_rv5_color) — с ожиданиями после правки.                               */
+/* ====================================================================== */
+
+/* RV5-1: один моргнувший постер соседа не лишает показанный фильм цвета
+   кадра. Кадр показа (shown) гейта не знает вовсе; дорожка соседей
+   перестаёт считать только после трёх отказов подряд. */
+test('RV5-a: одна неудачная загрузка чужого постера — показанный фильм заказывает w300 и закрепляется цветом кадра', () => {
+  const dom = fakeDom({ datas: [FRAME_RED] });
+  withDom(dom, () => {
+    const ctx = accentCtx({ prefs: {} });
+    ctx.LC.accent.applyFor({ id: 1, title: 'Прошлый', poster_path: '/old.jpg' });
+    dom.state.images[0].onerror();
+    const before = dom.state.images.length;
+    ctx.LC.accent.prepareFrame('/f.jpg', null, MOVIE, true);
+    assert.equal(dom.state.images.length, before + 1, 'w300 кадра заказан');
+    assert.equal(dom.state.images[before].src, 'https://image.tmdb.org/t/p/w300/f.jpg');
+    dom.state.images[before].onload();
+    ctx.LC.accent.applyFor(MOVIE, undefined, '/f.jpg');
+    assert.equal(dom.state.images.length, before + 1, 'постер не грузится');
+    assert.equal(paintedHex(dom), '#B82828', 'фильм — цветом низа кадра');
+  });
+});
+
+test('RV5-a: дорожка соседей — после одного отказа считает, после трёх подряд нет; кадр показа — всегда', () => {
+  const dom = fakeDom({ datas: [FRAME_RED] });
+  withDom(dom, () => {
+    const ctx = accentCtx({ prefs: {} });
+    ctx.LC.accent.applyFor({ id: 1, title: 'Отказ', poster_path: '/a.jpg' });
+    dom.state.images[0].onerror();
+    let n = dom.state.images.length;
+    ctx.LC.accent.prepareFrame('/n1.jpg', () => {}, { id: 21, poster_path: '/p21.jpg' });
+    assert.equal(dom.state.images.length, n + 1, 'один отказ — сосед считается');
+    dom.state.images[n].onerror();
+    ctx.LC.accent.applyFor({ id: 2, title: 'Отказ', poster_path: '/b.jpg' });
+    dom.state.images[dom.state.images.length - 1].onerror();
+    assert.equal(ctx.api.failRow(), 3, 'предусловие: три отказа подряд');
+    n = dom.state.images.length;
+    let done = 0;
+    assert.equal(ctx.LC.accent.prepareFrame('/n2.jpg', () => { done++; }, { id: 22, poster_path: '/p22.jpg' }), null);
+    assert.equal(done, 1);
+    assert.equal(dom.state.images.length, n, 'три отказа подряд — соседей не считаем');
+    ctx.LC.accent.prepareFrame('/gray-shown.jpg', null, { id: 23, poster_path: '/p23.jpg' }, true);
+    assert.equal(dom.state.images.length, n + 1, 'кадр показа — считается и тогда');
+    dom.state.images[n].onerror();
+    assert.equal(dom.state.images.length, n + 2, 'кадр показа не дал цвета — его постер заказан и после отказов подряд');
+    assert.equal(dom.state.images[n + 1].src, 'https://image.tmdb.org/t/p/w185/p23.jpg');
+    n += 2;
+    ctx.LC.accent.prepareFrame('/shown.jpg', null, MOVIE, true);
+    assert.equal(dom.state.images.length, n + 1);
+    dom.state.images[n].onload();
+    assert.equal(ctx.api.failRow(), 0, 'удача сбрасывает счёт');
+    ctx.LC.accent.prepareFrame('/n2.jpg', () => {}, { id: 22, poster_path: '/p22.jpg' });
+    assert.equal(dom.state.images.length, n + 2, 'и соседи снова считаются');
+  });
+});
+
+/* RV5-2: поздний ответ постера не переписывает цвет фильма, закреплённый
+   кадром; «Назад» и карточка берут закреплённый. */
+test('RV5-b: постер фильма в пути, показ закрепил цвет кадра — поздний постер цвет фильма не меняет', () => {
+  const dom = fakeDom({ datas: [FRAME_GRAY, FRAME_RED, POSTER_BLUE] });
+  withDom(dom, () => {
+    const ctx = accentCtx({ prefs: {} });
+    ctx.LC.accent.prepareFrame('/gray.jpg', null, MOVIE);
+    dom.state.images[0].onload();
+    assert.equal(dom.state.images[1].src, 'https://image.tmdb.org/t/p/w185/p7.jpg', 'серый низ — постер в пути');
+    ctx.LC.accent.prepareFrame('/red.jpg', null, MOVIE, true);
+    const red = dom.state.images[2];
+    assert.equal(red.src, 'https://image.tmdb.org/t/p/w300/red.jpg');
+    red.onload();
+    ctx.LC.accent.applyFor(MOVIE, undefined, '/red.jpg');
+    assert.equal(paintedHex(dom), '#B82828');
+    dom.state.images[1].onload();
+    const paints = recordPaints(dom);
+    ctx.LC.accent.applyFor(MOVIE, true);
+    ctx.LC.accent.applyFor(MOVIE);
+    assert.deepEqual(paints, [], 'цвет фильма сменился после закрепления: ' + paints.join(','));
+    assert.equal(ctx.LC.color.hex(ctx.LC.accent.dominant()), '#B82828', 'карточка и возврат — цвет кадра');
   });
 });

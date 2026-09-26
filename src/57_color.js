@@ -131,6 +131,10 @@
        последней попытки. */
     var last_state = 'idle';
     var last_url = '';
+    /* Ревью rv5, RV5-1: отказов чтения ПОДРЯД (сеть, таймаут, CORS, пустая
+       картинка, нет контекста); удача и «своего цвета нет» (dim) сбрасывают
+       счёт. По нему LC.accent решает, считать ли цвет заранее (readable). */
+    var fail_row = 0;
 
     /* Сколько ждём ответа за картинкой. Таймаута тут не было вовсе, и
        повисший запрос не давал НИКАКОГО ответа: колбэк не звался, pending
@@ -163,6 +167,7 @@
     function mark(state, url) {
       last_state = state;
       last_url = shortUrl(url);
+      fail_row = state === 'ok' || state === 'dim' ? 0 : fail_row + 1;
     }
 
     function clamp(v, lo, hi) {
@@ -705,6 +710,8 @@
       /* Task 60: чем кончилась последняя попытка и с какого адреса читались
          пиксели — для HUD (src/69_hud.js) и для живой проверки с пульта. */
       status: function () { return { state: last_state, url: last_url }; },
+      /* Ревью rv5, RV5-1: отказов чтения подряд (mark). */
+      failRow: function () { return fail_row; },
       LOAD_MS: LOAD_MS,
       cacheSize: function () { return cache_keys.length; },
       pending: function () { return pending_count; },
@@ -1185,7 +1192,11 @@
       if (flight[id] !== run) return;
       delete flight[id];
       var dom = quantize(rgb);
-      if (key && (dom || dim)) keepFilm(key, dom);
+      /* Ревью rv5, RV5-2: цвет фильма, закреплённый, пока шёл этот расчёт
+         (кадр в тике показа — applyFor), поздний ответ постера не
+         переписывает: ждущие получают закреплённый. */
+      if (key && knownKey(key)) dom = films[key];
+      else if (key && (dom || dim)) keepFilm(key, dom);
       var subs = run.subs;
       run.subs = [];
       for (var i = 0; i < subs.length; i++) {
@@ -1331,19 +1342,28 @@
        миг, что и текст. done() — цвет готов или отказ; синхронно, если
        считать нечего (подкраска выключена, цвет уже известен). Ручка
        {cancel} — для ухода с главной.
-       Последняя попытка LC.color кончилась отказом (прокси без
-       CORS-заголовка, сеть, таймаут — status() выше) — соседей не считаем:
-       при устойчивом отказе предрасчёт множил бы неудачные запросы и строки
-       в логе по числу соседей, а FAIL_LIMIT считается по адресу, то есть
-       по каждому соседу заново. Цвет показанного фильма считается и тогда
-       (applyFor), и первая удача возвращает предрасчёт. */
+       Чтения LC.color отказали READ_FAILS раз подряд (прокси без
+       CORS-заголовка, сеть, таймаут) — соседей не считаем: при устойчивом
+       отказе предрасчёт множил бы неудачные запросы и строки в логе по числу
+       соседей, а FAIL_LIMIT считается по адресу, то есть по каждому соседу
+       заново. Цвет показанного фильма считается и тогда (applyFor, кадр
+       показа — prepareFrame с shown), и первая удача возвращает предрасчёт.
+       Ревью rv5, RV5-1: прежде гейтом был исход ПОСЛЕДНЕГО чтения — один
+       моргнувший постер соседа лишал следующий показанный фильм цвета
+       кадра, и тот закреплялся постером до конца сеанса. */
+    var READ_FAILS = 3;
+
     function readable() {
-      var st = LC.color.status().state;
-      return st === 'idle' || st === 'ok' || st === 'dim';
+      return LC.color.failRow() < READ_FAILS;
     }
 
     function prepare(movie, done) {
-      if (!on() || knownKey(filmKey(movie)) || !readable()) {
+      return preparePoster(movie, done, false);
+    }
+
+    /* shown — фильм показан сейчас (кадр героя): гейта отказов нет. */
+    function preparePoster(movie, done, shown) {
+      if (!on() || knownKey(filmKey(movie)) || (!shown && !readable())) {
         done();
         return null;
       }
@@ -1356,11 +1376,14 @@
        соседей с уже решённым кадром (src/58_prefetch.js). Кадр цвета не дал
        — сразу постер фильма movie (он и станет цветом фильма), чтобы и
        запасной путь был готов к тику кадра. Цвет фильма уже решён — считать
-       нечего. done() — один раз; синхронно, если считать нечего. */
-    function prepareFrame(path, done, movie) {
+       нечего. done() — один раз; синхронно, если считать нечего.
+       shown (ревью rv5, RV5-1) — кадр показа героя: гейта отказов подряд
+       (readable) у него нет, как у applyFor показанного фильма; у дорожки
+       соседей — есть. */
+    function prepareFrame(path, done, movie, shown) {
       var fin = typeof done === 'function' ? done : function () {};
       var fk = frameKey(path);
-      if (!on() || !fk || (movie && knownKey(filmKey(movie))) || !readable()) {
+      if (!on() || !fk || (movie && knownKey(filmKey(movie))) || (!shown && !readable())) {
         fin();
         return null;
       }
@@ -1370,7 +1393,7 @@
           fin();
           return;
         }
-        chained = prepare(movie, fin);
+        chained = preparePoster(movie, fin, !!shown);
       });
       if (!own && !chained) return null;
       return {

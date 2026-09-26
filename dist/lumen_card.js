@@ -19597,8 +19597,9 @@ state.framePath = model.backdrop || '';
 
 
 
+
 if (state.framePath && motionMode() !== 'off' && LC.accent && typeof LC.accent.prepareFrame === 'function') {
-try { LC.accent.prepareFrame(state.framePath, null, state.shownCard); } catch (eColor) { warn('hero: frame color failed', eColor); }
+try { LC.accent.prepareFrame(state.framePath, null, state.shownCard, true); } catch (eColor) { warn('hero: frame color failed', eColor); }
 }
 loadFrame(model, captured, function (ok, kept) {
 if (gen !== captured || !state) return;
@@ -29088,6 +29089,10 @@ var last_url = '';
 
 
 
+var fail_row = 0;
+
+
+
 
 
 
@@ -29117,6 +29122,7 @@ return s.replace(/^[a-z]+:\/\//i, '');
 function mark(state, url) {
 last_state = state;
 last_url = shortUrl(url);
+fail_row = state === 'ok' || state === 'dim' ? 0 : fail_row + 1;
 }
 
 function clamp(v, lo, hi) {
@@ -29659,6 +29665,8 @@ fromImage: fromImage,
 
 
 status: function () { return { state: last_state, url: last_url }; },
+
+failRow: function () { return fail_row; },
 LOAD_MS: LOAD_MS,
 cacheSize: function () { return cache_keys.length; },
 pending: function () { return pending_count; },
@@ -30139,7 +30147,11 @@ function settle(id, run, key, rgb, dim) {
 if (flight[id] !== run) return;
 delete flight[id];
 var dom = quantize(rgb);
-if (key && (dom || dim)) keepFilm(key, dom);
+
+
+
+if (key && knownKey(key)) dom = films[key];
+else if (key && (dom || dim)) keepFilm(key, dom);
 var subs = run.subs;
 run.subs = [];
 for (var i = 0; i < subs.length; i++) {
@@ -30291,13 +30303,22 @@ if (!answered) task = handle;
 
 
 
+
+
+
+var READ_FAILS = 3;
+
 function readable() {
-var st = LC.color.status().state;
-return st === 'idle' || st === 'ok' || st === 'dim';
+return LC.color.failRow() < READ_FAILS;
 }
 
 function prepare(movie, done) {
-if (!on() || knownKey(filmKey(movie)) || !readable()) {
+return preparePoster(movie, done, false);
+}
+
+
+function preparePoster(movie, done, shown) {
+if (!on() || knownKey(filmKey(movie)) || (!shown && !readable())) {
 done();
 return null;
 }
@@ -30311,10 +30332,13 @@ return colorOf(movie, function () { done(); });
 
 
 
-function prepareFrame(path, done, movie) {
+
+
+
+function prepareFrame(path, done, movie, shown) {
 var fin = typeof done === 'function' ? done : function () {};
 var fk = frameKey(path);
-if (!on() || !fk || (movie && knownKey(filmKey(movie))) || !readable()) {
+if (!on() || !fk || (movie && knownKey(filmKey(movie))) || (!shown && !readable())) {
 fin();
 return null;
 }
@@ -30324,7 +30348,7 @@ if (dom || !movie) {
 fin();
 return;
 }
-chained = prepare(movie, fin);
+chained = preparePoster(movie, fin, !!shown);
 });
 if (!own && !chained) return null;
 return {
