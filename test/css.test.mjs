@@ -3619,23 +3619,29 @@ test('правка 2026-09-26: без сжатия под постером ст�
     'на телевизоре 16:9 при штатном масштабе включилась узкая колонка или полоса подгонки');
 });
 
-/* Правка 2026-09-26: «будет меньше анимаций». Переход между рядами главной
-   в «лёгком» и выключенном режиме — мгновенный: у вертикальной ленты рядов
-   (.scroll__body вертикального скролла .layer--wheight) снят штатный
-   переход Lampa .3s (vendor/lampa/css/app.css:2762-2769). В полном режиме —
-   только эта штатная прокрутка, герой при смене ряда не анимируется.
-   Горизонтальные ленты внутри рядов — свои .scroll__body глубже — правило не
-   задевает: селектор идёт детьми, а не потомками. */
-test('правка 2026-09-26: в lite и off лента рядов главной меняет ряд без перехода, в full — штатно', () => {
-  const sel = (mode) => 'body.lumen-motion-' + mode + ' .lumen-main .scroll.layer--wheight > .scroll__content > .scroll__body';
-  for (const mode of ['lite', 'off']) {
-    const d = findDecl(css, (s) => s === sel(mode));
-    assert.ok(d && /(?:^|;)transition:none(;|$)/.test(d) && d.indexOf('-webkit-transition:none') !== -1, mode + ': переход ленты рядов не снят: ' + d);
+/* Правка 2026-09-26: «будет меньше анимаций» — но у вертикальной ленты рядов
+   главной (.scroll__body вертикального скролла .layer--wheight) штатный
+   переход Lampa .3s (vendor/lampa/css/app.css:2762-2769) остаётся ВО ВСЕХ
+   режимах. Финальная проверка, B1: Lampa дописывает ряды и зовёт
+   Layer.visible только из webkitTransitionEnd этой ленты
+   (Scroll.startScroll); правило «transition:none» в lite/off оставляло
+   главную на 4 рядах из 10. Короткий переход тоже не годится: обработчик
+   отбрасывает событие, пришедшее раньше 300 мс после прошлого. */
+test('B1: у вертикальной ленты рядов главной ни в одном режиме нет правила, снимающего или укорачивающего переход', () => {
+  const ribbon = (sel) => /\.layer--wheight\b[^{]*\.scroll__body/.test(sel) && !/\.items-line|\.scroll--horizontal/.test(sel);
+  const hits = ruleBodies(css).filter((r) => r.selectors.some(ribbon));
+  for (const r of hits) {
+    assert.ok(!/(?:^|;)(?:-webkit-)?transition(?:-duration)?:\s*(?:none|0s|0?\.0\d*s|\.00\d*s|[a-z-]+\s+(?:0s|0?\.0\d*s))/.test(r.decl),
+      'лента рядов главной потеряла штатный переход Lampa: ' + r.selectors.join(',') + '{' + r.decl + '}');
   }
-  assert.equal(findDecl(css, (s) => s === sel('full')), null, 'в полном режиме у ленты рядов обязан остаться штатный переход');
-  /* Смена ряда не двигает героя: правил движения, срабатывающих на смене
-     ряда, нет — класс сжатия и подъёма рядов при выключенном флаге никто не
-     ставит (src/48_hero.js, updateCompact). */
+  /* Контракт Lampa, на который опирается правило: конец прокрутки — только по
+     событию конца перехода, и события чаще 300 мс отбрасываются. */
+  const lampa = readFileSync(new URL('../vendor/lampa/app.min.js', import.meta.url), 'utf8');
+  const at = lampa.indexOf("body.addEventListener('webkitTransitionEnd'");
+  assert.ok(at > 0, 'в Scroll Lampa нет ожидания webkitTransitionEnd ленты');
+  const scrollSrc = lampa.slice(at - 200, at + 400);
+  assert.ok(/Storage\.field\('animation'\)/.test(scrollSrc) && /Date\.now\(\) - time_call_end < 300/.test(scrollSrc) && /scrollEnded\(\)/.test(scrollSrc),
+    'контракт Scroll.startScroll Lampa изменился — пересмотреть правило ленты рядов');
 });
 
 test('Task 51: подпись первого ряда в СЖАТОМ состоянии помещается в экран телевизора при любом масштабе', () => {

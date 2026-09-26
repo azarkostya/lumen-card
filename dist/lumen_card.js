@@ -5717,7 +5717,16 @@ css.push('.lumen-main .lumen-hero.lumen-motion-full ~ .activity__body .scroll.la
 
 
 
-css.push('body.lumen-motion-lite .lumen-main .scroll.layer--wheight > .scroll__content > .scroll__body,body.lumen-motion-off .lumen-main .scroll.layer--wheight > .scroll__content > .scroll__body{-webkit-transition:none;transition:none}');
+
+
+
+
+
+
+
+
+
+
 
 
 
