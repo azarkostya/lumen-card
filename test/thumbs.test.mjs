@@ -236,13 +236,22 @@ function env(opts) {
     requestIdleCallback: (fn, o) => { idles.push({ fn, timeout: o && o.timeout }); return idles.length; }
   };
   globalThis.Lampa = globalThis.window.Lampa;
+  const canvas = { created: 0, draws: 0 };
+  /* Раунд C: колбэк простоя делит работу на шаги по Date.now (SLICE_MS);
+     часы теста стоят, а каждый растр «стоит» clock.tick миллисекунд. */
+  const clock = { now: 1000, tick: 0 };
+  globalThis.Date.now = () => clock.now;
   globalThis.document = {
     createElement: () => {
       let src = null;
-      return {
-        width: 0, height: 0,
+      canvas.created++;
+      /* Раунд C: смена width/height — новое выделение растра; счёт смен. */
+      const box = { w: 0, h: 0 };
+      return canvas.last = {
+        get width() { return box.w; }, set width(v) { box.w = v; canvas.resized = (canvas.resized || 0) + 1; },
+        get height() { return box.h; }, set height(v) { box.h = v; canvas.resized = (canvas.resized || 0) + 1; },
         getContext: () => ({
-          drawImage: (img) => { src = img; },
+          drawImage: (img) => { src = img; canvas.draws++; clock.now += clock.tick; },
           getImageData: (x, y, w, h) => {
             if (src.tainted) { const e = new Error('tainted'); e.name = 'SecurityError'; throw e; }
             return { data: raster(w, h, src.paint) };
@@ -252,7 +261,7 @@ function env(opts) {
     }
   };
   const e = {
-    T: fresh(), images, idles, timers,
+    T: fresh(), images, idles, timers, canvas, clock,
     /* Картинка доехала: пиксели paint, размеры w×h. */
     arrive(img, paint, w, h, tainted) {
       img.paint = paint; img.tainted = !!tainted;
@@ -260,8 +269,14 @@ function env(opts) {
       img.onload();
     },
     /* Один колбэк простоя. */
-    idle() { const it = idles.shift(); assert.ok(it, 'колбэка простоя нет'); it.fn({ timeRemaining: () => 10 }); },
-    idleAll() { let n = 0; while (idles.length && n < 20) { e.idle(); n++; } return n; },
+    /* Колбэк простоя: по умолчанию времени хватает на всю задачу (шагов —
+       сколько влезет), left — сколько миллисекунд «осталось», didTimeout —
+       колбэк по потолку IDLE_MS. */
+    idle(left, didTimeout) {
+      const it = idles.shift(); assert.ok(it, 'колбэка простоя нет');
+      it.fn({ timeRemaining: () => (left === undefined ? 50 : left), didTimeout: !!didTimeout });
+    },
+    idleAll(left) { let n = 0; while (idles.length && n < 60) { e.idle(left); n++; } return n; },
     img(part) { return images.filter((i) => i.src.indexOf(part) !== -1).pop(); }
   };
   return e;
@@ -286,6 +301,8 @@ test('п.C2: compare — две миниатюры w92 через прокси, 
   e.idle();
   assert.deepEqual(got, [], 'вердикт раньше разбора второй миниатюры');
   e.idle();
+  assert.deepEqual(got, [], 'раунд C: сравнение пары — своя задача простоя, не хвост разбора кадра');
+  e.idle();
   assert.equal(got.length, 1);
   assert.equal(typeof got[0], 'boolean');
   /* Второй раз — из памяти, синхронно, без загрузок. */
@@ -295,6 +312,140 @@ test('п.C2: compare — две миниатюры w92 через прокси, 
   assert.equal(e.images.length, 2);
   assert.equal(e.T.verdict('/p.jpg', '/f.jpg'), got[0]);
   assert.equal(e.T.verdict('/p.jpg', '/x.jpg'), undefined);
+});
+
+/* Раунд C (трейс листания после C4, CPU ×10): разбор постера (12 шаблонов)
+   и сравнение пары шли одной задачей простоя — 50–88 мс, и нажатие пульта
+   ждало её конца. Теперь — шагами: колбэк простоя делает шаг и берёт
+   следующий, только пока deadline.timeRemaining() ≥ STEP_MS; по потолку
+   (didTimeout) — один шаг. Недоделанная задача остаётся первой в очереди. */
+test('раунд C: нет времени — один шаг на колбэк: шаблон постера, потом шаблон сравнения; задача не перебивается', () => {
+  const e = env();
+  let got;
+  e.T.compare('/p.jpg', '/f.jpg', (v) => { got = v; });
+  e.arrive(e.img('/p.jpg'), scene(1), 92, 138);
+  e.arrive(e.img('/f.jpg'), scene(1), 92, 52);
+  const perCall = [];
+  let calls = 0;
+  while (e.idles.length && calls < 80) {
+    const before = e.canvas.draws;
+    e.idle(0);
+    perCall.push(e.canvas.draws - before);
+    calls++;
+  }
+  assert.equal(typeof got, 'boolean', 'ответ пришёл');
+  assert.ok(perCall.every((n) => n <= 1), 'больше одного растра за колбэк: ' + perCall.join(','));
+  /* Постер: 12 шаблонов и гистограмма — 13 колбэков, кадр — 1, сравнение —
+     по шаблону за колбэк. */
+  const tmpl = 4 * 3;
+  assert.equal(perCall.slice(0, tmpl + 1).join(','), Array(tmpl + 1).fill(1).join(','), 'разбор постера — по шагу');
+  assert.equal(perCall[tmpl + 1], 1, 'кадр — одним шагом');
+  assert.equal(calls, tmpl + 2 + tmpl, 'сравнение пары — по шаблону за колбэк: ' + calls);
+  /* Колбэк по потолку ожидания простоя (didTimeout) — шагами, но не дольше
+     SLICE_MS: растр «стоит» 12 мс, SLICE_MS 30 — три шага (0, 12, 24 мс). */
+  const e2 = env();
+  e2.T.compare('/p.jpg', '/f.jpg', () => {});
+  e2.arrive(e2.img('/p.jpg'), scene(1), 92, 138);
+  e2.arrive(e2.img('/f.jpg'), scene(1), 92, 52);
+  assert.equal(e2.T.SLICE_MS, 30);
+  e2.clock.tick = 12;
+  e2.idle(0, true);
+  assert.equal(e2.canvas.draws, 3, 'по потолку — шаги до SLICE_MS');
+  e2.idle(50);
+  assert.equal(e2.canvas.draws, 6, 'и в простое колбэк не дольше SLICE_MS');
+  e2.clock.tick = 0;
+  e2.idle(50);
+  assert.equal(e2.canvas.draws, tmpl + 1, 'есть время — задача доделывается в том же колбэке');
+  assert.equal(e2.idles.length, 1, 'а следующая задача (кадр) — уже следующим колбэком');
+});
+
+/* Раунд C: сравнение кадра показа героя — срочное: ставится перед обычными
+   задачами простоя и идёт ближайшим setTimeout (не ждёт простоя), теми же
+   кусками; обычная задача, начатая раньше, доделывается после. */
+test('раунд C: срочное сравнение — впереди обычных, по setTimeout, прерывает начатую обычную на границе шага', () => {
+  const e = env();
+  const got = {};
+  e.T.compare('/p.jpg', '/lane.jpg', (v) => { got.lane = v; });
+  e.arrive(e.img('/p.jpg'), scene(1), 92, 138);
+  e.arrive(e.img('/lane.jpg'), scene(1), 92, 52);
+  e.idle(0);
+  assert.equal(e.canvas.draws, 1, 'предусловие: обычная задача (постер) начата — шаг сделан');
+  e.T.compare('/q.jpg', '/hero.jpg', (v) => { got.hero = v; }, true);
+  e.arrive(e.img('/q.jpg'), scene(2), 92, 138);
+  e.arrive(e.img('/hero.jpg'), scene(3), 92, 52);
+  const soon = e.timers.filter((t) => !t.done && t.ms === 0);
+  assert.equal(soon.length, 1, 'срочная — ближайшим setTimeout, не простоем');
+  for (let guard = 0; guard < 20 && got.hero === undefined; guard++) {
+    const t = e.timers.find((x) => !x.done && x.ms === 0);
+    if (!t) break;
+    t.done = true;
+    t.fn();
+  }
+  assert.equal(typeof got.hero, 'boolean', 'срочное сравнение готово без единого колбэка простоя');
+  assert.equal(got.lane, undefined, 'обычная ждёт');
+  e.idleAll();
+  assert.equal(typeof got.lane, 'boolean', 'обычная доделана после');
+});
+
+test('раунд C: один холст на модуль — сколько бы растров ни разбиралось', () => {
+  const e = env();
+  e.T.compare('/p.jpg', '/f.jpg', () => {});
+  e.arrive(e.img('/p.jpg'), scene(1), 92, 138);
+  e.arrive(e.img('/f.jpg'), scene(1), 92, 52);
+  e.idleAll();
+  e.T.tone('/l.png', () => {});
+  e.arrive(e.img('/l.png'), (x) => (x < 4 ? [0, 0, 0, 0] : [0, 0, 0]), 92, 30);
+  e.idleAll();
+  assert.ok(e.canvas.draws >= 15, 'предусловие: растров разобрано ' + e.canvas.draws);
+  assert.equal(e.canvas.created, 1, 'холстов создано: ' + e.canvas.created);
+  assert.equal(e.canvas.last.width, 64, 'холст 64 × 64');
+  assert.equal(e.canvas.last.height, 64);
+  assert.equal(e.canvas.resized, 2, 'размер задан один раз (ширина и высота) — растр не перевыделяется');
+});
+
+/* Раунд C: суммы окна кадра — из интегральных изображений (corrFast), а не
+   заново на каждом положении; ответ тот же, что у прямого счёта. */
+test('раунд C: corrFast с интегралом — та же корреляция, что прямой счёт окна', () => {
+  const fw = 48;
+  const fh = 27;
+  const g = T.luma(raster(fw, fh, scene(2)), fw * fh);
+  const e = T.sobel(g, fw, fh);
+  const direct = (f, t, tw, th, x, y) => {
+    let sf = 0, sff = 0, sft = 0, st = 0, stt = 0;
+    const n = tw * th;
+    for (let r = 0; r < th; r++) for (let c = 0; c < tw; c++) {
+      const a = f[(y + r) * fw + x + c];
+      const b = t[r * tw + c];
+      sf += a; sff += a * a; sft += a * b; st += b; stt += b * b;
+    }
+    const vf = sff - sf * sf / n;
+    const vt = stt - st * st / n;
+    return { corr: (sft - sf * st / n) / Math.sqrt(vf * vt), st: st, vt: vt };
+  };
+  for (const f of [g, e]) {
+    const I = T.integral(f, fw, fh);
+    for (const [tw, th, x, y] of [[21, 22, 13, 3], [26, 27, 0, 0], [17, 17, 30, 9], [5, 4, 43, 23]]) {
+      const t = [];
+      for (let r = 0; r < th; r++) for (let c = 0; c < tw; c++) t.push(((r * 31 + c * 17) % 23) * 9);
+      const want = direct(f, t, tw, th, x, y);
+      const got = T.corrFast(f, fw, I, t, tw, th, x, y, want.st, want.vt);
+      assert.ok(Math.abs(got - want.corr) < 1e-9, [tw, th, x, y].join('×') + ': ' + got + ' ≠ ' + want.corr);
+    }
+  }
+});
+
+test('раунд C: judgeSteps по шагам даёт тот же ответ, что judge', () => {
+  const fx = JSON.parse(readFileSync(new URL('./fixtures/thumbs_e3.json', import.meta.url), 'utf8'));
+  const bytes = (s) => Uint8Array.from(Buffer.from(s, 'base64'));
+  const f = fx['181808'];
+  const poster = { t: f.poster.t.map((t) => ({ w: t.w, h: t.h, g: bytes(t.g) })), h: f.poster.h, hl: f.poster.hl, light: f.poster.light };
+  const fr = f.frames[f.order[0].path];
+  const frame = { w: fr.w, h: fr.h, g: bytes(fr.g), hist: fr.hist, histL: fr.histL, light: fr.light };
+  const j = T.judgeSteps(poster, frame);
+  let n = 1;
+  while (j.step()) n++;
+  assert.equal(n, poster.t.length, 'шаг — шаблон');
+  assert.deepEqual(j.result(), T.judge(poster, frame));
 });
 
 test('п.C2: compare — тот же арт похож, другой — нет; признаки постера переиспользуются', () => {

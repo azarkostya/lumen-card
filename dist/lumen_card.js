@@ -19492,6 +19492,9 @@ stopTimer('frameWait');
 
 
 
+
+
+
 function ask(path) {
 var answered = false;
 var sync = true;
@@ -19508,7 +19511,7 @@ finish(model.backdrop);
 return;
 }
 step();
-});
+}, true);
 sync = false;
 if (!answered) state.look = job;
 return answered;
@@ -30374,6 +30377,9 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 
+
+
+
 LC.thumbs = (function () {
 
 var SIZE = 'w92';
@@ -30445,6 +30451,22 @@ var LOAD_MS = 8000;
 
 
 var IDLE_MS = 120;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+var STEP_MS = 5;
+var SLICE_MS = 30;
 
 
 
@@ -30594,23 +30616,82 @@ ss += a[i] * a[i];
 return { s: s, v: ss - s * s / n };
 }
 
+function wide(n) {
+if (typeof Float64Array === 'function') return new Float64Array(n);
+var out = new Array(n);
+for (var i = 0; i < n; i++) out[i] = 0;
+return out;
+}
 
 
 
 
 
-function bestJoint(frame, tmpl) {
+
+
+function integral(a, w, h) {
+var W1 = w + 1;
+var s = wide(W1 * (h + 1));
+var q = wide(W1 * (h + 1));
+for (var y = 0; y < h; y++) {
+var rs = 0;
+var rq = 0;
+for (var x = 0; x < w; x++) {
+var v = a[y * w + x];
+rs += v;
+rq += v * v;
+s[(y + 1) * W1 + x + 1] = s[y * W1 + x + 1] + rs;
+q[(y + 1) * W1 + x + 1] = q[y * W1 + x + 1] + rq;
+}
+}
+return { s: s, q: q, W1: W1 };
+}
+
+
+function frameSums(frame) {
+var fe = frame.e || (frame.e = sobel(frame.g, frame.w, frame.h));
+return { g: integral(frame.g, frame.w, frame.h), e: integral(fe, frame.w, frame.h) };
+}
+
+
+function corrFast(f, fw, I, t, tw, th, x, y, st, vt) {
+var n = tw * th;
+var W1 = I.W1;
+var a = y * W1 + x;
+var b = a + tw;
+var c = (y + th) * W1 + x;
+var d = c + tw;
+var sf = I.s[d] - I.s[b] - I.s[c] + I.s[a];
+var sff = I.q[d] - I.q[b] - I.q[c] + I.q[a];
+var sft = 0;
+for (var r = 0; r < th; r++) {
+var fo = (y + r) * fw + x;
+var to = r * tw;
+for (var k = 0; k < tw; k++) sft += f[fo + k] * t[to + k];
+}
+var vf = sff - sf * sf / n;
+if (vf <= 1e-6 || vt <= 1e-6) return 0;
+return (sft - sf * st / n) / Math.sqrt(vf * vt);
+}
+
+
+
+
+
+
+function bestJoint(frame, tmpl, sums) {
 if (!tmpl || tmpl.w > frame.w || tmpl.h > frame.h || tmpl.w < TMPL_MIN || tmpl.h < TMPL_MIN) return -1;
 var n = tmpl.w * tmpl.h;
 var te = tmpl.e || (tmpl.e = sobel(tmpl.g, tmpl.w, tmpl.h));
 var fe = frame.e || (frame.e = sobel(frame.g, frame.w, frame.h));
+var I = sums || frameSums(frame);
 var sg = stats(tmpl.g, n);
 var se = stats(te, n);
 var mx = frame.w - tmpl.w;
 var my = frame.h - tmpl.h;
 function at(x, y) {
-return (corrAt(frame.g, frame.w, tmpl.g, tmpl.w, tmpl.h, x, y, sg.s, sg.v) +
-corrAt(fe, frame.w, te, tmpl.w, tmpl.h, x, y, se.s, se.v)) / 2;
+return (corrFast(frame.g, frame.w, I.g, tmpl.g, tmpl.w, tmpl.h, x, y, sg.s, sg.v) +
+corrFast(fe, frame.w, I.e, te, tmpl.w, tmpl.h, x, y, se.s, se.v)) / 2;
 }
 var best = -1;
 var bx = 0;
@@ -30654,14 +30735,36 @@ return dark ? histMatch(poster.hl, frame.histL) : histMatch(poster.h, frame.hist
 
 
 function judge(poster, frame) {
-var hist = histPair(poster, frame);
+var j = judgeSteps(poster, frame);
+while (j.step()) { }
+return j.result();
+}
+
+
+
+
+function judgeSteps(poster, frame) {
+var i = 0;
+var hist = 0;
 var corr = -1;
-for (var i = 0; i < poster.t.length; i++) {
-var c = bestJoint(frame, poster.t[i]);
+var out = null;
+var sums = null;
+return {
+step: function () {
+if (i === 0) hist = histPair(poster, frame);
+if (i < poster.t.length) {
+if (!sums) sums = frameSums(frame);
+var c = bestJoint(frame, poster.t[i], sums);
 if (c > corr) corr = c;
 }
+i++;
+if (i < poster.t.length) return true;
 var s = pairScore(hist, corr);
-return { hist: hist, corr: corr, score: s, similar: similar(hist, corr), clean: s < CLEAN };
+out = { hist: hist, corr: corr, score: s, similar: similar(hist, corr), clean: s < CLEAN };
+return false;
+},
+result: function () { return out; }
+};
 }
 
 function linear(v) {
@@ -30704,34 +30807,91 @@ return !!(stats && stats.n > 0 && (stats.med < DARK_MED || stats.p75 < DARK_P75)
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
 var idleQueue = [];
 var idleArmed = false;
+var urgentArmed = false;
 
-function idle(fn) {
+function idle(fn, urgent) {
+if (urgent) {
+fn.urgent = true;
+var at = 0;
+while (at < idleQueue.length && idleQueue[at].urgent) at++;
+idleQueue.splice(at, 0, fn);
+} else {
 idleQueue.push(fn);
+}
+arm();
+}
+
+
+
+function roomFor(deadline, started) {
+if (Date.now() - started >= SLICE_MS) return false;
+try {
+if (!deadline || typeof deadline.timeRemaining !== 'function') return true;
+return !!deadline.didTimeout || deadline.timeRemaining() >= STEP_MS;
+} catch (e) {
+return false;
+}
+}
+
+
+
+function run(deadline) {
+var started = Date.now();
+var fn = idleQueue[0];
+var more = false;
+do {
+try {
+more = !!(fn && fn() === true);
+} catch (e) {
+warn('thumbs: idle task failed', e);
+more = false;
+}
+} while (more && idleQueue[0] === fn && roomFor(deadline, started));
+if (!more) {
+var at = idleQueue.indexOf(fn);
+if (at !== -1) idleQueue.splice(at, 1);
+}
 arm();
 }
 
 function arm() {
-if (idleArmed || !idleQueue.length) return;
-idleArmed = true;
-var run = function () {
-idleArmed = false;
-var fn = idleQueue.shift();
-try {
-if (fn) fn();
-} catch (e) {
-warn('thumbs: idle task failed', e);
+if (!idleQueue.length) return;
+if (idleQueue[0].urgent) {
+if (urgentArmed) return;
+urgentArmed = true;
+setTimeout(function () {
+urgentArmed = false;
+run(null);
+}, 0);
+return;
 }
-arm();
+if (idleArmed) return;
+idleArmed = true;
+var fire = function (deadline) {
+idleArmed = false;
+run(deadline);
 };
 try {
 if (typeof window.requestIdleCallback === 'function') {
-window.requestIdleCallback(run, { timeout: IDLE_MS });
+window.requestIdleCallback(fire, { timeout: IDLE_MS });
 return;
 }
 } catch (e) { }
-setTimeout(run, 16);
+setTimeout(fire, 16);
 }
 
 
@@ -30825,13 +30985,37 @@ if (fl.img && typeof fl.img.removeAttribute === 'function') fl.img.removeAttribu
 
 
 
+
+
+
+
+
+
+
+
+
+
+var CANVAS_SIZE = 64;
+var scratch = null;
+
 function context(w, h) {
+if (!scratch) {
 var canvas = document.createElement('canvas');
-canvas.width = w;
-canvas.height = h;
+canvas.width = CANVAS_SIZE;
+canvas.height = CANVAS_SIZE;
 
 
-return canvas.getContext('2d', { willReadFrequently: true });
+
+var ctx = canvas.getContext('2d', { willReadFrequently: true });
+if (!ctx) return null;
+scratch = { canvas: canvas, ctx: ctx };
+}
+if (w > scratch.canvas.width || h > scratch.canvas.height) {
+scratch.canvas.width = Math.max(w, scratch.canvas.width);
+scratch.canvas.height = Math.max(h, scratch.canvas.height);
+}
+if (typeof scratch.ctx.clearRect === 'function') scratch.ctx.clearRect(0, 0, w, h);
+return scratch.ctx;
 }
 
 function framePixels(img) {
@@ -30846,9 +31030,29 @@ return { w: FW, h: FH, g: g, e: sobel(g, FW, FH), hist: histogram(data, n), hist
 
 
 function posterPixels(img) {
+var plan = posterPlan(img);
+for (var i = 0; i < plan.steps.length; i++) plan.steps[i]();
+return plan.out;
+}
+
+
+
+function templateStep(img, out, sy, sh, tw, th) {
+return function () {
+var ctx = context(tw, th);
+ctx.drawImage(img, 0, sy, img.naturalWidth, sh, 0, 0, tw, th);
+var g = luma(ctx.getImageData(0, 0, tw, th).data, tw * th);
+out.t.push({ w: tw, h: th, g: g, e: sobel(g, tw, th) });
+};
+}
+
+
+
+function posterPlan(img) {
 var W = img.naturalWidth;
 var H = img.naturalHeight;
-var t = [];
+var out = { t: [], h: null, hl: null, light: 0 };
+var steps = [];
 for (var b = 0; b < BANDS.length; b++) {
 var by = H * BANDS[b][0];
 var bh = H * (BANDS[b][1] - BANDS[b][0]);
@@ -30856,12 +31060,10 @@ for (var i = 0; i < SCALES.length; i++) {
 var th = Math.round(FH * SCALES[i]);
 var tw = Math.round(th * W / bh);
 if (tw < TMPL_MIN || th < TMPL_MIN || tw > FW) continue;
-var ctx = context(tw, th);
-ctx.drawImage(img, 0, by, W, bh, 0, 0, tw, th);
-var g = luma(ctx.getImageData(0, 0, tw, th).data, tw * th);
-t.push({ w: tw, h: th, g: g, e: sobel(g, tw, th) });
+steps.push(templateStep(img, out, by, bh, tw, th));
 }
 }
+steps.push(function () {
 var sy = H * (1 - CROP) / 2;
 var sh = H * CROP;
 var hh = Math.max(1, Math.round(HIST_W * sh / W));
@@ -30869,7 +31071,11 @@ var hc = context(HIST_W, hh);
 hc.drawImage(img, 0, sy, W, sh, 0, 0, HIST_W, hh);
 var data = hc.getImageData(0, 0, HIST_W, hh).data;
 var n = HIST_W * hh;
-return { t: t, h: histogram(data, n), hl: histogram(data, n, true), light: lightShare(data, n) };
+out.h = histogram(data, n);
+out.hl = histogram(data, n, true);
+out.light = lightShare(data, n);
+});
+return { steps: steps, out: out };
 }
 
 function logoPixels(img) {
@@ -30903,21 +31109,37 @@ feats[key] = value;
 
 
 
-function extract(kind, img) {
 
 
 
-if (!img) { score(false); return null; }
-if (!img.naturalWidth || !img.naturalHeight) return false;
+function extractor(kind, img) {
+var job = { step: null, value: undefined };
+
+
+
+if (!img) { score(false); job.value = null; return job; }
+if (!img.naturalWidth || !img.naturalHeight) { job.value = false; return job; }
+var plan = null;
+var at = 0;
+job.step = function () {
 try {
-var out = kind === 'poster' ? posterPixels(img) : (kind === 'frame' ? framePixels(img) : logoPixels(img));
+if (kind === 'poster') {
+if (!plan) plan = posterPlan(img);
+plan.steps[at++]();
+if (at < plan.steps.length) return true;
+job.value = plan.out;
+} else {
+job.value = kind === 'frame' ? framePixels(img) : logoPixels(img);
+}
 score(true);
-return out;
 } catch (e) {
 warn('thumbs: pixels blocked', e);
 score(false);
-return false;
+job.value = false;
 }
+return false;
+};
+return job;
 }
 
 var verdicts = {};
@@ -30980,7 +31202,7 @@ return path && Object.prototype.hasOwnProperty.call(tones, path) ? tones[path] :
 
 
 
-function need(kind, path, cb) {
+function need(kind, path, cb, urgent) {
 var key = kind + ':' + path;
 var got = featGet(key);
 if (got !== undefined) {
@@ -30990,15 +31212,19 @@ return { cancel: function () { } };
 var live = true;
 var load = fetchImage(path, function (img) {
 if (!live) return;
+var job = null;
 idle(function () {
-if (!live) return;
+if (!live) return false;
 var now = featGet(key);
 if (now === undefined) {
-now = extract(kind, img);
+if (!job) job = extractor(kind, img);
+if (job.step && job.step()) return true;
+now = job.value;
 if (now !== null) featPut(key, now);
 }
 cb(now);
-});
+return false;
+}, urgent);
 });
 return {
 cancel: function () {
@@ -31014,7 +31240,7 @@ load.cancel();
 
 
 
-function compare(poster, frame, cb) {
+function compare(poster, frame, cb, urgent) {
 var known = verdict(poster, frame);
 if (known !== undefined || blocked()) {
 
@@ -31038,14 +31264,28 @@ var jobs = [];
 
 
 
+var judging = false;
 function settle() {
-if (!live || pf === undefined || (pf && ff === undefined)) return;
-live = false;
+if (!live || judging || pf === undefined || (pf && ff === undefined)) return;
 for (var i = 1; i < jobs.length; i++) jobs[i].cancel();
+if (!(pf && ff)) {
+finish(null);
+return;
+}
+judging = true;
+var steps = judgeSteps(pf, ff);
+idle(function () {
+if (!live) return false;
+if (steps.step()) return true;
+finish(steps.result());
+return false;
+}, urgent);
+}
 
 
 
-var j = pf && ff ? judge(pf, ff) : null;
+function finish(j) {
+live = false;
 var value = j ? !j.clean : null;
 if (pf !== null && ff !== null) {
 remember(verdicts, poster + '|' + frame, value);
@@ -31053,8 +31293,8 @@ if (j) keepScore(poster + '|' + frame, j.score);
 }
 cb(value);
 }
-jobs.push(need('poster', poster, function (got) { pf = got; settle(); }));
-if (live) jobs.push(need('frame', frame, function (got) { ff = got; settle(); }));
+jobs.push(need('poster', poster, function (got) { pf = got; settle(); }, urgent));
+if (live) jobs.push(need('frame', frame, function (got) { ff = got; settle(); }, urgent));
 return {
 cancel: function () {
 if (!live) return;
@@ -31102,6 +31342,11 @@ sobel: sobel,
 lightShare: lightShare,
 bestJoint: bestJoint,
 judge: judge,
+judgeSteps: judgeSteps,
+integral: integral,
+corrFast: corrFast,
+STEP_MS: STEP_MS,
+SLICE_MS: SLICE_MS,
 
 posterPixels: posterPixels,
 framePixels: framePixels,

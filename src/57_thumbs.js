@@ -7,8 +7,9 @@
   /* «Семи самураев» на тёмном кадре).                                     */
   /*                                                                       */
   /* Что умеет модуль:                                                     */
-  /*   compare(poster, frame, cb) — «не чистый» ли кадр (похож на постер  */
-  /*     или в серой зоне, E3): миниатюры w92 обоих, гистограммы 4×4×4 и   */
+  /*   compare(poster, frame, cb[, urgent]) — «не чистый» ли кадр (похож  */
+  /*     на постер или в серой зоне, E3; urgent — срочно, см. idle):       */
+  /*     миниатюры w92 обоих, гистограммы 4×4×4 и                         */
   /*     совместная корреляция яркости и градиента полос постера по кадру  */
   /*     (judge ниже). cb(true | false | null), null — сравнить нельзя     */
   /*     (картинка не пришла, пиксели закрыты);                             */
@@ -23,7 +24,9 @@
   /*     постера, 92 × N у логотипа), на canvas — 48 × 27, 30 × 32 и 64 × N; */
   /*   - сама работа с canvas — только в простое браузера                  */
   /*     (requestIdleCallback с потолком IDLE_MS), по ОДНОЙ задаче за        */
-  /*     колбэк простоя; зовут модуль только после показа героя (не в      */
+  /*     колбэк простоя, а задача — шагами (шаблон постера, шаблон         */
+  /*     сравнения), пока браузер даёт время (STEP_MS; раунд C, замер      */
+  /*     длинных задач); зовут модуль только после показа героя (не в      */
   /*     обработчике фокуса), а уход фокуса с показанной карточки снимает  */
   /*     идущие сравнения (src/48_hero.js, onFocus): во время листания      */
   /*     canvas не работает, выбор кадра доделывает потолок ожидания;       */
@@ -119,6 +122,22 @@
     /* Потолок ожидания простоя: задача не ждёт дольше, даже если браузер
        всё это время занят. */
     var IDLE_MS = 120;
+    /* Раунд C (трейс листания после C4, CPU ×10, 20 фильмов главной): разбор
+       постера (12 шаблонов) и сравнение пары (12 шаблонов) шли ОДНОЙ
+       задачей простоя — 50–88 мс; нажатие пульта, пришедшее в это время,
+       ждало её конца. Теперь задача идёт шагами — шаблон постера или
+       шаблон сравнения за шаг (при CPU ×10 — единицы миллисекунд), — и
+       колбэк простоя берёт следующий шаг, только пока у браузера остаётся
+       не меньше STEP_MS (deadline.timeRemaining()) и сам колбэк идёт меньше
+       SLICE_MS. Колбэк по потолку IDLE_MS (didTimeout: браузер всё это время
+       занят) и запасной setTimeout без requestIdleCallback — тоже шагами до
+       SLICE_MS: по одному шагу на такой колбэк сравнение показа растянулось
+       бы на два десятка ожиданий простоя и не успевало к потолку героя
+       (LOOK_WAIT, стенд — 2 срабатывания из 4 ожиданий за прогон).
+       Недоделанная задача остаётся первой в очереди: другая задача её шагов
+       не перебивает. */
+    var STEP_MS = 5;
+    var SLICE_MS = 30;
     /* Признаков растров в памяти: постер и до трёх кадров на показ героя —
        с запасом на возвраты. E3: признаки постера — 12 шаблонов (7439
        пикселей яркости Uint8Array и столько же градиентов Float32Array),
@@ -268,23 +287,82 @@
       return { s: s, v: ss - s * s / n };
     }
 
+    function wide(n) {
+      if (typeof Float64Array === 'function') return new Float64Array(n);
+      var out = new Array(n);
+      for (var i = 0; i < n; i++) out[i] = 0;
+      return out;
+    }
+
+    /* Раунд C (трейс листания: corrAt — самая дорогая функция дорожки):
+       суммы и суммы квадратов окна кадра — из интегральных изображений,
+       а не заново на каждом положении шаблона; в цикле остаётся один
+       перекрёстный член. Интеграл: s[(y)(w+1) + x] — сумма по строкам < y
+       и столбцам < x; Float64 — суммы квадратов яркости до 8·10⁷, Float32
+       их не держит точно. */
+    function integral(a, w, h) {
+      var W1 = w + 1;
+      var s = wide(W1 * (h + 1));
+      var q = wide(W1 * (h + 1));
+      for (var y = 0; y < h; y++) {
+        var rs = 0;
+        var rq = 0;
+        for (var x = 0; x < w; x++) {
+          var v = a[y * w + x];
+          rs += v;
+          rq += v * v;
+          s[(y + 1) * W1 + x + 1] = s[y * W1 + x + 1] + rs;
+          q[(y + 1) * W1 + x + 1] = q[y * W1 + x + 1] + rq;
+        }
+      }
+      return { s: s, q: q, W1: W1 };
+    }
+
+    /* Интегралы яркости и градиента кадра — один раз на пару (judgeSteps). */
+    function frameSums(frame) {
+      var fe = frame.e || (frame.e = sobel(frame.g, frame.w, frame.h));
+      return { g: integral(frame.g, frame.w, frame.h), e: integral(fe, frame.w, frame.h) };
+    }
+
+    /* То же, что corrAt, с суммами окна из интеграла I. */
+    function corrFast(f, fw, I, t, tw, th, x, y, st, vt) {
+      var n = tw * th;
+      var W1 = I.W1;
+      var a = y * W1 + x;
+      var b = a + tw;
+      var c = (y + th) * W1 + x;
+      var d = c + tw;
+      var sf = I.s[d] - I.s[b] - I.s[c] + I.s[a];
+      var sff = I.q[d] - I.q[b] - I.q[c] + I.q[a];
+      var sft = 0;
+      for (var r = 0; r < th; r++) {
+        var fo = (y + r) * fw + x;
+        var to = r * tw;
+        for (var k = 0; k < tw; k++) sft += f[fo + k] * t[to + k];
+      }
+      var vf = sff - sf * sf / n;
+      if (vf <= 1e-6 || vt <= 1e-6) return 0;
+      return (sft - sf * st / n) / Math.sqrt(vf * vt);
+    }
+
     /* Совместная корреляция шаблона {w, h, g[, e]} с кадром {w, h, g[, e]}:
        в КАЖДОЙ точке — среднее корреляций яркости и градиента, по всем
        точкам — максимум. Градиенты, если их нет в признаках (старые
        фикстуры тестов), считаются здесь. Шаблон больше кадра или уже
        TMPL_MIN — -1. */
-    function bestJoint(frame, tmpl) {
+    function bestJoint(frame, tmpl, sums) {
       if (!tmpl || tmpl.w > frame.w || tmpl.h > frame.h || tmpl.w < TMPL_MIN || tmpl.h < TMPL_MIN) return -1;
       var n = tmpl.w * tmpl.h;
       var te = tmpl.e || (tmpl.e = sobel(tmpl.g, tmpl.w, tmpl.h));
       var fe = frame.e || (frame.e = sobel(frame.g, frame.w, frame.h));
+      var I = sums || frameSums(frame);
       var sg = stats(tmpl.g, n);
       var se = stats(te, n);
       var mx = frame.w - tmpl.w;
       var my = frame.h - tmpl.h;
       function at(x, y) {
-        return (corrAt(frame.g, frame.w, tmpl.g, tmpl.w, tmpl.h, x, y, sg.s, sg.v) +
-          corrAt(fe, frame.w, te, tmpl.w, tmpl.h, x, y, se.s, se.v)) / 2;
+        return (corrFast(frame.g, frame.w, I.g, tmpl.g, tmpl.w, tmpl.h, x, y, sg.s, sg.v) +
+          corrFast(fe, frame.w, I.e, te, tmpl.w, tmpl.h, x, y, se.s, se.v)) / 2;
       }
       var best = -1;
       var bx = 0;
@@ -328,14 +406,36 @@
        {w, h, g, e, hist, histL, light}: {hist, corr (совместная), score,
        similar, clean}. */
     function judge(poster, frame) {
-      var hist = histPair(poster, frame);
+      var j = judgeSteps(poster, frame);
+      while (j.step()) { }
+      return j.result();
+    }
+
+    /* То же сравнение шагами: step() — гистограммы и первый шаблон, дальше
+       по шаблону за шаг; true — шаги ещё есть. result() — ответ judge после
+       последнего шага. */
+    function judgeSteps(poster, frame) {
+      var i = 0;
+      var hist = 0;
       var corr = -1;
-      for (var i = 0; i < poster.t.length; i++) {
-        var c = bestJoint(frame, poster.t[i]);
-        if (c > corr) corr = c;
-      }
-      var s = pairScore(hist, corr);
-      return { hist: hist, corr: corr, score: s, similar: similar(hist, corr), clean: s < CLEAN };
+      var out = null;
+      var sums = null;
+      return {
+        step: function () {
+          if (i === 0) hist = histPair(poster, frame);
+          if (i < poster.t.length) {
+            if (!sums) sums = frameSums(frame);
+            var c = bestJoint(frame, poster.t[i], sums);
+            if (c > corr) corr = c;
+          }
+          i++;
+          if (i < poster.t.length) return true;
+          var s = pairScore(hist, corr);
+          out = { hist: hist, corr: corr, score: s, similar: similar(hist, corr), clean: s < CLEAN };
+          return false;
+        },
+        result: function () { return out; }
+      };
     }
 
     function linear(v) {
@@ -375,37 +475,94 @@
     }
 
     /* ------------------------------------------------------------------ */
-    /* Простой браузера: одна задача на колбэк.                            */
+    /* Простой браузера: одна задача на колбэк, задача — шагами.           */
     /* ------------------------------------------------------------------ */
 
+    /* Задача — функция шага: true — шаги ещё есть (задача остаётся первой
+       в очереди), иначе она снята.
+       Срочная задача (urgent) — сравнение кадра карточки, которую герой
+       показывает прямо сейчас (chooseFrame, src/48_hero.js): её ждёт
+       потолок LOOK_WAIT (300 мс), а при занятом браузере простой приходит
+       раз в IDLE_MS, и сравнение шагами за такие колбэки не успевало (стенд,
+       CPU ×10: ожиданий героя 3–8 и срабатываний потолка 0–3 за 20 фильмов
+       против 0 и 0 у сравнения одной задачей). Срочная встаёт в очередь
+       перед обычными (среди срочных — по порядку) и идёт не в простое, а
+       ближайшим setTimeout — теми же кусками не дольше SLICE_MS: между
+       кусками браузер берёт ввод и кадр. Обычная задача, начатая раньше,
+       прерывается на границе шага и доделывается после. */
     var idleQueue = [];
     var idleArmed = false;
+    var urgentArmed = false;
 
-    function idle(fn) {
-      idleQueue.push(fn);
+    function idle(fn, urgent) {
+      if (urgent) {
+        fn.urgent = true;
+        var at = 0;
+        while (at < idleQueue.length && idleQueue[at].urgent) at++;
+        idleQueue.splice(at, 0, fn);
+      } else {
+        idleQueue.push(fn);
+      }
+      arm();
+    }
+
+    /* Хватит ли колбэку, начатому в started, времени ещё на шаг (разбор — у
+       STEP_MS и SLICE_MS). */
+    function roomFor(deadline, started) {
+      if (Date.now() - started >= SLICE_MS) return false;
+      try {
+        if (!deadline || typeof deadline.timeRemaining !== 'function') return true;
+        return !!deadline.didTimeout || deadline.timeRemaining() >= STEP_MS;
+      } catch (e) {
+        return false;
+      }
+    }
+
+    /* Шаги первой задачи очереди, пока есть время (roomFor) и пока её не
+       потеснила срочная. Кончившаяся снимается — где бы она ни стояла. */
+    function run(deadline) {
+      var started = Date.now();
+      var fn = idleQueue[0];
+      var more = false;
+      do {
+        try {
+          more = !!(fn && fn() === true);
+        } catch (e) {
+          warn('thumbs: idle task failed', e);
+          more = false;
+        }
+      } while (more && idleQueue[0] === fn && roomFor(deadline, started));
+      if (!more) {
+        var at = idleQueue.indexOf(fn);
+        if (at !== -1) idleQueue.splice(at, 1);
+      }
       arm();
     }
 
     function arm() {
-      if (idleArmed || !idleQueue.length) return;
+      if (!idleQueue.length) return;
+      if (idleQueue[0].urgent) {
+        if (urgentArmed) return;
+        urgentArmed = true;
+        setTimeout(function () {
+          urgentArmed = false;
+          run(null);
+        }, 0);
+        return;
+      }
+      if (idleArmed) return;
       idleArmed = true;
-      var run = function () {
+      var fire = function (deadline) {
         idleArmed = false;
-        var fn = idleQueue.shift();
-        try {
-          if (fn) fn();
-        } catch (e) {
-          warn('thumbs: idle task failed', e);
-        }
-        arm();
+        run(deadline);
       };
       try {
         if (typeof window.requestIdleCallback === 'function') {
-          window.requestIdleCallback(run, { timeout: IDLE_MS });
+          window.requestIdleCallback(fire, { timeout: IDLE_MS });
           return;
         }
       } catch (e) { }
-      setTimeout(run, 16);
+      setTimeout(fire, 16);
     }
 
     /* ------------------------------------------------------------------ */
@@ -499,13 +656,37 @@
     /* Признаки растров (canvas) и память.                                 */
     /* ------------------------------------------------------------------ */
 
+    /* Раунд C (тот же трейс и ревью rv4): новый <canvas> с контекстом на
+       каждый шаблон — 13 холстов на постер — стоил половину разбора постера
+       (песочница rv4, CPU ×10: 27.5 мс против 13.5 с одним холстом) и
+       полную сборку мусора 110–156 мс от брошенных холстов. Холст один на
+       модуль, CANVAS_SIZE в квадрате, и размер его не меняется (смена
+       width/height — новое выделение растра): растр рисуется в левый
+       верхний угол и читается getImageData по тому же прямоугольнику,
+       перед рисованием он очищается (у логотипа прозрачность). Растры
+       модуля — до 48 × 27 (кадр, шаблоны), 30 × 32 (гистограмма постера) и
+       64 × 64 (логотип); больший — холст растёт один раз. */
+    var CANVAS_SIZE = 64;
+    var scratch = null;
+
     function context(w, h) {
-      var canvas = document.createElement('canvas');
-      canvas.width = w;
-      canvas.height = h;
-      /* willReadFrequently — как у подкраски: без него Chrome пишет в
-         консоль про readback с GPU-полотна. */
-      return canvas.getContext('2d', { willReadFrequently: true });
+      if (!scratch) {
+        var canvas = document.createElement('canvas');
+        canvas.width = CANVAS_SIZE;
+        canvas.height = CANVAS_SIZE;
+        /* willReadFrequently — как у подкраски: без него Chrome пишет в
+           консоль про readback с GPU-полотна. Нет контекста — исключение у
+           вызывающего (растр не прочитан), и следующий раз — новая попытка. */
+        var ctx = canvas.getContext('2d', { willReadFrequently: true });
+        if (!ctx) return null;
+        scratch = { canvas: canvas, ctx: ctx };
+      }
+      if (w > scratch.canvas.width || h > scratch.canvas.height) {
+        scratch.canvas.width = Math.max(w, scratch.canvas.width);
+        scratch.canvas.height = Math.max(h, scratch.canvas.height);
+      }
+      if (typeof scratch.ctx.clearRect === 'function') scratch.ctx.clearRect(0, 0, w, h);
+      return scratch.ctx;
     }
 
     function framePixels(img) {
@@ -520,9 +701,29 @@
     /* Шаблоны постера: каждая полоса BANDS в каждом масштабе SCALES (высота
        шаблона — доля высоты кадра FH, ширина — по пропорции полосы). */
     function posterPixels(img) {
+      var plan = posterPlan(img);
+      for (var i = 0; i < plan.steps.length; i++) plan.steps[i]();
+      return plan.out;
+    }
+
+    /* Шаблон полосы — шаг разбора постера (фабрика: var в цикле ES5 своей
+       области не создаёт). */
+    function templateStep(img, out, sy, sh, tw, th) {
+      return function () {
+        var ctx = context(tw, th);
+        ctx.drawImage(img, 0, sy, img.naturalWidth, sh, 0, 0, tw, th);
+        var g = luma(ctx.getImageData(0, 0, tw, th).data, tw * th);
+        out.t.push({ w: tw, h: th, g: g, e: sobel(g, tw, th) });
+      };
+    }
+
+    /* Разбор постера по шагам: {steps: [шаг шаблона…, шаг гистограммы],
+       out — признаки, готовые после последнего шага}. */
+    function posterPlan(img) {
       var W = img.naturalWidth;
       var H = img.naturalHeight;
-      var t = [];
+      var out = { t: [], h: null, hl: null, light: 0 };
+      var steps = [];
       for (var b = 0; b < BANDS.length; b++) {
         var by = H * BANDS[b][0];
         var bh = H * (BANDS[b][1] - BANDS[b][0]);
@@ -530,20 +731,22 @@
           var th = Math.round(FH * SCALES[i]);
           var tw = Math.round(th * W / bh);
           if (tw < TMPL_MIN || th < TMPL_MIN || tw > FW) continue;
-          var ctx = context(tw, th);
-          ctx.drawImage(img, 0, by, W, bh, 0, 0, tw, th);
-          var g = luma(ctx.getImageData(0, 0, tw, th).data, tw * th);
-          t.push({ w: tw, h: th, g: g, e: sobel(g, tw, th) });
+          steps.push(templateStep(img, out, by, bh, tw, th));
         }
       }
-      var sy = H * (1 - CROP) / 2;
-      var sh = H * CROP;
-      var hh = Math.max(1, Math.round(HIST_W * sh / W));
-      var hc = context(HIST_W, hh);
-      hc.drawImage(img, 0, sy, W, sh, 0, 0, HIST_W, hh);
-      var data = hc.getImageData(0, 0, HIST_W, hh).data;
-      var n = HIST_W * hh;
-      return { t: t, h: histogram(data, n), hl: histogram(data, n, true), light: lightShare(data, n) };
+      steps.push(function () {
+        var sy = H * (1 - CROP) / 2;
+        var sh = H * CROP;
+        var hh = Math.max(1, Math.round(HIST_W * sh / W));
+        var hc = context(HIST_W, hh);
+        hc.drawImage(img, 0, sy, W, sh, 0, 0, HIST_W, hh);
+        var data = hc.getImageData(0, 0, HIST_W, hh).data;
+        var n = HIST_W * hh;
+        out.h = histogram(data, n);
+        out.hl = histogram(data, n, true);
+        out.light = lightShare(data, n);
+      });
+      return { steps: steps, out: out };
     }
 
     function logoPixels(img) {
@@ -577,21 +780,37 @@
        не о картинке: в память (признаки, вердикт пары, тон) оно не ложится,
        и следующий вопрос грузит миниатюру снова. Прежде один сбой загрузки
        постера отключал проверку «кадр ≈ постер» для всех кадров фильма. */
-    function extract(kind, img) {
+    /* Раунд C: разбор — шагами (постер — по шаблону, кадр и логотип —
+       одним шагом). {step() → true, пока шаги есть; value — признаки,
+       false или null после последнего}; step null — ответ уже в value. */
+    function extractor(kind, img) {
+      var job = { step: null, value: undefined };
       /* Картинка не пришла — отказ (счёт FAIL_LIMIT). Пришла без размеров
          (SVG-логотип без собственного размера) — прочитать нечего, но это
          не отказ сети или CORS. */
-      if (!img) { score(false); return null; }
-      if (!img.naturalWidth || !img.naturalHeight) return false;
-      try {
-        var out = kind === 'poster' ? posterPixels(img) : (kind === 'frame' ? framePixels(img) : logoPixels(img));
-        score(true);
-        return out;
-      } catch (e) {
-        warn('thumbs: pixels blocked', e);
-        score(false);
+      if (!img) { score(false); job.value = null; return job; }
+      if (!img.naturalWidth || !img.naturalHeight) { job.value = false; return job; }
+      var plan = null;
+      var at = 0;
+      job.step = function () {
+        try {
+          if (kind === 'poster') {
+            if (!plan) plan = posterPlan(img);
+            plan.steps[at++]();
+            if (at < plan.steps.length) return true;
+            job.value = plan.out;
+          } else {
+            job.value = kind === 'frame' ? framePixels(img) : logoPixels(img);
+          }
+          score(true);
+        } catch (e) {
+          warn('thumbs: pixels blocked', e);
+          score(false);
+          job.value = false;
+        }
         return false;
-      }
+      };
+      return job;
     }
 
     var verdicts = {};
@@ -654,7 +873,7 @@
 
     /* Признаки растра: из памяти — синхронно, иначе загрузка и разбор в
        простое. cb(признаки | false | null — не доехала). Возвращает {cancel}. */
-    function need(kind, path, cb) {
+    function need(kind, path, cb, urgent) {
       var key = kind + ':' + path;
       var got = featGet(key);
       if (got !== undefined) {
@@ -664,15 +883,19 @@
       var live = true;
       var load = fetchImage(path, function (img) {
         if (!live) return;
+        var job = null;
         idle(function () {
-          if (!live) return;
+          if (!live) return false;
           var now = featGet(key);
           if (now === undefined) {
-            now = extract(kind, img);
+            if (!job) job = extractor(kind, img);
+            if (job.step && job.step()) return true;
+            now = job.value;
             if (now !== null) featPut(key, now);
           }
           cb(now);
-        });
+          return false;
+        }, urgent);
       });
       return {
         cancel: function () {
@@ -686,9 +909,9 @@
     /* Похож ли кадр на постер. cb(true | false | null) — ровно один раз,
        если не отменено; известный ответ — синхронно. Пара — одна задача:
        обе миниатюры едут вместе (постер обычно уже в памяти от прошлой
-       пары этого показа), разбор каждой — своим колбэком простоя, а
-       сравнение — сразу за последним. */
-    function compare(poster, frame, cb) {
+       пары этого показа), разбор каждой — своей задачей простоя, и
+       сравнение — тоже своей, шагами (раунд C). */
+    function compare(poster, frame, cb, urgent) {
       var known = verdict(poster, frame);
       if (known !== undefined || blocked()) {
         /* Ревью раунда героя (d97cffc), п.1: у заблокированного модуля
@@ -712,14 +935,28 @@
          нельзя» сразу, кадр пары не нужен (из памяти — даже не грузится,
          в пути — снимается). Вердикт с сетевым отказом (null) в память не
          ложится: следующий показ спросит снова. */
+      var judging = false;
       function settle() {
-        if (!live || pf === undefined || (pf && ff === undefined)) return;
-        live = false;
+        if (!live || judging || pf === undefined || (pf && ff === undefined)) return;
         for (var i = 1; i < jobs.length; i++) jobs[i].cancel();
-        /* Вердикт пары — «не чистый» (счёт от CLEAN): выбор кадра обходит и
-           похожие, и серую зону; счёт — отдельно, для выбора наименее
-           похожего. */
-        var j = pf && ff ? judge(pf, ff) : null;
+        if (!(pf && ff)) {
+          finish(null);
+          return;
+        }
+        judging = true;
+        var steps = judgeSteps(pf, ff);
+        idle(function () {
+          if (!live) return false;
+          if (steps.step()) return true;
+          finish(steps.result());
+          return false;
+        }, urgent);
+      }
+      /* Вердикт пары — «не чистый» (счёт от CLEAN): выбор кадра обходит и
+         похожие, и серую зону; счёт — отдельно, для выбора наименее
+         похожего. */
+      function finish(j) {
+        live = false;
         var value = j ? !j.clean : null;
         if (pf !== null && ff !== null) {
           remember(verdicts, poster + '|' + frame, value);
@@ -727,8 +964,8 @@
         }
         cb(value);
       }
-      jobs.push(need('poster', poster, function (got) { pf = got; settle(); }));
-      if (live) jobs.push(need('frame', frame, function (got) { ff = got; settle(); }));
+      jobs.push(need('poster', poster, function (got) { pf = got; settle(); }, urgent));
+      if (live) jobs.push(need('frame', frame, function (got) { ff = got; settle(); }, urgent));
       return {
         cancel: function () {
           if (!live) return;
@@ -776,6 +1013,11 @@
       lightShare: lightShare,
       bestJoint: bestJoint,
       judge: judge,
+      judgeSteps: judgeSteps,
+      integral: integral,
+      corrFast: corrFast,
+      STEP_MS: STEP_MS,
+      SLICE_MS: SLICE_MS,
       /* Для стенда и тестов: признаки растров так же, как их считает рантайм. */
       posterPixels: posterPixels,
       framePixels: framePixels,

@@ -3022,6 +3022,9 @@
          пишется: ответ уже был, снимать нечего. Ответ, не легший в память
          (verdict всё ещё undefined), — «сравнить нельзя»: кадр как было,
          без второго вопроса о той же паре. */
+      /* Раунд C: сравнение показа — срочное (четвёртый аргумент compare):
+         его ждёт потолок LOOK_WAIT, и LC.thumbs ведёт его вперёд обычных
+         задач простоя, не дожидаясь простоя (src/57_thumbs.js, idle). */
       function ask(path) {
         var answered = false;
         var sync = true;
@@ -3038,7 +3041,7 @@
             return;
           }
           step();
-        });
+        }, true);
         sync = false;
         if (!answered) state.look = job;
         return answered;

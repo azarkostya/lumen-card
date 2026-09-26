@@ -6426,14 +6426,15 @@ function fakeThumbs(known, scores) {
     calls: calls,
     scoreOf: scores ? (p, f) => scores[p + '|' + f] : undefined,
     verdict: (p, f) => (Object.prototype.hasOwnProperty.call(verdicts, p + '|' + f) ? verdicts[p + '|' + f] : undefined),
-    compare: (p, f, cb) => {
-      const c = { p: p, f: f, cb: cb, cancelled: false };
+    compare: (p, f, cb, urgent) => {
+      const c = { p: p, f: f, cb: cb, cancelled: false, urgent: urgent };
       calls.push(c);
       return { cancel() { c.cancelled = true; } };
     },
-    answer(i, value) {
+    answer(i, value, score) {
       const c = calls[i];
       verdicts[c.p + '|' + c.f] = value;
+      if (scores && typeof score === 'number') scores[c.p + '|' + c.f] = score;
       c.cb(value);
     },
     tone: () => ({ cancel() {} }),
@@ -6456,6 +6457,7 @@ test('п.C2: первый кадр — первый непохожий на по
   env.advance(400);
   detailsOf(env, 11).ok(LOOK_DETAILS(11));
   assert.deepEqual(thumbs.calls.map((c) => c.p + '|' + c.f), ['/p1.jpg|/c1.jpg'], 'сравнение первого кандидата с постером карточки');
+  assert.equal(thumbs.calls[0].urgent, true, 'раунд C: сравнение показа — срочное (впереди задач простоя)');
   assert.deepEqual(w1280(env), [], 'кадр грузится раньше ответа');
   thumbs.answer(0, true);
   assert.deepEqual(thumbs.calls.map((c) => c.f), ['/c1.jpg', '/c2.jpg'], 'вторая пара — после ответа первой');
