@@ -3312,9 +3312,16 @@
        на паузу из-за ряда. */
     function updateCompact(el) {
       if (!state || state.fixedCompact) return;
+      /* Раунд правок финальной проверки, A4: без флага ряд не нужен —
+         на каждом фокусе не ищем его (closest + index) и не переключаем
+         классы вхолостую. */
+      if (LC.heroCompact !== true) {
+        if (state.compact) setCompact(false);
+        return;
+      }
       var index = rowIndex(el);
       if (index < 0) return;
-      setCompact(LC.heroCompact === true && index > 0);
+      setCompact(index > 0);
     }
 
     /* Акцент и подкраска фона фильма (src/57_color.js). Раунд «Цвет сразу»

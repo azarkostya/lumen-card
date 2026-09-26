@@ -582,7 +582,7 @@ function accentCtx(opts) {
       if (options.motionRef) return options.motionRef.mode;
       return options.motion || 'full';
     },
-    tokens: function () { return { bg: options.bg || BG }; },
+    themeBg: function () { return options.bg || BG; },
     /* Полная пересборка таблицы. Task 35: она сама зовёт LC.accent.restyle()
        последней строкой (src/30_css.js), и заглушка это повторяет — иначе
        тесты не увидели бы ни обновления узла подкраски, ни его переезда в
@@ -1064,7 +1064,9 @@ test('css: узел подкраски стоит в <head> после осно�
        цветом страницы. Значит все три обязаны ехать в этом же узле вместе с
        подложкой: иначе после подкраски кадр растворялся бы в прежнем тоне. */
     assert.ok(warmRules.indexOf('.lumen-hero__veil') === -1, 'в узле подкраски остались вуали героя');
-    for (const sel of ['.lumen-hero-stage .lumen-hero__scrim{', '.lumen-hero-stage .lumen-hero__scrim.lumen-hero__scrim--l{', '.lumen-hero-stage .lumen-hero__floor{background']) {
+    /* Раунд правок финальной проверки, A4: пол сжатого состояния — только
+       с флагом LC.heroCompact (тест ниже). */
+    for (const sel of ['.lumen-hero-stage .lumen-hero__scrim{', '.lumen-hero-stage .lumen-hero__scrim.lumen-hero__scrim--l{']) {
       assert.ok(warmRules.indexOf(sel) !== -1, 'затемнение кадра героя не красится вместе с подложкой: ' + sel);
     }
 
@@ -1156,6 +1158,50 @@ test('цвет сразу (настоящий CSS): смена фильма — 
     assert.equal(writes[0], ctx.LC.accentCss(), 'сразу итоговым текстом');
     dom.state.advance(5000);
     assert.equal(writes.length, 1, 'после смены — ни одной записи');
+  });
+});
+
+/* Раунд правок финальной проверки, A4 (замер code-perf, M1): запись цвета
+   фильма строила палитру с подкраской трижды — фон для токенов акцента
+   (LC.tokens), узел фона (LC.accentCss) и узел подсветки (LC.accentFocusCss
+   собирал весь набор accentRules ради одного правила). Счёт палитр — по
+   вызовам LC.accent.rowsTint: palette() зовёт его ровно раз. */
+test('A4 (настоящий CSS): смена цвета фильма — одна палитра на запись, подсветка фокуса без палитры', () => {
+  const dom = fakeDom({ datas: [WARM_POSTER, COLD_POSTER] });
+  withDom(dom, () => {
+    const ctx = cssCtx(dom, { lumen_accent_auto: 'true' });
+    ctx.LC.accent.applyFor({ id: 1, title: 'Тёплый', poster_path: '/warm.jpg' });
+    dom.state.images[0].onload();
+    let palettes = 0;
+    const rowsTint = ctx.LC.accent.rowsTint;
+    ctx.LC.accent.rowsTint = function () { palettes++; return rowsTint.apply(this, arguments); };
+    ctx.LC.accent.applyFor({ id: 2, title: 'Холодный', poster_path: '/cold.jpg' });
+    dom.state.images[1].onload();
+    assert.equal(palettes, 1, 'палитр с подкраской на одну смену цвета: ' + palettes);
+    assert.equal(ctx.LC.color.hex(ctx.LC.accent.dominant()), COLD_HEX, 'предусловие: цвет сменился');
+    palettes = 0;
+    const focus = ctx.LC.accentFocusCss();
+    assert.equal(palettes, 0, 'подсветке фокуса палитра не нужна');
+    assert.equal(focus, focusNode(dom).textContent, 'правило — то же, что в узле подсветки');
+    assert.ok(ctx.LC.buildCss().indexOf(focus) !== -1, 'и то же, что в полной таблице');
+  });
+});
+
+test('A4 (настоящий CSS): без флага сжатия правила пола нет ни в узле подкраски, ни в таблице; с флагом — в обоих', () => {
+  const dom = fakeDom({ data: pixels([{ r: 200, g: 120, b: 40, n: 256 }]) });
+  withDom(dom, () => {
+    const ctx = cssCtx(dom, { lumen_accent_auto: 'true' });
+    ctx.LC.accent.applyFor({ poster_path: '/dune.jpg' });
+    dom.state.images[0].onload();
+    const FLOOR = '.lumen-hero-stage .lumen-hero__floor{background';
+    const rules = accentNode(dom).textContent;
+    assert.equal(rules.indexOf(FLOOR), -1, 'пол без флага строится на каждой смене цвета');
+    assert.equal(rules.indexOf('\n\n'), -1, 'пустых строк в узле нет');
+    assert.equal(ctx.LC.buildCss().indexOf(FLOOR), -1, 'пол без флага есть в таблице');
+    ctx.LC.heroCompact = true;
+    ctx.LC.accent.repaint();
+    assert.notEqual(accentNode(dom).textContent.indexOf(FLOOR), -1, 'с флагом пол красится вместе с подложкой');
+    assert.notEqual(ctx.LC.buildCss().indexOf(FLOOR), -1, 'с флагом пол есть в таблице');
   });
 });
 

@@ -869,12 +869,16 @@
       return { r: quantChannel(rgb.r), g: quantChannel(rgb.g), b: quantChannel(rgb.b) };
     }
 
+    /* Фон, от которого считаются токены акцента фильма. Раунд правок
+       финальной проверки, A4: фон темы без подкраски (LC.themeBg,
+       src/30_css.js), а не LC.tokens() — та собирала всю палитру с
+       подкраской прошлого фильма на каждую смену цвета. */
     function bg() {
       try {
-        var t = LC.tokens();
-        if (t && t.bg) return t.bg;
+        var t = LC.themeBg();
+        if (t) return t;
       } catch (e) {
-        warn('accent: tokens failed', e);
+        warn('accent: theme bg failed', e);
       }
       return '#0B0908';
     }

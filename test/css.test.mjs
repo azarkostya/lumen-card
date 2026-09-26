@@ -4897,7 +4897,9 @@ test('ревью раунда главной: подписи и заголово
    встаёт сразу. */
 test('волна 3: пол сжатого состояния накрывает верх поднятых рядов без кромки', () => {
   for (const size of ['large', 'medium', 'compact']) {
-    const built = withStorage({ lumen_hero_size: size }, (LC) => LC.buildCss());
+    /* Раунд правок финальной проверки, A4: градиент пола — только в таблице
+       с флагом LC.heroCompact. */
+    const built = withCompact({ lumen_hero_size: size }, (LC) => LC.buildCss());
     const rule = ruleBodies(built).find((r) => r.selectors.length === 1 && r.selectors[0] === '.lumen-hero-stage .lumen-hero__floor' && r.decl.indexOf('background') !== -1);
     assert.ok(rule, size + ': у пола нет градиента');
     const layers = gradients(rule.decl, 'background');
@@ -5508,7 +5510,11 @@ function heroPixel(built, W, H, em) {
   const left = leftLayer.stops;
   const E = leftLayer.radial;
   const leftR = (x, y) => Math.sqrt(Math.pow((x - E.cx * W / 100) / (E.rx * W / 100), 2) + Math.pow((y - E.cy * H / 100) / (E.ry * H / 100), 2)) * 100;
-  const floor = gradients(only('.lumen-hero-stage .lumen-hero__floor', 'background'), 'background')[0].stops;
+  /* Раунд правок финальной проверки, A4: градиент пола — только в таблице
+     с флагом LC.heroCompact (withCompact); без него сжатого состояния
+     не бывает, и спрашивать его у такой таблицы — ошибка теста. */
+  const floorDecl = only('.lumen-hero-stage .lumen-hero__floor', 'background');
+  const floor = floorDecl ? gradients(floorDecl, 'background')[0].stops : null;
   const box = /(?:^|;)top:calc\(([\d.]+)vh - ([\d.]+)em\)/.exec(only('.lumen-hero-stage .lumen-hero__floor', 'top:calc'));
   const floorTop = parseFloat(box[1]) * H / 100 - parseFloat(box[2]) * EM;
   const order = stageScrimOrder();
@@ -5523,14 +5529,17 @@ function heroPixel(built, W, H, em) {
       else if (layer === 'scrim') {
         over(gradPm(bottom, (H - y) / H * 100));
         over(gradPm(top, y));
-      } else if (compact && y >= floorTop) over(gradPm(floor, (y - floorTop) / H * 100));
+      } else if (compact && y >= floorTop) {
+        assert.ok(floor, 'сжатое состояние — у таблицы без флага LC.heroCompact');
+        over(gradPm(floor, (y - floorTop) / H * 100));
+      }
     }
     return c;
   };
   pixelAt.left = (x, y) => gradPm(left, leftR(x, y)).a;
   /* Где низ покоя и пол становятся сплошными — нужно проверке фона рядов. */
   pixelAt.restSolid = H - bottom.filter((s) => s.a >= 1).reduce((m, s) => Math.max(m, s.pos), 0) * H / 100;
-  pixelAt.floorSolid = floorTop + floor.filter((s) => s.a >= 1).reduce((m, s) => Math.min(m, s.pos), Infinity) * H / 100;
+  pixelAt.floorSolid = floor ? floorTop + floor.filter((s) => s.a >= 1).reduce((m, s) => Math.min(m, s.pos), Infinity) * H / 100 : NaN;
   return pixelAt;
 }
 
@@ -5567,6 +5576,15 @@ function lightestTint(theme) {
 function withTint(storage, tint, fn) {
   return withStorage(storage, (LC) => {
     if (tint) LC.accent = { tint: () => tint };
+    return fn(LC);
+  });
+}
+
+/* Раунд правок финальной проверки, A4: сжатое состояние (и пол под ним)
+   есть только у таблицы с флагом LC.heroCompact — его проверки идут по ней. */
+function withTintCompact(storage, tint, fn) {
+  return withTint(storage, tint, (LC) => {
+    LC.heroCompact = true;
     return fn(LC);
   });
 }
@@ -5694,9 +5712,11 @@ test('волна 3: мета и описание героя читаются н�
       const EM = lampaEm(W, iface);
       let worstMeta = 99;
       for (const size of ['large', 'medium', 'compact']) {
-        const built = withTint({ lumen_hero_size: size, interface_size: iface, lumen_theme: variant.theme }, variant.tint, (LC) => LC.buildCss());
-        const pixelAt = heroPixel(built, W, H, EM);
+        const rest = withTint({ lumen_hero_size: size, interface_size: iface, lumen_theme: variant.theme }, variant.tint, (LC) => LC.buildCss());
+        const lifted = withTintCompact({ lumen_hero_size: size, interface_size: iface, lumen_theme: variant.theme }, variant.tint, (LC) => LC.buildCss());
         for (const compact of [false, true]) {
+          const built = compact ? lifted : rest;
+          const pixelAt = heroPixel(built, W, H, EM);
           for (const v of [{ name: 'фильм', status: false }, { name: 'сериал со статусом', status: true }]) {
             const lines = heroTextLines(built, W, H, { status: v.status, compact: compact, em: EM });
             const label = name + ', ' + iface + ', ' + size + ', ' + (compact ? 'сжатое' : 'покой') + ', ' + v.name;
@@ -5772,7 +5792,11 @@ test('п.7 раунда хвостов: фон под рядами — подк�
       const EM = lampaEm(W, iface);
       for (const size of ['large', 'medium', 'compact']) {
         const built = withTint({ lumen_hero_size: size, interface_size: iface, lumen_theme: theme }, tint, (LC) => LC.buildCss());
-        const pixelAt = heroPixel(built, W, H, EM);
+        const pixelRest = heroPixel(built, W, H, EM);
+        const pixelLifted = heroPixel(withTintCompact({ lumen_hero_size: size, interface_size: iface, lumen_theme: theme }, tint, (LC) => LC.buildCss()), W, H, EM);
+        const pixelAt = (x, y, compact, frame) => (compact ? pixelLifted : pixelRest)(x, y, compact, frame);
+        pixelAt.restSolid = pixelRest.restSolid;
+        pixelAt.floorSolid = pixelLifted.floorSolid;
         const label = theme + ' ' + tint + ', ' + iface + ', ' + size;
         for (const fname of Object.keys(frames)) {
           const frame = frames[fname];

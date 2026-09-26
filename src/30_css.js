@@ -354,8 +354,13 @@
         'background:radial-gradient(' + SCRIM_L_RX + '% ' + SCRIM_L_RY + '% at 0 ' + scrimLeftY(key) + '%,' + scrimLeft(P) + ')}',
       /* floor — сплошной фон под поднятыми рядами (сжатое состояние): кадр
          стоит на месте, и растворяться ему теперь приходится выше, чем в
-         покое. Видимостью управляет opacity (таблица ниже). */
-      floor: '.lumen-hero-stage .lumen-hero__floor{background:-webkit-linear-gradient(top,' + scrimFloor(P) + ');background:linear-gradient(180deg,' + scrimFloor(P) + ')}',
+         покое. Видимостью управляет opacity (таблица ниже).
+         Раунд правок финальной проверки, A4 (замер code-perf, M1): без флага
+         LC.heroCompact пол не проявляется никогда, а его градиент (scrimFloor
+         → edgeAt) был самым дорогим в наборе и строился на каждой смене
+         цвета фильма. Без флага правила нет — ни в узле подкраски, ни в
+         таблице; код остаётся, флаг его возвращает. */
+      floor: compactOn() ? '.lumen-hero-stage .lumen-hero__floor{background:-webkit-linear-gradient(top,' + scrimFloor(P) + ');background:linear-gradient(180deg,' + scrimFloor(P) + ')}' : '',
       /* Task 38: два градиента, заменившие маску области рядов (см. правила
          .scroll.layer--wheight ниже). Они залиты цветом страницы и лежат
          прямо на нём — разъедься их оттенок с подкрашенным фоном хоть на
@@ -390,8 +395,15 @@
          docs/plans/2026-09-21-lumen-phase5-tv-fix.md). Плоская подложка
          оставляет тот же акцент под нижней кромкой постера, но её площадь —
          ровно прямоугольник со смещением .2em. */
-      cardFocus: '.lumen-main .card.focus .card__view{-webkit-box-shadow:0 .2em 0 ' + t.glow + ';box-shadow:0 .2em 0 ' + t.glow + '}'
+      cardFocus: cardFocusRule(t)
     };
+  }
+
+  /* Подложка карточки в фокусе (разбор — у cardFocus в accentRules): от
+     палитры не зависит, только от акцента, — LC.accentFocusCss строит её
+     без palette() (A4 ниже). */
+  function cardFocusRule(t) {
+    return '.lumen-main .card.focus .card__view{-webkit-box-shadow:0 .2em 0 ' + t.glow + ';box-shadow:0 .2em 0 ' + t.glow + '}';
   }
 
   /* Task 35: текст для отдельного узла <style id="lumen-accent">, который
@@ -403,7 +415,9 @@
      таблице. */
   LC.accentCss = function () {
     var R = accentRules(palette(), theme(), true);
-    return R.main + '\n' + R.screen + '\n' + R.scrim + '\n' + R.scrimL + '\n' + R.floor + '\n' + R.fadeTop + '\n' + R.fadeBot;
+    /* A4: пола без флага сжатия нет (R.floor пуст) — пустой строки в узле
+       тоже. */
+    return [R.main, R.screen, R.scrim, R.scrimL, R.floor, R.fadeTop, R.fadeBot].filter(Boolean).join('\n');
   };
 
   /* Task 60 (ревью): подсветка карточки под фокусом уехала в СВОЙ узел
@@ -430,7 +444,20 @@
        означает «красить нечем», и src/57_color.js снимает узел целиком, а
        не оставляет его пустым в head. */
     if (LC.accentScope() === 'veil') return '';
-    return accentRules(palette(), theme(), true).cardFocus;
+    /* Раунд правок финальной проверки, A4 (замер code-perf, M1): прежде
+       здесь собирался весь набор accentRules ради одного правила — вторая
+       палитра с подкраской и все градиенты затемнения на каждую смену
+       цвета фильма. Правилу нужен только акцент. */
+    return cardFocusRule(theme());
+  };
+
+  /* A4: фон темы без подкраски — от него LC.accent считает токены акцента
+     фильма (src/57_color.js, bg). Прежде это был фон из LC.tokens(), то
+     есть полная палитра с подкраской ПРОШЛОГО фильма на каждую смену
+     цвета: лишний palette() на запись, и акцент фильма зависел от того,
+     какой фильм показывали до него. */
+  LC.themeBg = function () {
+    return (THEMES[LC.pref('lumen_theme', 'warm')] || THEMES.warm).bg;
   };
 
   /* Фаза 3, настройка «Масштаб интерфейса». Все размеры плагина считаются в em
@@ -4372,7 +4399,8 @@
     css.push('.lumen-hero-stage .lumen-hero__scrim,.lumen-hero-stage .lumen-hero__floor{position:absolute;top:0;left:0;right:0;bottom:0}');
     css.push(AR.scrim);
     css.push(AR.scrimL);
-    css.push(AR.floor);
+    /* A4: без флага LC.heroCompact градиента пола нет (accentRules). */
+    if (AR.floor) css.push(AR.floor);
     css.push('.lumen-hero-stage .lumen-hero__floor{top:-webkit-calc(' + floorTop(heroSize) + ');top:calc(' + floorTop(heroSize) + ');opacity:0}');
     css.push('.lumen-main.lumen-rows-up .lumen-hero__floor{opacity:1}');
     css.push('.lumen-hero-stage.lumen-motion-full .lumen-hero__floor{-webkit-transition:opacity' + EASE + ';transition:opacity' + EASE + '}');

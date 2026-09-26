@@ -1319,6 +1319,34 @@ test('сжатие выключено флагом: фокус ниже перв
   }
 });
 
+/* Раунд правок финальной проверки, A4: без флага ряд карточки на горячем
+   пути фокуса не нужен — ни поиска ряда (closest + index), ни
+   переключения классов сжатия вхолостую. */
+test('A4: без флага сжатия фокус не ищет ряд карточки и не переключает классы сжатия', () => {
+  const env = makeEnv();
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  const node = heroOf(main.activity);
+  let looked = 0;
+  let toggled = 0;
+  const index = FakeEl.prototype.index;
+  const toggle = node.toggleClass;
+  FakeEl.prototype.index = function () { looked++; return index.call(this); };
+  node.toggleClass = function (cls) { if (cls === 'lumen-hero--compact') toggled++; return toggle.apply(this, arguments); };
+  try {
+    main.card2.addClass('focus');
+    fireFocus(main.activity, main.card2);
+    main.card1.addClass('focus');
+    fireFocus(main.activity, main.card1);
+  } finally {
+    FakeEl.prototype.index = index;
+    node.toggleClass = toggle;
+  }
+  assert.equal(looked, 0, 'ряд карточки искали на фокусе');
+  assert.equal(toggled, 0, 'класс сжатия переключали вхолостую');
+  assert.equal(node.hasClass('lumen-hero--compact'), false);
+});
+
 test('второй ряд в фокусе — компактный герой, возврат на первый снимает класс', () => {
   const env = makeEnv({ heroCompact: true });
   const main = makeMain();

@@ -1232,7 +1232,12 @@ scrimL: '.lumen-hero-stage .lumen-hero__scrim.lumen-hero__scrim--l{background:-w
 
 
 
-floor: '.lumen-hero-stage .lumen-hero__floor{background:-webkit-linear-gradient(top,' + scrimFloor(P) + ');background:linear-gradient(180deg,' + scrimFloor(P) + ')}',
+
+
+
+
+
+floor: compactOn() ? '.lumen-hero-stage .lumen-hero__floor{background:-webkit-linear-gradient(top,' + scrimFloor(P) + ');background:linear-gradient(180deg,' + scrimFloor(P) + ')}' : '',
 
 
 
@@ -1267,8 +1272,15 @@ fadeBot: '.lumen-main:after{background:-webkit-linear-gradient(bottom,' + P.rows
 
 
 
-cardFocus: '.lumen-main .card.focus .card__view{-webkit-box-shadow:0 .2em 0 ' + t.glow + ';box-shadow:0 .2em 0 ' + t.glow + '}'
+cardFocus: cardFocusRule(t)
 };
+}
+
+
+
+
+function cardFocusRule(t) {
+return '.lumen-main .card.focus .card__view{-webkit-box-shadow:0 .2em 0 ' + t.glow + ';box-shadow:0 .2em 0 ' + t.glow + '}';
 }
 
 
@@ -1280,7 +1292,9 @@ cardFocus: '.lumen-main .card.focus .card__view{-webkit-box-shadow:0 .2em 0 ' + 
 
 LC.accentCss = function () {
 var R = accentRules(palette(), theme(), true);
-return R.main + '\n' + R.screen + '\n' + R.scrim + '\n' + R.scrimL + '\n' + R.floor + '\n' + R.fadeTop + '\n' + R.fadeBot;
+
+
+return [R.main, R.screen, R.scrim, R.scrimL, R.floor, R.fadeTop, R.fadeBot].filter(Boolean).join('\n');
 };
 
 
@@ -1307,7 +1321,20 @@ LC.accentFocusCss = function () {
 
 
 if (LC.accentScope() === 'veil') return '';
-return accentRules(palette(), theme(), true).cardFocus;
+
+
+
+
+return cardFocusRule(theme());
+};
+
+
+
+
+
+
+LC.themeBg = function () {
+return (THEMES[LC.pref('lumen_theme', 'warm')] || THEMES.warm).bg;
 };
 
 
@@ -5249,7 +5276,8 @@ css.push('.lumen-hero.lumen-motion-full .lumen-fx{-webkit-transition:opacity .35
 css.push('.lumen-hero-stage .lumen-hero__scrim,.lumen-hero-stage .lumen-hero__floor{position:absolute;top:0;left:0;right:0;bottom:0}');
 css.push(AR.scrim);
 css.push(AR.scrimL);
-css.push(AR.floor);
+
+if (AR.floor) css.push(AR.floor);
 css.push('.lumen-hero-stage .lumen-hero__floor{top:-webkit-calc(' + floorTop(heroSize) + ');top:calc(' + floorTop(heroSize) + ');opacity:0}');
 css.push('.lumen-main.lumen-rows-up .lumen-hero__floor{opacity:1}');
 css.push('.lumen-hero-stage.lumen-motion-full .lumen-hero__floor{-webkit-transition:opacity' + EASE + ';transition:opacity' + EASE + '}');
@@ -19493,9 +19521,16 @@ try { state.root.toggleClass('lumen-rows-up', on); } catch (e) {}
 
 function updateCompact(el) {
 if (!state || state.fixedCompact) return;
+
+
+
+if (LC.heroCompact !== true) {
+if (state.compact) setCompact(false);
+return;
+}
 var index = rowIndex(el);
 if (index < 0) return;
-setCompact(LC.heroCompact === true && index > 0);
+setCompact(index > 0);
 }
 
 
@@ -29324,12 +29359,16 @@ if (!rgb) return null;
 return { r: quantChannel(rgb.r), g: quantChannel(rgb.g), b: quantChannel(rgb.b) };
 }
 
+
+
+
+
 function bg() {
 try {
-var t = LC.tokens();
-if (t && t.bg) return t.bg;
+var t = LC.themeBg();
+if (t) return t;
 } catch (e) {
-warn('accent: tokens failed', e);
+warn('accent: theme bg failed', e);
 }
 return '#0B0908';
 }
