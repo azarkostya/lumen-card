@@ -14717,7 +14717,7 @@ function byPlace(a, b) { return a.place - b.place; }
 function planHome(o) {
 o = o || {};
 var have = o.have || {};
-var limit = typeof o.limit === 'number' ? o.limit : 15;
+var limit = typeof o.limit === 'number' ? o.limit : 10;
 var month = o.month || null;
 var slots = [];
 var taken = {};
@@ -14873,7 +14873,7 @@ epoch = next;
 
 var mode = LC.pref('lumen_home_start', 'rotate') === 'history' ? 'history' : 'rotate';
 var picked = (LC.rows && typeof LC.rows.storedIds === 'function') ? LC.rows.storedIds() : null;
-var limit = parseInt(LC.pref('lumen_rows_limit', '15'), 10) || 15;
+var limit = parseInt(LC.pref('lumen_rows_limit', '10'), 10) || 10;
 var anchorSeed = seedOf(epoch.n, SALT_ANCHOR);
 var own = {};
 var have = {};
@@ -38416,7 +38416,10 @@ var LIST = [
 
 
 { name: 'lumen_home_rows', type: 'button', label: 'lumen_home_rows_name', descr: 'lumen_home_rows_descr' },
-{ name: 'lumen_rows_limit', type: 'select', values: ['10', '15', '25'], vsuffix: 'lumen_rows_limit_suffix', 'default': '15', label: 'lumen_rows_limit_name', descr: 'lumen_rows_limit_descr' },
+
+
+
+{ name: 'lumen_rows_limit', type: 'select', values: ['10', '15', '25'], vsuffix: 'lumen_rows_limit_suffix', 'default': '10', label: 'lumen_rows_limit_name', descr: 'lumen_rows_limit_descr' },
 
 
 

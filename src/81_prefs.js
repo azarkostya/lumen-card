@@ -388,7 +388,10 @@
          openHomeRows). Значение хранится строкой id через запятую в
          lumen_home_rows — его читает план главной (src/47_homeplan.js). */
       { name: 'lumen_home_rows', type: 'button', label: 'lumen_home_rows_name', descr: 'lumen_home_rows_descr' },
-      { name: 'lumen_rows_limit', type: 'select', values: ['10', '15', '25'], vsuffix: 'lumen_rows_limit_suffix', 'default': '15', label: 'lumen_rows_limit_name', descr: 'lumen_rows_limit_descr' },
+      /* Решение пользователя 2026-09-26: по умолчанию 10 рядов подборок
+         (было 15). Сохранённое значение Storage не трогается — это выбор
+         пользователя; дефолт читает план главной (src/47_homeplan.js). */
+      { name: 'lumen_rows_limit', type: 'select', values: ['10', '15', '25'], vsuffix: 'lumen_rows_limit_suffix', 'default': '10', label: 'lumen_rows_limit_name', descr: 'lumen_rows_limit_descr' },
       /* Task 57 (фаза 5): фильм, показанный в ряду выше, из нижних рядов
          выпадает. Место — сразу под числом рядов: обе настройки про то,
          сколько всего окажется на главной. Включено по умолчанию — это

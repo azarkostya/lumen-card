@@ -684,6 +684,19 @@ test('apply: «Количество рядов» — число подборок
   assert.equal(s.ours().length, 14);
 });
 
+/* Решение пользователя 2026-09-26: по умолчанию на главной 10 рядов подборок
+   (было 15). Сохранённое значение — выбор пользователя, его не трогаем. */
+test('apply: без сохранённого «Количества рядов» — 10 подборок, сохранённое 15 — пятнадцать', function () {
+  const s = setupApply();
+  delete s.prefs.lumen_rows_limit;
+  s.H.apply({ start: true, manifest: CATALOG });
+  const personal = ['lumen_continue', 'lumen_because', 'lumen_new_episodes', 'lumen_soon'];
+  assert.equal(s.ours().filter((r) => personal.indexOf(r.name) === -1).length, 10, 'по умолчанию не 10 подборок');
+  const kept = setupApply({ prefs: { lumen_rows_limit: '15' } });
+  kept.H.apply({ start: true, manifest: CATALOG });
+  assert.equal(kept.ours().filter((r) => personal.indexOf(r.name) === -1).length, 15, 'сохранённое значение пользователя не действует');
+});
+
 test('apply: ряды выбранного вручную состава дедупликация по длине не выбрасывает (lumen_keep)', function () {
   const s = setupApply({ prefs: { lumen_home_rows: 'pixar,nolan' } });
   s.H.apply({ start: true, manifest: CATALOG });

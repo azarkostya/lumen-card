@@ -445,6 +445,8 @@ test('LIST: типы и значения по умолчанию', () => {
   assert.deepEqual(def.lumen_kp_key, ['input', '']);
   assert.deepEqual(def.lumen_menus, ['select', 'all']);
   assert.deepEqual(def.lumen_torrents, ['trigger', true]);
+  /* Решение пользователя 2026-09-26: 10 рядов подборок по умолчанию. */
+  assert.deepEqual(def.lumen_rows_limit, ['select', '10']);
 });
 
 /* Выбор гарнитуры стоит сразу за выключателем «Фирменные шрифты» — при

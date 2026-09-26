@@ -436,7 +436,7 @@
     function planHome(o) {
       o = o || {};
       var have = o.have || {};
-      var limit = typeof o.limit === 'number' ? o.limit : 15;
+      var limit = typeof o.limit === 'number' ? o.limit : 10;
       var month = o.month || null;
       var slots = [];
       var taken = {};
@@ -592,7 +592,7 @@
 
       var mode = LC.pref('lumen_home_start', 'rotate') === 'history' ? 'history' : 'rotate';
       var picked = (LC.rows && typeof LC.rows.storedIds === 'function') ? LC.rows.storedIds() : null;
-      var limit = parseInt(LC.pref('lumen_rows_limit', '15'), 10) || 15;
+      var limit = parseInt(LC.pref('lumen_rows_limit', '10'), 10) || 10;
       var anchorSeed = seedOf(epoch.n, SALT_ANCHOR);
       var own = {};
       var have = {};
