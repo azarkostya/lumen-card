@@ -253,6 +253,41 @@ test('openTarget: подборка без источников — свой ко
   assert.equal(t.title, 'X');
 });
 
+/* Сверка 2026-09-26 (план фазы 2, риски: «при ошибке discover-сетки —
+   фолбэк на lumen_grid»): подборка, которую штатная сетка открыла бы, но
+   собрать для неё адрес не вышло или компонента category_full в этой
+   Lampa нет, открывается своей сеткой — а не никак. */
+function hubWithSources(discoverUrl) {
+  return loadCtx('46_hub.js', {
+    sources: { discoverUrl: discoverUrl }, manifest: MANIFEST_MOD, hubEm: HUB_EM, lang: function (k) { return k; }
+  }).api;
+}
+test('openTarget: адрес штатной сетки не собрался (исключение или пусто) — своя сетка', function () {
+  var pixar = MANIFEST.collections[2];
+  var thrown = hubWithSources(function () { throw new Error('boom'); }).openTarget(pixar);
+  assert.equal(thrown.component, 'lumen_grid');
+  assert.equal(thrown.lumen, pixar);
+  assert.equal(thrown.title, 'Pixar');
+  var empty = hubWithSources(function () { return ''; }).openTarget(pixar);
+  assert.equal(empty.component, 'lumen_grid');
+});
+test('openTarget: компонента category_full в Lampa нет — своя сетка', function () {
+  var had = Object.prototype.hasOwnProperty.call(globalThis, 'window');
+  var prevWin = globalThis.window;
+  var prevLampa = globalThis.Lampa;
+  var Lampa = { Component: { get: function (name) { return name === 'category_full' ? undefined : function () {}; } } };
+  globalThis.window = { Lampa: Lampa };
+  globalThis.Lampa = Lampa;
+  try {
+    assert.equal(H.openTarget(MANIFEST.collections[2]).component, 'lumen_grid');
+    Lampa.Component.get = function () { return function () {}; };
+    assert.equal(H.openTarget(MANIFEST.collections[2]).component, 'category_full', 'компонент есть — штатная сетка');
+  } finally {
+    if (had) globalThis.window = prevWin; else delete globalThis.window;
+    if (prevLampa === undefined) delete globalThis.Lampa; else globalThis.Lampa = prevLampa;
+  }
+});
+
 // --- franchiseItem ---
 test('franchiseItem: belongs_to_collection → подборка для lumen_grid', function () {
   var item = H.franchiseItem({ id: 726871, name: 'Дюна — Коллекция' });
@@ -1264,6 +1299,26 @@ test('lumen_hub: плитка открывает подборку через ope
   assert.equal(s.env.log.pushes.length, 1);
   assert.equal(s.env.log.pushes[0].component, 'lumen_grid');
   assert.equal(s.env.log.pushes[0].lumen.id, 'star-wars');
+});
+
+/* Сверка 2026-09-26: Activity.push штатной сетки бросил — подборка
+   открывается своей сеткой вторым вызовом, а не теряется молча. */
+test('lumen_hub: штатная сетка не открылась (push бросил) — та же подборка своей сеткой', function () {
+  var s = openHub();
+  s.comp.start();
+  s.env.log.pushes.length = 0;
+  var push = s.env.Lampa.Activity.push;
+  s.env.Lampa.Activity.push = function (o) {
+    if (o.component === 'category_full') throw new Error('category_full: TypeError');
+    push(o);
+  };
+  var chips = s.root.all('lumen-chip');
+  fire(chips[1], 'hover:enter'); /* «Студии и сервисы»: pixar — только discover */
+  var tiles = s.root.all('lumen-tile');
+  fire(tiles[0], 'hover:enter');
+  assert.equal(s.env.log.pushes.length, 1, 'после отказа штатной сетки открыта своя');
+  assert.equal(s.env.log.pushes[0].component, 'lumen_grid');
+  assert.equal(s.env.log.pushes[0].lumen.id, 'pixar');
 });
 
 test('lumen_hub: stop() гасит кадры, start() их возобновляет (I2)', function () {

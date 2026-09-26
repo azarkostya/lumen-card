@@ -12378,16 +12378,39 @@ return null;
 
 function openTarget(item) {
 var media = singleDiscover(item);
-if (media) {
+if (media && fullGridReady()) {
+
+
+
+
+var url = '';
+try { url = LC.sources.discoverUrl(item.sources[media], media); } catch (e) { warn('hub: discover url failed', e); }
+if (url && typeof url === 'string') {
 return {
-url: LC.sources.discoverUrl(item.sources[media], media),
+url: url,
 title: titleOf(item, lang()),
 component: 'category_full',
 source: 'tmdb',
 page: 1
 };
 }
+}
+return gridTarget(item);
+}
+
+function gridTarget(item) {
 return { url: '', title: titleOf(item, lang()), component: 'lumen_grid', lumen: item, page: 1 };
+}
+
+
+
+
+
+function fullGridReady() {
+try {
+if (window.Lampa && Lampa.Component && typeof Lampa.Component.get === 'function') return !!Lampa.Component.get('category_full');
+} catch (e) { }
+return true;
 }
 
 
@@ -12603,11 +12626,17 @@ warn('hub: open card failed', e);
 }
 
 
+
+
 function openCollection(item) {
+var target = null;
 try {
-Lampa.Activity.push(openTarget(item));
+target = openTarget(item);
+Lampa.Activity.push(target);
 } catch (e) {
 warn('hub: open collection failed', e);
+if (!target || target.component !== 'category_full') return;
+try { Lampa.Activity.push(gridTarget(item)); } catch (e2) { warn('hub: open grid fallback failed', e2); }
 }
 }
 

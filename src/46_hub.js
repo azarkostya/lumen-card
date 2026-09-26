@@ -248,16 +248,39 @@
        и поиска. */
     function openTarget(item) {
       var media = singleDiscover(item);
-      if (media) {
-        return {
-          url: LC.sources.discoverUrl(item.sources[media], media),
-          title: titleOf(item, lang()),
-          component: 'category_full',
-          source: 'tmdb',
-          page: 1
-        };
+      if (media && fullGridReady()) {
+        /* Сверка 2026-09-26 (план фазы 2, риски: «при ошибке
+           discover-сетки — фолбэк на lumen_grid»): адрес, который не
+           собрался (исключение, пусто), — это своя сетка той же подборки,
+           а не экран, который не откроется. */
+        var url = '';
+        try { url = LC.sources.discoverUrl(item.sources[media], media); } catch (e) { warn('hub: discover url failed', e); }
+        if (url && typeof url === 'string') {
+          return {
+            url: url,
+            title: titleOf(item, lang()),
+            component: 'category_full',
+            source: 'tmdb',
+            page: 1
+          };
+        }
       }
+      return gridTarget(item);
+    }
+
+    function gridTarget(item) {
       return { url: '', title: titleOf(item, lang()), component: 'lumen_grid', lumen: item, page: 1 };
+    }
+
+    /* Штатная сетка в этой Lampa есть. Lampa.Component.get
+       (app.min.js:45216-45218) отдаёт класс по имени; в сборке без
+       category_full Activity.push открыл бы «нет компонента». Нет самого
+       get (старая Lampa, тесты) — считаем, что есть: так было всегда. */
+    function fullGridReady() {
+      try {
+        if (window.Lampa && Lampa.Component && typeof Lampa.Component.get === 'function') return !!Lampa.Component.get('category_full');
+      } catch (e) { }
+      return true;
     }
 
     /* movie.belongs_to_collection → подборка-однодневка для lumen_grid.
@@ -472,12 +495,18 @@
       }
     }
 
-    /* Открыть подборку (из плитки хаба или кнопки «Франшиза»). */
+    /* Открыть подборку (из плитки хаба или кнопки «Франшиза»).
+       Сверка 2026-09-26: штатная сетка не открылась (push бросил) — та же
+       подборка своей сеткой, вторым и последним шагом. */
     function openCollection(item) {
+      var target = null;
       try {
-        Lampa.Activity.push(openTarget(item));
+        target = openTarget(item);
+        Lampa.Activity.push(target);
       } catch (e) {
         warn('hub: open collection failed', e);
+        if (!target || target.component !== 'category_full') return;
+        try { Lampa.Activity.push(gridTarget(item)); } catch (e2) { warn('hub: open grid fallback failed', e2); }
       }
     }
 
