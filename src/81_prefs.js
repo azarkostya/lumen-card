@@ -265,6 +265,11 @@
          test/prefs.test.mjs. */
       { name: 'lumen_card_logo', type: 'trigger', 'default': true, label: 'lumen_card_logo_name', descr: 'lumen_card_logo_descr' },
       { name: 'lumen_card_progress', type: 'trigger', 'default': true, label: 'lumen_card_progress_name', descr: 'lumen_card_progress_descr' },
+      /* Сверка 2026-09-26: кнопка «Франшиза» (src/46_hub.js) — выключатель
+         рядом с другими пунктами верха карточки; по умолчанию включена.
+         Выключенная кнопка просто не ставится — остальные кнопки карточки
+         в разметке не переставляются. */
+      { name: 'lumen_franchise_button', type: 'trigger', 'default': true, label: 'lumen_franchise_button_name', descr: 'lumen_franchise_button_descr' },
       /* Правка пользователя 2026-09-16 (п.1): пункт «Показывать актёров» убран
          вместе с блоком, которым он управлял, — кружки инициалов дублировали
          ряд актёров, который Lampa рисует ниже по экрану. */
@@ -283,6 +288,10 @@
          прямо на экране, а возвращается этим переключателем — рядом с самим
          полем ключа, где её и ищут. */
       { name: 'lumen_kp_hint', type: 'trigger', 'default': true, label: 'lumen_kp_hint_name', descr: 'lumen_kp_hint_descr' },
+      /* Сверка 2026-09-26: ряд «Смотреть по порядку» (src/66_franchise.js) —
+         в ряду описания, за отзывами; по умолчанию включён. Выключенный не
+         запрашивает коллекцию. */
+      { name: 'lumen_franchise_row', type: 'trigger', 'default': true, label: 'lumen_franchise_row_name', descr: 'lumen_franchise_row_descr' },
       /* A6 (волна A финального плана): «Метаданные» (Темп/Страх/Экшн…) и
          «Настроения» (проценты) на карточке фильма — блоки САМОЙ Lampa, не
          плагина. Строки локализации title_metadata/title_moods/title_meta_*

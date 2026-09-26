@@ -202,7 +202,9 @@ test('LIST: полный набор ключей — существующие и
     /* Task 23 (фаза 3): фильтр, с которым открывается рулетка */
     'lumen_roulette_unseen',
     /* Task 62b (фаза 5): две кнопки готового стиля */
-    'lumen_preset_appletv', 'lumen_preset_lumen'
+    'lumen_preset_appletv', 'lumen_preset_lumen',
+    /* Сверка 2026-09-26: выключатели кнопки «Франшиза» и ряда «Смотреть по порядку» */
+    'lumen_franchise_button', 'lumen_franchise_row'
   ].sort());
 });
 
@@ -292,9 +294,11 @@ const GROUPS = [
      говорит про ЧУЖИЕ блоки; свои читаются раньше. */
   /* Правка 2026-09-23: логотип названия — первым: заголовок и есть верхний
      блок карточки. */
+  /* Сверка 2026-09-26: кнопка «Франшиза» — за прогрессом (верх карточки,
+     ряд кнопок), ряд «Смотреть по порядку» — за отзывами (ряд описания). */
   ['lumen_group_blocks', [
-    'lumen_card_logo', 'lumen_card_progress', 'lumen_reviews', 'lumen_reviews_mode', 'lumen_kp_key', 'lumen_kp_hint',
-    'lumen_hide_meta'
+    'lumen_card_logo', 'lumen_card_progress', 'lumen_franchise_button', 'lumen_reviews', 'lumen_reviews_mode', 'lumen_kp_key', 'lumen_kp_hint',
+    'lumen_franchise_row', 'lumen_hide_meta'
   ]],
   ['lumen_group_home', [
     /* Правка пользователя 2026-09-17 (п.2): размер кадра — первым пунктом:
@@ -1246,4 +1250,18 @@ test('сверка: строка «Осталось N мин» на трёх я�
   assert.equal(s.ru, 'Осталось {n} мин');
   assert.equal(s.en, '{n} min left');
   assert.equal(s.uk, 'Залишилось {n} хв');
+});
+
+test('сверка: выключатели «Франшизы» и «Смотреть по порядку» — переключатели, по умолчанию включены, три языка', () => {
+  const LC = loadStrings();
+  for (const key of ['lumen_franchise_button', 'lumen_franchise_row']) {
+    const entry = prefs.find(key);
+    assert.equal(entry.type, 'trigger', key);
+    assert.equal(entry['default'], true, key);
+    for (const lang of LANGS) {
+      assert.ok(LC.STRINGS[entry.label][lang] && LC.STRINGS[entry.descr][lang], key + ': нет строк ' + lang);
+    }
+  }
+  assert.equal(LC.STRINGS.lumen_franchise_button_name.ru, 'Кнопка «Франшиза»');
+  assert.equal(LC.STRINGS.lumen_franchise_row_name.ru, 'Ряд «Смотреть по порядку»');
 });

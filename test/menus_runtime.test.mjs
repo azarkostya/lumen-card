@@ -123,7 +123,7 @@ test('долг ревью (п.2): каждая настройка раздела
 
   const POINTS = ['applyEnabledPref', 'applyMotionMode', 'applySlideshowPref', 'applyMenusPref',
     'applyTorrentsPref', 'applyTrailerPref', 'applyProgressPref', 'applyReviewsPref',
-    'injectCss', 'injectFonts'];
+    'applyFranchisePref', 'injectCss', 'injectFonts'];
   const spies = countCalls(LC, POINTS);
 
   const expected = {
@@ -143,6 +143,10 @@ test('долг ревью (п.2): каждая настройка раздела
     lumen_font: ['injectFonts', 'injectCss'],
     lumen_reviews: ['applyReviewsPref'],
     lumen_kp_key: ['applyReviewsPref'],
+    /* Сверка 2026-09-26: кнопка «Франшиза» и ряд «Смотреть по порядку» —
+       перерисовка открытой карточки, CSS не трогается. */
+    lumen_franchise_button: ['applyFranchisePref'],
+    lumen_franchise_row: ['applyFranchisePref'],
     lumen_menus: ['applyMenusPref'],
     lumen_torrents: ['applyTorrentsPref'],
     /* Task 20: подсказка «Ключ API не задан» — тот же перерисовщик ряда

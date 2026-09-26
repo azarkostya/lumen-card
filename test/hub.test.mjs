@@ -2280,6 +2280,28 @@ test('франшиза: OK открывает сетку коллекции эт
   assert.deepEqual(env.log.pushes[0].lumen.sources, { movie: { type: 'collection', id: 726871 } });
 });
 
+/* Сверка 2026-09-26: выключатель кнопки «Франшиза» (lumen_franchise_button,
+   по умолчанию включён). Выключенная кнопка просто не показывается —
+   остальные кнопки карточки на своих местах, и переключение туда-обратно
+   на открытой карточке её снимает и возвращает. */
+test('сверка: «Франшиза» выключена в настройках — кнопки нет, класс снят; включили — вернулась', function () {
+  setupLampa();
+  var prefs = { lumen_franchise_button: false };
+  var h = loadHub({ pref: function (k, d) { return k in prefs ? prefs[k] : d; } });
+  var c = cardRoot();
+  var movie = { belongs_to_collection: { id: 726871, name: 'Дюна — Коллекция' } };
+  h.api.franchise(c.root, movie);
+  assert.equal(c.actions.all('lumen-franchise').length, 0, 'выключенная кнопка на месте');
+  assert.equal(c.root.hasClass('lumen-card--franchise'), false);
+  assert.equal(c.buttons.all('lumen-franchise').length, 0);
+  prefs.lumen_franchise_button = true;
+  h.api.franchise(c.root, movie);
+  assert.equal(c.actions.all('lumen-franchise').length, 1, 'включённая кнопка не вернулась');
+  prefs.lumen_franchise_button = false;
+  h.api.franchise(c.root, movie);
+  assert.equal(c.actions.all('lumen-franchise').length, 0, 'выключение на открытой карточке не сняло кнопку');
+});
+
 /* Task 21 (фаза 3): сезонные подборки в хабе. */
 const SEASON_MANIFEST = {
   version: 1,

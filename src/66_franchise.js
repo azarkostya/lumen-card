@@ -497,6 +497,13 @@
       }
     }
 
+    /* Сверка 2026-09-26: ряд «Смотреть по порядку» выключается в настройках
+       (группа карточки, по умолчанию включён). Выключенный — ни блока, ни
+       запроса коллекции; кнопка «Франшиза» — своим выключателем. */
+    function rowEnabled() {
+      try { return LC.pref ? !!LC.pref('lumen_franchise_row', true) : true; } catch (e) { return true; }
+    }
+
     /* row — узел ряда описания (items_line), тот же, что получают
        LC.header.descr и LC.reviews.render. Идемпотентно: 'build'
        'description' и страховочный complite приходят с одними данными —
@@ -510,7 +517,11 @@
 
         var movie = (data && data.movie) || {};
         var collection = movie.belongs_to_collection;
-        var sign = [collection && collection.id, movie.id, lang('lumen_fr_title')].join('|');
+        /* Сверка 2026-09-26: выключатель ряда (lumen_franchise_row) входит в
+           подпись — смена настройки на открытой карточке (повторный render
+           из LC.applyFranchisePref) снимает или возвращает ряд. */
+        var on = rowEnabled();
+        var sign = [on ? 1 : 0, collection && collection.id, movie.id, lang('lumen_fr_title')].join('|');
 
         var state = stateOf(holder);
         if (state.sign === sign && (!state.painted || holder.find('.lumen-fr').length)) return;
@@ -524,7 +535,7 @@
         state.parts = null;
         state.list = null;
 
-        if (!collection || !collection.id) return;
+        if (!on || !collection || !collection.id) return;
         state.movie = movie;
         state.name = collection.name || '';
         state.row = row;

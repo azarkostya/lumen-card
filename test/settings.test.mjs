@@ -91,6 +91,9 @@ function setup(opts) {
   LC.applyTrailerPref = mark('trailer');
   LC.applyProgressPref = mark('progress');
   LC.applyReviewsPref = mark('reviews');
+  /* Сверка 2026-09-26: кнопка «Франшиза» и ряд «Смотреть по порядку» —
+     перерисовка открытой карточки одной точкой. */
+  LC.applyFranchisePref = mark('franchise');
   /* Task 15/16/19/20 (фаза 2): точки применения главной и подборок. */
   LC.applyRowsPref = mark('rows');
   LC.applyPersonalPref = mark('personal');
@@ -289,6 +292,10 @@ test('каждая настройка применяется ровно один
        героя: выключение возвращает текстовый заголовок сразу. */
     lumen_hero_logo: ['herologo'],
     lumen_card_logo: ['cardlogo'],
+    /* Сверка 2026-09-26: выключатели кнопки «Франшиза» и ряда «Смотреть по
+       порядку» — перерисовка открытой карточки, CSS не пересобирается. */
+    lumen_franchise_button: ['franchise'],
+    lumen_franchise_row: ['franchise'],
     lumen_menus: ['menus'],
     lumen_torrents: ['torrents'],
     /* Task 20: подсказка про ключ — перерисовка ряда отзывов карточки плюс

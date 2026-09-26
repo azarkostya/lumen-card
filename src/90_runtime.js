@@ -1115,6 +1115,36 @@
     }
   };
 
+  /* Сверка 2026-09-26: выключатели кнопки «Франшиза» (lumen_franchise_button)
+     и ряда «Смотреть по порядку» (lumen_franchise_row) переключили на уже
+     открытой карточке — настройки Lampa лежат поверх неё, и возврат её не
+     перестраивает (та же причина, что у applyReviewsPref). Кнопка —
+     на каждой нашей карточке в DOM, по фильму, запомненному на корне
+     (LC.hub.franchise); ряд выключенным снимается на всех рядах описания, а
+     включённым рисуется на открытой карточке по LC.active.data. */
+  LC.applyFranchisePref = function () {
+    var i;
+    try {
+      var cards = $('.lumen-card');
+      for (i = 0; i < cards.length; i++) {
+        if (typeof cards[i].lumen_fr_movie !== 'undefined') LC.hub.franchise(cards.eq(i), cards[i].lumen_fr_movie || {});
+      }
+    } catch (e) {
+      warn('franchise button pref failed', e);
+    }
+    try {
+      if (!LC.pref('lumen_franchise_row', true)) {
+        var rows = $('.lumen-descr-row');
+        for (i = 0; i < rows.length; i++) LC.franchise.render(rows.eq(i), LC.active && LC.active.data);
+        return;
+      }
+      var row = $(LC.util.ON_SCREEN_SEL + ' .lumen-descr-row');
+      if (row && row.length && LC.active && LC.active.data) LC.franchise.render(row, LC.active.data);
+    } catch (e2) {
+      warn('franchise row pref failed', e2);
+    }
+  };
+
   /* Правка пользователя 2026-09-16 (п.1): LC.applyCastPref убрана вместе с
      настройкой lumen_card_cast и блоком «В ролях» — управлять больше нечем. */
 

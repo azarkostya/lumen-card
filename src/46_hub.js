@@ -2154,12 +2154,24 @@
     /* трейлера (src/55_trailer.js addStop).                                 */
     /* ------------------------------------------------------------------ */
 
+    /* Сверка 2026-09-26: кнопка «Франшиза» выключается в настройках (группа
+       карточки, по умолчанию включена). */
+    function buttonEnabled() {
+      try { return LC.pref ? !!LC.pref('lumen_franchise_button', true) : true; } catch (e) { return true; }
+    }
+
     function franchise(root, movie) {
       try {
         if (!root || !root.length) return;
         var old = root.find('.lumen-franchise');
         if (old.length) old.remove();
         root.removeClass('lumen-card--franchise');
+        /* Сверка 2026-09-26: фильм запоминается на корне — по нему
+           LC.applyFranchisePref перерисует кнопку, когда выключатель
+           переключат на открытой карточке. Выключенная кнопка просто не
+           ставится: остальные кнопки карточки остаются на своих местах. */
+        root[0].lumen_fr_movie = movie || null;
+        if (!buttonEnabled()) return;
         var collection = movie && movie.belongs_to_collection;
         var item = franchiseItem(collection);
         if (!item) return;

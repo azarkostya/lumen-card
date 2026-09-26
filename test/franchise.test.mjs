@@ -448,3 +448,29 @@ test('render: чужая разметка ряда и пустые аргуме�
   assert.equal(env.requests.length, 0);
   assert.deepEqual(warnLog, []);
 });
+
+/* Сверка 2026-09-26: выключатель ряда «Смотреть по порядку»
+   (lumen_franchise_row, по умолчанию включён). Выключенный — ни блока, ни
+   запроса коллекции; переключение на открытой карточке (повторный render с
+   теми же данными — так его зовёт LC.applyFranchisePref) снимает и
+   возвращает ряд. */
+test('сверка: «Смотреть по порядку» выключен — ни блока, ни запроса; повторный render после смены — снимает и возвращает', () => {
+  const env = freshEnv({ store: { lumen_franchise_row: 'false' } });
+  const d = makeDescrRow();
+  env.LC.franchise.render(d.row, DATA);
+  assert.equal(env.requests.length, 0, 'выключенный ряд ходит в сеть');
+  assert.equal(blocksOf(d).length, 0);
+  assert.equal(d.row.hasClass('lumen-descr-row--franchise'), false);
+
+  env.store.lumen_franchise_row = 'true';
+  env.LC.franchise.render(d.row, DATA);
+  assert.equal(env.requests.length, 1, 'включили — ряд не запросил коллекцию');
+  env.requests[0].ok(COLLECTION_OK);
+  assert.equal(blocksOf(d).length, 1);
+
+  env.store.lumen_franchise_row = 'false';
+  env.LC.franchise.render(d.row, DATA);
+  assert.equal(blocksOf(d).length, 0, 'выключение на открытой карточке не сняло ряд');
+  assert.equal(d.row.hasClass('lumen-descr-row--franchise'), false);
+  assert.deepEqual(warnLog, []);
+});

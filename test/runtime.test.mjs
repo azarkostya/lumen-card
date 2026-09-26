@@ -2741,3 +2741,40 @@ test('ревью H4: возврат на главную с запаркован�
   assert.deepEqual(log, ['destroy']);
   assert.deepEqual(warnLog, []);
 });
+
+/* Сверка 2026-09-26: выключатели кнопки «Франшиза» и ряда «Смотреть по
+   порядку» переключили в настройках поверх открытой карточки — возврат её
+   не перестраивает, поэтому своя точка применения: кнопка перерисовывается
+   на каждой нашей карточке по фильму, запомненному на корне, ряд —
+   выключенным снимается на всех рядах описания, включённым рисуется на
+   открытой карточке по LC.active.data. */
+test('сверка: LC.applyFranchisePref — кнопка по фильму на корне, ряд: выключен — снять везде, включён — нарисовать открытой карточке', () => {
+  const storage = {};
+  const { LC, franchiseCalls, franchiseRows } = initLC({ storage });
+  const card = new FakeEl(['full-start-new', 'lumen-card']);
+  const movie = { id: 1, belongs_to_collection: { id: 10, name: 'X' } };
+  card.lumen_fr_movie = movie;
+  const stranger = new FakeEl(['full-start-new', 'lumen-card']); /* наш шаблон, но кнопку ещё не ставили */
+  const onScreen = new FakeEl(['items-line', 'lumen-descr-row']);
+  const inHistory = new FakeEl(['items-line', 'lumen-descr-row']);
+  const set = (list) => ({ length: list.length, eq: (i) => list[i], 0: list[0], 1: list[1] });
+  globalThis.$ = (sel) => {
+    if (sel === '.lumen-card') return set([card, stranger]);
+    if (sel === '.lumen-descr-row') return set([onScreen, inHistory]);
+    if (sel === '.activity--active .lumen-descr-row') return onScreen;
+    return EMPTY;
+  };
+  LC.active = { data: { movie: movie } };
+
+  LC.applyFranchisePref();
+  assert.equal(franchiseCalls.length, 1, 'кнопка перерисована только там, где её ставили');
+  assert.equal(franchiseCalls[0].root, card);
+  assert.equal(franchiseCalls[0].movie, movie);
+  assert.deepEqual(franchiseRows, [onScreen], 'включённый ряд — на открытой карточке');
+
+  storage.lumen_franchise_row = 'false';
+  franchiseRows.length = 0;
+  LC.applyFranchisePref();
+  assert.deepEqual(franchiseRows, [onScreen, inHistory], 'выключенный ряд снимается на всех рядах описания');
+  assert.deepEqual(warnLog, []);
+});

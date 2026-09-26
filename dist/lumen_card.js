@@ -14336,12 +14336,24 @@ return menu_node;
 
 
 
+
+
+function buttonEnabled() {
+try { return LC.pref ? !!LC.pref('lumen_franchise_button', true) : true; } catch (e) { return true; }
+}
+
 function franchise(root, movie) {
 try {
 if (!root || !root.length) return;
 var old = root.find('.lumen-franchise');
 if (old.length) old.remove();
 root.removeClass('lumen-card--franchise');
+
+
+
+
+root[0].lumen_fr_movie = movie || null;
+if (!buttonEnabled()) return;
 var collection = movie && movie.belongs_to_collection;
 var item = franchiseItem(collection);
 if (!item) return;
@@ -34132,6 +34144,13 @@ return false;
 
 
 
+function rowEnabled() {
+try { return LC.pref ? !!LC.pref('lumen_franchise_row', true) : true; } catch (e) { return true; }
+}
+
+
+
+
 
 
 function render(row, data) {
@@ -34142,7 +34161,11 @@ row.addClass('lumen-descr-row');
 
 var movie = (data && data.movie) || {};
 var collection = movie.belongs_to_collection;
-var sign = [collection && collection.id, movie.id, lang('lumen_fr_title')].join('|');
+
+
+
+var on = rowEnabled();
+var sign = [on ? 1 : 0, collection && collection.id, movie.id, lang('lumen_fr_title')].join('|');
 
 var state = stateOf(holder);
 if (state.sign === sign && (!state.painted || holder.find('.lumen-fr').length)) return;
@@ -34156,7 +34179,7 @@ row.removeClass('lumen-descr-row--franchise');
 state.parts = null;
 state.list = null;
 
-if (!collection || !collection.id) return;
+if (!on || !collection || !collection.id) return;
 state.movie = movie;
 state.name = collection.name || '';
 state.row = row;
@@ -37164,6 +37187,20 @@ uk: 'Ряди підбірок на головній'
 
 
 lumen_rows_seasonal: { ru: 'Сезонная', en: 'Seasonal', uk: 'Сезонна' },
+
+
+lumen_franchise_button_name: { ru: 'Кнопка «Франшиза»', en: '"Franchise" button', uk: 'Кнопка «Франшиза»' },
+lumen_franchise_button_descr: {
+ru: 'Кнопка рядом с кнопками карточки, если фильм входит в серию: открывает всю серию сеткой. Остальные кнопки остаются на своих местах. Применяется сразу.',
+en: 'A button next to the card buttons when the movie is part of a series: opens the whole series as a grid. The other buttons stay where they are. Applied immediately.',
+uk: 'Кнопка поруч із кнопками картки, якщо фільм входить до серії: відкриває всю серію сіткою. Інші кнопки залишаються на своїх місцях. Застосовується одразу.'
+},
+lumen_franchise_row_name: { ru: 'Ряд «Смотреть по порядку»', en: '"Watch in order" row', uk: 'Ряд «Дивитися по черзі»' },
+lumen_franchise_row_descr: {
+ru: 'Части серии в порядке выхода или по рейтингу с отметками просмотренного — в блоке описания карточки. Выключенный ряд ничего не запрашивает. Применяется сразу.',
+en: 'The parts of the series in release or rating order with watched marks, in the card description block. When off, nothing is requested. Applied immediately.',
+uk: 'Частини серії в порядку виходу або за рейтингом із позначками переглянутого — у блоці опису картки. Вимкнений ряд нічого не запитує. Застосовується одразу.'
+},
 lumen_hide_watched_name: {
 ru: 'Скрывать досмотренное',
 en: 'Hide watched',
@@ -37755,6 +37792,13 @@ return true;
 
 
 if (name === 'lumen_reviews' || name === 'lumen_kp_key' || name === 'lumen_reviews_mode') { LC.applyReviewsPref(); return true; }
+
+
+
+if (name === 'lumen_franchise_button' || name === 'lumen_franchise_row') {
+try { if (LC.applyFranchisePref) LC.applyFranchisePref(); } catch (eFr) {}
+return true;
+}
 
 
 
@@ -38455,6 +38499,11 @@ var LIST = [
 
 
 
+
+{ name: 'lumen_franchise_button', type: 'trigger', 'default': true, label: 'lumen_franchise_button_name', descr: 'lumen_franchise_button_descr' },
+
+
+
 { name: 'lumen_reviews', type: 'trigger', 'default': true, label: 'lumen_card_reviews_name', descr: 'lumen_card_reviews_descr' },
 
 
@@ -38470,6 +38519,10 @@ var LIST = [
 
 
 { name: 'lumen_kp_hint', type: 'trigger', 'default': true, label: 'lumen_kp_hint_name', descr: 'lumen_kp_hint_descr' },
+
+
+
+{ name: 'lumen_franchise_row', type: 'trigger', 'default': true, label: 'lumen_franchise_row_name', descr: 'lumen_franchise_row_descr' },
 
 
 
@@ -42169,6 +42222,36 @@ if (!LC.pref('lumen_reviews', true)) { LC.reviews.clearRow(row); return; }
 if (LC.active && LC.active.data) LC.reviews.render(row, LC.active.data);
 } catch (e) {
 warn('reviews pref failed', e);
+}
+};
+
+
+
+
+
+
+
+
+LC.applyFranchisePref = function () {
+var i;
+try {
+var cards = $('.lumen-card');
+for (i = 0; i < cards.length; i++) {
+if (typeof cards[i].lumen_fr_movie !== 'undefined') LC.hub.franchise(cards.eq(i), cards[i].lumen_fr_movie || {});
+}
+} catch (e) {
+warn('franchise button pref failed', e);
+}
+try {
+if (!LC.pref('lumen_franchise_row', true)) {
+var rows = $('.lumen-descr-row');
+for (i = 0; i < rows.length; i++) LC.franchise.render(rows.eq(i), LC.active && LC.active.data);
+return;
+}
+var row = $(LC.util.ON_SCREEN_SEL + ' .lumen-descr-row');
+if (row && row.length && LC.active && LC.active.data) LC.franchise.render(row, LC.active.data);
+} catch (e2) {
+warn('franchise row pref failed', e2);
 }
 };
 

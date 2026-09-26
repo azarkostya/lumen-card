@@ -674,6 +674,20 @@
     /* Сверка 2026-09-26: метка сезонной подборки (поле season каталога) в
        окне «Какие ряды показывать» — строкой под названием. */
     lumen_rows_seasonal: { ru: 'Сезонная', en: 'Seasonal', uk: 'Сезонна' },
+    /* Сверка 2026-09-26: выключатели кнопки «Франшиза» и ряда «Смотреть по
+       порядку» в группе карточки. */
+    lumen_franchise_button_name: { ru: 'Кнопка «Франшиза»', en: '"Franchise" button', uk: 'Кнопка «Франшиза»' },
+    lumen_franchise_button_descr: {
+      ru: 'Кнопка рядом с кнопками карточки, если фильм входит в серию: открывает всю серию сеткой. Остальные кнопки остаются на своих местах. Применяется сразу.',
+      en: 'A button next to the card buttons when the movie is part of a series: opens the whole series as a grid. The other buttons stay where they are. Applied immediately.',
+      uk: 'Кнопка поруч із кнопками картки, якщо фільм входить до серії: відкриває всю серію сіткою. Інші кнопки залишаються на своїх місцях. Застосовується одразу.'
+    },
+    lumen_franchise_row_name: { ru: 'Ряд «Смотреть по порядку»', en: '"Watch in order" row', uk: 'Ряд «Дивитися по черзі»' },
+    lumen_franchise_row_descr: {
+      ru: 'Части серии в порядке выхода или по рейтингу с отметками просмотренного — в блоке описания карточки. Выключенный ряд ничего не запрашивает. Применяется сразу.',
+      en: 'The parts of the series in release or rating order with watched marks, in the card description block. When off, nothing is requested. Applied immediately.',
+      uk: 'Частини серії в порядку виходу або за рейтингом із позначками переглянутого — у блоці опису картки. Вимкнений ряд нічого не запитує. Застосовується одразу.'
+    },
     lumen_hide_watched_name: {
       ru: 'Скрывать досмотренное',
       en: 'Hide watched',
@@ -1265,6 +1279,13 @@
        приходят сюда: ряд открытой карточки перерисовывается по той же
        дороге, что при смене ключа API. */
     if (name === 'lumen_reviews' || name === 'lumen_kp_key' || name === 'lumen_reviews_mode') { LC.applyReviewsPref(); return true; }
+    /* Сверка 2026-09-26: кнопка «Франшиза» и ряд «Смотреть по порядку» —
+       перерисовка открытой карточки одной точкой (src/90_runtime.js);
+       таблица стилей от них не зависит. */
+    if (name === 'lumen_franchise_button' || name === 'lumen_franchise_row') {
+      try { if (LC.applyFranchisePref) LC.applyFranchisePref(); } catch (eFr) {}
+      return true;
+    }
     /* Task 20: подсказка «Ключ API не задан» — перерисовать ряд отзывов
        открытой карточки (там же, где её рисует LC.reviews) и снять/вернуть
        подсказку в открытой сетке подборки Кинопоиска. */
