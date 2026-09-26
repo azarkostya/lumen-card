@@ -802,6 +802,32 @@
       { id: 'christmas', pages: 2 }
     ];
     var ADVENT_KEY = 'lumen_advent_open';
+    /* Раунд C, C6 (ревью rv3, RV3-2): карточки окошек, запрошенные по id
+       (movie/{id}: запомненный фильм ушёл из ответов пула, «Ирония» 31-го),
+       помнятся на сеанс — FIFO на ADVENT_CARDS_KEEP. Пулы — discover по
+       популярности, и рождественское кино в декабре каждый день уходит за
+       вторую страницу: без памяти каждое построение главной до конца месяца
+       повторяло бы те же запросы (кэша у movie/{id} нет ни у нас, ни у
+       Lampa — get$c без cache, app.min.js:19693-19700). Ответа по id ряд
+       ждёт не дольше ADVENT_WAIT (у запроса Lampa — только свои 10 с, а
+       первая порция рядов главной ждёт всех): не успевшие окошки — пустые
+       (held), запись от этого не страдает (слияние, adventRecord). */
+    var ADVENT_CARDS_KEEP = 40;
+    var ADVENT_WAIT = 4000;
+    var adventCards = {};
+    var adventCardKeys = [];
+
+    function adventCardGet(id) {
+      return Object.prototype.hasOwnProperty.call(adventCards, id) ? adventCards[id] : null;
+    }
+
+    function adventCardPut(id, card) {
+      if (!Object.prototype.hasOwnProperty.call(adventCards, id)) {
+        adventCardKeys.push(id);
+        while (adventCardKeys.length > ADVENT_CARDS_KEEP) delete adventCards[adventCardKeys.shift()];
+      }
+      adventCards[id] = card;
+    }
     /* Прозрачный пиксель вместо постера закрытого окошка: без картинки
        Lampa ставит свою «битую» (Card.getPosterPath, img_broken.svg). */
     var ADVENT_BLANK = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
@@ -1040,6 +1066,8 @@
              results, дедлайн сборщика LC.sources — partial) — пул сегодня
              неполный, и запись открытых окошков не трогаем. */
           var failed = false;
+          /* C6: сколько запросов пула дали список (хоть частичный). */
+          var answered = 0;
           var words = {
             day: adventWord('lumen_advent_day', 'Day'),
             today: adventWord('lumen_advent_today', 'Today'),
@@ -1113,7 +1141,9 @@
             return need;
           }
 
-          /* Карточка фильма по id. done — ровно один раз при любом исходе. */
+          /* Карточка фильма по id. done — ровно один раз при любом исходе.
+             C6: пришедшая карточка ложится в память сеанса и после
+             дедлайна ADVENT_WAIT — пригодится следующему построению. */
           function askCard(id, extra, done) {
             var fired = false;
             function once() { if (!fired) { fired = true; done(); } }
@@ -1121,7 +1151,14 @@
               Lampa.Api.sources.tmdb.get(
                 'movie/' + id,
                 {},
-                function (json) { if (json && Number(json.id) === id) extra.push(listCard(json)); once(); },
+                function (json) {
+                  if (json && Number(json.id) === id) {
+                    var card = listCard(json);
+                    adventCardPut(id, card);
+                    extra.push(card);
+                  }
+                  once();
+                },
                 once
               );
             } catch (e) {
@@ -1136,13 +1173,21 @@
             var opened = adventOpened();
             var need = wanted(opened);
             var extra = [];
-            var rest = need.length;
-            if (!rest) { build(extra, opened); return; }
-            function one() {
-              rest--;
-              if (!rest && alive()) build(extra, opened);
+            var ask = [];
+            for (var m = 0; m < need.length; m++) {
+              var known = adventCardGet(need[m]);
+              if (known) extra.push(known);
+              else ask.push(need[m]);
             }
-            for (var n = 0; n < need.length; n++) askCard(need[n], extra, one);
+            /* C6: не ответил ни один запрос пула (TMDB недоступен) — по id
+               тоже не спрашиваем: было бы до 31 запроса туда же, где сеть
+               уже отказала. Окошки — из памяти сеанса или пустые. */
+            if (!answered) ask = [];
+            if (!ask.length) { build(extra, opened); return; }
+            var gate = LC.util.gate(ask.length, ADVENT_WAIT, function () {
+              if (alive()) build(extra, opened);
+            });
+            for (var n = 0; n < ask.length; n++) askCard(ask[n], extra, gate.tick);
           }
 
           /* Фабрика на итерацию: var в цикле ES5 не создаёт своей области,
@@ -1155,6 +1200,7 @@
               function (json) {
                 var list = json && json.results;
                 if (!Array.isArray(list) || json.partial) failed = true;
+                if (Array.isArray(list)) answered++;
                 slots[index] = Array.isArray(list) ? list : [];
                 finish();
               },

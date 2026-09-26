@@ -801,6 +801,79 @@ test('L1 адвент: TMDB убрал запомненный фильм из п
   assert.equal(saved.d[3], 777);
 });
 
+/* Раунд C, C6 (ревью rv3, RV3-2): карточки окошек по id — память на сеанс,
+   при полном сбое пула — без запросов по id, свой дедлайн ответа. */
+function answerAdventFrom(s, from) {
+  var ours = [];
+  for (var i = 0; i < 10; i++) ours.push({ id: 500 + i, title: 'наш ' + i });
+  s.fetchCalls[from].ok({ results: ours });
+  for (var k = 1; k < 5; k++) {
+    var list = [];
+    for (var j = 0; j < 12; j++) list.push({ id: 100 + k * 20 + j, title: 'мир ' + k + '/' + j });
+    s.fetchCalls[from + k].ok({ results: list });
+  }
+}
+
+test('C6 адвент: второе построение за сеанс — карточка по id из памяти, без запроса', function () {
+  var rec = { y: 2026, d: { 1: 130, 2: 131, 3: 777 } };
+  var s = setupRows({ manifest: XMAS_MANIFEST, now: new Date(2026, 11, 4), storage: { lumen_advent_open: rec }, tmdb: true });
+  var got = adventPayload(s);
+  answerAdventFrom(s, 0);
+  assert.deepEqual(s.tmdbCalls.map(function (c) { return c.url; }), ['movie/777'], 'предусловие: первый раз — запрос');
+  s.tmdbCalls[0].ok({ id: 777, title: 'ушедший из подборки', poster_path: '/p.jpg' });
+  assert.equal(got[0].results[2].id, 777);
+  var again = adventPayload(s);
+  answerAdventFrom(s, 5);
+  assert.equal(s.tmdbCalls.length, 1, 'второе построение главной — без запроса по id');
+  assert.equal(again.length, 1, 'ряд построен сразу');
+  assert.equal(again[0].results[2].id, 777, 'окошко 3 — тот же фильм, из памяти');
+  assert.equal(again[0].results[2].title, 'ушедший из подборки');
+});
+
+test('C6 адвент: не ответил ни один запрос пула — по id не спрашиваем', function () {
+  var rec = { y: 2026, d: { 1: 130, 2: 131, 3: 777, 4: 778 } };
+  var s = setupRows({ manifest: XMAS_MANIFEST, now: new Date(2026, 11, 5), storage: { lumen_advent_open: rec }, tmdb: true });
+  var got = adventPayload(s);
+  for (var i = 0; i < 5; i++) s.fetchCalls[i].err({});
+  assert.equal(s.tmdbCalls.length, 0, 'TMDB недоступен — ни одного movie/{id}');
+  assert.equal(got.length, 1, 'ровно один call');
+  assert.deepEqual(got[0].results, [], 'без единого фильма ряда нет');
+  assert.equal(JSON.stringify(s.Lampa.Storage.data.lumen_advent_open), JSON.stringify(rec), 'запись не тронута');
+});
+
+test('C6 адвент: карточка по id не ответила за 4 с — ряд строится без неё; поздний ответ — в память, второго call нет', function () {
+  var rec = { y: 2026, d: { 1: 130, 2: 131, 3: 777 } };
+  var timers = [];
+  var realSet = globalThis.setTimeout;
+  var realClear = globalThis.clearTimeout;
+  globalThis.setTimeout = function (fn, ms) { timers.push({ fn: fn, ms: ms, done: false }); return timers.length; };
+  globalThis.clearTimeout = function (id) { if (timers[id - 1]) timers[id - 1].done = true; };
+  try {
+    var s = setupRows({ manifest: XMAS_MANIFEST, now: new Date(2026, 11, 4), storage: { lumen_advent_open: rec }, tmdb: true });
+    var got = adventPayload(s);
+    answerAdventFrom(s, 0);
+    assert.equal(s.tmdbCalls.length, 1);
+    assert.equal(got.length, 0, 'ждёт ответа по id');
+    var wait = timers.filter(function (t) { return !t.done; });
+    assert.equal(wait.length, 1, 'свой дедлайн');
+    assert.equal(wait[0].ms, 4000);
+    wait[0].done = true;
+    wait[0].fn();
+    assert.equal(got.length, 1, 'по дедлайну ряд построен из того, что есть');
+    assert.equal(got[0].results[2].id, undefined, 'окошко 3 — пустое, не чужой фильм');
+    assert.equal(got[0].results[2].lumen_advent.state, 'empty');
+    s.tmdbCalls[0].ok({ id: 777, title: 'поздний', poster_path: '/p.jpg' });
+    assert.equal(got.length, 1, 'поздний ответ второго call не даёт');
+    var again = adventPayload(s);
+    answerAdventFrom(s, 5);
+    assert.equal(s.tmdbCalls.length, 1, 'поздний ответ лёг в память — второго запроса нет');
+    assert.equal(again[0].results[2].id, 777);
+  } finally {
+    globalThis.setTimeout = realSet;
+    globalThis.clearTimeout = realClear;
+  }
+});
+
 test('адвент: ошибки всех запросов дают пустой ряд, но ровно один call', function () {
   var s = setupRows({ manifest: XMAS_MANIFEST, now: new Date(2026, 11, 3) });
   var rows = s.rows();

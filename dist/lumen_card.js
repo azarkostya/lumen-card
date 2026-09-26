@@ -11528,6 +11528,32 @@ var ADVENT_SPECS = [
 var ADVENT_KEY = 'lumen_advent_open';
 
 
+
+
+
+
+
+
+
+
+var ADVENT_CARDS_KEEP = 40;
+var ADVENT_WAIT = 4000;
+var adventCards = {};
+var adventCardKeys = [];
+
+function adventCardGet(id) {
+return Object.prototype.hasOwnProperty.call(adventCards, id) ? adventCards[id] : null;
+}
+
+function adventCardPut(id, card) {
+if (!Object.prototype.hasOwnProperty.call(adventCards, id)) {
+adventCardKeys.push(id);
+while (adventCardKeys.length > ADVENT_CARDS_KEEP) delete adventCards[adventCardKeys.shift()];
+}
+adventCards[id] = card;
+}
+
+
 var ADVENT_BLANK = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
 
 var ADVENT_LOCK = '<svg class="lumen-advent__lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V7.5a4 4 0 018 0v3"/><path d="M12 14.5v2.5"/></svg>';
@@ -11764,6 +11790,8 @@ var handles = [];
 
 
 var failed = false;
+
+var answered = 0;
 var words = {
 day: adventWord('lumen_advent_day', 'Day'),
 today: adventWord('lumen_advent_today', 'Today'),
@@ -11838,6 +11866,8 @@ return need;
 }
 
 
+
+
 function askCard(id, extra, done) {
 var fired = false;
 function once() { if (!fired) { fired = true; done(); } }
@@ -11845,7 +11875,14 @@ try {
 Lampa.Api.sources.tmdb.get(
 'movie/' + id,
 {},
-function (json) { if (json && Number(json.id) === id) extra.push(listCard(json)); once(); },
+function (json) {
+if (json && Number(json.id) === id) {
+var card = listCard(json);
+adventCardPut(id, card);
+extra.push(card);
+}
+once();
+},
 once
 );
 } catch (e) {
@@ -11860,13 +11897,21 @@ if (!alive()) return;
 var opened = adventOpened();
 var need = wanted(opened);
 var extra = [];
-var rest = need.length;
-if (!rest) { build(extra, opened); return; }
-function one() {
-rest--;
-if (!rest && alive()) build(extra, opened);
+var ask = [];
+for (var m = 0; m < need.length; m++) {
+var known = adventCardGet(need[m]);
+if (known) extra.push(known);
+else ask.push(need[m]);
 }
-for (var n = 0; n < need.length; n++) askCard(need[n], extra, one);
+
+
+
+if (!answered) ask = [];
+if (!ask.length) { build(extra, opened); return; }
+var gate = LC.util.gate(ask.length, ADVENT_WAIT, function () {
+if (alive()) build(extra, opened);
+});
+for (var n = 0; n < ask.length; n++) askCard(ask[n], extra, gate.tick);
 }
 
 
@@ -11879,6 +11924,7 @@ spec.page,
 function (json) {
 var list = json && json.results;
 if (!Array.isArray(list) || json.partial) failed = true;
+if (Array.isArray(list)) answered++;
 slots[index] = Array.isArray(list) ? list : [];
 finish();
 },
