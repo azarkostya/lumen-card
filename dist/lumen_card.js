@@ -3060,6 +3060,19 @@ css.push('.lumen-main .card.lumen-advent-card--empty .lumen-advent__door{opacity
 css.push('.lumen-main .lumen-advent-card--today .card__view{outline:.13em solid ' + A + ';outline-offset:.08em}');
 
 css.push('.lumen-main .lumen-advent-card--today.lumen-advent-card--final .card__view{outline-color:#E8C170}');
+
+
+
+
+
+
+
+
+
+
+css.push('.lumen-main .lumen-advent-card .lumen-badge{color:' + P.text + ';background:' + P.panel + '}');
+css.push('.lumen-main .lumen-advent-card--today .lumen-badge{color:' + t.onac + ';background:' + A + ';border-color:' + A + '}');
+css.push('.lumen-main .lumen-advent-card--today.lumen-advent-card--final .lumen-badge{color:' + P.dark + ';background:#E8C170;border-color:#E8C170}');
 css.push('.lumen-main .card .lumen-advent__door--opening{-webkit-transform-origin:0 50%;transform-origin:0 50%}');
 css.push('body.lumen-motion-full .lumen-main .card .lumen-advent__door--opening{-webkit-animation:lumen-advent-open 1.5s ease-in-out .9s both;animation:lumen-advent-open 1.5s ease-in-out .9s both}');
 css.push('body.lumen-motion-lite .lumen-main .card .lumen-advent__door--opening{display:none}');

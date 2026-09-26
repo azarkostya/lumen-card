@@ -8333,3 +8333,61 @@ test('holB: фон праздничного Хэллоуина — по клас
   assert.equal(mist, theme, 'рисунок один: сцена по дате и тема фильма выглядят одинаково');
   assert.ok(!/filter|box-shadow|animation/.test(mist));
 });
+
+/* Следующий раунд, п.2: метка окошка адвента («День 12», «Сегодня») лежала
+   на общей подложке меток рядов — P.chipBg, то есть светлой вуали
+   rgba(текст, .12): на светлом постере это рамка без фона поверх его
+   названия (снимок holB-shots/advent_d15_stalo.png, «День 13» поверх
+   «Маленьких женщин»). Метке окошка — плотная подложка: прошедшим дням —
+   сплошная тёмная карта, сегодняшнему — акцент, как у «Новинки», и в тон
+   контура окошка; 31-му — золото его плитки. Узел — сам .lumen-badge в
+   .card__view окошка, модель каскада — по цепочке предков. */
+function badgeCascade(cardClasses, prop) {
+  const chain = [['lumen-main'], ['card'].concat(cardClasses), ['card__view']];
+  const leaf = ['lumen-badge', 'lumen-badge--custom'];
+  const rules = [];
+  const all = ruleBodies(css);
+  for (let i = 0; i < all.length; i++) {
+    for (const sel of all[i].selectors) {
+      const parts = sel.split(/\s+/).map(compound);
+      if (parts.some((p) => !p) || !compoundMatches(parts[parts.length - 1], leaf)) continue;
+      let at = chain.length - 1;
+      let ok = true;
+      for (let k = parts.length - 2; k >= 0 && ok; k--) {
+        while (at >= 0 && !compoundMatches(parts[k], chain[at])) at--;
+        if (at < 0) ok = false; else at--;
+      }
+      if (!ok) continue;
+      rules.push({ order: i, spec: classCount(sel), decl: all[i].decl, sel: sel });
+      break;
+    }
+  }
+  return cascade(rules, prop);
+}
+
+test('следующий раунд, п.2: метка окошка адвента — на плотной подложке, «Сегодня» — акцентом, как «Новинка»', () => {
+  const fresh = findDecl(css, (sel) => sel === '.lumen-main .lumen-badge');
+  const ring = findDecl(css, (sel) => sel === '.lumen-main .lumen-advent-card--today.lumen-advent-card--final .card__view');
+
+  const past = badgeCascade(['lumen-advent-card', 'lumen-advent-card--open'], 'background');
+  assert.ok(/^#[0-9A-Fa-f]{6}$/.test(past.value), '«День N» — сплошная подложка, без прозрачности: ' + past.value + ' (' + past.sel + ')');
+  assert.equal(badgeCascade(['lumen-advent-card', 'lumen-advent-card--open'], 'color').value,
+    declProp(findDecl(css, (sel) => sel === '.lumen-main .lumen-badge--custom'), 'color'), 'текст — светлый, как у меток рядов');
+
+  const today = badgeCascade(['lumen-advent-card', 'lumen-advent-card--today'], 'background');
+  assert.equal(today.value, declProp(fresh, 'background'), '«Сегодня» — акцентом, как «Новинка»');
+  assert.equal(badgeCascade(['lumen-advent-card', 'lumen-advent-card--today'], 'color').value, declProp(fresh, 'color'));
+
+  const eve = badgeCascade(['lumen-advent-card', 'lumen-advent-card--today', 'lumen-advent-card--final'], 'background');
+  assert.equal(eve.value, declProp(ring, 'outline-color'), '31-е — золото контура плитки');
+
+  const other = badgeCascade([], 'background');
+  assert.equal(other.value, declProp(findDecl(css, (sel) => sel === '.lumen-main .lumen-badge--custom'), 'background'),
+    'метки других рядов («Новая серия») правило окошка не задевает');
+
+  const own = ruleBodies(css).filter((r) => r.selectors.some((s) => /lumen-advent-card[^ ]* \.lumen-badge$/.test(s)));
+  assert.ok(own.length >= 3, 'правила метки окошка: ' + own.length);
+  for (const r of own) {
+    assert.ok(!/(?:^|;)(width|height|margin|padding|font-size|top|left)(?:-[a-z]+)?:/.test(r.decl), 'метка окошка — только цвет, размеры общие: ' + r.decl);
+  }
+});

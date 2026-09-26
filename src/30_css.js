@@ -2183,6 +2183,19 @@
     css.push('.lumen-main .lumen-advent-card--today .card__view{outline:.13em solid ' + A + ';outline-offset:.08em}');
     /* 31-е открыто — «Ирония судьбы» в золотом контуре плитки 31-го. */
     css.push('.lumen-main .lumen-advent-card--today.lumen-advent-card--final .card__view{outline-color:#E8C170}');
+    /* Следующий раунд, п.2: метка окошка («День 12», «Сегодня» — card.
+       lumen_badge, src/53_themes.js; узел .lumen-badge--custom рисует
+       src/62_badges.js). Общая подложка меток рядов — P.chipBg, светлая
+       вуаль rgba(текст, .12): на светлом постере метка была рамкой без фона
+       поверх его названия (стенд 960×540@2, 15 декабря: «День 13» поверх
+       «Маленьких женщин»). У окошка подложка плотная: прошедшие дни —
+       сплошная панель темы, сегодняшнее — акцент, как у «Новинки», и в тон
+       его контура, 31-е — золото своей плитки. Только цвет: кегль, отступы
+       и место общие с метками рядов. Три класса в селекторе перебивают
+       правило .lumen-badge--custom ниже при любом порядке. */
+    css.push('.lumen-main .lumen-advent-card .lumen-badge{color:' + P.text + ';background:' + P.panel + '}');
+    css.push('.lumen-main .lumen-advent-card--today .lumen-badge{color:' + t.onac + ';background:' + A + ';border-color:' + A + '}');
+    css.push('.lumen-main .lumen-advent-card--today.lumen-advent-card--final .lumen-badge{color:' + P.dark + ';background:#E8C170;border-color:#E8C170}');
     css.push('.lumen-main .card .lumen-advent__door--opening{-webkit-transform-origin:0 50%;transform-origin:0 50%}');
     css.push('body.lumen-motion-full .lumen-main .card .lumen-advent__door--opening{-webkit-animation:lumen-advent-open 1.5s ease-in-out .9s both;animation:lumen-advent-open 1.5s ease-in-out .9s both}');
     css.push('body.lumen-motion-lite .lumen-main .card .lumen-advent__door--opening{display:none}');
