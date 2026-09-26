@@ -970,6 +970,72 @@ test('accent: включение настройки на открытой кар
   });
 });
 
+/* Раунд правок финальной проверки, A6 (logic-hero, LH-1): destroy()
+   зовётся на каждом уходе с главной в хаб, «Ещё» или сетку
+   (src/90_runtime.js). Цвет героя главной живёт только в узле подкраски
+   (applyFor без deep), таблица его не знает — пересобирать её незачем,
+   как и у reset(). Пересборка нужна, только если таблица акцент или
+   подкраску знала: открытая карточка (deep) или полная пересборка по
+   настройке во время показа. */
+test('финал A6: destroy после показа на главной таблицу не пересобирает, узел подкраски снимает', () => {
+  const dom = fakeDom({});
+  withDom(dom, () => {
+    const ctx = accentCtx({ prefs: { lumen_accent_auto: 'true' } });
+    ctx.LC.accent.applyFor({ id: 1, poster_path: '/a.jpg' });
+    dom.state.images[0].onload();
+    assert.ok(accentNode(dom), 'предусловие: узел подкраски записан');
+    assert.equal(ctx.state.injects, 0, 'предусловие: таблица не пересобиралась');
+    ctx.LC.accent.destroy();
+    assert.equal(accentNode(dom), null, 'узел подкраски снят');
+    assert.equal(ctx.state.injects, 0, 'таблица акцента не знала — пересборки нет');
+  });
+});
+
+test('финал A6: destroy пересобирает таблицу, когда она знала акцент карточки или подкраску', () => {
+  const dom = fakeDom({});
+  withDom(dom, () => {
+    const ctx = accentCtx({ prefs: { lumen_accent_auto: 'true' } });
+    ctx.LC.accent.applyFor({ id: 1, poster_path: '/a.jpg' }, true);
+    dom.state.images[0].onload();
+    assert.equal(ctx.state.injects, 1, 'предусловие: карточка — одна пересборка');
+    ctx.LC.accent.destroy();
+    assert.equal(ctx.state.injects, 2, 'уход с карточки — таблица без акцента фильма');
+    ctx.LC.accent.applyFor({ id: 2, poster_path: '/b.jpg' });
+    dom.state.images[1].onload();
+    ctx.LC.injectCss();
+    assert.equal(ctx.state.injects, 3, 'предусловие: пересборка по настройке во время показа — таблица знает подкраску');
+    ctx.LC.accent.destroy();
+    assert.equal(ctx.state.injects, 4, 'акцент фильма в таблице — снимается пересборкой');
+    ctx.LC.accent.destroy();
+    assert.equal(ctx.state.injects, 4, 'снимать больше нечего');
+    /* Подкраска без акцента (доминанта есть, акцент из неё не собрался —
+       тот же путь даёт drive самотеста): таблица знает только оттенок фона. */
+    ctx.LC.accent.drive({ r: 40, g: 90, b: 200 });
+    ctx.LC.injectCss();
+    assert.equal(ctx.state.injects, 5);
+    ctx.LC.accent.destroy();
+    assert.equal(ctx.state.injects, 6, 'оттенок фона в таблице — снимается пересборкой');
+  });
+});
+
+/* Раунд правок финальной проверки, A8 (logic-hero, LH-3): подкраску
+   включили поверх главной — карточки нет (LC.active пуст), и цвет фильма
+   под фокусом ставит герой (accentBack), а не ждёт смены фокуса. */
+test('финал A8: включение подкраски поверх главной зовёт герой; на открытой карточке — нет', () => {
+  const dom = fakeDom({});
+  withDom(dom, () => {
+    const ctx = accentCtx({ prefs: { lumen_accent_auto: 'true' } });
+    let back = 0;
+    ctx.LC.hero = { accentBack: () => { back++; } };
+    ctx.LC.applyAccentPref();
+    assert.equal(back, 1, 'главная: цвет фильма под фокусом заказан героем');
+    ctx.LC.active = { data: { movie: { id: 3, poster_path: '/c.jpg' } } };
+    ctx.LC.applyAccentPref();
+    assert.equal(back, 1, 'открытая карточка красится своим фильмом, герой молчит');
+    assert.equal(dom.state.images.length, 1);
+  });
+});
+
 /* ---------------------------------------------------------------------- */
 /* Связка с таблицей стилей: акцент фильма подменяет акцент настроек.      */
 /* ---------------------------------------------------------------------- */
@@ -1166,7 +1232,7 @@ test('цвет сразу (настоящий CSS): смена фильма — 
    (LC.tokens), узел фона (LC.accentCss) и узел подсветки (LC.accentFocusCss
    собирал весь набор accentRules ради одного правила). Счёт палитр — по
    вызовам LC.accent.rowsTint: palette() зовёт его ровно раз. */
-test('A4 (настоящий CSS): смена цвета фильма — одна палитра на запись, подсветка фокуса без палитры', () => {
+test('финал A4 (настоящий CSS): смена цвета фильма — одна палитра на запись, подсветка фокуса без палитры', () => {
   const dom = fakeDom({ datas: [WARM_POSTER, COLD_POSTER] });
   withDom(dom, () => {
     const ctx = cssCtx(dom, { lumen_accent_auto: 'true' });
@@ -1187,7 +1253,7 @@ test('A4 (настоящий CSS): смена цвета фильма — одн
   });
 });
 
-test('A4 (настоящий CSS): без флага сжатия правила пола нет ни в узле подкраски, ни в таблице; с флагом — в обоих', () => {
+test('финал A4 (настоящий CSS): без флага сжатия правила пола нет ни в узле подкраски, ни в таблице; с флагом — в обоих', () => {
   const dom = fakeDom({ data: pixels([{ r: 200, g: 120, b: 40, n: 256 }]) });
   withDom(dom, () => {
     const ctx = cssCtx(dom, { lumen_accent_auto: 'true' });
@@ -1881,7 +1947,7 @@ test('п.3: сбой картинки ответом не считается —
    2d-контекста» исход не отмечала — после серого постера (dim) её null
    читался как окончательный «цвета нет» и ложился в кэш фильма до конца
    сеанса. */
-test('A3: нет 2d-контекста после серого постера — сбой, а не «цвета нет»: фильм не известен, попытка повторяется', () => {
+test('финал A3: нет 2d-контекста после серого постера — сбой, а не «цвета нет»: фильм не известен, попытка повторяется', () => {
   const opts = { data: GRAY_POSTER };
   const dom = fakeDom(opts);
   withDom(dom, () => {

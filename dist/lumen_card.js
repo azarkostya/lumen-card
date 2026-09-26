@@ -17528,8 +17528,6 @@ state.stage.removeClass(MOTION_CLASSES).addClass('lumen-motion-' + mode);
 
 applyTrailer();
 
-applySlides();
-
 
 
 
@@ -17539,6 +17537,10 @@ var was = state.motion;
 state.motion = mode;
 if (mode === 'off') offFrame();
 else if (was === 'off') onFrame();
+
+
+
+applySlides();
 } catch (e) {
 warn('hero: motion failed', e);
 }
@@ -17561,12 +17563,27 @@ state.stage.find('.lumen-hero__bg').removeAttr('src');
 settleAccent(true);
 }
 
+
+
+
+
+
+
+
+
+
+
+
 function onFrame() {
-if (state.parked || state.frameUrl || state.framePath === null || !state.model) return;
-var captured = gen;
-loadFrame({ backdrop: state.framePath, poster: state.model.poster }, captured, function (ok) {
-if (ok && state && gen === captured) state.frameId = state.shownId;
-});
+if (state.parked || !state.model) return;
+if (state.shownCard && !focusAway()) {
+state.accentCard = state.shownCard;
+state.accentWait = true;
+armHold();
+}
+if (state.frameUrl || state.framePath === null) return;
+state.framePath = null;
+chooseFrame(state.model, gen);
 }
 
 function motionMode() {
@@ -18343,7 +18360,9 @@ warn('hero: slides failed', e);
 function applySlides() {
 if (!state) return;
 if (!slidesAllowed()) { cancelSlides(); return; }
-if (!state.slides && state.model && state.details) startSlides(state.model, gen);
+
+
+if (!state.slides && state.model && state.details && state.framePath !== null) startSlides(state.model, gen);
 }
 
 
@@ -29509,6 +29528,11 @@ writeAccentStyle('lumen-accent-focus', focus, last);
 
 var applied = null;
 
+
+
+
+var applied_tint = false;
+
 function tokenColor() {
 var t = override || themeTokens;
 return t ? t.color : null;
@@ -29519,6 +29543,7 @@ return t ? t.color : null;
 
 function restyle() {
 applied = tokenColor();
+applied_tint = !!source;
 paint(true);
 }
 
@@ -29796,7 +29821,12 @@ color: st.state === 'ok' && source ? LC.color.hex(source) : ''
 
 function destroy() {
 cancel();
-var had = !!(override || source || themeTokens);
+
+
+
+
+
+var had = applied !== null || applied_tint;
 override = null;
 source = null;
 themeTokens = null;
@@ -29854,6 +29884,10 @@ applyFor: applyFor,
 
 prepare: prepare,
 known: function (movie) { return knownKey(filmKey(movie)); },
+
+
+
+key: filmKey,
 reset: reset,
 
 
@@ -29880,6 +29914,12 @@ var movie = LC.active && LC.active.data && LC.active.data.movie;
 
 
 LC.accent.applyFor(movie || null, true);
+
+
+
+
+
+if (!movie && LC.hero && typeof LC.hero.accentBack === 'function') LC.hero.accentBack();
 } catch (e) {
 warn('accent pref failed', e);
 }
@@ -30850,7 +30890,7 @@ pump();
 }
 
 function colorAllowed() {
-return !!(LC.accent && typeof LC.accent.prepare === 'function' && typeof LC.accent.known === 'function');
+return !!(LC.accent && typeof LC.accent.prepare === 'function' && typeof LC.accent.known === 'function' && typeof LC.accent.key === 'function');
 }
 
 
@@ -30904,13 +30944,17 @@ colorJob = null;
 }
 
 
+
+
+
+
 function planColors(cards) {
 if (!colorAllowed()) return;
 var seen = {};
 for (var i = 0; i < cards.length; i++) {
 var card = cards[i];
 if (!card || card.id == null) continue;
-var key = (LC.hero ? LC.hero.mediaOf(card) : '') + '/' + card.id;
+var key = LC.accent.key(card);
 if (seen[key] || LC.accent.known(card)) continue;
 seen[key] = true;
 colors.push(card);

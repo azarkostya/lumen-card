@@ -1322,7 +1322,7 @@ test('сжатие выключено флагом: фокус ниже перв
 /* Раунд правок финальной проверки, A4: без флага ряд карточки на горячем
    пути фокуса не нужен — ни поиска ряда (closest + index), ни
    переключения классов сжатия вхолостую. */
-test('A4: без флага сжатия фокус не ищет ряд карточки и не переключает классы сжатия', () => {
+test('финал A4: без флага сжатия фокус не ищет ряд карточки и не переключает классы сжатия', () => {
   const env = makeEnv();
   const main = makeMain();
   env.hero.mount(main.activity);
@@ -3694,7 +3694,7 @@ test('п.5: переключение в «Выкл», пока кадр едет
    тогда, когда чужого кадра под текстом нет — экран уже нейтральный или
    на нём только подложка. Прежде цвет нового фильма ждал его полного кадра
    без потолка (до таймаута загрузки), и под текстом стоял цвет прошлого. */
-test('A1: экран уже нейтральный — цвет следующего фильма через HOLD_MS от вывода текста, одна запись', () => {
+test('финал A1: экран уже нейтральный — цвет следующего фильма через HOLD_MS от вывода текста, одна запись', () => {
   const env = accentEnv({ fxHeavy: () => false });
   const main = makeMain();
   const card3 = addCard(main, 33);
@@ -3729,7 +3729,7 @@ test('A1: экран уже нейтральный — цвет следующе
 /* Подложка этого фильма встала, пока фокус был на соседе (текст вывелся
    при уходе фокуса — отсчёта не было), фокус вернулся: картинка своя, но
    полный кадр едет — отсчёт заводится ради цвета (armHold). */
-test('A1: на экране только подложки, полный кадр едет — цвет через HOLD_MS от возврата фокуса, одна запись', () => {
+test('финал A1: на экране только подложки, полный кадр едет — цвет через HOLD_MS от возврата фокуса, одна запись', () => {
   const env = accentEnv({ fxHeavy: () => false });
   const main = makeMain();
   const card3 = addCard(main, 33);
@@ -3870,6 +3870,51 @@ test('п.5: отказ кадра при уходе фокуса, возврат
   env.advance(HOLD + 10);
   assert.equal(activeSrc(main), undefined, 'нейтральный фон');
   assert.deepEqual(env.calls, [11, 22], 'цвет — с нейтральным фоном');
+});
+
+/* Раунд правок финальной проверки, A8 (logic-hero, LH-3): в «Выкл»
+   LC.accent не красит (сброс), и выход из «Выкл» возвращал кадр, но не
+   цвет фильма под фокусом — до смены фокуса. Теперь цвет показа снова
+   ждёт своей картинки: встаёт с кадром или через HOLD_MS. */
+test('финал A8: «Выкл» → «Лёгкие» на главной — цвет фильма под фокусом встаёт снова, вместе с кадром', () => {
+  const mode = { v: 'off' };
+  const env = accentEnv({ motionMode: () => mode.v });
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  main.card1.addClass('focus');
+  fireFocus(main.activity, main.card1);
+  env.advance(DELAY + 10);
+  env.advance(SWAP);
+  answerDetails(env);
+  assert.deepEqual(env.calls, [11], 'предусловие: в «Выкл» — заказ с текстом (LC.accent там сбрасывает)');
+  mode.v = 'lite';
+  env.hero.applyMotion();
+  assert.deepEqual(env.calls, [11], 'кадр ещё едет — цвета нет');
+  frameImg(env, '/b1.jpg').onload();
+  assert.equal(activeSrc(main), 'https://img/t/p/w1280/b1.jpg');
+  assert.deepEqual(env.calls, [11, 11], 'кадр встал — цвет фильма с ним');
+  env.advance(5000);
+  assert.deepEqual(env.calls, [11, 11], 'одна запись');
+});
+
+test('финал A8: «Выкл» → «Лёгкие», кадр не встал за HOLD_MS — цвет фильма всё равно встаёт', () => {
+  const mode = { v: 'off' };
+  const env = accentEnv({ motionMode: () => mode.v });
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  main.card1.addClass('focus');
+  fireFocus(main.activity, main.card1);
+  env.advance(DELAY + 10);
+  env.advance(SWAP);
+  answerDetails(env);
+  mode.v = 'lite';
+  env.hero.applyMotion();
+  env.advance(HOLD - 20);
+  assert.deepEqual(env.calls, [11], 'до потолка цвет ждёт кадра');
+  env.advance(30);
+  assert.deepEqual(env.calls, [11, 11], 'потолок — цвет фильма');
+  frameImg(env, '/b1.jpg').onload();
+  assert.deepEqual(env.calls, [11, 11], 'поздний кадр цвет не повторяет');
 });
 
 test('цвет сразу: быстрый проход по ряду не даёт ни одного расчёта', () => {
@@ -6411,6 +6456,49 @@ test('п.C2: ответы уже в памяти (возврат на фильм
   detailsOf(env, 11).ok(LOOK_DETAILS(11));
   assert.equal(thumbs.calls.length, 0);
   assert.deepEqual(w1280(env), ['/c2.jpg']);
+});
+
+/* Раунд правок финальной проверки, A7 (logic-hero, LH-2): в «Выкл» кадр
+   выбирается без сравнения с постером (там он не грузится), и выход из
+   «Выкл» грузил этот выбор как есть — копию постера, даже когда вердикт
+   «похож» уже в памяти LC.thumbs. Теперь выбор заново, обычным путём. */
+test('финал A7: выход из «Выкл» — кадр показанного фильма выбирается заново, с проверкой «кадр ≈ постер»', () => {
+  const mode = { v: 'off' };
+  const thumbs = fakeThumbs({ '/p1.jpg|/c1.jpg': true, '/p1.jpg|/c2.jpg': false });
+  const env = makeEnv({ fxHeavy: () => false, thumbs: thumbs, motionMode: () => mode.v });
+  const main = makeMain();
+  env.hero.mount(main.activity);
+  fireFocus(main.activity, main.card1);
+  env.advance(400);
+  detailsOf(env, 11).ok(LOOK_DETAILS(11));
+  assert.deepEqual(w1280(env), [], 'предусловие: в «Выкл» кадр не грузится');
+  mode.v = 'lite';
+  env.hero.applyMotion();
+  assert.deepEqual(w1280(env), ['/c2.jpg'], 'кадр после выхода из «Выкл» — не копия постера');
+});
+
+test('финал A7: выход из «Выкл», сравнение в пути — смена кадров ждёт выбора первого кадра', () => {
+  const thumbs = fakeThumbs();
+  const env = slidesEnv({ thumbs: thumbs });
+  const mode = { v: 'off' };
+  env.LC.motionMode = () => mode.v;
+  try {
+    const main = makeMain();
+    env.hero.mount(main.activity);
+    focusOn(main, main.card1);
+    env.advance(400);
+    detailsOf(env, 11).ok(LOOK_DETAILS(11));
+    assert.equal(env.live().length, 0, 'предусловие: в «Выкл» смены кадров нет');
+    mode.v = 'lite';
+    env.hero.applyMotion();
+    assert.equal(thumbs.calls.length, 1, 'кадр выбирается заново — сравнение с постером');
+    assert.equal(env.live().length, 0, 'до выбора первого кадра смена кадров не заводится');
+    thumbs.answer(0, false);
+    assert.deepEqual(w1280(env), ['/c1.jpg'], 'выбран непохожий кадр');
+    assert.equal(env.live().length, 1, 'смена кадров — после выбора');
+  } finally {
+    env.restore();
+  }
 });
 
 test('п.C2: сравнение не успело за 300 мс — кадр как было; поздний ответ кадр не меняет', () => {

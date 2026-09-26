@@ -354,7 +354,7 @@
     }
 
     function colorAllowed() {
-      return !!(LC.accent && typeof LC.accent.prepare === 'function' && typeof LC.accent.known === 'function');
+      return !!(LC.accent && typeof LC.accent.prepare === 'function' && typeof LC.accent.known === 'function' && typeof LC.accent.key === 'function');
     }
 
     /* Ожидание простоя браузера; ручка {cancel}. */
@@ -407,14 +407,18 @@
       });
     }
 
-    /* Очередь цвета — в порядке списка, без повторов и без уже известных. */
+    /* Очередь цвета — в порядке списка, без повторов и без уже известных.
+       Раунд правок финальной проверки, A9: повтор — по ключу цвета фильма
+       «источник:тип/id» (LC.accent.key, src/57_color.js), а не «тип/id»:
+       карточки с одним id из разных источников — разные фильмы, и вторая
+       выпадала из предрасчёта. */
     function planColors(cards) {
       if (!colorAllowed()) return;
       var seen = {};
       for (var i = 0; i < cards.length; i++) {
         var card = cards[i];
         if (!card || card.id == null) continue;
-        var key = (LC.hero ? LC.hero.mediaOf(card) : '') + '/' + card.id;
+        var key = LC.accent.key(card);
         if (seen[key] || LC.accent.known(card)) continue;
         seen[key] = true;
         colors.push(card);

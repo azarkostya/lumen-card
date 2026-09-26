@@ -871,6 +871,8 @@ function fakeAccent() {
   };
   acc.known = (card) => !!acc.ready[card.id];
   acc.applyFor = (card) => { acc.applied.push(card && card.id); };
+  /* Ключ цвета фильма — то же правило, что filmKey (src/57_color.js). */
+  acc.key = (card) => ((!card.source || card.source === 'cub') ? 'tmdb' : card.source) + ':' + (card.media_type || (card.name ? 'tv' : 'movie')) + '/' + card.id;
   return acc;
 }
 
@@ -942,6 +944,30 @@ test('цвет сразу: известный цвет пропускается,
   assert.equal(acc.jobs[2].cancelled, true, 'уход с главной снял расчёт в пути');
   env.advance(5000);
   assert.deepEqual(acc.calls, [103, 105, 107], 'после ухода — ни одного расчёта');
+});
+
+/* Раунд правок финальной проверки, A9: повтор в очереди цвета — по ключу
+   цвета фильма «источник:тип/id» (LC.accent.key), как у кэша цвета. Две
+   карточки с одним id и типом из разных источников — разные фильмы. */
+test('финал A9: очередь цвета различает источник — один id и тип из разных источников считаются оба', () => {
+  const acc = fakeAccent();
+  acc.known = (card) => !!acc.ready[acc.key(card)];
+  acc.prepare = (card, done) => {
+    const key = acc.key(card);
+    acc.calls.push(key);
+    const job = { id: key, cancelled: false, finish: () => { acc.ready[key] = true; done(); } };
+    acc.jobs.push(job);
+    return { cancel: () => { job.cancelled = true; } };
+  };
+  const { env, main } = mounted({ accent: acc });
+  const twin = main.rows[0][3];
+  twin.card_data = Object.assign({}, twin.card_data, { id: 103, source: 'ivi' });
+  focus(main, main.rows[0][2]);
+  env.advance(250);
+  env.advance(COLOR_GAP);
+  drainColors(env, acc);
+  assert.deepEqual(acc.calls.slice(0, 3), ['tmdb:movie/103', 'ivi:movie/103', 'tmdb:movie/105'], 'фильм другого источника с тем же id выпал из предрасчёта');
+  assert.deepEqual(warnLog, []);
 });
 
 test('цвет сразу: запаркованная главная (открыта карточка) цвет соседей не считает', () => {

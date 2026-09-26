@@ -1010,6 +1010,11 @@
        зовёт restyle(), — и по нему видно, согласована ли таблица с текущим
        переопределением или пересборку всё-таки надо заказать. */
     var applied = null;
+    /* Раунд правок финальной проверки, A6 (logic-hero, LH-1): и знает ли
+       таблица подкраску — палитра полной сборки красит фон оттенком
+       source (palette в src/30_css.js). Вместе с applied это ответ на
+       вопрос destroy(): есть ли в таблице что снимать. */
+    var applied_tint = false;
 
     function tokenColor() {
       var t = override || themeTokens;
@@ -1021,6 +1026,7 @@
        решает, чьи правила победят при равной специфичности). */
     function restyle() {
       applied = tokenColor();
+      applied_tint = !!source;
       paint(true);
     }
 
@@ -1298,7 +1304,12 @@
     /* Карточка закрыта: снимаем всё, что принадлежало ей. */
     function destroy() {
       cancel();
-      var had = !!(override || source || themeTokens);
+      /* A6: пересборка — только если таблица акцент или подкраску знала
+         (открытая карточка, пересборка по настройке во время показа).
+         Цвет героя главной живёт только в узле подкраски (applyFor без
+         deep), и прежняя проверка override/source/themeTokens пересобирала
+         всю таблицу на каждом уходе с главной в хаб, «Ещё» или сетку. */
+      var had = applied !== null || applied_tint;
       override = null;
       source = null;
       themeTokens = null;
@@ -1356,6 +1367,10 @@
          очередь то, что считать не нужно. */
       prepare: prepare,
       known: function (movie) { return knownKey(filmKey(movie)); },
+      /* Раунд правок финальной проверки, A9: ключ цвета фильма
+         «источник:тип/id» — им предрасчёт соседей (src/58_prefetch.js)
+         отсекает повторы в очереди. */
+      key: filmKey,
       reset: reset,
       /* Task 35: зовётся последней строкой LC.injectCss (src/30_css.js) —
          см. restyle выше. Наружу больше ни для чего не нужна. */
@@ -1382,6 +1397,12 @@
          карточки, и её акцент виден там весь — нужна полная пересборка.
          Она же возвращает акцент настроек при выключении. */
       LC.accent.applyFor(movie || null, true);
+      /* Раунд правок финальной проверки, A8 (logic-hero, LH-3): карточки
+         нет — настройку переключили поверх главной, и цвет фильма под
+         фокусом ставит герой (accentBack; запаркованный — на других
+         экранах — молчит). Прежде applyFor(null) ничего не красил, и
+         включённая подкраска не была видна до смены фокуса. */
+      if (!movie && LC.hero && typeof LC.hero.accentBack === 'function') LC.hero.accentBack();
     } catch (e) {
       warn('accent pref failed', e);
     }

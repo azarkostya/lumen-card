@@ -1310,8 +1310,6 @@
            слабого ТВ) — играющий ролик обязан уйти вместе с полными
            анимациями. */
         applyTrailer();
-        /* «Несколько кадров»: в 'off' ротации нет. */
-        applySlides();
         /* Ревью H3: в «Выкл» кадр не грузится (loadFrame), и заглушка не
            заводится (holdDue в show) — кадр фильма, показанного до
            переключения, стоял бы под текстом ВСЕХ следующих. Он гаснет
@@ -1322,6 +1320,10 @@
         state.motion = mode;
         if (mode === 'off') offFrame();
         else if (was === 'off') onFrame();
+        /* «Несколько кадров»: в 'off' ротации нет. Раунд правок финальной
+           проверки, A7: после выбора кадра (onFrame) — круг смены кадров
+           начинается с кадра, который встанет на экране. */
+        applySlides();
       } catch (e) {
         warn('hero: motion failed', e);
       }
@@ -1344,12 +1346,27 @@
       settleAccent(true);
     }
 
+    /* Обратно из «Выкл» (applyMotion). Раунд правок финальной проверки:
+       A7 (logic-hero, LH-2) — кадр, выбранный в «Выкл», выбран без
+       сравнения с постером (chooseFrame сравнивает только там, где кадр
+       грузится), и грузить его как есть значило показать копию постера,
+       даже когда вердикт «похож» уже в памяти LC.thumbs: выбор заново,
+       обычным путём (chooseFrame → startFrame);
+       A8 (logic-hero, LH-3) — цвет фильма в «Выкл» сброшен (LC.accent там
+       не красит), и прежде он не возвращался до смены фокуса: теперь цвет
+       показа снова ждёт своей картинки — встаёт с кадром, при отказе или
+       через HOLD_MS (settleAccent, armHold), как на показе. Фокус ушёл на
+       другую карточку — её показ поставит свой цвет сам. */
     function onFrame() {
-      if (state.parked || state.frameUrl || state.framePath === null || !state.model) return;
-      var captured = gen;
-      loadFrame({ backdrop: state.framePath, poster: state.model.poster }, captured, function (ok) {
-        if (ok && state && gen === captured) state.frameId = state.shownId;
-      });
+      if (state.parked || !state.model) return;
+      if (state.shownCard && !focusAway()) {
+        state.accentCard = state.shownCard;
+        state.accentWait = true;
+        armHold();
+      }
+      if (state.frameUrl || state.framePath === null) return;
+      state.framePath = null;
+      chooseFrame(state.model, gen);
     }
 
     function motionMode() {
@@ -2126,7 +2143,9 @@
     function applySlides() {
       if (!state) return;
       if (!slidesAllowed()) { cancelSlides(); return; }
-      if (!state.slides && state.model && state.details) startSlides(state.model, gen);
+      /* A7: первый кадр ещё выбирается (framePath null) — круг заведёт сам
+         выбор (finish в chooseFrame), от выбранного кадра. */
+      if (!state.slides && state.model && state.details && state.framePath !== null) startSlides(state.model, gen);
     }
 
     /* Ревью «Волны 1», п.5: «Интервал смены кадров» сменили на лету —
