@@ -440,7 +440,7 @@ function initLC(opts) {
   const timelines = [];
   /* noty — что плагин показал пользователю через Lampa.Noty (единственное
      сообщение плагина: неподдерживаемая сборка Lampa, ревью фазы 1 M2). */
-  const extra = { added: [], bgCancel: [], reviewCancel: [], franchiseCancel: [], franchiseCleared: [], cast: 0, css: 0, fonts: 0, cssRemoved: 0, noty: [], hubInstall: 0, hubUninstall: 0 };
+  const extra = { added: [], bgCancel: [], reviewCancel: [], franchiseCancel: [], franchiseCleared: [], cast: 0, css: 0, fonts: 0, cssRemoved: 0, noty: [], hubInstall: 0, hubUninstall: 0, searchInstall: 0, searchUninstall: 0 };
   const Lampa = {
     Template: {
       all: () => ({ full_start_new: '<div>orig</div>' }),
@@ -552,6 +552,9 @@ function initLC(opts) {
     uninstall: () => { extra.hubUninstall++; },
     franchise: (root, movie) => franchiseCalls.push({ root, movie })
   };
+
+  /* Решение пользователя 2026-09-26: источник подборок в поиске Lampa. */
+  LC.lampaSearch = { install: () => { extra.searchInstall++; }, uninstall: () => { extra.searchUninstall++; } };
 
   /* Task 18: герой главной — заглушка того же рода, что hub/backdrops/trailer.
      Сам модуль проверяет test/hero.test.mjs; здесь важна СКЛЕЙКА: какие
@@ -2802,4 +2805,18 @@ test('сверка: таблица стилей не собралась — пл
   const body = new FakeEl(['activity__body'], [new FakeEl(['items-line'], [new FakeEl(['items-line__body'], [descr])])]);
   full.forEach((fn) => fn({ type: 'complite', body: body, object: {}, data: { movie: { id: 1 } }, item: { render: () => root } }));
   assert.equal(descrRows.length + reviewRows.length, 0, 'карточка дорисовывается без стилей');
+});
+
+/* Решение пользователя 2026-09-26: вкладка «Подборки» в поиске Lampa живёт,
+   пока плагин включён: activate() её ставит, deactivate() снимает, а без
+   стилей (плагин не включился) её нет. */
+test('решение 2026-09-26: источник подборок в поиске Lampa — ставится включением и снимается выключением', () => {
+  const storage = {};
+  const { LC, extra } = initLC({ storage });
+  assert.equal(extra.searchInstall, 1, 'активация не поставила источник поиска');
+  storage.lumen_enabled = 'false';
+  LC.applyEnabledPref();
+  assert.equal(extra.searchUninstall, 1, 'выключение не сняло источник поиска');
+  const off = initLC({ injectCssFails: true });
+  assert.equal(off.extra.searchInstall, 0, 'без стилей источник поиска поставлен');
 });

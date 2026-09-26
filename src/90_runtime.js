@@ -1466,6 +1466,13 @@
     } catch (eHub) {
       warn('hub install failed', eHub);
     }
+    /* Решение пользователя 2026-09-26: подборки в штатном поиске Lampa —
+       свой источник (src/46_search.js); install() идемпотентен. */
+    try {
+      if (LC.lampaSearch && LC.lampaSearch.install) LC.lampaSearch.install();
+    } catch (eSearch) {
+      warn('search install failed', eSearch);
+    }
     /* Task 18: плагин включили из настроек, а под ними открыта главная —
        возврат из настроек Lampa событием 'activity' не сопровождает (находка
        ревью Task 8), поэтому героя на неё ставим отсюда. Если открыто что-то
@@ -1596,6 +1603,8 @@
     home_repaired = false;
     /* Task 17: убрать пункт меню «Подборки». */
     try { if (LC.hub && LC.hub.uninstall) LC.hub.uninstall(); } catch (eHubOff) {}
+    /* Решение пользователя 2026-09-26: и вкладку «Подборки» из поиска Lampa. */
+    try { if (LC.lampaSearch && LC.lampaSearch.uninstall) LC.lampaSearch.uninstall(); } catch (eSearchOff) {}
     /* Task 18: снять героя целиком — узел, класс корня, наблюдатель,
        незавершённые предзагрузку кадра и запрос деталей. */
     try { if (LC.hero && LC.hero.unmount) LC.hero.unmount(); } catch (eHeroOff) {}

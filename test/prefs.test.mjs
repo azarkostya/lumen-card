@@ -1270,3 +1270,8 @@ test('решение 2026-09-26: подпись группы «Настроен�
   const LC = loadStrings();
   assert.deepEqual(LC.STRINGS.lumen_hub_moods, { ru: 'Настроение', en: 'Mood', uk: 'Настрій' });
 });
+
+test('решение 2026-09-26: вкладка подборок в поиске Lampa — три языка', () => {
+  const LC = loadStrings();
+  assert.deepEqual(LC.STRINGS.lumen_search_source, { ru: 'Подборки', en: 'Collections', uk: 'Підбірки' });
+});

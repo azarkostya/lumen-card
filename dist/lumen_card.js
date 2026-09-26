@@ -14502,6 +14502,296 @@ _windowNodes: function () { return lastNodes; }
 if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.hub;
 
 
+/* ---- 46_search.js ---- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+LC.lampaSearch = (function () {
+
+
+var LIMIT = 20;
+
+
+
+
+var TRANSLIT = {
+'а': 'a', 'б': 'b', 'в': 'v', 'г': 'g', 'ґ': 'g', 'д': 'd', 'е': 'e', 'є': 'e', 'ж': 'zh', 'з': 'z',
+'и': 'i', 'і': 'i', 'ї': 'i', 'й': 'i', 'к': 'k', 'л': 'l', 'м': 'm', 'н': 'n', 'о': 'o', 'п': 'p',
+'р': 'r', 'с': 's', 'т': 't', 'у': 'u', 'ф': 'f', 'х': 'h', 'ц': 'ts', 'ч': 'ch', 'ш': 'sh', 'щ': 'sch',
+'ъ': '', 'ы': 'i', 'ь': '', 'э': 'e', 'ю': 'iu', 'я': 'ia'
+};
+
+
+
+function norm(text) {
+return ('' + (text == null ? '' : text))
+.toLowerCase()
+.replace(/ё/g, 'е')
+.replace(/['’`ʼ]/g, '')
+.replace(/[^0-9a-zа-яіїєґ]+/g, ' ')
+.replace(/^\s+|\s+$/g, '');
+}
+
+
+
+
+
+function skeleton(text) {
+var s = norm(text);
+var out = '';
+for (var i = 0; i < s.length; i++) {
+var ch = s.charAt(i);
+out += Object.prototype.hasOwnProperty.call(TRANSLIT, ch) ? TRANSLIT[ch] : ch;
+}
+out = out
+.replace(/ph/g, 'f')
+.replace(/ck/g, 'k')
+.replace(/c(?=[eiy])/g, 's')
+.replace(/c/g, 'k')
+.replace(/x/g, 'ks')
+.replace(/w/g, 'v')
+.replace(/y/g, 'i')
+.replace(/q/g, 'k')
+.replace(/([a-z])\1+/g, '$1');
+return out;
+}
+
+
+
+
+function rankOf(key, query) {
+if (!key || !query) return -1;
+var at = key.indexOf(query);
+if (at === 0) return 0;
+if (at > 0) return key.charAt(at - 1) === ' ' ? 1 : 2;
+return -1;
+}
+
+
+
+function keysOf(item) {
+var keys = [item.title, item.id];
+var i18n = item.i18n || {};
+for (var code in i18n) {
+if (Object.prototype.hasOwnProperty.call(i18n, code)) keys.push(i18n[code]);
+}
+var aliases = Array.isArray(item.aliases) ? item.aliases : [];
+for (var i = 0; i < aliases.length; i++) {
+if (typeof aliases[i] === 'string') keys.push(aliases[i]);
+}
+return keys;
+}
+
+function find(manifest, query, lang) {
+var q = norm(query);
+var qs = skeleton(query);
+var list = manifest && Array.isArray(manifest.collections) ? manifest.collections : [];
+if (!q) return [];
+var found = [];
+for (var i = 0; i < list.length; i++) {
+var item = list[i];
+if (!item || !item.id) continue;
+var keys = keysOf(item);
+var best = -1;
+for (var k = 0; k < keys.length; k++) {
+var r1 = rankOf(norm(keys[k]), q);
+var r2 = rankOf(skeleton(keys[k]), qs);
+var r = r1 < 0 ? r2 : (r2 < 0 ? r1 : Math.min(r1, r2));
+if (r >= 0 && (best < 0 || r < best)) best = r;
+}
+if (best >= 0) found.push({ item: item, rank: best, order: i });
+}
+found.sort(function (a, b) {
+if (a.rank !== b.rank) return a.rank - b.rank;
+return a.order - b.order;
+});
+var out = [];
+for (var j = 0; j < found.length && out.length < LIMIT; j++) out.push(found[j].item);
+return out;
+}
+
+
+
+
+
+
+
+var NO_COVER = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(
+'<svg xmlns="http://www.w3.org/2000/svg" width="16" height="9" viewBox="0 0 16 9">' +
+'<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">' +
+'<stop offset="0" stop-color="#2A221D"/><stop offset="1" stop-color="#14100D"/></linearGradient></defs>' +
+'<rect width="16" height="9" fill="url(#g)"/></svg>');
+
+function langCode() {
+try { if (typeof LC.langCode === 'function') return LC.langCode(); } catch (e) { }
+return 'ru';
+}
+
+function titleOf(obj, code) {
+if (!obj) return '';
+if (code && code !== 'ru' && obj.i18n && obj.i18n[code]) return obj.i18n[code];
+return obj.title || '';
+}
+
+function catalog() {
+try { return LC.manifest && typeof LC.manifest.get === 'function' ? LC.manifest.get() : null; } catch (e) { return null; }
+}
+
+
+
+function cardModule() {
+try {
+if (window.Lampa && Lampa.Maker && typeof Lampa.Maker.module === 'function') {
+return Lampa.Maker.module('Card').only('Card', 'Style', 'Callback');
+}
+} catch (e) { }
+return undefined;
+}
+
+function cardOf(item, code, groups) {
+var params = { style: { name: 'wide' } };
+var mod = cardModule();
+if (typeof mod !== 'undefined') params.module = mod;
+var card = {
+id: 'lumen_' + item.id,
+lumen_id: item.id,
+title: titleOf(item, code),
+overview: titleOf(groups[item.group], code),
+params: params
+};
+
+
+if (typeof item.cover === 'string' && /^\/[A-Za-z0-9_-]+\.(jpg|png|webp)$/.test(item.cover)) card.backdrop_path = item.cover;
+else card.img = NO_COVER;
+return card;
+}
+
+function decode(query) {
+try { return decodeURIComponent('' + (query == null ? '' : query)); } catch (e) { return ''; }
+}
+
+function label() {
+return LC.util.esc('' + LC.lang('lumen_search_source'));
+}
+
+var built = null;
+
+function source() {
+if (built) return built;
+built = {
+title: label(),
+params: {},
+search: function (params, oncomplite) {
+var rows = [];
+try {
+var manifest = catalog();
+var code = langCode();
+var found = find(manifest, decode(params && params.query), code);
+if (found.length) {
+var groups = {};
+var list = (manifest && manifest.groups) || [];
+for (var g = 0; g < list.length; g++) if (list[g] && list[g].id) groups[list[g].id] = list[g];
+var cards = [];
+for (var i = 0; i < found.length; i++) cards.push(cardOf(found[i], code, groups));
+rows.push({ title: built.title, results: cards, total: cards.length });
+}
+} catch (e) {
+warn('search: collections failed', e);
+rows = [];
+}
+oncomplite(rows);
+},
+onSelect: function (params, close) {
+try { if (typeof close === 'function') close(); } catch (e) { }
+var id = params && params.element && params.element.lumen_id;
+var manifest = catalog();
+var list = (manifest && manifest.collections) || [];
+for (var i = 0; i < list.length; i++) {
+if (list[i] && list[i].id === id) {
+try { if (LC.hub && typeof LC.hub.open === 'function') LC.hub.open(list[i]); } catch (e2) { warn('search: open failed', e2); }
+return;
+}
+}
+},
+onCancel: function () { }
+};
+return built;
+}
+
+var installed = null;
+
+function install() {
+if (installed) return;
+try {
+if (!window.Lampa || !Lampa.Search || typeof Lampa.Search.addSource !== 'function') return;
+var src = source();
+
+src.title = label();
+Lampa.Search.addSource(src);
+installed = src;
+} catch (e) {
+warn('search: install failed', e);
+}
+}
+
+function uninstall() {
+if (!installed) return;
+var src = installed;
+installed = null;
+try {
+if (window.Lampa && Lampa.Search && typeof Lampa.Search.removeSource === 'function') Lampa.Search.removeSource(src);
+} catch (e) {
+warn('search: uninstall failed', e);
+}
+}
+
+return {
+skeleton: skeleton,
+find: find,
+source: source,
+install: install,
+uninstall: uninstall
+};
+})();
+
+if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC.lampaSearch;
+
+
 /* ---- 47_homeplan.js ---- */
 
 
@@ -37636,6 +37926,9 @@ lumen_hub_title: { ru: 'Подборки', en: 'Collections', uk: 'Підбір�
 lumen_hub_moods: { ru: 'Настроение', en: 'Mood', uk: 'Настрій' },
 
 
+lumen_search_source: { ru: 'Подборки', en: 'Collections', uk: 'Підбірки' },
+
+
 
 lumen_hub_search: { ru: 'ПОИСК ПО ПОДБОРКАМ', en: 'SEARCH COLLECTIONS', uk: 'ПОШУК ПО ПІДБІРКАХ' },
 
@@ -42677,6 +42970,13 @@ warn('hub install failed', eHub);
 }
 
 
+try {
+if (LC.lampaSearch && LC.lampaSearch.install) LC.lampaSearch.install();
+} catch (eSearch) {
+warn('search install failed', eSearch);
+}
+
+
 
 
 try {
@@ -42805,6 +43105,8 @@ try { if (LC.header && LC.header.uninstallPeople) LC.header.uninstallPeople(); }
 home_repaired = false;
 
 try { if (LC.hub && LC.hub.uninstall) LC.hub.uninstall(); } catch (eHubOff) {}
+
+try { if (LC.lampaSearch && LC.lampaSearch.uninstall) LC.lampaSearch.uninstall(); } catch (eSearchOff) {}
 
 
 try { if (LC.hero && LC.hero.unmount) LC.hero.unmount(); } catch (eHeroOff) {}
