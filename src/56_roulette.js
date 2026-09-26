@@ -812,6 +812,11 @@
          у другого медиа свой набор подборок. */
       var pinned = (object && object.preselect) ? '' + object.preselect : '';
 
+      /* Дизайн-проход 2026-09-26: последний чип подборки, на котором стоял
+         фокус, — «вверх» с «Крутить» возвращает на него (up в start), как
+         пульт Apple TV возвращается в ряд на то же место. */
+      var lastChip = null;
+
       function alive(captured) {
         return function () { return gen === captured; };
       }
@@ -937,11 +942,40 @@
       /* C3: наведение мышью ленту не двигает — иначе она ехала каскадом до
          конца: подвезённый под курсор чип получал 'hover:hover' и подвозил
          следующий. */
+      /* Дизайн-проход 2026-09-26: ленту двигаем, только когда чип за её
+         кромкой. Прежде она центровалась на КАЖДЫЙ заход фокуса: «вверх» с
+         «Крутить» на четвёртый чип (он и так на экране) сдвигал ленту на 15
+         CSS px, и «Все подборки» срезались кромкой до «се подборки» (стенд
+         960×540@2). Чип виден целиком — лента стоит, как ряд Apple TV. */
+      function chipShown(el) {
+        try {
+          var box = chipsBox[0].getBoundingClientRect();
+          var r = el.getBoundingClientRect();
+          if (!(box.width > 0) || !(r.width > 0)) return false;
+          return r.left >= box.left - 1 && r.left + r.width <= box.left + box.width + 1;
+        } catch (e) {
+          return false;
+        }
+      }
+
       function railChip(node) {
         return LC.focus.on(node, function (e) {
+          lastChip = node[0];
           if (!LC.focus.remote(e) || quiet) return;
+          if (chipShown(node[0])) return;
           try { chipsScroll.update(node[0], true); } catch (eS) { warn('roulette: chips scroll failed', eS); }
         });
+      }
+
+      /* Куда «вверх» с «Крутить»: чип, с которого пришли, если он ещё в
+         ленте (buildChips её пересобирает); иначе отмеченный — с первого
+         захода это «Все подборки» или подборка, с которой рулетку открыли. */
+      function chipTarget() {
+        if (lastChip && chipsRow[0] && chipsRow[0].contains && chipsRow[0].contains(lastChip)) return lastChip;
+        var on = chipsRow.find('.lumen-roulette__chip.lumen-chip--on');
+        if (on.length) return on[0];
+        var any = chipsRow.find('.lumen-roulette__chip');
+        return any.length ? any[0] : null;
       }
 
       /* ---------------------------------------------------------------- */
@@ -1596,6 +1630,19 @@
         schedulePreview();
       }
 
+      /* «Назад» с результата (back в start): спокойный экран и фокус на
+         «Крутить». Выборка встаёт в барабан сразу, а не через PREVIEW_DELAY:
+         пул тот же и уже собран, ждать нечего, а пустой барабан на 0.7 с
+         читался бы как сбой. */
+      function backToCalm() {
+        clearResult();
+        if (pool.length && poolKey === keyOf()) {
+          clearPreviewTimer();
+          paintPreview();
+        }
+        recollect(spinBtn[0]);
+      }
+
       /* Под фильтры ничего не подошло. В режим кадра экран при этом НЕ
          переводится: менять чипы придётся на спокойном экране, и прятать его
          тут нечего.
@@ -2176,7 +2223,22 @@
              уходил в ленту подборок мимо кнопки (стенд 960×540@2). */
           up: function () {
             if (atv && !kadr && focusIn(shelf)) { recollect(spinBtn[0]); return; }
+            /* Дизайн-проход 2026-09-26: с «Крутить» — на чип, с которого
+               пришли (chipTarget), а не на тот, что случайно стоит над
+               кнопкой по геометрии (стенд 960×540@2: «Netflix: Комедии»
+               посреди ленты при отмеченных «Все подборки»). */
+            if (!kadr && spinBtn.hasClass('focus')) {
+              var chip = chipTarget();
+              if (chip) { recollect(chip); return; }
+            }
             if (navMove('up')) return;
+            /* С первых чипов ленты «вверх» по геометрии некуда — над ними
+               только заголовок экрана, — и фокус уходил в шапку Lampa мимо
+               «Фильмы/Сериалы» и фильтров. Ведём на отмеченную вкладку. */
+            if (!kadr && focusIn(chipsBox)) {
+              var tab = head.find('.lumen-roulette__tab.is-on');
+              if (tab.length) { recollect(tab[0]); return; }
+            }
             Lampa.Controller.toggle('head');
           },
           /* Правка 2026-09-23 (разбор композиции, п.5.2): вниз с ленты
@@ -2206,7 +2268,15 @@
             if (kadr || !spinBtn.length || spinBtn.hasClass('focus')) return;
             recollect(spinBtn[0]);
           },
-          back: function () { Lampa.Activity.backward(); }
+          /* Дизайн-проход 2026-09-26: «Назад» с результата — на спокойный
+             экран, второй «Назад» — из рулетки. Прежде результат был
+             тупиком: поменять подборки или фильтры после него можно было
+             только выйдя из рулетки и зайдя снова (фильтры при этом
+             сбрасывались). */
+          back: function () {
+            if (result || resultShown()) { backToCalm(); return; }
+            Lampa.Activity.backward();
+          }
         });
         Lampa.Controller.toggle('content');
       };

@@ -2398,3 +2398,58 @@ test('дизайн C: мета результата — как у героя (д
   assert.equal(meta.text(), '2020 · 1:41 · Комедия · ★ 7.3', 'детали не дописали длительность и жанры');
   assert.deepEqual(models[models.length - 1], [1, 101, 'object']);
 });
+
+test('дизайн C: «вверх» с «Крутить» — на запомненный чип подборки, с первых чипов — на отмеченную вкладку', (t) => {
+  const env = openRoulette34([R44], t);
+  env.comp.start();
+  const chips = env.chips();
+  const spin = env.root.find('.lumen-roulette__spin');
+  spin.addClass('focus');
+  env.controller().up();
+  assert.equal(env.lastFocus().node, chips[0][0], 'без памяти — на отмеченный чип («Все подборки»)');
+  spin.removeClass('focus');
+  fire(chips[1], 'hover:focus');
+  spin.addClass('focus');
+  env.controller().up();
+  assert.equal(env.lastFocus().node, chips[1][0], 'не вернулся на чип, с которого пришёл');
+  spin.removeClass('focus');
+  /* Navigator в этом окружении нет — «вверх» по геометрии невозможен, как
+     на стенде с первого чипа (над ним только заголовок экрана). */
+  chips[0].addClass('focus');
+  env.controller().up();
+  const tab = env.root.all('.lumen-roulette__tab')[0];
+  assert.ok(tab.hasClass('is-on'), 'предпосылка: «Фильмы» отмечены');
+  assert.equal(env.lastFocus().node, tab, 'с чипа — в шапку Lampa мимо вкладок и фильтров');
+});
+
+test('дизайн C: лента чипов не едет, если чип и так виден целиком', (t) => {
+  const env = openRoulette34([R44], t);
+  const horiz = scrolls.filter((s) => s.params.horizontal)[0];
+  env.root.find('.lumen-roulette__chipbox')._rect = { left: 40, top: 120, width: 880, height: 23 };
+  const chips = env.chips();
+  chips[1]._rect = { left: 300, top: 120, width: 120, height: 23 };
+  fire(chips[1], 'hover:focus');
+  assert.equal(horiz.updates.length, 0, 'видимый чип сдвинул ленту — первый чип срезался бы кромкой');
+  chips[1]._rect = { left: 860, top: 120, width: 120, height: 23 };
+  fire(chips[1], 'hover:focus');
+  assert.equal(horiz.updates.length, 1, 'чип за кромкой ленту не повёл');
+});
+
+test('дизайн C: «Назад» с результата возвращает спокойный экран, второй «Назад» уходит', (t) => {
+  const env = openRoulette34([R44], t, 1, 'off');
+  let back = 0;
+  globalThis.Lampa.Activity.backward = () => { back++; };
+  env.comp.start();
+  flushTimers();
+  spinAndFlush(env);
+  createdImages[createdImages.length - 1].onload();
+  assert.ok(env.screen.hasClass('is-kadr'), 'предпосылка: результат кадром');
+  env.controller().back();
+  assert.equal(back, 0, '«Назад» с результата ушёл из рулетки — поменять подборки нельзя');
+  assert.equal(env.screen.hasClass('is-kadr'), false);
+  assert.equal(env.resultNode().hasClass('is-live'), false);
+  assert.equal(env.lastFocus().node, env.root.find('.lumen-roulette__spin')[0]);
+  assert.ok(env.stacked(), 'выборка не вернулась в барабан сразу');
+  env.controller().back();
+  assert.equal(back, 1, 'второй «Назад» не ушёл');
+});
