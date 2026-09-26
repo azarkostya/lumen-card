@@ -1341,6 +1341,14 @@ return (THEMES[LC.pref('lumen_theme', 'warm')] || THEMES.warm).bg;
 
 
 
+LC.themeMuted = function () {
+return (THEMES[LC.pref('lumen_theme', 'warm')] || THEMES.warm).muted;
+};
+
+
+
+
+
 
 
 
@@ -29705,6 +29713,24 @@ warn('accent: theme bg failed', e);
 return '#0B0908';
 }
 
+
+
+
+
+
+
+
+function filmBg(dom) {
+var base = bg();
+try {
+var muted = typeof LC.themeMuted === 'function' ? LC.themeMuted() : '';
+if (muted) return LC.color.tint(dom, base, muted, 4.5) || base;
+} catch (e) {
+warn('accent: film bg failed', e);
+}
+return base;
+}
+
 function posterUrl(path) {
 try {
 if (window.Lampa && Lampa.TMDB && typeof Lampa.TMDB.image === 'function') {
@@ -30036,7 +30062,7 @@ var answered = false;
 var handle = colorOf(movie, function (dom) {
 answered = true;
 task = null;
-apply(dom ? LC.color.tokens(dom, bg()) : null, dom, deep);
+apply(dom ? LC.color.tokens(dom, filmBg(dom)) : null, dom, deep);
 });
 if (prev) prev.cancel();
 if (!answered) task = handle;

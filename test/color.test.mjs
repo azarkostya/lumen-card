@@ -1253,6 +1253,53 @@ test('финал A4 (настоящий CSS): смена цвета фильма
   });
 });
 
+/* Раунд C, C5 (ревью rv3, RV3-1): после A4 акцент фильма подбирался к
+   фону ТЕМЫ, а карточка фильма стоит на фоне, подкрашенном этим же фильмом
+   (palette: LC.accent.tint(фон темы, P.muted, 4.5)). Тёплая тема, доминанта
+   {232,120,24}: акцент к фону темы на подкрашенном фоне — 6.46:1 при цели 7.
+   Акцент теперь подбирается к подкраске самого фильма. */
+test('C5 (настоящий CSS): акцент фильма держит 7:1 к подкрашенному им же фону карточки', () => {
+  for (const theme of ['warm', 'black']) {
+    const dom = fakeDom({ data: pixels([{ r: 232, g: 120, b: 24, n: 256 }]) });
+    withDom(dom, () => {
+      const ctx = cssCtx(dom, { lumen_accent_auto: 'true', lumen_theme: theme });
+      ctx.LC.accent.applyFor({ id: 7, title: 'Оранжевый', poster_path: '/orange.jpg' }, true);
+      dom.state.images[0].onload();
+      assert.deepEqual(ctx.LC.accent.dominant(), { r: 232, g: 120, b: 24 }, 'предусловие: доминанта');
+      const accent = ctx.LC.accent.current().color;
+      const page = ctx.LC.tokens().bg;
+      assert.notEqual(page, ctx.LC.themeBg(), 'предусловие: фон карточки подкрашен фильмом');
+      const ratio = ctx.LC.color.contrast(ctx.LC.color.parseHex(accent), ctx.LC.color.parseHex(page));
+      assert.ok(ratio >= 7, theme + ': акцент ' + accent + ' на фоне ' + page + ' — ' + ratio.toFixed(2) + ':1');
+    });
+  }
+});
+
+/* Та же гарантия на всей сетке квантованных доминант (шаг 16, 4096 цветов)
+   в обеих темах: акцент к подкраске самого фильма — не ниже 7:1 (rv3,
+   проверено скриптом: минимум 7.00). */
+test('C5: сетка доминант — акцент к подкраске самого фильма не ниже 7:1 в тёплой и чёрной темах', () => {
+  const themes = { warm: ['#0B0908', '#A89A8A'], black: ['#000000', '#A7A6A8'] };
+  for (const name of Object.keys(themes)) {
+    const [bg, muted] = themes[name];
+    let worst = 99;
+    let at = null;
+    for (let r = 8; r < 256; r += 16) {
+      for (let g = 8; g < 256; g += 16) {
+        for (let b = 8; b < 256; b += 16) {
+          const dom = { r: r, g: g, b: b };
+          const page = color.tint(dom, bg, muted, 4.5) || bg;
+          const t = color.tokens(dom, page);
+          if (!t) continue;
+          const k = color.contrast(color.parseHex(t.color), color.parseHex(page));
+          if (k < worst) { worst = k; at = [r, g, b, t.color, page]; }
+        }
+      }
+    }
+    assert.ok(worst >= 7 - 1e-9, name + ': минимум ' + worst.toFixed(3) + ' у ' + JSON.stringify(at));
+  }
+});
+
 test('финал A4 (настоящий CSS): без флага сжатия правила пола нет ни в узле подкраски, ни в таблице; с флагом — в обоих', () => {
   const dom = fakeDom({ data: pixels([{ r: 200, g: 120, b: 40, n: 256 }]) });
   withDom(dom, () => {

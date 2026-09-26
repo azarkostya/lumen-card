@@ -460,6 +460,14 @@
     return (THEMES[LC.pref('lumen_theme', 'warm')] || THEMES.warm).bg;
   };
 
+  /* Раунд C, C5 (ревью rv3, RV3-1): самый слабый текст темы (P.muted) —
+     сторож подкраски фона фильмом (palette выше, LC.accent.tint). По нему
+     LC.accent считает тот же подкрашенный фон, на котором стоит карточка
+     фильма, и подбирает акцент к нему (src/57_color.js, filmBg). */
+  LC.themeMuted = function () {
+    return (THEMES[LC.pref('lumen_theme', 'warm')] || THEMES.warm).muted;
+  };
+
   /* Фаза 3, настройка «Масштаб интерфейса». Все размеры плагина считаются в em
      от базового кегля Lampa (она сама ставит его на body: innerWidth / 84.17,
      то есть 22.811 px при 1920 — отсюда правило единиц «px дизайна ÷ 22.811»).

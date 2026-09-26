@@ -883,6 +883,24 @@
       return '#0B0908';
     }
 
+    /* Раунд C, C5 (ревью rv3, RV3-1): фон, на котором стоит акцент ЭТОГО
+       фильма, — фон темы, подкрашенный им же (palette в src/30_css.js:
+       LC.accent.tint(фон темы, P.muted, 4.5) от того же source). Акцент к
+       голому фону темы давал на подкрашенном фоне карточки 6.46:1 вместо
+       целевых 7 (тёплая тема, 1483 из 4096 доминант). Считается от самой
+       доминанты — без палитры (A4) и без памяти о прошлом фильме. Сторожа
+       нет (тест, старый профиль) — фон темы, как прежде. */
+    function filmBg(dom) {
+      var base = bg();
+      try {
+        var muted = typeof LC.themeMuted === 'function' ? LC.themeMuted() : '';
+        if (muted) return LC.color.tint(dom, base, muted, 4.5) || base;
+      } catch (e) {
+        warn('accent: film bg failed', e);
+      }
+      return base;
+    }
+
     function posterUrl(path) {
       try {
         if (window.Lampa && Lampa.TMDB && typeof Lampa.TMDB.image === 'function') {
@@ -1214,7 +1232,7 @@
       var handle = colorOf(movie, function (dom) {
         answered = true;
         task = null;
-        apply(dom ? LC.color.tokens(dom, bg()) : null, dom, deep);
+        apply(dom ? LC.color.tokens(dom, filmBg(dom)) : null, dom, deep);
       });
       if (prev) prev.cancel();
       if (!answered) task = handle;
