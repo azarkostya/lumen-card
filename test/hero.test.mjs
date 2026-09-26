@@ -6939,6 +6939,44 @@ test('п.D: тон не успел за 250 мс — логотип как ес�
   assert.equal(white(node), true, 'со следующего показа — белый силуэт');
 });
 
+/* Раунд C, C8 (study.md, «After Impact» 1751701): логотип без единого
+   прозрачного пикселя — плашка (тон 'solid' от LC.thumbs). Тёмным силуэтом
+   она вставала белым прямоугольником на месте названия; теперь название —
+   текстом, а плашка больше не выбирается. */
+test('C8: проба тона сказала «плашка» — название текстом, логотипа нет и на следующем показе', () => {
+  const thumbs = toneThumbs();
+  const { env, main, node } = heroTone(thumbs);
+  env.requests[0].ok(LOGO_RU);
+  logoLoader(env).onload();
+  thumbs.answer(0, 'solid');
+  assert.equal(node.hasClass('lumen-hero--logo'), false, 'плашка встала логотипом');
+  assert.equal(white(node), false);
+  assert.equal(node.find('.lumen-hero__title').text(), main.card1.card_data.title, 'название — текстом');
+  assert.equal(env.hero.logoState('/l.png'), 'fail', 'плашка — исход «логотипа нет»');
+  const got = [];
+  env.hero.waitLogo('/l.png', LOGO_URL, (show) => got.push(show));
+  assert.deepEqual(got, [false], 'карточка фильма — тоже текст, сразу');
+});
+
+test('C8: известная плашка не выбирается — логотип другого языка или текст сразу', () => {
+  const pick = (tones, logos) => {
+    return makeEnv({ thumbs: toneThumbs(tones) }).hero.pickLogo(logos, 'ru');
+  };
+  const both = [{ file_path: '/ru.png', iso_639_1: 'ru' }, { file_path: '/en.png', iso_639_1: 'en' }];
+  assert.equal(pick({ '/ru.png': 'solid' }, both), '/en.png');
+  assert.equal(pick({}, both), '/ru.png', 'предусловие: свой язык впереди');
+  assert.equal(pick({ '/ru.png': 'solid' }, [both[0]]), null, 'других нет — текст');
+});
+
+test('C8: тон «плашка» известен к загрузке — ждущие получают «текст»', () => {
+  const env = makeEnv({ thumbs: toneThumbs({ '/s.png': 'solid' }) });
+  const got = [];
+  env.hero.waitLogo('/s.png', 'https://img/s.png', (show) => got.push(show));
+  env.images.find((i) => i.src === 'https://img/s.png').onload();
+  assert.deepEqual(got, [false]);
+  assert.equal(env.hero.logoState('/s.png'), 'fail');
+});
+
 test('п.D: тёмный логотип — светлый вариант на том же языке, если его тон известен', () => {
   const logos = { images: { logos: [
     { file_path: '/ru-dark.png', iso_639_1: 'ru' },

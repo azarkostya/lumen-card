@@ -252,6 +252,9 @@
       for (var i = 0; logos && i < logos.length; i++) {
         var item = logos[i];
         if (!item || !item.file_path) continue;
+        /* Раунд C, C8: известная плашка (логотип без прозрачности, тон
+           'solid') — не логотип: следующий по языку или текст. */
+        if (logoTone(item.file_path) === 'solid') continue;
         var code = item.iso_639_1 || '';
         if (code === lang) { if (!own) own = item; }
         else if (code === 'en') { if (!en) en = item; }
@@ -886,6 +889,13 @@
       if (logoFlight[path] !== fl) return;
       delete logoFlight[path];
       unhookLogo(fl);
+      /* Раунд C, C8: плашка (тон 'solid' уже известен) — исход «не
+         доехал» насовсем: ждущие выводят текст, и повторов нет. */
+      if (ok && logoTone(path) === 'solid') {
+        logoSeen[path] = 'fail';
+        tellLogo(fl, false);
+        return;
+      }
       logoSeen[path] = ok ? 'ok' : (logoSeen[path] === 'retry' ? 'fail' : 'retry');
       if (ok) keepLogo(path, fl.img);
       /* П.D: тон логотипа ещё считается — ждущим отвечаем, когда он
@@ -949,7 +959,15 @@
         if (toneProbes[path] === entry) delete toneProbes[path];
         if (entry.fl) entry.fl.probe = null;
         if (tone === 'dark') probeSiblings(path);
-        if (entry.fl && entry.fl.late) tellLogo(entry.fl, true);
+        /* Раунд C, C8: плашка — логотипа нет: ответ, который придерживала
+           проба, — «текст», а исход в памяти — 'fail' (следующий показ
+           выберет другой логотип или текст сразу). Если логотип уже встал
+           (проба не успела к TONE_WAIT), он доживает этот показ. */
+        if (tone === 'solid') {
+          logoSeen[path] = 'fail';
+          dropKept(path);
+        }
+        if (entry.fl && entry.fl.late) tellLogo(entry.fl, tone !== 'solid');
       });
       if (done) return;
       entry.job = probe;

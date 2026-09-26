@@ -16722,6 +16722,9 @@ var neutral = null;
 for (var i = 0; logos && i < logos.length; i++) {
 var item = logos[i];
 if (!item || !item.file_path) continue;
+
+
+if (logoTone(item.file_path) === 'solid') continue;
 var code = item.iso_639_1 || '';
 if (code === lang) { if (!own) own = item; }
 else if (code === 'en') { if (!en) en = item; }
@@ -17356,6 +17359,13 @@ function landLogo(path, fl, ok) {
 if (logoFlight[path] !== fl) return;
 delete logoFlight[path];
 unhookLogo(fl);
+
+
+if (ok && logoTone(path) === 'solid') {
+logoSeen[path] = 'fail';
+tellLogo(fl, false);
+return;
+}
 logoSeen[path] = ok ? 'ok' : (logoSeen[path] === 'retry' ? 'fail' : 'retry');
 if (ok) keepLogo(path, fl.img);
 
@@ -17419,7 +17429,15 @@ done = true;
 if (toneProbes[path] === entry) delete toneProbes[path];
 if (entry.fl) entry.fl.probe = null;
 if (tone === 'dark') probeSiblings(path);
-if (entry.fl && entry.fl.late) tellLogo(entry.fl, true);
+
+
+
+
+if (tone === 'solid') {
+logoSeen[path] = 'fail';
+dropKept(path);
+}
+if (entry.fl && entry.fl.late) tellLogo(entry.fl, tone !== 'solid');
 });
 if (done) return;
 entry.job = probe;
@@ -30355,6 +30373,7 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 
+
 LC.thumbs = (function () {
 
 var SIZE = 'w92';
@@ -30656,6 +30675,7 @@ return y > 0.008856 ? (116 * Math.pow(y, 1 / 3) - 16) / 100 : 9.033 * y;
 }
 
 
+
 function toneStats(data) {
 var ls = [];
 for (var j = 0; j < data.length; j += 4) {
@@ -30664,7 +30684,16 @@ ls.push(lightness(0.2126 * linear(data[j]) + 0.7152 * linear(data[j + 1]) + 0.07
 }
 ls.sort(function (a, b) { return a - b; });
 var n = ls.length;
-return { n: n, med: n ? ls[n >> 1] : 0, p75: n ? ls[Math.min(n - 1, Math.floor(n * 0.75))] : 0 };
+return { n: n, all: data.length >> 2, med: n ? ls[n >> 1] : 0, p75: n ? ls[Math.min(n - 1, Math.floor(n * 0.75))] : 0 };
+}
+
+
+
+
+
+
+function solidOf(stats) {
+return !!(stats && stats.n > 0 && stats.n >= stats.all);
 }
 
 function darkOf(stats) {
@@ -31047,7 +31076,7 @@ var live = true;
 var job = need('logo', path, function (stats) {
 if (!live) return;
 live = false;
-var value = stats ? (darkOf(stats) ? 'dark' : 'light') : 'none';
+var value = stats ? (solidOf(stats) ? 'solid' : (darkOf(stats) ? 'dark' : 'light')) : 'none';
 
 if (stats !== null) remember(tones, path, value);
 cb(value);
@@ -31081,6 +31110,7 @@ JOINT_SIM: JOINT_SIM,
 CLEAN: CLEAN,
 toneStats: toneStats,
 darkOf: darkOf,
+solidOf: solidOf,
 
 compare: compare,
 verdict: verdict,

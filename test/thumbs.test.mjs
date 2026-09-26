@@ -407,13 +407,15 @@ test('п.D: tone — чёрный логотип тёмный, белый све
   e.T.tone('/l.png', (t) => got.push(t));
   e.T.tone('/l.png', (t) => got.push(t));
   assert.equal(e.images.length, 1, 'одинаковый логотип в пути загружается дважды');
-  e.arrive(e.images[0], () => [0, 0, 0], 92, 30);
+  /* Логотип — надпись на прозрачном фоне (раунд C, C8: без единого
+     прозрачного пикселя это уже плашка, тон 'solid'). */
+  e.arrive(e.images[0], (x) => (x < 4 ? [0, 0, 0, 0] : [0, 0, 0]), 92, 30);
   e.idleAll();
   assert.deepEqual(got, ['dark', 'dark']);
   assert.equal(e.T.toneOf('/l.png'), 'dark');
   const light = [];
   e.T.tone('/w.png', (t) => light.push(t));
-  e.arrive(e.img('/w.png'), () => [250, 250, 250], 92, 30);
+  e.arrive(e.img('/w.png'), (x) => (x < 4 ? [0, 0, 0, 0] : [250, 250, 250]), 92, 30);
   e.idleAll();
   assert.deepEqual(light, ['light']);
   const sync = [];
@@ -542,6 +544,25 @@ test('ревью H5: постер прочитать нельзя (в памят
   assert.equal(e.images.length, before, 'кадр грузится, хотя сравнивать не с чем');
 });
 
+/* Раунд C, C8 (study.md, «After Impact» 1751701): логотип без единого
+   прозрачного пикселя (PNG без альфы — тёмный текст на сером
+   прямоугольнике) — тон 'solid', а не 'dark': белый силуэт закрашивал весь
+   прямоугольник. Один прозрачный пиксель — уже надпись. */
+test('C8: tone — логотип без прозрачных пикселей — плашка (solid), с прозрачным фоном — по светлоте', () => {
+  const e = env();
+  const got = {};
+  e.T.tone('/plate.png', (t) => { got.plate = t; });
+  e.arrive(e.img('/plate.png'), (x, y) => (y > 10 && y < 20 && x > 20 && x < 70 ? [30, 30, 30] : [128, 128, 128]), 92, 30);
+  e.idleAll();
+  e.T.tone('/text.png', (t) => { got.text = t; });
+  e.arrive(e.img('/text.png'), (x, y) => (x === 0 && y === 0 ? [0, 0, 0, 0] : [30, 30, 30]), 92, 30);
+  e.idleAll();
+  assert.equal(got.plate, 'solid');
+  assert.equal(e.T.toneOf('/plate.png'), 'solid', 'в памяти');
+  assert.equal(got.text, 'dark', 'есть прозрачный пиксель — надпись, её тон по светлоте');
+  assert.equal(e.T.solidOf(e.T.toneStats(raster(4, 4, () => [0, 0, 0, 0]))), false, 'пустой логотип — не плашка');
+});
+
 test('ревью H5: сетевой отказ логотипа — тон none, но не в памяти: следующая проба грузит снова', () => {
   const e = env();
   const got = [];
@@ -552,7 +573,7 @@ test('ревью H5: сетевой отказ логотипа — тон none,
   assert.equal(e.T.toneOf('/l.png'), undefined, 'сетевой отказ лёг в память тоном');
   e.T.tone('/l.png', (t) => got.push(t));
   assert.equal(e.images.length, 2, 'логотип после сетевого отказа больше не пробуется');
-  e.arrive(e.images[1], () => [0, 0, 0], 92, 30);
+  e.arrive(e.images[1], (x) => (x < 4 ? [0, 0, 0, 0] : [0, 0, 0]), 92, 30);
   e.idleAll();
   assert.deepEqual(got, ['none', 'dark']);
 });

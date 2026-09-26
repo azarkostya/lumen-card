@@ -14,8 +14,9 @@
   /*     (картинка не пришла, пиксели закрыты);                             */
   /*   verdict(poster, frame) — известный ответ или undefined;             */
   /*   scoreOf(poster, frame) — счёт пары (1 — порог «похож») или undefined; */
-  /*   tone(path, cb) — тон логотипа: 'dark' | 'light' | 'none' (прочитать */
-  /*     нельзя); toneOf(path) — известный тон или undefined.              */
+  /*   tone(path, cb) — тон логотипа: 'dark' | 'light' | 'solid' (нет    */
+  /*     ни одного прозрачного пикселя — плашка, раунд C, C8) | 'none'     */
+  /*     (прочитать нельзя); toneOf(path) — известный тон или undefined.   */
   /*                                                                       */
   /* Цена и правила (жёсткое ограничение производительности волны):        */
   /*   - растры маленькие: w92 у TMDB (92 × 52 у кадра, 92 × 138 у         */
@@ -347,7 +348,8 @@
       return y > 0.008856 ? (116 * Math.pow(y, 1 / 3) - 16) / 100 : 9.033 * y;
     }
 
-    /* Светлота непрозрачных пикселей логотипа: {n, med, p75}. */
+    /* Светлота непрозрачных пикселей логотипа: {n, all, med, p75}; all —
+       все пиксели растра. */
     function toneStats(data) {
       var ls = [];
       for (var j = 0; j < data.length; j += 4) {
@@ -356,7 +358,16 @@
       }
       ls.sort(function (a, b) { return a - b; });
       var n = ls.length;
-      return { n: n, med: n ? ls[n >> 1] : 0, p75: n ? ls[Math.min(n - 1, Math.floor(n * 0.75))] : 0 };
+      return { n: n, all: data.length >> 2, med: n ? ls[n >> 1] : 0, p75: n ? ls[Math.min(n - 1, Math.floor(n * 0.75))] : 0 };
+    }
+
+    /* Раунд C, C8 (study.md, «After Impact» 1751701): логотип без единого
+       прозрачного пикселя — не надпись, а картинка-плашка (PNG без альфы:
+       тёмный текст на сером прямоугольнике). Тёмным его силуэт белил весь
+       прямоугольник — на месте названия вставала белая плашка. Такой логотип
+       не рисуется вовсе: название — текстом (src/48_hero.js). */
+    function solidOf(stats) {
+      return !!(stats && stats.n > 0 && stats.n >= stats.all);
     }
 
     function darkOf(stats) {
@@ -739,7 +750,7 @@
       var job = need('logo', path, function (stats) {
         if (!live) return;
         live = false;
-        var value = stats ? (darkOf(stats) ? 'dark' : 'light') : 'none';
+        var value = stats ? (solidOf(stats) ? 'solid' : (darkOf(stats) ? 'dark' : 'light')) : 'none';
         /* Ревью H5: логотип не доехал (null) — 'none' только этому ответу. */
         if (stats !== null) remember(tones, path, value);
         cb(value);
@@ -773,6 +784,7 @@
       CLEAN: CLEAN,
       toneStats: toneStats,
       darkOf: darkOf,
+      solidOf: solidOf,
       /* Рантайм. */
       compare: compare,
       verdict: verdict,
