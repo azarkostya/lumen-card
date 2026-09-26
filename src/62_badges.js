@@ -2,7 +2,7 @@
   /* LC.badges — метки на постерах рядов и обратный отсчёт (Task 25).      */
   /*                                                                       */
   /* Публичное API (чистые функции, без window/Lampa/DOM):                  */
-  /*   badgeFor(card, today, ctx) → {kind, text, percent} | null           */
+  /*   badgeFor(card, today, ctx) → {kind, text, percent, left?} | null    */
   /*   countdown(ymd, today, words) → строка | null                        */
   /*                                                                       */
   /* Публичное API (рантайм, требуют Lampa и $):                            */
@@ -89,6 +89,16 @@
            она и говорит «продолжить» без слов, а доли процента не
            показывает. Само слово с экрана не пропало — им подписана строка
            прогресса в карточке фильма и кнопка «Смотреть». */
+        /* Сверка 2026-09-26: в ряду «Досмотреть» (card.lumen_continue,
+           src/45_personal.js) — остаток минутами вместо процента: процент
+           говорит, сколько досмотрено, а решают «успею ли». ctx.left(card)
+           — целые минуты или null (длительности в Timeline нет); тогда и
+           без строки — прежний процент. left: true — метке разрешены две
+           строки (правило .lumen-badge--left, src/30_css.js). */
+        var left = (card.lumen_continue && typeof ctx.left === 'function') ? Number(ctx.left(card)) : NaN;
+        if (left >= 1 && words.left) {
+          return { kind: 'progress', text: ('' + words.left).replace('{n}', left), percent: whole, left: true };
+        }
         return { kind: 'progress', text: whole + ' %', percent: whole };
       }
 
@@ -200,9 +210,13 @@
        чистой функцией с тем же контрактом ctx.words, и тесты зовут её и со
        словом, и без. */
     function words() {
+      /* Сверка 2026-09-26: «Осталось {n} мин» — строка, которой нет в
+         словаре, LC.lang отдаёт ключом; такая строка без «{n}» не годится. */
+      var left = '' + LC.lang('lumen_badge_left');
       return {
         soon: LC.lang('lumen_badge_soon'),
         fresh: LC.lang('lumen_badge_new'),
+        left: left.indexOf('{n}') !== -1 ? left : '',
         months: ('' + LC.lang('lumen_card_months_short')).split(',')
       };
     }
@@ -220,17 +234,34 @@
        считает полосу сетки подборки (src/46_hub.js, progressBar). Сети это
        не стоит ничего: Timeline держит историю в Storage. */
     function progressOf(card) {
+      var view = timelineOf(card);
+      var percent = view ? (Number(view.percent) || 0) : 0;
+      return percent > 0 ? percent : null;
+    }
+
+    function timelineOf(card) {
       try {
         if (!window.Lampa || !Lampa.Timeline || typeof Lampa.Timeline.view !== 'function') return null;
         if (!Lampa.Utils || typeof Lampa.Utils.hash !== 'function') return null;
         var key = card.original_title || card.original_name || card.title || card.name || '';
         if (!key) return null;
-        var view = Lampa.Timeline.view(Lampa.Utils.hash(key));
-        var percent = view ? (Number(view.percent) || 0) : 0;
-        return percent > 0 ? percent : null;
+        return Lampa.Timeline.view(Lampa.Utils.hash(key)) || null;
       } catch (e) {
         return null;
       }
+    }
+
+    /* Сверка 2026-09-26: остаток просмотра в целых минутах, вверх — из той
+       же записи Timeline: time и duration в секундах (плеер пишет
+       currentTime и duration видео, view — app.min.js:23899-23944). Нет
+       длительности или позиция за концом — null, метка остаётся процентом. */
+    function leftOf(card) {
+      var view = timelineOf(card);
+      if (!view) return null;
+      var duration = Number(view.duration) || 0;
+      var time = Number(view.time) || 0;
+      if (!(duration > 0) || time < 0 || time >= duration) return null;
+      return Math.ceil((duration - time) / 60);
     }
 
     /* Task 42: рейтинг в подписи под постером. Штатную плашку .card__vote на
@@ -340,7 +371,7 @@
         if (!data) return;
         el.lumen_badged = true;
         var ctx = shared || batch();
-        var badge = badgeFor(data, ctx.today, { progress: progressOf, words: ctx.words });
+        var badge = badgeFor(data, ctx.today, { progress: progressOf, left: leftOf, words: ctx.words });
         var view = $(el).find('.card__view');
         var hasBadge = !!(badge && badge.text && view && view.length);
         var view_mode = mode();
@@ -423,7 +454,7 @@
         var inCaption = wantCaption && caption(el, badge);
         if (!hasBadge) return;
         if (!inCaption && view_mode !== 'caption') {
-          var box = $('<div class="lumen-badge lumen-badge--' + badge.kind + '"></div>');
+          var box = $('<div class="lumen-badge lumen-badge--' + badge.kind + (badge.left ? ' lumen-badge--left' : '') + '"></div>');
           box.text(badge.text);
           view.append(box);
         }

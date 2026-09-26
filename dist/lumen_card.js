@@ -6281,6 +6281,11 @@ css.push('.lumen-main .lumen-badge--progress,.lumen-grid .lumen-badge--progress,
 
 
 css.push('.lumen-main .lumen-badge--custom,.lumen-grid .lumen-badge--custom{white-space:normal;line-height:1.15}');
+
+
+
+
+css.push('.lumen-main .lumen-badge--left,.lumen-grid .lumen-badge--left{white-space:normal;line-height:1.15}');
 css.push('.lumen-main .lumen-badge-bar{position:absolute;left:.4em;right:.4em;bottom:.4em;height:.18em;border-radius:.09em;background:rgba(' + P.textRgb + ',.2);overflow:hidden;z-index:2}');
 css.push('.lumen-main .lumen-badge-bar > div{height:100%;border-radius:.09em;background:' + A + '}');
 
@@ -11830,6 +11835,23 @@ return out;
 
 
 
+
+
+
+function markContinue(items) {
+var out = [];
+for (var i = 0; i < items.length; i++) {
+var copy = {};
+for (var k in items[i]) {
+if (Object.prototype.hasOwnProperty.call(items[i], k)) copy[k] = items[i][k];
+}
+copy.lumen_continue = true;
+out.push(copy);
+}
+return out;
+}
+
+
 function makeContinueCall() {
 return function (params, screen) {
 return function (call) {
@@ -11838,7 +11860,7 @@ function alive() { return _gen === gen; }
 
 var resolve = makeResolver(call);
 if (!alive()) { resolve({ results: [] }); return { cancel: function () {} }; }
-var items = continuesList();
+var items = markContinue(continuesList());
 if (!alive()) { resolve({ results: [] }); return { cancel: function () {} }; }
 resolve({ results: items, title: LC.lang ? LC.lang('lumen_row_continue') : 'Continue watching', lumen_personal: true, lumen_own: true });
 return { cancel: function () {} };
@@ -30707,6 +30729,16 @@ var whole = Math.round(percent);
 
 
 
+
+
+
+
+
+
+var left = (card.lumen_continue && typeof ctx.left === 'function') ? Number(ctx.left(card)) : NaN;
+if (left >= 1 && words.left) {
+return { kind: 'progress', text: ('' + words.left).replace('{n}', left), percent: whole, left: true };
+}
 return { kind: 'progress', text: whole + ' %', percent: whole };
 }
 
@@ -30818,9 +30850,13 @@ return w > 0 && h > 0 && w / h >= at / 100;
 
 
 function words() {
+
+
+var left = '' + LC.lang('lumen_badge_left');
 return {
 soon: LC.lang('lumen_badge_soon'),
 fresh: LC.lang('lumen_badge_new'),
+left: left.indexOf('{n}') !== -1 ? left : '',
 months: ('' + LC.lang('lumen_card_months_short')).split(',')
 };
 }
@@ -30838,17 +30874,34 @@ return { today: new Date(), words: words() };
 
 
 function progressOf(card) {
+var view = timelineOf(card);
+var percent = view ? (Number(view.percent) || 0) : 0;
+return percent > 0 ? percent : null;
+}
+
+function timelineOf(card) {
 try {
 if (!window.Lampa || !Lampa.Timeline || typeof Lampa.Timeline.view !== 'function') return null;
 if (!Lampa.Utils || typeof Lampa.Utils.hash !== 'function') return null;
 var key = card.original_title || card.original_name || card.title || card.name || '';
 if (!key) return null;
-var view = Lampa.Timeline.view(Lampa.Utils.hash(key));
-var percent = view ? (Number(view.percent) || 0) : 0;
-return percent > 0 ? percent : null;
+return Lampa.Timeline.view(Lampa.Utils.hash(key)) || null;
 } catch (e) {
 return null;
 }
+}
+
+
+
+
+
+function leftOf(card) {
+var view = timelineOf(card);
+if (!view) return null;
+var duration = Number(view.duration) || 0;
+var time = Number(view.time) || 0;
+if (!(duration > 0) || time < 0 || time >= duration) return null;
+return Math.ceil((duration - time) / 60);
 }
 
 
@@ -30958,7 +31011,7 @@ var data = card || el.card_data;
 if (!data) return;
 el.lumen_badged = true;
 var ctx = shared || batch();
-var badge = badgeFor(data, ctx.today, { progress: progressOf, words: ctx.words });
+var badge = badgeFor(data, ctx.today, { progress: progressOf, left: leftOf, words: ctx.words });
 var view = $(el).find('.card__view');
 var hasBadge = !!(badge && badge.text && view && view.length);
 var view_mode = mode();
@@ -31041,7 +31094,7 @@ if (!wantCaption || (opts && opts.wide)) rate(el, data);
 var inCaption = wantCaption && caption(el, badge);
 if (!hasBadge) return;
 if (!inCaption && view_mode !== 'caption') {
-var box = $('<div class="lumen-badge lumen-badge--' + badge.kind + '"></div>');
+var box = $('<div class="lumen-badge lumen-badge--' + badge.kind + (badge.left ? ' lumen-badge--left' : '') + '"></div>');
 box.text(badge.text);
 view.append(box);
 }
@@ -37190,6 +37243,9 @@ uk: 'Через'
 
 
 lumen_badge_soon: { ru: 'Скоро', en: 'Soon', uk: 'Скоро' },
+
+
+lumen_badge_left: { ru: 'Осталось {n} мин', en: '{n} min left', uk: 'Залишилось {n} хв' },
 lumen_badge_new: { ru: 'Новинка', en: 'New', uk: 'Новинка' },
 
 

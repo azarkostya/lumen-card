@@ -5404,6 +5404,11 @@
        Остальные метки остаются в одну строку: «Новинка», «Скоро · 17 дек» и
        «43 %» помещаются на всех четырёх масштабах (замер там же). */
     css.push('.lumen-main .lumen-badge--custom,.lumen-grid .lumen-badge--custom{white-space:normal;line-height:1.15}');
+    /* Сверка 2026-09-26: «Осталось 57 мин» в ряду «Досмотреть»
+       (src/62_badges.js) — та же страховка в две строки: строка длиннее
+       процента, и на самом мелком масштабе обрезать её многоточием значило
+       бы съесть минуты, ради которых она и пишется. */
+    css.push('.lumen-main .lumen-badge--left,.lumen-grid .lumen-badge--left{white-space:normal;line-height:1.15}');
     css.push('.lumen-main .lumen-badge-bar{position:absolute;left:.4em;right:.4em;bottom:.4em;height:.18em;border-radius:.09em;background:rgba(' + P.textRgb + ',.2);overflow:hidden;z-index:2}');
     css.push('.lumen-main .lumen-badge-bar > div{height:100%;border-radius:.09em;background:' + A + '}');
     /* Task 62a: та же метка, но в строке подписи под постером — вид «В

@@ -1238,3 +1238,12 @@ test('сверка: «Быстрое листание» — кратность �
     assert.doesNotMatch(text, /втрое|three times|втричі/, lang + ': в описании осталось «втрое»');
   }
 });
+
+test('сверка: строка «Осталось N мин» на трёх языках с местом под число', () => {
+  const LC = loadStrings();
+  const s = LC.STRINGS.lumen_badge_left;
+  assert.ok(s, 'строки lumen_badge_left нет');
+  assert.equal(s.ru, 'Осталось {n} мин');
+  assert.equal(s.en, '{n} min left');
+  assert.equal(s.uk, 'Залишилось {n} хв');
+});

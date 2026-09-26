@@ -860,3 +860,74 @@ test('scan: строки метки берутся один раз на прох
     delete globalThis.MutationObserver;
   }
 });
+
+/* ====================================================================== */
+/* Сверка 2026-09-26: «Осталось N мин» в «Досмотреть».                    */
+/*                                                                        */
+/* Процент говорит, сколько досмотрено, а решают «успею ли» минутами.     */
+/* Timeline Lampa хранит и позицию, и длительность файла в секундах       */
+/* (view, app.min.js:23899-23944) — метка карточки РЯДА «Досмотреть»      */
+/* (card.lumen_continue, src/45_personal.js) пишет остаток минутами       */
+/* вместо «43 %»; полоса прогресса на постере остаётся. В остальных рядах */
+/* — прежний процент. Нет длительности — прежний процент.                 */
+/* ====================================================================== */
+
+test('сверка: badgeFor — в «Досмотреть» «Осталось 57 мин» вместо процента', () => {
+  const B = fresh().api;
+  const words = Object.assign({ left: 'Осталось {n} мин' }, WORDS);
+  const ctx = { words: words, progress: function () { return 43; }, left: function () { return 57; } };
+  const b = B.badgeFor({ release_date: '2020-01-01', lumen_continue: true }, TODAY, ctx);
+  assert.equal(b.kind, 'progress');
+  assert.equal(b.text, 'Осталось 57 мин');
+  assert.equal(b.percent, 43, 'полоса прогресса считает тот же процент');
+  assert.equal(b.left, true);
+  /* Не «Досмотреть» — процент, как был. */
+  assert.equal(B.badgeFor({ release_date: '2020-01-01' }, TODAY, ctx).text, '43 %');
+  /* Остатка нет (длительность неизвестна) — процент. */
+  const none = { words: words, progress: function () { return 43; }, left: function () { return null; } };
+  assert.equal(B.badgeFor({ lumen_continue: true }, TODAY, none).text, '43 %');
+  /* Без строки — процент, без «{n}» на экране. */
+  assert.equal(B.badgeFor({ lumen_continue: true }, TODAY, { words: WORDS, progress: ctx.progress, left: ctx.left }).text, '43 %');
+});
+
+test('сверка: decorate — остаток из Timeline (секунды), вверх до минуты; метке «Досмотреть» разрешены две строки', () => {
+  const view = { percent: 43, time: 3000, duration: 6420 };
+  const { api } = runtime({
+    lang: function (key) {
+      if (key === 'lumen_badge_left') return 'Осталось {n} мин';
+      if (key === 'lumen_card_months_short') return MONTHS.join(',');
+      return key;
+    },
+    Lampa: {
+      Activity: { active: function () { return null; } },
+      Utils: { hash: function (k) { return k; } },
+      Timeline: { view: function () { return view; } }
+    }
+  });
+  const card = makeCard({ release_date: '2020-01-01', original_title: 'X', lumen_continue: true });
+  globalThis.window = { Lampa: {} };
+  try { api.decorate(card, null, null); } finally { delete globalThis.window; }
+  const badge = card._children[0]._children.filter((c) => c.hasClass('lumen-badge'))[0];
+  assert.ok(badge, 'метки нет');
+  assert.equal(badge.text(), 'Осталось 57 мин', '(6420 − 3000) / 60 = 57');
+  assert.ok(badge.hasClass('lumen-badge--progress') && badge.hasClass('lumen-badge--left'));
+  assert.equal(card._children[0]._children.filter((c) => c.hasClass('lumen-badge-bar')).length, 1, 'полоса прогресса на месте');
+});
+
+test('сверка: decorate — в Timeline нет длительности или позиция за концом — процент', () => {
+  for (const view of [{ percent: 43 }, { percent: 43, time: 100, duration: 0 }, { percent: 43, time: 7000, duration: 6420 }]) {
+    const { api } = runtime({
+      lang: function (key) { return key === 'lumen_badge_left' ? 'Осталось {n} мин' : (key === 'lumen_card_months_short' ? MONTHS.join(',') : key); },
+      Lampa: {
+        Activity: { active: function () { return null; } },
+        Utils: { hash: function (k) { return k; } },
+        Timeline: { view: function () { return view; } }
+      }
+    });
+    const card = makeCard({ release_date: '2020-01-01', original_title: 'X', lumen_continue: true });
+    globalThis.window = { Lampa: {} };
+    try { api.decorate(card, null, null); } finally { delete globalThis.window; }
+    const badge = card._children[0]._children.filter((c) => c.hasClass('lumen-badge'))[0];
+    assert.equal(badge.text(), '43 %', JSON.stringify(view));
+  }
+});

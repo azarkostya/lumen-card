@@ -803,3 +803,24 @@ test('«Потому что вы смотрели» и «Новые серии»
   assert.deepEqual(s.tmdbCalls.map(function (c) { return c.url; }), ['tv/200'],
     '«Новые серии» — по текущим закладкам, а не по снимку при register()');
 });
+
+/* Сверка 2026-09-26: карточки ряда «Досмотреть» помечены lumen_continue —
+   по этой метке их метка на постере пишет «Осталось N мин»
+   (src/62_badges.js). Помечаются КОПИИ: объекты continues — данные
+   Favorite Lampa, и лишнее поле уехало бы в её хранилище. */
+test('сверка: карточки «Досмотреть» — копии с lumen_continue, данные Favorite не тронуты', function () {
+  var src = [movie(1, 'Аватар'), movie(2, 'Дюна')];
+  var snapshot = JSON.stringify(src);
+  var s = setupRuntime({
+    continues: function (type) { return type === 'movie' ? src : []; }
+  });
+  s.addCalls = s.api.describe();
+  var cont = s.addCalls.filter(function (d) { return d.name === 'lumen_continue'; })[0];
+  var got = null;
+  cont.call({}, 'main')(function (payload) { got = payload; });
+  assert.deepEqual(got.results.map(function (c) { return c.id; }), [1, 2]);
+  assert.ok(got.results.every(function (c) { return c.lumen_continue === true; }), 'карточки «Досмотреть» не помечены');
+  assert.equal(got.results[0].title, 'Аватар');
+  assert.notEqual(got.results[0], src[0], 'помечен сам объект Favorite');
+  assert.equal(JSON.stringify(src), snapshot, 'данные Favorite изменились');
+});

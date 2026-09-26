@@ -478,6 +478,23 @@
     /* Фабрики call-функций для каждого ряда.                             */
     /* ------------------------------------------------------------------ */
 
+    /* Сверка 2026-09-26: карточки ряда «Досмотреть» помечены lumen_continue —
+       по метке их плашка пишет «Осталось N мин» (src/62_badges.js).
+       Помечаются КОПИИ: объекты continues — данные Favorite Lampa, и
+       лишнее поле уехало бы вместе с ними в её хранилище. */
+    function markContinue(items) {
+      var out = [];
+      for (var i = 0; i < items.length; i++) {
+        var copy = {};
+        for (var k in items[i]) {
+          if (Object.prototype.hasOwnProperty.call(items[i], k)) copy[k] = items[i][k];
+        }
+        copy.lumen_continue = true;
+        out.push(copy);
+      }
+      return out;
+    }
+
     /* «Досмотреть»: continuesList() вызывается при каждом call, без сети. */
     function makeContinueCall() {
       return function (params, screen) {
@@ -487,7 +504,7 @@
           /* Ровно один ответ Lampa при любом исходе — см. шапку модуля. */
           var resolve = makeResolver(call);
           if (!alive()) { resolve({ results: [] }); return { cancel: function () {} }; }
-          var items = continuesList();
+          var items = markContinue(continuesList());
           if (!alive()) { resolve({ results: [] }); return { cancel: function () {} }; }
           resolve({ results: items, title: LC.lang ? LC.lang('lumen_row_continue') : 'Continue watching', lumen_personal: true, lumen_own: true });
           return { cancel: function () {} };
