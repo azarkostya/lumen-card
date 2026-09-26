@@ -962,9 +962,12 @@ test('сверка: метка «Сезонная» экранируется, к
   assert.equal(it.subtitle, 'Сезон&lt;b&gt;');
 });
 
-/* Раунд holB: адвент под СНГ. Строки ряда адвента — на всех трёх языках,
-   с подстановкой дня. */
-test('holB: строки адвента на трёх языках, дата и уведомление закрытого окошка — с днём', () => {
+/* Раунд holB: адвент под СНГ и праздничные сцены. Строки ряда адвента — на
+   всех трёх языках, с подстановкой дня; описание «Атмосфер» — ровно две
+   праздничные сцены, видны и в «Лёгких», без перечня тем фильмов (автотемы
+   выключены); «Тяжёлые эффекты» — что праздничные частицы от них не
+   зависят. */
+test('holB: строки адвента на трёх языках; описания «Атмосфер» и «Тяжёлых эффектов» — Новый год и Хэллоуин, и в «Лёгких»', () => {
   const env = setup();
   const S = env.LC.STRINGS;
   for (const key of ['lumen_advent_left', 'lumen_advent_eve', 'lumen_advent_final', 'lumen_advent_date', 'lumen_advent_locked']) {
@@ -975,4 +978,12 @@ test('holB: строки адвента на трёх языках, дата и 
     assert.ok(S.lumen_advent_locked[lang].indexOf('{d}') !== -1, 'уведомление закрытого — с днём: ' + lang);
   }
   assert.equal(S.lumen_advent_date.ru, '{d} декабря');
+  const fx = S.lumen_fx_descr.ru;
+  assert.ok(/Новый год/.test(fx) && /Хэллоуин/.test(fx) && /лёгких анимациях/.test(fx), fx);
+  for (const gone of ['звёзды у фантастики', 'дождь у нуара', 'Не запускается при лёгких']) {
+    assert.equal(fx.indexOf(gone), -1, 'описание обещает выключенное: ' + gone);
+  }
+  assert.ok(/Hallow/.test(S.lumen_fx_descr.en) && /Гелловін/.test(S.lumen_fx_descr.uk));
+  assert.ok(/не зависят/.test(S.lumen_fx_heavy_descr.ru), S.lumen_fx_heavy_descr.ru);
+  assert.equal(S.lumen_fx_heavy_descr.ru.indexOf('Частицы'), -1, 'тяжёлые эффекты больше не про частицы');
 });

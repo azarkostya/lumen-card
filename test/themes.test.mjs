@@ -264,3 +264,117 @@ test('current: каталог без тем — встроенные прави�
   assert.equal(make(own).current()[0].id, 'own');
 });
 
+/* ====================================================================== */
+/* Раунд holB: праздничные сцены — Новый год и Хэллоуин                     */
+/*                                                                        */
+/* Пользователь: праздничные частицы видны и в «Лёгких»; после скрина       */
+/* «Одиссеи» с лучами и пузырями — «оставим только Рождество и Хэллоуин,   */
+/* а оформление потом будем руками докидывать». Автотемы по ключевым        */
+/* словам (космос, море, война, нуар…) — за флагом LC.fxAutoThemes,        */
+/* по умолчанию выключены.                                                 */
+/* ====================================================================== */
+
+const at = (m, d, y) => new Date(y || 2026, m - 1, d, 12, 0, 0);
+const hid = (m, d) => { const h = T.holidayAt(at(m, d)); return h ? h.id : null; };
+
+test('holB: праздников по дате два — Новый год 15.12–10.01 через границу года и Хэллоуин 25.10–1.11', () => {
+  const cases = [
+    [12, 14, null], [12, 15, 'newyear'], [12, 31, 'newyear'], [1, 1, 'newyear'], [1, 7, 'newyear'], [1, 10, 'newyear'], [1, 11, null],
+    [10, 24, null], [10, 25, 'halloween'], [10, 31, 'halloween'], [11, 1, 'halloween'], [11, 2, null],
+    [2, 14, null], [2, 23, null], [3, 8, null], [4, 12, null], [5, 9, null], [6, 1, null], [9, 1, null], [9, 26, null]
+  ];
+  for (const [m, d, want] of cases) assert.equal(hid(m, d), want, m + '/' + d);
+  assert.equal(T.holidayAt(null), null);
+  assert.equal(T.holidayAt({}), null);
+  assert.deepEqual(T.HOLIDAYS.map((h) => h.id + ':' + h.preset), ['newyear:winter', 'halloween:halloween']);
+});
+
+test('holB: пресеты праздников — праздничные сцены движка (видны и в «Лёгких», переживают смену фильма)', () => {
+  const FX = loadCtx('52_fx.js', { motionMode: () => 'full', enabled: () => true }).api;
+  for (const h of T.HOLIDAYS) {
+    assert.ok(FX.presets[h.preset], h.id);
+    assert.equal(FX.presets[h.preset].festive, true, h.id);
+    assert.equal(FX.presets[h.preset].keep, true, h.id);
+    assert.ok(/^#[0-9A-F]{6}$/i.test(h.accent), h.id + '.accent');
+  }
+});
+
+/* Окружение forMovie: правила тем каталога по умолчанию (их часть),
+   настройка «Атмосферы», дата, флаг автотем и герой главной. home — герой
+   смонтирован и не запаркован (главная на экране); карточка фильма
+   паркует героя (src/48_hero.js, park). */
+function ambientEnv(o) {
+  const RULES = [
+    { id: 'halloween', preset: 'halloween', accent: '#E07B2C', keywords: ['halloween'], genres: [27], months: [10], requireGenre: true },
+    { id: 'christmas', preset: 'winter', accent: '#E8C170', keywords: ['christmas', 'new year'], months: [12, 1] },
+    { id: 'valentine', preset: 'hearts', accent: '#E8607D', keywords: ['valentine'], months: [2] },
+    { id: 'space', preset: 'stars', accent: '#8FB8D9', keywords: ['space'] },
+    { id: 'ocean', preset: 'bubbles', accent: '#7FB7C9', keywords: ['ocean', 'sea'] }
+  ];
+  let hero;
+  if (o.hero === 'none') hero = undefined;
+  else if (o.home === false) hero = { active: () => true, parked: () => true };
+  else hero = { active: () => true, parked: () => false };
+  const ctx = loadCtx('53_themes.js', {
+    pref: (name, def) => (name === 'lumen_fx' ? (o.mode || 'seasonal') : def),
+    manifest: { get: () => ({ version: 1, themes: RULES }), DEFAULT: { themes: RULES } },
+    hero: hero
+  });
+  if (o.auto) ctx.LC.fxAutoThemes = true;
+  ctx.api._now = () => o.now;
+  return ctx.api;
+}
+const film = (...names) => ({ keywords: { results: names.map((n, i) => ({ id: i, name: n })) }, genres: [{ id: 27 }] });
+const odyssey = film('sea', 'ocean', 'greek mythology', 'odysseus');
+const id = (t) => (t ? t.id : null);
+
+test('holB: флаг автотем — по умолчанию выключен: у обычного фильма («Одиссея» — море) частиц нет ни на главной, ни в карточке', () => {
+  const T1 = ambientEnv({ now: at(9, 26), mode: 'all' });
+  assert.equal(loadCtx('53_themes.js', {}).LC.fxAutoThemes, false, 'одна константа, по умолчанию false');
+  assert.equal(T1.forMovie(odyssey), null, 'главная');
+  assert.equal(ambientEnv({ now: at(9, 26), mode: 'all', home: false }).forMovie(odyssey), null, 'карточка');
+  assert.equal(ambientEnv({ now: at(9, 26), mode: 'all' }).forMovie(film('space')), null, 'космос — тоже нет');
+  assert.equal(ambientEnv({ now: at(2, 14), mode: 'all' }).forMovie(film('valentine')), null, 'Валентин — нет');
+  /* Флаг включён — прежнее поведение целиком. */
+  assert.equal(id(ambientEnv({ now: at(9, 26), mode: 'all', auto: true }).forMovie(odyssey)), 'ocean');
+  assert.equal(id(ambientEnv({ now: at(2, 14), mode: 'seasonal', auto: true }).forMovie(film('valentine'))), 'valentine');
+});
+
+test('holB: новогодние и хэллоуинские фильмы — своя сцена и при выключенных автотемах, в свой сезон', () => {
+  assert.equal(id(ambientEnv({ now: at(12, 5), home: false }).forMovie(film('christmas'))), 'christmas', 'карточка рождественского фильма в декабре');
+  assert.equal(id(ambientEnv({ now: at(1, 20), home: false }).forMovie(film('new year'))), 'christmas', 'и в январе');
+  assert.equal(ambientEnv({ now: at(7, 1), home: false }).forMovie(film('christmas')), null, '«Только сезонные»: летом нет');
+  assert.equal(id(ambientEnv({ now: at(7, 1), home: false, mode: 'all' }).forMovie(film('christmas'))), 'christmas', '«Все»: и летом');
+  assert.equal(id(ambientEnv({ now: at(10, 10), home: false }).forMovie(film('halloween'))), 'halloween', 'хоррор про Хэллоуин в октябре');
+  assert.equal(id(ambientEnv({ now: at(12, 5) }).forMovie(film('christmas'))), 'christmas', 'главная до окна праздника — тема фильма');
+});
+
+test('holB: на главной в окно праздника — сцена праздника у любого фильма; в карточке — нет', () => {
+  const ny = ambientEnv({ now: at(12, 25) }).forMovie(odyssey);
+  assert.equal(ny.id, 'newyear');
+  assert.equal(ny.preset, 'winter');
+  assert.equal(ny.holiday, true);
+  assert.equal(ambientEnv({ now: at(1, 10) }).forMovie(film()).id, 'newyear');
+  assert.equal(ambientEnv({ now: at(10, 31) }).forMovie(film('christmas')).preset, 'halloween', 'праздник дня первым');
+  assert.equal(ambientEnv({ now: at(11, 1) }).forMovie(null).id, 'halloween', 'деталей нет — праздник всё равно');
+  assert.equal(ambientEnv({ now: at(12, 25), home: false }).forMovie(odyssey), null, 'карточка обычного фильма — без праздника');
+  assert.equal(ambientEnv({ now: at(12, 25), hero: 'none' }).forMovie(odyssey), null, 'героя нет вовсе');
+  assert.equal(ambientEnv({ now: at(12, 31), mode: 'off' }).forMovie(film('christmas')), null, '«Выключены» — ничего');
+});
+
+test('holB: holiday() — по хуку даты; classNames — и праздники, и все правила каталога, без повторов', () => {
+  const T1 = ambientEnv({ now: at(12, 20) });
+  assert.equal(T1.holiday().id, 'newyear');
+  T1._now = () => at(1, 11);
+  assert.equal(T1.holiday(), null);
+  const cls = T1.classNames().split(' ');
+  for (const c of ['newyear', 'halloween', 'christmas', 'space', 'ocean']) assert.ok(cls.indexOf('lumen-theme--' + c) !== -1, c);
+  assert.equal(cls.filter((c) => c === 'lumen-theme--halloween').length, 1);
+});
+
+test('holB: particleColor — снег Нового года белый, Хэллоуин — акцент праздника', () => {
+  const ny = ambientEnv({ now: at(12, 20) });
+  assert.equal(ny.particleColor(ny.forMovie(film())), '#FFFFFF');
+  const hw = ambientEnv({ now: at(10, 31) });
+  assert.equal(hw.particleColor(hw.forMovie(film())), '#E07B2C');
+});

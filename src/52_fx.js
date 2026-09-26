@@ -5,7 +5,9 @@
   /*   MAX — потолок частиц на слой (60)                                    */
   /*   presets — двенадцать пресетов {count, spawn, step, draw}: девять    */
   /*     прежних движков и три праздничные сцены (halloween, winter,        */
-  /*     hearts) со спрайтами свечения {scene, sprites}                     */
+  /*     hearts) со спрайтами свечения {scene, sprites}; раунд holB: winter */
+  /*     и halloween — праздничные (festive: видны и в «Лёгких») и keep     */
+  /*     (слой главной переживает смену фильма)                             */
   /*   spawn(preset, w, h, n, rnd) → частицы                                */
   /*   step(particles, dt, w, h) — двигает и заворачивает частицы           */
   /*   mount(layer, preset, opts) → инстанс или null                        */
@@ -34,7 +36,10 @@
   /*  - в режимах анимаций lite/off слой не монтируется ВОВСЕ — ни канваса,*/
   /*    ни кадра. Автодетект слабого ТВ (src/68_perf.js) отдаёт свой       */
   /*    вердикт через LC.motionMode(), поэтому отдельной проверки железа   */
-  /*    здесь нет: «слабый» уже означает lite.                             */
+  /*    здесь нет: «слабый» уже означает lite. Раунд holB, решение         */
+  /*    пользователя: исключение — две праздничные сцены (Новый год и      */
+  /*    Хэллоуин), они видны и в «Лёгких» и стоят после каждого нажатия    */
+  /*    пульта (CALM_MS) — allowedNow и paused ниже.                       */
   /*                                                                       */
   /* Остановка гарантируется четырьмя независимыми путями, и любой из них  */
   /* достаточен: unmount/unmountAll (уход с карточки, выключение плагина), */
@@ -777,6 +782,10 @@
       halloween: {
         count: 39,
         scene: true,
+        /* Раунд holB: праздничная сцена — видна и в «Лёгких» (allowedNow) и
+           переживает смену фильма в кадре героя (keep, удержание ниже). */
+        festive: true,
+        keep: true,
         spawn: function (i, w, h, rnd) {
           var p;
           if (i < 32) {
@@ -903,6 +912,9 @@
       winter: {
         count: 58,
         scene: true,
+        /* Раунд holB: праздничная сцена Нового года — см. halloween. */
+        festive: true,
+        keep: true,
         spawn: function (i, w, h, rnd) {
           var p;
           if (i < 6) {
@@ -1231,15 +1243,72 @@
        анимаций, но условие на motionMode оставлено явным: этот модуль
        обязан молчать в lite/off даже там, где LC.fxHeavy нет вовсе (тесты
        грузят 52_fx.js в одиночку). */
-    function allowedNow() {
+    /* Раунд holB: решение пользователя — праздничные частицы видны и в
+       «Лёгких» (30 fps, как везде; пауза при листании — CALM_MS ниже и у
+       героя FX_CALM_MS), прочие — только «Полные» + «Тяжёлые эффекты».
+       Праздничных сцен ровно две — winter (Новый год, Рождество) и
+       halloween («оставим только Рождество и Хэллоуин»). */
+    function allowedNow(name) {
       try {
         if (!LC.enabled()) return false;
-        if (LC.motionMode() !== 'full') return false;
+        var motion = LC.motionMode();
+        var preset = presets[name];
+        if (preset && preset.festive && (motion === 'full' || motion === 'lite')) return true;
+        if (motion !== 'full') return false;
         if (typeof LC.fxHeavy === 'function' && !LC.fxHeavy()) return false;
         return true;
       } catch (e) {
         return false;
       }
+    }
+
+    /* Раунд holB: удержание сцены keep. Герой главной снимает слой на
+       каждой смене фильма (clearFx при показе новой карточки) и ставит
+       заново, когда придут её детали (applyFx). Праздник от фильма не
+       зависит: вместо снятия слой замирает (paused) на LINGER_MS, и
+       повторный монтаж того же пресета на тот же узел его оживляет — без
+       нового канваса и новых частиц. Не пришёл — снимается сам (loop).
+       Сцену, которую сейчас показывать уже нельзя («Выкл» анимаций,
+       «Атмосферы: Выключены»), не удерживаем — снимаем сразу. */
+    var LINGER_MS = 6000;
+    /* Продолжение частиц: снятая сцена keep (уход на карточку снимает слой
+       главной — sweep) отдаёт частицы следующему монтажу того же пресета
+       на слой того же размера в пределах CARRY_MS — «Назад» продолжает
+       снегопад с того же места, а не начинает заново. */
+    var CARRY_MS = 60000;
+    var carry = null;
+
+    function lingerOk(inst) {
+      if (!inst.keep || !allowedNow(inst.name)) return false;
+      try {
+        if (LC.themes && typeof LC.themes.mode === 'function' && LC.themes.mode() === 'off') return false;
+      } catch (e) { }
+      return true;
+    }
+
+    /* Раунд holB: пауза при листании. Нажатие пульта — самый дорогой миг
+       экрана (смена фокуса, текста, кадра), и праздничная сцена после
+       каждого стоит CALM_MS, каждое следующее продлевает. У кадра героя
+       своя такая пауза (FX_CALM_MS, src/48_hero.js); у карточки фильма её
+       не было, а праздничная сцена теперь и там, и в «Лёгких». Слушатель —
+       один на движок, в фазе захвата (события Lampa могут не всплывать). */
+    var CALM_MS = 1200;
+    var lastKey = 0;
+    var keyBound = false;
+
+    function onKey() {
+      lastKey = nowMs();
+    }
+
+    function bindKeys() {
+      if (keyBound) return;
+      var d = doc();
+      try {
+        if (d && typeof d.addEventListener === 'function') {
+          d.addEventListener('keydown', onKey, true);
+          keyBound = true;
+        }
+      } catch (e) { }
     }
 
     function nodeOf(layer) {
@@ -1301,6 +1370,8 @@
        рисовались под полноэкранным видео — канвас во весь экран поверх
        декодирования ролика. */
     function paused(inst) {
+      if (inst.leaving) return true;
+      if (inst.festive && lastKey && nowMs() - lastKey < CALM_MS) return true;
       if (hidden()) return true;
       if (covered()) return true;
       if (LC.util.playerOpen()) return true;
@@ -1469,11 +1540,13 @@
     function loop(ts) {
       frame = 0;
       var i;
+      var clock = nowMs();
       for (i = instances.length - 1; i >= 0; i--) {
-        if (!attached(instances[i])) drop(instances[i]);
+        var inst = instances[i];
+        if (!attached(inst) || (inst.leaving && clock - inst.leaving > LINGER_MS)) drop(inst);
       }
       if (!instances.length) { last = 0; return; }
-      var time = typeof ts === 'number' ? ts : nowMs();
+      var time = typeof ts === 'number' ? ts : clock;
       /* 30 fps: кадр пришёл раньше срока — только заказ следующего. last —
          время прошлой ОТРИСОВКИ, поэтому dt ниже покрывает оба кадра. */
       if (last && time - last > 0 && time - last < FRAME_MS - FRAME_SLACK && !hidden()) {
@@ -1549,6 +1622,8 @@
     function drop(inst) {
       var i = instances.indexOf(inst);
       if (i !== -1) instances.splice(i, 1);
+      /* Раунд holB: частицы сцены keep — следующему монтажу (CARRY_MS). */
+      if (inst.keep) carry = { name: inst.name, w: inst.w, h: inst.h, at: nowMs(), particles: inst.particles };
       /* Набор спрайтов, уже вытесненный из кэша, этот слой рисовал
          последним — снимки закрываются (closeSprites). */
       if (inst.sprites && !spritesUsed(inst.sprites)) closeSprites(inst.sprites);
@@ -1562,6 +1637,7 @@
         inst.canvas.height = 0;
       } catch (e2) { }
       if (inst.scene) toggleClass(inst.node, 'lumen-fx--scene', false);
+      if (inst.keep) toggleClass(inst.node, 'lumen-fx--' + inst.name, false);
       if (!instances.length) {
         unraf(frame);
         frame = 0;
@@ -1615,12 +1691,22 @@
         opts = opts || {};
         var node = nodeOf(layer);
         if (!node || !presets[name]) return null;
-        if (!allowedNow()) return null;
         var exist = find(node);
+        /* Раунд holB: удерживаемый слой (unmount сцены keep) другого
+           пресета или тот, что больше нельзя показывать, уступает место. */
+        if (exist && exist.leaving && (exist.name !== name || !allowedNow(name))) {
+          drop(exist);
+          exist = null;
+        }
+        if (!allowedNow(name)) return null;
         /* Второй слой на тот же узел не заводим: у карточки он один, и
            повторный complite (Lampa шлёт его и после возврата) не должен
-           удваивать ни канвас, ни частицы. */
-        if (exist) return handle(exist);
+           удваивать ни канвас, ни частицы. Удерживаемый — оживает с новыми
+           условиями паузы, зоной текста и цветом (holB). */
+        if (exist) {
+          if (exist.leaving) revive(exist, opts);
+          return handle(exist);
+        }
         var d = doc();
         if (!d || typeof d.createElement !== 'function') return null;
 
@@ -1654,6 +1740,18 @@
         var color = opts.color || '#FFFFFF';
         node.appendChild(canvas);
         if (preset.scene) toggleClass(node, 'lumen-fx--scene', true);
+        /* Раунд holB: класс сцены keep — на весь монтаж, удержание
+           включительно. Статичный фон сцены (src/30_css.js) висит на нём, а
+           не на классе темы героя: тот снимается на каждой смене фильма. */
+        if (preset.keep) toggleClass(node, 'lumen-fx--' + name, true);
+        if (preset.festive) bindKeys();
+
+        /* Раунд holB: частицы той же сцены keep, снятой недавно со слоя
+           того же размера, — продолжаются. */
+        var kept = null;
+        if (preset.keep && carry && carry.name === name && Math.abs(carry.w - lw) < 1 && Math.abs(carry.h - lh) < 1 &&
+            nowMs() - carry.at < CARRY_MS) kept = carry.particles;
+        if (preset.keep) carry = null;
 
         var inst = {
           node: node,
@@ -1665,11 +1763,14 @@
           unit: unit,
           S: ratio * unit,
           scene: !!preset.scene,
+          keep: !!preset.keep,
+          festive: !!preset.festive,
+          leaving: 0,
           color: color,
           safe: safeZone(opts.safe, lw, lh),
           sprites: spritesFor(name, color, ratio * unit),
           paused: typeof opts.paused === 'function' ? opts.paused : null,
-          particles: spawn(name, lw, lh, opts.count, Math.random)
+          particles: kept || spawn(name, lw, lh, opts.count, Math.random)
         };
         /* Доступ к частицам из живой проверки и тестов — функцией, чтобы
            снаружи нельзя было подменить сам массив под циклом. */
@@ -1683,11 +1784,34 @@
       }
     }
 
+    /* Оживление удерживаемого слоя: условия паузы, зона текста и цвет — от
+       нового монтажа (цвет другой — и набор спрайтов свой). */
+    function revive(inst, opts) {
+      inst.leaving = 0;
+      inst.paused = typeof opts.paused === 'function' ? opts.paused : null;
+      inst.safe = safeZone(opts.safe, inst.w, inst.h);
+      var color = opts.color || '#FFFFFF';
+      if (color !== inst.color) {
+        var old = inst.sprites;
+        inst.color = color;
+        inst.sprites = spritesFor(inst.name, color, inst.S);
+        if (old && !spritesUsed(old)) closeSprites(old);
+      }
+      wake();
+    }
+
     function unmount(layer) {
       var node = nodeOf(layer);
       if (!node) return;
       var inst = find(node);
-      if (inst) drop(inst);
+      if (!inst) return;
+      /* Раунд holB: праздничная сцена (keep) не снимается, а замирает — до
+         повторного монтажа или LINGER_MS (разбор у lingerOk). */
+      if (lingerOk(inst)) {
+        if (!inst.leaving) inst.leaving = nowMs();
+        return;
+      }
+      drop(inst);
     }
 
     function unmountAll() {

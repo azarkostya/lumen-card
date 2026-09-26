@@ -763,7 +763,9 @@ test('сцена: класс lumen-fx--scene на слое, пока смонт�
     fx.mount(layer, 'winter');
     assert.ok(/(^| )lumen-fx--scene( |$)/.test(layer.className), 'класс сцены на слое');
     assert.ok(/(^| )lumen-fx__canvas--scene( |$)/.test(layer.children[0].className), 'класс сцены на канвасе');
-    fx.unmount(layer);
+    /* Раунд holB: winter — праздничная сцена с удержанием (unmount её
+       замораживает), снятие слоя целиком — unmountAll. */
+    fx.unmountAll();
     assert.equal(layer.className, 'lumen-fx', 'снят вместе со сценой, чужие классы целы');
 
     const plain = fakeNode(960, 540);
@@ -937,7 +939,9 @@ test('ревью: вытесненный из кэша набор спрайто
 
 test('ревью: вытесненный набор, который ещё рисует слой, закрывается со снятием слоя; мыши Хэллоуина — тоже', () => {
   bitmapEnv(({ bitmaps }) => {
-    const fx = freshFx({ platformInfo: () => ({ android: true }) });
+    /* Раунд holB: halloween — праздничная сцена с удержанием; при
+       «Атмосферы: Выключены» unmount снимает слой сразу, как прежде. */
+    const fx = freshFx({ platformInfo: () => ({ android: true }), themes: { mode: () => 'off' } });
     const keep = fakeNode(960, 540);
     fx.mount(keep, 'halloween', { color: COLORS[0] });
     const bats = bitmaps.length;
@@ -966,4 +970,184 @@ test('ревью: снимок, доехавший после закрытия �
     assert.equal(bitmaps[0].closed, true, 'поздний снимок вытесненного набора остался жить');
     assert.ok(bitmaps.slice(1).every((b) => !b.closed));
   }, true);
+});
+
+/* ====================================================================== */
+/* Раунд holB: праздничные сцены — Новый год и Хэллоуин                     */
+/*                                                                        */
+/* Решение пользователя: праздничные частицы видны и в «Лёгких» (30 fps,   */
+/* пауза при листании), прочие тематические — только «Полные» + «Тяжёлые   */
+/* эффекты». После скрина «Одиссеи» с лучами и пузырями: «оставим только    */
+/* Рождество и Хэллоуин» — праздничных (festive) сцен ровно две: winter и  */
+/* halloween (автотемы по ключевым словам выключены флагом в              */
+/* src/53_themes.js).                                                      */
+/* ====================================================================== */
+
+test('holB: праздничных сцен ровно две — winter и halloween; прочие пресеты не праздничные', () => {
+  const festive = Object.keys(FX.presets).filter((n) => FX.presets[n].festive).sort();
+  assert.deepEqual(festive, ['halloween', 'winter']);
+  for (const n of festive) assert.equal(FX.presets[n].keep, true, n + ': сцена главной переживает смену фильма');
+  for (const n of ['snow', 'stars', 'rain', 'bubbles', 'hearts', 'petals', 'sand', 'embers', 'glitch', 'bats']) {
+    assert.ok(!FX.presets[n].festive && !FX.presets[n].keep, n);
+  }
+});
+
+test('holB: гейт — праздничная сцена и в «Лёгких», и без «Тяжёлых эффектов»; прочие — только «Полные» + «Тяжёлые эффекты»; «Выкл» — ничего', () => {
+  env(({ pending }) => {
+    const lite = freshFx({ motionMode: () => 'lite', fxHeavy: () => false });
+    assert.ok(lite.mount(fakeNode(960, 360), 'winter'), 'Новый год в «Лёгких»');
+    assert.ok(lite.mount(fakeNode(960, 360), 'halloween'), 'Хэллоуин в «Лёгких»');
+    assert.equal(lite.mount(fakeNode(960, 360), 'bubbles'), null, 'пузыри в «Лёгких» — нет');
+    assert.equal(lite.mount(fakeNode(960, 360), 'hearts'), null, 'сердца в «Лёгких» — нет');
+    lite.unmountAll();
+    const light = freshFx({ motionMode: () => 'full', fxHeavy: () => false });
+    assert.ok(light.mount(fakeNode(960, 360), 'winter'), '«Полные» без тяжёлых эффектов — праздник есть');
+    assert.equal(light.mount(fakeNode(960, 360), 'stars'), null, 'а звёзды — нет');
+    light.unmountAll();
+    const off = freshFx({ motionMode: () => 'off' });
+    assert.equal(off.mount(fakeNode(960, 360), 'winter'), null);
+    assert.equal(pending(), 0);
+  });
+});
+
+/* Кадр героя пересобирает слой на КАЖДОЙ смене фильма: clearFx на показе
+   новой карточки, applyFx — когда придут её детали. Праздник от фильма не
+   зависит, и без удержания сцена гасла бы на каждом шаге пульта и
+   рождалась заново — мигание вместо оформления. */
+test('holB: сцена keep переживает unmount → mount того же пресета — тот же слой, те же частицы', () => {
+  env(({ tick }) => {
+    const fx = freshFx();
+    const timers = fakeTimers();
+    fx._timers = timers.hook;
+    const layer = fakeNode(960, 360);
+    const list = fx.mount(layer, 'winter').particles();
+    tick(40);
+    fx.unmount(layer);
+    assert.equal(layer.children.length, 1, 'канвас остался на месте');
+    assert.equal(fx.active(), 1);
+    const steps = fx.stats().steps;
+    tick(40); tick(40);
+    assert.equal(fx.stats().steps, steps, 'пока ждёт — стоит, не рисует');
+    const again = fx.mount(layer, 'winter');
+    assert.equal(again.particles(), list, 'те же частицы');
+    assert.equal(layer.children.length, 1, 'второго канваса нет');
+    if (timers.live().length) timers.fire();
+    tick(40); tick(40);
+    assert.ok(fx.stats().steps > steps, 'ожил');
+    fx.unmountAll();
+    assert.equal(layer.children.length, 0);
+  });
+});
+
+test('holB: удержание кончается — через 6 с без повторного монтажа слой снят; другой пресет снимает сразу; тема фильма не удерживается', () => {
+  env(({ tick }) => {
+    const fx = freshFx();
+    const timers = fakeTimers();
+    fx._timers = timers.hook;
+    const layer = fakeNode(960, 360);
+    fx.mount(layer, 'halloween', { color: '#E07B2C' });
+    tick(40);
+    fx.unmount(layer);
+    for (let i = 0; i < 20 && fx.active(); i++) {
+      if (timers.live().length) timers.fire();
+      tick(400);
+    }
+    assert.equal(fx.active(), 0, 'снят по истечении удержания');
+    assert.equal(layer.children.length, 0);
+
+    const b = fakeNode(960, 360);
+    fx.mount(b, 'winter');
+    fx.unmount(b);
+    fx.mount(b, 'halloween', { color: '#E07B2C' });
+    assert.equal(b.children.length, 1, 'старый канвас снят, новый встал');
+    assert.equal(fx.active(), 1);
+    fx.unmountAll();
+
+    const c = fakeNode(960, 360);
+    fx.mount(c, 'snow');
+    fx.unmount(c);
+    assert.equal(c.children.length, 0, 'тема фильма (не keep) снимается сразу, как прежде');
+  });
+});
+
+test('holB: удержания нет, если сцену больше нельзя показывать — «Выключены» или «Выкл» анимаций', () => {
+  env(() => {
+    let mode = 'seasonal';
+    let motion = 'lite';
+    const fx = freshFx({ motionMode: () => motion, themes: { mode: () => mode } });
+    const a = fakeNode(960, 360);
+    fx.mount(a, 'winter');
+    mode = 'off';
+    fx.unmount(a);
+    assert.equal(a.children.length, 0, '«Атмосферы: Выключены» — снят сразу');
+    mode = 'seasonal';
+    const b = fakeNode(960, 360);
+    fx.mount(b, 'winter');
+    motion = 'off';
+    fx.unmount(b);
+    assert.equal(b.children.length, 0, '«Выкл» — снят сразу');
+    assert.equal(fx.active(), 0);
+  });
+});
+
+/* Уход на карточку снимает слой главной (sweep), а «Назад» ставит его
+   заново: снегопад продолжается с того же места, а не рождается заново. */
+test('holB: снятая сцена keep отдаёт частицы следующему монтажу того же пресета и размера', () => {
+  env(() => {
+    const fx = freshFx();
+    const list = fx.mount(fakeNode(960, 360), 'winter').particles();
+    fx.unmountAll();
+    assert.equal(fx.mount(fakeNode(960, 360), 'winter').particles(), list, 'частицы продолжены');
+    fx.unmountAll();
+    assert.notEqual(fx.mount(fakeNode(1280, 360), 'winter').particles(), list, 'другой размер — заново');
+    fx.unmountAll();
+  });
+});
+
+/* Класс lumen-fx--<пресет> у сцены keep — на весь монтаж, удержание
+   включительно. Статичный фон сцены (дымка Хэллоуина, src/30_css.js) висит
+   на нём, а не на классе темы героя: тот герой снимает на каждой смене
+   фильма (clearFx) и ставит, когда придут детали, — фон мигал бы. */
+test('holB: класс lumen-fx--<пресет> у праздничной сцены — на время монтажа и удержания, снимается со слоем', () => {
+  env(() => {
+    const fx = freshFx();
+    const layer = fakeNode(960, 360);
+    layer.className = 'lumen-fx';
+    fx.mount(layer, 'halloween', { color: '#E07B2C' });
+    assert.ok(/(^| )lumen-fx--halloween( |$)/.test(layer.className), layer.className);
+    fx.unmount(layer);
+    assert.ok(/(^| )lumen-fx--halloween( |$)/.test(layer.className), 'в удержании класс остаётся');
+    fx.unmountAll();
+    assert.equal(layer.className, 'lumen-fx', 'снят вместе со слоем, чужие классы целы');
+    const plain = fakeNode(960, 360);
+    plain.className = 'lumen-fx';
+    fx.mount(plain, 'stars');
+    assert.equal(plain.className, 'lumen-fx', 'у прежних движков классов нет');
+    fx.unmountAll();
+  });
+});
+
+/* Пауза при листании: нажатие пульта (keydown) — самый дорогой миг экрана
+   (смена фокуса, текста, кадра). Праздничная сцена — и на главной, и на
+   карточке фильма (у героя своя пауза FX_CALM_MS, у карточки её не было) —
+   стоит CALM_MS после каждого нажатия, каждое следующее продлевает. */
+test('holB: пауза при листании — после нажатия пульта праздничная сцена стоит, потом оживает', () => {
+  env(({ doc, tick }) => {
+    const keys = [];
+    doc.addEventListener = (type, fn) => { if (type === 'keydown') keys.push(fn); };
+    const fx = freshFx({ motionMode: () => 'lite', fxHeavy: () => false });
+    const timers = fakeTimers();
+    fx._timers = timers.hook;
+    fx.mount(fakeNode(960, 360), 'winter');
+    tick(40); tick(40);
+    const moving = fx.stats().steps;
+    assert.ok(moving > 0);
+    assert.equal(keys.length, 1, 'слушатель пульта — один на движок');
+    keys[0]({ type: 'keydown' });
+    tick(40); tick(40);
+    assert.equal(fx.stats().steps, moving, 'после нажатия — стоит');
+    for (let i = 0; i < 6; i++) { if (timers.live().length) timers.fire(); tick(300); }
+    assert.ok(fx.stats().steps > moving, 'через паузу — снова движется');
+    fx.unmountAll();
+  });
 });

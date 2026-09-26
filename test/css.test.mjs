@@ -8322,3 +8322,14 @@ test('holB: адвент — дверца поверх постера не ме�
   const ring = findDecl(css, (sel) => sel === '.lumen-main .lumen-advent-card--today .card__view');
   assert.ok(ring && /outline:[^;]+solid/.test(ring), 'сегодняшнее окошко выделено контуром, не тенью: ' + ring);
 });
+
+/* Раунд holB: дымка и тыквенное зарево праздничного Хэллоуина — по классу
+   сцены на слое (lumen-fx--halloween, ставит LC.fx.mount), а не только по
+   классу темы героя: тот снимается на каждой смене фильма. */
+test('holB: фон праздничного Хэллоуина — по классу сцены слоя, тот же, что у темы фильма', () => {
+  const mist = findDecl(css, (sel) => sel === '.lumen-hero .lumen-fx.lumen-fx--halloween');
+  const theme = findDecl(css, (sel) => sel === '.lumen-hero.lumen-theme--halloween .lumen-fx.lumen-fx--scene');
+  assert.ok(mist && /radial-gradient/.test(mist) && /linear-gradient/.test(mist), mist);
+  assert.equal(mist, theme, 'рисунок один: сцена по дате и тема фильма выглядят одинаково');
+  assert.ok(!/filter|box-shadow|animation/.test(mist));
+});

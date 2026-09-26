@@ -12,6 +12,8 @@
   /*   current() → правила тем из манифеста                                 */
   /*   mode() → значение настройки lumen_fx: 'all' | 'seasonal' | 'off'     */
   /*   forMovie(movie) → тема, которую МОЖНО показать этому фильму сейчас   */
+  /*   HOLIDAYS — Новый год и Хэллоуин по дате (раунд holB)                 */
+  /*   holidayAt(date) → запись календаря или null; holiday() — на сегодня  */
   /*                                                                       */
   /* Здесь нет ни DOM, ни canvas, ни таймеров: движок частиц живёт в        */
   /* src/52_fx.js, а этот модуль только решает, какая тема кому положена.   */
@@ -24,6 +26,18 @@
   /* может положить уже развёрнутый массив. Разбираем все три — иначе тема  */
   /* находилась бы только у фильмов.                                       */
   /* -------------------------------------------------------------------- */
+
+  /* Раунд holB: автоматические темы частиц по ключевым словам фильма —
+     космос, море, война, нуар, пустыня, сакура, зомби, Валентин —
+     ВЫКЛЮЧЕНЫ. Пользователь, со скрином «Одиссеи» с лучами прожекторов и
+     пузырями: «что это за дискотека? Такая тема только на тематических, а
+     какая тут тематика? Давай оставим только Рождество и Хэллоуин, а
+     оформление потом будем руками докидывать». Остаются праздничные:
+     правила christmas и halloween каталога (HOLIDAY_RULES) и праздники по
+     дате (HOLIDAYS). Вернуть прочие — LC.fxAutoThemes = true: правила в
+     каталоге и движки частиц целы, тесты гоняют их при включённом флаге.
+     Читается на каждом вызове forMovie. */
+  LC.fxAutoThemes = false;
 
   LC.themes = (function () {
 
@@ -192,6 +206,80 @@
     function monthOf(date) {
       if (!date || typeof date.getMonth !== 'function') return 0;
       return date.getMonth() + 1;
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* Раунд holB: праздничные сцены — Новый год и Хэллоуин.               */
+    /*                                                                     */
+    /* Пользователь: праздничные частицы видны и в «Лёгких» (30 fps, пауза */
+    /* при листании); после скрина «Одиссеи» с лучами и пузырями —         */
+    /* «оставим только Рождество и Хэллоуин, а оформление потом будем      */
+    /* руками докидывать». Сцена показывается:                             */
+    /*  - на главной (кадр героя) в окно праздника — у ЛЮБОГО фильма под   */
+    /*    фокусом: это оформление дня, а не фильма, и при листании она не  */
+    /*    мигает (слой переживает смену фильма — keep в src/52_fx.js);      */
+    /*  - у новогодних и рождественских фильмов и у хэллоуинских хорроров  */
+    /*    — по ключевым словам (правила christmas и halloween каталога),   */
+    /*    на главной и в карточке, как прежде.                             */
+    /* Прочие темы по ключевым словам — за флагом LC.fxAutoThemes (в начале */
+    /* модуля).                                                            */
+    /*                                                                     */
+    /* Окна — даты включительно, [месяц, день]. Новый год — сезон под СНГ, */
+    /* с 15 декабря по 10 января (каникулы и Рождество), через границу    */
+    /* года;                                                               */
+    /* Хэллоуин — неделя до 31 октября и 1 ноября.                        */
+    /* id праздника — и класс lumen-theme--<id> на кадре героя. У          */
+    /* Хэллоуина он совпадает с темой фильма нарочно: дымка по низу и      */
+    /* тыквенное зарево (src/30_css.js) — часть той же сцены.              */
+    /* ------------------------------------------------------------------ */
+
+    var HOLIDAYS = [
+      { id: 'newyear', from: [12, 15], to: [1, 10], preset: 'winter', accent: '#E8C170' },
+      { id: 'halloween', from: [10, 25], to: [11, 1], preset: 'halloween', accent: '#E07B2C' }
+    ];
+
+    /* Правила каталога, которые работают и при выключенных автотемах: это
+       те же два праздника, но «по фильму». */
+    var HOLIDAY_RULES = { christmas: 1, halloween: 1 };
+
+    /* Ключ даты «месяц·100 + день»: окна сравниваются числами. */
+    function dayKey(date) {
+      if (!date || typeof date.getMonth !== 'function' || typeof date.getDate !== 'function') return 0;
+      return (date.getMonth() + 1) * 100 + date.getDate();
+    }
+
+    function inWindow(key, from, to) {
+      var a = from[0] * 100 + from[1];
+      var b = to[0] * 100 + to[1];
+      /* Окно через границу года (15.12–10.01): «после начала ИЛИ до конца». */
+      return a <= b ? (key >= a && key <= b) : (key >= a || key <= b);
+    }
+
+    function holidayAt(date) {
+      var key = dayKey(date);
+      if (!key) return null;
+      for (var i = 0; i < HOLIDAYS.length; i++) {
+        if (inWindow(key, HOLIDAYS[i].from, HOLIDAYS[i].to)) return HOLIDAYS[i];
+      }
+      return null;
+    }
+
+    /* Тема из записи календаря — в том же виде, что правило каталога:
+       герой ставит класс lumen-theme--<id> и берёт цвет particleColor. */
+    function themeOf(entry) {
+      return { id: entry.id, preset: entry.preset, accent: entry.accent, holiday: true };
+    }
+
+    /* Правила тем, которые сейчас в игре: все — при LC.fxAutoThemes, иначе
+       только праздничные (HOLIDAY_RULES). */
+    function rulesNow() {
+      var rules = current();
+      if (LC.fxAutoThemes === true) return rules;
+      var out = [];
+      for (var i = 0; i < rules.length; i++) {
+        if (rules[i] && HOLIDAY_RULES[rules[i].id]) out.push(rules[i]);
+      }
+      return out;
     }
 
     /* ------------------------------------------------------------------ */
@@ -404,14 +492,43 @@
       return value;
     }
 
+    /* Раунд holB: главная ли на экране. Одна функция forMovie обслуживает и
+       кадр героя (src/48_hero.js, applyFx), и карточку фильма
+       (src/90_runtime.js, LC.applyFxFor), а праздник и сезон положены только
+       главной. Признак — состояние героя: открытие карточки — это старт
+       чужой активности, и герой паркуется ДО её complite (park по
+       'activity':start); возврат снимает парковку ДО того, как герой
+       ставит атмосферу заново (resume -> applyFx). Героя нет (главная без
+       кадра, тесты модуля в одиночку) — значит и главной с кадром нет. */
+    function onHome() {
+      try {
+        var hero = LC.hero;
+        if (!hero || typeof hero.active !== 'function' || !hero.active()) return false;
+        return !(typeof hero.parked === 'function' && hero.parked());
+      } catch (e) {
+        return false;
+      }
+    }
+
     /* Тема, которую можно показать фильму прямо сейчас, либо null. Одна
        точка на карточку и герой: оба зовут её и оба получают одинаковый
-       ответ при одинаковых данных. */
+       ответ при одинаковых данных.
+       Раунд holB: на главной первым — праздник дня (он общий для всей
+       главной, и при листании сцена не сменяется на каждом фильме), потом
+       тема фильма — из rulesNow(): при выключенных автотемах только
+       новогодняя и хэллоуинская. Гейт по режиму анимаций здесь не решается:
+       праздничные сцены LC.fx.mount запустит и в «Лёгких», прочие — только
+       в «Полных» с «Тяжёлыми эффектами» (src/52_fx.js, allowedNow). */
     function forMovie(movie) {
       var current_mode = mode();
       if (current_mode === 'off') return null;
-      var theme = matchTheme(current(), movie);
-      if (!allowed(theme, current_mode, api.month())) return null;
+      var today = api._now();
+      if (onHome()) {
+        var holiday = holidayAt(today);
+        if (holiday) return themeOf(holiday);
+      }
+      var theme = matchTheme(rulesNow(), movie);
+      if (!allowed(theme, current_mode, monthOf(today))) return null;
       return theme;
     }
 
@@ -434,10 +551,16 @@
        как поставить класс новой темы: список тем живёт в манифесте и может
        прийти с хостинга, поэтому зашивать его в рантайм нельзя. */
     function classNames() {
-      var rules = current();
+      /* Раунд holB: и классы праздников — иначе класс lumen-theme--newyear
+         с кадра героя не снимался бы никогда. */
+      var rules = current().concat(HOLIDAYS);
       var out = [];
+      var seen = {};
       for (var i = 0; i < rules.length; i++) {
-        if (rules[i] && rules[i].id) out.push('lumen-theme--' + rules[i].id);
+        var id = rules[i] && rules[i].id;
+        if (!id || seen[id]) continue;
+        seen[id] = 1;
+        out.push('lumen-theme--' + id);
       }
       return out.join(' ');
     }
@@ -461,6 +584,9 @@
       monthOf: monthOf,
       month: function () { return monthOf(api._now()); },
       today: function () { return api._now(); },
+      HOLIDAYS: HOLIDAYS,
+      holidayAt: holidayAt,
+      holiday: function () { return holidayAt(api._now()); },
       current: current,
       classNames: classNames,
       particleColor: particleColor,

@@ -2189,6 +2189,16 @@
     css.push('body.lumen-motion-off .lumen-main .card .lumen-advent__door--opening{display:none}');
     css.push('@-webkit-keyframes lumen-advent-open{0%{-webkit-transform:perspective(30em) rotateY(0);opacity:1}75%{-webkit-transform:perspective(30em) rotateY(-96deg);opacity:1}100%{-webkit-transform:perspective(30em) rotateY(-110deg);opacity:0}}');
     css.push('@keyframes lumen-advent-open{0%{transform:perspective(30em) rotateY(0);opacity:1}75%{transform:perspective(30em) rotateY(-96deg);opacity:1}100%{transform:perspective(30em) rotateY(-110deg);opacity:0}}');
+    /* Раунд holB: дымка и тыквенное зарево праздничного Хэллоуина — по
+       классу сцены на слое (lumen-fx--halloween, ставит LC.fx.mount на весь
+       монтаж и удержание), а не только по классу темы героя: тот снимается
+       на каждой смене фильма (clearFx), и в окно праздника фон мигал бы при
+       листании. Тот же рисунок, что у темы фильма выше. */
+    css.push('.lumen-hero .lumen-fx.lumen-fx--halloween{background-image:' +
+      'radial-gradient(ellipse 38% 18% at 78% 100%,rgba(' + MIST + ',.3) 0%,rgba(' + MIST + ',.12) 55%,rgba(' + MIST + ',0) 100%),' +
+      'radial-gradient(ellipse 32% 13% at 46% 102%,rgba(' + MIST + ',.2) 0%,rgba(' + MIST + ',.07) 55%,rgba(' + MIST + ',0) 100%),' +
+      'radial-gradient(ellipse 26% 10% at 12% 103%,rgba(' + MIST + ',.07) 0%,rgba(' + MIST + ',0) 100%),' +
+      'linear-gradient(0deg,rgba(224,123,44,.26) 0%,rgba(224,123,44,.09) 16%,rgba(224,123,44,0) 38%)}');
     /* Пока играет ролик, вуали приглушаются (экран 02 держит их заметно
        светлее обычных: .34/.55/.28 против .96/.98/.70) — текст остаётся
        читаемым, но кадр видно. */
