@@ -1695,7 +1695,7 @@ test('правило кромки: ряд описания не выше кро�
 /* Правка 2026-09-23 (разбор композиции, п.5.1): стопка постеров и счётчик
    выборки в барабане рулетки. До неё центр экрана был пустой чёрной
    коробкой на 43 % высоты, и переключение подборок не меняло его вовсе. */
-test('правка 2026-09-23: стопка и счётчик выборки рулетки показываются одним классом сцены', () => {
+test('правка 2026-09-23: стопка выборки рулетки показывается классом сцены', () => {
   const peek = findDecl(css, (sel) => sel === '.lumen-roulette .lumen-roulette__peek');
   assert.ok(peek, 'правила задних постеров стопки нет');
   assert.ok(/display:none/.test(peek), 'задние постеры обязаны быть скрыты по умолчанию: ' + peek);
@@ -1711,12 +1711,14 @@ test('правка 2026-09-23: стопка и счётчик выборки р�
      держит задние постеры под ним. */
   assert.ok(/z-index:1/.test(reel), 'барабан обязан лежать поверх стопки своим слоем: ' + reel);
 
-  /* Показывает стопку и счётчик один класс сцены — чтобы «есть выборка» и
-     «есть счётчик» не могли разойтись. */
+  /* Задние постеры показывает класс сцены is-stack. Дизайн-проход
+     2026-09-26: счётчик от него отвязан — стопка на вращении уходит, а
+     счётчик держит место (свой класс is-counted, тест «дизайн C» ниже):
+     иначе «Крутить» под ним прыгал на каждом нажатии. */
   const on = findDecl(css, (sel) => sel === '.lumen-roulette .lumen-roulette__stage.is-stack .lumen-roulette__peek');
   assert.ok(on && /display:block/.test(on), 'класс сцены не показывает задние постеры');
-  const count = findDecl(css, (sel) => sel === '.lumen-roulette .lumen-roulette__stage.is-stack .lumen-roulette__count');
-  assert.ok(count && /display:block/.test(count), 'класс сцены не показывает счётчик');
+  assert.equal(findDecl(css, (sel) => sel === '.lumen-roulette .lumen-roulette__stage.is-stack .lumen-roulette__count'), null,
+    'счётчик снова привязан к стопке — на вращении он пропадёт вместе с ней');
 
   /* Число крупнее подписи — «ведущее значение плюс приглушённая подпись»,
      та же схема, что у чипов карточки. */
@@ -7967,11 +7969,21 @@ test('fx2: вид «как Apple TV» — сцена строкой, бараб�
   assert.ok(/max-height:calc\(100vh - [0-9.]+em - [0-9.]+vh\)/.test(reel), 'потолок высоты — остаток области под шапкой, лентой и полкой');
   const tile = findDecl(css, (sel) => sel === '.lumen-roulette-screen.is-atv .lumen-roulette__tile');
   const tileImg = findDecl(css, (sel) => sel === '.lumen-roulette-screen.is-atv .lumen-roulette__tile-img');
-  const tw = parseFloat(/width:([0-9.]+)vh/.exec(tile)[1]);
   const th = parseFloat(/height:([0-9.]+)vh/.exec(tileImg)[1]);
-  assert.ok(Math.abs(tw / th - 16 / 9) < 0.01, 'карточка полки 16:9: ' + tw + '×' + th);
   const gap = parseFloat(/margin-right:([0-9.]+)vh/.exec(tile)[1]);
-  assert.ok(5 * tw + 4 * gap < 177.78 - 10, 'пять карточек помещаются в ширину экрана 16:9 без прокрутки');
+  /* Дизайн-проход 2026-09-26: пять карточек ровно во всю строку — правый
+     край полки совпадает с краем барабана (было 28vh: полка обрывалась на
+     88 % ширины ТВ и на 80 % ПК 2560×1300). Высота прежняя — бюджет
+     барабана (потолок выше) её и считает. */
+  const w4 = Math.round(4 * gap * 100) / 100;
+  assert.ok(tile.indexOf('width:calc((100% - ' + w4 + 'vh) / 5)') !== -1, 'карточка не пятая часть строки за вычетом зазоров: ' + tile);
+  assert.ok(tile.indexOf('width:-webkit-calc((100% - ' + w4 + 'vh) / 5)') !== -1, 'нет префиксной пары: ' + tile);
+  const last = findDecl(css, (sel) => sel === '.lumen-roulette-screen.is-atv .lumen-roulette__tile:last-child');
+  assert.ok(last && /margin-right:0/.test(last), 'у последней карточки зазор — строка шире полки: ' + last);
+  /* На экране 16:9 строка — 177.78vh без двух полей EDGE (3.51em по
+     2.112vh при кегле Lampa 11.4 CSS px): карточка не уже 16:9. */
+  const tw = (177.78 - 2 * 3.51 * 2.112 - 4 * gap) / 5;
+  assert.ok(tw / th >= 16 / 9, 'карточка уже 16:9: ' + tw.toFixed(1) + '×' + th);
 });
 
 test('fx2: вид «как Apple TV» — фокус полки подъёмом и кольцом outline, в «Лёгких» и «Выкл» без подъёма', () => {
@@ -7990,6 +8002,116 @@ test('fx2: вид «как Apple TV» — под кадром результат
   assert.ok(base && /background-color:/.test(base), 'под экраном не просвечивает фон Lampa');
   const kadrBg = findDecl(css, (sel) => sel === '.lumen-roulette-screen.is-atv.is-kadr .lumen-roulette__bg');
   assert.ok(kadrBg && kadrBg.indexOf('opacity:1') !== -1, 'кадр результата — во всю яркость');
+});
+
+/* ---------------------------------------------------------------------- */
+/* Дизайн-проход «Что посмотреть» (2026-09-26): аудит на стенде 960×540@2 и  */
+/* 2560×1300 в обоих видах. Счётчик держит место, стопка — веер по бокам,   */
+/* пустая выборка — в барабане, колонка вида «как Apple TV» тухнет на       */
+/* вращении, отметка чипов одна, спокойный экран под кадром не ловит мышь.  */
+/* ---------------------------------------------------------------------- */
+
+test('дизайн C: счётчик выборки держит место — visibility, а не display', () => {
+  const base = findDecl(css, (sel) => sel === '.lumen-roulette .lumen-roulette__count');
+  assert.ok(/(^|;)visibility:hidden/.test(base), 'до выборки счётчик не скрыт: ' + base);
+  assert.equal(/display:none/.test(base), false, 'счётчик снова вынут из потока — «Крутить» прыгнет: ' + base);
+  const on = findDecl(css, (sel) => sel === '.lumen-roulette .lumen-roulette__stage.is-counted .lumen-roulette__count');
+  assert.ok(on && /visibility:visible/.test(on), 'класс is-counted не показывает счётчик: ' + on);
+});
+
+test('дизайн C: стопка — веер по обе стороны барабана, задние постеры видны наполовину и приглушены одинаково', () => {
+  const p1 = findDecl(css, (sel) => sel === '.lumen-roulette .lumen-roulette__peek--1');
+  const p2 = findDecl(css, (sel) => sel === '.lumen-roulette .lumen-roulette__peek--2');
+  const RE = /(?:^|;)transform:translate\((-?[\d.]+)%,0\) scale\(([\d.]+)\)/;
+  const tx = (d) => parseFloat(RE.exec(d)[1]);
+  const sc = (d) => parseFloat(RE.exec(d)[2]);
+  assert.ok(RE.test(p1) && RE.test(p2), 'сдвиг и масштаб задних постеров не разобраны: ' + p1 + ' || ' + p2);
+  assert.ok(/(?:^|;)transform-origin:0 50%/.test(p1) && /-webkit-transform-origin:0 50%/.test(p1), 'правый постер растёт не от своего левого края: ' + p1);
+  assert.ok(/(?:^|;)transform-origin:100% 50%/.test(p2), 'левый постер растёт не от своего правого края: ' + p2);
+  assert.equal(sc(p1), sc(p2), 'стороны веера разного размера');
+  assert.ok(sc(p1) >= 0.8 && sc(p1) < 1, 'задний постер не меньше переднего: ' + sc(p1));
+  /* Видимая доля в ширинах постера: справа — tx + scale − .5, слева —
+     scale − tx − 1.5 (узел стоит от центра сцены, left:50 %). */
+  const right = tx(p1) / 100 + sc(p1) - 0.5;
+  const left = sc(p2) - tx(p2) / 100 - 1.5;
+  assert.ok(Math.abs(right - left) < 0.01, 'веер несимметричен: ' + right + ' / ' + left);
+  assert.ok(right >= 0.35 && right <= 0.6, 'из-под барабана выглядывает ' + right + ' постера — не «половина»');
+  const op = (d) => parseFloat(/(?:^|;)opacity:([\d.]+)/.exec(d)[1]);
+  assert.equal(op(p1), op(p2));
+  assert.ok(op(p1) >= 0.4 && op(p1) <= 0.7, 'задние не приглушены: ' + op(p1));
+});
+
+test('дизайн C: вид «как Apple TV» — на вращении колонка притушена, без перехода', () => {
+  for (const part of ['kicker', 'ltitle', 'lmeta', 'ldescr']) {
+    const sel = '.lumen-roulette-screen.is-atv.is-spinning .lumen-roulette__' + part;
+    const rule = ruleBodies(css).find((r) => r.selectors.indexOf(sel) !== -1);
+    assert.ok(rule, 'на вращении не притушено: ' + part);
+    const op = parseFloat(/(?:^|;)opacity:([\d.]+)/.exec(rule.decl)[1]);
+    assert.ok(op >= 0.3 && op <= 0.5, part + ': ' + op);
+    assert.equal(/transition/.test(rule.decl), false);
+  }
+});
+
+test('дизайн C: стандартный вид — отмеченные вкладка, фильтр и подборка одной отметкой; чипы — пилюли, как в хабе', () => {
+  const P = tokensWith({});
+  const tabOn = findDecl(css, (sel) => sel === '.lumen-roulette .lumen-roulette__tab.is-on');
+  const chipOn = findDecl(css, (sel) => sel === '.lumen-roulette .lumen-roulette__chip.lumen-chip--on');
+  assert.equal(declProp(tabOn, 'background'), declProp(chipOn, 'background'), 'у вкладки и чипа разные отметки');
+  const chip = findDecl(css, (sel) => sel === '.lumen-roulette .lumen-roulette__chip');
+  const onOver = rgbaOver(declProp(chipOn, 'background'), P.bg);
+  const offOver = rgbaOver(declProp(chip, 'background'), P.bg);
+  assert.ok(luminance(onOver) > luminance(offOver) * 1.8, 'отмеченный чип не светлее невыбранного: ' + onOver + ' / ' + offOver);
+  assert.ok(contrast(P.text, onOver) >= 7, 'текст на отметке');
+  const hub = findDecl(css, (sel) => sel === '.lumen-hub .lumen-chip');
+  const radius = declProp(hub, 'border-radius');
+  assert.equal(declProp(chip, 'border-radius'), radius, 'чип рулетки скруглён не как в хабе');
+  assert.equal(declProp(findDecl(css, (sel) => sel === '.lumen-roulette .lumen-roulette__tab'), 'border-radius'), radius);
+});
+
+test('дизайн C: под кадром результата спокойный экран не ловит мышь', () => {
+  const rule = ruleBodies(css).find((r) => r.selectors.indexOf('.lumen-roulette-screen.is-kadr .lumen-roulette__head') !== -1);
+  for (const part of ['head', 'chipbox', 'stage', 'shelf']) {
+    assert.ok(rule.selectors.indexOf('.lumen-roulette-screen.is-kadr .lumen-roulette__' + part) !== -1, part);
+  }
+  assert.ok(/pointer-events:none/.test(rule.decl), 'невидимые чипы под кадром ловят наведение и щелчок: ' + rule.decl);
+});
+
+/* Аудит на стенде 2560×1300: в виде «как Apple TV» подложки чипов —
+   светлая дымка rgba(текст, .08), и над светлым кадром фона (осенняя листва
+   у «Вишванатха») «КП Топ-250 фильмов» у правого края читался 3.05:1, «Есть
+   90 минут» — 3.36. Кадр фона — любой; худший случай — белый: он под
+   прозрачностью .6 и левой вуалью, у правого края она всего .3. */
+test('дизайн C: вид «как Apple TV» — чипы и вкладки читаются и над самым светлым кадром фона', () => {
+  const ATV = '.lumen-roulette-screen.is-atv';
+  for (const storage of [{}, { lumen_theme: 'black' }]) {
+    const built = withStorage(storage, (LC) => LC.buildCss());
+    const P = tokensWith(storage);
+    const veil = findDecl(built, (s) => s === ATV + ':not(.is-kadr) .lumen-roulette__veil--l');
+    const left = gradients(veil, 'background').filter((l) => l.angle === '90deg')[0];
+    assert.ok(left, 'левая вуаль спокойного экрана не разобрана: ' + veil);
+    const bgOp = parseFloat(declProp(findDecl(built, (s) => s === ATV + ' .lumen-roulette__bg'), 'opacity'));
+    const B = [1, 3, 5].map((i) => parseInt(P.bg.slice(i, i + 2), 16));
+    const hex = (rgb) => '#' + rgb.map((v) => ('0' + Math.round(v).toString(16)).slice(-2)).join('');
+    const over = (fill, under) => {
+      const m = /rgba\((\d+),(\d+),(\d+),([\d.]+)\)/.exec(fill);
+      assert.ok(m, 'заливка не разобрана: ' + fill);
+      const a = parseFloat(m[4]);
+      return [1, 2, 3].map((i, k) => parseInt(m[i], 10) * a + under[k] * (1 - a));
+    };
+    const off = declProp(findDecl(built, (s) => s === ATV + ' .lumen-roulette__chip'), 'background');
+    const on = declProp(findDecl(built, (s) => s === ATV + ' .lumen-roulette__chip.lumen-chip--on'), 'background');
+    const track = declProp(findDecl(built, (s) => s === ATV + ' .lumen-roulette__media'), 'background');
+    const tabOn = declProp(findDecl(built, (s) => s === ATV + ' .lumen-roulette__tab.is-on'), 'background');
+    for (const x of [5, 50, 96]) {
+      const va = gradAt(left.stops, x);
+      const px = [0, 1, 2].map((k) => (255 * bgOp + B[k] * (1 - bgOp)) * (1 - va) + B[k] * va);
+      const tag = JSON.stringify(storage) + ' x=' + x + '%: ';
+      assert.ok(contrast(P.muted, hex(over(off, px))) >= 4.5, tag + 'невыбранный чип ' + contrast(P.muted, hex(over(off, px))).toFixed(2));
+      assert.ok(contrast(P.text, hex(over(on, px))) >= 4.5, tag + 'отмеченный чип ' + contrast(P.text, hex(over(on, px))).toFixed(2));
+      assert.ok(contrast(P.muted, hex(over(track, px))) >= 4.5, tag + 'вкладка на дорожке');
+      assert.ok(contrast(P.text, hex(over(tabOn, over(track, px)))) >= 4.5, tag + 'отмеченная вкладка');
+    }
+  }
 });
 
 /* ---------------------------------------------------------------------- */

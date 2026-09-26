@@ -5600,7 +5600,12 @@
        результата стоит от его нижней кромки, и «внизу слева» обязано
        означать низ ЭКРАНА, а не низ содержимого спокойного экрана. */
     css.push('.lumen-roulette-screen.is-kadr .lumen-roulette{height:100%;overflow:hidden}');
-    css.push('.lumen-roulette-screen.is-kadr .lumen-roulette__head,.lumen-roulette-screen.is-kadr .lumen-roulette__chipbox,.lumen-roulette-screen.is-kadr .lumen-roulette__stage,.lumen-roulette-screen.is-kadr .lumen-roulette__shelf{opacity:0}');
+    /* Дизайн-проход 2026-09-26: погашенный спокойный экран не ловит и
+       мышь. Lampa вешает на каждый .selector свои mouseenter/click
+       (vendor/lampa/app.min.js:46360-46375), и сужение коллекции пульта до
+       карточки результата (scope) их не снимает: курсор над невидимой лентой
+       зажигал фокус на чипе, которого не видно, а щелчок отмечал подборку. */
+    css.push('.lumen-roulette-screen.is-kadr .lumen-roulette__head,.lumen-roulette-screen.is-kadr .lumen-roulette__chipbox,.lumen-roulette-screen.is-kadr .lumen-roulette__stage,.lumen-roulette-screen.is-kadr .lumen-roulette__shelf{opacity:0;pointer-events:none}');
     /* Шапка: заголовок, сегмент медиа и сегмент фильтров одной строкой.
        Правка 2026-09-23 (разбор композиции, п.5.2): фильтры больше НЕ
        прижаты к правому краю. Замер на стенде 960×540@2 до правки: от
@@ -5632,8 +5637,20 @@
        — 4.8 (тест D1 в test/css.test.mjs). С плотными — сама панель, как
        везде. Отмеченные (.22 и акцент .14) и фокус (инверсия) не менялись. */
     var R_CHIP = P.chipBg.charAt(0) === '#' ? P.chipBg : 'rgba(' + P.textRgb + ',.08)';
-    css.push('.lumen-roulette .lumen-roulette__tab{height:2em;padding:0 .91em;margin-right:.50em;border-radius:.50em;background:' + R_CHIP + ';font-family:' + FB + ';font-weight:600;font-size:1.01em;line-height:2em;color:' + P.muted + '}');
-    css.push('.lumen-roulette .lumen-roulette__tab.is-on{color:' + P.text + ';background:rgba(' + P.textRgb + ',.22)}');
+    /* Дизайн-проход 2026-09-26: вкладки и чипы — пилюли (радиус 1em, как у
+       чипов хаба и сетки, .lumen-hub .lumen-chip, и у кнопок этого же
+       экрана), и отметка у всех трёх одна: заливка акцентом .24 (R_ON ниже).
+       Было три разных «выбрано» на одной строке: вкладка — серым .22,
+       фильтр и подборка — акцентом .14. Акцент .14 на почти чёрном фоне
+       почти не отличался от невыбранного чипа (#2A2218 против #1E1B1A:
+       яркость в 1.6 раза, на глаз — только оттенок), и на снимке стенда
+       «Не смотрел» читался темнее соседнего «Есть 90 минут». .24 — отметка
+       втрое светлее подложки (тест «дизайн C» в test/css.test.mjs), а
+       тёплый оттенок отличает стандартный вид от нейтрального «как Apple
+       TV». */
+    var R_ON = 'rgba(' + A_RGB + ',.24)';
+    css.push('.lumen-roulette .lumen-roulette__tab{height:2em;padding:0 .91em;margin-right:.50em;border-radius:1em;background:' + R_CHIP + ';font-family:' + FB + ';font-weight:600;font-size:1.01em;line-height:2em;color:' + P.muted + '}');
+    css.push('.lumen-roulette .lumen-roulette__tab.is-on{color:' + P.text + ';background:' + R_ON + '}');
     css.push('.lumen-roulette .lumen-roulette__tab.focus{background:' + P.text + ';color:' + P.bg + '}');
     css.push('.lumen-roulette .lumen-roulette__filters{position:relative;display:-webkit-box;display:-webkit-flex;display:flex;margin-left:1.05em}');
     /* Лента чипов подборок: ОДНА строка с прокруткой (Task 44). Каталог
@@ -5649,8 +5666,8 @@
        отмеченный — подложкой из акцента .14 и светлым текстом, фокус —
        инверсией, как у остальных чипов плагина. flex-shrink:0 — чтобы в
        ленте чипы держали свою ширину, а не ужимались до нечитаемого. */
-    css.push('.lumen-roulette .lumen-roulette__chip{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;height:2em;padding:0 .84em;margin:0 .50em 0 0;border-radius:.50em;background:' + R_CHIP + ';font-family:' + FB + ';font-weight:500;font-size:1.01em;line-height:1;color:' + P.muted + ';white-space:nowrap;-webkit-flex-shrink:0;flex-shrink:0}');
-    css.push('.lumen-roulette .lumen-roulette__chip.lumen-chip--on{color:' + P.text + ';background:rgba(' + A_RGB + ',.14)}');
+    css.push('.lumen-roulette .lumen-roulette__chip{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-align:center;-webkit-align-items:center;align-items:center;height:2em;padding:0 .84em;margin:0 .50em 0 0;border-radius:1em;background:' + R_CHIP + ';font-family:' + FB + ';font-weight:500;font-size:1.01em;line-height:1;color:' + P.muted + ';white-space:nowrap;-webkit-flex-shrink:0;flex-shrink:0}');
+    css.push('.lumen-roulette .lumen-roulette__chip.lumen-chip--on{color:' + P.text + ';background:' + R_ON + '}');
     css.push('.lumen-roulette .lumen-roulette__chip.focus{background:' + P.text + ';color:' + P.bg + '}');
     /* Барабан, кнопка и подсказка — столбиком по центру (Task 44). */
     css.push('.lumen-roulette .lumen-roulette__stage{position:relative;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-box-orient:vertical;-webkit-box-direction:normal;-webkit-flex-direction:column;flex-direction:column;-webkit-box-align:center;-webkit-align-items:center;align-items:center;margin-top:.88em}');
@@ -5724,16 +5741,37 @@
        общим классом сцены — стопка из одного и из двух постеров одинаково
        законна (подборка может отдать и три карточки). */
     css.push('.lumen-roulette .lumen-roulette__stage.is-stack .lumen-roulette__peek.is-off{display:none}');
-    css.push('.lumen-roulette .lumen-roulette__peek--1{opacity:.72;-webkit-transform:translate(-webkit-calc(-50% + .8em),.5em);-webkit-transform:translate(calc(-50% + .8em),.5em);transform:translate(calc(-50% + .8em),.5em)}');
-    css.push('.lumen-roulette .lumen-roulette__peek--2{opacity:.45;-webkit-transform:translate(-webkit-calc(-50% + 1.6em),1em);-webkit-transform:translate(calc(-50% + 1.6em),1em);transform:translate(calc(-50% + 1.6em),1em)}');
+    /* Дизайн-проход 2026-09-26: стопка — веер по обе стороны барабана.
+       Прежние задние постеры выглядывали на .8em и 1.6em вправо-вниз и на
+       почти чёрном фоне под opacity .72/.45 читались тенью или
+       артефактом отрисовки, а не «ещё фильмы в выборке» (снимок стенда
+       960×540@2: полоска 9–18 CSS px справа от постера), и центр экрана
+       оставался одиноким постером посреди пустоты. Теперь задние стоят
+       слева и справа, уменьшены до .84 и видны на 48 % своей ширины
+       (узел — от центра сцены, left:50 %; правый растёт от своего левого
+       края, левый — от правого), приглушены одинаково. Трансформ
+       статичный: ни перехода, ни своего слоя — как и прежде. */
+    var PEEK_SCALE = 0.84;
+    var PEEK_SHOW = 0.48;
+    var peekRight = round2((PEEK_SHOW + 0.5 - PEEK_SCALE) * 100);
+    var peekLeft = round2((PEEK_SCALE - 1.5 - PEEK_SHOW) * 100);
+    css.push('.lumen-roulette .lumen-roulette__peek--1{opacity:.55;-webkit-transform-origin:0 50%;transform-origin:0 50%;-webkit-transform:translate(' + peekRight + '%,0) scale(' + PEEK_SCALE + ');transform:translate(' + peekRight + '%,0) scale(' + PEEK_SCALE + ')}');
+    css.push('.lumen-roulette .lumen-roulette__peek--2{opacity:.55;-webkit-transform-origin:100% 50%;transform-origin:100% 50%;-webkit-transform:translate(' + peekLeft + '%,0) scale(' + PEEK_SCALE + ');transform:translate(' + peekLeft + '%,0) scale(' + PEEK_SCALE + ')}');
     /* Счётчик выборки под барабаном: крупное число и приглушённая подпись
        под ним — та же схема, что у чипов карточки. Место берётся из зазора
        между барабаном и кнопкой «Крутить»: у кнопки margin-top .88em, у
        счётчика — .70em, и вместе они те же полтора em, что были у одного
        зазора. Ни число, ни подпись не .selector — фокус по-прежнему на
        кнопке (требование разбора: «фокус не меняется»). */
-    css.push('.lumen-roulette .lumen-roulette__count{display:none;margin:.70em 0 0;text-align:center}');
-    css.push('.lumen-roulette .lumen-roulette__stage.is-stack .lumen-roulette__count{display:block}');
+    /* Дизайн-проход 2026-09-26: счётчик держит своё место с первого кадра
+       (visibility, а не display) и не уходит на вращении — показывает его
+       класс is-counted, который ставит показ выборки и не снимает барабан.
+       Замер на стенде 960×540@2: пока он был display:none до выборки и на
+       вращении, «Крутить» стоял на 398 CSS px и прыгал на 440 и обратно —
+       при заходе, на каждом «Крутить» и после пустого результата. Его
+       высота в бюджете барабана (ROUL_REST_EM) была всегда. */
+    css.push('.lumen-roulette .lumen-roulette__count{visibility:hidden;margin:.70em 0 0;text-align:center}');
+    css.push('.lumen-roulette .lumen-roulette__stage.is-counted .lumen-roulette__count{visibility:visible}');
     css.push('.lumen-roulette .lumen-roulette__count-value{font-family:' + FB + ';font-weight:700;font-size:1.58em;line-height:1.1;color:' + P.text + '}');
     css.push('.lumen-roulette .lumen-roulette__count-label{font-family:' + FB + ';font-weight:500;font-size:1.01em;line-height:1.2;color:' + P.muted + '}');
     css.push('body.lumen-motion-full .lumen-roulette .lumen-roulette__frame.is-step{-webkit-animation:lumen-roul-step .12s ease-out;animation:lumen-roul-step .12s ease-out}');
@@ -5821,12 +5859,35 @@
        дорожке, фильтры и подборки — пилюлями. Подложки — P.chipBg: при
        «Плотных подложках» они непрозрачны, как и везде. */
     css.push(ATV + ' .lumen-roulette__title{font-size:2.3em;font-weight:700;letter-spacing:-.01em}');
-    css.push(ATV + ' .lumen-roulette__media{padding:.2em;border-radius:1.2em;background:' + R_CHIP + '}');
+    /* Дизайн-проход 2026-09-26: подложки чипов и дорожки вкладок — тёмное
+       «стекло» цвета фона .6, отметка — почти непрозрачная (.92) смесь
+       текста .32 с фоном. Прежняя светлая дымка rgba(текст, .08) лежала на
+       кадре фона, а он у правого края прикрыт вуалью всего на .3: над
+       светлым кадром (осенняя листва «Вишванатха» на стенде 2560×1300)
+       «КП Топ-250 фильмов» читался 3.05:1, «Есть 90 минут» — 3.36. Тёмное
+       стекло держит 4.5:1 и над белым кадром (тест «дизайн C» в
+       test/css.test.mjs), а на тёмном фоне невыбранный чип — просто текст,
+       как невыбранные пункты верхнего меню Apple TV. Отметка светлее
+       прежних .22: на снимке с белым фоном смесь .22 почти сливалась с
+       серым кадром вокруг, и отмеченный «Не смотрел» выглядел невыбранным
+       рядом с тёмным стеклом соседа; .32 — светлая
+       пилюля и на тёмном, и на светлом кадре, а кадр сквозь неё не
+       просвечивает. С «Плотными подложками» — сама панель, как везде. */
+    var mixOn = (function () {
+      var t = P.textRgb.split(',');
+      var b = P.bgRgb.split(',');
+      var out = [];
+      for (var i = 0; i < 3; i++) out.push(Math.round(Number(t[i]) * 0.32 + Number(b[i]) * 0.68));
+      return out.join(',');
+    })();
+    var ATV_GLASS = P.chipBg.charAt(0) === '#' ? P.chipBg : 'rgba(' + P.bgRgb + ',.6)';
+    var ATV_ON = 'rgba(' + mixOn + ',.92)';
+    css.push(ATV + ' .lumen-roulette__media{padding:.2em;border-radius:1.2em;background:' + ATV_GLASS + '}');
     css.push(ATV + ' .lumen-roulette__tab{margin-right:0;border-radius:1em;background:transparent;color:' + P.muted + '}');
-    css.push(ATV + ' .lumen-roulette__tab.is-on{background:rgba(' + P.textRgb + ',.22);color:' + P.text + '}');
+    css.push(ATV + ' .lumen-roulette__tab.is-on{background:' + ATV_ON + ';color:' + P.text + '}');
     css.push(ATV + ' .lumen-roulette__tab.focus{background:' + P.text + ';color:' + P.bg + '}');
-    css.push(ATV + ' .lumen-roulette__chip{border-radius:1em;background:' + R_CHIP + ';color:' + P.muted + '}');
-    css.push(ATV + ' .lumen-roulette__chip.lumen-chip--on{background:rgba(' + P.textRgb + ',.22);color:' + P.text + '}');
+    css.push(ATV + ' .lumen-roulette__chip{border-radius:1em;background:' + ATV_GLASS + ';color:' + P.muted + '}');
+    css.push(ATV + ' .lumen-roulette__chip.lumen-chip--on{background:' + ATV_ON + ';color:' + P.text + '}');
     css.push(ATV + ' .lumen-roulette__chip.focus{background:' + P.text + ';color:' + P.bg + '}');
     /* Сцена: колонка текста слева, барабан-кадр справа, одной строкой. */
     css.push(ATV + ' .lumen-roulette__stage{-webkit-box-orient:horizontal;-webkit-flex-direction:row;flex-direction:row;-webkit-box-align:stretch;-webkit-align-items:stretch;align-items:stretch;margin-top:1.1em}');
@@ -5841,6 +5902,13 @@
     css.push(ATV + ' .lumen-roulette__lmeta{font-family:' + FB + ';font-weight:500;font-size:1.05em;line-height:1.2;color:' + P.muted + ';margin-top:.5em}');
     css.push(ATV + ' .lumen-roulette__ldescr{font-family:' + FB + ';font-weight:400;font-size:1.05em;line-height:1.4;color:rgba(' + P.textRgb + ',.78);margin-top:.5em;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}');
     css.push(ATV + ' .lumen-roulette__ldescr:empty,' + ATV + ' .lumen-roulette__lmeta:empty{display:none}');
+    /* Дизайн-проход 2026-09-26: пока крутится барабан, колонка притушена.
+       В ней название и описание главной карточки выборки, а барабан рядом
+       перебирает другие фильмы — экран говорил о двух фильмах разом
+       (снимок стенда: «Побег из Шоушенка» с описанием слева и кадр
+       другого фильма справа). Статичная прозрачность, без перехода и без
+       слоя; метку is-spinning снимает остановка барабана. */
+    css.push(ATV + '.is-spinning .lumen-roulette__kicker,' + ATV + '.is-spinning .lumen-roulette__ltitle,' + ATV + '.is-spinning .lumen-roulette__lmeta,' + ATV + '.is-spinning .lumen-roulette__ldescr{opacity:.4}');
     /* «Крутить» — пилюля в колонке, по левому краю. Вне фокуса —
        полупрозрачная, в фокусе — инверсия и подъём: у Apple TV кнопка
        становится белой именно в фокусе, и это же правило фокуса во всём
@@ -5858,7 +5926,16 @@
     css.push(ATV + ' .lumen-roulette__shelf.is-empty{visibility:hidden}');
     css.push(ATV + ' .lumen-roulette__shelf-title{font-family:' + FB + ';font-weight:700;font-size:1.05em;line-height:1.2;color:' + P.text + ';margin-bottom:.55em}');
     css.push(ATV + ' .lumen-roulette__shelf-row{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:nowrap;flex-wrap:nowrap}');
-    css.push(ATV + ' .lumen-roulette__tile{-webkit-flex-shrink:0;flex-shrink:0;width:' + round2(ATV_TILE_VH * 16 / 9) + 'vh;margin-right:2.2vh}');
+    /* Дизайн-проход 2026-09-26: пять карточек ровно во всю строку — правый
+       край полки совпадает с правым краем барабана. При ширине 28vh полка
+       обрывалась на 88 % ширины на ТВ и на 80 % на ПК 2560×1300, и под
+       барабаном оставался рваный край. Высота прежняя (ATV_TILE_VH — её
+       считает потолок барабана), кадр cover чуть шире 16:9: на ТВ 1.96:1.
+       Карточек меньше пяти — они того же размера, по левому краю. */
+    var TILE_GAP = 2.2;
+    var tileW = '(100% - ' + round2(4 * TILE_GAP) + 'vh) / 5';
+    css.push(ATV + ' .lumen-roulette__tile{-webkit-flex-shrink:0;flex-shrink:0;width:-webkit-calc(' + tileW + ');width:calc(' + tileW + ');margin-right:' + TILE_GAP + 'vh}');
+    css.push(ATV + ' .lumen-roulette__tile:last-child{margin-right:0}');
     css.push(ATV + ' .lumen-roulette__tile-img{position:relative;width:100%;height:' + ATV_TILE_VH + 'vh;border-radius:.5em;overflow:hidden;background-color:' + P.panel + ';background-position:center;background-repeat:no-repeat;-webkit-background-size:cover;background-size:cover}');
     /* Затемнение под логотипом — только у карточки с логотипом: кадру без
        него затемнять нечего. Градиент — часть картинки карточки, а не

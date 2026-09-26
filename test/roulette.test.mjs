@@ -2274,3 +2274,41 @@ test('D3: «В закладки» добавляет только то, чего
   assert.deepEqual(log.noty, ['lumen_roulette_booked', 'lumen_roulette_booked_already']);
   assert.equal(booked[R44.id], true);
 });
+
+/* ====================================================================== */
+/* Дизайн-проход «Что посмотреть» (2026-09-26). Аудит на стенде 960×540@2  */
+/* и 2560×1300, оба вида, lite и full: рывки раскладки между состояниями,  */
+/* пустая выборка без подсказки и с сообщением в углу, колонка вида «как  */
+/* Apple TV», спорящая с вращающимся барабаном, мета без длительности и   */
+/* звезды, «вверх» мимо вкладок, лента чипов, дёргающаяся без нужды,       */
+/* «Назад» с результата сразу из рулетки. Плюс вход из меню карточки.      */
+/* ====================================================================== */
+
+test('дизайн C: счётчик выборки держит место и не пропадает на вращении — «Крутить» не прыгает', (t) => {
+  const env = openRoulette34([R44, NOFRAME44], t, 1, 'lite');
+  const stage = env.screen.find('.lumen-roulette__stage');
+  env.comp.start();
+  flushTimers();
+  assert.ok(stage.hasClass('is-counted'), 'счётчик не показан');
+  assert.equal(env.count(), '2');
+  fire(env.root.find('.lumen-roulette__spin'), 'hover:enter');
+  assert.equal(stage.hasClass('is-stack'), false, 'стопка на вращении уходит, как и была');
+  assert.ok(stage.hasClass('is-counted'), 'счётчик пропал на вращении — кнопка под ним прыгнула бы вверх');
+  assert.equal(env.count(), '2');
+});
+
+test('дизайн C: на вращении экран помечен is-spinning, по остановке и уходу метка снята', (t) => {
+  for (const prefs of [{}, { lumen_flat: true }]) {
+    const env = openRoulette34(atvCards(4), t, 1, 'lite', null, null, prefs);
+    env.comp.start();
+    flushTimers();
+    fire(env.root.find('.lumen-roulette__spin'), 'hover:enter');
+    assert.ok(env.screen.hasClass('is-spinning'), 'метки вращения нет');
+    flushTimers();
+    assert.equal(env.screen.hasClass('is-spinning'), false, 'метка пережила остановку барабана');
+    fire(env.root.all('.lumen-roulette__btn')[1], 'hover:enter');
+    assert.ok(env.screen.hasClass('is-spinning'), '«Ещё раз» — снова вращение');
+    env.comp.pause();
+    assert.equal(env.screen.hasClass('is-spinning'), false, 'метка пережила уход с экрана');
+  }
+});
