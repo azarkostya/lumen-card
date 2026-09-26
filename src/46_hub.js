@@ -168,6 +168,33 @@
         if (!list.length) continue;
         out.push({ id: g.id, title: titleOf(g, lang), count: list.length, groups: g.groups });
       }
+      /* Решение пользователя 2026-09-26: профили настроения — последним
+         чипом (moodItems ниже). moods: true — шапка хаба не считает их в
+         число подборок каталога. */
+      var moods = moodItems(manifest);
+      if (moods.length) out.push({ id: MOOD_HUB, title: LC.lang('lumen_hub_moods'), count: moods.length, groups: [], moods: true });
+      return out;
+    }
+
+    /* Решение пользователя 2026-09-26: «Настроения в подборках». Четыре
+       профиля настроения каталога (manifest.moods, чипы src/49_moods.js) с
+       живым кадром на главной не показываются нигде — в хабе у них своя
+       группа. Профиль — это подборка: название с i18n и источники; плитка
+       открывает его так же, как чип настроения (openTarget: штатная сетка
+       по discover профиля, с фолбэком на свою). id с префиксом mood- — с
+       id подборок каталога не пересекается; group 'mood' — подпись плитки
+       из группы каталога, если она там есть. Профиль без источников — не
+       плитка. */
+    var MOOD_HUB = 'lumen-moods';
+
+    function moodItems(manifest) {
+      var out = [];
+      var list = manifest && Array.isArray(manifest.moods) ? manifest.moods : [];
+      for (var i = 0; i < list.length; i++) {
+        var m = list[i];
+        if (!m || !m.id || !m.sources || (!m.sources.movie && !m.sources.tv)) continue;
+        out.push({ id: 'mood-' + m.id, title: m.title || '', i18n: m.i18n, group: 'mood', sources: m.sources, lumen_mood: true });
+      }
       return out;
     }
 
@@ -176,6 +203,7 @@
        и в декабре «Рождественские комедии» должны попадаться первыми, а не
        на третьем экране прокрутки. Без month порядок остаётся манифестным. */
     function tilesFor(manifest, hubGroupId, month) {
+      if (hubGroupId === MOOD_HUB) return moodItems(manifest);
       if (!manifest || !Array.isArray(manifest.hubGroups)) return [];
       for (var i = 0; i < manifest.hubGroups.length; i++) {
         var g = manifest.hubGroups[i];
@@ -1154,7 +1182,7 @@
         for (i = 0; manifest && manifest.groups && i < manifest.groups.length; i++) {
           if (manifest.groups[i].id === item.group) { group = manifest.groups[i]; break; }
         }
-        var sub = item.badge || titleOf(group, lang());
+        var sub = item.badge || titleOf(group, lang()) || (item.lumen_mood ? LC.lang('lumen_hub_moods') : '');
         /* Task 21: подборка своего сезона поднята наверх — метка объясняет,
            почему она здесь. Рисуется тем же узлом, что и подсказка про ключ
            API, поэтому разметка плитки не усложняется. */
@@ -1286,7 +1314,7 @@
 
       function buildHead() {
         var total = 0;
-        for (var i = 0; i < groups.length; i++) total += groups[i].count;
+        for (var i = 0; i < groups.length; i++) if (!groups[i].moods) total += groups[i].count;
         head.empty();
         head.append($('<div class="lumen-hub__title">' + esc(LC.lang('lumen_hub_title')) + '</div>'));
         head.append($('<div class="lumen-hub__count">' + total + ' ' + esc(LC.collectionsWord(total)) + '</div>'));
@@ -2201,6 +2229,9 @@
       tilesFor: tilesFor,
       inSeason: inSeason,
       openTarget: openTarget,
+      /* Решение пользователя 2026-09-26: группа профилей настроения. */
+      MOOD_HUB: MOOD_HUB,
+      moodItems: moodItems,
       /* Сверка 2026-09-26: открыть подборку с фолбэком на свою сетку —
          «Ещё» рядов главной (src/44_rows.js). */
       open: openCollection,

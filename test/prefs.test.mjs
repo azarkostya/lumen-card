@@ -1265,3 +1265,8 @@ test('сверка: выключатели «Франшизы» и «Смотр�
   assert.equal(LC.STRINGS.lumen_franchise_button_name.ru, 'Кнопка «Франшиза»');
   assert.equal(LC.STRINGS.lumen_franchise_row_name.ru, 'Ряд «Смотреть по порядку»');
 });
+
+test('решение 2026-09-26: подпись группы «Настроение» в хабе — три языка', () => {
+  const LC = loadStrings();
+  assert.deepEqual(LC.STRINGS.lumen_hub_moods, { ru: 'Настроение', en: 'Mood', uk: 'Настрій' });
+});

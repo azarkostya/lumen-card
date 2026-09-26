@@ -12415,6 +12415,33 @@ var list = collectionsIn(manifest, g.groups);
 if (!list.length) continue;
 out.push({ id: g.id, title: titleOf(g, lang), count: list.length, groups: g.groups });
 }
+
+
+
+var moods = moodItems(manifest);
+if (moods.length) out.push({ id: MOOD_HUB, title: LC.lang('lumen_hub_moods'), count: moods.length, groups: [], moods: true });
+return out;
+}
+
+
+
+
+
+
+
+
+
+
+var MOOD_HUB = 'lumen-moods';
+
+function moodItems(manifest) {
+var out = [];
+var list = manifest && Array.isArray(manifest.moods) ? manifest.moods : [];
+for (var i = 0; i < list.length; i++) {
+var m = list[i];
+if (!m || !m.id || !m.sources || (!m.sources.movie && !m.sources.tv)) continue;
+out.push({ id: 'mood-' + m.id, title: m.title || '', i18n: m.i18n, group: 'mood', sources: m.sources, lumen_mood: true });
+}
 return out;
 }
 
@@ -12423,6 +12450,7 @@ return out;
 
 
 function tilesFor(manifest, hubGroupId, month) {
+if (hubGroupId === MOOD_HUB) return moodItems(manifest);
 if (!manifest || !Array.isArray(manifest.hubGroups)) return [];
 for (var i = 0; i < manifest.hubGroups.length; i++) {
 var g = manifest.hubGroups[i];
@@ -13401,7 +13429,7 @@ var i;
 for (i = 0; manifest && manifest.groups && i < manifest.groups.length; i++) {
 if (manifest.groups[i].id === item.group) { group = manifest.groups[i]; break; }
 }
-var sub = item.badge || titleOf(group, lang());
+var sub = item.badge || titleOf(group, lang()) || (item.lumen_mood ? LC.lang('lumen_hub_moods') : '');
 
 
 
@@ -13533,7 +13561,7 @@ return true;
 
 function buildHead() {
 var total = 0;
-for (var i = 0; i < groups.length; i++) total += groups[i].count;
+for (var i = 0; i < groups.length; i++) if (!groups[i].moods) total += groups[i].count;
 head.empty();
 head.append($('<div class="lumen-hub__title">' + esc(LC.lang('lumen_hub_title')) + '</div>'));
 head.append($('<div class="lumen-hub__count">' + total + ' ' + esc(LC.collectionsWord(total)) + '</div>'));
@@ -14448,6 +14476,9 @@ groupsWithCounts: groupsWithCounts,
 tilesFor: tilesFor,
 inSeason: inSeason,
 openTarget: openTarget,
+
+MOOD_HUB: MOOD_HUB,
+moodItems: moodItems,
 
 
 open: openCollection,
@@ -37600,6 +37631,9 @@ uk: 'Немає джерела'
 
 
 lumen_hub_title: { ru: 'Подборки', en: 'Collections', uk: 'Підбірки' },
+
+
+lumen_hub_moods: { ru: 'Настроение', en: 'Mood', uk: 'Настрій' },
 
 
 

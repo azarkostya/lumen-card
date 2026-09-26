@@ -2862,3 +2862,63 @@ test('D1: хаб и сетка ставят активности класс св
   grid.create();
   assert.ok(gridAct.hasClass('lumen-screen'), 'у активности сетки нет своего фона');
 });
+
+/* ====================================================================== */
+/* Решение пользователя 2026-09-26: настроения в подборках.               */
+/*                                                                        */
+/* Четыре профиля настроения (manifest.moods, src/49_moods.js) с живым    */
+/* кадром на главной не показываются нигде. В хабе — своя группа           */
+/* «Настроение» последним чипом: плитки профилей, открытие — как у чипов   */
+/* настроения, штатной сеткой по профилю (discover), с фолбэком на свою.   */
+/* Число подборок в шапке хаба профили не увеличивают.                     */
+/* ====================================================================== */
+
+var MOODS = [
+  { id: 'friday', title: 'Пятничный вечер', i18n: { en: 'Friday Evening', uk: "П'ятничний вечір" }, sources: { movie: { type: 'discover', params: { genres: '28|12|35', sort_by: 'popularity.desc' } } } },
+  { id: 'scary', title: 'Страшное на ночь', i18n: { en: 'Scary at Night' }, sources: { movie: { type: 'discover', params: { genres: 27 } } } }
+];
+var MOOD_MANIFEST = Object.assign({}, MANIFEST, { moods: MOODS });
+
+test('настроения: группа «Настроение» — последним чипом, число профилей; без профилей чипа нет', function () {
+  var g = H.groupsWithCounts(MOOD_MANIFEST, 'ru');
+  var last = g[g.length - 1];
+  assert.equal(last.id, H.MOOD_HUB);
+  assert.equal(last.title, 'lumen_hub_moods', 'подпись чипа — строка плагина на языке интерфейса');
+  assert.equal(last.count, 2);
+  assert.equal(last.moods, true);
+  assert.deepEqual(H.groupsWithCounts(MANIFEST, 'ru').map(function (x) { return x.id; }).indexOf(H.MOOD_HUB), -1);
+  assert.equal(H.groupsWithCounts(Object.assign({}, MANIFEST, { moods: [] }), 'ru').filter(function (x) { return x.moods; }).length, 0);
+});
+
+test('настроения: плитки группы — профили как подборки (свой id, источники профиля)', function () {
+  var tiles = H.tilesFor(MOOD_MANIFEST, H.MOOD_HUB);
+  assert.deepEqual(tiles.map(function (t) { return t.id; }), ['mood-friday', 'mood-scary']);
+  assert.equal(tiles[0].title, 'Пятничный вечер');
+  assert.equal(tiles[0].i18n.en, 'Friday Evening');
+  assert.equal(tiles[0].sources, MOODS[0].sources);
+  assert.equal(tiles[0].lumen_mood, true);
+  /* Открывается так же, как чип настроения: штатная сетка по профилю. */
+  var t = H.openTarget(tiles[0]);
+  assert.equal(t.component, 'category_full');
+  assert.equal(t.url, 'discover/movie?with_genres=28%7C12%7C35&sort_by=popularity.desc');
+  /* Профиль без источников — не плитка. */
+  assert.equal(H.tilesFor(Object.assign({}, MANIFEST, { moods: [{ id: 'x', title: 'X' }] }), H.MOOD_HUB).length, 0);
+});
+
+test('настроения: в хабе чип «Настроение» — плитки профилей, OK открывает сетку профиля', function () {
+  var s = openHub({ manifest: MOOD_MANIFEST });
+  s.comp.start();
+  var chips = s.root.all('lumen-chip');
+  assert.equal(chips.length, 3, 'два чипа подборок и «Настроение»');
+  assert.equal(chips[2].lumen_group, H.MOOD_HUB, '«Настроение» — последним чипом');
+  fire(chips[2], 'hover:enter');
+  var tiles = s.root.all('lumen-tile');
+  assert.equal(tiles.length, 2);
+  assert.ok(chips[2].hasClass('lumen-chip--on'), 'чип группы не отмечен');
+  s.env.log.pushes.length = 0;
+  fire(tiles[1], 'hover:enter');
+  assert.equal(s.env.log.pushes.length, 1);
+  assert.equal(s.env.log.pushes[0].component, 'category_full');
+  assert.equal(s.env.log.pushes[0].title, 'Страшное на ночь');
+  assert.equal(s.env.log.pushes[0].url, 'discover/movie?with_genres=27');
+});
