@@ -9253,6 +9253,9 @@ sources: { movie: { type: 'kp', collection: 'OSKAR_WINNERS_2021' } }
 
 
 
+
+
+
 themes: [
 { id: 'halloween', preset: 'halloween', accent: '#E07B2C', keywords: ['halloween', 'haunted house', 'slasher', 'witch', 'trick or treat'], genres: [27], months: [10], requireGenre: true },
 { id: 'christmas', preset: 'winter', accent: '#E8C170', keywords: ['christmas', 'santa claus', 'new year', 'christmas eve'], months: [12, 1] },
@@ -9377,6 +9380,10 @@ ambient: [
 
 
 
+
+
+
+
 var ID_RE = /^[\w-]{1,64}$/;
 var KP_RE = /^[A-Z0-9_]{1,64}$/;
 var NUM_ID_RE = /^\d{1,12}$/;
@@ -9384,6 +9391,7 @@ var THEME_RE = /^[a-z0-9-]{1,64}$/;
 var ACCENT_RE = /^#[0-9a-f]{6}$/i;
 var FILTER_KEY_RE = /^[a-z_]{1,48}(\.(gte|lte))?$/;
 var VALUE_RE = /^[\w.,|:-]{1,256}$/;
+var COVER_RE = /^\/[A-Za-z0-9_-]+\.(jpg|png)$/;
 
 
 
@@ -9407,6 +9415,26 @@ if (o.i18n.hasOwnProperty(k) && !safeText(o.i18n[k])) return false;
 }
 }
 if (typeof o.badge !== 'undefined' && !safeText(o.badge)) return false;
+return true;
+}
+
+function monthOk(v) {
+return typeof v === 'number' && v % 1 === 0 && v >= 1 && v <= 12;
+}
+
+
+
+
+function seasonOk(v) {
+if (monthOk(v)) return true;
+if (!Array.isArray(v)) return false;
+for (var i = 0; i < v.length; i++) if (!monthOk(v[i])) return false;
+return true;
+}
+
+function aliasesOk(v) {
+if (!Array.isArray(v)) return false;
+for (var i = 0; i < v.length; i++) if (!safeText(v[i])) return false;
 return true;
 }
 
@@ -9457,6 +9485,7 @@ if (!labelOk(g)) return false;
 }
 return true;
 }
+
 
 
 
@@ -9523,6 +9552,15 @@ if (!c.sources || (!c.sources.movie && !c.sources.tv)) {
 return { ok: false, reason: 'no_sources: ' + c.id };
 }
 if (!sourcesOk(c.sources)) return { ok: false, reason: 'bad_sources: ' + c.id };
+if (typeof c.season !== 'undefined') {
+if (!seasonOk(c.season)) return { ok: false, reason: 'bad_season: ' + c.id };
+
+if (!Array.isArray(c.season)) c.season = [c.season];
+}
+if (typeof c.aliases !== 'undefined' && !aliasesOk(c.aliases)) return { ok: false, reason: 'bad_aliases: ' + c.id };
+if (typeof c.cover !== 'undefined' && (typeof c.cover !== 'string' || !COVER_RE.test(c.cover))) {
+return { ok: false, reason: 'bad_cover: ' + c.id };
+}
 }
 var themes = m.themes || [];
 for (i = 0; i < themes.length; i++) {
@@ -9934,10 +9972,14 @@ return 'discover/' + media + (q.length ? '?' + q.join('&') : '');
 
 
 
+
+
+
+var IMDB_RE = /^tt\d{1,10}$/;
 function kpToFinds(json, limit) {
 var ids = [];
 LC.util.each((json && json.items) || [], function (it) {
-if (it && it.imdbId && ids.length < limit) {
+if (it && typeof it.imdbId === 'string' && IMDB_RE.test(it.imdbId) && ids.length < limit) {
 ids.push(it.imdbId);
 }
 });
@@ -10710,6 +10752,7 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 
+
 LC.rows = (function () {
 
 
@@ -11151,6 +11194,7 @@ return true;
 function homeRows(manifest, storedIds, month, limit) {
 if (!manifest || !Array.isArray(manifest.collections)) return [];
 if (typeof limit === 'number' && limit <= 0) return [];
+storedIds = knownIds(manifest, storedIds);
 
 
 var byId = {};
@@ -11217,7 +11261,7 @@ return !!(item && Array.isArray(item.season) && item.season.length);
 
 function rowChoices(manifest, pickedIds) {
 if (!manifest || !Array.isArray(manifest.collections)) return [];
-var picked = (pickedIds && pickedIds.length) ? pickedIds : (manifest.home || []);
+var picked = knownIds(manifest, pickedIds) || manifest.home || [];
 var checked = {};
 var i;
 for (i = 0; i < picked.length; i++) checked[picked[i]] = 1;
@@ -11243,6 +11287,24 @@ if (seen[c.id]) continue;
 tail.push({ id: c.id, title: c.title, group: c.group, checked: !!checked[c.id], seasonal: isSeasonal(c) });
 }
 return head.concat(tail);
+}
+
+
+
+
+
+
+function knownIds(manifest, ids) {
+if (!ids || !ids.length || !manifest || !Array.isArray(manifest.collections)) return null;
+var has = {};
+var i;
+for (i = 0; i < manifest.collections.length; i++) {
+var c = manifest.collections[i];
+if (c && c.id) has['#' + c.id] = 1;
+}
+var out = [];
+for (i = 0; i < ids.length; i++) if (has['#' + ids[i]]) out.push(ids[i]);
+return out.length ? out : null;
 }
 
 
@@ -11434,6 +11496,12 @@ _mainOriginal = null;
 
 
 
+
+
+
+
+
+
 var ADVENT_SPECS = [
 { id: 'new-year', pages: 1, ours: true },
 { id: 'xmas-comedy', pages: 2 },
@@ -11529,9 +11597,9 @@ return null;
 }
 }
 
-function adventSave(cards, today) {
+function adventSave(cards, today, old) {
 try {
-Lampa.Storage.set(ADVENT_KEY, LC.themes.adventRecord(cards, today));
+Lampa.Storage.set(ADVENT_KEY, LC.themes.adventRecord(cards, today, old));
 } catch (e) { }
 }
 
@@ -11654,6 +11722,10 @@ if (!specs.length || !today) { resolve({ results: [] }); return { cancel: functi
 var slots = [];
 var left = specs.length;
 var handles = [];
+
+
+
+var failed = false;
 var words = {
 day: adventWord('lumen_advent_day', 'Day'),
 today: adventWord('lumen_advent_today', 'Today'),
@@ -11661,7 +11733,9 @@ date: adventWord('lumen_advent_date', '{d} Dec'),
 final: adventWord('lumen_advent_final', "New Year's Eve")
 };
 
-function build(final) {
+
+
+function build(extra, opened) {
 var ours = [];
 var world = [];
 for (var i = 0; i < specs.length; i++) {
@@ -11670,7 +11744,7 @@ else world.push(slots[i]);
 }
 var cards = [];
 try {
-cards = LC.themes.adventDays({ ours: adventPool(ours), world: adventPool(world), final: final }, today, words, adventOpened());
+cards = LC.themes.adventDays({ ours: adventPool(ours), world: adventPool(world), kept: extra }, today, words, opened);
 } catch (e) {
 cards = [];
 }
@@ -11679,7 +11753,7 @@ cards = [];
 var films = 0;
 for (var j = 0; j < cards.length; j++) if (cards[j].id != null) films++;
 if (!films) { resolve({ results: [] }); return; }
-adventSave(cards, today);
+if (!failed) adventSave(cards, today, opened);
 
 
 
@@ -11711,21 +11785,50 @@ for (var j = 0; j < list.length; j++) if (list[j] && Number(list[j].id) === id) 
 return true;
 }
 
+
+
+function wanted(opened) {
+var need = [];
+try {
+need = LC.themes.adventMissing(adventPool(slots), today, opened) || [];
+} catch (e) {
+need = [];
+}
+var id = LC.themes.ADVENT_FINAL_ID;
+if (finalMissing() && need.indexOf(id) === -1) need.push(id);
+return need;
+}
+
+
+function askCard(id, extra, done) {
+var fired = false;
+function once() { if (!fired) { fired = true; done(); } }
+try {
+Lampa.Api.sources.tmdb.get(
+'movie/' + id,
+{},
+function (json) { if (json && Number(json.id) === id) extra.push(listCard(json)); once(); },
+once
+);
+} catch (e) {
+once();
+}
+}
+
 function finish() {
 left--;
 if (left > 0) return;
 if (!alive()) return;
-if (!finalMissing()) { build(null); return; }
-try {
-Lampa.Api.sources.tmdb.get(
-'movie/' + LC.themes.ADVENT_FINAL_ID,
-{},
-function (json) { if (alive()) build(json && json.id ? listCard(json) : null); },
-function () { if (alive()) build(null); }
-);
-} catch (e) {
-build(null);
+var opened = adventOpened();
+var need = wanted(opened);
+var extra = [];
+var rest = need.length;
+if (!rest) { build(extra, opened); return; }
+function one() {
+rest--;
+if (!rest && alive()) build(extra, opened);
 }
+for (var n = 0; n < need.length; n++) askCard(need[n], extra, one);
 }
 
 
@@ -11735,8 +11838,13 @@ var spec = specs[index];
 return LC.sources['fetch'](
 spec.item,
 spec.page,
-function (json) { slots[index] = (json && json.results) || []; finish(); },
-function () { slots[index] = []; finish(); },
+function (json) {
+var list = json && json.results;
+if (!Array.isArray(list) || json.partial) failed = true;
+slots[index] = Array.isArray(list) ? list : [];
+finish();
+},
+function () { failed = true; slots[index] = []; finish(); },
 alive
 );
 }
@@ -11888,6 +11996,7 @@ filterWatched: filterWatched,
 homeRows: homeRows,
 rowChoices: rowChoices,
 storedIds: storedIds,
+knownIds: knownIds,
 viewedIds: viewedIds,
 bumpGen: bumpGen,
 
@@ -12433,9 +12542,15 @@ return { cancel: function () {} };
 
 
 
+
+
+
+
+
 function becauseTitle(card) {
 var title = LC.lang ? LC.lang('lumen_row_because') : 'Because you watched';
-if (card && card.title) title += ': «' + card.title + '»';
+var name = card && card.title ? ('' + card.title).replace(/[<>]/g, '') : '';
+if (name) title += ': «' + name + '»';
 return title;
 }
 
@@ -15231,17 +15346,26 @@ rows = [];
 }
 oncomplite(rows);
 },
+
+
+
+
 onSelect: function (params, close) {
-try { if (typeof close === 'function') close(); } catch (e) { }
 var id = params && params.element && params.element.lumen_id;
 var manifest = catalog();
 var list = (manifest && manifest.collections) || [];
+var item = null;
 for (var i = 0; i < list.length; i++) {
-if (list[i] && list[i].id === id) {
-try { if (LC.hub && typeof LC.hub.open === 'function') LC.hub.open(list[i]); } catch (e2) { warn('search: open failed', e2); }
+if (list[i] && list[i].id === id) { item = list[i]; break; }
+}
+if (!item) {
+try {
+if (window.Lampa && Lampa.Noty && typeof Lampa.Noty.show === 'function') Lampa.Noty.show(LC.lang('lumen_search_gone'));
+} catch (e) { }
 return;
 }
-}
+try { if (typeof close === 'function') close(); } catch (e1) { }
+try { if (LC.hub && typeof LC.hub.open === 'function') LC.hub.open(item); } catch (e2) { warn('search: open failed', e2); }
 },
 onCancel: function () { }
 };
@@ -15882,6 +16006,9 @@ epoch = next;
 
 var mode = LC.pref('lumen_home_start', 'rotate') === 'history' ? 'history' : 'rotate';
 var picked = (LC.rows && typeof LC.rows.storedIds === 'function') ? LC.rows.storedIds() : null;
+
+
+if (picked && LC.rows && typeof LC.rows.knownIds === 'function') picked = LC.rows.knownIds(_manifest, picked);
 var limit = parseInt(LC.pref('lumen_rows_limit', '10'), 10) || 10;
 var anchorSeed = seedOf(epoch.n, SALT_ANCHOR);
 var own = {};
@@ -23894,6 +24021,7 @@ if (typeof module !== 'undefined' && module && module.lumen) module.exports = LC
 
 
 
+
 LC.fxAutoThemes = false;
 
 LC.themes = (function () {
@@ -24097,7 +24225,9 @@ var HOLIDAYS = [
 
 
 
-var HOLIDAY_RULES = { christmas: 1, halloween: 1 };
+
+
+var HOLIDAY_RULES = { christmas: 'newyear', halloween: 'halloween' };
 
 
 function dayKey(date) {
@@ -24138,6 +24268,13 @@ if (rules[i] && HOLIDAY_RULES[rules[i].id]) out.push(rules[i]);
 }
 return out;
 }
+
+
+
+
+
+
+
 
 
 
@@ -24204,6 +24341,36 @@ return d && typeof d === 'object' ? d : {};
 
 
 
+
+function adventId(id) {
+var s = String(id);
+return /^[1-9]\d{0,9}$/.test(s) ? Number(s) : null;
+}
+
+
+
+
+function adventMissing(src, today, opened) {
+var out = [];
+if (!today || typeof today.getMonth !== 'function' || today.getMonth() !== 11) return out;
+if (Array.isArray(src)) src = { world: src };
+src = src || {};
+var have = {};
+var all = (src.ours || []).concat(src.world || []);
+for (var i = 0; i < all.length; i++) if (all[i] && all[i].id != null) have[all[i].id] = 1;
+var map = adventMap(opened, today.getFullYear());
+var open = Math.min(today.getDate(), ADVENT_DAYS);
+for (var day = 1; day <= open; day++) {
+var id = adventId(map[day]);
+if (id === null || have[id]) continue;
+have[id] = 1;
+out.push(id);
+}
+return out;
+}
+
+
+
 function adventCard(card, day, state, words, extra) {
 var copy = {};
 for (var k in card) {
@@ -24238,6 +24405,8 @@ return door;
 
 
 
+
+
 function adventDays(src, today, words, opened) {
 var out = [];
 if (!today || typeof today.getMonth !== 'function') return out;
@@ -24249,9 +24418,11 @@ var skip = {};
 skip[ADVENT_FINAL_ID] = 1;
 var ours = adventList(src.ours, skip);
 var world = adventList(src.world, skip);
+var kept = adventList(src.kept, skip);
+
 
 var final = src.final && Number(src.final.id) === ADVENT_FINAL_ID ? src.final : null;
-var all = (src.ours || []).concat(src.world || []);
+var all = (src.ours || []).concat(src.world || [], src.kept || []);
 for (var f = 0; !final && f < all.length; f++) {
 if (all[f] && Number(all[f].id) === ADVENT_FINAL_ID) final = all[f];
 }
@@ -24259,22 +24430,28 @@ var byId = {};
 var i;
 for (i = 0; i < ours.length; i++) byId[ours[i].id] = ours[i];
 for (i = 0; i < world.length; i++) byId[world[i].id] = world[i];
+for (i = 0; i < kept.length; i++) byId[kept[i].id] = kept[i];
 var map = adventMap(opened, today.getFullYear());
 var used = {};
 var pick = {};
+var held = {};
 var day;
 var open = now < ADVENT_DAYS ? now : ADVENT_DAYS;
 
+
+
 for (day = 1; day <= open; day++) {
-var id = map[day];
 if (day === ADVENT_DAYS && final) break;
-if (id != null && byId[id] && !used[id]) {
+var id = adventId(map[day]);
+if (id === null) continue;
+if (!byId[id]) held[day] = 1;
+else if (!used[id]) {
 pick[day] = byId[id];
 used[id] = 1;
 }
 }
 for (day = 1; day <= open; day++) {
-if (pick[day] || (day === ADVENT_DAYS && final)) continue;
+if (pick[day] || held[day] || (day === ADVENT_DAYS && final)) continue;
 var mine = ours.length && day % ADVENT_OURS === 0;
 var c = adventPick(mine ? ours : world, day, used) || adventPick(mine ? world : ours, day, used);
 if (!c) continue;
@@ -24300,8 +24477,19 @@ return out;
 
 
 
-function adventRecord(cards, today) {
+
+
+
+
+function adventRecord(cards, today, old) {
 var rec = { y: today && typeof today.getFullYear === 'function' ? today.getFullYear() : 0, d: {} };
+var prev = adventMap(old, rec.y);
+for (var k in prev) {
+if (!Object.prototype.hasOwnProperty.call(prev, k)) continue;
+var day = Number(k);
+var id = adventId(prev[k]);
+if (id !== null && day >= 1 && day <= ADVENT_DAYS && Math.floor(day) === day) rec.d[day] = id;
+}
 for (var i = 0; i < (cards || []).length; i++) {
 var c = cards[i];
 var info = c && c.lumen_advent;
@@ -24385,6 +24573,15 @@ var holiday = holidayAt(today);
 if (holiday) return themeOf(holiday);
 }
 var theme = matchTheme(rulesNow(), movie);
+
+
+
+
+
+if (theme && current_mode === 'seasonal' && typeof HOLIDAY_RULES[theme.id] === 'string') {
+var span = holidayAt(today);
+return span && span.id === HOLIDAY_RULES[theme.id] ? theme : null;
+}
 if (!allowed(theme, current_mode, monthOf(today))) return null;
 return theme;
 }
@@ -24436,6 +24633,7 @@ allowed: allowed,
 seasonalIds: seasonalIds,
 adventDays: adventDays,
 adventRecord: adventRecord,
+adventMissing: adventMissing,
 ADVENT_DAYS: ADVENT_DAYS,
 ADVENT_FINAL_ID: ADVENT_FINAL_ID,
 monthOf: monthOf,
@@ -31626,7 +31824,10 @@ var kp = item && item.kinopoiskId;
 
 var rate = kpRateOf(item);
 reportRate(rate, onRate);
-if (!kp) { cb(null); return; }
+
+
+
+if (!kp || !/^\d{1,10}$/.test('' + kp)) { cb(null); return; }
 request(net, BASE + '/' + kp + '/reviews?page=1&order=USER_POSITIVE_RATING_DESC', key, function (resp) {
 if (dead()) return;
 try {
@@ -38418,9 +38619,9 @@ lumen_fx_name: { ru: 'Атмосферы', en: 'Atmospheres', uk: 'Атмосф�
 
 
 lumen_fx_descr: {
-ru: 'Праздничные частицы поверх кадра: снег и гирлянда под Новый год, угли и летучие мыши на Хэллоуин. На главной — в сам праздник у любого фильма (Новый год — с 1 декабря по 7 января, Хэллоуин — неделя до 31 октября), а у новогодних, рождественских и хэллоуинских фильмов — и в карточке. Видны и при лёгких анимациях, замирают, пока листаете, и встают на паузу под трейлером и плеером. «Только сезонные» показывает сцену фильма лишь в её сезон: новогоднюю — в декабре и январе, хэллоуинскую — в октябре.',
-en: 'Holiday particles over the still: snow and a garland for New Year, embers and bats for Halloween. On the home screen they show for any film during the holiday itself (New Year — 1 December to 7 January, Halloween — the week up to 31 October), and New Year, Christmas and Halloween films get them on their card too. They show with light animations too, freeze while you browse and pause under a trailer and the player. "Seasonal only" shows a film scene only in its season: New Year in December and January, Halloween in October.',
-uk: 'Святкові частинки поверх кадру: сніг і гірлянда на Новий рік, жаринки й кажани на Гелловін. На головній — у саме свято для будь-якого фільму (Новий рік — з 1 грудня до 7 січня, Гелловін — тиждень до 31 жовтня), а новорічні, різдвяні й гелловінські фільми мають їх і в картці. Їх видно й за легких анімацій, вони завмирають, поки гортаєте, і стають на паузу під трейлером і плеєром. «Лише сезонні» показує сцену фільму тільки в її сезон: новорічну — у грудні й січні, гелловінську — у жовтні.'
+ru: 'Праздничные частицы поверх кадра: снег и гирлянда под Новый год, угли и летучие мыши на Хэллоуин. На главной — в сам праздник у любого фильма (Новый год — с 1 декабря по 7 января, Хэллоуин — неделя до 31 октября), а у новогодних, рождественских и хэллоуинских фильмов — и в карточке. Видны и при лёгких анимациях, замирают, пока листаете, и встают на паузу под трейлером и плеером. «Только сезонные» показывает сцену фильма лишь в эти же дни праздника, «Все» — круглый год.',
+en: 'Holiday particles over the still: snow and a garland for New Year, embers and bats for Halloween. On the home screen they show for any film during the holiday itself (New Year — 1 December to 7 January, Halloween — the week up to 31 October), and New Year, Christmas and Halloween films get them on their card too. They show with light animations too, freeze while you browse and pause under a trailer and the player. "Seasonal only" shows a film scene only on those same holiday dates, "All" — all year round.',
+uk: 'Святкові частинки поверх кадру: сніг і гірлянда на Новий рік, жаринки й кажани на Гелловін. На головній — у саме свято для будь-якого фільму (Новий рік — з 1 грудня до 7 січня, Гелловін — тиждень до 31 жовтня), а новорічні, різдвяні й гелловінські фільми мають їх і в картці. Їх видно й за легких анімацій, вони завмирають, поки гортаєте, і стають на паузу під трейлером і плеєром. «Лише сезонні» показує сцену фільму тільки в ці ж дні свята, «Усі» — цілий рік.'
 },
 
 
@@ -38954,10 +39155,11 @@ uk: 'Профілі настрою'
 
 
 
+
 lumen_moods_descr: {
-ru: 'Строка быстрых подборок над рядами главной, когда «Кадр над рядами» выключен: «Вечер пятницы», «Семейный просмотр», «Страшное на ночь», «Есть 90 минут».',
-en: 'A row of quick picks above the home rows when "Hero over the rows" is off: "Friday night", "Family time", "Scary at night", "90 minutes to spare".',
-uk: 'Рядок швидких підбірок над рядами головної, коли «Кадр над рядами» вимкнено: «Вечір п\'ятниці», «Сімейний перегляд», «Страшне на ніч», «Є 90 хвилин».'
+ru: 'Строка быстрых подборок над рядами главной, когда «Кадр над рядами» выключен: «Пятничный вечер», «Семейный просмотр», «Страшное на ночь», «90 минут».',
+en: 'A row of quick picks above the home rows when "Hero over the rows" is off: "Friday Evening", "Family Viewing", "Scary at Night", "90 Minutes".',
+uk: 'Рядок швидких підбірок над рядами головної, коли «Кадр над рядами» вимкнено: «П\'ятничний вечір», «Сімейний перегляд», «Страшне вночі», «90 хвилин».'
 },
 
 lumen_home_rows_name: {
@@ -39186,10 +39388,14 @@ lumen_tile_size_large: { ru: 'Крупнее', en: 'Larger', uk: 'Більші' 
 
 
 lumen_badges_name: { ru: 'Метки на постерах', en: 'Poster badges', uk: 'Мітки на постерах' },
+
+
+
+
 lumen_badges_descr: {
-ru: '«Скоро», «Новинка», процент просмотра и новые серии в рядах главной и подборок. «На постере» — плашкой поверх обложки; «В подписи» — строкой под ней, рядом с годом и рейтингом: обложка остаётся чистой. Применяется сразу.',
-en: '"Soon", "New", the watched percentage and new episodes in home and collection rows. "On the poster" draws a plate over the artwork; "In the caption" puts the same words under it, next to the year and the rating, leaving the artwork clean. Applied immediately.',
-uk: '«Скоро», «Новинка», відсоток перегляду та нові серії в рядах головної та підбірок. «На постері» — плашкою поверх обкладинки; «У підписі» — рядком під нею, поряд із роком і рейтингом: обкладинка лишається чистою. Застосовується одразу.'
+ru: '«Скоро», «Новинка», процент просмотра и новые серии в рядах главной и подборок. «На постере» — плашкой поверх обложки; «В подписи» — строкой под ней, перед годом: обложка остаётся чистой; рейтинг у карточки с меткой в ряду главной не дописывается — подпись узкая, в сетке подборки он есть. Применяется сразу.',
+en: '"Soon", "New", the watched percentage and new episodes in home and collection rows. "On the poster" draws a plate over the artwork; "In the caption" puts the same words under it, before the year, leaving the artwork clean; a card with a badge gets no rating in a home row, where the caption is narrow, but keeps it in a collection grid. Applied immediately.',
+uk: '«Скоро», «Новинка», відсоток перегляду та нові серії в рядах головної та підбірок. «На постері» — плашкою поверх обкладинки; «У підписі» — рядком під нею, перед роком: обкладинка лишається чистою; рейтинг у картки з міткою в ряду головної не дописується — підпис вузький, у сітці підбірки він є. Застосовується одразу.'
 },
 
 
@@ -39333,6 +39539,9 @@ lumen_hub_moods: { ru: 'Настроение', en: 'Mood', uk: 'Настрій' 
 
 
 lumen_search_source: { ru: 'Подборки', en: 'Collections', uk: 'Підбірки' },
+
+
+lumen_search_gone: { ru: 'Подборка больше недоступна', en: 'This collection is no longer available', uk: 'Підбірка більше недоступна' },
 
 
 
@@ -42372,8 +42581,12 @@ if (enabled && enabled.name) back = enabled.name;
 var html = $('<div class="lumen-descr-modal"></div>');
 html.html('<div class="lumen-descr-modal__text">' + LC.util.esc(text) + '</div>');
 
+
+
+
+
 Lampa.Modal.open({
-title: title || '',
+title: '',
 html: html,
 size: 'medium',
 onBack: function () {
@@ -42386,6 +42599,7 @@ Lampa.Controller.collectionFocus(node, node.closest('.items-line'));
 } catch (e4) { }
 }
 });
+if (title && typeof Lampa.Modal.title === 'function') Lampa.Modal.title('' + title);
 } catch (err) {
 warn('descr modal failed', err);
 }
