@@ -639,6 +639,35 @@
   var ROWS_TOP_VH = { large: 50, medium: 42, compact: 34 };
   var HERO_DEFAULT = 'large';
 
+  /* Сжатое состояние героя главной — ЗА ФЛАГОМ, по умолчанию выключено.
+
+     Правка пользователя 2026-09-26: «мне нравится, как сейчас выглядит
+     карточка героя на стартовой, но не оч дальше. Давай всегда строго как
+     на стартовой… И будет меньше анимаций. Лучше этот код не убирать вообще,
+     а просто „закомментить“, чтобы если что вернуть».
+
+     Флаг выключен (false): герой всегда в геометрии покоя — HERO_VH, название,
+     мета и описание целиком; классов .lumen-hero--compact и .lumen-rows-up
+     LC.hero не ставит (src/48_hero.js, updateCompact), пол .lumen-hero__floor
+     не проявляется, ряды не поднимаются. Ряд в фокусе всегда стоит там, где
+     первый ряд в покое: Lampa выравнивает фокусный ряд по верху области
+     рядов, а область остаётся опущенной на ROWS_SHIFT_VH. Поэтому раскладка
+     ряда (потолок масштаба, порог узкой колонки, полоса подгонки ширины,
+     правило кромки) считается от места покоя — rowsFitTopVh ниже.
+
+     Как вернуть сжатие: поставить здесь true и пересобрать dist. Правила
+     сжатого состояния в таблице остались на месте (они просто не
+     срабатывают без классов), код LC.hero — тоже; флаг переключает подъём
+     по индексу ряда (src/48_hero.js) и место, от которого считается
+     раскладка ряда. Тесты сжатого состояния собирают таблицу с флагом
+     (withCompact в test/css.test.mjs, makeEnv({ heroCompact: true }) в
+     test/hero.test.mjs). */
+  LC.heroCompact = false;
+
+  function compactOn() {
+    return LC.heroCompact === true;
+  }
+
   /* Ряды в СТАРТОВОМ состоянии опущены на эту долю экрана и поднимаются к
      своему месту при листании. Величина одна на все размеры кадра: она не
      «сколько отдал кадр», а «насколько ряд выглядывает снизу» — ровно тот
@@ -678,6 +707,16 @@
      старте поднимается на те же 2.5vh, и оба порога низкого окна (textRatio
      ниже) съезжают пропорционально. */
   var ROWS_SHIFT_VH = 5.5;
+
+  /* Доля экрана, от которой отмерен ряд В ФОКУСЕ: при сжатии (флаг
+     LC.heroCompact) — кромка сжатого кадра ROWS_TOP_VH, без него — место
+     первого ряда в покое, на ROWS_SHIFT_VH ниже. От неё считаются потолок
+     масштаба, порог узкой колонки, полоса подгонки ширины и правило кромки
+     (всё — у самих формул ниже). Геометрию области рядов (margin-top,
+     сдвиг покоя) флаг не трогает. */
+  function rowsFitTopVh(key) {
+    return round2(ROWS_TOP_VH[key] + (compactOn() ? 0 : ROWS_SHIFT_VH));
+  }
 
   /* Воздух между нижней кромкой СЖАТОГО кадра и заголовком первого ряда
      (пользователь: «вот тут надо отступ, слишком близко к границе»). В em,
@@ -1227,10 +1266,13 @@
      то есть пока W/H ≤ screenEm()·(100 − ROWS_TOP_VH) / (ROWS_AIR + block +
      ROW_EDGE_AIR) / 100. Шире этого отношения подпись срезается кромкой, и
      карточка уходит на восьмую колонку сетки.
+     Правка 2026-09-26: вместо ROWS_TOP_VH здесь и ниже стоит rowsFitTopVh —
+     место ряда в фокусе: без сжатия (флаг LC.heroCompact выключен) ряд в
+     фокусе стоит на месте первого ряда в покое, на ROWS_SHIFT_VH ниже.
      Округление ВНИЗ: правило обязано включиться не позже, чем кончился
      запас, — лишний десяток сотых порога дешевле срезанной подписи. */
   function rowNarrowRatio(key, blockEm) {
-    return Math.floor(screenEm() * (100 - ROWS_TOP_VH[key]) / (ROWS_AIR + blockEm + ROW_EDGE_AIR));
+    return Math.floor(screenEm() * (100 - rowsFitTopVh(key)) / (ROWS_AIR + blockEm + ROW_EDGE_AIR));
   }
 
   /* Опорное отношение сторон потолка масштаба (×100, как HERO_MIN_RATIO и
@@ -1308,7 +1350,7 @@
      кадр), и ограниченной осталась одна клетка из 36 — масштаб «ещё
      крупнее» (тест «потолок масштаба карточки ряда»). */
   function rowScaleCap(key) {
-    var availEm = screenEm() * (100 - ROWS_TOP_VH[key]) / TV_RATIO - ROWS_AIR - ROW_EDGE_AIR;
+    var availEm = screenEm() * (100 - rowsFitTopVh(key)) / TV_RATIO - ROWS_AIR - ROW_EDGE_AIR;
     var floor = SCALES.small;
     var scale = scaleFactor();
     while (scale > floor && rowNarrowBlockEm(scale) > availEm) scale = round2(scale - 0.01);
@@ -3478,6 +3520,9 @@
     var heroSize = heroSizeKey();
     var heroVh = HERO_VH[heroSize];
     var rowsTopVh = ROWS_TOP_VH[heroSize];
+    /* Правка 2026-09-26: место ряда в фокусе — от него считается раскладка
+       ряда (rowsFitTopVh, разбор у флага LC.heroCompact). */
+    var rowsFitTop = rowsFitTopVh(heroSize);
     var heroShift = heroShiftVh(heroSize);
     var textBottom = textBottomVh(heroSize);
     var textShift = textShiftVh(heroSize);
@@ -4197,6 +4242,14 @@
        оба едут одним движением. */
     css.push('.lumen-main.lumen-rows-up .scroll.layer--wheight{-webkit-transform:translateY(0) translateZ(0);transform:translateY(0) translateZ(0)}');
     css.push('.lumen-main .lumen-hero.lumen-motion-full ~ .activity__body .scroll.layer--wheight{-webkit-transition:-webkit-transform' + EASE + ';transition:transform' + EASE + '}');
+    /* Правка 2026-09-26 (пользователь: «будет меньше анимаций»): без сжатия
+       смена ряда — это только прокрутка ленты рядов Lampa (.scroll__body
+       вертикального скролла, штатный переход transform .3s,
+       vendor/lampa/css/app.css:2762-2769); герой при этом не двигается. В
+       «лёгком» и выключенном режиме лента встаёт на новый ряд сразу. Селектор
+       идёт детьми: горизонтальные ленты внутри рядов — свои .scroll__body
+       глубже, их листание по ряду правило не трогает. */
+    css.push('body.lumen-motion-lite .lumen-main .scroll.layer--wheight > .scroll__content > .scroll__body,body.lumen-motion-off .lumen-main .scroll.layer--wheight > .scroll__content > .scroll__body{-webkit-transition:none;transition:none}');
 
     /* Два порога низкого окна. Оба выражены отношением сторон: em Lampa
        считается от ШИРИНЫ (innerWidth / 84.17), поэтому «высоты в em не
@@ -4658,9 +4711,16 @@
       return '@media screen and (min-aspect-ratio:' + lo + '/1000)' + (hi ? ' and (max-aspect-ratio:' + hi + '/1000)' : '') + '{' +
         sel + ' .card{width:-webkit-calc(' + w + ');width:calc(' + w + ')}}';
     };
-    var fitHeroFrom = Math.floor(screenEm() * (100 - rowsTopVh) * 10 / (ROWS_AIR + rowBlockEm(fitW, rowTitleEm, fitGap, fitCap, rowCapAge(fitCap)) + ROW_EDGE_AIR));
+    var fitHeroFrom = Math.floor(screenEm() * (100 - rowsFitTop) * 10 / (ROWS_AIR + rowBlockEm(fitW, rowTitleEm, fitGap, fitCap, rowCapAge(fitCap)) + ROW_EDGE_AIR));
+    /* Верх полосы — на тысячную раньше порога «кадра нет». Обе границы
+       медиазапросов включительные, и ровно на пороге (окно 2400×960 — 2.5:1,
+       «мельче», компактный кадр) действовали бы сразу ширина полосы героя и
+       раскладка без кадра: карточка уже той, по которой считан зазор правила
+       кромки ветки «кадра нет», и следующий ряд выглядывал на 16.6 px.
+       Проявилось, когда раскладка ряда стала считаться от места покоя
+       (правка 2026-09-26): полоса героя дотянулась до порога. */
     if (fitHeroFrom < heroMinRatio * 10) {
-      css.push(rowFitCss('.lumen-main', fitHeroFrom, heroMinRatio * 10, 100 - rowsTopVh, ROWS_AIR, rowCapAge(fitCap)));
+      css.push(rowFitCss('.lumen-main', fitHeroFrom, heroMinRatio * 10 - 1, 100 - rowsFitTop, ROWS_AIR, rowCapAge(fitCap)));
     }
     var fitOff = function (sel, topEm) {
       var from = Math.max(heroMinRatio * 10, Math.floor(screenEm() * 1000 / (topEm + fitBlock + ROW_EDGE_AIR)));
@@ -4735,7 +4795,10 @@
        разводила ряды с кнопкой и без: зазор один на все ряды страницы, а
        кнопка есть не у каждого. Теперь кнопки в шапке нет ни у одного ряда
        (правило .items-line__more ниже), и оба случая совпали. */
-    var rowTailVh = round2(100 - ROWS_TOP_VH[heroSize]);
+    /* Правка 2026-09-26: хвост отмерен от места ряда в фокусе (rowsFitTopVh):
+       без сжатия это место первого ряда в покое, и фокусный ряд кончается на
+       кромке экрана именно там. */
+    var rowTailVh = round2(100 - rowsFitTop);
     /* Отношения сторон здесь — в тысячных (разбор выше); lo и hi приходят в
        сотых, как все остальные пороги таблицы. */
     var rowEdgeMedia = function (blockEm, lo, hi) {

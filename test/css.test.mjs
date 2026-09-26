@@ -91,6 +91,21 @@ function withStorage(storage, fn, innerWidth) {
   }
 }
 
+/* Правка 2026-09-26 (пользователь: «давай всегда строго как на стартовой»):
+   сжатое состояние героя главной — за флагом LC.heroCompact
+   (src/30_css.js), по умолчанию выключено. Тесты сжатого состояния
+   собирают таблицу с включённым флагом — ровно так, как его вернули бы. */
+function withCompact(storage, fn, innerWidth) {
+  return withStorage(storage, (LC) => {
+    LC.heroCompact = true;
+    return fn(LC);
+  }, innerWidth);
+}
+
+/* Та же таблица по умолчанию, но со сжатым состоянием — для тестов его
+   геометрии. */
+const cssCompact = withCompact({}, (LC) => LC.buildCss());
+
 test('LC.tokens: палитра карточки, акцент по настройке, onac/ring/acglow, шрифты', () => {
   const t = tokensWith({});
   assert.equal(t.panel, '#1C1613');
@@ -3437,6 +3452,10 @@ function rowLayout(built, screenW, screenH, opts) {
        режет ли его кромка экрана. */
     rowBottomUp: rowBottomUp,
     nextHeadBottomUp: rowBottomUp + headH,
+    /* Правка 2026-09-26 (сжатие за флагом LC.heroCompact): ряд в фокусе
+       всегда стоит на месте первого ряда в ПОКОЕ, и следующий ряд
+       начинается отсюда. */
+    rowBottomDown: posterBottomDown + tail - focusShift + rowGap,
     cardW: cardW / CARD_EM,
     /* Низ подписи В ПОТОКЕ — без сдвига фокуса: transform раскладку не
        меняет, и следующий ряд встаёт именно от этой линии. */
@@ -3447,6 +3466,58 @@ function rowLayout(built, screenW, screenH, opts) {
     posterBottomDown: posterBottomDown
   };
 }
+
+/* Правка 2026-09-26 (пользователь: «мне нравится, как сейчас выглядит
+   карточка героя на стартовой, но не оч дальше. Давай всегда строго как на
+   стартовой»): сжатого состояния по умолчанию нет — флаг LC.heroCompact
+   выключен. Ряд в фокусе ВСЕГДА стоит там, где первый ряд в покое (область
+   рядов не поднимается, Lampa выравнивает фокусный ряд по её верху), значит
+   вся раскладка ряда считается от места покоя: ряд целиком на экране (низ
+   подписи не ниже 532 на телевизоре — прежний запас ROW_EDGE_AIR), постер
+   целый, а следующий ряд снизу не выглядывает (правило кромки). Клетки — три
+   «Размера интерфейса» Lampa, три размера кадра и четыре масштаба плагина на
+   телевизоре 960×540; окно ПК 2560×1300 — три размера интерфейса и четыре
+   масштаба. */
+test('сжатие выключено: ряд в фокусе — на месте первого ряда в покое, целиком на экране, следующий не выглядывает', () => {
+  assert.equal(withStorage({}, (LC) => LC.heroCompact), false, 'сжатое состояние по умолчанию обязано быть выключено');
+  const cssSrc = readFileSync(new URL('../src/30_css.js', import.meta.url), 'utf8');
+  assert.equal((cssSrc.match(/LC\.heroCompact = /g) || []).length, 1, 'флаг объявлен не в одном месте');
+  for (const [W, H] of [[960, 540], [2560, 1300]]) {
+    for (const iface of ['small', 'normal', 'bigger']) {
+      const EM = lampaEm(W, iface);
+      const limit = W === 960 ? 532 : H - 0.7 * EM + 0.5;
+      for (const size of (W === 960 ? ['large', 'medium', 'compact'] : ['large'])) {
+        for (const scale of ['small', 'normal', 'large', 'huge']) {
+          const built = withStorage({ lumen_scale: scale, lumen_hero_size: size, interface_size: iface }, (LC) => LC.buildCss(), W);
+          const got = rowLayout(built, W, H, { more: true, interface: iface });
+          const label = W + '×' + H + ' ' + iface + '/' + size + '/' + scale;
+          assert.ok(got.textBottomDown <= limit, label + ': низ подписи ряда в фокусе ' + got.textBottomDown.toFixed(1) + ' px при пределе ' + limit.toFixed(1));
+          assert.ok(got.posterBottomDown <= H, label + ': постер срезан кромкой — низ ' + got.posterBottomDown.toFixed(1));
+          assert.ok(got.rowBottomDown >= H - 0.5, label + ': следующий ряд выглядывает — начинается на ' + got.rowBottomDown.toFixed(1));
+        }
+      }
+    }
+  }
+});
+
+/* Правка 2026-09-26: «будет меньше анимаций». Переход между рядами главной
+   в «лёгком» и выключенном режиме — мгновенный: у вертикальной ленты рядов
+   (.scroll__body вертикального скролла .layer--wheight) снят штатный
+   переход Lampa .3s (vendor/lampa/css/app.css:2762-2769). В полном режиме —
+   только эта штатная прокрутка, герой при смене ряда не анимируется.
+   Горизонтальные ленты внутри рядов — свои .scroll__body глубже — правило не
+   задевает: селектор идёт детьми, а не потомками. */
+test('правка 2026-09-26: в lite и off лента рядов главной меняет ряд без перехода, в full — штатно', () => {
+  const sel = (mode) => 'body.lumen-motion-' + mode + ' .lumen-main .scroll.layer--wheight > .scroll__content > .scroll__body';
+  for (const mode of ['lite', 'off']) {
+    const d = findDecl(css, (s) => s === sel(mode));
+    assert.ok(d && /(?:^|;)transition:none(;|$)/.test(d) && d.indexOf('-webkit-transition:none') !== -1, mode + ': переход ленты рядов не снят: ' + d);
+  }
+  assert.equal(findDecl(css, (s) => s === sel('full')), null, 'в полном режиме у ленты рядов обязан остаться штатный переход');
+  /* Смена ряда не двигает героя: правил движения, срабатывающих на смене
+     ряда, нет — класс сжатия и подъёма рядов при выключенном флаге никто не
+     ставит (src/48_hero.js, updateCompact). */
+});
 
 test('Task 51: подпись первого ряда в СЖАТОМ состоянии помещается в экран телевизора при любом масштабе', () => {
   /* Стенд координатора: Philips 50PUS8057/60 отдаёт WebView 960×540 при
@@ -3492,7 +3563,7 @@ test('Task 51: подпись первого ряда в СЖАТОМ состо
     const storage = { lumen_scale: scale };
     if (size) storage.lumen_hero_size = size;
     if (iface) storage.interface_size = iface;
-    return rowLayout(withStorage(storage, (LC) => LC.buildCss()), W, H,
+    return rowLayout(withCompact(storage, (LC) => LC.buildCss()), W, H,
       { more: more, interface: iface });
   };
 
@@ -3726,16 +3797,23 @@ const EDGE_WINDOWS = [
   [2400, 960], [2592, 960]
 ];
 
-function edgeViolations(W, H) {
+/* Правка 2026-09-26: состояний ряда в фокусе два, и какое из них живёт,
+   решает флаг LC.heroCompact (src/30_css.js). compact — таблица с флагом,
+   ряд в фокусе поднят (.lumen-rows-up); без флага — ряд в фокусе всегда на
+   месте первого ряда в покое, и мерить надо его. За порогом «кадра нет»
+   сдвига нет, и оба состояния совпадают. */
+function edgeViolations(W, H, compact) {
   const bad = [];
+  const build = compact ? withCompact : withStorage;
   for (const iface of ['small', 'normal', 'bigger']) {
     for (const size of ['large', 'medium', 'compact']) {
       for (const scale of ['small', 'normal', 'large', 'huge']) {
-        const built = withStorage(
+        const built = build(
           { lumen_scale: scale, lumen_hero_size: size, interface_size: iface }, (LC) => LC.buildCss(), W);
         for (const moods of [true, false]) {
-          const got = rowLayout(built, W, H, { interface: iface, moods: moods });
-          const label = W + '×' + H + ' ' + iface + '/' + size + '/' + scale + (moods ? '/чипы' : '');
+          const at = rowLayout(built, W, H, { interface: iface, moods: moods });
+          const got = compact ? at : { rowBottomUp: at.rowBottomDown, textBottomUp: at.textBottomDown, rowGap: at.rowGap, lampaPad: at.lampaPad };
+          const label = W + '×' + H + ' ' + iface + '/' + size + '/' + scale + (moods ? '/чипы' : '') + (compact ? ', сжатие' : ', покой');
           /* Допуск полпикселя: границы интервалов пишутся в тысячных
              отношения сторон, зазор — в em с округлением до сотых. */
           if (got.rowBottomUp < H - 0.5) {
@@ -3762,12 +3840,24 @@ function edgeViolations(W, H) {
 }
 
 test('правило кромки: на телевизоре от следующего ряда в сжатом состоянии не видно ничего (72 клетки)', () => {
-  assert.deepEqual(edgeViolations(960, 540), []);
+  assert.deepEqual(edgeViolations(960, 540, true), []);
 });
 
 test('правило кромки: то же на окнах браузера ПК — 16:9, 16:10, окно пользователя и 21:9', () => {
   const bad = [];
-  for (const [W, H] of EDGE_WINDOWS.slice(1)) bad.push(...edgeViolations(W, H));
+  for (const [W, H] of EDGE_WINDOWS.slice(1)) bad.push(...edgeViolations(W, H, true));
+  assert.deepEqual(bad, []);
+});
+
+/* Правка 2026-09-26: без сжатия (флаг LC.heroCompact выключен, так по
+   умолчанию) ряд в фокусе стоит на месте первого ряда в покое — и там же
+   обязаны держаться все три условия правила кромки: следующий ряд не
+   выглядывает, подпись ряда в фокусе целиком над кромкой с воздухом
+   ROW_EDGE_AIR, подписи предыдущего ряда — над областью. Те же 72 клетки на
+   телевизоре и те же окна ПК. */
+test('правило кромки без сжатия: ряд в фокусе в покое — на телевизоре (72 клетки) и на окнах ПК', () => {
+  const bad = [];
+  for (const [W, H] of EDGE_WINDOWS) bad.push(...edgeViolations(W, H, false));
   assert.deepEqual(bad, []);
 });
 
@@ -3814,7 +3904,7 @@ test('п.H: LC.heroOffRatio — порог медиазапроса «кадра
 /* Та же правка со стороны цены и формы: расчётный зазор пишется там, где
    ряд короче места под ним, и нигде больше. */
 test('правило кромки: расчётный зазор — ровно до границы, где он опускается до штатного', () => {
-  const built = withStorage({ lumen_scale: 'normal', lumen_hero_size: 'large', interface_size: 'normal' },
+  const built = withCompact({ lumen_scale: 'normal', lumen_hero_size: 'large', interface_size: 'normal' },
     (LC) => LC.buildCss(), 1840);
   const lines = built.split(String.fromCharCode(10)).filter((l) =>
     l.indexOf('@media') === 0 && l.indexOf('.lumen-main .items-line{padding-bottom') !== -1);
@@ -3861,7 +3951,7 @@ test('правило кромки: расчётный зазор — ровно 
    начинается ровно на кромке. Низ подписи фокусного ряда (инвариант
    Task 51) от зазора не зависит. */
 test('правило кромки: клетка телевизора пользователя — следующий ряд за кромкой, подпись на месте', () => {
-  const built = withStorage({ lumen_scale: 'normal', lumen_hero_size: 'large', interface_size: 'normal' },
+  const built = withCompact({ lumen_scale: 'normal', lumen_hero_size: 'large', interface_size: 'normal' },
     (LC) => LC.buildCss());
   const got = rowLayout(built, 960, 540, { interface: 'normal' });
   /* Волна «подложка», п.C1: строки «год · ★» под постером при живом кадре
@@ -3884,7 +3974,7 @@ test('Фикс-раунд волны A: потолок масштаба карт
      плагин по внешнему числу, а не по тому же объекту, из которого плагин
      считает. */
   const SCALE_OF = { small: 0.9, normal: 1, large: 1.1, huge: 1.2 };
-  const built = (scale, size, iface) => withStorage(
+  const built = (scale, size, iface) => withCompact(
     { lumen_scale: scale, lumen_hero_size: size, interface_size: iface }, (LC) => LC.buildCss());
   const rowScale = (scale, size, iface) =>
     parseFloat(/(?:^|;)width:([0-9.]+)em/.exec(findDecl(built(scale, size, iface), (sel) => sel === '.lumen-main .card'))[1]) / WIDE_EM;
@@ -3973,7 +4063,7 @@ test('Фикс-раунд волны A: потолок масштаба карт
    тест упадёт вместе с разошедшимся описанием. */
 test('Фикс-раунд финального ревью: оговорка про потолок масштаба называет ту настройку, которая его и вызывает', () => {
   const WIDE_EM = 9.52;
-  const cardEm = (extra) => withStorage(
+  const cardEm = (extra) => withCompact(
     Object.assign({ lumen_scale: 'huge', interface_size: 'bigger' }, extra),
     (LC) => parseFloat(/(?:^|;)width:([0-9.]+)em/
       .exec(findDecl(LC.buildCss(), (sel) => sel === '.lumen-main .card'))[1]));
@@ -4035,64 +4125,72 @@ test('Task 51: узкая колонка включается порогом и�
      80.16 на «крупнее» (screenEm, src/30_css.js). Поэтому проверка гоняется по обеим осям сразу: до
      правки порог был один и тот же на все три размера, то есть на двух из
      них включался не там, где кончается место. */
-  for (const iface of ['small', 'normal', 'bigger']) {
-    for (const scale of ['small', 'normal', 'large', 'huge']) {
-      const built = withStorage({ lumen_scale: scale, interface_size: iface }, (LC) => LC.buildCss());
-      const label = iface + '/' + scale;
-      const EM = lampaEm(W, iface);
-      /* Узкая колонка — ширина в em; полосы подгонки под окно (ревью
-         фикс-раунда, п.4) — calc с vh, их сторожит проход ниже. */
-      const narrowRules = ruleBodiesWithMedia(built).filter((r) => r.media &&
-        r.selectors.some((sel) => sel === '.lumen-main .card') && /(?:^|;)width:[0-9.]+em/.test(r.decl));
-      assert.equal(narrowRules.length, 1, label + ': медиазапрос узкой колонки обязан быть ровно один');
+  /* Правка 2026-09-26: порог считается от места ряда в фокусе — у сжатого
+     состояния (флаг LC.heroCompact) это кромка сжатого кадра, без него —
+     место первого ряда в покое. Проверка гоняется в обоих. */
+  for (const compact of [true, false]) {
+    const build = compact ? withCompact : withStorage;
+    const bottomOf = (box) => (compact ? box.textBottomUp : box.textBottomDown);
+    for (const iface of ['small', 'normal', 'bigger']) {
+      for (const scale of ['small', 'normal', 'large', 'huge']) {
+        const built = build({ lumen_scale: scale, interface_size: iface }, (LC) => LC.buildCss());
+        const label = iface + '/' + scale + (compact ? ', сжатие' : ', покой');
+        const EM = lampaEm(W, iface);
+        /* Узкая колонка — ширина в em; полосы подгонки под окно (ревью
+           фикс-раунда, п.4) — calc с vh, их сторожит проход ниже. */
+        const narrowRules = ruleBodiesWithMedia(built).filter((r) => r.media &&
+          r.selectors.some((sel) => sel === '.lumen-main .card') && /(?:^|;)width:[0-9.]+em/.test(r.decl));
+        assert.equal(narrowRules.length, 1, label + ': медиазапрос узкой колонки обязан быть ровно один');
 
-      /* Ширина за порогом — восьмая колонка той же сетки: отношение к базовой
-         обязано быть 8.07/9.52 при любом масштабе интерфейса. */
-      const narrow = parseFloat(/(?:^|;)width:([0-9.]+)em/.exec(narrowRules[0].decl)[1]);
-      const wide = lengthPx(cascade(matchingRules(built, ['lumen-main'], ['card'], 100, 100), 'width').value, 1, 0);
-      assert.ok(narrow < wide, label + ': за порогом карточка обязана быть УЖЕ базовой (' + narrow + ' против ' + wide + ')');
-      assert.ok(Math.abs(narrow / wide - 8.07 / 9.52) < 0.005,
-        label + ': за порогом не восьмая колонка сетки — ' + narrow + 'em при базовых ' + wide + 'em');
+        /* Ширина за порогом — восьмая колонка той же сетки: отношение к базовой
+           обязано быть 8.07/9.52 при любом масштабе интерфейса. */
+        const narrow = parseFloat(/(?:^|;)width:([0-9.]+)em/.exec(narrowRules[0].decl)[1]);
+        const wide = lengthPx(cascade(matchingRules(built, ['lumen-main'], ['card'], 100, 100), 'width').value, 1, 0);
+        assert.ok(narrow < wide, label + ': за порогом карточка обязана быть УЖЕ базовой (' + narrow + ' против ' + wide + ')');
+        assert.ok(Math.abs(narrow / wide - 8.07 / 9.52) < 0.005,
+          label + ': за порогом не восьмая колонка сетки — ' + narrow + 'em при базовых ' + wide + 'em');
 
-      /* Порог согласован с раскладкой: ЧУТЬ ВЫШЕ него (окно ещё не такое
-         приплюснутое, правило не сработало) широкая карточка обязана
-         помещаться, но уже впритык — низ подписи не дальше 1.5em от кромки.
-         Это и значит «порог посчитан из цепочки, а не назначен». */
-      const ratio = parseInt(/min-aspect-ratio:(\d+)\/100/.exec(narrowRules[0].media)[1], 10) / 100;
-      const at = (aspect) => {
-        const height = Math.round(W / aspect);
-        return { height: height, box: rowLayout(built, W, height, { more: true, interface: iface }) };
-      };
-      const before = at(ratio - 0.01);
-      const slack = before.height - before.box.textBottomUp;
-      assert.ok(slack >= 0, label + ': до порога ' + ratio + ' широкая карточка уже не помещается (срез ' + (-slack).toFixed(1) + ' px)');
-      assert.ok(slack <= 1.5 * EM, label + ': порог ' + ratio + ' запаздывает — до него ещё ' + slack.toFixed(1) + ' px запаса');
-      /* А за порогом помещается узкая — иначе правило меняло бы ширину впустую. */
-      const after = at(ratio + 0.02);
-      assert.ok(after.height - after.box.textBottomUp >= 0,
-        label + ': за порогом ' + ratio + ' узкая колонка тоже не помещается');
-      /* Ревью фикс-раунда (п.4): «+0.02 за порогом» — это одна точка. Подпись
-         обязана держаться на ВСЁМ диапазоне дальше — через порог «кадра нет»
-         и за ним, с профилями настроения и без, — с воздухом ROW_EDGE_AIR до
-         кромки. Шаг .01 отношения сторон, до 3.6 (32:9). */
-      for (let aspect = ratio + 0.01; aspect <= 3.6; aspect += 0.01) {
-        const height = Math.round(W / aspect);
-        for (const moods of [false, true]) {
-          const box = rowLayout(built, W, height, { interface: iface, moods: moods });
-          assert.ok(box.textBottomUp <= height - 0.7 * EM + 0.5, label + (moods ? '/чипы' : '') + ': при ' + aspect.toFixed(2) +
-            ':1 низ подписи ' + box.textBottomUp.toFixed(1) + ' при пределе ' + (height - 0.7 * EM).toFixed(1));
-          /* Подгонка только режет: карточка не шире выбранной колонки. */
-          assert.ok(box.cardW <= narrow + 0.02, label + ': при ' + aspect.toFixed(2) + ':1 карточка ' + box.cardW.toFixed(2) +
-            'em шире узкой колонки ' + narrow + 'em');
+        /* Порог согласован с раскладкой: ЧУТЬ ВЫШЕ него (окно ещё не такое
+           приплюснутое, правило не сработало) широкая карточка обязана
+           помещаться, но уже впритык — низ подписи не дальше 1.5em от кромки.
+           Это и значит «порог посчитан из цепочки, а не назначен». */
+        const ratio = parseInt(/min-aspect-ratio:(\d+)\/100/.exec(narrowRules[0].media)[1], 10) / 100;
+        const at = (aspect) => {
+          const height = Math.round(W / aspect);
+          return { height: height, box: rowLayout(built, W, height, { more: true, interface: iface }) };
+        };
+        const before = at(ratio - 0.01);
+        const slack = before.height - bottomOf(before.box);
+        assert.ok(slack >= 0, label + ': до порога ' + ratio + ' широкая карточка уже не помещается (срез ' + (-slack).toFixed(1) + ' px)');
+        assert.ok(slack <= 1.5 * EM, label + ': порог ' + ratio + ' запаздывает — до него ещё ' + slack.toFixed(1) + ' px запаса');
+        /* А за порогом помещается узкая — иначе правило меняло бы ширину впустую. */
+        const after = at(ratio + 0.02);
+        assert.ok(after.height - bottomOf(after.box) >= 0,
+          label + ': за порогом ' + ratio + ' узкая колонка тоже не помещается');
+        /* Ревью фикс-раунда (п.4): «+0.02 за порогом» — это одна точка. Подпись
+           обязана держаться на ВСЁМ диапазоне дальше — через порог «кадра нет»
+           и за ним, с профилями настроения и без, — с воздухом ROW_EDGE_AIR до
+           кромки. Шаг .01 отношения сторон, до 3.6 (32:9). */
+        for (let aspect = ratio + 0.01; aspect <= 3.6; aspect += 0.01) {
+          const height = Math.round(W / aspect);
+          for (const moods of [false, true]) {
+            const box = rowLayout(built, W, height, { interface: iface, moods: moods });
+            assert.ok(bottomOf(box) <= height - 0.7 * EM + 0.5, label + (moods ? '/чипы' : '') + ': при ' + aspect.toFixed(2) +
+              ':1 низ подписи ' + bottomOf(box).toFixed(1) + ' при пределе ' + (height - 0.7 * EM).toFixed(1));
+            /* Подгонка только режет: карточка не шире выбранной колонки. */
+            assert.ok(box.cardW <= narrow + 0.02, label + ': при ' + aspect.toFixed(2) + ':1 карточка ' + box.cardW.toFixed(2) +
+              'em шире узкой колонки ' + narrow + 'em');
+          }
         }
       }
     }
+
   }
 
   /* На штатном масштабе телевизор 16:9 порога не достигает — там широкая
      карточка помещается сама (525.0 при пределе 532), и сужать её значило бы
      отобрать у постера 25 px без причины. */
-  const normal = withStorage({ lumen_scale: 'normal' }, (LC) => LC.buildCss());
+  const normal = withCompact({ lumen_scale: 'normal' }, (LC) => LC.buildCss());
   const media = ruleBodiesWithMedia(normal).find((r) => r.media &&
     r.selectors.some((sel) => sel === '.lumen-main .card') && /(?:^|;)width:[0-9.]+em/.test(r.decl));
   assert.ok(1920 / 1080 < parseInt(/min-aspect-ratio:(\d+)\/100/.exec(media.media)[1], 10) / 100,
@@ -5760,7 +5858,7 @@ test('Task 62a: full — всё как было, включая масштаб �
 test('Task 36: масштаб растит карточки рядов, но не область прокрутки', () => {
   const pairs = [['small', '8.57em'], ['normal', '9.52em'], ['large', '10.47em'], ['huge', '11.42em']];
   for (const pair of pairs) {
-    const scaled = withStorage({ lumen_scale: pair[0] }, (LC) => LC.buildCss());
+    const scaled = withCompact({ lumen_scale: pair[0] }, (LC) => LC.buildCss());
     assert.equal(findDecl(scaled, (sel) => sel === '.lumen-main .card'), 'width:' + pair[1], pair[0] + ': ширина карточки ряда');
     const rows = findDecl(scaled, (sel) => sel === '.lumen-main .scroll.layer--wheight');
     assert.ok(rows.indexOf('height:calc(50vh + 1em) !important') !== -1, pair[0] + ': высота области поехала за масштабом — ' + rows);
@@ -6924,7 +7022,7 @@ test('волна «подложка», п.C1: при живом кадре по�
     /[^-]transform:translateY\([0-9.]+em\)/.test(r.decl) && mediaApplies(r.media, w, H));
   const ageDisplay = (built, w) => (cascade(matchingRules(built, ['lumen-main'], ['card__age'], w, H), 'display') || { value: 'block' }).value;
   for (const size of ['large', 'medium', 'compact']) {
-    const built = withStorage({ lumen_hero_size: size }, (LC) => LC.buildCss());
+    const built = withCompact({ lumen_hero_size: size }, (LC) => LC.buildCss());
     const off = parseInt(/min-aspect-ratio:(\d+)\/100/.exec(heroOffMedia(built))[1], 10);
     const wideW = Math.ceil(H * off / 100) + 10;
     const live = size !== 'compact';
@@ -6937,7 +7035,7 @@ test('волна «подложка», п.C1: при живом кадре по�
   }
   /* Первый ряд в покое при штатном масштабе — целиком на экране (низ
      названия ≤ 540, у телевизора пользователя — и в пределе 532). */
-  const tv = rowLayout(css, 960, H, { more: true, interface: 'normal' });
+  const tv = rowLayout(cssCompact, 960, H, { more: true, interface: 'normal' });
   assert.ok(tv.textBottomDown <= 532, 'покой: низ первого ряда ' + tv.textBottomDown.toFixed(1));
   assert.ok(tv.rowBottomUp >= H - 0.5, 'сжатое: следующий ряд выглядывает — начинается на ' + tv.rowBottomUp.toFixed(1));
 });
@@ -6946,7 +7044,7 @@ test('Task 63: зазор между рядами — нижняя границ�
   const W = 960;
   const H = 540;
   const EM = W / 84.17;
-  const gap = num(decl(css, '.lumen-main .items-line'), 'padding-bottom');
+  const gap = num(decl(cssCompact, '.lumen-main .items-line'), 'padding-bottom');
   /* Прежняя редакция этого теста требовала обратного — чтобы от следующего
      ряда «что-то было видно» (ресёрч §3, «ряд обрезан встык — дефект»), и
      держала зазор 1.4em. Решение пользователя 2026-09-23 это отменило:
@@ -6961,7 +7059,7 @@ test('Task 63: зазор между рядами — нижняя границ�
   /* Зазор — каскадом по экрану: на телевизоре с волны «подложка» (строки
      «год · ★» под постером при живом кадре нет, ряд короче места под ним)
      действует расчётный зазор правила кромки, а не базовый. */
-  const box = rowLayout(css, W, H, { more: true });
+  const box = rowLayout(cssCompact, W, H, { more: true });
   assert.ok(box.rowGap >= gap * EM - 0.01, 'зазор ' + box.rowGap.toFixed(1) + ' меньше базового');
   assert.ok(box.rowBottomUp >= H - 0.5, 'следующий ряд выглядывает снизу: начинается на ' + box.rowBottomUp.toFixed(1));
 });

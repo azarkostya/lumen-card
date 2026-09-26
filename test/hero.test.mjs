@@ -1198,7 +1198,7 @@ test('Task 40: без тяжёлых эффектов кадр меняется 
    и переписывать width/height при каждом setCompact незачем. Тест закрывает
    именно это: пара чисел обязана пережить переход неизменной. */
 test('логотип: размер по пропорции и неизменность при переходе в сжатое состояние', () => {
-  const env = makeEnv();
+  const env = makeEnv({ heroCompact: true });
   const main = makeMain();
   env.hero.mount(main.activity);
   const node = heroOf(main.activity);
@@ -1295,8 +1295,32 @@ test('логотип без пропорции в ответе TMDB: разме�
   assert.ok(logo.attr('style').indexOf('background-image') !== -1, 'style: ' + logo.attr('style'));
 });
 
+/* Правка 2026-09-26 (пользователь: «давай всегда строго как на
+   стартовой»): сжатое состояние — за флагом LC.heroCompact (объявлен в
+   src/30_css.js, по умолчанию выключен). Без флага фокус в любом ряду
+   оставляет героя в покое: ни класса сжатия, ни подъёма рядов, частицы и
+   смена кадров не встают на паузу из-за ряда. Тесты сжатого состояния ниже
+   включают флаг явно — ровно так, как его вернули бы. */
+test('сжатие выключено флагом: фокус ниже первого ряда — герой в покое, ряды не поднимаются', () => {
+  for (const flag of [undefined, false]) {
+    const env = makeEnv(flag === undefined ? {} : { heroCompact: flag });
+    const main = makeMain();
+    env.hero.mount(main.activity);
+    const node = heroOf(main.activity);
+    main.card2.addClass('focus');
+    fireFocus(main.activity, main.card2);
+    assert.equal(node.hasClass('lumen-hero--compact'), false, 'флаг ' + flag + ': второй ряд сжал героя');
+    assert.equal(main.activity.hasClass('lumen-rows-up'), false, 'флаг ' + flag + ': второй ряд поднял ряды');
+    assert.equal(env.hero.compact(), false, 'флаг ' + flag + ': состояние сжатия взведено');
+    main.card1.addClass('focus');
+    fireFocus(main.activity, main.card1);
+    assert.equal(node.hasClass('lumen-hero--compact'), false);
+    env.hero.unmount();
+  }
+});
+
 test('второй ряд в фокусе — компактный герой, возврат на первый снимает класс', () => {
-  const env = makeEnv();
+  const env = makeEnv({ heroCompact: true });
   const main = makeMain();
   env.hero.mount(main.activity);
   const node = heroOf(main.activity);
@@ -1317,7 +1341,7 @@ test('второй ряд в фокусе — компактный герой, �
 });
 
 test('unmount возвращает ряды в штатную раскладку', () => {
-  const env = makeEnv();
+  const env = makeEnv({ heroCompact: true });
   const main = makeMain();
   env.hero.mount(main.activity);
   main.card2.addClass('focus');
@@ -3025,6 +3049,7 @@ test('Task 64: со второй карточки подложка больше 
 test('Task 64 (ревью): в сжатом состоянии частицы на паузе, возврат их будит', () => {
   const mounts = [];
   const env = makeEnv({
+    heroCompact: true,
     themes: {
       forMovie: () => ({ id: 'snow', preset: 'snow' }),
       particleColor: () => '#FFFFFF',
@@ -5060,7 +5085,9 @@ function slidesEnv(opts) {
     motionMode: () => opts.motion || 'lite',
     fxHeavy: () => !!opts.heavy,
     /* Волна «хвосты героя», п.C2: сравнение кадров с постером. */
-    thumbs: opts.thumbs
+    thumbs: opts.thumbs,
+    /* Правка 2026-09-26: сжатое состояние — за флагом LC.heroCompact. */
+    heroCompact: !!opts.compact
   }, (name, def) => (name === 'lumen_hero_media' ? media.value : def));
   /* Контроллер слайдшоу спрашивает «слой ещё в документе». */
   globalThis.document.documentElement.contains = () => true;
@@ -5373,7 +5400,7 @@ test('ревью правок волны 3, п.7: кадр смены, доех�
 });
 
 test('«Только кадры»: фокус в рядах — пауза, смена карточки снимает таймер прошлой', () => {
-  const env = slidesEnv();
+  const env = slidesEnv({ compact: true });
   try {
     const main = makeMain();
     env.hero.mount(main.activity);
@@ -5606,7 +5633,7 @@ test('«Интервал смены кадров» на лету под игра
 });
 
 test('«Кадры и трейлер»: конец ролика в сжатом состоянии не снимает паузу сжатия', () => {
-  const env = slidesEnv({ media: 'trailer', motion: 'lite' });
+  const env = slidesEnv({ media: 'trailer', motion: 'lite', compact: true });
   try {
     const main = makeMain();
     env.hero.mount(main.activity);

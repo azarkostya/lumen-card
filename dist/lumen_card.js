@@ -1539,6 +1539,35 @@ var HERO_DEFAULT = 'large';
 
 
 
+LC.heroCompact = false;
+
+function compactOn() {
+return LC.heroCompact === true;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -1555,6 +1584,16 @@ var HERO_DEFAULT = 'large';
 
 
 var ROWS_SHIFT_VH = 5.5;
+
+
+
+
+
+
+
+function rowsFitTopVh(key) {
+return round2(ROWS_TOP_VH[key] + (compactOn() ? 0 : ROWS_SHIFT_VH));
+}
 
 
 
@@ -2106,8 +2145,11 @@ CARD_VIEW_GAP + cardTitleEm * CARD_TITLE_LH + CARD_AGE_GAP * cardAgeEm + cardAge
 
 
 
+
+
+
 function rowNarrowRatio(key, blockEm) {
-return Math.floor(screenEm() * (100 - ROWS_TOP_VH[key]) / (ROWS_AIR + blockEm + ROW_EDGE_AIR));
+return Math.floor(screenEm() * (100 - rowsFitTopVh(key)) / (ROWS_AIR + blockEm + ROW_EDGE_AIR));
 }
 
 
@@ -2185,7 +2227,7 @@ return rowBlockEm(w, round2(ROW_TITLE_EM * scale), rowHeadGap(scale, w), TV_MIN,
 
 
 function rowScaleCap(key) {
-var availEm = screenEm() * (100 - ROWS_TOP_VH[key]) / TV_RATIO - ROWS_AIR - ROW_EDGE_AIR;
+var availEm = screenEm() * (100 - rowsFitTopVh(key)) / TV_RATIO - ROWS_AIR - ROW_EDGE_AIR;
 var floor = SCALES.small;
 var scale = scaleFactor();
 while (scale > floor && rowNarrowBlockEm(scale) > availEm) scale = round2(scale - 0.01);
@@ -4355,6 +4397,9 @@ css.push('.lumen-grid .lumen-grid__hide{margin-right:.79em}');
 var heroSize = heroSizeKey();
 var heroVh = HERO_VH[heroSize];
 var rowsTopVh = ROWS_TOP_VH[heroSize];
+
+
+var rowsFitTop = rowsFitTopVh(heroSize);
 var heroShift = heroShiftVh(heroSize);
 var textBottom = textBottomVh(heroSize);
 var textShift = textShiftVh(heroSize);
@@ -5081,6 +5126,14 @@ css.push('.lumen-main .lumen-hero.lumen-motion-full ~ .activity__body .scroll.la
 
 
 
+css.push('body.lumen-motion-lite .lumen-main .scroll.layer--wheight > .scroll__content > .scroll__body,body.lumen-motion-off .lumen-main .scroll.layer--wheight > .scroll__content > .scroll__body{-webkit-transition:none;transition:none}');
+
+
+
+
+
+
+
 
 
 
@@ -5535,9 +5588,16 @@ var w = x + 'vh - ' + y + 'em';
 return '@media screen and (min-aspect-ratio:' + lo + '/1000)' + (hi ? ' and (max-aspect-ratio:' + hi + '/1000)' : '') + '{' +
 sel + ' .card{width:-webkit-calc(' + w + ');width:calc(' + w + ')}}';
 };
-var fitHeroFrom = Math.floor(screenEm() * (100 - rowsTopVh) * 10 / (ROWS_AIR + rowBlockEm(fitW, rowTitleEm, fitGap, fitCap, rowCapAge(fitCap)) + ROW_EDGE_AIR));
+var fitHeroFrom = Math.floor(screenEm() * (100 - rowsFitTop) * 10 / (ROWS_AIR + rowBlockEm(fitW, rowTitleEm, fitGap, fitCap, rowCapAge(fitCap)) + ROW_EDGE_AIR));
+
+
+
+
+
+
+
 if (fitHeroFrom < heroMinRatio * 10) {
-css.push(rowFitCss('.lumen-main', fitHeroFrom, heroMinRatio * 10, 100 - rowsTopVh, ROWS_AIR, rowCapAge(fitCap)));
+css.push(rowFitCss('.lumen-main', fitHeroFrom, heroMinRatio * 10 - 1, 100 - rowsFitTop, ROWS_AIR, rowCapAge(fitCap)));
 }
 var fitOff = function (sel, topEm) {
 var from = Math.max(heroMinRatio * 10, Math.floor(screenEm() * 1000 / (topEm + fitBlock + ROW_EDGE_AIR)));
@@ -5612,7 +5672,10 @@ css.push('.lumen-main .items-line{padding-bottom:' + ROW_GAP + 'em}');
 
 
 
-var rowTailVh = round2(100 - ROWS_TOP_VH[heroSize]);
+
+
+
+var rowTailVh = round2(100 - rowsFitTop);
 
 
 var rowEdgeMedia = function (blockEm, lo, hi) {
@@ -17949,11 +18012,17 @@ try { state.root.toggleClass('lumen-rows-up', on); } catch (e) {}
 }
 
 
+
+
+
+
+
+
 function updateCompact(el) {
 if (!state || state.fixedCompact) return;
 var index = rowIndex(el);
 if (index < 0) return;
-setCompact(index > 0);
+setCompact(LC.heroCompact === true && index > 0);
 }
 
 
