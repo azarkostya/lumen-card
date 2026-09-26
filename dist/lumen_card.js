@@ -10986,6 +10986,13 @@ return copy;
 
 
 
+
+
+
+
+
+
+
 function dedupeAcross(rows, seen, min, fit) {
 if (!rows || !rows.length) return [];
 seen = seen || {};
@@ -11596,9 +11603,13 @@ for (var j = 0; j < cards.length; j++) if (cards[j].id != null) films++;
 if (!films) { resolve({ results: [] }); return; }
 adventSave(cards, today);
 
+
+
+
 var payload = {
 results: decorateAdvent(cards),
 title: adventTitle(today),
+lumen_personal: true,
 lumen_keep: true,
 params: { items: { view: cards.length }, emit: { onCreate: focusToday } }
 };

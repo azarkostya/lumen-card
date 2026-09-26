@@ -827,6 +827,36 @@ test('dedupeAcross: «Потому что» ниже лидера его не ч
   assert.deepEqual(idsOf(out[5]), [1, 2, 3, 4, 41, 42, 43, 70], 'личный ряд не трогаем');
 });
 
+/* Следующий раунд, п.1 (ревью): окошко адвента — день календаря, а не
+   просто карточка. 31 декабря «Ирония судьбы» (43430) стоит и в
+   «Досмотреть» — её lumen_own кладёт фильм в окно предварительным
+   проходом, — и окошко 31-го пропадало: дыра в календаре, фокус «на
+   сегодня» (focusToday) не находил сегодняшнего окошка. Состав адвента
+   окно не трогает, а ряды ниже себя адвент чистит, как прежде. Ряд выше
+   адвента он не чистит: вперёд идут только карточки самого пользователя. */
+test('dedupeAcross: адвент окно не режет — 31 декабря «Ирония» в «Досмотреть», в адвенте всё равно 31 окошко', function () {
+  var s = setupRows({ manifest: XMAS_MANIFEST, now: new Date(2026, 11, 31), tmdb: true });
+  var got = adventPayload(s);
+  answerAdvent(s, true);
+  var advent = got[0];
+  var days = idsOf(advent);
+  assert.equal(days.length, 31);
+  assert.equal(days[30], 43430, 'подготовка: 31-е — «Ирония судьбы»');
+  var rows = [
+    mkRow('Выше', [days[0], 950, 951, 952, 953]),
+    advent,
+    mkRow('Досмотреть', [43430], { lumen_personal: true, lumen_own: true }),
+    mkRow('Новогоднее', [43430, days[1], days[2], 900, 901, 902, 903, 904])
+  ];
+  var out = s.R.dedupeAcross(rows, {}, 4);
+  assert.deepEqual(out.map(function (r) { return r.title; }), ['Выше', advent.title, 'Досмотреть', 'Новогоднее']);
+  assert.equal(out[1].results.length, 31, 'в адвенте все 31 окошко');
+  assert.deepEqual(idsOf(out[1]), days, 'и в прежнем порядке');
+  assert.equal(out[1].results[30].id, 43430, 'окошко 31-го на месте');
+  assert.deepEqual(idsOf(out[0]), [days[0], 950, 951, 952, 953], 'ряд выше адвент не чистит');
+  assert.deepEqual(idsOf(out[3]), [900, 901, 902, 903, 904], 'ряд ниже адвент чистит, как прежде');
+});
+
 test('dedupeAcross: cub и tmdb — одно пространство id (CUB проксирует TMDB)', function () {
   var rows = [
     mkRow('A', [{ id: 7, source: 'cub' }, { id: 8, source: 'cub' }]),
