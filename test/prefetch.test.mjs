@@ -1702,3 +1702,120 @@ test('этап 2а, п.3: в ряду без посещений — первая
   const order = drain(env, 204);
   assert.ok(order.indexOf(101) !== -1 && order.indexOf(104) === -1, 'после stop посещения прошлой главной остались: ' + order);
 });
+
+/* ====================================================================== */
+/* Раунд «без лагов», этап 2в, п.1: показ после серии — раньше BURST_DELAY, */
+/* если серия кончилась и для карточки всё уже в памяти                   */
+/* ====================================================================== */
+
+/* Карточка готова к показу: детали в памяти предзагрузки (логотипов у
+   фильма нет — название текстом, ждать нечего), ответ сравнения первого
+   кандидата с постером известен (кадр решён — /aN), байты w1280 и
+   подложки этого кадра доехали. bytes: false — без байтов кадра, 'late' —
+   байты заказаны, но ещё едут (вернёт их картинки). logo — у фильма есть
+   логотип, его в памяти нет. */
+function readyCard(env, th, main, r, i, opts) {
+  opts = opts || {};
+  const card = main.rows[r][i].card_data;
+  const d = lookDetails(card.id);
+  if (opts.logo) d.images.logos = [{ file_path: '/l' + card.id + '.png', iso_639_1: 'ru' }];
+  env.pf.details(card, () => {}, () => {});
+  const req = pending(env).find((q) => idOf(q.url) === card.id);
+  if (req) answer(req, d);
+  th.verdicts['/p' + card.id + '.jpg|/a' + card.id + '.jpg'] = false;
+  if (opts.bytes === false) return null;
+  env.hero.preloadFrame('/a' + card.id + '.jpg', false);
+  const imgs = env.images.filter((x) => x.src === 'https://img/t/p/w1280/a' + card.id + '.jpg' || x.src === 'https://img/t/p/w300/a' + card.id + '.jpg');
+  if (opts.bytes === 'late') return imgs;
+  imgs.forEach((x) => land(x, 1280, 720));
+  return null;
+}
+
+/* Чей фильм на герое — по описанию (данные ряда: «о N»). */
+const shownOf = (node) => node.find('.lumen-hero__descr').text();
+
+test('этап 2в, п.1: серия 3 × 150 мс кончилась на готовой карточке — показ через 300 мс покоя (вдвое дольше шага), а не через BURST_DELAY', () => {
+  const th = fakeLook();
+  const { env, main, node } = mounted({ thumbs: th });
+  focus(main, main.rows[0][0]);
+  wait(env, 1500);
+  readyCard(env, th, main, 0, 4);
+  focus(main, main.rows[0][2]);
+  env.advance(150);
+  focus(main, main.rows[0][3]);
+  env.advance(150);
+  focus(main, main.rows[0][4]);
+  env.advance(299);
+  assert.equal(shownOf(node), 'о 101', 'раньше, чем серия кончилась (300 мс покоя при шаге 150)');
+  env.advance(1);
+  assert.equal(shownOf(node), 'о 105', 'готовая карточка ждёт BURST_DELAY');
+  assert.equal(env.requests.filter((q) => idOf(q.url) === 105).length, 1, 'показ пошёл за деталями второй раз');
+  assert.deepEqual(warnLog, []);
+});
+
+test('этап 2в, п.1: не готова — показ, как прежде, через BURST_DELAY: нет байтов кадра, логотип не в памяти, деталей нет', () => {
+  for (const opts of [{ bytes: false }, { logo: true }, null]) {
+    const th = fakeLook();
+    const { env, main, node } = mounted({ thumbs: th });
+    const tag = JSON.stringify(opts);
+    focus(main, main.rows[0][0]);
+    wait(env, 1500);
+    if (opts) readyCard(env, th, main, 0, 4, opts);
+    focus(main, main.rows[0][2]);
+    env.advance(150);
+    focus(main, main.rows[0][3]);
+    env.advance(150);
+    focus(main, main.rows[0][4]);
+    env.advance(BURST_DELAY - 1);
+    assert.equal(shownOf(node), 'о 101', tag + ': не готова, а показана раньше BURST_DELAY');
+    /* Деталей в памяти нет — текст показа выходит через SWAP_MS. */
+    wait(env, opts ? 10 : 190);
+    assert.equal(shownOf(node), 'о 105', tag + ': к BURST_DELAY не показана');
+  }
+  assert.deepEqual(warnLog, []);
+});
+
+test('этап 2в, п.1: байты кадра доехали посреди ожидания — показ на ближайшей проверке (шаг 100 мс), не дожидаясь BURST_DELAY', () => {
+  const th = fakeLook();
+  const { env, main, node } = mounted({ thumbs: th });
+  focus(main, main.rows[0][0]);
+  wait(env, 1500);
+  const imgs = readyCard(env, th, main, 0, 4, { bytes: 'late' });
+  focus(main, main.rows[0][2]);
+  env.advance(150);
+  focus(main, main.rows[0][3]);
+  env.advance(150);
+  focus(main, main.rows[0][4]);
+  wait(env, 450);
+  assert.equal(shownOf(node), 'о 101', 'байты едут — показа нет');
+  land(imgs[0], 300, 169);
+  wait(env, 40);
+  assert.equal(shownOf(node), 'о 101', 'проверка раньше своего шага');
+  wait(env, 10);
+  assert.equal(shownOf(node), 'о 105', 'подложка доехала — показ на проверке через 500 мс покоя');
+  assert.deepEqual(warnLog, []);
+});
+
+test('этап 2в, п.1: серия шагом 400 мс по готовым карточкам — ни одной пройденной (вдвое дольше шага — уже BURST_DELAY); показ последней — через BURST_DELAY', () => {
+  const th = fakeLook();
+  const { env, main, node } = mounted({ thumbs: th });
+  focus(main, main.rows[0][0]);
+  wait(env, 1500);
+  const shown = [];
+  for (let i = 1; i <= 5; i++) {
+    /* Готова каждая — и та, на которой стоят сейчас (в памяти два кадра). */
+    readyCard(env, th, main, 0, i);
+    focus(main, main.rows[0][i]);
+    for (let t = 0; t < 400; t += 10) {
+      env.advance(10);
+      if (shown[shown.length - 1] !== shownOf(node)) shown.push(shownOf(node));
+    }
+  }
+  /* Первое нажатие после покоя — одиночное (показ через DELAY). */
+  assert.deepEqual(shown, ['о 101', 'о 102'], 'серия 400 мс: показаны пройденные карточки ' + shown);
+  env.advance(BURST_DELAY - 400 - 1);
+  assert.equal(shownOf(node), 'о 102');
+  env.advance(1);
+  assert.equal(shownOf(node), 'о 106', 'последняя карточка серии не показана к BURST_DELAY');
+  assert.deepEqual(warnLog, []);
+});

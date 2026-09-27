@@ -303,6 +303,14 @@
       send(req, { ok: ok, err: err });
     }
 
+    /* Этап 2в, п.1: детали карточки из памяти — без запроса и без счёта
+       попаданий (hits считает только показ): герой спрашивает, готова ли
+       карточка к показу раньше BURST_DELAY (showReady в src/48_hero.js). */
+    function known(card) {
+      var req = lampaGet() ? requestOf(card) : null;
+      return req ? recall(req.key) : null;
+    }
+
     /* Задача логотипа по ответу деталей — тот же выбор, что у героя
        (heroModel: язык интерфейса, английский, без языка). Незнакомый и
        не доехавший один раз ('retry' — единственный повтор, лучше заранее,
@@ -1149,6 +1157,7 @@
     return {
       around: around,
       details: details,
+      known: known,
       warm: warm,
       stop: stop,
       stats: stats

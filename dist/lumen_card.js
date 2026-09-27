@@ -17732,6 +17732,19 @@ var BURST_DELAY = 700;
 
 
 
+var BURST_EARLY = 250;
+var BURST_POLL = 100;
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -21541,8 +21554,11 @@ updateCompact(el);
 
 
 var now = Date.now();
-var burst = !!state.focusAt && now - state.focusAt < BURST_GAP;
+var step = now - state.focusAt;
+var burst = !!state.focusAt && step < BURST_GAP;
 var wait = burst ? BURST_DELAY : DELAY;
+
+var early = burst ? Math.min(wait, Math.max(BURST_EARLY, 2 * step)) : wait;
 state.focusAt = now;
 markBurst(burst);
 state.pending = card;
@@ -21616,9 +21632,47 @@ if (gen !== captured || !state) return;
 state.timer = null;
 if (!isMounted()) return;
 if (state.pending !== card) return;
-if (!shouldUpdate(state.shownId, card.id, Date.now() - state.focusAt, wait)) return;
+var still = Date.now() - state.focusAt;
+
+if (still < wait && !showReady(card)) {
+state.timer = setTimeout(heroShow, Math.min(BURST_POLL, wait - still));
+return;
+}
+if (!shouldUpdate(state.shownId, card.id, still, early)) return;
 show(card);
-}, wait);
+}, early);
+}
+
+
+
+
+
+
+
+
+
+
+function showReady(card) {
+var json = null;
+try {
+if (LC.prefetch && typeof LC.prefetch.known === 'function') json = LC.prefetch.known(card);
+} catch (e) {
+json = null;
+}
+if (!json) return false;
+var logo = logoAllowed() ? pickLogo(json.images && json.images.logos, langCode()) : null;
+if (logo && logoUrl(logo) && logoSeen[logo] !== 'ok' && logoSeen[logo] !== 'fail') return false;
+if (motionMode() === 'off') return true;
+var path = frameFor(card, json);
+if (path === undefined) return false;
+return !path || keptLanded(frameKept, frameUrl(path)) || keptLanded(lqipKept, lqipUrl(path));
+}
+
+function keptLanded(list, url) {
+for (var i = 0; i < list.length; i++) {
+if (list[i].url === url) return !!(list[i].done && list[i].img.naturalWidth);
+}
+return false;
 }
 
 
@@ -33851,6 +33905,14 @@ send(req, { ok: ok, err: err });
 
 
 
+function known(card) {
+var req = lampaGet() ? requestOf(card) : null;
+return req ? recall(req.key) : null;
+}
+
+
+
+
 
 
 
@@ -34694,6 +34756,7 @@ return { fly: busy, queue: queue.length, hits: hits };
 return {
 around: around,
 details: details,
+known: known,
 warm: warm,
 stop: stop,
 stats: stats

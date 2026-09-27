@@ -60,6 +60,19 @@
        логотипы как раз к этому показу. */
     var BURST_GAP = 700;
     var BURST_DELAY = 700;
+    /* Раунд «без лагов», этап 2в, п.1 (исследование preload, 5.5): показ
+       после серии — раньше BURST_DELAY, если серия кончилась и для
+       карточки всё уже в памяти (showReady: детали, решение по логотипу,
+       решённый кадр и байты его w1280 или хотя бы подложки). «Серия
+       кончилась» — покой вдвое дольше последнего шага серии, не меньше
+       BURST_EARLY: шаг 150 мс — 300 мс покоя, зажатая стрелка — 250;
+       шаг от 350 мс (самотест листает по 400) — вдвое дольше уже не
+       меньше BURST_DELAY, и раннего показа нет: пройденные карточки
+       такой серии, даже готовые (обратный ход самотеста), не
+       показываются. Не готова к этому мигу — проверка ещё раз через
+       BURST_POLL, до BURST_DELAY; дальше — показ, как прежде. */
+    var BURST_EARLY = 250;
+    var BURST_POLL = 100;
     /* Акцент и подкраска фона (src/57_color.js) своей задержки больше не
        имеют. До раунда «Цвет сразу» (2026-09-26) их ждали 3 с покоя фокуса
        (правка 2026-09-17: «только когда на карточке останавливаются больше
@@ -3880,8 +3893,11 @@
          назад) ждёт BURST_DELAY, одиночное — DELAY. Возврат на ту же
          карточку тоже нажатие: серию он продолжает. */
       var now = Date.now();
-      var burst = !!state.focusAt && now - state.focusAt < BURST_GAP;
+      var step = now - state.focusAt;
+      var burst = !!state.focusAt && step < BURST_GAP;
       var wait = burst ? BURST_DELAY : DELAY;
+      /* Этап 2в, п.1: серия кончилась — покой вдвое дольше её шага. */
+      var early = burst ? Math.min(wait, Math.max(BURST_EARLY, 2 * step)) : wait;
       state.focusAt = now;
       markBurst(burst);
       state.pending = card;
@@ -3955,9 +3971,47 @@
         state.timer = null;
         if (!isMounted()) return;
         if (state.pending !== card) return;
-        if (!shouldUpdate(state.shownId, card.id, Date.now() - state.focusAt, wait)) return;
+        var still = Date.now() - state.focusAt;
+        /* Этап 2в, п.1: раньше BURST_DELAY — только готовая карточка. */
+        if (still < wait && !showReady(card)) {
+          state.timer = setTimeout(heroShow, Math.min(BURST_POLL, wait - still));
+          return;
+        }
+        if (!shouldUpdate(state.shownId, card.id, still, early)) return;
         show(card);
-      }, wait);
+      }, early);
+    }
+
+    /* Этап 2в, п.1: для показа карточки всё уже в памяти — показ после
+       серии не ждёт BURST_DELAY. Детали — из памяти предзагрузки
+       (LC.prefetch.known, без запроса); логотип — решён (в памяти или
+       известно, что его нет или он битый: название выводится одним кадром,
+       writeTitle); кадр — решён (frameFor: ответы сравнения с постером в
+       памяти) и его байты доехали — w1280 или хотя бы подложка w300
+       (preloadFrame дорожки кадра): через HOLD_MS от вывода текста под
+       новым фильмом встанет его картинка, а не нейтральный фон. Кадра у
+       фильма нет (постер) и «Выкл» — ждать нечего. */
+    function showReady(card) {
+      var json = null;
+      try {
+        if (LC.prefetch && typeof LC.prefetch.known === 'function') json = LC.prefetch.known(card);
+      } catch (e) {
+        json = null;
+      }
+      if (!json) return false;
+      var logo = logoAllowed() ? pickLogo(json.images && json.images.logos, langCode()) : null;
+      if (logo && logoUrl(logo) && logoSeen[logo] !== 'ok' && logoSeen[logo] !== 'fail') return false;
+      if (motionMode() === 'off') return true;
+      var path = frameFor(card, json);
+      if (path === undefined) return false;
+      return !path || keptLanded(frameKept, frameUrl(path)) || keptLanded(lqipKept, lqipUrl(path));
+    }
+
+    function keptLanded(list, url) {
+      for (var i = 0; i < list.length; i++) {
+        if (list[i].url === url) return !!(list[i].done && list[i].img.naturalWidth);
+      }
+      return false;
     }
 
     /* Цель события — сама карточка, поэтому проверяем её собственные классы,
