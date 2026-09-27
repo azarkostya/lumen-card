@@ -3276,6 +3276,98 @@ test('штатная сетка из плагина: кадр карточки �
   assert.deepEqual(warnLog, []);
 });
 
+/* Ревью этапа 2б, Р1: в «Выкл» метки body нет (stageScreen, src/90_runtime.js),
+   и штатный фон Lampa виден — сетка не закрывает его заливкой .lumen-screen и
+   своего кадра не заводит; кольцо и приглушение остаются. Режим сменили —
+   сетка следует ему на следующем старте, как и метка body. */
+test('штатная сетка из плагина в «Выкл»: только кольцо и приглушение — без заливки и кадра; смена режима — на старте экрана', function (t) {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  warnLog.length = 0;
+  withImages(function (images) {
+    var opts = { motion: 'off' };
+    setupLampa(opts);
+    var h = loadHub(opts);
+    h.api.install();
+    var act = new El(['activity']);
+    var obj = { activity: { render: function () { return act; } }, component: 'category_full' };
+    obj[h.api.FULL_MARK] = true;
+    var a = gridCard({ id: 1, backdrop_path: '/fa.jpg' });
+    act.append(a);
+    h.api.fullStage.start(obj);
+    assert.ok(act.hasClass('lumen-full'), 'кольцо — и в «Выкл»');
+    assert.ok(!act.hasClass('lumen-screen'), 'заливки нет: под сеткой штатный фон Lampa');
+    focusIn(act, a);
+    assert.ok(act.hasClass('lumen-dim'), 'соседи приглушены');
+    t.mock.timers.tick(1000);
+    assert.equal(images.length, 0, 'кадр не грузится');
+    assert.equal(act.all('lumen-screen-stage').length, 0, 'слоя кадра нет');
+    /* Режим сменили на «Лёгкие» (в карточке), вернулись — свой фон. */
+    opts.motion = 'lite';
+    h.api.fullStage.start(obj);
+    assert.ok(act.hasClass('lumen-screen'));
+    focusIn(act, a);
+    t.mock.timers.tick(450);
+    assert.equal(images.length, 1, 'кадр карточки под фокусом');
+    images[0]._ok();
+    assert.equal(act.all('lumen-screen-stage').length, 1);
+    /* И обратно в «Выкл»: заливка и слой кадра уходят (без .lumen-screen
+       у слоя не было бы своих правил). */
+    opts.motion = 'off';
+    h.api.fullStage.start(obj);
+    assert.ok(act.hasClass('lumen-full') && !act.hasClass('lumen-screen'));
+    assert.equal(act.all('lumen-screen-stage').length, 0, 'слой кадра снят');
+    focusIn(act, a);
+    t.mock.timers.tick(1000);
+    assert.equal(images.length, 1, 'новых загрузок нет');
+    h.api.fullStage.destroy(obj);
+    assert.equal(h.api.fullStage.count(), 0);
+  });
+  assert.deepEqual(warnLog, []);
+});
+
+/* Ревью этапа 2б, Р5: фокус ушёл из сетки (меню, шапка, экран поверх) —
+   приглушение снимается; фокус внутри сетки его не трогает. */
+test('штатная сетка из плагина: фокус ушёл в меню или шапку (пульт и мышь) — приглушение снято; слушатель на document снимается с экраном', function () {
+  warnLog.length = 0;
+  var had = Object.prototype.hasOwnProperty.call(globalThis, 'document');
+  var prevDoc = globalThis.document;
+  var doc = new El(['document']);
+  globalThis.document = doc;
+  try {
+    setupLampa({ motion: 'lite' });
+    var h = loadHub({ motion: 'lite' });
+    h.api.install();
+    var act = new El(['activity']);
+    var menu = new El(['menu__item', 'selector']);
+    var head = new El(['head__action', 'selector']);
+    doc.append(act); doc.append(menu); doc.append(head);
+    var obj = { activity: { render: function () { return act; } }, component: 'category_full' };
+    obj[h.api.FULL_MARK] = true;
+    var a = gridCard({ id: 1, backdrop_path: '/fa.jpg' });
+    var b = gridCard({ id: 2, backdrop_path: '/fb.jpg' });
+    act.append(a); act.append(b);
+    h.api.fullStage.start(obj);
+    /* Фаза захвата: сначала document, потом корень активности. */
+    function focus(target, type) { focusIn(doc, target, type); if (act.contains(target)) focusIn(act, target, type); }
+    focus(a);
+    assert.ok(act.hasClass('lumen-dim'));
+    focus(b, 'hover:hover');
+    assert.ok(act.hasClass('lumen-dim'), 'шаг по карточкам сетки приглушение не снимает');
+    focus(menu);
+    assert.ok(!act.hasClass('lumen-dim'), 'пульт: фокус в меню — приглушения нет');
+    focus(a);
+    assert.ok(act.hasClass('lumen-dim'), 'вернулись на карточку — снова приглушены');
+    focus(head, 'hover:hover');
+    assert.ok(!act.hasClass('lumen-dim'), 'мышь: наведение на шапку — приглушения нет');
+    assert.equal((doc._cap || []).length, 2, 'на document — фокус пультом и мышью');
+    h.api.fullStage.destroy(obj);
+    assert.equal((doc._cap || []).length, 0, 'слушатель document снят вместе с экраном');
+  } finally {
+    if (had) globalThis.document = prevDoc; else delete globalThis.document;
+  }
+  assert.deepEqual(warnLog, []);
+});
+
 test('Background.change Lampa: пока на body метка экрана с нашим фоном — не доходит; без метки — доходит; выключение возвращает штатный', function () {
   var env = setupLampa({ motion: 'lite' });
   var calls = [];

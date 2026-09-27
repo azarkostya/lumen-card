@@ -849,12 +849,17 @@
       return null;
     }
 
+    function fullDoc() {
+      return typeof document !== 'undefined' ? document : null;
+    }
+
     function fullMount(obj) {
       var act = obj && obj.activity;
       var root = null;
       try { root = act && typeof act.render === 'function' ? act.render() : null; } catch (e) { root = null; }
       if (!root || !root.length || !root[0]) return null;
-      var rec = { obj: obj, root: root, stage: ScreenStage(act), handler: null };
+      /* screen — стоит ли свой фон (fullScreen ниже); null — ещё не решали. */
+      var rec = { obj: obj, root: root, stage: ScreenStage(act), handler: null, away: null, screen: null };
       /* Фокус — на самой карточке (Controller.focus шлёт 'hover:focus'
          узлу .card, мышь — 'hover:hover'), её данные Lampa кладёт в
          card_data узла (Card.create, app.min.js:20921). Не карточка (кнопка
@@ -864,24 +869,62 @@
         var card = el && el.card_data;
         var isCard = !!(card && el.classList && el.classList.contains('card'));
         try { root.toggleClass('lumen-dim', isCard); } catch (eDim) { }
-        if (isCard && card.backdrop_path) rec.stage.show(card.backdrop_path);
+        if (isCard && rec.screen && card.backdrop_path) rec.stage.show(card.backdrop_path);
       };
       if (!LC.focus.capture(root[0], rec.handler)) rec.handler = null;
-      try { root.addClass('lumen-screen lumen-full'); } catch (eCls) { }
+      /* Ревью этапа 2б, Р5: фокус ушёл из сетки — в меню, в шапку, на
+         экран поверх; пультом (Controller.toggle фокусирует пункт) или
+         мышью (наведение на пункт) — приглушение снимается, как у хаба
+         (onGone его контроллера, screenController). Контроллер штатной
+         сетки не наш, поэтому фокус слушаем и на document: в фазе захвата
+         он видит события Lampa по пути к любой цели. */
+      rec.away = function (e) {
+        var el = e && e.target;
+        try {
+          if (el && root[0].contains(el)) return;
+          if (root.hasClass('lumen-dim')) root.removeClass('lumen-dim');
+        } catch (eAway) { }
+      };
+      if (!LC.focus.capture(fullDoc(), rec.away)) rec.away = null;
+      try { root.addClass('lumen-full'); } catch (eCls) { }
       fulls.push(rec);
       return rec;
     }
 
+    /* Ревью этапа 2б, Р1: свой фон сетки (сплошная заливка .lumen-screen
+       и кадр под фокусом) — по тому же условию, что метка body
+       lumen-screen-on (stageScreen, src/90_runtime.js): режим анимаций не
+       «Выкл». В «Выкл» метки нет, штатный фон Lampa виден и работает
+       (Background.change доходит), и заливка закрыла бы его плоским цветом.
+       Остаются кольцо и приглушение (.lumen-full). Решается на каждом
+       старте экрана — тогда же, когда рантайм ставит метку body. */
+    function fullScreen(rec) {
+      var on = stageMotion() !== 'off';
+      if (rec.screen === on) return;
+      if (!on && rec.screen) {
+        /* Слой кадра без .lumen-screen остался бы без своих правил:
+           снимаем его, новый встанет, когда режим вернётся. */
+        try { rec.stage.destroy(); } catch (e) { }
+        rec.stage = ScreenStage(rec.obj.activity);
+      }
+      rec.screen = on;
+      try { rec.root.toggleClass('lumen-screen', on); } catch (eCls) { }
+    }
+
     /* Старт любого экрана (рантайм, 'activity':start): фон уходящих сеток
-       встаёт на паузу, сетка с меткой получает свой (один раз на экран). */
+       встаёт на паузу, сетка с меткой получает кольцо и слушатели (один раз
+       на экран) и свой фон по режиму анимаций (на каждом старте). */
     function fullStart(obj) {
       for (var i = 0; i < fulls.length; i++) {
         if (fulls[i].obj !== obj) {
           try { fulls[i].stage.pause(); } catch (e) { warn('hub: full stage pause failed', e); }
         }
       }
-      if (!obj || !obj[FULL_MARK] || fullRec(obj)) return;
-      try { fullMount(obj); } catch (e2) { warn('hub: full stage failed', e2); }
+      if (!obj || !obj[FULL_MARK]) return;
+      try {
+        var rec = fullRec(obj) || fullMount(obj);
+        if (rec) fullScreen(rec);
+      } catch (e2) { warn('hub: full stage failed', e2); }
     }
 
     /* Экран выброшен ('activity':destroy) — снять фон и слушатель. */
@@ -890,6 +933,7 @@
       if (!rec) return;
       fulls.splice(fulls.indexOf(rec), 1);
       try { if (rec.handler) LC.focus.release(rec.root[0], rec.handler); } catch (e) { }
+      try { if (rec.away) LC.focus.release(fullDoc(), rec.away); } catch (eAway) { }
       try { rec.stage.destroy(); } catch (e2) { }
       try { rec.root.removeClass('lumen-screen lumen-full lumen-dim'); } catch (e3) { }
     }

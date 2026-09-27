@@ -778,6 +778,15 @@
     /* без заготовки. Отказ next (частей больше нет) запоминается: дальше  */
     /* вызовы идут насквозь, как было. Уход с главной (bumpGen) и          */
     /* выключенный плагин — заготовок нет.                                  */
+    /*                                                                     */
+    /* Ревью этапа 2б, Р6: открытая карточка фильма главную не выбрасывает */
+    /* (Activity.push оставленной активности ничего не шлёт — разбор в      */
+    /* src/90_runtime.js у LC.onActivityEvent), и заготовка, заведённая    */
+    /* перед уходом, стартовала бы под карточкой: до 6 запросов рядов      */
+    /* параллельно загрузке самой карточки. Поэтому next зовём, только     */
+    /* когда на экране главная (onMain); иначе проверка повторяется раз в  */
+    /* AHEAD_PARK_MS, пока главная не вернётся, — или пока её не выбросят: */
+    /* тогда alive() гасит заготовку.                                      */
     /* ------------------------------------------------------------------ */
 
     /* Пауза после построения части до заготовки следующей: первый экран   */
@@ -786,9 +795,24 @@
     var AHEAD_MS = 400;
     /* Потолок ожидания простоя браузера (requestIdleCallback). */
     var AHEAD_IDLE_MAX = 1000;
+    /* Шаг проверки «главная снова на экране», пока сверху другой экран:  */
+    /* один таймер в секунду; после возврата заготовка начнётся не позже  */
+    /* чем через шаг и простой браузера.                                  */
+    var AHEAD_PARK_MS = 1000;
 
     /* Заготовка текущей главной (последний вызов Api.main). */
     var _ahead = null;
+
+    /* На экране главная. Без Lampa.Activity (тесты) — да, как до проверки. */
+    function onMain() {
+      try {
+        if (!window.Lampa || !Lampa.Activity || typeof Lampa.Activity.active !== 'function') return true;
+        var act = Lampa.Activity.active();
+        return !act || act.component === 'main';
+      } catch (e) {
+        return true;
+      }
+    }
 
     function aheadSet(fn, ms) {
       var hook = api._timers;
@@ -858,14 +882,17 @@
         }
       }
 
-      function arm() {
+      /* ms — пауза до заготовки; без неё AHEAD_MS. */
+      function arm(ms) {
         if (st !== 'idle' || timer || !alive()) return;
         timer = aheadSet(function () {
           aheadIdle(function () {
             timer = null;
-            if (st === 'idle' && alive()) start();
+            if (st !== 'idle' || !alive()) return;
+            if (onMain()) start();
+            else arm(AHEAD_PARK_MS);
           });
-        }, AHEAD_MS);
+        }, ms || AHEAD_MS);
       }
 
       function take(resolve, reject) {
@@ -1549,6 +1576,7 @@
       /* Этап 2б: заготовленная часть рядов (для src/58_posters.js). */
       ahead: ahead,
       AHEAD_MS: AHEAD_MS,
+      AHEAD_PARK_MS: AHEAD_PARK_MS,
       /* Хук тестов: пара таймеров заготовки. */
       _timers: null
     };

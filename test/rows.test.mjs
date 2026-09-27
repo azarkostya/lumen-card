@@ -1391,6 +1391,41 @@ test('partAhead: ушли с главной (bumpGen) или выключили 
   assert.deepEqual(w2.s.R.ahead(), []);
 });
 
+/* Ревью этапа 2б, Р6: главная жива и под открытой карточкой — заготовка
+   не стартует, пока на экране не главная, и начинается на возврате. */
+test('partAhead: под открытой карточкой next не зовётся; вернулись на главную — заготовка', function () {
+  var w = setupAhead([mkRow('A', [1, 2, 3, 4])]);
+  var screen = 'main';
+  w.s.Lampa.Activity = { active: function () { return { component: screen }; } };
+  w.s.Lampa.Api.main({}, function () {}, function () {});
+  screen = 'full';
+  function step(n) { for (var i = 0; i < n; i++) { var t = w.timers.shift(); t.fn(); } }
+  step(2);
+  assert.equal(w.calls.length, 0, 'пауза и простой прошли под карточкой — запроса нет');
+  assert.equal(w.timers.length, 1);
+  assert.equal(w.timers[0].ms, w.s.R.AHEAD_PARK_MS, 'проверка возврата — раз в AHEAD_PARK_MS');
+  step(4);
+  assert.equal(w.calls.length, 0, 'карточка всё ещё открыта');
+  screen = 'main';
+  step(2);
+  assert.equal(w.calls.length, 1, 'главная снова на экране — заготовка пошла');
+  assert.equal(w.timers.length, 0);
+});
+
+test('partAhead: главную выбросили, пока сверху карточка, — проверка возврата останавливается', function () {
+  var w = setupAhead([mkRow('A', [1, 2, 3, 4])]);
+  var screen = 'main';
+  w.s.Lampa.Activity = { active: function () { return { component: screen }; } };
+  w.s.Lampa.Api.main({}, function () {}, function () {});
+  screen = 'full';
+  w.timers.shift().fn();
+  w.timers.shift().fn();
+  assert.equal(w.timers.length, 1);
+  w.s.R.bumpGen();
+  assert.equal(w.run(), 2, 'одна последняя проверка, дальше таймеров нет');
+  assert.equal(w.calls.length, 0);
+});
+
 test('installDedupe: повторная активация под чужой обёрткой не заводит второго окна', function () {
   var s = setupDedupeRuntime({
     batches: [[mkRow('A', [1, 2, 3, 4]), mkRow('B', [1, 2, 3, 4, 5, 6, 7, 8])]]
