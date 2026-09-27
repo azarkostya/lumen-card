@@ -3319,6 +3319,30 @@ function lengthPx(value, EM, VH) {
    медиазапроса и на телевизоре 16:9 не действует, а часть отличается одним
    классом, и «найти правило по точному селектору» означало бы решить за
    браузер, какое из них победит. */
+/* Прогон 2026-09-27 (Н2): высота шапки ряда, у которого в заголовке иконка,
+   CSS px. Штатные ряды Lampa «Популярные сериалы», «Топ фильмы», «Топ
+   сериалы» и ряды персон кладут в .items-line__title блок .full-person
+   --small (LineMap.Icon, app.min.js:19212-19232): flex с align-items:center,
+   круг .full-person__photo и имя. Высота — большее из круга и строки имени,
+   в кегле .full-person (у Lampa 1.1em кегля заголовка). Каждое число — наше
+   правило, если оно есть, иначе штатное (vendor/lampa/css/app.css). У svg-
+   иконки фото border-box (* {box-sizing}), и значок обязан поместиться
+   внутрь padding. titlePx — кегль заголовка в CSS px. */
+function iconHeadH(built, lampa, titlePx, lineH) {
+  const ours = (selector, prop) => {
+    const found = new RegExp('(?:^|;)' + prop + ':([0-9.]+)').exec(declAll(built, '.lumen-main ' + selector));
+    return found ? parseFloat(found[1]) : lampaDecl(lampa, selector === '.items-line__title .full-person' ? '.full-person' : selector, prop);
+  };
+  const font = ours('.items-line__title .full-person', 'font-size');
+  const photo = ours('.items-line__title .full-person__photo', 'height');
+  assert.equal(ours('.items-line__title .full-person__photo', 'width'), photo, 'круг иконки не круглый');
+  const pad = ours('.items-line__title .full-person--svg .full-person__photo', 'padding');
+  const svg = ours('.items-line__title .full-person__photo svg', 'height');
+  assert.ok(svg <= photo - 2 * pad + 1e-9, 'значок svg (' + svg + 'em) не помещается в круг ' + photo + 'em с padding ' + pad + 'em');
+  const name = ours('.items-line__title .full-person__name', 'font-size') * lineH;
+  return Math.max(photo, name) * font * titlePx;
+}
+
 function rowLayout(built, screenW, screenH, opts) {
   const options = opts || {};
   const lampa = lampaCss();
@@ -3399,6 +3423,9 @@ function rowLayout(built, screenW, screenH, opts) {
       headH = Math.max(headH, (morePad * 2 + lineH) * moreFont * EM);
     }
   }
+  /* Прогон 2026-09-27 (Н2): opts.icon — ряд, у которого Lampa кладёт в
+     заголовок иконку (.full-person--small, разбор — у iconHeadH). */
+  if (options.icon) headH = Math.max(headH, iconHeadH(built, lampa, titleH / lineH, lineH));
   /* Зазор под шапкой. margin-bottom стоит на .items-line__head, у него
      собственный кегль 1em, поэтому em здесь базовые. */
   /* Ревью фикс-раунда (п.7): у узкой колонки зазор свой и живёт в
@@ -3481,6 +3508,7 @@ function rowLayout(built, screenW, screenH, opts) {
        контраста заголовка ряда на цвете рядов. */
     rowTopDown: rowTopDown,
     titleH: titleH,
+    headH: headH,
     /* Верх подписей под постером (в покое): низ постера плюс отступ
        .card__view. */
     captionTopDown: posterBottomDown + viewGap,
@@ -3525,6 +3553,34 @@ test('сжатие выключено: ряд в фокусе — на мест�
           assert.ok(got.textBottomDown <= limit, label + ': низ подписи ряда в фокусе ' + got.textBottomDown.toFixed(1) + ' px при пределе ' + limit.toFixed(1));
           assert.ok(got.posterBottomDown <= H, label + ': постер срезан кромкой — низ ' + got.posterBottomDown.toFixed(1));
           assert.ok(got.rowBottomDown >= H - 0.5, label + ': следующий ряд выглядывает — начинается на ' + got.rowBottomDown.toFixed(1));
+          }
+        }
+      }
+    }
+  }
+});
+
+/* Прогон 2026-09-27 (Н2): ряды с иконкой в заголовке («Популярные сериалы»,
+   «Топ фильмы», «Топ сериалы», ряды персон). На стенде 960×540@2 шапка
+   такого ряда была 30.9 CSS px против 14, и низ подписи «год · ★»
+   фокусного ряда вставал на 548.5–548.9 при 540; ПК 2560×1440 — 1463.
+   Иконка обязана стоять в строку заголовка: шапка не выше, чем у ряда без
+   неё, и подпись — в тех же пределах, что у обычного ряда. Клетки — три
+   «Размера интерфейса» Lampa × размер плиток × масштаб плагина, на
+   телевизоре — три размера кадра, плюс окна ПК 2560×1440 и 2560×1300. */
+test('прогон 2026-09-27 (Н2): иконка в заголовке ряда — шапка в одну строку, подпись фокусного ряда на экране', () => {
+  for (const [W, H] of [[960, 540], [2560, 1440], [2560, 1300]]) {
+    for (const iface of ['small', 'normal', 'bigger']) {
+      const limit = H - 0.7 * lampaEm(W, iface) + 0.5;
+      for (const size of (W === 960 ? ['large', 'medium', 'compact'] : ['large'])) {
+        for (const scale of ['small', 'normal', 'large', 'huge']) {
+          for (const tile of ['small', 'normal', 'large']) {
+            const built = withStorage({ lumen_scale: scale, lumen_hero_size: size, interface_size: iface, lumen_tile_size: tile }, (LC) => LC.buildCss(), W);
+            const plain = rowLayout(built, W, H, { more: true, interface: iface });
+            const icon = rowLayout(built, W, H, { more: true, interface: iface, icon: true });
+            const label = W + '×' + H + ' ' + iface + '/' + size + '/' + scale + ', плитки ' + tile;
+            assert.ok(icon.headH <= plain.headH + 0.01, label + ': шапка ряда с иконкой ' + icon.headH.toFixed(1) + ' px против ' + plain.headH.toFixed(1));
+            assert.ok(icon.textBottomDown <= limit, label + ': низ подписи ряда с иконкой ' + icon.textBottomDown.toFixed(1) + ' px при пределе ' + limit.toFixed(1));
           }
         }
       }
@@ -7384,6 +7440,16 @@ test('Task 63: ни один текст интерфейса не мельче �
     .filter((v) => v !== null && /^[\d.]+em$/.test(v.trim()))
     .map((v) => parseFloat(v)));
   assert.ok(titleMin > 1 && titleMin < 4, 'ступени заголовка карточки не найдены: ' + titleMin);
+  /* Прогон 2026-09-27 (Н2): иконка заголовка ряда (.full-person внутри
+     .items-line__title) получила кегль ОТНОСИТЕЛЬНО заголовка ряда — 1em,
+     чтобы шапка ряда с иконкой была одной строкой. Множитель — самая
+     мелкая ступень заголовка ряда в таблице. */
+  const rowTitleMin = Math.min.apply(null, ruleBodiesWithMedia(css)
+    .filter((r) => r.selectors.some((s) => /\.items-line__title$/.test(s)))
+    .map((r) => declProp(r.decl, 'font-size'))
+    .filter((v) => v !== null && /^[\d.]+em$/.test(v.trim()))
+    .map((v) => parseFloat(v)));
+  assert.ok(rowTitleMin > 1 && rowTitleMin < 4, 'кегль заголовка ряда не найден: ' + rowTitleMin);
 
   const small = [];
   let checked = 0;
@@ -7405,7 +7471,8 @@ test('Task 63: ни один текст интерфейса не мельче �
          сжатая шапка), и абсолютное число пришлось бы повторять в каждой.
          Считаем по САМОЙ МЕЛКОЙ ступени: она и даёт худший случай. */
       const inTitle = sel.indexOf('lumen-title__') !== -1;
-      const effective = parseFloat(found[1]) * (inHero ? zoom : 1) * (inTitle ? titleMin : 1);
+      const inRowTitle = /\.items-line__title\s/.test(sel);
+      const effective = parseFloat(found[1]) * (inHero ? zoom : 1) * (inTitle ? titleMin : 1) * (inRowTitle ? rowTitleMin : 1);
       checked++;
       if (effective < TV_MIN_EM - 0.005) small.push(sel + ': ' + effective.toFixed(3) + 'em = ' + (effective * 22.811).toFixed(1) + ' px');
     }

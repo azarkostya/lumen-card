@@ -5638,6 +5638,22 @@
     if (fitSpec.hero) css.push(rowFitCss(fitSpec.hero, fitSpec.hero.from, fitSpec.hero.to));
     css.push(rowFitCss(fitSpec.off, fitSpec.off.from, 0));
     css.push('.lumen-main .items-line__title{font-family:' + FB + ';font-weight:700;font-size:' + rowTitleEm + 'em}');
+    /* Прогон 2026-09-27 (Н2): заголовок ряда с иконкой. Штатные ряды Lampa
+       «Популярные сериалы», «Топ фильмы», «Топ сериалы» и ряды персон кладут
+       в .items-line__title не текст, а .full-person--small (LineMap.Icon,
+       app.min.js:19212-19232): кегль 1.1em, круг 2em (app.css:2845-2858, у
+       svg ещё padding .5em). Шапка такого ряда выходила 2.2 заголовка — 30.9
+       CSS px против 14 на стенде 960×540@2, — и низ подписи «год · ★»
+       фокусного ряда вставал на 548.9 при 540 (ПК 2560×1440 — 1463). Вся
+       раскладка рядов (rowBlockEm, правило кромки) считает шапку одной
+       строкой заголовка, и учесть в ней разные шапки нельзя: зазор между
+       рядами один на страницу. Поэтому иконка — ровно в строку: кегль
+       заголовка (имя — тем же кеглем, что у остальных рядов), круг 1em,
+       зазор до имени .5em (у Lampa — половина круга). */
+    css.push('.lumen-main .items-line__title .full-person{font-size:1em}');
+    css.push('.lumen-main .items-line__title .full-person__photo{width:1em;height:1em;margin-right:.5em}');
+    css.push('.lumen-main .items-line__title .full-person--svg .full-person__photo{padding:.2em}');
+    css.push('.lumen-main .items-line__title .full-person__photo svg{width:.6em !important;height:.6em !important}');
     /* Вертикальный зазор между рядами — его НИЖНЯЯ граница, ROW_GAP
        (= LAMPA_ROW_PAD, разбор у константы). Apple HIG Layout → Grids просит
        между полками ≥ 100 px (4.39em, docs/research/2026-09-21-tv-design-
