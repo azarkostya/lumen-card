@@ -2866,27 +2866,47 @@
       return path ? imageUrl(path, 'w300') : '';
     }
 
-    /* Раунд «без ожидания», п.2: байты кадров, заказанные предзагрузкой, —
-       карточки под фокусом и следующей по ходу (LC.prefetch). Картинка
-       держится сильной ссылкой (как логотипы — разбор у LOGO_KEEP: на ТВ
-       нет HTTP-кэша, есть только кэш Blink в памяти, и ресурс без клиента
-       из него уходит), не больше FRAME_KEEP кадров и LQIP_KEEP подложек.
+    /* Раунд «без ожидания», п.2: байты кадров, заказанные предзагрузкой
+       (дорожка кадра LC.prefetch, src/58_prefetch.js), — карточки под
+       фокусом и следующей по ходу. Картинка держится сильной ссылкой (как
+       логотипы — разбор у LOGO_KEEP: на ТВ нет HTTP-кэша, есть только кэш
+       Blink в памяти, и ресурс без клиента из него уходит), не больше
+       FRAME_KEEP кадров и LQIP_KEEP подложек: кадр под фокусом и кадр
+       следующей — два объекта, третьему (прошлой остановке) держаться
+       незачем: его, если он показан, держит сам показ.
        decode() не зовётся: декодирует loadFrame показа, когда кадр
        понадобится, — растр 3.7 МБ появляется только у показанного кадра,
        до того в памяти сжатые байты (кадр w1280 — 100–300 КБ, w300 —
        10–30 КБ). Загрузка, вытесненная из списка недоехавшей, снимается и
-       в сети (removeAttribute). Возвращает 'ok' | 'load' | ''. */
-    var FRAME_KEEP = 3;
-    var LQIP_KEEP = 6;
+       в сети (removeAttribute). Возвращает 'ok' | 'load' | ''.
+       done — необязательный: зовётся один раз, когда байты доехали, не
+       доехали или загрузку сняли вытеснением (по 'load'; по 'ok' и '' — не
+       зовётся). По нему дорожка ставит кадр соседа ПОСЛЕ кадра под
+       фокусом, а не параллельно с ним. */
+    var FRAME_KEEP = 2;
+    var LQIP_KEEP = 2;
     var frameKept = [];
     var lqipKept = [];
 
-    function keepImage(list, max, url, low) {
+    function settleKept(entry) {
+      entry.done = true;
+      entry.img.onload = null;
+      entry.img.onerror = null;
+      var list = entry.cbs;
+      entry.cbs = [];
+      for (var i = 0; i < list.length; i++) {
+        try { list[i](); } catch (e) { warn('hero: preload callback failed', e); }
+      }
+    }
+
+    function keepImage(list, max, url, low, done) {
       for (var i = 0; i < list.length; i++) {
         if (list[i].url === url) {
           var hit = list.splice(i, 1)[0];
           list.push(hit);
-          return hit.done ? 'ok' : 'load';
+          if (hit.done) return 'ok';
+          if (done) hit.cbs.push(done);
+          return 'load';
         }
       }
       var img = new Image();
@@ -2895,32 +2915,30 @@
          героя, который грузит сам показ, стоит на 'high' (loadFrame), и
          заранее заказанный не имеет права его обгонять. */
       img.fetchPriority = low ? 'low' : 'auto';
-      var entry = { url: url, img: img, done: false };
-      img.onload = img.onerror = function () {
-        entry.done = true;
-        img.onload = null;
-        img.onerror = null;
-      };
+      var entry = { url: url, img: img, done: false, cbs: done ? [done] : [] };
+      img.onload = img.onerror = function () { settleKept(entry); };
       img.src = url;
       list.push(entry);
       while (list.length > max) {
         var old = list.shift();
         if (!old.done) {
-          old.img.onload = null;
-          old.img.onerror = null;
           try { if (typeof old.img.removeAttribute === 'function') old.img.removeAttribute('src'); } catch (e) {}
+          settleKept(old);
         }
       }
       return 'load';
     }
 
-    function preloadFrame(path, low) {
+    /* low — ставка на следующую карточку: низкий приоритет и без подложки
+       (подложка нужна показу, который идёт прямо сейчас, — карточке под
+       фокусом; у следующей к её показу будет сам кадр). */
+    function preloadFrame(path, low, done) {
       if (!path || motionMode() === 'off') return '';
       var url = frameUrl(path);
       if (!url) return '';
-      var small = lqipUrl(path);
-      if (small) keepImage(lqipKept, LQIP_KEEP, small, low);
-      return keepImage(frameKept, FRAME_KEEP, url, low);
+      var small = low ? '' : lqipUrl(path);
+      if (small) keepImage(lqipKept, LQIP_KEEP, small, false);
+      return keepImage(frameKept, FRAME_KEEP, url, low, done);
     }
 
     /* Подложка кадра уже в памяти (байты доехали) — для заглушки holdFrame. */

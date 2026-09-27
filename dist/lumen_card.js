@@ -20198,17 +20198,37 @@ return path ? imageUrl(path, 'w300') : '';
 
 
 
-var FRAME_KEEP = 3;
-var LQIP_KEEP = 6;
+
+
+
+
+
+
+
+var FRAME_KEEP = 2;
+var LQIP_KEEP = 2;
 var frameKept = [];
 var lqipKept = [];
 
-function keepImage(list, max, url, low) {
+function settleKept(entry) {
+entry.done = true;
+entry.img.onload = null;
+entry.img.onerror = null;
+var list = entry.cbs;
+entry.cbs = [];
+for (var i = 0; i < list.length; i++) {
+try { list[i](); } catch (e) { warn('hero: preload callback failed', e); }
+}
+}
+
+function keepImage(list, max, url, low, done) {
 for (var i = 0; i < list.length; i++) {
 if (list[i].url === url) {
 var hit = list.splice(i, 1)[0];
 list.push(hit);
-return hit.done ? 'ok' : 'load';
+if (hit.done) return 'ok';
+if (done) hit.cbs.push(done);
+return 'load';
 }
 }
 var img = new Image();
@@ -20217,32 +20237,30 @@ img.decoding = 'async';
 
 
 img.fetchPriority = low ? 'low' : 'auto';
-var entry = { url: url, img: img, done: false };
-img.onload = img.onerror = function () {
-entry.done = true;
-img.onload = null;
-img.onerror = null;
-};
+var entry = { url: url, img: img, done: false, cbs: done ? [done] : [] };
+img.onload = img.onerror = function () { settleKept(entry); };
 img.src = url;
 list.push(entry);
 while (list.length > max) {
 var old = list.shift();
 if (!old.done) {
-old.img.onload = null;
-old.img.onerror = null;
 try { if (typeof old.img.removeAttribute === 'function') old.img.removeAttribute('src'); } catch (e) {}
+settleKept(old);
 }
 }
 return 'load';
 }
 
-function preloadFrame(path, low) {
+
+
+
+function preloadFrame(path, low, done) {
 if (!path || motionMode() === 'off') return '';
 var url = frameUrl(path);
 if (!url) return '';
-var small = lqipUrl(path);
-if (small) keepImage(lqipKept, LQIP_KEEP, small, low);
-return keepImage(frameKept, FRAME_KEEP, url, low);
+var small = low ? '' : lqipUrl(path);
+if (small) keepImage(lqipKept, LQIP_KEEP, small, false);
+return keepImage(frameKept, FRAME_KEEP, url, low, done);
 }
 
 
@@ -33577,30 +33595,114 @@ pumpFrames();
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+var FRAME_AFTER = 900;
+var FRAME_BUSY_MAX = 8000;
 var frames = [];
+var frameAt = 0;
+var frameTimer = null;
+
+var frameBusy = false;
+var frameBusyAt = 0;
+
+
+var rowStep = false;
+var nextCard = null;
 
 function frameAllowed() {
 if (!LC.hero || typeof LC.hero.preloadFrame !== 'function' || typeof LC.hero.frameFor !== 'function') return false;
 try { return LC.motionMode() !== 'off'; } catch (e) { return true; }
 }
 
-function pumpFrames() {
-if (!frames.length || !ready()) return;
-for (var i = 0; i < frames.length; i++) {
-var path = frameOf(frames[i].card);
-if (path === undefined) continue;
-var job = frames.splice(i, 1)[0];
-i--;
-if (!path) continue;
-try { LC.hero.preloadFrame(path, job.low); } catch (e) { warn('prefetch: frame failed', e); }
+function stopFrames() {
+frames.length = 0;
+if (frameTimer) {
+clearTimeout(frameTimer);
+frameTimer = null;
 }
 }
 
+function framesLater(ms) {
+if (frameTimer) clearTimeout(frameTimer);
+var captured = gen;
+frameTimer = setTimeout(function () {
+frameTimer = null;
+if (captured === gen) pumpFrames();
+}, ms > 0 ? ms : 0);
+}
+
+
+
+function frameSettled() {
+frameBusy = false;
+if (frames.length) framesLater(0);
+}
+
+function pumpFrames() {
+if (!frames.length || !ready() || !frameAllowed()) return;
+var job = frames[0];
+var wait = frameAt - Date.now();
+if (!job.lead) {
+if (wait > 0) { framesLater(wait); return; }
+if (frameBusy && Date.now() - frameBusyAt < FRAME_BUSY_MAX) return;
+if (heroChoosing()) { framesLater(LOOK_RETRY); return; }
+}
+var path = frameOf(job.card);
+if (path === undefined) {
+
+
+
+
+if (!job.lead) return;
+if (wait > 0) { framesLater(wait); return; }
+if (heroChoosing()) { framesLater(LOOK_RETRY); return; }
+frames.shift();
+pumpFrames();
+return;
+}
+frames.shift();
+if (path) {
+var got = '';
+try {
+got = LC.hero.preloadFrame(path, !job.lead, frameSettled);
+} catch (e) {
+warn('prefetch: frame failed', e);
+}
+if (got === 'load') {
+frameBusy = true;
+frameBusyAt = Date.now();
+return;
+}
+}
+pumpFrames();
+}
+
 function planFrames(lead, ahead) {
-frames.length = 0;
+stopFrames();
 if (!frameAllowed()) return;
-if (lead) frames.push({ card: lead, low: false });
-if (ahead && ahead !== lead) frames.push({ card: ahead, low: true });
+frameAt = Date.now() + FRAME_AFTER - IDLE;
+if (lead) frames.push({ card: lead, lead: true });
+if (ahead && ahead !== lead && rowStep) frames.push({ card: ahead, lead: false });
 pumpFrames();
 }
 
@@ -33648,6 +33750,8 @@ for (var i = from; i < nodes.length && i < from + count; i++) out.push(nodes[i].
 
 
 function windowOf(el) {
+rowStep = false;
+nextCard = null;
 var line = $(el).closest('.items-line');
 if (!line || !line.length) return [];
 var nodes = cardsIn(line);
@@ -33655,6 +33759,9 @@ var at = nodes.indexOf(el);
 if (at === -1) return [];
 var from = prevEl ? nodes.indexOf(prevEl) : -1;
 if (from !== -1 && from !== at) dir = at > from ? 1 : -1;
+
+rowStep = from !== -1 && from !== at;
+nextCard = nodes[at + dir] ? nodes[at + dir].card_data : null;
 var m = windowMode();
 var out = [];
 var k;
@@ -33686,7 +33793,7 @@ function around(el) {
 gen++;
 queue.length = 0;
 colors.length = 0;
-frames.length = 0;
+stopFrames();
 stopColorWait();
 stopLooks();
 stopIdle();
@@ -33703,8 +33810,7 @@ var near = windowOf(el);
 
 plan(near, el.card_data);
 
-
-planFrames(el.card_data, near[0]);
+planFrames(el.card_data, nextCard);
 
 
 planColors([el.card_data].concat(near));
@@ -33745,7 +33851,7 @@ queue.length = 0;
 stopIdle();
 posters('stop');
 colors.length = 0;
-frames.length = 0;
+stopFrames();
 stopColorWait();
 stopLooks();
 if (colorJob) {

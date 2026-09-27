@@ -1296,13 +1296,18 @@ test('C3: сосед с кадром, похожим на постер, — цв
 });
 
 /* ====================================================================== */
-/* Раунд «без ожидания», п.2: байты кадра — карточке под фокусом и         */
-/* следующей по ходу                                                       */
+/* Дорожка кадра (одна на полосы hero и images, 2026-09-27): байты кадра  */
+/* — карточке под фокусом сразу, следующей по ходу — потом                 */
 /* ====================================================================== */
 
 const w1280 = (env, id) => env.images.filter((i) => i.src === 'https://img/t/p/w1280/b' + id + '.jpg');
+/* Загрузки дорожки — не кадр самого показа: у показа fetchPriority 'high'
+   (loadFrame), у дорожки — 'auto' под фокусом и 'low' у соседа. */
+const lane1280 = (env, id) => w1280(env, id).filter((i) => i.fetchPriority !== 'high');
+const w300 = (env, id) => env.images.filter((i) => i.src === 'https://img/t/p/w300/b' + id + '.jpg');
+const FRAME_AFTER = 900;
 
-test('без ожидания, п.2: кадр карточки под фокусом и следующей по ходу — после деталей, следующая с низким приоритетом; соседи дальше — нет', () => {
+test('дорожка кадра: карточка под фокусом — сразу после деталей, с подложкой; следующая по ходу — после FRAME_AFTER и байтов кадра под фокусом, низкий приоритет, без подложки; дальние — нет', () => {
   const { env, main } = mounted();
   focus(main, main.rows[0][2]);
   env.advance(100);
@@ -1310,18 +1315,99 @@ test('без ожидания, п.2: кадр карточки под фокус
   env.advance(249);
   assert.equal(env.images.length, 0, 'до покоя фокуса кадры не грузятся');
   env.advance(1);
-  assert.equal(w1280(env, 104).length, 0, 'кадр до деталей: он ещё не решён');
+  assert.equal(lane1280(env, 104).length, 0, 'кадр до деталей: он ещё не решён');
   drain(env);
-  assert.equal(w1280(env, 104).length, 1, 'кадр карточки под фокусом не загружен заранее');
-  assert.equal(w1280(env, 104)[0].fetchPriority, 'auto');
-  assert.equal(w1280(env, 105).length, 1, 'кадр следующей по ходу не загружен заранее');
-  assert.equal(w1280(env, 105)[0].fetchPriority, 'low');
+  const lead = lane1280(env, 104);
+  assert.equal(lead.length, 1, 'кадр карточки под фокусом не загружен заранее');
+  assert.equal(lead[0].fetchPriority, 'auto');
+  assert.equal(lead[0].decoding, 'async');
+  assert.equal(w300(env, 104).length, 1, 'подложка карточки под фокусом не загружена');
+  assert.equal(w1280(env, 105).length, 0, 'кадр соседа — параллельно с кадром под фокусом');
+  env.advance(FRAME_AFTER);
+  assert.equal(w1280(env, 105).length, 0, 'кадр соседа до байтов кадра под фокусом');
+  land(lead[0], 1280, 720);
+  env.advance(1);
+  const next = w1280(env, 105);
+  assert.equal(next.length, 1, 'кадр следующей по ходу не загружен');
+  assert.equal(next[0].fetchPriority, 'low');
+  assert.equal(w300(env, 105).length, 0, 'подложка — только карточке под фокусом');
   assert.equal(w1280(env, 106).length + w1280(env, 103).length + w1280(env, 201).length, 0, 'кадры дальних соседей грузятся заранее');
-  assert.equal(env.images.filter((i) => i.src === 'https://img/t/p/w300/b104.jpg').length, 1, 'подложка карточки под фокусом не загружена');
-  /* Показ склеивается с заранее заказанным адресом: второй загрузки
-     w1280 того же кадра нет в сети — её отдаёт кэш Blink (здесь: тот же
-     адрес, отдельный Image — у фейка кэша нет). */
-  env.advance(DELAY);
+  assert.deepEqual(warnLog, []);
+});
+
+test('дорожка кадра: байты кадра под фокусом доехали раньше — сосед всё равно не раньше FRAME_AFTER от перевода фокуса', () => {
+  const { env, main } = mounted();
+  focus(main, main.rows[0][0]);
+  env.advance(400);
+  drain(env);
+  focus(main, main.rows[0][1]);
+  env.advance(250);
+  drain(env);
+  land(lane1280(env, 102)[0], 1280, 720);
+  env.advance(1);
+  env.advance(FRAME_AFTER - 250 - 2);
+  assert.equal(w1280(env, 103).length, 0, 'кадр соседа раньше FRAME_AFTER');
+  env.advance(2);
+  assert.equal(w1280(env, 103).length, 1, 'кадр соседа не пошёл в FRAME_AFTER');
+  /* соседи назад (101) и дальше (104) кадр заранее не получают */
+  assert.equal(w1280(env, 104).length, 0);
+  assert.deepEqual(warnLog, []);
+});
+
+test('дорожка кадра: шаг вниз (в другой ряд) кадр соседа не грузит — только шаг по ряду; кадр карточки под фокусом — да', () => {
+  const { env, main } = mounted();
+  focus(main, main.rows[0][0]);
+  env.advance(400);
+  drain(env);
+  focus(main, main.rows[1][0]);
+  env.advance(250);
+  drain(env);
+  assert.equal(lane1280(env, 201).length, 1, 'кадр карточки под фокусом после шага вниз не загружен');
+  land(lane1280(env, 201)[0], 1280, 720);
+  env.advance(FRAME_AFTER);
+  drain(env);
+  assert.equal(w1280(env, 202).length, 0, 'шаг вниз завёл кадр соседа справа');
+  /* дальше шаг вправо в этом ряду — кадр следующего соседа пошёл */
+  focus(main, main.rows[1][1]);
+  env.advance(250);
+  drain(env);
+  const lead = lane1280(env, 202);
+  if (lead.length) land(lead[0], 1280, 720);
+  env.advance(FRAME_AFTER);
+  assert.equal(w1280(env, 203).length, 1, 'после шага по ряду кадр соседа не пошёл');
+  assert.deepEqual(warnLog, []);
+});
+
+test('дорожка кадра: перевод фокуса до FRAME_AFTER снимает ожидание соседа; байты, сброшенные вытеснением, очередь не держат', () => {
+  const { env, main } = mounted();
+  focus(main, main.rows[0][0]);
+  env.advance(400);
+  drain(env);
+  focus(main, main.rows[0][1]);
+  env.advance(250);
+  drain(env);
+  land(lane1280(env, 102)[0], 1280, 720);
+  env.advance(300);
+  /* ушли вниз раньше FRAME_AFTER — кадр 103 не грузится */
+  focus(main, main.rows[1][0]);
+  env.advance(FRAME_AFTER * 2);
+  assert.equal(w1280(env, 103).length, 0, 'ожидание соседа пережило перевод фокуса');
+  /* Кадр под фокусом не доехал и вытеснен — сосед идёт, дорожка не
+     зависает на загрузке, которой больше нет. */
+  const b = mounted();
+  focus(b.main, b.main.rows[0][0]);
+  b.env.advance(400);
+  drain(b.env);
+  focus(b.main, b.main.rows[0][1]);
+  b.env.advance(250);
+  drain(b.env);
+  const lead = lane1280(b.env, 102)[0];
+  assert.ok(lead, 'кадр под фокусом не заказан');
+  b.env.hero.preloadFrame('/x1.jpg', true);
+  b.env.hero.preloadFrame('/x2.jpg', true);
+  assert.equal(lead.removed, true, 'вытесненный кадр под фокусом не снят');
+  b.env.advance(FRAME_AFTER);
+  assert.equal(w1280(b.env, 103).length, 1, 'дорожка ждёт снятую загрузку');
   assert.deepEqual(warnLog, []);
 });
 

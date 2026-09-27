@@ -7635,10 +7635,11 @@ test('без ожидания, п.1: следующий показ — лого�
 });
 
 /* П.2: байты кадра заранее (LC.prefetch → preloadFrame). */
-test('без ожидания, п.2: preloadFrame — кадр w1280 и подложка w300 одним вызовом, не больше трёх кадров, недоехавший вытесненный снимается', () => {
+test('дорожка кадра: preloadFrame — кадр w1280 (и подложка w300 только карточке под фокусом), не больше двух кадров, недоехавший вытесненный снимается, done — один раз', () => {
   const env = makeEnv({ fxHeavy: () => false });
   assert.equal(env.hero.frameUrl('/f1.jpg'), 'https://img/t/p/w1280/f1.jpg', 'адрес — тот же, что соберёт показ');
-  assert.equal(env.hero.preloadFrame('/f1.jpg', false), 'load');
+  let done1 = 0;
+  assert.equal(env.hero.preloadFrame('/f1.jpg', false, () => { done1++; }), 'load');
   const big1 = env.images.find((i) => i.src === 'https://img/t/p/w1280/f1.jpg');
   const small1 = env.images.find((i) => i.src === 'https://img/t/p/w300/f1.jpg');
   assert.ok(big1 && small1, 'кадр и подложка не запрошены');
@@ -7647,16 +7648,22 @@ test('без ожидания, п.2: preloadFrame — кадр w1280 и подл
   assert.equal(env.hero.preloadFrame('/f1.jpg'), 'load', 'тот же кадр запрошен второй раз');
   assert.equal(env.images.filter((i) => i.src === 'https://img/t/p/w1280/f1.jpg').length, 1);
   big1.onload();
-  assert.equal(env.hero.preloadFrame('/f1.jpg'), 'ok');
-  env.hero.preloadFrame('/f2.jpg', true);
+  assert.equal(done1, 1, 'done не позван по байтам');
+  assert.equal(env.hero.preloadFrame('/f1.jpg', false, () => { done1++; }), 'ok');
+  assert.equal(done1, 1, 'done позван по уже доехавшему кадру');
+  let done2 = 0;
+  env.hero.preloadFrame('/f2.jpg', true, () => { done2++; });
   const big2 = env.images.find((i) => i.src === 'https://img/t/p/w1280/f2.jpg');
   assert.equal(big2.fetchPriority, 'low', 'сосед по ходу — с низким приоритетом');
+  assert.equal(env.images.filter((i) => i.src === 'https://img/t/p/w300/f2.jpg').length, 0, 'подложка соседу по ходу');
   let removed = false;
   big2.removeAttribute = (n) => { if (n === 'src') removed = true; };
-  env.hero.preloadFrame('/f3.jpg', true);
   env.hero.preloadFrame('/f1.jpg');
-  env.hero.preloadFrame('/f4.jpg', true);
+  env.hero.preloadFrame('/f3.jpg', true);
   assert.equal(removed, true, 'вытесненный недоехавший кадр тянет байты дальше');
+  assert.equal(done2, 1, 'вытеснение не закрыло ожидание done');
+  big2.onload && big2.onload();
+  assert.equal(done2, 1, 'done позван второй раз');
   assert.equal(env.hero.preloadFrame('/f1.jpg'), 'ok', 'освежённый кадр вытеснен');
   const off = makeEnv({ motionMode: () => 'off' });
   assert.equal(off.hero.preloadFrame('/f1.jpg'), '', 'в «Выкл» кадр не грузится вовсе');
@@ -7670,7 +7677,7 @@ test('без ожидания, п.2: подложка кадра нового ф
   const stage = shownFrame(env, main);
   const active = () => stage.find('.lumen-hero__bg.is-active');
   const lqip = () => stage.find('.lumen-hero__lqip');
-  env.hero.preloadFrame('/b2.jpg', true);
+  env.hero.preloadFrame('/b2.jpg', false);
   const small = env.images.find((i) => i.src === 'https://img/t/p/w300/b2.jpg');
   small.complete = true;
   small.naturalWidth = 300;

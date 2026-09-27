@@ -628,45 +628,129 @@
       });
     }
 
-    /* Раунд «без ожидания», п.2 (фото с ТВ 27.09: серый фон вместо кадра
-       при листании). Байты кадра показа w1280 — заранее, для двух карточек:
-       под фокусом и следующей по ходу листания. Стенд (ТВ-профиль, CPU ×10,
-       задержка 150–300 мс): от остановки до кадра медиана 834 мс, из них
-       сеть w1280 — 250–500 мс, и у 71 из 81 показа между кадром прошлого
-       фильма и своим был нейтральный фон (медиана 80 мс, p95 277).
-       Декодирования здесь нет (decode() не зовётся): растр 3.7 МБ на кадр
-       появляется, только когда герой его покажет, а до того в памяти лежат
-       сжатые байты — 100–300 КБ. Карточка ждёт, пока её кадр не решён
-       (frameOf: детали и ответы сравнения с постером в памяти) — зовут
-       снова ответ деталей и ответ сравнения, как у дорожки цвета. Кадр
-       карточки под фокусом сам показ грузил бы через DELAY/BURST_DELAY —
-       здесь тот же адрес уходит раньше, и загрузка показа склеивается с ним
-       (кэш Blink в памяти, LC.hero.preloadFrame); следующая по ходу —
-       ставка: 100–300 КБ канала, приоритет низкий. */
+    /* Дорожка кадра — одна на две полосы исследования 2026-09-27 (hero:
+       «серый фон вместо кадра при листании», фото с ТВ 5/12; images: кадр
+       на остановке ~700 мс, заглушка в 61 из 80 остановок). Байты кадра
+       показа — тот же адрес w1280, что соберёт loadFrame героя
+       (LC.hero.preloadFrame → frameUrl), без decode(): растр 3.7 МБ на кадр
+       появляется, только когда герой его покажет, до того в памяти сжатые
+       100–300 КБ, и таких объектов не больше двух (FRAME_KEEP героя).
+       Порядок — по одному, не параллельно:
+         1) карточка под фокусом — первой, как только её кадр решён
+            (frameOf: детали и ответы сравнения с постером в памяти; зовут
+            снова ответ деталей и ответ сравнения, как у дорожки цвета), с
+            подложкой w300; показ через DELAY/BURST_DELAY склеивается с этой
+            загрузкой (тот же адрес — кэш Blink в памяти). К FRAME_AFTER
+            кадр решил сам показ — дорожка берёт тот же адрес (склейка, не
+            второй запрос) и ждёт его байтов; не решён и решать некому —
+            дальше, к следующей;
+         2) следующая по ходу листания в ряду — ставка, низкий
+            приоритет, без подложки, и только когда:
+              - последний шаг был по ряду (rowStep): после шага вниз
+                «следующая» — сосед справа в новом ряду, туда обычно не
+                идут, а загрузка на каждом шаге вниз подняла лаг шага с 265
+                до 340 мс (p50, стенд полосы images);
+              - прошло FRAME_AFTER от перевода фокуса и байты кадра под
+                фокусом уже доехали (frameBusy; загрузка, у которой нет
+                исхода дольше FRAME_BUSY_MAX, очередь не держит), и герой
+                не выбирает кадр — канал и главный поток отданы показу.
+       При зажатой стрелке и в серии нажатий — ни одного старта: план
+       строится только после IDLE покоя, а новый перевод фокуса снимает
+       очередь и таймер (around). В «Выкл» герой кадр не грузит вовсе.
+       Замер при объединении (стенд 960×540@2, CPU ×10, сеть +200 мс /
+       20 Мбит, «Лёгкие», 2 прогона на сценарий): против дорожки hero
+       (под фокусом и следующая сразу, 3 кадра + 6 подложек) и дорожки
+       images (только следующая после 900 мс) — кадр на остановке тот же
+       (шаг 1.2 с: 442/620 мс p50/p95 против 456/554 и 452/1046), серый фон
+       реже или так же (остановок с серым 19 из 94 против 20 и 28 из 78),
+       в памяти 2 кадра + 2 подложки, стартов в серии 0 у всех. */
+    var FRAME_AFTER = 900;
+    var FRAME_BUSY_MAX = 8000;
     var frames = [];
+    var frameAt = 0;
+    var frameTimer = null;
+    /* Байты кадра, заказанные дорожкой, ещё едут (с какого мига). */
+    var frameBusy = false;
+    var frameBusyAt = 0;
+    /* Последний перевод фокуса был шагом по ряду, и следующая по ходу
+       карточка этого ряда (windowOf). */
+    var rowStep = false;
+    var nextCard = null;
 
     function frameAllowed() {
       if (!LC.hero || typeof LC.hero.preloadFrame !== 'function' || typeof LC.hero.frameFor !== 'function') return false;
       try { return LC.motionMode() !== 'off'; } catch (e) { return true; }
     }
 
-    function pumpFrames() {
-      if (!frames.length || !ready()) return;
-      for (var i = 0; i < frames.length; i++) {
-        var path = frameOf(frames[i].card);
-        if (path === undefined) continue;
-        var job = frames.splice(i, 1)[0];
-        i--;
-        if (!path) continue;
-        try { LC.hero.preloadFrame(path, job.low); } catch (e) { warn('prefetch: frame failed', e); }
+    function stopFrames() {
+      frames.length = 0;
+      if (frameTimer) {
+        clearTimeout(frameTimer);
+        frameTimer = null;
       }
     }
 
+    function framesLater(ms) {
+      if (frameTimer) clearTimeout(frameTimer);
+      var captured = gen;
+      frameTimer = setTimeout(function () {
+        frameTimer = null;
+        if (captured === gen) pumpFrames();
+      }, ms > 0 ? ms : 0);
+    }
+
+    /* Байты заказанного кадра доехали (или загрузку сняли): следующий шаг
+       дорожки — отдельной задачей, не внутри колбэка картинки. */
+    function frameSettled() {
+      frameBusy = false;
+      if (frames.length) framesLater(0);
+    }
+
+    function pumpFrames() {
+      if (!frames.length || !ready() || !frameAllowed()) return;
+      var job = frames[0];
+      var wait = frameAt - Date.now();
+      if (!job.lead) {
+        if (wait > 0) { framesLater(wait); return; }
+        if (frameBusy && Date.now() - frameBusyAt < FRAME_BUSY_MAX) return;
+        if (heroChoosing()) { framesLater(LOOK_RETRY); return; }
+      }
+      var path = frameOf(job.card);
+      if (path === undefined) {
+        /* Не решён. Соседа решат ответы деталей и сравнения — они зовут
+           дорожку сами. Карточку под фокусом до FRAME_AFTER — тоже (таймер
+           лишь страхует), после — её решает сам показ: пока герой выбирает
+           кадр, ждём, решать больше некому — дальше, к соседу. */
+        if (!job.lead) return;
+        if (wait > 0) { framesLater(wait); return; }
+        if (heroChoosing()) { framesLater(LOOK_RETRY); return; }
+        frames.shift();
+        pumpFrames();
+        return;
+      }
+      frames.shift();
+      if (path) {
+        var got = '';
+        try {
+          got = LC.hero.preloadFrame(path, !job.lead, frameSettled);
+        } catch (e) {
+          warn('prefetch: frame failed', e);
+        }
+        if (got === 'load') {
+          frameBusy = true;
+          frameBusyAt = Date.now();
+          return;
+        }
+      }
+      pumpFrames();
+    }
+
     function planFrames(lead, ahead) {
-      frames.length = 0;
+      stopFrames();
       if (!frameAllowed()) return;
-      if (lead) frames.push({ card: lead, low: false });
-      if (ahead && ahead !== lead) frames.push({ card: ahead, low: true });
+      frameAt = Date.now() + FRAME_AFTER - IDLE;
+      if (lead) frames.push({ card: lead, lead: true });
+      if (ahead && ahead !== lead && rowStep) frames.push({ card: ahead, lead: false });
       pumpFrames();
     }
 
@@ -714,6 +798,8 @@
        считается здесь, раз на покой фокуса, а не на каждое нажатие: на
        горячем пути фокуса модуль только переставляет таймер. */
     function windowOf(el) {
+      rowStep = false;
+      nextCard = null;
       var line = $(el).closest('.items-line');
       if (!line || !line.length) return [];
       var nodes = cardsIn(line);
@@ -721,6 +807,9 @@
       if (at === -1) return [];
       var from = prevEl ? nodes.indexOf(prevEl) : -1;
       if (from !== -1 && from !== at) dir = at > from ? 1 : -1;
+      /* Шаг был по ряду (прошлая карточка — в этом же ряду): дорожке кадра. */
+      rowStep = from !== -1 && from !== at;
+      nextCard = nodes[at + dir] ? nodes[at + dir].card_data : null;
       var m = windowMode();
       var out = [];
       var k;
@@ -752,7 +841,7 @@
       gen++;
       queue.length = 0;
       colors.length = 0;
-      frames.length = 0;
+      stopFrames();
       stopColorWait();
       stopLooks();
       stopIdle();
@@ -768,9 +857,8 @@
           var near = windowOf(el);
           /* Раунд «без ожидания», п.1: сама карточка — первой. */
           plan(near, el.card_data);
-          /* П.2: байты кадра — её и следующей по ходу (near[0] — первый
-             сосед по направлению шага, windowOf). */
-          planFrames(el.card_data, near[0]);
+          /* Дорожка кадра — её и следующей по ходу (windowOf). */
+          planFrames(el.card_data, nextCard);
           /* Цвет — и самой карточке под фокусом, первой: герой покажет её
              через DELAY, и её цвет нужен раньше соседских. */
           planColors([el.card_data].concat(near));
@@ -811,7 +899,7 @@
       stopIdle();
       posters('stop');
       colors.length = 0;
-      frames.length = 0;
+      stopFrames();
       stopColorWait();
       stopLooks();
       if (colorJob) {
