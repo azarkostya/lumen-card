@@ -685,6 +685,16 @@
         } catch (ePrefillStart) {
           warn('prefill start failed', ePrefillStart);
         }
+        /* Полоса «память за долгий сеанс»: дальние ряды главной спят
+           (src/58_rowmem.js) — живёт столько же, сколько достройка. */
+        try {
+          if (LC.rowmem) {
+            LC.rowmem.detach(startRender);
+            if (e.component === 'main' && startRender && startRender.length) LC.rowmem.mount(startRender);
+          }
+        } catch (eRowmemStart) {
+          warn('rowmem start failed', eRowmemStart);
+        }
         /* Task 27 (дефект фазы 3, найден живьём в Task 22/23): панель
            мини-карты рядов и индикатор позиции принадлежат экрану, на котором
            их показали. Сам модуль снимал панель только через 0.8 с после
@@ -770,6 +780,11 @@
           if (LC.prefill && LC.prefill.active() && LC.prefill.owns(deadRender)) LC.prefill.unmount();
         } catch (ePrefillKill) {
           warn('prefill destroy failed', ePrefillKill);
+        }
+        try {
+          if (LC.rowmem && LC.rowmem.active() && LC.rowmem.owns(deadRender)) LC.rowmem.unmount();
+        } catch (eRowmemKill) {
+          warn('rowmem destroy failed', eRowmemKill);
         }
       }
 
@@ -1565,6 +1580,18 @@
     } catch (ePrefill) {
       warn('prefill mount failed', ePrefill);
     }
+    try {
+      if (LC.rowmem && LC.rowmem.mountCurrent) LC.rowmem.mountCurrent();
+    } catch (eRowmem) {
+      warn('rowmem mount failed', eRowmem);
+    }
+    /* Полоса «память за долгий сеанс»: колбэки запросов Lampa не держат
+       экраны после ответа (src/58_netmem.js). */
+    try {
+      if (LC.netmem && LC.netmem.install) LC.netmem.install();
+    } catch (eNetmem) {
+      warn('netmem install failed', eNetmem);
+    }
     /* Task 26: пункты плагина в меню карточки по удержанию OK. Две подписки
        (capture-слушатель 'hover:long' на document и preshow у Lampa.Select),
        ставятся один раз на всё время работы плагина. */
@@ -1658,6 +1685,9 @@
     try { if (LC.rows && LC.rows.uninstallDedupe) LC.rows.uninstallDedupe(); } catch (eDedupeOff) {}
     /* Выключенный плагин не имеет права держать свою обёртку над
        Lampa.Api.full — карточка строится ровно как без плагина. */
+    /* Трамплины колбэков (src/58_netmem.js) стоят поверх обёртки людей —
+       снимаются раньше неё, иначе она не узнает своё свойство. */
+    try { if (LC.netmem && LC.netmem.uninstall) LC.netmem.uninstall(); } catch (eNetmemOff) {}
     try { if (LC.header && LC.header.uninstallPeople) LC.header.uninstallPeople(); } catch (ePeopleOff) {}
     /* Одна попытка достройки главной на активацию: следующее включение
        плагина получит свою (см. repairHomeRows). */
@@ -1677,6 +1707,8 @@
     try { if (LC.badges && LC.badges.uninstall) LC.badges.uninstall(); } catch (eBadgesOff) {}
     /* Достройка рядов в простое — таймер и слушатель фокуса. */
     try { if (LC.prefill && LC.prefill.unmount) LC.prefill.unmount(); } catch (ePrefillOff) {}
+    /* Спящие ряды главной — разбудить и снять слушатели (src/58_rowmem.js). */
+    try { if (LC.rowmem && LC.rowmem.uninstall) LC.rowmem.uninstall(); } catch (eRowmemOff) {}
     /* Task 26: снять обе подписки меню карточки — выключенный плагин своих
        пунктов в штатное меню не дописывает. */
     try { if (LC.cardmenu && LC.cardmenu.uninstall) LC.cardmenu.uninstall(); } catch (eCardmenuOff) {}
